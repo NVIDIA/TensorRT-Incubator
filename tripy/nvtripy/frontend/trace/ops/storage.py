@@ -66,17 +66,17 @@ class Storage(BaseTraceOp):
                 data_array = None
             else:
                 self.dtype = common_utils.get_element_type(data)
-                data_array = common_utils.convert_list_to_array(utils.flatten_list(data), dtype=self.dtype)
-            self.shape = tuple(utils.get_shape(data))
+                data_array = common_utils.convert_list_to_array(utils.utils.flatten_list(data), dtype=self.dtype)
+            self.shape = tuple(utils.utils.get_shape(data))
             self.data = memref.create_memref(
                 shape=self.shape,
                 dtype=self.dtype,
                 array=data_array,
             )
-            self.device = utils.default(device, tp_device.create_directly("gpu", 0))
+            self.device = utils.utils.default(device, tp_device.create_directly("gpu", 0))
 
         # Set data_str only for objects that won't be treated as Trace inputs
-        if not utils.should_lift_storage_op_as_input(self.shape):
+        if not utils.utils.should_lift_storage_op_as_input(self.shape):
             self.data_str = str(original_data)  # TODO (#448): Fix floating point str representation
 
         self.outputs[0].shape = list(self.shape)

@@ -18,11 +18,12 @@
 import math
 from dataclasses import dataclass
 
-from nvtripy import export, wrappers
+from nvtripy import export
 from nvtripy.common.exception import raise_error
 from nvtripy.frontend.trace.ops import utils as op_utils
 from nvtripy.frontend.trace.ops.base import BaseTraceOp
 from nvtripy.types import ShapeLike
+from nvtripy.utils import wrappers
 
 
 @dataclass(repr=False)

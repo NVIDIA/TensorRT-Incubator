@@ -17,7 +17,8 @@
 
 import math
 
-from nvtripy import export, wrappers
+from nvtripy import export
+from nvtripy.utils import wrappers
 
 
 @export.public_api(document_under="operations/functions")

@@ -20,11 +20,12 @@ from typing import Optional
 
 import nvtripy.frontend.trace.ops.utils as op_utils
 import nvtripy.frontend.utils as frontend_utils
-from nvtripy import export, utils, wrappers
+from nvtripy import export, utils
 from nvtripy.common import datatype
 from nvtripy.frontend.trace.ops import utils as op_utils
 from nvtripy.frontend.trace.ops.base import BaseTraceOp
 from nvtripy.types import ShapeLike, TensorLike
+from nvtripy.utils import wrappers
 
 
 @dataclass(repr=False)
@@ -129,5 +130,5 @@ def full_like(input: "nvtripy.Tensor", value: TensorLike, dtype: Optional["nvtri
         assert np.array_equal(cp.from_dlpack(output).get(), np.array([[2, 2], [2, 2]], dtype=np.float32))
     """
     return Fill.build(
-        [frontend_utils.tensor_from_shape_like(input.shape), value], dtype=utils.default(dtype, input.dtype)
+        [frontend_utils.tensor_from_shape_like(input.shape), value], dtype=utils.utils.default(dtype, input.dtype)
     )

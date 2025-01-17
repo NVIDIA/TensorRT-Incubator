@@ -20,11 +20,12 @@ from dataclasses import dataclass
 from typing import Any, Sequence, Union
 
 import nvtripy.frontend.trace.ops.utils as op_utils
-from nvtripy import export, wrappers
+from nvtripy import export
 from nvtripy.common import datatype
 from nvtripy.frontend.trace.ops import utils as op_utils
 from nvtripy.frontend.trace.ops.base import BaseTraceOp
 import nvtripy.frontend.trace.ops.utils as op_utils
+from nvtripy.utils import wrappers
 
 
 @dataclass(repr=False)

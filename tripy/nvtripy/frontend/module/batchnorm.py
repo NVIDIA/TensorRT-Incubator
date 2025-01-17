@@ -26,7 +26,7 @@ from nvtripy.frontend.tensor import Tensor
 
 @export.public_api(document_under="operations/modules")
 @dataclass
-@utils.constant_fields(["num_features"])
+@utils.utils.constant_fields(["num_features"])
 class BatchNorm(Module):
     r"""
     Applies batch normalization over an N-dimensional input tensor using precomputed statistics:

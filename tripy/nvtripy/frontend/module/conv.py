@@ -29,7 +29,7 @@ from nvtripy.frontend.trace.ops import utils as op_utils
 
 
 @dataclass
-@utils.constant_fields(["dtype", "padding", "stride", "groups", "dilation"])
+@utils.utils.constant_fields(["dtype", "padding", "stride", "groups", "dilation"])
 class ConvBase(Module):
     r"""Base class for sharing common functionality between Conv and ConvTranspose."""
 
@@ -55,7 +55,7 @@ class ConvBase(Module):
 
         super().__init__()
 
-        self.groups = utils.default(groups, 1)
+        self.groups = utils.utils.default(groups, 1)
 
         if self.groups <= 0:
             raise_error(
@@ -73,9 +73,9 @@ class ConvBase(Module):
 
         op_utils.check_conv_pooling_args(kernel_dims, stride, padding, dilation)
         rank = len(kernel_dims) + 2
-        self.padding = utils.default(padding, tuple(((0, 0) for _ in range(rank - 2))))
-        self.stride = utils.default(stride, (1,) * (rank - 2))
-        self.dilation = utils.default(dilation, (1,) * (rank - 2))
+        self.padding = utils.utils.default(padding, tuple(((0, 0) for _ in range(rank - 2))))
+        self.stride = utils.utils.default(stride, (1,) * (rank - 2))
+        self.dilation = utils.utils.default(dilation, (1,) * (rank - 2))
 
         self.bias = None
         if bias:

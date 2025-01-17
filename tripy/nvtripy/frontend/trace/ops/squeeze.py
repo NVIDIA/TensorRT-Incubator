@@ -15,9 +15,10 @@
 from dataclasses import dataclass
 from typing import Sequence, Tuple, Union
 
-from nvtripy import export, utils, wrappers
+from nvtripy import export, utils
 from nvtripy.frontend.trace.ops import utils as op_utils
 from nvtripy.frontend.trace.ops.base import BaseTraceOp
+from nvtripy.utils import wrappers
 
 
 @dataclass(repr=False)
@@ -95,4 +96,4 @@ def squeeze(input: "nvtripy.Tensor", dims: Union[Sequence[int], int]) -> "nvtrip
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.squeeze(cp.from_dlpack(input).get(), (0, 2)))
     """
-    return Squeeze.build([input], utils.make_tuple(dims))
+    return Squeeze.build([input], utils.utils.make_tuple(dims))

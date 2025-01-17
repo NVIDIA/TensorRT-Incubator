@@ -17,6 +17,7 @@
 
 from dataclasses import dataclass
 from typing import Any, Optional, List
+from nvtripy.utils.types import str_from_type_annotation
 
 
 @dataclass
@@ -50,7 +51,7 @@ class Result:
         return super().__getattribute__(name)
 
     def __class_getitem__(cls, item):
-        return f"{cls.__name__}[{item if isinstance(item, str) else item.__name__}]"
+        return f"{cls.__name__}[{str_from_type_annotation(item)}]"
 
     def __str__(self):
         return repr(self)

@@ -315,7 +315,9 @@ class FlatIR:
                     main_func_op.res_attrs = ir.ArrayAttr.get(res_attrs)
 
                 module.operation.attributes["sym_name"] = ir.StringAttr.get(
-                    utils.UniqueNameGen.gen_uid([inp.name for inp in self.inputs], [out.name for out in self.outputs])
+                    utils.utils.UniqueNameGen.gen_uid(
+                        [inp.name for inp in self.inputs], [out.name for out in self.outputs]
+                    )
                 )
 
                 return module
@@ -340,7 +342,7 @@ class FlatIR:
         """
         Registers a tensor with this FlatIR instance. If the tensor has no name, a name unique to this FlatIR will be assigned.
         """
-        tensor.name = utils.default(tensor.name, f"t_inter{len(self.tensor_map)}")
+        tensor.name = utils.utils.default(tensor.name, f"t_inter{len(self.tensor_map)}")
         if tensor.name in self.tensor_map:
             return self.tensor_map[tensor.name]
         self.tensor_map[tensor.name] = tensor

@@ -18,12 +18,13 @@
 from dataclasses import dataclass
 from typing import Sequence, Union
 
-from nvtripy import export, wrappers
+from nvtripy import export
 from nvtripy.common.exception import raise_error
 from nvtripy.frontend import utils as frontend_utils
 from nvtripy.frontend.trace.ops.base import BaseTraceOp
 from nvtripy.types import ShapeLike
 import nvtripy.frontend.trace.ops.utils as op_utils
+from nvtripy.utils import wrappers
 
 
 @dataclass(repr=False)

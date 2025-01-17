@@ -18,10 +18,11 @@
 from dataclasses import dataclass
 from typing import Sequence, Union
 
-from nvtripy import export, utils, wrappers
+from nvtripy import export, utils
 from nvtripy.common.exception import raise_error
 from nvtripy.frontend.trace.ops import utils as op_utils
 from nvtripy.frontend.trace.ops.base import BaseTraceOp
+from nvtripy.utils import wrappers
 
 
 @dataclass(repr=False)
@@ -165,7 +166,7 @@ class Split(BaseTraceOp):
         skip_fields = self.str_skip_fields()
         args = [
             f"{field.name}={getattr(self, field.name)}"
-            for field in utils.get_dataclass_fields(self, BaseTraceOp)
+            for field in utils.utils.get_dataclass_fields(self, BaseTraceOp)
             if field.name not in skip_fields
         ]
 

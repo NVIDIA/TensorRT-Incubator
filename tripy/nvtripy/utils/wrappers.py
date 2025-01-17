@@ -15,13 +15,14 @@
 # limitations under the License.
 #
 
-import inspect
 import functools
+import inspect
 from collections import namedtuple
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Sequence, Union
+from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple, Union
 
 from nvtripy import config, utils
 from nvtripy.common.exception import raise_error
+from nvtripy.utils import result
 
 TYPE_VERIFICATION = {}
 RETURN_VALUE = "__RETURN_VALUE"
@@ -52,7 +53,7 @@ def _add_column_info(arg, arg_index, is_kwarg, num_positional, func_name, arg_na
     dispatch_target = None
     for idx, source_info in enumerate(arg.stack_info[WRAPPER_STACK_DEPTH:]):
         dispatch_target = source_info._dispatch_target or dispatch_target
-        if source_info.module not in utils.get_module_names_to_exclude_from_stack_info():
+        if source_info.module not in utils.stack_info.get_module_names_to_exclude_from_stack_info():
             frame_index = idx + WRAPPER_STACK_DEPTH
             break
     else:
@@ -82,7 +83,7 @@ def _add_column_info(arg, arg_index, is_kwarg, num_positional, func_name, arg_na
         arg_index = 0 if arg_index == 1 else 1
         dispatch_target = dispatch_target.replace("__r", "__")
 
-    candidates = utils.get_arg_candidate_column_offsets(
+    candidates = utils.ast.get_arg_candidate_column_offsets(
         source_info.code, arg_index, num_positional, dispatch_target or func_name, is_kwarg, arg_names
     )
 
@@ -92,7 +93,7 @@ def _add_column_info(arg, arg_index, is_kwarg, num_positional, func_name, arg_na
         source_info.column_range = candidates[0]
 
 
-def get_arg_dtype(arg, func_name, arg_name) -> utils.Result["nvtripy.dtype"]:
+def get_arg_dtype(arg, func_name, arg_name) -> result.Result["nvtripy.dtype"]:
     from nvtripy.common.datatype import dtype
     from nvtripy.frontend.tensor import Tensor
 
@@ -101,13 +102,13 @@ def get_arg_dtype(arg, func_name, arg_name) -> utils.Result["nvtripy.dtype"]:
         for elem in arg:
             dtype_result = get_arg_dtype(elem, func_name, arg_name)
             if not dtype_result:
-                return utils.Result.err(
+                return result.Result.err(
                     [f"Could not determine data type of elements in sequence: {arg_name}"] + dtype_result.error_details
                 )
             arg_dtypes.append(dtype_result.value)
 
         if len(set(arg_dtypes)) != 1:
-            return utils.Result.err(
+            return result.Result.err(
                 [
                     f"Mismatched data types in sequence argument for '{func_name}'.\n",
                     f"For parameter: '{arg_name}', all arguments must have the same data type, but got: "
@@ -120,8 +121,8 @@ def get_arg_dtype(arg, func_name, arg_name) -> utils.Result["nvtripy.dtype"]:
     elif isinstance(arg, dtype):
         arg_dtype = arg
     else:
-        return utils.Result.err([f"Expected a tensor or data type argument for {arg_name}, but got: {arg}"])
-    return utils.Result.ok(arg_dtype)
+        return result.Result.err([f"Expected a tensor or data type argument for {arg_name}, but got: {arg}"])
+    return result.Result.ok(arg_dtype)
 
 
 # Performs type conversions if needed. Returns updated values of args, kwargs, and merged args
@@ -140,12 +141,11 @@ def convert_input_types(
     from nvtripy.common.datatype import floating, integer
     from nvtripy.frontend.dimension_size import DimensionSize
     from nvtripy.frontend.tensor import Tensor
+    from nvtripy.frontend.trace.ops.cast import cast
     from nvtripy.frontend.utils import tensor_from_shape_like
 
-    from nvtripy.frontend.trace.ops.cast import cast
-
     if conversion_preprocess_func is not None:
-        var_arg_name, var_arg_start_idx = utils.default(var_arg_info, (None, None))
+        var_arg_name, var_arg_start_idx = utils.utils.default(var_arg_info, (None, None))
         new_args = conversion_preprocess_func(*args, **kwargs)
         for index in range(len(merged_args)):
             name, _ = merged_args[index]
@@ -299,7 +299,7 @@ def interface(
 
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
-            merged_args, var_arg_info = utils.merge_function_arguments(func, *args, **kwargs)
+            merged_args, var_arg_info = utils.utils.merge_function_arguments(func, *args, **kwargs)
 
             if convert_to_tensors:
                 args, kwargs, merged_args = convert_input_types(

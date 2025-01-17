@@ -17,7 +17,7 @@
 
 from dataclasses import dataclass
 
-from nvtripy import wrappers
+from nvtripy.utils import wrappers
 from nvtripy.common.datatype import DATA_TYPES
 from nvtripy.frontend.ops.registry import register_tensor_method
 from nvtripy.frontend.trace.ops.base import BaseTraceOp

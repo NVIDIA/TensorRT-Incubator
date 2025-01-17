@@ -18,10 +18,11 @@
 from dataclasses import dataclass
 from typing import Optional, Sequence, Union
 
-from nvtripy import export, utils, wrappers
+from nvtripy import export, utils
 from nvtripy.common.exception import raise_error
 from nvtripy.frontend.trace.ops.base import BaseTraceOp
 from nvtripy.frontend.trace.ops import utils as op_utils
+from nvtripy.utils import wrappers
 
 
 @dataclass(repr=False)
@@ -80,7 +81,7 @@ def flip(input: "nvtripy.Tensor", dims: Optional[Union[int, Sequence[int]]] = No
         dims = [d for d in range(rank)]
     else:
         encountered = set()
-        dims = utils.make_list(dims)
+        dims = utils.utils.make_list(dims)
 
         if rank == 0 and len(dims) != 0:
             raise_error("It is not possible to flip a rank-0 tensor.")

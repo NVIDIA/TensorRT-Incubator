@@ -15,14 +15,12 @@
 # limitations under the License.
 #
 
-import math
 import re
 
 import mlir_tensorrt.runtime.api as runtime
-
 from nvtripy.backend.mlir import utils as mlir_utils
 from nvtripy.common import device as tp_device
-from nvtripy.utils import raise_error
+from nvtripy.common.exception import raise_error
 
 EMPTY_MEMREF_CACHE = {}
 

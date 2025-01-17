@@ -76,7 +76,7 @@ class Compiler:
             return compiler.compiler_stablehlo_to_executable(self.compiler_client, module.operation, opts)
 
     # The optional flat_ir parameter is used to generate nicer error messages.
-    @utils.log_time
+    @utils.utils.log_time
     def compile(self, mlir_module: ir.Module, flat_ir: Optional["FlatIR"] = None) -> compiler.Executable:
         logger.mlir(lambda: f"{mlir_module.operation.get_asm(large_elements_limit=32)}\n")
         opts = self._make_mlir_opts(self.trt_builder_opt_level)

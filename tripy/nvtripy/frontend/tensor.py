@@ -134,7 +134,7 @@ class Tensor(metaclass=TensorMeta):
     ):
         stack_info = StackInfo([])
         if fetch_stack_info:
-            stack_info = utils.get_stack_info(include_code_index=STACK_DEPTH_OF_BUILD)
+            stack_info = utils.stack_info.get_stack_info(include_code_index=STACK_DEPTH_OF_BUILD)
 
         name = name if name is not None else Tensor._get_unique_name()
 
@@ -150,7 +150,7 @@ class Tensor(metaclass=TensorMeta):
         )
 
         # TODO(#155): Remove this hack:
-        instance.trace_tensor.device = utils.default(device, instance.trace_tensor.device)
+        instance.trace_tensor.device = utils.utils.default(device, instance.trace_tensor.device)
 
         # Explicit cast if necessary
         # TODO(#155): Add copy as well when host allocation is fixed
@@ -238,7 +238,7 @@ class Tensor(metaclass=TensorMeta):
         # TODO(#155): Remove this hack of overriding the device type.
         self.trace_tensor.device = output_devices[0]
 
-        self.trace_tensor.eval_stack_info = utils.get_stack_info()
+        self.trace_tensor.eval_stack_info = utils.stack_info.get_stack_info()
         if self.trace_tensor.is_compile_tracer:
             logger.warning(
                 f"Tensor was evaluated while compiling which may cause unexpected behavior in the executable.\n"

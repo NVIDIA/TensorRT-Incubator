@@ -14,18 +14,17 @@
 # limitations under the License.
 import base64
 import inspect
-from typing import Sequence, Union, Tuple
+from dataclasses import dataclass
+from typing import Sequence, Tuple, Union
 
 import mlir_tensorrt.runtime.api as runtime
-
 from nvtripy import export
 from nvtripy.backend.mlir import Executor
 from nvtripy.backend.mlir import utils as mlir_utils
 from nvtripy.common.exception import raise_error
 from nvtripy.frontend import Tensor
-from nvtripy.function_registry import str_from_type_annotation
 from nvtripy.utils import json as json_utils
-from dataclasses import dataclass
+from nvtripy.utils.types import str_from_type_annotation
 
 
 # TODO(MLIR-TRT #923): Can generalize `InputInfo` and drop this class.

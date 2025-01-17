@@ -23,7 +23,7 @@ from nvtripy import export, utils
 from nvtripy.common.exception import raise_error
 from nvtripy.frontend.module.parameter import DefaultParameter
 from nvtripy.frontend.tensor import Tensor
-from nvtripy.function_registry import type_str_from_arg
+from nvtripy.utils.function_registry import type_str_from_arg
 from nvtripy.logging import logger
 
 
@@ -40,21 +40,21 @@ def _check_param_compatible(original_param, new_param, param_name):
         # Note that this is required for the constructor to work since `original_param` will not be set.
         return
 
-    is_compatible = utils.Result.ok()
+    is_compatible = utils.result.Result.ok()
 
     skip_shape_comparison = isinstance(original_param, DefaultParameter) and not original_param.is_shape_known
     if not skip_shape_comparison:
         original_shape = original_param.shape
         new_shape = new_param.shape
         if original_shape != new_shape:
-            is_compatible = utils.Result.err(
+            is_compatible = utils.result.Result.err(
                 ["New parameter shape: ", new_shape, " is not compatible with current shape: ", original_shape]
             )
 
     original_dtype = original_param.dtype
     new_dtype = new_param.dtype
     if original_dtype != new_dtype:
-        is_compatible = utils.Result.err(
+        is_compatible = utils.result.Result.err(
             ["New parameter dtype: ", new_dtype, " is not compatible with current dtype: ", original_dtype]
         )
 

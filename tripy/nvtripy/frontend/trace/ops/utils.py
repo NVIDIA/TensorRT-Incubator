@@ -34,7 +34,6 @@ from nvtripy.flat_ir.ops import (
     SelectOp,
 )
 from nvtripy.flat_ir.tensor import FlatIRTensor
-from nvtripy.utils import Result
 
 
 def is_minus_one(arg):
@@ -172,8 +171,8 @@ def compute_shape_of_broadcast(
 ):
     from nvtripy.frontend.trace.ops.binary_elementwise import Comparison
 
-    shape1_name = utils.default(shape1_name, "a tensor")
-    shape2_name = utils.default(shape2_name, "another tensor")
+    shape1_name = utils.utils.default(shape1_name, "a tensor")
+    shape2_name = utils.utils.default(shape2_name, "another tensor")
 
     # can't just use the max of shape1 and shape2 because it will be incorrect if a dim is 0
     # (the broadcast of 0 and 1 is 0)

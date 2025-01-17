@@ -20,10 +20,11 @@ import math
 from dataclasses import dataclass
 from typing import Optional, Sequence, Union
 
-from nvtripy import export, wrappers
+from nvtripy import export
 from nvtripy.common import datatype
 from nvtripy.frontend.trace.ops.base import BaseTraceOp
-from nvtripy.utils import make_list
+from nvtripy.utils.utils import make_list
+from nvtripy.utils import wrappers
 
 
 @dataclass(repr=False)

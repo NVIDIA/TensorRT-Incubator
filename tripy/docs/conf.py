@@ -28,7 +28,7 @@ from tests import helper
 
 import nvtripy as tp
 from nvtripy.common.datatype import DATA_TYPES
-from nvtripy.wrappers import TYPE_VERIFICATION
+from nvtripy.utils.wrappers import TYPE_VERIFICATION
 
 PARAM_PAT = re.compile(":param .*?:")
 

@@ -17,15 +17,12 @@
 
 import inspect
 from textwrap import dedent
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, Optional, Sequence, Union
 
 import pytest
-import torch
-from tests import helper
-
-import nvtripy as tp
 from nvtripy import TripyException
-from nvtripy.function_registry import AnnotationInfo, FunctionRegistry, str_from_type_annotation, type_str_from_arg
+from nvtripy.utils.function_registry import AnnotationInfo, FunctionRegistry
+from tests import helper
 
 
 @pytest.fixture()
@@ -578,40 +575,3 @@ class TestFunctionRegistry:
             match="Not a valid overload because: For parameter: 'args', expected an instance of type: 'int' but got argument of type: 'str'",
         ):
             registry["test"](1, 2, 3, 4, "hi")
-
-
-@pytest.mark.parametrize(
-    "typ, expected",
-    [
-        (tp.types.IntLike, "int | nvtripy.DimensionSize"),
-        (Tuple[tp.types.IntLike], "Tuple[int | nvtripy.DimensionSize]"),
-        (List[tp.types.IntLike], "List[int | nvtripy.DimensionSize]"),
-        (Dict[str, tp.Tensor], "Dict[str, nvtripy.Tensor]"),
-        (tp.types.TensorLike, "nvtripy.Tensor | numbers.Number"),
-        (tp.types.ShapeLike, "Sequence[int | nvtripy.DimensionSize]"),
-        (tp.Tensor, "nvtripy.Tensor"),
-        (torch.Tensor, "torch.Tensor"),
-        (int, "int"),
-        (Optional[int], "int | None"),
-        (Callable[[int], int], "Callable[[int], int]"),
-    ],
-)
-def test_str_from_type_annotation(typ, expected):
-    assert str_from_type_annotation(typ) == expected
-
-
-@pytest.mark.parametrize(
-    "typ, expected",
-    [
-        (tp.Tensor([1, 2, 3]), "nvtripy.Tensor"),
-        (torch.tensor([1, 2, 3]), "torch.Tensor"),
-        (0, "int"),
-        ("hi", "str"),
-        ([0, 1, 2], "List[int]"),
-        ([0, "1", 2], "List[int | str]"),
-        ({0: 1}, "Dict[int, int]"),
-        ({0: 1, "a": "b"}, "Dict[int | str, int | str]"),
-    ],
-)
-def test_type_str_from_arg(typ, expected):
-    assert type_str_from_arg(typ) == expected

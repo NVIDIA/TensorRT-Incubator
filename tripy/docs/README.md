@@ -45,7 +45,7 @@ which specifies doc metadata for each API (e.g. location).
 - Docstring must include *at least* **one [code example](#code-examples)**.
 
 - If the function accepts `tp.Tensor`s, must indicate **data type constraints**
-    with the [`wrappers.interface`](../nvtripy/wrappers.py) decorator.
+    with the [`wrappers.interface`](../nvtripy/utils/wrappers.py) decorator.
 
 **Example:**
 

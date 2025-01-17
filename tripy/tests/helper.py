@@ -150,7 +150,7 @@ def consolidate_code_blocks(doc):
 def exec_code(code, code_locals=None) -> Dict[str, Any]:
     # By default, don't inherit most variables from the current environment
     # so we can be sure the docstring examples work in total isolation.
-    code_locals = copy.copy(utils.default(code_locals, {}))
+    code_locals = copy.copy(utils.utils.default(code_locals, {}))
     exec(code, {"tp": tp, "np": np, "torch": torch, "cp": cp}, code_locals)
     return code_locals
 
@@ -383,7 +383,7 @@ def process_code_block_for_outputs_and_locals(
     strip_assertions: bool = False,
 ):
     # Make sure to update `docs/README.md` if updating the behavior of this function.
-    local_vars = utils.default(local_vars, {})
+    local_vars = utils.utils.default(local_vars, {})
 
     TRIPY_CLASSES = [tripy_obj for tripy_obj in discover_tripy_objects() if inspect.isclass(tripy_obj)]
     # Special tags are documented under docs/README.md.

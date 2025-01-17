@@ -27,7 +27,7 @@ from nvtripy.frontend.tensor import Tensor
 
 @export.public_api(document_under="operations/modules")
 @dataclass
-@utils.constant_fields(["dtype", "quant_dtype"])
+@utils.utils.constant_fields(["dtype", "quant_dtype"])
 class Linear(Module):
     r"""
     Applies a linear transformation to the input:
