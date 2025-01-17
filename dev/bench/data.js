@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1736891475626,
+  "lastUpdate": 1737142019123,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -10569,6 +10569,47 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0000024296106482371096",
             "extra": "mean: 45.00205619032296 usec\nrounds: 23816"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "da1e26b4ab6c8a89ffa0b4585a47652181ed4a70",
+          "message": "SAM2: Save engines to different paths according to model type",
+          "timestamp": "2025-01-15T17:50:18Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/478/commits/da1e26b4ab6c8a89ffa0b4585a47652181ed4a70"
+        },
+        "date": 1737142018247,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 6080.679747637755,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00003228193575226883",
+            "extra": "mean: 164.45529800981274 usec\nrounds: 6382"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 6550.957839840814,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00006595993943948804",
+            "extra": "mean: 152.6494330215839 usec\nrounds: 7192"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_tripy_param_update",
+            "value": 22727.89907384234,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000002175111269963805",
+            "extra": "mean: 43.99878742645884 usec\nrounds: 24197"
           }
         ]
       }
