@@ -19,11 +19,12 @@ import enum
 from dataclasses import dataclass
 from typing import Optional, Sequence
 
-from nvtripy import export, utils, wrappers
+from nvtripy import export, utils
 from nvtripy.common.exception import raise_error
 from nvtripy.frontend.trace.ops import utils as op_utils
 from nvtripy.frontend.trace.ops.base import BaseTraceOp
 import nvtripy.frontend.trace.ops.utils as op_utils
+from nvtripy.utils import wrappers
 
 
 @dataclass(repr=False)
@@ -190,8 +191,8 @@ def maxpool(
         raise_error("Unsupported kernel_dims, must be 2D or 3D.", [f"Got kernel_dims={kernel_dims}"])
 
     op_utils.check_conv_pooling_args(kernel_dims, stride, padding)
-    stride = utils.default(stride, [1] * spatial_dims)
-    padding = utils.default(padding, [(0, 0)] * spatial_dims)
+    stride = utils.utils.default(stride, [1] * spatial_dims)
+    padding = utils.utils.default(padding, [(0, 0)] * spatial_dims)
 
     return Pooling.build([input], Pooling.Kind.MAX, kernel_dims, stride, padding)
 
@@ -249,7 +250,7 @@ def avgpool(
         raise_error("Unsupported kernel_dims, must be 2D or 3D.", [f"Got kernel_dims={kernel_dims}"])
 
     op_utils.check_conv_pooling_args(kernel_dims, stride, padding)
-    stride = utils.default(stride, [1] * spatial_dims)
-    padding = utils.default(padding, [(0, 0)] * spatial_dims)
+    stride = utils.utils.default(stride, [1] * spatial_dims)
+    padding = utils.utils.default(padding, [(0, 0)] * spatial_dims)
 
     return Pooling.build([input], Pooling.Kind.AVG, kernel_dims, stride, padding)

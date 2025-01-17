@@ -18,9 +18,10 @@
 import enum
 from dataclasses import dataclass
 
-from nvtripy import export, wrappers
+from nvtripy import export
 from nvtripy.frontend.trace.ops.base import BaseTraceOp
 import nvtripy.frontend.trace.ops.utils as op_utils
+from nvtripy.utils import wrappers
 
 
 @dataclass(repr=False)

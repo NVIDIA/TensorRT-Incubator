@@ -15,10 +15,11 @@
 #
 from typing import Union
 
-from nvtripy import export, wrappers
+from nvtripy import export
 from nvtripy.common.exception import raise_error
 from nvtripy.frontend import utils as frontend_utils
 from nvtripy.types import IntLike
+from nvtripy.utils import wrappers
 
 
 @export.public_api(document_under="operations/functions")

@@ -119,7 +119,7 @@ class ExecutableCache:
         """
         normalized_trace = self._normalize_trace(trace)
         key = normalized_trace + "\ndevices:\n" + "\n".join([str(device) for device in devices])
-        return utils.md5(key.encode("utf-8"))
+        return utils.utils.md5(key.encode("utf-8"))
 
     def get(self, trace: "Trace", devices: List["tripy.common.device"]) -> Optional[runtime.Executable]:
         """

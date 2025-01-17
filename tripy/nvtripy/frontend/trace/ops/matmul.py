@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from typing import Dict, List
 
 import nvtripy.frontend.trace.ops.utils as op_utils
-from nvtripy import wrappers
+from nvtripy.utils import wrappers
 from nvtripy.common.exception import raise_error
 from nvtripy.frontend.ops.registry import register_tensor_method
 from nvtripy.frontend.trace.ops.base import BaseTraceOp

@@ -176,7 +176,8 @@ it as a `nvtripy.Module` under [`frontend/module`](source:/nvtripy/frontend/modu
 
 ```py
 # doc: no-eval
-from nvtripy import export, wrappers
+from nvtripy import export
+from nvtripy.utils import wrappers
 from nvtripy.types import ShapeLike
 
 # We can use the `export.public_api()` decorator to automatically export this

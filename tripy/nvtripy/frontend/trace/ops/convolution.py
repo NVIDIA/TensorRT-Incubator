@@ -19,7 +19,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 import nvtripy.frontend.trace.ops.utils as op_utils
-from nvtripy import wrappers
+from nvtripy.utils import wrappers
 from nvtripy.frontend.trace.ops.base import BaseTraceOp
 
 

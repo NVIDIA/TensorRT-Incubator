@@ -153,7 +153,7 @@ def compile(
         return arg
 
     new_args = []
-    positional_arg_info, _ = utils.get_positional_arg_names(func, *args)
+    positional_arg_info, _ = utils.utils.get_positional_arg_names(func, *args)
     for name, arg in positional_arg_info:
         new_args.append(process_arg(name, arg))
 
@@ -165,7 +165,7 @@ def compile(
     # as `InputInfo`s, but the order needs to match the signature of the original function.
     compiled_arg_names = [name for name in signature.parameters.keys() if name in input_names]
 
-    trace_outputs = utils.make_list(func(*new_args, **new_kwargs))
+    trace_outputs = utils.utils.make_list(func(*new_args, **new_kwargs))
 
     if not trace_outputs:
         raise_error(

@@ -27,7 +27,7 @@ from nvtripy.frontend.tensor import Tensor
 
 @export.public_api(document_under="operations/modules")
 @dataclass
-@utils.constant_fields(["dtype", "normalized_shape"])
+@utils.utils.constant_fields(["dtype", "normalized_shape"])
 class LayerNorm(Module):
     r"""
     Applies layer normalization over the input tensor:

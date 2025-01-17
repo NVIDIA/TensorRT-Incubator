@@ -19,11 +19,12 @@ from dataclasses import dataclass
 from typing import Optional
 
 import nvtripy.frontend.trace.ops.utils as op_utils
-from nvtripy import export, utils, wrappers
+from nvtripy import export, utils
 from nvtripy.common import datatype
 from nvtripy.frontend import utils as frontend_utils
 from nvtripy.frontend.trace.ops.base import BaseTraceOp
 from nvtripy.types import ShapeLike
+from nvtripy.utils import wrappers
 
 
 @dataclass(repr=False)
@@ -129,6 +130,6 @@ def iota_like(input: "nvtripy.Tensor", dim: int = 0, dtype: Optional[datatype.dt
     return iota_impl(
         frontend_utils.tensor_from_shape_like(input.shape),
         dim,
-        utils.default(dtype, input.dtype),
+        utils.utils.default(dtype, input.dtype),
         output_rank=input.rank,
     )

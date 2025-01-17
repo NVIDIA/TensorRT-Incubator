@@ -25,10 +25,10 @@ from collections import defaultdict
 
 class TestMd5:
     def test_hash_same_for_same_objects(self):
-        assert utils.md5(0) == utils.md5(0)
+        assert utils.utils.md5(0) == utils.utils.md5(0)
 
     def test_hash_different_for_different_objects(self):
-        assert utils.md5(0) != utils.md5(1)
+        assert utils.utils.md5(0) != utils.utils.md5(1)
 
     @pytest.mark.parametrize(
         "func",
@@ -42,11 +42,11 @@ class TestMd5:
     def test_hash_equivalence(self, func):
         obj0 = func()
         obj1 = func()
-        assert utils.md5(obj0) == utils.md5(obj1)
+        assert utils.utils.md5(obj0) == utils.utils.md5(obj1)
 
 
 def make_with_constant_field():
-    @utils.constant_fields("field")
+    @utils.utils.constant_fields("field")
     class WithConstField:
         def __init__(self):
             self.custom_setter_called_count = defaultdict(int)
@@ -101,11 +101,11 @@ class TestUniqueNameGen:
         ],
     )
     def test_gen_uid(self, inputs, outputs, expected_prefix):
-        uid = utils.UniqueNameGen.gen_uid(inputs, outputs)
+        uid = utils.utils.UniqueNameGen.gen_uid(inputs, outputs)
         assert uid.startswith(expected_prefix)
-        assert uid.endswith(str(utils.UniqueNameGen._counter))
-        assert uid in utils.UniqueNameGen._used_names
+        assert uid.endswith(str(utils.utils.UniqueNameGen._counter))
+        assert uid in utils.utils.UniqueNameGen._used_names
 
     def test_uniqueness(self):
-        uids = [utils.UniqueNameGen.gen_uid() for _ in range(100)]
+        uids = [utils.utils.UniqueNameGen.gen_uid() for _ in range(100)]
         assert len(set(uids)) == 100

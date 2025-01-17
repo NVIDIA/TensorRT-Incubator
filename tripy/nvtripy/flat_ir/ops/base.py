@@ -85,7 +85,7 @@ class BaseFlatIROp(abc.ABC):
         skip_fields = self.str_skip_fields()
         args = [
             f"{field.name}={repr(getattr(self, field.name))}"
-            for field in utils.get_dataclass_fields(self, BaseFlatIROp)
+            for field in utils.utils.get_dataclass_fields(self, BaseFlatIROp)
             if field.name not in skip_fields
         ]
         return f"{outputs_str} = {self._op_name()}({', '.join([str(inp.name) for inp in self.inputs] + args)})"

@@ -18,8 +18,9 @@
 from dataclasses import dataclass
 
 import nvtripy.frontend.trace.ops.utils as op_utils
-from nvtripy import export, utils, wrappers
+from nvtripy import export, utils
 from nvtripy.frontend.trace.ops.base import BaseTraceOp
+from nvtripy.utils import wrappers
 
 
 @dataclass(repr=False)
@@ -33,7 +34,7 @@ class Gather(BaseTraceOp):
         from nvtripy import int32
 
         if self.inputs[1].dtype != int32:
-            utils.raise_error_io_info(
+            utils.ops.raise_error_io_info(
                 self,
                 "Index tensor for gather operation should be of int32 type.",
                 details=[

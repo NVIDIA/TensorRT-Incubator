@@ -19,12 +19,10 @@ import re
 from dataclasses import dataclass
 from textwrap import dedent
 
-from tests import helper
-
 import nvtripy as tp
-from nvtripy.common.exception import TripyException, _get_function_file_and_lines, str_from_stack_info, raise_error
-from nvtripy.utils import StackInfo, get_stack_info
-from nvtripy.utils.stack_info import SourceInfo
+from nvtripy.common.exception import TripyException, raise_error, str_from_stack_info
+from nvtripy.utils.stack_info import SourceInfo, StackInfo, get_stack_info
+from tests import helper
 
 
 @dataclass
@@ -125,7 +123,7 @@ class TestRaiseError:
         )
 
     def test_wrappers_is_excluded(self):
-        from nvtripy import wrappers
+        from nvtripy.utils import wrappers
 
         tensor = tp.ones((2, 3))
 

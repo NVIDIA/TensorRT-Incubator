@@ -18,9 +18,10 @@
 from dataclasses import dataclass
 
 import nvtripy.frontend.trace.ops.utils as op_utils
-from nvtripy import export, wrappers
+from nvtripy import export
 from nvtripy.common.device import device
 from nvtripy.frontend.trace.ops.base import BaseTraceOp
+from nvtripy.utils import wrappers
 
 
 @dataclass(repr=False)

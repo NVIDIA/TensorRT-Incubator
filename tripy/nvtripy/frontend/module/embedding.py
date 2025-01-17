@@ -26,7 +26,7 @@ from nvtripy.frontend.tensor import Tensor
 
 @export.public_api(document_under="operations/modules")
 @dataclass
-@utils.constant_fields(["dtype"])
+@utils.utils.constant_fields(["dtype"])
 class Embedding(Module):
     """
     A lookup table for embedding vectors of a fixed size.

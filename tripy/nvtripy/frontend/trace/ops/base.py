@@ -161,7 +161,7 @@ class BaseTraceOp(abc.ABC):
         skip_fields = self.str_skip_fields()
         args = [
             f"{field.name}={getattr(self, field.name)}"
-            for field in utils.get_dataclass_fields(self, BaseTraceOp)
+            for field in utils.utils.get_dataclass_fields(self, BaseTraceOp)
             if field.name not in skip_fields
         ]
         return f"{self.outputs[0].name} = {self.__class__.__name__.lower()}({', '.join([inp.name for inp in self.inputs] + args)})"

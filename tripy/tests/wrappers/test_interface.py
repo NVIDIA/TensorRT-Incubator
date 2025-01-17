@@ -27,9 +27,9 @@ from tests.conftest import skip_if_older_than_sm89
 from tests.wrappers.object_builders import create_obj
 
 import nvtripy as tp
-from nvtripy import wrappers
+from nvtripy.utils import wrappers
 from nvtripy.common.datatype import DATA_TYPES
-from nvtripy.wrappers import TYPE_VERIFICATION
+from nvtripy.utils.wrappers import TYPE_VERIFICATION
 from nvtripy.export import PUBLIC_APIS
 
 # Get all functions/methods which have tensors in the type signature

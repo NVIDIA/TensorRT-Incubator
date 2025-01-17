@@ -27,7 +27,7 @@ from nvtripy.frontend.tensor import Tensor
 
 @export.public_api(document_under="operations/modules")
 @dataclass
-@utils.constant_fields(["num_groups", "num_channels", "dtype"])
+@utils.utils.constant_fields(["num_groups", "num_channels", "dtype"])
 class GroupNorm(Module):
     r"""
     Applies group normalization over the input tensor:

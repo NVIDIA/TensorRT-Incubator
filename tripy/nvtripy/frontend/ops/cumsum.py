@@ -12,9 +12,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from nvtripy import export, wrappers
+from nvtripy import export
 
 from nvtripy.frontend import utils as frontend_utils
+from nvtripy.utils import wrappers
 
 
 @export.public_api(document_under="operations/functions")

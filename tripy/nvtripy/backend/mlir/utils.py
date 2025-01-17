@@ -368,7 +368,7 @@ def map_error_to_user_code_and_raise(flat_ir, exc, stderr):
         return (
             [
                 "This error occured while trying to compile the following FlatIR expression:",
-                utils.code_pretty_str(str(op)),
+                utils.utils.code_pretty_str(str(op)),
                 "\n",
             ]
             + (

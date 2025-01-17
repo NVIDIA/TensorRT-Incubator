@@ -18,13 +18,14 @@
 from dataclasses import dataclass
 from typing import Sequence, Union
 
-from nvtripy import utils, wrappers
+from nvtripy import utils
 from nvtripy.common.exception import raise_error
 from nvtripy.frontend.ops.registry import register_tensor_method
 from nvtripy.frontend.trace.ops import utils as op_utils
 from nvtripy.frontend.trace.ops.base import BaseTraceOp
 from nvtripy.types import TensorLike
-from nvtripy.utils import make_tuple
+from nvtripy.utils.utils import make_tuple
+from nvtripy.utils import wrappers
 
 
 @dataclass(repr=False)
@@ -227,9 +228,9 @@ def __getitem__(
                 args.append(clamp_bound(adjusted_start))
                 args.append(clamp_bound(adjusted_stop))
             else:
-                args.append(clamp_bound(convert_to_positive_idx(utils.default(idx.start, 0))))
-                args.append(clamp_bound(convert_to_positive_idx(utils.default(idx.stop, t_shape[i]))))
-            args.append(abs(utils.default(idx.step, 1)))
+                args.append(clamp_bound(convert_to_positive_idx(utils.utils.default(idx.start, 0))))
+                args.append(clamp_bound(convert_to_positive_idx(utils.utils.default(idx.stop, t_shape[i]))))
+            args.append(abs(utils.utils.default(idx.step, 1)))
         else:
             raise_error(
                 "Slice index type is not supported.",
@@ -259,12 +260,11 @@ def __getitem__(
 
 @wrappers.interface(convert_to_tensors=True)
 def slice_helper(tensor, *slice_params: TensorLike):
-    from nvtripy import function_registry
-    from nvtripy.utils import get_arg_candidate_column_offsets
+    from nvtripy.utils import function_registry
+    from nvtripy.utils.ast import get_arg_candidate_column_offsets
 
     # The default behavior of the tensor conversion will not add the correct column info to the slice params
     # because this call occurs *inside* the overridden call to __getitem__, so we adjust the column info manually.
-
     # Look for the stack frame index to __getitem__. We need to go one stack frame beyond to get to the *user* call of __getitem__.
     def find_frame_index(arg):
         # Internal WAR: the constraints decorator is applied before the function registry decorator, so in the constraints tests,

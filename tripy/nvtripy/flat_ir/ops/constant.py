@@ -34,7 +34,7 @@ class ConstantOp(BaseFlatIROp):
     data: Union[runtime.MemRefValue, Sequence]
 
     def str_skip_fields(self) -> Set[str]:
-        if not isinstance(self.data, Sequence) or utils.should_omit_constant_in_str(self.outputs[0].shape):
+        if not isinstance(self.data, Sequence) or utils.utils.should_omit_constant_in_str(self.outputs[0].shape):
             return {"data"}
         return set()
 

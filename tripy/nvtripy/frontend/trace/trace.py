@@ -118,7 +118,7 @@ class Trace:
             visited.add(id(trace_tensor))
 
             producer = trace_tensor.producer
-            if isinstance(producer, Storage) and utils.should_lift_storage_op_as_input(producer.shape):
+            if isinstance(producer, Storage) and utils.utils.should_lift_storage_op_as_input(producer.shape):
                 inputs.append(trace_tensor)
             else:
                 for inp in producer.inputs:
