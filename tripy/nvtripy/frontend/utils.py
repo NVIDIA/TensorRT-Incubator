@@ -120,7 +120,7 @@ def process_dim(dim: int, input_rank: int) -> int:
     return new_dim
 
 
-def pretty_print(data_list, shape, threshold=1000, linewidth=10, edgeitems=3):
+def pretty_print(data_list, shape, threshold=40, linewidth=10, edgeitems=3):
     """
     Returns a pretty-print string of list format data.
     """
@@ -131,7 +131,7 @@ def pretty_print(data_list, shape, threshold=1000, linewidth=10, edgeitems=3):
 
         if len(data) == 0 or isinstance(data[0], (float, int)):
             if summarize and len(data) > 2 * edgeitems:
-                data_lines = [data[:edgeitems] + [" ..."] + data[-edgeitems:]]
+                data_lines = [data[:edgeitems] + ["..."] + data[-edgeitems:]]
             else:
                 data_lines = [data[i : i + linewidth] for i in range(0, len(data), linewidth)]
             lines = [", ".join([f"{e:.4f}" if isinstance(e, float) else str(e) for e in line]) for line in data_lines]

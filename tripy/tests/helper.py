@@ -157,13 +157,20 @@ def exec_code(code, code_locals=None) -> Dict[str, Any]:
 
 @contextlib.contextmanager
 def capture_output():
+    def reset_outfile(outfile):
+        outfile.flush()
+        outfile.seek(0)
+
     try:
         outfile = io.StringIO()
         with contextlib.redirect_stdout(outfile), contextlib.redirect_stderr(outfile):
             yield outfile
+    except:
+        reset_outfile(outfile)
+        print(outfile.read())
+        raise
     finally:
-        outfile.flush()
-        outfile.seek(0)
+        reset_outfile(outfile)
 
 
 def discover_modules():
@@ -388,15 +395,17 @@ def process_code_block_for_outputs_and_locals(
     TRIPY_CLASSES = [tripy_obj for tripy_obj in discover_tripy_objects() if inspect.isclass(tripy_obj)]
     # Special tags are documented under docs/README.md.
     NO_EVAL = "# doc: no-eval"
+    NO_OUTPUT = "# doc: no-output"
     NO_PRINT_LOCALS = "# doc: no-print-locals"
     PRINT_LOCALS = "# doc: print-locals"
     ALLOW_EXCEPTION = "# doc: allow-exception"
-    REMOVE_TAGS = [NO_PRINT_LOCALS, PRINT_LOCALS, NO_EVAL, ALLOW_EXCEPTION]
+    REMOVE_TAGS = [NO_PRINT_LOCALS, PRINT_LOCALS, NO_EVAL, NO_OUTPUT, ALLOW_EXCEPTION]
     if strip_assertions:
         REMOVE_TAGS.append("assert ")
     OMIT_COMMENT = "# doc: omit"
 
     should_append_locals = True
+    should_append_output = True
     should_eval = True
     allow_exception = False
 
@@ -422,6 +431,9 @@ def process_code_block_for_outputs_and_locals(
 
         if block_line.strip() == NO_EVAL:
             should_eval = False
+
+        if block_line.strip() == NO_OUTPUT:
+            should_append_output = False
 
         if block_line.strip() == ALLOW_EXCEPTION:
             allow_exception = True
@@ -491,7 +503,7 @@ def process_code_block_for_outputs_and_locals(
                 print(e)
                 code_locals = local_vars
             else:
-                print(f"{err_msg}\n" f"Note: Code block was:\n\n{block}")
+                print(f"{err_msg}\n" f"Note: Code block was:\n\n{block}\n\nExtracted code was:\n\n{code}\n")
                 raise
 
     new_locals = {
@@ -556,8 +568,7 @@ def process_code_block_for_outputs_and_locals(
 
     # Add output as a separate code block.
     stdout = outfile.read() or ""
-
-    if stdout:
+    if stdout and should_append_output:
         # Strip out ANSI control sequences from output:
         stdout = ANSI_ESCAPE.sub("", stdout)
         output_lines = split_block_lines(BlockKind.OUTPUT, stdout, lang="")

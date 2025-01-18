@@ -79,13 +79,13 @@ def create_memref_view(data):
             def check_tensor_type_and_suggest_contiguous(obj):
                 obj_type = str(type(obj))
                 if "torch.Tensor" in obj_type:
-                    return "PyTorch Tensor", "tensor.contiguous() or tensor.clone()"
+                    return "PyTorch tensors", "tensor.contiguous() or tensor.clone()"
                 elif "jaxlib" in obj_type or "jax.numpy" in obj_type:
-                    return "JAX Array", "jax.numpy.asarray(array) or jax.numpy.copy(array)"
+                    return "JAX arrays", "jax.numpy.asarray(array) or jax.numpy.copy(array)"
                 elif "numpy.ndarray" in obj_type:
-                    return "NumPy Array", "np.ascontiguousarray(array) or array.copy(order='C')"
+                    return "NumPy arrays", "np.ascontiguousarray(array) or array.copy(order='C')"
                 elif "cupy.ndarray" in obj_type:
-                    return "CuPy Array", "cp.ascontiguousarray(array) or array.copy(order='C')"
+                    return "CuPy arrays", "cp.ascontiguousarray(array) or array.copy(order='C')"
                 else:
                     return None, None
 
@@ -94,8 +94,8 @@ def create_memref_view(data):
             error_message = (
                 f"Non-canonical strides detected:\n"
                 f"  Shape: {shape}\n"
-                f"  Current stride: {given_strides}\n"
-                f"  Expected canonical stride: {canonical_strides}\n"
+                f"  Strides: {given_strides}\n"
+                f"  Expected canonical strides: {canonical_strides}\n"
                 f"Non-canonical strides are not supported for Tripy tensors. "
                 f"This usually occurs when the tensor is not contiguous in memory. "
                 + (
