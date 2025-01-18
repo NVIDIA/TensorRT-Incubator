@@ -2,7 +2,7 @@
 
 Modules and functions can be compiled for better performance.
 
-:::{note}
+:::{important}
 There are **restrictions** on what can be compiled - see {func}`nvtripy.compile`.
 :::
 

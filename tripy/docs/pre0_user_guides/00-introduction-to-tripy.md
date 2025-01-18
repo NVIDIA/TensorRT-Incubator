@@ -63,7 +63,7 @@ Usage:
 out = fast_mlp(inp)
 ```
 
-:::{note}
+:::{important}
 There are **restrictions** on what can be compiled - see {func}`nvtripy.compile`.
 :::
 

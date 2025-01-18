@@ -154,9 +154,11 @@ Code blocks in docstrings/guides are **preprocessed**:
 
 - Code is **executed** and any output is displayed in the docs.
 
-    If the code throws, doc generation will fail. Use `# doc: allow-exception` to allow exceptions.
+    - `# doc: allow-exception` allows exceptions to be thrown. By default, they are treated as failures.
 
-    - **Note:** `# doc: no-eval` disables execution but this means the code will be **untested**!
+    - `# doc: no-output` omits output from the docs (but still executes the code).
+
+    - `# doc: no-eval` disables execution but this means the code will be **untested**!
 
 - Local variables are also displayed. You can customize this:
 

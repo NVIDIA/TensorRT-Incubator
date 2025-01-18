@@ -50,7 +50,7 @@ def shape(self: "nvtripy.Tensor") -> ShapeLike:
     Represents the shape of the tensor.
 
     Returns:
-        A shape tensor containing the shape of this tensor.
+        A sequence containing the shape of this tensor.
 
     .. code-block:: python
         :linenos:
