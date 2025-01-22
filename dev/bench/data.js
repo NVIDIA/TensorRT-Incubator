@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1737486329782,
+  "lastUpdate": 1737573932645,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -11020,6 +11020,47 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000002182914151577589",
             "extra": "mean: 51.62164426150554 usec\nrounds: 20246"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "a8ed97a56ad5ecf2bfe04d4bcdbb9bc4040fa436",
+          "message": "Refactors quantization guide ",
+          "timestamp": "2025-01-20T22:45:00Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/480/commits/a8ed97a56ad5ecf2bfe04d4bcdbb9bc4040fa436"
+        },
+        "date": 1737573931700,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 6031.558275067744,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00003269696059586341",
+            "extra": "mean: 165.7946345530034 usec\nrounds: 6367"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 6387.236995377693,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00003301456591955171",
+            "extra": "mean: 156.5622194265969 usec\nrounds: 6899"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_tripy_param_update",
+            "value": 19183.775374047473,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000024176250953103288",
+            "extra": "mean: 52.12738267113142 usec\nrounds: 19810"
           }
         ]
       }
