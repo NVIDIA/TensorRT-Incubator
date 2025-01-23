@@ -52,10 +52,8 @@ public:
   using OptionsProvider::OptionsProvider;
   mlir::tensorrt::TensorRTTranslationOptions options;
 
-  TensorRTOptions(mlir::OptionsContext &ctx) : OptionsProvider(ctx) {}
-
-  void addToOptions(mlir::OptionsContext &context) {
-    options.addToOptions(context);
+  TensorRTOptions(mlir::OptionsContext &ctx) : OptionsProvider(ctx) {
+    options.addToOptions(ctx);
   }
 };
 

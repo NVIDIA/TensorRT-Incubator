@@ -114,6 +114,40 @@ static inline bool mtrtStableHloToExecutableOptionsIsNull(
 }
 
 //===----------------------------------------------------------------------===//
+// MTRT_TensorRTToExecutableOptions
+//===----------------------------------------------------------------------===//
+
+/// Options for compiling StableHLO MLIR to an Executable.
+typedef struct MTRT_TensorRTToExecutableOptions {
+  void *ptr;
+} MTRT_TensorRTToExecutableOptions;
+
+MLIR_CAPI_EXPORTED MTRT_Status mtrtTensorRTToExecutableOptionsCreate(
+    MTRT_CompilerClient client, MTRT_TensorRTToExecutableOptions *options,
+    int32_t tensorRTBuilderOptLevel, bool tensorRTStronglyTyped);
+
+MLIR_CAPI_EXPORTED MTRT_Status mtrtTensorRTToExecutableOptionsCreateFromArgs(
+    MTRT_CompilerClient client, MTRT_TensorRTToExecutableOptions *options,
+    const MlirStringRef *argv, unsigned argc);
+
+/// Specifies whether to enable the global LLVM debug flag for the duration of
+/// the compilation process. If the flag is enabled then the debug types
+/// specified in the array of literals are used as the global LLVM debug types
+/// (equivalent to `-debug-only=[list]`).
+MLIR_CAPI_EXPORTED MTRT_Status mtrtTensorRTToExecutableOptionsSetDebugOptions(
+    MTRT_TensorRTToExecutableOptions options, bool enableDebugging,
+    const char **debugTypes, size_t debugTypeSizes,
+    const char *dumpIrTreeDir = nullptr, const char *dumpTensorRTDir = nullptr);
+
+MLIR_CAPI_EXPORTED MTRT_Status mtrtTensorRTToExecutableOptionsDestroy(
+    MTRT_TensorRTToExecutableOptions options);
+
+static inline bool mtrtTensorRTToExecutableOptionsIsNull(
+    MTRT_TensorRTToExecutableOptions options) {
+  return !options.ptr;
+}
+
+//===----------------------------------------------------------------------===//
 // PassManagerReference APIs
 //===----------------------------------------------------------------------===//
 
