@@ -72,19 +72,6 @@ public:
           mtrtStableHloToExecutableOptionsDestroy};
 };
 
-/// Python object type wrapper for `MTRT_TensorRTToExecutableOptions`.
-class PyTensorRTToExecutableOptions
-    : public PyMTRTWrapper<PyTensorRTToExecutableOptions,
-                           MTRT_TensorRTToExecutableOptions> {
-public:
-  using PyMTRTWrapper::PyMTRTWrapper;
-  DECLARE_WRAPPER_CONSTRUCTORS(PyTensorRTToExecutableOptions);
-  static constexpr auto kMethodTable =
-      CAPITable<MTRT_TensorRTToExecutableOptions>{
-          mtrtTensorRTToExecutableOptionsIsNull,
-          mtrtTensorRTToExecutableOptionsDestroy};
-};
-
 /// Python object type wrapper for `MlirPassManager`.
 class PyPassManagerReference
     : public PyMTRTWrapper<PyPassManagerReference, MlirPassManager> {
@@ -343,43 +330,6 @@ PYBIND11_MODULE(_api, m) {
             for (const std::string &str : debugTypes)
               literals.push_back(str.c_str());
             THROW_IF_MTRT_ERROR(mtrtStableHloToExecutableOptionsSetDebugOptions(
-                self, enabled, literals.data(), literals.size(),
-                dumpIrTreeDir ? dumpIrTreeDir->c_str() : nullptr,
-                dumpTensorRTDir ? dumpTensorRTDir->c_str() : nullptr));
-          },
-          py::arg("enabled"),
-          py::arg("debug_types") = std::vector<std::string>{},
-          py::arg("dump_ir_tree_dir") = py::none(),
-          py::arg("dump_tensorrt_dir") = py::none());
-
-  py::class_<PyTensorRTToExecutableOptions>(m, "TensorRTToExecutableOptions",
-                                             py::module_local())
-      .def(py::init<>([](PyCompilerClient &client,
-                         const std::vector<std::string> &args)
-                          -> PyTensorRTToExecutableOptions * {
-             std::vector<MlirStringRef> refs(args.size());
-             for (unsigned i = 0; i < args.size(); i++)
-               refs[i] = mlirStringRefCreate(args[i].data(), args[i].size());
-
-             MTRT_TensorRTToExecutableOptions options;
-             MTRT_Status s = mtrtTensorRTToExecutableOptionsCreateFromArgs(
-                 client, &options, refs.data(), refs.size());
-             THROW_IF_MTRT_ERROR(s);
-             return new PyTensorRTToExecutableOptions(options);
-           }),
-           py::arg("client"), py::arg("args"))
-      .def(
-          "set_debug_options",
-          [](PyTensorRTToExecutableOptions &self, bool enabled,
-             std::vector<std::string> debugTypes,
-             std::optional<std::string> dumpIrTreeDir,
-             std::optional<std::string> dumpTensorRTDir) {
-            // The strings are copied by the CAPI call, so we just need to
-            // refence the C-strings temporarily.
-            std::vector<const char *> literals;
-            for (const std::string &str : debugTypes)
-              literals.push_back(str.c_str());
-            THROW_IF_MTRT_ERROR(mtrtTensorRTToExecutableOptionsSetDebugOptions(
                 self, enabled, literals.data(), literals.size(),
                 dumpIrTreeDir ? dumpIrTreeDir->c_str() : nullptr,
                 dumpTensorRTDir ? dumpTensorRTDir->c_str() : nullptr));

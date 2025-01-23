@@ -33,7 +33,6 @@
 #include "mlir-tensorrt/Compiler/OptionsRegistry.h"
 #include "mlir-tensorrt/Compiler/StablehloToExecutable/StablehloToExecutable.h"
 #include "mlir-tensorrt/Compiler/StablehloToExecutable/TensorRTExtension.h"
-#include "mlir-tensorrt/Compiler/TensorRTToExecutable/TensorRTToExecutable.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir/CAPI/IR.h"
 #include "mlir/CAPI/Utils.h"
@@ -51,8 +50,6 @@ using namespace mlir;
 DEFINE_C_API_PTR_METHODS(MTRT_CompilerClient, CompilerClient)
 DEFINE_C_API_PTR_METHODS(MTRT_StableHLOToExecutableOptions,
                          StablehloToExecutableOptions)
-DEFINE_C_API_PTR_METHODS(MTRT_TensorRTToExecutableOptions,
-                         TensorRTToExecutableOptions)
 DEFINE_C_API_PTR_METHODS(MTRT_OptionsContext, OptionsContext)
 #if defined(__GNUC__) || defined(__clang__)
 #pragma GCC diagnostic pop
@@ -271,89 +268,6 @@ MTRT_Status mtrtStableHloToExecutableOptionsSetDebugOptions(
 MTRT_Status mtrtStableHloToExecutableOptionsDestroy(
     MTRT_StableHLOToExecutableOptions options) {
   delete reinterpret_cast<StablehloToExecutableOptions *>(options.ptr);
-  return mtrtStatusGetOk();
-}
-
-
-//===----------------------------------------------------------------------===//
-// MTRT_TensorRTToExecutableOptions
-//===----------------------------------------------------------------------===//
-
-MTRT_Status mtrtTensorRTToExecutableOptionsCreate(
-    MTRT_CompilerClient client, MTRT_TensorRTToExecutableOptions *options,
-    int32_t tensorRTBuilderOptLevel, bool tensorRTStronglyTyped) {
-  auto result =
-      std::make_unique<TensorRTToExecutableOptions>();
-  tensorrt::TensorRTTranslationOptions translationOpts = result->get<TensorRTOptions>().options;
-  translationOpts.tensorrtBuilderOptLevel = tensorRTBuilderOptLevel;
-  translationOpts.enableStronglyTyped = tensorRTStronglyTyped;
-
-  llvm::Error finalizeStatus = result->finalize();
-
-  std::optional<std::string> errMsg{};
-  llvm::handleAllErrors(
-      std::move(finalizeStatus),
-      [&errMsg](const llvm::StringError &err) { errMsg = err.getMessage(); });
-
-  if (errMsg)
-    return wrap(getInternalErrorStatus(errMsg->c_str()));
-
-  *options = wrap(result.release());
-  return mtrtStatusGetOk();
-}
-
-MTRT_Status mtrtTensorRTToExecutableOptionsCreateFromArgs(
-    MTRT_CompilerClient client, MTRT_TensorRTToExecutableOptions *options,
-    const MlirStringRef *argv, unsigned argc) {
-
-  auto result =
-      std::make_unique<TensorRTToExecutableOptions>();
-  std::vector<llvm::StringRef> argvStrRef(argc);
-  for (unsigned i = 0; i < argc; i++)
-    argvStrRef[i] = llvm::StringRef(argv[i].data, argv[i].length);
-
-  std::string err;
-  if (failed(result->parse(argvStrRef, err))) {
-    std::string line = llvm::join(argvStrRef, " ");
-    return wrap(getInternalErrorStatus(
-        "failed to parse options string {0} due to error: {1}", line, err));
-  }
-
-  llvm::Error finalizeStatus = result->finalize();
-
-  std::optional<std::string> errMsg{};
-  llvm::handleAllErrors(
-      std::move(finalizeStatus),
-      [&errMsg](const llvm::StringError &err) { errMsg = err.getMessage(); });
-
-  if (errMsg)
-    return wrap(getInternalErrorStatus(errMsg->c_str()));
-
-  *options = wrap(result.release());
-  return mtrtStatusGetOk();
-}
-
-MTRT_Status mtrtTensorRTToExecutableOptionsSetDebugOptions(
-    MTRT_TensorRTToExecutableOptions options, bool enableDebugging,
-    const char **debugTypes, size_t debugTypeSizes, const char *dumpIrTreeDir,
-    const char *dumpTensorRTDir) {
-
-  TensorRTToExecutableOptions *cppOpts = unwrap(options);
-  cppOpts->get<DebugOptions>().enableLLVMDebugFlag = enableDebugging;
-  for (unsigned i = 0; i < debugTypeSizes; i++)
-    cppOpts->get<DebugOptions>().llvmDebugTypes.emplace_back(debugTypes[i]);
-
-  if (dumpIrTreeDir) {
-    cppOpts->get<DebugOptions>().printTreeDir = std::string(dumpIrTreeDir);
-    cppOpts->get<DebugOptions>().printAfterAll = true;
-  }
-
-  return mtrtStatusGetOk();
-}
-
-MTRT_Status mtrtTensorRTToExecutableOptionsDestroy(
-    MTRT_TensorRTToExecutableOptions options) {
-  delete reinterpret_cast<TensorRTToExecutableOptions *>(options.ptr);
   return mtrtStatusGetOk();
 }
 
