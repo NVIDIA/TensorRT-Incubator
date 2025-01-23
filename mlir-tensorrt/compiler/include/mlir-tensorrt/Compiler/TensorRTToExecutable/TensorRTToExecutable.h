@@ -1,6 +1,6 @@
 //===- TensorRTToExecutable.h -----------------------------------*- C++ -*-===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2025 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -26,16 +26,8 @@
 #ifdef MLIR_TRT_TARGET_TENSORRT
 #include "mlir-tensorrt-dialect/Target/TranslateToTensorRT.h"
 
-#include "mlir-executor/Runtime/API/API.h"
-#include "mlir-executor/Support/Status.h"
-#include "mlir-tensorrt-dialect/Utils/Options.h"
 #include "mlir-tensorrt-dialect/Utils/OptionsBundle.h"
 #include "mlir-tensorrt/Compiler/Client.h"
-#include "mlir-tensorrt/Compiler/Extension.h"
-#include "mlir-tensorrt/Compiler/OptionsProviders.h"
-#include "mlir/IR/BuiltinOps.h"
-#include "mlir/Pass/PassManager.h"
-#include "mlir/Support/TypeID.h"
 
 namespace mlirtrt::compiler {
 

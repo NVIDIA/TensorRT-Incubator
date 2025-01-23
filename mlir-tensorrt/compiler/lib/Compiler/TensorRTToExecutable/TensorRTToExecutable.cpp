@@ -1,6 +1,6 @@
 //===- TensorRTToExecutable.cpp ---------------------------------*- C++ -*-===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2025 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -135,55 +135,9 @@ void TensorRTToExecutableTask::populatePassManager(
 }
 
 void mlirtrt::compiler::registerTensorRTToExecutableTask() {
-  registerOption(
-      "tensorrt-to-executable",
-      [](MLIRContext *ctx, ArrayRef<StringRef> opts)
-          -> StatusOr<std::unique_ptr<OptionsContext>> {
-        auto task = optionsCreateFromArgs<TensorRTToExecutableOptions,
-                                          TensorRTToExecutableTask>(ctx, opts);
-        if (!task.isOk())
-          return task.getStatus();
-        return std::unique_ptr<OptionsContext>(std::move(*task));
-      });
-
-  registerCompilationTask<TensorRTToExecutableTask>(
-      "tensorrt-to-executable",
-      [](CompilerClient &client, llvm::ArrayRef<llvm::StringRef> options)
-          -> StatusOr<CompilationTaskBase *> {
-        TensorRTToExecutableOptions result;
-        std::string err;
-        if (failed(result.parse(options, err)))
-          return getInvalidArgStatus(
-              "failed to parse options string \"{0:$[ ]}\" due to error {1}",
-              llvm::iterator_range(options), err);
-
-        llvm::Error finalizeStatus = result.finalize();
-        std::optional<std::string> errMsg{};
-        llvm::handleAllErrors(std::move(finalizeStatus),
-                              [&errMsg](const llvm::StringError &err) {
-                                errMsg = err.getMessage();
-                              });
-
-        if (errMsg)
-          return getInvalidArgStatus("failed to parse options due to error {0}",
-                                     errMsg);
-
-        std::optional<llvm::hash_code> hashCode = result.getHash();
-        if (!hashCode)
-          return getInvalidArgStatus("failed to hash options");
-
-        CompilationTaskBase *cached = client.lookupCachedCompilationTask(
-            mlir::TypeID::get<TensorRTToExecutableTask>(), *hashCode);
-        if (cached)
-          return cached;
-
-        auto newPM = std::make_unique<TensorRTToExecutableTask>(
-            client.getContext(), result);
-        auto ptr = newPM.get();
-        client.updateCachedCompilationTask<TensorRTToExecutableTask>(
-            *hashCode, std::move(newPM));
-        return ptr;
-      });
+  registerCompilationTaskWithNoExtensions<TensorRTToExecutableTask,
+                                          TensorRTToExecutableOptions>(
+      "tensorrt-to-executable");
 }
 
 MLIR_DEFINE_EXPLICIT_TYPE_ID(mlirtrt::compiler::TensorRTToExecutableTask)

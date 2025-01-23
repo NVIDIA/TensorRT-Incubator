@@ -1,6 +1,6 @@
 //===- Passes.cpp --------------------------------------------------------===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2025 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -24,8 +24,6 @@
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Pass/PassOptions.h"
-
-#ifdef MLIR_TRT_ENABLE_HLO
 
 namespace mlirtrt::compiler {
 #define GEN_PASS_DEF_OUTLINETENSORRTOPPASS
@@ -52,9 +50,7 @@ getTensorRTClusteringOptions(Operation *op) {
                                      ClusterRange) { return true; };
   opts.clusterTarget = Attribute{};
   opts.isClusterableOp = [](Operation *op) {
-    if (llvm::isa<tensorrt::TensorRTDialect>(op->getDialect()))
-      return true;
-    return false;
+    return llvm::isa_and_present<tensorrt::TensorRTDialect>(op->getDialect());
   };
 
   return opts;
@@ -115,22 +111,30 @@ static tensorrt::TensorRTModuleOp getOrCreateTensorRTModuleOp(Operation *op) {
 }
 
 static FailureOr<tensorrt::CallAllocOp>
-outlineOp(RewriterBase &rewriter, tensorrt::TensorRTModuleOp trtModule, plan::InlineGroupOp op) {
+outlineOp(RewriterBase &rewriter, tensorrt::TensorRTModuleOp trtModule, const Cluster& cluster) {
+  auto inlineGroupOp = cast<plan::InlineGroupOp>(mlir::createRegionOpFromCluster(
+      cluster, rewriter,
+      [](OpBuilder &b, Location loc, TypeRange types, Attribute target) {
+        auto regionOp = b.create<plan::InlineGroupOp>(loc, types, target);
+        b.setInsertionPointToStart(&regionOp.getRegion().emplaceBlock());
+        b.create<plan::YieldOp>(loc);
+        return regionOp;
+      }));
 
   // Make the region isolated from above. This captures the input operands.
   SmallVector<Value> inputs =
-      makeRegionIsolatedFromAbove(rewriter, op.getRegion());
+      makeRegionIsolatedFromAbove(rewriter, inlineGroupOp.getRegion());
 
   // Create the outlined function
   FailureOr<FunctionOpInterface> func =
-      createOutlinedFunc(rewriter, op.getLoc(), trtModule,
-                         "tensorrt_cluster", TypeRange(inputs), op->getResultTypes());
+      createOutlinedFunc(rewriter, inlineGroupOp.getLoc(), trtModule,
+                         "tensorrt_cluster", TypeRange(inputs), inlineGroupOp->getResultTypes());
   if (failed(func))
     return failure();
 
-  rewriter.setInsertionPoint(op);
+  rewriter.setInsertionPoint(inlineGroupOp);
   auto callOp = rewriter.create<tensorrt::CallAllocOp>(
-      op.getLoc(), op.getResultTypes(), inputs,
+      inlineGroupOp.getLoc(), inlineGroupOp.getResultTypes(), inputs,
       SymbolRefAttr::get(trtModule.getNameAttr(),
                          {FlatSymbolRefAttr::get(*func)}));
 
@@ -138,14 +142,14 @@ outlineOp(RewriterBase &rewriter, tensorrt::TensorRTModuleOp trtModule, plan::In
   rewriter.eraseBlock(&func->getFunctionBody().front());
 
   // Move region op operations to the func body.
-  Operation *regionYieldOp = op.getYield();
-  rewriter.inlineRegionBefore(op.getRegion(), func->getFunctionBody(),
+  Operation *regionYieldOp = inlineGroupOp.getYield();
+  rewriter.inlineRegionBefore(inlineGroupOp.getRegion(), func->getFunctionBody(),
                               func->getFunctionBody().end());
   rewriter.setInsertionPoint(regionYieldOp);
   rewriter.replaceOpWithNewOp<func::ReturnOp>(regionYieldOp,
                                               regionYieldOp->getOperands());
   // replace the original region results.
-  rewriter.replaceOp(op, callOp);
+  rewriter.replaceOp(inlineGroupOp, callOp);
 
   return callOp;
 }
@@ -167,26 +171,16 @@ public:
       emitError(module.getLoc()) << "failed to create clustering options";
       return signalPassFailure();
     }
-    // What do they do here?
-    // patterns.add(*opts, createInlineGroupOp, isOpInClusterRegion,
-    //             target.getClusterFilter(),
-    //             PatternBenefit(target.getClusterBenefit()));
 
-    // FailureOr<SmallVector<Operation *>> regionOps =
-    //     rewrite->findClusterAndCreateRegionOp(module, rewriter);
-    // if (failed(regionOps)) {
-    //   emitError(module.getLoc())
-    //       << "clustering rewrite " << rewrite->getTarget() << " failed ";
-    //   return signalPassFailure();
-    // }
+    FailureOr<SmallVector<Cluster>> clusters = mlir::analyzeAndClusterOperations(module, *opts);
+    if (failed(clusters)) {
+      emitError(module.getLoc()) << "failed to cluster operations";
+      return signalPassFailure();
+    }
 
     tensorrt::TensorRTModuleOp trtModuleOp = getOrCreateTensorRTModuleOp(module);
 
-    SmallVector<plan::InlineGroupOp> clusters;
-    module.walk(
-        [&](plan::InlineGroupOp cluster) { clusters.push_back(cluster); });
-
-    for (plan::InlineGroupOp cluster : clusters) {
+    for (const auto& cluster : *clusters) {
       if (failed(outlineOp(rewriter, trtModuleOp, cluster)))
         return signalPassFailure();
     }
@@ -221,5 +215,3 @@ void mlirtrt::compiler::registerTensorRTToExecutablePipelines() {
         TensorRTToExecutableTask::buildPostClusteringPipeline(pm, opts);
       });
 }
-
-#endif // MLIR_TRT_ENABLE_HLO
