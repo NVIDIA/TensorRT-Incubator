@@ -88,10 +88,8 @@ createOutlinedFunc(RewriterBase &rewriter, Location loc, Operation *module,
 /// Given the `op`, find the closest ModuleOp and check if the module has a
 /// `tensorrt.module` operation in it. If it does, then return the existing
 /// `tensorrt.module` operation. Otherwise, create a new `tensorrt.module`.
-static tensorrt::TensorRTModuleOp getOrCreateTensorRTModuleOp(Operation *op) {
-  auto moduleOp = op->getParentOfType<ModuleOp>();
-  if (!moduleOp)
-    return nullptr;
+static tensorrt::TensorRTModuleOp
+getOrCreateTensorRTModuleOp(ModuleOp moduleOp) {
   SymbolTable symbolTable(moduleOp);
   tensorrt::TensorRTModuleOp result = nullptr;
   for (auto trtModuleOp :
@@ -105,8 +103,7 @@ static tensorrt::TensorRTModuleOp getOrCreateTensorRTModuleOp(Operation *op) {
   // Create the function. Symbol name de-duplication occurs with insert into the
   // symbol table.
   result = tensorrt::TensorRTModuleOp::create(moduleOp.getLoc(), "trt_engines");
-  symbolTable.insert(result, op->getParentOp() == moduleOp ? Block::iterator(op)
-                                                           : Block::iterator{});
+  symbolTable.insert(result);
   return result;
 }
 
@@ -162,8 +159,6 @@ public:
   using Base::Base;
   void runOnOperation() override {
     ModuleOp module = getOperation();
-
-    SymbolTableCollection symbolTable;
     IRRewriter rewriter(&getContext());
 
     FailureOr<ClusteringOpts> opts = getTensorRTClusteringOptions(module);
@@ -178,10 +173,10 @@ public:
       return signalPassFailure();
     }
 
-    tensorrt::TensorRTModuleOp trtModuleOp = getOrCreateTensorRTModuleOp(module);
+    tensorrt::TensorRTModuleOp trtModule = getOrCreateTensorRTModuleOp(module);
 
-    for (const auto& cluster : *clusters) {
-      if (failed(outlineOp(rewriter, trtModuleOp, cluster)))
+    for (const auto &cluster : *clusters) {
+      if (failed(outlineOp(rewriter, trtModule, cluster)))
         return signalPassFailure();
     }
   }
