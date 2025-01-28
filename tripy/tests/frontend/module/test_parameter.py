@@ -20,7 +20,7 @@ import numpy as np
 
 import nvtripy as tp
 from nvtripy.frontend.module.parameter import DefaultParameter
-from nvtripy.frontend.trace.ops import Storage
+from nvtripy.trace.ops import Storage
 
 
 class TestDefaultParameter:

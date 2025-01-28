@@ -138,7 +138,7 @@ def compile(
         if isinstance(arg, InputInfo):
             # Make new tensors for tracing.
             from nvtripy.common.datatype import floating, integer
-            from nvtripy.frontend.trace.ops.fill import full
+            from nvtripy.trace.ops.fill import full
 
             init_value = 1 if issubclass(arg.dtype, integer) else 1.0 if issubclass(arg.dtype, floating) else True
             tensor = full(shape=arg.shape_bounds.opt, value=init_value, dtype=arg.dtype)

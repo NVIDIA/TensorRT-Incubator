@@ -22,15 +22,15 @@ import mlir_tensorrt.runtime.api as runtime
 
 # Import ops to populate the registry before we define our Tensor class
 import nvtripy.frontend.ops
-import nvtripy.frontend.trace.ops
+import nvtripy.trace.ops
 from nvtripy import config
 from nvtripy import export, utils
 from nvtripy.backend.mlir import memref
 from nvtripy.common import datatype
 from nvtripy.common.exception import raise_error, str_from_stack_info
 from nvtripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
-from nvtripy.frontend.trace.ops import Storage
-from nvtripy.frontend.trace.tensor import TraceTensor
+from nvtripy.trace.ops import Storage
+from nvtripy.trace.tensor import TraceTensor
 from nvtripy.logging.logger import logger
 from nvtripy.utils.stack_info import StackInfo
 
@@ -155,7 +155,7 @@ class Tensor(metaclass=TensorMeta):
         # Explicit cast if necessary
         # TODO(#155): Add copy as well when host allocation is fixed
         if dtype is not None and dtype != instance.trace_tensor.dtype:
-            from nvtripy.frontend.trace.ops.cast import cast
+            from nvtripy.trace.ops.cast import cast
 
             instance.trace_tensor = cast(instance, dtype=dtype).trace_tensor
 
@@ -206,7 +206,7 @@ class Tensor(metaclass=TensorMeta):
 
         from nvtripy.backend.mlir.compiler import Compiler
         from nvtripy.backend.mlir.executor import Executor
-        from nvtripy.frontend.trace import Trace
+        from nvtripy.trace import Trace
         from nvtripy.frontend.cache import global_cache
 
         # Collect inputs
@@ -262,7 +262,7 @@ class Tensor(metaclass=TensorMeta):
             datatype.int64,
             datatype.bool,
         ):
-            from nvtripy.frontend.trace.ops.cast import cast
+            from nvtripy.trace.ops.cast import cast
 
             data_memref = cast(Tensor(data_memref), datatype.float32).eval()
         return memref.tolist(data_memref)

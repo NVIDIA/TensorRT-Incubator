@@ -43,7 +43,7 @@ def transpose(input: "nvtripy.Tensor", dim0: int, dim1: int) -> "nvtripy.Tensor"
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.transpose(np.arange(6, dtype=np.float32).reshape(2, 3), (1, 0)))
     """
-    from nvtripy.frontend.trace.ops.permute import permute
+    from nvtripy.trace.ops.permute import permute
 
     if input.rank < 2:
         raise_error("Transpose input must have at least 2 dimensions.", [f"Note: Input had {input.rank} dimensions."])

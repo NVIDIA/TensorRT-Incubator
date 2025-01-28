@@ -20,7 +20,7 @@ from tests import helper
 from tests.backend.api.conftest import *
 
 import nvtripy as tp
-from nvtripy.frontend.trace.ops.storage import Storage
+from nvtripy.trace.ops.storage import Storage
 
 
 class TestCompile:

@@ -20,7 +20,7 @@ import nvtripy as tp
 import cupy as cu
 
 from nvtripy.constants import STORAGE_OP_CACHE_VOLUME_THRESHOLD
-from nvtripy.frontend.trace import Trace
+from nvtripy.trace import Trace
 from nvtripy.frontend.cache import ExecutableCache
 
 

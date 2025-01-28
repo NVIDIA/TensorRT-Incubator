@@ -50,7 +50,7 @@ def stack(tensors: Sequence["nvtripy.Tensor"], dim: int = 0) -> "nvtripy.Tensor"
     """
 
     from nvtripy.frontend.ops.unsqueeze import unsqueeze
-    from nvtripy.frontend.trace.ops.concatenate import concatenate
+    from nvtripy.trace.ops.concatenate import concatenate
 
     if not tensors:
         raise_error(f"Expected a non-empty list of tensors, got {tensors}")

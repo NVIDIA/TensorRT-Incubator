@@ -29,7 +29,7 @@ class ExecutableCache:
 
     def _assign_tensor_name(
         self,
-        tensor: "tripy.frontend.trace.tensor.TraceTensor",
+        tensor: "tripy.trace.tensor.TraceTensor",
         tensor_map: Dict[int, str],
         backup_map: Dict[int, str] = None,
     ) -> str:

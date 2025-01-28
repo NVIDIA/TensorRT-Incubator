@@ -23,7 +23,7 @@ import pytest
 
 import nvtripy as tp
 from tools.stablehlo_runner import compile_code, preprocess_program, read_program_from_file
-from nvtripy.frontend.trace import Trace
+from nvtripy.trace import Trace
 
 
 @pytest.fixture

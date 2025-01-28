@@ -70,8 +70,8 @@ def repeat(input: "nvtripy.Tensor", repeats: IntLike, dim: int) -> "nvtripy.Tens
     """
     from nvtripy.frontend.dimension_size import DimensionSize
     from nvtripy.frontend.ops.unsqueeze import unsqueeze
-    from nvtripy.frontend.trace.ops.expand import expand
-    from nvtripy.frontend.trace.ops.reshape import reshape
+    from nvtripy.trace.ops.expand import expand
+    from nvtripy.trace.ops.reshape import reshape
 
     dim = frontend_utils.process_dim(dim, input.rank)
 
