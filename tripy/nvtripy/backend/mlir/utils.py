@@ -21,7 +21,7 @@ import os
 import re
 import sys
 import tempfile
-from typing import BinaryIO, List, Tuple, Sequence, Optional
+from typing import BinaryIO, List, Tuple, Sequence, Optional, Union
 from itertools import chain
 import traceback
 
@@ -104,11 +104,14 @@ def list_to_dense_attr(data: List, mlir_dtype):
 
 
 def make_mlir_tensor(
-    dtype: "nvtripy.common.dtype", shape: Optional[Sequence[int]] = None, rank: Optional[int] = None
+    dtype: "nvtripy.common.dtype",
+    shape: Optional[Sequence[Union[int, "nvtripy.DimensionSize"]]] = None,
+    rank: Optional[int] = None,
 ) -> ir.RankedTensorType:
     if shape is not None:
         return ir.RankedTensorType.get(
-            [ir.ShapedType.get_dynamic_size() if dim < 0 else dim for dim in shape], get_mlir_dtype(dtype)
+            [dim if isinstance(dim, int) and dim >= 0 else ir.ShapedType.get_dynamic_size() for dim in shape],
+            get_mlir_dtype(dtype),
         )
 
     assert rank is not None
