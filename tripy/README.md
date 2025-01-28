@@ -24,6 +24,13 @@ What you can expect:
 - **Friendly documentation** that is comprehensive but concise, with code examples.
 
 
+## Installation
+
+```bash
+python3 -m pip install nvtripy -f https://nvidia.github.io/TensorRT-Incubator/packages.html
+```
+
+
 ## Quick Start
 
 See the
@@ -77,18 +84,8 @@ guide for details:
 <!-- Tripy: DOC: NO_PRINT_LOCALS End -->
 
 
-## Installation
-
 <!-- Tripy: DOC: OMIT Start -->
-### Installing Prebuilt Wheels
-<!-- Tripy: DOC: OMIT End -->
-
-```bash
-python3 -m pip install nvtripy -f https://nvidia.github.io/TensorRT-Incubator/packages.html
-```
-
-<!-- Tripy: DOC: OMIT Start -->
-### Building Wheels From Source
+## Building Wheels From Source
 
 For the latest changes, build Tripy wheels from source:
 
