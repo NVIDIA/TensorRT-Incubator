@@ -25,7 +25,7 @@ from nvtripy.common.exception import raise_error
 from nvtripy.frontend.module.module import Module
 from nvtripy.frontend.module.parameter import DefaultParameter
 from nvtripy.frontend.tensor import Tensor
-from nvtripy.frontend.trace.ops import utils as op_utils
+from nvtripy.trace.ops import utils as op_utils
 
 
 @dataclass
@@ -256,8 +256,8 @@ class Conv(ConvBase):
             :math:`(N, \text{out_channels}, D_{0_{\text{out}}},\ldots,D_{n_{\text{out}}})`
             where :math:`D_{k_{\text{out}}} = \large \left\lfloor \frac{D_{k_{\text{in}}} + \text{padding}_{k_0} + \text{padding}_{k_1} - \text{dilation}_k \times (\text{kernel_dims}_k - 1) - 1}{\text{stride}_k} \right\rfloor + \normalsize 1`
         """
-        from nvtripy.frontend.trace.ops.convolution import convolution
-        from nvtripy.frontend.trace.ops.reshape import reshape
+        from nvtripy.trace.ops.convolution import convolution
+        from nvtripy.trace.ops.reshape import reshape
 
         x = convolution(
             input,

@@ -70,6 +70,6 @@ class Embedding(Module):
         Returns:
             A tensor of shape :math:`[N, \text{embedding_dim}]` containing the embedding vectors.
         """
-        from nvtripy.frontend.trace.ops.gather import gather
+        from nvtripy.trace.ops.gather import gather
 
         return gather(self.weight, 0, x)

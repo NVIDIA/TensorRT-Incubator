@@ -50,6 +50,6 @@ def silu(input: "nvtripy.Tensor") -> "nvtripy.Tensor":
         t = torch.tensor([1, 2, 3, 4], dtype=torch.float32) # doc: omit
         assert tp.allclose(output, tp.Tensor(torch.nn.functional.silu(t)))
     """
-    from nvtripy.frontend.trace.ops.unary_elementwise import exp
+    from nvtripy.trace.ops.unary_elementwise import exp
 
     return input / (1.0 + exp(-1.0 * input))

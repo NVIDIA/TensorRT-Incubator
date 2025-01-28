@@ -16,4 +16,4 @@
 #
 
 from nvtripy.frontend.tensor import Tensor
-from nvtripy.frontend.trace import Trace
+from nvtripy.trace import Trace

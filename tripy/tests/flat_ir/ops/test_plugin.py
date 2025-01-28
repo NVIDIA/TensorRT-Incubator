@@ -25,7 +25,7 @@ import nvtripy as tp
 from nvtripy.backend.mlir import utils as mlir_utils
 from nvtripy.flat_ir.ops import PluginOp
 from nvtripy.flat_ir.ops.plugin import plugin_field_to_attr
-from nvtripy.frontend.trace import Trace
+from nvtripy.trace import Trace
 from typing import Sequence
 from tests import helper
 

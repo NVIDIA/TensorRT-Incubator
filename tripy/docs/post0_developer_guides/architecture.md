@@ -80,8 +80,8 @@ inp = tp.full((2, 3), value=0.5)
 The `tp.full()` and `tp.tanh()` APIs are part of the frontend and like other frontend functions, map to one or more
 (just one in this case) `Trace` operations. For frontend functions that map to exactly one `Trace` operation,
 we define the function directly alongside the corresponding `Trace` operation.
-In this case, the [`Fill` operation](source:/nvtripy/frontend/trace/ops/fill.py) provides `tp.full()` and
-the [`UnaryElementwise` operation](source:/nvtripy/frontend/trace/ops/unary_elementwise.py) provides `tp.tanh()`.
+In this case, the [`Fill` operation](source:/nvtripy/trace/ops/fill.py) provides `tp.full()` and
+the [`UnaryElementwise` operation](source:/nvtripy/trace/ops/unary_elementwise.py) provides `tp.tanh()`.
 
 *We organize it this way to reduce the number of files that need to be touched when adding new ops.*
     *If an operation is composed of multiple `Trace` operations, the frontend function can be*
@@ -145,7 +145,7 @@ Here's the textual representation for the `Trace` from our example:
 <!-- Tripy: DOC: OMIT Start -->
 ```py
 # doc: no-print-locals
-from nvtripy.frontend.trace import Trace
+from nvtripy.trace import Trace
 # Output has been eval'd already, so we'll construct a new one
 new_out = tp.tanh(inp)
 trace = Trace([new_out.trace_tensor])

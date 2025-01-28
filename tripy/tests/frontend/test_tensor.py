@@ -37,7 +37,7 @@ class TestTensor:
 
         assert isinstance(a, tp.Tensor)
         assert a.trace_tensor.producer.inputs == []
-        assert isinstance(a.trace_tensor.producer, tp.frontend.trace.ops.Storage)
+        assert isinstance(a.trace_tensor.producer, tp.trace.ops.Storage)
         assert cp.from_dlpack(a).get().tolist() == VALUES
 
     def test_empty_tensor(self):
@@ -59,7 +59,7 @@ class TestTensor:
     def test_tensor_device(self, kind):
         a = tp.Tensor([1, 2, 3], device=tp.device(kind))
 
-        assert isinstance(a.trace_tensor.producer, tp.frontend.trace.ops.Storage)
+        assert isinstance(a.trace_tensor.producer, tp.trace.ops.Storage)
         assert a.trace_tensor.producer.device.kind == kind
 
     @pytest.mark.parametrize("dtype", NUMPY_TO_TRIPY.keys())
@@ -150,11 +150,11 @@ class TestTensor:
         b = tp.Tensor(cp.array([2], dtype=cp.float32))
 
         c = a + b
-        assert isinstance(c.trace_tensor.producer, tp.frontend.trace.ops.BinaryElementwise)
+        assert isinstance(c.trace_tensor.producer, tp.trace.ops.BinaryElementwise)
 
         c.eval()
 
-        assert isinstance(c.trace_tensor.producer, tp.frontend.trace.ops.Storage)
+        assert isinstance(c.trace_tensor.producer, tp.trace.ops.Storage)
         # Storage tensors should have no inputs since we don't want to trace back from them.
         assert c.trace_tensor.producer.inputs == []
         assert (cp.from_dlpack(c.trace_tensor.producer.data) == cp.array([3], dtype=np.float32)).all()
@@ -215,7 +215,7 @@ class TestTensor:
         assert a.dtype == tp.float16
 
     def test_no_explicit_cast(self):
-        from nvtripy.frontend.trace.ops import Storage
+        from nvtripy.trace.ops import Storage
 
         a_np = np.ones((2, 2), dtype=np.float32)
         a = tp.Tensor(a_np, dtype=tp.float32)
@@ -245,7 +245,7 @@ class TestTensor:
         ],
     )
     def test_no_explicit_copy(self, devices):
-        from nvtripy.frontend.trace.ops import Storage
+        from nvtripy.trace.ops import Storage
 
         a_torch = torch.ones((2, 2), dtype=torch.float32)
         if devices[0] == "gpu":

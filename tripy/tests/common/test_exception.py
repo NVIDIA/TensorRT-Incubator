@@ -62,7 +62,7 @@ class TestRaiseError:
                     column_range=None,
                 ),
                 SourceInfo(
-                    module="nvtripy.frontend.trace.ops.binary_elementwise",
+                    module="nvtripy.trace.ops.binary_elementwise",
                     file="/nvtripy/nvtripy/frontend/ops/binary_elementwise.py",
                     line=175,
                     function="sub",

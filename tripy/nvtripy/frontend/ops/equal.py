@@ -63,7 +63,7 @@ def equal(input: "nvtripy.Tensor", other: "nvtripy.Tensor") -> bool:
         is_equal = tp.equal(a, b)
         assert not is_equal
     """
-    from nvtripy.frontend.trace.ops.reduce import all
+    from nvtripy.trace.ops.reduce import all
 
     if input.shape != other.shape:
         return False

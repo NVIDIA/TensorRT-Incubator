@@ -26,8 +26,8 @@ def tensor_from_shape_like(arg: "nvtripy.ShapeLike") -> "nvtripy.Tensor":
     from nvtripy.common.datatype import int32
     from nvtripy.frontend.dimension_size import DimensionSize
     from nvtripy.frontend.tensor import Tensor
-    from nvtripy.frontend.trace.ops.concatenate import concatenate
-    from nvtripy.frontend.trace.ops.reshape import Reshape
+    from nvtripy.trace.ops.concatenate import concatenate
+    from nvtripy.trace.ops.reshape import Reshape
 
     if not arg:
         return Tensor.create_directly([], dtype=int32)

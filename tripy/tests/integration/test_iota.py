@@ -78,7 +78,7 @@ class TestIota:
 
     @pytest.mark.parametrize("dtype", DATA_TYPES.values())
     def test_negative_no_casting(self, dtype):
-        from nvtripy.frontend.trace.ops.iota import Iota
+        from nvtripy.trace.ops.iota import Iota
 
         if dtype in [tp.float32, tp.int32, tp.int64]:
             pytest.skip("tp.iota() supports float32, int32, and int64 without cast")

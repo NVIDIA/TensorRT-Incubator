@@ -99,7 +99,7 @@ nvtripy.flat_ir.ops.ThetaOp = ThetaOp
 
 Now that we have a `FlatIR` operator, we can implement a `Trace` operator that will use it
 along with a public API function. Let's create a new file under
-[`nvtripy/frontend/trace/ops`](source:/nvtripy/frontend/trace/ops/) called `theta.py`.
+[`nvtripy/trace/ops`](source:/nvtripy/trace/ops/) called `theta.py`.
 
 ### `Trace` Operator
 
@@ -113,8 +113,8 @@ from typing import Tuple
 from nvtripy import utils
 from nvtripy.common import datatype, device
 from nvtripy.common.exception import raise_error
-from nvtripy.frontend.trace.ops.base import BaseTraceOp
-import nvtripy.frontend.trace.ops.utils as op_utils
+from nvtripy.trace.ops.base import BaseTraceOp
+import nvtripy.trace.ops.utils as op_utils
 
 
 # Just like with `FlatIR` operators, all `Trace` operators are implemented
@@ -152,7 +152,7 @@ class Theta(BaseTraceOp):
         # Note that we import the `FlatIR` operator within the function
         # call - this is to avoid circular dependencies.
         from nvtripy.flat_ir.ops import ThetaOp
-        import nvtripy.frontend.trace.ops.utils as op_utils
+        import nvtripy.trace.ops.utils as op_utils
 
         # This code may look a bit confusing; for more details, look at the
         # 'FlatIR section in the architecture document' (linked below).
@@ -258,14 +258,14 @@ Links:
 ### Exposing The Operator
 
 Similarly to the `FlatIR` operator, we need to import `Theta` into the
-`frontend.trace.ops` submodule. We can do so by adding the following line into
-[`nvtripy/frontend/trace/ops/__init__.py`](source:/nvtripy/frontend/trace/ops/__init__.py):
+`trace.ops` submodule. We can do so by adding the following line into
+[`nvtripy/trace/ops/__init__.py`](source:/nvtripy/trace/ops/__init__.py):
 
 <!-- Tripy: TEST: IGNORE Start -->
 
 ```py
 # doc: no-eval
-from nvtripy.frontend.trace.ops.theta import Theta, theta
+from nvtripy.trace.ops.theta import Theta, theta
 ```
 <!-- Tripy: TEST: IGNORE End -->
 
@@ -273,9 +273,9 @@ from nvtripy.frontend.trace.ops.theta import Theta, theta
 <!-- Need to simulate the __init__.py changes to make the tests work: -->
 ```py
 # doc: no-eval
-import nvtripy.frontend.trace.ops
-nvtripy.frontend.trace.ops.Theta = Theta
-nvtripy.frontend.trace.ops.theta = theta
+import nvtripy.trace.ops
+nvtripy.trace.ops.Theta = Theta
+nvtripy.trace.ops.theta = theta
 ```
 <!-- Tripy: DOC: OMIT End -->
 
@@ -290,8 +290,8 @@ and `Trace` operators.
 ### Testing The Trace Operator And Public API
 
 Since we implemented our `Trace` operator and public API in
-[`nvtripy/frontend/trace/ops`](source:/nvtripy/frontend/trace/ops/), we'll add the test under
-[`tests/frontend/trace/ops`](source:/tests/frontend/trace/ops/).
+[`nvtripy/trace/ops`](source:/nvtripy/trace/ops/), we'll add the test under
+[`tests/trace/ops`](source:/tests/trace/ops/).
 Create a new file there called `test_theta.py`:
 
 
@@ -299,7 +299,7 @@ Create a new file there called `test_theta.py`:
 # doc: no-eval
 import nvtripy as tp
 from tests import helper
-from nvtripy.frontend.trace.ops import Theta
+from nvtripy.trace.ops import Theta
 
 
 class TestTheta:

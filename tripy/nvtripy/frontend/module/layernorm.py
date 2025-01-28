@@ -106,8 +106,8 @@ class LayerNorm(Module):
         Returns:
             A tensor of the same shape as the input.
         """
-        from nvtripy.frontend.trace.ops.reduce import mean, var
-        from nvtripy.frontend.trace.ops.unary_elementwise import rsqrt
+        from nvtripy.trace.ops.reduce import mean, var
+        from nvtripy.trace.ops.unary_elementwise import rsqrt
 
         # The mean and the variance are computed over the last D dimensions
         D = len(self.normalized_shape)
