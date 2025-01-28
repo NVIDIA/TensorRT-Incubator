@@ -14,25 +14,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
 import nvtripy as tp
-from nvtripy.trace.ops import Resize
 from tests import helper
 
 
-class TestResize:
-    def test_shape(self):
-        a = tp.ones((1, 1, 3, 4))
-        out = tp.resize(a, "nearest", output_shape=(1, 1, 6, 8))
-        assert isinstance(out, tp.Tensor)
-        assert isinstance(out.trace_tensor.producer, Resize)
+class TestPad:
+    def test_invalid_pad_length(self):
+        with helper.raises(tp.TripyException, match="`pad` length must equal to the rank of `input`."):
+            a = tp.Tensor([1, 2, 3, 4])
+            a = tp.pad(a, [(1, 1), (1, 1)])
 
     def test_unsupported_mode(self):
-        with helper.raises(tp.TripyException, match="Unsupported resize mode."):
-            a = tp.ones((1, 1, 3, 4))
-            out = tp.resize(a, "bilinear", output_shape=(1, 1, 6, 8))
-
-    def test_invalid_align_corners(self):
-        with helper.raises(tp.TripyException, match="align_corners can only be set with `cubic` or `linear` mode."):
-            a = tp.ones((1, 1, 3, 4))
-            out = tp.resize(a, "nearest", output_shape=(1, 1, 6, 8), align_corners=True)
+        with helper.raises(tp.TripyException, match="Unsupported padding mode."):
+            a = tp.Tensor([1, 2, 3, 4])
+            a = tp.pad(a, [(1, 1)], mode="circular")

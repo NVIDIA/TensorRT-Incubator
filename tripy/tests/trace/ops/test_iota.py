@@ -15,40 +15,16 @@
 # limitations under the License.
 #
 
-from tests import helper
-
 import nvtripy as tp
-from nvtripy.trace.ops import Iota
 
 
 class TestIota:
-    def test_iota(self):
-        a = tp.iota([2, 3])
-        assert isinstance(a, tp.Tensor)
-        assert isinstance(a.trace_tensor.producer, Iota)
-
-    def test_iota_like(self):
-        t = tp.Tensor([1, 2, 3])
-        a = tp.iota_like(t)
-        assert isinstance(a, tp.Tensor)
-        assert isinstance(a.trace_tensor.producer, Iota)
-
-    def test_invalid_dim(self):
-        with helper.raises(tp.TripyException, match="Dimension argument is out of bounds."):
-            tp.iota([2, 3], dim=3)
-
     def test_infer_rank(self):
         a = tp.iota((2, 3, 4))
         assert a.trace_tensor.rank == 3
 
 
 class TestIotaLike:
-    def test_iota_like(self):
-        t = tp.Tensor([1, 2, 3])
-        a = tp.iota_like(t)
-        assert isinstance(a, tp.Tensor)
-        assert isinstance(a.trace_tensor.producer, Iota)
-
     def test_infer_rank(self):
         t = tp.Tensor([1, 2, 3])
         a = tp.iota_like(t)

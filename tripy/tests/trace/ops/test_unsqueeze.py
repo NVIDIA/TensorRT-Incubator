@@ -16,16 +16,9 @@
 #
 
 import nvtripy as tp
-from nvtripy.trace.ops import Reshape
 
 
 class TestUnsqueeze:
-    def test_func_op(self):
-        a = tp.ones((2, 1))
-        a = tp.unsqueeze(a, 0)
-        assert isinstance(a, tp.Tensor)
-        assert isinstance(a.trace_tensor.producer, Reshape)
-
     def test_infer_rank(self):
         a = tp.ones((2, 1))
         a = tp.unsqueeze(a, 0)

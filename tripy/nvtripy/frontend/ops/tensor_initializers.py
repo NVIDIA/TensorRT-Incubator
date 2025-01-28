@@ -21,9 +21,9 @@ from typing import Optional, Union
 from nvtripy import export
 from nvtripy.common import datatype
 from nvtripy.common.exception import raise_error
-from nvtripy.trace.ops.fill import full, full_like
-from nvtripy.trace.ops.iota import iota, iota_like
-from nvtripy.trace.ops.where import where
+from nvtripy.frontend.ops.fill import full, full_like
+from nvtripy.frontend.ops.iota import iota, iota_like
+from nvtripy.frontend.ops.where import where
 from nvtripy.utils import wrappers
 
 

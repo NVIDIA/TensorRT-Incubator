@@ -16,15 +16,10 @@
 #
 
 from dataclasses import dataclass
-from typing import Sequence, Union
+from typing import Union
 
-from nvtripy import export
-from nvtripy.common.exception import raise_error
-from nvtripy.frontend import utils as frontend_utils
+from nvtripy.trace.ops import utils as op_utils
 from nvtripy.trace.ops.base import BaseTraceOp
-from nvtripy.types import ShapeLike
-import nvtripy.trace.ops.utils as op_utils
-from nvtripy.utils import wrappers
 
 
 @dataclass(repr=False)
@@ -71,61 +66,3 @@ class Pad(BaseTraceOp):
         inputs[2].shape = pad_size_shape
         inputs[3].shape = pad_size_shape
         DynamicPadOp.build(inputs, outputs)
-
-
-@export.public_api(document_under="operations/functions")
-@wrappers.interface(
-    dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
-    dtype_variables={"T1": ["float32", "float16", "bool", "int32"]},
-)
-def pad(
-    input: "nvtripy.Tensor", pad: Sequence[ShapeLike], mode: str = "constant", value: Union[int, float] = 0
-) -> "nvtripy.Tensor":
-    r"""
-    Pads the input tensor.
-
-    Args:
-        input: The input tensor.
-        pad: A sequence of padding sizes of each dimension. Its length must be equal to the rank
-            of ``input``. Each element of ``pad`` is a tuple of integers or :class:`DimensionSize` s ``(low, high)``,
-            which represents the padding sizes before the lowest index and after the highest index at
-            the corresponding dimension.
-        mode: The padding mode. Only "constant" is supported.
-        value: The padding value for "constant" mode.
-
-    Returns:
-        The padded tensor.
-
-    .. code-block:: python
-        :linenos:
-        :caption: Constant padding.
-
-        input = tp.reshape(tp.arange(6, dtype=tp.float32), (2, 3))
-        output = tp.pad(input, ((1, 0), (0, 1)))
-
-        input_np = np.arange(6, dtype=np.float32).reshape((2, 3)) # doc: omit
-        expected = np.pad(input_np, ((1, 0), (0, 1))) # doc: omit
-        assert np.array_equal(cp.from_dlpack(output).get(), expected)
-    """
-    if len(pad) != input.rank:
-        raise_error(
-            "`pad` length must equal to the rank of `input`.",
-            [f"Got pad={pad}, ", f" input's rank={input.rank}"],
-        )
-
-    supported_modes = {"constant"}
-    if mode not in supported_modes:
-        raise_error(
-            "Unsupported padding mode.",
-            [f"Got mode={mode}, while supported modes are {supported_modes}"],
-        )
-
-    padding_low, padding_high = list(zip(*pad))
-    return Pad.build(
-        [
-            input,
-            frontend_utils.tensor_from_shape_like(padding_low),
-            frontend_utils.tensor_from_shape_like(padding_high),
-        ],
-        value,
-    )

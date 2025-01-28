@@ -17,11 +17,7 @@
 
 from dataclasses import dataclass
 
-from nvtripy.utils import wrappers
-from nvtripy.common.datatype import DATA_TYPES
-from nvtripy.frontend.ops.registry import register_tensor_method
 from nvtripy.trace.ops.base import BaseTraceOp
-from nvtripy.types import ShapeLike
 
 
 @dataclass(repr=False)
@@ -40,31 +36,3 @@ class GetDimensionSize(BaseTraceOp):
         from nvtripy.flat_ir.ops import GetDimensionSizeOp
 
         GetDimensionSizeOp.build(inputs, outputs, self.dim)
-
-
-@register_tensor_method("shape")
-@property
-@wrappers.interface(dtype_constraints={"self": "T1"}, dtype_variables={"T1": list(DATA_TYPES.keys())})
-def shape(self: "nvtripy.Tensor") -> ShapeLike:
-    """
-    Represents the shape of the tensor.
-
-    Returns:
-        A sequence containing the shape of this tensor.
-
-    .. code-block:: python
-        :linenos:
-
-        # doc: print-locals input shape
-        input = tp.ones((8, 2))
-        shape = input.shape
-
-        assert shape == [8, 2]
-    """
-
-    # If the shape is statically known, we do not need to insert any operator calls.
-    # However, if we are tracing, it might still be necessary to insert calls in the final program, so we will keep it.
-    if all(dim >= 0 for dim in self.trace_tensor.shape) and not self.trace_tensor.is_compile_tracer:
-        return self.trace_tensor.shape
-
-    return [GetDimensionSize.build([self], dim=index, always_cast_to_dimension_size=True) for index in range(self.rank)]

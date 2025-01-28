@@ -16,9 +16,9 @@
 #
 
 from dataclasses import dataclass
+from typing import List, Optional
 
-from nvtripy import utils
-from typing import Optional, List
+from nvtripy.utils.stack_info import StackInfo
 
 
 @dataclass
@@ -28,7 +28,7 @@ class TraceTensor:
     """
 
     name: str
-    stack_info: utils.stack_info.StackInfo
+    stack_info: StackInfo
     dtype: "nvtripy.common.dtype"
     device: "nvtripy.common.device"
     producer: "BaseTraceOp"
@@ -42,7 +42,7 @@ class TraceTensor:
     is_compile_tracer: bool = False
     # Stack information for the point at which this tensor was evaluated if it was.
     # This is useful in the compiler to disallow evaluation during tracing.
-    eval_stack_info: Optional[utils.stack_info.StackInfo] = None
+    eval_stack_info: Optional[StackInfo] = None
 
     def __str__(self) -> str:
         return (

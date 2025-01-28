@@ -100,8 +100,8 @@ class BatchNorm(Module):
         Returns:
             A tensor of the same shape as the input.
         """
-        from nvtripy.trace.ops.unary_elementwise import rsqrt
-        from nvtripy.trace.ops.reshape import reshape
+        from nvtripy.frontend.ops.unary_elementwise import rsqrt
+        from nvtripy.frontend.ops.reshape import reshape
 
         x_shape = (1, self.num_features, *([1] * (x.rank - 2)))
 

@@ -17,12 +17,11 @@
 
 import cupy as cp
 import numpy as np
-import pytest
-from tests import helper
-
 import nvtripy as tp
+import pytest
 from nvtripy.common.datatype import DATA_TYPES
-from nvtripy.frontend import utils as frontend_utils
+from nvtripy.frontend.ops import utils as op_utils
+from tests import helper
 
 
 class TestIota:
@@ -85,7 +84,7 @@ class TestIota:
 
         # TODO: update the 'match' error msg when MLIR-TRT fixes dtype constraint
         a = tp.ones((2, 2))
-        out = Iota.build([frontend_utils.tensor_from_shape_like(a.shape)], dim=0, output_rank=2, dtype=dtype)
+        out = Iota.build([op_utils.tensor_from_shape_like(a.shape)], dim=0, output_rank=2, dtype=dtype)
 
         exception_str = "InternalError: failed to run compilation"
         with helper.raises(

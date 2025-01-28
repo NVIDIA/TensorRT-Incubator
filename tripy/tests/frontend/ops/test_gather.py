@@ -15,22 +15,19 @@
 # limitations under the License.
 #
 
-import pytest
+import numpy as np
+
 import nvtripy as tp
-from nvtripy.frontend.utils import tensor_from_shape_like
+from tests import helper
 
 
-@pytest.mark.parametrize(
-    "shape, expected",
-    [
-        ([1, 2, 3], [1, 2, 3]),
-        ([tp.DimensionSize(1), tp.DimensionSize(2)], [1, 2]),
-        ([], []),
-        ([1, tp.DimensionSize(2), 3], [1, 2, 3]),
-        ([1, tp.DimensionSize(2), 3, 4], [1, 2, 3, 4]),
-    ],
-)
-def test_tensor_from_shape_like(shape, expected):
-    tensor = tensor_from_shape_like(shape)
-
-    assert tensor.tolist() == expected
+class TestGather:
+    def test_incorrect_dtype(self):
+        a = tp.Tensor([[[1, 2, 3, 4], [1, 2, 3, 4]], [[1, 2, 3, 4], [1, 2, 3, 4]]])
+        index = tp.Tensor(np.zeros(1, dtype=np.float32))
+        with helper.raises(
+            tp.TripyException,
+            match="Unsupported data type for 'gather'.",
+            has_stack_info_for=[index],
+        ):
+            b = tp.gather(a, 0, index)

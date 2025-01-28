@@ -16,13 +16,9 @@
 #
 
 from dataclasses import dataclass
-from typing import Sequence
 
-from nvtripy import export
-from nvtripy.common.exception import raise_error
-from nvtripy.trace.ops.base import BaseTraceOp
 import nvtripy.trace.ops.utils as op_utils
-from nvtripy.utils import wrappers
+from nvtripy.trace.ops.base import BaseTraceOp
 
 
 @dataclass(repr=False)
@@ -40,40 +36,3 @@ class Concatenate(BaseTraceOp):
         if self.dim < 0:
             self.dim += inputs[0].rank
         ConcatenateOp.build(inputs, outputs, dim=self.dim)
-
-
-@export.public_api(document_under="operations/functions")
-@wrappers.interface(
-    dtype_constraints={"tensors": "T1", wrappers.RETURN_VALUE: "T1"},
-    dtype_variables={
-        "T1": ["float32", "float16", "bfloat16", "int4", "int8", "int32", "int64", "bool"],
-    },
-)
-def concatenate(tensors: Sequence["nvtripy.Tensor"], dim: int) -> "nvtripy.Tensor":
-    r"""
-    Returns a copy of the input tensor on the target device.
-
-    Args:
-        tensors: Sequence of tensors of the same type and having the same shape except in the concatenated dimension.
-        dim: the dimension over which the tensors are concatenated.
-
-    Returns:
-        Concatenated tensor with shape along `dim` axis equal to sum of dimensions at `dim` axis for all inputs.
-
-    .. code-block:: python
-        :linenos:
-
-        a = tp.iota((1, 2), dtype=tp.float32)
-        b = tp.iota((2, 2), dtype=tp.float32)
-
-        output = tp.concatenate([a, b], dim=0)
-
-        assert np.array_equal(cp.from_dlpack(output).get(), np.concatenate((cp.from_dlpack(a).get(), cp.from_dlpack(b).get()), axis=0))
-    """
-    if not tensors:
-        raise_error(f"Expected a non-empty list of tensors, got {tensors}")
-
-    if len(tensors) == 1:
-        return tensors[0]
-
-    return Concatenate.build(list(tensors), dim)

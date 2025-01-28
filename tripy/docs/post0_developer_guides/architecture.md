@@ -145,7 +145,7 @@ Here's the textual representation for the `Trace` from our example:
 <!-- Tripy: DOC: OMIT Start -->
 ```py
 # doc: no-print-locals
-from nvtripy.trace import Trace
+from nvtripy.trace.trace import Trace
 # Output has been eval'd already, so we'll construct a new one
 new_out = tp.tanh(inp)
 trace = Trace([new_out.trace_tensor])

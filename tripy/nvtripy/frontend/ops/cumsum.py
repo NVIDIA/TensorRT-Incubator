@@ -13,8 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from nvtripy import export
-
-from nvtripy.frontend import utils as frontend_utils
+from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.utils import wrappers
 
 
@@ -71,10 +70,10 @@ def cumsum(input: "nvtripy.Tensor", dim: int) -> "nvtripy.Tensor":
     # In the general case where `a` is an N-dimensional tensor, we simply transpose
     # the dimension of interest to the innermost position and then carry out the
     # GEMM described above, then tranpose the output back.
-    from nvtripy.trace.ops.permute import permute
-    from nvtripy.frontend.ops.tensor_initializers import triu, ones
+    from nvtripy.frontend.ops.permute import permute
+    from nvtripy.frontend.ops.tensor_initializers import ones, triu
 
-    dim = frontend_utils.process_dim(dim, input.rank)
+    dim = op_utils.process_dim(dim, input.rank)
 
     # For the examples in the comments that follow, assume the input shape is (3, 5, 7) and
     # we are applying cumsum over dim=1 (the dimension of length 5).

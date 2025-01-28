@@ -45,7 +45,7 @@ def unsqueeze(input: "nvtripy.Tensor", dim: int) -> "nvtripy.Tensor":
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.expand_dims(cp.from_dlpack(input).get(), 1))
     """
-    from nvtripy.trace.ops.reshape import reshape
+    from nvtripy.frontend.ops.reshape import reshape
 
     if dim < 0:
         # We cannot use process_dim here because we need to add an extra 1.

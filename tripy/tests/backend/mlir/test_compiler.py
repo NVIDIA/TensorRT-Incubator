@@ -21,7 +21,7 @@ from tests import helper
 import nvtripy as tp
 from nvtripy.backend.mlir.compiler import map_error_to_user_code_and_raise
 from nvtripy.flat_ir.tensor import FlatIRTensor
-from nvtripy.trace import Trace
+from nvtripy.trace.trace import Trace
 
 
 # Tests to ensure that we're able to map errors from MLIR-TRT back to the Python code cleanly.

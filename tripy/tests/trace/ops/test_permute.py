@@ -15,31 +15,11 @@
 # limitations under the License.
 #
 
-import numpy as np
-import pytest
-from tests import helper
 
 import nvtripy as tp
-from nvtripy.trace.ops import Permute
 
 
 class TestPermute:
-    def test_op_func(self):
-        a = tp.Tensor(np.array([[1, 2, 3], [4, 5, 6]], dtype=np.float32))
-        a = tp.permute(a, (1, 0))
-        assert isinstance(a, tp.Tensor)
-        assert isinstance(a.trace_tensor.producer, Permute)
-
-    @pytest.mark.parametrize("perm", [(0,), (0, 1, 2)])
-    def test_mistmatched_permutation_fails(self, perm):
-        a = tp.ones((2, 3), dtype=tp.float32)
-
-        with helper.raises(
-            tp.TripyException,
-            match="Invalid permutation.",
-        ):
-            b = tp.permute(a, perm)
-
     def test_infer_rank(self):
         a = tp.ones((3, 2))
         a = tp.permute(a, (1, 0))

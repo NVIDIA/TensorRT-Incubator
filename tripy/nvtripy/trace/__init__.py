@@ -17,4 +17,3 @@
 
 # IMPORTANT: The `trace` submodule should *not* import the frontend `Tensor` as this
 # will create a circular dependency.
-from nvtripy.trace.trace import Trace
