@@ -13,11 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from typing import Union
 
 from nvtripy import export
 from nvtripy.common.exception import raise_error
-from nvtripy.frontend import utils as frontend_utils
+from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.types import IntLike
 from nvtripy.utils import wrappers
 
@@ -69,11 +68,11 @@ def repeat(input: "nvtripy.Tensor", repeats: IntLike, dim: int) -> "nvtripy.Tens
         assert np.array_equal(ref_out1, np.from_dlpack(tp.copy(out1, device=tp.device("cpu"))))
     """
     from nvtripy.frontend.dimension_size import DimensionSize
+    from nvtripy.frontend.ops.expand import expand
+    from nvtripy.frontend.ops.reshape import reshape
     from nvtripy.frontend.ops.unsqueeze import unsqueeze
-    from nvtripy.trace.ops.expand import expand
-    from nvtripy.trace.ops.reshape import reshape
 
-    dim = frontend_utils.process_dim(dim, input.rank)
+    dim = op_utils.process_dim(dim, input.rank)
 
     if isinstance(repeats, int):
         if repeats < 0:

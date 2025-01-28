@@ -20,7 +20,7 @@ import inspect
 import pytest
 import dataclasses
 from tests import helper
-from nvtripy.trace.ops import BaseTraceOp
+from nvtripy.trace.ops.base import BaseTraceOp
 
 OP_TYPES = sorted(
     {obj for obj in helper.discover_tripy_objects() if inspect.isclass(obj) and issubclass(obj, BaseTraceOp)},

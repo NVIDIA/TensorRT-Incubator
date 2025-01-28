@@ -117,8 +117,8 @@ class Linear(Module):
         from nvtripy.common.exception import raise_error
         from nvtripy.frontend.ops.transpose import transpose
         from nvtripy.frontend.ops.unsqueeze import unsqueeze
-        from nvtripy.trace.ops.dequantize import dequantize
-        from nvtripy.trace.ops.quantize import quantize
+        from nvtripy.frontend.ops.dequantize import dequantize
+        from nvtripy.frontend.ops.quantize import quantize
 
         if self.quant_dtype is not None:
             if self.input_scale:

@@ -16,32 +16,10 @@
 #
 
 
-from tests import helper
-
 import nvtripy as tp
-from nvtripy.trace.ops import Reshape
 
 
 class TestReshape:
-    def test_op_func(self):
-        a = tp.Tensor([1, 2, 3, 4])
-        a = tp.reshape(a, (1, 1, 4))
-        assert isinstance(a, tp.Tensor)
-        assert isinstance(a.trace_tensor.producer, Reshape)
-
-    def test_neg_dim_func(self):
-        a = tp.Tensor([1, 2, 3, 4])
-        a = tp.reshape(a, (1, 1, -1))
-        assert isinstance(a, tp.Tensor)
-        assert isinstance(a.trace_tensor.producer, Reshape)
-
-    def test_invalid_neg_dim_reshape(self):
-        shape = (1, 30)
-        new_shape = (-1, -1)
-        with helper.raises(tp.TripyException, match="The new shape can have at most one inferred dimension"):
-            a = tp.reshape(tp.ones(shape), new_shape)
-            print(a)
-
     def test_infer_rank(self):
         a = tp.Tensor([1, 2, 3, 4])
         a = tp.reshape(a, (1, 1, -1))

@@ -15,15 +15,13 @@
 # limitations under the License.
 #
 
-import pytest
 import cupy as cp
 import numpy as np
-
 import nvtripy as tp
-
-from nvtripy.constants import STORAGE_OP_CACHE_VOLUME_THRESHOLD
+import pytest
 from nvtripy.backend.mlir import memref
-from nvtripy.trace.ops import Storage
+from nvtripy.constants import STORAGE_OP_CACHE_VOLUME_THRESHOLD
+from nvtripy.trace.ops.storage import Storage
 from nvtripy.trace.tensor import TraceTensor
 
 

@@ -19,7 +19,6 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 import nvtripy.trace.ops.utils as op_utils
-from nvtripy.utils import wrappers
 from nvtripy.trace.ops.base import BaseTraceOp
 
 
@@ -48,21 +47,3 @@ class Convolution(BaseTraceOp):
             lhs_dilation=self.lhs_dilation,
             rhs_dilation=self.rhs_dilation,
         )
-
-
-@wrappers.interface(
-    dtype_constraints={"input": "T1", "weight": "T1", wrappers.RETURN_VALUE: "T1"},
-    dtype_variables={
-        "T1": ["float32", "float16", "bfloat16"],
-    },
-)
-def convolution(
-    input: "nvtripy.Tensor",
-    weight: "nvtripy.Tensor",
-    padding: Sequence[Sequence[int]],
-    stride: Sequence[int],
-    groups: int,
-    lhs_dilation: Sequence[int],
-    rhs_dilation: Sequence[int],
-):
-    return Convolution.build([input, weight], padding, stride, groups, lhs_dilation, rhs_dilation)

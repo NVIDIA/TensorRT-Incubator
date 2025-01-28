@@ -17,10 +17,9 @@
 
 from dataclasses import dataclass
 
-import nvtripy.trace.ops.utils as op_utils
-from nvtripy import export, utils
+from nvtripy import utils
+from nvtripy.trace.ops import utils as op_utils
 from nvtripy.trace.ops.base import BaseTraceOp
-from nvtripy.utils import wrappers
 
 
 @dataclass(repr=False)
@@ -86,37 +85,3 @@ class Gather(BaseTraceOp):
 
         slice_sizes = op_utils.concatenate_tensors(size_partial_tensors, dim=0)
         DynamicGatherOp.build([inputs[0], inputs[1], slice_sizes], outputs, self.axis)
-
-
-@export.public_api(document_under="operations/functions")
-@wrappers.interface(
-    dtype_constraints={"input": "T1", "index": "T2", wrappers.RETURN_VALUE: "T1"},
-    dtype_variables={
-        "T1": ["float8", "float32", "float16", "bfloat16", "int4", "int8", "int32", "int64", "bool"],
-        "T2": ["int32"],
-    },
-)
-def gather(input: "nvtripy.Tensor", dim: int, index: "nvtripy.Tensor") -> "nvtripy.Tensor":
-    """
-    Gather values from the input tensor along the specified axis based on the specified indices.
-    This behaves similarly to ``numpy.take()``.
-
-    Args:
-        input: The input tensor
-        dim: Axis along which data is gathered.
-        index: The indices of elements to gather.
-
-    Returns:
-        A new tensor of the same shape along every
-        dimension except ``dim``, which will have a size equal to ``len(index)``.
-
-    .. code-block:: python
-        :linenos:
-
-        data = tp.iota((3, 3, 2))
-        indices = tp.Tensor([0, 2], dtype=tp.int32)
-        output = tp.gather(data, 1, indices)
-
-        assert np.array_equal(cp.from_dlpack(output).get(), np.take(cp.from_dlpack(data).get(), cp.from_dlpack(indices).get(), axis=1))
-    """
-    return Gather.build([input, index], dim)

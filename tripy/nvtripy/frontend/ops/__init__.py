@@ -15,4 +15,8 @@
 # limitations under the License.
 #
 
-from nvtripy.frontend.ops.tensor_initializers import arange, ones, ones_like, zeros, zeros_like, tril, triu
+# Here we import only those ops which need to add themselves to the tensor method registry
+import nvtripy.frontend.ops.binary_elementwise
+import nvtripy.frontend.ops.matmul
+import nvtripy.frontend.ops.shape
+import nvtripy.frontend.ops.slice

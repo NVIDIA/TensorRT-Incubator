@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-from typing import Any, List, Optional, Sequence
+from typing import Any, List, Optional
 
 import nvtripy.common.datatype as tp_dtype
 from nvtripy import utils
@@ -23,7 +23,6 @@ from nvtripy.backend.mlir.memref import create_memref
 from nvtripy.common.datatype import bool as tp_bool
 from nvtripy.common.datatype import int32
 from nvtripy.common.device import device
-from nvtripy.common.exception import raise_error
 from nvtripy.flat_ir.ops import (
     CompareOp,
     ConcatenateOp,
@@ -34,12 +33,6 @@ from nvtripy.flat_ir.ops import (
     SelectOp,
 )
 from nvtripy.flat_ir.tensor import FlatIRTensor
-
-
-def is_minus_one(arg):
-    # Avoid doing an == with a Tensor
-    return isinstance(arg, int) and arg == -1
-
 
 ##
 ## infer_rank helpers
@@ -315,13 +308,6 @@ def slice_rank1_tensor(rank1_tensor: "FlatIRTensor", slice_index: int, reason_de
 ## Quantize
 ##
 
-QUANTIZABLE_DTYPES = (tp_dtype.float32, tp_dtype.float16, tp_dtype.bfloat16)
-QUANTIZED_DTYPES = (tp_dtype.int8, tp_dtype.int4, tp_dtype.float8)
-
-
-def is_quantized_dtype(dtype: "nvtripy.common.datatype.dtype") -> bool:
-    return dtype in QUANTIZED_DTYPES
-
 
 def get_clamp_min_max(element_dtype, quant_dtype):
     QUANT_CLAMP_MIN_MAX = {
@@ -347,112 +333,3 @@ def get_clamp_min_max(element_dtype, quant_dtype):
     ConstantOp.build([], [clamp_min], data=min_val)
     ConstantOp.build([], [clamp_max], data=max_val)
     return clamp_min, clamp_max
-
-
-def check_qdq_args(input, scale, dtype, dim, is_quantize):
-    valid_input_dtypes = QUANTIZABLE_DTYPES if is_quantize else QUANTIZED_DTYPES
-    valid_target_dtypes = QUANTIZED_DTYPES if is_quantize else QUANTIZABLE_DTYPES
-    op_str = "quantize op" if is_quantize else "dequantize op"
-
-    if input.dtype not in valid_input_dtypes:
-        raise_error(
-            f"Input does not have a valid dtype in {op_str}.",
-            [
-                f"input.dtype must be one of {valid_input_dtypes}, ",
-                f"Got dtype={input.dtype}",
-            ],
-        )
-
-    if dtype not in valid_target_dtypes:
-        raise_error(
-            f"Unsupported dtype in {op_str}.",
-            [
-                f"Supported dtypes are: {valid_target_dtypes}. ",
-                f"Got dtype={dtype}",
-            ],
-        )
-
-    quantizable_dtype, quantized_dtype = (input.dtype, dtype) if is_quantize else (dtype, input.dtype)
-    if scale.dtype != quantizable_dtype:
-        raise_error(
-            f"Scale dtype does not match expected dtype in {op_str}.",
-            [f"scale should have dtype={quantizable_dtype}, got {scale.dtype}"],
-        )
-
-    if dim is not None:
-        # per-channel
-        if scale.rank != 1:
-            raise_error(
-                f"If dim is given, scale must be a 1-D tensor in per-channel {op_str}.",
-                [f"scale has rank={scale.rank}."],
-            )
-    elif scale.rank == 2:
-        # block-wise:
-        if input.rank != 2:
-            raise_error(
-                f"Input must be a 2-D tensor in block-wise {op_str}.",
-                [f"input has rank={input.rank}."],
-            )
-        if quantized_dtype != tp_dtype.int4:
-            raise_error(
-                f"Unsupported dtype in block-wise {op_str}.",
-                [f"Only `tp.int4` is supported, got {quantized_dtype}"],
-            )
-    elif scale.rank != 0:
-        # per-tensor
-        raise_error(
-            f"Scale must be a scalar tensor in per-tensor {op_str}.",
-            [f"scale has rank={scale.rank}."],
-        )
-
-
-##
-## Conv & Pooling
-##
-def check_conv_pooling_args(kernel_dims, stride, padding, dilation=None):
-    spatial_dims = len(kernel_dims)
-
-    if stride is not None:
-        if len(stride) != spatial_dims:
-            raise_error(
-                "Stride must have the same length as kernel_dims.",
-                [f"Got stride={stride}, ", f"kernel_dims={kernel_dims}"],
-            )
-
-        if not all(s > 0 for s in stride):
-            raise_error(
-                "Non-positive stride is not supported.",
-                details=[f"Got stride: {stride} but all values must be integers greater than 0."],
-            )
-
-    if padding is not None:
-        if len(padding) != spatial_dims:
-            raise_error(
-                "Padding must have the same length as kernel_dims.",
-                [f"Got padding={padding}, ", f"kernel_dims={kernel_dims}"],
-            )
-
-        if not all(len(pad) == 2 for pad in padding):
-            raise_error(
-                f"Padding must be provided as a sequence of pairs of integers.",
-                details=[f"Supplied padding attribute: {padding} contains sequences that are not of length 2."],
-            )
-
-        if not all(p1 >= 0 and p2 >= 0 for p1, p2 in padding):
-            raise_error(
-                "Negative padding is not supported.",
-                details=[f"Got padding: {padding} but all values must be non-negative integers."],
-            )
-
-    if dilation is not None:
-        if len(dilation) != spatial_dims:
-            raise_error(
-                "Dilation must have the same length as kernel_dims.",
-                [f"Got dilation={dilation}, ", f"kernel_dims={kernel_dims}"],
-            )
-
-        if not all(isinstance(d, int) and d > 0 for d in dilation):
-            raise_error(
-                "Non-positive dilation is not supported.",
-                details=[f"Got dilation: {dilation} but all values must be integers greater than 0."],
-            )

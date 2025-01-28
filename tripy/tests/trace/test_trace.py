@@ -22,7 +22,7 @@ import cupy as cp
 import nvtripy as tp
 from tests import helper
 from nvtripy.constants import STORAGE_OP_CACHE_VOLUME_THRESHOLD
-from nvtripy.trace import Trace
+from nvtripy.trace.trace import Trace
 
 
 class TestTrace:

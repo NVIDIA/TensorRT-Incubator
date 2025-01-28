@@ -19,7 +19,7 @@ import pytest
 
 import nvtripy as tp
 from tests import helper
-from nvtripy.trace.ops import Flip
+from nvtripy.trace.ops.flip import Flip
 
 
 class TestFlip:

@@ -141,8 +141,8 @@ def convert_input_types(
     from nvtripy.common.datatype import floating, integer
     from nvtripy.frontend.dimension_size import DimensionSize
     from nvtripy.frontend.tensor import Tensor
-    from nvtripy.trace.ops.cast import cast
-    from nvtripy.frontend.utils import tensor_from_shape_like
+    from nvtripy.frontend.ops.cast import cast
+    from nvtripy.frontend.ops.utils import tensor_from_shape_like
 
     if conversion_preprocess_func is not None:
         var_arg_name, var_arg_start_idx = utils.utils.default(var_arg_info, (None, None))

@@ -16,7 +16,7 @@
 #
 
 import nvtripy as tp
-from nvtripy.trace import Trace
+from nvtripy.trace.trace import Trace
 
 
 class TestFlatIR:

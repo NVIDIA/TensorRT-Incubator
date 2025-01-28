@@ -22,48 +22,6 @@ from nvtripy.common.exception import raise_error
 from nvtripy.flat_ir.ops import BaseFlatIROp
 
 
-def tensor_from_shape_like(arg: "nvtripy.ShapeLike") -> "nvtripy.Tensor":
-    from nvtripy.common.datatype import int32
-    from nvtripy.frontend.dimension_size import DimensionSize
-    from nvtripy.frontend.tensor import Tensor
-    from nvtripy.trace.ops.concatenate import concatenate
-    from nvtripy.trace.ops.reshape import Reshape
-
-    if not arg:
-        return Tensor.create_directly([], dtype=int32)
-
-    concat_tensors = []
-
-    # We accumulate integers so we can create just a single tensor for each contiguous
-    # sequence of integers.
-    int_buffer = []
-
-    def empty_buffer():
-        if not int_buffer:
-            return
-
-        concat_tensors.append(Tensor.create_directly(int_buffer, dtype=int32))
-        int_buffer.clear()
-
-    for elem in arg:
-        if isinstance(elem, DimensionSize):
-            empty_buffer()
-            # NOTE: We cannot use the reshape API here since it would lead to an
-            # infinite loop when attempting to convert the shape input to a tensor.
-            concat_tensors.append(Reshape.build([elem, Tensor.create_directly([1])], 1))
-        else:
-            int_buffer.append(elem)
-
-    empty_buffer()
-
-    out = concatenate(concat_tensors, dim=0)
-    # We must set the shape of the shape tensor here since otherwise we will not be able
-    # to infer ranks in the frontend. Note that the reshape operations above will not result
-    # in a tensor with known shapes even though the new shape is actually known.
-    out.trace_tensor.shape = [len(arg)]
-    return out
-
-
 def topological_sort(ops: List[Union["BaseTraceOp", BaseFlatIROp]]) -> List[Union["BaseTraceOp", BaseFlatIROp]]:
     """
     This utility to topologically sort a graph that can be a Trace or a FlatIR graph.
@@ -100,24 +58,6 @@ def topological_sort(ops: List[Union["BaseTraceOp", BaseFlatIROp]]) -> List[Unio
 
     assert len(ops) == len(result), f"Num original ops {len(ops)}, got num {len(result)}"
     return result
-
-
-# Processes a `dim` (i.e. axis) argument related to a tensor.
-# If the dimension is negative, this will convert it to the corresponding positive index.
-def process_dim(dim: int, input_rank: int) -> int:
-    new_dim = dim
-    if dim < 0:
-        new_dim = input_rank + dim
-
-    if new_dim < 0 or new_dim >= input_rank:
-        raise_error(
-            "Dimension argument is out of bounds.",
-            [
-                f"Note: provided dimension was: {dim}, while the tensor has a rank of: {input_rank}.\n"
-                f"Dimension should be in the half-open interval: [{-input_rank}, {input_rank})."
-            ],
-        )
-    return new_dim
 
 
 def pretty_print(data_list, shape, threshold=40, linewidth=10, edgeitems=3):

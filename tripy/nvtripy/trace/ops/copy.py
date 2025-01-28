@@ -18,10 +18,8 @@
 from dataclasses import dataclass
 
 import nvtripy.trace.ops.utils as op_utils
-from nvtripy import export
 from nvtripy.common.device import device
 from nvtripy.trace.ops.base import BaseTraceOp
-from nvtripy.utils import wrappers
 
 
 @dataclass(repr=False)
@@ -37,34 +35,3 @@ class Copy(BaseTraceOp):
         from nvtripy.flat_ir.ops import CopyOp
 
         CopyOp.build(inputs, outputs, target=self.target)
-
-
-@export.public_api(document_under="operations/functions")
-@wrappers.interface(
-    dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
-    dtype_variables={
-        "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
-    },
-)
-def copy(input: "nvtripy.Tensor", device: "nvtripy.device") -> "nvtripy.Tensor":
-    r"""
-    Returns a copy of the input tensor on the target device.
-
-    Args:
-        input: Tensor that will be copied
-        device: The target device.
-
-    Returns:
-        A copy of input tensor on target device.
-
-    .. code-block:: python
-        :linenos:
-
-        input = tp.Tensor([1, 2], device=tp.device("gpu"))
-        output = tp.copy(input, tp.device("cpu"))
-
-        assert np.array_equal(np.from_dlpack(output), np.array([1, 2], dtype=np.float32))
-        assert output.trace_tensor.producer.device.kind == "cpu"
-    """
-
-    return Copy.build([input], device)

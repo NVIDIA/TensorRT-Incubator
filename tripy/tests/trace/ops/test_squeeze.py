@@ -12,31 +12,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import numpy as np
-
 import nvtripy as tp
-from tests import helper
-from nvtripy.trace.ops import Squeeze
 
 
 class TestSqueeze:
-    def test_op_func(self):
-        a = tp.Tensor(np.ones((1, 1, 4), dtype=np.int32))
-        a = tp.squeeze(a, dims=(0, 1))
-        assert isinstance(a, tp.Tensor)
-        assert isinstance(a.trace_tensor.producer, Squeeze)
-
-    def test_incorrect_dims(self):
-        a = tp.Tensor(np.ones((1, 1, 4), dtype=np.int32))
-        b = tp.squeeze(a, 2)
-
-        with helper.raises(
-            tp.TripyException,
-            match=r"number of output elements \(1\) doesn't match expected number of elements \(4\)",
-            has_stack_info_for=[a, b],
-        ):
-            b.eval()
-
     def test_infer_rank(self):
         a = tp.ones((3, 2, 1, 2))
         b = tp.squeeze(a, 2)

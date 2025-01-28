@@ -21,10 +21,10 @@ from typing import List, Sequence, Set
 from nvtripy import utils
 from nvtripy.common.exception import raise_error
 from nvtripy.common.shape_bounds import ShapeBounds
-from nvtripy.trace.ops import Storage
-from nvtripy.trace.tensor import TraceTensor
 from nvtripy.frontend.utils import topological_sort
 from nvtripy.logging import logger
+from nvtripy.trace.ops.storage import Storage
+from nvtripy.trace.tensor import TraceTensor
 
 
 class Trace:

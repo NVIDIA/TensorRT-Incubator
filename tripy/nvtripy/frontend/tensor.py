@@ -22,18 +22,15 @@ import mlir_tensorrt.runtime.api as runtime
 
 # Import ops to populate the registry before we define our Tensor class
 import nvtripy.frontend.ops
-import nvtripy.trace.ops
-from nvtripy import config
 from nvtripy import export, utils
 from nvtripy.backend.mlir import memref
 from nvtripy.common import datatype
 from nvtripy.common.exception import raise_error, str_from_stack_info
-from nvtripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
-from nvtripy.trace.ops import Storage
-from nvtripy.trace.tensor import TraceTensor
+from nvtripy.frontend.ops._registry import TENSOR_METHOD_REGISTRY
 from nvtripy.logging.logger import logger
+from nvtripy.trace.ops.storage import Storage
+from nvtripy.trace.tensor import TraceTensor
 from nvtripy.utils.stack_info import StackInfo
-
 
 # We include code for everything above the `BaseTraceOp.build` function, which is called at most
 # this many stack frames above the constructor.
@@ -155,7 +152,7 @@ class Tensor(metaclass=TensorMeta):
         # Explicit cast if necessary
         # TODO(#155): Add copy as well when host allocation is fixed
         if dtype is not None and dtype != instance.trace_tensor.dtype:
-            from nvtripy.trace.ops.cast import cast
+            from nvtripy.frontend.ops.cast import cast
 
             instance.trace_tensor = cast(instance, dtype=dtype).trace_tensor
 
@@ -206,8 +203,8 @@ class Tensor(metaclass=TensorMeta):
 
         from nvtripy.backend.mlir.compiler import Compiler
         from nvtripy.backend.mlir.executor import Executor
-        from nvtripy.trace import Trace
         from nvtripy.frontend.cache import global_cache
+        from nvtripy.trace.trace import Trace
 
         # Collect inputs
         inputs = Trace._collect_storage_tensors(self.trace_tensor)
@@ -262,7 +259,7 @@ class Tensor(metaclass=TensorMeta):
             datatype.int64,
             datatype.bool,
         ):
-            from nvtripy.trace.ops.cast import cast
+            from nvtripy.frontend.ops.cast import cast
 
             data_memref = cast(Tensor(data_memref), datatype.float32).eval()
         return memref.tolist(data_memref)
