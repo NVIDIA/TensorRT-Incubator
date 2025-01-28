@@ -6,4 +6,5 @@ add_mlir_tensorrt_public_c_api_library(MLIRTensorRTCAPIRegisterAllDialects
     MLIRTensorRTRegistration
     MLIRCAPIIR
     MLIRTensorRTCompilerStableHloToExecutable
+    MLIRTensorRTCompilerTensorRTToExecutable
 )
