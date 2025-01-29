@@ -95,15 +95,18 @@ class BaseTraceOp(abc.ABC):
         ), "Default implementation cannot handle cases where there are no inputs, multiple outputs, or multiple inputs with different devices. Please override."
         self.outputs[0].device = self.inputs[0].device
 
+    # TODO (pranavm): Might be better to pass outputs too for symmetry. Otherwise it's not clear
+    # when to access self.inputs/outputs vs. inputs/outputs (ideally should be the latter always).
     @abc.abstractmethod
-    def to_flat_ir(self, inputs: List["FlatIRTensor"], outputs: List["FlatIRTensor"]):
+    def to_mlir(self, inputs: List["ir.Operation"]) -> List["ir.Operation"]:
         """
-        Generates a FlatIR subgraph for the operation and binds it to the specified
-        inputs and outputs.
+        Generates MLIR operations for the operation.
 
         Args:
-            inputs: The inputs to the subgraph.
-            outputs: The outputs of the subgraph.
+            inputs: The input MLIR operations.
+
+        Returns:
+            The generated MLIR operations.
         """
         ...
 

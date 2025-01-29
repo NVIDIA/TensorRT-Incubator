@@ -138,7 +138,7 @@ def compile(
         if isinstance(arg, InputInfo):
             # Make new tensors for tracing.
             from nvtripy.common.datatype import floating, integer
-            from nvtripy.frontend.ops.fill import full
+            from nvtripy.frontend.ops.full import full
 
             init_value = 1 if issubclass(arg.dtype, integer) else 1.0 if issubclass(arg.dtype, floating) else True
             tensor = full(shape=arg.shape_bounds.opt, value=init_value, dtype=arg.dtype)
@@ -191,10 +191,9 @@ def compile(
                     "Cannot evaluate a tensor while compiling.", ["Tensor was evaluated here:", tensor.eval_stack_info]
                 )
 
-    flat_ir = trace.to_flat_ir()
-    mlir = flat_ir.to_mlir()
+    mlir = trace.to_mlir()
     compiler = MLIRCompiler(trt_builder_opt_level=optimization_level)
-    executable = compiler.compile(mlir, flat_ir=flat_ir)
+    executable = compiler.compile(mlir, trace=trace)
 
     return Executable(
         executable,
