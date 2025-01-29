@@ -71,7 +71,8 @@ def cumsum(input: "nvtripy.Tensor", dim: int) -> "nvtripy.Tensor":
     # the dimension of interest to the innermost position and then carry out the
     # GEMM described above, then tranpose the output back.
     from nvtripy.frontend.ops.permute import permute
-    from nvtripy.frontend.ops.tensor_initializers import ones, triu
+    from nvtripy.frontend.ops.ones import ones
+    from nvtripy.frontend.ops.triu import triu
 
     dim = op_utils.process_dim(dim, input.rank)
 

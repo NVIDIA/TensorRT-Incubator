@@ -50,7 +50,7 @@ def relu(input: "nvtripy.Tensor") -> "nvtripy.Tensor":
 
     """
     from nvtripy.frontend.ops.binary_elementwise import maximum
-    from nvtripy.frontend.ops.tensor_initializers import zeros
+    from nvtripy.frontend.ops.zeros import zeros
 
     mask = zeros((1,), dtype=input.dtype)
     return maximum(mask, input)
