@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1738089023940,
+  "lastUpdate": 1738192194625,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -11348,6 +11348,47 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000002829778995429449",
             "extra": "mean: 53.259012670942035 usec\nrounds: 19576"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "8935732bf9e077cf9b494914d2ddd7dce092fc5f",
+          "message": "Disentangles Trace from the frontend",
+          "timestamp": "2025-01-28T18:32:06Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/485/commits/8935732bf9e077cf9b494914d2ddd7dce092fc5f"
+        },
+        "date": 1738192193740,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 5957.516155182788,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00003694430023193126",
+            "extra": "mean: 167.8551889666371 usec\nrounds: 6309"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 6419.797831002592,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000033454127060013364",
+            "extra": "mean: 155.7681450918569 usec\nrounds: 6941"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_tripy_param_update",
+            "value": 18981.122333154526,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000003296905331791053",
+            "extra": "mean: 52.6839236609992 usec\nrounds: 19993"
           }
         ]
       }
