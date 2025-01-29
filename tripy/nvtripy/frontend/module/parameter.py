@@ -29,7 +29,7 @@ class DefaultParameter(Tensor):
     """
 
     def __init__(self, shape: Optional[Sequence[int]], dtype: "nvtripy.dtype") -> None:
-        from nvtripy.frontend.ops.tensor_initializers import arange
+        from nvtripy.frontend.ops.arange import arange
         from nvtripy.frontend.ops.reshape import reshape
 
         is_shape_known = True
