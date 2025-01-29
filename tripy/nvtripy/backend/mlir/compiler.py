@@ -53,7 +53,7 @@ class Compiler:
         self.mlir_context, self.compiler_client = _get_compiler_objects()
         self.trt_builder_opt_level = trt_builder_opt_level
 
-    def _make_mlir_opts(self, trt_builder_opt_level):
+    def _get_compilation_task(self, trt_builder_opt_level):
         opts = [
             f"--tensorrt-timing-cache-path={G_TIMING_CACHE_FILE}",
             f"--tensorrt-builder-opt-level={trt_builder_opt_level}",
@@ -67,25 +67,27 @@ class Compiler:
             if config.enable_tensorrt_debug:
                 opts.append(f"--tensorrt-layer-info-dir={config.tensorrt_debug_path}")
                 opts.append(f"--tensorrt-engines-dir={config.tensorrt_debug_path}")
-        return compiler.StableHLOToExecutableOptions(self.compiler_client, opts)
+        return self.compiler_client.get_compilation_task(
+            "stablehlo-to-executable", opts
+        )
 
     def compile_stabehlo_program(self, code: str) -> compiler.Executable:
         with self.mlir_context:
             module = ir.Module.parse(code)
-            opts = self._make_mlir_opts(self.trt_builder_opt_level)
-            return compiler.compiler_stablehlo_to_executable(self.compiler_client, module.operation, opts)
+            task = self._get_compilation_task(self.trt_builder_opt_level)
+            task.run(module.operation)
+            return compiler.translate_mlir_to_executable(module.operation)
 
     # The optional flat_ir parameter is used to generate nicer error messages.
     @utils.utils.log_time
     def compile(self, mlir_module: ir.Module, flat_ir: Optional["FlatIR"] = None) -> compiler.Executable:
         logger.mlir(lambda: f"{mlir_module.operation.get_asm(large_elements_limit=32)}\n")
-        opts = self._make_mlir_opts(self.trt_builder_opt_level)
+        task = self._get_compilation_task(self.trt_builder_opt_level)
+        task.run(module.operation)
 
         try:
             with redirect_stderr() as outfile:
-                executable = compiler.compiler_stablehlo_to_executable(
-                    self.compiler_client, mlir_module.operation, opts
-                )
+                executable = compiler.translate_mlir_to_executable(module.operation)
         except Exception as exc:
             outfile.flush()
             outfile.seek(0)
