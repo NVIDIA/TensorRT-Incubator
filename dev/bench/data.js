@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1738192194625,
+  "lastUpdate": 1738363268138,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -11389,6 +11389,47 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000003296905331791053",
             "extra": "mean: 52.6839236609992 usec\nrounds: 19993"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "09d75a6a04471ddabb62eb0d31dd430fe3bf7bf8",
+          "message": "Refactors trace operations to be more self-contained, separates front…",
+          "timestamp": "2025-01-31T13:07:27Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/486/commits/09d75a6a04471ddabb62eb0d31dd430fe3bf7bf8"
+        },
+        "date": 1738363267202,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 5834.707746649179,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000054949537330368756",
+            "extra": "mean: 171.38819002104967 usec\nrounds: 6258"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 6310.195634862414,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00003275097140468483",
+            "extra": "mean: 158.4736920794063 usec\nrounds: 6802"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_tripy_param_update",
+            "value": 18960.412138107233,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000028267900620606174",
+            "extra": "mean: 52.741469579670614 usec\nrounds: 20104"
           }
         ]
       }
