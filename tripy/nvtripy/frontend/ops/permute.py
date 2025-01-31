@@ -19,6 +19,7 @@ from typing import Sequence
 
 from nvtripy import export
 from nvtripy.common.exception import raise_error
+from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.trace.ops.permute import Permute
 from nvtripy.utils import wrappers
 
@@ -66,4 +67,4 @@ def permute(input: "nvtripy.Tensor", perm: Sequence[int]) -> "nvtripy.Tensor":
             ],
         )
 
-    return Permute.build([input], perm)
+    return op_utils.create_op(Permute, [input], perm)

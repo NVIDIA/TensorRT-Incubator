@@ -19,6 +19,7 @@ from typing import Sequence, Union
 
 from nvtripy import export
 from nvtripy.common.exception import raise_error
+from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.trace.ops.split import Split
 from nvtripy.utils import wrappers
 
@@ -90,7 +91,6 @@ def split(
     if isinstance(indices_or_sections, int):
         if indices_or_sections <= 0:
             raise_error(f"Number of sections argument must be positive, but given {indices_or_sections}")
-        num_outputs = indices_or_sections
     else:
         if not indices_or_sections:
             raise_error("Split indices must not be empty")
@@ -99,6 +99,5 @@ def split(
             if last and index < last:
                 raise_error(f"Split indices must be given in ascending order, but given {indices_or_sections}")
             last = index
-        num_outputs = len(indices_or_sections) + 1  # add 1 because of the last split
 
-    return Split.build(inputs=[input], indices_or_sections=indices_or_sections, dim=dim, num_outputs=num_outputs)
+    return op_utils.create_op(Split, inputs=[input], indices_or_sections=indices_or_sections, dim=dim)

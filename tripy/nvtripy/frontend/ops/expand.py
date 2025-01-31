@@ -91,4 +91,4 @@ def expand(input: "nvtripy.Tensor", sizes: ShapeLike) -> "nvtripy.Tensor":
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.broadcast_to(cp.from_dlpack(input).get(), (3, 1, 1)))
     """
-    return Expand.build([input, sizes])
+    return op_utils.create_op(Expand, [input, sizes])

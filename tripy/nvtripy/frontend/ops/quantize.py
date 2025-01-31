@@ -114,4 +114,4 @@ def quantize(
     # This is implemented using a special trace op instead of a combination of frontend ops
     # so that it shows up in the trace and can more easily be pattern matched (by defining our
     # own trace op, we have finer control over the generated MLIR).
-    return Quantize.build([input, scale], dtype, dim)
+    return op_utils.create_op(Quantize, [input, scale], dtype, dim)

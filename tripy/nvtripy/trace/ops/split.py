@@ -28,7 +28,7 @@ class Split(BaseTraceOp):
     indices_or_sections: Union[int, Sequence[int]]
     dim: int
 
-    def num_outputs(self):
+    def get_num_outputs(self):
         if isinstance(self.indices_or_sections, int):
             return self.indices_or_sections
         else:
@@ -36,16 +36,16 @@ class Split(BaseTraceOp):
             return len(self.indices_or_sections) + 1
 
     def infer_rank(self):
-        for i in range(self.num_outputs()):
-            self.outputs[i].rank = self.inputs[0].rank
+        for out in self.outputs:
+            out.rank = self.inputs[0].rank
 
     def infer_devices(self):
-        for i in range(self.num_outputs()):
-            self.outputs[i].device = self.inputs[0].device
+        for out in self.outputs:
+            out.device = self.inputs[0].device
 
     def infer_dtypes(self):
-        for i in range(self.num_outputs()):
-            self.outputs[i].dtype = self.inputs[0].dtype
+        for out in self.outputs:
+            out.dtype = self.inputs[0].dtype
 
     # gets input_tensor[..., :,  :, start_idx: end_idx, :, :, ...], with the start and end slice only at the axis dimension
     def build_slice_of_target_dim(self, input_tensor, input_shape, device, start_idx, end_idx, output_tensor):
@@ -108,7 +108,7 @@ class Split(BaseTraceOp):
                 [axis_dim, op_utils.add_constant_tensor_from_list([self.indices_or_sections], device=device)],
                 [section_size_tensor],
             )
-            for i in range(self.num_outputs()):
+            for i in range(self.get_num_outputs()):
                 with FlatIRTensor.context([f"compute indices of split {i}"]):
                     # i*section_size
                     section_i_start_tensor = FlatIRTensor.build(
@@ -168,5 +168,5 @@ class Split(BaseTraceOp):
             if field.name not in skip_fields
         ]
 
-        outputs_string = ", ".join([self.outputs[i].name for i in range(self.num_outputs())])
+        outputs_string = ", ".join([self.outputs[i].name for i in range(self.get_num_outputs())])
         return f"{outputs_string} = {self.__class__.__name__.lower()}({', '.join([inp.name for inp in self.inputs] + args)})"

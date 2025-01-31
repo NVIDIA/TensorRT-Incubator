@@ -52,7 +52,7 @@ def full(shape: ShapeLike, value: TensorLike, dtype: "nvtripy.dtype" = datatype.
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.full([2, 3], 2, dtype=np.float32))
     """
-    return Fill.build([shape, value], dtype=dtype)
+    return op_utils.create_op(Fill, [shape, value], dtype=dtype)
 
 
 @export.public_api(document_under="operations/initializers")
@@ -85,6 +85,6 @@ def full_like(input: "nvtripy.Tensor", value: TensorLike, dtype: Optional["nvtri
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.array([[2, 2], [2, 2]], dtype=np.float32))
     """
-    return Fill.build(
-        [op_utils.tensor_from_shape_like(input.shape), value], dtype=utils.utils.default(dtype, input.dtype)
+    return op_utils.create_op(
+        Fill, [op_utils.tensor_from_shape_like(input.shape), value], dtype=utils.utils.default(dtype, input.dtype)
     )

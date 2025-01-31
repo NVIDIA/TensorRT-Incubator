@@ -29,6 +29,9 @@ class Plugin(BaseTraceOp):
     output_info: List[Tuple[int, "nvtripy.dtype"]]
     creator_params: Dict[str, Any]
 
+    def get_num_outputs(self):
+        return len(self.output_info)
+
     def infer_dtypes(self):
         for out, (_, dtype) in zip(self.outputs, self.output_info):
             out.dtype = dtype

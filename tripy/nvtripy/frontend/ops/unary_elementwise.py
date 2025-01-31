@@ -17,6 +17,7 @@
 
 
 from nvtripy import export
+from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.trace.ops.unary_elementwise import UnaryElementwise
 from nvtripy.utils import wrappers
 
@@ -46,7 +47,7 @@ def exp(input: "nvtripy.Tensor") -> "nvtripy.Tensor":
 
         assert tp.allclose(output, tp.Tensor(np.exp(cp.from_dlpack(input).get())))
     """
-    return UnaryElementwise.build([input], UnaryElementwise.Kind.EXP)
+    return op_utils.create_op(UnaryElementwise, [input], UnaryElementwise.Kind.EXP)
 
 
 @export.public_api(document_under="operations/functions")
@@ -72,7 +73,7 @@ def tanh(input: "nvtripy.Tensor") -> "nvtripy.Tensor":
 
         assert tp.allclose(output, tp.Tensor(np.tanh(cp.from_dlpack(input).get())))
     """
-    return UnaryElementwise.build([input], UnaryElementwise.Kind.TANH)
+    return op_utils.create_op(UnaryElementwise, [input], UnaryElementwise.Kind.TANH)
 
 
 @export.public_api(document_under="operations/functions")
@@ -98,7 +99,7 @@ def sin(input: "nvtripy.Tensor") -> "nvtripy.Tensor":
 
         assert tp.allclose(output, tp.Tensor(np.sin(cp.from_dlpack(input).get())))
     """
-    return UnaryElementwise.build([input], UnaryElementwise.Kind.SINE)
+    return op_utils.create_op(UnaryElementwise, [input], UnaryElementwise.Kind.SINE)
 
 
 @export.public_api(document_under="operations/functions")
@@ -124,7 +125,7 @@ def cos(input: "nvtripy.Tensor") -> "nvtripy.Tensor":
 
         assert tp.allclose(output, tp.Tensor(np.cos(cp.from_dlpack(input).get())))
     """
-    return UnaryElementwise.build([input], UnaryElementwise.Kind.COSINE)
+    return op_utils.create_op(UnaryElementwise, [input], UnaryElementwise.Kind.COSINE)
 
 
 @export.public_api(document_under="operations/functions")
@@ -150,7 +151,7 @@ def rsqrt(input: "nvtripy.Tensor") -> "nvtripy.Tensor":
 
         assert tp.allclose(output, tp.Tensor(1.0 / np.sqrt(cp.from_dlpack(input).get())))
     """
-    return UnaryElementwise.build([input], UnaryElementwise.Kind.RSQRT)
+    return op_utils.create_op(UnaryElementwise, [input], UnaryElementwise.Kind.RSQRT)
 
 
 @export.public_api(document_under="operations/functions")
@@ -176,7 +177,7 @@ def sqrt(input: "nvtripy.Tensor") -> "nvtripy.Tensor":
 
         assert tp.allclose(output, tp.Tensor(np.sqrt(cp.from_dlpack(input).get())))
     """
-    return UnaryElementwise.build([input], UnaryElementwise.Kind.SQRT)
+    return op_utils.create_op(UnaryElementwise, [input], UnaryElementwise.Kind.SQRT)
 
 
 @export.public_api(document_under="operations/functions")
@@ -202,7 +203,7 @@ def log(input: "nvtripy.Tensor") -> "nvtripy.Tensor":
 
         assert tp.allclose(output, tp.Tensor(np.log(cp.from_dlpack(input).get())))
     """
-    return UnaryElementwise.build([input], UnaryElementwise.Kind.LOG)
+    return op_utils.create_op(UnaryElementwise, [input], UnaryElementwise.Kind.LOG)
 
 
 @export.public_api(document_under="operations/functions")
@@ -228,4 +229,4 @@ def abs(input: "nvtripy.Tensor") -> "nvtripy.Tensor":
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.array([1, 2], dtype=np.float32))
     """
-    return UnaryElementwise.build([input], UnaryElementwise.Kind.ABS)
+    return op_utils.create_op(UnaryElementwise, [input], UnaryElementwise.Kind.ABS)

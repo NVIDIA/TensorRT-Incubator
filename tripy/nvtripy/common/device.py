@@ -84,7 +84,7 @@ class device:
 
     # Not putting a docstring so it's not exported. Takes a device name and index directly, sets without validation.
     @staticmethod
-    def create_directly(kind: str, index: int) -> "tp.device":
+    def fast_init(kind: str, index: int) -> "tp.device":
         instance = device.__new__(device)
         instance.kind = kind
         instance.index = index

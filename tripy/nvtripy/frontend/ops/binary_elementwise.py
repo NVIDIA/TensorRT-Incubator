@@ -17,11 +17,11 @@
 
 
 from nvtripy import export
-from nvtripy.types import TensorLike
-from nvtripy.utils import wrappers
-
+from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.frontend.ops._registry import register_tensor_method
 from nvtripy.trace.ops.binary_elementwise import BinaryElementwise, Comparison
+from nvtripy.types import TensorLike
+from nvtripy.utils import wrappers
 
 
 @register_tensor_method("__add__")
@@ -53,7 +53,7 @@ def __add__(self: "nvtripy.Tensor", other: TensorLike) -> "nvtripy.Tensor":
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.array([3, 5]))
     """
-    return BinaryElementwise.build([self, other], BinaryElementwise.Kind.SUM)
+    return op_utils.create_op(BinaryElementwise, [self, other], BinaryElementwise.Kind.SUM)
 
 
 @register_tensor_method("__sub__")
@@ -83,7 +83,7 @@ def __sub__(self: "nvtripy.Tensor", other: TensorLike) -> "nvtripy.Tensor":
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.array([1, 1]))
     """
-    return BinaryElementwise.build([self, other], BinaryElementwise.Kind.SUB)
+    return op_utils.create_op(BinaryElementwise, [self, other], BinaryElementwise.Kind.SUB)
 
 
 @register_tensor_method("__rsub__")
@@ -113,7 +113,7 @@ def __rsub__(self: "nvtripy.Tensor", other: TensorLike) -> "nvtripy.Tensor":
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.array([0, -1]))
     """
-    return BinaryElementwise.build([other, self], BinaryElementwise.Kind.SUB)
+    return op_utils.create_op(BinaryElementwise, [other, self], BinaryElementwise.Kind.SUB)
 
 
 @register_tensor_method("__pow__")
@@ -143,7 +143,7 @@ def __pow__(self: "nvtripy.Tensor", other: TensorLike) -> "nvtripy.Tensor":
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.array([1, 8]))
     """
-    return BinaryElementwise.build([self, other], BinaryElementwise.Kind.POW)
+    return op_utils.create_op(BinaryElementwise, [self, other], BinaryElementwise.Kind.POW)
 
 
 @register_tensor_method("__rpow__")
@@ -173,7 +173,7 @@ def __rpow__(self: "nvtripy.Tensor", other: TensorLike) -> "nvtripy.Tensor":
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.array([4.0, 8.0]))
     """
-    return BinaryElementwise.build([other, self], BinaryElementwise.Kind.POW)
+    return op_utils.create_op(BinaryElementwise, [other, self], BinaryElementwise.Kind.POW)
 
 
 @register_tensor_method("__mul__")
@@ -205,7 +205,7 @@ def __mul__(self: "nvtripy.Tensor", other: TensorLike) -> "nvtripy.Tensor":
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.array([2.0, 6.0]))
     """
-    return BinaryElementwise.build([self, other], BinaryElementwise.Kind.MUL)
+    return op_utils.create_op(BinaryElementwise, [self, other], BinaryElementwise.Kind.MUL)
 
 
 @register_tensor_method("__truediv__")
@@ -235,7 +235,7 @@ def __truediv__(self: "nvtripy.Tensor", other: TensorLike) -> "nvtripy.Tensor":
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.array([2.0, 2.0]))
     """
-    return BinaryElementwise.build([self, other], BinaryElementwise.Kind.DIV)
+    return op_utils.create_op(BinaryElementwise, [self, other], BinaryElementwise.Kind.DIV)
 
 
 @register_tensor_method("__rtruediv__")
@@ -265,7 +265,7 @@ def __rtruediv__(self: "nvtripy.Tensor", other: TensorLike) -> "nvtripy.Tensor":
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.array([3.0, 2.0]))
     """
-    return BinaryElementwise.build([other, self], BinaryElementwise.Kind.DIV)
+    return op_utils.create_op(BinaryElementwise, [other, self], BinaryElementwise.Kind.DIV)
 
 
 @register_tensor_method("__floordiv__")
@@ -298,9 +298,11 @@ def __floordiv__(self: "nvtripy.Tensor", other: TensorLike) -> "nvtripy.Tensor":
     from nvtripy.common.datatype import int32
     from nvtripy.frontend.ops.cast import cast
 
-    return cast(cast(BinaryElementwise.build([self, other], BinaryElementwise.Kind.DIV), int32), self.dtype)
+    return cast(
+        cast(op_utils.create_op(BinaryElementwise, [self, other], BinaryElementwise.Kind.DIV), int32), self.dtype
+    )
     # Use the below code when https://github.com/NVIDIA/TensorRT-Incubator/issues/208 is fixed
-    # return BinaryElementwise.build([self, other], BinaryElementwise.Kind.FLOOR_DIV)
+    # return op_utils.create_op(BinaryElementwise, [self, other], BinaryElementwise.Kind.FLOOR_DIV)
 
 
 @register_tensor_method("__rfloordiv__")
@@ -333,9 +335,11 @@ def __rfloordiv__(self: "nvtripy.Tensor", other: TensorLike) -> "nvtripy.Tensor"
     from nvtripy.common.datatype import int32
     from nvtripy.frontend.ops.cast import cast
 
-    return cast(cast(BinaryElementwise.build([other, self], BinaryElementwise.Kind.DIV), int32), self.dtype)
+    return cast(
+        cast(op_utils.create_op(BinaryElementwise, [other, self], BinaryElementwise.Kind.DIV), int32), self.dtype
+    )
     # Use the below code when https://github.com/NVIDIA/TensorRT-Incubator/issues/208 is fixed
-    # return BinaryElementwise.build([other, self], BinaryElementwise.Kind.FLOOR_DIV)
+    # return op_utils.create_op(BinaryElementwise, [other, self], BinaryElementwise.Kind.FLOOR_DIV)
 
 
 @register_tensor_method("__mod__")
@@ -365,7 +369,7 @@ def __mod__(self: "nvtripy.Tensor", other: TensorLike) -> "nvtripy.Tensor":
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.array([1.0, 2.0]))
     """
-    return BinaryElementwise.build([self, other], BinaryElementwise.Kind.MOD)
+    return op_utils.create_op(BinaryElementwise, [self, other], BinaryElementwise.Kind.MOD)
 
 
 @register_tensor_method("__rmod__")
@@ -394,7 +398,7 @@ def __rmod__(self: "nvtripy.Tensor", other: TensorLike) -> "nvtripy.Tensor":
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.array([2.0, 2.0]))
     """
-    return BinaryElementwise.build([other, self], BinaryElementwise.Kind.MOD)
+    return op_utils.create_op(BinaryElementwise, [other, self], BinaryElementwise.Kind.MOD)
 
 
 @export.public_api(document_under="operations/functions")
@@ -423,7 +427,7 @@ def maximum(lhs: "nvtripy.Tensor", rhs: "nvtripy.Tensor") -> "nvtripy.Tensor":
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.array([2.0, 6.0]))
     """
-    return BinaryElementwise.build([lhs, rhs], BinaryElementwise.Kind.MAXIMUM)
+    return op_utils.create_op(BinaryElementwise, [lhs, rhs], BinaryElementwise.Kind.MAXIMUM)
 
 
 @export.public_api(document_under="operations/functions")
@@ -452,7 +456,7 @@ def minimum(lhs: "nvtripy.Tensor", rhs: "nvtripy.Tensor") -> "nvtripy.Tensor":
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.array([1.0, 3.0]))
     """
-    return BinaryElementwise.build([lhs, rhs], BinaryElementwise.Kind.MINIMUM)
+    return op_utils.create_op(BinaryElementwise, [lhs, rhs], BinaryElementwise.Kind.MINIMUM)
 
 
 @register_tensor_method("__lt__")
@@ -485,7 +489,7 @@ def __lt__(self: "nvtripy.Tensor", other: TensorLike) -> "nvtripy.Tensor":
 
         assert output.tolist() == [True, False]
     """
-    return Comparison.build([self, other], Comparison.Kind.LESS)
+    return op_utils.create_op(Comparison, [self, other], Comparison.Kind.LESS)
 
 
 @register_tensor_method("__le__")
@@ -518,7 +522,7 @@ def __le__(self: "nvtripy.Tensor", other: TensorLike) -> "nvtripy.Tensor":
 
         assert output.tolist() == [True, False]
     """
-    return Comparison.build([self, other], Comparison.Kind.LESS_EQUAL)
+    return op_utils.create_op(Comparison, [self, other], Comparison.Kind.LESS_EQUAL)
 
 
 @register_tensor_method("__eq__")
@@ -551,7 +555,7 @@ def __eq__(self: "nvtripy.Tensor", other: TensorLike) -> "nvtripy.Tensor":
 
         assert output.tolist() == [True, False]
     """
-    return Comparison.build([self, other], Comparison.Kind.EQUAL)
+    return op_utils.create_op(Comparison, [self, other], Comparison.Kind.EQUAL)
 
 
 @register_tensor_method("__ne__")
@@ -584,7 +588,7 @@ def __ne__(self: "nvtripy.Tensor", other: TensorLike) -> "nvtripy.Tensor":
 
         assert output.tolist() == [True, False]
     """
-    return Comparison.build([self, other], Comparison.Kind.NOT_EQUAL)
+    return op_utils.create_op(Comparison, [self, other], Comparison.Kind.NOT_EQUAL)
 
 
 @register_tensor_method("__ge__")
@@ -617,7 +621,7 @@ def __ge__(self: "nvtripy.Tensor", other: TensorLike) -> "nvtripy.Tensor":
 
         assert output.tolist() == [True, False]
     """
-    return Comparison.build([self, other], Comparison.Kind.GREATER_EQUAL)
+    return op_utils.create_op(Comparison, [self, other], Comparison.Kind.GREATER_EQUAL)
 
 
 @register_tensor_method("__gt__")
@@ -650,4 +654,4 @@ def __gt__(self: "nvtripy.Tensor", other: TensorLike) -> "nvtripy.Tensor":
 
         assert output.tolist() == [True, False]
     """
-    return Comparison.build([self, other], Comparison.Kind.GREATER)
+    return op_utils.create_op(Comparison, [self, other], Comparison.Kind.GREATER)

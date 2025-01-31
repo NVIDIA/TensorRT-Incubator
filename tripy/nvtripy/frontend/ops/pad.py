@@ -73,7 +73,8 @@ def pad(
         )
 
     padding_low, padding_high = list(zip(*pad))
-    return Pad.build(
+    return op_utils.create_op(
+        Pad,
         [
             input,
             op_utils.tensor_from_shape_like(padding_low),

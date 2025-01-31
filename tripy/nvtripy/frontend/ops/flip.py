@@ -19,6 +19,7 @@ from typing import Optional, Sequence, Union
 
 from nvtripy import export, utils
 from nvtripy.common.exception import raise_error
+from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.trace.ops.flip import Flip
 from nvtripy.utils import wrappers
 
@@ -84,4 +85,4 @@ def flip(input: "nvtripy.Tensor", dims: Optional[Union[int, Sequence[int]]] = No
             dims[i] = corrected_dim
             encountered.add(corrected_dim)
 
-    return Flip.build([input], dims=dims)
+    return op_utils.create_op(Flip, [input], dims=dims)

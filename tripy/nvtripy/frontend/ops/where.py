@@ -18,6 +18,7 @@
 import numbers
 
 from nvtripy import export
+from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.trace.ops.where import Where
 from nvtripy.utils import wrappers
 
@@ -57,7 +58,7 @@ def where(condition: "nvtripy.Tensor", input: "nvtripy.Tensor", other: "nvtripy.
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.array([[1, 0], [1, 1]], dtype=np.float32))
     """
-    return Where.build([condition, input, other])
+    return op_utils.create_op(Where, [condition, input, other])
 
 
 @export.public_api(document_under="operations/functions")

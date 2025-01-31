@@ -36,7 +36,7 @@ class Iota(BaseTraceOp):
     def infer_devices(self):
         from nvtripy.common import device
 
-        self.outputs[0].device = device.create_directly("gpu", 0)
+        self.outputs[0].device = device.fast_init("gpu", 0)
 
     def to_flat_ir(self, inputs, outputs):
         from nvtripy.flat_ir.ops import DynamicIotaOp

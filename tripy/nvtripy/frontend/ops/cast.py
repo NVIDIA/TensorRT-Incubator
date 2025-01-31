@@ -85,6 +85,6 @@ def cast(input: "nvtripy.Tensor", dtype: "nvtripy.dtype") -> "nvtripy.Tensor":
 
     if op_utils.is_quantized_dtype(dtype) and dtype != int8:
         if input.dtype != float32:
-            input = Cast.build([input], float32)
+            input = op_utils.create_op(Cast, [input], float32)
         return quantize(input, 1.0, dtype)
-    return Cast.build([input], dtype)
+    return op_utils.create_op(Cast, [input], dtype)
