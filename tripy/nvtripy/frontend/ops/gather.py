@@ -17,6 +17,7 @@
 
 
 from nvtripy import export
+from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.trace.ops.gather import Gather
 from nvtripy.utils import wrappers
 
@@ -52,4 +53,4 @@ def gather(input: "nvtripy.Tensor", dim: int, index: "nvtripy.Tensor") -> "nvtri
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.take(cp.from_dlpack(data).get(), cp.from_dlpack(indices).get(), axis=1))
     """
-    return Gather.build([input, index], dim)
+    return op_utils.create_op(Gather, [input, index], dim)

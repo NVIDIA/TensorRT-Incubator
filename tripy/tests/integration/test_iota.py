@@ -84,7 +84,7 @@ class TestIota:
 
         # TODO: update the 'match' error msg when MLIR-TRT fixes dtype constraint
         a = tp.ones((2, 2))
-        out = Iota.build([op_utils.tensor_from_shape_like(a.shape)], dim=0, output_rank=2, dtype=dtype)
+        out = op_utils.create_op(Iota, [op_utils.tensor_from_shape_like(a.shape)], dim=0, output_rank=2, dtype=dtype)
 
         exception_str = "InternalError: failed to run compilation"
         with helper.raises(

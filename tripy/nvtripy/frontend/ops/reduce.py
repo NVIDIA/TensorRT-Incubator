@@ -20,6 +20,7 @@ from typing import Optional, Sequence, Union
 
 from nvtripy import export
 from nvtripy.common import datatype
+from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.trace.ops.reduce import ArgMinMax, Reduce
 from nvtripy.utils import wrappers
 from nvtripy.utils.utils import make_list
@@ -35,7 +36,7 @@ def _reduce_impl(input: "nvtripy.Tensor", kind: Reduce.Kind, dim: Union[int, Seq
     from nvtripy.frontend.ops.reshape import reshape
     from nvtripy.frontend.ops.unsqueeze import unsqueeze
 
-    out = Reduce.build([input], adjust_dim(dim, input.rank), kind)
+    out = op_utils.create_op(Reduce, [input], adjust_dim(dim, input.rank), kind)
     if keepdim:
         if dim is None:
             out = reshape(out, (1,) * input.rank)
@@ -316,7 +317,7 @@ def _arg_min_max_impl(tensor: "nvtripy.Tensor", kind: ArgMinMax.Kind, dim: Optio
     if dim is None:
         tensor = reshape(tensor, (-1,))
     indices = iota_like(tensor, dim if dim else 0, datatype.int32)
-    out = ArgMinMax.build([tensor, indices], adjust_dim(dim, tensor.rank), kind)
+    out = op_utils.create_op(ArgMinMax, [tensor, indices], adjust_dim(dim, tensor.rank), kind)
     if keepdim:
         if dim is None:
             out = reshape(out, (1,) * original_rank)

@@ -229,7 +229,7 @@ class Executable:
 
             raise
 
-        output_tensors = [Tensor.create_directly(output, fetch_stack_info=False) for output in executor_outputs]
+        output_tensors = [Tensor.fast_init(output) for output in executor_outputs]
         if len(output_tensors) == 1:
             output_tensors = output_tensors[0]
         return output_tensors

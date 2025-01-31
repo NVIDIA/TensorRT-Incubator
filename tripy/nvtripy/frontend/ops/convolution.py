@@ -17,8 +17,9 @@
 
 from collections.abc import Sequence
 
-from nvtripy.utils import wrappers
+from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.trace.ops.convolution import Convolution
+from nvtripy.utils import wrappers
 
 
 @wrappers.interface(
@@ -36,4 +37,4 @@ def convolution(
     lhs_dilation: Sequence[int],
     rhs_dilation: Sequence[int],
 ):
-    return Convolution.build([input, weight], padding, stride, groups, lhs_dilation, rhs_dilation)
+    return op_utils.create_op(Convolution, [input, weight], padding, stride, groups, lhs_dilation, rhs_dilation)

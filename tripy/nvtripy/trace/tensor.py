@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List, Optional
 
 from nvtripy.utils.stack_info import StackInfo
@@ -28,11 +28,11 @@ class TraceTensor:
     """
 
     name: str
-    stack_info: StackInfo
-    dtype: "nvtripy.common.dtype"
-    device: "nvtripy.common.device"
     producer: "BaseTraceOp"
-    shape: List[int]
+    dtype: "nvtripy.common.dtype" = field(default=None, init=False)
+    device: "nvtripy.common.device" = field(default=None, init=False)
+    shape: List[int] = field(default=None, init=False)
+    stack_info: StackInfo = field(default_factory=lambda: StackInfo([]), init=False)
     """
     Indicates the shape of the tensor. Unknown dimensions are indicated by -1.
     Generally, the shape will only be known for shape tensors.
@@ -42,7 +42,7 @@ class TraceTensor:
     is_compile_tracer: bool = False
     # Stack information for the point at which this tensor was evaluated if it was.
     # This is useful in the compiler to disallow evaluation during tracing.
-    eval_stack_info: Optional[StackInfo] = None
+    eval_stack_info: Optional[StackInfo] = field(default=None, init=False)
 
     def __str__(self) -> str:
         return (

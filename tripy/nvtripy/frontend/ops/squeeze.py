@@ -15,6 +15,7 @@
 from typing import Sequence, Union
 
 from nvtripy import export, utils
+from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.trace.ops.squeeze import Squeeze
 from nvtripy.utils import wrappers
 
@@ -65,4 +66,4 @@ def squeeze(input: "nvtripy.Tensor", dims: Union[Sequence[int], int]) -> "nvtrip
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.squeeze(cp.from_dlpack(input).get(), (0, 2)))
     """
-    return Squeeze.build([input], utils.utils.make_tuple(dims))
+    return op_utils.create_op(Squeeze, [input], utils.utils.make_tuple(dims))

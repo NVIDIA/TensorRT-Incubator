@@ -79,7 +79,7 @@ def maxpool(
     stride = utils.utils.default(stride, [1] * spatial_dims)
     padding = utils.utils.default(padding, [(0, 0)] * spatial_dims)
 
-    return Pooling.build([input], Pooling.Kind.MAX, kernel_dims, stride, padding)
+    return op_utils.create_op(Pooling, [input], Pooling.Kind.MAX, kernel_dims, stride, padding)
 
 
 @export.public_api(document_under="operations/functions")
@@ -138,4 +138,4 @@ def avgpool(
     stride = utils.utils.default(stride, [1] * spatial_dims)
     padding = utils.utils.default(padding, [(0, 0)] * spatial_dims)
 
-    return Pooling.build([input], Pooling.Kind.AVG, kernel_dims, stride, padding)
+    return op_utils.create_op(Pooling, [input], Pooling.Kind.AVG, kernel_dims, stride, padding)

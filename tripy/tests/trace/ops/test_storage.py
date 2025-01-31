@@ -31,7 +31,7 @@ class TestStorage:
     def test_from_small_memref(self, device):
         module = np if device == "cpu" else cp
         data = memref.create_memref_view(module.ones((2, 2), dtype=module.float32))
-        storage = Storage([], [TraceTensor("test", None, None, None, None, None)], data)
+        storage = Storage(data)
         assert storage.dtype == tp.float32
         assert storage.shape == (2, 2)
         assert storage.device.kind == device
@@ -39,7 +39,7 @@ class TestStorage:
 
     def test_from_large_memref(self):
         data = memref.create_memref_view(cp.ones((2, STORAGE_OP_CACHE_VOLUME_THRESHOLD), dtype=cp.float32))
-        storage = Storage([], [TraceTensor("test", None, None, None, None, None)], data)
+        storage = Storage(data)
         assert storage.dtype == tp.float32
         assert storage.shape == (2, STORAGE_OP_CACHE_VOLUME_THRESHOLD)
         assert storage.device.kind == "gpu"
@@ -51,7 +51,7 @@ class TestStorage:
         tripy_dtype = tp.int64 if dtype == "int64" else tp.int32
 
         data = cp.ones((2, 2), dtype=cp_dtype)
-        storage = Storage([], [TraceTensor("test", None, None, None, None, None)], data)
+        storage = Storage(data)
         assert storage.dtype == tripy_dtype
         assert storage.shape == (2, 2)
         assert storage.device.kind == "gpu"
@@ -63,7 +63,7 @@ class TestStorage:
         tripy_dtype = tp.float16 if dtype == "float16" else tp.float32
 
         data = cp.ones((2, 2), dtype=cp_dtype)
-        storage = Storage([], [TraceTensor("test", None, None, None, None, None)], data)
+        storage = Storage(data)
         assert storage.dtype == tripy_dtype
         assert storage.shape == (2, 2)
         assert storage.device.kind == "gpu"
@@ -72,7 +72,7 @@ class TestStorage:
     def test_from_large_input_shape(self):
         shape = (1, STORAGE_OP_CACHE_VOLUME_THRESHOLD + 10)
         data = cp.ones(shape, dtype=cp.float32)
-        storage = Storage([], [TraceTensor("test", None, None, None, None, None)], data)
+        storage = Storage(data)
         assert storage.dtype == tp.float32
         assert storage.shape == shape
         assert storage.device.kind == "gpu"
@@ -80,7 +80,7 @@ class TestStorage:
 
     def test_from_list_int(self):
         data = [[1, 2], [3, 4]]
-        storage = Storage([], [TraceTensor("test", None, None, None, None, None)], data)
+        storage = Storage(data)
         assert storage.dtype == tp.int32
         assert storage.shape == (2, 2)
         assert storage.device.kind == "gpu"
@@ -88,7 +88,7 @@ class TestStorage:
 
     def test_from_list_float(self):
         data = [[1.0, 2.0], [3.0, 4.0]]
-        storage = Storage([], [TraceTensor("test", None, None, None, None, None)], data)
+        storage = Storage(data)
         assert storage.dtype == tp.float32
         assert storage.shape == (2, 2)
         assert storage.device.kind == "gpu"
@@ -96,7 +96,7 @@ class TestStorage:
 
     def test_empty_list(self):
         data = [[]]
-        storage = Storage([], [TraceTensor("test", None, None, None, None, None)], data)
+        storage = Storage(data)
         assert storage.dtype == tp.float32
         assert storage.shape == (1, 0)
         assert storage.device.kind == "gpu"

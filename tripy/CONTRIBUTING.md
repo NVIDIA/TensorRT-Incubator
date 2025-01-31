@@ -74,9 +74,6 @@ We've written developer guides to help you understand the codebase:
     [architecture](https://nvidia.github.io/TensorRT-Incubator/post0_developer_guides/architecture.html)
     documentation.
 
-- If you need to add a new operation, refer to
-    [this guide](https://nvidia.github.io/TensorRT-Incubator/post0_developer_guides/how-to-add-new-ops.html).
-
 
 ### Tests
 

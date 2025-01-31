@@ -73,7 +73,7 @@ def resize(
         assert torch.allclose(torch.from_dlpack(output).to("cpu"), expected)
     """
     _check_mode(mode, align_corners)
-    return Resize.build([input, output_shape], mode, scales=None, align_corners=align_corners)
+    return op_utils.create_op(Resize, [input, output_shape], mode, scales=None, align_corners=align_corners)
 
 
 @export.public_api(document_under="operations/functions")
@@ -113,4 +113,6 @@ def resize(
     """
     _check_mode(mode, align_corners)
 
-    return Resize.build([input, op_utils.tensor_from_shape_like(input.shape)], mode, scales, align_corners)
+    return op_utils.create_op(
+        Resize, [input, op_utils.tensor_from_shape_like(input.shape)], mode, scales, align_corners
+    )

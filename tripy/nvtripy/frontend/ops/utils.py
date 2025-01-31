@@ -17,7 +17,36 @@
 
 
 import nvtripy.common.datatype as tp_dtype
+from nvtripy.common.datatype import int32
 from nvtripy.common.exception import raise_error
+
+
+# Creates a Trace operation from the provided frontend tensors and wraps its outputs in frontend Tensors.
+def create_op(OpType, inputs, *args, always_cast_to_dimension_size=False, **kwargs):
+    from nvtripy.frontend.dimension_size import DimensionSize
+    from nvtripy.frontend.tensor import Tensor
+
+    # Operations that operate on only DimensionSize inputs will always yield a DimensionSize.
+    # For any mixed operations, DimensionSize must be casted up to Tensor.
+    all_inputs_are_dimension_size = all(isinstance(inp, DimensionSize) for inp in inputs)
+
+    def should_cast_to_dimension_size(out):
+        return always_cast_to_dimension_size or (all_inputs_are_dimension_size and out.dtype == int32 and out.rank == 0)
+
+    STACK_DEPTH_OF_FROM_TRACE_TENSOR = 4  # Stack depth from API function calls
+    op = OpType([inp.trace_tensor for inp in inputs], *args, **kwargs)
+    outputs = [
+        (
+            DimensionSize.from_trace_tensor(out, include_code_index=STACK_DEPTH_OF_FROM_TRACE_TENSOR)
+            if should_cast_to_dimension_size(out)
+            else Tensor.from_trace_tensor(out, include_code_index=STACK_DEPTH_OF_FROM_TRACE_TENSOR)
+        )
+        for out in op.outputs
+    ]
+
+    if len(outputs) == 1:
+        return outputs[0]
+    return outputs
 
 
 def is_minus_one(arg):
@@ -28,12 +57,12 @@ def is_minus_one(arg):
 def tensor_from_shape_like(arg: "nvtripy.ShapeLike") -> "nvtripy.Tensor":
     from nvtripy.common.datatype import int32
     from nvtripy.frontend.dimension_size import DimensionSize
-    from nvtripy.frontend.tensor import Tensor
     from nvtripy.frontend.ops.concatenate import concatenate
     from nvtripy.frontend.ops.reshape import Reshape
+    from nvtripy.frontend.tensor import Tensor
 
     if not arg:
-        return Tensor.create_directly([], dtype=int32)
+        return Tensor([], dtype=int32)
 
     concat_tensors = []
 
@@ -45,7 +74,7 @@ def tensor_from_shape_like(arg: "nvtripy.ShapeLike") -> "nvtripy.Tensor":
         if not int_buffer:
             return
 
-        concat_tensors.append(Tensor.create_directly(int_buffer, dtype=int32))
+        concat_tensors.append(Tensor(int_buffer, dtype=int32))
         int_buffer.clear()
 
     for elem in arg:
@@ -53,7 +82,7 @@ def tensor_from_shape_like(arg: "nvtripy.ShapeLike") -> "nvtripy.Tensor":
             empty_buffer()
             # NOTE: We cannot use the reshape API here since it would lead to an
             # infinite loop when attempting to convert the shape input to a tensor.
-            concat_tensors.append(Reshape.build([elem, Tensor.create_directly([1])], 1))
+            concat_tensors.append(create_op(Reshape, [elem, Tensor([1])], 1))
         else:
             int_buffer.append(elem)
 

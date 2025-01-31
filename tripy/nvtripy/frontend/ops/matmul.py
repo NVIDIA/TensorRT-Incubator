@@ -16,6 +16,7 @@
 #
 
 from nvtripy.common.exception import raise_error
+from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.frontend.ops._registry import register_tensor_method
 from nvtripy.trace.ops.matmul import MatrixMultiplication
 from nvtripy.utils import wrappers
@@ -100,4 +101,4 @@ def __matmul__(self: "nvtripy.Tensor", other: "nvtripy.Tensor") -> "nvtripy.Tens
             "rhs": contracting_dim[1],
         }
 
-    return MatrixMultiplication.build([self, other], contracting_dim, batching_dim)
+    return op_utils.create_op(MatrixMultiplication, [self, other], contracting_dim, batching_dim)
