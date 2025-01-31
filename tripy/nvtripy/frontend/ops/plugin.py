@@ -18,6 +18,7 @@
 from typing import List, Sequence, Tuple, Union
 
 from nvtripy import export
+from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.trace.ops.plugin import Plugin
 
 
@@ -65,4 +66,12 @@ def plugin(
 
         assert tp.allclose(out,tp.gelu(inp))
     """
-    return Plugin.build(inputs, name, version, namespace, output_info, kwargs, num_outputs=len(output_info))
+    return op_utils.create_op(
+        Plugin,
+        inputs,
+        name,
+        version,
+        namespace,
+        output_info,
+        kwargs,
+    )

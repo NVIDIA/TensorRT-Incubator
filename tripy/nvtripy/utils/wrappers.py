@@ -184,7 +184,7 @@ def convert_input_types(
                 # Python integers can always be cast to the most restrictive type, which is DimensionSize in Tripy.
                 # DimensionSize can always be cast up to Tensor if needed, but the reverse is not true.
                 # NOTE: We do not use isinstance here because bool is a subclass of int.
-                arg = DimensionSize.create_directly(arg) if type(arg) is int else Tensor.create_directly(arg)
+                arg = DimensionSize(arg) if type(arg) is int else Tensor(arg)
 
             _add_column_info(
                 arg,

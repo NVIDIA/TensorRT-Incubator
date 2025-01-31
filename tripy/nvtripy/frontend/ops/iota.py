@@ -31,10 +31,10 @@ def iota_impl(shape: "nvtripy.Tensor", dim: int, dtype: datatype.dtype, output_r
     # Allocate a float32 tensor and cast the output to dtype.
     # `tensorrt.linspace` op result #0 must be 0D/1D/2D/3D/4D/5D/6D/7D/8D tensor of 32-bit float or 32-bit signless integer values.
     if dtype not in (datatype.float32, datatype.int32, datatype.int64):
-        result = Iota.build([shape], dim, output_rank, datatype.float32)
+        result = op_utils.create_op(Iota, [shape], dim, output_rank, datatype.float32)
         return cast(result, dtype)
 
-    return Iota.build([shape], dim, output_rank, dtype)
+    return op_utils.create_op(Iota, [shape], dim, output_rank, dtype)
 
 
 @export.public_api(document_under="operations/initializers")

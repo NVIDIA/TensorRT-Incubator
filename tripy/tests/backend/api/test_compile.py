@@ -15,12 +15,10 @@
 # limitations under the License.
 #
 import cupy as cp
+import nvtripy as tp
 import pytest
 from tests import helper
 from tests.backend.api.conftest import *
-
-import nvtripy as tp
-from nvtripy.trace.ops.storage import Storage
 
 
 class TestCompile:

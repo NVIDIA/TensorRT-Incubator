@@ -16,7 +16,7 @@
 #
 
 from dataclasses import dataclass
-from typing import List, Sequence, Set, Any
+from typing import Optional, Sequence, Set, Any
 
 import mlir_tensorrt.runtime.api as runtime
 
@@ -40,13 +40,9 @@ class Storage(BaseTraceOp):
 
     def __init__(
         self,
-        inputs: List["Tensor"],
-        outputs: List["Tensor"],
         data: Any,
-        device: tp_device = None,
+        device: Optional[tp_device] = None,
     ) -> None:
-        super().__init__(inputs, outputs)
-
         original_data = data
 
         # Handle if data is dlpacked but not memref yet
@@ -57,9 +53,7 @@ class Storage(BaseTraceOp):
             self.data = data
             self.dtype = mlir_utils.convert_runtime_dtype_to_tripy_dtype(self.data.dtype)
             self.shape = tuple(data.shape)
-            self.device = tp_device.create_directly(
-                "gpu" if data.address_space == runtime.PointerType.device else "cpu", 0
-            )
+            self.device = tp_device.fast_init("gpu" if data.address_space == runtime.PointerType.device else "cpu", 0)
         else:
             if common_utils.is_empty(data):
                 self.dtype = datatype.float32
@@ -73,12 +67,14 @@ class Storage(BaseTraceOp):
                 dtype=self.dtype,
                 array=data_array,
             )
-            self.device = utils.utils.default(device, tp_device.create_directly("gpu", 0))
+            self.device = utils.utils.default(device, tp_device.fast_init("gpu", 0))
 
         # Set data_str only for objects that won't be treated as Trace inputs
         if not utils.utils.should_lift_storage_op_as_input(self.shape):
             self.data_str = str(original_data)  # TODO (#448): Fix floating point str representation
 
+        # Parent constructor will run rank/type inference, so we need to run it after setting the fields above.
+        super().__init__([])
         self.outputs[0].shape = list(self.shape)
 
     def str_skip_fields(self) -> Set[str]:
@@ -98,7 +94,7 @@ class Storage(BaseTraceOp):
 
     def infer_devices(self):
         # TODO(#155): Fix allocation on host
-        self.outputs[0].device = tp_device.create_directly("gpu", 0)
+        self.outputs[0].device = tp_device.fast_init("gpu", 0)
 
     def to_flat_ir(self, inputs, outputs):
         from nvtripy.flat_ir.ops import ConstantOp

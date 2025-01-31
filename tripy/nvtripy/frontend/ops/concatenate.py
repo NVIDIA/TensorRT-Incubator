@@ -19,6 +19,7 @@ from typing import Sequence
 
 from nvtripy import export
 from nvtripy.common.exception import raise_error
+from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.trace.ops.concatenate import Concatenate
 from nvtripy.utils import wrappers
 
@@ -57,4 +58,4 @@ def concatenate(tensors: Sequence["nvtripy.Tensor"], dim: int) -> "nvtripy.Tenso
     if len(tensors) == 1:
         return tensors[0]
 
-    return Concatenate.build(list(tensors), dim)
+    return op_utils.create_op(Concatenate, list(tensors), dim)

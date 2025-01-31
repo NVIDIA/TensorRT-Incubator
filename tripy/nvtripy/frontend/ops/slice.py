@@ -19,6 +19,7 @@ from typing import Sequence, Union
 
 from nvtripy import utils
 from nvtripy.common.exception import raise_error
+from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.frontend.ops._registry import register_tensor_method
 from nvtripy.trace.ops.slice import Slice
 from nvtripy.types import TensorLike
@@ -207,4 +208,4 @@ def slice_helper(tensor, *slice_params: TensorLike):
         if len(candidates) == 1:
             source_info.column_range = candidates[0]
 
-    return Slice.build(inputs=[tensor, *slice_params])
+    return op_utils.create_op(Slice, inputs=[tensor, *slice_params])

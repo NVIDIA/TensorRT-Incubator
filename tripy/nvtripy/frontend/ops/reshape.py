@@ -71,4 +71,4 @@ def reshape(input: "nvtripy.Tensor", shape: ShapeLike) -> "nvtripy.Tensor":
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.reshape(cp.from_dlpack(input).get(), (1, 6)))
     """
-    return Reshape.build([input, shape], None)
+    return op_utils.create_op(Reshape, [input, shape], None)

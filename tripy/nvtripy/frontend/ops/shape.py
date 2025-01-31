@@ -17,6 +17,7 @@
 
 
 from nvtripy.common.datatype import DATA_TYPES
+from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.frontend.ops._registry import register_tensor_method
 from nvtripy.trace.ops.shape import GetDimensionSize
 from nvtripy.types import ShapeLike
@@ -48,4 +49,7 @@ def shape(self: "nvtripy.Tensor") -> ShapeLike:
     if all(dim >= 0 for dim in self.trace_tensor.shape) and not self.trace_tensor.is_compile_tracer:
         return self.trace_tensor.shape
 
-    return [GetDimensionSize.build([self], dim=index, always_cast_to_dimension_size=True) for index in range(self.rank)]
+    return [
+        op_utils.create_op(GetDimensionSize, [self], dim=index, always_cast_to_dimension_size=True)
+        for index in range(self.rank)
+    ]

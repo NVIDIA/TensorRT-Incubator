@@ -16,10 +16,21 @@
 #
 
 import abc
-from dataclasses import dataclass
-from typing import List, Optional, Set, Union
+from dataclasses import dataclass, field
+from typing import List, Set
 
 from nvtripy import utils
+from nvtripy.trace.tensor import TraceTensor
+
+_COUNT = 0
+
+
+def _get_unique_name():
+    global _COUNT
+
+    name = f"t{_COUNT}"
+    _COUNT += 1
+    return name
 
 
 @dataclass(repr=False)
@@ -34,72 +45,25 @@ class BaseTraceOp(abc.ABC):
     inputs: List["TraceTensor"]
     """The input tensors of this operation"""
 
-    outputs: List["TraceTensor"]
+    outputs: List["TraceTensor"] = field(init=False)
     """The output tensors of this operation"""
 
-    @classmethod
-    def build_internal(
-        cls, inputs: List["TraceTensor"], outputs: List["TraceTensor"], *args, **kwargs
-    ) -> "BaseTraceOp":
+    def __post_init__(self):
+        is_compile_tracer = any(inp.is_compile_tracer for inp in self.inputs)
+        self.outputs = [
+            TraceTensor(_get_unique_name(), producer=self, is_compile_tracer=is_compile_tracer)
+            for _ in range(self.get_num_outputs())
+        ]
+
+        self.infer_dtypes()
+        self.infer_rank()
+        self.infer_devices()
+
+    def get_num_outputs(self) -> int:
         """
-        Builds a Trace operation and binds it to the provided input and output trace tensors.
-
-        *args and **kwargs are passed along to the trace operation's constructor.
+        The number of output produced by this trace operation.
         """
-        op = cls(inputs, outputs, *args, **kwargs)
-
-        is_compile_tracer = any(inp.is_compile_tracer for inp in inputs)
-        for out in op.outputs:
-            out.producer = op
-            out.is_compile_tracer |= is_compile_tracer
-
-        op.infer_dtypes()
-        op.infer_rank()
-        op.infer_devices()
-        return op
-
-    @classmethod
-    def build(
-        cls, inputs: List["Tensor"], *args, num_outputs=1, always_cast_to_dimension_size=False, **kwargs
-    ) -> Union["Tensor", List["Tensor"]]:
-        """
-        Builds a trace operation and binds its inputs to the trace tensors corresponding to the
-        frontend tensors provided in `inputs` and creates `num_outputs` new frontend tensors for the
-        outputs, whose trace tensors are bound to the outputs of the trace operation.
-
-        *args and **kwargs are passed along to the trace operation's constructor.
-
-        `num_outputs=1` is treated as a special case that will return the output tensor directly instead
-        of returning a list of output tensors.
-        """
-
-        from nvtripy.common.datatype import int32
-        from nvtripy.frontend.dimension_size import DimensionSize
-        from nvtripy.frontend.tensor import Tensor
-
-        # NOTE: If you change the stack depth where the tensors are constructed, update STACK_DEPTH_OF_BUILD in
-        # the Tensor constructor!
-        outputs = [Tensor.create_directly(None) for _ in range(num_outputs)]
-
-        inp_trace_tensors = [inp.trace_tensor for inp in inputs]
-        out_trace_tensors = [out.trace_tensor for out in outputs]
-        cls.build_internal(inp_trace_tensors, out_trace_tensors, *args, **kwargs)
-
-        # Operations that operate on only DimensionSize inputs will always yield a DimensionSize.
-        # For any mixed operations, DimensionSize must be casted up to Tensor.
-        all_inputs_are_dimension_size = all(isinstance(inp, DimensionSize) for inp in inputs)
-        for index, out in enumerate(outputs):
-            if always_cast_to_dimension_size or (
-                all_inputs_are_dimension_size and out.dtype == int32 and out.rank == 0
-            ):
-                dim_size = DimensionSize.create_directly(None)
-                dim_size.trace_tensor = out.trace_tensor
-                dim_size.stack_info = out.stack_info
-                outputs[index] = dim_size
-
-        if num_outputs == 1:
-            return outputs[0]
-        return outputs
+        return 1
 
     @abc.abstractmethod
     def infer_rank(self):

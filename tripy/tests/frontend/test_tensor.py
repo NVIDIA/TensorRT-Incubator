@@ -108,14 +108,14 @@ class TestTensor:
 
     # In this test we only check the two innermost stack frames since beyond that it's all pytest code.
     @pytest.mark.parametrize(
-        "build_func,expected_line_number",
+        "build_func,expected_line_number,expected_func",
         [
-            (lambda: tp.Tensor([1, 1, 1]), sys._getframe().f_lineno),
-            (lambda: tp.ones((3,)), sys._getframe().f_lineno),
+            (lambda: tp.Tensor([1, 1, 1]), sys._getframe().f_lineno, tp.Tensor.__init__),
+            (lambda: tp.ones((3,)), sys._getframe().f_lineno, tp.Tensor.from_trace_tensor),
         ],
         ids=["constructor", "op"],
     )
-    def test_stack_info_is_populated(self, build_func, expected_line_number):
+    def test_stack_info_is_populated(self, build_func, expected_line_number, expected_func):
         a = build_func()
         a.stack_info.fetch_source_code()
 
@@ -124,7 +124,7 @@ class TestTensor:
             file=inspect.getsourcefile(tp.Tensor),
             # We don't check line number within tp.Tensor because it's difficult to determine.
             line=a.stack_info[0].line,
-            function=tp.Tensor.raw_init.__name__,
+            function=expected_func.__name__,
             code=None,
             _dispatch_target="",
             column_range=(25, 30) if sys.version_info >= (3, 11) else None,
@@ -167,7 +167,6 @@ class TestTensor:
         assert torch.equal(a_torch, torch.from_dlpack(tp.Tensor(a_torch)))
 
     def test_stack_depth_sanity(self):
-        # Makes sure STACK_DEPTH_OF_BUILD is correct
         a = tp.ones((2, 3))
         a.stack_info.fetch_source_code()
 
@@ -277,7 +276,6 @@ class TestTensor:
     @pytest.mark.parametrize(
         "tensor",
         [
-            tp.Tensor([1, 2, 3]),
             tp.ones((2, 2)),
             tp.Tensor([1, 2, 3]) + tp.Tensor([4, 5, 6]),
             # This case should trigger datatype conversions.
@@ -291,14 +289,14 @@ class TestTensor:
             (tp.Tensor([[1], [2], [3]]) + tp.Tensor([[4], [5], [6]]))[0],
         ],
     )
-    def test_stack_depth_of_build(self, tensor):
+    def test_stack_depth_of_create_op(self, tensor):
         tensor.stack_info.fetch_source_code()
 
-        # Ensure that we do not include code for any frame until after the caller of `Tensor.build`
-        build_caller = len(tensor.stack_info)
+        # Ensure that we do not include code for any frame until after the caller of `op_utils.create_op`
+        create_op_caller = len(tensor.stack_info)
         for index, source_info in enumerate(tensor.stack_info):
-            if source_info.function == "build":
-                build_caller = index + 1
+            if source_info.function == "create_op":
+                create_op_caller = index + 1
                 break
 
         for index, source_info in enumerate(tensor.stack_info):
@@ -307,9 +305,9 @@ class TestTensor:
                 assert source_info.code is not None
                 break
 
-            # We should include code starting one frame past the *caller* of `build`, i.e. we
-            # should not see a call to `build` in the code stack trace we display.
-            if index > build_caller:
+            # We should include code starting one frame past the *caller* of `create_op`, i.e. we
+            # should not see a call to `create_op` in the code stack trace we display.
+            if index > create_op_caller:
                 assert source_info.code is not None
             else:
                 assert source_info.code is None

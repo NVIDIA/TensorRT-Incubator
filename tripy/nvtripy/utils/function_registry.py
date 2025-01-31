@@ -351,7 +351,7 @@ class FunctionRegistry(dict):
                 self[key] = func
             # For classes, we apply the wrapper to all methods.
             elif inspect.isclass(func):
-                # Ignore properties and functions not defined in the class (we will use the presence of a docstring as a proxy for that).
+                # Ignore non-public properties and functions and those not defined in the class (we will use the presence of a docstring as a proxy for that).
                 # It does not suffice to check just that the method is inherited because some decorators like @dataclass add methods
                 # that are not documented or annotated and do not use inheritance to do so.
                 for name, member in inspect.getmembers(

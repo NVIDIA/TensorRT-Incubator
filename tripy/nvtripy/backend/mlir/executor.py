@@ -91,7 +91,7 @@ class Executor:
 
             output_device = output_devices[index]
             if not output_device:
-                output_device = device.create_directly(
+                output_device = device.fast_init(
                     "gpu" if memref.address_space == runtime.PointerType.device else "cpu", 0
                 )
 

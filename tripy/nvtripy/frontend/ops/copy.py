@@ -16,6 +16,7 @@
 #
 
 from nvtripy import export
+from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.trace.ops.copy import Copy
 from nvtripy.utils import wrappers
 
@@ -48,4 +49,4 @@ def copy(input: "nvtripy.Tensor", device: "nvtripy.device") -> "nvtripy.Tensor":
         assert output.trace_tensor.producer.device.kind == "cpu"
     """
 
-    return Copy.build([input], device)
+    return op_utils.create_op(Copy, [input], device)

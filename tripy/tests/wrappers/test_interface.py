@@ -173,6 +173,7 @@ def _run_dtype_constraints_subtest(test_data):
         "__rmul__": (lambda self, other: cast_to_bool(self, other) * other),
         "__rtruediv__": (lambda self, other: self / other),
         "shape": (lambda self: self.shape),
+        "__getitem__": (lambda self, index: self[index]),
     }
 
     if func_name in SPECIAL_FUNCS:
@@ -253,6 +254,9 @@ class TestDtypes:
             sequence_func([tp.ones((2, 2), dtype=tp.float32), tp.ones((2, 2), dtype=tp.int32)])
 
 
+STACK_DEPTH_OF_CALLER = 5
+
+
 class TestTensorConversion:
     def test_no_effect_on_non_tensor_likes(self):
         @wrappers.interface(convert_to_tensors=True)
@@ -273,7 +277,7 @@ class TestTensorConversion:
         a = func(1.0)
 
         assert isinstance(a, tp.Tensor)
-        assert a.stack_info[4].column_range == (17, 20)
+        assert a.stack_info[STACK_DEPTH_OF_CALLER].column_range == (17, 20)
 
     def test_converts_to_dimension_size(self):
         # The decorator should convert to DimensionSizes when possible.
@@ -317,7 +321,7 @@ class TestTensorConversion:
         a = func(a=1.0)
 
         assert isinstance(a, tp.Tensor)
-        assert a.stack_info[4].column_range == (17, 22)
+        assert a.stack_info[STACK_DEPTH_OF_CALLER].column_range == (17, 22)
 
     def test_multiple_args(self):
         @wrappers.interface(convert_to_tensors=True)
@@ -327,10 +331,10 @@ class TestTensorConversion:
         a, b = func(1.0, 2.0)
 
         assert isinstance(a, tp.Tensor)
-        assert a.stack_info[4].column_range == (20, 23)
+        assert a.stack_info[STACK_DEPTH_OF_CALLER].column_range == (20, 23)
 
         assert isinstance(b, tp.Tensor)
-        assert b.stack_info[4].column_range == (25, 28)
+        assert b.stack_info[STACK_DEPTH_OF_CALLER].column_range == (25, 28)
 
     def test_args_out_of_order(self):
         @wrappers.interface(convert_to_tensors=True)
@@ -340,11 +344,11 @@ class TestTensorConversion:
         a, b = func(b=1.0, a=2.0)
 
         assert isinstance(a, tp.Tensor)
-        assert a.stack_info[4].column_range == (27, 32)
+        assert a.stack_info[STACK_DEPTH_OF_CALLER].column_range == (27, 32)
         assert a.tolist() == 2.0
 
         assert isinstance(b, tp.Tensor)
-        assert b.stack_info[4].column_range == (20, 25)
+        assert b.stack_info[STACK_DEPTH_OF_CALLER].column_range == (20, 25)
         assert b.tolist() == 1.0
 
     def test_cast_dtype(self):
