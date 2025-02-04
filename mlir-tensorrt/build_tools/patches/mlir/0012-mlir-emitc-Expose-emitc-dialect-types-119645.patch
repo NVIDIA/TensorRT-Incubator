@@ -1,0 +1,321 @@
+From 518800ef048479bba51705eb3a66b3d41057500b Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Eliud=20de=20Le=C3=B3n?= <tgmm.1000@gmail.com>
+Date: Tue, 14 Jan 2025 12:46:06 -0800
+Subject: [PATCH 12/16] [mlir][emitc] Expose emitc dialect types (#119645)
+
+Added C API functions for the EmitC dialect types.
+---
+ mlir/include/mlir-c/Dialect/EmitC.h | 111 ++++++++++++++++++
+ mlir/lib/CAPI/Dialect/EmitC.cpp     | 176 ++++++++++++++++++++++++++++
+ 2 files changed, 287 insertions(+)
+
+diff --git a/mlir/include/mlir-c/Dialect/EmitC.h b/mlir/include/mlir-c/Dialect/EmitC.h
+index 82e698344bf1..a0e3ea08a5a9 100644
+--- a/mlir/include/mlir-c/Dialect/EmitC.h
++++ b/mlir/include/mlir-c/Dialect/EmitC.h
+@@ -19,6 +19,117 @@ extern "C" {
+ 
+ MLIR_DECLARE_CAPI_DIALECT_REGISTRATION(EmitC, emitc);
+ 
++enum MlirEmitCCmpPredicate : uint64_t {
++  MLIR_EMITC_CMP_PREDICATE_EQ = 0,
++  MLIR_EMITC_CMP_PREDICATE_NE = 1,
++  MLIR_EMITC_CMP_PREDICATE_LT = 2,
++  MLIR_EMITC_CMP_PREDICATE_LE = 3,
++  MLIR_EMITC_CMP_PREDICATE_GT = 4,
++  MLIR_EMITC_CMP_PREDICATE_GE = 5,
++  MLIR_EMITC_CMP_PREDICATE_THREE_WAY = 6,
++};
++
++//===---------------------------------------------------------------------===//
++// ArrayType
++//===---------------------------------------------------------------------===//
++
++MLIR_CAPI_EXPORTED bool mlirTypeIsAEmitCArrayType(MlirType type);
++
++MLIR_CAPI_EXPORTED MlirTypeID mlirEmitCArrayTypeGetTypeID(void);
++
++MLIR_CAPI_EXPORTED MlirType mlirEmitCArrayTypeGet(intptr_t nDims,
++                                                  int64_t *shape,
++                                                  MlirType elementType);
++
++//===---------------------------------------------------------------------===//
++// LValueType
++//===---------------------------------------------------------------------===//
++
++MLIR_CAPI_EXPORTED bool mlirTypeIsAEmitCLValueType(MlirType type);
++
++MLIR_CAPI_EXPORTED MlirTypeID mlirEmitCLValueTypeGetTypeID(void);
++
++MLIR_CAPI_EXPORTED MlirType mlirEmitCLValueTypeGet(MlirType valueType);
++
++//===---------------------------------------------------------------------===//
++// OpaqueType
++//===---------------------------------------------------------------------===//
++
++MLIR_CAPI_EXPORTED bool mlirTypeIsAEmitCOpaqueType(MlirType type);
++
++MLIR_CAPI_EXPORTED MlirTypeID mlirEmitCOpaqueTypeGetTypeID(void);
++
++MLIR_CAPI_EXPORTED MlirType mlirEmitCOpaqueTypeGet(MlirContext ctx,
++                                                   MlirStringRef value);
++
++//===---------------------------------------------------------------------===//
++// PointerType
++//===---------------------------------------------------------------------===//
++
++MLIR_CAPI_EXPORTED bool mlirTypeIsAEmitCPointerType(MlirType type);
++
++MLIR_CAPI_EXPORTED MlirTypeID mlirEmitCPointerTypeGetTypeID(void);
++
++MLIR_CAPI_EXPORTED MlirType mlirEmitCPointerTypeGet(MlirType pointee);
++
++//===---------------------------------------------------------------------===//
++// PtrDiffTType
++//===---------------------------------------------------------------------===//
++
++MLIR_CAPI_EXPORTED bool mlirTypeIsAEmitCPtrDiffTType(MlirType type);
++
++MLIR_CAPI_EXPORTED MlirTypeID mlirEmitCPtrDiffTTypeGetTypeID(void);
++
++MLIR_CAPI_EXPORTED MlirType mlirEmitCPtrDiffTTypeGet(MlirContext ctx);
++
++//===---------------------------------------------------------------------===//
++// SignedSizeTType
++//===---------------------------------------------------------------------===//
++
++MLIR_CAPI_EXPORTED bool mlirTypeIsAEmitCSignedSizeTType(MlirType type);
++
++MLIR_CAPI_EXPORTED MlirTypeID mlirEmitCSignedSizeTTypeGetTypeID(void);
++
++MLIR_CAPI_EXPORTED MlirType mlirEmitCSignedSizeTTypeGet(MlirContext ctx);
++
++//===---------------------------------------------------------------------===//
++// SizeTType
++//===---------------------------------------------------------------------===//
++
++MLIR_CAPI_EXPORTED bool mlirTypeIsAEmitCSizeTType(MlirType type);
++
++MLIR_CAPI_EXPORTED MlirTypeID mlirEmitCSizeTTypeGetTypeID(void);
++
++MLIR_CAPI_EXPORTED MlirType mlirEmitCSizeTTypeGet(MlirContext ctx);
++
++//===----------------------------------------------------------------------===//
++// CmpPredicate attribute.
++//===----------------------------------------------------------------------===//
++
++MLIR_CAPI_EXPORTED bool mlirAttributeIsAEmitCCmpPredicate(MlirAttribute attr);
++
++MLIR_CAPI_EXPORTED MlirAttribute
++mlirEmitCCmpPredicateAttrGet(MlirContext ctx, enum MlirEmitCCmpPredicate val);
++
++MLIR_CAPI_EXPORTED enum MlirEmitCCmpPredicate
++mlirEmitCCmpPredicateAttrGetValue(MlirAttribute attr);
++
++MLIR_CAPI_EXPORTED MlirTypeID mlirEmitCCmpPredicateAttrGetTypeID(void);
++
++//===----------------------------------------------------------------------===//
++// Opaque attribute.
++//===----------------------------------------------------------------------===//
++
++MLIR_CAPI_EXPORTED bool mlirAttributeIsAEmitCOpaque(MlirAttribute attr);
++
++MLIR_CAPI_EXPORTED MlirAttribute mlirEmitCOpaqueAttrGet(MlirContext ctx,
++                                                        MlirStringRef value);
++
++MLIR_CAPI_EXPORTED MlirStringRef
++mlirEmitCOpaqueAttrGetValue(MlirAttribute attr);
++
++MLIR_CAPI_EXPORTED MlirTypeID mlirEmitCOpaqueAttrGetTypeID(void);
++
+ #ifdef __cplusplus
+ }
+ #endif
+diff --git a/mlir/lib/CAPI/Dialect/EmitC.cpp b/mlir/lib/CAPI/Dialect/EmitC.cpp
+index 3dcb7038a579..b6d197366f62 100644
+--- a/mlir/lib/CAPI/Dialect/EmitC.cpp
++++ b/mlir/lib/CAPI/Dialect/EmitC.cpp
+@@ -10,4 +10,180 @@
+ #include "mlir/CAPI/Registration.h"
+ #include "mlir/Dialect/EmitC/IR/EmitC.h"
+ 
++using namespace mlir;
++
+ MLIR_DEFINE_CAPI_DIALECT_REGISTRATION(EmitC, emitc, mlir::emitc::EmitCDialect)
++
++// Ensure the C-API enums are uint64_t-castable to C++ equivalents.
++static_assert(static_cast<uint64_t>(MLIR_EMITC_CMP_PREDICATE_EQ) ==
++                      static_cast<uint64_t>(emitc::CmpPredicate::eq) &&
++                  static_cast<uint64_t>(MLIR_EMITC_CMP_PREDICATE_NE) ==
++                      static_cast<uint64_t>(emitc::CmpPredicate::ne) &&
++                  static_cast<uint64_t>(MLIR_EMITC_CMP_PREDICATE_LT) ==
++                      static_cast<uint64_t>(emitc::CmpPredicate::lt) &&
++                  static_cast<uint64_t>(MLIR_EMITC_CMP_PREDICATE_LE) ==
++                      static_cast<uint64_t>(emitc::CmpPredicate::le) &&
++                  static_cast<uint64_t>(MLIR_EMITC_CMP_PREDICATE_GT) ==
++                      static_cast<uint64_t>(emitc::CmpPredicate::gt) &&
++                  static_cast<uint64_t>(MLIR_EMITC_CMP_PREDICATE_GE) ==
++                      static_cast<uint64_t>(emitc::CmpPredicate::ge) &&
++                  static_cast<uint64_t>(MLIR_EMITC_CMP_PREDICATE_THREE_WAY) ==
++                      static_cast<uint64_t>(emitc::CmpPredicate::three_way),
++              "MlirEmitCCmpPredicate (C-API) and CmpPredicate (C++) mismatch");
++
++//===---------------------------------------------------------------------===//
++// ArrayType
++//===---------------------------------------------------------------------===//
++
++bool mlirTypeIsAEmitCArrayType(MlirType type) {
++  return isa<emitc::ArrayType>(unwrap(type));
++}
++
++MlirTypeID mlirEmitCArrayTypeGetTypeID(void) {
++  return wrap(emitc::ArrayType::getTypeID());
++}
++
++MlirType mlirEmitCArrayTypeGet(intptr_t nDims, int64_t *shape,
++                               MlirType elementType) {
++  return wrap(
++      emitc::ArrayType::get(llvm::ArrayRef(shape, nDims), unwrap(elementType)));
++}
++
++//===---------------------------------------------------------------------===//
++// LValueType
++//===---------------------------------------------------------------------===//
++
++bool mlirTypeIsAEmitCLValueType(MlirType type) {
++  return isa<emitc::LValueType>(unwrap(type));
++}
++
++MlirTypeID mlirEmitCLValueTypeGetTypeID(void) {
++  return wrap(emitc::LValueType::getTypeID());
++}
++
++MlirType mlirEmitCLValueTypeGet(MlirType valueType) {
++  return wrap(emitc::LValueType::get(unwrap(valueType)));
++}
++
++//===---------------------------------------------------------------------===//
++// OpaqueType
++//===---------------------------------------------------------------------===//
++
++bool mlirTypeIsAEmitCOpaqueType(MlirType type) {
++  return isa<emitc::OpaqueType>(unwrap(type));
++}
++
++MlirTypeID mlirEmitCOpaqueTypeGetTypeID(void) {
++  return wrap(emitc::OpaqueType::getTypeID());
++}
++
++MlirType mlirEmitCOpaqueTypeGet(MlirContext ctx, MlirStringRef value) {
++  return wrap(emitc::OpaqueType::get(unwrap(ctx), unwrap(value)));
++}
++
++//===---------------------------------------------------------------------===//
++// PointerType
++//===---------------------------------------------------------------------===//
++
++bool mlirTypeIsAEmitCPointerType(MlirType type) {
++  return isa<emitc::PointerType>(unwrap(type));
++}
++
++MlirTypeID mlirEmitCPointerTypeGetTypeID(void) {
++  return wrap(emitc::PointerType::getTypeID());
++}
++
++MlirType mlirEmitCPointerTypeGet(MlirType pointee) {
++  return wrap(emitc::PointerType::get(unwrap(pointee)));
++}
++
++//===---------------------------------------------------------------------===//
++// PtrDiffTType
++//===---------------------------------------------------------------------===//
++
++bool mlirTypeIsAEmitCPtrDiffTType(MlirType type) {
++  return isa<emitc::PtrDiffTType>(unwrap(type));
++}
++
++MlirTypeID mlirEmitCPtrDiffTTypeGetTypeID(void) {
++  return wrap(emitc::PtrDiffTType::getTypeID());
++}
++
++MlirType mlirEmitCPtrDiffTTypeGet(MlirContext ctx) {
++  return wrap(emitc::PtrDiffTType::get(unwrap(ctx)));
++}
++
++//===---------------------------------------------------------------------===//
++// SignedSizeTType
++//===---------------------------------------------------------------------===//
++
++bool mlirTypeIsAEmitCSignedSizeTType(MlirType type) {
++  return isa<emitc::SignedSizeTType>(unwrap(type));
++}
++
++MlirTypeID mlirEmitCSignedSizeTTypeGetTypeID(void) {
++  return wrap(emitc::SignedSizeTType::getTypeID());
++}
++
++MlirType mlirEmitCSignedSizeTTypeGet(MlirContext ctx) {
++  return wrap(emitc::SignedSizeTType::get(unwrap(ctx)));
++}
++
++//===---------------------------------------------------------------------===//
++// SizeTType
++//===---------------------------------------------------------------------===//
++
++bool mlirTypeIsAEmitCSizeTType(MlirType type) {
++  return isa<emitc::SizeTType>(unwrap(type));
++}
++
++MlirTypeID mlirEmitCSizeTTypeGetTypeID(void) {
++  return wrap(emitc::SizeTType::getTypeID());
++}
++
++MlirType mlirEmitCSizeTTypeGet(MlirContext ctx) {
++  return wrap(emitc::SizeTType::get(unwrap(ctx)));
++}
++
++//===----------------------------------------------------------------------===//
++// CmpPredicate attribute.
++//===----------------------------------------------------------------------===//
++
++bool mlirAttributeIsAEmitCCmpPredicate(MlirAttribute attr) {
++  return llvm::isa<emitc::CmpPredicateAttr>(unwrap(attr));
++}
++
++MlirAttribute mlirEmitCCmpPredicateAttrGet(MlirContext ctx,
++                                           MlirEmitCCmpPredicate val) {
++  return wrap((Attribute)emitc::CmpPredicateAttr::get(
++      unwrap(ctx), static_cast<emitc::CmpPredicate>(val)));
++}
++
++MlirEmitCCmpPredicate mlirEmitCCmpPredicateAttrGetValue(MlirAttribute attr) {
++  return static_cast<MlirEmitCCmpPredicate>(
++      llvm::cast<emitc::CmpPredicateAttr>(unwrap(attr)).getValue());
++}
++
++MlirTypeID mlirEmitCCmpPredicateAttrGetTypeID(void) {
++  return wrap(emitc::CmpPredicateAttr::getTypeID());
++}
++
++//===----------------------------------------------------------------------===//
++// Opaque attribute.
++//===----------------------------------------------------------------------===//
++
++bool mlirAttributeIsAEmitCOpaque(MlirAttribute attr) {
++  return llvm::isa<emitc::OpaqueAttr>(unwrap(attr));
++}
++
++MlirAttribute mlirEmitCOpaqueAttrGet(MlirContext ctx, MlirStringRef value) {
++  return wrap((Attribute)emitc::OpaqueAttr::get(unwrap(ctx), unwrap(value)));
++}
++
++MlirStringRef mlirEmitCOpaqueAttrGetValue(MlirAttribute attr) {
++  return wrap(llvm::cast<emitc::OpaqueAttr>(unwrap(attr)).getValue());
++}
++
++MlirTypeID mlirEmitCOpaqueAttrGetTypeID(void) {
++  return wrap(emitc::OpaqueAttr::getTypeID());
++}
+-- 
+2.46.0
+

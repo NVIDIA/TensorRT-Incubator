@@ -15,15 +15,19 @@
 //     return %1, %2 : tensor<1xi32>, tensor<1xf32>
 //   }
 // }
+
+trtrt.compiled_func @trt_while_loop_region dense<0> : vector<1xi8>
+trtrt.compiled_func @trt_while_loop_region_0 dense<0> : vector<1xi8>
+
 func.func @main(%arg0: tensor<10xf32>) -> tensor<1xf32> {
   %cst = arith.constant dense<0> : tensor<1xi32>
   %cst_0 = arith.constant dense<0.000000e+00> : tensor<1xf32>
   %0 = cuda.stream.create : !cuda.stream
   %1 = tensor.empty() : tensor<i1>
-  %2 = trtrt.compile @trt_engines::@trt_while_loop_region : !trtrt.context
+  %2 = trtrt.get_function @trt_while_loop_region : !trtrt.context
   %3 = tensor.empty() : tensor<1xi32>
   %4 = tensor.empty() : tensor<1xf32>
-  %5 = trtrt.compile @trt_engines::@trt_while_loop_region_0 : !trtrt.context
+  %5 = trtrt.get_function @trt_while_loop_region_0 : !trtrt.context
   %6:2 = scf.while (%arg1 = %cst, %arg2 = %cst_0) : (tensor<1xi32>, tensor<1xf32>) -> (tensor<1xi32>, tensor<1xf32>) {
     %7 = trtrt.enqueue %2 stream(%0) (%arg1) outs(%1) : (tensor<1xi32>) -> tensor<i1>
     %extracted = tensor.extract %7[] : tensor<i1>
@@ -45,8 +49,8 @@ func.func @main(%arg0: tensor<10xf32>) -> tensor<1xf32> {
 //       CHECK:     %[[v1:.+]] = memref.get_global @__constant_1xf32
 //       CHECK:     %[[v2:.+]] = cuda.stream.create : !cuda.stream
 //       CHECK:     %[[alloc:.+]] = memref.alloc()
-//       CHECK:     %[[v3:.+]] = trtrt.compile @trt_engines::@trt_while_loop_region
-//       CHECK:     %[[v4:.+]] = trtrt.compile @trt_engines::@trt_while_loop_region_0
+//       CHECK:     %[[v3:.+]] = trtrt.get_function @trt_while_loop_region
+//       CHECK:     %[[v4:.+]] = trtrt.get_function @trt_while_loop_region_0
 //       CHECK:     %[[alloc_0:.+]] = memref.alloc()
 //       CHECK:     memref.copy %[[v0]], %[[alloc_0]]
 //       CHECK:     %[[alloc_1:.+]] = memref.alloc()
@@ -139,9 +143,9 @@ func.func @copy_device_constant_to_host() -> (tensor<2xi32, #plan.memory_space<h
   %0 = arith.constant dense<[1, 2]> : tensor<2xi32>
   // Create output tensor in host space.
   %1 = bufferization.alloc_tensor() {memory_space = #plan.memory_space<host>} : tensor<2xi32, #plan.memory_space<host>>
-  %2 = bufferization.materialize_in_destination %0 in %1  
-    : (tensor<2xi32>, 
-       tensor<2xi32, #plan.memory_space<host>>) 
+  %2 = bufferization.materialize_in_destination %0 in %1
+    : (tensor<2xi32>,
+       tensor<2xi32, #plan.memory_space<host>>)
     -> tensor<2xi32, #plan.memory_space<host>>
   return %2 : tensor<2xi32, #plan.memory_space<host>>
 }

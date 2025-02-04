@@ -22,7 +22,7 @@ def test_serialize(ASM):
         client = compiler.CompilerClient(context)
         opts = compiler.StableHLOToExecutableOptions(
             client,
-            ["--tensorrt-builder-opt-level=3", "--tensorrt-strongly-typed=false"],
+            ["--tensorrt-builder-opt-level=0", "--tensorrt-strongly-typed=false"],
         )
         exe = compiler.compiler_stablehlo_to_executable(client, m.operation, opts)
 

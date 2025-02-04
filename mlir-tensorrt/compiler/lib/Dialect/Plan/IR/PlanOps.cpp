@@ -23,6 +23,7 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt-dialect/Interface/TensorKindOpInterface.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
+#include "mlir/Conversion/ConvertToLLVM/ToLLVMInterface.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Utils/IndexingUtils.h"
 #include "mlir/IR/Diagnostics.h"
@@ -786,6 +787,7 @@ void PlanDialect::initialize() {
   (void)&generatedAttributeParser;
 
   addInterfaces<PlanInlinerInterface, PlanDialectOpAsmInterface>();
+  declarePromisedInterface<ConvertToLLVMPatternInterface, PlanDialect>();
 }
 
 Attribute PlanDialect::parseAttribute(DialectAsmParser &parser,

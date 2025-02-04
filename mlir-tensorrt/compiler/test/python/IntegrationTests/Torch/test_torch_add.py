@@ -31,9 +31,9 @@ def compile():
         task = client.get_compilation_task(
             "stablehlo-to-executable",
             [
-                "--tensorrt-builder-opt-level=3",
+                "--tensorrt-builder-opt-level=0",
                 "--tensorrt-strongly-typed=false",
-                "--tensorrt-workspace-memory-pool-limit=1gb",
+                "--tensorrt-workspace-memory-pool-limit=1024kB",
             ],
         )
         task.run(shlo_module.operation)

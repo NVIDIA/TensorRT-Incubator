@@ -23,6 +23,7 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt/Dialect/TensorRTRuntime/IR/TensorRTRuntime.h"
 #include "mlir-tensorrt-dialect/Interface/TensorKindOpInterface.h"
+#include "mlir/Conversion/ConvertToLLVM/ToLLVMInterface.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/DialectImplementation.h"
 #include "mlir/IR/OperationSupport.h"
@@ -32,6 +33,31 @@
 
 using namespace mlir;
 using namespace mlir::trtrt;
+
+//===----------------------------------------------------------------------===//
+// CompiledModuleOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult CompiledFuncOp::verify() {
+  auto dataType = dyn_cast<ShapedType>(getValue().getType());
+  if (!dataType || !dataType.getElementType().isInteger(8) ||
+      dataType.getRank() != 1)
+    return emitOpError() << "expected data element type to be a 1D shaped type "
+                            "with i8 element type";
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// GetFunctionOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult
+GetFunctionOp::verifySymbolUses(SymbolTableCollection &collection) {
+  if (!collection.lookupNearestSymbolFrom<trtrt::CompiledFuncOp>(
+          getOperation(), getModuleAttr()))
+    return emitError("failed to find TensorRT serialized engine symbol");
+  return success();
+}
 
 //===----------------------------------------------------------------------===//
 // EnqueueOp
@@ -253,4 +279,6 @@ void TensorRTRuntimeDialect::initialize() {
       >();
 
   addInterfaces<TensorRTRuntimeInlinerInterface>();
+  declarePromisedInterface<ConvertToLLVMPatternInterface,
+                           TensorRTRuntimeDialect>();
 }

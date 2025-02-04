@@ -83,28 +83,22 @@ def infer_output_shape(client, session, exe, input_shape):
     return output_shape
 
 
-def test_program(program: str, input_shape: Iterable[int], debug: bool = True):
-    # Build/parse the main function.
-    with ir.Context() as context:
-        m = ir.Module.parse(program)
+def compile(client, op):
+    task = client.get_compilation_task(
+        "stablehlo-to-executable",
+        [
+            "--tensorrt-builder-opt-level=0",
+            "--tensorrt-strongly-typed=false",
+            "--tensorrt-workspace-memory-pool-limit=1024kB",
+        ],
+    )
+    task.run(op)
+    return compiler.translate_mlir_to_executable(op)
 
-        # Use the compiler API to compile to executable.
-        client = compiler.CompilerClient(context)
-        opts = compiler.StableHLOToExecutableOptions(
-            client,
-            [
-                "--tensorrt-builder-opt-level=3",
-                "--tensorrt-strongly-typed=false",
-                "--entrypoint=main",
-            ],
-        )
-        if debug:
-            opts.set_debug_options(False, [], "tmp")
-        exe = compiler.compiler_stablehlo_to_executable(client, m.operation, opts)
 
+def test_program(client, exe, input_shape: Iterable[int]):
     # The RuntimeClient can and should persist across multiple Executables, RuntimeSessions, etc.
     # It is primarily an interface for creating and manipulating buffers.
-    client = runtime.RuntimeClient()
     stream = client.create_stream()
     devices = client.get_devices()
 
@@ -136,15 +130,19 @@ def test_program(program: str, input_shape: Iterable[int], debug: bool = True):
     )
     data = np.asarray(client.copy_to_host(arg2, stream=stream))
     stream.sync()
-
     print(data)
 
 
 if __name__ == "__main__":
-    print("Test (3, ?, 2)")
-    test_program(program1, (3, 4, 2))
-    print("Test (?, 2)")
-    test_program(program2, (4, 2))
+    with ir.Context() as context:
+        client = compiler.CompilerClient(context)
+        rt_client = runtime.RuntimeClient()
+        print("Test (3, ?, 2)")
+        exe = compile(client, ir.Module.parse(program1).operation)
+        test_program(rt_client, exe, (3, 4, 2))
+        print("Test (?, 2)")
+        exe = compile(client, ir.Module.parse(program2).operation)
+        test_program(rt_client, exe, (4, 2))
 
 # CHECK-LABEL: Test (3, ?, 2)
 #       CHECK: [{{\[}}[2. 2.]

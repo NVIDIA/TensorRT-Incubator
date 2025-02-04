@@ -22,6 +22,7 @@
 #include "mlir-tensorrt-dialect/Utils/ShapeUtils.h"
 #include "mlir-tensorrt/Dialect/CUDA/IR/CUDADialect.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
+#include "mlir/Conversion/ConvertToLLVM/ToLLVMInterface.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/IR/SymbolTable.h"
 #include "mlir/IR/TypeUtilities.h"
@@ -351,6 +352,7 @@ void CUDADialect::initialize() {
       >();
 
   addInterfaces<CUDAInlinerInterface>();
+  declarePromisedInterfaces<ConvertToLLVMPatternInterface>();
 }
 
 //===----------------------------------------------------------------------===//

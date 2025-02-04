@@ -123,6 +123,7 @@ if(PROJECT_IS_TOP_LEVEL)
     set(LLVM_RUNTIME_OUTPUT_INTDIR ${CMAKE_BINARY_DIR}/bin)
     set(LLVM_LIBRARY_OUTPUT_INTDIR ${CMAKE_BINARY_DIR}/lib)
   elseif(MLIR_TRT_LLVM_COMMIT)
+    set(patch_dir "${CMAKE_CURRENT_LIST_DIR}/build_tools/patches/mlir")
     mtrt_llvm_project(
       NAME llvm_project
       VERSION 0.0.20241126
@@ -130,8 +131,22 @@ if(PROJECT_IS_TOP_LEVEL)
       EXCLUDE_FROM_ALL TRUE
       SOURCE_SUBDIR "llvm"
       PATCHES
-        "${CMAKE_CURRENT_LIST_DIR}/build_tools/patches/mlir/000_fix_bufferization_tensor_encoding_memory_spaces.patch"
-        "${CMAKE_CURRENT_LIST_DIR}/build_tools/patches/mlir/001-mlir-Add-a-null-pointer-check-in-symbol-lookup-11516.patch"
+        "${patch_dir}/000_fix_bufferization_tensor_encoding_memory_spaces.patch"
+        "${patch_dir}/001-mlir-Add-a-null-pointer-check-in-symbol-lookup-11516.patch"
+        "${patch_dir}/0003-mlir-EmitC-memref-to-emitc-insert-conversion_casts-1.patch"
+        "${patch_dir}/0004-NFC-mlir-emitc-fix-misspelling-in-description-of-emi.patch"
+        "${patch_dir}/0005-emitc-func-Set-default-dialect-to-emitc-116297.patch"
+        "${patch_dir}/0006-MLIR-EmitC-arith-to-emitc-Fix-lowering-of-fptoui-118.patch"
+        "${patch_dir}/0007-mlir-emitc-Add-support-for-C-API-python-binding-to-E.patch"
+        "${patch_dir}/0008-mlir-emitc-DCE-unimplemented-decls-121253.patch"
+        "${patch_dir}/0009-Re-introduce-Type-Conversion-on-EmitC-121476.patch"
+        "${patch_dir}/0010-mlir-emitc-Fix-invalid-syntax-in-example-of-emitc.re.patch"
+        "${patch_dir}/0011-mlir-emitc-Don-t-emit-extra-semicolon-after-bracket-.patch"
+        "${patch_dir}/0012-mlir-emitc-Expose-emitc-dialect-types-119645.patch"
+        "${patch_dir}/0013-mlir-emitc-Support-convert-arith.extf-and-arith.trun.patch"
+        "${patch_dir}/0014-EmitC-Allow-arrays-of-size-zero-123292.patch"
+        "${patch_dir}/0015-mlir-EmitC-Add-MathToEmitC-pass-for-math-function-lo.patch"
+        "${patch_dir}/0016-mlir-emitc-Set-default-dialect-to-emitc-in-ops-with-.patch"
       OPTIONS
         "LLVM_ENABLE_PROJECTS mlir"
         "MLIR_ENABLE_BINDINGS_PYTHON ${MLIR_TRT_ENABLE_PYTHON}"

@@ -26,6 +26,7 @@
 #include "mlir-tensorrt/Conversion/Passes.h"
 #include "mlir-tensorrt/Transforms/Passes.h"
 #include "mlir/Conversion/Passes.h"
+#include "mlir/Dialect/EmitC/Transforms/Passes.h"
 #include "mlir/Transforms/Passes.h"
 
 #ifdef MLIR_TRT_ENABLE_HLO
@@ -52,6 +53,7 @@ inline void registerAllMlirTensorRtPasses() {
   registerMLIRTensorRTGenericTransformsPasses();
   mlir::registerTransformsPasses();
   mlir::registerConvertPDLToPDLInterp();
+  mlir::emitc::registerEmitCPasses();
 
 #ifdef MLIR_TRT_ENABLE_HLO
   mlirtrt::compiler::registerStablehloToExecutablePasses();

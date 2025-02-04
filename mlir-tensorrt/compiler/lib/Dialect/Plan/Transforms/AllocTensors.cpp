@@ -866,12 +866,12 @@ public:
     }
 
     IRRewriter rewriter(ctx);
-    if (!enableNonDPSReturns) {
-      // First rewrite public functions to conform to DPS style.
-      if (failed(rewriteNotPrivateFuncsToDPS(rewriter, op))) {
-        op->emitError("Failed to convert non-private functions to DPS");
-        return signalPassFailure();
-      }
+
+    // First rewrite public functions to conform to DPS style.
+    if (!forceEntrypointsReturnAllocs &&
+        failed(rewriteNotPrivateFuncsToDPS(rewriter, op))) {
+      op->emitError("Failed to convert non-private functions to DPS");
+      return signalPassFailure();
     }
 
     // Rewrite SCF for and while loop bodies for better bufferization results,

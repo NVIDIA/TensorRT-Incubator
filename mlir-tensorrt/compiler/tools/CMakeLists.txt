@@ -7,7 +7,7 @@ set(MLIR_TENSORRT_LIBS
   ${MLIR_TENSORRT_LIBS} ${MLIR_TENSORRT_DIALECT_LIBS} ${MLIR_TENSORRT_TEST_LIBS}
   ${MLIR_TENSORRT_DIALECT_TEST_LIBS}
   MLIRTensorRTTensorRTEncodingImpl
-  MLIRTensorRTRegistration)
+  )
 list(REMOVE_DUPLICATES MLIR_TENSORRT_LIBS)
 
 include_directories(${MLIR_TENSORRT_ROOT_DIR}/compiler/include)
@@ -25,11 +25,9 @@ set(LLVM_LINK_COMPONENTS
 # ----------------------------------------------------------------------------
 set(trt_translate_deps_
   MLIRTranslateLib
+  MLIRTargetCpp
   ${MLIR_TENSORRT_LIBS}
   )
-if(MLIR_TRT_TARGET_CPP)
-  list(APPEND trt_translate_deps_ MLIRTargetCpp)
-endif()
 
 add_mlir_tool(mlir-tensorrt-translate
   mlir-tensorrt-translate.cpp
@@ -75,6 +73,8 @@ add_mlir_tool(mlir-tensorrt-opt
   MLIRTensorRTConversionPassIncGen
   MLIRTensorRTTranslationPassIncGen
   MLIROptLib
+  MLIRBufferizationTransformOps
+  MLIRTensorTransformOps
   ${MLIR_TENSORRT_LIBS}
 
   SUPPORT_PLUGINS

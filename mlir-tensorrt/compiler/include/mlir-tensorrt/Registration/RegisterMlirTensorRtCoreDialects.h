@@ -24,7 +24,7 @@
 #include "mlir-tensorrt-dialect/Interface/TensorKindOpInterface.h"
 #include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
 #include "mlir-tensorrt-dialect/TensorRT/Target/TensorRTEncodingImpl.h"
-#include "mlir/Dialect/Func/Extensions/AllExtensions.h"
+#include "mlir/Dialect/Func/Extensions/InlinerExtension.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #ifdef MLIR_TRT_ENABLE_HLO
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
@@ -47,7 +47,7 @@ inline void registerCoreMlirTensorRtDialects(DialectRegistry &registry) {
   registry.insert<tensorrt::TensorRTDialect, func::FuncDialect>();
   tensorrt::registerTensorRTEncodingOpInterfaceExternalModels(registry);
   tensorrt::registerTensorKindOpInterfaceExternalModels(registry);
-  func::registerAllExtensions(registry);
+  func::registerInlinerExtension(registry);
 
 #ifdef MLIR_TRT_ENABLE_EXECUTOR
   registry.insert<executor::ExecutorDialect, cuda::CUDADialect,

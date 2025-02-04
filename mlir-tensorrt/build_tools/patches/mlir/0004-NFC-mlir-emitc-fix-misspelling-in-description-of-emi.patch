@@ -1,0 +1,32 @@
+From 8ffa6d49dabf4eaef97cfaa1f8438c1cc4396b0b Mon Sep 17 00:00:00 2001
+From: Andrey Timonin <timonina1909@gmail.com>
+Date: Wed, 13 Nov 2024 14:17:00 +0300
+Subject: [PATCH 04/16] [NFC][mlir][emitc] fix misspelling in description of
+ emitc.global (#115548)
+
+Missing `!` before `emitc.global` was added in the `EmitC.td`.
+---
+ mlir/include/mlir/Dialect/EmitC/IR/EmitC.td | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/mlir/include/mlir/Dialect/EmitC/IR/EmitC.td b/mlir/include/mlir/Dialect/EmitC/IR/EmitC.td
+index 7c84ab4dd39e..071541fa9895 100644
+--- a/mlir/include/mlir/Dialect/EmitC/IR/EmitC.td
++++ b/mlir/include/mlir/Dialect/EmitC/IR/EmitC.td
+@@ -1110,9 +1110,11 @@ def EmitC_GlobalOp : EmitC_Op<"global", [Symbol]> {
+ 
+     ```mlir
+     // Global variable with an initial value.
+-    emitc.global @x : emitc.array<2xf32> = dense<0.0, 2.0>
++    emitc.global @x : !emitc.array<2xf32> = dense<0.0>
++    // Global variable with an initial values.
++    emitc.global @x : !emitc.array<3xi32> = dense<[0, 1, 2]>
+     // External global variable
+-    emitc.global extern @x : emitc.array<2xf32>
++    emitc.global extern @x : !emitc.array<2xf32>
+     // Constant global variable with internal linkage
+     emitc.global static const @x : i32 = 0
+     ```
+-- 
+2.46.0
+

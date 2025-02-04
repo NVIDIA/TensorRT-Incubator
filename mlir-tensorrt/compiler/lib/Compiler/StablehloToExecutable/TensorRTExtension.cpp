@@ -57,7 +57,6 @@ void StablehloToExecutableTensorRTExtension::populatePasses(
   if (phase == Phase::PostClustering) {
     pm.addNestedPass<tensorrt::TensorRTModuleOp>(
         mlir::createConvertStablehloToTensorRTPass());
-    pm.addPass(createConvertTensorRTToTensorRTRuntimePass());
     return;
   }
 
@@ -68,6 +67,7 @@ void StablehloToExecutableTensorRTExtension::populatePasses(
         trtPM, translationOpts.enableStronglyTyped);
     trtPM.addPass(
         tensorrt::createTranslateTensorRTPass(nullptr, translationOpts));
+    pm.addPass(createConvertTensorRTToTensorRTRuntimePass());
     return;
   }
 
