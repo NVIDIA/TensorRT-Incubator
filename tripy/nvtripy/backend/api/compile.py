@@ -191,10 +191,9 @@ def compile(
                     "Cannot evaluate a tensor while compiling.", ["Tensor was evaluated here:", tensor.eval_stack_info]
                 )
 
-    flat_ir = trace.to_flat_ir()
-    mlir = flat_ir.to_mlir()
+    mlir = trace.to_mlir()
     compiler = MLIRCompiler(trt_builder_opt_level=optimization_level)
-    executable = compiler.compile(mlir, flat_ir=flat_ir)
+    executable = compiler.compile(mlir, trace=trace)
 
     return Executable(
         executable,
