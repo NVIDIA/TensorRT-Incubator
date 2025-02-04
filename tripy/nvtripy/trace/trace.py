@@ -16,15 +16,24 @@
 #
 
 import copy
-from typing import List, Sequence, Set
+from typing import Dict, List, Sequence, Set
 
+from mlir_tensorrt.compiler import ir
+from mlir_tensorrt.compiler.dialects import func as func_dialect
+from mlir_tensorrt.compiler.dialects._ods_common import get_op_result_or_value
 from nvtripy import utils
+from nvtripy.backend.mlir.utils import (
+    make_ir_context,
+    make_tensor_location,
+    map_error_to_user_code_and_raise,
+    redirect_stderr,
+)
 from nvtripy.common.exception import raise_error
 from nvtripy.common.shape_bounds import ShapeBounds
-from nvtripy.frontend.utils import topological_sort
 from nvtripy.logging import logger
 from nvtripy.trace.ops.storage import Storage
 from nvtripy.trace.tensor import TraceTensor
+from nvtripy.trace.utils import topological_sort
 
 
 class Trace:
@@ -34,9 +43,10 @@ class Trace:
 
     def __init__(
         self,
-        tensors: Sequence[TraceTensor],
+        outputs: Sequence[TraceTensor],
         inputs: Sequence[TraceTensor] = [],
         shapes: Sequence[ShapeBounds] = None,
+        name: str = "main",
     ) -> None:
         """
         Args:
@@ -47,10 +57,11 @@ class Trace:
         """
         self.ops: List["BaseTraceOp"] = []
         self.inputs: List[TraceTensor] = inputs
-        self.outputs: List[TraceTensor] = tensors
+        self.outputs: List[TraceTensor] = outputs
         self.shapes = shapes
+        self.name = name
 
-        exprs = [tensor.producer for tensor in tensors]
+        exprs = [tensor.producer for tensor in outputs]
 
         input_op_ids = set(id(inp.producer) for inp in inputs)
         seen_op_ids: Set[int] = set()
@@ -59,15 +70,15 @@ class Trace:
         # unique in the trace/flatIR. We could potentially change this in the future to
         # automatically make names unique instead of complaining to the user, but it's better
         # for traceability if we use the names set by the user/frontend.
-        _tensor_map = {}
+        self.tensor_map = {}
 
         def check_name(tensor):
-            if tensor.name in _tensor_map and (_tensor_map[tensor.name] is not tensor):
+            if tensor.name in self.tensor_map and (self.tensor_map[tensor.name] is not tensor):
                 raise_error(
                     f"Found distinct tensors with the same name: '{tensor.name}'.",
-                    details=["Tensor: ", tensor, "has the same name as another tensor: ", _tensor_map[tensor.name]],
+                    details=["Tensor: ", tensor, "has the same name as another tensor: ", self.tensor_map[tensor.name]],
                 )
-            _tensor_map[tensor.name] = tensor
+            self.tensor_map[tensor.name] = tensor
 
         while exprs:
             head = exprs.pop(0)
@@ -127,28 +138,107 @@ class Trace:
         dfs(trace_tensor)
         return inputs
 
-    def to_flat_ir(self):
-        from nvtripy.flat_ir.flat_ir import FlatIR
+    def to_mlir(self):
+        def to_mlir_impl():
 
-        flat_ir = FlatIR(shapes=self.shapes)
-        # Assign shapes to static shape arguments to ease translation and optimizations during the lowering to MLIR.
-        if self.shapes:
-            for input, shape_bounds in zip(self.inputs, self.shapes):
-                if shape_bounds.is_static():
-                    assert all(
-                        s >= 0 for s in shape_bounds.min
-                    ), f"shape bounds expected to be >= 0, got {shape_bounds.min}"
-                    input.shape = list(shape_bounds.min)
+            with make_ir_context(), ir.Location.unknown():
+                module = ir.Module.create()
+                with ir.InsertionPoint(module.body) as ip:
+                    # TODO (pranavm): Implement `to_mlir` for tensors?
+                    func_op = func_dialect.FuncOp(
+                        self.name,
+                        ir.FunctionType.get(
+                            [inp.to_mlir() for inp in self.inputs],
+                            [out.to_mlir() for out in self.outputs],
+                        ),
+                        ip=ip,
+                    )
 
-        flat_ir.inputs = [flat_ir.register_tensor(inp.to_flat_ir()) for inp in self.inputs]
-        flat_ir.outputs = [flat_ir.register_tensor(out.to_flat_ir()) for out in self.outputs]
+                    entry_block = func_op.add_entry_block()
+                    with ir.InsertionPoint(entry_block):
+                        mlir_ops: Dict[str, ir.BlockArgument] = {}
+                        # Initialize tensor dict with inputs
+                        for index, inp in enumerate(self.inputs):
+                            mlir_ops[inp.name] = entry_block.arguments[index]
 
-        for op in self.ops:
-            inputs = [flat_ir.register_tensor(inp.to_flat_ir()) for inp in op.inputs]
-            outputs = [flat_ir.register_tensor(out.to_flat_ir()) for out in op.outputs]
-            # Pass shallow copies of inputs/outputs so that the op is free to modify them
-            op.to_flat_ir(copy.copy(inputs), copy.copy(outputs))
-            flat_ir.integrate_subgraph(inputs, outputs)
+                        for op in self.ops:
+                            layer_inputs = [mlir_ops[inp.name] for inp in op.inputs]
 
-        logger.flat_ir(lambda: f"{flat_ir}\n")
-        return flat_ir
+                            with make_tensor_location(
+                                [inp.name for inp in op.inputs],
+                                [out.name for out in op.outputs],
+                                # TODO (pranavm): Remove trace input/output names from here and all error reporting logic.
+                                [],
+                                [],
+                            ):
+                                # TODO (pranavm): Implement `to_mlir` for ops
+                                layer_outputs = op.to_mlir(layer_inputs)
+
+                                # TODO (pranavm): Check if this is needed:
+                                # stablehlo python bindings can do some naive shape and type inference.
+                                # If the shapes are frozen after adding a layer, assign these shapes back to trace tensor.
+                                for mlir_out, trace_out in zip(layer_outputs, op.outputs):
+                                    type = get_op_result_or_value(mlir_out).type
+                                    trace_out.shape = tuple(
+                                        [
+                                            (-1 if type.is_dynamic_dim(i) else type.get_dim_size(i))
+                                            for i in range(type.rank)
+                                        ]
+                                    )
+
+                            mlir_ops.update(zip([out.name for out in op.outputs], layer_outputs))
+
+                        func_dialect.ReturnOp([mlir_ops[o.name] for o in self.outputs])
+
+                    # TODO (pranavm): Check if this is needed:
+                    # After lowering the complete graph to stablehlo, there can be mismatch between Tripy created function signature and the ReturnOp due to shapes that resolved while lowering into Stablehlo.
+                    # Here, we check if the types for the results and change the function signature to obey the inferred types.
+                    new_out_types = [get_op_result_or_value(mlir_ops[o.name]).type for o in self.outputs]
+                    ftype = ir.FunctionType.get([inp.to_mlir() for inp in self.inputs], new_out_types)
+                    func_op.attributes["function_type"] = ir.TypeAttr.get(ftype)
+
+                    if self.shapes:
+                        # Create tensorrt.shape_profile attribute for all function arguments
+                        arg_attrs: List[Dict[str, ir.Attribute]] = []
+                        for bound in self.shapes:
+                            # TODO (#244): Support multiple profiles
+                            arg_attrs.append(
+                                ir.DictAttr.get(
+                                    {
+                                        "tensorrt.shape_profile": ir.Attribute.parse(
+                                            f"#tensorrt.shape_profile<min={list(bound.min)}, opt={list(bound.opt)}, max={list(bound.max)}>"
+                                        )
+                                    }
+                                )
+                            )
+                        func_op.arg_attrs = ir.ArrayAttr.get(arg_attrs)
+
+                    # Append device location if outputs are on host as MLIR-TensorRT does not adhere to this constraint.
+                    # TODO(#155): Fix TensorKindAnalysis to ensure result tensors with attribute `tensorrt.host_tensor` are allocated on host.
+                    res_attrs = []
+                    for output in self.outputs:
+                        if output.device.kind == "cpu":
+                            res_attrs.append(ir.Attribute.parse("{tensorrt.host_tensor}"))
+                        else:
+                            res_attrs.append(ir.DictAttr.get({}))
+                    func_op.res_attrs = ir.ArrayAttr.get(res_attrs)
+
+                module.operation.attributes["sym_name"] = ir.StringAttr.get(
+                    utils.utils.UniqueNameGen.gen_uid(
+                        [inp.name for inp in self.inputs], [out.name for out in self.outputs]
+                    )
+                )
+                return module
+
+        try:
+            with redirect_stderr() as outfile:
+                mlir = to_mlir_impl()
+        except Exception as exc:
+
+            outfile.flush()
+            outfile.seek(0)
+            stderr = outfile.read()
+
+            map_error_to_user_code_and_raise(self, exc, stderr.decode())
+
+        return mlir

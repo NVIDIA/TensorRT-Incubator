@@ -312,7 +312,7 @@ def cast_to_dynamic_ranked_tensor(input_tensor: ir.Value, always_insert_cast: bo
     return stablehlo.ConvertOp(result=dynamic_type, operand=input_tensor).result
 
 
-def map_error_to_user_code_and_raise(flat_ir, exc, stderr):
+def map_error_to_user_code_and_raise(trace, exc, stderr):
     """
     Maps errors originating from the backend to user code and raises an error.
     This function must be called in the context of an active exception, as it may reraise
@@ -337,16 +337,16 @@ def map_error_to_user_code_and_raise(flat_ir, exc, stderr):
 
     def get_tensors(names, title=None):
         infos = []
-        if flat_ir is None:
+        if trace is None:
             return infos
 
-        if not names or any(name not in flat_ir.tensor_map for name in names):
+        if not names or any(name not in trace.tensor_map for name in names):
             return infos
 
         for index, name in enumerate(names):
             if title:
                 infos.append(f"{title} {index}:")
-            infos.append(flat_ir.tensor_map[name])
+            infos.append(trace.tensor_map[name])
         return infos
 
     def interleave_newline(arr):
@@ -354,11 +354,11 @@ def map_error_to_user_code_and_raise(flat_ir, exc, stderr):
 
     def get_flat_ir_operation(output_names):
         assert len(output_names) <= 1, f"Only implemented for single output ops"
-        if not output_names or flat_ir is None:
+        if not output_names or trace is None:
             return []
 
         output_name = output_names[0]
-        out_tensor = flat_ir.tensor_map[output_name]
+        out_tensor = trace.tensor_map[output_name]
 
         if output_name not in trace_output_names:
             # TODO (#165): Enforce reason_context like we do reason_details?

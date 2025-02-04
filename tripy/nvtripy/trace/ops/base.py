@@ -96,14 +96,15 @@ class BaseTraceOp(abc.ABC):
         self.outputs[0].device = self.inputs[0].device
 
     @abc.abstractmethod
-    def to_flat_ir(self, inputs: List["FlatIRTensor"], outputs: List["FlatIRTensor"]):
+    def to_mlir(self, inputs: List["ir.Operation"]) -> List["ir.Operation"]:
         """
-        Generates a FlatIR subgraph for the operation and binds it to the specified
-        inputs and outputs.
+        Generates MLIR operations for the operation.
 
         Args:
-            inputs: The inputs to the subgraph.
-            outputs: The outputs of the subgraph.
+            inputs: The input MLIR operations.
+
+        Returns:
+            The generated MLIR operations.
         """
         ...
 
