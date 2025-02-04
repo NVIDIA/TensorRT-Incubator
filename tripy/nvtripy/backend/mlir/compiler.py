@@ -69,9 +69,7 @@ class Compiler:
             if config.enable_tensorrt_debug:
                 opts.append(f"--tensorrt-layer-info-dir={config.tensorrt_debug_path}")
                 opts.append(f"--tensorrt-engines-dir={config.tensorrt_debug_path}")
-        return self.compiler_client.get_compilation_task(
-            "stablehlo-to-executable", opts
-        )
+        return self.compiler_client.get_compilation_task("tensorrt-to-executable", opts)
 
     def compile_stabehlo_program(self, code: str) -> compiler.Executable:
         with self.mlir_context:
@@ -80,10 +78,10 @@ class Compiler:
             task.run(module.operation)
             return compiler.translate_mlir_to_executable(module.operation)
 
-    # The optional flat_ir parameter is used to generate nicer error messages.
+    # The optional trace parameter is used to generate nicer error messages.
     @utils.utils.log_time
-    def compile(self, mlir_module: ir.Module, flat_ir: Optional["FlatIR"] = None) -> compiler.Executable:
-        logger.mlir(lambda: f"{mlir_module.operation.get_asm(large_elements_limit=32)}\n")
+    def compile(self, module: ir.Module, trace: Optional["Trace"] = None) -> compiler.Executable:
+        logger.mlir(lambda: f"{module.operation.get_asm(large_elements_limit=32)}\n")
         task = self._get_compilation_task(self.trt_builder_opt_level)
         task.run(module.operation)
 
@@ -94,6 +92,6 @@ class Compiler:
             outfile.flush()
             outfile.seek(0)
             stderr = outfile.read()
-            map_error_to_user_code_and_raise(flat_ir, exc, stderr.decode())
+            map_error_to_user_code_and_raise(trace, exc, stderr.decode())
         else:
             return executable

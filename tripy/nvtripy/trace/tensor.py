@@ -18,6 +18,7 @@
 from dataclasses import dataclass, field
 from typing import List, Optional
 
+from nvtripy.backend.mlir import utils as mlir_utils
 from nvtripy.utils.stack_info import StackInfo
 
 
@@ -58,20 +59,6 @@ class TraceTensor:
     def __eq__(self, other: "TraceTensor") -> bool:
         return self.name == other.name and self.stack_info == other.stack_info
 
-    def to_flat_ir(self) -> "FlatIRTensor":
-        from nvtripy.flat_ir.tensor import FlatIRTensor
-
-        tensor = FlatIRTensor(
-            name=self.name,
-            stack_info=self.stack_info,
-            dtype=self.dtype,
-            device=self.device,
-            rank=self.rank,
-            # Only set shape if known:
-            shape=self.shape if -1 not in self.shape else None,
-        )
-        return tensor
-
     @property
     def rank(self):
         return len(self.shape)
@@ -79,3 +66,6 @@ class TraceTensor:
     @rank.setter
     def rank(self, new_rank):
         self.shape = [-1] * new_rank
+
+    def to_mlir(self):
+        return mlir_utils.make_mlir_tensor(self.dtype, self.shape, self.rank)

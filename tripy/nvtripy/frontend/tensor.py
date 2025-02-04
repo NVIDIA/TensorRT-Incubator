@@ -166,10 +166,11 @@ class Tensor(metaclass=TensorMeta):
         return self.trace_tensor.device
 
     def eval(self) -> runtime.MemRefValue:
-        if isinstance(self.trace_tensor.producer, Storage):
-            # Exit early if the tensor has already been evaluated.
-            # This happens before the imports below so we don't incur extra overhead.
-            return self.trace_tensor.producer.data
+        # TODO (pranavm): Re-enable
+        # if isinstance(self.trace_tensor.producer, Storage):
+        #     # Exit early if the tensor has already been evaluated.
+        #     # This happens before the imports below so we don't incur extra overhead.
+        #     return self.trace_tensor.producer.data
 
         from nvtripy.backend.api.executable import Executable
         from nvtripy.backend.mlir.compiler import Compiler
@@ -180,15 +181,15 @@ class Tensor(metaclass=TensorMeta):
         inputs = Trace._collect_storage_tensors(self.trace_tensor)
 
         trace = Trace([self.trace_tensor], inputs=inputs)
+        # TODO (#155): Remove output devices here?
         output_devices = [out.device for out in trace.outputs]
 
         executable = global_cache.get(trace, devices=output_devices)
         if executable is None:
-            flat_ir = trace.to_flat_ir()
-            mlir = flat_ir.to_mlir()
+            mlir = trace.to_mlir()
 
             compiler = Compiler(trt_builder_opt_level=0)
-            executable = compiler.compile(mlir, flat_ir=flat_ir)
+            executable = compiler.compile(mlir, trace=trace)
 
             global_cache.set(trace, executable=executable, devices=output_devices)
 
