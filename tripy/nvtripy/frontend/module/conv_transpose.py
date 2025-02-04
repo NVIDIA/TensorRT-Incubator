@@ -134,7 +134,6 @@ class ConvTranspose(ConvBase):
 
         .. code-block:: python
             :linenos:
-            :caption: Example
 
             input = tp.reshape(tp.arange(4, dtype=tp.float32), (1, 1, 2, 2))
             upsample = tp.ConvTranspose(1, 1, (3, 3), stride=(2, 2), bias=False, dtype=tp.float32)
@@ -213,9 +212,9 @@ class ConvTranspose(ConvBase):
             where :math:`D_{k_{\text{out}}} = (D_{k_{\text{in}}} - 1) \times \text{stride}_k - \text{padding}_{k_0} - \text{padding}_{k_1} + \text{dilation}_k \times (\text{kernel_dims}_k - 1) + 1`
         """
         from nvtripy.frontend.ops.transpose import transpose
-        from nvtripy.frontend.trace.ops.convolution import convolution
-        from nvtripy.frontend.trace.ops.flip import flip
-        from nvtripy.frontend.trace.ops.reshape import reshape
+        from nvtripy.frontend.ops.convolution import convolution
+        from nvtripy.frontend.ops.flip import flip
+        from nvtripy.frontend.ops.reshape import reshape
 
         # SHLO expects kernel shape in (out_channels, in_channels / feature_groups, ...) format
         # whereas typically transpose conv uses (in_channels, out_channels / feature_groups, ...) e.g. in Torch.

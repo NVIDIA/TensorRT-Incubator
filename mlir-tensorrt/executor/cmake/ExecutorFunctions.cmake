@@ -51,12 +51,30 @@ function(add_mlir_executor_flatbuffer_schema target)
   )
 endfunction()
 
+function(add_mlir_executor_install target)
+  install(TARGETS ${target}
+    LIBRARY
+      DESTINATION lib${LLVM_LIBDIR_SUFFIX}
+      COMPONENT MTRT_Executor_Runtime
+    ARCHIVE
+      DESTINATION lib${LLVM_LIBDIR_SUFFIX}
+      COMPONENT MTRT_Executor_Development
+    RUNTIME
+      DESTINATION "${CMAKE_INSTALL_BINDIR}"
+      COMPONENT MTRT_Executor_Runtime
+    OBJECTS
+      DESTINATION lib${LLVM_LIBDIR_SUFFIX}
+      COMPONENT MTRT_Executor_Development
+  )
+endfunction()
+
 # --------------------------------------------------------------
 # Wrapper around `add_mlir_library`
 # --------------------------------------------------------------
 function(add_mlir_executor_library name)
   set_property(GLOBAL APPEND PROPERTY MLIR_EXECUTOR_LIBS ${name})
-  add_mlir_library(${name} ${ARGN})
+  add_mlir_library(${name} DISABLE_INSTALL ${ARGN})
+  add_mlir_executor_install(${name})
 endfunction()
 
 # --------------------------------------------------------------
@@ -65,4 +83,5 @@ endfunction()
 function(add_mlir_executor_runtime_library name)
   set_property(GLOBAL APPEND PROPERTY MLIR_EXECUTOR_RUNTIME_LIBS ${name})
   add_mlir_library(${name} ${ARGN})
+  add_mlir_executor_install(${name})
 endfunction()

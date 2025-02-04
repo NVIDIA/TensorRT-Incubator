@@ -23,7 +23,7 @@ from nvtripy import export, utils
 from nvtripy.common.exception import raise_error
 from nvtripy.frontend.module.parameter import DefaultParameter
 from nvtripy.frontend.tensor import Tensor
-from nvtripy.function_registry import type_str_from_arg
+from nvtripy.utils.function_registry import type_str_from_arg
 from nvtripy.logging import logger
 
 
@@ -40,21 +40,21 @@ def _check_param_compatible(original_param, new_param, param_name):
         # Note that this is required for the constructor to work since `original_param` will not be set.
         return
 
-    is_compatible = utils.Result.ok()
+    is_compatible = utils.result.Result.ok()
 
     skip_shape_comparison = isinstance(original_param, DefaultParameter) and not original_param.is_shape_known
     if not skip_shape_comparison:
         original_shape = original_param.shape
         new_shape = new_param.shape
         if original_shape != new_shape:
-            is_compatible = utils.Result.err(
+            is_compatible = utils.result.Result.err(
                 ["New parameter shape: ", new_shape, " is not compatible with current shape: ", original_shape]
             )
 
     original_dtype = original_param.dtype
     new_dtype = new_param.dtype
     if original_dtype != new_dtype:
-        is_compatible = utils.Result.err(
+        is_compatible = utils.result.Result.err(
             ["New parameter dtype: ", new_dtype, " is not compatible with current dtype: ", original_dtype]
         )
 
@@ -90,8 +90,8 @@ class Module:
     ::
 
         self.dict_modules = {
-            "convolution": tp.Conv(in_channels=2, out_channels=2, kernel_dims=(1,1), stride=(1,1)),
-            "pool": lambda x: tp.avgpool(x, kernel_dims=(2,2), stride=(1,1))
+            "convolution": tp.Conv(in_channels=2, out_channels=2, kernel_dims=(1,1)),
+            "pool": lambda x: tp.avgpool(x, kernel_dims=(2,2))
         }
 
     Whereas this is not supported:
@@ -104,7 +104,6 @@ class Module:
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         class AddBias(tp.Module):
             def __init__(self):
@@ -138,7 +137,6 @@ class Module:
 
         .. code-block:: python
             :linenos:
-            :caption: Example
 
             # doc: print-locals state_dict
 
@@ -183,7 +181,6 @@ class Module:
 
         .. code-block:: python
             :linenos:
-            :caption: Example
 
             # doc: no-print-locals
 
@@ -271,7 +268,6 @@ class Module:
 
         .. code-block:: python
             :linenos:
-            :caption: Example
 
             # doc: no-print-locals
 
@@ -297,17 +293,16 @@ class Module:
 
         .. code-block:: python
             :linenos:
-            :caption: Example
 
             # doc: no-print-locals
 
-            class Linear(tp.Module):
+            class MyModule(tp.Module):
                 def __init__(self):
                     super().__init__()
                     self.alpha = tp.Tensor(1)
                     self.beta = tp.Tensor(2)
 
-            linear = Linear()
+            linear = MyModule()
 
             for name, parameter in linear.named_parameters():
                 print(f"{name}: {parameter}")

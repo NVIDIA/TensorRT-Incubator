@@ -15,7 +15,8 @@
 # limitations under the License.
 #
 
-from nvtripy import export, wrappers
+from nvtripy import export
+from nvtripy.utils import wrappers
 
 
 @export.public_api(document_under="operations/functions")
@@ -40,7 +41,6 @@ def relu(input: "nvtripy.Tensor") -> "nvtripy.Tensor":
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         input = tp.Tensor([1., 2., 3., 4.], dtype=tp.float32)
         output = tp.relu(input)
@@ -49,8 +49,8 @@ def relu(input: "nvtripy.Tensor") -> "nvtripy.Tensor":
         assert tp.allclose(output, tp.Tensor(torch.nn.functional.relu(t)))
 
     """
-    from nvtripy.frontend.ops import zeros
-    from nvtripy.frontend.trace.ops.binary_elementwise import maximum
+    from nvtripy.frontend.ops.binary_elementwise import maximum
+    from nvtripy.frontend.ops.zeros import zeros
 
     mask = zeros((1,), dtype=input.dtype)
     return maximum(mask, input)

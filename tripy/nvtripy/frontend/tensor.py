@@ -22,22 +22,13 @@ import mlir_tensorrt.runtime.api as runtime
 
 # Import ops to populate the registry before we define our Tensor class
 import nvtripy.frontend.ops
-import nvtripy.frontend.trace.ops
-from nvtripy import config
 from nvtripy import export, utils
 from nvtripy.backend.mlir import memref
 from nvtripy.common import datatype
 from nvtripy.common.exception import raise_error, str_from_stack_info
-from nvtripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
-from nvtripy.frontend.trace.ops import Storage
-from nvtripy.frontend.trace.tensor import TraceTensor
+from nvtripy.frontend.ops._registry import TENSOR_METHOD_REGISTRY
 from nvtripy.logging.logger import logger
-from nvtripy.utils.stack_info import StackInfo
-
-
-# We include code for everything above the `BaseTraceOp.build` function, which is called at most
-# this many stack frames above the constructor.
-STACK_DEPTH_OF_BUILD = 5
+from nvtripy.trace.ops.storage import Storage
 
 
 class TensorMeta(type):
@@ -67,18 +58,10 @@ class Tensor(metaclass=TensorMeta):
     A tensor is a multi-dimensional array that contains elements of a uniform data type.
     """
 
-    _COUNT = 0
-
     # This field communicates to NumPy that it should allow our right-side operator overloads (e.g. __radd__) to take
     # precedence over its own left-side overloads (e.g. __add__). This will ensure that an expression of the form
     # `<np_array> <binary_op> Tensor` will return a Tensor and not a NumPy array.
     __array_priority__ = 10000
-
-    @classmethod
-    def _get_unique_name(cls):
-        name = f"t{cls._COUNT}"
-        cls._COUNT += 1
-        return name
 
     def __init__(
         self,
@@ -100,65 +83,47 @@ class Tensor(metaclass=TensorMeta):
 
         .. code-block:: python
             :linenos:
-            :caption: Example
 
             tensor = tp.Tensor([1.0, 2.0, 3.0], dtype=tp.float32)
         """
         # We use None internally but users should not be permitted to do it
         assert data is not None, "Data argument to Tensor must not be None"
-        Tensor.raw_init(self, data, dtype, device, name, fetch_stack_info)
+        self._stack_info = utils.stack_info.StackInfo([])
 
-    # Left undocumented because this should only be used internally.
-    # Produces a new instance of a Tensor but avoids calling into the function registry, unlike the normal constructor.
-    @staticmethod
-    def create_directly(
-        data: Any,
-        dtype: Optional["nvtripy.dtype"] = None,
-        device: Optional["nvtripy.device"] = None,
-        name: Optional[str] = None,
-        fetch_stack_info: bool = True,
-    ):
-        instance = Tensor.__new__(Tensor)
-        Tensor.raw_init(instance, data, dtype, device, name, fetch_stack_info)
-        return instance
-
-    # No docstring because this should be used only internally. Handles the logic for initializing a new instance.
-    # We separate this from __init__ because __init__ calls into the registry and rejects None values, which we use internally.
-    @staticmethod
-    def raw_init(
-        instance: Any,
-        data: Any,
-        dtype: Optional["nvtripy.dtype"] = None,
-        device: Optional["nvtripy.device"] = None,
-        name: Optional[str] = None,
-        fetch_stack_info: bool = True,
-    ):
-        stack_info = StackInfo([])
+        storage = Storage(data, device=device if not hasattr(data, "__dlpack__") else None)
+        self.trace_tensor = storage.outputs[0]
+        self.trace_tensor.name = utils.utils.default(name, self.trace_tensor.name)
         if fetch_stack_info:
-            stack_info = utils.get_stack_info(include_code_index=STACK_DEPTH_OF_BUILD)
-
-        name = name if name is not None else Tensor._get_unique_name()
-
-        instance.trace_tensor = TraceTensor(name, stack_info, dtype=None, device=device, producer=None, shape=None)
-
-        # Note: It is important that we are able to call the Tensor constructor with no arguments
-        # since this is used internally.
-        if data is None:
-            return
-
-        Storage.build_internal(
-            [], [instance.trace_tensor], data, device=device if not hasattr(data, "__dlpack__") else None
-        )
+            # TODO (pranavm): Figure out the right stack depth
+            self.stack_info = utils.stack_info.get_stack_info(include_code_index=1)
 
         # TODO(#155): Remove this hack:
-        instance.trace_tensor.device = utils.default(device, instance.trace_tensor.device)
+        self.trace_tensor.device = utils.utils.default(device, self.trace_tensor.device)
 
         # Explicit cast if necessary
         # TODO(#155): Add copy as well when host allocation is fixed
-        if dtype is not None and dtype != instance.trace_tensor.dtype:
-            from nvtripy.frontend.trace.ops.cast import cast
+        if dtype is not None and dtype != self.trace_tensor.dtype:
+            from nvtripy.frontend.ops.cast import cast
 
-            instance.trace_tensor = cast(instance, dtype=dtype).trace_tensor
+            self.trace_tensor = cast(self, dtype=dtype).trace_tensor
+
+    # Left undocumented because these should only be used internally.
+    @classmethod
+    def from_trace_tensor(cls, trace_tensor, include_code_index=2):
+        instance = cls.__new__(cls)
+        instance.trace_tensor = trace_tensor
+        # TODO (pranavm): Figure out what stack depth to use here?
+        instance.stack_info = utils.stack_info.get_stack_info(include_code_index=include_code_index)
+        return instance
+
+    # Faster constructor that bypasses things like function registry type checks and fetching stack info.
+    @staticmethod
+    def fast_init(data: Any):
+        instance = Tensor.__new__(Tensor)
+        storage = Storage(data)
+        instance.trace_tensor = storage.outputs[0]
+        instance.stack_info = utils.stack_info.StackInfo([])
+        return instance
 
     def __getattr__(self, name: str):
         import nvtripy as tp
@@ -177,10 +142,11 @@ class Tensor(metaclass=TensorMeta):
 
     @property
     def stack_info(self):
-        return self.trace_tensor.stack_info
+        return self._stack_info
 
     @stack_info.setter
     def stack_info(self, new_stack_info):
+        self._stack_info = new_stack_info
         self.trace_tensor.stack_info = new_stack_info
 
     @property
@@ -207,8 +173,8 @@ class Tensor(metaclass=TensorMeta):
 
         from nvtripy.backend.mlir.compiler import Compiler
         from nvtripy.backend.mlir.executor import Executor
-        from nvtripy.frontend.trace import Trace
         from nvtripy.frontend.cache import global_cache
+        from nvtripy.trace.trace import Trace
 
         # Collect inputs
         inputs = Trace._collect_storage_tensors(self.trace_tensor)
@@ -235,11 +201,18 @@ class Tensor(metaclass=TensorMeta):
         assert len(data) == 1, "Expects only one output from mlir_tensorrt.compiler executor"
         data = data[0]
 
-        Storage.build_internal([], [self.trace_tensor], data)
+        storage = Storage(data)
+        # Need to carry forward `is_compile_tracer`:
+        storage.outputs[0].is_compile_tracer = self.trace_tensor.is_compile_tracer
+
+        # Rebind this tensor, but be sure to preserve stack information:
+        self.trace_tensor = storage.outputs[0]
+        self.trace_tensor.stack_info = self.stack_info
+
         # TODO(#155): Remove this hack of overriding the device type.
         self.trace_tensor.device = output_devices[0]
 
-        self.trace_tensor.eval_stack_info = utils.get_stack_info()
+        self.trace_tensor.eval_stack_info = utils.stack_info.get_stack_info()
         if self.trace_tensor.is_compile_tracer:
             logger.warning(
                 f"Tensor was evaluated while compiling which may cause unexpected behavior in the executable.\n"
@@ -263,7 +236,7 @@ class Tensor(metaclass=TensorMeta):
             datatype.int64,
             datatype.bool,
         ):
-            from nvtripy.frontend.trace.ops.cast import cast
+            from nvtripy.frontend.ops.cast import cast
 
             data_memref = cast(Tensor(data_memref), datatype.float32).eval()
         return memref.tolist(data_memref)

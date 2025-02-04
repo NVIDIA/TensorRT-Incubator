@@ -15,7 +15,8 @@
 # limitations under the License.
 #
 
-from nvtripy import export, wrappers
+from nvtripy import export
+from nvtripy.utils import wrappers
 
 
 @export.public_api(document_under="operations/functions")
@@ -47,15 +48,14 @@ def softmax(input: "nvtripy.Tensor", dim: int = None) -> "nvtripy.Tensor":
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         input = tp.iota([2, 2], dtype=tp.float32)
         output = tp.softmax(input, dim=0)
 
         assert tp.allclose(output, tp.Tensor(torch.Tensor([[0., 0.], [1., 1.]]).softmax(0)))
     """
-    from nvtripy.frontend.trace.ops.reduce import max, sum
-    from nvtripy.frontend.trace.ops.unary_elementwise import exp
+    from nvtripy.frontend.ops.reduce import max, sum
+    from nvtripy.frontend.ops.unary_elementwise import exp
 
     exp_inp = exp(input - max(input, dim, keepdim=True))
     return exp_inp / sum(exp_inp, dim, keepdim=True)

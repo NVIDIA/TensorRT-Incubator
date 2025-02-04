@@ -1,0 +1,28 @@
+From fb704502fa135d11225f3d3994f8b8b61c92e2db Mon Sep 17 00:00:00 2001
+From: hatoo <hato2000@gmail.com>
+Date: Fri, 3 Jan 2025 02:13:27 +0900
+Subject: [PATCH 10/16] [mlir][emitc] Fix invalid syntax in example of
+ emitc.return (#121112)
+
+A return type of `emitc.func` must be specified with `->` instead of
+`:`. I've verified the syntax using `mlir-translate --mlir-to-cpp`.
+---
+ mlir/include/mlir/Dialect/EmitC/IR/EmitC.td | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/mlir/include/mlir/Dialect/EmitC/IR/EmitC.td b/mlir/include/mlir/Dialect/EmitC/IR/EmitC.td
+index 729a573b71c9..744a0dc4770e 100644
+--- a/mlir/include/mlir/Dialect/EmitC/IR/EmitC.td
++++ b/mlir/include/mlir/Dialect/EmitC/IR/EmitC.td
+@@ -727,7 +727,7 @@ def EmitC_ReturnOp : EmitC_Op<"return", [Pure, HasParent<"FuncOp">,
+     Example:
+ 
+     ```mlir
+-    emitc.func @foo() : (i32) {
++    emitc.func @foo() -> (i32) {
+       ...
+       emitc.return %0 : i32
+     }
+-- 
+2.46.0
+

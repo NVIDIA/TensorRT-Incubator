@@ -172,7 +172,7 @@ public:
   using Base::Base;
   DECLARE_WRAPPER_CONSTRUCTORS(PyRuntimeClient);
 
-  static constexpr auto kMethodTable = CAPITable<MTRT_Runtimeclient>{
+  static constexpr auto kMethodTable = CAPITable<MTRT_RuntimeClient>{
       mtrtRuntimeClientIsNull, mtrtRuntimeClientDestroy};
 };
 

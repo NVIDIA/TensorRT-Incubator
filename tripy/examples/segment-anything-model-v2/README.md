@@ -9,7 +9,6 @@ This is an implementation of SAM2 model ([original repository](https://github.co
 1. Install prerequisites:
 
     ```bash
-    sudo apt-get update && sudo apt-get install ffmpeg libsm6 libxext6 jpeginfo -y
     python3 -m pip install -r requirements.txt
     ```
 
@@ -39,7 +38,7 @@ This is an implementation of SAM2 model ([original repository](https://github.co
 ### Video segmentation pipeline
 
 1. Run the example:
-    
+
     ```bash
     python3 video_demo.py
     ```

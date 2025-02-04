@@ -466,6 +466,26 @@ translateSignature(FBBuilder &fbBuilder,
       translateCallingConvention(metadata.getCconv()));
 }
 
+/// Generate a function signature. This is used if there is no explicit
+/// 'executor.function_metadata' attached to the function.
+static FailureOr<Offset<rt::impl::FunctionSignature>>
+generateSignature(FBBuilder &fbBuilder, FunctionType metadata) {
+  // Union type must be encoded as variant type + data.
+  SmallVector<rt::impl::Type> argVariantTypes, resultVariantTypes;
+  SmallVector<Offset<void>> argOffsets, resultOffsets;
+  argVariantTypes.reserve(metadata.getNumInputs());
+  argOffsets.reserve(metadata.getNumInputs());
+  resultVariantTypes.reserve(metadata.getNumResults());
+  resultOffsets.reserve(metadata.getNumResults());
+  return rt::impl::CreateFunctionSignature(
+      fbBuilder, fbBuilder.serialize(argVariantTypes),
+      fbBuilder.serialize(argOffsets), fbBuilder.serialize(resultVariantTypes),
+      fbBuilder.serialize(resultOffsets), /*num_output_args=*/0,
+      /*arg_bounds_type=*/0, /*arg_bounds=*/0, /*result_bounds_type=*/0,
+      /*result_bounds=*/0, /*shape_function_name=*/0,
+      mlirtrt::runtime::CallingConvention::packed);
+}
+
 /// Return a sanitized version of a symbol name by replacing special characters
 /// with underscores.
 static std::string sanitizeName(StringRef name) {
@@ -547,12 +567,13 @@ mlir::translateToRuntimeExecutable(Operation *op) {
     Offset<fb::String> funcNameOffset =
         fbBuilder.CreateString(func.getName().str());
 
-    auto metaAttr = func->getAttrOfType<executor::FunctionMetadataAttr>(
-        executor::ExecutorDialect::kFunctionMetadataAttrName);
-
-    FailureOr<Offset<rt::impl::FunctionSignature>> offt =
-        metaAttr ? translateSignature(fbBuilder, metaAttr)
-                 : Offset<rt::impl::FunctionSignature>(0);
+    FailureOr<Offset<rt::impl::FunctionSignature>> offt;
+    if (auto metaAttr = func->getAttrOfType<executor::FunctionMetadataAttr>(
+            executor::ExecutorDialect::kFunctionMetadataAttrName)) {
+      offt = translateSignature(fbBuilder, metaAttr);
+    } else {
+      offt = generateSignature(fbBuilder, func.getFunctionType());
+    }
     if (failed(offt))
       return failure();
 

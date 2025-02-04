@@ -72,7 +72,7 @@ def str_from_source_info(source_info, enable_color=True, is_first_frame=True, ca
     frame_info = ""
     if is_first_frame:
         frame_info += "\n\n"
-    pretty_code = utils.code_pretty_str(
+    pretty_code = utils.utils.code_pretty_str(
         source_info.code, source_info.file, source_info.line, source_info.function, enable_color=enable_color
     )
 
@@ -84,7 +84,7 @@ def str_from_source_info(source_info, enable_color=True, is_first_frame=True, ca
         # it is not possible for us to determine which column offset is correct, so we
         # won't include it in that case.
         try:
-            candidate_column_offsets = utils.get_candidate_column_offsets(source_info, callee_info)
+            candidate_column_offsets = utils.ast.get_candidate_column_offsets(source_info, callee_info)
         except:
             pass
         else:
@@ -107,9 +107,12 @@ def _get_function_file_and_lines(func):
     return filename, start_line, start_line + len(lines)
 
 
-def str_from_stack_info(stack_info: "utils.StackInfo", enable_color: bool = True) -> Optional[str]:
+def str_from_stack_info(stack_info: "utils.stack_info.StackInfo", enable_color: bool = True) -> Optional[str]:
     def should_exclude(source_info):
-        return source_info.code is None or source_info.module in utils.get_module_names_to_exclude_from_stack_info()
+        return (
+            source_info.code is None
+            or source_info.module in utils.stack_info.get_module_names_to_exclude_from_stack_info()
+        )
 
     frame_strs = []
     num_frames_printed = 0
@@ -157,7 +160,7 @@ def raise_error(summary: str, details: List[Any] = []):
     """
 
     pre_summary = ""
-    stack_info = utils.get_stack_info()
+    stack_info = utils.stack_info.get_stack_info()
     user_frame_index = stack_info.get_first_user_frame_index()
     if user_frame_index is not None:
         stack_info.fetch_source_code()
@@ -168,7 +171,7 @@ def raise_error(summary: str, details: List[Any] = []):
         stack_info_message = None
         if hasattr(detail, "stack_info"):
             stack_info_message = str_from_stack_info(detail.stack_info)
-        elif isinstance(detail, utils.StackInfo):
+        elif isinstance(detail, utils.stack_info.StackInfo):
             stack_info_message = str_from_stack_info(detail)
 
         if stack_info_message is not None:

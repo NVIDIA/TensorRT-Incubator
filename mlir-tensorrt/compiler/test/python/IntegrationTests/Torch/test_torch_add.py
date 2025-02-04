@@ -2,12 +2,11 @@
 
 import mlir_tensorrt.compiler.api as compiler
 import mlir_tensorrt.compiler.ir as ir
-import mlir_tensorrt.runtime.api as runtime
 import mlir_tensorrt.compiler.torch_bridge as torch_bridge
-
+import mlir_tensorrt.runtime.api as runtime
 import numpy as np
-import torch.nn as nn
 import torch
+import torch.nn as nn
 
 
 class Model(nn.Module):
@@ -32,9 +31,9 @@ def compile():
         task = client.get_compilation_task(
             "stablehlo-to-executable",
             [
-                "--tensorrt-builder-opt-level=3",
+                "--tensorrt-builder-opt-level=0",
                 "--tensorrt-strongly-typed=false",
-                "--tensorrt-workspace-memory-pool-limit=1gb",
+                "--tensorrt-workspace-memory-pool-limit=1024kB",
             ],
         )
         task.run(shlo_module.operation)

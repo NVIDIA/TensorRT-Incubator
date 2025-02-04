@@ -15,8 +15,9 @@
 
 from typing import Sequence
 
-from nvtripy import export, wrappers
+from nvtripy import export
 from nvtripy.common.exception import raise_error
+from nvtripy.utils import wrappers
 
 
 @export.public_api(document_under="operations/functions")
@@ -39,7 +40,6 @@ def stack(tensors: Sequence["nvtripy.Tensor"], dim: int = 0) -> "nvtripy.Tensor"
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         a = tp.iota((2, 3), dtype=tp.float32)
         b = tp.iota((2, 3), dtype=tp.float32)
@@ -50,7 +50,7 @@ def stack(tensors: Sequence["nvtripy.Tensor"], dim: int = 0) -> "nvtripy.Tensor"
     """
 
     from nvtripy.frontend.ops.unsqueeze import unsqueeze
-    from nvtripy.frontend.trace.ops.concatenate import concatenate
+    from nvtripy.frontend.ops.concatenate import concatenate
 
     if not tensors:
         raise_error(f"Expected a non-empty list of tensors, got {tensors}")

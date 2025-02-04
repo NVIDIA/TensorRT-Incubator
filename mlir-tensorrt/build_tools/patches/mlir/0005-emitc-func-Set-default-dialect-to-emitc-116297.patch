@@ -1,0 +1,120 @@
+From 45846991cdda3c87d12fb8ad9578b7d73f086ca2 Mon Sep 17 00:00:00 2001
+From: Matthias Gehre <matthias.gehre@amd.com>
+Date: Mon, 18 Nov 2024 17:26:21 +0100
+Subject: [PATCH 05/16] emitc: func: Set default dialect to 'emitc' (#116297)
+
+Makes `emitc.func` implement the `OpAsmOpInterface` and overwrite the
+`getDefaultDialect`. This allows ops inside `emitc.func`'s body to omit
+the 'emitc.' prefix in the assembly.
+---
+ mlir/include/mlir/Dialect/EmitC/IR/EmitC.td    | 12 +++++++++++-
+ .../Conversion/FuncToEmitC/func-to-emitc.mlir  | 18 +++++++++---------
+ 2 files changed, 20 insertions(+), 10 deletions(-)
+
+diff --git a/mlir/include/mlir/Dialect/EmitC/IR/EmitC.td b/mlir/include/mlir/Dialect/EmitC/IR/EmitC.td
+index 071541fa9895..fc5a33541533 100644
+--- a/mlir/include/mlir/Dialect/EmitC/IR/EmitC.td
++++ b/mlir/include/mlir/Dialect/EmitC/IR/EmitC.td
+@@ -21,6 +21,7 @@ include "mlir/Interfaces/CastInterfaces.td"
+ include "mlir/Interfaces/ControlFlowInterfaces.td"
+ include "mlir/Interfaces/FunctionInterfaces.td"
+ include "mlir/Interfaces/SideEffectInterfaces.td"
++include "mlir/IR/OpAsmInterface.td"
+ include "mlir/IR/RegionKindInterface.td"
+ 
+ //===----------------------------------------------------------------------===//
+@@ -632,7 +633,7 @@ def EmitC_DeclareFuncOp : EmitC_Op<"declare_func", [
+ 
+ def EmitC_FuncOp : EmitC_Op<"func", [
+   AutomaticAllocationScope,
+-  FunctionOpInterface, IsolatedFromAbove
++  FunctionOpInterface, IsolatedFromAbove, OpAsmOpInterface
+ ]> {
+   let summary = "An operation with a name containing a single `SSACFG` region";
+   let description = [{
+@@ -700,6 +701,15 @@ def EmitC_FuncOp : EmitC_Op<"func", [
+ 
+     /// Returns the result types of this function.
+     ArrayRef<Type> getResultTypes() { return getFunctionType().getResults(); }
++
++    //===------------------------------------------------------------------===//
++    // OpAsmOpInterface Methods
++    //===------------------------------------------------------------------===//
++
++    /// EmitC ops in the body can omit their 'emitc.' prefix in the assembly.
++    static ::llvm::StringRef getDefaultDialect() {
++      return "emitc";
++    }
+   }];
+   let hasCustomAssemblyFormat = 1;
+   let hasVerifier = 1;
+diff --git a/mlir/test/Conversion/FuncToEmitC/func-to-emitc.mlir b/mlir/test/Conversion/FuncToEmitC/func-to-emitc.mlir
+index 5730f7a4814f..bd48886ed739 100644
+--- a/mlir/test/Conversion/FuncToEmitC/func-to-emitc.mlir
++++ b/mlir/test/Conversion/FuncToEmitC/func-to-emitc.mlir
+@@ -1,7 +1,7 @@
+ // RUN: mlir-opt -split-input-file -convert-func-to-emitc %s | FileCheck %s
+ 
+ // CHECK-LABEL: emitc.func @foo()
+-// CHECK-NEXT: emitc.return
++// CHECK-NEXT: return
+ func.func @foo() {
+   return
+ }
+@@ -9,7 +9,7 @@ func.func @foo() {
+ // -----
+ 
+ // CHECK-LABEL: emitc.func private @foo() attributes {specifiers = ["static"]}
+-// CHECK-NEXT: emitc.return
++// CHECK-NEXT: return
+ func.func private @foo() {
+   return
+ }
+@@ -25,7 +25,7 @@ func.func @foo(%arg0: i32) {
+ // -----
+ 
+ // CHECK-LABEL: emitc.func @foo(%arg0: i32) -> i32
+-// CHECK-NEXT: emitc.return %arg0 : i32
++// CHECK-NEXT: return %arg0 : i32
+ func.func @foo(%arg0: i32) -> i32 {
+   return %arg0 : i32
+ }
+@@ -41,14 +41,14 @@ func.func @foo(%arg0: i32, %arg1: i32) -> i32 {
+ // -----
+ 
+ // CHECK-LABEL: emitc.func private @return_i32(%arg0: i32) -> i32 attributes {specifiers = ["static"]}
+-// CHECK-NEXT: emitc.return %arg0 : i32
++// CHECK-NEXT: return %arg0 : i32
+ func.func private @return_i32(%arg0: i32) -> i32 {
+   return %arg0 : i32
+ }
+ 
+ // CHECK-LABEL: emitc.func @call(%arg0: i32) -> i32
+-// CHECK-NEXT: %0 = emitc.call @return_i32(%arg0) : (i32) -> i32
+-// CHECK-NEXT: emitc.return %0 : i32
++// CHECK-NEXT: %0 = call @return_i32(%arg0) : (i32) -> i32
++// CHECK-NEXT: return %0 : i32
+ func.func @call(%arg0: i32) -> i32 {
+   %0 = call @return_i32(%arg0) : (i32) -> (i32)
+   return %0 : i32
+@@ -62,14 +62,14 @@ func.func private @return_i32(%arg0: i32) -> i32
+ // -----
+ 
+ // CHECK-LABEL: emitc.func private @return_void() attributes {specifiers = ["static"]}
+-// CHECK-NEXT: emitc.return
++// CHECK-NEXT: return
+ func.func private @return_void() {
+   return
+ }
+ 
+ // CHECK-LABEL: emitc.func @call()
+-// CHECK-NEXT: emitc.call @return_void() : () -> ()
+-// CHECK-NEXT: emitc.return
++// CHECK-NEXT: call @return_void() : () -> ()
++// CHECK-NEXT: return
+ func.func @call() {
+   call @return_void() : () -> ()
+   return
+-- 
+2.46.0
+

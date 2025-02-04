@@ -85,7 +85,7 @@ class FlatIRFunction:
                 [tensor_signature(t) for t in op.outputs],
                 tuple(
                     getattr(op, field.name)
-                    for field in utils.get_dataclass_fields(op, BaseFlatIROp)
+                    for field in utils.utils.get_dataclass_fields(op, BaseFlatIROp)
                     if field.name not in ("inputs", "outputs")
                 ),
             )

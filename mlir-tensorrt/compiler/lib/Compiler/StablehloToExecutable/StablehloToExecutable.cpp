@@ -115,12 +115,6 @@ void StablehloToExecutableTask::buildStablehloClusteringPipeline(
 
   pm.addNestedPass<func::FuncOp>(plan::createPostClusteringValidationPass());
 
-  pm.addPass(createCanonicalizerPass());
-
-  pm.addPass(createInlinerPass());
-  pm.addNestedPass<func::FuncOp>(createCSEPass());
-  pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
-
   // We then perform some final simplification on the top-level func.func ops
   // (e.g. public entrypoint functions).
   pm.addNestedPass<func::FuncOp>(createSCFDetensorizeLoopsPass());
@@ -131,6 +125,8 @@ void StablehloToExecutableTask::buildPostClusteringPipeline(
     OpPassManager &pm, const StablehloToExecutableOptions &opts) {
   using Phase = StablehloToExecutableOptions::ExtensionBase::Phase;
   populateExtensionPasses(pm, opts, Phase::PreBufferization);
+
+  pm.addPass(createInlinerPass());
 
   // Perform bufferization.
   pm.addPass(createMemRefCastEliminationPass());

@@ -1,19 +1,5 @@
 // RUN: mlir-tensorrt-opt -split-input-file %s | mlir-tensorrt-opt -split-input-file | FileCheck %s
 
-func.func @compile() -> !trtrt.context {
-  %0 = trtrt.create_runtime : !trtrt.runtime
-  %1 = trtrt.compile @trt_engines::@trt_engine1 : !trtrt.context
-  return %1 : !trtrt.context
-}
-
-// CHECK-LABEL: @compile
-//  CHECK-SAME: () -> !trtrt.context {
-//       CHECK:     %[[v0:.+]] = trtrt.create_runtime : !trtrt.runtime
-//       CHECK:     %[[v1:.+]] = trtrt.compile @trt_engines::@trt_engine1 : !trtrt.context
-//       CHECK:     return %[[v1]] : !trtrt.context
-
-// -----
-
 func.func @enqueue(%arg0: memref<10xf32>, %arg1: memref<10xf32>, %ctx: !trtrt.context, %stream: !cuda.stream) {
   trtrt.enqueue %ctx stream(%stream) (%arg0) outs(%arg1) : (memref<10xf32>) -> (memref<10xf32>)
   return
@@ -47,3 +33,18 @@ func.func @enqueue_host_tensor(%arg0: !trtrt.context, %arg1: !cuda.stream,
 
 // CHECK-LABEL: @enqueue_host_tensor
 //       CHECK:  trtrt.enqueue %{{.+}} stream(%{{.+}}) host_tensor_args [1] (%{{.+}}, %{{.+}}) outs(%{{.+}}) : (tensor<1xf32>, tensor<1xi32>) -> tensor<1xf32>
+
+// -----
+
+module @compiled_func_global {
+  trtrt.compiled_func @trt_engine dense<0xFF> : vector<1xi8>
+  func.func @main() -> !trtrt.context {
+    %0 = trtrt.get_function @trt_engine : !trtrt.context
+    return %0 : !trtrt.context
+  }
+}
+
+//       CHECK: trtrt.compiled_func @trt_engine dense<-1> : vector<1xi8>
+// CHECK-LABEL: func.func @main
+//   CHECK-DAG:       %[[v0:.+]] = trtrt.get_function @trt_engine : !trtrt.context
+//   CHECK-DAG:       return %[[v0]] : !trtrt.context

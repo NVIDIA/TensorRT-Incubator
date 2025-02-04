@@ -23,7 +23,7 @@ import glob
 import os
 
 import pytest
-from tests import helper
+from tests import paths
 
 
 class TestImports:
@@ -31,7 +31,7 @@ class TestImports:
 
     @pytest.mark.parametrize(
         "file_path",
-        [file_path for file_path in glob.iglob(os.path.join(helper.ROOT_DIR, "tests", "**", "*.py"), recursive=True)],
+        [file_path for file_path in glob.iglob(os.path.join(paths.ROOT_DIR, "tests", "**", "*.py"), recursive=True)],
     )
     def test_no_invalid_imports(self, file_path):
         if file_path.endswith("test_test.py"):

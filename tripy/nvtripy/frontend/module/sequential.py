@@ -112,7 +112,6 @@ class Sequential(Module):
 
         .. code-block:: python
             :linenos:
-            :caption: Example
 
             # doc: print-locals model length
 
@@ -131,7 +130,6 @@ class Sequential(Module):
 
         .. code-block:: python
             :linenos:
-            :caption: Example
 
             model = tp.Sequential(tp.Linear(1, 3), tp.Linear(3, 2))
             for layer in model:
@@ -154,7 +152,6 @@ class Sequential(Module):
 
         .. code-block:: python
             :linenos:
-            :caption: Example
 
             model = tp.Sequential(tp.Linear(1, 3), tp.Linear(3, 2))
             print(model[1])
@@ -179,7 +176,6 @@ class Sequential(Module):
 
         .. code-block:: python
             :linenos:
-            :caption: Example
 
             model = tp.Sequential(tp.Linear(1, 3), tp.Linear(3, 2))
 

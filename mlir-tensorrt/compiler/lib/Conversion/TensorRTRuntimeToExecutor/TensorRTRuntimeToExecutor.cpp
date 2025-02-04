@@ -1,6 +1,6 @@
 //===- TensorRTRuntimeToExecutor.cpp --------------------------------------===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -20,17 +20,13 @@
 #include "mlir-executor/Conversion/ConvertToExecutorCommon.h"
 #include "mlir-executor/Executor/IR/Executor.h"
 #include "mlir-executor/Executor/Utils/Utils.h"
-#include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
 #include "mlir-tensorrt/Conversion/Passes.h"
 #include "mlir-tensorrt/Dialect/CUDA/IR/CUDADialect.h"
 #include "mlir-tensorrt/Dialect/TensorRTRuntime/IR/TensorRTRuntime.h"
 #include "mlir/Conversion/ReconcileUnrealizedCasts/ReconcileUnrealizedCasts.h"
-#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/ImplicitLocOpBuilder.h"
 #include "mlir/IR/TypeUtilities.h"
-#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "llvm/ADT/StringExtras.h"
-#include "llvm/Support/Debug.h"
 
 namespace mlir {
 #define GEN_PASS_DEF_CONVERTTENSORRTRUNTIMETOEXECUTORPASS
@@ -41,82 +37,61 @@ using namespace mlir;
 using namespace mlir::executor;
 using namespace mlir::cuda;
 
-static executor::PointerType getTrtRuntimeOpaqueType(MLIRContext *ctx) {
-  return executor::PointerType::get(ctx, executor::MemoryType::host);
-}
-static executor::PointerType getTrtContextOpaqueType(MLIRContext *ctx) {
-  return executor::PointerType::get(ctx, executor::MemoryType::host);
-}
-static executor::PointerType getTrtEngineOpaqueType(MLIRContext *ctx) {
-  return executor::PointerType::get(ctx, executor::MemoryType::host);
-}
-static PointerType getCudaStreamOpaqueType(MLIRContext *ctx) {
-  return PointerType::get(ctx, MemoryType::host);
-}
-
-/// Return a symbol reference to a external function declared at top of module,
-/// creating a new declaration if necessary.
-static ConstantResourceOp
-getOrCreateSerializedTrtEngineDeclaration(RewriterBase &rewriter,
-                                          func::FuncOp trtFunc) {
-  std::string name = (trtFunc.getName() + "_engine_data").str();
-  auto parentModule = trtFunc->getParentOfType<ModuleOp>();
-  auto trtModule = trtFunc->getParentOfType<tensorrt::TensorRTModuleOp>();
-  assert(trtModule && "expected valid tensorrt module");
-  auto engineData = trtFunc->getAttrOfType<ElementsAttr>("tensorrt.engine");
-  assert(engineData && "expected valid serialized data");
-  ConstantResourceOp resourceOp = getOrCreateConstantResourceDeclaration(
-      rewriter, trtFunc.getLoc(), parentModule, name, engineData);
-  return resourceOp;
-}
-
-static GlobalOp getOrCreateRuntimeGlobalOp(RewriterBase &rewriter,
-                                           ModuleOp op) {
-  std::string name = "tensorrt_runtime";
-  Type opaqueType = getTrtRuntimeOpaqueType(rewriter.getContext());
-  return getOrCreateGlobalOp(
-      rewriter, op.getLoc(), op, name, opaqueType, false,
-      [&](OpBuilder &nested, Location loc) {
-        ImplicitLocOpBuilder ib(loc, nested);
-        Value runtime = ib.create<trtrt::CreateRuntimeOp>();
-        auto runtimeCasted =
-            ib.create<UnrealizedConversionCastOp>(opaqueType, runtime);
-        ib.create<ReturnOp>(runtimeCasted.getResult(0));
-      });
-}
-
+namespace {
 struct TensorRTRuntimeBuiltinCallBuilders {
   Type indexType;
   MLIRContext *ctx = indexType.getContext();
+  Type hostPointerType =
+      executor::PointerType::get(ctx, executor::MemoryType::host);
 
-  ExecutorCallBuilder loadEngine = {
-      ctx,
-      "_trtrt_load",
-      getTrtEngineOpaqueType(ctx),
-      {getTrtRuntimeOpaqueType(ctx),
-       executor::PointerType::get(ctx, MemoryType::host), indexType}};
+  ExecutorCallBuilder createRuntime = {
+      ctx, "_trtrt_create_runtime", hostPointerType, {}};
+
+  ExecutorCallBuilder loadEngine = {ctx,
+                                    "_trtrt_load",
+                                    hostPointerType,
+                                    {/*runtime*/ hostPointerType,
+                                     /*serialized engine*/ hostPointerType,
+                                     /*serialized engine size*/ indexType}};
 
   ExecutorCallBuilder createContext = {ctx, "_trtrt_create_context",
-                                       getTrtContextOpaqueType(ctx),
-                                       getTrtEngineOpaqueType(ctx)};
+                                       hostPointerType, hostPointerType};
+};
+} // namespace
+
+template <typename T>
+struct ConvertTRTRTOpToExecutorPattern : public ConvertOpToExecutorPattern<T> {
+  using ConvertOpToExecutorPattern<T>::ConvertOpToExecutorPattern;
+  MLIRContext *ctx{this->getContext()};
+  TensorRTRuntimeBuiltinCallBuilders builderUtils{
+      this->getTypeConverter()->getIndexType()};
 };
 
+static GlobalOp getOrCreateRuntimeGlobalOp(
+    RewriterBase &rewriter, ModuleOp op,
+    const TensorRTRuntimeBuiltinCallBuilders &builderUtils) {
+  return getOrCreateGlobalOp(
+      rewriter, op.getLoc(), op, "tensorrt_runtime",
+      builderUtils.hostPointerType, false,
+      [&](OpBuilder &nested, Location loc) {
+        Value runtime =
+            builderUtils.createRuntime.create(nested, loc, op, {}).getResult(0);
+        nested.create<ReturnOp>(loc, runtime);
+      });
+}
+
 /// Create a `executor.global` to load the TensorRT engine/execution context.
-static GlobalOp getOrCreateExecutionContextGlobal(RewriterBase &rewriter,
-                                                  func::FuncOp trtFunc,
-                                                  ConstantResourceOp resourceOp,
-                                                  GlobalOp runtimeGlobal,
-                                                  Type indexType) {
+static GlobalOp getOrCreateExecutionContextGlobal(
+    RewriterBase &rewriter, trtrt::CompiledFuncOp trtFunc,
+    ConstantResourceOp resourceOp, GlobalOp runtimeGlobal,
+    const TensorRTRuntimeBuiltinCallBuilders &callBuilder) {
   std::string name = (trtFunc.getName() + "_exec_ctx").str();
   auto parentModule = trtFunc->getParentOfType<ModuleOp>();
   SymbolTable symbolTable(parentModule);
-  executor::PointerType execOpaqueType =
-      getTrtContextOpaqueType(rewriter.getContext());
-
-  TensorRTRuntimeBuiltinCallBuilders callBuilder{indexType};
-
+  executor::PointerType hostPointerType = executor::PointerType::get(
+      rewriter.getContext(), executor::MemoryType::host);
   return getOrCreateGlobalOp(
-      rewriter, trtFunc.getLoc(), parentModule, name, execOpaqueType, true,
+      rewriter, trtFunc.getLoc(), parentModule, name, hostPointerType, true,
       [&](OpBuilder &nested, Location loc) {
         ImplicitLocOpBuilder ib(loc, nested);
         Value data = ib.create<ConstantResourceLoadOp>(
@@ -126,12 +101,11 @@ static GlobalOp getOrCreateExecutionContextGlobal(RewriterBase &rewriter,
         // this is more fool-proof.
         ShapedType dataType = resourceOp.getValue().getShapedType();
         Value dataSize = ib.create<GetOffsetOp>(
-            indexType, dataType.getElementType(),
+            callBuilder.indexType, dataType.getElementType(),
             ArrayRef<OpFoldResult>{
                 rewriter.getI64IntegerAttr(dataType.getNumElements())});
-        Value runtime =
-            ib.create<GetGlobalOp>(getTrtRuntimeOpaqueType(ib.getContext()),
-                                   FlatSymbolRefAttr::get(runtimeGlobal));
+        Value runtime = ib.create<GetGlobalOp>(
+            hostPointerType, FlatSymbolRefAttr::get(runtimeGlobal));
         Value engine = callBuilder.loadEngine
                            .create(ib, trtFunc.getLoc(), parentModule,
                                    {runtime, data, dataSize})
@@ -151,38 +125,59 @@ namespace {
 /// retrieval of the execution context. The primary prequisite for this pattern
 /// is that the serialized engine data must be available on the reference
 /// TensorRT engine.
-struct ConvertCompile : public ConvertOpToExecutorPattern<trtrt::CompileOp> {
-  using ConvertOpToExecutorPattern::ConvertOpToExecutorPattern;
+struct ConvertCompile
+    : public ConvertTRTRTOpToExecutorPattern<trtrt::GetFunctionOp> {
+  using ConvertTRTRTOpToExecutorPattern::ConvertTRTRTOpToExecutorPattern;
   LogicalResult
-  matchAndRewrite(trtrt::CompileOp op, OpAdaptor adaptor,
+  matchAndRewrite(trtrt::GetFunctionOp getFunctionOp, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
-    auto module = op->getParentOfType<ModuleOp>();
-    func::FuncOp trtFunc =
-        dyn_cast_or_null<func::FuncOp>(module.lookupSymbol(op.getTrtFunc()));
+    ModuleOp module = getFunctionOp->getParentOfType<ModuleOp>();
+    auto op =
+        module.lookupSymbol<trtrt::CompiledFuncOp>(getFunctionOp.getModule());
+    if (!op)
+      return failure();
 
-    ConstantResourceOp resourceGlobal =
-        getOrCreateSerializedTrtEngineDeclaration(rewriter, trtFunc);
-    GlobalOp runtimeGlobal = getOrCreateRuntimeGlobalOp(rewriter, module);
+    std::optional<SymbolTable::UseRange> uses =
+        SymbolTable::getSymbolUses(op, module);
+    SmallVector<trtrt::GetFunctionOp> users;
+    if (uses) {
+      for (auto use : *uses) {
+        if (auto user = llvm::dyn_cast<trtrt::GetFunctionOp>(use.getUser())) {
+          users.push_back(user);
+          continue;
+        }
+        return failure();
+      }
+    }
+
+    GlobalOp runtimeGlobal =
+        getOrCreateRuntimeGlobalOp(rewriter, module, builderUtils);
+    ConstantResourceOp resourceGlobal = getOrCreateConstantResourceDeclaration(
+        rewriter, op.getLoc(), module, op.getSymName(), op.getValue());
     GlobalOp executionContextGlobal = getOrCreateExecutionContextGlobal(
-        rewriter, trtFunc, resourceGlobal, runtimeGlobal,
-        this->getTypeConverter()->getIndexType());
+        rewriter, op, resourceGlobal, runtimeGlobal, builderUtils);
     resourceGlobal->moveAfter(runtimeGlobal);
     executionContextGlobal->moveAfter(resourceGlobal);
 
-    rewriter.setInsertionPoint(op);
-    Value context = rewriter.create<executor::GetGlobalOp>(
-        op.getLoc(), getTrtContextOpaqueType(getContext()),
-        FlatSymbolRefAttr::get(executionContextGlobal));
-    rewriter.replaceOpWithNewOp<UnrealizedConversionCastOp>(
-        op, trtrt::ExecutionContextType::get(getContext()), context);
+    for (trtrt::GetFunctionOp user : users) {
+      OpBuilder::InsertionGuard g(rewriter);
+      rewriter.setInsertionPoint(user);
+      Value context = rewriter.create<executor::GetGlobalOp>(
+          op.getLoc(), builderUtils.hostPointerType,
+          FlatSymbolRefAttr::get(executionContextGlobal));
+      rewriter.replaceOp(user, context);
+      continue;
+    }
+
+    rewriter.eraseOp(op);
     return success();
   }
 };
 
 /// Convert `tensorrt.enqueue` to `executor.call`.
 struct ConvertEnqueueToCall
-    : public ConvertOpToExecutorPattern<trtrt::EnqueueOp> {
-  using ConvertOpToExecutorPattern::ConvertOpToExecutorPattern;
+    : public ConvertTRTRTOpToExecutorPattern<trtrt::EnqueueOp> {
+  using ConvertTRTRTOpToExecutorPattern::ConvertTRTRTOpToExecutorPattern;
   LogicalResult
   matchAndRewrite(trtrt::EnqueueOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
@@ -254,50 +249,46 @@ struct ConvertEnqueueToCall
 
 /// Convert `tensorrt.enqueue_alloc` to `executor.call`.
 struct ConvertEnqueueAllocToCall
-    : public ConvertOpToExecutorPattern<trtrt::EnqueueAllocOp> {
-  using ConvertOpToExecutorPattern::ConvertOpToExecutorPattern;
+    : public ConvertTRTRTOpToExecutorPattern<trtrt::EnqueueAllocOp> {
+  using ConvertTRTRTOpToExecutorPattern::ConvertTRTRTOpToExecutorPattern;
   LogicalResult
   matchAndRewrite(trtrt::EnqueueAllocOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
     ImplicitLocOpBuilder b(op.getLoc(), rewriter);
 
     // Function name for the enqueue alloc operation
-    std::string funcName = "_trtrt_enqueue_alloc";
+    StringRef funcName = "_trtrt_enqueue_alloc";
 
     // Create new operands for the call op
     SmallVector<Value> newOperands = {adaptor.getExecutionContext(),
                                       adaptor.getStream()};
 
-    // Calculate total number of table elements
-    int64_t numResults = op->getNumResults();
-    int64_t totalElements = 1; // 1 element to store number of results
-    // For each result: rank, ptr, [shape0, ... ], [stride0, ...]
+    // The second operand is a descriptor which contains several values
+    // stored as a flat list of integers:
+    // - the number of results
+    // - the rank, ptr, shape, and strides of each memref operand.
+    const int64_t numResults = op->getNumResults();
+    int64_t totalElements = 1;
     for (int i = 0; i < numResults; ++i) {
       int64_t rank = cast<MemRefType>(op.getResult(i).getType()).getRank();
-      totalElements++;           // Increment for rank
-      totalElements++;           // Increment for ptr
-      totalElements += rank * 2; // Increment for shape and stride
+      totalElements += 2 + rank * 2; // Increment for shape and stride
     }
-    SmallVector<Type> outputTypes(totalElements, b.getI64Type());
-
+    SmallVector<Type> outputTypes(totalElements, i64Type);
     auto hostPointerType = executor::PointerType::get(
         op->getContext(), executor::MemoryType::host);
-
     auto structType = executor::TableType::get(op->getContext(), outputTypes);
-
-    auto one = b.create<executor::ConstantOp>(rewriter.getI64IntegerAttr(1));
-
-    auto alignment = IntegerAttr{};
+    Value one = createIndexConstant(b, 1);
 
     // Create output descriptors
     Value outputDescriptors = rewriter.create<executor::AllocaOp>(
-        op->getLoc(), hostPointerType, one, alignment, structType);
+        op->getLoc(), hostPointerType, one, /*alignment=*/IntegerAttr{},
+        structType);
 
-    // Store number of results : It is always a first value in output
+    // Store number of results. It is always a first value in output
     // descriptors
     Value numResultsOffset = b.create<executor::GetOffsetOp>(
-        b.getI64Type(), structType,
-        ArrayRef<OpFoldResult>{this->createIndexConstant(b, 0),
+        i64Type, structType,
+        ArrayRef<OpFoldResult>{rewriter.getI64IntegerAttr(0),
                                rewriter.getI64IntegerAttr(0)});
 
     auto resultValue =
@@ -306,19 +297,17 @@ struct ConvertEnqueueAllocToCall
                                 resultValue);
 
     // Store rank per result
-    int64_t outputDescOffset = 1;
-    for (int i = 0; i < numResults; ++i) {
+    for (int i = 0, descriptorOffset = 1; i < numResults; ++i) {
       Value rankOffset = b.create<executor::GetOffsetOp>(
-          b.getI64Type(), structType,
+          i64Type, structType,
           ArrayRef<OpFoldResult>{this->createIndexConstant(b, 0),
-                                 rewriter.getI64IntegerAttr(outputDescOffset)});
+                                 rewriter.getI64IntegerAttr(descriptorOffset)});
       int64_t rank = cast<MemRefType>(op.getResult(i).getType()).getRank();
       auto rankValue =
           b.create<executor::ConstantOp>(rewriter.getI64IntegerAttr(rank));
       b.create<executor::StoreOp>(outputDescriptors, rankOffset, rankValue);
-      outputDescOffset++;           // store rank
-      outputDescOffset++;           // skip ptr
-      outputDescOffset += rank * 2; // skip shape and stride
+      descriptorOffset +=
+          2 + rank * 2; // Skip the fields that are populated by the callee.
     }
 
     SmallVector<Value> inputMemrefValues;
@@ -378,107 +367,62 @@ struct ConvertEnqueueAllocToCall
 
     // Create output memrefs from output descriptors
     SmallVector<Value> results;
-    for (unsigned i = 0; i < op->getNumResults(); ++i) {
-      unsigned rank = cast<MemRefType>(op->getResult(i).getType()).getRank();
-      unsigned offset =
-          1 +
-          i * (2 * rank + 2); // num res, (i * (rank, ptr, [shape], [stride]))
-
-      Value rankOffset = b.create<executor::GetOffsetOp>(
-          b.getI64Type(), structType,
-          ArrayRef<OpFoldResult>{this->createIndexConstant(b, 0),
-                                 rewriter.getI64IntegerAttr(offset++)});
+    // Initialize output descriptor offset to skip number of results.
+    // `outputDescOffset` is used to retrieve rank, ptr, shapes, and strides per
+    // result.
+    unsigned outputDescOffset = 1;
+    Value zero = this->createIndexConstant(b, 0);
+    for (auto [idx, result] : llvm::enumerate(op.getResults())) {
+      MemRefType memrefType = cast<MemRefType>(result.getType());
+      unsigned rank = memrefType.getRank();
       Value devicePtrOffset = b.create<executor::GetOffsetOp>(
-          b.getI64Type(), structType,
-          ArrayRef<OpFoldResult>{this->createIndexConstant(b, 0),
-                                 rewriter.getI64IntegerAttr(offset++)});
+          i64Type, structType,
+          ArrayRef<OpFoldResult>{
+              zero, rewriter.getI64IntegerAttr(outputDescOffset++)});
 
-      [[maybe_unused]] Value rankValue = b.create<executor::LoadOp>(
-          b.getI64Type(), outputDescriptors, rankOffset);
-      Value intPtr = b.create<executor::LoadOp>(
-          b.getI64Type(), outputDescriptors, devicePtrOffset);
-      Value devicePtr = b.create<executor::IntToPtrOp>(
-          executor::PointerType::get(b.getContext(), MemoryType::device),
-          intPtr);
+      std::optional<MemoryType> memSpace = this->getMemorySpace(memrefType);
+      if (!memSpace)
+        return failure();
 
-      llvm::SmallVector<Value, 4> shapes, strides;
+      Type ptrType = executor::PointerType::get(getContext(), *memSpace);
+
+      Value intPtr = b.create<executor::LoadOp>(i64Type, outputDescriptors,
+                                                devicePtrOffset);
+      Value alignedPtr = b.create<executor::IntToPtrOp>(ptrType, intPtr);
+
+      SmallVector<Value, 4> shapes, strides;
       for (unsigned r = 0; r < rank; ++r) {
         Value shapeOffset = b.create<executor::GetOffsetOp>(
-            b.getI64Type(), structType,
-            ArrayRef<OpFoldResult>{this->createIndexConstant(b, 0),
-                                   rewriter.getI64IntegerAttr(offset++)});
-        Value shape = b.create<executor::LoadOp>(
-            b.getI64Type(), outputDescriptors, shapeOffset);
+            i64Type, structType,
+            ArrayRef<OpFoldResult>{
+                zero, rewriter.getI64IntegerAttr(outputDescOffset++)});
+        Value shape =
+            b.create<executor::LoadOp>(i64Type, outputDescriptors, shapeOffset);
         shapes.push_back(shape);
       }
 
       for (unsigned r = 0; r < rank; ++r) {
         Value strideOffset = b.create<executor::GetOffsetOp>(
-            b.getI64Type(), structType,
-            ArrayRef<OpFoldResult>{this->createIndexConstant(b, 0),
-                                   rewriter.getI64IntegerAttr(offset++)});
-        Value shape = b.create<executor::LoadOp>(
-            b.getI64Type(), outputDescriptors, strideOffset);
+            i64Type, structType,
+            ArrayRef<OpFoldResult>{
+                zero, rewriter.getI64IntegerAttr(outputDescOffset++)});
+        Value shape = b.create<executor::LoadOp>(i64Type, outputDescriptors,
+                                                 strideOffset);
         shapes.push_back(shape);
       }
 
-      auto offsetValue =
-          b.create<executor::ConstantOp>(rewriter.getI64IntegerAttr(0));
-      SmallVector<Value> resultRange = {devicePtr, devicePtr, offsetValue};
-      resultRange.append(shapes.begin(), shapes.end());
-      resultRange.append(strides.begin(), strides.end());
-
-      Value result = b.create<executor::CreateTableOp>(
-          executor::TableType::get(b.getContext(),
-                                   llvm::to_vector(TypeRange(resultRange))),
-          resultRange);
-
-      results.push_back(result);
+      results.push_back(MemRefDescriptor::fromComponents(
+          b, *getTypeConverter(), memrefType, alignedPtr, alignedPtr, zero,
+          shapes, strides));
     }
 
     rewriter.replaceOp(op, results);
 
     return success();
   }
+
+  Type i64Type{IntegerType::get(getContext(), 64)};
 };
-
-struct ConvertTrtrtOpToCall : public ConvertToExecutorPattern {
-  ConvertTrtrtOpToCall(ExecutorTypeConverter &typeConverter,
-                       MLIRContext *context, PatternBenefit benefit = 1)
-      : ConvertToExecutorPattern(typeConverter, MatchAnyOpTypeTag(), benefit,
-                                 context) {}
-
-  LogicalResult
-  matchAndRewrite(Operation *op, ArrayRef<Value> operands,
-                  ConversionPatternRewriter &rewriter) const override {
-    if (!isa<trtrt::CreateRuntimeOp>(op))
-      return failure();
-
-    SmallVector<Type> newResultTypes =
-        llvm::to_vector(llvm::map_range(op->getResultTypes(), [&](Type t) {
-          auto result = getTypeConverter()->convertType(t);
-          assert(result && "expected converted type");
-          return result;
-        }));
-    SmallVector<Type> newArgTypes = llvm::to_vector(TypeRange(operands));
-
-    auto funcType = ExecutorFunctionType::get(getContext(), newArgTypes,
-                                              newResultTypes, UnitAttr());
-
-    std::string funcName;
-    funcName =
-        "_" + llvm::join(llvm::split(op->getName().getStringRef(), "."), "_");
-    auto module = op->getParentOfType<ModuleOp>();
-    SymbolRefAttr callee = executor::getOrInsertFuncDeclaration(
-        rewriter, op->getLoc(), module, funcName, funcType);
-
-    rewriter.replaceOpWithNewOp<executor::CallOp>(
-        op, newResultTypes, callee.getLeafReference(), operands);
-
-    return success();
-  }
-};
-
 } // namespace
 
 namespace {
@@ -504,45 +448,28 @@ public:
       return signalPassFailure();
     }
     ExecutorTypeConverter typeConverter(ctx, opts, std::move(*dataLayout));
+    executor::PointerType hostPointerType =
+        PointerType::get(ctx, MemoryType::host);
 
-    typeConverter.addConversion([](trtrt::ExecutionContextType t) {
-      return getTrtContextOpaqueType(t.getContext());
+    typeConverter.addConversion([&](Type t) -> std::optional<Type> {
+      if (isa<trtrt::EngineType, cuda::StreamType, trtrt::ExecutionContextType>(
+              t))
+        return hostPointerType;
+      return {};
     });
-    typeConverter.addConversion([](trtrt::RuntimeType t) {
-      return getTrtRuntimeOpaqueType(t.getContext());
-    });
-    typeConverter.addConversion([](trtrt::EngineType t) {
-      return getTrtEngineOpaqueType(t.getContext());
-    });
-    typeConverter.addConversion([](cuda::StreamType t) {
-      return getCudaStreamOpaqueType(t.getContext());
-    });
-    // Convert `trtrt.compile` to globals that create execution context from
-    // serialized TensorRT engine data.
-    {
-      ConversionTarget target(*ctx);
-      target.addIllegalOp<trtrt::CompileOp>();
-      target.addLegalDialect<ExecutorDialect, trtrt::TensorRTRuntimeDialect>();
-      target.addLegalOp<UnrealizedConversionCastOp>();
-
-      RewritePatternSet patterns(&getContext());
-      patterns.add<ConvertCompile>(typeConverter, ctx);
-      if (failed(applyPartialConversion(getOperation(), target,
-                                        std::move(patterns))))
-        return signalPassFailure();
-    }
 
     // Convert `trtrt.enqueue|create_runtime|execution_context|load` to
     // `executor.call` and function declarations.
     {
       ConversionTarget target(*ctx);
-      target.addIllegalOp<trtrt::EnqueueOp, trtrt::CompileOp,
-                          trtrt::CreateRuntimeOp>();
+      target.addIllegalDialect<trtrt::TensorRTRuntimeDialect>();
       target.addLegalDialect<ExecutorDialect, CUDADialect>();
+      target.addLegalOp<UnrealizedConversionCastOp>();
 
       RewritePatternSet patterns(&getContext());
-      patterns.add<ConvertEnqueueToCall, ConvertEnqueueAllocToCall,
-                   ConvertTrtrtOpToCall>(typeConverter, ctx);
+      patterns
+          .add<ConvertEnqueueToCall, ConvertEnqueueAllocToCall, ConvertCompile>(
+              typeConverter, ctx);
       if (failed(applyPartialConversion(getOperation(), target,
                                         std::move(patterns))))
         return signalPassFailure();

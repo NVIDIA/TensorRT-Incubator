@@ -19,7 +19,7 @@
 # working directly with the frame.
 import sys
 from dataclasses import dataclass
-from typing import Tuple, Optional
+from typing import Optional, Tuple
 
 
 @dataclass
@@ -94,7 +94,7 @@ class StackInfo(list):
 
 
 def get_stack_info(include_code_index: int = None) -> StackInfo:
-    import nvtripy.function_registry
+    import nvtripy.utils.function_registry
 
     stack_info = StackInfo([], include_code_index)
 
@@ -115,7 +115,7 @@ def get_stack_info(include_code_index: int = None) -> StackInfo:
             _dispatch_target="",
             column_range=None,
         )
-        if source_info.module == nvtripy.function_registry.__name__ and source_info.function == "wrapper":
+        if source_info.module == nvtripy.utils.function_registry.__name__ and source_info.function == "wrapper":
             source_info._dispatch_target = frame.f_locals["key"]
 
         try:
@@ -141,7 +141,7 @@ def get_module_names_to_exclude_from_stack_info():
     Returns a set of module names to exclude from stack information when displaying exceptions
     or trying to retrieve column information from code.
     """
-    import nvtripy.function_registry
-    import nvtripy.wrappers
+    import nvtripy.utils.function_registry as function_registry
+    import nvtripy.utils.wrappers as wrappers
 
-    return {mod.__name__ for mod in [nvtripy.function_registry, nvtripy.wrappers]}
+    return {mod.__name__ for mod in [function_registry, wrappers]}

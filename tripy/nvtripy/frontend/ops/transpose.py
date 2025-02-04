@@ -12,8 +12,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from nvtripy import export, wrappers
+from nvtripy import export
 from nvtripy.common.exception import raise_error
+from nvtripy.utils import wrappers
 
 
 @export.public_api(document_under="operations/functions")
@@ -36,14 +37,13 @@ def transpose(input: "nvtripy.Tensor", dim0: int, dim1: int) -> "nvtripy.Tensor"
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         input = tp.reshape(tp.arange(6, dtype=tp.float32), (2, 3))
         output = tp.transpose(input, 0, 1)
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.transpose(np.arange(6, dtype=np.float32).reshape(2, 3), (1, 0)))
     """
-    from nvtripy.frontend.trace.ops.permute import permute
+    from nvtripy.frontend.ops.permute import permute
 
     if input.rank < 2:
         raise_error("Transpose input must have at least 2 dimensions.", [f"Note: Input had {input.rank} dimensions."])

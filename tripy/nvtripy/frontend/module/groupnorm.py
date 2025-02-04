@@ -27,7 +27,7 @@ from nvtripy.frontend.tensor import Tensor
 
 @export.public_api(document_under="operations/modules")
 @dataclass
-@utils.constant_fields(["num_groups", "num_channels", "dtype"])
+@utils.utils.constant_fields(["num_groups", "num_channels", "dtype"])
 class GroupNorm(Module):
     r"""
     Applies group normalization over the input tensor:
@@ -67,7 +67,6 @@ class GroupNorm(Module):
 
         .. code-block:: python
             :linenos:
-            :caption: Example
 
             group_norm = tp.GroupNorm(2, 4)
             group_norm.weight = tp.ones_like(group_norm.weight)
@@ -110,9 +109,9 @@ class GroupNorm(Module):
         Returns:
             A tensor of the same shape as the input.
         """
-        from nvtripy.frontend.trace.ops.reduce import mean, var
-        from nvtripy.frontend.trace.ops.reshape import reshape
-        from nvtripy.frontend.trace.ops.unary_elementwise import rsqrt
+        from nvtripy.frontend.ops.reduce import mean, var
+        from nvtripy.frontend.ops.reshape import reshape
+        from nvtripy.frontend.ops.unary_elementwise import rsqrt
 
         input_shape = x.shape
 

@@ -44,7 +44,7 @@ class Status {
 public:
   Status() = delete;
   Status(const Status &);
-  Status &operator=(const Status &);
+  Status &operator=(const Status &) = default;
   Status(Status &&) = default;
   Status &operator=(Status &&) = default;
   Status(StatusCode code, std::string_view additionalMsg = "");

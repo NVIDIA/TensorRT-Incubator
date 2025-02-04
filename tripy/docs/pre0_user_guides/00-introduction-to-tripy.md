@@ -1,7 +1,11 @@
 # An Introduction To Tripy
 
 **Tripy** is a debuggable, Pythonic frontend for [TensorRT](https://developer.nvidia.com/tensorrt),
-a deep learning inference compiler:
+a deep learning inference compiler.
+
+## API Semantics
+
+Unlike TensorRT's graph-based semantics, Tripy uses a **functional** style:
 
 ```py
 # doc: no-print-locals
@@ -54,21 +58,25 @@ fast_mlp = tp.compile(
 )
 ```
 
-- **Note:** There are **restrictions** on what can be compiled - see {func}`nvtripy.compile`.
-
 Usage:
 ```py
 out = fast_mlp(inp)
 ```
 
-- **Also see:** [Compiler guide](project:./02-compiler.md) for details, including **dynamic shapes**.
+:::{important}
+There are **restrictions** on what can be compiled - see {func}`nvtripy.compile`.
+:::
+
+:::{seealso}
+The [compiler guide](project:./02-compiler.md) contains more information, including how to enable **dynamic shapes**.
+:::
 
 
 ## Pitfalls And Best Practices
 
 - **Best Practice:** Use **eager mode** only for **debugging**; compile for deployment.
 
-    **Why:** Eager mode internally compiles the graph (slow!) since TensorRT doesn't have eager execution.
+    **Why:** Eager mode internally compiles the graph (slow!) as TensorRT lacks eager execution.
 
 - **Pitfall:** Be careful timing code in **eager mode**.
 

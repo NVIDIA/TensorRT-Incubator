@@ -26,9 +26,12 @@
 /// CUDA driver API to JIT compile PTX modules to CUbin files.
 //===----------------------------------------------------------------------===//
 #include "mlir-executor/Runtime/Backend/Common/NvPtxCompilerUtils.h"
-
-#include "mlir-executor/Runtime/Backend/Common/Support.h"
+#include "mlir-executor/Runtime/Support/Support.h"
+#include "mlir-executor/Support/Status.h"
 #include "nvPTXCompiler.h"
+#include "llvm/ADT/ScopeExit.h"
+#include <cstdio>
+#include <cstdlib>
 
 namespace rt = mlirtrt::runtime;
 
@@ -36,17 +39,16 @@ namespace rt = mlirtrt::runtime;
   do {                                                                         \
     nvPTXCompileResult result = x;                                             \
     if (result != NVPTXCOMPILE_SUCCESS) {                                      \
-      fprintf(stderr, "error: %s failed with error code %d\n", #x, result);    \
-      return nullptr;                                                          \
+      return getInternalErrorStatus("error: {0} failed with error code {1}\n", \
+                                    #x, static_cast<int>(result));             \
     }                                                                          \
   } while (0)
 
-std::unique_ptr<rt::CuBinWrapper>
+mlirtrt::StatusOr<std::unique_ptr<rt::CuBinWrapper>>
 rt::compilePtxToCuBin(const char *ptxData, size_t len, std::string_view arch) {
   nvPTXCompilerHandle compiler = nullptr;
   auto releaseCompiler =
-      make_scope_exit([&]() { nvPTXCompilerDestroy(&compiler); });
-
+      llvm::make_scope_exit([&]() { nvPTXCompilerDestroy(&compiler); });
   NVPTXCOMPILER_SAFE_CALL(nvPTXCompilerCreate(&compiler, len, ptxData));
 
   unsigned minorVer, majorVer;
@@ -55,7 +57,7 @@ rt::compilePtxToCuBin(const char *ptxData, size_t len, std::string_view arch) {
 
   std::string target = "--gpu-name=" + std::string(arch);
   std::vector<char const *> compileOptions = {target.c_str(), "--verbose"};
-  auto status = nvPTXCompilerCompile(
+  nvPTXCompileResult status = nvPTXCompilerCompile(
       compiler, static_cast<int32_t>(compileOptions.size()),
       compileOptions.data());
   if (status != NVPTXCOMPILE_SUCCESS) {
@@ -65,10 +67,12 @@ rt::compilePtxToCuBin(const char *ptxData, size_t len, std::string_view arch) {
       std::vector<char> errorLog(errorSize + 1);
       NVPTXCOMPILER_SAFE_CALL(
           nvPTXCompilerGetErrorLog(compiler, errorLog.data()));
-      std::string_view logStr(errorLog.data(), errorLog.size());
-      std::cerr << "NvPtxCompiler error log: " << logStr << std::endl;
+      std::string logStr(errorLog.data(), errorLog.size());
+      llvm::errs() << "NvPtxCompiler error log: " << logStr << "\n";
     }
-    return nullptr;
+    return getInternalErrorStatus(
+        "nvPTXCompilerCompile failed, see log in stderr; error code = {0}",
+        static_cast<int>(status));
   }
 
   size_t elfSize;

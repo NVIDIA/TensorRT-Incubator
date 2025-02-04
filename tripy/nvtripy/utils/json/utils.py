@@ -39,7 +39,7 @@ def save(obj: Any, dest: Union[str, typing.IO]):
         obj: The object to save
         dest: A path or file-like object
     """
-    utils.save_file(to_json(obj), dest, mode="w")
+    utils.utils.save_file(to_json(obj), dest, mode="w")
 
 
 def load(src: Union[str, typing.IO]) -> Any:
@@ -52,4 +52,4 @@ def load(src: Union[str, typing.IO]) -> Any:
     Returns:
         The loaded object
     """
-    return from_json(utils.load_file(src, mode="r"))
+    return from_json(utils.utils.load_file(src, mode="r"))

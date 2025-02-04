@@ -7,7 +7,6 @@ add_mlir_tensorrt_library(MLIRTensorRTCompilerClient
 
     LINK_LIBS PUBLIC
     MLIRIR
-    MLIRTensorRTRegistration
     MLIRTensorRTTargetLua
     MLIRTensorRTOptionUtils
     MLIRTensorRTTargetTensorRT

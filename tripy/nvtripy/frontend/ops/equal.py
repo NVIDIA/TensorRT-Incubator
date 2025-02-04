@@ -12,8 +12,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from nvtripy import export, wrappers
+from nvtripy import export
 from nvtripy.common.datatype import DATA_TYPES
+from nvtripy.utils import wrappers
 
 
 @export.public_api(document_under="operations/functions")
@@ -62,7 +63,7 @@ def equal(input: "nvtripy.Tensor", other: "nvtripy.Tensor") -> bool:
         is_equal = tp.equal(a, b)
         assert not is_equal
     """
-    from nvtripy.frontend.trace.ops.reduce import all
+    from nvtripy.frontend.ops.reduce import all
 
     if input.shape != other.shape:
         return False

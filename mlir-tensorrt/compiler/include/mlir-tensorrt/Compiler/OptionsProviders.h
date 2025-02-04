@@ -164,6 +164,11 @@ public:
       &this->ctx, "debug-only", llvm::cl::ZeroOrMore, llvm::cl::CommaSeparated,
       OmitFromCLI{}};
 
+  /// If set to `true`, we populate the pass manager instrumentation using
+  /// global MLIR CL options rather than the local options contained here.
+  Option<bool> useGlobalCLPrintingOptions{&this->ctx, "use-global-cl-options",
+                                          llvm::cl::init(false), OmitFromCLI{}};
+
   /// Apply these options to the current pass manager.
   void applyToPassManager(mlir::PassManager &pm) const;
 };
@@ -194,8 +199,6 @@ public:
       &this->ctx, "device-infer-from-host", llvm::cl::init(true),
       llvm::cl::desc("whether to ignore `deviceX` options and instead infer "
                      "them from the host GPU")};
-
-  Status inferFromHost();
 
 public:
   DeviceOptions(mlir::OptionsContext &ctx) : OptionsProvider(ctx) {

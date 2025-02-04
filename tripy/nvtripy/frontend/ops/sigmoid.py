@@ -15,7 +15,8 @@
 # limitations under the License.
 #
 
-from nvtripy import export, wrappers
+from nvtripy import export
+from nvtripy.utils import wrappers
 
 
 @export.public_api(document_under="operations/functions")
@@ -39,7 +40,6 @@ def sigmoid(input: "nvtripy.Tensor") -> "nvtripy.Tensor":
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         input = tp.Tensor([1., 2., 3., 4.], dtype=tp.float32)
         output = tp.sigmoid(input)
@@ -47,6 +47,6 @@ def sigmoid(input: "nvtripy.Tensor") -> "nvtripy.Tensor":
         t = torch.tensor([1, 2, 3, 4], dtype=torch.float32) # doc: omit
         assert tp.allclose(output, tp.Tensor(torch.nn.functional.sigmoid(t)))
     """
-    from nvtripy.frontend.trace.ops.unary_elementwise import exp
+    from nvtripy.frontend.ops.unary_elementwise import exp
 
     return 1.0 / (1.0 + exp(-1.0 * input))

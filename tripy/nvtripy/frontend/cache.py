@@ -29,7 +29,7 @@ class ExecutableCache:
 
     def _assign_tensor_name(
         self,
-        tensor: "tripy.frontend.trace.tensor.TraceTensor",
+        tensor: "tripy.trace.tensor.TraceTensor",
         tensor_map: Dict[int, str],
         backup_map: Dict[int, str] = None,
     ) -> str:
@@ -119,7 +119,7 @@ class ExecutableCache:
         """
         normalized_trace = self._normalize_trace(trace)
         key = normalized_trace + "\ndevices:\n" + "\n".join([str(device) for device in devices])
-        return utils.md5(key.encode("utf-8"))
+        return utils.utils.md5(key.encode("utf-8"))
 
     def get(self, trace: "Trace", devices: List["tripy.common.device"]) -> Optional[runtime.Executable]:
         """
@@ -132,7 +132,7 @@ class ExecutableCache:
         Returns:
             Executable: The cached executable, or None if not found.
         """
-        if not config.tripy_eager_cache:
+        if not config.use_cache_in_eager_mode:
             return None
 
         key = self._generate_key(trace, devices)
@@ -147,7 +147,7 @@ class ExecutableCache:
             executable (Executable): The executable to cache.
             devices (List[Device]): List of devices associated with the trace.
         """
-        if not config.tripy_eager_cache:
+        if not config.use_cache_in_eager_mode:
             return
 
         key = self._generate_key(trace, devices)

@@ -14,8 +14,9 @@
 # limitations under the License.
 import math
 
-from nvtripy import export, wrappers
+from nvtripy import export
 from nvtripy.common.exception import raise_error
+from nvtripy.utils import wrappers
 
 
 @export.public_api(document_under="operations/functions")
@@ -59,7 +60,7 @@ def flatten(input: "nvtripy.Tensor", start_dim: int = 0, end_dim: int = -1) -> "
         output = tp.flatten(input, start_dim=1, end_dim=2)
         assert np.array_equal(cp.from_dlpack(output).get(), cp.from_dlpack(input).get().reshape(2, -1, 5))
     """
-    from nvtripy.frontend.trace.ops.reshape import reshape
+    from nvtripy.frontend.ops.reshape import reshape
 
     # Infer the actual dimensions to flatten based on start_dim and end_dim.
     if start_dim < 0:

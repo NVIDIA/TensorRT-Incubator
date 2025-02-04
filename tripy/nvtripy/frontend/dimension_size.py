@@ -36,15 +36,6 @@ class DimensionSize(Tensor):
         """
         super().__init__(data=data, dtype=int32, name=name)
 
-    # Internal use only, leave undocumented so it's not exported.
-    # Creates a DimensionSize with data without checking (so None is permitted, which we do not want in the public constructor)
-    # and no overhead from the dispatch system.
-    @staticmethod
-    def create_directly(data: Optional[int], name: Optional[str] = None) -> "nvtripy.DimensionSize":
-        instance = DimensionSize.__new__(DimensionSize)
-        Tensor.raw_init(instance, data=data, dtype=int32, name=name)
-        return instance
-
     def __int__(self) -> int:
         return self.tolist()
 

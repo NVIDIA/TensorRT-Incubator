@@ -17,7 +17,8 @@
 
 import math
 
-from nvtripy import export, wrappers
+from nvtripy import export
+from nvtripy.utils import wrappers
 
 
 @export.public_api(document_under="operations/functions")
@@ -42,7 +43,6 @@ def gelu(input: "nvtripy.Tensor") -> "nvtripy.Tensor":
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         input = tp.Tensor([1., 2., 3., 4.], dtype=tp.float32)
         output = tp.gelu(input)
@@ -50,7 +50,7 @@ def gelu(input: "nvtripy.Tensor") -> "nvtripy.Tensor":
         t = torch.tensor([1, 2, 3, 4], dtype=torch.float32) # doc: omit
         assert tp.allclose(output, tp.Tensor(torch.nn.functional.gelu(t, approximate='tanh')))
     """
-    from nvtripy.frontend.trace.ops.unary_elementwise import tanh
+    from nvtripy.frontend.ops.unary_elementwise import tanh
 
     t1, t2, t3, t4, t5 = 0.5, math.sqrt(2.0 / math.pi), 0.044715, 3.0, 1.0
     return t1 * input * (tanh(t2 * (input + t3 * (input**t4))) + t5)

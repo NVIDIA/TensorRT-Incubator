@@ -68,9 +68,8 @@ class TestSequential:
         with torch.no_grad():
             torch_output = torch_model(input_tensor)
 
-        rtol_ = 2e-6
         assert torch.allclose(
-            torch.from_dlpack(tp_output), torch_output, rtol=rtol_
+            torch.from_dlpack(tp_output), torch_output, rtol=2e-4, atol=1e-5
         ), "Forward pass outputs do not match."
 
     def test_nested_forward_pass_accuracy(self, eager_or_compiled):

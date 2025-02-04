@@ -27,7 +27,7 @@ from nvtripy.frontend.tensor import Tensor
 
 @export.public_api(document_under="operations/modules")
 @dataclass
-@utils.constant_fields(["dtype", "normalized_shape"])
+@utils.utils.constant_fields(["dtype", "normalized_shape"])
 class LayerNorm(Module):
     r"""
     Applies layer normalization over the input tensor:
@@ -67,7 +67,6 @@ class LayerNorm(Module):
 
         .. code-block:: python
             :linenos:
-            :caption: Example
 
             layer_norm = tp.LayerNorm(3)
 
@@ -107,8 +106,8 @@ class LayerNorm(Module):
         Returns:
             A tensor of the same shape as the input.
         """
-        from nvtripy.frontend.trace.ops.reduce import mean, var
-        from nvtripy.frontend.trace.ops.unary_elementwise import rsqrt
+        from nvtripy.frontend.ops.reduce import mean, var
+        from nvtripy.frontend.ops.unary_elementwise import rsqrt
 
         # The mean and the variance are computed over the last D dimensions
         D = len(self.normalized_shape)

@@ -7,9 +7,11 @@
 # to set the 'tensorrt-strongly-typed' flag.
 
 import sys
+from typing import List
 
 import mlir_tensorrt.compiler.api as api
 from mlir_tensorrt.compiler.ir import *
+from mlir_tensorrt.compiler.ir import _GlobalDebug
 
 STATIC_ASM = """
 func.func @main(%arg0: tensor<2x3x4xf32>) -> tensor<2x3x4xf32> {
@@ -69,33 +71,35 @@ def flush():
     sys.stderr.flush()
 
 
-def compile_asm(ASM):
-    with Context() as context:
-        m = Module.parse(ASM)
-        client = api.CompilerClient(context)
-        opts = api.StableHLOToExecutableOptions(
-            client,
-            [
-                "--tensorrt-builder-opt-level=3",
-                "--tensorrt-strongly-typed=false",
-                "--tensorrt-workspace-memory-pool-limit=1gb",
-            ],
-        )
+with Context() as context:
+    client = api.CompilerClient(context)
+    _GlobalDebug.flag = True
+    _GlobalDebug.set_types("translate-to-tensorrt")
 
-        # Check that different argument combinations are all valid.
-        opts.set_debug_options(False)
-        # Enables global debugging
-        opts.set_debug_options(True)
-        # Enables restricted debugging
-        opts.set_debug_options(True, ["translate-to-tensorrt"])
+    def compile(m, options: List[str]):
+        task = client.get_compilation_task(
+            "stablehlo-to-executable",
+            options,
+        )
+        task.run(m)
+        return api.translate_mlir_to_executable(m)
+
+    def compile_asm(ASM):
+        m = Module.parse(ASM)
+
+        opts = [
+            "--tensorrt-builder-opt-level=0",
+            "--tensorrt-strongly-typed=false",
+            "--tensorrt-workspace-memory-pool-limit=1gb",
+        ]
 
         print("running compilation (1)")
         flush()
-        exe = api.compiler_stablehlo_to_executable(client, m.operation.clone(), opts)
+        exe = compile(m.operation.clone(), opts)
         # Options don't change, so the cached pipeline should be re-used.
         print("running compilation (2)")
         flush()
-        exe = api.compiler_stablehlo_to_executable(client, m.operation.clone(), opts)
+        exe = compile(m.operation.clone(), opts)
 
         sig = exe.get_signature("main")
         _test_func_signature(sig)
@@ -104,81 +108,76 @@ def compile_asm(ASM):
         # catch any exceptions since that is only supported on TensorRT 10.
 
         # Changing the options should cause new pipeline to be generated, creating new builder.
-        opts = api.StableHLOToExecutableOptions(
-            client,
-            [
-                "--tensorrt-builder-opt-level=1",
-                "--tensorrt-strongly-typed=true",
-                "--tensorrt-workspace-memory-pool-limit=1024kiB",
-                "--debug",
-                "--debug-only=translate-to-tensorrt",
-                "--mlir-timing",
-            ],
-        )
+        opts = [
+            "--tensorrt-builder-opt-level=1",
+            "--tensorrt-strongly-typed=true",
+            "--tensorrt-workspace-memory-pool-limit=1024kiB",
+            "--mlir-timing",
+        ]
+
         try:
             print("running compilation (3)")
             flush()
-            exe = api.compiler_stablehlo_to_executable(
-                client, m.operation.clone(), opts
-            )
+            exe = compile(m.operation.clone(), opts)
         except:
             pass
 
+    print("Compiling static asm")
+    compile_asm(STATIC_ASM)
+    # CHECK-LABEL: Compiling static asm
+    # CHECK-LABEL: running compilation (1)
+    # CHECK: [translate-to-tensorrt] TranslateToTensorRTEnginePass is generating a new TensorRT builder
+    # CHECK: [translate-to-tensorrt] timing cache path was not specified, creating a fresh timing cache
+    # CHECK: [translate-to-tensorrt] Setting builder optimization level to 0
+    # CHECK: [translate-to-tensorrt] setting TensorRT builder workspace memory pool limit = 1073741824 bytes
+    # CHECK-LABEL: running compilation (2)
+    # CHECK-NOT: {{.*}} generating a new TensorRT builder {{.*}}
+    # CHECK-NOT: {{.*}} timing cache path was not specified {{.*}}
+    # CHECK: FunctionSignature(Signature<args=[MemRef<2x3x4xf32,12x4x1,device>, MemRef<2x3x4xf32,12x4x1,device>], results=[], num_output_args=1, arg_bounds=[UNK, UNK], result_bounds=[], cconv=unpacked>)
+    # CHECK: Num of args: 2
+    # CHECK: Num of results: 0
+    # CHECK: Num of input args: 1
+    # CHECK: Num of output args: 1
+    # CHECK: Num of arg bounds: 2
+    # CHECK: Arg 0 Bound: min([]), max([])
+    # CHECK: Arg 1 Bound: min([]), max([])
+    # CHECK: Num of res bounds: 0
+    # CHECK: Shape function name: None
+    # CHECK: type: <class 'mlir_tensorrt.compiler._mlir_libs._api.MemRefType'>
+    # CHECK: shape: [2, 3, 4]
+    # CHECK: strides: [12, 4, 1]
+    # CHECK: element_type: ScalarTypeCode.f32
+    # CHECK: address_space: PointerType.device
+    # CHECK: type: <class 'mlir_tensorrt.compiler._mlir_libs._api.MemRefType'>
+    # CHECK: shape: [2, 3, 4]
+    # CHECK: strides: [12, 4, 1]
+    # CHECK: element_type: ScalarTypeCode.f32
+    # CHECK: address_space: PointerType.device
 
-print("Compiling static asm")
-compile_asm(STATIC_ASM)
-# CHECK-LABEL: Compiling static asm
-# CHECK-LABEL: running compilation (1)
-# CHECK: [translate-to-tensorrt] TranslateToTensorRTEnginePass is generating a new TensorRT builder
-# CHECK: [translate-to-tensorrt] timing cache path was not specified, creating a fresh timing cache
-# CHECK: [translate-to-tensorrt] Setting builder optimization level to 3
-# CHECK: [translate-to-tensorrt] setting TensorRT builder workspace memory pool limit = 1073741824 bytes
-# CHECK-LABEL: running compilation (2)
-# CHECK-NOT: {{.*}} generating a new TensorRT builder {{.*}}
-# CHECK-NOT: {{.*}} timing cache path was not specified {{.*}}
-# CHECK: FunctionSignature(Signature<args=[MemRef<2x3x4xf32,12x4x1,device>, MemRef<2x3x4xf32,12x4x1,device>], results=[], num_output_args=1, arg_bounds=[UNK, UNK], result_bounds=[]>)
-# CHECK: Num of args: 2
-# CHECK: Num of results: 0
-# CHECK: Num of input args: 1
-# CHECK: Num of output args: 1
-# CHECK: Num of arg bounds: 2
-# CHECK: Arg 0 Bound: min([]), max([])
-# CHECK: Arg 1 Bound: min([]), max([])
-# CHECK: Num of res bounds: 0
-# CHECK: Shape function name: None
-# CHECK: type: <class 'mlir_tensorrt.compiler._mlir_libs._api.MemRefType'>
-# CHECK: shape: [2, 3, 4]
-# CHECK: strides: [12, 4, 1]
-# CHECK: element_type: ScalarTypeCode.f32
-# CHECK: address_space: PointerType.device
-# CHECK: type: <class 'mlir_tensorrt.compiler._mlir_libs._api.MemRefType'>
-# CHECK: shape: [2, 3, 4]
-# CHECK: strides: [12, 4, 1]
-# CHECK: element_type: ScalarTypeCode.f32
-# CHECK: address_space: PointerType.device
-# CHECK-LABEL: running compilation (3)
-# CHECK: [translate-to-tensorrt] TranslateToTensorRTEnginePass is generating a new TensorRT builder
-# CHECK: [translate-to-tensorrt] timing cache path was not specified, creating a fresh timing cache
-# CHECK: [translate-to-tensorrt] enabling 'strongly-typed' mode in TensorRT translation
-# CHECK: [translate-to-tensorrt] Setting builder optimization level to 1
-# CHECK: [translate-to-tensorrt] setting TensorRT builder workspace memory pool limit = 1048576 bytes
-# CHECK: Execution time report
+    # The first time executing a pipeline with the second set of options results
+    # in a cache miss:
 
+    # CHECK-LABEL: running compilation (3)
+    # CHECK: TranslateToTensorRTEnginePass is generating a new TensorRT builder
+    # CHECK: timing cache path was not specified, creating a fresh timing cache
+    # CHECK: [translate-to-tensorrt] enabling 'strongly-typed' mode in TensorRT translation
+    # CHECK: [translate-to-tensorrt] Setting builder optimization level to 1
+    # CHECK: [translate-to-tensorrt] setting TensorRT builder workspace memory pool limit = 1048576 bytes
 
-print("Compiling dynamic asm")
-compile_asm(DYNAMIC_ASM)
+    print("Compiling dynamic asm")
+    compile_asm(DYNAMIC_ASM)
 # CHECK-LABEL: Compiling dynamic asm
 # CHECK: running compilation (1)
-# CHECK: [translate-to-tensorrt] TranslateToTensorRTEnginePass is generating a new TensorRT builder
-# CHECK: [translate-to-tensorrt] timing cache path was not specified, creating a fresh timing cache
-# CHECK: [translate-to-tensorrt] Setting builder optimization level to 3
+# CHECK-NOT: TranslateToTensorRTEnginePass is generating a new TensorRT builder
+# CHECK-NOT  timing cache path was not specified, creating a fresh timing cache
+# CHECK: [translate-to-tensorrt] Setting builder optimization level to 0
 # CHECK: [translate-to-tensorrt] setting TensorRT builder workspace memory pool limit = 1073741824 bytes
 # CHECK: running compilation (2)
 # CHECK-NOT: {{.*}} generating a new TensorRT builder {{.*}}
 # CHECK-NOT: {{.*}} timing cache path was not specified {{.*}}
 # CHECK: FunctionSignature(Signature<args=[MemRef<?x3x4xf32,12x4x1,device>, MemRef<?x3x4xf32,12x4x1,device>],
 # CHECK-SAME: results=[], num_output_args=1,
-# CHECK-SAME: arg_bounds=[dim_bounds<min = [1,3,4], max = [10,3,4]>, dim_bounds<min = [1,3,4], max = [10,3,4]>], result_bounds=[]>)
+# CHECK-SAME: arg_bounds=[dim_bounds<min = [1,3,4], max = [10,3,4]>, dim_bounds<min = [1,3,4], max = [10,3,4]>], result_bounds=[]
 # CHECK: Num of args: 2
 # CHECK: Num of results: 0
 # CHECK: Num of input args: 1
@@ -199,9 +198,10 @@ compile_asm(DYNAMIC_ASM)
 # CHECK: element_type: ScalarTypeCode.f32
 # CHECK: address_space: PointerType.device
 # CHECK: running compilation (3)
-# CHECK: [translate-to-tensorrt] TranslateToTensorRTEnginePass is generating a new TensorRT builder
-# CHECK: [translate-to-tensorrt] timing cache path was not specified, creating a fresh timing cache
+# CHECK-NOT: TranslateToTensorRTEnginePass is generating a new TensorRT builder
+# CHECK-NOT: timing cache path was not specified, creating a fresh timing cache
 # CHECK: [translate-to-tensorrt] enabling 'strongly-typed' mode in TensorRT translation
 # CHECK: [translate-to-tensorrt] Setting builder optimization level to 1
 # CHECK: [translate-to-tensorrt] setting TensorRT builder workspace memory pool limit = 1048576 bytes
+
 # CHECK: Execution time report

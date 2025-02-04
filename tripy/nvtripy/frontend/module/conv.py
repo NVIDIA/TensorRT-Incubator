@@ -24,12 +24,12 @@ from nvtripy.common import datatype
 from nvtripy.common.exception import raise_error
 from nvtripy.frontend.module.module import Module
 from nvtripy.frontend.module.parameter import DefaultParameter
+from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.frontend.tensor import Tensor
-from nvtripy.frontend.trace.ops import utils as op_utils
 
 
 @dataclass
-@utils.constant_fields(["dtype", "padding", "stride", "groups", "dilation"])
+@utils.utils.constant_fields(["dtype", "padding", "stride", "groups", "dilation"])
 class ConvBase(Module):
     r"""Base class for sharing common functionality between Conv and ConvTranspose."""
 
@@ -55,7 +55,7 @@ class ConvBase(Module):
 
         super().__init__()
 
-        self.groups = utils.default(groups, 1)
+        self.groups = utils.utils.default(groups, 1)
 
         if self.groups <= 0:
             raise_error(
@@ -73,9 +73,9 @@ class ConvBase(Module):
 
         op_utils.check_conv_pooling_args(kernel_dims, stride, padding, dilation)
         rank = len(kernel_dims) + 2
-        self.padding = utils.default(padding, tuple(((0, 0) for _ in range(rank - 2))))
-        self.stride = utils.default(stride, (1,) * (rank - 2))
-        self.dilation = utils.default(dilation, (1,) * (rank - 2))
+        self.padding = utils.utils.default(padding, tuple(((0, 0) for _ in range(rank - 2))))
+        self.stride = utils.utils.default(stride, (1,) * (rank - 2))
+        self.dilation = utils.utils.default(dilation, (1,) * (rank - 2))
 
         self.bias = None
         if bias:
@@ -186,7 +186,6 @@ class Conv(ConvBase):
 
         .. code-block:: python
             :linenos:
-            :caption: Example
 
             input = tp.reshape(tp.arange(16, dtype=tp.float32), (1, 1, 4, 4))
             conv = tp.Conv(in_channels=1, out_channels=1, kernel_dims=(2, 2), dtype=tp.float32)
@@ -257,8 +256,8 @@ class Conv(ConvBase):
             :math:`(N, \text{out_channels}, D_{0_{\text{out}}},\ldots,D_{n_{\text{out}}})`
             where :math:`D_{k_{\text{out}}} = \large \left\lfloor \frac{D_{k_{\text{in}}} + \text{padding}_{k_0} + \text{padding}_{k_1} - \text{dilation}_k \times (\text{kernel_dims}_k - 1) - 1}{\text{stride}_k} \right\rfloor + \normalsize 1`
         """
-        from nvtripy.frontend.trace.ops.convolution import convolution
-        from nvtripy.frontend.trace.ops.reshape import reshape
+        from nvtripy.frontend.ops.convolution import convolution
+        from nvtripy.frontend.ops.reshape import reshape
 
         x = convolution(
             input,

@@ -382,13 +382,21 @@ struct EwiseMixedPrecisionRewriter : public OpRewritePattern<ElementWiseOp> {
 } // namespace
 
 static std::optional<FloatAttr> getFloatSplatValue(Value v) {
-  Attribute attr;
+  DenseFPElementsAttr attr;
   if (!matchPattern(v, m_Constant(&attr)))
     return std::nullopt;
-  DenseFPElementsAttr fpEls = dyn_cast<DenseFPElementsAttr>(attr);
-  if (!fpEls || !fpEls.isSplat())
+  if (!attr.isSplat())
     return std::nullopt;
-  return fpEls.getSplatValue<FloatAttr>();
+  return attr.getSplatValue<FloatAttr>();
+}
+
+static std::optional<IntegerAttr> getIntegerSplatValue(Value v) {
+  DenseIntElementsAttr attr;
+  if (!matchPattern(v, m_Constant(&attr)))
+    return std::nullopt;
+  if (!attr.isSplat())
+    return std::nullopt;
+  return attr.getSplatValue<IntegerAttr>();
 }
 
 /// Check whether `x / x == 1` in the precision of the given float value.
@@ -402,6 +410,29 @@ static bool isXDivXUnity(FloatAttr attr) {
     return false;
   assert(!losesInfo && "1.0 should be exactly represented");
   return v / v == unity;
+}
+
+static bool isFloatSplatValueSame(Value lhs, Value rhs) {
+  std::optional<FloatAttr> lhsAttr = getFloatSplatValue(lhs);
+  if (!lhsAttr)
+    return false;
+  std::optional<FloatAttr> rhsAttr = getFloatSplatValue(rhs);
+  if (!rhsAttr)
+    return false;
+  if (*lhsAttr != *rhsAttr || !isXDivXUnity(*lhsAttr) ||
+      !isXDivXUnity(*rhsAttr))
+    return false;
+  return true;
+}
+
+static bool isIntegerSplatValueEqualOne(Value lhs, Value rhs) {
+  std::optional<IntegerAttr> lhsAttr = getIntegerSplatValue(lhs);
+  if (!lhsAttr)
+    return false;
+  std::optional<IntegerAttr> rhsAttr = getIntegerSplatValue(rhs);
+  if (!rhsAttr)
+    return false;
+  return (*lhsAttr).getValue().isOne() && (*rhsAttr).getValue().isOne();
 }
 
 namespace {
@@ -418,7 +449,6 @@ namespace {
 /// constant-folders so that a/a can be folded to 1 (or another value). Then we
 /// have a folder that simplifies mul(x, 1) into just x, which should always be
 /// legal.
-/// TODO: Take care of the integer element type case.
 struct RemoveProdDivPair : public OpRewritePattern<ElementWiseOp> {
   using OpRewritePattern::OpRewritePattern;
   LogicalResult matchAndRewrite(ElementWiseOp op,
@@ -430,16 +460,10 @@ struct RemoveProdDivPair : public OpRewritePattern<ElementWiseOp> {
     if (!producer ||
         producer.getElementwiseOperation() != ElementWiseOperation::kPROD)
       return failure();
-    // Check if splat value of multiplier and divisor is same and its not
-    // nan/inf/zero.
-    std::optional<FloatAttr> prodMultiplierValue =
-        getFloatSplatValue(producer.getInput2());
-    std::optional<FloatAttr> divDivisorValue =
-        getFloatSplatValue(op.getInput2());
-
-    if (!prodMultiplierValue || !divDivisorValue ||
-        *prodMultiplierValue != *divDivisorValue ||
-        !isXDivXUnity(*prodMultiplierValue) || !isXDivXUnity(*divDivisorValue))
+    // Check if splat value of multiplier and divisor is same (and its not
+    // nan/inf/zero in case of float).
+    if (!isFloatSplatValueSame(producer.getInput2(), op.getInput2()) &&
+        !isIntegerSplatValueEqualOne(producer.getInput2(), op.getInput2()))
       return failure();
 
     // Replace all uses of `div` result with the input1 of `prod`.

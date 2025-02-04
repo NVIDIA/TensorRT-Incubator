@@ -21,38 +21,49 @@ class TensorRTRuntime_Op<string mnemonic, list<Trait> traits = []> :
 }
 
 //===----------------------------------------------------------------------===//
-// CreateRuntimeOp
+// CompiledFuncOp
 //===----------------------------------------------------------------------===//
 
-def TensorRTRuntime_CreateRuntimeOp : TensorRTRuntime_Op<
-      "create_runtime", [Pure]> {
+def TensorRTRuntime_CompiledFuncOp : TensorRTRuntime_Op<
+  "compiled_func", [Symbol]> {
+  let summary = "represents a serialized TensorRT plan file";
 
   let description = [{
-    Returns a handle to a `!trtrt.runtime` (`nvinfer::IRuntime` object).
+    The `trtrt.compiled_func` op is a global operation that represents
+    a compiled TensorRT function (an "engine" or "plan file")
+    Its binary data is contained in `value`, which is the output of the
+    TensorRT builder.
   }];
 
-  let arguments = (ins );
-  let results = (outs TensorRTRuntime_Runtime:$result);
-  let assemblyFormat = [{
-    attr-dict `:` qualified(type($result))
-  }];
+  let arguments = (ins SymbolNameAttr:$sym_name, ElementsAttr:$value);
+  let assemblyFormat = "attr-dict $sym_name $value";
+
+  let builders = [
+    OpBuilder<(ins "StringRef":$sym_name, "TypedAttr":$attr), [{
+      assert(isa<ElementsAttr>(attr) && "expected an ElementsAttr");
+      build($_builder, $_state, sym_name, cast<ElementsAttr>(attr));
+    }]>
+  ];
+
+  let hasVerifier = 1;
 }
 
 //===----------------------------------------------------------------------===//
-// CompileOp
+// GetFunctionOp
 //===----------------------------------------------------------------------===//
 
-def TensorRTRuntime_CompileOp : TensorRTRuntime_Op<"compile", [Pure]> {
-
+def TensorRTRuntime_GetFunctionOp : TensorRTRuntime_Op<"get_function", [Pure,
+      DeclareOpInterfaceMethods<SymbolUserOpInterface>]> {
+  let summary = "retrieves a TensorRT function handle from a compiled module";
   let description = [{
-    Compiles a `func.func` representing a TensorRT network into a serialized
-    TensorRT engine.
+    The `cuda.get_function` operation references a `trtrt.compiled_func`
+    and returns an opaque `func.func` (representing an "execution context"
+    from the TensorRT runtime API).
   }];
-
-  let arguments = (ins SymbolRefAttr:$trt_func);
+  let arguments = (ins FlatSymbolRefAttr:$module);
   let results = (outs TensorRTRuntime_Context:$result);
   let assemblyFormat = [{
-    attr-dict $trt_func `:` qualified(type($result))
+    attr-dict $module `:` type($result)
   }];
 }
 
@@ -131,7 +142,7 @@ def TensorRTRuntime_EnqueueAllocOp : TensorRTRuntime_Op<"enqueue_alloc", [
     results of either tensor or memref types.
   }];
 
-  let arguments = (ins 
+  let arguments = (ins
     TensorRTRuntime_Context:$execution_context,
     CUDA_Stream:$stream,
     Variadic<AnyTypeOf<[AnyMemRef, AnyTensor]>>:$inputs,

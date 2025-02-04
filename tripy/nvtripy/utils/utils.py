@@ -17,7 +17,6 @@
 
 import dataclasses
 import functools
-import glob
 import hashlib
 import inspect
 import os

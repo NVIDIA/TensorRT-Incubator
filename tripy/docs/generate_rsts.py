@@ -198,13 +198,27 @@ def process_guide(guide_path: str, processed_guide_path: str):
         if should_eval and block.lang.startswith("py"):
             print("Evaluating Python block")
 
-            def add_block(title, contents, lang, code_indentation):
+            def add_block(kind, contents, lang, code_indentation):
                 # Indent our block to match the indentation of the code in the original block.
+
+                if kind == helper.BlockKind.LOCAL_VARS:
+                    return indent(
+                        "\n```{eval-rst}"
+                        + "\n.. collapse:: Local Variables\n"
+                        + indent(
+                            "\n::\n" + indent(contents, prefix=" " * helper.TAB_SIZE),
+                            prefix=" " * (helper.TAB_SIZE * 2),
+                        )
+                        + "\n```\n",
+                        prefix=" " * code_indentation,
+                    )
+
+                assert kind == helper.BlockKind.OUTPUT
                 return indent(
                     "\n"
                     # Only include the "Output:" title when the code block is rendered.
                     # Hidden code blocks can be used to dynamically generate documentation.
-                    + (title if not block.has_marker("doc: omit") else "")
+                    + ("Output:" if not block.has_marker("doc: omit") else "")
                     + f"\n```{lang}\n{dedent(contents).strip()}\n```",
                     prefix=" " * code_indentation,
                 )
@@ -221,7 +235,8 @@ def process_guide(guide_path: str, processed_guide_path: str):
             if not block.has_marker("doc: omit"):
                 new_blocks.extend(code_block_lines)
 
-            new_blocks.extend(local_var_lines)
+            if not block.has_marker("doc: no_print_locals"):
+                new_blocks.extend(local_var_lines)
             new_blocks.extend(output_lines)
 
         else:

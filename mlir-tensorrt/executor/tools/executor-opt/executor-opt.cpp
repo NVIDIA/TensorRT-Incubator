@@ -19,7 +19,7 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-executor/InitAllDialects.h"
 #include "mlir-executor/InitAllPasses.h"
-#include "mlir/Conversion/Passes.h"
+#include "mlir/Conversion/ComplexToStandard/ComplexToStandard.h"
 #include "mlir/Dialect/Arith/Transforms/BufferDeallocationOpInterfaceImpl.h"
 #include "mlir/Dialect/Arith/Transforms/BufferViewFlowOpInterfaceImpl.h"
 #include "mlir/Dialect/Arith/Transforms/BufferizableOpInterfaceImpl.h"
@@ -65,12 +65,14 @@ int main(int argc, char **argv) {
   mlir::linalg::registerBufferizableOpInterfaceExternalModels(registry);
   mlir::linalg::registerSubsetOpInterfaceExternalModels(registry);
   mlir::linalg::registerValueBoundsOpInterfaceExternalModels(registry);
-  mlir::registerConvertComplexToStandardPass();
   mlir::scf::registerBufferDeallocationOpInterfaceExternalModels(registry);
   mlir::scf::registerBufferizableOpInterfaceExternalModels(registry);
   mlir::tensor::registerBufferizableOpInterfaceExternalModels(registry);
   mlir::tensor::registerSubsetOpInterfaceExternalModels(registry);
   mlir::tensor::registerValueBoundsOpInterfaceExternalModels(registry);
+  mlir::registerPass([]() -> std::unique_ptr<::mlir::Pass> {
+    return mlir::createConvertComplexToStandardPass();
+  });
 
   return mlir::asMainReturnCode(
       mlir::MlirOptMain(argc, argv, "Standalone optimizer driver\n", registry));

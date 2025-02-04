@@ -51,6 +51,8 @@ public:
   void addToOptions(mlir::OptionsContext &context) final {
     context.addOption("disable-tensorrt-extension", disabled,
                       llvm::cl::init(false));
+    context.addOption("use-global-tensorrt-translation-flags", useGlobalCLFlags,
+                      llvm::cl::init(false));
     translationOptions.addToOptions(context);
   }
 
@@ -63,8 +65,8 @@ private:
   /// Options for MLIR-to-TensorRT translation.
   mlir::tensorrt::TensorRTTranslationOptions translationOptions;
 
-  /// Path where we should persist the timing cache to storage.
-  std::string timingCachePath;
+  /// Whether to use global CL config for options.
+  bool useGlobalCLFlags{false};
 };
 
 } // namespace mlirtrt::compiler

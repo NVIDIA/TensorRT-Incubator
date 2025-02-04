@@ -1,0 +1,183 @@
+From 3aecd17fa244ac4b2ea8d53a49653f1af209ebab Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Eliud=20de=20Le=C3=B3n?= <eliud.deleon.10@gmail.com>
+Date: Wed, 11 Dec 2024 10:07:21 -0800
+Subject: [PATCH 07/16] [mlir][emitc] Add support for C-API/python binding to
+ EmitC dialect (#119476)
+
+Added EmitC dialect bindings.
+---
+ mlir/include/mlir-c/Dialect/EmitC.h        | 26 ++++++++++++++++++
+ mlir/lib/CAPI/Dialect/CMakeLists.txt       |  9 +++++++
+ mlir/lib/CAPI/Dialect/EmitC.cpp            | 13 +++++++++
+ mlir/python/CMakeLists.txt                 |  8 ++++++
+ mlir/python/mlir/dialects/EmitC.td         | 14 ++++++++++
+ mlir/python/mlir/dialects/emitc.py         |  5 ++++
+ mlir/test/python/dialects/emitc_dialect.py | 31 ++++++++++++++++++++++
+ 7 files changed, 106 insertions(+)
+ create mode 100644 mlir/include/mlir-c/Dialect/EmitC.h
+ create mode 100644 mlir/lib/CAPI/Dialect/EmitC.cpp
+ create mode 100644 mlir/python/mlir/dialects/EmitC.td
+ create mode 100644 mlir/python/mlir/dialects/emitc.py
+ create mode 100644 mlir/test/python/dialects/emitc_dialect.py
+
+diff --git a/mlir/include/mlir-c/Dialect/EmitC.h b/mlir/include/mlir-c/Dialect/EmitC.h
+new file mode 100644
+index 000000000000..82e698344bf1
+--- /dev/null
++++ b/mlir/include/mlir-c/Dialect/EmitC.h
+@@ -0,0 +1,26 @@
++//===-- mlir-c/Dialect/EmitC.h - C API for EmitC dialect ----------*- C -*-===//
++//
++// Part of the LLVM Project, under the Apache License v2.0 with LLVM
++// Exceptions.
++// See https://llvm.org/LICENSE.txt for license information.
++// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
++//
++//===----------------------------------------------------------------------===//
++
++#ifndef MLIR_C_DIALECT_EmitC_H
++#define MLIR_C_DIALECT_EmitC_H
++
++#include "mlir-c/IR.h"
++#include "mlir-c/Support.h"
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++MLIR_DECLARE_CAPI_DIALECT_REGISTRATION(EmitC, emitc);
++
++#ifdef __cplusplus
++}
++#endif
++
++#endif // MLIR_C_DIALECT_EmitC_H
+diff --git a/mlir/lib/CAPI/Dialect/CMakeLists.txt b/mlir/lib/CAPI/Dialect/CMakeLists.txt
+index 4e141b60ff8c..5ad4bafedf6c 100644
+--- a/mlir/lib/CAPI/Dialect/CMakeLists.txt
++++ b/mlir/lib/CAPI/Dialect/CMakeLists.txt
+@@ -40,6 +40,15 @@ add_mlir_upstream_c_api_library(MLIRCAPIControlFlow
+   MLIRControlFlowDialect
+ )
+ 
++add_mlir_upstream_c_api_library(MLIRCAPIEmitC
++  EmitC.cpp
++
++  PARTIAL_SOURCES_INTENDED
++  LINK_LIBS PUBLIC
++  MLIRCAPIIR
++  MLIREmitCDialect
++)
++
+ add_mlir_upstream_c_api_library(MLIRCAPIMath
+   Math.cpp
+ 
+diff --git a/mlir/lib/CAPI/Dialect/EmitC.cpp b/mlir/lib/CAPI/Dialect/EmitC.cpp
+new file mode 100644
+index 000000000000..3dcb7038a579
+--- /dev/null
++++ b/mlir/lib/CAPI/Dialect/EmitC.cpp
+@@ -0,0 +1,13 @@
++//===- EmitC.cpp - C Interface for EmitC dialect --------------------------===//
++//
++// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
++// See https://llvm.org/LICENSE.txt for license information.
++// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
++//
++//===----------------------------------------------------------------------===//
++
++#include "mlir-c/Dialect/EmitC.h"
++#include "mlir/CAPI/Registration.h"
++#include "mlir/Dialect/EmitC/IR/EmitC.h"
++
++MLIR_DEFINE_CAPI_DIALECT_REGISTRATION(EmitC, emitc, mlir::emitc::EmitCDialect)
+diff --git a/mlir/python/CMakeLists.txt b/mlir/python/CMakeLists.txt
+index 23187f256455..2eb12101058f 100644
+--- a/mlir/python/CMakeLists.txt
++++ b/mlir/python/CMakeLists.txt
+@@ -352,6 +352,14 @@ declare_mlir_python_sources(
+     dialects/quant.py
+     _mlir_libs/_mlir/dialects/quant.pyi)
+ 
++declare_mlir_dialect_python_bindings(
++  ADD_TO_PARENT MLIRPythonSources.Dialects
++  ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/mlir"
++  TD_FILE dialects/EmitC.td
++  SOURCES 
++    dialects/emitc.py
++  DIALECT_NAME emitc)
++
+ declare_mlir_dialect_python_bindings(
+   ADD_TO_PARENT MLIRPythonSources.Dialects
+   ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/mlir"
+diff --git a/mlir/python/mlir/dialects/EmitC.td b/mlir/python/mlir/dialects/EmitC.td
+new file mode 100644
+index 000000000000..ff0a56d15501
+--- /dev/null
++++ b/mlir/python/mlir/dialects/EmitC.td
+@@ -0,0 +1,14 @@
++//===-- EmitC.td - Entry point for EmitC bind --------*- tablegen -*-===//
++//
++// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
++// See https://llvm.org/LICENSE.txt for license information.
++// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
++//
++//===----------------------------------------------------------------------===//
++
++#ifndef PYTHON_BINDINGS_EMITC
++#define PYTHON_BINDINGS_EMITC
++
++include "mlir/Dialect/EmitC/IR/EmitC.td"
++
++#endif
+diff --git a/mlir/python/mlir/dialects/emitc.py b/mlir/python/mlir/dialects/emitc.py
+new file mode 100644
+index 000000000000..99c3286e576f
+--- /dev/null
++++ b/mlir/python/mlir/dialects/emitc.py
+@@ -0,0 +1,5 @@
++#  Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
++#  See https://llvm.org/LICENSE.txt for license information.
++#  SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
++
++from ._emitc_ops_gen import *
+diff --git a/mlir/test/python/dialects/emitc_dialect.py b/mlir/test/python/dialects/emitc_dialect.py
+new file mode 100644
+index 000000000000..0c42c2d4084f
+--- /dev/null
++++ b/mlir/test/python/dialects/emitc_dialect.py
+@@ -0,0 +1,31 @@
++# RUN: %PYTHON %s | FileCheck %s
++
++from mlir.ir import *
++import mlir.dialects.emitc as emitc
++
++
++def run(f):
++    print("\nTEST:", f.__name__)
++    with Context() as ctx, Location.unknown():
++        module = Module.create()
++        with InsertionPoint(module.body):
++            f(ctx)
++        print(module)
++
++
++# CHECK-LABEL: TEST: testConstantOp
++@run
++def testConstantOp(ctx):
++    i32 = IntegerType.get_signless(32)
++    a = emitc.ConstantOp(result=i32, value=IntegerAttr.get(i32, 42))
++    # CHECK: %{{.*}} = "emitc.constant"() <{value = 42 : i32}> : () -> i32
++
++
++# CHECK-LABEL: TEST: testAddOp
++@run
++def testAddOp(ctx):
++    i32 = IntegerType.get_signless(32)
++    lhs = emitc.ConstantOp(result=i32, value=IntegerAttr.get(i32, 0))
++    rhs = emitc.ConstantOp(result=i32, value=IntegerAttr.get(i32, 0))
++    a = emitc.AddOp(i32, lhs, rhs)
++    # CHECK: %{{.*}} = emitc.add %{{.*}}, %{{.*}} : (i32, i32) -> i32
+-- 
+2.46.0
+

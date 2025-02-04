@@ -27,7 +27,7 @@ from nvtripy.frontend.tensor import Tensor
 
 @export.public_api(document_under="operations/modules")
 @dataclass
-@utils.constant_fields(["dtype", "quant_dtype"])
+@utils.utils.constant_fields(["dtype", "quant_dtype"])
 class Linear(Module):
     r"""
     Applies a linear transformation to the input:
@@ -76,7 +76,6 @@ class Linear(Module):
 
         .. code-block:: python
             :linenos:
-            :caption: Example
 
             linear = tp.Linear(3, 4)
 
@@ -118,8 +117,8 @@ class Linear(Module):
         from nvtripy.common.exception import raise_error
         from nvtripy.frontend.ops.transpose import transpose
         from nvtripy.frontend.ops.unsqueeze import unsqueeze
-        from nvtripy.frontend.trace.ops.dequantize import dequantize
-        from nvtripy.frontend.trace.ops.quantize import quantize
+        from nvtripy.frontend.ops.dequantize import dequantize
+        from nvtripy.frontend.ops.quantize import quantize
 
         if self.quant_dtype is not None:
             if self.input_scale:

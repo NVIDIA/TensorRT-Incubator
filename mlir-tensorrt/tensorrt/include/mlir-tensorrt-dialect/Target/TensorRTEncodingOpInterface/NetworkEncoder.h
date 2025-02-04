@@ -267,7 +267,7 @@ template <typename T, std::enable_if_t<std::is_same_v<T, int32_t> ||
                                            std::is_same_v<T, int64_t>,
                                        T *> = nullptr>
 static nvinfer1::Dims getNvInferDims(ArrayRef<T> arrayRef) {
-  assert(arrayRef.size() < nvinfer1::Dims::MAX_DIMS &&
+  assert(arrayRef.size() <= nvinfer1::Dims::MAX_DIMS &&
          "input array exceeds max dims");
   nvinfer1::Dims dims;
   dims.nbDims = arrayRef.size();

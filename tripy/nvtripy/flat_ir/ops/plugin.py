@@ -23,13 +23,12 @@ from typing import Any, Dict, Sequence
 import mlir_tensorrt.compiler.api as compiler
 from mlir_tensorrt.compiler import ir
 from mlir_tensorrt.compiler.dialects import tensorrt
-
 from nvtripy import utils
 from nvtripy.flat_ir.ops.base import BaseFlatIROp
-from nvtripy.utils import Result
+from nvtripy.utils.result import Result
 
 
-@utils.call_once
+@utils.utils.call_once
 def initialize_plugin_registry():
     import tensorrt as trt
 
@@ -41,7 +40,7 @@ def initialize_plugin_registry():
 
 
 def plugin_field_to_attr(field_info: "compiler.PluginFieldInfo", values: Any) -> Result[Any]:
-    values = utils.make_list(values)
+    values = utils.utils.make_list(values)
 
     if field_info.type == compiler.PluginFieldType.CHAR:
         if len(values) != 1:
@@ -121,7 +120,7 @@ class PluginOp(BaseFlatIROp):
         params = {}
         for name, values in self.creator_params.items():
             if name not in field_schema:
-                utils.raise_error_io_info(
+                utils.ops.raise_error_io_info(
                     self,
                     f"{plugin_err_prefix} has no field called: {name}",
                     [f"Note: Valid fields are: {list(sorted(field_schema.keys()))}"],
@@ -130,7 +129,7 @@ class PluginOp(BaseFlatIROp):
 
             result = plugin_field_to_attr(field_schema[name], values)
             if not result:
-                utils.raise_error_io_info(
+                utils.ops.raise_error_io_info(
                     self,
                     f"{plugin_err_prefix}: Invalid value provided for field: {name}",
                     result.error_details + [f" Note: Provided field value was: {repr(values)}"],

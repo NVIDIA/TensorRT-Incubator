@@ -156,7 +156,9 @@ FunctionView ExecutableView::getFunction(std::string_view name) const {
                          [&](const impl::Function *x) {
                            return x->name()->string_view() == name;
                          });
-  assert(it != view->functions()->end());
+  if (it == view->functions()->end())
+    return FunctionView();
+
   return FunctionView(*it);
 }
 
@@ -1286,6 +1288,8 @@ llvm::raw_ostream &rt::print(llvm::raw_ostream &os,
   squareBraces(os, LAMBDAF(interleaveComma(os, llvm::ArrayRef(arg_bounds))));
   os << ", result_bounds=";
   squareBraces(os, LAMBDAF(interleaveComma(os, llvm::ArrayRef(result_bounds))));
+  os << ", cconv=";
+  os << impl::EnumNameCallingConvention(signature.getCConv());
   os << ">";
   return os;
 }

@@ -217,8 +217,7 @@ LogicalResult executor::ExecutorRunnerMain(
       for (unsigned i = 0; i < executable->get()->getNumFunctions(); ++i) {
         std::string str;
         llvm::raw_string_ostream ss(str);
-        mlirtrt::runtime::print(
-            ss, executable->get()->getFunction(i).getSignature());
+        mlirtrt::runtime::print(ss, executable->get()->getFunction(i));
         llvm::outs() << ss.str() << "\n";
       }
       return success();

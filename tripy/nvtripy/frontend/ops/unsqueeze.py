@@ -15,7 +15,8 @@
 # limitations under the License.
 #
 
-from nvtripy import export, wrappers
+from nvtripy import export
+from nvtripy.utils import wrappers
 
 
 @export.public_api(document_under="operations/functions")
@@ -38,14 +39,13 @@ def unsqueeze(input: "nvtripy.Tensor", dim: int) -> "nvtripy.Tensor":
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         input = tp.iota((2, 2), dtype=tp.float32)
         output = tp.unsqueeze(input, 1)
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.expand_dims(cp.from_dlpack(input).get(), 1))
     """
-    from nvtripy.frontend.trace.ops.reshape import reshape
+    from nvtripy.frontend.ops.reshape import reshape
 
     if dim < 0:
         # We cannot use process_dim here because we need to add an extra 1.

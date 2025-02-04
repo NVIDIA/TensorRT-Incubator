@@ -28,7 +28,7 @@ from tests import helper
 
 import nvtripy as tp
 from nvtripy.common.datatype import DATA_TYPES
-from nvtripy.wrappers import TYPE_VERIFICATION
+from nvtripy.utils.wrappers import TYPE_VERIFICATION
 
 PARAM_PAT = re.compile(":param .*?:")
 
@@ -138,6 +138,8 @@ html_css_files = ["style.css"]
 suppress_warnings = ["myst.xref_missing"]
 
 myst_fence_as_directive = ["mermaid"]
+
+myst_enable_extensions = ["colon_fence"]
 
 myst_url_schemes = {
     "http": None,
@@ -289,26 +291,29 @@ def process_docstring_impl(app, what, name, obj, options, lines):
         code_block_lines, local_var_lines, output_lines, _ = helper.process_code_block_for_outputs_and_locals(
             block,
             # We don't care about indentation of code within the block, so we ignore that parameter.
-            format_contents=lambda title, contents, lang, _: f"\n\n.. code-block:: {lang}\n"
-            + indent((f":caption: {title}" if title else "") + f"\n\n{contents}", prefix=" " * helper.TAB_SIZE),
+            format_contents=lambda kind, contents, lang, _: f"\n\n.. code-block:: {lang}\n"
+            + indent(
+                f":caption: {'Output' if kind == helper.BlockKind.OUTPUT else 'Local Variables'}" + f"\n\n{contents}",
+                prefix=" " * helper.TAB_SIZE,
+            ),
             err_msg=f"Failed while processing docstring for: {what}: {name} ({obj}): ",
             strip_assertions=True,
         )
 
-        # Sphinx requires a new line after markup
-        code_block_lines += ["\n"] + local_var_lines + output_lines
-
-        # Grab the caption from the example code block.
-        for line in code_block_lines:
-            caption_marker = ":caption:"
-            if caption_marker in line:
-                _, _, caption = line.partition(caption_marker)
-                caption = caption.strip()
-                if caption != "Example":
-                    caption = f"Example: {caption}"
+        # Extract the caption from the example code block.
+        CAPTION_MARKER = ":caption:"
+        for index, line in enumerate(code_block_lines):
+            if CAPTION_MARKER in line:
+                _, _, caption = line.partition(CAPTION_MARKER)
+                caption = f"Example: {caption.strip()}"
+                # Remove the caption line from the original code block
+                del code_block_lines[index]
                 break
         else:
-            assert False, f"For: {obj}, example does not have a caption. Please add a caption to each example!"
+            caption = "Example"
+
+        # Sphinx requires a new line after markup
+        code_block_lines += ["\n"] + local_var_lines + output_lines
 
         # Put the entire code block + output under a collapsible section to save space.
         line = code_block_lines[0]
@@ -322,6 +327,7 @@ def process_docstring_impl(app, what, name, obj, options, lines):
                 prefix=" " * indentation,
             ).splitlines()
         )
+
         code_block_lines = indent("\n".join(code_block_lines) + "\n", prefix=" " * helper.TAB_SIZE).splitlines()
         lines.extend(code_block_lines)
 

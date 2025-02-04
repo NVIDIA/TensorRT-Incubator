@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from typing import List, Optional, Any, Sequence, Union
 from types import ModuleType
 from textwrap import dedent
-from nvtripy.function_registry import FunctionRegistry
+from nvtripy.utils.function_registry import FunctionRegistry
 
 
 @dataclass

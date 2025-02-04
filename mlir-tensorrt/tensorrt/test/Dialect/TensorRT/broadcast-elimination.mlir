@@ -13,6 +13,79 @@ func.func @pushdown_broadcast(%arg0: tensor<1x1x10xf32>, %arg1: tensor<100x10xf3
 
 // -----
 
+func.func @pushdown_broadcast_collapse_shape_multiple_collapsed_dims() -> tensor<96x512x10x10xf32> {
+  %cst_f32 = tensorrt.constant dense<1.000000e+00> : tensor<1x96x1x512x1x1xf32>
+  %0 = tensorrt.broadcast %cst_f32 broadcast_dims<0, 1, 2, 3, 4, 5> : tensor<1x96x1x512x1x1xf32> to tensor<1x96x1x512x10x10xf32>
+  %1 = tensorrt.collapse_rank %0 : tensor<1x96x1x512x10x10xf32> to tensor<96x512x10x10xf32>
+  return %1 : tensor<96x512x10x10xf32>
+}
+
+// CHECK-LABEL: func.func @pushdown_broadcast_collapse_shape_multiple_collapsed_dims
+//  CHECK-NEXT:     %[[cst_f32:.+]] = tensorrt.constant {{.*}} : tensor<96x512x1x1xf32>
+//  CHECK-NEXT:     %[[v0:.+]] = tensorrt.broadcast %[[cst_f32]] broadcast_dims<0, 1, 2, 3> : tensor<96x512x1x1xf32> to tensor<96x512x10x10xf32>
+//  CHECK-NEXT:     return %[[v0]] : tensor<96x512x10x10xf32>
+
+// -----
+
+// For this test case, the dimension removed by the collapse_rank (dim #1) is not
+// part of the broadcast dimensions. Check that the 'PushDownBroadcastReduceRankOp' correctly
+// exits, leaving the other patterns to simplify the IR.
+func.func @pushdown_transposed_broadcast_collapse_3() -> tensor<1x96x1x1xf32> {
+  %cst_f32 = tensorrt.constant dense<1.000000e+00> : tensor<1x96x1xf32>
+  %0 = tensorrt.broadcast %cst_f32 broadcast_dims<0, 2, 4> : tensor<1x96x1xf32> to tensor<1x1x96x1x1xf32>
+  %1 = tensorrt.collapse_rank %0 : tensor<1x1x96x1x1xf32> to tensor<1x96x1x1xf32>
+  return %1 : tensor<1x96x1x1xf32>
+}
+
+// CHECK-LABEL: func.func @pushdown_transposed_broadcast_collapse_3
+//  CHECK-NEXT:     %[[cst_f32:.+]] = tensorrt.constant {{.*}} : tensor<1x96x1x1xf32>
+//  CHECK-NEXT:     return %[[cst_f32]] : tensor<1x96x1x1xf32>
+
+// -----
+
+func.func @pushdown_transposed_broadcast_collapse_4() -> tensor<96x4xf32> {
+  %cst_f32 = tensorrt.constant dense<1.000000e+00> : tensor<1x96x1xf32>
+  %0 = tensorrt.broadcast %cst_f32 broadcast_dims<2, 1, 0> : tensor<1x96x1xf32> to tensor<1x96x1x4xf32>
+  %1 = tensorrt.collapse_rank %0 : tensor<1x96x1x4xf32> to tensor<96x4xf32>
+  return %1 : tensor<96x4xf32>
+}
+
+// CHECK-LABEL: func.func @pushdown_transposed_broadcast_collapse_4
+//       CHECK:  %[[cst_f32:.+]] = tensorrt.constant {{.*}} : tensor<96x1xf32>
+//       CHECK:  %[[v0:.+]] = tensorrt.broadcast %[[cst_f32]] broadcast_dims<0, 1> : tensor<96x1xf32> to tensor<96x4xf32>
+//       CHECK:  return %[[v0]] : tensor<96x4xf32>
+
+// -----
+
+func.func @pushdown_transposed_broadcast_collapse_transpose() -> tensor<96x96xf32> {
+  %cst_f32 = tensorrt.constant dense<1.000000e+00> : tensor<1x96x1x96xf32>
+  %0 = tensorrt.broadcast %cst_f32 broadcast_dims<2, 3, 0, 1> : tensor<1x96x1x96xf32> to tensor<1x96x1x96xf32>
+  %1 = tensorrt.collapse_rank %0 : tensor<1x96x1x96xf32> to tensor<96x96xf32>
+  return %1 : tensor<96x96xf32>
+}
+
+//       CHECK: #[[$map:.+]] = affine_map<(d0, d1) -> (d1, d0)>
+// CHECK-LABEL: func.func @pushdown_transposed_broadcast_collapse_transpose
+//  CHECK-NEXT:     %[[cst_f32:.+]] = tensorrt.constant {{.*}} : tensor<96x96xf32>
+//  CHECK-NEXT:     %[[v0:.+]] = tensorrt.transpose {permutation = #[[$map]]} %[[cst_f32]] :
+//  CHECK-NEXT:     return %[[v0]] : tensor<96x96xf32>
+
+// -----
+
+func.func @pushdown_transposed_broadcast_collapse_dynamic(%arg0: tensor<1x96x?x96xf32>) -> tensor<96x96xf32> {
+  %0 = tensorrt.broadcast %arg0 broadcast_dims<2, 3, 0, 1> : tensor<1x96x?x96xf32> to tensor<1x96x1x96xf32>
+  %1 = tensorrt.collapse_rank %0 : tensor<1x96x1x96xf32> to tensor<96x96xf32>
+  return %1 : tensor<96x96xf32>
+}
+
+// CHECK-LABEL: func.func @pushdown_transposed_broadcast_collapse_dynamic
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<1x96x?x96xf32>)
+//  CHECK-NEXT:   %[[v0:.+]] = tensorrt.reshape %[[arg0]] : tensor<1x96x?x96xf32> to tensor<96x96xf32>
+//  CHECK-NEXT:   %[[v1:.+]] = tensorrt.transpose {permutation = #[[$map]]} %[[v0]] :
+//  CHECK-NEXT:   return %[[v1]] : tensor<96x96xf32>
+
+// -----
+
 func.func @broadcast_ewise(%arg0: tensor<128x128xf32>, %arg1: tensor<1x128xf32>) -> tensor<128x128xf32> {
   %0 = tensorrt.broadcast %arg1 broadcast_dims<0, 1> : tensor<1x128xf32> to tensor<128x128xf32>
   %1 = tensorrt.element_wise <kSUM>(%arg0, %0 : tensor<128x128xf32>, tensor<128x128xf32>) -> tensor<128x128xf32>
@@ -263,7 +336,6 @@ func.func @broadcast_dynamic_expand_shape_regression(%arg0: tensor<?x?x1x1xi1>, 
 }
 
 //       CHECK: #[[$map:.+]] = affine_map<(d0, d1, d2) -> (d2, d1, d0)>
-//       CHECK: module {
 // CHECK-LABEL: func.func @broadcast_dynamic_expand_shape_regression
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<?x?x1x1xi1>, %[[arg1:.+]]: tensor<?x1x?xf16>, %[[arg2:.+]]: tensor<?x?x256x256xf16>, %[[arg3:.+]]: tensor<4xi32>) -> tensor<?x?x256x256xf16> {
 //       CHECK:     %[[cst_i32:.+]] = tensorrt.constant dense<1> : tensor<1xi32>

@@ -33,7 +33,7 @@ TensorLike = export.public_api(
     module=sys.modules[__name__],
     symbol="TensorLike",
     doc="""
-        A Tripy :class:`Tensor` or a Python number that can be automatically converted into one.
+        A :class:`nvtripy.Tensor` or a Python number that can be automatically converted into one.
         """,
 )(Union["nvtripy.Tensor", numbers.Number])
 
@@ -53,6 +53,6 @@ ShapeLike = export.public_api(
     module=sys.modules[__name__],
     symbol="ShapeLike",
     doc="""
-        A shape of a :class:`Tensor` .
+        A shape of a :class:`nvtripy.Tensor` .
         """,
 )(Sequence[IntLike])

@@ -92,14 +92,16 @@ StatusOr<CudaModulePtr> CudaModulePtr::create(ResourceTracker &tracker,
                                               llvm::StringRef arch) {
   // JIT compile the PTX.
   assert(!ptxData.empty() && "expected ptx data with positive string length");
-  std::unique_ptr<CuBinWrapper> cubin =
+  StatusOr<std::unique_ptr<CuBinWrapper>> cubin =
       compilePtxToCuBin(ptxData.data(), ptxData.size(), arch);
-  if (cubin == nullptr)
+  if (!cubin.isOk())
+    return cubin.getStatus();
+  if (*cubin == nullptr)
     return getInternalErrorStatus("failed to load PTX to cubin");
 
   CUmodule module{nullptr};
   CUresult result = cuModuleLoadDataEx(
-      &module, reinterpret_cast<const void *>(cubin->data.data()), 0, 0, 0);
+      &module, reinterpret_cast<const void *>((*cubin)->data.data()), 0, 0, 0);
   if (result != CUDA_SUCCESS) {
     const char *msg = "unknown error";
     cuGetErrorString(result, &msg);

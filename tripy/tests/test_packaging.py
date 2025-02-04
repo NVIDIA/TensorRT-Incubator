@@ -18,7 +18,7 @@ import subprocess as sp
 import tempfile
 
 import pytest
-from tests import helper
+from tests import paths
 
 import nvtripy as tp
 
@@ -68,7 +68,7 @@ def check_wheel(virtualenv, wheel_dir):
 @pytest.mark.l1
 def test_wheel_packaging_and_install(virtualenv):
     with tempfile.TemporaryDirectory() as tmp:
-        sp.run(["python3", "-m", "build", ".", "-n", "-o", tmp], cwd=helper.ROOT_DIR)
+        sp.run(["python3", "-m", "build", ".", "-n", "-o", tmp], cwd=paths.ROOT_DIR)
 
         tripy_pkg = check_wheel(virtualenv, tmp)
 

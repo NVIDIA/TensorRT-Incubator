@@ -26,7 +26,7 @@ from nvtripy.frontend.tensor import Tensor
 
 @export.public_api(document_under="operations/modules")
 @dataclass
-@utils.constant_fields(["dtype"])
+@utils.utils.constant_fields(["dtype"])
 class Embedding(Module):
     """
     A lookup table for embedding vectors of a fixed size.
@@ -48,7 +48,6 @@ class Embedding(Module):
 
         .. code-block:: python
             :linenos:
-            :caption: Example
 
             embedding = tp.Embedding(num_embeddings=4, embedding_dim=6)
 
@@ -71,6 +70,6 @@ class Embedding(Module):
         Returns:
             A tensor of shape :math:`[N, \text{embedding_dim}]` containing the embedding vectors.
         """
-        from nvtripy.frontend.trace.ops.gather import gather
+        from nvtripy.frontend.ops.gather import gather
 
         return gather(self.weight, 0, x)

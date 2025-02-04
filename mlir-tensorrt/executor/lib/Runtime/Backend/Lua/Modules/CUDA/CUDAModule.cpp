@@ -263,18 +263,19 @@ registerCudaMemoryManagementOps(sol::state_view &lua,
     MTRT_DBGF("given size = %lu, actual size = %lu", ptxDataSize, info.size);
     assert(info.size == ptxDataSize);
 
-    std::unique_ptr<runtime::CuBinWrapper> cubinWrapper =
+    StatusOr<std::unique_ptr<runtime::CuBinWrapper>> cubinWrapper =
         runtime::compilePtxToCuBin(reinterpret_cast<const char *>(ptxData),
                                    info.size, *arch);
-    if (cubinWrapper == nullptr) {
+    SET_LUA_ERROR_AND_RETURN_IF_ERROR(cubinWrapper, state, 0);
+    if (*cubinWrapper == nullptr) {
       auto err = getInternalErrorStatus("failed to load PTX to cubin");
       SET_LUA_ERROR_AND_RETURN_IF_ERROR(err, state, 0);
     }
 
     CUmodule module{nullptr};
     CUresult result = cuModuleLoadDataEx(
-        &module, reinterpret_cast<const void *>(cubinWrapper->data.data()), 0,
-        0, 0);
+        &module, reinterpret_cast<const void *>((*cubinWrapper)->data.data()),
+        0, 0, 0);
     SET_LUA_ERROR_AND_RETURN_IF_CUDA_ERROR(result, state, 0);
 
     return reinterpret_cast<uintptr_t>(module);

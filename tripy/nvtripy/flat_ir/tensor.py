@@ -20,7 +20,7 @@ import copy
 from dataclasses import dataclass
 from typing import Any, List, Optional
 
-from nvtripy import utils
+from nvtripy.utils import stack_info
 
 _BUILD_CONTEXT: List[List[Any]] = []
 
@@ -32,7 +32,7 @@ class FlatIRTensor:
     """
 
     name: str
-    stack_info: utils.StackInfo
+    stack_info: stack_info.StackInfo
     dtype: "nvtripy.common.dtype"
     device: "nvtripy.common.device"
     rank: int
@@ -47,8 +47,8 @@ class FlatIRTensor:
     """
     reason_context: Optional[List[List[Any]]] = None
 
-    @contextlib.contextmanager
     @staticmethod
+    @contextlib.contextmanager
     def context(ctx: List[Any]):
         try:
             global _BUILD_CONTEXT
@@ -74,7 +74,7 @@ class FlatIRTensor:
             name=None,
             # Include code from the caller of this function up, and not just user code
             # since this is an intermediate tensor created within nvtripy.
-            stack_info=utils.get_stack_info(include_code_index=1),
+            stack_info=stack_info.get_stack_info(include_code_index=1),
             dtype=dtype,
             device=device,
             rank=rank,
@@ -92,7 +92,7 @@ class FlatIRTensor:
             name=name,
             # Include code from the caller of this function up, and not just user code
             # since this is an intermediate tensor created within nvtripy.
-            stack_info=utils.get_stack_info(include_code_index=1),
+            stack_info=stack_info.get_stack_info(include_code_index=1),
             dtype=self.dtype,
             device=self.device,
             rank=self.rank,
