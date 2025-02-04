@@ -1,1 +1,2 @@
 add_subdirectory(StablehloToExecutable)
+add_subdirectory(TensorRTToExecutable)
