@@ -17,7 +17,7 @@ with Context() as context:
         "stablehlo-to-executable",
         # Set some options explicitly so we can spot check the `print` output.
         [
-            "--tensorrt-builder-opt-level=3",
+            "--tensorrt-builder-opt-level=0",
             "--tensorrt-strongly-typed=false",
             "--tensorrt-workspace-memory-pool-limit=1gb",
         ],

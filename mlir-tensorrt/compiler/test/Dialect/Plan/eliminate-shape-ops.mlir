@@ -37,3 +37,30 @@ tensorrt.module @trt_engines {
 //  CHECK-NEXT:       %[[v0:.+]] = stablehlo.exponential %[[arg0]] : tensor<?x10xf32>
 //  CHECK-NEXT:       return %[[v0]] : tensor<?x10xf32>
 
+// -----
+
+func.func @tensorrt_call_alloc_conversion(%arg0: tensor<?x10xf32>) -> tensor<?x10xf32> {
+  %c10 = arith.constant 10 : index
+  %c0 = arith.constant 0 : index
+  %dim = tensor.dim %arg0, %c0 : tensor<?x10xf32>
+  %2 = tensorrt.call_alloc @trt_engines::@tensorrt_cluster(%arg0, %dim, %c10 : tensor<?x10xf32>, index, index) -> tensor<?x10xf32>
+  return %2 : tensor<?x10xf32>
+}
+
+tensorrt.module @trt_engines {
+  func.func @tensorrt_cluster(%arg0: tensor<?x10xf32>, %arg1: index, %arg2: index) -> (tensor<?x10xf32>) {
+    %0 = stablehlo.exponential %arg0 : tensor<?x10xf32>
+    %1 = plan.with_shape %0(%arg1, %arg2) : (tensor<?x10xf32>, index, index) -> tensor<?x10xf32>
+    return %1 : tensor<?x10xf32>
+  }
+}
+
+// CHECK-LABEL: func.func @tensorrt_call_alloc_conversion
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<?x10xf32>) -> tensor<?x10xf32>
+//       CHECK:   %[[v0:.+]] = tensorrt.call_alloc @trt_engines::@tensorrt_cluster(%[[arg0]] : tensor<?x10xf32>) -> tensor<?x10xf32>
+//  CHECK-NEXT:   return %[[v0]] : tensor<?x10xf32>
+//       CHECK: tensorrt.module @trt_engines
+// CHECK-LABEL: func.func @tensorrt_cluster
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<?x10xf32>) -> tensor<?x10xf32>
+//  CHECK-NEXT:   %[[v0:.+]] = stablehlo.exponential %[[arg0]] : tensor<?x10xf32>
+//  CHECK-NEXT:   return %[[v0]] : tensor<?x10xf32>

@@ -53,7 +53,7 @@ extern "C" {
 /// caller must be sure to delete errors via mtrtStatusDestroy.
 //===----------------------------------------------------------------------===//
 
-typedef struct MTRT_RuntimeClient MTRT_Runtimeclient;
+typedef struct MTRT_RuntimeClient MTRT_RuntimeClient;
 
 //===----------------------------------------------------------------------===//
 // Global Initialization / Shutdown

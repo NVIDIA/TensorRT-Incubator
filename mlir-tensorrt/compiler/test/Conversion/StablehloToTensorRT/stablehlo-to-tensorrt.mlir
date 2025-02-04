@@ -1940,3 +1940,51 @@ func.func @slice_conversion_dynamic(%arg0: tensor<1x?x256xf16>) -> tensor<1x?x25
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<1x?x256xf16>) -> tensor<1x?x256xf16>
 //  CHECK-NEXT: %[[v0:.+]] = tensorrt.slice %[[arg0]][0, 2, 0][1, 4, 256][1, 1, 1] : tensor<1x?x256xf16> to tensor<1x?x256xf16>
 //  CHECK-NEXT: return %[[v0]] : tensor<1x?x256xf16>
+
+// -----
+
+func.func @stablehlo_reduce_window_consume_div_op(%arg0: tensor<1x1x8x8xi8>) -> tensor<1x1x7x7xi8> {
+    %c = stablehlo.constant dense<4> : tensor<1x1x7x7xi8>
+    %c_0 = stablehlo.constant dense<0> : tensor<i8>
+    %0 = "stablehlo.reduce_window"(%arg0, %c_0) <{padding = dense<0> : tensor<4x2xi64>, window_dimensions = array<i64: 1, 1, 2, 2>, window_strides = array<i64: 1, 1, 1, 1>}> ({
+    ^bb0(%arg1: tensor<i8>, %arg2: tensor<i8>):
+      %2 = stablehlo.add %arg1, %arg2 : tensor<i8>
+      stablehlo.return %2 : tensor<i8>
+    }) : (tensor<1x1x8x8xi8>, tensor<i8>) -> tensor<1x1x7x7xi8>
+    %1 = stablehlo.divide %0, %c : tensor<1x1x7x7xi8>
+    return %1 : tensor<1x1x7x7xi8>
+}
+
+// CHECK-LABEL: @stablehlo_reduce_window_consume_div_op
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<1x1x8x8xi8>) -> tensor<1x1x7x7xi8>
+//  CHECK-NEXT: %[[cst_i8:.+]] = tensorrt.constant dense<4> : tensor<1x1x7x7xi8>
+//  CHECK-NEXT: %[[cst_i8_0:.+]] = tensorrt.constant dense<0> : tensor<i8>
+//  CHECK-NEXT: %[[v0:.+]] = tensorrt.pooling {averageCountExcludesPadding = true, poolingType = #tensorrt.pooling_type<kAVERAGE>, postPadding = array<i64: 0, 0>, prePadding = array<i64: 0, 0>, stride = array<i64: 1, 1>, windowSize = array<i64: 2, 2>} ins(%[[arg0]] : tensor<1x1x8x8xi8>) -> tensor<1x1x7x7xi8>
+//  CHECK-NEXT: %[[v1:.+]] = tensorrt.element_wise <kDIV>(%[[v0]], %[[cst_i8]] : tensor<1x1x7x7xi8>, tensor<1x1x7x7xi8>) -> tensor<1x1x7x7xi8>
+//  CHECK-NEXT: return %[[v0]] : tensor<1x1x7x7xi8>
+
+// -----
+
+func.func @stablehlo_reduce_window_consume_next_div_op_neg(%arg0: tensor<1x1x8x8xi8>) -> tensor<1x1x7x7xi8> {
+    %c = stablehlo.constant dense<4> : tensor<1x1x7x7xi8>
+    %c_0 = stablehlo.constant dense<0> : tensor<i8>
+    %0 = "stablehlo.reduce_window"(%arg0, %c_0) <{padding = dense<0> : tensor<4x2xi64>, window_dimensions = array<i64: 1, 1, 2, 2>, window_strides = array<i64: 1, 1, 1, 1>}> ({
+    ^bb0(%arg1: tensor<i8>, %arg2: tensor<i8>):
+      %2 = stablehlo.add %arg1, %arg2 : tensor<i8>
+      stablehlo.return %2 : tensor<i8>
+    }) : (tensor<1x1x8x8xi8>, tensor<i8>) -> tensor<1x1x7x7xi8>
+    %1 = stablehlo.divide %0, %c : tensor<1x1x7x7xi8>
+    %2 = stablehlo.add %0, %1 : tensor<1x1x7x7xi8>
+    return %2 : tensor<1x1x7x7xi8>
+}
+
+// CHECK-LABEL: @stablehlo_reduce_window_consume_next_div_op_neg
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<1x1x8x8xi8>) -> tensor<1x1x7x7xi8>
+//  CHECK-NEXT: %[[cst_i8:.+]] = tensorrt.constant dense<4> : tensor<1x1x7x7xi8>
+//  CHECK-NEXT: %[[cst_i8_0:.+]] = tensorrt.constant dense<0> : tensor<i8>
+//  CHECK-NEXT: %[[v0:.+]] = tensorrt.pooling {averageCountExcludesPadding = true, poolingType = #tensorrt.pooling_type<kAVERAGE>, postPadding = array<i64: 0, 0>, prePadding = array<i64: 0, 0>, stride = array<i64: 1, 1>, windowSize = array<i64: 2, 2>} ins(%[[arg0]] : tensor<1x1x8x8xi8>) -> tensor<1x1x7x7xi8>
+//  CHECK-NEXT: %[[cst_i8_1:.+]] = tensorrt.constant dense<4> : tensor<1x1x1x1xi8>
+//  CHECK-NEXT: %[[v1:.+]] = tensorrt.element_wise <kPROD>(%[[v0]], %[[cst_i8_1]] : {{.*}}) -> tensor<1x1x7x7xi8>
+//  CHECK-NEXT: %[[v2:.+]] = tensorrt.element_wise <kDIV>(%[[v1]], %[[cst_i8]] : {{.*}}) -> tensor<1x1x7x7xi8>
+//  CHECK-NEXT: %[[v3:.+]] = tensorrt.element_wise <kSUM>(%[[v1]], %[[v2]] : {{.*}}) -> tensor<1x1x7x7xi8>
+//  CHECK-NEXT: return %[[v3]] : tensor<1x1x7x7xi8>

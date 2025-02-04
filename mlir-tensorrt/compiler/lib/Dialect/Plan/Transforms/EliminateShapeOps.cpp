@@ -1,6 +1,6 @@
 //===- EliminateShapeOps.cpp ----------------------------------------------===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -25,9 +25,7 @@
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
-#include "mlir/IR/Matchers.h"
 #include "mlir/IR/OpDefinition.h"
-#include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/SymbolTable.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "llvm/ADT/SmallBitVector.h"
@@ -64,18 +62,31 @@ struct RemoveWithValuesRewriter : public OpRewritePattern<plan::WithValuesOp> {
 };
 } // namespace
 
+/// Return the func::FuncOp called by `callOp`.
+static func::FuncOp getCalledFunction(CallOpInterface callOp,
+                                      SymbolTableCollection &collection) {
+  SymbolRefAttr sym =
+      llvm::dyn_cast_if_present<SymbolRefAttr>(callOp.getCallableForCallee());
+  if (!sym)
+    return nullptr;
+  return dyn_cast_or_null<func::FuncOp>(
+      collection.lookupNearestSymbolFrom(callOp, sym));
+}
+
 /// Get a map from `tensorrt.func` functions to associated `tensorrt.call`
-/// operations.
-static llvm::DenseMap<func::FuncOp, SmallVector<tensorrt::CallOp>>
+/// and `tensorrt.call_alloc` operations.
+static llvm::DenseMap<func::FuncOp, SmallVector<Operation *>>
 getTensorRTFunctionCallMap(ModuleOp op, SymbolTableCollection &collection) {
-  llvm::DenseMap<func::FuncOp, SmallVector<tensorrt::CallOp>> map;
-  op->walk([&](tensorrt::CallOp callOp) {
-    func::FuncOp func = callOp.getFuncCallee(collection);
-    if (map.contains(func)) {
-      map[func].push_back(callOp);
+  llvm::DenseMap<func::FuncOp, SmallVector<Operation *>> map;
+  op->walk([&](CallOpInterface callOp) {
+    func::FuncOp func = getCalledFunction(callOp, collection);
+    if (!func)
+      return;
+    if (!map.contains(func)) {
+      map[func].push_back(callOp.getOperation());
       return;
     }
-    map.insert(std::make_pair(func, SmallVector<tensorrt::CallOp>{callOp}));
+    map.insert(std::make_pair(func, SmallVector<Operation *>{callOp}));
   });
   return map;
 }
@@ -84,7 +95,7 @@ getTensorRTFunctionCallMap(ModuleOp op, SymbolTableCollection &collection) {
 /// `tensorrt.call` operations.
 static LogicalResult removeUnusedArgs(SymbolTableCollection &collection,
                                       ModuleOp op, func::FuncOp funcOp,
-                                      ArrayRef<tensorrt::CallOp> callOps) {
+                                      ArrayRef<Operation *> callOps) {
   llvm::SmallBitVector unusedArgs(funcOp.getNumArguments(), 0);
   for (BlockArgument arg : funcOp.getArguments()) {
     if (arg.use_empty())
@@ -99,8 +110,17 @@ static LogicalResult removeUnusedArgs(SymbolTableCollection &collection,
     funcOp.eraseArgument(i);
 
     // Update the call ops.
-    for (tensorrt::CallOp callOp : callOps)
-      callOp.getInputsMutable().erase(i);
+    for (Operation *callOp : callOps) {
+      if (auto trtCall = dyn_cast<tensorrt::CallOp>(callOp)) {
+        trtCall.getInputsMutable().erase(i);
+        continue;
+      }
+      if (auto allocCall = dyn_cast<tensorrt::CallAllocOp>(callOp)) {
+        allocCall.getInputsMutable().erase(i);
+        continue;
+      }
+      llvm_unreachable("expected 'tensorrt.call' or 'tensorrt.call_alloc' op");
+    }
   }
 
   return success();

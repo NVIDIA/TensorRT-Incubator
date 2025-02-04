@@ -89,18 +89,22 @@ struct ClusteringPipelineCliOpts
     : public PassPipelineOptions<ClusteringPipelineCliOpts> {
   Option<std::string> entrypoint{*this, "entrypoint", llvm::cl::init(""),
                                  llvm::cl::desc("name of entrypoint function")};
-  Option<bool> enableNonDPSReturns{
-      *this, "enable-non-dps-returns",
-      llvm::cl::desc("allow backend clusters to directly allocate outputs"),
-      llvm::cl::init(false)};
+  Option<bool> forceEntrypointsReturnAllocs{
+      *this, "force-entrypoints-return-allocs", llvm::cl::init(false),
+      llvm::cl::desc(
+          "Require entrypoint functions to return allocations corresponding to"
+          " the original tensor results, otherwise they are transformed"
+          " into destination arguments whenever possible.")};
 };
 
 struct PlanBufferizationPipelineCliOpts
     : public PassPipelineOptions<PlanBufferizationPipelineCliOpts> {
-  Option<bool> enableNonDPSReturns{
-      *this, "enable-non-dps-returns",
-      llvm::cl::desc("allow backend clusters to directly allocate outputs"),
-      llvm::cl::init(false)};
+  Option<bool> forceEntrypointsReturnAllocs{
+      *this, "force-entrypoints-return-allocs", llvm::cl::init(false),
+      llvm::cl::desc(
+          "Require entrypoint functions to return allocations corresponding to"
+          " the original tensor results, otherwise they are transformed"
+          " into destination arguments whenever possible.")};
 };
 
 } // namespace
@@ -114,7 +118,8 @@ void plan::registerPlanDialectPipelines() {
           "perform bufferization and standard pre/post processing passes",
           [](OpPassManager &pm, const PlanBufferizationPipelineCliOpts &opts) {
             PlanAllocTensorsPassOptions allocTensorOpts{};
-            allocTensorOpts.enableNonDPSReturns = opts.enableNonDPSReturns;
+            allocTensorOpts.forceEntrypointsReturnAllocs =
+                opts.forceEntrypointsReturnAllocs;
             buildPlanBufferizationPipeline(pm, allocTensorOpts);
             buildPlanBufferOptimizationPipeline(pm);
             buildPlanBufferDeallocationPipeline(
@@ -140,7 +145,8 @@ void plan::registerPlanDialectPipelines() {
       [](OpPassManager &pm, const ClusteringPipelineCliOpts &opts) {
         StablehloClusteringPassOptions clusterOpts{};
         clusterOpts.entrypoint = opts.entrypoint;
-        clusterOpts.enableNonDPSReturns = opts.enableNonDPSReturns;
+        clusterOpts.disableCreateShapeFuncPass =
+            opts.forceEntrypointsReturnAllocs;
         buildPlanSegmentationPipeline(pm, clusterOpts);
       });
 }

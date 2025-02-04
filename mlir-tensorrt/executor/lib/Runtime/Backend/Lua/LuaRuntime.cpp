@@ -175,7 +175,7 @@ LuaRuntimeSession::create(RuntimeSessionOptions options,
 
   // Register builtin methods.
   registerLuaRuntimeMethods(lua.lua_state(), session->getOptions(),
-                            &session->getPinnedMemorAllocator(),
+                            &session->getPinnedMemoryAllocator(),
                             &session->getAllocTracker(),
                             &session->getResourceTracker());
 

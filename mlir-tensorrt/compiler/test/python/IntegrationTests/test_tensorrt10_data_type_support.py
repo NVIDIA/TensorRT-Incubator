@@ -1,4 +1,6 @@
-# RUN: %PYTHON %s
+# RUN: %PYTHON %s | FileCheck %s
+# REQUIRES: all-gpus-support-fp8
+# REQUIRES: tensorrt-version-ge-10.0
 from dataclasses import dataclass
 from typing import List, Optional
 
@@ -11,6 +13,7 @@ from ml_dtypes import bfloat16, float8_e4m3fn
 
 @dataclass
 class TestCase:
+    name: str
     ir: str
     in_args: List[runtime.MemRefValue]
     out_args: List[runtime.MemRefValue]
@@ -18,39 +21,42 @@ class TestCase:
 
 
 def test_stablehlo_add(
-    tests: List[TestCase], runtime_client: runtime.RuntimeClient, stream: runtime.Stream
+    tests: List[TestCase],
+    runtime_client: runtime.RuntimeClient,
+    stream: runtime.Stream,
 ):
-    for test in tests:
-        # Build/parse the main function.
-        with ir.Context() as context:
+    # Build/parse the main function.
+    with ir.Context() as context:
+        compiler_client = compiler.CompilerClient(context)
+        for test in tests:
+            print(test.name)
             m = ir.Module.parse(test.ir)
-
-            # Use the compiler API to compile to executable.
-            client = compiler.CompilerClient(context)
             opts = compiler.StableHLOToExecutableOptions(
-                client,
-                ["--tensorrt-builder-opt-level=3", "--tensorrt-strongly-typed=false"],
+                compiler_client,
+                ["--tensorrt-builder-opt-level=0", "--tensorrt-strongly-typed=false"],
             )
-            exe = compiler.compiler_stablehlo_to_executable(client, m.operation, opts)
+            exe = compiler.compiler_stablehlo_to_executable(
+                compiler_client, m.operation, opts
+            )
 
-        session_options = runtime.RuntimeSessionOptions(num_devices=1, device_id=0)
-        session = runtime.RuntimeSession(session_options, exe)
+            session_options = runtime.RuntimeSessionOptions(num_devices=1, device_id=0)
+            session = runtime.RuntimeSession(session_options, exe)
 
-        session.execute_function(
-            "main", in_args=test.in_args, out_args=test.out_args, stream=stream
-        )
-        output = [
-            (
-                np.asarray(runtime_client.copy_to_host(e, stream=stream)).view(
-                    test.reinterpret_type, np.ndarray
+            session.execute_function(
+                "main", in_args=test.in_args, out_args=test.out_args, stream=stream
+            )
+            output = [
+                (
+                    np.asarray(runtime_client.copy_to_host(e, stream=stream)).view(
+                        test.reinterpret_type, np.ndarray
+                    )
+                    if test.reinterpret_type
+                    else np.asarray(runtime_client.copy_to_host(e, stream=stream))
                 )
-                if test.reinterpret_type
-                else np.asarray(runtime_client.copy_to_host(e, stream=stream))
-            )
-            for e in test.out_args
-        ]
-        stream.sync()
-        print(output)
+                for e in test.out_args
+            ]
+            stream.sync()
+            print(output)
 
 
 if __name__ == "__main__":
@@ -72,6 +78,7 @@ if __name__ == "__main__":
 
     Tests = [
         TestCase(
+            "fp8-1",
             """
             func.func @main() -> tensor<2x2xf32> {
                 %arg0 = tensorrt.constant dense<[[0.4, 4.24],[6.61, 8.81]]> : tensor<2x2xf8E4M3FN>
@@ -89,8 +96,10 @@ if __name__ == "__main__":
                     stream=stream,
                 )
             ],
+            # [np.array([[0.8125, 8.0], [13.0, 18.0]], dtype=np.float32)],
         ),
         TestCase(
+            "fp8-2",
             """
             func.func @main() -> tensor<2x2xf32> {
                 %arg0 = tensorrt.constant dense<0.4> : tensor<2x2xf8E4M3FN>
@@ -108,8 +117,10 @@ if __name__ == "__main__":
                     stream=stream,
                 )
             ],
+            # [np.array([[0.8125, 0.8125], [0.8125, 0.8125]], dtype=np.float32)],
         ),
         TestCase(
+            "fp8-3",
             """
             func.func @main(%arg0: tensor<2x2xf8E4M3FN>) -> tensor<2x2xf32> {
                 %scale = tensorrt.constant dense<1.000000e+00> : tensor<f32>
@@ -133,8 +144,10 @@ if __name__ == "__main__":
                     stream=stream,
                 )
             ],
+            # [np.array([[0.8125, 8.0], [13.0, 18.0]], dtype=np.float32)],
         ),
         TestCase(
+            "bf16-1",
             """
             func.func @main(%arg0: tensor<2x2xbf16>) -> tensor<2x2xbf16> {
                 %1 = stablehlo.add %arg0, %arg0 : (tensor<2x2xbf16>, tensor<2x2xbf16>) -> tensor<2x2xbf16>
@@ -160,6 +173,7 @@ if __name__ == "__main__":
             bfloat16,
         ),
         TestCase(
+            "bf16-2",
             """
             func.func @main() -> tensor<2x2xbf16> {
                 %arg0 = tensorrt.constant dense<0.4> : tensor<2x2xbf16>
@@ -179,6 +193,7 @@ if __name__ == "__main__":
             bfloat16,
         ),
         TestCase(
+            "bf16-3",
             """
             func.func @main() -> tensor<2x2xbf16> {
                 %arg0 = tensorrt.constant dense<[[0.4, 4.24],[6.61, 8.81]]> : tensor<2x2xbf16>
@@ -198,6 +213,7 @@ if __name__ == "__main__":
             bfloat16,
         ),
         TestCase(
+            "i4-1",
             """
             func.func @main(%rhs: tensor<2x2xf32>) -> tensor<2x2xf32> {
                 %scale = tensorrt.constant dense<1.0> : tensor<f32>
@@ -226,6 +242,7 @@ if __name__ == "__main__":
             ],
         ),
         TestCase(
+            "i4-2",
             """
             func.func @main(%rhs: tensor<2x2xf32>) -> tensor<2x2xf32> {
                 %scale = tensorrt.constant dense<1.0> : tensor<f32>
@@ -257,28 +274,34 @@ if __name__ == "__main__":
     test_stablehlo_add(Tests, client, stream)
 
 
-# FP8
-
-#      CHECK:   [[ 0.8125,  8.    ]
+# CHECK: fp8-1
+#      CHECK:   [ 0.8125,  8.    ]
 # CHECK-NEXT:   [13.    , 18.    ]]
-# CHECK-NEXT:   [[0.8125, 0.8125]
+
+# CHECK: fp8-2
+# CHECK-NEXT:   [0.8125, 0.8125]
 # CHECK-NEXT:   [0.8125, 0.8125]]
-# CHECK-NEXT:   [[ 0.8125,  8.    ]
+
+# CHECK: fp8-3
+# CHECK-NEXT:   [ 0.8125,  8.    ]
 # CHECK-NEXT:   [13.    , 18.    ]]
 
-# BF16
-
-#      CHECK:   [[0.800781, 8.5]
+# CHECK: bf16-1
+# CHECK-NEXT:   [0.800781, 8.5]
 # CHECK-NEXT:   [13.25, 17.625]]
-# CHECK-NEXT:   [[0.800781, 0.800781]
+
+# CHECK: bf16-2
+# CHECK-NEXT:   [0.800781, 0.800781]
 # CHECK-NEXT:   [0.800781, 0.800781]]
-# CHECK-NEXT:   [[0.800781, 8.5]
-# CHECK-NEXT:   [[0.800781, 8.5]
+
+# CHECK: bf16-3
+# CHECK-NEXT:   [0.800781, 8.5]
 # CHECK-NEXT:   [13.25, 17.625]]
 
-# INT4
+# CHECK: i4-1
+# CHECK-NEXT:   [  5.,  -6.]
+# CHECK-NEXT:   [  3., -10.]]
 
-#      CHECK:   [[  5.  -6.]
-# CHECK-NEXT:   [  3. -10.]]
-# CHECK-NEXT:   [[ 4. -8.]
-# CHECK-NEXT:   [ 4. -8.]]
+# CHECK: i4-2
+# CHECK-NEXT:   [ 4., -8.]
+# CHECK-NEXT:   [ 4., -8.]]

@@ -1,5 +1,5 @@
 // RUN: mlir-tensorrt-opt %s -split-input-file -plan-alloc-tensors | FileCheck %s
-// RUN: mlir-tensorrt-opt %s -split-input-file -plan-alloc-tensors=enable-non-dps-returns=true  | FileCheck %s --check-prefix=CHECK-ALLOC
+// RUN: mlir-tensorrt-opt %s -split-input-file -plan-alloc-tensors=force-entrypoints-return-allocs=true  | FileCheck %s --check-prefix=CHECK-ALLOC
 
 func.func @tensor_empty() -> tensor<128xf32> {
   %0 = tensor.empty() : tensor<128xf32>

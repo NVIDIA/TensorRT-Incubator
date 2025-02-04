@@ -1,4 +1,5 @@
 # RUN: %PYTHON %s
+# REQUIRES: tensorrt-version-ge-10.0
 import mlir_tensorrt.compiler.api as compiler
 import mlir_tensorrt.compiler.ir as ir
 import mlir_tensorrt.runtime.api as runtime
@@ -42,23 +43,17 @@ def get_mlir_dtype(dtype):
         raise Exception("unsupported dtype")
 
 
-def build_exe(dtype, iota_dim):
-    with ir.Context() as context, ir.Location.unknown():
-        module = build_program(dtype=get_mlir_dtype(dtype), iota_dim=iota_dim)
-        print(module.operation)
-
-        # Use the compiler API to compile to executable.
-        client = compiler.CompilerClient(context)
-        opts = compiler.StableHLOToExecutableOptions(
-            client,
-            [
-                "--tensorrt-builder-opt-level=3",
-                "--tensorrt-strongly-typed=false",
-                "--entrypoint=main",
-                "--mlir-print-ir-tree-dir=tmp",
-            ],
-        )
-        return compiler.compiler_stablehlo_to_executable(client, module.operation, opts)
+def build_exe(client, dtype, iota_dim):
+    module = build_program(dtype=get_mlir_dtype(dtype), iota_dim=iota_dim)
+    print(module.operation)
+    opts = compiler.StableHLOToExecutableOptions(
+        client,
+        [
+            "--tensorrt-builder-opt-level=0",
+            "--tensorrt-strongly-typed=false",
+        ],
+    )
+    return compiler.compiler_stablehlo_to_executable(client, module.operation, opts)
 
 
 def run_test(exe, dtype, iota_dim):
@@ -99,7 +94,9 @@ def run_test(exe, dtype, iota_dim):
 
 
 if __name__ == "__main__":
-    for dtype in [np.int64, np.int32, np.float32]:
-        for iota_dim in [0, 1]:
-            exe = build_exe(dtype, iota_dim)
-            run_test(exe, dtype, iota_dim)
+    with ir.Context() as context, ir.Location.unknown():
+        client = compiler.CompilerClient(context)
+        for dtype in [np.int64, np.int32, np.float32]:
+            for iota_dim in [0, 1]:
+                exe = build_exe(client, dtype, iota_dim)
+                run_test(exe, dtype, iota_dim)

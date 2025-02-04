@@ -1,0 +1,531 @@
+From f00e2d763d7637dfe13308c3e7ee63c781e769f8 Mon Sep 17 00:00:00 2001
+From: Kirill Chibisov <contact@kchibisov.com>
+Date: Mon, 20 Jan 2025 16:48:28 +0300
+Subject: [PATCH 16/16] [mlir][emitc] Set default dialect to emitc in ops with
+ block (#123036)
+
+This is a follow up to 68a3908148c (func: Set default dialect to
+'emitc'), but for other instructions with blocks to make it look
+consistent.
+---
+ mlir/include/mlir/Dialect/EmitC/IR/EmitC.td   | 46 ++++++++++++--
+ .../ArithToEmitC/arith-to-emitc.mlir          | 60 ++++++++++---------
+ mlir/test/Conversion/SCFToEmitC/for.mlir      | 32 +++++-----
+ mlir/test/Conversion/SCFToEmitC/if.mlir       | 22 +++----
+ mlir/test/Conversion/SCFToEmitC/switch.mlir   | 30 +++++-----
+ mlir/test/Dialect/EmitC/transforms.mlir       | 50 ++++++++--------
+ 6 files changed, 141 insertions(+), 99 deletions(-)
+
+diff --git a/mlir/include/mlir/Dialect/EmitC/IR/EmitC.td b/mlir/include/mlir/Dialect/EmitC/IR/EmitC.td
+index 744a0dc4770e..2cdb877e3a04 100644
+--- a/mlir/include/mlir/Dialect/EmitC/IR/EmitC.td
++++ b/mlir/include/mlir/Dialect/EmitC/IR/EmitC.td
+@@ -386,8 +386,8 @@ def EmitC_DivOp : EmitC_BinaryOp<"div", [CExpression]> {
+ }
+ 
+ def EmitC_ExpressionOp : EmitC_Op<"expression",
+-      [HasOnlyGraphRegion, SingleBlockImplicitTerminator<"emitc::YieldOp">,
+-       NoRegionArguments]> {
++      [HasOnlyGraphRegion, OpAsmOpInterface,
++       SingleBlockImplicitTerminator<"emitc::YieldOp">, NoRegionArguments]> {
+   let summary = "Expression operation";
+   let description = [{
+     The `emitc.expression` operation returns a single SSA value which is yielded by
+@@ -453,12 +453,21 @@ def EmitC_ExpressionOp : EmitC_Op<"expression",
+       return llvm::any_of(getRegion().front().without_terminator(), predicate);
+     };
+     Operation *getRootOp();
++
++    //===------------------------------------------------------------------===//
++    // OpAsmOpInterface Methods
++    //===------------------------------------------------------------------===//
++
++    /// EmitC ops in the body can omit their 'emitc.' prefix in the assembly.
++    static ::llvm::StringRef getDefaultDialect() {
++      return "emitc";
++    }
+   }];
+ }
+ 
+ def EmitC_ForOp : EmitC_Op<"for",
+       [AllTypesMatch<["lowerBound", "upperBound", "step"]>,
+-       SingleBlockImplicitTerminator<"emitc::YieldOp">,
++       OpAsmOpInterface, SingleBlockImplicitTerminator<"emitc::YieldOp">,
+        RecursiveMemoryEffects]> {
+   let summary = "For operation";
+   let description = [{
+@@ -510,6 +519,15 @@ def EmitC_ForOp : EmitC_Op<"for",
+     void setLowerBound(Value bound) { getOperation()->setOperand(0, bound); }
+     void setUpperBound(Value bound) { getOperation()->setOperand(1, bound); }
+     void setStep(Value step) { getOperation()->setOperand(2, step); }
++
++    //===------------------------------------------------------------------===//
++    // OpAsmOpInterface Methods
++    //===------------------------------------------------------------------===//
++
++    /// EmitC ops in the body can omit their 'emitc.' prefix in the assembly.
++    static ::llvm::StringRef getDefaultDialect() {
++      return "emitc";
++    }
+   }];
+ 
+   let hasCanonicalizer = 1;
+@@ -1257,7 +1275,7 @@ def EmitC_YieldOp : EmitC_Op<"yield",
+ def EmitC_IfOp : EmitC_Op<"if",
+     [DeclareOpInterfaceMethods<RegionBranchOpInterface, [
+     "getNumRegionInvocations", "getRegionInvocationBounds",
+-    "getEntrySuccessorRegions"]>, SingleBlock,
++    "getEntrySuccessorRegions"]>, OpAsmOpInterface, SingleBlock,
+     SingleBlockImplicitTerminator<"emitc::YieldOp">,
+     RecursiveMemoryEffects, NoRegionArguments]> {
+   let summary = "If-then-else operation";
+@@ -1305,6 +1323,15 @@ def EmitC_IfOp : EmitC_Op<"if",
+       Block* body = getBody(1);
+       return OpBuilder::atBlockEnd(body, listener);
+     }
++
++    //===------------------------------------------------------------------===//
++    // OpAsmOpInterface Methods
++    //===------------------------------------------------------------------===//
++
++    /// EmitC ops in the body can omit their 'emitc.' prefix in the assembly.
++    static ::llvm::StringRef getDefaultDialect() {
++      return "emitc";
++    }
+   }];
+   let hasCustomAssemblyFormat = 1;
+ }
+@@ -1360,7 +1387,7 @@ def EmitC_SubscriptOp : EmitC_Op<"subscript", []> {
+ }
+ 
+ def EmitC_SwitchOp : EmitC_Op<"switch", [RecursiveMemoryEffects,
+-    SingleBlockImplicitTerminator<"emitc::YieldOp">,
++    OpAsmOpInterface, SingleBlockImplicitTerminator<"emitc::YieldOp">,
+     DeclareOpInterfaceMethods<RegionBranchOpInterface,
+                               ["getRegionInvocationBounds",
+                                "getEntrySuccessorRegions"]>]> {
+@@ -1438,6 +1465,15 @@ def EmitC_SwitchOp : EmitC_Op<"switch", [RecursiveMemoryEffects,
+ 
+     /// Get the body of a case region.
+     Block &getCaseBlock(unsigned idx);
++
++    //===------------------------------------------------------------------===//
++    // OpAsmOpInterface Methods
++    //===------------------------------------------------------------------===//
++
++    /// EmitC ops in the body can omit their 'emitc.' prefix in the assembly.
++    static ::llvm::StringRef getDefaultDialect() {
++      return "emitc";
++    }
+   }];
+ 
+   let hasVerifier = 1;
+diff --git a/mlir/test/Conversion/ArithToEmitC/arith-to-emitc.mlir b/mlir/test/Conversion/ArithToEmitC/arith-to-emitc.mlir
+index 4e3d1088beed..cb1d092918f0 100644
+--- a/mlir/test/Conversion/ArithToEmitC/arith-to-emitc.mlir
++++ b/mlir/test/Conversion/ArithToEmitC/arith-to-emitc.mlir
+@@ -152,11 +152,12 @@ func.func @arith_shift_left(%arg0: i32, %arg1: i32) {
+   // CHECK-DAG: %[[SizeConstant:[^ ]*]] = "emitc.constant"{{.*}}value = 32
+   // CHECK-DAG: %[[CmpNoExcess:[^ ]*]] = emitc.cmp lt, %[[C2]], %[[SizeConstant]] : (ui32, ui32) -> i1
+   // CHECK-DAG: %[[Zero:[^ ]*]] = "emitc.constant"{{.*}}value = 0
+-  // CHECK: %[[ShiftRes:[^ ]*]] = emitc.expression : ui32
+-  // CHECK: %[[SHL:[^ ]*]] = emitc.bitwise_left_shift %[[C1]], %[[C2]] : (ui32, ui32) -> ui32
+-  // CHECK: %[[Ternary:[^ ]*]] = emitc.conditional %[[CmpNoExcess]], %[[SHL]], %[[Zero]] : ui32
+-  // CHECK: emitc.yield %[[Ternary]] : ui32
+-  // CHECK: emitc.cast %[[ShiftRes]] : ui32 to i32
++  // CHECK:      %[[ShiftRes:[^ ]*]] = emitc.expression : ui32 {
++  // CHECK-NEXT:   %[[SHL:[^ ]*]] = bitwise_left_shift %[[C1]], %[[C2]] : (ui32, ui32) -> ui32
++  // CHECK-NEXT:   %[[Ternary:[^ ]*]] = conditional %[[CmpNoExcess]], %[[SHL]], %[[Zero]] : ui32
++  // CHECK-NEXT:   yield %[[Ternary]] : ui32
++  // CHECK-NEXT: }
++  // CHECK-NEXT: emitc.cast %[[ShiftRes]] : ui32 to i32
+   %1 = arith.shli %arg0, %arg1 : i32
+   return
+ }
+@@ -171,21 +172,23 @@ func.func @arith_shift_right(%arg0: i32, %arg1: i32) {
+   // CHECK-DAG: %[[SizeConstant:[^ ]*]] = "emitc.constant"{{.*}}value = 32{{.*}}ui32
+   // CHECK-DAG: %[[CmpNoExcess:[^ ]*]] = emitc.cmp lt, %[[C2]], %[[SizeConstant]] : (ui32, ui32) -> i1
+   // CHECK-DAG: %[[Zero:[^ ]*]] = "emitc.constant"{{.*}}value = 0{{.*}}ui32
+-  // CHECK: %[[ShiftRes:[^ ]*]] = emitc.expression : ui32
+-  // CHECK: %[[SHR:[^ ]*]] = emitc.bitwise_right_shift %[[C1]], %[[C2]] : (ui32, ui32) -> ui32
+-  // CHECK: %[[Ternary:[^ ]*]] = emitc.conditional %[[CmpNoExcess]], %[[SHR]], %[[Zero]] : ui32
+-  // CHECK: emitc.yield %[[Ternary]] : ui32
+-  // CHECK: emitc.cast %[[ShiftRes]] : ui32 to i32
++  // CHECK:      %[[ShiftRes:[^ ]*]] = emitc.expression : ui32 {
++  // CHECK-NEXT:   %[[SHR:[^ ]*]] = bitwise_right_shift %[[C1]], %[[C2]] : (ui32, ui32) -> ui32
++  // CHECK-NEXT:   %[[Ternary:[^ ]*]] = conditional %[[CmpNoExcess]], %[[SHR]], %[[Zero]] : ui32
++  // CHECK-NEXT:   yield %[[Ternary]] : ui32
++  // CHECK-NEXT: }
++  // CHECK-NEXT: emitc.cast %[[ShiftRes]] : ui32 to i32
+   %2 = arith.shrui %arg0, %arg1 : i32
+ 
+   // CHECK-DAG: %[[SC2:[^ ]*]] = emitc.cast %[[ARG1]] : i32 to ui32
+   // CHECK-DAG: %[[SSizeConstant:[^ ]*]] = "emitc.constant"{{.*}}value = 32{{.*}}ui32
+   // CHECK-DAG: %[[SCmpNoExcess:[^ ]*]] = emitc.cmp lt, %[[SC2]], %[[SSizeConstant]] : (ui32, ui32) -> i1
+   // CHECK-DAG: %[[SZero:[^ ]*]] = "emitc.constant"{{.*}}value = 0{{.*}}i32
+-  // CHECK: %[[SShiftRes:[^ ]*]] = emitc.expression : i32
+-  // CHECK: %[[SHRSI:[^ ]*]] = emitc.bitwise_right_shift %[[ARG0]], %[[SC2]] : (i32, ui32) -> i32
+-  // CHECK: %[[STernary:[^ ]*]] = emitc.conditional %[[SCmpNoExcess]], %[[SHRSI]], %[[SZero]] : i32
+-  // CHECK: emitc.yield %[[STernary]] : i32
++  // CHECK:      %[[SShiftRes:[^ ]*]] = emitc.expression : i32 {
++  // CHECK-NEXT:   %[[SHRSI:[^ ]*]] = bitwise_right_shift %[[ARG0]], %[[SC2]] : (i32, ui32) -> i32
++  // CHECK-NEXT:   %[[STernary:[^ ]*]] = conditional %[[SCmpNoExcess]], %[[SHRSI]], %[[SZero]] : i32
++  // CHECK-NEXT:   yield %[[STernary]] : i32
++  // CHECK-NEXT: }
+   %3 = arith.shrsi %arg0, %arg1 : i32
+ 
+   return
+@@ -206,10 +209,11 @@ func.func @arith_shift_left_index(%amount: i32) {
+   // CHECK-DAG: %[[SizeConstant:[^ ]*]] = emitc.mul %[[Byte]], %[[SizeOf]] : (!emitc.size_t, !emitc.size_t) -> !emitc.size_t
+   // CHECK-DAG: %[[CmpNoExcess:[^ ]*]] = emitc.cmp lt, %[[AmountIdx]], %[[SizeConstant]] : (!emitc.size_t, !emitc.size_t) -> i1
+   // CHECK-DAG: %[[Zero:[^ ]*]] = "emitc.constant"{{.*}}value = 0
+-  // CHECK: %[[ShiftRes:[^ ]*]] = emitc.expression : !emitc.size_t
+-  // CHECK: %[[SHL:[^ ]*]] = emitc.bitwise_left_shift %[[C1]], %[[AmountIdx]] : (!emitc.size_t, !emitc.size_t) -> !emitc.size_t
+-  // CHECK: %[[Ternary:[^ ]*]] = emitc.conditional %[[CmpNoExcess]], %[[SHL]], %[[Zero]] : !emitc.size_t
+-  // CHECK: emitc.yield %[[Ternary]] : !emitc.size_t
++  // CHECK:      %[[ShiftRes:[^ ]*]] = emitc.expression : !emitc.size_t {
++  // CHECK-NEXT:   %[[SHL:[^ ]*]] = bitwise_left_shift %[[C1]], %[[AmountIdx]] : (!emitc.size_t, !emitc.size_t) -> !emitc.size_t
++  // CHECK-NEXT:   %[[Ternary:[^ ]*]] = conditional %[[CmpNoExcess]], %[[SHL]], %[[Zero]] : !emitc.size_t
++  // CHECK-NEXT:   yield %[[Ternary]] : !emitc.size_t
++  // CHECK-NEXT: }
+   %1 = arith.shli %cst0, %cast1 : index
+   return
+ }
+@@ -230,10 +234,11 @@ func.func @arith_shift_right_index(%amount: i32) {
+   // CHECK-DAG: %[[SizeConstant:[^ ]*]] = emitc.mul %[[Byte]], %[[SizeOf]] : (!emitc.size_t, !emitc.size_t) -> !emitc.size_t
+   // CHECK-DAG: %[[CmpNoExcess:[^ ]*]] = emitc.cmp lt, %[[AmountIdx]], %[[SizeConstant]] : (!emitc.size_t, !emitc.size_t) -> i1
+   // CHECK-DAG: %[[Zero:[^ ]*]] = "emitc.constant"{{.*}}value = 0{{.*}}!emitc.size_t
+-  // CHECK: %[[ShiftRes:[^ ]*]] = emitc.expression : !emitc.size_t
+-  // CHECK: %[[SHR:[^ ]*]] = emitc.bitwise_right_shift %[[C1]], %[[AmountIdx]] : (!emitc.size_t, !emitc.size_t) -> !emitc.size_t
+-  // CHECK: %[[Ternary:[^ ]*]] = emitc.conditional %[[CmpNoExcess]], %[[SHR]], %[[Zero]] : !emitc.size_t
+-  // CHECK: emitc.yield %[[Ternary]] : !emitc.size_t
++  // CHECK:      %[[ShiftRes:[^ ]*]] = emitc.expression : !emitc.size_t {
++  // CHECK-NEXT:   %[[SHR:[^ ]*]] = bitwise_right_shift %[[C1]], %[[AmountIdx]] : (!emitc.size_t, !emitc.size_t) -> !emitc.size_t
++  // CHECK-NEXT:   %[[Ternary:[^ ]*]] = conditional %[[CmpNoExcess]], %[[SHR]], %[[Zero]] : !emitc.size_t
++  // CHECK-NEXT:   yield %[[Ternary]] : !emitc.size_t
++  // CHECK-NEXT: }
+   %2 = arith.shrui %arg0, %arg1 : index
+ 
+   // CHECK-DAG: %[[SC1:[^ ]*]] = emitc.cast %[[C1]] : !emitc.size_t to !emitc.ptrdiff_t
+@@ -242,11 +247,12 @@ func.func @arith_shift_right_index(%amount: i32) {
+   // CHECK-DAG: %[[SSizeConstant:[^ ]*]] = emitc.mul %[[SByte]], %[[SSizeOf]] : (!emitc.size_t, !emitc.size_t) -> !emitc.size_t
+   // CHECK-DAG: %[[SCmpNoExcess:[^ ]*]] = emitc.cmp lt, %[[AmountIdx]], %[[SSizeConstant]] : (!emitc.size_t, !emitc.size_t) -> i1
+   // CHECK-DAG: %[[SZero:[^ ]*]] = "emitc.constant"{{.*}}value = 0{{.*}}!emitc.ptrdiff_t
+-  // CHECK: %[[SShiftRes:[^ ]*]] = emitc.expression : !emitc.ptrdiff_t
+-  // CHECK: %[[SHRSI:[^ ]*]] = emitc.bitwise_right_shift %[[SC1]], %[[AmountIdx]] : (!emitc.ptrdiff_t, !emitc.size_t) -> !emitc.ptrdiff_t
+-  // CHECK: %[[STernary:[^ ]*]] = emitc.conditional %[[SCmpNoExcess]], %[[SHRSI]], %[[SZero]] : !emitc.ptrdiff_t
+-  // CHECK: emitc.yield %[[STernary]] : !emitc.ptrdiff_t
+-  // CHECK: emitc.cast %[[SShiftRes]] : !emitc.ptrdiff_t to !emitc.size_t
++  // CHECK:      %[[SShiftRes:[^ ]*]] = emitc.expression : !emitc.ptrdiff_t {
++  // CHECK-NEXT:   %[[SHRSI:[^ ]*]] = bitwise_right_shift %[[SC1]], %[[AmountIdx]] : (!emitc.ptrdiff_t, !emitc.size_t) -> !emitc.ptrdiff_t
++  // CHECK-NEXT:   %[[STernary:[^ ]*]] = conditional %[[SCmpNoExcess]], %[[SHRSI]], %[[SZero]] : !emitc.ptrdiff_t
++  // CHECK-NEXT:   yield %[[STernary]] : !emitc.ptrdiff_t
++  // CHECK-NEXT: }
++  // CHECK-NEXT: emitc.cast %[[SShiftRes]] : !emitc.ptrdiff_t to !emitc.size_t
+   %3 = arith.shrsi %arg0, %arg1 : index
+ 
+   return
+diff --git a/mlir/test/Conversion/SCFToEmitC/for.mlir b/mlir/test/Conversion/SCFToEmitC/for.mlir
+index 7f41e636936b..232a0fb2e825 100644
+--- a/mlir/test/Conversion/SCFToEmitC/for.mlir
++++ b/mlir/test/Conversion/SCFToEmitC/for.mlir
+@@ -33,7 +33,7 @@ func.func @simple_std_2_for_loops(%arg0 : index, %arg1 : index, %arg2 : index) {
+ // CHECK-NEXT:    %[[VAL_0:.*]] = builtin.unrealized_conversion_cast %[[ARG_0]] : index to !emitc.size_t
+ // CHECK-NEXT:    emitc.for %[[VAL_3:.*]] = %[[VAL_0]] to %[[VAL_1]] step %[[VAL_2]] : !emitc.size_t {
+ // CHECK-NEXT:      %[[VAL_4:.*]] = arith.constant 1 : index
+-// CHECK-NEXT:      emitc.for %[[VAL_5:.*]] = %[[VAL_0]] to %[[VAL_1]] step %[[VAL_2]] : !emitc.size_t {
++// CHECK-NEXT:      for %[[VAL_5:.*]] = %[[VAL_0]] to %[[VAL_1]] step %[[VAL_2]] : !emitc.size_t {
+ // CHECK-NEXT:        %[[VAL_6:.*]] = arith.constant 1 : index
+ // CHECK-NEXT:      }
+ // CHECK-NEXT:    }
+@@ -61,11 +61,11 @@ func.func @for_yield(%arg0 : index, %arg1 : index, %arg2 : index) -> (f32, f32)
+ // CHECK-NEXT:    emitc.assign %[[VAL_3]] : f32 to %[[VAL_5]] : <f32>
+ // CHECK-NEXT:    emitc.assign %[[VAL_4]] : f32 to %[[VAL_6]] : <f32>
+ // CHECK-NEXT:    emitc.for %[[VAL_7:.*]] = %[[VAL_0]] to %[[VAL_1]] step %[[VAL_2]] : !emitc.size_t {
+-// CHECK-NEXT:      %[[VAL_8:.*]] = emitc.load %[[VAL_5]] : <f32>
+-// CHECK-NEXT:      %[[VAL_9:.*]] = emitc.load %[[VAL_6]] : <f32>
++// CHECK-NEXT:      %[[VAL_8:.*]] = load %[[VAL_5]] : <f32>
++// CHECK-NEXT:      %[[VAL_9:.*]] = load %[[VAL_6]] : <f32>
+ // CHECK-NEXT:      %[[VAL_10:.*]] = arith.addf %[[VAL_8]], %[[VAL_9]] : f32
+-// CHECK-NEXT:      emitc.assign %[[VAL_10]] : f32 to %[[VAL_5]] : <f32>
+-// CHECK-NEXT:      emitc.assign %[[VAL_10]] : f32 to %[[VAL_6]] : <f32>
++// CHECK-NEXT:      assign %[[VAL_10]] : f32 to %[[VAL_5]] : <f32>
++// CHECK-NEXT:      assign %[[VAL_10]] : f32 to %[[VAL_6]] : <f32>
+ // CHECK-NEXT:    }
+ // CHECK-NEXT:    %[[VAL_11:.*]] = emitc.load %[[VAL_5]] : <f32>
+ // CHECK-NEXT:    %[[VAL_12:.*]] = emitc.load %[[VAL_6]] : <f32>
+@@ -92,16 +92,16 @@ func.func @nested_for_yield(%arg0 : index, %arg1 : index, %arg2 : index) -> f32
+ // CHECK-NEXT:    %[[VAL_4:.*]] = "emitc.variable"() <{value = #emitc.opaque<"">}> : () -> !emitc.lvalue<f32>
+ // CHECK-NEXT:    emitc.assign %[[VAL_3]] : f32 to %[[VAL_4]] : <f32>
+ // CHECK-NEXT:    emitc.for %[[VAL_5:.*]] = %[[VAL_0]] to %[[VAL_1]] step %[[VAL_2]] : !emitc.size_t {
+-// CHECK-NEXT:      %[[VAL_6:.*]] = emitc.load %[[VAL_4]] : <f32>
++// CHECK-NEXT:      %[[VAL_6:.*]] = load %[[VAL_4]] : <f32>
+ // CHECK-NEXT:      %[[VAL_7:.*]] = "emitc.variable"() <{value = #emitc.opaque<"">}> : () -> !emitc.lvalue<f32>
+-// CHECK-NEXT:      emitc.assign %[[VAL_6]] : f32 to %[[VAL_7]] : <f32>
+-// CHECK-NEXT:      emitc.for %[[VAL_8:.*]] = %[[VAL_0]] to %[[VAL_1]] step %[[VAL_2]] : !emitc.size_t {
+-// CHECK-NEXT:        %[[VAL_9:.*]] = emitc.load %[[VAL_7]] : <f32>  
++// CHECK-NEXT:      assign %[[VAL_6]] : f32 to %[[VAL_7]] : <f32>
++// CHECK-NEXT:      for %[[VAL_8:.*]] = %[[VAL_0]] to %[[VAL_1]] step %[[VAL_2]] : !emitc.size_t {
++// CHECK-NEXT:        %[[VAL_9:.*]] = load %[[VAL_7]] : <f32>  
+ // CHECK-NEXT:        %[[VAL_10:.*]] = arith.addf %[[VAL_9]], %[[VAL_9]] : f32
+-// CHECK-NEXT:        emitc.assign %[[VAL_10]] : f32 to %[[VAL_7]] : <f32>
++// CHECK-NEXT:        assign %[[VAL_10]] : f32 to %[[VAL_7]] : <f32>
+ // CHECK-NEXT:      }
+-// CHECK-NEXT:      %[[VAL_11:.*]] = emitc.load %[[VAL_7]] : <f32>  
+-// CHECK-NEXT:      emitc.assign %[[VAL_11]] : f32 to %[[VAL_4]] : <f32>
++// CHECK-NEXT:      %[[VAL_11:.*]] = load %[[VAL_7]] : <f32>  
++// CHECK-NEXT:      assign %[[VAL_11]] : f32 to %[[VAL_4]] : <f32>
+ // CHECK-NEXT:    }
+ // CHECK-NEXT:    %[[VAL_12:.*]] = emitc.load %[[VAL_4]] : <f32>  
+ // CHECK-NEXT:    return %[[VAL_12]] : f32
+@@ -125,8 +125,8 @@ func.func @for_yield_index(%arg0 : index, %arg1 : index, %arg2 : index) -> index
+ // CHECK:     %[[VAL_4:.*]] = "emitc.variable"() <{value = #emitc.opaque<"">}> : () -> !emitc.lvalue<!emitc.size_t>
+ // CHECK:     emitc.assign %[[VAL_3]] : !emitc.size_t to %[[VAL_4]] : <!emitc.size_t>
+ // CHECK:     emitc.for %[[VAL_5:.*]] = %[[VAL_2]] to %[[VAL_1]] step %[[VAL_0]] : !emitc.size_t {
+-// CHECK:       %[[V:.*]] = emitc.load %[[VAL_4]] : <!emitc.size_t>
+-// CHECK:       emitc.assign %[[V]] : !emitc.size_t to %[[VAL_4]] : <!emitc.size_t>
++// CHECK:       %[[V:.*]] = load %[[VAL_4]] : <!emitc.size_t>
++// CHECK:       assign %[[V]] : !emitc.size_t to %[[VAL_4]] : <!emitc.size_t>
+ // CHECK:     }
+ // CHECK:     %[[V2:.*]] = emitc.load %[[VAL_4]] : <!emitc.size_t>
+ // CHECK:     %[[VAL_8:.*]] = builtin.unrealized_conversion_cast %[[V2]] : !emitc.size_t to index
+@@ -153,11 +153,11 @@ func.func @for_yield_update_loop_carried_var(%arg0 : index, %arg1 : index, %arg2
+ // CHECK:   %[[VAL_4:.*]] = "emitc.variable"() <{value = #emitc.opaque<"">}> : () -> !emitc.lvalue<!emitc.size_t>
+ // CHECK:   emitc.assign %[[VAL_3]] : !emitc.size_t to %[[VAL_4]] : <!emitc.size_t>
+ // CHECK:   emitc.for %[[ARG_3:.*]] = %[[VAL_2]] to %[[VAL_1]] step %[[VAL_0]] : !emitc.size_t {
+-// CHECK:     %[[V:.*]] = emitc.load %[[VAL_4]] : <!emitc.size_t>
++// CHECK:     %[[V:.*]] = load %[[VAL_4]] : <!emitc.size_t>
+ // CHECK:     %[[VAL_5:.*]] = builtin.unrealized_conversion_cast %[[V]] : !emitc.size_t to index
+ // CHECK:     %[[VAL_6:.*]] = arith.addi %[[VAL_5]], %[[VAL_5]] : index
+ // CHECK:     %[[VAL_8:.*]] = builtin.unrealized_conversion_cast %[[VAL_6]] : index to !emitc.size_t
+-// CHECK:     emitc.assign %[[VAL_8]] : !emitc.size_t to %[[VAL_4]] : <!emitc.size_t>
++// CHECK:     assign %[[VAL_8]] : !emitc.size_t to %[[VAL_4]] : <!emitc.size_t>
+ // CHECK:   }
+ // CHECK:   %[[V2:.*]] = emitc.load %[[VAL_4]] : <!emitc.size_t>
+ // CHECK:   %[[VAL_9:.*]] = builtin.unrealized_conversion_cast %[[V2]] : !emitc.size_t to index
+diff --git a/mlir/test/Conversion/SCFToEmitC/if.mlir b/mlir/test/Conversion/SCFToEmitC/if.mlir
+index 7d923785862d..9acd9b0783d2 100644
+--- a/mlir/test/Conversion/SCFToEmitC/if.mlir
++++ b/mlir/test/Conversion/SCFToEmitC/if.mlir
+@@ -10,7 +10,7 @@ func.func @test_if(%arg0: i1, %arg1: f32) {
+ // CHECK-SAME:                     %[[VAL_0:.*]]: i1,
+ // CHECK-SAME:                     %[[VAL_1:.*]]: f32) {
+ // CHECK-NEXT:    emitc.if %[[VAL_0]] {
+-// CHECK-NEXT:      %[[VAL_2:.*]] = emitc.call_opaque "func_const"(%[[VAL_1]]) : (f32) -> i32
++// CHECK-NEXT:      %[[VAL_2:.*]] = call_opaque "func_const"(%[[VAL_1]]) : (f32) -> i32
+ // CHECK-NEXT:    }
+ // CHECK-NEXT:    return
+ // CHECK-NEXT:  }
+@@ -28,9 +28,9 @@ func.func @test_if_else(%arg0: i1, %arg1: f32) {
+ // CHECK-SAME:                          %[[VAL_0:.*]]: i1,
+ // CHECK-SAME:                          %[[VAL_1:.*]]: f32) {
+ // CHECK-NEXT:    emitc.if %[[VAL_0]] {
+-// CHECK-NEXT:      %[[VAL_2:.*]] = emitc.call_opaque "func_true"(%[[VAL_1]]) : (f32) -> i32
++// CHECK-NEXT:      %[[VAL_2:.*]] = call_opaque "func_true"(%[[VAL_1]]) : (f32) -> i32
+ // CHECK-NEXT:    } else {
+-// CHECK-NEXT:      %[[VAL_3:.*]] = emitc.call_opaque "func_false"(%[[VAL_1]]) : (f32) -> i32
++// CHECK-NEXT:      %[[VAL_3:.*]] = call_opaque "func_false"(%[[VAL_1]]) : (f32) -> i32
+ // CHECK-NEXT:    }
+ // CHECK-NEXT:    return
+ // CHECK-NEXT:  }
+@@ -56,15 +56,15 @@ func.func @test_if_yield(%arg0: i1, %arg1: f32) -> (i32, f64) {
+ // CHECK-NEXT:    %[[VAL_3:.*]] = "emitc.variable"() <{value = #emitc.opaque<"">}> : () -> !emitc.lvalue<i32>
+ // CHECK-NEXT:    %[[VAL_4:.*]] = "emitc.variable"() <{value = #emitc.opaque<"">}> : () -> !emitc.lvalue<f64>
+ // CHECK-NEXT:    emitc.if %[[VAL_0]] {
+-// CHECK-NEXT:      %[[VAL_5:.*]] = emitc.call_opaque "func_true_1"(%[[VAL_1]]) : (f32) -> i32
+-// CHECK-NEXT:      %[[VAL_6:.*]] = emitc.call_opaque "func_true_2"(%[[VAL_1]]) : (f32) -> f64
+-// CHECK-NEXT:      emitc.assign %[[VAL_5]] : i32 to %[[VAL_3]] : <i32>
+-// CHECK-NEXT:      emitc.assign %[[VAL_6]] : f64 to %[[VAL_4]] : <f64>
++// CHECK-NEXT:      %[[VAL_5:.*]] = call_opaque "func_true_1"(%[[VAL_1]]) : (f32) -> i32
++// CHECK-NEXT:      %[[VAL_6:.*]] = call_opaque "func_true_2"(%[[VAL_1]]) : (f32) -> f64
++// CHECK-NEXT:      assign %[[VAL_5]] : i32 to %[[VAL_3]] : <i32>
++// CHECK-NEXT:      assign %[[VAL_6]] : f64 to %[[VAL_4]] : <f64>
+ // CHECK-NEXT:    } else {
+-// CHECK-NEXT:      %[[VAL_7:.*]] = emitc.call_opaque "func_false_1"(%[[VAL_1]]) : (f32) -> i32
+-// CHECK-NEXT:      %[[VAL_8:.*]] = emitc.call_opaque "func_false_2"(%[[VAL_1]]) : (f32) -> f64
+-// CHECK-NEXT:      emitc.assign %[[VAL_7]] : i32 to %[[VAL_3]] : <i32>
+-// CHECK-NEXT:      emitc.assign %[[VAL_8]] : f64 to %[[VAL_4]] : <f64>
++// CHECK-NEXT:      %[[VAL_7:.*]] = call_opaque "func_false_1"(%[[VAL_1]]) : (f32) -> i32
++// CHECK-NEXT:      %[[VAL_8:.*]] = call_opaque "func_false_2"(%[[VAL_1]]) : (f32) -> f64
++// CHECK-NEXT:      assign %[[VAL_7]] : i32 to %[[VAL_3]] : <i32>
++// CHECK-NEXT:      assign %[[VAL_8]] : f64 to %[[VAL_4]] : <f64>
+ // CHECK-NEXT:    }
+ // CHECK-NEXT:    %[[VAL_9:.*]] = emitc.load %[[VAL_3]] : <i32>
+ // CHECK-NEXT:    %[[VAL_10:.*]] = emitc.load %[[VAL_4]] : <f64>
+diff --git a/mlir/test/Conversion/SCFToEmitC/switch.mlir b/mlir/test/Conversion/SCFToEmitC/switch.mlir
+index 61015b0ae483..3f0793ccd7e3 100644
+--- a/mlir/test/Conversion/SCFToEmitC/switch.mlir
++++ b/mlir/test/Conversion/SCFToEmitC/switch.mlir
+@@ -6,11 +6,11 @@
+ // CHECK:           emitc.switch %[[VAL_0]]
+ // CHECK:           case 2 {
+ // CHECK:             %[[VAL_1:.*]] = arith.constant 10 : i32
+-// CHECK:             emitc.yield
++// CHECK:             yield
+ // CHECK:           }
+ // CHECK:           case 5 {
+ // CHECK:             %[[VAL_2:.*]] = arith.constant 20 : i32
+-// CHECK:             emitc.yield
++// CHECK:             yield
+ // CHECK:           }
+ // CHECK:           default {
+ // CHECK:             %[[VAL_3:.*]] = arith.constant 30 : i32
+@@ -40,17 +40,17 @@ func.func @switch_no_result(%arg0 : index) {
+ // CHECK:           emitc.switch %[[VAL_0]]
+ // CHECK:           case 2 {
+ // CHECK:             %[[VAL_2:.*]] = arith.constant 10 : i32
+-// CHECK:             emitc.assign %[[VAL_2]] : i32 to %[[VAL_1]] : <i32>
+-// CHECK:             emitc.yield
++// CHECK:             assign %[[VAL_2]] : i32 to %[[VAL_1]] : <i32>
++// CHECK:             yield
+ // CHECK:           }
+ // CHECK:           case 5 {
+ // CHECK:             %[[VAL_3:.*]] = arith.constant 20 : i32
+-// CHECK:             emitc.assign %[[VAL_3]] : i32 to %[[VAL_1]] : <i32>
+-// CHECK:             emitc.yield
++// CHECK:             assign %[[VAL_3]] : i32 to %[[VAL_1]] : <i32>
++// CHECK:             yield
+ // CHECK:           }
+ // CHECK:           default {
+ // CHECK:             %[[VAL_4:.*]] = arith.constant 30 : i32
+-// CHECK:             emitc.assign %[[VAL_4]] : i32 to %[[VAL_1]] : <i32>
++// CHECK:             assign %[[VAL_4]] : i32 to %[[VAL_1]] : <i32>
+ // CHECK:           }
+ // CHECK:           return
+ // CHECK:         }
+@@ -80,22 +80,22 @@ func.func @switch_one_result(%arg0 : index) {
+ // CHECK:           case 2 {
+ // CHECK:             %[[VAL_3:.*]] = arith.constant 10 : i32
+ // CHECK:             %[[VAL_4:.*]] = arith.constant 1.200000e+00 : f32
+-// CHECK:             emitc.assign %[[VAL_3]] : i32 to %[[VAL_1]] : <i32>
+-// CHECK:             emitc.assign %[[VAL_4]] : f32 to %[[VAL_2]] : <f32>
+-// CHECK:             emitc.yield
++// CHECK:             assign %[[VAL_3]] : i32 to %[[VAL_1]] : <i32>
++// CHECK:             assign %[[VAL_4]] : f32 to %[[VAL_2]] : <f32>
++// CHECK:             yield
+ // CHECK:           }
+ // CHECK:           case 5 {
+ // CHECK:             %[[VAL_5:.*]] = arith.constant 20 : i32
+ // CHECK:             %[[VAL_6:.*]] = arith.constant 2.400000e+00 : f32
+-// CHECK:             emitc.assign %[[VAL_5]] : i32 to %[[VAL_1]] : <i32>
+-// CHECK:             emitc.assign %[[VAL_6]] : f32 to %[[VAL_2]] : <f32>
+-// CHECK:             emitc.yield
++// CHECK:             assign %[[VAL_5]] : i32 to %[[VAL_1]] : <i32>
++// CHECK:             assign %[[VAL_6]] : f32 to %[[VAL_2]] : <f32>
++// CHECK:             yield
+ // CHECK:           }
+ // CHECK:           default {
+ // CHECK:             %[[VAL_7:.*]] = arith.constant 30 : i32
+ // CHECK:             %[[VAL_8:.*]] = arith.constant 3.600000e+00 : f32
+-// CHECK:             emitc.assign %[[VAL_7]] : i32 to %[[VAL_1]] : <i32>
+-// CHECK:             emitc.assign %[[VAL_8]] : f32 to %[[VAL_2]] : <f32>
++// CHECK:             assign %[[VAL_7]] : i32 to %[[VAL_1]] : <i32>
++// CHECK:             assign %[[VAL_8]] : f32 to %[[VAL_2]] : <f32>
+ // CHECK:           }
+ // CHECK:           %[[RES_1:.*]] = emitc.load %[[VAL_1]] : <i32>
+ // CHECK:           %[[RES_2:.*]] = emitc.load %[[VAL_2]] : <f32>
+diff --git a/mlir/test/Dialect/EmitC/transforms.mlir b/mlir/test/Dialect/EmitC/transforms.mlir
+index 6cfac6462623..d204dec70d44 100644
+--- a/mlir/test/Dialect/EmitC/transforms.mlir
++++ b/mlir/test/Dialect/EmitC/transforms.mlir
+@@ -4,10 +4,10 @@
+ // CHECK-SAME:                               %[[VAL_0:.*]]: i32, %[[VAL_1:.*]]: i32, %[[VAL_2:.*]]: i32, %[[VAL_3:.*]]: i32) -> i1 {
+ // CHECK:           %[[VAL_4:.*]] = "emitc.constant"() <{value = 42 : i32}> : () -> i32
+ // CHECK:           %[[VAL_5:.*]] = emitc.expression : i1 {
+-// CHECK:             %[[VAL_6:.*]] = emitc.mul %[[VAL_0]], %[[VAL_4]] : (i32, i32) -> i32
+-// CHECK:             %[[VAL_7:.*]] = emitc.sub %[[VAL_6]], %[[VAL_2]] : (i32, i32) -> i32
+-// CHECK:             %[[VAL_8:.*]] = emitc.cmp lt, %[[VAL_7]], %[[VAL_3]] : (i32, i32) -> i1
+-// CHECK:             emitc.yield %[[VAL_8]] : i1
++// CHECK:             %[[VAL_6:.*]] = mul %[[VAL_0]], %[[VAL_4]] : (i32, i32) -> i32
++// CHECK:             %[[VAL_7:.*]] = sub %[[VAL_6]], %[[VAL_2]] : (i32, i32) -> i32
++// CHECK:             %[[VAL_8:.*]] = cmp lt, %[[VAL_7]], %[[VAL_3]] : (i32, i32) -> i1
++// CHECK:             yield %[[VAL_8]] : i1
+ // CHECK:           }
+ // CHECK:           return %[[VAL_5]] : i1
+ // CHECK:       }
+@@ -23,14 +23,14 @@ func.func @single_expression(%arg0: i32, %arg1: i32, %arg2: i32, %arg3: i32) ->
+ // CHECK-LABEL: func.func @multiple_expressions(
+ // CHECK-SAME:      %[[VAL_0:.*]]: i32, %[[VAL_1:.*]]: i32, %[[VAL_2:.*]]: i32, %[[VAL_3:.*]]: i32) -> (i32, i32) {
+ // CHECK:         %[[VAL_4:.*]] = emitc.expression : i32 {
+-// CHECK:           %[[VAL_5:.*]] = emitc.mul %[[VAL_0]], %[[VAL_1]] : (i32, i32) -> i32
+-// CHECK:           %[[VAL_6:.*]] = emitc.sub %[[VAL_5]], %[[VAL_2]] : (i32, i32) -> i32
+-// CHECK:           emitc.yield %[[VAL_6]] : i32
++// CHECK:           %[[VAL_5:.*]] = mul %[[VAL_0]], %[[VAL_1]] : (i32, i32) -> i32
++// CHECK:           %[[VAL_6:.*]] = sub %[[VAL_5]], %[[VAL_2]] : (i32, i32) -> i32
++// CHECK:           yield %[[VAL_6]] : i32
+ // CHECK:         }
+ // CHECK:         %[[VAL_7:.*]] = emitc.expression : i32 {
+-// CHECK:           %[[VAL_8:.*]] = emitc.add %[[VAL_1]], %[[VAL_3]] : (i32, i32) -> i32
+-// CHECK:           %[[VAL_9:.*]] = emitc.div %[[VAL_8]], %[[VAL_2]] : (i32, i32) -> i32
+-// CHECK:           emitc.yield %[[VAL_9]] : i32
++// CHECK:           %[[VAL_8:.*]] = add %[[VAL_1]], %[[VAL_3]] : (i32, i32) -> i32
++// CHECK:           %[[VAL_9:.*]] = div %[[VAL_8]], %[[VAL_2]] : (i32, i32) -> i32
++// CHECK:           yield %[[VAL_9]] : i32
+ // CHECK:         }
+ // CHECK:         return %[[VAL_4]], %[[VAL_7]] : i32, i32
+ // CHECK:       }
+@@ -46,13 +46,13 @@ func.func @multiple_expressions(%arg0: i32, %arg1: i32, %arg2: i32, %arg3: i32)
+ // CHECK-LABEL: func.func @expression_with_call(
+ // CHECK-SAME:      %[[VAL_0:.*]]: i32, %[[VAL_1:.*]]: i32, %[[VAL_2:.*]]: i32, %[[VAL_3:.*]]: i32) -> i1 {
+ // CHECK:         %[[VAL_4:.*]] = emitc.expression : i32 {
+-// CHECK:           %[[VAL_5:.*]] = emitc.mul %[[VAL_0]], %[[VAL_1]] : (i32, i32) -> i32
+-// CHECK:           %[[VAL_6:.*]] = emitc.call_opaque "foo"(%[[VAL_5]], %[[VAL_2]]) : (i32, i32) -> i32
+-// CHECK:           emitc.yield %[[VAL_6]] : i32
++// CHECK:           %[[VAL_5:.*]] = mul %[[VAL_0]], %[[VAL_1]] : (i32, i32) -> i32
++// CHECK:           %[[VAL_6:.*]] = call_opaque "foo"(%[[VAL_5]], %[[VAL_2]]) : (i32, i32) -> i32
++// CHECK:           yield %[[VAL_6]] : i32
+ // CHECK:         }
+ // CHECK:         %[[VAL_7:.*]] = emitc.expression : i1 {
+-// CHECK:           %[[VAL_8:.*]] = emitc.cmp lt, %[[VAL_4]], %[[VAL_1]] : (i32, i32) -> i1
+-// CHECK:           emitc.yield %[[VAL_8]] : i1
++// CHECK:           %[[VAL_8:.*]] = cmp lt, %[[VAL_4]], %[[VAL_1]] : (i32, i32) -> i1
++// CHECK:           yield %[[VAL_8]] : i1
+ // CHECK:         }
+ // CHECK:         return %[[VAL_7]] : i1
+ // CHECK:       }
+@@ -67,12 +67,12 @@ func.func @expression_with_call(%arg0: i32, %arg1: i32, %arg2: i32, %arg3: i32)
+ // CHECK-LABEL: func.func @expression_with_dereference(
+ // CHECK-SAME:      %[[VAL_0:.*]]: i32, %[[VAL_1:.*]]: i32, %[[VAL_2:.*]]: !emitc.ptr<i32>) -> i1 {
+ // CHECK:         %[[VAL_3:.*]] = emitc.expression : i32 {
+-// CHECK:           %[[VAL_4:.*]] = emitc.apply "*"(%[[VAL_2]]) : (!emitc.ptr<i32>) -> i32
+-// CHECK:           emitc.yield %[[VAL_4]] : i32
++// CHECK:           %[[VAL_4:.*]] = apply "*"(%[[VAL_2]]) : (!emitc.ptr<i32>) -> i32
++// CHECK:           yield %[[VAL_4]] : i32
+ // CHECK:         }
+ // CHECK:         %[[VAL_5:.*]] = emitc.expression : i1 {
+-// CHECK:           %[[VAL_6:.*]] = emitc.mul %[[VAL_0]], %[[VAL_1]] : (i32, i32) -> i32
+-// CHECK:           %[[VAL_7:.*]] = emitc.cmp lt, %[[VAL_6]], %[[VAL_3]] : (i32, i32) -> i1
++// CHECK:           %[[VAL_6:.*]] = mul %[[VAL_0]], %[[VAL_1]] : (i32, i32) -> i32
++// CHECK:           %[[VAL_7:.*]] = cmp lt, %[[VAL_6]], %[[VAL_3]] : (i32, i32) -> i1
+ // CHECK:         return %[[VAL_5]] : i1
+ // CHECK:       }
+ 
+@@ -88,10 +88,10 @@ func.func @expression_with_dereference(%arg0: i32, %arg1: i32, %arg2: !emitc.ptr
+ // CHECK-SAME:      %[[VAL_0:.*]]: i32, %[[VAL_1:.*]]: i32, %[[VAL_2:.*]]: !emitc.ptr<i32>) -> i1 {
+ // CHECK:         %[[VAL_3:.*]] = "emitc.variable"() <{value = #emitc.opaque<"">}> : () -> !emitc.lvalue<i32>
+ // CHECK:         %[[VAL_4:.*]] = emitc.expression : i1 {
+-// CHECK:           %[[VAL_5:.*]] = emitc.apply "&"(%[[VAL_3]]) : (!emitc.lvalue<i32>) -> !emitc.ptr<i32>
+-// CHECK:           %[[VAL_6:.*]] = emitc.add %[[VAL_5]], %[[VAL_1]] : (!emitc.ptr<i32>, i32) -> !emitc.ptr<i32>
+-// CHECK:           %[[VAL_7:.*]] = emitc.cmp lt, %[[VAL_6]], %[[VAL_2]] : (!emitc.ptr<i32>, !emitc.ptr<i32>) -> i1
+-// CHECK:           emitc.yield %[[VAL_7]] : i1
++// CHECK:           %[[VAL_5:.*]] = apply "&"(%[[VAL_3]]) : (!emitc.lvalue<i32>) -> !emitc.ptr<i32>
++// CHECK:           %[[VAL_6:.*]] = add %[[VAL_5]], %[[VAL_1]] : (!emitc.ptr<i32>, i32) -> !emitc.ptr<i32>
++// CHECK:           %[[VAL_7:.*]] = cmp lt, %[[VAL_6]], %[[VAL_2]] : (!emitc.ptr<i32>, !emitc.ptr<i32>) -> i1
++// CHECK:           yield %[[VAL_7]] : i1
+ // CHECK:         }
+ // CHECK:         return %[[VAL_4]] : i1
+ // CHECK:       }
+@@ -107,8 +107,8 @@ func.func @expression_with_address_taken(%arg0: i32, %arg1: i32, %arg2: !emitc.p
+ // CHECK-LABEL: func.func @no_nested_expression(
+ // CHECK-SAME:      %[[VAL_0:.*]]: i32, %[[VAL_1:.*]]: i32) -> i1 {
+ // CHECK:         %[[VAL_2:.*]] = emitc.expression : i1 {
+-// CHECK:           %[[VAL_3:.*]] = emitc.cmp lt, %[[VAL_0]], %[[VAL_1]] : (i32, i32) -> i1
+-// CHECK:           emitc.yield %[[VAL_3]] : i1
++// CHECK:           %[[VAL_3:.*]] = cmp lt, %[[VAL_0]], %[[VAL_1]] : (i32, i32) -> i1
++// CHECK:           yield %[[VAL_3]] : i1
+ // CHECK:         }
+ // CHECK:         return %[[VAL_2]] : i1
+ // CHECK:       }
+-- 
+2.46.0
+

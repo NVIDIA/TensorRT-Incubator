@@ -24,7 +24,11 @@
 #ifndef RUNTIME_BACKEND_LUA_MODULES_CUDA_NVPTXCOMPILERUTILS_H
 #define RUNTIME_BACKEND_LUA_MODULES_CUDA_NVPTXCOMPILERUTILS_H
 
-#include "mlir-executor/Runtime/Backend/Common/CommonRuntime.h"
+#include "mlir-executor/Support/Status.h"
+#include <cstdint>
+#include <memory>
+#include <string_view>
+#include <vector>
 
 namespace mlirtrt::runtime {
 
@@ -35,8 +39,8 @@ struct CuBinWrapper {
 };
 
 /// Compile PTX data to a cubin object.
-std::unique_ptr<CuBinWrapper> compilePtxToCuBin(const char *ptxData, size_t len,
-                                                std::string_view arch);
+mlirtrt::StatusOr<std::unique_ptr<CuBinWrapper>>
+compilePtxToCuBin(const char *ptxData, size_t len, std::string_view arch);
 
 } // namespace mlirtrt::runtime
 

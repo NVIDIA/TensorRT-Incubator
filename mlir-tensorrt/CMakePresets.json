@@ -10,7 +10,8 @@
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
         "LLVM_ENABLE_ASSERTIONS": "ON",
         "CPM_SOURCE_CACHE": "${sourceDir}/.cache.cpm",
-        "CPM_USE_NAMED_CACHE_DIRECTORIES": "ON"
+        "CPM_USE_NAMED_CACHE_DIRECTORIES": "ON",
+        "LLVM_INSTALL_TOOLCHAIN_ONLY": "ON"
       }
     },
     {

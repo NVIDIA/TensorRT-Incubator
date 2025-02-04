@@ -34,10 +34,9 @@ def compile_asm(ASM):
         opts = api.StableHLOToExecutableOptions(
             client,
             [
-                "--tensorrt-builder-opt-level=3",
+                "--tensorrt-builder-opt-level=0",
                 "--tensorrt-strongly-typed=false",
-                "--debug=true",
-                "--debug-only=translate-to-tensorrt,stablehlo-clustering",
+                "--mlir-print-ir-after-all",
                 f"--mlir-print-ir-tree-dir={mlir_tree_path.name}",
                 f"--tensorrt-layer-info-dir={trt_path.name}",
                 f"--tensorrt-engines-dir={trt_path.name}",

@@ -5,14 +5,6 @@ include "mlir-tensorrt/Dialect/TensorRTRuntime/IR/TensorRTRuntimeDialect.td"
 
 include "mlir/IR/AttrTypeBase.td"
 
-
-def TensorRTRuntime_Runtime : TypeDef<TensorRTRuntime_Dialect, "Runtime", []> {
-  let mnemonic = "runtime";
-  let description = [{
-    An opaque object which represents an `nvinfer1::IRuntime` instance.
-  }];
-}
-
 def TensorRTRuntime_Engine :TypeDef<TensorRTRuntime_Dialect, "Engine", []> {
   let mnemonic = "engine";
   let description = [{

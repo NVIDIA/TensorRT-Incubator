@@ -1,6 +1,6 @@
-//===- Registration.cpp =--- ----------------------------------------------===//
+//===- PlanToLLVM.h ---------------------------------------------*- C++ -*-===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2025 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -18,11 +18,22 @@
 //
 //===----------------------------------------------------------------------===//
 ///
-/// Implementation for registration methods. This file is currently just a
-/// stub. It helps clangd correctly parse the registration headers and forces
-/// compilation of the headers.
+/// Declarations for 'plan-to-llvm' conversions.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Registration/RegisterMlirTensorRtDialects.h"
-#include "mlir-tensorrt/Registration/RegisterMlirTensorRtPasses.h"
-#include "mlir-tensorrt/Registration/RegisterMlirTensorRtTranslations.h"
+#ifndef MLIR_TENSORRT_CONVERSION_PLANTOLLVM_PLANTOLLVM
+#define MLIR_TENSORRT_CONVERSION_PLANTOLLVM_PLANTOLLVM
+
+namespace mlir {
+class DialectRegistry;
+class LLVMTypeConverter;
+
+/// Register the ConvertToLLVMPatternsInterface for the Plan dialect.
+void registerConvertPlanToLLVMPatternInterface(DialectRegistry &registry);
+
+/// Populate type conversions for the Plan dialect to the LLVM dialect.
+void populatePlanToLLVMTypeConversions(LLVMTypeConverter &typeConverter);
+
+} // namespace mlir
+
+#endif // MLIR_TENSORRT_CONVERSION_PLANTOLLVM_PLANTOLLVM

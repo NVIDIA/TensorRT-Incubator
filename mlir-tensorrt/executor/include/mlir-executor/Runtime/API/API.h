@@ -270,7 +270,9 @@ llvm::raw_ostream &print(llvm::raw_ostream &os,
 /// provides a read-only view into the buffer.
 class FunctionSignatureView {
 public:
-  FunctionSignatureView(const impl::FunctionSignature *view) : view(view) {}
+  FunctionSignatureView(const impl::FunctionSignature *view) : view(view) {
+    assert(view != nullptr && "expected valid view");
+  }
 
   uint32_t getNumArgs() const {
     return view->args() ? view->args()->size() : 0;
@@ -378,13 +380,20 @@ public:
 /// does not own any memory; it only provides a read-only view into the buffer.
 class FunctionView {
 public:
-  FunctionView(const impl::Function *view) : view(view) {}
+  FunctionView(const impl::Function *view) : view(view) {
+    assert(view != nullptr);
+  }
+  FunctionView() : view(nullptr) {}
 
   FunctionSignatureView getSignature() const {
     return FunctionSignatureView(view->signature());
   }
 
   std::string_view getName() const { return view->name()->string_view(); }
+
+  operator bool() const { return view != nullptr; }
+
+  operator const impl::Function *() const { return view; }
 
 private:
   const impl::Function *view;
@@ -612,8 +621,14 @@ private:
 
 class ScalarValue : public RuntimeValue {
 public:
-  ScalarValue(int64_t data, ScalarType type)
-      : RuntimeValue(Kind::Scalar), data(data), type(type) {}
+  template <typename T>
+  ScalarValue(T data_, ScalarType type)
+      : RuntimeValue(Kind::Scalar), type(type) {
+    static_assert(sizeof(T) <= sizeof(int64_t) &&
+                      alignof(T) <= alignof(int64_t),
+                  "expected scalar type size to be <= 8 bytes");
+    *reinterpret_cast<T *>(&data) = data_;
+  }
 
   ScalarType getType() const { return type; }
 
@@ -623,6 +638,8 @@ public:
                   "expected scalar type size to be <= 8 bytes");
     return *reinterpret_cast<const T *>(&data);
   }
+
+  void *getRaw() { return &data; }
 
   static bool classof(const RuntimeValue *v) {
     return v->getKind() == Kind::Scalar;
@@ -868,7 +885,7 @@ public:
 
   ExecutableView getExecutable() const { return executable; }
 
-  PinnedMemoryAllocator &getPinnedMemorAllocator() {
+  PinnedMemoryAllocator &getPinnedMemoryAllocator() {
     return *pinnedMemoryAllocator;
   }
 

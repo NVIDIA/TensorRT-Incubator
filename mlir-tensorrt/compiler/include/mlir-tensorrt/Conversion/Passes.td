@@ -41,7 +41,7 @@ def ConvertStablehloToTensorRTPass : Pass<"convert-stablehlo-to-tensorrt"> {
       "convert loops to TensorRT's loop layer">,
     Option<"convertConditionals", "convert-conditionals", "bool", "true",
       "convert conditionals to TensorRT's conditional layer">,
-    Option<"trtMajorVersion", "trt-major-version", "int64_t", "NV_TENSORRT_MAJOR",
+    Option<"trtMajorVersion", "trt-major-version", "int64_t", "10",
     "target TensorRT version for conversion">
   ];
 }
@@ -74,7 +74,6 @@ def ConvertChloToStableHloExtPass : Pass<"convert-chlo-to-stablehlo-ext"> {
 //===----------------------------------------------------------------------===//
 // TensorRTEmitCBuilderPass
 //===----------------------------------------------------------------------===//
-#ifdef MLIR_TENSORRT_ENABLE_EMITC
 def ConvertTensorRTToEmitCPass : Pass<"convert-tensorrt-to-emitc",
       "::mlir::ModuleOp"> {
   let summary = "Generate an `EmitC` based builder for each `tensorrt` function";
@@ -105,8 +104,6 @@ def ConvertTensorRTToEmitCPass : Pass<"convert-tensorrt-to-emitc",
 
   let dependentDialects = ["::mlir::emitc::EmitCDialect"];
 }
-#endif // MLIR_TENSORRT_ENABLE_EMITC
-
 
 #ifdef MLIR_TENSORRT_ENABLE_EXECUTOR
 
@@ -135,17 +132,14 @@ def ConvertMemRefToCUDAPass : Pass<"convert-memref-to-cuda">{
 //===----------------------------------------------------------------------===//
 
 def ConvertPlanToExecutorPass : Pass<"convert-plan-to-executor",
-                                                          "::mlir::ModuleOp"> {
+                                     "::mlir::ModuleOp"> {
   let summary =
     "Converts plan dialect ops and attributes to the executor dialect";
 
   let description = [{
-    This pass eliminates Plan dialect attributes from tensor types
+    This pass eliminates Plan dialect attributes from memref types
     (e.g. `#plan.memory_space` encodings) and ensures that no
     `plan` operations remain in the program.
-
-    This pass should be run after the Plan dialect segmentation
-    pipeline and prior to the Executor dialect bufferization pipeline.
   }];
 
   let dependentDialects = [
@@ -196,6 +190,26 @@ def ConvertTensorRTToTensorRTRuntimePass : Pass<"convert-tensorrt-to-runtime",
 }
 
 //===----------------------------------------------------------------------===//
+// ConvertTensorRTRuntimeToLLVMPass
+//===----------------------------------------------------------------------===//
+def ConvertTensorRTRuntimeToLLVMPass : Pass<"convert-tensorrt-runtime-to-llvm",
+                                            "::mlir::ModuleOp"> {
+  let summary = "Converts TensorRTRuntime dialect ops to LLVM dialect operations";
+
+  let description = [{
+    This pass contains patterns to convert `trtrt` dialect operations to `llvm`
+    dialect operations.
+  }];
+  let dependentDialects = [
+    "::mlir::LLVM::LLVMDialect",
+  ];
+  let options = [
+    Option<"artifactsDirectory", "artifacts-dir", "std::string",
+      "\"\"", "">
+  ];
+}
+
+//===----------------------------------------------------------------------===//
 // ConvertCUDAToExecutorPass
 //===----------------------------------------------------------------------===//
 def ConvertCUDAToExecutorPass : Pass<"convert-cuda-to-executor",
@@ -211,6 +225,43 @@ def ConvertCUDAToExecutorPass : Pass<"convert-cuda-to-executor",
     "::mlir::cuda::CUDADialect"
   ];
   let options = ConvertToExecutorOptions;
+}
+
+//===----------------------------------------------------------------------===//
+// ConvertCUDAToLLVMPass
+//===----------------------------------------------------------------------===//
+def ConvertCUDAToLLVMPass : Pass<"convert-cuda-to-llvm",
+                                  "::mlir::ModuleOp"> {
+  let summary = "Converts CUDA dialect ops to LLVM dialect operations";
+
+  let description = [{
+    This pass contains patterns to convert `cuda` dialect operations to `llvm`
+    dielact operations.
+  }];
+  let dependentDialects = [
+    "::mlir::LLVM::LLVMDialect",
+  ];
+  let options = [
+    Option<"artifactsDirectory", "artifacts-dir", "std::string",
+      "\"\"", "">
+  ];
+}
+
+//===----------------------------------------------------------------------===//
+// HostToLLVM
+//===----------------------------------------------------------------------===//
+def ConvertHostToLLVMPass : Pass<"convert-host-to-llvm", "::mlir::ModuleOp"> {
+  let summary = "Convert host program IR to LLVM";
+  let description = [{
+    This pass aggregates conversion patterns for CUDA, TensorRTRuntime, and
+    other upstream dialects in order to lower the post-bufferizatio host
+    program IR to LLVM in a single pass.
+  }];
+  let dependentDialects = [
+    "::mlir::LLVM::LLVMDialect"
+  ];
+  let options = [
+  ];
 }
 
 //===----------------------------------------------------------------------===//
