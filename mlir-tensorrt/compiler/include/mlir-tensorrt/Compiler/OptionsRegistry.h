@@ -78,8 +78,7 @@ optionsCreateFromArgs(mlir::MLIRContext *context,
       [&errMsg](const llvm::StringError &err) { errMsg = err.getMessage(); });
 
   if (errMsg)
-    return getInternalErrorStatus("failed to initialize options: %s",
-                                  errMsg->c_str());
+    return getInternalErrorStatus("failed to initialize options: {0}", *errMsg);
 
   return result;
 }
