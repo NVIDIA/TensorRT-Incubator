@@ -8,6 +8,7 @@ add_mlir_tensorrt_public_c_api_library(MLIRTensorRTCAPIRegisterAllDialects
     MLIRFuncInlinerExtension
     MLIRTensorInferTypeOpInterfaceImpl
     MLIRTensorRTCompilerStableHloToExecutable
+    MLIRTensorRTCompilerTensorRTToExecutable
     MLIRTensorRTCUDAToLLVM
     MLIRTensorRTCUDATransforms
     MLIRTensorRTHostToLLVM
