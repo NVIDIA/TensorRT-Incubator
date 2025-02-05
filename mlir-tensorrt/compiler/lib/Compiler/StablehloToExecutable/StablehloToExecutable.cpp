@@ -130,7 +130,10 @@ void StablehloToExecutableTask::buildPostClusteringPipeline(
 
   // Perform bufferization.
   pm.addPass(createMemRefCastEliminationPass());
-  pm.addPass(plan::createPlanAllocTensorsPass());
+  plan::PlanAllocTensorsPassOptions allocTensorOpts{};
+  allocTensorOpts.forceEntrypointsReturnAllocs =
+      opts.forceEntrypointsReturnAllocs;
+  pm.addPass(plan::createPlanAllocTensorsPass(allocTensorOpts));
   pm.addPass(plan::createPlanBufferizePass());
   pm.addPass(createMemRefCastEliminationPass());
   pm.addPass(createCanonicalizerPass());

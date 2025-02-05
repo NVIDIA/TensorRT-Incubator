@@ -561,12 +561,12 @@ createInlineClosedAllocGroupOp(RewriterBase &rewriter, plan::InlineGroupOp op,
 static LogicalResult createClosedGroupOp(RewriterBase &rewriter,
                                          plan::InlineGroupOp op,
                                          DataFlowSolver &solver,
-                                         bool enableNonDPSReturns) {
+                                         bool forceEntrypointsReturnAllocs) {
   OpBuilder::InsertionGuard g(rewriter);
 
   // Materialize destination operands if not using non-DPS call convention.
   SmallVector<DestinationOperandMaterializationResult> destinationOperands;
-  if (!enableNonDPSReturns)
+  if (!forceEntrypointsReturnAllocs)
     if (failed(materializeDestinationOperands(rewriter, op, solver,
                                               destinationOperands)))
       return failure();
@@ -581,7 +581,7 @@ static LogicalResult createClosedGroupOp(RewriterBase &rewriter,
 
   // Create and populate the appropriate closed group op based on call
   // convention.
-  if (!enableNonDPSReturns)
+  if (!forceEntrypointsReturnAllocs)
     return createInlineClosedGroupOp(rewriter, op, solver, inputs,
                                      destinationOperands);
   return createInlineClosedAllocGroupOp(rewriter, op, solver, inputs);
@@ -629,7 +629,7 @@ public:
     IRRewriter rewriter(ctx);
     for (InlineGroupOp groupOp : llvm::make_early_inc_range(groupOps)) {
       if (failed(createClosedGroupOp(rewriter, groupOp, solver,
-                                     enableNonDPSReturns)))
+                                     forceEntrypointsReturnAllocs)))
         return signalPassFailure();
     }
   }
