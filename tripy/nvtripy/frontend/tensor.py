@@ -28,7 +28,7 @@ from nvtripy.common import datatype
 from nvtripy.common.exception import raise_error, str_from_stack_info
 from nvtripy.frontend.ops._registry import TENSOR_METHOD_REGISTRY
 from nvtripy.logging.logger import logger
-from nvtripy.trace.ops.storage import Storage
+from nvtripy.trace.ops.constant import Constant
 
 
 class TensorMeta(type):
@@ -90,7 +90,7 @@ class Tensor(metaclass=TensorMeta):
         assert data is not None, "Data argument to Tensor must not be None"
         self._stack_info = utils.stack_info.StackInfo([])
 
-        storage = Storage(data, device=device if not hasattr(data, "__dlpack__") else None)
+        storage = Constant(data, device=device if not hasattr(data, "__dlpack__") else None)
         self.trace_tensor = storage.outputs[0]
         self.trace_tensor.name = utils.utils.default(name, self.trace_tensor.name)
         if fetch_stack_info:
@@ -120,7 +120,7 @@ class Tensor(metaclass=TensorMeta):
     @staticmethod
     def fast_init(data: Any):
         instance = Tensor.__new__(Tensor)
-        storage = Storage(data)
+        storage = Constant(data)
         instance.trace_tensor = storage.outputs[0]
         instance.stack_info = utils.stack_info.StackInfo([])
         return instance
@@ -166,11 +166,10 @@ class Tensor(metaclass=TensorMeta):
         return self.trace_tensor.device
 
     def eval(self) -> runtime.MemRefValue:
-        # TODO (pranavm): Re-enable
-        # if isinstance(self.trace_tensor.producer, Storage):
-        #     # Exit early if the tensor has already been evaluated.
-        #     # This happens before the imports below so we don't incur extra overhead.
-        #     return self.trace_tensor.producer.data
+        if isinstance(self.trace_tensor.producer, Constant):
+            # Exit early if the tensor has already been evaluated.
+            # This happens before the imports below so we don't incur extra overhead.
+            return self.trace_tensor.producer.data
 
         from nvtripy.backend.api.executable import Executable
         from nvtripy.backend.mlir.compiler import Compiler
@@ -195,9 +194,9 @@ class Tensor(metaclass=TensorMeta):
 
         data = Executable(executable, [])().eval()
 
-        # Upon computing the value of this tensor, we switch it to have a `Storage`
+        # Upon computing the value of this tensor, we switch it to have a `Constant`
         # parameter so that it does not need to be computed again.
-        storage = Storage(data)
+        storage = Constant(data)
         # Need to carry forward `is_compile_tracer`:
         storage.outputs[0].is_compile_tracer = self.trace_tensor.is_compile_tracer
 
@@ -245,7 +244,7 @@ class Tensor(metaclass=TensorMeta):
 
         data_list = self.tolist()
 
-        assert isinstance(self.trace_tensor.producer, Storage)
+        assert isinstance(self.trace_tensor.producer, Constant)
         data_shape = self.trace_tensor.producer.shape
 
         arr_str = pretty_print(data_list, data_shape)
@@ -271,7 +270,7 @@ class Tensor(metaclass=TensorMeta):
     def __bool__(self):
         data = self.tolist()
 
-        assert isinstance(self.trace_tensor.producer, Storage)
+        assert isinstance(self.trace_tensor.producer, Constant)
         if any(dim != 1 for dim in self.trace_tensor.producer.shape):
             raise_error(
                 "Boolean value of a Tensor with more than one value is ambiguous",
