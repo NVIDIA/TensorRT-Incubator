@@ -24,6 +24,7 @@
 
 #include "mlir-tensorrt-c/Compiler/Registration/RegisterAllDialects.h"
 #include "mlir-tensorrt/Compiler/StablehloToExecutable/StablehloToExecutable.h"
+#include "mlir-tensorrt/Compiler/TensorRTToExecutable/TensorRTToExecutable.h"
 #include "mlir-tensorrt/Registration/RegisterMlirTensorRtDialects.h"
 #include "mlir-tensorrt/Registration/RegisterMlirTensorRtPasses.h"
 #include "mlir/CAPI/IR.h"
@@ -38,4 +39,5 @@ void mtrtCompilerRegisterPasses() {
 
 void mtrtCompilerRegisterTasks() {
   mlirtrt::compiler::registerStableHloToExecutableTask();
+  mlirtrt::compiler::registerTensorRTToExecutableTask();
 }

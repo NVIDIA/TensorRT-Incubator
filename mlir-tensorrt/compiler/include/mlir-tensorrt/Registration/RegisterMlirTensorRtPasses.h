@@ -38,6 +38,10 @@
 #include "stablehlo/transforms/Passes.h"
 #endif // MLIR_TRT_ENABLE_HLO
 
+#ifdef MLIR_TRT_TARGET_TENSORRT
+#include "mlir-tensorrt/Compiler/TensorRTToExecutable/Passes.h"
+#endif // MLIR_TRT_TARGET_TENSORRT
+
 #ifdef MLIR_TRT_ENABLE_EXECUTOR
 #include "mlir-executor/InitAllPasses.h"
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
@@ -64,6 +68,10 @@ inline void registerAllMlirTensorRtPasses() {
   plan::registerPlanPasses();
   plan::registerPlanDialectPipelines();
 #endif // MLIR_TRT_ENABLE_HLO
+
+#ifdef MLIR_TRT_TARGET_TENSORRT
+  mlirtrt::compiler::registerTensorRTToExecutablePipelines();
+#endif // MLIR_TRT_TARGET_TENSORRT
 
 #ifdef MLIR_TRT_ENABLE_EXECUTOR
   registerConvertCUDAToExecutorPass();

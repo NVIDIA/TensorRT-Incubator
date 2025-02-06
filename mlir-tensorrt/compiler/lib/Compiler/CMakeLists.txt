@@ -15,3 +15,4 @@ add_mlir_tensorrt_library(MLIRTensorRTCompilerClient
 )
 
 add_subdirectory(StablehloToExecutable)
+add_subdirectory(TensorRTToExecutable)
