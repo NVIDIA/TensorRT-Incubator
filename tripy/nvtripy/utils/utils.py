@@ -160,44 +160,6 @@ def list_to_tuple(nested_list):
 ##
 
 
-def flatten_list(data):
-    """
-    Flattens a nested list into a single list.
-    """
-    if isinstance(data, (int, float)):
-        # Need to return a list here as array.array require input to be a list.
-        return [data]
-    flat_list = []
-    for element in data:
-        if isinstance(element, list):
-            flat_list.extend(flatten_list(element))
-        else:
-            flat_list.append(element)
-    return flat_list
-
-
-def get_shape(data):
-    """
-    Find the shape of a nested list.
-
-    Args:
-        nested_list (list): The input nested list.
-
-    Returns:
-        list: The shape of the nested list.
-    """
-    shape = []
-    if isinstance(data, (int, float)):
-        # Return empty list for a scalar.
-        return []
-    while isinstance(data, (list, tuple)):
-        shape.append(len(data))
-        if len(data) == 0:
-            break
-        data = data[0]
-    return shape
-
-
 def should_omit_constant_in_str(shape):
     return math.prod(shape) >= constants.CONSTANT_IR_PRINT_VOLUME_THRESHOLD
 
