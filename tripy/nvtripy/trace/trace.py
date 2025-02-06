@@ -15,7 +15,6 @@
 # limitations under the License.
 #
 
-import copy
 from typing import Dict, List, Sequence, Set
 
 from mlir_tensorrt.compiler import ir
@@ -31,7 +30,7 @@ from nvtripy.backend.mlir.utils import (
 from nvtripy.common.exception import raise_error
 from nvtripy.common.shape_bounds import ShapeBounds
 from nvtripy.logging import logger
-from nvtripy.trace.ops.storage import Storage
+from nvtripy.trace.ops.constant import Constant
 from nvtripy.trace.tensor import TraceTensor
 from nvtripy.trace.utils import topological_sort
 
@@ -129,7 +128,7 @@ class Trace:
             visited.add(id(trace_tensor))
 
             producer = trace_tensor.producer
-            if isinstance(producer, Storage) and utils.utils.should_lift_storage_op_as_input(producer.shape):
+            if isinstance(producer, Constant) and utils.utils.should_lift_storage_op_as_input(producer.shape):
                 inputs.append(trace_tensor)
             else:
                 for inp in producer.inputs:
