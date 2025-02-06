@@ -37,7 +37,7 @@ class TestTensor:
 
         assert isinstance(a, tp.Tensor)
         assert a.trace_tensor.producer.inputs == []
-        assert isinstance(a.trace_tensor.producer, tp.trace.ops.storage.Storage)
+        assert isinstance(a.trace_tensor.producer, tp.trace.ops.storage.Constant)
         assert cp.from_dlpack(a).get().tolist() == VALUES
 
     def test_empty_tensor(self):
@@ -59,7 +59,7 @@ class TestTensor:
     def test_tensor_device(self, kind):
         a = tp.Tensor([1, 2, 3], device=tp.device(kind))
 
-        assert isinstance(a.trace_tensor.producer, tp.trace.ops.storage.Storage)
+        assert isinstance(a.trace_tensor.producer, tp.trace.ops.storage.Constant)
         assert a.trace_tensor.producer.device.kind == kind
 
     @pytest.mark.parametrize("dtype", NUMPY_TO_TRIPY.keys())
@@ -156,8 +156,8 @@ class TestTensor:
 
         c.eval()
 
-        assert isinstance(c.trace_tensor.producer, tp.trace.ops.storage.Storage)
-        # Storage tensors should have no inputs since we don't want to trace back from them.
+        assert isinstance(c.trace_tensor.producer, tp.trace.ops.storage.Constant)
+        # Constant tensors should have no inputs since we don't want to trace back from them.
         assert c.trace_tensor.producer.inputs == []
         assert (cp.from_dlpack(c.trace_tensor.producer.data) == cp.array([3], dtype=np.float32)).all()
 
@@ -216,12 +216,12 @@ class TestTensor:
         assert a.dtype == tp.float16
 
     def test_no_explicit_cast(self):
-        from nvtripy.trace.ops.storage import Storage
+        from nvtripy.trace.ops.constant import Constant
 
         a_np = np.ones((2, 2), dtype=np.float32)
         a = tp.Tensor(a_np, dtype=tp.float32)
         assert a.dtype == tp.float32
-        assert isinstance(a.trace_tensor.producer, Storage)
+        assert isinstance(a.trace_tensor.producer, Constant)
 
     @pytest.mark.parametrize(
         "devices",
@@ -245,14 +245,14 @@ class TestTensor:
         ],
     )
     def test_no_explicit_copy(self, devices):
-        from nvtripy.trace.ops.storage import Storage
+        from nvtripy.trace.ops.constant import Constant
 
         a_torch = torch.ones((2, 2), dtype=torch.float32)
         if devices[0] == "gpu":
             a_torch = a_torch.to("cuda")
         a = tp.Tensor(a_torch, device=tp.device(devices[1]))
         assert a.device.kind == devices[1]
-        assert isinstance(a.trace_tensor.producer, Storage)
+        assert isinstance(a.trace_tensor.producer, Constant)
 
     def test_explicit_cast_copy(self):
         a_np = np.ones((2, 2), dtype=np.float32)
