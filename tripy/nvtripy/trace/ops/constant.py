@@ -34,8 +34,46 @@ from nvtripy.common import utils as common_utils
 from nvtripy.trace.ops.base import BaseTraceOp
 
 
+def flatten_list(data):
+    """
+    Flattens a nested list into a single list.
+    """
+    if isinstance(data, (int, float)):
+        # Need to return a list here as array.array require input to be a list.
+        return [data]
+    flat_list = []
+    for element in data:
+        if isinstance(element, list):
+            flat_list.extend(flatten_list(element))
+        else:
+            flat_list.append(element)
+    return flat_list
+
+
+def get_shape(data):
+    """
+    Find the shape of a nested list.
+
+    Args:
+        nested_list (list): The input nested list.
+
+    Returns:
+        list: The shape of the nested list.
+    """
+    shape = []
+    if isinstance(data, (int, float)):
+        # Return empty list for a scalar.
+        return []
+    while isinstance(data, (list, tuple)):
+        shape.append(len(data))
+        if len(data) == 0:
+            break
+        data = data[0]
+    return shape
+
+
 @dataclass(repr=False)
-class Storage(BaseTraceOp):
+class Constant(BaseTraceOp):
 
     data: runtime.MemRefValue
     shape: Sequence[int]
@@ -65,8 +103,8 @@ class Storage(BaseTraceOp):
                 data_array = None
             else:
                 self.dtype = common_utils.get_element_type(data)
-                data_array = common_utils.convert_list_to_array(utils.utils.flatten_list(data), dtype=self.dtype)
-            self.shape = tuple(utils.utils.get_shape(data))
+                data_array = common_utils.convert_list_to_array(flatten_list(data), dtype=self.dtype)
+            self.shape = tuple(get_shape(data))
             self.data = memref.create_memref(
                 shape=self.shape,
                 dtype=self.dtype,
@@ -87,7 +125,7 @@ class Storage(BaseTraceOp):
         return {"data"}
 
     def __eq__(self, other) -> bool:
-        return self.data == other.data if isinstance(other, Storage) else False
+        return self.data == other.data if isinstance(other, Constant) else False
 
     def infer_rank(self):
         # In the storage op, we actually know the exact shape, which we've already set in the constructor.
