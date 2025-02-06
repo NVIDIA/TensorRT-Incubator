@@ -20,7 +20,7 @@ import numpy as np
 
 import nvtripy as tp
 from nvtripy.frontend.module.parameter import DefaultParameter
-from nvtripy.trace.ops.storage import Storage
+from nvtripy.trace.ops.constant import Constant
 
 
 class TestDefaultParameter:
@@ -30,7 +30,7 @@ class TestDefaultParameter:
         assert type(param.shape[0]) is int  # Make sure we are not compiling and getting DimensionSizes
 
         assert param.dtype == tp.float32
-        assert not isinstance(param.trace_tensor.producer, Storage)
+        assert not isinstance(param.trace_tensor.producer, Constant)
 
     def test_data_can_be_materialized(self):
         param = DefaultParameter((1, 2), dtype=tp.float32)
