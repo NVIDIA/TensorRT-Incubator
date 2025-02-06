@@ -25,6 +25,7 @@ from nvtripy.types import ShapeLike
 from nvtripy.utils import wrappers
 
 
+# TODO (pranavm): Might not need to do this shape inference in the frontend now.
 def infer_dimensions(input: "nvtripy.Tensor", shape: ShapeLike) -> ShapeLike:
 
     num_unknown_dims = len([dim for dim in shape if op_utils.is_minus_one(dim)])
@@ -71,4 +72,4 @@ def reshape(input: "nvtripy.Tensor", shape: ShapeLike) -> "nvtripy.Tensor":
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.reshape(cp.from_dlpack(input).get(), (1, 6)))
     """
-    return op_utils.create_op(Reshape, [input, shape], None)
+    return op_utils.create_op(Reshape, [input, shape])

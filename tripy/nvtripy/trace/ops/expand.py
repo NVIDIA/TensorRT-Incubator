@@ -19,6 +19,7 @@ from dataclasses import dataclass
 
 from nvtripy.trace.ops import utils as op_utils
 from nvtripy.trace.ops.base import BaseTraceOp
+from mlir_tensorrt.compiler.dialects import tensorrt
 
 
 @dataclass(repr=False)
@@ -28,13 +29,12 @@ class Expand(BaseTraceOp):
     def infer_dtypes(self):
         self.outputs[0].dtype = self.inputs[0].dtype
 
-    def to_flat_ir(self, inputs, outputs):
-        from nvtripy.flat_ir.ops import DynamicBroadcastOp
-
-        broadcast_dim = op_utils.get_broadcast_in_dim(inputs[0].rank, outputs[0].rank)
-
-        DynamicBroadcastOp.build(
-            [inputs[0], inputs[1]],
-            outputs,
-            broadcast_dim=broadcast_dim,
-        )
+    def to_mlir(self, inputs):
+        return [
+            tensorrt.broadcast(
+                self.outputs[0].to_mlir(),
+                inputs[0],
+                shape=inputs[1],
+                broadcast_dims=op_utils.get_broadcast_in_dim(self.inputs[0].rank, self.outputs[0].rank),
+            )
+        ]
