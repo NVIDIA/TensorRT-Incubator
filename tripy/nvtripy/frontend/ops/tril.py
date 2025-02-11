@@ -1,6 +1,6 @@
 from nvtripy import export
 from nvtripy.common import datatype
-from nvtripy.frontend.ops.fill import full_like
+from nvtripy.frontend.ops.full import full_like
 from nvtripy.frontend.ops.iota import iota_like
 from nvtripy.frontend.ops.zeros import zeros_like
 from nvtripy.frontend.ops.where import where

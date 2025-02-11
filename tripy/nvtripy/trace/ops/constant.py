@@ -141,43 +141,35 @@ class Constant(BaseTraceOp):
 
     def to_mlir(self, inputs):
         # TODO(#189): Remove explicit copy to host for constants
-        if isinstance(self.data, runtime.MemRefValue):
-            runtime_client = mlir_utils.MLIRRuntimeClient()
-            data_memref = self.data
-            if data_memref.address_space == runtime.PointerType.device:
-                data_memref = runtime_client.copy_to_host(
-                    device_memref=data_memref,
-                    stream=None,
-                )
-
-            # TODO: we can further drop the cast by tolist(memref) -> mlir
-            # Workaround (#208): bools are represented as i1 in MLIR-TRT but they cannot be used for DenseElementsAttr
-            # so we have to represent them as ints and then cast the result
-            if self.outputs[0].dtype == datatype.bool:
-                # need to use memoryview.cast to ensure that the view will be flattened
-                int_memref = create_memref(
-                    array=array.array("i", memoryview(data_memref).cast("b").tolist()),
-                    shape=self.data.shape,
-                    dtype=datatype.int32,
-                    device=device("cpu"),
-                )
-                attr = ir.DenseElementsAttr.get(
-                    array=int_memref, type=mlir_utils.get_mlir_dtype(datatype.int32), shape=data_memref.shape
-                )
-                cast_output = mlir_utils.make_mlir_tensor(datatype.bool, data_memref.shape)
-                constant_op = tensorrt.constant(attr)
-                return constant_op
-                # TODO (pranavm): Figure out what needs to be done here:
-                # return [stablehlo.ConvertOp(result=cast_output, operand=constant_op)]
-
-            attr = ir.DenseElementsAttr.get(
-                array=data_memref, type=mlir_utils.get_mlir_dtype(self.outputs[0].dtype), shape=data_memref.shape
+        assert isinstance(self.data, runtime.MemRefValue)
+        runtime_client = mlir_utils.MLIRRuntimeClient()
+        data_memref = self.data
+        if data_memref.address_space == runtime.PointerType.device:
+            data_memref = runtime_client.copy_to_host(
+                device_memref=data_memref,
+                stream=None,
             )
-        else:
-            out_dtype = self.outputs[0].dtype
-            attr = ir.DenseElementsAttr.get(
-                attrs=mlir_utils.list_to_dense_attr(self.data, mlir_utils.get_mlir_dtype(out_dtype)),
-                type=self.outputs[0].to_mlir(),
+
+        # TODO (pranavm): Need to enable TRT cast:
+        # TODO: we can further drop the cast by tolist(memref) -> mlir
+        # Workaround (#208): bools are represented as i1 in MLIR-TRT but they cannot be used for DenseElementsAttr
+        # so we have to represent them as ints and then cast the result
+        if self.outputs[0].dtype == datatype.bool:
+            # need to use memoryview.cast to ensure that the view will be flattened
+            int_memref = create_memref(
+                array=array.array("i", memoryview(data_memref).cast("b").tolist()),
+                shape=self.data.shape,
+                dtype=datatype.int32,
+                device=device("cpu"),
             )
+            attr = ir.DenseElementsAttr.get(
+                array=int_memref, type=mlir_utils.get_mlir_dtype(datatype.int32), shape=data_memref.shape
+            )
+            constant_op = tensorrt.constant(attr)
+            return [tensorrt.identity(result=self.outputs[0].to_mlir(), input=constant_op)]
+
+        attr = ir.DenseElementsAttr.get(
+            array=data_memref, type=mlir_utils.get_mlir_dtype(self.outputs[0].dtype), shape=data_memref.shape
+        )
 
         return [tensorrt.constant(attr)]
