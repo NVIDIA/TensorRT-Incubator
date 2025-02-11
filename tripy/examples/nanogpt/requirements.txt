@@ -1,6 +1,6 @@
 -f https://nvidia.github.io/TensorRT-Incubator/packages.html
 nvtripy
-transformers==4.46.2
+transformers==4.48.0
 tiktoken==0.5.2
 --extra-index-url https://download.pytorch.org/whl/cu121
 torch==2.3.0
