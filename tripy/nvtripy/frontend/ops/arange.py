@@ -4,7 +4,7 @@ from typing import Union
 from nvtripy import export
 from nvtripy.common import datatype
 from nvtripy.common.exception import raise_error
-from nvtripy.frontend.ops.fill import full
+from nvtripy.frontend.ops.full import full
 from nvtripy.frontend.ops.iota import iota
 from nvtripy.utils import wrappers
 
