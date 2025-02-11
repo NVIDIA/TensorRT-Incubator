@@ -30,6 +30,7 @@ class TestQuantize:
     @pytest.mark.parametrize(
         "dtype", [tp.float32, tp.float16, pytest.param(tp.bfloat16, marks=skip_if_older_than_sm80)]
     )
+    @pytest.mark.skip("StableHLO QDQ broken")
     def test_quantize_int8_per_tensor(self, dtype, eager_or_compiled):
         input = torch.tensor([1.0, 2.0], dtype=TORCH_DTYPES[dtype])
         scale = torch.tensor(0.5, dtype=TORCH_DTYPES[dtype])
@@ -56,6 +57,7 @@ class TestQuantize:
             pytest.param(tp.bfloat16, marks=skip_if_older_than_sm80),
         ],
     )
+    @pytest.mark.skip("StableHLO QDQ broken")
     def test_quantize_int8_per_channel(self, dtype, eager_or_compiled):
         input = torch.tensor([[1.0, 2.0], [3.0, 4.0]], dtype=TORCH_DTYPES[dtype])
         scale = torch.tensor([0.2, 0.1], dtype=TORCH_DTYPES[dtype])
@@ -73,6 +75,7 @@ class TestQuantize:
         "dtype", [tp.float32, tp.float16, pytest.param(tp.bfloat16, marks=skip_if_older_than_sm80)]
     )
     @skip_if_older_than_sm89
+    @pytest.mark.skip("StableHLO QDQ broken")
     def test_quantize_fp8_per_tensor(self, dtype, eager_or_compiled):
         input = torch.tensor([1.0, 2.0], dtype=TORCH_DTYPES[dtype])
         scale = torch.tensor(0.5, dtype=TORCH_DTYPES[dtype])
@@ -96,6 +99,7 @@ class TestQuantize:
         "dtype", [tp.float32, tp.float16, pytest.param(tp.bfloat16, marks=skip_if_older_than_sm80)]
     )
     @skip_if_older_than_sm89
+    @pytest.mark.skip("StableHLO QDQ broken")
     def test_quantize_fp8_per_channel(self, dtype, eager_or_compiled):
         input = torch.tensor([[1.0, 2.0], [3.0, 4.0]], dtype=TORCH_DTYPES[dtype])
         scale = torch.tensor([0.2, 0.1], dtype=TORCH_DTYPES[dtype])
@@ -119,6 +123,7 @@ class TestQuantize:
         "dtype", [tp.float32, tp.float16, pytest.param(tp.bfloat16, marks=skip_if_older_than_sm80)]
     )
     @pytest.mark.parametrize("quant_mode", ["block-wise", "per-tensor", "per-channel-0", "per-channel-1"])
+    @pytest.mark.skip("StableHLO QDQ broken")
     def test_qdq_int4(self, dtype, quant_mode, eager_or_compiled):
         if quant_mode == "block-wise":
             dim = None
