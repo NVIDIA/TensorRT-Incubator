@@ -166,6 +166,7 @@ class Constant(BaseTraceOp):
                 array=int_memref, type=mlir_utils.get_mlir_dtype(datatype.int32), shape=data_memref.shape
             )
             constant_op = tensorrt.constant(attr)
+            # TODO (pranavm): Replace this with `cast`
             return [tensorrt.identity(result=self.outputs[0].to_mlir(), input=constant_op)]
 
         attr = ir.DenseElementsAttr.get(
