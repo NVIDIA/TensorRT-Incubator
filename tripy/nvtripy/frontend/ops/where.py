@@ -91,7 +91,7 @@ def masked_fill(input: "nvtripy.Tensor", mask: "nvtripy.Tensor", value: numbers.
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.array([[-1, 0], [-1, -1]], dtype=np.float32))
     """
-    from nvtripy.frontend.ops.fill import full_like
+    from nvtripy.frontend.ops.full import full_like
 
     fill_tensor = full_like(input, value)
     return where(mask, fill_tensor, input)

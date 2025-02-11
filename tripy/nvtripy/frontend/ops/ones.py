@@ -2,7 +2,7 @@ from typing import Optional
 
 from nvtripy import export
 from nvtripy.common import datatype
-from nvtripy.frontend.ops.fill import full, full_like
+from nvtripy.frontend.ops.full import full, full_like
 from nvtripy.utils import wrappers
 
 
