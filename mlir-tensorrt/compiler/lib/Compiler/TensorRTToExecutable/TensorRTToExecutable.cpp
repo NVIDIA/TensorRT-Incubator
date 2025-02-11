@@ -88,6 +88,9 @@ void TensorRTToExecutableTask::buildPostClusteringPipeline(
       nullptr, options.get<TensorRTOptions>().options));
 
   pm.addPass(createMemRefCastEliminationPass());
+  plan::PlanAllocTensorsPassOptions allocTensorOpts{};
+  allocTensorOpts.forceEntrypointsReturnAllocs =
+      options.forceEntrypointsReturnAllocs;
   pm.addPass(plan::createPlanAllocTensorsPass());
   pm.addPass(plan::createPlanBufferizePass());
   pm.addPass(createMemRefCastEliminationPass());
