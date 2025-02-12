@@ -21,6 +21,7 @@ def compile(client, op):
             "--tensorrt-builder-opt-level=0",
             "--tensorrt-strongly-typed=true",
             "--tensorrt-workspace-memory-pool-limit=1024kB",
+            "--force-entrypoints-return-allocs",
         ],
     )
     task.run(op)
@@ -53,14 +54,11 @@ def tensorrt_add():
         device=devices[0],
         stream=stream,
     )
-    arg1 = client.create_memref(
-        np.zeros(shape=(2, 3, 4), dtype=np.float32).data,
-        device=devices[0],
-        stream=stream,
+    results = session.execute_function(
+        "main", in_args=[arg0], stream=stream, client=client
     )
-    session.execute_function("main", in_args=[arg0], out_args=[arg1], stream=stream)
 
-    data = np.asarray(client.copy_to_host(arg1, stream=stream))
+    data = np.asarray(client.copy_to_host(results[0], stream=stream))
     stream.sync()
 
     print(data)
