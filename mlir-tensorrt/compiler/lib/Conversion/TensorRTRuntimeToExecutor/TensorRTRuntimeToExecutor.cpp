@@ -375,6 +375,10 @@ struct ConvertEnqueueAllocToCall
     for (auto [idx, result] : llvm::enumerate(op.getResults())) {
       MemRefType memrefType = cast<MemRefType>(result.getType());
       unsigned rank = memrefType.getRank();
+
+      // Skip the rank offset that is populated by the callee.
+      outputDescOffset++;
+
       Value devicePtrOffset = b.create<executor::GetOffsetOp>(
           i64Type, structType,
           ArrayRef<OpFoldResult>{

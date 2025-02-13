@@ -79,24 +79,26 @@ func.func @convert_enqueue_alloc(%arg0: memref<?xf32, #device>,
 //       CHECK:     %[[v12:.+]] = executor.table.get %[[v0]][3] : <!executor.ptr<device>, !executor.ptr<device>, i64, i64, i64>
 //       CHECK:     %[[v13:.+]] = executor.table.create(%[[v8]], %[[c0_i64]], %[[c2_i64]], %[[v9]], %[[v10]], %[[v11]], %[[c0_i64]], %[[c1_i64]], %[[v12]] : !executor.ptr<device>, i64, i64, i64, i64, !executor.ptr<device>, i64, i64, i64) : <!executor.ptr<device>, i64, i64, i64, i64, !executor.ptr<device>, i64, i64, i64>
 //       CHECK:     executor.call @_trtrt_enqueue_alloc(%[[v3]], %[[v2]], %[[v4]], %[[v13]]) : (!executor.ptr<host>, !executor.ptr<host>, !executor.ptr<host>, !executor.table<!executor.ptr<device>, i64, i64, i64, i64, !executor.ptr<device>, i64, i64, i64>) -> ()
-//       CHECK:     %[[v14:.+]] = executor.load %[[v4]] + %[[v6]] : (!executor.ptr<host>, i64) -> i64
-//       CHECK:     %[[v15:.+]] = executor.inttoptr %[[v14]] : (i64) -> !executor.ptr<device>
-//       CHECK:     %[[v16:.+]] = executor.getoffset[0, 2] : () -> i64, !executor.table<i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64>
-//       CHECK:     %[[v17:.+]] = executor.load %[[v4]] + %[[v16]] : (!executor.ptr<host>, i64) -> i64
+//       CHECK:     %[[v14:.+]] = executor.getoffset[0, 2] : () -> i64, !executor.table<i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64>
+//       CHECK:     %[[v15:.+]] = executor.load %[[v4]] + %[[v14]] : (!executor.ptr<host>, i64) -> i64
+//       CHECK:     %[[v16:.+]] = executor.inttoptr %[[v15]] : (i64) -> !executor.ptr<device>
 //       CHECK:     %[[v18:.+]] = executor.getoffset[0, 3] : () -> i64, !executor.table<i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64>
 //       CHECK:     %[[v19:.+]] = executor.load %[[v4]] + %[[v18]] : (!executor.ptr<host>, i64) -> i64
-//       CHECK:     %[[v20:.+]] = executor.table.create(%[[v15]], %[[v15]], %[[c0_i64]], %[[v17]], %[[v19]] : !executor.ptr<device>, !executor.ptr<device>, i64, i64, i64) : <!executor.ptr<device>, !executor.ptr<device>, i64, i64, i64>
-//       CHECK:     %[[v21:.+]] = builtin.unrealized_conversion_cast %[[v20]] : !executor.table<!executor.ptr<device>, !executor.ptr<device>, i64, i64, i64> to memref<?xf32, #executor.memory_type<device>>
-//       CHECK:     %[[v22:.+]] = executor.getoffset[0, 4] : () -> i64, !executor.table<i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64>
-//       CHECK:     %[[v23:.+]] = executor.load %[[v4]] + %[[v22]] : (!executor.ptr<host>, i64) -> i64
-//       CHECK:     %[[v24:.+]] = executor.inttoptr %[[v23]] : (i64) -> !executor.ptr<host>
-//       CHECK:     %[[v25:.+]] = executor.load %[[v4]] + %[[v7]] : (!executor.ptr<host>, i64) -> i64
-//       CHECK:     %[[v26:.+]] = executor.getoffset[0, 6] : () -> i64, !executor.table<i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64>
-//       CHECK:     %[[v27:.+]] = executor.load %[[v4]] + %[[v26]] : (!executor.ptr<host>, i64) -> i64
+//       CHECK:     %[[v20:.+]] = executor.getoffset[0, 4] : () -> i64, !executor.table<i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64>
+//       CHECK:     %[[v21:.+]] = executor.load %[[v4]] + %[[v20]] : (!executor.ptr<host>, i64) -> i64
+//       CHECK:     %[[v22:.+]] = executor.table.create(%[[v16]], %[[v16]], %[[c0_i64]], %[[v19]], %[[v21]] : !executor.ptr<device>, !executor.ptr<device>, i64, i64, i64) : <!executor.ptr<device>, !executor.ptr<device>, i64, i64, i64>
+//       CHECK:     %[[v23:.+]] = builtin.unrealized_conversion_cast %[[v22]] : !executor.table<!executor.ptr<device>, !executor.ptr<device>, i64, i64, i64> to memref<?xf32, #executor.memory_type<device>>
+//       CHECK:     %[[v24:.+]] = executor.getoffset[0, 6] : () -> i64, !executor.table<i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64>
+//       CHECK:     %[[v25:.+]] = executor.load %[[v4]] + %[[v24]] : (!executor.ptr<host>, i64) -> i64
+//       CHECK:     %[[v26:.+]] = executor.inttoptr %[[v25]] : (i64) -> !executor.ptr<host>
 //       CHECK:     %[[v28:.+]] = executor.getoffset[0, 7] : () -> i64, !executor.table<i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64>
 //       CHECK:     %[[v29:.+]] = executor.load %[[v4]] + %[[v28]] : (!executor.ptr<host>, i64) -> i64
 //       CHECK:     %[[v30:.+]] = executor.getoffset[0, 8] : () -> i64, !executor.table<i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64>
 //       CHECK:     %[[v31:.+]] = executor.load %[[v4]] + %[[v30]] : (!executor.ptr<host>, i64) -> i64
-//       CHECK:     %[[v32:.+]] = executor.table.create(%[[v24]], %[[v24]], %[[c0_i64]], %[[v25]], %[[v27]], %[[v29]], %[[v31]] : !executor.ptr<host>, !executor.ptr<host>, i64, i64, i64, i64, i64) : <!executor.ptr<host>, !executor.ptr<host>, i64, i64, i64, i64, i64>
-//       CHECK:     %[[v33:.+]] = builtin.unrealized_conversion_cast %[[v32]] : !executor.table<!executor.ptr<host>, !executor.ptr<host>, i64, i64, i64, i64, i64> to memref<?x?xf32, #executor.memory_type<host>>
-//       CHECK:     return %[[v21]], %[[v33]] : memref<?xf32, #executor.memory_type<device>>, memref<?x?xf32, #executor.memory_type<host>>
+//       CHECK:     %[[v32:.+]] = executor.getoffset[0, 9] : () -> i64, !executor.table<i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64>
+//       CHECK:     %[[v33:.+]] = executor.load %[[v4]] + %[[v32]] : (!executor.ptr<host>, i64) -> i64
+//       CHECK:     %[[v34:.+]] = executor.getoffset[0, 10] : () -> i64, !executor.table<i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64>
+//       CHECK:     %[[v35:.+]] = executor.load %[[v4]] + %[[v34]] : (!executor.ptr<host>, i64) -> i64
+//       CHECK:     %[[v36:.+]] = executor.table.create(%[[v26]], %[[v26]], %[[c0_i64]], %[[v29]], %[[v31]], %[[v33]], %[[v35]] : !executor.ptr<host>, !executor.ptr<host>, i64, i64, i64, i64, i64) : <!executor.ptr<host>, !executor.ptr<host>, i64, i64, i64, i64, i64>
+//       CHECK:     %[[v37:.+]] = builtin.unrealized_conversion_cast %[[v36]] : !executor.table<!executor.ptr<host>, !executor.ptr<host>, i64, i64, i64, i64, i64> to memref<?x?xf32, #executor.memory_type<host>>
+//       CHECK:     return %[[v23]], %[[v37]] : memref<?xf32, #executor.memory_type<device>>, memref<?x?xf32, #executor.memory_type<host>>

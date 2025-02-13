@@ -389,8 +389,26 @@ static Status pushMemRefTableArg(sol::state_view &lua, AllocTracker &tracker,
 
   args.emplace_back(sol::make_object(lua, std::move(memrefTable)));
 
-  PointerInfo pointerInfo = value.getPointerInfo(PointerOwner::external);
+  // Determine if the memory is internally managed by the client's AllocTracker
+  AllocTracker &clientTracker = value.getClient()->getAllocTracker();
+  uintptr_t memory = value.getMemory();
+  bool isInternallyManagedByClient =
+      clientTracker.contains(memory) &&
+      clientTracker.get(memory).isInternallyManaged();
+
+  // Create PointerInfo with appropriate ownership based on whether it is
+  // internally managed by the client
+  PointerInfo pointerInfo = value.getPointerInfo(isInternallyManagedByClient
+                                                     ? PointerOwner::internal
+                                                     : PointerOwner::external);
+
+  // Track the pointer in the current AllocTracker
   tracker.track(pointerInfo);
+
+  // First, mark the pointer as released internally if it is internally managed
+  // by the client
+  if (isInternallyManagedByClient)
+    tracker.markReleasedInternally(pointerInfo.ptr);
 
   return getOkStatus();
 }
@@ -646,7 +664,7 @@ parseResults(const sol::protected_function_result &pfr,
     // Create an external MemRef and track it in both session and client
     // allocation trackers
     MTRT_DBGF("Creating external MemRef for ptr 0x%lx: "
-              "Session alloc tracker: %p, Session pinner memory allocator: %p, "
+              "Session alloc tracker: %p, Session pinned memory allocator: %p, "
               "Client: %p, Client tracker: %p. "
               "This ptr is registered with the session and will now be tracked "
               "by the client as well.",
@@ -659,7 +677,6 @@ parseResults(const sol::protected_function_result &pfr,
     // ownership and have the client assume
     PointerInfo info = session.getAllocTracker().get(allocPtr);
     session.getAllocTracker().untrack(info.ptr);
-    (*client)->getAllocTracker().track(info);
 
     // Defer deallocation of this pinned memory pointer
     // This pointer is likely still in use by the client and should not be
@@ -677,6 +694,11 @@ parseResults(const sol::protected_function_result &pfr,
     if (!memref.isOk())
       return memref.getStatus();
 
+    // Track the pointer as internal in the client's AllocTracker
+    (*client)->getAllocTracker().track(
+        (*memref)->getPointerInfo(PointerOwner::internal));
+
+    // Add the memref to the results vector
     results.push_back(std::move(*memref));
   }
 
