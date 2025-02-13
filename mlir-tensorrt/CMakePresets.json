@@ -37,7 +37,7 @@
     {
       "name": "ninja-llvm-debug",
       "inherits": "ninja-llvm",
-      "displayName": "Ninja Release LLVM",
+      "displayName": "Ninja Debug LLVM",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug"
       }
