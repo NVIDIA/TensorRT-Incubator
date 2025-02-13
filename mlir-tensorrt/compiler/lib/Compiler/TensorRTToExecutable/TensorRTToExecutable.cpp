@@ -63,7 +63,13 @@ void TensorRTToExecutableTask::buildTensorRTClusteringPipeline(
 
 void TensorRTToExecutableTask::buildPostClusteringPipeline(
     OpPassManager &pm, const TensorRTToExecutableOptions &options) {
-  // Post-clustering
+  // Simplify and translate functions nested in `tensorrt.module` ops.
+  auto &trtPM = pm.nest<tensorrt::TensorRTModuleOp>();
+  tensorrt::buildTensorRTModuleTransformationPipeline(
+      trtPM, options.get<TensorRTOptions>().options.enableStronglyTyped);
+  trtPM.addPass(tensorrt::createTranslateTensorRTPass(
+      nullptr, options.get<TensorRTOptions>().options));
+
   pm.addPass(createConvertTensorRTToTensorRTRuntimePass());
 
   pm.addNestedPass<func::FuncOp>(plan::createPostClusteringValidationPass());
@@ -80,18 +86,11 @@ void TensorRTToExecutableTask::buildPostClusteringPipeline(
   pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
 
   // Pre-bufferization
-  // Simplify and translate functions nested in `tensorrt.module` ops.
-  auto &trtPM = pm.nest<tensorrt::TensorRTModuleOp>();
-  tensorrt::buildTensorRTModuleTransformationPipeline(
-      trtPM, options.get<TensorRTOptions>().options.enableStronglyTyped);
-  trtPM.addPass(tensorrt::createTranslateTensorRTPass(
-      nullptr, options.get<TensorRTOptions>().options));
-
   pm.addPass(createMemRefCastEliminationPass());
   plan::PlanAllocTensorsPassOptions allocTensorOpts{};
   allocTensorOpts.forceEntrypointsReturnAllocs =
-      options.forceEntrypointsReturnAllocs;
-  pm.addPass(plan::createPlanAllocTensorsPass());
+      options.get<PlanAllocOptions>().forceEntrypointsReturnAllocs;
+  pm.addPass(plan::createPlanAllocTensorsPass(allocTensorOpts));
   pm.addPass(plan::createPlanBufferizePass());
   pm.addPass(createMemRefCastEliminationPass());
   pm.addPass(createCanonicalizerPass());
