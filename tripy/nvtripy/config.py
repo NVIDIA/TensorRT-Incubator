@@ -29,14 +29,12 @@ export.public_api(autodoc_options=[":no-members:", ":no-special-members:"])(sys.
 
 # MLIR-TRT Debug options
 enable_mlir_debug = os.environ.get("TRIPY_MLIR_DEBUG_ENABLED", "0") == "1"
-mlir_debug_types = os.environ.get("TRIPY_MLIR_DEBUG_TYPES", "-mlir-print-ir-after-all,-translate-to-tensorrt").split(
-    ","
-)
-mlir_debug_tree_path = os.environ.get("TRIPY_MLIR_DEBUG_PATH", os.path.join("/", "nvtripy", "mlir-dumps"))
+mlir_debug_types = os.environ.get("TRIPY_MLIR_DEBUG_TYPES", "-translate-to-tensorrt").split(",")
+mlir_debug_tree_path = os.environ.get("TRIPY_MLIR_DEBUG_PATH", os.path.join("/", "tripy", "mlir-dumps"))
 
 # TensorRT debug options
 enable_tensorrt_debug = os.environ.get("TRIPY_TRT_DEBUG_ENABLED", "0") == "1"
-tensorrt_debug_path = os.environ.get("TRIPY_TRT_DEBUG_PATH", os.path.join("/", "nvtripy", "tensorrt-dumps"))
+tensorrt_debug_path = os.environ.get("TRIPY_TRT_DEBUG_PATH", os.path.join("/", "tripy", "tensorrt-dumps"))
 
 use_cache_in_eager_mode: bool = export.public_api(
     document_under="config.rst",
@@ -55,7 +53,7 @@ timing_cache_file_path: str = export.public_api(
     autodoc_options=[":no-value:"],
     module=sys.modules[__name__],
     symbol="timing_cache_file_path",
-)(os.path.join(tempfile.gettempdir(), "nvtripy-cache"))
+)(os.path.join(tempfile.gettempdir(), "tripy-cache"))
 """Path to a timing cache file that can be used to speed up compilation time."""
 
 enable_dtype_checking: bool = export.public_api(
