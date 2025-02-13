@@ -19,13 +19,8 @@ from typing import List
 
 import mlir_tensorrt.runtime.api as runtime
 from nvtripy.backend.api.stream import default_stream
-from nvtripy.backend.mlir.memref import create_memref
-from nvtripy.backend.mlir.utils import MLIRRuntimeClient, convert_runtime_dtype_to_tripy_dtype
-from nvtripy.backend.utils import TensorInfo
-from nvtripy.common import datatype, device
+from nvtripy.backend.mlir.utils import MLIRRuntimeClient
 from nvtripy.common.exception import raise_error
-from nvtripy.common.utils import convert_list_to_array
-from nvtripy.utils.utils import make_tuple
 
 
 class Executor:
@@ -33,8 +28,6 @@ class Executor:
         self.runtime_client = MLIRRuntimeClient()
         session_options = runtime.RuntimeSessionOptions(num_devices=1, device_id=0)
         self.session = runtime.RuntimeSession(session_options, executable)
-        self.device = self.runtime_client.get_devices()[0]  # Assume a single device is available.
-        self.signature = executable.get_signature("main")
         self.stream = default_stream()
 
     def execute(self, inputs: List["TraceTensor"] = []) -> List[runtime.MemRefValue]:
