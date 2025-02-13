@@ -535,6 +535,8 @@ MTRT_Status mtrtGetScalarTypeCodeFromDLDataType(DLDataType dtype,
 
 static void dlpackManagedTensorDeleter(DLManagedTensor *tensor) {
   if (tensor) {
+    MTRT_DBGF("Deleting DLManagedTensor. Data pointer: %p",
+              tensor->dl_tensor.data);
     delete[] tensor->dl_tensor.shape;
     delete[] tensor->dl_tensor.strides;
     if (tensor->manager_ctx) {
