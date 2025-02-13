@@ -538,7 +538,6 @@ void AllocTracker::track(PointerInfo info) {
   auto value = std::make_unique<Metadata>();
   value->externalReferenceCount.store(0);
   value->releasedInternally = false;
-  value->releaseAfterConsumption = false;
   value->info = info;
   if (!contains(info.ptr)) {
     map.insert(std::make_pair(info.ptr, std::move(value)));
