@@ -52,7 +52,8 @@ namespace mlirtrt::compiler {
 class StablehloToExecutableTask;
 
 struct StablehloToExecutableOptions
-    : public mlir::OptionsBundle<DebugOptions, ExecutorOptions, DeviceOptions> {
+    : public mlir::OptionsBundle<DebugOptions, ExecutorOptions, DeviceOptions,
+                                 PlanAllocOptions> {
   /// Initializes the options. The extensions in the provided registry
   /// must be extensions for the StableHloToExecutable task.
   StablehloToExecutableOptions(TaskExtensionRegistry extensions);
@@ -70,20 +71,6 @@ struct StablehloToExecutableOptions
 
   Option<std::string> entrypoint{this, "entrypoint", llvm::cl::init("main"),
                                  llvm::cl::desc("entrypoint function name")};
-
-  /// Forces entrypoint functions to return allocations corresponding to the
-  /// original tensor results. Otherwise, entrypoints will be lowered to use
-  /// destination passing style whenever possible, but some results may still
-  /// lower to returned allocations (because the output shape may not be
-  /// computable from the inputs). In either case, the user should verify the
-  /// final calling convention of the compiled function(s) by inspecting the
-  /// compiled function signature metadata.
-  Option<bool> forceEntrypointsReturnAllocs{
-      this, "force-entrypoints-return-allocs", llvm::cl::init(false),
-      llvm::cl::desc(
-          "Require entrypoint functions to return allocations corresponding to"
-          " the original tensor results, otherwise they are transformed"
-          " into destination arguments whenever possible.")};
 
   /// Base class for extensions associated with StableHloToExecutableTask.
   class ExtensionBase : public TaskExtensionBase {
