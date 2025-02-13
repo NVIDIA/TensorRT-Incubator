@@ -64,6 +64,7 @@ class Compiler:
             opts.append("--debug=true")
             if config.enable_mlir_debug:
                 opts.append(f"--debug-only={config.mlir_debug_types}")
+                opts.append(f"--mlir-print-ir-after-all")
                 opts.append(f"--mlir-print-ir-tree-dir={config.mlir_debug_tree_path}")
             if config.enable_tensorrt_debug:
                 opts.append(f"--tensorrt-layer-info-dir={config.tensorrt_debug_path}")
