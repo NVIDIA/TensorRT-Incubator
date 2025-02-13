@@ -118,7 +118,7 @@ class Trace:
         return "\n".join(layer_strs)
 
     @staticmethod
-    def _collect_storage_tensors(trace_tensor):
+    def _collect_constant_tensors(trace_tensor):
         visited = set()
         inputs = []
 
@@ -128,7 +128,7 @@ class Trace:
             visited.add(id(trace_tensor))
 
             producer = trace_tensor.producer
-            if isinstance(producer, Constant) and utils.utils.should_lift_storage_op_as_input(producer.shape):
+            if isinstance(producer, Constant) and utils.utils.should_lift_constant_op_as_input(producer.shape):
                 inputs.append(trace_tensor)
             else:
                 for inp in producer.inputs:

@@ -113,7 +113,7 @@ class Constant(BaseTraceOp):
             self.device = utils.utils.default(device, tp_device.fast_init("gpu", 0))
 
         # Set data_str only for objects that won't be treated as Trace inputs
-        if not utils.utils.should_lift_storage_op_as_input(self.shape):
+        if not utils.utils.should_lift_constant_op_as_input(self.shape):
             self.data_str = str(original_data)  # TODO (#448): Fix floating point str representation
 
         # Parent constructor will run rank/type inference, so we need to run it after setting the fields above.
@@ -128,7 +128,7 @@ class Constant(BaseTraceOp):
         return self.data == other.data if isinstance(other, Constant) else False
 
     def infer_rank(self):
-        # In the storage op, we actually know the exact shape, which we've already set in the constructor.
+        # In the constant op, we actually know the exact shape, which we've already set in the constructor.
         # Hence, we don't need to set rank here (and doing so would overwrite the shape we set).
         pass
 

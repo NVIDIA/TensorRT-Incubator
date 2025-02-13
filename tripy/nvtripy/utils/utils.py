@@ -164,8 +164,8 @@ def should_omit_constant_in_str(shape):
     return math.prod(shape) >= constants.CONSTANT_IR_PRINT_VOLUME_THRESHOLD
 
 
-def should_lift_storage_op_as_input(shape):
-    return math.prod(shape) >= constants.STORAGE_OP_CACHE_VOLUME_THRESHOLD
+def should_lift_constant_op_as_input(shape):
+    return math.prod(shape) >= constants.CONSTANT_OP_CACHE_VOLUME_THRESHOLD
 
 
 def get_dataclass_fields(obj: Any, BaseClass: type) -> List[dataclasses.Field]:

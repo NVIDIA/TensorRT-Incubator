@@ -90,8 +90,8 @@ class Tensor(metaclass=TensorMeta):
         assert data is not None, "Data argument to Tensor must not be None"
         self._stack_info = utils.stack_info.StackInfo([])
 
-        storage = Constant(data, device=device if not hasattr(data, "__dlpack__") else None)
-        self.trace_tensor = storage.outputs[0]
+        constant = Constant(data, device=device if not hasattr(data, "__dlpack__") else None)
+        self.trace_tensor = constant.outputs[0]
         self.trace_tensor.name = utils.utils.default(name, self.trace_tensor.name)
         if fetch_stack_info:
             # TODO (pranavm): Figure out the right stack depth
@@ -120,8 +120,8 @@ class Tensor(metaclass=TensorMeta):
     @staticmethod
     def fast_init(data: Any):
         instance = Tensor.__new__(Tensor)
-        storage = Constant(data)
-        instance.trace_tensor = storage.outputs[0]
+        constant = Constant(data)
+        instance.trace_tensor = constant.outputs[0]
         instance.stack_info = utils.stack_info.StackInfo([])
         return instance
 
@@ -177,7 +177,7 @@ class Tensor(metaclass=TensorMeta):
         from nvtripy.trace.trace import Trace
 
         # Collect inputs
-        inputs = Trace._collect_storage_tensors(self.trace_tensor)
+        inputs = Trace._collect_constant_tensors(self.trace_tensor)
 
         trace = Trace([self.trace_tensor], inputs=inputs)
         # TODO (#155): Remove output devices here?
@@ -196,12 +196,12 @@ class Tensor(metaclass=TensorMeta):
 
         # Upon computing the value of this tensor, we switch it to have a `Constant`
         # parameter so that it does not need to be computed again.
-        storage = Constant(data)
+        constant = Constant(data)
         # Need to carry forward `is_compile_tracer`:
-        storage.outputs[0].is_compile_tracer = self.trace_tensor.is_compile_tracer
+        constant.outputs[0].is_compile_tracer = self.trace_tensor.is_compile_tracer
 
         # Rebind this tensor, but be sure to preserve stack information:
-        self.trace_tensor = storage.outputs[0]
+        self.trace_tensor = constant.outputs[0]
         self.trace_tensor.stack_info = self.stack_info
 
         # TODO(#155): Remove this hack of overriding the device type.
