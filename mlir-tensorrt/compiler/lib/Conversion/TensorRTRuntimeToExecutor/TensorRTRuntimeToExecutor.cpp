@@ -375,6 +375,13 @@ struct ConvertEnqueueAllocToCall
     for (auto [idx, result] : llvm::enumerate(op.getResults())) {
       MemRefType memrefType = cast<MemRefType>(result.getType());
       unsigned rank = memrefType.getRank();
+      
+      Value rankOffset = b.create<executor::GetOffsetOp>(
+        b.getI64Type(), structType,
+        ArrayRef<OpFoldResult>{
+            this->createIndexConstant(b, 0),
+            rewriter.getI64IntegerAttr(outputDescOffset++)});
+
       Value devicePtrOffset = b.create<executor::GetOffsetOp>(
           i64Type, structType,
           ArrayRef<OpFoldResult>{
@@ -389,6 +396,9 @@ struct ConvertEnqueueAllocToCall
       Value intPtr = b.create<executor::LoadOp>(i64Type, outputDescriptors,
                                                 devicePtrOffset);
       Value alignedPtr = b.create<executor::IntToPtrOp>(ptrType, intPtr);
+
+      [[maybe_unused]] Value rankValue = b.create<executor::LoadOp>(
+        b.getI64Type(), outputDescriptors, rankOffset);
 
       SmallVector<Value, 4> shapes, strides;
       for (unsigned r = 0; r < rank; ++r) {
