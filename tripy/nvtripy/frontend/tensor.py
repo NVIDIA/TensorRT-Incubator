@@ -171,8 +171,8 @@ class Tensor(metaclass=TensorMeta):
             # This happens before the imports below so we don't incur extra overhead.
             return self.trace_tensor.producer.data
 
+        from nvtripy.backend.api.executable import Executable
         from nvtripy.backend.mlir.compiler import Compiler
-        from nvtripy.backend.mlir.executor import Executor
         from nvtripy.frontend.cache import global_cache
         from nvtripy.trace.trace import Trace
 
@@ -192,15 +192,10 @@ class Tensor(metaclass=TensorMeta):
 
             global_cache.set(trace, executable=executable, devices=output_devices)
 
-        executor = Executor(executable)
+        data = Executable(executable, [])().eval()
 
         # Upon computing the value of this tensor, we switch it to have a `Storage`
         # parameter so that it does not need to be computed again.
-        data = executor.execute(inputs)
-        executor.stream.synchronize()
-        assert len(data) == 1, "Expects only one output from mlir_tensorrt.compiler executor"
-        data = data[0]
-
         storage = Storage(data)
         # Need to carry forward `is_compile_tracer`:
         storage.outputs[0].is_compile_tracer = self.trace_tensor.is_compile_tracer
