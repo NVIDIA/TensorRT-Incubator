@@ -59,7 +59,6 @@ struct TensorRTToExecutableOptions
 
   Option<std::string> entrypoint{this, "entrypoint", llvm::cl::init("main"),
                                  llvm::cl::desc("entrypoint function name")};
-
 };
 
 //===----------------------------------------------------------------------===//
