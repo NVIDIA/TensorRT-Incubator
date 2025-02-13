@@ -433,7 +433,6 @@ void AllocTracker::incrementExternalCount(uintptr_t ptr) {
 }
 
 void AllocTracker::decrementExternalCount(uintptr_t ptr) {
-
   assert(llvm::is_contained(map, ptr) &&
          llvm::formatv("Untracked pointer {0}", ptr).str().c_str());
   std::unique_ptr<Metadata> const &metadata = map.at(ptr);
@@ -464,50 +463,49 @@ int32_t AllocTracker::getExternalReferenceCount(uintptr_t ptr) const {
 
 void AllocTracker::track(PointerInfo info) {
   if (info.isInternallyManaged()) {
-    // We issue an assertion error if we somehow have double-tracked this
-    // pointer (perhaps the `untrack` was not correctly called). Note that we
-    // may have previously tracked this pointer as an externally managed pointer
-    // (e.g. function argument), in which case it may have been deallocated,
-    // allowing an internal allocator to pick up that same address. That case is
+    // If the pointer is already tracked as internally managed and has different
+    // metadata, untrack the existing pointer and track the new one. This
+    // handles cases where the pointer was previously tracked as externally
+    // managed and deallocated, allowing reuse by an internal allocator. This is
     // not an error.
-    if (contains(info.ptr) and get(info.ptr).isInternallyManaged()) {
-      MTRT_DBGF("Allocator %p: Internally managed pointer 0x%lx should not be "
-                "already tracked",
-                static_cast<void *>(this), info.ptr);
-      assert(0 &&
-             "an internally managed pointer should not already be tracked");
+    if (contains(info.ptr) && get(info.ptr).isInternallyManaged()) {
+      const PointerInfo &existingInfo = get(info.ptr);
+      if (existingInfo.size != info.size || existingInfo.type != info.type ||
+          existingInfo.owner != info.owner) {
+        MTRT_DBGF("Allocator %p: Internally managed pointer 0x%lx has "
+                  "different info. "
+                  "Existing info - size: %lu, type: %s, owner: %s. "
+                  "New info - size: %lu, type: %s, owner: %s",
+                  static_cast<void *>(this), info.ptr, existingInfo.size,
+                  runtime::impl::EnumNamePointerType(existingInfo.type),
+                  runtime::impl::EnumNamePointerOwner(existingInfo.owner),
+                  info.size, runtime::impl::EnumNamePointerType(info.type),
+                  runtime::impl::EnumNamePointerOwner(info.owner));
+        untrack(info.ptr); // Untrack the existing pointer
+        auto value = std::make_unique<Metadata>();
+        value->externalReferenceCount.store(0);
+        value->releasedInternally = false;
+        value->info = info;
+        map.insert(std::make_pair(info.ptr, std::move(value)));
+        return;
+      }
+      return; // Return if the existing info is the same as the new info
     }
   }
+
   MTRT_DBGF(
-      "AllocTracker %p is now tracking 0x%lx size=%lx space=%s ownership=%s",
+      "AllocTracker %p is now tracking 0x%lx size=%lu space=%s ownership=%s",
       static_cast<void *>(this), info.ptr, info.size,
       runtime::impl::EnumNamePointerType(info.type),
       runtime::impl::EnumNamePointerOwner(info.owner));
   auto value = std::make_unique<Metadata>();
   value->externalReferenceCount.store(0);
   value->releasedInternally = false;
-  value->releaseAfterConsumption = false;
   value->info = info;
   if (!contains(info.ptr)) {
     map.insert(std::make_pair(info.ptr, std::move(value)));
     return;
   }
-
-  auto existingReferenceCount = map.at(info.ptr)->externalReferenceCount.load();
-
-  // If exisiting value in map is internally maanged and not yet released
-  // internally, we can just increment the reference count for the exisiting
-  // entry.
-  if (get(info.ptr).isInternallyManaged() &&
-      !map.at(info.ptr)->releasedInternally && existingReferenceCount > 0 &&
-      info.isExternallyManaged()) {
-    ++map.at(info.ptr)->externalReferenceCount;
-    return;
-  }
-
-  // In the default case when there is an exisiting value in map, we reuse the
-  // exisiting reference count for the new pointer.
-  value->externalReferenceCount = existingReferenceCount;
   untrack(info.ptr);
   map.insert(std::make_pair(info.ptr, std::move(value)));
 }
@@ -610,10 +608,12 @@ mlirtrt::Status runtime::safeDeallocate(AllocTracker &tracker, uintptr_t ptr,
   MTRT_DBGF("external count %d for ptr 0x%lx",
             tracker.getExternalReferenceCount(ptr), ptr);
 
-  if (tracker.getExternalReferenceCount(ptr) > 0) {
+  if (tracker.get(ptr).isInternallyManaged() &&
+      tracker.getExternalReferenceCount(ptr) > 0) {
     // Destructor for external reference should truly free or delete this.
     // Defer safeDeallocate call until then.
-    MTRT_DBGF("Defer freeing ptr 0x%lx and mark it as released internally as "
+    MTRT_DBGF("Defer freeing an internally managed ptr 0x%lx and mark it as "
+              "released internally as "
               "ir has an external reference. "
               "It is responsibility of the external reference counting "
               "mechanism to ensure safeDellaocate is called.",
@@ -628,6 +628,9 @@ mlirtrt::Status runtime::safeDeallocate(AllocTracker &tracker, uintptr_t ptr,
     tracker.untrack(obj.ptr);
     return mlirtrt::Status::getOk();
   }
+
+  // Ensure that pointer is only freed if it is internal and has no external references.
+  assert(tracker.getExternalReferenceCount(ptr) == 0);
 
   if (obj.type == PointerType::host) {
     MTRT_DBGF("Freeing host memory %lx", ptr);
@@ -648,7 +651,7 @@ mlirtrt::Status runtime::safeDeallocate(AllocTracker &tracker, uintptr_t ptr,
                         reinterpret_cast<cudaStream_t>(*stream)));
     } else {
       MTRT_DBGF(
-          "Synchronously freeing CUDA device/pinned host memory %lx type %d",
+          "Synchronously freeing CUDA device/pinned host memory 0x%lx type %d",
           ptr, static_cast<int32_t>(obj.type));
       RETURN_ERROR_IF_CUDART_ERROR(cudaFree(reinterpret_cast<void *>(obj.ptr)));
     }
@@ -656,11 +659,10 @@ mlirtrt::Status runtime::safeDeallocate(AllocTracker &tracker, uintptr_t ptr,
     return Status::getOk();
   }
 
-  if (obj.type != PointerType::pinned_host) {
-    MTRT_DBG("Synchronously freeing pinned host memory {0}",
-             reinterpret_cast<void *>(obj.ptr));
-    RETURN_ERROR_IF_CUDART_ERROR(
-        cudaFreeHost(reinterpret_cast<void *>(obj.ptr)));
+  if (obj.type == PointerType::pinned_host) {
+    MTRT_DBG(
+        "Deferring freeing pinned host memory {0} to pinned memory allocator",
+        reinterpret_cast<void *>(obj.ptr));
     return Status::getOk();
   }
 
@@ -927,6 +929,10 @@ StatusOr<std::unique_ptr<MemRefValue>> RuntimeClient::createExternalMemRef(
     llvm::ArrayRef<int64_t> strides, std::optional<const Device *> device,
     std::optional<ScalarType> scalarType,
     std::optional<bool> assertCanonicalStrides) {
+
+  MTRT_DBGF("Creating an external memref : 0x%lx using AllocTracker: 0x%lx",
+            ptr, reinterpret_cast<uintptr_t>(&allocTracker));
+
   // Create the descriptor.
   StatusOr<std::unique_ptr<MemRefValue>> memref = MemRefValue::create(
       this, addressSpace, bitsPerElement, ptr, offset, shape, strides, device,
@@ -934,7 +940,10 @@ StatusOr<std::unique_ptr<MemRefValue>> RuntimeClient::createExternalMemRef(
   if (!memref.isOk())
     return memref.getStatus();
 
-  allocTracker.track((*memref)->getPointerInfo(PointerOwner::external));
+  // A pointer might already be tracked internally if it was returned as a
+  // result of a function.
+  if (!allocTracker.contains(ptr))
+    allocTracker.track((*memref)->getPointerInfo(PointerOwner::external));
 
   return memref;
 }

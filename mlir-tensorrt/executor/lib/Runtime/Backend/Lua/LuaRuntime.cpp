@@ -365,7 +365,7 @@ StatusOr<int64_t> mlirtrt::runtime::runExecutorExecutable(
 /// for the input memref, including that it is managed outside the session.
 static Status pushMemRefTableArg(sol::state_view &lua, AllocTracker &tracker,
                                  llvm::SmallVector<sol::object> &args,
-                                 const MemRefValue &value) {
+                                 MemRefValue &value) {
   uintptr_t ptr = value.getMemory();
   assert(ptr != 0 && "expected non-null pointer");
   MTRT_DBG("pushing memref argument ptr={0} shape=({1:$[,]}) "
@@ -389,8 +389,17 @@ static Status pushMemRefTableArg(sol::state_view &lua, AllocTracker &tracker,
 
   args.emplace_back(sol::make_object(lua, std::move(memrefTable)));
 
-  PointerInfo pointerInfo = value.getPointerInfo(PointerOwner::external);
-  tracker.track(pointerInfo);
+  if (value.getClient()->getAllocTracker().contains(value.getMemory()) &&
+      value.getClient()
+          ->getAllocTracker()
+          .get(value.getMemory())
+          .isInternallyManaged()) {
+    PointerInfo pointerInfo = value.getPointerInfo(PointerOwner::internal);
+    tracker.track(pointerInfo);
+  } else {
+    PointerInfo pointerInfo = value.getPointerInfo(PointerOwner::external);
+    tracker.track(pointerInfo);
+  }
 
   return getOkStatus();
 }
@@ -646,7 +655,7 @@ parseResults(const sol::protected_function_result &pfr,
     // Create an external MemRef and track it in both session and client
     // allocation trackers
     MTRT_DBGF("Creating external MemRef for ptr 0x%lx: "
-              "Session alloc tracker: %p, Session pinner memory allocator: %p, "
+              "Session alloc tracker: %p, Session pinned memory allocator: %p, "
               "Client: %p, Client tracker: %p. "
               "This ptr is registered with the session and will now be tracked "
               "by the client as well.",
