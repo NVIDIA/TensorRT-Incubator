@@ -132,7 +132,7 @@ void StablehloToExecutableTask::buildPostClusteringPipeline(
   pm.addPass(createMemRefCastEliminationPass());
   plan::PlanAllocTensorsPassOptions allocTensorOpts{};
   allocTensorOpts.forceEntrypointsReturnAllocs =
-      opts.forceEntrypointsReturnAllocs;
+      opts.get<PlanAllocOptions>().forceEntrypointsReturnAllocs;
   pm.addPass(plan::createPlanAllocTensorsPass(allocTensorOpts));
   pm.addPass(plan::createPlanBufferizePass());
   pm.addPass(createMemRefCastEliminationPass());

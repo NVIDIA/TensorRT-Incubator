@@ -215,6 +215,25 @@ public:
   llvm::Error finalizeImpl();
 };
 
+struct PlanAllocOptions : public OptionsProvider<PlanAllocOptions> {
+public:
+  using OptionsProvider::OptionsProvider;
+
+  /// Forces entrypoint functions to return allocations corresponding to the
+  /// original tensor results. Otherwise, entrypoints will be lowered to use
+  /// destination passing style whenever possible, but some results may still
+  /// lower to returned allocations (because the output shape may not be
+  /// computable from the inputs). In either case, the user should verify the
+  /// final calling convention of the compiled function(s) by inspecting the
+  /// compiled function signature metadata.
+  Option<bool> forceEntrypointsReturnAllocs{
+      &this->ctx, "force-entrypoints-return-allocs", llvm::cl::init(false),
+      llvm::cl::desc(
+          "Require entrypoint functions to return allocations corresponding to"
+          " the original tensor results, otherwise they are transformed"
+          " into destination arguments whenever possible.")};
+};
+
 } // namespace mlirtrt::compiler
 
 #endif // MLIR_TENSORRT_COMPILER_OPTIONS
