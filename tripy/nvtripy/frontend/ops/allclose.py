@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -55,7 +55,7 @@ def allclose(input: "nvtripy.Tensor", other: "nvtripy.Tensor", rtol: float = 1e-
         assert not out
     """
     from nvtripy.frontend.ops.reduce import all
-    from nvtripy.frontend.ops.unary_elementwise import abs
+    from nvtripy.frontend.ops.unary.abs import abs
 
     compare = abs(input - other) <= (atol + rtol * abs(other))
     return bool(all(compare))

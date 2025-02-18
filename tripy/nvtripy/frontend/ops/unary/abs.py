@@ -15,38 +15,34 @@
 # limitations under the License.
 #
 
+
 from nvtripy import export
+from nvtripy.frontend.ops import utils as op_utils
+from nvtripy.trace.ops.unary import Abs
 from nvtripy.utils import wrappers
 
 
 @export.public_api(document_under="operations/functions")
 @wrappers.interface(
     dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
-    dtype_variables={
-        "T1": ["float32", "float16", "bfloat16"],
-    },
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64"]},
 )
-def sigmoid(input: "nvtripy.Tensor") -> "nvtripy.Tensor":
+def abs(input: "nvtripy.Tensor") -> "nvtripy.Tensor":
     r"""
-    Applies a logistic sigmoid function to each element of the input tensor:
-
-    :math:`\text{sigmoid}(x)_i = \frac{1}{1 + \exp{-x_i}}`
+    Computes the elementwise absolute value of the elements of the input tensor.
 
     Args:
         input: The input tensor.
 
     Returns:
-        A tensor of the same shape as the input.
+        A new tensor of the same shape with all non-negative entries
 
     .. code-block:: python
         :linenos:
 
-        input = tp.Tensor([1., 2., 3., 4.], dtype=tp.float32)
-        output = tp.sigmoid(input)
+        input = tp.Tensor([-1, -2], dtype=tp.int32)
+        output = tp.abs(input)
 
-        t = torch.tensor([1, 2, 3, 4], dtype=torch.float32) # doc: omit
-        assert tp.allclose(output, tp.Tensor(torch.nn.functional.sigmoid(t)))
+        assert np.array_equal(cp.from_dlpack(output).get(), np.array([1, 2], dtype=np.float32))
     """
-    from nvtripy.frontend.ops.unary.exp import exp
-
-    return 1.0 / (1.0 + exp(-1.0 * input))
+    return op_utils.create_op(Abs, [input])
