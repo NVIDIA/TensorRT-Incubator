@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,6 +16,8 @@
 #
 
 from nvtripy import export
+from nvtripy.frontend.ops import utils as op_utils
+from nvtripy.trace.ops.unary import Relu
 from nvtripy.utils import wrappers
 
 
@@ -49,8 +51,4 @@ def relu(input: "nvtripy.Tensor") -> "nvtripy.Tensor":
         assert tp.allclose(output, tp.Tensor(torch.nn.functional.relu(t)))
 
     """
-    from nvtripy.frontend.ops.binary_elementwise import maximum
-    from nvtripy.frontend.ops.zeros import zeros
-
-    mask = zeros((1,), dtype=input.dtype)
-    return maximum(mask, input)
+    return op_utils.create_op(Relu, [input])
