@@ -29,10 +29,10 @@ class Expand(BaseTraceOp):
     def infer_dtypes(self):
         self.outputs[0].dtype = self.inputs[0].dtype
 
-    def to_mlir(self, inputs):
+    def to_mlir(self, inputs, outputs):
         return [
             tensorrt.broadcast(
-                self.outputs[0].to_mlir(),
+                outputs[0],
                 inputs[0],
                 shape=inputs[1],
                 broadcast_dims=op_utils.get_broadcast_in_dim(self.inputs[0].rank, self.outputs[0].rank),
