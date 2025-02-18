@@ -143,7 +143,6 @@ class Trace:
             with make_ir_context(), ir.Location.unknown():
                 module = ir.Module.create()
                 with ir.InsertionPoint(module.body) as ip:
-                    # TODO (pranavm): Implement `to_mlir` for tensors?
                     func_op = func_dialect.FuncOp(
                         self.name,
                         ir.FunctionType.get(
@@ -162,6 +161,7 @@ class Trace:
 
                         for op in self.ops:
                             layer_inputs = [mlir_ops[inp.name] for inp in op.inputs]
+                            layer_outputs = [out.to_mlir() for out in op.outputs]
 
                             with make_tensor_location(
                                 [inp.name for inp in op.inputs],
@@ -170,8 +170,7 @@ class Trace:
                                 [],
                                 [],
                             ):
-                                # TODO (pranavm): Implement `to_mlir` for ops
-                                layer_outputs = op.to_mlir(layer_inputs)
+                                layer_outputs = op.to_mlir(layer_inputs, layer_outputs)
 
                                 # TODO (pranavm): Check if this is needed:
                                 # stablehlo python bindings can do some naive shape and type inference.
