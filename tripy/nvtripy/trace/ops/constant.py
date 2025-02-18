@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -31,10 +31,11 @@ from nvtripy.common import datatype
 from nvtripy.common import device
 from nvtripy.common import device as tp_device
 from nvtripy.common import utils as common_utils
+from nvtripy.common.exception import raise_error
 from nvtripy.trace.ops.base import BaseTraceOp
 
 
-def flatten_list(data):
+def flatten_list(data, _current_dim=0):
     """
     Flattens a nested list into a single list.
     """
@@ -42,9 +43,25 @@ def flatten_list(data):
         # Need to return a list here as array.array require input to be a list.
         return [data]
     flat_list = []
-    for element in data:
+    prev_elem_size = None
+    for index, element in enumerate(data):
         if isinstance(element, list):
-            flat_list.extend(flatten_list(element))
+            if prev_elem_size is None:
+                prev_elem_size = len(element)
+
+            # TODO (pranavm): Adds tests for this check:
+            if len(element) != prev_elem_size:
+                raise_error(
+                    "Mismatched dimension sizes in provided sequence.",
+                    [
+                        f"Sequence {index} on dimension {_current_dim} should have a length of "
+                        f"{prev_elem_size}, but has a length of {len(element)}. "
+                        f"\nThe offending sequence was:\n\t{element}."
+                    ],
+                )
+
+            flat_list.extend(flatten_list(element, _current_dim + 1))
+
         else:
             flat_list.append(element)
     return flat_list
