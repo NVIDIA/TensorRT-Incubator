@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -107,7 +107,7 @@ class LayerNorm(Module):
             A tensor of the same shape as the input.
         """
         from nvtripy.frontend.ops.reduce import mean, var
-        from nvtripy.frontend.ops.unary_elementwise import rsqrt
+        from nvtripy.frontend.ops.unary.rsqrt import rsqrt
 
         # The mean and the variance are computed over the last D dimensions
         D = len(self.normalized_shape)

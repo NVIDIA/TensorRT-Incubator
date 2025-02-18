@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -50,7 +50,7 @@ def gelu(input: "nvtripy.Tensor") -> "nvtripy.Tensor":
         t = torch.tensor([1, 2, 3, 4], dtype=torch.float32) # doc: omit
         assert tp.allclose(output, tp.Tensor(torch.nn.functional.gelu(t, approximate='tanh')))
     """
-    from nvtripy.frontend.ops.unary_elementwise import tanh
+    from nvtripy.frontend.ops.unary.tanh import tanh
 
     t1, t2, t3, t4, t5 = 0.5, math.sqrt(2.0 / math.pi), 0.044715, 3.0, 1.0
     return t1 * input * (tanh(t2 * (input + t3 * (input**t4))) + t5)
