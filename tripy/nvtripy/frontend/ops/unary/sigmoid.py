@@ -17,6 +17,8 @@
 
 from nvtripy import export
 from nvtripy.utils import wrappers
+from nvtripy.trace.ops.unary import Sigmoid
+from nvtripy.frontend.ops import utils as op_utils
 
 
 @export.public_api(document_under="operations/functions")
@@ -47,6 +49,4 @@ def sigmoid(input: "nvtripy.Tensor") -> "nvtripy.Tensor":
         t = torch.tensor([1, 2, 3, 4], dtype=torch.float32) # doc: omit
         assert tp.allclose(output, tp.Tensor(torch.nn.functional.sigmoid(t)))
     """
-    from nvtripy.frontend.ops.unary.exp import exp
-
-    return 1.0 / (1.0 + exp(-1.0 * input))
+    return op_utils.create_op(Sigmoid, [input])
