@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -55,7 +55,7 @@ def softmax(input: "nvtripy.Tensor", dim: int = None) -> "nvtripy.Tensor":
         assert tp.allclose(output, tp.Tensor(torch.Tensor([[0., 0.], [1., 1.]]).softmax(0)))
     """
     from nvtripy.frontend.ops.reduce import max, sum
-    from nvtripy.frontend.ops.unary_elementwise import exp
+    from nvtripy.frontend.ops.unary.exp import exp
 
     exp_inp = exp(input - max(input, dim, keepdim=True))
     return exp_inp / sum(exp_inp, dim, keepdim=True)
