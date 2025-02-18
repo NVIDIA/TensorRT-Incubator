@@ -29,5 +29,5 @@ class Reshape(BaseTraceOp):
     def infer_dtypes(self):
         self.outputs[0].dtype = self.inputs[0].dtype
 
-    def to_mlir(self, inputs):
-        return [tensorrt.reshape(self.outputs[0].to_mlir(), inputs[0], shape=inputs[1])]
+    def to_mlir(self, inputs, outputs):
+        return [tensorrt.reshape(outputs[0], inputs[0], shape=inputs[1])]
