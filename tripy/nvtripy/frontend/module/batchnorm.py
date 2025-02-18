@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -100,7 +100,7 @@ class BatchNorm(Module):
         Returns:
             A tensor of the same shape as the input.
         """
-        from nvtripy.frontend.ops.unary_elementwise import rsqrt
+        from nvtripy.frontend.ops.unary.rsqrt import rsqrt
         from nvtripy.frontend.ops.reshape import reshape
 
         x_shape = (1, self.num_features, *([1] * (x.rank - 2)))
