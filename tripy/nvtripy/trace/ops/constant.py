@@ -139,7 +139,7 @@ class Constant(BaseTraceOp):
         # TODO(#155): Fix allocation on host
         self.outputs[0].device = tp_device.fast_init("gpu", 0)
 
-    def to_mlir(self, inputs):
+    def to_mlir(self, inputs, outputs):
         # TODO(#189): Remove explicit copy to host for constants
         assert isinstance(self.data, runtime.MemRefValue)
         runtime_client = mlir_utils.MLIRRuntimeClient()
@@ -167,7 +167,7 @@ class Constant(BaseTraceOp):
             )
             constant_op = tensorrt.constant(attr)
             # TODO (pranavm): Replace this with `cast`
-            return [tensorrt.identity(result=self.outputs[0].to_mlir(), input=constant_op)]
+            return [tensorrt.identity(result=outputs[0], input=constant_op)]
 
         attr = ir.DenseElementsAttr.get(
             array=data_memref, type=mlir_utils.get_mlir_dtype(self.outputs[0].dtype), shape=data_memref.shape

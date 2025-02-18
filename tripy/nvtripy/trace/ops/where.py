@@ -30,5 +30,5 @@ class Where(BaseTraceOp):
         assert len(self.inputs) == 3, "Select operation should have exactly 3 inputs!"
         self.outputs[0].dtype = self.inputs[1].dtype
 
-    def to_mlir(self, inputs):
+    def to_mlir(self, inputs, outputs):
         return [tensorrt.select(inputs[0], inputs[1], inputs[2])]
