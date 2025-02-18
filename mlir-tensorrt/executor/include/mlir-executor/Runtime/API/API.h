@@ -810,6 +810,12 @@ public:
   /// Returns true if the ptr is released internally.
   bool isReleasedInternally(uintptr_t ptr) const;
 
+  /// Release ownership of the ptr.
+  void releaseOwnership(uintptr_t ptr);
+
+  /// Returns true if the ptr is owned.
+  bool isOwned(uintptr_t ptr) const;
+
   /// Mark pointer for release after consumption
   void markForReleaseAfterConsumption(uintptr_t ptr);
 
@@ -824,6 +830,7 @@ private:
     // when decrementExternalCount causes count to go to zero
     bool releasedInternally{false};
     bool releaseAfterConsumption{false};
+    bool isOwned{true};
     PointerInfo info;
   };
 

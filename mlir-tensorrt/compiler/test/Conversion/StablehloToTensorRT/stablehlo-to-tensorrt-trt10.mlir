@@ -241,17 +241,17 @@ func.func @scatter_slice_update_i1_axis1(%arg0: tensor<1x134xi1>, %arg1: tensor<
   return %0 : tensor<1x134xi1>
 }
 
-// CHECK-LABEL: @scatter_slice_update_i1
+// CHECK-LABEL: @scatter_slice_update_i1_axis1
 //       CHECK:     %[[v0:.+]] = tensorrt.slice %arg1[0, 1][1, 1][1, 1] : tensor<1x2xi32> to tensor<1x1xi32>
 //       CHECK:     %[[v1:.+]] = tensorrt.collapse_rank %[[v0]] : tensor<1x1xi32> to tensor<i32>
-//       CHECK:     %[[v2:.+]] = tensorrt.collapse_rank %arg2 : tensor<1x1x5xi1> to tensor<1x5xi1>
-//       CHECK:     %[[v3:.+]] = tensorrt.constant dense<1> : tensor<2xi32>
-//       CHECK:     %[[v4:.+]] = tensorrt.linspace[%[[v1]] : tensor<i32>] [ static] [%[[v3]] : tensor<2xi32>] : tensor<1x5xi32>
-//       CHECK:     %[[v5:.+]] = tensorrt.identity %arg0 : tensor<1x134xi1> to tensor<1x134xi32>
-//       CHECK:     %[[v6:.+]] = tensorrt.identity %[[v2]] : tensor<1x5xi1> to tensor<1x5xi32>
-//       CHECK:     %[[v7:.+]] = tensorrt.scatter_elements {axis = 1 : i64} data(%[[v5]] : tensor<1x134xi32>) indices(%[[v4]] : tensor<1x5xi32>) updates(%[[v6]] : tensor<1x5xi32>)
-//       CHECK:     %[[v8:.+]] = tensorrt.identity %[[v7]] : tensor<1x134xi32> to tensor<1x134xi1>
-//       CHECK:     return %[[v8]] : tensor<1x134xi1>
+//       CHECK:     %[[v2:.+]] = tensorrt.collapse_rank %[[arg2]] : tensor<1x1x5xi1> to tensor<1x5xi1>
+//       CHECK:     %[[cst_i32:.+]] = tensorrt.constant dense<1> : tensor<2xi32>
+//       CHECK:     %[[v3:.+]] = tensorrt.linspace[%[[v1]] : tensor<i32>] [ static] [%[[cst_i32]] : tensor<2xi32>] : tensor<1x5xi32>
+//       CHECK:     %[[v4:.+]] = tensorrt.identity %[[v2]] : tensor<1x5xi1> to tensor<1x5xi32>
+//       CHECK:     %[[v5:.+]] = tensorrt.identity %[[arg0]] : tensor<1x134xi1> to tensor<1x134xi32>
+//       CHECK:     %[[v6:.+]] = tensorrt.scatter_elements {axis = 1 : i64} data(%[[v5]] : tensor<1x134xi32>) indices(%[[v3]] : tensor<1x5xi32>) updates(%[[v4]] : tensor<1x5xi32>)
+//       CHECK:     %[[v7:.+]] = tensorrt.identity %[[v6]] : tensor<1x134xi32> to tensor<1x134xi1>
+//       CHECK:     return %[[v7]] : tensor<1x134xi1>
 
 // -----
 
@@ -264,16 +264,16 @@ func.func @scatter_slice_update_i1_axis0(%arg0: tensor<1024x1xi1>, %arg1: tensor
 }
 
 // CHECK-LABEL: @scatter_slice_update_i1_axis0
-//       CHECK:     %[[v0:.+]] = tensorrt.slice %arg1[0, 0][1, 1][1, 1] : tensor<1x1xi32> to tensor<1x1xi32>
+//       CHECK:     %[[v0:.+]] = tensorrt.slice %[[arg1]][0, 0][1, 1][1, 1] : tensor<1x1xi32> to tensor<1x1xi32>
 //       CHECK:     %[[v1:.+]] = tensorrt.collapse_rank %[[v0]] : tensor<1x1xi32> to tensor<i32>
-//       CHECK:     %[[v2:.+]] = tensorrt.collapse_rank %arg2 : tensor<1x134x1xi1> to tensor<134x1xi1>
-//       CHECK:     %[[v3:.+]] = tensorrt.constant dense<1> : tensor<2xi32>
-//       CHECK:     %[[v4:.+]] = tensorrt.linspace[%[[v1]] : tensor<i32>] [ static] [%[[v3]] : tensor<2xi32>] : tensor<134x1xi32>
-//       CHECK:     %[[v5:.+]] = tensorrt.identity %arg0 : tensor<1024x1xi1> to tensor<1024x1xi32>
-//       CHECK:     %[[v6:.+]] = tensorrt.identity %[[v2]] : tensor<134x1xi1> to tensor<134x1xi32>
-//       CHECK:     %[[v7:.+]] = tensorrt.scatter_elements {axis = 0 : i64} data(%[[v5]] : tensor<1024x1xi32>) indices(%[[v4]] : tensor<134x1xi32>) updates(%[[v6]] : tensor<134x1xi32>)
-//       CHECK:     %[[v8:.+]] = tensorrt.identity %[[v7]] : tensor<1024x1xi32> to tensor<1024x1xi1>
-//       CHECK:     return %[[v8]] : tensor<1024x1xi1>
+//       CHECK:     %[[v2:.+]] = tensorrt.collapse_rank %[[arg2]] : tensor<1x134x1xi1> to tensor<134x1xi1>
+//       CHECK:     %[[cst_i32:.+]] = tensorrt.constant dense<1> : tensor<2xi32>
+//       CHECK:     %[[v3:.+]] = tensorrt.linspace[%[[v1]] : tensor<i32>] [ static] [%[[cst_i32]] : tensor<2xi32>] : tensor<134x1xi32>
+//       CHECK:     %[[v4:.+]] = tensorrt.identity %[[v2]] : tensor<134x1xi1> to tensor<134x1xi32>
+//       CHECK:     %[[v5:.+]] = tensorrt.identity %[[arg0]] : tensor<1024x1xi1> to tensor<1024x1xi32>
+//       CHECK:     %[[v6:.+]] = tensorrt.scatter_elements {axis = 0 : i64} data(%[[v5]] : tensor<1024x1xi32>) indices(%[[v3]] : tensor<134x1xi32>) updates(%[[v4]] : tensor<134x1xi32>)
+//       CHECK:     %[[v7:.+]] = tensorrt.identity %[[v6]] : tensor<1024x1xi32> to tensor<1024x1xi1>
+//       CHECK:     return %[[v7]] : tensor<1024x1xi1>
 
 // -----
 

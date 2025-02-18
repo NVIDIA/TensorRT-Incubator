@@ -396,6 +396,7 @@ static Status pushMemRefTableArg(sol::state_view &lua, AllocTracker &tracker,
           .isInternallyManaged()) {
     PointerInfo pointerInfo = value.getPointerInfo(PointerOwner::internal);
     tracker.track(pointerInfo);
+    tracker.releaseOwnership(pointerInfo.ptr);
   } else {
     PointerInfo pointerInfo = value.getPointerInfo(PointerOwner::external);
     tracker.track(pointerInfo);

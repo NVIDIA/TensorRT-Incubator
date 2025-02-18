@@ -376,7 +376,7 @@ AllocTracker::~AllocTracker() {
   ptrsToFree.reserve(map.size());
   for (const auto &[ptrVal, metadata] : map) {
     if (metadata->info.isInternallyManaged() &&
-        metadata->externalReferenceCount.load() == 0) {
+        metadata->externalReferenceCount.load() == 0 && metadata->isOwned) {
       MTRT_DBGF("still live: 0x%lx type %d size %lu", ptrVal,
                 static_cast<int>(metadata->info.type), metadata->info.size);
       ptrsToFree.push_back(metadata->info);
@@ -398,35 +398,49 @@ AllocTracker::~AllocTracker() {
 
 void AllocTracker::markForReleaseAfterConsumption(uintptr_t ptr) {
   assert(llvm::is_contained(map, ptr) &&
-         llvm::formatv("Untracked pointer {0}", ptr).str().c_str());
+         llvm::formatv("Pointer {0} in markForReleaseAfterConsumption", ptr).str().c_str());
   std::unique_ptr<Metadata> const &metadata = map.at(ptr);
   metadata->releaseAfterConsumption = true;
 }
 
 bool AllocTracker::isMarkedForReleaseAfterConsumption(uintptr_t ptr) {
   assert(llvm::is_contained(map, ptr) &&
-         llvm::formatv("Untracked pointer {0}", ptr).str().c_str());
+         llvm::formatv("Pointer {0} in isMarkedForReleaseAfterConsumption", ptr).str().c_str());
   std::unique_ptr<Metadata> const &metadata = map.at(ptr);
   return metadata->releaseAfterConsumption;
 }
 
 void AllocTracker::markReleasedInternally(uintptr_t ptr) {
   assert(llvm::is_contained(map, ptr) &&
-         llvm::formatv("Untracked pointer {0}", ptr).str().c_str());
+         llvm::formatv("Pointer {0} in markReleasedInternally", ptr).str().c_str());
   std::unique_ptr<Metadata> const &metadata = map.at(ptr);
   metadata->releasedInternally = true;
 }
 
 bool AllocTracker::isReleasedInternally(uintptr_t ptr) const {
   assert(llvm::is_contained(map, ptr) &&
-         llvm::formatv("Untracked pointer {0}", ptr).str().c_str());
+         llvm::formatv("Pointer {0} in isReleasedInternally", ptr).str().c_str());
   std::unique_ptr<Metadata> const &metadata = map.at(ptr);
   return metadata->releasedInternally;
 }
 
+void AllocTracker::releaseOwnership(uintptr_t ptr) {
+  assert(llvm::is_contained(map, ptr) &&
+         llvm::formatv("Pointer {0} in releaseOwnership", ptr).str().c_str());
+  std::unique_ptr<Metadata> const &metadata = map.at(ptr);
+  metadata->isOwned = false;
+}
+
+bool AllocTracker::isOwned(uintptr_t ptr) const {
+  assert(llvm::is_contained(map, ptr) &&
+         llvm::formatv("Pointer {0} in isOwned", ptr).str().c_str());
+  std::unique_ptr<Metadata> const &metadata = map.at(ptr);
+  return metadata->isOwned;
+}
+
 void AllocTracker::incrementExternalCount(uintptr_t ptr) {
   assert(llvm::is_contained(map, ptr) &&
-         llvm::formatv("Untracked pointer {0}", ptr).str().c_str());
+         llvm::formatv("Pointer {0} in incrementExternalCount", ptr).str().c_str());
   std::unique_ptr<Metadata> const &metadata = map.at(ptr);
   int32_t ref = ++metadata->externalReferenceCount;
   MTRT_DBGF("Incremented external reference for pointer 0x%lx to %d", ptr, ref);
@@ -434,7 +448,7 @@ void AllocTracker::incrementExternalCount(uintptr_t ptr) {
 
 void AllocTracker::decrementExternalCount(uintptr_t ptr) {
   assert(llvm::is_contained(map, ptr) &&
-         llvm::formatv("Untracked pointer {0}", ptr).str().c_str());
+         llvm::formatv("Pointer {0} in decrementExternalCount", ptr).str().c_str());
   std::unique_ptr<Metadata> const &metadata = map.at(ptr);
   int32_t ref = --metadata->externalReferenceCount;
   assert(ref >= 0 &&
@@ -456,7 +470,7 @@ void AllocTracker::decrementExternalCount(uintptr_t ptr) {
 
 int32_t AllocTracker::getExternalReferenceCount(uintptr_t ptr) const {
   assert(llvm::is_contained(map, ptr) &&
-         llvm::formatv("Untracked pointer {0}", ptr).str().c_str());
+         llvm::formatv("Pointer {0} in getExternalReferenceCount", ptr).str().c_str());
   std::unique_ptr<Metadata> const &metadata = map.at(ptr);
   return metadata->externalReferenceCount.load();
 }
@@ -469,6 +483,8 @@ void AllocTracker::track(PointerInfo info) {
     // managed and deallocated, allowing reuse by an internal allocator. This is
     // not an error.
     if (contains(info.ptr) && get(info.ptr).isInternallyManaged()) {
+      assert(!isOwned(info.ptr) &&
+             llvm::formatv("Pointer {0} in track is internally managed but should not be owned by the allocator", info.ptr).str().c_str());
       const PointerInfo &existingInfo = get(info.ptr);
       if (existingInfo.size != info.size || existingInfo.type != info.type ||
           existingInfo.owner != info.owner) {
@@ -485,6 +501,8 @@ void AllocTracker::track(PointerInfo info) {
         auto value = std::make_unique<Metadata>();
         value->externalReferenceCount.store(0);
         value->releasedInternally = false;
+        value->releaseAfterConsumption = false;
+        value->isOwned = true;
         value->info = info;
         map.insert(std::make_pair(info.ptr, std::move(value)));
         return;
@@ -501,6 +519,8 @@ void AllocTracker::track(PointerInfo info) {
   auto value = std::make_unique<Metadata>();
   value->externalReferenceCount.store(0);
   value->releasedInternally = false;
+  value->releaseAfterConsumption = false;
+  value->isOwned = true;
   value->info = info;
   if (!contains(info.ptr)) {
     map.insert(std::make_pair(info.ptr, std::move(value)));
@@ -608,24 +628,27 @@ mlirtrt::Status runtime::safeDeallocate(AllocTracker &tracker, uintptr_t ptr,
   MTRT_DBGF("external count %d for ptr 0x%lx",
             tracker.getExternalReferenceCount(ptr), ptr);
 
-  if (tracker.get(ptr).isInternallyManaged() &&
-      tracker.getExternalReferenceCount(ptr) > 0) {
+  if (tracker.getExternalReferenceCount(ptr) > 0) {
     // Destructor for external reference should truly free or delete this.
     // Defer safeDeallocate call until then.
-    MTRT_DBGF("Defer freeing an internally managed ptr 0x%lx and mark it as "
-              "released internally as "
-              "ir has an external reference. "
-              "It is responsibility of the external reference counting "
-              "mechanism to ensure safeDellaocate is called.",
-              ptr);
+    MTRT_DBGF("Defer freeing ptr 0x%lx and mark it as released internally as "
+              "it has an external reference. "
+              "It is the responsibility of the external reference counting "
+              "mechanism to ensure safeDeallocate is called. "
+              "Pointer management: %s",
+              ptr, tracker.isOwned(ptr) ? "internally managed" : "externally managed");
     tracker.markReleasedInternally(ptr);
     return mlirtrt::Status::getOk();
   }
 
   PointerInfo obj = tracker.get(ptr);
   if (obj.owner == PointerOwner::external) {
+    if (tracker.getExternalReferenceCount(ptr) == 0) {
     MTRT_DBGF("Untracking externally managed 0x%lx", ptr);
     tracker.untrack(obj.ptr);
+    }
+    // It is expected that external reference count will be 0 when the dlpack pointer is destroyed
+    // and the memory is freed.
     return mlirtrt::Status::getOk();
   }
 
