@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -29,6 +29,7 @@ from nvtripy.utils.utils import make_list
 def adjust_dim(dim, input_rank):
     if dim is None:
         return list(range(input_rank))
+    # TODO (pranavm): Use process_dim here.
     return [idx if idx >= 0 else idx + input_rank for idx in make_list(dim)]
 
 

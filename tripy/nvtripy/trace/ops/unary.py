@@ -56,4 +56,6 @@ def make_activation_op(name, attr_name):
 
 
 Tanh = make_activation_op("Tanh", "kTANH")
+Relu = make_activation_op("Relu", "kRELU")
 Sigmoid = make_activation_op("Sigmoid", "kSIGMOID")
+GeluErf = make_activation_op("GeluErf", "kGELU_ERF")

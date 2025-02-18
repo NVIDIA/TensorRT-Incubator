@@ -15,10 +15,11 @@
 # limitations under the License.
 #
 
-import math
 
 from nvtripy import export
 from nvtripy.utils import wrappers
+from nvtripy.trace.ops.unary import GeluErf
+from nvtripy.frontend.ops import utils as op_utils
 
 
 @export.public_api(document_under="operations/functions")
@@ -29,11 +30,15 @@ from nvtripy.utils import wrappers
     },
 )
 def gelu(input: "nvtripy.Tensor") -> "nvtripy.Tensor":
+    # TODO (pranavm): Check that this docstring is generated correctly:
     r"""
-    Applies an approximated Gaussian Error Linear Units (GELU) function
+    Applies a Gaussian Error Linear Unit (GELU) function
     to each element of the input tensor:
 
-    :math:`\text{gelu}(x) = 0.5 * x * (1 + \tanh(\sqrt{2 / \pi} * (x + 0.044715 * x^3)))`
+    :math:`\text{gelu}(x) = x * \phi(x)`
+
+    where :math:`\phi(x)` is the
+    `Cumulative Distribution Function (CDF) of a Gausian distribution <https://en.wikipedia.org/wiki/Normal_distribution#Cumulative_distribution_function`_.
 
     Args:
         input: The input tensor.
@@ -48,9 +53,6 @@ def gelu(input: "nvtripy.Tensor") -> "nvtripy.Tensor":
         output = tp.gelu(input)
 
         t = torch.tensor([1, 2, 3, 4], dtype=torch.float32) # doc: omit
-        assert tp.allclose(output, tp.Tensor(torch.nn.functional.gelu(t, approximate='tanh')))
+        assert tp.allclose(output, tp.Tensor(torch.nn.functional.gelu(t)))
     """
-    from nvtripy.frontend.ops.unary.tanh import tanh
-
-    t1, t2, t3, t4, t5 = 0.5, math.sqrt(2.0 / math.pi), 0.044715, 3.0, 1.0
-    return t1 * input * (tanh(t2 * (input + t3 * (input**t4))) + t5)
+    return op_utils.create_op(GeluErf, [input])
