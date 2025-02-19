@@ -354,6 +354,51 @@ def TensorRT_ElementWiseOp : TensorRT_Op<"element_wise", [Pure,
   }];
 }
 
+
+//===----------------------------------------------------------------------===//
+// CastOp
+//===----------------------------------------------------------------------===//
+
+def TensorRT_CastOp : TensorRT_Op<"cast", [
+      Pure,
+      TensorRTPartiallyInferTensorResultTypes,
+      ElementwiseMappable]>{
+  let summary = "TensorRT cast (ICastLayer) operation";
+  let description = [{
+    The `tensorrt.cast` operation performs a cast from the the input tensor
+    type to the result tensor type, changing only the element type.
+
+    This operation supports casting to and from all data types except f8 and i4.
+  }];
+
+  let arguments = (ins TensorRT_RankedTensorOf<[I1, UI8, TensorRT_I8, I32, I64, F16, BF16, F32]>:$input);
+  let results = (outs TensorRT_RankedTensorOf<[I1, UI8, TensorRT_I8, I32, I64, F16, BF16, F32]>:$result);
+  let assemblyFormat = "attr-dict $input `:` type($input) `to` type($result)";
+  let hasVerifier = 1;
+
+  let extraClassDeclaration = [{
+    /// Returns true if created op is valid for TensorRT major version.
+    bool isValidForTensorRTVersion(int64_t trtMajorVersion);
+  }] # baseClassDeclaration;
+
+  let trtLayerAdd = [{
+    FailureOr<nvinfer1::DataType> outputTrtType = getNvInferDataType($op.getLoc(),
+                                                        $op.getType().getElementType());
+    if (failed(outputTrtType))
+      return failure();
+
+    nvinfer1::ICastLayer *layer = $net->addCast(*$input,
+        *outputTrtType);
+    if (!$e.isStronglyTyped()) {
+      layer->setOutputType(
+          0, *outputTrtType);
+    }
+    $results.push_back(layer->getOutput(0));
+    $e.setMetadata(layer, $op);
+  }];
+}
+
+
 //===----------------------------------------------------------------------===//
 // ConstantOp
 //===----------------------------------------------------------------------===//
