@@ -186,6 +186,19 @@ bool tensorrt::ElementWiseOp::isValidForTensorRTVersion(
 }
 
 //===----------------------------------------------------------------------===//
+// CastOp
+//===----------------------------------------------------------------------===//
+
+bool tensorrt::CastOp::isValidForTensorRTVersion(int64_t trtMajorVersion) {
+  switch (trtMajorVersion) {
+  case 10:
+    return true;
+  default:
+    return false;
+  }
+}
+
+//===----------------------------------------------------------------------===//
 // ConstantOp
 //===----------------------------------------------------------------------===//
 
