@@ -51,7 +51,7 @@ public:
 
 struct TensorRTToExecutableOptions
     : public mlir::OptionsBundle<DeviceOptions, DebugOptions, ExecutorOptions,
-                                 TensorRTOptions> {
+                                 PlanAllocOptions, TensorRTOptions> {
   // Default initialization does not require any extensions.
   TensorRTToExecutableOptions() = default;
 
