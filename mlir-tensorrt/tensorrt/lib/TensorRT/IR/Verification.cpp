@@ -592,6 +592,23 @@ LogicalResult tensorrt::ConcatenationOp::verify() {
   return success();
 }
 
+LogicalResult tensorrt::CastOp::verify() {
+  // Cast impl start
+
+  Type dstElType = getType().getElementType();
+  Type srcElType = getInput().getType().getElementType();
+
+  // All types except f8 and i4 are supported.
+  auto const isUnsupported = [](Type &type) {
+    return type.isUnsignedInteger(4) || type.isFloat8E4M3FN();
+  };
+  if (isUnsupported(srcElType) || isUnsupported(dstElType))
+    return emitOpError("f8 and i4 types are not supported");
+
+  // Cast impl end
+  return success();
+} // LogicalResult tensorrt::CastOp::verify()
+
 LogicalResult tensorrt::DeconvolutionOp::verify() {
   if (!getKernelWeights() && !getKernelWeightsStatic().has_value())
     return emitOpError("kernelWeights operand or kernelWeightsStatic attribute "

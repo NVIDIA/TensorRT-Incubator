@@ -186,6 +186,20 @@ bool tensorrt::ElementWiseOp::isValidForTensorRTVersion(
 }
 
 //===----------------------------------------------------------------------===//
+// CastOp
+//===----------------------------------------------------------------------===//
+
+bool tensorrt::CastOp::isValidForTensorRTVersion(int64_t trtMajorVersion) {
+  // TODO (pranavm): Do I need to validate the types here?
+  switch (trtMajorVersion) {
+  case 10:
+    return true;
+  default:
+    return false;
+  }
+}
+
+//===----------------------------------------------------------------------===//
 // ConstantOp
 //===----------------------------------------------------------------------===//
 
