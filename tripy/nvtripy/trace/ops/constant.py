@@ -167,7 +167,6 @@ class Constant(BaseTraceOp):
                 stream=None,
             )
 
-        # TODO (pranavm): Need to enable TRT cast:
         # TODO: we can further drop the cast by tolist(memref) -> mlir
         # Workaround (#208): bools are represented as i1 in MLIR-TRT but they cannot be used for DenseElementsAttr
         # so we have to represent them as ints and then cast the result
@@ -183,8 +182,7 @@ class Constant(BaseTraceOp):
                 array=int_memref, type=mlir_utils.get_mlir_dtype(datatype.int32), shape=data_memref.shape
             )
             constant_op = tensorrt.constant(attr)
-            # TODO (pranavm): Replace this with `cast`
-            return [tensorrt.identity(result=outputs[0], input=constant_op)]
+            return [tensorrt.cast(result=outputs[0], input=constant_op)]
 
         attr = ir.DenseElementsAttr.get(
             array=data_memref, type=mlir_utils.get_mlir_dtype(self.outputs[0].dtype), shape=data_memref.shape
