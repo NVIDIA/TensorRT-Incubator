@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1738363268138,
+  "lastUpdate": 1740006053579,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -11430,6 +11430,47 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0000028267900620606174",
             "extra": "mean: 52.741469579670614 usec\nrounds: 20104"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "6c23992d8b2601c42a946393e779948a3d57fe22",
+          "message": "Bump transformers from 4.46.2 to 4.48.0 in /tripy/examples/nanogpt",
+          "timestamp": "2025-02-18T20:15:21Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/493/commits/6c23992d8b2601c42a946393e779948a3d57fe22"
+        },
+        "date": 1740006052795,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 5938.043633897026,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000035219008797741896",
+            "extra": "mean: 168.40563351396577 usec\nrounds: 6287"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 6176.976893479742,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00003362817786568396",
+            "extra": "mean: 161.8914911363153 usec\nrounds: 6681"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_tripy_param_update",
+            "value": 19273.371015848887,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000002172637838461283",
+            "extra": "mean: 51.88505940023048 usec\nrounds: 20574"
           }
         ]
       }
