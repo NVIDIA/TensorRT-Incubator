@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -131,6 +131,15 @@ class Tensor(metaclass=TensorMeta):
 
         look_in = [(tp, "nvtripy")]
         search_for_missing_attr("nvtripy.Tensor", name, look_in)
+
+    @property
+    def trace_tensor(self):
+        return self._trace_tensor
+
+    @trace_tensor.setter
+    def trace_tensor(self, new_trace_tensor):
+        self._trace_tensor = new_trace_tensor
+        self._trace_tensor.frontend_tensor = self
 
     @property
     def name(self):
