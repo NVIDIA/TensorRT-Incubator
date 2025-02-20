@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -23,7 +23,7 @@ from mlir_tensorrt.compiler.dialects import tensorrt
 
 
 @dataclass(repr=False)
-class Expand(BaseTraceOp):
+class Broadcast(BaseTraceOp):
     infer_rank = op_utils.InferRankPolicies.same_as_shape_of_shape_input(1)
 
     def infer_dtypes(self):
