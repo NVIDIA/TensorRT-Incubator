@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -32,18 +32,18 @@ class TraceTensor:
     producer: "BaseTraceOp"
     dtype: "nvtripy.common.dtype" = field(default=None, init=False)
     device: "nvtripy.common.device" = field(default=None, init=False)
+    # Indicates the shape of the tensor. Unknown dimensions are indicated by -1.
+    # Generally, the shape will only be known for shape tensors.
     shape: List[int] = field(default=None, init=False)
     stack_info: StackInfo = field(default_factory=lambda: StackInfo([]), init=False)
-    """
-    Indicates the shape of the tensor. Unknown dimensions are indicated by -1.
-    Generally, the shape will only be known for shape tensors.
-    """
 
     # Whether this tensor was constructed in order to trace a computation graph for the compiler.
     is_compile_tracer: bool = False
     # Stack information for the point at which this tensor was evaluated if it was.
     # This is useful in the compiler to disallow evaluation during tracing.
     eval_stack_info: Optional[StackInfo] = field(default=None, init=False)
+
+    frontend_tensor: "nvtripy.Tensor" = field(default=None, init=False)
 
     def __str__(self) -> str:
         return (
