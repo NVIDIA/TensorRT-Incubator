@@ -42,6 +42,8 @@ def modelopt_quantize(model_hf, quant_mode):
         }
     elif quant_mode == "int4-weight-only":
         quant_cfg = mtq.INT4_AWQ_CFG
+    elif quant_mode == "float8":
+        quant_cfg = mtq.FP8_DEFAULT_CFG
     else:
         raise NotImplementedError(f"Unsupported quantization mode: {quant_mode}")
 
