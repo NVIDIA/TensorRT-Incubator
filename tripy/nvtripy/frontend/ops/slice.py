@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -32,6 +32,7 @@ from nvtripy.utils.utils import make_tuple
     dtype_constraints={"self": "T1", wrappers.RETURN_VALUE: "T1"},
     dtype_variables={"T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"]},
 )
+# TODO (pranavm): Clean up this docstring
 def __getitem__(
     self: "nvtripy.Tensor", index: Union[slice, int, "nvtripy.Tensor", Sequence[Union[slice, int, "nvtripy.Tensor"]]]
 ) -> "nvtripy.Tensor":
@@ -69,6 +70,7 @@ def __getitem__(
     from nvtripy.frontend.ops.where import where
     from nvtripy.frontend.tensor import Tensor
 
+    # TODO (pranavm): This should only apply to non-scalar tensors?
     # If a tensor is indexed by another tensor, this operation is equivalent to a gather operation.
     if isinstance(index, Tensor):
         return gather(self, 0, index)
