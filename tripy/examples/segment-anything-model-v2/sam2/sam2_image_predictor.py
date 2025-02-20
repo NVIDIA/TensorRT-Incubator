@@ -120,6 +120,7 @@ class SAM2ImagePredictor:
         self,
         point_coords_batch: List[np.ndarray] = None,
         point_labels_batch: List[np.ndarray] = None,
+        box_batch: List[np.ndarray] = None,
         multimask_output: bool = True,
         return_logits: bool = False,
         normalize_coords=True,
@@ -164,17 +165,19 @@ class SAM2ImagePredictor:
 
         point_coords = concat_batch(point_coords_batch)
         point_labels = concat_batch(point_labels_batch)
+        box = concat_batch(box_batch)
 
-        _, unnorm_coords, labels, _ = self._prep_prompts(
+        _, unnorm_coords, labels, unnorm_box = self._prep_prompts(
             point_coords,
             point_labels,
-            None,  # box
+            box,  # box
             None,  # mask_input
             normalize_coords,
         )
         masks, iou_predictions, low_res_masks = self._predict(
             unnorm_coords,
             labels,
+            unnorm_box,
             multimask_output,
             return_logits=return_logits,
         )
@@ -220,6 +223,7 @@ class SAM2ImagePredictor:
         self,
         point_coords: torch.Tensor,
         point_labels: torch.Tensor,
+        boxes: Optional[torch.Tensor] = None,
         multimask_output: bool = True,
         return_logits: bool = False,
         img_idx: int = -1,
@@ -256,9 +260,28 @@ class SAM2ImagePredictor:
         if not self._is_image_set:
             raise RuntimeError("An image must be set with .set_image(...) before mask prediction.")
 
+        if point_coords is not None:
+            concat_points = (point_coords, point_labels)
+        else:
+            concat_points = None
+
+        # Embed prompts
+        if boxes is not None:
+            box_coords = boxes.reshape(-1, 2, 2)
+            box_labels = torch.tensor([[2, 3]], dtype=torch.int, device=boxes.device)
+            box_labels = box_labels.repeat(boxes.size(0), 1)
+            # we merge "boxes" and "points" into a single "concat_points" input (where
+            # boxes are added at the beginning) to sam_prompt_encoder
+            if concat_points is not None:
+                concat_coords = torch.cat([box_coords, concat_points[0]], dim=1)
+                concat_labels = torch.cat([box_labels, concat_points[1]], dim=1)
+                concat_points = (concat_coords, concat_labels)
+            else:
+                concat_points = (box_coords, box_labels)
+
         sparse_embeddings, dense_embeddings = self.model.sam_prompt_encoder(
-            points_x=tp.Tensor(point_coords.contiguous()),
-            points_y=tp.Tensor(point_labels.contiguous()),
+            points_x=tp.Tensor(concat_points[0].contiguous()),
+            points_y=tp.Tensor(concat_points[1].contiguous()),
         )
 
         # Predict masks
