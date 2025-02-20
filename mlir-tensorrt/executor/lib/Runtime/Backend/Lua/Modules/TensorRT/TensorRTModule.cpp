@@ -1,6 +1,6 @@
 //===- TensorRTModule.cpp -------------------------------------------------===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -17,12 +17,13 @@
 // limitations under the License.
 //
 //===----------------------------------------------------------------------===//
-#include "mlir-executor/Runtime/Backend/Lua/Modules/TensorRT/TensorRTModule.h"
 #include "mlir-executor/Runtime/API/API.h"
 #include "mlir-executor/Runtime/Backend/Common/CUDACommon.h"
 #include "mlir-executor/Runtime/Backend/Common/CommonRuntime.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaErrorHandling.h"
+#include "mlir-executor/Runtime/Backend/Lua/LuaExtensionRegistry.h"
 #include "mlir-executor/Runtime/Backend/Lua/Modules/Utils/MemRefUtils.h"
+#include "mlir-executor/Runtime/Backend/Lua/SolAdaptor.h"
 #include "mlir-executor/Runtime/Backend/Utils/NvtxUtils.h"
 #include "mlir-executor/Support/Allocators.h"
 #include "mlir-executor/Support/Status.h"
@@ -141,9 +142,12 @@ public:
     size = std::max(size, static_cast<uint64_t>(1));
     if (size > mOutputSize) {
       size = roundUp(size, alignment);
-      if (mOutputPtr)
+      if (mOutputPtr) {
+        MTRT_DBGF("tensorrt module output allocator deallocating 0x%lx",
+                  mOutputPtr);
         mlirtrt::runtime::safeDeallocate(*mTracker, mOutputPtr,
                                          CudaStreamPtr(stream));
+      }
       mOutputPtr = 0;
       mOutputSize = 0;
       StatusOr<PointerInfo> memory =
@@ -152,6 +156,16 @@ public:
       if (memory.isOk()) {
         mOutputPtr = (*memory).ptr;
         mOutputSize = memory->size;
+        // Mark the output pointer for release after consumption
+        // This is necessary because TensorRT-allocated pointers used in
+        // device-device or device-host copies may not be wrapped in a memref
+        // and tracked by the client. By marking it here, we ensure it will be
+        // explicitly freed after it's consumed in copy operations, preventing
+        // memory leaks.
+        mTracker->markForReleaseAfterConsumption(mOutputPtr);
+        MTRT_DBGF(
+            "tensorrt module output allocator allocating %lu bytes at 0x%lx",
+            mOutputSize, mOutputPtr);
       }
       return reinterpret_cast<void *>(mOutputPtr);
     }
@@ -643,7 +657,7 @@ static Status enqueueAllocV3Wrapper(AllocTracker &tracker,
 //===----------------------------------------------------------------------===//
 // Executor TensorRT Methods
 //===----------------------------------------------------------------------===//
-void mlirtrt::runtime::registerExecutorTensorRTModuleLuaRuntimeMethods(
+static void registerExecutorTensorRTModuleLuaRuntimeMethods(
     lua_State *luaState, PinnedMemoryAllocator *pinnedMemoryAllocator,
     AllocTracker *allocTracker, ResourceTracker *resourceTracker) {
   sol::state_view lua(luaState);
@@ -719,3 +733,17 @@ void mlirtrt::runtime::registerExecutorTensorRTModuleLuaRuntimeMethods(
         SET_LUA_ERROR_IF_ERROR(result, state);
       };
 }
+
+namespace mlirtrt::runtime {
+void registerLuaTensorRTRuntimeExtension() {
+  registerLuaRuntimeExtension(
+      "tensorrt",
+      LuaRuntimeExtension{
+          [](const RuntimeSessionOptions &options, lua_State *state,
+             PinnedMemoryAllocator *pinnedMemoryAllocator,
+             AllocTracker *allocTracker, ResourceTracker *resourceTracker) {
+            registerExecutorTensorRTModuleLuaRuntimeMethods(
+                state, pinnedMemoryAllocator, allocTracker, resourceTracker);
+          }});
+}
+} // namespace mlirtrt::runtime

@@ -74,14 +74,11 @@ static constexpr nvinfer1::Weights kNullWeights =
 
 class NvInferNetworkEncoder {
 public:
-  NvInferNetworkEncoder(
-      nvinfer1::INetworkDefinition *network,
-      nvinfer1::IOptimizationProfile *profile, TensorRTVersion version,
-      bool usesStronglyTyped,
-      std::function<std::string(Operation *)> metadataCallback)
+  NvInferNetworkEncoder(nvinfer1::INetworkDefinition *network,
+                        nvinfer1::IOptimizationProfile *profile,
+                        TensorRTVersion version, bool usesStronglyTyped)
       : network(network), profile(profile), version(std::move(version)),
-        usesStronglyTyped(usesStronglyTyped),
-        layerMetadataCallback(std::move(metadataCallback)) {}
+        usesStronglyTyped(usesStronglyTyped) {}
 
   /// Lookup the TRT ITensor* equivalent of a Value.
   nvinfer1::ITensor *lookup(Value v) const;
@@ -253,8 +250,6 @@ private:
   bool hasQDQOps{false};
 
   PluginManager pluginMgr;
-
-  std::function<std::string(Operation *)> layerMetadataCallback;
 };
 
 //===----------------------------------------------------------------------===//
@@ -272,7 +267,7 @@ template <typename T, std::enable_if_t<std::is_same_v<T, int32_t> ||
                                            std::is_same_v<T, int64_t>,
                                        T *> = nullptr>
 static nvinfer1::Dims getNvInferDims(ArrayRef<T> arrayRef) {
-  assert(arrayRef.size() < nvinfer1::Dims::MAX_DIMS &&
+  assert(arrayRef.size() <= nvinfer1::Dims::MAX_DIMS &&
          "input array exceeds max dims");
   nvinfer1::Dims dims;
   dims.nbDims = arrayRef.size();

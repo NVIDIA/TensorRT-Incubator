@@ -18,10 +18,10 @@
 import pytest
 from tests import helper
 
-import tripy as tp
-from tripy.backend.mlir.compiler import map_error_to_user_code_and_raise
-from tripy.flat_ir.tensor import FlatIRTensor
-from tripy.frontend.trace import Trace
+import nvtripy as tp
+from nvtripy.backend.mlir.compiler import map_error_to_user_code_and_raise
+from nvtripy.flat_ir.tensor import FlatIRTensor
+from nvtripy.trace.trace import Trace
 
 
 # Tests to ensure that we're able to map errors from MLIR-TRT back to the Python code cleanly.
@@ -54,7 +54,8 @@ class TestErrorMapping:
                 # We need to emit an error from one of the internally created `FlatIRTensor`s to see the context
                 a = tp.ones((1,))
                 b = tp.ones((1,))
-                trace = Trace([a + b])
+                out = a + b
+                trace = Trace([out.trace_tensor])
                 flat_ir = trace.to_flat_ir()
                 producer = flat_ir.outputs[0].producer.inputs[0]
                 flat_ir_inputs = ",".join(map(lambda i: i.name, producer.producer.inputs))

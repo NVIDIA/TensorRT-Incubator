@@ -26,6 +26,7 @@
 
 #include "mlir-executor/Support/DeviceInfo.h"
 #include "mlir-tensorrt-dialect/Utils/Options.h"
+#include "mlir/Pass/PassManager.h"
 #include "mlir/Support/LLVM.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Error.h"
@@ -47,6 +48,26 @@ constexpr bool has_finalize_impl_v<
 // a default implementation otherwise.
 template <typename Derived>
 struct OptionsProvider {
+  using OmitFromCLI = mlir::OptionsContext::OmitFromCLI;
+
+  OptionsProvider(mlir::OptionsContext &ctx) : ctx(ctx) {}
+
+  // We don't allow move construction since the actual ptrs/locations of
+  // individual member elements of an OptionsProvider are captured into the
+  // OptionsContext. If the OptionsContext is populated upon construction,
+  // moving can change the memory location of the owned values, which will cause
+  // a crash later on. This is in particular can happen if you are constructing
+  // a tuple of `OptionsProviders`. Since we are deleting the move constructor,
+  // one must instead use a tuple of `unique_ptr<OptionsProviders...>`.
+  OptionsProvider(OptionsProvider &&) = delete;
+
+  mlir::OptionsContext &ctx;
+
+  template <typename T, typename... Mods>
+  using Option = mlir::OptionsContext::Option<T, Mods...>;
+  template <typename T, typename... Mods>
+  using ListOption = mlir::OptionsContext::ListOption<T, Mods...>;
+
   /// Modifies options after parsing. This is required since we may need
   /// to make changes to options based on the values of other options.
   /// Do *not* override this method; instead, implement `finalizeImpl()`.
@@ -62,70 +83,155 @@ struct OptionsProvider {
 /// interfaces.
 struct DebugOptions : public OptionsProvider<DebugOptions> {
 public:
-  /// A directory path where the IR will be dumped during compilation
-  /// using the `mlir-print-ir-tree-dir` mechanism.
-  std::string dumpIRPath = "";
+  using OptionsProvider::OptionsProvider;
+  //===--------------------------------------------------------------------===//
+  // Crash Reproducer Generator
+  //===--------------------------------------------------------------------===//
+  Option<std::string> reproducerFile{
+      &this->ctx, "mlir-pass-pipeline-crash-reproducer",
+      llvm::cl::desc("Generate a .mlir reproducer file at the given output path"
+                     " if the pass manager crashes or fails"),
+      OmitFromCLI{}};
+  Option<bool> localReproducer{
+      &this->ctx, "mlir-pass-pipeline-local-reproducer",
+      llvm::cl::desc("When generating a crash reproducer, attempt to generated "
+                     "a reproducer with the smallest pipeline."),
+      llvm::cl::init(false), OmitFromCLI{}};
+
+  //===--------------------------------------------------------------------===//
+  // IR Printing
+  //===--------------------------------------------------------------------===//
+
+  Option<bool> printBeforeAll{&this->ctx, "mlir-print-ir-before-all",
+                              llvm::cl::desc("Print IR before each pass"),
+                              llvm::cl::init(false), OmitFromCLI{}};
+  Option<bool> printAfterAll{&this->ctx, "mlir-print-ir-after-all",
+                             llvm::cl::desc("Print IR after each pass"),
+                             llvm::cl::init(false), OmitFromCLI{}};
+  Option<bool> printAfterChange{
+      &this->ctx, "mlir-print-ir-after-change",
+      llvm::cl::desc(
+          "When printing the IR after a pass, only print if the IR changed"),
+      llvm::cl::init(false), OmitFromCLI{}};
+  Option<bool> printAfterFailure{
+      &this->ctx, "mlir-print-ir-after-failure",
+      llvm::cl::desc(
+          "When printing the IR after a pass, only print if the pass failed"),
+      llvm::cl::init(false), OmitFromCLI{}};
+  Option<bool> printModuleScope{
+      &this->ctx, "mlir-print-ir-module-scope",
+      llvm::cl::desc("When printing IR for print-ir-[before|after]{-all} "
+                     "always print the top-level operation"),
+      llvm::cl::init(false), OmitFromCLI{}};
+  Option<std::string> printTreeDir{
+      &this->ctx, "mlir-print-ir-tree-dir",
+      llvm::cl::desc("When printing the IR before/after a pass, print file "
+                     "tree rooted at this directory. Use in conjunction with "
+                     "mlir-print-ir-* flags"),
+      OmitFromCLI{}};
+
+  //===--------------------------------------------------------------------===//
+  // Pass Statistics
+  //===--------------------------------------------------------------------===//
+  Option<bool> passStatistics{
+      &this->ctx, "mlir-pass-statistics",
+      llvm::cl::desc("Display the statistics of each pass"),
+      llvm::cl::init(false), OmitFromCLI{}};
+
+  //===--------------------------------------------------------------------===//
+  // Pass Timing
+  //===--------------------------------------------------------------------===//
+  Option<bool> enableTiming{
+      &this->ctx, "mlir-timing",
+      llvm::cl::desc(
+          "Time each pass and print to stderr after the pipeline completes"),
+      llvm::cl::init(false), OmitFromCLI{}};
+
+  //===----------------------------------------------------------------------===//
+  // Debug Printing
+  //===----------------------------------------------------------------------===//
 
   /// Whether the LLVM 'debug' flag that enables execution of code guarded by
   /// the `LLVM_DEBUG` macro should be set to 'on'. This results in very verbose
   /// output from the compiler dumped to stderr.
-  bool enableLLVMDebugFlag = false;
+  Option<bool> enableLLVMDebugFlag{&this->ctx, "debug", llvm::cl::init(false),
+                                   OmitFromCLI{}};
 
   /// A set of names to be given to the LLVM 'debug types' option, akin to
   /// setting
   /// `-debug-types=...` from the command line.
-  mlir::SmallVector<std::string> llvmDebugTypes = {};
+  ListOption<std::string> llvmDebugTypes{
+      &this->ctx, "debug-only", llvm::cl::ZeroOrMore, llvm::cl::CommaSeparated,
+      OmitFromCLI{}};
 
-public:
-  void addToOptions(mlir::OptionsContext &context) {
-    context.addOption("mlir-print-ir-tree-dir", dumpIRPath, llvm::cl::init(""));
-    context.addOption("debug", enableLLVMDebugFlag);
-    context.addList<std::string>("debug-only", llvmDebugTypes,
-                                 llvm::cl::ZeroOrMore,
-                                 llvm::cl::CommaSeparated);
-  }
+  /// If set to `true`, we populate the pass manager instrumentation using
+  /// global MLIR CL options rather than the local options contained here.
+  Option<bool> useGlobalCLPrintingOptions{&this->ctx, "use-global-cl-options",
+                                          llvm::cl::init(false), OmitFromCLI{}};
+
+  /// Apply these options to the current pass manager.
+  void applyToPassManager(mlir::PassManager &pm) const;
 };
 
 struct ExecutorOptions : public OptionsProvider<ExecutorOptions> {
 public:
-  /// The host index bit-width.
-  int64_t indexBitwidth{64};
+  using OptionsProvider::OptionsProvider;
 
-  /// Whether to pass memref's as struct/table in function calls.
-  bool usePackedMemRefCConv{true};
+  Option<int64_t> indexBitwidth{&this->ctx, "executor-index-bitwidth",
+                                llvm::cl::init(64),
+                                llvm::cl::desc("executor index bitwidth")};
 
-public:
-  void addToOptions(mlir::OptionsContext &context) {
-    context.addOption("executor-index-bitwidth", indexBitwidth,
-                      llvm::cl::init(64));
-  }
+  Option<bool> usePackedMemRefCConv{
+      &this->ctx, "executor-use-packed-memref-cconv", llvm::cl::init(true),
+      llvm::cl::desc(
+          "whether to use packed or unpacked memref calling convention")};
 };
 
 struct DeviceOptions : public OptionsProvider<DeviceOptions> {
 public:
+  using OptionsProvider::OptionsProvider;
+
+  /// Device information. Members are manually bound to options in the
+  /// constructor.
   DeviceInfo info;
 
-  /// Whether to ignore `deviceX` options and instead infer them from the GPUs
-  /// on the host system running the compilation.
-  bool shouldInferFromHost = false;
-  Status inferFromHost();
+  Option<bool> shouldInferFromHost{
+      &this->ctx, "device-infer-from-host", llvm::cl::init(true),
+      llvm::cl::desc("whether to ignore `deviceX` options and instead infer "
+                     "them from the host GPU")};
 
 public:
-  void addToOptions(mlir::OptionsContext &context) {
-    context.addOption(
+  DeviceOptions(mlir::OptionsContext &ctx) : OptionsProvider(ctx) {
+    ctx.addOption(
         "device-compute-capability", info.computeCapability, llvm::cl::init(60),
-        llvm::cl::desc("Sets the device compute capbility. Only relevant "
+        llvm::cl::desc("Sets the device compute capability. Only relevant "
                        "if '--device-infer-from-host=false'"));
-    context.addOption("device-max-shared-memory-per-block-kb",
-                      info.maxSharedMemoryPerBlockKb, llvm::cl::init(48));
-    context.addOption("device-max-registers-per-block",
-                      info.maxRegistersPerBlock, llvm::cl::init(65536));
-    context.addOption("device-infer-from-host", shouldInferFromHost,
-                      llvm::cl::init(true),
-                      llvm::cl::desc("Infers device information from host"));
+    ctx.addOption("device-max-shared-memory-per-block-kb",
+                  info.maxSharedMemoryPerBlockKb, llvm::cl::init(48));
+    ctx.addOption("device-max-registers-per-block", info.maxRegistersPerBlock,
+                  llvm::cl::init(65536));
   }
 
   llvm::Error finalizeImpl();
+};
+
+struct PlanAllocOptions : public OptionsProvider<PlanAllocOptions> {
+public:
+  using OptionsProvider::OptionsProvider;
+
+  /// Forces entrypoint functions to return allocations corresponding to the
+  /// original tensor results. Otherwise, entrypoints will be lowered to use
+  /// destination passing style whenever possible, but some results may still
+  /// lower to returned allocations (because the output shape may not be
+  /// computable from the inputs). In either case, the user should verify the
+  /// final calling convention of the compiled function(s) by inspecting the
+  /// compiled function signature metadata.
+  Option<bool> forceEntrypointsReturnAllocs{
+      &this->ctx, "force-entrypoints-return-allocs", llvm::cl::init(false),
+      llvm::cl::desc(
+          "Require entrypoint functions to return allocations corresponding to"
+          " the original tensor results, otherwise they are transformed"
+          " into destination arguments whenever possible.")};
 };
 
 } // namespace mlirtrt::compiler

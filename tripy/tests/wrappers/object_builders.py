@@ -18,9 +18,9 @@
 import inspect
 from typing import ForwardRef, List, Optional, Sequence, Union, get_args, get_origin
 
-import tripy as tp
-from tripy.common import datatype
-from tripy.types import TensorLike
+import nvtripy as tp
+from nvtripy.common import datatype
+from nvtripy.types import TensorLike
 
 
 def tensor_builder(init, dtype, namespace):
@@ -61,14 +61,14 @@ def default_builder(init, dtype, namespace):
 
 
 find_func = {
-    "tripy.Tensor": tensor_builder,
-    "tripy.types.TensorLike": tensor_builder,
+    "nvtripy.Tensor": tensor_builder,
+    "nvtripy.types.TensorLike": tensor_builder,
     TensorLike: tensor_builder,
-    "tripy.dtype": dtype_builder,
+    "nvtripy.dtype": dtype_builder,
     datatype.dtype: dtype_builder,
-    List["tripy.Tensor"]: tensor_list_builder,
-    Sequence["tripy.Tensor"]: tensor_list_builder,
-    "tripy.device": device_builder,
+    List["nvtripy.Tensor"]: tensor_list_builder,
+    Sequence["nvtripy.Tensor"]: tensor_list_builder,
+    "nvtripy.device": device_builder,
 }
 
 """

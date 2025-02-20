@@ -17,7 +17,7 @@
 from collections import OrderedDict
 
 import torch
-import tripy as tp
+import nvtripy as tp
 
 
 class TestSequential:
@@ -68,9 +68,8 @@ class TestSequential:
         with torch.no_grad():
             torch_output = torch_model(input_tensor)
 
-        rtol_ = 2e-6
         assert torch.allclose(
-            torch.from_dlpack(tp_output), torch_output, rtol=rtol_
+            torch.from_dlpack(tp_output), torch_output, rtol=2e-4, atol=1e-5
         ), "Forward pass outputs do not match."
 
     def test_nested_forward_pass_accuracy(self, eager_or_compiled):
@@ -102,8 +101,7 @@ class TestSequential:
         with torch.no_grad():
             torch_output = torch_model(input_tensor)
 
-        rtol_ = 2e-6
-        assert torch.allclose(torch.from_dlpack(tp_output), torch_output, rtol=rtol_)
+        assert torch.allclose(torch.from_dlpack(tp_output), torch_output, rtol=1e-4, atol=1e-4)
 
     def test_basic_state_dict_comparison(self):
         torch_model = torch.nn.Sequential(

@@ -27,7 +27,6 @@
 #include "llvm/Support/raw_ostream.h"
 #include <exception>
 #include <memory>
-#include <numeric>
 #include <stdexcept>
 #include <string_view>
 
@@ -36,85 +35,18 @@ using namespace mlirtrt;
 
 //===----------------------------------------------------------------------===//
 // MTRT_* <-> PyCapsule utilities.
+// These are only needed in the case where we want to use implicitly cast the
+// PyBind11 object to the original C API type. This  is required to use
+// `std::optional<...>` of the original C API type as an argument type in the
+// functions bound to Python through Pybind11 below.
 //===----------------------------------------------------------------------===//
 
 MTRT_DEFINE_RUNTIME_INLINE_PY_CAPSULE_CASTER_FUNCS(Device)
 MTRT_DEFINE_RUNTIME_INLINE_PY_CAPSULE_CASTER_FUNCS(Stream)
-MTRT_DEFINE_RUNTIME_INLINE_PY_CAPSULE_CASTER_FUNCS(RuntimeValue)
-MTRT_DEFINE_RUNTIME_INLINE_PY_CAPSULE_CASTER_FUNCS(MemRefValue)
-MTRT_DEFINE_RUNTIME_INLINE_PY_CAPSULE_CASTER_FUNCS(ScalarValue)
-
-//===----------------------------------------------------------------------===//
-// PyBind Casters
-//===----------------------------------------------------------------------===//
-static py::object mtrtApiObjectToCapsule(py::handle apiObject) {
-  if (PyCapsule_CheckExact(apiObject.ptr()))
-    return py::reinterpret_borrow<py::object>(apiObject);
-  if (!py::hasattr(apiObject, MTRT_PYTHON_CAPI_PTR_ATTR)) {
-    auto repr = py::repr(apiObject).cast<std::string>();
-    throw py::type_error(
-        (llvm::Twine("Expected an MLIR-TensorRT object (got ") + repr + ").")
-            .str());
-  }
-  return apiObject.attr(MTRT_PYTHON_CAPI_PTR_ATTR);
-}
 
 namespace pybind11::detail {
-/// Casts object (capsule) -> MTRT_Device
-template <>
-struct type_caster<MTRT_Device> {
-  PYBIND11_TYPE_CASTER(MTRT_Device, _("MTRT_Device"));
-  bool load(handle src, bool) {
-    py::object capsule = mtrtApiObjectToCapsule(src);
-    value = mtrtPythonCapsuleToDevice(capsule.ptr());
-    return !mtrtDeviceIsNull(value);
-  }
-};
-
-/// Casts object (capsule) -> MTRT_Stream
-template <>
-struct type_caster<MTRT_Stream> {
-  PYBIND11_TYPE_CASTER(MTRT_Stream, _("MTRT_Stream"));
-  bool load(handle src, bool) {
-    py::object capsule = mtrtApiObjectToCapsule(src);
-    value = mtrtPythonCapsuleToStream(capsule.ptr());
-    return !mtrtStreamIsNull(value);
-  }
-};
-
-/// Casts object (capsule) -> MTRT_RuntimeValue
-template <>
-struct type_caster<MTRT_RuntimeValue> {
-  PYBIND11_TYPE_CASTER(MTRT_RuntimeValue, _("MTRT_RuntimeValue"));
-  bool load(handle src, bool) {
-    py::object capsule = mtrtApiObjectToCapsule(src);
-    value = mtrtPythonCapsuleToRuntimeValue(capsule.ptr());
-    return !mtrtRuntimeValueIsNull(value);
-  }
-};
-
-/// Casts object (capsule) -> MTRT_ScalarValue
-template <>
-struct type_caster<MTRT_ScalarValue> {
-  PYBIND11_TYPE_CASTER(MTRT_ScalarValue, _("MTRT_ScalarValue"));
-  bool load(handle src, bool) {
-    py::object capsule = mtrtApiObjectToCapsule(src);
-    value = mtrtPythonCapsuleToScalarValue(capsule.ptr());
-    return !mtrtScalarValueIsNull(value);
-  }
-};
-
-/// Casts object (capsule) -> MTRT_MemRefValue
-template <>
-struct type_caster<MTRT_MemRefValue> {
-  PYBIND11_TYPE_CASTER(MTRT_MemRefValue, _("MTRT_MemRefValue"));
-  bool load(handle src, bool) {
-    py::object capsule = mtrtApiObjectToCapsule(src);
-    value = mtrtPythonCapsuleToMemRefValue(capsule.ptr());
-    return !mtrtMemRefValueIsNull(value);
-  }
-};
-
+MTRT_DEFINE_PYBIND_CASTER(Device, MTRT_Device);
+MTRT_DEFINE_PYBIND_CASTER(Stream, MTRT_Stream);
 } // namespace pybind11::detail
 
 namespace {
@@ -182,12 +114,10 @@ public:
   DECLARE_WRAPPER_CONSTRUCTORS(PyScalarValue);
 
   static constexpr auto kMethodTable = CAPITable<MTRT_ScalarValue>{
-      mtrtScalarValueIsNull,
-      [](MTRT_ScalarValue value) {
+      mtrtScalarValueIsNull, [](MTRT_ScalarValue value) {
         (void)value;
         return mtrtStatusGetOk();
-      },
-      mtrtPythonCapsuleToScalarValue, mtrtPythonScalarValueToCapsule};
+      }};
 };
 
 /// Python wrapper around MTRT_MemRefValue.
@@ -197,8 +127,7 @@ public:
   DECLARE_WRAPPER_CONSTRUCTORS(PyMemRefValue);
 
   static constexpr auto kMethodTable = CAPITable<MTRT_MemRefValue>{
-      mtrtMemRefValueIsNull, mtrtMemRefValueDestroy,
-      mtrtPythonCapsuleToMemRefValue, mtrtPythonMemRefValueToCapsule};
+      mtrtMemRefValueIsNull, mtrtMemRefValueDestroy};
 
   MTRT_RuntimeClient getClient() { return mtrtMemRefGetClient(*this); }
 };
@@ -210,8 +139,7 @@ public:
   DECLARE_WRAPPER_CONSTRUCTORS(PyRuntimeValue);
 
   static constexpr auto kMethodTable = CAPITable<MTRT_RuntimeValue>{
-      mtrtRuntimeValueIsNull, mtrtRuntimeValueDestroy,
-      mtrtPythonCapsuleToRuntimeValue, mtrtPythonRuntimeValueToCapsule};
+      mtrtRuntimeValueIsNull, mtrtRuntimeValueDestroy};
 };
 
 /// Python object type wrapper for `MTRT_StableHLOToExecutableOptions`.
@@ -244,7 +172,7 @@ public:
   using Base::Base;
   DECLARE_WRAPPER_CONSTRUCTORS(PyRuntimeClient);
 
-  static constexpr auto kMethodTable = CAPITable<MTRT_Runtimeclient>{
+  static constexpr auto kMethodTable = CAPITable<MTRT_RuntimeClient>{
       mtrtRuntimeClientIsNull, mtrtRuntimeClientDestroy};
 };
 
@@ -345,6 +273,7 @@ static std::unique_ptr<PyMemRefValue> createMemRef(
 static std::unique_ptr<PyMemRefValue>
 createMemRefViewFromDLPack(PyRuntimeClient &client, py::capsule capsule,
                            std::optional<bool> assertCanonicalStrides) {
+
   DLManagedTensor *managedTensor = static_cast<DLManagedTensor *>(
       PyCapsule_GetPointer(capsule.ptr(), "dltensor"));
 
@@ -600,11 +529,29 @@ static MTRT_RuntimeValue convertArgType(py::object obj) {
   throw std::runtime_error("argument must be MemRef or scalar");
 }
 
+/// Convert Runtime value to PyMemRefValue or PyScalarValue object.
+static py::object convertGenericArgToPyObject(MTRT_RuntimeValue value) {
+  if (mtrtRuntimeValueIsMemRef(value))
+    return py::cast<PyMemRefValue>(mtrtRuntimeValueDynCastToMemRef(value));
+  if (mtrtRuntimeValueIsScalar(value))
+    return py::cast<PyScalarValue>(mtrtRuntimeValueDynCastToScalar(value));
+  throw std::runtime_error("argument must be MemRef or scalar");
+}
+
 //===----------------------------------------------------------------------===//
 // Declare the bindings.
 //===----------------------------------------------------------------------===//
 
+namespace {
+struct ExecutorRuntimeGlobalSetup {
+  ExecutorRuntimeGlobalSetup() { mtrtRuntimeInitialize(); }
+  ~ExecutorRuntimeGlobalSetup() { mtrtRuntimeShutdown(); }
+};
+} // namespace
+
 PYBIND11_MODULE(_api, m) {
+  static ExecutorRuntimeGlobalSetup globalSetup;
+
   py::register_exception<MTRTException>(m, "MTRTException");
 
   populateCommonBindingsInModule(m);
@@ -615,11 +562,19 @@ PYBIND11_MODULE(_api, m) {
                             py::buffer_protocol())
       .def_property_readonly(MTRT_PYTHON_CAPI_PTR_ATTR,
                              &PyScalarValue::getCapsule)
-      .def_property_readonly("type", [](PyScalarValue &self) {
-        MTRT_ScalarTypeCode code;
-        MTRT_Status s = mtrtScalarValueGetType(self, &code);
+      .def_property_readonly("type",
+                             [](PyScalarValue &self) {
+                               MTRT_ScalarTypeCode code;
+                               MTRT_Status s =
+                                   mtrtScalarValueGetType(self, &code);
+                               THROW_IF_MTRT_ERROR(s);
+                               return code;
+                             })
+      .def_property_readonly("data", [](PyScalarValue &self) {
+        int64_t data;
+        MTRT_Status s = mtrtScalarValueGet(self, &data);
         THROW_IF_MTRT_ERROR(s);
-        return code;
+        return data;
       });
   py::class_<PyMemRefValue>(m, "MemRefValue", py::module_local(),
                             py::buffer_protocol())
@@ -950,22 +905,45 @@ PYBIND11_MODULE(_api, m) {
       .def(
           "execute_function",
           [](PyRuntimeSession &self, std::string name,
-             std::vector<py::object> inArgs, std::vector<py::object> outArgs,
-             std::optional<MTRT_Stream> stream) {
+             std::vector<py::object> inArgs,
+             std::optional<std::vector<py::object>> outArgs,
+             std::optional<MTRT_Stream> stream,
+             PyRuntimeClient *client = nullptr) {
             MTRT_StringView nameRef{name.data(), name.size()};
 
-            auto inArgsGeneric = llvm::map_to_vector(inArgs, convertArgType);
-            auto outArgsGeneric = llvm::map_to_vector(outArgs, convertArgType);
+            int64_t numResults;
+            MTRT_Status s =
+                mtrtRuntimeSessionGetNumResults(self, nameRef, &numResults);
+            THROW_IF_MTRT_ERROR(s);
 
-            MTRT_Status s = mtrtRuntimeSessionExecuteFunction(
+            auto inArgsGeneric = llvm::map_to_vector(inArgs, convertArgType);
+            auto outArgsGeneric =
+                outArgs ? llvm::map_to_vector(*outArgs, convertArgType)
+                        : llvm::SmallVector<MTRT_RuntimeValue>{};
+
+            std::vector<MTRT_RuntimeValue> resultsGeneric(numResults);
+
+            s = mtrtRuntimeSessionExecuteFunction(
                 self, nameRef, inArgsGeneric.data(), inArgsGeneric.size(),
                 outArgsGeneric.data(), outArgsGeneric.size(),
-                stream ? *stream : mtrtStreamGetNull());
+                resultsGeneric.data(), stream ? *stream : mtrtStreamGetNull(),
+                client ? MTRT_RuntimeClient(*client)
+                       : mtrtRuntimeClientGetNull());
             THROW_IF_MTRT_ERROR(s);
-          },
-          py::arg("name"), py::arg("in_args"), py::arg("out_args"),
-          py::arg("stream") = py::none());
 
+            std::vector<py::object> resultPyObject;
+            if (numResults > 0) {
+              for (const auto &arg : resultsGeneric)
+                resultPyObject.push_back(convertGenericArgToPyObject(arg));
+            }
+
+            return resultPyObject;
+          },
+          py::arg("name"), py::arg("in_args"), py::arg("out_args") = py::none(),
+          py::arg("stream") = py::none(), py::arg("client") = nullptr,
+          "Execute a function given input and optional output arguments. "
+          "Return optional results as a Python object if output arguments are "
+          "not present.");
   py::class_<PyGlobalDebugFlag>(m, "GlobalDebug", py::module_local())
       .def_property_static("flag", &PyGlobalDebugFlag::get,
                            &PyGlobalDebugFlag::set, "LLVM-wide debug flag")

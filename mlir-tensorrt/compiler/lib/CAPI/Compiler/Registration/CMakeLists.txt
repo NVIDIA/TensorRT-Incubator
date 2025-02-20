@@ -3,8 +3,17 @@ add_mlir_tensorrt_public_c_api_library(MLIRTensorRTCAPIRegisterAllDialects
 
   PARTIAL_SOURCES_INTENDED
   LINK_LIBS PUBLIC
-    MLIRTensorRTRegistration
     MLIRCAPIIR
-    MLIRCAPITransforms
+    MLIREmitCTransforms
+    MLIRFuncInlinerExtension
+    MLIRTensorInferTypeOpInterfaceImpl
     MLIRTensorRTCompilerStableHloToExecutable
-)
+    MLIRTensorRTCompilerTensorRTToExecutable
+    MLIRTensorRTCUDAToLLVM
+    MLIRTensorRTCUDATransforms
+    MLIRTensorRTHostToLLVM
+    MLIRTensorRTPlanToLLVM
+    MLIRTensorRTTensorRTRuntimeTransforms
+    MLIRTensorRTTensorRTToEmitC
+    MLIRTransformDialect
+    )

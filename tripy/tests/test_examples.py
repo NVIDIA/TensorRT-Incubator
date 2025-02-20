@@ -24,14 +24,13 @@ import glob
 import os
 import re
 import shutil
-from typing import Sequence
 from textwrap import dedent
-
+from typing import Sequence
+import contextlib
 import pytest
+from tests import helper, paths
 
-from tests import helper
-
-EXAMPLES_ROOT = os.path.join(helper.ROOT_DIR, "examples")
+EXAMPLES_ROOT = os.path.join(paths.ROOT_DIR, "examples")
 
 
 class Example:
@@ -47,16 +46,18 @@ class Example:
 
     def _remove_artifacts(self, must_exist=True):
         for artifact in self.artifacts:
+
+            artifact_found = glob.glob(artifact)
+
             if must_exist:
                 print(f"Checking for the existence of artifact: {artifact}")
-                assert os.path.exists(artifact), f"{artifact} does not exist!"
-            elif not os.path.exists(artifact):
-                continue
+                assert artifact_found, f"{artifact} does not exist!"
 
-            if os.path.isdir(artifact):
-                shutil.rmtree(artifact)
-            else:
-                os.remove(artifact)
+            for f in artifact_found:
+                if os.path.isdir(f):
+                    shutil.rmtree(f)
+                else:
+                    os.remove(f)
 
     def __enter__(self):
         self._remove_artifacts(must_exist=False)
@@ -64,8 +65,9 @@ class Example:
         self.original_files = self._get_file_list()
         return helper.consolidate_code_blocks_from_readme(self.readme)
 
-    def run(self, block, sandboxed_install_run):
-        return sandboxed_install_run(block, cwd=self.path)
+    def run(self, block, tripy_virtualenv):
+        print(f"Running command:\n{block}")
+        return tripy_virtualenv.run(block, cwd=self.path, capture=True)
 
     def __exit__(self, exc_type, exc_value, traceback):
         """
@@ -84,7 +86,7 @@ EXAMPLES = [
     Example(["nanogpt"]),
     Example(
         ["segment-anything-model-v2"],
-        artifact_names=["truck.jpg", "bedroom", "saved_engines/", "output/", "checkpoints/"],
+        artifact_names=["truck.jpg", "bedroom", "saved_engines_l/", "output/", "checkpoints/*.pt"],
     ),
 ]
 
@@ -95,7 +97,7 @@ EXAMPLES = [
 @pytest.mark.l1
 @pytest.mark.l1_release_package
 @pytest.mark.parametrize("example", EXAMPLES, ids=lambda case: str(case))
-def test_examples(example, sandboxed_install_run):
+def test_examples(example, tripy_virtualenv):
     def process_tolerances(expected_output):
         # Adjusts the expected output into a regex that will be more lenient when matching
         # values with tolerances. The actual tolerance checks are done separately.
@@ -129,7 +131,7 @@ def test_examples(example, sandboxed_install_run):
         assert "## Introduction" in contents, "All example READMEs should have an 'Introduction' section!"
         assert "## Running The Example" in contents, "All example READMEs should have a 'Running The Example' section!"
 
-    statuses = []
+    outputs = []
     with example as command_blocks:
         # NOTE: This logic is not smart enough to handle multiple separate commands in a single block.
         for block in command_blocks:
@@ -139,7 +141,7 @@ def test_examples(example, sandboxed_install_run):
             code = str(block)
             if block.has_marker("test: expected_stdout"):
                 print("Checking command output against expected output: ", end="")
-                actual = statuses[-1].stdout.strip()
+                actual = outputs[-1].strip()
                 expected = dedent(code).strip()
 
                 expected, tolerance_specs = process_tolerances(expected)
@@ -160,13 +162,11 @@ def test_examples(example, sandboxed_install_run):
                 print(f"==== STDOUT ====\n{actual}")
                 assert matched
             else:
-                status = example.run(code, sandboxed_install_run)
+                output = ""
+                with contextlib.ExitStack() as stack:
+                    if block.has_marker("test: xfail"):
+                        stack.enter_context(helper.raises(Exception))
 
-                details = (
-                    f"Note: Command was: {code}.\n==== STDOUT ====\n{status.stdout}\n==== STDERR ====\n{status.stderr}"
-                )
-                if block.has_marker("test: xfail"):
-                    assert not status.success, f"Command that was expected to fail did not fail. {details}"
-                else:
-                    assert status.success, f"Command that was expected to succeed did not succeed. {details}"
-                statuses.append(status)
+                    output = example.run(code, tripy_virtualenv)
+
+                outputs.append(output)

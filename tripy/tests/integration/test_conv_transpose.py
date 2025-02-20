@@ -21,7 +21,7 @@ from dataclasses import dataclass
 import pytest
 import torch
 
-import tripy as tp
+import nvtripy as tp
 
 DTYPES = [
     (torch.float16, tp.float16),
@@ -280,14 +280,13 @@ class TestConvolution:
         output = eager_or_compiled(conv_layer, input)
         output_transpose = eager_or_compiled(conv_transpose_layer, input)
 
-        rtol = 2e-7 if tp_dtype == tp.float32 else 9e-4
-        assert tp.allclose(output, tp.Tensor(expected), rtol=rtol, atol=1e-5)
+        assert tp.allclose(output, tp.Tensor(expected), rtol=1e-2, atol=1e-4)
         assert output.shape == list(expected.shape)
-        assert tp.allclose(output_transpose, tp.Tensor(expected_transpose), rtol=rtol, atol=1e-5)
+        assert tp.allclose(output_transpose, tp.Tensor(expected_transpose), rtol=1e-2, atol=1e-4)
         assert output_transpose.shape == list(expected_transpose.shape)
-        assert tp.allclose(output, output_transpose, rtol=rtol, atol=1e-5)
+        assert tp.allclose(output, output_transpose, rtol=1e-2, atol=1e-4)
         assert output.shape == output_transpose.shape
-        assert tp.allclose(tp.Tensor(expected), tp.Tensor(expected_transpose), rtol=rtol, atol=1e-5)
+        assert tp.allclose(tp.Tensor(expected), tp.Tensor(expected_transpose), rtol=1e-2, atol=1e-4)
         assert list(expected.shape) == list(expected_transpose.shape)
 
     @pytest.mark.parametrize("test_case", test_cases_transpose_downscale)

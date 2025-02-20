@@ -52,6 +52,10 @@ static inline bool mtrtCompilerClientIsNull(MTRT_CompilerClient options) {
   return !options.ptr;
 }
 
+MLIR_CAPI_EXPORTED MTRT_Status mtrtCompilerClientGetCompilationTask(
+    MTRT_CompilerClient client, MlirStringRef taskMnemonic,
+    const MlirStringRef *argv, unsigned argc, MlirPassManager *result);
+
 //===----------------------------------------------------------------------===//
 // MTRT_OptionsContext
 //===----------------------------------------------------------------------===//
@@ -84,13 +88,6 @@ typedef struct MTRT_StableHLOToExecutableOptions {
   void *ptr;
 } MTRT_StableHLOToExecutableOptions;
 
-/// A callback that allows the user to customize the metadata set for layers
-/// corresponding to each MLIR operation. The callback should invoke the
-/// provided append function in order to manipulate the result string.
-typedef void (*MTRT_MetadataCallback)(MlirOperation op,
-                                      MlirStringCallback append,
-                                      void *appendCtx, void *userData);
-
 MLIR_CAPI_EXPORTED MTRT_Status mtrtStableHloToExecutableOptionsCreate(
     MTRT_CompilerClient client, MTRT_StableHLOToExecutableOptions *options,
     int32_t tensorRTBuilderOptLevel, bool tensorRTStronglyTyped);
@@ -108,13 +105,6 @@ MLIR_CAPI_EXPORTED MTRT_Status mtrtStableHloToExecutableOptionsSetDebugOptions(
     const char **debugTypes, size_t debugTypeSizes,
     const char *dumpIrTreeDir = nullptr, const char *dumpTensorRTDir = nullptr);
 
-/// Sets the layer metadata callback. The `userData` argument is passed along
-/// to the callback when it is invoked.
-MLIR_CAPI_EXPORTED MTRT_Status
-mtrtStableHloToExecutableOptionsSetTensorRTTranslationMetadataCallback(
-    MTRT_StableHLOToExecutableOptions options, MTRT_MetadataCallback callback,
-    void *userData);
-
 MLIR_CAPI_EXPORTED MTRT_Status mtrtStableHloToExecutableOptionsDestroy(
     MTRT_StableHLOToExecutableOptions options);
 
@@ -124,24 +114,16 @@ static inline bool mtrtStableHloToExecutableOptionsIsNull(
 }
 
 //===----------------------------------------------------------------------===//
-// StableHloPipeline APIs
+// PassManagerReference APIs
 //===----------------------------------------------------------------------===//
 
-static inline bool mtrtStableHloPipelineIsNull(MlirPassManager pm) {
+static inline bool mtrtPassManagerReferenceIsNull(MlirPassManager pm) {
   return !pm.ptr;
 }
-
-MLIR_CAPI_EXPORTED MTRT_Status mtrtStableHloPipelineGetCached(
-    MTRT_CompilerClient client, MTRT_StableHLOToExecutableOptions options,
-    MlirPassManager *result);
 
 //===----------------------------------------------------------------------===//
 // Main StableHLO Compiler API Functions
 //===----------------------------------------------------------------------===//
-
-/// Get Executable using StableHloPassManager.
-MLIR_CAPI_EXPORTED MTRT_Status mtrtCompilerGetExecutable(
-    MlirPassManager pm, MlirOperation module, MTRT_Executable *result);
 
 /// Compiler StableHLO to Executable.
 MLIR_CAPI_EXPORTED MTRT_Status mtrtCompilerStableHLOToExecutable(

@@ -1,4 +1,3 @@
-#
 # SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -27,9 +26,9 @@ from dataclasses import dataclass
 from textwrap import dedent, indent
 from typing import Dict, List, Set
 
-import tripy as tp
+import nvtripy as tp
 from tests import helper
-from tripy.export import PUBLIC_APIS
+from nvtripy.export import PUBLIC_APIS
 
 
 @dataclass
@@ -136,6 +135,7 @@ def build_root_index_file(constituents, guide_sets, processed_markdown_dirname):
             dedent(
                 f"""
                 .. toctree::
+                    :hidden:
                     :caption: {guide_set.title}
                     :maxdepth: 1
                 """
@@ -152,6 +152,7 @@ def build_root_index_file(constituents, guide_sets, processed_markdown_dirname):
             dedent(
                 f"""
                 .. toctree::
+                    :hidden:
                     :caption: API Reference
                     :maxdepth: 1
                 """
@@ -197,12 +198,29 @@ def process_guide(guide_path: str, processed_guide_path: str):
         if should_eval and block.lang.startswith("py"):
             print("Evaluating Python block")
 
-            def add_block(title, contents, lang):
-                # Only include the "Output:" heading when the code block is actually rendered in the documentation.
-                return (
+            def add_block(kind, contents, lang, code_indentation):
+                # Indent our block to match the indentation of the code in the original block.
+
+                if kind == helper.BlockKind.LOCAL_VARS:
+                    return indent(
+                        "\n```{eval-rst}"
+                        + "\n.. collapse:: Local Variables\n"
+                        + indent(
+                            "\n::\n" + indent(contents, prefix=" " * helper.TAB_SIZE),
+                            prefix=" " * (helper.TAB_SIZE * 2),
+                        )
+                        + "\n```\n",
+                        prefix=" " * code_indentation,
+                    )
+
+                assert kind == helper.BlockKind.OUTPUT
+                return indent(
                     "\n"
-                    + (title if not block.has_marker("doc: omit") else "")
-                    + f"\n```{lang}\n{dedent(contents).strip()}\n```"
+                    # Only include the "Output:" title when the code block is rendered.
+                    # Hidden code blocks can be used to dynamically generate documentation.
+                    + ("Output:" if not block.has_marker("doc: omit") else "")
+                    + f"\n```{lang}\n{dedent(contents).strip()}\n```",
+                    prefix=" " * code_indentation,
                 )
 
             code_block_lines, local_var_lines, output_lines, code_locals = (
@@ -217,7 +235,8 @@ def process_guide(guide_path: str, processed_guide_path: str):
             if not block.has_marker("doc: omit"):
                 new_blocks.extend(code_block_lines)
 
-            new_blocks.extend(local_var_lines)
+            if not block.has_marker("doc: no_print_locals"):
+                new_blocks.extend(local_var_lines)
             new_blocks.extend(output_lines)
 
         else:
@@ -309,7 +328,7 @@ def main():
 
     print(f"Generating documentation hierarchy:\n{str_from_hierarchy(doc_hierarcy)}")
 
-    EXCLUDE_DIRS = ["_static"]
+    EXCLUDE_DIRS = ["_static", "_templates"]
 
     guide_sets: List[GuideSet] = []
     guide_dirs = list(

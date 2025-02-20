@@ -25,7 +25,7 @@
 from functools import partial
 from typing import Callable, List, Tuple, Union
 
-import tripy as tp
+import nvtripy as tp
 from sam2.modeling.backbones.utils import (
     PatchEmbed,
     window_partition,
@@ -106,6 +106,8 @@ class MultiScaleBlock(tp.Module):
         q_stride: Tuple[int, int] = None,
         act_layer: Callable = tp.gelu,
         window_size: int = 0,
+        pad_size: int = 0,
+        unpad_size: int = 0,
         dtype: tp.dtype = tp.float32,
     ):
         super().__init__()
@@ -118,6 +120,8 @@ class MultiScaleBlock(tp.Module):
         self.norm1 = norm_layer(dim)
 
         self.window_size = window_size
+        self.pad_size = (pad_size, pad_size)
+        self.unpad_size = (unpad_size, unpad_size)
 
         self.pool, self.q_stride = None, q_stride
         if self.q_stride:
@@ -163,7 +167,7 @@ class MultiScaleBlock(tp.Module):
         window_size = self.window_size
         if window_size > 0:
             H, W = x.shape[1:3]
-            x, pad_hw = window_partition(x, window_size)
+            x, pad_hw = window_partition(x, window_size, self.pad_size)
 
         # Window Attention + Q Pooling (if stage change)
         x = self.attn(x)
@@ -181,7 +185,7 @@ class MultiScaleBlock(tp.Module):
 
         # Reverse window partition
         if self.window_size > 0:
-            x = window_unpartition(x, window_size, pad_hw, (H, W))
+            x = window_unpartition(x, window_size, pad_hw, self.unpad_size)
 
         x = shortcut + x
         # MLP
@@ -215,6 +219,8 @@ class Hiera(tp.Module):
             16,
             20,
         ),
+        block_pad_size: List[int] = [],
+        block_unpad_size: List[int] = [],
         return_interm_layers=True,  # return feats from every stage
         dtype: str = "float32",
     ):
@@ -226,6 +232,8 @@ class Hiera(tp.Module):
         self.window_spec = window_spec
 
         depth = sum(stages)
+        self.block_pad_size = block_pad_size if block_pad_size else [0] * depth
+        self.block_unpad_size = block_unpad_size if block_unpad_size else [0] * depth
         self.q_stride = q_stride
         self.stage_ends = [sum(stages[:i]) - 1 for i in range(1, len(stages) + 1)]
         assert 0 <= q_pool <= len(self.stage_ends[:-1])
@@ -266,6 +274,8 @@ class Hiera(tp.Module):
                 num_heads=num_heads,
                 q_stride=self.q_stride if i in self.q_pool_blocks else None,
                 window_size=window_size,
+                pad_size=self.block_pad_size[i],
+                unpad_size=self.block_unpad_size[i],
                 dtype=tp_dtype,
             )
 

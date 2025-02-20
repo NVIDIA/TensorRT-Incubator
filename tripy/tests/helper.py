@@ -17,11 +17,9 @@
 
 import contextlib
 import copy
-import glob
 import importlib
 import inspect
 import io
-import os
 import pkgutil
 import re
 from textwrap import dedent, indent
@@ -30,37 +28,14 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Set
 import black
 import cupy as cp
 import numpy as np
+import nvtripy as tp
 import pytest
 import torch
-
-import tripy as tp
-from tripy import utils
-from tripy.common.exception import str_from_stack_info
-from tripy.frontend import Tensor
-from tripy.frontend.trace import Trace
+from nvtripy import utils
+from nvtripy.common.exception import str_from_stack_info
+import enum
 
 TAB_SIZE = 4
-
-ROOT_DIR = os.path.realpath(os.path.join(os.path.dirname(__file__), os.path.pardir))
-
-
-def get_files_with_extension(ext):
-    return [
-        path
-        for path in glob.glob(os.path.join(ROOT_DIR, "**", f"*{ext}"), recursive=True)
-        if not path.startswith(
-            (
-                os.path.join(ROOT_DIR, "build"),
-                os.path.join(ROOT_DIR, "mlir-tensorrt"),
-                os.path.join(ROOT_DIR, "stablehlo"),
-            )
-        )
-    ]
-
-
-MARKDOWN_FILES = get_files_with_extension(".md")
-
-PYTHON_FILES = get_files_with_extension(".py")
 
 
 @contextlib.contextmanager
@@ -175,20 +150,27 @@ def consolidate_code_blocks(doc):
 def exec_code(code, code_locals=None) -> Dict[str, Any]:
     # By default, don't inherit most variables from the current environment
     # so we can be sure the docstring examples work in total isolation.
-    code_locals = copy.copy(utils.default(code_locals, {}))
+    code_locals = copy.copy(utils.utils.default(code_locals, {}))
     exec(code, {"tp": tp, "np": np, "torch": torch, "cp": cp}, code_locals)
     return code_locals
 
 
 @contextlib.contextmanager
 def capture_output():
+    def reset_outfile(outfile):
+        outfile.flush()
+        outfile.seek(0)
+
     try:
         outfile = io.StringIO()
         with contextlib.redirect_stdout(outfile), contextlib.redirect_stderr(outfile):
             yield outfile
+    except:
+        reset_outfile(outfile)
+        print(outfile.read())
+        raise
     finally:
-        outfile.flush()
-        outfile.seek(0)
+        reset_outfile(outfile)
 
 
 def discover_modules():
@@ -213,7 +195,7 @@ def discover_tripy_objects():
             obj
             for obj in mod.__dict__.values()
             if hasattr(obj, "__module__")
-            and obj.__module__.startswith("tripy")
+            and obj.__module__.startswith("nvtripy")
             and (inspect.isclass(obj) or inspect.isfunction(obj))
         ]
 
@@ -272,6 +254,9 @@ AVAILABLE_MARKERS = {
     "doc: omit": Marker.from_name("DOC: OMIT"),
     # Indicates that a block should not be evaluated for the documentation.
     "doc: no_eval": Marker.from_name("DOC: NO_EVAL"),
+    # Indicates that local variables should not be displayed for a code block in the documentation.
+    # Useful when the raw code block is also publicly visible and we don't want inline markers (e.g. in the main README.md).
+    "doc: no_print_locals": Marker.from_name("DOC: NO_PRINT_LOCALS"),
 }
 
 
@@ -392,6 +377,11 @@ def consolidate_code_blocks_from_readme(readme_path: str) -> List[ReadmeCodeBloc
 ANSI_ESCAPE = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
 
 
+class BlockKind(enum.Enum):
+    OUTPUT = 0
+    LOCAL_VARS = 1
+
+
 def process_code_block_for_outputs_and_locals(
     block: str,
     format_contents: Callable[[str, str, str], str],
@@ -400,20 +390,22 @@ def process_code_block_for_outputs_and_locals(
     strip_assertions: bool = False,
 ):
     # Make sure to update `docs/README.md` if updating the behavior of this function.
-    local_vars = utils.default(local_vars, {})
+    local_vars = utils.utils.default(local_vars, {})
 
     TRIPY_CLASSES = [tripy_obj for tripy_obj in discover_tripy_objects() if inspect.isclass(tripy_obj)]
     # Special tags are documented under docs/README.md.
     NO_EVAL = "# doc: no-eval"
+    NO_OUTPUT = "# doc: no-output"
     NO_PRINT_LOCALS = "# doc: no-print-locals"
     PRINT_LOCALS = "# doc: print-locals"
     ALLOW_EXCEPTION = "# doc: allow-exception"
-    REMOVE_TAGS = [NO_PRINT_LOCALS, PRINT_LOCALS, NO_EVAL, ALLOW_EXCEPTION]
+    REMOVE_TAGS = [NO_PRINT_LOCALS, PRINT_LOCALS, NO_EVAL, NO_OUTPUT, ALLOW_EXCEPTION]
     if strip_assertions:
         REMOVE_TAGS.append("assert ")
     OMIT_COMMENT = "# doc: omit"
 
     should_append_locals = True
+    should_append_output = True
     should_eval = True
     allow_exception = False
 
@@ -439,6 +431,9 @@ def process_code_block_for_outputs_and_locals(
 
         if block_line.strip() == NO_EVAL:
             should_eval = False
+
+        if block_line.strip() == NO_OUTPUT:
+            should_append_output = False
 
         if block_line.strip() == ALLOW_EXCEPTION:
             allow_exception = True
@@ -508,7 +503,7 @@ def process_code_block_for_outputs_and_locals(
                 print(e)
                 code_locals = local_vars
             else:
-                print(f"{err_msg}\n" f"Note: Code block was:\n\n{block}")
+                print(f"{err_msg}\n" f"Note: Code block was:\n\n{block}\n\nExtracted code was:\n\n{code}\n")
                 raise
 
     new_locals = {
@@ -562,29 +557,20 @@ def process_code_block_for_outputs_and_locals(
                 locals_str += f"\n{pretty_str_from_dict(obj)}"
             else:
                 locals_str += f"\n{obj}"
+            locals_str += "\n"
 
-    def split_block_lines(title, contents, lang="python"):
-        line = block.splitlines()[1]
-        indentation = len(line) - len(line.lstrip())
-
-        out = (
-            indent(
-                format_contents(title, contents, lang),
-                prefix=" " * (indentation - 4),
-            )
-            + "\n\n"
-        )
+    def split_block_lines(kind, contents, lang="python"):
+        out = format_contents(kind, contents, lang, indentation) + "\n\n"
         return out.splitlines()
 
     if locals_str:
-        local_var_lines = split_block_lines("", locals_str)
+        local_var_lines = split_block_lines(BlockKind.LOCAL_VARS, locals_str)
 
     # Add output as a separate code block.
     stdout = outfile.read() or ""
-
-    if stdout:
+    if stdout and should_append_output:
         # Strip out ANSI control sequences from output:
         stdout = ANSI_ESCAPE.sub("", stdout)
-        output_lines = split_block_lines("Output:", stdout, lang="")
+        output_lines = split_block_lines(BlockKind.OUTPUT, stdout, lang="")
 
     return stripped_code_block_lines, local_var_lines, output_lines, code_locals

@@ -27,7 +27,7 @@ from typing import Optional, Callable
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import tripy as tp
+import nvtripy as tp
 
 
 def select_closest_cond_frames(frame_idx, cond_frame_outputs, max_cond_frame_num):
@@ -183,7 +183,7 @@ class MLP(tp.Module):
 class LayerNorm2d(tp.Module):
     def __init__(self, num_channels: int, eps: float = 1e-6) -> None:
         super().__init__()
-        from tripy.frontend.module.parameter import DefaultParameter
+        from nvtripy.frontend.module.parameter import DefaultParameter
 
         self.weight = DefaultParameter((num_channels,), tp.float32)
         self.bias = DefaultParameter((num_channels,), tp.float32)

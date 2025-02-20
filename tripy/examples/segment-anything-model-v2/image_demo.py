@@ -19,7 +19,7 @@ import os
 import time
 import numpy as np
 import torch
-import tripy as tp
+import nvtripy as tp
 import matplotlib.pyplot as plt
 
 plt.switch_backend("agg")  # Switch to non-interactive backend
@@ -32,6 +32,7 @@ from demo_utils import process_and_show_mask, show_box, show_points
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-b", "--batch", type=int, default=2, help="batch size of the input images, between [1, 4]")
+parser.add_argument("-t", "--type", type=str, default="large", choices=["large", "small", "tiny"], help="type of the sam2 model")
 
 
 def process_predictions(
@@ -105,8 +106,9 @@ def main(image_path: str, save_path: Optional[str] = None):
     image_list = [image] * args.batch
 
     # Initialize SAM2 model
-    sam2_checkpoint = "./checkpoints/sam2.1_hiera_large.pt"
-    model_cfg = "sam2_hiera_l.yaml"
+    sam2_type = args.type
+    sam2_checkpoint = f"./checkpoints/sam2.1_hiera_{sam2_type}.pt"
+    model_cfg = f"sam2_hiera_{sam2_type[0]}.yaml"
     device = torch.device("cuda")
     sam2_model = build_sam2(
         model_cfg,

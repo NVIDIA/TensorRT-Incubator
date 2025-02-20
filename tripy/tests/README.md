@@ -1,153 +1,120 @@
 # Tests
 
-The tests directory includes both unit and integration tests. For the former, the file
-structure is meant to exactly mirror the structure of the code. That means, for example
-that `tripy/path/to/<file>.py` will have all of its unit tests in `tests/path/to/test_<file>.py`.
-The `tests/integration` directory captures the latter group of tests.
+## Test Types
+
+- **Unit tests** mirror the structure of the code.
+
+    - **Example:** Tests for [`nvtripy/frontend/tensor.py`](../nvtripy/frontend/tensor.py)
+        are located in [`tests/frontend/test_tensor.py`](../tests/frontend/test_tensor.py).
+
+- **Integration tests** are under [`tests/integration`](../tests/integration/).
+
+- **Performance tests** are under [`tests/performance`](../tests/performance/). There are 3 kinds:
+
+    - Regression tests, using
+        [`pytest-benchmark`](https://pytest-benchmark.readthedocs.io/en/latest/)
+        and the
+        [Continuous Benchmark GitHub Action](https://github.com/marketplace/actions/continuous-benchmark).
+
+        - **Tip:** View historical perf charts by opening
+        [`index.html` from the `benchmarks` branch](https://github.com/NVIDIA/TensorRT-Incubator/blob/benchmarks/dev/bench/index.html)
+        in a browser.
+
+    - Comparative tests between Tripy and `torch.compile`.
+
+    - Overhead tests to measure runtime overheads vs. running the MLIR executable directly.
 
 
 ## Running Tests
 
-You can run all tests locally in the development container by running:
+To run all tests:
+
 ```bash
 pytest tests/ -v
 ```
 
-You can also provide marker arguments to only run specific test cadences
-(see [the test cadence section](#test-cadence) below). For example, to run only
-L0 tests, use:
+To run L0 tests:
 
 ```bash
 pytest tests/ -v -m "not l1 and not l1_release_package" -n 4 --dist worksteal --ignore tests/performance
 pytest tests/performance -v -m "not l1 and not l1_release_package"
 ```
 
-Note that the L0/L1 tests can be parallelized. In that case, performance tests
-are run separately because they must run serially to ensure accurate measurements.
+- **Note:** Performance tests are run separately because they must run serially.
+
+
+## Test Cadence
+
+Use pytest markers to indicate which job a test should run in.
+
+- The default is **L0**, i.e. the pull request pipeline.
+
+- Markers will overwrite the implicit L0 marker but are otherwise additive.
+
+<!-- Tripy: TEST: IGNORE Start -->
+- **Example:** Marking tests to run in **L1** (nightly):
+
+    ```py
+    @pytest.mark.l1
+    def test_really_slow_things():
+        ...
+    ```
+<!-- Tripy: TEST: IGNORE End -->
+
+- **See also:** [pyproject.toml](../pyproject.toml) for all supported markers.
+
 
 ## Profiling
 
-You can profile test runtimes in the development container using the
-`--profile` option, which will generate `pstats` files for each test
-in a `prof/` directory, along with a `combined.prof` file for all the
-tests together.
+The `--profile` option will generate profiling data under `prof/`:
 
-For example, to profile L0 tests, run:
+- `pstats` file for each test
+- `combined.prof` for all tests together
+
+**Example:** To profile L0 functional tests:
 
 ```bash
 pytest tests/ -v -m "not l1 and not l1_release_package" --ignore tests/performance --profile
 ```
 
-You can visualize the results using `snakeviz`.
+Visualize the results using `snakeviz`.
 
-*NOTE: Ensure that you launched the development container with port forwarding,*
-*i.e. the `-p 8080:8080` option.*
+- **Note:** Ensure you launched the container with port forwarding (`-p 8080:8080`).
 
-For example:
+**Example:**
 
 ```bash
 snakeviz prof/combined.prof -s --hostname 0.0.0.0
 ```
 
-Then, in a browser, navigate to:
+Navigate to:
 http://localhost:8080/snakeviz/%2Ftripy%2Fprof%2Fcombined.prof
-
+in a browser.
 
 
 ## Coverage Reports
 
-You can generate code coverage reports locally by running:
+To generate code coverage reports:
 
 ```bash
-pytest --cov=tripy/ --cov-report=html --cov-config=.coveragerc tests/ -v
+pytest --cov=nvtripy/ --cov-report=html --cov-config=.coveragerc tests/ -v
 ```
 
-To view the report, open the `htmlcov/index.html` file from the root directory in a browser.
+You can view the report at `htmlcov/index.html` in a browser.
 
 
 ## Dead Code Detection
 
-Our development container includes a static analysis tool called `vulture` that can
-detect dead code. *This **will** include false positives for our code, so be careful!*
+Use `vulture` to detect dead code.
 
-You can run it with:
+- **Note:** This **will** include false positives!
 
 ```bash
 vulture . --sort-by-size
 ```
 
-To exclude false positives, use:
+Exclude false positives (but also some true positives) with:
 
 ```bash
 vulture . --sort-by-size --min-confidence=100
 ```
-
-
-## Adding Tests
-
-When modifying or adding new files in `tripy`, make sure that you also modify or add the corresponding
-unit test files under `tests`. For integration tests, you can find an appropriate file in
-`tests/integration` or create a new one if none of the existing files fit your needs.
-
-### Test Cadence
-
-We don't necessarily want to run every test in every single pipeline. You can use special
-pytest markers to indicate the cadence for a test. For example:
-
-<!-- Tripy: TEST: IGNORE Start -->
-
-```py
-@pytest.mark.l1
-def test_really_slow_things():
-    ...
-```
-
-<!-- Tripy: TEST: IGNORE End -->
-
-Supported markers are documented in [pyproject.toml](../pyproject.toml).
-
-### Docstring Tests
-
-For public-facing interfaces, you should add examples in the docstrings.
-Avoid doing this for internal interfaces since we do not build documentation for
-those anyway.
-
-Any code blocks in docstrings are automatically tested by `tests/test_ux.py`.
-The code block format is:
-```py
-"""
-.. code-block:: python
-    :linenos:
-    :caption: Descriptive Title
-
-    <example code>
-"""
-```
-
-Any caption other than `Example` will have a prefix of `Example: ` prepended to it.
-
-**NOTE: The docstrings must *not* import `tripy`, `numpy`, or `torch`. They will be imported**
-    **automatically as `tp`, `np`, and `torch` respectively. Any other modules will need to be imported.**
-
-
-### Performance Tests
-
-In addition to functional tests, we also run performance tests of three kinds:
-
-1. Regression tests, which compare current Tripy performance to historical data
-    to ensure we don't regress. We use the
-    [`pytest-benchmark`](https://pytest-benchmark.readthedocs.io/en/latest/)
-    plugin to gather data and the
-    [Continuous Benchmark GitHub Action](https://github.com/marketplace/actions/continuous-benchmark)
-    for regression testing.
-
-    You can view graphs and charts of the historical data by opening the
-    [`index.html` file from the `benchmarks` branch](https://github.com/NVIDIA/TensorRT-Incubator/blob/benchmarks/dev/bench/index.html)
-    in a browser.
-
-2. Comparative tests, which compare Tripy and `torch.compile`.
-
-3. Overhead tests, which check the overhead introduced by Tripy as compared
-    to running the underlying MLIR executable by itself. This is done by measuring
-    how long it takes to run an empty executable since in that case, all the time
-    is taken by the Tripy wrapper code.

@@ -31,7 +31,7 @@ from hydra.utils import instantiate
 from omegaconf import OmegaConf
 from typing import Dict, Any, Optional
 
-import tripy as tp
+import nvtripy as tp
 import time
 import os
 
@@ -256,11 +256,11 @@ class SAM2ModelCache:
 
     _instance = None
 
-    def __new__(cls):
+    def __new__(cls, model_type):
         if cls._instance is None:
             cls._instance = super(SAM2ModelCache, cls).__new__(cls)
             cls._instance.cached_models = {}
-            cls._instance.saved_engines_path = os.path.join(os.getcwd(), "saved_engines")
+            cls._instance.saved_engines_path = os.path.join(os.getcwd(), f"saved_engines_{model_type}")
             if not os.path.exists(cls._instance.saved_engines_path):
                 os.makedirs(cls._instance.saved_engines_path)
         return cls._instance
@@ -315,6 +315,7 @@ def build_sam2_base(
         ]
 
     # Read config and init model
+    model_type = config_file.split(".")[0][-1]
     cfg = compose(config_name=config_file, overrides=hydra_overrides)
     OmegaConf.resolve(cfg)
 
@@ -323,7 +324,7 @@ def build_sam2_base(
 
     # Get component configurations and initialize cache
     components = get_component_configs(model, cfg)
-    model_cache = SAM2ModelCache()
+    model_cache = SAM2ModelCache(model_type)
 
     # Compile or load all required components
     for comp_name, comp_info in components.items():

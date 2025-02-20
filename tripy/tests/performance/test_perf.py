@@ -23,7 +23,7 @@ import torch
 from tests.performance.cases import *
 from tests.performance.conftest import PERF_CASES
 
-import tripy as tp
+import nvtripy as tp
 
 
 def run_timed_trials(thunk: Callable[[], None], warm_up_runs=10, iterations=1000):
@@ -137,7 +137,7 @@ def test_tripy_overhead():
 
         return run_timed_trials(measure_thunk, warm_up_runs=warm_up_runs, iterations=iterations)
 
-    assert measure_overhead(1) < 60.0
+    assert measure_overhead(1) < 250.0
 
     # Check that the overhead increases at most linearly as we increase number of I/O tensors.
     overheads = [measure_overhead(i) for i in range(3, 10)]

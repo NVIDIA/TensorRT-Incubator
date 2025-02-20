@@ -35,14 +35,13 @@ jobs:
     - name: l1-test
       run: |
         cd /tripy/
-        pytest --cov=tripy/ --cov-config=.coveragerc tests/ -v -m "l1" -n 4 --durations=15 --ignore tests/performance
+        pytest --cov=nvtripy/ --cov-config=.coveragerc tests/ -v -m "l1" --durations=15 --ignore tests/performance
 
     # For some tests, we want to use the public build instead of the latest commit.
     - name: l1-test-release-package
       run: |
         cd /tripy/
         unset PYTHONPATH
-        pip uninstall tripy -y
-        pip install --no-index -f https://nvidia.github.io/TensorRT-Incubator/packages.html tripy --no-deps
-        pip install -f https://nvidia.github.io/TensorRT-Incubator/packages.html tripy
-        pytest --cov=tripy/ --cov-config=.coveragerc tests/ -v -m "l1_release_package" -n 4 --durations=15 --ignore tests/performance
+        pip uninstall nvtripy -y
+        python3 -m pip install nvtripy -f https://nvidia.github.io/TensorRT-Incubator/packages.html
+        pytest --cov=nvtripy/ --cov-config=.coveragerc tests/ -v -m "l1_release_package" --durations=15 --ignore tests/performance

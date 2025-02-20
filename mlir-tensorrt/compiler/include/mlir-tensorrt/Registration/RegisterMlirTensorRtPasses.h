@@ -26,15 +26,21 @@
 #include "mlir-tensorrt/Conversion/Passes.h"
 #include "mlir-tensorrt/Transforms/Passes.h"
 #include "mlir/Conversion/Passes.h"
+#include "mlir/Dialect/EmitC/Transforms/Passes.h"
 #include "mlir/Transforms/Passes.h"
 
 #ifdef MLIR_TRT_ENABLE_HLO
-#include "mlir-tensorrt/Compiler/StableHloToExecutable.h"
+#include "mlir-tensorrt/Compiler/StablehloToExecutable/Passes.h"
+#include "mlir-tensorrt/Compiler/StablehloToExecutable/StablehloToExecutable.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
 #include "mlir-tensorrt/Dialect/StableHloExt/Transforms/Passes.h"
 #include "mlir-tensorrt/Pipelines/StableHloInputPipelines.h"
 #include "stablehlo/transforms/Passes.h"
 #endif // MLIR_TRT_ENABLE_HLO
+
+#ifdef MLIR_TRT_TARGET_TENSORRT
+#include "mlir-tensorrt/Compiler/TensorRTToExecutable/Passes.h"
+#endif // MLIR_TRT_TARGET_TENSORRT
 
 #ifdef MLIR_TRT_ENABLE_EXECUTOR
 #include "mlir-executor/InitAllPasses.h"
@@ -51,16 +57,21 @@ inline void registerAllMlirTensorRtPasses() {
   registerMLIRTensorRTGenericTransformsPasses();
   mlir::registerTransformsPasses();
   mlir::registerConvertPDLToPDLInterp();
+  mlir::emitc::registerEmitCPasses();
 
 #ifdef MLIR_TRT_ENABLE_HLO
-  mlirtrt::compiler::registerStableHloToExecutableTask();
-  mlirtrt::compiler::registerStablehloClusteringPipelines();
+  mlirtrt::compiler::registerStablehloToExecutablePasses();
+  mlirtrt::compiler::registerStablehloToExecutablePipelines();
   registerStableHloInputPipelines();
   stablehlo_ext::registerStableHloExtPasses();
   stablehlo::registerPasses();
   plan::registerPlanPasses();
   plan::registerPlanDialectPipelines();
 #endif // MLIR_TRT_ENABLE_HLO
+
+#ifdef MLIR_TRT_TARGET_TENSORRT
+  mlirtrt::compiler::registerTensorRTToExecutablePipelines();
+#endif // MLIR_TRT_TARGET_TENSORRT
 
 #ifdef MLIR_TRT_ENABLE_EXECUTOR
   registerConvertCUDAToExecutorPass();

@@ -26,7 +26,6 @@
 #define MLIR_TENSORRT_RUNTIME_API_API
 
 #include "dlpack/dlpack.h"
-#include "mlir-executor/Runtime/Backend/Lua/SolAdaptor.h"
 #include "mlir-executor/Support/Allocators.h"
 #include "mlir-executor/Support/Status.h"
 #include "llvm/ADT/ArrayRef.h"
@@ -37,7 +36,6 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include <atomic>
-#include <functional>
 #include <memory>
 #include <string_view>
 
@@ -272,7 +270,9 @@ llvm::raw_ostream &print(llvm::raw_ostream &os,
 /// provides a read-only view into the buffer.
 class FunctionSignatureView {
 public:
-  FunctionSignatureView(const impl::FunctionSignature *view) : view(view) {}
+  FunctionSignatureView(const impl::FunctionSignature *view) : view(view) {
+    assert(view != nullptr && "expected valid view");
+  }
 
   uint32_t getNumArgs() const {
     return view->args() ? view->args()->size() : 0;
@@ -380,13 +380,20 @@ public:
 /// does not own any memory; it only provides a read-only view into the buffer.
 class FunctionView {
 public:
-  FunctionView(const impl::Function *view) : view(view) {}
+  FunctionView(const impl::Function *view) : view(view) {
+    assert(view != nullptr);
+  }
+  FunctionView() : view(nullptr) {}
 
   FunctionSignatureView getSignature() const {
     return FunctionSignatureView(view->signature());
   }
 
   std::string_view getName() const { return view->name()->string_view(); }
+
+  operator bool() const { return view != nullptr; }
+
+  operator const impl::Function *() const { return view; }
 
 private:
   const impl::Function *view;
@@ -427,7 +434,7 @@ public:
 
   /// Return a function by name. This asserts that the function with the given
   /// name exists.
-  FunctionView getFunction(std::string_view name) const;
+  StatusOr<FunctionView> getFunction(std::string_view name) const;
 
   ConstantView getConstant(int64_t idx) const {
     assert(view->constants() && "expected valid constant pointer");
@@ -614,8 +621,14 @@ private:
 
 class ScalarValue : public RuntimeValue {
 public:
-  ScalarValue(int64_t data, ScalarType type)
-      : RuntimeValue(Kind::Scalar), data(data), type(type) {}
+  template <typename T>
+  ScalarValue(T data_, ScalarType type)
+      : RuntimeValue(Kind::Scalar), type(type) {
+    static_assert(sizeof(T) <= sizeof(int64_t) &&
+                      alignof(T) <= alignof(int64_t),
+                  "expected scalar type size to be <= 8 bytes");
+    *reinterpret_cast<T *>(&data) = data_;
+  }
 
   ScalarType getType() const { return type; }
 
@@ -625,6 +638,8 @@ public:
                   "expected scalar type size to be <= 8 bytes");
     return *reinterpret_cast<const T *>(&data);
   }
+
+  void *getRaw() { return &data; }
 
   static bool classof(const RuntimeValue *v) {
     return v->getKind() == Kind::Scalar;
@@ -713,7 +728,7 @@ public:
   /// Construct session options by directly specifying the device ID, number of
   /// devices, and NCCL UUID. Single-device sessions can use the default
   /// options.
-  RuntimeSessionOptions(int32_t numDevices = 1, int32_t deviceId = 1,
+  RuntimeSessionOptions(int32_t numDevices = 1, int32_t deviceId = 0,
                         llvm::StringRef ncclUuid = "")
       : numDevices(numDevices), deviceId(deviceId), ncclUuid(ncclUuid) {}
 
@@ -795,6 +810,12 @@ public:
   /// Returns true if the ptr is released internally.
   bool isReleasedInternally(uintptr_t ptr) const;
 
+  /// Mark pointer for release after consumption
+  void markForReleaseAfterConsumption(uintptr_t ptr);
+
+  /// Check if pointer is marked for release after consumption
+  bool isMarkedForReleaseAfterConsumption(uintptr_t ptr);
+
 private:
   struct Metadata {
     std::atomic<int32_t> externalReferenceCount = {0};
@@ -802,6 +823,7 @@ private:
     // if this is true then it should be truelly released and untracked
     // when decrementExternalCount causes count to go to zero
     bool releasedInternally{false};
+    bool releaseAfterConsumption{false};
     PointerInfo info;
   };
 
@@ -870,7 +892,7 @@ public:
 
   ExecutableView getExecutable() const { return executable; }
 
-  PinnedMemoryAllocator &getPinnedMemorAllocator() {
+  PinnedMemoryAllocator &getPinnedMemoryAllocator() {
     return *pinnedMemoryAllocator;
   }
 
@@ -968,7 +990,7 @@ public:
   ResourceTracker &getResourceTracker() { return resourceTracker; }
 
   /// Return the PinnedMemoryAllocator.
-  PinnedMemoryAllocator &getPinnedMemorAllocator() {
+  PinnedMemoryAllocator &getPinnedMemoryAllocator() {
     return pinnedMemoryAllocator;
   }
 
@@ -989,6 +1011,15 @@ private:
   ResourceTracker resourceTracker;
   llvm::SmallPtrSet<DLManagedTensor *, 16> dlPackTensors;
 };
+
+//===----------------------------------------------------------------------===//
+// NCCL Support functions
+//===----------------------------------------------------------------------===//
+
+/// Return the NCCL unique communicator ID as a string if the project was
+/// configured with NCCL enabled. If the project was not configured with NCCL
+/// enabled, then returns an empty string.
+StatusOr<std::string> getCommunicatorUniqueId();
 
 //===----------------------------------------------------------------------===//
 // Debug Print Utilities

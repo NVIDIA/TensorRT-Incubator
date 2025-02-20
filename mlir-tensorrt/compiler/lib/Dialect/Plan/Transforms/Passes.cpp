@@ -24,6 +24,7 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
 #include "mlir-tensorrt/Transforms/Passes.h"
+#include "mlir/Conversion/BufferizationToMemRef/BufferizationToMemRef.h"
 #include "mlir/Dialect/Bufferization/IR/BufferDeallocationOpInterface.h"
 #include "mlir/Dialect/Bufferization/Pipelines/Passes.h"
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
@@ -48,7 +49,8 @@ void plan::buildPlanSegmentationPipeline(
       plan::createPlanPopulateFunctionBoundsAttributesPass());
   pm.addPass(plan::createStablehloClusteringPass(opts));
   plan::CreateClosedRegionsPassOptions closedRegionOptions{};
-  closedRegionOptions.enableNonDPSReturns = opts.enableNonDPSReturns;
+  closedRegionOptions.forceEntrypointsReturnAllocs =
+      opts.forceEntrypointsReturnAllocs;
   pm.addPass(plan::createCreateClosedRegionsPass(closedRegionOptions));
   pm.addPass(plan::createOutlineClustersPass());
   pm.addPass(mlir::createFuncExtDuplicateFunctionEliminationPass());
@@ -80,6 +82,7 @@ void plan::buildPlanBufferDeallocationPipeline(
   pm.addPass(createCanonicalizerPass());
   pm.addPass(bufferization::createBufferDeallocationSimplificationPass());
   pm.addPass(bufferization::createLowerDeallocationsPass());
+  pm.addPass(mlir::createBufferizationToMemRefPass());
   pm.addPass(createCSEPass());
   pm.addPass(createCanonicalizerPass());
 }
@@ -89,18 +92,22 @@ struct ClusteringPipelineCliOpts
     : public PassPipelineOptions<ClusteringPipelineCliOpts> {
   Option<std::string> entrypoint{*this, "entrypoint", llvm::cl::init(""),
                                  llvm::cl::desc("name of entrypoint function")};
-  Option<bool> enableNonDPSReturns{
-      *this, "enable-non-dps-returns",
-      llvm::cl::desc("allow backend clusters to directly allocate outputs"),
-      llvm::cl::init(false)};
+  Option<bool> forceEntrypointsReturnAllocs{
+      *this, "force-entrypoints-return-allocs", llvm::cl::init(false),
+      llvm::cl::desc(
+          "Require entrypoint functions to return allocations corresponding to"
+          " the original tensor results, otherwise they are transformed"
+          " into destination arguments whenever possible.")};
 };
 
 struct PlanBufferizationPipelineCliOpts
     : public PassPipelineOptions<PlanBufferizationPipelineCliOpts> {
-  Option<bool> enableNonDPSReturns{
-      *this, "enable-non-dps-returns",
-      llvm::cl::desc("allow backend clusters to directly allocate outputs"),
-      llvm::cl::init(false)};
+  Option<bool> forceEntrypointsReturnAllocs{
+      *this, "force-entrypoints-return-allocs", llvm::cl::init(false),
+      llvm::cl::desc(
+          "Require entrypoint functions to return allocations corresponding to"
+          " the original tensor results, otherwise they are transformed"
+          " into destination arguments whenever possible.")};
 };
 
 } // namespace
@@ -114,7 +121,8 @@ void plan::registerPlanDialectPipelines() {
           "perform bufferization and standard pre/post processing passes",
           [](OpPassManager &pm, const PlanBufferizationPipelineCliOpts &opts) {
             PlanAllocTensorsPassOptions allocTensorOpts{};
-            allocTensorOpts.enableNonDPSReturns = opts.enableNonDPSReturns;
+            allocTensorOpts.forceEntrypointsReturnAllocs =
+                opts.forceEntrypointsReturnAllocs;
             buildPlanBufferizationPipeline(pm, allocTensorOpts);
             buildPlanBufferOptimizationPipeline(pm);
             buildPlanBufferDeallocationPipeline(
@@ -140,7 +148,8 @@ void plan::registerPlanDialectPipelines() {
       [](OpPassManager &pm, const ClusteringPipelineCliOpts &opts) {
         StablehloClusteringPassOptions clusterOpts{};
         clusterOpts.entrypoint = opts.entrypoint;
-        clusterOpts.enableNonDPSReturns = opts.enableNonDPSReturns;
+        clusterOpts.disableCreateShapeFuncPass =
+            opts.forceEntrypointsReturnAllocs;
         buildPlanSegmentationPipeline(pm, clusterOpts);
       });
 }

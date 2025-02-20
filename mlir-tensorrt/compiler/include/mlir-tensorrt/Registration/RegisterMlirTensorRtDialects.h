@@ -26,7 +26,10 @@
 #include "mlir-tensorrt/Registration/RegisterMlirTensorRtCoreDialects.h"
 #include "mlir/Dialect/Affine/IR/ValueBoundsOpInterfaceImpl.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
+#include "mlir/Dialect/EmitC/IR/EmitC.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/LLVMIR/LLVMDialect.h"
+#include "mlir/Dialect/LLVMIR/Transforms/InlinerInterfaceImpl.h"
 #include "mlir/Dialect/Linalg/IR/ValueBoundsOpInterfaceImpl.h"
 #include "mlir/Dialect/PDL/IR/PDL.h"
 #include "mlir/Dialect/Quant/IR/Quant.h"
@@ -47,7 +50,6 @@
 #include "mlir/Dialect/Arith/Transforms/BufferDeallocationOpInterfaceImpl.h"
 #include "mlir/Dialect/Arith/Transforms/BufferizableOpInterfaceImpl.h"
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
-#include "mlir/Dialect/Bufferization/TransformOps/BufferizationTransformOps.h"
 #include "mlir/Dialect/Bufferization/Transforms/FuncBufferizableOpInterfaceImpl.h"
 #include "mlir/Dialect/Linalg/Transforms/BufferizableOpInterfaceImpl.h"
 #include "mlir/Dialect/Linalg/Transforms/SubsetInsertionOpInterfaceImpl.h"
@@ -60,7 +62,6 @@
 #include "mlir/Dialect/Tensor/IR/TensorInferTypeOpInterfaceImpl.h"
 #include "mlir/Dialect/Tensor/IR/TensorTilingInterfaceImpl.h"
 #include "mlir/Dialect/Tensor/IR/ValueBoundsOpInterfaceImpl.h"
-#include "mlir/Dialect/Tensor/TransformOps/TensorTransformOps.h"
 #include "mlir/Dialect/Tensor/Transforms/BufferizableOpInterfaceImpl.h"
 #include "mlir/Dialect/Tensor/Transforms/SubsetInsertionOpInterfaceImpl.h"
 #endif
@@ -71,7 +72,8 @@ inline void registerAllMlirTensorRtExecutorDialects(DialectRegistry &registry) {
   // Registration for executor dialect and all upstream dialects that can appear
   // in the host IR.
   registry.insert<affine::AffineDialect, memref::MemRefDialect, scf::SCFDialect,
-                  bufferization::BufferizationDialect, math::MathDialect>();
+                  bufferization::BufferizationDialect, math::MathDialect,
+                  emitc::EmitCDialect, LLVM::LLVMDialect>();
   affine::registerValueBoundsOpInterfaceExternalModels(registry);
   arith::registerBufferizableOpInterfaceExternalModels(registry);
   arith::registerBufferDeallocationOpInterfaceExternalModels(registry);
@@ -83,6 +85,7 @@ inline void registerAllMlirTensorRtExecutorDialects(DialectRegistry &registry) {
   tensor::registerTilingInterfaceExternalModels(registry);
   tensor::registerSubsetOpInterfaceExternalModels(registry);
   scf::registerBufferizableOpInterfaceExternalModels(registry);
+  LLVM::registerInlinerInterface(registry);
 }
 
 inline void registerAllMlirTensorRtDialects(DialectRegistry &registry) {

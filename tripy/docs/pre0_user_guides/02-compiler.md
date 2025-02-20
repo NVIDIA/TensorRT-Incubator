@@ -1,117 +1,99 @@
 # Using the Compiler
 
-Modules and functions can be compiled ahead of time for better runtime performance.
+Modules and functions can be compiled for better performance.
 
-*Note that the compiler imposes some requirements on the functions/modules it can compile.*
-*See {func}`tripy.compile` for details.*
+:::{important}
+There are **restrictions** on what can be compiled - see {func}`nvtripy.compile`.
+:::
 
-In this guide, we'll work with the [GEGLU](https://arxiv.org/abs/2002.05202v1) module defined below:
+We'll demonstrate using a [GEGLU](https://arxiv.org/abs/2002.05202v1) module:
 
 ```py
 # doc: no-print-locals
 class GEGLU(tp.Module):
-    def __init__(self, dim_in, dim_out):
-        self.proj = tp.Linear(dim_in, dim_out * 2)
-        self.dim_out = dim_out
+    def __init__(self, in_dim, out_dim):
+        self.proj = tp.Linear(in_dim, out_dim * 2)
+        self.out_dim = out_dim
 
     def __call__(self, x):
         proj = self.proj(x)
         x, gate = tp.split(proj, 2, proj.rank - 1)
         return x * tp.gelu(gate)
-```
 
-We can run this in eager mode like usual:
 
-```py
-# doc: no-print-locals layer
-layer = GEGLU(2, 8)
-
-inp = tp.ones((1, 2))
-out = layer(inp)
+layer = GEGLU(in_dim=2, out_dim=1)
 ```
 
 ## Compiling
 
-Let's optimize the module using {func}`tripy.compile`.
+We must inform the compiler which parameters are **runtime inputs**
+and provide their shape/datatypes using {class}`nvtripy.InputInfo`:
 
-When we compile in Tripy, we need to provide shape and data type information about each runtime input
-using the {class}`tripy.InputInfo` API. Other parameters to the function will be considered compile-time
-constants and will be folded into the compiled function.
-
-`GEGLU` only has one input, for which we'll create an `InputInfo` like so:
 ```py
 # doc: no-print-locals
+# GEGLU has one parameter, which needs to be a runtime input:
 inp_info = tp.InputInfo(shape=(1, 2), dtype=tp.float32)
+fast_geglu = tp.compile(layer, args=[inp_info])
 ```
 
-Then we'll compile, which will give us a {class}`tripy.Executable` that we can run:
+:::{note}
+Other parameters become **compile-time constants** and will be folded away.
+:::
+
+The compiler returns an {class}`nvtripy.Executable`, which behaves like a callable:
 
 ```py
-# doc: no-print-locals fast_geglu
-fast_geglu = tp.compile(layer, args=[inp_info])
-
+inp = tp.ones((1, 2))
 out = fast_geglu(inp)
 ```
 
 ## Dynamic Shapes
 
-When we compiled above, we used a static shape of `(1, 2)` for the input.
-Tripy also supports specifying a range of possible values for each dimension like so:
+To enable dynamic shapes, we can specify a range for any given dimension:
 
 ```py
-inp_info = tp.InputInfo(shape=((1, 8, 16), 2), dtype=tp.float32)
+inp_info = tp.InputInfo(shape=((1, 2, 4), 2), dtype=tp.float32)
 ```
 
-The shape we used above indicates that the 0th dimension should support a range of values
-from `1` to `16`, optimizing for a value of `8`. For the 1st dimension, we continue using
-a fixed value of `2`.
+`((1, 2, 4), 2)` means:
 
-Let's compile again with our updated `InputInfo` and try changing the input shape:
+- The **0th** dimension should support sizes from `1` to `4`, optimizing for `2`.
+- The **1st** dimension should support a fixed size of `2`.
 
+The executable will support inputs within this range of shapes:
 ```py
 # doc: no-print-locals fast_geglu
 fast_geglu = tp.compile(layer, args=[inp_info])
 
-# We'll run with the input we created above, which is of shape (1, 2)
+# Use the input created previously, of shape: (1, 2)
 out0 = fast_geglu(inp)
 
-# Now let's try an input of shape (2, 2):
+# Now use an input with a different shape: (2, 2):
 inp1 = tp.Tensor([[1., 2.], [2., 3.]], dtype=tp.float32)
 out1 = fast_geglu(inp1)
 ```
 
-If we try using a shape outside of the valid range, the executable will throw a nice error:
 
-<!-- Tripy: TEST: XFAIL Start -->
-```py
-# doc: allow-exception
-inp = tp.ones((32, 2), dtype=tp.float32)
-print(fast_geglu(inp))
-```
-<!-- Tripy: TEST: XFAIL End -->
+## Saving And Loading Executables
 
+- **Serialize** and **save**:
 
-## Saving The Executable
+    ```py
+    # doc: no-print-locals
+    import tempfile # doc: omit
+    import os
 
-You can serialize and save executables like so:
+    out_dir = tempfile.mkdtemp() # doc: omit
+    executable_file_path = os.path.join(out_dir, "executable.json")
+    fast_geglu.save(executable_file_path)
+    ```
 
-```py
-# doc: no-print-locals
-import tempfile # doc: omit
-import os
+- **Load** and **run**:
 
-out_dir = tempfile.mkdtemp() # doc: omit
-# Assuming `out_dir` is the directory where you'd like to save the executable:
-executable_file_path = os.path.join(out_dir, "executable.json")
-fast_geglu.save(executable_file_path)
-```
+    ```py
+    # doc: no-print-locals loaded_fast_geglu
+    loaded_fast_geglu = tp.Executable.load(executable_file_path)
 
-Then you can load and run it again:
-
-```py
-# doc: no-print-locals loaded_fast_geglu
-loaded_fast_geglu = tp.Executable.load(executable_file_path)
-
-out = loaded_fast_geglu(inp)
-os.remove(executable_file_path) # doc: omit
-```
+    out = loaded_fast_geglu(inp)
+    os.remove(executable_file_path) # doc: omit
+    ```

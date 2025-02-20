@@ -17,12 +17,11 @@
 
 import cupy as cp
 import numpy as np
+import nvtripy as tp
 import pytest
+from nvtripy.common.datatype import DATA_TYPES
+from nvtripy.frontend.ops import utils as op_utils
 from tests import helper
-
-import tripy as tp
-from tripy.common.datatype import DATA_TYPES
-from tripy.frontend import utils as frontend_utils
 
 
 class TestIota:
@@ -78,14 +77,14 @@ class TestIota:
 
     @pytest.mark.parametrize("dtype", DATA_TYPES.values())
     def test_negative_no_casting(self, dtype):
-        from tripy.frontend.trace.ops.iota import Iota
+        from nvtripy.trace.ops.iota import Iota
 
         if dtype in [tp.float32, tp.int32, tp.int64]:
             pytest.skip("tp.iota() supports float32, int32, and int64 without cast")
 
         # TODO: update the 'match' error msg when MLIR-TRT fixes dtype constraint
         a = tp.ones((2, 2))
-        out = Iota.build([frontend_utils.tensor_from_shape_like(a.shape)], dim=0, output_rank=2, dtype=dtype)
+        out = op_utils.create_op(Iota, [op_utils.tensor_from_shape_like(a.shape)], dim=0, output_rank=2, dtype=dtype)
 
         exception_str = "InternalError: failed to run compilation"
         with helper.raises(

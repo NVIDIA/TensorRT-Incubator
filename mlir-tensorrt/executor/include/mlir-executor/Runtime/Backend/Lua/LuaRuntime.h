@@ -25,6 +25,7 @@
 #define MLIR_TENSORRT_RUNTIME_BACKEND_LUA_LUARUNTIME_H
 
 #include "mlir-executor/Runtime/API/API.h"
+#include "mlir-executor/Runtime/Backend/Lua/SolAdaptor.h"
 #include "mlir-executor/Support/Status.h"
 #include <functional>
 #include <string_view>
@@ -36,6 +37,8 @@ namespace mlirtrt::runtime {
 /// Implementation of the LuaRuntimeSession.
 class LuaRuntimeSession : public RuntimeSession {
 public:
+  ~LuaRuntimeSession();
+
   /// Type of function for callbacks that register extra Lua modules.
   using LuaModuleRegistrationFunc =
       std::function<void(lua_State *, AllocTracker *, ResourceTracker *)>;
@@ -55,7 +58,7 @@ public:
   /// Return a reference to the Lua state. Note that `sol::state` or any other
   /// modification to Lua state is not thread-safe, see
   /// https://sol2.readthedocs.io/en/latest/threading.html.
-  sol::state &getLuaState() { return state; }
+  lua_State *getLuaState();
 
   /// Set the primary stream for the loaded executable to use.
   Status setCudaStream(CudaStream stream);
@@ -64,10 +67,10 @@ public:
   CudaStream getCudaStream();
 
 private:
-  using RuntimeSession::RuntimeSession;
+  LuaRuntimeSession(RuntimeSessionOptions options, ExecutableView executable);
 
-  /// The main Lua environment state.
-  sol::state state;
+  class Impl;
+  std::unique_ptr<Impl> impl;
 };
 
 /// Convenience method that loads the given Lua script and then executes the
@@ -103,13 +106,6 @@ executeFunctionWithLuaBackend(LuaRuntimeSession &session, std::string_view name,
                               llvm::ArrayRef<RuntimeValue *> outputArgs,
                               std::optional<CudaStream> stream = {},
                               std::optional<RuntimeClient *> client = {});
-
-// Parses the results of a function call, handling both scalar and MemRef return
-// types
-StatusOr<llvm::SmallVector<std::unique_ptr<RuntimeValue>>>
-parseResults(const sol::protected_function_result &pfr,
-             const FunctionSignatureView &sig,
-             std::optional<RuntimeClient *> client);
 
 } // namespace mlirtrt::runtime
 

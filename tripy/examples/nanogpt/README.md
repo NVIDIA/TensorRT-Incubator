@@ -1,18 +1,13 @@
-# Implementing Nano-GPT With Tripy
+# Implementing NanoGPT
 
 ## Introduction
 
-This example demonstrates how to implement a [NanoGPT model](https://github.com/karpathy/nanoGPT) using Tripy APIs.
+This example implements a [NanoGPT model](https://github.com/karpathy/nanoGPT) using Tripy:
 
-It's broken up into three components:
+1. [`model.py`](./model.py) defines the model as an `nvtripy.Module`.
+2. [`weight_loader.py`](./weight_loader.py) loads weights from a HuggingFace checkpoint.
+3. [`example.py`](./example.py) runs inference in `float16` on input text and displays the output.
 
-1. `model.py` defines the model using `tripy.Module` and associated APIs.
-2. `weight_loader.py` loads weights from a HuggingFace checkpoint.
-3. `example.py` runs the end-to-end example, taking input text as a command-line argument,
-        running inference, and then displaying the generated output.
-
-The model is implemented in `float16`, except `LayerNorm` modules in `float32`
-for expected accuracy.
 
 ## Running The Example
 
@@ -28,7 +23,7 @@ for expected accuracy.
     python3 example.py --input-text "What is the answer to life, the universe, and everything?"
     ```
 
-3. **[Optional]** You can also use a fixed seed to ensure predictable outputs each time:
+3. **[Optional]** Use a fixed seed for predictable outputs:
 
     ```bash
     python3 example.py --input-text "What is the answer to life, the universe, and everything?" --seed=0
@@ -37,22 +32,23 @@ for expected accuracy.
     <!--
     Tripy: TEST: EXPECTED_STDOUT Start
     ```
-    (?s).*?What is the answer to life, the universe, and everything\? (How can we know what's real\? How can|The answer to the questions that are asked of us)
+    (?s).*?What is the answer to life, the universe, and everything\? (How can we know what's real\? How can|The answer to the questions that are asked of us|The answer to the questions that are the most difficult)
     ```
     Tripy: TEST: EXPECTED_STDOUT End
     -->
 
 ### Running with Quantization
 
-This section shows how to run this example with different quantization modes.
+[`quantization.py`](./quantization.py), uses
+[NVIDIA TensorRT Model Optimizer](https://nvidia.github.io/TensorRT-Model-Optimizer/getting_started/1_overview.html)
+to quantize the pytorch model.
 
-In `quantization.py`, we use `nvidia-modelopt` to quantize the pytorch GPT model, and then calibrate the quantization parameters.
-Then the quantization parameters are converted to scales and loaded into the Tripy model by
-`load_quant_weights_from_hf` in [`weight_loader.py`](./weight_loader.py).
+`load_quant_weights_from_hf` in [`weight_loader.py`](./weight_loader.py) converts the quantization
+parameters to scales and loads them into the Tripy model.
 
-To run with a quantization mode, pass `--quant-mode` to `example.py`. The supported modes are:
+Use `--quant-mode` in `example.py` to enable quantization. Supported modes:
 
-1. Weight-only int8 quantization:
+- Weight-only `int8` quantization:
 
     ```bash
     python3 example.py --input-text "What is the answer to life, the universe, and everything?" --seed=0 --quant-mode int8-weight-only
@@ -65,10 +61,10 @@ To run with a quantization mode, pass `--quant-mode` to `example.py`. The suppor
     Tripy: TEST: EXPECTED_STDOUT End
     -->
 
-2. Weight-only int4 quantization:
 
-    *Note: `int4` quantization may result in poor accuracy for this model.*
-        *We include it here primarily to demonstrate the workflow.*
+> [!WARNING]
+> For this model, `int4` quantization may result in poor accuracy. We include it only to demonstrate the workflow.
+- Weight-only `int4` quantization:
 
     ```bash
     python3 example.py --input-text "What is the answer to life, the universe, and everything?" --seed=0 --quant-mode int4-weight-only

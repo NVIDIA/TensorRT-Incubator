@@ -20,7 +20,7 @@ import os
 
 import pytest
 
-import tripy as tp
+import nvtripy as tp
 
 
 class TestLogging:
@@ -85,8 +85,8 @@ class TestLogging:
         assert not capsys.readouterr().out
 
     def test_can_disable_using_filename(self, capsys):
-        # Paths are expected to be part of the tripy module, so we do something slightly
-        # hacky to express this file relative to the tripy module (even though it's not part of it).
+        # Paths are expected to be part of the nvtripy module, so we do something slightly
+        # hacky to express this file relative to the nvtripy module (even though it's not part of it).
         path = os.path.realpath(os.path.relpath(__file__, tp.__path__[0]))
         with tp.logger.use_verbosity({path: "warning"}):
             tp.logger.info("This message should not be logged!")

@@ -1,136 +1,130 @@
 # Documentation
 
-This directory includes all the source files for the public API documentation.
+This directory contains **source** files for public guides and **configuration**
+files for the public documentation.
+
 
 ## Building Documentation Locally
 
-You can build the documentation locally in the development container by running:
+In the development container, run:
+
 ```bash
 python3 docs/generate_rsts.py
 sphinx-build build/doc_sources build/docs -c docs/ -j 4 -W -n
 ```
-To view the documentation, you can open `build/docs/index.html` in a browser.
 
-## Adding Documentation
+- To **view** the docs, launch an HTTP server *outside* the container.
+    From the [tripy root directory](../), run:
 
-### How It Works
+    ```bash
+    python3 -m http.server 8001 --directory build/docs
+    ```
 
-The `export.public_api()` decorator allows you to specify metadata for documentation
-generation, such as where in the documentation hierarchy the API should be documented.
+    Then navigate to http://localhost:8001 in a browser.
 
-The `generate_rsts.py` script uses this information to automatically generate a directory
-structure and populate it with `.rst` files.
 
-For more information, see the docstring for [`export.public_api()`](../tripy/export.py).
+## How It Works
 
-### Docstrings
+1. [`generate_rsts.py`](./generate_rsts.py) creates `.rst` files based on public APIs
+    and guides (details below).
 
-For all public facing docstrings, we have several requirements:
+2. Sphinx generates HTML documentation based on the `.rst`s.
 
-- The function signature must have type annotations for all parameters and return type.
 
-- The docstring must explain what the operation is doing.
+### API Documentation
 
-- The parameters must be documented in the `Args:` section of the docstring.
+Public APIs are indicated by the [`export.public_api()`](../nvtripy/export.py) decorator,
+which specifies doc metadata for each API (e.g. location).
 
-- The return value must be documented in the `Returns:` section of the docstring.
+**Requirements:**
 
-- The docstring must include a code example (denoted by `.. code-block:: python`).
+- Signature must have **type annotations**.
+
+- All parameters and return values must be documented.
+
+- Docstring must include *at least* **one [code example](#code-examples)**.
+
+- If the function accepts `tp.Tensor`s, must indicate **data type constraints**
+    with the [`wrappers.interface`](../nvtripy/utils/wrappers.py) decorator.
+
+**Example:**
+
+```py
+@export.public_api(document_under="operations/functions")
+@wrappers.interface(
+    dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
+    dtype_variables={
+        "T1": ["float32", "float16", "bfloat16", "int4", "int32", "int64", "bool", "int8"],
+    },
+)
+def relu(input: "nvtripy.Tensor") -> "nvtripy.Tensor":
+    r"""
+    Applies Rectified Linear Unit (RELU) function
+    to each element of the input tensor:
+
+    :math:`\text{relu}(x) = \max(0,x)`
+
+    Args:
+        input: The input tensor.
+
+    Returns:
+        A tensor of the same shape as the input.
+
+    .. code-block:: python
+        :linenos:
+
+        input = tp.Tensor([1., 2., 3., 4.], dtype=tp.float32)
+        output = tp.relu(input)
+
+        t = torch.tensor([1, 2, 3, 4], dtype=torch.float32) # doc: omit
+        assert tp.allclose(output, tp.Tensor(torch.nn.functional.relu(t)))
+    """
+```
 
 
 ### Guides
 
-In addition to the API reference, we also include various guides in subdirectories
-of [docs](.).
+**Guides** are included in various subdirectories of [docs](.) for longer-form
+content, e.g. **workflows** or **concepts**.
 
-Each such subdirectory must start with a `pre<N>_` or `post<N>_` prefix, which indicates
-the ordering of each set of guides in the index/side bar. Specifically, `pre` indicates
-that the guides in that directory should precede the API reference documentation, while
-`post` indicates that they should follow it. The number indicates the relative ordering
-with respect to other sets of guides. For example, if we have the following directories:
+- The `pre<N>_` or `post<N>_` directory prefix indicates ordering of guide sets;
+    `pre` guides **precede** the API reference, `post` guides **follow** it.
 
-- `pre0_user_guides`
-- `pre1_examples`
-- `post0_developer_guides`
+Guides are **markdown** files parsed by the Myst parser, therefore:
 
-then the documentation will have the following ordering:
+- Do **not** use `[[TOC]]` or include a table of contents manually; one will be generated automatically.
 
-- User Guides
-- Examples
-- API Reference
-- Developer Guides
+- Links to files must be **absolute** paths and use a `source:` tag.
 
-The markdown files there are included in `.rst` files and parsed by the Myst parser.
-This means we need to make some special considerations:
+    - **Exception:** links to **rendered** markdown files (e.g. other guides) should use a `project:` tag.
 
-1. We cannot use the `[[TOC]]` directive to automatically generate tables of contents.
-    Our Sphinx theme will automatically generate tables of contents, so you can omit these entirely.
+    - **Example:**
 
-2. All links to files in the repository must be absolute and start with `source:` so that
-    Myst can replace them with URLs to our remote repository. Otherwise, the links will
-    cause the relevant file to be downloaded. For example:
-    ```
-    [Fill operation](source:/tripy/frontend/trace/ops/fill.py)
-    ```
+        ```md
+        [Fill operation](source:/nvtripy/trace/ops/fill.py)
+        ```
 
-    Links to markdown files are an exception; if a markdown file is part of the *rendered*
-    documentation, it should be linked to using the `project:` tag instead.
+    - **Why:** Other links will cause the file to be downloaded instead of linking to the repository.
 
-3. For links to documentation for APIs, you can use the following syntax:
+- Links to API documentation should use the syntax:
 
     ```md
-    {<api_kind>}`<api_name>`
+    {<api_kind>}`<fully_qualified_api_name>`
     ```
 
-    For example:
-
-    ```md
-    {class}`tripy.Tensor`
-    ```
-
-    `<api_kind>` can take on any value that is a valid role provided by
+    `<api_kind>` should be a role from
     [Sphinx's Python domain](https://www.sphinx-doc.org/en/master/usage/domains/python.html).
 
-Guides may use the markers specified in [tests/helper.py](../tests/helper.py) to customize
-how the documentation is interpreted (see `AVAILABLE_MARKERS` in that file).
+    - **Example:**
 
+    ```md
+    {class}`nvtripy.Tensor`
+    ```
 
-### Code Examples
+#### Tip: Dynamically Generating Content
 
-Code examples in public facing docstrings and guides are preprocessed before
-documentation is generated. Specifically:
-
-- Any code examples are executed so that their output can be
-    displayed after the code block. Several modules, including `tripy` (as `tp`),
-    `numpy` (as `np`), `cupy` (as `cp`), and `torch` are automatically imported
-    and can be used in code examples.
-
-- The values of any `tripy` type local variables are appended to the output.
-    You can customize this behavior:
-
-    - To only display certain variables, add `# doc: print-locals` followed by a space
-        separated list of variable names. For example: `# doc: print-locals inp out`.
-
-    - To only disable certain variables, add `# doc: no-print-locals` followed by a space
-        separated list of variable names. For example: `# doc: no-print-locals inp out`.
-
-    - To disable it completely, add just `# doc: no-print-locals` without specifying any variables.
-
-- In docstrings, but not guides, any `assert` statements are stripped out.
-
-- Any lines that end with `# doc: omit` are stripped out.
-
-- By default, documentation generation will fail if an exception is thrown by a code snippet.
-    In order to allow exceptions, add `# doc: allow-exception`.
-
-To avoid running code entirely, you can add `# doc: no-eval` in the docstring. Note that this will
-not prevent the code block from being executed in the tests.
-
-
-### Dynamically Generating Content In Guides
-
-In some cases, it's useful to run Python code and include the output in a guide *without* including
-the Python code itself. To do so, you can use a trick like this:
+You can embed code whose **output** is included but whose **content** is excluded from the guide
+using the `DOC: OMIT` marker:
 
 ```md
     <!-- Tripy: DOC: OMIT Start -->
@@ -141,8 +135,33 @@ the Python code itself. To do so, you can use a trick like this:
     <!-- Tripy: DOC: OMIT End -->
 ```
 
-This works because `DOC: OMIT` removes the encapsulated text from the post-processed markdown file
-but does *not* prevent the block from being evaluated (to do that, use `# doc: no-eval` as normal).
+- **See also:** `AVAILABLE_MARKERS` in [tests/helper.py](../tests/helper.py) for a complete list of markers.
 
-We include special logic that will omit the `Output:` heading when the output
-is generated in this way.
+
+### Code Examples
+
+Code blocks in docstrings/guides are **preprocessed**:
+
+- Some modules are **automatically imported** - do **not** import these manually:
+    - `nvtripy` (as `tp`)
+    - `numpy` (as `np`)
+    - `cupy` (as `cp`)
+    - `torch`
+
+- In docstrings, but **not** guides, `assert` statements are removed.
+
+- Lines ending with `# doc: omit` are stripped out.
+
+- Code is **executed** and any output is displayed in the docs.
+
+    - `# doc: allow-exception` allows exceptions to be thrown. By default, they are treated as failures.
+
+    - `# doc: no-output` omits output from the docs (but still executes the code).
+
+    - `# doc: no-eval` disables execution but this means the code will be **untested**!
+
+- Local variables are also displayed. You can customize this:
+
+    - **Include** only specific variables: `# doc: print-locals <var1> <var2> ...`
+    - **Exclude** *specific* variables: `# doc: no-print-locals <var1> <var2> ...`
+    - **Exclude** *all* variables: `# doc: no-print-locals` (with no arguments).

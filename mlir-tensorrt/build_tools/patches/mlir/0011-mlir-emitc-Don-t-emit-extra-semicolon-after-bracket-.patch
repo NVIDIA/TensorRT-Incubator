@@ -1,0 +1,157 @@
+From 28538c60b7f429ea349f20ad33b2c8f56d08a17b Mon Sep 17 00:00:00 2001
+From: Kirill Chibisov <contact@kchibisov.com>
+Date: Tue, 14 Jan 2025 15:51:41 +0300
+Subject: [PATCH 11/16] [mlir][emitc] Don't emit extra semicolon after bracket
+ (#122464)
+
+Extra semicolons were emitted for operations that should never have
+them, since not every place was checking whether semicolon would be
+actually needed.
+
+Thus change the emitOperation to ignore trailingSemicolon field for such
+operations.
+---
+ mlir/lib/Target/Cpp/TranslateToCpp.cpp       | 21 ++++++++++----------
+ mlir/test/Target/Cpp/declare_func.mlir       |  6 ++++--
+ mlir/test/Target/Cpp/for.mlir                |  6 +++---
+ mlir/test/Target/Cpp/if.mlir                 |  4 ++--
+ mlir/test/Target/Cpp/no_extra_semicolon.mlir | 20 +++++++++++++++++++
+ mlir/test/Target/Cpp/switch.mlir             |  4 ++--
+ 6 files changed, 42 insertions(+), 19 deletions(-)
+ create mode 100644 mlir/test/Target/Cpp/no_extra_semicolon.mlir
+
+diff --git a/mlir/lib/Target/Cpp/TranslateToCpp.cpp b/mlir/lib/Target/Cpp/TranslateToCpp.cpp
+index d26adec500a1..a91f5ab93114 100644
+--- a/mlir/lib/Target/Cpp/TranslateToCpp.cpp
++++ b/mlir/lib/Target/Cpp/TranslateToCpp.cpp
+@@ -120,6 +120,10 @@ struct CppEmitter {
+   LogicalResult emitAttribute(Location loc, Attribute attr);
+ 
+   /// Emits operation 'op' with/without training semicolon or returns failure.
++  ///
++  /// For operations that should never be followed by a semicolon, like ForOp,
++  /// the `trailingSemicolon` argument is ignored and a semicolon is not
++  /// emitted.
+   LogicalResult emitOperation(Operation &op, bool trailingSemicolon);
+ 
+   /// Emits type 'type' or returns failure.
+@@ -1036,16 +1040,7 @@ static LogicalResult printFunctionBody(CppEmitter &emitter,
+         return failure();
+     }
+     for (Operation &op : block.getOperations()) {
+-      // When generating code for an emitc.if or cf.cond_br op no semicolon
+-      // needs to be printed after the closing brace.
+-      // When generating code for an emitc.for and emitc.verbatim op, printing a
+-      // trailing semicolon is handled within the printOperation function.
+-      bool trailingSemicolon =
+-          !isa<cf::CondBranchOp, emitc::DeclareFuncOp, emitc::ForOp,
+-               emitc::IfOp, emitc::SwitchOp, emitc::VerbatimOp>(op);
+-
+-      if (failed(emitter.emitOperation(
+-              op, /*trailingSemicolon=*/trailingSemicolon)))
++      if (failed(emitter.emitOperation(op, /*trailingSemicolon=*/true)))
+         return failure();
+     }
+   }
+@@ -1607,6 +1602,12 @@ LogicalResult CppEmitter::emitOperation(Operation &op, bool trailingSemicolon) {
+        shouldBeInlined(cast<emitc::ExpressionOp>(op))))
+     return success();
+ 
++  // Never emit a semicolon for some operations, especially if endening with
++  // `}`.
++  trailingSemicolon &=
++      !isa<cf::CondBranchOp, emitc::DeclareFuncOp, emitc::ForOp, emitc::IfOp,
++           emitc::IncludeOp, emitc::SwitchOp, emitc::VerbatimOp>(op);
++
+   os << (trailingSemicolon ? ";\n" : "\n");
+ 
+   return success();
+diff --git a/mlir/test/Target/Cpp/declare_func.mlir b/mlir/test/Target/Cpp/declare_func.mlir
+index 00680d71824a..6901e135df38 100644
+--- a/mlir/test/Target/Cpp/declare_func.mlir
++++ b/mlir/test/Target/Cpp/declare_func.mlir
+@@ -1,8 +1,10 @@
+-// RUN: mlir-translate -mlir-to-cpp %s | FileCheck %s
++// RUN: mlir-translate -mlir-to-cpp %s | FileCheck --match-full-lines %s
+ 
+ // CHECK: int32_t bar(int32_t [[V1:[^ ]*]]);
+ emitc.declare_func @bar
+-// CHECK: int32_t bar(int32_t [[V1:[^ ]*]]) {
++// CHECK:       int32_t bar(int32_t [[V1:[^ ]*]]) {
++// CHECK-NEXT:      return [[V1]];
++// CHECK-NEXT:  }
+ emitc.func @bar(%arg0: i32) -> i32 {
+     emitc.return %arg0 : i32
+ }
+diff --git a/mlir/test/Target/Cpp/for.mlir b/mlir/test/Target/Cpp/for.mlir
+index 6a446eaf4add..7cd3d5d646da 100644
+--- a/mlir/test/Target/Cpp/for.mlir
++++ b/mlir/test/Target/Cpp/for.mlir
+@@ -1,5 +1,5 @@
+-// RUN: mlir-translate -mlir-to-cpp %s | FileCheck %s -check-prefix=CPP-DEFAULT
+-// RUN: mlir-translate -mlir-to-cpp -declare-variables-at-top %s | FileCheck %s -check-prefix=CPP-DECLTOP
++// RUN: mlir-translate -mlir-to-cpp %s | FileCheck --match-full-lines %s -check-prefix=CPP-DEFAULT
++// RUN: mlir-translate -mlir-to-cpp -declare-variables-at-top %s | FileCheck --match-full-lines %s -check-prefix=CPP-DECLTOP
+ 
+ func.func @test_for(%arg0 : index, %arg1 : index, %arg2 : index) {
+   %lb = emitc.expression : index {
+@@ -160,5 +160,5 @@ func.func @test_for_yield_2() {
+   return
+ }
+ // CPP-DEFAULT: void test_for_yield_2() {
+-// CPP-DEFAULT: {{.*}}= M_PI
++// CPP-DEFAULT: {{.*}}= M_PI;
+ // CPP-DEFAULT: for (size_t [[IN:.*]] = 0; [[IN]] < 10; [[IN]] += 1) {
+diff --git a/mlir/test/Target/Cpp/if.mlir b/mlir/test/Target/Cpp/if.mlir
+index d3b792192c8b..9a7e12b891bc 100644
+--- a/mlir/test/Target/Cpp/if.mlir
++++ b/mlir/test/Target/Cpp/if.mlir
+@@ -1,5 +1,5 @@
+-// RUN: mlir-translate -mlir-to-cpp %s | FileCheck %s -check-prefix=CPP-DEFAULT
+-// RUN: mlir-translate -mlir-to-cpp -declare-variables-at-top %s | FileCheck %s -check-prefix=CPP-DECLTOP
++// RUN: mlir-translate -mlir-to-cpp %s | FileCheck --match-full-lines %s -check-prefix=CPP-DEFAULT
++// RUN: mlir-translate -mlir-to-cpp -declare-variables-at-top %s | FileCheck --match-full-lines %s -check-prefix=CPP-DECLTOP
+ 
+ func.func @test_if(%arg0: i1, %arg1: f32) {
+   emitc.if %arg0 {
+diff --git a/mlir/test/Target/Cpp/no_extra_semicolon.mlir b/mlir/test/Target/Cpp/no_extra_semicolon.mlir
+new file mode 100644
+index 000000000000..4b1b55944434
+--- /dev/null
++++ b/mlir/test/Target/Cpp/no_extra_semicolon.mlir
+@@ -0,0 +1,20 @@
++// RUN: mlir-translate -mlir-to-cpp %s | FileCheck --match-full-lines %s
++// RUN: mlir-translate -mlir-to-cpp -declare-variables-at-top %s | FileCheck --match-full-lines %s
++
++func.func @no_extra_semicolon(%arg0: i1) {
++  emitc.if %arg0 {
++    emitc.include "myheader.h"
++    emitc.if %arg0 {
++    }
++    emitc.verbatim "return;"
++  }
++  return
++}
++// CHECK: void no_extra_semicolon(bool [[V0:[^ ]*]]) {
++// CHECK-NEXT: if ([[V0]]) {
++// CHECK-NEXT: #include "myheader.h"
++// CHECK-NEXT: if ([[V0]]) {
++// CHECK-NEXT: }
++// CHECK-NEXT: return;
++// CHECK-NEXT: }
++// CHECK-NEXT: return;
+diff --git a/mlir/test/Target/Cpp/switch.mlir b/mlir/test/Target/Cpp/switch.mlir
+index 3339c0261794..1a8f5e2dfd2b 100644
+--- a/mlir/test/Target/Cpp/switch.mlir
++++ b/mlir/test/Target/Cpp/switch.mlir
+@@ -1,5 +1,5 @@
+-// RUN: mlir-translate -mlir-to-cpp %s | FileCheck %s -check-prefix=CPP-DEFAULT
+-// RUN: mlir-translate -mlir-to-cpp -declare-variables-at-top %s | FileCheck %s -check-prefix=CPP-DECLTOP
++// RUN: mlir-translate -mlir-to-cpp %s | FileCheck --match-full-lines %s -check-prefix=CPP-DEFAULT
++// RUN: mlir-translate -mlir-to-cpp -declare-variables-at-top %s | FileCheck --match-full-lines %s -check-prefix=CPP-DECLTOP
+ 
+ // CPP-DEFAULT-LABEL: void emitc_switch_ptrdiff_t() {
+ // CPP-DEFAULT:         ptrdiff_t v1 = 1;
+-- 
+2.46.0
+

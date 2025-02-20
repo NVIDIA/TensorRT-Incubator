@@ -37,6 +37,7 @@ add_mlir_tensorrt_library(MLIRTensorRTPlanTransforms
   MLIRTensorRTStablehloScalarToArith
   MLIRTensorRTStablehloToTensorRT
   MLIRTensorRTTensorRTRuntimeDialect
+  MLIRBufferizationToMemRef
   MLIRTransforms
   StablehloOps
 )

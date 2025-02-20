@@ -21,7 +21,6 @@
 /// Executor CUDA module runtime implementation.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-executor/Runtime/Backend/Lua/Modules/CUDA/CudaModule.h"
 #include "cuda.h"
 #include "cuda_runtime_api.h"
 #include "mlir-executor/Runtime/API/API.h"
@@ -29,7 +28,9 @@
 #include "mlir-executor/Runtime/Backend/Common/CommonRuntime.h"
 #include "mlir-executor/Runtime/Backend/Common/NvPtxCompilerUtils.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaErrorHandling.h"
+#include "mlir-executor/Runtime/Backend/Lua/LuaExtensionRegistry.h"
 #include "mlir-executor/Runtime/Backend/Lua/Modules/Utils/MemRefUtils.h"
+#include "mlir-executor/Runtime/Backend/Lua/SolAdaptor.h"
 #include "mlir-executor/Runtime/Backend/Utils/NvtxUtils.h"
 #include "mlir-executor/Support/Allocators.h"
 #include "llvm/Support/Alignment.h"
@@ -262,18 +263,19 @@ registerCudaMemoryManagementOps(sol::state_view &lua,
     MTRT_DBGF("given size = %lu, actual size = %lu", ptxDataSize, info.size);
     assert(info.size == ptxDataSize);
 
-    std::unique_ptr<runtime::CuBinWrapper> cubinWrapper =
+    StatusOr<std::unique_ptr<runtime::CuBinWrapper>> cubinWrapper =
         runtime::compilePtxToCuBin(reinterpret_cast<const char *>(ptxData),
                                    info.size, *arch);
-    if (cubinWrapper == nullptr) {
+    SET_LUA_ERROR_AND_RETURN_IF_ERROR(cubinWrapper, state, 0);
+    if (*cubinWrapper == nullptr) {
       auto err = getInternalErrorStatus("failed to load PTX to cubin");
       SET_LUA_ERROR_AND_RETURN_IF_ERROR(err, state, 0);
     }
 
     CUmodule module{nullptr};
     CUresult result = cuModuleLoadDataEx(
-        &module, reinterpret_cast<const void *>(cubinWrapper->data.data()), 0,
-        0, 0);
+        &module, reinterpret_cast<const void *>((*cubinWrapper)->data.data()),
+        0, 0, 0);
     SET_LUA_ERROR_AND_RETURN_IF_CUDA_ERROR(result, state, 0);
 
     return reinterpret_cast<uintptr_t>(module);
@@ -433,6 +435,15 @@ registerCudaMemoryManagementOps(sol::state_view &lua,
                                                       cudaMemcpyDeviceToHost,
                                                       stream),
                                       state);
+        // Check if the source pointer is marked for release after consumption
+        if (allocTracker->isMarkedForReleaseAfterConsumption(src)) {
+          // This pointer was allocated by TensorRT and used in a device-device
+          // or device-host copy operation. It's not wrapped in a memref, so it
+          // won't be released by external memref destruction. We need to
+          // explicitly free it.
+          SET_LUA_ERROR_IF_ERROR(runtime::safeDeallocate(*allocTracker, src),
+                                 state);
+        }
       };
 
   lua["__cuda_memcpy_host_pinned2device"] =
@@ -484,6 +495,15 @@ registerCudaMemoryManagementOps(sol::state_view &lua,
                                                       cudaMemcpyDeviceToHost,
                                                       stream),
                                       state);
+        // Check if the source pointer is marked for release after consumption
+        if (allocTracker->isMarkedForReleaseAfterConsumption(src)) {
+          // This pointer was allocated by TensorRT and used in a device-device
+          // or device-host copy operation. It's not wrapped in a memref, so it
+          // won't be released by external memref destruction. We need to
+          // explicitly free it.
+          SET_LUA_ERROR_IF_ERROR(runtime::safeDeallocate(*allocTracker, src),
+                                 state);
+        }
       };
   lua["__cuda_memcpy_device2device"] = [allocTracker](
                                            sol::this_state state,
@@ -508,15 +528,32 @@ registerCudaMemoryManagementOps(sol::state_view &lua,
                                                   cudaMemcpyDeviceToDevice,
                                                   stream),
                                   state);
+    // Check if the source pointer is marked for release after consumption
+    if (allocTracker->isMarkedForReleaseAfterConsumption(src)) {
+      // This pointer was allocated by TensorRT and used in a device-device
+      // or device-host copy operation. It's not wrapped in a memref, so it
+      // won't be released by external memref destruction. We need to
+      // explicitly free it.
+      SET_LUA_ERROR_IF_ERROR(runtime::safeDeallocate(*allocTracker, src),
+                             state);
+    }
     return;
   };
 }
 
-void mlirtrt::runtime::registerExecutorCUDAModuleLuaRuntimeMethods(
-    lua_State *state, AllocTracker *allocTracker,
-    PinnedMemoryAllocator *pinnedMemoryAllocator,
-    ResourceTracker *resourceTracker) {
-  sol::state_view lua(state);
-  registerCudaOps(lua, allocTracker, pinnedMemoryAllocator, resourceTracker);
-  registerCudaMemoryManagementOps(lua, allocTracker, pinnedMemoryAllocator);
+namespace mlirtrt::runtime {
+void registerLuaCudaRuntimeExtension() {
+  registerLuaRuntimeExtension(
+      "cuda",
+      LuaRuntimeExtension{
+          [](const RuntimeSessionOptions &options, lua_State *state,
+             PinnedMemoryAllocator *pinnedMemoryAllocator,
+             AllocTracker *allocTracker, ResourceTracker *resourceTracker) {
+            sol::state_view lua(state);
+            registerCudaOps(lua, allocTracker, pinnedMemoryAllocator,
+                            resourceTracker);
+            registerCudaMemoryManagementOps(lua, allocTracker,
+                                            pinnedMemoryAllocator);
+          }});
 }
+} // namespace mlirtrt::runtime

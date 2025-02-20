@@ -1,3 +1,5 @@
+-f https://nvidia.github.io/TensorRT-Incubator/packages.html
+nvtripy
 torch>=2.3.1
 torchvision>=0.18.1
 numpy>=1.24.4
@@ -7,4 +9,4 @@ iopath>=0.1.10
 pillow>=9.4.0
 matplotlib>=3.9.1
 jupyter>=1.0.0
-opencv-python>=4.7.0
+opencv-python-headless>=4.7.0

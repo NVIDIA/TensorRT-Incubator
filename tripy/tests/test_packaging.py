@@ -18,9 +18,9 @@ import subprocess as sp
 import tempfile
 
 import pytest
-from tests import helper
+from tests import paths
 
-import tripy as tp
+import nvtripy as tp
 
 
 def check_wheel(virtualenv, wheel_dir):
@@ -28,7 +28,7 @@ def check_wheel(virtualenv, wheel_dir):
     assert len(wheel_paths) == 1, "Expected exactly one wheel file."
 
     wheel_path = wheel_paths[0]
-    assert os.path.basename(wheel_path) == f"tripy-{tp.__version__}-py3-none-any.whl"
+    assert os.path.basename(wheel_path) == f"nvtripy-{tp.__version__}-py3-none-any.whl"
 
     virtualenv.run(
         [
@@ -46,8 +46,8 @@ def check_wheel(virtualenv, wheel_dir):
         ]
     )
 
-    assert "tripy" in virtualenv.installed_packages()
-    tripy_pkg = virtualenv.installed_packages()["tripy"]
+    assert "nvtripy" in virtualenv.installed_packages()
+    tripy_pkg = virtualenv.installed_packages()["nvtripy"]
     assert tripy_pkg.version == tp.__version__
 
     # Check that we only package things we actually want.
@@ -59,7 +59,7 @@ def check_wheel(virtualenv, wheel_dir):
         [
             virtualenv.python,
             "-c",
-            "import tripy as tp; x = tp.ones((5,), dtype=tp.int32); assert x.tolist() == [1] * 5",
+            "import nvtripy as tp; x = tp.ones((5,), dtype=tp.int32); assert x.tolist() == [1] * 5",
         ]
     )
     return tripy_pkg
@@ -68,7 +68,7 @@ def check_wheel(virtualenv, wheel_dir):
 @pytest.mark.l1
 def test_wheel_packaging_and_install(virtualenv):
     with tempfile.TemporaryDirectory() as tmp:
-        sp.run(["python3", "-m", "build", ".", "-n", "-o", tmp], cwd=helper.ROOT_DIR)
+        sp.run(["python3", "-m", "build", ".", "-n", "-o", tmp], cwd=paths.ROOT_DIR)
 
         tripy_pkg = check_wheel(virtualenv, tmp)
 

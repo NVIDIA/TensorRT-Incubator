@@ -248,8 +248,8 @@ def StablehloClusteringPass : Pass<"stablehlo-clustering", "::mlir::ModuleOp"> {
     Option<"entrypoint", "entrypoint", "std::string", "\"\"",
       "the name of the entrypoint function; if empty then the clustering runs"
       " on all functions">,
-    Option<"enableNonDPSReturns",
-      "enable-non-dps-returns", "bool", "false",
+    Option<"forceEntrypointsReturnAllocs",
+      "force-entrypoints-return-allocs", "bool", "false",
       "allow backend clusters to directly allocate outputs">,
     Option<"disableCreateShapeFuncPass", "disable-create-shape-func-pass", "bool", "false",
       "don't apply create shape to func pass in TensorRT clusters">
@@ -331,7 +331,7 @@ def CreateClosedRegionsPass : Pass<"plan-create-closed-regions", "::mlir::Module
       "(used only in testing) specifies to outline regions by walking in "
       " pre-order; used for verifying results are not sensitive "
       "to traversal order">,
-    Option<"enableNonDPSReturns", "enable-non-dps-returns", "bool",
+    Option<"forceEntrypointsReturnAllocs", "force-entrypoints-return-allocs", "bool",
            /*default=*/"false",
            "Allow backend clusters to directly allocate outputs">
   ];
@@ -423,6 +423,10 @@ def PlanAllocTensorsPass : Pass<"plan-alloc-tensors",
     bufferize to a host allocation that is copied to a device tensor.
 
     Other `tensor.empty` operations by default bufferize to device allocations.
+
+    For public functions in the top-level module, this pass will
+    also perform a transformation into destination-passing-style unless the
+    'force-entrypoints-return-allocs' flag is set.
   }];
 
   let dependentDialects = [
@@ -431,11 +435,12 @@ def PlanAllocTensorsPass : Pass<"plan-alloc-tensors",
   ];
 
   let options = [
-    Option<"enableNonDPSReturns", "enable-non-dps-returns", "bool",
+    Option<"forceEntrypointsReturnAllocs", "force-entrypoints-return-allocs", "bool",
            /*default=*/"false",
-           "Allow backend clusters to directly allocate outputs">
+          "Require entrypoint functions to return allocations corresponding to"
+          " the original tensor results, otherwise they are transformed"
+          " into destination arguments whenever possible.">
   ];
-
 }
 
 //===----------------------------------------------------------------------===//

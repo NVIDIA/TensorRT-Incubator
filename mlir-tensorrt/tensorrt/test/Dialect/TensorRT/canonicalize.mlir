@@ -1600,4 +1600,34 @@ func.func @slice_canon_dynamic_start(%arg0: tensor<?x?xf32>, %arg1: tensor<2xi32
 //       CHECK:     %[[v0:.+]] = tensorrt.slice %[[arg0]][0, 1][%[[arg1:.+]]: tensor<2xi32>][1, 1] : tensor<?x?xf32> to tensor<?x?xf32>
 //       CHECK:     return %[[v0]] : tensor<?x?xf32>
 
+// -----
 
+func.func @remove_prod_div_pair_int(%arg0: tensor<1x1x7x7xi8>) -> tensor<1x1x7x7xi8> {
+    %cst_i8_0 = tensorrt.constant dense<1> : tensor<1x1x7x7xi8>
+    %cst_i8_1 = tensorrt.constant dense<1> : tensor<1x1x1x1xi8>
+    %1 = tensorrt.element_wise <kPROD>(%arg0, %cst_i8_1 : tensor<1x1x7x7xi8>, tensor<1x1x1x1xi8>) -> tensor<1x1x7x7xi8>
+    %2 = tensorrt.element_wise <kDIV>(%1, %cst_i8_0 : tensor<1x1x7x7xi8>, tensor<1x1x7x7xi8>) -> tensor<1x1x7x7xi8>
+    return %2 : tensor<1x1x7x7xi8>
+}
+
+// CHECK-LABEL: @remove_prod_div_pair_int
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<1x1x7x7xi8>)
+//  CHECK-NEXT: return %[[arg0]] : tensor<1x1x7x7xi8>
+
+// -----
+
+func.func @remove_prod_div_pair_int_neg(%arg0: tensor<1x1x7x7xi8>) -> tensor<1x1x7x7xi8> {
+    %cst_i8_0 = tensorrt.constant dense<4> : tensor<1x1x7x7xi8>
+    %cst_i8_1 = tensorrt.constant dense<5> : tensor<1x1x1x1xi8>
+    %1 = tensorrt.element_wise <kPROD>(%arg0, %cst_i8_1 : tensor<1x1x7x7xi8>, tensor<1x1x1x1xi8>) -> tensor<1x1x7x7xi8>
+    %2 = tensorrt.element_wise <kDIV>(%1, %cst_i8_0 : tensor<1x1x7x7xi8>, tensor<1x1x7x7xi8>) -> tensor<1x1x7x7xi8>
+    return %2 : tensor<1x1x7x7xi8>
+}
+
+// CHECK-LABEL: @remove_prod_div_pair_int_neg
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<1x1x7x7xi8>)
+//  CHECK-NEXT: %[[cst_i8_0:.+]] = tensorrt.constant dense<4> : tensor<1x1x1x1xi8>
+//  CHECK-NEXT: %[[cst_i8_1:.+]] = tensorrt.constant dense<5> : tensor<1x1x1x1xi8>
+//  CHECK-NEXT: %[[v0:.+]] = tensorrt.element_wise <kPROD>(%[[arg0]], %[[cst_i8_1]] : {{.*}}) -> tensor<1x1x7x7xi8>
+//  CHECK-NEXT: %[[v1:.+]] = tensorrt.element_wise <kDIV>(%[[v0]], %[[cst_i8_0]] : {{.*}}) -> tensor<1x1x7x7xi8>
+//  CHECK-NEXT: return %[[v1]] : tensor<1x1x7x7xi8>

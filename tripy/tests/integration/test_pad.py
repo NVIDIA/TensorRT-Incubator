@@ -17,7 +17,7 @@ import pytest
 import cupy as cp
 import numpy as np
 
-import tripy as tp
+import nvtripy as tp
 
 
 class TestPad:

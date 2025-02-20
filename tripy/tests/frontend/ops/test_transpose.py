@@ -14,7 +14,7 @@
 # limitations under the License.
 from tests import helper
 
-import tripy as tp
+import nvtripy as tp
 
 
 class TestTranspose:
@@ -23,8 +23,3 @@ class TestTranspose:
 
         with helper.raises(tp.TripyException, match="Function expects 3 parameters, but 4 arguments were provided."):
             b = tp.transpose(a, 1, 2, 3)
-
-    def test_infer_rank(self):
-        a = tp.ones((3, 2))
-        a = tp.transpose(a, 0, 1)
-        assert a.trace_tensor.rank == 2

@@ -18,9 +18,9 @@
 import cupy as cp
 import numpy as np
 
-import tripy as tp
-from tripy.frontend.module.parameter import DefaultParameter
-from tripy.frontend.trace.ops import Storage
+import nvtripy as tp
+from nvtripy.frontend.module.parameter import DefaultParameter
+from nvtripy.trace.ops.storage import Storage
 
 
 class TestDefaultParameter:

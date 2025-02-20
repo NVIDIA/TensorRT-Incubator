@@ -13,11 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import pytest
-from tests import helper
+from tests import paths
 
 
 # Checks all Python and markdown files to ensure there are no non-ASCII characters
-@pytest.mark.parametrize("file", helper.MARKDOWN_FILES + helper.PYTHON_FILES)
+@pytest.mark.parametrize("file", paths.MARKDOWN_FILES + paths.PYTHON_FILES)
 def test_no_non_ascii_characters(file):
     with open(file, "rb") as f:
         contents = f.read()

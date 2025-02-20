@@ -18,7 +18,7 @@
 import cupy as cp
 import pytest
 
-import tripy as tp
+import nvtripy as tp
 import numpy as np
 
 

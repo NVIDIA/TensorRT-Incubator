@@ -1,4 +1,4 @@
-//===- LuaRuntime.cpp ------ ----------------------------------------------===//
+//===- LuaRuntime.cpp -----------------------------------------------------===//
 //
 // SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
@@ -23,23 +23,23 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-executor/Runtime/Backend/Lua/LuaRuntime.h"
+#include "lua.h"
 #include "mlir-executor/Runtime/API/API.h"
 #include "mlir-executor/Runtime/API/ExecutableFlatbuffer.h"
 #include "mlir-executor/Runtime/Backend/Common/CUDACommon.h"
 #include "mlir-executor/Runtime/Backend/Common/CommonRuntime.h"
+#include "mlir-executor/Runtime/Backend/Lua/LuaExtensionRegistry.h"
+#include "mlir-executor/Runtime/Backend/Lua/LuaExtensions.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaRegistration.h"
-#include "mlir-executor/Runtime/Backend/Lua/Modules/CUDA/CudaModule.h"
-#include "mlir-executor/Runtime/Backend/Lua/Modules/Core/CoreModule.h"
-#include "mlir-executor/Runtime/Backend/Lua/Modules/CuBLAS/CuBLASModule.h"
-#include "mlir-executor/Runtime/Backend/Lua/Modules/NCCL/NcclModule.h"
-#include "mlir-executor/Runtime/Backend/Lua/Modules/TensorRT/TensorRTModule.h"
 #include "mlir-executor/Runtime/Backend/Lua/Modules/Utils/MemRefUtils.h"
 #include "mlir-executor/Runtime/Backend/Utils/NvtxUtils.h"
 #include "mlir-executor/Runtime/Support/Support.h"
 #include "mlir-executor/Support/Allocators.h"
 #include "mlir-executor/Support/Status.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/StringMap.h"
 #include "llvm/Support/Alignment.h"
+#include "llvm/Support/ManagedStatic.h"
 #include <memory>
 
 #if defined(__clang__)
@@ -57,10 +57,10 @@ using namespace mlirtrt::runtime;
 
 static constexpr uint64_t kMinConstantBufferByteAlignment = 8;
 
-#ifndef MLIR_EXECUTOR_ENABLE_NCCL
-/// Registers functions that are dependent on certain parameters like the
-/// device number and ncclUniqueId. This is usually called late just before
-/// execution.
+/// If the runtime is not built with MLIR_EXECUTOR_ENABLE_NCCL, then this
+/// function registers default implementations for the required SPMD functions,
+/// reflecting that the executable is expected to run against a single fixed
+/// CUDA device and is not part of a larger device grid.
 static void registerDefaultDeviceDependentMethods(lua_State *state,
                                                   int32_t numDevices,
                                                   int32_t deviceIdx) {
@@ -73,27 +73,45 @@ static void registerDefaultDeviceDependentMethods(lua_State *state,
   };
 }
 
-#endif
-
-static void registerLuaRuntimeMethodsCommon(
-    lua_State *state, PinnedMemoryAllocator *pinnedMemoryAllocator,
-    AllocTracker *allocTracker, ResourceTracker *resourceTracker) {
-  registerExecutorCoreModuleLuaRuntimeMethods(state, pinnedMemoryAllocator,
-                                              allocTracker);
-
+namespace mlirtrt::runtime {
+void registerLuaCoreRuntimeExtension();
 #ifdef MLIR_EXECUTOR_ENABLE_CUDA
-  registerExecutorCUDAModuleLuaRuntimeMethods(
-      state, allocTracker, pinnedMemoryAllocator, resourceTracker);
+void registerLuaCudaRuntimeExtension();
 #endif
-
 #ifdef MLIR_EXECUTOR_ENABLE_CUBLAS
-  registerExecutorCuBLASModuleLuaRuntimeMethods(state, allocTracker,
-                                                resourceTracker);
+void registerLuaCublasRuntimeExtension();
 #endif
-
 #ifdef MLIR_EXECUTOR_ENABLE_TENSORRT
-  registerExecutorTensorRTModuleLuaRuntimeMethods(
-      state, pinnedMemoryAllocator, allocTracker, resourceTracker);
+void registerLuaTensorRTRuntimeExtension();
+#endif
+#ifdef MLIR_EXECUTOR_ENABLE_NCCL
+void registerLuaNcclRuntimeExtension();
+#endif
+} // namespace mlirtrt::runtime
+
+void runtime::registerLuaRuntimeExtensions() {
+  registerLuaCoreRuntimeExtension();
+#ifdef MLIR_EXECUTOR_ENABLE_CUDA
+  registerLuaCudaRuntimeExtension();
+#endif
+#ifdef MLIR_EXECUTOR_ENABLE_CUBLAS
+  registerLuaCublasRuntimeExtension();
+#endif
+#ifdef MLIR_EXECUTOR_ENABLE_TENSORRT
+  registerLuaTensorRTRuntimeExtension();
+#endif
+#ifdef MLIR_EXECUTOR_ENABLE_NCCL
+  registerLuaNcclRuntimeExtension();
+#else
+  registerLuaRuntimeExtension(
+      "spmd",
+      LuaRuntimeExtension{
+          [](const RuntimeSessionOptions &options, lua_State *state,
+             PinnedMemoryAllocator *pinnedMemoryAllocator,
+             AllocTracker *allocTracker, ResourceTracker *resourceTracker) {
+            registerDefaultDeviceDependentMethods(
+                state, options.getNumDevices(), options.getDeviceId());
+          }});
 #endif
 }
 
@@ -101,20 +119,8 @@ void mlirtrt::runtime::registerLuaRuntimeMethods(
     lua_State *state, const RuntimeSessionOptions &options,
     PinnedMemoryAllocator *pinnedMemoryAllocator, AllocTracker *allocTracker,
     ResourceTracker *resourceTracker) {
-  registerLuaRuntimeMethodsCommon(state, pinnedMemoryAllocator, allocTracker,
-                                  resourceTracker);
-#ifdef MLIR_EXECUTOR_ENABLE_NCCL
-  registerExecutorNCCLModuleLuaRuntimeMethods(state, resourceTracker);
-  registerDeviceDependentNCCLMethods(state, options.getNumDevices(),
-                                     options.getDeviceId(),
-                                     options.getNcclUuid());
-#else
-  // MpiCommSizeOp/MpiCommRankOp are used to get the device count and id. When
-  // not building with NCCL, always use device 0. This is not constraining
-  // because user can always set CUDA_VISIBLE_DEVICES.
-  registerDefaultDeviceDependentMethods(state, /*numDevices=*/1,
-                                        /*deviceIdx=*/0);
-#endif
+  populateRuntimeExtensions(options, state, pinnedMemoryAllocator, allocTracker,
+                            resourceTracker);
 }
 
 /// If the program was compiled with NCCL enabled, then check for the
@@ -139,6 +145,23 @@ static Status maybeCheckForValidNcclUuid(const RuntimeSessionOptions &options) {
 // LuaRuntimeSession
 //===----------------------------------------------------------------------===//
 
+class LuaRuntimeSession::Impl {
+public:
+  lua_State *getLuaState() { return luaState.lua_state(); }
+
+private:
+  sol::state luaState;
+};
+
+LuaRuntimeSession::LuaRuntimeSession(RuntimeSessionOptions options,
+                                     ExecutableView executable)
+    : RuntimeSession(std::move(options), std::move(executable)),
+      impl(std::unique_ptr<Impl>(new Impl())) {}
+
+LuaRuntimeSession::~LuaRuntimeSession() = default;
+
+lua_State *LuaRuntimeSession::getLuaState() { return impl->getLuaState(); }
+
 StatusOr<std::unique_ptr<LuaRuntimeSession>>
 LuaRuntimeSession::create(RuntimeSessionOptions options,
                           ExecutableView executable,
@@ -147,19 +170,18 @@ LuaRuntimeSession::create(RuntimeSessionOptions options,
 
   auto session = std::unique_ptr<LuaRuntimeSession>(
       new LuaRuntimeSession(std::move(options), executable));
-  sol::state &lua = session->getLuaState();
+  sol::state_view lua = session->getLuaState();
   lua.open_libraries(sol::lib::base, sol::lib::string, sol::lib::coroutine);
 
   // Register builtin methods.
   registerLuaRuntimeMethods(lua.lua_state(), session->getOptions(),
-                            &session->getPinnedMemorAllocator(),
+                            &session->getPinnedMemoryAllocator(),
                             &session->getAllocTracker(),
                             &session->getResourceTracker());
 
   // Register user-provided methods.
   if (registerExtraLuaFuncs)
-    registerExtraLuaFuncs(session->getLuaState().lua_state(),
-                          &session->getAllocTracker(),
+    registerExtraLuaFuncs(session->getLuaState(), &session->getAllocTracker(),
                           &session->getResourceTracker());
 
   // Load globals into the context.
@@ -223,7 +245,7 @@ LuaRuntimeSession::create(RuntimeSessionOptions options,
 /// Get the primary stream for the loaded executable to use.
 CudaStream LuaRuntimeSession::getCudaStream() {
 #ifdef MLIR_EXECUTOR_ENABLE_CUDA
-  auto stream = state["stream0"].get<CudaStream>();
+  auto stream = sol::state_view(getLuaState())["stream0"].get<CudaStream>();
   return stream;
 #else
   llvm::report_fatal_error("runtime not compiled with CUDA support");
@@ -233,7 +255,8 @@ CudaStream LuaRuntimeSession::getCudaStream() {
 /// Set the primary stream for the loaded executable to use.
 Status LuaRuntimeSession::setCudaStream(CudaStream stream) {
 #ifdef MLIR_EXECUTOR_ENABLE_CUDA
-  state["stream0"] = CudaStreamPtr(stream);
+  sol::state_view lua = getLuaState();
+  lua["stream0"] = CudaStreamPtr(stream);
   return getOkStatus();
 #else
   return getInternalErrorStatus("runtime not compiled with CUDA support");
@@ -265,7 +288,7 @@ StatusOr<int64_t> mlirtrt::runtime::runExecutorLuaScript(
       LuaRuntimeSession::create(std::move(*options), ExecutableView(nullptr),
                                 std::move(registerExtraLuaFuncs)));
 
-  sol::state &lua = session->getLuaState();
+  sol::state_view lua = session->getLuaState();
   sol::protected_function_result result = lua.script(luaScript);
   if (!result.valid()) {
     sol::error err = result;
@@ -316,7 +339,7 @@ StatusOr<int64_t> mlirtrt::runtime::runExecutorExecutable(
                                 std::move(registerExtraLuaFuncs)));
 
   // Call the main function, if present.
-  sol::state &lua = session->getLuaState();
+  sol::state_view lua = session->getLuaState();
   sol::protected_function mainObj = lua["main"];
   if (mainObj.get_type() != sol::type::function)
     return getStatusWithMsg(StatusCode::InternalError,
@@ -569,37 +592,45 @@ getScalarValue(const sol::protected_function_result &pfr, int index,
   }
 }
 
-// Parses the results of a function call, handling both scalar and MemRef return
-// types
-StatusOr<llvm::SmallVector<std::unique_ptr<RuntimeValue>>>
-runtime::parseResults(const sol::protected_function_result &pfr,
-                      const FunctionSignatureView &sig,
-                      std::optional<RuntimeClient *> client) {
+/// Parses the results of a function call, handling both scalar and MemRef
+/// return types.
+///
+/// @param pfr The protected function result to parse.
+/// @param sig The function signature view.
+/// @param session Lua runtime session.
+/// @param client Optional runtime client pointer.
+/// @return A vector of unique pointers to RuntimeValue, or an error status.
+static StatusOr<llvm::SmallVector<std::unique_ptr<RuntimeValue>>>
+parseResults(const sol::protected_function_result &pfr,
+             const FunctionSignatureView &sig, LuaRuntimeSession &session,
+             std::optional<RuntimeClient *> client) {
   llvm::SmallVector<std::unique_ptr<RuntimeValue>> results;
-  for (unsigned i = 0; i < sig.getNumResults(); ++i) {
+  results.reserve(sig.getNumResults());
 
-    if (sig.getResult(i).isa<ScalarTypeView>()) {
-      auto scalar = getScalarValue(pfr, i, sig);
-      if (!scalar.isOk())
-        return scalar.getStatus();
-      results.push_back(std::move(*scalar));
+  for (unsigned i = 0; i < sig.getNumResults(); ++i) {
+    const auto &resultType = sig.getResult(i);
+
+    if (resultType.isa<ScalarTypeView>()) {
+      auto scalarValue = getScalarValue(pfr, i, sig);
+      if (!scalarValue.isOk())
+        return scalarValue.getStatus();
+      results.push_back(std::move(*scalarValue));
       continue;
     }
 
-    MemRefTableReader reader(pfr, i);
-
-    if (!sig.getResult(i).isa<MemRefTypeView>())
+    if (!resultType.isa<MemRefTypeView>())
       return getInvalidArgStatus("Result can only be a memref or scalar");
 
     // Handle MemRef return values
-    const auto &resultView = sig.getResult(i).get<MemRefTypeView>();
-    unsigned rank = resultView.getRank();
+    const auto &memRefView = resultType.get<MemRefTypeView>();
+    MemRefTableReader reader(pfr, i);
 
     // Extract MemRef metadata
     uintptr_t allocPtr = reader.getNextValue<uintptr_t>();
     [[maybe_unused]] uintptr_t alignedPtr = reader.getNextValue<uintptr_t>();
     int64_t offset = reader.getNextValue<int64_t>();
 
+    unsigned rank = memRefView.getRank();
     llvm::SmallVector<int64_t, 4> shape(rank);
     llvm::SmallVector<int64_t, 4> strides(rank);
 
@@ -612,11 +643,36 @@ runtime::parseResults(const sol::protected_function_result &pfr,
     if (!client)
       return getInvalidArgStatus("Runtime client cannot be nullptr");
 
-    // Create MemRefValue from extracted data
-    auto memref = (*client)->createExternalMemRef(
-        resultView.getAddressSpace(), resultView.getElementType().getBitWidth(),
-        allocPtr, offset, shape, strides, (*client)->getDevices()[0].get(),
-        resultView.getElementType());
+    // Create an external MemRef and track it in both session and client
+    // allocation trackers
+    MTRT_DBGF("Creating external MemRef for ptr 0x%lx: "
+              "Session alloc tracker: %p, Session pinner memory allocator: %p, "
+              "Client: %p, Client tracker: %p. "
+              "This ptr is registered with the session and will now be tracked "
+              "by the client as well.",
+              allocPtr, static_cast<void *>(&session.getAllocTracker()),
+              static_cast<void *>(&session.getPinnedMemoryAllocator()),
+              static_cast<void *>(*client),
+              static_cast<void *>(&(*client)->getAllocTracker()));
+
+    // We need here actually is to "release" the pointer from the session
+    // ownership and have the client assume
+    PointerInfo info = session.getAllocTracker().get(allocPtr);
+    session.getAllocTracker().untrack(info.ptr);
+    (*client)->getAllocTracker().track(info);
+
+    // Defer deallocation of this pinned memory pointer
+    // This pointer is likely still in use by the client and should not be
+    // immediately freed. By untracking it here, we ensure it won't be
+    // deallocated in the PinnedMemoryAllocator's destructor, allowing
+    // the client to manage its lifecycle.
+    session.getPinnedMemoryAllocator().untrack(info.ptr);
+
+    // Create a memref so that client now tracks it.
+    auto memref = MemRefValue::create(
+        *client, memRefView.getAddressSpace(),
+        memRefView.getElementType().getBitWidth(), allocPtr, offset, shape,
+        strides, (*client)->getDevices()[0].get(), memRefView.getElementType());
 
     if (!memref.isOk())
       return memref.getStatus();
@@ -634,11 +690,14 @@ runtime::executeFunctionWithLuaBackend(
     llvm::ArrayRef<RuntimeValue *> outputArgs, std::optional<CudaStream> stream,
     std::optional<RuntimeClient *> client) {
 
-  FunctionView meta = session.getExecutable().getFunction(name);
-  FunctionSignatureView sig = meta.getSignature();
+  StatusOr<FunctionView> func = session.getExecutable().getFunction(name);
+  if (func.isError())
+    return func.getStatus();
+
+  FunctionSignatureView sig = (*func).getSignature();
 
   // Call the main function, if present.
-  sol::state &lua = session.getLuaState();
+  sol::state_view lua = session.getLuaState();
   AllocTracker &tracker = session.getAllocTracker();
   sol::protected_function funcObj = lua[name];
   if (funcObj.get_type() != sol::type::function)
@@ -719,5 +778,5 @@ runtime::executeFunctionWithLuaBackend(
                             "\": ", err.what());
   }
 
-  return parseResults(pfr, sig, client);
+  return parseResults(pfr, sig, session, client);
 }

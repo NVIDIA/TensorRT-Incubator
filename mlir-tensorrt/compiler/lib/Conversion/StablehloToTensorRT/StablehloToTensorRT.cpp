@@ -1762,8 +1762,21 @@ struct ConvertReduceWindow
     if (*poolingType == tensorrt::PoolingType::kMAX)
       return replaceOp(poolOp.getResult());
 
-    // Insert a multiplication operation to balance the fact that we're
-    // replacing `reduce_window<sum>` with an "average pool" op.
+    // If `reduce_window` op has only one user and it is `stablehlo.divide`,
+    // we can consume divide into pooling op created above since at this point
+    // `poolOp` is average pool. Generally we avoid looking forward but in
+    // this case, we are sure of `reduce_window + div` of creating single
+    // TensorRT op, so we do it.
+    if (op->hasOneUse()) {
+      if (auto maybeDivOp =
+              dyn_cast<stablehlo::DivOp>(op->getUses().begin()->getOwner())) {
+        rewriter.replaceAllOpUsesWith(maybeDivOp, poolOp);
+        return replaceOp(poolOp.getResult());
+      }
+    }
+
+    // Otherwise, insert a multiplication operation to balance the fact that
+    // we're replacing `reduce_window<sum>` with an "average pool" op.
     auto constShape =
         RankedTensorType::get(SmallVector<int64_t>(inputType.getRank(), 1),
                               inputType.getElementType());

@@ -17,7 +17,7 @@
 
 import cupy as cp
 
-import tripy as tp
+import nvtripy as tp
 
 
 class TestPlugin:

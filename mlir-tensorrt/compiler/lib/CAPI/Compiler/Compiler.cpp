@@ -23,6 +23,7 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt-c/Compiler/Compiler.h"
 #include "mlir-c/IR.h"
+#include "mlir-c/Pass.h"
 #include "mlir-c/Support.h"
 #include "mlir-executor-c/Support/Status.h"
 #include "mlir-executor/Target/Lua/TranslateToRuntimeExecutable.h"
@@ -30,11 +31,12 @@
 #include "mlir-tensorrt-dialect/Utils/Options.h"
 #include "mlir-tensorrt/Compiler/Extension.h"
 #include "mlir-tensorrt/Compiler/OptionsRegistry.h"
-#include "mlir-tensorrt/Compiler/StableHloToExecutable.h"
-#include "mlir-tensorrt/Compiler/TensorRTExtension/TensorRTExtension.h"
+#include "mlir-tensorrt/Compiler/StablehloToExecutable/StablehloToExecutable.h"
+#include "mlir-tensorrt/Compiler/StablehloToExecutable/TensorRTExtension.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir/CAPI/IR.h"
 #include "mlir/CAPI/Utils.h"
+#include "mlir/Pass/PassManager.h"
 #include "llvm/ADT/StringExtras.h"
 
 using namespace mlirtrt;
@@ -47,7 +49,7 @@ using namespace mlir;
 #endif
 DEFINE_C_API_PTR_METHODS(MTRT_CompilerClient, CompilerClient)
 DEFINE_C_API_PTR_METHODS(MTRT_StableHLOToExecutableOptions,
-                         StableHLOToExecutableOptions)
+                         StablehloToExecutableOptions)
 DEFINE_C_API_PTR_METHODS(MTRT_OptionsContext, OptionsContext)
 #if defined(__GNUC__) || defined(__clang__)
 #pragma GCC diagnostic pop
@@ -84,8 +86,8 @@ MTRT_Status mtrtCompilerClientCreate(MlirContext context,
       ctx->getOrLoadDialect<mlir::plan::PlanDialect>();
   assert(planDialect && "expected loaded PlanDialect");
   if (failed(planDialect->extensionConstructors.addCheckedExtensionConstructor<
-             compiler::StableHloToExecutableTask,
-             compiler::StableHLOToExecutableTensorRTExtension>()))
+             compiler::StablehloToExecutableTask,
+             compiler::StablehloToExecutableTensorRTExtension>()))
     emitWarning(mlir::UnknownLoc::get(ctx))
         << "ignoring duplicate extension load request; TensorRTExtension is "
            "already loaded";
@@ -104,6 +106,22 @@ MTRT_Status mtrtCompilerClientDestroy(MTRT_CompilerClient client) {
   return mtrtStatusGetOk();
 }
 
+MTRT_Status mtrtCompilerClientGetCompilationTask(MTRT_CompilerClient client,
+                                                 MlirStringRef taskMnemonic,
+                                                 const MlirStringRef *argv,
+                                                 unsigned argc,
+                                                 MlirPassManager *result) {
+  std::vector<llvm::StringRef> argvStrRef(argc);
+  for (unsigned i = 0; i < argc; i++)
+    argvStrRef[i] = llvm::StringRef(argv[i].data, argv[i].length);
+  StatusOr<CompilationTaskBase *> task = unwrap(client)->getCompilationTask(
+      StringRef(taskMnemonic.data, taskMnemonic.length), argvStrRef);
+  if (!task.isOk())
+    return wrap(task.getStatus());
+  *result = MlirPassManager{static_cast<mlir::PassManager *>(*task)};
+  return mtrtStatusGetOk();
+}
+
 //===----------------------------------------------------------------------===//
 // MTRT_OptionsContext
 //===----------------------------------------------------------------------===//
@@ -116,8 +134,8 @@ MLIR_CAPI_EXPORTED MTRT_Status mtrtOptionsContextCreateFromArgs(
     argvStrRef[i] = llvm::StringRef(argv[i].data, argv[i].length);
 
   auto result = createOptions(
-      *unwrap(client), llvm::StringRef(optionsType.data, optionsType.length),
-      argvStrRef);
+      unwrap(client)->getContext(),
+      llvm::StringRef(optionsType.data, optionsType.length), argvStrRef);
   if (!result.isOk())
     return wrap(result.getStatus());
 
@@ -156,19 +174,19 @@ MTRT_Status mtrtStableHloToExecutableOptionsCreate(
       context->getLoadedDialect<mlir::plan::PlanDialect>();
   compiler::TaskExtensionRegistry extensions =
       planDialect->extensionConstructors
-          .getExtensionRegistryForTask<compiler::StableHloToExecutableTask>();
+          .getExtensionRegistryForTask<compiler::StablehloToExecutableTask>();
 
   // Check that default extension set is loaded and set options on the TRT
   // extension.
   auto *trtExtension =
       extensions
-          .getExtension<compiler::StableHLOToExecutableTensorRTExtension>();
+          .getExtension<compiler::StablehloToExecutableTensorRTExtension>();
   assert(trtExtension &&
          "expected valid StableHLOToExecutableTensorRTExtension");
   trtExtension->setOptions(translationOpts);
 
   auto result =
-      std::make_unique<StableHLOToExecutableOptions>(std::move(extensions));
+      std::make_unique<StablehloToExecutableOptions>(std::move(extensions));
 
   llvm::Error finalizeStatus = result->finalize();
 
@@ -194,16 +212,16 @@ MTRT_Status mtrtStableHloToExecutableOptionsCreateFromArgs(
       context->getLoadedDialect<mlir::plan::PlanDialect>();
   compiler::TaskExtensionRegistry extensions =
       planDialect->extensionConstructors
-          .getExtensionRegistryForTask<compiler::StableHloToExecutableTask>();
+          .getExtensionRegistryForTask<compiler::StablehloToExecutableTask>();
 
   // Check that default extension set is loaded.
   assert(
       extensions
-          .getExtension<compiler::StableHLOToExecutableTensorRTExtension>() &&
+          .getExtension<compiler::StablehloToExecutableTensorRTExtension>() &&
       "expected valid StableHLOToExecutableTensorRTExtension");
 
   auto result =
-      std::make_unique<StableHLOToExecutableOptions>(std::move(extensions));
+      std::make_unique<StablehloToExecutableOptions>(std::move(extensions));
   std::vector<llvm::StringRef> argvStrRef(argc);
   for (unsigned i = 0; i < argc; i++)
     argvStrRef[i] = llvm::StringRef(argv[i].data, argv[i].length);
@@ -234,100 +252,28 @@ MTRT_Status mtrtStableHloToExecutableOptionsSetDebugOptions(
     const char **debugTypes, size_t debugTypeSizes, const char *dumpIrTreeDir,
     const char *dumpTensorRTDir) {
 
-  StableHLOToExecutableOptions *cppOpts = unwrap(options);
+  StablehloToExecutableOptions *cppOpts = unwrap(options);
   cppOpts->get<DebugOptions>().enableLLVMDebugFlag = enableDebugging;
   for (unsigned i = 0; i < debugTypeSizes; i++)
     cppOpts->get<DebugOptions>().llvmDebugTypes.emplace_back(debugTypes[i]);
 
-  if (dumpIrTreeDir)
-    cppOpts->get<DebugOptions>().dumpIRPath = std::string(dumpIrTreeDir);
-
-  return mtrtStatusGetOk();
-}
-
-MTRT_Status
-mtrtStableHloToExecutableOptionsSetTensorRTTranslationMetadataCallback(
-    MTRT_StableHLOToExecutableOptions options, MTRT_MetadataCallback callback,
-    void *userData) {
-  StableHLOToExecutableOptions *cppOpts = unwrap(options);
-
-  // Construct the append callback which we will pass to the callback provided
-  // by the user. We do it this way to avoid needing a string construct in the C
-  // API.
-  auto appendFunc = [](MlirStringRef str, void *appendCtx) {
-    std::string &accum = *reinterpret_cast<std::string *>(appendCtx);
-    accum += std::string(str.data, str.length);
-  };
-
-  // Capturing by reference here will cause `callback` to point to the wrong
-  // place at the time this callback is invoked.
-  cppOpts->layerMetadataCallback = [=](Operation *op) {
-    std::string accum;
-    void *appendCtx = reinterpret_cast<void *>(&accum);
-    callback(wrap(op), appendFunc, appendCtx, userData);
-    return accum;
-  };
+  if (dumpIrTreeDir) {
+    cppOpts->get<DebugOptions>().printTreeDir = std::string(dumpIrTreeDir);
+    cppOpts->get<DebugOptions>().printAfterAll = true;
+  }
 
   return mtrtStatusGetOk();
 }
 
 MTRT_Status mtrtStableHloToExecutableOptionsDestroy(
     MTRT_StableHLOToExecutableOptions options) {
-  delete reinterpret_cast<StableHLOToExecutableOptions *>(options.ptr);
+  delete reinterpret_cast<StablehloToExecutableOptions *>(options.ptr);
   return mtrtStatusGetOk();
-}
-
-//===----------------------------------------------------------------------===//
-// StableHloPipeline APIs
-//===----------------------------------------------------------------------===//
-
-MTRT_Status
-mtrtStableHloPipelineGetCached(MTRT_CompilerClient client,
-                               MTRT_StableHLOToExecutableOptions options,
-                               MlirPassManager *result) {
-
-  mlir::PassManager *runner{};
-  if (unwrap(options)->getHash()) {
-    runner = &unwrap(client)->getOrCreatePassManager<StableHloToExecutableTask>(
-        *unwrap(options));
-    result->ptr = runner;
-    return mtrtStatusGetOk();
-  }
-  return mtrtStatusCreate(MTRT_StatusCode::MTRT_StatusCode_InternalError,
-                          "options cannot be hashed");
 }
 
 //===----------------------------------------------------------------------===//
 // Main StableHLO Compiler API Functions
 //===----------------------------------------------------------------------===//
-
-MTRT_Status mtrtCompilerGetExecutable(MlirPassManager pm, MlirOperation module,
-                                      MTRT_Executable *result) {
-
-  ModuleOp moduleOp = llvm::dyn_cast<ModuleOp>(unwrap(module));
-  if (!moduleOp)
-    return mtrtStatusCreate(
-        MTRT_StatusCode::MTRT_StatusCode_InvalidArgument,
-        "StableHLO-to-Executable compilation expects a ModuleOp");
-
-  // Setup pass manager
-  mlir::PassManager *runner = static_cast<mlir::PassManager *>(pm.ptr);
-  if (failed(runner->run(moduleOp)))
-    return mtrtStatusCreate(MTRT_StatusCode::MTRT_StatusCode_InternalError,
-                            "failed to run MLIR compilation pipeline");
-
-  // Translate to Runtime Executable
-  FailureOr<std::unique_ptr<runtime::ExecutableStorage>> exeStorage =
-      mlir::translateToRuntimeExecutable(unwrap(module));
-  if (failed(exeStorage))
-    return mtrtStatusCreate(
-        MTRT_StatusCode::MTRT_StatusCode_InternalError,
-        "failed to perform MLIR-to-RuntimeExecutable translation");
-
-  result->ptr =
-      std::make_unique<runtime::Executable>(std::move(*exeStorage)).release();
-  return mtrtStatusGetOk();
-}
 
 MTRT_Status mtrtCompilerStableHLOToExecutable(
     MTRT_CompilerClient client, MlirOperation module,
@@ -340,7 +286,7 @@ MTRT_Status mtrtCompilerStableHLOToExecutable(
         "StableHLO-to-Executable compilation expects a ModuleOp");
 
   StatusOr<std::unique_ptr<mlirtrt::runtime::Executable>> exe =
-      compiler::StableHloToExecutableTask::compileStableHLOToExecutable(
+      compiler::StablehloToExecutableTask::compileStableHLOToExecutable(
           *unwrap(client), moduleOp, *unwrap(stableHloToExecutableOptions));
   if (!exe.isOk())
     return mtrtStatusCreate(MTRT_StatusCode::MTRT_StatusCode_InternalError,

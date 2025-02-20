@@ -23,7 +23,7 @@ import torch
 from model import GPT, GPTConfig
 from weight_loader import load_quant_weights_from_hf, load_weights_from_hf
 
-import tripy as tp
+import nvtripy as tp
 
 
 def initialize_gpt_model(model_type, padded_seq_len, dtype, quant_mode):
@@ -83,16 +83,15 @@ def main():
 
     TEMPERATURE = 0.8
     TOP_K = 5
+    MODEL_DTYPE = tp.float16
 
     padded_seq_len = len(input_ids) + args.max_new_tokens
 
-    model_dtype = tp.float16
-
-    model = initialize_gpt_model(args.model_type, padded_seq_len, model_dtype, args.quant_mode)
+    model = initialize_gpt_model(args.model_type, padded_seq_len, MODEL_DTYPE, args.quant_mode)
     if not args.quant_mode:
-        load_weights_from_hf(model, args.model_type, model_dtype)
+        load_weights_from_hf(model, args.model_type, MODEL_DTYPE)
     else:
-        load_quant_weights_from_hf(model, args.model_type, model_dtype, args.quant_mode)
+        load_quant_weights_from_hf(model, args.model_type, MODEL_DTYPE, args.quant_mode)
 
     idx = tp.reshape(tp.Tensor(input_ids), shape=(1, len(input_ids)))
 
