@@ -25,7 +25,7 @@ from nvtripy.trace.ops.base import BaseTraceOp
 @dataclass(repr=False)
 class Shape(BaseTraceOp):
     def infer_rank(self):
-        self.outputs[0].rank = 1
+        self.outputs[0].shape = [self.inputs[0].rank]
 
     def infer_dtypes(self):
         self.outputs[0].dtype = int32
