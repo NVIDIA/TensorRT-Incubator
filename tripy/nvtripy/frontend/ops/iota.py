@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,21 +20,24 @@ from typing import Optional
 from nvtripy import export, utils
 from nvtripy.common import datatype
 from nvtripy.frontend.ops import utils as op_utils
-from nvtripy.trace.ops.iota import Iota
+from nvtripy.trace.ops.linspace import Linspace
 from nvtripy.types import ShapeLike
 from nvtripy.utils import wrappers
 
 
-def iota_impl(shape: "nvtripy.Tensor", dim: int, dtype: datatype.dtype, output_rank: int) -> "nvtripy.Tensor":
+def iota_impl(shape: "nvtripy.Tensor", dim: int, dtype: datatype.dtype) -> "nvtripy.Tensor":
     from nvtripy.frontend.ops.cast import cast
+    from nvtripy.frontend.tensor import Tensor
 
-    # Allocate a float32 tensor and cast the output to dtype.
-    # `tensorrt.linspace` op result #0 must be 0D/1D/2D/3D/4D/5D/6D/7D/8D tensor of 32-bit float or 32-bit signless integer values.
-    if dtype not in (datatype.float32, datatype.int32, datatype.int64):
-        result = op_utils.create_op(Iota, [shape], dim, output_rank, datatype.float32)
-        return cast(result, dtype)
+    linspace_dtype = Linspace.get_closest_dtype(dtype)
+    start = Tensor(0, dtype=linspace_dtype)
 
-    return op_utils.create_op(Iota, [shape], dim, output_rank, dtype)
+    step = [0] * op_utils.get_shape_len(shape)  # output rank
+    step[dim] = 1
+    step = Tensor(step, dtype=linspace_dtype)
+
+    out = op_utils.create_op(Linspace, [shape, start, step], dtype=linspace_dtype)
+    return cast(out, dtype)
 
 
 @export.public_api(document_under="operations/initializers")
@@ -44,9 +47,6 @@ def iota_impl(shape: "nvtripy.Tensor", dim: int, dtype: datatype.dtype, output_r
         "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
     },
     convert_to_tensors=True,
-    conversion_preprocess_func=lambda shape, dim=None, dtype=None: (
-        {"dim": op_utils.process_dim(dim, len(shape))} if dim is not None else {}
-    ),
 )
 def iota(shape: ShapeLike, dim: int = 0, dtype: datatype.dtype = datatype.float32) -> "nvtripy.Tensor":
     """
@@ -68,7 +68,9 @@ def iota(shape: ShapeLike, dim: int = 0, dtype: datatype.dtype = datatype.float3
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.arange(0, 3, dtype=np.float32))
     """
-    return iota_impl(shape, dim, dtype, output_rank=None)
+    dim = op_utils.process_dim(dim, op_utils.get_shape_len(shape))
+
+    return iota_impl(shape, dim, dtype)
 
 
 @export.public_api(document_under="operations/initializers")
@@ -107,5 +109,4 @@ def iota_like(input: "nvtripy.Tensor", dim: int = 0, dtype: Optional[datatype.dt
         op_utils.tensor_from_shape_like(input.shape),
         dim,
         utils.utils.default(dtype, input.dtype),
-        output_rank=input.rank,
     )

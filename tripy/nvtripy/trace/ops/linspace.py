@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,28 +17,27 @@
 
 from dataclasses import dataclass
 
+from mlir_tensorrt.compiler.dialects import tensorrt
 from nvtripy.common import datatype
 from nvtripy.trace.ops import utils as op_utils
 from nvtripy.trace.ops.base import BaseTraceOp
 
 
 @dataclass(repr=False)
-class Iota(BaseTraceOp):
-    dim: int
-    output_rank: int
+class Linspace(BaseTraceOp):
     dtype: datatype.dtype
+
+    # Returns the best data type to use to perform the linspace operation given the desired output data type.
+    # You must cast the output of the linspace back to the desired output data type.
+    @staticmethod
+    def get_closest_dtype(dt):
+        return dt if dt in (datatype.float32, datatype.int32, datatype.int64) else datatype.float32
 
     infer_rank = op_utils.InferRankPolicies.same_as_shape_of_shape_input()
 
     def infer_dtypes(self):
         self.outputs[0].dtype = self.dtype
 
-    def infer_devices(self):
-        from nvtripy.common import device
-
-        self.outputs[0].device = device.fast_init("gpu", 0)
-
-    def to_flat_ir(self, inputs, outputs):
-        from nvtripy.flat_ir.ops import DynamicIotaOp
-
-        DynamicIotaOp.build(inputs, outputs, dim=self.dim)
+    def to_mlir(self, inputs, outputs):
+        assert len(self.inputs) == 3, "Linspace operation should have exactly 3 inputs!"
+        return [tensorrt.linspace(result=outputs[0], shape=inputs[0], start=inputs[1], step=inputs[2])]
