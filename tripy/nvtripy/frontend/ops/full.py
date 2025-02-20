@@ -20,7 +20,7 @@ from typing import Optional
 from nvtripy import export, utils
 from nvtripy.common import datatype
 from nvtripy.frontend.ops import utils as op_utils
-from nvtripy.trace.ops.expand import Expand
+from nvtripy.trace.ops.broadcast import Broadcast
 from nvtripy.types import ShapeLike, TensorLike
 from nvtripy.utils import wrappers
 
@@ -55,7 +55,7 @@ def full(shape: ShapeLike, value: TensorLike, dtype: "nvtripy.dtype" = datatype.
     from nvtripy.frontend.ops.cast import cast
 
     # We avoid using the `expand` API since it does extra things that we don't need.
-    return op_utils.create_op(Expand, [cast(value, dtype=dtype), shape])
+    return op_utils.create_op(Broadcast, [cast(value, dtype=dtype), shape])
 
 
 @export.public_api(document_under="operations/initializers")
