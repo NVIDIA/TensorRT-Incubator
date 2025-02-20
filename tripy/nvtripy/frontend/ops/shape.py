@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,7 +19,7 @@
 from nvtripy.common.datatype import DATA_TYPES
 from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.frontend.ops._registry import register_tensor_method
-from nvtripy.trace.ops.shape import GetDimensionSize
+from nvtripy.trace.ops.shape import Shape, GetDimensionSize
 from nvtripy.types import ShapeLike
 from nvtripy.utils import wrappers
 
@@ -49,7 +49,8 @@ def shape(self: "nvtripy.Tensor") -> ShapeLike:
     if all(dim >= 0 for dim in self.trace_tensor.shape) and not self.trace_tensor.is_compile_tracer:
         return self.trace_tensor.shape
 
+    shape = op_utils.create_op(Shape, [self])
     return [
-        op_utils.create_op(GetDimensionSize, [self], dim=index, always_cast_to_dimension_size=True)
+        op_utils.create_op(GetDimensionSize, [shape], dim=index, always_cast_to_dimension_size=True)
         for index in range(self.rank)
     ]
