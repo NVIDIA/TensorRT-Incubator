@@ -56,4 +56,6 @@ def gather(input: "nvtripy.Tensor", dim: int, index: "nvtripy.Tensor") -> "nvtri
     # TODO (pranavm): Test negative axis?
     dim = op_utils.process_dim(dim, input.rank)
 
+    # TODO (pranavm): Support GatherND here for slice
+
     return op_utils.create_op(Gather, [input, index], dim)
