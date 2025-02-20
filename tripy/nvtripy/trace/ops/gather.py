@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -30,17 +30,6 @@ class Gather(BaseTraceOp):
         self.outputs[0].rank = self.inputs[0].rank + self.inputs[1].rank - 1
 
     def infer_dtypes(self):
-        from nvtripy import int32
-
-        if self.inputs[1].dtype != int32:
-            utils.ops.raise_error_io_info(
-                self,
-                "Index tensor for gather operation should be of int32 type.",
-                details=[
-                    f"Input tensor 'index' for operation: 'gather' must be of int32 type, but 'index' has type: {self.inputs[1].dtype}"
-                ],
-            )
-
         self.outputs[0].dtype = self.inputs[0].dtype
 
     def infer_devices(self):

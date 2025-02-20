@@ -17,10 +17,9 @@
 
 import array
 from dataclasses import dataclass
-from typing import Any, Optional, Sequence, Set
+from typing import Any, List, Optional, Sequence, Set
 
 import mlir_tensorrt.runtime.api as runtime
-import nvtripy.common.datatype as datatype
 from mlir_tensorrt.compiler import ir
 from mlir_tensorrt.compiler.dialects import tensorrt
 from nvtripy import utils
@@ -28,9 +27,7 @@ from nvtripy.backend.mlir import memref
 from nvtripy.backend.mlir import utils as mlir_utils
 from nvtripy.backend.mlir.memref import create_memref
 from nvtripy.common import datatype
-from nvtripy.common import device
 from nvtripy.common import device as tp_device
-from nvtripy.common import utils as common_utils
 from nvtripy.common.exception import raise_error
 from nvtripy.trace.ops.base import BaseTraceOp
 
@@ -65,6 +62,56 @@ def flatten_list(data, _current_dim=0):
         else:
             flat_list.append(element)
     return flat_list
+
+
+def is_int32(data):
+    return datatype.INT32_MIN <= data <= datatype.INT32_MAX
+
+
+def get_element_type(elements):
+    e = elements
+    while (isinstance(e, List) or isinstance(e, tuple)) and len(e) > 0:
+        e = e[0]
+    if isinstance(e, bool):
+        dtype = datatype.bool
+    elif isinstance(e, int):
+        if is_int32(e):
+            dtype = datatype.int32
+        else:
+            dtype = datatype.int64
+    elif isinstance(e, float):
+        dtype = datatype.float32
+    # Special handling for empty tensors
+    elif isinstance(e, list) or isinstance(e, tuple):
+        dtype = None
+    else:
+        raise_error(
+            "Unsupported element type.",
+            details=[
+                f"List elements must be of type int, float, or bool but ",
+                f"got element: {e} of type: {type(e)}.",
+            ],
+        )
+
+    return dtype
+
+
+def convert_list_to_array(values: List[Any], dtype: str) -> bytes:
+    """Convert a list of values to a byte buffer based on the specified dtype."""
+    # Lookup table for types and their corresponding struct format characters
+    TYPE_TO_FORMAT = {
+        datatype.bool: "b",
+        datatype.int64: "l",
+        datatype.int32: "i",
+        datatype.float32: "f",
+    }
+    # `get_element_type` should always return
+    assert dtype in TYPE_TO_FORMAT
+    return array.array(TYPE_TO_FORMAT[dtype], values)
+
+
+def is_empty(data: Sequence) -> bool:
+    return isinstance(data, Sequence) and all(map(is_empty, data))
 
 
 def get_shape(data):
@@ -115,12 +162,12 @@ class Constant(BaseTraceOp):
             self.shape = tuple(data.shape)
             self.device = tp_device.fast_init("gpu" if data.address_space == runtime.PointerType.device else "cpu", 0)
         else:
-            if common_utils.is_empty(data):
+            if is_empty(data):
                 self.dtype = datatype.float32
                 data_array = None
             else:
-                self.dtype = common_utils.get_element_type(data)
-                data_array = common_utils.convert_list_to_array(flatten_list(data), dtype=self.dtype)
+                self.dtype = get_element_type(data)
+                data_array = convert_list_to_array(flatten_list(data), dtype=self.dtype)
             self.shape = tuple(get_shape(data))
             self.data = memref.create_memref(
                 shape=self.shape,
@@ -176,7 +223,7 @@ class Constant(BaseTraceOp):
                 array=array.array("i", memoryview(data_memref).cast("b").tolist()),
                 shape=self.data.shape,
                 dtype=datatype.int32,
-                device=device("cpu"),
+                device=tp_device("cpu"),
             )
             attr = ir.DenseElementsAttr.get(
                 array=int_memref, type=mlir_utils.get_mlir_dtype(datatype.int32), shape=data_memref.shape
