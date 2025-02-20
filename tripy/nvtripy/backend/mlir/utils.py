@@ -26,7 +26,7 @@ from typing import BinaryIO, List, Optional, Sequence, Tuple, Union
 
 import mlir_tensorrt.runtime.api as runtime
 from mlir_tensorrt.compiler import ir
-from nvtripy import utils
+from nvtripy import constants, utils
 from nvtripy.common import datatype
 from nvtripy.common.exception import raise_error
 from nvtripy.logging import logger
@@ -108,7 +108,10 @@ def make_mlir_tensor(
 ) -> ir.RankedTensorType:
     if shape is not None:
         return ir.RankedTensorType.get(
-            [dim if isinstance(dim, int) and dim >= 0 else ir.ShapedType.get_dynamic_size() for dim in shape],
+            [
+                dim if isinstance(dim, int) and dim != constants.DYNAMIC_DIM else ir.ShapedType.get_dynamic_size()
+                for dim in shape
+            ],
             get_mlir_dtype(dtype),
         )
 
