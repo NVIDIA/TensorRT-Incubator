@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -81,31 +81,31 @@ class floating(BaseDtype):
 __all__ = ["dtype"]
 
 
-def _make_datatype(name, dtypeclass, itemsize, docstring):
+def _make_datatype(name, shortname, dtypeclass, itemsize, docstring):
     DATA_TYPES[name] = export.public_api(document_under="datatype.rst", autodoc_options=[":no-show-inheritance:"])(
-        type(name, (dtypeclass,), {"name": name, "itemsize": itemsize, "__doc__": docstring})
+        type(name, (dtypeclass,), {"name": name, "shortname": shortname, "itemsize": itemsize, "__doc__": docstring})
     )
     __all__.append(name)
     return DATA_TYPES[name]
 
 
-def _make_float_datatype(name, itemsize, docstring):
-    return _make_datatype(name, floating, itemsize, docstring)
+def _make_float_datatype(name, shortname, itemsize, docstring):
+    return _make_datatype(name, shortname, floating, itemsize, docstring)
 
 
-def _make_int_datatype(name, itemsize, docstring):
-    return _make_datatype(name, integer, itemsize, docstring)
+def _make_int_datatype(name, shortname, itemsize, docstring):
+    return _make_datatype(name, shortname, integer, itemsize, docstring)
 
 
-float32 = _make_float_datatype("float32", 4, "32-bit floating point")
-float16 = _make_float_datatype("float16", 2, "16-bit floating point")
-float8 = _make_float_datatype("float8", 1, "8-bit floating point")
-bfloat16 = _make_float_datatype("bfloat16", 2, "16-bit brain-float")
-int4 = _make_int_datatype("int4", 0.5, "4-bit signed integer")
-int8 = _make_int_datatype("int8", 1, "8-bit signed integer")
-int32 = _make_int_datatype("int32", 4, "32-bit signed integer")
-int64 = _make_int_datatype("int64", 8, "64-bit signed integer")
-bool = _make_datatype("bool", BaseDtype, 1, "Boolean")
+float32 = _make_float_datatype("float32", "f32", 4, "32-bit floating point")
+float16 = _make_float_datatype("float16", "f16", 2, "16-bit floating point")
+float8 = _make_float_datatype("float8", "f8", 1, "8-bit floating point")
+bfloat16 = _make_float_datatype("bfloat16", "bf16", 2, "16-bit brain-float")
+int4 = _make_int_datatype("int4", "i4", 0.5, "4-bit signed integer")
+int8 = _make_int_datatype("int8", "i8", 1, "8-bit signed integer")
+int32 = _make_int_datatype("int32", "i32", 4, "32-bit signed integer")
+int64 = _make_int_datatype("int64", "i64", 8, "64-bit signed integer")
+bool = _make_datatype("bool", "b", BaseDtype, 1, "Boolean")
 
 
 @Encoder.register(dtype)
