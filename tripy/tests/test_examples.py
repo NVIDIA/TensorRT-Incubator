@@ -84,6 +84,7 @@ class Example:
 
 EXAMPLES = [
     Example(["nanogpt"]),
+    Example(["diffusion"]),
     Example(
         ["segment-anything-model-v2"],
         artifact_names=["truck.jpg", "bedroom", "saved_engines_l/", "output/", "checkpoints/*.pt"],
