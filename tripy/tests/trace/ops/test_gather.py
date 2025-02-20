@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,16 +16,13 @@
 #
 
 import numpy as np
-import pytest
 
 import nvtripy as tp
 
 
 class TestGather:
-    @pytest.mark.parametrize("index_shape", [(1,), (2, 2)])
-    @pytest.mark.parametrize("axis", [0, 1, 2])
-    def test_infer_rank(self, index_shape, axis):
+    def test_infer_rank(self):
         a = tp.Tensor([[[1, 2, 3, 4], [1, 2, 3, 4]], [[1, 2, 3, 4], [1, 2, 3, 4]]])
-        index = tp.Tensor(np.zeros(index_shape, dtype=np.int32))
-        out = tp.gather(a, axis, index)
-        assert out.trace_tensor.rank == a.rank + len(index_shape) - 1
+        index = tp.Tensor(np.zeros((3,), dtype=np.int32))
+        out = tp.gather(a, 0, index)
+        assert out.trace_tensor.rank == a.rank

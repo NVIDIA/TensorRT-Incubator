@@ -29,7 +29,6 @@ from nvtripy.flat_ir.ops.divide import DivideOp
 from nvtripy.flat_ir.ops.dot import DotOp
 from nvtripy.flat_ir.ops.flip import FlipOp
 from nvtripy.flat_ir.ops.floor import FloorOp
-from nvtripy.flat_ir.ops.gather import DynamicGatherOp
 from nvtripy.flat_ir.ops.get_dimension_size import GetDimensionSizeOp
 from nvtripy.flat_ir.ops.iota import DynamicIotaOp
 from nvtripy.flat_ir.ops.maximum import MaxOp

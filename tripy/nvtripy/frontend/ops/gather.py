@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -36,13 +36,13 @@ def gather(input: "nvtripy.Tensor", dim: int, index: "nvtripy.Tensor") -> "nvtri
     This behaves similarly to ``numpy.take()``.
 
     Args:
-        input: The input tensor
-        dim: Axis along which data is gathered.
-        index: The indices of elements to gather.
+        input: The input tensor.
+        dim: The dimension along which to gather.
+        index: A 1D tensor of indices to gather.
 
     Returns:
         A new tensor of the same shape along every
-        dimension except ``dim``, which will have a size equal to ``len(index)``.
+        dimension except ``dim``, which will have a size equal to ``index.shape[0]``.
 
     .. code-block:: python
         :linenos:
@@ -53,4 +53,7 @@ def gather(input: "nvtripy.Tensor", dim: int, index: "nvtripy.Tensor") -> "nvtri
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.take(cp.from_dlpack(data).get(), cp.from_dlpack(indices).get(), axis=1))
     """
+    # TODO (pranavm): Test negative axis?
+    dim = op_utils.process_dim(dim, input.rank)
+
     return op_utils.create_op(Gather, [input, index], dim)
