@@ -83,7 +83,7 @@ def tensor_from_shape_like(arg: "nvtripy.ShapeLike") -> "nvtripy.Tensor":
             empty_buffer()
             # NOTE: We cannot use the reshape API here since it would lead to an
             # infinite loop when attempting to convert the shape input to a tensor.
-            concat_tensors.append(create_op(Reshape, [elem, Tensor([1])], 1))
+            concat_tensors.append(create_op(Reshape, [elem, Tensor([1])]))
         else:
             int_buffer.append(elem)
 

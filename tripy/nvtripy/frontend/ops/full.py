@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,7 +20,7 @@ from typing import Optional
 from nvtripy import export, utils
 from nvtripy.common import datatype
 from nvtripy.frontend.ops import utils as op_utils
-from nvtripy.trace.ops.fill import Fill
+from nvtripy.trace.ops.expand import Expand
 from nvtripy.types import ShapeLike, TensorLike
 from nvtripy.utils import wrappers
 
@@ -52,7 +52,10 @@ def full(shape: ShapeLike, value: TensorLike, dtype: "nvtripy.dtype" = datatype.
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.full([2, 3], 2, dtype=np.float32))
     """
-    return op_utils.create_op(Fill, [shape, value], dtype=dtype)
+    from nvtripy.frontend.ops.cast import cast
+
+    # We avoid using the `expand` API since it does extra things that we don't need.
+    return op_utils.create_op(Expand, [cast(value, dtype=dtype), shape])
 
 
 @export.public_api(document_under="operations/initializers")
@@ -62,7 +65,6 @@ def full(shape: ShapeLike, value: TensorLike, dtype: "nvtripy.dtype" = datatype.
         "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
         "T2": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
     },
-    convert_to_tensors=True,
 )
 def full_like(input: "nvtripy.Tensor", value: TensorLike, dtype: Optional["nvtripy.dtype"] = None) -> "nvtripy.Tensor":
     """
@@ -85,6 +87,4 @@ def full_like(input: "nvtripy.Tensor", value: TensorLike, dtype: Optional["nvtri
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.array([[2, 2], [2, 2]], dtype=np.float32))
     """
-    return op_utils.create_op(
-        Fill, [op_utils.tensor_from_shape_like(input.shape), value], dtype=utils.utils.default(dtype, input.dtype)
-    )
+    return full(input.shape, value, utils.utils.default(dtype, input.dtype))
