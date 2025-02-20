@@ -68,6 +68,4 @@ class TraceTensor:
         self.shape = [-1] * new_rank
 
     def to_mlir(self):
-        # TODO (pranavm): Check if this is right
-        # return mlir_utils.make_mlir_tensor(self.dtype, self.shape, self.rank)
-        return mlir_utils.make_mlir_tensor(self.dtype, [-1] * self.rank, self.rank)
+        return mlir_utils.make_mlir_tensor(self.dtype, self.shape, self.rank)
