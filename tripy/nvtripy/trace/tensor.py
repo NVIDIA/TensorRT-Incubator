@@ -18,6 +18,7 @@
 from dataclasses import dataclass, field
 from typing import List, Optional
 
+from nvtripy import constants
 from nvtripy.backend.mlir import utils as mlir_utils
 from nvtripy.utils.stack_info import StackInfo
 
@@ -32,7 +33,7 @@ class TraceTensor:
     producer: "BaseTraceOp"
     dtype: "nvtripy.common.dtype" = field(default=None, init=False)
     device: "nvtripy.common.device" = field(default=None, init=False)
-    # Indicates the shape of the tensor. Unknown dimensions are indicated by -1.
+    # Indicates the shape of the tensor. Unknown dimensions are indicated by DYNAMIC_DIM.
     # Generally, the shape will only be known for shape tensors.
     shape: List[int] = field(default=None, init=False)
     stack_info: StackInfo = field(default_factory=lambda: StackInfo([]), init=False)
@@ -46,7 +47,7 @@ class TraceTensor:
     frontend_tensor: "nvtripy.Tensor" = field(default=None, init=False)
 
     def type_descriptor(self) -> str:
-        type_elements = [str(s) if s >= 0 else "?" for s in self.shape]
+        type_elements = [str(s) if s != constants.DYNAMIC_DIM else "?" for s in self.shape]
         type_elements.append(self.dtype.shortname if self.dtype is not None else "?")
         return f"<{'x'.join(type_elements)}:{self.device}>"
 
@@ -66,7 +67,7 @@ class TraceTensor:
 
     @rank.setter
     def rank(self, new_rank):
-        self.shape = [-1] * new_rank
+        self.shape = [constants.DYNAMIC_DIM] * new_rank
 
     def to_mlir(self):
         return mlir_utils.make_mlir_tensor(self.dtype, self.shape, self.rank)
