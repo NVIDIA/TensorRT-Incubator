@@ -45,12 +45,13 @@ class TraceTensor:
 
     frontend_tensor: "nvtripy.Tensor" = field(default=None, init=False)
 
+    def type_descriptor(self) -> str:
+        type_elements = [str(s) if s >= 0 else "?" for s in self.shape]
+        type_elements.append(self.dtype.shortname if self.dtype is not None else "?")
+        return f"<{'x'.join(type_elements)}:{self.device}>"
+
     def __str__(self) -> str:
-        return (
-            f"{self.name}: [shape=({self.shape}), "
-            + (f"dtype=({self.dtype.name}), " if self.dtype is not None else "")
-            + f"loc=({self.device})]"
-        )
+        return f"{self.name} : tensor{self.type_descriptor()}"
 
     def __repr__(self) -> str:
         # This is a hack to prevent printing the entire stack info when we print trace tensors.
