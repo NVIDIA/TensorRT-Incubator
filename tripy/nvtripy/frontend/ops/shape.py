@@ -19,7 +19,7 @@
 from nvtripy.common.datatype import DATA_TYPES
 from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.frontend.ops._registry import register_tensor_method
-from nvtripy.trace.ops.shape import Shape, GetDimensionSize
+from nvtripy.trace.ops.shape import GetDimensionSize, Shape
 from nvtripy.types import ShapeLike
 from nvtripy.utils import wrappers
 

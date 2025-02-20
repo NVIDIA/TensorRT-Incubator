@@ -25,6 +25,8 @@ from nvtripy.trace.ops.base import BaseTraceOp
 @dataclass(repr=False)
 class Shape(BaseTraceOp):
     def infer_rank(self):
+        # TODO (pranavm): This can probably be changed back to rank inference.
+        # The shape is set in `tensor_from_shape_like`
         self.outputs[0].shape = [self.inputs[0].rank]
 
     def infer_dtypes(self):
@@ -35,6 +37,7 @@ class Shape(BaseTraceOp):
 
 
 # This is a special case of slice that is only designed to get a single element from a shape.
+# TODO (pranavm): Replace GetDimensionSize with Slice/Squeeze trace operations in the frontend.
 @dataclass(repr=False)
 class GetDimensionSize(BaseTraceOp):
     dim: int
@@ -46,8 +49,6 @@ class GetDimensionSize(BaseTraceOp):
         self.outputs[0].dtype = int32
 
     def to_mlir(self, inputs, outputs):
-        # TODO (pranavm): Figure out if there's a cleaner way to do this.
-        # Might want to split this into multiple trace ops and compose them in the frontend.
         return [
             tensorrt.collapse_rank(
                 outputs[0],
