@@ -824,6 +824,7 @@ private:
     // when decrementExternalCount causes count to go to zero
     bool releasedInternally{false};
     bool releaseAfterConsumption{false};
+    bool isOwned{true};
     PointerInfo info;
   };
 
