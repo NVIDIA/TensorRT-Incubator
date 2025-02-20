@@ -28,7 +28,7 @@ _COUNT = 0
 def _get_unique_name():
     global _COUNT
 
-    name = f"t{_COUNT}"
+    name = f"%t{_COUNT}"
     _COUNT += 1
     return name
 
@@ -131,7 +131,11 @@ class BaseTraceOp(abc.ABC):
             for field in utils.utils.get_dataclass_fields(self, BaseTraceOp)
             if field.name not in skip_fields
         ]
-        return f"{self.outputs[0]} = {self.__class__.__name__.lower()}({', '.join([inp.name for inp in self.inputs] + args)})"
+        return (
+            f"{self.outputs[0].name} = {self.__class__.__name__.lower()}"
+            f"({', '.join([inp.name + f' : tensor{inp.type_descriptor()}' for inp in self.inputs] + args)})"
+            f" : tensor{self.outputs[0].type_descriptor()}"
+        )
 
     def __repr__(self) -> str:
         # This is a hack to prevent printing the entire stack info when we print this.
