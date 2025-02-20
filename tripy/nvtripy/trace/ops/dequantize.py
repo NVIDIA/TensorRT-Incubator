@@ -38,7 +38,7 @@ class Dequantize(BaseTraceOp):
         assert len(inputs) == 2, "Dequantize operation should have exactly 2 inputs!"
         return [
             tensorrt.dequantize(
-                result=self.outputs[0].to_mlir(),
+                result=outputs[0],
                 input=inputs[0],
                 scale=inputs[1],
                 axis=self.dim,
