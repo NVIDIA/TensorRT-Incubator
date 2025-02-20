@@ -13,6 +13,17 @@ func.func @trt_quantize(%arg0: tensor<10x10xf32>, %arg1: tensor<f32>) -> tensor<
 
 // -----
 
+func.func @trt_quantize_dynamic(%arg0: tensor<10x10xf32>, %arg1: tensor<f32>) -> tensor<?x?xi8> {
+  %result = tensorrt.quantize in(%arg0 : tensor<10x10xf32>) scale(%arg1 :  tensor<f32>) -> tensor<?x?xi8>
+  return %result : tensor<?x?xi8>
+}
+
+// CHECK-LABEL: @trt_quantize_dynamic
+//       CHECK: tensorrt.quantize
+//  CHECK-SAME: in(%[[arg0:.+]] : tensor<10x10xf32>) scale(%[[arg1:.+]] : tensor<f32>) -> tensor<?x?xi8>
+
+// -----
+
 func.func @trt_quantize_per_axis(%arg0: tensor<10x10xf32>, %arg1: tensor<10xf32>) -> tensor<10x10xi8> {
   %result = tensorrt.quantize {
     axis = 1 : i32
@@ -46,6 +57,17 @@ func.func @trt_dequantize(%arg0: tensor<10x10xi8>, %arg1: tensor<f32>) -> tensor
 // CHECK-LABEL: @trt_dequantize
 //       CHECK: tensorrt.dequantize
 //  CHECK-SAME: in(%[[arg0:.+]] : tensor<10x10xi8>) scale(%[[arg1:.+]] : tensor<f32>) -> tensor<10x10xf32>
+
+// -----
+
+func.func @trt_dequantize_dynamic(%arg0: tensor<10x10xi8>, %arg1: tensor<f32>) -> tensor<?x?xf32> {
+  %result = tensorrt.dequantize in(%arg0 : tensor<10x10xi8>) scale(%arg1 :  tensor<f32>) -> tensor<?x?xf32>
+  return %result : tensor<?x?xf32>
+}
+
+// CHECK-LABEL: @trt_dequantize_dynamic
+//       CHECK: tensorrt.dequantize
+//  CHECK-SAME: in(%[[arg0:.+]] : tensor<10x10xi8>) scale(%[[arg1:.+]] : tensor<f32>) -> tensor<?x?xf32>
 
 // -----
 
