@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740006053579,
+  "lastUpdate": 1740075356471,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -11471,6 +11471,47 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000002172637838461283",
             "extra": "mean: 51.88505940023048 usec\nrounds: 20574"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "07ec4e6afbeb6de44e57f9730d24237e9283a2db",
+          "message": "Add text to segmentation demo code",
+          "timestamp": "2025-02-19T23:09:59Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/451/commits/07ec4e6afbeb6de44e57f9730d24237e9283a2db"
+        },
+        "date": 1740075355641,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 6037.248930880404,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000030412780593369232",
+            "extra": "mean: 165.63835804169355 usec\nrounds: 6328"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 6450.745697466238,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000659005651011389",
+            "extra": "mean: 155.02083741927478 usec\nrounds: 7026"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_tripy_param_update",
+            "value": 19358.91111006486,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000023875706630618544",
+            "extra": "mean: 51.655797906943825 usec\nrounds: 20112"
           }
         ]
       }
