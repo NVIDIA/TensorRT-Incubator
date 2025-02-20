@@ -21,7 +21,8 @@ from typing import Optional, Sequence, Union, List
 import nvtripy.common.datatype as tp_dtype
 from nvtripy.common.datatype import int32
 from nvtripy.common.exception import raise_error
-from nvtripy.utils.utils import make_list, default
+from nvtripy.utils.utils import make_list
+from nvtripy import constants
 
 
 # Creates a Trace operation from the provided frontend tensors and wraps its
@@ -98,6 +99,15 @@ def tensor_from_shape_like(arg: "nvtripy.ShapeLike") -> "nvtripy.Tensor":
     # in a tensor with known shapes even though the new shape is actually known.
     out.trace_tensor.shape = [len(arg)]
     return out
+
+
+# Retrieves the length of a shape tensor
+def get_shape_len(shape: "nvtripy.Tensor") -> int:
+    assert len(shape.trace_tensor.shape) == 1
+    length = shape.trace_tensor.shape[0]
+
+    assert length != constants.DYNAMIC_DIM, "Shape tensor lengths must be known!"
+    return length
 
 
 # Processes a `dim` (i.e. axis) argument related to a tensor.
