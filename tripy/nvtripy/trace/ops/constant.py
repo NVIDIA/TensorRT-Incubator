@@ -148,6 +148,7 @@ class Constant(BaseTraceOp):
     def __init__(
         self,
         data: Any,
+        # The `device` argument is only used for non-memref types.
         device: Optional[tp_device] = None,
         # The `dtype` argument is only used in the case of an empty list.
         # Otherwise, it is inferred from the data.
