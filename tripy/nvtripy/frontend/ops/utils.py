@@ -49,9 +49,10 @@ def create_op(OpType, inputs, *args, always_cast_to_dimension_size=False, **kwar
     return outputs
 
 
-def is_minus_one(arg):
-    # Avoid doing an == with a Tensor
-    return isinstance(arg, int) and arg == -1
+# Whether the argument is an integer equal to the specified value.
+# This helps us avoid accidentally doing an elementwise `==` operation with a Tensor.
+def is_int_equal_to(arg, value):
+    return isinstance(arg, int) and arg == value
 
 
 def tensor_from_shape_like(arg: "nvtripy.ShapeLike") -> "nvtripy.Tensor":
