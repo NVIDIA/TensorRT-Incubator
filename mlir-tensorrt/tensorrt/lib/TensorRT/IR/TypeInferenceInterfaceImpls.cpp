@@ -1532,3 +1532,37 @@ LogicalResult tensorrt::NormalizationOp::inferReturnTypeComponents(
       /*elementType=*/inputDataType.getElementType());
   return success();
 }
+
+//===----------------------------------------------------------------------===//
+// QuantizeOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult tensorrt::QuantizeOp::inferReturnTypeComponents(
+    MLIRContext *ctx, std::optional<Location> loc, ValueShapeRange operands,
+    DictionaryAttr attributes, OpaqueProperties properties, RegionRange regions,
+    SmallVectorImpl<ShapedTypeComponents> &inferredReturnShapes) {
+  QuantizeOp::Adaptor adaptor(operands, attributes, properties, regions);
+  auto rtt = dyn_cast<RankedTensorType>(adaptor.getInput().getType());
+  if (!rtt)
+    return emitOptionalError(loc, "expected input to be a ranked tensor");
+  inferredReturnShapes.emplace_back(/*vec=*/rtt.getShape(),
+                                    /*elementType=*/nullptr);
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// DequantizeOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult tensorrt::DequantizeOp::inferReturnTypeComponents(
+    MLIRContext *ctx, std::optional<Location> loc, ValueShapeRange operands,
+    DictionaryAttr attributes, OpaqueProperties properties, RegionRange regions,
+    SmallVectorImpl<ShapedTypeComponents> &inferredReturnShapes) {
+  DequantizeOp::Adaptor adaptor(operands, attributes, properties, regions);
+  auto rtt = dyn_cast<RankedTensorType>(adaptor.getInput().getType());
+  if (!rtt)
+    return emitOptionalError(loc, "expected input to be a ranked tensor");
+  inferredReturnShapes.emplace_back(/*vec=*/rtt.getShape(),
+                                    /*elementType=*/nullptr);
+  return success();
+}

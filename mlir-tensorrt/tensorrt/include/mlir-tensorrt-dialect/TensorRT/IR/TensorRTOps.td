@@ -2977,6 +2977,7 @@ def TensorRT_DeconvolutionOp : TensorRT_Op<"deconvolution",
 
 def TensorRT_QuantizeOp : TensorRT_Op<"quantize",
     [Pure,
+    TensorRTPartiallyInferTensorResultTypes,
     AllRanksMatch<["input", "result"]>]>{
   let summary = "TensorRT Quantize(IQuantizeLayer) operation";
   let description = [{
@@ -3157,7 +3158,9 @@ def TensorRT_QuantizeOp : TensorRT_Op<"quantize",
 //===----------------------------------------------------------------------===//
 
 def TensorRT_DequantizeOp : TensorRT_Op<"dequantize",
-    [Pure, AllRanksMatch<["input", "result"]>]>{
+    [Pure,
+     TensorRTPartiallyInferTensorResultTypes,
+     AllRanksMatch<["input", "result"]>]>{
   let summary = "TensorRT Dequantize(IDequantizeLayer) operation";
     let description = [{
     The `tensorrt.dequantize` operation dequantize an 8-bit signed integer into
