@@ -1,4 +1,3 @@
-#
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -13,10 +12,19 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
+
 
 # Here we import only those ops which need to add themselves to the tensor method registry
-from nvtripy.frontend.ops.binary import *
-import nvtripy.frontend.ops.matmul
-import nvtripy.frontend.ops.shape
-import nvtripy.frontend.ops.slice
+from nvtripy.frontend.ops.binary.add import __add__
+from nvtripy.frontend.ops.binary.div import __rtruediv__, __truediv__
+from nvtripy.frontend.ops.binary.mul import __mul__
+from nvtripy.frontend.ops.binary.pow import __pow__
+from nvtripy.frontend.ops.binary.sub import __rsub__, __sub__
+from nvtripy.frontend.ops.binary.floor_div import __floordiv__, __rfloordiv__
+from nvtripy.frontend.ops.binary.mod import __mod__, __rmod__
+from nvtripy.frontend.ops.binary.less import __lt__
+from nvtripy.frontend.ops.binary.equal import __eq__
+from nvtripy.frontend.ops.binary.less_equal import __le__
+from nvtripy.frontend.ops.binary.not_equal import __ne__
+from nvtripy.frontend.ops.binary.greater import __gt__
+from nvtripy.frontend.ops.binary.greater_equal import __ge__
