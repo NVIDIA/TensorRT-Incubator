@@ -30,6 +30,7 @@ from nvtripy.utils import wrappers
         "T2": ["int32"],
     },
 )
+# TODO (pranavm): Document this better (+example) for the >1D indices case - also add tests.
 def gather(input: "nvtripy.Tensor", dim: int, index: "nvtripy.Tensor") -> "nvtripy.Tensor":
     """
     Gather values from the input tensor along the specified axis based on the specified indices.
@@ -38,7 +39,7 @@ def gather(input: "nvtripy.Tensor", dim: int, index: "nvtripy.Tensor") -> "nvtri
     Args:
         input: The input tensor.
         dim: The dimension along which to gather.
-        index: A 1D tensor of indices to gather.
+        index: A tensor of indices to gather.
 
     Returns:
         A new tensor of the same shape along every
@@ -55,7 +56,5 @@ def gather(input: "nvtripy.Tensor", dim: int, index: "nvtripy.Tensor") -> "nvtri
     """
     # TODO (pranavm): Test negative axis?
     dim = op_utils.process_dim(dim, input.rank)
-
-    # TODO (pranavm): Support GatherND here for slice
 
     return op_utils.create_op(Gather, [input, index], dim)

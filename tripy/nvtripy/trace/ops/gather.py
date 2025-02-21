@@ -26,7 +26,8 @@ from nvtripy.trace.ops.base import BaseTraceOp
 class Gather(BaseTraceOp):
     dim: int
 
-    infer_rank = op_utils.InferRankPolicies.same_as_input()
+    def infer_rank(self):
+        self.outputs[0].rank = self.inputs[0].rank + self.inputs[1].rank - 1
 
     def infer_dtypes(self):
         self.outputs[0].dtype = self.inputs[0].dtype
