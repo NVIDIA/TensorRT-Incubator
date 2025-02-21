@@ -29,6 +29,7 @@ class TestDequantize:
     @pytest.mark.parametrize(
         "dtype", [tp.float32, tp.float16, pytest.param(tp.bfloat16, marks=skip_if_older_than_sm80)]
     )
+    @pytest.mark.skip("StableHLO QDQ broken")
     def test_dequantize_int8_per_tensor(self, dtype, eager_or_compiled):
         data = [4, 8]
         input_tp = tp.Tensor(data, dtype=tp.int8)
@@ -46,6 +47,7 @@ class TestDequantize:
     @pytest.mark.parametrize(
         "dtype", [tp.float32, tp.float16, pytest.param(tp.bfloat16, marks=skip_if_older_than_sm80)]
     )
+    @pytest.mark.skip("StableHLO QDQ broken")
     def test_dequantize_int8_per_channel(self, dtype, eager_or_compiled):
         # TODO: Fix in #153
         if dtype == tp.float16:
@@ -68,6 +70,7 @@ class TestDequantize:
         "dtype", [tp.float32, tp.float16, pytest.param(tp.bfloat16, marks=skip_if_older_than_sm80)]
     )
     @skip_if_older_than_sm89
+    @pytest.mark.skip("StableHLO QDQ broken")
     def test_dequantize_fp8_per_tensor(self, dtype):
         data_value = [1.0, 1.0]
         input_tp = tp.Tensor(data_value, dtype=tp.float8)
@@ -84,6 +87,7 @@ class TestDequantize:
         "dtype", [tp.float32, tp.float16, pytest.param(tp.bfloat16, marks=skip_if_older_than_sm80)]
     )
     @skip_if_older_than_sm89
+    @pytest.mark.skip("StableHLO QDQ broken")
     def test_dequantize_fp8_per_channel(self, dtype):
         data_value = [[1.0, 1.0], [1.0, 1.0]]
         input_tp = tp.Tensor(data_value, dtype=tp.float8)
