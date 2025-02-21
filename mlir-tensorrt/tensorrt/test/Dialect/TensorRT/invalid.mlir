@@ -1698,6 +1698,14 @@ func.func @trt_quantize(%arg0: tensor<10x10xf32>, %arg1: tensor<2xf32>) -> tenso
 
 // -----
 
+func.func @trt_quantize_shape_mismatch(%arg0: tensor<10x10xf32>, %arg1: tensor<f32>) -> tensor<5x10xi8> {
+  // expected-error @below {{'tensorrt.quantize' op result 0 has type tensor<5x10xi8> but inferred tensor of shape <10x10>}}
+  %result = tensorrt.quantize in(%arg0 : tensor<10x10xf32>) scale(%arg1 : tensor<f32>) -> tensor<5x10xi8>
+  return %result : tensor<5x10xi8>
+}
+
+// -----
+
 func.func @trt_quantize_i4(%arg0: tensor<10x10xf32>, %arg1: tensor<2x10xf32>) -> tensor<10x10xi8> {
   // expected-error @below {{'tensorrt.quantize' op 2D scale is supported only for quantizing INT4 output}}
   %result = tensorrt.quantize in(%arg0 : tensor<10x10xf32>) scale(%arg1 : tensor<2x10xf32>) -> tensor<10x10xi8>
@@ -1730,6 +1738,14 @@ func.func @trt_dequantize(%arg0: tensor<10x10xi8>, %arg1: tensor<2xf32>) -> tens
   // expected-error @below {{'tensorrt.dequantize' op if no axis is provided and input is not INT4, dequantization is per-tensor. In this case, `scale` must be a scalar i.e. 0 dim tensor.}}
   %result = tensorrt.dequantize in(%arg0 : tensor<10x10xi8>) scale(%arg1 : tensor<2xf32>) -> tensor<10x10xf32>
   return %result : tensor<10x10xf32>
+}
+
+// -----
+
+func.func @trt_dequantize_shape_mismatch(%arg0: tensor<10x10xi8>, %arg1: tensor<f32>) -> tensor<5x10xf32> {
+  // expected-error @below {{'tensorrt.dequantize' op result 0 has type tensor<5x10xf32> but inferred tensor of shape <10x10>}}
+  %result = tensorrt.dequantize in(%arg0 : tensor<10x10xi8>) scale(%arg1 : tensor<f32>) -> tensor<5x10xf32>
+  return %result : tensor<5x10xf32>
 }
 
 // -----
