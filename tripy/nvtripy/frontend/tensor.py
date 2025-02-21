@@ -90,7 +90,7 @@ class Tensor(metaclass=TensorMeta):
         assert data is not None, "Data argument to Tensor must not be None"
         self._stack_info = utils.stack_info.StackInfo([])
 
-        constant = Constant(data, device=device if not hasattr(data, "__dlpack__") else None)
+        constant = Constant(data, device=device, dtype=dtype)
         self.trace_tensor = constant.outputs[0]
         self.trace_tensor.name = utils.utils.default(name, self.trace_tensor.name)
         if fetch_stack_info:
