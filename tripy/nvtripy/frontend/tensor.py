@@ -197,6 +197,7 @@ class Tensor(metaclass=TensorMeta):
             mlir = trace.to_mlir()
 
             compiler = Compiler(trt_builder_opt_level=0)
+            # TODO (pranavm): Add error mapping logic here (test with squeezing non-singleton dim)
             executable = compiler.compile(mlir, trace=trace)
 
             global_cache.set(trace, executable=executable, devices=output_devices)
