@@ -128,6 +128,34 @@ func.func @broadcast_ewise_double_one(%arg0: tensor<1xf32>, %arg1: tensor<1xf32>
 //       CHECK:   %[[v1:.+]] = tensorrt.broadcast %[[arg1]]
 //       CHECK:   tensorrt.element_wise <kSUM>(%[[v0]], %[[v1]] :
 
+// -----
+
+func.func @broadcast_ewise_double_one_dynamic(%arg0: tensor<1xf32>, %arg1: tensor<1xf32>, %arg2: tensor<1xi32>, %arg3: tensor<1xi32>) -> tensor<?xf32> {
+  %0 = tensorrt.broadcast %arg0 broadcast_dims<0> shape(%arg2: tensor<1xi32>) : tensor<1xf32> to tensor<?xf32>
+  %1 = tensorrt.broadcast %arg1 broadcast_dims<0> shape(%arg3: tensor<1xi32>) : tensor<1xf32> to tensor<?xf32>
+  %2 = tensorrt.element_wise <kSUM> (%0, %1 : tensor<?xf32>, tensor<?xf32>) -> tensor<?xf32>
+  return %2 : tensor<?xf32>
+}
+
+// CHECK-LABEL: @broadcast_ewise_double_one_dynamic
+//  CHECK-SAME:  (%[[arg0:.+]]: tensor<{{.+}}>, %[[arg1:.+]]: tensor<{{.+}}>, %[[arg2:.+]]: tensor<{{.+}}>, %[[arg3:.+]]: tensor<{{.+}}>)
+//       CHECK:   %[[v0:.+]] = tensorrt.broadcast %[[arg0]]
+//       CHECK:   %[[v1:.+]] = tensorrt.broadcast %[[arg1]]
+//       CHECK:   tensorrt.element_wise <kSUM>(%[[v0]], %[[v1]] :
+
+// -----
+
+func.func @broadcast_ewise_dynamic_input(%arg0: tensor<1xf32>, %arg1: tensor<?xf32>, %arg2: tensor<1xi32>) -> tensor<?xf32> {
+  %0 = tensorrt.broadcast %arg0 broadcast_dims<0> shape(%arg2: tensor<1xi32>) : tensor<1xf32> to tensor<?xf32>
+  %2 = tensorrt.element_wise <kSUM> (%0, %arg1 : tensor<?xf32>, tensor<?xf32>) -> tensor<?xf32>
+  return %2 : tensor<?xf32>
+}
+
+// CHECK-LABEL: @broadcast_ewise_dynamic_input
+//  CHECK-SAME:  (%[[arg0:.+]]: tensor<{{.+}}>, %[[arg1:.+]]: tensor<{{.+}}>, %[[arg2:.+]]: tensor<{{.+}}>)
+//       CHECK:   %[[v0:.+]] = tensorrt.broadcast %[[arg0]]
+//       CHECK:   tensorrt.element_wise <kSUM>(%[[v0]], %[[arg1]] :
+
 
 // -----
 
@@ -163,6 +191,39 @@ func.func @broadcast_select_negative(%cond: tensor<1x128xi1>, %arg0: tensor<1x12
 //       CHECK:     %[[v2:.+]] = tensorrt.broadcast %[[arg2]] broadcast_dims<0, 1> : tensor<1x128xf32> to tensor<128x128xf32>
 //       CHECK:     %[[v3:.+]] = tensorrt.select ins(%[[v0]], %[[v1]], %[[v2]] :
 //       CHECK:     return %[[v3]] : tensor<128x128xf32
+
+// -----
+
+func.func @broadcast_select_negative_dynamic(%cond: tensor<1x128xi1>, %arg0: tensor<1x128xf32>, %arg1: tensor<1x128xf32>, %arg2: tensor<2xi32>, %arg3: tensor<2xi32>, %arg4: tensor<2xi32>) -> tensor<?x?xf32> {
+  %0 = tensorrt.broadcast %cond broadcast_dims<0, 1> shape(%arg2: tensor<2xi32>) : tensor<1x128xi1> to tensor<?x?xi1>
+  %1 = tensorrt.broadcast %arg0 broadcast_dims<0, 1> shape(%arg3: tensor<2xi32>) : tensor<1x128xf32> to tensor<?x?xf32>
+  %2 = tensorrt.broadcast %arg1 broadcast_dims<0, 1> shape(%arg4: tensor<2xi32>) : tensor<1x128xf32> to tensor<?x?xf32>
+  %3 = tensorrt.select ins(%0, %1, %2 : tensor<?x?xi1>, tensor<?x?xf32>, tensor<?x?xf32>) -> tensor<?x?xf32>
+  return %3 : tensor<?x?xf32>
+}
+
+// CHECK-LABEL: @broadcast_select_negative_dynamic
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<1x128xi1>, %[[arg1:.+]]: tensor<1x128xf32>, %[[arg2:.+]]: tensor<1x128xf32>, %[[arg3:.+]]: tensor<2xi32>, %[[arg4:.+]]: tensor<2xi32>, %[[arg5:.+]]: tensor<2xi32>) -> tensor<?x?xf32> {
+//       CHECK:     %[[v0:.+]] = tensorrt.broadcast %[[arg0]] broadcast_dims<0, 1> shape(%arg3 : tensor<2xi32>) : tensor<1x128xi1> to tensor<?x?xi1>
+//       CHECK:     %[[v1:.+]] = tensorrt.broadcast %[[arg1]] broadcast_dims<0, 1> shape(%arg4 : tensor<2xi32>) : tensor<1x128xf32> to tensor<?x?xf32>
+//       CHECK:     %[[v2:.+]] = tensorrt.broadcast %[[arg2]] broadcast_dims<0, 1> shape(%arg5 : tensor<2xi32>) : tensor<1x128xf32> to tensor<?x?xf32>
+//       CHECK:     %[[v3:.+]] = tensorrt.select ins(%[[v0]], %[[v1]], %[[v2]] :
+//       CHECK:     return %[[v3]] : tensor<?x?xf32
+// -----
+
+func.func @broadcast_select_negative_dynamic_input(%cond: tensor<1x128xi1>, %arg0: tensor<1x128xf32>, %arg1: tensor<?x128xf32>, %arg2: tensor<2xi32>, %arg3: tensor<2xi32>) -> tensor<?x?xf32> {
+  %0 = tensorrt.broadcast %cond broadcast_dims<0, 1> shape(%arg2: tensor<2xi32>) : tensor<1x128xi1> to tensor<?x?xi1>
+  %1 = tensorrt.broadcast %arg0 broadcast_dims<0, 1> shape(%arg3: tensor<2xi32>) : tensor<1x128xf32> to tensor<?x?xf32>
+  %2 = tensorrt.select ins(%0, %1, %arg1 : tensor<?x?xi1>, tensor<?x?xf32>, tensor<?x128xf32>) -> tensor<?x?xf32>
+  return %2 : tensor<?x?xf32>
+}
+
+// CHECK-LABEL: @broadcast_select_negative_dynamic_input
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<1x128xi1>, %[[arg1:.+]]: tensor<1x128xf32>, %[[arg2:.+]]: tensor<?x128xf32>, %[[arg3:.+]]: tensor<2xi32>, %[[arg4:.+]]: tensor<2xi32>) -> tensor<?x?xf32> {
+//       CHECK:     %[[v0:.+]] = tensorrt.broadcast %[[arg0]] broadcast_dims<0, 1> shape(%arg3 : tensor<2xi32>) : tensor<1x128xi1> to tensor<?x?xi1>
+//       CHECK:     %[[v1:.+]] = tensorrt.broadcast %[[arg1]] broadcast_dims<0, 1> shape(%arg4 : tensor<2xi32>) : tensor<1x128xf32> to tensor<?x?xf32>
+//       CHECK:     %[[v2:.+]] = tensorrt.select ins(%[[v0]], %[[v1]], %[[arg2]] :
+//       CHECK:     return %[[v2]] : tensor<?x?xf32
 
 // -----
 
@@ -311,33 +372,25 @@ func.func @broadcast_elim_matmul_vector(%arg0: tensor<?x?x128xf32>, %arg1: tenso
 
 // -----
 
-func.func @broadcast_dynamic_expand_shape_regression(%arg0: tensor<?x?x1x1xi1>, %arg1: tensor<?x1xf16>, %arg2: tensor<?x?x256x256xf16>, %arg3: tensor<4xi32>) -> tensor<?x?x256x256xf16> {
-  %0 = tensorrt.broadcast %arg0 broadcast_dims<0, 1, 2, 3> shape(%arg3 : tensor<4xi32>) : tensor<?x?x1x1xi1> to tensor<?x?x256x256xi1>
-  %1 = tensorrt.broadcast %arg1 broadcast_dims<2, 3> shape(%arg3 : tensor<4xi32>) : tensor<?x1xf16> to tensor<?x?x256x256xf16>
-  %2 = tensorrt.select ins(%0, %arg2, %1 : tensor<?x?x256x256xi1>, tensor<?x?x256x256xf16>, tensor<?x?x256x256xf16>)
-    -> tensor<?x?x256x256xf16>
-  return %2 : tensor<?x?x256x256xf16>
+func.func @broadcast_dynamic_expand_shape_regression(%arg0: tensor<?x1xf16>,  %arg1: tensor<4xi32>) -> tensor<?x?x256x256xf16> {
+  %1 = tensorrt.broadcast %arg0 broadcast_dims<2, 3> shape(%arg1 : tensor<4xi32>) : tensor<?x1xf16> to tensor<?x?x256x256xf16>
+  return %1 : tensor<?x?x256x256xf16>
 }
 
 // CHECK-LABEL: func.func @broadcast_dynamic_expand_shape_regression
-//  CHECK-SAME: (%[[arg0:.+]]: tensor<?x?x1x1xi1>, %[[arg1:.+]]: tensor<?x1xf16>, %[[arg2:.+]]: tensor<?x?x256x256xf16>, %[[arg3:.+]]: tensor<4xi32>) -> tensor<?x?x256x256xf16> {
-//       CHECK:     %[[v0:.+]] = tensorrt.reshape %[[arg1]] : tensor<?x1xf16> to tensor<1x1x?x1xf16>
-//       CHECK:     %[[v1:.+]] = tensorrt.select ins(%[[arg0]], %[[arg2]], %[[v0]] : tensor<?x?x1x1xi1>, tensor<?x?x256x256xf16>, tensor<1x1x?x1xf16>) -> tensor<?x?x256x256xf16>
-//       CHECK:     return %[[v1]] : tensor<?x?x256x256xf16>
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<?x1xf16>, %[[arg1:.+]]: tensor<4xi32>) -> tensor<?x?x256x256xf16> {
+//       CHECK:     %[[v0:.+]] = tensorrt.reshape %[[arg0]] : tensor<?x1xf16> to tensor<1x1x?x1xf16>
 
 // -----
 
-func.func @broadcast_dynamic_expand_shape_regression(%arg0: tensor<?x?x1x1xi1>, %arg1: tensor<?x1x?xf16>, %arg2: tensor<?x?x256x256xf16>, %arg3: tensor<4xi32>) -> tensor<?x?x256x256xf16> {
-  %0 = tensorrt.broadcast %arg0 broadcast_dims<0, 1, 2, 3> shape(%arg3 : tensor<4xi32>) : tensor<?x?x1x1xi1> to tensor<?x?x256x256xi1>
+func.func @broadcast_dynamic_expand_shape_regression(%arg1: tensor<?x1x?xf16>, %arg3: tensor<4xi32>) -> tensor<?x?x256x256xf16> {
   %1 = tensorrt.broadcast %arg1 broadcast_dims<3, 2, 1> shape(%arg3 : tensor<4xi32>) : tensor<?x1x?xf16> to tensor<?x?x256x256xf16>
-  %2 = tensorrt.select ins(%0, %arg2, %1 : tensor<?x?x256x256xi1>, tensor<?x?x256x256xf16>, tensor<?x?x256x256xf16>)
-    -> tensor<?x?x256x256xf16>
-  return %2 : tensor<?x?x256x256xf16>
+  return %1 : tensor<?x?x256x256xf16>
 }
 
 //       CHECK: #[[$map:.+]] = affine_map<(d0, d1, d2) -> (d2, d1, d0)>
 // CHECK-LABEL: func.func @broadcast_dynamic_expand_shape_regression
-//  CHECK-SAME: (%[[arg0:.+]]: tensor<?x?x1x1xi1>, %[[arg1:.+]]: tensor<?x1x?xf16>, %[[arg2:.+]]: tensor<?x?x256x256xf16>, %[[arg3:.+]]: tensor<4xi32>) -> tensor<?x?x256x256xf16> {
+//  CHECK-SAME: (%[[arg1:.+]]: tensor<?x1x?xf16>, %[[arg3:.+]]: tensor<4xi32>) -> tensor<?x?x256x256xf16> {
 //       CHECK:     %[[cst_i32:.+]] = tensorrt.constant dense<1> : tensor<1xi32>
 //       CHECK:     %[[v0:.+]] = tensorrt.transpose {permutation = #[[$map]]} %[[arg1]] : tensor<?x1x?xf16> to tensor<?x1x?xf16>
 //       CHECK:     %[[v1:.+]] = tensorrt.shape %[[v0]] : tensor<?x1x?xf16> -> tensor<3xi32>
@@ -345,5 +398,3 @@ func.func @broadcast_dynamic_expand_shape_regression(%arg0: tensor<?x?x1x1xi1>, 
 //       CHECK:     %[[v3:.+]] = tensorrt.slice %[[v1]][2][1][1] : tensor<3xi32> to tensor<1xi32>
 //       CHECK:     %[[v4:.+]] = tensorrt.concatenation {axis = 0 : i32} ins(%[[cst_i32]], %[[v2]], %[[cst_i32]], %[[v3]] : tensor<1xi32>, tensor<1xi32>, tensor<1xi32>, tensor<1xi32>) -> tensor<4xi32>
 //       CHECK:     %[[v5:.+]] = tensorrt.reshape %[[v0]] shape(%[[v4]]: tensor<4xi32>) : tensor<?x1x?xf16> to tensor<1x?x1x?xf16>
-//       CHECK:     %[[v6:.+]] = tensorrt.select ins(%[[arg0]], %[[arg2]], %[[v5]] : tensor<?x?x1x1xi1>, tensor<?x?x256x256xf16>, tensor<1x?x1x?xf16>) -> tensor<?x?x256x256xf16>
-//       CHECK:     return %[[v6]] : tensor<?x?x256x256xf16>
