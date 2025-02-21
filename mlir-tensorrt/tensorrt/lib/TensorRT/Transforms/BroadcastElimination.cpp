@@ -262,7 +262,12 @@ static bool broadcastAbsorbPreconditions(BroadcastOp broadcastOp) {
          broadcastOp.getBroadcastDimsPermutation().isIdentity();
 }
 
+static bool isOneOrDynamic(int64_t dimSize) {
+  return dimSize == 1 || ShapedType::isDynamic(dimSize);
+}
+
 namespace {
+
 /// A `tensorrt.element_wise` operation can pull in `tensorrt.broadcast`
 /// operations since the elementwise op has implicit broadcasting semantics.
 struct ElementwiseAbsorbBroadcast : public OpRewritePattern<ElementWiseOp> {
@@ -287,11 +292,13 @@ public:
       return failure();
 
     // You can't eliminate both broadcasts if the same unit-dim in both
-    // operands is being broadcast to a larger value. We can do some further
-    // simplification, but we leave that to other patterns.
+    // operands is being broadcast to a larger value. We can
+    // do some further simplification, but we leave that to other patterns.
+    // If there are dynamic shapes, we must be extra conservative.
     for (unsigned i = 0; i < input1.getType().getRank(); i++) {
-      if (input1.getType().getDimSize(i) == 1 &&
-          input2.getType().getDimSize(i) == 1 && op.getType().getDimSize(i) > 1)
+      if (isOneOrDynamic(input1.getType().getDimSize(i)) &&
+          isOneOrDynamic(input2.getType().getDimSize(i)) &&
+          op.getType().getDimSize(i) != 1)
         return failure();
     }
     rewriter.replaceOpWithNewOp<ElementWiseOp>(op, op.getType(), input1, input2,
@@ -329,12 +336,15 @@ public:
       return failure();
 
     // We can't eliminate broadcasts on all three operands if the same unit-dim
-    // in all operands is being broadcast to a larger value. We can do some
-    // further simplification, but we leave that to other patterns.
+    // in all operands is being broadcast to a larger value.
+    // We can do some further simplification, but we leave that to other
+    // patterns.
+    // If there are dynamic shapes, we must be extra conservative.
     for (unsigned i = 0, e = input1.getType().getRank(); i < e; i++) {
-      if (input1.getType().getDimSize(i) == 1 &&
-          input2.getType().getDimSize(i) == 1 &&
-          cond.getType().getDimSize(i) == 1 && op.getType().getDimSize(i) > 1)
+      if (isOneOrDynamic(input1.getType().getDimSize(i)) &&
+          isOneOrDynamic(input2.getType().getDimSize(i)) &&
+          isOneOrDynamic(cond.getType().getDimSize(i)) &&
+          op.getType().getDimSize(i) != 1)
         return failure();
     }
 
