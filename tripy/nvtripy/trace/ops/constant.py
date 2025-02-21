@@ -149,6 +149,9 @@ class Constant(BaseTraceOp):
         self,
         data: Any,
         device: Optional[tp_device] = None,
+        # The `dtype` argument is only used in the case of an empty list.
+        # Otherwise, it is inferred from the data.
+        dtype: Optional[datatype.dtype] = None,
     ) -> None:
         original_data = data
 
@@ -163,7 +166,7 @@ class Constant(BaseTraceOp):
             self.device = tp_device.fast_init("gpu" if data.address_space == runtime.PointerType.device else "cpu", 0)
         else:
             if is_empty(data):
-                self.dtype = datatype.float32
+                self.dtype = utils.utils.default(dtype, datatype.float32)
                 data_array = None
             else:
                 self.dtype = get_element_type(data)
