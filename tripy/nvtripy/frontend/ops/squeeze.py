@@ -64,6 +64,10 @@ def squeeze(input: "nvtripy.Tensor", dims: Union[Sequence[int], int]) -> "nvtrip
     from nvtripy.frontend.ops.reshape import reshape
 
     dims = utils.utils.make_tuple(dims)
+
+    if not dims:
+        return input
+
     # TODO (pranavm): Test negative dimensions
     dims = tuple(op_utils.process_dim(dim, input.rank) for dim in dims)
 
