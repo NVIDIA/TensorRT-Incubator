@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,8 +12,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.frontend.ops._registry import register_tensor_method
+from nvtripy.frontend.ops.binary.create import create_binary_op
 from nvtripy.trace.ops.binary import Add
 from nvtripy.types import TensorLike
 from nvtripy.utils import wrappers
@@ -48,5 +48,4 @@ def __add__(self: "nvtripy.Tensor", other: TensorLike) -> "nvtripy.Tensor":
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.array([3, 5]))
     """
-    # TODO (pranavm): Add rank expansion.
-    return op_utils.create_op(Add, [self, other])
+    return create_binary_op(Add, self, other)
