@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -48,6 +48,7 @@ def unsqueeze(input: "nvtripy.Tensor", dim: int) -> "nvtripy.Tensor":
     from nvtripy.frontend.ops.reshape import reshape
 
     if dim < 0:
+        # TODO (pranavm): Add error checking here (or see what happens currently for OOB)
         # We cannot use process_dim here because we need to add an extra 1.
         dim = dim + input.rank + 1
 

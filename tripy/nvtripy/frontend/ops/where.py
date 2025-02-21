@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -23,6 +23,7 @@ from nvtripy.trace.ops.where import Where
 from nvtripy.utils import wrappers
 
 
+# TODO (pranavm): See if rank expansion is desired here?
 @export.public_api(document_under="operations/functions")
 @wrappers.interface(
     dtype_constraints={"condition": "T2", "input": "T1", "other": "T1", wrappers.RETURN_VALUE: "T1"},
@@ -61,6 +62,8 @@ def where(condition: "nvtripy.Tensor", input: "nvtripy.Tensor", other: "nvtripy.
     return op_utils.create_op(Where, [condition, input, other])
 
 
+# TODO (pranavm): Split into separate file
+# TODO (pranavm): See if rank expansion is desired here?
 @export.public_api(document_under="operations/functions")
 @wrappers.interface(
     dtype_constraints={"input": "T1", "mask": "T2", wrappers.RETURN_VALUE: "T1"},
