@@ -33,11 +33,11 @@ def process_sizes(input: "nvtripy.Tensor", sizes: ShapeLike):
 
     num_prepended = len(sizes) - input.rank
     out_shape = list(sizes[:num_prepended]) + [
-        inp_dim if op_utils.is_minus_one(out_dim) else out_dim
+        inp_dim if op_utils.is_int_equal_to(out_dim, -1) else out_dim
         for inp_dim, out_dim in zip(input.shape, sizes[num_prepended:])
     ]
 
-    if any(op_utils.is_minus_one(dim) for dim in out_shape):
+    if any(op_utils.is_int_equal_to(dim, -1) for dim in out_shape):
         raise_error(
             "Cannot use -1 for prepended dimension.",
             [
