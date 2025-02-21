@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -28,18 +28,18 @@ from nvtripy.utils import wrappers
 # TODO (pranavm): Might not need to do this shape inference in the frontend now.
 def infer_dimensions(input: "nvtripy.Tensor", shape: ShapeLike) -> ShapeLike:
 
-    num_unknown_dims = len([dim for dim in shape if op_utils.is_minus_one(dim)])
+    num_unknown_dims = len([dim for dim in shape if op_utils.is_int_equal_to(dim, -1)])
     if num_unknown_dims > 1:
         raise_error(f"The new shape can have at most one inferred dimension (denoted by -1)", [f"Got shape: {shape}."])
 
     if num_unknown_dims == 1:
         input_volume = math.prod(input.shape)
-        known_dims_volume = math.prod(dim for dim in shape if not op_utils.is_minus_one(dim))
+        known_dims_volume = math.prod(dim for dim in shape if not op_utils.is_int_equal_to(dim, -1))
         inferred_dim = (
             input_volume // known_dims_volume
         )  # If we have scalars, the floor div ensures the result is an int.
 
-        shape = [inferred_dim if op_utils.is_minus_one(dim) else dim for dim in shape]
+        shape = [inferred_dim if op_utils.is_int_equal_to(dim, -1) else dim for dim in shape]
 
     return {"shape": shape}
 
