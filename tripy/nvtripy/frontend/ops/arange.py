@@ -4,8 +4,10 @@ from typing import Union
 from nvtripy import export
 from nvtripy.common import datatype
 from nvtripy.common.exception import raise_error
-from nvtripy.frontend.ops.full import full
-from nvtripy.frontend.ops.iota import iota
+from nvtripy.frontend.ops import utils as op_utils
+from nvtripy.frontend.ops.cast import cast
+from nvtripy.frontend.ops.reshape import reshape
+from nvtripy.trace.ops.linspace import Linspace
 from nvtripy.utils import wrappers
 
 
@@ -51,6 +53,7 @@ def arange(
         assert tp.allclose(output, tp.Tensor(np.arange(2.3, 0.8, -0.2, dtype=np.float32)))
     """
     from nvtripy.frontend.dimension_size import DimensionSize
+    from nvtripy.frontend.tensor import Tensor
 
     if isinstance(step, numbers.Number) and step == 0:
         raise_error("Step in arange cannot be 0.", [])
@@ -67,10 +70,13 @@ def arange(
 
     if not isinstance(size, DimensionSize):
         size = int(size)
-    size = (size,)
-
-    output = iota(size, 0, dtype) * full(size, step, dtype) + full(size, start, dtype)
-    return output
+    size = op_utils.tensor_from_shape_like([size,])
+    
+    linspace_dtype = dtype if dtype in (datatype.float32, datatype.int32, datatype.int64) else datatype.float32
+    start = Tensor(start, dtype=linspace_dtype) if not isinstance(start, DimensionSize) else start
+    step = Tensor([step], dtype=linspace_dtype) if not isinstance(start, DimensionSize) else reshape(step, (1,))
+    output = op_utils.create_op(Linspace, [size, start, step], dtype=linspace_dtype)
+    return cast(output, dtype)
 
 
 @export.public_api(document_under="operations/initializers")
