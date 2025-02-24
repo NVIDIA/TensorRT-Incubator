@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,10 +12,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import hashlib
 from typing import List, Dict, Optional
 
-import mlir_tensorrt.runtime.api as runtime
 
 from nvtripy import utils
 from nvtripy import config
@@ -25,11 +23,11 @@ class ExecutableCache:
     """Global cache for storing compiled executables."""
 
     def __init__(self):
-        self._cache: Dict[str, runtime.Executable] = {}
+        self._cache: Dict[str, "nvtripy.Executable"] = {}
 
     def _assign_tensor_name(
         self,
-        tensor: "tripy.trace.tensor.TraceTensor",
+        tensor: "nvtripy.trace.tensor.TraceTensor",
         tensor_map: Dict[int, str],
         backup_map: Dict[int, str] = None,
     ) -> str:
@@ -106,7 +104,7 @@ class ExecutableCache:
 
         return trace_str
 
-    def _generate_key(self, trace: "Trace", devices: List["tripy.common.device"]) -> str:
+    def _generate_key(self, trace: "Trace", devices: List["nvtripy.device"]) -> str:
         """
         Generate a unique key for a given trace and device configuration.
 
@@ -121,37 +119,37 @@ class ExecutableCache:
         key = normalized_trace + "\ndevices:\n" + "\n".join([str(device) for device in devices])
         return utils.utils.md5(key.encode("utf-8"))
 
-    def get(self, trace: "Trace", devices: List["tripy.common.device"]) -> Optional[runtime.Executable]:
+    # TODO (pranavm): Update integration tests for new behavior of this method.
+    def compile(self, trace: "Trace", devices: List["nvtripy.device"]) -> Optional["nvtripy.Executable"]:
         """
-        Retrieve a cached executable for the given trace and devices.
+        Retrieve a cached executable for the given trace and devices or compile a new one.
 
         Args:
             trace (Trace): The trace used as a key.
             devices (List[Device]): List of devices associated with the trace.
 
         Returns:
-            Executable: The cached executable, or None if not found.
+            Executable: The executable.
         """
         if not config.use_cache_in_eager_mode:
             return None
 
         key = self._generate_key(trace, devices)
-        return self._cache.get(key)
 
-    def set(self, trace: "Trace", executable: runtime.Executable, devices: List["tripy.common.device"]) -> None:
-        """
-        Cache an executable for the given trace and devices.
+        if key not in self._cache:
+            from nvtripy.backend.api.executable import Executable
+            from nvtripy.backend.mlir.compiler import Compiler
 
-        Args:
-            trace (Trace): The trace used as a key.
-            executable (Executable): The executable to cache.
-            devices (List[Device]): List of devices associated with the trace.
-        """
-        if not config.use_cache_in_eager_mode:
-            return
+            mlir = trace.to_mlir()
 
-        key = self._generate_key(trace, devices)
-        self._cache[key] = executable
+            compiler = Compiler(trt_builder_opt_level=0)
+            # TODO (pranavm): Add error mapping logic here (test with squeezing non-singleton dim)
+            arg_names = [f"arg{index}" for index in range(len(trace.inputs))]
+            executable = Executable(compiler.compile(mlir, trace=trace), arg_names)
+
+            self._cache[key] = executable
+
+        return self._cache[key]
 
 
 global_cache = ExecutableCache()
