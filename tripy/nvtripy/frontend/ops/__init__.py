@@ -17,6 +17,7 @@
 
 # Here we import only those ops which need to add themselves to the tensor method registry
 from nvtripy.frontend.ops.binary import *
+from nvtripy.frontend.ops.unary import *
 import nvtripy.frontend.ops.matmul
 import nvtripy.frontend.ops.shape
 import nvtripy.frontend.ops.slice
