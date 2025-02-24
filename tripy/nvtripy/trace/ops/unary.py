@@ -41,6 +41,7 @@ Sin = make_unary_op("Sin", "kSIN")
 Cos = make_unary_op("Cos", "kCOS")
 Sqrt = make_unary_op("Sqrt", "kSQRT")
 Abs = make_unary_op("Abs", "kABS")
+Not = make_unary_op("Not", "kNOT")
 
 
 def make_activation_op(name, attr_name):
