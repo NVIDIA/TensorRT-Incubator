@@ -21,7 +21,7 @@ from typing import Sequence
 from nvtripy import export
 from nvtripy.common.exception import raise_error
 from nvtripy.frontend.ops import utils as op_utils
-from nvtripy.trace.ops.resize import Resize
+from nvtripy.trace.ops.resize import ResizeCubic, ResizeLinear, ResizeNearest
 from nvtripy.types import ShapeLike
 from nvtripy.utils import wrappers
 
@@ -35,6 +35,15 @@ def _check_mode(mode: str, align_corners: bool):
         )
     if align_corners and mode not in ("cubic", "linear"):
         raise_error("align_corners can only be set with `cubic` or `linear` mode.")
+
+
+def _create_resize(mode, inputs, scales, align_corners):
+    if mode == "nearest":
+        return op_utils.create_op(ResizeNearest, inputs, scales=scales)
+    elif mode == "linear":
+        return op_utils.create_op(ResizeLinear, inputs, scales=scales, align_corners=align_corners)
+    else:
+        return op_utils.create_op(ResizeCubic, inputs, scales=scales, align_corners=align_corners)
 
 
 @export.public_api(document_under="operations/functions")
@@ -73,7 +82,7 @@ def resize(
         assert torch.allclose(torch.from_dlpack(output).to("cpu"), expected)
     """
     _check_mode(mode, align_corners)
-    return op_utils.create_op(Resize, [input, output_shape], mode, scales=None, align_corners=align_corners)
+    return _create_resize(mode, [input, output_shape], scales=None, align_corners=align_corners)
 
 
 @export.public_api(document_under="operations/functions")
@@ -113,6 +122,4 @@ def resize(
     """
     _check_mode(mode, align_corners)
 
-    return op_utils.create_op(
-        Resize, [input, op_utils.tensor_from_shape_like(input.shape)], mode, scales, align_corners
-    )
+    return _create_resize(mode, [input], scales=scales, align_corners=align_corners)
