@@ -202,7 +202,9 @@ class Tensor(metaclass=TensorMeta):
 
             global_cache.set(trace, executable=executable, devices=output_devices)
 
-        data = Executable(executable, [])().eval()
+        data = Executable(executable, [f"arg{index}" for index in range(len(inputs))])(
+            *[inp.frontend_tensor for inp in inputs]
+        ).eval()
 
         # Upon computing the value of this tensor, we switch it to have a `Constant`
         # parameter so that it does not need to be computed again.
