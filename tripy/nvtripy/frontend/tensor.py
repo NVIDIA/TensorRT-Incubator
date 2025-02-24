@@ -180,8 +180,6 @@ class Tensor(metaclass=TensorMeta):
             # This happens before the imports below so we don't incur extra overhead.
             return self.trace_tensor.producer.data
 
-        from nvtripy.backend.api.executable import Executable
-        from nvtripy.backend.mlir.compiler import Compiler
         from nvtripy.frontend.cache import global_cache
         from nvtripy.trace.trace import Trace
 
@@ -192,19 +190,9 @@ class Tensor(metaclass=TensorMeta):
         # TODO (#155): Remove output devices here?
         output_devices = [out.device for out in trace.outputs]
 
-        executable = global_cache.get(trace, devices=output_devices)
-        if executable is None:
-            mlir = trace.to_mlir()
+        executable = global_cache.compile(trace, devices=output_devices)
 
-            compiler = Compiler(trt_builder_opt_level=0)
-            # TODO (pranavm): Add error mapping logic here (test with squeezing non-singleton dim)
-            executable = compiler.compile(mlir, trace=trace)
-
-            global_cache.set(trace, executable=executable, devices=output_devices)
-
-        data = Executable(executable, [f"arg{index}" for index in range(len(inputs))])(
-            *[inp.frontend_tensor for inp in inputs]
-        ).eval()
+        data = executable(*[inp.frontend_tensor for inp in inputs]).eval()
 
         # Upon computing the value of this tensor, we switch it to have a `Constant`
         # parameter so that it does not need to be computed again.

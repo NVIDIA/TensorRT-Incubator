@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,7 +21,7 @@ from typing import Any, Callable, Dict, Sequence
 from nvtripy import export, utils
 from nvtripy.backend.api.executable import Executable
 from nvtripy.backend.api.input_info import InputInfo
-from nvtripy.backend.mlir import Compiler as MLIRCompiler
+from nvtripy.backend.mlir import Compiler
 from nvtripy.common.exception import raise_error
 from nvtripy.frontend import Tensor, Trace
 
@@ -192,7 +192,7 @@ def compile(
                 )
 
     mlir = trace.to_mlir()
-    compiler = MLIRCompiler(trt_builder_opt_level=optimization_level)
+    compiler = Compiler(trt_builder_opt_level=optimization_level)
     executable = compiler.compile(mlir, trace=trace)
 
     return Executable(
