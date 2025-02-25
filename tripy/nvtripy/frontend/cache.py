@@ -131,8 +131,6 @@ class ExecutableCache:
         Returns:
             Executable: The executable.
         """
-        if not config.use_cache_in_eager_mode:
-            return None
 
         key = self._generate_key(trace, devices)
 
@@ -146,6 +144,9 @@ class ExecutableCache:
             # TODO (pranavm): Add error mapping logic here (test with squeezing non-singleton dim)
             arg_names = [f"arg{index}" for index in range(len(trace.inputs))]
             executable = Executable(compiler.compile(mlir, trace=trace), arg_names)
+
+            if not config.use_cache_in_eager_mode:
+                return executable
 
             self._cache[key] = executable
 
