@@ -20,7 +20,6 @@ import nvtripy.common.datatype as tp_dtype
 from nvtripy.common.datatype import int32
 from nvtripy.common.exception import raise_error
 
-
 # Creates a Trace operation from the provided frontend tensors and wraps its
 # outputs in frontend Tensors or DimensionSizes.
 def create_op(OpType, inputs, *args, always_cast_to_dimension_size=False, **kwargs):
