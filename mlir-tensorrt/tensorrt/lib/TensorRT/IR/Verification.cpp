@@ -117,7 +117,9 @@ LogicalResult tensorrt::LinspaceOp::verify() {
     if (getStep() == nullptr)
       return emitOpError("dynamic `step` must be specified if the result is "
                          "greater than rank 1");
-    if (getStep().getType().getDimSize(0) != getType().getRank())
+    TensorType stepType = getStep().getType();
+    if (!stepType.isDynamicDim(0) &&
+        stepType.getDimSize(0) != getType().getRank())
       return emitOpError("dynamic `step` type dimension 0 length must be the "
                          "same size as the rank of the result type");
   }
