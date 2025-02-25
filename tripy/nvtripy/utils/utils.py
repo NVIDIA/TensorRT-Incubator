@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,14 +19,14 @@ import dataclasses
 import functools
 import hashlib
 import inspect
-import os
 import math
+import os
+import re
 import time
 import typing
 from typing import Any, List, Optional, Sequence, Tuple, Union
 
 from colored import Fore, Style
-
 from nvtripy import constants
 from nvtripy.common.exception import raise_error
 from nvtripy.logging import logger
@@ -44,6 +44,10 @@ def default(value, default):
         object: Either value, or the default.
     """
     return value if value is not None else default
+
+
+def pascal_to_snake_case(inp):
+    return re.sub("([A-Z])", r"_\1", inp).lstrip("_").lower()
 
 
 def call_once(func):
@@ -153,11 +157,6 @@ def list_to_tuple(nested_list):
     else:
         # Return the item as it is if it's not a list
         return nested_list
-
-
-##
-## Dims
-##
 
 
 def should_omit_constant_in_str(shape):
