@@ -123,18 +123,21 @@ class BaseTraceOp(abc.ABC):
         Returns:
             The Trace string representation of the operation.
         """
-        assert len(self.outputs) == 1, "Base class implementation only works for single output operations!"
-
         skip_fields = self.str_skip_fields()
         args = [
             f"{field.name}={getattr(self, field.name)}"
             for field in utils.utils.get_dataclass_fields(self, BaseTraceOp)
             if field.name not in skip_fields
         ]
+
+        out_types = f"{', '.join(f'tensor{out.type_descriptor()}' for out in self.outputs)}"
+        if len(self.outputs) > 1:
+            out_types = f"({out_types})"
+
         return (
-            f"{self.outputs[0].name} = {self.__class__.__name__.lower()}"
+            f"{', '.join(out.name for out in self.outputs)} = {utils.utils.pascal_to_snake_case(self.__class__.__name__)}"
             f"({', '.join([inp.name + f' : tensor{inp.type_descriptor()}' for inp in self.inputs] + args)})"
-            f" : tensor{self.outputs[0].type_descriptor()}"
+            f" : {out_types}"
         )
 
     def __repr__(self) -> str:
