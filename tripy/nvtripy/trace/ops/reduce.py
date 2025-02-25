@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,91 +15,39 @@
 # limitations under the License.
 #
 
-import enum
 from dataclasses import dataclass
 from typing import Sequence
 
-from nvtripy.common import datatype
+from mlir_tensorrt.compiler import ir
+from mlir_tensorrt.compiler.dialects import tensorrt
 from nvtripy.trace.ops.base import BaseTraceOp
 
 
-@dataclass(repr=False)
-class Reduce(BaseTraceOp):
-    class Kind(enum.Enum):
-        def __init__(self, op, init_value):
-            self.op = op
-            self.init_value = init_value
+def make_reduce_op(name, attr_name):
+    @dataclass(repr=False)
+    class ReduceOp(BaseTraceOp):
+        dim: Sequence[int]
+        keepdim: bool
 
-        SUM = "sum", 0
-        MAX = "max", 0
-        MUL = "mul", 1
-        AND = "and", True
-        OR = "or", False
+        def infer_rank(self):
+            self.outputs[0].rank = self.inputs[0].rank - (len(self.dim) if not self.keepdim else 0)
 
-    dim: Sequence[int]
-    kind: Kind
+        def to_mlir(self, inputs, outputs):
+            return [
+                tensorrt.reduce(
+                    inputs[0],
+                    ir.DenseI64ArrayAttr.get(self.dim),
+                    tensorrt.ReduceOperationAttr.get(attr_name),
+                    keep_dimensions=self.keepdim,
+                )
+            ]
 
-    def infer_rank(self):
-        self.outputs[0].rank = self.inputs[0].rank - len(self.dim)
-
-    def to_flat_ir(self, inputs, outputs):
-        from nvtripy.flat_ir.ops import ConstantOp, ReduceOp
-        from nvtripy.flat_ir.tensor import FlatIRTensor
-
-        init_value = self.kind.init_value
-        init_const = FlatIRTensor.build(
-            shape=(),
-            rank=0,
-            dtype=outputs[0].dtype,
-            device=outputs[0].device,
-            reason_details=[
-                f"create the constant value tensor (containing {init_value}) for the initial value of a '{self.kind.op}' operation"
-            ],
-        )
-        ConstantOp.build([], [init_const], data=init_value)
-
-        ReduceOp.build([inputs[0], init_const], outputs, reduce_mode=self.kind.op, reduce_dims=self.dim)
+    ReduceOp.__name__ = name
+    return ReduceOp
 
 
-@dataclass(repr=False)
-class ArgMinMax(Reduce):
-    class Kind:
-        ARG_MAX = "argmax"
-        ARG_MIN = "argmin"
-
-    dim: Sequence[int]
-    kind: Kind
-
-    def infer_dtypes(self):
-        self.outputs[0].dtype = datatype.int32
-
-    def to_flat_ir(self, inputs, outputs):
-        from nvtripy.flat_ir.ops import ArgMinMaxOp, ConstantOp
-        from nvtripy.flat_ir.tensor import FlatIRTensor
-
-        init_val_const = FlatIRTensor.build(
-            shape=[],
-            rank=0,
-            dtype=inputs[0].dtype,
-            device=outputs[0].device,
-            reason_details=[f"create the constant value tensor for the initial value of a '{self.kind}' operation"],
-        )
-        init_idx_const = FlatIRTensor.build(
-            shape=[],
-            rank=0,
-            dtype=outputs[0].dtype,
-            device=outputs[0].device,
-            reason_details=[
-                f"create the constant value tensor for the initial index value of a '{self.kind}' operation"
-            ],
-        )
-
-        ConstantOp.build([], [init_val_const], data=0)
-        ConstantOp.build([], [init_idx_const], data=0)
-
-        ArgMinMaxOp.build(
-            [inputs[0], inputs[1], init_val_const, init_idx_const],
-            outputs,
-            reduce_mode=self.kind,
-            reduce_dims=self.dim,
-        )
+Sum = make_reduce_op("Sum", "kSUM")
+Prod = make_reduce_op("Prod", "kPROD")
+Avg = make_reduce_op("Avg", "kAVG")
+Max = make_reduce_op("Max", "kMAX")
+Min = make_reduce_op("Min", "kMIN")
