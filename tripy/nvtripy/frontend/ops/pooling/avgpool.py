@@ -21,6 +21,7 @@ from nvtripy import export
 from nvtripy.common import datatype
 from nvtripy.common.exception import raise_error
 from nvtripy.frontend.ops import utils as op_utils
+from nvtripy.frontend.ops.pooling import utils as pooling_utils
 from nvtripy.trace.ops.pooling import AvgPooling
 from nvtripy.utils import wrappers
 
@@ -58,8 +59,8 @@ def avgpool(
             to apply to the input along each spatial dimension before and after the dimension respectively,
             where :math:`M` is the number of spatial dimensions, i.e. :math:`M = \text{rank(input)} - 2`.
             Defaults to all 0.
-        count_include_pad: Whether to include padded values in the averaging operation. This
-            option must be ``True`` if the input data type is :class:`int8`.
+        count_include_pad: Whether to include padded values in the average.
+            Must be ``True`` if the input data type is :class:`int8`.
 
     Returns:
         The result tensor after the pooling operation.
@@ -75,15 +76,11 @@ def avgpool(
 
         assert torch.allclose(torch.from_dlpack(output).to("cpu"), expected)
     """
-    spatial_dims = len(kernel_dims)
-    if spatial_dims != 2 and spatial_dims != 3:
-        raise_error("Unsupported kernel_dims, must be 2D or 3D.", [f"Got kernel_dims={kernel_dims}"])
-
     op_utils.check_conv_pooling_args(kernel_dims, stride, padding)
     if input.dtype == datatype.int8 and not count_include_pad:
-        raise_error("`count_include_pad` can only be `True` when input datatype is int8.")
+        raise_error("`count_include_pad` must be `True` when input datatype is int8.")
 
-    stride, pre_padding, post_padding = op_utils.transform_pooling_params(kernel_dims, stride, padding)
+    stride, pre_padding, post_padding = pooling_utils.transform_pooling_params(kernel_dims, stride, padding)
 
     return op_utils.create_op(
         AvgPooling,

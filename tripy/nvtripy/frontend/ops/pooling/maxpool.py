@@ -18,8 +18,8 @@
 from typing import Optional, Sequence
 
 from nvtripy import export
-from nvtripy.common.exception import raise_error
 from nvtripy.frontend.ops import utils as op_utils
+from nvtripy.frontend.ops.pooling import utils as pooling_utils
 from nvtripy.trace.ops.pooling import MaxPooling
 from nvtripy.utils import wrappers
 
@@ -71,10 +71,7 @@ def maxpool(
 
         assert torch.allclose(torch.from_dlpack(output).to("cpu"), expected)
     """
-    spatial_dims = len(kernel_dims)
-    if spatial_dims != 2 and spatial_dims != 3:
-        raise_error("Unsupported kernel_dims, must be 2D or 3D.", [f"Got kernel_dims={kernel_dims}"])
-
-    stride, pre_padding, post_padding = op_utils.transform_pooling_params(kernel_dims, stride, padding)
+    op_utils.check_conv_pooling_args(kernel_dims, stride, padding)
+    stride, pre_padding, post_padding = pooling_utils.transform_pooling_params(kernel_dims, stride, padding)
 
     return op_utils.create_op(MaxPooling, [input], kernel_dims, stride, pre_padding, post_padding)
