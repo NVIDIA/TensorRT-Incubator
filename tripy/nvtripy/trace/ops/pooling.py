@@ -37,8 +37,6 @@ def make_pooling_op(name, pooling_type_name):
         infer_rank = op_utils.InferRankPolicies.same_as_input()
 
         def to_mlir(self, inputs, outputs):
-            import nvtripy.common.datatype as tp_dtype
-
             window_size_attr = ir.DenseI64ArrayAttr.get(self.kernel_dims)
             stride_attr = ir.DenseI64ArrayAttr.get(self.stride)
             pre_padding_attr = ir.DenseI64ArrayAttr.get(self.pre_padding)

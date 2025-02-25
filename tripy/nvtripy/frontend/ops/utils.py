@@ -19,6 +19,7 @@
 import nvtripy.common.datatype as tp_dtype
 from nvtripy.common.datatype import int32
 from nvtripy.common.exception import raise_error
+from nvtripy.utils import utils
 
 
 # Creates a Trace operation from the provided frontend tensors and wraps its
@@ -234,3 +235,12 @@ def check_conv_pooling_args(kernel_dims, stride, padding, dilation=None):
                 "Non-positive dilation is not supported.",
                 details=[f"Got dilation: {dilation} but all values must be integers greater than 0."],
             )
+
+
+def transform_pooling_params(kernel_dims, stride, padding):
+    spatial_dims = len(kernel_dims)
+    stride = utils.default(stride, [1] * spatial_dims)
+    padding = utils.default(padding, [(0, 0)] * spatial_dims)
+    pre_padding = [pad[0] for pad in padding]
+    post_padding = [pad[1] for pad in padding]
+    return stride, pre_padding, post_padding

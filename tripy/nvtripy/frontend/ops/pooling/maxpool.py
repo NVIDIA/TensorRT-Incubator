@@ -17,7 +17,7 @@
 
 from typing import Optional, Sequence
 
-from nvtripy import export, utils
+from nvtripy import export
 from nvtripy.common.exception import raise_error
 from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.trace.ops.pooling import MaxPooling
@@ -75,10 +75,6 @@ def maxpool(
     if spatial_dims != 2 and spatial_dims != 3:
         raise_error("Unsupported kernel_dims, must be 2D or 3D.", [f"Got kernel_dims={kernel_dims}"])
 
-    op_utils.check_conv_pooling_args(kernel_dims, stride, padding)
-    stride = utils.utils.default(stride, [1] * spatial_dims)
-    padding = utils.utils.default(padding, [(0, 0)] * spatial_dims)
-    pre_padding = [pad[0] for pad in padding]
-    post_padding = [pad[1] for pad in padding]
+    stride, pre_padding, post_padding = op_utils.transform_pooling_params(kernel_dims, stride, padding)
 
     return op_utils.create_op(MaxPooling, [input], kernel_dims, stride, pre_padding, post_padding)

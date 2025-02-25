@@ -17,7 +17,7 @@
 
 from typing import Optional, Sequence
 
-from nvtripy import export, utils
+from nvtripy import export
 from nvtripy.common import datatype
 from nvtripy.common.exception import raise_error
 from nvtripy.frontend.ops import utils as op_utils
@@ -58,8 +58,8 @@ def avgpool(
             to apply to the input along each spatial dimension before and after the dimension respectively,
             where :math:`M` is the number of spatial dimensions, i.e. :math:`M = \text{rank(input)} - 2`.
             Defaults to all 0.
-        count_include_pad: When True, the padded values will be included in the averaging operation. This
-            option can only be ``True`` when input datatype is :class:`int8`.
+        count_include_pad: Whether to include padded values in the averaging operation. This
+            option must be ``True`` if the input data type is :class:`int8`.
 
     Returns:
         The result tensor after the pooling operation.
@@ -80,13 +80,10 @@ def avgpool(
         raise_error("Unsupported kernel_dims, must be 2D or 3D.", [f"Got kernel_dims={kernel_dims}"])
 
     op_utils.check_conv_pooling_args(kernel_dims, stride, padding)
-    if input.dtype == datatype.int8 and count_include_pad is False:
+    if input.dtype == datatype.int8 and not count_include_pad:
         raise_error("`count_include_pad` can only be `True` when input datatype is int8.")
 
-    stride = utils.utils.default(stride, [1] * spatial_dims)
-    padding = utils.utils.default(padding, [(0, 0)] * spatial_dims)
-    pre_padding = [pad[0] for pad in padding]
-    post_padding = [pad[1] for pad in padding]
+    stride, pre_padding, post_padding = op_utils.transform_pooling_params(kernel_dims, stride, padding)
 
     return op_utils.create_op(
         AvgPooling,
