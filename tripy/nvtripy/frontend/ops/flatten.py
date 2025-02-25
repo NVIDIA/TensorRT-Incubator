@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,6 +16,7 @@ import math
 
 from nvtripy import export
 from nvtripy.common.exception import raise_error
+from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.utils import wrappers
 
 
@@ -62,16 +63,14 @@ def flatten(input: "nvtripy.Tensor", start_dim: int = 0, end_dim: int = -1) -> "
     """
     from nvtripy.frontend.ops.reshape import reshape
 
-    # Infer the actual dimensions to flatten based on start_dim and end_dim.
-    if start_dim < 0:
-        start_dim += input.rank
-
-    if end_dim < 0:
-        end_dim += input.rank
+    start_dim = op_utils.process_dim(start_dim, input.rank)
+    end_dim = op_utils.process_dim(end_dim, input.rank)
 
     # Ensure start_dim and end_dim are within the valid range.
-    if not (0 <= start_dim < input.rank) or not (start_dim <= end_dim < input.rank):
-        raise_error(f"Invalid dimensions: start_dim={start_dim}, end_dim={end_dim}, rank={input.rank}.")
+    if start_dim > end_dim:
+        raise_error(
+            f"`start_dim` cannot be larger than `end_dim`.", [f"Note: start_dim={start_dim}, end_dim={end_dim}."]
+        )
 
     shape = input.shape
     flattened_dim_size = math.prod(shape[start_dim : end_dim + 1])
