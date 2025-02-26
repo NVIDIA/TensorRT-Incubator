@@ -65,6 +65,7 @@ def __getitem__(
     """
     from nvtripy.frontend.dimension_size import DimensionSize
     from nvtripy.frontend.ops.binary.maximum import maximum
+    from nvtripy.frontend.ops.binary.minimum import minimum
     from nvtripy.frontend.ops.gather import gather
     from nvtripy.frontend.ops.squeeze import squeeze
     from nvtripy.frontend.ops.where import where
@@ -107,27 +108,41 @@ def __getitem__(
             step = utils.utils.default(slice_idx.step, 1)
 
             # TODO (pranavm): Add exhaustive testing for negative/positive start/stop/step and 1/non-1 step
-            # and tensor/non-tensor params + default/explicitly provided arguments.
+            # and tensor/non-tensor params + default/explicitly provided arguments + OOB start/stop (positive and negative).
+            # Also test with non-const inputs so shapes are non-integers.
+
             # For negative step sizes, the default start/stop are inverted.
             if isinstance(step, int):
                 default_start = 0 if step >= 0 else (dim_size - 1)
                 default_stop = dim_size if step >= 0 else -1
             else:
-                default_start = where(step >= 0, Tensor(0, dtype=step.dtype), (dim_size - 1))
-                default_stop = where(step >= 0, dim_size, Tensor(-1, dtype=step.dtype))
+                default_start = where(step >= 0, Tensor(0, dtype=step.dtype), Tensor(dim_size - 1))
+                default_stop = where(step >= 0, Tensor(dim_size), Tensor(-1, dtype=step.dtype))
+
+            def get_min(a, b):
+                return min(a, b) if isinstance(a, int) and isinstance(b, int) else minimum(Tensor(a), Tensor(b))
+
+            if slice_idx.start is not None:
+                start = to_positive_idx(slice_idx.start)
+                # If `start` is past the end, clamp it:
+                start = get_min(start, dim_size)
+            else:
+                start = default_start
+
+            if slice_idx.stop is not None:
+                stop = to_positive_idx(slice_idx.stop)
+                # Must clamp `stop` so that slicing past the end behaves as expected.
+                stop = get_min(stop, dim_size)
+            else:
+                stop = default_stop
 
             # Need to convert `stop` to a `size`:
-            start = to_positive_idx(slice_idx.start) if slice_idx.start is not None else default_start
-            stop = to_positive_idx(slice_idx.stop) if slice_idx.stop is not None else default_stop
             size = stop - start
             if not op_utils.is_int_equal_to(step, 1):
                 size = size // step
 
             # Size cannot be less than 0:
-            if isinstance(size, int):
-                size = max(size, 0)
-            else:
-                size = maximum(size, Tensor(0, dtype=size.dtype))
+            size = max(size, 0) if isinstance(size, int) else maximum(size, Tensor(0, dtype=size.dtype))
 
             starts.append(start)
             sizes.append(size)
