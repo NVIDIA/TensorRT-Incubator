@@ -16,7 +16,6 @@ from typing import Optional, Sequence, Union
 
 from nvtripy import export
 from nvtripy.frontend.ops import utils as op_utils
-from nvtripy.frontend.ops.reduce.utils import adjust_dim
 from nvtripy.trace.ops.reduce import Min
 from nvtripy.utils import wrappers
 
@@ -50,5 +49,5 @@ def min(
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.min(np.arange(6, dtype=np.float32).reshape((2, 3)), 0))
     """
-    dim = adjust_dim(dim, input.rank)
+    dim = op_utils.process_dim_sequence(dim, input.rank)
     return op_utils.create_op(Min, [input], dim, keepdim)
