@@ -56,15 +56,13 @@ def flip(input: "nvtripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = Non
         output = tp.flip(input, dim=-1)
         assert cp.array_equal(cp.from_dlpack(output), cp.array([[4, 3, 2, 1, 0], [9, 8, 7, 6, 5]]))
     """
-    from nvtripy.frontend.ops.slice import __getitem__
-
     dim = set(op_utils.process_dim_sequence(dim, input.rank))
 
-    slices = []
+    slice_params = []
     for index in range(input.rank):
         if index in dim:
-            slices.append(slice(None, None, -1))
+            slice_params.append(slice(None, None, -1))
         else:
-            slices.append(slice(None, None, 1))
+            slice_params.append(slice(None))
 
-    return input.__getitem__(slices)
+    return input.__getitem__(slice_params)
