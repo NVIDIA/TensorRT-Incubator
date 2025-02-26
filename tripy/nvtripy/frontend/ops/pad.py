@@ -20,7 +20,8 @@ from typing import Sequence, Union
 from nvtripy import export
 from nvtripy.common.exception import raise_error
 from nvtripy.frontend.ops import utils as op_utils
-from nvtripy.trace.ops.pad import Pad
+from nvtripy.trace.ops.shape import Shape
+from nvtripy.trace.ops.slice import SliceFill
 from nvtripy.types import ShapeLike
 from nvtripy.utils import wrappers
 
@@ -59,6 +60,8 @@ def pad(
         expected = np.pad(input_np, ((1, 0), (0, 1))) # doc: omit
         assert np.array_equal(cp.from_dlpack(output).get(), expected)
     """
+    from nvtripy.frontend.tensor import Tensor
+
     if len(pad) != input.rank:
         raise_error(
             "`pad` length must equal to the rank of `input`.",
@@ -72,13 +75,23 @@ def pad(
             [f"Got mode={mode}, while supported modes are {supported_modes}"],
         )
 
-    padding_low, padding_high = list(zip(*pad))
+    padding_lows, padding_highs = list(zip(*pad))
+    padding_lows = op_utils.tensor_from_shape_like(padding_lows)
+    padding_highs = op_utils.tensor_from_shape_like(padding_highs)
+    starts = -padding_lows
+    # TODO (pranavm): add tp.shape_of
+    # Not using input.shape because we need a `Tensor` here
+    input_shape = op_utils.create_op(Shape, [input])
+    sizes = input_shape + padding_lows + padding_highs
+    steps = op_utils.tensor_from_shape_like([1] * input.rank)
+
     return op_utils.create_op(
-        Pad,
+        SliceFill,
         [
             input,
-            op_utils.tensor_from_shape_like(padding_low),
-            op_utils.tensor_from_shape_like(padding_high),
+            starts,
+            sizes,
+            steps,
+            Tensor(value, dtype=input.dtype),
         ],
-        value,
     )
