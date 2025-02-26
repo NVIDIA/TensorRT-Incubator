@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -32,6 +32,7 @@ def compare_split_results(tp_out, reference_out):
         assert cp.array_equal(cp.from_dlpack(tp_out), cp.array(reference_out))
 
 
+# TODO (pranavm): Update to account for new semantics.
 class TestSplitOp:
     @pytest.mark.parametrize(
         "dims_a, split_params, reference_slices",
