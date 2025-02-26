@@ -16,9 +16,13 @@
 #
 
 
+from typing import Optional, Sequence, Union, List
+
 import nvtripy.common.datatype as tp_dtype
 from nvtripy.common.datatype import int32
 from nvtripy.common.exception import raise_error
+from nvtripy.utils.utils import make_list
+
 
 # Creates a Trace operation from the provided frontend tensors and wraps its
 # outputs in frontend Tensors or DimensionSizes.
@@ -56,7 +60,6 @@ def is_int_equal_to(arg, value):
 
 
 def tensor_from_shape_like(arg: "nvtripy.ShapeLike") -> "nvtripy.Tensor":
-    from nvtripy.common.datatype import int32
     from nvtripy.frontend.dimension_size import DimensionSize
     from nvtripy.frontend.ops.concatenate import concatenate
     from nvtripy.frontend.ops.reshape import Reshape
@@ -113,6 +116,23 @@ def process_dim(dim: int, input_rank: int) -> int:
             ],
         )
     return new_dim
+
+
+# Like `process_dim` but can additionally handle sequences of dimensions and will return a list.
+def process_dim_sequence(dim: Optional[Union[int, Sequence[int]]], rank: int) -> List[int]:
+    if dim is None:
+        dim = list(range(rank))
+
+    dim = make_list(dim)
+    # TODO (pranavm): Add tests for this.
+    if len(set(dim)) != len(dim):
+        raise_error(
+            f"Each dimension may only be specified once, but got: {dim}.",
+            [f"Did you mean: {sorted(list(set(dim)))}?"],
+        )
+
+    dim = [process_dim(d, rank) for d in dim]
+    return dim
 
 
 ##

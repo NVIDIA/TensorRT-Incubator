@@ -27,7 +27,6 @@ from nvtripy.flat_ir.ops.convolution import ConvolutionOp
 from nvtripy.flat_ir.ops.copy import CopyOp
 from nvtripy.flat_ir.ops.divide import DivideOp
 from nvtripy.flat_ir.ops.dot import DotOp
-from nvtripy.flat_ir.ops.flip import FlipOp
 from nvtripy.flat_ir.ops.floor import FloorOp
 from nvtripy.flat_ir.ops.get_dimension_size import GetDimensionSizeOp
 from nvtripy.flat_ir.ops.iota import DynamicIotaOp

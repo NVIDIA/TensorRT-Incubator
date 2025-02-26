@@ -12,17 +12,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from typing import Optional, Sequence, Union
 
 from nvtripy.frontend.ops import utils as op_utils
-from nvtripy.utils.utils import make_list
-
-
-def adjust_dim(dim: Optional[Union[int, Sequence[int]]], rank: int):
-    if dim is None:
-        dim = list(range(rank))
-    dim = [op_utils.process_dim(d, rank) for d in make_list(dim)]
-    return dim
 
 
 def arg_min_max_impl(TopKType, input, dim, keepdim):

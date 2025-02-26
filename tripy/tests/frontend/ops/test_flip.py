@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,7 +19,6 @@ import pytest
 
 import nvtripy as tp
 from tests import helper
-from nvtripy.trace.ops.flip import Flip
 
 
 class TestFlip:
@@ -31,7 +30,6 @@ class TestFlip:
         t = tp.Tensor([[0, 1, 2, 3, 4], [5, 6, 7, 8, 9]])
         f = tp.flip(t, dims=dims)
         assert isinstance(f, tp.Tensor)
-        assert isinstance(f.trace_tensor.producer, Flip)
         assert f.trace_tensor.rank == 2
         assert f.shape == [2, 5]
 
@@ -39,7 +37,6 @@ class TestFlip:
         t = tp.Tensor(1)
         f = tp.flip(t)
         assert isinstance(f, tp.Tensor)
-        assert isinstance(f.trace_tensor.producer, Flip)
         assert f.trace_tensor.rank == 0
 
     def test_out_of_range_dim(self):

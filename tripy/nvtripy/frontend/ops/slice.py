@@ -104,17 +104,20 @@ def __getitem__(
         else:
             assert isinstance(slice_idx, slice)
 
-            start = to_positive_idx(slice_idx.start) if slice_idx.start is not None else 0
             step = utils.utils.default(slice_idx.step, 1)
 
-            # TODO (pranavm): Add exhaustive testing for negative/positive start/stop/step and 1/non-1 step and tensor/non-tensor params.
-            # Need to convert `stop` to a `size`:
-            # For negative step sizes, the default bound is the *beginning* of the dimension:
+            # TODO (pranavm): Add exhaustive testing for negative/positive start/stop/step and 1/non-1 step
+            # and tensor/non-tensor params + default/explicitly provided arguments.
+            # For negative step sizes, the default start/stop are inverted.
             if isinstance(step, int):
+                default_start = 0 if step >= 0 else (dim_size - 1)
                 default_stop = dim_size if step >= 0 else -1
             else:
+                default_start = where(step >= 0, Tensor(0, dtype=step.dtype), (dim_size - 1))
                 default_stop = where(step >= 0, dim_size, Tensor(-1, dtype=step.dtype))
 
+            # Need to convert `stop` to a `size`:
+            start = to_positive_idx(slice_idx.start) if slice_idx.start is not None else default_start
             stop = to_positive_idx(slice_idx.stop) if slice_idx.stop is not None else default_stop
             size = stop - start
             if not op_utils.is_int_equal_to(step, 1):

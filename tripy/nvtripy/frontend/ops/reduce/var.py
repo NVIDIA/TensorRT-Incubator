@@ -12,12 +12,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import math
 from typing import Optional, Sequence, Union
 
 from nvtripy import export
 from nvtripy.utils import wrappers
-import math
-from nvtripy.frontend.ops.reduce.utils import adjust_dim
 
 
 @export.public_api(document_under="operations/functions")
@@ -60,11 +59,11 @@ def var(
     """
     from nvtripy.frontend import Tensor
     from nvtripy.frontend.ops.binary.maximum import maximum
+    from nvtripy.frontend.ops.cast import cast
     from nvtripy.frontend.ops.reduce.mean import mean
     from nvtripy.frontend.ops.reduce.sum import sum
-    from nvtripy.frontend.ops.cast import cast
 
-    dim = adjust_dim(dim, input.rank)
+    dim = op_utils.process_dim_sequence(dim, input.rank)
 
     mean_val = mean(input, dim=dim, keepdim=True)
     sub = (input - mean_val) ** 2.0
