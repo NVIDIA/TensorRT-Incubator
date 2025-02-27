@@ -1270,6 +1270,20 @@ func.func @trt_deconvolution(%arg0: tensor<?x32x128x128xf32>, %arg1: tensor<32x6
 
 // -----
 
+func.func @trt_deconvolution(%arg0: tensor<?x?x128x128xf32>, %arg1: tensor<32x64x3x3xf32>) -> tensor<?x192x128x128xf32> {
+  %0 = tensorrt.deconvolution {
+    num_groups = 3 : ui32,
+    stride = array<i64: 1, 1>,
+    pre_padding = array<i64: 1, 1>,
+    post_padding = array<i64: 1, 1>
+  } in(%arg0 : tensor<?x?x128x128xf32>) kernelWeights(%arg1: tensor<32x64x3x3xf32>) -> tensor<?x192x128x128xf32>
+  return %0 : tensor<?x192x128x128xf32>
+}
+// CHECK-LABEL: @trt_deconvolution
+//       CHECK: tensorrt.deconvolution
+
+// -----
+
 func.func @trt_resize_nearest(%arg0: tensor<10x10xf32>) -> tensor<20x20xf32> {
   %result = tensorrt.resize_nearest {
     coordinateTransformation = #tensorrt.resize_coordinate_transformation<kASYMMETRIC>,
