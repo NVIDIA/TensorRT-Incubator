@@ -371,9 +371,8 @@ nvinfer1::ILayer *NvInferNetworkEncoder::addFillLayer(
     nvinfer1::Dims shapeDims = dynamicShape->getDimensions();
     assert(shapeDims.nbDims == 1 && shapeDims.d[0] > 0 &&
            "invalid shape tensor shape");
-    staticShape.nbDims = shapeDims.d[0];
-    for (int32_t i = 0; i < shapeDims.nbDims; i++)
-      staticShape.d[i] = 1;
+    staticShape.nbDims = 1;
+    staticShape.d[0] = 1;
   }
   nvinfer1::IFillLayer *layer =
       network->addFill(staticShape, fillOperation, elementType);
