@@ -24,7 +24,7 @@ from mlir_tensorrt.compiler.dialects import tensorrt
 
 
 @dataclass(repr=False)
-class Convolution(BaseTraceOp):
+class Deconvolution(BaseTraceOp):
     stride: Sequence[int]
     pre_padding: Sequence[int]
     post_padding: Sequence[int]
@@ -38,13 +38,13 @@ class Convolution(BaseTraceOp):
 
     def to_mlir(self, inputs, outputs):
         return [
-            tensorrt.convolution(
+            tensorrt.deconvolution(
                 inputs[0],
                 self.stride,
                 pre_padding=self.pre_padding,
                 post_padding=self.post_padding,
-                kernel=inputs[1],
-                bias=inputs[2] if len(inputs) > 2 else None,
+                kernel_weights=inputs[1],
+                bias_weights=inputs[2] if len(inputs) > 2 else None,
                 num_groups=self.groups,
                 dilation=self.dilation,
             )

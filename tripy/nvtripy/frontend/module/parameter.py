@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -36,7 +36,12 @@ class DefaultParameter(Tensor):
         if shape is None:
             is_shape_known = False
             shape = []
+
+        # TODO (pranavm): Emit warning if this tensor is ever materialized - can check for DefaultParameter in
+        # named_parameters() during Module.__call__ - probably need to be able to implement `forward` for that.
+        # Need variadic argument support in compile to do that!
         tensor = reshape(arange(math.prod(shape), dtype), shape)
+
         self.__dict__ = tensor.__dict__
 
         self._shape = list(shape)

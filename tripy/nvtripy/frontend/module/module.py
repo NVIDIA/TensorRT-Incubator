@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -23,8 +23,8 @@ from nvtripy import export, utils
 from nvtripy.common.exception import raise_error
 from nvtripy.frontend.module.parameter import DefaultParameter
 from nvtripy.frontend.tensor import Tensor
-from nvtripy.utils.function_registry import type_str_from_arg
 from nvtripy.logging import logger
+from nvtripy.utils.function_registry import type_str_from_arg
 
 
 def _check_param_compatible(original_param, new_param, param_name):
@@ -44,12 +44,19 @@ def _check_param_compatible(original_param, new_param, param_name):
 
     skip_shape_comparison = isinstance(original_param, DefaultParameter) and not original_param.is_shape_known
     if not skip_shape_comparison:
-        original_shape = original_param.shape
-        new_shape = new_param.shape
+        # We need to evaluate here anyway, so we map the entire shape to numbers upfront to save us from recomputing
+        # them again later.
+        original_shape = list(map(int, original_param.shape))
+        new_shape = list(map(int, new_param.shape))
         if original_shape != new_shape:
             is_compatible = utils.result.Result.err(
                 ["New parameter shape: ", new_shape, " is not compatible with current shape: ", original_shape]
             )
+
+        # Once we know the concrete shape of the parameter, we can update the trace tensor accordingly.
+        # This not only makes the trace more informative, but is actually required for some APIs, like
+        # addConvolutionND (to set kernelDims correctly).
+        new_param.trace_tensor.shape = new_shape
 
     original_dtype = original_param.dtype
     new_dtype = new_param.dtype

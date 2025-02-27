@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,69 +19,35 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Optional
 
-from nvtripy import export, utils
+from nvtripy import export
 from nvtripy.common import datatype
-from nvtripy.common.exception import raise_error
-from nvtripy.frontend.module.module import Module
+from nvtripy.frontend.module.conv.base import ConvBase
 from nvtripy.frontend.module.parameter import DefaultParameter
 from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.frontend.tensor import Tensor
+from nvtripy.trace.ops.convolution import Convolution
+from nvtripy.utils import wrappers
 
 
-@dataclass
-@utils.utils.constant_fields(["dtype", "padding", "stride", "groups", "dilation"])
-class ConvBase(Module):
-    r"""Base class for sharing common functionality between Conv and ConvTranspose."""
-
-    dtype: datatype.dtype
-    padding: Sequence[Sequence[int]]
-    stride: Sequence[int]
-    groups: int
-    dilation: Sequence[int]
-    bias: Optional[Tensor]
-
-    def __init__(
-        self,
-        in_channels: int,
-        out_channels: int,
-        kernel_dims: Sequence[int],
-        padding: Sequence[Sequence[int]] = None,
-        stride: Sequence[int] = None,
-        groups: int = None,
-        dilation: Sequence[int] = None,
-        bias: bool = True,
-        dtype: datatype.dtype = datatype.float32,
-    ) -> None:
-
-        super().__init__()
-
-        self.groups = utils.utils.default(groups, 1)
-
-        if self.groups <= 0:
-            raise_error(
-                "Feature group count must be a positive integer.",
-                details=[f"Got feature group count: {self.groups}."],
-            )
-
-        if in_channels % self.groups or out_channels % self.groups:
-            raise_error(
-                "Feature group count must divide both input and output channel counts evenly.",
-                details=[
-                    f"Got feature group count: {self.groups} which is incompatible with input and output channel counts: {in_channels} and {out_channels}."
-                ],
-            )
-
-        op_utils.check_conv_pooling_args(kernel_dims, stride, padding, dilation)
-        rank = len(kernel_dims) + 2
-        self.padding = utils.utils.default(padding, tuple(((0, 0) for _ in range(rank - 2))))
-        self.stride = utils.utils.default(stride, (1,) * (rank - 2))
-        self.dilation = utils.utils.default(dilation, (1,) * (rank - 2))
-
-        self.bias = None
-        if bias:
-            self.bias = DefaultParameter((out_channels,), dtype=dtype)
-
-        self.dtype = dtype
+# This function is added so that we can do dtype checking.
+@wrappers.interface(
+    dtype_constraints={"input": "T1", "weight": "T1", wrappers.RETURN_VALUE: "T1"},
+    dtype_variables={"T1": ["float32", "float16", "bfloat16"]},
+)
+def convolution(
+    input: "nvtripy.Tensor",
+    weight: "nvtripy.Tensor",
+    bias: Optional["nvtripy.Tensor"],
+    stride: Sequence[int],
+    padding: Sequence[Sequence[int]],
+    groups: int,
+    dilation: Sequence[int],
+):
+    pre_padding, post_padding = op_utils.transform_conv_pooling_padding(padding)
+    inputs = [input, weight]
+    if bias is not None:
+        inputs.append(bias)
+    return op_utils.create_op(Convolution, inputs, stride, pre_padding, post_padding, groups, dilation)
 
 
 @export.public_api(document_under="operations/modules", autodoc_options=[":no-show-inheritance:"])
@@ -256,19 +222,12 @@ class Conv(ConvBase):
             :math:`(N, \text{out_channels}, D_{0_{\text{out}}},\ldots,D_{n_{\text{out}}})`
             where :math:`D_{k_{\text{out}}} = \large \left\lfloor \frac{D_{k_{\text{in}}} + \text{padding}_{k_0} + \text{padding}_{k_1} - \text{dilation}_k \times (\text{kernel_dims}_k - 1) - 1}{\text{stride}_k} \right\rfloor + \normalsize 1`
         """
-        from nvtripy.frontend.ops.convolution import convolution
-        from nvtripy.frontend.ops.reshape import reshape
-
-        x = convolution(
+        return convolution(
             input,
             self.weight,
-            self.padding,
+            self.bias,
             self.stride,
+            self.padding,
             self.groups,
-            None,  # lhs_dilation for transposed conv only
             self.dilation,
         )
-        if self.bias is not None:
-            bias_shape_to_broadcast = (1, self.weight.shape[0]) + (1,) * (self.weight.rank - 2)
-            x += reshape(self.bias, bias_shape_to_broadcast)
-        return x

@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,9 +21,33 @@ from typing import Optional
 
 from nvtripy import export
 from nvtripy.common import datatype
-from nvtripy.frontend.module.conv import ConvBase
+from nvtripy.frontend.module.conv.base import ConvBase
 from nvtripy.frontend.module.parameter import DefaultParameter
+from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.frontend.tensor import Tensor
+from nvtripy.trace.ops.deconvolution import Deconvolution
+from nvtripy.utils import wrappers
+
+
+# This function is added so that we can do dtype checking.
+@wrappers.interface(
+    dtype_constraints={"input": "T1", "weight": "T1", wrappers.RETURN_VALUE: "T1"},
+    dtype_variables={"T1": ["float32", "float16", "bfloat16"]},
+)
+def deconvolution(
+    input: "nvtripy.Tensor",
+    weight: "nvtripy.Tensor",
+    bias: Optional["nvtripy.Tensor"],
+    stride: Sequence[int],
+    padding: Sequence[Sequence[int]],
+    groups: int,
+    dilation: Sequence[int],
+):
+    pre_padding, post_padding = op_utils.transform_conv_pooling_padding(padding)
+    inputs = [input, weight]
+    if bias is not None:
+        inputs.append(bias)
+    return op_utils.create_op(Deconvolution, inputs, stride, pre_padding, post_padding, groups, dilation)
 
 
 @export.public_api(document_under="operations/modules", autodoc_options=[":no-show-inheritance:"])
@@ -172,34 +196,10 @@ class ConvTranspose(ConvBase):
             assert torch.allclose(output_up_torch, expected_up)
             assert output_up_torch.shape == expected_up.shape
         """
-        # TODO: add `output_padding` field and test if it works with SHLO/MLIR-TRT
-
         super().__init__(in_channels, out_channels, kernel_dims, padding, stride, groups, dilation, bias, dtype)
 
         kernel_shape = (in_channels, out_channels // self.groups, *kernel_dims)
         self.weight = DefaultParameter(kernel_shape, dtype=dtype)
-        self._kernel_hlo_intermediate_shape = (
-            self.groups,
-            in_channels // self.groups,
-            out_channels // self.groups,
-            *kernel_dims,
-        )
-        self._kernel_hlo_final_shape = (out_channels, in_channels // self.groups, *kernel_dims)
-
-        rank = len(kernel_shape)
-        self._dummy_stride = (1,) * (rank - 2)
-
-        # Adjust padding to create inverse input/output shape with same params to Conv.
-        # User-provided padding effectively removes from the input, and is restored in MLIR-TRT.
-        transpose_padding = []
-        for pad, dilation, kernel_size in zip(self.padding, self.dilation, self._kernel_hlo_final_shape[2:]):
-            transpose_padding.append(
-                (
-                    dilation * (kernel_size - 1) - pad[0],
-                    dilation * (kernel_size - 1) - pad[1],
-                )
-            )
-        self._transpose_padding = tuple(transpose_padding)
 
     def __call__(self, input: "nvtripy.Tensor") -> "nvtripy.Tensor":
         r"""
@@ -211,34 +211,4 @@ class ConvTranspose(ConvBase):
             :math:`(N, \text{out_channels}, D_{0_{\text{out}}},\ldots,D_{n_{\text{out}}})`
             where :math:`D_{k_{\text{out}}} = (D_{k_{\text{in}}} - 1) \times \text{stride}_k - \text{padding}_{k_0} - \text{padding}_{k_1} + \text{dilation}_k \times (\text{kernel_dims}_k - 1) + 1`
         """
-        from nvtripy.frontend.ops.transpose import transpose
-        from nvtripy.frontend.ops.convolution import convolution
-        from nvtripy.frontend.ops.flip import flip
-        from nvtripy.frontend.ops.reshape import reshape
-
-        # SHLO expects kernel shape in (out_channels, in_channels / feature_groups, ...) format
-        # whereas typically transpose conv uses (in_channels, out_channels / feature_groups, ...) e.g. in Torch.
-        # We enforce SHLO shape expectation here, and MLIR-TRT reshapes to [i, o/feature_group, ...] format for TRT.
-        # The spatial dimensions must also be flipped to match expectations for conv/deconv in MLIR-TRT.
-        rank = self.weight.rank
-        weight = flip(self.weight, list(range(2, rank)))
-        if self.groups == 1:
-            weight = transpose(weight, 0, 1)
-        else:
-            weight = reshape(weight, self._kernel_hlo_intermediate_shape)
-            weight = transpose(weight, 1, 2)
-            weight = reshape(weight, self._kernel_hlo_final_shape)
-
-        x = convolution(
-            input,
-            weight,
-            self._transpose_padding,
-            self._dummy_stride,
-            self.groups,
-            self.stride,  # effectively lhs_dilation for StableHLO
-            self.dilation,
-        )
-        if self.bias is not None:
-            bias_shape_to_broadcast = (1, weight.shape[0]) + (1,) * (rank - 2)
-            x += reshape(self.bias, bias_shape_to_broadcast)
-        return x
+        return deconvolution(input, self.weight, self.bias, self.stride, self.padding, self.groups, self.dilation)
