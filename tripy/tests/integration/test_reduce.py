@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -37,12 +37,12 @@ class TestReduceOp:
         ],
     )
     def test_all(self, x_shape, axis, keepdim, eager_or_compiled):
-        x = np.array([i % 2 == 0 for i in np.arange(np.prod(x_shape))]).reshape(x_shape)
+        x = cp.array([i % 2 == 0 for i in cp.arange(cp.prod(x_shape))]).reshape(x_shape)
         a = tp.Tensor(x)
         out = eager_or_compiled(tp.all, a, dim=axis, keepdim=keepdim)
-        # np.array is necessary to deal with case where x.all returns a numpy scalar (5th case)
-        expected = np.array(x.all(axis=axis, keepdims=keepdim))
-        assert np.array_equal(np.from_dlpack(tp.copy(out, device=tp.device("cpu"))), expected)
+        # cp.array is necessary to deal with case where x.all returns a scalar (5th case)
+        expected = cp.array(x.all(axis=axis, keepdims=keepdim))
+        assert cp.array_equal(cp.from_dlpack(out), expected)
 
     @pytest.mark.parametrize(
         "x_shape, axis, keepdim",
@@ -57,11 +57,11 @@ class TestReduceOp:
         ],
     )
     def test_any(self, x_shape, axis, keepdim, eager_or_compiled):
-        x = np.array([i % 2 == 0 for i in np.arange(np.prod(x_shape))]).reshape(x_shape)
+        x = cp.array([i % 2 == 0 for i in cp.arange(cp.prod(x_shape))]).reshape(x_shape)
         a = tp.Tensor(x)
         out = eager_or_compiled(tp.any, a, dim=axis, keepdim=keepdim)
-        expected = np.array(x.any(axis=axis, keepdims=keepdim))
-        assert np.array_equal(np.from_dlpack(tp.copy(out, device=tp.device("cpu"))), expected)
+        expected = cp.array(x.any(axis=axis, keepdims=keepdim))
+        assert cp.array_equal(cp.from_dlpack(out), expected)
 
     @pytest.mark.parametrize(
         "x_shape, axis, keepdim",

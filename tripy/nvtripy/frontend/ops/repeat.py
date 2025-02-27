@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -47,9 +47,9 @@ def repeat(input: "nvtripy.Tensor", repeats: IntLike, dim: int) -> "nvtripy.Tens
         inp = tp.arange(4, dtype=tp.int32)
         out0 = tp.repeat(inp, 2, dim=0)
 
-        np_inp = np.from_dlpack(tp.copy(inp, device=tp.device("cpu"))) # doc: omit
-        ref_out0 = np.repeat(np_inp, 2, 0) # doc: omit
-        assert np.array_equal(ref_out0, np.from_dlpack(tp.copy(out0, device=tp.device("cpu"))))
+        cp_inp = cp.from_dlpack(inp) # doc: omit
+        ref_out0 = cp.repeat(cp_inp, 2, 0) # doc: omit
+        assert cp.array_equal(ref_out0, cp.from_dlpack(out0))
 
 
     .. code-block:: python
@@ -60,12 +60,12 @@ def repeat(input: "nvtripy.Tensor", repeats: IntLike, dim: int) -> "nvtripy.Tens
         out0 = tp.repeat(inp, 2, dim=0)
         out1 = tp.repeat(inp, 2, dim=1)
 
-        np_inp = np.from_dlpack(tp.copy(inp, device=tp.device("cpu"))) # doc: omit
-        ref_out0 = np.repeat(np_inp, 2, 0) # doc: omit
-        assert np.array_equal(ref_out0, np.from_dlpack(tp.copy(out0, device=tp.device("cpu"))))
+        cp_inp = cp.from_dlpack(inp) # doc: omit
+        ref_out0 = cp.repeat(cp_inp, 2, 0) # doc: omit
+        assert cp.array_equal(ref_out0, cp.from_dlpack(out0))
 
-        ref_out1 = np.repeat(np_inp, 2, 1) # doc: omit
-        assert np.array_equal(ref_out1, np.from_dlpack(tp.copy(out1, device=tp.device("cpu"))))
+        ref_out1 = cp.repeat(cp_inp, 2, 1) # doc: omit
+        assert cp.array_equal(ref_out1, cp.from_dlpack(out1))
     """
     from nvtripy.frontend.dimension_size import DimensionSize
     from nvtripy.frontend.ops.expand import expand

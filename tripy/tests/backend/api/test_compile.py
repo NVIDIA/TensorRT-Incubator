@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -123,16 +123,6 @@ class TestCompile:
             compiled_add = tp.compile(
                 add, args=[tp.InputInfo((2, 2), dtype=tp.float32), tp.InputInfo((2, 2), dtype=tp.float32)]
             )
-            compiled_add(a, a)
-
-    @pytest.mark.skip("TODO (#155): Re-enable once we no longer implicitly copy inputs to device")
-    def test_incorrect_device_rejected(self):
-        compiled_add = tp.compile(
-            add, args=[tp.InputInfo((2, 2), dtype=tp.float32), tp.InputInfo((2, 2), dtype=tp.float32)]
-        )
-        a = tp.copy(tp.ones((2, 2), dtype=tp.float32), device=tp.device("cpu"))
-
-        with helper.raises(tp.TripyException):
             compiled_add(a, a)
 
     # TODO (#244): Add multi-profile test

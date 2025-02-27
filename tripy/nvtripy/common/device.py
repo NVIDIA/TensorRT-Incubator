@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -25,6 +25,8 @@ from nvtripy.utils.json import Decoder, Encoder
 _VALID_KINDS = {"cpu", "gpu"}
 
 
+# TODO (pranavm): Figure out if we actually support host memory at all - the presence of host tensors
+# would mean we need things in the executable besides just a TRT engine.
 @export.public_api()
 @dataclass
 class device:
