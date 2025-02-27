@@ -617,6 +617,7 @@ LogicalResult tensorrt::DeconvolutionOp::verify() {
   }
 
   if (getNumGroups() != 1 &&
+      getInput().getType().getShape()[1] != ShapedType::kDynamic &&
       (getInput().getType().getShape()[1] % getNumGroups() != 0))
     return emitOpError("input channels must be divisible by ")
            << getNumGroupsAttrName();
