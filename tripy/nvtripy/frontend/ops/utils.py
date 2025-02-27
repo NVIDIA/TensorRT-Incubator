@@ -21,7 +21,7 @@ from typing import Optional, Sequence, Union, List
 import nvtripy.common.datatype as tp_dtype
 from nvtripy.common.datatype import int32
 from nvtripy.common.exception import raise_error
-from nvtripy.utils.utils import make_list
+from nvtripy.utils.utils import make_list, default
 
 
 # Creates a Trace operation from the provided frontend tensors and wraps its
@@ -254,3 +254,9 @@ def check_conv_pooling_args(kernel_dims, stride, padding, dilation=None):
                 "Non-positive dilation is not supported.",
                 details=[f"Got dilation: {dilation} but all values must be integers greater than 0."],
             )
+
+
+# Splits up a padding of the form: [(prepad0, postpad1), ..., (prepadN, postpadN)]
+# into separate lists for pre- and post-padding.
+def transform_conv_pooling_padding(padding):
+    return list(zip(*padding))
