@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -164,11 +164,7 @@ class Trace:
                             layer_outputs = [out.to_mlir() for out in op.outputs]
 
                             with make_tensor_location(
-                                [inp.name for inp in op.inputs],
-                                [out.name for out in op.outputs],
-                                # TODO (pranavm): Remove trace input/output names from here and all error reporting logic.
-                                [],
-                                [],
+                                [inp.name for inp in op.inputs], [out.name for out in op.outputs]
                             ):
                                 layer_outputs = op.to_mlir(layer_inputs, layer_outputs)
 
