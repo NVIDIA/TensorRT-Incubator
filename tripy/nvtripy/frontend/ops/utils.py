@@ -260,3 +260,26 @@ def check_conv_pooling_args(kernel_dims, stride, padding, dilation=None):
 # into separate lists for pre- and post-padding.
 def transform_conv_pooling_padding(padding):
     return list(zip(*padding))
+
+
+##
+## Broadcasting
+##
+
+
+# Reshapes lhs/rhs by prepending ones so that their ranks match.
+def match_ranks(lhs, rhs):
+    from nvtripy.frontend.ops.reshape import reshape
+
+    def expand_rank(tensor, max_rank):
+        if tensor.rank == max_rank:
+            return tensor
+
+        assert tensor.rank < max_rank, "Tensor rank cannot be larger than max rank of operands"
+        new_shape = [1] * (max_rank - tensor.rank) + tensor.shape
+        return reshape(tensor, new_shape)
+
+    max_rank = max(lhs.rank, rhs.rank)
+    lhs = expand_rank(lhs, max_rank)
+    rhs = expand_rank(rhs, max_rank)
+    return lhs, rhs
