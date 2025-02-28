@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -83,10 +83,10 @@ class Compiler:
     def compile(self, module: ir.Module, trace: Optional["Trace"] = None) -> compiler.Executable:
         logger.mlir(lambda: f"{module.operation.get_asm(large_elements_limit=32)}\n")
         task = self._get_compilation_task(self.trt_builder_opt_level)
-        task.run(module.operation)
 
         try:
             with redirect_stderr() as outfile:
+                task.run(module.operation)
                 executable = compiler.translate_mlir_to_executable(module.operation)
         except Exception as exc:
             outfile.flush()
