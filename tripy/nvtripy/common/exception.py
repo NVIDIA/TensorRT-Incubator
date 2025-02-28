@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,10 +18,9 @@
 import inspect
 from dataclasses import dataclass
 from textwrap import indent
-from typing import Any, List, Tuple, Optional
+from typing import Any, List, Optional, Tuple
 
 from colored import Fore, Style
-
 from nvtripy import export, utils
 
 
@@ -45,22 +44,6 @@ class TripyAttributeError(AttributeError):
 
     def __str__(self):
         return self.message
-
-
-@dataclass
-class OmitStackInfo:
-    """
-    Allows suppression of stack information in error messages by hiding
-    the `.stack_info` field. Acts as a passthrough for str/repr.
-    """
-
-    obj: Any
-
-    def __str__(self) -> str:
-        return str(self.obj)
-
-    def __repr__(self) -> str:
-        return repr(self.obj)
 
 
 def str_from_source_info(source_info, enable_color=True, is_first_frame=True, callee_info=None):
@@ -99,12 +82,6 @@ def str_from_source_info(source_info, enable_color=True, is_first_frame=True, ca
             frame_info += " --- required from here"
     frame_info += "\n\n"
     return frame_info
-
-
-def _get_function_file_and_lines(func):
-    filename = inspect.getsourcefile(func)
-    lines, start_line = inspect.getsourcelines(func)
-    return filename, start_line, start_line + len(lines)
 
 
 def str_from_stack_info(stack_info: "utils.stack_info.StackInfo", enable_color: bool = True) -> Optional[str]:
