@@ -32,7 +32,6 @@ from nvtripy.flat_ir.ops.maximum import MaxOp
 from nvtripy.flat_ir.ops.minimum import MinOp
 from nvtripy.flat_ir.ops.mul import MulOp
 from nvtripy.flat_ir.ops.pad import DynamicPadOp
-from nvtripy.flat_ir.ops.plugin import PluginOp
 from nvtripy.flat_ir.ops.pow import PowOp
 from nvtripy.flat_ir.ops.reduce import ArgMinMaxOp, ReduceOp
 from nvtripy.flat_ir.ops.reduce_window import ReduceWindowOp
