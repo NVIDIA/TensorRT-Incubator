@@ -1,3 +1,5 @@
+
+<!-- TODO (pranavm): Rewrite this -->
 # Architecture
 
 This document explains the overall architecture of Tripy.

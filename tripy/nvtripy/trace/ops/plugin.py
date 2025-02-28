@@ -24,6 +24,7 @@ import mlir_tensorrt.compiler.api as compiler
 from mlir_tensorrt.compiler import ir
 from mlir_tensorrt.compiler.dialects import tensorrt
 from nvtripy import utils
+from nvtripy.common.exception import raise_error
 from nvtripy.trace.ops.base import BaseTraceOp
 from nvtripy.utils.result import Result
 
@@ -129,22 +130,25 @@ class Plugin(BaseTraceOp):
         plugin_err_prefix = f"Plugin: {self.name} (version={self.version}, namespace={repr(self.namespace)})"
 
         params = {}
+        # TODO (pranavm): Verify error messages:
         for name, values in self.creator_params.items():
             if name not in field_schema:
-                utils.ops.raise_error_io_info(
-                    self,
+                raise_error(
                     f"{plugin_err_prefix} has no field called: {name}",
-                    [f"Note: Valid fields are: {list(sorted(field_schema.keys()))}"],
-                    include_inputs=False,
+                    [
+                        "This originated from:",
+                        self.outputs[0],
+                        f"Note: Valid fields are: {list(sorted(field_schema.keys()))}",
+                    ],
                 )
 
             result = plugin_field_to_attr(field_schema[name], values)
             if not result:
-                utils.ops.raise_error_io_info(
-                    self,
+                raise_error(
                     f"{plugin_err_prefix}: Invalid value provided for field: {name}",
-                    result.error_details + [f" Note: Provided field value was: {repr(values)}"],
-                    include_inputs=False,
+                    ["This originated from:", self.outputs[0]]
+                    + result.error_details
+                    + [f" Note: Provided field value was: {repr(values)}"],
                 )
             params[name] = result.value
 
