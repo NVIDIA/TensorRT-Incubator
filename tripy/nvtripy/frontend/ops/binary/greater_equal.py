@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -47,7 +47,6 @@ def __ge__(self: "nvtripy.Tensor", other: TensorLike) -> "nvtripy.Tensor":
 
         assert output.tolist() == [True, False]
     """
-    from nvtripy.frontend.ops.binary import __eq__, __gt__
     from nvtripy.frontend.ops.binary.logical_or import logical_or
 
     return logical_or(self > other, self == other)
