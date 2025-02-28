@@ -54,7 +54,7 @@ def allclose(input: "nvtripy.Tensor", other: "nvtripy.Tensor", rtol: float = 1e-
         out = tp.allclose(tp.Tensor([1e-7]), tp.Tensor([1.2e-7]))
         assert not out
     """
-    from nvtripy.frontend.ops.reduce import all
+    from nvtripy.frontend.ops.reduce.all import all
     from nvtripy.frontend.ops.unary.abs import abs
 
     compare = abs(input - other) <= (atol + rtol * abs(other))

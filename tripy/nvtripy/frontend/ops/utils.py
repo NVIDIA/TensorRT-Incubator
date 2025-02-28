@@ -27,7 +27,7 @@ from nvtripy import constants
 
 # Creates a Trace operation from the provided frontend tensors and wraps its
 # outputs in frontend Tensors or DimensionSizes.
-def create_op(OpType, inputs, *args, always_cast_to_dimension_size=False, **kwargs):
+def create_op(OpType, inputs, *args, always_cast_to_dimension_size=False, stack_depth_offset=0, **kwargs):
     from nvtripy.frontend.dimension_size import DimensionSize
     from nvtripy.frontend.tensor import Tensor
 
@@ -38,7 +38,7 @@ def create_op(OpType, inputs, *args, always_cast_to_dimension_size=False, **kwar
     def should_cast_to_dimension_size(out):
         return always_cast_to_dimension_size or (all_inputs_are_dimension_size and out.dtype == int32 and out.rank == 0)
 
-    STACK_DEPTH_OF_FROM_TRACE_TENSOR = 4  # Stack depth from API function calls
+    STACK_DEPTH_OF_FROM_TRACE_TENSOR = 4 + stack_depth_offset  # Stack depth from API function calls
     op = OpType([inp.trace_tensor for inp in inputs], *args, **kwargs)
     outputs = [
         (
