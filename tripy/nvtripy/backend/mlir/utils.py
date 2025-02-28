@@ -264,11 +264,16 @@ def map_error_to_user_code_and_raise(trace, exc, stderr):
         return any(line.strip().startswith(start) for start in starts)
 
     # TODO (pranavm): Config option to disable stripping out this additional information:
-    stderr = "\n".join(
-        line
-        for line in stderr.splitlines()
-        if not starts_with_any(line, f"({','.join(output_names)}) error:", "error:")
-    )
+    new_stderr_lines = []
+    first_error_found = False
+    for line in stderr.splitlines():
+        if starts_with_any(line, f"({','.join(output_names)}) error:", "error:"):
+            if not first_error_found:
+                new_stderr_lines.append(line)
+            first_error_found = True
+        else:
+            new_stderr_lines.append(line)
+    stderr = "\n".join(new_stderr_lines)
 
     raise_error(
         error_message.replace("InternalError: InternalError:", "InternalError:").rstrip("."),

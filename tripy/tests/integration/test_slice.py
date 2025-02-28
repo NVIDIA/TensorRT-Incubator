@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -73,10 +73,7 @@ class TestSliceOp:
         a_cp = cp.arange(np.prod(dims_a)).reshape(dims_a).astype(np.float32)
         a = tp.Tensor(a_cp, device=tp.device("gpu"))
 
-        def func(a):
-            return slice_func(a)
-
-        out = eager_or_compiled(func, a)
+        out = eager_or_compiled(slice_func, a)
         assert np.array_equal(cp.from_dlpack(out).get(), slice_func(a_cp).get())
 
     def test_slice_as_gather(self, eager_or_compiled):
