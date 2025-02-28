@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,11 +15,11 @@
 # limitations under the License.
 #
 
+import copy
 from dataclasses import dataclass, field
+from typing import Dict, List
 
 from colored import Fore
-from typing import List, Dict
-import copy
 
 
 @dataclass
@@ -39,11 +39,10 @@ def make_verbosity_map() -> Dict[str, VerbosityConfig]:
         "warning": VerbosityConfig("[W] ", Fore.light_yellow, ["error"]),
         "error": VerbosityConfig("[E] ", Fore.light_red),
         "trace": VerbosityConfig("==== Trace IR ====\n", Fore.magenta),
-        "flat_ir": VerbosityConfig("==== Flat IR ====\n", Fore.magenta),
         "mlir": VerbosityConfig("==== MLIR ====\n", Fore.magenta),
         # Shorthand for enabling all IR dumps,
         # `logger.ir` probably shouldn't be called but `"ir"` may be used as a verbosity option.
-        "ir": VerbosityConfig("", "", enables=["trace", "flat_ir", "mlir"]),
+        "ir": VerbosityConfig("", "", enables=["trace", "mlir"]),
         "timing": VerbosityConfig("==== Timing ====\n", Fore.cyan),
     }
 

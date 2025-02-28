@@ -47,7 +47,6 @@ def __le__(self: "nvtripy.Tensor", other: TensorLike) -> "nvtripy.Tensor":
 
         assert output.tolist() == [True, False]
     """
-    from nvtripy.frontend.ops.binary import __eq__, __lt__
     from nvtripy.frontend.ops.binary.logical_or import logical_or
 
     return logical_or(self < other, self == other)
