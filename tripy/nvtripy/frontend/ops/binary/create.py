@@ -21,4 +21,4 @@ from nvtripy.frontend.ops import utils as op_utils
 def create_binary_op(OpType, lhs, rhs):
     lhs, rhs = op_utils.match_ranks(lhs, rhs)
 
-    return op_utils.create_op(OpType, [lhs, rhs])
+    return op_utils.create_op(OpType, [lhs, rhs], stack_depth_offset=1)
