@@ -18,15 +18,10 @@
 from typing import Optional, Tuple
 
 import mlir_tensorrt.compiler.api as compiler
-from mlir_tensorrt.compiler import ir
-
 import nvtripy.config as cfg
+from mlir_tensorrt.compiler import ir
 from nvtripy import config, utils
-from nvtripy.backend.mlir.utils import (
-    make_ir_context,
-    map_error_to_user_code_and_raise,
-    redirect_stderr,
-)
+from nvtripy.backend.mlir.utils import make_ir_context, map_error_to_user_code_and_raise, redirect_stderr
 from nvtripy.logging import logger
 
 G_COMPILER_CLIENT = None
@@ -70,13 +65,6 @@ class Compiler:
                 opts.append(f"--tensorrt-layer-info-dir={config.tensorrt_debug_path}")
                 opts.append(f"--tensorrt-engines-dir={config.tensorrt_debug_path}")
         return self.compiler_client.get_compilation_task("tensorrt-to-executable", opts)
-
-    def compile_stabehlo_program(self, code: str) -> compiler.Executable:
-        with self.mlir_context:
-            module = ir.Module.parse(code)
-            task = self._get_compilation_task(self.trt_builder_opt_level)
-            task.run(module.operation)
-            return compiler.translate_mlir_to_executable(module.operation)
 
     # The optional trace parameter is used to generate nicer error messages.
     @utils.utils.log_time

@@ -66,7 +66,7 @@ class Trace:
         seen_op_ids: Set[int] = set()
 
         # Check all tensors for duplicate names. We currently rely on tensor names being
-        # unique in the trace/flatIR. We could potentially change this in the future to
+        # unique in the trace. We could potentially change this in the future to
         # automatically make names unique instead of complaining to the user, but it's better
         # for traceability if we use the names set by the user/frontend.
         self.tensor_map = {}
