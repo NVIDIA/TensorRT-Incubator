@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,39 +16,18 @@
 #
 
 from dataclasses import dataclass
+from typing import Sequence
 
 import mlir_tensorrt.compiler.api as compiler
+import nvtripy as tp
 import pytest
 from mlir_tensorrt.compiler import ir
-
-import nvtripy as tp
 from nvtripy.backend.mlir import utils as mlir_utils
-from nvtripy.flat_ir.ops import PluginOp
-from nvtripy.flat_ir.ops.plugin import plugin_field_to_attr
-from nvtripy.trace.trace import Trace
-from typing import Sequence
+from nvtripy.trace.ops.plugin import plugin_field_to_attr
 from tests import helper
 
 
-@pytest.fixture
-def flat_ir():
-    X = tp.iota((1, 2, 4, 4))
-    X.name = "X"
-    rois = tp.Tensor([[0.0, 0.0, 9.0, 9.0], [0.0, 5.0, 4.0, 9.0]], dtype=tp.float32, name="rois")
-    batch_indices = tp.zeros((2,), dtype=tp.int32)
-    batch_indices.name = "batch_indices"
-
-    out = tp.plugin(
-        "ROIAlign_TRT", [X, rois, batch_indices], output_info=[(X.rank, X.dtype)], output_height=5, output_width=5
-    )
-    out.name = "out"
-
-    trace = Trace([out.trace_tensor])
-    flat_ir = trace.to_flat_ir()
-    yield flat_ir
-
-
-class TestPluginOp:
+class TestPlugin:
 
     @pytest.mark.parametrize(
         "params, expected_error",
