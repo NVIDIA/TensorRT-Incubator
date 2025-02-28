@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -30,9 +30,9 @@ OP_TYPES = sorted(
 
 @pytest.mark.parametrize("OpType", OP_TYPES)
 class TestFrontendOps:
-    def test_to_flat_ir_does_not_access_io(self, OpType):
-        # to_flat_ir() methods should not access `self.inputs` and `self.outputs`
-        source = inspect.getsource(OpType.to_flat_ir)
+    def test_to_mlir_does_not_access_io(self, OpType):
+        # to_mlir() methods should not access `self.inputs` and `self.outputs`
+        source = inspect.getsource(OpType.to_mlir)
 
         assert "self.inputs" not in source
         assert "self.outputs" not in source

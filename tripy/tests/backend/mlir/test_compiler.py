@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,7 +20,6 @@ from tests import helper
 
 import nvtripy as tp
 from nvtripy.backend.mlir.compiler import map_error_to_user_code_and_raise
-from nvtripy.flat_ir.tensor import FlatIRTensor
 from nvtripy.trace.trace import Trace
 
 
@@ -47,24 +46,3 @@ class TestErrorMapping:
             has_stack_info_for=[tensor, reshaped],
         ):
             reshaped.eval()
-
-    def test_reason_context(self):
-        with FlatIRTensor.context(["This is the first level of context"]):
-            with FlatIRTensor.context(["This is the second level of context"]):
-                # We need to emit an error from one of the internally created `FlatIRTensor`s to see the context
-                a = tp.ones((1,))
-                b = tp.ones((1,))
-                out = a + b
-                trace = Trace([out.trace_tensor])
-                flat_ir = trace.to_flat_ir()
-                producer = flat_ir.outputs[0].producer.inputs[0]
-                flat_ir_inputs = ",".join(map(lambda i: i.name, producer.producer.inputs))
-                trace_inputs = ",".join(producer.producer.trace_input_names)
-                trace_output = producer.producer.trace_output_names[0]
-                err_str = f'loc("{flat_ir_inputs};;<out>;;{producer.name};;<trace_in>;;{trace_inputs};;<trace_out>;;{trace_output}"): Test error'
-
-                with pytest.raises(
-                    tp.TripyException,
-                    match="This is the first level of context\n    This is the second level of context",
-                ) as exc:
-                    map_error_to_user_code_and_raise(flat_ir, exc, err_str)
