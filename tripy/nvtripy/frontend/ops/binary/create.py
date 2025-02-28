@@ -19,18 +19,6 @@ from nvtripy.frontend.ops import utils as op_utils
 
 # Like op_utils.create_op except also performs rank expansion of operands if needed.
 def create_binary_op(OpType, lhs, rhs):
-    from nvtripy.frontend.ops.reshape import reshape
-
-    def expand_rank(tensor, max_rank):
-        if tensor.rank == max_rank:
-            return tensor
-
-        assert tensor.rank < max_rank, "Tensor rank cannot be larger than max rank of operands"
-        new_shape = [1] * (max_rank - tensor.rank) + tensor.shape
-        return reshape(tensor, new_shape)
-
-    max_rank = max(lhs.rank, rhs.rank)
-    lhs = expand_rank(lhs, max_rank)
-    rhs = expand_rank(rhs, max_rank)
+    lhs, rhs = op_utils.match_ranks(lhs, rhs)
 
     return op_utils.create_op(OpType, [lhs, rhs])
