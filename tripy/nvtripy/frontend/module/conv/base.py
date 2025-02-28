@@ -68,10 +68,11 @@ class ConvBase(Module):
                 ],
             )
 
+        num_spatial = len(kernel_dims)
         op_utils.check_conv_pooling_args(kernel_dims, stride, padding, dilation)
-        self.padding = utils.utils.default(padding, tuple(((0, 0) for _ in range(kernel_dims))))
-        self.stride = utils.utils.default(stride, (1,) * kernel_dims)
-        self.dilation = utils.utils.default(dilation, (1,) * kernel_dims)
+        self.padding = utils.utils.default(padding, tuple(((0, 0) for _ in range((num_spatial)))))
+        self.stride = utils.utils.default(stride, (1,) * num_spatial)
+        self.dilation = utils.utils.default(dilation, (1,) * num_spatial)
 
         self.bias = None
         if bias:
