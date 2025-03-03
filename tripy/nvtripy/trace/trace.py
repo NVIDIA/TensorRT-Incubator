@@ -173,12 +173,10 @@ class Trace:
                                 # If the shapes are frozen after adding a layer, assign these shapes back to trace tensor.
                                 for mlir_out, trace_out in zip(layer_outputs, op.outputs):
                                     type = get_op_result_or_value(mlir_out).type
-                                    trace_out.shape = tuple(
-                                        [
-                                            (-1 if type.is_dynamic_dim(i) else type.get_dim_size(i))
-                                            for i in range(type.rank)
-                                        ]
-                                    )
+                                    trace_out.shape = [
+                                        (-1 if type.is_dynamic_dim(i) else type.get_dim_size(i))
+                                        for i in range(type.rank)
+                                    ]
 
                             mlir_ops.update(zip([out.name for out in op.outputs], layer_outputs))
 
