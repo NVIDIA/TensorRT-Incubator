@@ -54,7 +54,7 @@ static FailureOr<ClusteringOpts> getTensorRTClusteringOptions(Operation *op) {
 /// `nameBase` but may have numbers appended in order to unique the name. The
 /// created function has argument/result types as indicated by the parameters.
 static FailureOr<FunctionOpInterface>
-createOutlinedFunc(RewriterBase &rewriter, Location loc, Operation *module,
+createOutlinedFunc(ModuleOp outerModule, RewriterBase &rewriter, Location loc, Operation *mod,
                    StringRef nameBase, TypeRange funcArgTypes,
                    TypeRange funcResultTypes) {
   OpBuilder::InsertionGuard g(rewriter);
@@ -63,6 +63,20 @@ createOutlinedFunc(RewriterBase &rewriter, Location loc, Operation *module,
   FunctionType type =
       FunctionType::get(rewriter.getContext(), funcArgTypes, funcResultTypes);
   auto outlinedFunc = func::FuncOp::create(loc, nameBase, type, {});
+
+  StringRef tensorrtShapeBoundsAttrName = mlir::tensorrt::TensorRTDialect::getShapeProfileArgAttrName();
+
+  // TODO (pranavm): Will there only ever be one outer FuncOp? How do we make this more robust?
+  func::FuncOp outerFunc;
+  for (auto func : outerModule.getOps<func::FuncOp>()) {
+      outerFunc = func;
+      break;
+  }
+  for (unsigned idx = 0; idx < outlinedFunc.getNumArguments(); idx++) {
+    const auto profile = outerFunc.getArgAttrOfType<tensorrt::ShapeProfileAttr>(idx, tensorrtShapeBoundsAttrName);
+    outlinedFunc.setArgAttr(idx, tensorrtShapeBoundsAttrName, profile);
+  }
+
   Block *funcBody = outlinedFunc.addEntryBlock();
 
   // Add an empty terminator.
@@ -70,8 +84,8 @@ createOutlinedFunc(RewriterBase &rewriter, Location loc, Operation *module,
   rewriter.create<func::ReturnOp>(loc);
 
   // Insert into the module.
-  SymbolTable(module).insert(outlinedFunc,
-                             module->getRegions().front().front().end());
+  SymbolTable(mod).insert(outlinedFunc,
+                             mod->getRegions().front().front().end());
 
   // Tag the function with a UnitAttr for identifying the different kinds of
   // functions based on the cluster type.
@@ -101,7 +115,7 @@ getOrCreateTensorRTModuleOp(ModuleOp moduleOp) {
 }
 
 static FailureOr<tensorrt::CallAllocOp>
-outlineOp(RewriterBase &rewriter, tensorrt::TensorRTModuleOp trtModule,
+outlineOp(ModuleOp outerModule, RewriterBase &rewriter, tensorrt::TensorRTModuleOp trtModule,
           const Cluster &cluster) {
   auto inlineGroupOp =
       cast<plan::InlineGroupOp>(mlir::createRegionOpFromCluster(
@@ -118,7 +132,7 @@ outlineOp(RewriterBase &rewriter, tensorrt::TensorRTModuleOp trtModule,
       makeRegionIsolatedFromAbove(rewriter, inlineGroupOp.getRegion());
 
   // Create the outlined function
-  FailureOr<FunctionOpInterface> func = createOutlinedFunc(
+  FailureOr<FunctionOpInterface> func = createOutlinedFunc(outerModule,
       rewriter, inlineGroupOp.getLoc(), trtModule, "tensorrt_cluster",
       TypeRange(inputs), inlineGroupOp->getResultTypes());
   if (failed(func))
@@ -157,26 +171,26 @@ class OutlineTensorRTOpPass
 public:
   using Base::Base;
   void runOnOperation() override {
-    ModuleOp module = getOperation();
+    ModuleOp mod = getOperation();
     IRRewriter rewriter(&getContext());
 
-    FailureOr<ClusteringOpts> opts = getTensorRTClusteringOptions(module);
+    FailureOr<ClusteringOpts> opts = getTensorRTClusteringOptions(mod);
     if (failed(opts)) {
-      emitError(module.getLoc()) << "failed to create clustering options";
+      emitError(mod.getLoc()) << "failed to create clustering options";
       return signalPassFailure();
     }
 
     FailureOr<SmallVector<Cluster>> clusters =
-        mlir::analyzeAndClusterOperations(module, *opts);
+        mlir::analyzeAndClusterOperations(mod, *opts);
     if (failed(clusters)) {
-      emitError(module.getLoc()) << "failed to cluster operations";
+      emitError(mod.getLoc()) << "failed to cluster operations";
       return signalPassFailure();
     }
 
-    tensorrt::TensorRTModuleOp trtModule = getOrCreateTensorRTModuleOp(module);
+    tensorrt::TensorRTModuleOp trtModule = getOrCreateTensorRTModuleOp(mod);
 
     for (const auto &cluster : *clusters) {
-      if (failed(outlineOp(rewriter, trtModule, cluster)))
+      if (failed(outlineOp(mod, rewriter, trtModule, cluster)))
         return signalPassFailure();
     }
   }
