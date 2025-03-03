@@ -21,7 +21,6 @@ import hashlib
 import inspect
 import math
 import os
-import re
 import time
 import typing
 from typing import Any, List, Optional, Sequence, Tuple, Union
@@ -47,7 +46,7 @@ def default(value, default):
 
 
 def pascal_to_snake_case(inp):
-    return re.sub("([A-Z])", r"_\1", inp).lstrip("_").lower()
+    return "".join(f"_{c.lower()}" if c.isupper() else c for c in inp).lstrip("_")
 
 
 def call_once(func):
