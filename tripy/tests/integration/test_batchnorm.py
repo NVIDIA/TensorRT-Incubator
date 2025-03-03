@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -62,6 +62,6 @@ class TestBatchNorm:
         x = tp.ones((3, 3, 3))
         with helper.raises(
             tp.TripyException,
-            match=re.escape("size of operand dimension 1 (2) is not compatible with size of result dimension 1 (3)"),
+            match=re.escape("broadcast dimensions must be conformable"),
         ):
             tp_batchnorm(x).eval()
