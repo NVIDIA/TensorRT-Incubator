@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,7 +20,7 @@ import numpy as np
 import nvtripy as tp
 import pytest
 from nvtripy.backend.mlir import memref
-from nvtripy.constants import STORAGE_OP_CACHE_VOLUME_THRESHOLD
+from nvtripy.constants import CONSTANT_OP_CACHE_VOLUME_THRESHOLD
 from nvtripy.trace.ops.constant import Constant
 
 
@@ -37,10 +37,10 @@ class TestConstant:
         assert constant.data_str.startswith("<mlir_tensorrt.runtime._mlir_libs._api.MemRefValue object at 0x")
 
     def test_from_large_memref(self):
-        data = memref.create_memref_view(cp.ones((2, STORAGE_OP_CACHE_VOLUME_THRESHOLD), dtype=cp.float32))
+        data = memref.create_memref_view(cp.ones((2, CONSTANT_OP_CACHE_VOLUME_THRESHOLD), dtype=cp.float32))
         constant = Constant(data)
         assert constant.dtype == tp.float32
-        assert constant.shape == (2, STORAGE_OP_CACHE_VOLUME_THRESHOLD)
+        assert constant.shape == (2, CONSTANT_OP_CACHE_VOLUME_THRESHOLD)
         assert constant.device.kind == "gpu"
         assert constant.data_str == ""
 
@@ -69,7 +69,7 @@ class TestConstant:
         assert constant.data_str == "[[1. 1.]\n [1. 1.]]"
 
     def test_from_large_input_shape(self):
-        shape = (1, STORAGE_OP_CACHE_VOLUME_THRESHOLD + 10)
+        shape = (1, CONSTANT_OP_CACHE_VOLUME_THRESHOLD + 10)
         data = cp.ones(shape, dtype=cp.float32)
         constant = Constant(data)
         assert constant.dtype == tp.float32
