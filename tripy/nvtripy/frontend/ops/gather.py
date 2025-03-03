@@ -27,7 +27,7 @@ from nvtripy.utils import wrappers
     dtype_constraints={"input": "T1", "index": "T2", wrappers.RETURN_VALUE: "T1"},
     dtype_variables={
         "T1": ["float8", "float32", "float16", "bfloat16", "int4", "int8", "int32", "int64", "bool"],
-        "T2": ["int32"],
+        "T2": ["int32", "int64"],
     },
 )
 # TODO (pranavm): Document this better (+example) for the >1D indices case - also add tests.

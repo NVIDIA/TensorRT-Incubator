@@ -112,13 +112,15 @@ def __getitem__(
             # and tensor/non-tensor params + default/explicitly provided arguments + OOB start/stop (positive and negative).
             # Also test with non-const inputs so shapes are non-integers.
 
+            # Ternary select that can accept `cond` as either a DimensionSize or bool
+            def select(cond, lhs, rhs):
+                if isinstance(cond, bool):
+                    return lhs if cond else rhs
+                return where(cond, DimensionSize(lhs), DimensionSize(rhs))
+
             # For negative step sizes, the default start/stop are inverted.
-            if isinstance(step, int):
-                default_start = 0 if step >= 0 else (dim_size - 1)
-                default_stop = dim_size if step >= 0 else -1
-            else:
-                default_start = where(step >= 0, DimensionSize(0), DimensionSize(dim_size - 1))
-                default_stop = where(step >= 0, DimensionSize(dim_size), DimensionSize(-1))
+            default_start = select(step >= 0, 0, dim_size - 1)
+            default_stop = select(step >= 0, dim_size, -1)
 
             def get_min(a, b):
                 return (
@@ -129,8 +131,9 @@ def __getitem__(
 
             if slice_idx.start is not None:
                 start = to_positive_idx(slice_idx.start)
-                # If `start` is past the end, clamp it:
-                start = get_min(start, dim_size)
+                # If `start` is past the end, clamp it - if we're going backwards, we need to clamp it to a valid value;
+                # otherwise, we can clamp it out of bounds (which will yield an empty tensor):
+                start = get_min(start, select(step >= 0, dim_size, dim_size - 1))
             else:
                 start = default_start
 

@@ -24,7 +24,7 @@ def mod_impl(lhs, rhs):
 @register_tensor_method("__mod__")
 @wrappers.interface(
     dtype_constraints={"self": "T1", "other": "T1", wrappers.RETURN_VALUE: "T1"},
-    dtype_variables={"T1": ["float32", "float16", "bfloat16"]},
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int32", "int64"]},
     convert_to_tensors=True,
 )
 def __mod__(self: "nvtripy.Tensor", other: TensorLike) -> "nvtripy.Tensor":
