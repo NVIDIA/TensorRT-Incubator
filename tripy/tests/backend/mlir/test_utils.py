@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -32,6 +32,7 @@ class TestUtils:
     @pytest.mark.parametrize("dtype", DATA_TYPES.values())
     def test_convert_dtype(self, dtype):
         if dtype in {nvtripy.bool}:
+            # TODO (pranavm): Check this:
             pytest.skip("Bool is not working correctly yet")
 
         with mlir_utils.make_ir_context():
