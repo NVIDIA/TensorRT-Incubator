@@ -117,11 +117,15 @@ def __getitem__(
                 default_start = 0 if step >= 0 else (dim_size - 1)
                 default_stop = dim_size if step >= 0 else -1
             else:
-                default_start = where(step >= 0, Tensor(0, dtype=step.dtype), Tensor(dim_size - 1))
-                default_stop = where(step >= 0, Tensor(dim_size), Tensor(-1, dtype=step.dtype))
+                default_start = where(step >= 0, DimensionSize(0), DimensionSize(dim_size - 1))
+                default_stop = where(step >= 0, DimensionSize(dim_size), DimensionSize(-1))
 
             def get_min(a, b):
-                return min(a, b) if isinstance(a, int) and isinstance(b, int) else minimum(Tensor(a), Tensor(b))
+                return (
+                    min(a, b)
+                    if isinstance(a, int) and isinstance(b, int)
+                    else minimum(DimensionSize(a), DimensionSize(b))
+                )
 
             if slice_idx.start is not None:
                 start = to_positive_idx(slice_idx.start)
@@ -143,7 +147,7 @@ def __getitem__(
                 size = size // step
 
             # Size cannot be less than 0:
-            size = max(size, 0) if isinstance(size, int) else maximum(size, Tensor(0, dtype=size.dtype))
+            size = max(size, 0) if isinstance(size, int) else maximum(size, DimensionSize(0))
 
             starts.append(start)
             sizes.append(size)
