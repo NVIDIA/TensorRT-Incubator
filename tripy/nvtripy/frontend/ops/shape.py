@@ -16,6 +16,8 @@
 #
 
 
+import copy
+
 from nvtripy import constants
 from nvtripy.common.datatype import DATA_TYPES
 from nvtripy.frontend.ops import utils as op_utils
@@ -48,7 +50,8 @@ def shape(self: "nvtripy.Tensor") -> ShapeLike:
     # If the shape is statically known, we do not need to insert any operator calls.
     # However, if we are tracing, it might still be necessary to insert calls in the final program, so we will keep it.
     if all(dim != constants.DYNAMIC_DIM for dim in self.trace_tensor.shape) and not self.trace_tensor.is_compile_tracer:
-        return self.trace_tensor.shape
+        # TODO (pranavm): Add test to make sure trace tensor shape is not modified if we modify result of x.shape.
+        return copy.copy(self.trace_tensor.shape)
 
     shape = op_utils.create_op(Shape, [self])
     return [

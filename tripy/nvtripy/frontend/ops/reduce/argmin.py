@@ -23,7 +23,7 @@ from nvtripy.utils import wrappers
 @export.public_api(document_under="operations/functions")
 @wrappers.interface(
     dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T2"},
-    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int32"], "T2": ["int32", "int64"]},
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int32", "int64"], "T2": ["int32", "int64"]},
 )
 def argmin(input: "nvtripy.Tensor", dim: Optional[int] = None, keepdim: bool = False) -> "nvtripy.Tensor":
     """
