@@ -21,7 +21,31 @@ import nvtripy as tp
 import pytest
 from nvtripy.backend.mlir import memref
 from nvtripy.constants import CONSTANT_OP_CACHE_VOLUME_THRESHOLD
-from nvtripy.trace.ops.constant import Constant
+from nvtripy.trace.ops.constant import Constant, convert_list_to_array, get_element_type
+from tests import helper
+
+
+def test_get_element_type():
+    assert get_element_type([1, 2, 3]) == tp.int32
+    assert get_element_type([1.0, 2.0, 3.0]) == tp.float32
+    assert get_element_type([[1], [2], [3]]) == tp.int32
+
+    with helper.raises(tp.TripyException, match="Unsupported element type."):
+        get_element_type(["a", "b", "c"])
+
+
+@pytest.mark.parametrize(
+    "values, dtype, expected",
+    [
+        ([True, False, True], tp.bool, b"\x01\x00\x01"),
+        ([100000, 200000], tp.int32, b"\xa0\x86\x01\x00@\x0d\x03\x00"),
+        ([1, 2], tp.int64, b"\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00"),
+        ([1.0, 2.0], tp.float32, b"\x00\x00\x80?\x00\x00\x00@"),
+    ],
+)
+def test_convert_list_to_array(values, dtype, expected):
+    result = convert_list_to_array(values, dtype)
+    assert result.tobytes() == expected
 
 
 class TestConstant:

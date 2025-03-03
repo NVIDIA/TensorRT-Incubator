@@ -16,6 +16,7 @@ import math
 from typing import Optional, Sequence, Union
 
 from nvtripy import export
+from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.utils import wrappers
 
 
