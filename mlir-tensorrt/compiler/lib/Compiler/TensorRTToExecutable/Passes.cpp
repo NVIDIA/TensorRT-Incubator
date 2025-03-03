@@ -124,6 +124,45 @@ outlineOp(RewriterBase &rewriter, tensorrt::TensorRTModuleOp trtModule,
   if (failed(func))
     return failure();
 
+  StringRef tensorrtShapeBoundsAttrName =
+      mlir::tensorrt::TensorRTDialect::getShapeProfileArgAttrName();
+  func::FuncOp funcContainingCluster =
+      cluster.back()->getParentOfType<func::FuncOp>();
+  SmallVector<Attribute> profileAttrsPerInput;
+  for (Value v : inputs) {
+    auto rtt = dyn_cast<RankedTensorType>(v.getType());
+    if (!rtt || rtt.hasStaticShape()) {
+      profileAttrsPerInput.push_back(Attribute{});
+      continue;
+    }
+
+    auto blockArg = dyn_cast<BlockArgument>(v);
+    if (!blockArg ||
+        blockArg.getOwner()->getParentOp() != funcContainingCluster) {
+      return emitError(blockArg.getLoc())
+             << "Block argument is not part of the signature of the function "
+                "containing this TRT cluster";
+    }
+
+    int64_t argIndex = blockArg.getArgNumber();
+    profileAttrsPerInput.push_back(
+        funcContainingCluster.getArgAttrOfType<tensorrt::ShapeProfileAttr>(
+            argIndex, tensorrtShapeBoundsAttrName));
+
+    if (!profileAttrsPerInput.back()) {
+      return emitError(blockArg.getLoc())
+             << "Profile attribute (" << tensorrtShapeBoundsAttrName
+             << ") of argument " << argIndex << " is not set";
+    }
+  }
+
+  for (unsigned idx = 0; idx < func->getNumArguments(); idx++) {
+    if (!profileAttrsPerInput[idx])
+      continue;
+    func->setArgAttr(idx, tensorrtShapeBoundsAttrName,
+                     profileAttrsPerInput[idx]);
+  }
+
   rewriter.setInsertionPoint(inlineGroupOp);
   auto callOp = rewriter.create<tensorrt::CallAllocOp>(
       inlineGroupOp.getLoc(), inlineGroupOp.getResultTypes(), inputs,
