@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,7 +19,7 @@ from tests import helper
 import nvtripy as tp
 import cupy as cu
 
-from nvtripy.constants import STORAGE_OP_CACHE_VOLUME_THRESHOLD
+from nvtripy.constants import CONSTANT_OP_CACHE_VOLUME_THRESHOLD
 from nvtripy.trace.trace import Trace
 from nvtripy.frontend.cache import ExecutableCache
 
@@ -88,7 +88,7 @@ class TestCache:
         assert mock_global_cache.get(Trace([layer(input2).trace_tensor]), devices=[output2.device]) is not None
 
     def test_different_large_input_values_lifted(self, mock_global_cache):
-        shape = (STORAGE_OP_CACHE_VOLUME_THRESHOLD, 2)
+        shape = (CONSTANT_OP_CACHE_VOLUME_THRESHOLD, 2)
         input1 = tp.Tensor(cu.ones(shape, dtype=cu.float32), dtype=tp.float32)
         input2 = tp.Tensor(cu.zeros(shape, dtype=cu.float32), dtype=tp.float32)
 

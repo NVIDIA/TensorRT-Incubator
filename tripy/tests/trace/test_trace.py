@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,7 +21,7 @@ import cupy as cp
 
 import nvtripy as tp
 from tests import helper
-from nvtripy.constants import STORAGE_OP_CACHE_VOLUME_THRESHOLD
+from nvtripy.constants import CONSTANT_OP_CACHE_VOLUME_THRESHOLD
 from nvtripy.trace.trace import Trace
 
 
@@ -228,7 +228,7 @@ class TestTrace:
         assert len(storage_inputs) == 0
 
     def test_collect_storage_ops_large_inputs(self):
-        shape = (1, STORAGE_OP_CACHE_VOLUME_THRESHOLD + 10)
+        shape = (1, CONSTANT_OP_CACHE_VOLUME_THRESHOLD + 10)
         a = tp.Tensor(cp.ones(shape, dtype=cp.float32), name="a")
         b = tp.Tensor(cp.ones(shape, dtype=cp.float32), name="b")
 
