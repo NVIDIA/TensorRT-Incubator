@@ -27,6 +27,7 @@ from nvtripy.utils import wrappers
 from nvtripy.utils.utils import make_list
 
 
+# TODO (pranavm): Check if possible to constrain index tensor dtype
 @register_tensor_method("__getitem__")
 @wrappers.interface(
     dtype_constraints={"self": "T1", wrappers.RETURN_VALUE: "T1"},
@@ -35,7 +36,7 @@ from nvtripy.utils.utils import make_list
 # TODO (pranavm): Clean up this docstring
 # TODO (pranavm): x[3:2:1] gives *very bad* errors - figure out how to improve.
 def __getitem__(
-    self: "nvtripy.Tensor", index: Union[slice, IntLike, Sequence[Union[slice, IntLike]]]
+    self: "nvtripy.Tensor", index: Union["nvtripy.Tensor", slice, IntLike, Sequence[Union[slice, IntLike]]]
 ) -> "nvtripy.Tensor":
     """
     Returns a tensor containing a slice of this tensor.
