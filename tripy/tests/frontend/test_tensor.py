@@ -23,6 +23,7 @@ import numpy as np
 import nvtripy as tp
 import pytest
 import torch
+from nvtripy.trace.ops.constant import Constant
 from nvtripy.utils.stack_info import SourceInfo
 from tests.conftest import DATA_TYPE_TEST_CASES
 from tests.helper import NUMPY_TO_TRIPY
@@ -35,7 +36,7 @@ class TestTensor:
 
         assert isinstance(a, tp.Tensor)
         assert a.trace_tensor.producer.inputs == []
-        assert isinstance(a.trace_tensor.producer, tp.trace.ops.storage.Constant)
+        assert isinstance(a.trace_tensor.producer, Constant)
         assert cp.from_dlpack(a).get().tolist() == VALUES
 
     def test_empty_tensor(self):
@@ -57,7 +58,7 @@ class TestTensor:
     def test_tensor_device(self, kind):
         a = tp.Tensor([1, 2, 3], device=tp.device(kind))
 
-        assert isinstance(a.trace_tensor.producer, tp.trace.ops.storage.Constant)
+        assert isinstance(a.trace_tensor.producer, Constant)
         assert a.trace_tensor.producer.device.kind == kind
 
     @pytest.mark.parametrize("dtype", NUMPY_TO_TRIPY.keys())
@@ -151,11 +152,11 @@ class TestTensor:
         b = tp.Tensor(cp.array([2], dtype=cp.float32))
 
         c = a + b
-        assert isinstance(c.trace_tensor.producer, tp.trace.ops.binary_elementwise.BinaryElementwise)
+        assert not isinstance(c.trace_tensor.producer, Constant)
 
         c.eval()
 
-        assert isinstance(c.trace_tensor.producer, tp.trace.ops.storage.Constant)
+        assert isinstance(c.trace_tensor.producer, Constant)
         # Constant tensors should have no inputs since we don't want to trace back from them.
         assert c.trace_tensor.producer.inputs == []
         assert (cp.from_dlpack(c.trace_tensor.producer.data) == cp.array([3], dtype=np.float32)).all()
@@ -179,7 +180,7 @@ class TestTensor:
 
         # Make sure we include code for not only the `ones()` API but also the `full()` API
         # that it calls underneath
-        assert find_frame("ones").code.strip() == "return full(shape, 1, dtype)"
+        assert find_frame("ones").code.strip() == "return full(shape, 1.0, dtype)"
         assert find_frame("test_stack_depth_sanity").code.strip() == "a = tp.ones((2, 3))"
 
     @pytest.mark.parametrize(
