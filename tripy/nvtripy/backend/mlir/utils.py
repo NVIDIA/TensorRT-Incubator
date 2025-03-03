@@ -57,7 +57,8 @@ class MLIRRuntimeClient:
 def make_ir_context() -> ir.Context:
     ctx = MLIRContext()
     ctx.enable_multithreading(False)
-    # Allow unregistered dialects to assign trt shape_profile attribute to stablehlo program.
+    # TODO (pranavm): Check if this is needed:
+    # Allow unregistered dialects to assign trt shape_profile attribute.
     ctx.allow_unregistered_dialects = True
     return ctx
 
@@ -120,21 +121,6 @@ def make_mlir_tensor(
         [ir.ShapedType.get_dynamic_size()] * rank,
         get_mlir_dtype(dtype),
     )
-
-
-def get_constant_value(arg) -> Optional[ir.DenseElementsAttr]:
-    from mlir_tensorrt.compiler.dialects import stablehlo
-
-    if isinstance(arg, ir.Value) and ir.OpResult.isinstance(arg):
-        arg = ir.OpResult(arg).owner
-
-    if isinstance(arg, ir.Operation):
-        arg = arg.opview
-
-    if isinstance(arg, stablehlo.ConstantOp):
-        return arg.value
-
-    return None
 
 
 def check_tensor_type_and_suggest_contiguous(obj):
