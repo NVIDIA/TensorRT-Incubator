@@ -20,14 +20,12 @@ import sys
 
 import cupy as cp
 import numpy as np
+import nvtripy as tp
 import pytest
 import torch
+from nvtripy.utils.stack_info import SourceInfo
 from tests.conftest import DATA_TYPE_TEST_CASES
 from tests.helper import NUMPY_TO_TRIPY
-
-import nvtripy as tp
-from nvtripy.common.utils import get_element_type
-from nvtripy.utils.stack_info import SourceInfo
 
 
 class TestTensor:
@@ -83,11 +81,10 @@ class TestTensor:
         # TODO (pranavm): Check this:
         if dtype == tp.int4:
             pytest.skip(f"Unsupported front-end data type {dtype}")
+        # TODO (pranavm): Check this:
         # Error: 'plan.inline_closed_group' op input operand #0 of type 'tensor<0xf32>' does not have a TensorKind associated with it
         if len(input_data) == 0 and dtype == tp.float8:
-            pytest.skip(
-                f"Input data {input_data} with {get_element_type(input_data)} type can not be implicitly converted to {dtype}"
-            )
+            pytest.skip(f"Input data {input_data} can not be implicitly converted to {dtype}")
         tensor = tp.Tensor(input_data, dtype=dtype)
         assert tensor.dtype == dtype
 
