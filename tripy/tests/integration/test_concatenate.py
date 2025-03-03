@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -46,6 +46,7 @@ class TestConcatenate:
     )
     def test_negative_concat(self, tensor_shapes, dim, eager_or_compiled):
         tensors = [tp.ones(shape) for shape in tensor_shapes]
-        with helper.raises(tp.TripyException, match=f"not compatible at non-concat index"):
+        # TODO (pranavm): The stack trace is a bit weird here
+        with helper.raises(tp.TripyException, match=f"all concat input tensors must have the same dimensions"):
             out = eager_or_compiled(tp.concatenate, tensors, dim=dim)
             print(out)

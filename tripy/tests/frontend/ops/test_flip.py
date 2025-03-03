@@ -28,7 +28,7 @@ class TestFlip:
     )
     def test_flip_properties(self, dims):
         t = tp.Tensor([[0, 1, 2, 3, 4], [5, 6, 7, 8, 9]])
-        f = tp.flip(t, dims=dims)
+        f = tp.flip(t, dim=dims)
         assert isinstance(f, tp.Tensor)
         assert f.trace_tensor.rank == 2
         assert f.shape == [2, 5]
@@ -45,14 +45,14 @@ class TestFlip:
             tp.TripyException,
             match=r"All dimensions for flip must be in the range \[-2, 2\), but dimension 3 is out of range",
         ):
-            tp.flip(t, dims=3)
+            tp.flip(t, dim=3)
 
     def test_repeated_dim(self):
         t = tp.Tensor([[0, 1, 2, 3, 4], [5, 6, 7, 8, 9]])
         with helper.raises(
             tp.TripyException, match="All dimensions for flip must be unique but dimension 0 is repeated"
         ):
-            tp.flip(t, dims=[0, 1, 0])
+            tp.flip(t, dim=[0, 1, 0])
 
     def test_out_of_range_negative_dim(self):
         t = tp.Tensor([[0, 1, 2, 3, 4], [5, 6, 7, 8, 9]])
@@ -60,16 +60,16 @@ class TestFlip:
             tp.TripyException,
             match=r"All dimensions for flip must be in the range \[-2, 2\), but dimension -3 is out of range",
         ):
-            tp.flip(t, dims=-3)
+            tp.flip(t, dim=-3)
 
     def test_repeated_negative_dim(self):
         t = tp.Tensor([[0, 1, 2, 3, 4], [5, 6, 7, 8, 9]])
         with helper.raises(
             tp.TripyException, match=r"All dimensions for flip must be unique but dimension 1 \(-1\) is repeated"
         ):
-            tp.flip(t, dims=[0, 1, -1])
+            tp.flip(t, dim=[0, 1, -1])
 
     def test_flip_rank_0_with_dims(self):
         t = tp.Tensor(1)
         with helper.raises(tp.TripyException, match="It is not possible to flip a rank-0 tensor"):
-            tp.flip(t, dims=0)
+            tp.flip(t, dim=0)
