@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -80,6 +80,7 @@ class TestTensor:
     @pytest.mark.parametrize("input_data", [[], [0.0, 1.0, 2.0, 3.0], [1, 2, 3, 4], [False, True, False, True]])
     @pytest.mark.parametrize("dtype", DATA_TYPE_TEST_CASES)
     def test_dtype_from_list(self, input_data, dtype):
+        # TODO (pranavm): Check this:
         if dtype == tp.int4:
             pytest.skip(f"Unsupported front-end data type {dtype}")
         # Error: 'plan.inline_closed_group' op input operand #0 of type 'tensor<0xf32>' does not have a TensorKind associated with it
@@ -92,6 +93,7 @@ class TestTensor:
 
     @pytest.mark.parametrize("dtype", DATA_TYPE_TEST_CASES)
     def test_dtype_printing(self, dtype):
+        # TODO (pranavm): Check this:
         if dtype == tp.int4:
             pytest.skip(f"Unsupported front-end data type {dtype}")
         if dtype == tp.float8:
