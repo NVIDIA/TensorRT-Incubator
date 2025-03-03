@@ -119,6 +119,11 @@ class ExecutableCache:
         key = normalized_trace + "\ndevices:\n" + "\n".join([str(device) for device in devices])
         return utils.utils.md5(key.encode("utf-8"))
 
+    # TODO (pranavm): This is only here because of the tests - rewrite this and update the tests
+    def get(self, trace, devices):
+        key = self._generate_key(trace, devices)
+        return self._cache.get(key)
+
     # TODO (pranavm): Update integration tests for new behavior of this method.
     def compile(self, trace: "Trace", devices: List["nvtripy.device"]) -> Optional["nvtripy.Executable"]:
         """
