@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -80,6 +80,7 @@ class TestIota:
         from nvtripy.trace.ops.linspace import Linspace
 
         if dtype in [tp.float32, tp.int32, tp.int64]:
+            # TODO (pranavm): Check this:
             pytest.skip("tp.iota() supports float32, int32, and int64 without cast")
 
         # TODO: update the 'match' error msg when MLIR-TRT fixes dtype constraint

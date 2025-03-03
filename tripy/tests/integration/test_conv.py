@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -187,6 +187,7 @@ class TestConvolution:
 
     @pytest.mark.parametrize("test_case", test_cases_3d)
     def test_convolution_3d(self, torch_dtype, tp_dtype, test_case, eager_or_compiled):
+        # TODO (pranavm): Check this:
         pytest.skip("TODO (#260): Fix accuracy bugs in 3D conv")
         if not test_case.torch_pad:
             test_case.torch_pad = 0
