@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -34,7 +34,9 @@ class TestLinear:
         out = linear(a)
 
         with helper.raises(
-            tp.TripyException, match="contracting dimension sizes must match for lhs/rhs", has_stack_info_for=[a]
+            tp.TripyException,
+            match="last dimension of input0 = 3 and last dimension of input1 = 2 but must match",
+            has_stack_info_for=[a],
         ):
             out.eval()
 

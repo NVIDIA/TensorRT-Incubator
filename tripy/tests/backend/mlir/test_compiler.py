@@ -31,7 +31,7 @@ class TestErrorMapping:
 
         with helper.raises(
             tp.TripyException,
-            r"limit index 5 is larger than dimension size 3 in dimension 0",
+            r"out of bounds access",
             has_stack_info_for=[values],
         ):
             sliced.eval()
@@ -40,9 +40,5 @@ class TestErrorMapping:
         tensor = tp.ones((2, 2))
         reshaped = tp.reshape(tensor, (3, 3))
 
-        with helper.raises(
-            tp.TripyException,
-            r"number of output elements \(9\) doesn't match expected number of elements \(4\)",
-            has_stack_info_for=[tensor, reshaped],
-        ):
+        with helper.raises(tp.TripyException, r"reshape changes volume", has_stack_info_for=[tensor, reshaped]):
             reshaped.eval()

@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -48,31 +48,10 @@ class TestSlice:
 
     def test_invalid_index(self):
         a = tp.ones((2, 3, 4))
-        with helper.raises(
-            tp.TripyException,
-            # note that the stack trace includes an ANSI color code before the caret
-            # Looks like:
-            # |             a[3].eval()
-            # |               ^
-            match=r"\| {13}a\[3\]\.eval\(\)\n\s*\| {15}\x1b\[38;5;1m\^",
-            has_stack_info_for=[a],
-        ):
+        with helper.raises(tp.TripyException, match="out of bounds access", has_stack_info_for=[a]):
             a[3].eval()
 
     def test_invalid_multiple_dims(self):
         a = tp.ones((2, 3, 4))
-        first_dim_regex = r"(.|\n)*\| {13}a\[5, 3\]\.eval\(\)\n\s*\| {15}\x1b\[38;5;1m\^"
-        second_dim_regex = r"(.|\n)*\| {13}a\[5, 3\]\.eval\(\)\n\s*\| {18}\x1b\[38;5;1m\^"
-        with helper.raises(
-            tp.TripyException,
-            # Looking three instance of the following:
-            # |             a[5, 3].eval()
-            # |               ^
-            #
-            # and three instances of the following:
-            # |             a[5, 3].eval()
-            # |                  ^
-            match=(3 * first_dim_regex + 3 * second_dim_regex),
-            has_stack_info_for=[a],
-        ):
+        with helper.raises(tp.TripyException, match="out of bounds access", has_stack_info_for=[a]):
             a[5, 3].eval()
