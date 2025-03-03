@@ -56,6 +56,7 @@ for api in PUBLIC_APIS:
 def test_all_public_apis_verified(api):
     NON_VERIFIABLE_APIS = {"plugin", "Executable.__call__"}
     if api.__qualname__ in NON_VERIFIABLE_APIS:
+        # TODO (pranavm): Change this to not skip by removing from the params to begin with:
         pytest.skip(f"Cannot do data type verification for: {NON_VERIFIABLE_APIS}")
 
     assert api.__qualname__ in TYPE_VERIFICATION, f"Missing datatype constraints for: {api.__qualname__}"
@@ -233,6 +234,7 @@ def test_dtype_constraints(test_data):
             or "T2" in test_data[4]
             and test_data[4]["T2"] in [tp.int4, tp.int8, tp.float8]
         ):
+            # TODO (pranavm): Re-enable these:
             pytest.skip(f"StableHLO QDQ broken")
         if positive_case:
             ret_val, namespace = _run_dtype_constraints_subtest(test_data)

@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -37,6 +37,7 @@ class TestPooling:
         torch_padding = (padding[0][0], padding[1][0])
 
         if pool_type == "avg" and dtype == tp.int8:
+            # TODO (pranavm): Check this:
             pytest.skip("Torch average pool is not implemented for int8")
 
         if pool_type == "max":
@@ -44,6 +45,7 @@ class TestPooling:
             pool_torch = torch.nn.MaxPool2d(kernel_size=kernel_dims, stride=stride, padding=torch_padding)
         elif pool_type == "avg":
             if torch_padding != (0, 0):
+                # TODO (pranavm): Check this - probably due to including/not including padding.:
                 pytest.skip(
                     "https://github.com/NVIDIA/TensorRT-Incubator/issues/241: Tripy average pool is incorrect when padding != 0."
                 )
@@ -69,6 +71,7 @@ class TestPooling:
         torch_padding = (padding[0][0], padding[1][0], padding[2][0])
 
         if torch_padding != (0, 0, 0):
+            # TODO (pranavm): Check this - same as above:
             pytest.skip(
                 "https://github.com/NVIDIA/TensorRT-Incubator/issues/241: Tripy average pool is incorrect when padding != 0."
             )
