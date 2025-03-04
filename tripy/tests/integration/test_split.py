@@ -21,11 +21,11 @@ import nvtripy as tp
 import pytest
 
 
-def compare_split_results(tp_out, reference_out):
-    assert isinstance(reference_out, tuple)
-    assert len(tp_out) == len(reference_out)
-    for i in range(len(tp_out)):
-        assert cp.array_equal(cp.from_dlpack(tp_out[i]), cp.array(reference_out[i]))
+def compare_split_results(tp_outs, ref_outs):
+    assert isinstance(ref_outs, tuple)
+    assert len(tp_outs) == len(ref_outs)
+    for tp_out, ref_out in zip(tp_outs, ref_outs):
+        assert cp.array_equal(cp.from_dlpack(tp_out), cp.array(ref_out))
 
 
 # TODO (pranavm): Update to account for new semantics.
@@ -56,6 +56,6 @@ class TestSplitOp:
         def func(t):
             return tp.split(t, num_split_or_sizes, dim)
 
-        out = eager_or_compiled(func, a)
-        reference_out = reference_slices(a_cp)
-        compare_split_results(out, reference_out)
+        outs = eager_or_compiled(func, a)
+        ref_outs = reference_slices(a_cp)
+        compare_split_results(outs, ref_outs)
