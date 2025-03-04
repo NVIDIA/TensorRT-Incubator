@@ -45,4 +45,4 @@ def logical_or(lhs: "nvtripy.Tensor", rhs: "nvtripy.Tensor") -> "nvtripy.Tensor"
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.array([True, True, False]))
     """
-    return create_binary_op(LogicalOr, lhs, rhs)
+    return create_binary_op(LogicalOr, lhs, rhs, cast_bool_to_int=False)
