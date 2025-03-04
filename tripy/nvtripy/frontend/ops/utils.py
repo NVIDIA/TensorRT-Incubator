@@ -16,18 +16,18 @@
 #
 
 
-from typing import Optional, Sequence, Union, List
+from typing import List, Optional, Sequence, Union
 
 import nvtripy.common.datatype as tp_dtype
+from nvtripy import constants
 from nvtripy.common.datatype import int32
 from nvtripy.common.exception import raise_error
 from nvtripy.utils.utils import make_list
-from nvtripy import constants
 
 
 # Creates a Trace operation from the provided frontend tensors and wraps its
 # outputs in frontend Tensors or DimensionSizes.
-def create_op(OpType, inputs, *args, always_cast_to_dimension_size=False, stack_depth_offset=0, **kwargs):
+def create_op(OpType, inputs, *args, cast_to_dimension_size=False, stack_depth_offset=0, **kwargs):
     from nvtripy.frontend.dimension_size import DimensionSize
     from nvtripy.frontend.tensor import Tensor
 
@@ -36,15 +36,16 @@ def create_op(OpType, inputs, *args, always_cast_to_dimension_size=False, stack_
     all_inputs_are_dimension_size = all(isinstance(inp, DimensionSize) for inp in inputs)
 
     def should_cast_to_dimension_size(out):
-        return always_cast_to_dimension_size or (all_inputs_are_dimension_size and out.dtype == int32 and out.rank == 0)
+        return cast_to_dimension_size or (all_inputs_are_dimension_size and out.dtype == int32 and out.rank == 0)
 
-    STACK_DEPTH_OF_FROM_TRACE_TENSOR = 4 + stack_depth_offset  # Stack depth from API function calls
+    STACK_DEPTH_OF_FROM_TRACE_TENSOR = 4  # Stack depth from API function calls
+    stack_depth = STACK_DEPTH_OF_FROM_TRACE_TENSOR + stack_depth_offset
     op = OpType([inp.trace_tensor for inp in inputs], *args, **kwargs)
     outputs = [
         (
-            DimensionSize.from_trace_tensor(out, include_code_index=STACK_DEPTH_OF_FROM_TRACE_TENSOR)
+            DimensionSize.from_trace_tensor(out, include_code_index=stack_depth)
             if should_cast_to_dimension_size(out)
-            else Tensor.from_trace_tensor(out, include_code_index=STACK_DEPTH_OF_FROM_TRACE_TENSOR)
+            else Tensor.from_trace_tensor(out, include_code_index=stack_depth)
         )
         for out in op.outputs
     ]
@@ -130,18 +131,28 @@ def process_dim(dim: int, input_rank: int) -> int:
 
 # Like `process_dim` but can additionally handle sequences of dimensions and will return a list.
 def process_dim_sequence(dim: Optional[Union[int, Sequence[int]]], rank: int) -> List[int]:
+    original_dim = dim
     if dim is None:
         dim = list(range(rank))
 
-    dim = make_list(dim)
-    # TODO (pranavm): Add tests for this.
-    if len(set(dim)) != len(dim):
-        raise_error(
-            f"Each dimension may only be specified once, but got: {dim}.",
-            [f"Did you mean: {sorted(list(set(dim)))}?"],
-        )
+    dim = [process_dim(d, rank) for d in make_list(dim)]
 
-    dim = [process_dim(d, rank) for d in dim]
+    # TODO (pranavm): Add tests for this.
+    dim_set = set(dim)
+    if len(dim_set) != len(dim):
+        dup_dims = list(dim)
+        [dup_dims.remove(val) for val in dim_set]
+        raise_error(
+            f"Each dimension may only be specified once, but the following dimensions were repeated: {dup_dims}.",
+            (
+                (
+                    [f"Note: Negative dimensions in the original argument: {original_dim} were adjusted: {dim}\n"]
+                    if dim != original_dim
+                    else [f"Note: Argument was: {dim}\n"]
+                )
+                + [f"Did you mean: {sorted(list(dim_set))}?"]
+            ),
+        )
     return dim
 
 
