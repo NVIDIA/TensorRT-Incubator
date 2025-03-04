@@ -322,6 +322,14 @@ func.func @trt_fill_linspace(%arg0: tensor<2xi32>, %arg1: tensor<2xi32>) -> tens
 
 // -----
 
+func.func @trt_dynamic_fill_linspace(%arg0: tensor<i32>, %arg1: tensor<2xi32>, %arg2: tensor<3xi32>) -> tensor<?x?xi32> {
+  // expected-error @below {{'tensorrt.linspace' op dynamic `step` type dimension 0 length must be the same size as the rank of the result type}}
+  %0 = tensorrt.linspace [%arg0: tensor<i32>][%arg1: tensor<2xi32>][%arg2: tensor<3xi32>] : tensor<?x?xi32>
+  return %0 : tensor<?x?xi32>
+}
+
+// -----
+
 func.func @trt_expand_rank(%arg0: tensor<100x100xf32>) -> tensor<100x100xf32> {
   // expected-error @below {{'tensorrt.expand_rank' op the reshape is not a valid rank expansion produced from inserting 1's}}
   %0 = tensorrt.expand_rank %arg0 : tensor<100x100xf32> to tensor<100x100xf32>
