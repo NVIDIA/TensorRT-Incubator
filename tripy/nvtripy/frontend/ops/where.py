@@ -23,7 +23,6 @@ from nvtripy.trace.ops.where import Where
 from nvtripy.utils import wrappers
 
 
-# TODO (pranavm): See if rank expansion is desired here?
 @export.public_api(document_under="operations/functions")
 @wrappers.interface(
     dtype_constraints={"condition": "T2", "input": "T1", "other": "T1", wrappers.RETURN_VALUE: "T1"},
@@ -59,6 +58,7 @@ def where(condition: "nvtripy.Tensor", input: "nvtripy.Tensor", other: "nvtripy.
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.array([[1, 0], [1, 1]], dtype=np.float32))
     """
+    condition, input, other = op_utils.match_ranks(condition, input, other)
     return op_utils.create_op(Where, [condition, input, other])
 
 
