@@ -28,7 +28,7 @@ class DimensionSize(Tensor):
     A 0D, :class:`int32` tensor that represents a scalar value extracted from the shape of a tensor.
     """
 
-    def __init__(self, data: Union[int, "nvtripy.DimensionSize"], name: Optional[str] = None) -> None:
+    def __init__(self, data: int, name: Optional[str] = None) -> None:
         r"""
         Args:
             data: The value of the DimensionSize, which should be a scalar integer.
