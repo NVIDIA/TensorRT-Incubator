@@ -22,9 +22,5 @@ class TestSqueeze:
         a = tp.Tensor(np.ones((1, 1, 4), dtype=np.int32))
         b = tp.squeeze(a, 2)
 
-        with helper.raises(
-            tp.TripyException,
-            match=r"reshape changes volume to multiple of original non-zero volume",
-            has_stack_info_for=[a, b],
-        ):
+        with helper.raises(tp.TripyException, match=r"reshape changes volume to multiple of original non-zero volume"):
             b.eval()

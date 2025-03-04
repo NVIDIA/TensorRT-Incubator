@@ -31,7 +31,7 @@ class TestFlip:
         f = tp.flip(t, dim=dims)
         assert isinstance(f, tp.Tensor)
         assert f.trace_tensor.rank == 2
-        assert f.shape == [2, 5]
+        assert f.shape == (2, 5)
 
     def test_flip_0_rank(self):
         t = tp.Tensor(1)

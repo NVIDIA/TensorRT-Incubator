@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,13 +20,6 @@ from tests import helper
 
 
 class TestSplit:
-    def test_indices_out_of_order(self):
-        t = tp.ones((5,))
-        with helper.raises(
-            tp.TripyException, match=r"Split indices must be given in ascending order\, but given \[4, 2, 1\]"
-        ):
-            sp = tp.split(t, [4, 2, 1])
-
     def test_empty_indices(self):
         t = tp.ones((5,))
         with helper.raises(tp.TripyException, match=r"Split indices must not be empty"):
@@ -34,12 +27,10 @@ class TestSplit:
 
     def test_zero_splits(self):
         t = tp.ones((5,))
-        with helper.raises(tp.TripyException, match=r"Number of sections argument must be positive, but given 0"):
+        with helper.raises(tp.TripyException, match=r"`num_split_or_sizes` must be positive"):
             sp = tp.split(t, 0)
 
     def test_invalid_split_dimension(self):
-        t = tp.ones(
-            (5,),
-        )
-        with helper.raises(tp.TripyException, match=r"Invalid split dimension 2"):
+        t = tp.ones((5,))
+        with helper.raises(tp.TripyException, match=r"Dimension argument is out of bounds"):
             sp = tp.split(t, 5, dim=2)

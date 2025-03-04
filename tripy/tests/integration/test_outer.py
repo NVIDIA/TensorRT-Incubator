@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -27,7 +27,7 @@ class TestOuter:
         t1 = torch.arange(5, dtype=torch.float32)
         t2 = torch.arange(4, dtype=torch.float32)
         torch_out = torch.outer(t1, t2)
-        assert output.shape == list(torch_out.shape)
+        assert output.shape == tuple(torch_out.shape)
         assert tp.allclose(output, tp.Tensor(torch_out))
 
     def test_empty(self, eager_or_compiled):
@@ -35,4 +35,4 @@ class TestOuter:
         v2 = tp.arange(3, dtype=tp.float32)
         output = eager_or_compiled(tp.outer, v1, v2)
 
-        assert output.shape == [0, 3]
+        assert output.shape == (0, 3)

@@ -163,7 +163,7 @@ class Constant(BaseTraceOp):
         if isinstance(data, runtime.MemRefValue):
             self.data = data
             self.dtype = mlir_utils.convert_runtime_dtype_to_tripy_dtype(self.data.dtype)
-            self.shape = list(data.shape)
+            self.shape = tuple(data.shape)
             self.device = tp_device.fast_init("gpu" if data.address_space == runtime.PointerType.device else "cpu", 0)
         else:
             if is_empty(data):
@@ -172,7 +172,7 @@ class Constant(BaseTraceOp):
             else:
                 self.dtype = get_element_type(data)
                 data_array = convert_list_to_array(flatten_list(data), dtype=self.dtype)
-            self.shape = list(get_shape(data))
+            self.shape = tuple(get_shape(data))
             self.data = memref.create_memref(
                 shape=self.shape,
                 dtype=self.dtype,
@@ -186,7 +186,7 @@ class Constant(BaseTraceOp):
 
         # Parent constructor will run rank/type inference, so we need to run it after setting the fields above.
         super().__init__([])
-        self.outputs[0].shape = list(self.shape)
+        self.outputs[0].shape = self.shape
 
     def str_skip_fields(self) -> Set[str]:
         # skip data since it is always a memref value

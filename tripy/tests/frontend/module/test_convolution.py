@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -146,6 +146,7 @@ class TestConvolution:
             output.eval()
 
 
+# TODO (pranavm): Move to separate file:
 # edge cases specific to transpose convolution
 @pytest.mark.skip("#218")
 class TestConvolutionTranspose:

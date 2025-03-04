@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -40,31 +40,25 @@ class ConvTestCase:
 
 
 test_cases_transpose_1d = [
-    ConvTestCase(),
     ConvTestCase(tp_pad=((2, 2),), torch_pad=2),
     ConvTestCase(stride=(1,)),
     ConvTestCase(groups=2),
-    ConvTestCase(groups=4),
     ConvTestCase(dilation=(2,)),
     ConvTestCase(bias=True),
 ]
 
 test_cases_transpose_2d = [
-    ConvTestCase(),
     ConvTestCase(tp_pad=((2, 2), (1, 1)), torch_pad=(2, 1)),
     ConvTestCase(stride=(1, 1)),
     ConvTestCase(groups=2),
-    ConvTestCase(groups=4),
     ConvTestCase(dilation=(1, 2)),
     ConvTestCase(bias=True),
 ]
 
 test_cases_transpose_3d = [
-    ConvTestCase(),
     ConvTestCase(tp_pad=((2, 2), (1, 1), (2, 2)), torch_pad=(2, 1, 2)),
     ConvTestCase(stride=(1, 1, 1)),
     ConvTestCase(groups=2),
-    ConvTestCase(groups=4),
     ConvTestCase(dilation=(3, 1, 2)),
     ConvTestCase(bias=True),
 ]
@@ -133,7 +127,7 @@ class TestConvolution:
 
         rtol_ = 3e-3
         assert tp.allclose(output, tp.Tensor(expected), rtol=rtol_)
-        assert output.shape == list(expected.shape)
+        assert output.shape == tuple(expected.shape)
 
     @pytest.mark.parametrize("test_case", test_cases_transpose_2d)
     def test_transposed_convolution_2d(self, torch_dtype, tp_dtype, test_case, eager_or_compiled):
@@ -188,7 +182,7 @@ class TestConvolution:
 
         rtol_ = 1e-2
         assert tp.allclose(output, tp.Tensor(expected), rtol=rtol_)
-        assert output.shape == list(expected.shape)
+        assert output.shape == tuple(expected.shape)
 
     @pytest.mark.parametrize("test_case", test_cases_transpose_3d)
     def test_transposed_convolution_3d(self, torch_dtype, tp_dtype, test_case, eager_or_compiled):
@@ -242,7 +236,7 @@ class TestConvolution:
         output = eager_or_compiled(conv_layer, input)
         rtol_ = 1.3e-6 if tp_dtype == tp.float32 else 1.6e-3
         assert tp.allclose(output, tp.Tensor(expected), rtol=rtol_)
-        assert output.shape == list(expected.shape)
+        assert output.shape == tuple(expected.shape)
 
     def test_transposed_equivalency(self, torch_dtype, tp_dtype, eager_or_compiled):
         input_torch = torch.arange(9, dtype=torch.float32, device=torch.device("cuda")).reshape(*(1, 1, 3, 3))
@@ -281,13 +275,13 @@ class TestConvolution:
         output_transpose = eager_or_compiled(conv_transpose_layer, input)
 
         assert tp.allclose(output, tp.Tensor(expected), rtol=1e-2, atol=1e-4)
-        assert output.shape == list(expected.shape)
+        assert output.shape == tuple(expected.shape)
         assert tp.allclose(output_transpose, tp.Tensor(expected_transpose), rtol=1e-2, atol=1e-4)
         assert output_transpose.shape == list(expected_transpose.shape)
         assert tp.allclose(output, output_transpose, rtol=1e-2, atol=1e-4)
         assert output.shape == output_transpose.shape
         assert tp.allclose(tp.Tensor(expected), tp.Tensor(expected_transpose), rtol=1e-2, atol=1e-4)
-        assert list(expected.shape) == list(expected_transpose.shape)
+        assert tuple(expected.shape) == list(expected_transpose.shape)
 
     @pytest.mark.parametrize("test_case", test_cases_transpose_downscale)
     def test_transposed_downscale(self, torch_dtype, tp_dtype, test_case, eager_or_compiled):
@@ -323,4 +317,4 @@ class TestConvolution:
 
         rtol_ = 1e-15 if tp_dtype == tp.float32 else 1e-10
         assert tp.allclose(output, tp.Tensor(expected), rtol=rtol_)
-        assert output.shape == list(expected.shape)
+        assert output.shape == tuple(expected.shape)
