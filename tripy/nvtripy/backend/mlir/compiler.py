@@ -58,6 +58,7 @@ class Compiler:
             f"--tensorrt-timing-cache-path={G_TIMING_CACHE_FILE}",
             f"--tensorrt-builder-opt-level={trt_builder_opt_level}",
             "--tensorrt-strongly-typed=True",
+            "--force-entrypoints-return-allocs",
         ]
         if config.enable_mlir_debug or config.enable_tensorrt_debug:
             opts.append("--debug=true")
