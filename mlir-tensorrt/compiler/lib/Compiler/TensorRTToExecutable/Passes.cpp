@@ -54,7 +54,7 @@ static FailureOr<ClusteringOpts> getTensorRTClusteringOptions(Operation *op) {
 /// `nameBase` but may have numbers appended in order to unique the name. The
 /// created function has argument/result types as indicated by the parameters.
 static FailureOr<FunctionOpInterface>
-createOutlinedFunc(ModuleOp outerModule, RewriterBase &rewriter, Location loc, Operation *mod,
+createOutlinedFunc(RewriterBase &rewriter, Location loc, Operation *module,
                    StringRef nameBase, TypeRange funcArgTypes,
                    TypeRange funcResultTypes) {
   OpBuilder::InsertionGuard g(rewriter);
@@ -63,20 +63,6 @@ createOutlinedFunc(ModuleOp outerModule, RewriterBase &rewriter, Location loc, O
   FunctionType type =
       FunctionType::get(rewriter.getContext(), funcArgTypes, funcResultTypes);
   auto outlinedFunc = func::FuncOp::create(loc, nameBase, type, {});
-
-  StringRef tensorrtShapeBoundsAttrName = mlir::tensorrt::TensorRTDialect::getShapeProfileArgAttrName();
-
-  // TODO (pranavm): Will there only ever be one outer FuncOp? How do we make this more robust?
-  func::FuncOp outerFunc;
-  for (auto func : outerModule.getOps<func::FuncOp>()) {
-      outerFunc = func;
-      break;
-  }
-  for (unsigned idx = 0; idx < outlinedFunc.getNumArguments(); idx++) {
-    const auto profile = outerFunc.getArgAttrOfType<tensorrt::ShapeProfileAttr>(idx, tensorrtShapeBoundsAttrName);
-    outlinedFunc.setArgAttr(idx, tensorrtShapeBoundsAttrName, profile);
-  }
-
   Block *funcBody = outlinedFunc.addEntryBlock();
 
   // Add an empty terminator.
@@ -84,8 +70,8 @@ createOutlinedFunc(ModuleOp outerModule, RewriterBase &rewriter, Location loc, O
   rewriter.create<func::ReturnOp>(loc);
 
   // Insert into the module.
-  SymbolTable(mod).insert(outlinedFunc,
-                             mod->getRegions().front().front().end());
+  SymbolTable(module).insert(outlinedFunc,
+                             module->getRegions().front().front().end());
 
   // Tag the function with a UnitAttr for identifying the different kinds of
   // functions based on the cluster type.
@@ -115,7 +101,7 @@ getOrCreateTensorRTModuleOp(ModuleOp moduleOp) {
 }
 
 static FailureOr<tensorrt::CallAllocOp>
-outlineOp(ModuleOp outerModule, RewriterBase &rewriter, tensorrt::TensorRTModuleOp trtModule,
+outlineOp(RewriterBase &rewriter, tensorrt::TensorRTModuleOp trtModule,
           const Cluster &cluster) {
   auto inlineGroupOp =
       cast<plan::InlineGroupOp>(mlir::createRegionOpFromCluster(
@@ -132,11 +118,46 @@ outlineOp(ModuleOp outerModule, RewriterBase &rewriter, tensorrt::TensorRTModule
       makeRegionIsolatedFromAbove(rewriter, inlineGroupOp.getRegion());
 
   // Create the outlined function
-  FailureOr<FunctionOpInterface> func = createOutlinedFunc(outerModule,
+  FailureOr<FunctionOpInterface> func = createOutlinedFunc(
       rewriter, inlineGroupOp.getLoc(), trtModule, "tensorrt_cluster",
       TypeRange(inputs), inlineGroupOp->getResultTypes());
   if (failed(func))
     return failure();
+
+  StringRef tensorrtShapeBoundsAttrName =
+      mlir::tensorrt::TensorRTDialect::getShapeProfileArgAttrName();
+  func::FuncOp funcContainingCluster =
+      cluster.back()->getParentOfType<func::FuncOp>();
+  SmallVector<Attribute> profileAttrsPerInput;
+  for (Value v : inputs) {
+    auto rtt = dyn_cast<RankedTensorType>(v.getType());
+    if (!rtt || rtt.hasStaticShape()) {
+      profileAttrsPerInput.push_back(Attribute{});
+      continue;
+    }
+
+    auto blockArg = dyn_cast<BlockArgument>(v);
+    if (!blockArg ||
+        blockArg.getOwner()->getParentOp() != funcContainingCluster)
+      emitError(trtModule.getLoc())
+          << "Block argument is not part of the signature of the function "
+             "containing this TRT cluster";
+
+    int64_t argIndex = blockArg.getArgNumber();
+    profileAttrsPerInput.push_back(
+        funcContainingCluster.getArgAttrOfType<tensorrt::ShapeProfileAttr>(
+            argIndex, tensorrtShapeBoundsAttrName));
+
+    if (!profileAttrsPerInput.back())
+      emitError(trtModule.getLoc())
+          << "Profile attribute of argument " << argIndex << " is not set";
+  }
+
+  // TODO (pranavm): Check if the ordering of the arguments here will be correct?
+  for (unsigned idx = 0; idx < func->getNumArguments(); idx++) {
+    func->setArgAttr(idx, tensorrtShapeBoundsAttrName,
+                     profileAttrsPerInput[idx]);
+  }
 
   rewriter.setInsertionPoint(inlineGroupOp);
   auto callOp = rewriter.create<tensorrt::CallAllocOp>(
@@ -171,26 +192,26 @@ class OutlineTensorRTOpPass
 public:
   using Base::Base;
   void runOnOperation() override {
-    ModuleOp mod = getOperation();
+    ModuleOp module = getOperation();
     IRRewriter rewriter(&getContext());
 
-    FailureOr<ClusteringOpts> opts = getTensorRTClusteringOptions(mod);
+    FailureOr<ClusteringOpts> opts = getTensorRTClusteringOptions(module);
     if (failed(opts)) {
-      emitError(mod.getLoc()) << "failed to create clustering options";
+      emitError(module.getLoc()) << "failed to create clustering options";
       return signalPassFailure();
     }
 
     FailureOr<SmallVector<Cluster>> clusters =
-        mlir::analyzeAndClusterOperations(mod, *opts);
+        mlir::analyzeAndClusterOperations(module, *opts);
     if (failed(clusters)) {
-      emitError(mod.getLoc()) << "failed to cluster operations";
+      emitError(module.getLoc()) << "failed to cluster operations";
       return signalPassFailure();
     }
 
-    tensorrt::TensorRTModuleOp trtModule = getOrCreateTensorRTModuleOp(mod);
+    tensorrt::TensorRTModuleOp trtModule = getOrCreateTensorRTModuleOp(module);
 
     for (const auto &cluster : *clusters) {
-      if (failed(outlineOp(mod, rewriter, trtModule, cluster)))
+      if (failed(outlineOp(rewriter, trtModule, cluster)))
         return signalPassFailure();
     }
   }
