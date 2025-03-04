@@ -22,8 +22,8 @@ from typing import Optional
 from nvtripy import export
 from nvtripy.common import datatype
 from nvtripy.frontend.module.conv.base import ConvBase
+from nvtripy.frontend.module.conv.utils import conv_deconv_helper
 from nvtripy.frontend.module.parameter import DefaultParameter
-from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.frontend.tensor import Tensor
 from nvtripy.trace.ops.convolution import Convolution
 from nvtripy.utils import wrappers
@@ -43,11 +43,7 @@ def convolution(
     groups: int,
     dilation: Sequence[int],
 ):
-    pre_padding, post_padding = op_utils.transform_conv_pooling_padding(padding)
-    inputs = [input, weight]
-    if bias is not None:
-        inputs.append(bias)
-    return op_utils.create_op(Convolution, inputs, stride, pre_padding, post_padding, groups, dilation)
+    return conv_deconv_helper(Convolution, input, weight, bias, stride, padding, groups, dilation)
 
 
 @export.public_api(document_under="operations/modules", autodoc_options=[":no-show-inheritance:"])
