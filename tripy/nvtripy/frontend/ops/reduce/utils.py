@@ -20,6 +20,7 @@ def arg_min_max_impl(TopKType, input, dim, keepdim):
     from nvtripy.frontend.ops.reshape import reshape
     from nvtripy.frontend.ops.squeeze import squeeze
 
+    original_rank = input.rank
     should_flatten = dim is None
     if should_flatten:
         input = reshape(input, (1, -1))
@@ -34,6 +35,6 @@ def arg_min_max_impl(TopKType, input, dim, keepdim):
         indices = squeeze(indices, dim)
 
     if should_flatten:
-        indices = reshape(indices, (-1,))
+        indices = reshape(indices, (1,) * original_rank)
 
     return indices
