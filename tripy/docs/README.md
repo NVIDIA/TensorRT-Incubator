@@ -101,7 +101,7 @@ Guides are **markdown** files parsed by the Myst parser, therefore:
     - **Example:**
 
         ```md
-        [Fill operation](source:/nvtripy/trace/ops/fill.py)
+        [Broadcast operation](source:/nvtripy/trace/ops/broadcast.py)
         ```
 
     - **Why:** Other links will cause the file to be downloaded instead of linking to the repository.

@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-# SPDX-LicenseCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-LicenseCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 import cupy as cp
@@ -65,7 +65,7 @@ class TestSequential:
     def test_forward_pass(self, sequential_network):
         input_data = tp.Tensor([1.0])
         output = sequential_network(input_data)
-        assert output.shape == [1, 2]
+        assert output.shape == (1, 2)
 
     def test_state_dict(self, sequential_network):
         state_dict = sequential_network.state_dict()
@@ -121,7 +121,7 @@ class TestDictSequential:
     def test_forward_pass(self, dict_sequential_network):
         input_data = tp.Tensor([[1.0]])
         output = dict_sequential_network(input_data)
-        assert output.shape == [1, 2]
+        assert output.shape == (1, 2)
 
     def test_state_dict(self, dict_sequential_network):
         state_dict = dict_sequential_network.state_dict()
@@ -167,7 +167,7 @@ class TestMixedContainerSequential:
     def test_forward_pass(self, mixed_container_sequential_network):
         input_data = tp.Tensor(tp.ones((1, 2, 2, 2), dtype=tp.float32))
         output = mixed_container_sequential_network(input_data)
-        assert output.shape == [1, 1]
+        assert output.shape == (1, 1)
 
     def test_named_children(self, mixed_container_sequential_network):
         expected_names = [("0", mixed_container_sequential_network[0]), ("3", mixed_container_sequential_network[3])]
