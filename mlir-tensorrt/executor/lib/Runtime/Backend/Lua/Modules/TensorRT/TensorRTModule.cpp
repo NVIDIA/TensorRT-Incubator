@@ -111,88 +111,84 @@ public:
   std::shared_ptr<nvinfer1::IRuntime> runtime;
   std::shared_ptr<nvinfer1::ICudaEngine> engine;
 };
+} // namespace
 
-/// OutputAllocatorImpl - Implementation of TensorRT's IOutputAllocator
-/// interface. This class manages memory allocation for TensorRT outputs.
-class OutputAllocatorImpl : public nvinfer1::IOutputAllocator {
+static uint64_t roundUp(uint64_t m, uint64_t n) {
+  return llvm::divideCeil(m, n) * n;
+}
+
+//===----------------------------------------------------------------------===//
+// NvInferResultAllocator
+//===----------------------------------------------------------------------===//
+
+namespace {
+/// The NvInferResultAllocator provides hooks for allocating a TensorRT
+/// execution result. There should be one instance of this class for each result
+/// tensor of a TensorRT engine. The allocator can be seeded with an initial
+/// allocation so that it can be extended via reallocation when the final size
+/// is known. This capability is currently unused, however.
+/// TODO: to use reallocation capability, we need to represent the allocator in
+/// the IR.
+class NvInferResultAllocator : public nvinfer1::IOutputAllocator {
 public:
-  OutputAllocatorImpl(AllocTracker *tracker) : mTracker(tracker) {}
+  NvInferResultAllocator(AllocTracker *tracker, unsigned resultIdx)
+      : mTracker(tracker) {
+    // TensorRT tracks inputs/outputs by name literal rather than index. We use
+    // a particular convention between compiler and runtime for the naming of
+    // inputs and results.
+    mTensorName = "result" + std::to_string(resultIdx);
+
+    allocInfo = PointerInfo(0, 0);
+  }
+
   /// It is the responsibilty of runtime client to release the buffer.
-  ~OutputAllocatorImpl() {}
+  ~NvInferResultAllocator() override = default;
 
   // Disable copy and move operations
-  OutputAllocatorImpl(const OutputAllocatorImpl &) = delete;
-  OutputAllocatorImpl &operator=(const OutputAllocatorImpl &) = delete;
-  OutputAllocatorImpl(OutputAllocatorImpl &&) = delete;
-  OutputAllocatorImpl &operator=(OutputAllocatorImpl &&) = delete;
+  NvInferResultAllocator(const NvInferResultAllocator &) = delete;
+  NvInferResultAllocator &operator=(const NvInferResultAllocator &) = delete;
+  NvInferResultAllocator(NvInferResultAllocator &&) = delete;
+  NvInferResultAllocator &operator=(NvInferResultAllocator &&) = delete;
 
-  void setTensorName(const std::string &name) { mTensorName = name; }
-  void setCurrentMemory(uintptr_t memory, int64_t size) {
-    mOutputPtr = memory;
-    mOutputSize = size;
+  void *reallocateOutputAsyncImpl(const char *name, void *memory, uint64_t size,
+                                  uint64_t alignment, cudaStream_t stream) {
+    assert(name == mTensorName && "Tensor name mismatch");
+
+    // Some memory allocators return nullptr when allocating zero bytes, but
+    // TensorRT requires a non-null ptr
+    // even for empty tensors, so allocate a dummy byte.
+    size = std::max(size, static_cast<uint64_t>(1));
+    size = roundUp(size, alignment);
+
+    StatusOr<PointerInfo> alloc = mlirtrt::runtime::allocate(
+        *mTracker, PointerType::device, size, alignment,
+        stream ? std::optional<CudaStreamPtr>(stream) : std::nullopt);
+    if (!alloc.isOk())
+      return nullptr;
+
+    allocInfo = std::move(*alloc);
+    // Mark the output pointer for release after consumption
+    // This is necessary because TensorRT-allocated pointers used in
+    // device-device or device-host copies may not be wrapped in a memref
+    // and tracked by the client. By marking it here, we ensure it will be
+    // explicitly freed after it's consumed in copy operations, preventing
+    // memory leaks.
+    mTracker->markForReleaseAfterConsumption(allocInfo.ptr);
+    MTRT_DBGF("tensorrt module output allocator allocating %lu bytes at 0x%lx",
+              allocInfo.size, allocInfo.ptr);
+    return reinterpret_cast<void *>(allocInfo.ptr);
   }
 
 #if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 0, 0)
   void *reallocateOutputAsync(const char *name, void *memory, uint64_t size,
-                              uint64_t alignment,
+                              uint64_t alignemnt,
                               cudaStream_t stream) override {
-    assert((!mOutputPtr || reinterpret_cast<uintptr_t>(memory) == mOutputPtr) &&
-           "Output buffer mismatch");
-    assert(name == mTensorName && "Tensor name mismatch");
-    size = std::max(size, static_cast<uint64_t>(1));
-    if (size > mOutputSize) {
-      size = roundUp(size, alignment);
-      if (mOutputPtr) {
-        MTRT_DBGF("tensorrt module output allocator deallocating 0x%lx",
-                  mOutputPtr);
-        mlirtrt::runtime::safeDeallocate(*mTracker, mOutputPtr,
-                                         CudaStreamPtr(stream));
-      }
-      mOutputPtr = 0;
-      mOutputSize = 0;
-      StatusOr<PointerInfo> memory =
-          mlirtrt::runtime::allocate(*mTracker, PointerType::device, size,
-                                     alignment, CudaStreamPtr(stream));
-      if (memory.isOk()) {
-        mOutputPtr = (*memory).ptr;
-        mOutputSize = memory->size;
-        // Mark the output pointer for release after consumption
-        // This is necessary because TensorRT-allocated pointers used in
-        // device-device or device-host copies may not be wrapped in a memref
-        // and tracked by the client. By marking it here, we ensure it will be
-        // explicitly freed after it's consumed in copy operations, preventing
-        // memory leaks.
-        mTracker->markForReleaseAfterConsumption(mOutputPtr);
-        MTRT_DBGF(
-            "tensorrt module output allocator allocating %lu bytes at 0x%lx",
-            mOutputSize, mOutputPtr);
-      }
-      return reinterpret_cast<void *>(mOutputPtr);
-    }
-    return reinterpret_cast<void *>(mOutputPtr);
+    return reallocateOutputAsyncImpl(name, memory, size, alignemnt, stream);
   }
 #else
   void *reallocateOutput(const char *name, void *memory, uint64_t size,
                          uint64_t alignment) override {
-    assert((!mOutputPtr || reinterpret_cast<uintptr_t>(memory) == mOutputPtr) &&
-           "Output buffer mismatch");
-    assert(name == mTensorName && "Tensor name mismatch");
-    size = std::max(size, static_cast<uint64_t>(1));
-    if (size > mOutputSize) {
-      size = roundUp(size, alignment);
-      if (mOutputPtr)
-        mlirtrt::runtime::safeDeallocate(*mTracker, mOutputPtr);
-      mOutputPtr = 0;
-      mOutputSize = 0;
-      StatusOr<PointerInfo> memory = mlirtrt::runtime::allocate(
-          *mTracker, PointerType::device, size, alignment, std::nullopt);
-      if (memory.isOk()) {
-        mOutputPtr = (*memory).ptr;
-        mOutputSize = memory->size;
-      }
-      return reinterpret_cast<void *>(mOutputPtr);
-    }
-    return reinterpret_cast<void *>(mOutputPtr);
+    return reallocateOutputAsyncImpl(name, memory, size, alignment, nullptr);
   }
 #endif
 
@@ -204,53 +200,49 @@ public:
 
   // Accessor methods
   const nvinfer1::Dims &getOutputDims() const { return mOutputDims; }
-  uintptr_t getOutputPtr() const { return mOutputPtr; }
-  uint64_t getOutputSize() const { return mOutputSize; }
+  uintptr_t getOutputPtr() const { return allocInfo.ptr; }
+  uint64_t getOutputSize() const { return allocInfo.size; }
   const std::string &getTensorName() const { return mTensorName; }
 
 private:
-  static inline uint64_t roundUp(uint64_t m, uint64_t n) {
-    return llvm::divideCeil(m, n) * n;
-  }
-
-  uintptr_t mOutputPtr;
-  uint64_t mOutputSize{0};
-  nvinfer1::Dims mOutputDims;
-  std::string mTensorName;
   AllocTracker *mTracker{nullptr};
+  std::string mTensorName;
+  PointerInfo allocInfo;
+  nvinfer1::Dims mOutputDims;
 };
 
-/// OutputAllocator - Manages multiple OutputAllocatorImpl instances.
-class OutputAllocator {
+//===----------------------------------------------------------------------===//
+// NvInferResultAllocators
+//===----------------------------------------------------------------------===//
+
+/// NvInferResultAllocators wraps all result allocators for a single TensorRT
+/// execution context.
+class NvInferResultAllocators {
 public:
-  explicit OutputAllocator(AllocTracker *tracker, int64_t nbResults) {
+  explicit NvInferResultAllocators(AllocTracker *tracker,
+                                   nvinfer1::IExecutionContext *context,
+                                   int64_t nbResults) {
     mAllocators.reserve(nbResults);
-    for (int64_t i = 0; i < nbResults; ++i)
-      mAllocators.push_back(std::make_unique<OutputAllocatorImpl>(tracker));
+    for (int64_t i = 0; i < nbResults; ++i) {
+      mAllocators.push_back(
+          std::make_unique<NvInferResultAllocator>(tracker, i));
+      context->setOutputAllocator(mAllocators.back()->getTensorName().c_str(),
+                                  mAllocators.back().get());
+    }
   }
 
-  // Disable copy and move operations
-  OutputAllocator(const OutputAllocator &) = delete;
-  OutputAllocator &operator=(const OutputAllocator &) = delete;
-  OutputAllocator(OutputAllocator &&) = delete;
-  OutputAllocator &operator=(OutputAllocator &&) = delete;
-
-  void registerAllocator(size_t index, const char *name, uintptr_t ptr,
-                         int64_t size, nvinfer1::IExecutionContext *context) {
-    assert(index >= 0 && index < mAllocators.size() && "Index out of bounds");
-    mAllocators[index]->setTensorName(name);
-    mAllocators[index]->setCurrentMemory(ptr, size);
-    context->setOutputAllocator(name, mAllocators[index].get());
-  }
-
-  OutputAllocatorImpl *getAllocator(size_t index) {
+  NvInferResultAllocator *getAllocator(size_t index) const {
     assert(index >= 0 && index < mAllocators.size() && "Index out of bounds");
     return mAllocators[index].get();
   }
 
 private:
-  std::vector<std::unique_ptr<OutputAllocatorImpl>> mAllocators;
+  std::vector<std::unique_ptr<NvInferResultAllocator>> mAllocators;
 };
+
+//===----------------------------------------------------------------------===//
+// OutputDescriptor
+//===----------------------------------------------------------------------===//
 
 /// Manages output tensor descriptors for TensorRT execution.
 class OutputDescriptor {
@@ -315,6 +307,11 @@ private:
   static constexpr int OUTPUT_DESC_FIXED_FIELDS = 2;
 };
 
+//===----------------------------------------------------------------------===//
+// NvInferExecContextWrapper
+//===----------------------------------------------------------------------===//
+
+/// Wraps an nvinfer1::ExecutionContext object.
 class NvInferExecContextWrapper {
 private:
   explicit NvInferExecContextWrapper(
@@ -383,6 +380,8 @@ public:
   }
 
   nvinfer1::IExecutionContext *operator*() { return context.get(); }
+  nvinfer1::IExecutionContext *getExecutionContext() { return context.get(); }
+
   nvinfer1::IExecutionContext *operator->() { return context.get(); }
   const Signature &getSignature() const { return signature; }
 
@@ -576,7 +575,7 @@ static Status enqueueV3Wrapper(AllocTracker &tracker,
 
 static Status enqueueAllocV3Wrapper(AllocTracker &tracker,
                                     ResourceTracker &resourceTracker,
-                                    OutputAllocator *outputAllocator,
+                                    NvInferResultAllocators *outputAllocator,
                                     NvInferExecContextWrapper &context,
                                     CudaStreamPtr stream, sol::table &va,
                                     OutputDescriptor outputDesc) {
@@ -602,14 +601,6 @@ static Status enqueueAllocV3Wrapper(AllocTracker &tracker,
   // Number of results are known in advance.
   int64_t nbResults = outputDesc.getNumberOfResults();
 
-  // For each result, set output allocator
-  for (int64_t i = 0; i < nbResults; ++i) {
-    std::string name = "result" + std::to_string(i);
-    // Register an output allocator. `enqueueV3` callback should set output
-    // pointer, and notify shapes.
-    outputAllocator->registerAllocator(i, name.c_str(), 0, 0, *context);
-  }
-
   if (!context->enqueueV3(stream))
     return getStatusWithMsg(StatusCode::InternalError,
                             "failed to enqueue engine execution on stream");
@@ -620,7 +611,8 @@ static Status enqueueAllocV3Wrapper(AllocTracker &tracker,
   MTRT_DBGF("%s", "enqueueV3 successful and inputs are consumed");
 
   for (int64_t i = 0; i < nbResults; ++i) {
-    OutputAllocatorImpl *outputAllocatorImpl = outputAllocator->getAllocator(i);
+    NvInferResultAllocator *outputAllocatorImpl =
+        outputAllocator->getAllocator(i);
     std::string name = "result" + std::to_string(i);
 
     int32_t rank = outputDesc.getRank(i);
@@ -657,6 +649,7 @@ static Status enqueueAllocV3Wrapper(AllocTracker &tracker,
 //===----------------------------------------------------------------------===//
 // Executor TensorRT Methods
 //===----------------------------------------------------------------------===//
+
 static void registerExecutorTensorRTModuleLuaRuntimeMethods(
     lua_State *luaState, PinnedMemoryAllocator *pinnedMemoryAllocator,
     AllocTracker *allocTracker, ResourceTracker *resourceTracker) {
@@ -724,9 +717,8 @@ static void registerExecutorTensorRTModuleLuaRuntimeMethods(
 
         OutputDescriptor desc(outputDesc);
 
-        auto allocator = std::make_unique<OutputAllocator>(
-            allocTracker, desc.getNumberOfResults());
-
+        auto allocator = std::make_unique<NvInferResultAllocators>(
+            allocTracker, **context, desc.getNumberOfResults());
         Status result =
             enqueueAllocV3Wrapper(*allocTracker, *resourceTracker,
                                   allocator.get(), *context, stream, va, desc);

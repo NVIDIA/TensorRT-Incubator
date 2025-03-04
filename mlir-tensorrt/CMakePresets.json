@@ -11,7 +11,7 @@
         "LLVM_ENABLE_ASSERTIONS": "ON",
         "CPM_SOURCE_CACHE": "${sourceDir}/.cache.cpm",
         "CPM_USE_NAMED_CACHE_DIRECTORIES": "ON",
-        "LLVM_INSTALL_TOOLCHAIN_ONLY": "ON"
+        "CMAKE_PROJECT_TOP_LEVEL_INCLUDES": "${sourceDir}/DependencyProvider.cmake"
       }
     },
     {

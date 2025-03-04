@@ -45,6 +45,10 @@
 using namespace mlir;
 using namespace mlir::tensorrt;
 
+// Set the max size of tensors which can be constant-folded to 131072 (0.5 MB
+// for f32 constants).
+constexpr int64_t kFoldOpEltLimit = 1 << 17;
+
 //===----------------------------------------------------------------------===//
 // Custom Assembly Format Directives
 //===----------------------------------------------------------------------===//
@@ -793,6 +797,12 @@ OpFoldResult tensorrt::ElementWiseOp::fold(FoldAdaptor adaptor) {
   auto rhs = dyn_cast_or_null<DenseIntElementsAttr>(adaptor.getInput2());
   if (!lhs || !rhs)
     return {};
+
+  // Don't do very large expensive folds here.
+  if (!lhs.isSplat() && !rhs.isSplat() &&
+      rhs.getNumElements() > kFoldOpEltLimit)
+    return {};
+
   ElementWiseOperation mode = getElementwiseOperation();
   return constFoldBinaryOp<IntegerAttr, APInt, void>(
       {lhs, rhs}, getType(),
@@ -813,12 +823,19 @@ OpFoldResult tensorrt::UnaryOp::fold(FoldAdaptor adaptor) {
   Attribute input = adaptor.getInput();
   if (!input)
     return {};
+
   if (auto floatEls = dyn_cast<DenseFPElementsAttr>(input)) {
+    // Don't do very large expensive folds here.
+    if (!floatEls.isSplat() && floatEls.getNumElements() > kFoldOpEltLimit)
+      return {};
     if (getUnaryOperation() == UnaryOperation::kNEG)
       return constFoldUnaryOp<FloatAttr, FloatAttr::ValueType, void>(
           adaptor.getOperands(), [](const APFloat &a) { return -a; });
   }
   if (auto intEls = dyn_cast<DenseIntElementsAttr>(input)) {
+    // Don't do very large expensive folds here.
+    if (!intEls.isSplat() && intEls.getNumElements() > kFoldOpEltLimit)
+      return {};
     if (getUnaryOperation() == UnaryOperation::kNEG)
       return constFoldUnaryOp<IntegerAttr, IntegerAttr::ValueType, void>(
           adaptor.getOperands(), [](const APInt &a) { return -a; });
@@ -2316,6 +2333,11 @@ static Attribute foldIdentityFloatToFloatCast(RankedTensorType resultType,
   DenseElementsAttr els = dyn_cast<DenseElementsAttr>(attr);
   if (!els)
     return {};
+
+  // Don't do very large, expensive folds here.
+  if (!els.isSplat() && els.getNumElements() > kFoldOpEltLimit)
+    return {};
+
   // Float -> Float
   return els.mapValues(newElementType, [&](const APFloat &floatVal) -> APInt {
     APFloat convertedFloat = floatVal;
@@ -2712,20 +2734,6 @@ bool tensorrt::detail::isCompatibleReturnTypesShapes(
     return areShapesEquivalentUpToDynamicDims(cast<RankedTensorType>(l),
                                               cast<RankedTensorType>(r));
   });
-}
-
-bool tensorrt::isTensorRTInt8Type(Type elType) {
-  return elType.isSignlessInteger(8) ||
-         (((isa<mlir::quant::UniformQuantizedType>(elType))) &&
-          ((cast<mlir::quant::UniformQuantizedType>(elType)
-                .getStorageType()
-                .isSignlessInteger(8))) &&
-          (((cast<mlir::quant::UniformQuantizedType>(elType)
-                 .getExpressedType()
-                 .isF32())) ||
-           ((cast<mlir::quant::UniformQuantizedType>(elType)
-                 .getExpressedType()
-                 .isF16()))));
 }
 
 //===----------------------------------------------------------------------===//

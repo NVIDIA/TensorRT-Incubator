@@ -405,6 +405,29 @@ public:
     return success();
   }
 };
+} // namespace
+
+namespace {
+
+#ifndef NDEBUG
+/// RAII tools for setting the statistic 'num-broadcast-eliminated'.
+struct BroadcastOpStatCounter {
+  Operation *op;
+  mlir::Pass::Statistic &stat;
+  int64_t numBefore;
+
+  static int64_t countBroadcastOps(Operation *op) {
+    int64_t count = 0;
+    op->walk([&](tensorrt::BroadcastOp) { count++; });
+    return count;
+  }
+
+  BroadcastOpStatCounter(Operation *op, mlir::Pass::Statistic &stat)
+      : op(op), stat(stat), numBefore(countBroadcastOps(this->op)) {}
+
+  ~BroadcastOpStatCounter() { stat = numBefore - countBroadcastOps(op); }
+};
+#endif
 
 class BroadcastEliminationPass
     : public tensorrt::impl::BroadcastEliminationPassBase<
@@ -414,6 +437,11 @@ public:
 
   void runOnOperation() override {
     RewritePatternSet patterns(&getContext());
+
+#ifndef NDEBUG
+    BroadcastOpStatCounter counter(getOperation(), numBroadcastEliminated);
+#endif
+
     patterns.add<SimplifyBroadcast, ElementwiseAbsorbBroadcast,
                  PushDownBroadcastReduceRankOp, SelectAbsorbBroadcast,
                  MatMulAbsorbBroadcast>(&getContext());

@@ -1,4 +1,4 @@
-add_mlir_library(MLIRTensorRTTensorRTEncodingImpl
+add_mtrtd_library(MLIRTensorRTTensorRTEncodingImpl
   TensorRTEncodingImpl.cpp
 
   LINK_LIBS PUBLIC

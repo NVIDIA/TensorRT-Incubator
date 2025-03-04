@@ -36,9 +36,16 @@
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
 #include "mlir-tensorrt/Pipelines/StableHloInputPipelines.h"
 #include "mlir-tensorrt/Transforms/Passes.h"
+#include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
+#include "mlir/Conversion/ComplexToStandard/ComplexToStandard.h"
+#include "mlir/Conversion/SCFToControlFlow/SCFToControlFlow.h"
+#include "mlir/Dialect/Affine/Passes.h"
 #include "mlir/Dialect/Bufferization/IR/BufferDeallocationOpInterface.h"
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
+#include "mlir/Dialect/EmitC/Transforms/Passes.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/LLVMIR/Transforms/RequestCWrappers.h"
+#include "mlir/Dialect/MemRef/Transforms/Passes.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/Passes.h"
 #include "llvm/Support/Debug.h"
@@ -126,44 +133,44 @@ void StablehloToExecutableTask::buildPostClusteringPipeline(
   using Phase = StablehloToExecutableOptions::ExtensionBase::Phase;
   populateExtensionPasses(pm, opts, Phase::PreBufferization);
 
-  pm.addPass(createInlinerPass());
-
   // Perform bufferization.
-  pm.addPass(createMemRefCastEliminationPass());
-  plan::PlanAllocTensorsPassOptions allocTensorOpts{};
-  allocTensorOpts.forceEntrypointsReturnAllocs =
-      opts.get<PlanAllocOptions>().forceEntrypointsReturnAllocs;
-  pm.addPass(plan::createPlanAllocTensorsPass(allocTensorOpts));
-  pm.addPass(plan::createPlanBufferizePass());
-  pm.addPass(createMemRefCastEliminationPass());
-  pm.addPass(createCanonicalizerPass());
-  pm.addPass(bufferization::createDropEquivalentBufferResultsPass());
-  plan::buildPlanBufferOptimizationPipeline(pm);
-  plan::buildPlanBufferDeallocationPipeline(
-      pm, bufferization::DeallocationOptions{
-              /*privateFuncDynamicOwnership=*/false});
+  plan::buildPlanBufferizationPipeline(
+      pm, {opts.get<PlanAllocOptions>().forceEntrypointsReturnAllocs},
+      bufferization::DeallocationOptions{
+          /*privateFuncDynamicOwnership=*/false});
 
   populateExtensionPasses(pm, opts, Phase::PostBufferization);
 
   pm.addPass(createConvertMemRefToCUDAPass());
-  pm.addPass(createConvertPlanToExecutorPass());
-  pm.addPass(executor::createExecutorAllocsToGlobalsPass());
-  pm.addNestedPass<func::FuncOp>(
-      executor::createExecutorPopulateFunctionMetadataPass());
+
+  if (opts.hostTarget.value == "executor") {
+    pm.addPass(createConvertPlanToExecutorPass());
+    pm.addPass(executor::createExecutorAllocsToGlobalsPass());
+    pm.addNestedPass<func::FuncOp>(
+        executor::createExecutorPopulateFunctionMetadataPass());
+  }
 
   populateExtensionPasses(pm, opts, Phase::ExecutorLowering);
 
-  ConvertCUDAToExecutorPassOptions cudaToExecutorOpts;
-  cudaToExecutorOpts.indexBitwidth = opts.get<ExecutorOptions>().indexBitwidth;
-  cudaToExecutorOpts.usePackedMemRefCConv =
-      opts.get<ExecutorOptions>().usePackedMemRefCConv;
-  pm.addPass(createConvertCUDAToExecutorPass(cudaToExecutorOpts));
+  if (opts.hostTarget.value == "executor") {
+    ConvertCUDAToExecutorPassOptions cudaToExecutorOpts;
+    cudaToExecutorOpts.indexBitwidth =
+        opts.get<ExecutorOptions>().indexBitwidth;
+    cudaToExecutorOpts.usePackedMemRefCConv =
+        opts.get<ExecutorOptions>().usePackedMemRefCConv;
+    pm.addPass(createConvertCUDAToExecutorPass(cudaToExecutorOpts));
+  }
 
   pm.addPass(createDropNestedModulesPass());
 }
 
+static void addCleanupPasses(OpPassManager &pm) {
+  pm.addPass(mlir::createCSEPass());
+  pm.addPass(mlir::createCanonicalizerPass());
+}
+
 void StablehloToExecutableTask::populatePassManager(
-    mlir::PassManager &pm, const StablehloToExecutableOptions &options) {
+    mlir::OpPassManager &pm, const StablehloToExecutableOptions &options) {
   pm.addPass(createPopulateDefaultBackendMetadataPass(
       PopulateDefaultBackendMetadataPassOptions{
           options.disallowHostTensorsInTensorRTClusters, NV_TENSORRT_MAJOR}));
@@ -179,10 +186,57 @@ void StablehloToExecutableTask::populatePassManager(
 
   buildPostClusteringPipeline(pm, options);
 
-  mlir::executor::ConvertStdToExecutorPassOptions stdToExecOpts;
-  stdToExecOpts.indexBitwidth = options.get<ExecutorOptions>().indexBitwidth;
-  stdToExecOpts.usePackedMemRefCConv = true;
-  mlir::executor::buildExecutorLoweringPipeline(pm, stdToExecOpts);
+  if (options.hostTarget.value == "executor") {
+    mlir::executor::ConvertStdToExecutorPassOptions stdToExecOpts;
+    stdToExecOpts.indexBitwidth = options.get<ExecutorOptions>().indexBitwidth;
+    stdToExecOpts.usePackedMemRefCConv = true;
+    mlir::executor::buildExecutorLoweringPipeline(pm, stdToExecOpts);
+    return;
+  }
+
+  // LLVM and EmitC targets will execute a common set of passes except for the
+  // SCF-to-CF pass.
+  if (options.hostTarget.value == "llvm" ||
+      options.hostTarget.value == "emitc") {
+    pm.addPass(createConvertComplexToStandardPass());
+
+    // For EmitC lowering, we rely on preserving control flow. Otherwise the C
+    // code could be very unreadable.
+    if (options.hostTarget.value != "emitc")
+      pm.addPass(createConvertSCFToCFPass());
+
+    pm.addPass(memref::createFoldMemRefAliasOpsPass());
+    pm.addPass(memref::createExpandOpsPass());
+    pm.addPass(memref::createExpandStridedMetadataPass());
+    addCleanupPasses(pm);
+    pm.addPass(affine::createAffineExpandIndexOpsPass());
+    pm.addPass(mlir::createLowerAffinePass());
+    addCleanupPasses(pm);
+
+    if (options.hostTarget.value == "llvm") {
+      pm.addPass(LLVM::createRequestCWrappersPass());
+      ConvertCUDAToLLVMPassOptions cudaToLLVMOpts;
+      cudaToLLVMOpts.artifactsDirectory = options.artifactDirectory;
+      pm.addPass(createConvertCUDAToLLVMPass(std::move(cudaToLLVMOpts)));
+      pm.addPass(createConvertHostToLLVMPass());
+
+      // Generally there is a lot of cleanup that can happen here after creation
+      // of LLVM IR (e.g. insert|extract forwarding).
+      addCleanupPasses(pm);
+    }
+
+    // For EmitC, just run Host-to-EmitC followed
+    // by cleanup and expression forming.
+    if (options.hostTarget.value == "emitc") {
+      pm.addPass(createConvertHostToEmitCPass({options.artifactDirectory}));
+      addCleanupPasses(pm);
+      // The EmitC "form-expressions" pass combines operations into
+      // "expression regions" where possible, which allows the C++ translation
+      // to be more concise.
+      pm.addPass(emitc::createFormExpressionsPass());
+    }
+    return;
+  }
 }
 
 mlirtrt::StatusOr<std::unique_ptr<runtime::Executable>>

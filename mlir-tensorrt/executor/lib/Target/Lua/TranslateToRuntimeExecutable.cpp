@@ -612,7 +612,10 @@ mlir::translateToRuntimeExecutable(Operation *op) {
 
   // Validate the created buffer.
   {
-    flatbuffers::Verifier verifier(detached.data(), detached.size());
+    flatbuffers::Verifier::Options verifierOptions{};
+    verifierOptions.max_size = FLATBUFFERS_MAX_64_BUFFER_SIZE;
+    flatbuffers::Verifier verifier(detached.data(), detached.size(),
+                                   verifierOptions);
     if (!rt::impl::VerifyExecutableBuffer(verifier))
       return emitError(op->getLoc())
              << "failed to create a valid Executable buffer";

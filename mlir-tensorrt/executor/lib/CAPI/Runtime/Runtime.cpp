@@ -711,10 +711,9 @@ MTRT_Status mtrtRuntimeValueDestroy(MTRT_RuntimeValue value) {
   return mtrtStatusGetOk();
 }
 
-MTRT_Status mtrtRuntimeValueScalarI64Create(int64_t data,
-                                            MTRT_RuntimeValue *value) {
-  *value =
-      MTRT_RuntimeValue{new ScalarValue(data, ScalarType(ScalarTypeCode::i64))};
+MTRT_Status mtrtRuntimeValueScalarCreate(int64_t data, MTRT_ScalarTypeCode code,
+                                         MTRT_RuntimeValue *value) {
+  *value = MTRT_RuntimeValue{new ScalarValue(data, ScalarType(unwrap(code)))};
   return mtrtStatusGetOk();
 }
 
@@ -871,6 +870,16 @@ MTRT_Status mtrtRuntimeClientGetDevice(MTRT_RuntimeClient client, int32_t index,
     return wrap(getInvalidArgStatus(
         "the provided index is greater than the number of devices"));
   *device = wrap(cppClient->getDevices()[index].get());
+  return mtrtStatusGetOk();
+}
+
+//===----------------------------------------------------------------------===//
+// MTRT_Device
+//===----------------------------------------------------------------------===//
+
+MTRT_Status mtrtDeviceGetIndex(MTRT_Device device, int32_t *index) {
+  Device *cppDevice = unwrap(device);
+  *index = cppDevice->getDeviceNumber();
   return mtrtStatusGetOk();
 }
 

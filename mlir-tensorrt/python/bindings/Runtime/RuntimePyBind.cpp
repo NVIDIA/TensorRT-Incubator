@@ -557,7 +557,14 @@ PYBIND11_MODULE(_api, m) {
   populateCommonBindingsInModule(m);
 
   py::class_<PyDevice>(m, "Device", py::module_local())
-      .def_property_readonly(MTRT_PYTHON_CAPI_PTR_ATTR, &PyDevice::getCapsule);
+      .def_property_readonly(MTRT_PYTHON_CAPI_PTR_ATTR, &PyDevice::getCapsule)
+      .def("get_name", [](PyDevice &self) -> py::str {
+        int32_t index;
+        MTRT_Status s = mtrtDeviceGetIndex(self, &index);
+        THROW_IF_MTRT_ERROR(s);
+        std::string deviceName = "cuda:" + std::to_string(index);
+        return py::str(deviceName.c_str());
+      });
   py::class_<PyScalarValue>(m, "ScalarValue", py::module_local(),
                             py::buffer_protocol())
       .def_property_readonly(MTRT_PYTHON_CAPI_PTR_ATTR,
@@ -681,20 +688,29 @@ PYBIND11_MODULE(_api, m) {
           [](PyRuntimeClient &self, py::object data,
              std::optional<MTRT_ScalarTypeCode> scalarTypeCode) {
             MTRT_RuntimeValue value;
-            int idata;
+            int64_t idata;
             if (scalarTypeCode) {
-              // dispatch based on explicit code, (we just need to handle i32,
-              // i64 and for now, otherwise raise exception). `data` should be
-              // py::int_ in the case of integer, py::float_ otherwise Try
-              // casting float object to int
+              // dispatch based on explicit code, (we just need to handle
+              // f32, f64, i32 and i64 for now, otherwise raise exception).
+              // `data` should be py::int_ in the case of integer, py::float_
+              // otherwise Try casting float object to int
               switch (*scalarTypeCode) {
-              case MTRT_ScalarTypeCode_f32:
+              case MTRT_ScalarTypeCode_f32: {
                 if (!py::isinstance<py::float_>(data))
-                  throw std::runtime_error("Python object must represent floa "
+                  throw std::runtime_error("Python object must represent float "
                                            "for a ScalarTypeCode.fp32");
-                // Try casting to int
-                idata = py::cast<int>(data);
+                float fdata = py::cast<float>(data);
+                std::memcpy(&idata, &fdata, sizeof(float));
                 break;
+              }
+              case MTRT_ScalarTypeCode_f64: {
+                if (!py::isinstance<py::float_>(data))
+                  throw std::runtime_error("Python object must represent float "
+                                           "for a ScalarTypeCode.fp64");
+                double fdata = py::cast<double>(data);
+                std::memcpy(&idata, &fdata, sizeof(double));
+                break;
+              }
               case MTRT_ScalarTypeCode_i32:
               case MTRT_ScalarTypeCode_i64:
                 if (!py::isinstance<py::int_>(data))
@@ -715,7 +731,8 @@ PYBIND11_MODULE(_api, m) {
 
               // Finally create a scalar value ScalarTypeCode::i64 and cast to
               // RuntimeValue.
-              MTRT_Status s = mtrtRuntimeValueScalarI64Create(idata, &value);
+              MTRT_Status s =
+                  mtrtRuntimeValueScalarCreate(idata, *scalarTypeCode, &value);
               THROW_IF_MTRT_ERROR(s);
 
               // Cast from RuntimeValue to ScalarValue and return PyScalarValue.
@@ -728,7 +745,8 @@ PYBIND11_MODULE(_api, m) {
               idata = py::cast<int>(data);
               // Finally create a scalar value ScalarTypeCode::i64 and cast to
               // RuntimeValue.
-              MTRT_Status s = mtrtRuntimeValueScalarI64Create(idata, &value);
+              MTRT_Status s = mtrtRuntimeValueScalarCreate(
+                  idata, MTRT_ScalarTypeCode_i64, &value);
               THROW_IF_MTRT_ERROR(s);
               // Cast from RuntimeValue to ScalarValue and return PyScalarValue.
               return PyScalarValue(mtrtRuntimeValueDynCastToScalar(value));
@@ -874,7 +892,8 @@ PYBIND11_MODULE(_api, m) {
                              &PyRuntimeValue::getCapsule)
       .def(py::init<>([](int64_t scalar) {
              MTRT_RuntimeValue value;
-             MTRT_Status s = mtrtRuntimeValueScalarI64Create(scalar, &value);
+             MTRT_Status s = mtrtRuntimeValueScalarCreate(
+                 scalar, MTRT_ScalarTypeCode_i64, &value);
              THROW_IF_MTRT_ERROR(s);
              return new PyRuntimeValue(value);
            }),

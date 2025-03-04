@@ -44,13 +44,16 @@ function(add_mlir_executor_flatbuffer_schema target)
             --filename-suffix Flatbuffer "${ARG_SRC}"
             --gen-object-api
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-    DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/${ARG_SRC}"
+    DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/${ARG_SRC}" flatc
   )
   add_custom_target(${target}
     DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/${generatedFileName}"
   )
 endfunction()
 
+# --------------------------------------------------------------
+# Add target to install set
+# --------------------------------------------------------------
 function(add_mlir_executor_install target)
   install(TARGETS ${target}
     LIBRARY
@@ -69,11 +72,36 @@ function(add_mlir_executor_install target)
 endfunction()
 
 # --------------------------------------------------------------
+# Add includes to executor library
+# --------------------------------------------------------------
+function(populate_mlir_executor_includes_helper name relationship)
+  target_include_directories(${name} ${relationship}
+    $<BUILD_INTERFACE:${MLIR_EXECUTOR_SOURCE_DIR}/include>
+    $<BUILD_INTERFACE:${MLIR_EXECUTOR_BINARY_DIR}/include>
+    $<INSTALL_INTERFACE:include>)
+endfunction()
+function(populate_mlir_executor_includes name)
+  get_target_property(type ${name} TYPE)
+  if (${type} STREQUAL "INTERFACE_LIBRARY")
+    populate_mlir_executor_includes_helper(${name}
+      INTERFACE)
+  else()
+    populate_mlir_executor_includes_helper(${name}
+      PUBLIC)
+  endif()
+  if(TARGET obj.${name})
+    populate_mlir_executor_includes_helper(obj.${name}
+      PUBLIC)
+  endif()
+endfunction()
+
+# --------------------------------------------------------------
 # Wrapper around `add_mlir_library`
 # --------------------------------------------------------------
 function(add_mlir_executor_library name)
   set_property(GLOBAL APPEND PROPERTY MLIR_EXECUTOR_LIBS ${name})
   add_mlir_library(${name} DISABLE_INSTALL ${ARGN})
+  populate_mlir_executor_includes(${name})
   add_mlir_executor_install(${name})
 endfunction()
 
@@ -83,5 +111,6 @@ endfunction()
 function(add_mlir_executor_runtime_library name)
   set_property(GLOBAL APPEND PROPERTY MLIR_EXECUTOR_RUNTIME_LIBS ${name})
   add_mlir_library(${name} ${ARGN})
+  populate_mlir_executor_includes(${name})
   add_mlir_executor_install(${name})
 endfunction()

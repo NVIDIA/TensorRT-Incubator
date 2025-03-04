@@ -29,6 +29,16 @@ def Plan_BoundsKind : Plan_I32EnumAttr<
 >;
 def Plan_BoundsKindAttr : Plan_EnumAttr<Plan_BoundsKind, "bounds_kind">;
 
+
+def Plan_DeviceKind : Plan_I32EnumAttr<
+  "DeviceKind",
+  "kind of device in computing system",
+  [
+    I32EnumAttrCase<"CPU", 0, "CPU">,
+    I32EnumAttrCase<"GPU", 1, "GPU">
+  ]
+>;
+
 class Plan_MemorySpaceCase<string name, int value> : I32EnumAttrCase<name, value>;
 def Plan_MemorySpaceUnknown : Plan_MemorySpaceCase<"unknown", 0>;
 def Plan_MemorySpaceHost : Plan_MemorySpaceCase<"host", 1>;
@@ -49,7 +59,20 @@ def Plan_MemorySpace : Plan_I32EnumAttr<
 >;
 
 def Plan_MemorySpaceAttr : Plan_EnumAttr<Plan_MemorySpace, "memory_space",
-      [DeclareAttrInterfaceMethods<TensorKindAttrInterface, ["getTensorKind"]>]>;
+      [DeclareAttrInterfaceMethods<TensorKindAttrInterface,
+                                  ["getTensorKind"]>]> {
+  let extraClassDeclaration = [{
+    /// Returns true if the memory space can be directly read/written on the host.
+    bool isHostVisible() const;
 
+    /// Returns true if the memory space can be directly read/written from the host's
+    /// associated NVIDIA GPUs (does not distinguish between particular GPUs).
+    bool isGpuVisible() const;
+
+    /// Returns true if the memory space can be directly read/written from the host's
+    /// associated device of specified kind.
+    bool isVisible(plan::DeviceKind deviceKind) const;
+  }];
+}
 
 #endif // MLIR_TENSORRT_DIALECT_PLAN_IR_PLANENUMS

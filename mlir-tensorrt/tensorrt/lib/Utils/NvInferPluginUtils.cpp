@@ -22,11 +22,13 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt-dialect/Utils/NvInferPluginUtils.h"
+#include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTBase.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Diagnostics.h"
 #include "mlir/IR/ImplicitLocOpBuilder.h"
+#include "mlir/IR/TypeUtilities.h"
 #include "llvm/Support/DynamicLibrary.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FormatVariadic.h"
@@ -40,6 +42,40 @@ using TRTIntT = int64_t;
 #else
 using TRTIntT = int32_t;
 #endif
+
+FailureOr<nvinfer1::DataType> mlir::tensorrt::getNvInferDataType(Location loc,
+                                                                 Type t) {
+  Type elType = mlir::getElementTypeOrSelf(t);
+  if (elType.isF32())
+    return nvinfer1::DataType::kFLOAT;
+  if (elType.isF16())
+    return nvinfer1::DataType::kHALF;
+  if (elType.isInteger(32))
+    return nvinfer1::DataType::kINT32;
+  if (isTensorRTInt8Type(elType))
+    return nvinfer1::DataType::kINT8;
+  if (elType.isInteger(1))
+    return nvinfer1::DataType::kBOOL;
+  if (elType.isUnsignedInteger(8))
+    return nvinfer1::DataType::kUINT8;
+
+#if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(9, 1, 0)
+  if (elType.isFloat8E4M3FN())
+    return nvinfer1::DataType::kFP8;
+  if (elType.isBF16())
+    return nvinfer1::DataType::kBF16;
+  if (elType.isInteger(64))
+    return nvinfer1::DataType::kINT64;
+#endif
+
+#if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 0, 0)
+  if (elType.isInteger(4))
+    return nvinfer1::DataType::kINT4;
+#endif
+
+  return emitError(loc) << "MLIR Type " << t
+                        << " can't be converted to TensorRT type";
+}
 
 namespace {
 /// Manages the serialization of an MLIR DictionaryAttr to a

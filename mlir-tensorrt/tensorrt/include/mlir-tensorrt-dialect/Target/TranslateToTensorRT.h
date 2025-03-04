@@ -246,6 +246,9 @@ std::unique_ptr<mlir::Pass> createTranslateTensorRTPass(
 /// called before having LLVM parse CL options.
 void registerTensorRTTranslationCLOpts();
 
+/// Return the CL flag category for global TensorRT translation flags.
+const llvm::cl::OptionCategory &getTensorRTCLOptionCategory();
+
 } // namespace tensorrt
 
 /// Register the "to-tensorrt" translation with the MLIR target registry.

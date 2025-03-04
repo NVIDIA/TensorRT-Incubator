@@ -76,12 +76,22 @@ void StablehloToExecutableTensorRTExtension::populatePasses(
   }
 
   if (phase == Phase::ExecutorLowering) {
-    ConvertTensorRTRuntimeToExecutorPassOptions toExecutorOpts;
-    toExecutorOpts.indexBitwidth = options.get<ExecutorOptions>().indexBitwidth;
-    toExecutorOpts.usePackedMemRefCConv =
-        options.get<ExecutorOptions>().usePackedMemRefCConv;
-    pm.addPass(createConvertTensorRTRuntimeToExecutorPass(toExecutorOpts));
-    return;
+    if (options.hostTarget.value == "executor") {
+      ConvertTensorRTRuntimeToExecutorPassOptions toExecutorOpts;
+      toExecutorOpts.indexBitwidth =
+          options.get<ExecutorOptions>().indexBitwidth;
+      toExecutorOpts.usePackedMemRefCConv =
+          options.get<ExecutorOptions>().usePackedMemRefCConv;
+      pm.addPass(createConvertTensorRTRuntimeToExecutorPass(
+          std::move(toExecutorOpts)));
+      return;
+    }
+    if (options.hostTarget.value == "llvm") {
+      ConvertTensorRTRuntimeToLLVMPassOptions toLLVMOpts;
+      toLLVMOpts.artifactsDirectory = options.artifactDirectory;
+      pm.addPass(createConvertTensorRTRuntimeToLLVMPass(std::move(toLLVMOpts)));
+      return;
+    }
   }
 }
 

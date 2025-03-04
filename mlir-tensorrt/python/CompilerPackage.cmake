@@ -154,11 +154,6 @@ add_mlir_python_modules("MLIRTensorRTPythonCompilerModules"
   "MLIRTensorRTPythonCompilerCLibrary"
   )
 
-# Add compiler defs and required libraries to the compiler pybind11 api module.
-# The name of the library is created programatically by MLIR's cmake utilities,
-# which is why it looks a bit strange here.
-_mtrt_set_target_compile_defs(MLIRTensorRTPythonCompilerModules.extension._api.dso)
-
 ################################################################################
 # Wheel assembly target
 # This produces a target that generates a `.whl` file under the output

@@ -847,12 +847,12 @@ func.func @hlo_reduce_sum_multiple1(%arg0: tensor<1x10x20xf32>) -> tensor<1xf32>
 }
 
 // CHECK-LABEL: @hlo_reduce_sum_multiple1
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<1x10x20xf32>) -> tensor<1xf32>
 //  CHECK-NEXT:   tensorrt.constant
-//  CHECK-NEXT:   %[[reshaped:.+]] = tensorrt.reshape %{{.+}} : tensor<1x10x20xf32> to tensor<1x200xf32>
-//  CHECK-NEXT:   tensorrt.reduce <kSUM> %[[reshaped]]
+//  CHECK-NEXT:   tensorrt.reduce <kSUM> %[[arg0]]
 //   CHECK-NOT:     keepDimensions = true
-//  CHECK-SAME:     reduceAxes = array<i64: 1>
-//  CHECK-SAME:      : tensor<1x200xf32> -> tensor<1xf32>
+//  CHECK-SAME:     reduceAxes = array<i64: 1, 2>
+//  CHECK-SAME:      : tensor<1x10x20xf32> -> tensor<1xf32>
 
 // -----
 
@@ -868,10 +868,9 @@ func.func @hlo_reduce_sum_multiple2(%arg0: tensor<1x112x112x64xf32>) -> (tensor<
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<1x112x112x64xf32>) -> tensor<64xf32>
 //       CHECK:   %[[cst_f32:.+]] = tensorrt.constant dense<1.254400e+04> : tensor<64xf32>
 //       CHECK:   %[[cst_f32_0:.+]] = tensorrt.constant dense<0.000000e+00> : tensor<f32>
-//       CHECK:   %[[v0:.+]] = tensorrt.reshape %[[arg0]] : tensor<1x112x112x64xf32> to tensor<12544x64xf32>
-//       CHECK:   %[[v1:.+]] = tensorrt.reduce <kSUM> %[[v0]] {reduceAxes = array<i64: 0>} : tensor<12544x64xf32> -> tensor<64xf32>
-//       CHECK:   %[[v2:.+]] = tensorrt.element_wise <kDIV>(%[[v1]], %[[cst_f32]] : tensor<64xf32>, tensor<64xf32>) -> tensor<64xf32>
-//       CHECK:   return %[[v2]] : tensor<64xf32>
+//       CHECK:   %[[v0:.+]] = tensorrt.reduce <kSUM> %[[arg0]] {reduceAxes = array<i64: 0, 1, 2>} : tensor<1x112x112x64xf32> -> tensor<64xf32>
+//       CHECK:   %[[v1:.+]] = tensorrt.element_wise <kDIV>(%[[v0]], %[[cst_f32]] : tensor<64xf32>, tensor<64xf32>) -> tensor<64xf32>
+//       CHECK:   return %[[v1]] : tensor<64xf32>
 
 // -----
 
@@ -887,12 +886,30 @@ func.func  @hlo_reduce_sum_multiple3(%arg0: tensor<1x7x7x2048xf32>) -> (tensor<1
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<1x7x7x2048xf32>) -> tensor<1x2048xf32>
 //       CHECK:     %[[cst_f32:.+]] = tensorrt.constant dense<4.900000e+01> : tensor<1x2048xf32>
 //       CHECK:     %[[cst_f32_0:.+]] = tensorrt.constant dense<0.000000e+00> : tensor<f32>
-//       CHECK:     %[[v0:.+]] = tensorrt.reshape %[[arg0]] : tensor<1x7x7x2048xf32> to tensor<1x49x2048xf32>
-//       CHECK:     %[[v1:.+]] = tensorrt.reduce <kSUM> %[[v0]]
-//  CHECK-SAME:        reduceAxes = array<i64: 1>
-//  CHECK-SAME:         : tensor<1x49x2048xf32> -> tensor<1x2048xf32>
-//       CHECK:     %[[v2:.+]] = tensorrt.element_wise <kDIV>(%[[v1]], %[[cst_f32]] :
-//       CHECK:     return %[[v2]]
+//       CHECK:     %[[v0:.+]] = tensorrt.reduce <kSUM> %[[arg0]]
+//  CHECK-SAME:        reduceAxes = array<i64: 1, 2>
+//  CHECK-SAME:         : tensor<1x7x7x2048xf32> -> tensor<1x2048xf32>
+//       CHECK:     %[[v1:.+]] = tensorrt.element_wise <kDIV>(%[[v0]], %[[cst_f32]] :
+//       CHECK:     return %[[v1]]
+
+// -----
+
+func.func @hlo_reduce_sum_multiple_non_contiguous(%arg0: tensor<1x10x20xf32>) -> tensor<10xf32> {
+  %cst = tensorrt.constant dense<-0.000000e+00> : tensor<f32>
+  %0 = stablehlo.reduce(%arg0 init: %cst)
+      across dimensions = [0, 2] : (tensor<1x10x20xf32>, tensor<f32>) -> tensor<10xf32>
+    reducer(%arg393: tensor<f32>, %arg394: tensor<f32>)  {
+      %8875 = stablehlo.add %arg393, %arg394 : tensor<f32>
+      stablehlo.return %8875 : tensor<f32>
+  }
+  return %0 : tensor<10xf32>
+}
+
+// CHECK-LABEL: @hlo_reduce_sum_multiple_non_contiguous
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<1x10x20xf32>) -> tensor<10xf32>
+//  CHECK-NEXT: %[[cst_f32:.+]] = tensorrt.constant dense<-0.000000e+00> : tensor<f32>
+//  CHECK-NEXT: %[[v0:.+]] = tensorrt.reduce <kSUM> %[[arg0]] {reduceAxes = array<i64: 0, 2>} : tensor<1x10x20xf32> -> tensor<10xf32>
+//  CHECK-NEXT: return %[[v0]] : tensor<10xf32>
 
 // -----
 
@@ -1988,3 +2005,49 @@ func.func @stablehlo_reduce_window_consume_next_div_op_neg(%arg0: tensor<1x1x8x8
 //  CHECK-NEXT: %[[v2:.+]] = tensorrt.element_wise <kDIV>(%[[v1]], %[[cst_i8]] : {{.*}}) -> tensor<1x1x7x7xi8>
 //  CHECK-NEXT: %[[v3:.+]] = tensorrt.element_wise <kSUM>(%[[v1]], %[[v2]] : {{.*}}) -> tensor<1x1x7x7xi8>
 //  CHECK-NEXT: return %[[v3]] : tensor<1x1x7x7xi8>
+
+// -----
+
+func.func public @top_k_custom_call_kmax(%arg0: tensor<4xf16>) -> (tensor<3xf16> {jax.result_info = "[0]"}, tensor<3xi32> {jax.result_info = "[1]"}) {
+    %0:2 = stablehlo.custom_call @mhlo.topk(%arg0) {mhlo.attributes = {k = 3 : i64, largest = true}, mhlo.version = 1 : i64} : (tensor<4xf16>) -> (tensor<3xf16>, tensor<3xi32>)
+    return %0#0, %0#1 : tensor<3xf16>, tensor<3xi32>
+}
+
+// CHECK-LABEL: @top_k_custom_call_kmax
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<4xf16>) -> (tensor<3xf16> {jax.result_info = "[0]"}, tensor<3xi32> {jax.result_info = "[1]"})
+//  CHECK-NEXT: %[[values:.+]], %[[indices:.+]] = tensorrt.top_k <kMAX> {axis = 0 : i64, k = 3 : i64} %[[arg0]] : tensor<4xf16> -> tensor<3xf16>, tensor<3xi32>
+//  CHECK-NEXT:  return %[[values]], %[[indices]] : tensor<3xf16>, tensor<3xi32>
+
+// -----
+
+func.func public @top_k_custom_call_kmin(%arg0: tensor<4xf16>) -> (tensor<3xf16> {jax.result_info = "[0]"}, tensor<3xi32> {jax.result_info = "[1]"}) {
+    %0:2 = stablehlo.custom_call @mhlo.topk(%arg0) {mhlo.attributes = {k = 3 : i64, largest = false}, mhlo.version = 1 : i64} : (tensor<4xf16>) -> (tensor<3xf16>, tensor<3xi32>)
+    return %0#0, %0#1 : tensor<3xf16>, tensor<3xi32>
+}
+
+// CHECK-LABEL: @top_k_custom_call_kmin
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<4xf16>) -> (tensor<3xf16> {jax.result_info = "[0]"}, tensor<3xi32> {jax.result_info = "[1]"})
+//  CHECK-NEXT: %[[values:.+]], %[[indices:.+]] = tensorrt.top_k <kMIN> {axis = 0 : i64, k = 3 : i64} %[[arg0]] : tensor<4xf16> -> tensor<3xf16>, tensor<3xi32>
+//  CHECK-NEXT:  return %[[values]], %[[indices]] : tensor<3xf16>, tensor<3xi32>
+
+// -----
+
+func.func public @top_k_custom_call_kmax_3d(%arg0: tensor<4x5x7xf16>) -> (tensor<4x5x3xf16> {jax.result_info = "[0]"}, tensor<4x5x3xi32> {jax.result_info = "[1]"}) {
+    %0:2 = stablehlo.custom_call @mhlo.topk(%arg0) {mhlo.attributes = {k = 3 : i64, largest = true}, mhlo.version = 1 : i64} : (tensor<4x5x7xf16>) -> (tensor<4x5x3xf16>, tensor<4x5x3xi32>)
+    return %0#0, %0#1 : tensor<4x5x3xf16>, tensor<4x5x3xi32>
+}
+
+// CHECK-LABEL: @top_k_custom_call_kmax_3d
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<4x5x7xf16>) -> (tensor<4x5x3xf16> {jax.result_info = "[0]"}, tensor<4x5x3xi32> {jax.result_info = "[1]"})
+//  CHECK-NEXT: %[[values:.+]], %[[indices:.+]] = tensorrt.top_k <kMAX> {axis = 2 : i64, k = 3 : i64} %arg0 : tensor<4x5x7xf16> -> tensor<4x5x3xf16>, tensor<4x5x3xi32>
+//  CHECK-NEXT:  return %[[values]], %[[indices]] : tensor<4x5x3xf16>, tensor<4x5x3xi32>
+
+// -----
+
+func.func public @top_k_custom_call_kmax_unsupported(%arg0: tensor<5678xf16>) -> (tensor<5000xf16> {jax.result_info = "[0]"}, tensor<5000xi32> {jax.result_info = "[1]"}) {
+    %0:2 = stablehlo.custom_call @mhlo.topk(%arg0) {mhlo.attributes = {k = 5000 : i64, largest = true}, mhlo.version = 1 : i64} : (tensor<5678xf16>) -> (tensor<5000xf16>, tensor<5000xi32>)
+    return %0#0, %0#1 : tensor<5000xf16>, tensor<5000xi32>
+}
+
+// CHECK-LABEL: @top_k_custom_call_kmax_unsupported
+//  CHECK-NEXT: stablehlo.custom_call

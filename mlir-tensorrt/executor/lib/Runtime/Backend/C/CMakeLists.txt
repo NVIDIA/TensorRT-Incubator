@@ -23,6 +23,21 @@ add_mlir_public_c_api_library(MLIRExecutorCAPIRuntimeCUDA
   MLIRTensorRTExecutorRuntimeCommon
   )
 
+add_mlir_public_c_api_library(MLIRExecutorCAPIRuntimeTensorRT
+  TensorRTModule.cpp
+  PARTIAL_SOURCES_INTENDED
+
+  ADDITIONAL_HEADER_DIRS
+  ${CMAKE_CURRENT_LIST_DIR}
+
+  LINK_LIBS PRIVATE
+  MLIRTensorRTCAPISupportStatus
+  CUDA::cudart
+  MLIRTensorRTExecutorRuntimeCommon
+  MLIRTRTTensorRTDynamicLoader
+  TensorRTHeaderOnly
+  )
+
 # This is an aggregate library for mlir-cpu-runner style
 # tests.
 add_mlir_aggregate(mtrt_runtime
@@ -32,4 +47,5 @@ add_mlir_aggregate(mtrt_runtime
   EMBED_LIBS
     MLIRExecutorCAPIRuntimeCore
     MLIRExecutorCAPIRuntimeCUDA
+    MLIRExecutorCAPIRuntimeTensorRT
   )
