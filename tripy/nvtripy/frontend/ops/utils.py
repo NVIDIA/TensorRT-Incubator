@@ -277,8 +277,8 @@ def transform_conv_pooling_padding(padding):
 ##
 
 
-# Reshapes lhs/rhs by prepending ones so that their ranks match.
-def match_ranks(lhs, rhs):
+# Reshapes tensors by prepending ones so that their ranks match.
+def match_ranks(*tensors):
     from nvtripy.frontend.ops.reshape import reshape
 
     def expand_rank(tensor, max_rank):
@@ -289,7 +289,5 @@ def match_ranks(lhs, rhs):
         new_shape = [1] * (max_rank - tensor.rank) + tensor.shape
         return reshape(tensor, new_shape)
 
-    max_rank = max(lhs.rank, rhs.rank)
-    lhs = expand_rank(lhs, max_rank)
-    rhs = expand_rank(rhs, max_rank)
-    return lhs, rhs
+    max_rank = max(t.rank for t in tensors)
+    return tuple(expand_rank(t, max_rank) for t in tensors)
