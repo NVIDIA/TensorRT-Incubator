@@ -15,10 +15,24 @@
 
 
 from nvtripy.frontend.ops import utils as op_utils
+from nvtripy.common import datatype
 
 
 # Like op_utils.create_op except also performs rank expansion of operands if needed.
-def create_binary_op(OpType, lhs, rhs):
+# If `cast_bool_to_int` is True, then any boolean inputs are converted to integers before
+# performing the operation and then casted back afterwards.
+def create_binary_op(OpType, lhs, rhs, cast_bool_to_int: bool = True):
+    from nvtripy.frontend.ops.cast import cast
+
     lhs, rhs = op_utils.match_ranks(lhs, rhs)
-    # TODO (pranavm): Implicit casting for bool inputs? Need to not do that for comparison ops!
-    return op_utils.create_op(OpType, [lhs, rhs], stack_depth_offset=1)
+
+    assert lhs.dtype == rhs.dtype, "This function is only implemented for operands with matching data types"
+    inp_is_bool = lhs.dtype == datatype.bool
+    if cast_bool_to_int and inp_is_bool:
+        lhs = cast(lhs, datatype.int8)
+        rhs = cast(rhs, datatype.int8)
+
+    out = op_utils.create_op(OpType, [lhs, rhs], stack_depth_offset=1)
+    if cast_bool_to_int and inp_is_bool:
+        out = cast(out, datatype.bool)
+    return out
