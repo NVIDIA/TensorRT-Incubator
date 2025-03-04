@@ -12,11 +12,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from typing import List, Dict, Optional
+from typing import Dict, List, Optional
 
-
-from nvtripy import utils
-from nvtripy import config
+from nvtripy import config, utils
 
 
 class ExecutableCache:
@@ -142,13 +140,14 @@ class ExecutableCache:
         if key not in self._cache:
             from nvtripy.backend.api.executable import Executable
             from nvtripy.backend.mlir.compiler import Compiler
+            from nvtripy.frontend.tensor import Tensor
 
             mlir = trace.to_mlir()
 
             compiler = Compiler(trt_builder_opt_level=0)
             # TODO (pranavm): Add error mapping logic here (test with squeezing non-singleton dim)
             arg_names = [f"arg{index}" for index in range(len(trace.inputs))]
-            executable = Executable(compiler.compile(mlir, trace=trace), arg_names)
+            executable = Executable(compiler.compile(mlir, trace=trace), arg_names, return_type=Tensor)
 
             if not config.use_cache_in_eager_mode:
                 return executable

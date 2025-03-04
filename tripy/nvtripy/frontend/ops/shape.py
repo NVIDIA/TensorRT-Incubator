@@ -56,6 +56,6 @@ def shape(self: "nvtripy.Tensor") -> Tuple[IntLike]:
 
     shape = op_utils.create_op(Shape, [self])
     return tuple(
-        op_utils.create_op(GetDimensionSize, [shape], dim=index, always_cast_to_dimension_size=True)
+        op_utils.create_op(GetDimensionSize, [shape], dim=index, cast_to_dimension_size=True)
         for index in range(self.rank)
     )

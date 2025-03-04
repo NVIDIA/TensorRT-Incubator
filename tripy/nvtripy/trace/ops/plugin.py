@@ -111,6 +111,9 @@ class Plugin(BaseTraceOp):
     output_info: List[Tuple[int, "nvtripy.dtype"]]
     creator_params: Dict[str, Any]
 
+    def __post_init__(self):
+        self._originating_expression = self.outputs[0]
+
     def get_num_outputs(self):
         return len(self.output_info)
 
@@ -138,7 +141,7 @@ class Plugin(BaseTraceOp):
                     [
                         f"Note: Valid fields are: {list(sorted(field_schema.keys()))}\n\n",
                         "This originated from:",
-                        self.outputs[0],
+                        self._originating_expression,
                     ],
                 )
 
@@ -148,7 +151,7 @@ class Plugin(BaseTraceOp):
                     f"{plugin_err_prefix}: Invalid value provided for field: {name}",
                     result.error_details
                     + [f" Note: Provided field value was: {repr(values)}\n\n"]
-                    + ["This originated from:", self.outputs[0]],
+                    + ["This originated from:", self._originating_expression],
                 )
             params[name] = result.value
 

@@ -114,4 +114,4 @@ def split(
         splits.append(slice_on_dim(start, start + size))
         start += size
 
-    return splits
+    return tuple(splits)

@@ -35,6 +35,6 @@ class Broadcast(BaseTraceOp):
                 outputs[0],
                 inputs[0],
                 shape=inputs[1],
-                broadcast_dims=op_utils.get_broadcast_in_dim(self.inputs[0].rank, self.outputs[0].rank),
+                broadcast_dims=op_utils.get_broadcast_in_dim(inputs[0].type.rank, outputs[0].rank),
             )
         ]
