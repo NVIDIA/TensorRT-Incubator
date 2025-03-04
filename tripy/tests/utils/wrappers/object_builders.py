@@ -107,13 +107,22 @@ default_constraints_all = {
     "convolution": {
         "input": tp.ones((1, 3, 5, 5)),
         "weight": tp.ones((1, 3, 3, 3)),
-        "padding": ((0, 0), (0, 0)),
+        "bias": tp.ones((3,)),
         "stride": [1, 1],
+        "padding": ((0, 0), (0, 0)),
         "groups": 1,
-        "lhs_dilation": [1, 1],
-        "rhs_dilation": [1, 1],
+        "dilation": [1, 1],
     },
     "cumsum": {"dim": 0},
+    "deconvolution": {
+        "input": tp.ones((1, 3, 5, 5)),
+        "weight": tp.ones((1, 3, 3, 3)),
+        "bias": tp.ones((3,)),
+        "stride": [1, 1],
+        "padding": ((0, 0), (0, 0)),
+        "groups": 1,
+        "dilation": [1, 1],
+    },
     "dequantize": {"scale": tp.Tensor([1, 1, 1]), "dim": 0},
     "expand": {"sizes": [3, 4], "input": tp.ones((3, 1))},
     "flip": {"dim": 1},
@@ -140,7 +149,7 @@ default_constraints_all = {
         "scales": [],
     },
     "softmax": {"dim": 1},
-    "split": {"indices_or_sections": 2},
+    "split": {"num_split_or_sizes": 2},
     "squeeze": {"input": tp.ones((3, 1)), "dims": (1)},
     "sum": {"dim": 0},
     "transpose": {"dim0": 0, "dim1": 1},
@@ -152,6 +161,7 @@ default_constraints_all = {
 }
 
 
+# TODO (pranavm): Greatly simplify dtype constraint tests.
 def create_obj(func_obj, func_name, param_name, param_dtype, namespace):
     # If type is an optional or union get the first type.
     # Get names and type hints for each param.
