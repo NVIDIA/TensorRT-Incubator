@@ -27,7 +27,7 @@ class Shape(BaseTraceOp):
     def infer_rank(self):
         # TODO (pranavm): This can probably be changed back to rank inference.
         # The shape is set in `tensor_from_shape_like`
-        self.outputs[0].shape = [self.inputs[0].rank]
+        self.outputs[0].shape = (self.inputs[0].rank,)
 
     def infer_dtypes(self):
         self.outputs[0].dtype = int32

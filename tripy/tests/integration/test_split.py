@@ -16,10 +16,9 @@
 #
 
 import cupy as cp
-import pytest
-
-import nvtripy as tp
 import numpy as np
+import nvtripy as tp
+import pytest
 
 
 def compare_split_results(tp_out, reference_out):
@@ -35,29 +34,24 @@ def compare_split_results(tp_out, reference_out):
 # TODO (pranavm): Update to account for new semantics.
 class TestSplitOp:
     @pytest.mark.parametrize(
-        "dims_a, split_params, reference_slices",
+        "dims_a, num_split_or_sizes, dim, reference_slices",
         [
-            ((4,), (2, 0), lambda t: (t[:2], t[2:])),
-            ((4,), (1, 0), lambda t: t[:]),
-            ((4,), (4, 0), lambda t: (t[0:1], t[1:2], t[2:3], t[3:4])),
-            ((4,), ([1, 2], 0), lambda t: (t[:1], t[1:2], t[2:])),
-            ((12, 12), (3, 1), lambda t: (t[:, :4], t[:, 4:8], t[:, 8:])),
-            ((12, 12), ([3], 1), lambda t: (t[:, :3], t[:, 3:])),
-            ((12, 12), (4, 0), lambda t: (t[:3, :], t[3:6, :], t[6:9, :], t[9:12, :])),
-            pytest.param(
-                (3, 0),
-                (5, 1),
-                lambda t: (t[:, :0], t[:, 0:0], t[:, 0:0], t[:, 0:0], t[:, 0:0]),
-                marks=pytest.mark.skip(reason="https://github.com/NVIDIA/TensorRT-Incubator/issues/398"),
-            ),
+            ((4,), 2, 0, lambda t: (t[:2], t[2:])),
+            ((4,), 1, 0, lambda t: t[:]),
+            ((4,), 4, 0, lambda t: (t[0:1], t[1:2], t[2:3], t[3:4])),
+            ((4,), [1, 1, 2], 0, lambda t: (t[:1], t[1:2], t[2:])),
+            ((12, 12), 3, 1, lambda t: (t[:, :4], t[:, 4:8], t[:, 8:])),
+            ((12, 12), [3, 9], 1, lambda t: (t[:, :3], t[:, 3:])),
+            ((12, 12), 4, 0, lambda t: (t[:3, :], t[3:6, :], t[6:9, :], t[9:12, :])),
+            ((3, 0), 5, 1, lambda t: (t[:, :0], t[:, 0:0], t[:, 0:0], t[:, 0:0], t[:, 0:0])),
         ],
     )
-    def test_split_static(self, dims_a, split_params, reference_slices, eager_or_compiled):
+    def test_split(self, dims_a, num_split_or_sizes, dim, reference_slices, eager_or_compiled):
         a_cp = cp.arange(np.prod(dims_a)).reshape(dims_a).astype(cp.float32)
         a = tp.Tensor(a_cp, device=tp.device("gpu"))
 
         def func(t):
-            return tp.split(t, split_params[0], split_params[1])
+            return tp.split(t, num_split_or_sizes, dim)
 
         out = eager_or_compiled(func, a)
         reference_out = reference_slices(a_cp)

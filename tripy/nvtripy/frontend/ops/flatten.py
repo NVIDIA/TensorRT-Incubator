@@ -74,5 +74,5 @@ def flatten(input: "nvtripy.Tensor", start_dim: int = 0, end_dim: int = -1) -> "
 
     shape = input.shape
     flattened_dim_size = math.prod(shape[start_dim : end_dim + 1])
-    flattened_shape = shape[:start_dim] + [flattened_dim_size] + shape[end_dim + 1 :]
+    flattened_shape = shape[:start_dim] + (flattened_dim_size,) + shape[end_dim + 1 :]
     return reshape(input, flattened_shape)
