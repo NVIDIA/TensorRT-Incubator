@@ -307,8 +307,18 @@ serializeDenseResourceElementsAttrToFile(
   assert(type.getNumElements() > 0 && "Expected non-empty elements attribute");
 
   AsmResourceBlob *blob = denseResourceAttr.getRawHandle().getBlob();
-  if (!blob)
+  if (!blob) {
+    if (denseResourceAttr.getRawHandle().getKey() == "__elided__") {
+      std::string err;
+      std::unique_ptr<llvm::ToolOutputFile> of =
+          mlir::openOutputFile(outputPath, &err);
+      if (!of)
+        return emitError(UnknownLoc::get(loc->getContext()))
+               << "failed to open output file: " << err;
+      return of;
+    }
     return emitError(loc, "resource does not exist");
+  }
 
   ArrayRef<char> rawData = blob->getData();
 
@@ -354,6 +364,71 @@ serializeDenseElementsAttrToFile(Location loc,
   return of;
 }
 
+static FailureOr<std::unique_ptr<llvm::ToolOutputFile>>
+serializeDenseSplatElementsAttrToFile(Location loc, DenseElementsAttr values,
+                                      StringRef outputPath) {
+  assert(values && "expected non-null attribute");
+  ShapedType type = values.getType();
+  assert(type.getNumElements() > 0 && "Expected non-empty elements attribute");
+  assert(values.isSplat() && "expected splat elements");
+  std::string err;
+  std::unique_ptr<llvm::ToolOutputFile> of =
+      mlir::openOutputFile(outputPath, &err);
+  if (!of)
+    return emitError(UnknownLoc::get(loc->getContext()))
+           << "failed to open output file: " << err;
+  auto rtt = cast<ShapedType>(values.getType());
+  auto fill = [&](auto element, int64_t divisor = 1) {
+    for (int64_t i = 0; i < rtt.getNumElements() / divisor; i++)
+      of->os().write(reinterpret_cast<const char *>(&element), sizeof(element));
+  };
+
+  if (rtt.getElementType().isInteger(32)) {
+    fill(values.getSplatValue<int32_t>());
+    return of;
+  }
+  if (rtt.getElementType().isInteger(64)) {
+    fill(values.getSplatValue<int64_t>());
+    return of;
+  }
+  if (rtt.getElementType().isInteger(8)) {
+    fill(values.getSplatValue<int8_t>());
+    return of;
+  }
+  if (rtt.getElementType().isF32()) {
+    fill(values.getSplatValue<float>());
+    return of;
+  }
+  if (rtt.getElementType().isF16() || rtt.getElementType().isBF16()) {
+    APInt tmp = values.getSplatValue<APFloat>().bitcastToAPInt();
+    assert(tmp.getBitWidth() == 16 && "unexpected bitwidth");
+    uint16_t fillValue = *reinterpret_cast<const uint16_t *>(tmp.getRawData());
+    fill(fillValue);
+    return of;
+  }
+  if (rtt.getElementType().isFloat8E4M3FN()) {
+    APInt tmp = values.getSplatValue<APFloat>().bitcastToAPInt();
+    assert(tmp.getBitWidth() == 8 && "unexpected bitwidth");
+    uint8_t fillValue = *reinterpret_cast<const uint8_t *>(tmp.getRawData());
+    fill(fillValue);
+    return of;
+  }
+  if (rtt.getElementType().isInteger(4)) {
+    APInt tmp = values.getSplatValue<APInt>();
+    assert(tmp.getBitWidth() == 4 && "expected 4 bit integer");
+    uint8_t packed = 0;
+    uint8_t value = *reinterpret_cast<const uint8_t *>(tmp.getRawData());
+    // Pack `value` in the upper and the lower nibble
+    packed |= (value & 0x0F);
+    packed |= ((value & 0x0F) << 4);
+    // Fill `data` vector with `packed`
+    fill(packed, 2);
+    return of;
+  }
+  return emitError(loc) << "cannot serialize splat elements of type"
+                        << values.getType();
+}
+
 FailureOr<std::unique_ptr<llvm::ToolOutputFile>>
 mlir::serializeElementsAttrToFile(Location loc, ElementsAttr attr,
                                   StringRef outputDir, StringRef filename) {
@@ -362,10 +437,15 @@ mlir::serializeElementsAttrToFile(Location loc, ElementsAttr attr,
            << attr.getShapedType();
   llvm::SmallString<64> outputPath(outputDir);
   llvm::sys::path::append(outputPath, filename);
+
   if (auto dense = dyn_cast<DenseResourceElementsAttr>(attr))
     return serializeDenseResourceElementsAttrToFile(loc, dense, outputPath);
-  if (auto dense = dyn_cast<DenseElementsAttr>(attr))
-    return serializeDenseElementsAttrToFile(loc, dense, outputPath);
+  if (auto dense = dyn_cast<DenseElementsAttr>(attr)) {
+    if (dense.isSplat())
+      return serializeDenseSplatElementsAttrToFile(loc, dense, outputPath);
+    else
+      return serializeDenseElementsAttrToFile(loc, dense, outputPath);
+  }
   return emitError(loc, "could not serialize elements of type ")
          << attr.getType();
 }

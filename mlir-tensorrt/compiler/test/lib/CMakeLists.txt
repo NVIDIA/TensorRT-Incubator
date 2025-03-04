@@ -7,4 +7,3 @@ include_directories(${MLIR_TENSORRT_ROOT_DIR}/compiler/include)
 include_directories(${MLIR_TENSORRT_ROOT_BINARY_DIR}/compiler/include)
 
 add_subdirectory(Analysis)
-add_subdirectory(Transforms)

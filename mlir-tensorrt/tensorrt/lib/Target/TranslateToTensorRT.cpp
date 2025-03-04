@@ -201,6 +201,10 @@ void mlir::tensorrt::registerTensorRTTranslationCLOpts() {
   (void)*clTensorRTTranslationOptions;
 }
 
+const llvm::cl::OptionCategory &mlir::tensorrt::getTensorRTCLOptionCategory() {
+  return clTensorRTTranslationOptions->optCategory;
+}
+
 //===----------------------------------------------------------------------===//
 // TensorRTTranslationOptions
 //===----------------------------------------------------------------------===//

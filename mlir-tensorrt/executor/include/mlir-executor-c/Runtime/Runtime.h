@@ -121,6 +121,10 @@ static inline bool mtrtDeviceIsNull(MTRT_Device device) { return !device.ptr; }
 /// arguments are optional in functions below.
 static inline MTRT_Device mtrtDeviceGetNull() { return MTRT_Device{NULL}; }
 
+/// Get the device index, put the number into the index pointer
+MLIR_CAPI_EXPORTED MTRT_Status mtrtDeviceGetIndex(MTRT_Device device,
+                                                  int32_t *index);
+
 //===----------------------------------------------------------------------===//
 // MTRT_MemRefValue
 //===----------------------------------------------------------------------===//
@@ -349,8 +353,8 @@ mtrtRuntimeValueDynCastToScalar(MTRT_RuntimeValue value);
 MLIR_CAPI_EXPORTED MTRT_Status mtrtRuntimeValueDestroy(MTRT_RuntimeValue value);
 
 /// Create a MTRT_ScalarValue representing an int64.
-MLIR_CAPI_EXPORTED MTRT_Status
-mtrtRuntimeValueScalarI64Create(int64_t data, MTRT_RuntimeValue *value);
+MLIR_CAPI_EXPORTED MTRT_Status mtrtRuntimeValueScalarCreate(
+    int64_t data, MTRT_ScalarTypeCode code, MTRT_RuntimeValue *value);
 
 /// Cast a MTRT_RuntimeValue to a generic MTRT_RuntimeValue.
 

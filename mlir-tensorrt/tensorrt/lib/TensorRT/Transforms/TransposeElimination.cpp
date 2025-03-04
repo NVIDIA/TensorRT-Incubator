@@ -44,6 +44,10 @@ namespace tensorrt {
 using namespace mlir;
 using namespace mlir::tensorrt;
 
+// Set the max size of tensors which can be constant-folded to 131072 (0.5 MB
+// for f32 constants).
+constexpr int64_t kFoldOpEltLimit = 1 << 17;
+
 static int64_t memoryCost(RankedTensorType type) {
   // If the type is dynamic, then return max.
   if (!type.hasStaticShape())
@@ -398,7 +402,9 @@ struct TransposeConstantFold : public OpRewritePattern<TransposeOp> {
 
     // Don't fold transpose if input has > 1 user and input is non-splat
     // constant.
-    if (!inputConst.isSplat() && !op.getInput().hasOneUse())
+    if (!inputConst.isSplat() &&
+        (!op.getInput().hasOneUse() ||
+         inputConst.getNumElements() > kFoldOpEltLimit))
       return failure();
 
     ElementsAttr result =

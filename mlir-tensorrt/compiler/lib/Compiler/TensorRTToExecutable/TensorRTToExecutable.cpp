@@ -86,19 +86,10 @@ void TensorRTToExecutableTask::buildPostClusteringPipeline(
   pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
 
   // Pre-bufferization
-  pm.addPass(createMemRefCastEliminationPass());
-  plan::PlanAllocTensorsPassOptions allocTensorOpts{};
-  allocTensorOpts.forceEntrypointsReturnAllocs =
-      options.get<PlanAllocOptions>().forceEntrypointsReturnAllocs;
-  pm.addPass(plan::createPlanAllocTensorsPass(allocTensorOpts));
-  pm.addPass(plan::createPlanBufferizePass());
-  pm.addPass(createMemRefCastEliminationPass());
-  pm.addPass(createCanonicalizerPass());
-  pm.addPass(bufferization::createDropEquivalentBufferResultsPass());
-  plan::buildPlanBufferOptimizationPipeline(pm);
-  plan::buildPlanBufferDeallocationPipeline(
-      pm, bufferization::DeallocationOptions{
-              /*privateFuncDynamicOwnership=*/false});
+  plan::buildPlanBufferizationPipeline(
+      pm, {options.get<PlanAllocOptions>().forceEntrypointsReturnAllocs},
+      bufferization::DeallocationOptions{
+          /*privateFuncDynamicOwnership=*/false});
 
   // Post-bufferization
   pm.addPass(createConvertMemRefToCUDAPass());

@@ -1,4 +1,4 @@
-// RUN: mlir-tensorrt-opt %s -split-input-file -empty-tensor-to-alloc-tensor -plan-bufferize | FileCheck %s
+// RUN: mlir-tensorrt-opt %s -split-input-file -empty-tensor-to-alloc-tensor -plan-module-bufferize | FileCheck %s
 
 // tensorrt.module @trt_engines {
 //   func.func @trt_while_loop_region(%arg0: tensor<1xi32>) -> tensor<i1> {
@@ -57,7 +57,7 @@ func.func @main(%arg0: tensor<10xf32>) -> tensor<1xf32> {
 //       CHECK:     memref.copy %[[v1]], %[[alloc_1]]
 //       CHECK:     %[[v5:.+]]:2 = scf.while (%[[arg1:.+]] = %[[alloc_0]], %[[arg2:.+]] = %[[alloc_1]])
 //       CHECK:       trtrt.enqueue %[[v3]] stream(%[[v2]]) (%[[arg1]]) outs(%[[alloc]])
-//       CHECK:       %[[alloc_2:.+]] = memref.alloc() : memref<i1, #plan.memory_space<host_pinned>>
+//       CHECK:       %[[alloc_2:.+]] = memref.alloc() {{.*}} : memref<i1, #plan.memory_space<host_pinned>>
 //       CHECK:       memref.copy %[[alloc]], %[[alloc_2]] : memref<i1, #plan.memory_space<device>> to memref<i1, #plan.memory_space<host_pinned>>
 //       CHECK:       %[[v6:.+]] = memref.load %[[alloc_2]][] : memref<i1, #plan.memory_space<host_pinned>>
 //       CHECK:       scf.condition(%[[v6]]) %[[arg1]], %[[arg2]]
@@ -75,14 +75,15 @@ func.func @copy_back_host_dynamic(%arg0: tensor<?xf32>, %arg1: index) -> f32 {
   return %0 : f32
 }
 
-// CHECK-LABEL: @copy_back_host_dynamic
-//  CHECK-SAME: (%[[arg0:.+]]: memref<?xf32, #plan.memory_space<device>>, %[[arg1:.+]]: index)
+// CHECK-LABEL: func.func @copy_back_host_dynamic
+//  CHECK-SAME: (%[[arg0:.+]]: memref<?xf32, #plan.memory_space<device>>, %[[arg1:.+]]: index) -> f32 {
+//       CHECK:     %[[subview:.+]] = memref.subview %[[arg0]][%[[arg1]]] [1] [1] : memref<?xf32, #plan.memory_space<device>> to memref<1xf32, strided<[1], offset: ?>, #plan.memory_space<device>>
+//       CHECK:     %[[alloc:.+]] = memref.alloc() {alignment = 16 : i64} : memref<1xf32, #plan.memory_space<host_pinned>>
+//       CHECK:     memref.copy %[[subview]], %[[alloc]] : memref<1xf32, strided<[1], offset: ?>, #plan.memory_space<device>> to memref<1xf32, #plan.memory_space<host_pinned>>
 //       CHECK:     %[[c0:.+]] = arith.constant 0 : index
-//       CHECK:     %[[dim:.+]] = memref.dim %[[arg0]], %[[c0]] :
-//       CHECK:     %[[alloc:.+]] = memref.alloc(%[[dim]]) : memref<?xf32, #plan.memory_space<host_pinned>>
-//       CHECK:     memref.copy %[[arg0]], %[[alloc]] : memref<?xf32, #plan.memory_space<device>> to memref<?xf32, #plan.memory_space<host_pinned>>
-//       CHECK:     %[[v0:.+]] = memref.load %[[alloc]][%[[arg1]]] : memref<?xf32, #plan.memory_space<host_pinned>>
-//       CHECK:     return %[[v0]] :
+//       CHECK:     %[[v0:.+]] = memref.load %[[alloc]][%[[c0]]] : memref<1xf32, #plan.memory_space<host_pinned>>
+//       CHECK:     return %[[v0]] : f32
+
 
 // -----
 
@@ -96,7 +97,7 @@ func.func @from_elements(%arg0: i32) -> tensor<4xi32, #plan.memory_space<host>> 
 //   CHECK-DAG:     %[[c2:.+]] = arith.constant 2 : index
 //   CHECK-DAG:     %[[c1:.+]] = arith.constant 1 : index
 //   CHECK-DAG:     %[[c0:.+]] = arith.constant 0 : index
-//       CHECK:     %[[alloc:.+]] = memref.alloc() {alignment = 16 : i64} : memref<4xi32, #plan.memory_space<host>>
+//   CHECK-DAG:     %[[alloc:.+]] = memref.alloc() {alignment = 16 : i64} : memref<4xi32, #plan.memory_space<host>>
 //  CHECK-NEXT:     memref.store %[[arg0]], %[[alloc]][%[[c0]]] : memref<4xi32, #plan.memory_space<host>>
 //  CHECK-NEXT:     memref.store %[[arg0]], %[[alloc]][%[[c1]]] : memref<4xi32, #plan.memory_space<host>>
 //  CHECK-NEXT:     memref.store %[[arg0]], %[[alloc]][%[[c2]]] : memref<4xi32, #plan.memory_space<host>>

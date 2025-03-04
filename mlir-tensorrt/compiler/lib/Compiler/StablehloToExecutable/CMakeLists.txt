@@ -11,12 +11,12 @@ add_mlir_tensorrt_library(MLIRTensorRTCompilerStableHloToExecutable
     LINK_LIBS PUBLIC
     MLIREmitCTransforms
     MLIRIR
-    MLIRLLVMDialect
     MLIRLLVMIRTransforms
     MLIRTensorRTCompilerClient
     MLIRTensorRTCUDAToExecutor
     MLIRTensorRTDropNestedModules
     MLIRTensorRTExecutorTransforms
+    MLIRTensorRTHostToEmitC
     MLIRTensorRTHostToLLVM
     MLIRTensorRTMemRefToCUDA
     MLIRTensorRTOptionUtils

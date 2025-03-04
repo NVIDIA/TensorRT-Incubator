@@ -1,4 +1,4 @@
-add_mlir_library(MLIRTensorRTTensorRTEncodingOpInterface
+add_mtrtd_library(MLIRTensorRTTensorRTEncodingOpInterface
   NetworkEncoder.cpp
   TensorRTEncodingOpInterface.cpp
 

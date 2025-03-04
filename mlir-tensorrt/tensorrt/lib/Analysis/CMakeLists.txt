@@ -1,4 +1,4 @@
-add_mlir_library(MLIRTensorRTAnalysis
+add_mtrtd_library(MLIRTensorRTAnalysis
   TensorKindAnalysis.cpp
 
   LINK_LIBS PUBLIC

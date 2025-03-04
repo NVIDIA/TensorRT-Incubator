@@ -1,4 +1,4 @@
-# RUN: %PYTHON %s | FileCheck %s
+# RUN: %pick-one-gpu %PYTHON %s | FileCheck %s
 # REQUIRES: host-has-at-least-1-gpus
 
 from typing import Callable
@@ -183,6 +183,22 @@ def test_host_memref():
 #  CHECK-NEXT: [2, 8]
 #  CHECK-NEXT: [8, 1]
 #  CHECK-NEXT: PointerType.host
+
+
+@make_test
+def test_devices():
+    client = runtime.RuntimeClient()
+    devices = client.get_devices()
+    if len(devices) == 0:
+        return
+    try:
+        print("Device name:", devices[0].get_name())
+    except Exception as e:
+        print("Exception caught: ", e)
+
+
+# CHECK-LABEL: Test: test_devices
+#  CHECK-NEXT: Device name: cuda:0
 
 if __name__ == "__main__":
     for t in TESTS:

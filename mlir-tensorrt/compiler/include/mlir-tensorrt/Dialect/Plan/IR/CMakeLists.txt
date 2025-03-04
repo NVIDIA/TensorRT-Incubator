@@ -1,8 +1,5 @@
 # LLVM `mlir_tablegen` function depends grabbing include directories
 # from the scope, so we must use `include_directories` here.
-include_directories(${MLIR_INCLUDE_DIRS})
-include_directories(${MLIR_TENSORRT_ROOT_DIR}/include)
-
 add_mlir_dialect(PlanOps plan)
 add_mlir_doc(PlanDialect PlanDialect Plan/ -gen-dialect-doc)
 add_mlir_doc(PlanDialect PlanOps Plan/ -gen-op-doc)

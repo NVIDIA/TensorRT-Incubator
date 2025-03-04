@@ -13,8 +13,8 @@ func.func @main(%arg0: tensor<?x3x4xf32> {tensorrt.shape_profile = #tensorrt.sha
 """
 
 main_scalar_io = """
-func.func @main(%arg0: f32) -> f32 {
-  func.return %arg0 : f32
+func.func @main(%arg0: f32) {
+  func.return
 }
 """
 
@@ -27,6 +27,7 @@ func.func @main(%arg0: tensor<5x?x4xf32> {tensorrt.shape_profile = #tensorrt.sha
 
 
 class Test:
+
     def __init__(self, program: str):
         # Build/parse the main function.
         with ir.Context() as context:
@@ -52,9 +53,7 @@ class Test:
 
     def create_memref(self, shape, type):
         return self.client.create_memref(
-            np.ones(shape, dtype=type).data,
-            device=self.devices[0],
-            stream=self.stream,
+            np.ones(shape, dtype=type).data, device=self.devices[0], stream=self.stream
         )
 
     def create_memref_from_dlpack(self, shape, type):
@@ -75,11 +74,14 @@ class Test:
     def create_scalar(self, value):
         return self.client.create_scalar(value, runtime.ScalarTypeCode.i64)
 
-    def execute(self, arg: runtime.RuntimeValue):
+    def execute(self, arg: runtime.RuntimeValue, no_out_args: bool = False):
         session = runtime.RuntimeSession(self.session_options, self.exe)
         try:
             session.execute_function(
-                "main", in_args=[arg], out_args=[arg], stream=self.stream
+                "main",
+                in_args=[arg],
+                out_args=[] if no_out_args else [arg],
+                stream=self.stream,
             )
             print("Test passed succesfully")
         except runtime.MTRTException as e:
@@ -98,11 +100,11 @@ if __name__ == "__main__":
     t.execute(t.create_memref_from_dlpack((1, 3, 4), torch.float32))
     print("TEST: runtime memref address space mismatch")
     t.execute(t.create_memref_host((1, 3, 4), np.float32))
-    print("TEST: runtime type mismatch")
-    t.execute(t.create_scalar(5))
+
     t = Test(main_scalar_io)
-    print("TEST: function with no output arguments")
-    t.execute(t.create_memref((5, 3), np.int32))
+    print("TEST: runtime type mismatch")
+    t.execute(t.create_scalar(5), True)
+
     t = Test(empty_memref_io)
     print("TEST: empty tensor validation")
     t.execute(t.create_memref((5, 0, 4), np.float32))
@@ -119,8 +121,6 @@ if __name__ == "__main__":
 # CHECK-LABEL: TEST: runtime memref address space mismatch
 #       CHECK: MTRTException: InvalidArgument: InvalidArgument: Input argument 0 validation failed against corresponding function signature arg 0. Reason: InvalidArgument: function expects a memref type with address space device but receieved host
 # CHECK-LABEL: TEST: runtime type mismatch
-#       CHECK: MTRTException: InvalidArgument: InvalidArgument: Input argument 0 validation failed against corresponding function signature arg 0. Reason: InvalidArgument: function expects a memref type but received scalar type
-# CHECK-LABEL: TEST: function with no output arguments
-#       CHECK: MTRTException: InvalidArgument: InvalidArgument: function expects 0 output args (destination args) but received 1
+#       CHECK: MTRTException: InvalidArgument: InvalidArgument: Input argument 0 validation failed against corresponding function signature arg 0. Reason: InvalidArgument: function expects a scalar type with element type f32 but receieved i64
 # CHECK-LABEL: TEST: empty tensor validation
 #       CHECK: Test passed succesfully

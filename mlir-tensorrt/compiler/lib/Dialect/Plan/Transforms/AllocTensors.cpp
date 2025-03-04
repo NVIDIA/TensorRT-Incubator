@@ -1,6 +1,6 @@
 //===- AllocTensors.cpp  --------------------------------------------------===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -24,13 +24,17 @@
 #include "mlir-tensorrt-dialect/Analysis/TensorKindAnalysis.h"
 #include "mlir-tensorrt-dialect/Interface/TensorKindOpInterface.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
+#include "mlir-tensorrt/Dialect/Plan/Transforms/ModuleBufferization/ModuleBufferization.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
+#include "mlir-tensorrt/Utils/ModuleUtils.h"
 #include "mlir/Analysis/DataFlow/ConstantPropagationAnalysis.h"
 #include "mlir/Analysis/DataFlow/DeadCodeAnalysis.h"
 #include "mlir/Analysis/DataFlowFramework.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Bufferization/IR/BufferizableOpInterface.h"
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
+#include "mlir/Dialect/Bufferization/Transforms/FuncBufferizableOpInterfaceImpl.h"
+#include "mlir/Dialect/Bufferization/Transforms/OneShotAnalysis.h"
 #include "mlir/Dialect/Bufferization/Transforms/OneShotModuleBufferize.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Linalg/Transforms/Transforms.h"
@@ -38,19 +42,33 @@
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Dialect/Utils/IndexingUtils.h"
+#include "mlir/Interfaces/CallInterfaces.h"
+#include "mlir/Interfaces/LoopLikeInterface.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/ADT/TypeSwitch.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Support/FormatVariadic.h"
 
-namespace mlir {
-namespace plan {
+#define DEBUG_TYPE "plan-alloc-tensors"
+#define DBGS() llvm::dbgs() << "[" DEBUG_TYPE "] "
+#define DBGF(fmt, ...)                                                         \
+  LLVM_DEBUG(                                                                  \
+      llvm::dbgs() << llvm::formatv(                                           \
+          stderr, "{0}:{1}:{2}(): ", "AllocTensors.cpp", __LINE__, __func__);  \
+      llvm::dbgs() << llvm::formatv(fmt, __VA_ARGS__));
+
+namespace mlir::plan {
 #define GEN_PASS_DEF_PLANALLOCTENSORSPASS
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h.inc"
-} // namespace plan
-} // namespace mlir
+} // namespace mlir::plan
 
 using namespace mlir;
 using namespace mlir::plan;
+using bufferization::OneShotAnalysisState;
+using bufferization::func_ext::FuncAnalysisState;
+using bufferization::func_ext::FuncOpAnalysisState;
 
 static constexpr int64_t kHostConstantToFromElementsNumElementsLimit = 16;
 
@@ -111,23 +129,22 @@ private:
 
 } // namespace
 
-/// Lower tensor.from_elements to a sequence of chained tensor.insert into a
+/// Create a tensor using a sequence of chained tensor.insert into a
 /// `bufferization.alloc_tensor` in the specified memory space (which must
-/// either be 'host' or 'host_pinned').
-static Value lowerFromElementsOp(RewriterBase &rewriter,
-                                 tensor::FromElementsOp fromElementsOp,
-                                 MemorySpace memorySpace) {
+/// either be 'host' or 'host_pinned'). The provided `elements` should be given
+/// in the canonical row-major order.
+static Value createTensorFromElements(RewriterBase &rewriter, Location loc,
+                                      RankedTensorType type,
+                                      ValueRange elements,
+                                      MemorySpace memorySpace) {
   assert(memorySpace == MemorySpace::host ||
          memorySpace == MemorySpace::host_pinned &&
              "tensor.from_elements must be lowered into an allocation in "
              "a host-visible space");
-  Location loc = fromElementsOp.getLoc();
 
   // Create the allocation.
-  RankedTensorType tensorType =
-      RankedTensorType::Builder(fromElementsOp.getType())
-          .setEncoding(
-              MemorySpaceAttr::get(rewriter.getContext(), memorySpace));
+  RankedTensorType tensorType = RankedTensorType::Builder(type).setEncoding(
+      MemorySpaceAttr::get(rewriter.getContext(), memorySpace));
   auto allocOp = rewriter.create<bufferization::AllocTensorOp>(loc, tensorType,
                                                                ValueRange());
   allocOp.setMemorySpaceAttr(tensorType.getEncoding());
@@ -135,8 +152,7 @@ static Value lowerFromElementsOp(RewriterBase &rewriter,
   // Handle the rank 0 case and early exit.
   if (tensorType.getRank() == 0) {
     Value replacement = rewriter.create<tensor::InsertOp>(
-        loc, fromElementsOp.getElements().front(), allocOp.getResult(),
-        ValueRange{});
+        loc, elements.front(), allocOp.getResult(), ValueRange{});
     return replacement;
   }
 
@@ -144,7 +160,7 @@ static Value lowerFromElementsOp(RewriterBase &rewriter,
   SmallVector<int64_t> basis =
       mlir::computeSuffixProduct(tensorType.getShape());
   Value result = allocOp.getResult();
-  for (auto [i, element] : llvm::enumerate(fromElementsOp.getElements())) {
+  for (auto [i, element] : llvm::enumerate(elements)) {
     SmallVector<Value> coords = llvm::map_to_vector(
         mlir::delinearize(i, basis), [&](int64_t dim) -> Value {
           return rewriter.create<arith::ConstantIndexOp>(loc, dim);
@@ -254,8 +270,9 @@ struct RewriteFromElements : public OpRewritePattern<tensor::FromElementsOp> {
     }
 
     // Create a host allocation and insert the elements.
-    Value hostReplacement =
-        lowerFromElementsOp(rewriter, op, originalMemorySpaceConstraint);
+    Value hostReplacement = createTensorFromElements(
+        rewriter, op.getLoc(), op.getType(), op.getElements(),
+        originalMemorySpaceConstraint);
     Value hostReplacementCasted =
         rewriter.create<tensor::CastOp>(loc, originalType, hostReplacement);
     if (placementInfo.isHostOnly()) {
@@ -363,8 +380,12 @@ struct TensorDeviceExtractRewriter
   }
 };
 
-/// Rewrite `arith.constant` host tensors that are used purely on the host using
-/// `tensor.from_elements`.
+/// Rewrite `arith.constant` host tensors to use an explicit local buffer using
+/// `bufferization.alloc_tensors`. Otherwise, the constant will be turned into a
+/// memref.global during bufferization.
+/// TODO: This pattern is required because currently we may not have memory
+/// space annotations on the constant tensors. It could be removed if we revise
+/// the strategy to populate memory space annotations on all tensors.
 struct HostShapeConstantsToAllocTensorPattern
     : public OpRewritePattern<arith::ConstantOp> {
   HostShapeConstantsToAllocTensorPattern(MLIRContext *ctx,
@@ -404,22 +425,9 @@ struct HostShapeConstantsToAllocTensorPattern
       elements.push_back(rewriter.create<arith::ConstantOp>(
           op.getLoc(), cast<TypedAttr>(attr)));
 
-    auto hostAllocOp = rewriter.create<bufferization::AllocTensorOp>(
-        op.getLoc(), op.getType(), ValueRange{}, Value{}, Value{},
-        plan::MemorySpaceAttr::get(rewriter.getContext(),
-                                   plan::MemorySpace::host));
-
-    RankedTensorType type = cast<RankedTensorType>(elementsAttr.getType());
-    SmallVector<int64_t> basis = mlir::computeSuffixProduct(type.getShape());
-    Value result = hostAllocOp.getResult();
-    for (unsigned i = 0; i < elements.size(); i++) {
-      SmallVector<Value> offsets = llvm::map_to_vector(
-          mlir::delinearize(i, basis), [&](int64_t x) -> Value {
-            return rewriter.create<arith::ConstantIndexOp>(op.getLoc(), x);
-          });
-      result = rewriter.create<tensor::InsertOp>(op.getLoc(), elements[i],
-                                                 result, offsets);
-    }
+    Value result = createTensorFromElements(
+        rewriter, op.getLoc(), cast<RankedTensorType>(elementsAttr.getType()),
+        elements, plan::MemorySpace::host);
 
     if (lattice->getValue().isHostOnly()) {
       rewriter.replaceOp(op, result);
@@ -436,6 +444,8 @@ struct HostShapeConstantsToAllocTensorPattern
 };
 
 /// Rewrite `arith.constant` host tensors that are used on the host.
+/// This pattern differs from the above in that it is used only for constants
+/// larger than the limit `kHostConstantToFromElementsNumElementsLimit`.
 struct LargeHostConstantsAllocTensorPattern
     : public OpRewritePattern<arith::ConstantOp> {
   LargeHostConstantsAllocTensorPattern(MLIRContext *ctx, DataFlowSolver &solver)
@@ -490,31 +500,6 @@ struct CleanupAllocTensorOps
 };
 } // namespace
 
-/// Returns true if `op` is a DPS operation or an op that can be considered DPS.
-/// Operations such as `scf.for` and `scf.while` are DPS in the tensor form but
-/// don't strictly conform to DPS interface in the memref form.
-static bool isDpsOrDpsLikeOp(Operation *op) {
-  if (!op)
-    return false;
-  if (isa<DestinationStyleOpInterface>(op))
-    return true;
-  if (auto whileOp = dyn_cast<scf::WhileOp>(op))
-    return TypeRange(whileOp.getInits()) == TypeRange(whileOp.getResults());
-  return isa<scf::ForOp>(op);
-}
-
-/// Similar to the above, return the tied operand for a DPS operation and the
-/// equivalent for scf.for/scf.while.
-static OpOperand *getTiedOpOperand(Operation *op, OpResult result) {
-  if (auto dpsOp = dyn_cast<DestinationStyleOpInterface>(op))
-    return dpsOp.getTiedOpOperand(result);
-  if (auto forOp = dyn_cast<scf::ForOp>(op))
-    return &forOp.getInitArgsMutable()[result.getResultNumber()];
-  if (auto whileOp = dyn_cast<scf::WhileOp>(op))
-    return &whileOp.getInitsMutable()[result.getResultNumber()];
-  llvm_unreachable("unhandled op type");
-}
-
 /// Creates a DPS argument of type `argType` in the first block of `func` by
 /// appending to the end of current arguments. It then updates the function
 /// type, adds a `executor.result_arg` argument attribute to the new arg, and
@@ -547,287 +532,311 @@ updateFunctionWithNewDpsArg(func::FuncOp func, Location loc, Type argType,
 using GetOrCreateBlockArgFunc = llvm::function_ref<FailureOr<BlockArgument>(
     Type argType, OpOperand &terminatorOperand)>;
 
-/// Walk the IR up from `v` by tracing DPS producers to init args. Returns the
-/// final OpOperand reached where the value is either a block arg or produced by
-/// a non-DPS operation.
-static OpOperand *traverseDpsUseDefChain(OpOperand &v,
-                                         Operation *resultDpsProducer) {
-  OpOperand *lastTiedDpsOperandToResult = nullptr;
-  Value current = v.get();
-  while (true) {
-    assert(isa<OpResult>(current) && "expected value to be an OpResult");
-    lastTiedDpsOperandToResult =
-        getTiedOpOperand(resultDpsProducer, cast<OpResult>(current));
-    assert(lastTiedDpsOperandToResult && "expected tied operand");
-    Operation *lastTiedDpsOperandProducer =
-        lastTiedDpsOperandToResult->get().getDefiningOp();
-
-    // If producer is null, then `lastTiedDpsOperand` is a BlockArgument.
-    if (!lastTiedDpsOperandProducer)
-      return lastTiedDpsOperandToResult;
-
-    // If value is produced by a DPS op. If not, return failure. The caller will
-    // handle this case by inserting a copy.
-    if (!isDpsOrDpsLikeOp(lastTiedDpsOperandProducer))
-      return lastTiedDpsOperandToResult;
-
-    resultDpsProducer = lastTiedDpsOperandProducer;
-    current = lastTiedDpsOperandToResult->get();
-  }
-  llvm_unreachable("expected traversal loop to return");
+/// Return the state (phase) of analysis of the FuncOp.
+static FuncOpAnalysisState
+getFuncOpAnalysisState(const OneShotAnalysisState &state, func::FuncOp funcOp) {
+  if (!isa<OneShotAnalysisState>(state))
+    return FuncOpAnalysisState::NotAnalyzed;
+  auto *funcState = static_cast<const OneShotAnalysisState &>(state)
+                        .getExtension<FuncAnalysisState>();
+  if (!funcState)
+    return FuncOpAnalysisState::NotAnalyzed;
+  const auto &analyzedFuncOps = funcState->analyzedFuncOps;
+  auto it = analyzedFuncOps.find(funcOp);
+  if (it == analyzedFuncOps.end())
+    return FuncOpAnalysisState::NotAnalyzed;
+  return it->second;
+}
+/// Get FuncAnalysisState.
+static const FuncAnalysisState &
+getFuncAnalysisState(const OneShotAnalysisState &state) {
+  assert(isa<OneShotAnalysisState>(state) && "expected OneShotAnalysisState");
+  auto *result = static_cast<const OneShotAnalysisState &>(state)
+                     .getExtension<FuncAnalysisState>();
+  assert(result && "FuncAnalysisState does not exist");
+  return *result;
 }
 
-/// Operand `v` is the output of a DPS op `dpsProducer`. Traverse use-def chain
-/// of the `dpsProducer` to find the DPS op whose corresponding DPS init
-/// argument is produced by `tensor.empty` or is a BlockArgument and return the
-/// OpOperand for the init arg.
-static LogicalResult
-travelUseDefChainAndUpdateUses(RewriterBase &rewriter, OpOperand &v,
-                               Operation *resultDpsProducer,
-                               GetOrCreateBlockArgFunc getDpsArgument) {
-  OpOperand *lastTiedDpsOperand = traverseDpsUseDefChain(v, resultDpsProducer);
-  if (&v == lastTiedDpsOperand)
-    return failure();
+/// Return the index of the bbArg in the given FuncOp that is equivalent to the
+/// specified return value (if any).
+static std::optional<int64_t>
+getEquivalentFuncArgIdx(func::FuncOp funcOp, const FuncAnalysisState &state,
+                        int64_t returnValIdx) {
+  auto funcOpIt = state.equivalentFuncArgs.find(funcOp);
+  if (funcOpIt == state.equivalentFuncArgs.end())
+    // No equivalence info stores for funcOp.
+    return std::nullopt;
 
-  if (!isa<OpResult>(lastTiedDpsOperand->get()))
-    return failure();
+  auto retValIt = funcOpIt->getSecond().find(returnValIdx);
+  if (retValIt == funcOpIt->getSecond().end())
+    // Return value has no equivalent bbArg.
+    return std::nullopt;
 
-  if (auto emptyOp = lastTiedDpsOperand->get().getDefiningOp()) {
-    if (!isa<tensor::EmptyOp, bufferization::AllocTensorOp>(emptyOp))
-      return failure();
-
-    // Add DPS arg to the function for replacing `tensor.empty()` at this
-    // use.
-    FailureOr<BlockArgument> destArg =
-        getDpsArgument(emptyOp->getResultTypes().front(), v);
-    if (failed(destArg))
-      return failure();
-
-    // Replace last tied DPS operand with the new destination arg.
-    lastTiedDpsOperand->assign(*destArg);
-    return success();
-  }
-
-  return failure();
+  return retValIt->getSecond();
 }
 
-/// Rewrites a block to conform to DPS style. This is done in two steps: 1) for
-/// each terminator returned value `v`, check whether `v` is the output of a DPS
-/// style operation and whether tied DPS operand `v_tied` is produced by
-/// `tensor.empty` op (recursively, by traveling use-def chain). 2.A) If yes,
-/// get/create the DPS block argument and rewrite the relevant DPS op so that
-/// the DPS init argument of this op is the newly added function return argument
-/// (`arg`) rather than the output of `tensor.empty` (`v_tied` -> `arg`). 2.B)
-/// If no, get/create a DPS block argument and create a
-/// `bufferization.materialize_in_destination` op where source is the return
-/// value of the function (`v`) and destination is newly added DPS argument
-/// `arg` and update the terminator operand.
-///
-/// The `getDpsArgument` callback allows for either a) inserting the new DPS
-/// BlockArgument if it does not already exist or b) identifying the existing
-/// DPS block argument if the block is already in DPS style.
-static LogicalResult
-correctDestinationPassingStyleBlock(RewriterBase &rewriter, Block *block,
-                                    GetOrCreateBlockArgFunc getDpsArgument) {
-  Operation *returnOp = block->getTerminator();
-  MutableArrayRef<OpOperand> operands = returnOp->getOpOperands();
-  rewriter.setInsertionPoint(returnOp);
-  for (OpOperand &v : operands) {
-
-    // If returned type is not tensor, we do nothing.
-    if (!llvm::isa<RankedTensorType>(v.get().getType()))
+/// Rewrite a single function to destination passing style. Update callers
+/// appropriately.
+static LogicalResult rewriteBlockToDestinationStyle(
+    RewriterBase &rewriter, Block *block,
+    OperandRange yieldedTerminatorOperands,
+    Block::BlockArgListType carriedBlockArgs,
+    const bufferization::OneShotAnalysisState &state) {
+  for (auto [idx, v] : llvm::enumerate(yieldedTerminatorOperands)) {
+    if (!isa<TensorType>(v.getType()))
+      continue;
+    if (carriedBlockArgs[idx].getType() != v.getType())
       continue;
 
-    Operation *producer = v.get().getDefiningOp();
-    if (isDpsOrDpsLikeOp(producer)) {
-      // Producer is a DPS op. Travel use-def chain, add DPS arg ,and update
-      // uses. A return value here can be the original value `v` or the output
-      // of the `bufferization.materialize_in_destination` op.
-      if (succeeded(travelUseDefChainAndUpdateUses(rewriter, v, producer,
-                                                   getDpsArgument)))
-        continue;
-    }
-    // Producer of the result is not a DPS op or is a block arg.
-    // Add `bufferization.materialize_in_destination` to make the return
-    // value output of a DPS op.
-    // First add argument to the function for the result `v`
-    FailureOr<BlockArgument> destArg = getDpsArgument(v.get().getType(), v);
-    if (failed(destArg))
-      return failure();
-    v.assign(rewriter
-                 .create<bufferization::MaterializeInDestinationOp>(
-                     v.get().getLoc(),
-                     /*source=*/v.get(),
-                     /*dest=*/*destArg)
-                 .getResult());
-  }
+    // Find equivalent arg.
+    bufferization::TraversalConfig config;
+    config.followEquivalentOnly = true;
+    config.alwaysIncludeLeaves = false;
+    SetVector<Value> equivalentValues = state.findValueInReverseUseDefChain(
+        v, /*condition=*/
+        [&, v = v](Value val) {
+          auto emptyOp = val.getDefiningOp<tensor::EmptyOp>();
+          return emptyOp && emptyOp.getType() == v.getType();
+        },
+        config);
 
-  return success();
-}
-
-/// Rewrites non-private function/s from the top level module op (ModuleOp) in
-/// the destination passing style (DPS). This is done in three steps, 1) Find
-/// non-private function/s from the top level module op. 2) For each non-private
-/// function `f`, for each return value `v` (iterate over operands of
-/// `func::ReturnOp` of `f`), check whether `v` is the output of a DPS style
-/// operation and whether tied DPS operand `v_tied` is produced by
-/// `tensor.empty` op (recursively, by traveling use-def chain). 3.A) If yes,
-/// create a new DPS init argument `arg` in the function and rewrite the
-/// relevant DPS op so that the DPS init argument of this op is the newly added
-/// function return argument (`arg`) rather than the output of `tensor.empty`
-/// (`v_tied` -> `arg`). 3.B) If no, create a DPS init argument in the function
-/// `arg` and create a `bufferization.materialize_in_destination` op where
-/// source is the return value of the function (`v`) and destination is newly
-/// added DPS argument `arg`. Finally, update `func::ReturnOp` is updated so
-/// that result of this newly added `bufferization.materialize_in_destination`
-/// op is returned. A special case of 3.A is handled is when same SSA value is
-/// returned multiple times. This case is handled by adding explicit copy using
-/// `bufferization.materialize_in_destination` where destination is newly added
-/// argument and source is duplicated SSA value.
-static LogicalResult rewriteNotPrivateFuncsToDPS(RewriterBase &rewriter,
-                                                 ModuleOp op) {
-  // Find non-private functions
-  SmallVector<func::FuncOp> nonPrivateFunctions;
-  auto moduleFunctions = op.getOps<func::FuncOp>();
-  for (auto f : moduleFunctions) {
-    // Update all functions except functions explicitly marked private
-    if (!f.isPrivate())
-      nonPrivateFunctions.push_back(f);
-  }
-  if (nonPrivateFunctions.empty())
-    return success();
-
-  for (func::FuncOp nonPrivateFunction : nonPrivateFunctions) {
-    // All functions should be single-block at this point.
-    if (nonPrivateFunction.getBlocks().size() != 1)
-      return failure();
-
-    // Check if the function is already in DPS style.
-    Operation *term = nonPrivateFunction.getBody().front().getTerminator();
-    if (llvm::all_of(term->getOpOperands(), [&](OpOperand &operand) {
-          BlockArgument arg =
-              isDpsOrDpsLikeOp(operand.get().getDefiningOp())
-                  ? dyn_cast<BlockArgument>(
-                        traverseDpsUseDefChain(operand,
-                                               operand.get().getDefiningOp())
-                            ->get())
-                  : dyn_cast<BlockArgument>(operand.get());
-          if (!arg)
-            return false;
-          return nonPrivateFunction.getArgAttr(
-                     arg.getArgNumber(), PlanDialect::kResultArgAttrName) !=
-                 nullptr;
-        }))
+    if (equivalentValues.size() != 1)
       continue;
 
-    if (failed(correctDestinationPassingStyleBlock(
-            rewriter, &nonPrivateFunction.getBody().front(),
-            /*getDpsArgument=*/
-            [&](Type argType,
-                OpOperand &returnOperand) -> FailureOr<BlockArgument> {
-              return updateFunctionWithNewDpsArg(
-                  nonPrivateFunction, returnOperand.get().getLoc(), argType,
-                  returnOperand.getOperandNumber());
-            })))
-      return failure();
+    rewriter.replaceOpUsesWithIf(
+        equivalentValues.front().getDefiningOp(), carriedBlockArgs[idx],
+        [&](OpOperand &use) { return use.getOwner()->getBlock() == block; });
   }
   return success();
 }
 
-/// For `region` of a `scf.for` or `scf.while` operation, return the
-/// block/region arguments that correspond to the loop carried values.
-static Block::BlockArgListType getLoopCarriedArguments(Region *region) {
-  Operation *op = region->getParentOp();
-  if (auto forOp = dyn_cast<scf::ForOp>(op))
-    return forOp.getRegionIterArgs();
-  if (isa<scf::WhileOp>(op))
-    return region->getArguments();
-  llvm_unreachable("unhandled loop op type");
+/// Traverse a loop operation's regions and try to establish DPS connectivity by
+/// connecting yielded values to block arguments.
+static void visitLoopOp(RewriterBase &rewriter, Operation *loopOp,
+                        const OneShotAnalysisState &state) {
+  DBGF("visiting loop {0}", *loopOp);
+  llvm::TypeSwitch<Operation *>(loopOp)
+      .Case([&](scf::WhileOp whileOp) {
+        if (failed(rewriteBlockToDestinationStyle(
+                rewriter, whileOp.getBeforeBody(),
+                cast<scf::ConditionOp>(whileOp.getBeforeBody()->getTerminator())
+                    .getArgs(),
+                whileOp.getBeforeBody()->getArguments(), state)))
+          return;
+        if (failed(rewriteBlockToDestinationStyle(
+                rewriter, whileOp.getAfterBody(),
+                cast<scf::YieldOp>(whileOp.getAfterBody()->getTerminator())
+                    ->getOperands(),
+                whileOp.getAfterBody()->getArguments(), state)))
+          return;
+      })
+      .Case([&](scf::ForOp forOp) {
+        if (failed(rewriteBlockToDestinationStyle(
+                rewriter, forOp.getBody(),
+                cast<scf::YieldOp>(forOp.getBody()->getTerminator())
+                    ->getOperands(),
+                forOp.getRegionIterArgs(), state)))
+          return;
+      })
+      .Default(
+          [](Operation *loopOp) { DBGF("unhandled loop type: ", *loopOp); });
 }
 
-/// For `region` of a `scf.for` or `scf.while` operation, return the operands
-/// yielded by the terminator to the successor region.
-static MutableOperandRange getLoopRegionYieldedOperands(Region *region) {
-  Operation *op = region->getParentOp();
-  if (auto forOp = dyn_cast<scf::ForOp>(op))
-    return MutableOperandRange(forOp.getBody()->getTerminator());
-  if (auto whileOp = dyn_cast<scf::WhileOp>(op)) {
-    if (region == &whileOp.getBefore())
-      return whileOp.getConditionOp().getArgsMutable();
-    return MutableOperandRange(whileOp.getAfterBody()->getTerminator());
-  }
-  llvm_unreachable("unhandled loop op type");
+/// Visit all loop-like operations and try to establish DPS connectivity where
+/// it is not present.
+static LogicalResult rewriteLoopBlocksToDestinationStyle(RewriterBase &rewriter,
+                                                         ModuleOp op) {
+  bufferization::OneShotBufferizationOptions options;
+  options.allowReturnAllocsFromLoops = true;
+  options.bufferizeFunctionBoundaries = true;
+  OneShotAnalysisState state(op, options);
+  if (failed(plan::analyzeOneModuleOp(ModuleLikeOp(op), state, nullptr)))
+    return failure();
+
+  op->walk([&](Operation *nested) {
+    if (nested->hasTrait<OpTrait::SymbolTable>())
+      return nested == op ? WalkResult::advance() : WalkResult::skip();
+    if (isa<LoopLikeOpInterface>(nested))
+      visitLoopOp(rewriter, nested, state);
+    return WalkResult::advance();
+  });
+
+  return success();
 }
 
-/// Rewrites regions of `scf.for` and `scf.while` to conform to DPS style, if
-/// posible. The loops must have operands/results that make this possible (in
-/// the case of `scf.while`). DPS operations internal to the regions will be
-/// linked to the region iteration arguments, if possible. This increases the
-/// liklihood that loops iteration arguments can be bufferized in-place, which
-/// is often critical for performance.
-static LogicalResult rewriteLoopBodyRegionsToDPS(RewriterBase &rewriter,
-                                                 ModuleOp op) {
-  SmallVector<Region *> loopRegions;
-  auto moduleFunctions = op.getOps<func::FuncOp>();
-  for (auto f : moduleFunctions) {
-    f.walk([&](LoopLikeOpInterface loopOp) {
-      if (llvm::isa<scf::ForOp, scf::WhileOp>(*loopOp))
-        llvm::append_range(loopRegions, loopOp.getLoopRegions());
+/// Rewrite a single function to destination passing style. Update callers
+/// appropriately.
+static LogicalResult rewriteFuncToDestinationPassingStyle(
+    RewriterBase &rewriter, func::FuncOp func, SymbolUserMap &callerMap,
+    bufferization::OneShotAnalysisState &state) {
+  assert(!func.isDeclaration());
+
+  // We don't know how to handle callers other than 'func.call'.
+  // Note that we store references to the "shape function" of public
+  // entrypoints using the symbol name in a function's attributes, so also
+  // allow that.
+  if (!llvm::all_of(callerMap.getUsers(func),
+                    llvm::IsaPred<func::CallOp, func::FuncOp>))
+    return failure();
+
+  if (getFuncOpAnalysisState(state, func) != FuncOpAnalysisState::Analyzed)
+    return failure();
+
+  auto term = cast<func::ReturnOp>(func.getBody().front().getTerminator());
+  const FuncAnalysisState &funcState = getFuncAnalysisState(state);
+
+  for (auto [idx, v] : llvm::enumerate(term.getOperands())) {
+    if (!isa<RankedTensorType>(v.getType()))
+      continue;
+
+    // Check if there is already an equivalent function argument.
+    std::optional<int64_t> equivalent =
+        getEquivalentFuncArgIdx(func, funcState, idx);
+    if (equivalent &&
+        func.getArgAttr(*equivalent, PlanDialect::kResultArgAttrName))
+      continue;
+
+    if (failed(updateFunctionWithNewDpsArg(func, v.getLoc(), v.getType(), idx)))
+      return failure();
+
+    auto fallback = [&, idx = idx, v = v]() {
+      rewriter.setInsertionPoint(term);
+      Value replacement =
+          rewriter
+              .create<bufferization::MaterializeInDestinationOp>(
+                  v.getLoc(), v.getType(), v, func.getArguments().back())
+              .getResult();
+      term.getOperandsMutable()[idx].assign(replacement);
+    };
+
+    // There is no equivalent function argument.
+    bufferization::TraversalConfig config;
+    config.followEquivalentOnly = true;
+    config.alwaysIncludeLeaves = true;
+    SetVector<Value> equivalentValues = state.findValueInReverseUseDefChain(
+        v, /*condition=*/
+        [](Value val) { return false; }, config);
+
+    LLVM_DEBUG({
+      DBGS() << "equivalent values:\n -";
+      llvm::interleave(equivalentValues, llvm::dbgs(), "\n - ");
+      llvm::dbgs() << "\n";
     });
+
+    if (equivalentValues.size() != 1 ||
+        !isa_and_present<tensor::EmptyOp, bufferization::AllocTensorOp,
+                         arith::ConstantOp>(
+            equivalentValues.front().getDefiningOp())) {
+      fallback();
+      continue;
+    }
+
+    Operation *equivalentOp = equivalentValues.front().getDefiningOp();
+    if (isa<tensor::EmptyOp>(equivalentOp)) {
+      rewriter.replaceAllOpUsesWith(equivalentOp, func.getArguments().back());
+      continue;
+    }
+    if (auto allocOp = dyn_cast<bufferization::AllocTensorOp>(equivalentOp)) {
+      Value replacement = func.getArguments().back();
+      if (replacement.getType() != allocOp.getType()) {
+        rewriter.setInsertionPointAfterValue(replacement);
+        replacement = rewriter.create<tensor::CastOp>(
+            replacement.getLoc(), allocOp.getType(), replacement);
+      }
+      if (!allocOp.getCopy()) {
+        rewriter.replaceAllOpUsesWith(equivalentOp, replacement);
+        continue;
+      }
+      rewriter.setInsertionPoint(allocOp);
+      Value dest = func.getArguments().back();
+      if (allocOp.getType() != dest.getType())
+        dest = rewriter.create<tensor::CastOp>(dest.getLoc(), allocOp.getType(),
+                                               dest);
+      rewriter.replaceOpWithNewOp<bufferization::MaterializeInDestinationOp>(
+          allocOp, allocOp.getCopy(), dest);
+      continue;
+    }
+    if (auto constOp = dyn_cast<arith::ConstantOp>(equivalentOp)) {
+      rewriter.setInsertionPoint(constOp);
+      Value dest = func.getArguments().back();
+      if (constOp.getType() != dest.getType())
+        dest = rewriter.create<tensor::CastOp>(dest.getLoc(), constOp.getType(),
+                                               dest);
+      auto matOp = rewriter.create<bufferization::MaterializeInDestinationOp>(
+          constOp.getLoc(), constOp, dest);
+      rewriter.replaceAllUsesExcept(constOp, matOp.getResult(), matOp);
+      continue;
+    }
+
+    llvm_unreachable("unexpected leaf operation kind");
   }
-
-  if (loopRegions.empty())
-    return success();
-
-  for (Region *region : loopRegions) {
-    // Skip regions with multiple blocks. At this point, we expect all loop
-    // bodies should be single-block.
-    if (region->getBlocks().size() != 1)
-      continue;
-    Block &body = region->front();
-
-    // Ignore regions that don't have number/types of terminator operands
-    // match number/types of arguments.
-    Block::BlockArgListType iterArgs = getLoopCarriedArguments(region);
-    MutableOperandRange yieldedOperands = getLoopRegionYieldedOperands(region);
-    if (yieldedOperands.size() != iterArgs.size() ||
-        TypeRange(yieldedOperands) != TypeRange(iterArgs))
-      continue;
-
-    // Skip if the body is already in DPS style (at least to the best that we
-    // can check).
-    if (llvm::all_of(yieldedOperands, [&](OpOperand &operand) {
-          if (auto dpsProducer =
-                  operand.get().getDefiningOp<DestinationStyleOpInterface>())
-            return isa<BlockArgument>(
-                traverseDpsUseDefChain(operand, dpsProducer)->get());
-          return isa<BlockArgument>(operand.get());
-        }))
-      continue;
-
-    if (failed(correctDestinationPassingStyleBlock(
-            rewriter, &body,
-            [&](Type argType,
-                OpOperand &returnOperand) -> FailureOr<BlockArgument> {
-              // Account for potential offset due to ops like scf.condition.
-              unsigned yieldedIdx = returnOperand.getOperandNumber() -
-                                    yieldedOperands[0].getOperandNumber();
-              assert(yieldedIdx < body.getNumArguments() &&
-                     "expected yield operand idx to be smaller than number of "
-                     "block arguments");
-              BlockArgument blockArg = iterArgs[yieldedIdx];
-              assert(argType == blockArg.getType() &&
-                     "expected yielded operand type to match block arg type");
-              return blockArg;
-            })))
-      return failure();
-  }
-
   return success();
+}
+
+/// Rewrites functions to destination-passing style.
+static LogicalResult rewriteFuncsToDestinationPassingStyle(
+    RewriterBase &rewriter, SymbolTableCollection &symbolTables, ModuleOp op) {
+
+  SymbolUserMap userMap(symbolTables, op);
+  bufferization::OneShotBufferizationOptions options;
+  options.allowReturnAllocsFromLoops = true;
+  options.bufferizeFunctionBoundaries = true;
+  OneShotAnalysisState state(op, options);
+  if (failed(analyzeModuleOp(op, state)))
+    return failure();
+
+  // Locate entrypoint functions.
+  SmallVector<func::FuncOp> orderedFuncOps, remainingFuncOps;
+  if (failed(mlir::getFuncOpsOrderedByCalls(
+          mlir::ModuleLikeOp(op), orderedFuncOps, remainingFuncOps,
+          [&](func::FuncOp func) -> bool {
+            return func.isPublic() &&
+                   func->getParentWithTrait<OpTrait::SymbolTable>() == op &&
+                   (llvm::any_of(func.getArgumentTypes(),
+                                 llvm::IsaPred<TensorType>) ||
+                    llvm::any_of(func.getResultTypes(),
+                                 llvm::IsaPred<TensorType>));
+          })))
+    return failure();
+
+  for (func::FuncOp func : orderedFuncOps) {
+    LLVM_DEBUG(DBGS() << "encountered func " << func.getName() << "\n");
+    // All functions should be single-block at this point.
+    if (func.getBlocks().size() != 1)
+      return failure();
+
+    if (llvm::any_of(userMap.getUsers(func), llvm::IsaPred<CallOpInterface>))
+      continue;
+    LLVM_DEBUG(DBGS() << "considering func " << func.getName() << "\n");
+
+    if (failed(rewriteFuncToDestinationPassingStyle(rewriter, func, userMap,
+                                                    state)))
+      continue;
+  }
+  return success();
+}
+
+/// Our algorithm for converting to DPS requires that each 'tensor.empty' has a
+/// unique user.
+static void uniqueEmptyTensorUses(RewriterBase &rewriter, ModuleLikeOp op) {
+  op->walk<WalkOrder::PreOrder>([&](Operation *nestedOp) {
+    if (ModuleLikeOp(nestedOp) && nestedOp != op)
+      return WalkResult::skip();
+    auto emptyOp = dyn_cast<tensor::EmptyOp>(nestedOp);
+    if (!emptyOp)
+      return WalkResult::advance();
+    if (nestedOp->hasOneUse())
+      return WalkResult::advance();
+    for (OpOperand &use : llvm::make_early_inc_range(emptyOp->getUses())) {
+      rewriter.setInsertionPoint(use.getOwner());
+      auto clonedOp = cast<tensor::EmptyOp>(rewriter.clone(*emptyOp));
+      use.assign(clonedOp);
+    }
+    return WalkResult::advance();
+  });
 }
 
 namespace {
-
 class AllocTensorsPass
     : public plan::impl::PlanAllocTensorsPassBase<AllocTensorsPass> {
 public:
@@ -837,28 +846,29 @@ public:
     ModuleOp op = getOperation();
     MLIRContext *ctx = &getContext();
 
-    SymbolTableCollection symbolTable;
-    DataFlowConfig config;
-    config.setInterprocedural(false);
-    DataFlowSolver solver(config);
+    SymbolTableCollection symbolTables;
+    DataFlowSolver solver(DataFlowConfig().setInterprocedural(false));
     solver.load<dataflow::DeadCodeAnalysis>();
     solver.load<dataflow::SparseConstantPropagation>();
-    solver.load<TensorKindAnalysis>(symbolTable);
+    solver.load<TensorKindAnalysis>(symbolTables);
 
     if (failed(solver.initializeAndRun(op))) {
       op.emitError() << "failed to run TensorKindAnalysis";
       return signalPassFailure();
     }
 
-    {
-      SolverStateListener solverAwareListener(solver);
-      GreedyRewriteConfig config;
-      config.listener = &solverAwareListener;
-      RewritePatternSet patterns(ctx);
-      patterns.insert<HostShapeConstantsToAllocTensorPattern,
-                      RewriteFromElements, TensorDeviceExtractRewriter,
-                      LargeHostConstantsAllocTensorPattern>(ctx, solver);
-      if (failed(applyPatternsAndFoldGreedily(op, std::move(patterns)))) {
+    SolverStateListener solverAwareListener(solver);
+    GreedyRewriteConfig config;
+    config.listener = &solverAwareListener;
+    FrozenRewritePatternSet patterns = [&]() {
+      RewritePatternSet patterns_(ctx);
+      patterns_.insert<HostShapeConstantsToAllocTensorPattern,
+                       RewriteFromElements, TensorDeviceExtractRewriter,
+                       LargeHostConstantsAllocTensorPattern>(ctx, solver);
+      return patterns_;
+    }();
+    for (FunctionOpInterface func : op.getOps<FunctionOpInterface>()) {
+      if (failed(applyPatternsAndFoldGreedily(func, patterns))) {
         op->emitError() << "failed to run " << getArgument()
                         << " patterns for rewriting host constants";
         return signalPassFailure();
@@ -867,17 +877,28 @@ public:
 
     IRRewriter rewriter(ctx);
 
-    // First rewrite public functions to conform to DPS style.
-    if (!forceEntrypointsReturnAllocs &&
-        failed(rewriteNotPrivateFuncsToDPS(rewriter, op))) {
-      op->emitError("Failed to convert non-private functions to DPS");
+    /// Some 'tensor.empty' can have multiple uses. Duplicate the 'tensor.empty'
+    /// in these cases so that each tensor.empty has a single use. This helps
+    /// with establishing optimal DPS connectivity (e.g. in cases where a single
+    /// tensor.empty is used in multiple linalg 'outs' operands, we don't want
+    /// to assign each 'outs' operand to the same DPS output arg).
+    uniqueEmptyTensorUses(rewriter, ModuleLikeOp(op));
+
+    /// Establish DPS connectivity in loop regions by establishing DPS
+    /// correspondence between loop yields and block arguments wherever
+    /// possible.
+    if (failed(rewriteLoopBlocksToDestinationStyle(rewriter, op))) {
+      op->emitError("failed to establish DPS connectivity in loop-like "
+                    "operation regions");
       return signalPassFailure();
     }
 
-    // Rewrite SCF for and while loop bodies for better bufferization results,
-    // if possible.
-    if (failed(rewriteLoopBodyRegionsToDPS(rewriter, op))) {
-      op->emitError("failed to convert loop body regions to DPS");
+    // Establish DPS connectivity between function returns and arguments. We
+    // only do this if we prefer that functions not return allocations.
+    if (!forceEntrypointsReturnAllocs &&
+        failed(rewriteFuncsToDestinationPassingStyle(rewriter, symbolTables,
+                                                     op))) {
+      op->emitError("failed to establish DPS connectivity in public functions");
       return signalPassFailure();
     }
 

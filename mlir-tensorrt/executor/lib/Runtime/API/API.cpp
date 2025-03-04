@@ -224,13 +224,9 @@ Executable::loadFromFile(std::string_view path) {
   auto result = std::unique_ptr<Executable>(new Executable(
       std::make_unique<ExecutableStorageMemBuffer>(std::move(*buffer))));
 
-  flatbuffers::Verifier verifier(
-      reinterpret_cast<const uint8_t *>(result->getStorage()->data()),
-      result->getStorage()->size());
-  if (!impl::VerifyExecutableBuffer(verifier))
-    return getStatusWithMsg(StatusCode::InvalidArgument,
-                            "failed to verify that the provided file contains "
-                            "a valid MLIR-TRT Executable");
+  Status verifyResult = result->verify();
+  if (!verifyResult.isOk())
+    return verifyResult;
   return result;
 }
 
@@ -238,14 +234,9 @@ StatusOr<std::unique_ptr<Executable>>
 Executable::loadFromBuffer(std::unique_ptr<llvm::MemoryBuffer> buffer) {
   auto result = std::make_unique<Executable>(
       std::make_unique<ExecutableStorageMemBuffer>(std::move(buffer)));
-  flatbuffers::Verifier verifier(
-      reinterpret_cast<const uint8_t *>(result->getStorage()->data()),
-      result->getStorage()->size());
-  if (!impl::VerifyExecutableBuffer(verifier))
-    return getStatusWithMsg(
-        StatusCode::InvalidArgument,
-        "failed to verify that the provided buffer contains "
-        "a valid MLIR-TRT Executable");
+  Status verifyResult = result->verify();
+  if (!verifyResult.isOk())
+    return verifyResult;
   return result;
 }
 
@@ -265,14 +256,9 @@ Executable::loadFromUnalignedRef(llvm::ArrayRef<char> data) {
   auto result = std::make_unique<Executable>(
       std::make_unique<ExecutableStorageMemBuffer>(std::move(alignedBuffer)));
 
-  flatbuffers::Verifier verifier(
-      reinterpret_cast<const uint8_t *>(result->getStorage()->data()),
-      result->getStorage()->size());
-  if (!impl::VerifyExecutableBuffer(verifier))
-    return getStatusWithMsg(
-        StatusCode::InvalidArgument,
-        "failed to verify that the provided buffer contains "
-        "a valid MLIR-TRT Executable");
+  Status verifyResult = result->verify();
+  if (!verifyResult.isOk())
+    return verifyResult;
   return result;
 }
 
@@ -292,6 +278,20 @@ std::unique_ptr<Executable> Executable::getCopy() const {
               alignedBuffer->getBuffer().begin());
   return std::make_unique<Executable>(
       std::make_unique<ExecutableStorageMemBuffer>(std::move(alignedBuffer)));
+}
+
+Status Executable::verify() const {
+  flatbuffers::Verifier::Options options{};
+  options.max_size = FLATBUFFERS_MAX_64_BUFFER_SIZE;
+  flatbuffers::Verifier verifier(
+      reinterpret_cast<const uint8_t *>(getStorage()->data()),
+      getStorage()->size(), options);
+  if (!impl::VerifyExecutableBuffer(verifier))
+    return getStatusWithMsg(
+        StatusCode::InvalidArgument,
+        "failed to verify that the provided buffer contains "
+        "a valid MLIR-TRT Executable");
+  return getOkStatus();
 }
 
 //===----------------------------------------------------------------------===//

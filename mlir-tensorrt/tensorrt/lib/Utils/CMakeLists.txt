@@ -1,4 +1,4 @@
-add_mlir_library(MLIRTensorRTNvInferUtils
+add_mtrtd_library(MLIRTensorRTNvInferUtils
   NvInferPluginUtils.cpp
   PARTIAL_SOURCES_INTENDED
 
@@ -8,9 +8,10 @@ add_mlir_library(MLIRTensorRTNvInferUtils
   CUDA::cudart
   TensorRTHeaderOnly
   MLIRTRTTensorRTDynamicLoader
+  MLIRTensorRTTensorRTDialectBase
 )
 
-add_mlir_library(MLIRTensorRTConstantFoldingUtils
+add_mtrtd_library(MLIRTensorRTConstantFoldingUtils
   PARTIAL_SOURCES_INTENDED
   ConstantFoldUtils.cpp
   StaticValueUtils.cpp
@@ -20,7 +21,7 @@ add_mlir_library(MLIRTensorRTConstantFoldingUtils
   MLIRIR
 )
 
-add_mlir_library(MLIRTensorRTShapeUtils
+add_mtrtd_library(MLIRTensorRTShapeUtils
   ShapeUtils.cpp
   PARTIAL_SOURCES_INTENDED
 
@@ -29,7 +30,7 @@ add_mlir_library(MLIRTensorRTShapeUtils
   MLIRDialectUtils
   )
 
-add_mlir_library(MLIRTensorRTOptionUtils
+add_mtrtd_library(MLIRTensorRTOptionUtils
   Options.cpp
   PARTIAL_SOURCES_INTENDED
   )
