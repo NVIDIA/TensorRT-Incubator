@@ -55,8 +55,5 @@ class TestStack:
     def test_stack_different_shapes(self):
         a = tp.ones((2, 3))
         b = tp.ones((4, 3))
-        with raises(
-            tp.TripyException,
-            match=r"error: shapes of operand \(0\) and \(1\) are not compatible at non-concat index 1:",
-        ):
+        with raises(tp.TripyException, match=r"all concat input tensors must have the same dimensions"):
             tp.stack([a, b]).eval()

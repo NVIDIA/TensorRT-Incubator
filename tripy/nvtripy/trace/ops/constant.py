@@ -221,7 +221,7 @@ class Constant(BaseTraceOp):
         # TODO: we can further drop the cast by tolist(memref) -> mlir
         # Workaround (#208): bools are represented as i1 in MLIR-TRT but they cannot be used for DenseElementsAttr
         # so we have to represent them as ints and then cast the result
-        if self.outputs[0].dtype == datatype.bool:
+        if self.dtype == datatype.bool:
             # need to use memoryview.cast to ensure that the view will be flattened
             int_memref = create_memref(
                 array=array.array("i", memoryview(data_memref).cast("b").tolist()),
@@ -236,7 +236,7 @@ class Constant(BaseTraceOp):
             return [tensorrt.cast(result=outputs[0], input=constant_op)]
 
         attr = ir.DenseElementsAttr.get(
-            array=data_memref, type=mlir_utils.get_mlir_dtype(self.outputs[0].dtype), shape=data_memref.shape
+            array=data_memref, type=mlir_utils.get_mlir_dtype(self.dtype), shape=data_memref.shape
         )
 
         return [tensorrt.constant(attr)]
