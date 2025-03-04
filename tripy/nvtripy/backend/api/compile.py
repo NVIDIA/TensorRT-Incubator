@@ -165,7 +165,8 @@ def compile(
     # as `InputInfo`s, but the order needs to match the signature of the original function.
     compiled_arg_names = [name for name in signature.parameters.keys() if name in input_names]
 
-    trace_outputs = utils.utils.make_list(func(*new_args, **new_kwargs))
+    func_out = func(*new_args, **new_kwargs)
+    trace_outputs = utils.utils.make_list(func_out)
 
     if not trace_outputs:
         raise_error(
@@ -173,11 +174,11 @@ def compile(
             [f"Return value was: {repr(trace_outputs)}"],
         )
 
-    for index, out in enumerate(trace_outputs):
-        if not isinstance(out, Tensor):
+    for index, trace_out in enumerate(trace_outputs):
+        if not isinstance(trace_out, Tensor):
             raise_error(
                 "Function must return 1 or more Tensors.",
-                [f"Return value {index} was not a tensor: {repr(out)}"],
+                [f"Return value {index} was not a tensor: {repr(trace_out)}"],
             )
 
     # Order of trace inputs also needs to match that of the compiled_arg_names
@@ -195,7 +196,9 @@ def compile(
     compiler = Compiler(trt_builder_opt_level=optimization_level)
     executable = compiler.compile(mlir, trace=trace)
 
+    assert isinstance(func_out, Tensor) or isinstance(
+        func_out, Sequence
+    ), "This function is only implemented for Tensors or sequences of Tensors"
     return Executable(
-        executable,
-        compiled_arg_names,
+        executable, compiled_arg_names, return_type=Tensor if isinstance(func_out, Tensor) else Sequence[Tensor]
     )
