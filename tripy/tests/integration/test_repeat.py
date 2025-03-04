@@ -33,10 +33,10 @@ class TestRepeat:
     def test_repeat(self, repeats, dim, eager_or_compiled):
         inp = np.arange(4, dtype=np.int32).reshape((2, 2))
 
-        out = eager_or_compiled(tp.repeat, tp.Tensor(inp), repeats, dim)
+        out = eager_or_compiled(tp.copy, tp.repeat(tp.Tensor(inp), repeats, dim), device=tp.device("cpu"))
         expected = np.repeat(inp, repeats, dim)
 
-        assert np.array_equal(np.from_dlpack(tp.copy(out, device=tp.device("cpu"))), expected)
+        assert np.array_equal(np.from_dlpack(out), expected)
 
     def test_repeat_shape_scalar(self, eager_or_compiled):
         inp = np.arange(4, dtype=np.int32).reshape((2, 2))
