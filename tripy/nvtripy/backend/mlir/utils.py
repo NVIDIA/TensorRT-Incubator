@@ -161,7 +161,7 @@ def parse_tensor_names_from_location(msg: str) -> Tuple[List[str], List[str], st
     """
     locs = TENSOR_NAME_PATTERN.findall(msg)
     if not locs:
-        return [], [], [], [], msg
+        return [], [], msg
 
     # TODO (#150): Update this logic to not only look at the first valid location attribute.
     loc = None
@@ -177,7 +177,7 @@ def parse_tensor_names_from_location(msg: str) -> Tuple[List[str], List[str], st
         logger.warning("Error location may be inaccurate as there are unknown locations from backend.")
 
     if not loc:
-        return [], [], [], [], msg
+        return [], [], msg
 
     # Hack: Extract callsite for function call locations.
     if "at" in loc:
@@ -213,7 +213,7 @@ def map_error_to_user_code_and_raise(trace, exc, stderr):
 
     # TODO (pranavm): Test this with multi-output ops - plugins?
     def get_trace_operation():
-        if trace is None:
+        if trace is None or not output_names:
             return []
 
         inp_tensors = [trace.tensor_map[inp] for inp in input_names]
