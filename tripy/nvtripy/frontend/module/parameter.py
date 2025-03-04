@@ -35,7 +35,7 @@ class DefaultParameter(Tensor):
         is_shape_known = True
         if shape is None:
             is_shape_known = False
-            shape = []
+            shape = tuple()
 
         # TODO (pranavm): Emit warning if this tensor is ever materialized - can check for DefaultParameter in
         # named_parameters() during Module.__call__ - probably need to be able to implement `forward` for that.
@@ -44,7 +44,7 @@ class DefaultParameter(Tensor):
 
         self.__dict__ = tensor.__dict__
 
-        self._shape = list(shape)
+        self._shape = tuple(shape)
         self._dtype = dtype
         self.is_shape_known = is_shape_known
 
