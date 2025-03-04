@@ -112,11 +112,16 @@ def __getitem__(
             # and tensor/non-tensor params + default/explicitly provided arguments + OOB start/stop (positive and negative).
             # Also test with non-const inputs so shapes are non-integers.
 
+            def cast_to_dim_size(arg):
+                if not isinstance(arg, DimensionSize):
+                    arg = DimensionSize(arg)
+                return arg
+
             # Ternary select that can accept `cond` as either a DimensionSize or bool
             def select(cond, lhs, rhs):
                 if isinstance(cond, bool):
                     return lhs if cond else rhs
-                return where(cond, DimensionSize(lhs), DimensionSize(rhs))
+                return where(cond, cast_to_dim_size(lhs), cast_to_dim_size(rhs))
 
             # For negative step sizes, the default start/stop are inverted.
             default_start = select(step >= 0, 0, dim_size - 1)
@@ -126,7 +131,7 @@ def __getitem__(
                 return (
                     min(a, b)
                     if isinstance(a, int) and isinstance(b, int)
-                    else minimum(DimensionSize(a), DimensionSize(b))
+                    else minimum(cast_to_dim_size(a), cast_to_dim_size(b))
                 )
 
             if slice_idx.start is not None:
@@ -150,7 +155,7 @@ def __getitem__(
                 size = size // step
 
             # Size cannot be less than 0:
-            size = max(size, 0) if isinstance(size, int) else maximum(size, DimensionSize(0))
+            size = max(size, 0) if isinstance(size, int) else maximum(size, cast_to_dim_size(0))
 
             starts.append(start)
             sizes.append(size)

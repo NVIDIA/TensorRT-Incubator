@@ -88,6 +88,9 @@ class Tensor(metaclass=TensorMeta):
         """
         # We use None internally but users should not be permitted to do it
         assert data is not None, "Data argument to Tensor must not be None"
+        if isinstance(data, Tensor):
+            raise_error("Cannot initialize Tensor with another Tensor.", [f"Note: `data` argument was: {data}"])
+
         self._stack_info = utils.stack_info.StackInfo([])
 
         constant = Constant(data, device=device, dtype=dtype)
