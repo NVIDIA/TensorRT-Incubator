@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -46,7 +46,7 @@ class Executable:
     """
 
     # The constructor is intentionally undocumented because it is not meant to be called by users.
-    def __init__(self, executable, arg_names):
+    def __init__(self, executable, arg_names, return_type):
         self._executable = executable
         self._executor = Executor(self._executable)
         self._arg_names = arg_names
@@ -58,9 +58,8 @@ class Executable:
         for name in self._arg_names:
             params.append(inspect.Parameter(name, inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=Tensor))
 
-        return_annotation = Tensor if self._executable_signature.get_num_results() == 1 else Sequence[Tensor]
-
-        self.__signature__ = inspect.Signature(params, return_annotation=return_annotation)
+        self._return_type = return_type
+        self.__signature__ = inspect.Signature(params, return_annotation=self._return_type)
 
     @property
     def stream(self):
@@ -225,8 +224,8 @@ class Executable:
 
             raise
 
-        output_tensors = [Tensor.fast_init(output) for output in executor_outputs]
-        if len(output_tensors) == 1:
+        output_tensors = tuple(Tensor.fast_init(output) for output in executor_outputs)
+        if self._return_type == Tensor:
             output_tensors = output_tensors[0]
         return output_tensors
 

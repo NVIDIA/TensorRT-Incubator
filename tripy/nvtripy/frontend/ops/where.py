@@ -58,8 +58,15 @@ def where(condition: "nvtripy.Tensor", input: "nvtripy.Tensor", other: "nvtripy.
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.array([[1, 0], [1, 1]], dtype=np.float32))
     """
+    from nvtripy.frontend.dimension_size import DimensionSize
+
     condition, input, other = op_utils.match_ranks(condition, input, other)
-    return op_utils.create_op(Where, [condition, input, other])
+    # TODO (pranavm): Add test for where with DimensionSize non-condition inputs.
+    return op_utils.create_op(
+        Where,
+        [condition, input, other],
+        cast_to_dimension_size=isinstance(input, DimensionSize) and isinstance(other, DimensionSize),
+    )
 
 
 # TODO (pranavm): Split into separate file

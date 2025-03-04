@@ -39,5 +39,5 @@ class Linspace(BaseTraceOp):
         self.outputs[0].dtype = self.dtype
 
     def to_mlir(self, inputs, outputs):
-        assert len(self.inputs) == 3, "Linspace operation should have exactly 3 inputs!"
+        assert len(inputs) == 3, "Linspace operation should have exactly 3 inputs!"
         return [tensorrt.linspace(result=outputs[0], shape=inputs[0], start=inputs[1], step=inputs[2])]
