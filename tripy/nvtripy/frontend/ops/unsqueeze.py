@@ -53,5 +53,5 @@ def unsqueeze(input: "nvtripy.Tensor", dim: int) -> "nvtripy.Tensor":
         dim = dim + input.rank + 1
 
     input_shape = input.shape
-    result_shape = input_shape[:dim] + [1] + input_shape[dim:]
+    result_shape = input_shape[:dim] + (1,) + input_shape[dim:]
     return reshape(input, result_shape)

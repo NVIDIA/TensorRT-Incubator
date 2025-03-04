@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -49,7 +49,7 @@ def _create_resize(mode, inputs, scales, align_corners):
 @export.public_api(document_under="operations/functions")
 @wrappers.interface(
     dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
-    dtype_variables={"T1": ["float32", "float16", "int8"]},
+    dtype_variables={"T1": ["float32", "bfloat16", "float16", "int8"]},
     convert_to_tensors=True,
 )
 def resize(

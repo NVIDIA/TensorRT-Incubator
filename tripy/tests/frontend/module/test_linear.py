@@ -25,8 +25,8 @@ class TestLinear:
     def test_linear_params(self):
         linear = tp.Linear(20, 30)
         assert isinstance(linear, tp.Linear)
-        assert linear.weight.shape == [30, 20]
-        assert linear.bias.shape == [30]
+        assert linear.weight.shape == (30, 20)
+        assert linear.bias.shape == (30,)
 
     def test_mismatched_input_shapes(self):
         a = tp.ones((2, 3))
@@ -52,8 +52,8 @@ class TestLinear:
         assert isinstance(qlinear, tp.Linear)
         assert qlinear.dtype == tp.float32
         assert qlinear.quant_dtype == quant_dtype
-        assert qlinear.weight.shape == [30, 20]
-        assert qlinear.bias.shape == [30]
+        assert qlinear.weight.shape == (30, 20)
+        assert qlinear.bias.shape == (30,)
         assert qlinear.weight_quant_dim == weight_quant_dim
         assert isinstance(qlinear.weight_scale, tp.Tensor)
         assert isinstance(qlinear.input_scale, tp.Tensor)

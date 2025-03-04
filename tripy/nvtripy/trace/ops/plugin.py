@@ -136,9 +136,9 @@ class Plugin(BaseTraceOp):
                 raise_error(
                     f"{plugin_err_prefix} has no field called: {name}",
                     [
+                        f"Note: Valid fields are: {list(sorted(field_schema.keys()))}\n\n",
                         "This originated from:",
                         self.outputs[0],
-                        f"Note: Valid fields are: {list(sorted(field_schema.keys()))}",
                     ],
                 )
 
@@ -146,13 +146,12 @@ class Plugin(BaseTraceOp):
             if not result:
                 raise_error(
                     f"{plugin_err_prefix}: Invalid value provided for field: {name}",
-                    ["This originated from:", self.outputs[0]]
-                    + result.error_details
-                    + [f" Note: Provided field value was: {repr(values)}"],
+                    result.error_details
+                    + [f" Note: Provided field value was: {repr(values)}\n\n"]
+                    + ["This originated from:", self.outputs[0]],
                 )
             params[name] = result.value
 
-        results = [out.to_mlir() for out in self.outputs]
         return [
-            tensorrt.opaque_plugin(results, self.name, self.version, self.namespace, ir.DictAttr.get(params), inputs)
+            tensorrt.opaque_plugin(outputs, self.name, self.version, self.namespace, ir.DictAttr.get(params), inputs)
         ]
