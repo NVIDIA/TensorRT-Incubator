@@ -11,6 +11,10 @@ add_mlir_tensorrt_library(MLIRTensorRTPlanTransforms
   PostClusteringValidation.cpp
   RefineTypes.cpp
   PopulateFunctionBoundsAttributes.cpp
+  ModuleBufferization/ModuleBufferization.cpp
+  ModuleBufferization/ModuleBufferizationAnalysis.cpp
+  ModuleBufferization/ModuleBufferizationUtils.cpp
+  ModuleBufferization/RemoveEquivalentBufferResults.cpp
 
   DEPENDS
   MLIRTensorRTPlanTransformsPassIncGen
@@ -30,6 +34,8 @@ add_mlir_tensorrt_library(MLIRTensorRTPlanTransforms
   MLIRTensorRTDialect
   MLIRTensorRTDuplicateFunctionElimination
   MLIRTensorRTExecutorDialect
+  MLIRBufferizationDialect
+  MLIRBufferizationTransforms
   MLIRTensorRTMemRefCastElimination
   MLIRTensorRTPlanAnalysis
   MLIRTensorRTPlanDialect
@@ -37,6 +43,7 @@ add_mlir_tensorrt_library(MLIRTensorRTPlanTransforms
   MLIRTensorRTStablehloScalarToArith
   MLIRTensorRTStablehloToTensorRT
   MLIRTensorRTTensorRTRuntimeDialect
+  MLIRTensorRTBufferizationScopeInterface
   MLIRBufferizationToMemRef
   MLIRTransforms
   StablehloOps

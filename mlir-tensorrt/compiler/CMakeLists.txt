@@ -1,9 +1,13 @@
 set(MLIR_TENSORRT_COMPILER_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
 
-include_directories(${CMAKE_CURRENT_LIST_DIR}/include)
-include_directories(${CMAKE_CURRENT_BINARY_DIR}/include)
-include_directories(${MLIR_TENSORRT_ROOT_DIR}/executor/include)
-include_directories(${MLIR_TENSORRT_ROOT_BINARY_DIR}/executor/include)
+
+set(MLIR_TENSORRT_COMPILER_INCLUDE_DIRS
+  "${CMAKE_CURRENT_BINARY_DIR}/include"
+  "${CMAKE_CURRENT_SOURCE_DIR}/include"
+  PARENT_SCOPE)
+
+include_directories("${CMAKE_CURRENT_BINARY_DIR}/include"
+                    "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
 add_subdirectory(include)
 add_subdirectory(lib)

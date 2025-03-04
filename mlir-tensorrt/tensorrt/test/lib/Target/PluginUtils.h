@@ -223,7 +223,7 @@ inline static void printField(std::ostream &os, const PluginField &field) {
   case PluginFieldType::kINT32:
   case PluginFieldType::kINT16: {
     for (int32_t i = 0; i < field.length; i++) {
-      printScalar<llvm::APInt>(os, field);
+      printScalar<llvm::APInt>(os, field, i);
       if (i < field.length - 1)
         os << ", ";
     }

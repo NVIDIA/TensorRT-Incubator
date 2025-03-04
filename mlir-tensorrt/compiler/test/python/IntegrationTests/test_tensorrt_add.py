@@ -1,4 +1,8 @@
+# REQUIRES: tensorrt-version-ge-10.0
+# TRT 10.0+ is required due to use of 'tensorrt-strongly-typed' mode.
+
 # RUN: %PYTHON %s
+
 import time
 
 import mlir_tensorrt.compiler.api as compiler
@@ -68,14 +72,17 @@ def tensorrt_add():
     num_iter = 5
     start_time = time.time()
     for _ in range(0, num_iter):
-        session.execute_function("main", in_args=[arg0], out_args=[arg0], stream=stream)
-    data = np.asarray(client.copy_to_host(arg1, stream=stream))
+        arg0 = results[0]
+        results = session.execute_function(
+            "main", in_args=[arg0], stream=stream, client=client
+        )
+    data = np.asarray(client.copy_to_host(results[0], stream=stream))
     stream.sync()
     end_time = time.time()
     elapsed = end_time - start_time
 
     print(np.asarray(client.copy_to_host(arg0)))
-    print(f"1000 iterations avg { (elapsed/num_iter)/1000.0} msec per iteration")
+    print(f"5 iterations avg { (elapsed/num_iter)/1000.0} msec per iteration")
 
 
 if __name__ == "__main__":

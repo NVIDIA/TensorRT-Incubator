@@ -4,20 +4,12 @@ project(mlir-tensorrt LANGUAGES CXX C)
 # -------------------------------------------------
 # Set CMake behavior policies
 # -------------------------------------------------
-if(POLICY CMP0135)
-  # Ensure correct build behavior when downloaded archives
-  # are involved.
-  cmake_policy(SET CMP0135 NEW)
-endif()
+include(build_tools/cmake/CMakePolicy.cmake NO_POLICY_SCOPE)
 
 # -------------------------------------------------
 # Package cache configuration
 # -------------------------------------------------
-
-if(MLIR_TRT_PACKAGE_CACHE_DIR)
-  set(CPM_SOURCE_CACHE "${MLIR_TRT_PACKAGE_CACHE_DIR}" CACHE STRING "" FORCE)
-  set(CPM_USE_NAMED_CACHE_DIRECTORIES ON CACHE BOOL "" FORCE)
-elseif(NOT CPM_SOURCE_CACHE)
+if(NOT CPM_SOURCE_CACHE)
   message(WARNING "CPM_SOURCE_CACHE is not set. Source code for third party C++ packages will be \
   stored in your build directory. It is highly recommended to specify a CPM source cache directory outside of \
   your build directory (for example '$PWD/.cache.cpm')")
@@ -30,8 +22,6 @@ include(build_tools/cmake/CPM.cmake)
 include(build_tools/cmake/CompilationOptions.cmake)
 include(build_tools/cmake/Targets.cmake)
 include(build_tools/cmake/Dependencies.cmake)
-include(build_tools/cmake/ManagedLLVM.cmake)
-include(build_tools/cmake/LLVMCommit.cmake)
 include(Version.cmake)
 
 # -------------------------------------------------
@@ -56,14 +46,10 @@ mtrt_option(MLIR_TRT_ENABLE_NCCL "Enable the NCCL runtime module" ON)
 mtrt_option(MLIR_TRT_ENABLE_TORCH "Whether to include torch-mlir features" OFF)
 
 set(MLIR_TRT_TENSORRT_DIR "" CACHE STRING "Path to TensorRT install directory")
-set(MLIR_TRT_DOWNLOAD_TENSORRT_VERSION "10.5" CACHE STRING
+set(MLIR_TRT_DOWNLOAD_TENSORRT_VERSION "10.7" CACHE STRING
    "Version of TensorRT to download and use. It overrides MLIR_TRT_TENSORRT_DIR.")
 set(MLIR_TRT_PACKAGE_CACHE_DIR "" CACHE STRING "Directory where to cache downloaded C++ packages")
 set(MLIR_TRT_USE_LINKER "" CACHE STRING "Specify a linker to use (e.g. LLD); this is just an alias for LLVM_USE_LINKER")
-set(MLIR_TRT_LLVM_COMMIT
-  "${LLVM_COMMIT}"
-  CACHE STRING
-  "LLVM source archive commit for managed llvm-project build")
 
 # Configure dependent Executor options.
 set(MLIR_EXECUTOR_ENABLE_NCCL ${MLIR_TRT_ENABLE_NCCL} CACHE BOOL "" FORCE)
@@ -107,6 +93,8 @@ endif()
 # -------------------------------------------------
 # Setup LLVM/MLIR
 # -------------------------------------------------
+find_package(Python3 REQUIRED
+  COMPONENTS Interpreter Development)
 
 set(CMAKE_BUILD_WITH_INSTALL_NAME_DIR ON)
 
@@ -114,52 +102,13 @@ if(PROJECT_IS_TOP_LEVEL)
   set(MLIR_TRT_EXTERNAL_PROJECT_BUILD OFF)
   message("Building MLIR-TensorRT as a standalone project.")
 
-  if(MLIR_DIR)
-    find_package(MLIR REQUIRED CONFIG)
-    message(STATUS "Using MLIRConfig.cmake in: ${MLIR_DIR}")
-    message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
-    list(APPEND CMAKE_MODULE_PATH "${MLIR_CMAKE_DIR}")
-    list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
-    set(LLVM_RUNTIME_OUTPUT_INTDIR ${CMAKE_BINARY_DIR}/bin)
-    set(LLVM_LIBRARY_OUTPUT_INTDIR ${CMAKE_BINARY_DIR}/lib)
-  elseif(MLIR_TRT_LLVM_COMMIT)
-    set(patch_dir "${CMAKE_CURRENT_LIST_DIR}/build_tools/patches/mlir")
-    mtrt_llvm_project(
-      NAME llvm_project
-      VERSION 0.0.20241126
-      URL "https://github.com/llvm/llvm-project/archive/${MLIR_TRT_LLVM_COMMIT}.zip"
-      EXCLUDE_FROM_ALL TRUE
-      SOURCE_SUBDIR "llvm"
-      PATCHES
-        "${patch_dir}/000_fix_bufferization_tensor_encoding_memory_spaces.patch"
-        "${patch_dir}/001-mlir-Add-a-null-pointer-check-in-symbol-lookup-11516.patch"
-        "${patch_dir}/0003-mlir-EmitC-memref-to-emitc-insert-conversion_casts-1.patch"
-        "${patch_dir}/0004-NFC-mlir-emitc-fix-misspelling-in-description-of-emi.patch"
-        "${patch_dir}/0005-emitc-func-Set-default-dialect-to-emitc-116297.patch"
-        "${patch_dir}/0006-MLIR-EmitC-arith-to-emitc-Fix-lowering-of-fptoui-118.patch"
-        "${patch_dir}/0007-mlir-emitc-Add-support-for-C-API-python-binding-to-E.patch"
-        "${patch_dir}/0008-mlir-emitc-DCE-unimplemented-decls-121253.patch"
-        "${patch_dir}/0009-Re-introduce-Type-Conversion-on-EmitC-121476.patch"
-        "${patch_dir}/0010-mlir-emitc-Fix-invalid-syntax-in-example-of-emitc.re.patch"
-        "${patch_dir}/0011-mlir-emitc-Don-t-emit-extra-semicolon-after-bracket-.patch"
-        "${patch_dir}/0012-mlir-emitc-Expose-emitc-dialect-types-119645.patch"
-        "${patch_dir}/0013-mlir-emitc-Support-convert-arith.extf-and-arith.trun.patch"
-        "${patch_dir}/0014-EmitC-Allow-arrays-of-size-zero-123292.patch"
-        "${patch_dir}/0015-mlir-EmitC-Add-MathToEmitC-pass-for-math-function-lo.patch"
-        "${patch_dir}/0016-mlir-emitc-Set-default-dialect-to-emitc-in-ops-with-.patch"
-      OPTIONS
-        "LLVM_ENABLE_PROJECTS mlir"
-        "MLIR_ENABLE_BINDINGS_PYTHON ${MLIR_TRT_ENABLE_PYTHON}"
-        "LLVM_TARGETS_TO_BUILD host"
-        "LLVM_ENABLE_ASSERTIONS ${MLIR_TRT_ENABLE_ASSERTIONS}"
-        "LLVM_USE_LINKER ${MLIR_TRT_USE_LINKER}"
-    )
-  endif()
-
-  # For whatever reason, StableHLO uses this CMake variable to decide whether to build
-  # in "external project mode" or not. Since we don't want external project mode,
-  # set it to the current binary dir.
-  set(MLIR_BINARY_DIR ${CMAKE_BINARY_DIR})
+  find_package(MLIR REQUIRED CONFIG)
+  message(STATUS "Using MLIRConfig.cmake in: ${MLIR_DIR}")
+  message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
+  list(APPEND CMAKE_MODULE_PATH "${MLIR_CMAKE_DIR}")
+  list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
+  set(LLVM_RUNTIME_OUTPUT_INTDIR ${CMAKE_BINARY_DIR}/bin)
+  set(LLVM_LIBRARY_OUTPUT_INTDIR ${CMAKE_BINARY_DIR}/lib)
 elseif(NOT MLIR_BINARY_DIR)
   set(MLIR_TRT_EXTERNAL_PROJECT_BUILD ON)
   set(MLIR_MAIN_SRC_DIR ${LLVM_MAIN_SRC_DIR}/../mlir)
@@ -196,38 +145,16 @@ include(HandleLLVMOptions)
 
 # Download Stablehlo if it isn't provided by a parent project.
 if(MLIR_TRT_ENABLE_HLO AND NOT TARGET StablehloOps)
-  mtrt_add_stablehlo(
-    VERSION 1.8.0
-    GIT_TAG 6e403b1aa6a71f5eaa09cc720e4ad42f692745e6
-    GIT_REPOSITORY "https://github.com/openxla/stablehlo.git"
-    PATCHES
-      "${CMAKE_CURRENT_LIST_DIR}/build_tools/patches/stablehlo/0001-transforms-Fix-simplification-patterns-for-stablehlo.patch"
-      "${CMAKE_CURRENT_LIST_DIR}/build_tools/patches/stablehlo/0002-Fix-a-couple-missing-checks-for-static-shapes-in-sta.patch"
-    OPTIONS
-      "STABLEHLO_ENABLE_BINDINGS_PYTHON ${MLIR_TRT_ENABLE_PYTHON}"
-      "STABLEHLO_BUILD_EMBEDDED ON"
-    EXCLUDE_FROM_ALL TRUE
-  )
+  find_package(Stablehlo REQUIRED)
+  include_directories(${STABLEHLO_INCLUDE_DIRS})
 endif()
 
 if(MLIR_TRT_ENABLE_TORCH)
-  mtrt_add_torch_mlir(
-    GIT_TAG "30c519369ed7eabad0282d0f874500a9b41fcbbd"
-    PATCHES
-      "${CMAKE_CURRENT_LIST_DIR}/build_tools/patches/torch_mlir/torch_mlir.patch"
-  )
-endif()
-
-if(MLIR_TRT_ENABLE_TESTING)
-  # TODO: force the flag that makes LLVM build google benchmark.
+  find_package(torch_mlir REQUIRED)
 endif()
 
 if(MLIR_TRT_TARGET_TENSORRT)
-  find_tensorrt(
-    INSTALL_DIR "${MLIR_TRT_TENSORRT_DIR}"
-    DOWNLOAD_VERSION "${MLIR_TRT_DOWNLOAD_TENSORRT_VERSION}"
-    MIN_VERSION "${min_tensorrt_version}"
-  )
+  find_package(TensorRT REQUIRED)
 endif()
 
 if(MLIR_TRT_ENABLE_PYTHON)

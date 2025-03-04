@@ -26,7 +26,7 @@
 
 #include "mlir-tensorrt-dialect/Target/TranslateToTensorRT.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
-#include "mlir/Dialect/Bufferization/Transforms/OneShotAnalysis.h"
+#include "mlir/Dialect/Bufferization/IR/BufferDeallocationOpInterface.h"
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
 #include <memory>
 #include <mlir/Pass/Pass.h>
@@ -48,38 +48,11 @@ struct ClusterTargetOption;
 void buildPlanSegmentationPipeline(
     OpPassManager &pm, const plan::StablehloClusteringPassOptions &opts);
 
-/// Options for running `one-shot-bufferize` for the `plan-bufferize` pass.
-struct ExecutorBufferizationOptions
-    : public bufferization::OneShotBufferizationOptions {
-  explicit ExecutorBufferizationOptions(
-      ModuleOp targetOp,
-      plan::MemorySpace defaultMemorySpace = plan::MemorySpace::device);
-
-  plan::MemorySpace defaultExecutorMemorySpace;
-};
-
-/// Run one-shot-bufferization on the given module. After bufferization, verify
-/// that loads/stores directly `device` memory space do not occur.
-/// NOTE: For development purposes, you can consider
-/// using `MemorySpace::unified` as the default memory space. This will lead to
-/// using CUDA unified memory, which is less efficient than a correct
-/// host/device space management but more efficient than naively inserting
-/// Host-Device or Device-Host copies everywhere where device load/store occurs.
-LogicalResult
-executorOneShotModuleBufferize(ModuleOp targetOp,
-                               const ExecutorBufferizationOptions &options);
-
-/// Build a pipeline (targeting ModuleOp) for bufferization.
+/// Build a complete bufferization pipeline, which includes: bufferization,
+/// optimizations, and buffer deallocation.
 void buildPlanBufferizationPipeline(
-    OpPassManager &pm, const plan::PlanAllocTensorsPassOptions &options);
-
-/// Build a post-bufferization pipeline that performs optimizations on memrefs.
-void buildPlanBufferOptimizationPipeline(OpPassManager &pm);
-
-/// Build a pipeline (targeting ModuleOp) for ownership-based buffer
-/// deallocation.
-void buildPlanBufferDeallocationPipeline(
-    OpPassManager &pm, const bufferization::DeallocationOptions &options);
+    OpPassManager &pm, const plan::PlanAllocTensorsPassOptions &options,
+    const bufferization::DeallocationOptions &deallocationOptions);
 
 /// Register PassPipelines associated with the Plan dialect.
 void registerPlanDialectPipelines();

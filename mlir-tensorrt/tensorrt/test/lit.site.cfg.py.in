@@ -2,6 +2,8 @@
 
 config.llvm_tools_dir = lit_config.substitute("@LLVM_TOOLS_DIR@")
 config.mlir_obj_dir = "@MLIR_BINARY_DIR@"
+config.tensorrt_dialect_tools_dir = "@LLVM_RUNTIME_OUTPUT_INTDIR@"
+config.tensorrt_dialect_lib_dir = "@MLIR_TENSORRT_DIALECT_LIB_DIR@"
 config.enable_bindings_python = @MLIR_ENABLE_BINDINGS_PYTHON@
 config.tensorrt_dialect_obj_root = "@MLIR_TENSORRT_DIALECT_BINARY_DIR@"
 config.llvm_shlib_ext = "@SHLIBEXT@"

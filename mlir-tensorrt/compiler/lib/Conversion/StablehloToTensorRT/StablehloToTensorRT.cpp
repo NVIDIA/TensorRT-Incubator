@@ -359,7 +359,7 @@ struct SortToTopK : public ConvertHloOpToTensorRTPattern<stablehlo::SortOp> {
 /// operation and returns the new value.
 static FailureOr<Value>
 convertSimpleReductions(TensorRTConversionPatternRewriter &rewriter,
-                        stablehlo::ReduceOp op, int64_t reductionDim,
+                        stablehlo::ReduceOp op, ArrayRef<int64_t> reductionDim,
                         Value input, Value init, int64_t trtMajorVersion) {
   // TODO: verify the init is the neutral value based on the op below.
   if (!matchPattern(init, m_Constant()))
@@ -390,7 +390,7 @@ convertSimpleReductions(TensorRTConversionPatternRewriter &rewriter,
   auto reduceOp = rewriter.checkAndCreate<tensorrt::ReduceOp>(
       loc, trtMajorVersion, op.getType(0), input,
       /*reduceDims=*/
-      SmallVector<int64_t>{reductionDim},
+      reductionDim,
       /*keepdims=*/false, reductionOp);
   if (!reduceOp)
     return failure();
@@ -399,7 +399,7 @@ convertSimpleReductions(TensorRTConversionPatternRewriter &rewriter,
 
 static FailureOr<Value> convertBooleanReductions(RewriterBase &rewriter,
                                                  stablehlo::ReduceOp op,
-                                                 int64_t reductionDim,
+                                                 ArrayRef<int64_t> reductionDim,
                                                  Value input, Value init) {
   Location loc = op.getLoc();
   // Create an int32 tensor types equivalent to the boolean tensor types.
@@ -445,36 +445,6 @@ static FailureOr<Value> convertBooleanReductions(RewriterBase &rewriter,
       .create<tensorrt::IdentityOp>(loc, originalResultType,
                                     reduceOp.getResult())
       .getResult();
-}
-
-/// Return true if `x` is a sequence starting from `x[0]` and incrementing by 1.
-static bool isContiguousSequence(ArrayRef<int64_t> x) {
-  return llvm::equal(x, llvm::seq<int64_t>(x.front(), x.front() + x.size()));
-}
-
-/// Given a tensor `t` and a contiguous set of dimensions `[firstDimToCollapse,
-/// lastDimToCollapse]` (inclusive), return a new type where the specified
-/// dimensions have been flatttend into a single dimension.
-static RankedTensorType getCollapsedShape(RankedTensorType t,
-                                          unsigned firstDimToCollapse,
-                                          unsigned numDimsToCollapse) {
-  assert(numDimsToCollapse >= 1 &&
-         "expected at least one dimension to collapse");
-
-  // Prepend non-collapsed dimensions.
-  SmallVector<int64_t> newShape(t.getShape().take_front(firstDimToCollapse));
-  // Flatten the reduced dimensions.
-  ArrayRef<int64_t> view =
-      t.getShape().slice(firstDimToCollapse, numDimsToCollapse);
-  newShape.push_back(
-      std::accumulate(view.begin(), view.end(), 1, std::multiplies<>()));
-
-  // Append the trailing non-collapsed dims.
-  if (firstDimToCollapse + numDimsToCollapse != t.getRank())
-    llvm::append_range(
-        newShape, t.getShape().take_back(
-                      t.getRank() - (firstDimToCollapse + numDimsToCollapse)));
-  return t.clone(newShape);
 }
 
 /// Drop the unit dimension at `dimToDrop` from each of `values`.
@@ -532,7 +502,6 @@ struct ConvertReduceOp
         this->getTypeConverter()->getOptions().getTensorRTVersion();
 
     Value operand = adaptor.getInputs().front();
-    auto inputType = cast<RankedTensorType>(operand.getType());
     SmallVector<int64_t> reductionDims = llvm::to_vector(op.getDimensions());
     // Try to match and handle the ArgMin/ArgMax cases.
     if (succeeded(matchAndReplaceStablehloArgMinMax<
@@ -544,40 +513,21 @@ struct ConvertReduceOp
             op, trtRewriter, operand, reductionDims, targetTrtMajorVersion)))
       return success();
 
-    // TRT can only handle single reduction dims right now. We can support
-    // multiple contiguous reduction dims by collapsing them.
-    if (reductionDims.size() != 1) {
-      llvm::sort(reductionDims);
-      if (!isContiguousSequence(reductionDims))
-        return failure();
-      auto reshapedOperand = trtRewriter.checkAndCreate<tensorrt::ReshapeOp>(
-          op.getLoc(), targetTrtMajorVersion,
-          getCollapsedShape(inputType, reductionDims.front(),
-                            reductionDims.size()),
-          operand);
-      if (!reshapedOperand)
-        return failure();
-      operand = reshapedOperand;
-      reductionDims = SmallVector<int64_t>{reductionDims.front()};
-    }
-
-    // If not in above special cases, try to match the simpler reductions across
-    // a single input.
+    // Try to match the simpler reductions across a single input.
     if (op.getInputs().size() != 1)
       return rewriter.notifyMatchFailure(op,
                                          "number of reduction inputs not 1");
     Value init = adaptor.getInitValues().front();
 
-    FailureOr<Value> replacement = convertBooleanReductions(
-        rewriter, op, reductionDims.front(), operand, init);
+    FailureOr<Value> replacement =
+        convertBooleanReductions(rewriter, op, reductionDims, operand, init);
     if (succeeded(replacement)) {
       trtRewriter.replaceOp(op, *replacement);
       return success();
     }
 
-    replacement =
-        convertSimpleReductions(trtRewriter, op, reductionDims.front(), operand,
-                                init, targetTrtMajorVersion);
+    replacement = convertSimpleReductions(trtRewriter, op, reductionDims,
+                                          operand, init, targetTrtMajorVersion);
     if (failed(replacement))
       return rewriter.notifyMatchFailure(
           op, "could not do simple reduction transform");
@@ -4268,6 +4218,58 @@ struct ConvertHLOSoftmax : public OpRewritePattern<stablehlo::DivOp> {
   }
 };
 
+/// Tries to convert `stablehlo.custom_call` to TensorRT, if call target
+/// conversion is possible. Currently handled call targets are {mhlo.topk}.
+/// To be safe, if call target has some side effect, conversion does not
+/// happen.
+struct ConvertStablehloCustomCall
+    : public ConvertHloOpToTensorRTPattern<stablehlo::CustomCallOp> {
+  using ConvertHloOpToTensorRTPattern::ConvertHloOpToTensorRTPattern;
+  LogicalResult
+  matchAndRewrite(stablehlo::CustomCallOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    if (op.getHasSideEffect())
+      return failure();
+    TensorRTConversionPatternRewriter trtRewriter(rewriter);
+    int64_t targetTrtMajorVersion =
+        this->getTypeConverter()->getOptions().getTensorRTVersion();
+    if (op.getCallTargetName() == "mhlo.topk") {
+      auto customCallAttrs = op->getAttrDictionary();
+      // `mhlo.attributes` gives us information about sorting order and value of
+      // `k`.
+      if (!customCallAttrs.contains("mhlo.attributes")) {
+        return failure();
+      }
+      auto topKAttrs =
+          dyn_cast<DictionaryAttr>(customCallAttrs.get("mhlo.attributes"));
+      if (!topKAttrs || topKAttrs.empty())
+        return failure();
+      int64_t k =
+          cast<IntegerAttr>(topKAttrs.get("k")).getValue().getSExtValue();
+      // TensorRT doesn't support k greater than 3840.
+      if (k > 3840)
+        return failure();
+      RankedTensorType resultType =
+          cast<RankedTensorType>(op->getResultTypes().front());
+      // MHLO top k is always applied along last dimension.
+      int64_t axis = resultType.getRank() - 1;
+      auto largest =
+          cast<IntegerAttr>(topKAttrs.get("largest")).getValue().getBoolValue();
+      auto trtTopKOperation = largest ? tensorrt::TopKOperation::kMAX
+                                      : tensorrt::TopKOperation::kMIN;
+
+      auto trtTopKOp = trtRewriter.checkAndCreate<tensorrt::TopKOp>(
+          op->getLoc(), targetTrtMajorVersion, adaptor.getInputs().front(), k,
+          axis, trtTopKOperation);
+      if (!trtTopKOp)
+        return failure();
+      rewriter.replaceOp(op, trtTopKOp);
+      return success();
+    }
+    return failure();
+  }
+};
+
 // clang-format off
 /// Converts some `stablehlo.dynamic_update_slice` using `tensorrt.concatenation`.
 /// TensorRT does not have a generic "slice insertion" operation. However, we
@@ -4655,7 +4657,7 @@ void mlir::populateStablehloToTensorRtConversionPattern(
       ConvertScatterToTensorRTScatterElements,
       ConvertGatherToTensorRT,
       ConvertGatherToTensorRTGatherNd,
-      CompositeToQDQConverter
+      CompositeToQDQConverter, ConvertStablehloCustomCall
     >(typeConverter, patterns.getContext(), PatternBenefit(1));
   // clang-format on
 

@@ -10,7 +10,7 @@ add_mlir_pdll_library(MLIRTensorRTTransformsNormalizationsPdllGen
  RaiseNormalizations.pdll.h.inc
 )
 
-add_mlir_library(MLIRTensorRTTransforms
+add_mtrtd_library(MLIRTensorRTTransforms
   ApplyBugWorkarounds.cpp
   BroadcastElimination.cpp
   ExpandOps.cpp

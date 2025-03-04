@@ -125,18 +125,11 @@ namespace {
 /// retrieval of the execution context. The primary prequisite for this pattern
 /// is that the serialized engine data must be available on the reference
 /// TensorRT engine.
-struct ConvertCompile
-    : public ConvertTRTRTOpToExecutorPattern<trtrt::GetFunctionOp> {
-  using ConvertTRTRTOpToExecutorPattern::ConvertTRTRTOpToExecutorPattern;
-  LogicalResult
-  matchAndRewrite(trtrt::GetFunctionOp getFunctionOp, OpAdaptor adaptor,
-                  ConversionPatternRewriter &rewriter) const override {
-    ModuleOp module = getFunctionOp->getParentOfType<ModuleOp>();
-    auto op =
-        module.lookupSymbol<trtrt::CompiledFuncOp>(getFunctionOp.getModule());
-    if (!op)
-      return failure();
-
+static LogicalResult
+convertCompiledFuncOps(RewriterBase &rewriter, ModuleOp module,
+                       const TensorRTRuntimeBuiltinCallBuilders &builderUtils) {
+  for (auto op :
+       llvm::make_early_inc_range(module.getOps<trtrt::CompiledFuncOp>())) {
     std::optional<SymbolTable::UseRange> uses =
         SymbolTable::getSymbolUses(op, module);
     SmallVector<trtrt::GetFunctionOp> users;
@@ -166,13 +159,12 @@ struct ConvertCompile
           op.getLoc(), builderUtils.hostPointerType,
           FlatSymbolRefAttr::get(executionContextGlobal));
       rewriter.replaceOp(user, context);
-      continue;
     }
 
     rewriter.eraseOp(op);
-    return success();
   }
-};
+  return success();
+}
 
 /// Convert `tensorrt.enqueue` to `executor.call`.
 struct ConvertEnqueueToCall
@@ -462,6 +454,12 @@ public:
       return {};
     });
 
+    ModuleOp module = getOperation();
+    IRRewriter rewriter(module);
+    TensorRTRuntimeBuiltinCallBuilders utils{typeConverter.getIndexType()};
+    if (failed(convertCompiledFuncOps(rewriter, module, utils)))
+      return signalPassFailure();
+
     // Convert `trtrt.enqueue|create_runtime|execution_context|load` to
     // `executor.call` and function declarations.
     {
@@ -471,9 +469,8 @@ public:
       target.addLegalOp<UnrealizedConversionCastOp>();
 
       RewritePatternSet patterns(&getContext());
-      patterns
-          .add<ConvertEnqueueToCall, ConvertEnqueueAllocToCall, ConvertCompile>(
-              typeConverter, ctx);
+      patterns.add<ConvertEnqueueToCall, ConvertEnqueueAllocToCall>(
+          typeConverter, ctx);
       if (failed(applyPartialConversion(getOperation(), target,
                                         std::move(patterns))))
         return signalPassFailure();

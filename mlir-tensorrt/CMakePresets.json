@@ -11,7 +11,7 @@
         "LLVM_ENABLE_ASSERTIONS": "ON",
         "CPM_SOURCE_CACHE": "${sourceDir}/.cache.cpm",
         "CPM_USE_NAMED_CACHE_DIRECTORIES": "ON",
-        "LLVM_INSTALL_TOOLCHAIN_ONLY": "ON"
+        "CMAKE_PROJECT_TOP_LEVEL_INCLUDES": "${sourceDir}/DependencyProvider.cmake"
       }
     },
     {
@@ -24,6 +24,24 @@
         "CMAKE_C_COMPILER": "clang",
         "CMAKE_CXX_COMPILER": "clang++",
         "LLVM_USE_LINKER": "lld"
+      }
+    },
+    {
+      "name": "github-cicd",
+      "displayName": "GitHub CICD configuration",
+      "generator": "Ninja",
+      "binaryDir": "build",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++",
+        "LLVM_USE_LINKER": "lld",
+        "MLIR_TRT_ENABLE_TORCH": "ON",
+        "MLIR_EXECUTOR_ENABLE_GPU_INTEGRATION_TESTS": "OFF",
+        "CPM_SOURCE_CACHE": "$env{CPM_SOURCE_CACHE}",
+        "ENABLE_ASAN": "$env{ENABLE_ASAN}",
+        "LLVM_LIT_ARGS": "$env{LLVM_LIT_ARGS}",
+        "MLIR_TRT_DOWNLOAD_TENSORRT_VERSION": "$env{DOWNLOAD_TENSORRT_VERSION}"
       }
     },
     {

@@ -300,6 +300,9 @@ public:
         return signalPassFailure();
       }
     }
+
+    // Drop clustering attributes since they are no longer needed.
+    module->removeAttr(plan::PlanDialect::kModuleClusterKindsAttrName);
   }
 };
 } // namespace

@@ -115,6 +115,11 @@ def BroadcastEliminationPass : Pass<"tensorrt-broadcast-elimination"> {
   }];
   let dependentDialects = [];
   let options = [];
+
+  let statistics = [
+    Statistic<"numBroadcastEliminated", "num-broadcast-eliminated",
+              "The number of eliminated broadcast operations">
+  ];
 }
 
 //===----------------------------------------------------------------------===//

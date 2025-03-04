@@ -1,6 +1,6 @@
 //===- Passes.cpp --------------------------------------------------------===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -155,6 +155,14 @@ void mlirtrt::compiler::registerStablehloToExecutablePipelines() {
       [](OpPassManager &pm,
          const StablehloToExecutablePassPipelineOptions &opts) {
         StablehloToExecutableTask::buildStablehloClusteringPipeline(pm, opts);
+      });
+
+  PassPipelineRegistration<StablehloToExecutablePassPipelineOptions>(
+      "stablehlo-to-executable-pipeline",
+      "apply the full stablehlo-to-executable pipeline",
+      [](OpPassManager &pm,
+         const StablehloToExecutablePassPipelineOptions &opts) {
+        StablehloToExecutableTask::populatePassManager(pm, opts);
       });
 
   PassPipelineRegistration<StablehloToExecutablePassPipelineOptions>(

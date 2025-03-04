@@ -33,6 +33,7 @@
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/TypeUtilities.h"
 #include "mlir/Interfaces/ControlFlowInterfaces.h"
+#include "mlir/Interfaces/DataLayoutInterfaces.h"
 #include "mlir/Interfaces/ValueBoundsOpInterface.h"
 #include "mlir/Transforms/InliningUtils.h"
 #include "llvm/ADT/TypeSwitch.h"
@@ -58,6 +59,32 @@ TensorKindInfo MemorySpaceAttr::getTensorKind() const {
     return TensorKind::Both;
   case MemorySpace::unknown:
     return TensorKindInfo();
+  }
+  llvm_unreachable("unknown plan MemorySpace kind");
+}
+
+bool MemorySpaceAttr::isHostVisible() const {
+  return isVisible(plan::DeviceKind::CPU);
+}
+
+bool MemorySpaceAttr::isGpuVisible() const {
+  return isVisible(plan::DeviceKind::GPU);
+}
+
+bool MemorySpaceAttr::isVisible(plan::DeviceKind deviceKind) const {
+  bool isGPU = deviceKind == plan::DeviceKind::GPU;
+  bool isHost = deviceKind == plan::DeviceKind::CPU;
+  switch (getValue()) {
+  case MemorySpace::device:
+    return isGPU;
+  case MemorySpace::host:
+    return isHost;
+  case MemorySpace::host_pinned:
+    return isHost;
+  case MemorySpace::unified:
+    return true;
+  case MemorySpace::unknown:
+    return false;
   }
   llvm_unreachable("unknown plan MemorySpace kind");
 }

@@ -35,29 +35,6 @@ macro(mlir_executor_add_llvm_project)
   set(LLVM_LIBRARY_OUTPUT_INTDIR ${CMAKE_BINARY_DIR}/lib)
 endmacro()
 
-
-#-------------------------------------------------------------------------------------
-# Downloads FlatBuffers release and adds it to the build. Downstream targets
-# should depend on `FlatBuffers::FlatBuffers` and flatbuffer schema compilation
-# custom commands should use `flatc` in their command.
-#-------------------------------------------------------------------------------------
-function(mlir_executor_add_flatbuffers)
-  set(fb_cxx_flags_ "${CMAKE_CXX_FLAGS} -Wno-suggest-override")
-  if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    set(fb_cxx_flags_ "${fb_cxx_flags_} -Wno-covered-switch-default")
-  endif()
-  mlir_executor_add_package(
-    NAME flatbuffers
-    URL https://github.com/google/flatbuffers/archive/refs/tags/v23.5.26.tar.gz
-    URL_HASH MD5=2ef00eaaa86ab5e9ad5eafe09c2e7b60
-    EXCLUDE_FROM_ALL TRUE
-    OPTIONS
-      "FLATBUFFERS_BUILD_TESTS OFF"
-      "FLATBUFFERS_INSTALL ON"
-      "CMAKE_CXX_FLAGS ${fb_cxx_flags_}"
-  )
-endfunction()
-
 #-------------------------------------------------------------------------------------
 # Downlaods the Lua (5.4) source and sets up targets. For depending on these
 # targets, use `lua::core` for lua library. Also declares target

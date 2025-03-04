@@ -1,10 +1,23 @@
-add_mlir_dialect_library(MLIRTensorRTDialect
+add_mtrtd_library(MLIRTensorRTTensorRTDialectBase
+  TensorRTBase.cpp
+
+  PARTIAL_SOURCES_INTENDED
+
+  LINK_LIBS PUBLIC
+  MLIRIR
+  MLIRQuantDialect
+  )
+
+
+add_mtrtd_library(MLIRTensorRTDialect
   EinsumHelper.cpp
   TensorRT.cpp
   Verification.cpp
   TensorRTVersionCompatibility.cpp
   TensorKindOpInterfaceImpl.cpp
   TypeInferenceInterfaceImpls.cpp
+
+  PARTIAL_SOURCES_INTENDED
 
   ADDITIONAL_HEADER_DIRS
   ${CMAKE_CURRENT_LIST_DIR}
@@ -30,4 +43,5 @@ add_mlir_dialect_library(MLIRTensorRTDialect
   MLIRTensorRTNvInferUtils
   MLIRTensorRTShapeUtils
   MLIRTensorRTConstantFoldingUtils
+  MLIRTensorRTTensorRTDialectBase
   )

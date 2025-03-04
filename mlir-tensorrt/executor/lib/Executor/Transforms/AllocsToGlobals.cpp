@@ -24,9 +24,11 @@
 #include "mlir-executor/Executor/IR/Executor.h"
 #include "mlir-executor/Executor/Transforms/Passes.h"
 #include "mlir-executor/Executor/Utils/Utils.h"
+#include "mlir/Analysis/DataLayoutAnalysis.h"
 #include "mlir/Dialect/Bufferization/Transforms/BufferViewFlowAnalysis.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
+#include "mlir/Interfaces/DataLayoutInterfaces.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FormatVariadic.h"
@@ -45,11 +47,13 @@ namespace executor {
 using namespace mlir;
 using namespace mlir::executor;
 
+namespace {
 struct BlockAllocLiveIntervals {
   DenseMap<Operation *, unsigned> opToIndex;
   DenseMap<memref::AllocOp, llvm::BitVector> allocRanges;
   DenseMap<memref::AllocOp, unsigned> liveRangeSize;
 };
+} // namespace
 
 /// Return the dealloc associated with `op` or nullptr if none is found.
 static memref::DeallocOp getDealloc(memref::AllocOp op) {
@@ -104,12 +108,11 @@ static BlockAllocLiveIntervals getAllocIntervals(Block *block) {
 
 /// Returns the number of bytes required for a buffer assigned to hold `t`.
 /// TODO: we should be using the data layout here.
-static int64_t getRequiredBufferSize(MemRefType t) {
+static int64_t getRequiredBufferSize(MemRefType t,
+                                     const mlir::DataLayout &dataLayout) {
   // This is an upper bound since index type could also be 32 bits.
-  if (t.getElementType().isIndex())
-    return t.getNumElements() *
-           llvm::divideCeil(IndexType::kInternalStorageBitWidth, 8);
-  return t.getNumElements() * llvm::divideCeil(t.getElementTypeBitWidth(), 8);
+  unsigned byteWidth = dataLayout.getTypeSize(t.getElementType());
+  return t.getNumElements() * byteWidth;
 }
 
 /// Determine if two memref types are "compatible" in the sense that the `to`
@@ -128,13 +131,14 @@ static unsigned isCompatible(MemRefType from, MemRefType to) {
 /// will repeat the range part of the string at a height roughly correlated with
 /// the byte size.
 static void printLiveRanges(llvm::raw_ostream &os,
-                            const BlockAllocLiveIntervals &intervals) {
+                            const BlockAllocLiveIntervals &intervals,
+                            const mlir::DataLayout &dataLayout) {
   // Bin the allocation sizes to find how we should map byte size to block
   // heights.
   int64_t minAllocationSize = std::numeric_limits<int64_t>::max(),
           maxAllocationSize = 0;
   for (auto [op, liveRange] : intervals.allocRanges) {
-    int64_t bytes = getRequiredBufferSize(op.getType());
+    int64_t bytes = getRequiredBufferSize(op.getType(), dataLayout);
     minAllocationSize = std::min(minAllocationSize, bytes);
     maxAllocationSize = std::max(maxAllocationSize, bytes);
   }
@@ -171,8 +175,9 @@ static void printLiveRanges(llvm::raw_ostream &os,
         ss << std::string(liveRange.size() - 1 - last, '_');
     }
     std::string paddingStr = llvm::formatv("{0,-20}", "").str();
-    for (int64_t row = getHeight(getRequiredBufferSize(op.getType())); row > 1;
-         row--)
+    for (int64_t row =
+             getHeight(getRequiredBufferSize(op.getType(), dataLayout));
+         row > 1; row--)
       os << paddingStr << liveRangeStr << "\n";
     os << llvm::formatv("{0,-20}", StringRef(typeStr).take_front(20))
        << liveRangeStr << "\n";
@@ -223,16 +228,17 @@ outlineAllocToGlobal(RewriterBase &rewriter, memref::AllocOp op, unsigned id) {
       global, rewriter.replaceOpWithNewOp<executor::GetGlobalOp>(op, global));
 }
 
-LogicalResult
+static LogicalResult
 assignBlocks(RewriterBase &rewriter, BlockAllocLiveIntervals &intervals,
-             llvm::DenseMap<memref::AllocOp, executor::GlobalOp> &assignment) {
+             llvm::DenseMap<memref::AllocOp, executor::GlobalOp> &assignment,
+             const mlir::DataLayout &dataLayout) {
   llvm::DenseMap<executor::GlobalOp, SmallVector<memref::AllocOp>> assignedTo;
   unsigned globalCount = 0;
   unsigned memoryUsedBytes = 0;
   unsigned memorySavedBytes = 0;
   for (auto [alloc, range] : intervals.allocRanges) {
 
-    int64_t allocBytes = getRequiredBufferSize(alloc.getType());
+    int64_t allocBytes = getRequiredBufferSize(alloc.getType(), dataLayout);
     if (GlobalOp avail =
             findAvailableGlobal(alloc, range, assignedTo, intervals)) {
       assignment[alloc] = avail;
@@ -275,6 +281,12 @@ public:
     if (failed(checkIsModuleLike(op)))
       return signalPassFailure();
 
+    const mlir::DataLayoutAnalysis &dataLayoutAnalysis =
+        getAnalysis<mlir::DataLayoutAnalysis>();
+
+    const mlir::DataLayout &dataLayout = dataLayoutAnalysis.getAtOrAbove(op);
+    markAnalysesPreserved<mlir::DataLayoutAnalysis>();
+
     StringAttr moduleName = op->hasAttr(SymbolTable::getSymbolAttrName())
                                 ? SymbolTable::getSymbolName(op)
                                 : nullptr;
@@ -297,13 +309,13 @@ public:
             DBGS() << "Diagram for func "
                    << (moduleName ? moduleName.strref() : StringRef(""))
                    << "::" << funcOp.getName() << ":\n";
-            printLiveRanges(llvm::dbgs(), intervals);
+            printLiveRanges(llvm::dbgs(), intervals, dataLayout);
           }
         }
       });
 
       llvm::DenseMap<memref::AllocOp, executor::GlobalOp> assignment;
-      if (failed(assignBlocks(rewriter, intervals, assignment))) {
+      if (failed(assignBlocks(rewriter, intervals, assignment, dataLayout))) {
         emitError(op->getLoc())
             << "failed to analyze block in " << getArgument();
         return signalPassFailure();

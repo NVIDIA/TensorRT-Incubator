@@ -38,15 +38,27 @@ using namespace nvinfer1;
 
 namespace {
 
+struct PluginParams {
+  int32_t i32Param;
+  int16_t i16Param;
+  int8_t i8Param;
+  Dims shapeParam;
+  const int64_t *i64DenseParam;
+  const int32_t *i32DenseParam;
+  const int32_t *i16DenseParam;
+  const int32_t *i8DenseParam;
+  const int64_t *i64SplatParam;
+  const int32_t *i32SplatParam;
+  const int32_t *i16SplatParam;
+  const int32_t *i8SplatParam;
+};
+
 class TestV2PluginBase : public nvinfer1::IPluginV2DynamicExt {
 public:
   TestV2PluginBase() = default;
   TestV2PluginBase(const TestV2PluginBase &) = default;
 
-  TestV2PluginBase(int32_t i32Param_, int16_t i16Param_, int8_t i8Param_,
-                   Dims shapeParam_)
-      : i32Param(i32Param_), i16Param(i16Param_), i8Param(i8Param_),
-        shapeParam(shapeParam_) {}
+  TestV2PluginBase(const PluginParams &params_) : params(params_) {}
 
   size_t getSerializationSize() const noexcept override { return 0; }
 
@@ -95,11 +107,7 @@ public:
 
 protected:
   std::string _namespace;
-
-  int32_t i32Param;
-  int16_t i16Param;
-  int8_t i8Param;
-  Dims shapeParam;
+  PluginParams params;
 };
 
 class TestV2Plugin1 : public TestV2PluginBase {
@@ -145,6 +153,26 @@ public:
     fields.push_back(PluginField{"i8_param", nullptr, PluginFieldType::kINT8});
     fields.push_back(
         PluginField{"shape_param", nullptr, PluginFieldType::kDIMS});
+#if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 0, 0)
+    fields.push_back(
+        PluginField{"i64_dense_param", nullptr, PluginFieldType::kINT64});
+#endif
+    fields.push_back(
+        PluginField{"i32_dense_param", nullptr, PluginFieldType::kINT32});
+    fields.push_back(
+        PluginField{"i16_dense_param", nullptr, PluginFieldType::kINT16});
+    fields.push_back(
+        PluginField{"i8_dense_param", nullptr, PluginFieldType::kINT8});
+#if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 0, 0)
+    fields.push_back(
+        PluginField{"i64_splat_param", nullptr, PluginFieldType::kINT64});
+#endif
+    fields.push_back(
+        PluginField{"i32_splat_param", nullptr, PluginFieldType::kINT32});
+    fields.push_back(
+        PluginField{"i16_splat_param", nullptr, PluginFieldType::kINT16});
+    fields.push_back(
+        PluginField{"i8_splat_param", nullptr, PluginFieldType::kINT8});
     fields.push_back(PluginField{kPLUGIN_FAILURE_TRIGGER_FIELD_NAME, nullptr,
                                  PluginFieldType::kINT32});
 
@@ -169,10 +197,7 @@ public:
     if (creatorShouldFail(fc))
       return nullptr;
 
-    int32_t i32Param{};
-    int16_t i16Param{};
-    int8_t i8Param{};
-    Dims shapeParam{};
+    PluginParams pluginParams;
 
     std::cout << "Created TestV2Plugin1 with " << fc->nbFields << " fields:\n";
     for (int32_t i = 0; i < fc->nbFields; ++i) {
@@ -182,16 +207,48 @@ public:
       std::string attrName = field.name;
 
       if (attrName == "i32_param")
-        i32Param = *static_cast<const decltype(i32Param) *>(field.data);
+        pluginParams.i32Param =
+            *static_cast<const decltype(pluginParams.i32Param) *>(field.data);
       else if (attrName == "i16_param")
-        i16Param = *static_cast<const decltype(i16Param) *>(field.data);
+        pluginParams.i16Param =
+            *static_cast<const decltype(pluginParams.i16Param) *>(field.data);
       else if (attrName == "i8_param")
-        i8Param = *static_cast<const decltype(i8Param) *>(field.data);
+        pluginParams.i8Param =
+            *static_cast<const decltype(pluginParams.i8Param) *>(field.data);
       else if (attrName == "shape_param")
-        shapeParam = *static_cast<const decltype(shapeParam) *>(field.data);
+        pluginParams.shapeParam =
+            *static_cast<const decltype(pluginParams.shapeParam) *>(field.data);
+#if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 0, 0)
+      else if (attrName == "i64_dense_param")
+        pluginParams.i64DenseParam =
+            static_cast<const decltype(pluginParams.i64DenseParam)>(field.data);
+#endif
+      else if (attrName == "i32_dense_param")
+        pluginParams.i32DenseParam =
+            static_cast<const decltype(pluginParams.i32DenseParam)>(field.data);
+      else if (attrName == "i16_dense_param")
+        pluginParams.i16DenseParam =
+            static_cast<const decltype(pluginParams.i16DenseParam)>(field.data);
+      else if (attrName == "i8_dense_param")
+        pluginParams.i8DenseParam =
+            static_cast<const decltype(pluginParams.i8DenseParam)>(field.data);
+#if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 0, 0)
+      else if (attrName == "i64_splat_param")
+        pluginParams.i64SplatParam =
+            static_cast<const decltype(pluginParams.i64SplatParam)>(field.data);
+#endif
+      else if (attrName == "i32_splat_param")
+        pluginParams.i32SplatParam =
+            static_cast<const decltype(pluginParams.i32SplatParam)>(field.data);
+      else if (attrName == "i16_splat_param")
+        pluginParams.i16SplatParam =
+            static_cast<const decltype(pluginParams.i16SplatParam)>(field.data);
+      else if (attrName == "i8_splat_param")
+        pluginParams.i8SplatParam =
+            static_cast<const decltype(pluginParams.i8SplatParam)>(field.data);
     }
 
-    return new PluginType(i32Param, i16Param, i8Param, shapeParam);
+    return new PluginType(pluginParams);
   }
 
   void setPluginNamespace(const char *) noexcept override {}

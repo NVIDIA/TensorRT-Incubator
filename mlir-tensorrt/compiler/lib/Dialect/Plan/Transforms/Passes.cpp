@@ -57,22 +57,30 @@ void plan::buildPlanSegmentationPipeline(
   pm.addPass(plan::createEliminateShapeOpsPass());
 }
 
-void plan::buildPlanBufferizationPipeline(
+static void buildPlanOneShotBufferizePipelinePipeline(
     OpPassManager &pm, const plan::PlanAllocTensorsPassOptions &opts) {
   pm.addPass(createInlinerPass());
   pm.addPass(bufferization::createEmptyTensorEliminationPass());
   pm.addPass(plan::createPlanAllocTensorsPass(opts));
-  pm.addPass(plan::createPlanBufferizePass());
+  pm.addPass(plan::createPlanModuleBufferizePass());
   pm.addPass(mlir::createMemRefCastEliminationPass());
-  pm.addPass(bufferization::createDropEquivalentBufferResultsPass());
+  /// TODO: Currently we must canonicalize prior to dropping buffer results
+  /// since it helps to identify return values that are actually block
+  /// arguments. Loop memref results that feed into returns, for example, are
+  /// one such case where canonicalization will drop the loop memref results if
+  /// it is loop invariant. This can result in establishing that the result
+  /// value is actually a block argument. Ideally this sort of
+  /// simplification/phase ordering should be eliminated.
+  pm.addPass(createCanonicalizerPass());
+  pm.addPass(plan::createPlanRemoveEquivalentBufferResultsPass());
 }
 
-void plan::buildPlanBufferOptimizationPipeline(OpPassManager &pm) {
+static void buildPlanBufferOptimizationPipeline(OpPassManager &pm) {
   pm.addNestedPass<func::FuncOp>(bufferization::createBufferLoopHoistingPass());
   pm.addNestedPass<func::FuncOp>(bufferization::createBufferHoistingPass());
 }
 
-void plan::buildPlanBufferDeallocationPipeline(
+static void buildPlanBufferDeallocationPipeline(
     OpPassManager &pm, const bufferization::DeallocationOptions &options) {
   pm.addPass(memref::createExpandReallocPass(/*emitDeallocs=*/false));
   pm.addPass(createCanonicalizerPass());
@@ -112,34 +120,26 @@ struct PlanBufferizationPipelineCliOpts
 
 } // namespace
 
-// Register pipelines.
+void plan::buildPlanBufferizationPipeline(
+    OpPassManager &pm, const plan::PlanAllocTensorsPassOptions &options,
+    const bufferization::DeallocationOptions &deallocationOptions) {
+  buildPlanOneShotBufferizePipelinePipeline(pm, options);
+  buildPlanBufferOptimizationPipeline(pm);
+  buildPlanBufferDeallocationPipeline(pm, deallocationOptions);
+}
 
+// Register pipelines.
 void plan::registerPlanDialectPipelines() {
   PassPipelineRegistration<PlanBufferizationPipelineCliOpts>
       executorBufferizationPipeline(
           "plan-bufferize-pipeline",
-          "perform bufferization and standard pre/post processing passes",
+          "perform one-shot-bufferization, optimizations, and dallocation",
           [](OpPassManager &pm, const PlanBufferizationPipelineCliOpts &opts) {
             PlanAllocTensorsPassOptions allocTensorOpts{};
             allocTensorOpts.forceEntrypointsReturnAllocs =
                 opts.forceEntrypointsReturnAllocs;
-            buildPlanBufferizationPipeline(pm, allocTensorOpts);
-            buildPlanBufferOptimizationPipeline(pm);
-            buildPlanBufferDeallocationPipeline(
-                pm, bufferization::DeallocationOptions{false});
-          });
-
-  PassPipelineRegistration<> bufferOptPipeline(
-      "plan-buffer-opt-pipeline", "perform post-bufferization optimizations",
-      [](OpPassManager &pm) { buildPlanBufferOptimizationPipeline(pm); });
-
-  PassPipelineRegistration<bufferization::BufferDeallocationPipelineOptions>
-      deallocationPipeline(
-          "plan-deallocation-pipeline",
-          "perform ownership-based buffer deallocation",
-          [](OpPassManager &pm,
-             const bufferization::BufferDeallocationPipelineOptions &opts) {
-            buildPlanBufferDeallocationPipeline(pm, opts);
+            buildPlanBufferizationPipeline(
+                pm, allocTensorOpts, bufferization::DeallocationOptions{false});
           });
 
   PassPipelineRegistration<ClusteringPipelineCliOpts> segPipelineRegistration(
