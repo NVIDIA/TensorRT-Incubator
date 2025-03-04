@@ -239,6 +239,17 @@ private:
     }                                                                          \
   } while (false);
 
+#ifndef NDEBUG
+#define MTRT_ERROR_IF(errexpr, msg)                                            \
+  do {                                                                         \
+    if (errexpr) {                                                             \
+      llvm::report_fatal_error(msg);                                           \
+    }                                                                          \
+  } while (false);
+#else // In Release mode, compiles to a no-op.
+#define MTRT_ERROR_IF(errexpr, msg)
+#endif
+
 } // namespace mlirtrt
 
 #endif // MLIR_TENSORRT_SUPPORT_STATUS_H

@@ -397,12 +397,13 @@ def test_released_internally():
     arr = np.array([5.0, 4.0, 2.0])
 
     def memref_alloc():
+        # The data is externally owned, so the memref will not be released internally.
         memref = client.create_host_memref_view(
             int(arr.ctypes.data), shape=[3], dtype=runtime.ScalarTypeCode.f64
         )
         return np.from_dlpack(
             memref
-        )  # Ensure we have an externally reference to the pointer.
+        )  # Ensure we have an external reference to the pointer.
 
     _ = memref_alloc()
     print(
@@ -410,11 +411,11 @@ def test_released_internally():
     )
 
 
-print("Test memref is released internally with an external reference")
+print("Test memref is not released internally with an external reference")
 test_released_internally()
 
-# CHECK-LABEL: Test memref is released internally with an external reference
-# CHECK-NEXT: Memref released internally:  True
+# CHECK-LABEL: Test memref is not released internally with an external reference
+# CHECK-NEXT: Memref released internally:  False
 
 
 def test_memref_lifetime():

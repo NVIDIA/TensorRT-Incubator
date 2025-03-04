@@ -689,7 +689,7 @@ public:
 
   const std::optional<ScalarType> &getScalarType() const { return scalarType; }
 
-  RuntimeClient *getClient() { return client; }
+  RuntimeClient *getClient() const { return client; }
 
 private:
   MemRefValue(RuntimeClient *client, mlirtrt::runtime::PointerType addressSpace,
