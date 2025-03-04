@@ -19,7 +19,7 @@
 import inspect
 import itertools
 from textwrap import dedent
-from typing import List
+from typing import List, Sequence
 
 import nvtripy as tp
 import pytest
@@ -205,7 +205,7 @@ def _run_dtype_constraints_subtest(test_data):
                 ret_val = {func_obj.__qualname__}(*args, **kwargs)
             """
 
-        all_locals = locals()
+        all_locals = dict(locals())
         exec(dedent(code), globals(), all_locals)
 
         ret_val = all_locals["ret_val"]
@@ -214,8 +214,8 @@ def _run_dtype_constraints_subtest(test_data):
     if isinstance(ret_val, int):
         return ret_val, namespace
 
-    # If output is a list then checking the return the first element in the list. (Assumes list of Tensors)
-    if isinstance(ret_val, List):
+    # If output is a sequence then checking the the first element in the list.
+    if isinstance(ret_val, Sequence):
         ret_val = ret_val[0]
 
     # Run eval to check for any backend errors.

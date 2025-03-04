@@ -22,7 +22,7 @@ from nvtripy.utils import wrappers
 
 @register_tensor_method("__neg__")
 @wrappers.interface(
-    dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
+    dtype_constraints={"self": "T1", wrappers.RETURN_VALUE: "T1"},
     dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64"]},
 )
 def __neg__(self: "nvtripy.Tensor") -> "nvtripy.Tensor":
