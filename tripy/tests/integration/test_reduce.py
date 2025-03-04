@@ -21,6 +21,7 @@ import pytest
 import torch
 
 import nvtripy as tp
+import math
 
 
 class TestReduceOp:
@@ -37,7 +38,7 @@ class TestReduceOp:
         ],
     )
     def test_all(self, x_shape, axis, keepdim, eager_or_compiled):
-        x = cp.array([i % 2 == 0 for i in cp.arange(cp.prod(x_shape))]).reshape(x_shape)
+        x = cp.array([i % 2 == 0 for i in cp.arange(math.prod(x_shape))]).reshape(x_shape)
         a = tp.Tensor(x)
         out = eager_or_compiled(tp.all, a, dim=axis, keepdim=keepdim)
         # cp.array is necessary to deal with case where x.all returns a scalar (5th case)
@@ -57,7 +58,7 @@ class TestReduceOp:
         ],
     )
     def test_any(self, x_shape, axis, keepdim, eager_or_compiled):
-        x = cp.array([i % 2 == 0 for i in cp.arange(cp.prod(x_shape))]).reshape(x_shape)
+        x = cp.array([i % 2 == 0 for i in cp.arange(math.prod(x_shape))]).reshape(x_shape)
         a = tp.Tensor(x)
         out = eager_or_compiled(tp.any, a, dim=axis, keepdim=keepdim)
         expected = cp.array(x.any(axis=axis, keepdims=keepdim))
@@ -83,7 +84,7 @@ class TestReduceOp:
     @pytest.mark.parametrize("dtype", [tp.float32, tp.float16])
     def test_mean(self, x_shape, axis, keepdim: bool, dtype, eager_or_compiled):
         np_dtype = np.float32 if dtype == tp.float32 else np.float16
-        x = np.arange(np.prod(x_shape)).reshape(x_shape).astype(np_dtype)
+        x = np.arange(math.prod(x_shape)).reshape(x_shape).astype(np_dtype)
         a = tp.Tensor(x, dtype=dtype)
         out = eager_or_compiled(tp.mean, a, dim=axis, keepdim=keepdim)
         expected = tp.Tensor(cp.array(x.mean(axis=axis, keepdims=keepdim)))
@@ -103,7 +104,7 @@ class TestReduceOp:
         ],
     )
     def test_var(self, x_shape, axis, keepdim: bool, eager_or_compiled):
-        x = np.arange(np.prod(x_shape)).reshape(x_shape).astype(np.float32)
+        x = np.arange(math.prod(x_shape)).reshape(x_shape).astype(np.float32)
         a = tp.Tensor(x)
         out = eager_or_compiled(tp.var, a, dim=axis, keepdim=keepdim)
         torch_tensor = torch.Tensor(x)
@@ -123,7 +124,7 @@ class TestReduceOp:
         ],
     )
     def test_argmax(self, x_shape, axis, keepdim: bool, eager_or_compiled):
-        x = np.arange(np.prod(x_shape)).reshape(x_shape).astype(np.float32)
+        x = np.arange(math.prod(x_shape)).reshape(x_shape).astype(np.float32)
         a = tp.Tensor(x)
         out = eager_or_compiled(tp.argmax, a, dim=axis, keepdim=keepdim)
         assert np.array_equal(cp.from_dlpack(out).get(), np.array(x.argmax(axis=axis, keepdims=keepdim)))
@@ -140,7 +141,7 @@ class TestReduceOp:
         ],
     )
     def test_argmin(self, x_shape, axis, keepdim: bool, eager_or_compiled):
-        x = np.arange(np.prod(x_shape)).reshape(x_shape).astype(np.float32)
+        x = np.arange(math.prod(x_shape)).reshape(x_shape).astype(np.float32)
         a = tp.Tensor(x)
         out = eager_or_compiled(tp.argmin, a, dim=axis, keepdim=keepdim)
         assert np.array_equal(cp.from_dlpack(out).get(), np.array(x.argmin(axis=axis, keepdims=keepdim)))

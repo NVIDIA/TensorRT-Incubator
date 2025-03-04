@@ -107,22 +107,22 @@ class TestSliceOp:
 
     def test_scalar_index(self):
         a = tp.ones((2, 3, 4))
-        assert a[0].shape == [3, 4]
-        assert a[0:1].shape == [1, 3, 4]
+        assert a[0].shape == (3, 4)
+        assert a[0:1].shape == (1, 3, 4)
 
     def test_end_clamping(self):
         a = tp.ones((2, 3, 4))
         # equivalent to a[0:2, 0:3, 3:4]
-        assert a[0:7, 0:12, 3:5].shape == [2, 3, 1]
+        assert a[0:7, 0:12, 3:5].shape == (2, 3, 1)
 
     def test_tensor_index(self):
         idx = tp.Tensor(1, dtype=tp.int32)
         a = tp.ones((2, 3))
         b = a[idx]
-        assert b.shape == [3]
+        assert b.shape == (3,)
 
     def test_empty_slice(self):
         a = tp.ones((2, 3, 4))
         b = a[3:2:1]
-        assert b.shape == [0, 3, 4]
+        assert b.shape == (0, 3, 4)
         assert cp.from_dlpack(b).get().tolist() == []

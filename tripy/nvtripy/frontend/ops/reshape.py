@@ -25,7 +25,6 @@ from nvtripy.types import ShapeLike
 from nvtripy.utils import wrappers
 
 
-# TODO (pranavm): Might not need to do this shape inference in the frontend now.
 def infer_dimensions(input: "nvtripy.Tensor", shape: ShapeLike) -> ShapeLike:
 
     num_unknown_dims = len([dim for dim in shape if op_utils.is_int_equal_to(dim, -1)])
@@ -35,9 +34,8 @@ def infer_dimensions(input: "nvtripy.Tensor", shape: ShapeLike) -> ShapeLike:
     if num_unknown_dims == 1:
         input_volume = math.prod(input.shape)
         known_dims_volume = math.prod(dim for dim in shape if not op_utils.is_int_equal_to(dim, -1))
-        inferred_dim = (
-            input_volume // known_dims_volume
-        )  # If we have scalars, the floor div ensures the result is an int.
+        # If we have scalars, the floor div ensures the result is an int:
+        inferred_dim = input_volume // known_dims_volume
 
         shape = [inferred_dim if op_utils.is_int_equal_to(dim, -1) else dim for dim in shape]
 
