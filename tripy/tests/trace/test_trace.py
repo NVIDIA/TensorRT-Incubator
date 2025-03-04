@@ -224,7 +224,7 @@ class TestTrace:
 
         c = a + b
 
-        storage_inputs = Trace._collect_storage_tensors(c.trace_tensor)
+        storage_inputs = Trace._collect_constant_tensors(c.trace_tensor)
         assert len(storage_inputs) == 0
 
     def test_collect_storage_ops_large_inputs(self):
@@ -234,7 +234,7 @@ class TestTrace:
 
         c = a + b
 
-        storage_inputs = Trace._collect_storage_tensors(c.trace_tensor)
+        storage_inputs = Trace._collect_constant_tensors(c.trace_tensor)
         assert len(storage_inputs) == 2
         assert storage_inputs[0].name == "a"
         assert storage_inputs[1].name == "b"

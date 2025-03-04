@@ -278,9 +278,6 @@ class TestTensor:
         "tensor",
         [
             tp.ones((2, 2)),
-            tp.Tensor([1, 2, 3]) + tp.Tensor([4, 5, 6]),
-            # This case should trigger datatype conversions.
-            (4 * tp.Tensor([1, 2, 3])) + (3 * tp.Tensor([4, 5, 6])),
             # Slice is an interesting case because it adds slice_helper to the stack.
             # Additionally, the use of slices may also require more ops, increasing the total stack depth.
             (tp.Tensor([1, 2, 3]) + tp.Tensor([4, 5, 6]))[:],

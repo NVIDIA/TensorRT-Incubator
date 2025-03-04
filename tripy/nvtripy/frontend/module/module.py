@@ -46,8 +46,8 @@ def _check_param_compatible(original_param, new_param, param_name):
     if not skip_shape_comparison:
         # We need to evaluate here anyway, so we map the entire shape to numbers upfront to save us from recomputing
         # them again later.
-        original_shape = list(map(int, original_param.shape))
-        new_shape = list(map(int, new_param.shape))
+        original_shape = tuple(map(int, original_param.shape))
+        new_shape = tuple(map(int, new_param.shape))
         if original_shape != new_shape:
             is_compatible = utils.result.Result.err(
                 ["New parameter shape: ", new_shape, " is not compatible with current shape: ", original_shape]

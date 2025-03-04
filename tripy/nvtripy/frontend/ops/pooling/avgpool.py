@@ -29,7 +29,7 @@ from nvtripy.utils import wrappers
 @export.public_api(document_under="operations/functions")
 @wrappers.interface(
     dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
-    dtype_variables={"T1": ["float32", "bfloat16", "float16", "bool", "int8", "int32"]},
+    dtype_variables={"T1": ["float32", "bfloat16", "float16", "bool", "int8", "int32", "int64"]},
 )
 def avgpool(
     input: "nvtripy.Tensor",

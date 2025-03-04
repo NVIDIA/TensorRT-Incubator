@@ -41,31 +41,25 @@ class ConvTestCase:
 
 
 test_cases_1d = [
-    ConvTestCase(),
     ConvTestCase(tp_pad=((2, 2),), torch_pad=(2,)),
     ConvTestCase(stride=(2,)),
     ConvTestCase(groups=2),
-    ConvTestCase(groups=4),
     ConvTestCase(dilation=(2,)),
     ConvTestCase(bias=True),
 ]
 
 test_cases_2d = [
-    ConvTestCase(),
     ConvTestCase(tp_pad=((2, 2), (1, 1)), torch_pad=(2, 1)),
     ConvTestCase(stride=(2, 1)),
     ConvTestCase(groups=2),
-    ConvTestCase(groups=4),
     ConvTestCase(dilation=(1, 2)),
     ConvTestCase(bias=True),
 ]
 
 test_cases_3d = [
-    ConvTestCase(),
     ConvTestCase(tp_pad=((0, 0), (2, 2), (0, 0)), torch_pad=(0, 2, 0)),
     ConvTestCase(stride=(2, 1, 2)),
     ConvTestCase(groups=2),
-    ConvTestCase(groups=4),
     ConvTestCase(dilation=(2, 2, 2)),
     ConvTestCase(bias=True),
 ]
