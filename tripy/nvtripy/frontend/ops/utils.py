@@ -97,7 +97,7 @@ def tensor_from_shape_like(arg: "nvtripy.ShapeLike") -> "nvtripy.Tensor":
     # We must set the shape of the shape tensor here since otherwise we will not be able
     # to infer ranks in the frontend. Note that the reshape operations above will not result
     # in a tensor with known shapes even though the new shape is actually known.
-    out.trace_tensor.shape = [len(arg)]
+    out.trace_tensor.shape = (len(arg),)
     return out
 
 
@@ -286,7 +286,7 @@ def match_ranks(*tensors):
             return tensor
 
         assert tensor.rank < max_rank, "Tensor rank cannot be larger than max rank of operands"
-        new_shape = [1] * (max_rank - tensor.rank) + tensor.shape
+        new_shape = (1,) * (max_rank - tensor.rank) + tensor.shape
         return reshape(tensor, new_shape)
 
     max_rank = max(t.rank for t in tensors)

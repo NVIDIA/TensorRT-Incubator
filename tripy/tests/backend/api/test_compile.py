@@ -148,7 +148,7 @@ class TestCompile:
         for shape in ((1, 1, 1), (3, 3, 3), (2, 4, 5), (5, 2, 1)):
             inp = tp.ones(shape, dtype=tp.float32)
             out = compiled_ones(inp)
-            assert out.shape == [sum(shape)]
+            assert out.shape == (sum(shape),)
 
     def test_error_if_evaling_input_during_compile(self):
         def func(a):

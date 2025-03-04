@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -26,7 +26,7 @@ from nvtripy.trace.ops.constant import Constant
 class TestDefaultParameter:
     def test_shape_dtype_access_does_not_materialize_data(self):
         param = DefaultParameter((1, 2), dtype=tp.float32)
-        assert param.shape == [1, 2]
+        assert param.shape == (1, 2)
         assert type(param.shape[0]) is int  # Make sure we are not compiling and getting DimensionSizes
 
         assert param.dtype == tp.float32

@@ -307,7 +307,7 @@ class TestTensorConversion:
         a = func([1, 2, 3])
 
         assert isinstance(a, tp.Tensor)
-        assert a.shape == [3]
+        assert a.shape == (3,)
         assert bool(tp.all(a == tp.Tensor([1, 2, 3])))
 
         # Should also work from shapes of tensors
@@ -317,7 +317,7 @@ class TestTensorConversion:
         a = func(a)
 
         assert isinstance(a, tp.Tensor)
-        assert a.shape == [4]
+        assert a.shape == (4,)
         assert bool(tp.all(a == tp.Tensor([2, 2, 3, 5])))
 
     def test_keyword_args(self):
