@@ -91,4 +91,10 @@ def expand(input: "nvtripy.Tensor", sizes: ShapeLike) -> "nvtripy.Tensor":
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.broadcast_to(cp.from_dlpack(input).get(), (3, 1, 1)))
     """
+    from nvtripy.frontend.ops.reshape import reshape
+
+    out_rank = op_utils.get_shape_len(sizes)
+    if out_rank > input.rank:
+        input = reshape(input, (1,) * (out_rank - input.rank) + input.shape)
+
     return op_utils.create_op(Broadcast, [input, sizes])

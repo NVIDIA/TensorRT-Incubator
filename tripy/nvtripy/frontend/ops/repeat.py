@@ -91,7 +91,7 @@ def repeat(input: "nvtripy.Tensor", repeats: IntLike, dim: int) -> "nvtripy.Tens
     #            [2],]     [2, 2],]
     #
     out = unsqueeze(input, dim + 1)
-    input_shape = input.shape
+    input_shape = list(input.shape)
     out = expand(out, input_shape[: dim + 1] + [repeats] + input_shape[dim + 1 :])
 
     input_shape[dim] = input_shape[dim] * repeats

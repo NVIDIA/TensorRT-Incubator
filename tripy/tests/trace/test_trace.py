@@ -96,11 +96,11 @@ class TestTrace:
             str(trace)
             == dedent(
                 """
-                a = storage(shape=(1,), dtype=int32, device=gpu:0, data_str=[0])
-                b = storage(shape=(1,), dtype=int32, device=gpu:0, data_str=[1])
-                c = a + b
+                a = constant(shape=(1,), dtype=int32, device=gpu:0, data_str=[0]) : tensor<1xi32:gpu:0>
+                b = constant(shape=(1,), dtype=int32, device=gpu:0, data_str=[1]) : tensor<1xi32:gpu:0>
+                c = add(a : tensor<1xi32:gpu:0>, b : tensor<1xi32:gpu:0>) : tensor<?xi32:gpu:0>
                 outputs:
-                    c: [shape=([-1]), dtype=(int32), loc=(gpu:0)]
+                    c : tensor<?xi32:gpu:0>
                 """
             ).strip()
         )
@@ -134,13 +134,13 @@ class TestTrace:
             str(trace)
             == dedent(
                 """
-                a = storage(shape=(1,), dtype=float32, device=gpu:0, data_str=[1.])
-                b = storage(shape=(1,), dtype=float32, device=gpu:0, data_str=[1.])
-                c = a + b
-                d = c + c
+                a = constant(shape=(1,), dtype=float32, device=gpu:0, data_str=[1.]) : tensor<1xf32:gpu:0>
+                b = constant(shape=(1,), dtype=float32, device=gpu:0, data_str=[1.]) : tensor<1xf32:gpu:0>
+                c = add(a : tensor<1xf32:gpu:0>, b : tensor<1xf32:gpu:0>) : tensor<?xf32:gpu:0>
+                d = add(c : tensor<?xf32:gpu:0>, c : tensor<?xf32:gpu:0>) : tensor<?xf32:gpu:0>
                 outputs:
-                    c: [shape=([-1]), dtype=(float32), loc=(gpu:0)]
-                    d: [shape=([-1]), dtype=(float32), loc=(gpu:0)]
+                    c : tensor<?xf32:gpu:0>
+                    d : tensor<?xf32:gpu:0>
                 """
             ).strip()
         )
@@ -169,11 +169,11 @@ class TestTrace:
             == dedent(
                 """
                 inputs:
-                    a: [shape=([1]), dtype=(float32), loc=(gpu:0)]
-                    b: [shape=([1]), dtype=(float32), loc=(gpu:0)]
-                c = a + b
+                    a : tensor<1xf32:gpu:0>
+                    b : tensor<1xf32:gpu:0>
+                c = add(a : tensor<1xf32:gpu:0>, b : tensor<1xf32:gpu:0>) : tensor<?xf32:gpu:0>
                 outputs:
-                    c: [shape=([-1]), dtype=(float32), loc=(gpu:0)]
+                    c : tensor<?xf32:gpu:0>
                 """
             ).strip()
         )
@@ -192,11 +192,11 @@ class TestTrace:
             == dedent(
                 """
                 inputs:
-                    a: [shape=([1]), dtype=(float32), loc=(gpu:0)]
-                b = storage(shape=(1,), dtype=float32, device=gpu:0, data_str=[1.])
-                c = a + b
+                    a : tensor<1xf32:gpu:0>
+                b = constant(shape=(1,), dtype=float32, device=gpu:0, data_str=[1.]) : tensor<1xf32:gpu:0>
+                c = add(a : tensor<1xf32:gpu:0>, b : tensor<1xf32:gpu:0>) : tensor<?xf32:gpu:0>
                 outputs:
-                    c: [shape=([-1]), dtype=(float32), loc=(gpu:0)]
+                    c : tensor<?xf32:gpu:0>
                 """
             ).strip()
         )
