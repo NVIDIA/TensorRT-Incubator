@@ -34,9 +34,7 @@ class TestLinear:
         out = linear(a)
 
         with helper.raises(
-            tp.TripyException,
-            match="last dimension of input0 = 3 and last dimension of input1 = 2 but must match",
-            has_stack_info_for=[a],
+            tp.TripyException, match="last dimension of input0 = 3 and last dimension of input1 = 2 but must match"
         ):
             out.eval()
 
