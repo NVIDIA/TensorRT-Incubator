@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -37,6 +37,7 @@ class TestLayerNorm:
             normalized_shape=normalized_shape,
             eps=eps,
             dtype=torch_dtype,
+            device="cuda",
         )
         tp_layernorm = tp.LayerNorm(
             normalized_shape=normalized_shape,
@@ -48,10 +49,10 @@ class TestLayerNorm:
         tp_layernorm.weight = tp.Tensor(layernorm.weight.detach())
         tp_layernorm.bias = tp.Tensor(layernorm.bias.detach())
 
-        input = torch.arange(torch.prod(torch.Tensor(input_shape))).reshape(input_shape).to(torch_dtype)
+        input = torch.arange(torch.prod(torch.Tensor(input_shape))).reshape(input_shape).to(torch_dtype).to("cuda")
         tp_input = tp.Tensor(input, dtype=tp_dtype)
 
-        output = eager_or_compiled(tp.copy, tp_layernorm(tp_input), tp.device("cpu"))
+        output = eager_or_compiled(tp_layernorm, tp_input)
         with torch.no_grad():
             expected = layernorm(input)
 
