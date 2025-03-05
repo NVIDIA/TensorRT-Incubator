@@ -54,4 +54,9 @@ def unsqueeze(input: "nvtripy.Tensor", dim: int) -> "nvtripy.Tensor":
 
     input_shape = input.shape
     result_shape = input_shape[:dim] + (1,) + input_shape[dim:]
-    return reshape(input, result_shape)
+    out = reshape(input, result_shape)
+
+    # Since we know the shape, we can update the trace tensor accordingly.
+    # This is required for some ops like conv/conv_transpose.
+    out.trace_tensor.shape = input.trace_tensor.shape[:dim] + (1,) + input.trace_tensor.shape[dim:]
+    return out
