@@ -20,6 +20,7 @@ import pytest
 import nvtripy as tp
 from tests import helper
 from nvtripy.trace.ops.convolution import Convolution
+from nvtripy.trace.ops.deconvolution import Deconvolution
 
 
 @pytest.mark.parametrize("conv_func", [tp.Conv, tp.ConvTranspose])
@@ -30,12 +31,11 @@ class TestConvolution:
         output = conv_layer(input)
 
         assert isinstance(output, tp.Tensor)
-        assert isinstance(output.trace_tensor.producer, Convolution)
+        assert isinstance(output.trace_tensor.producer, Convolution if conv_func == tp.Conv else Deconvolution)
 
     def test_mismatched_dtypes_fails(self, conv_func):
         input = tp.ones((4, 3, 8, 8), dtype=tp.float32)
         conv_layer = conv_func(3, 16, (5, 5), dtype=tp.float16)
-
         with helper.raises(
             tp.TripyException,
             match=r"Mismatched data types for 'convolution'.",
