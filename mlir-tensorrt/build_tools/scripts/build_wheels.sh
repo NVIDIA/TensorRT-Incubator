@@ -1,25 +1,23 @@
 #!/usr/bin/env bash
 # Builds Python wheels for MLIR-TensorRT packages using the specified python version number.
-# Usage: build_wheels.sh 3.X
+# Usage:
+# build_wheels.sh [python version] [TensorRT version]
+# e.g. build_wheels.sh 3.X 10.X
 set -e
-version=${1:-3.10}
+py_version=${PY_VERSION:-${1:-3.10}}
+
 PATH=$PATH:/pyenv/bin
-
 mkdir -p .private.wheels || true
+pyenv local ${py_version}
+python${py_version} -m pip install -r python/requirements-dev.txt
 
-pyenv local ${version}
-
-python${version} -m pip install -r python/requirements-dev.txt
+# If `DOWNLOAD_TENSORRT_VERSION` is not set, use the second argument as the version number.
+if [ -z "${DOWNLOAD_TENSORRT_VERSION}" ]; then
+    DOWNLOAD_TENSORRT_VERSION=$2
+    export DOWNLOAD_TENSORRT_VERSION
+fi
 
 rm -rf build || true
-cmake -B ./build -S . -G Ninja \
-    -DCMAKE_BUILD_TYPE=Release \
-    -DMLIR_TRT_PACKAGE_CACHE_DIR=${PWD}/.cache.cpm \
-    -DCMAKE_PLATFORM_NO_VERSIONED_SONAME=ON -DLLVM_MINIMUM_PYTHON_VERSION=${version} \
-    -DMLIR_TRT_ENABLE_ASSERTIONS=OFF \
-    -DMLIR_TRT_ENABLE_NCCL=OFF \
-    -DMLIR_TRT_DOWNLOAD_TENSORRT_VERSION=10.2
-
+cmake --preset ninja-clang-wheel-release
 ninja -C build mlir-tensorrt-all-wheels
-
 rsync -za build/wheels/ .private.wheels/
