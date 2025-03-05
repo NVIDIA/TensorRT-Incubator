@@ -43,6 +43,11 @@ def deconvolution(
     groups: int,
     dilation: Sequence[int],
 ):
+    # Encode number of input channels, which should be known:
+    inp_shape = list(input.trace_tensor.shape)
+    inp_shape[1] = weight.trace_tensor.shape[0]
+    input.trace_tensor.shape = tuple(inp_shape)
+
     out = conv_deconv_helper(Deconvolution, input, weight, bias, stride, padding, groups, dilation)
     # Encode as much information about the output shape as we can:
     out_shape = list(out.trace_tensor.shape)
