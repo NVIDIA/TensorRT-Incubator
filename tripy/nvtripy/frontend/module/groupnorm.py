@@ -109,7 +109,8 @@ class GroupNorm(Module):
         Returns:
             A tensor of the same shape as the input.
         """
-        from nvtripy.frontend.ops.reduce import mean, var
+        from nvtripy.frontend.ops.reduce.mean import mean
+        from nvtripy.frontend.ops.reduce.var import var
         from nvtripy.frontend.ops.reshape import reshape
         from nvtripy.frontend.ops.unary.rsqrt import rsqrt
 
