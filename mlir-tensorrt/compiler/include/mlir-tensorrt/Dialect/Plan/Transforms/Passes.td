@@ -444,20 +444,68 @@ def PlanAllocTensorsPass : Pass<"plan-alloc-tensors",
 }
 
 //===----------------------------------------------------------------------===//
-// PlanBufferize
+// PlanModuleBufferizePass
 //===----------------------------------------------------------------------===//
 
-def PlanBufferizePass : Pass<"plan-bufferize", "::mlir::ModuleOp"> {
-  let summary = "Perform bufferization (one-shot-bufferize)";
+def PlanModuleBufferizePass : Pass<"plan-module-bufferize",
+                                   "::mlir::ModuleOp"> {
+  let summary = "Run a specialized one-shot-module-bufferization";
 
   let description = [{
-    This pass invokes one-shot-bufferization on the given module.
+    The 'plan-module-bufferization' pass is equivalent to the upstream
+    `one-shot-(module)-bufferization`, but it bufferizes a potentially nested
+    set of modules at once. Nested modules are only bufferized if they implement
+    the `BufferizationScopeOpInterface`.
+
+    It is assumed that the outer-most module is the 'host' module.
+
+    At the end of the pass, we fixup issues related to address spaces:
+
+    - Any store/load from a non-host-visible address space in the host program
+      are rewritten to insert the appropriate copies.
   }];
 
+  let options = [
+    Option<"allowReturnAllocsFromLoops", "allow-return-allocs-from-loops",
+           "bool", /*default=*/"true",
+           "Allows returning/yielding new allocations from a loop.">,
+    Option<"analysisFuzzerSeed", "analysis-fuzzer-seed", "unsigned",
+           /*default=*/"0",
+           "Test only: Analyze ops in random order with a given seed (fuzzer)">,
+    Option<"checkParallelRegions", "check-parallel-regions", "bool",
+           /*default=*/"true", "Account for parallel regions in RaW analysis.">,
+    Option<"copyBeforeWrite", "copy-before-write", "bool", /*default=*/"false",
+           "Skip the analysis. Make a buffer copy on every write.">,
+    Option<"dumpAliasSets", "dump-alias-sets", "bool", /*default=*/"false",
+           "Test only: Annotate tensor IR with alias sets">,
+    Option<"testAnalysisOnly", "test-analysis-only", "bool",
+            /*default=*/"false",
+           "Test only: Only run inplaceability analysis and annotate IR">,
+    Option<"printConflicts", "print-conflicts", "bool",
+            /*default=*/"false",
+           "Test only: Annotate IR with RaW conflicts. Requires "
+           "test-analysis-only.">
+  ];
+
   let dependentDialects = [
+    "::mlir::memref::MemRefDialect",
     "::mlir::bufferization::BufferizationDialect",
     "::mlir::plan::PlanDialect"
   ];
+}
+
+//===----------------------------------------------------------------------===//
+// PlanRemoveEquivalentBufferResultsPass
+//===----------------------------------------------------------------------===//
+
+def PlanRemoveEquivalentBufferResultsPass : Pass<"plan-remove-equivalent-buffer-results"> {
+  let summary = "Remove equivalent buffer results of functions";
+
+  let description = [{
+    This pass removes function memref results that are equivalent to block
+    arguments. The logic is similar to the corresponding upstream pass, but
+    we handle potentially nested modules.
+  }];
 }
 
 //===----------------------------------------------------------------------===//

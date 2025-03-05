@@ -69,6 +69,17 @@ struct StablehloToExecutableOptions
       llvm::cl::desc("Don't allow TensorRt clusters to contain host tensor "
                      "calculations (but they can still be inputs)")};
 
+  Option<std::string> hostTarget{
+      this, "host-target", llvm::cl::init("executor"),
+      llvm::cl::desc("Specifies host target, which can be either "
+                     "\"executor\" or \"llvm\" or \"emitc\"")};
+
+  Option<std::string> artifactDirectory{
+      this, "artifacts-dir", llvm::cl::init(""),
+      llvm::cl::desc(
+          "specifies a directory where to save large artifacts as external "
+          "files that may be referenced symbolically by filename in the IR")};
+
   Option<std::string> entrypoint{this, "entrypoint", llvm::cl::init("main"),
                                  llvm::cl::desc("entrypoint function name")};
 
@@ -137,7 +148,7 @@ public:
   buildPostClusteringPipeline(mlir::OpPassManager &pm,
                               const StablehloToExecutableOptions &options);
 
-  static void populatePassManager(mlir::PassManager &pm,
+  static void populatePassManager(mlir::OpPassManager &pm,
                                   const StablehloToExecutableOptions &options);
 
   /// Compile a StableHLO module into a MLIR-TensorRT Runtime executable.

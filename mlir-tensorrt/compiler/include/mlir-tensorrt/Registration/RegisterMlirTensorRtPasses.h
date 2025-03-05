@@ -58,6 +58,7 @@ inline void registerAllMlirTensorRtPasses() {
   mlir::registerTransformsPasses();
   mlir::registerConvertPDLToPDLInterp();
   mlir::emitc::registerEmitCPasses();
+  mlir::registerConvertAffineToStandard();
 
 #ifdef MLIR_TRT_ENABLE_HLO
   mlirtrt::compiler::registerStablehloToExecutablePasses();

@@ -16,6 +16,7 @@ if(MLIR_TRT_ENABLE_EXECUTOR)
 endif()
 
 add_subdirectory(CUDAToLLVM)
+add_subdirectory(HostToEmitC)
 add_subdirectory(HostToLLVM)
 add_subdirectory(LLVMCommon)
 add_subdirectory(PlanToLLVM)

@@ -36,13 +36,7 @@ llvm_config.use_default_substitutions()
 # subdirectories contain auxiliary inputs for various tests in their parent
 # directories.
 config.excludes = ["Inputs", "Examples", "CMakeLists.txt", "README.txt", "LICENSE.txt"]
-config.tensorrt_dialect_tools_dir = os.path.join(
-    config.tensorrt_dialect_obj_root, "bin"
-)
-config.tensorrt_dialect_libs_dir = os.path.join(config.tensorrt_dialect_obj_root, "lib")
-config.substitutions.append(
-    ("%tensorrt_dialect_libs", config.tensorrt_dialect_libs_dir)
-)
+config.substitutions.append(("%tensorrt_dialect_libs", config.tensorrt_dialect_lib_dir))
 
 if config.enable_asan:
     config.environment["ASAN_OPTIONS"] = "protect_shadow_gap=0,detect_leaks=0"
@@ -73,7 +67,7 @@ llvm_config.with_environment(
 
 llvm_config.with_environment(
     "LD_LIBRARY_PATH",
-    [config.tensorrt_lib_dir, config.tensorrt_dialect_libs_dir],
+    [config.tensorrt_lib_dir, config.tensorrt_dialect_lib_dir],
     append_path=True,
 )
 
@@ -117,6 +111,8 @@ if trt_version_major == 9:
     config.available_features.add("tensorrt-version-eq-9")
 if trt_version_major >= 10:
     config.available_features.add("tensorrt-version-ge-10.0")
+if (trt_version_major * 10 + trt_version_minor) >= 109:
+    config.available_features.add("tensorrt-version-ge-10.9")
 if not config.enable_asan:
     config.available_features.add("no-asan")
 

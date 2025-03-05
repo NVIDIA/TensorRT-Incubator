@@ -1,6 +1,6 @@
 //===- RegisterMlirTensorRtDialects.h ---------------------------*- C++ -*-===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -75,17 +75,17 @@ inline void registerAllMlirTensorRtExecutorDialects(DialectRegistry &registry) {
                   bufferization::BufferizationDialect, math::MathDialect,
                   emitc::EmitCDialect, LLVM::LLVMDialect>();
   affine::registerValueBoundsOpInterfaceExternalModels(registry);
-  arith::registerBufferizableOpInterfaceExternalModels(registry);
   arith::registerBufferDeallocationOpInterfaceExternalModels(registry);
+  arith::registerBufferizableOpInterfaceExternalModels(registry);
   bufferization::func_ext::registerBufferizableOpInterfaceExternalModels(
       registry);
+  linalg::registerBufferizableOpInterfaceExternalModels(registry);
   memref::registerAllocationOpInterfaceExternalModels(registry);
+  scf::registerBufferizableOpInterfaceExternalModels(registry);
   tensor::registerBufferizableOpInterfaceExternalModels(registry);
   tensor::registerInferTypeOpInterfaceExternalModels(registry);
-  tensor::registerTilingInterfaceExternalModels(registry);
   tensor::registerSubsetOpInterfaceExternalModels(registry);
-  scf::registerBufferizableOpInterfaceExternalModels(registry);
-  LLVM::registerInlinerInterface(registry);
+  tensor::registerTilingInterfaceExternalModels(registry);
 }
 
 inline void registerAllMlirTensorRtDialects(DialectRegistry &registry) {
@@ -96,9 +96,12 @@ inline void registerAllMlirTensorRtDialects(DialectRegistry &registry) {
   // Register other dialects declared in upstream or in dependencies. Only
   // register dialects if absolutely necessary (i.e. they appear in the input
   // IR).
-  registry.insert<arith::ArithDialect, pdl::PDLDialect, shape::ShapeDialect,
-                  tensor::TensorDialect, mlir::quant::QuantDialect,
-                  scf::SCFDialect, transform::TransformDialect>();
+  registry
+      .insert<arith::ArithDialect, pdl::PDLDialect, shape::ShapeDialect,
+              tensor::TensorDialect, mlir::quant::QuantDialect, scf::SCFDialect,
+              transform::TransformDialect, LLVM::LLVMDialect>();
+
+  LLVM::registerInlinerInterface(registry);
 
 #ifdef MLIR_TRT_ENABLE_HLO
   registry.insert<mlir::stablehlo::StablehloDialect, mlir::chlo::ChloDialect,

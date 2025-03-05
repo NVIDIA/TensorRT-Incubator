@@ -525,6 +525,9 @@ public:
     return storage;
   }
 
+  /// Verify the underlying Flatbuffer object.
+  Status verify() const;
+
 private:
   std::unique_ptr<ExecutableStorage> storage;
 };

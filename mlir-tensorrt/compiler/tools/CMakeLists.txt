@@ -39,7 +39,6 @@ target_link_libraries(mlir-tensorrt-translate PRIVATE
   )
 llvm_update_compile_flags(mlir-tensorrt-translate)
 mlir_check_link_libraries(mlir-tensorrt-translate)
-_mtrt_set_target_compile_defs(mlir-tensorrt-translate)
 
 # ----------------------------------------------------------------------------
 # mlir-tensorrt-lsp-server
@@ -59,7 +58,6 @@ target_link_libraries(mlir-tensorrt-lsp-server PRIVATE
 )
 llvm_update_compile_flags(mlir-tensorrt-lsp-server)
 mlir_check_link_libraries(mlir-tensorrt-lsp-server)
-_mtrt_set_target_compile_defs(mlir-tensorrt-lsp-server)
 set_target_properties(mlir-tensorrt-lsp-server PROPERTIES EXCLUDE_FROM_ALL TRUE)
 
 # ----------------------------------------------------------------------------
@@ -73,8 +71,6 @@ add_mlir_tool(mlir-tensorrt-opt
   MLIRTensorRTConversionPassIncGen
   MLIRTensorRTTranslationPassIncGen
   MLIROptLib
-  MLIRBufferizationTransformOps
-  MLIRTensorTransformOps
   ${MLIR_TENSORRT_LIBS}
 
   SUPPORT_PLUGINS
@@ -87,7 +83,6 @@ target_link_libraries(mlir-tensorrt-opt PRIVATE
 
 llvm_update_compile_flags(mlir-tensorrt-opt)
 mlir_check_link_libraries(mlir-tensorrt-opt)
-_mtrt_set_target_compile_defs(mlir-tensorrt-opt)
 export_executable_symbols_for_plugins(mlir-tensorrt-opt)
 
 # ----------------------------------------------------------------------------
@@ -97,7 +92,6 @@ if(MLIR_TRT_TARGET_LUA)
   add_llvm_executable(mlir-tensorrt-runner
     PARTIAL_SOURCES_INTENDED
     mlir-tensorrt-runner.cpp)
-  _mtrt_set_target_compile_defs(mlir-tensorrt-runner)
   target_link_libraries(mlir-tensorrt-runner PRIVATE
     MLIRExecutorRunnerLib
     )

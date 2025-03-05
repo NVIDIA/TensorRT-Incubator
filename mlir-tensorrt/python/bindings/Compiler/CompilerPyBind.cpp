@@ -26,6 +26,9 @@
 
 #ifdef MLIR_TRT_TARGET_TENSORRT
 #include "mlir-tensorrt-dialect/Utils/NvInferAdaptor.h"
+#if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 9, 0)
+#include "nvinfer/trt_plugin_python.h"
+#endif // MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 9, 0)
 #endif
 
 namespace py = pybind11;
@@ -176,9 +179,15 @@ MTRT_Status getTensorRTPluginFieldSchema(
   const nvinfer1::PluginFieldCollection *pluginFieldCollection;
 
   nvinfer1::InterfaceInfo creatorInfo = creator->getInterfaceInfo();
-  if (std::string{creatorInfo.kind} == "PLUGIN CREATOR_V3ONE")
+  if (!std::strcmp(creatorInfo.kind, "PLUGIN CREATOR_V3ONE"))
     pluginFieldCollection =
         static_cast<nvinfer1::IPluginCreatorV3One *>(creator)->getFieldNames();
+#if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 9, 0)
+  else if (!std::strcmp(creatorInfo.kind, "PLUGIN CREATOR_V3QUICK"))
+    pluginFieldCollection =
+        static_cast<nvinfer1::IPluginCreatorV3Quick *>(creator)
+            ->getFieldNames();
+#endif // MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 9, 0)
   else
     pluginFieldCollection =
         static_cast<nvinfer1::IPluginCreator *>(creator)->getFieldNames();

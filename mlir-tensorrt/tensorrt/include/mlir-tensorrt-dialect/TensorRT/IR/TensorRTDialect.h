@@ -24,6 +24,7 @@
 #ifndef MLIR_TENSORRT_DIALECT_TENSORRT_IR_TENSORRTDIALECT
 #define MLIR_TENSORRT_DIALECT_TENSORRT_IR_TENSORRTDIALECT
 
+#include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTBase.h"
 #include "mlir/Dialect/Utils/ReshapeOpsUtils.h"
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/OpDefinition.h"
@@ -127,10 +128,6 @@ template <typename ConcreteType>
 class TensorRTInferCompleteTensorTypeTrait
     : public OpTrait::TraitBase<ConcreteType,
                                 TensorRTInferCompleteTensorTypeTrait> {};
-
-/// Returns true if the element type is either a signless `i8` type or a
-/// `!quant.uniform` of type i8 approximaing f32 or f16 with zero shift value.
-bool isTensorRTInt8Type(Type elType);
 
 //===----------------------------------------------------------------------===//
 // ExternalModels

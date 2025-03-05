@@ -1,7 +1,7 @@
 // RUN: mlir-tensorrt-opt -split-input-file -convert-tensorrt-to-runtime -canonicalize %s | FileCheck %s
 
 
-func.func @main(%arg0: tensor<1x3x256x256xf32>, %arg1: tensor<1x3x256x256xf32>) -> tensor<1x3x256x256xf32> {
+func.func @test_call(%arg0: tensor<1x3x256x256xf32>, %arg1: tensor<1x3x256x256xf32>) -> tensor<1x3x256x256xf32> {
   %0 = tensor.empty() : tensor<1x3x256x256xf32>
   %1 = tensorrt.call @trt_engines::@trt_func(%arg0 : tensor<1x3x256x256xf32>) outs(%0 : tensor<1x3x256x256xf32>) -> tensor<1x3x256x256xf32>
   %2 = tensorrt.call @trt_engines::@trt_func(%1 : tensor<1x3x256x256xf32>) outs(%0 : tensor<1x3x256x256xf32>) -> tensor<1x3x256x256xf32>
@@ -19,7 +19,8 @@ tensorrt.module @trt_engines {
   }
 }
 
-// CHECK-LABEL: func.func @main
+//   CHECK-DAG:   trtrt.compiled_func @trt_func_engine_data dense<0> : vector<8xi8>
+// CHECK-LABEL: func.func @test_call
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<1x3x256x256xf32>, %[[arg1:.+]]: tensor<1x3x256x256xf32>) -> tensor<1x3x256x256xf32> {
 //   CHECK-DAG:     %[[v0:.+]] = tensor.empty() : tensor<1x3x256x256xf32>
 //   CHECK-DAG:     %[[v1:.+]] = trtrt.get_function @trt_func_engine_data : !trtrt.context
@@ -30,12 +31,11 @@ tensorrt.module @trt_engines {
 //   CHECK-DAG:     %[[v6:.+]] = trtrt.enqueue %[[v4]] stream(%[[v5]]) (%[[v3]]) outs(%[[v0]]) : (tensor<1x3x256x256xf32>) -> tensor<1x3x256x256xf32>
 //   CHECK-DAG:     return %[[v6]] : tensor<1x3x256x256xf32>
 //   CHECK-NOT:   tensorrt.module
-//   CHECK-DAG:   trtrt.compiled_func @trt_func_engine_data dense<0> : vector<8xi8>
 
 // -----
 
 
-func.func @main(%arg0: tensor<1x3x256x256xf32>, %arg1: tensor<1x3x256x256xf32>) -> tensor<1x3x256x256xf32> {
+func.func @test_alloc_call(%arg0: tensor<1x3x256x256xf32>, %arg1: tensor<1x3x256x256xf32>) -> tensor<1x3x256x256xf32> {
   %1 = tensorrt.call_alloc @trt_engines::@trt_func(%arg0 : tensor<1x3x256x256xf32>) -> tensor<1x3x256x256xf32>
   return %1 : tensor<1x3x256x256xf32>
 }
@@ -51,14 +51,15 @@ tensorrt.module @trt_engines {
   }
 }
 
-// CHECK-LABEL: func.func @main
+//       CHECK:   trtrt.compiled_func @trt_func_engine_data dense<0> : vector<8xi8>
+// CHECK-LABEL: func.func @test_alloc_call
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<1x3x256x256xf32>, %[[arg1:.+]]: tensor<1x3x256x256xf32>) -> tensor<1x3x256x256xf32> {
 //   CHECK-DAG:     %[[v0:.+]] = trtrt.get_function @trt_func_engine_data : !trtrt.context
 //   CHECK-DAG:     %[[v1:.+]] = cuda.get_global_stream 0
 //   CHECK-DAG:     %[[v2:.+]] = trtrt.enqueue_alloc %[[v0]] stream(%[[v1]]) (%[[arg0]]) : (tensor<1x3x256x256xf32>) -> tensor<1x3x256x256xf32>
 //   CHECK-DAG:     return %[[v2]] : tensor<1x3x256x256xf32>
 //   CHECK-NOT:   tensorrt.module
-//   CHECK-DAG:   trtrt.compiled_func @trt_func_engine_data dense<0> : vector<8xi8>
+
 
 // -----
 
@@ -118,6 +119,8 @@ tensorrt.module @trt_engines {
   }
 }
 
+//   CHECK-DAG:   trtrt.compiled_func @main_region_engine_data dense<0> : vector<8xi8>
+//   CHECK-DAG:   trtrt.compiled_func @main_region_0_engine_data dense<0> : vector<8xi8>
 // CHECK-LABEL: func.func @test_tensor_kind_analysis
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<10xf16>) -> (tensor<i32>, tensor<f16>)
 //   CHECK-DAG:     %[[cst:.+]] = arith.constant dense<0> : tensor<i32>
@@ -139,5 +142,3 @@ tensorrt.module @trt_engines {
 //   CHECK-DAG:       scf.yield %[[v5]]#1, %[[v5]]#0
 //   CHECK-DAG:     return %[[v0]]#0, %[[v0]]#1
 //   CHECK-NOT:   tensorrt.module
-//   CHECK-DAG:   trtrt.compiled_func @main_region_engine_data dense<0> : vector<8xi8>
-//   CHECK-DAG:   trtrt.compiled_func @main_region_0_engine_data dense<0> : vector<8xi8>

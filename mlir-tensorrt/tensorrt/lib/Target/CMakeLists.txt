@@ -1,7 +1,7 @@
 add_subdirectory(PluginRegistry)
 add_subdirectory(TensorRTEncodingOpInterface)
 
-add_mlir_library(MLIRTensorRTTargetTensorRT
+add_mtrtd_library(MLIRTensorRTTargetTensorRT
   Registration.cpp
   TranslateToTensorRT.cpp
 

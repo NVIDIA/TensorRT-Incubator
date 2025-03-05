@@ -90,7 +90,7 @@ createSerializedEngineGlobal(RewriterBase &rewriter, ModuleOp module,
   auto engineData = trtFunc->getAttrOfType<ElementsAttr>("tensorrt.engine");
   if (!engineData)
     return trtFunc->emitError("TensorRT function has not been translated");
-  rewriter.setInsertionPointToEnd(module.getBody());
+  rewriter.setInsertionPointToStart(module.getBody());
   auto result = rewriter.create<trtrt::CompiledFuncOp>(
       trtFunc.getLoc(), (trtFunc.getName() + "_engine_data").str(), engineData);
   symbolTable.insert(result);

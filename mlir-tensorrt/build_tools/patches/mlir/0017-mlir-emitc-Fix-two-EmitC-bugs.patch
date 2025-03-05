@@ -1,0 +1,147 @@
+From 8e00a288f4416cbcec9fc12bc4da854698ddb499 Mon Sep 17 00:00:00 2001
+From: Christopher Bate <cbate@nvidia.com>
+Date: Mon, 27 Jan 2025 08:28:33 +0000
+Subject: [PATCH] [mlir][emitc] Fix two EmitC bugs
+
+---
+ .../mlir/Conversion/FuncToEmitC/FuncToEmitC.h |  4 +-
+ .../Conversion/FuncToEmitC/FuncToEmitC.cpp    | 38 ++++++++++++++++---
+ .../FuncToEmitC/FuncToEmitCPass.cpp           |  3 +-
+ mlir/lib/Target/Cpp/TranslateToCpp.cpp        | 11 ++++--
+ 4 files changed, 44 insertions(+), 12 deletions(-)
+
+diff --git a/mlir/include/mlir/Conversion/FuncToEmitC/FuncToEmitC.h b/mlir/include/mlir/Conversion/FuncToEmitC/FuncToEmitC.h
+index 5c7f87e47030..10b1a4cb7658 100644
+--- a/mlir/include/mlir/Conversion/FuncToEmitC/FuncToEmitC.h
++++ b/mlir/include/mlir/Conversion/FuncToEmitC/FuncToEmitC.h
+@@ -11,8 +11,10 @@
+ 
+ namespace mlir {
+ class RewritePatternSet;
++class TypeConverter;
+ 
+-void populateFuncToEmitCPatterns(RewritePatternSet &patterns);
++void populateFuncToEmitCPatterns(const TypeConverter &typeConverter,
++                                 RewritePatternSet &patterns);
+ } // namespace mlir
+ 
+ #endif // MLIR_CONVERSION_FUNCTOEMITC_FUNCTOEMITC_H
+diff --git a/mlir/lib/Conversion/FuncToEmitC/FuncToEmitC.cpp b/mlir/lib/Conversion/FuncToEmitC/FuncToEmitC.cpp
+index 53b79839da04..0695357b474d 100644
+--- a/mlir/lib/Conversion/FuncToEmitC/FuncToEmitC.cpp
++++ b/mlir/lib/Conversion/FuncToEmitC/FuncToEmitC.cpp
+@@ -51,14 +51,34 @@ public:
+   LogicalResult
+   matchAndRewrite(func::FuncOp funcOp, OpAdaptor adaptor,
+                   ConversionPatternRewriter &rewriter) const override {
++    FunctionType fnType = funcOp.getFunctionType();
+ 
+-    if (funcOp.getFunctionType().getNumResults() > 1)
++    if (fnType.getNumResults() > 1)
+       return rewriter.notifyMatchFailure(
+           funcOp, "only functions with zero or one result can be converted");
+ 
++    TypeConverter::SignatureConversion signatureConverter(
++        fnType.getNumInputs());
++    for (const auto &argType : enumerate(fnType.getInputs())) {
++      auto convertedType = getTypeConverter()->convertType(argType.value());
++      if (!convertedType)
++        return failure();
++      signatureConverter.addInputs(argType.index(), convertedType);
++    }
++
++    Type resultType;
++    if (fnType.getNumResults() == 1) {
++      resultType = getTypeConverter()->convertType(fnType.getResult(0));
++      if (!resultType)
++        return failure();
++    }
++
+     // Create the converted `emitc.func` op.
+     emitc::FuncOp newFuncOp = rewriter.create<emitc::FuncOp>(
+-        funcOp.getLoc(), funcOp.getName(), funcOp.getFunctionType());
++        funcOp.getLoc(), funcOp.getName(),
++        FunctionType::get(rewriter.getContext(),
++                          signatureConverter.getConvertedTypes(),
++                          resultType ? TypeRange(resultType) : TypeRange()));
+ 
+     // Copy over all attributes other than the function name and type.
+     for (const auto &namedAttr : funcOp->getAttrs()) {
+@@ -80,9 +100,13 @@ public:
+       newFuncOp.setSpecifiersAttr(specifiers);
+     }
+ 
+-    if (!funcOp.isDeclaration())
++    if (!funcOp.isDeclaration()) {
+       rewriter.inlineRegionBefore(funcOp.getBody(), newFuncOp.getBody(),
+                                   newFuncOp.end());
++      if (failed(rewriter.convertRegionTypes(
++              &newFuncOp.getBody(), *getTypeConverter(), &signatureConverter)))
++        return failure();
++    }
+     rewriter.eraseOp(funcOp);
+ 
+     return success();
+@@ -112,8 +136,10 @@ public:
+ // Pattern population
+ //===----------------------------------------------------------------------===//
+ 
+-void mlir::populateFuncToEmitCPatterns(RewritePatternSet &patterns) {
++void mlir::populateFuncToEmitCPatterns(const TypeConverter &typeConverter,
++                                       RewritePatternSet &patterns) {
+   MLIRContext *ctx = patterns.getContext();
+ 
+-  patterns.add<CallOpConversion, FuncOpConversion, ReturnOpConversion>(ctx);
+-}
++  patterns.add<CallOpConversion, FuncOpConversion, ReturnOpConversion>(
++      typeConverter, ctx);
++}
+\ No newline at end of file
+diff --git a/mlir/lib/Conversion/FuncToEmitC/FuncToEmitCPass.cpp b/mlir/lib/Conversion/FuncToEmitC/FuncToEmitCPass.cpp
+index 0b97f2641ad0..d2f368a7148d 100644
+--- a/mlir/lib/Conversion/FuncToEmitC/FuncToEmitCPass.cpp
++++ b/mlir/lib/Conversion/FuncToEmitC/FuncToEmitCPass.cpp
+@@ -39,7 +39,8 @@ void ConvertFuncToEmitC::runOnOperation() {
+   target.addIllegalOp<func::CallOp, func::FuncOp, func::ReturnOp>();
+ 
+   RewritePatternSet patterns(&getContext());
+-  populateFuncToEmitCPatterns(patterns);
++  TypeConverter typeConverter;
++  populateFuncToEmitCPatterns(typeConverter, patterns);
+ 
+   if (failed(
+           applyPartialConversion(getOperation(), target, std::move(patterns))))
+diff --git a/mlir/lib/Target/Cpp/TranslateToCpp.cpp b/mlir/lib/Target/Cpp/TranslateToCpp.cpp
+index a91f5ab93114..cdc98e59040d 100644
+--- a/mlir/lib/Target/Cpp/TranslateToCpp.cpp
++++ b/mlir/lib/Target/Cpp/TranslateToCpp.cpp
+@@ -273,6 +273,7 @@ private:
+   ExpressionOp emittedExpression;
+   SmallVector<int> emittedExpressionPrecedence;
+ 
++public:
+   void pushExpressionPrecedence(int precedence) {
+     emittedExpressionPrecedence.push_back(precedence);
+   }
+@@ -667,12 +668,14 @@ static LogicalResult printOperation(CppEmitter &emitter,
+     if (auto t = dyn_cast<IntegerAttr>(attr)) {
+       // Index attributes are treated specially as operand index.
+       if (t.getType().isIndex()) {
++        if (emitter.getEmittedExpression())
++          emitter.pushExpressionPrecedence(emitter.lowestPrecedence());
+         int64_t idx = t.getInt();
+         Value operand = op.getOperand(idx);
+-        if (!emitter.hasValueInScope(operand))
+-          return op.emitOpError("operand ")
+-                 << idx << "'s value not defined in scope";
+-        os << emitter.getOrCreateName(operand);
++        if (failed(emitter.emitOperand(operand)))
++          return op.emitOpError("operand ") << idx << "could not be emitted";
++        if (emitter.getEmittedExpression())
++          emitter.popExpressionPrecedence();
+         return success();
+       }
+     }
+-- 
+2.46.0
+

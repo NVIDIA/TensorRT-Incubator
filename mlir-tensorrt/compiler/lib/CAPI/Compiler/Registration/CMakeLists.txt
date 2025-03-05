@@ -11,6 +11,7 @@ add_mlir_tensorrt_public_c_api_library(MLIRTensorRTCAPIRegisterAllDialects
     MLIRTensorRTCompilerTensorRTToExecutable
     MLIRTensorRTCUDAToLLVM
     MLIRTensorRTCUDATransforms
+    MLIRTensorRTHostToEmitC
     MLIRTensorRTHostToLLVM
     MLIRTensorRTPlanToLLVM
     MLIRTensorRTTensorRTRuntimeTransforms

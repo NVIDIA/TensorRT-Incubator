@@ -72,6 +72,24 @@ def ConvertChloToStableHloExtPass : Pass<"convert-chlo-to-stablehlo-ext"> {
 #endif // MLIR_TENSORRT_ENABLE_HLO
 
 //===----------------------------------------------------------------------===//
+// HostToEmitC
+//===----------------------------------------------------------------------===//
+
+def ConvertHostToEmitCPass : Pass<"convert-host-to-emitc", "::mlir::ModuleOp"> {
+  let summary = "Convert host program IR to EmitC";
+  let description = [{
+    This pass aggregates conversion patterns for EmitC conversions.
+  }];
+  let dependentDialects = [
+    "::mlir::emitc::EmitCDialect"
+  ];
+  let options = [
+    Option<"artifactsDirectory", "artifacts-dir", "std::string",
+      "\"\"", "">
+  ];
+}
+
+//===----------------------------------------------------------------------===//
 // TensorRTEmitCBuilderPass
 //===----------------------------------------------------------------------===//
 def ConvertTensorRTToEmitCPass : Pass<"convert-tensorrt-to-emitc",

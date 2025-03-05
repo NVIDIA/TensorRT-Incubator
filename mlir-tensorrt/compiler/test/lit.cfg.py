@@ -55,7 +55,7 @@ def estimate_paralllelism(mem_required: float) -> int:
 
 
 # test_exec_root: The root path where tests should be run.
-config.test_exec_root = os.path.join(config.mlir_tensorrt_obj_root, "test")
+config.test_exec_root = os.path.join(config.mlir_tensorrt_obj_root, "compiler", "test")
 
 # mlir_tensorrt_tools_dir: binary output path for tool executables
 config.mlir_tensorrt_tools_dir = os.path.join(config.mlir_tensorrt_obj_root, "bin")
@@ -63,6 +63,11 @@ config.mlir_tensorrt_tools_dir = os.path.join(config.mlir_tensorrt_obj_root, "bi
 # Add additional expansions that can be used in the `RUN:` commands.
 config.substitutions.append(("%PATH%", config.environment["PATH"]))
 config.substitutions.append(("%test_src_root", config.test_source_root))
+config.substitutions.append(("%mtrt_src_dir", config.mlir_tensorrt_root))
+config.substitutions.append(
+    ("%trt_include_dir", os.path.join(config.tensorrt_lib_dir, "..", "include"))
+)
+config.substitutions.append(("%trt_lib_dir", config.tensorrt_lib_dir))
 
 # Setup the parallelism groups.
 lit_config.parallelism_groups["non-collective"] = estimate_paralllelism(2.0)
@@ -91,7 +96,6 @@ config.excludes = {
 
 
 # Tweak the PATH to include the tools dir.
-llvm_config.with_environment("PATH", config.llvm_tools_dir, append_path=True)
 llvm_config.with_environment("PATH", config.mlir_tensorrt_tools_dir, append_path=True)
 
 if config.enable_asan:
@@ -160,7 +164,7 @@ llvm_config.with_environment(
 
 extra_ld_lib_path = [
     # Ensure we can find DSOs containing test plugins for `tensorrt.opaque_plugin`.
-    os.path.join(config.mlir_tensorrt_obj_root, "tensorrt/lib"),
+    config.mlir_tensorrt_lib_dir
 ]
 
 if config.tensorrt_lib_dir:

@@ -1,0 +1,36 @@
+From ff3b7135d79b8aed66fc62767c9a310ad98b002d Mon Sep 17 00:00:00 2001
+From: Christopher Bate <cbate@nvidia.com>
+Date: Fri, 14 Feb 2025 00:39:36 +0000
+Subject: [PATCH] [cmake] Allow finding Stablehlo via 'find_package'
+
+---
+ CMakeLists.txt | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 11563f6c..6dad2434 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -49,7 +49,7 @@ endif()
+ # folder but instead stablehlo that is part of top level compiler project.
+ # TORCH_MLIR_EXTERNAL_STABLEHLO_DIR represents stablehlo directory (<some_path>/stablehlo)
+ # that is included in torch_mlir. It is assumed that top level compiler project makes
+-# stablehlo targets available (for example with `add_subdirectory`) and thus they are not added. 
++# stablehlo targets available (for example with `add_subdirectory`) and thus they are not added.
+ set(TORCH_MLIR_EXTERNAL_STABLEHLO_DIR "" CACHE STRING "Path to stablehlo dir from super project")
+ 
+ option(TORCH_MLIR_OUT_OF_TREE_BUILD "Specifies an out of tree build" OFF)
+@@ -241,7 +241,9 @@ endif()
+ # project that we don't actually depend on. Further some of those parts
+ # do not even compile on all platforms.
+ if (TORCH_MLIR_ENABLE_STABLEHLO)
+-  if (NOT "${TORCH_MLIR_EXTERNAL_STABLEHLO_DIR}" STREQUAL "")
++  if (TORCH_MLIR_EXTERNAL_STABLEHLO_DIR STREQUAL "find_package")
++    find_package(Stablehlo REQUIRED)
++  elseif (TORCH_MLIR_EXTERNAL_STABLEHLO_DIR)
+     include_directories(${TORCH_MLIR_EXTERNAL_STABLEHLO_DIR})
+   else()
+     set(STABLEHLO_BUILD_EMBEDDED ON)
+-- 
+2.46.0
+

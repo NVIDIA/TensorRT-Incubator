@@ -300,13 +300,7 @@ getOptionalNvInferDims(std::optional<ArrayRef<T>> arrayRef) {
 /// `nvinfer1::Permutation`.
 nvinfer1::Permutation getNvInferPermutation(ArrayRef<int64_t> array);
 
-/// Given type `t` return the corresponding TensorRT::DataType enum value of the
-/// elementType of `t` (if it is a `ShapedType`) or `t` itself.
-/// If there is no corresponding `nvinfer1::DataType` enum value, this function
-/// will cause the program to abort. This is meant to simplify the usage API
-/// below in the `buildLayer` dispatch function, so types should be
-/// appropriately verified before using.
-FailureOr<nvinfer1::DataType> getNvInferDataType(Location loc, Type t);
+/// Given TensorRT::DataType `t` return the corresponding MLIR type.
 Type getNvInferDataTypeAsMlirType(MLIRContext *ctx, nvinfer1::DataType t);
 
 /// Convert an array of dimension indices into a bit mask. This is used below in

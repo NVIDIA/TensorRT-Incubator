@@ -24,6 +24,19 @@ func.func @transpose_elided_const_fold() -> tensor<2x2xi32> {
 
 // -----
 
+func.func @transpose_fold_limit() -> tensor<131073x2xi32> {
+  %const = tensorrt.constant dense_resource<__elided__> : tensor<2x131073xi32>
+  %1 = tensorrt.transpose {permutation = affine_map<(d0, d1)->(d1, d0)>} %const : tensor<2x131073xi32> to tensor<131073x2xi32>
+  return %1 : tensor<131073x2xi32>
+}
+
+// CHECK-LABEL: @transpose_fold_limit
+//  CHECK-NEXT: %[[c:.+]] = tensorrt.constant
+//  CHECK-NEXT: %[[c1:.+]] = tensorrt.transpose {{.*}} %[[c]]
+//  CHECK-NEXT: return %[[c1]]
+
+// -----
+
 func.func @transpose_scalar_const_fold() -> tensor<i32> {
   %const = tensorrt.constant dense<1> : tensor<i32>
   %1 = tensorrt.transpose {permutation = affine_map<()->()>} %const : tensor<i32> to tensor<i32>

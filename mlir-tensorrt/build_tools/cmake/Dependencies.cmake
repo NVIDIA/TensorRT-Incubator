@@ -1,43 +1,5 @@
 include(CMakeParseArguments)
-
-#-------------------------------------------------------------------------------------
-# Wrapper around CPMAddPackage
-#-------------------------------------------------------------------------------------
-macro(mlir_tensorrt_add_package)
-  CPMAddPackage(
-    ${ARGN}
-  )
-endmacro()
-
-# ------------------------------------------------------------------------------
-# Downloads the Google Benchmark C++ library and adds it to the build.
-# ------------------------------------------------------------------------------
-function(mtrt_add_google_benchmark)
-  CPMAddPackage(
-    NAME benchmark  GITHUB_REPOSITORY google/benchmark
-    VERSION 1.8.3
-    EXCLUDE_FROM_ALL TRUE
-    GIT_SHALLOW TRUE
-    OPTIONS
-    "BENCHMARK_ENABLE_TESTING OFF"
-    "BENCHMARK_USE_BUNDLED_GTEST OFF"
-    "BENCHMARK_ENABLE_WERROR OFF"
-    "BENCHMARK_ENABLE_GTEST_TESTS OFF"
-  )
-endfunction()
-
-#-------------------------------------------------------------------------------------
-# Downloads stablehlo and adds it to the build.
-# TODO: currently the backup commit hash for external release needs to be manually
-# updated for each release.
-#-------------------------------------------------------------------------------------
-function(mtrt_add_stablehlo)
-  CPMAddPackage(
-        NAME stablehlo
-        ${ARGN}
-  )
-  set(stablehlo_SOURCE_DIR "${stablehlo_SOURCE_DIR}" PARENT_SCOPE)
-endfunction()
+include(${CMAKE_CURRENT_LIST_DIR}/TensorRTDownloadURL.cmake)
 
 #-------------------------------------------------------------------------------------
 # Given a Path to `NvInfer.h`, extracts the TensorRT version and checks against
@@ -64,123 +26,55 @@ function(download_tensorrt)
     message(FATAL_ERROR "Expected VERSION, OUT_VAR arguments to download_tensorrt(...)")
   endif()
 
-  if(MSVC)
-    message(FATAL_ERROR "Windows automatic download of TensorRT is unsupported")
-  endif()
-
-  if((NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    OR(NOT CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64"))
-    message(FATAL_ERROR "automatic download of TensorRT is only supported on x86_64 Linux platforms")
-  endif()
-
-  # Canonicalize "10.0" version by setting it to the latest public TRT 10.0 version.
-  if(ARG_VERSION VERSION_EQUAL "10.0")
-    set(ARG_VERSION "10.0.0.6")
-  endif()
-
-  # Canonicalize "10.1" version by setting it to the latest public TRT 10.1 version.
-  if(ARG_VERSION VERSION_EQUAL "10.1")
-    set(ARG_VERSION "10.1.0.27")
-  endif()
-  # Canonicalize "10.2" version by setting it to the latest public TRT 10.2 version.
-  if(ARG_VERSION VERSION_EQUAL "10.2")
-    set(ARG_VERSION "10.2.0.19")
-  endif()
-  # Canonicalize "10.5" version by setting it to the latest public TRT 10.5 version.
-  if(ARG_VERSION VERSION_EQUAL "10.5")
-    set(ARG_VERSION "10.5.0.18")
-  endif()
-
-  set(downloadable_versions
-     "8.6.1.6" "9.0.1.4" "9.1.0.4" "9.2.0.5"
-    "10.0.0.6" "10.1.0.27"
-    "10.2.0.19" "10.5.0.18"
+  mtrt_get_tensorrt_download_url(
+    "${ARG_VERSION}"
+    "${CMAKE_SYSTEM_NAME}"
+    "${CMAKE_SYSTEM_PROCESSOR}"
+    _url
+    _updated_version
   )
-
-  if(NOT ARG_VERSION IN_LIST downloadable_versions)
-    message(FATAL_ERROR "CMake download of TensorRT is only available for \
-      the following versions: ${downloadable_versions}")
-  endif()
-
-  set(TRT_VERSION "${ARG_VERSION}")
-
-  # Handle TensorRT 8 versions. These are publicly accessible download links.
-  if(ARG_VERSION VERSION_LESS 9.0.0 AND ARG_VERSION VERSION_GREATER 8.0.0)
-    string(REGEX MATCH "[0-9]+\\.[0-9]+\\.[0-9]+" trt_short_version ${ARG_VERSION})
-    set(CUDA_VERSION "12.0")
-    set(OS "linux")
-    EXECUTE_PROCESS(COMMAND uname -m
-                    COMMAND tr -d '\n'
-                    OUTPUT_VARIABLE ARCH)
-    if(ARCH STREQUAL "arm64")
-      set(ARCH "aarch64")
-      set(OS "Ubuntu-20.04")
-    elseif(ARCH STREQUAL "amd64")
-      set(ARCH "x86_64")
-      set(OS "Linux")
-    elseif(ARCH STREQUAL "aarch64")
-      set(OS "Ubuntu-20.04")
-    elseif(NOT (ARCH STREQUAL "x86_64"))
-      message(FATAL_ERROR "Direct download not available for architecture: ${ARCH}")
-    endif()
-    set(_url "https://developer.nvidia.com/downloads/compute/machine-learning/tensorrt/secure/${trt_short_version}/tars/TensorRT-${TRT_VERSION}.${OS}.${ARCH}-gnu.cuda-${CUDA_VERSION}.tar.gz")
-  endif()
-
-  # Handle TensorRT 9 versions. These are publicly accessible download links.
-  if(ARG_VERSION VERSION_LESS 10.0.0 AND ARG_VERSION VERSION_GREATER 9.0.0)
-    string(REGEX MATCH "[0-9]+\\.[0-9]+\\.[0-9]+" trt_short_version ${ARG_VERSION})
-    set(CUDA_VERSION "12.2")
-    set(OS "linux")
-    EXECUTE_PROCESS(COMMAND uname -m
-                    COMMAND tr -d '\n'
-                    OUTPUT_VARIABLE ARCH)
-    if(ARCH STREQUAL "arm64")
-      set(ARCH "aarch64")
-      set(OS "ubuntu-20.04")
-    elseif(ARCH STREQUAL "amd64")
-      set(ARCH "x86_64")
-    elseif(ARCH STREQUAL "aarch64")
-      set(OS "ubuntu-20.04")
-    elseif(NOT (ARCH STREQUAL "x86_64"))
-      message(FATAL_ERROR "Direct download not available for architecture: ${ARCH}")
-    endif()
-    if(ARG_VERSION VERSION_LESS 9.2.0)
-      set(_url "https://developer.nvidia.com/downloads/compute/machine-learning/tensorrt/secure/${trt_short_version}/tars/tensorrt-${TRT_VERSION}.${OS}.${ARCH}-gnu.cuda-${CUDA_VERSION}.tar.gz")
-    else()
-      set(_url "https://developer.nvidia.com/downloads/compute/machine-learning/tensorrt/${trt_short_version}/tensorrt-${TRT_VERSION}.${OS}.${ARCH}-gnu.cuda-${CUDA_VERSION}.tar.gz")
-    endif()
-  endif()
-
-  if(ARG_VERSION VERSION_EQUAL 10.0.0.6)
-    set(_url "https://developer.nvidia.com/downloads/compute/machine-learning/tensorrt/10.0.0/tensorrt-10.0.0.6.linux.x86_64-gnu.cuda-12.4.tar.gz")
-  endif()
-
-  if(ARG_VERSION VERSION_EQUAL 10.1.0.27)
-    set(_url "https://developer.nvidia.com/downloads/compute/machine-learning/tensorrt/10.1.0/tars/tensorrt-10.1.0.27.linux.x86_64-gnu.cuda-12.4.tar.gz")
-  endif()
-
-  if(ARG_VERSION VERSION_EQUAL 10.2.0.19)
-    set(_url "https://developer.nvidia.com/downloads/compute/machine-learning/tensorrt/10.2.0/tars/TensorRT-10.2.0.19.Linux.x86_64-gnu.cuda-12.5.tar.gz")
-  endif()
-
-  if(ARG_VERSION VERSION_EQUAL 10.5.0.18)
-    set(_url "https://developer.nvidia.com/downloads/compute/machine-learning/tensorrt/10.5.0/tars/TensorRT-10.5.0.18.Linux.x86_64-gnu.cuda-12.6.tar.gz")
-  endif()
-
-  if(NOT _url)
-    message(FATAL_ERROR "Could not determine TensorRT download URL")
-  endif()
 
   message(STATUS "TensorRT Download URL: ${_url}")
 
-  CPMAddPackage(
+  mlir_tensorrt_add_package(
     NAME TensorRT
-    VERSION "${TRT_VERSION}"
+    VERSION "${ARG_VERSION}"
     URL ${_url}
+    CUSTOM_CACHE_KEY "${_updated_version}-${CMAKE_SYSTEM_PROCESSOR}-${CMAKE_SYSTEM_NAME}"
     DOWNLOAD_ONLY
   )
   set("${ARG_OUT_VAR}" "${TensorRT_SOURCE_DIR}" PARENT_SCOPE)
 endfunction()
+
+macro(configure_tensorrt_python_plugin_header)
+  if(ARG_INSTALL_DIR)
+    find_file(
+      trt_python_plugin_header
+      NAMES plugin.h
+      HINTS ${ARG_INSTALL_DIR} ${ARG_INSTALL_DIR}/python/include/impl
+      PATHS ${ARG_INSTALL_DIR} ${ARG_INSTALL_DIR}/python/include/impl
+      REQUIRED
+      NO_CMAKE_PATH NO_DEFAULT_PATH
+      NO_CACHE
+    )
+  else()
+    find_path(
+      trt_python_plugin_header
+      NAMES plugin.h
+      REQUIRED
+      NO_CACHE
+    )
+  endif()
+  file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/include/nvinfer")
+  file(COPY_FILE "${trt_python_plugin_header}"
+    "${CMAKE_BINARY_DIR}/include/nvinfer/trt_plugin_python.h"
+    ONLY_IF_DIFFERENT
+    RESULT copy_result
+  )
+  if(copy_result)
+    message(FATAL_ERROR "failed to copy TensorRT QDP plugin header: ${copy_result}")
+  endif()
+endmacro()
 
 #-------------------------------------------------------------------------------------
 # Finds the TensorRT headers and creates an interface target `TensorRTHeaders`.
@@ -284,24 +178,4 @@ function(mlir_tensorrt_find_dlpack)
       $<BUILD_INTERFACE:${dlpack_SOURCE_DIR}/include>)
     add_library(DLPack::Headers ALIAS DLPackHeaderOnly)
   endif()
-endfunction()
-
-#-------------------------------------------------------------------------------------
-# Download Torch-MLIR
-#-------------------------------------------------------------------------------------
-
-function(mtrt_add_torch_mlir)
-  CPMAddPackage(
-    NAME torch_mlir
-    GIT_REPOSITORY https://github.com/llvm/torch-mlir.git
-    EXCLUDE_FROM_ALL TRUE
-    OPTIONS
-      "TORCH_MLIR_OUT_OF_TREE_BUILD ON"
-      "TORCH_MLIR_ENABLE_STABLEHLO ON"
-      "TORCH_MLIR_EXTERNAL_STABLEHLO_DIR ${stablehlo_SOURCE_DIR}"
-      "MLIR_DIR ${CMAKE_BINARY_DIR}/lib/cmake/mlir"
-      "LLVM_DIR ${llvm_project_BINARY_DIR}/lib/cmake/llvm"
-    ${ARGN}
-  )
-  set(torch_mlir_SOURCE_DIR "${torch_mlir_SOURCE_DIR}" PARENT_SCOPE)
 endfunction()

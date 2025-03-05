@@ -1,4 +1,4 @@
-add_mlir_library(MLIRTensorRTTensorRTUtils
+add_mtrtd_library(MLIRTensorRTTensorRTUtils
   Utils.cpp
 
   LINK_LIBS PUBLIC
