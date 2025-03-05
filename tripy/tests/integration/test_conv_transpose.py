@@ -277,11 +277,11 @@ class TestConvolution:
         assert tp.allclose(output, tp.Tensor(expected), rtol=1e-2, atol=1e-4)
         assert output.shape == tuple(expected.shape)
         assert tp.allclose(output_transpose, tp.Tensor(expected_transpose), rtol=1e-2, atol=1e-4)
-        assert output_transpose.shape == list(expected_transpose.shape)
+        assert output_transpose.shape == tuple(expected_transpose.shape)
         assert tp.allclose(output, output_transpose, rtol=1e-2, atol=1e-4)
         assert output.shape == output_transpose.shape
         assert tp.allclose(tp.Tensor(expected), tp.Tensor(expected_transpose), rtol=1e-2, atol=1e-4)
-        assert tuple(expected.shape) == list(expected_transpose.shape)
+        assert tuple(expected.shape) == tuple(expected_transpose.shape)
 
     @pytest.mark.parametrize("test_case", test_cases_transpose_downscale)
     def test_transposed_downscale(self, torch_dtype, tp_dtype, test_case, eager_or_compiled):

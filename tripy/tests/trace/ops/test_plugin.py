@@ -119,7 +119,7 @@ class TestPluginFieldToAttr:
                 attr = result.value
                 assert isinstance(attr, ir.ArrayAttr)
                 assert all(isinstance(shape, ir.DenseI64ArrayAttr) for shape in attr)
-                assert all(list(shape) == list(inp_shape) for shape, inp_shape in zip(attr, to_list(inp)))
+                assert all(tuple(shape) == tuple(inp_shape) for shape, inp_shape in zip(attr, to_list(inp)))
 
     @pytest.mark.parametrize(
         "inp, expected_error",
