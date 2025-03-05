@@ -44,13 +44,9 @@ class DefaultParameter(Tensor):
 
         self.__dict__ = tensor.__dict__
 
-        self._shape = tuple(shape)
+        self.trace_tensor.shape = tuple(shape)
         self._dtype = dtype
         self.is_shape_known = is_shape_known
-
-    @property
-    def shape(self):
-        return self._shape
 
     @property
     def dtype(self):
