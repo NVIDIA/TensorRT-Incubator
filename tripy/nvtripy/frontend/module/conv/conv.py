@@ -43,7 +43,12 @@ def convolution(
     groups: int,
     dilation: Sequence[int],
 ):
-    return conv_deconv_helper(Convolution, input, weight, bias, stride, padding, groups, dilation)
+    out = conv_deconv_helper(Convolution, input, weight, bias, stride, padding, groups, dilation)
+    # Encode as much information about the output shape as we can:
+    out_shape = list(out.trace_tensor.shape)
+    out_shape[1] = weight.trace_tensor.shape[0]
+    out.trace_tensor.shape = tuple(out_shape)
+    return out
 
 
 @export.public_api(document_under="operations/modules", autodoc_options=[":no-show-inheritance:"])
