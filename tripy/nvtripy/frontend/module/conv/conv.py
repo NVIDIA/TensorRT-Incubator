@@ -51,6 +51,7 @@ def convolution(
     return out
 
 
+# TODO (pranavm): Redo conv/deconv docstrings to be briefer?
 @export.public_api(document_under="operations/modules", autodoc_options=[":no-show-inheritance:"])
 @dataclass
 class Conv(ConvBase):
