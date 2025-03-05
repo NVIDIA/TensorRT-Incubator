@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -47,7 +47,7 @@ def outer(vec1: "nvtripy.Tensor", vec2: "nvtripy.Tensor") -> "nvtripy.Tensor":
         t2 = torch.arange(4, dtype=torch.float32) # doc: omit
         torch_out = torch.outer(t1, t2) # doc: omit
         assert tp.allclose(output, tp.Tensor(torch_out))
-        assert output.shape == list(torch_out.shape)
+        assert output.shape == tuple(torch_out.shape)
     """
     from nvtripy.common.exception import raise_error
     from nvtripy.frontend.ops.unsqueeze import unsqueeze
