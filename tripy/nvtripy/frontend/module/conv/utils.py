@@ -13,8 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from typing import Optional, Sequence
-from nvtripy.frontend.ops import utils as op_utils
+
 from nvtripy.common.exception import raise_error
+from nvtripy.frontend.ops import utils as op_utils
 
 
 def conv_deconv_helper(
@@ -27,10 +28,8 @@ def conv_deconv_helper(
     groups: int,
     dilation: Sequence[int],
 ):
-    from nvtripy.frontend.ops.unsqueeze import unsqueeze
     from nvtripy.frontend.ops.squeeze import squeeze
-
-    pre_padding, post_padding = op_utils.transform_conv_pooling_padding(padding)
+    from nvtripy.frontend.ops.unsqueeze import unsqueeze
 
     if input.rank != weight.rank:
         raise_error(
@@ -38,15 +37,23 @@ def conv_deconv_helper(
             [f"Input has: {input.rank - 2} spatial dimensions, while weight has: {weight.rank - 2}"],
         )
 
+    stride = list(stride)
+    padding = list(padding)
+    dilation = list(dilation)
+
     # Support 1D convolution by unsqueezing
     is_1D = input.rank == 3
     if is_1D:
         input = unsqueeze(input, -1)
         weight = unsqueeze(weight, -1)
+        padding.append((0, 0))
+        stride.append(1)
+        dilation.append(1)
 
     inputs = [input, weight]
     if bias is not None:
         inputs.append(bias)
+    pre_padding, post_padding = op_utils.transform_conv_pooling_padding(padding)
     out = op_utils.create_op(OpType, inputs, stride, pre_padding, post_padding, groups, dilation, stack_depth_offset=1)
 
     if is_1D:
