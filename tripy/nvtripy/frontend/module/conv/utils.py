@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,6 +14,7 @@
 # limitations under the License.
 from typing import Optional, Sequence
 from nvtripy.frontend.ops import utils as op_utils
+from nvtripy.common.exception import raise_error
 
 
 def conv_deconv_helper(
@@ -30,6 +31,12 @@ def conv_deconv_helper(
     from nvtripy.frontend.ops.squeeze import squeeze
 
     pre_padding, post_padding = op_utils.transform_conv_pooling_padding(padding)
+
+    if input.rank != weight.rank:
+        raise_error(
+            f"Input and weight should have the same number of spatial dimensions.",
+            [f"Input has: {input.rank - 2} spatial dimensions, while weight has: {weight.rank - 2}"],
+        )
 
     # Support 1D convolution by unsqueezing
     is_1D = input.rank == 3
