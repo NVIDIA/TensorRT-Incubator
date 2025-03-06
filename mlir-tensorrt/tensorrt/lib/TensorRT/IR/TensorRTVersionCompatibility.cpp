@@ -651,7 +651,7 @@ bool tensorrt::ShapeOp::isValidForTensorRTVersion(int64_t trtMajorVersion) {
     return isType(inputElementType, I1, I8, I32, F16, F32);
   case 9:
   case 10:
-    return isType(inputElementType, I1, I8, I32, F8, F16, BF16, F32);
+    return isType(inputElementType, I1, I8, I32, I64, F8, F16, BF16, F32);
   default:
     return false;
   }
