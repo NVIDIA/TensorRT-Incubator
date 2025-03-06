@@ -23,11 +23,6 @@ from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.utils import wrappers
 
 
-# Returns ceil(a / b) using only integer math
-def int_ceil_div(a, b):
-    return (a + (b - 1)) // b
-
-
 @export.public_api(document_under="operations/functions")
 @wrappers.interface(
     dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
@@ -93,7 +88,7 @@ def split(
         if num_split_or_sizes <= 0:
             raise_error(f"`num_split_or_sizes` must be positive, but got: {num_split_or_sizes}")
 
-        chunk_sizes = [int_ceil_div(input.shape[dim], num_split_or_sizes)] * num_split_or_sizes
+        chunk_sizes = [op_utils.int_ceil_div(input.shape[dim], num_split_or_sizes)] * num_split_or_sizes
     else:
         if not num_split_or_sizes:
             raise_error("Split indices must not be empty")
