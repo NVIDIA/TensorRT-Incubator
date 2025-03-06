@@ -98,7 +98,7 @@ class TestCache:
         output1.eval()
 
         output2 = layer(input2)
-        output2_trace = Trace([output2.trace_tensor], inputs=Trace._collect_storage_tensors(output2.trace_tensor))
+        output2_trace = Trace([output2.trace_tensor], inputs=Trace._collect_constant_tensors(output2.trace_tensor))
         assert mock_global_cache.get(output2_trace, devices=[output2.device]) is not None
 
     def test_different_graphs(self, mock_global_cache):
