@@ -64,8 +64,5 @@ class TestLayerNorm:
             normalized_shape=[2, 2],
         )
         x = tp.ones((5, 5, 5))
-        with helper.raises(
-            tp.TripyException,
-            match="broadcast dimensions must be conformable",
-        ):
+        with helper.raises(tp.TripyException, match="broadcast dimensions must be conformable"):
             tp_layernorm(x).eval()
