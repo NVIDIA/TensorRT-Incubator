@@ -66,6 +66,6 @@ class TestLayerNorm:
         x = tp.ones((5, 5, 5))
         with helper.raises(
             tp.TripyException,
-            match=re.escape("size of operand dimension 1 (5) is not compatible with size of result dimension 1 (2)"),
+            match="broadcast dimensions must be conformable",
         ):
             tp_layernorm(x).eval()
