@@ -23,3 +23,12 @@ func.func @trt_unary_exp_op_bf16(%arg0: tensor<10x128x64xbf16>) -> tensor<10x128
   } %arg0 : tensor<10x128x64xbf16>
   return %0 : tensor<10x128x64xbf16>
 }
+
+
+// CHECK-LABEL: @trt_unary_scalar
+//  CHECK-SAME: tensorrt.engine
+func.func @trt_unary_scalar() -> tensor<f32> {
+    %inp = tensorrt.constant dense<4.0> : tensor<f32>
+    %0 = tensorrt.unary {unaryOperation = #tensorrt.unary_operation<kSQRT>} %inp : tensor<f32>
+    return %0 : tensor<f32>
+}
