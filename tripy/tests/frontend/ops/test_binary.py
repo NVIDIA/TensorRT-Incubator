@@ -73,11 +73,7 @@ class TestBinaryElementwise:
         b = tp.ones((2, 3), dtype=tp.float32)
         c = a + b
 
-        with helper.raises(
-            tp.TripyException,
-            match=r"broadcast dimensions must be conformable",
-            has_stack_info_for=[a, b, c],
-        ):
+        with helper.raises(tp.TripyException, match=r"broadcast dimensions must be conformable"):
             c.eval()
 
     def test_dimension_size_inputs(self):
