@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -43,7 +43,7 @@ class TestExpand:
 
         with helper.raises(
             tp.TripyException,
-            match=r"size of operand dimension 0 \(2\) is not compatible with size of result dimension 0 \(4\)",
+            match=r"broadcast dimensions must be conformable",
             has_stack_info_for=[a, b],
         ):
             b.eval()
