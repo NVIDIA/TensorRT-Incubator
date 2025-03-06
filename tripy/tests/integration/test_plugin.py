@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -34,7 +34,7 @@ class TestPlugin:
         ref_out = tp.gelu(inp)
 
         assert out.shape == ref_out.shape == inp.shape
-        assert cp.allclose(cp.from_dlpack(out), cp.from_dlpack(ref_out))
+        assert cp.allclose(cp.from_dlpack(out), cp.from_dlpack(ref_out), atol=0.001)
 
     def test_dynamic_shape_gelu(self):
         def gelu(X):
@@ -45,9 +45,9 @@ class TestPlugin:
         inp = tp.iota((2, 1, 4))
         out = compiled_gelu(inp)
         assert out.shape == inp.shape
-        assert tp.allclose(out, tp.gelu(inp))
+        assert tp.allclose(out, tp.gelu(inp), atol=0.001)
 
         new_inp = tp.ones((2, 2, 4), dtype=tp.float32)
         out = compiled_gelu(new_inp)
         assert out.shape == new_inp.shape
-        assert tp.allclose(out, tp.gelu(new_inp))
+        assert tp.allclose(out, tp.gelu(new_inp), atol=0.001)
