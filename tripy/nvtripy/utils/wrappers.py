@@ -342,19 +342,20 @@ def interface(
                     supported_dtypes = dtype_variables[type_var]
                     if arg_dtype.name not in supported_dtypes:
                         raise_error(
-                            f"Unsupported data type for '{func.__qualname__}'.",
+                            f"Unsupported data type in '{func.__qualname__}'.",
                             [
                                 f"For parameter: '{name}', got unsupported data type: '{arg_dtype}'.\n"
-                                f"Supported data types are: {supported_dtypes}.\n"
-                            ]
-                            + (
-                                [
-                                    f"Note: '{name}' was: ",
-                                    arg,
-                                ]
-                                if isinstance(arg, Tensor)
-                                else []
-                            ),
+                                f"Supported data types are: {supported_dtypes}."
+                            ],
+                            # TODO (pranavm): Enable printing this additional information in verbose error mode.
+                            # + (
+                            #     [
+                            #         f"\nNote: '{name}' was: ",
+                            #         arg,
+                            #     ]
+                            #     if isinstance(arg, Tensor)
+                            #     else []
+                            # ),
                         )
 
                     # Check if the type matches that of other inputs with the same type_var.
