@@ -72,11 +72,23 @@ bool tensorrt::ActivationOp::isValidForTensorRTVersion(
 // UnaryOp
 //===----------------------------------------------------------------------===//
 
-/// Validates element type of unary op operator, given type of unary operation
-/// and tensorrt version.
-static bool isValidForTensorRTVersionUnaryOpImpl(Type inputElementType,
-                                                 UnaryOperation operationType,
-                                                 int64_t trtMajorVersion) {
+bool tensorrt::UnaryOp::isValidForTensorRTVersion(int64_t trtMajorVersion) {
+  Type inputElementType = getInput().getType().getElementType();
+  UnaryOperation operationType = getUnaryOperation();
+  switch (trtMajorVersion) {
+  case 8:
+    // In older versions, unary doesn't accept scalars.
+    if (cast<RankedTensorType>(getInput().getType()).getRank() == 0)
+      return false;
+    break;
+  case 9:
+    LLVM_FALLTHROUGH;
+  case 10:
+    break;
+  default:
+    return false;
+  }
+
   switch (operationType) {
   case UnaryOperation::kABS:
   case UnaryOperation::kNEG:
@@ -112,22 +124,6 @@ static bool isValidForTensorRTVersionUnaryOpImpl(Type inputElementType,
   }
   llvm::report_fatal_error(
       "unhandled elementwise operation type for TensorRT 8.x/9.x/10.x");
-}
-
-bool tensorrt::UnaryOp::isValidForTensorRTVersion(int64_t trtMajorVersion) {
-  Type inputElementType = getInput().getType().getElementType();
-  UnaryOperation operationType = getUnaryOperation();
-  switch (trtMajorVersion) {
-  case 8:
-    return isValidForTensorRTVersionUnaryOpImpl(inputElementType, operationType,
-                                                trtMajorVersion);
-  case 9:
-  case 10:
-    return isValidForTensorRTVersionUnaryOpImpl(inputElementType, operationType,
-                                                trtMajorVersion);
-  default:
-    return false;
-  }
 }
 
 //===----------------------------------------------------------------------===//

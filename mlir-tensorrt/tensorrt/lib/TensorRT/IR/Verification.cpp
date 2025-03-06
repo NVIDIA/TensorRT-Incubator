@@ -1352,10 +1352,6 @@ bool hasElementType(TensorType t, Callable... funcs) {
 /// TODO: this should go away when we break out the TensorRT unary operation
 /// into separate ops.
 static LogicalResult verifyAllowedDataTypes(UnaryOp op) {
-  // TensorRT unary op doesn't accept scalar.
-  if (cast<RankedTensorType>(op.getInput().getType()).getRank() == 0)
-    return op->emitOpError("TensorRT Unary ops need at least 1D input");
-
   // Names of the lambdas appear in the error message using the macro below.
   auto I8 = [](Type t) { return isTensorRTInt8Type(t); };
   auto I32 = [](Type t) { return t.isInteger(32); };
