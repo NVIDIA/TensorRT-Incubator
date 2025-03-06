@@ -312,7 +312,7 @@ class TestTensorConversion:
 
         # Should also work from shapes of tensors
         inp = tp.Tensor([[1, 2], [2, 3]])
-        a = inp.shape + [3, 5]  # Should yield: [2, 2, 3, 5]
+        a = inp.shape + (3, 5)  # Should yield: [2, 2, 3, 5]
 
         a = func(a)
 
