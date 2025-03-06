@@ -1232,8 +1232,7 @@ LogicalResult tensorrt::ResizeNearestOp::inferReturnTypeComponents(
     for (int64_t i = 0; i < inputType.getRank() - resizeDims; i++)
       if (adaptor.getScales().value()[i] != 1)
         return emitOptionalError(
-            loc,
-            "all scale values except innermost min(3, rank(input)) must be 1");
+            loc, "all scale values except 3 innermost must be 1");
     SmallVector<int64_t> resultShape(inputType.getShape());
     for (unsigned i = 0; i < resultShape.size(); i++)
       resultShape[i] = inputType.isDynamicDim(i)
@@ -1326,8 +1325,7 @@ LogicalResult tensorrt::ResizeLinearOp::inferReturnTypeComponents(
     for (int64_t i = 0; i < inputType.getRank() - resizeDims; i++)
       if (adaptor.getScales().value()[i] != 1)
         return emitOptionalError(
-            loc,
-            "all scale values except innermost min(3, rank(input)) must be 1");
+            loc, "all scale values except 3 innermost must be 1");
 
     SmallVector<int64_t> resultShape(inputType.getShape());
     for (unsigned i = 0; i < resultShape.size(); i++)

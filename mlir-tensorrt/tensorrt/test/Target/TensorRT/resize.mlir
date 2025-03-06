@@ -54,6 +54,20 @@ func.func @trt_resize_linear(%arg0: tensor<10x10xf32>) -> tensor<20x20xf32> {
 // CHECK-LABEL: @trt_resize_linear
 //  CHECK-SAME: tensorrt.engine
 
+func.func @trt_resize_linear_dynamic(
+  %arg0: tensor<?x?xf32> {tensorrt.shape_profile = #tensorrt.shape_profile<min=[1, 1], opt=[5, 5], max=[10, 10]>}) -> tensor<?x?xf32> {
+
+  %result = tensorrt.resize_linear {
+    scales = array<f32: 2.0, 3.0>,
+    coordinateTransformation = #tensorrt.resize_coordinate_transformation<kALIGN_CORNERS>,
+    selectorForSinglePixel = #tensorrt.resize_selector<kUPPER>
+  } %arg0 : (tensor<?x?xf32>) -> tensor<?x?xf32>
+  return %result : tensor<?x?xf32>
+}
+
+// CHECK-LABEL: @trt_resize_linear_dynamic
+//  CHECK-SAME: tensorrt.engine
+
 func.func @trt_resize_cubic(%arg0: tensor<10x10xf32>) -> tensor<20x20xf32> {
   %result = tensorrt.resize_cubic {
     coordinateTransformation = #tensorrt.resize_coordinate_transformation<kHALF_PIXEL>,
@@ -64,4 +78,18 @@ func.func @trt_resize_cubic(%arg0: tensor<10x10xf32>) -> tensor<20x20xf32> {
 }
 
 // CHECK-LABEL: @trt_resize_cubic
+//  CHECK-SAME: tensorrt.engine
+
+func.func @trt_resize_cubic_dynamic(
+  %arg0: tensor<?x?xf32> {tensorrt.shape_profile = #tensorrt.shape_profile<min=[1, 1], opt=[5, 5], max=[10, 10]>}) -> tensor<?x?xf32> {
+  %result = tensorrt.resize_cubic {
+    scales = array<f32: 2.0, 3.0>,
+    coordinateTransformation = #tensorrt.resize_coordinate_transformation<kHALF_PIXEL>,
+    selectorForSinglePixel = #tensorrt.resize_selector<kFORMULA>,
+    cubicCoeff = -0.75 : f32
+  } %arg0 : (tensor<?x?xf32>) -> tensor<?x?xf32>
+  return %result : tensor<?x?xf32>
+}
+
+// CHECK-LABEL: @trt_resize_cubic_dynamic
 //  CHECK-SAME: tensorrt.engine
