@@ -61,6 +61,12 @@ def is_int_equal_to(arg, value):
     return isinstance(arg, int) and arg == value
 
 
+# Returns ceil(a / b) using only integer math
+# TODO (pranavm): Test exhaustively.
+def int_ceil_div(a, b):
+    return -(a // -b)
+
+
 def tensor_from_shape_like(arg: "nvtripy.ShapeLike") -> "nvtripy.Tensor":
     from nvtripy.frontend.dimension_size import DimensionSize
     from nvtripy.frontend.ops.concatenate import concatenate
