@@ -2657,7 +2657,7 @@ def TensorRT_ShapeOp : TensorRT_Op<"shape", [Pure,
     ```
   }];
 
-  let arguments = (ins TensorRT_RankedTensorOf<[I1, TensorRT_I8, I32, TensorRT_F8, F16, BF16, F32]>:$input);
+  let arguments = (ins TensorRT_RankedTensorOf<[I1, TensorRT_I8, I32, I64, TensorRT_F8, F16, BF16, F32]>:$input);
   let results = (outs 1DTensorOf<[I32]>:$result);
 
   let assemblyFormat = "attr-dict $input `:` type($input) `->` type($result)";
