@@ -21,6 +21,7 @@ from nvtripy.trace.ops.matmul import MatrixMultiply
 from nvtripy.utils import wrappers
 
 
+# TODO (pranavm): Check if TRT supports int32 matmul or if we need to cast in the frontend.
 @register_tensor_method("__matmul__")
 @wrappers.interface(
     dtype_constraints={"self": "T1", "other": "T1", wrappers.RETURN_VALUE: "T1"},
