@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -29,7 +29,7 @@ from nvtripy.utils import wrappers
 @export.public_api(document_under="operations/functions")
 @wrappers.interface(
     dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
-    dtype_variables={"T1": ["float32", "float16", "bool", "int32"]},
+    dtype_variables={"T1": ["float32", "float16", "bool", "int32", "int64"]},
 )
 def pad(
     input: "nvtripy.Tensor", pad: Sequence[ShapeLike], mode: str = "constant", value: Union[int, float] = 0
@@ -85,13 +85,4 @@ def pad(
     sizes = input_shape + padding_lows + padding_highs
     steps = op_utils.tensor_from_shape_like([1] * input.rank)
 
-    return op_utils.create_op(
-        SliceFill,
-        [
-            input,
-            starts,
-            sizes,
-            steps,
-            Tensor(value, dtype=input.dtype),
-        ],
-    )
+    return op_utils.create_op(SliceFill, [input, starts, sizes, steps, Tensor(value, dtype=input.dtype)])
