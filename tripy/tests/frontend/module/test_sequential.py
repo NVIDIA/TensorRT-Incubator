@@ -94,12 +94,12 @@ class TestSequential:
             """
             Sequential(
                 0: Module = Linear(
-                    weight: Parameter = (shape=[3, 1], dtype=float32),
-                    bias: Parameter = (shape=[3], dtype=float32),
+                    weight: Parameter = (shape=(3, 1), dtype=float32),
+                    bias: Parameter = (shape=(3,), dtype=float32),
                 ),
                 1: Module = Linear(
-                    weight: Parameter = (shape=[2, 3], dtype=float32),
-                    bias: Parameter = (shape=[2], dtype=float32),
+                    weight: Parameter = (shape=(2, 3), dtype=float32),
+                    bias: Parameter = (shape=(2,), dtype=float32),
                 ),
             )
             """
@@ -143,12 +143,12 @@ class TestDictSequential:
             """
             Sequential(
                 layer1: Module = Linear(
-                    weight: Parameter = (shape=[3, 1], dtype=float32),
-                    bias: Parameter = (shape=[3], dtype=float32),
+                    weight: Parameter = (shape=(3, 1), dtype=float32),
+                    bias: Parameter = (shape=(3,), dtype=float32),
                 ),
                 layer2: Module = Linear(
-                    weight: Parameter = (shape=[2, 3], dtype=float32),
-                    bias: Parameter = (shape=[2], dtype=float32),
+                    weight: Parameter = (shape=(2, 3), dtype=float32),
+                    bias: Parameter = (shape=(2,), dtype=float32),
                 ),
             )
             """
@@ -205,12 +205,12 @@ class TestMixedContainerSequential:
             """\
             Sequential(
                 0: Module = Conv(
-                    bias: Parameter = (shape=[2], dtype=float32),
-                    weight: Parameter = (shape=[2, 2, 1, 1], dtype=float32),
+                    bias: Parameter = (shape=(2,), dtype=float32),
+                    weight: Parameter = (shape=(2, 2, 1, 1), dtype=float32),
                 ),
                 3: Module = Linear(
-                    weight: Parameter = (shape=[1, 2], dtype=float32),
-                    bias: Parameter = (shape=[1], dtype=float32),
+                    weight: Parameter = (shape=(1, 2), dtype=float32),
+                    bias: Parameter = (shape=(1,), dtype=float32),
                 ),
             )"""
         )
@@ -250,17 +250,17 @@ class TestNestedSequential:
             """
             Sequential(
                 0: Module = Linear(
-                    weight: Parameter = (shape=[4, 2], dtype=float32),
-                    bias: Parameter = (shape=[4], dtype=float32),
+                    weight: Parameter = (shape=(4, 2), dtype=float32),
+                    bias: Parameter = (shape=(4,), dtype=float32),
                 ),
                 1: Module = Sequential(
                     0: Module = Linear(
-                        weight: Parameter = (shape=[3, 4], dtype=float32),
-                        bias: Parameter = (shape=[3], dtype=float32),
+                        weight: Parameter = (shape=(3, 4), dtype=float32),
+                        bias: Parameter = (shape=(3,), dtype=float32),
                     ),
                     1: Module = Linear(
-                        weight: Parameter = (shape=[1, 3], dtype=float32),
-                        bias: Parameter = (shape=[1], dtype=float32),
+                        weight: Parameter = (shape=(1, 3), dtype=float32),
+                        bias: Parameter = (shape=(1,), dtype=float32),
                     ),
                 ),
             )
