@@ -22,6 +22,7 @@ from nvtripy import export
 from nvtripy.common.exception import TripyException
 from nvtripy.utils.json import Decoder, Encoder
 
+# TODO (pranavm): Disallow CPU here
 _VALID_KINDS = {"cpu", "gpu"}
 
 
