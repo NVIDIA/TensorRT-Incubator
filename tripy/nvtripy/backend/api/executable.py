@@ -298,6 +298,8 @@ def encode_executable(executable):
     return {
         "arg_names": executable._arg_names,
         "executable": base64.b64encode(executable._executable.serialize()).decode(),
+        # TODO (pranavm): Figure out a more reliable way to serialize the return annotation?
+        "return_type": "Tensor" if executable._return_type is Tensor else "Sequence[Tensor]",
     }
 
 
@@ -307,4 +309,5 @@ def decode_executable(executable_dict):
     return Executable(
         runtime.Executable(executable_bytes),
         executable_dict["arg_names"],
+        Tensor if executable_dict["return_type"] == "Tensor" else Sequence[Tensor],
     )
