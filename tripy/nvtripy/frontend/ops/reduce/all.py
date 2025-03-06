@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -50,6 +50,10 @@ def all(
     """
     from nvtripy.frontend.ops.reduce.prod import prod
     from nvtripy.frontend.ops.cast import cast
+
+    # TODO (pranavm): Make this common across all reduce functions?
+    if input.rank == 0:
+        return input
 
     # TODO (pranavm): Figure out a better way of doing this
     return cast(prod(cast(input, dtype=datatype.int32), dim, keepdim), dtype=datatype.bool)
