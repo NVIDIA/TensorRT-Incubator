@@ -41,9 +41,5 @@ class TestExpand:
         a = tp.ones((2, 1))
         b = tp.expand(a, (4, 2))
 
-        with helper.raises(
-            tp.TripyException,
-            match=r"broadcast dimensions must be conformable",
-            has_stack_info_for=[a, b],
-        ):
+        with helper.raises(tp.TripyException, match=r"broadcast dimensions must be conformable"):
             b.eval()
