@@ -152,7 +152,8 @@ def __getitem__(
             # Need to convert `stop` to a `size`:
             size = stop - start
             if not op_utils.is_int_equal_to(step, 1):
-                size = size // step
+                # TODO (pranavm): Check if this is right.
+                size = op_utils.int_ceil_div(size, step)
 
             # Size cannot be less than 0:
             size = max(size, 0) if isinstance(size, int) else maximum(size, cast_to_dim_size(0))
