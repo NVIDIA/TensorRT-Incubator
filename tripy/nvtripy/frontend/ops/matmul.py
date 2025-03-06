@@ -25,7 +25,7 @@ from nvtripy.utils import wrappers
 @register_tensor_method("__matmul__")
 @wrappers.interface(
     dtype_constraints={"self": "T1", "other": "T1", wrappers.RETURN_VALUE: "T1"},
-    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int32"]},
+    dtype_variables={"T1": ["float32", "float16", "bfloat16"]},
 )
 # TODO (pranavm): Add more examples for 1D/2D combinations and better testing, document output shape.
 def __matmul__(self: "nvtripy.Tensor", other: "nvtripy.Tensor") -> "nvtripy.Tensor":
