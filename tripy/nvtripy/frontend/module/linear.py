@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -102,7 +102,7 @@ class Linear(Module):
         self.input_scale = None
         if quant_dtype is not None:
             self.weight_scale = DefaultParameter(
-                shape=[self.weight._shape[weight_quant_dim]] if weight_quant_dim is not None else None, dtype=dtype
+                shape=[self.weight.shape[weight_quant_dim]] if weight_quant_dim is not None else None, dtype=dtype
             )
             self.input_scale = DefaultParameter(shape=None, dtype=dtype)
 

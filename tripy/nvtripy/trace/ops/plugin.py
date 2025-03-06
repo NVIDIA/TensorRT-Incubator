@@ -112,6 +112,7 @@ class Plugin(BaseTraceOp):
     creator_params: Dict[str, Any]
 
     def __post_init__(self):
+        super().__post_init__()
         self._originating_expression = self.outputs[0]
 
     def get_num_outputs(self):
