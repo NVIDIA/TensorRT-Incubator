@@ -1469,7 +1469,7 @@ func.func @trt_unary_sqrt(%arg0: tensor<10xi32>) -> tensor<10xi32> {
 // -----
 
 func.func @resize_nearest_static(%arg0: tensor<2x2x2x2x2xf32>) -> tensor<2x4x4x4x4xf32> {
-  // expected-error @below {{'tensorrt.resize_nearest' op only supports resizing on the innermost min(3, rank(input)) dimensions}}
+  // expected-error @below {{'tensorrt.resize_nearest' op only supports resizing on the 3 innermost dimensions}}
   %0 = tensorrt.resize_nearest {
     coordinateTransformation = #tensorrt.resize_coordinate_transformation<kASYMMETRIC>,
     nearestRounding = #tensorrt.resize_round_mode<kFLOOR>,
@@ -1492,7 +1492,7 @@ func.func @resize_nearest_static(%arg0: tensor<2x2x2x2xf32>) -> tensor<2x4x4x4xf
 // -----
 
 func.func @resize_nearest_dynamic(%arg0: tensor<2x2x2x?x?xf32>) -> tensor<2x2x2x?x?xf32> {
-  // expected-error @below {{'tensorrt.resize_nearest' op input innermost min(3, rank(input)) dimension that resize on cannot be dynamic when output_shape parameter is NOT specified and it cannot be inferred statically}}
+  // expected-error @below {{'tensorrt.resize_nearest' op scales must be provided when output_shape is not provided and the input/output dimensions are dynamic}}
   %0 = tensorrt.resize_nearest {
     coordinateTransformation = #tensorrt.resize_coordinate_transformation<kASYMMETRIC>,
     nearestRounding = #tensorrt.resize_round_mode<kFLOOR>,
@@ -1515,7 +1515,7 @@ func.func @resize_nearest_dynamic(%arg0: tensor<2x2x2x?x?xf32>) -> tensor<2x2x2x
 // -----
 
 func.func @resize_nearest_dynamic(%arg0: tensor<2x2x2x?x?xf32>) -> tensor<2x4x4x?x?xf32> {
-  // expected-error @below {{all scale values except innermost min(3, rank(input)) must be 1}}
+  // expected-error @below {{all scale values except 3 innermost must be 1}}
   %0 = tensorrt.resize_nearest {
     coordinateTransformation = #tensorrt.resize_coordinate_transformation<kASYMMETRIC>,
     nearestRounding = #tensorrt.resize_round_mode<kFLOOR>,
@@ -1538,7 +1538,7 @@ func.func @resize_nearest_dynamic(%arg0: tensor<2x3xf32>) -> tensor<4x6xf16> {
 // -----
 
 func.func @resize_linear_static(%arg0: tensor<2x2x2x2x2xf32>) -> tensor<2x4x4x4x4xf32> {
-  // expected-error @below {{'tensorrt.resize_linear' op only supports resizing on the innermost min(3, rank(input)) dimensions}}
+  // expected-error @below {{'tensorrt.resize_linear' op only supports resizing on the 3 innermost dimensions}}
   %0 = tensorrt.resize_linear {
     coordinateTransformation = #tensorrt.resize_coordinate_transformation<kALIGN_CORNERS>,
     selectorForSinglePixel = #tensorrt.resize_selector<kFORMULA>} %arg0 : (tensor<2x2x2x2x2xf32>) -> tensor<2x4x4x4x4xf32>
@@ -1559,7 +1559,7 @@ func.func @resize_linear_static(%arg0: tensor<2x2x2x2x2xf32>) -> tensor<2x2x4x4x
 // -----
 
 func.func @resize_linear_dynamic(%arg0: tensor<2x2x2x?x?xf32>) -> tensor<2x2x2x?x?xf32> {
-  // expected-error @below {{'tensorrt.resize_linear' op input innermost min(3, rank(input)) dimension that resize on cannot be dynamic when output_shape parameter is NOT specified and it cannot be inferred statically}}
+  // expected-error @below {{'tensorrt.resize_linear' op scales must be provided when output_shape is not provided and the input/output dimensions are dynamic}}
   %0 = tensorrt.resize_linear {
     coordinateTransformation = #tensorrt.resize_coordinate_transformation<kASYMMETRIC>,
     selectorForSinglePixel = #tensorrt.resize_selector<kFORMULA>} %arg0 : (tensor<2x2x2x?x?xf32>) -> tensor<2x2x2x?x?xf32>
@@ -1580,7 +1580,7 @@ func.func @resize_linear_dynamic(%arg0: tensor<2x2x2x?x?xf32>) -> tensor<2x2x2x?
 // -----
 
 func.func @resize_linear_dynamic(%arg0: tensor<2x2x2x3x3xf32>) -> tensor<2x4x4x9x9xf32> {
-  // expected-error @below {{all scale values except innermost min(3, rank(input)) must be 1}}
+  // expected-error @below {{all scale values except 3 innermost must be 1}}
   %0 = tensorrt.resize_linear {
     coordinateTransformation = #tensorrt.resize_coordinate_transformation<kASYMMETRIC>,
     selectorForSinglePixel = #tensorrt.resize_selector<kFORMULA>,
@@ -1636,7 +1636,7 @@ func.func @resize_cubic_static(%arg0: tensor<2x2x2xf32>) -> tensor<4x4x4xf32> {
 // -----
 
 func.func @resize_cubic_dynamic(%arg0: tensor<2x?x?xf32>) -> tensor<2x?x?xf32> {
-  // expected-error @below {{'tensorrt.resize_cubic' op input innermost 2 dimensions that resize on cannot be dynamic when output_shape parameter is NOT specified and it cannot be inferred statically}}
+  // expected-error @below {{'tensorrt.resize_cubic' op scales must be provided when output_shape is not provided and the input/output dimensions are dynamic}}
   %0 = tensorrt.resize_cubic {
     coordinateTransformation = #tensorrt.resize_coordinate_transformation<kASYMMETRIC>,
     selectorForSinglePixel = #tensorrt.resize_selector<kFORMULA>,
