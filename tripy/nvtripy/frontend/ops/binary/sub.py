@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,7 +22,7 @@ from nvtripy.utils import wrappers
 @register_tensor_method("__sub__")
 @wrappers.interface(
     dtype_constraints={"self": "T1", "other": "T1", wrappers.RETURN_VALUE: "T1"},
-    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64"]},
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64", "bool"]},
     convert_to_tensors=True,
 )
 def __sub__(self: "nvtripy.Tensor", other: TensorLike) -> "nvtripy.Tensor":
@@ -52,7 +52,7 @@ def __sub__(self: "nvtripy.Tensor", other: TensorLike) -> "nvtripy.Tensor":
 @register_tensor_method("__rsub__")
 @wrappers.interface(
     dtype_constraints={"self": "T1", "other": "T1", wrappers.RETURN_VALUE: "T1"},
-    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64"]},
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64", "bool"]},
     convert_to_tensors=True,
 )
 def __rsub__(self: "nvtripy.Tensor", other: TensorLike) -> "nvtripy.Tensor":
