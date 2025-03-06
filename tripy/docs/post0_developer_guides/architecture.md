@@ -82,7 +82,7 @@ inp = tp.full((2, 3), value=0.5)
 The `tp.full()` and `tp.tanh()` APIs are part of the frontend and like other frontend functions, map to one or more
 (just one in this case) `Trace` operations. For frontend functions that map to exactly one `Trace` operation,
 we define the function directly alongside the corresponding `Trace` operation.
-In this case, the [`Fill` operation](source:/nvtripy/trace/ops/fill.py) provides `tp.full()` and
+In this case, the [`Broadcast` operation](source:/nvtripy/trace/ops/broadcast.py) provides `tp.full()` and
 the [`UnaryElementwise` operation](source:/nvtripy/trace/ops/unary_elementwise.py) provides `tp.tanh()`.
 
 *We organize it this way to reduce the number of files that need to be touched when adding new ops.*
