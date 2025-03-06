@@ -75,7 +75,7 @@ class TestBinaryElementwise:
 
         with helper.raises(
             tp.TripyException,
-            match=r"size of operand dimension 1 \(3\) is not compatible with size of result dimension",
+            match=r"broadcast dimensions must be conformable",
             has_stack_info_for=[a, b, c],
         ):
             c.eval()

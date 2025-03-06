@@ -20,6 +20,8 @@ def arg_min_max_impl(TopKType, input, dim, keepdim):
     from nvtripy.frontend.ops.reshape import reshape
     from nvtripy.frontend.ops.squeeze import squeeze
 
+    # TODO (pranavm): Top-K requires 2D inputs probably, so need to unsqueeze.
+    # Flatten should really just flatten instead.
     original_rank = input.rank
     should_flatten = dim is None
     if should_flatten:
