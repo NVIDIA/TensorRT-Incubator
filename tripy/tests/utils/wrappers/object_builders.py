@@ -91,7 +91,8 @@ default_constraints_all = {
     "__add__": {"other": 1},
     "__mul__": {"other": 1},
     "__pow__": {"other": 1},
-    "__sub__": {"other": 1},
+    # HACK: bool can be upcasted to int/float safely, but int/float cannot be downcasted to bool:
+    "__sub__": {"other": True},
     "__truediv__": {"other": 1},
     "__radd__": {"self": 1},
     "__rmul__": {"self": 1},
