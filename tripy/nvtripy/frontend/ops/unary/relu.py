@@ -19,6 +19,7 @@ from nvtripy import export
 from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.trace.ops.unary import Relu
 from nvtripy.utils import wrappers
+from nvtripy.common import datatype
 
 
 @export.public_api(document_under="operations/functions")
@@ -51,4 +52,11 @@ def relu(input: "nvtripy.Tensor") -> "nvtripy.Tensor":
         assert tp.allclose(output, tp.Tensor(torch.nn.functional.relu(t)))
 
     """
+    from nvtripy.frontend.ops.binary.maximum import maximum
+    from nvtripy.frontend.tensor import Tensor
+
+    # TODO (pranavm): Apply to other unary functions?
+    if issubclass(input.dtype, datatype.integer):
+        return maximum(input, Tensor(0, dtype=input.dtype))
+
     return op_utils.create_op(Relu, [input])

@@ -190,9 +190,9 @@ def check_qdq_args(input, scale, dtype, dim, is_quantize):
 
     if dtype not in valid_target_dtypes:
         raise_error(
-            f"Unsupported dtype in {op_str}.",
+            f"Unsupported data type in {op_str}.",
             [
-                f"Supported dtypes are: {valid_target_dtypes}. ",
+                f"Supported data types are: {valid_target_dtypes}. ",
                 f"Got dtype={dtype}",
             ],
         )
@@ -220,7 +220,7 @@ def check_qdq_args(input, scale, dtype, dim, is_quantize):
             )
         if quantized_dtype != tp_dtype.int4:
             raise_error(
-                f"Unsupported dtype in block-wise {op_str}.",
+                f"Unsupported data type in block-wise {op_str}.",
                 [f"Only `tp.int4` is supported, got {quantized_dtype}"],
             )
     elif scale.rank != 0:
