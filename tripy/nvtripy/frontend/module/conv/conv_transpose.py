@@ -32,7 +32,7 @@ from nvtripy.utils import wrappers
 # This function is added so that we can do dtype checking.
 @wrappers.interface(
     dtype_constraints={"input": "T1", "weight": "T1", "bias": "T1", wrappers.RETURN_VALUE: "T1"},
-    dtype_variables={"T1": ["float32", "float16", "bfloat16"]},
+    dtype_variables={"T1": ["float32", "float16"]},
 )
 def deconvolution(
     input: "nvtripy.Tensor",
