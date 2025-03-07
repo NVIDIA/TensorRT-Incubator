@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,5 +22,5 @@ class TestOuter:
     def test_invalid_rank_fails(self):
         a = tp.ones((5, 1))
         b = tp.ones((1, 4))
-        with helper.raises(tp.TripyException, "Expected input vectors to be 1-d."):
+        with helper.raises(tp.TripyException, "Expected input vectors to be 1D."):
             tp.outer(a, b)
