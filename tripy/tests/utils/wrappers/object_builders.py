@@ -107,7 +107,7 @@ default_constraints_all = {
     "convolution": {
         "input": tp.ones((1, 3, 5, 5)),
         "weight": tp.ones((1, 3, 3, 3)),
-        "bias": tp.ones((3,)),
+        "bias": tp.ones((1,)),
         "stride": [1, 1],
         "padding": ((0, 0), (0, 0)),
         "groups": 1,
@@ -116,8 +116,8 @@ default_constraints_all = {
     "cumsum": {"dim": 0},
     "deconvolution": {
         "input": tp.ones((1, 3, 5, 5)),
-        "weight": tp.ones((1, 3, 3, 3)),
-        "bias": tp.ones((3,)),
+        "weight": tp.ones((3, 1, 3, 3)),
+        "bias": tp.ones((1,)),
         "stride": [1, 1],
         "padding": ((0, 0), (0, 0)),
         "groups": 1,
