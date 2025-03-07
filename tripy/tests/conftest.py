@@ -27,7 +27,7 @@ import nvtripy as tp
 from nvtripy.common.datatype import DATA_TYPES
 
 skip_if_older_than_sm89 = pytest.mark.skipif(
-    torch.cuda.get_device_capability() < (8, 9), reason="Some features (e.g. fp8) are not available before SM90"
+    torch.cuda.get_device_capability() < (8, 9), reason="Some features (e.g. float8) are not available before SM90"
 )
 
 skip_if_older_than_sm80 = pytest.mark.skipif(
