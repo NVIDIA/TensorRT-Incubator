@@ -26,6 +26,7 @@ from nvtripy.trace.ops.pooling import AvgPooling
 from nvtripy.utils import wrappers
 
 
+# TODO (pranavm): Check which dtypes are supported by pooling.
 @export.public_api(document_under="operations/functions")
 @wrappers.interface(
     dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
