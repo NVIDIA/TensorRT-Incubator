@@ -147,7 +147,7 @@ default_constraints_all = {
     "resize": {
         "input": tp.ones((1, 3, 8, 8)),
         "mode": "nearest",
-        "scales": [2, 2],
+        "scales": [1, 1, 2, 2],
     },
     "softmax": {"dim": 1},
     "split": {"num_split_or_sizes": 2},
