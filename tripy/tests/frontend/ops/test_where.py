@@ -45,7 +45,7 @@ class TestWhere:
         a = tp.ones((2,), dtype=tp.float32)
         b = tp.ones((2,), dtype=tp.float16)
 
-        with helper.raises(tp.TripyException, match="Mismatched data types for 'where'."):
+        with helper.raises(tp.TripyException, match="Mismatched data types in 'where'."):
             c = tp.where(cond, a, b)
 
     def test_condition_is_not_bool(self):
@@ -53,7 +53,7 @@ class TestWhere:
         a = tp.ones((2,), dtype=tp.float32)
         b = tp.ones((2,), dtype=tp.float32)
 
-        with helper.raises(tp.TripyException, match="Unsupported data type for 'where'."):
+        with helper.raises(tp.TripyException, match="Unsupported data type in 'where'."):
             c = tp.where(cond, a, b)
 
 
@@ -62,5 +62,5 @@ class TestMaskedFill:
         a = tp.Tensor([0, 1, 0, 1])
         mask = tp.Tensor([1.0, 2.0, 3.0, 4.0])
 
-        with helper.raises(tp.TripyException, match="Unsupported data type for 'masked_fill'."):
+        with helper.raises(tp.TripyException, match="Unsupported data type in 'masked_fill'."):
             b = tp.masked_fill(a, mask, -1)
