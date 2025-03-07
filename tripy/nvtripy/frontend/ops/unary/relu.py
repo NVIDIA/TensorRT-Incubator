@@ -26,7 +26,7 @@ from nvtripy.common import datatype
 @wrappers.interface(
     dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
     dtype_variables={
-        "T1": ["float32", "float16", "bfloat16", "int4", "int32", "int64", "bool", "int8"],
+        "T1": ["float32", "float16", "bfloat16", "int4", "int32", "int64", "int8"],
     },
 )
 def relu(input: "nvtripy.Tensor") -> "nvtripy.Tensor":
