@@ -91,7 +91,8 @@ default_constraints_all = {
     "__add__": {"other": 1},
     "__mul__": {"other": 1},
     "__pow__": {"other": 1},
-    "__sub__": {"other": 1},
+    # HACK: bool can be upcasted to int/float safely, but int/float cannot be downcasted to bool:
+    "__sub__": {"other": True},
     "__truediv__": {"other": 1},
     "__radd__": {"self": 1},
     "__rmul__": {"self": 1},
@@ -146,7 +147,7 @@ default_constraints_all = {
     "resize": {
         "input": tp.ones((1, 3, 8, 8)),
         "mode": "nearest",
-        "scales": [2, 2],
+        "scales": [1, 1, 2, 2],
     },
     "softmax": {"dim": 1},
     "split": {"num_split_or_sizes": 2},
