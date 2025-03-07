@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -46,7 +46,7 @@ class TestModule:
 
     def test_incompatible_parameter_cannot_be_set(self, network):
         with helper.raises(
-            tp.TripyException, match=r"New parameter shape: \[2, 3\] is not compatible with current shape: \[2\]"
+            tp.TripyException, match=r"New parameter shape: \(2, 3\) is not compatible with current shape: \(2\)"
         ):
             network.param = tp.ones((2, 3))
 
@@ -114,7 +114,7 @@ class TestModule:
         state_dict = {"param": tp.zeros((3,), dtype=tp.float32)}
 
         with helper.raises(
-            tp.TripyException, match=r"New parameter shape: \[3\] is not compatible with current shape: \[2\]"
+            tp.TripyException, match=r"New parameter shape: \(3,\) is not compatible with current shape: \(2,\)"
         ):
             network.load_state_dict(state_dict, strict=False)
 
