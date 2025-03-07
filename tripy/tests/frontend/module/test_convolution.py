@@ -38,7 +38,7 @@ class TestConvolution:
         conv_layer = conv_func(3, 16, (5, 5), dtype=tp.float16)
         with helper.raises(
             tp.TripyException,
-            match=r"Mismatched data types for 'convolution'.",
+            match=r"Mismatched data types in 'convolution'.",
             has_stack_info_for=[input],
         ):
             output = conv_layer(input)

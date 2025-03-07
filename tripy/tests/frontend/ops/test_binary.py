@@ -63,7 +63,7 @@ class TestBinaryElementwise:
         with helper.raises(
             tp.TripyException,
             # Keep the entire error message here so we'll know if the display becomes horribly corrupted.
-            match=r"Mismatched data types for '__add__'.",
+            match=r"Mismatched data types in '__add__'.",
             has_stack_info_for=[a, b],
         ):
             c = a + b

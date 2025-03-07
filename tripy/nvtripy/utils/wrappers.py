@@ -363,7 +363,7 @@ def interface(
                         other_name, other_arg_dtype, other_arg = type_var_first_args[type_var]
                         if other_arg_dtype != arg_dtype:
                             raise_error(
-                                f"Mismatched data types for '{func.__qualname__}'.",
+                                f"Mismatched data types in '{func.__qualname__}'.",
                                 [
                                     f"Parameters: '{other_name}' and '{name}' must have matching data types, but got: "
                                     f"'{other_arg_dtype.name}' and '{arg_dtype.name}' respectively.\n"
