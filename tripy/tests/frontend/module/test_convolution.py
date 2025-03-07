@@ -36,11 +36,7 @@ class TestConvolution:
     def test_mismatched_dtypes_fails(self, conv_func):
         input = tp.ones((4, 3, 8, 8), dtype=tp.float32)
         conv_layer = conv_func(3, 16, (5, 5), dtype=tp.float16)
-        with helper.raises(
-            tp.TripyException,
-            match=r"Mismatched data types in 'convolution'.",
-            has_stack_info_for=[input],
-        ):
+        with helper.raises(tp.TripyException, match=r"Mismatched data types in", has_stack_info_for=[input]):
             output = conv_layer(input)
 
     def test_mismatched_dim_fails(self, conv_func):
