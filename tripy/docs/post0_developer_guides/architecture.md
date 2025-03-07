@@ -1,5 +1,6 @@
 
 <!-- TODO (pranavm): Rewrite this -->
+<!-- TODO (pranavm): Add back how to add ops guide -->
 # Architecture
 
 This document explains the overall architecture of Tripy.

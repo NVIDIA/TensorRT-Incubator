@@ -33,7 +33,7 @@ class TestMatMul:
         a = tp.ones((2, 3), dtype=tp.float32)
         b = tp.ones((3, 2), dtype=tp.float16)
 
-        with helper.raises(tp.TripyException, match="Mismatched data types for '__matmul__'."):
+        with helper.raises(tp.TripyException, match="Mismatched data types in '__matmul__'."):
             c = a @ b
 
     def test_incompatible_1d_shapes_fails(self):
@@ -52,6 +52,6 @@ class TestMatMul:
         c = a @ b
 
         with helper.raises(
-            tp.TripyException, match="last dimension of input0 = 4 and last dimension of input1 = 3 but must match"
+            tp.TripyException, match="last dimension of input0 = 4 and second to last dimension of input1 = 3"
         ):
             c.eval()
