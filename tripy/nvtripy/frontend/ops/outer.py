@@ -22,11 +22,11 @@ from nvtripy.utils import wrappers
 @export.public_api(document_under="operations/functions")
 @wrappers.interface(
     dtype_constraints={"vec1": "T1", "vec2": "T1", wrappers.RETURN_VALUE: "T1"},
-    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int32"]},
+    dtype_variables={"T1": ["float32", "float16", "bfloat16"]},
 )
 def outer(vec1: "nvtripy.Tensor", vec2: "nvtripy.Tensor") -> "nvtripy.Tensor":
     r"""
-    Computes the outer product of 1-d vectors ``vec1`` and ``vec2``, such that the
+    Computes the outer product of 1D vectors ``vec1`` and ``vec2``, such that the
     output shape is :math:`(m, n)` if the inputs are of size :math:`(m,)` and :math:`(n,)` respectively.
 
     Args:
@@ -54,7 +54,7 @@ def outer(vec1: "nvtripy.Tensor", vec2: "nvtripy.Tensor") -> "nvtripy.Tensor":
 
     if vec1.rank != 1 or vec2.rank != 1:
         raise_error(
-            "Expected input vectors to be 1-d.",
+            "Expected input vectors to be 1D.",
             [f"Got vec1.rank={vec1.rank}, ", f"vec2.rank={vec2.rank}"],
         )
 

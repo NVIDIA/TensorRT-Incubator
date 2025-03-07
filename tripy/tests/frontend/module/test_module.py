@@ -46,7 +46,7 @@ class TestModule:
 
     def test_incompatible_parameter_cannot_be_set(self, network):
         with helper.raises(
-            tp.TripyException, match=r"New parameter shape: \(2, 3\) is not compatible with current shape: \(2\)"
+            tp.TripyException, match=r"New parameter shape: \(2, 3\) is not compatible with current shape: \(2,\)"
         ):
             network.param = tp.ones((2, 3))
 
@@ -144,15 +144,15 @@ class TestModule:
         expected_output = dedent(
             """
             Network(
-                param: Parameter = (shape=[2], dtype=float32),
+                param: Parameter = (shape=(2,), dtype=float32),
                 dummy1: Module = DummyOp(
                     nested: Module = DummyNestedOp(
-                        param: Parameter = (shape=[2], dtype=float32),
+                        param: Parameter = (shape=(2,), dtype=float32),
                     ),
                 ),
                 dummy2: Module = DummyOp(
                     nested: Module = DummyNestedOp(
-                        param: Parameter = (shape=[2], dtype=float32),
+                        param: Parameter = (shape=(2,), dtype=float32),
                     ),
                 ),
             )
@@ -370,20 +370,20 @@ class TestMixedContainerNetwork:
         assert str(mixed_container_network) == dedent(
             """\
             MixedContainerNetwork(
-                param: Parameter = (shape=[2], dtype=float32),
+                param: Parameter = (shape=(2,), dtype=float32),
                 mixed_list.0: Module = DummyOp(
                     nested: Module = DummyNestedOp(
-                        param: Parameter = (shape=[2], dtype=float32),
+                        param: Parameter = (shape=(2,), dtype=float32),
                     ),
                 ),
                 mixed_list.2: Module = DummyOp(
                     nested: Module = DummyNestedOp(
-                        param: Parameter = (shape=[2], dtype=float32),
+                        param: Parameter = (shape=(2,), dtype=float32),
                     ),
                 ),
                 mixed_dict.dummy: Module = DummyOp(
                     nested: Module = DummyNestedOp(
-                        param: Parameter = (shape=[2], dtype=float32),
+                        param: Parameter = (shape=(2,), dtype=float32),
                     ),
                 ),
             )"""

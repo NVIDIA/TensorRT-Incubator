@@ -54,13 +54,11 @@ class TestConvolution:
     def test_invalid_rank_fails(self, conv_func):
         input = tp.ones((4, 3, 8, 8), dtype=tp.float32)
         conv_layer = conv_func(3, 16, (5,), dtype=tp.float32)
-        output = conv_layer(input)
 
         with helper.raises(
-            tp.TripyException,
-            match=r"expects convolution arguments to have same number of dimensions.",
-            has_stack_info_for=[input],
+            tp.TripyException, match=r"Input and weight should have the same number of spatial dimensions"
         ):
+            output = conv_layer(input)
             output.eval()
 
     @pytest.mark.parametrize(

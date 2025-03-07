@@ -29,11 +29,7 @@ class TestEmbedding:
 
     def test_incorrect_input_dtype(self):
         a = tp.ones((2, 3))
-        linear = tp.Embedding(4, 16)
+        embd = tp.Embedding(4, 16)
 
-        with helper.raises(
-            tp.TripyException,
-            match="Unsupported data type in 'gather'.",
-            has_stack_info_for=[a],
-        ):
-            out = linear(a)
+        with helper.raises(tp.TripyException, match="Unsupported data type in 'gather'."):
+            out = embd(a)

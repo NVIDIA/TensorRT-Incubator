@@ -165,7 +165,7 @@ class TestMixedContainerSequential:
         assert isinstance(mixed_container_sequential_network[3], tp.Module)
 
     def test_forward_pass(self, mixed_container_sequential_network):
-        input_data = tp.Tensor(tp.ones((1, 2, 2, 2), dtype=tp.float32))
+        input_data = tp.ones((1, 2, 2, 2), dtype=tp.float32)
         output = mixed_container_sequential_network(input_data)
         assert output.shape == (1, 1)
 

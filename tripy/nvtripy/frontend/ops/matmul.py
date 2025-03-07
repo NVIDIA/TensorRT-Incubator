@@ -15,6 +15,7 @@
 # limitations under the License.
 #
 
+from nvtripy.common.exception import raise_error
 from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.frontend.ops._registry import register_tensor_method
 from nvtripy.trace.ops.matmul import MatrixMultiply
@@ -54,6 +55,12 @@ def __matmul__(self: "nvtripy.Tensor", other: "nvtripy.Tensor") -> "nvtripy.Tens
         output = a @ b
         assert np.array_equal(cp.from_dlpack(output).get(), cp.from_dlpack(a).get() @ cp.from_dlpack(b).get())
     """
+    if self.rank == 0 or other.rank == 0:
+        raise_error(
+            "Input tensors must have at least 1 dimension.",
+            [f"Note: Input tensors had {self.rank} and {other.rank} dimension(s) respectively."],
+        )
+
     # Don't expand ranks if one of the inputs is rank 1:
     if self.rank != 1 and other.rank != 1:
         self, other = op_utils.match_ranks(self, other)
