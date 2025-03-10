@@ -15,7 +15,7 @@
 from typing import Optional, Sequence, Union
 
 from nvtripy import export
-from nvtripy.frontend.ops import utils as op_utils
+from nvtripy.frontend.ops.reduce.utils import reduce_impl
 from nvtripy.trace.ops.reduce import Max
 from nvtripy.utils import wrappers
 
@@ -49,5 +49,4 @@ def max(
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.max(np.arange(6, dtype=np.float32).reshape((2, 3)), 0))
     """
-    dim = op_utils.process_dim_sequence(dim, input.rank)
-    return op_utils.create_op(Max, [input], dim, keepdim)
+    return reduce_impl(Max, input, dim, keepdim)
