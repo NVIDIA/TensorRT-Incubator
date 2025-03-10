@@ -37,7 +37,6 @@ class Shape(BaseTraceOp):
 
 
 # This is a special case of slice that is only designed to get a single element from a shape.
-# TODO (pranavm): Replace GetDimensionSize with Slice/Squeeze trace operations in the frontend.
 @dataclass(repr=False)
 class GetDimensionSize(BaseTraceOp):
     dim: int
