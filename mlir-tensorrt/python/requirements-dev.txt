@@ -2,7 +2,6 @@
 # The GPU version installs `nvidia-` pip packages which confuse JAX.
 -r requirements.txt
 --extra-index-url https://download.pytorch.org/whl/cpu
-numpy<2.0.0
 click
 matplotlib
 pandas

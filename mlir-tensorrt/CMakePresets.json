@@ -70,6 +70,23 @@
         "CMAKE_C_COMPILER": "gcc",
         "CMAKE_CXX_COMPILER": "g++"
       }
+    },
+    {
+      "name": "ninja-clang-wheel-release",
+      "displayName": "Ninja Release clang wheels",
+      "generator": "Ninja",
+      "binaryDir": "build",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++",
+        "LLVM_ENABLE_ASSERTIONS": "OFF",
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_PLATFORM_NO_VERSIONED_SONAME": "ON",
+        "LLVM_MINIMUM_PYTHON_VERSION": "$env{PY_VERSION}",
+        "MLIR_TRT_ENABLE_NCCL": "OFF",
+        "MLIR_TRT_DOWNLOAD_TENSORRT_VERSION": "$env{DOWNLOAD_TENSORRT_VERSION}"
+      }
     }
   ]
 }
