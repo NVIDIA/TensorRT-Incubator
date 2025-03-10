@@ -115,7 +115,9 @@ class TestReduceOp:
     @pytest.mark.parametrize(
         "x_shape, axis, keepdim",
         [
+            (tuple(), 0, True),
             ((2, 3), 1, True),
+            ((2, 3), None, True),
             ((2, 3, 4), 2, True),
             ((2, 3), 1, False),
             ((2, 3, 4), 2, False),
@@ -132,7 +134,9 @@ class TestReduceOp:
     @pytest.mark.parametrize(
         "x_shape, axis, keepdim",
         [
+            (tuple(), 0, True),
             ((2, 3), 1, True),
+            ((2, 3), None, True),
             ((2, 3, 4), 2, True),
             ((2, 3), 1, False),
             ((2, 3, 4), 2, False),
