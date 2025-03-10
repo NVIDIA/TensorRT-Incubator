@@ -64,6 +64,7 @@ def var(
     from nvtripy.frontend.ops.reduce.mean import mean
     from nvtripy.frontend.ops.reduce.sum import sum
 
+    # TODO (pranavm): Test with scalars
     dim = op_utils.process_dim_sequence(dim, input.rank)
 
     mean_val = mean(input, dim=dim, keepdim=True)
