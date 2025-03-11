@@ -29,10 +29,10 @@ from tests import helper
 @dataclass
 class ConvTestCase:
     num_spatial_dims: int
-    padding: Sequence[Tuple[int, int]] = None
     stride: Sequence[int] = None
-    groups: int = 1
+    padding: Sequence[Tuple[int, int]] = None
     dilation: Sequence[int] = None
+    groups: int = 1
     bias: bool = False
     spatial_size: int = 2
 
@@ -45,10 +45,11 @@ class ConvTestCase:
 TEST_CASES = [
     ConvTestCase(1),
     ConvTestCase(2),
+    ConvTestCase(2, stride=(2, 2)),
     ConvTestCase(2, padding=[(1, 1), (1, 1)]),
     ConvTestCase(2, padding=[(1, 0), (1, 2)]),  # Asymmetric padding
-    ConvTestCase(2, stride=(2, 2)),
     ConvTestCase(2, dilation=(2, 2), spatial_size=3),
+    ConvTestCase(2, groups=2),
     ConvTestCase(3),
 ]
 
