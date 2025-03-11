@@ -254,13 +254,10 @@ def check_conv_pooling_args(kernel_dims, stride, padding, dilation=None):
         if len(padding) != spatial_dims:
             raise_error(
                 "Padding must have the same length as kernel_dims.",
-                [f"Got padding={padding}, ", f"kernel_dims={kernel_dims}"],
-            )
-
-        if not all(len(pad) == 2 for pad in padding):
-            raise_error(
-                f"Padding must be provided as a sequence of pairs of integers.",
-                details=[f"Supplied padding attribute: {padding} contains sequences that are not of length 2."],
+                [
+                    f"Got padding={padding} of length={len(padding)}, but ",
+                    f"kernel_dims={kernel_dims} of length={len(kernel_dims)}",
+                ],
             )
 
         if not all(p1 >= 0 and p2 >= 0 for p1, p2 in padding):

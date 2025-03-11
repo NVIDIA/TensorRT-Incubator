@@ -17,7 +17,7 @@
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Tuple
 
 from nvtripy import export
 from nvtripy.common import datatype
@@ -79,7 +79,7 @@ class Conv(ConvBase):
     weight: Tensor
     r"""The kernel of shape :math:`(\text{out_channels}, \frac{\text{in_channels}}{\text{groups}}, *\text{kernel_dims})`."""
 
-    padding: Sequence[Sequence[int]]
+    padding: Sequence[Tuple[int, int]]
     r"""
     A sequence of pairs of integers of length :math:`M` indicating the zero padding
     to apply to the input along each spatial dimension before and after the dimension respectively,
@@ -120,10 +120,10 @@ class Conv(ConvBase):
         in_channels: int,
         out_channels: int,
         kernel_dims: Sequence[int],
-        padding: Optional[Sequence[Sequence[int]]] = None,
         stride: Optional[Sequence[int]] = None,
-        groups: Optional[int] = None,
+        padding: Optional[Sequence[Tuple[int, int]]] = None,
         dilation: Optional[Sequence[int]] = None,
+        groups: Optional[int] = None,
         bias: bool = True,
         dtype: datatype.dtype = datatype.float32,
     ) -> None:
