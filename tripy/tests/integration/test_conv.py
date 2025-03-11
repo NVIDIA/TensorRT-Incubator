@@ -55,7 +55,7 @@ TEST_CASES = [
 
 
 @pytest.mark.parametrize("case", TEST_CASES)
-@pytest.mark.parametrize("dtype", [tp.float32, tp.float16])
+@pytest.mark.parametrize("dtype", [tp.float32, tp.float16, tp.bfloat16])
 def test_convolution(case, dtype, eager_or_compiled):
     IN_BATCH = 1
     IN_CHANNELS = 2
@@ -116,4 +116,5 @@ def test_convolution(case, dtype, eager_or_compiled):
 
     tripy_out = eager_or_compiled(tripy_conv, tp.Tensor(inp))
 
-    assert tp.allclose(tripy_out, tp.Tensor(torch_out))
+    torch_out = tp.Tensor(torch_out)
+    assert tp.allclose(tripy_out, torch_out)
