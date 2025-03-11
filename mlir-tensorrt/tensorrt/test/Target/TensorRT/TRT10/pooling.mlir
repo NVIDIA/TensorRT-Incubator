@@ -18,3 +18,17 @@ func.func @trt_average_pool_2d_fp8(%arg0: tensor<4x128x200x1xf8E4M3FN>) -> tenso
   } ins(%dq : tensor<4x128x200x1xf16>) -> tensor<4x128x20x1xf16>
   return %0 : tensor<4x128x20x1xf16>
 }
+
+// CHECK-LABEL: @trt_average_pool_2d_bf16
+//  CHECK-SAME: tensorrt.engine
+func.func @trt_average_pool_2d_bf16(%arg0: tensor<4x128x200x1xbf16>) -> tensor<4x128x20x1xbf16> {
+  %0 = tensorrt.pooling {
+    averageCountExcludesPadding = true,
+    poolingType = #tensorrt.pooling_type<kAVERAGE>,
+    postPadding = array<i64: 0, 0>,
+    prePadding = array<i64: 0, 0>,
+    stride = array<i64: 10, 1>,
+    windowSize = array<i64: 10, 1>
+  } ins(%arg0 : tensor<4x128x200x1xbf16>) -> tensor<4x128x20x1xbf16>
+  return %0 : tensor<4x128x20x1xbf16>
+}
