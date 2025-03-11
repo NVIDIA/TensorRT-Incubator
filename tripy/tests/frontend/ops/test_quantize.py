@@ -72,3 +72,12 @@ class TestQuantize:
             match="Scale must be a scalar tensor in per-tensor quantize op",
         ):
             a = tp.quantize(a, scale, tp.int8)
+
+    def test_non_constant_scale(self):
+        input = tp.ones((4, 4))
+        scale = tp.ones((4,))
+        with helper.raises(
+            tp.TripyException,
+            match="Scale must be a constant"
+        ):
+            quantized = tp.quantize(input, scale, tp.int8, dim=0)
