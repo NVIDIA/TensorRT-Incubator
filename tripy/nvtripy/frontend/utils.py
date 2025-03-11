@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -23,14 +23,14 @@ def pretty_print(data_list, shape, threshold=40, linewidth=10, edgeitems=3):
 
     def _data_str(data, summarize, linewidth, edgeitems, indent=0):
         if isinstance(data, (float, int)):
-            return str(data)
+            return f"{data:g}"
 
         if len(data) == 0 or isinstance(data[0], (float, int)):
             if summarize and len(data) > 2 * edgeitems:
                 data_lines = [data[:edgeitems] + ["..."] + data[-edgeitems:]]
             else:
                 data_lines = [data[i : i + linewidth] for i in range(0, len(data), linewidth)]
-            lines = [", ".join([f"{e:.4f}" if isinstance(e, float) else str(e) for e in line]) for line in data_lines]
+            lines = [", ".join([f"{e:g}" for e in line]) for line in data_lines]
             return "[" + ("," + "\n" + " " * (indent + 1)).join(lines) + "]"
 
         if summarize and len(data) > 2 * edgeitems:
