@@ -146,10 +146,10 @@ def compile(
             tensor.trace_tensor.is_compile_tracer = True
 
             # Set trace tensor dimensions for any static dimensions
-            tensor.trace_tensor.shape = [
+            tensor.trace_tensor.shape = tuple(
                 constants.DYNAMIC_DIM if dim_min != dim_max else dim_min
                 for dim_min, dim_max in zip(arg.shape_bounds.min, arg.shape_bounds.max)
-            ]
+            )
 
             trace_input_map[name] = tensor
             shapes.append(arg.shape_bounds)
