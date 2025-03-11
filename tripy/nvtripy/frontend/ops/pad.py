@@ -15,14 +15,14 @@
 # limitations under the License.
 #
 
-from typing import Sequence, Union
+from typing import Sequence, Tuple, Union
 
 from nvtripy import export
 from nvtripy.common.exception import raise_error
 from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.trace.ops.shape import Shape
 from nvtripy.trace.ops.slice import SliceFill
-from nvtripy.types import ShapeLike
+from nvtripy.types import IntLike
 from nvtripy.utils import wrappers
 
 
@@ -32,7 +32,10 @@ from nvtripy.utils import wrappers
     dtype_variables={"T1": ["float32", "float16", "bool", "int32", "int64"]},
 )
 def pad(
-    input: "nvtripy.Tensor", pad: Sequence[ShapeLike], mode: str = "constant", value: Union[int, float] = 0
+    input: "nvtripy.Tensor",
+    pad: Sequence[Tuple[IntLike, IntLike]],
+    mode: str = "constant",
+    value: Union[int, float] = 0,
 ) -> "nvtripy.Tensor":
     r"""
     Pads the input tensor.
@@ -54,7 +57,7 @@ def pad(
         :caption: Constant padding.
 
         input = tp.reshape(tp.arange(6, dtype=tp.float32), (2, 3))
-        output = tp.pad(input, ((1, 0), (0, 1)))
+        output = tp.pad(input, [(1, 0), (0, 1)])
 
         input_np = np.arange(6, dtype=np.float32).reshape((2, 3)) # doc: omit
         expected = np.pad(input_np, ((1, 0), (0, 1))) # doc: omit
