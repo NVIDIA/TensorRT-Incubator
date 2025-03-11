@@ -423,8 +423,9 @@ bool tensorrt::PoolingOp::isValidForTensorRTVersion(int64_t trtMajorVersion) {
   switch (trtMajorVersion) {
   case 8:
   case 9:
-  case 10:
     return isType(inputElementType, I8, F16, F32);
+  case 10:
+    return isType(inputElementType, I8, F16, F32, BF16);
   default:
     return false;
   }
