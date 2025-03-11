@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-from typing import Optional, Sequence
+from typing import Optional, Sequence, Tuple
 
 from nvtripy import export
 from nvtripy.common import datatype
@@ -35,7 +35,7 @@ def avgpool(
     input: "nvtripy.Tensor",
     kernel_dims: Sequence[int],
     stride: Optional[Sequence[int]] = None,
-    padding: Optional[Sequence[Sequence[int]]] = None,
+    padding: Optional[Sequence[Tuple[int, int]]] = None,
     count_include_pad: bool = True,
 ) -> "nvtripy.Tensor":
     r"""
