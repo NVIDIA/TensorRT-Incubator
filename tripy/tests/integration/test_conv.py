@@ -50,13 +50,14 @@ TEST_CASES = [
     ConvTestCase(2, padding=[(1, 0), (1, 2)]),  # Asymmetric padding
     ConvTestCase(2, dilation=(2, 2), spatial_size=3),
     ConvTestCase(2, groups=2),
+    ConvTestCase(2, bias=True),
     ConvTestCase(3),
 ]
 
 
 @pytest.mark.parametrize("case", TEST_CASES)
 @pytest.mark.parametrize("dtype", [tp.float32, tp.float16, tp.bfloat16])
-def test_convolution(case, dtype, eager_or_compiled):
+def test_conv(case, dtype, eager_or_compiled):
     IN_BATCH = 1
     IN_CHANNELS = 2
     IN_SPATIAL_DIMS = (case.spatial_size,) * case.num_spatial_dims
@@ -94,6 +95,10 @@ def test_convolution(case, dtype, eager_or_compiled):
             ),
             requires_grad=False,
         )
+        if case.bias:
+            torch_conv.bias = torch.nn.Parameter(
+                torch.arange(OUT_CHANNELS, dtype=torch_dtype, device=torch.device("cuda")), requires_grad=False
+            )
 
         # torch.nn.Conv* do not support asymmetric padding, so we need to do that separately.
         padded_inp = torch.nn.functional.pad(inp, torch_padding)
