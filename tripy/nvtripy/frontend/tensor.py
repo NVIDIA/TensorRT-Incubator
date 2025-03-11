@@ -177,6 +177,7 @@ class Tensor(metaclass=TensorMeta):
     def device(self):
         return self.trace_tensor.device
 
+    # TODO (pranavm): Document this and `tolist()`? Figure out more ergonomic way to get scalar value.
     def eval(self) -> runtime.MemRefValue:
         if isinstance(self.trace_tensor.producer, Constant):
             # Exit early if the tensor has already been evaluated.

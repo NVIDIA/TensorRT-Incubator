@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-from typing import Optional, Sequence
+from typing import Optional, Sequence, Tuple
 
 from nvtripy import export
 from nvtripy.frontend.ops import utils as op_utils
@@ -33,7 +33,7 @@ def maxpool(
     input: "nvtripy.Tensor",
     kernel_dims: Sequence[int],
     stride: Optional[Sequence[int]] = None,
-    padding: Optional[Sequence[Sequence[int]]] = None,
+    padding: Optional[Sequence[Tuple[int, int]]] = None,
 ) -> "nvtripy.Tensor":
     r"""
     Applies a max pooling over the input tensor.
