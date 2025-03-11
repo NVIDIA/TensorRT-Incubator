@@ -1443,7 +1443,7 @@ def TensorRT_PoolingOp : TensorRT_Op<"pooling",
   }];
 
   let arguments = (ins
-    TensorRT_RankedTensorOf<[TensorRT_I8, F16, F32]>:$input,
+    TensorRT_RankedTensorOf<[TensorRT_I8, F16, F32, BF16]>:$input,
     DenseI64ArrayAttr:$windowSize,
     DenseI64ArrayAttr:$stride,
     DenseI64ArrayAttr:$prePadding,
@@ -1452,7 +1452,7 @@ def TensorRT_PoolingOp : TensorRT_Op<"pooling",
     OptionalAttr<F32Attr>:$blendFactor,
     OptionalAttr<BoolAttr>:$averageCountExcludesPadding
   );
-  let results = (outs TensorRT_RankedTensorOf<[TensorRT_I8, F16, F32]>:$result);
+  let results = (outs TensorRT_RankedTensorOf<[TensorRT_I8, F16, F32, BF16]>:$result);
   let assemblyFormat = "attr-dict `ins` `(` $input `:` type($input) `)` `->` type($result)";
   let hasVerifier = 1;
   let extraClassDeclaration = [{
