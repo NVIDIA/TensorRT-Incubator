@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -25,6 +25,7 @@ from nvtripy.trace.ops.quantize import Quantize
 from nvtripy.utils import wrappers
 
 
+# TODO (pranavm): Make Q/DQ modules since `scale` has to be a parameter.
 @export.public_api(document_under="operations/quantization")
 @wrappers.interface(
     dtype_constraints={"input": "T1", "scale": "T1", "dtype": "T2", wrappers.RETURN_VALUE: "T2"},
