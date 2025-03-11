@@ -17,7 +17,7 @@
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Tuple
 
 from nvtripy import export
 from nvtripy.common import datatype
@@ -30,6 +30,7 @@ from nvtripy.utils import wrappers
 
 
 # This function is added so that we can do dtype checking.
+# TODO (#565): TRT supposedly supports BF16 in deconv, but actually trying to use it results in a bug.
 @wrappers.interface(
     dtype_constraints={"input": "T1", "weight": "T1", "bias": "T1", wrappers.RETURN_VALUE: "T1"},
     dtype_variables={"T1": ["float32", "float16"]},
@@ -81,7 +82,7 @@ class ConvTranspose(ConvBase):
     The kernel of shape :math:`(\text{in_channels}, \frac{\text{out_channels}}{\text{groups}}, *\text{kernel_dims})`.
     """
 
-    padding: Sequence[Sequence[int]]
+    padding: Sequence[Tuple[int, int]]
     r"""
     A sequence of pairs of integers of length :math:`M` indicating the implicit zero padding
     applied along each spatial dimension before and after the dimension respectively,
@@ -127,10 +128,10 @@ class ConvTranspose(ConvBase):
         in_channels: int,
         out_channels: int,
         kernel_dims: Sequence[int],
-        padding: Optional[Sequence[Sequence[int]]] = None,
         stride: Optional[Sequence[int]] = None,
-        groups: Optional[int] = None,
+        padding: Optional[Sequence[Tuple[int, int]]] = None,
         dilation: Optional[Sequence[int]] = None,
+        groups: Optional[int] = None,
         bias: bool = True,
         dtype: datatype.dtype = datatype.float32,
     ) -> None:
