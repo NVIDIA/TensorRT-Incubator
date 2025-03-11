@@ -1,3 +1,6 @@
+<!-- TODO (pranavm): Rewrite architecture guide -->
+<!-- TODO (pranavm): Add back how to add ops guide -->
+
 # Documentation
 
 This directory contains **source** files for public guides and **configuration**
