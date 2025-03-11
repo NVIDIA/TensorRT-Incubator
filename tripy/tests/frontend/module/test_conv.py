@@ -61,7 +61,11 @@ class TestConvolution:
         "padding, err, expect_input_stack_info",
         [
             (((2, 2),), r"Padding must have the same length as kernel_dims.", False),
-            (((2, 2, 2), (2, 2, 2)), r"Padding must be provided as a sequence of pairs of integers.", False),
+            (
+                ((2, 2, 2), (2, 2, 2)),
+                r"For parameter: 'padding', expected an instance of type: 'Sequence[Tuple[int, int]] | None' ",
+                False,
+            ),
             (((1, 2), (-3, 1)), r"Negative padding is not supported.", False),
         ],
     )

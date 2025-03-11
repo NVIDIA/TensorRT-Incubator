@@ -15,306 +15,117 @@
 # limitations under the License.
 #
 
+import math
 from collections.abc import Sequence
 from dataclasses import dataclass
-
-import pytest
-import torch
+from typing import Tuple
 
 import nvtripy as tp
-
-DTYPES = [
-    (torch.float16, tp.float16),
-    (torch.float32, tp.float32),
-]
+import pytest
+import torch
+from tests import helper
 
 
 @dataclass
-class ConvTestCase:
-    tp_pad: Sequence[Sequence[int]] = None
-    torch_pad: Sequence[int] = None
+class ConvTransposeTestCase:
+    num_spatial_dims: int
     stride: Sequence[int] = None
-    groups: int = 1
+    padding: Sequence[Tuple[int, int]] = None
     dilation: Sequence[int] = None
+    groups: int = 1
     bias: bool = False
+    spatial_size: int = 2
+
+    def __post_init__(self):
+        self.padding = self.padding or [(0, 0)] * self.num_spatial_dims
+        self.stride = self.stride or [1] * self.num_spatial_dims
+        self.dilation = self.dilation or [1] * self.num_spatial_dims
 
 
-test_cases_transpose_1d = [
-    ConvTestCase(tp_pad=((2, 2),), torch_pad=2),
-    ConvTestCase(stride=(1,)),
-    ConvTestCase(groups=2),
-    ConvTestCase(dilation=(2,)),
-    ConvTestCase(bias=True),
-]
-
-test_cases_transpose_2d = [
-    ConvTestCase(tp_pad=((2, 2), (1, 1)), torch_pad=(2, 1)),
-    ConvTestCase(stride=(1, 1)),
-    ConvTestCase(groups=2),
-    ConvTestCase(dilation=(1, 2)),
-    ConvTestCase(bias=True),
-]
-
-test_cases_transpose_3d = [
-    ConvTestCase(tp_pad=((2, 2), (1, 1), (2, 2)), torch_pad=(2, 1, 2)),
-    ConvTestCase(stride=(1, 1, 1)),
-    ConvTestCase(groups=2),
-    ConvTestCase(dilation=(3, 1, 2)),
-    ConvTestCase(bias=True),
-]
-
-test_cases_transpose_downscale = [
-    ConvTestCase(stride=(1, 1), tp_pad=((1, 1), (1, 1)), torch_pad=(1, 1)),
-    ConvTestCase(stride=(2, 2), tp_pad=((2, 2), (2, 2)), torch_pad=(2, 2)),
+TEST_CASES = [
+    ConvTransposeTestCase(1),
+    ConvTransposeTestCase(2),
+    ConvTransposeTestCase(2, stride=(2, 2)),
+    ConvTransposeTestCase(2, padding=[(1, 1), (1, 1)]),
+    ConvTransposeTestCase(2, padding=[(1, 0), (0, 2)]),  # Asymmetric padding
+    ConvTransposeTestCase(2, dilation=(2, 2), spatial_size=3),
+    ConvTransposeTestCase(2, groups=2),
+    ConvTransposeTestCase(2, bias=True),
+    ConvTransposeTestCase(3),
 ]
 
 
-# TODO (#147): Update tests to use Torch FP16 convolution
+@pytest.mark.parametrize("case", TEST_CASES)
+@pytest.mark.parametrize("dtype", [tp.float32, tp.float16])
+def test_conv_transpose(case, dtype, eager_or_compiled):
+    IN_BATCH = 1
+    IN_CHANNELS = 2
+    IN_SPATIAL_DIMS = (case.spatial_size,) * case.num_spatial_dims
+    OUT_CHANNELS = 2
+    KERNEL_SIZE = (2,) * case.num_spatial_dims
 
+    TorchConvTranspose = {1: torch.nn.ConvTranspose1d, 2: torch.nn.ConvTranspose2d, 3: torch.nn.ConvTranspose3d}[
+        case.num_spatial_dims
+    ]
+    torch_dtype = helper.TORCH_DTYPES[dtype]
 
-@pytest.mark.parametrize("torch_dtype,tp_dtype", DTYPES)
-class TestConvolution:
-    @pytest.mark.parametrize("test_case", test_cases_transpose_1d)
-    def test_transposed_convolution_1d(self, torch_dtype, tp_dtype, test_case, eager_or_compiled):
-        if not test_case.torch_pad:
-            test_case.torch_pad = 0
-        if not test_case.stride:
-            test_case.stride = (2,)
-        if not test_case.dilation:
-            test_case.dilation = (1,)
+    inp_shape = (IN_BATCH, IN_CHANNELS) + IN_SPATIAL_DIMS
 
-        input_torch = torch.arange(12, dtype=torch.float32, device=torch.device("cuda")).reshape(*(1, 4, 3))
-        input = tp.cast(tp.Tensor(input_torch), tp_dtype)
+    with torch.no_grad():
+        inp = torch.arange(math.prod(inp_shape), dtype=torch_dtype, device=torch.device("cuda")).reshape(inp_shape)
 
-        conv_layer_torch = torch.nn.ConvTranspose1d(
-            4,
-            8,
-            3,
-            padding=test_case.torch_pad,
-            stride=test_case.stride,
-            groups=test_case.groups,
-            dilation=test_case.dilation,
-            bias=test_case.bias,
-            dtype=torch.float32,
+        torch_padding = []
+        # Torch padding starts from the last dimension
+        for tup in reversed(case.padding):
+            torch_padding.extend(tup)
+
+        torch_conv_transpose = TorchConvTranspose(
+            IN_CHANNELS,
+            OUT_CHANNELS,
+            KERNEL_SIZE,
+            case.stride,
+            dilation=case.dilation,
+            groups=case.groups,
+            bias=case.bias,
+            dtype=torch_dtype,
             device=torch.device("cuda"),
         )
-        fixed_weights = torch.tensor(
-            [[[0.1, 0.2, 0.3]] * int(8 / (conv_layer_torch.groups))] * 4,
-            dtype=torch.float32,
-            device=torch.device("cuda"),
+        weights_shape = (IN_CHANNELS, OUT_CHANNELS // case.groups) + KERNEL_SIZE
+        torch_conv_transpose.weight = torch.nn.Parameter(
+            torch.arange(math.prod(weights_shape), dtype=torch_dtype, device=torch.device("cuda")).reshape(
+                weights_shape
+            ),
+            requires_grad=False,
         )
-        conv_layer_torch.weight.data = fixed_weights
-        for param in conv_layer_torch.parameters():
-            param.requires_grad = False
+        if case.bias:
+            torch_conv_transpose.bias = torch.nn.Parameter(
+                torch.arange(OUT_CHANNELS, dtype=torch_dtype, device=torch.device("cuda")), requires_grad=False
+            )
 
-        conv_layer = tp.ConvTranspose(
-            4,
-            8,
-            (3,),
-            padding=test_case.tp_pad,
-            stride=test_case.stride,
-            groups=test_case.groups,
-            dilation=test_case.dilation,
-            bias=test_case.bias,
-            dtype=tp_dtype,
-        )
-        conv_layer.weight = tp.cast(tp.Tensor(conv_layer_torch.weight.data), tp_dtype)
-        if test_case.bias:
-            conv_layer.bias = tp.cast(tp.Tensor(conv_layer_torch.bias.data), tp_dtype)
+        torch_out = torch_conv_transpose(inp)
+        # torch.nn.ConvTranspose* do not support asymmetric padding, so we need to do that separately.
+        # Padding in ConvTranspose is the same as cropping the output.
+        slices = [slice(None), slice(None)]
+        for low, high in case.padding:
+            slices.append(slice(low, -high if high != 0 else None))
+        torch_out = torch_out.__getitem__(slices).contiguous().clone()
 
-        expected = conv_layer_torch(input_torch).to(torch_dtype)
-        output = eager_or_compiled(conv_layer, input)
+    tripy_conv_transpose = tp.ConvTranspose(
+        IN_CHANNELS,
+        OUT_CHANNELS,
+        KERNEL_SIZE,
+        case.stride,
+        case.padding,
+        case.dilation,
+        case.groups,
+        case.bias,
+        dtype=dtype,
+    )
+    tripy_conv_transpose.weight = tp.Tensor(torch_conv_transpose.weight)
+    if case.bias:
+        tripy_conv_transpose.bias = tp.Tensor(torch_conv_transpose.bias)
 
-        rtol_ = 3e-3
-        assert tp.allclose(output, tp.Tensor(expected), rtol=rtol_)
-        assert output.shape == tuple(expected.shape)
+    tripy_out = eager_or_compiled(tripy_conv_transpose, tp.Tensor(inp))
 
-    @pytest.mark.parametrize("test_case", test_cases_transpose_2d)
-    def test_transposed_convolution_2d(self, torch_dtype, tp_dtype, test_case, eager_or_compiled):
-        if not test_case.torch_pad:
-            test_case.torch_pad = 0
-        if not test_case.stride:
-            test_case.stride = (2, 2)
-        if not test_case.dilation:
-            test_case.dilation = (1, 1)
-
-        input_torch = torch.arange(36, dtype=torch.float32, device=torch.device("cuda")).reshape(*(1, 4, 3, 3))
-        input = tp.cast(tp.Tensor(input_torch), tp_dtype)
-
-        conv_layer_torch = torch.nn.ConvTranspose2d(
-            4,
-            8,
-            3,
-            padding=test_case.torch_pad,
-            stride=test_case.stride,
-            groups=test_case.groups,
-            dilation=test_case.dilation,
-            bias=test_case.bias,
-            dtype=torch.float32,
-            device=torch.device("cuda"),
-        )
-        fixed_weights = torch.tensor(
-            [[[[0.1, 0.2, 0.3], [0.4, 0.5, 0.6], [0.7, 0.8, 0.9]]] * int(8 / (conv_layer_torch.groups))] * 4,
-            dtype=torch.float32,
-            device=torch.device("cuda"),
-        )
-        conv_layer_torch.weight.data = fixed_weights
-        for param in conv_layer_torch.parameters():
-            param.requires_grad = False
-
-        conv_layer = tp.ConvTranspose(
-            4,
-            8,
-            (3, 3),
-            padding=test_case.tp_pad,
-            stride=test_case.stride,
-            groups=test_case.groups,
-            dilation=test_case.dilation,
-            bias=test_case.bias,
-            dtype=tp_dtype,
-        )
-        conv_layer.weight = tp.cast(tp.Tensor(conv_layer_torch.weight.data), tp_dtype)
-        if test_case.bias:
-            conv_layer.bias = tp.cast(tp.Tensor(conv_layer_torch.bias.data), tp_dtype)
-
-        expected = conv_layer_torch(input_torch).to(torch_dtype)
-        output = eager_or_compiled(conv_layer, input)
-
-        rtol_ = 1e-2
-        assert tp.allclose(output, tp.Tensor(expected), rtol=rtol_)
-        assert output.shape == tuple(expected.shape)
-
-    @pytest.mark.parametrize("test_case", test_cases_transpose_3d)
-    def test_transposed_convolution_3d(self, torch_dtype, tp_dtype, test_case, eager_or_compiled):
-        if not test_case.torch_pad:
-            test_case.torch_pad = 0
-        if not test_case.stride:
-            test_case.stride = (2, 2, 2)
-        if not test_case.dilation:
-            test_case.dilation = (1, 1, 1)
-
-        input_torch = torch.arange(108, dtype=torch.float32, device=torch.device("cuda")).reshape(*(1, 4, 3, 3, 3))
-        input = tp.cast(tp.Tensor(input_torch), tp_dtype)
-
-        conv_layer_torch = torch.nn.ConvTranspose3d(
-            4,
-            8,
-            3,
-            padding=test_case.torch_pad,
-            stride=test_case.stride,
-            groups=test_case.groups,
-            dilation=test_case.dilation,
-            bias=test_case.bias,
-            dtype=torch.float32,
-            device=torch.device("cuda"),
-        )
-        fixed_weights = torch.tensor(
-            [[[[[0.1, 0.2, 0.3], [0.4, 0.5, 0.6], [0.7, 0.8, 0.9]]] * 3] * int(8 / (conv_layer_torch.groups))] * 4,
-            dtype=torch.float32,
-            device=torch.device("cuda"),
-        )
-        conv_layer_torch.weight.data = fixed_weights
-        for param in conv_layer_torch.parameters():
-            param.requires_grad = False
-
-        conv_layer = tp.ConvTranspose(
-            4,
-            8,
-            (3, 3, 3),
-            padding=test_case.tp_pad,
-            stride=test_case.stride,
-            groups=test_case.groups,
-            dilation=test_case.dilation,
-            bias=test_case.bias,
-            dtype=tp_dtype,
-        )
-        conv_layer.weight = tp.cast(tp.Tensor(conv_layer_torch.weight.data), tp_dtype)
-        if test_case.bias:
-            conv_layer.bias = tp.cast(tp.Tensor(conv_layer_torch.bias.data), tp_dtype)
-
-        expected = conv_layer_torch(input_torch).to(torch_dtype)
-        output = eager_or_compiled(conv_layer, input)
-        rtol_ = 1.3e-6 if tp_dtype == tp.float32 else 1.6e-3
-        assert tp.allclose(output, tp.Tensor(expected), rtol=rtol_)
-        assert output.shape == tuple(expected.shape)
-
-    def test_transposed_equivalency(self, torch_dtype, tp_dtype, eager_or_compiled):
-        input_torch = torch.arange(9, dtype=torch.float32, device=torch.device("cuda")).reshape(*(1, 1, 3, 3))
-        input = tp.cast(tp.Tensor(input_torch), tp_dtype)
-
-        conv_layer_torch = torch.nn.Conv2d(
-            1, 1, 3, padding=2, bias=False, dtype=torch.float32, device=torch.device("cuda")
-        )
-
-        fixed_weights = torch.tensor(
-            [[[[0.1, 0.2, 0.3], [0.4, 0.5, 0.6], [0.7, 0.8, 0.9]]]],
-            dtype=torch.float32,
-            device=torch.device("cuda"),
-        )
-        conv_layer_torch.weight.data = fixed_weights
-
-        for param in conv_layer_torch.parameters():
-            param.requires_grad = False
-
-        conv_layer = tp.Conv(1, 1, (3, 3), padding=((2, 2), (2, 2)), bias=False, dtype=tp_dtype)
-        conv_layer.weight = tp.cast(tp.Tensor(conv_layer_torch.weight.data), tp_dtype)
-
-        conv_transpose_layer_torch = torch.nn.ConvTranspose2d(
-            1, 1, 3, bias=False, dtype=torch.float32, device=torch.device("cuda")
-        )
-        conv_transpose_layer_torch.weight.data = torch.flip(conv_layer_torch.weight.data, [2, 3])
-        for param in conv_transpose_layer_torch.parameters():
-            param.requires_grad = False
-
-        conv_transpose_layer = tp.ConvTranspose(1, 1, (3, 3), stride=(1, 1), bias=False, dtype=tp_dtype)
-        conv_transpose_layer.weight = tp.cast(tp.Tensor(conv_transpose_layer_torch.weight.data), tp_dtype)
-
-        expected = conv_layer_torch(input_torch).to(torch_dtype)
-        expected_transpose = conv_transpose_layer_torch(input_torch).to(torch_dtype)
-        output = eager_or_compiled(conv_layer, input)
-        output_transpose = eager_or_compiled(conv_transpose_layer, input)
-
-        assert tp.allclose(output, tp.Tensor(expected), rtol=1e-2, atol=1e-4)
-        assert output.shape == tuple(expected.shape)
-        assert tp.allclose(output_transpose, tp.Tensor(expected_transpose), rtol=1e-2, atol=1e-4)
-        assert output_transpose.shape == tuple(expected_transpose.shape)
-        assert tp.allclose(output, output_transpose, rtol=1e-2, atol=1e-4)
-        assert output.shape == output_transpose.shape
-        assert tp.allclose(tp.Tensor(expected), tp.Tensor(expected_transpose), rtol=1e-2, atol=1e-4)
-        assert tuple(expected.shape) == tuple(expected_transpose.shape)
-
-    @pytest.mark.parametrize("test_case", test_cases_transpose_downscale)
-    def test_transposed_downscale(self, torch_dtype, tp_dtype, test_case, eager_or_compiled):
-        input_torch = torch.arange(9, dtype=torch.float32, device=torch.device("cuda")).reshape(*(1, 1, 3, 3))
-        input = tp.cast(tp.Tensor(input_torch), tp_dtype)
-
-        conv_layer_torch = torch.nn.ConvTranspose2d(
-            1,
-            1,
-            1,
-            stride=test_case.stride,
-            padding=test_case.torch_pad,
-            bias=False,
-            dtype=torch.float32,
-            device=torch.device("cuda"),
-        )
-        fixed_weights = torch.tensor(
-            [[[[0.1]]]],
-            dtype=torch.float32,
-            device=torch.device("cuda"),
-        )
-        conv_layer_torch.weight.data = fixed_weights
-        for param in conv_layer_torch.parameters():
-            param.requires_grad = False
-
-        conv_layer = tp.ConvTranspose(
-            1, 1, (1, 1), stride=test_case.stride, padding=test_case.tp_pad, bias=False, dtype=tp_dtype
-        )
-        conv_layer.weight = tp.cast(tp.Tensor(conv_layer_torch.weight.data), tp_dtype)
-
-        expected = conv_layer_torch(input_torch).to(torch_dtype)
-        output = eager_or_compiled(conv_layer, input)
-
-        rtol_ = 1e-15 if tp_dtype == tp.float32 else 1e-10
-        assert tp.allclose(output, tp.Tensor(expected), rtol=rtol_)
-        assert output.shape == tuple(expected.shape)
+    torch_out = tp.Tensor(torch_out)
+    assert tp.allclose(tripy_out, torch_out)
