@@ -27,6 +27,7 @@ from nvtripy.logging import logger
 from nvtripy.utils.function_registry import type_str_from_arg
 
 
+# TODO (pranavm): Maybe we should evaluate parameters when they're set? This would also enforce that they are constants.
 def _check_param_compatible(original_param, new_param, param_name):
     # We want to check the incoming parameter type even when the original parameter is not a tensor.
     if not isinstance(new_param, Tensor):

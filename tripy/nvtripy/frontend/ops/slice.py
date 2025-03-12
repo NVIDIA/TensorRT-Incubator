@@ -34,7 +34,7 @@ from nvtripy.utils.utils import make_list
     dtype_variables={"T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"]},
 )
 # TODO (pranavm): Clean up this docstring
-# TODO (pranavm): x[3:2:1] gives *very bad* errors - figure out how to improve.
+# TODO (pranavm): x[3:2:1] of bool tensors gives *very bad* errors - figure out how to improve.
 def __getitem__(
     self: "nvtripy.Tensor", index: Union["nvtripy.Tensor", slice, IntLike, Sequence[Union[slice, IntLike]]]
 ) -> "nvtripy.Tensor":
@@ -82,7 +82,6 @@ def __getitem__(
 
     inp_shape = self.shape
 
-    # TODO (pranavm): Figure out how to add stack info to these?
     starts = []
     sizes = []
     steps = []
@@ -152,7 +151,6 @@ def __getitem__(
             # Need to convert `stop` to a `size`:
             size = stop - start
             if not op_utils.is_int_equal_to(step, 1):
-                # TODO (pranavm): Check if this is right.
                 size = op_utils.int_ceil_div(size, step)
 
             # Size cannot be less than 0:

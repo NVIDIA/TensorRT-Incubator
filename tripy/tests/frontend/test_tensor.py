@@ -94,7 +94,6 @@ class TestTensor:
         # TODO (pranavm): Check this:
         if dtype == tp.int4:
             pytest.skip(f"Unsupported front-end data type {dtype}")
-        from nvtripy.logging import logger
 
         # This is required to print intermediate data representations.
         with tp.logger.use_verbosity("ir"):

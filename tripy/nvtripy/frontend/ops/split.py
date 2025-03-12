@@ -30,7 +30,6 @@ from nvtripy.utils import wrappers
         "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
     },
 )
-# TODO (pranavm): Make sure this docstring renders correctly (check example outputs also)
 # TODO (pranavm): Add testing for when input cannot be evenly divided - last chunk should be smaller.
 def split(
     input: "nvtripy.Tensor", num_split_or_sizes: Union[int, Sequence[int]], dim: int = 0
@@ -56,17 +55,19 @@ def split(
 
     .. code-block:: python
         :linenos:
-        :caption: Simple case.
+        :caption: Splitting Into 2 Chunks
 
+        # doc: print-locals input outputs
         input = tp.reshape(tp.arange(16, dtype=tp.float32), (4, 4))
-        outputs = tp.split(input, 2, dim=0)
+        outputs = tp.split(input, 2)
         assert np.array_equal(cp.from_dlpack(outputs[0]).get(), cp.from_dlpack(input[:2, :]).get())
         assert np.array_equal(cp.from_dlpack(outputs[1]).get(), cp.from_dlpack(input[2:, :]).get())
 
     .. code-block:: python
         :linenos:
-        :caption: Choosing a different dimension.
+        :caption: Splitting Along A Different Dimension
 
+        # doc: print-locals input outputs
         input = tp.reshape(tp.arange(16, dtype=tp.float32), (4, 4))
         outputs = tp.split(input, 2, dim=1)
         assert np.array_equal(cp.from_dlpack(outputs[0]).get(), cp.from_dlpack(input[:, :2]).get())
@@ -74,10 +75,11 @@ def split(
 
     .. code-block:: python
         :linenos:
-        :caption: Multiple index arguments.
+        :caption: Splitting With Custom Chunk Sizes
 
+        # doc: print-locals input outputs
         input = tp.reshape(tp.arange(16, dtype=tp.float32), (4, 4))
-        outputs = tp.split(input, [1, 2])
+        outputs = tp.split(input, [1, 1, 2])
         assert np.array_equal(cp.from_dlpack(outputs[0]).get(), cp.from_dlpack(input[:1, :]).get())
         assert np.array_equal(cp.from_dlpack(outputs[1]).get(), cp.from_dlpack(input[1:2, :]).get())
         assert np.array_equal(cp.from_dlpack(outputs[2]).get(), cp.from_dlpack(input[2:, :]).get())

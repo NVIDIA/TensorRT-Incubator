@@ -57,9 +57,6 @@ class MLIRRuntimeClient:
 def make_ir_context() -> ir.Context:
     ctx = MLIRContext()
     ctx.enable_multithreading(False)
-    # TODO (pranavm): Check if this is needed:
-    # Allow unregistered dialects to assign trt shape_profile attribute.
-    ctx.allow_unregistered_dialects = True
     return ctx
 
 
