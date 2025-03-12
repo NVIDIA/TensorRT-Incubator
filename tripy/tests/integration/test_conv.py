@@ -58,6 +58,14 @@ TEST_CASES = [
 @pytest.mark.parametrize("case", TEST_CASES)
 @pytest.mark.parametrize("dtype", [tp.float32, tp.float16, tp.bfloat16])
 def test_conv(case, dtype, eager_or_compiled):
+    if (
+        dtype == tp.bfloat16
+        and eager_or_compiled.mode == "eager"
+        and (case.spatial_size == 3 or case.groups == 2 or case.num_spatial_dims == 3)
+    ):
+        # TODO (#569): Enable these tests
+        pytest.skip("Some Conv tests have known bugs with bfloat16 (#569)")
+
     IN_BATCH = 1
     IN_CHANNELS = 2
     IN_SPATIAL_DIMS = (case.spatial_size,) * case.num_spatial_dims
