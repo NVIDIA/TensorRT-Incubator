@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -549,12 +549,23 @@ def process_code_block_for_outputs_and_locals(
                 ret += "}"
                 return ret
 
+            def pretty_str_from_tuple(tup):
+                if not tup:
+                    return "tuple()"
+                ret = "(\n"
+                for value in tup:
+                    ret += indent(f"{value},\n", prefix=" " * TAB_SIZE)
+                ret += ")"
+                return ret
+
             locals_str += f"\n>>> {name}"
             if isinstance(obj, tp.Module):
                 locals_str += f"\n{obj}"
                 locals_str += f"\n>>> {name}.state_dict()\n{pretty_str_from_dict(obj.state_dict())}"
             elif isinstance(obj, dict):
                 locals_str += f"\n{pretty_str_from_dict(obj)}"
+            elif isinstance(obj, tuple):
+                locals_str += f"\n{pretty_str_from_tuple(obj)}"
             else:
                 locals_str += f"\n{obj}"
             locals_str += "\n"
