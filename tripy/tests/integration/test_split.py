@@ -28,7 +28,6 @@ def compare_split_results(tp_outs, ref_outs):
         assert cp.array_equal(cp.from_dlpack(tp_out), cp.array(ref_out))
 
 
-# TODO (pranavm): Update to account for new semantics.
 class TestSplitOp:
     @pytest.mark.parametrize(
         "dims_a, num_split_or_sizes, dim, reference_slices",

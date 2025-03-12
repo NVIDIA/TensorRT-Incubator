@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -35,7 +35,6 @@ class TestProcessCodeBlock:
         block = """
         # doc: no-print-locals
         gpu = tp.device("gpu")
-        cpu = tp.device("cpu")
         """
 
         _, local_var_lines, _, _ = helper.process_code_block_for_outputs_and_locals(block, format_contents)
