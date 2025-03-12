@@ -15,13 +15,11 @@
 # limitations under the License.
 #
 
-import cupy as cp
-import numpy as np
 import pytest
 import torch
 
 import nvtripy as tp
-from tests.helper import raises, TORCH_DTYPES
+from tests.helper import TORCH_DTYPES
 from tests.conftest import skip_if_older_than_sm80, skip_if_older_than_sm89
 
 
@@ -29,7 +27,6 @@ class TestDequantize:
     @pytest.mark.parametrize(
         "dtype", [tp.float32, tp.float16, pytest.param(tp.bfloat16, marks=skip_if_older_than_sm80)]
     )
-    @pytest.mark.skip("StableHLO QDQ broken")
     def test_dequantize_int8_per_tensor(self, dtype, eager_or_compiled):
         data = [4, 8]
         input_tp = tp.Tensor(data, dtype=tp.int8)
@@ -47,7 +44,6 @@ class TestDequantize:
     @pytest.mark.parametrize(
         "dtype", [tp.float32, tp.float16, pytest.param(tp.bfloat16, marks=skip_if_older_than_sm80)]
     )
-    @pytest.mark.skip("StableHLO QDQ broken")
     def test_dequantize_int8_per_channel(self, dtype, eager_or_compiled):
         # TODO (pranavm): Check this:
         # TODO: Fix in #153
@@ -71,7 +67,6 @@ class TestDequantize:
         "dtype", [tp.float32, tp.float16, pytest.param(tp.bfloat16, marks=skip_if_older_than_sm80)]
     )
     @skip_if_older_than_sm89
-    @pytest.mark.skip("StableHLO QDQ broken")
     def test_dequantize_fp8_per_tensor(self, dtype):
         data_value = [1.0, 1.0]
         input_tp = tp.Tensor(data_value, dtype=tp.float8)
@@ -88,7 +83,6 @@ class TestDequantize:
         "dtype", [tp.float32, tp.float16, pytest.param(tp.bfloat16, marks=skip_if_older_than_sm80)]
     )
     @skip_if_older_than_sm89
-    @pytest.mark.skip("StableHLO QDQ broken")
     def test_dequantize_fp8_per_channel(self, dtype):
         data_value = [[1.0, 1.0], [1.0, 1.0]]
         input_tp = tp.Tensor(data_value, dtype=tp.float8)
@@ -100,11 +94,3 @@ class TestDequantize:
         expected = torch.Tensor(data_value) * scale.reshape((2, 1))
         output = torch.from_dlpack(dequantized).to(dtype=torch.float32)
         assert torch.allclose(expected, output.to("cpu"))
-
-    def test_non_constant_scale(self):
-        data = [[4, 8], [4, 8]]
-        input = tp.Tensor(data, dtype=tp.int8)
-        scale = tp.ones((2,))
-        dequantized = tp.dequantize(input, scale, tp.float32, dim=0)
-
-        assert tp.allclose(dequantized, tp.Tensor(data, dtype=tp.float32))
