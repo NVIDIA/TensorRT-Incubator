@@ -168,26 +168,17 @@ class Trace:
                             ):
                                 layer_outputs = op.to_mlir(layer_inputs, layer_outputs)
 
-                                # TODO (pranavm): Check if this is needed:
-                                # stablehlo python bindings can do some naive shape and type inference.
-                                # If the shapes are frozen after adding a layer, assign these shapes back to trace tensor.
-                                for mlir_out, trace_out in zip(layer_outputs, op.outputs):
-                                    type = get_op_result_or_value(mlir_out).type
-                                    trace_out.shape = tuple(
-                                        (-1 if type.is_dynamic_dim(i) else type.get_dim_size(i))
-                                        for i in range(type.rank)
-                                    )
-
                             mlir_ops.update(zip([out.name for out in op.outputs], layer_outputs))
 
                         func_dialect.ReturnOp([mlir_ops[o.name] for o in self.outputs])
 
-                    # TODO (pranavm): Check if this is needed:
-                    # After lowering the complete graph to stablehlo, there can be mismatch between Tripy created function signature and the ReturnOp due to shapes that resolved while lowering into Stablehlo.
-                    # Here, we check if the types for the results and change the function signature to obey the inferred types.
-                    new_out_types = [get_op_result_or_value(mlir_ops[o.name]).type for o in self.outputs]
-                    ftype = ir.FunctionType.get([inp.to_mlir() for inp in self.inputs], new_out_types)
-                    func_op.attributes["function_type"] = ir.TypeAttr.get(ftype)
+                    # Some type refinement is done during lowering, so the tensor types of the function may change at this point.
+                    # Here we update the function signature with the inferred types.
+                    new_inp_types = [get_op_result_or_value(mlir_ops[inp.name]).type for inp in self.inputs]
+                    new_out_types = [get_op_result_or_value(mlir_ops[out.name]).type for out in self.outputs]
+                    func_op.attributes["function_type"] = ir.TypeAttr.get(
+                        ir.FunctionType.get(new_inp_types, new_out_types)
+                    )
 
                     if self.shapes:
                         # Create tensorrt.shape_profile attribute for all function arguments

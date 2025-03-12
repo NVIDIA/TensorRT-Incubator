@@ -51,8 +51,6 @@ def process_sizes(input: "nvtripy.Tensor", sizes: ShapeLike):
     return {"sizes": out_shape}
 
 
-# TODO (pranavm): Change `expand` to `tile`? That seems to be what `broadcast` does - try non-singleton dims. Otherwise
-# use slice trace op directly and remove broadcast so semantics are clear/stable?
 @export.public_api(document_under="operations/functions")
 @wrappers.interface(
     dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
