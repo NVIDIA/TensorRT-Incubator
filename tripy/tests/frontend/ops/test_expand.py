@@ -18,6 +18,7 @@
 
 import nvtripy as tp
 from tests import helper
+import pytest
 
 
 class TestExpand:
@@ -38,6 +39,8 @@ class TestExpand:
             b = tp.expand(a, (-1, 2))
 
     def test_invalid_mismatch_size(self):
+        # TODO (#570): Enable this test once assertion layer is enabled.
+        pytest.skip("Requires assertion layer to be enabled (#570)")
         a = tp.ones((2, 1))
         b = tp.expand(a, (4, 2))
 
