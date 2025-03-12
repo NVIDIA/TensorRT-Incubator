@@ -162,7 +162,7 @@ default_constraints_all = {
 }
 
 
-# TODO (pranavm): Greatly simplify dtype constraint tests.
+# TODO (pranavm): Greatly simplify dtype constraint tests - also use compile, otherwise it may just be const-folded away.
 def create_obj(func_obj, func_name, param_name, param_dtype, namespace):
     # If type is an optional or union get the first type.
     # Get names and type hints for each param.
