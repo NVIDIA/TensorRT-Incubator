@@ -94,8 +94,6 @@ class TestTensor:
         # TODO (pranavm): Check this:
         if dtype == tp.int4:
             pytest.skip(f"Unsupported front-end data type {dtype}")
-        if dtype == tp.float8:
-            pytest.skip(f"StableHLO QDQ broken")
         from nvtripy.logging import logger
 
         # This is required to print intermediate data representations.
