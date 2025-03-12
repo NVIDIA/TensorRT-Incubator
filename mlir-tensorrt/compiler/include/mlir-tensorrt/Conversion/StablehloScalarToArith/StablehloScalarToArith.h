@@ -34,7 +34,7 @@ namespace mlir::stablehlo_ext {
 bool isScalarizableType(Type t);
 
 /// Return the 1-to-N type converter for scalarization.
-OneToNTypeConverter getScalarizationTypeConverter();
+TypeConverter getScalarizationTypeConverter();
 
 } // namespace mlir::stablehlo_ext
 

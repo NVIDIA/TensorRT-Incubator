@@ -107,7 +107,7 @@ public:
     config.strictMode = GreedyRewriteStrictness::AnyOp;
 
     Operation *root = getOperation();
-    if (failed(applyPatternsAndFoldGreedily(root, patterns, config)))
+    if (failed(applyPatternsGreedily(root, patterns, config)))
       emitWarning(root->getLoc()) << getArgument() << " failed to converge in "
                                   << config.maxIterations << " iterations";
   }

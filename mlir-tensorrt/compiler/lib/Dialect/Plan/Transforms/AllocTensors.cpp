@@ -42,6 +42,7 @@
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Dialect/Utils/IndexingUtils.h"
+#include "mlir/IR/Value.h"
 #include "mlir/Interfaces/CallInterfaces.h"
 #include "mlir/Interfaces/LoopLikeInterface.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
@@ -579,13 +580,13 @@ getEquivalentFuncArgIdx(func::FuncOp funcOp, const FuncAnalysisState &state,
 /// appropriately.
 static LogicalResult rewriteBlockToDestinationStyle(
     RewriterBase &rewriter, Block *block,
-    OperandRange yieldedTerminatorOperands,
+    MutableArrayRef<OpOperand> yieldedTerminatorOperands,
     Block::BlockArgListType carriedBlockArgs,
     const bufferization::OneShotAnalysisState &state) {
   for (auto [idx, v] : llvm::enumerate(yieldedTerminatorOperands)) {
-    if (!isa<TensorType>(v.getType()))
+    if (!isa<TensorType>(v.get().getType()))
       continue;
-    if (carriedBlockArgs[idx].getType() != v.getType())
+    if (carriedBlockArgs[idx].getType() != v.get().getType())
       continue;
 
     // Find equivalent arg.
@@ -593,8 +594,8 @@ static LogicalResult rewriteBlockToDestinationStyle(
     config.followEquivalentOnly = true;
     config.alwaysIncludeLeaves = false;
     SetVector<Value> equivalentValues = state.findValueInReverseUseDefChain(
-        v, /*condition=*/
-        [&, v = v](Value val) {
+        &v, /*condition=*/
+        [&, v = v.get()](Value val) {
           auto emptyOp = val.getDefiningOp<tensor::EmptyOp>();
           return emptyOp && emptyOp.getType() == v.getType();
         },
@@ -620,13 +621,13 @@ static void visitLoopOp(RewriterBase &rewriter, Operation *loopOp,
         if (failed(rewriteBlockToDestinationStyle(
                 rewriter, whileOp.getBeforeBody(),
                 cast<scf::ConditionOp>(whileOp.getBeforeBody()->getTerminator())
-                    .getArgs(),
+                    .getArgsMutable(),
                 whileOp.getBeforeBody()->getArguments(), state)))
           return;
         if (failed(rewriteBlockToDestinationStyle(
                 rewriter, whileOp.getAfterBody(),
                 cast<scf::YieldOp>(whileOp.getAfterBody()->getTerminator())
-                    ->getOperands(),
+                    ->getOpOperands(),
                 whileOp.getAfterBody()->getArguments(), state)))
           return;
       })
@@ -634,7 +635,7 @@ static void visitLoopOp(RewriterBase &rewriter, Operation *loopOp,
         if (failed(rewriteBlockToDestinationStyle(
                 rewriter, forOp.getBody(),
                 cast<scf::YieldOp>(forOp.getBody()->getTerminator())
-                    ->getOperands(),
+                    ->getOpOperands(),
                 forOp.getRegionIterArgs(), state)))
           return;
       })
@@ -685,8 +686,8 @@ static LogicalResult rewriteFuncToDestinationPassingStyle(
   auto term = cast<func::ReturnOp>(func.getBody().front().getTerminator());
   const FuncAnalysisState &funcState = getFuncAnalysisState(state);
 
-  for (auto [idx, v] : llvm::enumerate(term.getOperands())) {
-    if (!isa<RankedTensorType>(v.getType()))
+  for (auto [idx, v] : llvm::enumerate(term->getOpOperands())) {
+    if (!isa<RankedTensorType>(v.get().getType()))
       continue;
 
     // Check if there is already an equivalent function argument.
@@ -696,10 +697,11 @@ static LogicalResult rewriteFuncToDestinationPassingStyle(
         func.getArgAttr(*equivalent, PlanDialect::kResultArgAttrName))
       continue;
 
-    if (failed(updateFunctionWithNewDpsArg(func, v.getLoc(), v.getType(), idx)))
+    if (failed(updateFunctionWithNewDpsArg(func, v.get().getLoc(),
+                                           v.get().getType(), idx)))
       return failure();
 
-    auto fallback = [&, idx = idx, v = v]() {
+    auto fallback = [&, idx = idx, v = v.get()]() {
       rewriter.setInsertionPoint(term);
       Value replacement =
           rewriter
@@ -714,7 +716,7 @@ static LogicalResult rewriteFuncToDestinationPassingStyle(
     config.followEquivalentOnly = true;
     config.alwaysIncludeLeaves = true;
     SetVector<Value> equivalentValues = state.findValueInReverseUseDefChain(
-        v, /*condition=*/
+        &v, /*condition=*/
         [](Value val) { return false; }, config);
 
     LLVM_DEBUG({
@@ -868,7 +870,7 @@ public:
       return patterns_;
     }();
     for (FunctionOpInterface func : op.getOps<FunctionOpInterface>()) {
-      if (failed(applyPatternsAndFoldGreedily(func, patterns))) {
+      if (failed(applyPatternsGreedily(func, patterns))) {
         op->emitError() << "failed to run " << getArgument()
                         << " patterns for rewriting host constants";
         return signalPassFailure();
@@ -907,7 +909,7 @@ public:
       RewritePatternSet patterns(ctx);
       patterns.insert<RewriteEmptyTensor, CleanupAllocTensorOps,
                       RemoveRedundantMaterializeInDestPattern>(ctx);
-      if (failed(applyPatternsAndFoldGreedily(op, std::move(patterns)))) {
+      if (failed(applyPatternsGreedily(op, std::move(patterns)))) {
         op->emitError() << "failed to run " << getArgument() << " patterns";
         return signalPassFailure();
       }

@@ -38,7 +38,7 @@ add_mlir_public_c_api_library(MLIRExecutorCAPIRuntimeTensorRT
   TensorRTHeaderOnly
   )
 
-# This is an aggregate library for mlir-cpu-runner style
+# This is an aggregate library for mlir-runner style
 # tests.
 add_mlir_aggregate(mtrt_runtime
   MTRTRuntime.cpp

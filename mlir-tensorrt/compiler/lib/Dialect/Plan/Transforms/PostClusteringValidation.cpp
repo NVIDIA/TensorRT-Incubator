@@ -72,9 +72,9 @@ static bool isValidOpType(Operation *op) {
   return llvm::all_of(op->getResultTypes(), [](Type t) {
     if (!t.isIntOrIndexOrFloat())
       return true;
-    return t.isIndex() || t.isInteger(1) || t.isInteger(8) || t.isInteger(32) ||
-           t.isInteger(64) || t.isF16() || t.isF32() || t.isBF16() ||
-           t.isInteger(4) || t.isFloat8E4M3FN();
+    return t.isIndex() || t.isInteger(1) || t.isInteger(8) || t.isInteger(16) ||
+           t.isInteger(32) || t.isInteger(64) || t.isF16() || t.isF32() ||
+           t.isBF16() || t.isInteger(4) || isa<Float8E4M3FNType>(t);
   });
 }
 
@@ -89,10 +89,16 @@ class PostClusteringValidationPass
       return;
 
     func->walk([&](Operation *op) {
-      if (!isValidOp(op) || !isValidOpType(op)) {
+      if (!isValidOp(op)) {
         emitError(op->getLoc())
             << "op: " << op << " from function " << func.getSymName()
-            << " is invalid, post clustering.";
+            << " is invalid, post clustering. Problem is op kind.";
+        return signalPassFailure();
+      }
+      if (!isValidOpType(op)) {
+        emitError(op->getLoc())
+            << "op: " << op << " from function " << func.getSymName()
+            << " is invalid, post clustering. Problem is op data type.";
         return signalPassFailure();
       }
       return;

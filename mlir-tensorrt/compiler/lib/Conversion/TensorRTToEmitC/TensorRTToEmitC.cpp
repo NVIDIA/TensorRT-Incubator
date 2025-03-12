@@ -111,7 +111,7 @@ static COpaqueAttr getNvInferDataTypeEnumAttr(Type elType) {
     return getOpaqueAttr("::nvinfer1::DataType::kFLOAT");
   if (elType.isF16())
     return getOpaqueAttr("nvinfer1::DataType::kHALF");
-  if (elType.isFloat8E4M3FN())
+  if (isa<Float8E4M3FNType>(elType))
     return getOpaqueAttr("nvinfer1::DataType::kFP8");
   if (elType.isInteger(32))
     return getOpaqueAttr("nvinfer1::DataType::kINT32");

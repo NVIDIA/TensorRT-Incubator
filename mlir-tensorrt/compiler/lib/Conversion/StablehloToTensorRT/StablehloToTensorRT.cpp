@@ -1576,14 +1576,14 @@ struct ConvertCumsum
   }
 };
 
-/// Convert `stablehlo.reduce_window` using `tensorrt.pooling`. Note that
+/// Convert `stablehlo.reduce_window` to `tensorrt.pooling`. Note that
 /// TensorRT has some restrictions which make this nuanced. Note that a common
-/// HLO operation is `stablehlo.reduce_window<add>`, which is equivalent to
-/// convolution with a weight vector of 1's. Often, however, this will followed
-/// by a division (to achieve "average pooling"). So instead of using
-/// convolution, we just use average pooling and multiply by the window volume.
-/// The elementwise canonicalizer should eliminate the repetitive mul/div ops,
-/// leaving just "average pool". Otherwise, we translate
+/// StableHLO operation in reduction body is `stablehlo.reduce_window<add>`,
+/// which is equivalent to convolution with a weight vector of 1's. Often,
+/// however, this will be followed by a division (to achieve "average pooling").
+/// So instead of using convolution, we just use average pooling and multiply by
+/// the window volume. The elementwise canonicalizer should eliminate the
+/// repetitive mul/div ops, leaving just "average pool". Otherwise, we translate
 /// `stablehlo.reduce_window <max>` to `tensorrt.pooling <kMAX>`.
 /// TODO: support `stablehlo.reduce_window <min>` multiplying input/result by
 /// -1.
@@ -1666,8 +1666,10 @@ struct ConvertReduceWindow
     // non-zero padding/window size. This should be worked out above.
     auto isNonZero = [](int64_t val) { return val != 0; };
     auto isNonUnit = [](int64_t val) { return val != 1; };
-    unsigned numBatchDims =
-        inputType.getRank() - llvm::count_if(windowDims, isNonUnit);
+    // TensorRT only supports 4D or 5D input, where spatial dimensions start
+    // after first two.
+    unsigned numSpatialDims = inputType.getRank() == 4 ? 2 : 3;
+    unsigned numBatchDims = inputType.getRank() - numSpatialDims;
     if (llvm::any_of(ArrayRef(windowDims).take_front(numBatchDims),
                      isNonUnit) ||
         llvm::any_of(ArrayRef(windowStrides).take_front(numBatchDims),
@@ -1678,7 +1680,6 @@ struct ConvertReduceWindow
                      isNonZero)) {
       return rewriter.notifyMatchFailure(op.getLoc(), "failed preconditions");
     }
-
     auto replaceOp = [&](TypedValue<RankedTensorType> result) {
       if (!permMap.isIdentity()) {
         return trtRewriter.checkAndReplaceOpWithNewOp<tensorrt::TransposeOp>(
@@ -1698,15 +1699,18 @@ struct ConvertReduceWindow
     resultType = resultType.clone(permMap.compose(resultType.getShape()));
     auto poolOp = trtRewriter.checkAndCreate<tensorrt::PoolingOp>(
         op.getLoc(), targetTrtMajorVersion, resultType, input,
-        /*windowSize=*/ArrayRef(windowDims).drop_front(numBatchDims),
-        /*stride=*/ArrayRef(windowStrides).drop_front(numBatchDims),
-        /*prePadding=*/ArrayRef(padding.first).drop_front(numBatchDims),
-        /*postPadding=*/ArrayRef(padding.second).drop_front(numBatchDims),
+        /*windowSize=*/ArrayRef(windowDims).take_back(numSpatialDims),
+        /*stride=*/ArrayRef(windowStrides).take_back(numSpatialDims),
+        /*prePadding=*/ArrayRef(padding.first).take_back(numSpatialDims),
+        /*postPadding=*/ArrayRef(padding.second).take_back(numSpatialDims),
         /*poolingType=*/*poolingType, FloatAttr(),
         /*averageCountExcludesPadding=*/
         *poolingType == tensorrt::PoolingType::kMAX
             ? nullptr
-            : rewriter.getBoolAttr(true));
+            // We should not exclude padding count. In case of
+            // `reduce_window<add>`, we always multiply the output of average
+            // pooling with window volume to the remove effect of average.
+            : rewriter.getBoolAttr(false));
     if (!poolOp)
       return failure();
     if (*poolingType == tensorrt::PoolingType::kMAX)
@@ -4543,8 +4547,7 @@ public:
     {
       RewritePatternSet patterns(ctx);
       populateTensorRTSoftmaxPatterns(patterns);
-      if (failed(applyPatternsAndFoldGreedily(getOperation(),
-                                              std::move(patterns))))
+      if (failed(applyPatternsGreedily(getOperation(), std::move(patterns))))
         return signalPassFailure();
     }
 

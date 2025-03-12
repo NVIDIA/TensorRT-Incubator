@@ -69,9 +69,9 @@ static OpFoldResult dilatedBound(OpBuilder &b, Location loc, OpFoldResult bound,
   // We need to calculate max(dilation*(bound-1)+1,0) in case the
   // dimension is dynamically 0 (and thus escapes the first 'if' above).
   SmallVector<Value> operands;
-  if (bound.is<Value>())
-    operands.push_back(bound.get<Value>());
-  AffineExpr d0 = bound.is<Value>()
+  if (isa<Value>(bound))
+    operands.push_back(cast<Value>(bound));
+  AffineExpr d0 = isa<Value>(bound)
                       ? b.getAffineDimExpr(0)
                       : b.getAffineConstantExpr(*getConstantIntValue(bound));
   Value result =
@@ -269,9 +269,9 @@ public:
     RankedTensorType resultType = op.getType();
     for (auto [idx, ofr] : llvm::enumerate(resultShape)) {
       assert(ofr && "result shape is missing a value");
-      if (resultType.isDynamicDim(idx) && !ofr.is<Value>())
+      if (resultType.isDynamicDim(idx) && !isa<Value>(ofr))
         resultShape[idx] = getValueOrCreateConstantIndexOp(builder, loc, ofr);
-      if (!resultType.isDynamicDim(idx) && !ofr.is<Attribute>())
+      if (!resultType.isDynamicDim(idx) && !isa<Attribute>(ofr))
         resultShape[idx] = builder.getIndexAttr(resultType.getDimSize(idx));
     }
 
@@ -330,9 +330,9 @@ public:
     RankedTensorType resultType = cast<RankedTensorType>(op.getType(0));
     for (auto [idx, ofr] : llvm::enumerate(resultShape)) {
       assert(ofr && "result shape is missing a value");
-      if (resultType.isDynamicDim(idx) && !ofr.is<Value>())
+      if (resultType.isDynamicDim(idx) && !isa<Value>(ofr))
         resultShape[idx] = getValueOrCreateConstantIndexOp(builder, loc, ofr);
-      if (!resultType.isDynamicDim(idx) && !ofr.is<Attribute>())
+      if (!resultType.isDynamicDim(idx) && !isa<Attribute>(ofr))
         resultShape[idx] = builder.getIndexAttr(resultType.getDimSize(idx));
     }
 

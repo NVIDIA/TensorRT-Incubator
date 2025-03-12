@@ -120,8 +120,7 @@ class ExecutorDecomposeAggregateLoadsAndStoresPass
     RewritePatternSet patterns(ctx);
     patterns.add<StoreTableDecomposition, LoadTableToTableCreate>(dataLayout,
                                                                   ctx);
-    if (failed(applyPatternsAndFoldGreedily(getOperation(),
-                                            std::move(patterns)))) {
+    if (failed(applyPatternsGreedily(getOperation(), std::move(patterns)))) {
       emitError(getOperation()->getLoc())
           << "failed to apply patterns in " << getArgument();
       return signalPassFailure();

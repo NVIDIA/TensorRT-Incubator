@@ -32,7 +32,7 @@
 
 namespace mlir {
 
-class OneToNTypeConverter;
+class TypeConverter;
 
 /// A callable type that determines whether the operation is clusterable.
 using IsClusterableOpFn = std::function<bool(Operation *)>;
@@ -288,7 +288,7 @@ struct OutlineRegionOptions {
   /// cluster during the outlining in a many-to-one manner. For example,
   /// this can be used to implement scalarization of tensor arguments. If not
   /// needed, the caller should set this to the identity converter.
-  OneToNTypeConverter typeConverter;
+  TypeConverter typeConverter;
 
   /// Function that returns `true` if the given Value defined above and used
   /// within the region should be cloned into the region instead of passed as an

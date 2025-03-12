@@ -240,14 +240,14 @@ private:
   } while (false);
 
 #ifndef NDEBUG
-#define MTRT_ERROR_IF(errexpr, msg)                                            \
+#define MTRT_CHECK(cond, msg)                                                  \
   do {                                                                         \
-    if (errexpr) {                                                             \
+    if (cond) {                                                                \
       llvm::report_fatal_error(msg);                                           \
     }                                                                          \
   } while (false);
-#else // In Release mode, compiles to a no-op.
-#define MTRT_ERROR_IF(errexpr, msg)
+#else
+#define MTRT_CHECK(cond, msg)
 #endif
 
 } // namespace mlirtrt

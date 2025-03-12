@@ -153,7 +153,7 @@ public:
     fields.push_back(PluginField{"i8_param", nullptr, PluginFieldType::kINT8});
     fields.push_back(
         PluginField{"shape_param", nullptr, PluginFieldType::kDIMS});
-#if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 0, 0)
+#if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(9, 1, 0)
     fields.push_back(
         PluginField{"i64_dense_param", nullptr, PluginFieldType::kINT64});
 #endif
@@ -163,7 +163,7 @@ public:
         PluginField{"i16_dense_param", nullptr, PluginFieldType::kINT16});
     fields.push_back(
         PluginField{"i8_dense_param", nullptr, PluginFieldType::kINT8});
-#if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 0, 0)
+#if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(9, 1, 0)
     fields.push_back(
         PluginField{"i64_splat_param", nullptr, PluginFieldType::kINT64});
 #endif
@@ -218,11 +218,9 @@ public:
       else if (attrName == "shape_param")
         pluginParams.shapeParam =
             *static_cast<const decltype(pluginParams.shapeParam) *>(field.data);
-#if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 0, 0)
       else if (attrName == "i64_dense_param")
         pluginParams.i64DenseParam =
             static_cast<const decltype(pluginParams.i64DenseParam)>(field.data);
-#endif
       else if (attrName == "i32_dense_param")
         pluginParams.i32DenseParam =
             static_cast<const decltype(pluginParams.i32DenseParam)>(field.data);
@@ -232,11 +230,9 @@ public:
       else if (attrName == "i8_dense_param")
         pluginParams.i8DenseParam =
             static_cast<const decltype(pluginParams.i8DenseParam)>(field.data);
-#if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 0, 0)
       else if (attrName == "i64_splat_param")
         pluginParams.i64SplatParam =
             static_cast<const decltype(pluginParams.i64SplatParam)>(field.data);
-#endif
       else if (attrName == "i32_splat_param")
         pluginParams.i32SplatParam =
             static_cast<const decltype(pluginParams.i32SplatParam)>(field.data);

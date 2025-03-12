@@ -141,6 +141,11 @@ struct CanonicalizeGather : public OpRewritePattern<GatherOp> {
     }
 
     const auto &dims = gatherOp.getDimensionNumbers();
+
+    // This pattern does not support batching dimensions.
+    if (!dims.getOperandBatchingDims().empty())
+      return failure();
+
     int64_t operandRank =
         dims.getCollapsedSliceDims().size() + dims.getOffsetDims().size();
 
@@ -204,8 +209,7 @@ struct CanonicalizeGatherPass
     MLIRContext *ctx = &getContext();
     RewritePatternSet patterns(ctx);
     patterns.add<CanonicalizeGather>(ctx);
-    if (failed(applyPatternsAndFoldGreedily(getOperation(),
-                                            std::move(patterns)))) {
+    if (failed(applyPatternsGreedily(getOperation(), std::move(patterns)))) {
       emitError(getOperation()->getLoc())
           << "failed to apply patterns in " << getArgument();
       return signalPassFailure();

@@ -233,7 +233,7 @@ class ConvertTensorRTToRuntimePass
     // Rewrite `tensorrt.constant` to `arith.constant`.
     RewritePatternSet patterns(ctx);
     patterns.add<RewriteConstants>(ctx);
-    if (failed(applyPatternsAndFoldGreedily(module, std::move(patterns)))) {
+    if (failed(applyPatternsGreedily(module, std::move(patterns)))) {
       return signalPassFailure();
     }
 

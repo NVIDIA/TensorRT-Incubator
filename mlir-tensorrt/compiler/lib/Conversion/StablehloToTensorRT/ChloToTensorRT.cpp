@@ -110,12 +110,45 @@ struct ConvertChloTopKOpToTensorRT
     if (k > 3840)
       return rewriter.notifyMatchFailure(
           op, "k exceeds the maximum supported by TensorRT");
+    RankedTensorType inputType =
+        cast<RankedTensorType>(op.getOperand().getType());
+    if (inputType.getRank() == 1) {
+      // TensorRT doesn't support 1D top k. We expand rank to meet TensorRT
+      // need.
+      RankedTensorType newShape = RankedTensorType::get(
+          {inputType.getShape().front(), 1}, inputType.getElementType());
+      auto expandRankOp = trtRewriter.checkAndCreate<tensorrt::ExpandRankOp>(
+          op->getLoc(), targetTrtMajorVersion, newShape, operand);
+      if (!expandRankOp)
+        return failure();
+      operand = expandRankOp;
+    }
 
-    auto newOp = trtRewriter.checkAndReplaceOpWithNewOp<tensorrt::TopKOp>(
-        op, targetTrtMajorVersion, operand, k, axis,
+    auto topkOp = trtRewriter.checkAndCreate<tensorrt::TopKOp>(
+        op->getLoc(), targetTrtMajorVersion, operand, k, axis,
         tensorrt::TopKOperation::kMAX);
-    if (!newOp)
+    if (!topkOp)
       return failure();
+
+    if (topkOp.getValues().getType() != op.getValues().getType()) {
+      // Rank expansion happened before, to support 1D input. Collapse ranks
+      // back.
+      auto collapsedValues =
+          trtRewriter.checkAndCreate<tensorrt::CollapseRankOp>(
+              op->getLoc(), targetTrtMajorVersion, op.getValues().getType(),
+              topkOp.getValues());
+      if (!collapsedValues)
+        return failure();
+      auto collapsedIndices =
+          trtRewriter.checkAndCreate<tensorrt::CollapseRankOp>(
+              op->getLoc(), targetTrtMajorVersion, op.getIndices().getType(),
+              topkOp.getIndices());
+      if (!collapsedIndices)
+        return failure();
+      trtRewriter.replaceOp(op, ValueRange{collapsedValues, collapsedIndices});
+      return success();
+    }
+    trtRewriter.replaceOp(op, topkOp);
     return success();
   }
 };

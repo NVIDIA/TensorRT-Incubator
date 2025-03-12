@@ -4,7 +4,7 @@
 //
 //===----------------------------------------------------------------------===//
 ///
-/// Implementation of C runtime support library for `mlir-cpu-runner` style
+/// Implementation of C runtime support library for `mlir-runner` style
 /// tests.
 ///
 //===----------------------------------------------------------------------===//

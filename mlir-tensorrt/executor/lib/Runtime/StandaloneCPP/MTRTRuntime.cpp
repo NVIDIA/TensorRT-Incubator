@@ -266,8 +266,9 @@ void mtrt::tensorrt_enqueue(nvinfer1::IExecutionContext *context,
       }
     }
 
-    MTRT_DBGF("Set tensor address [%d] = 0x%p", i, ioAddr);
+    MTRT_DBGF("Set tensor address [%d] = %p", i, ioAddr);
   }
+  context->enqueueV3(stream);
 }
 
 /// Load a TensorRT engine from a serialized plan file.

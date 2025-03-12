@@ -62,8 +62,8 @@ public:
     MLIRContext *ctx = &getContext();
     RewritePatternSet patterns(ctx);
     patterns.add<DimOfReifyRankedShapedTypeOpInterface>(ctx);
-    if (failed(mlir::applyPatternsAndFoldGreedily(getOperation(),
-                                                  std::move(patterns)))) {
+    if (failed(
+            mlir::applyPatternsGreedily(getOperation(), std::move(patterns)))) {
       emitError(getOperation()->getLoc())
           << "failed to converge in " << getArgument();
       return signalPassFailure();

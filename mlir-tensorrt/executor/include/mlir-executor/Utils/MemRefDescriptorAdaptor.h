@@ -148,7 +148,8 @@ public:
 
   /// Builds IR extracting the offset from the descriptor.
   Value offset(ImplicitLocOpBuilder &b) const {
-    auto [strides, offset] = mlir::getStridesAndOffset(memrefType);
+    auto [strides, offset] =
+        const_cast<MemRefType &>(memrefType).getStridesAndOffset();
     if (!ShapedType::isDynamic(offset))
       return constantBuilder(b, b.getLoc(), indexType, offset);
     return extractValue(b, kOffsetPosInMemRefDescriptor);

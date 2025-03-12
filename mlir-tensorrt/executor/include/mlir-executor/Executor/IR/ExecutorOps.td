@@ -445,7 +445,7 @@ def Executor_CoroAwaitOp : Executor_Op<"coro_await", [
 
     /// Set the callee for this operation.
     void setCalleeFromCallable(CallInterfaceCallable callee) {
-      setOperand(0, callee.get<Value>());
+      setOperand(0, cast<Value>(callee));
     }
   }];
 
@@ -556,7 +556,7 @@ def Executor_CallOp : Executor_Op<"call", [
     }
 
     void setCalleeFromCallable(CallInterfaceCallable callee) {
-      (*this)->setAttr("callee", callee.get<SymbolRefAttr>());
+      (*this)->setAttr("callee", cast<SymbolRefAttr>(callee));
     }
 
     MutableOperandRange getArgOperandsMutable() {

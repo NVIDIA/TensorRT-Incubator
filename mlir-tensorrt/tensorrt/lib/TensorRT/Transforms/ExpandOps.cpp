@@ -345,8 +345,7 @@ public:
     // Add limited canonicalization patterns for ops that could be created.
     ShuffleOp::getCanonicalizationPatterns(patterns, &getContext());
 
-    if (failed(
-            applyPatternsAndFoldGreedily(getOperation(), std::move(patterns))))
+    if (failed(applyPatternsGreedily(getOperation(), std::move(patterns))))
       return signalPassFailure();
   }
 };

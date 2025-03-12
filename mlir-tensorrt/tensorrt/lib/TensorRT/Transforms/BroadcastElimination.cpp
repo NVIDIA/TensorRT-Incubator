@@ -447,8 +447,7 @@ public:
                  MatMulAbsorbBroadcast>(&getContext());
     tensorrt::ReshapeOp::getCanonicalizationPatterns(patterns,
                                                      patterns.getContext());
-    if (failed(applyPatternsAndFoldGreedily(getOperation(),
-                                            std::move(patterns)))) {
+    if (failed(applyPatternsGreedily(getOperation(), std::move(patterns)))) {
       emitError(getOperation()->getLoc())
           << "failed to apply broadcast elimination patterns";
       return signalPassFailure();

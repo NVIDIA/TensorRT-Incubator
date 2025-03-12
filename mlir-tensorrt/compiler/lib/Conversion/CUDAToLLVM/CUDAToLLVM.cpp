@@ -186,7 +186,7 @@ static bool isContiguous(MemRefType t) {
     return false;
   int64_t offset;
   SmallVector<int64_t, 4> strides;
-  if (failed(getStridesAndOffset(t, strides, offset)))
+  if (failed(t.getStridesAndOffset(strides, offset)))
     return false;
   return isContiguousImpl(strides, t.getShape());
 }

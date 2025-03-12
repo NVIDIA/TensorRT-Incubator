@@ -44,8 +44,8 @@ ClusterFilterFn mlir::getDefaultClusterFilter(unsigned minClusterSize) {
   };
 }
 
-OneToNTypeConverter mlir::getIdentityTypeConverter() {
-  OneToNTypeConverter typeConverter;
+TypeConverter mlir::getIdentityTypeConverter() {
+  TypeConverter typeConverter;
   typeConverter.addConversion([](Type t) { return t; });
   return typeConverter;
 }

@@ -122,7 +122,7 @@ public:
           return success();
         });
 
-    if (failed(applyPatternsAndFoldGreedily(func, std::move(patterns)))) {
+    if (failed(applyPatternsGreedily(func, std::move(patterns)))) {
       emitError(func.getLoc())
           << "failed to apply patterns in " << getArgument();
       return signalPassFailure();

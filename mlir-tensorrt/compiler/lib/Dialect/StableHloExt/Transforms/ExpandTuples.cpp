@@ -53,7 +53,7 @@ public:
   }
 
   void runOnOperation() override {
-    OneToNTypeConverter typeConverter;
+    TypeConverter typeConverter;
     typeConverter.addConversion([](Type t) { return t; });
     typeConverter.addConversion(
         [](TupleType tupleType, SmallVectorImpl<Type> &types) {
@@ -78,11 +78,14 @@ public:
     });
 
     typeConverter.addTargetMaterialization(
-        [this](OpBuilder &builder, TypeRange resultTypes, Value input,
-               Location loc) -> std::optional<SmallVector<Value>> {
+        [this](OpBuilder &builder, TypeRange resultTypes, ValueRange inputs,
+               Location loc) -> SmallVector<Value> {
+          if (inputs.size() != 1)
+            return {};
+          Value input = inputs.front();
           auto inputType = dyn_cast<TupleType>(input.getType());
           if (!inputType)
-            return std::nullopt;
+            return {};
           SmallVector<Value> r;
           convertMaybeNestedTuples(builder, loc, input, r);
           return r;

@@ -1067,11 +1067,29 @@ struct AbsorbTensorCastProducer : public RewritePattern {
     return success();
   }
 };
-} // namespace
 
-/// Populates patterns that are temporarily reproduced here from upstream
-/// commits we have not yet integrated.
-static void populateFutureUpstreamPatterns(RewritePatternSet &patterns);
+/// Pattern: broadcast_in_dim(splat, _) -> constant(splat)
+/// TODO: This pattern is reproduced from upstream because we have no way of
+/// selectively including it but excluding other patterns.
+struct FoldBroadcastInDimSplatPattern final
+    : OpRewritePattern<mlir::stablehlo::BroadcastInDimOp> {
+  using OpRewritePattern::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(mlir::stablehlo::BroadcastInDimOp op,
+                                PatternRewriter &rewriter) const override {
+    TypedValue<RankedTensorType> operand = op.getOperand();
+
+    if (SplatElementsAttr cstAttr;
+        matchPattern(operand, m_Constant(&cstAttr))) {
+      rewriter.replaceOpWithNewOp<mlir::stablehlo::ConstantOp>(
+          op, SplatElementsAttr::get(op.getType(),
+                                     cstAttr.getSplatValue<Attribute>()));
+      return success();
+    }
+    return failure();
+  }
+};
+} // namespace
 
 void stablehlo_ext::populateStableHloAbsorbTensorCastPatterns(
     RewritePatternSet &patterns) {
@@ -1107,6 +1125,7 @@ public:
         EliminateCascadedConverts,
         FixInvalidReturnWorkaround,
         FoldAndOp,
+        FoldBroadcastInDimSplatPattern,
         FoldOrOp,
         RewriteTrivialLogicalRightShiftPattern,
         RsqrtFolder,
@@ -1117,7 +1136,6 @@ public:
         SqrtOpFolder
       >(ctx);
     // clang-format on
-    populateFutureUpstreamPatterns(patterns);
     populateStableHloAbsorbTensorCastPatterns(patterns);
     stablehlo::populateStablehloCanonicalizationPatterns(ctx, &patterns);
     tensor::EmptyOp::getCanonicalizationPatterns(patterns, ctx);
@@ -1125,7 +1143,7 @@ public:
 
     GreedyRewriteConfig config{};
     config.useTopDownTraversal = true;
-    if (failed(applyPatternsAndFoldGreedily(op, std::move(patterns), config))) {
+    if (failed(applyPatternsGreedily(op, std::move(patterns), config))) {
       emitError(op->getLoc())
           << "failed to apply patterns in " << getArgument();
       ;
@@ -1134,171 +1152,3 @@ public:
   }
 };
 } // namespace
-
-//===----------------------------------------------------------------------===//
-/// The  patterns below this point are reproduced from
-/// https://github.com/openxla/stablehlo/commit/5d15ab064f165cc6773ef4ba949ac083ae8e1fea,
-/// which is in upstream, but our current pinned StableHlo commit is not there
-/// yet. The patterns can be removed in the next StableHLO upgrade.
-///
-//===----------------------------------------------------------------------===//
-
-namespace {
-
-/// In cases where a concat is fed into a slice, it
-/// is possible the concat can be simplified or bypassed. This checks which
-/// inputs to the concat are used by the slice, either reducing the number of
-/// concatenated values or entirely removes the concat. Pattern:
-/// slice(concat(X,Y,Z,...),...) -> concat(slice(X),slice(Y),slice(Z))
-struct SimplifySliceOfConcat : public OpRewritePattern<SliceOp> {
-  using OpRewritePattern::OpRewritePattern;
-
-  LogicalResult matchAndRewrite(SliceOp slice,
-                                PatternRewriter &rewriter) const override {
-    RankedTensorType resultTy = slice.getType();
-    if (!resultTy.hasStaticShape())
-      return rewriter.notifyMatchFailure(slice, "result shape not static");
-
-    auto concat = slice.getOperand().getDefiningOp<ConcatenateOp>();
-    if (!concat)
-      return rewriter.notifyMatchFailure(slice, "slice input not concat");
-
-    RankedTensorType concatType = concat.getType();
-    uint64_t dimension = concat.getDimension();
-
-    ArrayRef<int64_t> start = slice.getStartIndices();
-    ArrayRef<int64_t> limit = slice.getLimitIndices();
-
-    int64_t sliceStart = start[dimension];
-    int64_t sliceLimit = limit[dimension];
-
-    // We need to determine what inputs from the concat affect the slice, and
-    // how the bounds of the slice need to be updated for the minimally required
-    // inputs.
-    int64_t runningSize = 0;
-    int64_t frontOffset = concatType.getShape()[dimension];
-
-    auto subsetStart = concat.operand_end();
-    auto subsetEnd = concat.operand_end();
-    for (auto it = concat.operand_begin(); it < concat.operand_end(); ++it) {
-      Value input = *it;
-      auto inputTy = cast<RankedTensorType>(input.getType());
-      if (inputTy.isDynamicDim(dimension))
-        return rewriter.notifyMatchFailure(
-            slice, "concat input has dynamic dimension");
-
-      int64_t dimSize = inputTy.getShape()[dimension];
-
-      // If this position is in the slice its the start of the subset and we
-      // need to update the start and limit values.
-      if (runningSize + dimSize > sliceStart &&
-          subsetStart == concat.operand_end()) {
-        subsetStart = it;
-        frontOffset = runningSize;
-      }
-
-      // Determine the last required offset.
-      if (runningSize < sliceLimit) {
-        subsetEnd = it + 1;
-      }
-
-      runningSize += dimSize;
-    }
-
-    auto subsetSize = subsetEnd - subsetStart;
-    // We need all inputs so no optimization.
-    if (subsetSize == concat.getNumOperands())
-      return rewriter.notifyMatchFailure(slice,
-                                         "slice needs all concat inputs");
-
-    // If there's nothing to slice that means the output is an empty tensor and
-    // there is dead code. We do nothing here and rely on other passes to clean
-    // this up.
-    if (subsetSize == 0)
-      return rewriter.notifyMatchFailure(slice, "slice is empty");
-
-    if (subsetSize > 1 && !concat.getResult().hasOneUse())
-      return rewriter.notifyMatchFailure(slice,
-                                         "slice is not the only concat user");
-
-    auto concatRange = OperandRange(subsetStart, subsetEnd);
-    auto newConcat = rewriter.create<ConcatenateOp>(
-        concat.getLoc(), concatRange, concat.getDimension());
-
-    SmallVector<int64_t> newStart(start);
-    SmallVector<int64_t> newLimit(limit);
-    newStart[dimension] -= frontOffset;
-    newLimit[dimension] -= frontOffset;
-
-    rewriter.replaceOpWithNewOp<SliceOp>(
-        slice, newConcat, rewriter.getDenseI64ArrayAttr(newStart),
-        rewriter.getDenseI64ArrayAttr(newLimit), slice.getStrides());
-    return success();
-  }
-};
-
-/// Flatten sequential concatenations as long as the parent concatenation either
-/// has a single use or is <= 32 elements.
-class SimplifyConcatOfConcatPattern
-    : public OpRewritePattern<stablehlo::ConcatenateOp> {
-  using OpRewritePattern::OpRewritePattern;
-  LogicalResult matchAndRewrite(ConcatenateOp op,
-                                PatternRewriter &rewriter) const override {
-    auto getFlattenedOperands = [&](const Value &val) -> ValueRange {
-      auto definingOp = dyn_cast_or_null<ConcatenateOp>(val.getDefiningOp());
-      if (!definingOp || definingOp.getDimension() != op.getDimension())
-        return val;
-      if (definingOp->hasOneUse())
-        return definingOp.getInputs();
-      if (!definingOp.getType().hasStaticShape())
-        return val;
-      if (definingOp.getType().getNumElements() <= 32)
-        return definingOp.getInputs();
-      return val;
-    };
-
-    bool needToFlatten = false;
-    int operandCount = 0;
-    for (Value val : op.getInputs()) {
-      ValueRange result = getFlattenedOperands(val);
-      if (result.size() != 1 || result[0] != val)
-        needToFlatten = true;
-      operandCount += result.size();
-    }
-    if (!needToFlatten)
-      return rewriter.notifyMatchFailure(op, "no need to flatten");
-
-    llvm::SmallVector<Value, 6> newOperands;
-    newOperands.reserve(operandCount);
-    for (Value operand : op.getInputs())
-      llvm::append_range(newOperands, getFlattenedOperands(operand));
-
-    rewriter.modifyOpInPlace(op, [&] { op->setOperands(newOperands); });
-    return success();
-  }
-};
-// Pattern: broadcast_in_dim(splat, _) -> constant(splat)
-struct FoldBroadcastInDimSplatPattern final
-    : OpRewritePattern<mlir::stablehlo::BroadcastInDimOp> {
-  using OpRewritePattern::OpRewritePattern;
-
-  LogicalResult matchAndRewrite(mlir::stablehlo::BroadcastInDimOp op,
-                                PatternRewriter &rewriter) const override {
-    TypedValue<RankedTensorType> operand = op.getOperand();
-
-    if (SplatElementsAttr cstAttr;
-        matchPattern(operand, m_Constant(&cstAttr))) {
-      rewriter.replaceOpWithNewOp<mlir::stablehlo::ConstantOp>(
-          op, SplatElementsAttr::get(op.getType(),
-                                     cstAttr.getSplatValue<Attribute>()));
-      return success();
-    }
-    return failure();
-  }
-};
-} // namespace
-
-void populateFutureUpstreamPatterns(RewritePatternSet &patterns) {
-  patterns.add<SimplifySliceOfConcat, SimplifyConcatOfConcatPattern,
-               FoldBroadcastInDimSplatPattern>(patterns.getContext());
-}

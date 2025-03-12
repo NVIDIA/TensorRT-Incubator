@@ -114,7 +114,7 @@ def TensorRT_CallOp : TensorRT_Op<"call", [
     }
 
     void setCalleeFromCallable(CallInterfaceCallable callee) {
-      (*this)->setAttr("callee", callee.get<SymbolRefAttr>());
+      (*this)->setAttr("callee", cast<SymbolRefAttr>(callee));
     }
 
     MutableOperandRange getArgOperandsMutable() {
@@ -172,7 +172,7 @@ def TensorRT_CallAllocOp : TensorRT_Op<"call_alloc", [
     }
 
     void setCalleeFromCallable(CallInterfaceCallable callee) {
-      (*this)->setAttr("callee", callee.get<SymbolRefAttr>());
+      (*this)->setAttr("callee", cast<SymbolRefAttr>(callee));
     }
 
     MutableOperandRange getArgOperandsMutable() {

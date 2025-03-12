@@ -136,7 +136,7 @@ public:
 
     // Perform outlining to functions.
     IRRewriter rewriter(&getContext());
-    OneToNTypeConverter typeConverter = getIdentityTypeConverter();
+    TypeConverter typeConverter = getIdentityTypeConverter();
     auto shouldCloneProducer = [](Value definedAbove, Region &cluster) {
       Operation *producer = definedAbove.getDefiningOp();
       if (!producer || !producer->hasTrait<OpTrait::ConstantLike>())

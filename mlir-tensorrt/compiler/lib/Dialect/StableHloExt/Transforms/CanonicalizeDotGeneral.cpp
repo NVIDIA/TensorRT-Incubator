@@ -389,7 +389,7 @@ public:
     RewritePatternSet patterns(ctx);
     patterns.add<DotGeneralToMulRewriter, RewriteDotGeneral,
                  DotGeneralCollapsingRewrite>(ctx);
-    if (failed(applyPatternsAndFoldGreedily(op, std::move(patterns)))) {
+    if (failed(applyPatternsGreedily(op, std::move(patterns)))) {
       emitError(op->getLoc())
           << "failed to apply rewrite patterns in " << getArgument();
       return signalPassFailure();

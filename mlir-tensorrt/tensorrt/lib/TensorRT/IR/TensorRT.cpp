@@ -912,17 +912,17 @@ void tensorrt::ConvolutionOp::build(
 
   Value biasValue = nullptr;
   ElementsAttr biasStatic = nullptr;
-  if (bias.is<Value>()) {
-    biasValue = bias.get<Value>();
-  } else if (bias.is<Attribute>()) {
-    biasStatic = dyn_cast<ElementsAttr>(bias.get<Attribute>());
+  if (isa<Value>(bias)) {
+    biasValue = cast<Value>(bias);
+  } else if (isa<Attribute>(bias)) {
+    biasStatic = dyn_cast<ElementsAttr>(cast<Attribute>(bias));
   }
   Value kernelValue = nullptr;
   ElementsAttr kernelStatic = nullptr;
-  if (kernel.is<Value>()) {
-    kernelValue = kernel.get<Value>();
-  } else if (kernel.is<Attribute>()) {
-    kernelStatic = dyn_cast<ElementsAttr>(kernel.get<Attribute>());
+  if (isa<Value>(kernel)) {
+    kernelValue = cast<Value>(kernel);
+  } else if (isa<Attribute>(kernel)) {
+    kernelStatic = dyn_cast<ElementsAttr>(cast<Attribute>(kernel));
   }
   ConvolutionOp::build(
       odsBuilder, odsState, type, input, kernelValue, biasValue, kernelStatic,
@@ -974,17 +974,17 @@ void tensorrt::DeconvolutionOp::build(
 
   Value biasValue = nullptr;
   ElementsAttr biasStatic = nullptr;
-  if (biasWeights.is<Value>()) {
-    biasValue = biasWeights.get<Value>();
-  } else if (biasWeights.is<Attribute>()) {
-    biasStatic = dyn_cast<ElementsAttr>(biasWeights.get<Attribute>());
+  if (isa<Value>(biasWeights)) {
+    biasValue = cast<Value>(biasWeights);
+  } else if (isa<Attribute>(biasWeights)) {
+    biasStatic = dyn_cast<ElementsAttr>(cast<Attribute>(biasWeights));
   }
   Value kernelValue = nullptr;
   ElementsAttr kernelStatic = nullptr;
-  if (kernelWeights.is<Value>()) {
-    kernelValue = kernelWeights.get<Value>();
-  } else if (kernelWeights.is<Attribute>()) {
-    kernelStatic = dyn_cast<ElementsAttr>(kernelWeights.get<Attribute>());
+  if (isa<Value>(kernelWeights)) {
+    kernelValue = cast<Value>(kernelWeights);
+  } else if (isa<Attribute>(kernelWeights)) {
+    kernelStatic = dyn_cast<ElementsAttr>(cast<Attribute>(kernelWeights));
   }
   DeconvolutionOp::build(
       odsBuilder, odsState, type, input, kernelValue, biasValue, kernelStatic,
@@ -1129,7 +1129,7 @@ static std::pair<Value, DenseI32ArrayAttr>
 decomposeSliceOpFoldResultParam(OpFoldResult ofr) {
   if (auto v = dyn_cast<Value>(ofr))
     return std::make_pair(v, nullptr);
-  return std::make_pair(Value(), cast<DenseI32ArrayAttr>(ofr.get<Attribute>()));
+  return std::make_pair(Value(), cast<DenseI32ArrayAttr>(cast<Attribute>(ofr)));
 }
 
 void tensorrt::SliceOp::build(OpBuilder &odsBuilder, OperationState &odsState,
@@ -2300,9 +2300,9 @@ struct SimplifyShapeOfStaticInput : public OpRewritePattern<tensorrt::ShapeOp> {
   LogicalResult matchAndRewrite(tensorrt::ShapeOp op,
                                 PatternRewriter &rewriter) const override {
     OpFoldResult shape = foldShapeOp(op);
-    if (shape.is<Value>())
+    if (isa<Value>(shape))
       return failure();
-    auto shapeConst = cast<DenseElementsAttr>(shape.get<Attribute>());
+    auto shapeConst = cast<DenseElementsAttr>(cast<Attribute>(shape));
     rewriter.replaceOpWithNewOp<tensorrt::ConstantOp>(op, shapeConst.getType(),
                                                       shapeConst);
     return success();

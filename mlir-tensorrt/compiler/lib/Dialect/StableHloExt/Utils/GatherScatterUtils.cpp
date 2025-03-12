@@ -71,6 +71,9 @@ stablehlo_ext::isSingleDimSimpleGatherWithImplicitIndexDim(GatherOp op) {
   if (!llvm::equal(expectedSliceSizes, op.getSliceSizes()))
     return {};
 
+  if (!dims.getOperandBatchingDims().empty())
+    return {};
+
   return dims.getStartIndexMap().front();
 }
 
@@ -90,6 +93,9 @@ stablehlo_ext::isSingleDimSimpleGatherWithImplicitIndexDim(
   // (C1) The `slice_sizes` should equal the shape of the operand except
   // along the gather dimension, which is size 1.
   const auto &dims = op.getDimensionNumbers();
+  if (!dims.getOperandBatchingDims().empty())
+    return {};
+
   for (int64_t i = 0; i < sliceSizesType.getDimSize(0); i++) {
     if (i == dims.getStartIndexMap()[0]) {
       auto one =
@@ -142,6 +148,9 @@ stablehlo_ext::isSingleDimSimpleGatherWithExplicitIndexDim(GatherOp op) {
       dims.getStartIndexMap() != dims.getCollapsedSliceDims())
     return {};
 
+  if (!dims.getOperandBatchingDims().empty())
+    return {};
+
   // (C1) The `slice_sizes` should equal the shape of the operand except
   // along the gather dimension, which is size 1.
   SmallVector<int64_t> expectedSliceSizes(op.getOperand().getType().getShape());
@@ -174,6 +183,9 @@ bool stablehlo_ext::isSimpleLeadingMultiDimGather(stablehlo::GatherOp op) {
   // Check index vector size.
   if (indexVectorSize < 2)
     return false;
+
+  if (!op.getDimensionNumbers().getOperandBatchingDims().empty())
+    return {};
 
   // (C2) Check slice shape.
   ArrayRef<int64_t> sliceShape = op.getSliceSizes();
@@ -211,6 +223,9 @@ bool stablehlo_ext::isSimpleLeadingMultiDimGatherWithDegenerateDims(
   RankedTensorType resultType = op.getType();
   if (op.getDimensionNumbers().getIndexVectorDim() != indicesType.getRank() - 1)
     return false;
+
+  if (!op.getDimensionNumbers().getOperandBatchingDims().empty())
+    return {};
 
   int64_t indexVectorSize = indicesType.getShape().back();
 
@@ -252,6 +267,11 @@ bool stablehlo_ext::isSimpleLeadingMultiDimGatherWithDegenerateDims(
 }
 
 bool stablehlo_ext::isCanonicalScatterNd(stablehlo::ScatterOp scatterOp) {
+  if (!scatterOp.getScatterDimensionNumbers()
+           .getScatterIndicesBatchingDims()
+           .empty())
+    return {};
+
   if (llvm::any_of(scatterOp.getOperandTypes(), [](Type operandType) {
         return !isa<RankedTensorType>(operandType);
       }))
@@ -419,6 +439,11 @@ bool stablehlo_ext::isCanonicalScatter(ScatterOp scatterOp) {
   auto indicesType = scatterOp.getScatterIndices().getType();
   auto operandType =
       mlir::cast<RankedTensorType>(scatterOp.getOperands().front().getType());
+
+  if (!scatterOp.getScatterDimensionNumbers()
+           .getScatterIndicesBatchingDims()
+           .empty())
+    return {};
 
   return indicesType.getRank() == 2 && dimsAttrs.getIndexVectorDim() == 1 &&
          dimsAttrs.getInsertedWindowDims().empty() &&

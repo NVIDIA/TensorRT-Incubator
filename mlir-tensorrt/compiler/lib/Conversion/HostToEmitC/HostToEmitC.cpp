@@ -446,7 +446,7 @@ static Value getStridedElementPtr(OpBuilder &rewriter, Location loc,
                                   MemRefType type,
                                   EmitCMemRefDescriptor memRefDesc,
                                   ValueRange indices) {
-  auto [strides, offset] = getStridesAndOffset(type);
+  auto [strides, offset] = type.getStridesAndOffset();
   // Use a canonical representation of the start address so that later
   // optimizations have a longer sequence of instructions to CSE.
   // If we don't do that we would sprinkle the memref.offset in various
@@ -1217,7 +1217,7 @@ static bool isContiguous(MemRefType t) {
     return false;
   int64_t offset;
   SmallVector<int64_t, 4> strides;
-  if (failed(getStridesAndOffset(t, strides, offset)))
+  if (failed(t.getStridesAndOffset(strides, offset)))
     return false;
   return isContiguousImpl(strides, t.getShape());
 }
@@ -1884,7 +1884,7 @@ public:
           return failure();
         });
 
-    (void)mlir::applyPatternsAndFoldGreedily(moduleOp, std::move(patterns));
+    (void)mlir::applyPatternsGreedily(moduleOp, std::move(patterns));
   }
 
   std::shared_ptr<const FrozenRewritePatternSet> patterns;

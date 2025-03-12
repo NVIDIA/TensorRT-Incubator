@@ -361,3 +361,29 @@ func.func @dynamic_window_size_multiple_window_and_scatter_dims(
 //  CHECK-SAME:         scatter_dims_to_operand_dims = [0, 1], index_vector_dim = 1>, unique_indices = false}>
 //       CHECK:     }) : (tensor<1x2x3x4x5xf32>, tensor<?x2xi32>, tensor<?x1x2x1x4x1xf32>) -> tensor<1x2x3x4x5xf32>
 //       CHECK:     return %[[v28]] : tensor<1x2x3x4x5xf32>
+
+// -----
+
+// Check that we don't crash on precense of batching dims.
+
+func.func @scatter_batching_dims(%arg0: tensor<2x5x4x7x9xi32>, %arg1: tensor<2x3x5x2xi32>, %arg2: tensor<2x3x5x8xi32>) -> tensor<2x5x4x7x9xi32> {
+  %0 = "stablehlo.scatter"(%arg0, %arg1, %arg2) <{
+    indices_are_sorted = true,
+    scatter_dimension_numbers = #stablehlo.scatter<
+      update_window_dims = [3],
+      inserted_window_dims = [2, 3],
+      input_batching_dims = [0, 1],
+      scatter_indices_batching_dims = [0, 2],
+      scatter_dims_to_operand_dims = [2, 3],
+      index_vector_dim = 3
+    >,
+    unique_indices = false
+  }> ({
+  ^bb0(%arg3: tensor<i32>, %arg4: tensor<i32>):
+    stablehlo.return %arg4 : tensor<i32>
+  }) : (tensor<2x5x4x7x9xi32>, tensor<2x3x5x2xi32>, tensor<2x3x5x8xi32>) -> tensor<2x5x4x7x9xi32>
+  func.return %0 : tensor<2x5x4x7x9xi32>
+}
+
+// CHECK-LABEL: @scatter_batching_dims
+// CHECK: stablehlo.scatter

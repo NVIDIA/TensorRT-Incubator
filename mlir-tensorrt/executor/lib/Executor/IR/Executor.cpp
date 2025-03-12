@@ -468,8 +468,8 @@ PointerType::getTypeSizeInBits(const DataLayout &dataLayout,
   for (auto entry : params) {
     if (!entry.isTypeEntry())
       continue;
-    auto ptrType =
-        llvm::dyn_cast<executor::PointerType>(entry.getKey().get<Type>());
+    auto ptrType = llvm::dyn_cast<executor::PointerType>(
+        llvm::cast<mlir::Type>(entry.getKey()));
     if (!ptrType || ptrType.getAddressSpace() != getAddressSpace())
       continue;
     return llvm::TypeSize::getFixed(
@@ -940,7 +940,7 @@ void GetOffsetOp::build(OpBuilder &odsBuilder, OperationState &odsState,
       staticIndices.push_back(attr.getInt());
       continue;
     }
-    Value val = ofr.get<Value>();
+    Value val = cast<Value>(ofr);
     staticIndices.push_back(ShapedType::kDynamic);
     dynamicIndices.push_back(val);
   }
@@ -1359,9 +1359,9 @@ void CreateTableOp::build(OpBuilder &b, OperationState &state, Type result,
                           OpFoldResult offset, ArrayRef<OpFoldResult> sizes,
                           ArrayRef<OpFoldResult> strides) {
   auto getVal = [&](OpFoldResult ofr) {
-    if (ofr.is<Value>())
-      return ofr.get<Value>();
-    Attribute attr = ofr.get<Attribute>();
+    if (isa<Value>(ofr))
+      return cast<Value>(ofr);
+    Attribute attr = cast<Attribute>(ofr);
     assert(llvm::isa<IntegerAttr>(attr));
     return b.create<executor::ConstantOp>(state.location, cast<TypedAttr>(attr))
         .getResult();

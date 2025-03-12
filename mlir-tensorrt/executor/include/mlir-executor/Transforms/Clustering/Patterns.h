@@ -33,8 +33,8 @@
 
 namespace mlir {
 
-/// Returns an identity OneToNTypeConverter.
-OneToNTypeConverter getIdentityTypeConverter();
+/// Returns an identity TypeConverter.
+TypeConverter getIdentityTypeConverter();
 
 /// A type of a function that can filter clusters.
 using ClusterFilterFn = std::function<bool(const Cluster &)>;

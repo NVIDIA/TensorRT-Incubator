@@ -132,7 +132,7 @@ public:
     RewritePatternSet patterns(ctx);
     memref::CastOp::getCanonicalizationPatterns(patterns, ctx);
     patterns.insert<SimplifyScfIf>(ctx);
-    if (failed(applyPatternsAndFoldGreedily(op, std::move(patterns)))) {
+    if (failed(applyPatternsGreedily(op, std::move(patterns)))) {
       emitError(op->getLoc())
           << "Failed to run memref cast elimination patterns";
       return signalPassFailure();

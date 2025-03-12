@@ -66,7 +66,7 @@ func.func @refine_dynamic_iota_requires_cast(%arg0: tensor<1xi32>) -> tensor<?xi
 
 // CHECK-LABEL: func.func @refine_dynamic_iota_requires_cast
 //  CHECK-SAME:  -> tensor<1024xi32> {
-//       CHECK:     %[[v1:.+]] = stablehlo.dynamic_iota {{.*}} -> tensor<1024xi32>
+//       CHECK:     %[[v1:.+]] = stablehlo.iota
 //       CHECK:     return %[[v1]] : tensor<1024xi32>
 
 

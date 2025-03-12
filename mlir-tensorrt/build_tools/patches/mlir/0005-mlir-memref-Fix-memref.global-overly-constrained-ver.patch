@@ -1,0 +1,41 @@
+From f014186374bb3e71d44648781dc03aaefd29f0d5 Mon Sep 17 00:00:00 2001
+From: Christopher Bate <cbate@nvidia.com>
+Date: Fri, 10 May 2024 22:39:44 -0600
+Subject: [PATCH 05/10] [mlir][memref] Fix memref.global overly constrained
+ verifier check
+
+---
+ mlir/lib/Dialect/MemRef/IR/MemRefOps.cpp | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/mlir/lib/Dialect/MemRef/IR/MemRefOps.cpp b/mlir/lib/Dialect/MemRef/IR/MemRefOps.cpp
+index 4f75b7618d63..f12f41437759 100644
+--- a/mlir/lib/Dialect/MemRef/IR/MemRefOps.cpp
++++ b/mlir/lib/Dialect/MemRef/IR/MemRefOps.cpp
+@@ -1117,7 +1117,7 @@ struct DimOfMemRefReshape : public OpRewritePattern<DimOp> {
+         }
+       } // else dim.getIndex is a block argument to reshape->getBlock and
+         // dominates reshape
+-    }   // Check condition 2
++    } // Check condition 2
+     else if (dim->getBlock() != reshape->getBlock() &&
+              !dim.getIndex().getParentRegion()->isProperAncestor(
+                  reshape->getParentRegion())) {
+@@ -1607,9 +1607,11 @@ LogicalResult GlobalOp::verify() {
+     // Check that the type of the initial value is compatible with the type of
+     // the global variable.
+     if (auto elementsAttr = llvm::dyn_cast<ElementsAttr>(initValue)) {
+-      Type initType = elementsAttr.getType();
+-      Type tensorType = getTensorTypeFromMemRefType(memrefType);
+-      if (initType != tensorType)
++      ShapedType initType = cast<ShapedType>(elementsAttr.getType());
++      ShapedType tensorType =
++          cast<ShapedType>(getTensorTypeFromMemRefType(memrefType));
++      if (initType.getShape() != tensorType.getShape() ||
++          initType.getElementType() != tensorType.getElementType())
+         return emitOpError("initial value expected to be of type ")
+                << tensorType << ", but was of type " << initType;
+     }
+-- 
+2.46.0
+

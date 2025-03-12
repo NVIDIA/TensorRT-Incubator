@@ -82,47 +82,60 @@ getTensorRTFunctionCallMap(ModuleOp op, SymbolTableCollection &collection) {
     func::FuncOp func = getCalledFunction(callOp, collection);
     if (!func)
       return;
-    if (!map.contains(func)) {
-      map[func].push_back(callOp.getOperation());
+    auto it = map.find(func);
+    if (it == map.end()) {
+      map.insert(std::make_pair(
+          func, SmallVector<Operation *>{callOp.getOperation()}));
       return;
     }
-    map.insert(std::make_pair(func, SmallVector<Operation *>{callOp}));
+    it->second.push_back(callOp.getOperation());
   });
   return map;
 }
 
 /// Remove unused arguments in a TensorRT function and adjust all the associated
 /// `tensorrt.call` operations.
-static LogicalResult removeUnusedArgs(SymbolTableCollection &collection,
+static LogicalResult removeUnusedArgs(IRRewriter &rewriter,
+                                      SymbolTableCollection &collection,
                                       ModuleOp op, func::FuncOp funcOp,
                                       ArrayRef<Operation *> callOps) {
-  llvm::SmallBitVector unusedArgs(funcOp.getNumArguments(), 0);
+  SmallVector<int64_t> usedArgs;
+  SmallVector<int64_t> unusedArgs;
   for (BlockArgument arg : funcOp.getArguments()) {
-    if (arg.use_empty())
-      unusedArgs.set(arg.getArgNumber());
+    if (!arg.use_empty())
+      usedArgs.push_back(arg.getArgNumber());
+    else
+      unusedArgs.push_back(arg.getArgNumber());
   }
-
-  if (!unusedArgs.any())
+  if (usedArgs.size() == funcOp.getNumArguments())
     return success();
 
-  for (int64_t i = unusedArgs.find_last(); i != -1;
-       i = unusedArgs.find_prev(i)) {
-    funcOp.eraseArgument(i);
+  for (int64_t idx : llvm::reverse(unusedArgs))
+    funcOp.eraseArgument(idx);
 
-    // Update the call ops.
-    for (Operation *callOp : callOps) {
-      if (auto trtCall = dyn_cast<tensorrt::CallOp>(callOp)) {
-        trtCall.getInputsMutable().erase(i);
-        continue;
-      }
-      if (auto allocCall = dyn_cast<tensorrt::CallAllocOp>(callOp)) {
-        allocCall.getInputsMutable().erase(i);
-        continue;
-      }
-      llvm_unreachable("expected 'tensorrt.call' or 'tensorrt.call_alloc' op");
+  // Update the call ops.
+  for (Operation *callOp : callOps) {
+    rewriter.setInsertionPoint(callOp);
+    if (auto trtCall = dyn_cast<tensorrt::CallOp>(callOp)) {
+      SmallVector<Value> newOperands;
+      for (int64_t idx : usedArgs)
+        newOperands.push_back(trtCall.getInputs()[idx]);
+      rewriter.replaceOpWithNewOp<tensorrt::CallOp>(
+          trtCall, trtCall->getResultTypes(), newOperands, trtCall.getOutputs(),
+          trtCall.getCalleeAttr());
+      continue;
     }
+    if (auto allocCall = dyn_cast<tensorrt::CallAllocOp>(callOp)) {
+      SmallVector<Value> newOperands;
+      for (int64_t idx : usedArgs)
+        newOperands.push_back(allocCall.getInputs()[idx]);
+      rewriter.replaceOpWithNewOp<tensorrt::CallAllocOp>(
+          allocCall, allocCall.getResultTypes(), newOperands,
+          allocCall.getCalleeAttr());
+      continue;
+    }
+    llvm_unreachable("expected 'tensorrt.call' or 'tensorrt.call_alloc' op");
   }
-
   return success();
 }
 
@@ -139,7 +152,7 @@ public:
     // Eliminate `plan.with_shape` operations.
     RewritePatternSet patterns(ctx);
     patterns.add<RemoveWithShapeRewriter, RemoveWithValuesRewriter>(ctx);
-    if (failed(applyPatternsAndFoldGreedily(module, std::move(patterns)))) {
+    if (failed(applyPatternsGreedily(module, std::move(patterns)))) {
       emitError(module->getLoc())
           << "failed to run plan.with_shape elimination patterns in "
           << getArgument();
@@ -149,11 +162,12 @@ public:
     // The above transform will leave many unused index arguments in outlined
     // functions. Clean those up as well.
     SymbolTableCollection symbolTableCollection;
+    IRRewriter rewriter(ctx);
     auto callMapping =
         getTensorRTFunctionCallMap(module, symbolTableCollection);
     for (const auto &[funcOp, callOps] : callMapping) {
-      if (failed(removeUnusedArgs(symbolTableCollection, module, funcOp,
-                                  callOps))) {
+      if (failed(removeUnusedArgs(rewriter, symbolTableCollection, module,
+                                  funcOp, callOps))) {
         emitError(funcOp->getLoc())
             << "failed to drop unused arguments in " << getArgument();
         return signalPassFailure();

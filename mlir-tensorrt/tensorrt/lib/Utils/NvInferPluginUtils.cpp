@@ -29,9 +29,13 @@
 #include "mlir/IR/Diagnostics.h"
 #include "mlir/IR/ImplicitLocOpBuilder.h"
 #include "mlir/IR/TypeUtilities.h"
+#if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 9, 0)
+#include "nvinfer/trt_plugin_python.h"
+#endif // MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 9, 0)
 #include "llvm/Support/DynamicLibrary.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FormatVariadic.h"
+#include "llvm/Support/MemoryBuffer.h"
 #include <limits>
 
 using namespace mlir;
@@ -60,7 +64,7 @@ FailureOr<nvinfer1::DataType> mlir::tensorrt::getNvInferDataType(Location loc,
     return nvinfer1::DataType::kUINT8;
 
 #if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(9, 1, 0)
-  if (elType.isFloat8E4M3FN())
+  if (isa<Float8E4M3FNType>(elType))
     return nvinfer1::DataType::kFP8;
   if (elType.isBF16())
     return nvinfer1::DataType::kBF16;
@@ -220,12 +224,47 @@ private:
       return success();
     }
     if (auto els = dyn_cast<DenseElementsAttr>(attr)) {
-      // TODO: Support splat elements attrs? This would require expanding the
-      // data to pass it correctly using PluginFieldCollectio.
-      if (els.isSplat() && els.getNumElements() > 1)
-        return failure();
       if (els.getType().getElementType() != expectedType)
         return error();
+      if (auto elsSplat = dyn_cast<SplatElementsAttr>(attr)) {
+        if (!isa<IntegerType, FloatType>(elsSplat.getElementType()))
+          return failure();
+        // Only handle types width the logical width of at least CHAR_BIT
+        // and divisible by CHAR_BIT
+        if (elsSplat.getElementType().getIntOrFloatBitWidth() % CHAR_BIT != 0U)
+          return failure();
+        unsigned const byteWidth = els.getRawData().size();
+        splatsStorage.emplace_back(
+            llvm::WritableMemoryBuffer::getNewUninitMemBuffer(
+                elsSplat.getNumElements() * byteWidth, "",
+                llvm::Align(byteWidth)));
+        auto bufferData = splatsStorage.back()->getBufferStart();
+        if (els.getType().getElementType().isInteger(32))
+          std::fill_n(reinterpret_cast<int32_t *>(bufferData),
+                      elsSplat.getNumElements(),
+                      elsSplat.getSplatValue<int32_t>());
+
+        else if (els.getType().getElementType().isInteger(64))
+          std::fill_n(reinterpret_cast<int64_t *>(bufferData),
+                      elsSplat.getNumElements(),
+                      elsSplat.getSplatValue<int64_t>());
+
+        else if (els.getType().getElementType().isInteger(16))
+          std::fill_n(reinterpret_cast<int16_t *>(bufferData),
+                      elsSplat.getNumElements(),
+                      elsSplat.getSplatValue<int16_t>());
+
+        else if (els.getType().getElementType().isInteger(8))
+          std::fill_n(reinterpret_cast<int8_t *>(bufferData),
+                      elsSplat.getNumElements(),
+                      elsSplat.getSplatValue<int8_t>());
+        else
+          return failure();
+
+        field.data = bufferData;
+        field.length = elsSplat.getNumElements();
+        return success();
+      }
       field.data = addElements(els);
       field.length = els.getType().getNumElements();
       return success();
@@ -306,6 +345,7 @@ private:
   SmallVector<nvinfer1::PluginField> params;
   SmallVector<APInt> scalarStorage;
   SmallVector<nvinfer1::Dims> dimsStorage;
+  SmallVector<std::unique_ptr<llvm::WritableMemoryBuffer>> splatsStorage;
 };
 } // namespace
 
@@ -325,6 +365,13 @@ makePluginCreatorBase(PluginCreatorInterface *creator, bool owning) {
   if (std::string(creator->getInterfaceInfo().kind) == "PLUGIN CREATOR_V3ONE") {
     return std::make_unique<PluginCreator<nvinfer1::IPluginCreatorV3One>>(
         static_cast<nvinfer1::IPluginCreatorV3One *>(creator), owning);
+  }
+#endif
+#if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 9, 0)
+  else if (std::string(creator->getInterfaceInfo().kind) ==
+           "PLUGIN CREATOR_V3QUICK") {
+    return std::make_unique<PluginCreator<nvinfer1::IPluginCreatorV3Quick>>(
+        static_cast<nvinfer1::IPluginCreatorV3Quick *>(creator), owning);
   }
 #endif
 #if defined(__GNUC__) || defined(__clang__)
@@ -347,6 +394,13 @@ getPluginCreatorInterface(nvinfer1::IPluginRegistry *registry, const char *name,
   return registry->getPluginCreator(name, version, pluginNamespace);
 #endif
 }
+
+#if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 0, 0)
+bool isKind(nvinfer1::InterfaceInfo const &info, char const *kind) {
+  return std::strcmp(info.kind, kind) == 0;
+}
+#endif
+
 } // namespace
 
 //===----------------------------------------------------------------------===//
@@ -463,12 +517,30 @@ FailureOr<PluginInterfaceBase *> PluginManager::getExternalPlugin(
     return failure();
 
 #if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 0, 0)
-  if (auto creator =
-          llvm::dyn_cast<PluginCreator<nvinfer1::IPluginCreatorV3One>>(
-              *creatorBase)) {
+  auto creatorIface =
+      static_cast<PluginCreator<nvinfer1::IPluginCreatorInterface> *>(
+          *creatorBase);
+
+  nvinfer1::InterfaceInfo const ifaceInfo =
+      creatorIface->ptr->getInterfaceInfo();
+  if (isKind(ifaceInfo, "PLUGIN CREATOR_V3ONE")) {
+    auto creator = static_cast<PluginCreator<nvinfer1::IPluginCreatorV3One> *>(
+        *creatorBase);
     return createPluginFromCreator<nvinfer1::IPluginCreatorV3One>(
         loc, creatorParams, layerName, creator->ptr);
   }
+#if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 9, 0)
+  if (isKind(ifaceInfo, "PLUGIN CREATOR_V3QUICK")) {
+    auto creator =
+        static_cast<PluginCreator<nvinfer1::IPluginCreatorV3Quick> *>(
+            *creatorBase);
+    std::string pluginIdString =
+        std::string(name) + "::" + std::string(pluginNamespace);
+    StringRef pluginId{pluginIdString.data(), pluginIdString.size()};
+    return createPluginFromCreator<nvinfer1::IPluginCreatorV3Quick>(
+        loc, creatorParams, pluginId, creator->ptr);
+  }
+#endif
 #endif
   auto creator =
       static_cast<PluginCreator<nvinfer1::IPluginCreator> *>(*creatorBase);
@@ -502,7 +574,27 @@ FailureOr<PluginInterfaceBase *> PluginManager::createPluginFromCreator(
 
     plugins.emplace_back(new Plugin<nvinfer1::IPluginV3>(plugin));
     return plugins.back().get();
-  } else
+  }
+#if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 9, 0)
+  else if constexpr (std::is_same_v<PluginCreatorT,
+                                    nvinfer1::IPluginCreatorV3Quick>) {
+
+    SmallVector<std::string> nameAndNamespace;
+    for (llvm::StringRef s : llvm::split(layerName, "::"))
+      nameAndNamespace.push_back(std::string(s));
+
+    nvinfer1::IPluginV3 *plugin = creator->createPlugin(
+        nameAndNamespace[0].c_str(), nameAndNamespace[1].c_str(),
+        &serializedParams, nvinfer1::TensorRTPhase::kBUILD,
+        nvinfer1::QuickPluginCreationRequest::kSTRICT_AOT);
+    if (!plugin)
+      return emitError(loc) << "failed to create plugin";
+
+    plugins.emplace_back(new Plugin<nvinfer1::IPluginV3>(plugin));
+    return plugins.back().get();
+  }
+#endif
+  else
 #endif
   {
     // This is an unsafe cast, but there is no way in the TRT API to
@@ -697,17 +789,54 @@ LogicalResult tensorrt::buildPluginShapeRegion(
 
   SmallVector<nvinfer1::DimsExprs> outputExprs(
       op->getNumResults(), nvinfer1::DimsExprs{0, {nullptr}});
+#if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 9, 0)
+  SmallVector<nvinfer1::DataType> outputTypes(op->getNumResults(),
+                                              nvinfer1::DataType{});
+#endif
 
 #if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 0, 0)
   if (auto plugin = llvm::dyn_cast<Plugin<nvinfer1::IPluginV3>>(pluginBase)) {
     nvinfer1::IPluginCapability *iface = plugin->ptr->getCapabilityInterface(
         nvinfer1::PluginCapabilityType::kBUILD);
-    auto *buildPluginIface = static_cast<nvinfer1::IPluginV3OneBuild *>(iface);
-    if (buildPluginIface->getOutputShapes(inputExprs.data(), inputExprs.size(),
-                                          nullptr, 0, outputExprs.data(),
-                                          outputExprs.size(), exprBuilder)) {
-      return failure();
+    nvinfer1::InterfaceInfo pluginIfaceInfo = iface->getInterfaceInfo();
+    if (std::string{pluginIfaceInfo.kind} == "PLUGIN_V3ONE_BUILD") {
+      auto *buildPluginIface =
+          static_cast<nvinfer1::IPluginV3OneBuild *>(iface);
+      if (buildPluginIface->getOutputShapes(
+              inputExprs.data(), inputExprs.size(), nullptr, 0,
+              outputExprs.data(), outputExprs.size(), exprBuilder))
+        return failure();
     }
+#if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 9, 0)
+    else if (std::string{pluginIfaceInfo.kind} == "PLUGIN_V3QUICKAOT_BUILD") {
+      SmallVector<nvinfer1::DataType> inputTypes(numOperands);
+      SmallVector<int32_t> inputRanks(numOperands);
+      for (auto [i, operand] : llvm::enumerate(operands)) {
+        RankedTensorType tensorType = cast<RankedTensorType>(operand.getType());
+        FailureOr<nvinfer1::DataType> trtTypeFromMlirTensorType =
+            getNvInferDataType(op->getLoc(), tensorType.getElementType());
+        if (failed(trtTypeFromMlirTensorType))
+          return failure();
+
+        inputTypes[i] = trtTypeFromMlirTensorType.value();
+        inputRanks[i] = tensorType.getRank();
+      }
+      auto *buildPluginIface =
+          static_cast<nvinfer1::IPluginV3QuickAOTBuild *>(iface);
+
+      if (buildPluginIface->getOutputDataTypes(
+              outputTypes.data(), outputTypes.size(), inputTypes.data(),
+              inputRanks.data(), inputTypes.size()))
+        return failure();
+
+      if (buildPluginIface->getOutputShapes(
+              inputExprs.data(), inputExprs.size(), nullptr, 0,
+              outputExprs.data(), outputExprs.size(), exprBuilder))
+        return failure();
+    }
+#endif
+    else
+      return failure();
   } else
 #endif
   {

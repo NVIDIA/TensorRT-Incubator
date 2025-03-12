@@ -406,7 +406,7 @@ serializeDenseSplatElementsAttrToFile(Location loc, DenseElementsAttr values,
     fill(fillValue);
     return of;
   }
-  if (rtt.getElementType().isFloat8E4M3FN()) {
+  if (isa<Float8E4M3FNType>(rtt.getElementType())) {
     APInt tmp = values.getSplatValue<APFloat>().bitcastToAPInt();
     assert(tmp.getBitWidth() == 8 && "unexpected bitwidth");
     uint8_t fillValue = *reinterpret_cast<const uint8_t *>(tmp.getRawData());

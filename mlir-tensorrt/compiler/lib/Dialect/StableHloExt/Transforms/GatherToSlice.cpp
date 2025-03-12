@@ -197,7 +197,7 @@ public:
     MLIRContext *ctx = &getContext();
     RewritePatternSet patterns(ctx);
     patterns.add<RewriteSliceLikeGather>(ctx);
-    if (failed(applyPatternsAndFoldGreedily(op, std::move(patterns)))) {
+    if (failed(applyPatternsGreedily(op, std::move(patterns)))) {
       emitError(op->getLoc())
           << "failed to apply rewrite patterns in " << getArgument();
       return signalPassFailure();
