@@ -24,6 +24,7 @@ from nvtripy.utils import wrappers
     dtype_variables={"T1": ["bool"]},
 )
 # TODO (pranavm): Add integration tests for this.
+# TODO (pranavm): Use magic method (__or__?)
 def logical_or(lhs: "nvtripy.Tensor", rhs: "nvtripy.Tensor") -> "nvtripy.Tensor":
     """
     Performs an elementwise logical OR.
