@@ -56,7 +56,6 @@ class TestCast:
 
     # these dtypes don't have analogues in numpy
     @pytest.mark.parametrize("source_dtype", [pytest.param(tp.float8, marks=skip_if_older_than_sm89), tp.int4])
-    @pytest.mark.skip("StableHLO QDQ broken")
     def test_cast_quantized_dtypes_into_bool(self, source_dtype, eager_or_compiled):
         # TODO(#223): Using an odd size leads to a strange crash, so can't just use [-1.0, 0.0, 1.0]
         input_tensor = tp.Tensor([-1.0, 0.0, 0.0, 1.0], dtype=tp.float32)
