@@ -73,3 +73,12 @@ class TestDequantize:
             match="Scale must be a scalar tensor in per-tensor dequantize op",
         ):
             a = tp.dequantize(a, scale, tp.float32)
+
+    def test_non_constant_scale(self):
+        input = tp.ones((4, 4), dtype=tp.int8)
+        scale = tp.ones((4,))
+        with helper.raises(
+            tp.TripyException,
+            match="Scale must be a constant",
+        ):
+            dequantized = tp.dequantize(input, scale, tp.float32, dim=0)

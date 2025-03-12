@@ -112,7 +112,4 @@ def quantize(
     """
     op_utils.check_qdq_args(input, scale, dtype, dim, True)
 
-    # This is implemented using a special trace op instead of a combination of frontend ops
-    # so that it shows up in the trace and can more easily be pattern matched (by defining our
-    # own trace op, we have finer control over the generated MLIR).
     return op_utils.create_op(Quantize, [input, scale], dtype, dim)
