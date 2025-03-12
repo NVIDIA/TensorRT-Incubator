@@ -235,7 +235,7 @@ def test_dtype_constraints(test_data):
             and test_data[4]["T2"] in [tp.int4, tp.int8, tp.float8]
         ):
             # TODO (pranavm): Re-enable these:
-            pytest.skip(f"StableHLO QDQ broken")
+            pytest.skip(f"Quantized dtypes are not supported by TRT dialect ops.")
         if positive_case:
             ret_val, namespace = _run_dtype_constraints_subtest(test_data)
             if isinstance(ret_val, tp.Tensor) and return_dtype in namespace:

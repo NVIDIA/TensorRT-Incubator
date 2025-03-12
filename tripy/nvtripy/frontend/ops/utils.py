@@ -175,6 +175,8 @@ def is_quantized_dtype(dtype: "nvtripy.common.datatype.dtype") -> bool:
 
 
 def check_qdq_args(input, scale, dtype, dim, is_quantize):
+    from nvtripy.trace.ops.constant import Constant
+
     valid_input_dtypes = QUANTIZABLE_DTYPES if is_quantize else QUANTIZED_DTYPES
     valid_target_dtypes = QUANTIZED_DTYPES if is_quantize else QUANTIZABLE_DTYPES
     op_str = "quantize op" if is_quantize else "dequantize op"
@@ -228,6 +230,12 @@ def check_qdq_args(input, scale, dtype, dim, is_quantize):
         raise_error(
             f"Scale must be a scalar tensor in per-tensor {op_str}.",
             [f"scale has rank={scale.rank}."],
+        )
+
+    if not isinstance(scale.trace_tensor.producer, Constant):
+        raise_error(
+            "Scale must be a constant. Please evaluate the tensor using `.eval()`.",
+            [f"Note: scale was defined here: ", scale],
         )
 
 
