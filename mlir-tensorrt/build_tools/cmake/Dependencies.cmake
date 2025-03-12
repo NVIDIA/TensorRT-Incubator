@@ -150,6 +150,12 @@ function(find_tensorrt)
     message(FATAL_ERROR "Found TensorRT Version ${TRT_VERSION}, but version at least ${ARG_MIN_VERSION} is required")
   endif()
 
+  if(TRT_VERSION VERSION_GREATER_EQUAL 10.9)
+    add_compile_definitions(ENABLE_AOT_PLUGIN=1)
+    configure_tensorrt_python_plugin_header()
+    message(STATUS "Found TensorRT Python headers at ${trt_python_plugin_header}")
+  endif()
+
   set(MLIR_TRT_TENSORRT_LIB_DIR "${_tensorrt_lib_dir}" PARENT_SCOPE)
   set(MLIR_TRT_TENSORRT_VERSION "${TRT_VERSION}" PARENT_SCOPE)
 
@@ -157,10 +163,45 @@ function(find_tensorrt)
   target_include_directories(TensorRTHeaderOnly INTERFACE
     $<BUILD_INTERFACE:${_tensorrt_include_dir}>
     )
+  if(TRT_VERSION VERSION_GREATER_EQUAL 10.9)
+    target_include_directories(TensorRTHeaderOnly INTERFACE
+      $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/include>
+      )
+  endif()
   target_compile_options(TensorRTHeaderOnly INTERFACE
     $<$<COMPILE_LANGUAGE:CXX>:-Wno-deprecated-declarations>
     )
 endfunction()
+
+macro(configure_tensorrt_python_plugin_header)
+  if(ARG_INSTALL_DIR)
+    find_file(
+      trt_python_plugin_header
+      NAMES plugin.h
+      HINTS ${ARG_INSTALL_DIR} ${ARG_INSTALL_DIR}/python/include/impl
+      PATHS ${ARG_INSTALL_DIR} ${ARG_INSTALL_DIR}/python/include/impl
+      REQUIRED
+      NO_CMAKE_PATH NO_DEFAULT_PATH
+      NO_CACHE
+    )
+  else()
+    find_path(
+      trt_python_plugin_header
+      NAMES plugin.h
+      REQUIRED
+      NO_CACHE
+    )
+  endif()
+  file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/include/nvinfer")
+  file(COPY_FILE "${trt_python_plugin_header}"
+    "${CMAKE_BINARY_DIR}/include/nvinfer/trt_plugin_python.h"
+    ONLY_IF_DIFFERENT
+    RESULT copy_result
+  )
+  if(copy_result)
+    message(FATAL_ERROR "failed to copy TensorRT QDP plugin header: ${copy_result}")
+  endif()
+endmacro()
 
 #-------------------------------------------------------------------------------------
 # Download and add DLPack to the build (header only)
