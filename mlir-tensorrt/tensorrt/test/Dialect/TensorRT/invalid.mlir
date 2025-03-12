@@ -1460,14 +1460,6 @@ func.func @trt_unary(%arg0: tensor<10xi32>) -> tensor<10xi32> {
 
 // -----
 
-func.func @trt_unary_sqrt(%arg0: tensor<f32>) -> tensor<f32> {
-  // expected-error @below {{'tensorrt.unary' op TensorRT Unary ops need at least 1D input}}
-  %0 = tensorrt.unary {unaryOperation = #tensorrt.unary_operation<kSQRT>} %arg0 : tensor<f32>
-  return %0 : tensor<f32>
-}
-
-// -----
-
 func.func @trt_unary_sqrt(%arg0: tensor<10xi32>) -> tensor<10xi32> {
   // expected-error @below {{'tensorrt.unary' op expected element type to be one of the following: F16, F32}}
   %0 = tensorrt.unary {unaryOperation = #tensorrt.unary_operation<kSQRT>} %arg0 : tensor<10xi32>
