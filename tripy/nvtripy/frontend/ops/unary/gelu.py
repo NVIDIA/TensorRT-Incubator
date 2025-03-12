@@ -30,7 +30,6 @@ from nvtripy.frontend.ops import utils as op_utils
     },
 )
 def gelu(input: "nvtripy.Tensor") -> "nvtripy.Tensor":
-    # TODO (pranavm): Check that this docstring is generated correctly:
     r"""
     Applies a Gaussian Error Linear Unit (GELU) function
     to each element of the input tensor:
@@ -38,7 +37,7 @@ def gelu(input: "nvtripy.Tensor") -> "nvtripy.Tensor":
     :math:`\text{gelu}(x) = x * \phi(x)`
 
     where :math:`\phi(x)` is the
-    `Cumulative Distribution Function (CDF) of a Gausian distribution <https://en.wikipedia.org/wiki/Normal_distribution#Cumulative_distribution_function`_.
+    `Cumulative Distribution Function (CDF) of a Gaussian distribution <https://en.wikipedia.org/wiki/Normal_distribution#Cumulative_distribution_function>`_.
 
     Args:
         input: The input tensor.

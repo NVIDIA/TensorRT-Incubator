@@ -97,7 +97,6 @@ class Tensor(metaclass=TensorMeta):
         self.trace_tensor = constant.outputs[0]
         self.trace_tensor.name = utils.utils.default(name, self.trace_tensor.name)
         if fetch_stack_info:
-            # TODO (pranavm): Figure out the right stack depth
             self.stack_info = utils.stack_info.get_stack_info(include_code_index=1)
 
         # TODO(#155): Remove this hack:
@@ -115,7 +114,6 @@ class Tensor(metaclass=TensorMeta):
     def from_trace_tensor(cls, trace_tensor, include_code_index=2):
         instance = cls.__new__(cls)
         instance.trace_tensor = trace_tensor
-        # TODO (pranavm): Figure out what stack depth to use here?
         instance.stack_info = utils.stack_info.get_stack_info(include_code_index=include_code_index)
         return instance
 

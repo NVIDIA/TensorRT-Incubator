@@ -25,7 +25,6 @@ from nvtripy.trace.ops.quantize import Quantize
 from nvtripy.utils import wrappers
 
 
-# TODO (pranavm): Make Q/DQ modules since `scale` has to be a parameter.
 @export.public_api(document_under="operations/quantization")
 @wrappers.interface(
     dtype_constraints={"input": "T1", "scale": "T1", "dtype": "T2", wrappers.RETURN_VALUE: "T2"},
