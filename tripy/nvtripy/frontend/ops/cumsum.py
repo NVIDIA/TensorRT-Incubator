@@ -37,7 +37,7 @@ def cumsum(input: "nvtripy.Tensor", dim: int) -> "nvtripy.Tensor":
         :linenos:
         :caption: 1D tensor
 
-        input = tp.arange(4, 0, step=-1, dtype=tp.int32)
+        input = tp.arange(4, 0, step=-1, dtype=tp.float32)
         output = tp.cumsum(input, dim=0)
 
         assert cp.array_equal(cp.cumsum(cp.from_dlpack(input)), cp.from_dlpack(output))
@@ -46,7 +46,7 @@ def cumsum(input: "nvtripy.Tensor", dim: int) -> "nvtripy.Tensor":
         :linenos:
         :caption: 2D tensor
 
-        input = tp.reshape(tp.arange(9, 0, step=-1, dtype=tp.int32), (3, 3))
+        input = tp.reshape(tp.arange(9, 0, step=-1, dtype=tp.float32), (3, 3))
         output = tp.cumsum(input, dim=0)
 
         assert cp.array_equal(cp.cumsum(cp.from_dlpack(input), axis=0), cp.from_dlpack(output))
