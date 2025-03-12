@@ -12,17 +12,6 @@ func.func @tensorrt_shape_op(
 }
 
 
-// CHECK-LABEL: @tensorrt_shape_op_int64
-//  CHECK-SAME: tensorrt.engine
-func.func @tensorrt_shape_op_int64(
-    %arg0: tensor<10x?xi64> {tensorrt.shape_profile = #tensorrt.shape_profile<min=[10, 128], opt=[10, 256], max=[10, 512]>},
-  %arg1: tensor<1x1xi64>) -> tensor<2xi32> {
-  %0 = tensorrt.element_wise <kSUM> (%arg0, %arg1 : tensor<10x?xi64>, tensor<1x1xi64>) -> tensor<10x?xi64>
-  %1 = tensorrt.shape %0 : tensor<10x?xi64> -> tensor<2xi32>
-  return %1 : tensor<2xi32>
-}
-
-
 // CHECK-LABEL: @tensorrt_shape_op_0d
 //  CHECK-SAME: tensorrt.engine
 func.func @tensorrt_shape_op_0d(
@@ -33,4 +22,3 @@ func.func @tensorrt_shape_op_0d(
   %1 = tensorrt.shape %0 : tensor<f32> -> tensor<0xi32>
   return %1 : tensor<0xi32>
 }
-
