@@ -34,7 +34,7 @@ from nvtripy.utils.utils import make_list
     dtype_constraints={"self": "T1", wrappers.RETURN_VALUE: "T1"},
     dtype_variables={"T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"]},
 )
-# TODO (pranavm): Clean up this docstring
+# TODO (pranavm): Clean up this docstring - add details on how to do gather with slice.
 # TODO (pranavm): x[3:2:1] of bool tensors gives *very bad* errors - figure out how to improve.
 def __getitem__(
     self: "nvtripy.Tensor", index: Union["nvtripy.Tensor", slice, IntLike, Sequence[Union[slice, IntLike]]]

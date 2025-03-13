@@ -22,7 +22,7 @@ from tests import helper
 
 class TestBinaryElementwise:
     # Make sure that we can support non-tensor arguments as either lhs or rhs.
-    # Comparison operators have no right-side overload - instead, they will simply
+    # Comparison operations have no right-side overload - instead, they will simply
     # call their opposite.
     @pytest.mark.parametrize(
         "lhs, rhs",

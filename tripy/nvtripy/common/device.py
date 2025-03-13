@@ -19,10 +19,9 @@ from dataclasses import dataclass
 from typing import Any, Dict
 
 from nvtripy import export
-from nvtripy.common.exception import TripyException
+from nvtripy.common.exception import raise_error
 from nvtripy.utils.json import Decoder, Encoder
 
-# TODO (pranavm): Disallow CPU here
 _VALID_KINDS = {"cpu", "gpu"}
 
 
@@ -72,15 +71,16 @@ class device:
             try:
                 index = int(index)
             except ValueError:
-                raise TripyException(f"Could not interpret: {index} as an integer")
+                raise_error(f"Could not interpret: {index} as an integer")
         else:
             index = 0
 
+        # TODO (pranavm): Disallow multi-device - it doesn't work:
         if index < 0:
-            raise TripyException(f"Device index must be a non-negative integer, but was: {index}")
+            raise_error(f"Device index must be a non-negative integer, but was: {index}")
 
         if kind not in _VALID_KINDS:
-            raise TripyException(f"Unrecognized device kind: {kind}. Choose from: {list(_VALID_KINDS)}")
+            raise_error(f"Unrecognized device kind: {kind}. Choose from: {list(_VALID_KINDS)}")
 
         self.kind = kind
         self.index = index
