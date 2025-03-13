@@ -18,11 +18,9 @@
 from textwrap import dedent
 
 import cupy as cp
-
 import nvtripy as tp
-from tests import helper
-from nvtripy.constants import CONSTANT_OP_CACHE_VOLUME_THRESHOLD
 from nvtripy.trace.trace import Trace
+from tests import helper
 
 
 class TestTrace:
@@ -96,8 +94,8 @@ class TestTrace:
             str(trace)
             == dedent(
                 """
-                a = constant(shape=(1,), dtype=int32, device=gpu:0, data_str=[0]) : tensor<1xi32:gpu:0>
-                b = constant(shape=(1,), dtype=int32, device=gpu:0, data_str=[1]) : tensor<1xi32:gpu:0>
+                a = constant(shape=(1,), dtype=int32, device=gpu:0) : tensor<1xi32:gpu:0>
+                b = constant(shape=(1,), dtype=int32, device=gpu:0) : tensor<1xi32:gpu:0>
                 c = add(a : tensor<1xi32:gpu:0>, b : tensor<1xi32:gpu:0>) : tensor<?xi32:gpu:0>
                 outputs:
                     c : tensor<?xi32:gpu:0>
@@ -134,8 +132,8 @@ class TestTrace:
             str(trace)
             == dedent(
                 """
-                a = constant(shape=(1,), dtype=float32, device=gpu:0, data_str=[1.]) : tensor<1xf32:gpu:0>
-                b = constant(shape=(1,), dtype=float32, device=gpu:0, data_str=[1.]) : tensor<1xf32:gpu:0>
+                a = constant(shape=(1,), dtype=float32, device=gpu:0) : tensor<1xf32:gpu:0>
+                b = constant(shape=(1,), dtype=float32, device=gpu:0) : tensor<1xf32:gpu:0>
                 c = add(a : tensor<1xf32:gpu:0>, b : tensor<1xf32:gpu:0>) : tensor<?xf32:gpu:0>
                 d = add(c : tensor<?xf32:gpu:0>, c : tensor<?xf32:gpu:0>) : tensor<?xf32:gpu:0>
                 outputs:
@@ -193,7 +191,7 @@ class TestTrace:
                 """
                 inputs:
                     a : tensor<1xf32:gpu:0>
-                b = constant(shape=(1,), dtype=float32, device=gpu:0, data_str=[1.]) : tensor<1xf32:gpu:0>
+                b = constant(shape=(1,), dtype=float32, device=gpu:0) : tensor<1xf32:gpu:0>
                 c = add(a : tensor<1xf32:gpu:0>, b : tensor<1xf32:gpu:0>) : tensor<?xf32:gpu:0>
                 outputs:
                     c : tensor<?xf32:gpu:0>
@@ -216,25 +214,3 @@ class TestTrace:
             has_stack_info_for=[a, b],
         ):
             Trace([c.trace_tensor])
-
-    def test_collect_storage_ops_small_inputs(self):
-        shape = 1
-        a = tp.Tensor(cp.ones(shape, dtype=cp.float32), name="a")
-        b = tp.Tensor(cp.ones(shape, dtype=cp.float32), name="b")
-
-        c = a + b
-
-        storage_inputs = Trace._collect_constant_tensors(c.trace_tensor)
-        assert len(storage_inputs) == 0
-
-    def test_collect_storage_ops_large_inputs(self):
-        shape = (1, CONSTANT_OP_CACHE_VOLUME_THRESHOLD + 10)
-        a = tp.Tensor(cp.ones(shape, dtype=cp.float32), name="a")
-        b = tp.Tensor(cp.ones(shape, dtype=cp.float32), name="b")
-
-        c = a + b
-
-        storage_inputs = Trace._collect_constant_tensors(c.trace_tensor)
-        assert len(storage_inputs) == 2
-        assert storage_inputs[0].name == "a"
-        assert storage_inputs[1].name == "b"

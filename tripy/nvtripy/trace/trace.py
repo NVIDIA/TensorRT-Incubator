@@ -117,26 +117,6 @@ class Trace:
             layer_strs.append(f"    {str(out)}")
         return "\n".join(layer_strs)
 
-    @staticmethod
-    def _collect_constant_tensors(trace_tensor):
-        visited = set()
-        inputs = []
-
-        def dfs(trace_tensor):
-            if id(trace_tensor) in visited:
-                return
-            visited.add(id(trace_tensor))
-
-            producer = trace_tensor.producer
-            if isinstance(producer, Constant) and utils.utils.should_lift_constant_op_as_input(producer.shape):
-                inputs.append(trace_tensor)
-            else:
-                for inp in producer.inputs:
-                    dfs(inp)
-
-        dfs(trace_tensor)
-        return inputs
-
     def to_mlir(self):
         def to_mlir_impl():
 
