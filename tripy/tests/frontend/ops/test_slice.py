@@ -15,9 +15,8 @@
 # limitations under the License.
 #
 
-import cupy as cp
 import nvtripy as tp
-from nvtripy.trace.ops.slice import Slice
+import pytest
 from tests import helper
 
 
@@ -40,3 +39,15 @@ class TestSlice:
         a = tp.ones((2, 3, 4))
         with helper.raises(tp.TripyException, match="out of bounds access"):
             a[5, 3].eval()
+
+    @pytest.mark.parametrize(
+        "start",
+        [
+            "hi",
+            tp.Tensor(0),
+        ],
+    )
+    def test_invalid_slice_type(self, start):
+        a = tp.ones((4,))
+        with helper.raises(tp.TripyException, match="Slice start must be an integer or a DimensionSize."):
+            a[start:].eval()
