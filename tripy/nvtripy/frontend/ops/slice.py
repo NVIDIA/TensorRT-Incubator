@@ -24,6 +24,7 @@ from nvtripy.frontend.ops._registry import register_tensor_method
 from nvtripy.trace.ops.slice import Slice
 from nvtripy.types import IntLike
 from nvtripy.utils import wrappers
+from nvtripy.utils.types import type_str_from_arg
 from nvtripy.utils.utils import make_list
 
 
@@ -104,6 +105,17 @@ def __getitem__(
             squeeze_dims.append(dim_idx)
         else:
             assert isinstance(slice_idx, slice)
+
+            def check_type(name, arg):
+                if arg is not None and not isinstance(arg, (int, DimensionSize)):
+                    raise_error(
+                        f"Slice {name} must be an integer or a DimensionSize.",
+                        [f"Note: At index: {dim_idx}, {name} was of type '{type_str_from_arg(arg)}': ", arg],
+                    )
+
+            check_type("start", slice_idx.start)
+            check_type("stop", slice_idx.stop)
+            check_type("step", slice_idx.step)
 
             step = utils.utils.default(slice_idx.step, 1)
 
