@@ -143,7 +143,6 @@ class Constant(BaseTraceOp):
     shape: Sequence[int]
     dtype: type
     device: tp_device
-    data_str: str = ""
 
     def __init__(
         self,
@@ -154,8 +153,6 @@ class Constant(BaseTraceOp):
         # Otherwise, it is inferred from the data.
         dtype: Optional[datatype.dtype] = None,
     ) -> None:
-        original_data = data
-
         # Handle if data is dlpacked but not memref yet
         if hasattr(data, "__dlpack__") and not isinstance(data, runtime.MemRefValue):
             data = memref.create_memref_view(data)
@@ -179,10 +176,6 @@ class Constant(BaseTraceOp):
                 array=data_array,
             )
             self.device = utils.utils.default(device, tp_device.fast_init("gpu", 0))
-
-        # Set data_str only for objects that won't be treated as Trace inputs
-        if not utils.utils.should_lift_constant_op_as_input(self.shape):
-            self.data_str = str(original_data)  # TODO (#448): Fix floating point str representation
 
         # Parent constructor will run rank/type inference, so we need to run it after setting the fields above.
         super().__init__([])
