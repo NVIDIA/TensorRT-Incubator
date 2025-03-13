@@ -21,12 +21,6 @@ A volume threshold for displaying constants in IR logging messages.
 Constants with volumes greater than this threshold will be omitted from logging messages.
 """
 
-CONSTANT_OP_CACHE_VOLUME_THRESHOLD = 64
-"""
-A volume threshold for lifting constant ops to trace inputs for eager mode cache lookups.
-Aim is to exclude shape tensors, and TensorRT shape dims supports up to 8 dimensions.
-So threshold value should be a lot bigger than 8.
-"""
 
 DYNAMIC_DIM = -1
 """

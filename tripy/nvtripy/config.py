@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -35,18 +35,6 @@ mlir_debug_tree_path = os.environ.get("TRIPY_MLIR_DEBUG_PATH", os.path.join("/",
 # TensorRT debug options
 enable_tensorrt_debug = os.environ.get("TRIPY_TRT_DEBUG_ENABLED", "0") == "1"
 tensorrt_debug_path = os.environ.get("TRIPY_TRT_DEBUG_PATH", os.path.join("/", "tripy", "tensorrt-dumps"))
-
-use_cache_in_eager_mode: bool = export.public_api(
-    document_under="config.rst",
-    module=sys.modules[__name__],
-    symbol="use_cache_in_eager_mode",
-)(os.environ.get("TRIPY_USE_CACHE_IN_EAGER_MODE", "1") == "1")
-"""
-Whether to enable executable caching to speed up eager mode.
-
-This can also be enabled/disabled by setting the ``TRIPY_USE_CACHE_IN_EAGER_MODE``
-environment variable to ``1``/``0`` respectively.
-"""
 
 timing_cache_file_path: str = export.public_api(
     document_under="config.rst",
