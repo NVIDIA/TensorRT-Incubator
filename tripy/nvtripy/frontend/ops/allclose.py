@@ -29,6 +29,9 @@ def allclose(input: "nvtripy.Tensor", other: "nvtripy.Tensor", rtol: float = 1e-
 
     :math:`|\text{input}_i - \text{other}_i| <= (\text{atol} + \text{rtol} * |\text{other}_i|)`
 
+    .. caution:: This function cannot be used in a compiled function or :class:`nvtripy.Module` because it depends on
+        evaluating its inputs, which is not allowed during compilation.
+
     Args:
         input: First tensor to compare.
         other: Second tensor to compare.

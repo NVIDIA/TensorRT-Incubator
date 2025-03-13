@@ -143,7 +143,7 @@ default_constraints_all = {
     "quantize": {"input": tp.ones((3, 2)), "scale": tp.Tensor([1, 1, 1]), "dim": 0},
     "repeat": {"repeats": 2, "dim": 0},
     "reshape": {"shape": [6]},
-    # TODO (pranavm): This is only able to test the last annotated function. Need to add support for overloading.
+    # TODO (#300): This is only able to test the last annotated function. Need to add support for overloading.
     "resize": {
         "input": tp.ones((1, 3, 8, 8)),
         "mode": "nearest",
