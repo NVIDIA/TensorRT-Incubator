@@ -233,6 +233,7 @@ def map_error_to_user_code_and_raise(trace, exc, stderr):
         return [
             *output_details,
             *input_details,
+            # TODO (pranavm): Hide this part behind the config option as well.
             "This error occured while trying to compile the following Trace operation:",
             utils.utils.code_pretty_str(str(op)),
             "\n",

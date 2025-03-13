@@ -40,12 +40,15 @@ class DefaultParameter(Tensor):
         # TODO (pranavm): Emit warning if this tensor is ever materialized - can check for DefaultParameter in
         # named_parameters() during Module.__call__ - probably need to be able to implement `forward` for that.
         # Need variadic argument support in compile to do that!
+        # Another way is to not make DefaultParameter a Tensor at all.
         tensor = reshape(arange(math.prod(shape), dtype), shape)
 
         self.__dict__ = tensor.__dict__
 
         self.trace_tensor.shape = tuple(shape)
         self._dtype = dtype
+        # TODO (pranavm): Disallow unknown shapes - if a shape is unknown, it obviously can't be a constant tensor.
+        # For cases where we needed unknown shapes, don't initialize with `DefaultParameter` - instead use `None`.
         self.is_shape_known = is_shape_known
 
     @property
