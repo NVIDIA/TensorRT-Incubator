@@ -20,7 +20,6 @@ import numpy as np
 import nvtripy as tp
 import pytest
 from nvtripy.backend.mlir import memref
-from nvtripy.constants import CONSTANT_OP_CACHE_VOLUME_THRESHOLD
 from nvtripy.trace.ops.constant import Constant, convert_list_to_array, get_element_type
 from tests import helper
 
@@ -49,7 +48,6 @@ def test_convert_list_to_array(values, dtype, expected):
 
 
 class TestConstant:
-
     @pytest.mark.parametrize("device", ["cpu", "gpu"])
     def test_from_small_memref(self, device):
         module = np if device == "cpu" else cp
@@ -58,15 +56,6 @@ class TestConstant:
         assert constant.dtype == tp.float32
         assert constant.shape == (2, 2)
         assert constant.device.kind == device
-        assert constant.data_str.startswith("<mlir_tensorrt.runtime._mlir_libs._api.MemRefValue object at 0x")
-
-    def test_from_large_memref(self):
-        data = memref.create_memref_view(cp.ones((2, CONSTANT_OP_CACHE_VOLUME_THRESHOLD), dtype=cp.float32))
-        constant = Constant(data)
-        assert constant.dtype == tp.float32
-        assert constant.shape == (2, CONSTANT_OP_CACHE_VOLUME_THRESHOLD)
-        assert constant.device.kind == "gpu"
-        assert constant.data_str == ""
 
     @pytest.mark.parametrize("dtype", ["int64", "int32"])
     def test_from_dlpack_int(self, dtype):
@@ -78,7 +67,6 @@ class TestConstant:
         assert constant.dtype == tripy_dtype
         assert constant.shape == (2, 2)
         assert constant.device.kind == "gpu"
-        assert constant.data_str == "[[1 1]\n [1 1]]"
 
     @pytest.mark.parametrize("dtype", ["float16", "float32"])
     def test_from_dlpack_float(self, dtype):
@@ -90,16 +78,6 @@ class TestConstant:
         assert constant.dtype == tripy_dtype
         assert constant.shape == (2, 2)
         assert constant.device.kind == "gpu"
-        assert constant.data_str == "[[1. 1.]\n [1. 1.]]"
-
-    def test_from_large_input_shape(self):
-        shape = (1, CONSTANT_OP_CACHE_VOLUME_THRESHOLD + 10)
-        data = cp.ones(shape, dtype=cp.float32)
-        constant = Constant(data)
-        assert constant.dtype == tp.float32
-        assert constant.shape == shape
-        assert constant.device.kind == "gpu"
-        assert constant.data_str == ""
 
     def test_from_list_int(self):
         data = [[1, 2], [3, 4]]
@@ -107,7 +85,6 @@ class TestConstant:
         assert constant.dtype == tp.int32
         assert constant.shape == (2, 2)
         assert constant.device.kind == "gpu"
-        assert constant.data_str == "[[1, 2], [3, 4]]"
 
     def test_from_list_float(self):
         data = [[1.0, 2.0], [3.0, 4.0]]
@@ -115,7 +92,6 @@ class TestConstant:
         assert constant.dtype == tp.float32
         assert constant.shape == (2, 2)
         assert constant.device.kind == "gpu"
-        assert constant.data_str == "[[1.0, 2.0], [3.0, 4.0]]"
 
     def test_empty_list(self):
         data = [[]]
@@ -123,7 +99,6 @@ class TestConstant:
         assert constant.dtype == tp.float32
         assert constant.shape == (1, 0)
         assert constant.device.kind == "gpu"
-        assert constant.data_str == "[[]]"
 
     def test_infer_rank(self):
         arr = [1.0, 2.0, 3.0]
