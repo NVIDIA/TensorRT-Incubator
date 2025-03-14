@@ -29,6 +29,7 @@ from colored import Fore, Style
 from nvtripy import constants
 from nvtripy.common.exception import raise_error
 from nvtripy.logging import logger
+from collections import defaultdict
 
 
 def default(value, default):
@@ -346,29 +347,25 @@ class UniqueNameGen:
     Generates unique names based on inputs and outputs.
     """
 
-    _used_names = set()
-    _counter = 0
+    _used_names = defaultdict(int)
 
     @staticmethod
     def gen_uid(inputs=None, outputs=None):
         while True:
-            UniqueNameGen._counter += 1
-            uid = []
+            elems = []
 
             if inputs:
-                uid.append("ins")
-                uid.extend(inputs)
+                elems.append("ins")
+                elems.extend(inputs)
 
             if outputs:
-                uid.append("outs")
-                uid.extend(outputs)
+                elems.append("outs")
+                elems.extend(outputs)
 
-            uid.append(str(UniqueNameGen._counter))
-            uid = "_".join(uid)
-
-            if uid not in UniqueNameGen._used_names:
-                UniqueNameGen._used_names.add(uid)
-                return uid
+            elems = "_".join(elems)
+            uid = f"{elems}_{UniqueNameGen._used_names[elems]}"
+            UniqueNameGen._used_names[elems] += 1
+            return uid
 
 
 ##
