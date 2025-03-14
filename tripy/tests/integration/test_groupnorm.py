@@ -50,9 +50,9 @@ class TestGroupNorm:
         input = torch.arange(torch.prod(torch.Tensor(input_shape))).reshape(input_shape).to(torch_dtype)
         tp_input = tp.Tensor(input, dtype=tp_dtype)
 
-        output = eager_or_compiled(tp.copy, tp_groupnorm(tp_input), tp.device("cpu"))
+        output = eager_or_compiled(tp_groupnorm, tp_input)
         with torch.no_grad():
-            expected = groupnorm(input)
+            expected = groupnorm(input).to(device="cuda")
 
         rtol_ = 2e-6 if tp_dtype == tp.float32 else 1e-3
         assert torch.allclose(torch.from_dlpack(output), expected, rtol=rtol_)
