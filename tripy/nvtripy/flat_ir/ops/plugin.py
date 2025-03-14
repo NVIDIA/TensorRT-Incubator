@@ -27,6 +27,7 @@ from nvtripy import utils
 from nvtripy.flat_ir.ops.base import BaseFlatIROp
 from nvtripy.utils.result import Result
 
+from nvtripy.logging import logger
 
 @utils.utils.call_once
 def initialize_plugin_registry():
@@ -95,7 +96,10 @@ def plugin_field_to_attr(field_info: "compiler.PluginFieldInfo", values: Any) ->
         attrs = [ir.IntegerAttr.get(INT_TYPES[field_info.type](), value) for value in values]
 
     if len(attrs) != field_info.length:
-        return Result.err([f"Expected {field_info.length} value(s), but got {len(attrs)}."])
+        if field_info.length > 0:
+            return Result.err([f"Expected {field_info.length} value(s), but got {len(attrs)}."])
+        else:
+            logger.verbose(f"Expected {field_info.length} value(s), but got {len(attrs)}. May be ignored if using TensorRT quickly deployable plugins (QDP) or if it is variable length field.")
 
     if len(attrs) > 1:
         return Result.ok(ir.DenseElementsAttr.get(attrs))
