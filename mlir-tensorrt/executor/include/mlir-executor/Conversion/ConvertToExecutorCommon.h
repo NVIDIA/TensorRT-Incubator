@@ -276,6 +276,8 @@ template <typename SourceOp>
 class ConvertOpToExecutorPattern : public ConvertToExecutorPattern {
 public:
   using OpAdaptor = typename SourceOp::Adaptor;
+  using OneToNOpAdaptor =
+      typename SourceOp::template GenericAdaptor<ArrayRef<ValueRange>>;
 
   ConvertOpToExecutorPattern(ExecutorTypeConverter &typeConverter,
                              MLIRContext *context, PatternBenefit benefit = 1)
@@ -297,6 +299,11 @@ public:
     rewrite(cast<SourceOp>(op), OpAdaptor(operands, op->getAttrDictionary()),
             rewriter);
   }
+  void rewrite(Operation *op, ArrayRef<ValueRange> operands,
+               ConversionPatternRewriter &rewriter) const final {
+    auto sourceOp = cast<SourceOp>(op);
+    rewrite(sourceOp, OneToNOpAdaptor(operands, sourceOp), rewriter);
+  }
   LogicalResult
   matchAndRewrite(Operation *op, ArrayRef<Value> operands,
                   ConversionPatternRewriter &rewriter) const override {
@@ -307,6 +314,13 @@ public:
                              rewriter);
     return matchAndRewrite(cast<SourceOp>(op),
                            OpAdaptor(operands, op->getAttrDictionary()),
+                           rewriter);
+  }
+  LogicalResult
+  matchAndRewrite(Operation *op, ArrayRef<ValueRange> operands,
+                  ConversionPatternRewriter &rewriter) const override {
+    auto sourceOp = cast<SourceOp>(op);
+    return matchAndRewrite(sourceOp, OneToNOpAdaptor(operands, sourceOp),
                            rewriter);
   }
 
@@ -323,6 +337,12 @@ public:
     (void)rewriter;
     llvm_unreachable("must override matchAndRewrite or a rewrite method");
   }
+  virtual void rewrite(SourceOp op, OneToNOpAdaptor adaptor,
+                       ConversionPatternRewriter &rewriter) const {
+    SmallVector<Value> oneToOneOperands =
+        getOneToOneAdaptorOperands(adaptor.getOperands());
+    rewrite(op, OpAdaptor(oneToOneOperands, adaptor), rewriter);
+  }
   virtual LogicalResult
   matchAndRewrite(SourceOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const {
@@ -330,6 +350,13 @@ public:
       return failure();
     rewrite(op, adaptor, rewriter);
     return success();
+  }
+  virtual LogicalResult
+  matchAndRewrite(SourceOp op, OneToNOpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const {
+    SmallVector<Value> oneToOneOperands =
+        getOneToOneAdaptorOperands(adaptor.getOperands());
+    return matchAndRewrite(op, OpAdaptor(oneToOneOperands, adaptor), rewriter);
   }
 
 private:
@@ -372,7 +399,7 @@ public:
   SmallVector<Value> sizes(ImplicitLocOpBuilder &b) const;
   SmallVector<Value> strides(ImplicitLocOpBuilder &b) const;
 
-  SmallVector<Value> unpack(ImplicitLocOpBuilder &b) const {
+  SmallVector<Value> unpack(ImplicitLocOpBuilder &b) {
     SmallVector<Value> result{allocatedPtr(b), alignedPtr(b), offset(b)};
     llvm::append_range(result, sizes(b));
     llvm::append_range(result, strides(b));
@@ -395,6 +422,9 @@ public:
   /// Get the number of bytes in the memref. Note that this only gives the
   /// shape volume and not the buffer volume (for strided types).
   Value shapeVolumeInBytes(ImplicitLocOpBuilder &b) const;
+
+  static bool isMemRefDescriptorFieldTypes(MemRefType originalType,
+                                           Type indexType, TypeRange types);
 
 private:
   // Cached index type.

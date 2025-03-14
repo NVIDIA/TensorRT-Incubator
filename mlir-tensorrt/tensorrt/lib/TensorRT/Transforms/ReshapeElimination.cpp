@@ -227,7 +227,7 @@ public:
     patterns.insert<EliminateReshapeBeforeAndAfterMatmulLHS,
                     SimplifyReshapeBeforeAndAfterMatmulRHS>(ctx);
     ReshapeOp::getCanonicalizationPatterns(patterns, ctx);
-    if (failed(applyPatternsAndFoldGreedily(op, std::move(patterns)))) {
+    if (failed(applyPatternsGreedily(op, std::move(patterns)))) {
       emitError(op->getLoc())
           << "failed to apply patterns in " << getArgument();
       return signalPassFailure();

@@ -245,16 +245,41 @@ auto m_StablehloComparisonWithDirection(
 /// stablehlo ops with nested regions must be initiated at the level of the op
 /// containing the region.
 template <typename SourceOp>
-class ConvertHloOpToTensorRTPattern
-    : public ConvertOpToTensorRTPattern<SourceOp> {
+class ConvertHloOpToTensorRTPattern : public ConvertToTensorRTPattern {
 public:
-  using ConvertOpToTensorRTPattern<SourceOp>::ConvertOpToTensorRTPattern;
+  using OpAdaptor = typename SourceOp::Adaptor;
+  using OneToNOpAdaptor =
+      typename SourceOp::template GenericAdaptor<ArrayRef<ValueRange>>;
 
-  using typename ConvertOpToTensorRTPattern<SourceOp>::OpAdaptor;
+  ConvertHloOpToTensorRTPattern(TensorRTTypeConverter &typeConverter,
+                                MLIRContext *context,
+                                PatternBenefit benefit = 1)
+      : ConvertToTensorRTPattern(typeConverter, SourceOp::getOperationName(),
+                                 benefit, context) {}
 
+  /// Wrappers around the ConversionPattern methods that pass the derived op
+  /// type.
+  LogicalResult match(Operation *op) const final {
+    return match(cast<SourceOp>(op));
+  }
+  void rewrite(Operation *op, ArrayRef<Value> operands,
+               ConversionPatternRewriter &rewriter) const final {
+    if constexpr (SourceOp::hasProperties())
+      return rewrite(cast<SourceOp>(op),
+                     OpAdaptor(operands, op->getAttrDictionary(),
+                               cast<SourceOp>(op).getProperties()),
+                     rewriter);
+    rewrite(cast<SourceOp>(op), OpAdaptor(operands, op->getAttrDictionary()),
+            rewriter);
+  }
+  void rewrite(Operation *op, ArrayRef<ValueRange> operands,
+               ConversionPatternRewriter &rewriter) const final {
+    auto sourceOp = cast<SourceOp>(op);
+    rewrite(sourceOp, OneToNOpAdaptor(operands, sourceOp), rewriter);
+  }
   LogicalResult
   matchAndRewrite(Operation *op, ArrayRef<Value> operands,
-                  ConversionPatternRewriter &rewriter) const final {
+                  ConversionPatternRewriter &rewriter) const override {
     Operation *parent = op->getParentOp();
     // Don't convert ops nested within stablehlo regions unless that region is a
     // if/while op.
@@ -262,19 +287,69 @@ public:
         !isa<stablehlo::IfOp, stablehlo::WhileOp, stablehlo::CaseOp>(parent))
       return rewriter.notifyMatchFailure(op,
                                          "nested within HLO operation body");
+
+    if constexpr (SourceOp::hasProperties())
+      return matchAndRewrite(cast<SourceOp>(op),
+                             OpAdaptor(operands, op->getAttrDictionary(),
+                                       cast<SourceOp>(op).getProperties()),
+                             rewriter);
     return matchAndRewrite(cast<SourceOp>(op),
                            OpAdaptor(operands, op->getAttrDictionary()),
                            rewriter);
   }
-  virtual LogicalResult
-  matchAndRewrite(SourceOp op, OpAdaptor adaptor,
+  LogicalResult
+  matchAndRewrite(Operation *op, ArrayRef<ValueRange> operands,
                   ConversionPatternRewriter &rewriter) const override {
+    Operation *parent = op->getParentOp();
+    // Don't convert ops nested within stablehlo regions unless that region is a
+    // if/while op.
+    if (parent && isa<stablehlo::StablehloDialect>(parent->getDialect()) &&
+        !isa<stablehlo::IfOp, stablehlo::WhileOp, stablehlo::CaseOp>(parent))
+      return rewriter.notifyMatchFailure(op,
+                                         "nested within HLO operation body");
+
+    auto sourceOp = cast<SourceOp>(op);
+    return matchAndRewrite(sourceOp, OneToNOpAdaptor(operands, sourceOp),
+                           rewriter);
+  }
+
+  /// Rewrite and Match methods that operate on the SourceOp type. These must be
+  /// overridden by the derived pattern class.
+  virtual LogicalResult match(SourceOp op) const {
+    (void)op;
+    llvm_unreachable("must override match or matchAndRewrite");
+  }
+  virtual void rewrite(SourceOp op, OpAdaptor adaptor,
+                       ConversionPatternRewriter &rewriter) const {
     (void)op;
     (void)adaptor;
     (void)rewriter;
-    llvm_unreachable("overwrite matchAndRewrite method");
+    llvm_unreachable("must override matchAndRewrite or a rewrite method");
+  }
+  virtual void rewrite(SourceOp op, OneToNOpAdaptor adaptor,
+                       ConversionPatternRewriter &rewriter) const {
+    SmallVector<Value> oneToOneOperands =
+        getOneToOneAdaptorOperands(adaptor.getOperands());
+    rewrite(op, OpAdaptor(oneToOneOperands, adaptor), rewriter);
+  }
+  virtual LogicalResult
+  matchAndRewrite(SourceOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const {
+    if (failed(match(op)))
+      return failure();
+    rewrite(op, adaptor, rewriter);
     return success();
   }
+  virtual LogicalResult
+  matchAndRewrite(SourceOp op, OneToNOpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const {
+    SmallVector<Value> oneToOneOperands =
+        getOneToOneAdaptorOperands(adaptor.getOperands());
+    return matchAndRewrite(op, OpAdaptor(oneToOneOperands, adaptor), rewriter);
+  }
+
+private:
+  using ConversionPattern::matchAndRewrite;
 };
 } // namespace mlir
 

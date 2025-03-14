@@ -1,8 +1,6 @@
-# REQUIRES: tensorrt-version-ge-10.0
-# TRT 10.0+ is required due to use of 'tensorrt-strongly-typed' mode.
-
 # RUN: %PYTHON %s
-
+# Restricted to TRT 10+ due to use of "strongly-typed" mode below.
+# REQUIRES: tensorrt-version-ge-10.0
 import time
 
 import mlir_tensorrt.compiler.api as compiler

@@ -439,7 +439,7 @@ public:
                       PushDownTransposeActivationRewriter>(ctx);
       TransposeOp::getCanonicalizationPatterns(patterns, ctx);
       ExpandRankOp::getCanonicalizationPatterns(patterns, ctx);
-      if (failed(applyPatternsAndFoldGreedily(op, std::move(patterns)))) {
+      if (failed(applyPatternsGreedily(op, std::move(patterns)))) {
         emitError(op->getLoc())
             << "failed to apply pushdown patterns in " << getArgument();
         return signalPassFailure();
@@ -457,7 +457,7 @@ public:
                       PushUpTransposeElementwise>(ctx);
       TransposeOp::getCanonicalizationPatterns(patterns, ctx);
       ExpandRankOp::getCanonicalizationPatterns(patterns, ctx);
-      if (failed(applyPatternsAndFoldGreedily(op, std::move(patterns)))) {
+      if (failed(applyPatternsGreedily(op, std::move(patterns)))) {
         emitError(op->getLoc())
             << "failed to apply pushup patterns in " << getArgument();
         return signalPassFailure();

@@ -248,7 +248,7 @@ public:
     MLIRContext *ctx = &getContext();
     RewritePatternSet patterns(ctx);
     stablehlo_ext::populateCanonicalizeStablehloConvolutionPatterns(patterns);
-    if (failed(applyPatternsAndFoldGreedily(op, std::move(patterns)))) {
+    if (failed(applyPatternsGreedily(op, std::move(patterns)))) {
       emitError(op->getLoc())
           << "failed to apply rewrite patterns in " << getArgument();
       return signalPassFailure();

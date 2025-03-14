@@ -514,8 +514,7 @@ OutlineRegionOptions::getDefaultCreateFuncAndCallStubFunc(
 /// N types), materialize the converted values and return them.
 static FailureOr<SmallVector<Value>>
 convertSourceToTarget(RewriterBase &rewriter,
-                      const OneToNTypeConverter &typeConverter,
-                      ValueRange args) {
+                      const TypeConverter &typeConverter, ValueRange args) {
   SmallVector<Value> returnedValues;
   for (Value originalValue : args) {
     SmallVector<Type> convertedTypes;
@@ -548,8 +547,7 @@ using SignatureConversion = TypeConverter::SignatureConversion;
 /// source types.
 static FailureOr<SmallVector<Value>>
 convertTargetToSource(RewriterBase &rewriter, ValueRange targetTypedResults,
-                      const OneToNTypeConverter &typeConverter,
-                      TypeRange srcTypes,
+                      const TypeConverter &typeConverter, TypeRange srcTypes,
                       const SignatureConversion &sigConversion) {
   SmallVector<Value> replacements;
   for (auto [idx, originalType] : llvm::enumerate(srcTypes)) {
@@ -675,9 +673,9 @@ mlir::outlineRegionOp(RewriterBase &rewriter, Operation *op,
   // Create the call operation.
   {
     rewriter.setInsertionPointAfter(op);
-    SignatureConversion resultTypeMapping(op->getNumResults());
-    if (failed(opts.typeConverter.computeTypeMapping(op->getResultTypes(),
-                                                     resultTypeMapping)))
+    TypeConverter::SignatureConversion resultTypeMapping(op->getNumResults());
+    if (failed(opts.typeConverter.convertSignatureArgs(op->getResultTypes(),
+                                                       resultTypeMapping)))
       return failure();
 
     FailureOr<SmallVector<Value>> replacements =

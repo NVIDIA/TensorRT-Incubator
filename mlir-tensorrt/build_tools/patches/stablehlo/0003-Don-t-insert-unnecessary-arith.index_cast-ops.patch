@@ -1,0 +1,53 @@
+From d31c6ef5be9d1fca897dbeceee740085840b5f08 Mon Sep 17 00:00:00 2001
+From: Christopher Bate <cbate@nvidia.com>
+Date: Mon, 10 Mar 2025 22:04:05 +0000
+Subject: [PATCH 3/4] Don't insert unnecessary `arith.index_cast` ops
+
+---
+ .../StablehloAggressiveSimplification.cpp     | 20 ++-----------------
+ 1 file changed, 2 insertions(+), 18 deletions(-)
+
+diff --git a/stablehlo/transforms/StablehloAggressiveSimplification.cpp b/stablehlo/transforms/StablehloAggressiveSimplification.cpp
+index ebb6c027..8527739a 100644
+--- a/stablehlo/transforms/StablehloAggressiveSimplification.cpp
++++ b/stablehlo/transforms/StablehloAggressiveSimplification.cpp
+@@ -394,34 +394,18 @@ struct DynamicIotaOpToBroadcast : public OpRewritePattern<DynamicIotaOp> {
+ 
+     auto iotaDimension = static_cast<int64_t>(iota.getIotaDimension());
+ 
+-    // Handle case where iota dimension is index, need to convert to/from i64
+-    // to interop with slice. These canonicalize away if input is i64.
+-    auto convertedShape = rewriter.create<arith::IndexCastOp>(
+-        iota.getLoc(),
+-        RankedTensorType::get(
+-            cast<ShapedType>(iota.getOutputShape().getType()).getShape(),
+-            rewriter.getI64Type()),
+-        iota.getOutputShape());
+-
++    Value convertedShape = iota.getOutputShape();
+     auto slicedShape = rewriter.create<SliceOp>(
+         iota.getLoc(), convertedShape,
+         rewriter.getDenseI64ArrayAttr(iotaDimension),
+         rewriter.getDenseI64ArrayAttr(iotaDimension + 1),
+         rewriter.getDenseI64ArrayAttr(1));
+ 
+-    auto convertedSlicedShape = rewriter.create<arith::IndexCastOp>(
+-        iota.getLoc(),
+-        RankedTensorType::get(
+-            {1},
+-            cast<ShapedType>(iota.getOutputShape().getType()).getElementType()),
+-        slicedShape);
+-
+     auto iotaType = RankedTensorType::get({resultTy.getDimSize(iotaDimension)},
+                                           resultTy.getElementType());
+ 
+     auto newIota = rewriter.create<DynamicIotaOp>(
+-        iota.getLoc(), iotaType, convertedSlicedShape,
+-        rewriter.getI64IntegerAttr(0));
++        iota.getLoc(), iotaType, slicedShape, rewriter.getI64IntegerAttr(0));
+ 
+     rewriter.replaceOpWithNewOp<DynamicBroadcastInDimOp>(
+         iota, resultTy, newIota, iota.getOutputShape(),
+-- 
+2.46.0
+

@@ -17,15 +17,16 @@ if("${MLIR_TRT_USE_LLVM}" STREQUAL "prebuilt")
   set(MTRT_BUILD_LLVM_FROM_SOURCE OFF)
 endif()
 
-set(MLIR_TRT_LLVM_COMMIT "6c64c8a6f3f77c30745c751d4163ff6bf2fc323b")
+set(MLIR_TRT_LLVM_COMMIT "ec66c4af09263e68d800971906e60afc27d54a06")
+
+set(mlir_patch_dir "${CMAKE_CURRENT_LIST_DIR}/build_tools/patches/mlir")
 
 if(NOT MTRT_BUILD_LLVM_FROM_SOURCE)
   message(WARNING "Using 'find_package' to locate pre-built LLVM. Please set MLIR_DIR to the directory containing MLIRConfig.cmake")
 else()
-  set(patch_dir "${CMAKE_CURRENT_LIST_DIR}/build_tools/patches/mlir")
+
   nv_register_package(
     NAME LLVM
-    VERSION 0.0.20241126
     URL "https://github.com/llvm/llvm-project/archive/${MLIR_TRT_LLVM_COMMIT}.zip"
     EXCLUDE_FROM_ALL TRUE
     SOURCE_SUBDIR "llvm"
@@ -39,23 +40,11 @@ else()
       # Don't mixup LLVM targets with our project's installation/packaging.
       "LLVM_INSTALL_TOOLCHAIN_ONLY ON"
     PATCHES
-      "${patch_dir}/000_fix_bufferization_tensor_encoding_memory_spaces.patch"
-      "${patch_dir}/001-mlir-Add-a-null-pointer-check-in-symbol-lookup-11516.patch"
-      "${patch_dir}/0003-mlir-EmitC-memref-to-emitc-insert-conversion_casts-1.patch"
-      "${patch_dir}/0004-NFC-mlir-emitc-fix-misspelling-in-description-of-emi.patch"
-      "${patch_dir}/0005-emitc-func-Set-default-dialect-to-emitc-116297.patch"
-      "${patch_dir}/0006-MLIR-EmitC-arith-to-emitc-Fix-lowering-of-fptoui-118.patch"
-      "${patch_dir}/0007-mlir-emitc-Add-support-for-C-API-python-binding-to-E.patch"
-      "${patch_dir}/0008-mlir-emitc-DCE-unimplemented-decls-121253.patch"
-      "${patch_dir}/0009-Re-introduce-Type-Conversion-on-EmitC-121476.patch"
-      "${patch_dir}/0010-mlir-emitc-Fix-invalid-syntax-in-example-of-emitc.re.patch"
-      "${patch_dir}/0011-mlir-emitc-Don-t-emit-extra-semicolon-after-bracket-.patch"
-      "${patch_dir}/0012-mlir-emitc-Expose-emitc-dialect-types-119645.patch"
-      "${patch_dir}/0013-mlir-emitc-Support-convert-arith.extf-and-arith.trun.patch"
-      "${patch_dir}/0014-EmitC-Allow-arrays-of-size-zero-123292.patch"
-      "${patch_dir}/0015-mlir-EmitC-Add-MathToEmitC-pass-for-math-function-lo.patch"
-      "${patch_dir}/0016-mlir-emitc-Set-default-dialect-to-emitc-in-ops-with-.patch"
-      "${patch_dir}/0017-mlir-emitc-Fix-two-EmitC-bugs.patch"
+      "${mlir_patch_dir}/0005-mlir-memref-Fix-memref.global-overly-constrained-ver.patch"
+      "${mlir_patch_dir}/0006-mlir-emitc-Fix-two-EmitC-bugs.patch"
+      "${mlir_patch_dir}/0008-MLIR-Remove-unnecessary-include-from-MathToEmitC.h-t.patch"
+      "${mlir_patch_dir}/0009-mlir-Support-FileLineColRange-in-LLVM-debug-translat.patch"
+      "${mlir_patch_dir}/0010-MLIR-Fix-LLVMIRTransforms-build-failure-125485.patch"
     # Set the CPM cache key to the Git hash for easy navigation.
     PRE_ADD_HOOK [[
       list(APPEND _vap_UNPARSED_ARGUMENTS
@@ -109,14 +98,18 @@ nv_register_package(
 #-------------------------------------------------------------------------------------
 # Stablehlo
 #-------------------------------------------------------------------------------------
+set(stablehlo_patch_dir "${CMAKE_SOURCE_DIR}/build_tools/patches/stablehlo")
+
 nv_register_package(
   NAME Stablehlo
   VERSION 1.8.0
-  GIT_TAG 6e403b1aa6a71f5eaa09cc720e4ad42f692745e6
+  GIT_TAG 48a1e14edc8219577fcad53de1924876f855f431
   GIT_REPOSITORY "https://github.com/openxla/stablehlo.git"
   PATCHES
-    "${CMAKE_CURRENT_LIST_DIR}/build_tools/patches/stablehlo/0001-transforms-Fix-simplification-patterns-for-stablehlo.patch"
-    "${CMAKE_CURRENT_LIST_DIR}/build_tools/patches/stablehlo/0002-Fix-a-couple-missing-checks-for-static-shapes-in-sta.patch"
+    "${stablehlo_patch_dir}/0001-Fix-a-couple-missing-checks-for-static-shapes-in-sta.patch"
+    "${stablehlo_patch_dir}/0003-Don-t-insert-unnecessary-arith.index_cast-ops.patch"
+    "${stablehlo_patch_dir}/0004-Fix-ZeroExtent-condition-in-simplification-pattern.patch"
+    "${stablehlo_patch_dir}/0002-cmake-Update-usage-of-HandleLLVMOptions-and-LLVM_DEF.patch"
   OPTIONS
     "STABLEHLO_ENABLE_BINDINGS_PYTHON ON"
     "STABLEHLO_BUILD_EMBEDDED ON"
@@ -163,11 +156,13 @@ nv_register_package(
 #-------------------------------------------------------------------------------------
 # Torch-MLIR
 #-------------------------------------------------------------------------------------
+set(torch_mlir_patch_dir "${CMAKE_SOURCE_DIR}/build_tools/patches/torch_mlir")
+
 nv_register_package(
   NAME torch_mlir
   GIT_REPOSITORY https://github.com/llvm/torch-mlir.git
-  GIT_TAG 30c519369ed7eabad0282d0f874500a9b41fcbbd
-  PATCHES "${CMAKE_CURRENT_LIST_DIR}/build_tools/patches/torch_mlir/torch_mlir.patch"
+  GIT_TAG 169032010793ee7fe3e305ab920e4119fdfc3b11
+  PATCHES "${torch_mlir_patch_dir}/0001-cmake-Allow-finding-Stablehlo-via-find_package.patch"
   EXCLUDE_FROM_ALL TRUE
   # We need to specify an existing directory that is not actually a submodule
   # since GIT_SUBMODULES does not except the empty string due to

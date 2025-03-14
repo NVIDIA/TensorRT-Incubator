@@ -126,7 +126,7 @@ static FailureOr<rt::ScalarTypeCode> translateScalarType(Type t) {
     return rt::ScalarTypeCode::f16;
   if (t.isBF16())
     return rt::ScalarTypeCode::bf16;
-  if (t.isFloat8E4M3FN())
+  if (isa<Float8E4M3FNType>(t))
     return rt::ScalarTypeCode::f8e4m3fn;
   if (t.isIndex())
     return rt::ScalarTypeCode::i32;
@@ -338,7 +338,7 @@ translateTypeVariant(FBBuilder &fbBuilder, Type t) {
     if (failed(code))
       return emitTranslateFailure(memrefType.getElementType());
     auto shape = fbBuilder.serialize<int64_t>(memrefType.getShape());
-    auto [strides, offset] = mlir::getStridesAndOffset(memrefType);
+    auto [strides, offset] = memrefType.getStridesAndOffset();
     auto stridesOffset = fbBuilder.serialize<int64_t>(strides);
 
     auto addressSpace = rt::PointerType::unknown;

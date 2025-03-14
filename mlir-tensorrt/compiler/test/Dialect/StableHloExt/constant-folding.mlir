@@ -165,7 +165,7 @@ func.func @slice_const_fold_zero_size() -> tensor<?x?xi64> {
 }
 
 // CHECK-LABEL: func.func @slice_const_fold_zero_size
-//       CHECK:     %[[v0:.+]] = tensor.empty() : tensor<0x0xi64>
+//       CHECK:     %[[v0:.+]] = stablehlo.constant dense<> : tensor<0x0xi64>
 //       CHECK:     %[[cast:.+]] = tensor.cast %[[v0]] : tensor<0x0xi64> to tensor<?x?xi64>
 //       CHECK:     return %[[cast]] : tensor<?x?xi64>
 
@@ -270,23 +270,6 @@ func.func @slice_const_fold_unsupported() -> tensor<2xcomplex<f32>> {
 //   CHECK-NEXT: %[[const:.+]] = stablehlo.constant
 //   CHECK-NEXT: %[[slice:.+]] = stablehlo.slice %[[const]]
 //   CHECK-NEXT: return %[[slice]] :
-
-// -----
-
-func.func @slice_const_fold_zero_size() -> tensor<?x?xi64> {
-  %0 = stablehlo.constant dense<[[0, 1, 2, 3],
-                            [4, 5, 6, 7],
-                            [8, 9, 10, 11],
-                            [12, 13, 14, 15]]> : tensor<4x4xi64>
-  %1 = stablehlo.slice %0 [1:1:1, 2:2:1] : (tensor<4x4xi64>) -> (tensor<?x?xi64>)
-  func.return %1 : tensor<?x?xi64>
-}
-
-// CHECK-LABEL: func.func @slice_const_fold_zero_size
-//  CHECK-SAME: () -> tensor<?x?xi64> {
-//       CHECK:     %[[v0:.+]] = tensor.empty() : tensor<0x0xi64>
-//       CHECK:     %[[cast:.+]] = tensor.cast %[[v0]] : tensor<0x0xi64> to tensor<?x?xi64>
-//       CHECK:     return %[[cast]] : tensor<?x?xi64>
 
 // -----
 
@@ -915,8 +898,8 @@ func.func @simplify_trivial_slice_empty(%arg0: tensor<0xi32>) -> tensor<0xi32> {
 }
 
 // CHECK-LABEL: func.func @simplify_trivial_slice_empty
-//       CHECK:     %[[v0:.+]] = tensor.empty() : tensor<0xi32>
-//       CHECK:     return %[[v0]] : tensor<0xi32>
+//  CHECK-SAME:     (%[[arg0:.+]]: {{.*}})
+//       CHECK:     return %[[arg0]] : tensor<0xi32>
 
 // -----
 

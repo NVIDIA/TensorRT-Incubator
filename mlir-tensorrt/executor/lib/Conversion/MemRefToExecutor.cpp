@@ -486,8 +486,8 @@ struct ConvertMemRefCast : public ConvertOpToExecutorPattern<memref::CastOp> {
     // destination type is more specific than the source type. For now we only
     // support "more specific" -> "more general" cast since we don't need to
     // generate conversions in this case.
-    auto [srcStrides, srcOffset] = getStridesAndOffset(src);
-    auto [dstStrides, dstOffset] = getStridesAndOffset(dst);
+    auto [srcStrides, srcOffset] = src.getStridesAndOffset();
+    auto [dstStrides, dstOffset] = dst.getStridesAndOffset();
 
     // `lhs` is cast-able to `rhs` without a runtime assertion check if `lhs`
     // is equal to `rhs` or if `rhs` is less specific (more general) than `lhs`,

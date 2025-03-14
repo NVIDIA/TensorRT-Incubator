@@ -1,7 +1,7 @@
-From fb0378d09cebb74da6ca253f6b41241a26bab43e Mon Sep 17 00:00:00 2001
+From cc45fc70ad111e768404524b29e9f168a31baec4 Mon Sep 17 00:00:00 2001
 From: Christopher Bate <cbate@nvidia.com>
 Date: Wed, 27 Nov 2024 00:10:11 +0000
-Subject: [PATCH] Fix a couple missing checks for static shapes in
+Subject: [PATCH 1/4] Fix a couple missing checks for static shapes in
  `stablehlo-aggressive-folder`
 
 ---
@@ -80,10 +80,10 @@ index 5b21a10d..c90c89c6 100644
  
  // -----
 diff --git a/stablehlo/transforms/StablehloAggressiveFolder.cpp b/stablehlo/transforms/StablehloAggressiveFolder.cpp
-index a9107514..dadc14fb 100644
+index 49942c42..5fd20fec 100644
 --- a/stablehlo/transforms/StablehloAggressiveFolder.cpp
 +++ b/stablehlo/transforms/StablehloAggressiveFolder.cpp
-@@ -257,6 +257,9 @@ struct FoldAddOpPattern final : OpRewritePattern<mlir::stablehlo::AddOp> {
+@@ -258,6 +258,9 @@ struct FoldAddOpPattern final : OpRewritePattern<mlir::stablehlo::AddOp> {
  
    LogicalResult matchAndRewrite(mlir::stablehlo::AddOp op,
                                  PatternRewriter& rewriter) const override {
@@ -93,7 +93,7 @@ index a9107514..dadc14fb 100644
      Value lhs = op.getLhs();
      Value rhs = op.getRhs();
  
-@@ -548,6 +551,9 @@ struct FoldMulOpPattern final : OpRewritePattern<mlir::stablehlo::MulOp> {
+@@ -549,6 +552,9 @@ struct FoldMulOpPattern final : OpRewritePattern<mlir::stablehlo::MulOp> {
  
    LogicalResult matchAndRewrite(mlir::stablehlo::MulOp op,
                                  PatternRewriter& rewriter) const override {
@@ -103,7 +103,7 @@ index a9107514..dadc14fb 100644
      auto elemType = op.getType().getElementType();
      Value lhs = op.getLhs();
      Value rhs = op.getRhs();
-@@ -747,6 +753,9 @@ struct FoldSubtractOpPattern final
+@@ -748,6 +754,9 @@ struct FoldSubtractOpPattern final
  
    LogicalResult matchAndRewrite(mlir::stablehlo::SubtractOp op,
                                  PatternRewriter& rewriter) const override {
@@ -114,5 +114,5 @@ index a9107514..dadc14fb 100644
      Value rhs = op.getRhs();
  
 -- 
-2.47.0
+2.46.0
 

@@ -1,0 +1,29 @@
+From 75f0d527fe5dd23c9281c7240b0f54556648e2a7 Mon Sep 17 00:00:00 2001
+From: Tomer Solomon <tomsol2009@gmail.com>
+Date: Mon, 3 Feb 2025 11:51:42 +0200
+Subject: [PATCH 08/10] [MLIR] Remove unnecessary include from MathToEmitC.h to
+ fix build issue (#125466)
+
+This removes the unnecessary inclusion of mlir/Dialect/EmitC/IR/EmitC.h
+from MathToEmitC.h, which caused a build failure due to a missing
+EmitCEnums.h.inc. The include was not needed, and removing it resolves
+the issue without requiring additional dependencies.
+---
+ mlir/include/mlir/Conversion/MathToEmitC/MathToEmitC.h | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/mlir/include/mlir/Conversion/MathToEmitC/MathToEmitC.h b/mlir/include/mlir/Conversion/MathToEmitC/MathToEmitC.h
+index 0fc33bf790be..c61773026ca5 100644
+--- a/mlir/include/mlir/Conversion/MathToEmitC/MathToEmitC.h
++++ b/mlir/include/mlir/Conversion/MathToEmitC/MathToEmitC.h
+@@ -8,7 +8,6 @@
+ 
+ #ifndef MLIR_CONVERSION_MATHTOEMITC_MATHTOEMITC_H
+ #define MLIR_CONVERSION_MATHTOEMITC_MATHTOEMITC_H
+-#include "mlir/Dialect/EmitC/IR/EmitC.h"
+ namespace mlir {
+ class RewritePatternSet;
+ namespace emitc {
+-- 
+2.46.0
+

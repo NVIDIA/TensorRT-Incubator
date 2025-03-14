@@ -53,8 +53,7 @@ public:
     if (targetTensorRTVersion >= TensorRTVersion(10, 0))
       patterns.add<RaiseToGeluTanh>(ctx);
 
-    if (failed(applyPatternsAndFoldGreedily(getOperation(),
-                                            std::move(patterns)))) {
+    if (failed(applyPatternsGreedily(getOperation(), std::move(patterns)))) {
       emitError(getOperation()->getLoc())
           << "failed to apply patterns in " << getArgument();
       return signalPassFailure();

@@ -385,7 +385,7 @@ static LogicalResult printOperation(LuaEmitter &emitter,
   if (op.getType().isF16())
     return wrapInFuncCall(emitAttr, "f16");
 
-  if (op.getType().isFloat8E4M3FN())
+  if (isa<Float8E4M3FNType>(op.getType()))
     return wrapInFuncCall(emitAttr, "f8E4M3FN");
 
   if (op.getType().isBF16())

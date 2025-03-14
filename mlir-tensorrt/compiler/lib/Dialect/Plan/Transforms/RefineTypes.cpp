@@ -324,8 +324,8 @@ class PlanRefineTypesPass
     stablehlo_ext::populateStableHloAbsorbTensorCastPatterns(patterns);
     stablehlo::populateStablehloRefineShapesPatterns(&patterns, ctx);
     stablehlo::populateStablehloCanonicalizationPatterns(ctx, &patterns);
-    if (failed(applyPatternsAndFoldGreedily(funcTarget, std::move(patterns),
-                                            config))) {
+    if (failed(
+            applyPatternsGreedily(funcTarget, std::move(patterns), config))) {
       emitError(funcTarget.getLoc())
           << "failed to apply patterns in " << getArgument() << "\n";
       return signalPassFailure();

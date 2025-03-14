@@ -179,33 +179,48 @@ ExecutorTypeConverter::ExecutorTypeConverter(
     return executor::TableType::get(t.getContext(), *fields);
   });
 
-  addArgumentMaterialization([&](OpBuilder &b, MemRefType memrefType,
-                                 ValueRange components, Location loc) -> Value {
-    ImplicitLocOpBuilder builder(loc, b);
-    if (options.memrefArgPassingConvention ==
-        MemRefArgPassingConvention::Packed) {
-      assert(components.size() == 1 &&
-             "expected memref to be passed as a single value");
-      return b.create<UnrealizedConversionCastOp>(loc, memrefType, components)
-          .getResult(0);
-    }
-
-    auto descriptor = MemRefDescriptor::fromComponents(
-        builder, *this, memrefType, components[0], components[1], components[2],
-        components.slice(3, memrefType.getRank()),
-        components.slice(3 + memrefType.getRank(), memrefType.getRank()));
-    return b
-        .create<UnrealizedConversionCastOp>(loc, memrefType, Value(descriptor))
-        .getResult(0);
-  });
-
+  // Fallback source materializer.
   addSourceMaterialization([&](OpBuilder &builder, Type resultType,
                                ValueRange inputs, Location loc) -> Value {
     return builder.create<UnrealizedConversionCastOp>(loc, resultType, inputs)
         .getResult(0);
   });
+
+  // Memref source materializer.
+  addSourceMaterialization([&](OpBuilder &b, MemRefType memrefType,
+                               ValueRange components, Location loc) -> Value {
+    if (MemRefDescriptor::isMemRefDescriptorFieldTypes(
+            memrefType, getIndexType(), TypeRange(components))) {
+      ImplicitLocOpBuilder builder(loc, b);
+      auto descriptor = MemRefDescriptor::fromComponents(
+          builder, *this, memrefType, components[0], components[1],
+          components[2], components.slice(3, memrefType.getRank()),
+          components.slice(3 + memrefType.getRank(), memrefType.getRank()));
+      return b
+          .create<UnrealizedConversionCastOp>(loc, memrefType,
+                                              Value(descriptor))
+          .getResult(0);
+    }
+    assert(components.size() == 1 &&
+           "expected memref to be passed as a single value");
+    return b.create<UnrealizedConversionCastOp>(loc, memrefType, components)
+        .getResult(0);
+  });
+
   addTargetMaterialization([&](OpBuilder &builder, Type resultType,
-                               ValueRange inputs, Location loc) -> Value {
+                               ValueRange inputs, Location loc,
+                               Type originalType) -> Value {
+    if (auto memrefType = dyn_cast<MemRefType>(originalType)) {
+      if (MemRefDescriptor::isMemRefDescriptorFieldTypes(
+              memrefType, getIndexType(), TypeRange(inputs))) {
+        ImplicitLocOpBuilder b(loc, builder);
+        auto descriptor = MemRefDescriptor::fromComponents(
+            b, *this, memrefType, inputs[0], inputs[1], inputs[2],
+            inputs.slice(3, memrefType.getRank()),
+            inputs.slice(3 + memrefType.getRank(), memrefType.getRank()));
+        return descriptor;
+      }
+    }
     return builder.create<UnrealizedConversionCastOp>(loc, resultType, inputs)
         .getResult(0);
   });
@@ -299,7 +314,7 @@ FailureOr<SmallVector<Type>> ExecutorTypeConverter::getMemRefDescriptorFields(
       space.has_value() ? *space
                         : (spaceAttr ? spaceAttr.getValue() : MemoryType::host);
 
-  if (!isStrided(type))
+  if (!type.isStrided())
     return failure();
 
   Type elementType = convertType(type.getElementType());
@@ -431,7 +446,7 @@ Value ConvertToExecutorPattern::getLinearizedOffset(
     ImplicitLocOpBuilder &b, const MemRefDescriptor &descriptor,
     ValueRange indices) const {
   auto memrefType = descriptor.getMemRefType();
-  auto [strides, offset] = getStridesAndOffset(memrefType);
+  auto [strides, offset] = memrefType.getStridesAndOffset();
   Value result = ShapedType::isDynamic(offset) ? descriptor.offset(b)
                                                : createIndexConstant(b, offset);
   assert(memrefType.getRank() == static_cast<int64_t>(indices.size()) &&
@@ -583,7 +598,7 @@ bool ConvertToExecutorPattern::isContiguous(MemRefType t) {
     return false;
   int64_t offset;
   SmallVector<int64_t, 4> strides;
-  if (failed(getStridesAndOffset(t, strides, offset)))
+  if (failed(t.getStridesAndOffset(strides, offset)))
     return false;
   return isContiguousImpl(strides, t.getShape());
 }
@@ -665,11 +680,11 @@ MemRefDescriptor MemRefDescriptor::fromComponents(
   Type indexType = typeConverter.getIndexType();
   Type descriptorType = typeConverter.convertType(type);
   auto correctAttr = [&](OpFoldResult ofr) -> OpFoldResult {
-    if (ofr.is<Value>())
+    if (isa<Value>(ofr))
       return ofr;
-    auto attr = cast<IntegerAttr>(ofr.get<Attribute>());
+    auto attr = cast<IntegerAttr>(cast<Attribute>(ofr));
     if (attr.getType() == indexType)
-      return ofr.get<Attribute>();
+      return cast<Attribute>(ofr);
     return b.getIntegerAttr(indexType, attr.getInt());
   };
   auto correctAttrs = [&](ArrayRef<OpFoldResult> ofrs) {
@@ -710,7 +725,8 @@ SmallVector<Value> MemRefDescriptor::sizes(ImplicitLocOpBuilder &b) const {
 
 SmallVector<Value> MemRefDescriptor::strides(ImplicitLocOpBuilder &b) const {
   SmallVector<Value> result;
-  auto [strides, offset] = getStridesAndOffset(memrefType);
+  auto [strides, offset] =
+      const_cast<MemRefType &>(memrefType).getStridesAndOffset();
   for (int64_t i = 0; i < getMemRefType().getRank(); i++) {
     if (ShapedType::isDynamic(strides[i]))
       result.push_back(stride(b, i));
@@ -745,6 +761,17 @@ Value MemRefDescriptor::shapeVolumeInBytes(ImplicitLocOpBuilder &b) const {
       b.create<executor::ConstantOp>(b.getIntegerAttr(
           indexType,
           llvm::divideCeil(elementType.getIntOrFloatBitWidth(), 8))));
+}
+
+bool MemRefDescriptor::isMemRefDescriptorFieldTypes(MemRefType originalType,
+                                                    Type indexType,
+                                                    TypeRange types) {
+  if (static_cast<int64_t>(types.size()) != 3 + 2 * originalType.getRank())
+    return false;
+  return llvm::all_of(types.take_front(2),
+                      llvm::IsaPred<executor::PointerType>) &&
+         llvm::all_of(types.drop_front(2),
+                      [&](Type t) { return t == indexType; });
 }
 
 //===----------------------------------------------------------------------===//

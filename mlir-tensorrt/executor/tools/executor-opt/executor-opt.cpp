@@ -20,6 +20,7 @@
 #include "mlir-executor/InitAllDialects.h"
 #include "mlir-executor/InitAllPasses.h"
 #include "mlir/Conversion/ComplexToStandard/ComplexToStandard.h"
+#include "mlir/Conversion/Passes.h"
 #include "mlir/Dialect/Arith/Transforms/BufferDeallocationOpInterfaceImpl.h"
 #include "mlir/Dialect/Arith/Transforms/BufferViewFlowOpInterfaceImpl.h"
 #include "mlir/Dialect/Arith/Transforms/BufferizableOpInterfaceImpl.h"
@@ -73,6 +74,7 @@ int main(int argc, char **argv) {
   mlir::registerPass([]() -> std::unique_ptr<::mlir::Pass> {
     return mlir::createConvertComplexToStandardPass();
   });
+  mlir::registerReconcileUnrealizedCastsPass();
 
   return mlir::asMainReturnCode(
       mlir::MlirOptMain(argc, argv, "Standalone optimizer driver\n", registry));

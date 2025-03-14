@@ -1,9 +1,9 @@
 // RUN: executor-opt %s -split-input-file -convert-scf-to-cf -convert-memref-to-executor="use-packed-memref-cconv=false index-bitwidth=32" \
 // RUN:   -convert-executor-to-executor="use-packed-memref-cconv=false index-bitwidth=32" -executor-expand-ops \
-// RUN:   -convert-std-to-executor="use-packed-memref-cconv=false index-bitwidth=32" -canonicalize | FileCheck %s
+// RUN:   -convert-std-to-executor="use-packed-memref-cconv=false index-bitwidth=32" -canonicalize -reconcile-unrealized-casts | FileCheck %s
 // RUN: executor-opt %s -split-input-file -convert-scf-to-cf -convert-memref-to-executor="index-bitwidth=32" \
 // RUN:   -convert-executor-to-executor="index-bitwidth=32" -executor-expand-ops \
-// RUN:   -convert-std-to-executor="index-bitwidth=32" -canonicalize | FileCheck %s --check-prefix=PACKED
+// RUN:   -convert-std-to-executor="index-bitwidth=32" -canonicalize -reconcile-unrealized-casts | FileCheck %s --check-prefix=PACKED
 
 func.func @alloc(%arg0: index, %arg1: index) -> memref<?x?xf32> {
   %0 = memref.alloc (%arg0, %arg1) : memref<?x?xf32>

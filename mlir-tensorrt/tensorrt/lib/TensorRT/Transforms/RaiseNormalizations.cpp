@@ -52,8 +52,7 @@ public:
     RewritePatternSet patterns(ctx);
     patterns.add<RaiseInstanceNormalization_NCHW>(ctx);
 
-    if (failed(applyPatternsAndFoldGreedily(getOperation(),
-                                            std::move(patterns)))) {
+    if (failed(applyPatternsGreedily(getOperation(), std::move(patterns)))) {
       emitError(getOperation()->getLoc())
           << "failed to apply patterns in " << getArgument();
       return signalPassFailure();

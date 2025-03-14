@@ -173,6 +173,13 @@ struct CanonicalizeScatterPattern : public OpRewritePattern<ScatterOp> {
     if (isCanonicalScatter(scatterOp) || isCanonicalScatterNd(scatterOp))
       return failure();
 
+    // This pattern does not account for batching dimensions, which are a
+    // featurea added in stablehlo v1.1.0.
+    if (!scatterOp.getScatterDimensionNumbers()
+             .getScatterIndicesBatchingDims()
+             .empty())
+      return failure();
+
     Location loc = scatterOp.getLoc();
     ScatterDimensionNumbersAttr dimsAttrs =
         scatterOp.getScatterDimensionNumbers();
@@ -349,8 +356,7 @@ struct CanonicalizeScatterPass
     MLIRContext *ctx = &getContext();
     RewritePatternSet patterns(ctx);
     populateCanonicalizeStablehloScatterPatterns(patterns);
-    if (failed(applyPatternsAndFoldGreedily(getOperation(),
-                                            std::move(patterns)))) {
+    if (failed(applyPatternsGreedily(getOperation(), std::move(patterns)))) {
       emitError(getOperation()->getLoc())
           << "failed to apply patterns in " << getArgument();
       return signalPassFailure();

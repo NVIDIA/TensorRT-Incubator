@@ -723,7 +723,7 @@ static LogicalResult applyIntegerRangeBasedOptimizations(Operation *op) {
   RewritePatternSet patterns(ctx);
   patterns.add<ResolveTrivialDimOpPattern, SimplifyConstantWithValuesPattern>(
       ctx, solver);
-  if (failed(applyPatternsAndFoldGreedily(op, std::move(patterns))))
+  if (failed(applyPatternsGreedily(op, std::move(patterns))))
     return failure();
 
   return success();
@@ -904,7 +904,7 @@ public:
     }();
 
     auto applySimplificationPatterns = [&]() -> LogicalResult {
-      if (failed(applyPatternsAndFoldGreedily(op, patterns)))
+      if (failed(applyPatternsGreedily(op, patterns)))
         return emitError(op->getLoc())
                << "failed to run patterns in " << getArgument();
       return success();

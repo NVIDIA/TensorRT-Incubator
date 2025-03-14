@@ -86,6 +86,8 @@ inline void registerAllMlirTensorRtExecutorDialects(DialectRegistry &registry) {
   tensor::registerInferTypeOpInterfaceExternalModels(registry);
   tensor::registerSubsetOpInterfaceExternalModels(registry);
   tensor::registerTilingInterfaceExternalModels(registry);
+
+  LLVM::registerInlinerInterface(registry);
 }
 
 inline void registerAllMlirTensorRtDialects(DialectRegistry &registry) {
@@ -96,12 +98,9 @@ inline void registerAllMlirTensorRtDialects(DialectRegistry &registry) {
   // Register other dialects declared in upstream or in dependencies. Only
   // register dialects if absolutely necessary (i.e. they appear in the input
   // IR).
-  registry
-      .insert<arith::ArithDialect, pdl::PDLDialect, shape::ShapeDialect,
-              tensor::TensorDialect, mlir::quant::QuantDialect, scf::SCFDialect,
-              transform::TransformDialect, LLVM::LLVMDialect>();
-
-  LLVM::registerInlinerInterface(registry);
+  registry.insert<arith::ArithDialect, pdl::PDLDialect, shape::ShapeDialect,
+                  tensor::TensorDialect, mlir::quant::QuantDialect,
+                  scf::SCFDialect, transform::TransformDialect>();
 
 #ifdef MLIR_TRT_ENABLE_HLO
   registry.insert<mlir::stablehlo::StablehloDialect, mlir::chlo::ChloDialect,

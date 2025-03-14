@@ -210,7 +210,7 @@ static LogicalResult isRankValidForMatmul(ShapedType t) {
 }
 
 static LogicalResult isLastDimContiguous(MemRefType t) {
-  if (mlir::getStridesAndOffset(t).first.back() != 1)
+  if (t.getStridesAndOffset().first.back() != 1)
     return failure();
   return success();
 }

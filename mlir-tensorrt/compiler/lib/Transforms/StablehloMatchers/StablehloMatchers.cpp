@@ -261,7 +261,7 @@ public:
     MLIRContext *ctx = &getContext();
     RewritePatternSet mhaPatterns(ctx);
     mhaPatterns.add<TestRaiseToSoftmax>(mhaPatterns.getContext());
-    if (failed(applyPatternsAndFoldGreedily(op, std::move(mhaPatterns)))) {
+    if (failed(applyPatternsGreedily(op, std::move(mhaPatterns)))) {
       emitError(op->getLoc()) << "failed to convert patterns from "
                                  "stablehlo to tensorrt. ";
       return signalPassFailure();

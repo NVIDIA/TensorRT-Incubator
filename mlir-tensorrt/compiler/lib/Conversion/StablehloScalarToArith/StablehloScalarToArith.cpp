@@ -317,10 +317,10 @@ bool mlir::stablehlo_ext::isScalarizableType(Type t) {
 
 /// Return a 1-to-N type converter for scalarizing Tensor types to unpacked
 /// scalar types.
-OneToNTypeConverter stablehlo_ext::getScalarizationTypeConverter() {
+TypeConverter stablehlo_ext::getScalarizationTypeConverter() {
   // Add a type converter, target and source materialization to convert
   // `tensor<1xdtype>` to `dtype` and back.
-  OneToNTypeConverter typeConverter;
+  TypeConverter typeConverter;
   typeConverter.addConversion([](Type t) -> std::optional<Type> { return t; });
   typeConverter.addConversion([&](Type t, SmallVectorImpl<Type> &result)
                                   -> std::optional<LogicalResult> {
@@ -337,13 +337,14 @@ OneToNTypeConverter stablehlo_ext::getScalarizationTypeConverter() {
     return success();
   });
   typeConverter.addTargetMaterialization(
-      [](OpBuilder &builder, TypeRange resultTypes, Value input,
-         Location loc) -> std::optional<SmallVector<Value>> {
-        if (!isScalarizableType(input.getType()))
-          return std::nullopt;
+      [](OpBuilder &builder, TypeRange resultTypes, ValueRange inputs,
+         Location loc) -> SmallVector<Value> {
+        if (inputs.size() != 1 || !isScalarizableType(inputs.front().getType()))
+          return {};
         RankedTensorType intermediateTensorType =
-            cast<RankedTensorType>(input.getType());
+            cast<RankedTensorType>(inputs.front().getType());
         Type elType = intermediateTensorType.getElementType();
+        Value input = inputs.front();
         if (isa<IntegerType>(elType) && !elType.isSignlessInteger()) {
           input =
               builder
@@ -354,7 +355,6 @@ OneToNTypeConverter stablehlo_ext::getScalarizationTypeConverter() {
                       input)
                   .getResult(0);
         }
-
         SmallVector<Value> scalars;
         for (unsigned i = 0; i < resultTypes.size(); i++)
           scalars.push_back(extractScalarFromTensor(builder, loc, input, i));
@@ -396,7 +396,7 @@ public:
 
     // Add a type converter, target and source materialization to convert
     // `tensor<1xdtype>` to `dtype` and back.
-    OneToNTypeConverter typeConverter =
+    TypeConverter typeConverter =
         stablehlo_ext::getScalarizationTypeConverter();
 
     // Populate conversion rewrite patterns.

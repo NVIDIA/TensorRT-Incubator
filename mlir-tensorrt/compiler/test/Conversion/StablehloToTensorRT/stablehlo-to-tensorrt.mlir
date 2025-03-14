@@ -1219,7 +1219,7 @@ func.func @hlo_average_pool(%arg0: tensor<1x10x200x300xf32>) -> tensor<1x10x20x1
 
 // CHECK-LABEL: @hlo_average_pool
 //  CHECK-SAME:  (%[[arg0:.+]]: tensor<1x10x200x300xf32>) -> tensor<1x10x20x10xf32> {
-//       CHECK: %[[pool:.+]] = tensorrt.pooling {averageCountExcludesPadding = true,
+//       CHECK: %[[pool:.+]] = tensorrt.pooling {averageCountExcludesPadding = false,
 //  CHECK-SAME:   poolingType = #tensorrt.pooling_type<kAVERAGE>,
 //  CHECK-SAME:   postPadding = array<i64: 0, 0>, prePadding = array<i64: 0, 0>
 //  CHECK-SAME:   stride = array<i64: 10, 30>, windowSize = array<i64: 10, 30>
@@ -1976,7 +1976,7 @@ func.func @stablehlo_reduce_window_consume_div_op(%arg0: tensor<1x1x8x8xi8>) -> 
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<1x1x8x8xi8>) -> tensor<1x1x7x7xi8>
 //  CHECK-NEXT: %[[cst_i8:.+]] = tensorrt.constant dense<4> : tensor<1x1x7x7xi8>
 //  CHECK-NEXT: %[[cst_i8_0:.+]] = tensorrt.constant dense<0> : tensor<i8>
-//  CHECK-NEXT: %[[v0:.+]] = tensorrt.pooling {averageCountExcludesPadding = true, poolingType = #tensorrt.pooling_type<kAVERAGE>, postPadding = array<i64: 0, 0>, prePadding = array<i64: 0, 0>, stride = array<i64: 1, 1>, windowSize = array<i64: 2, 2>} ins(%[[arg0]] : tensor<1x1x8x8xi8>) -> tensor<1x1x7x7xi8>
+//  CHECK-NEXT: %[[v0:.+]] = tensorrt.pooling {averageCountExcludesPadding = false, poolingType = #tensorrt.pooling_type<kAVERAGE>, postPadding = array<i64: 0, 0>, prePadding = array<i64: 0, 0>, stride = array<i64: 1, 1>, windowSize = array<i64: 2, 2>} ins(%[[arg0]] : tensor<1x1x8x8xi8>) -> tensor<1x1x7x7xi8>
 //  CHECK-NEXT: %[[v1:.+]] = tensorrt.element_wise <kDIV>(%[[v0]], %[[cst_i8]] : tensor<1x1x7x7xi8>, tensor<1x1x7x7xi8>) -> tensor<1x1x7x7xi8>
 //  CHECK-NEXT: return %[[v0]] : tensor<1x1x7x7xi8>
 
@@ -1999,7 +1999,7 @@ func.func @stablehlo_reduce_window_consume_next_div_op_neg(%arg0: tensor<1x1x8x8
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<1x1x8x8xi8>) -> tensor<1x1x7x7xi8>
 //  CHECK-NEXT: %[[cst_i8:.+]] = tensorrt.constant dense<4> : tensor<1x1x7x7xi8>
 //  CHECK-NEXT: %[[cst_i8_0:.+]] = tensorrt.constant dense<0> : tensor<i8>
-//  CHECK-NEXT: %[[v0:.+]] = tensorrt.pooling {averageCountExcludesPadding = true, poolingType = #tensorrt.pooling_type<kAVERAGE>, postPadding = array<i64: 0, 0>, prePadding = array<i64: 0, 0>, stride = array<i64: 1, 1>, windowSize = array<i64: 2, 2>} ins(%[[arg0]] : tensor<1x1x8x8xi8>) -> tensor<1x1x7x7xi8>
+//  CHECK-NEXT: %[[v0:.+]] = tensorrt.pooling {averageCountExcludesPadding = false, poolingType = #tensorrt.pooling_type<kAVERAGE>, postPadding = array<i64: 0, 0>, prePadding = array<i64: 0, 0>, stride = array<i64: 1, 1>, windowSize = array<i64: 2, 2>} ins(%[[arg0]] : tensor<1x1x8x8xi8>) -> tensor<1x1x7x7xi8>
 //  CHECK-NEXT: %[[cst_i8_1:.+]] = tensorrt.constant dense<4> : tensor<1x1x1x1xi8>
 //  CHECK-NEXT: %[[v1:.+]] = tensorrt.element_wise <kPROD>(%[[v0]], %[[cst_i8_1]] : {{.*}}) -> tensor<1x1x7x7xi8>
 //  CHECK-NEXT: %[[v2:.+]] = tensorrt.element_wise <kDIV>(%[[v1]], %[[cst_i8]] : {{.*}}) -> tensor<1x1x7x7xi8>
@@ -2051,3 +2051,23 @@ func.func public @top_k_custom_call_kmax_unsupported(%arg0: tensor<5678xf16>) ->
 
 // CHECK-LABEL: @top_k_custom_call_kmax_unsupported
 //  CHECK-NEXT: stablehlo.custom_call
+
+// -----
+
+func.func public @reduce_window_4d(%arg0: tensor<7x3x4x5xf32>) -> (tensor<7x3x4x5xf32> {jax.result_info = ""}) {
+    %cst = stablehlo.constant dense<0.000000e+00> : tensor<f32>
+    %0 = "stablehlo.reduce_window"(%arg0, %cst) <{padding = dense<[[0, 0], [0, 0], [0, 0], [4, 0]]> : tensor<4x2xi64>, window_dimensions = array<i64: 1, 1, 1, 5>}> ({
+    ^bb0(%arg1: tensor<f32>, %arg2: tensor<f32>):
+      %1 = stablehlo.add %arg1, %arg2 : tensor<f32>
+      stablehlo.return %1 : tensor<f32>
+    }) : (tensor<7x3x4x5xf32>, tensor<f32>) -> tensor<7x3x4x5xf32>
+    return %0 : tensor<7x3x4x5xf32>
+}
+
+// CHECK-LABEL: @reduce_window_4d
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<7x3x4x5xf32>) -> (tensor<7x3x4x5xf32> {jax.result_info = ""})
+//  CHECK-NEXT: %[[cst_0:.+]] = tensorrt.constant dense<0.000000e+00> : tensor<f32>
+//  CHECK-NEXT: %[[v0:.+]] = tensorrt.pooling {averageCountExcludesPadding = false, poolingType = #tensorrt.pooling_type<kAVERAGE>, postPadding = array<i64: 0, 0>, prePadding = array<i64: 0, 4>, stride = array<i64: 1, 1>, windowSize = array<i64: 1, 5>} ins(%[[arg0]] : tensor<7x3x4x5xf32>) -> tensor<7x3x4x5xf32>
+//  CHECK-NEXT: %[[cst_1:.+]] = tensorrt.constant dense<5.000000e+00> : tensor<1x1x1x1xf32>
+//  CHECK-NEXT: %[[v1:.+]] = tensorrt.element_wise <kPROD>(%[[v0]], %[[cst_1]] : tensor<7x3x4x5xf32>, tensor<1x1x1x1xf32>) -> tensor<7x3x4x5xf32>
+//  CHECK-NEXT: return %[[v1]] : tensor<7x3x4x5xf32>

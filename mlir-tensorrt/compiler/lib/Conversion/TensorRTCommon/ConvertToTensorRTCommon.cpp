@@ -98,7 +98,7 @@ bool TensorRTTypeConverter::isLegalTensorType(TensorType type) {
   if (isTensorRTInt8Type(elType))
     return true;
   return elType.isF16() || elType.isF32() || elType.isSignlessInteger(32) ||
-         elType.isSignlessInteger(1) || elType.isFloat8E4M3FN() ||
+         elType.isSignlessInteger(1) || isa<Float8E4M3FNType>(elType) ||
          elType.isBF16() || elType.isInteger(4) || elType.isSignlessInteger(64);
 }
 

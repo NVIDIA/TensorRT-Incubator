@@ -46,7 +46,7 @@ void executor::buildExecutorLoweringPipeline(
   pm.addPass(memref::createExpandOpsPass());
   pm.addPass(memref::createExpandStridedMetadataPass());
   addCleanupPasses(pm);
-  pm.addPass(affine::createAffineExpandIndexOpsPass());
+  pm.addPass(affine::createAffineExpandIndexOpsAsAffinePass());
   pm.addPass(mlir::createLowerAffinePass());
   addCleanupPasses(pm);
   pm.addPass(

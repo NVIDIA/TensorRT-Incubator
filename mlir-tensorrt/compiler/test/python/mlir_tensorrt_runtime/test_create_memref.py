@@ -411,10 +411,10 @@ def test_released_internally():
     )
 
 
-print("Test memref is not released internally with an external reference")
+print("Test memref is released internally with an external reference")
 test_released_internally()
 
-# CHECK-LABEL: Test memref is not released internally with an external reference
+# CHECK-LABEL: Test memref is released internally with an external reference
 # CHECK-NEXT: Memref released internally:  False
 
 

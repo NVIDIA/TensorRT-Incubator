@@ -27,6 +27,7 @@
 #include "mlir-tensorrt-dialect/TensorRT/Utils/Utils.h"
 #include "mlir-tensorrt-dialect/Utils/NvInferAdaptor.h"
 #include "mlir-tensorrt-dialect/Utils/StaticValueUtils.h"
+#include "mlir/IR/BuiltinTypes.h"
 #include "mlir/Interfaces/FunctionInterfaces.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallPtrSet.h"
@@ -60,10 +61,10 @@ Type tensorrt::getNvInferDataTypeAsMlirType(MLIRContext *ctx,
   case DataType::kUINT8:
     return IntegerType::get(ctx, 8, IntegerType::SignednessSemantics::Unsigned);
   case DataType::kFP8:
-    return FloatType::getFloat8E4M3FN(ctx);
+    return Float8E4M3FNType::get(ctx);
 #if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(9, 1, 0)
   case DataType::kBF16:
-    return FloatType::getBF16(ctx);
+    return BFloat16Type::get(ctx);
   case DataType::kINT64:
     return IntegerType::get(ctx, 64);
 #endif
@@ -403,7 +404,7 @@ static void updateLowerPrecisionIndicators(Operation *op, bool &usesF16,
     Type elType = cast<RankedTensorType>(t).getElementType();
     usesF16 |= elType.isF16();
     usesInt8 |= isTensorRTInt8Type(elType);
-    usesF8 |= elType.isFloat8E4M3FN();
+    usesF8 |= isa<Float8E4M3FNType>(elType);
     usesBf16 |= elType.isBF16();
     usesInt4 |= elType.isInteger(4);
   };
@@ -468,7 +469,7 @@ LogicalResult NvInferNetworkEncoder::encodeRegion(Region &region) {
   return success();
 }
 
-static void packNonSplatInt4Tensor(ElementsAttr values, int64_t count,
+static void packNonSplatInt4Tensor(ElementsAttr values,
                                    std::vector<int8_t> &result) {
   auto APIntValues = values.getValues<APInt>();
   auto iter = APIntValues.begin();
@@ -488,6 +489,27 @@ static void packNonSplatInt4Tensor(ElementsAttr values, int64_t count,
     iter++;
     result[rIdx] = packed;
     rIdx++;
+  }
+}
+
+static void packDenseResourceInt4Tensor(AsmResourceBlob *blob,
+                                        std::vector<int8_t> &result) {
+  // 2 INT4's from blob are packed in an INT8 in the little-endian format.
+  // For example, {0,1} is packed as 0x10.
+  // NOTE* MLIR represents INT4 as lower 4 bits of INT8.
+  assert(result.size() == llvm::divideCeil(blob->getData().size(), 2) &&
+         "for INT4 data, size(result) == ceil(size(blob), 2)");
+  ArrayRef<char> blobData = blob->getData();
+  size_t iterIdx = 0;
+  for (size_t i = 0; i < result.size(); i++) {
+    int8_t resultElement = 0;
+    uint8_t first = blobData[iterIdx];
+    resultElement |= (first & 0x0F);
+    iterIdx++;
+    uint8_t second = iterIdx == blobData.size() ? 0 : blobData[iterIdx];
+    resultElement |= ((second & 0x0F) << 4);
+    iterIdx++;
+    result[i] = resultElement;
   }
 }
 
@@ -524,7 +546,7 @@ static LogicalResult serializeSplatElements(DenseIntOrFPElementsAttr values,
                 values.getNumElements(), fillValue);
     return llvm::success();
   }
-  if (rtt.getElementType().isFloat8E4M3FN()) {
+  if (isa<Float8E4M3FNType>(rtt.getElementType())) {
     APInt tmp = values.getSplatValue<APFloat>().bitcastToAPInt();
     assert(tmp.getBitWidth() == 8 && "unexpected bitwidth");
     uint8_t fillValue = *reinterpret_cast<const uint8_t *>(tmp.getRawData());
@@ -598,10 +620,30 @@ NvInferNetworkEncoder::getNvInferWeights(ElementsAttr values) {
       return failure();
     return weights;
   }
+  // Handle dense resources with non-elided handle
+  if (auto denseResourceAttr = dyn_cast<DenseResourceElementsAttr>(values)) {
+    DenseResourceElementsHandle handle = denseResourceAttr.getRawHandle();
+    if (handle.getKey() != "__elided__") {
+      AsmResourceBlob *blob = handle.getBlob();
+      if (!blob)
+        return failure();
+      // Handle i4 element type specially
+      if (denseResourceAttr.getElementType().isInteger(4)) {
+        packDenseResourceInt4Tensor(blob, weightsMap[values]);
+        return weights;
+      }
+      // Handle everything else
+      if (blob->getData().size() != data.size())
+        return failure();
+      llvm::copy(blob->getData(), data.data());
+      return weights;
+    }
+  }
 
-  // How we serialize the weights to TensorRT's format depends on the data type.
-  // We also handle elided attributes by generating weights filled with zeros.
+  // How we serialize the weights to TensorRT's format depends on the data
+  // type.
   if (mlir::getElidedResourceElementsAttr(values)) {
+    // We also handle elided attributes by generating weights filled with zeros.
     std::memset(reinterpret_cast<void *>(data.data()), 0, data.size());
   } else if (rtt.getElementType().isInteger(64)) {
     llvm::copy(values.getValues<int64_t>(),
@@ -623,7 +665,7 @@ NvInferNetworkEncoder::getNvInferWeights(ElementsAttr values) {
              "expected IEEE fp16 semantics");
       dst[index] = v.bitcastToAPInt().getZExtValue();
     }
-  } else if (rtt.getElementType().isFloat8E4M3FN()) {
+  } else if (isa<Float8E4M3FNType>(rtt.getElementType())) {
     auto dst = llvm::MutableArrayRef(reinterpret_cast<uint8_t *>(data.data()),
                                      rtt.getNumElements());
     for (auto [index, v] : llvm::enumerate(values.getValues<APFloat>())) {
@@ -640,7 +682,7 @@ NvInferNetworkEncoder::getNvInferWeights(ElementsAttr values) {
       dst[index] = v.bitcastToAPInt().getZExtValue();
     }
   } else if (rtt.getElementType().isInteger(4)) {
-    packNonSplatInt4Tensor(values, rtt.getNumElements(), weightsMap[values]);
+    packNonSplatInt4Tensor(values, weightsMap[values]);
   } else {
     llvm_unreachable(
         "unsupported data type to convert MLIR attribute to TensorRT weights!");
@@ -661,8 +703,8 @@ static bool isValidTensorRTInputType(Type t) {
   Type elType = mlir::getElementTypeOrSelf(t);
   return elType.isF32() || elType.isF16() || isTensorRTInt8Type(elType) ||
          elType.isInteger(32) || elType.isInteger(1) ||
-         elType.isUnsignedInteger(8) || elType.isFloat8E4M3FN() ||
-         elType.isBF16();
+         elType.isUnsignedInteger(8) || isa<Float8E4M3FNType>(elType) ||
+         elType.isBF16() || elType.isInteger(64);
 }
 
 /// Add the argument and shape information to the optimization profile.

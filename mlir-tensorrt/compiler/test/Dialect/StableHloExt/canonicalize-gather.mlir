@@ -198,3 +198,34 @@ func.func @simple_gather_explicit_index_dim(
 //  CHECK-SAME:       <{dimension_numbers = #stablehlo.gather<offset_dims = [2], collapsed_slice_dims = [0], start_index_map = [0], index_vector_dim = 2>, slice_sizes = array<i64: 1, 34>}>
 //  CHECK-SAME:       : (tensor<33x34xf32>, tensor<42x43x1xi32>) -> tensor<42x43x34xf32>
 //       CHECK:     return %[[v0]] : tensor<42x43x34xf32>
+
+// -----
+
+// The "operand_batching_dimes" and "start_indices_batching_dims"
+// properties were added in StableHlo v1.1.0. This pass currently does not support
+// those properties.
+
+func.func @batching_dims(%arg0: tensor<1x1018x2036xi1>, %arg1: tensor<1x2xi32>)
+    -> tensor<1x1018x1018xi1> {
+  %0 = "stablehlo.gather"(%arg0, %arg1)
+    <{dimension_numbers = #stablehlo.gather<
+      offset_dims = [1, 2],
+      operand_batching_dims = [0],
+      start_indices_batching_dims = [0],
+      start_index_map = [1, 2], index_vector_dim = 1>,
+      indices_are_sorted = true, slice_sizes = array<i64: 1, 1018, 1018>}
+    > : (tensor<1x1018x2036xi1>, tensor<1x2xi32>) -> tensor<1x1018x1018xi1>
+  return %0 : tensor<1x1018x1018xi1>
+}
+
+// CHECK-LABEL: func.func @batching_dims
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<1x1018x2036xi1>, %[[arg1:.+]]: tensor<1x2xi32>)
+//       CHECK:     %[[v0:.+]] = "stablehlo.gather"(%[[arg0]], %[[arg1]])
+//  CHECK-SAME:      dimension_numbers = #stablehlo.gather<offset_dims = [1, 2],
+//  CHECK-SAME:      operand_batching_dims = [0]
+//  CHECK-SAME:      start_indices_batching_dims = [0]
+//  CHECK-SAME:      start_index_map = [1, 2], index_vector_dim = 1
+//  CHECK-SAME:      indices_are_sorted = true
+//  CHECK-SAME:      slice_sizes = array<i64: 1, 1018, 1018>
+//  CHECK-SAME:      : (tensor<1x1018x2036xi1>, tensor<1x2xi32>) -> tensor<1x1018x1018xi1>
+//       CHECK:     return %[[v0]] : tensor<1x1018x1018xi1

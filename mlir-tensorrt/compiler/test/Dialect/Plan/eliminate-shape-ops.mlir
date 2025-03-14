@@ -39,6 +39,35 @@ tensorrt.module @trt_engines {
 
 // -----
 
+func.func @test_multiple_user(%arg0: tensor<10xf32>, %arg1: i32, %arg2: i32) -> tensor<10xf32> {
+  %0 = tensor.empty() : tensor<10xf32>
+  %1 = tensorrt.call @trt_engines::@tensorrt_cluster(%arg0, %arg1, %arg2 : tensor<10xf32>, i32, i32)
+            outs(%0 : tensor<10xf32>) -> tensor<10xf32>
+  %2 = tensorrt.call @trt_engines::@tensorrt_cluster(%1, %arg1, %arg2 : tensor<10xf32>, i32, i32)
+            outs(%0 : tensor<10xf32>) -> tensor<10xf32>
+  return %2 : tensor<10xf32>
+}
+
+tensorrt.module @trt_engines {
+  func.func @tensorrt_cluster(%arg0: tensor<10xf32>, %arg1: i32, %arg2: i32) -> tensor<10xf32> {
+    %0 = stablehlo.exponential %arg0 : tensor<10xf32>
+    return %0 : tensor<10xf32>
+  }
+}
+
+// CHECK-LABEL: func.func @test_multiple_user
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<10xf32>, %[[arg1:.+]]: i32, %[[arg2:.+]]: i32) -> tensor<10xf32> {
+//   CHECK-DAG:     %[[v0:.+]] = tensor.empty()
+//   CHECK-DAG:     %[[v1:.+]] = tensorrt.call @trt_engines::@tensorrt_cluster(%[[arg0]] : tensor<10xf32>) outs(%[[v0]] : tensor<10xf32>) -> tensor<10xf32>
+//   CHECK-DAG:     %[[v2:.+]] = tensorrt.call @trt_engines::@tensorrt_cluster(%[[v1]] : tensor<10xf32>) outs(%[[v0]] : tensor<10xf32>) -> tensor<10xf32>
+//   CHECK-DAG:     return %[[v2]] : tensor<10xf32>
+// CHECK-LABEL: func.func @tensorrt_cluster
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<10xf32>)
+//   CHECK-DAG:       %[[v0:.+]] = stablehlo.exponential %[[arg0]] : tensor<10xf32>
+//   CHECK-DAG:       return %[[v0]] : tensor<10xf32>
+
+// -----
+
 func.func @tensorrt_call_alloc_conversion(%arg0: tensor<?x10xf32>) -> tensor<?x10xf32> {
   %c10 = arith.constant 10 : index
   %c0 = arith.constant 0 : index

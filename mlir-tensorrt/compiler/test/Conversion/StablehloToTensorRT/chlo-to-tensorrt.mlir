@@ -34,3 +34,18 @@ func.func @top_k(%arg0: tensor<1x50257xf32>) -> (tensor<1x50xf32>, tensor<1x50xi
 // CHECK-LABEL: @top_k
 //  CHECK:      %{{.+}}, %{{.+}} = tensorrt.top_k <kMAX> {axis = 1 : i64, k = 50 : i64}
 //  CHECK-SAME: %{{.+}} : tensor<1x50257xf32> -> tensor<1x50xf32>, tensor<1x50xi32>
+
+// -----
+
+func.func @topk_1d(%arg0: tensor<4xf16>) -> (tensor<3xf16> {jax.result_info = "[0]"}, tensor<3xi32> {jax.result_info = "[1]"}) {
+    %values, %indices = chlo.top_k(%arg0, k = 3) {largest = true} : tensor<4xf16> -> (tensor<3xf16>, tensor<3xi32>)
+    return %values, %indices : tensor<3xf16>, tensor<3xi32>
+}
+
+// CHECK-LABEL: topk_1d
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<4xf16>)
+//  CHECK-NEXT: %[[v0:.+]] = tensorrt.expand_rank %[[arg0]] : tensor<4xf16> to tensor<4x1xf16>
+//  CHECK-NEXT: %[[values:.+]], %[[indices:.+]] = tensorrt.top_k <kMAX> {{.*}} %[[v0]] : tensor<4x1xf16> -> tensor<3x1xf16>, tensor<3x1xi32>
+//  CHECK-NEXT: %[[v1:.+]] = tensorrt.collapse_rank %[[values]]
+//  CHECK-NEXT: %[[v2:.+]] = tensorrt.collapse_rank %[[indices]]
+//  CHECK-NEXT: return %[[v1]], %[[v2]] : tensor<3xf16>, tensor<3xi32>

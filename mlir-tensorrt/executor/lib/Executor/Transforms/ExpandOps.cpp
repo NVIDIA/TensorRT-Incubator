@@ -53,7 +53,7 @@ static FailureOr<Value> getOrCreateAndCheckIndexValue(RewriterBase &rewriter,
     return val;
   }
 
-  IntegerAttr srcAttr = cast<IntegerAttr>(ofr.get<Attribute>());
+  IntegerAttr srcAttr = cast<IntegerAttr>(cast<Attribute>(ofr));
   APInt srcInt = srcAttr.getValue();
   if (srcInt.getBitWidth() == intType.getWidth())
     return rewriter
@@ -114,7 +114,7 @@ static FailureOr<Value> lowerGetOffset(RewriterBase &rewriter,
       ArrayRef<Type> body = structType.getBody();
       // This is a plain cast since the verifier checks that indices into
       // aggregates are constants.
-      IntegerAttr indexStatic = llvm::cast<IntegerAttr>(index.get<Attribute>());
+      IntegerAttr indexStatic = llvm::cast<IntegerAttr>(cast<Attribute>(index));
       assert(static_cast<unsigned>(indexStatic.getInt()) < body.size() &&
              "getoffset index is out-of-bounds for indexed aggregate");
       for (int64_t i = 0, e = indexStatic.getInt(); i < e; i++) {
@@ -218,8 +218,7 @@ public:
       patterns.add<LowerAllocaPattern>(dataLayout, ctx);
     }
 
-    if (failed(
-            applyPatternsAndFoldGreedily(getOperation(), std::move(patterns))))
+    if (failed(applyPatternsGreedily(getOperation(), std::move(patterns))))
       return signalPassFailure();
   }
 };

@@ -40,8 +40,8 @@ def test_multiple_dialects():
             def test_func(arg0, arg1):
                 c0 = arith.ConstantOp(indexType, 0)
                 c1 = arith.ConstantOp(indexType, 1)
-                d0 = tensor.DimOp(arg0, c0)
-                d1 = tensor.DimOp(arg1, c1)
+                d0 = tensor.DimOp(arg0, c0).result
+                d1 = tensor.DimOp(arg1, c1).result
                 d0PlusD1 = arith.addi(d0, d1)
                 alloc = bufferization.AllocTensorOp(arg1.type, (), copy=arg1)
                 return [d0PlusD1, alloc.result]

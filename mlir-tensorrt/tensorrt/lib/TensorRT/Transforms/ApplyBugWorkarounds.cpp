@@ -145,8 +145,7 @@ public:
       patterns.add<Unary8IWorkaround>(ctx);
     if (tensorrtStronglyTyped)
       patterns.add<MatToVecMatmul>(ctx);
-    if (failed(
-            applyPatternsAndFoldGreedily(getOperation(), std::move(patterns))))
+    if (failed(applyPatternsGreedily(getOperation(), std::move(patterns))))
       return signalPassFailure();
   }
 };

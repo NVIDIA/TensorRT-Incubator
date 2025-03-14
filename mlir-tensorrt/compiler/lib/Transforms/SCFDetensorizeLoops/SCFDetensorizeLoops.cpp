@@ -196,8 +196,7 @@ public:
     }
 
     patterns.add<DetensorizeWhilePattern>(ctx, solver);
-    if (failed(
-            applyPatternsAndFoldGreedily(getOperation(), std::move(patterns))))
+    if (failed(applyPatternsGreedily(getOperation(), std::move(patterns))))
       return signalPassFailure();
   }
 };

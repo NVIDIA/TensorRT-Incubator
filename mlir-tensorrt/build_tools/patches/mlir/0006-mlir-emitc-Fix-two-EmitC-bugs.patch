@@ -1,7 +1,7 @@
-From 8e00a288f4416cbcec9fc12bc4da854698ddb499 Mon Sep 17 00:00:00 2001
+From 47c84211f72fb407d72e2c8f87019802cda30432 Mon Sep 17 00:00:00 2001
 From: Christopher Bate <cbate@nvidia.com>
 Date: Mon, 27 Jan 2025 08:28:33 +0000
-Subject: [PATCH] [mlir][emitc] Fix two EmitC bugs
+Subject: [PATCH 06/10] [mlir][emitc] Fix two EmitC bugs
 
 ---
  .../mlir/Conversion/FuncToEmitC/FuncToEmitC.h |  4 +-
@@ -112,7 +112,7 @@ index 0b97f2641ad0..d2f368a7148d 100644
    if (failed(
            applyPartialConversion(getOperation(), target, std::move(patterns))))
 diff --git a/mlir/lib/Target/Cpp/TranslateToCpp.cpp b/mlir/lib/Target/Cpp/TranslateToCpp.cpp
-index a91f5ab93114..cdc98e59040d 100644
+index 01de0e41f203..4f600f92ba6d 100644
 --- a/mlir/lib/Target/Cpp/TranslateToCpp.cpp
 +++ b/mlir/lib/Target/Cpp/TranslateToCpp.cpp
 @@ -273,6 +273,7 @@ private:
@@ -123,7 +123,7 @@ index a91f5ab93114..cdc98e59040d 100644
    void pushExpressionPrecedence(int precedence) {
      emittedExpressionPrecedence.push_back(precedence);
    }
-@@ -667,12 +668,14 @@ static LogicalResult printOperation(CppEmitter &emitter,
+@@ -670,12 +671,14 @@ static LogicalResult printOperation(CppEmitter &emitter,
      if (auto t = dyn_cast<IntegerAttr>(attr)) {
        // Index attributes are treated specially as operand index.
        if (t.getType().isIndex()) {

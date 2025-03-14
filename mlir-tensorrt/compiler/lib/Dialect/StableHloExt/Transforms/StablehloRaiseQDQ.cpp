@@ -42,7 +42,7 @@ using namespace mlir;
 /// `fp8`, and `int4`.
 static bool isQuantizedType(RankedTensorType type) {
   Type elementType = type.getElementType();
-  return elementType.isFloat8E4M3FN() || elementType.isInteger(8) ||
+  return isa<Float8E4M3FNType>(elementType) || elementType.isInteger(8) ||
          elementType.isInteger(4);
 }
 
@@ -573,7 +573,7 @@ class StablehloRaiseQDQPass
         .insert<RaisePerTensorAndPerChannelQuantize, RaiseBlockQuantize,
                 RaisePerTensorAndPerChannelDequantize, RaiseBlockDequantize>(
             ctx);
-    if (failed(applyPatternsAndFoldGreedily(op, std::move(patterns)))) {
+    if (failed(applyPatternsGreedily(op, std::move(patterns)))) {
       emitError(op->getLoc()) << "failed to run patterns in " << getArgument();
       return signalPassFailure();
     }

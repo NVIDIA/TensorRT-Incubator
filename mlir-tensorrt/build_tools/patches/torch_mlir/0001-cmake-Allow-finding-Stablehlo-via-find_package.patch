@@ -1,36 +1,60 @@
-From ff3b7135d79b8aed66fc62767c9a310ad98b002d Mon Sep 17 00:00:00 2001
+From 25ee753347e7bdfcca972b35516ca17ca4609e85 Mon Sep 17 00:00:00 2001
 From: Christopher Bate <cbate@nvidia.com>
 Date: Fri, 14 Feb 2025 00:39:36 +0000
-Subject: [PATCH] [cmake] Allow finding Stablehlo via 'find_package'
+Subject: [PATCH 1/1] [cmake] Allow finding Stablehlo via 'find_package'
 
 ---
- CMakeLists.txt | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+ CMakeLists.txt | 30 ++++++++++++++++++------------
+ 1 file changed, 18 insertions(+), 12 deletions(-)
 
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 11563f6c..6dad2434 100644
+index d65bf3d9..f1b869a7 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -49,7 +49,7 @@ endif()
- # folder but instead stablehlo that is part of top level compiler project.
- # TORCH_MLIR_EXTERNAL_STABLEHLO_DIR represents stablehlo directory (<some_path>/stablehlo)
- # that is included in torch_mlir. It is assumed that top level compiler project makes
--# stablehlo targets available (for example with `add_subdirectory`) and thus they are not added. 
+@@ -45,10 +45,11 @@ if(TORCH_MLIR_ENABLE_STABLEHLO)
+ endif()
+ # It is possible that both stablehlo and torch_mlir projects are used in some compiler project.
+ # In this case, we don't want to use stablehlo that is downloaded by torch_mlir (in external/stablehlo)
+-# folder but instead want to use stablehlo that is part of top level compiler project.
+-# With TORCH_MLIR_USE_EXTERNAL_STABLEHLO enables, it is assumed that top level compiler project makes
+-# stablehlo targets AND includes available (for example with `add_subdirectory` and `include_directories`).
+-option(TORCH_MLIR_USE_EXTERNAL_STABLEHLO "Use stablehlo from top level project" OFF)
++# folder but instead stablehlo that is part of top level compiler project.
++# TORCH_MLIR_EXTERNAL_STABLEHLO_DIR represents stablehlo directory (<some_path>/stablehlo)
++# that is included in torch_mlir. It is assumed that top level compiler project makes
 +# stablehlo targets available (for example with `add_subdirectory`) and thus they are not added.
- set(TORCH_MLIR_EXTERNAL_STABLEHLO_DIR "" CACHE STRING "Path to stablehlo dir from super project")
++set(TORCH_MLIR_EXTERNAL_STABLEHLO_DIR "" CACHE STRING "Path to stablehlo dir from super project")
  
  option(TORCH_MLIR_OUT_OF_TREE_BUILD "Specifies an out of tree build" OFF)
-@@ -241,7 +241,9 @@ endif()
+ 
+@@ -239,14 +240,19 @@ endif()
+ # Getting this wrong results in building large parts of the stablehlo
  # project that we don't actually depend on. Further some of those parts
  # do not even compile on all platforms.
- if (TORCH_MLIR_ENABLE_STABLEHLO)
--  if (NOT "${TORCH_MLIR_EXTERNAL_STABLEHLO_DIR}" STREQUAL "")
+-# Only configure StableHLO if it isn't provided from a top-level project
+-if (TORCH_MLIR_ENABLE_STABLEHLO AND NOT TORCH_MLIR_USE_EXTERNAL_STABLEHLO)
+-  set(STABLEHLO_BUILD_EMBEDDED ON)
+-  set(STABLEHLO_ENABLE_BINDINGS_PYTHON ON)
+-  add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/externals/stablehlo
+-    ${CMAKE_CURRENT_BINARY_DIR}/stablehlo
+-    EXCLUDE_FROM_ALL)
+-  include_directories(${CMAKE_CURRENT_SOURCE_DIR}/externals/stablehlo)
++if (TORCH_MLIR_ENABLE_STABLEHLO)
 +  if (TORCH_MLIR_EXTERNAL_STABLEHLO_DIR STREQUAL "find_package")
 +    find_package(Stablehlo REQUIRED)
 +  elseif (TORCH_MLIR_EXTERNAL_STABLEHLO_DIR)
-     include_directories(${TORCH_MLIR_EXTERNAL_STABLEHLO_DIR})
-   else()
-     set(STABLEHLO_BUILD_EMBEDDED ON)
++    include_directories(${TORCH_MLIR_EXTERNAL_STABLEHLO_DIR})
++  else()
++    set(STABLEHLO_BUILD_EMBEDDED ON)
++    set(STABLEHLO_ENABLE_BINDINGS_PYTHON ON)
++    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/externals/stablehlo
++      ${CMAKE_CURRENT_BINARY_DIR}/stablehlo
++      EXCLUDE_FROM_ALL)
++    include_directories(${CMAKE_CURRENT_SOURCE_DIR}/externals/stablehlo)
++  endif()
+ endif()
+ 
+ #-------------------------------------------------------------------------------
 -- 
 2.46.0
 
