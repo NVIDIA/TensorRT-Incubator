@@ -34,7 +34,7 @@ def _get_unique_name():
 
 
 @dataclass(repr=False)
-class BaseTraceOp(abc.ABC):
+class TraceOp(abc.ABC):
     """
     Abstract base class for trace operations in the computational graph.
 
@@ -126,7 +126,7 @@ class BaseTraceOp(abc.ABC):
         skip_fields = self.str_skip_fields()
         args = [
             f"{field.name}={getattr(self, field.name)}"
-            for field in utils.utils.get_dataclass_fields(self, BaseTraceOp)
+            for field in utils.utils.get_dataclass_fields(self, TraceOp)
             if field.name not in skip_fields
         ]
 

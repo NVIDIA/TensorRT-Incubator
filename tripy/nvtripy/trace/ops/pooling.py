@@ -21,12 +21,12 @@ from typing import Optional, Sequence
 from mlir_tensorrt.compiler import ir
 from mlir_tensorrt.compiler.dialects import tensorrt
 from nvtripy.trace.ops import utils as op_utils
-from nvtripy.trace.ops.base import BaseTraceOp
+from nvtripy.trace.ops.base import TraceOp
 
 
 def make_pooling_op(name, pooling_type_name):
     @dataclass(repr=False)
-    class PoolingOp(BaseTraceOp):
+    class PoolingOp(TraceOp):
 
         kernel_dims: Sequence[int]
         stride: Sequence[int]
