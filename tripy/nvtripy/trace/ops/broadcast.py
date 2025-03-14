@@ -18,12 +18,12 @@
 from dataclasses import dataclass
 
 from nvtripy.trace.ops import utils as op_utils
-from nvtripy.trace.ops.base import BaseTraceOp
+from nvtripy.trace.ops.base import TraceOp
 from mlir_tensorrt.compiler.dialects import tensorrt
 
 
 @dataclass(repr=False)
-class Broadcast(BaseTraceOp):
+class Broadcast(TraceOp):
     infer_rank = op_utils.InferRankPolicies.same_as_shape_of_shape_input(1)
 
     def infer_dtypes(self):

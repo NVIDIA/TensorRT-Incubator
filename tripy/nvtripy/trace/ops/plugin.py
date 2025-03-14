@@ -25,7 +25,7 @@ from mlir_tensorrt.compiler import ir
 from mlir_tensorrt.compiler.dialects import tensorrt
 from nvtripy import utils
 from nvtripy.common.exception import raise_error
-from nvtripy.trace.ops.base import BaseTraceOp
+from nvtripy.trace.ops.base import TraceOp
 from nvtripy.utils.result import Result
 
 
@@ -104,7 +104,7 @@ def plugin_field_to_attr(field_info: "compiler.PluginFieldInfo", values: Any) ->
 
 
 @dataclass(repr=False)
-class Plugin(BaseTraceOp):
+class Plugin(TraceOp):
     name: str
     version: str
     namespace: str

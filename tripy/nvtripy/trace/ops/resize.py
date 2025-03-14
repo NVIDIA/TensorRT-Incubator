@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,11 +21,11 @@ from typing import Optional, Sequence
 from mlir_tensorrt.compiler import ir
 from mlir_tensorrt.compiler.dialects import tensorrt
 from nvtripy.trace.ops import utils as op_utils
-from nvtripy.trace.ops.base import BaseTraceOp
+from nvtripy.trace.ops.base import TraceOp
 
 
 @dataclass(repr=False)
-class ResizeBase(BaseTraceOp):
+class ResizeBase(TraceOp):
 
     scales: Optional[Sequence[float]]
 
