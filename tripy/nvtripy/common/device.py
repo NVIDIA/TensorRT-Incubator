@@ -30,9 +30,11 @@ _VALID_KINDS = {"cpu", "gpu"}
 @export.public_api()
 @dataclass
 class device:
-    # TODO: Improve docstrings here. Unclear what other information we'd want to include.
     """
     Represents the device where a tensor will be allocated.
+
+    .. caution:: Using multiple devices is not currently supported, so the device
+        index must always be 0.
     """
 
     kind: str
@@ -57,12 +59,12 @@ class device:
 
         .. code-block:: python
             :linenos:
-            :caption: Second GPU
+            :caption: First GPU
 
-            gpu_1 = tp.device("gpu:1")
+            gpu_1 = tp.device("gpu:0")
 
             assert gpu_1.kind == "gpu"
-            assert gpu_1.index == 1
+            assert gpu_1.index == 0
         """
         kind, _, index = device.partition(":")
         kind = kind.lower()
@@ -75,9 +77,13 @@ class device:
         else:
             index = 0
 
-        # TODO (pranavm): Disallow multi-device - it doesn't work:
         if index < 0:
             raise_error(f"Device index must be a non-negative integer, but was: {index}")
+
+        # TODO (#577): Lift this restriction. We will need to check the `Constant` implementation to make sure
+        # the allocation happens in the right place. Also check tensor lowering to see that we set the device.
+        if index != 0:
+            raise_error(f"Multi-device mode is not currently supported, so device index must be 0, but was: {index}")
 
         if kind not in _VALID_KINDS:
             raise_error(f"Unrecognized device kind: {kind}. Choose from: {list(_VALID_KINDS)}")
