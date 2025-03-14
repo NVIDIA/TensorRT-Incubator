@@ -9,29 +9,30 @@ The program is compiled and executed by
 
 
 ```mermaid
-graph TD
+%%{init: {'theme':'neutral'}}%%
+graph LR
     subgraph "Tripy (Python)"
         subgraph "Frontend"
-            A["Tripy Python API"]:::frontend
+            A["Python API"]:::frontend
         end
 
         subgraph "Trace"
-            A -->|Stage Out| B["Trace"]:::trace
+            A --> B["Trace"]:::trace
         end
 
         subgraph "Backend"
-            B --> C["MLIR (tensorrt dialect)"]:::backend
+            B --> C["MLIR"]:::backend
         end
     end
 
     subgraph "MLIR-TRT (C++)"
-        C --> D["MLIR-TRT Compiler/Runtime"]:::mlirtrt
+        C --> D["MLIR-TRT"]:::mlirtrt
     end
 
-    classDef frontend fill:#1E90FF,stroke:#000,stroke-width:2px;
-    classDef trace fill:#9370DB,stroke:#000,stroke-width:2px;
-    classDef backend fill:#32CD32,stroke:#000,stroke-width:2px;
-    classDef mlirtrt fill:#FF6347,stroke:#000,stroke-width:2px;
+    classDef frontend fill:#87CEFA,stroke:#000,stroke-width:1px;
+    classDef trace fill:#D8BFD8,stroke:#000,stroke-width:1px;
+    classDef backend fill:#9ACD32,stroke:#000,stroke-width:1px;
+    classDef mlirtrt fill:#CC4040,stroke:#000,stroke-width:1px;
 ```
 
 Tripy's 3 main components are:
@@ -46,3 +47,9 @@ Tripy's 3 main components are:
     and [`TraceOp`s](source:/nvtripy/trace/ops/base.py) and can **lower** to tensorrt-dialect MLIR.
 
 3. **Frontend**: Exposes functional-style Python APIs that work with {class}`nvtripy.Tensor`s.
+
+
+## Frontend
+
+<!-- TODO: Discuss `public_api` decorator - controls docs, type checking, overloading -->
+<!-- TODO: Discuss how each frontend tensor contains a trace tensor -->
