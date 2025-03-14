@@ -960,8 +960,8 @@ LogicalResult tensorrt::ResizeNearestOp::verify() {
       continue;
     if (inputType.getDimSize(i) != outputType.getDimSize(i))
       if (outputRank - i > resizeDim)
-        return emitOpError("only supports resizing on the innermost min(3, "
-                           "rank(input)) dimensions");
+        return emitOpError(
+            "only supports resizing on the 3 innermost dimensions");
   }
 
   if (getScales().has_value()) {
@@ -970,21 +970,17 @@ LogicalResult tensorrt::ResizeNearestOp::verify() {
                          "as input/output");
     for (int i = 0; i < outputRank - resizeDim; i++)
       if (getScales().value()[i] != 1)
-        return emitOpError(
-            "all scale values except innermost min(3, rank(input)) must be 1");
+        return emitOpError("all scale values except 3 innermost must be 1");
   }
 
   if (!getOutputShape()) {
     for (int64_t i = 0; i < resizeDim; ++i) {
-      // output dims must be static or
-      // scales is given and input dims are static
+      // output dims must be static or scales must be provided
       if (outputType.isDynamicDim(outputRank - 1 - i) &&
-          inputType.isDynamicDim(outputRank - 1 - i) &&
           !getScales().has_value())
         return emitOpError(
-            "input innermost min(3, rank(input)) dimension that resize on "
-            "cannot be dynamic when output_shape parameter is NOT "
-            "specified and it cannot be inferred statically");
+            "scales must be provided when output_shape is not provided and the "
+            "input/output dimensions are dynamic");
     }
   }
   return success();
@@ -1002,8 +998,8 @@ LogicalResult tensorrt::ResizeLinearOp::verify() {
       continue;
     if (inputType.getDimSize(i) != outputType.getDimSize(i))
       if (outputRank - i > resizeDim)
-        return emitOpError("only supports resizing on the innermost min(3, "
-                           "rank(input)) dimensions");
+        return emitOpError(
+            "only supports resizing on the 3 innermost dimensions");
   }
 
   if (getScales().has_value()) {
@@ -1012,21 +1008,17 @@ LogicalResult tensorrt::ResizeLinearOp::verify() {
                          "as input/output");
     for (int i = 0; i < outputRank - resizeDim; i++)
       if (getScales().value()[i] != 1)
-        return emitOpError(
-            "all scale values except innermost min(3, rank(input)) must be 1");
+        return emitOpError("all scale values except 3 innermost must be 1");
   }
 
   if (!getOutputShape()) {
     for (int64_t i = 0; i < resizeDim; ++i) {
-      // output dims must be static or
-      // scales is given and input dims are static
+      // output dims must be static or scales must be provided
       if (outputType.isDynamicDim(outputRank - 1 - i) &&
-          (inputType.isDynamicDim(outputRank - 1 - i) ||
-           !getScales().has_value()))
+          !getScales().has_value())
         return emitOpError(
-            "input innermost min(3, rank(input)) dimension that resize on "
-            "cannot be dynamic when output_shape parameter is NOT "
-            "specified and it cannot be inferred statically");
+            "scales must be provided when output_shape is not provided and the "
+            "input/output dimensions are dynamic");
     }
   }
   // ResizeLinearOp impl end
@@ -1062,15 +1054,12 @@ LogicalResult tensorrt::ResizeCubicOp::verify() {
 
   if (!getOutputShape()) {
     for (int64_t i = 0; i < 2; ++i) {
-      // output dims must be static or
-      // scales is given and input dims are static
+      // output dims must be static or scales must be provided
       if (outputType.isDynamicDim(outputRank - 1 - i) &&
-          (inputType.isDynamicDim(outputRank - 1 - i) ||
-           !getScales().has_value()))
+          !getScales().has_value())
         return emitOpError(
-            "input innermost 2 dimensions that resize on "
-            "cannot be dynamic when output_shape parameter is NOT "
-            "specified and it cannot be inferred statically");
+            "scales must be provided when output_shape is not provided and the "
+            "input/output dimensions are dynamic");
     }
   }
 
