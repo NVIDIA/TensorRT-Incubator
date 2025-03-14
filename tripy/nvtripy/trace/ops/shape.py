@@ -19,11 +19,11 @@ from dataclasses import dataclass
 
 from mlir_tensorrt.compiler.dialects import tensorrt
 from nvtripy.common.datatype import int32
-from nvtripy.trace.ops.base import BaseTraceOp
+from nvtripy.trace.ops.base import TraceOp
 
 
 @dataclass(repr=False)
-class Shape(BaseTraceOp):
+class Shape(TraceOp):
     def infer_rank(self):
         # TODO (pranavm): This can probably be changed back to rank inference.
         # The shape is set in `tensor_from_shape_like`
@@ -38,7 +38,7 @@ class Shape(BaseTraceOp):
 
 # This is a special case of slice that is only designed to get a single element from a shape.
 @dataclass(repr=False)
-class GetDimensionSize(BaseTraceOp):
+class GetDimensionSize(TraceOp):
     dim: int
 
     def infer_rank(self):

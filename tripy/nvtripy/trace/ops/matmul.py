@@ -18,11 +18,11 @@
 from dataclasses import dataclass
 
 from mlir_tensorrt.compiler.dialects import tensorrt
-from nvtripy.trace.ops.base import BaseTraceOp
+from nvtripy.trace.ops.base import TraceOp
 
 
 @dataclass(repr=False)
-class MatrixMultiply(BaseTraceOp):
+class MatrixMultiply(TraceOp):
     def infer_rank(self):
         out_rank = max(self.inputs[0].rank, self.inputs[1].rank)
         if self.inputs[0].rank == 1 and self.inputs[1].rank == 1:

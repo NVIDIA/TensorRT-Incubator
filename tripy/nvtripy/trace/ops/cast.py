@@ -19,11 +19,11 @@ from dataclasses import dataclass
 
 from mlir_tensorrt.compiler.dialects import tensorrt
 from nvtripy.trace.ops import utils as op_utils
-from nvtripy.trace.ops.base import BaseTraceOp
+from nvtripy.trace.ops.base import TraceOp
 
 
 @dataclass(repr=False)
-class Cast(BaseTraceOp):
+class Cast(TraceOp):
     dtype: "nvtripy.common.dtype"
 
     infer_rank = op_utils.InferRankPolicies.same_as_input()

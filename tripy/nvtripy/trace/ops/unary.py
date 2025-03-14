@@ -19,12 +19,12 @@ from dataclasses import dataclass
 
 import nvtripy.trace.ops.utils as op_utils
 from mlir_tensorrt.compiler.dialects import tensorrt
-from nvtripy.trace.ops.base import BaseTraceOp
+from nvtripy.trace.ops.base import TraceOp
 
 
 def make_unary_op(name, attr_name):
     @dataclass(repr=False)
-    class UnaryOp(BaseTraceOp):
+    class UnaryOp(TraceOp):
         infer_rank = op_utils.InferRankPolicies.same_as_input()
 
         def to_mlir(self, inputs, outputs):
@@ -47,7 +47,7 @@ Neg = make_unary_op("Neg", "kNEG")
 
 def make_activation_op(name, attr_name):
     @dataclass(repr=False)
-    class ActivationOp(BaseTraceOp):
+    class ActivationOp(TraceOp):
         infer_rank = op_utils.InferRankPolicies.same_as_input()
 
         def to_mlir(self, inputs, outputs):
