@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -89,6 +89,8 @@ def public_api(
     assert not autodoc_options or (
         ":no-members:" not in autodoc_options or ":no-special-members:" in autodoc_options
     ), "Because of how our conf.py file is set up, you must include :no-special-members: when using the :no-members: option!"
+
+    assert document_under != "index.rst", "APIs should not target the root index file!"
 
     def export_impl(obj):
         nonlocal module, symbol
