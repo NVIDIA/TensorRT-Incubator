@@ -17,12 +17,12 @@ from dataclasses import dataclass
 import nvtripy.trace.ops.utils as op_utils
 from mlir_tensorrt.compiler.dialects import tensorrt
 from nvtripy.common import datatype
-from nvtripy.trace.ops.base import BaseTraceOp
+from nvtripy.trace.ops.base import TraceOp
 
 
 def make_binary_op(name, attr_name):
     @dataclass(repr=False)
-    class BinaryOp(BaseTraceOp):
+    class BinaryOp(TraceOp):
         def infer_rank(self):
             assert self.inputs[0].rank == self.inputs[1].rank, "All inputs must have the same rank"
             return op_utils.InferRankPolicies.same_as_input()(self)

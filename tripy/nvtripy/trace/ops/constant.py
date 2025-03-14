@@ -29,7 +29,7 @@ from nvtripy.backend.mlir.memref import create_memref
 from nvtripy.common import datatype
 from nvtripy.common import device as tp_device
 from nvtripy.common.exception import raise_error
-from nvtripy.trace.ops.base import BaseTraceOp
+from nvtripy.trace.ops.base import TraceOp
 
 
 def flatten_list(data, _current_dim=0):
@@ -137,7 +137,7 @@ def get_shape(data):
 
 
 @dataclass(repr=False)
-class Constant(BaseTraceOp):
+class Constant(TraceOp):
 
     data: runtime.MemRefValue
     shape: Sequence[int]

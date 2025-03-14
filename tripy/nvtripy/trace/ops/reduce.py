@@ -20,12 +20,12 @@ from typing import Sequence
 
 from mlir_tensorrt.compiler import ir
 from mlir_tensorrt.compiler.dialects import tensorrt
-from nvtripy.trace.ops.base import BaseTraceOp
+from nvtripy.trace.ops.base import TraceOp
 
 
 def make_reduce_op(name, attr_name):
     @dataclass(repr=False)
-    class ReduceOp(BaseTraceOp):
+    class ReduceOp(TraceOp):
         dim: Sequence[int]
         keepdim: bool
 

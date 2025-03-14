@@ -19,11 +19,11 @@ from dataclasses import dataclass
 
 import nvtripy.trace.ops.utils as op_utils
 from mlir_tensorrt.compiler.dialects import tensorrt
-from nvtripy.trace.ops.base import BaseTraceOp
+from nvtripy.trace.ops.base import TraceOp
 
 
 @dataclass(repr=False)
-class Concatenate(BaseTraceOp):
+class Concatenate(TraceOp):
     dim: int
 
     def infer_rank(self):

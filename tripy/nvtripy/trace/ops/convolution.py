@@ -19,12 +19,12 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 import nvtripy.trace.ops.utils as op_utils
-from nvtripy.trace.ops.base import BaseTraceOp
+from nvtripy.trace.ops.base import TraceOp
 from mlir_tensorrt.compiler.dialects import tensorrt
 
 
 @dataclass(repr=False)
-class Convolution(BaseTraceOp):
+class Convolution(TraceOp):
     stride: Sequence[int]
     pre_padding: Sequence[int]
     post_padding: Sequence[int]
