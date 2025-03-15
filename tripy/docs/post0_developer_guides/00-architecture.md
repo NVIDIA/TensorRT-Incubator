@@ -4,8 +4,8 @@
 
 Tripy builds an **MLIR** program by **tracing** functional-style **Python APIs**.
 
-The program is compiled and executed by
-[MLIR-TRT](https://github.com/NVIDIA/TensorRT-Incubator/tree/main/mlir-tensorrt):
+- The program is compiled and executed by
+    [MLIR-TRT](https://github.com/NVIDIA/TensorRT-Incubator/tree/main/mlir-tensorrt).
 
 
 ```mermaid
@@ -13,20 +13,20 @@ The program is compiled and executed by
 graph LR
     subgraph "Tripy (Python)"
         subgraph "Frontend"
-            A["Python API"]:::frontend
+            A("Operations"):::frontend
         end
 
         subgraph "Trace"
-            A --> B["Trace"]:::trace
+            A --> B("Trace"):::trace
         end
 
         subgraph "Backend"
-            B --> C["MLIR"]:::backend
+            B --> C("MLIR"):::backend
         end
     end
 
     subgraph "MLIR-TRT (C++)"
-        C --> D["MLIR-TRT"]:::mlirtrt
+        C --> D("Compiler/Runtime"):::mlirtrt
     end
 
     classDef frontend fill:#87CEFA,stroke:#000,stroke-width:1px;
@@ -35,21 +35,72 @@ graph LR
     classDef mlirtrt fill:#CC4040,stroke:#000,stroke-width:1px;
 ```
 
-Tripy's 3 main components are:
+1. [**Backend**](#backend): Interfaces with MLIR-TRT:
 
-1. **Backend**: Interfaces with MLIR-TRT:
+    - **Compiler** compiles tensorrt-dialect MLIR to an MLIR-TRT executable.
 
-    - The **Compiler** compiles tensorrt-dialect MLIR to an MLIR-TRT executable
+    - **Executable** wraps an MLIR-TRT executable in a Pythonic API.
 
-    - The **Executable** wraps an MLIR-TRT executable to allow for inference with {class}`nvtripy.Tensor`s.
+2. [**Trace**](#trace): Computation graph of [`TraceTensor`](source:/nvtripy/trace/tensor.py)s
+    and [`TraceOp`](source:/nvtripy/trace/ops/base.py)s that **lowers** to tensorrt-dialect MLIR.
 
-2. **Trace**: Represents the computation graph as [`TraceTensor`s](source:/nvtripy/trace/tensor.py)
-    and [`TraceOp`s](source:/nvtripy/trace/ops/base.py) and can **lower** to tensorrt-dialect MLIR.
+3. [**Frontend**](#frontend): Exposes functional-style operations for {class}`nvtripy.Tensor`s.
 
-3. **Frontend**: Exposes functional-style Python APIs that work with {class}`nvtripy.Tensor`s.
+:::{note}
+Frontend/Backend refer to the flow of execution, not what the user does/doesn't see.
+
+Public APIs are exposed by both the frontend (e.g. {func}`nvtripy.resize`) and backend (e.g. {func}`nvtripy.compile`).
+:::
+
+## The Stack By Example
+
+Consider a simple example:
+
+```py
+def func(inp):
+    return tp.resize(inp, mode="linear", scales=(2, 2))
+
+compiled_func = tp.compile(func, args=[tp.InputInfo((2, 2), dtype=tp.float32)])
+
+inp = tp.iota((2, 2), dtype=tp.float32)
+out = compiled_func(inp)
+```
+
+### Frontend
+
+The frontend exposes {class}`nvtripy.Tensor` and various operations, e.g. {class}`nvtripy.resize`.
+
+:::{admonition} info
+Most operations are decorated with:
+1. [`@export.public_api`](source:/nvtripy/export.py): Enables documentation, type checking, and overloading.
+2. [`@wrappers.interface`](source:/nvtripy/utils/wrappers.py): Enforces (and generates tests for) data type constraints.
+:::
+
+Each frontend {class}`nvtripy.Tensor` wraps a [`TraceTensor`](source:/nvtripy/trace/tensor.py).
+
+- Operations either call other operations or create [`TraceOp`](source:/nvtripy/trace/ops/base.py)s whose outputs are wrapped in frontend tensors.
+
+An implicit graph is built up as operations are called - in our example:
+
+```mermaid
+%%{init: {'theme':'neutral'}}%%
+graph LR
+    subgraph "'inp' Tensor"
+        A(trace_tensor0)
+    end
+
+    subgraph "'out' Tensor"
+        A --> B[Resize]
+        B --> C(trace_tensor1)
+    end
+```
 
 
-## Frontend
+### Trace
 
-<!-- TODO: Discuss `public_api` decorator - controls docs, type checking, overloading -->
-<!-- TODO: Discuss how each frontend tensor contains a trace tensor -->
+<!-- TODO: Discuss what a trace op is - not too much detail, cover in how-to-add ops -->
+
+### Backend
+
+<!-- TODO: Discuss compiler and runtime -->
+<!-- TODO: Cover how location attribute is used to map errors back?  -->
