@@ -68,7 +68,8 @@ out = compiled_func(inp)
 
 ### Frontend
 
-The frontend exposes {class}`nvtripy.Tensor` and various operations, e.g. {class}`nvtripy.resize`.
+The frontend exposes {class}`nvtripy.Tensor` which wraps a [`TraceTensor`](source:/nvtripy/trace/tensor.py)
+and various operations, e.g. {class}`nvtripy.resize`.
 
 :::{admonition} info
 Most operations are decorated with:
@@ -76,11 +77,8 @@ Most operations are decorated with:
 2. [`@wrappers.interface`](source:/nvtripy/utils/wrappers.py): Enforces (and generates tests for) data type constraints.
 :::
 
-Each frontend {class}`nvtripy.Tensor` wraps a [`TraceTensor`](source:/nvtripy/trace/tensor.py).
-
-- Operations either call other operations or create [`TraceOp`](source:/nvtripy/trace/ops/base.py)s whose outputs are wrapped in frontend tensors.
-
-An implicit graph is built up as operations are called - in our example:
+Operations are **lazily evaluated**.
+Calling them just builds up an implicit graph of [`TraceOp`](source:/nvtripy/trace/ops/base.py)s:
 
 ```mermaid
 %%{init: {'theme':'neutral'}}%%
@@ -89,12 +87,18 @@ graph LR
         A(trace_tensor0)
     end
 
+    subgraph "Operation"
+    A --> B[Resize]
+    end
+
     subgraph "'out' Tensor"
-        A --> B[Resize]
         B --> C(trace_tensor1)
     end
 ```
 
+:::{note}
+*No computation is performed* until a frontend tensor is used (printed, `.eval()`'d, or exported w/ DLPack).
+:::
 
 ### Trace
 
