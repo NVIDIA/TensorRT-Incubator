@@ -210,7 +210,7 @@ def process_guide(guide_path: str, processed_guide_path: str):
     for index, block in enumerate(blocks):
         print(f"Processing block {index} (lang={block.lang}) in: {guide_path}: ", end="")
 
-        should_eval = not block.has_marker("doc: no_eval")
+        should_eval = not block.has_marker("doc: no_eval_or_format")
         if should_eval and block.lang.startswith("py"):
             print("Evaluating Python block")
 

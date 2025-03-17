@@ -25,13 +25,13 @@ Once you've installed the debug build in the container, you should be able to us
 
 Alternatively, you can use [LLDB](https://lldb.llvm.org/) if you launch the container with extra security options:
 
-<!-- Tripy: DOC: NO_EVAL Start -->
+<!-- Tripy: DOC: NO_EVAL_OR_FORMAT Start -->
 ```bash
 docker run --gpus all --cap-add=SYS_PTRACE \
     --security-opt seccomp=unconfined --security-opt apparmor=unconfined \
     -p 8080:8080 -v $(pwd):/tripy/ -it --rm tripy:latest
 ```
-<!-- Tripy: DOC: NO_EVAL End -->
+<!-- Tripy: DOC: NO_EVAL_OR_FORMAT End -->
 
 See [this post](https://forums.swift.org/t/debugging-using-lldb/18046) for details on
 why these security options are required.
