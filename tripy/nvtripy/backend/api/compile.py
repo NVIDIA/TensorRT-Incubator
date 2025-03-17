@@ -18,12 +18,13 @@
 import inspect
 from typing import Any, Callable, Dict, Sequence
 
-from nvtripy import export, utils, constants
+from nvtripy import constants, export, utils
 from nvtripy.backend.api.executable import Executable
 from nvtripy.backend.api.input_info import InputInfo
 from nvtripy.backend.mlir import Compiler
 from nvtripy.common.exception import raise_error
 from nvtripy.frontend import Tensor, Trace
+from nvtripy.utils.types import obj_name_or_type_name
 
 
 # TODO (#230): Support collections of tensors in args/kwargs
@@ -189,7 +190,9 @@ def compile(
 
     # Order of trace inputs also needs to match that of the compiled_arg_names
     trace_inputs = [trace_input_map[name].trace_tensor for name in compiled_arg_names]
-    trace = Trace([tensor.trace_tensor for tensor in trace_outputs], trace_inputs, shapes=shapes)
+    trace = Trace(
+        [tensor.trace_tensor for tensor in trace_outputs], trace_inputs, shapes=shapes, name=obj_name_or_type_name(func)
+    )
 
     for op in trace.ops:
         for tensor in op.inputs + op.outputs:
