@@ -144,8 +144,7 @@ class TestConvolution:
             output.eval()
 
 
-# TODO (pranavm): Move to separate file:
-# edge cases specific to transpose convolution
+# Edge cases specific to transpose convolution:
 @pytest.mark.skip("#218")
 class TestConvolutionTranspose:
     def test_transpose_negative_output_shape(self):
