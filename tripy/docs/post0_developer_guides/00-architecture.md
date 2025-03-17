@@ -72,8 +72,8 @@ Consider a simple example:
 
 ```py
 def scale_up(inp):
-    out = tp.resize(inp, mode="linear", scales=(2, 2))
-    out.name = "out" # Setting name just for readability
+    out = tp.resize(inp, scales=(2, 2), mode="linear")
+    out.name = "out" # Setting name for IR readability
     return out
 
 compiled_func = tp.compile(scale_up, args=[tp.InputInfo((2, 2), dtype=tp.float32)])
@@ -113,7 +113,7 @@ graph LR
 ```
 
 :::{note}
-The graph must be **compiled** before outputs are evaluated:
+To evaluate ouptuts, the graph must first be **compiled**:
 
 - In **eager mode**, this happens when a frontend tensor is used (printed, `.eval()`'d, or exported w/ DLPack).
 - In **compiled mode**, the user explicitly compiles a function or {class}`nvtripy.Module`.
