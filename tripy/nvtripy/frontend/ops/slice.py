@@ -28,7 +28,6 @@ from nvtripy.utils.types import type_str_from_arg
 from nvtripy.utils.utils import make_list
 
 
-# TODO (pranavm): Check if possible to constrain index tensor dtype
 @register_tensor_method("__getitem__")
 @wrappers.interface(
     dtype_constraints={"self": "T1", wrappers.RETURN_VALUE: "T1"},

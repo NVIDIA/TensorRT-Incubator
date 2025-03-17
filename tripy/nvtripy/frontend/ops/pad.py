@@ -82,7 +82,7 @@ def pad(
     padding_lows = op_utils.tensor_from_shape_like(padding_lows)
     padding_highs = op_utils.tensor_from_shape_like(padding_highs)
     starts = -padding_lows
-    # TODO (pranavm): add tp.shape_of
+
     # Not using input.shape because we need a `Tensor` here
     input_shape = op_utils.create_op(Shape, [input])
     sizes = input_shape + padding_lows + padding_highs
