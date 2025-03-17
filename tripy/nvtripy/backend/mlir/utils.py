@@ -21,7 +21,6 @@ import os
 import re
 import sys
 import tempfile
-import traceback
 from typing import BinaryIO, List, Optional, Sequence, Tuple, Union
 
 import mlir_tensorrt.runtime.api as runtime
@@ -118,20 +117,6 @@ def make_mlir_tensor(
         [ir.ShapedType.get_dynamic_size()] * rank,
         get_mlir_dtype(dtype),
     )
-
-
-def check_tensor_type_and_suggest_contiguous(obj):
-    obj_type = str(type(obj))
-    if "torch.Tensor" in obj_type:
-        return "PyTorch Tensor", "tensor.contiguous() or tensor.clone()"
-    elif "jaxlib" in obj_type or "jax.numpy" in obj_type:
-        return "JAX Array", "jax.numpy.asarray(array) or jax.numpy.copy(array)"
-    elif "numpy.ndarray" in obj_type:
-        return "NumPy Array", "np.ascontiguousarray(array) or array.copy(order='C')"
-    elif "cupy.ndarray" in obj_type:
-        return "CuPy Array", "cp.ascontiguousarray(array) or array.copy(order='C')"
-    else:
-        return None, None
 
 
 UNKNOWN_LOC = "unknown"
