@@ -15,7 +15,8 @@
 # limitations under the License.
 #
 
-from typing import Dict, List, Sequence, Set
+from textwrap import indent
+from typing import Dict, List, Optional, Sequence, Set
 
 from mlir_tensorrt.compiler import ir
 from mlir_tensorrt.compiler.dialects import func as func_dialect
@@ -30,7 +31,6 @@ from nvtripy.backend.mlir.utils import (
 from nvtripy.common.exception import raise_error
 from nvtripy.common.shape_bounds import ShapeBounds
 from nvtripy.logging import logger
-from nvtripy.trace.ops.constant import Constant
 from nvtripy.trace.tensor import TraceTensor
 from nvtripy.trace.utils import topological_sort
 
@@ -44,7 +44,7 @@ class Trace:
         self,
         outputs: Sequence[TraceTensor],
         inputs: Sequence[TraceTensor] = [],
-        shapes: Sequence[ShapeBounds] = None,
+        shapes: Optional[Sequence[ShapeBounds]] = None,
         name: str = "main",
     ) -> None:
         """
@@ -100,21 +100,31 @@ class Trace:
         logger.trace(lambda: f"{self}\n")
 
     def __str__(self) -> str:
-        layer_strs: List[str] = []
-        if self.shapes:
-            layer_strs.append("input shapes:")
-            for shape in self.shapes:
-                layer_strs.append(f"    {str(shape)}")
+        TAB = " " * 4
 
-        if len(self.inputs):
-            layer_strs.append("inputs:")
-        for inp in self.inputs:
-            layer_strs.append(f"    {str(inp)}")
+        layer_strs: List[str] = []
+
+        signature = f"def {self.name}("
+
+        def get_sep(lst):
+            return f"\n{TAB}" if lst else ""
+
+        inp_sep = get_sep(self.inputs)
+        input_strs = []
+        for inp, inp_shape in zip(self.inputs, self.shapes or [None] * len(self.inputs)):
+            input_strs.append(f"{inp}{f' : {inp_shape}' if inp_shape else ''}")
+        signature += inp_sep + f",{inp_sep}".join(input_strs)
+        if self.inputs:
+            signature += f"\n"
+
+        out_sep = get_sep(self.outputs)
+        signature += f") -> (" + out_sep + f",{out_sep}".join(str(out) for out in self.outputs) + f"\n):"
+
+        layer_strs.append(signature)
         for op in self.ops:
-            layer_strs.append(str(op))
-        layer_strs.append("outputs:")
-        for out in self.outputs:
-            layer_strs.append(f"    {str(out)}")
+            layer_strs.append(indent(str(op), prefix=TAB))
+        layer_strs.append(indent(f"return {', '.join(out.name for out in self.outputs)}", TAB))
+
         return "\n".join(layer_strs)
 
     def to_mlir(self):
@@ -124,7 +134,7 @@ class Trace:
                 module = ir.Module.create()
                 with ir.InsertionPoint(module.body) as ip:
                     func_op = func_dialect.FuncOp(
-                        self.name,
+                        "main",
                         ir.FunctionType.get(
                             [inp.to_mlir() for inp in self.inputs],
                             [out.to_mlir() for out in self.outputs],
