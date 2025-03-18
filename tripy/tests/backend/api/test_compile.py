@@ -34,6 +34,9 @@ class TestCompile:
 
     def test_module(self):
         layernorm = tp.LayerNorm(2)
+        layernorm.weight = tp.ones(layernorm.weight.shape)
+        layernorm.bias = tp.ones(layernorm.bias.shape)
+
         compiled_layernorm = tp.compile(layernorm, args=[tp.InputInfo((2, 2), dtype=tp.float32)])
 
         inp = tp.iota((2, 2), dtype=tp.float32) - 1

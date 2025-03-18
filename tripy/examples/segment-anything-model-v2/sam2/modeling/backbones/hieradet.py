@@ -7,7 +7,7 @@
 # Not a contribution
 # Changes made by NVIDIA CORPORATION & AFFILIATES enabling SAM2 with Tripy or otherwise documented as
 # NVIDIA-proprietary are not a contribution and subject to the following terms and conditions:
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -67,7 +67,7 @@ class MultiScaleAttention(tp.Module):
         self.qkv = tp.Linear(dim, dim_out * 3, dtype=dtype)
         self.proj = tp.Linear(dim_out, dim_out, dtype=dtype)
 
-    def __call__(self, x):
+    def forward(self, x):
         B, H, W = x.shape[0:3]
         # qkv with shape (B, H * W, 3, nHead, C)
         qkv = tp.reshape(self.qkv(x), (B, H * W, 3, self.num_heads, -1))
@@ -148,7 +148,7 @@ class MultiScaleBlock(tp.Module):
         if dim != dim_out:
             self.proj = tp.Linear(dim, dim_out, dtype=dtype)
 
-    def __call__(self, x):
+    def forward(self, x):
 
         def call_norm(x, norm):
             x_dtype = x.dtype
@@ -299,7 +299,7 @@ class Hiera(tp.Module):
         pos_embed = pos_embed.permute(0, 2, 3, 1)
         self.pos_embed_torch = pos_embed.contiguous()
 
-    def __call__(self, x: tp.Tensor):
+    def forward(self, x: tp.Tensor):
         x = self.patch_embed(x)
         # x: (B, H, W, C)
 

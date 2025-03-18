@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -45,6 +45,13 @@ class Sequential(Module):
 
             model = tp.Sequential(tp.Linear(1, 3), tp.Linear(3, 2))
 
+            model.load_state_dict({
+                "0.weight": tp.ones((3, 1)),
+                "0.bias": tp.ones((3, )),
+                "1.weight": tp.ones((2, 3)),
+                "1.bias": tp.ones((2, )),
+            })
+
             input = tp.Tensor([1.0])
             output = model(input)
 
@@ -54,6 +61,13 @@ class Sequential(Module):
 
             model = tp.Sequential({'layer1': tp.Linear(1, 3), 'layer2': tp.Linear(3, 2)})
 
+            model.load_state_dict({
+                "layer1.weight": tp.ones((3, 1)),
+                "layer1.bias": tp.ones((3, )),
+                "layer2.weight": tp.ones((2, 3)),
+                "layer2.bias": tp.ones((2, )),
+            })
+
             input = tp.Tensor([1.0])
             output = model(input)
 
@@ -62,7 +76,7 @@ class Sequential(Module):
             :caption: Sequential with Callables
 
             model = tp.Sequential(
-                tp.Conv(in_channels=2, out_channels=2, kernel_dims=(1,1), stride=(1,1)),
+                tp.relu,
                 lambda x: tp.avgpool(x, kernel_dims=(2,2), stride=(1,1))
             )
 
@@ -78,7 +92,7 @@ class Sequential(Module):
             for idx, module in enumerate(modules):
                 self.modules[str(idx)] = module
 
-    def __call__(self, input: "nvtripy.Tensor") -> "nvtripy.Tensor":
+    def forward(self, input: "nvtripy.Tensor") -> "nvtripy.Tensor":
         r"""
         Defines the forward pass by applying each module in the container sequentially to `input`
 

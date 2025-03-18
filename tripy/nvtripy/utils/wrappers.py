@@ -460,3 +460,41 @@ def interface(
         return wrapper
 
     return decorator
+
+
+def constant_fields(field_names: Sequence[str]):
+    """
+    Marks fields as immutable and disallows them from being changed
+    once they have been set the first time.
+
+    Args:
+        field_names: The names of fields that should be made immutable.
+    """
+
+    def constant_fields_impl(cls: type):
+        default_init = cls.__init__
+
+        @functools.wraps(default_init)
+        def custom_init(self, *args, **kwargs):
+            self.__initialized_fields = set()
+            return default_init(self, *args, **kwargs)
+
+        default_setattr = cls.__setattr__
+
+        @functools.wraps(default_setattr)
+        def custom_setattr(self, name, value):
+            if name == "__initialized_fields":
+                return object.__setattr__(self, name, value)
+
+            if name in field_names:
+                if name in self.__initialized_fields:
+                    raise_error(f"Field: '{name}' of class: '{cls.__qualname__}' is immutable!")
+                self.__initialized_fields.add(name)
+
+            return default_setattr(self, name, value)
+
+        cls.__init__ = custom_init
+        cls.__setattr__ = custom_setattr
+        return cls
+
+    return constant_fields_impl

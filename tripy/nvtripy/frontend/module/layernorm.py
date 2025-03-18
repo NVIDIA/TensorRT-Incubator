@@ -27,7 +27,7 @@ from nvtripy.frontend.tensor import Tensor
 
 @export.public_api(document_under="operations/modules")
 @dataclass
-@utils.utils.constant_fields(["dtype", "normalized_shape"])
+@utils.wrappers.constant_fields(["dtype", "normalized_shape"])
 class LayerNorm(Module):
     r"""
     Applies layer normalization over the input tensor:
@@ -70,6 +70,9 @@ class LayerNorm(Module):
 
             layer_norm = tp.LayerNorm(3)
 
+            layer_norm.weight = tp.iota(layer_norm.weight.shape)
+            layer_norm.bias = tp.iota(layer_norm.bias.shape)
+
             input = tp.iota((2, 3), dim=1)
             output = layer_norm(input)
 
@@ -98,7 +101,7 @@ class LayerNorm(Module):
 
         self.eps = eps
 
-    def __call__(self, x: "nvtripy.Tensor") -> "nvtripy.Tensor":
+    def forward(self, x: "nvtripy.Tensor") -> "nvtripy.Tensor":
         r"""
         Args:
             x: The input tensor.

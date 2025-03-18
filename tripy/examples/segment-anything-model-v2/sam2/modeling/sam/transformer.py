@@ -7,7 +7,7 @@
 # Not a contribution
 # Changes made by NVIDIA CORPORATION & AFFILIATES enabling SAM2 with Tripy or otherwise documented as
 # NVIDIA-proprietary are not a contribution and subject to the following terms and conditions:
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -83,16 +83,16 @@ class TwoWayTransformer(tp.Module):
         )
         self.norm_final_attn = tp.LayerNorm(embedding_dim)
 
-    def __call__(
+    def forward(
         self,
         image_embedding: Tensor,
         image_pe: Tensor,
         point_embedding: Tensor,
     ) -> Tuple[Tensor, Tensor]:
 
-        return self.forward(image_embedding, image_pe, point_embedding)
+        return self.forward_impl(image_embedding, image_pe, point_embedding)
 
-    def forward(
+    def forward_impl(
         self,
         image_embedding: Tensor,
         image_pe: Tensor,
@@ -200,10 +200,10 @@ class TwoWayAttentionBlock(tp.Module):
 
         self.skip_first_layer_pe = skip_first_layer_pe
 
-    def __call__(self, queries: Tensor, keys: Tensor, query_pe: Tensor, key_pe: Tensor) -> Tuple[Tensor, Tensor]:
-        return self.forward(queries, keys, query_pe, key_pe)
-
     def forward(self, queries: Tensor, keys: Tensor, query_pe: Tensor, key_pe: Tensor) -> Tuple[Tensor, Tensor]:
+        return self.forward_impl(queries, keys, query_pe, key_pe)
+
+    def forward_impl(self, queries: Tensor, keys: Tensor, query_pe: Tensor, key_pe: Tensor) -> Tuple[Tensor, Tensor]:
         # Self attention block
         if self.skip_first_layer_pe:
             queries = self.self_attn(q=queries, k=queries, v=queries)
@@ -278,10 +278,10 @@ class Attention(tp.Module):
         x = tp.transpose(x, 1, 2)
         return tp.reshape(x, [b, n_token, n_head * c_per_head])  # B x N_tokens x C
 
-    def __call__(self, q: Tensor, k: Tensor, v: Tensor) -> Tensor:
-        return self.forward(q, k, v)
-
     def forward(self, q: Tensor, k: Tensor, v: Tensor) -> Tensor:
+        return self.forward_impl(q, k, v)
+
+    def forward_impl(self, q: Tensor, k: Tensor, v: Tensor) -> Tensor:
         # Input projections
         q = self.q_proj(q)
         k = self.k_proj(k)
@@ -318,10 +318,10 @@ class RoPEAttention(Attention):
         self.compute_cis = partial(compute_axial_cis, dim=self.internal_dim // self.num_heads, theta=rope_theta)
         self.rope_k_repeat = rope_k_repeat
 
-    def __call__(self, q: Tensor, k: Tensor, v: Tensor, num_k_exclude_rope: tp.Tensor) -> Tensor:
-        return self.forward(q, k, v, num_k_exclude_rope)
+    def forward(self, q: Tensor, k: Tensor, v: Tensor, num_k_exclude_rope: tp.Tensor) -> Tensor:
+        return self.forward_impl(q, k, v, num_k_exclude_rope)
 
-    def forward(self, q: tp.Tensor, k: tp.Tensor, v: tp.Tensor, num_k_exclude_rope: tp.Tensor) -> tp.Tensor:
+    def forward_impl(self, q: tp.Tensor, k: tp.Tensor, v: tp.Tensor, num_k_exclude_rope: tp.Tensor) -> tp.Tensor:
         # Input projections
         q = self.q_proj(q)
         k = self.k_proj(k)
