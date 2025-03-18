@@ -17,14 +17,25 @@
 
 import functools
 import inspect
-from collections import namedtuple
+from dataclasses import dataclass
+from textwrap import indent
 from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple, Union
 
 from nvtripy import config, utils
 from nvtripy.common.exception import raise_error
 from nvtripy.utils import result
+from nvtripy.common.datatype import DATA_TYPES
 
-TYPE_VERIFICATION = {}
+
+@dataclass
+class DataTypeConstraints:
+    func: Callable
+    constraints: Dict[str, str]
+    variables: Dict[str, List[str]]
+    exceptions: List[Dict[str, str]]
+
+
+DATA_TYPE_CONSTRAINTS = []
 RETURN_VALUE = "__RETURN_VALUE"
 
 
@@ -140,9 +151,9 @@ def convert_input_types(
     from nvtripy.common.datatype import bool as tp_bool
     from nvtripy.common.datatype import floating, integer
     from nvtripy.frontend.dimension_size import DimensionSize
-    from nvtripy.frontend.tensor import Tensor
     from nvtripy.frontend.ops.cast import cast
     from nvtripy.frontend.ops.utils import tensor_from_shape_like
+    from nvtripy.frontend.tensor import Tensor
 
     if conversion_preprocess_func is not None:
         var_arg_name, var_arg_start_idx = utils.utils.default(var_arg_info, (None, None))
@@ -222,11 +233,72 @@ def convert_input_types(
     return new_args, new_kwargs, new_merged_args
 
 
+# Modify the docstring to mention data type variables and exceptions
+def _update_docstring(func, dtype_constraints, dtype_variables, dtype_exceptions):
+    if not func.__doc__:
+        return
+
+    # Update the docstring to add data type variables after the parameter documentation.
+    args_index = func.__doc__.find("Args:")
+    # Args: may be omitted for functions with no inputs
+    args_index = args_index if args_index != -1 else 0
+    for name, var in dtype_constraints.items():
+        find_str = f"\n        {name}: " if name != RETURN_VALUE else "\n    Returns:\n        "
+
+        param_index = func.__doc__.find(find_str, args_index)
+        assert param_index != -1, f"Parameter: {name} was not documented in {func.__name__}"
+        func.__doc__ = (
+            func.__doc__[:param_index]
+            + rf"{find_str}[dtype=\ **{var}**\ ] "
+            + func.__doc__[param_index + len(find_str) :]
+        )
+
+    prefix = " " * 8
+
+    def sorted_types(dtypes):
+        return sorted(
+            dtypes,
+            key=lambda dtype: (
+                tuple(typ.__name__ for typ in DATA_TYPES[dtype].__bases__),
+                DATA_TYPES[dtype].itemsize,
+            ),
+        )
+
+    dtype_info = "DATA TYPE CONSTRAINTS:\n"
+    dtype_info += indent(
+        "\n".join(
+            [
+                f"- **{var}**: {', '.join(map(lambda t: f':class:`{t}`', sorted_types(dtypes)))}"
+                for var, dtypes in dtype_variables.items()
+            ]
+        ),
+        prefix,
+    )
+
+    if dtype_exceptions:
+        dtype_info += "\n\n    UNSUPPORTED DATA TYPE COMBINATIONS:\n"
+        esc_space = r"\ "
+        dtype_info += indent(
+            "\n".join(
+                [
+                    f"- {', '.join([f'**{k}**{esc_space}={esc_space}:class:`{v}`' for k, v in exception.items()])}"
+                    for exception in dtype_exceptions
+                ]
+            ),
+            prefix,
+        )
+
+    dtype_info += "\n\n    "
+
+    code_block_index = func.__doc__.find(".. code-block:: python")
+    assert code_block_index != -1, f"No code example in docstring for {func.__name__}"
+    func.__doc__ = func.__doc__[:code_block_index] + dtype_info + func.__doc__[code_block_index:]
+
+
 def interface(
     dtype_constraints: Dict[str, str] = {},
     dtype_variables: Dict[str, List[str]] = {},
     dtype_exceptions: List[Dict[str, str]] = [],
-    aliases: List[str] = [],
     convert_to_tensors: Union[bool, Set[str]] = False,
     conversion_preprocess_func: Optional[Callable] = None,
 ):
@@ -242,7 +314,9 @@ def interface(
 
     Args:
         dtype_constraints: Maps parameters and return values to data type constraint variables.
-            Use the special value `wrappers.RETURN_VALUE` to denote return values.
+            Use the special value `wrappers.RETURN_VALUE` to denote return values - this can be
+            a list for functions that have multiple outputs. If only one return type is specified for
+            functions with multiple outputs, it will be applied to all outputs.
             For example:
                 {"input": "T1", "other": T2, wrappers.RETURN_VALUE: "T1"}
 
@@ -280,10 +354,6 @@ def interface(
     def decorator(func):
         from nvtripy.types import ShapeLike, TensorLike
 
-        return_dtype = dtype_constraints.get(RETURN_VALUE, None)
-        VerifInfo = namedtuple("VerifInfo", ["obj", "inputs", "exceptions", "return_dtype", "dtypes", "constraints"])
-        verif_info = VerifInfo(func, {}, dtype_exceptions, return_dtype, dtype_variables, dtype_constraints)
-
         signature = inspect.signature(func)
         conversion_targets = (
             convert_to_tensors
@@ -294,8 +364,11 @@ def interface(
 
         # if no dtype constraints have been specified at all, do not add to the table so we don't generate invalid tests
         if dtype_constraints or dtype_variables or dtype_exceptions:
-            for key in [func.__qualname__] + aliases:
-                TYPE_VERIFICATION[key] = verif_info
+            DATA_TYPE_CONSTRAINTS.append(
+                DataTypeConstraints(func, dtype_constraints, dtype_variables, dtype_exceptions)
+            )
+
+            _update_docstring(func, dtype_constraints, dtype_variables, dtype_exceptions)
 
         @functools.wraps(func)
         def wrapper(*args, **kwargs):

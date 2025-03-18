@@ -7,7 +7,7 @@
 # Not a contribution
 # Changes made by NVIDIA CORPORATION & AFFILIATES enabling SAM2 with Tripy or otherwise documented as
 # NVIDIA-proprietary are not a contribution and subject to the following terms and conditions:
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -137,8 +137,8 @@ class FpnNeck(tp.Module):
             if i in self.fpn_top_down_levels and prev_features is not None:
                 top_down_features = tp.resize(
                     tp.cast(prev_features, self.dtype),
-                    mode=self.fpn_interp_model,
                     output_shape=(prev_features.shape[0], 256, 64, 64),
+                    mode=self.fpn_interp_model,
                 )
                 prev_features = lateral_features + top_down_features
                 if self.fuse_type == "avg":

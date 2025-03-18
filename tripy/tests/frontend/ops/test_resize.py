@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -23,9 +23,9 @@ class TestResize:
     def test_unsupported_mode(self):
         with helper.raises(tp.TripyException, match="Unsupported resize mode."):
             a = tp.ones((1, 1, 3, 4))
-            out = tp.resize(a, "bilinear", output_shape=(1, 1, 6, 8))
+            out = tp.resize(a, mode="bilinear", output_shape=(1, 1, 6, 8))
 
     def test_invalid_align_corners(self):
         with helper.raises(tp.TripyException, match="align_corners can only be set with `cubic` or `linear` mode."):
             a = tp.ones((1, 1, 3, 4))
-            out = tp.resize(a, "nearest", output_shape=(1, 1, 6, 8), align_corners=True)
+            out = tp.resize(a, mode="nearest", output_shape=(1, 1, 6, 8), align_corners=True)
