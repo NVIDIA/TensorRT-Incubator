@@ -77,10 +77,25 @@ class TestCompile:
 
         assert cp.array_equal(cp.from_dlpack(out), cp.ones((2, 2), dtype=cp.float32) * 2)
 
-    @pytest.mark.parametrize("func", [variadic_positional, variadic_keyword])
-    def test_variadic_arguments_rejected(self, func):
-        with helper.raises(tp.TripyException, "Variadic positional/keyword arguments are not currently supported."):
-            tp.compile(func)
+    @pytest.mark.parametrize("num_args", [1, 2, 3])
+    def test_variadic_positional_args(self, num_args):
+        func = tp.compile(
+            variadic_positional,
+            args=[tp.InputInfo((2,), dtype=tp.float32) for _ in range(num_args)],
+        )
+
+        inputs = [tp.ones((2,)) for _ in range(num_args)]
+        assert tp.equal(func(*inputs), tp.ones((2,)) * num_args)
+
+    @pytest.mark.parametrize("num_args", [1, 2, 3])
+    def test_variadic_keyword_args(self, num_args):
+        func = tp.compile(
+            variadic_keyword,
+            kwargs={f"arg{index}": tp.InputInfo((2,), dtype=tp.float32) for index in range(num_args)},
+        )
+
+        inputs = {f"arg{index}": tp.ones((2,)) for index in range(num_args)}
+        assert tp.equal(func(**inputs), tp.ones((2,)) * num_args)
 
     @pytest.mark.parametrize("func", [returns_non_tensor, returns_nothing])
     def test_invalid_return_rejected(self, func):
@@ -204,25 +219,3 @@ class TestCompile:
             return a + const
 
         tp.compile(func, args=[tp.InputInfo((2, 3), dtype=tp.float32)])
-
-
-# TODO (#256): Remove these tests and replace with exhaustive integration testing
-class TestCompiledOps:
-    def test_cast(self):
-        compiled_cast = tp.compile(tp.cast, args=[tp.InputInfo((2, 2), dtype=tp.float32)], kwargs=dict(dtype=tp.int32))
-
-        a = tp.ones((2, 2), dtype=tp.float32)
-        out = compiled_cast(a)
-
-        assert cp.array_equal(cp.from_dlpack(out), cp.ones((2, 2), dtype=cp.int32))
-
-    def test_linear(self):
-        linear = tp.Linear(2, 3)
-
-        compiled_linear = tp.compile(linear, args=[tp.InputInfo((2, 2), dtype=tp.float32)])
-
-        a = tp.ones((2, 2), dtype=tp.float32)
-
-        out = compiled_linear(a)
-
-        assert tp.equal(out, linear(a))
