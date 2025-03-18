@@ -46,7 +46,7 @@ class TestMd5:
 
 
 def make_with_constant_field():
-    @utils.utils.constant_fields("field")
+    @utils.wrappers.constant_fields("field")
     class WithConstField:
         def __init__(self):
             self.custom_setter_called_count = defaultdict(int)

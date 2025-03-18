@@ -44,11 +44,17 @@ class TestModule:
         assert cp.from_dlpack(dict(network.named_parameters())["param"]).get().tolist() == [0.0, 1.0]
         assert "dummy1" not in dict(network.named_children())
 
-    def test_incompatible_parameter_cannot_be_set(self, network):
+    def test_incompatible_parameter_shape_cannot_be_set(self, network):
         with helper.raises(
             tp.TripyException, match=r"New parameter shape: \(2, 3\) is not compatible with current shape: \(2,\)"
         ):
             network.param = tp.ones((2, 3))
+
+    def test_incompatible_parameter_dtype_cannot_be_set(self, network):
+        with helper.raises(
+            tp.TripyException, match=r"New parameter dtype: float16 is not compatible with current dtype: float32"
+        ):
+            network.param = tp.ones((2,), dtype=tp.float16)
 
     def test_named_children(self, network):
         # Children should only return immediate children

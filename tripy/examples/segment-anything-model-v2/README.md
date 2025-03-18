@@ -16,7 +16,7 @@ This is an implementation of SAM2 model ([original repository](https://github.co
 
     ```bash
     python3 download_test_data.py
-    cd checkpoints && sh download_ckpt.sh
+    pushd checkpoints && sh download_ckpt.sh && popd
     ```
 
 ### Image pipeline

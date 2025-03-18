@@ -26,7 +26,7 @@ from nvtripy.frontend.tensor import Tensor
 
 
 @dataclass
-@utils.utils.constant_fields(["dtype", "padding", "stride", "groups", "dilation"])
+@utils.wrappers.constant_fields(["dtype", "padding", "stride", "groups", "dilation"])
 class ConvBase(Module):
     r"""Base class for sharing common functionality between Conv and ConvTranspose."""
 

@@ -27,7 +27,7 @@ class MLP(tp.Module):
         self.c_fc = tp.Linear(embd_size, 4 * embd_size, bias=True, dtype=dtype)
         self.c_proj = tp.Linear(4 * embd_size, embd_size, bias=True, dtype=dtype)
 
-    def __call__(self, x):
+    def forward(self, x):
         x = self.c_fc(x)
         x = tp.gelu(x)
         x = self.c_proj(x)
@@ -40,6 +40,15 @@ Usage:
 # doc: no-print-locals mlp
 mlp = MLP(embd_size=2)
 
+# Set parameters:
+mlp.load_state_dict({
+    "c_fc.weight": tp.ones((8, 2)),
+    "c_fc.bias": tp.ones((8,)),
+    "c_proj.weight": tp.ones((2, 8)),
+    "c_proj.bias": tp.ones((2,)),
+})
+
+# Execute:
 inp = tp.iota(shape=(1, 2), dim=1, dtype=tp.float32)
 out = mlp(inp)
 ```

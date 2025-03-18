@@ -15,42 +15,18 @@
 # limitations under the License.
 #
 
-import math
-from typing import Optional, Sequence
-
-from nvtripy.frontend.tensor import Tensor
+from typing import Sequence
+from nvtripy.utils.stack_info import get_stack_info
 
 
-class DefaultParameter(Tensor):
+class DefaultParameter:
     """
-    Behaves exactly like a tensor except does not cause
-    data to be materialized for shape/dtype checks.
-    Useful for initializing module parameters.
+    Denotes a parameter in a module and its expected shape and data type.
+
+    Must be replaced with real weights before the module can be run.
     """
 
-    def __init__(self, shape: Optional[Sequence[int]], dtype: "nvtripy.dtype") -> None:
-        from nvtripy.frontend.ops.arange import arange
-        from nvtripy.frontend.ops.reshape import reshape
-
-        is_shape_known = True
-        if shape is None:
-            is_shape_known = False
-            shape = tuple()
-
-        # TODO (pranavm): Emit warning if this tensor is ever materialized - can check for DefaultParameter in
-        # named_parameters() during Module.__call__ - probably need to be able to implement `forward` for that.
-        # Need variadic argument support in compile to do that!
-        # Another way is to not make DefaultParameter a Tensor at all.
-        tensor = reshape(arange(math.prod(shape), dtype), shape)
-
-        self.__dict__ = tensor.__dict__
-
-        self.trace_tensor.shape = tuple(shape)
-        self._dtype = dtype
-        # TODO (pranavm): Disallow unknown shapes - if a shape is unknown, it obviously can't be a constant tensor.
-        # For cases where we needed unknown shapes, don't initialize with `DefaultParameter` - instead use `None`.
-        self.is_shape_known = is_shape_known
-
-    @property
-    def dtype(self):
-        return self._dtype
+    def __init__(self, shape: Sequence[int], dtype: "nvtripy.dtype") -> None:
+        self.shape = shape
+        self.dtype = dtype
+        self.stack_info = get_stack_info(1)
