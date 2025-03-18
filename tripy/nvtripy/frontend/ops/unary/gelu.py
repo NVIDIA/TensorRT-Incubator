@@ -26,7 +26,7 @@ from nvtripy.frontend.ops import utils as op_utils
 @wrappers.interface(
     dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
     dtype_variables={
-        "T1": ["float32", "float16", "bfloat16"],
+        "T1": ["float32", "float16", "bfloat16", "int8"],
     },
 )
 def gelu(input: "nvtripy.Tensor") -> "nvtripy.Tensor":

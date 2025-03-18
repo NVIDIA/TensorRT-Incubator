@@ -60,9 +60,6 @@ def softmax(input: "nvtripy.Tensor", dim: Optional[int] = None) -> "nvtripy.Tens
     """
     from nvtripy.frontend.ops.reshape import reshape
 
-    # TODO (pranavm): Add integration tests for negative dimensions
-    dim = op_utils.process_dim(dim, input.rank)
-
     # TODO (pranavm): Add integration tests for 1D tensors
     # TensorRT softmax requires 2 dimensions, so we unsqueeze the last dimension if the rank is too low:
     needs_unsqueeze = input.rank < 2
@@ -75,6 +72,8 @@ def softmax(input: "nvtripy.Tensor", dim: Optional[int] = None) -> "nvtripy.Tens
         softmax = op_utils.create_op(Softmax, [flat], dim=0)
         return reshape(softmax, input.shape)
 
+    # TODO (pranavm): Add integration tests for negative dimensions
+    dim = op_utils.process_dim(dim, input.rank)
     softmax = op_utils.create_op(Softmax, [input], dim=dim)
     if needs_unsqueeze:
         softmax = reshape(softmax, input.shape)

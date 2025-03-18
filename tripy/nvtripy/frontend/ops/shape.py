@@ -35,6 +35,9 @@ def shape(self: "nvtripy.Tensor") -> Tuple[IntLike]:
     """
     Represents the shape of the tensor.
 
+    Args:
+        self: The input tensor.
+
     Returns:
         A sequence containing the shape of this tensor.
 

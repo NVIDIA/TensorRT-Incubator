@@ -46,14 +46,15 @@ def _create_resize(mode, inputs, scales, align_corners):
         return op_utils.create_op(ResizeCubic, inputs, scales=scales, align_corners=align_corners)
 
 
+# TODO (pranavm): Adds examples for other modes
 @export.public_api(document_under="operations/functions")
 @wrappers.interface(
     dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
-    dtype_variables={"T1": ["float32", "bfloat16", "float16", "int8"]},
+    dtype_variables={"T1": ["float32", "float16", "int8"]},
     convert_to_tensors=True,
 )
 def resize(
-    input: "nvtripy.Tensor", mode: str, output_shape: ShapeLike, align_corners: bool = False
+    input: "nvtripy.Tensor", output_shape: ShapeLike, mode: str = "linear", align_corners: bool = False
 ) -> "nvtripy.Tensor":
     r"""
     Resizes the input tensor.
@@ -74,7 +75,7 @@ def resize(
         :linenos:
 
         input = tp.reshape(tp.arange(16, dtype=tp.float32), (1, 1, 4, 4))
-        output = tp.resize(input, "nearest", output_shape=(1, 1, 8, 8))
+        output = tp.resize(input, output_shape=(1, 1, 8, 8), mode="nearest")
 
         input_torch = torch.arange(16, dtype=torch.float32).reshape((1, 1, 4, 4)) # doc: omit
         expected = torch.nn.functional.interpolate(input_torch, scale_factor=2.0, mode="nearest") # doc: omit
@@ -91,7 +92,7 @@ def resize(
     dtype_variables={"T1": ["float32", "float16", "int8"]},
 )
 def resize(
-    input: "nvtripy.Tensor", mode: str, scales: Sequence[numbers.Number], align_corners: bool = False
+    input: "nvtripy.Tensor", scales: Sequence[numbers.Number], mode: str = "linear", align_corners: bool = False
 ) -> "nvtripy.Tensor":
     r"""
     Resizes the input tensor.
@@ -113,7 +114,7 @@ def resize(
         :linenos:
 
         input = tp.reshape(tp.arange(16, dtype=tp.float32), (1, 1, 4, 4))
-        output = tp.resize(input, "nearest", scales=(1, 1, 2, 2))
+        output = tp.resize(input, scales=(1, 1, 2, 2), mode="nearest")
 
         input_torch = torch.arange(16, dtype=torch.float32).reshape((1, 1, 4, 4)) # doc: omit
         expected = torch.nn.functional.interpolate(input_torch, scale_factor=2.0, mode="nearest") # doc: omit
