@@ -61,10 +61,10 @@ class device:
             :linenos:
             :caption: First GPU
 
-            gpu_1 = tp.device("gpu:0")
+            gpu_0 = tp.device("gpu:0")
 
-            assert gpu_1.kind == "gpu"
-            assert gpu_1.index == 0
+            assert gpu_0.kind == "gpu"
+            assert gpu_0.index == 0
         """
         kind, _, index = device.partition(":")
         kind = kind.lower()
