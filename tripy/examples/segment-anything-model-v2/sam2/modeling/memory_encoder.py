@@ -7,7 +7,7 @@
 # Not a contribution
 # Changes made by NVIDIA CORPORATION & AFFILIATES enabling SAM2 with Tripy or otherwise documented as
 # NVIDIA-proprietary are not a contribution and subject to the following terms and conditions:
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -34,7 +34,7 @@ class Dummy(tp.Module):
     def __init__(self):
         pass
 
-    def __call__(self, x):
+    def forward(self, x):
         return x
 
 
@@ -77,7 +77,7 @@ class MaskDownSampler(tp.Module):
 
         self.encoder.append(tp.Conv(mask_out_chans, embed_dim, kernel_dims=(1, 1), dtype=self.dtype))
 
-    def __call__(self, x):
+    def forward(self, x):
         for l in self.encoder:
             x = l(x)
         return x
@@ -116,7 +116,7 @@ class CXBlock(tp.Module):
 
         self.drop_path = Dummy()
 
-    def __call__(self, x):
+    def forward(self, x):
         input = x
         x = self.dwconv(x)
         x = self.norm(x)
@@ -142,7 +142,7 @@ class Fuser(tp.Module):
         if input_projection:
             self.proj = tp.Conv(dim, dim, kernel_dims=(1, 1), dtype=self.dtype)
 
-    def __call__(self, x):
+    def forward(self, x):
         x = self.proj(x)
         for layer in self.layers:
             x = layer(x)
@@ -164,7 +164,7 @@ class MemoryEncoder(tp.Module):
         if out_dim != in_dim:
             self.out_proj = tp.Conv(in_dim, out_dim, kernel_dims=(1, 1), dtype=self.dtype)
 
-    def __call__(
+    def forward(
         self,
         pix_feat: tp.Tensor,
         masks: tp.Tensor,

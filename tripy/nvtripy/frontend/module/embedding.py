@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -26,7 +26,7 @@ from nvtripy.frontend.tensor import Tensor
 
 @export.public_api(document_under="operations/modules")
 @dataclass
-@utils.utils.constant_fields(["dtype"])
+@utils.wrappers.constant_fields(["dtype"])
 class Embedding(Module):
     """
     A lookup table for embedding vectors of a fixed size.
@@ -51,6 +51,8 @@ class Embedding(Module):
 
             embedding = tp.Embedding(num_embeddings=4, embedding_dim=6)
 
+            embedding.weight = tp.iota(embedding.weight.shape)
+
             input = tp.Tensor([0, 2], dtype=tp.int32)
             output = embedding(input)
 
@@ -62,7 +64,7 @@ class Embedding(Module):
 
         self.weight = DefaultParameter((num_embeddings, embedding_dim), dtype)
 
-    def __call__(self, x: "nvtripy.Tensor") -> "nvtripy.Tensor":
+    def forward(self, x: "nvtripy.Tensor") -> "nvtripy.Tensor":
         r"""
         Args:
             x: A tensor of shape :math:`[N]` containing the indices of the desired embedding vectors.

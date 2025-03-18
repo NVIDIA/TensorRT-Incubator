@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -27,7 +27,7 @@ class DummyNestedOp(tp.Module):
         super().__init__()
         self.param = tensor
 
-    def __call__(self):
+    def forward(self):
         return self.param
 
 
@@ -36,7 +36,7 @@ class DummyOp(tp.Module):
         super().__init__()
         self.nested = DummyNestedOp(tensor)
 
-    def __call__(self):
+    def forward(self):
         return self.nested()
 
 
@@ -47,7 +47,7 @@ class Network(tp.Module):
         self.dummy1 = DummyOp(tp.zeros((2,), dtype=tp.float32))
         self.dummy2 = DummyOp(tp.arange(2, dtype=tp.float32))
 
-    def __call__(self):
+    def forward(self):
         return self.param + self.dummy1() + self.dummy2()
 
 
@@ -57,7 +57,7 @@ class ListNetwork(tp.Module):
         self.params = [tp.ones((2,), dtype=tp.float32)]
         self.dummy_list = [DummyOp(tp.zeros((2,), dtype=tp.float32)), DummyOp(tp.arange(2, dtype=tp.float32))]
 
-    def __call__(self):
+    def forward(self):
         out = self.param
         for op in self.dummy_list:
             out = out + op()
@@ -73,7 +73,7 @@ class DictNetwork(tp.Module):
             "op1": DummyOp(tp.arange(2, dtype=tp.float32)),
         }
 
-    def __call__(self):
+    def forward(self):
         out = self.param
         for op_name in self.dummy_dict:
             out = out + self.dummy_dict[op_name]
@@ -89,7 +89,7 @@ class MixedNetwork(tp.Module):
             "dummy_nested": DummyNestedOp(tp.ones((2,), dtype=tp.float32)),
         }
 
-    def __call__(self):
+    def forward(self):
         return (
             self.mixed_list[0]() + self.mixed_list[1]() + self.mixed_dict["dummy"]() + self.mixed_dict["dummy_nested"]()
         )
@@ -103,7 +103,7 @@ class ComplexNetwork(tp.Module):
             "list_net": ListNetwork(),
         }
 
-    def __call__(self):
+    def forward(self):
         out1 = self.nets["dict_net"]()
         out2 = self.nets["list_net"]()
         return out1 + out2
@@ -127,7 +127,7 @@ class MixedContainerNetwork(tp.Module):
             "dummy": DummyOp(tp.zeros((2,), dtype=tp.float32)),
         }
 
-    def __call__(self):
+    def forward(self):
         out = self.param
         for op in self.mixed_list:
             out = out + op()

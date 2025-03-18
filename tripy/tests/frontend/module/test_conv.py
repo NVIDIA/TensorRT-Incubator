@@ -23,33 +23,41 @@ from nvtripy.trace.ops.convolution import Convolution
 from nvtripy.trace.ops.deconvolution import Deconvolution
 
 
-@pytest.mark.parametrize("conv_func", [tp.Conv, tp.ConvTranspose])
+def make_conv(ConvType, *args, **kwargs):
+    conv_layer = ConvType(*args, **kwargs)
+    conv_layer.weight = tp.ones(conv_layer.weight.shape, dtype=conv_layer.dtype)
+    if conv_layer.bias is not None:
+        conv_layer.bias = tp.ones(conv_layer.bias.shape, dtype=conv_layer.dtype)
+    return conv_layer
+
+
+@pytest.mark.parametrize("ConvType", [tp.Conv, tp.ConvTranspose])
 class TestConvolution:
-    def test_op_func(self, conv_func):
+    def test_op_func(self, ConvType):
         input = tp.ones((4, 3, 8, 8), dtype=tp.float32)
-        conv_layer = conv_func(3, 16, (5, 5), bias=False, dtype=tp.float32)
+        conv_layer = make_conv(ConvType, 3, 16, (5, 5), bias=False, dtype=tp.float32)
         output = conv_layer(input)
 
         assert isinstance(output, tp.Tensor)
-        assert isinstance(output.trace_tensor.producer, Convolution if conv_func == tp.Conv else Deconvolution)
+        assert isinstance(output.trace_tensor.producer, Convolution if ConvType == tp.Conv else Deconvolution)
 
-    def test_mismatched_dtypes_fails(self, conv_func):
+    def test_mismatched_dtypes_fails(self, ConvType):
         input = tp.ones((4, 3, 8, 8), dtype=tp.float32)
-        conv_layer = conv_func(3, 16, (5, 5), dtype=tp.float16)
+        conv_layer = make_conv(ConvType, 3, 16, (5, 5), dtype=tp.float16)
         with helper.raises(tp.TripyException, match=r"Mismatched data types in", has_stack_info_for=[input]):
             output = conv_layer(input)
 
-    def test_mismatched_dim_fails(self, conv_func):
+    def test_mismatched_dim_fails(self, ConvType):
         input = tp.ones((4, 3, 8, 8), dtype=tp.float32)
-        conv_layer = conv_func(16, 3, (5, 5), dtype=tp.float32)
+        conv_layer = make_conv(ConvType, 16, 3, (5, 5), dtype=tp.float32)
         output = conv_layer(input)
 
         with helper.raises(tp.TripyException):
             output.eval()
 
-    def test_invalid_rank_fails(self, conv_func):
+    def test_invalid_rank_fails(self, ConvType):
         input = tp.ones((4, 3, 8, 8), dtype=tp.float32)
-        conv_layer = conv_func(3, 16, (5,), dtype=tp.float32)
+        conv_layer = make_conv(ConvType, 3, 16, (5,), dtype=tp.float32)
 
         with helper.raises(
             tp.TripyException, match=r"Input and weight should have the same number of spatial dimensions"
@@ -69,12 +77,12 @@ class TestConvolution:
             (((1, 2), (-3, 1)), r"Negative padding is not supported.", False),
         ],
     )
-    def test_invalid_padding(self, conv_func, padding, err, expect_input_stack_info):
+    def test_invalid_padding(self, ConvType, padding, err, expect_input_stack_info):
         input = tp.ones((4, 3, 8, 8), dtype=tp.float32)
         stack_info = [input] if expect_input_stack_info else None
 
         with helper.raises(tp.TripyException, match=err, has_stack_info_for=stack_info):
-            conv_layer = conv_func(3, 16, (5, 5), padding=padding, dtype=tp.float32)
+            conv_layer = make_conv(ConvType, 3, 16, (5, 5), padding=padding, dtype=tp.float32)
             output = conv_layer(input)
             output.eval()
 
@@ -85,11 +93,11 @@ class TestConvolution:
             ((2, 2, 2), r"Stride must have the same length as kernel_dims.", False),
         ],
     )
-    def test_invalid_stride(self, conv_func, stride, err, expect_input_stack_info):
+    def test_invalid_stride(self, ConvType, stride, err, expect_input_stack_info):
         input = tp.ones((4, 3, 8, 8), dtype=tp.float32)
         stack_info = [input] if expect_input_stack_info else None
 
-        if conv_func == tp.ConvTranspose and expect_input_stack_info:
+        if ConvType == tp.ConvTranspose and expect_input_stack_info:
             err = err.replace("stride", "lhs_dilation")
             err = err.replace("window-lhs_dilation", "base-dilation factor")
 
@@ -98,7 +106,7 @@ class TestConvolution:
             match=err,
             has_stack_info_for=stack_info,
         ):
-            conv_layer = conv_func(3, 16, (5, 5), stride=stride, dtype=tp.float32)
+            conv_layer = make_conv(ConvType, 3, 16, (5, 5), stride=stride, dtype=tp.float32)
             output = conv_layer(input)
             output.eval()
 
@@ -109,7 +117,7 @@ class TestConvolution:
             (3, r"Feature group count must divide both input and output channel counts evenly.", False),
         ],
     )
-    def test_invalid_feature_groups(self, conv_func, groups, err, expect_input_stack_info):
+    def test_invalid_feature_groups(self, ConvType, groups, err, expect_input_stack_info):
         input = tp.ones((4, 3, 8, 8), dtype=tp.float32)
         stack_info = [input] if expect_input_stack_info else None
 
@@ -118,7 +126,7 @@ class TestConvolution:
             match=err,
             has_stack_info_for=stack_info,
         ):
-            conv_layer = conv_func(3, 16, (5, 5), groups=groups, dtype=tp.float32)
+            conv_layer = make_conv(ConvType, 3, 16, (5, 5), groups=groups, dtype=tp.float32)
             if expect_input_stack_info:
                 output = conv_layer(input)
                 output.eval()
@@ -130,7 +138,7 @@ class TestConvolution:
             ((2, 2, 2), r"Dilation must have the same length as kernel_dims.", False),
         ],
     )
-    def test_invalid_rhs_dilation(self, conv_func, dilation, err, expect_input_stack_info):
+    def test_invalid_rhs_dilation(self, ConvType, dilation, err, expect_input_stack_info):
         input = tp.ones((4, 3, 8, 8), dtype=tp.float32)
         stack_info = [input] if expect_input_stack_info else None
 
@@ -139,7 +147,7 @@ class TestConvolution:
             match=err,
             has_stack_info_for=stack_info,
         ):
-            conv_layer = conv_func(3, 16, (5, 5), dilation=dilation, dtype=tp.float32)
+            conv_layer = make_conv(ConvType, 3, 16, (5, 5), dilation=dilation, dtype=tp.float32)
             output = conv_layer(input)
             output.eval()
 

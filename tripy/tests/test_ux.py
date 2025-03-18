@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -54,9 +54,15 @@ class TestReadme:
                 continue
 
             if link.startswith("https://"):
-                # Separating the requests.get(link) into a separate step since otherwise the
-                # pytest backtrace becomes unreadably large.
-                link_status = requests.get(link).status_code
+                link_status = None
+                for _ in range(5):  # Try up to 5 times since some links are a bit flaky
+                    try:
+                        link_status = requests.get(link).status_code
+                    except:
+                        # Suppress verbose errors
+                        pass
+                    else:
+                        break
                 assert link_status == 200, f"Broken link: {link}"
             else:
                 assert os.path.sep * 2 not in link, f"Duplicate slashes break links in GitHub. Link was: {link}"

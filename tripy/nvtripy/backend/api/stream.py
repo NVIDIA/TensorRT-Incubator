@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -50,19 +50,18 @@ class Stream:
             :linenos:
             :caption: Using Streams With Compiled Functions
 
-            # doc: no-print-locals compiler compiled_linear
-            linear = tp.Linear(2, 3)
+            # doc: no-print-locals func
 
-            compiled_linear = tp.compile(linear, args=[tp.InputInfo((2, 2), dtype=tp.float32)])
+            func = tp.compile(tp.relu, args=[tp.InputInfo((2, 2), dtype=tp.float32)])
 
             # Run the compiled linear function on a custom stream:
             stream = tp.Stream()
-            compiled_linear.stream = stream
+            func.stream = stream
 
             input = tp.ones((2, 2), dtype=tp.float32)
-            output = compiled_linear(input)
+            output = func(input)
 
-            assert tp.equal(output, linear(input))
+            assert tp.equal(output, tp.relu(input))
         """
         if priority != 0:
             raise_error(
@@ -84,18 +83,17 @@ class Stream:
             # doc: no-print-locals
             import time
 
-            linear = tp.Linear(2, 3)
-            compiled_linear = tp.compile(linear, args=[tp.InputInfo((2, 2), dtype=tp.float32)])
+            func = tp.compile(tp.relu, args=[tp.InputInfo((2, 2), dtype=tp.float32)])
 
             input = tp.ones((2, 2), dtype=tp.float32)
 
-            compiled_linear.stream = tp.Stream()
+            func.stream = tp.Stream()
 
             num_iters = 10
             start_time = time.perf_counter()
             for _ in range(num_iters):
-                _ = compiled_linear(input)
-            compiled_linear.stream.synchronize()
+                _ = func(input)
+            func.stream.synchronize()
             end_time = time.perf_counter()
 
             time = (end_time - start_time) / num_iters

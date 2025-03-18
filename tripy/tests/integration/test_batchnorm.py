@@ -59,6 +59,11 @@ class TestBatchNorm:
         tp_batchnorm = tp.BatchNorm(
             num_features=num_features,
         )
+        tp_batchnorm.weight = tp.ones(tp_batchnorm.weight.shape)
+        tp_batchnorm.bias = tp.ones(tp_batchnorm.bias.shape)
+        tp_batchnorm.running_mean = tp.ones(tp_batchnorm.running_mean.shape)
+        tp_batchnorm.running_var = tp.ones(tp_batchnorm.running_var.shape)
+
         x = tp.ones((3, 3, 3))
         with helper.raises(
             tp.TripyException,

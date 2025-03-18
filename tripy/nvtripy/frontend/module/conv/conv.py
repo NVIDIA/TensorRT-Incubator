@@ -157,6 +157,10 @@ class Conv(ConvBase):
 
             input = tp.reshape(tp.arange(16, dtype=tp.float32), (1, 1, 4, 4))
             conv = tp.Conv(in_channels=1, out_channels=1, kernel_dims=(2, 2), dtype=tp.float32)
+
+            conv.weight = tp.iota(conv.weight.shape)
+            conv.bias = tp.iota(conv.bias.shape)
+
             output = conv(input)
 
             conv_layer_torch = torch.nn.Conv2d(1, 1, 2) # doc: omit
@@ -172,6 +176,9 @@ class Conv(ConvBase):
 
             input = tp.reshape(tp.arange(16, dtype=tp.float32), (1, 1, 4, 4))
             conv = tp.Conv(1, 1, (3, 3), padding=((1, 1), (1, 1)), stride=(3, 1), bias=False, dtype=tp.float32)
+
+            conv.weight = tp.iota(conv.weight.shape)
+
             output = conv(input)
 
             conv_layer_torch = torch.nn.Conv2d(1, 1, 2, padding=1, stride=(3, 1), bias=False) # doc: omit
@@ -186,6 +193,9 @@ class Conv(ConvBase):
 
             input = tp.reshape(tp.arange(18, dtype=tp.float32), (1, 2, 3, 3))
             conv = tp.Conv(2, 2, (3, 3), groups=2, bias=False, dtype=tp.float32)
+
+            conv.weight = tp.iota(conv.weight.shape)
+
             output = conv(input)
 
             conv_layer_torch = torch.nn.Conv2d(2, 2, 3, groups=2, bias=False) # doc: omit
@@ -200,6 +210,9 @@ class Conv(ConvBase):
 
             input = tp.reshape(tp.arange(9, dtype=tp.float32), (1, 1, 3, 3))
             conv = tp.Conv(1, 1, (2, 2), dilation=(2, 2), bias=False, dtype=tp.float32)
+
+            conv.weight = tp.iota(conv.weight.shape)
+
             output = conv(input)
 
             conv_layer_torch = torch.nn.Conv2d(1, 1, 2, dilation=2, bias=False) # doc: omit
@@ -214,7 +227,7 @@ class Conv(ConvBase):
         kernel_shape = (out_channels, in_channels // self.groups, *kernel_dims)
         self.weight = DefaultParameter(kernel_shape, dtype=dtype)
 
-    def __call__(self, input: "nvtripy.Tensor") -> "nvtripy.Tensor":
+    def forward(self, input: "nvtripy.Tensor") -> "nvtripy.Tensor":
         r"""
         Args:
             input: The input tensor.

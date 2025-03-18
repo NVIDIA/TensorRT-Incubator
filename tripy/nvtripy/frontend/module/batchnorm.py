@@ -26,7 +26,7 @@ from nvtripy.frontend.tensor import Tensor
 
 @export.public_api(document_under="operations/modules")
 @dataclass
-@utils.utils.constant_fields(["num_features"])
+@utils.wrappers.constant_fields(["num_features"])
 class BatchNorm(Module):
     r"""
     Applies batch normalization over an N-dimensional input tensor using precomputed statistics:
@@ -76,6 +76,11 @@ class BatchNorm(Module):
 
             batch_norm = tp.BatchNorm(2)
 
+            batch_norm.weight = tp.iota(batch_norm.weight.shape)
+            batch_norm.bias = tp.iota(batch_norm.bias.shape)
+            batch_norm.running_mean = tp.iota(batch_norm.running_mean.shape)
+            batch_norm.running_var = tp.iota(batch_norm.running_var.shape)
+
             input = tp.iota((1, 2, 1, 1))
             output = batch_norm(input)
         """
@@ -92,7 +97,7 @@ class BatchNorm(Module):
         self.running_mean = DefaultParameter((num_features,), dtype=dtype)
         self.running_var = DefaultParameter((num_features,), dtype=dtype)
 
-    def __call__(self, x: "nvtripy.Tensor") -> "nvtripy.Tensor":
+    def forward(self, x: "nvtripy.Tensor") -> "nvtripy.Tensor":
         r"""
         Args:
             x: The input tensor with shape :math:`(N, C, ...)`, where C is the feature dimension.

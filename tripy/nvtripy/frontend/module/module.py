@@ -15,6 +15,7 @@
 # limitations under the License.
 #
 
+import abc
 import copy
 import operator
 from typing import Any, Dict, Iterator, List, Set, Tuple, Union
@@ -27,7 +28,6 @@ from nvtripy.logging import logger
 from nvtripy.utils.function_registry import type_str_from_arg
 
 
-# TODO (pranavm): Maybe we should evaluate parameters when they're set? This would also enforce that they are constants.
 def _check_param_compatible(original_param, new_param, param_name):
     # We want to check the incoming parameter type even when the original parameter is not a tensor.
     if not isinstance(new_param, Tensor):
@@ -36,28 +36,26 @@ def _check_param_compatible(original_param, new_param, param_name):
             f"Expected a tensor for parameter: '{param_name}', but got: {type_str_from_arg(new_param)}",
         )
 
-    if not isinstance(original_param, Tensor):
+    if not isinstance(original_param, Tensor) and not isinstance(original_param, DefaultParameter):
         # Allow values to be initialized to non-tensor types and changed later.
         # Note that this is required for the constructor to work since `original_param` will not be set.
         return
 
     is_compatible = utils.result.Result.ok()
 
-    skip_shape_comparison = isinstance(original_param, DefaultParameter) and not original_param.is_shape_known
-    if not skip_shape_comparison:
-        # We need to evaluate here anyway, so we map the entire shape to numbers upfront to save us from recomputing
-        # them again later.
-        original_shape = tuple(map(int, original_param.shape))
-        new_shape = tuple(map(int, new_param.shape))
-        if original_shape != new_shape:
-            is_compatible = utils.result.Result.err(
-                ["New parameter shape: ", new_shape, " is not compatible with current shape: ", original_shape]
-            )
+    # We need to evaluate here anyway, so we map the entire shape to numbers upfront to save us from recomputing
+    # them again later.
+    original_shape = tuple(map(int, original_param.shape))
+    new_shape = tuple(map(int, new_param.shape))
+    if original_shape != new_shape:
+        is_compatible = utils.result.Result.err(
+            ["New parameter shape: ", new_shape, " is not compatible with current shape: ", original_shape]
+        )
 
-        # Once we know the concrete shape of the parameter, we can update the trace tensor accordingly.
-        # This not only makes the trace more informative, but is actually required for some APIs, like
-        # addConvolutionND (to set kernelDims correctly).
-        new_param.trace_tensor.shape = new_shape
+    # Once we know the concrete shape of the parameter, we can update the trace tensor accordingly.
+    # This not only makes the trace more informative, but is actually required for some APIs, like
+    # addConvolutionND (to set kernelDims correctly).
+    new_param.trace_tensor.shape = new_shape
 
     original_dtype = original_param.dtype
     new_dtype = new_param.dtype
@@ -77,6 +75,8 @@ def _check_param_compatible(original_param, new_param, param_name):
 class Module:
     r"""
     Base class used to define neural network modules.
+    Child classes must implement the :func:`forward` method.
+
     You can nest modules by assigning them as attributes of other modules.
 
     Child modules, :class:`nvtripy.Tensor` s, or other callables/lambda functions may be contained
@@ -118,7 +118,7 @@ class Module:
                 super().__init__()
                 self.bias = tp.Tensor([1.0, 1.0], dtype=tp.float32)
 
-            def __call__(self, x):
+            def forward(self, x):
                 return x + self.bias
 
         add_bias = AddBias()
@@ -192,20 +192,16 @@ class Module:
 
             # doc: no-print-locals
 
-            class MyModule(tp.Module): # doc: omit
-                def __init__(self): # doc: omit
-                    super().__init__() # doc: omit
-                    self.param = tp.ones((2,), dtype=tp.float32) # doc: omit
-                    self.linear1 = tp.Linear(2, 2) # doc: omit
-                    self.linear2 = tp.Linear(2, 2) # doc: omit
-            module = MyModule() # doc: omit
-            state_dict = module.state_dict() # doc: omit
+            class MyModule(tp.Module):
+                def __init__(self):
+                    super().__init__()
+                    self.param = tp.ones((2,), dtype=tp.float32)
 
-            # Using the `module` and `state_dict` from the `state_dict()` example:
+            module = MyModule()
+
             print(f"Before: {module.param}")
 
-            state_dict["param"] = tp.zeros((2,), dtype=tp.float32)
-            module.load_state_dict(state_dict)
+            module.load_state_dict({"param": tp.zeros((2,), dtype=tp.float32)})
 
             print(f"After: {module.param}")
 
@@ -292,7 +288,7 @@ class Module:
 
             assert [name for name, _ in stacked_linear.named_children()] == ["linear1", "linear2"]
         """
-        yield from self._iterate_members_of_type(Module)
+        yield from self._iterate_members_of_types({Module})
 
     def named_parameters(self) -> Iterator[Tuple[str, Tensor]]:
         r"""
@@ -317,19 +313,92 @@ class Module:
 
             assert [name for name, _ in linear.named_parameters()] == ["alpha", "beta"]
         """
-        yield from self._iterate_members_of_type(Tensor)
+        yield from self._iterate_members_of_types({Tensor, DefaultParameter})
 
-    def _iterate_members_of_type(self, typ: type) -> Iterator[Tuple[str, Any]]:
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""
+        Calls the module with the specified arguments.
+
+        Args:
+            *args: Positional arguments to the module.
+            **kwargs: Keyword arguments to the module.
+
+        Returns:
+            The outputs computed by the module.
+
+        .. code-block:: python
+            :linenos:
+
+            class Module(tp.Module):
+                def forward(self, x):
+                    return tp.relu(x)
+
+            module = Module()
+
+            input = tp.arange(-3, 3)
+            out = module(input) # Note that we do not call `forward` directly.
+        """
+        state_dict = self.state_dict()
+
+        not_set_parameters = {name: param for name, param in state_dict.items() if isinstance(param, DefaultParameter)}
+
+        if not_set_parameters:
+            # TODO (pranavm): Longer errors here based on the config value:
+            if False:
+                params_errors = ["\n\n"]
+                for name, param in not_set_parameters.items():
+                    params_errors.extend([f"'{name}': defined here:", param])
+            else:
+                params_errors = [", ".join(not_set_parameters.keys())]
+
+            raise_error(
+                "Some parameters were never set in the module. Please assign tensors for these parameters.",
+                ["Note: Not set parameters were: "] + params_errors,
+            )
+
+        return self.forward(*args, **kwargs)
+
+    @abc.abstractmethod
+    def forward(self, *args: Any, **kwargs: Any) -> Any:
+        r"""
+        Implements the forward pass of this module.
+        Child classes must implement this method.
+
+        Args:
+            *args: Positional arguments to the module.
+            **kwargs: Keyword arguments to the module.
+
+        Returns:
+            The outputs computed by the module.
+
+        .. code-block:: python
+            :linenos:
+
+            class Module(tp.Module):
+                def forward(self, x):
+                    return tp.relu(x)
+
+            module = Module()
+
+            input = tp.arange(-3, 3)
+            out = module(input) # Note that we do not call `forward` directly.
+        """
+        ...
+
+    def _iterate_members_of_types(self, types: type) -> Iterator[Tuple[str, Any]]:
+        def isinstance_any(obj):
+            return any(isinstance(obj, typ) for typ in types)
+
         for name, value in vars(self).items():
-            if isinstance(value, typ):
+            if isinstance_any(value):
                 yield name, value
             elif isinstance(value, List):
                 for i, obj in enumerate(value):
-                    if isinstance(obj, typ):
+                    if isinstance_any(obj):
                         yield f"{name}.{i}", obj
             elif isinstance(value, Dict):
                 for key, obj in value.items():
-                    if isinstance(obj, typ):
+                    if isinstance_any(obj):
                         yield f"{name}.{key}", obj
 
     def __str__(self):

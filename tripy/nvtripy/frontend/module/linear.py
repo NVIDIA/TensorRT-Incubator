@@ -27,7 +27,7 @@ from nvtripy.frontend.tensor import Tensor
 
 @export.public_api(document_under="operations/modules")
 @dataclass
-@utils.utils.constant_fields(["dtype", "quant_dtype"])
+@utils.wrappers.constant_fields(["dtype", "quant_dtype"])
 class Linear(Module):
     r"""
     Applies a linear transformation to the input:
@@ -42,7 +42,7 @@ class Linear(Module):
     r"""The :math:`W` matrix of shape :math:`[\text{out_features}, \text{in_features}]`"""
 
     bias: Optional[Tensor]
-    r"""The :math:`b` matrix of shape :math:`[1, \text{out_features}]`"""
+    r"""The :math:`b` matrix of shape :math:`[\text{out_features},]`"""
 
     quant_dtype: Optional[datatype.dtype]
     r"""The quantization data type"""
@@ -81,6 +81,9 @@ class Linear(Module):
 
             linear = tp.Linear(3, 4)
 
+            linear.weight = tp.iota(linear.weight.shape)
+            linear.bias = tp.iota(linear.bias.shape)
+
             input = tp.iota((2, 3))
             output = linear(input)
 
@@ -102,13 +105,10 @@ class Linear(Module):
         self.weight_quant_dim = weight_quant_dim
         self.weight_scale = None
         self.input_scale = None
-        if quant_dtype is not None:
-            self.weight_scale = DefaultParameter(
-                shape=[self.weight.shape[weight_quant_dim]] if weight_quant_dim is not None else None, dtype=dtype
-            )
-            self.input_scale = DefaultParameter(shape=None, dtype=dtype)
+        if quant_dtype is not None and weight_quant_dim is not None:
+            self.weight_scale = DefaultParameter(shape=[self.weight.shape[weight_quant_dim]], dtype=dtype)
 
-    def __call__(self, x: "nvtripy.Tensor") -> "nvtripy.Tensor":
+    def forward(self, x: "nvtripy.Tensor") -> "nvtripy.Tensor":
         r"""
         Args:
             x: The input tensor, of shape :math:`[*, \text{in_features}]`.
