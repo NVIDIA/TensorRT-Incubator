@@ -29,7 +29,7 @@ from nvtripy.utils import wrappers
 @wrappers.interface(
     dtype_constraints={"dtype": "T1", wrappers.RETURN_VALUE: "T1"},
     dtype_variables={
-        "T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64", "bool"],
+        "T1": ["float32", "float16", "bfloat16", "int4", "int8", "int32", "int64", "bool"],
     },
 )
 # TODO (pranavm): Test exhaustively with DimensionSizes + different dtype combinations.
@@ -103,7 +103,7 @@ def arange(
 @wrappers.interface(
     dtype_constraints={"dtype": "T1", wrappers.RETURN_VALUE: "T1"},
     dtype_variables={
-        "T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64", "bool"],
+        "T1": ["float32", "float16", "bfloat16", "int4", "int8", "int32", "int64", "bool"],
     },
 )
 def arange(

@@ -13,25 +13,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import nvtripy as tp
+import pytest
+from nvtripy.trace.ops.top_k import TopKMax, TopKMin
 
-from nvtripy.trace.ops.top_k import TopK
 
-
+@pytest.mark.parametrize("TopKType", [TopKMax, TopKMin])
 class TestTopK:
-    def test_infer_rank(self):
+    def test_infer_rank(self, TopKType):
         inp = tp.ones((2, 2, 3))
-        values, indices = TopK([inp.trace_tensor], dim=2, k=2).outputs
+        values, indices = TopKType([inp.trace_tensor], dim=2, k=2).outputs
         assert values.rank == inp.rank
         assert indices.rank == inp.rank
 
-    def test_infer_dtypes(self):
+    def test_infer_dtypes(self, TopKType):
         inp = tp.ones((2, 2, 3))
-        values, indices = TopK([inp.trace_tensor], dim=2, k=2).outputs
+        values, indices = TopKType([inp.trace_tensor], dim=2, k=2).outputs
         assert values.dtype == inp.dtype
         assert indices.dtype == tp.int32
 
-    def test_infer_devices(self):
+    def test_infer_devices(self, TopKType):
         inp = tp.ones((2, 2, 3))
-        values, indices = TopK([inp.trace_tensor], dim=2, k=2).outputs
+        values, indices = TopKType([inp.trace_tensor], dim=2, k=2).outputs
         assert values.device == inp.device
         assert indices.device == inp.device

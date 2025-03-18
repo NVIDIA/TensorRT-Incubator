@@ -30,7 +30,7 @@ def __neg__(self: "nvtripy.Tensor") -> "nvtripy.Tensor":
     Computes the elementwise megative value of the elements of the input tensor.
 
     Args:
-        input: The input tensor.
+        self: The input tensor.
 
     Returns:
         A new tensor of the same shape.
