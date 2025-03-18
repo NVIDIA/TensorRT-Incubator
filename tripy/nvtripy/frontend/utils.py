@@ -30,8 +30,16 @@ def pretty_print(data_list, shape, threshold=40, linewidth=10, edgeitems=3):
                 data_lines = [data[:edgeitems] + ["..."] + data[-edgeitems:]]
             else:
                 data_lines = [data[i : i + linewidth] for i in range(0, len(data), linewidth)]
+
             # TODO (pranavm): Test this:
-            lines = [", ".join([f"{e:g}" if not isinstance(e, str) else e for e in line]) for line in data_lines]
+            def str_from_elem(elem):
+                if isinstance(elem, str):
+                    return elem
+                elif isinstance(elem, bool):
+                    return str(elem)
+                return f"{elem:g}"
+
+            lines = [", ".join([str_from_elem(e) for e in line]) for line in data_lines]
             return "[" + ("," + "\n" + " " * (indent + 1)).join(lines) + "]"
 
         if summarize and len(data) > 2 * edgeitems:
