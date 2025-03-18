@@ -43,9 +43,9 @@ def argmin(input: "nvtripy.Tensor", dim: Optional[int] = None, keepdim: bool = F
     .. code-block:: python
         :linenos:
 
-        input = tp.reshape(tp.arange(6, dtype=tp.float32), (2, 3))
+        input = tp.Tensor([[1.0, 0.0, 3.0], [0.5, 2.0, 1.5]])
         output = tp.argmin(input, 0)
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.argmin(np.arange(6, dtype=np.float32).reshape((2, 3)), 0))
+        assert np.array_equal(cp.from_dlpack(output).get(), np.argmin([[1.0, 0.0, 3.0], [0.5, 2.0, 1.5]], 0))
     """
     return arg_min_max_impl(TopKMin, input, dim, keepdim)
