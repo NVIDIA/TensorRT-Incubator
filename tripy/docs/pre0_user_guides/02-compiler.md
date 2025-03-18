@@ -15,13 +15,18 @@ class GEGLU(tp.Module):
         self.proj = tp.Linear(in_dim, out_dim * 2)
         self.out_dim = out_dim
 
-    def __call__(self, x):
+    def forward(self, x):
         proj = self.proj(x)
         x, gate = tp.split(proj, 2, proj.rank - 1)
         return x * tp.gelu(gate)
 
 
 layer = GEGLU(in_dim=2, out_dim=1)
+
+layer.load_state_dict({
+    "proj.weight": tp.ones((2, 2)),
+    "proj.bias": tp.ones((2,))
+})
 ```
 
 ## Compiling

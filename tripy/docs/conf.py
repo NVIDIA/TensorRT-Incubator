@@ -207,9 +207,9 @@ def process_docstring_impl(app, what, name, obj, options, lines):
     seen_classes.add(name)
 
     def allow_no_example():
-        # `tp.Module`s include examples in their constructors, so their __call__ methods don't require examples.
+        # `tp.Module`s include examples in their constructors, so their forward methods don't require examples.
         is_tripy_module_call_method = False
-        if what == "method" and obj.__name__ == "__call__":
+        if what == "method" and obj.__name__ == "forward":
             class_name = "nvtripy." + name.rpartition(".")[0]
             # Class names are prefixed with nvtripy.<...>, so we need to import it here to make eval() work.
             import nvtripy

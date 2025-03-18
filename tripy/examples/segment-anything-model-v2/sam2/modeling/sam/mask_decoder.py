@@ -7,7 +7,7 @@
 # Not a contribution
 # Changes made by NVIDIA CORPORATION & AFFILIATES enabling SAM2 with Tripy or otherwise documented as
 # NVIDIA-proprietary are not a contribution and subject to the following terms and conditions:
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -33,7 +33,7 @@ class Dummy(tp.Module):
     def __init__(self):
         pass
 
-    def __call__(self, x):
+    def forward(self, x):
         return x
 
 
@@ -151,7 +151,7 @@ class MaskDecoder(tp.Module):
         self.dynamic_multimask_stability_delta = dynamic_multimask_stability_delta
         self.dynamic_multimask_stability_thresh = dynamic_multimask_stability_thresh
 
-    def __call__(
+    def forward(
         self,
         image_embeddings: tp.Tensor,
         image_pe: tp.Tensor,
@@ -163,7 +163,7 @@ class MaskDecoder(tp.Module):
         high_res_features_2: Optional[tp.Tensor] = None,
     ) -> Tuple[tp.Tensor, tp.Tensor]:
 
-        return self.forward(
+        return self.forward_impl(
             image_embeddings,
             image_pe,
             sparse_prompt_embeddings,
@@ -174,7 +174,7 @@ class MaskDecoder(tp.Module):
             high_res_features_2,
         )
 
-    def forward(
+    def forward_impl(
         self,
         image_embeddings: tp.Tensor,
         image_pe: tp.Tensor,
@@ -243,7 +243,7 @@ class MaskDecoder(tp.Module):
         high_res_features_1: Optional[tp.Tensor] = None,
         high_res_features_2: Optional[tp.Tensor] = None,
     ) -> Tuple[tp.Tensor, tp.Tensor]:
-        """Predicts masks. See 'forward' for more details."""
+        """Predicts masks. See 'forward_impl' for more details."""
         # Concatenate output tokens
         s = 0
         if self.pred_obj_scores:

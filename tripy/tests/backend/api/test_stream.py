@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -32,6 +32,8 @@ def test_new_streams():
 
 def test_enqueue_work_on_stream():
     linear = tp.Linear(25, 30)
+    linear.weight = tp.ones(linear.weight.shape)
+    linear.bias = tp.ones(linear.bias.shape)
 
     compiled_linear = tp.compile(linear, args=[tp.InputInfo((2, 25), dtype=tp.float32)])
 

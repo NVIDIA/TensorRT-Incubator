@@ -31,6 +31,9 @@ class TestLinear:
     def test_mismatched_input_shapes(self):
         a = tp.ones((2, 3))
         linear = tp.Linear(2, 128)
+
+        linear.weight = tp.ones((128, 2))
+        linear.bias = tp.ones((128,))
         out = linear(a)
 
         with helper.raises(
@@ -53,8 +56,6 @@ class TestLinear:
         assert qlinear.weight.shape == (30, 20)
         assert qlinear.bias.shape == (30,)
         assert qlinear.weight_quant_dim == weight_quant_dim
-        assert isinstance(qlinear.weight_scale, tp.Tensor)
-        assert isinstance(qlinear.input_scale, tp.Tensor)
 
     def test_load_quantized_params_from_state_dict(self):
         qlinear = tp.Linear(

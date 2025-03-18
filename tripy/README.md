@@ -45,7 +45,7 @@ guide for details:
         def __init__(self):
             self.conv = tp.Conv(in_channels=1, out_channels=1, kernel_dims=[3, 3])
 
-        def __call__(self, x):
+        def forward(self, x):
             x = self.conv(x)
             x = tp.relu(x)
             return x

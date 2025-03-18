@@ -168,6 +168,9 @@ class ConvTranspose(ConvBase):
 
             input = tp.reshape(tp.arange(4, dtype=tp.float32), (1, 1, 2, 2))
             upsample = tp.ConvTranspose(1, 1, (3, 3), stride=(2, 2), bias=False, dtype=tp.float32)
+
+            upsample.weight = tp.iota(upsample.weight.shape)
+
             output = upsample(input)
 
             conv_layer_torch = torch.nn.ConvTranspose2d(1, 1, 3, stride=2, bias=False, dtype=torch.float32, device=torch.device("cuda")) # doc: omit
@@ -185,7 +188,13 @@ class ConvTranspose(ConvBase):
             # This process restores the input spatial dimensions, but not its values
             input = tp.reshape(tp.arange(16, dtype=tp.float32), (1, 1, 4, 4))
             downsample = tp.Conv(1, 1, (2, 2), stride=(2, 2), padding=((1, 1), (1, 1)), bias=False, dtype=tp.float32 )
+
+            downsample.weight = tp.iota(downsample.weight.shape)
+
             upsample = tp.ConvTranspose(1, 1, (2, 2), stride=(2, 2), padding=((1, 1), (1, 1)), bias=False, dtype=tp.float32)
+
+            upsample.weight = tp.iota(upsample.weight.shape)
+
             output_down = downsample(input)
             output_up = upsample(output_down)
 
@@ -208,7 +217,7 @@ class ConvTranspose(ConvBase):
         kernel_shape = (in_channels, out_channels // self.groups, *kernel_dims)
         self.weight = DefaultParameter(kernel_shape, dtype=dtype)
 
-    def __call__(self, input: "nvtripy.Tensor") -> "nvtripy.Tensor":
+    def forward(self, input: "nvtripy.Tensor") -> "nvtripy.Tensor":
         r"""
         Args:
             input: The input tensor.

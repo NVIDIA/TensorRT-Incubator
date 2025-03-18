@@ -7,7 +7,7 @@
 # Not a contribution
 # Changes made by NVIDIA CORPORATION & AFFILIATES enabling SAM2 with Tripy or otherwise documented as
 # NVIDIA-proprietary are not a contribution and subject to the following terms and conditions:
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -175,16 +175,16 @@ class PromptEncoder(tp.Module):
         else:
             return 1
 
-    def __call__(
+    def forward(
         self,
         points_x: Optional[tp.Tensor],
         points_y: Optional[tp.Tensor],
         boxes: Optional[tp.Tensor],
         masks: Optional[tp.Tensor],
     ) -> Tuple[tp.Tensor, tp.Tensor]:
-        return self.forward(points_x, points_y, boxes, masks)
+        return self.forward_impl(points_x, points_y, boxes, masks)
 
-    def forward(
+    def forward_impl(
         self,
         points_x: Optional[tp.Tensor],
         points_y: Optional[tp.Tensor],

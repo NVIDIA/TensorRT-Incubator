@@ -63,6 +63,9 @@ class TestLayerNorm:
         tp_layernorm = tp.LayerNorm(
             normalized_shape=[2, 2],
         )
+        tp_layernorm.weight = tp.ones((2, 2))
+        tp_layernorm.bias = tp.ones((2, 2))
+
         x = tp.ones((5, 5, 5))
         with helper.raises(tp.TripyException, match="broadcast dimensions must be conformable"):
             tp_layernorm(x).eval()

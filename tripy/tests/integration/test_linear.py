@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -31,10 +31,13 @@ class TestLinear:
                 super().__init__()
                 self.linear = tp.Linear(4, 2)
 
-            def __call__(self, x):
+            def forward(self, x):
                 return self.linear(x)
 
         net = Network()
+        net.linear.weight = tp.iota((2, 4))
+        net.linear.bias = tp.iota((2,))
+
         np_weight = cp.from_dlpack(net.linear.weight).get()
         np_bias = cp.from_dlpack(net.linear.bias).get()
 
@@ -72,10 +75,13 @@ class TestQuantLinear:
                     weight_quant_dim=weight_quant_dim,
                 )
 
-            def __call__(self, x):
+            def forward(self, x):
                 return self.linear(x)
 
         net = Network()
+        net.linear.weight = tp.iota((out_feat, in_feat))
+        net.linear.bias = tp.iota((out_feat,))
+
         net.linear.weight_scale = _get_dummy_scale(weight_quant_dim)
         if use_input_scale:
             net.linear.input_scale = _get_dummy_scale(None)

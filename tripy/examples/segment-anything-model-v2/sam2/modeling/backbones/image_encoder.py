@@ -44,9 +44,9 @@ class ImageEncoder(tp.Module):
         ), f"Channel dims of trunk and neck do not match. Trunk: {self.trunk.channel_list}, neck: {self.neck.backbone_channel_list}"
         self.compiled_executable = None
 
-    def forward(self, x):
+    def forward_impl(self, x):
         # __call__ returns a dict, not tensors
-        # thus we need to only compile this forward function
+        # thus we need to only compile this forward_impl function
         # Forward through backbone
         return self.neck(self.trunk(x))
 
@@ -58,7 +58,7 @@ class ImageEncoder(tp.Module):
             features_pos = self.compiled_executable(sample)
             tp.default_stream().synchronize()
         else:
-            features_pos = self.forward(sample)
+            features_pos = self.forward_impl(sample)
         for i in range(len(features_pos)):
             features_pos[i] = torch.from_dlpack(features_pos[i])
         n = len(self.neck.backbone_channel_list)
