@@ -148,7 +148,7 @@ class TensorRT_Non0RankedTensorOf<list<Type> allowedTypes>
   : TensorRankOf<allowedTypes, [1, 2, 3, 4, 5, 6, 7, 8]>;
 
 def TensorRT_Tensor : TensorRT_RankedTensorOf<
-      [I1, TensorRT_I8, I32, I64, F16, BF16, F32]>;
+      [I1, TensorRT_I4, TensorRT_I8, I32, I64, TensorRT_F8, F16, BF16, F32]>;
 
 def TensorRT_DimensionListAttr : ConfinedAttr<DenseI64ArrayAttr,[
       DenseArrayStrictlySorted<DenseI64ArrayAttr>,

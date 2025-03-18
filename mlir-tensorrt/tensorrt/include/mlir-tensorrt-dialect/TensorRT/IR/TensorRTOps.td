@@ -466,7 +466,7 @@ def TensorRT_ConcatenationOp : TensorRT_Op<"concatenation",
   }];
 
   let arguments = (ins
-    Variadic<TensorRT_RankedTensorOf<[I1, TensorRT_I8, I32, I64, TensorRT_F8, F16, BF16, F32]>>:$inputs,
+    Variadic<TensorRT_Tensor>:$inputs,
     I32Attr:$axis
   );
   let results = (outs AnyRankedTensor:$result);
@@ -1578,10 +1578,10 @@ def TensorRT_SelectOp : TensorRT_Op<"select", [
 
   let arguments = (ins
     TensorRT_RankedTensorOf<[I1]>:$condition,
-    TensorRT_RankedTensorOf<[I1, I32, I64, F16, BF16, F32]>:$thenInput,
-    TensorRT_RankedTensorOf<[I1, I32, I64, F16, BF16, F32]>:$elseInput
+    TensorRT_Tensor:$thenInput,
+    TensorRT_Tensor:$elseInput
   );
-  let results = (outs TensorRT_RankedTensorOf<[I1, I32, I64, F16, BF16, F32]>:$result);
+  let results = (outs TensorRT_Tensor:$result);
   let assemblyFormat = "attr-dict `ins` `(` operands `:` type(operands) `)` `->` type($result)";
   let hasVerifier = 1;
   let extraClassDeclaration = [{
@@ -2725,7 +2725,7 @@ def TensorRT_ShapeOp : TensorRT_Op<"shape", [Pure,
     ```
   }];
 
-  let arguments = (ins TensorRT_RankedTensorOf<[I1, TensorRT_I8, I32, I64, TensorRT_F8, F16, BF16, F32]>:$input);
+  let arguments = (ins TensorRT_RankedTensorOf<[I1, TensorRT_I4, TensorRT_I8, I32, I64, TensorRT_F8, F16, BF16, F32]>:$input);
   let results = (outs 1DTensorOf<[I32]>:$result);
 
   let assemblyFormat = "attr-dict $input `:` type($input) `->` type($result)";
