@@ -48,15 +48,18 @@ def compile(
             - Must be a pure function with no side effects.
                 This means, for example, that you cannot use ``print`` or ``assert``.
 
-            - Must not accept variadic positional or keyword arguments.
-
             - Must return one or more :class:`Tensor` s and no other types.
 
             The compiled function will have the following constraints:
 
             - Only :class:`Tensor` parameters to the function can become runtime inputs.
-                All other types of parameters, even collections of :class:`Tensor` s (e.g. ``List[Tensor]`` or ``Dict[str, Tensor]``),
-                will be baked into the compiled function as constants.
+                All other types of parameters, even collections of :class:`Tensor` s
+                (e.g. ``List[Tensor]`` or ``Dict[str, Tensor]``), will be baked into
+                the compiled function as constants.
+
+            - Variadic positional and keyword arguments will be "frozen" by this function.
+                That is, only the arguments supplied to ``args`` and ``kwargs`` when compiling
+                will be available at runtime.
 
         optimization_level: The optimization level to use when compiling. Higher optimization levels can lead to better
             runtime performance at the cost of longer compile times.
@@ -124,12 +127,6 @@ def compile(
         out = compiled_add(a)
     """
     signature = inspect.signature(func)
-    # TODO (#245): Support variadic arguments.
-    if any(
-        param.kind in [inspect.Parameter.VAR_KEYWORD, inspect.Parameter.VAR_POSITIONAL]
-        for param in signature.parameters.values()
-    ):
-        raise_error("Variadic positional/keyword arguments are not currently supported.")
 
     shapes = []
     trace_input_map = {}
@@ -159,18 +156,43 @@ def compile(
             return tensor
         return arg
 
+    compiled_arg_names = []
+
     new_args = []
-    positional_arg_info, _ = utils.utils.get_positional_arg_names(func, *args)
-    for name, arg in positional_arg_info:
+    positional_arg_info, variadic_info = utils.utils.get_positional_arg_names(func, *args)
+
+    varargs_name = None
+    varargs_index = None
+    if variadic_info is not None:
+        varargs_name, varargs_index = variadic_info
+
+    for index, (name, arg) in enumerate(positional_arg_info):
+        # For variadic arguments, update the name with an index to make it unique
+        if name == varargs_name:
+            name += str(index - varargs_index)
+
         new_args.append(process_arg(name, arg))
+        compiled_arg_names.append(name)
 
     new_kwargs = {}
-    for name, arg in kwargs.items():
-        new_kwargs[name] = process_arg(name, arg)
+    ordered_kwargs = []
+    # First add kwargs that are in the signature in order
+    for param in signature.parameters.values():
+        if param.name in kwargs:
+            ordered_kwargs.append(param.name)
+            new_kwargs[param.name] = process_arg(param.name, kwargs[param.name])
+
+    # Then add any remaining kwargs (i.e. variadic ones) in their original order
+    for name in kwargs:
+        if name not in ordered_kwargs:
+            ordered_kwargs.append(name)
+            new_kwargs[name] = process_arg(name, kwargs[name])
+
+    compiled_arg_names.extend(ordered_kwargs)
 
     # Figure out the signature of the compiled function. This should include only the arguments that were provided
     # as `InputInfo`s, but the order needs to match the signature of the original function.
-    compiled_arg_names = [name for name in signature.parameters.keys() if name in input_names]
+    compiled_arg_names = [name for name in compiled_arg_names if name in input_names]
 
     func_out = func(*new_args, **new_kwargs)
     trace_outputs = utils.utils.make_list(func_out)
