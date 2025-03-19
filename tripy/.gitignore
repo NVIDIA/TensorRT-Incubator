@@ -88,3 +88,6 @@ core*
 
 # PyTest profiling results
 *.prof
+
+# PyTorch checkpoints
+*.pt.*
