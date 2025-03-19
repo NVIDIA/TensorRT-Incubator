@@ -182,13 +182,12 @@ class Tensor(metaclass=TensorMeta):
             The evaluated tensor.
 
         .. code-block:: python
-        :linenos:
-        :caption: eval
+            :linenos:
 
             start = time.perf_counter()
             tensor = tp.ones((3, 3))
             tensor_construction = time.perf_counter()
-            tensor = tensor.eval()
+            tensor.eval()
             tensor_eval = time.perf_counter()
 
             print(f"Tensor construction took: {tensor_construction  * 1000.0} ms")
@@ -249,14 +248,24 @@ class Tensor(metaclass=TensorMeta):
             The tensor represented as a nested list or a python number.
 
         .. code-block:: python
-        :linenos:
-        :caption: tolist
+            :caption: Ranked tensor
+            :linenos:
 
             # doc: print-locals tensor_list
             tensor = tp.ones((2, 2))
             tensor_list = tensor.tolist()
 
             assert tensor_list == np.ones((2, 2), dtype=np.float32).tolist()
+
+        .. code-block:: python
+            :caption: Scalar
+            :linenos:
+
+            # doc: print-locals tensor_scalar
+            tensor = tp.Tensor(2.0, dtype=tp.float32)
+            tensor_scalar = tensor.tolist()
+
+            assert tensor_scalar == 2.0
         """
         self.eval()
         data_memref = self.trace_tensor.producer.data
