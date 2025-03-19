@@ -17,6 +17,7 @@
 
 import abc
 import copy
+import inspect
 import operator
 from typing import Any, Dict, Iterator, List, Set, Tuple, Union
 
@@ -128,6 +129,12 @@ class Module:
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.array([2.0, 2.0]))
     """
+
+    def __init__(self):
+        # Set up the signature so that `inspect.signature(module)` will return
+        # the signature of the `forward` method - this way no information is lost
+        # in the signature when compiling a Module's `__call__` method.
+        self.__signature__ = inspect.signature(self.forward)
 
     def __setattr__(self, name: str, value: Any) -> None:
         if isinstance(value, Tensor):
