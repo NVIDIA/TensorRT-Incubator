@@ -72,7 +72,7 @@ class MemoryAttentionLayer(tp.Module):
         # Self-Attention
         tgt2 = tp.cast(self.norm1(tp.cast(tgt, self.norm1.dtype)), self.dtype)
         q = k = tgt2 + query_pos if self.pos_enc_at_attn else tgt2
-        tgt2 = self.self_attn(q, k, v=tgt2, num_k_exclude_rope=tp.Tensor([0]))
+        tgt2 = self.self_attn(q, k, v=tgt2, num_k_exclude_rope=0)
         tgt = tgt + tgt2
         return tgt
 
@@ -97,7 +97,7 @@ class MemoryAttentionLayer(tp.Module):
         memory,
         pos: Optional[tp.Tensor] = None,
         query_pos: Optional[tp.Tensor] = None,
-        num_k_exclude_rope: Optional[tp.Tensor] = None,
+        num_k_exclude_rope: Optional[tp.types.IntLike] = None,
     ) -> tp.Tensor:
 
         # Self-Attn, Cross-Attn

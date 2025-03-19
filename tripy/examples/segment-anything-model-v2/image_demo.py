@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,25 +14,27 @@
 # limitations under the License.
 
 import argparse
-import cv2
 import os
 import time
-import numpy as np
-import torch
-import nvtripy as tp
+
 import matplotlib.pyplot as plt
+import numpy as np
+import nvtripy as tp
+import torch
 
 plt.switch_backend("agg")  # Switch to non-interactive backend
-from PIL import Image
-from typing import Optional, Dict
+from typing import Dict, Optional
 
+from demo_utils import process_and_show_mask, show_box, show_points
+from PIL import Image
 from sam2.build_sam import build_sam2
 from sam2.sam2_image_predictor import SAM2ImagePredictor
-from demo_utils import process_and_show_mask, show_box, show_points
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-b", "--batch", type=int, default=2, help="batch size of the input images, between [1, 4]")
-parser.add_argument("-t", "--type", type=str, default="large", choices=["large", "small", "tiny"], help="type of the sam2 model")
+parser.add_argument(
+    "-t", "--type", type=str, default="large", choices=["large", "small", "tiny"], help="type of the sam2 model"
+)
 
 
 def process_predictions(

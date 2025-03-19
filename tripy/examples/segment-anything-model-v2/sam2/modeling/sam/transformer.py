@@ -318,10 +318,10 @@ class RoPEAttention(Attention):
         self.compute_cis = partial(compute_axial_cis, dim=self.internal_dim // self.num_heads, theta=rope_theta)
         self.rope_k_repeat = rope_k_repeat
 
-    def forward(self, q: Tensor, k: Tensor, v: Tensor, num_k_exclude_rope: tp.Tensor) -> Tensor:
+    def forward(self, q: Tensor, k: Tensor, v: Tensor, num_k_exclude_rope: tp.types.IntLike) -> Tensor:
         return self.forward_impl(q, k, v, num_k_exclude_rope)
 
-    def forward_impl(self, q: tp.Tensor, k: tp.Tensor, v: tp.Tensor, num_k_exclude_rope: tp.Tensor) -> tp.Tensor:
+    def forward_impl(self, q: tp.Tensor, k: tp.Tensor, v: tp.Tensor, num_k_exclude_rope: tp.types.IntLike) -> tp.Tensor:
         # Input projections
         q = self.q_proj(q)
         k = self.k_proj(k)
