@@ -15,12 +15,13 @@
 # limitations under the License.
 #
 
+import inspect
+from textwrap import dedent
+
 import cupy as cp
 import numpy as np
-
 import nvtripy as tp
 from tests import helper
-from textwrap import dedent
 
 
 class TestModule:
@@ -43,6 +44,20 @@ class TestModule:
         network.dummy1 = None
         assert cp.from_dlpack(dict(network.named_parameters())["param"]).get().tolist() == [0.0, 1.0]
         assert "dummy1" not in dict(network.named_children())
+
+    def test_signature_of_call(self):
+        # The __call__ method should take the signature of the `forward` method of child classes
+        class MyModule(tp.Module):
+            def forward(self, a: int, b: bool) -> str:
+                pass
+
+        module = MyModule()
+
+        signature = inspect.signature(module)
+
+        assert signature.parameters["a"].annotation == int
+        assert signature.parameters["b"].annotation == bool
+        assert signature.return_annotation == str
 
     def test_incompatible_parameter_shape_cannot_be_set(self, network):
         with helper.raises(
