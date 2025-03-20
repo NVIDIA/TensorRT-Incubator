@@ -15,10 +15,9 @@
 # limitations under the License.
 #
 
+import numbers
 from textwrap import indent
-from typing import Any, Optional
-
-import mlir_tensorrt.runtime.api as runtime
+from typing import Any, List, Optional, Union
 
 # Import ops to populate the registry before we define our Tensor class
 import nvtripy.frontend.ops
@@ -175,12 +174,29 @@ class Tensor(metaclass=TensorMeta):
     def device(self):
         return self.trace_tensor.device
 
-    # TODO (pranavm): Document this and `tolist()`? Figure out more ergonomic way to get scalar value.
-    def eval(self) -> runtime.MemRefValue:
+    def eval(self) -> "nvtripy.Tensor":
+        """
+        Immediately evaluates this tensor. By default, tensors are evaluated lazily.
+
+        Returns:
+            The evaluated tensor.
+
+        .. code-block:: python
+            :linenos:
+
+            start = time.perf_counter()
+            tensor = tp.ones((3, 3))
+            tensor_construction = time.perf_counter()
+            tensor.eval()
+            tensor_eval = time.perf_counter()
+
+            print(f"Tensor construction took: {tensor_construction  * 1000.0} ms")
+            print(f"Tensor evaluation took: {tensor_eval  * 1000.0} ms")
+        """
         if isinstance(self.trace_tensor.producer, Constant):
             # Exit early if the tensor has already been evaluated.
             # This happens before the imports below so we don't incur extra overhead.
-            return self.trace_tensor.producer.data
+            return self
 
         from nvtripy.backend.api.executable import Executable
         from nvtripy.backend.mlir.compiler import Compiler
@@ -195,8 +211,7 @@ class Tensor(metaclass=TensorMeta):
         # TODO (pranavm): Add error mapping logic here (test with squeezing non-singleton dim)
         mlir = trace.to_mlir()
         executable = Executable(compiler.compile(mlir, trace=trace), [], return_type=Tensor)
-
-        data = executable().eval()
+        data = executable().trace_tensor.producer.data
 
         # Upon computing the value of this tensor, we switch it to have a `Constant`
         # parameter so that it does not need to be computed again.
@@ -223,11 +238,37 @@ class Tensor(metaclass=TensorMeta):
                 f"Note: Tensor was evaluated while compiling here: {str_from_stack_info(self.trace_tensor.eval_stack_info)}",
                 mode="once",
             )
+        return self
 
-        return data
+    def tolist(self) -> Union[List, numbers.Number]:
+        """
+        Returns the tensor as a nested list. If the tensor is a scalar, returns a python number.
 
-    def tolist(self):
-        data_memref = self.eval()
+        Returns:
+            The tensor represented as a nested list or a python number.
+
+        .. code-block:: python
+            :caption: Ranked tensor
+            :linenos:
+
+            # doc: print-locals tensor_list
+            tensor = tp.ones((2, 2))
+            tensor_list = tensor.tolist()
+
+            assert tensor_list == np.ones((2, 2), dtype=np.float32).tolist()
+
+        .. code-block:: python
+            :caption: Scalar
+            :linenos:
+
+            # doc: print-locals tensor_scalar
+            tensor = tp.Tensor(2.0, dtype=tp.float32)
+            tensor_scalar = tensor.tolist()
+
+            assert tensor_scalar == 2.0
+        """
+        self.eval()
+        data_memref = self.trace_tensor.producer.data
         if self.dtype not in (
             datatype.float32,
             datatype.int8,
@@ -237,7 +278,8 @@ class Tensor(metaclass=TensorMeta):
         ):
             from nvtripy.frontend.ops.cast import cast
 
-            data_memref = cast(Tensor(data_memref), datatype.float32).eval()
+            cast_tensor = cast(Tensor(data_memref), datatype.float32).eval()
+            data_memref = cast_tensor.trace_tensor.producer.data
         return memref.tolist(data_memref)
 
     def __iter__(self):
@@ -266,10 +308,12 @@ class Tensor(metaclass=TensorMeta):
 
     # Since the underlying data is an MemRefValue we reuse their __dlpack__() and __dlpack_device__() methods
     def __dlpack__(self, stream: Any = None):
-        return self.eval().__dlpack__()
+        self.eval()
+        return self.trace_tensor.producer.data.__dlpack__()
 
     def __dlpack_device__(self):
-        return self.eval().__dlpack_device__()
+        self.eval()
+        return self.trace_tensor.producer.data.__dlpack_device__()
 
     def __bool__(self):
         data = self.tolist()
