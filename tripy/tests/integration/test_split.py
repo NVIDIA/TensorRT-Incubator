@@ -58,6 +58,6 @@ class TestSplitOp:
         def func(t):
             return tp.split(t, split_params[0], split_params[1])
 
-        out = eager_or_compiled(func, a)
+        out = eager_or_compiled(tp.copy, func(a), device=tp.device("gpu"))
         reference_out = reference_slices(a_cp)
         compare_split_results(out, reference_out)
