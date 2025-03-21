@@ -608,7 +608,8 @@ static Status enqueueAllocV3Wrapper(AllocTracker &tracker,
   cudaError_t waitResult = cudaStreamWaitEvent(stream, inputConsumedEvent);
   RETURN_ERROR_IF_CUDART_ERROR(waitResult);
 
-  MTRT_DBGF("%s", "enqueueV3 successful and inputs are consumed");
+  MTRT_DBGF("enqueueV3 successful and inputs are consumed on stream 0x%lx",
+            stream.ptr);
 
   for (int64_t i = 0; i < nbResults; ++i) {
     NvInferResultAllocator *outputAllocatorImpl =
