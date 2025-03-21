@@ -655,9 +655,20 @@ PYBIND11_MODULE(_api, m) {
 
   py::class_<PyStream>(m, "Stream", py::module_local())
       .def_property_readonly(MTRT_PYTHON_CAPI_PTR_ATTR, &PyStream::getCapsule)
-      .def("sync", [](PyStream &stream) {
-        MTRT_Status s = mtrtStreamSynchronize(stream);
-        THROW_IF_MTRT_ERROR(s);
+      .def("sync",
+           [](PyStream &stream) {
+             MTRT_Status s = mtrtStreamSynchronize(stream);
+             THROW_IF_MTRT_ERROR(s);
+           })
+      .def("__str__", [](PyStream &self) {
+        auto callback = [](MlirStringRef data, void *initialString) {
+          *reinterpret_cast<std::string *>(initialString) +=
+              llvm::StringRef(data.data, data.length);
+        };
+
+        std::string result;
+        mtrtStreamPrint(self, callback, &result);
+        return result;
       });
 
   py::class_<PyRuntimeClient>(m, "RuntimeClient", py::module_local())
