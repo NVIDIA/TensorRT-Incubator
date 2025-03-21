@@ -31,13 +31,12 @@ def test_stablehlo_add(
         for test in tests:
             print(test.name)
             m = ir.Module.parse(test.ir)
-            opts = compiler.StableHLOToExecutableOptions(
-                compiler_client,
+            task = compiler_client.get_compilation_task(
+                "stablehlo-to-executable",
                 ["--tensorrt-builder-opt-level=0", "--tensorrt-strongly-typed=false"],
             )
-            exe = compiler.compiler_stablehlo_to_executable(
-                compiler_client, m.operation, opts
-            )
+            task.run(m.operation)
+            exe = compiler.translate_mlir_to_executable(m.operation)
 
             session_options = runtime.RuntimeSessionOptions(num_devices=1, device_id=0)
             session = runtime.RuntimeSession(session_options, exe)

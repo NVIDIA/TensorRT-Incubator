@@ -64,6 +64,16 @@ static bool isDebugEnabled() {
 // Helpers
 //===----------------------------------------------------------------------===//
 
+static size_t getFileSize(const std::string &filename) {
+  // Open the binary file
+  std::ifstream file(filename, std::ios::binary | std::ios::ate);
+  if (!file) {
+    std::cerr << "Error opening file!" << std::endl;
+    return 0;
+  }
+  return file.tellg();
+}
+
 static int readInputFile(const std::string &filename,
                          std::vector<char> &buffer) {
   // Open the binary file
@@ -84,6 +94,28 @@ static int readInputFile(const std::string &filename,
 
   // Read the entire file into the vector
   if (file.read(buffer.data(), size))
+    return 0;
+
+  std::cerr << "Error reading file!" << std::endl;
+  return 1;
+}
+
+static int readInputFile(const std::string &filename, char *buffer) {
+  // Open the binary file
+  std::ifstream file(filename, std::ios::binary | std::ios::ate);
+  if (!file) {
+    std::cerr << "Error opening file!" << std::endl;
+    return 1;
+  }
+
+  // Get the size of the file
+  std::streamsize size = file.tellg();
+
+  // Move back to the beginning of the file
+  file.seekg(0, std::ios::beg);
+
+  // Read the entire file into the vector
+  if (file.read(buffer, size))
     return 0;
 
   std::cerr << "Error reading file!" << std::endl;
@@ -309,3 +341,20 @@ void *mtrt::host_alloc(int64_t size, int32_t alignment) {
 }
 
 void mtrt::host_free(void *ptr) { ::free(ptr); }
+
+void *mtrt::constant_load_from_file(const char *filename, int32_t align,
+                                    int32_t space) {
+
+  size_t fileSize = getFileSize(filename);
+  if (fileSize == 0)
+    return nullptr;
+  void *buffer;
+  HANDLE_CUDART_ERROR(cudaMallocManaged(&buffer, fileSize), nullptr);
+  if (!readInputFile(filename, reinterpret_cast<char *>(buffer)))
+    return nullptr;
+  return buffer;
+}
+
+void mtrt::constant_destroy(void *data, int32_t space) {
+  HANDLE_CUDART_ERROR(cudaFree(data), );
+}

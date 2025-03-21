@@ -24,19 +24,23 @@
 #include "mlir-tensorrt-dialect/Utils/NvInferPluginUtils.h"
 #include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTBase.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
-#include "mlir/IR/Builders.h"
-#include "mlir/IR/BuiltinTypes.h"
-#include "mlir/IR/Diagnostics.h"
 #include "mlir/IR/ImplicitLocOpBuilder.h"
 #include "mlir/IR/TypeUtilities.h"
-#if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 9, 0)
-#include "nvinfer/trt_plugin_python.h"
-#endif // MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 9, 0)
 #include "llvm/Support/DynamicLibrary.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include <limits>
+
+#if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 9, 0)
+#include "nvinfer/trt_plugin_python.h"
+#endif // MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 9, 0)
+
+#if defined(__GNUC__) || defined(__clang__)
+// Ignore deprecated declarations in this file; we use a lot of them to support
+// older TRT versions.
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
 
 using namespace mlir;
 using namespace mlir::tensorrt;
@@ -336,6 +340,11 @@ private:
     case nvinfer1::PluginFieldType::kINT4:
       return serializeIntAttribute(attr, field, b.getIntegerType(4));
 #endif
+#if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 9, 0)
+    case nvinfer1::PluginFieldType::kFP4:
+      return serializeFloatAttribute(attr, field,
+                                     Float4E2M1FNType::get(b.getContext()));
+#endif
     }
 
     llvm_unreachable("unhandled plugin field type enumeration value");
@@ -358,34 +367,28 @@ using PluginCreatorInterface = nvinfer1::IPluginCreatorInterface;
 using PluginCreatorInterface = nvinfer1::IPluginCreator;
 #endif
 
-namespace {
-std::unique_ptr<PluginInterfaceBase>
+/// Return the plugin creator based on the interface type.
+static std::unique_ptr<PluginInterfaceBase>
 makePluginCreatorBase(PluginCreatorInterface *creator, bool owning) {
 #if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 0, 0)
-  if (std::string(creator->getInterfaceInfo().kind) == "PLUGIN CREATOR_V3ONE") {
+  if (llvm::StringRef(creator->getInterfaceInfo().kind) ==
+      "PLUGIN CREATOR_V3ONE") {
     return std::make_unique<PluginCreator<nvinfer1::IPluginCreatorV3One>>(
         static_cast<nvinfer1::IPluginCreatorV3One *>(creator), owning);
   }
 #endif
 #if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 9, 0)
-  else if (std::string(creator->getInterfaceInfo().kind) ==
-           "PLUGIN CREATOR_V3QUICK") {
+  if (llvm::StringRef(creator->getInterfaceInfo().kind) ==
+      "PLUGIN CREATOR_V3QUICK") {
     return std::make_unique<PluginCreator<nvinfer1::IPluginCreatorV3Quick>>(
         static_cast<nvinfer1::IPluginCreatorV3Quick *>(creator), owning);
   }
 #endif
-#if defined(__GNUC__) || defined(__clang__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-#endif
   return std::make_unique<PluginCreator<nvinfer1::IPluginCreator>>(
       static_cast<nvinfer1::IPluginCreator *>(creator), owning);
-#if defined(__GNUC__) || defined(__clang__)
-#pragma GCC diagnostic pop
-#endif
 }
 
-PluginCreatorInterface *
+static PluginCreatorInterface *
 getPluginCreatorInterface(nvinfer1::IPluginRegistry *registry, const char *name,
                           const char *version, const char *pluginNamespace) {
 #if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 0, 0)
@@ -394,14 +397,6 @@ getPluginCreatorInterface(nvinfer1::IPluginRegistry *registry, const char *name,
   return registry->getPluginCreator(name, version, pluginNamespace);
 #endif
 }
-
-#if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 0, 0)
-bool isKind(nvinfer1::InterfaceInfo const &info, char const *kind) {
-  return std::strcmp(info.kind, kind) == 0;
-}
-#endif
-
-} // namespace
 
 //===----------------------------------------------------------------------===//
 // PluginManager
@@ -523,14 +518,14 @@ FailureOr<PluginInterfaceBase *> PluginManager::getExternalPlugin(
 
   nvinfer1::InterfaceInfo const ifaceInfo =
       creatorIface->ptr->getInterfaceInfo();
-  if (isKind(ifaceInfo, "PLUGIN CREATOR_V3ONE")) {
+  if (llvm::StringRef(ifaceInfo.kind) == "PLUGIN CREATOR_V3ONE") {
     auto creator = static_cast<PluginCreator<nvinfer1::IPluginCreatorV3One> *>(
         *creatorBase);
     return createPluginFromCreator<nvinfer1::IPluginCreatorV3One>(
         loc, creatorParams, layerName, creator->ptr);
   }
 #if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 9, 0)
-  if (isKind(ifaceInfo, "PLUGIN CREATOR_V3QUICK")) {
+  if (llvm::StringRef(ifaceInfo.kind) == "PLUGIN CREATOR_V3QUICK") {
     auto creator =
         static_cast<PluginCreator<nvinfer1::IPluginCreatorV3Quick> *>(
             *creatorBase);
@@ -540,8 +535,8 @@ FailureOr<PluginInterfaceBase *> PluginManager::getExternalPlugin(
     return createPluginFromCreator<nvinfer1::IPluginCreatorV3Quick>(
         loc, creatorParams, pluginId, creator->ptr);
   }
-#endif
-#endif
+#endif // MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 9, 0)
+#endif // MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 0, 0)
   auto creator =
       static_cast<PluginCreator<nvinfer1::IPluginCreator> *>(*creatorBase);
   return createPluginFromCreator<nvinfer1::IPluginCreator>(
@@ -565,6 +560,8 @@ FailureOr<PluginInterfaceBase *> PluginManager::createPluginFromCreator(
   nvinfer1::PluginFieldCollection serializedParams(**pluginParamsStorage);
 
 #if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 0, 0)
+  // If the plugin creator type is V3One, then we use the below method to create
+  // the V3 plugin.
   if constexpr (std::is_same_v<PluginCreatorT, nvinfer1::IPluginCreatorV3One>) {
     nvinfer1::IPluginV3 *plugin =
         creator->createPlugin(std::string(layerName).c_str(), &serializedParams,
@@ -575,13 +572,21 @@ FailureOr<PluginInterfaceBase *> PluginManager::createPluginFromCreator(
     plugins.emplace_back(new Plugin<nvinfer1::IPluginV3>(plugin));
     return plugins.back().get();
   }
+#endif
+
 #if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 9, 0)
-  else if constexpr (std::is_same_v<PluginCreatorT,
-                                    nvinfer1::IPluginCreatorV3Quick>) {
+  // If the plugin creator type is V3Quick, then we use the below method to
+  // create the V3 plugin.
+  if constexpr (std::is_same_v<PluginCreatorT,
+                               nvinfer1::IPluginCreatorV3Quick>) {
 
     SmallVector<std::string> nameAndNamespace;
     for (llvm::StringRef s : llvm::split(layerName, "::"))
       nameAndNamespace.push_back(std::string(s));
+
+    if (nameAndNamespace.size() != 2)
+      return emitError(loc)
+             << "failed to parse PluginCreatorV3Quick namespace and name";
 
     nvinfer1::IPluginV3 *plugin = creator->createPlugin(
         nameAndNamespace[0].c_str(), nameAndNamespace[1].c_str(),
@@ -594,24 +599,20 @@ FailureOr<PluginInterfaceBase *> PluginManager::createPluginFromCreator(
     return plugins.back().get();
   }
 #endif
-  else
-#endif
-  {
+
+  if constexpr (std::is_same_v<PluginCreatorT, nvinfer1::IPluginCreator>) {
     // This is an unsafe cast, but there is no way in the TRT API to
     // determine the actual type of a PluginV2.
     nvinfer1::IPluginV2DynamicExt *plugin =
-        static_cast<nvinfer1::IPluginV2DynamicExt *>(creator->createPlugin(
-            std::string(layerName).c_str(), &serializedParams));
+        reinterpret_cast<nvinfer1::IPluginV2DynamicExt *>(
+            creator->createPlugin(layerName.str().c_str(), &serializedParams));
     if (!plugin)
       return emitError(loc) << "failed to create plugin";
     plugins.emplace_back(new Plugin<nvinfer1::IPluginV2DynamicExt>(plugin));
-    return plugins.back().get();
   }
-}
 
-#if defined(__GNUC__) || defined(__clang__)
-#pragma GCC diagnostic pop
-#endif
+  return plugins.back().get();
+}
 
 //===----------------------------------------------------------------------===//
 // Plugin DimExpr <-> MLIR interop
@@ -751,10 +752,71 @@ private:
 
 } // namespace
 
-#if defined(__GNUC__) || defined(__clang__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-#endif
+static LogicalResult
+buildOutputExpressions(Operation *op, PluginInterfaceBase *pluginBase,
+                       ArrayRef<nvinfer1::DimsExprs> inputExprs,
+                       ExprBuilder &exprBuilder,
+                       SmallVectorImpl<nvinfer1::DimsExprs> &outputExprs) {
+#if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 0, 0)
+  if (auto plugin = llvm::dyn_cast<Plugin<nvinfer1::IPluginV3>>(pluginBase)) {
+    nvinfer1::IPluginCapability *iface = plugin->ptr->getCapabilityInterface(
+        nvinfer1::PluginCapabilityType::kBUILD);
+    nvinfer1::InterfaceInfo pluginIfaceInfo = iface->getInterfaceInfo();
+    if (llvm::StringRef(pluginIfaceInfo.kind) == "PLUGIN_V3ONE_BUILD") {
+      auto *buildPluginIface =
+          static_cast<nvinfer1::IPluginV3OneBuild *>(iface);
+      if (buildPluginIface->getOutputShapes(
+              inputExprs.data(), inputExprs.size(), nullptr, 0,
+              outputExprs.data(), outputExprs.size(), exprBuilder))
+        return failure();
+
+      return success();
+    }
+
+#if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 9, 0)
+    if (llvm::StringRef(pluginIfaceInfo.kind) == "PLUGIN_V3QUICKAOT_BUILD") {
+      SmallVector<nvinfer1::DataType> outputTypes(op->getNumResults(),
+                                                  nvinfer1::DataType{});
+      SmallVector<nvinfer1::DataType> inputTypes(op->getNumOperands());
+      SmallVector<int32_t> inputRanks(inputTypes.size());
+      for (auto [i, operand] : llvm::enumerate(op->getOperands())) {
+        RankedTensorType tensorType = cast<RankedTensorType>(operand.getType());
+        FailureOr<nvinfer1::DataType> trtTypeFromMlirTensorType =
+            getNvInferDataType(op->getLoc(), tensorType.getElementType());
+        if (failed(trtTypeFromMlirTensorType))
+          return failure();
+
+        inputTypes[i] = trtTypeFromMlirTensorType.value();
+        inputRanks[i] = tensorType.getRank();
+      }
+      auto *buildPluginIface =
+          static_cast<nvinfer1::IPluginV3QuickAOTBuild *>(iface);
+
+      if (buildPluginIface->getOutputDataTypes(
+              outputTypes.data(), outputTypes.size(), inputTypes.data(),
+              inputRanks.data(), inputTypes.size()))
+        return failure();
+
+      if (buildPluginIface->getOutputShapes(
+              inputExprs.data(), inputExprs.size(), nullptr, 0,
+              outputExprs.data(), outputExprs.size(), exprBuilder))
+        return failure();
+      return success();
+    }
+#endif // MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 9, 0)
+
+    return failure();
+  }
+#endif // MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 0, 0)
+
+  auto *pluginV2 =
+      static_cast<Plugin<nvinfer1::IPluginV2DynamicExt> *>(pluginBase);
+  for (unsigned i = 0, e = outputExprs.size(); i < e; ++i)
+    outputExprs[i] = pluginV2->ptr->getOutputDimensions(
+        i, inputExprs.data(), inputExprs.size(), exprBuilder);
+
+  return success();
+}
 
 LogicalResult tensorrt::buildPluginShapeRegion(
     Operation *op, PluginInterfaceBase *pluginBase,
@@ -789,64 +851,10 @@ LogicalResult tensorrt::buildPluginShapeRegion(
 
   SmallVector<nvinfer1::DimsExprs> outputExprs(
       op->getNumResults(), nvinfer1::DimsExprs{0, {nullptr}});
-#if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 9, 0)
-  SmallVector<nvinfer1::DataType> outputTypes(op->getNumResults(),
-                                              nvinfer1::DataType{});
-#endif
-
-#if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 0, 0)
-  if (auto plugin = llvm::dyn_cast<Plugin<nvinfer1::IPluginV3>>(pluginBase)) {
-    nvinfer1::IPluginCapability *iface = plugin->ptr->getCapabilityInterface(
-        nvinfer1::PluginCapabilityType::kBUILD);
-    nvinfer1::InterfaceInfo pluginIfaceInfo = iface->getInterfaceInfo();
-    if (std::string{pluginIfaceInfo.kind} == "PLUGIN_V3ONE_BUILD") {
-      auto *buildPluginIface =
-          static_cast<nvinfer1::IPluginV3OneBuild *>(iface);
-      if (buildPluginIface->getOutputShapes(
-              inputExprs.data(), inputExprs.size(), nullptr, 0,
-              outputExprs.data(), outputExprs.size(), exprBuilder))
-        return failure();
-    }
-#if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 9, 0)
-    else if (std::string{pluginIfaceInfo.kind} == "PLUGIN_V3QUICKAOT_BUILD") {
-      SmallVector<nvinfer1::DataType> inputTypes(numOperands);
-      SmallVector<int32_t> inputRanks(numOperands);
-      for (auto [i, operand] : llvm::enumerate(operands)) {
-        RankedTensorType tensorType = cast<RankedTensorType>(operand.getType());
-        FailureOr<nvinfer1::DataType> trtTypeFromMlirTensorType =
-            getNvInferDataType(op->getLoc(), tensorType.getElementType());
-        if (failed(trtTypeFromMlirTensorType))
-          return failure();
-
-        inputTypes[i] = trtTypeFromMlirTensorType.value();
-        inputRanks[i] = tensorType.getRank();
-      }
-      auto *buildPluginIface =
-          static_cast<nvinfer1::IPluginV3QuickAOTBuild *>(iface);
-
-      if (buildPluginIface->getOutputDataTypes(
-              outputTypes.data(), outputTypes.size(), inputTypes.data(),
-              inputRanks.data(), inputTypes.size()))
-        return failure();
-
-      if (buildPluginIface->getOutputShapes(
-              inputExprs.data(), inputExprs.size(), nullptr, 0,
-              outputExprs.data(), outputExprs.size(), exprBuilder))
-        return failure();
-    }
-#endif
-    else
-      return failure();
-  } else
-#endif
-  {
-    auto pluginV2 =
-        static_cast<Plugin<nvinfer1::IPluginV2DynamicExt> *>(pluginBase);
-    for (unsigned i = 0; i < outputExprs.size(); ++i) {
-      outputExprs[i] = pluginV2->ptr->getOutputDimensions(
-          i, inputExprs.data(), inputExprs.size(), exprBuilder);
-    }
-  }
+  if (failed(buildOutputExpressions(op, pluginBase, inputExprs, exprBuilder,
+                                    outputExprs)))
+    return emitError(op->getLoc())
+           << "failed to build output shape expressions";
 
   // Retrieve the results expressions and forward the values to the
   // terminator.
@@ -860,7 +868,3 @@ LogicalResult tensorrt::buildPluginShapeRegion(
   buildTerminator(builder, builder.getLoc(), results);
   return success();
 }
-
-#if defined(__GNUC__) || defined(__clang__)
-#pragma GCC diagnostic pop
-#endif

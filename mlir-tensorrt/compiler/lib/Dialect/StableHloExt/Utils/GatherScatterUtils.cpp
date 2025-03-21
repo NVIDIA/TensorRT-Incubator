@@ -266,17 +266,26 @@ bool stablehlo_ext::isSimpleLeadingMultiDimGatherWithDegenerateDims(
   return true;
 }
 
-bool stablehlo_ext::isCanonicalScatterNd(stablehlo::ScatterOp scatterOp) {
-  if (!scatterOp.getScatterDimensionNumbers()
-           .getScatterIndicesBatchingDims()
-           .empty())
-    return {};
+/// Check that the "update_computation" region of a 'stablehlo.scatter' op
+/// yields the "update" scalars directly.
+bool stablehlo_ext::checkUpdateComputationReturnsUpdateValues(
+    stablehlo::ScatterOp op) {
+  Region &r = op.getUpdateComputation();
+  Operation *term = r.front().getTerminator();
+  // The updates should correspond to the update element, not the source
+  // element.
+  for (auto [idx, v] : llvm::enumerate(term->getOperands())) {
+    BlockArgument arg = dyn_cast<BlockArgument>(v);
+    if (!arg)
+      return false;
+    if (arg.getArgNumber() != idx * 2 + 1)
+      return false;
+  }
+  return true;
+}
 
-  if (llvm::any_of(scatterOp.getOperandTypes(), [](Type operandType) {
-        return !isa<RankedTensorType>(operandType);
-      }))
-    return false;
-  stablehlo::ScatterDimensionNumbersAttr dimsAttrs =
+bool stablehlo_ext::isCanonicalScatterNd(stablehlo::ScatterOp scatterOp) {
+  stablehlo::ScatterDimensionNumbersAttr info =
       scatterOp.getScatterDimensionNumbers();
   auto indicesType =
       cast<RankedTensorType>(scatterOp.getScatterIndices().getType());
@@ -287,14 +296,50 @@ bool stablehlo_ext::isCanonicalScatterNd(stablehlo::ScatterOp scatterOp) {
   auto isSeq = [](ArrayRef<int64_t> ar, int64_t start, int64_t end) {
     return llvm::equal(ar, llvm::seq<int64_t>(start, end));
   };
-  int64_t indexDepth = indicesType.getDimSize(indicesType.getRank() - 1);
-  return indicesType.getRank() == 2 && dimsAttrs.getIndexVectorDim() == 1 &&
-         isSeq(dimsAttrs.getUpdateWindowDims(), 1, updateType.getRank()) &&
-         isSeq(dimsAttrs.getScatterDimsToOperandDims(), 0,
-               indicesType.getDimSize(1)) &&
-         isSeq(dimsAttrs.getInsertedWindowDims(), 0, indexDepth) &&
-         ((operandType.getRank() - indexDepth) + (indicesType.getRank() - 1)) ==
-             updateType.getRank();
+  if (indicesType.getRank() < 1)
+    return false;
+
+  // (C0) the `index_vector_dim` must be the last dimension of the
+  // `scatter_indices`.
+  if (info.getIndexVectorDim() != indicesType.getRank() - 1)
+    return false;
+
+  const int64_t indexDepth = indicesType.getDimSize(indicesType.getRank() - 1);
+  const int64_t expectedUpdatesRank =
+      indicesType.getRank() - 1 + operandType.getRank() - indexDepth;
+
+  // (C5) rank check
+  if (updateType.getRank() != expectedUpdatesRank)
+    return false;
+
+  // (C1) the `update_window_dims` must correspond to the a tail sequence
+  //  of dimensions of the `updates`.
+  if (!llvm::equal(
+          info.getUpdateWindowDims(),
+          llvm::seq<int64_t>(indicesType.getRank() - 1, expectedUpdatesRank)))
+    return false;
+
+  // (C2) no batching dims
+  if (!scatterOp.getScatterDimensionNumbers()
+           .getScatterIndicesBatchingDims()
+           .empty())
+    return false;
+
+  // (C3) scatter_dims_to_operand_dims` must be identity permutation
+  //   which maps to start of dims(result). This means it must be
+  //   "[0, 1, ..., scatter_indices.shape[-1]-1]".
+  if (!isSeq(info.getScatterDimsToOperandDims(), 0, indexDepth))
+    return false;
+
+  // (C4) there can't be overlap between non-zero dims in
+  //   "full start index" and non-zero dims in "full window index"
+  if (!isSeq(info.getInsertedWindowDims(), 0, indexDepth))
+    return false;
+
+  if (!checkUpdateComputationReturnsUpdateValues(scatterOp))
+    return false;
+
+  return true;
 }
 
 Value stablehlo_ext::createCollapsingReshape(

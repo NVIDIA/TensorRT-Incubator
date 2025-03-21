@@ -141,9 +141,15 @@ def ApplyBugWorkaroundsPass : Pass<"tensorrt-apply-bug-wars"> {
   let dependentDialects = [];
   let options = [
     Option<"tensorrtVersion", "tensorrt-version", "std::string", "\"8.5\"",
-      "TensoRT version in the form MAJOR.MINOR">,
+      "TensorRT version in the form MAJOR.MINOR">,
     Option<"tensorrtStronglyTyped", "tensorrt-strongly-typed", "bool", "false",
-      "Whether TensorRT stronly typed mode is enabled">
+      "Whether TensorRT strongly typed mode is enabled">,
+    Option<"forceDefaultSliceInBounds", "force-default-slice-in-bounds", "bool",
+      "false",
+      "Specifies that we should insert min/max operations to force the "
+      "dynamic offset and size tensors of all 'default' slice operations "
+      "to be in bounds. This should be used when shape tensor input bounds are "
+      "not known in order to workaround TRT limitations.">
   ];
 }
 

@@ -45,15 +45,15 @@ def get_mlir_dtype(dtype):
 
 def build_exe(client, dtype, iota_dim):
     module = build_program(dtype=get_mlir_dtype(dtype), iota_dim=iota_dim)
-    print(module.operation)
-    opts = compiler.StableHLOToExecutableOptions(
-        client,
+    task = client.get_compilation_task(
+        "stablehlo-to-executable",
         [
             "--tensorrt-builder-opt-level=0",
             "--tensorrt-strongly-typed=false",
         ],
     )
-    return compiler.compiler_stablehlo_to_executable(client, module.operation, opts)
+    task.run(module.operation)
+    return compiler.translate_mlir_to_executable(module.operation)
 
 
 def run_test(exe, dtype, iota_dim):

@@ -46,6 +46,7 @@ public:
   bool operator==(Operation *other) const { return this->op == other; }
 
   Operation *operator->() { return op; }
+  Operation *operator*() { return op; }
 
   template <typename T>
   auto getOps() const {

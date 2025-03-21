@@ -2,6 +2,7 @@
 #define MLIR_TENSORRT_DIALECT_PLAN_IR_PLANDIALECT
 
 include "mlir/IR/OpBase.td"
+include "mlir/IR/EnumAttr.td"
 
 def Plan_Dialect : Dialect {
   let name = "plan";
@@ -94,6 +95,24 @@ def Plan_Dialect : Dialect {
     ::llvm::StringMap<AttrParsingHook> attrParsingHooks;
     ::llvm::DenseMap<::mlir::TypeID, AttrPrintingHook> attrPrintingHooks;
   }];
+}
+
+
+class Plan_I32EnumAttr<string name, string description,
+  list<I32EnumAttrCase> cases> :
+    I32EnumAttr<name, description, cases> {
+  let cppNamespace = "::mlir::plan";
+  let genSpecializedAttr = 0;
+}
+
+class Plan_EnumAttr<IntEnumAttr intEnumAttr, string mnemonic, list<Trait> traits = []> :
+  EnumAttr<Plan_Dialect, intEnumAttr, mnemonic, traits> {
+  let assemblyFormat = "`<` $value `>`";
+}
+
+class Plan_Attr<string name, string attrMnemonic, list<Trait> traits = []>
+    : AttrDef<Plan_Dialect, name, traits> {
+  let mnemonic = attrMnemonic;
 }
 
 #endif // MLIR_TENSORRT_DIALECT_PLAN_IR_PLANDIALECT

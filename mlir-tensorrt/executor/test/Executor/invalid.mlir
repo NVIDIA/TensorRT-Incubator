@@ -375,3 +375,8 @@ func.func @value_bounds_scalar_shape_ok(%arg0: i32 {executor.value_bounds = #bou
 func.func @dont_validate_bounds_to_non_shaped_or_scalar_type(%arg0: !executor.table<i32> {executor.value_bounds = #bounds}) {
   return
 }
+
+// -----
+
+// expected-error @below {{'executor.data_segment' op expected splat-zero ElementsAttr when uninitialized}}
+executor.data_segment @data uninitialized dense<1> : tensor<128xi8>

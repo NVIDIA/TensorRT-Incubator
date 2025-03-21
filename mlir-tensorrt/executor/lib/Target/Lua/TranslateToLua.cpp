@@ -597,7 +597,7 @@ static LogicalResult printOperation(LuaEmitter &emitter,
   return success();
 }
 
-/// Translate `executor.load_constant_resource`.
+/// Translate `executor.load_data_segment`.
 static LogicalResult printOperation(LuaEmitter &emitter,
                                     executor::ConstantResourceLoadOp op) {
   if (failed(emitter.emitAssignPrefix(op)))
@@ -866,7 +866,7 @@ LogicalResult LuaEmitter::emitModule(Operation &op) {
 
 LogicalResult LuaEmitter::emitOperation(Operation &op) {
   // Global/const resource declarations don't need to get emitted.
-  if (isa<executor::ConstantResourceOp, executor::GlobalOp>(op))
+  if (isa<executor::DataSegmentOp, executor::GlobalOp>(op))
     return success();
 
   if (isa<executor::ExecutorDialect>(op.getDialect())) {

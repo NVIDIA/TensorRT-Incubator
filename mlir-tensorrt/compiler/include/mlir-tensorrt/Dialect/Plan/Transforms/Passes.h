@@ -1,6 +1,6 @@
 //===- Passes.h -------------------------------------------------*- C++ -*-===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -45,8 +45,8 @@ struct ClusterTargetOption;
 
 /// Creates the segmentation pipeline for StableHLO input. This pass pipeline
 /// performs shape materialization, clustering, and outlining.
-void buildPlanSegmentationPipeline(
-    OpPassManager &pm, const plan::StablehloClusteringPassOptions &opts);
+void buildPlanSegmentationPipeline(OpPassManager &pm,
+                                   const plan::ClusteringPassOptions &opts);
 
 /// Build a complete bufferization pipeline, which includes: bufferization,
 /// optimizations, and buffer deallocation.

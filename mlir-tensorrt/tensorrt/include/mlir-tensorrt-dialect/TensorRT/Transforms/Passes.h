@@ -74,8 +74,9 @@ void buildTensorRTModuleSimplificationPipeline(OpPassManager &pm);
 /// optimizing and lowering `tensorrt` functions or modules containing tensorrt
 /// functions. After this pipeline, functions can be translated to TensorRT
 /// engines.
-void buildTensorRTModuleTransformationPipeline(mlir::OpPassManager &pm,
-                                               bool stronglyTyped);
+void buildTensorRTModuleTransformationPipeline(
+    mlir::OpPassManager &pm,
+    const ApplyBugWorkaroundsPassOptions &bugWorkaroundOptions);
 } // namespace mlir::tensorrt
 
 #endif // MLIR_TENSORRT_DIALECT_TENSORRT_TRANSFORMS_PASSES

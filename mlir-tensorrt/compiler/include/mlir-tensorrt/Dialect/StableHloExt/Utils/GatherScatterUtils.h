@@ -161,8 +161,40 @@ Value createExpandingReshape(OpBuilder &b, Location loc,
                              RankedTensorType resultType, Value input,
                              ArrayRef<ReassociationIndices> reassociation);
 
+/// Check that the "update_computation" region of a 'stablehlo.scatter' op
+/// yields the "update" scalars directly.
+bool checkUpdateComputationReturnsUpdateValues(stablehlo::ScatterOp op);
+
 /// Returns true if the `scatterOp` has a configuration that corresponds to the
 /// ONNX ScatterNd operation semantic.
+///
+/// The ONNX scatter ND semantic can be found here:
+/// https://onnx.ai/onnx/operators/onnx__ScatterND.html
+///
+/// For `stablehlo.scatter` to represent `onnx.scatter_nd`, we require:
+/// - (C0) the `index_vector_dim` must be the last dimension of the
+///   `scatter_indices`.
+/// - (C1) the `update_window_dims` must correspond to the a tail sequence
+///   of dimensions of the `updates`, which should be
+///   '[scatter_indices.rank - 1, ..., rank(updates)-1]`.
+/// - (C2) `input_batching_dims|scatter_indices_batching_dims` are empty.
+/// - (C3) `scatter_dims_to_operand_dims` must be identity permutation
+///   which maps to start of dims(result). This means it must be
+///   "[0, 1, ..., scatter_indices.shape[-1]-1]".
+/// - (C4) there can't be overlap between non-zero dims in
+///   "full start index" and non-zero dims in "full window index" (see
+///   diagram at
+///   https://github.com/openxla/stablehlo/blob/main/docs/spec.md#scatter
+///   for an example where overlap does occur in result dim 2).
+///   The potential for overlap is a unique feature of
+///   `stablehlo.scatter` that gives it more expressive power.
+///   Requiring no overlap is checked by verifying that `inserted_window_dims`
+///   is the sequence
+///   "[0, 1, ..., scatter_indices.shape[-1]-1]" and C3.
+/// - (C5) The rank of `scatter_updates` must be equal to
+///   `rank(scatter_indices) - 1 + rank(input) - scatter_indices.shape[-1]`.
+///   This final check may have some overlap with the previous 5 but is a good
+///   initial sanity check.
 bool isCanonicalScatterNd(stablehlo::ScatterOp scatterOp);
 
 //===----------------------------------------------------------------------===//

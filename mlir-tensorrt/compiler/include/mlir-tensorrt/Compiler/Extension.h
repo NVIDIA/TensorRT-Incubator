@@ -32,7 +32,7 @@
 #define MLIR_TENSORRT_COMPILER_EXTENSION
 
 #include "mlir-executor/Support/Status.h"
-#include "mlir-tensorrt-dialect/Utils/Options.h"
+#include "mlir-tensorrt/Compiler/OptionsProviders.h"
 #include "mlir/Support/TypeID.h"
 
 namespace mlirtrt::compiler {
@@ -47,8 +47,9 @@ namespace mlirtrt::compiler {
 /// the type ID of the task to which they are associated.
 class TaskExtensionBase {
 public:
-  TaskExtensionBase(mlir::TypeID typeID, mlir::TypeID taskID)
-      : typeID(typeID), taskID(taskID) {}
+  TaskExtensionBase(mlir::TypeID typeID, mlir::TypeID taskID,
+                    CompilationTaskOptionsBase &ctx)
+      : typeID(typeID), taskID(taskID), ctx(ctx) {}
 
   virtual ~TaskExtensionBase();
 
@@ -67,8 +68,10 @@ public:
   /// info, etc).
   virtual Status onCompilationFinished() { return Status::getOk(); }
 
-  /// Allows the extension to hook into the option parsing infrastructure.
-  virtual void addToOptions(mlir::OptionsContext &context) = 0;
+  template <typename T, typename... Mods>
+  using Option = mlir::detail::PassOptions::Option<T, Mods...>;
+  template <typename T, typename... Mods>
+  using ListOption = mlir::detail::PassOptions::ListOption<T, Mods...>;
 
 protected:
   /// Whether this extension is disabled. Should default to false and be
@@ -80,14 +83,20 @@ private:
 
   /// TypeID for the task this extension is associated with.
   mlir::TypeID taskID;
+
+protected:
+  CompilationTaskOptionsBase &ctx;
 };
 
 /// An extension registry is just a list of extensions, associated with one
 /// particular task.
 class TaskExtensionRegistry {
 public:
+  using ConstructorFunc = std::function<std::unique_ptr<TaskExtensionBase>(
+      CompilationTaskOptionsBase &)>;
   using CompilerExtensionModules =
       llvm::DenseMap<mlir::TypeID, std::unique_ptr<TaskExtensionBase>>;
+  using ExtensionBuilders = llvm::DenseMap<mlir::TypeID, ConstructorFunc>;
 
   /// Return an instance of the specified extension if it is in the registry,
   /// otherwise nulloptr.
@@ -97,13 +106,27 @@ public:
         extensions[mlir::TypeID::get<T>()].get());
   }
 
+  template <typename T>
+  void registerExtension() {
+    builders[mlir::TypeID::get<T>()] = [](CompilationTaskOptionsBase &opts)
+        -> std::unique_ptr<TaskExtensionBase> {
+      return std::make_unique<T>(opts);
+    };
+  }
+
+  template <typename T>
+  bool isExtensionRegistered() {
+    return builders.contains(mlir::TypeID::get<T>());
+  }
+
   /// Convenience method for creating a specific instance of the specified
   /// extension type if it is not already in the registry. Must be
   /// default-constructable.
   template <typename T>
-  T *getOrCreateExtension() {
+  T *getOrCreateExtension(CompilationTaskOptionsBase &ctx) {
     if (!extensions.contains(mlir::TypeID::get<T>()))
-      extensions[mlir::TypeID::get<T>()] = std::make_unique<T>();
+      extensions[mlir::TypeID::get<T>()] =
+          builders[mlir::TypeID::get<T>()](ctx);
     return getExtension<T>();
   }
 
@@ -115,14 +138,15 @@ public:
   }
 
   CompilerExtensionModules extensions;
+  ExtensionBuilders builders;
 };
 
 /// An ExtensionConstructorRegistry is a mapping from CompilationTask kind to
-/// constructor functionss for each known TaskExtension associated with that
+/// constructor functions for each known TaskExtension associated with that
 /// CompilationTask kind.
 class ExtensionConstructorRegistry {
 public:
-  using ConstructorFunc = std::function<std::unique_ptr<TaskExtensionBase>()>;
+  using ConstructorFunc = TaskExtensionRegistry::ConstructorFunc;
 
   /// Invoke the constructors for all extensions associated with a given task
   /// and return the newly created extensions as a TaskExtensionRegistry.
@@ -132,20 +156,20 @@ public:
     TaskExtensionRegistry registry;
     if (!constructors.contains(taskID))
       return registry;
-    for (auto [key, extConst] : constructors.lookup(taskID))
-      registry.extensions.insert(std::make_pair(key, extConst()));
+    registry.builders = constructors.lookup(taskID);
     return registry;
   }
 
   template <typename Task, typename ConcreteExtensionType>
   mlir::LogicalResult addCheckedExtensionConstructor() {
-    auto constructor = []() -> std::unique_ptr<TaskExtensionBase> {
-      return std::make_unique<ConcreteExtensionType>();
+    auto constructor = [](CompilationTaskOptionsBase &ctx)
+        -> std::unique_ptr<TaskExtensionBase> {
+      return std::make_unique<ConcreteExtensionType>(ctx);
     };
     auto taskID = mlir::TypeID::get<Task>();
     auto extID = mlir::TypeID::get<ConcreteExtensionType>();
     if (!constructors.contains(taskID)) {
-      llvm::SmallDenseMap<mlir::TypeID, ConstructorFunc> inner = {
+      TaskExtensionRegistry::ExtensionBuilders inner = {
           {mlir::TypeID::get<ConcreteExtensionType>(), std::move(constructor)}};
       constructors.insert(
           std::make_pair(mlir::TypeID::get<Task>(), std::move(inner)));
@@ -158,10 +182,7 @@ public:
   }
 
 private:
-  llvm::SmallDenseMap<
-      mlir::TypeID,
-      llvm::SmallDenseMap<mlir::TypeID,
-                          std::function<std::unique_ptr<TaskExtensionBase>()>>>
+  llvm::SmallDenseMap<mlir::TypeID, TaskExtensionRegistry::ExtensionBuilders>
       constructors;
 };
 

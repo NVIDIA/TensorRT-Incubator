@@ -30,15 +30,14 @@ namespace mlir {
 class RewriterBase;
 namespace executor {
 
-/// Within the given `module`, check if a ConstantResourceOp with the given
+/// Within the given `module`, check if a DataSegmentOp with the given
 /// containing `data` and `name` exists. If it does, return that
-/// ConstantResourceOp. Otherwise, create the resource op with the given name,
+/// DataSegmentOp. Otherwise, create the resource op with the given name,
 /// insert it into the top of the module, and return it.
-ConstantResourceOp getOrCreateConstantResourceDeclaration(OpBuilder &b,
-                                                          Location loc,
-                                                          ModuleOp module,
-                                                          StringRef name,
-                                                          ElementsAttr data);
+DataSegmentOp getOrCreateConstantResourceDeclaration(OpBuilder &b, Location loc,
+                                                     ModuleOp module,
+                                                     StringRef name,
+                                                     ElementsAttr data);
 
 /// Within the given `module`, check if GlobalOp with the given name exists. If
 /// it does, return that GlobalOp. Otherwise, insert it into the module and

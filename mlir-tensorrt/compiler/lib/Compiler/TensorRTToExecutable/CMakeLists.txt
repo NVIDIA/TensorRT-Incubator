@@ -18,8 +18,6 @@ add_mlir_tensorrt_library(MLIRTensorRTCompilerTensorRTToExecutable
     MLIRTensorRTExecutorTransforms
     MLIRTensorRTHostToLLVM
     MLIRTensorRTMemRefToCUDA
-    MLIRTensorRTOptionUtils
-    MLIRTensorRTPipelines
     MLIRTensorRTPlanToExecutor
     MLIRTensorRTPlanTransforms
     MLIRTensorRTRuntimeToExecutor

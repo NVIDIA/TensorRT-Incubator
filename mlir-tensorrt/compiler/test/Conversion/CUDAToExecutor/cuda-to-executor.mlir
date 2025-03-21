@@ -308,7 +308,7 @@ func.func @memref_global() -> (memref<4xi8, #executor.memory_type<host_pinned>>,
 //       CHECK:     executor.call @__cuda_stream_sync(%[[v2]]) : (!executor.ptr<host>) -> ()
 //       CHECK:     executor.call @__cuda_stream_destroy(%[[v2]]) : (!executor.ptr<host>) -> ()
 //       CHECK:     executor.return %[[v6]] : !executor.table<!executor.ptr<host_pinned>, !executor.ptr<host_pinned>, i64, i64, i64>
-//       CHECK:   executor.constant_resource @globalDevice_initializer dense<[5, 6, 7, 8]> : tensor<4xi8>
+//       CHECK:   executor.data_segment @globalDevice_initializer constant dense<[5, 6, 7, 8]> : tensor<4xi8>
 // CHECK-LABEL:   executor.global @globalDevice : !executor.table<!executor.ptr<device>, !executor.ptr<device>, i64, i64, i64> {
 //       CHECK:     %[[c4_i64:.+]] = executor.constant 4 : i64
 //       CHECK:     %[[c1_i64:.+]] = executor.constant 1 : i64
@@ -321,7 +321,7 @@ func.func @memref_global() -> (memref<4xi8, #executor.memory_type<host_pinned>>,
 //       CHECK:     %[[v5:.+]] = executor.call @__cuda_alloc_device(%[[v2]], %[[v3]], %[[v1]], %{{.+}}) : (!executor.ptr<host>, i32, i64, i32) -> !executor.ptr<device>
 //       CHECK:     %[[v6:.+]] = executor.table.create(%[[v5]], %[[v5]], %[[c0_i64]], %[[c4_i64]], %[[c1_i64]] : !executor.ptr<device>, !executor.ptr<device>, i64, i64, i64) : <!executor.ptr<device>, !executor.ptr<device>, i64, i64, i64>
 //       CHECK:     %[[v7:.+]] = executor.table.get %[[v6]][1] : <!executor.ptr<device>, !executor.ptr<device>, i64, i64, i64>
-//       CHECK:     %[[v8:.+]] = executor.load_constant_resource @globalDevice_initializer : !executor.ptr<host>
+//       CHECK:     %[[v8:.+]] = executor.load_data_segment @globalDevice_initializer : !executor.ptr<host>
 //       CHECK:     executor.call @__cuda_memcpy_host2device(%[[v2]], %[[v8]], %[[c0_i64]], %[[v7]], %[[c0_i64]], %[[v1]]) : (!executor.ptr<host>, !executor.ptr<host>, i64, !executor.ptr<device>, i64, i64) -> ()
 //       CHECK:     executor.call @__cuda_stream_sync(%[[v2]]) : (!executor.ptr<host>) -> ()
 //       CHECK:     executor.call @__cuda_stream_destroy(%[[v2]]) : (!executor.ptr<host>) -> ()
@@ -378,10 +378,10 @@ func.func @test_cuda_launch(
   return
 }
 
-//   CHECK-LABEL:   executor.constant_resource @kernels_cuModule_0_ptx_data dense<-1> : vector<1xi8>
+//   CHECK-LABEL:   executor.data_segment @kernels_cuModule_0_ptx_data constant dense<-1> : vector<1xi8>
 //   CHECK-LABEL:   executor.global @kernels_cuModule_0_cuModule constant : !executor.ptr<host> {
 //   CHECK-DAG:     %[[v0:.+]] = executor.call @__spmd_global_rank() : () -> i32
-//   CHECK-DAG:     %[[v2:.+]] = executor.load_constant_resource @kernels_cuModule_0_ptx_data : !executor.ptr<host>
+//   CHECK-DAG:     %[[v2:.+]] = executor.load_data_segment @kernels_cuModule_0_ptx_data : !executor.ptr<host>
 //   CHECK-DAG:     %[[c1_i64:.+]] = executor.constant 1 : i64
 //   CHECK-DAG:     %[[v3:.+]] = executor.call @__cuda_load_module(%[[v0]], %[[v2]], %[[c1_i64]]) : (i32, !executor.ptr<host>, i64) -> !executor.ptr<host>
 //   CHECK-DAG:     executor.return %[[v3]] : !executor.ptr<host>

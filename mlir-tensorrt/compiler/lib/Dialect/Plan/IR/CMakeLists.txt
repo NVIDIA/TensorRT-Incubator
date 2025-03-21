@@ -1,7 +1,6 @@
 add_mlir_tensorrt_dialect_library(MLIRTensorRTPlanDialect
   PlanInterfaces.cpp
   PlanOps.cpp
-  BuiltinClusterKinds.cpp
 
   DEPENDS
   MLIRPlanOpsIncGen
@@ -10,7 +9,6 @@ add_mlir_tensorrt_dialect_library(MLIRTensorRTPlanDialect
   MLIRTensorRTPlanDialectAttrInterfacesIncGen
 
   LINK_LIBS PUBLIC
-  ChloOps
   MLIRControlFlowInterfaces
   MLIRDialect
   MLIRExecutorGenericClustering
@@ -18,11 +16,7 @@ add_mlir_tensorrt_dialect_library(MLIRTensorRTPlanDialect
   MLIRInferTypeOpInterface
   MLIRIR
   MLIRSupport
-  MLIRTensorRTConvertToTensorRTCommon
   MLIRTensorRTInterfaces
-  MLIRTensorRTStablehloScalarToArith
-  MLIRTensorRTStablehloToTensorRT
   MLIRTensorRTSupportStatus
   MLIRTensorRTUtilsShapeInfo
-  StablehloOps
-)
+  )

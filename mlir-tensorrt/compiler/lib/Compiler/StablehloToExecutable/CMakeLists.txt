@@ -1,4 +1,5 @@
 add_mlir_tensorrt_library(MLIRTensorRTCompilerStableHloToExecutable
+    StableHloInputPipelines.cpp
     StablehloToExecutable.cpp
     TensorRTExtension.cpp
     Passes.cpp
@@ -12,6 +13,7 @@ add_mlir_tensorrt_library(MLIRTensorRTCompilerStableHloToExecutable
     MLIREmitCTransforms
     MLIRIR
     MLIRLLVMIRTransforms
+    MLIRTensorRTChloToStablehloExt
     MLIRTensorRTCompilerClient
     MLIRTensorRTCUDAToExecutor
     MLIRTensorRTDropNestedModules
@@ -19,8 +21,6 @@ add_mlir_tensorrt_library(MLIRTensorRTCompilerStableHloToExecutable
     MLIRTensorRTHostToEmitC
     MLIRTensorRTHostToLLVM
     MLIRTensorRTMemRefToCUDA
-    MLIRTensorRTOptionUtils
-    MLIRTensorRTPipelines
     MLIRTensorRTPlanToExecutor
     MLIRTensorRTPlanTransforms
     MLIRTensorRTRuntimeToExecutor
@@ -32,4 +32,6 @@ add_mlir_tensorrt_library(MLIRTensorRTCompilerStableHloToExecutable
     MLIRTensorRTTensorRTToTensorRTRuntime
     MLIRTensorRTTransforms
     StablehloLinalgTransforms
+    MLIRTensorRTTensorRTBackend
+    MLIRTensorRTHostBackend
     )

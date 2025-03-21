@@ -221,7 +221,7 @@ func.func @device_alloc(%arg0: index, %arg1: index, %stream: !cuda.stream, %devi
 //   CHECK-DAG:     %[[v11:.+]] = llvm.ptrtoint %[[v10]] : !llvm.ptr to i64
 //   CHECK-DAG:     %[[v12:.+]] = llvm.mlir.constant(8 : i32) : i32
 //   CHECK-DAG:     %[[v13:.+]] = llvm.call @mtrt_cuda_alloc_async(%[[v2]], %[[arg3]], %[[v11]], %[[v12]], %[[v4]], %[[v3]]) :
-//   CHECK-DAG:     %[[v14:.+]] = llvm.mlir.undef : !llvm.struct<(ptr, ptr, i64, array<3 x i64>, array<3 x i64>)>
+//   CHECK-DAG:     %[[v14:.+]] = llvm.mlir.poison : !llvm.struct<(ptr, ptr, i64, array<3 x i64>, array<3 x i64>)>
 //   CHECK-DAG:     %[[v15:.+]] = llvm.insertvalue %[[v13]], %[[v14]][0] :
 //   CHECK-DAG:     %[[v16:.+]] = llvm.insertvalue %[[v13]], %[[v15]][1] :
 //   CHECK-DAG:     %[[v17:.+]] = llvm.mlir.constant(0 : index) : i64
@@ -256,7 +256,7 @@ func.func @memref_device_alloc_i1(%arg0: !cuda.stream, %device: i32) -> memref<1
 //   CHECK-DAG:     %[[v9:.+]] = llvm.ptrtoint %[[v8]] : !llvm.ptr to i64
 //   CHECK-DAG:     %[[v10:.+]] = llvm.mlir.constant(16 : i32) : i32
 //   CHECK-DAG:     %[[v11:.+]] = llvm.call @mtrt_cuda_alloc_async(%[[v0]], %[[arg1]], %[[v9]], %[[v10]], %[[v2]], %[[v1]]) : (!llvm.ptr, i32, i64, i32, i8, i8) -> !llvm.ptr
-//   CHECK-DAG:     %[[v12:.+]] = llvm.mlir.undef : !llvm.struct<(ptr, ptr, i64, array<2 x i64>, array<2 x i64>)>
+//   CHECK-DAG:     %[[v12:.+]] = llvm.mlir.poison : !llvm.struct<(ptr, ptr, i64, array<2 x i64>, array<2 x i64>)>
 //   CHECK-DAG:     %[[v13:.+]] = llvm.insertvalue %[[v11]], %[[v12]][0] : !llvm.struct<(ptr, ptr, i64, array<2 x i64>, array<2 x i64>)>
 //   CHECK-DAG:     %[[v14:.+]] = llvm.insertvalue %[[v11]], %[[v13]][1] : !llvm.struct<(ptr, ptr, i64, array<2 x i64>, array<2 x i64>)>
 //   CHECK-DAG:     %[[v15:.+]] = llvm.mlir.constant(0 : index) : i64
@@ -294,7 +294,7 @@ func.func @pinned_alloc(%arg0: index, %arg1: index, %stream: !cuda.stream, %devi
 //   CHECK-DAG:     %[[v12:.+]] = llvm.mlir.constant(8 : i32) : i32
 //   CHECK-DAG:     %[[v13:.+]] = llvm.mlir.constant(-1 : i32) : i32
 //   CHECK-DAG:     %[[v14:.+]] = llvm.call @mtrt_cuda_alloc_async(%[[v11]], %[[v13]], %[[v10]], %[[v12]], %[[v3]], %[[v2]]) :
-//   CHECK-DAG:     %[[v15:.+]] = llvm.mlir.undef : !llvm.struct<(ptr, ptr, i64, array<3 x i64>, array<3 x i64>)>
+//   CHECK-DAG:     %[[v15:.+]] = llvm.mlir.poison : !llvm.struct<(ptr, ptr, i64, array<3 x i64>, array<3 x i64>)>
 //   CHECK-DAG:     %[[v16:.+]] = llvm.insertvalue %[[v14]], %[[v15]][0] : !llvm.struct<(ptr, ptr, i64, array<3 x i64>, array<3 x i64>)>
 //   CHECK-DAG:     %[[v17:.+]] = llvm.insertvalue %[[v14]], %[[v16]][1] : !llvm.struct<(ptr, ptr, i64, array<3 x i64>, array<3 x i64>)>
 //   CHECK-DAG:     %[[v18:.+]] = llvm.mlir.constant(0 : index) : i64
@@ -436,14 +436,14 @@ func.func @copy_d2h_strided(%arg0: !srcType,
 //   CHECK-DAG:     %[[v4:.+]] = llvm.mlir.constant(1 : index) : i64
 //   CHECK-DAG:     %[[v5:.+]] = llvm.alloca %[[v4]] x !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)> : (i64) -> !llvm.ptr
 //   CHECK-DAG:     llvm.store %[[v1]], %[[v5]] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>, !llvm.ptr
-//   CHECK-DAG:     %[[v6:.+]] = llvm.mlir.undef : !llvm.struct<(i64, ptr)>
+//   CHECK-DAG:     %[[v6:.+]] = llvm.mlir.poison : !llvm.struct<(i64, ptr)>
 //   CHECK-DAG:     %[[v7:.+]] = llvm.insertvalue %[[v3]], %[[v6]][0] : !llvm.struct<(i64, ptr)>
 //   CHECK-DAG:     %[[v8:.+]] = llvm.insertvalue %[[v5]], %[[v7]][1] : !llvm.struct<(i64, ptr)>
 //   CHECK-DAG:     %[[v9:.+]] = llvm.mlir.constant(1 : i64) : i64
 //   CHECK-DAG:     %[[v10:.+]] = llvm.mlir.constant(1 : index) : i64
 //   CHECK-DAG:     %[[v11:.+]] = llvm.alloca %[[v10]] x !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)> : (i64) -> !llvm.ptr
 //   CHECK-DAG:     llvm.store %[[v0]], %[[v11]] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>, !llvm.ptr
-//   CHECK-DAG:     %[[v12:.+]] = llvm.mlir.undef : !llvm.struct<(i64, ptr)>
+//   CHECK-DAG:     %[[v12:.+]] = llvm.mlir.poison : !llvm.struct<(i64, ptr)>
 //   CHECK-DAG:     %[[v13:.+]] = llvm.insertvalue %[[v9]], %[[v12]][0] : !llvm.struct<(i64, ptr)>
 //   CHECK-DAG:     %[[v14:.+]] = llvm.insertvalue %[[v11]], %[[v13]][1] : !llvm.struct<(i64, ptr)>
 //   CHECK-DAG:     %[[v15:.+]] = llvm.extractvalue %[[v8]][0] : !llvm.struct<(i64, ptr)>

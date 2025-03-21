@@ -3748,12 +3748,6 @@ struct ConvertScatterToTensorRT
       return rewriter.notifyMatchFailure(
           op, "can only convert ops that are in ScatterNd format");
 
-    auto indicesType =
-        cast<RankedTensorType>(adaptor.getScatterIndices().getType());
-    auto updatesType =
-        cast<RankedTensorType>(adaptor.getUpdates().front().getType());
-    assert(indicesType.getDimSize(0) == updatesType.getDimSize(0) &&
-           "expected first dim of indices/updates to be identical");
     SmallVector<Value> replacements;
     replacements.reserve(adaptor.getInputs().size());
     for (auto [input, update] :

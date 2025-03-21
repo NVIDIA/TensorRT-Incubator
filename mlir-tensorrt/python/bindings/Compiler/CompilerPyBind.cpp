@@ -51,30 +51,6 @@ public:
       mtrtCompilerClientIsNull, mtrtCompilerClientDestroy};
 };
 
-/// Python object type wrapper for `MTRT_OptionsContext`.
-class PyOptionsContext
-    : public PyMTRTWrapper<PyOptionsContext, MTRT_OptionsContext> {
-public:
-  using PyMTRTWrapper::PyMTRTWrapper;
-  DECLARE_WRAPPER_CONSTRUCTORS(PyOptionsContext);
-
-  static constexpr auto kMethodTable = CAPITable<MTRT_OptionsContext>{
-      mtrtOptionsConextIsNull, mtrtOptionsContextDestroy};
-};
-
-/// Python object type wrapper for `MTRT_StableHLOToExecutableOptions`.
-class PyStableHLOToExecutableOptions
-    : public PyMTRTWrapper<PyStableHLOToExecutableOptions,
-                           MTRT_StableHLOToExecutableOptions> {
-public:
-  using PyMTRTWrapper::PyMTRTWrapper;
-  DECLARE_WRAPPER_CONSTRUCTORS(PyStableHLOToExecutableOptions);
-  static constexpr auto kMethodTable =
-      CAPITable<MTRT_StableHLOToExecutableOptions>{
-          mtrtStableHloToExecutableOptionsIsNull,
-          mtrtStableHloToExecutableOptionsDestroy};
-};
-
 /// Python object type wrapper for `MlirPassManager`.
 class PyPassManagerReference
     : public PyMTRTWrapper<PyPassManagerReference, MlirPassManager> {
@@ -221,6 +197,9 @@ static void bindTensorRTPluginAdaptorObjects(py::module m) {
 #if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 1, 0)
       .value("INT4", nvinfer1::PluginFieldType::kINT4)
 #endif
+#if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 9, 0)
+      .value("FP4", nvinfer1::PluginFieldType::kFP4)
+#endif
       ;
 
   py::class_<PyPluginFieldInfo>(m, "PluginFieldInfo", py::module_local())
@@ -281,73 +260,6 @@ PYBIND11_MODULE(_api, m) {
             return new PyPassManagerReference(pm);
           });
 
-  py::class_<PyOptionsContext>(m, "OptionsContext", py::module_local())
-      .def(py::init<>([](PyCompilerClient &client,
-                         const std::string &optionsType,
-                         const std::vector<std::string> &args) {
-             std::vector<MlirStringRef> refs(args.size());
-             for (unsigned i = 0; i < args.size(); i++)
-               refs[i] = mlirStringRefCreate(args[i].data(), args[i].size());
-
-             MTRT_OptionsContext options;
-             MTRT_Status s = mtrtOptionsContextCreateFromArgs(
-                 client, &options,
-                 mlirStringRefCreate(optionsType.data(), optionsType.size()),
-                 refs.data(), refs.size());
-             THROW_IF_MTRT_ERROR(s);
-             return new PyOptionsContext(options);
-           }),
-           py::arg("client"), py::arg("options_type"), py::arg("args"))
-
-      .def("__repr__", [](PyOptionsContext &self) {
-        auto callback = [](MlirStringRef data, void *initialString) {
-          *reinterpret_cast<std::string *>(initialString) +=
-              llvm::StringRef(data.data, data.length);
-        };
-
-        std::string result("Options[");
-        mtrtOptionsContextPrint(self, callback, &result);
-        result += "]";
-        return result;
-      });
-
-  py::class_<PyStableHLOToExecutableOptions>(m, "StableHLOToExecutableOptions",
-                                             py::module_local())
-      .def(py::init<>([](PyCompilerClient &client,
-                         const std::vector<std::string> &args)
-                          -> PyStableHLOToExecutableOptions * {
-             std::vector<MlirStringRef> refs(args.size());
-             for (unsigned i = 0; i < args.size(); i++)
-               refs[i] = mlirStringRefCreate(args[i].data(), args[i].size());
-
-             MTRT_StableHLOToExecutableOptions options;
-             MTRT_Status s = mtrtStableHloToExecutableOptionsCreateFromArgs(
-                 client, &options, refs.data(), refs.size());
-             THROW_IF_MTRT_ERROR(s);
-             return new PyStableHLOToExecutableOptions(options);
-           }),
-           py::arg("client"), py::arg("args"))
-      .def(
-          "set_debug_options",
-          [](PyStableHLOToExecutableOptions &self, bool enabled,
-             std::vector<std::string> debugTypes,
-             std::optional<std::string> dumpIrTreeDir,
-             std::optional<std::string> dumpTensorRTDir) {
-            // The strings are copied by the CAPI call, so we just need to
-            // refence the C-strings temporarily.
-            std::vector<const char *> literals;
-            for (const std::string &str : debugTypes)
-              literals.push_back(str.c_str());
-            THROW_IF_MTRT_ERROR(mtrtStableHloToExecutableOptionsSetDebugOptions(
-                self, enabled, literals.data(), literals.size(),
-                dumpIrTreeDir ? dumpIrTreeDir->c_str() : nullptr,
-                dumpTensorRTDir ? dumpTensorRTDir->c_str() : nullptr));
-          },
-          py::arg("enabled"),
-          py::arg("debug_types") = std::vector<std::string>{},
-          py::arg("dump_ir_tree_dir") = py::none(),
-          py::arg("dump_tensorrt_dir") = py::none());
-
   py::class_<PyPassManagerReference>(m, "PassManagerReference",
                                      py::module_local())
       .def("run", [](PyPassManagerReference &self, MlirOperation op) {
@@ -355,18 +267,6 @@ PYBIND11_MODULE(_api, m) {
         if (mlirLogicalResultIsFailure(result))
           throw MTRTException("failed to run pass pipeline");
       });
-
-  m.def(
-      "compiler_stablehlo_to_executable",
-      [](PyCompilerClient &client, MlirOperation module,
-         PyStableHLOToExecutableOptions &options) {
-        MTRT_Executable exe{nullptr};
-        MTRT_Status status =
-            mtrtCompilerStableHLOToExecutable(client, module, options, &exe);
-        THROW_IF_MTRT_ERROR(status);
-        return new PyExecutable(exe);
-      },
-      py::arg("client"), py::arg("module"), py::arg("options"));
 
 #ifdef MLIR_TRT_TARGET_TENSORRT
 #if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 0, 0)

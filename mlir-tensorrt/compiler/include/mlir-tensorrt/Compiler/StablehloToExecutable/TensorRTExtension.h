@@ -21,8 +21,8 @@
 /// Declarations for TensorRT-specific compilation options and pipeline hooks.
 ///
 //===----------------------------------------------------------------------===//
-#ifndef MLIR_TENSORRT_COMPILER_TENSORRTEXTENSION_TENSORRTEXTENSION
-#define MLIR_TENSORRT_COMPILER_TENSORRTEXTENSION_TENSORRTEXTENSION
+#ifndef MLIR_TENSORRT_COMPILER_STABLEHLOTOEXECUTABLE_TENSORRTEXTENSION
+#define MLIR_TENSORRT_COMPILER_STABLEHLOTOEXECUTABLE_TENSORRTEXTENSION
 
 #include "mlir-tensorrt-dialect/Target/TranslateToTensorRT.h"
 #include "mlir-tensorrt/Compiler/StablehloToExecutable/StablehloToExecutable.h"
@@ -37,7 +37,8 @@ class StablehloToExecutableTensorRTExtension
     : public StablehloToExecutableOptions::Extension<
           StablehloToExecutableTensorRTExtension> {
 public:
-  StablehloToExecutableTensorRTExtension();
+  using StablehloToExecutableOptions::Extension<
+      StablehloToExecutableTensorRTExtension>::Extension;
 
   llvm::StringRef getName() const final { return "tensorrt-extension"; }
 
@@ -47,26 +48,57 @@ public:
   void populatePasses(mlir::OpPassManager &pm, Phase phase,
                       const StablehloToExecutableOptions &options) const final;
 
-  /// Allows the extension to hook into the option parsing infrastructure.
-  void addToOptions(mlir::OptionsContext &context) final {
-    context.addOption("disable-tensorrt-extension", disabled,
-                      llvm::cl::init(false));
-    context.addOption("use-global-tensorrt-translation-flags", useGlobalCLFlags,
-                      llvm::cl::init(false));
-    translationOptions.addToOptions(context);
-  }
-
   /// Override the current options.
   void setOptions(mlir::tensorrt::TensorRTTranslationOptions options) {
-    this->translationOptions = std::move(options);
+    this->timingCachePath = options.timingCachePath;
+    this->enableStronglyTyped = options.enableStronglyTyped;
+    this->tensorrtBuilderOptLevel = options.tensorrtBuilderOptLevel;
+    this->saveTensorRTEnginesToDirectory =
+        options.saveTensorRTLayerInfoDirectory;
+    this->saveTensorRTLayerInfoDirectory =
+        options.saveTensorRTLayerInfoDirectory;
+    this->workspaceMemoryPoolLimit = options.workspaceMemoryPoolLimit;
   }
 
-private:
-  /// Options for MLIR-to-TensorRT translation.
-  mlir::tensorrt::TensorRTTranslationOptions translationOptions;
+  Option<bool> disable{this->ctx, "disable-tensorrt-extension",
+                       llvm::cl::init(false)};
+
+  Option<TensorRTTargetFormat> format{
+      this->ctx, "tensorrt-target",
+      llvm::cl::desc("specifies the target compilation format for "
+                     "functions offloaded to TensorRT"),
+      llvm::cl::init(TensorRTTargetFormat::Engine),
+      llvm::cl::values(clEnumValN(TensorRTTargetFormat::Engine, "engine",
+                                  "lower to compiled TensorRT engines"),
+                       clEnumValN(TensorRTTargetFormat::CPP, "cpp",
+                                  "lower to C++ TensorRT nvinfer API "))};
 
   /// Whether to use global CL config for options.
-  bool useGlobalCLFlags{false};
+  Option<bool> useGlobalCLFlags{this->ctx,
+                                "use-global-tensorrt-translation-flags",
+                                llvm::cl::init(false)};
+
+  Option<std::string> timingCachePath{this->ctx, "tensorrt-timing-cache-path",
+                                      llvm::cl::init("")};
+  Option<int> tensorrtBuilderOptLevel{this->ctx, "tensorrt-builder-opt-level",
+                                      llvm::cl::init(0)};
+  Option<bool> enableStronglyTyped{this->ctx, "tensorrt-strongly-typed",
+                                   llvm::cl::init(false)};
+  Option<std::string> saveTensorRTEnginesToDirectory{
+      this->ctx, "tensorrt-engines-dir", llvm::cl::init("")};
+  Option<std::string> saveTensorRTLayerInfoDirectory{
+      this->ctx, "tensorrt-layer-info-dir", llvm::cl::init("")};
+  Option<std::optional<uint64_t>, mlir::tensorrt::ByteSizeParser>
+      workspaceMemoryPoolLimit{this->ctx,
+                               "tensorrt-workspace-memory-pool-limit",
+                               llvm::cl::init(std::nullopt)};
+
+  Option<bool> forceDefaultSliceInBounds{
+      this->ctx, "tensorrt-force-default-slice-in-bounds",
+      llvm::cl::init(false),
+      llvm::cl::desc("Specifies whether we should constrain dynamic offset and "
+                     "sizes operands of 'default' (no OOB access allowed) "
+                     "slice ops so that all accesses will be in bounds")};
 };
 
 } // namespace mlirtrt::compiler
@@ -74,4 +106,4 @@ private:
 MLIR_DECLARE_EXPLICIT_TYPE_ID(
     mlirtrt::compiler::StablehloToExecutableTensorRTExtension)
 
-#endif // MLIR_TENSORRT_COMPILER_TENSORRTEXTENSION_TENSORRTEXTENSION
+#endif // MLIR_TENSORRT_COMPILER_STABLEHLOTOEXECUTABLE_TENSORRTEXTENSION

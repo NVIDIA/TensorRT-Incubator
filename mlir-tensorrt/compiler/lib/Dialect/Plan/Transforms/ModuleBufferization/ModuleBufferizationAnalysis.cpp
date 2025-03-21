@@ -15,8 +15,10 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt/Dialect/Plan/Transforms/ModuleBufferization/ModuleBufferization.h"
+#include "mlir-tensorrt/Utils/ModuleUtils.h"
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
 #include "mlir/Dialect/Bufferization/Transforms/FuncBufferizableOpInterfaceImpl.h"
+#include "mlir/Dialect/Bufferization/Transforms/OneShotAnalysis.h"
 #include "mlir/Interfaces/ControlFlowInterfaces.h"
 
 #define DEBUG_TYPE "plan-module-bufferize"
@@ -205,7 +207,7 @@ funcOpBbArgReadWriteAnalysis(func::FuncOp funcOp, OneShotAnalysisState &state,
                              FuncAnalysisState &funcState) {
   for (int64_t idx = 0, e = funcOp.getNumArguments(); idx < e; ++idx) {
     // Skip non-tensor arguments.
-    if (!isa<TensorType>(funcOp.getArgument(idx).getType()))
+    if (!isa<TensorType>(funcOp.getFunctionType().getInput(idx)))
       continue;
     bool isRead;
     bool isWritten;
@@ -285,9 +287,51 @@ LogicalResult plan::analyzeOneModuleOp(ModuleLikeOp moduleOp,
   for (func::FuncOp funcOp : remainingFuncOps) {
     if (!state.getOptions().isOpAllowed(funcOp))
       continue;
-    return funcOp.emitError(
-        "failed to analyze functions with circular call graph");
+
+    // Analyze funcOp.
+    if (failed(analyzeOp(funcOp, state, statistics)))
+      return failure();
+
+    // TODO: We currently skip all function argument analyses for functions
+    // that call each other circularly. These analyses do not support recursive
+    // calls yet. The `BufferizableOpInterface` implementations of `func`
+    // dialect ops return conservative results in the absence of analysis
+    // information.
   }
 
   return success();
+}
+
+void FuncAnalysisStateInfo::appendToState(
+    bufferization::OneShotAnalysisState &state) const {
+  func_ext::FuncAnalysisState &other = getOrCreateFuncAnalysisState(state);
+  for (const auto &[func, s] : analyzedFuncOps)
+    other.analyzedFuncOps[func] = s;
+  for (const auto &[func, s] : equivalentFuncArgs)
+    other.equivalentFuncArgs[func] = s;
+  for (const auto &[func, s] : writtenBbArgs)
+    other.writtenBbArgs[func] = s;
+  for (const auto &[func, s] : readBbArgs)
+    other.readBbArgs[func] = s;
+  for (const auto &[func, s] : aliasingReturnVals)
+    other.aliasingReturnVals[func] = s;
+}
+
+void plan::setupAnalysisStateForModule(ModuleLikeOp moduleOp,
+                                       const ModuleFuncAnalysisCache &funcInfo,
+                                       OneShotAnalysisState &newState) {
+  for (const auto &[otherModule, funcInfo] : funcInfo) {
+    if (!moduleOp->isProperAncestor(otherModule))
+      continue;
+    funcInfo.appendToState(newState);
+  }
+}
+
+void plan::appendAnalysisResultsToCache(
+    ModuleLikeOp op, ModuleFuncAnalysisCache &cache,
+    const bufferization::OneShotAnalysisState &state) {
+  const auto *result = state.getExtension<FuncAnalysisState>();
+  if (!result)
+    return;
+  cache.insert(std::make_pair(*op, FuncAnalysisStateInfo(*result)));
 }

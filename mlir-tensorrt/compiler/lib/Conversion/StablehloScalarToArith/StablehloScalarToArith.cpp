@@ -239,7 +239,6 @@ cloneStablehloScalarReduceBlock(RewriterBase &rewriter, Block *body,
 
 namespace {
 /// Convert `stablehlo.reduce` to operate on scalars.
-/// TODO: expand support to rank > 1.
 struct StablehloRewriteReduce
     : public OneToNOpConversionPattern<stablehlo::ReduceOp> {
   using OneToNOpConversionPattern::OneToNOpConversionPattern;
@@ -248,12 +247,16 @@ struct StablehloRewriteReduce
   matchAndRewrite(stablehlo::ReduceOp op, OpAdaptor adaptor,
                   OneToNPatternRewriter &rewriter) const override {
     if (op.getInputs().size() != 1)
-      return failure();
-    RankedTensorType inputType =
-        dyn_cast<RankedTensorType>(op.getInputs().front().getType());
+      return rewriter.notifyMatchFailure(
+          op, "reduction over multiple operands not supported");
 
-    if (!inputType || inputType.getRank() != 1)
-      return failure();
+    RankedTensorType inputType =
+        cast<RankedTensorType>(op.getInputs().front().getType());
+    RankedTensorType resultType =
+        cast<RankedTensorType>(op->getResultTypes().front());
+    if (!resultType.hasStaticShape() || resultType.getNumElements() != 1)
+      return rewriter.notifyMatchFailure(
+          op, "reduction which is not over the whole tensor is not supported");
 
     ValueRange inputScalars = adaptor.getInputs().front();
     ValueRange initScalars = adaptor.getInitValues().front();
@@ -261,7 +264,6 @@ struct StablehloRewriteReduce
 
     // Serialize the reduction.
     Value accum = initScalars.front();
-    // const TypeConverter *converter = getTypeConverter();
     for (int64_t i = 0; i < inputType.getNumElements(); i++) {
       FailureOr<SmallVector<Value>> yieldedResults =
           cloneStablehloScalarReduceBlock(rewriter, &op.getBody().front(),
@@ -312,7 +314,7 @@ bool mlir::stablehlo_ext::isScalarizableType(Type t) {
   auto rtt = dyn_cast<RankedTensorType>(t);
   if (!rtt || !rtt.hasStaticShape())
     return false;
-  return rtt && rtt.hasStaticShape() && rtt.getNumElements() <= 4;
+  return rtt && rtt.hasStaticShape() && rtt.getNumElements() <= 16;
 }
 
 /// Return a 1-to-N type converter for scalarizing Tensor types to unpacked

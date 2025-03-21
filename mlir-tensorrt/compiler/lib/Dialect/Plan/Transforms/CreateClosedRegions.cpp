@@ -21,8 +21,8 @@
 /// Implementation of the `plan-create-closed-regions` pass.
 ///
 //===----------------------------------------------------------------------===//
+#include "mlir-executor/Transforms/Clustering/Patterns.h"
 #include "mlir-tensorrt-dialect/Analysis/TensorKindAnalysis.h"
-#include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
 #include "mlir-tensorrt/Dialect/Plan/Analysis/BoundsAnalysis.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
@@ -597,8 +597,9 @@ public:
     SmallVector<plan::InlineGroupOp> groupOps;
     MLIRContext *ctx = op->getContext();
 
-    auto opFilterFn = [](plan::InlineGroupOp groupOp) {
-      return llvm::isa<TensorRTClusterKindAttr>(groupOp.getTarget());
+    auto opFilterFn = [&](plan::InlineGroupOp groupOp) {
+      return cast<ClusterKindAttrInterface>(groupOp.getTarget())
+          .requiresClosure(inputKind);
     };
 
     // Filter by target for those that require DPS transform.

@@ -59,20 +59,22 @@ static LogicalResult rewriteGlobalInitializers(RewriterBase &rewriter,
   rewriter.setInsertionPointToStart(initFunc.addEntryBlock());
   auto termOp = rewriter.create<func::ReturnOp>(op->getLoc());
   for (GlobalOp globalOp : globals) {
-    // For data with initial_value attributes, lower into ConstantResourceOp and
+    // For data with initial_value attributes, lower into DataSegmentOp and
     // a load.
     auto initialValueAttr = globalOp.getInitialValueAttr();
     if (initialValueAttr && isa<ElementsAttr>(initialValueAttr)) {
       rewriter.setInsertionPoint(globalOp);
-      auto constantResourceOp = ConstantResourceOp::create(
+      auto dataSegmentOp = DataSegmentOp::create(
           globalOp.getLoc(), (globalOp.getSymName() + "_initializer").str(),
-          cast<ElementsAttr>(initialValueAttr));
-      moduleSymbolTable.insert(constantResourceOp);
+          cast<ElementsAttr>(initialValueAttr),
+          /*constant=*/true,
+          /*uninitialized=*/false, IntegerAttr{});
+      moduleSymbolTable.insert(dataSegmentOp);
 
       rewriter.setInsertionPoint(termOp);
       // Create the load and set in the initializer function.
       Value resourceValue = rewriter.create<ConstantResourceLoadOp>(
-          globalOp.getLoc(), FlatSymbolRefAttr::get(constantResourceOp));
+          globalOp.getLoc(), FlatSymbolRefAttr::get(dataSegmentOp));
       rewriter.create<SetGlobalOp>(op->getLoc(), resourceValue,
                                    globalOp.getSymName());
 

@@ -83,7 +83,7 @@ static GlobalOp getOrCreateRuntimeGlobalOp(
 /// Create a `executor.global` to load the TensorRT engine/execution context.
 static GlobalOp getOrCreateExecutionContextGlobal(
     RewriterBase &rewriter, trtrt::CompiledFuncOp trtFunc,
-    ConstantResourceOp resourceOp, GlobalOp runtimeGlobal,
+    DataSegmentOp resourceOp, GlobalOp runtimeGlobal,
     const TensorRTRuntimeBuiltinCallBuilders &callBuilder) {
   std::string name = (trtFunc.getName() + "_exec_ctx").str();
   auto parentModule = trtFunc->getParentOfType<ModuleOp>();
@@ -145,7 +145,7 @@ convertCompiledFuncOps(RewriterBase &rewriter, ModuleOp module,
 
     GlobalOp runtimeGlobal =
         getOrCreateRuntimeGlobalOp(rewriter, module, builderUtils);
-    ConstantResourceOp resourceGlobal = getOrCreateConstantResourceDeclaration(
+    DataSegmentOp resourceGlobal = getOrCreateConstantResourceDeclaration(
         rewriter, op.getLoc(), module, op.getSymName(), op.getValue());
     GlobalOp executionContextGlobal = getOrCreateExecutionContextGlobal(
         rewriter, op, resourceGlobal, runtimeGlobal, builderUtils);

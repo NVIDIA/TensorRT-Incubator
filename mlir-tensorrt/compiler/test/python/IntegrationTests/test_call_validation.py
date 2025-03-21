@@ -35,14 +35,12 @@ class Test:
 
             # Use the compiler API to compile to executable.
             client = compiler.CompilerClient(context)
-            opts = compiler.StableHLOToExecutableOptions(
-                client,
+            task = client.get_compilation_task(
+                "stablehlo-to-executable",
                 ["--tensorrt-builder-opt-level=3", "--tensorrt-strongly-typed=false"],
             )
-            opts.set_debug_options(False, [], "tmp")
-            self.exe = compiler.compiler_stablehlo_to_executable(
-                client, m.operation, opts
-            )
+            task.run(m.operation)
+            self.exe = compiler.translate_mlir_to_executable(m.operation)
 
         self.client = runtime.RuntimeClient()
         self.stream = self.client.create_stream()

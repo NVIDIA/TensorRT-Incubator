@@ -75,6 +75,9 @@ bool ByteSizeParser::parse(llvm::cl::Option &option, StringRef argName,
   val = std::strtoull(arg.data(), &End, 0);
 
   while (1) {
+    if (std::distance(arg.data(), static_cast<const char *>(End)) >=
+        static_cast<int64_t>(arg.size()))
+      return false;
     switch (*End++) {
     case 0:
       return false; // No error
@@ -732,8 +735,7 @@ class TranslateToTensorRTEnginePass
           TranslateToTensorRTEnginePass> {
 public:
   TranslateToTensorRTEnginePass()
-      : builderContext(nullptr),
-        translationOptions(TensorRTTranslationOptions::fromCLFlags()) {}
+      : builderContext(nullptr), translationOptions(std::nullopt) {}
 
   explicit TranslateToTensorRTEnginePass(
       std::shared_ptr<TensorRTBuilderContext> builderContext,
@@ -742,6 +744,9 @@ public:
   }
 
   LogicalResult initialize(MLIRContext *context) final {
+    if (!translationOptions)
+      this->translationOptions = TensorRTTranslationOptions::fromCLFlags();
+
     if (!this->builderContext) {
       FailureOr<std::shared_ptr<TensorRTBuilderContext>> builderResult =
           TensorRTBuilderContext::create(
@@ -758,7 +763,7 @@ public:
 
     if (!this->timingCache)
       this->timingCache =
-          loadSerializedTimingCache(translationOptions.timingCachePath);
+          loadSerializedTimingCache(translationOptions->timingCachePath);
 
     return success();
   }
@@ -782,9 +787,9 @@ public:
     }
 
     for (auto func : funcs) {
-      if (!translationOptions.loadTensorRTEnginesFromDirectory.empty()) {
+      if (!translationOptions->loadTensorRTEnginesFromDirectory.empty()) {
         llvm::SmallString<128> fileName = getEngineFileName(
-            func, translationOptions.loadTensorRTEnginesFromDirectory);
+            func, translationOptions->loadTensorRTEnginesFromDirectory);
         std::string error;
         std::unique_ptr<llvm::MemoryBuffer> buffer =
             mlir::openInputFile(fileName, &error);
@@ -810,7 +815,7 @@ public:
                         << func.getName() << "\n");
 
       FailureOr<TensorRTEngineResult> engineResult = buildFunction(
-          func, *builderContext, *timingCache, translationOptions);
+          func, *builderContext, *timingCache, *translationOptions);
       if (failed(engineResult) || !engineResult->serializedEngine) {
         func.emitError() << "failed to translate function '" << func.getName()
                          << "' to a TensorRT engine";
@@ -823,13 +828,13 @@ public:
       const std::unique_ptr<nvinfer1::IHostMemory> &serializedEngine =
           engineResult->serializedEngine;
 
-      if (!translationOptions.saveTensorRTEnginesToDirectory.empty() &&
+      if (!translationOptions->saveTensorRTEnginesToDirectory.empty() &&
           failed(saveTensorRTEngineToFile(
-              func, translationOptions.saveTensorRTEnginesToDirectory,
+              func, translationOptions->saveTensorRTEnginesToDirectory,
               serializedEngine)))
         return signalPassFailure();
 
-      if (!translationOptions.saveTensorRTLayerInfoDirectory.empty()) {
+      if (!translationOptions->saveTensorRTLayerInfoDirectory.empty()) {
         std::unique_ptr<nvinfer1::IRuntime> runtime{
             nvinfer1::createInferRuntime(*builderContext->getLogger())};
         std::unique_ptr<nvinfer1::ICudaEngine> cudaEngine{
@@ -838,7 +843,7 @@ public:
         auto inspector = std::unique_ptr<nvinfer1::IEngineInspector>(
             cudaEngine->createEngineInspector());
         llvm::SmallString<128> fileName =
-            StringRef(translationOptions.saveTensorRTLayerInfoDirectory);
+            StringRef(translationOptions->saveTensorRTLayerInfoDirectory);
         llvm::sys::path::append(
             fileName, llvm::formatv("{0}.json", getFuncSignatureString(func)));
         std::string error;
@@ -872,7 +877,7 @@ public:
     }
 
     // update the timing cache if required.
-    maybeWriteTimingCache(*timingCache, translationOptions.timingCachePath);
+    maybeWriteTimingCache(*timingCache, translationOptions->timingCachePath);
   }
 
   void getDependentDialects(DialectRegistry &registry) const override {
@@ -890,7 +895,7 @@ private:
   std::shared_ptr<TensorRTSerializedTimingCache> timingCache{nullptr};
 
   /// Options affecting TensorRT translation.
-  TensorRTTranslationOptions translationOptions;
+  std::optional<TensorRTTranslationOptions> translationOptions{std::nullopt};
 };
 } // namespace
 

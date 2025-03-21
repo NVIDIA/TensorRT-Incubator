@@ -170,7 +170,9 @@ struct CanonicalizeScatterPattern : public OpRewritePattern<ScatterOp> {
 
   LogicalResult matchAndRewrite(ScatterOp scatterOp,
                                 PatternRewriter &rewriter) const override {
-    if (isCanonicalScatter(scatterOp) || isCanonicalScatterNd(scatterOp))
+    if (isCanonicalScatter(scatterOp) ||
+        !checkUpdateComputationReturnsUpdateValues(scatterOp) ||
+        isCanonicalScatterNd(scatterOp))
       return failure();
 
     // This pattern does not account for batching dimensions, which are a
@@ -289,7 +291,9 @@ struct StablehloCanonicalizeScatterToTensorRtScatterNdFormat
     // by the "stablehlo-ext-canonicalize-scatter" pass that runs before this
     // pass. All scatter ops should be in stablehlo canonical form at this
     // point.
-    if (!stablehlo_ext::isCanonicalScatter(op))
+    if (!stablehlo_ext::isCanonicalScatter(op) ||
+        !checkUpdateComputationReturnsUpdateValues(op) ||
+        stablehlo_ext::isCanonicalScatterNd(op))
       return failure();
 
     RankedTensorType canonicalizedInputType =

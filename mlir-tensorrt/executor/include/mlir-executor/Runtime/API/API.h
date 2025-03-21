@@ -52,7 +52,6 @@ namespace mlirtrt::runtime {
 
 // Alias some objects from the generated Flatbuffer object API class instead of
 // using them directly.
-using SerializedConstant = impl::ConstantT;
 using ScalarTypeCode = impl::ScalarTypeCode;
 using PointerType = impl::PointerType;
 using PointerOwner = impl::PointerOwner;
@@ -399,11 +398,12 @@ private:
   const impl::Function *view;
 };
 
-/// A ConstantView is a thin wrapper around a flatbuffer Constant object. It
-/// does not own any memory; it only provides a read-only view into the buffer.
-class ConstantView {
+/// A DataSegmentInfo is a thin wrapper around a flatbuffer DataSegment object.
+/// It does not own any memory; it only provides a read-only view into the
+/// buffer.
+class DataSegmentInfo {
 public:
-  ConstantView(const impl::Constant *view) : view(view) {}
+  DataSegmentInfo(const impl::DataSegment *view) : view(view) {}
 
   std::string_view getName() const { return view->name()->string_view(); }
 
@@ -411,7 +411,7 @@ public:
   size_t size() const { return view->data()->size(); }
 
 private:
-  const impl::Constant *view;
+  const impl::DataSegment *view;
 };
 
 //===----------------------------------------------------------------------===//
@@ -436,9 +436,9 @@ public:
   /// name exists.
   StatusOr<FunctionView> getFunction(std::string_view name) const;
 
-  ConstantView getConstant(int64_t idx) const {
-    assert(view->constants() && "expected valid constant pointer");
-    return view->constants()->Get(idx);
+  DataSegmentInfo getDataSegments(int64_t idx) const {
+    assert(view->data_segments() && "expected valid data segment pointer");
+    return view->data_segments()->Get(idx);
   }
 
   std::string_view getName() const {
@@ -453,8 +453,8 @@ public:
                                     view->process_grid_shape()->size());
   }
 
-  /// Return a vector of ConstantViews.
-  llvm::SmallVector<ConstantView> getConstants() const;
+  /// Return a vector of DataSegmentInfos.
+  llvm::SmallVector<DataSegmentInfo> getConstants() const;
 
   /// Return a vector of FunctionViews.
   llvm::SmallVector<FunctionView> getFunctions() const;
@@ -1031,7 +1031,8 @@ StatusOr<std::string> getCommunicatorUniqueId();
 /// Print a text summary of the executable to the stream.
 llvm::raw_ostream &print(llvm::raw_ostream &os, const Executable &exe);
 /// Print a text summary of the constant to the stream.
-llvm::raw_ostream &print(llvm::raw_ostream &os, const ConstantView &constant);
+llvm::raw_ostream &print(llvm::raw_ostream &os,
+                         const DataSegmentInfo &constant);
 /// Print a text summary of the type to the stream.
 llvm::raw_ostream &print(llvm::raw_ostream &os, const MemRefTypeView &type);
 /// Print a text summary of the type to the stream.

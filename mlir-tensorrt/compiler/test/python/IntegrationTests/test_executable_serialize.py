@@ -20,11 +20,12 @@ def test_serialize(ASM):
 
         # Use the compiler API to compile to executable.
         client = compiler.CompilerClient(context)
-        opts = compiler.StableHLOToExecutableOptions(
-            client,
+        task = client.get_compilation_task(
+            "stablehlo-to-executable",
             ["--tensorrt-builder-opt-level=0", "--tensorrt-strongly-typed=false"],
         )
-        exe = compiler.compiler_stablehlo_to_executable(client, m.operation, opts)
+        task.run(m.operation)
+        exe = compiler.translate_mlir_to_executable(m.operation)
 
     client = runtime.RuntimeClient()
     stream = client.create_stream()

@@ -1,4 +1,4 @@
-//===- StablehloClustering.cpp --------------------------------------------===//
+//===- Clustering.cpp -----------------------------------------------------===//
 //
 // SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
@@ -27,7 +27,6 @@
 #include "mlir-executor/Transforms/Clustering/Patterns.h"
 #include "mlir-tensorrt-dialect/Analysis/TensorKindAnalysis.h"
 #include "mlir-tensorrt-dialect/Interface/TensorKindOpInterface.h"
-#include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/PlanInterfaces.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
@@ -50,11 +49,11 @@
 #include "stablehlo/dialect/StablehloOps.h"
 #include "llvm/ADT/STLExtras.h"
 
-#define DEBUG_TYPE "stablehlo-clustering"
+#define DEBUG_TYPE "plan-clustering"
 #define DBGS() llvm::dbgs() << "[" DEBUG_TYPE "]"
 
 namespace mlir::plan {
-#define GEN_PASS_DEF_STABLEHLOCLUSTERINGPASS
+#define GEN_PASS_DEF_CLUSTERINGPASS
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h.inc"
 } // namespace mlir::plan
 
@@ -88,20 +87,16 @@ static LogicalResult
 applyClusteringToFunc(RewriterBase &rewriter, func::FuncOp func,
                       DataFlowSolver &solver,
                       ArrayRef<ClusterKindAttrInterface> clusters,
-                      const StablehloClusteringPassOptions &opts) {
+                      const ClusteringPassOptions &opts) {
   ClusteringPatternSet<ClusteringRewriter> patterns;
   for (const auto &[idx, target] : llvm::enumerate(clusters)) {
-    FailureOr<ClusteringOpts> opts = target.getClusterKindOptions(func, solver);
-    if (failed(opts))
+    FailureOr<ClusteringOpts> clusteringOpts =
+        target.getClusterKindOptions(opts.inputKind, func, solver);
+    if (failed(clusteringOpts))
       return failure();
-    if (isa<TensorRTClusterKindAttr>(target))
-      patterns.add(*opts, createInlineGroupOp, isOpInClusterRegion,
-                   target.getClusterFilter(),
-                   PatternBenefit(target.getClusterBenefit()));
-    else
-      patterns.add(*opts, createInlineGroupOp, isOpInClusterRegion,
-                   target.getClusterFilter(),
-                   PatternBenefit(target.getClusterBenefit()));
+    patterns.add(*clusteringOpts, createInlineGroupOp, isOpInClusterRegion,
+                 target.getClusterFilter(opts.inputKind),
+                 PatternBenefit(target.getClusterBenefit(opts.inputKind)));
   }
 
   for (const std::unique_ptr<ClusteringRewriter> &rewrite : patterns) {
@@ -206,8 +201,7 @@ static auto getIntegerAttrOrDefault(Operation *op, StringRef name,
 }
 
 namespace {
-class StablehloClusteringPass
-    : public plan::impl::StablehloClusteringPassBase<StablehloClusteringPass> {
+class ClusteringPass : public plan::impl::ClusteringPassBase<ClusteringPass> {
 public:
   using Base::Base;
   void runOnOperation() override {
@@ -272,16 +266,16 @@ public:
       }
     }
     llvm::sort(schedule,
-               [](ClusterKindAttrInterface lhs, ClusterKindAttrInterface rhs) {
-                 return lhs.getClusterBenefit() > rhs.getClusterBenefit();
+               [&](ClusterKindAttrInterface lhs, ClusterKindAttrInterface rhs) {
+                 return lhs.getClusterBenefit(inputKind) >
+                        rhs.getClusterBenefit(inputKind);
                });
 
     for (func::FuncOp func : funcs) {
       if (failed(applyClusteringToFunc(
               rewriter, func, solver, schedule,
-              StablehloClusteringPassOptions{
-                  entrypoint, forceEntrypointsReturnAllocs,
-                  /*disableCreateShapeFuncPass=*/false})))
+              ClusteringPassOptions{entrypoint, forceEntrypointsReturnAllocs,
+                                    /*disableCreateShapeFuncPass=*/false})))
         return signalPassFailure();
     }
 

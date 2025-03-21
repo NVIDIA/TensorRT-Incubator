@@ -34,6 +34,7 @@
 #include <memory>
 #include <optional>
 #include <string_view>
+#include <type_traits>
 
 namespace mlirtrt {
 
@@ -118,8 +119,15 @@ public:
   StatusOr<T> &operator=(const Status &status) = delete;
   StatusOr<T> &operator=(Status &&status) = delete;
 
-  template <typename S, typename std::enable_if<
-                            std::is_base_of<T, S>::value>::type = nullptr>
+  template <typename S,
+            typename std::enable_if<std::is_base_of<
+                T, std::remove_reference_t<S>>::value>::type = nullptr>
+  StatusOr(S &&payload)
+      : status(Status::getOk()), payload(std::forward<S>(payload)) {}
+
+  template <typename S, typename std::enable_if_t<
+                            std::is_same_v<T, std::remove_reference_t<S>>,
+                            void *> = nullptr>
   StatusOr(S &&payload)
       : status(Status::getOk()), payload(std::forward<S>(payload)) {}
 

@@ -746,12 +746,15 @@ struct ConvertCUDAGlobalToExecutorGlobal
 
     /// If there's no initial value, then just perform the allocation.
     Attribute initialValue = op.getInitialValueAttr();
-    executor::ConstantResourceOp constOp = nullptr;
+    executor::DataSegmentOp constOp = nullptr;
     if (initialValue)
-      constOp = rewriter.create<executor::ConstantResourceOp>(
+      constOp = rewriter.create<executor::DataSegmentOp>(
           op.getLoc(),
           rewriter.getStringAttr(op.getSymName() + "_initializer").str(),
-          cast<TypedAttr>(initialValue));
+          cast<ElementsAttr>(initialValue),
+          /*constant=*/true,
+          /*uninitialized=*/false,
+          /*alignment=*/op.getAlignmentAttr());
 
     bool error = false;
     rewriter.replaceOpWithNewOp<executor::GlobalOp>(
@@ -842,7 +845,7 @@ struct ConvertCUDAGetGlobal
 
 /// Replaces a `cuda.compiled_module` operation with a `executor.global`
 /// containing a pointer to the CUDA driver cuModule object. Creates a
-/// `executor.constant_resource` object for the PTX data.
+/// `executor.data_segment` object for the PTX data.
 static executor::GlobalOp lowerCompiledModuleOp(RewriterBase &rewriter,
                                                 Location loc,
                                                 ModuleOp parentModule,
@@ -851,7 +854,10 @@ static executor::GlobalOp lowerCompiledModuleOp(RewriterBase &rewriter,
   std::string ptxDataName = (cudaModuleName + "_ptx_data").str();
   std::string cuModuleGlobalName = (cudaModuleName + "_cuModule").str();
   auto resourceOp =
-      rewriter.create<executor::ConstantResourceOp>(loc, ptxDataName, ptxData);
+      rewriter.create<executor::DataSegmentOp>(loc, ptxDataName, ptxData,
+                                               /*constant=*/true,
+                                               /*uninitialized=*/false,
+                                               /*alignment=*/IntegerAttr{});
   Type pointerType = PointerType::get(rewriter.getContext(), MemoryType::host);
   Type i32Type = rewriter.getI32Type();
   Type i64Type = rewriter.getI64Type();

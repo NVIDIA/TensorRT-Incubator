@@ -17,7 +17,7 @@
 // limitations under the License.
 //
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Pipelines/StableHloInputPipelines.h"
+#include "mlir-tensorrt/Compiler/StablehloToExecutable/Passes.h"
 #include "mlir-tensorrt/Conversion/Passes.h"
 #include "mlir-tensorrt/Dialect/StableHloExt/Transforms/Passes.h"
 #include "mlir-tensorrt/Transforms/Passes.h"
@@ -28,6 +28,8 @@
 #include "stablehlo/transforms/Passes.h"
 
 using namespace mlir;
+using namespace mlirtrt;
+using namespace mlirtrt::compiler;
 
 static void buildStableHloSimplificationPipeline(
     OpPassManager &pm,
@@ -56,7 +58,7 @@ static void buildStableHloSimplificationPipeline(
   pm.addPass(stablehlo_ext::createCanonicalizeShapesPass());
 }
 
-void mlir::buildStablehloPreProcessingPipeline(
+void mlirtrt::compiler::buildStablehloPreProcessingPipeline(
     OpPassManager &pm, const StableHloInputOptions &opts) {
   if (!opts.disableInliner)
     pm.addPass(createInlinerPass());
@@ -102,7 +104,7 @@ struct StableHloInputPipelineOptions
 };
 } // namespace
 
-void mlir::registerStableHloInputPipelines() {
+void mlirtrt::compiler::registerStableHloInputPipelines() {
   PassPipelineRegistration<StableHloInputPipelineOptions>(
       "stablehlo-preprocessing-pipeline",
       "Apply StableHlo input processing pipeline to prepare for "

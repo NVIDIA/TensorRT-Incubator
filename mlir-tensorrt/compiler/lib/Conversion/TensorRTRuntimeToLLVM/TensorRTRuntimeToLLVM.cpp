@@ -447,7 +447,7 @@ struct ConvertEnqueueAllocToCall
       if (!llvmTargetDescriptorTy)
         return failure();
       auto rankedDescriptor =
-          MemRefDescriptor::undef(rewriter, loc, llvmTargetDescriptorTy);
+          MemRefDescriptor::poison(rewriter, loc, llvmTargetDescriptorTy);
       resultStructTypes.push_back(Value(rankedDescriptor).getType());
       Value unranked = getUnrankedLLVMMemRefDescriptor(
           rewriter, loc, *getTypeConverter(), rankedDescriptor, t);

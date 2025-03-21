@@ -1,6 +1,6 @@
 //===- Plan.h ---------------------------------------------------*- C++ -*-===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -32,13 +32,9 @@ namespace mlir {
 class DataFlowSolver;
 }
 
-/// Helper function used by cluster backends that returns 'true' if the given
-/// clusterable operation should be executed on the host as determined by the
-/// DataFlow analysis as well as the operation's types/results.
-
-namespace mlir::plan::detail {
-bool shouldRunOnHost(Operation *op, DataFlowSolver &solver);
-}
+namespace mlir::plan {
+enum class InputKind : uint32_t;
+} // namespace mlir::plan
 
 #include "mlir-tensorrt/Dialect/Plan/IR/PlanAttrInterfaces.h.inc"
 

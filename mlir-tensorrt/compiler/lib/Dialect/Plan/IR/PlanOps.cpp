@@ -761,8 +761,6 @@ struct PlanInlinerInterface : public DialectInlinerInterface {
 #define GET_ATTRDEF_CLASSES
 #include "mlir-tensorrt/Dialect/Plan/IR/PlanAttributes.cpp.inc"
 
-#include "mlir-tensorrt/Dialect/Plan/IR/PlanAttrInterfaces.cpp.inc"
-
 //===----------------------------------------------------------------------===//
 // TableGen'd enum definition.
 //===----------------------------------------------------------------------===//

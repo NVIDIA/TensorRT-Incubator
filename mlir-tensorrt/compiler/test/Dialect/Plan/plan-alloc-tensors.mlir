@@ -331,8 +331,6 @@ func.func @test_already_dps(%arg0: tensor<10xf32>, %arg1: tensor<10xf32> {plan.r
 //       CHECK-ALLOC:     %[[v1:.+]] = bufferization.materialize_in_destination %[[arg0]] in %[[arg2]]
 //       CHECK-ALLOC:     return %[[v0]], %[[v1]] : tensor<10xf32>, tensor<10xf32>
 
-
-
 // -----
 
 func.func @test_loop_region_dps_rewrite_while(%arg0: tensor<10xf32>) -> tensor<10xf32> {
@@ -384,7 +382,54 @@ func.func @test_loop_region_dps_rewrite_while(%arg0: tensor<10xf32>) -> tensor<1
 //       CHECK-ALLOC:       scf.yield %[[mapped]] :
 //       CHECK-ALLOC:     return %[[v0]] :
 
+// -----
 
+// This test is like the above, but the 'scf.while' does not forward
+// all arguments from the "before" region to the "after" region. This
+// is a pattern that can appear when the condition is purely calculated
+// from computation in the "after" region.
+// Note that bufferization will still have a hard time unless we add back the
+// yielded values which were canonicalizes away (the i1 in the before region
+// and results).
+
+func.func @test_loop_region_dps_rewrite_while_arg_mismatch(%arg0: tensor<10xf32>) -> tensor<10xf32> {
+  %c0 = arith.constant 0 : index
+  %c0f = arith.constant 0.0 : f32
+  %0 = tensor.empty() : tensor<10xf32>
+  %false = arith.constant 0 : i1
+  %r:2 = scf.while(%first = %0, %arg1 = %false, %arg2 = %arg0)
+            : (tensor<10xf32>, i1, tensor<10xf32>) -> (tensor<10xf32>, tensor<10xf32>) {
+    scf.condition(%arg1) %first, %arg2 : tensor<10xf32>, tensor<10xf32>
+  } do {
+  ^bb0(%arg2: tensor<10xf32>, %arg4: tensor<10xf32>):
+    %1 = linalg.map {math.exp}
+      ins(%arg4 : tensor<10xf32>)
+      outs(%arg4 : tensor<10xf32>)
+    %v0 = tensor.extract %1[%c0] : tensor<10xf32>
+    %cond = arith.cmpf ogt, %v0, %c0f : f32
+    scf.yield %0, %cond, %1 : tensor<10xf32>, i1, tensor<10xf32>
+  }
+  return %r#1 : tensor<10xf32>
+}
+
+
+// CHECK-LABEL: func.func @test_loop_region_dps_rewrite_while_arg_mismatch
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<10xf32>, %[[arg1:.+]]: tensor<10xf32> {plan.result_arg})
+//   CHECK-DAG:     %[[false:.+]] = arith.constant false
+//   CHECK-DAG:     %[[c0:.+]] = arith.constant 0 : index
+//   CHECK-DAG:     %[[cst:.+]] = arith.constant 0.{{0.*}} : f32
+//   CHECK-DAG:     %[[v0:.+]] = bufferization.alloc_tensor() {memory_space = #plan.memory_space<device>}
+//   CHECK-DAG:     %[[v1]]:2 = scf.while (%[[arg2:.+]] = %[[v0:.+]], %[[arg3:.+]] = %[[false:.+]], %[[arg4:.+]] = %[[arg0]])
+//       CHECK:       scf.condition(%[[arg3]]) %[[arg2]], %[[arg4]] : tensor<10xf32>, tensor<10xf32>
+//  CHECK-NEXT:     } do {
+//  CHECK-NEXT:     ^bb0(%[[arg2:.+]]: tensor<10xf32>, %[[arg3:.+]]: tensor<10xf32>):
+//   CHECK-DAG:       %[[mapped:.+]] = linalg.map { math.exp } ins(%[[arg3]] : tensor<10xf32>) outs(%[[arg3]] : tensor<10xf32>)
+//   CHECK-DAG:       %[[extracted:.+]] = tensor.extract %[[mapped]][%[[c0]]] : tensor<10xf32>
+//   CHECK-DAG:       %[[v3:.+]] = arith.cmpf ogt, %[[extracted]], %[[cst]] : f32
+//   CHECK-DAG:       scf.yield %[[arg2]], %[[v3]], %[[mapped]] : tensor<10xf32>, i1, tensor<10xf32>
+//  CHECK-NEXT:     }
+//   CHECK-DAG:     %[[v2:.+]] = bufferization.materialize_in_destination %[[v1]]#1 in %[[arg1]] : (tensor<10xf32>, tensor<10xf32>) -> tensor<10xf32>
+//   CHECK-DAG:     return %[[v2]] : tensor<10xf32>
 
 // -----
 
@@ -611,3 +656,29 @@ func.func @device_extract(%arg0: tensor<128xi1>, %arg1: index) -> i1 {
 //       CHECK-ALLOC:     %[[v0:.+]] = bufferization.alloc_tensor() copy(%[[arg0]]) {memory_space = #plan.memory_space<host_pinned>}
 //       CHECK-ALLOC:     %[[extracted:.+]] = tensor.extract %[[v0]][%[[arg1]]] : tensor<128xi1>
 //       CHECK-ALLOC:     return %[[extracted]]
+
+// -----
+
+// CHECK-LABEL: @dont_modify_nested_modules
+module @dont_modify_nested_modules {
+
+  func.func @nested() -> tensor<f32> {
+    // CHECK: tensor.empty
+    %0 = tensor.empty() : tensor<f32>
+    return %0 : tensor<f32>
+  }
+}
+
+// CHECK: @outer1
+func.func @outer1() -> tensor<f32> {
+  // CHECK-NOT: tensor.empty
+  %0 = tensor.empty() : tensor<f32>
+  return %0 : tensor<f32>
+}
+
+// CHECK: @outer2
+func.func @outer2() -> tensor<f32> {
+  // CHECK-NOT: tensor.empty
+  %0 = tensor.empty() : tensor<f32>
+  return %0 : tensor<f32>
+}

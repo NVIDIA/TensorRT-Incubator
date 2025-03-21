@@ -17,9 +17,9 @@ trtrt.compiled_func @trt_func_engine dense<0> : vector<8xi8>
 // CHECK-LABEL:   executor.global @tensorrt_runtime : !executor.ptr<host> {
 //   CHECK-DAG:     %[[v0:.+]] = executor.call @_trtrt_create_runtime() : () -> !executor.ptr<host>
 //   CHECK-DAG:     executor.return %[[v0]] : !executor.ptr<host>
-//       CHECK:   executor.constant_resource @trt_func_engine_0
+//       CHECK:   executor.data_segment @trt_func_engine_0
 // CHECK-LABEL:   executor.global @trt_func_engine_exec_ctx constant : !executor.ptr<host> {
-//   CHECK-DAG:     %[[v0:.+]] = executor.load_constant_resource @trt_func_engine_0 : !executor.ptr<host>
+//   CHECK-DAG:     %[[v0:.+]] = executor.load_data_segment @trt_func_engine_0 : !executor.ptr<host>
 //   CHECK-DAG:     %[[size:.+]] = executor.getoffset[8] : () -> i64, i8
 //   CHECK-DAG:     %[[v1:.+]] = executor.get_global @tensorrt_runtime : !executor.ptr<host>
 //   CHECK-DAG:     %[[v2:.+]] = executor.call @_trtrt_load(%[[v1]], %[[v0]], %[[size]]) : (!executor.ptr<host>, !executor.ptr<host>, i64) -> !executor.ptr<host>

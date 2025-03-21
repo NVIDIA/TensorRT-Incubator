@@ -27,14 +27,13 @@
 #include "mlir-executor/Runtime/API/API.h"
 #include "mlir-executor/Support/Status.h"
 #include "mlir-executor/Target/Lua/TranslateToRuntimeExecutable.h"
+#include "mlir-tensorrt/Compiler/Client.h"
 #include "mlir-tensorrt/Compiler/Extension.h"
 #include "mlir-tensorrt/Compiler/OptionsProviders.h"
-#include "mlir-tensorrt/Compiler/OptionsRegistry.h"
 #include "mlir-tensorrt/Compiler/StablehloToExecutable/Passes.h"
 #include "mlir-tensorrt/Compiler/StablehloToExecutable/TensorRTExtension.h"
 #include "mlir-tensorrt/Conversion/Passes.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
-#include "mlir-tensorrt/Pipelines/StableHloInputPipelines.h"
 #include "mlir-tensorrt/Transforms/Passes.h"
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Conversion/ComplexToStandard/ComplexToStandard.h"
@@ -66,32 +65,32 @@ using namespace mlir;
 //===----------------------------------------------------------------------===//
 
 StablehloToExecutableOptions::StablehloToExecutableOptions(
-    TaskExtensionRegistry extensions)
-    : extensions(std::move(extensions)) {
-
-  // Link in options for all extensions.
-  for (auto &[id, ext] : this->extensions)
-    ext->addToOptions(*this);
+    TaskExtensionRegistry extensions, bool enableDebugOptions)
+    : CompilationTaskOptions(enableDebugOptions),
+      extensions(std::move(extensions)) {
+  for (const auto &[typeID, builder] : this->extensions.builders) {
+    this->extensions.extensions[typeID] = builder(*this);
+  }
 }
 
 static TaskExtensionRegistry getDefaultExtensions() {
   TaskExtensionRegistry extensions;
-  extensions.getOrCreateExtension<StablehloToExecutableTensorRTExtension>();
+  extensions.registerExtension<StablehloToExecutableTensorRTExtension>();
   return extensions;
 }
 
-StablehloToExecutableOptions::StablehloToExecutableOptions()
-    : mlirtrt::compiler::StablehloToExecutableOptions(getDefaultExtensions()) {}
+StablehloToExecutableOptions::StablehloToExecutableOptions(
+    bool enableDebugOptions)
+    : mlirtrt::compiler::StablehloToExecutableOptions(getDefaultExtensions(),
+                                                      enableDebugOptions) {}
 
 //===----------------------------------------------------------------------===//
 // StableHloToExecutableTask
 //===----------------------------------------------------------------------===//
 
 StablehloToExecutableTask::StablehloToExecutableTask(
-    MLIRContext *ctx, const StablehloToExecutableOptions &options)
-    : CompilationTask(ctx, options) {
-  options.get<DebugOptions>().applyToPassManager(*this);
-}
+    MLIRContext *ctx, std::unique_ptr<StablehloToExecutableOptions> options)
+    : CompilationTask(ctx, std::move(options)) {}
 
 static void populateExtensionPasses(
     mlir::OpPassManager &pm, const StablehloToExecutableOptions &options,
@@ -102,7 +101,7 @@ static void populateExtensionPasses(
   }
 }
 
-void StablehloToExecutableTask::buildStablehloClusteringPipeline(
+void StablehloToExecutableTask::buildClusteringPipeline(
     OpPassManager &pm, const StablehloToExecutableOptions &opts) {
   using Phase = StablehloToExecutableOptions::ExtensionBase::Phase;
   pm.addPass(createConvertStablehloToScfPass());
@@ -110,8 +109,9 @@ void StablehloToExecutableTask::buildStablehloClusteringPipeline(
   // Add pre-clustering extension passes
   populateExtensionPasses(pm, opts, Phase::PreClustering);
 
-  plan::StablehloClusteringPassOptions clusteringOpts{};
+  plan::ClusteringPassOptions clusteringOpts{};
   clusteringOpts.entrypoint = opts.entrypoint;
+  clusteringOpts.inputKind = plan::InputKind::Stablehlo;
   plan::buildPlanSegmentationPipeline(pm, clusteringOpts);
 
   // Compile outlined scalarizable host clusters.
@@ -143,7 +143,8 @@ void StablehloToExecutableTask::buildPostClusteringPipeline(
 
   pm.addPass(createConvertMemRefToCUDAPass());
 
-  if (opts.hostTarget.value == "executor") {
+  HostTarget hostTarget = opts.hostTarget;
+  if (hostTarget == HostTarget::Executor) {
     pm.addPass(createConvertPlanToExecutorPass());
     pm.addPass(executor::createExecutorAllocsToGlobalsPass());
     pm.addNestedPass<func::FuncOp>(
@@ -152,7 +153,7 @@ void StablehloToExecutableTask::buildPostClusteringPipeline(
 
   populateExtensionPasses(pm, opts, Phase::ExecutorLowering);
 
-  if (opts.hostTarget.value == "executor") {
+  if (hostTarget == HostTarget::Executor) {
     ConvertCUDAToExecutorPassOptions cudaToExecutorOpts;
     cudaToExecutorOpts.indexBitwidth =
         opts.get<ExecutorOptions>().indexBitwidth;
@@ -176,17 +177,18 @@ void StablehloToExecutableTask::populatePassManager(
           options.disallowHostTensorsInTensorRTClusters, NV_TENSORRT_MAJOR}));
 
   // StableHLO Preprocessing
-  mlir::StableHloInputOptions opts{};
+  mlirtrt::compiler::StableHloInputOptions opts{};
   opts.legalizeControlFlowToSCF = false;
   opts.preserveChloErf = true;
   opts.preserveChloTopK = true;
-  mlir::buildStablehloPreProcessingPipeline(pm, opts);
+  mlirtrt::compiler::buildStablehloPreProcessingPipeline(pm, opts);
 
-  buildStablehloClusteringPipeline(pm, options);
+  buildClusteringPipeline(pm, options);
 
   buildPostClusteringPipeline(pm, options);
 
-  if (options.hostTarget.value == "executor") {
+  HostTarget hostTarget = options.hostTarget;
+  if (hostTarget == HostTarget::Executor) {
     mlir::executor::ConvertStdToExecutorPassOptions stdToExecOpts;
     stdToExecOpts.indexBitwidth = options.get<ExecutorOptions>().indexBitwidth;
     stdToExecOpts.usePackedMemRefCConv = true;
@@ -196,13 +198,12 @@ void StablehloToExecutableTask::populatePassManager(
 
   // LLVM and EmitC targets will execute a common set of passes except for the
   // SCF-to-CF pass.
-  if (options.hostTarget.value == "llvm" ||
-      options.hostTarget.value == "emitc") {
+  if (hostTarget == HostTarget::LLVM || hostTarget == HostTarget::EmitC) {
     pm.addPass(createConvertComplexToStandardPass());
 
     // For EmitC lowering, we rely on preserving control flow. Otherwise the C
     // code could be very unreadable.
-    if (options.hostTarget.value != "emitc")
+    if (hostTarget != HostTarget::EmitC)
       pm.addPass(createConvertSCFToCFPass());
 
     pm.addPass(memref::createFoldMemRefAliasOpsPass());
@@ -213,10 +214,10 @@ void StablehloToExecutableTask::populatePassManager(
     pm.addPass(mlir::createLowerAffinePass());
     addCleanupPasses(pm);
 
-    if (options.hostTarget.value == "llvm") {
+    if (hostTarget == HostTarget::LLVM) {
       pm.addPass(LLVM::createRequestCWrappersPass());
       ConvertCUDAToLLVMPassOptions cudaToLLVMOpts;
-      cudaToLLVMOpts.artifactsDirectory = options.artifactDirectory;
+      cudaToLLVMOpts.artifactsDirectory = options.artifactsDirectory;
       pm.addPass(createConvertCUDAToLLVMPass(std::move(cudaToLLVMOpts)));
       pm.addPass(createConvertHostToLLVMPass());
 
@@ -227,8 +228,8 @@ void StablehloToExecutableTask::populatePassManager(
 
     // For EmitC, just run Host-to-EmitC followed
     // by cleanup and expression forming.
-    if (options.hostTarget.value == "emitc") {
-      pm.addPass(createConvertHostToEmitCPass({options.artifactDirectory}));
+    if (hostTarget == HostTarget::EmitC) {
+      pm.addPass(createConvertHostToEmitCPass({options.artifactsDirectory}));
       addCleanupPasses(pm);
       // The EmitC "form-expressions" pass combines operations into
       // "expression regions" where possible, which allows the C++ translation
@@ -264,8 +265,14 @@ StablehloToExecutableTask::compileStableHLOToExecutable(
   }
 #endif
 
+  std::string result;
+  llvm::raw_string_ostream ss(result);
+  options.print(ss);
+  ss.flush();
   StatusOr<CompilationTaskBase *> runner =
-      client.getCompilationTask<StablehloToExecutableTask>(options.serialize());
+      client.getCompilationTask<StablehloToExecutableTask>(
+          llvm::StringRef(result).drop_front(1).drop_back(1),
+          /*enableDebugOptions=*/false);
   if (!runner.isOk())
     return runner.getStatus();
 
@@ -293,21 +300,10 @@ StablehloToExecutableTask::compileStableHLOToExecutable(
 }
 
 void mlirtrt::compiler::registerStableHloToExecutableTask() {
-  registerOption(
-      "stablehlo-to-executable",
-      [](MLIRContext *ctx, ArrayRef<StringRef> opts)
-          -> StatusOr<std::unique_ptr<OptionsContext>> {
-        auto task = optionsCreateFromArgs<StablehloToExecutableOptions,
-                                          StablehloToExecutableTask>(ctx, opts);
-        if (!task.isOk())
-          return task.getStatus();
-        return std::unique_ptr<OptionsContext>(std::move(*task));
-      });
-
   registerCompilationTask<StablehloToExecutableTask>(
       "stablehlo-to-executable",
-      [](CompilerClient &client, llvm::ArrayRef<llvm::StringRef> options)
-          -> StatusOr<CompilationTaskBase *> {
+      [](CompilerClient &client, llvm::ArrayRef<llvm::StringRef> options,
+         bool enableDebugOptions) -> StatusOr<CompilationTaskBase *> {
         // Load available extensions.
         mlir::MLIRContext *context = client.getContext();
         mlir::plan::PlanDialect *planDialect =
@@ -316,15 +312,16 @@ void mlirtrt::compiler::registerStableHloToExecutableTask() {
             planDialect->extensionConstructors
                 .getExtensionRegistryForTask<StablehloToExecutableTask>();
 
-        StablehloToExecutableOptions result(std::move(extensions));
+        auto opts = std::make_unique<StablehloToExecutableOptions>(
+            std::move(extensions), enableDebugOptions);
 
         std::string err;
-        if (failed(result.parse(options, err)))
+        if (failed(opts->parse(options, err)))
           return getInvalidArgStatus(
               "failed to parse options string \"{0:$[ ]}\" due to error {1}",
               llvm::iterator_range(options), err);
 
-        llvm::Error finalizeStatus = result.finalize();
+        llvm::Error finalizeStatus = opts->finalize();
         std::optional<std::string> errMsg{};
         llvm::handleAllErrors(std::move(finalizeStatus),
                               [&errMsg](const llvm::StringError &err) {
@@ -335,7 +332,7 @@ void mlirtrt::compiler::registerStableHloToExecutableTask() {
           return getInvalidArgStatus("failed to parse options due to error {0}",
                                      errMsg);
 
-        std::optional<llvm::hash_code> hashCode = result.getHash();
+        std::optional<llvm::hash_code> hashCode = opts->getHash();
         if (!hashCode)
           return getInvalidArgStatus("failed to hash options");
 
@@ -345,7 +342,7 @@ void mlirtrt::compiler::registerStableHloToExecutableTask() {
           return cached;
 
         auto newPM = std::make_unique<StablehloToExecutableTask>(
-            client.getContext(), result);
+            client.getContext(), std::move(opts));
         auto ptr = newPM.get();
         client.updateCachedCompilationTask<StablehloToExecutableTask>(
             *hashCode, std::move(newPM));

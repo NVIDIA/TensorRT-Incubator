@@ -22,8 +22,8 @@
 
 #ifdef MLIR_TRT_TARGET_TENSORRT
 #include "mlir-tensorrt-dialect/Target/TensorRTEncodingOpInterface/NetworkEncoder.h"
-#include "mlir-tensorrt-dialect/Utils/Options.h"
 #include "mlir/Support/LogicalResult.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
 
 #if defined(__GNUC__) || defined(__clang__)
@@ -120,24 +120,6 @@ struct TensorRTTranslationOptions {
   /// look for the name consisting of the function symbol name and the function
   /// hash.
   std::string loadTensorRTEnginesFromDirectory;
-
-  /// Add command line options to mlir::OptionsContext and configure struct to
-  /// serve as backend storage for the options.
-  void addToOptions(mlir::OptionsContext &context) {
-    context.addOption("tensorrt-timing-cache-path", timingCachePath,
-                      llvm::cl::init(""));
-    context.addOption("tensorrt-builder-opt-level", tensorrtBuilderOptLevel,
-                      llvm::cl::init(0));
-    context.addOption("tensorrt-strongly-typed", enableStronglyTyped,
-                      llvm::cl::init(false));
-    context.addOption("tensorrt-engines-dir", saveTensorRTEnginesToDirectory,
-                      llvm::cl::init(""));
-    context.addOption("tensorrt-layer-info-dir", saveTensorRTLayerInfoDirectory,
-                      llvm::cl::init(""));
-    context.addOptionWithParser<ByteSizeParser>(
-        "tensorrt-workspace-memory-pool-limit", workspaceMemoryPoolLimit,
-        llvm::cl::init(std::nullopt));
-  }
 };
 
 /// TensorRTBuilderContext encapsulates the TensorRT logger and builder objects.

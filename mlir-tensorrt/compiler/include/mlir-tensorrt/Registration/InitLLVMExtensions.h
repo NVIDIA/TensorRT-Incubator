@@ -36,6 +36,7 @@
 #include "mlir/Conversion/MemRefToLLVM/MemRefToLLVM.h"
 #include "mlir/Conversion/NVVMToLLVM/NVVMToLLVM.h"
 #include "mlir/Conversion/UBToLLVM/UBToLLVM.h"
+#include "mlir/Conversion/VectorToLLVM/ConvertVectorToLLVM.h"
 
 namespace mlirtrt {
 
@@ -51,6 +52,7 @@ inline void registerConvertToLLVMExtensions(mlir::DialectRegistry &registry) {
   mlir::registerConvertNVVMToLLVMInterface(registry);
   mlir::ub::registerConvertUBToLLVMInterface(registry);
   mlir::index::registerConvertIndexToLLVMInterface(registry);
+  mlir::vector::registerConvertVectorToLLVMInterface(registry);
 
   // MLIR-TRT interfaces.
   mlir::registerConvertPlanToLLVMPatternInterface(registry);

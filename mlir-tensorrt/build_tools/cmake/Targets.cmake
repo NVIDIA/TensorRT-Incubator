@@ -82,3 +82,33 @@ function(add_mlir_tensorrt_doc name)
   add_custom_target("MLIRTensorRT${name}DocGen" DEPENDS "${CMAKE_BINARY_DIR}/${ARG_OUTPUT_FILE}")
   add_dependencies("mlir-tensorrt-doc" "MLIRTensorRT${name}DocGen")
 endfunction()
+
+# ------------------------------------------------------------------------------
+# Declare a Plan dialect extension backend library.
+# ------------------------------------------------------------------------------
+function(add_mlir_tensorrt_backend_library target)
+  cmake_parse_arguments(ARG "" "TD" "" ${ARGN})
+  cmake_path(SET SRC_TD
+    NORMALIZE
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../../include/${ARG_TD}")
+  cmake_path(SET BIN_TD
+    NORMALIZE
+    "${CMAKE_CURRENT_BINARY_DIR}/../../../include/${ARG_TD}")
+  # Tablegen output paths have to be relative to CMAKE_CURRENT_BINARY_DIR.
+  cmake_path(RELATIVE_PATH BIN_TD
+    BASE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+
+  set(LLVM_TARGET_DEFINITIONS "${SRC_TD}")
+  
+  string(REPLACE ".td" "Attrs.h.inc" h_inc_file ${BIN_TD})
+  string(REPLACE ".td" "Attrs.cpp.inc" cpp_inc_file ${BIN_TD})
+  mlir_tablegen("${h_inc_file}" -gen-attrdef-decls)
+  mlir_tablegen("${cpp_inc_file}" -gen-attrdef-defs)  
+
+  add_public_tablegen_target(${target}IncGen)
+
+  add_mlir_tensorrt_library(${target}
+    PARTIAL_SOURCES_INTENDED
+    ${ARG_UNPARSED_ARGUMENTS}
+    DEPENDS ${target}IncGen)
+endfunction()

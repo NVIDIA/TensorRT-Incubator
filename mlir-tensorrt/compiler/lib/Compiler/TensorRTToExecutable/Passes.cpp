@@ -226,24 +226,16 @@ public:
 // Pipeline Registrations
 //===----------------------------------------------------------------------===//
 
-namespace {
-class TensorRTToExecutablePassPipelineOptions
-    : public PassPipelineOptionsAdaptor<TensorRTToExecutablePassPipelineOptions,
-                                        TensorRTToExecutableOptions> {};
-} // namespace
-
 void mlirtrt::compiler::registerTensorRTToExecutablePipelines() {
-  PassPipelineRegistration<TensorRTToExecutablePassPipelineOptions>(
+  PassPipelineRegistration<TensorRTToExecutableOptions>(
       "tensorrt-clustering-pipeline", "apply clustering to tensorrt IR",
-      [](OpPassManager &pm,
-         const TensorRTToExecutablePassPipelineOptions &opts) {
+      [](OpPassManager &pm, const TensorRTToExecutableOptions &opts) {
         TensorRTToExecutableTask::buildTensorRTClusteringPipeline(pm, opts);
       });
 
-  PassPipelineRegistration<TensorRTToExecutablePassPipelineOptions>(
+  PassPipelineRegistration<TensorRTToExecutableOptions>(
       "tensorrt-compilation-pipeline", "apply compilation post-clustering",
-      [](OpPassManager &pm,
-         const TensorRTToExecutablePassPipelineOptions &opts) {
+      [](OpPassManager &pm, const TensorRTToExecutableOptions &opts) {
         TensorRTToExecutableTask::buildPostClusteringPipeline(pm, opts);
       });
 }

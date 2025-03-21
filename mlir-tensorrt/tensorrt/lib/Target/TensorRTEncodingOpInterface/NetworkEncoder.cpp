@@ -219,15 +219,55 @@ static std::string getUniqueName(NvInferNetworkEncoder::NamesSet &names,
   return name;
 }
 
+/// Print a representation of the given location to the string. Since MLIR has
+/// an open system of location attributes, there may be some location types that
+/// we cannot handle. We do not use the location's builtin printer because it
+/// could be extremely verbose.
+static void translateLocation(Location loc, llvm::raw_ostream &os) {
+  if (auto callLoc = dyn_cast<CallSiteLoc>(loc)) {
+    translateLocation(callLoc.getCaller(), os);
+    return;
+  }
+  if (auto fileLoc = dyn_cast<FileLineColLoc>(loc)) {
+    // A scope of a DILocation cannot be null.
+    os << fileLoc.getFilename() << ":" << fileLoc.getLine();
+    return;
+  }
+  if (auto fileLoc = dyn_cast<FileLineColRange>(loc)) {
+    os << fileLoc.getFilename() << ":" << fileLoc.getStartLine();
+    return;
+  }
+  if (auto fusedLoc = dyn_cast<FusedLoc>(loc)) {
+    ArrayRef<Location> locations = fusedLoc.getLocations();
+    translateLocation(locations.front(), os);
+    return;
+  }
+  if (auto nameLoc = dyn_cast<NameLoc>(loc)) {
+    os << nameLoc.getName();
+    return;
+  }
+  if (auto opaqueLoc = dyn_cast<OpaqueLoc>(loc)) {
+    translateLocation(opaqueLoc.getFallbackLocation(), os);
+    return;
+  }
+  os << "unknown location";
+  return;
+}
+
 static std::string createName(NvInferNetworkEncoder::NamesSet &names,
                               Operation *sourceOp) {
   std::string name;
   {
     llvm::raw_string_ostream ss(name);
-    ss << "[" << sourceOp->getName().getStringRef() << "] "
-       << sourceOp->getLoc();
+    ss << "[" << sourceOp->getName().getStringRef() << "] ";
+    translateLocation(sourceOp->getLoc(), ss);
     ss.flush();
   }
+  // Truncate to TRT limit.
+  static constexpr size_t kLayerNameSizeLimit = 2048;
+  if (name.size() > kLayerNameSizeLimit)
+    name = name.substr(0, kLayerNameSizeLimit);
+  // TRT name does not allow nested quotations.
   name = llvm::join(llvm::split(name, "\""), "");
   return getUniqueName(names, name);
 }
@@ -914,6 +954,7 @@ LogicalResult NvInferNetworkEncoder::encodeFunc(FunctionOpInterface func) {
     bool isShapeTensor = func.getArgAttr(arg.getArgNumber(),
                                          getHostTensorArgAttrName()) != nullptr;
     if (isShapeTensor && !inputTensor->isShapeTensor()) {
+      isShapeTensor = false;
       emitWarning(arg.getLoc())
           << "expected argument#" << arg.getArgNumber()
           << " to be a shape tensor, but TensorRT reports that it is not a "

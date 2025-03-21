@@ -1,9 +1,9 @@
 // RUN: mlir-tensorrt-opt %s -split-input-file -verify-diagnostics
 
-executor.constant_resource @trt_func_engine_data dense<0> : vector<8xi8>
+executor.data_segment @trt_func_engine_data dense<0> : vector<8xi8>
 func.func @main(%arg0: memref<1x3x256x256xf32, strided<[?, ?, ?, ?], offset: ?>>, %arg1: memref<1x3x256x256xf32, strided<[?, ?, ?, ?], offset: ?>>, %arg3: !trtrt.context) -> memref<1x3x256x256xf32> {
   %alloc = memref.alloc() {alignment = 64 : i64} : memref<1x3x256x256xf32>
-  %0 = executor.load_constant_resource @trt_func_engine_data : !executor.ptr<host>
+  %0 = executor.load_data_segment @trt_func_engine_data : !executor.ptr<host>
   %4 = cuda.stream.create : !cuda.stream
   // expected-error @below {{custom op 'trtrt.enqueue' number of operands and types do not match: got 3 operands and 1 types}}
   trtrt.enqueue %arg3 stream(%4) (%arg3, %4, %arg0) outs(%alloc) : (memref<1x3x256x256xf32, strided<[?, ?, ?, ?], offset: ?>>) -> memref<1x3x256x256xf32>

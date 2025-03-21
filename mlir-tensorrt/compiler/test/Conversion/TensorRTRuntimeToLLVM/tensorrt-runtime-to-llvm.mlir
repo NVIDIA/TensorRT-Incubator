@@ -107,14 +107,14 @@ func.func @enqueue(
 //   CHECK-DAG:     %[[v7:.+]] = llvm.mlir.constant(1 : index) : i64
 //   CHECK-DAG:     %[[v8:.+]] = llvm.alloca %[[v7]] x !llvm.struct<(ptr, ptr, i64, array<2 x i64>, array<2 x i64>)> : (i64) -> !llvm.ptr
 //   CHECK-DAG:     llvm.store %[[v1]], %[[v8]] : !llvm.struct<(ptr, ptr, i64, array<2 x i64>, array<2 x i64>)>, !llvm.ptr
-//   CHECK-DAG:     %[[v9:.+]] = llvm.mlir.undef : !llvm.struct<(i64, ptr)>
+//   CHECK-DAG:     %[[v9:.+]] = llvm.mlir.poison : !llvm.struct<(i64, ptr)>
 //   CHECK-DAG:     %[[v10:.+]] = llvm.insertvalue %[[v6]], %[[v9]][0] : !llvm.struct<(i64, ptr)>
 //   CHECK-DAG:     %[[v11:.+]] = llvm.insertvalue %[[v8]], %[[v10]][1] : !llvm.struct<(i64, ptr)>
 //   CHECK-DAG:     %[[v12:.+]] = llvm.mlir.constant(2 : i64) : i64
 //   CHECK-DAG:     %[[v13:.+]] = llvm.mlir.constant(1 : index) : i64
 //   CHECK-DAG:     %[[v14:.+]] = llvm.alloca %[[v13]] x !llvm.struct<(ptr, ptr, i64, array<2 x i64>, array<2 x i64>)> : (i64) -> !llvm.ptr
 //   CHECK-DAG:     llvm.store %[[v0]], %[[v14]] : !llvm.struct<(ptr, ptr, i64, array<2 x i64>, array<2 x i64>)>, !llvm.ptr
-//   CHECK-DAG:     %[[v15:.+]] = llvm.mlir.undef : !llvm.struct<(i64, ptr)>
+//   CHECK-DAG:     %[[v15:.+]] = llvm.mlir.poison : !llvm.struct<(i64, ptr)>
 //   CHECK-DAG:     %[[v16:.+]] = llvm.insertvalue %[[v12]], %[[v15]][0] : !llvm.struct<(i64, ptr)>
 //   CHECK-DAG:     %[[v17:.+]] = llvm.insertvalue %[[v14]], %[[v16]][1] : !llvm.struct<(i64, ptr)>
 //   CHECK-DAG:     %[[v18:.+]] = llvm.mlir.constant(1 : i32) : i32
@@ -158,7 +158,7 @@ func.func @convert_enqueue_alloc(
 //   CHECK-DAG:     %[[v6:.+]] = llvm.mlir.constant(1 : index) : i64
 //   CHECK-DAG:     %[[v7:.+]] = llvm.alloca %[[v6]] x !llvm.struct<(ptr, ptr, i64, array<2 x i64>, array<2 x i64>)> : (i64) -> !llvm.ptr
 //   CHECK-DAG:     llvm.store %[[v0]], %[[v7]] : !llvm.struct<(ptr, ptr, i64, array<2 x i64>, array<2 x i64>)>, !llvm.ptr
-//   CHECK-DAG:     %[[v8:.+]] = llvm.mlir.undef : !llvm.struct<(i64, ptr)>
+//   CHECK-DAG:     %[[v8:.+]] = llvm.mlir.poison : !llvm.struct<(i64, ptr)>
 //   CHECK-DAG:     %[[v9:.+]] = llvm.insertvalue %[[v5]], %[[v8]][0] : !llvm.struct<(i64, ptr)>
 //   CHECK-DAG:     %[[v10:.+]] = llvm.insertvalue %[[v7]], %[[v9]][1] : !llvm.struct<(i64, ptr)>
 //   CHECK-DAG:     %[[v11:.+]] = llvm.mlir.constant(1 : i32) : i32
@@ -169,12 +169,12 @@ func.func @convert_enqueue_alloc(
 //   CHECK-DAG:     llvm.store %[[v10]], %[[v15]] : !llvm.struct<(i64, ptr)>, !llvm.ptr
 //   CHECK-DAG:     %[[v16:.+]] = llvm.getelementptr %[[v14]][0] : (!llvm.ptr) -> !llvm.ptr, !llvm.ptr
 //   CHECK-DAG:     llvm.store %[[v15]], %[[v16]] : !llvm.ptr, !llvm.ptr
-//   CHECK-DAG:     %[[v17:.+]] = llvm.mlir.undef : !llvm.struct<(ptr, ptr, i64, array<2 x i64>, array<2 x i64>)>
+//   CHECK-DAG:     %[[v17:.+]] = llvm.mlir.poison : !llvm.struct<(ptr, ptr, i64, array<2 x i64>, array<2 x i64>)>
 //   CHECK-DAG:     %[[v18:.+]] = llvm.mlir.constant(2 : i64) : i64
 //   CHECK-DAG:     %[[v19:.+]] = llvm.mlir.constant(1 : index) : i64
 //   CHECK-DAG:     %[[v20:.+]] = llvm.alloca %[[v19]] x !llvm.struct<(ptr, ptr, i64, array<2 x i64>, array<2 x i64>)> : (i64) -> !llvm.ptr
 //   CHECK-DAG:     llvm.store %[[v17]], %[[v20]] : !llvm.struct<(ptr, ptr, i64, array<2 x i64>, array<2 x i64>)>, !llvm.ptr
-//   CHECK-DAG:     %[[v21:.+]] = llvm.mlir.undef : !llvm.struct<(i64, ptr)>
+//   CHECK-DAG:     %[[v21:.+]] = llvm.mlir.poison : !llvm.struct<(i64, ptr)>
 //   CHECK-DAG:     %[[v22:.+]] = llvm.insertvalue %[[v18]], %[[v21]][0] : !llvm.struct<(i64, ptr)>
 //   CHECK-DAG:     %[[v23:.+]] = llvm.insertvalue %[[v20]], %[[v22]][1] : !llvm.struct<(i64, ptr)>
 //   CHECK-DAG:     %[[v24:.+]] = llvm.mlir.constant(1 : i32) : i32

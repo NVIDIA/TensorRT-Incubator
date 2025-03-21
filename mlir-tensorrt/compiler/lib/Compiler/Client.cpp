@@ -23,6 +23,7 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt/Compiler/Client.h"
 #include "mlir-executor/Support/Status.h"
+#include "mlir-tensorrt/Compiler/OptionsProviders.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/Support/FileUtilities.h"
 #include "llvm/Support/ErrorHandling.h"
@@ -44,10 +45,29 @@ static llvm::ManagedStatic<llvm::StringMap<mlir::TypeID>> taskNameRegistry;
 //===----------------------------------------------------------------------===//
 // CompilationTask
 //===----------------------------------------------------------------------===//
-CompilationTaskBase::CompilationTaskBase(MLIRContext *context,
-                                         mlir::TypeID typeID)
+void CompilationTaskBase::setupPassManagerInstrumentation(
+    const DebugOptions *options) {
+  // TODO: add API in upstream to detect whether this PM already has
+  // instrumentation attached.
+  if (options) {
+    options->applyToPassManager(*this);
+    return;
+  }
+  // Populate from global CL options.
+  // TODO: we may want to consider making this a non-error.
+  if (failed(applyPassManagerCLOptions(*this)))
+    llvm::report_fatal_error("failed to populate pass manager "
+                             "instrumentation from global CL options");
+  applyDefaultTimingPassManagerCLOptions(*this);
+}
+
+CompilationTaskBase::CompilationTaskBase(
+    MLIRContext *context, mlir::TypeID typeID,
+    std::unique_ptr<CompilationTaskOptionsBase> options)
     : mlir::PassManager(context, mlir::ModuleOp::getOperationName()),
-      typeID(typeID) {}
+      typeID(typeID), taskOptions(std::move(options)) {
+  setupPassManagerInstrumentation(taskOptions->getDebugOptions());
+}
 
 CompilationTaskBase::~CompilationTaskBase() {}
 
@@ -62,29 +82,47 @@ CompilerClient::create(MLIRContext *context) {
 
 CompilerClient::CompilerClient(mlir::MLIRContext *context) : context(context) {}
 
-StatusOr<CompilationTaskBase *>
-CompilerClient::getCompilationTask(mlir::TypeID taskID,
-                                   llvm::ArrayRef<llvm::StringRef> options) {
+static StatusOr<CompilationTaskBase *>
+lookupAndBuildTask(CompilerClient &client, ArrayRef<StringRef> options,
+                   mlir::TypeID taskID, bool enableDebugOptions) {
+  if (!taskRegistry.isConstructed())
+    llvm::report_fatal_error("no such task registered");
   auto it = taskRegistry->find(taskID);
   if (it == taskRegistry->end())
     llvm::report_fatal_error("no such task registered");
-  return it->second.registryFunc(*this, options);
+  return it->second.registryFunc(client, options, enableDebugOptions);
 }
 
-StatusOr<CompilationTaskBase *>
-CompilerClient::getCompilationTask(llvm::StringRef mnemonic,
-                                   llvm::ArrayRef<StringRef> options) {
+static StatusOr<CompilationTaskBase *>
+lookupAndBuildTask(CompilerClient &client, ArrayRef<StringRef> options,
+                   StringRef mnemonic, bool enableDebugOptions) {
+  if (!taskNameRegistry.isConstructed())
+    return getInvalidArgStatus("no compilation task registered with name {0}",
+                               mnemonic);
   auto it = taskNameRegistry->find(mnemonic);
   if (it == taskNameRegistry->end())
     return getInvalidArgStatus("no compilation task registered with name {0}",
                                mnemonic);
-
-  return getCompilationTask(taskNameRegistry->lookup(mnemonic), options);
+  return lookupAndBuildTask(client, options, it->second, enableDebugOptions);
 }
 
-void compiler::registerCompilationTask(llvm::StringRef mnemonic,
-                                       mlir::TypeID typeID,
-                                       TaskRegistryFunction func) {
+StatusOr<CompilationTaskBase *>
+CompilerClient::getCompilationTask(mlir::TypeID taskID,
+                                   llvm::ArrayRef<llvm::StringRef> options,
+                                   bool enableDebugOptions) {
+  return lookupAndBuildTask(*this, options, taskID, enableDebugOptions);
+}
+
+StatusOr<CompilationTaskBase *>
+CompilerClient::getCompilationTask(llvm::StringRef mnemonic,
+                                   llvm::ArrayRef<StringRef> options,
+                                   bool enableDebugOptions) {
+  return lookupAndBuildTask(*this, options, mnemonic, enableDebugOptions);
+}
+
+void compiler::detail::registerCompilationTask(llvm::StringRef mnemonic,
+                                               mlir::TypeID typeID,
+                                               TaskRegistryFunction func) {
   if (taskNameRegistry->contains(mnemonic) || taskRegistry->contains(typeID))
     llvm::report_fatal_error(
         "detected double registration of compilation task \"" + mnemonic +
@@ -92,4 +130,40 @@ void compiler::registerCompilationTask(llvm::StringRef mnemonic,
   taskNameRegistry->insert({mnemonic, typeID});
   taskRegistry->insert(
       std::make_pair(typeID, TaskRegistration{std::move(func)}));
+}
+
+//===----------------------------------------------------------------------===//
+// Task Lookup Utilities
+//===----------------------------------------------------------------------===//
+
+llvm::SmallVector<llvm::StringRef>
+compiler::getRegisteredCompilationTaskNames() {
+  llvm::SmallVector<llvm::StringRef> result;
+  for (const auto &[name, id] : *taskNameRegistry)
+    result.push_back(name);
+  return result;
+}
+
+void compiler::printCompilationTaskHelpInfo(mlir::MLIRContext *ctx,
+                                            llvm::StringRef mnemonic) {
+  StatusOr<std::unique_ptr<CompilerClient>> client =
+      compiler::CompilerClient::create(ctx);
+  if (!client.isOk())
+    llvm::report_fatal_error(client.getString().c_str());
+  StatusOr<CompilationTaskBase *> task =
+      lookupAndBuildTask(**client, {}, mnemonic, /*enableDebugOptions=*/false);
+  if (!task.isOk())
+    llvm::report_fatal_error(task.getString().c_str());
+  (*task)->getTaskOptions().printHelp(0, 70);
+}
+
+StatusOr<CompilationTaskBase *> compiler::buildTask(mlir::MLIRContext *ctx,
+                                                    llvm::StringRef mnemonic,
+                                                    llvm::StringRef options) {
+  StatusOr<std::unique_ptr<CompilerClient>> client =
+      compiler::CompilerClient::create(ctx);
+  if (!client.isOk())
+    return client.getStatus();
+  return lookupAndBuildTask(**client, {}, mnemonic,
+                            /*enableDebugOptions=*/false);
 }

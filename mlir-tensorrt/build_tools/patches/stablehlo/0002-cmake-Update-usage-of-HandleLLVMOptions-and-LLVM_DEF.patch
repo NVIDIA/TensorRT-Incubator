@@ -1,7 +1,7 @@
-From f45c6b58fb35aeb40c71bfc5e3f18c20c6294238 Mon Sep 17 00:00:00 2001
+From 4949f0f91bf256e01f13dae1ddcd2139d2c41d85 Mon Sep 17 00:00:00 2001
 From: Christopher Bate <cbate@nvidia.com>
 Date: Sat, 15 Feb 2025 22:02:17 +0000
-Subject: [PATCH 2/4] [cmake] Update usage of `HandleLLVMOptions` and
+Subject: [PATCH 2/7] [cmake] Update usage of `HandleLLVMOptions` and
  `LLVM_DEFINITIONS`
 
 This change attempts to resolve issues with use of `HandleLLVMOptions`

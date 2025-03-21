@@ -6,17 +6,16 @@ include "mlir-tensorrt-dialect/Interface/TensorKindOpInterface.td"
 
 include "mlir/IR/EnumAttr.td"
 
-class Plan_I32EnumAttr<string name, string description,
-  list<I32EnumAttrCase> cases> :
-    I32EnumAttr<name, description, cases> {
-  let cppNamespace = "::mlir::plan";
-  let genSpecializedAttr = 0;
-}
-
-class Plan_EnumAttr<IntEnumAttr intEnumAttr, string mnemonic, list<Trait> traits = []> :
-  EnumAttr<Plan_Dialect, intEnumAttr, mnemonic, traits> {
-  let assemblyFormat = "`<` $value `>`";
-}
+def Plan_InputKind : Plan_I32EnumAttr<
+  "InputKind", 
+  "kind of input IR dialect",
+  [
+    I32EnumAttrCase<"Stablehlo", 0, "stablehlo">,
+    I32EnumAttrCase<"TensorRT", 1, "tensorrt">, 
+    I32EnumAttrCase<"Linalg", 2, "linalg">
+  ]
+>;
+def Plan_InputKindAttr : Plan_EnumAttr<Plan_InputKind, "input_kind">;
 
 def Plan_BoundsKind : Plan_I32EnumAttr<
   "BoundsKind",

@@ -25,6 +25,7 @@
 #include "mlir-tensorrt-dialect/Utils/ShapeUtils.h"
 #include "mlir-tensorrt-dialect/Utils/StaticValueUtils.h"
 #include "mlir-tensorrt/Dialect/StableHloExt/Transforms/Patterns.h"
+#include "mlir-tensorrt/Dialect/StableHloExt/Utils/GatherScatterUtils.h"
 #include "mlir-tensorrt/Dialect/StableHloExt/Utils/Utils.h"
 #include "mlir/Dialect/CommonFolders.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
@@ -34,6 +35,7 @@
 #include "stablehlo/dialect/StablehloOps.h"
 #include "stablehlo/dialect/TypeInference.h"
 #include "stablehlo/transforms/Passes.h"
+#include "stablehlo/transforms/optimization/Passes.h"
 #include "llvm/ADT/STLExtras.h"
 
 namespace mlir {
@@ -968,6 +970,85 @@ struct RewriteTrivialLogicalRightShiftPattern
 };
 
 //===----------------------------------------------------------------------===//
+// ScatterOp
+//===----------------------------------------------------------------------===//
+
+/// This pattern checks if a scatter is a  "canonical scatter-nd"-like operation
+/// that completely overwrites the source tensor. In this case, all the
+/// input/source tensors can be replaced by the updates tensors.
+///
+/// Note that this pattern only detects when there is a single slice
+/// being inserted at the zero index, and the slice completely overwrites the
+/// source tensor. It does not yet detect when there are multiple slices that
+/// insert into 'iota' indices, which would also be valid for replacement
+/// by the updates tensors.
+struct SimplifyTrivialScatter : public OpRewritePattern<stablehlo::ScatterOp> {
+  using OpRewritePattern::OpRewritePattern;
+  LogicalResult matchAndRewrite(stablehlo::ScatterOp op,
+                                PatternRewriter &rewriter) const override {
+    // Check whether the indices are uniformly zero.
+    if (SplatElementsAttr attr;
+        !matchPattern(op.getScatterIndices(), m_Constant(&attr)) ||
+        !attr.getSplatValue<APInt>().isZero())
+      return rewriter.notifyMatchFailure(op, "indices not splat zero");
+
+    if (!stablehlo_ext::isCanonicalScatterNd(op))
+      return rewriter.notifyMatchFailure(op, "not a canonical scatter nd op");
+
+    // Check whether there is a single slice update. This occurs if the shape of
+    // the inserted slice is the same as the input and the number of slices
+    // inserted is one.
+    stablehlo::ScatterDimensionNumbersAttr dimNums =
+        op.getScatterDimensionNumbersAttr();
+    RankedTensorType inputType =
+        cast<RankedTensorType>(op.getInputs().front().getType());
+    RankedTensorType updateType =
+        cast<RankedTensorType>(op.getUpdates().front().getType());
+
+    // Build the implicit inserted slice shape.
+    SmallVector<int64_t> implicitSliceShape(inputType.getRank(), 0);
+    for (int64_t i : dimNums.getInsertedWindowDims())
+      implicitSliceShape[i] = 1;
+
+    unsigned updateWindowDim = 0;
+    ArrayRef<int64_t> updateWindowDims = dimNums.getUpdateWindowDims();
+    for (int64_t i = 0;
+         i < inputType.getRank() && updateWindowDim < updateWindowDims.size();
+         ++i) {
+      if (implicitSliceShape[i] == 0)
+        implicitSliceShape[i] =
+            updateType.getDimSize(updateWindowDims[updateWindowDim++]);
+    }
+
+    if (implicitSliceShape != inputType.getShape())
+      return rewriter.notifyMatchFailure(
+          op, "implicit update slice not correct shape");
+
+    if (!llvm::all_of(updateType.getShape().drop_back(
+                          dimNums.getUpdateWindowDims().size()),
+                      [](int64_t x) { return x == 1; }))
+      return rewriter.notifyMatchFailure(op, "more than one update slice");
+
+    // Fast path for when no reshape is necessary.
+    if (updateType == inputType) {
+      rewriter.replaceOp(op, op.getUpdates());
+      return success();
+    }
+
+    if (!updateType.hasStaticShape() || !inputType.hasStaticShape())
+      return rewriter.notifyMatchFailure(op, "update|input have dynamic shape");
+
+    SmallVector<Value> replacements(op.getUpdates());
+    for (Value &update : replacements)
+      update = rewriter.create<stablehlo::ReshapeOp>(update.getLoc(), inputType,
+                                                     update);
+    rewriter.replaceOp(op, replacements);
+
+    return success();
+  }
+};
+
+//===----------------------------------------------------------------------===//
 // Misc Patterns
 //===----------------------------------------------------------------------===//
 
@@ -1119,8 +1200,8 @@ public:
         ConstFoldFloor,
         ConstFoldGatherOnSplat,
         ConstFoldReshape,
-        ConstFoldSub,
         ConstFoldStablehloSlice,
+        ConstFoldSub,
         ConstFoldTranspose,
         EliminateCascadedConverts,
         FixInvalidReturnWorkaround,
@@ -1132,6 +1213,7 @@ public:
         SimplifyReshapeBroadcastInDimReshape,
         SimplifyTrivialMinOrTrivalMax<MaxOp>,
         SimplifyTrivialMinOrTrivalMax<MinOp>,
+        SimplifyTrivialScatter,
         SimplifyTrivialSlice,
         SqrtOpFolder
       >(ctx);

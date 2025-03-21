@@ -63,13 +63,13 @@ executor.global @global4 : !executor.ptr<host> attributes {
 //       CHECK:   executor.global @global3 constant : !executor.ptr<host>
 //       CHECK:   executor.global @global4 : !executor.ptr<host>
 //       CHECK:   @executor_init_globals
-//       CHECK:     %[[v0:.+]] = executor.load_constant_resource @global3_initializer : !executor.ptr<host>
+//       CHECK:     %[[v0:.+]] = executor.load_data_segment @global3_initializer : !executor.ptr<host>
 //       CHECK:     executor.set_global %[[v0]], @global3 : !executor.ptr<host>
-//       CHECK:     %[[v1:.+]] = executor.load_constant_resource @global4_initializer : !executor.ptr<host>
+//       CHECK:     %[[v1:.+]] = executor.load_data_segment @global4_initializer : !executor.ptr<host>
 //       CHECK:     executor.set_global %[[v1]], @global4 : !executor.ptr<host>
 //       CHECK:     return
-//       CHECK:   executor.constant_resource @global3_initializer dense<[1, 2, 3, 4]> : vector<4xi8>
-//       CHECK:   executor.constant_resource @global4_initializer dense<[1, 2, 3, 4]> : vector<4xi8>
+//       CHECK:   executor.data_segment @global3_initializer constant dense<[1, 2, 3, 4]> : vector<4xi8>
+//       CHECK:   executor.data_segment @global4_initializer constant dense<[1, 2, 3, 4]> : vector<4xi8>
 
 // -----
 

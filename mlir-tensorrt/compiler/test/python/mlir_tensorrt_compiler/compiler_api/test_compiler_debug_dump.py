@@ -31,8 +31,8 @@ def compile_asm(ASM):
         mlir_tree_path = tempfile.TemporaryDirectory()
         trt_path = tempfile.TemporaryDirectory()
 
-        opts = api.StableHLOToExecutableOptions(
-            client,
+        task = client.get_compilation_task(
+            "stablehlo-to-executable",
             [
                 "--tensorrt-builder-opt-level=0",
                 "--tensorrt-strongly-typed=false",
@@ -42,8 +42,8 @@ def compile_asm(ASM):
                 f"--tensorrt-engines-dir={trt_path.name}",
             ],
         )
-
-        api.compiler_stablehlo_to_executable(client, m.operation, opts)
+        task.run(m.operation)
+        api.translate_mlir_to_executable(m.operation)
         _check_debug_files(mlir_tree_path.name, trt_path.name)
 
 

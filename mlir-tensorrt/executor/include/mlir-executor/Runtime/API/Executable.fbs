@@ -112,7 +112,7 @@ table Function {
   signature:FunctionSignature;
 }
 
-table Constant {
+table DataSegment {
   name:string (offset64);
   // A vector of bytes, which are in the 64 bit region.
   data:[byte] (vector64);
@@ -121,7 +121,8 @@ table Constant {
 table Executable {
   name:string;
   source:string;
-  constants:[Constant];
+
+  data_segments:[DataSegment];
 
   // Contains metadata for functions that are publicly callable.
   // Note that this may not exactly match the signature of the function

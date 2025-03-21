@@ -34,8 +34,8 @@
 #include "mlir-tensorrt/Compiler/StablehloToExecutable/StablehloToExecutable.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
 #include "mlir-tensorrt/Dialect/StableHloExt/Transforms/Passes.h"
-#include "mlir-tensorrt/Pipelines/StableHloInputPipelines.h"
 #include "stablehlo/transforms/Passes.h"
+#include "stablehlo/transforms/optimization/Passes.h"
 #endif // MLIR_TRT_ENABLE_HLO
 
 #ifdef MLIR_TRT_TARGET_TENSORRT
@@ -63,9 +63,10 @@ inline void registerAllMlirTensorRtPasses() {
 #ifdef MLIR_TRT_ENABLE_HLO
   mlirtrt::compiler::registerStablehloToExecutablePasses();
   mlirtrt::compiler::registerStablehloToExecutablePipelines();
-  registerStableHloInputPipelines();
+  mlirtrt::compiler::registerStableHloInputPipelines();
   stablehlo_ext::registerStableHloExtPasses();
   stablehlo::registerPasses();
+  stablehlo::registerOptimizationPasses();
   plan::registerPlanPasses();
   plan::registerPlanDialectPipelines();
 #endif // MLIR_TRT_ENABLE_HLO

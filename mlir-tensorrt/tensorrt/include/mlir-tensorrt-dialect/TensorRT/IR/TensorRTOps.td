@@ -93,8 +93,18 @@ def TensorRT_CallOp : TensorRT_Op<"call", [
 
   let arguments = (ins Variadic<AnyTypeOf<[AnyShaped, AnySignlessIntegerOrIndex]>>:$inputs,
                        Variadic<AnyShaped>:$outputs,
-                       SymbolRefAttr:$callee);
+                       SymbolRefAttr:$callee,
+                       OptionalAttr<DictArrayAttr>:$arg_attrs,
+                       OptionalAttr<DictArrayAttr>:$res_attrs);
   let results = (outs Variadic<AnyShaped>:$results);
+
+  let builders = [
+    OpBuilder<(ins "TypeRange":$types, "ValueRange":$inputs,
+                    "ValueRange":$outputs, "SymbolRefAttr":$callee), [{
+      build($_builder, $_state, types, inputs, outputs, callee,
+        ArrayAttr{}, ArrayAttr{});
+    }]>
+  ];
 
   let extraClassDeclaration = [{
     /// Return the function representing the TRT engine that is being called.
@@ -146,10 +156,21 @@ def TensorRT_CallAllocOp : TensorRT_Op<"call_alloc", [
 
   let arguments = (ins
     Variadic<AnyTypeOf<[AnyShaped, AnySignlessIntegerOrIndex]>>:$inputs,
-    SymbolRefAttr:$callee
+    SymbolRefAttr:$callee,
+    OptionalAttr<DictArrayAttr>:$arg_attrs,
+    OptionalAttr<DictArrayAttr>:$res_attrs
   );
 
   let results = (outs Variadic<AnyTypeOf<[AnyMemRef, AnyTensor]>>:$results);
+
+  let builders = [
+    OpBuilder<(ins "TypeRange":$types, "ValueRange":$inputs,
+                   "SymbolRefAttr":$callee),
+    [{
+      build($_builder, $_state, types, inputs, callee,
+        ArrayAttr{}, ArrayAttr{});
+    }]>
+  ];
 
   let assemblyFormat = [{
     $callee `(` ($inputs^ `:` type($inputs))? `)`

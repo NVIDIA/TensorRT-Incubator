@@ -17,7 +17,7 @@ if("${MLIR_TRT_USE_LLVM}" STREQUAL "prebuilt")
   set(MTRT_BUILD_LLVM_FROM_SOURCE OFF)
 endif()
 
-set(MLIR_TRT_LLVM_COMMIT "ec66c4af09263e68d800971906e60afc27d54a06")
+set(MLIR_TRT_LLVM_COMMIT "729416e586fba71b4f63d71b1b5c765aefbf200b")
 
 set(mlir_patch_dir "${CMAKE_CURRENT_LIST_DIR}/build_tools/patches/mlir")
 
@@ -42,7 +42,6 @@ else()
     PATCHES
       "${mlir_patch_dir}/0005-mlir-memref-Fix-memref.global-overly-constrained-ver.patch"
       "${mlir_patch_dir}/0006-mlir-emitc-Fix-two-EmitC-bugs.patch"
-      "${mlir_patch_dir}/0008-MLIR-Remove-unnecessary-include-from-MathToEmitC.h-t.patch"
       "${mlir_patch_dir}/0009-mlir-Support-FileLineColRange-in-LLVM-debug-translat.patch"
       "${mlir_patch_dir}/0010-MLIR-Fix-LLVMIRTransforms-build-failure-125485.patch"
     # Set the CPM cache key to the Git hash for easy navigation.
@@ -102,14 +101,17 @@ set(stablehlo_patch_dir "${CMAKE_SOURCE_DIR}/build_tools/patches/stablehlo")
 
 nv_register_package(
   NAME Stablehlo
-  VERSION 1.8.0
-  GIT_TAG 48a1e14edc8219577fcad53de1924876f855f431
+  VERSION 1.9.3
+  GIT_TAG 459897561d365ef97caba46984847f9184d472ec
   GIT_REPOSITORY "https://github.com/openxla/stablehlo.git"
   PATCHES
     "${stablehlo_patch_dir}/0001-Fix-a-couple-missing-checks-for-static-shapes-in-sta.patch"
+    "${stablehlo_patch_dir}/0002-cmake-Update-usage-of-HandleLLVMOptions-and-LLVM_DEF.patch"
     "${stablehlo_patch_dir}/0003-Don-t-insert-unnecessary-arith.index_cast-ops.patch"
     "${stablehlo_patch_dir}/0004-Fix-ZeroExtent-condition-in-simplification-pattern.patch"
-    "${stablehlo_patch_dir}/0002-cmake-Update-usage-of-HandleLLVMOptions-and-LLVM_DEF.patch"
+    "${stablehlo_patch_dir}/0005-Fix-crash-on-ComplexType-in-PointwiseToLinalgMapConv.patch"
+    "${stablehlo_patch_dir}/0006-Remove-explicit-use-of-LLVMSupport.patch"
+    "${stablehlo_patch_dir}/0007-Fix-circular-dependence-between-StablehloPasses-and-.patch"
   OPTIONS
     "STABLEHLO_ENABLE_BINDINGS_PYTHON ON"
     "STABLEHLO_BUILD_EMBEDDED ON"
@@ -161,8 +163,11 @@ set(torch_mlir_patch_dir "${CMAKE_SOURCE_DIR}/build_tools/patches/torch_mlir")
 nv_register_package(
   NAME torch_mlir
   GIT_REPOSITORY https://github.com/llvm/torch-mlir.git
-  GIT_TAG 169032010793ee7fe3e305ab920e4119fdfc3b11
-  PATCHES "${torch_mlir_patch_dir}/0001-cmake-Allow-finding-Stablehlo-via-find_package.patch"
+  GIT_TAG 0bb263e99415d43255350d29263097b4980303bf
+  PATCHES 
+    "build_tools/patches/torch_mlir/0001-cmake-Allow-finding-Stablehlo-via-find_package.patch"
+    "build_tools/patches/torch_mlir/0002-Make-compatible-with-more-recent-Stablehlo-version.patch"
+    "build_tools/patches/torch_mlir/0003-Fix-some-configuration-paths-in-LIT-cfg.patch"
   EXCLUDE_FROM_ALL TRUE
   # We need to specify an existing directory that is not actually a submodule
   # since GIT_SUBMODULES does not except the empty string due to
@@ -172,8 +177,7 @@ nv_register_package(
     "TORCH_MLIR_OUT_OF_TREE_BUILD ON"
     "TORCH_MLIR_ENABLE_STABLEHLO ON"
     "TORCH_MLIR_EXTERNAL_STABLEHLO_DIR find_package"
-    "MLIR_DIR ${CMAKE_BINARY_DIR}/lib/cmake/mlir"
-    "LLVM_DIR ${LLVM_BINARY_DIR}/lib/cmake/llvm"
+    "TORCH_MLIR_ENABLE_TOSA OFF"
 )
 
 #-------------------------------------------------------------------------------------

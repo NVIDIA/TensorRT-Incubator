@@ -1,20 +1,21 @@
 add_mlir_tensorrt_library(MLIRTensorRTPlanTransforms
   AllocTensors.cpp
+  Bufferize.cpp
+  Clustering.cpp
   CreateClosedRegions.cpp
   CreateShapeFuncs.cpp
-  Bufferize.cpp
   EliminateShapeOps.cpp
   MaterializeShapeCalculations.cpp
-  StablehloClustering.cpp
-  OutlineClusters.cpp
-  Passes.cpp
-  PostClusteringValidation.cpp
-  RefineTypes.cpp
-  PopulateFunctionBoundsAttributes.cpp
+  MaterializeShapeCalculationsStablehlo.cpp
   ModuleBufferization/ModuleBufferization.cpp
   ModuleBufferization/ModuleBufferizationAnalysis.cpp
   ModuleBufferization/ModuleBufferizationUtils.cpp
   ModuleBufferization/RemoveEquivalentBufferResults.cpp
+  OutlineClusters.cpp
+  Passes.cpp
+  PopulateFunctionBoundsAttributes.cpp
+  PostClusteringValidation.cpp
+  RefineTypes.cpp
 
   DEPENDS
   MLIRTensorRTPlanTransformsPassIncGen
