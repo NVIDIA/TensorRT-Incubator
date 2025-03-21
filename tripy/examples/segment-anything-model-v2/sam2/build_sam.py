@@ -320,7 +320,7 @@ def build_sam2_base(
     OmegaConf.resolve(cfg)
 
     model = instantiate(cfg.model, _recursive_=True)
-    _load_checkpoint(model, ckpt_path, cfg)
+    _load_checkpoint(model, ckpt_path, model_type, cfg)
 
     # Get component configurations and initialize cache
     components = get_component_configs(model, cfg)
@@ -440,7 +440,7 @@ def load_component_weights(comp_name, component_info, state_dict, checkpoint_dic
     return converted_keys
 
 
-def _load_checkpoint(model, ckpt_path, cfg=None):
+def _load_checkpoint(model, ckpt_path, model_type, cfg=None):
 
     if ckpt_path is None:
         return
@@ -450,7 +450,7 @@ def _load_checkpoint(model, ckpt_path, cfg=None):
 
     # Get paths for compiled models
     current_dir = os.getcwd()
-    saved_engines_path = os.path.join(current_dir, "saved_engines")
+    saved_engines_path = os.path.join(current_dir, f"saved_engines_{model_type}")
 
     # Get component configurations
     components = get_component_configs(model, cfg)

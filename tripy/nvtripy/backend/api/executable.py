@@ -197,10 +197,13 @@ class Executable:
                     if tensor.dtype != dtype:
                         raise_error(
                             f"Unexpected tensor data type.",
-                            [
-                                f"For parameter {arg_name}, expected data type: {dtype} but got: {tensor.dtype}. Note: Argument was: ",
-                                tensor,
-                            ],
+                            (
+                                [
+                                    f"For parameter {arg_name}, expected data type: {dtype} but got: {tensor.dtype}. ",
+                                ]
+                                # TODO (pranavm): Put this under the verbose error message option.
+                                + (["Note: Argument was: ", tensor] if False else [])
+                            ),
                         )
             elif "InternalError: failed to set input shape" in str(err) or "Runtime shape mismatch" in str(err):
                 expected_input_shapes = [info.shape_bounds for info in self._get_input_info()]
