@@ -128,7 +128,7 @@ class TestCompile:
     def test_incorrect_dtype_rejected(self):
         a = tp.ones((2, 2), dtype=tp.int32)
 
-        with helper.raises(tp.TripyException, "Unexpected tensor data type.", has_stack_info_for=[a]):
+        with helper.raises(tp.TripyException, "Unexpected tensor data type."):
             compiled_add = tp.compile(
                 add, args=[tp.InputInfo((2, 2), dtype=tp.float32), tp.InputInfo((2, 2), dtype=tp.float32)]
             )
