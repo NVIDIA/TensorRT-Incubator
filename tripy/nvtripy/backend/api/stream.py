@@ -116,7 +116,7 @@ class Stream:
 @export.public_api(document_under="compiling_code/stream.rst")
 def default_stream(device: Device = Device("gpu")) -> Stream:
     """
-    Provides access to the default CUDA stream for a given device.
+    Provides access to the default Tripy CUDA stream for a given device.
     There is only one default stream instance per device.
 
     Args:
