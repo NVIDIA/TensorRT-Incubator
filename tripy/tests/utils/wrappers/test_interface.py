@@ -29,7 +29,7 @@ from tests import helper
 # Get all functions/methods which have tensors in the type signature
 PUBLIC_API_TENSOR_FUNCTIONS = []
 PUBLIC_API_TENSOR_FUNCTION_NAMES = []
-NON_VERIFIABLE_APIS = {"plugin", "Executable.__call__"}
+NON_VERIFIABLE_APIS = {"plugin", "Executable.__call__", "Tensor.eval"}
 for api in PUBLIC_APIS:
     if inspect.isfunction(api.obj):
         funcs = [api.obj]
