@@ -611,7 +611,7 @@ StatusOr<PointerInfo> runtime::allocate(AllocTracker &tracker, PointerType type,
     if (!stream) {
       void *alloc{nullptr};
       RETURN_ERROR_IF_CUDART_ERROR(cudaMalloc(&alloc, size));
-      MTRT_DBGF("Allocated %lu device bytes 0x%lx", size,
+      MTRT_DBGF("Synchronously allocated %lu device bytes 0x%lx", size,
                 reinterpret_cast<uintptr_t>(alloc));
       PointerInfo info{reinterpret_cast<uintptr_t>(alloc), size, type,
                        PointerOwner::internal};
@@ -621,8 +621,9 @@ StatusOr<PointerInfo> runtime::allocate(AllocTracker &tracker, PointerType type,
     void *alloc{nullptr};
     RETURN_ERROR_IF_CUDART_ERROR(
         cudaMallocAsync(&alloc, size, reinterpret_cast<cudaStream_t>(*stream)));
-    MTRT_DBGF("Allocated %lu device bytes 0x%lx", size,
-              reinterpret_cast<uintptr_t>(alloc));
+    MTRT_DBGF("Asynchronously allocated %lu device bytes 0x%lx on stream 0x%lx",
+              size, reinterpret_cast<uintptr_t>(alloc),
+              reinterpret_cast<uintptr_t>(*stream));
     PointerInfo info{reinterpret_cast<uintptr_t>(alloc), size, type,
                      PointerOwner::internal};
     tracker.track(info);

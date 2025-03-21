@@ -103,8 +103,12 @@ static inline MTRT_Stream mtrtStreamGetNull() { return MTRT_Stream{NULL}; }
 /// Synchronizes `MTRT_Stream`
 MLIR_CAPI_EXPORTED MTRT_Status mtrtStreamSynchronize(MTRT_Stream stream);
 
-/// Destroys for `MTRT_Stream` to be ready.
+/// Destroys `MTRT_Stream`.
 MLIR_CAPI_EXPORTED MTRT_Status mtrtStreamDestroy(MTRT_Stream stream);
+
+/// Prints `MTRT_Stream`
+MLIR_CAPI_EXPORTED void
+mtrtStreamPrint(MTRT_Stream stream, MlirStringCallback append, void *userData);
 
 //===----------------------------------------------------------------------===//
 // MTRT_Device

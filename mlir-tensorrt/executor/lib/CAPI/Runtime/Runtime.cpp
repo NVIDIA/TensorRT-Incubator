@@ -30,6 +30,7 @@
 #include "mlir-executor/Runtime/Backend/Lua/LuaRuntime.h"
 #include "mlir-executor/Runtime/Support/Support.h"
 #include "mlir-executor/Support/Status.h"
+#include "mlir/CAPI/Utils.h"
 #include "mlir/Support/FileUtilities.h"
 #include "llvm/Support/Debug.h"
 
@@ -304,6 +305,14 @@ MTRT_Status mtrtStreamSynchronize(MTRT_Stream stream) {
 MTRT_Status mtrtStreamDestroy(MTRT_Stream stream) {
   delete unwrap(stream);
   return mtrtStatusGetOk();
+}
+
+MLIR_CAPI_EXPORTED void
+mtrtStreamPrint(MTRT_Stream stream, MlirStringCallback append, void *userData) {
+  mlir::detail::CallbackOstream printStream(append, userData);
+  std::stringstream ss;
+  ss << std::hex << reinterpret_cast<uintptr_t>(unwrap(stream)->getRawStream());
+  printStream << "CUDA Stream @ 0x" << ss.str();
 }
 
 //===----------------------------------------------------------------------===//
