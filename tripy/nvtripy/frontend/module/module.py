@@ -21,7 +21,7 @@ import inspect
 import operator
 from typing import Any, Dict, Iterator, List, Set, Tuple, Union
 
-from nvtripy import export, utils
+from nvtripy import export, utils, config
 from nvtripy.common.exception import raise_error
 from nvtripy.frontend.module.parameter import DefaultParameter
 from nvtripy.frontend.tensor import Tensor
@@ -350,8 +350,7 @@ class Module:
         not_set_parameters = {name: param for name, param in state_dict.items() if isinstance(param, DefaultParameter)}
 
         if not_set_parameters:
-            # TODO (pranavm): Longer errors here based on the config value:
-            if False:
+            if "all" in config.extra_error_information:
                 params_errors = ["\n\n"]
                 for name, param in not_set_parameters.items():
                     params_errors.extend([f"'{name}': defined here:", param])

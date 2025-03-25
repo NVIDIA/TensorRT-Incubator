@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,13 +15,12 @@
 import inspect
 import os
 import tempfile
-from typing import Sequence
+from typing import Tuple
 
+import nvtripy as tp
 import pytest
 from tests import helper
 from tests.backend.api.conftest import *
-
-import nvtripy as tp
 
 
 @pytest.fixture(scope="session")
@@ -91,7 +90,7 @@ class TestExecutable:
     def test_signature_multiple_return_values(self, multiple_return_executable):
         signature = inspect.signature(multiple_return_executable)
 
-        assert signature.return_annotation == Sequence[tp.Tensor]
+        assert signature.return_annotation == Tuple[tp.Tensor, tp.Tensor]
 
     def test_io_tensor_info(self, multiple_return_executable):
         input_info = multiple_return_executable._get_input_info()

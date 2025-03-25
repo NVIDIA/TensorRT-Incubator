@@ -134,7 +134,6 @@ class Plugin(TraceOp):
         plugin_err_prefix = f"Plugin: {self.name} (version={self.version}, namespace={repr(self.namespace)})"
 
         params = {}
-        # TODO (pranavm): Verify error messages:
         for name, values in self.creator_params.items():
             if name not in field_schema:
                 raise_error(

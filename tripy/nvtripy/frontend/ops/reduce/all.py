@@ -51,5 +51,4 @@ def all(
     from nvtripy.frontend.ops.reduce.prod import prod
     from nvtripy.frontend.ops.cast import cast
 
-    # TODO (pranavm): Figure out a better way of doing this
     return cast(prod(cast(input, dtype=datatype.int32), dim, keepdim), dtype=datatype.bool)
