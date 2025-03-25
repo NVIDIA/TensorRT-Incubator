@@ -46,20 +46,28 @@ class Executable:
     """
 
     # The constructor is intentionally undocumented because it is not meant to be called by users.
-    def __init__(self, executable, arg_names, return_type):
+    # `return_single_tensor_as_sequence` indicates whether the return type should be a sequence even if
+    # there is only one output.
+    def __init__(self, executable, arg_names, return_single_tensor_as_sequence):
         self._executable = executable
         self._executor = Executor(self._executable)
         self._arg_names = arg_names
         self._num_expected_args = len(arg_names)
         self._executable_signature = self._executable.get_signature("main")
+        self._return_single_tensor_as_sequence = return_single_tensor_as_sequence
 
         # Build a signature so the executable works with `inspect.signature`
         params = []
         for name in self._arg_names:
             params.append(inspect.Parameter(name, inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=Tensor))
 
-        self._return_type = return_type
-        self.__signature__ = inspect.Signature(params, return_annotation=self._return_type)
+        num_outputs = self._executable_signature.get_num_results()
+
+        return_annotation = (
+            Tuple[(Tensor,) * num_outputs] if num_outputs > 1 or self._return_single_tensor_as_sequence else Tensor
+        )
+
+        self.__signature__ = inspect.Signature(params, return_annotation=return_annotation)
 
     @property
     def stream(self):
@@ -228,7 +236,7 @@ class Executable:
             raise
 
         output_tensors = tuple(Tensor.fast_init(output) for output in executor_outputs)
-        if self._return_type == Tensor:
+        if self.__signature__.return_annotation == Tensor:
             output_tensors = output_tensors[0]
         return output_tensors
 
@@ -301,8 +309,7 @@ def encode_executable(executable):
     return {
         "arg_names": executable._arg_names,
         "executable": base64.b64encode(executable._executable.serialize()).decode(),
-        # TODO (pranavm): Figure out a more reliable way to serialize the return annotation - maybe just serialize forward references (i.e. strings)?
-        "return_type": "Tensor" if executable._return_type is Tensor else "Sequence[Tensor]",
+        "_return_single_tensor_as_sequence": executable._return_single_tensor_as_sequence,
     }
 
 
@@ -312,5 +319,5 @@ def decode_executable(executable_dict):
     return Executable(
         runtime.Executable(executable_bytes),
         executable_dict["arg_names"],
-        Tensor if executable_dict["return_type"] == "Tensor" else Sequence[Tensor],
+        return_single_tensor_as_sequence=executable_dict["_return_single_tensor_as_sequence"],
     )
