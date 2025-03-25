@@ -45,7 +45,6 @@ class TestDequantize:
         "dtype", [tp.float32, tp.float16, pytest.param(tp.bfloat16, marks=skip_if_older_than_sm80)]
     )
     def test_dequantize_int8_per_channel(self, dtype, eager_or_compiled):
-        # TODO (pranavm): Check this:
         # TODO: Fix in #153
         if dtype == tp.float16:
             pytest.skip("TRT does not support fp16->int8 per-channel dequant.")
