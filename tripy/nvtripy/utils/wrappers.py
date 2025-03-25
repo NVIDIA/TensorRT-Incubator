@@ -419,16 +419,15 @@ def interface(
                             [
                                 f"For parameter: '{name}', got unsupported data type: '{arg_dtype}'.\n"
                                 f"Supported data types are: {supported_dtypes}."
-                            ],
-                            # TODO (pranavm): Enable printing this additional information in verbose error mode.
-                            # + (
-                            #     [
-                            #         f"\nNote: '{name}' was: ",
-                            #         arg,
-                            #     ]
-                            #     if isinstance(arg, Tensor)
-                            #     else []
-                            # ),
+                            ]
+                            + (
+                                [
+                                    f"\nNote: '{name}' was: ",
+                                    arg,
+                                ]
+                                if isinstance(arg, Tensor) and "all" in config.extra_error_information
+                                else []
+                            ),
                         )
 
                     # Check if the type matches that of other inputs with the same type_var.

@@ -21,11 +21,12 @@ import os
 import re
 import sys
 import tempfile
+import traceback
 from typing import BinaryIO, List, Optional, Sequence, Tuple, Union
 
 import mlir_tensorrt.runtime.api as runtime
 from mlir_tensorrt.compiler import ir
-from nvtripy import constants, utils
+from nvtripy import config, constants, utils
 from nvtripy.common import datatype
 from nvtripy.common.exception import raise_error
 from nvtripy.logging import logger
@@ -210,39 +211,42 @@ def map_error_to_user_code_and_raise(trace, exc, stderr):
                 output_details = ["Note: Other outputs were: "] + out_tensors[1:]
 
         input_details = []
-        # TODO (pranavm): Have some kind of config option to enable additional information for inputs.
-        # Turning this on by default makes the errors way too verbose.
-        # if inp_tensors:
-        #     input_details = ["Inputs were:"] + inp_tensors
+        if inp_tensors and "all" in config.extra_error_information:
+            input_details = ["Inputs were:"] + inp_tensors
 
         return [
             *output_details,
             *input_details,
-            # TODO (pranavm): Hide this part behind the config option as well.
-            "This error occured while trying to compile the following Trace operation:",
-            utils.utils.code_pretty_str(str(op)),
-            "\n",
-        ]
+        ] + (
+            [
+                "This error occured while trying to compile the following Trace operation:",
+                utils.utils.code_pretty_str(str(op)),
+                "\n",
+            ]
+            if "all" in config.extra_error_information
+            else []
+        )
 
     # Construct the new exception with the formatted message
     error_message = f"{type(exc).__name__}: {str(exc)}"
-    # TODO (pranavm): Config option to toggle additional information:
-    # error_message += f"\n\nAdditional context:\n{traceback.format_exc()}"
+    if "all" in config.extra_error_information:
+        error_message += f"\n\nAdditional context:\n{traceback.format_exc()}"
 
     def starts_with_any(line, *starts):
         return any(line.strip().startswith(start) for start in starts)
 
-    # TODO (pranavm): Config option to disable stripping out this additional information:
-    new_stderr_lines = []
-    first_error_found = False
-    for line in stderr.splitlines():
-        if starts_with_any(line, f"({','.join(output_names)}) error:", "error:"):
-            if not first_error_found:
+    if "all" not in config.extra_error_information:
+        # Strip out redundant error messages:
+        new_stderr_lines = []
+        first_error_found = False
+        for line in stderr.splitlines():
+            if starts_with_any(line, f"({','.join(output_names)}) error:", "error:"):
+                if not first_error_found:
+                    new_stderr_lines.append(line)
+                first_error_found = True
+            else:
                 new_stderr_lines.append(line)
-            first_error_found = True
-        else:
-            new_stderr_lines.append(line)
-    stderr = "\n".join(new_stderr_lines)
+        stderr = "\n".join(new_stderr_lines)
 
     raise_error(
         error_message.replace("InternalError: InternalError:", "InternalError:").rstrip("."),

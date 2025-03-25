@@ -30,7 +30,6 @@ from nvtripy.utils import wrappers
         "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
     },
 )
-# TODO (pranavm): Add testing for when input cannot be evenly divided - last chunk should be smaller.
 def split(
     input: "nvtripy.Tensor", num_split_or_sizes: Union[int, Sequence[int]], dim: int = 0
 ) -> Tuple["nvtripy.Tensor"]:
