@@ -31,7 +31,6 @@ def pretty_print(data_list, shape, threshold=40, linewidth=10, edgeitems=3):
             else:
                 data_lines = [data[i : i + linewidth] for i in range(0, len(data), linewidth)]
 
-            # TODO (pranavm): Test this:
             def str_from_elem(elem):
                 if isinstance(elem, str):
                     return elem
