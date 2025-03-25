@@ -22,6 +22,7 @@ Global configuration options for Tripy.
 import os
 import sys
 import tempfile
+from typing import List
 
 from nvtripy import export
 
@@ -50,3 +51,19 @@ enable_dtype_checking: bool = export.public_api(
     symbol="enable_dtype_checking",
 )(True)
 """Whether to enable data type checking in API functions."""
+
+extra_error_information: List[str] = export.public_api(
+    document_under="config.rst",
+    module=sys.modules[__name__],
+    symbol="extra_error_information",
+)(os.environ.get("TRIPY_EXTRA_ERROR_INFORMATION", "").split(","))
+"""
+Extra error information to include in exceptions raised by Tripy.
+
+In the future, this will be expanded to include more fine-grained
+control over extra information. For now, the supported values are:
+- "all": Include all available extra error information.
+
+This can be set via the environment variable ``TRIPY_EXTRA_ERROR_INFORMATION``.
+For example: ``export TRIPY_EXTRA_ERROR_INFORMATION=all``.
+"""
