@@ -79,21 +79,13 @@ class TestTensor:
     @pytest.mark.parametrize("input_data", [[], [0.0, 1.0, 2.0, 3.0], [1, 2, 3, 4], [False, True, False, True]])
     @pytest.mark.parametrize("dtype", DATA_TYPE_TEST_CASES)
     def test_dtype_from_list(self, input_data, dtype):
-        # TODO (pranavm): Check this:
-        if dtype == tp.int4:
-            pytest.skip(f"Unsupported front-end data type {dtype}")
-        # TODO (pranavm): Check this:
-        # Error: 'plan.inline_closed_group' op input operand #0 of type 'tensor<0xf32>' does not have a TensorKind associated with it
-        if len(input_data) == 0 and dtype == tp.float8:
-            pytest.skip(f"Input data {input_data} can not be implicitly converted to {dtype}")
         tensor = tp.Tensor(input_data, dtype=dtype)
         assert tensor.dtype == dtype
 
     @pytest.mark.parametrize("dtype", DATA_TYPE_TEST_CASES)
     def test_dtype_printing(self, dtype):
-        # TODO (pranavm): Check this:
         if dtype == tp.int4:
-            pytest.skip(f"Unsupported front-end data type {dtype}")
+            pytest.skip(f"Unsupported frontend data type: {dtype}")
 
         # This is required to print intermediate data representations.
         with tp.logger.use_verbosity("ir"):
