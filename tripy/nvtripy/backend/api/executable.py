@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from typing import Sequence, Tuple, Union, Callable
 
 import mlir_tensorrt.runtime.api as runtime
-from nvtripy import export
+from nvtripy import export, config
 from nvtripy.backend.mlir import Executor
 from nvtripy.backend.mlir import utils as mlir_utils
 from nvtripy.common.exception import raise_error
@@ -209,8 +209,7 @@ class Executable:
                                 [
                                     f"For parameter {arg_name}, expected data type: {dtype} but got: {tensor.dtype}. ",
                                 ]
-                                # TODO (pranavm): Put this under the verbose error message option.
-                                + (["Note: Argument was: ", tensor] if False else [])
+                                + (["Note: Argument was: ", tensor] if "all" in config.extra_error_information else [])
                             ),
                         )
             elif "InternalError: failed to set input shape" in str(err) or "Runtime shape mismatch" in str(err):

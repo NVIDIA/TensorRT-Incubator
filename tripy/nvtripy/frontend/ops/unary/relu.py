@@ -55,7 +55,6 @@ def relu(input: "nvtripy.Tensor") -> "nvtripy.Tensor":
     from nvtripy.frontend.ops.binary.maximum import maximum
     from nvtripy.frontend.tensor import Tensor
 
-    # TODO (pranavm): Apply to other unary functions?
     if issubclass(input.dtype, datatype.integer):
         # Activation in TensorRT does not support integral types.
         return maximum(input, Tensor(0, dtype=input.dtype))
