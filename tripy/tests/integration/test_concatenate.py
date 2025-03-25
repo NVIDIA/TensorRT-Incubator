@@ -42,11 +42,13 @@ class TestConcatenate:
 
     @pytest.mark.parametrize(
         "tensor_shapes, dim",
-        [([(2, 3, 4), (2, 4, 4)], 0), ([(4, 5, 6), (4, 1, 6)], -1)],
+        [
+            ([(2, 3, 4), (2, 4, 4)], 0),
+            ([(4, 5, 6), (4, 1, 6)], -1),
+        ],
     )
     def test_negative_concat(self, tensor_shapes, dim, eager_or_compiled):
         tensors = [tp.ones(shape) for shape in tensor_shapes]
-        # TODO (pranavm): The stack trace is a bit weird here
         with helper.raises(tp.TripyException, match=f"all concat input tensors must have the same dimensions"):
             out = eager_or_compiled(tp.concatenate, tensors, dim=dim)
             print(out)

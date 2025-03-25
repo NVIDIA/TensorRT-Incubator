@@ -31,10 +31,6 @@ import os
 class TestUtils:
     @pytest.mark.parametrize("dtype", DATA_TYPES.values())
     def test_convert_dtype(self, dtype):
-        if dtype in {nvtripy.bool}:
-            # TODO (pranavm): Check this:
-            pytest.skip("Bool is not working correctly yet")
-
         with mlir_utils.make_ir_context():
             assert (
                 mlir_utils.get_mlir_dtype(dtype)
