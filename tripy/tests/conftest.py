@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,15 +15,11 @@
 # limitations under the License.
 #
 
-import copy
-import glob
 import os
-from typing import Optional
-
-import pytest
-import torch
 
 import nvtripy as tp
+import pytest
+import torch
 from nvtripy.common.datatype import DATA_TYPES
 
 skip_if_older_than_sm89 = pytest.mark.skipif(
