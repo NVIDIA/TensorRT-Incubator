@@ -210,7 +210,7 @@ class Tensor(metaclass=TensorMeta):
         compiler = Compiler(trt_builder_opt_level=0)
         # TODO (pranavm): Add error mapping logic here (test with squeezing non-singleton dim)
         mlir = trace.to_mlir()
-        executable = Executable(compiler.compile(mlir, trace=trace), [], return_type=Tensor)
+        executable = Executable(compiler.compile(mlir, trace=trace), [], return_single_tensor_as_sequence=False)
         data = executable().trace_tensor.producer.data
 
         # Upon computing the value of this tensor, we switch it to have a `Constant`

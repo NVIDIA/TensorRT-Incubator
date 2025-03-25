@@ -14,6 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import inspect
+from typing import Tuple
+
 import cupy as cp
 import nvtripy as tp
 import pytest
@@ -43,6 +46,19 @@ class TestCompile:
         out = compiled_layernorm(inp)
 
         assert tp.equal(out, layernorm(inp))
+
+    def test_compile_preserves_sequence_for_single_output(self):
+        def func(a):
+            return [tp.relu(a)]
+
+        compiled_func = tp.compile(func, args=[tp.InputInfo((2, 2), dtype=tp.float32)])
+
+        assert inspect.signature(compiled_func).return_annotation == Tuple[tp.Tensor]
+
+        inp = tp.iota((2, 2), dtype=tp.float32) - 1
+        [out] = compiled_func(inp)
+
+        assert tp.equal(out, tp.relu(inp))
 
     def test_can_compile_using_shape_of_tensor(self):
         # Since InputInfo allows `DimensionSize`s, we should be able to use the shape of a tensor as

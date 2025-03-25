@@ -230,6 +230,4 @@ def compile(
     assert isinstance(func_out, Tensor) or isinstance(
         func_out, Sequence
     ), "This function is only implemented for Tensors or sequences of Tensors"
-    return Executable(
-        executable, compiled_arg_names, return_type=Tensor if isinstance(func_out, Tensor) else Sequence[Tensor]
-    )
+    return Executable(executable, compiled_arg_names, return_single_tensor_as_sequence=isinstance(func_out, Sequence))
