@@ -200,12 +200,9 @@ class Tensor(metaclass=TensorMeta):
 
         from nvtripy.backend.api.executable import Executable
         from nvtripy.backend.mlir.compiler import Compiler
-        from nvtripy.frontend.tensor import Tensor
         from nvtripy.trace.trace import Trace
 
         trace = Trace([self.trace_tensor])
-        # TODO (#155): Remove output devices here?
-        output_devices = [out.device for out in trace.outputs]
 
         compiler = Compiler(trt_builder_opt_level=0)
         # TODO (pranavm): Add error mapping logic here (test with squeezing non-singleton dim)
@@ -223,8 +220,8 @@ class Tensor(metaclass=TensorMeta):
         self.trace_tensor = constant.outputs[0]
         self.trace_tensor.stack_info = self.stack_info
 
-        # TODO(#155): Remove this hack of overriding the device type.
-        self.trace_tensor.device = output_devices[0]
+        # TODO (#155): Remove this hack of overriding the device type.
+        self.trace_tensor.device = [out.device for out in trace.outputs][0]
 
         self.trace_tensor.eval_stack_info = utils.stack_info.get_stack_info()
         if self.trace_tensor.is_compile_tracer:

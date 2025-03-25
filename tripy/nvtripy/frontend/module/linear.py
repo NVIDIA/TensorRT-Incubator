@@ -47,8 +47,6 @@ class Linear(Module):
     quant_dtype: Optional[datatype.dtype]
     r"""The quantization data type"""
 
-    # TODO (pranavm): Document weight_scale and input_scale. Maybe change the way we approach
-    # quantized linear operations - e.g. with a "linear_mode" option.
     weight_scale: Optional[Tensor]
     r"""The quantization scale for weight"""
 
