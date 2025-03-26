@@ -246,7 +246,7 @@ def _update_docstring(func, dtype_constraints, dtype_variables, dtype_exceptions
         find_str = f"\n        {name}: " if name != RETURN_VALUE else "\n    Returns:\n        "
 
         param_index = func.__doc__.find(find_str, args_index)
-        assert param_index != -1, f"Parameter: {name} was not documented in {func.__name__}"
+        assert param_index != -1, f"Parameter: {name} is not present or was not documented in {func.__name__}"
         func.__doc__ = (
             func.__doc__[:param_index]
             + rf"{find_str}[dtype=\ **{var}**\ ] "

@@ -12,27 +12,25 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from nvtripy import export
+from nvtripy.frontend.ops._registry import register_tensor_method
 from nvtripy.frontend.ops.binary.create import create_binary_op
 from nvtripy.trace.ops.binary import LogicalOr
 from nvtripy.utils import wrappers
 
 
-@export.public_api(document_under="operations/functions")
+@register_tensor_method("__or__")
 @wrappers.interface(
-    dtype_constraints={"lhs": "T1", "rhs": "T1", wrappers.RETURN_VALUE: "T1"},
+    dtype_constraints={"self": "T1", "other": "T1", wrappers.RETURN_VALUE: "T1"},
     dtype_variables={"T1": ["bool"]},
 )
-# TODO (pranavm): Add integration tests for this.
-# TODO (pranavm): Use magic method (__or__?)
-def logical_or(lhs: "nvtripy.Tensor", rhs: "nvtripy.Tensor") -> "nvtripy.Tensor":
+def __or__(self: "nvtripy.Tensor", other: "nvtripy.Tensor") -> "nvtripy.Tensor":
     """
     Performs an elementwise logical OR.
 
     Args:
-        lhs: The first input tensor.
-        rhs: The second input tensor.
-            It should be broadcast-compatible.
+        self: Input tensor.
+        other: The tensor to OR with this one.
+            It must be broadcast-compatible.
 
     Returns:
         A new tensor with the broadcasted shape.
@@ -42,8 +40,8 @@ def logical_or(lhs: "nvtripy.Tensor", rhs: "nvtripy.Tensor") -> "nvtripy.Tensor"
 
         a = tp.Tensor([True, False, False])
         b = tp.Tensor([False, True, False])
-        output = tp.logical_or(a, b)
+        output = a | b
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.array([True, True, False]))
+        assert tp.equal(output, tp.Tensor([True, True, False]))
     """
-    return create_binary_op(LogicalOr, lhs, rhs, cast_bool_to_int=False)
+    return create_binary_op(LogicalOr, self, other, cast_bool_to_int=False)

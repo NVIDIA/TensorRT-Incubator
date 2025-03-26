@@ -47,6 +47,4 @@ def __ge__(self: "nvtripy.Tensor", other: TensorLike) -> "nvtripy.Tensor":
 
         assert output.tolist() == [True, False]
     """
-    from nvtripy.frontend.ops.binary.logical_or import logical_or
-
-    return logical_or(self > other, self == other)
+    return ~(self < other)
