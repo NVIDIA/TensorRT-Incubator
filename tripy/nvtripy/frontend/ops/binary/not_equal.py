@@ -47,6 +47,4 @@ def __ne__(self: "nvtripy.Tensor", other: TensorLike) -> "nvtripy.Tensor":
 
         assert output.tolist() == [True, False]
     """
-    from nvtripy.frontend.ops.unary.logical_not import logical_not
-
-    return logical_not(self == other)
+    return ~(self == other)
