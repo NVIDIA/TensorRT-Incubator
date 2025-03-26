@@ -15,6 +15,6 @@
 
 
 # Here we import only those ops which need to add themselves to the tensor method registry
-from nvtripy.frontend.ops.unary.abs import abs
+from nvtripy.frontend.ops.unary.abs import __abs__
 from nvtripy.frontend.ops.unary.neg import __neg__
 from nvtripy.frontend.ops.unary.invert import __invert__

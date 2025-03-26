@@ -29,7 +29,7 @@ _UNARY_OPS = {
     tp.sin: np.sin,
     tp.cos: np.cos,
     tp.sqrt: np.sqrt,
-    tp.abs: np.abs,
+    abs: np.abs,
     tp.sigmoid: lambda a: 1.0 / (1.0 + np.exp(-1.0 * a)),
 }
 
