@@ -184,14 +184,16 @@ class Tensor(metaclass=TensorMeta):
         .. code-block:: python
             :linenos:
 
+            import time
+
             start = time.perf_counter()
             tensor = tp.ones((3, 3))
-            tensor_construction = time.perf_counter()
+            init_time = time.perf_counter()
             tensor.eval()
-            tensor_eval = time.perf_counter()
+            eval_time = time.perf_counter()
 
-            print(f"Tensor construction took: {tensor_construction  * 1000.0} ms")
-            print(f"Tensor evaluation took: {tensor_eval  * 1000.0} ms")
+            print(f"Tensor init_time took: {(init_time - start)  * 1000.0:.3f} ms")
+            print(f"Tensor evaluation took: {(eval_time - init_time)  * 1000.0:.3f} ms")
         """
         if isinstance(self.trace_tensor.producer, Constant):
             # Exit early if the tensor has already been evaluated.
