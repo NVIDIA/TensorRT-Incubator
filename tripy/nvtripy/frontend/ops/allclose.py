@@ -58,7 +58,6 @@ def allclose(input: "nvtripy.Tensor", other: "nvtripy.Tensor", rtol: float = 1e-
         assert not out
     """
     from nvtripy.frontend.ops.reduce.all import all
-    from nvtripy.frontend.ops.unary.abs import abs
 
     compare = abs(input - other) <= (atol + rtol * abs(other))
     # TODO (#571) Remove this workaround - we evaluate `compare` to avoid a bug where
