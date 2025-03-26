@@ -24,7 +24,7 @@ _UNARY_OPS = [
     tp.rsqrt,
     tp.log,
     tp.sqrt,
-    tp.abs,
+    abs,
     tp.sigmoid,
     tp.sin,
     tp.cos,
