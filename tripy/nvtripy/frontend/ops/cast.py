@@ -72,8 +72,6 @@ def cast(input: "nvtripy.Tensor", dtype: "nvtripy.dtype") -> "nvtripy.Tensor":
     if input.dtype == dtype:
         return input
 
-    # TODO (pranavm): Check if DQ is still needed for quantized types or whether tensorrt.cast can handle it.
-
     # Note: we check for int8 below because MLIR-TRT can handle it in ordinary conversions
     # even though it is a quantized dtype
 
