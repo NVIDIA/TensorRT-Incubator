@@ -82,7 +82,7 @@ class TestTensor:
         tensor = tp.Tensor(input_data, dtype=dtype)
         assert tensor.dtype == dtype
 
-    @pytest.mark.parametrize("dtype", set(DATA_TYPE_TEST_CASES))
+    @pytest.mark.parametrize("dtype", DATA_TYPE_TEST_CASES)
     def test_dtype_printing(self, dtype):
         if dtype == tp.int4:
             pytest.skip(f"Unsupported frontend data type: {dtype}")
