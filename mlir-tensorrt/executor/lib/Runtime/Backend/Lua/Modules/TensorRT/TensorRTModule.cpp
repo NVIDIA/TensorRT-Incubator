@@ -162,7 +162,8 @@ public:
 
     StatusOr<PointerInfo> alloc = mlirtrt::runtime::allocate(
         *mTracker, PointerType::device, size, alignment,
-        stream ? std::optional<CudaStreamPtr>(stream) : std::nullopt);
+        // TODO (#590): Enable asynchrnous allocations by passing the stream:
+        std::nullopt);
     if (!alloc.isOk())
       return nullptr;
 
