@@ -60,13 +60,11 @@ def concatenate(tensors: Sequence["nvtripy.Tensor"], dim: int) -> "nvtripy.Tenso
     if len(tensors) == 1:
         return tensors[0]
 
-    # TODO (pranavm): Add test for mismatched rank - maybe existing error message is already good enough.
     ranks = set(tensor.rank for tensor in tensors)
     if len(ranks) > 1:
         raise_error(
-            "Concatenated tensors must have equal ranks",
-            # TODO(pranavm): Add details:
-            [],
+            "Concatenated tensors must have equal ranks.",
+            [f"Note: Input ranks were: {', '.join(str(tensor.rank) for tensor in tensors)}."],
         )
 
     dim = op_utils.process_dim(dim, tensors[0].rank)

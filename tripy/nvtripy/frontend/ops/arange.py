@@ -32,7 +32,6 @@ from nvtripy.utils import wrappers
         "T1": ["float32", "float16", "bfloat16", "int4", "int8", "int32", "int64", "bool"],
     },
 )
-# TODO (pranavm): Test exhaustively with DimensionSizes + different dtype combinations.
 def arange(
     start: Union[numbers.Number, "nvtripy.DimensionSize"],
     stop: Union[numbers.Number, "nvtripy.DimensionSize"],
