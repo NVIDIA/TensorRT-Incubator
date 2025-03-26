@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -26,6 +26,7 @@ class TestGatherOp:
     @pytest.mark.parametrize(
         "x_shape, axis, indices",
         [
+            ((2, 3), -1, (1)),
             ((2, 3), 0, (1)),
             ((2, 3, 4), 1, (1, 2)),
             ((2, 3), 1, (1)),
