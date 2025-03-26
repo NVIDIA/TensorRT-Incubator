@@ -194,7 +194,6 @@ def map_error_to_user_code_and_raise(trace, exc, stderr):
         stderr += ",".join(map(lambda err: str(err.location), exc.error_diagnostics))
     input_names, output_names, stderr = parse_tensor_names_from_location(stderr)
 
-    # TODO (pranavm): Test this with multi-output ops - plugins?
     def get_trace_operation():
         if trace is None or not output_names:
             return []
