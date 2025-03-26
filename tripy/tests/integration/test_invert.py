@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,9 +12,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import nvtripy as tp
 
 
-# Here we import only those ops which need to add themselves to the tensor method registry
-from nvtripy.frontend.ops.unary.abs import abs
-from nvtripy.frontend.ops.unary.neg import __neg__
-from nvtripy.frontend.ops.unary.invert import __invert__
+class TestInvert:
+    def test_invert(self):
+        a = tp.Tensor([True, False, False])
+        output = ~a
+        expected_output = tp.Tensor([False, True, True])
+
+        assert tp.equal(output, expected_output)

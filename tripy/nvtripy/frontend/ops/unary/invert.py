@@ -12,20 +12,18 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from nvtripy import export
 from nvtripy.frontend.ops import utils as op_utils
+from nvtripy.frontend.ops._registry import register_tensor_method
 from nvtripy.trace.ops.unary import Not
 from nvtripy.utils import wrappers
 
 
-@export.public_api(document_under="operations/functions")
+@register_tensor_method("__invert__")
 @wrappers.interface(
     dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
     dtype_variables={"T1": ["bool"]},
 )
-# TODO (pranavm): Add integration tests for this.
-# TODO (pranavm): Expose as __invert__?
-def logical_not(input: "nvtripy.Tensor") -> "nvtripy.Tensor":
+def __invert__(input: "nvtripy.Tensor") -> "nvtripy.Tensor":
     """
     Performs an elementwise logical NOT.
 
@@ -39,7 +37,7 @@ def logical_not(input: "nvtripy.Tensor") -> "nvtripy.Tensor":
         :linenos:
 
         a = tp.Tensor([True, False, False])
-        output = tp.logical_not(a)
+        output = ~a
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.array([False, True, True]))
     """
