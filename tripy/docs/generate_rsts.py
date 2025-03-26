@@ -92,7 +92,7 @@ def build_api_doc(api, include_heading=True):
     )
 
 
-def build_markdown_doc(source_path):
+def build_rst_markdown_include(source_path):
     return dedent(
         f"""
                 .. include:: {source_path}
@@ -391,10 +391,10 @@ def main():
 
             # Do not create RSTs for top-level README
             if not is_top_level_dir:
-                content = build_markdown_doc(
+                content = build_rst_markdown_include(
                     source_path=os.path.relpath(processed_guide, os.path.dirname(guide_out_path))
                 )
-                write_if_different(guide_out_path, content)
+                rst_files[guide_out_path] = content
 
             guides.append(os.path.join(basename, os.path.splitext(guide_filename)[0]))
 
@@ -424,6 +424,13 @@ def main():
             rst_files[index_path] = ""
         rst_files[index_path] += content
 
+    # Delete any existing RST files that are not in rst_files
+    for existing_file in glob.glob(os.path.join(args.output, "**", "*.rst"), recursive=True):
+        if existing_file not in rst_files:
+            print(f"Removing stale file: {existing_file}")
+            os.remove(existing_file)
+
+    # Write the new/updated RST files
     for path, content in rst_files.items():
         write_if_different(path, content)
 
