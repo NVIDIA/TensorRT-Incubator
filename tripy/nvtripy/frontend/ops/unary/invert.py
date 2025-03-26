@@ -20,15 +20,15 @@ from nvtripy.utils import wrappers
 
 @register_tensor_method("__invert__")
 @wrappers.interface(
-    dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
+    dtype_constraints={"self": "T1", wrappers.RETURN_VALUE: "T1"},
     dtype_variables={"T1": ["bool"]},
 )
-def __invert__(input: "nvtripy.Tensor") -> "nvtripy.Tensor":
+def __invert__(self: "nvtripy.Tensor") -> "nvtripy.Tensor":
     """
     Performs an elementwise logical NOT.
 
     Args:
-        input: The input tensor.
+        self: The input tensor.
 
     Returns:
         A new tensor.
@@ -41,4 +41,4 @@ def __invert__(input: "nvtripy.Tensor") -> "nvtripy.Tensor":
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.array([False, True, True]))
     """
-    return op_utils.create_op(Not, [input])
+    return op_utils.create_op(Not, [self])

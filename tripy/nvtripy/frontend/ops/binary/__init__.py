@@ -28,3 +28,4 @@ from nvtripy.frontend.ops.binary.less_equal import __le__
 from nvtripy.frontend.ops.binary.not_equal import __ne__
 from nvtripy.frontend.ops.binary.greater import __gt__
 from nvtripy.frontend.ops.binary.greater_equal import __ge__
+from nvtripy.frontend.ops.binary.logical_or import __or__

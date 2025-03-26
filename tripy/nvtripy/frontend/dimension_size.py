@@ -47,7 +47,7 @@ class DimensionSize(Tensor):
         assert isinstance(val, int)
         return str(val)
 
-    def eval(self):
+    def eval(self) -> "nvtripy.Tensor":
         from nvtripy.trace.ops.shape import GetDimensionSize, Shape
 
         # TODO (pranavm): Might want to generalize this so that we store values for any common branches in the computation graph.
