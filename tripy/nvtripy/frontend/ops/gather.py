@@ -54,7 +54,6 @@ def gather(input: "nvtripy.Tensor", dim: int, index: "nvtripy.Tensor") -> "nvtri
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.take(cp.from_dlpack(data).get(), cp.from_dlpack(indices).get(), axis=1))
     """
-    # TODO (pranavm): Test negative axis?
     dim = op_utils.process_dim(dim, input.rank)
 
     return op_utils.create_op(Gather, [input, index], dim)
