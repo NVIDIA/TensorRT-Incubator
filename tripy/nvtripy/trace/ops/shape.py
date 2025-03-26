@@ -25,8 +25,7 @@ from nvtripy.trace.ops.base import TraceOp
 @dataclass(repr=False)
 class Shape(TraceOp):
     def infer_rank(self):
-        # TODO (pranavm): This can probably be changed back to rank inference.
-        # The shape is set in `tensor_from_shape_like`
+        # The shape of shape tensors is always known:
         self.outputs[0].shape = (self.inputs[0].rank,)
 
     def infer_dtypes(self):
