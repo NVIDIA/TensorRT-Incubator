@@ -80,7 +80,7 @@ func.func @stablehlo_scatter_canonicalize(%arg0: tensor<3x3xf32>, %arg1: tensor<
   %expanded_1 = stablehlo.reshape %arg4 : (tensor<2x3xf32>) -> tensor<2x1x3xf32>
   %0:2 = "stablehlo.scatter"(%arg0, %arg1, %expanded, %expanded_0, %expanded_1) ({
   ^bb0(%arg5: tensor<f32>, %arg6: tensor<f32>, %arg7: tensor<f32>, %arg8: tensor<f32>):
-    stablehlo.return %arg5, %arg7 : tensor<f32>, tensor<f32>
+    stablehlo.return %arg6, %arg8 : tensor<f32>, tensor<f32>
   }) {
     indices_are_sorted = false,
     scatter_dimension_numbers = #stablehlo.scatter<

@@ -5,7 +5,7 @@ func.func @insert_index_vector_and_window_dims(%dst1: tensor<3x3xf32>,
     %update2: tensor<2x3xf32>) -> tensor<3x3xf32> {
   %0, %1 = "stablehlo.scatter"(%dst1, %dst2, %indices, %update1, %update2) ({
   ^bb0(%u1: tensor<f32>, %d1: tensor<f32>, %u2: tensor<f32>, %d2: tensor<f32>):
-    "stablehlo.return"(%u1, %u2) : (tensor<f32>, tensor<f32>) -> ()
+    "stablehlo.return"(%d1, %d2) : (tensor<f32>, tensor<f32>) -> ()
   }) {
     scatter_dimension_numbers = #stablehlo.scatter<
       update_window_dims = [1],
@@ -42,7 +42,7 @@ func.func @collapse_scatter_dims(%dst: tensor<3x3xf32>,
     %indices: tensor<2x1x2xi32>, %update: tensor<2x1x1x3xf32>) -> tensor<3x3xf32> {
   %0 = "stablehlo.scatter"(%dst, %indices, %update) ({
   ^bb0(%u: tensor<f32>,  %d: tensor<f32>):
-    "stablehlo.return"(%u) : (tensor<f32>) -> ()
+    "stablehlo.return"(%d) : (tensor<f32>) -> ()
   }) {
     scatter_dimension_numbers = #stablehlo.scatter<
       update_window_dims = [2, 3],
@@ -74,7 +74,7 @@ func.func @move_index_vector_dim(%dst: tensor<3x3xf32>,
     %indices: tensor<2x1xi32>, %update: tensor<1x3x3xf32>) -> tensor<3x3xf32> {
   %0 = "stablehlo.scatter"(%dst, %indices, %update) ({
   ^bb0(%u: tensor<f32>,  %d: tensor<f32>):
-    "stablehlo.return"(%u) : (tensor<f32>) -> ()
+    "stablehlo.return"(%d) : (tensor<f32>) -> ()
   }) {
     scatter_dimension_numbers = #stablehlo.scatter<
       update_window_dims = [1, 2],
@@ -105,7 +105,7 @@ func.func @transform_updates_and_operands_using_scatter_dims(%dst: tensor<3x4x5x
     %indices: tensor<2x2xi32>, %update: tensor<2x1x1x3xf32>) -> tensor<3x4x5xf32> {
   %0 = "stablehlo.scatter"(%dst, %indices, %update) ({
   ^bb0(%u: tensor<f32>,  %d: tensor<f32>):
-    "stablehlo.return"(%u) : (tensor<f32>) -> ()
+    "stablehlo.return"(%d) : (tensor<f32>) -> ()
   }) {
     scatter_dimension_numbers = #stablehlo.scatter<
       update_window_dims = [1, 2, 3],
@@ -140,7 +140,7 @@ func.func @dynamic_transform_updates_and_operands(%dst: tensor<3x?x5xf32>,
     %indices: tensor<2x2xi32>, %update: tensor<2x1x1x3xf32>) -> tensor<3x?x5xf32> {
   %0 = "stablehlo.scatter"(%dst, %indices, %update) ({
   ^bb0(%u: tensor<f32>,  %d: tensor<f32>):
-    "stablehlo.return"(%u) : (tensor<f32>) -> ()
+    "stablehlo.return"(%d) : (tensor<f32>) -> ()
   }) {
     scatter_dimension_numbers = #stablehlo.scatter<
       update_window_dims = [1, 2, 3],
@@ -176,7 +176,7 @@ func.func @make_scatter_dims_leading_in_updates(%dst: tensor<3xf32>,
     %indices: tensor<1x1xi32>, %update: tensor<2x1xf32>) -> tensor<3xf32> {
   %0 = "stablehlo.scatter"(%dst, %indices, %update) ({
   ^bb0(%u: tensor<f32>,  %d: tensor<f32>):
-    "stablehlo.return"(%u) : (tensor<f32>) -> ()
+    "stablehlo.return"(%d) : (tensor<f32>) -> ()
   }) {
     scatter_dimension_numbers = #stablehlo.scatter<
       update_window_dims = [0],
@@ -207,7 +207,7 @@ func.func @zero_dim_scatter_indices(%dst: tensor<4x4xf32>,
     %indices: tensor<2xi32>, %update: tensor<3x3xf32>) -> tensor<4x4xf32> {
   %0 = "stablehlo.scatter"(%dst, %indices, %update) ({
   ^bb0(%u: tensor<f32>,  %d: tensor<f32>):
-    "stablehlo.return"(%u) : (tensor<f32>) -> ()
+    "stablehlo.return"(%d) : (tensor<f32>) -> ()
   }) {
     scatter_dimension_numbers = #stablehlo.scatter<
       update_window_dims = [0, 1],
@@ -238,7 +238,7 @@ func.func @dynamic_zero_dim_scatter_indices(%dst: tensor<4x4xf32>,
     %indices: tensor<2xi32>, %update: tensor<?x?xf32>) -> tensor<4x4xf32> {
   %0 = "stablehlo.scatter"(%dst, %indices, %update) ({
   ^bb0(%u: tensor<f32>,  %d: tensor<f32>):
-    "stablehlo.return"(%u) : (tensor<f32>) -> ()
+    "stablehlo.return"(%d) : (tensor<f32>) -> ()
   }) {
     scatter_dimension_numbers = #stablehlo.scatter<
       update_window_dims = [0, 1],
@@ -273,7 +273,7 @@ func.func @multiple_window_and_scatter_dims(
     %updates: tensor<2x6x4x7xf32>) -> tensor<1x2x3x4x5xf32> {
   %0 = "stablehlo.scatter"(%dst, %indices, %updates) ({
   ^bb0(%arg3: tensor<f32>, %arg4: tensor<f32>):
-    stablehlo.return %arg3 : tensor<f32>
+    stablehlo.return %arg4 : tensor<f32>
   }) {
     indices_are_sorted = false,
     scatter_dimension_numbers = #stablehlo.scatter<
@@ -307,7 +307,7 @@ func.func @dynamic_window_size_multiple_window_and_scatter_dims(
     %updates: tensor<2x?x4x?xf32>) -> tensor<1x2x3x4x5xf32> {
   %0 = "stablehlo.scatter"(%dst, %indices, %updates) ({
   ^bb0(%arg3: tensor<f32>, %arg4: tensor<f32>):
-    stablehlo.return %arg3 : tensor<f32>
+    stablehlo.return %arg4 : tensor<f32>
   }) {
     indices_are_sorted = false,
     scatter_dimension_numbers = #stablehlo.scatter<

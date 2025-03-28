@@ -18,10 +18,12 @@
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
 #include "mlir-tensorrt/Interfaces/BufferizationScopeInterface.h"
+#include "mlir-tensorrt/Utils/ModuleUtils.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Bufferization/IR/BufferizableOpInterface.h"
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
 #include "mlir/Dialect/Bufferization/Transforms/Bufferize.h"
+#include "mlir/Dialect/Bufferization/Transforms/FuncBufferizableOpInterfaceImpl.h"
 #include "mlir/Dialect/Bufferization/Transforms/OneShotAnalysis.h"
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
 #include "mlir/Dialect/Bufferization/Transforms/Transforms.h"
@@ -314,8 +316,8 @@ insertTensorCopiesWithinModuleScope(ModuleLikeOp op,
 static LogicalResult insertTensorCopiesInModule(
     ModuleLikeOp module,
     const bufferization::OneShotBufferizationOptions &options,
-    BufferizationStatistics *statistics) {
-  bufferization::OneShotAnalysisState state(module, options);
+    BufferizationStatistics *statistics,
+    bufferization::OneShotAnalysisState &state) {
   if (failed(analyzeOneModuleOp(module, state, statistics)))
     return failure();
 
@@ -328,15 +330,20 @@ static LogicalResult insertTensorCopiesInModule(
 static LogicalResult
 bufferizeOneModule(ModuleLikeOp moduleOp,
                    const bufferization::OneShotBufferizationOptions &options,
-                   BufferizationStatistics *statistics) {
+                   BufferizationStatistics *statistics,
+                   ModuleFuncAnalysisCache &moduleFuncStateCache) {
   assert(options.bufferizeFunctionBoundaries &&
          "expected that function boundary bufferization is activated");
   assert(!(options.copyBeforeWrite && options.testAnalysisOnly) &&
          "invalid combination of bufferization flags");
   if (!options.copyBeforeWrite) {
     if (options.noAnalysisFuncFilter.empty()) {
-      if (failed(insertTensorCopiesInModule(moduleOp, options, statistics)))
+      bufferization::OneShotAnalysisState state(moduleOp, options);
+      plan::setupAnalysisStateForModule(moduleOp, moduleFuncStateCache, state);
+      if (failed(
+              insertTensorCopiesInModule(moduleOp, options, statistics, state)))
         return failure();
+      appendAnalysisResultsToCache(moduleOp, moduleFuncStateCache, state);
     } else {
       // FuncOps whose names are specified in options.noAnalysisFuncFilter will
       // not be analyzed. Ops in these FuncOps will not be analyzed as well.
@@ -345,7 +352,6 @@ bufferizeOneModule(ModuleLikeOp moduleOp,
             auto func = dyn_cast<func::FuncOp>(op);
             if (!func)
               func = op->getParentOfType<func::FuncOp>();
-
             if (func)
               return llvm::is_contained(options.noAnalysisFuncFilter,
                                         func.getName());
@@ -353,9 +359,12 @@ bufferizeOneModule(ModuleLikeOp moduleOp,
           };
       bufferization::OneShotBufferizationOptions updatedOptions(options);
       updatedOptions.opFilter.denyOperation(analysisFilterFn);
-      if (failed(
-              insertTensorCopiesInModule(moduleOp, updatedOptions, statistics)))
+      bufferization::OneShotAnalysisState state(moduleOp, updatedOptions);
+      plan::setupAnalysisStateForModule(moduleOp, moduleFuncStateCache, state);
+      if (failed(insertTensorCopiesInModule(moduleOp, updatedOptions,
+                                            statistics, state)))
         return failure();
+      appendAnalysisResultsToCache(moduleOp, moduleFuncStateCache, state);
     }
   }
   if (options.testAnalysisOnly)
@@ -417,7 +426,17 @@ runOneShotMultiModuleBufferize(ModuleLikeOp moduleOp,
          "expected moduleOp to be last in module bufferization queue");
 
   IRRewriter rewriter(moduleOp->getContext());
-  for (ModuleLikeOp nestedModule : llvm::reverse(modulesToBufferize)) {
+
+  /// Create a cache that maps ModuleLikeOps to a copy of their final
+  /// FuncAnalysisState information.
+  ModuleFuncAnalysisCache moduleFuncStateCache;
+
+  // Bufferize modules from inner-most to outer-most.
+  // After bufferizing a module, we also append its FuncAnalysisState to outer
+  // modules. This is to allow callers in outer modules to have that information
+  // in case they contain custom call operations which call functions in nested
+  // modules.
+  for (ModuleLikeOp nestedModule : modulesToBufferize) {
     std::optional<OneShotBufferizationOptions> options =
         getBufferizationOptions(nestedModule, baseOptions);
     if (!options) {
@@ -431,7 +450,8 @@ runOneShotMultiModuleBufferize(ModuleLikeOp moduleOp,
 
     DBGF("bufferizing module: {0}", nestedModule.getSymbolName());
 
-    if (failed(bufferizeOneModule(nestedModule, *options, statistics)))
+    if (failed(bufferizeOneModule(nestedModule, *options, statistics,
+                                  moduleFuncStateCache)))
       return nestedModule->emitError("failed to bufferize module");
 
     if (auto scopeOp =

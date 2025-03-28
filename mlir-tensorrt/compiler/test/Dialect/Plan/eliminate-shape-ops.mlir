@@ -1,3 +1,4 @@
+
 // RUN: mlir-tensorrt-opt -split-input-file -plan-eliminate-shape-ops %s | FileCheck %s
 
 #map = affine_map<()[s0] -> (s0 * 10)>
@@ -93,3 +94,36 @@ tensorrt.module @trt_engines {
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<?x10xf32>) -> tensor<?x10xf32>
 //  CHECK-NEXT:   %[[v0:.+]] = stablehlo.exponential %[[arg0]] : tensor<?x10xf32>
 //  CHECK-NEXT:   return %[[v0]] : tensor<?x10xf32>
+
+// -----
+
+func.func @test_func_call(%arg0: tensor<10xf32>, %arg1: i32, %arg2: i32) -> tensor<10xf32> {
+  %0 = tensor.empty() : tensor<10xf32>
+  %1 = func.call @callee(%arg0, %arg1, %arg2) : (tensor<10xf32>, i32, i32) -> tensor<10xf32>
+  %2 = func.call @callee(%1, %arg1, %arg2) : (tensor<10xf32>, i32, i32) -> tensor<10xf32>
+  return %2 : tensor<10xf32>
+}
+
+func.func private @callee(%arg0: tensor<10xf32>, %arg1: i32, %arg2: i32) -> tensor<10xf32> {
+  return %arg0 : tensor<10xf32>
+}
+
+func.func private @callee_no_users(%arg0: tensor<10xf32>, %arg1: i32, %arg2: i32)
+    -> tensor<10xf32>
+    // verify we ignore non-call symbol users
+    attributes {__shape_func__ = @callee} {
+  return %arg0 : tensor<10xf32>
+}
+
+
+// CHECK-LABEL: func.func @test_func_call
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<10xf32>, %[[arg1:.+]]: i32, %[[arg2:.+]]: i32) -> tensor<10xf32> {
+//   CHECK-DAG:     %[[v0:.+]] = call @callee(%[[arg0]]) : (tensor<10xf32>) -> tensor<10xf32>
+//   CHECK-DAG:     %[[v1:.+]] = call @callee(%[[v0]]) : (tensor<10xf32>) -> tensor<10xf32>
+//   CHECK-DAG:     return %[[v1]] : tensor<10xf32>
+// CHECK-LABEL: func.func private @callee
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<10xf32>) -> tensor<10xf32>
+//   CHECK-DAG:     return %[[arg0]] : tensor<10xf32>
+// CHECK-LABEL: func.func private @callee_no_users
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<10xf32>, %[[arg1:.+]]: i32, %[[arg2:.+]]: i32)
+//   CHECK-DAG:     return %[[arg0]] : tensor<10xf32>

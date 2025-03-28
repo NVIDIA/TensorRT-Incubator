@@ -211,7 +211,7 @@ static unsigned getSerializationBitWidth(Type t) {
     unsigned bitWidth = t.getIntOrFloatBitWidth();
     if (t == IntegerType::get(t.getContext(), 1))
       return bitWidth;
-    return llvm::divideCeil(bitWidth, kBitsPerByte) * bitWidth;
+    return llvm::divideCeil(bitWidth, kBitsPerByte) * kBitsPerByte;
   }
   auto complexType = cast<ComplexType>(t);
   return getSerializationBitWidth(complexType.getElementType()) * 2;
@@ -253,7 +253,9 @@ serializeElementsAttr(FBBuilder &fbBuilder, StringRef symbolName,
     DenseResourceElementsHandle handle = resourceAttr.getRawHandle();
     ArrayRef<char> data = handle.getResource()->getBlob()->getData();
     if (data.size() != getExpectedSerializedSize(typedAttr.getType()))
-      return retError("unexpected serialization size");
+      return retError("unexpected serialization size ")
+             << data.size() << ", expected serialization size is "
+             << getExpectedSerializedSize(typedAttr.getType()) << "\n";
     return std::make_pair(name, fbBuilder.serialize64(data));
   }
 
@@ -524,13 +526,12 @@ mlir::translateToRuntimeExecutable(Operation *op) {
   // 64 bit section
   //===----------------------------------------------------------------------===//
 
-  // For each `executor.constant_resource` operation, if there is a constant
+  // For each `executor.data_segment` operation, if there is a constant
   // data value attached to it, then serialize that constant data in the
   // executable as a Constant. These go into the 64bit section. We serialize the
   // string with the data in the 64 bit section.
   SmallVector<Offset64Pair<fb::String, fb::Vector64<int8_t>>> constData;
-  for (auto resourceOp :
-       op->getRegion(0).getOps<executor::ConstantResourceOp>()) {
+  for (auto resourceOp : op->getRegion(0).getOps<executor::DataSegmentOp>()) {
 
     auto serializedAttr = serializeElementsAttr(fbBuilder, resourceOp.getName(),
                                                 resourceOp.getValue());
@@ -544,11 +545,11 @@ mlir::translateToRuntimeExecutable(Operation *op) {
   //===----------------------------------------------------------------------===//
   // 32 bit section
   //===----------------------------------------------------------------------===//
-  SmallVector<Offset<rt::impl::Constant>> constantOffsets;
+  SmallVector<Offset<rt::impl::DataSegment>> constantOffsets;
   constantOffsets.reserve(constData.size());
   for (const auto &[strOffset, dataOffset] : constData)
     constantOffsets.push_back(
-        rt::impl::CreateConstant(fbBuilder, strOffset, dataOffset));
+        rt::impl::CreateDataSegment(fbBuilder, strOffset, dataOffset));
 
   std::string sourceString;
   {
@@ -603,7 +604,7 @@ mlir::translateToRuntimeExecutable(Operation *op) {
   rt::impl::ExecutableBuilder exeBuilder(fbBuilder);
   exeBuilder.add_process_grid_shape(processGridShapeOffset);
   exeBuilder.add_functions(vecFuncOffsets);
-  exeBuilder.add_constants(constVecOffsets);
+  exeBuilder.add_data_segments(constVecOffsets);
   exeBuilder.add_source(sourceStrOffset);
   exeBuilder.add_name(nameOffset);
   fbBuilder.Finish(exeBuilder.Finish());

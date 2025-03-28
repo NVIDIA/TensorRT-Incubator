@@ -693,3 +693,13 @@ func.func @value_bounds(%arg0: tensor<1x10xi32> {executor.value_bounds = #bounds
 
 // CHECK-LABEL: func.func @value_bounds
 //  CHECK-SAME: executor.value_bounds = #executor.value_bounds<min = dense<10> : tensor<1x10xi32>, max = dense<20> : tensor<1x10xi32>>
+
+// -----
+
+executor.data_segment @data constant dense<0> : tensor<128xi8>
+executor.data_segment @data_non_const uninitialized dense<0> : tensor<128xi8>
+executor.data_segment @data_aligned constant align 4 dense<0> : tensor<128xi8>
+
+// CHECK: executor.data_segment @data constant dense<0> : tensor<128xi8>
+// CHECK: executor.data_segment @data_non_const uninitialized dense<0> : tensor<128xi8>
+// CHECK: executor.data_segment @data_aligned constant align 4 dense<0> : tensor<128xi8>

@@ -371,7 +371,8 @@ FailureOr<CallOpInterface> executor::detail::lowerToCallDefaultImpl(
   return cast<CallOpInterface>(
       rewriter
           .create<executor::CallOp>(op->getLoc(), convertedTypes,
-                                    symbolRef.getLeafReference(), operands)
+                                    symbolRef.getLeafReference(), operands,
+                                    ArrayAttr{}, ArrayAttr{})
           .getOperation());
 }
 
@@ -642,13 +643,40 @@ void GlobalOp::build(OpBuilder &builder, OperationState &state, StringRef name,
 }
 
 //===----------------------------------------------------------------------===//
-// ConstantResourceOp
+// DataSegmentOp
 //===----------------------------------------------------------------------===//
 
-ConstantResourceOp ConstantResourceOp::create(Location loc, StringRef name,
-                                              ElementsAttr value) {
+DataSegmentOp DataSegmentOp::create(Location loc, StringRef name,
+                                    ElementsAttr value, bool constant,
+                                    bool uninitialized, IntegerAttr alignment) {
   OpBuilder b(loc.getContext());
-  return b.create<ConstantResourceOp>(loc, name, value);
+  return b.create<DataSegmentOp>(loc, name, value, constant, uninitialized,
+                                 alignment);
+}
+
+LogicalResult DataSegmentOp::verify() {
+  ShapedType type = getValue().getShapedType();
+  if (!type.getElementType().isSignlessIntOrIndexOrFloat() &&
+      !isa<ComplexType>(type.getElementType()))
+    return emitOpError() << "initializer value can only be signless integer or "
+                            "float or complex element type";
+
+  if (getUninitialized()) {
+    ElementsAttr value = getValue();
+    if (std::optional<ElementsAttr::iterator<llvm::APInt>> splatVal =
+            value.try_value_begin<llvm::APInt>()) {
+      if (!(**splatVal).isZero())
+        return emitOpError()
+               << "expected splat-zero ElementsAttr when uninitialized";
+    }
+    if (std::optional<ElementsAttr::iterator<llvm::APFloat>> splatVal =
+            value.try_value_begin<llvm::APFloat>()) {
+      if (!(**splatVal).bitcastToAPInt().isZero())
+        return emitOpError()
+               << "expected splat-zero ElementsAttr when uninitialized";
+    }
+  }
+  return success();
 }
 
 //===----------------------------------------------------------------------===//
@@ -658,7 +686,7 @@ ConstantResourceOp ConstantResourceOp::create(Location loc, StringRef name,
 LogicalResult ConstantResourceLoadOp::verifySymbolUses(
     ::mlir::SymbolTableCollection &symbolTable) {
   auto module = (*this)->getParentOfType<ModuleOp>();
-  auto globalOp = dyn_cast_or_null<ConstantResourceOp>(
+  auto globalOp = dyn_cast_or_null<DataSegmentOp>(
       symbolTable.lookupSymbolIn(module, getNameAttr()));
   if (!globalOp)
     return emitOpError() << "constant resource op with name " << getNameAttr()
@@ -779,7 +807,8 @@ AlignToOp::lowerToCall(ArrayRef<Value> operands, RewriterBase &rewriter,
   return cast<CallOpInterface>(
       rewriter
           .create<executor::CallOp>(getLoc(), *convertedType,
-                                    symbolRef.getLeafReference(), callArgs)
+                                    symbolRef.getLeafReference(), callArgs,
+                                    ArrayAttr{}, ArrayAttr{})
           .getOperation());
 }
 

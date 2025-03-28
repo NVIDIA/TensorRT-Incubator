@@ -129,10 +129,9 @@ def compile_executable(program, debug=False):
             "--entrypoint=main",
             "--force-entrypoints-return-allocs",
         ]
-        opts = compiler.StableHLOToExecutableOptions(client, c_opts)
-        if debug:
-            opts.set_debug_options(False, [], "tmp")
-        exe = compiler.compiler_stablehlo_to_executable(client, m.operation, opts)
+        task = client.get_compilation_task("stablehlo-to-executable", c_opts)
+        task.run(m.operation)
+        exe = compiler.translate_mlir_to_executable(m.operation)
         return exe
 
 

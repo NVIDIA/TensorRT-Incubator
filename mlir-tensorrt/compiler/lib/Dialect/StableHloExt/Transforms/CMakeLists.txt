@@ -20,6 +20,7 @@ add_mlir_tensorrt_library(MLIRTensorRTStableHloExtTransforms
     MLIRTensorRTStableHloExtUtils
     StablehloOps
     StablehloPasses
+    StablehloOptimizationPasses
 
     DEPENDS
     MLIRTensorRTStableHloExtTransformsPassIncGen

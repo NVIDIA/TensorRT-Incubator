@@ -73,6 +73,9 @@ inline static std::optional<unsigned> getWidth(const PluginField &field) {
 #if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 2, 0)
     HANDLE_CASE(kINT4, 4);
 #endif
+#if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 9, 0)
+    HANDLE_CASE(kFP4, 4);
+#endif
   }
 #undef HANDLE_CASE
   llvm_unreachable("unhandled PluginFieldType enumeration value");
@@ -135,6 +138,11 @@ static void printScalar(std::ostream &os, unsigned width, uint64_t value,
       apFloat = llvm::APFloat(llvm::APFloat::Float8E5M2FNUZ(), apInt.trunc(8));
       break;
 #endif
+#if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 9, 0)
+    case nvinfer1::PluginFieldType::kFP4:
+      apFloat = llvm::APFloat(llvm::APFloat::Float4E2M1FN(), apInt.trunc(4));
+      break;
+#endif
     default:
       llvm_unreachable("unrecognized PluginField floating-point type");
     }
@@ -194,6 +202,9 @@ inline static void printField(std::ostream &os, const PluginField &field) {
 #if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 2, 0)
     HANDLE_CASE(kINT4)
 #endif
+#if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 9, 0)
+    HANDLE_CASE(kFP4)
+#endif
   }
   os << ", length=" << field.length << ", ";
 
@@ -207,6 +218,9 @@ inline static void printField(std::ostream &os, const PluginField &field) {
 #if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 0, 0)
   case PluginFieldType::kBF16:
   case PluginFieldType::kFP8:
+#endif
+#if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 9, 0)
+  case PluginFieldType::kFP4:
 #endif
   {
     for (int32_t i = 0; i < field.length; i++) {

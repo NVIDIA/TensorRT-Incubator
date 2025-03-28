@@ -309,6 +309,8 @@ public:
   SymExpr(int32_t i, IExprBuilder &exprBuilder)
       : expr(exprBuilder.constant(i)) {}
 
+  virtual ~SymExpr() {}
+
   void *getExpr() override {
     return const_cast<void *>(static_cast<const void *>(expr));
   }

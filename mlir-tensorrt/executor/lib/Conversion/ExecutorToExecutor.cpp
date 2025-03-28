@@ -168,11 +168,11 @@ struct LegalizeExecutorOperands : public ConversionPattern {
 /// type , which needs to be converted to the target index type for
 /// future serialization.
 struct ConstantResourceConversionPattern
-    : public ConvertOpToExecutorPattern<executor::ConstantResourceOp> {
+    : public ConvertOpToExecutorPattern<executor::DataSegmentOp> {
   using ConvertOpToExecutorPattern::ConvertOpToExecutorPattern;
 
   LogicalResult
-  matchAndRewrite(executor::ConstantResourceOp op, OpAdaptor adaptor,
+  matchAndRewrite(executor::DataSegmentOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
     auto attr = dyn_cast<DenseIntElementsAttr>(op.getValue());
     if (!attr || attr.getElementType() != rewriter.getIndexType())
@@ -207,8 +207,8 @@ void executor::populateExecutorStructuralConversionPatternsAndLegality(
         if (auto globalOp = dyn_cast<executor::GlobalOp>(op))
           return typeConverter.isLegal(globalOp.getType());
 
-        if (auto constantResourceOp = dyn_cast<ConstantResourceOp>(op))
-          return constantResourceOp.getValueAttr().getElementType() !=
+        if (auto dataSegmentOp = dyn_cast<DataSegmentOp>(op))
+          return dataSegmentOp.getValueAttr().getElementType() !=
                  IndexType::get(op->getContext());
 
         return typeConverter.isLegal(op->getOperandTypes()) &&

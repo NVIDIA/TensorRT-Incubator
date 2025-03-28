@@ -22,13 +22,15 @@
 using namespace mlir;
 using namespace mlir::executor;
 
-ConstantResourceOp executor::getOrCreateConstantResourceDeclaration(
+DataSegmentOp executor::getOrCreateConstantResourceDeclaration(
     OpBuilder &b, Location loc, ModuleOp module, StringRef name,
     ElementsAttr data) {
-  auto op = module.lookupSymbol<ConstantResourceOp>(name);
+  auto op = module.lookupSymbol<DataSegmentOp>(name);
   if (op && op.getValueAttr() == data)
     return op;
-  auto resourceOp = executor::ConstantResourceOp::create(loc, name, data);
+  auto resourceOp =
+      executor::DataSegmentOp::create(loc, name, data, /*constant=*/true,
+                                      /*uninitialized=*/false, IntegerAttr{});
   SymbolTable(module).insert(resourceOp);
   return resourceOp;
 }

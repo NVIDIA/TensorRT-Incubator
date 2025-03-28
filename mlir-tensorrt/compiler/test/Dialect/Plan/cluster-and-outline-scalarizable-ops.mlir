@@ -1,5 +1,5 @@
 // RUN: mlir-tensorrt-opt %s -split-input-file \
-// RUN:  -stablehlo-clustering="entrypoint=" -plan-outline-clusters \
+// RUN:  -plan-clustering="entrypoint=" -plan-outline-clusters \
 // RUN: | FileCheck %s
 
 builtin.module attributes {

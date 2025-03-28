@@ -54,9 +54,11 @@ struct LowerPrintOp : public ConvertOpToLLVMPattern<executor::PrintOp> {
     if (!op.getFormat())
       return failure();
     MLIRContext *ctx = op->getContext();
-    LLVM::LLVMFuncOp printFunc = LLVM::lookupOrCreateFn(
+    FailureOr<LLVM::LLVMFuncOp> printFunc = LLVM::lookupOrCreateFn(
         op->getParentOfType<ModuleOp>(), "printf",
         {LLVM::LLVMPointerType::get(ctx)}, rewriter.getI32Type(), true);
+    if (failed(printFunc))
+      return failure();
     Value str = insertLLVMStringLiteral(
         rewriter, op.getLoc(), (*op.getFormat() + "\n").str(), "literal");
     SmallVector<Value> args = {str};
@@ -69,7 +71,7 @@ struct LowerPrintOp : public ConvertOpToLLVMPattern<executor::PrintOp> {
                                            v);
       args.push_back(v);
     }
-    rewriter.create<LLVM::CallOp>(op.getLoc(), printFunc, args);
+    rewriter.create<LLVM::CallOp>(op.getLoc(), *printFunc, args);
     rewriter.eraseOp(op);
     return success();
   }

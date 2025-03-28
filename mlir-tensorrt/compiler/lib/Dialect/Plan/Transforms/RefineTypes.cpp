@@ -33,6 +33,7 @@
 #include "stablehlo/dialect/StablehloOps.h"
 #include "stablehlo/transforms/Passes.h"
 #include "stablehlo/transforms/StablehloRefineShapes.h"
+#include "stablehlo/transforms/optimization/Passes.h"
 
 namespace mlir::plan {
 #define GEN_PASS_DEF_PLANREFINETYPESPASS
@@ -324,6 +325,7 @@ class PlanRefineTypesPass
     stablehlo_ext::populateStableHloAbsorbTensorCastPatterns(patterns);
     stablehlo::populateStablehloRefineShapesPatterns(&patterns, ctx);
     stablehlo::populateStablehloCanonicalizationPatterns(ctx, &patterns);
+
     if (failed(
             applyPatternsGreedily(funcTarget, std::move(patterns), config))) {
       emitError(funcTarget.getLoc())

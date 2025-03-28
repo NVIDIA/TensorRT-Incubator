@@ -37,20 +37,21 @@ using namespace mlir;
 using namespace mlir::plan;
 
 void plan::buildPlanSegmentationPipeline(
-    OpPassManager &pm, const plan::StablehloClusteringPassOptions &opts) {
+    OpPassManager &pm, const plan::ClusteringPassOptions &opts) {
   pm.addNestedPass<func::FuncOp>(
-      plan::createMaterializeShapeCalculationsPass());
+      plan::createMaterializeShapeCalculationsPass({opts.inputKind}));
   pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
-  pm.addPass(plan::createPlanRefineTypesPass());
+  pm.addPass(plan::createPlanRefineTypesPass({opts.inputKind}));
   pm.addPass(createCanonicalizerPass());
   if (!opts.disableCreateShapeFuncPass)
     pm.addPass(createPlanCreateShapeFuncsPass());
   pm.addNestedPass<func::FuncOp>(
       plan::createPlanPopulateFunctionBoundsAttributesPass());
-  pm.addPass(plan::createStablehloClusteringPass(opts));
+  pm.addPass(plan::createClusteringPass(opts));
   plan::CreateClosedRegionsPassOptions closedRegionOptions{};
   closedRegionOptions.forceEntrypointsReturnAllocs =
       opts.forceEntrypointsReturnAllocs;
+  closedRegionOptions.inputKind = opts.inputKind;
   pm.addPass(plan::createCreateClosedRegionsPass(closedRegionOptions));
   pm.addPass(plan::createOutlineClustersPass());
   pm.addPass(mlir::createFuncExtDuplicateFunctionEliminationPass());
@@ -146,7 +147,7 @@ void plan::registerPlanDialectPipelines() {
       "plan-segmentation-pipeline",
       "apply the Plan Dialect segmentation pipeline",
       [](OpPassManager &pm, const ClusteringPipelineCliOpts &opts) {
-        StablehloClusteringPassOptions clusterOpts{};
+        ClusteringPassOptions clusterOpts{};
         clusterOpts.entrypoint = opts.entrypoint;
         clusterOpts.disableCreateShapeFuncPass =
             opts.forceEntrypointsReturnAllocs;

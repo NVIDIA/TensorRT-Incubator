@@ -246,6 +246,11 @@ void *host_alloc(int64_t size, int32_t alignment);
 /// Free an allocation from `host_alloc`.
 void host_free(void *ptr);
 
+void *constant_load_from_file(const char *filename, int32_t align,
+                              int32_t space);
+
+void constant_destroy(void *data, int32_t space);
+
 } // namespace mtrt
 
 #endif // MTRTRUNTIME

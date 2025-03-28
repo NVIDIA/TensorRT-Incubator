@@ -1,6 +1,6 @@
 //===- OptionsProviders.cpp -------------------------------------*- C++ -*-===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2025 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -100,14 +100,49 @@ void DebugOptions::applyToPassManager(PassManager &pm) const {
 // DeviceOptions
 //===----------------------------------------------------------------------===//
 
-llvm::Error DeviceOptions::finalizeImpl() {
+llvm::Error DeviceOptions::finalize() {
   if (shouldInferFromHost) {
     StatusOr<DeviceInfo> deviceInfo = getDeviceInformationFromHost();
-
     if (!deviceInfo.isOk())
       return llvm::createStringError(deviceInfo.getString());
-
-    info = *deviceInfo;
+    computeCapability = deviceInfo->computeCapability;
+    maxRegistersPerBlock = deviceInfo->maxRegistersPerBlock;
+    maxSharedMemoryPerBlockKb = deviceInfo->maxSharedMemoryPerBlockKb;
   }
   return llvm::Error::success();
+}
+
+//===----------------------------------------------------------------------===//
+// CompilationTaskOptionsBase
+//===----------------------------------------------------------------------===//
+
+std::optional<llvm::hash_code> CompilationTaskOptionsBase::getHash() const {
+  // We hash by just hashing the string representation.
+  llvm::SmallString<128> str;
+  {
+    llvm::raw_svector_ostream os(str);
+    this->print(os);
+  }
+  auto val = llvm::hash_value(str);
+  for (const auto &ext : extensions)
+    val = llvm::hash_combine(val, *ext->getHash());
+  return val;
+}
+
+mlir::LogicalResult
+CompilationTaskOptionsBase::parse(llvm::ArrayRef<llvm::StringRef> args,
+                                  std::string &err) {
+  std::string result;
+  for (unsigned i = 0; i < args.size(); ++i) {
+    llvm::StringRef part = args[i];
+    while (part.starts_with("-"))
+      part = part.drop_front(1);
+    result += part;
+    if (i < args.size() - 1)
+      result += " ";
+  }
+  llvm::raw_string_ostream ss(err);
+  if (failed(this->parseFromString(result, ss)))
+    return mlir::failure();
+  return mlir::success();
 }

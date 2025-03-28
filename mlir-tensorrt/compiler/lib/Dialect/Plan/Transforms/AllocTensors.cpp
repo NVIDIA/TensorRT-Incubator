@@ -576,20 +576,77 @@ getEquivalentFuncArgIdx(func::FuncOp funcOp, const FuncAnalysisState &state,
   return retValIt->getSecond();
 }
 
+/// Returns a vector which maps each yielded value of the block to a
+/// BlockArgument (which may be nullptr if no match can be found). This
+/// procedure just tries to heuristically align as many yielded values as
+/// possible to BlockArguments of the same type, assuming that BlockArguments
+/// and yielded values that can be matched up will appear in the same order (it
+/// doesn't consider permutations). This is just meant to be robust to simple
+/// situations, like when the yielded values of a while op's "before" region is
+/// just a subset of the regions's arguments.
+static llvm::SmallVector<BlockArgument>
+getYieldedValueToBlockArgMap(Block *block, ValueRange yieldedValues) {
+  Block::BlockArgListType blockArgs = block->getArguments();
+  unsigned yieldedArgIdx = 0, blockArgIdx = 0;
+  SmallVector<BlockArgument> result(yieldedValues.size(), nullptr);
+  // Subroutine that searches forward in the block argument list to find an
+  // argument matching type of currently considered yielded arg.
+  auto searchForward = [&]() -> bool {
+    Type yieldedArgType = yieldedValues[yieldedArgIdx].getType();
+    for (unsigned i = blockArgIdx, e = blockArgs.size(); i < e; ++i) {
+      if (blockArgs[i].getType() == yieldedArgType) {
+        result[yieldedArgIdx++] = blockArgs[i];
+        blockArgIdx = i + 1;
+        return true;
+      }
+    }
+    return false;
+  };
+
+  while (yieldedArgIdx < yieldedValues.size() &&
+         blockArgIdx < blockArgs.size()) {
+    Value yielded = yieldedValues[yieldedArgIdx];
+    // If this is a BlockArgument of the current block, then we use its index
+    // align the current blockArgIdx for the remaining arguments.
+    if (auto yieldedBlockArg = dyn_cast<BlockArgument>(yielded)) {
+      if (yieldedBlockArg.getOwner() == block) {
+        result[yieldedArgIdx++] = yieldedBlockArg;
+        blockArgIdx = yieldedBlockArg.getArgNumber() + 1;
+        continue;
+      }
+    }
+    if (searchForward())
+      continue;
+    // No matching type found, map to nothing.
+    result[yieldedArgIdx++] = nullptr;
+  }
+  return result;
+}
+
 /// Rewrite a single function to destination passing style. Update callers
 /// appropriately.
 static LogicalResult rewriteBlockToDestinationStyle(
     RewriterBase &rewriter, Block *block,
-    MutableArrayRef<OpOperand> yieldedTerminatorOperands,
+    MutableOperandRange yieldedTerminatorOperands,
     Block::BlockArgListType carriedBlockArgs,
     const bufferization::OneShotAnalysisState &state) {
+
+  SmallVector<BlockArgument> yieldedValueToBlockArg =
+      getYieldedValueToBlockArgMap(
+          block, yieldedTerminatorOperands.getAsOperandRange());
+
   for (auto [idx, v] : llvm::enumerate(yieldedTerminatorOperands)) {
     if (!isa<TensorType>(v.get().getType()))
       continue;
-    if (carriedBlockArgs[idx].getType() != v.get().getType())
+    if (!yieldedValueToBlockArg[idx]) {
+      LLVM_DEBUG(
+          DBGS() << llvm::formatv(
+              "yielded value #{0} could not be aligned to a block argument\n",
+              idx));
       continue;
+    }
 
-    // Find equivalent arg.
+    // Find equivalent 'tensor.empty. operation.
     bufferization::TraversalConfig config;
     config.followEquivalentOnly = true;
     config.alwaysIncludeLeaves = false;
@@ -601,11 +658,19 @@ static LogicalResult rewriteBlockToDestinationStyle(
         },
         config);
 
+    LLVM_DEBUG({
+      DBGS() << llvm::formatv("equivalent values for yielded value #{0}:\n",
+                              idx);
+      llvm::interleave(equivalentValues, llvm::dbgs(), "\n - ");
+      llvm::dbgs() << "\n";
+    });
+
     if (equivalentValues.size() != 1)
       continue;
 
+    // Replace only uses inside the loop block.
     rewriter.replaceOpUsesWithIf(
-        equivalentValues.front().getDefiningOp(), carriedBlockArgs[idx],
+        equivalentValues.front().getDefiningOp(), yieldedValueToBlockArg[idx],
         [&](OpOperand &use) { return use.getOwner()->getBlock() == block; });
   }
   return success();
@@ -616,6 +681,7 @@ static LogicalResult rewriteBlockToDestinationStyle(
 static void visitLoopOp(RewriterBase &rewriter, Operation *loopOp,
                         const OneShotAnalysisState &state) {
   DBGF("visiting loop {0}", *loopOp);
+
   llvm::TypeSwitch<Operation *>(loopOp)
       .Case([&](scf::WhileOp whileOp) {
         if (failed(rewriteBlockToDestinationStyle(
@@ -627,7 +693,7 @@ static void visitLoopOp(RewriterBase &rewriter, Operation *loopOp,
         if (failed(rewriteBlockToDestinationStyle(
                 rewriter, whileOp.getAfterBody(),
                 cast<scf::YieldOp>(whileOp.getAfterBody()->getTerminator())
-                    ->getOpOperands(),
+                    .getResultsMutable(),
                 whileOp.getAfterBody()->getArguments(), state)))
           return;
       })
@@ -635,7 +701,7 @@ static void visitLoopOp(RewriterBase &rewriter, Operation *loopOp,
         if (failed(rewriteBlockToDestinationStyle(
                 rewriter, forOp.getBody(),
                 cast<scf::YieldOp>(forOp.getBody()->getTerminator())
-                    ->getOpOperands(),
+                    .getResultsMutable(),
                 forOp.getRegionIterArgs(), state)))
           return;
       })
@@ -680,8 +746,10 @@ static LogicalResult rewriteFuncToDestinationPassingStyle(
                     llvm::IsaPred<func::CallOp, func::FuncOp>))
     return failure();
 
-  if (getFuncOpAnalysisState(state, func) != FuncOpAnalysisState::Analyzed)
+  if (getFuncOpAnalysisState(state, func) != FuncOpAnalysisState::Analyzed) {
+    LLVM_DEBUG(DBGS() << "function was not analyzed\n");
     return failure();
+  }
 
   auto term = cast<func::ReturnOp>(func.getBody().front().getTerminator());
   const FuncAnalysisState &funcState = getFuncAnalysisState(state);
@@ -691,11 +759,16 @@ static LogicalResult rewriteFuncToDestinationPassingStyle(
       continue;
 
     // Check if there is already an equivalent function argument.
-    std::optional<int64_t> equivalent =
-        getEquivalentFuncArgIdx(func, funcState, idx);
-    if (equivalent &&
-        func.getArgAttr(*equivalent, PlanDialect::kResultArgAttrName))
+    if (std::optional<int64_t> equivalent =
+            getEquivalentFuncArgIdx(func, funcState, idx);
+        equivalent &&
+        func.getArgAttr(*equivalent, PlanDialect::kResultArgAttrName)) {
+      LLVM_DEBUG(
+          DBGS() << llvm::formatv("for return value #{0} found existing "
+                                  "equivalent result arg -- argument #{1}\n",
+                                  idx, *equivalent));
       continue;
+    }
 
     if (failed(updateFunctionWithNewDpsArg(func, v.get().getLoc(),
                                            v.get().getType(), idx)))
@@ -720,7 +793,8 @@ static LogicalResult rewriteFuncToDestinationPassingStyle(
         [](Value val) { return false; }, config);
 
     LLVM_DEBUG({
-      DBGS() << "equivalent values:\n -";
+      DBGS() << llvm::formatv("equivalent values for return value #{0}:\n",
+                              idx);
       llvm::interleave(equivalentValues, llvm::dbgs(), "\n - ");
       llvm::dbgs() << "\n";
     });
@@ -784,7 +858,7 @@ static LogicalResult rewriteFuncsToDestinationPassingStyle(
   options.allowReturnAllocsFromLoops = true;
   options.bufferizeFunctionBoundaries = true;
   OneShotAnalysisState state(op, options);
-  if (failed(analyzeModuleOp(op, state)))
+  if (failed(plan::analyzeOneModuleOp(ModuleLikeOp(op), state, nullptr)))
     return failure();
 
   // Locate entrypoint functions.
@@ -904,14 +978,20 @@ public:
       return signalPassFailure();
     }
 
-    // Eliminate any straggling `tensor.empty` operations.
+    // Eliminate any straggling `tensor.empty` operations. Only run this on
+    // functions in the host module.
     {
-      RewritePatternSet patterns(ctx);
-      patterns.insert<RewriteEmptyTensor, CleanupAllocTensorOps,
-                      RemoveRedundantMaterializeInDestPattern>(ctx);
-      if (failed(applyPatternsGreedily(op, std::move(patterns)))) {
-        op->emitError() << "failed to run " << getArgument() << " patterns";
-        return signalPassFailure();
+      FrozenRewritePatternSet patterns = [&]() {
+        RewritePatternSet patterns_(ctx);
+        patterns_.insert<RewriteEmptyTensor, CleanupAllocTensorOps,
+                         RemoveRedundantMaterializeInDestPattern>(ctx);
+        return patterns_;
+      }();
+      for (FunctionOpInterface func : op.getOps<FunctionOpInterface>()) {
+        if (failed(applyPatternsGreedily(func, patterns))) {
+          op->emitError() << "failed to run " << getArgument() << " patterns";
+          return signalPassFailure();
+        }
       }
     }
   }

@@ -1,16 +1,16 @@
-From d31c6ef5be9d1fca897dbeceee740085840b5f08 Mon Sep 17 00:00:00 2001
+From 1e5096183747c9d41eec0d624726d25454f10f9c Mon Sep 17 00:00:00 2001
 From: Christopher Bate <cbate@nvidia.com>
 Date: Mon, 10 Mar 2025 22:04:05 +0000
-Subject: [PATCH 3/4] Don't insert unnecessary `arith.index_cast` ops
+Subject: [PATCH 3/7] Don't insert unnecessary `arith.index_cast` ops
 
 ---
  .../StablehloAggressiveSimplification.cpp     | 20 ++-----------------
  1 file changed, 2 insertions(+), 18 deletions(-)
 
-diff --git a/stablehlo/transforms/StablehloAggressiveSimplification.cpp b/stablehlo/transforms/StablehloAggressiveSimplification.cpp
-index ebb6c027..8527739a 100644
---- a/stablehlo/transforms/StablehloAggressiveSimplification.cpp
-+++ b/stablehlo/transforms/StablehloAggressiveSimplification.cpp
+diff --git a/stablehlo/transforms/optimization/StablehloAggressiveSimplification.cpp b/stablehlo/transforms/optimization/StablehloAggressiveSimplification.cpp
+index f32f8d66..8028f714 100644
+--- a/stablehlo/transforms/optimization/StablehloAggressiveSimplification.cpp
++++ b/stablehlo/transforms/optimization/StablehloAggressiveSimplification.cpp
 @@ -394,34 +394,18 @@ struct DynamicIotaOpToBroadcast : public OpRewritePattern<DynamicIotaOp> {
  
      auto iotaDimension = static_cast<int64_t>(iota.getIotaDimension());

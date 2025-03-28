@@ -350,12 +350,15 @@ struct ConvertMemrefGlobal
 
     /// If there's no initial value, then just perform the allocation.
     Attribute initialValue = op.getInitialValueAttr();
-    executor::ConstantResourceOp constOp = nullptr;
+    executor::DataSegmentOp constOp = nullptr;
     if (initialValue)
-      constOp = rewriter.create<executor::ConstantResourceOp>(
+      constOp = rewriter.create<executor::DataSegmentOp>(
           op.getLoc(),
           rewriter.getStringAttr(op.getSymName() + "_initializer").str(),
-          cast<TypedAttr>(initialValue));
+          cast<ElementsAttr>(initialValue),
+          /*constant=*/true,
+          /*uninitialized=*/false,
+          /*alignment=*/op.getAlignmentAttr());
 
     bool error = false;
     rewriter.replaceOpWithNewOp<executor::GlobalOp>(

@@ -29,8 +29,3 @@ add_mtrtd_library(MLIRTensorRTShapeUtils
   MLIRIR
   MLIRDialectUtils
   )
-
-add_mtrtd_library(MLIRTensorRTOptionUtils
-  Options.cpp
-  PARTIAL_SOURCES_INTENDED
-  )

@@ -22,7 +22,6 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt-dialect/Analysis/TensorKindAnalysis.h"
-#include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
 #include "mlir/Analysis/DataFlow/ConstantPropagationAnalysis.h"

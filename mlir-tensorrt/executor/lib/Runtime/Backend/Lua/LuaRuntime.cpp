@@ -189,7 +189,7 @@ LuaRuntimeSession::create(RuntimeSessionOptions options,
   if (session->getExecutable()) {
     ExecutableView executable = session->getExecutable();
     MTRT_DBGF("loading %lu constants", executable.getConstants().size());
-    for (ConstantView constant : executable.getConstants()) {
+    for (DataSegmentInfo constant : executable.getConstants()) {
       size_t bytes = constant.size();
       if (!llvm::isAddrAligned(llvm::Align(kMinConstantBufferByteAlignment),
                                constant.data())) {

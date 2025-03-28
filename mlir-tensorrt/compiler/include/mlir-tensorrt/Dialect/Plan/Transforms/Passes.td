@@ -170,6 +170,12 @@ def MaterializeShapeCalculationsPass : Pass<"plan-materialize-shape-calculations
     "::mlir::tensor::TensorDialect",
     "::mlir::plan::PlanDialect"
   ];
+
+  let options = [
+    Option<"inputKind", "input-kind", "::mlir::plan::InputKind",
+      "::mlir::plan::InputKind::Stablehlo",
+      "specifies the kind of input IR dialect">
+  ];
 }
 
 //===----------------------------------------------------------------------===//
@@ -190,6 +196,12 @@ def PlanRefineTypesPass : Pass<"plan-refine-types", "::mlir::ModuleOp"> {
 
   let dependentDialects = [
     "::mlir::tensor::TensorDialect"
+  ];
+
+  let options = [
+    Option<"inputKind", "input-kind", "::mlir::plan::InputKind",
+      "::mlir::plan::InputKind::Stablehlo",
+      "specifies the kind of input IR dialect">
   ];
 }
 
@@ -231,17 +243,22 @@ def PlanPopulateFunctionBoundsAttributesPass
 }
 
 //===----------------------------------------------------------------------===//
-// StablehloClusteringPass
+// ClusteringPass
 //===----------------------------------------------------------------------===//
 
-def StablehloClusteringPass : Pass<"stablehlo-clustering", "::mlir::ModuleOp"> {
-  let summary = "clusters and outlines `stablehlo` operations into a `func.func`";
+def ClusteringPass : Pass<"plan-clustering", "::mlir::ModuleOp"> {
+  let summary = "clusters and outlines operations into a `func.func`"
+                " based on different target backends";
 
   let description = [{
-    This pass clusters groups of StableHLO operations into encapsulating region
+    This pass clusters groups of operations into encapsulating region
     operations that are not isolated-from-above. The purpose of this pass
     is to achieve a course segmentation that specifies how clusters of
     operations will be compiled.
+
+    The kinds of clusters that can be formed and the specific rules for
+    clustering are defined by the clustering configuration specified 
+    by the module's `plan.cluster_kinds` attribute.
   }];
 
   let options = [
@@ -252,7 +269,10 @@ def StablehloClusteringPass : Pass<"stablehlo-clustering", "::mlir::ModuleOp"> {
       "force-entrypoints-return-allocs", "bool", "false",
       "allow backend clusters to directly allocate outputs">,
     Option<"disableCreateShapeFuncPass", "disable-create-shape-func-pass", "bool", "false",
-      "don't apply create shape to func pass in TensorRT clusters">
+      "don't apply create shape to func pass in TensorRT clusters">,
+    Option<"inputKind", "input-kind", "::mlir::plan::InputKind",
+      "::mlir::plan::InputKind::Stablehlo",
+      "specifies the kind of input IR dialect">
   ];
 
   let dependentDialects = [
@@ -333,7 +353,10 @@ def CreateClosedRegionsPass : Pass<"plan-create-closed-regions", "::mlir::Module
       "to traversal order">,
     Option<"forceEntrypointsReturnAllocs", "force-entrypoints-return-allocs", "bool",
            /*default=*/"false",
-           "Allow backend clusters to directly allocate outputs">
+           "Allow backend clusters to directly allocate outputs">,
+    Option<"inputKind", "input-kind", "::mlir::plan::InputKind",
+      "::mlir::plan::InputKind::Stablehlo",
+      "specifies the kind of input IR dialect">
   ];
 
   let dependentDialects = [
@@ -363,7 +386,11 @@ def OutlineClustersPass : Pass<"plan-outline-clusters", "::mlir::ModuleOp"> {
     profile).
   }];
 
-  let options = [];
+  let options = [
+    Option<"inputKind", "input-kind", "::mlir::plan::InputKind",
+      "::mlir::plan::InputKind::Stablehlo",
+      "specifies the kind of input IR dialect">
+  ];
 
   let dependentDialects = [
     "::mlir::func::FuncDialect",

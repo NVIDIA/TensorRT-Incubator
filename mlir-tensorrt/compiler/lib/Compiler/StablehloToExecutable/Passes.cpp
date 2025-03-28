@@ -19,6 +19,8 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt/Compiler/StablehloToExecutable/Passes.h"
 #include "mlir-executor/Executor/Transforms/Passes.h"
+#include "mlir-tensorrt/Backends/Host/HostBackend.h"
+#include "mlir-tensorrt/Backends/TensorRT/TensorRTBackend.h"
 #include "mlir-tensorrt/Compiler/StablehloToExecutable/StablehloToExecutable.h"
 #include "mlir-tensorrt/Compiler/StablehloToExecutable/TensorRTExtension.h"
 #include "mlir-tensorrt/Conversion/Passes.h"
@@ -139,36 +141,24 @@ public:
 // Pipeline Registrations
 //===----------------------------------------------------------------------===//
 
-namespace {
-/// Declare adaptor so we can use StablehloToExecutableOptions as a MLIR
-/// pipeline options object.
-class StablehloToExecutablePassPipelineOptions
-    : public PassPipelineOptionsAdaptor<
-          StablehloToExecutablePassPipelineOptions,
-          StablehloToExecutableOptions> {};
-} // namespace
-
 void mlirtrt::compiler::registerStablehloToExecutablePipelines() {
-  PassPipelineRegistration<StablehloToExecutablePassPipelineOptions>(
+  PassPipelineRegistration<StablehloToExecutableOptions>(
       "stablehlo-clustering-pipeline",
       "apply clustering and initial transformations to stablehlo IR",
-      [](OpPassManager &pm,
-         const StablehloToExecutablePassPipelineOptions &opts) {
-        StablehloToExecutableTask::buildStablehloClusteringPipeline(pm, opts);
+      [](OpPassManager &pm, const StablehloToExecutableOptions &opts) {
+        StablehloToExecutableTask::buildClusteringPipeline(pm, opts);
       });
 
-  PassPipelineRegistration<StablehloToExecutablePassPipelineOptions>(
+  PassPipelineRegistration<StablehloToExecutableOptions>(
       "stablehlo-to-executable-pipeline",
       "apply the full stablehlo-to-executable pipeline",
-      [](OpPassManager &pm,
-         const StablehloToExecutablePassPipelineOptions &opts) {
+      [](OpPassManager &pm, const StablehloToExecutableOptions &opts) {
         StablehloToExecutableTask::populatePassManager(pm, opts);
       });
 
-  PassPipelineRegistration<StablehloToExecutablePassPipelineOptions>(
+  PassPipelineRegistration<StablehloToExecutableOptions>(
       "post-clustering-pipeline", "apply compilation post-clustering",
-      [](OpPassManager &pm,
-         const StablehloToExecutablePassPipelineOptions &opts) {
+      [](OpPassManager &pm, const StablehloToExecutableOptions &opts) {
         StablehloToExecutableTask::buildPostClusteringPipeline(pm, opts);
       });
 }

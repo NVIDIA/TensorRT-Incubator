@@ -27,8 +27,8 @@
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/IR/SymbolTable.h"
+#include "mlir/Interfaces/CallInterfaces.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
-#include "llvm/ADT/SmallBitVector.h"
 
 namespace mlir::plan {
 #define GEN_PASS_DEF_ELIMINATESHAPEOPSPASS
@@ -62,43 +62,12 @@ struct RemoveWithValuesRewriter : public OpRewritePattern<plan::WithValuesOp> {
 };
 } // namespace
 
-/// Return the func::FuncOp called by `callOp`.
-static func::FuncOp getCalledFunction(CallOpInterface callOp,
-                                      SymbolTableCollection &collection) {
-  SymbolRefAttr sym =
-      llvm::dyn_cast_if_present<SymbolRefAttr>(callOp.getCallableForCallee());
-  if (!sym)
-    return nullptr;
-  return dyn_cast_or_null<func::FuncOp>(
-      collection.lookupNearestSymbolFrom(callOp, sym));
-}
-
-/// Get a map from `tensorrt.func` functions to associated `tensorrt.call`
-/// and `tensorrt.call_alloc` operations.
-static llvm::DenseMap<func::FuncOp, SmallVector<Operation *>>
-getTensorRTFunctionCallMap(ModuleOp op, SymbolTableCollection &collection) {
-  llvm::DenseMap<func::FuncOp, SmallVector<Operation *>> map;
-  op->walk([&](CallOpInterface callOp) {
-    func::FuncOp func = getCalledFunction(callOp, collection);
-    if (!func)
-      return;
-    auto it = map.find(func);
-    if (it == map.end()) {
-      map.insert(std::make_pair(
-          func, SmallVector<Operation *>{callOp.getOperation()}));
-      return;
-    }
-    it->second.push_back(callOp.getOperation());
-  });
-  return map;
-}
-
 /// Remove unused arguments in a TensorRT function and adjust all the associated
 /// `tensorrt.call` operations.
 static LogicalResult removeUnusedArgs(IRRewriter &rewriter,
                                       SymbolTableCollection &collection,
                                       ModuleOp op, func::FuncOp funcOp,
-                                      ArrayRef<Operation *> callOps) {
+                                      const SymbolUserMap &userMap) {
   SmallVector<int64_t> usedArgs;
   SmallVector<int64_t> unusedArgs;
   for (BlockArgument arg : funcOp.getArguments()) {
@@ -114,7 +83,9 @@ static LogicalResult removeUnusedArgs(IRRewriter &rewriter,
     funcOp.eraseArgument(idx);
 
   // Update the call ops.
-  for (Operation *callOp : callOps) {
+  for (Operation *callOp : userMap.getUsers(funcOp)) {
+    if (!isa<CallOpInterface>(callOp))
+      continue;
     rewriter.setInsertionPoint(callOp);
     if (auto trtCall = dyn_cast<tensorrt::CallOp>(callOp)) {
       SmallVector<Value> newOperands;
@@ -134,7 +105,14 @@ static LogicalResult removeUnusedArgs(IRRewriter &rewriter,
           allocCall.getCalleeAttr());
       continue;
     }
-    llvm_unreachable("expected 'tensorrt.call' or 'tensorrt.call_alloc' op");
+    if (auto funcCall = dyn_cast<func::CallOp>(callOp)) {
+      SmallVector<Value> newOperands;
+      for (int64_t idx : usedArgs)
+        newOperands.push_back(funcCall.getOperands()[idx]);
+      rewriter.replaceOpWithNewOp<func::CallOp>(funcCall, funcOp, newOperands);
+      continue;
+    }
+    llvm_unreachable("unexpected call operation type");
   }
   return success();
 }
@@ -163,11 +141,38 @@ public:
     // functions. Clean those up as well.
     SymbolTableCollection symbolTableCollection;
     IRRewriter rewriter(ctx);
-    auto callMapping =
-        getTensorRTFunctionCallMap(module, symbolTableCollection);
-    for (const auto &[funcOp, callOps] : callMapping) {
+    SymbolUserMap symbolUserMap(symbolTableCollection, module);
+
+    llvm::SmallVector<func::FuncOp> candidates;
+    module->walk([&](func::FuncOp func) {
+      // Only consider functions that are not exported from the top module.
+      // That means only functions in nested modules or private functions.
+      if (func->getParentWithTrait<OpTrait::SymbolTable>() == module &&
+          !func.isPrivate())
+        return;
+
+      unsigned numCallers = 0;
+      for (Operation *user : symbolUserMap.getUsers(func)) {
+        // Currently we have 'users' of functions that aren't call operations,
+        // e.g. referring to a function symbol name in the 'plan.shape_function'
+        // attribute. So we only reject an op if it has CallOpInterface users
+        // that we don't recognize. Other users should not need to be updated.
+        if (isa<CallOpInterface>(user)) {
+          if (!isa<func::CallOp, tensorrt::CallOp, tensorrt::CallAllocOp>(user))
+            return;
+          numCallers++;
+        }
+      }
+      // Don't both modifying functions that don't have callers. Those will get
+      // removed during DCE.
+      if (numCallers == 0)
+        return;
+
+      candidates.push_back(func);
+    });
+    for (func::FuncOp funcOp : candidates) {
       if (failed(removeUnusedArgs(rewriter, symbolTableCollection, module,
-                                  funcOp, callOps))) {
+                                  funcOp, symbolUserMap))) {
         emitError(funcOp->getLoc())
             << "failed to drop unused arguments in " << getArgument();
         return signalPassFailure();

@@ -19,4 +19,5 @@ add_mlir_tensorrt_library(MLIRTensorRTHostToLLVM
   MLIRTensorRTCUDAToLLVM
   MLIRTensorRTTensorRTRuntimeToLLVM
   MLIRUBToLLVM
+  MLIRVectorToLLVM
   )

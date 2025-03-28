@@ -130,37 +130,51 @@ def Executor_ConstantOp : Executor_Op<"constant",
 }
 
 //===----------------------------------------------------------------------===//
-// ConstantResourceOp
+// DataSegmentOp
 //===----------------------------------------------------------------------===//
 
-def Executor_ConstantResourceOp : Executor_Op<"constant_resource", [Symbol]> {
+def Executor_DataSegmentOp : Executor_Op<"data_segment", [Symbol]> {
 
   let summary = "declares a read-only constant resource";
 
   let description = [{
-    The `executor.constant_resource` operation represents a declaration of a
-    constant buffer that can be loaded as a `!executor.ptr<host>` from the
-    Executable's constant data section.
+    The `executor.data_segment` operation represents a declaration of a region
+    of memory.
 
-    Any `executor.global` declaration with a non-scalar type is lowered to
-    a load of a constant_resource.
+    The region of memory must have an initial `value` attached. If the
+    `uninitialized` attribute is set, then the `value` is used just to indicate
+    the size of the zero-initialized data, and `value` should be a dense splat
+    elements attribute. Only the size is encoded in the compiled artifact (no
+    actual data is encoded). This lets us create a mechanism for indicating that
+    globals should be initialized with a new zero-filled allocation, similar to
+    the BSS section in an ELF.
+
+    If `constant` is specified, then the memory is read-only, and this is
+    exclusive to `uninitialized`.
   }];
 
-  let arguments = (ins SymbolNameAttr:$sym_name, ElementsAttr:$value);
-  let assemblyFormat = "attr-dict $sym_name $value";
-
-  let builders = [
-    OpBuilder<(ins "StringRef":$sym_name, "TypedAttr":$attr), [{
-      assert(isa<ElementsAttr>(attr) && "expected an ElementsAttr");
-      build($_builder, $_state, sym_name, cast<ElementsAttr>(attr));
-    }]>
-  ];
+  let arguments = (ins SymbolNameAttr:$sym_name,
+                       ElementsAttr:$value,
+                       UnitAttr:$constant,
+                       UnitAttr:$uninitialized,
+                       OptionalAttr<I64Attr>:$alignment);
+  let assemblyFormat = [{
+    $sym_name attr-dict
+      ( `constant` $constant^ )?
+      (`uninitialized` $uninitialized^ )?
+      (`align` $alignment^)?
+      $value
+  }];
 
   let extraClassDeclaration = [{
     /// Construct the op from the location context.
-    static ConstantResourceOp create(Location loc, StringRef name,
-                                     ElementsAttr value);
+    static DataSegmentOp create(Location loc, StringRef name,
+                                ElementsAttr value,
+                                bool constant,
+                                bool uninitialized,
+                                IntegerAttr alignment = {});
   }];
+  let hasVerifier = 1;
 }
 
 //===----------------------------------------------------------------------===//
@@ -184,13 +198,13 @@ def Executor_StrLiteralOp : Executor_Op<"str_literal", [Pure]> {
 // ConstantResourceLoadOp
 //===----------------------------------------------------------------------===//
 
-def Executor_ConstantResourceLoadOp : Executor_Op<"load_constant_resource",
+def Executor_ConstantResourceLoadOp : Executor_Op<"load_data_segment",
   [DeclareOpInterfaceMethods<SymbolUserOpInterface>]> {
 
   let summary = "loads a constant resource into a new host buffer";
 
   let description = [{
-    The `executor.load_constant_resource` operation allocates a new host buffer
+    The `executor.load_data_segment` operation allocates a new host buffer
     and loads the specified resource into the buffer.
   }];
 
@@ -415,7 +429,10 @@ def Executor_CoroAwaitOp : Executor_Op<"coro_await", [
     contents.
   }];
 
-  let arguments = (ins FunctionType:$callee, Variadic<AnyType>:$callee_operands);
+  let arguments = (ins FunctionType:$callee,
+                       Variadic<AnyType>:$callee_operands,
+                       OptionalAttr<DictArrayAttr>:$arg_attrs,
+                       OptionalAttr<DictArrayAttr>:$res_attrs);
   let results = (outs I1:$status, Variadic<AnyType>:$results);
 
   let hasVerifier = 1;
@@ -536,7 +553,9 @@ def Executor_CallOp : Executor_Op<"call", [
   }];
 
   let arguments = (ins FlatSymbolRefAttr:$callee,
-                       Variadic<AnyType>:$args);
+                       Variadic<AnyType>:$args,
+                       OptionalAttr<DictArrayAttr>:$arg_attrs,
+                       OptionalAttr<DictArrayAttr>:$res_attrs);
   let results = (outs Variadic<AnyType>:$results);
 
   let assemblyFormat = [{
@@ -545,6 +564,12 @@ def Executor_CallOp : Executor_Op<"call", [
   }];
 
   let hasVerifier = 1;
+
+  let builders = [
+    OpBuilder<(ins "TypeRange":$types, "StringRef":$callee, "ValueRange":$args), [{
+      build($_builder, $_state, types, callee, args, ArrayAttr{}, ArrayAttr{});
+    }]>
+  ];
 
   let extraClassDeclaration = [{
     //===------------------------------------------------------------------===//

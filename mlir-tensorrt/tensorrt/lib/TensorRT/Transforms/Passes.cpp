@@ -94,17 +94,17 @@ void tensorrt::buildTensorRTModuleSimplificationPipeline(OpPassManager &pm) {
   addCleanupPasses(pm);
 }
 
-void tensorrt::buildTensorRTModuleTransformationPipeline(OpPassManager &pm,
-                                                         bool stronglyTyped) {
+void tensorrt::buildTensorRTModuleTransformationPipeline(
+    OpPassManager &pm,
+    const ApplyBugWorkaroundsPassOptions &bugWorkaroundOptions) {
   // Try to simplify the code and eliminate broadcast/transposes.
   buildTensorRTModuleSimplificationPipeline(pm);
 
   // Apply workarounds. This currently must be done before expanding ops because
   // WARs may use auxillary ops such as ExpandRank/CollapseRank ops.
-  mlir::tensorrt::ApplyBugWorkaroundsPassOptions options;
-  options.tensorrtStronglyTyped = stronglyTyped;
-  pm.addPass(tensorrt::createApplyBugWorkaroundsPass(options));
+  pm.addPass(tensorrt::createApplyBugWorkaroundsPass(bugWorkaroundOptions));
   addCleanupPasses(pm);
+
   // Run `tensorrt-expand-ops` twice with canonicalization in between. There
   // should not be any canonicalization between the second one and translation
   // to avoid the possibility that TRT extension operations are created from

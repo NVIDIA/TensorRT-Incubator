@@ -24,7 +24,6 @@
 #include "mlir-executor/Executor/Transforms/Passes.h"
 #include "mlir-tensorrt-dialect/TensorRT/Transforms/Passes.h"
 #include "mlir-tensorrt/Compiler/OptionsProviders.h"
-#include "mlir-tensorrt/Compiler/OptionsRegistry.h"
 #include "mlir-tensorrt/Compiler/TensorRTToExecutable/Passes.h"
 #include "mlir-tensorrt/Conversion/Passes.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
@@ -36,25 +35,12 @@ using namespace mlir;
 using namespace mlirtrt::compiler;
 
 //===----------------------------------------------------------------------===//
-// TensorRTToExecutableOptions
-//===----------------------------------------------------------------------===//
-
-TensorRTToExecutableOptions::TensorRTToExecutableOptions(
-    TaskExtensionRegistry extensions) {
-  // TODO (pranavm): We don't need extensions - remove from constructor and add
-  // `setExtensions` to base class.
-  assert(extensions.extensions.size() == 0);
-}
-
-//===----------------------------------------------------------------------===//
 // TensorRTToExecutableTask
 //===----------------------------------------------------------------------===//
 
 TensorRTToExecutableTask::TensorRTToExecutableTask(
-    MLIRContext *ctx, const TensorRTToExecutableOptions &options)
-    : CompilationTask(ctx, options) {
-  options.get<DebugOptions>().applyToPassManager(*this);
-}
+    MLIRContext *ctx, std::unique_ptr<TensorRTToExecutableOptions> options)
+    : CompilationTask(ctx, std::move(options)) {}
 
 void TensorRTToExecutableTask::buildTensorRTClusteringPipeline(
     OpPassManager &pm, const TensorRTToExecutableOptions &opts) {
@@ -64,11 +50,19 @@ void TensorRTToExecutableTask::buildTensorRTClusteringPipeline(
 void TensorRTToExecutableTask::buildPostClusteringPipeline(
     OpPassManager &pm, const TensorRTToExecutableOptions &options) {
   // Simplify and translate functions nested in `tensorrt.module` ops.
-  auto &trtPM = pm.nest<tensorrt::TensorRTModuleOp>();
-  tensorrt::buildTensorRTModuleTransformationPipeline(
-      trtPM, options.get<TensorRTOptions>().options.enableStronglyTyped);
-  trtPM.addPass(tensorrt::createTranslateTensorRTPass(
-      nullptr, options.get<TensorRTOptions>().options));
+  {
+    auto &trtPM = pm.nest<tensorrt::TensorRTModuleOp>();
+
+    tensorrt::ApplyBugWorkaroundsPassOptions bugWAROptions = {};
+    bugWAROptions.tensorrtStronglyTyped =
+        options.get<TensorRTOptions>().enableStronglyTyped;
+    bugWAROptions.forceDefaultSliceInBounds =
+        options.get<TensorRTOptions>().forceDefaultSliceInBounds;
+
+    tensorrt::buildTensorRTModuleTransformationPipeline(trtPM, bugWAROptions);
+    trtPM.addPass(tensorrt::createTranslateTensorRTPass(
+        nullptr, options.get<TensorRTOptions>().options()));
+  }
 
   pm.addPass(createConvertTensorRTToTensorRTRuntimePass());
 

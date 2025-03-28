@@ -1,12 +1,12 @@
-From cc45fc70ad111e768404524b29e9f168a31baec4 Mon Sep 17 00:00:00 2001
+From b387be5903482200f4c36f64f8ed102c288c0c29 Mon Sep 17 00:00:00 2001
 From: Christopher Bate <cbate@nvidia.com>
 Date: Wed, 27 Nov 2024 00:10:11 +0000
-Subject: [PATCH 1/4] Fix a couple missing checks for static shapes in
+Subject: [PATCH 1/7] Fix a couple missing checks for static shapes in
  `stablehlo-aggressive-folder`
 
 ---
  .../stablehlo_aggressive_folder.mlir          | 27 +++++++++++++------
- .../transforms/StablehloAggressiveFolder.cpp  |  9 +++++++
+ .../StablehloAggressiveFolder.cpp             |  9 +++++++
  2 files changed, 28 insertions(+), 8 deletions(-)
 
 diff --git a/stablehlo/tests/transforms/stablehlo_aggressive_folder.mlir b/stablehlo/tests/transforms/stablehlo_aggressive_folder.mlir
@@ -79,11 +79,11 @@ index 5b21a10d..c90c89c6 100644
  }
  
  // -----
-diff --git a/stablehlo/transforms/StablehloAggressiveFolder.cpp b/stablehlo/transforms/StablehloAggressiveFolder.cpp
-index 49942c42..5fd20fec 100644
---- a/stablehlo/transforms/StablehloAggressiveFolder.cpp
-+++ b/stablehlo/transforms/StablehloAggressiveFolder.cpp
-@@ -258,6 +258,9 @@ struct FoldAddOpPattern final : OpRewritePattern<mlir::stablehlo::AddOp> {
+diff --git a/stablehlo/transforms/optimization/StablehloAggressiveFolder.cpp b/stablehlo/transforms/optimization/StablehloAggressiveFolder.cpp
+index 2b5198b4..52a28e97 100644
+--- a/stablehlo/transforms/optimization/StablehloAggressiveFolder.cpp
++++ b/stablehlo/transforms/optimization/StablehloAggressiveFolder.cpp
+@@ -257,6 +257,9 @@ struct FoldAddOpPattern final : OpRewritePattern<mlir::stablehlo::AddOp> {
  
    LogicalResult matchAndRewrite(mlir::stablehlo::AddOp op,
                                  PatternRewriter& rewriter) const override {

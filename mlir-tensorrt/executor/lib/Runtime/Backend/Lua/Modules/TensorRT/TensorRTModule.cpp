@@ -307,11 +307,58 @@ private:
   /// Fixed fields corresponding to rank, data ptr.
   static constexpr int OUTPUT_DESC_FIXED_FIELDS = 2;
 };
+} // namespace
 
 //===----------------------------------------------------------------------===//
 // NvInferExecContextWrapper
 //===----------------------------------------------------------------------===//
 
+/// Map NvInfer data type to the number of bytes required per element, according
+/// to TRT's I/O data layout requirements.
+static int64_t getBytesPerNvInferType(nvinfer1::DataType t) {
+  using nvinfer1::DataType;
+  switch (t) {
+  case DataType::kFLOAT:
+    return 4;
+  case DataType::kHALF:
+    return 2;
+  case DataType::kINT8:
+    return 8;
+  case DataType::kINT32:
+    return 4;
+  case DataType::kBOOL:
+    return 1;
+  case DataType::kUINT8:
+    return 1;
+  case DataType::kFP8:
+    return 1;
+#if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(9, 1, 0)
+  case DataType::kBF16:
+    return 2;
+  case DataType::kINT64:
+    return 8;
+#endif
+#if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 0, 0)
+  case DataType::kINT4:
+    return 1;
+#endif
+#if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 9, 0)
+  case DataType::kFP4:
+    return 1;
+#endif
+  }
+  llvm_unreachable("unknown TensorRT data type");
+}
+
+static int64_t getShapeTensorAllocationSize(const nvinfer1::Dims &dims,
+                                            nvinfer1::DataType type) {
+  int64_t dimVolume = 1;
+  for (int32_t i = 0; i <= dims.nbDims; ++i)
+    dimVolume *= dims.d[i];
+  return dimVolume * getBytesPerNvInferType(type);
+}
+
+namespace {
 /// Wraps an nvinfer1::ExecutionContext object.
 class NvInferExecContextWrapper {
 private:
@@ -351,21 +398,16 @@ public:
 
       assert(isShapeInferenceIO && "expected host tensor to be shape tensor");
 
-      nvinfer1::Dims dims = (*engine)->getTensorShape(name);
-      nvinfer1::DataType dataType = (*engine)->getTensorDataType(name);
-
-      // We expect the host shape tensor to be a 0-d or 1-d tensor.
-      assert(dataType == nvinfer1::DataType::kINT32 &&
-             "expected i32 data type for shape");
-      assert(dims.nbDims <= 1 && dims.d[0] >= 0 &&
-             "expected rank-0 or rank-1 shape of positive extent");
+      const nvinfer1::Dims dims = (*engine)->getTensorShape(name);
+      const nvinfer1::DataType dataType = (*engine)->getTensorDataType(name);
 
       // Create the pinned host buffer. Minimum allocation must be 16 bytes,
       // since device allocation may be 16 bytes. These allocations are
       // long-lived for the duration of the program. They are automatically
       // cleaned up when the allocator destructs at program exit.
       StatusOr<PinnedMemoryBlock> hostBuffer = pinnedMemoryAllocator->allocate(
-          sizeof(int32_t) * std::max<int32_t>(dims.d[0], 16));
+          sizeof(int32_t) *
+          std::max<int32_t>(getShapeTensorAllocationSize(dims, dataType), 16));
       if (!hostBuffer.isOk())
         return getStatusWithMsg(
             StatusCode::InternalError,

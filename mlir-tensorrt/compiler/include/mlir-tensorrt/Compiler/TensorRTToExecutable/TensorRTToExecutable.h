@@ -20,14 +20,15 @@
 #ifndef MLIR_TENSORRT_COMPILER_TENSORRTTOEXECUTABLE
 #define MLIR_TENSORRT_COMPILER_TENSORRTTOEXECUTABLE
 
+#include "mlir-tensorrt/Compiler/Extension.h"
+
 // TODO (pranavm): MLIR_TRT_TARGET_TENSORRT is only needed because we pull in
 // the TranslateToTensorRT.h header. If we move the translation options, we
 // won't need it.
 #ifdef MLIR_TRT_TARGET_TENSORRT
 #include "mlir-tensorrt-dialect/Target/TranslateToTensorRT.h"
-
-#include "mlir-tensorrt-dialect/Utils/OptionsBundle.h"
 #include "mlir-tensorrt/Compiler/Client.h"
+#include "mlir-tensorrt/Compiler/Extension.h"
 
 namespace mlirtrt::compiler {
 
@@ -37,28 +38,60 @@ namespace mlirtrt::compiler {
 
 class TensorRTToExecutableTask;
 
-// TODO (pranavm): Figure out a better way to reuse TRT translation options -
-// maybe move to options providers?
-struct TensorRTOptions : public OptionsProvider<TensorRTOptions> {
+struct TensorRTOptions : public OptionsProvider {
 public:
   using OptionsProvider::OptionsProvider;
-  mlir::tensorrt::TensorRTTranslationOptions options;
 
-  TensorRTOptions(mlir::OptionsContext &ctx) : OptionsProvider(ctx) {
-    options.addToOptions(ctx);
+  Option<std::string> timingCachePath{this->ctx, "tensorrt-timing-cache-path",
+                                      llvm::cl::init("")};
+  Option<int> tensorrtBuilderOptLevel{this->ctx, "tensorrt-builder-opt-level",
+                                      llvm::cl::init(0)};
+  Option<bool> enableStronglyTyped{this->ctx, "tensorrt-strongly-typed",
+                                   llvm::cl::init(false)};
+  Option<std::string> saveTensorRTEnginesToDirectory{
+      this->ctx, "tensorrt-engines-dir", llvm::cl::init("")};
+  Option<std::string> saveTensorRTLayerInfoDirectory{
+      this->ctx, "tensorrt-layer-info-dir", llvm::cl::init("")};
+  Option<std::optional<uint64_t>, mlir::tensorrt::ByteSizeParser>
+      workspaceMemoryPoolLimit{this->ctx,
+                               "tensorrt-workspace-memory-pool-limit",
+                               llvm::cl::init(std::nullopt)};
+
+  Option<TensorRTTargetFormat> format{
+      this->ctx, "tensorrt-target",
+      llvm::cl::desc("specifies the target compilation format for "
+                     "functions offloaded to TensorRT"),
+      llvm::cl::init(TensorRTTargetFormat::Engine),
+      llvm::cl::values(clEnumValN(TensorRTTargetFormat::Engine, "engine",
+                                  "lower to compiled TensorRT engines"),
+                       clEnumValN(TensorRTTargetFormat::CPP, "cpp",
+                                  "lower to C++ TensorRT nvinfer API "))};
+
+  Option<bool> forceDefaultSliceInBounds{
+      this->ctx, "tensorrt-force-default-slice-in-bounds",
+      llvm::cl::init(false),
+      llvm::cl::desc("Specifies whether we should constrain dynamic offset and "
+                     "sizes operands of 'default' (no OOB access allowed) "
+                     "slice ops so that all accesses will be in bounds")};
+
+  mlir::tensorrt::TensorRTTranslationOptions options() const {
+    mlir::tensorrt::TensorRTTranslationOptions translationOpts{};
+    translationOpts.saveTensorRTEnginesToDirectory =
+        saveTensorRTEnginesToDirectory;
+    translationOpts.saveTensorRTLayerInfoDirectory =
+        saveTensorRTLayerInfoDirectory;
+    translationOpts.tensorrtBuilderOptLevel = tensorrtBuilderOptLevel;
+    translationOpts.enableStronglyTyped = enableStronglyTyped;
+    translationOpts.timingCachePath = timingCachePath;
+    translationOpts.workspaceMemoryPoolLimit = workspaceMemoryPoolLimit;
+    return translationOpts;
   }
 };
 
 struct TensorRTToExecutableOptions
-    : public mlir::OptionsBundle<DeviceOptions, DebugOptions, ExecutorOptions,
-                                 PlanAllocOptions, TensorRTOptions> {
-  // Default initialization does not require any extensions.
-  TensorRTToExecutableOptions() = default;
-
-  TensorRTToExecutableOptions(TaskExtensionRegistry extensions);
-
-  Option<std::string> entrypoint{this, "entrypoint", llvm::cl::init("main"),
-                                 llvm::cl::desc("entrypoint function name")};
+    : public CompilationTaskOptions<DeviceOptions, ExecutorOptions,
+                                    PlanAllocOptions, TensorRTOptions> {
+  using CompilationTaskOptions::CompilationTaskOptions;
 };
 
 //===----------------------------------------------------------------------===//
@@ -69,8 +102,9 @@ class TensorRTToExecutableTask
     : public CompilationTask<TensorRTToExecutableTask,
                              TensorRTToExecutableOptions> {
 public:
-  TensorRTToExecutableTask(mlir::MLIRContext *ctx,
-                           const TensorRTToExecutableOptions &options);
+  TensorRTToExecutableTask(
+      mlir::MLIRContext *ctx,
+      std::unique_ptr<TensorRTToExecutableOptions> options);
 
   /// Build the clustering pipeline that occurs on TensorRT Ops.
   static void

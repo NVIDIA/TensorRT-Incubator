@@ -33,7 +33,6 @@
 
 #include "mlir-executor/Runtime/API/API.h"
 #include "mlir-executor/Support/Status.h"
-#include "mlir-tensorrt-dialect/Utils/OptionsBundle.h"
 #include "mlir-tensorrt/Compiler/Client.h"
 #include "mlir-tensorrt/Compiler/Extension.h"
 #include "mlir-tensorrt/Compiler/OptionsProviders.h"
@@ -52,43 +51,30 @@ namespace mlirtrt::compiler {
 class StablehloToExecutableTask;
 
 struct StablehloToExecutableOptions
-    : public mlir::OptionsBundle<DebugOptions, ExecutorOptions, DeviceOptions,
-                                 PlanAllocOptions> {
+    : public CompilationTaskOptions<ExecutorOptions, DeviceOptions,
+                                    PlanAllocOptions> {
   /// Initializes the options. The extensions in the provided registry
   /// must be extensions for the StableHloToExecutable task.
-  StablehloToExecutableOptions(TaskExtensionRegistry extensions);
+  StablehloToExecutableOptions(TaskExtensionRegistry extensions,
+                               bool enableDebugOptions);
 
   /// Initializes the options using a default extension set (TensorRT
   /// extension).
-  StablehloToExecutableOptions();
+  StablehloToExecutableOptions(bool enableDebugOptions = false);
 
   /// Whether to disallow host tensors in TensorRT clusters.
   Option<bool> disallowHostTensorsInTensorRTClusters{
-      this, "plan-clustering-disallow-host-tensors-in-tensorrt-clusters",
+      *this, "plan-clustering-disallow-host-tensors-in-tensorrt-clusters",
       llvm::cl::init(false),
       llvm::cl::desc("Don't allow TensorRt clusters to contain host tensor "
                      "calculations (but they can still be inputs)")};
 
-  Option<std::string> hostTarget{
-      this, "host-target", llvm::cl::init("executor"),
-      llvm::cl::desc("Specifies host target, which can be either "
-                     "\"executor\" or \"llvm\" or \"emitc\"")};
-
-  Option<std::string> artifactDirectory{
-      this, "artifacts-dir", llvm::cl::init(""),
-      llvm::cl::desc(
-          "specifies a directory where to save large artifacts as external "
-          "files that may be referenced symbolically by filename in the IR")};
-
-  Option<std::string> entrypoint{this, "entrypoint", llvm::cl::init("main"),
-                                 llvm::cl::desc("entrypoint function name")};
-
   /// Base class for extensions associated with StableHloToExecutableTask.
   class ExtensionBase : public TaskExtensionBase {
   public:
-    ExtensionBase(mlir::TypeID typeID)
-        : TaskExtensionBase(typeID,
-                            mlir::TypeID::get<StablehloToExecutableTask>()) {}
+    ExtensionBase(mlir::TypeID typeID, CompilationTaskOptionsBase &ctx)
+        : TaskExtensionBase(
+              typeID, mlir::TypeID::get<StablehloToExecutableTask>(), ctx) {}
 
     static bool classof(const TaskExtensionBase *extension) {
       return extension->getTaskID() ==
@@ -116,7 +102,8 @@ struct StablehloToExecutableOptions
   template <typename DerivedTy>
   class Extension : public ExtensionBase {
   public:
-    Extension() : ExtensionBase(mlir::TypeID::get<DerivedTy>()) {}
+    Extension(CompilationTaskOptionsBase &ctx)
+        : ExtensionBase(mlir::TypeID::get<DerivedTy>(), ctx) {}
   };
 
   /// List of extensions (in no defined order).
@@ -134,13 +121,14 @@ class StablehloToExecutableTask
     : public CompilationTask<StablehloToExecutableTask,
                              StablehloToExecutableOptions> {
 public:
-  StablehloToExecutableTask(mlir::MLIRContext *ctx,
-                            const StablehloToExecutableOptions &options);
+  StablehloToExecutableTask(
+      mlir::MLIRContext *ctx,
+      std::unique_ptr<StablehloToExecutableOptions> options);
 
   /// Build the clustering pipeline that occurs on Stablehlo Ops.
   static void
-  buildStablehloClusteringPipeline(mlir::OpPassManager &pm,
-                                   const StablehloToExecutableOptions &options);
+  buildClusteringPipeline(mlir::OpPassManager &pm,
+                          const StablehloToExecutableOptions &options);
 
   /// Build the pipeline (bufferization and lowering) that runs after
   /// clustering.

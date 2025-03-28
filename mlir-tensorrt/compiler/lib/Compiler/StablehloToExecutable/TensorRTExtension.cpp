@@ -26,6 +26,7 @@
 #include "mlir-tensorrt-dialect/TensorRT/Transforms/Passes.h"
 #include "mlir-tensorrt/Conversion/Passes.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "llvm/Support/Debug.h"
 
 using namespace mlirtrt::compiler;
 using namespace mlirtrt;
@@ -34,8 +35,6 @@ using namespace mlir;
 //===----------------------------------------------------------------------===//
 // TensorRTCompilerExtension
 //===----------------------------------------------------------------------===//
-StablehloToExecutableTensorRTExtension::
-    StablehloToExecutableTensorRTExtension() {}
 
 void StablehloToExecutableTensorRTExtension::populatePasses(
     mlir::OpPassManager &pm, Phase phase,
@@ -44,9 +43,19 @@ void StablehloToExecutableTensorRTExtension::populatePasses(
   if (this->disabled)
     return;
 
-  tensorrt::TensorRTTranslationOptions translationOpts =
-      useGlobalCLFlags ? tensorrt::TensorRTTranslationOptions::fromCLFlags()
-                       : translationOptions;
+  tensorrt::TensorRTTranslationOptions translationOpts;
+  if (useGlobalCLFlags) {
+    translationOpts = tensorrt::TensorRTTranslationOptions::fromCLFlags();
+  } else {
+    translationOpts.saveTensorRTEnginesToDirectory =
+        saveTensorRTEnginesToDirectory;
+    translationOpts.saveTensorRTLayerInfoDirectory =
+        saveTensorRTLayerInfoDirectory;
+    translationOpts.tensorrtBuilderOptLevel = tensorrtBuilderOptLevel;
+    translationOpts.enableStronglyTyped = enableStronglyTyped;
+    translationOpts.timingCachePath = timingCachePath;
+    translationOpts.workspaceMemoryPoolLimit = workspaceMemoryPoolLimit;
+  }
 
   if (phase == Phase::PreClustering) {
     // We must materialize TRT plugion shape regions prior to clustering.
@@ -63,10 +72,15 @@ void StablehloToExecutableTensorRTExtension::populatePasses(
   if (phase == Phase::PreBufferization) {
     // Simplify and translate functions nested in `tensorrt.module` ops.
     auto &trtPM = pm.nest<tensorrt::TensorRTModuleOp>();
-    tensorrt::buildTensorRTModuleTransformationPipeline(
-        trtPM, translationOpts.enableStronglyTyped);
+
+    tensorrt::ApplyBugWorkaroundsPassOptions bugWAROptions = {};
+    bugWAROptions.tensorrtStronglyTyped = translationOpts.enableStronglyTyped;
+    bugWAROptions.forceDefaultSliceInBounds = this->forceDefaultSliceInBounds;
+    tensorrt::buildTensorRTModuleTransformationPipeline(trtPM, bugWAROptions);
+
     trtPM.addPass(
         tensorrt::createTranslateTensorRTPass(nullptr, translationOpts));
+
     pm.addPass(createConvertTensorRTToTensorRTRuntimePass());
     return;
   }
@@ -76,7 +90,7 @@ void StablehloToExecutableTensorRTExtension::populatePasses(
   }
 
   if (phase == Phase::ExecutorLowering) {
-    if (options.hostTarget.value == "executor") {
+    if (options.hostTarget == HostTarget::Executor) {
       ConvertTensorRTRuntimeToExecutorPassOptions toExecutorOpts;
       toExecutorOpts.indexBitwidth =
           options.get<ExecutorOptions>().indexBitwidth;
@@ -86,9 +100,9 @@ void StablehloToExecutableTensorRTExtension::populatePasses(
           std::move(toExecutorOpts)));
       return;
     }
-    if (options.hostTarget.value == "llvm") {
+    if (options.hostTarget == HostTarget::LLVM) {
       ConvertTensorRTRuntimeToLLVMPassOptions toLLVMOpts;
-      toLLVMOpts.artifactsDirectory = options.artifactDirectory;
+      toLLVMOpts.artifactsDirectory = options.artifactsDirectory;
       pm.addPass(createConvertTensorRTRuntimeToLLVMPass(std::move(toLLVMOpts)));
       return;
     }

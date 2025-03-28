@@ -203,13 +203,13 @@ func.func @alloc() -> (!executor.ptr<host>, !executor.ptr<host>) {
 // -----
 
 func.func private @magic_alloc() -> (!executor.ptr<device>)
-executor.constant_resource @__constant_1xi32_initializer dense<0> : tensor<1xi32>
+executor.data_segment @__constant_1xi32_initializer dense<0> : tensor<1xi32>
 executor.global @__constant_1xi32 constant : !executor.table<!executor.ptr<device>, !executor.ptr<device>, i32, i32, i32> {
   %c0_i32 = executor.constant 0 : i32
   %c4_i32 = executor.constant 4 : i32
   %c1_i32 = executor.constant 1 : i32
   %1 = func.call @magic_alloc() : () -> !executor.ptr<device>
-  %2 = executor.load_constant_resource @__constant_1xi32_initializer : !executor.ptr<host>
+  %2 = executor.load_data_segment @__constant_1xi32_initializer : !executor.ptr<host>
   %3 = executor.table.create(%1, %1, %c0_i32, %c4_i32, %c1_i32 : !executor.ptr<device>, !executor.ptr<device>, i32, i32, i32) : <!executor.ptr<device>, !executor.ptr<device>, i32, i32, i32>
   executor.return %3 : !executor.table<!executor.ptr<device>, !executor.ptr<device>, i32, i32, i32>
 }

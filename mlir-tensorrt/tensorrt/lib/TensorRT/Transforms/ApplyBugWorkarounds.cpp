@@ -1,6 +1,6 @@
 //===- ApplyBugWorkarounds.cpp --------------------------------------------===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -19,6 +19,7 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
 #include "mlir-tensorrt-dialect/TensorRT/Transforms/Passes.h"
+#include "mlir-tensorrt-dialect/TensorRT/Utils/Utils.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Location.h"
 #include "mlir/IR/PatternMatch.h"
@@ -107,7 +108,65 @@ struct MatToVecMatmul : public OpRewritePattern<tensorrt::CollapseRankOp> {
 };
 } // namespace
 
-/// Given a string `[MAJOR].[MINNOR]`, return a tuple of integers for the major
+static Value getShape(RewriterBase &rewriter,
+                      TypedValue<RankedTensorType> tensor) {
+  if (tensor.getType().hasStaticShape())
+    return rewriter.create<tensorrt::ConstantOp>(
+        tensor.getLoc(), rewriter.getI32TensorAttr(llvm::map_to_vector(
+                             tensor.getType().getShape(), [](int64_t x) {
+                               return static_cast<int32_t>(x);
+                             })));
+  return rewriter.create<tensorrt::ShapeOp>(tensor.getLoc(), tensor);
+}
+
+/// Change slice operations that have 'default' mode so that any dynamic offset
+/// or size values are constrained to be in-bounds.
+static void rewriteDefaultSliceToInBounds(RewriterBase &rewriter,
+                                          Operation *op) {
+  op->walk([&](tensorrt::SliceOp op) {
+    if (op.getMode() != SliceMode::kDEFAULT ||
+        (!op.getStart() && !op.getSize()))
+      return;
+
+    rewriter.setInsertionPoint(op);
+    Value start = op.getStart();
+    Value size = op.getSize();
+    Value shape = getShape(rewriter, op.getInput());
+
+    if (start) {
+      Value one = rewriter.create<ConstantOp>(
+          op.getLoc(),
+          cast<ElementsAttr>(rewriter.getOneAttr(shape.getType())));
+      Value shapeMinusOne = rewriter.create<tensorrt::ElementWiseOp>(
+          op.getLoc(), shape, one, ElementWiseOperation::kSUB);
+      start = rewriter.create<tensorrt::ElementWiseOp>(
+          op.getLoc(), start, shapeMinusOne, ElementWiseOperation::kMIN);
+      Value zero = rewriter.create<tensorrt::ConstantOp>(
+          op.getLoc(),
+          cast<ElementsAttr>(rewriter.getZeroAttr(op.getStart().getType())));
+      start = rewriter.create<tensorrt::ElementWiseOp>(
+          op.getLoc(), start, zero, ElementWiseOperation::kMAX);
+    }
+    if (size) {
+      size = rewriter.create<tensorrt::ElementWiseOp>(
+          op.getLoc(), size, shape, ElementWiseOperation::kMIN);
+      Value zero = rewriter.create<tensorrt::ConstantOp>(
+          op.getLoc(),
+          cast<ElementsAttr>(rewriter.getZeroAttr(size.getType())));
+      size = rewriter.create<tensorrt::ElementWiseOp>(
+          op.getLoc(), size, zero, ElementWiseOperation::kMAX);
+    }
+
+    rewriter.modifyOpInPlace(op, [&]() {
+      if (start)
+        op.getStartMutable().assign(start);
+      if (size)
+        op.getSizeMutable().assign(size);
+    });
+  });
+}
+
+/// Given a string `[MAJOR].[MINOR]`, return a tuple of integers for the major
 /// and minor numbers.
 static FailureOr<std::pair<int, int>> parseVersion(StringRef tensorrtVersion) {
   bool error = false;
@@ -145,6 +204,10 @@ public:
       patterns.add<Unary8IWorkaround>(ctx);
     if (tensorrtStronglyTyped)
       patterns.add<MatToVecMatmul>(ctx);
+    if (forceDefaultSliceInBounds) {
+      IRRewriter rewriter(ctx);
+      rewriteDefaultSliceToInBounds(rewriter, getOperation());
+    }
     if (failed(applyPatternsGreedily(getOperation(), std::move(patterns))))
       return signalPassFailure();
   }

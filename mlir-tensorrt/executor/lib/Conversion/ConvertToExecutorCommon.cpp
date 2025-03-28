@@ -210,7 +210,7 @@ ExecutorTypeConverter::ExecutorTypeConverter(
   addTargetMaterialization([&](OpBuilder &builder, Type resultType,
                                ValueRange inputs, Location loc,
                                Type originalType) -> Value {
-    if (auto memrefType = dyn_cast<MemRefType>(originalType)) {
+    if (auto memrefType = dyn_cast_if_present<MemRefType>(originalType)) {
       if (MemRefDescriptor::isMemRefDescriptorFieldTypes(
               memrefType, getIndexType(), TypeRange(inputs))) {
         ImplicitLocOpBuilder b(loc, builder);

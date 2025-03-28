@@ -1,5 +1,5 @@
 // RUN: mlir-tensorrt-opt -split-input-file \
-// RUN:  -stablehlo-clustering %s | FileCheck %s
+// RUN:  -plan-clustering %s | FileCheck %s
 
 // Check that we can recognize `stablehlo.dynamic_gather` using `plan.with_shape|plan.with_values` to prove required shape/value equivalence
 // propositions.

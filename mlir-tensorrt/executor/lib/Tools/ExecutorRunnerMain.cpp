@@ -185,8 +185,17 @@ LogicalResult executor::ExecutorRunnerMain(
   if (!output)
     return emitError(loc) << "failed to open output buffer: " << errorMessage;
 
-  if (failed(initializeCudaRuntime()))
-    return failure();
+  if (options.dumpFunctionSignature) {
+    if (options.inputType != InputType::ExecutorRuntimeExecutable)
+      return emitError(loc) << "function signature can only be dumped with "
+                               "Runtime Executable inputs";
+  } else {
+    // We only need to initialize the CUDA runtime if we are going to run
+    // something.
+    // TODO: Allow enable/disable CUDA requirement on command-line.
+    if (failed(initializeCudaRuntime()))
+      return failure();
+  }
 
   // Read the buffer as a Lua script and execute.
   auto processBuffer = [&](std::unique_ptr<llvm::MemoryBuffer> input,

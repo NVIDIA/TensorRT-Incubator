@@ -28,6 +28,7 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "stablehlo/transforms/Passes.h"
 #include "stablehlo/transforms/StablehloRefineShapes.h"
+#include "stablehlo/transforms/optimization/Passes.h"
 
 namespace mlir::stablehlo_ext {
 #define GEN_PASS_DEF_CANONICALIZESHAPESPASS
@@ -91,7 +92,8 @@ public:
 
     RewritePatternSet patterns_(ctx);
     stablehlo::populateStablehloRefineShapesPatterns(&patterns_, ctx);
-    stablehlo::populateStablehloShapeFolderPatterns(&patterns_, ctx);
+    stablehlo::populateStablehloAggressiveFolderPatterns(&patterns_, ctx,
+                                                         /*foldFloat=*/false);
     patterns_.add<AbsorbCastsIntoFuncReturnPattern>(ctx);
     patterns = std::move(patterns_);
     return success();

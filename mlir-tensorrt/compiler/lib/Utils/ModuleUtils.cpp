@@ -48,12 +48,21 @@ LogicalResult mlir::getFuncOpsOrderedByCalls(
     SmallVectorImpl<func::FuncOp> &remainingFuncOps,
     const std::function<bool(func::FuncOp)> &filter) {
 
+  // Call graph doesn't give information about external callables, so enqueue
+  // all of those first.
+  for (auto func : moduleOp.getOps<func::FuncOp>()) {
+    if (func.isDeclaration())
+      orderedFuncOps.push_back(func);
+  }
+
   const mlir::CallGraph callgraph(moduleOp);
   for (auto &scc : llvm::make_range(llvm::scc_begin(&callgraph),
                                     llvm::scc_end(&callgraph))) {
     if (scc.size() == 1) {
-      if ((*scc.front()).isExternal())
+      if ((*scc.front()).isExternal()) {
+
         continue;
+      }
       auto func = dyn_cast<func::FuncOp>(
           scc.front()->getCallableRegion()->getParentOp());
       if (!func || (filter && !filter(func)))

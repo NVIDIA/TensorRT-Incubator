@@ -24,6 +24,8 @@
 #include "mlir-tensorrt-dialect/Interface/TensorKindOpInterface.h"
 #include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
 #include "mlir-tensorrt-dialect/TensorRT/Target/TensorRTEncodingImpl.h"
+#include "mlir-tensorrt/Backends/Host/HostBackend.h"
+#include "mlir-tensorrt/Backends/TensorRT/TensorRTBackend.h"
 #include "mlir/Dialect/Func/Extensions/InlinerExtension.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #ifdef MLIR_TRT_ENABLE_HLO
@@ -56,6 +58,8 @@ inline void registerCoreMlirTensorRtDialects(DialectRegistry &registry) {
 
 #ifdef MLIR_TRT_ENABLE_HLO
   registry.insert<plan::PlanDialect>();
+  mlir::plan::registerHostBackend(registry);
+  mlir::plan::registerTensorRTBackend(registry);
 #endif // MLIR_TRT_ENABLE_HLO
 }
 

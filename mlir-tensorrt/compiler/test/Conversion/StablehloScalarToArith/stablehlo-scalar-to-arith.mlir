@@ -721,6 +721,117 @@ func.func @test_reduce_4(%arg0: tensor<4xi8>, %arg1: tensor<i8>) -> tensor<i8> {
 
 // -----
 
+func.func @test_reduce_2d(%arg0: tensor<2x2xi8>, %arg1: tensor<i8>) -> tensor<i8> {
+  %0 = stablehlo.reduce(%arg0 init: %arg1)
+    applies stablehlo.and across dimensions = [0, 1] : (tensor<2x2xi8>, tensor<i8>) -> tensor<i8>
+  return %0 : tensor<i8>
+}
+
+// CHECK-LABEL: func.func @test_reduce_2d
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<2x2xi8>, %[[arg1:.+]]: tensor<i8>) -> tensor<i8> {
+//   CHECK-DAG:     %[[c0:.+]] = arith.constant 0 : index
+//   CHECK-DAG:     %[[c0_0:.+]] = arith.constant 0 : index
+//   CHECK-DAG:     %[[extracted:.+]] = tensor.extract %[[arg0]][%[[c0]], %[[c0_0]]] : tensor<2x2xi8>
+//   CHECK-DAG:     %[[c0_1:.+]] = arith.constant 0 : index
+//   CHECK-DAG:     %[[c1:.+]] = arith.constant 1 : index
+//   CHECK-DAG:     %[[extracted_2:.+]] = tensor.extract %[[arg0]][%[[c0_1]], %[[c1]]] : tensor<2x2xi8>
+//   CHECK-DAG:     %[[c1_3:.+]] = arith.constant 1 : index
+//   CHECK-DAG:     %[[c0_4:.+]] = arith.constant 0 : index
+//   CHECK-DAG:     %[[extracted_5:.+]] = tensor.extract %[[arg0]][%[[c1_3]], %[[c0_4]]] : tensor<2x2xi8>
+//   CHECK-DAG:     %[[c1_6:.+]] = arith.constant 1 : index
+//   CHECK-DAG:     %[[c1_7:.+]] = arith.constant 1 : index
+//   CHECK-DAG:     %[[extracted_8:.+]] = tensor.extract %[[arg0]][%[[c1_6]], %[[c1_7]]] : tensor<2x2xi8>
+//   CHECK-DAG:     %[[c0_9:.+]] = arith.constant 0 : index
+//   CHECK-DAG:     %[[extracted_10:.+]] = tensor.extract %[[arg1]][] : tensor<i8>
+//   CHECK-DAG:     %[[v0:.+]] = arith.andi %[[extracted]], %[[extracted_10]] : i8
+//   CHECK-DAG:     %[[v1:.+]] = arith.andi %[[extracted_2]], %[[v0]] : i8
+//   CHECK-DAG:     %[[v2:.+]] = arith.andi %[[extracted_5]], %[[v1]] : i8
+//   CHECK-DAG:     %[[v3:.+]] = arith.andi %[[extracted_8]], %[[v2]] : i8
+//   CHECK-DAG:     %[[from_elements:.+]] = tensor.from_elements %[[v3]] : tensor<i8>
+//   CHECK-DAG:     return %[[from_elements]] : tensor<i8>
+
+// -----
+
+func.func @test_reduce_ignore_unit_dim(%arg0: tensor<1x2x2x1x2x1xi8>, %arg1: tensor<i8>) -> tensor<1x1x1xi8> {
+  %0 = stablehlo.reduce(%arg0 init: %arg1)
+    applies stablehlo.and
+    across dimensions = [1, 2, 4] : (tensor<1x2x2x1x2x1xi8>, tensor<i8>) -> tensor<1x1x1xi8>
+  return %0 : tensor<1x1x1xi8>
+}
+
+// CHECK-LABEL: func.func @test_reduce_ignore_unit_dim
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<1x2x2x1x2x1xi8>, %[[arg1:.+]]: tensor<i8>)
+//   CHECK-DAG:     %[[c0:.+]] = arith.constant 0 : index
+//   CHECK-DAG:     %[[c0_0:.+]] = arith.constant 0 : index
+//   CHECK-DAG:     %[[c0_1:.+]] = arith.constant 0 : index
+//   CHECK-DAG:     %[[c0_2:.+]] = arith.constant 0 : index
+//   CHECK-DAG:     %[[c0_3:.+]] = arith.constant 0 : index
+//   CHECK-DAG:     %[[c0_4:.+]] = arith.constant 0 : index
+//       CHECK:     %[[extracted:.+]] = tensor.extract %[[arg0]][%[[c0]], %[[c0_0]], %[[c0_1]], %[[c0_2]], %[[c0_3]], %[[c0_4]]]
+//   CHECK-DAG:     %[[c0_5:.+]] = arith.constant 0 : index
+//   CHECK-DAG:     %[[c0_6:.+]] = arith.constant 0 : index
+//   CHECK-DAG:     %[[c0_7:.+]] = arith.constant 0 : index
+//   CHECK-DAG:     %[[c0_8:.+]] = arith.constant 0 : index
+//   CHECK-DAG:     %[[c1:.+]] = arith.constant 1 : index
+//   CHECK-DAG:     %[[c0_9:.+]] = arith.constant 0 : index
+//       CHECK:     %[[extracted_10:.+]] = tensor.extract %[[arg0]][%[[c0_5]], %[[c0_6]], %[[c0_7]], %[[c0_8]], %[[c1]], %[[c0_9]]]
+//   CHECK-DAG:     %[[c0_11:.+]] = arith.constant 0 : index
+//   CHECK-DAG:     %[[c0_12:.+]] = arith.constant 0 : index
+//   CHECK-DAG:     %[[c1_13:.+]] = arith.constant 1 : index
+//   CHECK-DAG:     %[[c0_14:.+]] = arith.constant 0 : index
+//   CHECK-DAG:     %[[c0_15:.+]] = arith.constant 0 : index
+//   CHECK-DAG:     %[[c0_16:.+]] = arith.constant 0 : index
+//       CHECK:     %[[extracted_17:.+]] = tensor.extract %[[arg0]][%[[c0_11]], %[[c0_12]], %[[c1_13]], %[[c0_14]], %[[c0_15]], %[[c0_16]]]
+//   CHECK-DAG:     %[[c0_18:.+]] = arith.constant 0 : index
+//   CHECK-DAG:     %[[c0_19:.+]] = arith.constant 0 : index
+//   CHECK-DAG:     %[[c1_20:.+]] = arith.constant 1 : index
+//   CHECK-DAG:     %[[c0_21:.+]] = arith.constant 0 : index
+//   CHECK-DAG:     %[[c1_22:.+]] = arith.constant 1 : index
+//   CHECK-DAG:     %[[c0_23:.+]] = arith.constant 0 : index
+//       CHECK:     %[[extracted_24:.+]] = tensor.extract %[[arg0]][%[[c0_18]], %[[c0_19]], %[[c1_20]], %[[c0_21]], %[[c1_22]], %[[c0_23]]]
+//   CHECK-DAG:     %[[c0_25:.+]] = arith.constant 0 : index
+//   CHECK-DAG:     %[[c1_26:.+]] = arith.constant 1 : index
+//   CHECK-DAG:     %[[c0_27:.+]] = arith.constant 0 : index
+//   CHECK-DAG:     %[[c0_28:.+]] = arith.constant 0 : index
+//   CHECK-DAG:     %[[c0_29:.+]] = arith.constant 0 : index
+//   CHECK-DAG:     %[[c0_30:.+]] = arith.constant 0 : index
+//       CHECK:     %[[extracted_31:.+]] = tensor.extract %[[arg0]][%[[c0_25]], %[[c1_26]], %[[c0_27]], %[[c0_28]], %[[c0_29]], %[[c0_30]]]
+//   CHECK-DAG:     %[[c0_32:.+]] = arith.constant 0 : index
+//   CHECK-DAG:     %[[c1_33:.+]] = arith.constant 1 : index
+//   CHECK-DAG:     %[[c0_34:.+]] = arith.constant 0 : index
+//   CHECK-DAG:     %[[c0_35:.+]] = arith.constant 0 : index
+//   CHECK-DAG:     %[[c1_36:.+]] = arith.constant 1 : index
+//   CHECK-DAG:     %[[c0_37:.+]] = arith.constant 0 : index
+//       CHECK:     %[[extracted_38:.+]] = tensor.extract %[[arg0]][%[[c0_32]], %[[c1_33]], %[[c0_34]], %[[c0_35]], %[[c1_36]], %[[c0_37]]]
+//   CHECK-DAG:     %[[c0_39:.+]] = arith.constant 0 : index
+//   CHECK-DAG:     %[[c1_40:.+]] = arith.constant 1 : index
+//   CHECK-DAG:     %[[c1_41:.+]] = arith.constant 1 : index
+//   CHECK-DAG:     %[[c0_42:.+]] = arith.constant 0 : index
+//   CHECK-DAG:     %[[c0_43:.+]] = arith.constant 0 : index
+//   CHECK-DAG:     %[[c0_44:.+]] = arith.constant 0 : index
+//       CHECK:     %[[extracted_45:.+]] = tensor.extract %[[arg0]][%[[c0_39]], %[[c1_40]], %[[c1_41]], %[[c0_42]], %[[c0_43]], %[[c0_44]]]
+//   CHECK-DAG:     %[[c0_46:.+]] = arith.constant 0 : index
+//   CHECK-DAG:     %[[c1_47:.+]] = arith.constant 1 : index
+//   CHECK-DAG:     %[[c1_48:.+]] = arith.constant 1 : index
+//   CHECK-DAG:     %[[c0_49:.+]] = arith.constant 0 : index
+//   CHECK-DAG:     %[[c1_50:.+]] = arith.constant 1 : index
+//   CHECK-DAG:     %[[c0_51:.+]] = arith.constant 0 : index
+//       CHECK:     %[[extracted_52:.+]] = tensor.extract %[[arg0]][%[[c0_46]], %[[c1_47]], %[[c1_48]], %[[c0_49]], %[[c1_50]], %[[c0_51]]]
+//   CHECK-DAG:     %[[c0_53:.+]] = arith.constant 0 : index
+//   CHECK-DAG:     %[[extracted_54:.+]] = tensor.extract %[[arg1]][] : tensor<i8>
+//   CHECK-DAG:     %[[v0:.+]] = arith.andi %[[extracted]], %[[extracted_54]] : i8
+//   CHECK-DAG:     %[[v1:.+]] = arith.andi %[[extracted_10]], %[[v0]] : i8
+//   CHECK-DAG:     %[[v2:.+]] = arith.andi %[[extracted_17]], %[[v1]] : i8
+//   CHECK-DAG:     %[[v3:.+]] = arith.andi %[[extracted_24]], %[[v2]] : i8
+//   CHECK-DAG:     %[[v4:.+]] = arith.andi %[[extracted_31]], %[[v3]] : i8
+//   CHECK-DAG:     %[[v5:.+]] = arith.andi %[[extracted_38]], %[[v4]] : i8
+//   CHECK-DAG:     %[[v6:.+]] = arith.andi %[[extracted_45]], %[[v5]] : i8
+//   CHECK-DAG:     %[[v7:.+]] = arith.andi %[[extracted_52]], %[[v6]] : i8
+//   CHECK-DAG:     %[[from_elements:.+]] = tensor.from_elements %[[v7]] : tensor<1x1x1xi8>
+//   CHECK-DAG:     return %[[from_elements]] : tensor<1x1x1xi8>
+
+// -----
+
 func.func @test_add_2d(%arg0: tensor<2x2xf32>, %arg1: tensor<2x2xf32>) -> tensor<2x2xf32> {
   %0 = stablehlo.add %arg0, %arg1 : tensor<2x2xf32>
   return %0 : tensor<2x2xf32>

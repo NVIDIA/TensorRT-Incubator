@@ -28,6 +28,10 @@
 #include <memory>
 #include <mlir/Pass/Pass.h>
 
+namespace mlir {
+class OpPassManager;
+}
+
 namespace mlirtrt::compiler {
 
 //===----------------------------------------------------------------------===//
@@ -52,6 +56,34 @@ namespace mlirtrt::compiler {
 /// The pipelines registered here will use "default extensions"
 /// (TensorRTExtension).
 void registerStablehloToExecutablePipelines();
+
+/// Options for processing StableHLO input IR.
+struct StableHloInputOptions {
+  /// Whether to lower Stablehlo control flow ops to SCF dialect ops.
+  bool legalizeControlFlowToSCF = false;
+
+  /// Whether to preserve 'chlo.erf' ops or lower them to 'stablehlo' ops.
+  /// By default, we preserve since it has a 1-1 correspondence with a TensorRT
+  /// op.
+  bool preserveChloErf = true;
+
+  /// Whether to preserve 'chlo.top_k' ops or lower them to 'stablehlo' ops.
+  /// By default, we preserve since it has a 1-1 correspondence with a TensorRT
+  /// op.
+  bool preserveChloTopK = true;
+
+  /// Whether to disable running the inliner.
+  bool disableInliner = false;
+};
+
+/// Construct a pipeline for preprocessing StableHLO IR to convert it into the
+/// canonical form. Some passes in this pipeline transforms ops to simplify
+/// TensorRT conversion.
+void buildStablehloPreProcessingPipeline(mlir::OpPassManager &pm,
+                                         const StableHloInputOptions &opts);
+
+/// Register stablehlo input pipelines.
+void registerStableHloInputPipelines();
 
 } // namespace mlirtrt::compiler
 

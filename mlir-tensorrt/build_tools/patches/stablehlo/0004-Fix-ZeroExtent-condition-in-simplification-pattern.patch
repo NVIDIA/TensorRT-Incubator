@@ -1,17 +1,17 @@
-From 97c312a13288e95bdb2be5c197ebf0ed4019f434 Mon Sep 17 00:00:00 2001
+From 94b386bd28b610a3218508c391acd926412e57f1 Mon Sep 17 00:00:00 2001
 From: Christopher Bate <cbate@nvidia.com>
 Date: Mon, 10 Mar 2025 22:51:38 +0000
-Subject: [PATCH 4/4] Fix ZeroExtent condition in simplification pattern
+Subject: [PATCH 4/7] Fix ZeroExtent condition in simplification pattern
 
 Attribute doesn't have to be a DenseElementsAttr.
 ---
- .../transforms/StablehloAggressiveSimplificationPatterns.td    | 3 ++-
+ .../optimization/StablehloAggressiveSimplificationPatterns.td  | 3 ++-
  1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/stablehlo/transforms/StablehloAggressiveSimplificationPatterns.td b/stablehlo/transforms/StablehloAggressiveSimplificationPatterns.td
+diff --git a/stablehlo/transforms/optimization/StablehloAggressiveSimplificationPatterns.td b/stablehlo/transforms/optimization/StablehloAggressiveSimplificationPatterns.td
 index 9cbcc07c..60396cc4 100644
---- a/stablehlo/transforms/StablehloAggressiveSimplificationPatterns.td
-+++ b/stablehlo/transforms/StablehloAggressiveSimplificationPatterns.td
+--- a/stablehlo/transforms/optimization/StablehloAggressiveSimplificationPatterns.td
++++ b/stablehlo/transforms/optimization/StablehloAggressiveSimplificationPatterns.td
 @@ -94,7 +94,8 @@ def SortedDims : AttrConstraint<
      "is sorted dimensions">;
  

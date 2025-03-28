@@ -86,7 +86,6 @@ inline void registerAllMlirTensorRtExecutorDialects(DialectRegistry &registry) {
   tensor::registerInferTypeOpInterfaceExternalModels(registry);
   tensor::registerSubsetOpInterfaceExternalModels(registry);
   tensor::registerTilingInterfaceExternalModels(registry);
-
   LLVM::registerInlinerInterface(registry);
 }
 

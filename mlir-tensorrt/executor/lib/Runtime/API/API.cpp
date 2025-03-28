@@ -163,11 +163,11 @@ ExecutableView::getFunction(std::string_view name) const {
   return FunctionView(*it);
 }
 
-llvm::SmallVector<ConstantView> ExecutableView::getConstants() const {
-  llvm::SmallVector<ConstantView> views;
-  views.reserve(view->constants()->size());
-  for (unsigned i = 0; i < view->constants()->size(); i++)
-    views.push_back(view->constants()->Get(i));
+llvm::SmallVector<DataSegmentInfo> ExecutableView::getConstants() const {
+  llvm::SmallVector<DataSegmentInfo> views;
+  views.reserve(view->data_segments()->size());
+  for (unsigned i = 0; i < view->data_segments()->size(); i++)
+    views.push_back(view->data_segments()->Get(i));
   return views;
 }
 
@@ -1338,7 +1338,7 @@ llvm::raw_ostream &rt::print(llvm::raw_ostream &os, const Executable &exe) {
 }
 
 llvm::raw_ostream &rt::print(llvm::raw_ostream &os,
-                             const ConstantView &constant) {
+                             const DataSegmentInfo &constant) {
   os << "Constant<" << constant.getName() << ", " << constant.size() << " bytes"
      << ">";
   return os;

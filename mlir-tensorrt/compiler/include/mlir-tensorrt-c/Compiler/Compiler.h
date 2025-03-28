@@ -57,78 +57,12 @@ MLIR_CAPI_EXPORTED MTRT_Status mtrtCompilerClientGetCompilationTask(
     const MlirStringRef *argv, unsigned argc, MlirPassManager *result);
 
 //===----------------------------------------------------------------------===//
-// MTRT_OptionsContext
-//===----------------------------------------------------------------------===//
-
-typedef struct MTRT_OptionsContext {
-  void *ptr;
-} MTRT_OptionsContext;
-
-MLIR_CAPI_EXPORTED MTRT_Status mtrtOptionsContextCreateFromArgs(
-    MTRT_CompilerClient client, MTRT_OptionsContext *options,
-    MlirStringRef optionsType, const MlirStringRef *argv, unsigned argc);
-
-MLIR_CAPI_EXPORTED void mtrtOptionsContextPrint(MTRT_OptionsContext options,
-                                                MlirStringCallback append,
-                                                void *userData);
-
-MLIR_CAPI_EXPORTED MTRT_Status
-mtrtOptionsContextDestroy(MTRT_OptionsContext options);
-
-static inline bool mtrtOptionsConextIsNull(MTRT_OptionsContext options) {
-  return !options.ptr;
-}
-
-//===----------------------------------------------------------------------===//
-// MTRT_StableHLOToExecutableOptions
-//===----------------------------------------------------------------------===//
-
-/// Options for compiling StableHLO MLIR to an Executable.
-typedef struct MTRT_StableHLOToExecutableOptions {
-  void *ptr;
-} MTRT_StableHLOToExecutableOptions;
-
-MLIR_CAPI_EXPORTED MTRT_Status mtrtStableHloToExecutableOptionsCreate(
-    MTRT_CompilerClient client, MTRT_StableHLOToExecutableOptions *options,
-    int32_t tensorRTBuilderOptLevel, bool tensorRTStronglyTyped);
-
-MLIR_CAPI_EXPORTED MTRT_Status mtrtStableHloToExecutableOptionsCreateFromArgs(
-    MTRT_CompilerClient client, MTRT_StableHLOToExecutableOptions *options,
-    const MlirStringRef *argv, unsigned argc);
-
-/// Specifies whether to enable the global LLVM debug flag for the duration of
-/// the compilation process. If the flag is enabled then the debug types
-/// specified in the array of literals are used as the global LLVM debug types
-/// (equivalent to `-debug-only=[list]`).
-MLIR_CAPI_EXPORTED MTRT_Status mtrtStableHloToExecutableOptionsSetDebugOptions(
-    MTRT_StableHLOToExecutableOptions options, bool enableDebugging,
-    const char **debugTypes, size_t debugTypeSizes,
-    const char *dumpIrTreeDir = nullptr, const char *dumpTensorRTDir = nullptr);
-
-MLIR_CAPI_EXPORTED MTRT_Status mtrtStableHloToExecutableOptionsDestroy(
-    MTRT_StableHLOToExecutableOptions options);
-
-static inline bool mtrtStableHloToExecutableOptionsIsNull(
-    MTRT_StableHLOToExecutableOptions options) {
-  return !options.ptr;
-}
-
-//===----------------------------------------------------------------------===//
 // PassManagerReference APIs
 //===----------------------------------------------------------------------===//
 
 static inline bool mtrtPassManagerReferenceIsNull(MlirPassManager pm) {
   return !pm.ptr;
 }
-
-//===----------------------------------------------------------------------===//
-// Main StableHLO Compiler API Functions
-//===----------------------------------------------------------------------===//
-
-/// Compiler StableHLO to Executable.
-MLIR_CAPI_EXPORTED MTRT_Status mtrtCompilerStableHLOToExecutable(
-    MTRT_CompilerClient client, MlirOperation module,
-    MTRT_StableHLOToExecutableOptions options, MTRT_Executable *result);
 
 #ifdef __cplusplus
 }

@@ -4,29 +4,6 @@
 include "mlir-tensorrt/Dialect/Plan/IR/PlanEnums.td"
 include "mlir-tensorrt/Dialect/Plan/IR/PlanInterfaces.td"
 
-class Plan_Attr<string name, string attrMnemonic, list<Trait> traits = []>
-    : AttrDef<Plan_Dialect, name, traits> {
-  let mnemonic = attrMnemonic;
-}
-
-def Plan_TensorRTClusterKindAttr : Plan_Attr<"TensorRTClusterKind", "tensorrt_cluster",
-      [DeclareAttrInterfaceMethods<ClusterKindAttrInterface,
-        ["getClusterFilter"]>]> {
-  let parameters = (ins
-    "bool":$disallow_shape_tensor_calculations,
-    "int64_t":$benefit,
-    OptionalParameter<"std::optional<int64_t>">:$tensorrt_major_version);
-  let assemblyFormat = "`<` struct(params) `>`";
-}
-
-
-def Plan_HostClusterKindAttr : Plan_Attr<"HostClusterKind", "host_cluster",
-      [DeclareAttrInterfaceMethods<ClusterKindAttrInterface>]> {
-  let parameters = (ins "int64_t":$benefit);
-  let assemblyFormat = "`<` struct(params) `>`";
-}
-
-
 def Plan_BoundsAttr : Plan_Attr<"Bounds", "bounds", [
     DeclareAttrInterfaceMethods<TensorBoundsAttrInterface>]>{
   let parameters = (ins
