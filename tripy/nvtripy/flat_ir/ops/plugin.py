@@ -27,6 +27,7 @@ from nvtripy import utils
 from nvtripy.flat_ir.ops.base import BaseFlatIROp
 from nvtripy.utils.result import Result
 
+from nvtripy.logging import logger
 
 @utils.utils.call_once
 def initialize_plugin_registry():
@@ -94,7 +95,7 @@ def plugin_field_to_attr(field_info: "compiler.PluginFieldInfo", values: Any) ->
             return Result.err([f"Expected integer(s)."])
         attrs = [ir.IntegerAttr.get(INT_TYPES[field_info.type](), value) for value in values]
 
-    if len(attrs) != field_info.length:
+    if field_info.length > 0 and len(attrs) != field_info.length:
         return Result.err([f"Expected {field_info.length} value(s), but got {len(attrs)}."])
 
     if len(attrs) > 1:
