@@ -50,9 +50,7 @@ class DimensionSize(Tensor):
     def eval(self) -> "nvtripy.Tensor":
         from nvtripy.trace.ops.shape import GetDimensionSize, Shape
 
-        # TODO (pranavm): Might want to generalize this so that we store values for any common branches in the computation graph.
-        # This could get tricky (e.g. OOMs) so maybe restrict to only Shape operations to start with?
-
+        # TODO (#593): Generalize this to any branchy graph:
         # If we find a pattern like Shape -> GetDimensionSize, we want to eval the Shape operation
         # so that we aren't evaluating the entire graph for each dimension.
         producer = self.trace_tensor.producer
