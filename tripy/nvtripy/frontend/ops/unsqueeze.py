@@ -16,6 +16,7 @@
 #
 
 from nvtripy import export
+from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.utils import wrappers
 
 
@@ -47,10 +48,7 @@ def unsqueeze(input: "nvtripy.Tensor", dim: int) -> "nvtripy.Tensor":
     """
     from nvtripy.frontend.ops.reshape import reshape
 
-    if dim < 0:
-        # TODO (pranavm): Add error checking here (or see what happens currently for OOB)
-        # We cannot use process_dim here because we need to add an extra 1.
-        dim = dim + input.rank + 1
+    dim = op_utils.process_dim(dim, input.rank, offset=1)
 
     input_shape = input.shape
     result_shape = input_shape[:dim] + (1,) + input_shape[dim:]
