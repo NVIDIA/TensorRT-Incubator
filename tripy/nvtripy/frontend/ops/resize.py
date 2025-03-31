@@ -26,12 +26,14 @@ from nvtripy.types import ShapeLike
 from nvtripy.utils import wrappers
 
 
+SUPPORTED_MODES = ("cubic", "linear", "nearest")
+
+
 def _check_mode(mode: str, align_corners: bool):
-    supported_modes = ("cubic", "linear", "nearest")
-    if mode not in supported_modes:
+    if mode not in SUPPORTED_MODES:
         raise_error(
             "Unsupported resize mode.",
-            [f"Supported modes are {supported_modes}, but got {mode}."],
+            [f"Supported modes are {SUPPORTED_MODES}, but got {mode}."],
         )
     if align_corners and mode not in ("cubic", "linear"):
         raise_error("align_corners can only be set with `cubic` or `linear` mode.")
@@ -46,7 +48,6 @@ def _create_resize(mode, inputs, scales, align_corners):
         return op_utils.create_op(ResizeCubic, inputs, scales=scales, align_corners=align_corners)
 
 
-# TODO (pranavm): Adds examples for other modes
 @export.public_api(document_under="operations/functions")
 @wrappers.interface(
     dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
@@ -73,14 +74,33 @@ def resize(
 
     .. code-block:: python
         :linenos:
+        :caption: Nearest Neighbor Interpolation
 
-        input = tp.reshape(tp.arange(16, dtype=tp.float32), (1, 1, 4, 4))
-        output = tp.resize(input, output_shape=(1, 1, 8, 8), mode="nearest")
+        input = tp.reshape(tp.arange(4), (1, 1, 2, 2))
+        output = tp.resize(input, output_shape=(1, 1, 4, 4), mode="nearest")
 
-        input_torch = torch.arange(16, dtype=torch.float32).reshape((1, 1, 4, 4)) # doc: omit
-        expected = torch.nn.functional.interpolate(input_torch, scale_factor=2.0, mode="nearest") # doc: omit
+        expected = torch.nn.functional.interpolate(torch.from_dlpack(input), scale_factor=2.0, mode="nearest") # doc: omit
+        assert torch.allclose(torch.from_dlpack(output), expected)
 
-        assert torch.allclose(torch.from_dlpack(output).to("cpu"), expected)
+    .. code-block:: python
+        :linenos:
+        :caption: Linear Interpolation
+
+        input = tp.reshape(tp.arange(4), (1, 1, 2, 2))
+        output = tp.resize(input, output_shape=(1, 1, 4, 4), mode="linear")
+
+        expected = torch.nn.functional.interpolate(torch.from_dlpack(input), scale_factor=2.0, mode="bilinear") # doc: omit
+        assert torch.allclose(torch.from_dlpack(output), expected)
+
+    .. code-block:: python
+        :linenos:
+        :caption: Cubic Interpolation
+
+        input = tp.reshape(tp.arange(4), (1, 1, 2, 2))
+        output = tp.resize(input, output_shape=(1, 1, 4, 4), mode="cubic")
+
+        expected = torch.nn.functional.interpolate(torch.from_dlpack(input), scale_factor=2.0, mode="bicubic") # doc: omit
+        assert torch.allclose(torch.from_dlpack(output), expected)
     """
     _check_mode(mode, align_corners)
     return _create_resize(mode, [input, output_shape], scales=None, align_corners=align_corners)
@@ -112,14 +132,33 @@ def resize(
 
     .. code-block:: python
         :linenos:
+        :caption: Nearest Neighbor Interpolation
 
-        input = tp.reshape(tp.arange(16, dtype=tp.float32), (1, 1, 4, 4))
+        input = tp.reshape(tp.arange(4), (1, 1, 2, 2))
         output = tp.resize(input, scales=(1, 1, 2, 2), mode="nearest")
 
-        input_torch = torch.arange(16, dtype=torch.float32).reshape((1, 1, 4, 4)) # doc: omit
-        expected = torch.nn.functional.interpolate(input_torch, scale_factor=2.0, mode="nearest") # doc: omit
+        expected = torch.nn.functional.interpolate(torch.from_dlpack(input), scale_factor=2.0, mode="nearest") # doc: omit
+        assert torch.allclose(torch.from_dlpack(output), expected)
 
-        assert torch.allclose(torch.from_dlpack(output).to("cpu"), expected)
+    .. code-block:: python
+        :linenos:
+        :caption: Linear Interpolation
+
+        input = tp.reshape(tp.arange(4), (1, 1, 2, 2))
+        output = tp.resize(input, scales=(1, 1, 2, 2), mode="linear")
+
+        expected = torch.nn.functional.interpolate(torch.from_dlpack(input), scale_factor=2.0, mode="bilinear") # doc: omit
+        assert torch.allclose(torch.from_dlpack(output), expected)
+
+    .. code-block:: python
+        :linenos:
+        :caption: Cubic Interpolation
+
+        input = tp.reshape(tp.arange(4), (1, 1, 2, 2))
+        output = tp.resize(input, scales=(1, 1, 2, 2), mode="cubic")
+
+        expected = torch.nn.functional.interpolate(torch.from_dlpack(input), scale_factor=2.0, mode="bicubic") # doc: omit
+        assert torch.allclose(torch.from_dlpack(output), expected)
     """
     _check_mode(mode, align_corners)
 

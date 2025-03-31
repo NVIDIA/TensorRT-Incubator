@@ -119,17 +119,21 @@ def get_shape_len(shape: "nvtripy.Tensor") -> int:
 
 # Processes a `dim` (i.e. axis) argument related to a tensor.
 # If the dimension is negative, this will convert it to the corresponding positive index.
-def process_dim(dim: int, input_rank: int) -> int:
+# For some operations, `dim` can be out of bounds by a certain amount, given by `offset`.
+# e.g. in `unsqueeze`, the new dimension is inserted *before* the specified dimension which can
+# therefore be out of bounds by 1.
+def process_dim(dim: int, input_rank: int, offset: int = 0) -> int:
+    effective_rank = input_rank + offset
     new_dim = dim
     if dim < 0:
-        new_dim = input_rank + dim
+        new_dim = effective_rank + dim
 
-    if new_dim < 0 or new_dim >= input_rank:
+    if new_dim < 0 or new_dim >= effective_rank:
         raise_error(
             "Dimension argument is out of bounds.",
             [
                 f"Note: provided dimension was: {dim}, while the tensor has a rank of: {input_rank}.\n"
-                f"Dimension should be in the half-open interval: [{-input_rank}, {input_rank})."
+                f"Dimension should be in the half-open interval: [{-effective_rank}, {effective_rank})."
             ],
         )
     return new_dim

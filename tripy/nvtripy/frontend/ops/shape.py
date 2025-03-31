@@ -54,7 +54,6 @@ def shape(self: "nvtripy.Tensor") -> Tuple[IntLike]:
     # If the shape is statically known, we do not need to insert any runtime operations.
     # However, if we are tracing, it might still be necessary to insert calls in the final program, so we will keep it.
     if all(dim != constants.DYNAMIC_DIM for dim in self.trace_tensor.shape) and not self.trace_tensor.is_compile_tracer:
-        # TODO (pranavm): Add test to make sure trace tensor shape is not modified if we modify result of x.shape.
         return copy.copy(self.trace_tensor.shape)
 
     shape = op_utils.create_op(Shape, [self])
