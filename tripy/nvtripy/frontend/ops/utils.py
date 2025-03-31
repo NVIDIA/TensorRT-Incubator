@@ -62,7 +62,6 @@ def is_int_equal_to(arg, value):
 
 
 # Returns ceil(a / b) using only integer math
-# TODO (pranavm): Test exhaustively.
 def int_ceil_div(a, b):
     return -(a // -b)
 
@@ -147,7 +146,6 @@ def process_dim_sequence(dim: Optional[Union[int, Sequence[int]]], rank: int) ->
 
     dim = [process_dim(d, rank) for d in make_list(dim)]
 
-    # TODO (pranavm): Add tests for this.
     dim_set = set(dim)
     if len(dim_set) != len(dim):
         dup_dims = list(dim)
