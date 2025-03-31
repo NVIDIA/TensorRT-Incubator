@@ -26,3 +26,13 @@ class TestShape:
         assert isinstance(shape_a, tuple)
 
         assert shape_a == (2, 2)
+
+    def test_static_shape_is_not_mutable(self):
+        # a.shape is not mutable, so there's no risk of accidentally
+        # modifying the underlying trace tensor shape for static shape tensors.
+        a = tp.Tensor(([1, 2]))
+
+        assert a.trace_tensor.shape == (2,)
+        assert a.shape == (2,)
+
+        assert isinstance(a.shape, tuple)

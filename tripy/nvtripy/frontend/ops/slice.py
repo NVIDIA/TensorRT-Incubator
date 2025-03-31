@@ -43,7 +43,8 @@ def __getitem__(
 
     Args:
         self: Tensor that will be sliced.
-        index: The index (as an int or Tripy tensor) or slice.
+        index: The index or slice.
+            If this is a :class:`Tensor`, it is equivalent to gathering on the leading dimension.
 
     Returns:
         A tensor containing the slice of this tensor.

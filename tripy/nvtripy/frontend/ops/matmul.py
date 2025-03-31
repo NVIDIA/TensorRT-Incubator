@@ -27,16 +27,22 @@ from nvtripy.utils import wrappers
     dtype_constraints={"self": "T1", "other": "T1", wrappers.RETURN_VALUE: "T1"},
     dtype_variables={"T1": ["float32", "float16", "bfloat16"]},
 )
-# TODO (pranavm): Add more examples for 1D/2D combinations and better testing, document output shape.
 def __matmul__(self: "nvtripy.Tensor", other: "nvtripy.Tensor") -> "nvtripy.Tensor":
     """
     Performs matrix multiplication between two tensors.
 
-    - If both tensors are 1D, a dot product is performed.
-    - If both tensors are 2D, matrix multiplication is performed.
-    - If either argument, but not both, is 1D, matrix-vector multiplication is performed.
-    - If both tensors are 2D or higher dimensional and have differnt ranks, a dimension is inserted
-        and batched matrix multiplication is performed with broadcast of relevant dimension.
+    - If both tensors are 1D, a dot product is performed. The output is a scalar.
+
+    - If either argument, but not both, is 1D, matrix-vector multiplication is performed:
+        - For inputs of shape :math:`(M, N)` and :math:`(N,)`, the output will have shape :math:`(M,)`.
+        - For inputs of shape :math:`(N,)` and :math:`(N, K)`, the output will have shape :math:`(K,)`.
+
+    - If both tensors are 2D, matrix-matrix multiplication is performed.
+        For inputs of shape :math:`(M, N)` and :math:`(N, K)`, the output will have shape :math:`(M, K)`.
+
+    - If the tensor has more than 2 dimensions, it is treated as a stack of matrices.
+        If the ranks differ for tensors with 2 or more dimensions, dimensions are prepended until the ranks match.
+        The first :math:`N-2` dimensions will be broacasted if required.
 
     Args:
         self: Input tensor.
@@ -47,9 +53,40 @@ def __matmul__(self: "nvtripy.Tensor", other: "nvtripy.Tensor") -> "nvtripy.Tens
 
     .. code-block:: python
         :linenos:
+        :caption: Dot Product
+
+        a = tp.iota((3,), dtype=tp.float32)
+        b = tp.iota((3,), dtype=tp.float32)
+
+        output = a @ b
+        assert np.array_equal(cp.from_dlpack(output).get(), cp.from_dlpack(a).get() @ cp.from_dlpack(b).get())
+
+    .. code-block:: python
+        :linenos:
+        :caption: Matrix-Vector Multiplication
+
+        a = tp.iota((3,), dtype=tp.float32)
+        b = tp.iota((3, 2), dtype=tp.float32)
+
+        output = a @ b
+        assert np.array_equal(cp.from_dlpack(output).get(), cp.from_dlpack(a).get() @ cp.from_dlpack(b).get())
+
+    .. code-block:: python
+        :linenos:
+        :caption: Matrix-Matrix Multiplication
 
         a = tp.iota((2, 3), dtype=tp.float32)
         b = tp.iota((3, 2), dtype=tp.float32)
+
+        output = a @ b
+        assert np.array_equal(cp.from_dlpack(output).get(), cp.from_dlpack(a).get() @ cp.from_dlpack(b).get())
+
+    .. code-block:: python
+        :linenos:
+        :caption: Batched Matrix Multiplication
+
+        a = tp.iota((1, 2, 2, 2), dtype=tp.float32, dim=-1)
+        b = tp.iota((1, 2, 2), dtype=tp.float32, dim=-2)
 
         output = a @ b
         assert np.array_equal(cp.from_dlpack(output).get(), cp.from_dlpack(a).get() @ cp.from_dlpack(b).get())
