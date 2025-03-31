@@ -25,6 +25,7 @@ import pytest
 import torch
 from nvtripy.trace.ops.constant import Constant
 from nvtripy.utils.stack_info import SourceInfo
+from tests import helper
 from tests.conftest import DATA_TYPE_TEST_CASES
 from tests.helper import NUMPY_TO_TRIPY
 
@@ -298,3 +299,7 @@ class TestTensor:
                 assert source_info.code is not None
             else:
                 assert source_info.code is None
+
+    def test_unequal_length_sublists(self):
+        with helper.raises(tp.TripyException, match="Mismatched dimension sizes in provided sequence"):
+            tp.Tensor([[1, 2], [3]])
