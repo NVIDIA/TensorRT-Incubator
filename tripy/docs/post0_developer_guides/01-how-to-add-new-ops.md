@@ -6,10 +6,10 @@
 # Adding New Operations
 
 :::{seealso}
-The [architecture guide](project:./00-architecture.md) for an overview of the codebase.
+The [architecture guide](project:./00-architecture.md) provides an overview of the codebase.
 :::
 
-Adding new operations involves:
+Adding a new operation involves:
 
 - [Implementing a Trace operation](#implementing-the-trace-operation) **if** enabling a **new** tensorrt dialect op.
 
