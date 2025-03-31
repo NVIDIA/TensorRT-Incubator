@@ -34,7 +34,6 @@ from nvtripy.utils.utils import make_list
     dtype_variables={"T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"]},
 )
 # TODO (pranavm): Clean up this docstring - add details on how to do gather with slice.
-# TODO (pranavm): x[3:2:1] of bool tensors gives *very bad* errors - figure out how to improve.
 def __getitem__(
     self: "nvtripy.Tensor", index: Union["nvtripy.Tensor", slice, IntLike, Sequence[Union[slice, IntLike]]]
 ) -> "nvtripy.Tensor":
@@ -118,10 +117,6 @@ def __getitem__(
             check_type("step", slice_idx.step)
 
             step = utils.utils.default(slice_idx.step, 1)
-
-            # TODO (pranavm): Add exhaustive testing for negative/positive start/stop/step and 1/non-1 step
-            # and tensor/non-tensor params + default/explicitly provided arguments + OOB start/stop (positive and negative).
-            # Also test with non-const inputs so shapes are non-integers.
 
             def cast_to_dim_size(arg):
                 if not isinstance(arg, DimensionSize):

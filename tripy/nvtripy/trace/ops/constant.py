@@ -46,7 +46,6 @@ def flatten_list(data, _current_dim=0):
             if prev_elem_size is None:
                 prev_elem_size = len(element)
 
-            # TODO (pranavm): Adds tests for this check:
             if len(element) != prev_elem_size:
                 raise_error(
                     "Mismatched dimension sizes in provided sequence.",
