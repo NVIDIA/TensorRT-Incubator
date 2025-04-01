@@ -33,7 +33,6 @@ from nvtripy.utils.utils import make_list
     dtype_constraints={"self": "T1", wrappers.RETURN_VALUE: "T1"},
     dtype_variables={"T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"]},
 )
-# TODO (pranavm): Clean up this docstring - add details on how to do gather with slice.
 def __getitem__(
     self: "nvtripy.Tensor", index: Union["nvtripy.Tensor", slice, IntLike, Sequence[Union[slice, IntLike]]]
 ) -> "nvtripy.Tensor":
@@ -43,25 +42,44 @@ def __getitem__(
     Args:
         self: Tensor that will be sliced.
         index: The index or slice.
-            If this is a :class:`Tensor`, it is equivalent to gathering on the leading dimension.
+            If this is a :class:`Tensor`, the operation is equivalent to calling
+            :func:`gather` along the first dimension.
 
     Returns:
         A tensor containing the slice of this tensor.
 
     .. code-block:: python
         :linenos:
+        :caption: Indexing With Integers
 
-        input = tp.reshape(tp.arange(6, dtype=tp.float32), (1, 2, 3, 1))
-        output = input[:, 1:2, :-1, 0]
-        assert np.array_equal(cp.from_dlpack(output).get(), np.arange(6, dtype=np.float32).reshape((1, 2, 3, 1))[:, 1:2, :-1, 0])
+        input = tp.reshape(tp.arange(6, dtype=tp.float32), (3, 2))
+        output = input[1]
+        assert cp.array_equal(cp.from_dlpack(output), cp.from_dlpack(input)[1])
 
     .. code-block:: python
         :linenos:
-        :caption: Negative step size
+        :caption: Indexing With Slices
 
-        input = tp.arange(10)
-        output = input[8:2:-1]
-        assert np.array_equal(cp.from_dlpack(output).get(), np.arange(10)[8:2:-1])
+        input = tp.reshape(tp.arange(6, dtype=tp.float32), (3, 2))
+        output = input[1:]
+        assert cp.array_equal(cp.from_dlpack(output), cp.from_dlpack(input)[1:])
+
+    .. code-block:: python
+        :linenos:
+        :caption: Reversing Data With Negative Step
+
+        input = tp.reshape(tp.arange(6, dtype=tp.float32), (3, 2))
+        output = input[:, ::-1]
+        assert cp.array_equal(cp.from_dlpack(output), cp.from_dlpack(input)[:, ::-1])
+
+    .. code-block:: python
+        :linenos:
+        :caption: Indexing With Tensors (Gather)
+
+        input = tp.reshape(tp.arange(6, dtype=tp.float32), (3, 2))
+        index = tp.Tensor([2, 0], dtype=tp.int32)
+        output = input[index]
+        assert cp.array_equal(cp.from_dlpack(output), cp.from_dlpack(input)[cp.from_dlpack(index)])
 
     """
     from nvtripy.frontend.dimension_size import DimensionSize
