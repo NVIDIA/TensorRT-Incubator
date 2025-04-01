@@ -96,13 +96,13 @@ class TraceOp(abc.ABC):
         self.outputs[0].device = self.inputs[0].device
 
     @abc.abstractmethod
-    def to_mlir(self, inputs: List["ir.Operation"], outputs: List["ir.Operation"]) -> List["ir.Operation"]:
+    def to_mlir(self, inputs: List["ir.Operation"], outputs: List["ir.RankedTensorType"]) -> List["ir.Operation"]:
         """
         Generates MLIR operations for the operation.
 
         Args:
             inputs: The input MLIR operations.
-            outputs: The output MLIR operations.
+            outputs: The tensor types of the outputs.
 
         Returns:
             The output MLIR operations, which may be the same as `outputs`, or may be newly created
