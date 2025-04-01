@@ -60,7 +60,7 @@ def where(condition: "nvtripy.Tensor", input: "nvtripy.Tensor", other: "nvtripy.
     from nvtripy.frontend.dimension_size import DimensionSize
 
     condition, input, other = op_utils.match_ranks(condition, input, other)
-    # TODO (pranavm): Add test for where with DimensionSize non-condition inputs.
+
     return op_utils.create_op(
         Where,
         [condition, input, other],
