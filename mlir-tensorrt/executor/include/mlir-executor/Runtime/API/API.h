@@ -436,6 +436,12 @@ public:
   /// name exists.
   StatusOr<FunctionView> getFunction(std::string_view name) const;
 
+  size_t getNumDataSegments() const {
+    if (!view || !view->data_segments())
+      return 0;
+    return view->data_segments()->size();
+  }
+
   DataSegmentInfo getDataSegments(int64_t idx) const {
     assert(view->data_segments() && "expected valid data segment pointer");
     return view->data_segments()->Get(idx);

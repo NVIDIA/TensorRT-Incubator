@@ -57,6 +57,11 @@ class Executable:
         returns serialized executable in `bytes`
         """
 
+    def get_data_segments(self) -> list[tuple[str, bytes]]:
+        """
+        returns the data segments as a list of tuples of (name, data)
+        """
+
 class MemRefType(Type):
     @staticmethod
     def get(
