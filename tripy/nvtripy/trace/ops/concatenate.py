@@ -35,9 +35,4 @@ class Concatenate(TraceOp):
 
     def to_mlir(self, inputs, outputs):
         output = tensorrt.concatenation(inputs, axis=self.dim)
-        # TODO (pranavm): See if we want to do this type of overwriting at the call-site.
-        # We can decide when to overwrite based on what has more information.
-
-        # Overwrite output type so shape propagation works.
-        output.set_type(outputs[0])
         return [output]
