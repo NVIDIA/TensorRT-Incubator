@@ -15,137 +15,65 @@
 # limitations under the License.
 #
 
-import cupy as cp
-import numpy as np
-import pytest
-import torch
-
-import nvtripy as tp
 import math
+
+import numpy as np
+import nvtripy as tp
+import pytest
 
 
 class TestReduceOp:
     @pytest.mark.parametrize(
-        "x_shape, axis, keepdim",
+        "func, np_func_name",
         [
-            ((2, 3), 1, True),
-            ((2, 3, 4), (1, 2), True),
-            ((2, 3), 1, True),
-            ((2, 3, 4), (1, 2), False),
-            ((2, 3, 4), None, False),
-            ((2, 3, 4), None, True),
-            ((2, 3, 4, 5), (-2, -1), True),
+            (tp.sum, "sum"),
+            (tp.prod, "prod"),
+            (tp.mean, "mean"),
+            (tp.max, "max"),
+            (tp.min, "min"),
+            (tp.var, "var"),
+            (tp.argmax, "argmax"),
+            (tp.argmin, "argmin"),
+            (tp.any, "any"),
+            (tp.all, "all"),
         ],
     )
-    def test_all(self, x_shape, axis, keepdim, eager_or_compiled):
-        x = cp.array([i % 2 == 0 for i in cp.arange(math.prod(x_shape))]).reshape(x_shape)
-        a = tp.Tensor(x)
-        out = eager_or_compiled(tp.all, a, dim=axis, keepdim=keepdim)
-        # cp.array is necessary to deal with case where x.all returns a scalar (5th case)
-        expected = cp.array(x.all(axis=axis, keepdims=keepdim))
-        assert cp.array_equal(cp.from_dlpack(out), expected)
-
+    @pytest.mark.parametrize("keepdim", [True, False])
     @pytest.mark.parametrize(
-        "x_shape, axis, keepdim",
+        "input_shape, dim",
         [
-            ((2, 3), 1, True),
-            ((2, 3, 4), (1, 2), True),
-            ((2, 3), 1, False),
-            ((2, 3, 4), (1, 2), False),
-            ((2, 3, 4), None, False),
-            ((2, 3, 4), None, True),
-            ((2, 3, 4, 5), (-2, -1), True),
+            # Scalar:
+            (tuple(), None),
+            # Single dimension:
+            ((2, 3), 1),
+            # Multiple dimensions:
+            ((2, 3, 4), (1, -1)),
+            # Default dimensions:
+            ((2, 3), None),
         ],
     )
-    def test_any(self, x_shape, axis, keepdim, eager_or_compiled):
-        x = cp.array([i % 2 == 0 for i in cp.arange(math.prod(x_shape))]).reshape(x_shape)
-        a = tp.Tensor(x)
-        out = eager_or_compiled(tp.any, a, dim=axis, keepdim=keepdim)
-        expected = cp.array(x.any(axis=axis, keepdims=keepdim))
-        assert cp.array_equal(cp.from_dlpack(out), expected)
+    def test_reduce_ops(self, func, np_func_name, input_shape, dim, keepdim, eager_or_compiled):
+        if func in (tp.argmax, tp.argmin) and isinstance(dim, tuple):
+            pytest.skip("argmax/argmin do not support multiple dimensions")
 
-    @pytest.mark.parametrize(
-        "x_shape, axis, keepdim",
-        [
-            ((2, 3), 1, True),
-            pytest.param(
-                (2, 3, 4),
-                (1, 2),
-                True,
-                marks=pytest.mark.skip(reason="For this test case without out.eval() tp.allclose fails. (Issue #)"),
-            ),
-            ((2, 3), 1, False),
-            ((2, 3, 4), (1, 2), False),
-            ((2, 3, 4), None, False),
-            ((2, 3, 4), None, True),
-            ((2, 3, 4, 5), (-2, -1), True),
-        ],
-    )
-    @pytest.mark.parametrize("dtype", [tp.float32, tp.float16])
-    def test_mean(self, x_shape, axis, keepdim: bool, dtype, eager_or_compiled):
-        np_dtype = np.float32 if dtype == tp.float32 else np.float16
-        x = np.arange(math.prod(x_shape)).reshape(x_shape).astype(np_dtype)
-        a = tp.Tensor(x, dtype=dtype)
-        out = eager_or_compiled(tp.mean, a, dim=axis, keepdim=keepdim)
-        expected = tp.Tensor(cp.array(x.mean(axis=axis, keepdims=keepdim)))
+        if func in (tp.any, tp.all):
+            input = np.array([i % 2 == 0 for i in range(math.prod(input_shape))]).reshape(input_shape)
+        else:
+            input = np.arange(math.prod(input_shape)).reshape(input_shape).astype(np.float32)
+
+        out = eager_or_compiled(func, tp.Tensor(input), dim=dim, keepdim=keepdim)
+
+        kwargs = {}
+        if func is tp.var and math.prod(input_shape) > 1:
+            # We need to set the correction factor to match Tripy, except in the scalar case.
+            kwargs["ddof"] = 1
+        expected = tp.Tensor(np.array(getattr(input, np_func_name)(axis=dim, keepdims=keepdim, **kwargs)))
+
         assert out.shape == expected.shape
-        assert tp.allclose(out, expected, rtol=1e-3, atol=1e-3)
 
-    @pytest.mark.parametrize(
-        "x_shape, axis, keepdim",
-        [
-            ((2, 3), 1, True),
-            ((2, 3, 4), (1, 2), True),
-            ((2, 3, 4), None, False),
-            ((2, 3, 4), None, True),
-            ((2, 3), 1, False),
-            ((2, 3, 4), (1, 2), False),
-            ((2, 3, 4, 5), (-2, -1), True),
-        ],
-    )
-    def test_var(self, x_shape, axis, keepdim: bool, eager_or_compiled):
-        x = np.arange(math.prod(x_shape)).reshape(x_shape).astype(np.float32)
-        a = tp.Tensor(x)
-        out = eager_or_compiled(tp.var, a, dim=axis, keepdim=keepdim)
-        torch_tensor = torch.Tensor(x)
-        expected = tp.Tensor(torch_tensor.var(dim=axis, keepdim=keepdim))
-        assert out.shape == expected.shape
-        assert tp.allclose(out, expected)
-
-    @pytest.mark.parametrize(
-        "x_shape, axis, keepdim",
-        [
-            (tuple(), 0, True),
-            ((2, 3), 1, True),
-            ((2, 3), None, True),
-            ((2, 3, 4), 2, True),
-            ((2, 3), 1, False),
-            ((2, 3, 4), 2, False),
-            ((2, 3, 4), None, False),
-            ((2, 3, 4), None, True),
-        ],
-    )
-    def test_argmax(self, x_shape, axis, keepdim: bool, eager_or_compiled):
-        x = np.arange(math.prod(x_shape)).reshape(x_shape).astype(np.float32)
-        a = tp.Tensor(x)
-        out = eager_or_compiled(tp.argmax, a, dim=axis, keepdim=keepdim)
-        assert np.array_equal(cp.from_dlpack(out).get(), np.array(x.argmax(axis=axis, keepdims=keepdim)))
-
-    @pytest.mark.parametrize(
-        "x_shape, axis, keepdim",
-        [
-            (tuple(), 0, True),
-            ((2, 3), 1, True),
-            ((2, 3), None, True),
-            ((2, 3, 4), 2, True),
-            ((2, 3), 1, False),
-            ((2, 3, 4), 2, False),
-            ((2, 3, 4), None, False),
-            ((2, 3, 4), None, True),
-        ],
-    )
-    def test_argmin(self, x_shape, axis, keepdim: bool, eager_or_compiled):
-        x = np.arange(math.prod(x_shape)).reshape(x_shape).astype(np.float32)
-        a = tp.Tensor(x)
-        out = eager_or_compiled(tp.argmin, a, dim=axis, keepdim=keepdim)
-        assert np.array_equal(cp.from_dlpack(out).get(), np.array(x.argmin(axis=axis, keepdims=keepdim)))
+        if not issubclass(out.dtype, tp.floating):
+            # Upcast the data type since NumPy sometimes uses int64 instead of int32:
+            assert out.dtype == expected.dtype or (expected.dtype == tp.int64 and out.dtype == tp.int32)
+            assert tp.equal(tp.cast(out, expected.dtype), expected)
+        else:
+            assert tp.allclose(out, expected, rtol=1e-3, atol=1e-3)

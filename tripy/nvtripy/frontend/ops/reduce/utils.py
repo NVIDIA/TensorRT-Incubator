@@ -13,16 +13,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from nvtripy.common import datatype
 from nvtripy.frontend.ops import utils as op_utils
 
 
 def reduce_impl(ReduceOpType, input, dim, keepdim):
-    if input.rank == 0:
-        return input
+    from nvtripy.frontend.ops.squeeze import squeeze
+    from nvtripy.frontend.ops.unsqueeze import unsqueeze
 
-    # TODO (pranavm): Test all reduction functions with scalars.
     dim = op_utils.process_dim_sequence(dim, input.rank)
-    return op_utils.create_op(ReduceOpType, [input], dim, keepdim)
+    # Reductions require at least 1 dimension, so we can unsqueeze if needed.
+    needs_unsqueeze = input.rank == 0
+    if needs_unsqueeze:
+        input = unsqueeze(input, -1)
+        dim = [0]
+
+    output = op_utils.create_op(ReduceOpType, [input], dim, keepdim)
+    # We only need to squeeze if the reduction kept the reduction dimension.
+    if needs_unsqueeze and keepdim:
+        output = squeeze(output, -1)
+
+    return output
 
 
 def arg_min_max_impl(TopKType, input, dim, keepdim):
@@ -34,7 +45,7 @@ def arg_min_max_impl(TopKType, input, dim, keepdim):
     original_rank = input.rank
 
     if original_rank == 0:
-        return Tensor(0, dtype=input.dtype)
+        return Tensor(0, dtype=datatype.int32)
 
     # The semantics of argmin/argmax are that the input is treated as a
     # flattened tensor if dim is not set, except the output rank should match

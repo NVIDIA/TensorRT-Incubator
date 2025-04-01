@@ -140,6 +140,14 @@ def process_dim(dim: int, input_rank: int, offset: int = 0) -> int:
 
 # Like `process_dim` but can additionally handle sequences of dimensions and will return a list.
 def process_dim_sequence(dim: Optional[Union[int, Sequence[int]]], rank: int) -> List[int]:
+    if rank == 0 and dim:
+        raise_error(
+            "Dimension argument must be `None` for scalars.",
+            [
+                f"Note: provided dimension was: {dim}, but the input is a scalar (i.e. rank {rank}). Use `dim=None` instead."
+            ],
+        )
+
     original_dim = dim
     if dim is None:
         dim = list(range(rank))
