@@ -35,7 +35,7 @@ class TestWhereOp:
             ((0,), (1,), (1,)),  # 0 dim in the condition
         ],
     )
-    def test_where_broadcast_shapes(self, cond, x, y, eager_or_compiled):
+    def test_broadcast_shapes(self, cond, x, y, eager_or_compiled):
         x = np.arange(np.prod(x)).reshape(x).astype(np.float32)
         y = np.arange(np.prod(y)).reshape(y).astype(np.float32)
         t_cond = np.arange(np.prod(cond)).reshape(cond).astype(np.float32)
@@ -44,6 +44,12 @@ class TestWhereOp:
         condition = Tensor(t_cond % 2 == 0)
         out = eager_or_compiled(tp.where, condition, a, b)
         assert np.array_equal(cp.from_dlpack(out).get(), np.array(np.where((t_cond % 2 == 0), x, y)))
+
+    def test_dimension_size_inputs(self):
+        condition = tp.Tensor(True, dtype=tp.bool)
+        out = tp.where(condition, tp.DimensionSize(0), tp.DimensionSize(1))
+        assert isinstance(out, tp.DimensionSize)
+        assert out.tolist() == 0
 
     def test_explicit_condition(self, eager_or_compiled):
         select_indices = tp.Tensor([True, False, True, False], dtype=tp.bool)
