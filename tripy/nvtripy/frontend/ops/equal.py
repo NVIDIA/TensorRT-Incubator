@@ -23,6 +23,9 @@ def equal(input: "nvtripy.Tensor", other: "nvtripy.Tensor") -> bool:
     r"""
     Returns ``True`` if ``input`` and ``other`` have the same shape and elements.
 
+    .. caution:: This function cannot be used in a compiled function or :class:`nvtripy.Module` because it depends on
+        evaluating its inputs, which is not allowed during compilation.
+
     Args:
         input: First tensor to compare.
         other: Second tensor to compare.
