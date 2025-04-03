@@ -129,6 +129,31 @@ MTRT_Status mtrtExecutableGetStorageView(MTRT_Executable executable,
   return mtrtStatusGetOk();
 }
 
+MTRT_Status mtrtExecutableGetNumDataSegments(MTRT_Executable executable,
+                                             int64_t *result) {
+  const Executable *exe = unwrap(executable);
+  *result = exe->getNumDataSegments();
+  return mtrtStatusGetOk();
+}
+
+MTRT_Status mtrtExecutableGetDataSegmentInfo(MTRT_Executable executable,
+                                             int64_t index,
+                                             MTRT_StringView *data,
+                                             MTRT_StringView *name) {
+  assert(data && name && "expected valid data and name output arguments");
+  const Executable *exe = unwrap(executable);
+  if (index < 0 || index >= exe->getNumDataSegments()) {
+    return mtrtStatusCreate(MTRT_StatusCode::MTRT_StatusCode_InvalidArgument,
+                            "Invalid data segment index");
+  }
+  const DataSegmentInfo segment = exe->getDataSegments(index);
+  *data = mtrtStringViewCreate(reinterpret_cast<const char *>(segment.data()),
+                               segment.size());
+  const std::string_view segmentName = segment.getName();
+  *name = mtrtStringViewCreate(segmentName.data(), segmentName.size());
+  return mtrtStatusGetOk();
+}
+
 //===----------------------------------------------------------------------===//
 // MTRT_Type
 //===----------------------------------------------------------------------===//

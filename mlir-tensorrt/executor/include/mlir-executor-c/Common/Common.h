@@ -108,6 +108,15 @@ MTRT_CAPI_EXPORTED MTRT_Status mtrtExecutableGetStorageView(
     MTRT_Executable executable, MTRT_StringView *buffer,
     size_t *requiredAlignment);
 
+/// Get number of data segments from the executable
+MTRT_CAPI_EXPORTED MTRT_Status
+mtrtExecutableGetNumDataSegments(MTRT_Executable executable, int64_t *result);
+
+/// Get data segment's data and name from the executable
+MTRT_CAPI_EXPORTED MTRT_Status
+mtrtExecutableGetDataSegmentInfo(MTRT_Executable executable, int64_t index,
+                                 MTRT_StringView *data, MTRT_StringView *name);
+
 //===----------------------------------------------------------------------===//
 // MTRT_Type
 //===----------------------------------------------------------------------===//

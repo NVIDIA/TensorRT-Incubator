@@ -475,6 +475,28 @@ static inline void populateExecutableBindingInModule(py::module &m) {
         return py::bytes(buffer.data, buffer.length);
       },
       "returns serialized executable in `bytes`");
+
+  executable.def(
+      "get_data_segments",
+      [](PyExecutable &self) -> std::optional<py::list> {
+        py::list result;
+        int64_t numDataSegments = 0;
+        MTRT_Status s =
+            mtrtExecutableGetNumDataSegments(self, &numDataSegments);
+        THROW_IF_MTRT_ERROR(s);
+        for (int64_t i = 0; i < numDataSegments; i++) {
+          MTRT_StringView dataSegment;
+          MTRT_StringView name;
+          s = mtrtExecutableGetDataSegmentInfo(self, i, &dataSegment, &name);
+          THROW_IF_MTRT_ERROR(s);
+          py::tuple tuple =
+              py::make_tuple(py::str(name.data, name.length),
+                             py::bytes(dataSegment.data, dataSegment.length));
+          result.append(tuple);
+        }
+        return result;
+      },
+      "returns the data segments as a list of tuples of (name, data)");
 }
 
 static inline void populateFunctionBindingInModule(py::module &m) {
