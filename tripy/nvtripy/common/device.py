@@ -25,8 +25,6 @@ from nvtripy.utils.json import Decoder, Encoder
 _VALID_KINDS = {"cpu", "gpu"}
 
 
-# TODO (pranavm): Figure out if we actually support host memory at all - the presence of host tensors
-# would mean we need things in the executable besides just a TRT engine.
 @export.public_api()
 @dataclass
 class device:
@@ -82,6 +80,7 @@ class device:
 
         # TODO (#577): Lift this restriction. We will need to check the `Constant` implementation to make sure
         # the allocation happens in the right place. Also check tensor lowering to see that we set the device.
+        # NOTE: For CPU, we probably still want to restrict the index to 0.
         if index != 0:
             raise_error(f"Multi-device mode is not currently supported, so device index must be 0, but was: {index}")
 

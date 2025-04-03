@@ -57,6 +57,6 @@ def relu(input: "nvtripy.Tensor") -> "nvtripy.Tensor":
 
     if issubclass(input.dtype, datatype.integer):
         # Activation in TensorRT does not support integral types.
-        return maximum(input, Tensor(0, dtype=input.dtype))
+        return maximum(input, Tensor(0, dtype=input.dtype, device=input.device))
 
     return op_utils.create_op(Relu, [input])

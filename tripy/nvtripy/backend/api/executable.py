@@ -15,12 +15,13 @@
 import base64
 import inspect
 from dataclasses import dataclass
-from typing import Sequence, Tuple, Union, Callable
+from typing import Callable, Sequence, Tuple, Union
 
 import mlir_tensorrt.runtime.api as runtime
-from nvtripy import export, config
-from nvtripy.backend.mlir import Executor
+from nvtripy import config, export
+from nvtripy.backend.api.stream import default_stream
 from nvtripy.backend.mlir import utils as mlir_utils
+from nvtripy.backend.mlir.utils import MLIRRuntimeClient
 from nvtripy.common.exception import raise_error
 from nvtripy.frontend import Tensor
 from nvtripy.utils import json as json_utils
@@ -50,7 +51,12 @@ class Executable:
     # there is only one output.
     def __init__(self, executable, arg_names, return_single_tensor_as_sequence):
         self._executable = executable
-        self._executor = Executor(self._executable)
+
+        self._runtime_client = MLIRRuntimeClient()
+        # TODO (#577): Support multiple devices:
+        self._session = runtime.RuntimeSession(runtime.RuntimeSessionOptions(num_devices=1, device_id=0), executable)
+        self.stream = default_stream()
+
         self._arg_names = arg_names
         self._num_expected_args = len(arg_names)
         self._executable_signature = self._executable.get_signature("main")
@@ -68,14 +74,6 @@ class Executable:
         )
 
         self.__signature__ = inspect.Signature(params, return_annotation=return_annotation)
-
-    @property
-    def stream(self):
-        return self._executor.stream
-
-    @stream.setter
-    def stream(self, stream):
-        self._executor.stream = stream
 
     def __str__(self) -> str:
         params = [
@@ -194,8 +192,11 @@ class Executable:
         for tensor in input_tensors:
             tensor.eval()
 
+        input_memrefs = [inp.trace_tensor.producer.data for inp in input_tensors]
         try:
-            executor_outputs = self._executor.execute(inputs=[tensor.trace_tensor for tensor in input_tensors])
+            output_memrefs = self._session.execute_function(
+                "main", in_args=input_memrefs, stream=self.stream._active_cuda_stream, client=self._runtime_client
+            )
         except runtime.MTRTException as err:
             # TODO: Evaluate whether this should be moved into the executor
             if "function expects a memref type with element type" in str(err):
@@ -228,13 +229,9 @@ class Executable:
                                     tensor,
                                 ],
                             )
-            elif "Runtime stride mismatch" in str(err):
-                # Just raise the error for now.
-                raise raise_error(str(err))
+            raise_error(str(err))
 
-            raise
-
-        output_tensors = tuple(Tensor.fast_init(output) for output in executor_outputs)
+        output_tensors = tuple(Tensor.fast_init(output_memref) for output_memref in output_memrefs)
         if self.__signature__.return_annotation == Tensor:
             output_tensors = output_tensors[0]
         return output_tensors

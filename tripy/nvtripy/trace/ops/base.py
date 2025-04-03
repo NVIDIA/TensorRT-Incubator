@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 from typing import List, Set
 
 from nvtripy import utils
+from nvtripy.common.device import device
 from nvtripy.trace.tensor import TraceTensor
 
 _COUNT = 0
@@ -90,10 +91,11 @@ class TraceOp(abc.ABC):
         """
         Infers devices for the operation and updates output tensor devices accordingly.
         """
-        assert (
-            self.inputs and len(self.outputs) == 1 and all(inp.device == self.inputs[0].device for inp in self.inputs)
-        ), "Default implementation cannot handle cases where there are no inputs, multiple outputs, or multiple inputs with different devices. Please override."
-        self.outputs[0].device = self.inputs[0].device
+
+        # TODO (#577): Support multiple devices here:
+        # All operations in TRT create outputs on the GPU:
+        for out in self.outputs:
+            out.device = device.fast_init("gpu", 0)
 
     @abc.abstractmethod
     def to_mlir(self, inputs: List["ir.Operation"], outputs: List["ir.RankedTensorType"]) -> List["ir.Operation"]:

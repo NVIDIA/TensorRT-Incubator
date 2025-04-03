@@ -242,6 +242,7 @@ def check_qdq_args(input, scale, dtype, dim, is_quantize):
             [f"scale has rank={scale.rank}."],
         )
 
+    # TODO (pranavm): Update Q/DQ to require host scales (use tp.copy)
     if not isinstance(scale.trace_tensor.producer, Constant):
         raise_error(
             "Scale must be a constant. Please evaluate the tensor using `.eval()`.",

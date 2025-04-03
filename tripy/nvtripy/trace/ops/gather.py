@@ -31,8 +31,5 @@ class Gather(TraceOp):
     def infer_dtypes(self):
         self.outputs[0].dtype = self.inputs[0].dtype
 
-    def infer_devices(self):
-        self.outputs[0].device = self.inputs[0].device
-
     def to_mlir(self, inputs, outputs):
         return [tensorrt.gather(inputs[0], inputs[1], axis=self.dim, num_broadcast_dims=0)]

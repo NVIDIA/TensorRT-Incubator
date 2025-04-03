@@ -21,6 +21,8 @@ import numpy as np
 import nvtripy as tp
 import pytest
 
+tp.logger.verbosity = "ir"
+
 
 class TestReduceOp:
     @pytest.mark.parametrize(
