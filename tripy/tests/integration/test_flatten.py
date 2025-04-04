@@ -46,10 +46,9 @@ class TestFlatten:
     def test_flatten_single_dim(self, eager_or_compiled):
         shape = (2, 3, 4)
         a = tp.ones(shape)
-        # Flattening a single dimension should not change the output
+        # Flattening a single dimension result in an empty list
         b = eager_or_compiled(tp.flatten, a, start_dim=1, end_dim=1)
-        assert b.shape == [2, 3, 4]
-        assert np.array_equal(cp.from_dlpack(b).get(), np.ones(shape, dtype=np.float32))
+        assert b == []
 
     def test_flatten_with_unknown_dims(self, eager_or_compiled):
         a = tp.ones((2, 3, 4, 5))

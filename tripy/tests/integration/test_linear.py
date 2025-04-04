@@ -84,6 +84,7 @@ class TestQuantLinear:
     @pytest.mark.parametrize("use_input_scale", [False, True])
     @pytest.mark.parametrize("quant_dtype", [tp.int8, pytest.param(tp.float8, marks=skip_if_older_than_sm89)])
     @pytest.mark.parametrize("weight_quant_dim", [None, 0, 1])
+    @pytest.mark.skip("StableHLO QDQ broken")
     def test_quant_linear(self, use_input_scale, quant_dtype, weight_quant_dim, eager_or_compiled):
         net = self._create_network(use_input_scale, quant_dtype, weight_quant_dim)
         np_weight = cp.from_dlpack(net.linear.weight).get()
@@ -114,6 +115,7 @@ class TestQuantLinear:
         ],
         ids=["block-wise", "per-tensor", "per-channel-0", "per-channel-1"],
     )
+    @pytest.mark.skip("StableHLO QDQ broken")
     def test_quant_linear_int4_weight_only(self, weight_quant_dim, scale, eager_or_compiled):
         scale = tp.Tensor(scale)
 
