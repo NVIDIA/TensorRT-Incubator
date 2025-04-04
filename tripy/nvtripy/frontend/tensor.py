@@ -104,19 +104,29 @@ class Tensor(metaclass=TensorMeta):
         if fetch_stack_info:
             self.stack_info = utils.stack_info.get_stack_info(include_code_index=1)
 
+        # Preserve the device after casting if necessary (otherwise cast will always copy to GPU):
+        device = utils.utils.default(device, self.device)
+
         # Cast/copy if necessary:
-        if dtype is not None and dtype != self.dtype:
+        casted_copied_tensor = self
+        if dtype is not None and dtype != casted_copied_tensor.dtype:
             from nvtripy.frontend.ops.cast import cast
 
-            self.trace_tensor = cast(self, dtype=dtype).trace_tensor
+            casted_copied_tensor = cast(casted_copied_tensor, dtype=dtype)
 
         # We do not check trace_tensor.device, since that will always be GPU
         # (Constants always generate outputs in GPU memory).
-        if device is not None and device != self.device:
+        if device is not None and device != casted_copied_tensor.device:
             # Copy to the new device
             from nvtripy.frontend.ops.copy import copy
 
-            self.trace_tensor = copy(self, device=device).trace_tensor
+            casted_copied_tensor = copy(casted_copied_tensor, device=device)
+
+        # We must evaluate the new tensor prior to assigning self.trace_tensor or we could
+        # end up in an infinite loop since the input *and* output of cast/copy would both
+        # point to this frontend tensor.
+        casted_copied_tensor._eval_for_internal_methods()
+        self.trace_tensor = casted_copied_tensor.trace_tensor
 
     # Left undocumented because these should only be used internally.
     @classmethod

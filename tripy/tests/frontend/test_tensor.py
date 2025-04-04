@@ -199,12 +199,14 @@ class TestTensor:
         "data",
         [
             [[1, 2], [3, 4]],  # from python list
-            np.ones((2, 2), dtype=np.float32),  # from ext tensor
+            np.ones((2, 2), dtype=np.float32),
+            cp.ones((2, 2), dtype=cp.float32),
         ],
     )
     def test_explicit_cast(self, data):
         a = tp.Tensor(data, dtype=tp.float16)
         assert a.dtype == tp.float16
+        a.eval()
 
     def test_no_explicit_cast(self):
         from nvtripy.trace.ops.constant import Constant
@@ -243,11 +245,14 @@ class TestTensor:
         a = tp.Tensor(a_torch)
         assert a.device.kind == devices[1]
 
-    def test_explicit_cast_copy(self):
-        a_np = np.ones((2, 2), dtype=np.float32)
-        a = tp.Tensor(a_np, dtype=tp.float16, device=tp.device("gpu"))
+    # Parametrize so we check both CPU/GPU data.
+    @pytest.mark.parametrize("mod", [np, cp])
+    def test_explicit_cast_copy(self, mod):
+        data = mod.ones((2, 2), dtype=np.float32)
+        a = tp.Tensor(data, dtype=tp.float16, device=tp.device("gpu"))
         assert a.dtype == tp.float16
         assert a.device.kind == "gpu"
+        a.eval()
 
     @pytest.mark.parametrize(
         "tensor, expected",
