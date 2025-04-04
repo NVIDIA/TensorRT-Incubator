@@ -123,18 +123,18 @@ class TestQuantLinear:
     def test_quant_linear_int4_weight_only(self, weight_quant_dim, scale, eager_or_compiled):
         scale = tp.Tensor(scale)
 
+        # HACK: Use ones for stable accuracy.
+        np_weight = np.ones((8, 4), dtype=np.float32)
+        np_bias = np.ones((8,), dtype=np.float32)
+
         linear = tp.Linear(4, 8, quant_dtype=tp.int4, weight_quant_dim=weight_quant_dim)
         linear.weight_scale = scale
-        # HACK: Use ones for stable accuracy.
-        linear.weight = tp.ones((8, 4))
-        linear.bias = tp.ones((8,))
+        linear.weight = tp.Tensor(np_weight)
+        linear.bias = tp.Tensor(np_bias)
 
         cp_input = cp.ones((4, 4), dtype=np.float32)
         input = tp.Tensor(cp_input, device=tp.device("gpu"))
         out = eager_or_compiled(linear, input)
-
-        np_weight = cp.from_dlpack(linear.weight).get()
-        np_bias = cp.from_dlpack(linear.bias).get()
 
         np_out = cp_input.get() @ (np_weight.transpose()) + np_bias
 
