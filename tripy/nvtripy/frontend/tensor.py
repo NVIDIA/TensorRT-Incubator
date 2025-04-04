@@ -105,14 +105,14 @@ class Tensor(metaclass=TensorMeta):
             self.stack_info = utils.stack_info.get_stack_info(include_code_index=1)
 
         # Cast/copy if necessary:
-        if dtype is not None and dtype != self.trace_tensor.dtype:
+        if dtype is not None and dtype != self.dtype:
             from nvtripy.frontend.ops.cast import cast
 
             self.trace_tensor = cast(self, dtype=dtype).trace_tensor
 
         # We do not check trace_tensor.device, since that will always be GPU
         # (Constants always generate outputs in GPU memory).
-        if device is not None and device != constant.device:
+        if device is not None and device != self.device:
             # Copy to the new device
             from nvtripy.frontend.ops.copy import copy
 
@@ -182,7 +182,6 @@ class Tensor(metaclass=TensorMeta):
 
     @property
     def device(self):
-        # TODO (pranavm): Add tests to check that `tensor.device` is reported accurately.
         # For constants, we want to report where the data currently resides.
         # Note that on evaluation, it will always be copied to the device.
         if isinstance(self.trace_tensor.producer, Constant):
@@ -312,7 +311,8 @@ class Tensor(metaclass=TensorMeta):
         ):
             from nvtripy.frontend.ops.cast import cast
 
-            cast_tensor = cast(Tensor(data_memref), datatype.float32)._eval_for_internal_methods()
+            cast_tensor = cast(Tensor(data_memref), datatype.float32)
+            cast_tensor._eval_for_internal_methods()
             data_memref = cast_tensor.trace_tensor.producer.data
         return memref.tolist(data_memref)
 

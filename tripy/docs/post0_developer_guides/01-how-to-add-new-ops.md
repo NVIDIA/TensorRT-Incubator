@@ -23,6 +23,11 @@ Let's implement Top-K:
 Trace operations implement the [`TraceOp`](source:/nvtripy/trace/ops/base.py) interface
 and are located under [nvtripy/trace/ops](source:/nvtripy/trace/ops/).
 
+:::{note}
+[TensorRTOps.td](https://github.com/NVIDIA/TensorRT-Incubator/blob/main/mlir-tensorrt/tensorrt/include/mlir-tensorrt-dialect/TensorRT/IR/TensorRTOps.td)
+defines the tensorrt dialect. Refer to that file for details on each operation.
+:::
+
 ```py
 # doc: no-eval
 # nvtripy/trace/ops/top_k.py

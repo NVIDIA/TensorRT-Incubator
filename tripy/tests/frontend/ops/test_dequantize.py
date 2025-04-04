@@ -79,6 +79,6 @@ class TestDequantize:
         scale = tp.ones((4,))
         with helper.raises(
             tp.TripyException,
-            match="Scale must be a constant",
+            match="`scale` argument must be a constant",
         ):
             dequantized = tp.dequantize(input, scale, tp.float32, dim=0)

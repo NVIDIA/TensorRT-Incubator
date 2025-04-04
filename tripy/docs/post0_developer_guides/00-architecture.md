@@ -61,9 +61,8 @@ Public APIs are exposed by both the frontend (e.g. {func}`nvtripy.resize`) and b
     - [TraceTensor](source:/nvtripy/trace/tensor.py)
     - [Operations](source:/nvtripy/trace/ops/)
 - [**Backend**](source:/nvtripy/backend)
-    - [Compiler](source:/nvtripy/backend/mlir/compiler.py)
-    - [Executor](source:/nvtripy/backend/mlir/executor.py)
-    - [API](source:/nvtripy/backend/api/)
+    - [`compile`](source:/nvtripy/backend/api/compile.py)
+    - [Executable](source:/nvtripy/backend/api/executable.py)
 
 
 ## The Stack By Example

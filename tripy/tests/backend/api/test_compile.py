@@ -229,12 +229,16 @@ class TestCompile:
         # Ensure that a warning is printed for each evaluation (2 prints + int).
         assert out.count("Tensor was evaluated while compiling here:") == 3
 
-    def test_allow_eval_for_non_input_to_compile(self):
-        # We should allow non-inputs to be evaluated.
+    def test_disallow_eval_for_non_input_to_compile(self):
+        # Non-inputs cannot be evaluated since then they move to GPU memory,
+        # which is not supported for constants.
         const = tp.ones((2, 3), dtype=tp.float32)
         const.eval()
 
         def func(a):
             return a + const
 
-        tp.compile(func, args=[tp.InputInfo((2, 3), dtype=tp.float32)])
+        with helper.raises(
+            tp.TripyException, match="Tensors that are not inputs to compiled functions must reside in CPU memory."
+        ):
+            tp.compile(func, args=[tp.InputInfo((2, 3), dtype=tp.float32)])

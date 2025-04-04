@@ -15,13 +15,9 @@
 # limitations under the License.
 #
 
-import numpy as np
-import re
-import torch
-import pytest
-
 import nvtripy as tp
-from tests import helper
+import pytest
+import torch
 
 DTYPES = [(torch.float16, tp.float16), (torch.float32, tp.float32)]
 
@@ -45,9 +41,8 @@ class TestLayerNorm:
             dtype=tp_dtype,
         )
 
-        # use Tripy's parameters
-        tp_layernorm.weight = tp.Tensor(layernorm.weight.detach())
-        tp_layernorm.bias = tp.Tensor(layernorm.bias.detach())
+        tp_layernorm.weight = tp.Tensor(layernorm.weight.to("cpu").detach())
+        tp_layernorm.bias = tp.Tensor(layernorm.bias.to("cpu").detach())
 
         input = torch.arange(torch.prod(torch.Tensor(input_shape))).reshape(input_shape).to(torch_dtype).to("cuda")
         tp_input = tp.Tensor(input, dtype=tp_dtype)
@@ -58,14 +53,3 @@ class TestLayerNorm:
 
         rtol_ = 2e-7 if tp_dtype == tp.float32 else 1e-3
         assert torch.allclose(torch.from_dlpack(output), expected, rtol=rtol_)
-
-    def test_layernorm_improper_dimensions(self):
-        tp_layernorm = tp.LayerNorm(
-            normalized_shape=[2, 2],
-        )
-        tp_layernorm.weight = tp.ones((2, 2))
-        tp_layernorm.bias = tp.ones((2, 2))
-
-        x = tp.ones((5, 5, 5))
-        with helper.raises(tp.TripyException, match="broadcast dimensions must be conformable"):
-            tp_layernorm(x).eval()

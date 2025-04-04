@@ -37,14 +37,13 @@ class TestLinear:
         net = Network()
         net.linear.weight = tp.iota((2, 4))
         net.linear.bias = tp.iota((2,))
-
-        np_weight = cp.from_dlpack(net.linear.weight).get()
-        np_bias = cp.from_dlpack(net.linear.bias).get()
-
         cp_a1 = cp.ones((3, 4), dtype=cp.float32)
         a1 = tp.Tensor(cp_a1, device=tp.device("gpu"))
 
         out = eager_or_compiled(net, a1)
+
+        np_weight = cp.from_dlpack(net.linear.weight).get()
+        np_bias = cp.from_dlpack(net.linear.bias).get()
 
         np_out = cp_a1.get() @ (np_weight.transpose()) + np_bias
 
@@ -92,8 +91,6 @@ class TestQuantLinear:
     @pytest.mark.parametrize("weight_quant_dim", [None, 0, 1])
     def test_quant_linear(self, use_input_scale, quant_dtype, weight_quant_dim, eager_or_compiled):
         net = self._create_network(use_input_scale, quant_dtype, weight_quant_dim)
-        np_weight = cp.from_dlpack(net.linear.weight).get()
-        np_bias = cp.from_dlpack(net.linear.bias).get()
 
         cp_a1 = cp.ones((3, 4), dtype=cp.float32)
         a1 = tp.Tensor(cp_a1, device=tp.device("gpu"))
@@ -106,6 +103,9 @@ class TestQuantLinear:
         else:
             out = eager_or_compiled(net, a1)
 
+            np_weight = cp.from_dlpack(net.linear.weight).get()
+            np_bias = cp.from_dlpack(net.linear.bias).get()
+
             np_out = cp_a1.get() @ (np_weight.transpose()) + np_bias
 
             assert (cp.from_dlpack(out).get() == np.array(np_out)).all()
@@ -113,10 +113,10 @@ class TestQuantLinear:
     @pytest.mark.parametrize(
         "weight_quant_dim, scale",
         [
-            (None, cp.ones((2, 4), dtype=cp.float32)),
+            (None, np.ones((2, 4), dtype=np.float32)),
             (None, 1.0),
-            (0, cp.ones((8,), dtype=cp.float32)),
-            (1, cp.ones((4,), dtype=cp.float32)),
+            (0, np.ones((8,), dtype=np.float32)),
+            (1, np.ones((4,), dtype=np.float32)),
         ],
         ids=["block-wise", "per-tensor", "per-channel-0", "per-channel-1"],
     )
@@ -129,12 +129,12 @@ class TestQuantLinear:
         linear.weight = tp.ones((8, 4))
         linear.bias = tp.ones((8,))
 
-        np_weight = cp.from_dlpack(linear.weight).get()
-        np_bias = cp.from_dlpack(linear.bias).get()
-
         cp_input = cp.ones((4, 4), dtype=np.float32)
         input = tp.Tensor(cp_input, device=tp.device("gpu"))
         out = eager_or_compiled(linear, input)
+
+        np_weight = cp.from_dlpack(linear.weight).get()
+        np_bias = cp.from_dlpack(linear.bias).get()
 
         np_out = cp_input.get() @ (np_weight.transpose()) + np_bias
 

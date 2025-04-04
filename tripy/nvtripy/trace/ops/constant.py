@@ -200,10 +200,18 @@ class Constant(TraceOp):
 
     def _check_address_space(self):
         if self.data.address_space != runtime.PointerType.host:
-            # TODO (pranavm): Add tests for this?
             raise_error(
-                "Tensors that are not inputs to compiled functions must reside in host memory.",
-                [f"Tensor is on device: {self.device}. Tensor was:", self.outputs[0].frontend_tensor],
+                "Tensors that are not inputs to compiled functions must reside in CPU memory.",
+                [f"Tensor is on device: {self.device}. Tensor was:", self.outputs[0].frontend_tensor]
+                + (
+                    [
+                        "Note: This tensor was materialized in GPU memory when it was evaluated here:",
+                        self.outputs[0].eval_stack_info,
+                        "Hint: Avoid evaluating this tensor before compiling.",
+                    ]
+                    if self.outputs[0].eval_stack_info
+                    else [f"Hint: Copy this tensor to CPU memory using `tensor = tp.copy(tensor, tp.device('cpu'))`."]
+                ),
             )
 
     def to_mlir(self, inputs, outputs):

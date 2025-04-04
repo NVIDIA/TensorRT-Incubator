@@ -24,15 +24,17 @@ from nvtripy.common.exception import raise_error
 from nvtripy.utils import wrappers
 
 
-# TODO (pranavm): Add frontend and integration tests for this:
 @export.public_api(document_under="operations/functions")
-@wrappers.interface(dtype_constraints={"input": "T1"}, dtype_variables={"T1": list(DATA_TYPES.keys())})
+@wrappers.interface(
+    dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
+    dtype_variables={"T1": list(DATA_TYPES.keys())},
+)
 def copy(input: "nvtripy.Tensor", device: tp_device) -> "nvtripy.Tensor":
     r"""
     Copies the input tensor to the specified device.
 
-    .. caution:: This function cannot be used in a compiled function or :class:`nvtripy.Module` because it depends on
-        evaluating its inputs, which is not allowed during compilation.
+    .. caution:: This function cannot be used in a compiled function or :class:`nvtripy.Module`
+        because it depends on evaluating its inputs, which is not allowed during compilation.
 
     Args:
         input: Input tensor.
@@ -62,7 +64,7 @@ def copy(input: "nvtripy.Tensor", device: tp_device) -> "nvtripy.Tensor":
     """
     from nvtripy.frontend.tensor import Tensor
 
-    input = input.eval()
+    input._eval_for_internal_methods()  # Avoid `eval()` - don't want to inadvertently move the tensor to GPU.
     memref = input.trace_tensor.producer.data
     runtime_client = MLIRRuntimeClient()  # This is a singleton class, so we aren't creating it on each function call.
 
@@ -75,10 +77,7 @@ def copy(input: "nvtripy.Tensor", device: tp_device) -> "nvtripy.Tensor":
         )
     elif input.device.kind == "gpu" and device.kind == "cpu":
         assert memref.address_space == runtime.PointerType.device
-        out_memref = runtime_client.copy_to_host(
-            device_memref=memref,
-            device=runtime_client.get_devices()[device.index],
-        )
+        out_memref = runtime_client.copy_to_host(device_memref=memref)
     else:
         raise_error(
             "Copying within the same device kind is not currently supported. Please file an issue if you need this functionality!",
