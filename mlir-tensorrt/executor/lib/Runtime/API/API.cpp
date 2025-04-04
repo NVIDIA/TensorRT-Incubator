@@ -1124,7 +1124,7 @@ RuntimeClient::copyToHost(const MemRefValue &deviceMemRef,
   StatusOr<std::unique_ptr<MemRefValue>> hostMemRef = MemRefValue::create(
       this, allocation->type, deviceMemRef.getElementBitWidth(),
       allocation->ptr, 0, deviceMemRef.getShape(), deviceMemRef.getStrides(),
-      nullptr, deviceMemRef.getScalarType());
+      {}, deviceMemRef.getScalarType());
   if (!hostMemRef.isOk())
     return hostMemRef.getStatus();
 

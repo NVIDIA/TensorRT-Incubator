@@ -78,6 +78,7 @@ def test_memref():
             print(gpu_array.strides)
             print(gpu_array.address_space)
             print(np.asarray(client.copy_to_host(gpu_array)))
+            print(np.from_dlpack(client.copy_to_host(gpu_array)))
         except Exception as e:
             print("Exception caught: ", e)
 
@@ -89,10 +90,14 @@ def test_memref():
 #  CHECK-NEXT: PointerType.device
 #  CHECK-NEXT:  [ 0.  1.  2.  3.  4.  5.  6.  7.]
 #  CHECK-NEXT:  [ 8.  9. 10. 11. 12. 13. 14. 15.]]
+#  CHECK-NEXT:  [ 0.  1.  2.  3.  4.  5.  6.  7.]
+#  CHECK-NEXT:  [ 8.  9. 10. 11. 12. 13. 14. 15.]]
 #  CHECK-NEXT: testing dtype float32
 #  CHECK-NEXT: [2, 8]
 #  CHECK-NEXT: [8, 1]
 #  CHECK-NEXT: PointerType.device
+#  CHECK-NEXT:  [ 0.  1.  2.  3.  4.  5.  6.  7.]
+#  CHECK-NEXT:  [ 8.  9. 10. 11. 12. 13. 14. 15.]]
 #  CHECK-NEXT:  [ 0.  1.  2.  3.  4.  5.  6.  7.]
 #  CHECK-NEXT:  [ 8.  9. 10. 11. 12. 13. 14. 15.]]
 #  CHECK-NEXT: testing dtype float16
@@ -101,10 +106,14 @@ def test_memref():
 #  CHECK-NEXT: PointerType.device
 #  CHECK-NEXT:  [ 0.  1.  2.  3.  4.  5.  6.  7.]
 #  CHECK-NEXT:  [ 8.  9. 10. 11. 12. 13. 14. 15.]]
+#  CHECK-NEXT:  [ 0.  1.  2.  3.  4.  5.  6.  7.]
+#  CHECK-NEXT:  [ 8.  9. 10. 11. 12. 13. 14. 15.]]
 #  CHECK-NEXT: testing dtype int64
 #  CHECK-NEXT: [2, 8]
 #  CHECK-NEXT: [8, 1]
 #  CHECK-NEXT: PointerType.device
+#  CHECK-NEXT:  [ 0  1  2  3  4  5  6  7]
+#  CHECK-NEXT:  [ 8  9 10 11 12 13 14 15]]
 #  CHECK-NEXT:  [ 0  1  2  3  4  5  6  7]
 #  CHECK-NEXT:  [ 8  9 10 11 12 13 14 15]]
 #  CHECK-NEXT: testing dtype int32
@@ -113,16 +122,22 @@ def test_memref():
 #  CHECK-NEXT: PointerType.device
 #  CHECK-NEXT:  [ 0  1  2  3  4  5  6  7]
 #  CHECK-NEXT:  [ 8  9 10 11 12 13 14 15]]
+#  CHECK-NEXT:  [ 0  1  2  3  4  5  6  7]
+#  CHECK-NEXT:  [ 8  9 10 11 12 13 14 15]]
 #  CHECK-NEXT: testing dtype int16
 #  CHECK-NEXT: [2, 8]
 #  CHECK-NEXT: [8, 1]
 #  CHECK-NEXT: PointerType.device
 #  CHECK-NEXT:  [ 0  1  2  3  4  5  6  7]
 #  CHECK-NEXT:  [ 8  9 10 11 12 13 14 15]]
+#  CHECK-NEXT:  [ 0  1  2  3  4  5  6  7]
+#  CHECK-NEXT:  [ 8  9 10 11 12 13 14 15]]
 #  CHECK-NEXT: testing dtype int8
 #  CHECK-NEXT: [2, 8]
 #  CHECK-NEXT: [8, 1]
 #  CHECK-NEXT: PointerType.device
+#  CHECK-NEXT:  [ 0  1  2  3  4  5  6  7]
+#  CHECK-NEXT:  [ 8  9 10 11 12 13 14 15]]
 #  CHECK-NEXT:  [ 0  1  2  3  4  5  6  7]
 #  CHECK-NEXT:  [ 8  9 10 11 12 13 14 15]]
 
