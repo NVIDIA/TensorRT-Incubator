@@ -15,12 +15,12 @@
 # limitations under the License.
 #
 
-import tripy as tp
+import nvtripy as tp
 
-import tripy as tp
 from dataclasses import dataclass
 
 from examples.diffusion.helper import scaled_dot_product_attention
+
 
 @dataclass
 class CLIPConfig:
@@ -30,6 +30,7 @@ class CLIPConfig:
     max_seq_len: int = 77
     num_hidden_layers: int = 12
     dtype: tp.dtype = tp.float32
+
 
 class CLIPMLP(tp.Module):
     def __init__(self, config: CLIPConfig):
@@ -66,7 +67,11 @@ class CLIPAttention(tp.Module):
             for x in (q, k, v)
         ]
         attn_output = scaled_dot_product_attention(
-            q, k, v, embedding_dim=self.head_dim, attn_mask=causal_attention_mask,
+            q,
+            k,
+            v,
+            embedding_dim=self.head_dim,
+            attn_mask=causal_attention_mask,
         )
         out = self.out_proj(tp.reshape(tp.transpose(attn_output, 1, 2), (bsz, tgt_len, embed_dim)))
         return out

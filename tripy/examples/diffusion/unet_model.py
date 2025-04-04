@@ -19,7 +19,7 @@ import math
 from typing import List, Tuple
 
 import torch
-import tripy as tp
+import nvtripy as tp
 from dataclasses import dataclass
 
 from examples.diffusion.helper import scaled_dot_product_attention
@@ -70,7 +70,9 @@ class CrossAttention(tp.Module):
         self.to_v = tp.Linear(context_dim, n_heads * d_head, bias=False, dtype=config.dtype)
         self.num_heads = n_heads
         self.head_size = d_head
-        self.to_out = tp.Sequential(tp.Linear(n_heads * d_head, query_dim, dtype=config.dtype),)
+        self.to_out = tp.Sequential(
+            tp.Linear(n_heads * d_head, query_dim, dtype=config.dtype),
+        )
         self.dtype = config.dtype
 
     def __call__(self, x, context=None):
@@ -79,9 +81,7 @@ class CrossAttention(tp.Module):
         q, k, v = [
             tp.transpose(tp.reshape(y, (x.shape[0], -1, self.num_heads, self.head_size)), 1, 2) for y in (q, k, v)
         ]
-        attention = tp.transpose(
-            scaled_dot_product_attention(q, k, v, embedding_dim=self.head_size), 1, 2
-        )
+        attention = tp.transpose(scaled_dot_product_attention(q, k, v, embedding_dim=self.head_size), 1, 2)
         h_ = tp.reshape(attention, (x.shape[0], -1, self.num_heads * self.head_size))
         out = self.to_out(h_)
         return out
