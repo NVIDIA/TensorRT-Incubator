@@ -23,7 +23,7 @@ import time
 import torch
 import cupy as cp
 import numpy as np
-import tripy as tp
+import nvtripy as tp
 
 from transformers import CLIPTokenizer
 from examples.diffusion.clip_model import CLIPConfig

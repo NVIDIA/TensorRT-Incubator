@@ -17,10 +17,11 @@
 
 from typing import Tuple
 
-import tripy as tp
+import nvtripy as tp
 from dataclasses import dataclass
 
 from examples.diffusion.helper import scaled_dot_product_attention
+
 
 @dataclass
 class VAEConfig:
@@ -58,6 +59,7 @@ class AttnBlock(tp.Module):
         )
         return x + out
 
+
 # Not to be confused with ResBlock. Called ResnetBlock2D in HF diffusers
 class ResnetBlock(tp.Module):
     def __init__(self, config: VAEConfig, in_channels, out_channels=None):
@@ -66,13 +68,18 @@ class ResnetBlock(tp.Module):
         self.norm2 = tp.GroupNorm(32, out_channels, dtype=tp.float32)
         self.conv2 = tp.Conv(out_channels, out_channels, (3, 3), padding=((1, 1), (1, 1)), dtype=config.dtype)
         self.nonlinearity = tp.silu
-        self.conv_shortcut = tp.Conv(in_channels, out_channels, (1, 1), dtype=config.dtype) if in_channels != out_channels else lambda x: x
+        self.conv_shortcut = (
+            tp.Conv(in_channels, out_channels, (1, 1), dtype=config.dtype)
+            if in_channels != out_channels
+            else lambda x: x
+        )
 
     def __call__(self, x):
         h = self.conv1(self.nonlinearity(tp.cast(self.norm1(tp.cast(x, self.norm1.dtype)), x.dtype)))
         h = self.conv2(self.nonlinearity(tp.cast(self.norm2(tp.cast(h, self.norm2.dtype)), h.dtype)))
         return self.conv_shortcut(x) + h
-    
+
+
 class Downsample(tp.Module):
     def __init__(self, config, channels):
         self.conv = tp.Conv(channels, channels, (3, 3), stride=(2, 2), padding=((1, 1), (1, 1)), dtype=config.dtype)
@@ -87,21 +94,27 @@ class Upsample(tp.Module):
 
     def __call__(self, x):
         bs, c, py, px = x.shape
-        x = tp.reshape(tp.expand(tp.reshape(x, (bs, c, py, 1, px, 1)), (bs, c, py, 2, px, 2)), (bs, c, py * 2, px * 2)) 
+        x = tp.reshape(tp.expand(tp.reshape(x, (bs, c, py, 1, px, 1)), (bs, c, py, 2, px, 2)), (bs, c, py * 2, px * 2))
         return self.conv(x)
+
 
 class UpDecoderBlock2D(tp.Module):
     def __init__(self, config: VAEConfig, start_channels, channels, use_upsampler=True):
-        self.resnets = [ResnetBlock(config, start_channels, channels), ResnetBlock(config, channels, channels), ResnetBlock(config, channels, channels)]
+        self.resnets = [
+            ResnetBlock(config, start_channels, channels),
+            ResnetBlock(config, channels, channels),
+            ResnetBlock(config, channels, channels),
+        ]
         if use_upsampler:
             self.upsamplers = [Upsample(config, channels)]
 
     def __call__(self, x):
-        for resnet in self.resnets: 
+        for resnet in self.resnets:
             x = resnet(x)
         if hasattr(self, "upsamplers"):
             x = self.upsamplers[0](x)
         return x
+
 
 class Mid(tp.Module):
     def __init__(self, config: VAEConfig, block_in):
@@ -119,13 +132,24 @@ class Decoder(tp.Module):
         up_channels = [config.model_channel * mult for mult in config.channel_mult_decode]
         num_resolutions = len(up_channels) - 1
         upsamplers = [True] * (num_resolutions - 1) + [False]
-    
-        self.conv_in = tp.Conv(config.latent_channels, config.model_channel * config.channel_mult_decode[0], (3, 3), padding=((1, 1), (1, 1)), dtype=config.dtype)
-        self.up_blocks = [UpDecoderBlock2D(config, up_channels[i], up_channels[i+1], use_upsampler=upsamplers[i]) for i in range(num_resolutions)]
+
+        self.conv_in = tp.Conv(
+            config.latent_channels,
+            config.model_channel * config.channel_mult_decode[0],
+            (3, 3),
+            padding=((1, 1), (1, 1)),
+            dtype=config.dtype,
+        )
+        self.up_blocks = [
+            UpDecoderBlock2D(config, up_channels[i], up_channels[i + 1], use_upsampler=upsamplers[i])
+            for i in range(num_resolutions)
+        ]
         self.mid_block = Mid(config, up_channels[0])
         self.conv_norm_out = tp.GroupNorm(32, config.model_channel, dtype=tp.float32)
         self.conv_act = tp.silu
-        self.conv_out = tp.Conv(config.model_channel, config.io_channels, (3, 3), padding=((1, 1), (1, 1)), dtype=config.dtype)
+        self.conv_out = tp.Conv(
+            config.model_channel, config.io_channels, (3, 3), padding=((1, 1), (1, 1)), dtype=config.dtype
+        )
 
     def __call__(self, x):
         x = self.conv_in(x)
@@ -134,6 +158,7 @@ class Decoder(tp.Module):
         for up_block in self.up_blocks:
             x = up_block(x)
         return self.conv_out(self.conv_act(tp.cast(self.conv_norm_out(tp.cast(x, self.conv_norm_out.dtype)), x.dtype)))
+
 
 class DownEncoderBlock2D(tp.Module):
     def __init__(self, config: VAEConfig, start_channels, channels, use_downsampler=True):
@@ -148,14 +173,20 @@ class DownEncoderBlock2D(tp.Module):
             x = self.downsamplers[0](x)
         return x
 
+
 class Encoder(tp.Module):
     def __init__(self, config: VAEConfig):
         down_channels = [config.model_channel * mult for mult in config.channel_mult_encode]
         num_resolutions = len(down_channels) - 1
         downsamplers = [True] * (num_resolutions - 1) + [False]
-    
-        self.conv_in = tp.Conv(config.io_channels, config.model_channel, (3, 3), padding=((1, 1), (1, 1)), dtype=config.dtype)
-        self.down_blocks = [DownEncoderBlock2D(config, down_channels[i], down_channels[i+1], use_downsampler=downsamplers[i]) for i in range(num_resolutions)]
+
+        self.conv_in = tp.Conv(
+            config.io_channels, config.model_channel, (3, 3), padding=((1, 1), (1, 1)), dtype=config.dtype
+        )
+        self.down_blocks = [
+            DownEncoderBlock2D(config, down_channels[i], down_channels[i + 1], use_downsampler=downsamplers[i])
+            for i in range(num_resolutions)
+        ]
         self.mid_block = Mid(config, down_channels[-1])
         self.conv_norm_out = tp.GroupNorm(32, down_channels[-1], dtype=tp.float32)
         self.conv_act = tp.silu
