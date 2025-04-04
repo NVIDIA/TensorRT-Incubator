@@ -1,7 +1,7 @@
 import math
 from typing import Optional
 
-import tripy as tp
+import nvtripy as tp
 
 
 def scaled_dot_product_attention(
@@ -13,7 +13,11 @@ def scaled_dot_product_attention(
 ) -> tp.Tensor:
     dtype = query.dtype
     if attn_mask is not None and attn_mask.dtype == tp.bool:
-        attn_mask = tp.where((attn_mask == 0), tp.ones_like(attn_mask, dtype=dtype) * -float("inf"), tp.zeros_like(attn_mask, dtype=dtype))
+        attn_mask = tp.where(
+            (attn_mask == 0),
+            tp.ones_like(attn_mask, dtype=dtype) * -float("inf"),
+            tp.zeros_like(attn_mask, dtype=dtype),
+        )
     if attn_mask is not None:
         attn_mask = tp.cast(attn_mask, dtype)
     k_t = tp.transpose(key, -2, -1)
