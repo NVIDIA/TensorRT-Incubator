@@ -38,12 +38,12 @@ class TestTensor:
         assert isinstance(a, tp.Tensor)
         assert a.trace_tensor.producer.inputs == []
         assert isinstance(a.trace_tensor.producer, Constant)
-        assert cp.from_dlpack(a).get().tolist() == VALUES
+        assert np.from_dlpack(a).tolist() == VALUES
 
     def test_empty_tensor(self):
         a = tp.Tensor([], dtype=tp.int32)  # dtype cannot be inferred for empty tensor
         assert isinstance(a, tp.Tensor)
-        assert cp.from_dlpack(a).get().tolist() == []
+        assert np.from_dlpack(a).tolist() == []
 
     def test_input_list_is_copied(self):
         # Make sure that if we initialize the tensor with a list, the tensor
@@ -75,7 +75,7 @@ class TestTensor:
         t = tp.Tensor(bool_values, dtype=tp.bool)
         assert isinstance(t, tp.Tensor)
         assert t.trace_tensor.producer.inputs == []
-        assert cp.from_dlpack(t).get().tolist() == bool_values
+        assert np.from_dlpack(t).tolist() == bool_values
 
     @pytest.mark.parametrize("input_data", [[], [0.0, 1.0, 2.0, 3.0], [1, 2, 3, 4], [False, True, False, True]])
     @pytest.mark.parametrize("dtype", DATA_TYPE_TEST_CASES)
@@ -186,6 +186,7 @@ class TestTensor:
         ],
     )
     def test_boolean_method(self, tensor):
+        tensor.eval()  # Make sure the tensor is on GPU first
         assert bool(tensor) == bool(cp.from_dlpack(tensor))
 
     def test_multiple_elements_boolean_fails(self):
@@ -198,12 +199,14 @@ class TestTensor:
         "data",
         [
             [[1, 2], [3, 4]],  # from python list
-            np.ones((2, 2), dtype=np.float32),  # from ext tensor
+            np.ones((2, 2), dtype=np.float32),
+            cp.ones((2, 2), dtype=cp.float32),
         ],
     )
     def test_explicit_cast(self, data):
         a = tp.Tensor(data, dtype=tp.float16)
         assert a.dtype == tp.float16
+        a.eval()
 
     def test_no_explicit_cast(self):
         from nvtripy.trace.ops.constant import Constant
@@ -221,7 +224,8 @@ class TestTensor:
         ],
     )
     def test_explicit_copy(self, devices):
-        a_torch = torch.ones((2, 2), dtype=torch.float32)
+        # Setting the device parameter in the constructor will perform a copy if necessary.
+        a_torch = torch.ones((2, 2), dtype=torch.float32).to("cpu")
         if devices[0] == "gpu":
             a_torch = a_torch.to("cuda")
         a = tp.Tensor(a_torch, device=tp.device(devices[1]))
@@ -235,20 +239,20 @@ class TestTensor:
         ],
     )
     def test_no_explicit_copy(self, devices):
-        from nvtripy.trace.ops.constant import Constant
-
         a_torch = torch.ones((2, 2), dtype=torch.float32)
         if devices[0] == "gpu":
             a_torch = a_torch.to("cuda")
-        a = tp.Tensor(a_torch, device=tp.device(devices[1]))
+        a = tp.Tensor(a_torch)
         assert a.device.kind == devices[1]
-        assert isinstance(a.trace_tensor.producer, Constant)
 
-    def test_explicit_cast_copy(self):
-        a_np = np.ones((2, 2), dtype=np.float32)
-        a = tp.Tensor(a_np, dtype=tp.float16, device=tp.device("gpu"))
+    # Parametrize so we check both CPU/GPU data.
+    @pytest.mark.parametrize("mod", [np, cp])
+    def test_explicit_cast_copy(self, mod):
+        data = mod.ones((2, 2), dtype=np.float32)
+        a = tp.Tensor(data, dtype=tp.float16, device=tp.device("gpu"))
         assert a.dtype == tp.float16
         assert a.device.kind == "gpu"
+        a.eval()
 
     @pytest.mark.parametrize(
         "tensor, expected",

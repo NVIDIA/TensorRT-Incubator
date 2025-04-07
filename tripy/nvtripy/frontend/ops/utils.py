@@ -242,10 +242,14 @@ def check_qdq_args(input, scale, dtype, dim, is_quantize):
             [f"scale has rank={scale.rank}."],
         )
 
-    if not isinstance(scale.trace_tensor.producer, Constant):
+    if not isinstance(scale.trace_tensor.producer, Constant) or scale.trace_tensor.producer.device.kind != "cpu":
         raise_error(
-            "Scale must be a constant. Please evaluate the tensor using `.eval()`.",
-            [f"Note: scale was defined here: ", scale],
+            "`scale` argument must be a constant in CPU memory.",
+            [
+                f"Hint: Use `scale = tp.copy(scale, tp.device('cpu'))` to copy the scale to CPU memory. "
+                f"Note: scale was defined here: ",
+                scale,
+            ],
         )
 
 

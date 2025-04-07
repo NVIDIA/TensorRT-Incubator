@@ -141,6 +141,11 @@ class Constant(TraceOp):
     data: runtime.MemRefValue
     shape: Sequence[int]
     dtype: type
+    # The logic for device in Constant is slightly tricky. Constants are used in two ways:
+    # 1. To express constants in the network via `tensorrt.constant` (input data must be on the host)
+    # 2. To express inputs to a compiled executable (output data must be on the device)
+    # In both cases, the result of the constant is always on the device.
+    # The `device` attribute expresses the device of the source data.
     device: tp_device
 
     def __init__(
@@ -160,8 +165,10 @@ class Constant(TraceOp):
             self.data = data
             self.dtype = mlir_utils.convert_runtime_dtype_to_tripy_dtype(self.data.dtype)
             self.shape = tuple(data.shape)
+            # TODO (#577): Set device index correctly:
             self.device = tp_device.fast_init("gpu" if data.address_space == runtime.PointerType.device else "cpu", 0)
         else:
+            device = device if device is not None else tp_device.fast_init("cpu", 0)
             if is_empty(data):
                 self.dtype = utils.utils.default(dtype, datatype.float32)
                 data_array = None
@@ -169,12 +176,8 @@ class Constant(TraceOp):
                 self.dtype = get_element_type(data)
                 data_array = convert_list_to_array(flatten_list(data), dtype=self.dtype)
             self.shape = tuple(get_shape(data))
-            self.data = memref.create_memref(
-                shape=self.shape,
-                dtype=self.dtype,
-                array=data_array,
-            )
-            self.device = utils.utils.default(device, tp_device.fast_init("gpu", 0))
+            self.data = memref.create_memref(shape=self.shape, dtype=self.dtype, array=data_array, device=device)
+            self.device = device
 
         # Parent constructor will run rank/type inference, so we need to run it after setting the fields above.
         super().__init__([])
@@ -195,20 +198,27 @@ class Constant(TraceOp):
     def infer_dtypes(self):
         self.outputs[0].dtype = self.dtype
 
-    def infer_devices(self):
-        # TODO(#155): Fix allocation on host
-        self.outputs[0].device = tp_device.fast_init("gpu", 0)
+    def _check_address_space(self):
+        if self.data.address_space != runtime.PointerType.host:
+            raise_error(
+                "Tensors that are not inputs to compiled functions must reside in CPU memory.",
+                [f"Tensor is on device: {self.device}. Tensor was:", self.outputs[0].frontend_tensor]
+                + (
+                    [
+                        "Note: This tensor was materialized in GPU memory when it was evaluated here:",
+                        self.outputs[0].eval_stack_info,
+                        "Hint: Avoid evaluating this tensor before compiling.",
+                    ]
+                    if self.outputs[0].eval_stack_info
+                    else [f"Hint: Copy this tensor to CPU memory using `tensor = tp.copy(tensor, tp.device('cpu'))`."]
+                ),
+            )
 
     def to_mlir(self, inputs, outputs):
-        # TODO(#189): Remove explicit copy to host for constants
         assert isinstance(self.data, runtime.MemRefValue)
-        runtime_client = mlir_utils.MLIRRuntimeClient()
+        self._check_address_space()
+
         data_memref = self.data
-        if data_memref.address_space == runtime.PointerType.device:
-            data_memref = runtime_client.copy_to_host(
-                device_memref=data_memref,
-                stream=None,
-            )
 
         # TODO: we can further drop the cast by tolist(memref) -> mlir
         # Workaround (#208): bools are represented as i1 in MLIR-TRT but they cannot be used for DenseElementsAttr

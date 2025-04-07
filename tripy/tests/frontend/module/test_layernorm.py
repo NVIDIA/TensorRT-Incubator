@@ -1,4 +1,3 @@
-#
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -13,23 +12,20 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
+from tests import helper
 
-from dataclasses import dataclass
-
-from mlir_tensorrt.compiler.dialects import tensorrt
-from nvtripy.trace.ops.base import TraceOp
+import nvtripy as tp
 
 
-@dataclass(repr=False)
-class Gather(TraceOp):
-    dim: int
+class TestLayerNorm:
 
-    def infer_rank(self):
-        self.outputs[0].rank = self.inputs[0].rank + self.inputs[1].rank - 1
+    def test_layernorm_improper_dimensions(self):
+        tp_layernorm = tp.LayerNorm(
+            normalized_shape=[2, 2],
+        )
+        tp_layernorm.weight = tp.ones((2, 2))
+        tp_layernorm.bias = tp.ones((2, 2))
 
-    def infer_dtypes(self):
-        self.outputs[0].dtype = self.inputs[0].dtype
-
-    def to_mlir(self, inputs, outputs):
-        return [tensorrt.gather(inputs[0], inputs[1], axis=self.dim, num_broadcast_dims=0)]
+        x = tp.ones((5, 5, 5))
+        with helper.raises(tp.TripyException, match="broadcast dimensions must be conformable"):
+            tp_layernorm(x).eval()

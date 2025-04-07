@@ -78,6 +78,6 @@ class TestQuantize:
         scale = tp.ones((4,))
         with helper.raises(
             tp.TripyException,
-            match="Scale must be a constant",
+            match="`scale` argument must be a constant",
         ):
             quantized = tp.quantize(input, scale, tp.int8, dim=0)

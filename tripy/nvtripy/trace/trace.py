@@ -54,12 +54,21 @@ class Trace:
             shapes: The shape profile, consisting of min, opt, and max shapes for each input tensor.
                     Must be in the same order as `inputs`.
         """
-        self.ops: List["BaseTraceOp"] = []
-        self.inputs: List[TraceTensor] = inputs
-        self.outputs: List[TraceTensor] = outputs
+        # ops/inputs/outputs are populated by `trace()`
+        self.ops: List["TraceOp"] = []
+        self.inputs: List[TraceTensor] = []
+        self.outputs: List[TraceTensor] = []
         self.shapes = shapes
         self.name = name
 
+        self.trace(outputs, inputs)
+
+    # Performs the actual tracing to populate self.ops
+    def trace(self, outputs, inputs):
+        self.inputs = inputs
+        self.outputs = outputs
+
+        ops = []
         exprs = [tensor.producer for tensor in outputs]
 
         input_op_ids = set(id(inp.producer) for inp in inputs)
@@ -91,11 +100,11 @@ class Trace:
 
             if id(head) not in input_op_ids:
                 # not as an input
-                self.ops.append(head)
+                ops.append(head)
                 exprs.extend([inp.producer for inp in head.inputs])
 
         # Reverse the order of the layers so they are topologically sorted
-        self.ops = topological_sort(self.ops)
+        self.ops = topological_sort(ops)
 
         logger.trace(lambda: f"{self}\n")
 
@@ -201,16 +210,6 @@ class Trace:
                                 )
                             )
                         func_op.arg_attrs = ir.ArrayAttr.get(arg_attrs)
-
-                    # Append device location if outputs are on host as MLIR-TensorRT does not adhere to this constraint.
-                    # TODO(#155): Fix TensorKindAnalysis to ensure result tensors with attribute `tensorrt.host_tensor` are allocated on host.
-                    res_attrs = []
-                    for output in self.outputs:
-                        if output.device.kind == "cpu":
-                            res_attrs.append(ir.Attribute.parse("{tensorrt.host_tensor}"))
-                        else:
-                            res_attrs.append(ir.DictAttr.get({}))
-                    func_op.res_attrs = ir.ArrayAttr.get(res_attrs)
 
                 module.operation.attributes["sym_name"] = ir.StringAttr.get(
                     utils.utils.UniqueNameGen.gen_uid(

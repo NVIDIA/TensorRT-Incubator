@@ -42,7 +42,7 @@ class TestModule:
 
         network.param = tp.Tensor([0.0, 1.0])
         network.dummy1 = None
-        assert cp.from_dlpack(dict(network.named_parameters())["param"]).get().tolist() == [0.0, 1.0]
+        assert np.from_dlpack(dict(network.named_parameters())["param"]).tolist() == [0.0, 1.0]
         assert "dummy1" not in dict(network.named_children())
 
     def test_signature_of_call(self):

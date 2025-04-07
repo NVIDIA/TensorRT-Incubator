@@ -95,6 +95,10 @@ def generate_input_values(case: DtypeConstraintCase):
             "groups": 1,
             "dilation": [1, 1],
         },
+        "copy": {
+            "input": tp.Tensor([1, 2, 3], device=tp.device("gpu")),
+            "device": tp.device("cpu"),
+        },
         "deconvolution": {
             "weight": tp.Tensor(np.ones((2, 2, 3, 3), dtype=np.float32)),
             "bias": tp.Tensor([1.0, 2.0]),
@@ -127,8 +131,18 @@ def generate_input_values(case: DtypeConstraintCase):
         "zeros": {"shape": [2, 2]},
     }
 
+    # Arguments that must be constants on CPU.
+    REQUIRES_CPU_CONST = {
+        "dequantize": {"scale"},
+        "quantize": {"scale"},
+    }
+
     inputs = {}
     for param_name, param in inspect.signature(case.func).parameters.items():
+        requires_cpu_const = (
+            case.func.__name__ in REQUIRES_CPU_CONST and param_name in REQUIRES_CPU_CONST[case.func.__name__]
+        )
+
         param_type = str_from_type_annotation(param.annotation)
 
         dtype = None
@@ -144,6 +158,10 @@ def generate_input_values(case: DtypeConstraintCase):
             if isinstance(inputs[param_name], tp.Tensor) and dtype is not None:
                 inputs[param_name] = tp.cast(inputs[param_name], dtype=dtype)
                 inputs[param_name].eval()
+
+                if requires_cpu_const:
+                    # Ensure the tensor is on CPU if required
+                    inputs[param_name] = tp.copy(inputs[param_name], device=tp.device("cpu"))
             continue
 
         if param.default is not inspect.Parameter.empty and dtype is None:
@@ -155,8 +173,12 @@ def generate_input_values(case: DtypeConstraintCase):
             tensor = tp.Tensor(np.ones((1, 2, 5, 5), dtype=np.float32))
             if "Sequence" in param_type:
                 inputs[param_name] = [tp.cast(tensor, dtype=dtype) for _ in range(2)]
+                if requires_cpu_const:
+                    inputs[param_name] = [tp.copy(t, device=tp.device("cpu")) for t in inputs[param_name]]
             else:
                 inputs[param_name] = tp.cast(tensor, dtype=dtype)
+                if requires_cpu_const:
+                    inputs[param_name] = tp.copy(inputs[param_name], device=tp.device("cpu"))
         elif "nvtripy.dtype" in param_type:
             assert dtype is not None, "Data types must have type annotations"
             inputs[param_name] = dtype
