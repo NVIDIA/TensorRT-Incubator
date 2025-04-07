@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -48,10 +48,11 @@ class TestCast:
         tp_target_dtype = NUMPY_TO_TRIPY[target_dtype]
 
         # TODO(#222): Integer casts with negative numbers fail in many cases
-        input_tensor = tp.Tensor([0, 1, 2], dtype=tp_input_dtype)
-        np_input = cp.from_dlpack(input_tensor).get()
+        input_tensor = tp.Tensor([0, 1, 2], dtype=tp_input_dtype).eval()
+
         output = eager_or_compiled(tp.cast, input_tensor, tp_target_dtype)
 
+        np_input = cp.from_dlpack(input_tensor).get()
         assert np.array_equal(cp.from_dlpack(output).get(), np_input.astype(target_dtype))
 
     # these dtypes don't have analogues in numpy
@@ -72,12 +73,14 @@ class TestCast:
     def test_cast_from_bool(self, target_dtype, eager_or_compiled):
         tp_target_dtype = NUMPY_TO_TRIPY[target_dtype]
 
-        # in principle, it is not important what *specific* values we convert to,
+        # In principle, it is not important what *specific* values we convert to,
         # so long as false is mapped to 0 and true to nonzero
-        input_tensor = tp.Tensor([False, True], dtype=tp.bool)
-        np_input = cp.from_dlpack(input_tensor).get()
+        input_tensor = tp.Tensor([False, True])
+        np_input = np.from_dlpack(input_tensor)
+
         output = eager_or_compiled(tp.cast, input_tensor, tp_target_dtype)
 
         tp_compare_to_zero = cp.from_dlpack(output).get() == 0
+
         np_compare_to_zero = np_input.astype(target_dtype) == 0
         assert np.array_equal(tp_compare_to_zero, np_compare_to_zero)

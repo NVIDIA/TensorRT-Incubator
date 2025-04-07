@@ -30,9 +30,6 @@ class Concatenate(TraceOp):
         assert len(set(inp.rank for inp in self.inputs)) == 1, "All inputs must have the same rank!"
         return op_utils.InferRankPolicies.same_as_input()(self)
 
-    def infer_devices(self):
-        self.outputs[0].device = self.inputs[0].device
-
     def to_mlir(self, inputs, outputs):
         output = tensorrt.concatenation(inputs, axis=self.dim)
         return [output]

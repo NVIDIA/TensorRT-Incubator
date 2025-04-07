@@ -23,6 +23,11 @@ Let's implement Top-K:
 Trace operations implement the [`TraceOp`](source:/nvtripy/trace/ops/base.py) interface
 and are located under [nvtripy/trace/ops](source:/nvtripy/trace/ops/).
 
+:::{note}
+[TensorRTOps.td](https://github.com/NVIDIA/TensorRT-Incubator/blob/main/mlir-tensorrt/tensorrt/include/mlir-tensorrt-dialect/TensorRT/IR/TensorRTOps.td)
+defines the tensorrt dialect. Refer to that file for details on each operation.
+:::
+
 ```py
 # doc: no-eval
 # nvtripy/trace/ops/top_k.py
@@ -49,11 +54,6 @@ class TopK(TraceOp):
         # First output is top-k values, second is indices
         self.outputs[0].dtype = self.inputs[0].dtype
         self.outputs[1].dtype = datatype.int32
-
-    def infer_devices(self):
-        device = self.inputs[0].device
-        self.outputs[0].device = device
-        self.outputs[1].device = device
 
     # This is only required if `num_outputs != 1`:
     def get_num_outputs(self):
@@ -105,12 +105,6 @@ class TestTopK:
         values, indices = TopK([inp.trace_tensor], dim=2, k=2).outputs
         assert values.dtype == inp.dtype
         assert indices.dtype == tp.int32
-
-    def test_infer_devices(self):
-        inp = tp.ones((2, 2, 3))
-        values, indices = TopK([inp.trace_tensor], dim=2, k=2).outputs
-        assert values.device == inp.device
-        assert indices.device == inp.device
 ```
 
 ## Implementing The Frontend API

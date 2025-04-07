@@ -24,6 +24,7 @@ import nvtripy.frontend.ops
 from nvtripy import export, utils
 from nvtripy.backend.mlir import memref
 from nvtripy.common import datatype
+from nvtripy.common import device as tp_device
 from nvtripy.common.exception import raise_error, str_from_stack_info
 from nvtripy.frontend.ops._registry import TENSOR_METHOD_REGISTRY
 from nvtripy.logging.logger import logger
@@ -73,8 +74,13 @@ class Tensor(metaclass=TensorMeta):
         """
         Args:
             data: The data with which to initialize the tensor.
+                For types that support the DLPack protocol, copying data is avoided if possible.
+
             dtype: The data type of the tensor.
             device: The device on which to allocate the tensor.
+                If the provided data is not on this device, it will be copied.
+                By default, the tensor will be allocated on the same device as the `data` argument.
+
             name: The name of the tensor. If provided, this must be a unique string.
             fetch_stack_info: Whether to fetch stack information for the tensor.
                 Stack information allows Tripy to generate much higher quality error
@@ -98,15 +104,29 @@ class Tensor(metaclass=TensorMeta):
         if fetch_stack_info:
             self.stack_info = utils.stack_info.get_stack_info(include_code_index=1)
 
-        # TODO(#155): Remove this hack:
-        self.trace_tensor.device = utils.utils.default(device, self.trace_tensor.device)
+        # Preserve the device after casting if necessary (otherwise cast will always copy to GPU):
+        device = utils.utils.default(device, self.device)
 
-        # Explicit cast if necessary
-        # TODO(#155): Add copy as well when host allocation is fixed
-        if dtype is not None and dtype != self.trace_tensor.dtype:
+        # Cast/copy if necessary:
+        casted_copied_tensor = self
+        if dtype is not None and dtype != casted_copied_tensor.dtype:
             from nvtripy.frontend.ops.cast import cast
 
-            self.trace_tensor = cast(self, dtype=dtype).trace_tensor
+            casted_copied_tensor = cast(casted_copied_tensor, dtype=dtype)
+
+        # We do not check trace_tensor.device, since that will always be GPU
+        # (Constants always generate outputs in GPU memory).
+        if device is not None and device != casted_copied_tensor.device:
+            # Copy to the new device
+            from nvtripy.frontend.ops.copy import copy
+
+            casted_copied_tensor = copy(casted_copied_tensor, device=device)
+
+        # We must evaluate the new tensor prior to assigning self.trace_tensor or we could
+        # end up in an infinite loop since the input *and* output of cast/copy would both
+        # point to this frontend tensor.
+        casted_copied_tensor._eval_for_internal_methods()
+        self.trace_tensor = casted_copied_tensor.trace_tensor
 
     # Left undocumented because these should only be used internally.
     @classmethod
@@ -172,11 +192,17 @@ class Tensor(metaclass=TensorMeta):
 
     @property
     def device(self):
+        # For constants, we want to report where the data currently resides.
+        # Note that on evaluation, it will always be copied to the device.
+        if isinstance(self.trace_tensor.producer, Constant):
+            return self.trace_tensor.producer.device
         return self.trace_tensor.device
 
     def eval(self) -> "nvtripy.Tensor":
         """
         Immediately evaluates this tensor. By default, tensors are evaluated lazily.
+
+        Note that an evaluated tensor will always reside in device memory.
 
         Returns:
             The evaluated tensor.
@@ -195,8 +221,10 @@ class Tensor(metaclass=TensorMeta):
             print(f"Tensor init_time took: {(init_time - start)  * 1000.0:.3f} ms")
             print(f"Tensor evaluation took: {(eval_time - init_time)  * 1000.0:.3f} ms")
         """
-        if isinstance(self.trace_tensor.producer, Constant):
+        if isinstance(self.trace_tensor.producer, Constant) and self.trace_tensor.producer.device.kind == "gpu":
             # Exit early if the tensor has already been evaluated.
+            # We can only do this for Constants that are already on the GPU, since otherwise
+            # we need to evaluate in order to perform a copy from the host to the device.
             # This happens before the imports below so we don't incur extra overhead.
             return self
 
@@ -206,10 +234,24 @@ class Tensor(metaclass=TensorMeta):
 
         trace = Trace([self.trace_tensor])
 
+        # TensorRT requires all constants to start in host memory, so if there's anything on GPU
+        # already, we pull it out into an input.
+        inputs = []
+        for op in trace.ops:
+            if isinstance(op, Constant) and op.device.kind == "gpu":
+                inputs.append(op.outputs[0].frontend_tensor)
+
+        if inputs:
+            trace.trace([self.trace_tensor], [inp.trace_tensor for inp in inputs])
+
         compiler = Compiler(trt_builder_opt_level=0)
         mlir = trace.to_mlir()
-        executable = Executable(compiler.compile(mlir, trace=trace), [], return_single_tensor_as_sequence=False)
-        data = executable().trace_tensor.producer.data
+        executable = Executable(
+            compiler.compile(mlir, trace=trace),
+            arg_names=[f"arg{i}" for i in range(len(inputs))],
+            return_single_tensor_as_sequence=False,
+        )
+        data = executable(*inputs).trace_tensor.producer.data
 
         # Upon computing the value of this tensor, we switch it to have a `Constant`
         # parameter so that it does not need to be computed again.
@@ -220,9 +262,6 @@ class Tensor(metaclass=TensorMeta):
         # Rebind this tensor, but be sure to preserve stack information:
         self.trace_tensor = constant.outputs[0]
         self.trace_tensor.stack_info = self.stack_info
-
-        # TODO (#155): Remove this hack of overriding the device type.
-        self.trace_tensor.device = [out.device for out in trace.outputs][0]
 
         self.trace_tensor.eval_stack_info = utils.stack_info.get_stack_info()
         if self.trace_tensor.is_compile_tracer:
@@ -237,6 +276,12 @@ class Tensor(metaclass=TensorMeta):
                 mode="once",
             )
         return self
+
+    # Special version of eval() that skips evaluation for Constants in host memory.
+    # This should only be used if the method does not care where the data resides.
+    def _eval_for_internal_methods(self):
+        if not isinstance(self.trace_tensor.producer, Constant):
+            self.eval()
 
     def tolist(self) -> Union[List, numbers.Number]:
         """
@@ -265,7 +310,7 @@ class Tensor(metaclass=TensorMeta):
 
             assert tensor_scalar == 2.0
         """
-        self.eval()
+        self._eval_for_internal_methods()
         data_memref = self.trace_tensor.producer.data
         if self.dtype not in (
             datatype.float32,
@@ -276,7 +321,8 @@ class Tensor(metaclass=TensorMeta):
         ):
             from nvtripy.frontend.ops.cast import cast
 
-            cast_tensor = cast(Tensor(data_memref), datatype.float32).eval()
+            cast_tensor = cast(Tensor(data_memref), datatype.float32)
+            cast_tensor._eval_for_internal_methods()
             data_memref = cast_tensor.trace_tensor.producer.data
         return memref.tolist(data_memref)
 
@@ -306,11 +352,11 @@ class Tensor(metaclass=TensorMeta):
 
     # Since the underlying data is an MemRefValue we reuse their __dlpack__() and __dlpack_device__() methods
     def __dlpack__(self, stream: Any = None):
-        self.eval()
+        self._eval_for_internal_methods()
         return self.trace_tensor.producer.data.__dlpack__()
 
     def __dlpack_device__(self):
-        self.eval()
+        self._eval_for_internal_methods()
         return self.trace_tensor.producer.data.__dlpack_device__()
 
     def __bool__(self):

@@ -34,11 +34,6 @@ def make_top_k_op(name, attr_name):
             self.outputs[0].dtype = self.inputs[0].dtype
             self.outputs[1].dtype = datatype.int32
 
-        def infer_devices(self):
-            device = self.inputs[0].device
-            self.outputs[0].device = device
-            self.outputs[1].device = device
-
         def get_num_outputs(self):
             return 2
 

@@ -84,21 +84,21 @@ class TestConstant:
         constant = Constant(data)
         assert constant.dtype == tp.int32
         assert constant.shape == (2, 2)
-        assert constant.device.kind == "gpu"
+        assert constant.device.kind == "cpu"
 
     def test_from_list_float(self):
         data = [[1.0, 2.0], [3.0, 4.0]]
         constant = Constant(data)
         assert constant.dtype == tp.float32
         assert constant.shape == (2, 2)
-        assert constant.device.kind == "gpu"
+        assert constant.device.kind == "cpu"
 
     def test_empty_list(self):
         data = [[]]
         constant = Constant(data)
         assert constant.dtype == tp.float32
         assert constant.shape == (1, 0)
-        assert constant.device.kind == "gpu"
+        assert constant.device.kind == "cpu"
 
     def test_infer_rank(self):
         arr = [1.0, 2.0, 3.0]

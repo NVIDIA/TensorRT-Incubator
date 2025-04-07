@@ -1,4 +1,3 @@
-#
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -13,23 +12,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-
-from dataclasses import dataclass
-
-from mlir_tensorrt.compiler.dialects import tensorrt
-from nvtripy.trace.ops.base import TraceOp
+import nvtripy as tp
+from tests import helper
 
 
-@dataclass(repr=False)
-class Gather(TraceOp):
-    dim: int
-
-    def infer_rank(self):
-        self.outputs[0].rank = self.inputs[0].rank + self.inputs[1].rank - 1
-
-    def infer_dtypes(self):
-        self.outputs[0].dtype = self.inputs[0].dtype
-
-    def to_mlir(self, inputs, outputs):
-        return [tensorrt.gather(inputs[0], inputs[1], axis=self.dim, num_broadcast_dims=0)]
+class TestCopy:
+    def test_cannot_copy_within_same_device_kind(self):
+        cpu_tensor = tp.Tensor(data=[1, 2, 3], device=tp.device("cpu"))
+        with helper.raises(tp.TripyException, match="Copying within the same device kind is not currently supported"):
+            tp.copy(cpu_tensor, tp.device("cpu"))

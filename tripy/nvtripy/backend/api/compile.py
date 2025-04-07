@@ -38,9 +38,10 @@ def compile(
     This works by first calling the function with the provided arguments
     in order to trace its execution, and the compiling the resulting traced graph.
 
-    Parameters that should be runtime inputs in the compiled function should be provided
+    Parameters that should be runtime inputs to the compiled function should be provided
     as :class:`InputInfo` arguments to this function instead of as :class:`Tensor` s. Arguments
-    of any other type will be treated as compile-time constants.
+    of any other type will be treated as compile-time constants. Any constants should be in
+    CPU memory.
 
     Args:
         func: The function or :class:`Module` to optimize. The function must satisfy the following requirements:

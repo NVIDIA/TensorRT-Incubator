@@ -121,9 +121,9 @@ def test_conv_transpose(case, dtype, eager_or_compiled):
         case.bias,
         dtype=dtype,
     )
-    tripy_conv_transpose.weight = tp.Tensor(torch_conv_transpose.weight)
+    tripy_conv_transpose.weight = tp.Tensor(torch_conv_transpose.weight.to("cpu"))
     if case.bias:
-        tripy_conv_transpose.bias = tp.Tensor(torch_conv_transpose.bias)
+        tripy_conv_transpose.bias = tp.Tensor(torch_conv_transpose.bias.to("cpu"))
 
     tripy_out = eager_or_compiled(tripy_conv_transpose, tp.Tensor(inp))
 

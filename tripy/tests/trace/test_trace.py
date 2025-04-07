@@ -97,8 +97,8 @@ class TestTrace:
                 def main() -> (
                     c : tensor<?xi32:gpu:0>
                 ):
-                    a = constant(shape=(1,), dtype=int32, device=gpu:0) : tensor<1xi32:gpu:0>
-                    b = constant(shape=(1,), dtype=int32, device=gpu:0) : tensor<1xi32:gpu:0>
+                    a = constant(shape=(1,), dtype=int32, device=cpu:0) : tensor<1xi32:gpu:0>
+                    b = constant(shape=(1,), dtype=int32, device=cpu:0) : tensor<1xi32:gpu:0>
                     c = add(a : tensor<1xi32:gpu:0>, b : tensor<1xi32:gpu:0>) : tensor<?xi32:gpu:0>
                     return c
                 """
