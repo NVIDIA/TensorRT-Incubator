@@ -23,7 +23,7 @@ from typing import Any, Dict, Iterator, List, Set, Tuple, Union
 
 from nvtripy import export, utils, config
 from nvtripy.common.exception import raise_error
-from nvtripy.frontend.module.parameter import DefaultParameter
+from nvtripy.frontend.module.parameter import ParameterBase, DefaultParameter, OptionalParameter
 from nvtripy.frontend.tensor import Tensor
 from nvtripy.logging import logger
 from nvtripy.utils.function_registry import type_str_from_arg
@@ -37,21 +37,23 @@ def _check_param_compatible(original_param, new_param, param_name):
             f"Expected a tensor for parameter: '{param_name}', but got: {type_str_from_arg(new_param)}",
         )
 
-    if not isinstance(original_param, Tensor) and not isinstance(original_param, DefaultParameter):
+    if not isinstance(original_param, (Tensor, ParameterBase)):
         # Allow values to be initialized to non-tensor types and changed later.
         # Note that this is required for the constructor to work since `original_param` will not be set.
         return
 
     is_compatible = utils.result.Result.ok()
 
-    # We need to evaluate here anyway, so we map the entire shape to numbers upfront to save us from recomputing
-    # them again later.
-    original_shape = tuple(map(int, original_param.shape))
     new_shape = tuple(map(int, new_param.shape))
-    if original_shape != new_shape:
-        is_compatible = utils.result.Result.err(
-            ["New parameter shape: ", new_shape, " is not compatible with current shape: ", original_shape]
-        )
+    do_shape_comparison = not isinstance(original_param, ParameterBase) or original_param.is_shape_known
+    if do_shape_comparison:
+        # We need to evaluate here anyway, so we map the entire shape to numbers upfront to save us from recomputing
+        # them again later.
+        original_shape = tuple(map(int, original_param.shape))
+        if original_shape != new_shape:
+            is_compatible = utils.result.Result.err(
+                ["New parameter shape: ", new_shape, " is not compatible with current shape: ", original_shape]
+            )
 
     # Once we know the concrete shape of the parameter, we can update the trace tensor accordingly.
     # This not only makes the trace more informative, but is actually required for some APIs, like
@@ -228,9 +230,11 @@ class Module:
                     module = operator.attrgetter(child_name)(module)
             return module
 
-        expected_keys = set(self.state_dict())
+        original_sd = self.state_dict()
+        expected_keys = set(original_sd)
+        optional_keys = set(k for k, v in original_sd.items() if isinstance(v, OptionalParameter))
         provided_keys = set(state_dict)
-        missing_keys = expected_keys - provided_keys
+        missing_keys = expected_keys - optional_keys - provided_keys
         unexpected_keys = provided_keys - expected_keys
         if strict and (missing_keys or unexpected_keys):
             details = []
@@ -320,7 +324,7 @@ class Module:
 
             assert [name for name, _ in linear.named_parameters()] == ["alpha", "beta"]
         """
-        yield from self._iterate_members_of_types({Tensor, DefaultParameter})
+        yield from self._iterate_members_of_types({Tensor, ParameterBase})
 
     def __call__(self, *args: Any, **kwargs: Any) -> Any:
         r"""
