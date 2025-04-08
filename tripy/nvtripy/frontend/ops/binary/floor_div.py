@@ -22,7 +22,7 @@ from nvtripy.utils import wrappers
 @register_tensor_method("__floordiv__")
 @wrappers.interface(
     dtype_constraints={"self": "T1", "other": "T1", wrappers.RETURN_VALUE: "T1"},
-    dtype_variables={"T1": ["float32", "float16", "bfloat16", "bool", "int4", "int8", "int32", "int64"]},
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "bool", "int8", "int32", "int64"]},
     convert_to_tensors=True,
 )
 def __floordiv__(self: "nvtripy.Tensor", other: TensorLike) -> "nvtripy.Tensor":

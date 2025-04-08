@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -23,7 +23,7 @@ from nvtripy.utils import wrappers
 @wrappers.interface(
     dtype_constraints={"self": "T1", "other": "T1", wrappers.RETURN_VALUE: "T2"},
     dtype_variables={
-        "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
+        "T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64", "bool"],
         "T2": ["bool"],
     },
     convert_to_tensors=True,

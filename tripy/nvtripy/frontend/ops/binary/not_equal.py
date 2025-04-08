@@ -21,7 +21,7 @@ from nvtripy.utils import wrappers
 @wrappers.interface(
     dtype_constraints={"self": "T1", "other": "T1", wrappers.RETURN_VALUE: "T2"},
     dtype_variables={
-        "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
+        "T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64", "bool"],
         "T2": ["bool"],
     },
     convert_to_tensors=True,

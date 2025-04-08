@@ -37,6 +37,7 @@ from nvtripy.utils import wrappers
         {"T1": "float8", "T2": "int4"},
         {"T1": "float8", "T2": "int8"},
         {"T1": "float8", "T2": "int64"},
+        {"T1": "int8", "T2": "float8"},
         {"T1": "int4", "T2": "float8"},
         {"T1": "int4", "T2": "int8"},
         {"T1": "int4", "T2": "int64"},
