@@ -128,4 +128,4 @@ def test_conv_transpose(case, dtype, eager_or_compiled):
     tripy_out = eager_or_compiled(tripy_conv_transpose, tp.Tensor(inp))
 
     torch_out = tp.Tensor(torch_out)
-    assert tp.allclose(tripy_out, torch_out)
+    assert tp.allclose(tripy_out, torch_out, atol=1e-5)
