@@ -46,7 +46,7 @@ class DtypeConstraintCase:
 DTYPE_CONSTRAINT_CASES: List[DtypeConstraintCase] = []
 
 for dtc in DATA_TYPE_CONSTRAINTS:
-    keys, values = zip(*dtc.variables.items())
+    keys, values = list(zip(*dtc.variables.items()))
 
     def add_cases(combinations, negative):
         for combination in combinations:
@@ -64,11 +64,8 @@ for dtc in DATA_TYPE_CONSTRAINTS:
 
     # Positive cases:
     positive_combinations = list(itertools.product(*values))
-    positive_combinations = [
-        comb
-        for comb in positive_combinations
-        if not any(all(dtc.variables[key] == val for key, val in exception.items()) for exception in dtc.exceptions)
-    ]
+    exceptions = [tuple(exception[key] for key in keys) for exception in dtc.exceptions]
+    positive_combinations = [comb for comb in positive_combinations if comb not in exceptions]
     add_cases(positive_combinations, negative=False)
 
     # Negative cases - we do this by simply generating all possible combinations and removing the positive ones:
