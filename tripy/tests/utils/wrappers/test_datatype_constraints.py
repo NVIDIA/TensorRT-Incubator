@@ -93,7 +93,7 @@ def generate_input_values(case: DtypeConstraintCase):
             "dilation": [1, 1],
         },
         "copy": {
-            "input": tp.Tensor([1, 2, 3], device=tp.device("gpu")),
+            "input": tp.ones((2, 2)),
             "device": tp.device("cpu"),
         },
         "deconvolution": {
@@ -150,15 +150,31 @@ def generate_input_values(case: DtypeConstraintCase):
             # TODO (#579): Enable int4 inputs
             pytest.skip(f"#579: Cannot generate INT4 inputs")
 
+        def copy_input_to_cpu_and_set_shapes():
+            if requires_cpu_const:
+                if isinstance(inputs[param_name], tp.Tensor):
+                    if inputs[param_name].device.kind != "cpu":
+                        inputs[param_name] = tp.copy(inputs[param_name], device=tp.device("cpu"))
+                else:
+                    assert isinstance(inputs[param_name], list), "Unsupported type - please extend this function!"
+                    inputs[param_name] = [
+                        tp.copy(t, device=tp.device("cpu")) if t.device.kind != "cpu" else t for t in inputs[param_name]
+                    ]
+
+            # Some operations, like conv/deconv, require input shapes to be known
+            if isinstance(inputs[param_name], tp.Tensor):
+                inputs[param_name].trace_tensor.shape = tuple(map(int, inputs[param_name].shape))
+            else:
+                assert isinstance(inputs[param_name], list), "Unsupported type - please extend this function!"
+                for t in inputs[param_name]:
+                    t.trace_tensor.shape = tuple(map(int, t.shape))
+
         if case.func.__name__ in CUSTOM_VALUES and param_name in CUSTOM_VALUES[case.func.__name__]:
             inputs[param_name] = CUSTOM_VALUES[case.func.__name__][param_name]
-            if isinstance(inputs[param_name], tp.Tensor) and dtype is not None:
-                inputs[param_name] = tp.cast(inputs[param_name], dtype=dtype)
-                inputs[param_name].eval()
-
-                if requires_cpu_const:
-                    # Ensure the tensor is on CPU if required
-                    inputs[param_name] = tp.copy(inputs[param_name], device=tp.device("cpu"))
+            if isinstance(inputs[param_name], tp.Tensor):
+                if dtype is not None:
+                    inputs[param_name] = tp.cast(inputs[param_name], dtype=dtype)
+                copy_input_to_cpu_and_set_shapes()
             continue
 
         if param.default is not inspect.Parameter.empty and dtype is None:
@@ -170,12 +186,10 @@ def generate_input_values(case: DtypeConstraintCase):
             tensor = tp.Tensor(np.ones((1, 2, 5, 5), dtype=np.float32))
             if "Sequence" in param_type:
                 inputs[param_name] = [tp.cast(tensor, dtype=dtype) for _ in range(2)]
-                if requires_cpu_const:
-                    inputs[param_name] = [tp.copy(t, device=tp.device("cpu")) for t in inputs[param_name]]
+                copy_input_to_cpu_and_set_shapes()
             else:
                 inputs[param_name] = tp.cast(tensor, dtype=dtype)
-                if requires_cpu_const:
-                    inputs[param_name] = tp.copy(inputs[param_name], device=tp.device("cpu"))
+                copy_input_to_cpu_and_set_shapes()
         elif "nvtripy.dtype" in param_type:
             assert dtype is not None, "Data types must have type annotations"
             inputs[param_name] = dtype
