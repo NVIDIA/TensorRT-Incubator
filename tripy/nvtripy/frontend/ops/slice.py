@@ -31,7 +31,7 @@ from nvtripy.utils.utils import make_list
 @register_tensor_method("__getitem__")
 @wrappers.interface(
     dtype_constraints={"self": "T1", wrappers.RETURN_VALUE: "T1"},
-    dtype_variables={"T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"]},
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int4", "int8", "int32", "int64", "bool"]},
 )
 def __getitem__(
     self: "nvtripy.Tensor", index: Union["nvtripy.Tensor", slice, IntLike, Sequence[Union[slice, IntLike]]]

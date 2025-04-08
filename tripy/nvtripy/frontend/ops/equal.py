@@ -18,7 +18,10 @@ from nvtripy.utils import wrappers
 
 
 @export.public_api(document_under="operations/functions")
-@wrappers.interface(dtype_constraints={"input": "T1", "other": "T1"}, dtype_variables={"T1": list(DATA_TYPES.keys())})
+@wrappers.interface(
+    dtype_constraints={"input": "T1", "other": "T1"},
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64", "bool"]},
+)
 def equal(input: "nvtripy.Tensor", other: "nvtripy.Tensor") -> bool:
     r"""
     Returns ``True`` if ``input`` and ``other`` have the same shape and elements.
