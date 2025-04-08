@@ -19,14 +19,29 @@ from typing import Sequence
 from nvtripy.utils.stack_info import get_stack_info
 
 
-class DefaultParameter:
+class ParameterBase:
+    def __init__(self, shape: Sequence[int] | None, dtype: "nvtripy.dtype") -> None:
+        self.shape = shape
+        self.is_shape_known = shape is not None
+        self.dtype = dtype
+        self.stack_info = get_stack_info(1)
+
+
+class DefaultParameter(ParameterBase):
     """
     Denotes a parameter in a module and its expected shape and data type.
 
     Must be replaced with real weights before the module can be run.
     """
 
-    def __init__(self, shape: Sequence[int], dtype: "nvtripy.dtype") -> None:
-        self.shape = shape
-        self.dtype = dtype
-        self.stack_info = get_stack_info(1)
+    def __init__(self, shape: Sequence[int] | None, dtype: "nvtripy.dtype") -> None:
+        super().__init__(shape, dtype)
+
+
+class OptionalParameter(ParameterBase):
+    """
+    Denotes an optional parameter in a module and its expected shape and data type.
+    """
+
+    def __init__(self, shape: Sequence[int] | None, dtype: "nvtripy.dtype") -> None:
+        super().__init__(shape, dtype)

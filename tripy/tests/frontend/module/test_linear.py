@@ -19,6 +19,7 @@ import pytest
 from tests import helper
 
 import nvtripy as tp
+from nvtripy.frontend.module.parameter import DefaultParameter, OptionalParameter
 
 
 class TestLinear:
@@ -56,6 +57,8 @@ class TestLinear:
         assert qlinear.weight.shape == (30, 20)
         assert qlinear.bias.shape == (30,)
         assert qlinear.weight_quant_dim == weight_quant_dim
+        assert isinstance(qlinear.weight_scale, DefaultParameter)
+        assert isinstance(qlinear.input_scale, OptionalParameter)
 
     def test_load_quantized_params_from_state_dict(self):
         qlinear = tp.Linear(
@@ -64,8 +67,12 @@ class TestLinear:
             quant_dtype=tp.int8,
             weight_quant_dim=0,
         )
+        sd = qlinear.state_dict()
+        expected_keys = {"weight", "bias", "weight_scale", "input_scale"}
+        assert expected_keys == set(sd.keys())
 
-        qlinear.load_state_dict(
-            {"weight_scale": tp.ones((30,)), "input_scale": tp.ones((20,))},
+        _, unexpected_keys = qlinear.load_state_dict(
+            {"weight_scale": tp.ones((30,)), "input_scale": tp.Tensor(1.0)},
             strict=False,
         )
+        assert not unexpected_keys
