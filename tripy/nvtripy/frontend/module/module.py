@@ -45,8 +45,7 @@ def _check_param_compatible(original_param, new_param, param_name):
     is_compatible = utils.result.Result.ok()
 
     new_shape = tuple(map(int, new_param.shape))
-    do_shape_comparison = not isinstance(original_param, ParameterBase) or original_param.is_shape_known
-    if do_shape_comparison:
+    if not isinstance(original_param, ParameterBase) or original_param.shape is not None:
         # We need to evaluate here anyway, so we map the entire shape to numbers upfront to save us from recomputing
         # them again later.
         original_shape = tuple(map(int, original_param.shape))

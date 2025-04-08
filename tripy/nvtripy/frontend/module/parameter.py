@@ -15,14 +15,13 @@
 # limitations under the License.
 #
 
-from typing import Sequence
+from typing import Sequence, Optional
 from nvtripy.utils.stack_info import get_stack_info
 
 
 class ParameterBase:
-    def __init__(self, shape: Sequence[int] | None, dtype: "nvtripy.dtype") -> None:
+    def __init__(self, shape: Optional[Sequence[int]], dtype: "nvtripy.dtype") -> None:
         self.shape = shape
-        self.is_shape_known = shape is not None
         self.dtype = dtype
         self.stack_info = get_stack_info(1)
 
@@ -34,8 +33,7 @@ class DefaultParameter(ParameterBase):
     Must be replaced with real weights before the module can be run.
     """
 
-    def __init__(self, shape: Sequence[int] | None, dtype: "nvtripy.dtype") -> None:
-        super().__init__(shape, dtype)
+    pass
 
 
 class OptionalParameter(ParameterBase):
@@ -43,5 +41,4 @@ class OptionalParameter(ParameterBase):
     Denotes an optional parameter in a module and its expected shape and data type.
     """
 
-    def __init__(self, shape: Sequence[int] | None, dtype: "nvtripy.dtype") -> None:
-        super().__init__(shape, dtype)
+    pass
