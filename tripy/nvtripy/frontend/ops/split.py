@@ -27,7 +27,7 @@ from nvtripy.utils import wrappers
 @wrappers.interface(
     dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
     dtype_variables={
-        "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
+        "T1": ["float32", "float16", "bfloat16", "int4", "int8", "int32", "int64", "bool"],
     },
 )
 def split(
