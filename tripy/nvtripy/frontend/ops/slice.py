@@ -79,7 +79,7 @@ def __getitem__(
         input = tp.reshape(tp.arange(6, dtype=tp.float32), (3, 2))
         index = tp.Tensor([2, 0], dtype=tp.int32)
         output = input[index]
-        assert cp.array_equal(cp.from_dlpack(output), cp.from_dlpack(input)[cp.from_dlpack(index)])
+        assert cp.array_equal(cp.from_dlpack(output), cp.from_dlpack(input)[cp.array(np.from_dlpack(index))])
 
     """
     from nvtripy.frontend.dimension_size import DimensionSize

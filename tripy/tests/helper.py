@@ -388,6 +388,7 @@ def process_code_block_for_outputs_and_locals(
     err_msg: str = "",
     local_vars: Dict[str, Any] = None,
     strip_assertions: bool = False,
+    force_no_print_locals: bool = False,
 ):
     # Make sure to update `docs/README.md` if updating the behavior of this function.
     local_vars = utils.utils.default(local_vars, {})
@@ -404,7 +405,7 @@ def process_code_block_for_outputs_and_locals(
         REMOVE_TAGS.append("assert ")
     OMIT_COMMENT = "# doc: omit"
 
-    should_append_locals = True
+    should_append_locals = not force_no_print_locals
     should_append_output = True
     should_eval = True
     allow_exception = False

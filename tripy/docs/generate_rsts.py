@@ -245,6 +245,7 @@ def process_guide(guide_path: str, processed_guide_path: str):
                     format_contents=add_block,
                     err_msg=f"Error while executing code block {index} (line {block.line_number}) from {guide_path}. ",
                     local_vars=code_locals,
+                    force_no_print_locals=block.has_marker("doc: no_print_locals"),
                 )
             )
 
