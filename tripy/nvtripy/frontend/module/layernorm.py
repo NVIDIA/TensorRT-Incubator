@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -27,7 +27,7 @@ from nvtripy.frontend.tensor import Tensor
 
 @export.public_api(document_under="operations/modules")
 @dataclass
-@utils.utils.constant_fields(["dtype", "normalized_shape"])
+@utils.wrappers.constant_fields(["dtype", "normalized_shape"])
 class LayerNorm(Module):
     r"""
     Applies layer normalization over the input tensor:
@@ -70,6 +70,9 @@ class LayerNorm(Module):
 
             layer_norm = tp.LayerNorm(3)
 
+            layer_norm.weight = tp.iota(layer_norm.weight.shape)
+            layer_norm.bias = tp.iota(layer_norm.bias.shape)
+
             input = tp.iota((2, 3), dim=1)
             output = layer_norm(input)
 
@@ -98,7 +101,7 @@ class LayerNorm(Module):
 
         self.eps = eps
 
-    def __call__(self, x: "nvtripy.Tensor") -> "nvtripy.Tensor":
+    def forward(self, x: "nvtripy.Tensor") -> "nvtripy.Tensor":
         r"""
         Args:
             x: The input tensor.
@@ -106,8 +109,9 @@ class LayerNorm(Module):
         Returns:
             A tensor of the same shape as the input.
         """
-        from nvtripy.frontend.ops.reduce import mean, var
-        from nvtripy.frontend.ops.unary_elementwise import rsqrt
+        from nvtripy.frontend.ops.reduce.mean import mean
+        from nvtripy.frontend.ops.reduce.var import var
+        from nvtripy.frontend.ops.unary.rsqrt import rsqrt
 
         # The mean and the variance are computed over the last D dimensions
         D = len(self.normalized_shape)

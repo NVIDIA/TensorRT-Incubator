@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -31,17 +31,19 @@ class TestLinear:
                 super().__init__()
                 self.linear = tp.Linear(4, 2)
 
-            def __call__(self, x):
+            def forward(self, x):
                 return self.linear(x)
 
         net = Network()
-        np_weight = cp.from_dlpack(net.linear.weight).get()
-        np_bias = cp.from_dlpack(net.linear.bias).get()
-
+        net.linear.weight = tp.iota((2, 4))
+        net.linear.bias = tp.iota((2,))
         cp_a1 = cp.ones((3, 4), dtype=cp.float32)
         a1 = tp.Tensor(cp_a1, device=tp.device("gpu"))
 
         out = eager_or_compiled(net, a1)
+
+        np_weight = cp.from_dlpack(net.linear.weight).get()
+        np_bias = cp.from_dlpack(net.linear.bias).get()
 
         np_out = cp_a1.get() @ (np_weight.transpose()) + np_bias
 
@@ -72,10 +74,13 @@ class TestQuantLinear:
                     weight_quant_dim=weight_quant_dim,
                 )
 
-            def __call__(self, x):
+            def forward(self, x):
                 return self.linear(x)
 
         net = Network()
+        net.linear.weight = tp.iota((out_feat, in_feat))
+        net.linear.bias = tp.iota((out_feat,))
+
         net.linear.weight_scale = _get_dummy_scale(weight_quant_dim)
         if use_input_scale:
             net.linear.input_scale = _get_dummy_scale(None)
@@ -86,8 +91,6 @@ class TestQuantLinear:
     @pytest.mark.parametrize("weight_quant_dim", [None, 0, 1])
     def test_quant_linear(self, use_input_scale, quant_dtype, weight_quant_dim, eager_or_compiled):
         net = self._create_network(use_input_scale, quant_dtype, weight_quant_dim)
-        np_weight = cp.from_dlpack(net.linear.weight).get()
-        np_bias = cp.from_dlpack(net.linear.bias).get()
 
         cp_a1 = cp.ones((3, 4), dtype=cp.float32)
         a1 = tp.Tensor(cp_a1, device=tp.device("gpu"))
@@ -100,6 +103,9 @@ class TestQuantLinear:
         else:
             out = eager_or_compiled(net, a1)
 
+            np_weight = cp.from_dlpack(net.linear.weight).get()
+            np_bias = cp.from_dlpack(net.linear.bias).get()
+
             np_out = cp_a1.get() @ (np_weight.transpose()) + np_bias
 
             assert (cp.from_dlpack(out).get() == np.array(np_out)).all()
@@ -107,24 +113,24 @@ class TestQuantLinear:
     @pytest.mark.parametrize(
         "weight_quant_dim, scale",
         [
-            (None, cp.ones((2, 4), dtype=cp.float32)),
+            (None, np.ones((2, 4), dtype=np.float32)),
             (None, 1.0),
-            (0, cp.ones((8,), dtype=cp.float32)),
-            (1, cp.ones((4,), dtype=cp.float32)),
+            (0, np.ones((8,), dtype=np.float32)),
+            (1, np.ones((4,), dtype=np.float32)),
         ],
         ids=["block-wise", "per-tensor", "per-channel-0", "per-channel-1"],
     )
     def test_quant_linear_int4_weight_only(self, weight_quant_dim, scale, eager_or_compiled):
         scale = tp.Tensor(scale)
 
+        # HACK: Use ones for stable accuracy.
+        np_weight = np.ones((8, 4), dtype=np.float32)
+        np_bias = np.ones((8,), dtype=np.float32)
+
         linear = tp.Linear(4, 8, quant_dtype=tp.int4, weight_quant_dim=weight_quant_dim)
         linear.weight_scale = scale
-        # HACK: Use ones for stable accuracy.
-        linear.weight = tp.ones((8, 4))
-        linear.bias = tp.ones((8,))
-
-        np_weight = cp.from_dlpack(linear.weight).get()
-        np_bias = cp.from_dlpack(linear.bias).get()
+        linear.weight = tp.Tensor(np_weight)
+        linear.bias = tp.Tensor(np_bias)
 
         cp_input = cp.ones((4, 4), dtype=np.float32)
         input = tp.Tensor(cp_input, device=tp.device("gpu"))

@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -36,6 +36,7 @@ class TestGroupNorm:
             num_channels=num_channels,
             eps=eps,
             dtype=torch_dtype,
+            device="cuda",
         )
         tp_groupnorm = tp.GroupNorm(
             num_groups=num_groups,
@@ -44,13 +45,13 @@ class TestGroupNorm:
             dtype=tp_dtype,
         )
 
-        tp_groupnorm.weight = tp.Tensor(groupnorm.weight.detach())
-        tp_groupnorm.bias = tp.Tensor(groupnorm.bias.detach())
+        tp_groupnorm.weight = tp.Tensor(groupnorm.weight.to("cpu").detach())
+        tp_groupnorm.bias = tp.Tensor(groupnorm.bias.to("cpu").detach())
 
-        input = torch.arange(torch.prod(torch.Tensor(input_shape))).reshape(input_shape).to(torch_dtype)
+        input = torch.arange(torch.prod(torch.Tensor(input_shape))).reshape(input_shape).to(torch_dtype).to("cuda")
         tp_input = tp.Tensor(input, dtype=tp_dtype)
 
-        output = eager_or_compiled(tp.copy, tp_groupnorm(tp_input), tp.device("cpu"))
+        output = eager_or_compiled(tp_groupnorm, tp_input)
         with torch.no_grad():
             expected = groupnorm(input)
 

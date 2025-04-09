@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,29 +17,29 @@
 
 import pytest
 
-import nvtripy
+import nvtripy as tp
 from nvtripy.common.exception import TripyException
 
 
 class TestDevice:
     def test_basic_construction(self):
-        device = nvtripy.device("cpu")
-        assert device.kind == "cpu"
+        device = tp.device("gpu")
+        assert device.kind == "gpu"
         assert device.index == 0
 
     def test_index_construction(self):
-        device = nvtripy.device("gpu:1")
+        device = tp.device("gpu:0")
         assert device.kind == "gpu"
-        assert device.index == 1
+        assert device.index == 0
 
     def test_invalid_device_kind_is_rejected(self):
         with pytest.raises(TripyException, match="Unrecognized device kind"):
-            nvtripy.device("not_a_real_device_kind")
+            tp.device("not_a_real_device_kind")
 
     def test_negative_device_index_is_rejected(self):
         with pytest.raises(TripyException, match="Device index must be a non-negative integer"):
-            nvtripy.device("cpu:-1")
+            tp.device("gpu:-1")
 
     def test_non_integer_device_index_is_rejected(self):
         with pytest.raises(TripyException, match="Could not interpret"):
-            nvtripy.device("cpu:hi")
+            tp.device("gpu:hi")

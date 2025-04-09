@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,13 +16,14 @@
 #
 
 from nvtripy import export
+from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.utils import wrappers
 
 
 @export.public_api(document_under="operations/functions")
 @wrappers.interface(
     dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
-    dtype_variables={"T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"]},
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64", "bool"]},
 )
 def unsqueeze(input: "nvtripy.Tensor", dim: int) -> "nvtripy.Tensor":
     """
@@ -47,10 +48,13 @@ def unsqueeze(input: "nvtripy.Tensor", dim: int) -> "nvtripy.Tensor":
     """
     from nvtripy.frontend.ops.reshape import reshape
 
-    if dim < 0:
-        # We cannot use process_dim here because we need to add an extra 1.
-        dim = dim + input.rank + 1
+    dim = op_utils.process_dim(dim, input.rank, offset=1)
 
     input_shape = input.shape
-    result_shape = input_shape[:dim] + [1] + input_shape[dim:]
-    return reshape(input, result_shape)
+    result_shape = input_shape[:dim] + (1,) + input_shape[dim:]
+    out = reshape(input, result_shape)
+
+    # Since we know the shape, we can update the trace tensor accordingly.
+    # This is required for some ops like conv/conv_transpose.
+    out.trace_tensor.shape = input.trace_tensor.shape[:dim] + (1,) + input.trace_tensor.shape[dim:]
+    return out

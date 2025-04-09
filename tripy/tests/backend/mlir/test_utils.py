@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -31,9 +31,6 @@ import os
 class TestUtils:
     @pytest.mark.parametrize("dtype", DATA_TYPES.values())
     def test_convert_dtype(self, dtype):
-        if dtype in {nvtripy.bool}:
-            pytest.skip("Bool is not working correctly yet")
-
         with mlir_utils.make_ir_context():
             assert (
                 mlir_utils.get_mlir_dtype(dtype)
@@ -51,17 +48,3 @@ class TestUtils:
                     "bool": ir.IntegerType.get_signless(1),
                 }[dtype.name]
             )
-
-    @pytest.mark.parametrize(
-        "tensor, expected_type, expected_suggestion",
-        [
-            (torch.tensor([1, 2, 3]), "PyTorch Tensor", "tensor.contiguous() or tensor.clone()"),
-            (np.array([1, 2, 3]), "NumPy Array", "np.ascontiguousarray(array) or array.copy(order='C')"),
-            (cp.array([1, 2, 3]), "CuPy Array", "cp.ascontiguousarray(array) or array.copy(order='C')"),
-            ([1, 2, 3], None, None),
-        ],
-    )
-    def test_check_tensor_type_and_suggest_contiguous(self, tensor, expected_type, expected_suggestion):
-        result_type, result_suggestion = mlir_utils.check_tensor_type_and_suggest_contiguous(tensor)
-        assert result_type == expected_type
-        assert result_suggestion == expected_suggestion

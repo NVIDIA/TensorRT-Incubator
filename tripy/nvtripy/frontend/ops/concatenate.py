@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -28,19 +28,21 @@ from nvtripy.utils import wrappers
 @wrappers.interface(
     dtype_constraints={"tensors": "T1", wrappers.RETURN_VALUE: "T1"},
     dtype_variables={
-        "T1": ["float32", "float16", "bfloat16", "int4", "int8", "int32", "int64", "bool"],
+        "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
     },
 )
 def concatenate(tensors: Sequence["nvtripy.Tensor"], dim: int) -> "nvtripy.Tensor":
     r"""
-    Returns a copy of the input tensor on the target device.
+    Concatenates the input tensors along the specified dimension.
 
     Args:
-        tensors: Sequence of tensors of the same type and having the same shape except in the concatenated dimension.
-        dim: the dimension over which the tensors are concatenated.
+        tensors: Sequence of tensors to concatenate.
+                They must have identical shapes expect on the concatenation dimension.
+        dim: The dimension along which the tensors are concatenated.
 
     Returns:
-        Concatenated tensor with shape along `dim` axis equal to sum of dimensions at `dim` axis for all inputs.
+        Concatenated tensor whose shape is the same as the inputs except along ``dim``,
+        whose length is the sum of the lengths of the ``dim`` axis of the inputs.
 
     .. code-block:: python
         :linenos:
@@ -57,5 +59,14 @@ def concatenate(tensors: Sequence["nvtripy.Tensor"], dim: int) -> "nvtripy.Tenso
 
     if len(tensors) == 1:
         return tensors[0]
+
+    ranks = set(tensor.rank for tensor in tensors)
+    if len(ranks) > 1:
+        raise_error(
+            "Concatenated tensors must have equal ranks.",
+            [f"Note: Input ranks were: {', '.join(str(tensor.rank) for tensor in tensors)}."],
+        )
+
+    dim = op_utils.process_dim(dim, tensors[0].rank)
 
     return op_utils.create_op(Concatenate, list(tensors), dim)

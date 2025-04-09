@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,13 +15,9 @@
 # limitations under the License.
 #
 
-import numpy as np
-import re
-import torch
-import pytest
-
 import nvtripy as tp
-from tests import helper
+import pytest
+import torch
 
 DTYPES = [(torch.float16, tp.float16), (torch.float32, tp.float32)]
 
@@ -37,6 +33,7 @@ class TestLayerNorm:
             normalized_shape=normalized_shape,
             eps=eps,
             dtype=torch_dtype,
+            device="cuda",
         )
         tp_layernorm = tp.LayerNorm(
             normalized_shape=normalized_shape,
@@ -44,27 +41,15 @@ class TestLayerNorm:
             dtype=tp_dtype,
         )
 
-        # use Tripy's parameters
-        tp_layernorm.weight = tp.Tensor(layernorm.weight.detach())
-        tp_layernorm.bias = tp.Tensor(layernorm.bias.detach())
+        tp_layernorm.weight = tp.Tensor(layernorm.weight.to("cpu").detach())
+        tp_layernorm.bias = tp.Tensor(layernorm.bias.to("cpu").detach())
 
-        input = torch.arange(torch.prod(torch.Tensor(input_shape))).reshape(input_shape).to(torch_dtype)
+        input = torch.arange(torch.prod(torch.Tensor(input_shape))).reshape(input_shape).to(torch_dtype).to("cuda")
         tp_input = tp.Tensor(input, dtype=tp_dtype)
 
-        output = eager_or_compiled(tp.copy, tp_layernorm(tp_input), tp.device("cpu"))
+        output = eager_or_compiled(tp_layernorm, tp_input)
         with torch.no_grad():
             expected = layernorm(input)
 
         rtol_ = 2e-7 if tp_dtype == tp.float32 else 1e-3
         assert torch.allclose(torch.from_dlpack(output), expected, rtol=rtol_)
-
-    def test_layernorm_improper_dimensions(self):
-        tp_layernorm = tp.LayerNorm(
-            normalized_shape=[2, 2],
-        )
-        x = tp.ones((5, 5, 5))
-        with helper.raises(
-            tp.TripyException,
-            match=re.escape("size of operand dimension 1 (5) is not compatible with size of result dimension 1 (2)"),
-        ):
-            tp_layernorm(x).eval()

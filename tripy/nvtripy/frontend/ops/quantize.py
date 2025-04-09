@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,7 +16,7 @@
 #
 
 import numbers
-from typing import Any, Sequence, Union
+from typing import Optional, Sequence, Union
 
 from nvtripy import export
 from nvtripy.common import datatype
@@ -35,7 +35,7 @@ def quantize(
     input: "nvtripy.Tensor",
     scale: Union["nvtripy.Tensor", numbers.Number, Sequence[numbers.Number], Sequence[Sequence[numbers.Number]]],
     dtype: datatype.dtype,
-    dim: Union[int, Any] = None,
+    dim: Optional[int] = None,
 ) -> "nvtripy.Tensor":
     """
     Quantizes the input Tensor. The valid quantized data types are
@@ -111,7 +111,4 @@ def quantize(
     """
     op_utils.check_qdq_args(input, scale, dtype, dim, True)
 
-    # This is implemented using a special trace op instead of a combination of frontend ops
-    # so that it shows up in the trace and can more easily be pattern matched (by defining our
-    # own trace op, we have finer control over the generated MLIR).
     return op_utils.create_op(Quantize, [input, scale], dtype, dim)

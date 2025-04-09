@@ -1,10 +1,10 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
+# You may obtain input copy of the License at
 #
 # http://www.apache.org/licenses/LICENSE-2.0
 #
@@ -16,7 +16,6 @@
 #
 
 import cupy as cp
-import numpy as np
 import math
 import pytest
 
@@ -24,108 +23,98 @@ import nvtripy as tp
 
 
 class TestSliceOp:
+    @pytest.mark.parametrize("use_constant", [True, False])
     @pytest.mark.parametrize(
-        "dims_a, slice_func",
+        "shape, slice_func",
         [
             ((2,), lambda t: t[-1]),
             ((4,), lambda t: t[-2]),
             ((4,), lambda t: t[1:]),
             ((2, 3, 4), lambda t: t[1, 2, 3]),
-            # flip one dimension
             ((2, 3, 4), lambda t: t[:, ::-1, :]),
-            # negative step size that evenly and unevenly divides
             ((2, 3, 4), lambda t: t[:, :, ::-2]),
-            ((2, 3, 4), lambda t: t[:, :, ::-3]),
-            # both bounds given with negative step size
             ((10,), lambda t: t[8:2:-2]),
-            # one bound given with negative step size
-            ((10,), lambda t: t[8::-2]),
             ((10,), lambda t: t[:2:-2]),
-            # both bounds with uneven step size
-            ((10,), lambda t: t[8:2:-3]),
-            # not the same thing as [10::-1] -- this one leaves off the last element
             ((10,), lambda t: t[10:0:-1]),
-            # clamps the start index for negative step size
             ((10,), lambda t: t[1024:0:-1]),
             ((1, 2, 1, 4), lambda t: t[:, 1, 0, 2:-1]),
-            # ensure that if a slice upper bound is past the end, it is clamped
             ((2, 3, 4), lambda t: t[:3, :4, :5]),
-            # TODO #156: implement when infer_rank is available on frontend tensor
-            # The current way to dynamically add start,limit,stride content to slice params is very hacky and not worth adding right now.
-            # ((2,3,4,5), lambda t: t[:1]),
-            # empty dimension
             ((2, 3, 4), lambda t: t[0:0, :-2, 1:]),
-            # out of bounds slice
-            ((2, 3, 4), lambda t: t[3:5, :-2, 1:]),
-            # ensure that absurdly out of bounds dims will result in an empty tensor
             ((10,), lambda t: t[1234:5678]),
-            # also check with negative step size
             ((10,), lambda t: t[1234:5678:-1]),
-            # also in the usual index ordering
-            ((10,), lambda t: t[5678:1234:-1]),
-            # both out of bounds and negative (should be an empty tensor)
             ((5,), lambda t: t[-5:-12]),
-            # also with negative step size
             ((5,), lambda t: t[-12:-5:-1]),
+            # Empty slices
+            ((10,), lambda t: t[5:2:1]),  # Positive step size with start > stop
+            ((5, 5), lambda t: t[4:1:2, :]),
+            ((10,), lambda t: t[2:5:-1]),  # Negative step size with stop > start
+            ((5, 5), lambda t: t[1:4:-1, :]),
+            ((3, 4, 5), lambda t: t[2:1, 3:2, 4:3]),  # Multi-dimensional empty slices
+            ((3, 4, 5), lambda t: t[1:2, 3:2, ::-1]),
+            # Omitted start, stop, and step
+            ((10,), lambda t: t[:]),  # Omit all
+            ((10,), lambda t: t[2:]),  # Omit stop and step
+            ((10,), lambda t: t[:8]),  # Omit start and step
+            ((10,), lambda t: t[::2]),  # Omit start and stop
+            ((10,), lambda t: t[2:8]),  # Omit step
+            ((10,), lambda t: t[2::2]),  # Omit stop
+            ((10,), lambda t: t[:8:2]),  # Omit start
         ],
     )
-    def test_static_slice_op(self, dims_a, slice_func, eager_or_compiled):
-        a_cp = cp.arange(np.prod(dims_a)).reshape(dims_a).astype(np.float32)
-        a = tp.Tensor(a_cp, device=tp.device("gpu"))
+    def test_slice(self, use_constant, shape, slice_func, eager_or_compiled):
+        if use_constant:
+            input_cp = cp.arange(math.prod(shape)).reshape(shape).astype(cp.float32)
+            input = tp.Tensor(input_cp)
+        else:
+            input = tp.reshape(tp.arange(math.prod(shape)), shape)
+            input_cp = cp.from_dlpack(input)
 
-        def func(a):
-            return slice_func(a)
+        out = eager_or_compiled(slice_func, input)
+        assert out.shape == slice_func(input_cp).shape
+        assert cp.array_equal(cp.from_dlpack(out).get(), slice_func(input_cp).get())
 
-        out = eager_or_compiled(func, a)
-        assert np.array_equal(cp.from_dlpack(out).get(), slice_func(a_cp).get())
+    @pytest.mark.parametrize("use_constant", [True, False])
+    @pytest.mark.parametrize(
+        "shape, slice_func, reference_func",
+        [
+            ((10,), lambda t: t[tp.DimensionSize(2) : tp.DimensionSize(8) : tp.DimensionSize(2)], lambda t: t[2:8:2]),
+            ((10,), lambda t: t[tp.DimensionSize(8) : tp.DimensionSize(2) : tp.DimensionSize(-2)], lambda t: t[8:2:-2]),
+            ((10,), lambda t: t[tp.DimensionSize(2) :: tp.DimensionSize(2)], lambda t: t[2::2]),
+            ((10,), lambda t: t[: tp.DimensionSize(8) : tp.DimensionSize(2)], lambda t: t[:8:2]),
+            ((10,), lambda t: t[:], lambda t: t[:]),  # Omit all
+            ((10,), lambda t: t[tp.DimensionSize(2) :], lambda t: t[2:]),  # Omit stop and step
+            ((10,), lambda t: t[: tp.DimensionSize(8)], lambda t: t[:8]),  # Omit start and step
+            ((10,), lambda t: t[:: tp.DimensionSize(2)], lambda t: t[::2]),  # Omit start and stop
+            ((10,), lambda t: t[tp.DimensionSize(2) : tp.DimensionSize(8)], lambda t: t[2:8]),  # Omit step
+            ((10,), lambda t: t[tp.DimensionSize(2) :: tp.DimensionSize(2)], lambda t: t[2::2]),  # Omit stop
+            ((10,), lambda t: t[: tp.DimensionSize(8) : tp.DimensionSize(2)], lambda t: t[:8:2]),  # Omit start
+        ],
+    )
+    def test_slice_with_dimensionsize(self, use_constant, shape, slice_func, reference_func, eager_or_compiled):
+        if use_constant:
+            input_cp = cp.arange(math.prod(shape)).reshape(shape).astype(cp.float32)
+            input = tp.Tensor(input_cp)
+        else:
+            input = tp.reshape(tp.arange(math.prod(shape)), shape)
+            input_cp = cp.from_dlpack(input)
 
-    def test_slice_as_gather(self, eager_or_compiled):
-        x_data = [0, 1, 2]
-        y_data = [3, 4, 5]
-        x = tp.Tensor(x_data)
-        y = tp.Tensor(y_data)
+        out = eager_or_compiled(slice_func, input)
+        assert out.shape == reference_func(input_cp).shape
+        assert cp.array_equal(cp.from_dlpack(out).get(), reference_func(input_cp).get())
 
-        def slice(y, x):
-            return y[x]
+    @pytest.mark.parametrize(
+        "input_shape, index_shape",
+        [
+            ((3,), (3,)),  # Simple gather
+            ((4, 3, 2), (2, 2)),  # Multi-dimensional gather
+        ],
+    )
+    def test_slice_as_gather(self, input_shape, index_shape, eager_or_compiled):
+        input = tp.reshape(tp.arange(math.prod(input_shape)), input_shape)
+        index = tp.reshape(tp.arange(math.prod(index_shape), dtype=tp.int32), index_shape)
 
-        output = eager_or_compiled(slice, y, x)
+        def slice(input, index):
+            return input[index]
 
-        x_cp = cp.array(x_data)
-        y_cp = cp.array(y_data)
-
-        assert np.array_equal(cp.from_dlpack(output).get(), y_cp[x_cp].get())
-
-        x_shape = (2, 2)
-        y_shape = (4, 3, 2)
-        x_vol = math.prod(x_shape)
-        y_vol = math.prod(y_shape)
-        x = tp.reshape(tp.arange(x_vol, dtype=tp.int32), x_shape)
-        y = tp.reshape(tp.arange(y_vol), y_shape)
-        output = eager_or_compiled(slice, y, x)
-
-        x_cp = cp.arange(x_vol, dtype=cp.int32).reshape(x_shape)
-        y_cp = cp.arange(y_vol).reshape(y_shape)
-
-        assert np.array_equal(cp.from_dlpack(output).get(), y_cp[x_cp].get())
-
-    def test_scalar_index(self):
-        a = tp.ones((2, 3, 4))
-        assert a[0].shape == [3, 4]
-        assert a[0:1].shape == [1, 3, 4]
-
-    def test_end_clamping(self):
-        a = tp.ones((2, 3, 4))
-        # equivalent to a[0:2, 0:3, 3:4]
-        assert a[0:7, 0:12, 3:5].shape == [2, 3, 1]
-
-    def test_tensor_index(self):
-        idx = tp.Tensor(1, dtype=tp.int32)
-        a = tp.ones((2, 3))
-        b = a[idx]
-        assert b.shape == [3]
-
-    def test_empty_slice(self):
-        a = tp.ones((2, 3, 4))
-        b = a[3:2:1]
-        assert b.shape == [0, 3, 4]
-        assert cp.from_dlpack(b).get().tolist() == []
+        output = eager_or_compiled(slice, input, index)
+        assert cp.array_equal(cp.from_dlpack(output).get(), cp.from_dlpack(input)[cp.from_dlpack(index)].get())

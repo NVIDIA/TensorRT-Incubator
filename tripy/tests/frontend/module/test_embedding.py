@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -24,16 +24,15 @@ from tests import helper
 class TestEmbedding:
     def test_embedding(self):
         embedding = tp.Embedding(20, 30)
+        embedding.weight = tp.ones(embedding.weight.shape)
+
         assert isinstance(embedding, tp.Embedding)
         assert cp.from_dlpack(embedding.weight).get().shape == (20, 30)
 
     def test_incorrect_input_dtype(self):
         a = tp.ones((2, 3))
-        linear = tp.Embedding(4, 16)
+        embd = tp.Embedding(4, 16)
+        embd.weight = tp.ones(embd.weight.shape)
 
-        with helper.raises(
-            tp.TripyException,
-            match="Unsupported data type for 'gather'.",
-            has_stack_info_for=[a],
-        ):
-            out = linear(a)
+        with helper.raises(tp.TripyException, match="Unsupported data type in 'gather'."):
+            out = embd(a)

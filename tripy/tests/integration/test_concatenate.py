@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -42,10 +42,13 @@ class TestConcatenate:
 
     @pytest.mark.parametrize(
         "tensor_shapes, dim",
-        [([(2, 3, 4), (2, 4, 4)], 0), ([(4, 5, 6), (4, 1, 6)], -1)],
+        [
+            ([(2, 3, 4), (2, 4, 4)], 0),
+            ([(4, 5, 6), (4, 1, 6)], -1),
+        ],
     )
     def test_negative_concat(self, tensor_shapes, dim, eager_or_compiled):
         tensors = [tp.ones(shape) for shape in tensor_shapes]
-        with helper.raises(tp.TripyException, match=f"not compatible at non-concat index"):
+        with helper.raises(tp.TripyException, match=f"all concat input tensors must have the same dimensions"):
             out = eager_or_compiled(tp.concatenate, tensors, dim=dim)
             print(out)

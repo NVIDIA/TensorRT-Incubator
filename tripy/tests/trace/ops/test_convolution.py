@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -23,6 +23,8 @@ class TestConvolution:
     def test_infer_rank(self):
         input = tp.ones((4, 3, 8, 8), dtype=tp.float32)
         conv_layer = tp.Conv(3, 16, (5, 5), dtype=tp.float32)
+        conv_layer.weight = tp.ones(conv_layer.weight.shape)
+        conv_layer.bias = tp.ones(conv_layer.bias.shape)
         output = conv_layer(input)
 
         assert output.trace_tensor.rank == input.rank

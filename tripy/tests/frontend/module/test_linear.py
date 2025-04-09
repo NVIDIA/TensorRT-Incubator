@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,22 +19,26 @@ import pytest
 from tests import helper
 
 import nvtripy as tp
+from nvtripy.frontend.module.parameter import DefaultParameter, OptionalParameter
 
 
 class TestLinear:
     def test_linear_params(self):
         linear = tp.Linear(20, 30)
         assert isinstance(linear, tp.Linear)
-        assert linear.weight.shape == [30, 20]
-        assert linear.bias.shape == [30]
+        assert linear.weight.shape == (30, 20)
+        assert linear.bias.shape == (30,)
 
     def test_mismatched_input_shapes(self):
         a = tp.ones((2, 3))
         linear = tp.Linear(2, 128)
+
+        linear.weight = tp.ones((128, 2))
+        linear.bias = tp.ones((128,))
         out = linear(a)
 
         with helper.raises(
-            tp.TripyException, match="contracting dimension sizes must match for lhs/rhs", has_stack_info_for=[a]
+            tp.TripyException, match="last dimension of input0 = 3 and last dimension of input1 = 2 but must match"
         ):
             out.eval()
 
@@ -50,11 +54,11 @@ class TestLinear:
         assert isinstance(qlinear, tp.Linear)
         assert qlinear.dtype == tp.float32
         assert qlinear.quant_dtype == quant_dtype
-        assert qlinear.weight.shape == [30, 20]
-        assert qlinear.bias.shape == [30]
+        assert qlinear.weight.shape == (30, 20)
+        assert qlinear.bias.shape == (30,)
         assert qlinear.weight_quant_dim == weight_quant_dim
-        assert isinstance(qlinear.weight_scale, tp.Tensor)
-        assert isinstance(qlinear.input_scale, tp.Tensor)
+        assert isinstance(qlinear.weight_scale, DefaultParameter)
+        assert isinstance(qlinear.input_scale, OptionalParameter)
 
     def test_load_quantized_params_from_state_dict(self):
         qlinear = tp.Linear(
@@ -63,8 +67,12 @@ class TestLinear:
             quant_dtype=tp.int8,
             weight_quant_dim=0,
         )
+        sd = qlinear.state_dict()
+        expected_keys = {"weight", "bias", "weight_scale", "input_scale"}
+        assert expected_keys == set(sd.keys())
 
-        qlinear.load_state_dict(
-            {"weight_scale": tp.ones((30,)), "input_scale": tp.ones((20,))},
+        _, unexpected_keys = qlinear.load_state_dict(
+            {"weight_scale": tp.ones((30,)), "input_scale": tp.Tensor(1.0)},
             strict=False,
         )
+        assert not unexpected_keys

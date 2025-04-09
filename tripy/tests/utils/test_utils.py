@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,12 +15,12 @@
 # limitations under the License.
 #
 
-import pytest
+from collections import defaultdict
 
 import nvtripy as tp
+import pytest
 from nvtripy import utils
 from tests import helper
-from collections import defaultdict
 
 
 class TestMd5:
@@ -35,8 +35,8 @@ class TestMd5:
         [
             # Check devices
             lambda: tp.device("cpu"),
-            lambda: tp.device("cpu:4"),
-            lambda: tp.device("gpu:1"),
+            lambda: tp.device("cpu:0"),
+            lambda: tp.device("gpu:0"),
         ],
     )
     def test_hash_equivalence(self, func):
@@ -46,7 +46,7 @@ class TestMd5:
 
 
 def make_with_constant_field():
-    @utils.utils.constant_fields("field")
+    @utils.wrappers.constant_fields("field")
     class WithConstField:
         def __init__(self):
             self.custom_setter_called_count = defaultdict(int)
@@ -93,7 +93,7 @@ class TestUniqueNameGen:
     @pytest.mark.parametrize(
         "inputs, outputs, expected_prefix",
         [
-            (None, None, ""),
+            (None, None, "_"),
             (["a"], None, "ins_a_"),
             (None, ["b"], "outs_b_"),
             (["a"], ["b"], "ins_a_outs_b_"),
@@ -101,10 +101,9 @@ class TestUniqueNameGen:
         ],
     )
     def test_gen_uid(self, inputs, outputs, expected_prefix):
-        uid = utils.utils.UniqueNameGen.gen_uid(inputs, outputs)
-        assert uid.startswith(expected_prefix)
-        assert uid.endswith(str(utils.utils.UniqueNameGen._counter))
-        assert uid in utils.utils.UniqueNameGen._used_names
+        for suffix in range(2):
+            uid = utils.utils.UniqueNameGen.gen_uid(inputs, outputs)
+            assert uid == f"{expected_prefix}{suffix}"
 
     def test_uniqueness(self):
         uids = [utils.utils.UniqueNameGen.gen_uid() for _ in range(100)]

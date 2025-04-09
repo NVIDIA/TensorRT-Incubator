@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -27,18 +27,17 @@ from nvtripy.utils import wrappers
 
 def infer_dimensions(input: "nvtripy.Tensor", shape: ShapeLike) -> ShapeLike:
 
-    num_unknown_dims = len([dim for dim in shape if op_utils.is_minus_one(dim)])
+    num_unknown_dims = len([dim for dim in shape if op_utils.is_int_equal_to(dim, -1)])
     if num_unknown_dims > 1:
         raise_error(f"The new shape can have at most one inferred dimension (denoted by -1)", [f"Got shape: {shape}."])
 
     if num_unknown_dims == 1:
         input_volume = math.prod(input.shape)
-        known_dims_volume = math.prod(dim for dim in shape if not op_utils.is_minus_one(dim))
-        inferred_dim = (
-            input_volume // known_dims_volume
-        )  # If we have scalars, the floor div ensures the result is an int.
+        known_dims_volume = math.prod(dim for dim in shape if not op_utils.is_int_equal_to(dim, -1))
+        # If we have scalars, the floor div ensures the result is an int:
+        inferred_dim = input_volume // known_dims_volume
 
-        shape = [inferred_dim if op_utils.is_minus_one(dim) else dim for dim in shape]
+        shape = [inferred_dim if op_utils.is_int_equal_to(dim, -1) else dim for dim in shape]
 
     return {"shape": shape}
 
@@ -46,7 +45,7 @@ def infer_dimensions(input: "nvtripy.Tensor", shape: ShapeLike) -> ShapeLike:
 @export.public_api(document_under="operations/functions")
 @wrappers.interface(
     dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
-    dtype_variables={"T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"]},
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int4", "int8", "int32", "int64", "bool"]},
     convert_to_tensors=True,
     conversion_preprocess_func=infer_dimensions,
 )
@@ -71,4 +70,4 @@ def reshape(input: "nvtripy.Tensor", shape: ShapeLike) -> "nvtripy.Tensor":
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.reshape(cp.from_dlpack(input).get(), (1, 6)))
     """
-    return op_utils.create_op(Reshape, [input, shape], None)
+    return op_utils.create_op(Reshape, [input, shape])

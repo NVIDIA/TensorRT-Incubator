@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -81,7 +81,7 @@ def load_quant_weights_from_hf(model, model_type, dtype, quant_mode):
 
     print(f"Loading weights from pretrained model: '{model_type}'")
 
-    tripy_state_dict = model.state_dict()
+    tripy_state_dict = {}
 
     # Load huggingface/transformers model
     model_hf = GPT2LMHeadModel.from_pretrained(model_type)
@@ -95,6 +95,7 @@ def load_quant_weights_from_hf(model, model_type, dtype, quant_mode):
     # See https://paperswithcode.com/method/weight-tying for details on why we do this:
     hf_state_dict["transformer.wte.weight"] = hf_state_dict["lm_head.weight"]
 
+    expected_keys = set(model.state_dict())
     # modelopt has transposed the attn weights
     torch_dtype = getattr(torch, dtype.name)
     for key in hf_keys:
@@ -114,7 +115,7 @@ def load_quant_weights_from_hf(model, model_type, dtype, quant_mode):
         if "ln" not in key:
             weight = weight.to(torch_dtype)
         param = tp.Tensor(weight.contiguous())
+        assert key in expected_keys
         tripy_state_dict[key] = param
-
-    model.load_state_dict(tripy_state_dict)
+    model.load_state_dict(tripy_state_dict, strict=False)
     print("Loaded weights to tripy model.")

@@ -7,7 +7,7 @@
 # Not a contribution
 # Changes made by NVIDIA CORPORATION & AFFILIATES enabling SAM2 with Tripy or otherwise documented as
 # NVIDIA-proprietary are not a contribution and subject to the following terms and conditions:
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -49,7 +49,7 @@ class PositionEmbeddingSine(tp.Module):
             scale = 2 * math.pi
         self.scale = scale
 
-    def __call__(self, x: tp.Tensor):
+    def forward(self, x: tp.Tensor):
         # x: [B, C, H, W]
         B, _, H, W = x.shape
         y_embed = tp.arange(1, H + 1, dtype=tp.float32)
@@ -126,10 +126,10 @@ class PositionEmbeddingRandom(tp.Module):
         # outputs d_1 x ... x d_n x C shape
         return tp.concatenate([tp.sin(coords), tp.cos(coords)], dim=-1)
 
-    def __call__(self, size: Tuple[int, int]) -> tp.Tensor:
-        return self.forward(size)
-
     def forward(self, size: Tuple[int, int]) -> tp.Tensor:
+        return self.forward_impl(size)
+
+    def forward_impl(self, size: Tuple[int, int]) -> tp.Tensor:
         """Generate positional encoding for a grid of the specified size."""
         h, w = size
         grid = tp.ones((h, w), dtype=tp.float32)

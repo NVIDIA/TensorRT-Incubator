@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,9 +15,9 @@
 
 import cupy as cp
 import numpy as np
-from tests import helper
-
 import nvtripy as tp
+import pytest
+from tests import helper
 
 
 class TestArange:
@@ -52,3 +52,14 @@ class TestArange:
         a = tp.ones((1, 5, 1))
         out = tp.arange(a.shape[0], a.shape[1] + 1, a.shape[2])
         assert np.allclose(cp.from_dlpack(out).get(), np.arange(1.0, 6.0, 1.0, dtype=np.float32))
+
+    @pytest.mark.parametrize(
+        "start,stop,step,expected",
+        [
+            (tp.DimensionSize(2), 5, 1, np.arange(2, 5, 1)),
+            (tp.DimensionSize(2), tp.DimensionSize(8), tp.DimensionSize(3), np.arange(2, 8, 3)),
+        ],
+    )
+    def test_dimensionsize_combinations(self, start, stop, step, expected):
+        out = tp.arange(start, stop, step)
+        assert np.allclose(cp.from_dlpack(out).get(), expected.astype(np.float32))

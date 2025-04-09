@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -35,5 +35,8 @@ class TestPooling:
 
     def test_invalid_padding_contents(self):
         a = tp.ones((1, 1, 4, 4))
-        with helper.raises(tp.TripyException, "Padding must be provided as a sequence of pairs of integers."):
+        with helper.raises(
+            tp.TripyException,
+            "For parameter: 'padding', expected an instance of type: 'Sequence[Tuple[int, int]] | None'",
+        ):
             tp.maxpool(a, (2, 2), padding=((1, 1, 1), (1, 1, 1)))

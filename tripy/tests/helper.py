@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -253,7 +253,7 @@ AVAILABLE_MARKERS = {
     # Indicates that a block should be omitted from the rendered documentation. Such blocks may still be evaluated.
     "doc: omit": Marker.from_name("DOC: OMIT"),
     # Indicates that a block should not be evaluated for the documentation.
-    "doc: no_eval": Marker.from_name("DOC: NO_EVAL"),
+    "doc: no_eval_or_format": Marker.from_name("DOC: NO_EVAL_OR_FORMAT"),
     # Indicates that local variables should not be displayed for a code block in the documentation.
     # Useful when the raw code block is also publicly visible and we don't want inline markers (e.g. in the main README.md).
     "doc: no_print_locals": Marker.from_name("DOC: NO_PRINT_LOCALS"),
@@ -388,6 +388,7 @@ def process_code_block_for_outputs_and_locals(
     err_msg: str = "",
     local_vars: Dict[str, Any] = None,
     strip_assertions: bool = False,
+    force_no_print_locals: bool = False,
 ):
     # Make sure to update `docs/README.md` if updating the behavior of this function.
     local_vars = utils.utils.default(local_vars, {})
@@ -404,7 +405,7 @@ def process_code_block_for_outputs_and_locals(
         REMOVE_TAGS.append("assert ")
     OMIT_COMMENT = "# doc: omit"
 
-    should_append_locals = True
+    should_append_locals = not force_no_print_locals
     should_append_output = True
     should_eval = True
     allow_exception = False
@@ -549,12 +550,23 @@ def process_code_block_for_outputs_and_locals(
                 ret += "}"
                 return ret
 
+            def pretty_str_from_tuple(tup):
+                if not tup:
+                    return "tuple()"
+                ret = "(\n"
+                for value in tup:
+                    ret += indent(f"{value},\n", prefix=" " * TAB_SIZE)
+                ret += ")"
+                return ret
+
             locals_str += f"\n>>> {name}"
             if isinstance(obj, tp.Module):
                 locals_str += f"\n{obj}"
                 locals_str += f"\n>>> {name}.state_dict()\n{pretty_str_from_dict(obj.state_dict())}"
             elif isinstance(obj, dict):
                 locals_str += f"\n{pretty_str_from_dict(obj)}"
+            elif isinstance(obj, tuple):
+                locals_str += f"\n{pretty_str_from_tuple(obj)}"
             else:
                 locals_str += f"\n{obj}"
             locals_str += "\n"

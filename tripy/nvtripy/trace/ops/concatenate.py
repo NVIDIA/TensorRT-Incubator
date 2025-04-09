@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,21 +18,18 @@
 from dataclasses import dataclass
 
 import nvtripy.trace.ops.utils as op_utils
-from nvtripy.trace.ops.base import BaseTraceOp
+from mlir_tensorrt.compiler.dialects import tensorrt
+from nvtripy.trace.ops.base import TraceOp
 
 
 @dataclass(repr=False)
-class Concatenate(BaseTraceOp):
+class Concatenate(TraceOp):
     dim: int
 
-    infer_rank = op_utils.InferRankPolicies.max_of_inputs()
+    def infer_rank(self):
+        assert len(set(inp.rank for inp in self.inputs)) == 1, "All inputs must have the same rank!"
+        return op_utils.InferRankPolicies.same_as_input()(self)
 
-    def infer_devices(self):
-        self.outputs[0].device = self.inputs[0].device
-
-    def to_flat_ir(self, inputs, outputs):
-        from nvtripy.flat_ir.ops import ConcatenateOp
-
-        if self.dim < 0:
-            self.dim += inputs[0].rank
-        ConcatenateOp.build(inputs, outputs, dim=self.dim)
+    def to_mlir(self, inputs, outputs):
+        output = tensorrt.concatenation(inputs, axis=self.dim)
+        return [output]

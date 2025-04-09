@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-from typing import Optional
+from typing import Optional, Union
 
 from nvtripy import export
 from nvtripy.common.datatype import int32
@@ -46,3 +46,20 @@ class DimensionSize(Tensor):
         val = self.tolist()
         assert isinstance(val, int)
         return str(val)
+
+    def eval(self) -> "nvtripy.Tensor":
+        from nvtripy.trace.ops.shape import GetDimensionSize, Shape
+
+        # TODO (#593): Generalize this to any branchy graph:
+        # If we find a pattern like Shape -> GetDimensionSize, we want to eval the Shape operation
+        # so that we aren't evaluating the entire graph for each dimension.
+        producer = self.trace_tensor.producer
+        if isinstance(producer, GetDimensionSize) and isinstance(producer.inputs[0].producer, Shape):
+            frontend_tensor = producer.inputs[0].frontend_tensor
+            frontend_tensor.eval()
+
+            dim_size = GetDimensionSize([frontend_tensor.trace_tensor], dim=producer.dim)
+            dim_size.outputs[0].is_compile_tracer = self.trace_tensor.is_compile_tracer
+            self.trace_tensor = dim_size.outputs[0]
+
+        return super().eval()

@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -23,7 +23,6 @@ import torch
 import nvtripy as tp
 from tests.helper import raises, TORCH_DTYPES
 from tests.conftest import skip_if_older_than_sm80, skip_if_older_than_sm89
-import cupy as cp
 
 
 class TestQuantize:
@@ -73,7 +72,7 @@ class TestQuantize:
         "dtype", [tp.float32, tp.float16, pytest.param(tp.bfloat16, marks=skip_if_older_than_sm80)]
     )
     @skip_if_older_than_sm89
-    def test_quantize_fp8_per_tensor(self, dtype, eager_or_compiled):
+    def test_quantize_float8_per_tensor(self, dtype, eager_or_compiled):
         input = torch.tensor([1.0, 2.0], dtype=TORCH_DTYPES[dtype])
         scale = torch.tensor(0.5, dtype=TORCH_DTYPES[dtype])
         input_tp = tp.Tensor(input, dtype=dtype)
@@ -96,7 +95,7 @@ class TestQuantize:
         "dtype", [tp.float32, tp.float16, pytest.param(tp.bfloat16, marks=skip_if_older_than_sm80)]
     )
     @skip_if_older_than_sm89
-    def test_quantize_fp8_per_channel(self, dtype, eager_or_compiled):
+    def test_quantize_float8_per_channel(self, dtype, eager_or_compiled):
         input = torch.tensor([[1.0, 2.0], [3.0, 4.0]], dtype=TORCH_DTYPES[dtype])
         scale = torch.tensor([0.2, 0.1], dtype=TORCH_DTYPES[dtype])
         input_tp = tp.Tensor(input, dtype=dtype)
@@ -138,19 +137,9 @@ class TestQuantize:
 
         def func(inp):
             scale_tp = tp.Tensor(scale)
-            quantized = tp.quantize(input_tp, scale_tp, tp.int4, dim)
+            quantized = tp.quantize(inp, scale_tp, tp.int4, dim)
             dequantized = tp.dequantize(quantized, scale_tp, dtype, dim)
             return dequantized
 
         dequantized = eager_or_compiled(func, input_tp)
         assert torch.equal(input, torch.from_dlpack(dequantized).to("cpu"))
-
-    def test_non_constant_scale(self, eager_or_compiled):
-        input = tp.ones((4, 4))
-        scale = tp.ones((4,))
-
-        def func(input):
-            return tp.quantize(input, scale, tp.int8, dim=0)
-
-        quantized = eager_or_compiled(func, input)
-        assert bool(cp.all(cp.from_dlpack(quantized) == cp.ones((4, 4), dtype=cp.int8)))

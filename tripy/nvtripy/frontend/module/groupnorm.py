@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -27,7 +27,7 @@ from nvtripy.frontend.tensor import Tensor
 
 @export.public_api(document_under="operations/modules")
 @dataclass
-@utils.utils.constant_fields(["num_groups", "num_channels", "dtype"])
+@utils.wrappers.constant_fields(["num_groups", "num_channels", "dtype"])
 class GroupNorm(Module):
     r"""
     Applies group normalization over the input tensor:
@@ -68,18 +68,21 @@ class GroupNorm(Module):
         .. code-block:: python
             :linenos:
 
-            group_norm = tp.GroupNorm(2, 4)
-            group_norm.weight = tp.ones_like(group_norm.weight)
-            group_norm.bias = tp.zeros_like(group_norm.bias)
+            group_norm = tp.GroupNorm(2, 2)
 
-            input = tp.iota((1, 4, 2, 2), dim=1)
+            group_norm.weight = tp.iota(group_norm.weight.shape)
+            group_norm.bias = tp.iota(group_norm.bias.shape)
+
+            input = tp.iota((1, 2, 2, 2), dim=1)
             output = group_norm(input)
 
             np_out = cp.from_dlpack(output).get() # doc: omit
-            assert np_out.shape == (1, 4, 2, 2)
+            assert np_out.shape == (1, 2, 2, 2)
 
             torch_tensor = torch.from_dlpack(input) # doc: omit
-            torch_gn = torch.nn.GroupNorm(2, 4).to(torch.device("cuda")) # doc: omit
+            torch_gn = torch.nn.GroupNorm(2, 2).to(torch.device("cuda")) # doc: omit
+            torch_gn.weight.data = torch.from_dlpack(group_norm.weight) # doc: omit
+            torch_gn.bias.data = torch.from_dlpack(group_norm.bias) # doc: omit
             torch_out = cp.from_dlpack(torch_gn(torch_tensor).detach()).get() # doc: omit
             assert np_out.shape == torch_out.shape # doc: omit
             assert np.allclose(np_out, torch_out) # doc: omit
@@ -101,7 +104,7 @@ class GroupNorm(Module):
         self.bias = DefaultParameter((num_channels,), dtype=dtype)
         self.eps = eps
 
-    def __call__(self, x: "nvtripy.Tensor") -> "nvtripy.Tensor":
+    def forward(self, x: "nvtripy.Tensor") -> "nvtripy.Tensor":
         r"""
         Args:
             x: The input tensor.
@@ -109,9 +112,10 @@ class GroupNorm(Module):
         Returns:
             A tensor of the same shape as the input.
         """
-        from nvtripy.frontend.ops.reduce import mean, var
+        from nvtripy.frontend.ops.reduce.mean import mean
+        from nvtripy.frontend.ops.reduce.var import var
         from nvtripy.frontend.ops.reshape import reshape
-        from nvtripy.frontend.ops.unary_elementwise import rsqrt
+        from nvtripy.frontend.ops.unary.rsqrt import rsqrt
 
         input_shape = x.shape
 

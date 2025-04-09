@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -109,14 +109,18 @@ def test_tripy_overhead():
         Returns the overhead introduced by Tripy code for the specified number
         of input/output tensors of a function in microseconds.
         """
+        import nvtripy as tp
+
         assert num_io > 0
 
         arg_str = ", ".join(f"arg{num}" for num in range(num_io))
+        # TODO (#496): Remove tp.relu after no-op functions work correctly and reset
+        # thresholds: 75 -> 45, 30 -> 10.
         exec(
             dedent(
                 f"""
                 def func({arg_str}):
-                    return {arg_str}
+                    return [tp.relu(x) for x in [{arg_str}]]
                 """
             ),
             locals(),
@@ -144,11 +148,11 @@ def test_tripy_overhead():
     deltas = [n - p for p, n in zip(overheads[:-1], overheads[1:])]
     print(f"overheads: {overheads}")
     print(f"deltas: {deltas}")
-    assert all(delta < 45 for delta in deltas)
+    assert all(delta < 75 for delta in deltas)
 
     # Ensure all deltas are within a few microseconds of each other
     average_delta = sum(deltas) / float(len(deltas))
-    assert all(abs(delta - average_delta) < 10 for delta in deltas)
+    assert all(abs(delta - average_delta) < 30 for delta in deltas)
 
 
 def test_tripy_param_update(benchmark):

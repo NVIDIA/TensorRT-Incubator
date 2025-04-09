@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,15 +18,10 @@
 from typing import Optional, Tuple
 
 import mlir_tensorrt.compiler.api as compiler
-from mlir_tensorrt.compiler import ir
-
 import nvtripy.config as cfg
+from mlir_tensorrt.compiler import ir
 from nvtripy import config, utils
-from nvtripy.backend.mlir.utils import (
-    make_ir_context,
-    map_error_to_user_code_and_raise,
-    redirect_stderr,
-)
+from nvtripy.backend.mlir.utils import make_ir_context, map_error_to_user_code_and_raise, redirect_stderr
 from nvtripy.logging import logger
 
 G_COMPILER_CLIENT = None
@@ -53,43 +48,38 @@ class Compiler:
         self.mlir_context, self.compiler_client = _get_compiler_objects()
         self.trt_builder_opt_level = trt_builder_opt_level
 
-    def _make_mlir_opts(self, trt_builder_opt_level):
+    def _get_compilation_task(self, trt_builder_opt_level):
         opts = [
             f"--tensorrt-timing-cache-path={G_TIMING_CACHE_FILE}",
             f"--tensorrt-builder-opt-level={trt_builder_opt_level}",
             "--tensorrt-strongly-typed=True",
+            "--force-entrypoints-return-allocs",
         ]
         if config.enable_mlir_debug or config.enable_tensorrt_debug:
             opts.append("--debug=true")
             if config.enable_mlir_debug:
                 opts.append(f"--debug-only={config.mlir_debug_types}")
+                opts.append(f"--mlir-print-ir-after-all")
                 opts.append(f"--mlir-print-ir-tree-dir={config.mlir_debug_tree_path}")
             if config.enable_tensorrt_debug:
                 opts.append(f"--tensorrt-layer-info-dir={config.tensorrt_debug_path}")
                 opts.append(f"--tensorrt-engines-dir={config.tensorrt_debug_path}")
-        return compiler.StableHLOToExecutableOptions(self.compiler_client, opts)
+        return self.compiler_client.get_compilation_task("tensorrt-to-executable", opts)
 
-    def compile_stabehlo_program(self, code: str) -> compiler.Executable:
-        with self.mlir_context:
-            module = ir.Module.parse(code)
-            opts = self._make_mlir_opts(self.trt_builder_opt_level)
-            return compiler.compiler_stablehlo_to_executable(self.compiler_client, module.operation, opts)
-
-    # The optional flat_ir parameter is used to generate nicer error messages.
+    # The optional trace parameter is used to generate nicer error messages.
     @utils.utils.log_time
-    def compile(self, mlir_module: ir.Module, flat_ir: Optional["FlatIR"] = None) -> compiler.Executable:
-        logger.mlir(lambda: f"{mlir_module.operation.get_asm(large_elements_limit=32)}\n")
-        opts = self._make_mlir_opts(self.trt_builder_opt_level)
+    def compile(self, module: ir.Module, trace: Optional["Trace"] = None) -> compiler.Executable:
+        logger.mlir(lambda: f"{module.operation.get_asm(large_elements_limit=32)}\n")
+        task = self._get_compilation_task(self.trt_builder_opt_level)
 
         try:
             with redirect_stderr() as outfile:
-                executable = compiler.compiler_stablehlo_to_executable(
-                    self.compiler_client, mlir_module.operation, opts
-                )
+                task.run(module.operation)
+                executable = compiler.translate_mlir_to_executable(module.operation)
         except Exception as exc:
             outfile.flush()
             outfile.seek(0)
             stderr = outfile.read()
-            map_error_to_user_code_and_raise(flat_ir, exc, stderr.decode())
+            map_error_to_user_code_and_raise(trace, exc, stderr.decode())
         else:
             return executable

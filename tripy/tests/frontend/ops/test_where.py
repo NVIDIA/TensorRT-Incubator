@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -37,11 +37,7 @@ class TestWhere:
         b = tp.ones((3,), dtype=tp.float32)
         c = tp.where(cond, a, b)
 
-        with helper.raises(
-            tp.TripyException,
-            match=re.escape("size of operand dimension 0 (3) is not compatible with size of result dimension 0 (2)"),
-            has_stack_info_for=[a, b, c, cond],
-        ):
+        with helper.raises(tp.TripyException, match="broadcast dimensions must be conformable"):
             c.eval()
 
     def test_mismatched_input_dtypes(self):
@@ -49,7 +45,7 @@ class TestWhere:
         a = tp.ones((2,), dtype=tp.float32)
         b = tp.ones((2,), dtype=tp.float16)
 
-        with helper.raises(tp.TripyException, match="Mismatched data types for 'where'.", has_stack_info_for=[a, b]):
+        with helper.raises(tp.TripyException, match="Mismatched data types in 'where'."):
             c = tp.where(cond, a, b)
 
     def test_condition_is_not_bool(self):
@@ -57,7 +53,7 @@ class TestWhere:
         a = tp.ones((2,), dtype=tp.float32)
         b = tp.ones((2,), dtype=tp.float32)
 
-        with helper.raises(tp.TripyException, match="Unsupported data type for 'where'.", has_stack_info_for=[cond]):
+        with helper.raises(tp.TripyException, match="Unsupported data type in 'where'."):
             c = tp.where(cond, a, b)
 
 
@@ -66,7 +62,5 @@ class TestMaskedFill:
         a = tp.Tensor([0, 1, 0, 1])
         mask = tp.Tensor([1.0, 2.0, 3.0, 4.0])
 
-        with helper.raises(
-            tp.TripyException, match="Unsupported data type for 'masked_fill'.", has_stack_info_for=[mask]
-        ):
+        with helper.raises(tp.TripyException, match="Unsupported data type in 'masked_fill'."):
             b = tp.masked_fill(a, mask, -1)

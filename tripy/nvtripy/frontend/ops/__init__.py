@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,7 +16,8 @@
 #
 
 # Here we import only those ops which need to add themselves to the tensor method registry
-import nvtripy.frontend.ops.binary_elementwise
+from nvtripy.frontend.ops.binary import *
+from nvtripy.frontend.ops.unary import *
 import nvtripy.frontend.ops.matmul
 import nvtripy.frontend.ops.shape
 import nvtripy.frontend.ops.slice

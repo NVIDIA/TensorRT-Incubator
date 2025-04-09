@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,38 +15,75 @@
 # limitations under the License.
 #
 
+import mlir_tensorrt.runtime.api as runtime
 from nvtripy import export
-from nvtripy.frontend.ops import utils as op_utils
-from nvtripy.trace.ops.copy import Copy
+from nvtripy.backend.mlir.utils import MLIRRuntimeClient
+from nvtripy.common import device as tp_device
+from nvtripy.common.datatype import DATA_TYPES
+from nvtripy.common.exception import raise_error
 from nvtripy.utils import wrappers
 
 
 @export.public_api(document_under="operations/functions")
 @wrappers.interface(
     dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
-    dtype_variables={
-        "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
-    },
+    dtype_variables={"T1": list(DATA_TYPES.keys())},
 )
-def copy(input: "nvtripy.Tensor", device: "nvtripy.device") -> "nvtripy.Tensor":
+def copy(input: "nvtripy.Tensor", device: tp_device) -> "nvtripy.Tensor":
     r"""
-    Returns a copy of the input tensor on the target device.
+    Copies the input tensor to the specified device.
+
+    .. caution:: This function cannot be used in a compiled function or :class:`nvtripy.Module`
+        because it depends on evaluating its inputs, which is not allowed during compilation.
 
     Args:
-        input: Tensor that will be copied
-        device: The target device.
+        input: Input tensor.
+        device: The target device to copy the tensor to.
 
     Returns:
-        A copy of input tensor on target device.
+        A new tensor on the specified device.
+
+    Raises:
+        TripyException: If the input tensor is already on the specified device, as
+            performing copies within the same device is currently not supported.
 
     .. code-block:: python
         :linenos:
+        :caption: Copying To CPU
 
-        input = tp.Tensor([1, 2], device=tp.device("gpu"))
-        output = tp.copy(input, tp.device("cpu"))
+        input = tp.Tensor([1, 2, 3], device=tp.device("gpu"))
+        output = tp.copy(input, device=tp.device("cpu"))
 
-        assert np.array_equal(np.from_dlpack(output), np.array([1, 2], dtype=np.float32))
-        assert output.trace_tensor.producer.device.kind == "cpu"
+    .. code-block:: python
+        :linenos:
+        :caption: Copying To GPU
+
+        input = tp.Tensor([1, 2, 3])
+        output = tp.copy(input, device=tp.device("gpu"))
+
     """
+    from nvtripy.frontend.tensor import Tensor
 
-    return op_utils.create_op(Copy, [input], device)
+    input._eval_for_internal_methods()  # Avoid `eval()` - don't want to inadvertently move the tensor to GPU.
+    memref = input.trace_tensor.producer.data
+    runtime_client = MLIRRuntimeClient()  # This is a singleton class, so we aren't creating it on each function call.
+
+    # TODO (#577): Support copying between different GPUs:
+    if input.device.kind == "cpu" and device.kind == "gpu":
+        assert memref.address_space == runtime.PointerType.host
+        out_memref = runtime_client.copy_to_device(
+            host_memref=memref,
+            device=runtime_client.get_devices()[device.index],
+        )
+    elif input.device.kind == "gpu" and device.kind == "cpu":
+        assert memref.address_space == runtime.PointerType.device
+        out_memref = runtime_client.copy_to_host(device_memref=memref)
+    else:
+        raise_error(
+            "Copying within the same device kind is not currently supported. Please file an issue if you need this functionality!",
+            [
+                f"Input tensor has device kind: {input.device.kind}, which is the same kind as the target device: {device}."
+            ],
+        )
+
+    return Tensor(out_memref)

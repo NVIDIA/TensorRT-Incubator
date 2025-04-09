@@ -7,7 +7,7 @@
 # Not a contribution
 # Changes made by NVIDIA CORPORATION & AFFILIATES enabling SAM2 with Tripy or otherwise documented as
 # NVIDIA-proprietary are not a contribution and subject to the following terms and conditions:
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -72,7 +72,7 @@ class MemoryAttentionLayer(tp.Module):
         # Self-Attention
         tgt2 = tp.cast(self.norm1(tp.cast(tgt, self.norm1.dtype)), self.dtype)
         q = k = tgt2 + query_pos if self.pos_enc_at_attn else tgt2
-        tgt2 = self.self_attn(q, k, v=tgt2, num_k_exclude_rope=tp.Tensor([0]))
+        tgt2 = self.self_attn(q, k, v=tgt2, num_k_exclude_rope=0)
         tgt = tgt + tgt2
         return tgt
 
@@ -91,13 +91,13 @@ class MemoryAttentionLayer(tp.Module):
         tgt = tgt + tgt2
         return tgt
 
-    def __call__(
+    def forward(
         self,
         tgt,
         memory,
         pos: Optional[tp.Tensor] = None,
         query_pos: Optional[tp.Tensor] = None,
-        num_k_exclude_rope: Optional[tp.Tensor] = None,
+        num_k_exclude_rope: Optional[tp.types.IntLike] = None,
     ) -> tp.Tensor:
 
         # Self-Attn, Cross-Attn
@@ -184,7 +184,7 @@ class MemoryAttention(tp.Module):
             )
             self.layers.append(memory_attn_layer)
 
-    def __call__(
+    def forward(
         self,
         curr: tp.Tensor,  # self-attention inputs
         memory: tp.Tensor,  # cross-attention inputs

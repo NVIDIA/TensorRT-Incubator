@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 from typing import List, Set
 
 from nvtripy import utils
+from nvtripy.common.device import device
 from nvtripy.trace.tensor import TraceTensor
 
 _COUNT = 0
@@ -28,13 +29,13 @@ _COUNT = 0
 def _get_unique_name():
     global _COUNT
 
-    name = f"t{_COUNT}"
+    name = f"%t{_COUNT}"
     _COUNT += 1
     return name
 
 
 @dataclass(repr=False)
-class BaseTraceOp(abc.ABC):
+class TraceOp(abc.ABC):
     """
     Abstract base class for trace operations in the computational graph.
 
@@ -90,20 +91,24 @@ class BaseTraceOp(abc.ABC):
         """
         Infers devices for the operation and updates output tensor devices accordingly.
         """
-        assert (
-            self.inputs and len(self.outputs) == 1 and all(inp.device == self.inputs[0].device for inp in self.inputs)
-        ), "Default implementation cannot handle cases where there are no inputs, multiple outputs, or multiple inputs with different devices. Please override."
-        self.outputs[0].device = self.inputs[0].device
+
+        # TODO (#577): Support multiple devices here:
+        # All operations in TRT create outputs on the GPU:
+        for out in self.outputs:
+            out.device = device.fast_init("gpu", 0)
 
     @abc.abstractmethod
-    def to_flat_ir(self, inputs: List["FlatIRTensor"], outputs: List["FlatIRTensor"]):
+    def to_mlir(self, inputs: List["ir.Operation"], outputs: List["ir.RankedTensorType"]) -> List["ir.Operation"]:
         """
-        Generates a FlatIR subgraph for the operation and binds it to the specified
-        inputs and outputs.
+        Generates MLIR operations for the operation.
 
         Args:
-            inputs: The inputs to the subgraph.
-            outputs: The outputs of the subgraph.
+            inputs: The input MLIR operations.
+            outputs: The tensor types of the outputs.
+
+        Returns:
+            The output MLIR operations, which may be the same as `outputs`, or may be newly created
+            outputs, in which case `outputs` will be discarded.
         """
         ...
 
@@ -120,15 +125,22 @@ class BaseTraceOp(abc.ABC):
         Returns:
             The Trace string representation of the operation.
         """
-        assert len(self.outputs) == 1, "Base class implementation only works for single output operations!"
-
         skip_fields = self.str_skip_fields()
         args = [
             f"{field.name}={getattr(self, field.name)}"
-            for field in utils.utils.get_dataclass_fields(self, BaseTraceOp)
+            for field in utils.utils.get_dataclass_fields(self, TraceOp)
             if field.name not in skip_fields
         ]
-        return f"{self.outputs[0].name} = {self.__class__.__name__.lower()}({', '.join([inp.name for inp in self.inputs] + args)})"
+
+        out_types = f"{', '.join(f'tensor{out.type_descriptor()}' for out in self.outputs)}"
+        if len(self.outputs) > 1:
+            out_types = f"({out_types})"
+
+        return (
+            f"{', '.join(out.name for out in self.outputs)} = {utils.utils.pascal_to_snake_case(self.__class__.__name__)}"
+            f"({', '.join([inp.name + f' : tensor{inp.type_descriptor()}' for inp in self.inputs] + args)})"
+            f" : {out_types}"
+        )
 
     def __repr__(self) -> str:
         # This is a hack to prevent printing the entire stack info when we print this.

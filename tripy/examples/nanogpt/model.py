@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -43,6 +43,9 @@ def linear_layer(config: GPTConfig, in_feat, out_feat, bias):
     elif config.quant_mode == "int4-weight-only":
         quant_kwargs["quant_dtype"] = tp.int4
         quant_kwargs["weight_quant_dim"] = None
+    elif config.quant_mode == "float8":
+        quant_kwargs["quant_dtype"] = tp.float8
+        quant_kwargs["weight_quant_dim"] = None
 
     return tp.Linear(
         in_feat,
@@ -68,12 +71,12 @@ class CausalSelfAttention(tp.Module):
             (1, 1, config.block_size, config.block_size),
         )
 
-    def __call__(self, x: tp.Tensor):
+    def forward(self, x: tp.Tensor):
         B, T = x.shape[0:2]
         qkv = self.c_attn(x)  # (batch_size, seq_len, 3 * embedding_size)
 
         # WAR for better accuracy and avoid TRT compilation error in fp16
-        if self.c_attn.quant_dtype == tp.int4:
+        if self.c_attn.quant_dtype in (tp.float8, tp.int4):
             qkv = tp.cast(qkv, tp.float32)
 
         q, k, v = tp.split(qkv, 3, dim=2)
@@ -104,7 +107,7 @@ class MLP(tp.Module):
         self.c_fc = linear_layer(config, config.embedding_size, 4 * config.embedding_size, config.bias)
         self.c_proj = linear_layer(config, 4 * config.embedding_size, config.embedding_size, config.bias)
 
-    def __call__(self, x):
+    def forward(self, x):
         x = self.c_fc(x)
         x = tp.gelu(x)
         x = self.c_proj(x)
@@ -119,7 +122,7 @@ class Block(tp.Module):
         self.ln_2 = tp.LayerNorm(config.embedding_size)
         self.mlp = MLP(config)
 
-    def __call__(self, x):
+    def forward(self, x):
         x_ln1 = tp.cast(self.ln_1(tp.cast(x, self.ln_1.dtype)), x.dtype)
         x = x + self.attn(x_ln1)
         x_ln2 = tp.cast(self.ln_2(tp.cast(x, self.ln_2.dtype)), x.dtype)
@@ -136,7 +139,7 @@ class Transformer(tp.Module):
         self.h = tp.Sequential(*[Block(config) for _ in range(config.num_layers)])
         self.ln_f = tp.LayerNorm(config.embedding_size)
 
-    def __call__(self, idx):
+    def forward(self, idx):
         tok_emb = self.wte(idx)  # token embeddings of shape (batch_size, seq_len, embedding_size)
         pos = tp.unsqueeze(tp.arange(self.seq_len, dtype=tp.int32)[: idx.shape[1]], 0)
         pos_emb = self.wpe(pos)  # position embeddings of shape (seq_len, embedding_size)
@@ -156,10 +159,14 @@ class GPT(tp.Module):
         ), f"Cannot forward sequence of length {config.seq_len}, block size is only {config.block_size}"
 
         self.transformer = Transformer(config)
-        # Quantization is disabled for `lm_head`
-        self.lm_head = tp.Linear(config.embedding_size, config.vocab_size, bias=False, dtype=config.dtype)
 
-    def __call__(self, idx):
+        if config.quant_mode == "float8":
+            self.lm_head = linear_layer(config, config.embedding_size, config.vocab_size, bias=False)
+        else:
+            # Quantization is disabled for `lm_head` except for FP8.
+            self.lm_head = tp.Linear(config.embedding_size, config.vocab_size, bias=False, dtype=config.dtype)
+
+    def forward(self, idx):
         x = self.transformer(idx)
         logits = self.lm_head(x)  # (batch_size, seq_len, embedding_size) -> (batch_size, seq_len, vocab_size)
         return logits

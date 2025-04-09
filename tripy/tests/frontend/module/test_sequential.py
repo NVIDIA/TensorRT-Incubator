@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-# SPDX-LicenseCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-LicenseCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 import cupy as cp
@@ -27,29 +27,55 @@ from tests import helper
 from textwrap import dedent
 
 
+def get_linear_layers():
+    linear0 = tp.Linear(1, 3)
+    linear0.weight = tp.ones(linear0.weight.shape)
+    linear0.bias = tp.ones(linear0.bias.shape)
+
+    linear1 = tp.Linear(3, 2)
+    linear1.weight = tp.ones(linear1.weight.shape)
+    linear1.bias = tp.ones(linear1.bias.shape)
+
+    return [linear0, linear1]
+
+
 @pytest.fixture
 def sequential_network():
-    yield tp.Sequential(tp.Linear(1, 3), tp.Linear(3, 2))
+    yield tp.Sequential(*get_linear_layers())
 
 
 @pytest.fixture
 def dict_sequential_network():
-    yield tp.Sequential({"layer1": tp.Linear(1, 3), "layer2": tp.Linear(3, 2)})
+    linear0, linear1 = get_linear_layers()
+    yield tp.Sequential({"layer1": linear0, "layer2": linear1})
 
 
 @pytest.fixture
 def mixed_container_sequential_network():
+    conv = tp.Conv(in_channels=2, out_channels=2, kernel_dims=(1, 1), stride=(1, 1))
+    conv.weight = tp.ones(conv.weight.shape)
+    conv.bias = tp.ones(conv.bias.shape)
+
+    linear = tp.Linear(2, 1)
+    linear.weight = tp.ones(linear.weight.shape)
+    linear.bias = tp.ones(linear.bias.shape)
+
     yield tp.Sequential(
-        tp.Conv(in_channels=2, out_channels=2, kernel_dims=(1, 1), stride=(1, 1)),
+        conv,
         lambda x: tp.avgpool(x, kernel_dims=(2, 2), stride=(1, 1)),
         lambda x: tp.flatten(x, start_dim=1),
-        tp.Linear(2, 1),
+        linear,
     )
 
 
 @pytest.fixture
 def nested_sequential_network():
-    yield tp.Sequential(tp.Linear(2, 4), tp.Sequential(tp.Linear(4, 3), tp.Linear(3, 1)))
+    linear0 = tp.Linear(2, 1)
+    linear0.weight = tp.ones(linear0.weight.shape)
+    linear0.bias = tp.ones(linear0.bias.shape)
+
+    linear1, linear2 = get_linear_layers()
+    yield tp.Sequential(linear0, tp.Sequential(linear1, linear2))
 
 
 class TestSequential:
@@ -65,7 +91,7 @@ class TestSequential:
     def test_forward_pass(self, sequential_network):
         input_data = tp.Tensor([1.0])
         output = sequential_network(input_data)
-        assert output.shape == [1, 2]
+        assert output.shape == (1, 2)
 
     def test_state_dict(self, sequential_network):
         state_dict = sequential_network.state_dict()
@@ -94,12 +120,12 @@ class TestSequential:
             """
             Sequential(
                 0: Module = Linear(
-                    weight: Parameter = (shape=[3, 1], dtype=float32),
-                    bias: Parameter = (shape=[3], dtype=float32),
+                    weight: Parameter = (shape=(3, 1), dtype=float32),
+                    bias: Parameter = (shape=(3,), dtype=float32),
                 ),
                 1: Module = Linear(
-                    weight: Parameter = (shape=[2, 3], dtype=float32),
-                    bias: Parameter = (shape=[2], dtype=float32),
+                    weight: Parameter = (shape=(2, 3), dtype=float32),
+                    bias: Parameter = (shape=(2,), dtype=float32),
                 ),
             )
             """
@@ -121,7 +147,7 @@ class TestDictSequential:
     def test_forward_pass(self, dict_sequential_network):
         input_data = tp.Tensor([[1.0]])
         output = dict_sequential_network(input_data)
-        assert output.shape == [1, 2]
+        assert output.shape == (1, 2)
 
     def test_state_dict(self, dict_sequential_network):
         state_dict = dict_sequential_network.state_dict()
@@ -143,12 +169,12 @@ class TestDictSequential:
             """
             Sequential(
                 layer1: Module = Linear(
-                    weight: Parameter = (shape=[3, 1], dtype=float32),
-                    bias: Parameter = (shape=[3], dtype=float32),
+                    weight: Parameter = (shape=(3, 1), dtype=float32),
+                    bias: Parameter = (shape=(3,), dtype=float32),
                 ),
                 layer2: Module = Linear(
-                    weight: Parameter = (shape=[2, 3], dtype=float32),
-                    bias: Parameter = (shape=[2], dtype=float32),
+                    weight: Parameter = (shape=(2, 3), dtype=float32),
+                    bias: Parameter = (shape=(2,), dtype=float32),
                 ),
             )
             """
@@ -165,9 +191,9 @@ class TestMixedContainerSequential:
         assert isinstance(mixed_container_sequential_network[3], tp.Module)
 
     def test_forward_pass(self, mixed_container_sequential_network):
-        input_data = tp.Tensor(tp.ones((1, 2, 2, 2), dtype=tp.float32))
+        input_data = tp.ones((1, 2, 2, 2), dtype=tp.float32)
         output = mixed_container_sequential_network(input_data)
-        assert output.shape == [1, 1]
+        assert output.shape == (1, 1)
 
     def test_named_children(self, mixed_container_sequential_network):
         expected_names = [("0", mixed_container_sequential_network[0]), ("3", mixed_container_sequential_network[3])]
@@ -205,12 +231,12 @@ class TestMixedContainerSequential:
             """\
             Sequential(
                 0: Module = Conv(
-                    bias: Parameter = (shape=[2], dtype=float32),
-                    weight: Parameter = (shape=[2, 2, 1, 1], dtype=float32),
+                    bias: Parameter = (shape=(2,), dtype=float32),
+                    weight: Parameter = (shape=(2, 2, 1, 1), dtype=float32),
                 ),
                 3: Module = Linear(
-                    weight: Parameter = (shape=[1, 2], dtype=float32),
-                    bias: Parameter = (shape=[1], dtype=float32),
+                    weight: Parameter = (shape=(1, 2), dtype=float32),
+                    bias: Parameter = (shape=(1,), dtype=float32),
                 ),
             )"""
         )
@@ -240,7 +266,7 @@ class TestNestedSequential:
     def test_load_state_dict_nested(self, nested_sequential_network):
         # Loading state dict with parameters for both top-level and nested modules
         new_state_dict = {
-            "1.1.weight": tp.ones((1, 3)),
+            "1.1.weight": tp.ones((2, 3)),
         }
         nested_sequential_network.load_state_dict(new_state_dict, strict=False)
         assert tp.equal(nested_sequential_network[1][1].weight, new_state_dict["1.1.weight"])
@@ -250,17 +276,17 @@ class TestNestedSequential:
             """
             Sequential(
                 0: Module = Linear(
-                    weight: Parameter = (shape=[4, 2], dtype=float32),
-                    bias: Parameter = (shape=[4], dtype=float32),
+                    weight: Parameter = (shape=(1, 2), dtype=float32),
+                    bias: Parameter = (shape=(1,), dtype=float32),
                 ),
                 1: Module = Sequential(
                     0: Module = Linear(
-                        weight: Parameter = (shape=[3, 4], dtype=float32),
-                        bias: Parameter = (shape=[3], dtype=float32),
+                        weight: Parameter = (shape=(3, 1), dtype=float32),
+                        bias: Parameter = (shape=(3,), dtype=float32),
                     ),
                     1: Module = Linear(
-                        weight: Parameter = (shape=[1, 3], dtype=float32),
-                        bias: Parameter = (shape=[1], dtype=float32),
+                        weight: Parameter = (shape=(2, 3), dtype=float32),
+                        bias: Parameter = (shape=(2,), dtype=float32),
                     ),
                 ),
             )

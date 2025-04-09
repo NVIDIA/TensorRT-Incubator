@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -23,6 +23,16 @@ class TestShape:
         a = tp.Tensor([[1, 2], [3, 4]])
         shape_a = a.shape
         assert isinstance(a, tp.Tensor)
-        assert isinstance(shape_a, list)
+        assert isinstance(shape_a, tuple)
 
-        assert shape_a == [2, 2]
+        assert shape_a == (2, 2)
+
+    def test_static_shape_is_not_mutable(self):
+        # a.shape is not mutable, so there's no risk of accidentally
+        # modifying the underlying trace tensor shape for static shape tensors.
+        a = tp.Tensor(([1, 2]))
+
+        assert a.trace_tensor.shape == (2,)
+        assert a.shape == (2,)
+
+        assert isinstance(a.shape, tuple)

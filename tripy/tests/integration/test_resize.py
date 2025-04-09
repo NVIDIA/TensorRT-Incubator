@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -39,7 +39,7 @@ class TestResize:
         }[mode]
         expected = torch.nn.functional.interpolate(inp_torch, scale_factor=2, mode=torch_mode)
         out_torch = torch.from_dlpack(out_tp).to("cpu")
-        assert list(expected.shape) == out_tp.shape
+        assert tuple(expected.shape) == out_tp.shape
         assert torch.allclose(out_torch, expected)
 
     @pytest.mark.parametrize("mode", ["nearest", "linear", "cubic"])
@@ -58,5 +58,5 @@ class TestResize:
         }[mode]
         expected = torch.nn.functional.interpolate(inp_torch, size=[8, 8], mode=torch_mode)
         out_torch = torch.from_dlpack(out_tp).to("cpu")
-        assert list(expected.shape) == out_tp.shape
+        assert tuple(expected.shape) == out_tp.shape
         assert torch.allclose(out_torch, expected)

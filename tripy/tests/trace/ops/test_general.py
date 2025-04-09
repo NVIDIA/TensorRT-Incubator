@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,19 +20,19 @@ import inspect
 import pytest
 import dataclasses
 from tests import helper
-from nvtripy.trace.ops.base import BaseTraceOp
+from nvtripy.trace.ops.base import TraceOp
 
 OP_TYPES = sorted(
-    {obj for obj in helper.discover_tripy_objects() if inspect.isclass(obj) and issubclass(obj, BaseTraceOp)},
+    {obj for obj in helper.discover_tripy_objects() if inspect.isclass(obj) and issubclass(obj, TraceOp)},
     key=lambda cls: cls.__name__,
 )
 
 
 @pytest.mark.parametrize("OpType", OP_TYPES)
 class TestFrontendOps:
-    def test_to_flat_ir_does_not_access_io(self, OpType):
-        # to_flat_ir() methods should not access `self.inputs` and `self.outputs`
-        source = inspect.getsource(OpType.to_flat_ir)
+    def test_to_mlir_does_not_access_io(self, OpType):
+        # to_mlir() methods should not access `self.inputs` and `self.outputs`
+        source = inspect.getsource(OpType.to_mlir)
 
         assert "self.inputs" not in source
         assert "self.outputs" not in source
@@ -45,5 +45,5 @@ class TestFrontendOps:
     def test_has_no_dataclass_repr(self, OpType):
         # If you define a custom repr, add a waiver here.
         assert (
-            OpType.__repr__ is BaseTraceOp.__repr__
+            OpType.__repr__ is TraceOp.__repr__
         ), "Use @dataclass(repr=False) to avoid extremely verbose __repr__ implementations"

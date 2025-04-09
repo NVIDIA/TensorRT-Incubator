@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,28 +15,12 @@
 # limitations under the License.
 #
 
-import cupy as cp
 import nvtripy as tp
-from nvtripy.trace.ops.slice import Slice
+import pytest
 from tests import helper
 
 
 class TestSlice:
-    def test_slice_of_inline_output(self):
-        a = tp.Tensor([1, 2, 3, 4])
-        # The start and stop params use clamp bound, but the step parameter doesn't.
-        s = (a + a)[3:4:]
-        assert isinstance(s, tp.Tensor)
-        assert isinstance(s.trace_tensor.producer, Slice)
-
-        # input 0 is a + a, so it's not one of the slice params
-        slice_inputs = s.trace_tensor.producer.inputs[1:]
-        assert len(slice_inputs) == 3
-
-        assert any(frame.function == "clamp_bound" for frame in slice_inputs[0].stack_info)
-        assert any(frame.function == "clamp_bound" for frame in slice_inputs[1].stack_info)
-        assert not any(frame.function == "clamp_bound" for frame in slice_inputs[2].stack_info)
-
     def test_incorrect_index_size(self):
         with helper.raises(
             tp.TripyException,
@@ -48,31 +32,22 @@ class TestSlice:
 
     def test_invalid_index(self):
         a = tp.ones((2, 3, 4))
-        with helper.raises(
-            tp.TripyException,
-            # note that the stack trace includes an ANSI color code before the caret
-            # Looks like:
-            # |             a[3].eval()
-            # |               ^
-            match=r"\| {13}a\[3\]\.eval\(\)\n\s*\| {15}\x1b\[38;5;1m\^",
-            has_stack_info_for=[a],
-        ):
+        with helper.raises(tp.TripyException, match="out of bounds access"):
             a[3].eval()
 
     def test_invalid_multiple_dims(self):
         a = tp.ones((2, 3, 4))
-        first_dim_regex = r"(.|\n)*\| {13}a\[5, 3\]\.eval\(\)\n\s*\| {15}\x1b\[38;5;1m\^"
-        second_dim_regex = r"(.|\n)*\| {13}a\[5, 3\]\.eval\(\)\n\s*\| {18}\x1b\[38;5;1m\^"
-        with helper.raises(
-            tp.TripyException,
-            # Looking three instance of the following:
-            # |             a[5, 3].eval()
-            # |               ^
-            #
-            # and three instances of the following:
-            # |             a[5, 3].eval()
-            # |                  ^
-            match=(3 * first_dim_regex + 3 * second_dim_regex),
-            has_stack_info_for=[a],
-        ):
+        with helper.raises(tp.TripyException, match="out of bounds access"):
             a[5, 3].eval()
+
+    @pytest.mark.parametrize(
+        "start",
+        [
+            "hi",
+            tp.Tensor(0),
+        ],
+    )
+    def test_invalid_slice_type(self, start):
+        a = tp.ones((4,))
+        with helper.raises(tp.TripyException, match="Slice start must be an integer or a DimensionSize."):
+            a[start:].eval()

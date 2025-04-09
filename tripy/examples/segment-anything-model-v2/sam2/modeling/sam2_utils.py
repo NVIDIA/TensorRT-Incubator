@@ -7,7 +7,7 @@
 # Not a contribution
 # Changes made by NVIDIA CORPORATION & AFFILIATES enabling SAM2 with Tripy or otherwise documented as
 # NVIDIA-proprietary are not a contribution and subject to the following terms and conditions:
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -172,7 +172,7 @@ class MLP(tp.Module):
         self.sigmoid_output = sigmoid_output
         self.act = activation
 
-    def __call__(self, x):
+    def forward(self, x):
         for i, layer in enumerate(self.layers):
             x = self.act(layer(x)) if i < self.num_layers - 1 else layer(x)
         if self.sigmoid_output:
@@ -189,7 +189,7 @@ class LayerNorm2d(tp.Module):
         self.bias = DefaultParameter((num_channels,), tp.float32)
         self.eps = eps
 
-    def __call__(self, x: tp.Tensor) -> tp.Tensor:
+    def forward(self, x: tp.Tensor) -> tp.Tensor:
         original_dtype = x.dtype
         x = tp.cast(x, tp.float32)
         u = tp.mean(x, dim=1, keepdim=True)

@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,6 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import inspect
+from typing import Tuple
+
 import cupy as cp
 import nvtripy as tp
 import pytest
@@ -34,12 +37,28 @@ class TestCompile:
 
     def test_module(self):
         layernorm = tp.LayerNorm(2)
+        layernorm.weight = tp.ones(layernorm.weight.shape)
+        layernorm.bias = tp.ones(layernorm.bias.shape)
+
         compiled_layernorm = tp.compile(layernorm, args=[tp.InputInfo((2, 2), dtype=tp.float32)])
 
         inp = tp.iota((2, 2), dtype=tp.float32) - 1
         out = compiled_layernorm(inp)
 
         assert tp.equal(out, layernorm(inp))
+
+    def test_compile_preserves_sequence_for_single_output(self):
+        def func(a):
+            return [tp.relu(a)]
+
+        compiled_func = tp.compile(func, args=[tp.InputInfo((2, 2), dtype=tp.float32)])
+
+        assert inspect.signature(compiled_func).return_annotation == Tuple[tp.Tensor]
+
+        inp = tp.iota((2, 2), dtype=tp.float32) - 1
+        [out] = compiled_func(inp)
+
+        assert tp.equal(out, tp.relu(inp))
 
     def test_can_compile_using_shape_of_tensor(self):
         # Since InputInfo allows `DimensionSize`s, we should be able to use the shape of a tensor as
@@ -77,10 +96,25 @@ class TestCompile:
 
         assert cp.array_equal(cp.from_dlpack(out), cp.ones((2, 2), dtype=cp.float32) * 2)
 
-    @pytest.mark.parametrize("func", [variadic_positional, variadic_keyword])
-    def test_variadic_arguments_rejected(self, func):
-        with helper.raises(tp.TripyException, "Variadic positional/keyword arguments are not currently supported."):
-            tp.compile(func)
+    @pytest.mark.parametrize("num_args", [1, 2, 3])
+    def test_variadic_positional_args(self, num_args):
+        func = tp.compile(
+            variadic_positional,
+            args=[tp.InputInfo((2,), dtype=tp.float32) for _ in range(num_args)],
+        )
+
+        inputs = [tp.ones((2,)) for _ in range(num_args)]
+        assert tp.equal(func(*inputs), tp.ones((2,)) * num_args)
+
+    @pytest.mark.parametrize("num_args", [1, 2, 3])
+    def test_variadic_keyword_args(self, num_args):
+        func = tp.compile(
+            variadic_keyword,
+            kwargs={f"arg{index}": tp.InputInfo((2,), dtype=tp.float32) for index in range(num_args)},
+        )
+
+        inputs = {f"arg{index}": tp.ones((2,)) for index in range(num_args)}
+        assert tp.equal(func(**inputs), tp.ones((2,)) * num_args)
 
     @pytest.mark.parametrize("func", [returns_non_tensor, returns_nothing])
     def test_invalid_return_rejected(self, func):
@@ -110,7 +144,7 @@ class TestCompile:
     def test_incorrect_dtype_rejected(self):
         a = tp.ones((2, 2), dtype=tp.int32)
 
-        with helper.raises(tp.TripyException, "Unexpected tensor data type.", has_stack_info_for=[a]):
+        with helper.raises(tp.TripyException, "Unexpected tensor data type."):
             compiled_add = tp.compile(
                 add, args=[tp.InputInfo((2, 2), dtype=tp.float32), tp.InputInfo((2, 2), dtype=tp.float32)]
             )
@@ -123,16 +157,6 @@ class TestCompile:
             compiled_add = tp.compile(
                 add, args=[tp.InputInfo((2, 2), dtype=tp.float32), tp.InputInfo((2, 2), dtype=tp.float32)]
             )
-            compiled_add(a, a)
-
-    @pytest.mark.skip("TODO (#155): Re-enable once we no longer implicitly copy inputs to device")
-    def test_incorrect_device_rejected(self):
-        compiled_add = tp.compile(
-            add, args=[tp.InputInfo((2, 2), dtype=tp.float32), tp.InputInfo((2, 2), dtype=tp.float32)]
-        )
-        a = tp.copy(tp.ones((2, 2), dtype=tp.float32), device=tp.device("cpu"))
-
-        with helper.raises(tp.TripyException):
             compiled_add(a, a)
 
     # TODO (#244): Add multi-profile test
@@ -158,7 +182,7 @@ class TestCompile:
         for shape in ((1, 1, 1), (3, 3, 3), (2, 4, 5), (5, 2, 1)):
             inp = tp.ones(shape, dtype=tp.float32)
             out = compiled_ones(inp)
-            assert out.shape == [sum(shape)]
+            assert out.shape == (sum(shape),)
 
     def test_error_if_evaling_input_during_compile(self):
         def func(a):
@@ -205,34 +229,16 @@ class TestCompile:
         # Ensure that a warning is printed for each evaluation (2 prints + int).
         assert out.count("Tensor was evaluated while compiling here:") == 3
 
-    def test_allow_eval_for_non_input_to_compile(self):
-        # We should allow non-inputs to be evaluated.
+    def test_disallow_eval_for_non_input_to_compile(self):
+        # Non-inputs cannot be evaluated since then they move to GPU memory,
+        # which is not supported for constants.
         const = tp.ones((2, 3), dtype=tp.float32)
         const.eval()
 
         def func(a):
             return a + const
 
-        tp.compile(func, args=[tp.InputInfo((2, 3), dtype=tp.float32)])
-
-
-# TODO (#256): Remove these tests and replace with exhaustive integration testing
-class TestCompiledOps:
-    def test_cast(self):
-        compiled_cast = tp.compile(tp.cast, args=[tp.InputInfo((2, 2), dtype=tp.float32)], kwargs=dict(dtype=tp.int32))
-
-        a = tp.ones((2, 2), dtype=tp.float32)
-        out = compiled_cast(a)
-
-        assert cp.array_equal(cp.from_dlpack(out), cp.ones((2, 2), dtype=cp.int32))
-
-    def test_linear(self):
-        linear = tp.Linear(2, 3)
-
-        compiled_linear = tp.compile(linear, args=[tp.InputInfo((2, 2), dtype=tp.float32)])
-
-        a = tp.ones((2, 2), dtype=tp.float32)
-
-        out = compiled_linear(a)
-
-        assert tp.equal(out, linear(a))
+        with helper.raises(
+            tp.TripyException, match="Tensors that are not inputs to compiled functions must reside in CPU memory."
+        ):
+            tp.compile(func, args=[tp.InputInfo((2, 3), dtype=tp.float32)])

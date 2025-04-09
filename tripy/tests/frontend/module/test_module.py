@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,12 +15,13 @@
 # limitations under the License.
 #
 
+import inspect
+from textwrap import dedent
+
 import cupy as cp
 import numpy as np
-
 import nvtripy as tp
 from tests import helper
-from textwrap import dedent
 
 
 class TestModule:
@@ -41,14 +42,34 @@ class TestModule:
 
         network.param = tp.Tensor([0.0, 1.0])
         network.dummy1 = None
-        assert cp.from_dlpack(dict(network.named_parameters())["param"]).get().tolist() == [0.0, 1.0]
+        assert np.from_dlpack(dict(network.named_parameters())["param"]).tolist() == [0.0, 1.0]
         assert "dummy1" not in dict(network.named_children())
 
-    def test_incompatible_parameter_cannot_be_set(self, network):
+    def test_signature_of_call(self):
+        # The __call__ method should take the signature of the `forward` method of child classes
+        class MyModule(tp.Module):
+            def forward(self, a: int, b: bool) -> str:
+                pass
+
+        module = MyModule()
+
+        signature = inspect.signature(module)
+
+        assert signature.parameters["a"].annotation == int
+        assert signature.parameters["b"].annotation == bool
+        assert signature.return_annotation == str
+
+    def test_incompatible_parameter_shape_cannot_be_set(self, network):
         with helper.raises(
-            tp.TripyException, match=r"New parameter shape: \[2, 3\] is not compatible with current shape: \[2\]"
+            tp.TripyException, match=r"New parameter shape: \(2, 3\) is not compatible with current shape: \(2,\)"
         ):
             network.param = tp.ones((2, 3))
+
+    def test_incompatible_parameter_dtype_cannot_be_set(self, network):
+        with helper.raises(
+            tp.TripyException, match=r"New parameter dtype: float16 is not compatible with current dtype: float32"
+        ):
+            network.param = tp.ones((2,), dtype=tp.float16)
 
     def test_named_children(self, network):
         # Children should only return immediate children
@@ -114,7 +135,7 @@ class TestModule:
         state_dict = {"param": tp.zeros((3,), dtype=tp.float32)}
 
         with helper.raises(
-            tp.TripyException, match=r"New parameter shape: \[3\] is not compatible with current shape: \[2\]"
+            tp.TripyException, match=r"New parameter shape: \(3,\) is not compatible with current shape: \(2,\)"
         ):
             network.load_state_dict(state_dict, strict=False)
 
@@ -144,15 +165,15 @@ class TestModule:
         expected_output = dedent(
             """
             Network(
-                param: Parameter = (shape=[2], dtype=float32),
+                param: Parameter = (shape=(2,), dtype=float32),
                 dummy1: Module = DummyOp(
                     nested: Module = DummyNestedOp(
-                        param: Parameter = (shape=[2], dtype=float32),
+                        param: Parameter = (shape=(2,), dtype=float32),
                     ),
                 ),
                 dummy2: Module = DummyOp(
                     nested: Module = DummyNestedOp(
-                        param: Parameter = (shape=[2], dtype=float32),
+                        param: Parameter = (shape=(2,), dtype=float32),
                     ),
                 ),
             )
@@ -370,20 +391,20 @@ class TestMixedContainerNetwork:
         assert str(mixed_container_network) == dedent(
             """\
             MixedContainerNetwork(
-                param: Parameter = (shape=[2], dtype=float32),
+                param: Parameter = (shape=(2,), dtype=float32),
                 mixed_list.0: Module = DummyOp(
                     nested: Module = DummyNestedOp(
-                        param: Parameter = (shape=[2], dtype=float32),
+                        param: Parameter = (shape=(2,), dtype=float32),
                     ),
                 ),
                 mixed_list.2: Module = DummyOp(
                     nested: Module = DummyNestedOp(
-                        param: Parameter = (shape=[2], dtype=float32),
+                        param: Parameter = (shape=(2,), dtype=float32),
                     ),
                 ),
                 mixed_dict.dummy: Module = DummyOp(
                     nested: Module = DummyNestedOp(
-                        param: Parameter = (shape=[2], dtype=float32),
+                        param: Parameter = (shape=(2,), dtype=float32),
                     ),
                 ),
             )"""

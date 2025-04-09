@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,12 +15,13 @@
 import base64
 import inspect
 from dataclasses import dataclass
-from typing import Sequence, Tuple, Union
+from typing import Callable, Sequence, Tuple, Union
 
 import mlir_tensorrt.runtime.api as runtime
-from nvtripy import export
-from nvtripy.backend.mlir import Executor
+from nvtripy import config, export
+from nvtripy.backend.api.stream import default_stream
 from nvtripy.backend.mlir import utils as mlir_utils
+from nvtripy.backend.mlir.utils import MLIRRuntimeClient
 from nvtripy.common.exception import raise_error
 from nvtripy.frontend import Tensor
 from nvtripy.utils import json as json_utils
@@ -46,31 +47,33 @@ class Executable:
     """
 
     # The constructor is intentionally undocumented because it is not meant to be called by users.
-    # TODO(#155): output_devices is not needed after they can be queried from executable
-    def __init__(self, executable, arg_names, output_devices):
+    # `return_single_tensor_as_sequence` indicates whether the return type should be a sequence even if
+    # there is only one output.
+    def __init__(self, executable, arg_names, return_single_tensor_as_sequence):
         self._executable = executable
-        self._executor = Executor(self._executable)
+
+        self._runtime_client = MLIRRuntimeClient()
+        # TODO (#577): Support multiple devices:
+        self._session = runtime.RuntimeSession(runtime.RuntimeSessionOptions(num_devices=1, device_id=0), executable)
+        self.stream = default_stream()
+
         self._arg_names = arg_names
         self._num_expected_args = len(arg_names)
-        self._output_devices = output_devices
         self._executable_signature = self._executable.get_signature("main")
+        self._return_single_tensor_as_sequence = return_single_tensor_as_sequence
 
         # Build a signature so the executable works with `inspect.signature`
         params = []
         for name in self._arg_names:
             params.append(inspect.Parameter(name, inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=Tensor))
 
-        return_annotation = Tensor if self._executable_signature.get_num_output_args() == 1 else Sequence[Tensor]
+        num_outputs = self._executable_signature.get_num_results()
+
+        return_annotation = (
+            Tuple[(Tensor,) * num_outputs] if num_outputs > 1 or self._return_single_tensor_as_sequence else Tensor
+        )
 
         self.__signature__ = inspect.Signature(params, return_annotation=return_annotation)
-
-    @property
-    def stream(self):
-        return self._executor.stream
-
-    @stream.setter
-    def stream(self, stream):
-        self._executor.stream = stream
 
     def __str__(self) -> str:
         params = [
@@ -189,9 +192,10 @@ class Executable:
         for tensor in input_tensors:
             tensor.eval()
 
+        input_memrefs = [inp.trace_tensor.producer.data for inp in input_tensors]
         try:
-            executor_outputs = self._executor.execute(
-                self._output_devices, inputs=[tensor.trace_tensor for tensor in input_tensors]
+            output_memrefs = self._session.execute_function(
+                "main", in_args=input_memrefs, stream=self.stream._active_cuda_stream, client=self._runtime_client
             )
         except runtime.MTRTException as err:
             # TODO: Evaluate whether this should be moved into the executor
@@ -202,10 +206,12 @@ class Executable:
                     if tensor.dtype != dtype:
                         raise_error(
                             f"Unexpected tensor data type.",
-                            [
-                                f"For parameter {arg_name}, expected data type: {dtype} but got: {tensor.dtype}. Note: Argument was: ",
-                                tensor,
-                            ],
+                            (
+                                [
+                                    f"For parameter {arg_name}, expected data type: {dtype} but got: {tensor.dtype}. ",
+                                ]
+                                + (["Note: Argument was: ", tensor] if "all" in config.extra_error_information else [])
+                            ),
                         )
             elif "InternalError: failed to set input shape" in str(err) or "Runtime shape mismatch" in str(err):
                 expected_input_shapes = [info.shape_bounds for info in self._get_input_info()]
@@ -223,26 +229,29 @@ class Executable:
                                     tensor,
                                 ],
                             )
-            elif "Runtime stride mismatch" in str(err):
-                # Just raise the error for now.
-                raise raise_error(str(err))
+            raise_error(str(err))
 
-            raise
-
-        output_tensors = [Tensor.fast_init(output) for output in executor_outputs]
-        if len(output_tensors) == 1:
+        output_tensors = tuple(Tensor.fast_init(output_memref) for output_memref in output_memrefs)
+        if self.__signature__.return_annotation == Tensor:
             output_tensors = output_tensors[0]
         return output_tensors
 
-    def _get_arg_info(self, idx):
-        arg = self._executable_signature.get_arg(idx)
-        arg = runtime.MemRefType(arg)
-        arg_bound = self._executable_signature.get_arg_bound(idx)
-        shape_bounds = tuple(zip(arg_bound.min(), arg_bound.max()))
-        if len(shape_bounds) == 0:
-            # For static shape arguments, get_arg_bound returns an empty list and we fallback to arg.shape
-            shape_bounds = tuple((x, x) for x in arg.shape)
-        return ArgInfo(shape_bounds, mlir_utils.convert_runtime_dtype_to_tripy_dtype(arg.dtype))
+    def _get_info(self, idx: int, get_item: Callable, get_bound: Callable) -> ArgInfo:
+        item = runtime.MemRefType(get_item(idx))
+        bound = get_bound(idx)
+        shape_bounds = tuple(zip(bound.min(), bound.max()))
+
+        if not shape_bounds:
+            # For static shape, fallback to item.shape
+            shape_bounds = tuple((x, x) for x in item.shape)
+
+        return ArgInfo(shape_bounds, mlir_utils.convert_runtime_dtype_to_tripy_dtype(item.dtype))
+
+    def _get_arg_info(self, idx: int) -> ArgInfo:
+        return self._get_info(idx, self._executable_signature.get_arg, self._executable_signature.get_arg_bound)
+
+    def _get_result_info(self, idx: int) -> ArgInfo:
+        return self._get_info(idx, self._executable_signature.get_result, self._executable_signature.get_res_bound)
 
     def _get_input_info(self) -> Sequence[ArgInfo]:
         input_info = []
@@ -252,9 +261,8 @@ class Executable:
 
     def _get_output_info(self) -> Sequence[ArgInfo]:
         output_info = []
-        offset = self._executable_signature.get_num_input_args()
-        for idx in range(self._executable_signature.get_num_output_args()):
-            output_info.append(self._get_arg_info(idx + offset))
+        for idx in range(self._executable_signature.get_num_results()):
+            output_info.append(self._get_result_info(idx))
         return output_info
 
     def save(self, path: str) -> None:
@@ -296,8 +304,8 @@ class Executable:
 def encode_executable(executable):
     return {
         "arg_names": executable._arg_names,
-        "output_devices": executable._output_devices,
         "executable": base64.b64encode(executable._executable.serialize()).decode(),
+        "_return_single_tensor_as_sequence": executable._return_single_tensor_as_sequence,
     }
 
 
@@ -307,5 +315,5 @@ def decode_executable(executable_dict):
     return Executable(
         runtime.Executable(executable_bytes),
         executable_dict["arg_names"],
-        executable_dict["output_devices"],
+        return_single_tensor_as_sequence=executable_dict["_return_single_tensor_as_sequence"],
     )

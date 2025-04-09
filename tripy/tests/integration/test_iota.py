@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -77,16 +77,18 @@ class TestIota:
 
     @pytest.mark.parametrize("dtype", DATA_TYPES.values())
     def test_negative_no_casting(self, dtype):
-        from nvtripy.trace.ops.iota import Iota
+        from nvtripy.trace.ops.linspace import Linspace
 
-        if dtype in [tp.float32, tp.int32, tp.int64]:
-            pytest.skip("tp.iota() supports float32, int32, and int64 without cast")
+        if Linspace.get_closest_dtype(dtype) == dtype:
+            pytest.skip(f"tp.iota() supports {dtype} without cast")
 
         # TODO: update the 'match' error msg when MLIR-TRT fixes dtype constraint
         a = tp.ones((2, 2))
-        out = op_utils.create_op(Iota, [op_utils.tensor_from_shape_like(a.shape)], dim=0, output_rank=2, dtype=dtype)
+        shape = tp.Tensor([2, 2])
+        step = tp.Tensor([2, 1])
+        out = op_utils.create_op(Linspace, [op_utils.tensor_from_shape_like(a.shape), shape, step], dtype=dtype)
 
-        exception_str = "InternalError: failed to run compilation"
+        exception_str = "failed to run pass pipeline"
         with helper.raises(
             tp.TripyException,
             match=exception_str,

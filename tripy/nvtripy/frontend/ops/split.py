@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,12 +15,11 @@
 # limitations under the License.
 #
 
-from typing import Sequence, Union
+from typing import Sequence, Tuple, Union
 
 from nvtripy import export
 from nvtripy.common.exception import raise_error
 from nvtripy.frontend.ops import utils as op_utils
-from nvtripy.trace.ops.split import Split
 from nvtripy.utils import wrappers
 
 
@@ -28,49 +27,46 @@ from nvtripy.utils import wrappers
 @wrappers.interface(
     dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
     dtype_variables={
-        "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
+        "T1": ["float32", "float16", "bfloat16", "int4", "int8", "int32", "int64", "bool"],
     },
 )
 def split(
-    input: "nvtripy.Tensor", indices_or_sections: Union[int, Sequence[int]], dim: int = 0
-) -> Union["nvtripy.Tensor", Sequence["nvtripy.Tensor"]]:
+    input: "nvtripy.Tensor", num_split_or_sizes: Union[int, Sequence[int]], dim: int = 0
+) -> Tuple["nvtripy.Tensor"]:
     r"""
-    Splits `input` along the dimension `dim`, producing slices of the `input` tensor.
-
-    If given a single `int` for `indices_or_sections` (let us call it :math:`n`),
-    it produces :math:`n` slices of equal size along dimension `dim` as long as :math:`n` divides the size of dimension `dim`.
-    For example, if `input` is one-dimensional and the size of dimension `dim` is :math:`k`, then the result is
-    :math:`\texttt{input[:} k/n \texttt{]}`, :math:`\texttt{input[} k/n \texttt{:} 2k/n \texttt{]}`,
-    :math:`\ldots`, :math:`\texttt{input[} (n-1)k/n \texttt{:]}`.
-
-    If given a sequence of values for `indices_or_sections`, these will be treated as indices for creating slices.
-    For example, if we call the indices :math:`i_0`, :math:`i_1`, :math:`\ldots`, :math:`i_n` and assume `input` is one-dimensional,
-    the result is equivalent to :math:`input[:i_0]`, :math:`input[i_0:i_1]`, :math:`input[i_1:i_2]`, :math:`\ldots`, :math:`input[i_n:]`.
+    Splits a tensor along the specified dimension.
 
     Args:
         input: The input tensor.
 
-        indices_or_sections: If a single integer, it gives the number of equal slices to produce.
-            If a list of integers, it gives boundary indices for the slices.
+        num_split_or_sizes:
+            If this is an ``int``, the input is split into this many equal sized chunks.
+            If the dimension cannot be divided evenly, the last chunk will be smaller.
+
+            If this is a ``Sequence[int]``, the input will be split into ``len(num_split_or_sizes)``
+            chunks where the :math:`i^{th}` chunk has a size of ``num_split_or_sizes[i]``.
+            The size of the chunk will be clamped if the input is too small.
 
         dim: The dimension along which the slices are done. All other dimensions are included in full.
 
     Returns:
-        A list of slices per the above specification or a single tensor if only one slice is created.
+        A tuple of slices of the input tensor.
 
     .. code-block:: python
         :linenos:
-        :caption: Simple case.
+        :caption: Splitting Into 2 Chunks
 
+        # doc: print-locals input outputs
         input = tp.reshape(tp.arange(16, dtype=tp.float32), (4, 4))
-        outputs = tp.split(input, 2, dim=0)
+        outputs = tp.split(input, 2)
         assert np.array_equal(cp.from_dlpack(outputs[0]).get(), cp.from_dlpack(input[:2, :]).get())
         assert np.array_equal(cp.from_dlpack(outputs[1]).get(), cp.from_dlpack(input[2:, :]).get())
 
     .. code-block:: python
         :linenos:
-        :caption: Choosing a different dimension.
+        :caption: Splitting Along A Different Dimension
 
+        # doc: print-locals input outputs
         input = tp.reshape(tp.arange(16, dtype=tp.float32), (4, 4))
         outputs = tp.split(input, 2, dim=1)
         assert np.array_equal(cp.from_dlpack(outputs[0]).get(), cp.from_dlpack(input[:, :2]).get())
@@ -78,26 +74,40 @@ def split(
 
     .. code-block:: python
         :linenos:
-        :caption: Multiple index arguments.
+        :caption: Splitting With Custom Chunk Sizes
 
+        # doc: print-locals input outputs
         input = tp.reshape(tp.arange(16, dtype=tp.float32), (4, 4))
-        outputs = tp.split(input, [1, 2])
+        outputs = tp.split(input, [1, 1, 2])
         assert np.array_equal(cp.from_dlpack(outputs[0]).get(), cp.from_dlpack(input[:1, :]).get())
         assert np.array_equal(cp.from_dlpack(outputs[1]).get(), cp.from_dlpack(input[1:2, :]).get())
         assert np.array_equal(cp.from_dlpack(outputs[2]).get(), cp.from_dlpack(input[2:, :]).get())
     """
-    if dim < 0 or dim >= input.rank:
-        raise_error(f"Invalid split dimension {dim}", details=[input])
-    if isinstance(indices_or_sections, int):
-        if indices_or_sections <= 0:
-            raise_error(f"Number of sections argument must be positive, but given {indices_or_sections}")
-    else:
-        if not indices_or_sections:
-            raise_error("Split indices must not be empty")
-        last = None
-        for index in indices_or_sections:
-            if last and index < last:
-                raise_error(f"Split indices must be given in ascending order, but given {indices_or_sections}")
-            last = index
+    dim = op_utils.process_dim(dim, input.rank)
 
-    return op_utils.create_op(Split, inputs=[input], indices_or_sections=indices_or_sections, dim=dim)
+    if isinstance(num_split_or_sizes, int):
+        if num_split_or_sizes <= 0:
+            raise_error(f"`num_split_or_sizes` must be positive, but got: {num_split_or_sizes}")
+
+        chunk_sizes = [op_utils.int_ceil_div(input.shape[dim], num_split_or_sizes)] * num_split_or_sizes
+    else:
+        if not num_split_or_sizes:
+            raise_error("Split indices must not be empty")
+        chunk_sizes = num_split_or_sizes
+
+    def slice_on_dim(start, stop):
+        slice_params = []
+        for index in range(input.rank):
+            if index == dim:
+                slice_params.append(slice(start, stop))
+            else:
+                slice_params.append(slice(None))
+        return input.__getitem__(slice_params)
+
+    splits = []
+    start = 0
+    for size in chunk_sizes:
+        splits.append(slice_on_dim(start, start + size))
+        start += size
+
+    return tuple(splits)

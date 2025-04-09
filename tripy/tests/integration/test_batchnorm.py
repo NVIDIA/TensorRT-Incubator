@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -59,9 +59,14 @@ class TestBatchNorm:
         tp_batchnorm = tp.BatchNorm(
             num_features=num_features,
         )
+        tp_batchnorm.weight = tp.ones(tp_batchnorm.weight.shape)
+        tp_batchnorm.bias = tp.ones(tp_batchnorm.bias.shape)
+        tp_batchnorm.running_mean = tp.ones(tp_batchnorm.running_mean.shape)
+        tp_batchnorm.running_var = tp.ones(tp_batchnorm.running_var.shape)
+
         x = tp.ones((3, 3, 3))
         with helper.raises(
             tp.TripyException,
-            match=re.escape("size of operand dimension 1 (2) is not compatible with size of result dimension 1 (3)"),
+            match=re.escape("broadcast dimensions must be conformable"),
         ):
             tp_batchnorm(x).eval()

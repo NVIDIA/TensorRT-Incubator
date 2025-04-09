@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -29,6 +29,9 @@ def allclose(input: "nvtripy.Tensor", other: "nvtripy.Tensor", rtol: float = 1e-
 
     :math:`|\text{input}_i - \text{other}_i| <= (\text{atol} + \text{rtol} * |\text{other}_i|)`
 
+    .. caution:: This function cannot be used in a compiled function or :class:`nvtripy.Module` because it depends on
+        evaluating its inputs, which is not allowed during compilation.
+
     Args:
         input: First tensor to compare.
         other: Second tensor to compare.
@@ -54,8 +57,10 @@ def allclose(input: "nvtripy.Tensor", other: "nvtripy.Tensor", rtol: float = 1e-
         out = tp.allclose(tp.Tensor([1e-7]), tp.Tensor([1.2e-7]))
         assert not out
     """
-    from nvtripy.frontend.ops.reduce import all
-    from nvtripy.frontend.ops.unary_elementwise import abs
+    from nvtripy.frontend.ops.reduce.all import all
 
     compare = abs(input - other) <= (atol + rtol * abs(other))
+    # TODO (#571) Remove this workaround - we evaluate `compare` to avoid a bug where
+    # including the `all` within a larger computation graph sometimes causes false negatives:
+    compare.eval()
     return bool(all(compare))

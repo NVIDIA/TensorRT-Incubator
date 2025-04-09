@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -36,7 +36,7 @@ from nvtripy.utils import wrappers
     dtype_exceptions=[
         {"T1": "float8", "T2": "int4"},
         {"T1": "float8", "T2": "int8"},
-        {"T1": "float8", "T2": "int64"},
+        {"T1": "int8", "T2": "float8"},
         {"T1": "int4", "T2": "float8"},
         {"T1": "int4", "T2": "int8"},
         {"T1": "int4", "T2": "int64"},

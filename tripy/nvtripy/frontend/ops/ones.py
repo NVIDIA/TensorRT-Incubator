@@ -1,8 +1,22 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 from typing import Optional
 
 from nvtripy import export
 from nvtripy.common import datatype
-from nvtripy.frontend.ops.fill import full, full_like
+from nvtripy.frontend.ops.full import full, full_like
 from nvtripy.utils import wrappers
 
 
@@ -10,7 +24,7 @@ from nvtripy.utils import wrappers
 @wrappers.interface(
     dtype_constraints={"dtype": "T1", wrappers.RETURN_VALUE: "T1"},
     dtype_variables={
-        "T1": ["float32", "float16", "bfloat16", "float8", "int8", "int4", "int32", "int64", "bool"],
+        "T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64", "bool"],
     },
 )
 def ones(
@@ -36,15 +50,15 @@ def ones(
 
     .. seealso:: :func:`ones_like`, :func:`full`
     """
-    return full(shape, 1, dtype)
+    return full(shape, 1.0, dtype)
 
 
 @export.public_api(document_under="operations/initializers")
 @wrappers.interface(
     dtype_constraints={"input": "T1", "dtype": "T2", wrappers.RETURN_VALUE: "T2"},
     dtype_variables={
-        "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
-        "T2": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
+        "T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
+        "T2": ["float32", "float16", "bfloat16", "int8", "int32", "int64", "bool"],
     },
 )
 def ones_like(input: "nvtripy.Tensor", dtype: Optional[datatype.dtype] = None) -> "nvtripy.Tensor":
@@ -68,4 +82,4 @@ def ones_like(input: "nvtripy.Tensor", dtype: Optional[datatype.dtype] = None) -
 
     .. seealso:: :func:`ones`, :func:`full_like`
     """
-    return full_like(input, 1, dtype)
+    return full_like(input, 1.0, dtype)

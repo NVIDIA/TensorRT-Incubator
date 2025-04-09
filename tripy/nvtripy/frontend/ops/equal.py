@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,10 +18,16 @@ from nvtripy.utils import wrappers
 
 
 @export.public_api(document_under="operations/functions")
-@wrappers.interface(dtype_constraints={"input": "T1", "other": "T1"}, dtype_variables={"T1": list(DATA_TYPES.keys())})
+@wrappers.interface(
+    dtype_constraints={"input": "T1", "other": "T1"},
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64", "bool"]},
+)
 def equal(input: "nvtripy.Tensor", other: "nvtripy.Tensor") -> bool:
     r"""
     Returns ``True`` if ``input`` and ``other`` have the same shape and elements.
+
+    .. caution:: This function cannot be used in a compiled function or :class:`nvtripy.Module` because it depends on
+        evaluating its inputs, which is not allowed during compilation.
 
     Args:
         input: First tensor to compare.
@@ -63,7 +69,7 @@ def equal(input: "nvtripy.Tensor", other: "nvtripy.Tensor") -> bool:
         is_equal = tp.equal(a, b)
         assert not is_equal
     """
-    from nvtripy.frontend.ops.reduce import all
+    from nvtripy.frontend.ops.reduce.all import all
 
     if input.shape != other.shape:
         return False

@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,31 +19,33 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 import nvtripy.trace.ops.utils as op_utils
-from nvtripy.trace.ops.base import BaseTraceOp
+from nvtripy.trace.ops.base import TraceOp
+from mlir_tensorrt.compiler.dialects import tensorrt
 
 
 @dataclass(repr=False)
-class Convolution(BaseTraceOp):
-    padding: Sequence[Sequence[int]]
+class Convolution(TraceOp):
     stride: Sequence[int]
+    pre_padding: Sequence[int]
+    post_padding: Sequence[int]
     groups: int
-    lhs_dilation: Sequence[int]
-    rhs_dilation: Sequence[int]
+    dilation: Sequence[int]
 
     infer_rank = op_utils.InferRankPolicies.same_as_input()
 
     def infer_dtypes(self):
         self.outputs[0].dtype = self.inputs[0].dtype
 
-    def to_flat_ir(self, inputs, outputs):
-        from nvtripy.flat_ir.ops import ConvolutionOp
-
-        ConvolutionOp.build(
-            inputs,
-            outputs,
-            padding=self.padding,
-            stride=self.stride,
-            feature_group_count=self.groups,
-            lhs_dilation=self.lhs_dilation,
-            rhs_dilation=self.rhs_dilation,
-        )
+    def to_mlir(self, inputs, outputs):
+        return [
+            tensorrt.convolution(
+                inputs[0],
+                self.stride,
+                pre_padding=self.pre_padding,
+                post_padding=self.post_padding,
+                kernel=inputs[1],
+                bias=inputs[2] if len(inputs) > 2 else None,
+                num_groups=self.groups,
+                dilation=self.dilation,
+            )
+        ]

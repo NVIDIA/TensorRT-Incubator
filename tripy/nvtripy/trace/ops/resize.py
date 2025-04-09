@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,71 +18,96 @@
 from dataclasses import dataclass
 from typing import Optional, Sequence
 
+from mlir_tensorrt.compiler import ir
+from mlir_tensorrt.compiler.dialects import tensorrt
 from nvtripy.trace.ops import utils as op_utils
-from nvtripy.trace.ops.base import BaseTraceOp
+from nvtripy.trace.ops.base import TraceOp
 
 
 @dataclass(repr=False)
-class Resize(BaseTraceOp):
+class ResizeBase(TraceOp):
 
-    mode: str
     scales: Optional[Sequence[float]]
-    align_corners: bool
 
     infer_rank = op_utils.InferRankPolicies.same_as_input()
 
     def infer_dtypes(self):
         self.outputs[0].dtype = self.inputs[0].dtype
 
-    def to_flat_ir(self, inputs, outputs):
-        from nvtripy.flat_ir.ops import ResizeCubicOp, ResizeLinearOp, ResizeNearestOp
-
-        if self.scales:
-            from nvtripy.common.datatype import float32, int32
-            from nvtripy.flat_ir.ops import ConstantOp, ConvertOp, MulOp
-            from nvtripy.flat_ir.tensor import FlatIRTensor
-
-            # construct output_shape using scales
-            # inputs[1] is input[0].shape
-            # output_shape = (inputs[1].cast(fp32) * scales).cast(int32)
-            out_shape = (inputs[0].rank,)
-            scales_tensor = FlatIRTensor.build(
-                shape=out_shape,
-                rank=1,
-                dtype=float32,
-                device=outputs[0].device,
-                reason_details=[f"create scales tensor in resize op."],
-            )
-            ConstantOp.build([], [scales_tensor], data=self.scales)
-            input_shape_f32 = FlatIRTensor.build(
-                shape=out_shape,
-                rank=1,
-                dtype=float32,
-                device=outputs[0].device,
-                reason_details=[f"convert input shape tensor to float32 in resize op."],
-            )
-            ConvertOp.build([inputs[1]], [input_shape_f32])
-            out_shape_f32 = FlatIRTensor.build(
-                shape=out_shape,
-                rank=1,
-                dtype=float32,
-                device=outputs[0].device,
-                reason_details=[f"compute output shape in resize op."],
-            )
-            MulOp.build([input_shape_f32, scales_tensor], [out_shape_f32])
-            out_shape_tensor = FlatIRTensor.build(
-                shape=out_shape,
-                rank=1,
-                dtype=int32,
-                device=outputs[0].device,
-                reason_details=[f"convert output shape to int32 in resize op."],
-            )
-            ConvertOp.build([out_shape_f32], [out_shape_tensor])
-            inputs[1] = out_shape_tensor
-
-        if self.mode == "nearest":
-            ResizeNearestOp.build(inputs, outputs)
-        elif self.mode == "cubic":
-            ResizeCubicOp.build(inputs, outputs, self.align_corners, cubic_coeff=-0.75)
+    def get_scales_and_shape(self, inputs):
+        assert len(inputs) == 1 or len(inputs) == 2, "Resize must have exactly 1 or 2 inputs."
+        if len(inputs) == 2:
+            output_shape = inputs[1]
+            scales_attr = None
         else:
-            ResizeLinearOp.build(inputs, outputs, self.align_corners)
+            assert self.scales, "Resize scales must be provided when there is only 1 input."
+            output_shape = None
+            scales_attr = ir.DenseF32ArrayAttr.get(self.scales)
+        return scales_attr, output_shape
+
+
+@dataclass(repr=False)
+class ResizeNearest(ResizeBase):
+
+    def to_mlir(self, inputs, outputs):
+        selector_attr = tensorrt.ResizeSelectorAttr.get("kFORMULA")
+        scales_attr, output_shape = self.get_scales_and_shape(inputs)
+        coord_trans_attr = tensorrt.ResizeCoordinateTransformationAttr.get("kASYMMETRIC")
+        rounding_mode_attr = tensorrt.ResizeRoundModeAttr.get("kFLOOR")
+        return [
+            tensorrt.resize_nearest(
+                outputs[0],
+                inputs[0],
+                coord_trans_attr,
+                rounding_mode_attr,
+                selector_attr,
+                output_shape=output_shape,
+                scales=scales_attr,
+            )
+        ]
+
+
+@dataclass(repr=False)
+class ResizeCubic(ResizeBase):
+
+    align_corners: bool
+
+    def to_mlir(self, inputs, outputs):
+        selector_attr = tensorrt.ResizeSelectorAttr.get("kFORMULA")
+        scales_attr, output_shape = self.get_scales_and_shape(inputs)
+        cubic_coeff = -0.75
+        coord_trans = "kALIGN_CORNERS" if self.align_corners else "kHALF_PIXEL"
+        coord_trans_attr = tensorrt.ResizeCoordinateTransformationAttr.get(coord_trans)
+        cubic_coeff_attr = ir.FloatAttr.get(ir.F32Type.get(), cubic_coeff)
+        return [
+            tensorrt.resize_cubic(
+                outputs[0],
+                inputs[0],
+                coord_trans_attr,
+                selector_attr,
+                cubic_coeff_attr,
+                output_shape=output_shape,
+                scales=scales_attr,
+            )
+        ]
+
+
+@dataclass(repr=False)
+class ResizeLinear(ResizeBase):
+
+    align_corners: bool
+
+    def to_mlir(self, inputs, outputs):
+        selector_attr = tensorrt.ResizeSelectorAttr.get("kFORMULA")
+        scales_attr, output_shape = self.get_scales_and_shape(inputs)
+        coord_trans = "kALIGN_CORNERS" if self.align_corners else "kHALF_PIXEL"
+        coord_trans_attr = tensorrt.ResizeCoordinateTransformationAttr.get(coord_trans)
+        result = tensorrt.resize_linear(
+            outputs[0],
+            inputs[0],
+            coord_trans_attr,
+            selector_attr,
+            output_shape=output_shape,
+            scales=scales_attr,
+        )
+        return [result]

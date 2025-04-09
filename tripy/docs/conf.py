@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -27,8 +27,6 @@ from textwrap import indent
 from tests import helper
 
 import nvtripy as tp
-from nvtripy.common.datatype import DATA_TYPES
-from nvtripy.utils.wrappers import TYPE_VERIFICATION
 
 PARAM_PAT = re.compile(":param .*?:")
 
@@ -179,10 +177,10 @@ def process_docstring_impl(app, what, name, obj, options, lines):
                     pname = "*" + pname
 
                 # Type annotations are optional for the `self` parameter unless the API has to be type-verified.
-                if pname != "self" or name in TYPE_VERIFICATION:
+                if pname != "self":
                     assert (
                         pname in documented_args
-                    ), f"Missing documentation for parameter: '{pname}' in: '{obj}'. Please ensure you've included this in the `Args:` section. Note: Documented parameters were: {documented_args} {doc}"
+                    ), f"Missing documentation for parameter: '{pname}' in: '{obj}'. Please ensure you've included this in the `Args:` section. Note: Documented parameters were: {documented_args}"
                     assert (
                         pname in documented_args
                     ), f"Missing documentation for parameter: '{pname}' in: '{obj}'. Please ensure you've included this in the `Args:` section. Note: Documented parameters were: {documented_args}"
@@ -206,69 +204,12 @@ def process_docstring_impl(app, what, name, obj, options, lines):
                     ":returns:" in doc
                 ), f"For: {obj}, return value is not documented. Please ensure you've included a `Returns:` section"
 
-    if name in TYPE_VERIFICATION:
-        add_text_index = -1
-        for index, block in enumerate(blocks):
-
-            def insert_block(text):
-                nonlocal index
-
-                blocks.insert(index, text)
-                index += 1
-
-            if re.search(r".. code-block::", block):
-                type_dict = TYPE_VERIFICATION[name].dtypes
-                insert_block("TYPE CONSTRAINTS:")
-                # Add the dtype constraint name and the dtypes that correlate.
-                for type_name, dt in type_dict.items():
-                    insert_block(
-                        f"    - **{type_name}**: :class:`"
-                        + "`, :class:`".join(
-                            sorted(
-                                set(dt),
-                                key=lambda dtype: (
-                                    tuple(typ.__name__ for typ in DATA_TYPES[dtype].__bases__),
-                                    DATA_TYPES[dtype].itemsize,
-                                ),
-                            )
-                        )
-                        + "`",
-                    )
-                insert_block("\n")
-
-                if TYPE_VERIFICATION[name].exceptions:
-                    # Add the dtype exceptions.
-                    insert_block("UNSUPPORTED TYPE COMBINATIONS:")
-                    for exception_dict in TYPE_VERIFICATION[name].exceptions:
-                        insert_block(
-                            "    - "
-                            + ", ".join([f"**{key}**\ =\ :class:`{val}`" for key, val in exception_dict.items()]),
-                        )
-                    insert_block("\n")
-                break
-
-            if re.search(r":param \w+: ", block):
-                param_name = re.match(r":param (\w+): ", block).group(1)
-                # Add dtype constraint to start of each parameter description.
-                if TYPE_VERIFICATION[name].constraints.get(param_name, None):
-                    add_text_index = re.search(r":param \w+: ", block).span()[1]
-                    blocks[index] = (
-                        f"{block[0:add_text_index]}[*dtype=*\ **{TYPE_VERIFICATION[name].constraints[param_name]}**\ ] {block[add_text_index:]}"
-                    )
-
-            if TYPE_VERIFICATION[name].return_dtype is not None and re.search(r":returns:", block):
-                add_text_index = re.search(r":returns:", block).span()[1] + 1
-                # Add dtype constraint to start of returns description.
-                blocks[index] = (
-                    f"{block[0:add_text_index]}[*dtype=*\ **{TYPE_VERIFICATION[name].return_dtype}**\ ] {block[add_text_index:]}"
-                )
-
     seen_classes.add(name)
 
     def allow_no_example():
-        # `tp.Module`s include examples in their constructors, so their __call__ methods don't require examples.
+        # `tp.Module`s include examples in their constructors, so their forward methods don't require examples.
         is_tripy_module_call_method = False
-        if what == "method" and obj.__name__ == "__call__":
+        if what == "method" and obj.__name__ == "forward":
             class_name = "nvtripy." + name.rpartition(".")[0]
             # Class names are prefixed with nvtripy.<...>, so we need to import it here to make eval() work.
             import nvtripy
@@ -336,7 +277,8 @@ def process_docstring(app, what, name, obj, options, lines):
     try:
         process_docstring_impl(app, what, name, obj, options, lines)
     except:
-        print(f"Error while processing {what}: {name} ({obj})")
+        sep = "\n"
+        print(f"Error while processing {what}: {name} ({obj}).\nNote: Docstring was: {sep.join(lines)}")
         raise
 
 

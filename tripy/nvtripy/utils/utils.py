@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,17 +19,17 @@ import dataclasses
 import functools
 import hashlib
 import inspect
-import os
 import math
+import os
 import time
 import typing
 from typing import Any, List, Optional, Sequence, Tuple, Union
 
 from colored import Fore, Style
-
 from nvtripy import constants
 from nvtripy.common.exception import raise_error
 from nvtripy.logging import logger
+from collections import defaultdict
 
 
 def default(value, default):
@@ -44,6 +44,10 @@ def default(value, default):
         object: Either value, or the default.
     """
     return value if value is not None else default
+
+
+def pascal_to_snake_case(inp):
+    return "".join(f"_{c.lower()}" if c.isupper() else c for c in inp).lstrip("_")
 
 
 def call_once(func):
@@ -155,55 +159,8 @@ def list_to_tuple(nested_list):
         return nested_list
 
 
-##
-## Dims
-##
-
-
-def flatten_list(data):
-    """
-    Flattens a nested list into a single list.
-    """
-    if isinstance(data, (int, float)):
-        # Need to return a list here as array.array require input to be a list.
-        return [data]
-    flat_list = []
-    for element in data:
-        if isinstance(element, list):
-            flat_list.extend(flatten_list(element))
-        else:
-            flat_list.append(element)
-    return flat_list
-
-
-def get_shape(data):
-    """
-    Find the shape of a nested list.
-
-    Args:
-        nested_list (list): The input nested list.
-
-    Returns:
-        list: The shape of the nested list.
-    """
-    shape = []
-    if isinstance(data, (int, float)):
-        # Return empty list for a scalar.
-        return []
-    while isinstance(data, (list, tuple)):
-        shape.append(len(data))
-        if len(data) == 0:
-            break
-        data = data[0]
-    return shape
-
-
 def should_omit_constant_in_str(shape):
     return math.prod(shape) >= constants.CONSTANT_IR_PRINT_VOLUME_THRESHOLD
-
-
-def should_lift_storage_op_as_input(shape):
-    return math.prod(shape) >= constants.STORAGE_OP_CACHE_VOLUME_THRESHOLD
 
 
 def get_dataclass_fields(obj: Any, BaseClass: type) -> List[dataclasses.Field]:
@@ -212,44 +169,6 @@ def get_dataclass_fields(obj: Any, BaseClass: type) -> List[dataclasses.Field]:
     """
     base_fields = {base_field.name for base_field in dataclasses.fields(BaseClass)}
     return [field for field in dataclasses.fields(obj) if field.name not in base_fields]
-
-
-def constant_fields(field_names: Sequence[str]):
-    """
-    Marks fields as immutable and disallows them from being changed
-    once they have been set the first time.
-
-    Args:
-        field_names: The names of fields that should be made immutable.
-    """
-
-    def constant_fields_impl(cls: type):
-        default_init = cls.__init__
-
-        @functools.wraps(default_init)
-        def custom_init(self, *args, **kwargs):
-            self.__initialized_fields = set()
-            return default_init(self, *args, **kwargs)
-
-        default_setattr = cls.__setattr__
-
-        @functools.wraps(default_setattr)
-        def custom_setattr(self, name, value):
-            if name == "__initialized_fields":
-                return object.__setattr__(self, name, value)
-
-            if name in field_names:
-                if name in self.__initialized_fields:
-                    raise_error(f"Field: '{name}' of class: '{cls.__qualname__}' is immutable!")
-                self.__initialized_fields.add(name)
-
-            return default_setattr(self, name, value)
-
-        cls.__init__ = custom_init
-        cls.__setattr__ = custom_setattr
-        return cls
-
-    return constant_fields_impl
 
 
 ##
@@ -390,29 +309,25 @@ class UniqueNameGen:
     Generates unique names based on inputs and outputs.
     """
 
-    _used_names = set()
-    _counter = 0
+    _used_names = defaultdict(int)
 
     @staticmethod
     def gen_uid(inputs=None, outputs=None):
         while True:
-            UniqueNameGen._counter += 1
-            uid = []
+            elems = []
 
             if inputs:
-                uid.append("ins")
-                uid.extend(inputs)
+                elems.append("ins")
+                elems.extend(inputs)
 
             if outputs:
-                uid.append("outs")
-                uid.extend(outputs)
+                elems.append("outs")
+                elems.extend(outputs)
 
-            uid.append(str(UniqueNameGen._counter))
-            uid = "_".join(uid)
-
-            if uid not in UniqueNameGen._used_names:
-                UniqueNameGen._used_names.add(uid)
-                return uid
+            elems = "_".join(elems)
+            uid = f"{elems}_{UniqueNameGen._used_names[elems]}"
+            UniqueNameGen._used_names[elems] += 1
+            return uid
 
 
 ##

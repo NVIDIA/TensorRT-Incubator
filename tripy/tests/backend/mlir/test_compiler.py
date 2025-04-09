@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,9 +19,6 @@ import pytest
 from tests import helper
 
 import nvtripy as tp
-from nvtripy.backend.mlir.compiler import map_error_to_user_code_and_raise
-from nvtripy.flat_ir.tensor import FlatIRTensor
-from nvtripy.trace.trace import Trace
 
 
 # Tests to ensure that we're able to map errors from MLIR-TRT back to the Python code cleanly.
@@ -30,41 +27,12 @@ class TestErrorMapping:
         values = tp.Tensor([1, 2, 3])
         sliced = values[4]
 
-        with helper.raises(
-            tp.TripyException,
-            r"limit index 5 is larger than dimension size 3 in dimension 0",
-            has_stack_info_for=[values],
-        ):
+        with helper.raises(tp.TripyException, r"out of bounds access"):
             sliced.eval()
 
     def test_reshape_invalid_volume(self):
         tensor = tp.ones((2, 2))
         reshaped = tp.reshape(tensor, (3, 3))
 
-        with helper.raises(
-            tp.TripyException,
-            r"number of output elements \(9\) doesn't match expected number of elements \(4\)",
-            has_stack_info_for=[tensor, reshaped],
-        ):
+        with helper.raises(tp.TripyException, r"reshape changes volume", has_stack_info_for=[reshaped]):
             reshaped.eval()
-
-    def test_reason_context(self):
-        with FlatIRTensor.context(["This is the first level of context"]):
-            with FlatIRTensor.context(["This is the second level of context"]):
-                # We need to emit an error from one of the internally created `FlatIRTensor`s to see the context
-                a = tp.ones((1,))
-                b = tp.ones((1,))
-                out = a + b
-                trace = Trace([out.trace_tensor])
-                flat_ir = trace.to_flat_ir()
-                producer = flat_ir.outputs[0].producer.inputs[0]
-                flat_ir_inputs = ",".join(map(lambda i: i.name, producer.producer.inputs))
-                trace_inputs = ",".join(producer.producer.trace_input_names)
-                trace_output = producer.producer.trace_output_names[0]
-                err_str = f'loc("{flat_ir_inputs};;<out>;;{producer.name};;<trace_in>;;{trace_inputs};;<trace_out>;;{trace_output}"): Test error'
-
-                with pytest.raises(
-                    tp.TripyException,
-                    match="This is the first level of context\n    This is the second level of context",
-                ) as exc:
-                    map_error_to_user_code_and_raise(flat_ir, exc, err_str)

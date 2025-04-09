@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,7 +19,6 @@ import glob
 import inspect
 import os
 import re
-import shutil
 import subprocess as sp
 from collections import defaultdict
 from dataclasses import dataclass
@@ -27,8 +26,8 @@ from textwrap import dedent, indent
 from typing import Dict, List, Set
 
 import nvtripy as tp
-from tests import helper
 from nvtripy.export import PUBLIC_APIS
+from tests import helper
 
 
 @dataclass
@@ -93,7 +92,7 @@ def build_api_doc(api, include_heading=True):
     )
 
 
-def build_markdown_doc(source_path):
+def build_rst_markdown_include(source_path):
     return dedent(
         f"""
                 .. include:: {source_path}
@@ -181,7 +180,24 @@ def build_index_file(name, constituents, include_heading=True, caption=None):
     )
 
 
+def write_if_different(filepath, content):
+    if os.path.exists(filepath):
+        with open(filepath, "r") as f:
+            existing_content = f.read()
+        if existing_content == content:
+            print(f"No changes for {filepath}")
+            # Update the file timestamp so we know its up-to-date in timestamp checks.
+            os.utime(filepath, None)
+            return
+    with open(filepath, "w") as f:
+        f.write(content)
+    print(f"Updated {filepath}")
+
+
 def process_guide(guide_path: str, processed_guide_path: str):
+    if os.path.exists(processed_guide_path) and os.path.getmtime(guide_path) <= os.path.getmtime(processed_guide_path):
+        print(f"Skipping {guide_path} as it is not newer than {processed_guide_path}")
+        return
 
     os.makedirs(os.path.dirname(processed_guide_path), exist_ok=True)
 
@@ -194,7 +210,7 @@ def process_guide(guide_path: str, processed_guide_path: str):
     for index, block in enumerate(blocks):
         print(f"Processing block {index} (lang={block.lang}) in: {guide_path}: ", end="")
 
-        should_eval = not block.has_marker("doc: no_eval")
+        should_eval = not block.has_marker("doc: no_eval_or_format")
         if should_eval and block.lang.startswith("py"):
             print("Evaluating Python block")
 
@@ -229,6 +245,7 @@ def process_guide(guide_path: str, processed_guide_path: str):
                     format_contents=add_block,
                     err_msg=f"Error while executing code block {index} (line {block.line_number}) from {guide_path}. ",
                     local_vars=code_locals,
+                    force_no_print_locals=block.has_marker("doc: no_print_locals"),
                 )
             )
 
@@ -254,8 +271,7 @@ def process_guide(guide_path: str, processed_guide_path: str):
             else:
                 print("Omitting block")
 
-    with open(processed_guide_path, "w") as fout:
-        fout.write("\n".join(new_blocks))
+    write_if_different(processed_guide_path, "\n".join(new_blocks))
 
 
 def main():
@@ -272,8 +288,6 @@ def main():
 
     args = parser.parse_args()
 
-    shutil.rmtree(args.output, ignore_errors=True)
-
     def make_output_path(*components):
         return os.path.join(args.output, *components)
 
@@ -282,6 +296,7 @@ def main():
     def is_file(document_under):
         return bool(os.path.splitext(document_under)[1])
 
+    rst_files = {}
     seen_apis = set()
     for api in PUBLIC_APIS:
         name = get_name(api)
@@ -314,9 +329,12 @@ def main():
 
         os.makedirs(os.path.dirname(rst_path), exist_ok=True)
 
-        pre_existing_file = os.path.exists(rst_path)
-        with open(rst_path, "a") as f:
-            f.write(build_api_doc(api, include_heading=not pre_existing_file))
+        # Only include a heading if we didn't already create the file:
+        include_heading = False
+        if rst_path not in rst_files:
+            include_heading = True
+            rst_files[rst_path] = ""
+        rst_files[rst_path] += build_api_doc(api, include_heading=include_heading)
 
     def str_from_hierarchy(obj):
         if isinstance(obj, dict):
@@ -374,13 +392,11 @@ def main():
 
             # Do not create RSTs for top-level README
             if not is_top_level_dir:
-                with open(guide_out_path, "w") as f:
-                    # Grab the path of the .md file relative to the directory containing the .rst file so we can include it correctly.
-                    f.write(
-                        build_markdown_doc(
-                            source_path=os.path.relpath(processed_guide, os.path.dirname(guide_out_path))
-                        )
-                    )
+                content = build_rst_markdown_include(
+                    source_path=os.path.relpath(processed_guide, os.path.dirname(guide_out_path))
+                )
+                rst_files[guide_out_path] = content
+
             guides.append(os.path.join(basename, os.path.splitext(guide_filename)[0]))
 
         # We have special treatment for the files in the top-level directory.
@@ -391,24 +407,33 @@ def main():
         is_root = path == ""
 
         index_path = make_output_path(path, "index.rst")
-        pre_existing_file = os.path.exists(index_path)
+        pre_existing_file = index_path in rst_files
 
         if is_root:
             assert (
                 not pre_existing_file
             ), f"APIs should *not* target the root index file directly! Please remove any `document_under='index.rst'` arguments!"
-
-        with open(index_path, "a") as f:
-            f.write(
-                build_root_index_file(constituents, guide_sets, processed_markdown_dirname)
-                if is_root
-                else build_index_file(
-                    name=to_title(os.path.basename(os.path.dirname(index_path))),
-                    constituents=constituents,
-                    include_heading=not pre_existing_file,
-                    caption="See also:" if pre_existing_file else None,
-                )
+            content = build_root_index_file(constituents, guide_sets, processed_markdown_dirname)
+        else:
+            content = build_index_file(
+                name=to_title(os.path.basename(os.path.dirname(index_path))),
+                constituents=constituents,
+                include_heading=not pre_existing_file,
+                caption="See also:" if pre_existing_file else None,
             )
+        if not pre_existing_file:
+            rst_files[index_path] = ""
+        rst_files[index_path] += content
+
+    # Delete any existing RST files that are not in rst_files
+    for existing_file in glob.glob(os.path.join(args.output, "**", "*.rst"), recursive=True):
+        if existing_file not in rst_files:
+            print(f"Removing stale file: {existing_file}")
+            os.remove(existing_file)
+
+    # Write the new/updated RST files
+    for path, content in rst_files.items():
+        write_if_different(path, content)
 
 
 if __name__ == "__main__":

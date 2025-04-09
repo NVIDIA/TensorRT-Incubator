@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -25,7 +25,7 @@ class TestQuantize:
         a = tp.Tensor([1, 2], dtype=tp.int32)
         with helper.raises(
             tp.TripyException,
-            match="Unsupported data type for 'quantize'.",
+            match="Unsupported data type in 'quantize'",
         ):
             a = tp.quantize(a, 1, tp.int8)
 
@@ -33,7 +33,7 @@ class TestQuantize:
         a = tp.Tensor([1.0, 2.0])
         with helper.raises(
             tp.TripyException,
-            match="Unsupported data type for 'quantize'.",
+            match="Unsupported data type in 'quantize'",
         ):
             a = tp.quantize(a, 1, tp.float16)
 
@@ -60,7 +60,7 @@ class TestQuantize:
         scale = tp.Tensor(np.ones((2, 4), dtype=np.float32))
         with helper.raises(
             tp.TripyException,
-            match="Unsupported dtype in block-wise quantize op",
+            match="Unsupported data type in block-wise quantize op",
         ):
             a = tp.quantize(a, scale, tp.int8)
 
@@ -72,3 +72,12 @@ class TestQuantize:
             match="Scale must be a scalar tensor in per-tensor quantize op",
         ):
             a = tp.quantize(a, scale, tp.int8)
+
+    def test_non_constant_scale(self):
+        input = tp.ones((4, 4))
+        scale = tp.ones((4,))
+        with helper.raises(
+            tp.TripyException,
+            match="`scale` argument must be a constant",
+        ):
+            quantized = tp.quantize(input, scale, tp.int8, dim=0)

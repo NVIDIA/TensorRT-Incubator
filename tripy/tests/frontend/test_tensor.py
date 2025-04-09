@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,14 +20,14 @@ import sys
 
 import cupy as cp
 import numpy as np
+import nvtripy as tp
 import pytest
 import torch
+from nvtripy.trace.ops.constant import Constant
+from nvtripy.utils.stack_info import SourceInfo
+from tests import helper
 from tests.conftest import DATA_TYPE_TEST_CASES
 from tests.helper import NUMPY_TO_TRIPY
-
-import nvtripy as tp
-from nvtripy.common.utils import get_element_type
-from nvtripy.utils.stack_info import SourceInfo
 
 
 class TestTensor:
@@ -37,13 +37,13 @@ class TestTensor:
 
         assert isinstance(a, tp.Tensor)
         assert a.trace_tensor.producer.inputs == []
-        assert isinstance(a.trace_tensor.producer, tp.trace.ops.storage.Storage)
-        assert cp.from_dlpack(a).get().tolist() == VALUES
+        assert isinstance(a.trace_tensor.producer, Constant)
+        assert np.from_dlpack(a).tolist() == VALUES
 
     def test_empty_tensor(self):
         a = tp.Tensor([], dtype=tp.int32)  # dtype cannot be inferred for empty tensor
         assert isinstance(a, tp.Tensor)
-        assert cp.from_dlpack(a).get().tolist() == []
+        assert np.from_dlpack(a).tolist() == []
 
     def test_input_list_is_copied(self):
         # Make sure that if we initialize the tensor with a list, the tensor
@@ -59,7 +59,7 @@ class TestTensor:
     def test_tensor_device(self, kind):
         a = tp.Tensor([1, 2, 3], device=tp.device(kind))
 
-        assert isinstance(a.trace_tensor.producer, tp.trace.ops.storage.Storage)
+        assert isinstance(a.trace_tensor.producer, Constant)
         assert a.trace_tensor.producer.device.kind == kind
 
     @pytest.mark.parametrize("dtype", NUMPY_TO_TRIPY.keys())
@@ -75,26 +75,18 @@ class TestTensor:
         t = tp.Tensor(bool_values, dtype=tp.bool)
         assert isinstance(t, tp.Tensor)
         assert t.trace_tensor.producer.inputs == []
-        assert cp.from_dlpack(t).get().tolist() == bool_values
+        assert np.from_dlpack(t).tolist() == bool_values
 
     @pytest.mark.parametrize("input_data", [[], [0.0, 1.0, 2.0, 3.0], [1, 2, 3, 4], [False, True, False, True]])
     @pytest.mark.parametrize("dtype", DATA_TYPE_TEST_CASES)
     def test_dtype_from_list(self, input_data, dtype):
-        if dtype == tp.int4:
-            pytest.skip(f"Unsupported front-end data type {dtype}")
-        # Error: 'plan.inline_closed_group' op input operand #0 of type 'tensor<0xf32>' does not have a TensorKind associated with it
-        if len(input_data) == 0 and dtype == tp.float8:
-            pytest.skip(
-                f"Input data {input_data} with {get_element_type(input_data)} type can not be implicitly converted to {dtype}"
-            )
         tensor = tp.Tensor(input_data, dtype=dtype)
         assert tensor.dtype == dtype
 
     @pytest.mark.parametrize("dtype", DATA_TYPE_TEST_CASES)
     def test_dtype_printing(self, dtype):
         if dtype == tp.int4:
-            pytest.skip(f"Unsupported front-end data type {dtype}")
-        from nvtripy.logging import logger
+            pytest.skip(f"Unsupported frontend data type: {dtype}")
 
         # This is required to print intermediate data representations.
         with tp.logger.use_verbosity("ir"):
@@ -150,12 +142,12 @@ class TestTensor:
         b = tp.Tensor(cp.array([2], dtype=cp.float32))
 
         c = a + b
-        assert isinstance(c.trace_tensor.producer, tp.trace.ops.binary_elementwise.BinaryElementwise)
+        assert not isinstance(c.trace_tensor.producer, Constant)
 
         c.eval()
 
-        assert isinstance(c.trace_tensor.producer, tp.trace.ops.storage.Storage)
-        # Storage tensors should have no inputs since we don't want to trace back from them.
+        assert isinstance(c.trace_tensor.producer, Constant)
+        # Constant tensors should have no inputs since we don't want to trace back from them.
         assert c.trace_tensor.producer.inputs == []
         assert (cp.from_dlpack(c.trace_tensor.producer.data) == cp.array([3], dtype=np.float32)).all()
 
@@ -178,7 +170,7 @@ class TestTensor:
 
         # Make sure we include code for not only the `ones()` API but also the `full()` API
         # that it calls underneath
-        assert find_frame("ones").code.strip() == "return full(shape, 1, dtype)"
+        assert find_frame("ones").code.strip() == "return full(shape, 1.0, dtype)"
         assert find_frame("test_stack_depth_sanity").code.strip() == "a = tp.ones((2, 3))"
 
     @pytest.mark.parametrize(
@@ -194,6 +186,7 @@ class TestTensor:
         ],
     )
     def test_boolean_method(self, tensor):
+        tensor.eval()  # Make sure the tensor is on GPU first
         assert bool(tensor) == bool(cp.from_dlpack(tensor))
 
     def test_multiple_elements_boolean_fails(self):
@@ -206,31 +199,33 @@ class TestTensor:
         "data",
         [
             [[1, 2], [3, 4]],  # from python list
-            np.ones((2, 2), dtype=np.float32),  # from ext tensor
+            np.ones((2, 2), dtype=np.float32),
+            cp.ones((2, 2), dtype=cp.float32),
         ],
     )
     def test_explicit_cast(self, data):
         a = tp.Tensor(data, dtype=tp.float16)
         assert a.dtype == tp.float16
+        a.eval()
 
     def test_no_explicit_cast(self):
-        from nvtripy.trace.ops.storage import Storage
+        from nvtripy.trace.ops.constant import Constant
 
         a_np = np.ones((2, 2), dtype=np.float32)
         a = tp.Tensor(a_np, dtype=tp.float32)
         assert a.dtype == tp.float32
-        assert isinstance(a.trace_tensor.producer, Storage)
+        assert isinstance(a.trace_tensor.producer, Constant)
 
     @pytest.mark.parametrize(
         "devices",
         [
             ("cpu", "gpu"),
-            # TODO(#155)
-            # ("gpu", "cpu"),
+            ("gpu", "cpu"),
         ],
     )
     def test_explicit_copy(self, devices):
-        a_torch = torch.ones((2, 2), dtype=torch.float32)
+        # Setting the device parameter in the constructor will perform a copy if necessary.
+        a_torch = torch.ones((2, 2), dtype=torch.float32).to("cpu")
         if devices[0] == "gpu":
             a_torch = a_torch.to("cuda")
         a = tp.Tensor(a_torch, device=tp.device(devices[1]))
@@ -244,20 +239,20 @@ class TestTensor:
         ],
     )
     def test_no_explicit_copy(self, devices):
-        from nvtripy.trace.ops.storage import Storage
-
         a_torch = torch.ones((2, 2), dtype=torch.float32)
         if devices[0] == "gpu":
             a_torch = a_torch.to("cuda")
-        a = tp.Tensor(a_torch, device=tp.device(devices[1]))
+        a = tp.Tensor(a_torch)
         assert a.device.kind == devices[1]
-        assert isinstance(a.trace_tensor.producer, Storage)
 
-    def test_explicit_cast_copy(self):
-        a_np = np.ones((2, 2), dtype=np.float32)
-        a = tp.Tensor(a_np, dtype=tp.float16, device=tp.device("gpu"))
+    # Parametrize so we check both CPU/GPU data.
+    @pytest.mark.parametrize("mod", [np, cp])
+    def test_explicit_cast_copy(self, mod):
+        data = mod.ones((2, 2), dtype=np.float32)
+        a = tp.Tensor(data, dtype=tp.float16, device=tp.device("gpu"))
         assert a.dtype == tp.float16
         assert a.device.kind == "gpu"
+        a.eval()
 
     @pytest.mark.parametrize(
         "tensor, expected",
@@ -277,9 +272,6 @@ class TestTensor:
         "tensor",
         [
             tp.ones((2, 2)),
-            tp.Tensor([1, 2, 3]) + tp.Tensor([4, 5, 6]),
-            # This case should trigger datatype conversions.
-            (4 * tp.Tensor([1, 2, 3])) + (3 * tp.Tensor([4, 5, 6])),
             # Slice is an interesting case because it adds slice_helper to the stack.
             # Additionally, the use of slices may also require more ops, increasing the total stack depth.
             (tp.Tensor([1, 2, 3]) + tp.Tensor([4, 5, 6]))[:],
@@ -311,3 +303,7 @@ class TestTensor:
                 assert source_info.code is not None
             else:
                 assert source_info.code is None
+
+    def test_unequal_length_sublists(self):
+        with helper.raises(tp.TripyException, match="Mismatched dimension sizes in provided sequence"):
+            tp.Tensor([[1, 2], [3]])

@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,38 +15,30 @@
 # limitations under the License.
 #
 
-import math
-from typing import Optional, Sequence
-
-from nvtripy.frontend.tensor import Tensor
+from typing import Sequence, Optional
+from nvtripy.utils.stack_info import get_stack_info
 
 
-class DefaultParameter(Tensor):
-    """
-    Behaves exactly like a tensor except does not cause
-    data to be materialized for shape/dtype checks.
-    Useful for initializing module parameters.
-    """
-
+class ParameterBase:
     def __init__(self, shape: Optional[Sequence[int]], dtype: "nvtripy.dtype") -> None:
-        from nvtripy.frontend.ops.arange import arange
-        from nvtripy.frontend.ops.reshape import reshape
+        self.shape = shape
+        self.dtype = dtype
+        self.stack_info = get_stack_info(1)
 
-        is_shape_known = True
-        if shape is None:
-            is_shape_known = False
-            shape = []
-        tensor = reshape(arange(math.prod(shape), dtype), shape)
-        self.__dict__ = tensor.__dict__
 
-        self._shape = list(shape)
-        self._dtype = dtype
-        self.is_shape_known = is_shape_known
+class DefaultParameter(ParameterBase):
+    """
+    Denotes a parameter in a module and its expected shape and data type.
 
-    @property
-    def shape(self):
-        return self._shape
+    Must be replaced with real weights before the module can be run.
+    """
 
-    @property
-    def dtype(self):
-        return self._dtype
+    pass
+
+
+class OptionalParameter(ParameterBase):
+    """
+    Denotes an optional parameter in a module and its expected shape and data type.
+    """
+
+    pass

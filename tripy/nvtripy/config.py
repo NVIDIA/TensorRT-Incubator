@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,6 +22,7 @@ Global configuration options for Tripy.
 import os
 import sys
 import tempfile
+from typing import List
 
 from nvtripy import export
 
@@ -29,33 +30,19 @@ export.public_api(autodoc_options=[":no-members:", ":no-special-members:"])(sys.
 
 # MLIR-TRT Debug options
 enable_mlir_debug = os.environ.get("TRIPY_MLIR_DEBUG_ENABLED", "0") == "1"
-mlir_debug_types = os.environ.get("TRIPY_MLIR_DEBUG_TYPES", "-mlir-print-ir-after-all,-translate-to-tensorrt").split(
-    ","
-)
-mlir_debug_tree_path = os.environ.get("TRIPY_MLIR_DEBUG_PATH", os.path.join("/", "nvtripy", "mlir-dumps"))
+mlir_debug_types = os.environ.get("TRIPY_MLIR_DEBUG_TYPES", "-translate-to-tensorrt").split(",")
+mlir_debug_tree_path = os.environ.get("TRIPY_MLIR_DEBUG_PATH", os.path.join("/", "tripy", "mlir-dumps"))
 
 # TensorRT debug options
 enable_tensorrt_debug = os.environ.get("TRIPY_TRT_DEBUG_ENABLED", "0") == "1"
-tensorrt_debug_path = os.environ.get("TRIPY_TRT_DEBUG_PATH", os.path.join("/", "nvtripy", "tensorrt-dumps"))
-
-use_cache_in_eager_mode: bool = export.public_api(
-    document_under="config.rst",
-    module=sys.modules[__name__],
-    symbol="use_cache_in_eager_mode",
-)(os.environ.get("TRIPY_USE_CACHE_IN_EAGER_MODE", "1") == "1")
-"""
-Whether to enable executable caching to speed up eager mode.
-
-This can also be enabled/disabled by setting the ``TRIPY_USE_CACHE_IN_EAGER_MODE``
-environment variable to ``1``/``0`` respectively.
-"""
+tensorrt_debug_path = os.environ.get("TRIPY_TRT_DEBUG_PATH", os.path.join("/", "tripy", "tensorrt-dumps"))
 
 timing_cache_file_path: str = export.public_api(
     document_under="config.rst",
     autodoc_options=[":no-value:"],
     module=sys.modules[__name__],
     symbol="timing_cache_file_path",
-)(os.path.join(tempfile.gettempdir(), "nvtripy-cache"))
+)(os.path.join(tempfile.gettempdir(), "tripy-cache"))
 """Path to a timing cache file that can be used to speed up compilation time."""
 
 enable_dtype_checking: bool = export.public_api(
@@ -64,3 +51,19 @@ enable_dtype_checking: bool = export.public_api(
     symbol="enable_dtype_checking",
 )(True)
 """Whether to enable data type checking in API functions."""
+
+extra_error_information: List[str] = export.public_api(
+    document_under="config.rst",
+    module=sys.modules[__name__],
+    symbol="extra_error_information",
+)(os.environ.get("TRIPY_EXTRA_ERROR_INFORMATION", "").split(","))
+"""
+Extra error information to include in exceptions raised by Tripy.
+
+In the future, this will be expanded to include more fine-grained
+control over extra information. For now, the supported values are:
+- "all": Include all available extra error information.
+
+This can be set via the environment variable ``TRIPY_EXTRA_ERROR_INFORMATION``.
+For example: ``export TRIPY_EXTRA_ERROR_INFORMATION=all``.
+"""

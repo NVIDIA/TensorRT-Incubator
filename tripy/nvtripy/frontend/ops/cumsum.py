@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,9 +20,7 @@ from nvtripy.utils import wrappers
 @export.public_api(document_under="operations/functions")
 @wrappers.interface(
     dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
-    dtype_variables={
-        "T1": ["float32", "float16", "bfloat16", "int32"],
-    },
+    dtype_variables={"T1": ["float32", "float16", "bfloat16"]},
 )
 def cumsum(input: "nvtripy.Tensor", dim: int) -> "nvtripy.Tensor":
     """
@@ -39,7 +37,7 @@ def cumsum(input: "nvtripy.Tensor", dim: int) -> "nvtripy.Tensor":
         :linenos:
         :caption: 1D tensor
 
-        input = tp.arange(4, 0, step=-1, dtype=tp.int32)
+        input = tp.arange(4, 0, step=-1, dtype=tp.float32)
         output = tp.cumsum(input, dim=0)
 
         assert cp.array_equal(cp.cumsum(cp.from_dlpack(input)), cp.from_dlpack(output))
@@ -48,7 +46,7 @@ def cumsum(input: "nvtripy.Tensor", dim: int) -> "nvtripy.Tensor":
         :linenos:
         :caption: 2D tensor
 
-        input = tp.reshape(tp.arange(9, 0, step=-1, dtype=tp.int32), (3, 3))
+        input = tp.reshape(tp.arange(9, 0, step=-1, dtype=tp.float32), (3, 3))
         output = tp.cumsum(input, dim=0)
 
         assert cp.array_equal(cp.cumsum(cp.from_dlpack(input), axis=0), cp.from_dlpack(output))

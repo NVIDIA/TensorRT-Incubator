@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,10 +17,8 @@
 
 from typing import Optional, Sequence, Union
 
-from nvtripy import export, utils
-from nvtripy.common.exception import raise_error
+from nvtripy import export
 from nvtripy.frontend.ops import utils as op_utils
-from nvtripy.trace.ops.flip import Flip
 from nvtripy.utils import wrappers
 
 
@@ -31,28 +29,23 @@ from nvtripy.utils import wrappers
         "T1": ["float32", "float16", "bfloat16", "int32", "int64", "bool"],
     },
 )
-def flip(input: "nvtripy.Tensor", dims: Optional[Union[int, Sequence[int]]] = None) -> "nvtripy.Tensor":
+def flip(input: "nvtripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None) -> "nvtripy.Tensor":
     r"""
-    Return a new tensor with the same value as the `input` tensor, with the values in the
-    dimension(s) given in `dims` reversed. If a value in `dims` is negative,
-    it is counted backwards from the last dimension.
-
-    Note that slicing with a negative step size is implemented using `flip`; e.g., `t[::-1]` is
-    equivalent to flipping that dimension.
+    Reverses the order of elements along the specified dimension(s).
 
     Args:
         input: The input tensor.
-        dims: The dimensions that should be reversed. If `None`, all dimensions will be reversed.
-            If a given dimension is negative, it will be counted backwards from the last dimension.
+        dim: The dimension(s) that should be reversed.
+            If `None`, all dimensions will be reversed.
 
     Returns:
-        A new tensor with the same values as `input`, with the specified dimensions reversed.
+        A new tensor of the same shape as the input.
 
     .. code-block:: python
         :linenos:
 
         input = tp.reshape(tp.arange(10), (2, 5))
-        output = tp.flip(input) # equivalent to tp.flip(input, dims=[0, 1])
+        output = tp.flip(input) # equivalent to tp.flip(input, dim=[0, 1])
         assert cp.array_equal(cp.from_dlpack(output), cp.array([[9, 8, 7, 6, 5], [4, 3, 2, 1, 0]]))
 
     .. code-block:: python
@@ -60,29 +53,16 @@ def flip(input: "nvtripy.Tensor", dims: Optional[Union[int, Sequence[int]]] = No
         :caption: Reversing only one dimension.
 
         input = tp.reshape(tp.arange(10), (2, 5))
-        output = tp.flip(input, dims=-1)
+        output = tp.flip(input, dim=-1)
         assert cp.array_equal(cp.from_dlpack(output), cp.array([[4, 3, 2, 1, 0], [9, 8, 7, 6, 5]]))
     """
-    rank = input.rank
-    if dims is None:
-        dims = [d for d in range(rank)]
-    else:
-        encountered = set()
-        dims = utils.utils.make_list(dims)
+    dim = set(op_utils.process_dim_sequence(dim, input.rank))
 
-        if rank == 0 and len(dims) != 0:
-            raise_error("It is not possible to flip a rank-0 tensor.")
+    slice_params = []
+    for index in range(input.rank):
+        if index in dim:
+            slice_params.append(slice(None, None, -1))
+        else:
+            slice_params.append(slice(None))
 
-        for i, dim in enumerate(dims):
-            corrected_dim = rank + dim if dim < 0 else dim
-            if corrected_dim in encountered:
-                dim_message = f"{dim}" if dim >= 0 else f"{corrected_dim} ({dim})"
-                raise_error(f"All dimensions for flip must be unique but dimension {dim_message} is repeated.")
-            if rank > 0 and (corrected_dim < 0 or corrected_dim >= rank):
-                raise_error(
-                    f"All dimensions for flip must be in the range [-{rank}, {rank}), but dimension {dim} is out of range."
-                )
-            dims[i] = corrected_dim
-            encountered.add(corrected_dim)
-
-    return op_utils.create_op(Flip, [input], dims=dims)
+    return input.__getitem__(slice_params)

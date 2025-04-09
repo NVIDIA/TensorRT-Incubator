@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,7 +19,7 @@
 from nvtripy import export
 from nvtripy.common.exception import raise_error
 from nvtripy.frontend.ops import utils as op_utils
-from nvtripy.trace.ops.expand import Expand
+from nvtripy.trace.ops.broadcast import Broadcast
 from nvtripy.types import ShapeLike
 from nvtripy.utils import wrappers
 
@@ -33,11 +33,11 @@ def process_sizes(input: "nvtripy.Tensor", sizes: ShapeLike):
 
     num_prepended = len(sizes) - input.rank
     out_shape = list(sizes[:num_prepended]) + [
-        inp_dim if op_utils.is_minus_one(out_dim) else out_dim
+        inp_dim if op_utils.is_int_equal_to(out_dim, -1) else out_dim
         for inp_dim, out_dim in zip(input.shape, sizes[num_prepended:])
     ]
 
-    if any(op_utils.is_minus_one(dim) for dim in out_shape):
+    if any(op_utils.is_int_equal_to(dim, -1) for dim in out_shape):
         raise_error(
             "Cannot use -1 for prepended dimension.",
             [
@@ -55,7 +55,7 @@ def process_sizes(input: "nvtripy.Tensor", sizes: ShapeLike):
 @wrappers.interface(
     dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
     dtype_variables={
-        "T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
+        "T1": ["float32", "float16", "bfloat16", "int32", "int64", "bool"],
     },
     convert_to_tensors=True,
     conversion_preprocess_func=process_sizes,
@@ -91,4 +91,10 @@ def expand(input: "nvtripy.Tensor", sizes: ShapeLike) -> "nvtripy.Tensor":
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.broadcast_to(cp.from_dlpack(input).get(), (3, 1, 1)))
     """
-    return op_utils.create_op(Expand, [input, sizes])
+    from nvtripy.frontend.ops.reshape import reshape
+
+    out_rank = op_utils.get_shape_len(sizes)
+    if out_rank > input.rank:
+        input = reshape(input, (1,) * (out_rank - input.rank) + input.shape)
+
+    return op_utils.create_op(Broadcast, [input, sizes])
