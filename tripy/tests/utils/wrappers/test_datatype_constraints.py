@@ -227,5 +227,7 @@ def test_datatype_constraints(case: DtypeConstraintCase):
                 expected_return_types += [expected_return_types[-1]] * (len(outputs) - len(expected_return_types))
 
             for out, expected_type in zip(outputs, expected_return_types):
-                out.eval()
+                # Avoid evaluating CPU constants since some types (e.g. FP8) don't allow them to be used outside of
+                # certain operations.
+                out._eval_for_internal_methods()
                 assert out.dtype == DATA_TYPES[expected_type], f"Expected {expected_type}, got {out.dtype}"
