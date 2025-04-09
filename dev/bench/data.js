@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1744141471508,
+  "lastUpdate": 1744223968237,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -11594,6 +11594,47 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000002212180336786286",
             "extra": "mean: 51.98696463493634 usec\nrounds: 20130"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "fc70c5881e43c632f9c92aadb79d39147e317830",
+          "message": "Migrates Tripy to use the tensorrt dialect instead of StableHLO",
+          "timestamp": "2025-04-08T19:52:01Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/606/commits/fc70c5881e43c632f9c92aadb79d39147e317830"
+        },
+        "date": 1744223967097,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 4611.925373757018,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00004054856958543521",
+            "extra": "mean: 216.82918064768444 usec\nrounds: 4988"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 5223.4205054695,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00003650646410259968",
+            "extra": "mean: 191.44543292137578 usec\nrounds: 5737"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_tripy_param_update",
+            "value": 17546.28477353525,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000002574426292602514",
+            "extra": "mean: 56.992121859795766 usec\nrounds: 18289"
           }
         ]
       }
