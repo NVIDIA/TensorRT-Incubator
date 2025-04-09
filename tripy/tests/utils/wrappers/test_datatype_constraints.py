@@ -93,7 +93,7 @@ def generate_input_values(case: DtypeConstraintCase):
             "dilation": [1, 1],
         },
         "copy": {
-            "input": tp.ones((2, 2)),
+            "input": tp.iota((2, 2)),
             "device": tp.device("cpu"),
         },
         "deconvolution": {

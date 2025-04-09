@@ -60,9 +60,6 @@ def ones(
         "T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
         "T2": ["float32", "float16", "bfloat16", "int8", "int32", "int64", "bool"],
     },
-    dtype_exceptions=[
-        {"T1": "float8", "T2": "int8"},
-    ],
 )
 def ones_like(input: "nvtripy.Tensor", dtype: Optional[datatype.dtype] = None) -> "nvtripy.Tensor":
     """
