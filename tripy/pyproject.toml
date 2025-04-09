@@ -76,6 +76,7 @@ test = [
   "nvtripy[doc_test_common]",
   "pytest-notebook==0.10.0",
   "notebook==7.2.2",
+  "polygraphy==0.49.20",
 ]
 
 [tool.black]

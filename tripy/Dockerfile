@@ -32,3 +32,4 @@ RUN pip install build .[docs,dev,test,build] \
 
 # Export tripy into the PYTHONPATH so it doesn't need to be installed after making changes
 ENV PYTHONPATH=/tripy
+ENV LD_LIBRARY_PATH=/usr/local/lib/python3.9/site-packages/nvidia/cuda_runtime/lib:$LD_LIBRARY_PATH
