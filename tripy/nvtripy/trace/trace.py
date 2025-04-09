@@ -195,21 +195,17 @@ class Trace:
                         ir.FunctionType.get(new_inp_types, new_out_types)
                     )
 
-                    if self.shapes:
-                        # Create tensorrt.shape_profile attribute for all function arguments
-                        arg_attrs: List[Dict[str, ir.Attribute]] = []
-                        for bound in self.shapes:
-                            # TODO (#244): Support multiple profiles
-                            arg_attrs.append(
-                                ir.DictAttr.get(
-                                    {
-                                        "tensorrt.shape_profile": ir.Attribute.parse(
-                                            f"#tensorrt.shape_profile<min={list(bound.min)}, opt={list(bound.opt)}, max={list(bound.max)}>"
-                                        )
-                                    }
-                                )
+                    arg_attrs: List[Dict[str, ir.Attribute]] = []
+                    for idx in range(len(self.inputs)):
+                        attr = {}
+                        if self.shapes:
+                            attr["tensorrt.shape_profile"] = ir.Attribute.parse(
+                                f"#tensorrt.shape_profile<min={list(self.shapes[idx].min)}, opt={list(self.shapes[idx].opt)}, max={list(self.shapes[idx].max)}>"
                             )
-                        func_op.arg_attrs = ir.ArrayAttr.get(arg_attrs)
+
+                        arg_attrs.append(ir.DictAttr.get(attr))
+
+                    func_op.arg_attrs = ir.ArrayAttr.get(arg_attrs)
 
                 module.operation.attributes["sym_name"] = ir.StringAttr.get(
                     utils.utils.UniqueNameGen.gen_uid(
