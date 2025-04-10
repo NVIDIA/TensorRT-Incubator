@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1744309080634,
+  "lastUpdate": 1744320804055,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -11758,6 +11758,47 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000002529638451734789",
             "extra": "mean: 56.117680569038136 usec\nrounds: 18709"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "69c36e7d791887c1010abd91a1d20be41a827c96",
+          "message": "Add `tensorrt_engine` to Executable API",
+          "timestamp": "2025-04-10T16:47:34Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/608/commits/69c36e7d791887c1010abd91a1d20be41a827c96"
+        },
+        "date": 1744320803117,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 4747.520462520059,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00003987273189109309",
+            "extra": "mean: 210.6362695842251 usec\nrounds: 5100"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 5515.8876895737785,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00002984464262332242",
+            "extra": "mean: 181.2944817368592 usec\nrounds: 5906"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_tripy_param_update",
+            "value": 17533.556914537792,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000002373577456371381",
+            "extra": "mean: 57.03349325377664 usec\nrounds: 18229"
           }
         ]
       }
