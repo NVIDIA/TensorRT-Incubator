@@ -1,3 +1,5 @@
+cd "$(dirname "$0")"
+
 if command -v wget &> /dev/null; then
     CMD="wget"
 elif command -v curl &> /dev/null; then

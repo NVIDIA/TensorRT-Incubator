@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,10 +14,10 @@
 # limitations under the License.
 import os
 import time
-import requests
 from pathlib import Path
+
+import requests
 from PIL import Image
-import io
 
 
 def verify_jpeg(filepath):
@@ -29,7 +29,7 @@ def verify_jpeg(filepath):
         return False
 
 
-def download_file(url, filepath, max_retries=5, timeout=5):
+def download_file(url, filepath, max_retries=15, timeout=5):
     """Download file with retries and timeout."""
     for attempt in range(max_retries):
         try:
@@ -42,17 +42,16 @@ def download_file(url, filepath, max_retries=5, timeout=5):
 
             # Verify if it's a valid JPEG
             if verify_jpeg(filepath):
-                return True
-            else:
-                print(f"Invalid JPEG file {filepath}")
-                os.remove(filepath)  # Remove invalid file
+                return
+
+            raise RuntimeError(f"Invalid JPEG file: {filepath}")
 
         except (requests.exceptions.RequestException, IOError) as e:
             print(f"Error downloading {filepath} (attempt {attempt + 1}/{max_retries}): {str(e)}")
             time.sleep(0.01)
             continue
-    print(f"Failed to download {filepath} after {max_retries} attempts")
-    return False
+
+    raise RuntimeError(f"Failed to download: {filepath} after {max_retries} attempts")
 
 
 def main():

@@ -70,10 +70,9 @@ pre-commit install
 
 We've written developer guides to help you understand the codebase:
 
-<!-- TODO (pranavm): Update links here -->
-- Start with the
-    [architecture](https://nvidia.github.io/TensorRT-Incubator/post0_developer_guides/00-architecture.html)
-    documentation.
+- [Architecture guide](https://nvidia.github.io/TensorRT-Incubator/post0_developer_guides/00-architecture.html)
+
+- [Adding New Operations](https://nvidia.github.io/TensorRT-Incubator/post0_developer_guides/01-how-to-add-new-ops.html)
 
 
 ### Tests
