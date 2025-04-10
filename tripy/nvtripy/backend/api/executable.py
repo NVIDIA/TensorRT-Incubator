@@ -299,12 +299,12 @@ class Executable:
         """
         json_utils.save(self, path)
 
-    def tensorrt_engine(self) -> bytes:
+    def serialized_tensorrt_engine(self) -> bytes:
         """
-        Returns the TensorRT engine from the executable if there's a valid one.
+        Returns the serialized TensorRT engine from the executable.
 
         Returns:
-            The serialized TensorRT engine in a ``bytes`` object.
+            The serialized TensorRT engine as ``bytes``.
 
         .. code-block:: python
             :linenos:
@@ -313,7 +313,7 @@ class Executable:
             def add(a, b):
                 return a + b
 
-            # doc: no-print-locals compiled_add executable_file
+            # doc: no-print-locals compiled_add trt_engine
             compiled_add = tp.compile(
                 add,
                 args=[
@@ -322,7 +322,7 @@ class Executable:
                 ],
             )
 
-            trt_engine = compiled_add.tensorrt_engine()
+            trt_engine = compiled_add.serialized_tensorrt_engine()
             assert isinstance(trt_engine, bytes)
         """
         data_segments = self._executable.get_data_segments()
@@ -332,8 +332,6 @@ class Executable:
                 [f"Found {len(data_segments)} clusters in the executable."],
             )
         trt_cluster = data_segments[0]  # tuple of (name, data)
-        if "tensorrt_cluster_engine" not in trt_cluster[0]:
-            raise_error("Unrecognized tensorrt engine.", [f"Found cluster name {trt_cluster[0]}"])
         return trt_cluster[1]
 
 
