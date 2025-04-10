@@ -72,7 +72,7 @@ We've written developer guides to help you understand the codebase:
 
 <!-- TODO (pranavm): Update links here -->
 - Start with the
-    [architecture](https://nvidia.github.io/TensorRT-Incubator/post0_developer_guides/architecture.html)
+    [architecture](https://nvidia.github.io/TensorRT-Incubator/post0_developer_guides/00-architecture.html)
     documentation.
 
 

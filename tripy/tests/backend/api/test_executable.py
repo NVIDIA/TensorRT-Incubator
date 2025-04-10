@@ -17,6 +17,7 @@ import os
 import tempfile
 from typing import Tuple
 
+import numpy as np
 import nvtripy as tp
 import pytest
 from tests import helper
@@ -116,3 +117,15 @@ class TestExecutable:
             out1 = single_return_executable(inp, inp)
             out2 = loaded_executable(inp, inp)
             assert tp.equal(out1, out2)
+
+    def test_tensorrt_engine(self, single_return_executable):
+        from polygraphy.backend.trt import EngineFromBytes, TrtRunner
+
+        trt_engine = single_return_executable.serialized_tensorrt_engine()
+        load_engine = EngineFromBytes(trt_engine)
+        with TrtRunner(load_engine) as runner:
+            inp_data0 = np.random.rand(2, 2).astype(np.float32)
+            inp_data1 = np.random.rand(2, 2).astype(np.float32)
+            output = runner.infer(feed_dict={"arg0": inp_data0, "arg1": inp_data1})["result0"]
+            tripy_output = single_return_executable(tp.Tensor(inp_data0), tp.Tensor(inp_data1))
+            assert tp.equal(tripy_output, tp.Tensor(output))
