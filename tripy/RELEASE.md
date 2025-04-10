@@ -20,10 +20,16 @@ This document explains how to release a new version of Tripy.
     This is a very important step as otherwise the release pipeline could fail.
 
     Once the post-merge pipelines have succeeded, create a new tag with:
+
     ```bash
     git tag tripy-vX.Y.Z
     ```
-    replacing `X.Y.Z` with the version number and push it to the repository.
+
+    replacing `X.Y.Z` with the version number and push it to the repository:
+
+    ```bash
+    git push --tags
+    ```
 
     This should trigger our release pipeline, which will build and deploy
     the documentation and create a GitHub release with the wheel.
