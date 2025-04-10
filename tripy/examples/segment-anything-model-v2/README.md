@@ -16,7 +16,7 @@ This is an implementation of SAM2 model ([original repository](https://github.co
 
     ```bash
     python3 download_test_data.py
-    pushd checkpoints && sh download_ckpt.sh && popd
+    sh checkpoints/download_ckpt.sh
     ```
 
 ### Image pipeline
@@ -46,8 +46,8 @@ This is an implementation of SAM2 model ([original repository](https://github.co
     <!--
     Tripy: TEST: EXPECTED_STDOUT Start
     ```
-    Last frame object 2 has mask properties: volume {16338~5%}, centre (0.0, {95.80028155220957~5%}, {133.8682825315216~5%})
-    Last frame object 3 has mask properties: volume {4415~5%}, centre (0.0, {161.95605889014723~5%}, {421.4523216308041~5%})
+    Frame 180, object 2 has mask properties: volume {16340~5%}, centre (0.0, {96~5%}, {134~5%})
+    Frame 180, object 3 has mask properties: volume {4414~5%}, centre (0.0, {162~5%}, {421~5%})
     ```
     Tripy: TEST: EXPECTED_STDOUT End
     -->

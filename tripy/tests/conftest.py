@@ -22,8 +22,10 @@ import pytest
 import torch
 from nvtripy.common.datatype import DATA_TYPES
 
+HAS_FP8 = torch.cuda.get_device_capability() >= (8, 9)
+
 skip_if_older_than_sm89 = pytest.mark.skipif(
-    torch.cuda.get_device_capability() < (8, 9), reason="Some features (e.g. float8) are not available before SM90"
+    not HAS_FP8, reason="Some features (e.g. float8) are not available before SM89"
 )
 
 skip_if_older_than_sm80 = pytest.mark.skipif(

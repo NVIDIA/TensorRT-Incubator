@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -29,6 +29,7 @@ from typing import Sequence
 import contextlib
 import pytest
 from tests import helper, paths
+from tests.conftest import HAS_FP8
 
 EXAMPLES_ROOT = os.path.join(paths.ROOT_DIR, "examples")
 
@@ -91,6 +92,11 @@ EXAMPLES = [
 ]
 
 
+def test_all_examples_tested():
+    num_dirs = len([d for d in os.listdir(EXAMPLES_ROOT) if os.path.isdir(os.path.join(EXAMPLES_ROOT, d))])
+    assert num_dirs == len(EXAMPLES), "Not all examples are being tested!"
+
+
 # We want to test our examples with both the latest commit and public build.
 # This is because we always want the examples to work with pip-installable build, but also
 # don't want them to break on TOT.
@@ -136,6 +142,9 @@ def test_examples(example, tripy_virtualenv):
         # NOTE: This logic is not smart enough to handle multiple separate commands in a single block.
         for block in command_blocks:
             if block.has_marker("test: ignore") or not block.has_marker("command"):
+                continue
+
+            if block.has_marker("example: if_fp8") and not HAS_FP8:
                 continue
 
             code = str(block)

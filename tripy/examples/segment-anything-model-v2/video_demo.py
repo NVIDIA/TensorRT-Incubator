@@ -7,7 +7,7 @@
 # Not a contribution
 # Changes made by NVIDIA CORPORATION & AFFILIATES enabling SAM2 with Tripy or otherwise documented as
 # NVIDIA-proprietary are not a contribution and subject to the following terms and conditions:
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -36,7 +36,10 @@ import time
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument("-t", "--type", type=str, default="large", choices=["large", "small", "tiny"], help="type of the sam2 model")
+parser.add_argument(
+    "-t", "--type", type=str, default="large", choices=["large", "small", "tiny"], help="type of the sam2 model"
+)
+
 
 def compute_mask_properties(mask):
     # Ensure we have a boolean array
@@ -175,12 +178,12 @@ def main(video_dir: str, save_path: Optional[str] = None):
                 show_mask(out_mask, plt.gca(), obj_id=out_obj_id)
             plt.savefig(os.path.join(save_path, f"video_final_mask_{out_frame_idx}.png"))
 
-    # Print the properties of the mask generated for the final image for integration testing.
-    for last_frame_obj_id, last_frame_obj_mask in video_segments[
-        len(frame_names) - (len(frame_names) % vis_frame_stride)
-    ].items():
-        vol, centre = compute_mask_properties(last_frame_obj_mask)
-        print(f"Last frame object {last_frame_obj_id} has mask properties: volume {vol}, centre {centre}")
+        # Print the properties of the mask generated for the final image for integration testing.
+        for last_frame_obj_id, last_frame_obj_mask in video_segments[out_frame_idx].items():
+            vol, centre = compute_mask_properties(last_frame_obj_mask)
+            print(
+                f"Frame {out_frame_idx}, object {last_frame_obj_id} has mask properties: volume {vol}, centre {centre}"
+            )
 
 
 if __name__ == "__main__":
