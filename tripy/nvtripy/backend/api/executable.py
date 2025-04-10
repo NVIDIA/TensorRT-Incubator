@@ -306,6 +306,9 @@ class Executable:
         Returns:
             The serialized TensorRT engine as ``bytes``.
 
+        .. seealso:: Refer to the `TensorRT developer guide <https://docs.nvidia.com/deeplearning/tensorrt/latest/inference-library/python-api-docs.html#deserializing-a-plan>_`
+            for details on how to work with serialized TensorRT engines.
+
         .. code-block:: python
             :linenos:
             :caption: TensorRT engine
