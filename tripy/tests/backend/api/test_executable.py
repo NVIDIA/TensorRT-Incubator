@@ -121,7 +121,7 @@ class TestExecutable:
     def test_tensorrt_engine(self, single_return_executable):
         from polygraphy.backend.trt import EngineFromBytes, TrtRunner
 
-        trt_engine = single_return_executable.tensorrt_engine()
+        trt_engine = single_return_executable.serialized_tensorrt_engine()
         load_engine = EngineFromBytes(trt_engine)
         with TrtRunner(load_engine) as runner:
             inp_data0 = np.random.rand(2, 2).astype(np.float32)
