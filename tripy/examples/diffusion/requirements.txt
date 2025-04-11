@@ -1,0 +1,4 @@
+accelerate
+diffusers==0.31.0
+transformers==4.42.2
+scikit-image
