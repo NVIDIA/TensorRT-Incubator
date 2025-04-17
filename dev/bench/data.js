@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1744920427231,
+  "lastUpdate": 1744928192457,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -11922,6 +11922,47 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0000027900293045776705",
             "extra": "mean: 57.53706190904853 usec\nrounds: 18544"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "fbd3c73c752df4b3456847cb3f8d0c7099d375e5",
+          "message": "Add support for TensorRT Quickly Deployable Plugins",
+          "timestamp": "2025-04-17T18:16:19Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/578/commits/fbd3c73c752df4b3456847cb3f8d0c7099d375e5"
+        },
+        "date": 1744928191559,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 4714.423707139446,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000039947079985560807",
+            "extra": "mean: 212.11500325811113 usec\nrounds: 5039"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 5410.980864208376,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000305818561483219",
+            "extra": "mean: 184.8093765429162 usec\nrounds: 5838"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_tripy_param_update",
+            "value": 17758.735351521253,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000030800967991176934",
+            "extra": "mean: 56.310316033530945 usec\nrounds: 18738"
           }
         ]
       }
