@@ -14,7 +14,17 @@
 # limitations under the License.
 import nvtripy as tp
 import pytest
+import tensorrt as trt
+from nvtripy.common.datatype import DATA_TYPES
+from nvtripy.frontend.ops.plugin_qdp import TRIPY_FROM_TRT_DTYPE, TRT_FROM_TRIPY_DTYPE
 from tests import helper
+
+
+@pytest.mark.parametrize("dtype", DATA_TYPES.values())
+def test_dtype_trt_conversion(dtype):
+    assert dtype in TRT_FROM_TRIPY_DTYPE
+    assert isinstance(TRT_FROM_TRIPY_DTYPE[dtype], trt.DataType)
+    assert TRIPY_FROM_TRT_DTYPE[TRT_FROM_TRIPY_DTYPE[dtype]] == dtype
 
 
 class TestQuicklyDeployablePlugin:
