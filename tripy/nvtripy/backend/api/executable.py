@@ -299,14 +299,12 @@ class Executable:
         """
         json_utils.save(self, path)
 
+    @property
     def serialized_tensorrt_engine(self) -> bytes:
         """
-        Returns the serialized TensorRT engine from the executable.
+        The serialized TensorRT engine, as ``bytes``, from the executable.
 
-        Returns:
-            The serialized TensorRT engine as ``bytes``.
-
-        .. seealso:: Refer to the `TensorRT developer guide <https://docs.nvidia.com/deeplearning/tensorrt/latest/inference-library/python-api-docs.html#deserializing-a-plan>_`
+        .. seealso:: Refer to the `TensorRT developer guide <https://docs.nvidia.com/deeplearning/tensorrt/latest/inference-library/python-api-docs.html#deserializing-a-plan>`_
             for details on how to work with serialized TensorRT engines.
 
         .. code-block:: python
@@ -325,7 +323,7 @@ class Executable:
                 ],
             )
 
-            trt_engine = compiled_add.serialized_tensorrt_engine()
+            trt_engine = compiled_add.serialized_tensorrt_engine
             assert isinstance(trt_engine, bytes)
         """
         data_segments = self._executable.get_data_segments()
