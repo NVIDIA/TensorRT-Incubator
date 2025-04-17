@@ -20,6 +20,7 @@ from typing import Tuple, Union
 
 import nvtripy as tp
 import pytest
+import tensorrt as trt
 import tensorrt.plugin as trtp
 import torch
 import triton
@@ -64,6 +65,8 @@ def add_kernel(x_ptr, n_elements, y_ptr, BLOCK_SIZE: tl.constexpr):
 
 @trtp.register("example::elemwise_add_plugin")
 def add_plugin_desc(inp0: trtp.TensorDesc, block_size: int) -> trtp.TensorDesc:
+    # QDPs should receive and return TRT data types
+    assert inp0.dtype == trt.float32
     return inp0.like()
 
 
