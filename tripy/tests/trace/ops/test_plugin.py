@@ -55,8 +55,8 @@ class TestPlugin:
         batch_indices = tp.zeros((2,), dtype=tp.int32)
 
         out = tp.plugin(
-            "ROIAlign_TRT",
-            [X, rois, batch_indices],
+            name="ROIAlign_TRT",
+            inputs=[X, rois, batch_indices],
             output_info=[(X.rank, X.dtype)],
             **params,
         )

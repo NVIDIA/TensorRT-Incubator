@@ -157,7 +157,7 @@ seen_classes = set()
 def process_docstring_impl(app, what, name, obj, options, lines):
     doc = "\n".join(lines).strip()
     blocks = helper.consolidate_code_blocks(doc)
-    name = name.lstrip("nvtripy.")
+    name = name.rpartition("nvtripy.")[-1]
 
     # Check signature for functions/methods and class constructors.
     if what in {"function", "method"} or (what == "class" and name in seen_classes):
