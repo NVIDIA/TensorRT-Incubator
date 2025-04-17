@@ -84,7 +84,7 @@ Kernels can be written in many other ways, e.g. CUDA, CUTLASS, Numba, etc. as lo
 ### Retrieving PTX
 
 [`trtp.aot_impl`](https://docs.nvidia.com/deeplearning/tensorrt/latest/_static/python-api/infer/tensorrt.plugin/trt_plugin_aot_impl/index.html#tensorrt.plugin.aot_impl)
-decorates a function that retrieves PTX, launch parameters, and any extra arguments:
+decorates a function that retrieves PTX, launch parameters, and any extra scalar arguments:
 
 ```py
 from typing import Tuple, Union
