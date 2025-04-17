@@ -160,6 +160,8 @@ Code blocks in docstrings/guides are **preprocessed**:
 
     - `# doc: no-eval` disables execution but this means the code will be **untested**!
 
+    - `# doc: ignore-line` disables execution of the indicated line but still includes it in the rendered code.
+
 - Local variables are also displayed. You can customize this:
 
     - **Include** only specific variables: `# doc: print-locals <var1> <var2> ...`

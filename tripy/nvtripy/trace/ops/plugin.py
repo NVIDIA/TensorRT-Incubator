@@ -28,7 +28,6 @@ from nvtripy.common.exception import raise_error
 from nvtripy.trace.ops.base import TraceOp
 from nvtripy.utils.result import Result
 
-from nvtripy.logging import logger
 
 @utils.utils.call_once
 def initialize_plugin_registry():

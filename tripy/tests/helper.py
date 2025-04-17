@@ -17,9 +17,11 @@
 
 import contextlib
 import copy
+import enum
 import importlib
 import inspect
 import io
+import linecache
 import pkgutil
 import re
 from textwrap import dedent, indent
@@ -33,7 +35,6 @@ import pytest
 import torch
 from nvtripy import utils
 from nvtripy.common.exception import str_from_stack_info
-import enum
 
 TAB_SIZE = 4
 
@@ -147,12 +148,39 @@ def consolidate_code_blocks(doc):
     return out
 
 
+# A special class that will add source code information to any added functions so that
+# `inspect.getsource`` and related functions work correctly.
+class ExecNamespace(dict):
+    def __init__(self, source, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.filename = f"code_{hash(source)}"
+
+        lines = source.splitlines(keepends=True)
+        linecache.cache[self.filename] = (len(lines), None, lines, self.filename)
+
+    def __setitem__(self, name, value):
+        # Patch functions as they're defined:
+        if inspect.isfunction(value):
+            # Update code object metadata
+            value.__code__ = value.__code__.replace(co_filename=self.filename)
+
+        super().__setitem__(name, value)
+
+
 def exec_code(code, code_locals=None) -> Dict[str, Any]:
     # By default, don't inherit most variables from the current environment
     # so we can be sure the docstring examples work in total isolation.
     code_locals = copy.copy(utils.utils.default(code_locals, {}))
-    exec(code, {"tp": tp, "np": np, "torch": torch, "cp": cp}, code_locals)
-    return code_locals
+
+    locals = ExecNamespace(code)
+    locals.update(code_locals)
+
+    globals = ExecNamespace(code)
+    globals.update(code_locals)
+    globals.update({"tp": tp, "np": np, "torch": torch, "cp": cp})
+
+    exec(code, globals, locals)
+    return globals | locals
 
 
 @contextlib.contextmanager
@@ -397,6 +425,7 @@ def process_code_block_for_outputs_and_locals(
 
     TRIPY_CLASSES = [tripy_obj for tripy_obj in discover_tripy_objects() if inspect.isclass(tripy_obj)]
     # Special tags are documented under docs/README.md.
+    IGNORE_LINE = "# doc: ignore-line"
     NO_EVAL = "# doc: no-eval"
     NO_OUTPUT = "# doc: no-output"
     NO_PRINT_LOCALS = "# doc: no-print-locals"
@@ -456,6 +485,9 @@ def process_code_block_for_outputs_and_locals(
     stripped_code_start, stripped_code_end = get_code_bounds(stripped_code_block_lines)
     stripped_code_lines = stripped_code_block_lines[stripped_code_start:stripped_code_end]
 
+    # Remove any IGNORE_LINE tags:
+    stripped_code_lines = [line.partition(IGNORE_LINE)[0] for line in stripped_code_lines]
+
     indentation = len(stripped_code_lines[0]) - len(stripped_code_lines[0].lstrip())
     try:
         stripped_code_lines = indent(
@@ -494,29 +526,29 @@ def process_code_block_for_outputs_and_locals(
     # When we run the code, we need to get the original code, not the strpiped one.
     block_lines = block.splitlines()
     code_start, code_end = get_code_bounds(block_lines)
-    code = dedent("\n".join(block_lines[code_start:code_end]))
+    code = dedent("\n".join(line for line in block_lines[code_start:code_end] if IGNORE_LINE not in line))
 
     with capture_output() as outfile:
         try:
-            code_locals = exec_code(code, local_vars)
+            code_vars = exec_code(code, local_vars)
         except Exception as e:
             if allow_exception:
                 # We print the error message here so it can be captured in `outfile`
                 # and displayed in the output in cases where we actually expect exceptions.
                 print(e)
-                code_locals = local_vars
+                code_vars = local_vars
             else:
                 print(f"{err_msg}\n" f"Note: Code block was:\n\n{block}\n\nExtracted code was:\n\n{code}\n")
                 raise
 
     new_locals = {
-        key: value for key, value in code_locals.items() if key not in local_vars or value is not local_vars[key]
+        key: value for key, value in code_vars.items() if key not in local_vars or value is not local_vars[key]
     }
 
     # Add local variables as a separate code block
     locals_str = ""
     if should_append_locals:
-        for name, obj in code_locals.items():
+        for name, obj in code_vars.items():
 
             def should_print():
                 # print_vars/no_print_vars always take precedence over anything else
@@ -587,4 +619,4 @@ def process_code_block_for_outputs_and_locals(
         stdout = ANSI_ESCAPE.sub("", stdout)
         output_lines = split_block_lines(BlockKind.OUTPUT, stdout, lang="")
 
-    return stripped_code_block_lines, local_var_lines, output_lines, code_locals
+    return stripped_code_block_lines, local_var_lines, output_lines, code_vars

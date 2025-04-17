@@ -24,8 +24,8 @@ class TestPlugin:
     def test_gelu(self):
         inp = tp.iota((2, 2))
         out = tp.plugin(
-            "CustomGeluPluginDynamic",
-            [inp],
+            name="CustomGeluPluginDynamic",
+            inputs=[inp],
             output_info=[(inp.rank, inp.dtype)],
             # Plugin Parameters:
             type_id=0,
@@ -38,7 +38,7 @@ class TestPlugin:
 
     def test_dynamic_shape_gelu(self):
         def gelu(X):
-            return tp.plugin("CustomGeluPluginDynamic", [X], output_info=[(X.rank, X.dtype)], type_id=0)
+            return tp.plugin(name="CustomGeluPluginDynamic", inputs=[X], output_info=[(X.rank, X.dtype)], type_id=0)
 
         compiled_gelu = tp.compile(gelu, args=[tp.InputInfo((2, (1, 2, 3), 4), dtype=tp.float32)])
 
