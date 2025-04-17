@@ -14,11 +14,27 @@
 # limitations under the License.
 from typing import Any, Dict, List, Sequence, Union
 
+import tensorrt as trt
 from nvtripy import export, utils
+from nvtripy.common import datatype
 from nvtripy.common.exception import raise_error
 from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.trace.ops.plugin import Plugin
 from nvtripy.utils.types import str_from_type_annotation, type_str_from_arg
+
+TRT_FROM_TRIPY_DTYPE = {
+    datatype.float32: trt.float32,
+    datatype.float16: trt.float16,
+    datatype.float8: trt.fp8,
+    datatype.bfloat16: trt.bfloat16,
+    datatype.int4: trt.int4,
+    datatype.int8: trt.int8,
+    datatype.int32: trt.int32,
+    datatype.int64: trt.int64,
+    datatype.bool: trt.bool,
+}
+
+TRIPY_FROM_TRT_DTYPE = {val: key for key, val in TRT_FROM_TRIPY_DTYPE.items()}
 
 
 # TODO (pranavm): Add link to custom layers guide once published
@@ -93,11 +109,20 @@ def plugin(
     input_descs = [None] * len(inputs)
     for i in range(len(inputs)):
         input_descs[i] = trtp._tensor.TensorDesc()
-        input_descs[i].dtype = inputs[i].dtype
+        input_descs[i].dtype = TRT_FROM_TRIPY_DTYPE[inputs[i].dtype]
         input_descs[i].shape_expr = trtp._tensor.ShapeExprs(inputs[i].rank, _is_dummy=True)
         input_descs[i]._immutable = True
+
     output_descs = utils.utils.make_tuple(trtp_op.register_func(*input_descs, attrs))
 
-    output_info = [(len(desc.shape_expr), desc.dtype) for desc in output_descs]
+    def tripy_from_trt_dtype(dtype):
+        if dtype not in TRIPY_FROM_TRT_DTYPE:
+            raise_error(
+                f"Unsupported TensorRT data type: '{dtype}'.",
+                details=[f"Supported types are: {list(TRIPY_FROM_TRT_DTYPE.keys())}."],
+            )
+        return TRIPY_FROM_TRT_DTYPE[dtype]
+
+    output_info = [(len(desc.shape_expr), tripy_from_trt_dtype(desc.dtype)) for desc in output_descs]
 
     return op_utils.create_op(Plugin, inputs, name, "1", namespace, output_info, kwargs)
