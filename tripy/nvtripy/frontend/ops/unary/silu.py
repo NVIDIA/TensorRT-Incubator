@@ -23,7 +23,7 @@ from nvtripy.utils import wrappers
 @wrappers.interface(
     dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
     dtype_variables={
-        "T1": ["float32", "float16", "bfloat16"],
+        "T1": ["float32", "float16", "bfloat16", "int8"],
     },
 )
 def silu(input: "nvtripy.Tensor") -> "nvtripy.Tensor":
@@ -31,9 +31,11 @@ def silu(input: "nvtripy.Tensor") -> "nvtripy.Tensor":
     Applies the Sigmoid Linear Unit (SiLU) function  to each element of the
     input tensor. This function is also known as the swish function.
 
-    :math:`\text{silu}(x) = x \cdot \sigma (x)`
-    where
-    :math:`\sigma (x)_i = \frac{1}{1 + \exp{-x_i}}`
+    :math:`\text{silu}(x) = x \cdot \text{sigmoid} (x)`
+
+    where:
+
+    :math:`\text{sigmoid} (x)_i = \Large \frac{1}{1 + e^{-x_i}}`
 
     Args:
         input: The input tensor.
@@ -44,12 +46,12 @@ def silu(input: "nvtripy.Tensor") -> "nvtripy.Tensor":
     .. code-block:: python
         :linenos:
 
-        input = tp.Tensor([1., 2., 3., 4.], dtype=tp.float32)
+        input = tp.Tensor([1., 2., 3., 4.])
         output = tp.silu(input)
 
         t = torch.tensor([1, 2, 3, 4], dtype=torch.float32) # doc: omit
         assert tp.allclose(output, tp.Tensor(torch.nn.functional.silu(t)))
     """
-    from nvtripy.frontend.ops.unary.exp import exp
+    from nvtripy.frontend.ops.unary.sigmoid import sigmoid
 
-    return input / (1.0 + exp(-1.0 * input))
+    return input * sigmoid(input)

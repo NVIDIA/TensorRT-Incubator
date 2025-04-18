@@ -32,7 +32,7 @@ def sigmoid(input: "nvtripy.Tensor") -> "nvtripy.Tensor":
     r"""
     Applies a logistic sigmoid function to each element of the input tensor:
 
-    :math:`\text{sigmoid}(x)_i = \frac{1}{1 + \exp{-x_i}}`
+    :math:`\text{sigmoid}(x)_i = \Large \frac{1}{1 + e^{-x_i}}`
 
     Args:
         input: The input tensor.
