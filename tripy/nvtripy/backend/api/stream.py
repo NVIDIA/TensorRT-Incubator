@@ -57,7 +57,7 @@ class Stream:
             stream = tp.Stream()
             func.stream = stream
 
-            input = tp.ones((2, 2), dtype=tp.float32)
+            input = tp.ones((2, 2), dtype=tp.float32).eval()
             output = func(input)
 
             assert tp.equal(output, tp.relu(input))
@@ -84,7 +84,7 @@ class Stream:
 
             func = tp.compile(tp.relu, args=[tp.InputInfo((2, 2), dtype=tp.float32)])
 
-            input = tp.ones((2, 2), dtype=tp.float32)
+            input = tp.ones((2, 2), dtype=tp.float32).eval()
 
             func.stream = tp.Stream()
 

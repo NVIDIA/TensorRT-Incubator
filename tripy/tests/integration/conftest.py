@@ -50,10 +50,10 @@ def eager_or_compiled(request):
 
         compiled_func = tp.compile(func, args=compile_args, kwargs=compile_kwargs)
 
-        tensor_args = tuple(x for x in args if isinstance(x, tp.Tensor) and not isinstance(x, tp.DimensionSize))
+        tensor_args = tuple(x.eval() for x in args if isinstance(x, tp.Tensor) and not isinstance(x, tp.DimensionSize))
 
         tensor_kwargs = {
-            k: v for k, v in kwargs.items() if isinstance(v, tp.Tensor) and not isinstance(v, tp.DimensionSize)
+            k: v.eval() for k, v in kwargs.items() if isinstance(v, tp.Tensor) and not isinstance(v, tp.DimensionSize)
         }
 
         return compiled_func(*tensor_args, **tensor_kwargs)

@@ -192,7 +192,7 @@ class MemoryAttention(tp.Module):
         memory_pos: Optional[tp.Tensor] = None,  # pos_enc for cross-attention inputs
         num_obj_ptr_tokens: Optional[tp.Tensor] = None,  # number of object pointer *tokens*
     ):
-
+        # TODO (#594): Remove this hack once we are able to pass in DimensionSizes directly:
         num_obj_ptr_tokens = num_obj_ptr_tokens.shape[0]
         output = curr
         if self.pos_enc_at_input and curr_pos is not None:

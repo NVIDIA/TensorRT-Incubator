@@ -30,7 +30,7 @@ class TestCompile:
     def test_function(self):
         compiled_relu = tp.compile(tp.relu, args=[tp.InputInfo((2, 2), dtype=tp.float32)])
 
-        inp = tp.iota((2, 2), dtype=tp.float32) - 1
+        inp = (tp.iota((2, 2), dtype=tp.float32) - 1).eval()
         out = compiled_relu(inp)
 
         assert tp.equal(out, tp.relu(inp))
@@ -42,7 +42,7 @@ class TestCompile:
 
         compiled_layernorm = tp.compile(layernorm, args=[tp.InputInfo((2, 2), dtype=tp.float32)])
 
-        inp = tp.iota((2, 2), dtype=tp.float32) - 1
+        inp = (tp.iota((2, 2), dtype=tp.float32) - 1).eval()
         out = compiled_layernorm(inp)
 
         assert tp.equal(out, layernorm(inp))
@@ -55,7 +55,7 @@ class TestCompile:
 
         assert inspect.signature(compiled_func).return_annotation == Tuple[tp.Tensor]
 
-        inp = tp.iota((2, 2), dtype=tp.float32) - 1
+        inp = (tp.iota((2, 2), dtype=tp.float32) - 1).eval()
         [out] = compiled_func(inp)
 
         assert tp.equal(out, tp.relu(inp))
@@ -63,7 +63,7 @@ class TestCompile:
     def test_can_compile_using_shape_of_tensor(self):
         # Since InputInfo allows `DimensionSize`s, we should be able to use the shape of a tensor as
         # the shape of the InputInfo.
-        inp = tp.iota((2, 2), dtype=tp.float32) - 1
+        inp = (tp.iota((2, 2), dtype=tp.float32) - 1).eval()
         shape = inp.shape
 
         compiled_relu = tp.compile(tp.relu, args=[tp.InputInfo(shape, inp.dtype)])
@@ -78,8 +78,8 @@ class TestCompile:
             sub, kwargs=dict(b=tp.InputInfo((2, 2), dtype=tp.float32), a=tp.InputInfo((2, 2), dtype=tp.float32))
         )
 
-        a = tp.ones((2, 2), dtype=tp.float32) * 2
-        b = tp.ones((2, 2), dtype=tp.float32)
+        a = (tp.ones((2, 2), dtype=tp.float32) * 2).eval()
+        b = tp.ones((2, 2), dtype=tp.float32).eval()
 
         # Compiled function should still take arguments in (a, b) order.
         out = compiled_sub(a, b)
@@ -90,7 +90,7 @@ class TestCompile:
         # Any non-InputInfo argument to compile is baked into the compiled function.
         compiled_add = tp.compile(add, args=[tp.InputInfo((2, 2), dtype=tp.float32), b])
 
-        a = tp.zeros((2, 2), dtype=tp.float32)
+        a = tp.zeros((2, 2), dtype=tp.float32).eval()
 
         out = compiled_add(a)
 
@@ -103,7 +103,7 @@ class TestCompile:
             args=[tp.InputInfo((2,), dtype=tp.float32) for _ in range(num_args)],
         )
 
-        inputs = [tp.ones((2,)) for _ in range(num_args)]
+        inputs = [tp.ones((2,)).eval() for _ in range(num_args)]
         assert tp.equal(func(*inputs), tp.ones((2,)) * num_args)
 
     @pytest.mark.parametrize("num_args", [1, 2, 3])
@@ -113,7 +113,7 @@ class TestCompile:
             kwargs={f"arg{index}": tp.InputInfo((2,), dtype=tp.float32) for index in range(num_args)},
         )
 
-        inputs = {f"arg{index}": tp.ones((2,)) for index in range(num_args)}
+        inputs = {f"arg{index}": tp.ones((2,)).eval() for index in range(num_args)}
         assert tp.equal(func(**inputs), tp.ones((2,)) * num_args)
 
     @pytest.mark.parametrize("func", [returns_non_tensor, returns_nothing])
@@ -133,8 +133,8 @@ class TestCompile:
             args=[tp.InputInfo((2, 2), dtype=tp.float32), tp.InputInfo((2, 2), dtype=tp.float32)],
         )
 
-        a = tp.ones((2, 2), dtype=tp.float32) * 2
-        b = tp.ones((2, 2), dtype=tp.float32)
+        a = (tp.ones((2, 2), dtype=tp.float32) * 2).eval()
+        b = tp.ones((2, 2), dtype=tp.float32).eval()
 
         plus, minus = compiled_func(a, b)
 
@@ -142,7 +142,7 @@ class TestCompile:
         assert cp.array_equal(cp.from_dlpack(minus), cp.ones((2, 2), dtype=cp.float32))
 
     def test_incorrect_dtype_rejected(self):
-        a = tp.ones((2, 2), dtype=tp.int32)
+        a = tp.ones((2, 2), dtype=tp.int32).eval()
 
         with helper.raises(tp.TripyException, "Unexpected tensor data type."):
             compiled_add = tp.compile(
@@ -151,7 +151,7 @@ class TestCompile:
             compiled_add(a, a)
 
     def test_incorrect_shape_rejected(self):
-        a = tp.ones((1, 2), dtype=tp.float32)
+        a = tp.ones((1, 2), dtype=tp.float32).eval()
 
         with helper.raises(tp.TripyException, "Unexpected tensor shape.", has_stack_info_for=[a]):
             compiled_add = tp.compile(
@@ -165,10 +165,10 @@ class TestCompile:
             add, args=[tp.InputInfo(((1, 2, 3), 1), dtype=tp.float32), tp.InputInfo(((1, 2, 3), 1), dtype=tp.float32)]
         )
 
-        out = compiled_add(tp.ones((2, 1), dtype=tp.float32), tp.ones((2, 1), dtype=tp.float32))
+        out = compiled_add(tp.ones((2, 1), dtype=tp.float32).eval(), tp.ones((2, 1), dtype=tp.float32).eval())
         assert cp.array_equal(cp.from_dlpack(out), cp.ones((2, 1), dtype=cp.float32) * 2)
 
-        out = compiled_add(tp.ones((3, 1), dtype=tp.float32), tp.ones((3, 1), dtype=tp.float32))
+        out = compiled_add(tp.ones((3, 1), dtype=tp.float32).eval(), tp.ones((3, 1), dtype=tp.float32).eval())
         assert cp.array_equal(cp.from_dlpack(out), cp.ones((3, 1), dtype=cp.float32) * 2)
 
     # if we specify dynamic shapes in compilation, they should not be fixed afterwards
@@ -180,7 +180,7 @@ class TestCompile:
         compiled_ones = tp.compile(func, args=[tp.InputInfo(((1, 2, 5), (1, 2, 5), (1, 2, 5)), dtype=tp.float32)])
 
         for shape in ((1, 1, 1), (3, 3, 3), (2, 4, 5), (5, 2, 1)):
-            inp = tp.ones(shape, dtype=tp.float32)
+            inp = tp.ones(shape, dtype=tp.float32).eval()
             out = compiled_ones(inp)
             assert out.shape == (sum(shape),)
 

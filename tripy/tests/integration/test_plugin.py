@@ -42,12 +42,12 @@ class TestPlugin:
 
         compiled_gelu = tp.compile(gelu, args=[tp.InputInfo((2, (1, 2, 3), 4), dtype=tp.float32)])
 
-        inp = tp.iota((2, 1, 4))
+        inp = tp.iota((2, 1, 4)).eval()
         out = compiled_gelu(inp)
         assert out.shape == inp.shape
         assert tp.allclose(out, tp.gelu(inp), atol=0.001)
 
-        new_inp = tp.ones((2, 2, 4), dtype=tp.float32)
+        new_inp = tp.ones((2, 2, 4), dtype=tp.float32).eval()
         out = compiled_gelu(new_inp)
         assert out.shape == new_inp.shape
         assert tp.allclose(out, tp.gelu(new_inp), atol=0.001)

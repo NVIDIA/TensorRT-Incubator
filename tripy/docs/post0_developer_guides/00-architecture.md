@@ -77,7 +77,7 @@ def scale_up(inp):
 
 compiled_func = tp.compile(scale_up, args=[tp.InputInfo((2, 2), dtype=tp.float32)])
 
-inp = tp.iota((2, 2), dtype=tp.float32)
+inp = tp.iota((2, 2), dtype=tp.float32).eval()
 out = compiled_func(inp)
 ```
 

@@ -93,15 +93,15 @@ def compile(
             ],
         )
 
-        small_a = tp.ones((1, 2), dtype=tp.float32)
-        small_b = tp.ones((1, 2), dtype=tp.float32)
+        small_a = tp.ones((1, 2), dtype=tp.float32).eval()
+        small_b = tp.ones((1, 2), dtype=tp.float32).eval()
 
         small_out = compiled_add(small_a, small_b)
 
         # Now we can reuse the compiled function for any shapes within the
         # range:
-        big_a = tp.ones((3, 2), dtype=tp.float32)
-        big_b = tp.ones((3, 2), dtype=tp.float32)
+        big_a = tp.ones((3, 2), dtype=tp.float32).eval()
+        big_b = tp.ones((3, 2), dtype=tp.float32).eval()
 
         big_out = compiled_add(big_a, big_b)
 
@@ -122,7 +122,7 @@ def compile(
         b = tp.ones((1,), dtype=tp.float32)
         compiled_add = tp.compile(add, args=[tp.InputInfo((1,), dtype=tp.float32), b])
 
-        a = tp.ones((1,), dtype=tp.float32)
+        a = tp.ones((1,), dtype=tp.float32).eval()
 
         # Note that we cannot provide `b` as an argument to the compiled function.
         out = compiled_add(a)

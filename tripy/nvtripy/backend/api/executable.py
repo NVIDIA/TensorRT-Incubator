@@ -24,6 +24,7 @@ from nvtripy.backend.mlir import utils as mlir_utils
 from nvtripy.backend.mlir.utils import MLIRRuntimeClient
 from nvtripy.common.exception import raise_error
 from nvtripy.frontend import Tensor
+from nvtripy.trace.ops.constant import Constant
 from nvtripy.utils import json as json_utils
 from nvtripy.utils.types import str_from_type_annotation
 
@@ -127,6 +128,10 @@ class Executable:
         """
         Invokes the executable with the specified tensor arguments.
 
+        .. note:: Inputs must be evaluated tensors in GPU memory.
+
+            You can use :func:`nvtripy.copy` or :func:`nvtripy.Tensor.eval` to ensure this.
+
         Args:
             *args: Positional arguments. Must be of type :class:`Tensor` .
             **kwargs: Keyword arguments. Must be of type :class:`Tensor` .
@@ -150,8 +155,8 @@ class Executable:
                 ],
             )
 
-            a = tp.ones((1,), dtype=tp.float32)
-            b = tp.ones((1,), dtype=tp.float32)
+            a = tp.ones((1,), dtype=tp.float32).eval()
+            b = tp.ones((1,), dtype=tp.float32).eval()
 
             out = compiled_add(a, b)
         """
@@ -188,9 +193,17 @@ class Executable:
                 ],
             )
 
-        # The executor expects concrete tensors as inputs, so we need to eval() here.
         for tensor in input_tensors:
-            tensor.eval()
+            producer = tensor.trace_tensor.producer
+            if not isinstance(producer, Constant) or tensor.device.kind != "gpu":
+                raise_error(
+                    "Inputs to compiled executables must be evaluated tensors on the GPU.",
+                    [
+                        "Got input" + (f" on device '{tensor.device}':" if tensor.device.kind != "gpu" else ":"),
+                        tensor,
+                        "Hint: Try calling `.eval()` on the tensor to ensure it is a GPU constant.",
+                    ],
+                )
 
         input_memrefs = [inp.trace_tensor.producer.data for inp in input_tensors]
         try:

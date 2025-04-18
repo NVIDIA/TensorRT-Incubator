@@ -202,7 +202,7 @@ class Tensor(metaclass=TensorMeta):
         """
         Immediately evaluates this tensor. By default, tensors are evaluated lazily.
 
-        Note that an evaluated tensor will always reside in device memory.
+        .. note:: The evaluated tensor will always be in **GPU memory**.
 
         Returns:
             The evaluated tensor.
