@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,7 +15,6 @@
 from typing import Sequence, Tuple, Union
 
 from nvtripy import export
-from nvtripy.common.exception import raise_error
 from nvtripy.common.shape_bounds import ShapeBounds
 from nvtripy.frontend.dimension_size import DimensionSize
 from nvtripy.types import IntLike

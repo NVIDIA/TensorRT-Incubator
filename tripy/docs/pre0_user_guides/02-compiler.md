@@ -48,7 +48,7 @@ Other parameters become **compile-time constants** and will be folded away.
 The compiler returns an {class}`nvtripy.Executable`, which behaves like a callable:
 
 ```py
-inp = tp.ones((1, 2))
+inp = tp.ones((1, 2)).eval()
 out = fast_geglu(inp)
 ```
 
@@ -74,7 +74,7 @@ fast_geglu = tp.compile(layer, args=[inp_info])
 out0 = fast_geglu(inp)
 
 # Now use an input with a different shape: (2, 2):
-inp1 = tp.Tensor([[1., 2.], [2., 3.]], dtype=tp.float32)
+inp1 = tp.Tensor([[1., 2.], [2., 3.]], dtype=tp.float32).eval()
 out1 = fast_geglu(inp1)
 ```
 

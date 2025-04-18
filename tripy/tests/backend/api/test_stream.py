@@ -37,7 +37,7 @@ def test_enqueue_work_on_stream():
 
     compiled_linear = tp.compile(linear, args=[tp.InputInfo((2, 25), dtype=tp.float32)])
 
-    a = tp.ones((2, 25), dtype=tp.float32)
+    a = tp.ones((2, 25), dtype=tp.float32).eval()
 
     out = compiled_linear(a)
     tp.default_stream().synchronize()

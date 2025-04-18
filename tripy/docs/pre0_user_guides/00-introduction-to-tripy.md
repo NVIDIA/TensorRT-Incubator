@@ -49,7 +49,7 @@ mlp.load_state_dict({
 })
 
 # Execute:
-inp = tp.iota(shape=(1, 2), dim=1, dtype=tp.float32)
+inp = tp.iota(shape=(1, 2), dim=1, dtype=tp.float32).eval()
 out = mlp(inp)
 ```
 

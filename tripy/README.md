@@ -62,7 +62,7 @@ guide for details:
         }
     )
 
-    dummy_input = tp.ones((1, 1, 4, 4))
+    dummy_input = tp.ones((1, 1, 4, 4)).eval()
     ```
 
 - Executing in **eager mode**:

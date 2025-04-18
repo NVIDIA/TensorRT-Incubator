@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -93,7 +93,7 @@ def main():
     else:
         load_quant_weights_from_hf(model, args.model_type, MODEL_DTYPE, args.quant_mode)
 
-    idx = tp.reshape(tp.Tensor(input_ids), shape=(1, len(input_ids)))
+    idx = tp.unsqueeze(tp.Tensor(input_ids), 0).eval()
 
     # Compile the model before running inference.
     print(f"Compiling the model (this may take a few seconds)...")

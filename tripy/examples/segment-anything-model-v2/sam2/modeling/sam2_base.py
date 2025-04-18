@@ -7,7 +7,7 @@
 # Not a contribution
 # Changes made by NVIDIA CORPORATION & AFFILIATES enabling SAM2 with Tripy or otherwise documented as
 # NVIDIA-proprietary are not a contribution and subject to the following terms and conditions:
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -241,6 +241,8 @@ class SAM2Base(torch.nn.Module):
             self.obj_ptr_tpos_proj = torch.nn.Linear(self.hidden_dim, self.mem_dim)
         else:
             self.obj_ptr_tpos_proj = torch.nn.Identity()
+
+        self.fake_object_ptrs = torch.ones((1,), dtype=torch.int32, device="cuda")
 
     def _forward_sam_heads(
         self,
@@ -665,13 +667,14 @@ class SAM2Base(torch.nn.Module):
         memory = torch.cat(to_cat_memory, dim=0)
         memory_pos_embed = torch.cat(to_cat_memory_pos_embed, dim=0)
         if isinstance(self.memory_attention, tp.Module) or isinstance(self.memory_attention, tp.Executable):
-            fake_obj_ptrs = torch.ones((num_obj_ptr_tokens,), dtype=torch.int32)
+            if self.fake_object_ptrs.shape != (num_obj_ptr_tokens,):
+                self.fake_object_ptrs = torch.ones((num_obj_ptr_tokens,), dtype=torch.int32, device="cuda")
             pix_feat_with_mem = self.memory_attention(
                 curr=tp.Tensor(current_vision_feats[0].half().contiguous()),
                 memory=tp.Tensor(memory.half().contiguous()),
                 curr_pos=tp.Tensor(current_vision_pos_embeds[0].half().contiguous()),
                 memory_pos=tp.Tensor(memory_pos_embed.half().contiguous()),
-                num_obj_ptr_tokens=tp.Tensor(fake_obj_ptrs.contiguous()),
+                num_obj_ptr_tokens=tp.Tensor(self.fake_object_ptrs),
             )
         else:
             pix_feat_with_mem = self.memory_attention(

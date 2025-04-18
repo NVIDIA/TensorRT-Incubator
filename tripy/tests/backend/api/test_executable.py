@@ -38,13 +38,13 @@ def multiple_return_executable():
 
 class TestExecutable:
     def test_args(self, single_return_executable):
-        args = [tp.ones((2, 2), dtype=tp.float32), tp.ones((2, 2), dtype=tp.float32)]
+        args = [tp.ones((2, 2), dtype=tp.float32).eval(), tp.ones((2, 2), dtype=tp.float32).eval()]
         out = single_return_executable(*args)
 
         assert tp.allclose(out, add(*args))
 
     def test_kwargs(self, single_return_executable):
-        kwargs = {"a": tp.ones((2, 2), dtype=tp.float32), "b": tp.ones((2, 2), dtype=tp.float32)}
+        kwargs = {"a": tp.ones((2, 2), dtype=tp.float32).eval(), "b": tp.ones((2, 2), dtype=tp.float32).eval()}
         out = single_return_executable(**kwargs)
 
         assert tp.allclose(out, add(**kwargs))
@@ -113,7 +113,7 @@ class TestExecutable:
             loaded_executable = tp.Executable.load(exe_file)
             assert loaded_executable.__signature__ == single_return_executable.__signature__
 
-            inp = tp.iota((2, 2), dtype=tp.float32)
+            inp = tp.iota((2, 2), dtype=tp.float32).eval()
             out1 = single_return_executable(inp, inp)
             out2 = loaded_executable(inp, inp)
             assert tp.equal(out1, out2)
@@ -127,5 +127,5 @@ class TestExecutable:
             inp_data0 = np.random.rand(2, 2).astype(np.float32)
             inp_data1 = np.random.rand(2, 2).astype(np.float32)
             output = runner.infer(feed_dict={"arg0": inp_data0, "arg1": inp_data1})["result0"]
-            tripy_output = single_return_executable(tp.Tensor(inp_data0), tp.Tensor(inp_data1))
+            tripy_output = single_return_executable(tp.Tensor(inp_data0).eval(), tp.Tensor(inp_data1).eval())
             assert tp.equal(tripy_output, tp.Tensor(output))
