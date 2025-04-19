@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1744928192457,
+  "lastUpdate": 1745022228673,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -11963,6 +11963,47 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0000030800967991176934",
             "extra": "mean: 56.310316033530945 usec\nrounds: 18738"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "e2dcad63c61937f2afeb5baecd3ceb8e971f543e",
+          "message": "Simplifies silu, updates executables to reject tensors that are not GPU constants",
+          "timestamp": "2025-04-17T22:29:53Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/614/commits/e2dcad63c61937f2afeb5baecd3ceb8e971f543e"
+        },
+        "date": 1745022227694,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 5274.676141743507,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000027030886975910807",
+            "extra": "mean: 189.5850992795658 usec\nrounds: 5516"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 6003.057705847979,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000352410690653422",
+            "extra": "mean: 166.5817736560875 usec\nrounds: 6412"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_tripy_param_update",
+            "value": 17605.25722110961,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000025587151758396746",
+            "extra": "mean: 56.80121496895533 usec\nrounds: 18233"
           }
         ]
       }
