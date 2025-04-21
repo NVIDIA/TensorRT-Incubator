@@ -52,19 +52,6 @@ Frontend/Backend refer to the flow of execution, not what the user does/doesn't 
 Public APIs are exposed by both the frontend (e.g. {func}`nvtripy.resize`) and backend (e.g. {func}`nvtripy.compile`).
 :::
 
-## Source Code Links
-
-- [**Frontend**](source:/nvtripy/frontend)
-    - [Tensor](source:/nvtripy/frontend/tensor.py)
-    - [Operations](source:/nvtripy/frontend/ops/)
-- [**Trace**](source:/nvtripy/trace)
-    - [TraceTensor](source:/nvtripy/trace/tensor.py)
-    - [Operations](source:/nvtripy/trace/ops/)
-- [**Backend**](source:/nvtripy/backend)
-    - [`compile`](source:/nvtripy/backend/api/compile.py)
-    - [Executable](source:/nvtripy/backend/api/executable.py)
-
-
 ## The Stack By Example
 
 Consider a simple example:
@@ -167,3 +154,16 @@ The MLIR-TRT executable interfaces with `memref`s; data in frontend tensors is s
 
 - If there is an error from the compiler, we map the location from the error to
     the user's code via the stack information in the trace tensor.
+
+
+## Source Code Links
+
+- [**Frontend**](source:/nvtripy/frontend)
+    - [Tensor](source:/nvtripy/frontend/tensor.py)
+    - [Operations](source:/nvtripy/frontend/ops/)
+- [**Trace**](source:/nvtripy/trace)
+    - [TraceTensor](source:/nvtripy/trace/tensor.py)
+    - [Operations](source:/nvtripy/trace/ops/)
+- [**Backend**](source:/nvtripy/backend)
+    - [`compile`](source:/nvtripy/backend/api/compile.py)
+    - [Executable](source:/nvtripy/backend/api/executable.py)
