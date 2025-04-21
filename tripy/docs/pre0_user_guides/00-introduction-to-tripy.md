@@ -77,7 +77,7 @@ There are **restrictions** on what can be compiled - see {func}`nvtripy.compile`
 :::
 
 :::{seealso}
-The [compiler guide](project:./02-compiler.md) contains more information, including how to enable **dynamic shapes**.
+The [compiler guide](project:./01-compiler.md) contains more information, including how to enable **dynamic shapes**.
 :::
 
 
