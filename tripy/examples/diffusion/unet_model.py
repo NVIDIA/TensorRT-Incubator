@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,7 +18,6 @@
 import math
 from typing import List, Tuple
 
-import torch
 import nvtripy as tp
 from dataclasses import dataclass
 
@@ -55,7 +54,7 @@ class ResBlock(tp.Module):
         h = tp.cast(self.norm1(tp.cast(x, self.norm1.dtype)), x.dtype)
         h = self.conv1(self.nonlinearity(h))
         emb_out = self.time_emb_proj(self.nonlinearity(emb))
-        target_shape = emb_out.shape + [1, 1]
+        target_shape = emb_out.shape + (1, 1)
         h = h + tp.reshape(emb_out, target_shape)
         h = tp.cast(self.norm2(tp.cast(h, self.norm2.dtype)), h.dtype)
         h = self.conv2(self.nonlinearity(h))

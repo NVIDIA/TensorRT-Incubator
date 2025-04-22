@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -29,6 +29,10 @@ from transformers import CLIPTokenizer
 from examples.diffusion.clip_model import CLIPConfig
 from examples.diffusion.model import StableDiffusion, StableDiffusionConfig
 from examples.diffusion.weight_loader import load_from_diffusers
+
+import nvtx
+
+tp.logger.verbosity = "ir"
 
 
 def compile_model(model, inputs, verbose=False):
@@ -73,23 +77,22 @@ def compile_vae(model, dtype, verbose=False):
 
 
 # equivalent to LMSDiscreteScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000)
-def get_alphas_cumprod(beta_start=0.00085, beta_end=0.0120, n_training_steps=1000, dtype=np.float32):
-    betas = np.linspace(beta_start**0.5, beta_end**0.5, n_training_steps) ** 2
+def get_alphas_cumprod(beta_start=0.00085, beta_end=0.0120, n_training_steps=1000, dtype=torch.float32):
+    betas = torch.linspace(beta_start**0.5, beta_end**0.5, n_training_steps, dtype=dtype, device="cpu") ** 2
     alphas = 1.0 - betas
-    alphas_cumprod = np.cumprod(alphas, axis=0)
-    return alphas_cumprod.astype(dtype)
+    alphas_cumprod = torch.cumprod(alphas, dim=0)
+    return alphas_cumprod
 
 
 def run_diffusion_loop(model, unconditional_context, context, latent, steps, guidance, dtype):
-    np_type = np.float16 if dtype == tp.float16 else np.float32
+    torch_dtype = torch.float16 if dtype == tp.float16 else torch.float32
     idx_timesteps = list(range(1, 1000, 1000 // steps))
-    timesteps = np.array(idx_timesteps, dtype=np_type)
-    guidance = np.array([guidance], dtype=np_type)
+    timesteps = torch.tensor(idx_timesteps, dtype=torch_dtype, device="cpu")
+    guidance = torch.tensor([guidance], dtype=torch_dtype, device="cpu")
 
     print(f"[I] Running diffusion for {steps} timesteps...")
-    alphas = get_alphas_cumprod(dtype=np_type)[idx_timesteps]
-    alphas_prev = np.concatenate((np.array([1.0], dtype=np_type), alphas[:-1]))
-    guidance = tp.Tensor(guidance)
+    alphas = get_alphas_cumprod(dtype=torch_dtype)[idx_timesteps]
+    alphas_prev = torch.cat((torch.tensor([1.0], dtype=torch_dtype, device="cpu"), alphas[:-1]))
 
     model.stream = tp.Stream()
     for index, timestep in (t := tqdm(list(enumerate(timesteps))[::-1])):
@@ -97,10 +100,10 @@ def run_diffusion_loop(model, unconditional_context, context, latent, steps, gui
             unconditional_context,
             context,
             latent,
-            tp.Tensor(np.array([timestep])),
-            tp.Tensor(alphas[index : index + 1]),
-            tp.Tensor(alphas_prev[index : index + 1]),
-            guidance,
+            tp.copy(tp.Tensor(torch.tensor([timestep], dtype=torch_dtype)), device=tp.device("gpu")),
+            tp.copy(tp.Tensor(alphas[index : index + 1]), device=tp.device("gpu")),
+            tp.copy(tp.Tensor(alphas_prev[index : index + 1]), device=tp.device("gpu")),
+            tp.copy(tp.Tensor(guidance), device=tp.device("gpu")),
         )
 
     model.stream.synchronize()
@@ -153,6 +156,9 @@ def tripy_diffusion(args):
         unet_compiled.save(os.path.join("engines", "unet_executable.json"))
         vae_compiled.save(os.path.join("engines", "vae_executable.json"))
 
+    pr = nvtx.Profile()
+    pr.enable()
+
     # Run through CLIP to get context from prompt
     tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14")
     torch_prompt = tokenizer(
@@ -171,14 +177,15 @@ def tripy_diffusion(args):
     clip_compiled.stream = tp.Stream()
     context = clip_compiled(prompt)
     unconditional_context = clip_compiled(unconditional_prompt)
+    clip_compiled.stream.synchronize()
     clip_run_end = time.perf_counter()
     print(f"took {clip_run_end - clip_run_start} seconds.")
 
     # Backbone of diffusion - the UNet
     if args.seed is not None:
         torch.manual_seed(args.seed)
-    torch_latent = torch.randn((1, 4, 64, 64), dtype=torch_dtype)
-    latent = tp.Tensor(torch_latent)
+    torch_latent = torch.randn((1, 4, 64, 64), dtype=torch_dtype, device="cpu")
+    latent = tp.copy(tp.Tensor(torch_latent), device=tp.device("gpu"))
 
     diffusion_run_start = time.perf_counter()
     latent = run_diffusion_loop(unet_compiled, unconditional_context, context, latent, args.steps, args.guidance, dtype)
@@ -190,6 +197,7 @@ def tripy_diffusion(args):
     vae_compiled.stream = tp.Stream()
     vae_run_start = time.perf_counter()
     x = vae_compiled(latent)
+    vae_compiled.stream.synchronize()
     vae_run_end = time.perf_counter()
     print(f"took {vae_run_end - vae_run_start} seconds.")
 
@@ -250,7 +258,7 @@ def hf_diffusion(args):
     # Backbone of diffusion - the UNet
     if args.seed is not None:
         torch.manual_seed(args.seed)
-    torch_latent = torch.randn((1, 4, 64, 64), dtype=dtype).to("cuda")
+    torch_latent = torch.randn((1, 4, 64, 64), dtype=dtype, device="cuda")
     torch_latent *= scheduler.init_noise_sigma
 
     scheduler.set_timesteps(args.steps)
