@@ -20,6 +20,7 @@ from typing import Sequence, Tuple, Union
 from nvtripy import export
 from nvtripy.common.exception import raise_error
 from nvtripy.frontend.ops import utils as op_utils
+from nvtripy.types import IntLike
 from nvtripy.utils import wrappers
 
 
@@ -31,7 +32,7 @@ from nvtripy.utils import wrappers
     },
 )
 def split(
-    input: "nvtripy.Tensor", num_split_or_sizes: Union[int, Sequence[int]], dim: int = 0
+    input: "nvtripy.Tensor", num_split_or_sizes: Union[int, Sequence[IntLike]], dim: int = 0
 ) -> Tuple["nvtripy.Tensor"]:
     r"""
     Splits a tensor along the specified dimension.
@@ -40,10 +41,10 @@ def split(
         input: The input tensor.
 
         num_split_or_sizes:
-            If this is an ``int``, the input is split into this many equal sized chunks.
+            If this is an integer, the input is split into this many equal sized chunks.
             If the dimension cannot be divided evenly, the last chunk will be smaller.
 
-            If this is a ``Sequence[int]``, the input will be split into ``len(num_split_or_sizes)``
+            If this is a sequence of values, the input will be split into ``len(num_split_or_sizes)``
             chunks where the :math:`i^{th}` chunk has a size of ``num_split_or_sizes[i]``.
             The size of the chunk will be clamped if the input is too small.
 
