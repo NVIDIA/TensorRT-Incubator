@@ -14,7 +14,7 @@
 # limitations under the License.
 import nvtripy as tp
 import pytest
-from nvtripy.trace.ops.top_k import TopKMax, TopKMin
+from nvtripy.trace.ops.topk import TopKMax, TopKMin
 
 
 @pytest.mark.parametrize("TopKType", [TopKMax, TopKMin])

@@ -36,10 +36,35 @@ def reduce_impl(ReduceOpType, input, dim, keepdim):
     return output
 
 
+def topk_impl(TopKType, input, dim, k):
+    from nvtripy.frontend.ops.squeeze import squeeze
+    from nvtripy.frontend.ops.unsqueeze import unsqueeze
+    from nvtripy.frontend.tensor import Tensor
+
+    if input.rank == 0:
+        # TODO (#496): Remove this hack of adding 0 when inputs can be returned directly in compiled functions.
+        return input + 0, Tensor(0, dtype=datatype.int32)
+
+    dim = op_utils.process_dim(dim, input.rank)
+
+    # Top-K requires 2D inputs, so we must unsqueeze
+    should_unsqueeze_1D = input.rank == 1
+    if should_unsqueeze_1D:
+        input = unsqueeze(input, -1)
+
+    # Create op returns both values and indices
+    values, indices = op_utils.create_op(TopKType, [input], dim=dim, k=k)
+
+    if should_unsqueeze_1D:
+        values = squeeze(values, -1)
+        indices = squeeze(indices, -1)
+
+    return values, indices
+
+
 def arg_min_max_impl(TopKType, input, dim, keepdim):
     from nvtripy.frontend.ops.reshape import reshape
     from nvtripy.frontend.ops.squeeze import squeeze
-    from nvtripy.frontend.ops.unsqueeze import unsqueeze
     from nvtripy.frontend.tensor import Tensor
 
     original_rank = input.rank
@@ -55,19 +80,9 @@ def arg_min_max_impl(TopKType, input, dim, keepdim):
         input = reshape(input, (-1,))
         dim = 0
 
-    dim = op_utils.process_dim(dim, input.rank)
+    _, indices = topk_impl(TopKType, input, dim, k=1)
 
-    # Top-K requires 2D inputs, so we must unsqueeze
-    should_unsqueeze_1D = input.rank == 1
-    if should_unsqueeze_1D:
-        input = unsqueeze(input, -1)
-
-    _, indices = op_utils.create_op(TopKType, [input], dim=dim, k=1)
-
-    if should_unsqueeze_1D:
-        indices = squeeze(indices, -1)
-
-    # Top-k always keeps dimensions
+    # Top-k always keeps dimensions; squeeze if keepdim is False.
     if not keepdim:
         indices = squeeze(indices, dim)
 

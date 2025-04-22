@@ -20,6 +20,7 @@ import math
 import numpy as np
 import nvtripy as tp
 import pytest
+import torch
 
 
 class TestReduceOp:
@@ -45,7 +46,7 @@ class TestReduceOp:
             # Scalar:
             (tuple(), None),
             # Single dimension:
-            ((2, 3), 1),
+            ((3,), 0),
             # Multiple dimensions:
             ((2, 3, 4), (1, -1)),
             # Default dimensions:
@@ -77,3 +78,30 @@ class TestReduceOp:
             assert tp.equal(tp.cast(out, expected.dtype), expected)
         else:
             assert tp.allclose(out, expected, rtol=1e-3, atol=1e-3)
+
+    @pytest.mark.parametrize(
+        "input_shape, dim, k",
+        [
+            # Scalar:
+            (tuple(), 0, 1),
+            # 1D input:
+            ((5,), 0, 3),
+            # High-dimensional input:
+            ((1, 2, 3), 2, 2),
+            # Negative axis:
+            ((1, 2, 3), -1, 2),
+        ],
+    )
+    def test_topk(self, input_shape, dim, k, eager_or_compiled):
+        tensor = tp.reshape(tp.arange(math.prod(input_shape)), input_shape)
+
+        values, indices = eager_or_compiled(tp.topk, tensor, k=k, dim=dim)
+
+        torch_tensor = torch.from_dlpack(tensor)
+        expected_values, expected_indices = torch.topk(torch_tensor, k=k, dim=dim)
+
+        assert values.shape == expected_values.shape
+        assert indices.shape == expected_indices.shape
+
+        assert tp.equal(indices, tp.Tensor(expected_indices.to(torch.int32)))
+        assert tp.equal(values, tp.Tensor(expected_values))

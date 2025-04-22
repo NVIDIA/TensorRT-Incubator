@@ -16,7 +16,7 @@ Adding a new operation involves:
 - [Implementing a frontend API](#implementing-the-frontend-api).
 
 
-Let's implement Top-K:
+Let's implement Top-K, which we'll call Top-N so as not to collide with the actual Top-K operation:
 
 ## Implementing The Trace Operation
 
@@ -30,7 +30,7 @@ defines the tensorrt dialect. Refer to that file for details on each operation.
 
 ```py
 # doc: no-eval
-# nvtripy/trace/ops/top_k.py
+# nvtripy/trace/ops/topn.py
 from dataclasses import dataclass
 
 from mlir_tensorrt.compiler.dialects import tensorrt
@@ -38,10 +38,10 @@ from nvtripy.common import datatype
 from nvtripy.trace.ops.base import TraceOp
 
 @dataclass(repr=False)
-class TopK(TraceOp):
+class TopN(TraceOp):
     # Attributes of the operation are added to the constructor by default.
     # Use `dataclasses.field(..., init=False)` to avoid that.
-    k: int
+    n: int
     dim: int
 
     def infer_rank(self):
@@ -51,7 +51,7 @@ class TopK(TraceOp):
         self.outputs[1].rank = rank
 
     def infer_dtypes(self):
-        # First output is top-k values, second is indices
+        # First output is top-n values, second is indices
         self.outputs[0].dtype = self.inputs[0].dtype
         self.outputs[1].dtype = datatype.int32
 
@@ -66,43 +66,43 @@ class TopK(TraceOp):
         #
         # NOTE: If the MLIR API returned only a single tensor, we would need to
         # wrap it in a list.
-        return tensorrt.top_k(inputs[0], self.k, self.dim, tensorrt.TopKOperationAttr.get("kMAX"))
+        return tensorrt.top_k(inputs[0], self.n, self.dim, tensorrt.TopKOperationAttr.get("kMAX"))
 ```
 
 We can add tests under [tests/trace/ops/](source:/tests/trace/ops/):
 
 <!-- Tripy: DOC: OMIT Start -->
-<!-- Need to simulate TopK being added to trace.ops module -->
+<!-- Need to simulate TopN being added to trace.ops module -->
 
 ```py
 # doc: no-eval
 import sys
 
-class top_k:
-    TopK = TopK
+class topn:
+    TopN = TopN
 
-sys.modules["nvtripy.trace.ops.top_k"] = top_k
+sys.modules["nvtripy.trace.ops.topn"] = topn
 ```
 <!-- Tripy: DOC: OMIT End -->
 
 ```py
 # doc: no-eval
-# tests/trace/ops/top_k.py
+# tests/trace/ops/topn.py
 import nvtripy as tp
 
-from nvtripy.trace.ops.top_k import TopK
+from nvtripy.trace.ops.topn import TopN
 
 
-class TestTopK:
+class TestTopN:
     def test_infer_rank(self):
         inp = tp.ones((2, 2, 3))
-        values, indices = TopK([inp.trace_tensor], dim=2, k=2).outputs
+        values, indices = TopN([inp.trace_tensor], dim=2, n=2).outputs
         assert values.rank == inp.rank
         assert indices.rank == inp.rank
 
     def test_infer_dtypes(self):
         inp = tp.ones((2, 2, 3))
-        values, indices = TopK([inp.trace_tensor], dim=2, k=2).outputs
+        values, indices = TopN([inp.trace_tensor], dim=2, n=2).outputs
         assert values.dtype == inp.dtype
         assert indices.dtype == tp.int32
 ```
@@ -124,11 +124,11 @@ They should:
 
 ```py
 # doc: no-eval
-# nvtripy/frontend/ops/top_k.py
-from typing import Optional, Tuple
+# nvtripy/frontend/ops/topn.py
+from typing import Tuple
 
 from nvtripy import export
-from nvtripy.trace.ops.top_k import TopK
+from nvtripy.trace.ops.topn import TopN
 from nvtripy.utils import wrappers
 from nvtripy.frontend.ops import utils as op_utils
 
@@ -137,25 +137,25 @@ from nvtripy.frontend.ops import utils as op_utils
     dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: ["T1", "T2"]},
     dtype_variables={"T1": ["float32", "float16", "bfloat16", "int32", "int64"], "T2": ["int32"]},
 )
-def top_k(input: "nvtripy.Tensor", k: int, dim: int) -> Tuple["nvtripy.Tensor", "nvtripy.Tensor"]:
+def topn(input: "nvtripy.Tensor", n: int, dim: int) -> Tuple["nvtripy.Tensor", "nvtripy.Tensor"]:
     # See docs/README.md for more information on how to write docstrings
     """
-    Returns the top-k values in the tensor and their
+    Returns the top-n values in the tensor and their
     indices along the specified dimension.
 
     Args:
         input: The input tensor.
-        k: The number of values to take.
-        dim: The dimension along which to find the top-k values.
+        n: The number of values to take.
+        dim: The dimension along which to find the top-n values.
 
     Returns:
-        The top-k values and indices
+        The top-n values and indices
 
     .. code-block:: python
         :linenos:
 
         inp = tp.iota((1, 5), dim=1)
-        values, indices = tp.top_k(inp, k=2, dim=1)
+        values, indices = tp.topn(inp, n=2, dim=1)
 
         assert tp.equal(values, tp.Tensor([[4.0, 3.0]]))
         assert tp.equal(indices, tp.Tensor([[4, 3]]))
@@ -166,7 +166,7 @@ def top_k(input: "nvtripy.Tensor", k: int, dim: int) -> Tuple["nvtripy.Tensor", 
 
     # The variadic arguments to `create_op` should match the attributes
     # of the trace operation.
-    return op_utils.create_op(TopK, [input], k=k, dim=dim)
+    return op_utils.create_op(TopN, [input], n=n, dim=dim)
 ```
 
 We can add tests in [tests/frontend/ops/](source:/tests/frontend/ops/) to test the frontend
@@ -174,15 +174,15 @@ function, e.g. parameter bounds checking:
 
 ```py
 # doc: no-eval
-# tests/frontend/ops/test_top_k.py
+# tests/frontend/ops/test_topN.py
 import nvtripy as tp
 from tests import helper
 
-class TestTopK:
+class TestTopN:
     def test_invalid_dim(self):
         inp = tp.ones((5, 5))
         with helper.raises(tp.TripyException, match="Dimension argument is out of bounds"):
-            values, indices = tp.top_k(inp, k=1, dim=3)
+            values, indices = tp.topn(inp, n=1, dim=3)
 ```
 
 
@@ -191,15 +191,15 @@ to test end-to-end functionality and accuracy:
 
 ```py
 # doc: no-eval
-# tests/integration/test_top_k.py
+# tests/integration/test_topN.py
 import nvtripy as tp
 
 # When implementing a real operation, we would likely want
 # more exhaustive testing:
-def test_top_k():
-    # TensorRT requires 2 dimensions for top-k:
+def test_topN():
+    # TensorRT requires 2 dimensions for top-n:
     inp = tp.unsqueeze(tp.arange(5) + 2.0, dim=1)
-    values, indices = tp.top_k(inp, k=1, dim=0)
+    values, indices = tp.topn(inp, n=1, dim=0)
 
     # The last value in `arange` will be the largest:
     assert tp.equal(values, tp.Tensor([[6.0]]))
