@@ -238,9 +238,11 @@ class Module:
         if strict and (missing_keys or unexpected_keys):
             details = []
             if missing_keys:
-                details.append(f"Missing keys: {missing_keys}\n")
+                details.append(f"Missing keys: {sorted(missing_keys)}\n")
             if unexpected_keys:
-                details.append(f"Unexpected keys:\n{unexpected_keys}\n\nNote: Expected keys were:\n{expected_keys}")
+                details.append(
+                    f"Unexpected keys:\n{sorted(unexpected_keys)}\n\nNote: Expected keys were:\n{sorted(expected_keys)}"
+                )
             raise_error(
                 "state_dict is incompatible.",
                 details,
