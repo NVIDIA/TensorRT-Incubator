@@ -163,8 +163,9 @@ def parse_tensor_names_from_location(msg: str) -> Tuple[List[str], List[str], st
         return [], [], msg
 
     # Hack: Extract callsite for function call locations.
-    if "at" in loc:
-        _, _, loc = loc.partition('at "')
+    AT_MARKER = 'at "'
+    if AT_MARKER in loc:
+        _, _, loc = loc.partition(AT_MARKER)
     input_names, _, output_names = loc.partition(OUTPUT_SEPARATOR)
 
     # Filter out empty names

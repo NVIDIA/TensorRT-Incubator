@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -58,7 +58,7 @@ class FuncOverload:
                 break
 
         func_def_end_index = max(func_def_start_index, func_def_end_index)
-        lines = lines[func_def_start_index : func_def_end_index + 1] + ["    ..."]
+        lines = lines[func_def_start_index : func_def_end_index + 1]
         source_code = "\n".join(map(lambda line: line.rstrip(), lines))
         pretty_code = code_pretty_str(source_code, inspect.getsourcefile(self.func), lineno, self.func.__name__)
         return pretty_code + "\n"

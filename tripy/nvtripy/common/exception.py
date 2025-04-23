@@ -80,15 +80,19 @@ def str_from_source_info(source_info, enable_color=True, is_first_frame=True, ca
         frame_info += " " * start + apply_color("^" * (size), Fore.red)
         if not is_first_frame:
             frame_info += " --- required from here"
-    frame_info += "\n\n"
+    frame_info += "\n"
     return frame_info
 
 
 def str_from_stack_info(stack_info: "utils.stack_info.StackInfo", enable_color: bool = True) -> Optional[str]:
+    from nvtripy.frontend.module import module
+
     def should_exclude(source_info):
         return (
             source_info.code is None
             or source_info.module in utils.stack_info.get_module_names_to_exclude_from_stack_info()
+            # Exclude module.__call__ since it just invokes forward and clutters the stack trace
+            or (source_info.module == module.__name__ and source_info.function == "__call__")
         )
 
     frame_strs = []

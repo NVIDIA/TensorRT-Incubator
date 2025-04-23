@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -114,7 +114,6 @@ class TestRaiseError:
             dedent(
                 """
                 --> /nvtripy/tmp.py:3 in <module>()
-                      |
                     3 | a = tp.zeros((2, 3)) - tp.ones((2, 4))
                       |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
                 """
@@ -135,17 +134,13 @@ class TestRaiseError:
         expected = dedent(
             r"""
                 --> [a-z_/\.]+:[0-9]+ in full\(\)
-                    |
                 [0-9]+ |     return full_impl\(shape, value, dtype, output_rank\)
-                    |
 
                 --> [a-z_/\.]+:[0-9]+ in ones\(\)
-                    |
                 [0-9]+ |     return full\(shape, 1, dtype\)
                     |            ^^^^^^^^^^^^^^^^^^^^^ --- required from here
 
                 --> [a-z_/\.]+:[0-9]+ in test_wrappers_is_excluded\(\)
-                    |
                 [0-9]+ |         tensor = tp.ones\(\(2, 3\)\)
                     |                  ^^^^^^^^^^^^^^^ --- required from here
 

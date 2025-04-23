@@ -45,8 +45,6 @@ def _add_column_info(arg, arg_index, is_kwarg, num_positional, func_name, arg_na
 
     assert isinstance(arg, Tensor), f"This function should only be called for objects that are already Tensor instances"
 
-    arg.stack_info.fetch_source_code()
-
     # This is the stack depth in arg.stack_info where we find the function where we are converting types.
     # Note: We cannot simply search for the wrapper, since the wrapper would appear on functions that stipulate type constraints
     # but do not convert types.
@@ -78,6 +76,7 @@ def _add_column_info(arg, arg_index, is_kwarg, num_positional, func_name, arg_na
         dispatch_target = dispatch_target.split(".")[-1]
 
     source_info = arg.stack_info[frame_index]
+    source_info.fetch_source_code()
 
     # The reverse binary ops need special handling since they will be swapped out for the non-reverse
     # variants and the order of operands will be inverted.

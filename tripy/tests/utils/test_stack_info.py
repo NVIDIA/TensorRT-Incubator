@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -49,20 +49,7 @@ class TestGetStackInfo:
             file=__file__,
             line=expected_outer_line_num,
             function=self.test_get_stack_info.__name__,
-            code=None,
+            code="        stack_info, expected_inner_line_num = func()",
             _dispatch_target="",
             column_range=None,
-        )
-
-    @pytest.mark.parametrize("include_code_index", [None, 0, 1, 2])
-    def test_include_code_index(self, include_code_index):
-        # We should include code for all frames up to user code. If the index is past the user frame,
-        # then code is included only for the user frame.
-        stack_info = nvtripy.utils.stack_info.get_stack_info(include_code_index=include_code_index)
-        stack_info.fetch_source_code()
-
-        num_frames_with_code = len([frame for frame in stack_info if frame.code])
-        USER_FRAME_INDEX = 1
-        assert num_frames_with_code == max(
-            USER_FRAME_INDEX - include_code_index if include_code_index is not None else USER_FRAME_INDEX, 1
         )
