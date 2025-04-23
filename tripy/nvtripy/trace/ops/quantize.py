@@ -29,7 +29,7 @@ class Quantize(TraceOp):
     dtype: datatype.dtype
     dim: int
 
-    infer_rank = op_utils.InferRankPolicies.same_as_input()
+    infer_rank = op_utils.InferRankPolicies.same_shape_as_input()
 
     def infer_dtypes(self):
         self.outputs[0].dtype = self.dtype

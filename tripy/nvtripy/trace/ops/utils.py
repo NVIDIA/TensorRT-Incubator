@@ -23,6 +23,13 @@ from typing import List
 
 
 class InferRankPolicies:
+    # Indicates that the output has not only the same rank but also the same shape as the input.
+    def same_shape_as_input(idx=0):
+        def impl(self):
+            self.outputs[0].shape = self.inputs[idx].shape
+
+        return impl
+
     def same_as_input(idx=0):
         def impl(self):
             self.outputs[0].rank = self.inputs[idx].rank
