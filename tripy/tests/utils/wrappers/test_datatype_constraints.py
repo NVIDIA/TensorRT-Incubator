@@ -78,66 +78,76 @@ for dtc in DATA_TYPE_CONSTRAINTS:
 DTYPE_CONSTRAINT_CASES.sort(key=lambda case: str(case))
 
 
+# In some cases, we need to use custom values so that the code is valid.
+CUSTOM_VALUES = {
+    "__getitem__": {"index": 0},
+    "arange": {"start": 0, "stop": 10, "step": 1},
+    "avgpool": {"kernel_dims": [2, 2]},
+    "convolution": {
+        "weight": tp.Tensor(np.ones((2, 2, 3, 3), dtype=np.float32)),
+        "bias": tp.Tensor([1.0, 2.0]),
+        "padding": ((0, 0), (0, 0)),
+        "stride": [1, 1],
+        "groups": 1,
+        "dilation": [1, 1],
+    },
+    "copy": {
+        "input": tp.ones((2, 2)),
+        "device": tp.device("cpu"),
+    },
+    "deconvolution": {
+        "weight": tp.Tensor(np.ones((2, 2, 3, 3), dtype=np.float32)),
+        "bias": tp.Tensor([1.0, 2.0]),
+        "padding": ((0, 0), (0, 0)),
+        "stride": [1, 1],
+        "groups": 1,
+        "dilation": [1, 1],
+    },
+    "dequantize": {"scale": tp.Tensor([1.0, 2.0]), "dim": 1},
+    "expand": {"sizes": tp.Tensor((2, 2, 5, 5))},
+    "full": {"shape": tp.Tensor([2, 2]), "value": tp.Tensor(1.0)},
+    "full_like": {"value": tp.Tensor(1.0)},
+    "gather": {"index": tp.Tensor([1])},
+    "iota": {"shape": tp.Tensor([2, 2])},
+    "maxpool": {"kernel_dims": [2, 2]},
+    "ones": {"shape": [2, 2]},
+    "outer": {"vec1": tp.Tensor([1, 2, 3]), "vec2": tp.Tensor([1, 2, 3])},
+    "pad": {"pad": [(0, 1), (1, 0), (1, 1), (0, 0)]},
+    "permute": {"perm": [1, 0, 3, 2]},
+    "quantize": {"scale": tp.Tensor([1.0, 2.0]), "dim": 1},
+    "repeat": {"repeats": 2, "dim": 0},
+    "reshape": {"shape": tp.Tensor([2, 25])},
+    "resize": {
+        "mode": "nearest",
+        "output_shape": tp.Tensor((1, 2, 10, 10)),
+        "scales": [1, 1, 2, 2],
+    },
+    "squeeze": {"dims": 0},
+    "transpose": {"dim0": 0, "dim1": 1},
+    "zeros": {"shape": [2, 2]},
+}
+
+# Arguments that must be constants on CPU.
+REQUIRES_CPU_CONST = {
+    "dequantize": {"scale"},
+    "quantize": {"scale"},
+}
+
+# Some operations require input shapes to be known
+REQUIRES_KNOWN_SHAPES = {
+    "convolution": {"input", "weight", "bias"},
+    "deconvolution": {"input", "weight", "bias"},
+}
+
+
 def generate_input_values(case: DtypeConstraintCase):
-    # In some cases, we need to use custom values so that the code is valid.
-    CUSTOM_VALUES = {
-        "__getitem__": {"index": 0},
-        "arange": {"start": 0, "stop": 10, "step": 1},
-        "avgpool": {"kernel_dims": [2, 2]},
-        "convolution": {
-            "weight": tp.Tensor(np.ones((2, 2, 3, 3), dtype=np.float32)),
-            "bias": tp.Tensor([1.0, 2.0]),
-            "padding": ((0, 0), (0, 0)),
-            "stride": [1, 1],
-            "groups": 1,
-            "dilation": [1, 1],
-        },
-        "copy": {
-            "input": tp.iota((2, 2)),
-            "device": tp.device("cpu"),
-        },
-        "deconvolution": {
-            "weight": tp.Tensor(np.ones((2, 2, 3, 3), dtype=np.float32)),
-            "bias": tp.Tensor([1.0, 2.0]),
-            "padding": ((0, 0), (0, 0)),
-            "stride": [1, 1],
-            "groups": 1,
-            "dilation": [1, 1],
-        },
-        "dequantize": {"scale": tp.Tensor([1.0, 2.0]), "dim": 1},
-        "expand": {"sizes": tp.Tensor((2, 2, 5, 5))},
-        "full": {"shape": tp.Tensor([2, 2]), "value": tp.Tensor(1.0)},
-        "full_like": {"value": tp.Tensor(1.0)},
-        "gather": {"index": tp.Tensor([1])},
-        "iota": {"shape": tp.Tensor([2, 2])},
-        "maxpool": {"kernel_dims": [2, 2]},
-        "ones": {"shape": [2, 2]},
-        "outer": {"vec1": tp.Tensor([1, 2, 3]), "vec2": tp.Tensor([1, 2, 3])},
-        "pad": {"pad": [(0, 1), (1, 0), (1, 1), (0, 0)]},
-        "permute": {"perm": [1, 0, 3, 2]},
-        "quantize": {"scale": tp.Tensor([1.0, 2.0]), "dim": 1},
-        "repeat": {"repeats": 2, "dim": 0},
-        "reshape": {"shape": tp.Tensor([2, 25])},
-        "resize": {
-            "mode": "nearest",
-            "output_shape": tp.Tensor((1, 2, 10, 10)),
-            "scales": [1, 1, 2, 2],
-        },
-        "squeeze": {"dims": 0},
-        "transpose": {"dim0": 0, "dim1": 1},
-        "zeros": {"shape": [2, 2]},
-    }
-
-    # Arguments that must be constants on CPU.
-    REQUIRES_CPU_CONST = {
-        "dequantize": {"scale"},
-        "quantize": {"scale"},
-    }
-
     inputs = {}
     for param_name, param in inspect.signature(case.func).parameters.items():
         requires_cpu_const = (
             case.func.__name__ in REQUIRES_CPU_CONST and param_name in REQUIRES_CPU_CONST[case.func.__name__]
+        )
+        requires_known_shapes = (
+            case.func.__name__ in REQUIRES_KNOWN_SHAPES and param_name in REQUIRES_KNOWN_SHAPES[case.func.__name__]
         )
 
         param_type = str_from_type_annotation(param.annotation)
@@ -152,22 +162,14 @@ def generate_input_values(case: DtypeConstraintCase):
 
         def copy_input_to_cpu_and_set_shapes():
             if requires_cpu_const:
-                if isinstance(inputs[param_name], tp.Tensor):
-                    if inputs[param_name].device.kind != "cpu":
-                        inputs[param_name] = tp.copy(inputs[param_name], device=tp.device("cpu"))
-                else:
-                    assert isinstance(inputs[param_name], list), "Unsupported type - please extend this function!"
-                    inputs[param_name] = [
-                        tp.copy(t, device=tp.device("cpu")) if t.device.kind != "cpu" else t for t in inputs[param_name]
-                    ]
+                assert isinstance(inputs[param_name], tp.Tensor)
+                if inputs[param_name].device.kind != "cpu":
+                    inputs[param_name] = tp.copy(inputs[param_name], device=tp.device("cpu"))
 
-            # Some operations, like conv/deconv, require input shapes to be known
-            if isinstance(inputs[param_name], tp.Tensor):
-                inputs[param_name].trace_tensor.shape = tuple(map(int, inputs[param_name].shape))
-            else:
-                assert isinstance(inputs[param_name], list), "Unsupported type - please extend this function!"
-                for t in inputs[param_name]:
-                    t.trace_tensor.shape = tuple(map(int, t.shape))
+            if requires_known_shapes:
+                assert isinstance(inputs[param_name], tp.Tensor)
+                if any(dim == tp.constants.DYNAMIC_DIM for dim in inputs[param_name].trace_tensor.shape):
+                    inputs[param_name].trace_tensor.shape = tuple(map(int, inputs[param_name].shape))
 
         if case.func.__name__ in CUSTOM_VALUES and param_name in CUSTOM_VALUES[case.func.__name__]:
             inputs[param_name] = CUSTOM_VALUES[case.func.__name__][param_name]

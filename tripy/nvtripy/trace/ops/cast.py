@@ -26,7 +26,9 @@ from nvtripy.trace.ops.base import TraceOp
 class Cast(TraceOp):
     dtype: "nvtripy.common.dtype"
 
-    infer_rank = op_utils.InferRankPolicies.same_as_input()
+    def infer_rank(self):
+        # Casting does not change the shape, so we can simply copy it.
+        self.outputs[0].shape = self.inputs[0].shape
 
     def infer_dtypes(self):
         self.outputs[0].dtype = self.dtype
