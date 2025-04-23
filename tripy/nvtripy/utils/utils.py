@@ -110,7 +110,7 @@ def code_pretty_str(code, filename=None, line_no=None, func=None, enable_color=T
     )
     indent = " " * INDENTATION
 
-    return f"{line_info}\n{indent}|\n{line_numbered_code}\n{indent}| "
+    return f"{line_info}\n{line_numbered_code}\n{indent}| "
 
 
 def make_list(obj):

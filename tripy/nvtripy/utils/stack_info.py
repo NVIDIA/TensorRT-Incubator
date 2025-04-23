@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -57,8 +57,8 @@ class SourceInfo:
         # In that case we just leave it empty.
         try:
             lines = open(self.file, "r").readlines()
-        except OSError:
-            self.code = ""
+        except:
+            self.code = "<could not fetch source code>"
         else:
             self.code = lines[self.line - 1].rstrip()
 
@@ -73,14 +73,11 @@ class StackInfo(list):
         if self._code_fetched:
             return
 
-        first_user_frame_found = False
         for index, source_info in enumerate(self):
-            if not first_user_frame_found:
-                if source_info.is_user_frame():
-                    source_info.fetch_source_code()
-                    first_user_frame_found = True
-                elif self.include_code_index is not None and index >= self.include_code_index:
-                    source_info.fetch_source_code()
+            if source_info.is_user_frame():
+                source_info.fetch_source_code()
+            elif self.include_code_index is not None and index >= self.include_code_index:
+                source_info.fetch_source_code()
 
         self._code_fetched = True
 

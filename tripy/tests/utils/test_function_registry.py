@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -70,17 +70,13 @@ class TestFunctionRegistry:
                 Candidate overloads were:
 
                 --> \x1b\[38;5;3m{__file__}\x1b\[0m:[0-9]+ in \x1b\[38;5;6mtransform_int\(\)\x1b\[0m
-                      \|
                    [0-9]+ \|     def transform_int\(a: \"int\"\):
-                   [0-9]+ \|     \.\.\.
                       \|\s
 
                 Not a valid overload because: For parameter: 'a', expected an instance of type: 'int' but got argument of type: 'str'\.
 
                 --> \x1b\[38;5;3m{__file__}\x1b\[0m:[0-9]+ in \x1b\[38;5;6mtransform_float\(\)\x1b\[0m
-                      \|
                    [0-9]+ \|     def transform_float\(a: "float"\):
-                   [0-9]+ \|     \.\.\.
                       \|\s
 
                 Not a valid overload because: For parameter: 'a', expected an instance of type: 'float' but got argument of type: 'str'\.
@@ -102,9 +98,7 @@ class TestFunctionRegistry:
                 Candidate overloads were:
 
                 --> \x1b\[38;5;3m{__file__}\x1b\[0m:[0-9]+ in \x1b\[38;5;6mfunc\(\)\x1b\[0m
-                      \|
                    [0-9]+ \|         def func\(a: int, b: int, c: int\):
-                   [0-9]+ \|     \.\.\.
                       \|\s
 
                 Not a valid overload because: For parameter: 'c', expected an instance of type: 'int' but got argument of type: 'float'\.
@@ -185,15 +179,11 @@ class TestFunctionRegistry:
                     Candidate overloads were:
 
                     --> \x1b\[38;5;3m{__file__}\x1b\[0m:[0-9]+ in \x1b\[38;5;6mfunc\(\)\x1b\[0m
-                          \|
                       [0-9]+ \|         def func\(a: int\):
-                      [0-9]+ \|     \.\.\.
                           \|\s
 
                     --> \x1b\[38;5;3m{__file__}\x1b\[0m:[0-9]+ in \x1b\[38;5;6mfunc\(\)\x1b\[0m
-                          \|
                       [0-9]+ \|         def func\(b: int\):
-                      [0-9]+ \|     \.\.\.
                           \|\s
                 """
             ).strip(),
@@ -409,9 +399,7 @@ class TestFunctionRegistry:
                 Candidate overloads were:
 
                 --> \x1b\[38;5;3m{__file__}\x1b\[0m:[0-9]+ in \x1b\[38;5;6mfunc\(\)\x1b\[0m
-                      \|
                   [0-9]+ \|         def func\(n: Sequence\[int\]\) \-> int:
-                  [0-9]+ \|     \.\.\.
                       \|\s
 
                 Not a valid overload because: For parameter: 'n', expected an instance of type: 'Sequence\[int\]' but got argument of type: 'List\[float\]'\.
@@ -458,9 +446,7 @@ class TestFunctionRegistry:
                 Candidate overloads were:
 
                 --> \x1b\[38;5;3m{__file__}\x1b\[0m:[0-9]+ in \x1b\[38;5;6mfunc\(\)\x1b\[0m
-                      \|
                   [0-9]+ \|         def func\(n: Union\[int, float\]\) \-> int:
-                  [0-9]+ \|     \.\.\.
                       \|\s
 
                 Not a valid overload because: For parameter: 'n', expected an instance of type: 'int | float' but got argument of type: 'List\[str\]'\.
@@ -482,9 +468,7 @@ class TestFunctionRegistry:
                 Candidate overloads were:
 
                 --> \x1b\[38;5;3m{__file__}\x1b\[0m:[0-9]+ in \x1b\[38;5;6mfunc\(\)\x1b\[0m
-                      \|
                   [0-9]+ \|         def func\(n: Sequence\[int\]\) \-> int:
-                  [0-9]+ \|     \.\.\.
                       \|\s
 
                 Not a valid overload because: For parameter: 'n', expected an instance of type: 'Sequence\[int\]' but got argument of type: 'List\[(int \| str)|(str \| int)\]'\.
@@ -506,9 +490,7 @@ class TestFunctionRegistry:
                 Candidate overloads were:
 
                 --> \x1b\[38;5;3m{__file__}\x1b\[0m:[0-9]+ in \x1b\[38;5;6mfunc\(\)\x1b\[0m
-                      \|
                   [0-9]+ \|         def func\(n: Sequence\[Sequence\[int\]\]\) \-> int:
-                  [0-9]+ \|     \.\.\.
                       \|\s
 
                 Not a valid overload because: For parameter: 'n', expected an instance of type: 'Sequence\[Sequence\[int\]\]' but got argument of type: 'List\[int\]'\.
@@ -530,9 +512,7 @@ class TestFunctionRegistry:
                 Candidate overloads were:
 
                 --> \x1b\[38;5;3m{__file__}\x1b\[0m:[0-9]+ in \x1b\[38;5;6mfunc\(\)\x1b\[0m
-                      \|
                   [0-9]+ \|         def func\(n: Sequence\[Sequence\[int\]\]\) \-> int:
-                  [0-9]+ \|     \.\.\.
                       \|\s
 
                 Not a valid overload because: For parameter: 'n', expected an instance of type: 'Sequence\[Sequence\[int\]\]' but got argument of type: 'List\[List\[float\]\]'\.
@@ -554,9 +534,7 @@ class TestFunctionRegistry:
                 Candidate overloads were:
 
                 --> \x1b\[38;5;3m{__file__}\x1b\[0m:[0-9]+ in \x1b\[38;5;6mfunc\(\)\x1b\[0m
-                      \|
                   [0-9]+ \|         def func\(n: Sequence\[Union\[int, float\]\]\) \-> int:
-                  [0-9]+ \|     \.\.\.
                       \|\s
 
                 Not a valid overload because: For parameter: 'n', expected an instance of type: 'Sequence\[int | float\]' but got argument of type: 'List\[str\]'\.
