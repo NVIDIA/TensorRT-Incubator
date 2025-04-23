@@ -98,6 +98,15 @@ class Tensor(metaclass=TensorMeta):
 
         self._stack_info = utils.stack_info.StackInfo([])
 
+        # Small optimization for scalars to avoid unnecessary casts:
+        if isinstance(data, numbers.Number) and dtype is not None:
+            if issubclass(dtype, datatype.floating):
+                data = float(data)
+            elif issubclass(dtype, datatype.integer):
+                data = int(data)
+            elif dtype == datatype.bool:
+                data = bool(data)
+
         constant = Constant(data, device=device, dtype=dtype)
         self.trace_tensor = constant.outputs[0]
         self.trace_tensor.name = utils.utils.default(name, self.trace_tensor.name)
