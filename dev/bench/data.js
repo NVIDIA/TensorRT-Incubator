@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1745256688451,
+  "lastUpdate": 1745513927344,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -12045,6 +12045,47 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0000022684909203910434",
             "extra": "mean: 56.73372431343917 usec\nrounds: 18381"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "7f95e51c7710034d300274bd064052a8334305e9",
+          "message": "Implements various features/quality of life improvements to enable YOLO example",
+          "timestamp": "2025-04-24T15:13:07Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/616/commits/7f95e51c7710034d300274bd064052a8334305e9"
+        },
+        "date": 1745513926250,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 5339.701640851383,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00002834941264636399",
+            "extra": "mean: 187.2763812025565 usec\nrounds: 5562"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 6171.946347186433,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000035575520462463516",
+            "extra": "mean: 162.02344345651414 usec\nrounds: 6522"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_tripy_param_update",
+            "value": 17729.44367301433,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000027778320868020534",
+            "extra": "mean: 56.40334905274451 usec\nrounds: 18589"
           }
         ]
       }
