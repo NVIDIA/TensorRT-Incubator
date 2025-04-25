@@ -16,7 +16,7 @@
 #
 
 from textwrap import indent
-from typing import Dict, List, Optional, Sequence, Set
+from typing import Dict, List, Optional, Sequence, Set, Union
 
 from mlir_tensorrt.compiler import ir
 from mlir_tensorrt.compiler.dialects import func as func_dialect
@@ -43,7 +43,7 @@ class Trace:
         self,
         outputs: Sequence[TraceTensor],
         inputs: Sequence[TraceTensor] = [],
-        input_infos: Optional[Dict[str, "nvtripy.InputInfo"]] = None,
+        input_infos: Optional[Dict[str, Union["nvtripy.InputInfo", "nvtripy.DimensionInputInfo"]]] = None,
         name: str = "main",
     ) -> None:
         # ops/inputs/outputs are populated by `trace()`
@@ -132,6 +132,8 @@ class Trace:
         return "\n".join(layer_strs)
 
     def to_mlir(self):
+        from nvtripy.backend.api.input_info import InputInfo, DimensionInputInfo
+
         def to_mlir_impl():
 
             with make_ir_context(), ir.Location.unknown():
@@ -214,13 +216,23 @@ class Trace:
                         attr = {}
                         if self.input_infos:
                             input_info = self.input_infos[inp.name]
-                            shape_bounds = input_info.shape_bounds
-                            attr["tensorrt.shape_profile"] = ir.Attribute.parse(
-                                f"#tensorrt.shape_profile<min={list(shape_bounds.min)}, opt={list(shape_bounds.opt)}, max={list(shape_bounds.max)}>"
-                            )
-                            attr["tensorrt.dimension_names"] = ir.DictAttr.get(
-                                {str(idx): ir.StringAttr.get(name) for idx, name in input_info.dimension_names.items()}
-                            )
+                            if isinstance(input_info, InputInfo):
+                                shape_bounds = input_info.shape_bounds
+                                attr["tensorrt.shape_profile"] = ir.Attribute.parse(
+                                    f"#tensorrt.shape_profile<min={list(shape_bounds.min)}, opt={list(shape_bounds.opt)}, max={list(shape_bounds.max)}>"
+                                )
+                                attr["tensorrt.dimension_names"] = ir.DictAttr.get(
+                                    {
+                                        str(idx): ir.StringAttr.get(name)
+                                        for idx, name in input_info.dimension_names.items()
+                                    }
+                                )
+                            elif isinstance(input_info, DimensionInputInfo):
+                                value_bounds = input_info.value_bounds
+                                attr["tensorrt.value_bounds"] = ir.Attribute.parse(
+                                    f"#tensorrt.shape_profile<min={list(value_bounds.min)}, opt={list(value_bounds.opt)}, max={list(value_bounds.max)}>"
+                                )
+                                attr["plan.memory_space"] = ir.Attribute.parse("#plan.memory_space<host>")
 
                         arg_attrs.append(ir.DictAttr.get(attr))
 

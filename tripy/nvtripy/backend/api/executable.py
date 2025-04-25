@@ -18,7 +18,7 @@ from typing import Dict, Sequence, Tuple, Union
 
 import mlir_tensorrt.runtime.api as runtime
 from nvtripy import config, export
-from nvtripy.backend.api.input_info import InputInfo
+from nvtripy.backend.api.input_info import InputInfo, DimensionInputInfo
 from nvtripy.backend.api.stream import default_stream
 from nvtripy.backend.mlir.utils import MLIRRuntimeClient
 from nvtripy.common.exception import raise_error
@@ -41,7 +41,11 @@ class Executable:
     # `return_single_tensor_as_sequence` indicates whether the return type should be a sequence even if
     # there is only one output.
     def __init__(
-        self, executable, arg_names, return_single_tensor_as_sequence: bool, input_infos: Dict[str, InputInfo]
+        self,
+        executable,
+        arg_names,
+        return_single_tensor_as_sequence: bool,
+        input_infos: Dict[str, Union[InputInfo, DimensionInputInfo]],
     ):
         self._executable = executable
 
@@ -69,7 +73,7 @@ class Executable:
 
         self.__signature__ = inspect.Signature(params, return_annotation=return_annotation)
 
-        self.input_infos: Dict[str, InputInfo] = input_infos
+        self.input_infos: Dict[str, Union[InputInfo, DimensionInputInfo]] = input_infos
         """
         Stores metadata, like shapes and data types, for each input to the executable.
         """
@@ -191,15 +195,16 @@ class Executable:
                 ],
             )
 
-        for tensor in input_tensors:
+        expected_devices = ["gpu" if isinstance(info, InputInfo) else "cpu" for info in self.input_infos.values()]
+        for tensor, expected_device, arg_name in zip(input_tensors, expected_devices, self._arg_names):
             producer = tensor.trace_tensor.producer
-            if not isinstance(producer, Constant) or tensor.device.kind != "gpu":
+            if not isinstance(producer, Constant):
+                raise_error(f"Tensor `{arg_name}` is not evaluated.", ["Hint: Try calling `.eval()` on the tensor."])
+            if tensor.device.kind != expected_device:
                 raise_error(
-                    "Inputs to compiled executables must be evaluated tensors on the GPU.",
+                    "Unexpected tensor device.",
                     [
-                        "Got input" + (f" on device '{tensor.device}':" if tensor.device.kind != "gpu" else ":"),
-                        tensor,
-                        "Hint: Try calling `.eval()` on the tensor to ensure it is a GPU constant.",
+                        f"For tensor: `{arg_name}`, expected to be on device: {expected_device} but got: {tensor.device.kind}.\n",
                     ],
                 )
 
@@ -212,7 +217,11 @@ class Executable:
             # TODO: Evaluate whether this should be moved into the executor
             if "function expects a memref type with element type" in str(err):
                 # If the problem is a mismatched data type, we can provide a better error message than the executor can.
-                expected_input_dtypes = [info.dtype for info in self.input_infos.values()]
+                from nvtripy.common.datatype import int32
+
+                expected_input_dtypes = [
+                    info.dtype if isinstance(info, InputInfo) else int32 for info in self.input_infos.values()
+                ]
                 for tensor, dtype, arg_name in zip(input_tensors, expected_input_dtypes, self._arg_names):
                     if tensor.dtype != dtype:
                         raise_error(
@@ -225,7 +234,9 @@ class Executable:
                             ),
                         )
             elif "InternalError: failed to set input shape" in str(err) or "Runtime shape mismatch" in str(err):
-                expected_input_shapes = [info.shape_bounds for info in self.input_infos.values()]
+                expected_input_shapes = [
+                    info.shape_bounds if isinstance(info, InputInfo) else tuple() for info in self.input_infos.values()
+                ]
                 for tensor, expected_bounds, arg_name in zip(input_tensors, expected_input_shapes, self._arg_names):
                     shape = tensor.shape
 

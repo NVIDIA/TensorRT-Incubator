@@ -16,7 +16,7 @@ from typing import Dict, Sequence, Tuple, Union
 
 from nvtripy import export
 from nvtripy.backend.api.named_dimension import NamedDimension
-from nvtripy.backend.api.shape_bounds import ShapeBounds
+from nvtripy.backend.api.shape_bounds import ShapeBounds, ValueBounds
 from nvtripy.frontend.dimension_size import DimensionSize
 from nvtripy.types import IntLike
 from nvtripy.utils import json as json_utils
@@ -74,7 +74,6 @@ class InputInfo:
         """
         is_int_like = lambda arg: any(isinstance(arg, typ) for typ in {int, DimensionSize})
 
-        # TODO (#252): Allow `shape` to be a shape tensor
         min_shape = []
         opt_shape = []
         max_shape = []
@@ -129,3 +128,48 @@ def decode_input_info(input_info_dict):
     input_info.shape_bounds = input_info_dict["shape_bounds"]
     input_info.dimension_names = {int(k): v for k, v in input_info_dict.get("dimension_names", {}).items()}
     return input_info
+
+
+@export.public_api(document_under="compiling_code")
+class DimensionInputInfo:
+    """
+    Captures information about a dimension size input to a compiled function.
+    """
+
+    def __init__(self, value_bounds: Tuple[IntLike, IntLike, IntLike]) -> None:
+        """
+        Args:
+            value_bounds: The value bound of the dimension size input, consisting of minimum, optimum, and maximum values.
+
+        .. code-block:: python
+            :linenos:
+            :caption: Dynamic Dimensions
+
+            # The dimension size will support values in the range [1, 3],
+            # optimizing for a size of 2.
+            dim_inp = tp.DimensionInputInfo((1, 2, 3))
+            assert dim_inp.min == 1
+            assert dim_inp.opt == 2
+            assert dim_inp.max == 3
+        """
+        self.value_bounds = ValueBounds(
+            min=tuple([value_bounds[0]]), opt=tuple([value_bounds[1]]), max=tuple([value_bounds[2]])
+        )
+
+    def __str__(self) -> str:
+        return (
+            f"DimensionInputInfo(min={self.value_bounds.min}, opt={self.value_bounds.opt}, max={self.value_bounds.max})"
+        )
+
+
+@json_utils.Encoder.register(DimensionInputInfo)
+def encode_dim_input_info(dim_input_info):
+    return {
+        "value_bounds": dim_input_info.value_bounds,
+    }
+
+
+@json_utils.Decoder.register(DimensionInputInfo)
+def decode_dim_input_info(dim_input_info_dict):
+    dim_input_info_dict.value_bounds = dim_input_info_dict["value_bounds"]
+    return dim_input_info_dict

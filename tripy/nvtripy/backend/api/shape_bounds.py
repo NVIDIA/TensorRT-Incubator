@@ -59,3 +59,28 @@ def decode_shape_bounds(shape_bounds_dict):
         opt=tuple(shape_bounds_dict["opt"]),
         max=tuple(shape_bounds_dict["max"]),
     )
+
+
+@dataclass
+class ValueBounds:
+    min: Tuple[IntLike]
+    opt: Tuple[IntLike]
+    max: Tuple[IntLike]
+
+
+@json_utils.Encoder.register(ValueBounds)
+def encode_value_bounds(value_bounds):
+    return {
+        "min": tuple(value_bounds.min),
+        "opt": tuple(value_bounds.opt),
+        "max": tuple(value_bounds.max),
+    }
+
+
+@json_utils.Decoder.register(ValueBounds)
+def decode_value_bounds(value_bounds_dict):
+    return ValueBounds(
+        min=tuple(value_bounds_dict["min"]),
+        opt=tuple(value_bounds_dict["opt"]),
+        max=tuple(value_bounds_dict["max"]),
+    )
