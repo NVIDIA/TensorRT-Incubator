@@ -75,4 +75,12 @@ class TestDecoder:
     def test_names_correct(self):
         # If the name of a class changes, then we need to specify an `alias` when registering
         # to retain backwards compatibility.
-        assert set(Decoder.REGISTERED.keys()) == {"ShapeBounds", "Dummy", "dtype", "InputInfo", "Executable", "device"}
+        assert set(Decoder.REGISTERED.keys()) == {
+            "ShapeBounds",
+            "Dummy",
+            "dtype",
+            "InputInfo",
+            "DimensionInputInfo",
+            "Executable",
+            "device",
+        }
