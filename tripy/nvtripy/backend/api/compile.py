@@ -24,6 +24,7 @@ from nvtripy.backend.api.input_info import InputInfo
 from nvtripy.backend.mlir import Compiler
 from nvtripy.common.exception import raise_error
 from nvtripy.frontend import Tensor, Trace
+from nvtripy.frontend.module import Module
 from nvtripy.utils.types import obj_name_or_type_name
 
 
@@ -132,6 +133,11 @@ def compile(
     shapes = []
     trace_input_map = {}
     input_names = set()
+
+    # Set up names for the weights in the module to make the trace easier to read.
+    if isinstance(func, Module):
+        for name, weight in func.state_dict().items():
+            weight.name = name
 
     def process_arg(name, arg):
         if isinstance(arg, InputInfo):
