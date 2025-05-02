@@ -17,9 +17,10 @@
 
 import inspect
 from dataclasses import dataclass
-from typing import List, Optional, Any, Sequence, Union
-from types import ModuleType
 from textwrap import dedent
+from types import ModuleType
+from typing import Any, List, Optional, Sequence, Union
+
 from nvtripy.utils.function_registry import FunctionRegistry
 
 
@@ -34,7 +35,7 @@ class PublicAPI:
 
 # This is used for testing/documentation purposes.
 PUBLIC_APIS: List[PublicAPI] = []
-
+EXCLUDE_INIT_SIG = set()
 
 PUBLIC_API_FUNCTION_REGISTRY = FunctionRegistry()
 
@@ -46,6 +47,7 @@ def public_api(
     symbol: str = None,
     doc: str = None,
     bypass_dispatch: Optional[Union[bool, Sequence[str]]] = None,
+    document_init_sig: bool = True,
 ):
     """
     Decorator that exports a function/class to the public API under the top-level module and
@@ -85,6 +87,9 @@ def public_api(
             for that function, which may be useful for reducing overhead. If True and applied to a class, this will bypass dispatch
             for all methods. If the argument is a list of method names and applied to a class, this will bypass dispatch
             for the listed methods only.
+
+        document_init_sig: Whether to document the signature of the constructor.
+            This should be False for classes that are not intended to be instantiated by users.
     """
     assert not autodoc_options or (
         ":no-members:" not in autodoc_options or ":no-special-members:" in autodoc_options
@@ -111,6 +116,9 @@ def public_api(
             qualname = symbol
 
         PUBLIC_APIS.append(PublicAPI(obj, qualname, document_under, autodoc_options))
+
+        if not document_init_sig:
+            EXCLUDE_INIT_SIG.add(qualname)
 
         if not hasattr(module, "__all__"):
             module.__all__ = []

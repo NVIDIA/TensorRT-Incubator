@@ -181,7 +181,6 @@ class Constant(TraceOp):
 
         # Parent constructor will run rank/type inference, so we need to run it after setting the fields above.
         super().__init__([])
-        self.outputs[0].shape = self.shape
 
     def str_skip_fields(self) -> Set[str]:
         # skip data since it is always a memref value
@@ -191,9 +190,8 @@ class Constant(TraceOp):
         return self.data == other.data if isinstance(other, Constant) else False
 
     def infer_rank(self):
-        # In the constant op, we actually know the exact shape, which we've already set in the constructor.
-        # Hence, we don't need to set rank here (and doing so would overwrite the shape we set).
-        pass
+        # We know the exact shape of the constant, so we can set more than just the rank.
+        self.outputs[0].shape = self.shape
 
     def infer_dtypes(self):
         self.outputs[0].dtype = self.dtype
