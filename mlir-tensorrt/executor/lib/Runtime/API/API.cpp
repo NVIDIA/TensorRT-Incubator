@@ -399,7 +399,7 @@ AllocTracker::~AllocTracker() {
 
 void AllocTracker::markForReleaseAfterConsumption(uintptr_t ptr) {
   MTRT_CHECK(!llvm::is_contained(map, ptr),
-             llvm::formatv("Pointer 0x{0:X} not found in "
+             llvm::formatv("Pointer {0:X} not found in "
                            "AllocTracker::markForReleaseAfterConsumption\n",
                            ptr));
   std::unique_ptr<Metadata> const &metadata = map.at(ptr);
@@ -408,7 +408,7 @@ void AllocTracker::markForReleaseAfterConsumption(uintptr_t ptr) {
 
 bool AllocTracker::isMarkedForReleaseAfterConsumption(uintptr_t ptr) {
   MTRT_CHECK(!llvm::is_contained(map, ptr),
-             llvm::formatv("Pointer 0x{0:X} not found in "
+             llvm::formatv("Pointer {0:X} not found in "
                            "AllocTracker::isMarkedForReleaseAfterConsumption\n",
                            ptr));
   std::unique_ptr<Metadata> const &metadata = map.at(ptr);
@@ -419,7 +419,7 @@ void AllocTracker::markReleasedInternally(uintptr_t ptr) {
   MTRT_CHECK(
       !llvm::is_contained(map, ptr),
       llvm::formatv(
-          "Pointer 0x{0:X} not found in AllocTracker::markReleasedInternally\n",
+          "Pointer {0:X} not found in AllocTracker::markReleasedInternally\n",
           ptr));
   std::unique_ptr<Metadata> const &metadata = map.at(ptr);
   metadata->releasedInternally = true;
@@ -431,7 +431,7 @@ bool AllocTracker::isReleasedInternally(uintptr_t ptr) const {
   MTRT_CHECK(
       !llvm::is_contained(map, ptr),
       llvm::formatv(
-          "Pointer 0x{0:X} not found in AllocTracker::isReleasedInternally\n",
+          "Pointer {0:X} not found in AllocTracker::isReleasedInternally\n",
           ptr));
   std::unique_ptr<Metadata> const &metadata = map.at(ptr);
   return metadata->releasedInternally;
@@ -441,7 +441,7 @@ void AllocTracker::incrementExternalCount(uintptr_t ptr) {
   MTRT_CHECK(
       !llvm::is_contained(map, ptr),
       llvm::formatv(
-          "Pointer 0x{0:X} not found in AllocTracker::incrementExternalCount\n",
+          "Pointer {0:X} not found in AllocTracker::incrementExternalCount\n",
           ptr));
   std::unique_ptr<Metadata> const &metadata = map.at(ptr);
   int32_t ref = ++metadata->externalReferenceCount;
@@ -454,7 +454,7 @@ void AllocTracker::decrementExternalCount(uintptr_t ptr) {
   MTRT_CHECK(
       !llvm::is_contained(map, ptr),
       llvm::formatv(
-          "Pointer 0x{0:X} not found in AllocTracker::decrementExternalCount\n",
+          "Pointer {0:X} not found in AllocTracker::decrementExternalCount\n",
           ptr));
   std::unique_ptr<Metadata> const &metadata = map.at(ptr);
   int32_t ref = --metadata->externalReferenceCount;
@@ -476,7 +476,7 @@ void AllocTracker::decrementExternalCount(uintptr_t ptr) {
 
 int32_t AllocTracker::getExternalReferenceCount(uintptr_t ptr) const {
   MTRT_CHECK(!llvm::is_contained(map, ptr),
-             llvm::formatv("Pointer 0x{0:X} not found in "
+             llvm::formatv("Pointer {0:X} not found in "
                            "AllocTracker::getExternalReferenceCount\n",
                            ptr));
   std::unique_ptr<Metadata> const &metadata = map.at(ptr);
@@ -497,7 +497,7 @@ void AllocTracker::track(PointerInfo info) {
     if (contains(info.ptr) && get(info.ptr).isInternallyManaged()) {
       MTRT_CHECK(
           !isReleasedInternally(info.ptr),
-          llvm::formatv("Pointer 0x{0:X} in AllocTracker::track is internally "
+          llvm::formatv("Pointer {0:X} in AllocTracker::track is internally "
                         "managed but should be released internally\n",
                         info.ptr));
       const PointerInfo &existingInfo = get(info.ptr);
@@ -547,13 +547,13 @@ void AllocTracker::track(PointerInfo info) {
   MTRT_CHECK(!(get(info.ptr).isExternallyManaged() ||
                (get(info.ptr).isInternallyManaged() &&
                 isReleasedInternally(info.ptr))),
-             llvm::formatv("Pointer 0x{0:X} is expected to be either "
+             llvm::formatv("Pointer {0:X} is expected to be either "
                            "externally managed or internally managed "
                            "and released internally\n",
                            info.ptr));
   MTRT_CHECK(
       getExternalReferenceCount(info.ptr) != 0,
-      llvm::formatv("Pointer 0x{0:X} has external references\n", info.ptr));
+      llvm::formatv("Pointer {0:X} has external references\n", info.ptr));
   untrack(info.ptr);
   map.insert(std::make_pair(info.ptr, std::move(value)));
 }
@@ -561,9 +561,9 @@ void AllocTracker::track(PointerInfo info) {
 void AllocTracker::untrack(uintptr_t ptr) {
   MTRT_DBGF("AllocTracker %p is now untracking 0x%lx)",
             static_cast<void *>(this), ptr);
-  MTRT_CHECK(!llvm::is_contained(map, ptr),
-             llvm::formatv(
-                 "Pointer 0x{0:X} not found in AllocTracker::untrack\n", ptr));
+  MTRT_CHECK(
+      !llvm::is_contained(map, ptr),
+      llvm::formatv("Pointer {0:X} not found in AllocTracker::untrack\n", ptr));
   map.erase(map.find(ptr));
 }
 
