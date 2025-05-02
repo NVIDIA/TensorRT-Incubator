@@ -240,6 +240,7 @@ class Tensor(metaclass=TensorMeta):
         from nvtripy.backend.api.executable import Executable
         from nvtripy.backend.mlir.compiler import Compiler
         from nvtripy.trace.trace import Trace
+        from nvtripy.backend.api.input_info import InputInfo
 
         trace = Trace([self.trace_tensor])
 
@@ -255,10 +256,19 @@ class Tensor(metaclass=TensorMeta):
 
         compiler = Compiler(trt_builder_opt_level=0)
         mlir = trace.to_mlir()
+        arg_names = [f"arg{i}" for i in range(len(inputs))]
+
         executable = Executable(
             compiler.compile(mlir, trace=trace),
-            arg_names=[f"arg{i}" for i in range(len(inputs))],
+            arg_names=arg_names,
             return_single_tensor_as_sequence=False,
+            # Input shapes should always be statically known since only GPU constants are turned into inputs.
+            # We need to manually fetch the trace_tensor shape since the `.shape` op will always create a subgraph
+            # for compile tracers (i.e. it will fetch a non-constant shape if we eval while compiling).
+            input_infos={
+                name: InputInfo(list(map(int, inp.trace_tensor.shape)), inp.dtype)
+                for name, inp in zip(arg_names, inputs)
+            },
         )
         data = executable(*inputs).trace_tensor.producer.data
 

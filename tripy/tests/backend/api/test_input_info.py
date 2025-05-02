@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -37,9 +37,9 @@ class TestInput:
     def test_shapes_normalized(self, shape, expected_min, expected_opt, expected_max):
         inp = tp.InputInfo(shape=shape, dtype=tp.float32)
 
-        assert inp.shape_bounds.min == expected_min
-        assert inp.shape_bounds.opt == expected_opt
-        assert inp.shape_bounds.max == expected_max
+        assert inp.shape_bounds.min == tuple(expected_min)
+        assert inp.shape_bounds.opt == tuple(expected_opt)
+        assert inp.shape_bounds.max == tuple(expected_max)
 
     @pytest.mark.parametrize(
         "shape",

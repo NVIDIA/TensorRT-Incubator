@@ -24,9 +24,9 @@ import inspect
 import re
 from textwrap import indent
 
-from tests import helper
-
 import nvtripy as tp
+from nvtripy.export import EXCLUDE_INIT_SIG
+from tests import helper
 
 PARAM_PAT = re.compile(":param .*?:")
 
@@ -47,6 +47,7 @@ extensions = [
 # Move type annotations to the description and don't use fully qualified names.
 autodoc_typehints = "both"
 autodoc_typehints_format = "short"
+autodoc_typehints_description_target = "documented"
 python_use_unqualified_type_names = True
 
 nitpick_ignore = {
@@ -282,6 +283,12 @@ def process_docstring(app, what, name, obj, options, lines):
         raise
 
 
+def process_signature(app, what, name, obj, options, signature, return_annotation):
+    if name in EXCLUDE_INIT_SIG:
+        return ("", return_annotation)
+    return None
+
+
 def setup(app):
     # A note on aliases: if you rename a class via an import statement, e.g. `import X as Y`,
     # the documentation generated for `Y` will just be: "Alias of X"
@@ -290,3 +297,4 @@ def setup(app):
     #   Y.__name__ = "Y"
 
     app.connect("autodoc-process-docstring", process_docstring)
+    app.connect("autodoc-process-signature", process_signature)

@@ -132,12 +132,15 @@ def compile(
     shapes = []
     trace_input_map = {}
     input_names = set()
+    input_infos = {}
 
     def process_arg(name, arg):
         if isinstance(arg, InputInfo):
             # Make new tensors for tracing.
             from nvtripy.common.datatype import floating, integer
             from nvtripy.frontend.ops.full import full
+
+            input_infos[name] = arg
 
             init_value = 1 if issubclass(arg.dtype, integer) else 1.0 if issubclass(arg.dtype, floating) else True
             tensor = full(shape=arg.shape_bounds.opt, value=init_value, dtype=arg.dtype)
@@ -231,4 +234,9 @@ def compile(
     assert isinstance(func_out, Tensor) or isinstance(
         func_out, Sequence
     ), "This function is only implemented for Tensors or sequences of Tensors"
-    return Executable(executable, compiled_arg_names, return_single_tensor_as_sequence=isinstance(func_out, Sequence))
+    return Executable(
+        executable,
+        compiled_arg_names,
+        return_single_tensor_as_sequence=isinstance(func_out, Sequence),
+        input_infos=input_infos,
+    )

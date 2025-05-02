@@ -93,18 +93,6 @@ class TestExecutable:
 
         assert signature.return_annotation == Tuple[tp.Tensor, tp.Tensor]
 
-    def test_io_tensor_info(self, multiple_return_executable):
-        input_info = multiple_return_executable._get_input_info()
-        assert len(input_info) == 2
-        for i in range(2):
-            assert input_info[i].shape_bounds == ((2, 2), (2, 2))
-            assert input_info[i].dtype == tp.float32
-        output_info = multiple_return_executable._get_output_info()
-        assert len(output_info) == 2
-        for i in range(2):
-            assert output_info[i].shape_bounds == ((2, 2), (2, 2))
-            assert output_info[i].dtype == tp.float32
-
     def test_file_io(self, single_return_executable):
         with tempfile.TemporaryDirectory() as temp_dir:
             exe_file = os.path.join(temp_dir, "executable.json")
@@ -118,6 +106,8 @@ class TestExecutable:
             out2 = loaded_executable(inp, inp)
             assert tp.equal(out1, out2)
 
+            assert loaded_executable.input_infos == single_return_executable.input_infos
+
     def test_tensorrt_engine(self, single_return_executable):
         from polygraphy.backend.trt import EngineFromBytes, TrtRunner
 
@@ -129,3 +119,34 @@ class TestExecutable:
             output = runner.infer(feed_dict={"arg0": inp_data0, "arg1": inp_data1})["result0"]
             tripy_output = single_return_executable(tp.Tensor(inp_data0).eval(), tp.Tensor(inp_data1).eval())
             assert tp.equal(tripy_output, tp.Tensor(output))
+
+    def test_input_info(self, single_return_executable):
+        input_infos = single_return_executable.input_infos
+        assert len(input_infos) == 2
+        assert input_infos["a"].shape_bounds.min == (2, 2)
+        assert input_infos["a"].shape_bounds.opt == (2, 2)
+        assert input_infos["a"].shape_bounds.max == (2, 2)
+        assert input_infos["a"].dtype == tp.float32
+
+        assert input_infos["b"].shape_bounds.min == (2, 2)
+        assert input_infos["b"].shape_bounds.opt == (2, 2)
+        assert input_infos["b"].shape_bounds.max == (2, 2)
+        assert input_infos["b"].dtype == tp.float32
+
+    def test_incorrect_dtype_rejected(self):
+        a = tp.ones((2, 2), dtype=tp.int32).eval()
+
+        compiled_add = tp.compile(
+            add, args=[tp.InputInfo((2, 2), dtype=tp.float32), tp.InputInfo((2, 2), dtype=tp.float32)]
+        )
+        with helper.raises(tp.TripyException, "Unexpected tensor data type."):
+            compiled_add(a, a)
+
+    def test_incorrect_shape_rejected(self):
+        a = tp.ones((1, 2), dtype=tp.float32).eval()
+
+        compiled_add = tp.compile(
+            add, args=[tp.InputInfo((2, 2), dtype=tp.float32), tp.InputInfo((2, 2), dtype=tp.float32)]
+        )
+        with helper.raises(tp.TripyException, "Unexpected tensor shape.", has_stack_info_for=[a]):
+            compiled_add(a, a)

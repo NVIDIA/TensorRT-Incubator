@@ -141,24 +141,6 @@ class TestCompile:
         assert cp.array_equal(cp.from_dlpack(plus), cp.ones((2, 2), dtype=cp.float32) * 3)
         assert cp.array_equal(cp.from_dlpack(minus), cp.ones((2, 2), dtype=cp.float32))
 
-    def test_incorrect_dtype_rejected(self):
-        a = tp.ones((2, 2), dtype=tp.int32).eval()
-
-        with helper.raises(tp.TripyException, "Unexpected tensor data type."):
-            compiled_add = tp.compile(
-                add, args=[tp.InputInfo((2, 2), dtype=tp.float32), tp.InputInfo((2, 2), dtype=tp.float32)]
-            )
-            compiled_add(a, a)
-
-    def test_incorrect_shape_rejected(self):
-        a = tp.ones((1, 2), dtype=tp.float32).eval()
-
-        with helper.raises(tp.TripyException, "Unexpected tensor shape.", has_stack_info_for=[a]):
-            compiled_add = tp.compile(
-                add, args=[tp.InputInfo((2, 2), dtype=tp.float32), tp.InputInfo((2, 2), dtype=tp.float32)]
-            )
-            compiled_add(a, a)
-
     # TODO (#244): Add multi-profile test
     def test_dynamic_shapes(self):
         compiled_add = tp.compile(
