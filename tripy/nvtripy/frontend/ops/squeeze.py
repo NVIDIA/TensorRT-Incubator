@@ -41,7 +41,7 @@ def squeeze(input: "nvtripy.Tensor", dims: Union[Sequence[int], int]) -> "nvtrip
 
         input = tp.iota((1, 2, 1), dtype=tp.float32)
         output = tp.squeeze(input, dims=(0, 2))
-        assert np.array_equal(cp.from_dlpack(output).get(), np.squeeze(cp.from_dlpack(input).get()))
+        assert np.array_equal(np.from_dlpack(tp.copy(output, device=tp.device("cpu"))), np.squeeze(np.from_dlpack(tp.copy(input, device=tp.device("cpu")))))
 
 
     .. code-block:: python
@@ -50,7 +50,7 @@ def squeeze(input: "nvtripy.Tensor", dims: Union[Sequence[int], int]) -> "nvtrip
 
         input = tp.iota((1, 2, 1), dtype=tp.float32)
         output = tp.squeeze(input, 0)
-        assert np.array_equal(cp.from_dlpack(output).get(), np.squeeze(cp.from_dlpack(input).get(), 0))
+        assert np.array_equal(np.from_dlpack(tp.copy(output, device=tp.device("cpu"))), np.squeeze(np.from_dlpack(tp.copy(input, device=tp.device("cpu"))), 0))
 
     .. code-block:: python
         :linenos:
@@ -59,7 +59,7 @@ def squeeze(input: "nvtripy.Tensor", dims: Union[Sequence[int], int]) -> "nvtrip
         input = tp.iota((1, 2, 1), dtype=tp.float32)
         output = tp.squeeze(input, (0, 2))
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.squeeze(cp.from_dlpack(input).get(), (0, 2)))
+        assert np.array_equal(np.from_dlpack(tp.copy(output, device=tp.device("cpu"))), np.squeeze(np.from_dlpack(tp.copy(input, device=tp.device("cpu"))), (0, 2)))
     """
     from nvtripy.frontend.ops.reshape import reshape
 

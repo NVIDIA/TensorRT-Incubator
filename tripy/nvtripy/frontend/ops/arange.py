@@ -56,7 +56,7 @@ def arange(
 
         output = tp.arange(0.5, 2.5)
 
-        assert (cp.from_dlpack(output).get() == np.arange(0.5, 2.5, dtype=np.float32)).all()
+        assert (np.from_dlpack(tp.copy(output, device=tp.device("cpu"))) == np.arange(0.5, 2.5, dtype=np.float32)).all()
 
     .. code-block:: python
         :linenos:
@@ -125,6 +125,6 @@ def arange(
 
         output = tp.arange(5)
 
-        assert (cp.from_dlpack(output).get() == np.arange(5, dtype=np.float32)).all()
+        assert (np.from_dlpack(tp.copy(output, device=tp.device("cpu"))) == np.arange(5, dtype=np.float32)).all()
     """
     return arange(0, stop, dtype=dtype)

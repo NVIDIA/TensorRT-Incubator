@@ -39,6 +39,6 @@ def sqrt(input: "nvtripy.Tensor") -> "nvtripy.Tensor":
         input = tp.arange(3, dtype=tp.float32) + 1.0
         output = tp.sqrt(input)
 
-        assert tp.allclose(output, tp.Tensor(np.sqrt(cp.from_dlpack(input).get())))
+        assert tp.allclose(output, tp.Tensor(np.sqrt(np.from_dlpack(tp.copy(input, device=tp.device("cpu"))))))
     """
     return op_utils.create_op(Sqrt, [input])

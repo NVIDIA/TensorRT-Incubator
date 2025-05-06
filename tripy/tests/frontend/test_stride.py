@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -23,7 +23,7 @@ import numpy as np
 import torch
 
 import nvtripy as tp
-from tests.helper import raises
+from tests import helper
 
 
 class TestStride:
@@ -48,7 +48,7 @@ class TestStride:
 
         for array, contiguous_func, copy_func in test_cases:
             # Test for exception with non-canonical strides
-            with pytest.raises(tp.TripyException, match="Non-canonical strides are not supported for Tripy tensors"):
+            with helper.raises(tp.TripyException, match="Non-canonical strides are not supported for Tripy tensors"):
                 tp.Tensor(array)
 
             # Test successful creation with contiguous array

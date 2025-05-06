@@ -54,7 +54,7 @@ def __getitem__(
 
         input = tp.reshape(tp.arange(6, dtype=tp.float32), (3, 2))
         output = input[1]
-        assert cp.array_equal(cp.from_dlpack(output), cp.from_dlpack(input)[1])
+        assert tp.equal(output, tp.Tensor([2, 3], dtype=tp.float32))
 
     .. code-block:: python
         :linenos:
@@ -62,7 +62,8 @@ def __getitem__(
 
         input = tp.reshape(tp.arange(6, dtype=tp.float32), (3, 2))
         output = input[1:]
-        assert cp.array_equal(cp.from_dlpack(output), cp.from_dlpack(input)[1:])
+
+        assert tp.equal(output, tp.Tensor([[2, 3], [4, 5]], dtype=tp.float32))
 
     .. code-block:: python
         :linenos:
@@ -70,7 +71,8 @@ def __getitem__(
 
         input = tp.reshape(tp.arange(6, dtype=tp.float32), (3, 2))
         output = input[:, ::-1]
-        assert cp.array_equal(cp.from_dlpack(output), cp.from_dlpack(input)[:, ::-1])
+
+        assert tp.equal(output, tp.Tensor([[1, 0], [3, 2], [5, 4]], dtype=tp.float32))
 
     .. code-block:: python
         :linenos:
@@ -79,8 +81,8 @@ def __getitem__(
         input = tp.reshape(tp.arange(6, dtype=tp.float32), (3, 2))
         index = tp.Tensor([2, 0], dtype=tp.int32)
         output = input[index]
-        assert cp.array_equal(cp.from_dlpack(output), cp.from_dlpack(input)[cp.array(np.from_dlpack(index))])
 
+        assert tp.equal(output, tp.Tensor([[4, 5], [0, 1]], dtype=tp.float32))
     """
     from nvtripy.frontend.dimension_size import DimensionSize
     from nvtripy.frontend.ops.binary.maximum import maximum

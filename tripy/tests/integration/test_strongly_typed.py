@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -32,4 +32,4 @@ class TestStronglyTyped:
         a = a / 5.0
         a = tp.cast(a, tp.float16)
 
-        assert cp.from_dlpack(a).get() == np.array([14000], dtype=np.float16)
+        assert np.from_dlpack(tp.copy(a, device=tp.device("cpu"))) == np.array([14000], dtype=np.float16)

@@ -39,7 +39,7 @@ def rsqrt(input: "nvtripy.Tensor") -> "nvtripy.Tensor":
         input = tp.arange(3, dtype=tp.float32) + 1.0
         output = tp.rsqrt(input)
 
-        assert tp.allclose(output, tp.Tensor(1.0 / np.sqrt(cp.from_dlpack(input).get())))
+        assert tp.allclose(output, tp.Tensor(1.0 / np.sqrt(np.from_dlpack(tp.copy(input, device=tp.device("cpu"))))))
     """
     from nvtripy.frontend.ops.unary.sqrt import sqrt
 

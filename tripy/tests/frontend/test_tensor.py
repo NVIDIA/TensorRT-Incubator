@@ -135,7 +135,7 @@ class TestTensor:
         a = tp.Tensor(cp.array([1], dtype=cp.float32))
 
         # TODO: Verify that we don't compile/execute somehow.
-        assert cp.from_dlpack(a).get().tolist() == [1]
+        assert np.from_dlpack(tp.copy(a, device=tp.device("cpu"))).tolist() == [1]
 
     def test_evaled_tensor_becomes_concrete(self):
         a = tp.Tensor(cp.array([1], dtype=cp.float32))
@@ -149,7 +149,7 @@ class TestTensor:
         assert isinstance(c.trace_tensor.producer, Constant)
         # Constant tensors should have no inputs since we don't want to trace back from them.
         assert c.trace_tensor.producer.inputs == []
-        assert (cp.from_dlpack(c.trace_tensor.producer.data) == cp.array([3], dtype=np.float32)).all()
+        assert tp.equal(c, tp.Tensor([3], dtype=tp.float32))
 
     @pytest.mark.parametrize("kind", ["cpu", "gpu"])
     def test_dlpack_torch(self, kind):
@@ -174,20 +174,20 @@ class TestTensor:
         assert find_frame("test_stack_depth_sanity").code.strip() == "a = tp.ones((2, 3))"
 
     @pytest.mark.parametrize(
-        "tensor",
+        "tensor, expected",
         [
-            tp.Tensor([0]),
-            tp.Tensor([1]),
-            tp.zeros((1, 1, 1)),
-            tp.ones((1, 1, 1)),
-            tp.Tensor([[[3.12]]]),
-            tp.Tensor([False]),
-            tp.Tensor([True]),
+            (tp.Tensor([0]), False),
+            (tp.Tensor([1]), True),
+            (tp.zeros((1, 1, 1)), False),
+            (tp.ones((1, 1, 1)), True),
+            (tp.Tensor([[[3.12]]]), True),
+            (tp.Tensor([False]), False),
+            (tp.Tensor([True]), True),
         ],
     )
-    def test_boolean_method(self, tensor):
+    def test_boolean_method(self, tensor, expected):
         tensor.eval()  # Make sure the tensor is on GPU first
-        assert bool(tensor) == bool(cp.from_dlpack(tensor))
+        assert bool(tensor) == expected
 
     def test_multiple_elements_boolean_fails(self):
         tensor = tp.ones((2, 2))

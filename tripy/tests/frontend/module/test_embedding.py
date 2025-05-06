@@ -15,8 +15,7 @@
 # limitations under the License.
 #
 
-import cupy as cp
-
+import numpy as np
 import nvtripy as tp
 from tests import helper
 
@@ -27,7 +26,7 @@ class TestEmbedding:
         embedding.weight = tp.ones(embedding.weight.shape)
 
         assert isinstance(embedding, tp.Embedding)
-        assert cp.from_dlpack(embedding.weight).get().shape == (20, 30)
+        assert np.from_dlpack(tp.copy(embedding.weight, device=tp.device("cpu"))).shape == (20, 30)
 
     def test_incorrect_input_dtype(self):
         a = tp.ones((2, 3))

@@ -47,6 +47,6 @@ def mean(
         input = tp.reshape(tp.arange(6, dtype=tp.float32), (2, 3))
         output = tp.mean(input, dim=1, keepdim=True)
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.mean(np.arange(6, dtype=np.float32).reshape((2, 3)), axis=1, keepdims=True))
+        assert np.array_equal(np.from_dlpack(tp.copy(output, device=tp.device("cpu"))), np.mean(np.arange(6, dtype=np.float32).reshape((2, 3)), axis=1, keepdims=True))
     """
     return reduce_impl(Avg, input, dim, keepdim)

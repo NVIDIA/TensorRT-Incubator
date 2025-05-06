@@ -61,7 +61,7 @@ def pad(
 
         input_np = np.arange(6, dtype=np.float32).reshape((2, 3)) # doc: omit
         expected = np.pad(input_np, ((1, 0), (0, 1))) # doc: omit
-        assert np.array_equal(cp.from_dlpack(output).get(), expected)
+        assert np.array_equal(np.from_dlpack(tp.copy(output, device=tp.device("cpu"))), expected)
     """
     from nvtripy.frontend.tensor import Tensor
 

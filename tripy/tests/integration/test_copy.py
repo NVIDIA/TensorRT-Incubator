@@ -12,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import cupy as cp
+import torch
 import numpy as np
 import nvtripy as tp
 
@@ -35,5 +35,7 @@ class TestCopy:
         gpu_tensor = tp.copy(cpu_tensor, tp.device("gpu"))
         assert gpu_tensor.device.kind == "gpu"
 
-        # If the tensor is really in GPU memory, we should be able to construct a Cupy array from it
-        assert cp.from_dlpack(gpu_tensor).shape == (2, 2)
+        # If the tensor is really in GPU memory, we should be able to construct a Torch device tensor
+        torch_tensor = torch.from_dlpack(gpu_tensor)
+        assert torch_tensor.shape == (2, 2)
+        assert torch_tensor.device.type == "cuda"

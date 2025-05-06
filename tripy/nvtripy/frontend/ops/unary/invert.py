@@ -39,6 +39,6 @@ def __invert__(self: "nvtripy.Tensor") -> "nvtripy.Tensor":
         a = tp.Tensor([True, False, False])
         output = ~a
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.array([False, True, True]))
+        assert np.array_equal(np.from_dlpack(tp.copy(output, device=tp.device("cpu"))), np.array([False, True, True]))
     """
     return op_utils.create_op(Not, [self])

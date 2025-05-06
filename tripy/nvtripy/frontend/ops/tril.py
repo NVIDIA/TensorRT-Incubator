@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -52,7 +52,7 @@ def tril(tensor: "nvtripy.Tensor", diagonal: int = 0) -> "nvtripy.Tensor":
         input = tp.iota((2, 1, 3, 3), dim=2) + 1.
         output = tp.tril(input)
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.tril(cp.from_dlpack(input).get()))
+        assert np.array_equal(np.from_dlpack(tp.copy(output, device=tp.device("cpu"))), np.tril(np.from_dlpack(tp.copy(input, device=tp.device("cpu")))))
 
     .. code-block:: python
         :linenos:
@@ -61,7 +61,7 @@ def tril(tensor: "nvtripy.Tensor", diagonal: int = 0) -> "nvtripy.Tensor":
         input = tp.iota((5, 5)) + 1. # doc: omit
         output = tp.tril(input, diagonal=2)
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.tril(cp.from_dlpack(input).get(), 2))
+        assert np.array_equal(np.from_dlpack(tp.copy(output, device=tp.device("cpu"))), np.tril(np.from_dlpack(tp.copy(input, device=tp.device("cpu"))), 2))
 
     .. code-block:: python
         :linenos:
@@ -70,7 +70,7 @@ def tril(tensor: "nvtripy.Tensor", diagonal: int = 0) -> "nvtripy.Tensor":
         input = tp.iota((5, 5)) + 1. # doc: omit
         output = tp.tril(input, diagonal=-1)
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.tril(cp.from_dlpack(input).get(), -1))
+        assert np.array_equal(np.from_dlpack(tp.copy(output, device=tp.device("cpu"))), np.tril(np.from_dlpack(tp.copy(input, device=tp.device("cpu"))), -1))
     """
     tri_mask = (iota_like(tensor, -2, datatype.int32) + full_like(tensor, diagonal, datatype.int32)) >= iota_like(
         tensor, -1, datatype.int32

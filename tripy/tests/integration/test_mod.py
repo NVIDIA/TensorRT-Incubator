@@ -24,9 +24,9 @@ class TestModulo:
     def test_mod(self):
         input = tp.arange(1, 4, dtype=tp.float32)
         output = input % 2
-        assert tp.allclose(output, tp.Tensor(cp.from_dlpack(input).get() % 2))
+        assert tp.allclose(output, tp.Tensor(np.from_dlpack(tp.copy(input, device=tp.device("cpu"))) % 2))
 
     def test_rmod(self):
         input = tp.arange(1, 4, dtype=tp.float32)
         output = 2 % input
-        assert tp.allclose(output, tp.Tensor(2 % cp.from_dlpack(input).get()))
+        assert tp.allclose(output, tp.Tensor(2 % np.from_dlpack(tp.copy(input, device=tp.device("cpu")))))

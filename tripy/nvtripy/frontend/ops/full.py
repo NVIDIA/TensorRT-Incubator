@@ -50,7 +50,7 @@ def full(shape: ShapeLike, value: TensorLike, dtype: "nvtripy.dtype" = datatype.
 
         output = tp.full(shape=[2, 3], value=2)
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.full([2, 3], 2, dtype=np.float32))
+        assert np.array_equal(np.from_dlpack(tp.copy(output, device=tp.device("cpu"))), np.full([2, 3], 2, dtype=np.float32))
     """
     from nvtripy.frontend.ops.cast import cast
 
@@ -92,6 +92,6 @@ def full_like(input: "nvtripy.Tensor", value: TensorLike, dtype: Optional["nvtri
         input = tp.Tensor([[1, 2], [3, 4]])
         output = tp.full_like(input, value=2)
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.array([[2, 2], [2, 2]], dtype=np.float32))
+        assert np.array_equal(np.from_dlpack(tp.copy(output, device=tp.device("cpu"))), np.array([[2, 2], [2, 2]], dtype=np.float32))
     """
     return full(input.shape, value, utils.utils.default(dtype, input.dtype))

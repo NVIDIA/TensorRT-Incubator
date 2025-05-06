@@ -66,7 +66,7 @@ def iota(shape: ShapeLike, dim: int = 0, dtype: datatype.dtype = datatype.float3
 
         output = tp.iota((3,), dim=-1)
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.arange(0, 3, dtype=np.float32))
+        assert np.array_equal(np.from_dlpack(tp.copy(output, device=tp.device("cpu"))), np.arange(0, 3, dtype=np.float32))
     """
     dim = op_utils.process_dim(dim, op_utils.get_shape_len(shape))
 
@@ -101,7 +101,7 @@ def iota_like(input: "nvtripy.Tensor", dim: int = 0, dtype: Optional[datatype.dt
         input = tp.Tensor([1, 2, 3])
         output = tp.iota_like(input)
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.arange(0, 3, dtype=np.float32))
+        assert np.array_equal(np.from_dlpack(tp.copy(output, device=tp.device("cpu"))), np.arange(0, 3, dtype=np.float32))
     """
     dim = op_utils.process_dim(dim, input.rank)
 

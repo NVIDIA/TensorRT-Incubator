@@ -83,7 +83,8 @@ class TestCompile:
 
         # Compiled function should still take arguments in (a, b) order.
         out = compiled_sub(a, b)
-        assert cp.array_equal(cp.from_dlpack(out), cp.ones((2, 2), dtype=cp.float32))
+
+        assert tp.equal(out, tp.ones((2, 2), dtype=tp.float32))
 
     @pytest.mark.parametrize("b", [2, tp.ones((2, 2), dtype=tp.float32) * 2])
     def test_constants_baked(self, b):
@@ -94,7 +95,7 @@ class TestCompile:
 
         out = compiled_add(a)
 
-        assert cp.array_equal(cp.from_dlpack(out), cp.ones((2, 2), dtype=cp.float32) * 2)
+        assert tp.equal(out, tp.ones((2, 2), dtype=tp.float32) * 2)
 
     @pytest.mark.parametrize("num_args", [1, 2, 3])
     def test_variadic_positional_args(self, num_args):
@@ -138,8 +139,8 @@ class TestCompile:
 
         plus, minus = compiled_func(a, b)
 
-        assert cp.array_equal(cp.from_dlpack(plus), cp.ones((2, 2), dtype=cp.float32) * 3)
-        assert cp.array_equal(cp.from_dlpack(minus), cp.ones((2, 2), dtype=cp.float32))
+        assert tp.equal(plus, tp.ones((2, 2), dtype=tp.float32) * 3)
+        assert tp.equal(minus, tp.ones((2, 2), dtype=tp.float32))
 
     def test_incorrect_dtype_rejected(self):
         a = tp.ones((2, 2), dtype=tp.int32).eval()
@@ -166,10 +167,10 @@ class TestCompile:
         )
 
         out = compiled_add(tp.ones((2, 1), dtype=tp.float32).eval(), tp.ones((2, 1), dtype=tp.float32).eval())
-        assert cp.array_equal(cp.from_dlpack(out), cp.ones((2, 1), dtype=cp.float32) * 2)
+        assert tp.equal(out, tp.ones((2, 1), dtype=tp.float32) * 2)
 
         out = compiled_add(tp.ones((3, 1), dtype=tp.float32).eval(), tp.ones((3, 1), dtype=tp.float32).eval())
-        assert cp.array_equal(cp.from_dlpack(out), cp.ones((3, 1), dtype=cp.float32) * 2)
+        assert tp.equal(out, tp.ones((3, 1), dtype=tp.float32) * 2)
 
     # if we specify dynamic shapes in compilation, they should not be fixed afterwards
     def test_dynamic_shapes_not_fixed(self):

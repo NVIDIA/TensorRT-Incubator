@@ -37,7 +37,8 @@ class TestConcatenate:
         tensors = [tp.ones(shape) for shape in tensor_shapes]
         out = eager_or_compiled(tp.concatenate, tensors, dim=dim)
         assert np.array_equal(
-            cp.from_dlpack(out).get(), np.concatenate([np.ones(shape) for shape in tensor_shapes], axis=dim)
+            np.from_dlpack(tp.copy(out, device=tp.device("cpu"))),
+            np.concatenate([np.ones(shape) for shape in tensor_shapes], axis=dim),
         )
 
     @pytest.mark.parametrize(

@@ -59,7 +59,7 @@ def __matmul__(self: "nvtripy.Tensor", other: "nvtripy.Tensor") -> "nvtripy.Tens
         b = tp.iota((3,), dtype=tp.float32)
 
         output = a @ b
-        assert np.array_equal(cp.from_dlpack(output).get(), cp.from_dlpack(a).get() @ cp.from_dlpack(b).get())
+        assert np.array_equal(np.from_dlpack(tp.copy(output, device=tp.device("cpu"))), np.from_dlpack(tp.copy(a, device=tp.device("cpu"))) @ np.from_dlpack(tp.copy(b, device=tp.device("cpu"))))
 
     .. code-block:: python
         :linenos:
@@ -69,7 +69,7 @@ def __matmul__(self: "nvtripy.Tensor", other: "nvtripy.Tensor") -> "nvtripy.Tens
         b = tp.iota((3, 2), dtype=tp.float32)
 
         output = a @ b
-        assert np.array_equal(cp.from_dlpack(output).get(), cp.from_dlpack(a).get() @ cp.from_dlpack(b).get())
+        assert np.array_equal(np.from_dlpack(tp.copy(output, device=tp.device("cpu"))), np.from_dlpack(tp.copy(a, device=tp.device("cpu"))) @ np.from_dlpack(tp.copy(b, device=tp.device("cpu"))))
 
     .. code-block:: python
         :linenos:
@@ -79,7 +79,7 @@ def __matmul__(self: "nvtripy.Tensor", other: "nvtripy.Tensor") -> "nvtripy.Tens
         b = tp.iota((3, 2), dtype=tp.float32)
 
         output = a @ b
-        assert np.array_equal(cp.from_dlpack(output).get(), cp.from_dlpack(a).get() @ cp.from_dlpack(b).get())
+        assert np.array_equal(np.from_dlpack(tp.copy(output, device=tp.device("cpu"))), np.from_dlpack(tp.copy(a, device=tp.device("cpu"))) @ np.from_dlpack(tp.copy(b, device=tp.device("cpu"))))
 
     .. code-block:: python
         :linenos:
@@ -89,7 +89,7 @@ def __matmul__(self: "nvtripy.Tensor", other: "nvtripy.Tensor") -> "nvtripy.Tens
         b = tp.iota((1, 2, 2), dtype=tp.float32, dim=-2)
 
         output = a @ b
-        assert np.array_equal(cp.from_dlpack(output).get(), cp.from_dlpack(a).get() @ cp.from_dlpack(b).get())
+        assert np.array_equal(np.from_dlpack(tp.copy(output, device=tp.device("cpu"))), np.from_dlpack(tp.copy(a, device=tp.device("cpu"))) @ np.from_dlpack(tp.copy(b, device=tp.device("cpu"))))
     """
     if self.rank == 0 or other.rank == 0:
         raise_error(

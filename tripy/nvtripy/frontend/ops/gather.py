@@ -54,7 +54,7 @@ def gather(input: "nvtripy.Tensor", dim: int, index: "nvtripy.Tensor") -> "nvtri
         index = tp.Tensor([0, 2])
         output = tp.gather(input, dim=0, index=index)
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.take(cp.from_dlpack(input).get(), np.from_dlpack(index), axis=0))
+        assert np.array_equal(np.from_dlpack(tp.copy(output, device=tp.device("cpu"))), np.take(np.from_dlpack(tp.copy(input, device=tp.device("cpu"))), np.from_dlpack(index), axis=0))
 
     .. code-block:: python
         :linenos:
@@ -64,7 +64,7 @@ def gather(input: "nvtripy.Tensor", dim: int, index: "nvtripy.Tensor") -> "nvtri
         index = tp.Tensor([0, 2])
         output = tp.gather(input, dim=0, index=index)
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.take(cp.from_dlpack(input).get(), np.from_dlpack(index), axis=0))
+        assert np.array_equal(np.from_dlpack(tp.copy(output, device=tp.device("cpu"))), np.take(np.from_dlpack(tp.copy(input, device=tp.device("cpu"))), np.from_dlpack(index), axis=0))
 
     .. code-block:: python
         :linenos:
@@ -74,7 +74,7 @@ def gather(input: "nvtripy.Tensor", dim: int, index: "nvtripy.Tensor") -> "nvtri
         index = tp.Tensor([[0], [2], [1], [2]])
         output = tp.gather(input, dim=0, index=index)
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.take(cp.from_dlpack(input).get(), np.from_dlpack(index), axis=0))
+        assert np.array_equal(np.from_dlpack(tp.copy(output, device=tp.device("cpu"))), np.take(np.from_dlpack(tp.copy(input, device=tp.device("cpu"))), np.from_dlpack(index), axis=0))
 
     .. code-block:: python
         :linenos:
@@ -84,7 +84,7 @@ def gather(input: "nvtripy.Tensor", dim: int, index: "nvtripy.Tensor") -> "nvtri
         index = tp.Tensor([[0, 2], [2, 1]])
         output = tp.gather(input, dim=0, index=index)
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.take(cp.from_dlpack(input).get(), np.from_dlpack(index), axis=0))
+        assert np.array_equal(np.from_dlpack(tp.copy(output, device=tp.device("cpu"))), np.take(np.from_dlpack(tp.copy(input, device=tp.device("cpu"))), np.from_dlpack(index), axis=0))
     """
     dim = op_utils.process_dim(dim, input.rank)
 

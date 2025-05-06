@@ -49,6 +49,6 @@ def argmax(input: "nvtripy.Tensor", dim: Optional[int] = None, keepdim: bool = F
         input = tp.Tensor([[1.0, 0.0, 3.0], [0.5, 2.0, 1.5]])
         output = tp.argmax(input, 0)
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.argmax([[1.0, 0.0, 3.0], [0.5, 2.0, 1.5]], 0))
+        assert np.array_equal(np.from_dlpack(tp.copy(output, device=tp.device("cpu"))), np.argmax([[1.0, 0.0, 3.0], [0.5, 2.0, 1.5]], 0))
     """
     return arg_min_max_impl(TopKMax, input, dim, keepdim)

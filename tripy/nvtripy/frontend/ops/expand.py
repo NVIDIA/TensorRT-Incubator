@@ -80,7 +80,7 @@ def expand(input: "nvtripy.Tensor", sizes: ShapeLike) -> "nvtripy.Tensor":
         input = tp.iota((2, 1), dtype=tp.float32)
         output = tp.expand(input, (-1, 4))
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.broadcast_to(cp.from_dlpack(input).get(), (2, 4)))
+        assert np.array_equal(np.from_dlpack(tp.copy(output, device=tp.device("cpu"))), np.broadcast_to(np.from_dlpack(tp.copy(input, device=tp.device("cpu"))), (2, 4)))
 
     .. code-block:: python
         :linenos:
@@ -89,7 +89,7 @@ def expand(input: "nvtripy.Tensor", sizes: ShapeLike) -> "nvtripy.Tensor":
         input = tp.iota((1, 1), dtype=tp.float32)
         output = tp.expand(input, (3, -1, -1))
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.broadcast_to(cp.from_dlpack(input).get(), (3, 1, 1)))
+        assert np.array_equal(np.from_dlpack(tp.copy(output, device=tp.device("cpu"))), np.broadcast_to(np.from_dlpack(tp.copy(input, device=tp.device("cpu"))), (3, 1, 1)))
     """
     from nvtripy.frontend.ops.reshape import reshape
 

@@ -41,7 +41,7 @@ def transpose(input: "nvtripy.Tensor", dim0: int, dim1: int) -> "nvtripy.Tensor"
         input = tp.reshape(tp.arange(6, dtype=tp.float32), (2, 3))
         output = tp.transpose(input, 0, 1)
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.transpose(np.arange(6, dtype=np.float32).reshape(2, 3), (1, 0)))
+        assert np.array_equal(np.from_dlpack(tp.copy(output, device=tp.device("cpu"))), np.transpose(np.arange(6, dtype=np.float32).reshape(2, 3), (1, 0)))
     """
     from nvtripy.frontend.ops.permute import permute
 

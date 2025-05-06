@@ -64,7 +64,7 @@ def cast(input: "nvtripy.Tensor", dtype: "nvtripy.dtype") -> "nvtripy.Tensor":
         input = tp.Tensor([1, 2], dtype=tp.int32)
         output = tp.cast(input, tp.float32)
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.array([1, 2], dtype=np.float32))
+        assert np.array_equal(np.from_dlpack(tp.copy(output, device=tp.device("cpu"))), np.array([1, 2], dtype=np.float32))
 
     .. seealso:: :func:`quantize`, :func:`dequantize`
     """

@@ -56,7 +56,7 @@ def var(
         output = tp.var(input, dim=1, keepdim=True)
 
         torch_input = torch.arange(6, dtype=torch.float32).reshape((2, 3)) # doc: omit
-        assert np.array_equal(cp.from_dlpack(output).get(), np.from_dlpack(torch_input.var(dim=1, keepdim=True)))
+        assert np.array_equal(np.from_dlpack(tp.copy(output, device=tp.device("cpu"))), np.from_dlpack(torch_input.var(dim=1, keepdim=True)))
     """
     from nvtripy.frontend import Tensor
     from nvtripy.frontend.ops.binary.maximum import maximum

@@ -42,6 +42,6 @@ def maximum(lhs: "nvtripy.Tensor", rhs: "nvtripy.Tensor") -> "nvtripy.Tensor":
         b = tp.Tensor([2.0, 3.0])
         output = tp.maximum(a, b)
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.array([2.0, 6.0]))
+        assert np.array_equal(np.from_dlpack(tp.copy(output, device=tp.device("cpu"))), np.array([2.0, 6.0]))
     """
     return create_binary_op(Max, lhs, rhs)

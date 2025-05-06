@@ -44,7 +44,7 @@ def unsqueeze(input: "nvtripy.Tensor", dim: int) -> "nvtripy.Tensor":
         input = tp.iota((2, 2), dtype=tp.float32)
         output = tp.unsqueeze(input, 1)
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.expand_dims(cp.from_dlpack(input).get(), 1))
+        assert np.array_equal(np.from_dlpack(tp.copy(output, device=tp.device("cpu"))), np.expand_dims(np.from_dlpack(tp.copy(input, device=tp.device("cpu"))), 1))
     """
     from nvtripy.frontend.ops.reshape import reshape
 

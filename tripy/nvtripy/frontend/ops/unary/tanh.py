@@ -39,6 +39,6 @@ def tanh(input: "nvtripy.Tensor") -> "nvtripy.Tensor":
         input = tp.arange(3, dtype=tp.float32)
         output = tp.tanh(input)
 
-        assert tp.allclose(output, tp.Tensor(np.tanh(cp.from_dlpack(input).get())))
+        assert tp.allclose(output, tp.Tensor(np.tanh(np.from_dlpack(tp.copy(input, device=tp.device("cpu"))))))
     """
     return op_utils.create_op(Tanh, [input])

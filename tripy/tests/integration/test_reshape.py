@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -37,15 +37,19 @@ class TestReshape:
         b = eager_or_compiled(tp.reshape, a, new_shape)
         if -1 in new_shape:
             new_shape = tuple(np.prod(shape) // -np.prod(new_shape) if d == -1 else d for d in new_shape)
-        assert np.array_equal(cp.from_dlpack(b).get(), cp_a.reshape(new_shape).get())
+        assert np.array_equal(np.from_dlpack(tp.copy(b, device=tp.device("cpu"))), cp_a.reshape(new_shape).get())
 
     def test_reshape_shape_tensor(self, eager_or_compiled):
         a = tp.ones((2, 3, 4))
         b = tp.ones((2, 3, 2, 2))
         out = eager_or_compiled(tp.reshape, a, (a.shape[0], a.shape[1], b.shape[2], b.shape[3]))
-        assert np.array_equal(cp.from_dlpack(out).get(), np.ones((2, 3, 2, 2), dtype=np.float32))
+        assert np.array_equal(
+            np.from_dlpack(tp.copy(out, device=tp.device("cpu"))), np.ones((2, 3, 2, 2), dtype=np.float32)
+        )
 
     def test_reshape_shape_with_unknown(self, eager_or_compiled):
         a = tp.ones((2, 3, 4))
         out = eager_or_compiled(tp.reshape, a, (2, a.shape[1], a.shape[2] / 2, -1))
-        assert np.array_equal(cp.from_dlpack(out).get(), np.ones((2, 3, 2, 2), dtype=np.float32))
+        assert np.array_equal(
+            np.from_dlpack(tp.copy(out, device=tp.device("cpu"))), np.ones((2, 3, 2, 2), dtype=np.float32)
+        )

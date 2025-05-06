@@ -55,7 +55,7 @@ def where(condition: "nvtripy.Tensor", input: "nvtripy.Tensor", other: "nvtripy.
         other = tp.zeros([2, 2], dtype=tp.float32)
         output = tp.where(condition, input, other)
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.array([[1, 0], [1, 1]], dtype=np.float32))
+        assert np.array_equal(np.from_dlpack(tp.copy(output, device=tp.device("cpu"))), np.array([[1, 0], [1, 1]], dtype=np.float32))
     """
     from nvtripy.frontend.dimension_size import DimensionSize
 

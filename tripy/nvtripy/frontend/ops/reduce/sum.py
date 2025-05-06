@@ -47,6 +47,6 @@ def sum(
         input = tp.reshape(tp.arange(6, dtype=tp.float32), (2, 3))
         output = tp.sum(input, 0)
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.sum(np.arange(6, dtype=np.float32).reshape((2, 3)), 0))
+        assert np.array_equal(np.from_dlpack(tp.copy(output, device=tp.device("cpu"))), np.sum(np.arange(6, dtype=np.float32).reshape((2, 3)), 0))
     """
     return reduce_impl(Sum, input, dim, keepdim)

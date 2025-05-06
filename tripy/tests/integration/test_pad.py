@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -35,7 +35,7 @@ class TestPad:
         out = eager_or_compiled(tp.pad, tp.Tensor(inp), pad, value=value)
         expected = np.pad(inp, pad, constant_values=value)
 
-        assert np.array_equal(cp.from_dlpack(out).get(), expected)
+        assert np.array_equal(np.from_dlpack(tp.copy(out, device=tp.device("cpu"))), expected)
 
     def test_pad_tensor(self, eager_or_compiled):
         inp = np.arange(6, dtype=np.float32).reshape((2, 3))
@@ -44,4 +44,4 @@ class TestPad:
         out = eager_or_compiled(tp.pad, tp.Tensor(inp), ((0, inp_tp.shape[0]), (inp_tp.shape[1], 0)))
         expected = np.pad(inp, ((0, 2), (3, 0)))
 
-        assert np.array_equal(cp.from_dlpack(out).get(), expected)
+        assert np.array_equal(np.from_dlpack(tp.copy(out, device=tp.device("cpu"))), expected)

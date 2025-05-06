@@ -46,7 +46,7 @@ def ones(
 
         output = tp.ones([2, 3])
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.ones([2, 3], dtype=np.float32))
+        assert np.array_equal(np.from_dlpack(tp.copy(output, device=tp.device("cpu"))), np.ones([2, 3], dtype=np.float32))
 
     .. seealso:: :func:`ones_like`, :func:`full`
     """
@@ -78,7 +78,7 @@ def ones_like(input: "nvtripy.Tensor", dtype: Optional[datatype.dtype] = None) -
         input = tp.zeros([2, 3], dtype=tp.float32)
         output = tp.ones_like(input)
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.ones([2, 3], dtype=np.float32))
+        assert np.array_equal(np.from_dlpack(tp.copy(output, device=tp.device("cpu"))), np.ones([2, 3], dtype=np.float32))
 
     .. seealso:: :func:`ones`, :func:`full_like`
     """

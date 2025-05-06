@@ -68,6 +68,6 @@ def reshape(input: "nvtripy.Tensor", shape: ShapeLike) -> "nvtripy.Tensor":
         input = tp.iota((2, 3), dtype=tp.float32)
         output = tp.reshape(input, (1, 6))
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.reshape(cp.from_dlpack(input).get(), (1, 6)))
+        assert np.array_equal(np.from_dlpack(tp.copy(output, device=tp.device("cpu"))), np.reshape(np.from_dlpack(tp.copy(input, device=tp.device("cpu"))), (1, 6)))
     """
     return op_utils.create_op(Reshape, [input, shape])

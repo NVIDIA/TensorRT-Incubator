@@ -34,7 +34,7 @@ class TestPlugin:
         ref_out = tp.gelu(inp)
 
         assert out.shape == ref_out.shape == inp.shape
-        assert cp.allclose(cp.from_dlpack(out), cp.from_dlpack(ref_out), atol=0.001)
+        assert tp.allclose(out, ref_out, atol=0.001)
 
     def test_dynamic_shape_gelu(self):
         def gelu(X):

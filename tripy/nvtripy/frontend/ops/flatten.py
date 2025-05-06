@@ -43,7 +43,7 @@ def flatten(input: "nvtripy.Tensor", start_dim: int = 0, end_dim: int = -1) -> "
 
         input = tp.iota((1, 2, 1), dtype=tp.float32)
         output = tp.flatten(input)
-        assert np.array_equal(cp.from_dlpack(output).get(), cp.from_dlpack(input).get().flatten())
+        assert np.array_equal(np.from_dlpack(tp.copy(output, device=tp.device("cpu"))), np.from_dlpack(tp.copy(input, device=tp.device("cpu"))).flatten())
 
     .. code-block:: python
         :linenos:
@@ -51,7 +51,7 @@ def flatten(input: "nvtripy.Tensor", start_dim: int = 0, end_dim: int = -1) -> "
 
         input = tp.iota((2, 3, 4), dtype=tp.float32)
         output = tp.flatten(input, start_dim=1)
-        assert np.array_equal(cp.from_dlpack(output).get(), cp.from_dlpack(input).get().reshape(2, -1))
+        assert np.array_equal(np.from_dlpack(tp.copy(output, device=tp.device("cpu"))), np.from_dlpack(tp.copy(input, device=tp.device("cpu"))).reshape(2, -1))
 
     .. code-block:: python
         :linenos:
@@ -59,7 +59,7 @@ def flatten(input: "nvtripy.Tensor", start_dim: int = 0, end_dim: int = -1) -> "
 
         input = tp.iota((2, 3, 4, 5), dtype=tp.float32)
         output = tp.flatten(input, start_dim=1, end_dim=2)
-        assert np.array_equal(cp.from_dlpack(output).get(), cp.from_dlpack(input).get().reshape(2, -1, 5))
+        assert np.array_equal(np.from_dlpack(tp.copy(output, device=tp.device("cpu"))), np.from_dlpack(tp.copy(input, device=tp.device("cpu"))).reshape(2, -1, 5))
     """
     from nvtripy.frontend.ops.reshape import reshape
 

@@ -43,7 +43,9 @@ class TestWhereOp:
         b = Tensor(y)
         condition = Tensor(t_cond % 2 == 0)
         out = eager_or_compiled(tp.where, condition, a, b)
-        assert np.array_equal(cp.from_dlpack(out).get(), np.array(np.where((t_cond % 2 == 0), x, y)))
+        assert np.array_equal(
+            np.from_dlpack(tp.copy(out, device=tp.device("cpu"))), np.array(np.where((t_cond % 2 == 0), x, y))
+        )
 
     def test_dimension_size_inputs(self):
         condition = tp.Tensor(True, dtype=tp.bool)
@@ -56,4 +58,4 @@ class TestWhereOp:
         ones = tp.ones((4,), dtype=tp.int32)
         zeros = tp.zeros((4,), dtype=tp.int32)
         w = eager_or_compiled(tp.where, select_indices, ones, zeros)
-        assert cp.from_dlpack(w).get().tolist() == [1, 0, 1, 0]
+        assert np.from_dlpack(tp.copy(w, device=tp.device("cpu"))).tolist() == [1, 0, 1, 0]

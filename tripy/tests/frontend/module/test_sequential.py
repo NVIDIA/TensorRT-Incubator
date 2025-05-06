@@ -213,18 +213,10 @@ class TestMixedContainerSequential:
         }
         mixed_container_sequential_network.load_state_dict(new_state_dict, strict=False)
 
-        assert np.array_equal(
-            cp.from_dlpack(mixed_container_sequential_network[0].weight), cp.from_dlpack(new_state_dict["0.weight"])
-        )
-        assert np.array_equal(
-            cp.from_dlpack(mixed_container_sequential_network[0].bias), cp.from_dlpack(new_state_dict["0.bias"])
-        )
-        assert np.array_equal(
-            cp.from_dlpack(mixed_container_sequential_network[3].weight), cp.from_dlpack(new_state_dict["3.weight"])
-        )
-        assert np.array_equal(
-            cp.from_dlpack(mixed_container_sequential_network[3].bias), cp.from_dlpack(new_state_dict["3.bias"])
-        )
+        assert mixed_container_sequential_network[0].weight is new_state_dict["0.weight"]
+        assert mixed_container_sequential_network[0].bias is new_state_dict["0.bias"]
+        assert mixed_container_sequential_network[3].weight is new_state_dict["3.weight"]
+        assert mixed_container_sequential_network[3].bias is new_state_dict["3.bias"]
 
     def test_str_representation(self, mixed_container_sequential_network):
         expected_str = dedent(

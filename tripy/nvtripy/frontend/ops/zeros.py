@@ -46,7 +46,7 @@ def zeros(
 
         output = tp.zeros([2, 3])
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.zeros([2, 3], dtype=np.float32))
+        assert np.array_equal(np.from_dlpack(tp.copy(output, device=tp.device("cpu"))), np.zeros([2, 3], dtype=np.float32))
 
     .. seealso:: :func:`zeros_like`, :func:`full`
     """
@@ -78,7 +78,7 @@ def zeros_like(input: "nvtripy.Tensor", dtype: Optional[datatype.dtype] = None) 
         input = tp.iota([2, 3], dtype=tp.float32)
         output = tp.zeros_like(input)
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.zeros([2, 3], dtype=np.float32))
+        assert np.array_equal(np.from_dlpack(tp.copy(output, device=tp.device("cpu"))), np.zeros([2, 3], dtype=np.float32))
 
     .. seealso:: :func:`zeros`, :func:`full_like`
     """

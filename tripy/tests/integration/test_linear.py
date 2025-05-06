@@ -42,12 +42,12 @@ class TestLinear:
 
         out = eager_or_compiled(net, a1)
 
-        np_weight = cp.from_dlpack(net.linear.weight).get()
-        np_bias = cp.from_dlpack(net.linear.bias).get()
+        np_weight = np.from_dlpack(tp.copy(net.linear.weight, device=tp.device("cpu")))
+        np_bias = np.from_dlpack(tp.copy(net.linear.bias, device=tp.device("cpu")))
 
         np_out = cp_a1.get() @ (np_weight.transpose()) + np_bias
 
-        assert (cp.from_dlpack(out).get() == np.array(np_out)).all()
+        assert (np.from_dlpack(tp.copy(out, device=tp.device("cpu"))) == np.array(np_out)).all()
 
 
 class TestQuantLinear:
@@ -103,12 +103,12 @@ class TestQuantLinear:
         else:
             out = eager_or_compiled(net, a1)
 
-            np_weight = cp.from_dlpack(net.linear.weight).get()
-            np_bias = cp.from_dlpack(net.linear.bias).get()
+            np_weight = np.from_dlpack(tp.copy(net.linear.weight, device=tp.device("cpu")))
+            np_bias = np.from_dlpack(tp.copy(net.linear.bias, device=tp.device("cpu")))
 
             np_out = cp_a1.get() @ (np_weight.transpose()) + np_bias
 
-            assert (cp.from_dlpack(out).get() == np.array(np_out)).all()
+            assert (np.from_dlpack(tp.copy(out, device=tp.device("cpu"))) == np.array(np_out)).all()
 
     @pytest.mark.parametrize(
         "weight_quant_dim, scale",
@@ -138,4 +138,4 @@ class TestQuantLinear:
 
         np_out = cp_input.get() @ (np_weight.transpose()) + np_bias
 
-        assert np.array_equal(cp.from_dlpack(out).get(), np_out)
+        assert np.array_equal(np.from_dlpack(tp.copy(out, device=tp.device("cpu"))), np_out)

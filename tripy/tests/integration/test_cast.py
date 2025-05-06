@@ -52,8 +52,8 @@ class TestCast:
 
         output = eager_or_compiled(tp.cast, input_tensor, tp_target_dtype)
 
-        np_input = cp.from_dlpack(input_tensor).get()
-        assert np.array_equal(cp.from_dlpack(output).get(), np_input.astype(target_dtype))
+        np_input = np.from_dlpack(tp.copy(input_tensor, device=tp.device("cpu")))
+        assert np.array_equal(np.from_dlpack(tp.copy(output, device=tp.device("cpu"))), np_input.astype(target_dtype))
 
     # these dtypes don't have analogues in numpy
     @pytest.mark.parametrize("source_dtype", [pytest.param(tp.float8, marks=skip_if_older_than_sm89), tp.int4])
@@ -67,7 +67,7 @@ class TestCast:
             return output
 
         output = eager_or_compiled(func, input_tensor)
-        assert cp.from_dlpack(output).get().tolist() == [True, False, False, True]
+        assert np.from_dlpack(tp.copy(output, device=tp.device("cpu"))).tolist() == [True, False, False, True]
 
     @pytest.mark.parametrize("target_dtype", [np.float32, np.int32, np.int8])
     def test_cast_from_bool(self, target_dtype, eager_or_compiled):
@@ -80,7 +80,7 @@ class TestCast:
 
         output = eager_or_compiled(tp.cast, input_tensor, tp_target_dtype)
 
-        tp_compare_to_zero = cp.from_dlpack(output).get() == 0
+        tp_compare_to_zero = np.from_dlpack(tp.copy(output, device=tp.device("cpu"))) == 0
 
         np_compare_to_zero = np_input.astype(target_dtype) == 0
         assert np.array_equal(tp_compare_to_zero, np_compare_to_zero)

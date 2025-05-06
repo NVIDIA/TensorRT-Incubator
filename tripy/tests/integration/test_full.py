@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -24,19 +24,19 @@ import nvtripy as tp
 class TestFull:
     def test_normal_shape(self, eager_or_compiled):
         out = eager_or_compiled(tp.full, (2, 2), 5.0, tp.float32)
-        assert np.array_equal(cp.from_dlpack(out).get(), np.full((2, 2), 5.0, np.float32))
+        assert np.array_equal(np.from_dlpack(tp.copy(out, device=tp.device("cpu"))), np.full((2, 2), 5.0, np.float32))
 
     def test_shape_tensor(self, eager_or_compiled):
         a = tp.ones((2, 3))
         out = eager_or_compiled(tp.full, a.shape, 5.0, tp.float32)
-        assert np.array_equal(cp.from_dlpack(out).get(), np.full((2, 3), 5.0, np.float32))
+        assert np.array_equal(np.from_dlpack(tp.copy(out, device=tp.device("cpu"))), np.full((2, 3), 5.0, np.float32))
 
     def test_mixed_shape(self, eager_or_compiled):
         a = tp.ones((2, 3))
         out = eager_or_compiled(tp.full, (a.shape[0], 4), 5.0, tp.float32)
-        assert np.array_equal(cp.from_dlpack(out).get(), np.full((2, 4), 5.0, np.float32))
+        assert np.array_equal(np.from_dlpack(tp.copy(out, device=tp.device("cpu"))), np.full((2, 4), 5.0, np.float32))
 
     def test_value_as_tensor(self, eager_or_compiled):
         a = tp.ones((2, 3))
         out = eager_or_compiled(tp.full, (a.shape[0], 4), tp.Tensor(8.0), tp.float32)
-        assert np.array_equal(cp.from_dlpack(out).get(), np.full((2, 4), 8.0, np.float32))
+        assert np.array_equal(np.from_dlpack(tp.copy(out, device=tp.device("cpu"))), np.full((2, 4), 8.0, np.float32))

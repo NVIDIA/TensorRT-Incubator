@@ -42,7 +42,7 @@ class TestStack:
         expected = np.stack(np_tensors, axis=dim)
 
         assert out.shape == tuple(expected.shape)
-        assert np.array_equal(cp.from_dlpack(out).get(), expected)
+        assert np.array_equal(np.from_dlpack(tp.copy(out, device=tp.device("cpu"))), expected)
 
     def test_stack_different_ranks(self, eager_or_compiled):
         tensors = [tp.ones((2, 3)), tp.ones((2, 3, 4))]

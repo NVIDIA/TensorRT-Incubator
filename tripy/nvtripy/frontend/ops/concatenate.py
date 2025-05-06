@@ -52,7 +52,7 @@ def concatenate(tensors: Sequence["nvtripy.Tensor"], dim: int) -> "nvtripy.Tenso
 
         output = tp.concatenate([a, b], dim=0)
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.concatenate((cp.from_dlpack(a).get(), cp.from_dlpack(b).get()), axis=0))
+        assert np.array_equal(np.from_dlpack(tp.copy(output, device=tp.device("cpu"))), np.concatenate((np.from_dlpack(tp.copy(a, device=tp.device("cpu"))), np.from_dlpack(tp.copy(b, device=tp.device("cpu")))), axis=0))
     """
     if not tensors:
         raise_error(f"Expected a non-empty list of tensors, got {tensors}")

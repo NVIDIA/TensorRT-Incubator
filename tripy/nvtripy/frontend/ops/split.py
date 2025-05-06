@@ -60,8 +60,9 @@ def split(
         # doc: print-locals input outputs
         input = tp.reshape(tp.arange(16, dtype=tp.float32), (4, 4))
         outputs = tp.split(input, 2)
-        assert np.array_equal(cp.from_dlpack(outputs[0]).get(), cp.from_dlpack(input[:2, :]).get())
-        assert np.array_equal(cp.from_dlpack(outputs[1]).get(), cp.from_dlpack(input[2:, :]).get())
+
+        assert tp.equal(outputs[0], tp.Tensor([[0, 1, 2, 3], [4, 5, 6, 7]], dtype=tp.float32))
+        assert tp.equal(outputs[1], tp.Tensor([[8, 9, 10, 11], [12, 13, 14, 15]], dtype=tp.float32))
 
     .. code-block:: python
         :linenos:
@@ -70,8 +71,9 @@ def split(
         # doc: print-locals input outputs
         input = tp.reshape(tp.arange(16, dtype=tp.float32), (4, 4))
         outputs = tp.split(input, 2, dim=1)
-        assert np.array_equal(cp.from_dlpack(outputs[0]).get(), cp.from_dlpack(input[:, :2]).get())
-        assert np.array_equal(cp.from_dlpack(outputs[1]).get(), cp.from_dlpack(input[:, 2:]).get())
+
+        assert tp.equal(outputs[0], tp.Tensor([[0, 1], [4, 5]], dtype=tp.float32))
+        assert tp.equal(outputs[1], tp.Tensor([[2, 3], [6, 7]], dtype=tp.float32))
 
     .. code-block:: python
         :linenos:
@@ -80,9 +82,10 @@ def split(
         # doc: print-locals input outputs
         input = tp.reshape(tp.arange(16, dtype=tp.float32), (4, 4))
         outputs = tp.split(input, [1, 1, 2])
-        assert np.array_equal(cp.from_dlpack(outputs[0]).get(), cp.from_dlpack(input[:1, :]).get())
-        assert np.array_equal(cp.from_dlpack(outputs[1]).get(), cp.from_dlpack(input[1:2, :]).get())
-        assert np.array_equal(cp.from_dlpack(outputs[2]).get(), cp.from_dlpack(input[2:, :]).get())
+
+        assert tp.equal(outputs[0], tp.Tensor([[0, 1, 2, 3]], dtype=tp.float32))
+        assert tp.equal(outputs[1], tp.Tensor([[4, 5, 6, 7]], dtype=tp.float32))
+        assert tp.equal(outputs[2], tp.Tensor([[8, 9, 10, 11], [12, 13, 14, 15]], dtype=tp.float32))
     """
     dim = op_utils.process_dim(dim, input.rank)
 

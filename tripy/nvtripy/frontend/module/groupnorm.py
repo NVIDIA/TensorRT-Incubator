@@ -76,16 +76,16 @@ class GroupNorm(Module):
             input = tp.iota((1, 2, 2, 2), dim=1)
             output = group_norm(input)
 
-            np_out = cp.from_dlpack(output).get() # doc: omit
+            np_out = np.from_dlpack(tp.copy(output, device=tp.device("cpu"))) # doc: omit
             assert np_out.shape == (1, 2, 2, 2)
 
             torch_tensor = torch.from_dlpack(input) # doc: omit
             torch_gn = torch.nn.GroupNorm(2, 2).to(torch.device("cuda")) # doc: omit
             torch_gn.weight.data = torch.from_dlpack(group_norm.weight) # doc: omit
             torch_gn.bias.data = torch.from_dlpack(group_norm.bias) # doc: omit
-            torch_out = cp.from_dlpack(torch_gn(torch_tensor).detach()).get() # doc: omit
-            assert np_out.shape == torch_out.shape # doc: omit
-            assert np.allclose(np_out, torch_out) # doc: omit
+            torch_out = torch_gn(torch_tensor).detach()) # doc: omit
+            assert torch_out.shape == output.shape # doc: omit
+            assert torch.allclose(torch_out, torch.from_dlpack(output)) # doc: omit
         """
         super().__init__()
 

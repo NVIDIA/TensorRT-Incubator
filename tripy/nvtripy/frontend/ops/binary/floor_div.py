@@ -44,7 +44,7 @@ def __floordiv__(self: "nvtripy.Tensor", other: TensorLike) -> "nvtripy.Tensor":
         b = tp.Tensor([3.0, 4.0])
         output = a // b
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.array([1.0, 1.0]))
+        assert np.array_equal(np.from_dlpack(tp.copy(output, device=tp.device("cpu"))), np.array([1.0, 1.0]))
     """
     return create_binary_op(FloorDiv, self, other)
 
@@ -74,6 +74,6 @@ def __rfloordiv__(self: "nvtripy.Tensor", other: TensorLike) -> "nvtripy.Tensor"
         b = tp.Tensor([2.0, 3.0])
         output = a // b
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.array([1.0, 0.0]))
+        assert np.array_equal(np.from_dlpack(tp.copy(output, device=tp.device("cpu"))), np.array([1.0, 0.0]))
     """
     return create_binary_op(FloorDiv, other, self)

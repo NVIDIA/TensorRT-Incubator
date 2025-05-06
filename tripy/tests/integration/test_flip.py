@@ -15,7 +15,6 @@
 # limitations under the License.
 #
 
-import cupy as cp
 import numpy as np
 import pytest
 import nvtripy as tp
@@ -27,18 +26,18 @@ class TestFlip:
         [0, 1, None, [0, 1], [1, 0], -1, -2, [0, -1], [-2, 1]],
     )
     def test_flip(self, dims, eager_or_compiled):
-        cp_a = cp.arange(16).reshape((4, 4)).astype(cp.float32)
-        a = tp.Tensor(cp_a, device=tp.device("gpu"))
+        np_a = np.arange(16).reshape((4, 4)).astype(np.float32)
+        a = tp.Tensor(np_a, device=tp.device("gpu"))
         f = tp.flip(a, dim=dims)
-        assert np.array_equal(cp.from_dlpack(f).get(), np.flip(cp_a.get(), axis=dims))
+        assert np.array_equal(np.from_dlpack(tp.copy(f, device=tp.device("cpu"))), np.flip(np_a.get(), axis=dims))
 
         # also ensure that flipping a second time restores the original value
         f2 = eager_or_compiled(tp.flip, f, dim=dims)
-        assert cp.array_equal(cp.from_dlpack(f2), cp_a)
+        assert np.array_equal(np.from_dlpack(tp.copy(f2, device=tp.device("cpu"))), np_a)
 
     def test_no_op(self, eager_or_compiled):
-        cp_a = cp.arange(16).reshape((4, 4)).astype(cp.float32)
-        a = tp.Tensor(cp_a, device=tp.device("gpu"))
+        np_a = np.arange(16).reshape((4, 4)).astype(np.float32)
+        a = tp.Tensor(np_a, device=tp.device("gpu"))
         f = eager_or_compiled(tp.flip, a, dim=[])
         assert tp.equal(a, f)
 
@@ -52,8 +51,8 @@ class TestFlip:
         [(0, -2), (1, -1), ([0, 1], None), ([0, 1], [1, 0]), ([0, 1], [-2, -1])],
     )
     def test_equivalences(self, dims1, dims2, eager_or_compiled):
-        cp_a = cp.arange(16).reshape((4, 4)).astype(cp.float32)
-        a = tp.Tensor(cp_a, device=tp.device("gpu"))
+        np_a = np.arange(16).reshape((4, 4)).astype(np.float32)
+        a = tp.Tensor(np_a, device=tp.device("gpu"))
         f1 = eager_or_compiled(tp.flip, a, dim=dims1)
         f2 = eager_or_compiled(tp.flip, a, dim=dims2)
         assert tp.equal(f1, f2)

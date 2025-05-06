@@ -15,11 +15,12 @@
 # limitations under the License.
 #
 
-import cupy as cp
 import math
-import pytest
 
+import numpy as np
 import nvtripy as tp
+import pytest
+import torch
 
 
 class TestSliceOp:
@@ -63,15 +64,15 @@ class TestSliceOp:
     )
     def test_slice(self, use_constant, shape, slice_func, eager_or_compiled):
         if use_constant:
-            input_cp = cp.arange(math.prod(shape)).reshape(shape).astype(cp.float32)
-            input = tp.Tensor(input_cp)
+            input_np = np.arange(math.prod(shape)).reshape(shape).astype(np.float32)
+            input = tp.Tensor(input_np, device=tp.device("gpu"))
         else:
             input = tp.reshape(tp.arange(math.prod(shape)), shape)
-            input_cp = cp.from_dlpack(input)
+            input_np = np.from_dlpack(tp.copy(input, device=tp.device("cpu")))
 
         out = eager_or_compiled(slice_func, input)
-        assert out.shape == slice_func(input_cp).shape
-        assert cp.array_equal(cp.from_dlpack(out).get(), slice_func(input_cp).get())
+        assert out.shape == slice_func(input_np).shape
+        assert np.array_equal(np.from_dlpack(tp.copy(out, device=tp.device("cpu"))), slice_func(input_np).get())
 
     @pytest.mark.parametrize("use_constant", [True, False])
     @pytest.mark.parametrize(
@@ -92,15 +93,15 @@ class TestSliceOp:
     )
     def test_slice_with_dimensionsize(self, use_constant, shape, slice_func, reference_func, eager_or_compiled):
         if use_constant:
-            input_cp = cp.arange(math.prod(shape)).reshape(shape).astype(cp.float32)
-            input = tp.Tensor(input_cp)
+            input_np = np.arange(math.prod(shape)).reshape(shape).astype(np.float32)
+            input = tp.Tensor(input_np, device=tp.device("gpu"))
         else:
             input = tp.reshape(tp.arange(math.prod(shape)), shape)
-            input_cp = cp.from_dlpack(input)
+            input_np = np.from_dlpack(tp.copy(input, device=tp.device("cpu")))
 
         out = eager_or_compiled(slice_func, input)
-        assert out.shape == reference_func(input_cp).shape
-        assert cp.array_equal(cp.from_dlpack(out).get(), reference_func(input_cp).get())
+        assert out.shape == reference_func(input_np).shape
+        assert np.array_equal(np.from_dlpack(tp.copy(out, device=tp.device("cpu"))), reference_func(input_np).get())
 
     @pytest.mark.parametrize(
         "input_shape, index_shape",
@@ -117,4 +118,4 @@ class TestSliceOp:
             return input[index]
 
         output = eager_or_compiled(slice, input, index)
-        assert cp.array_equal(cp.from_dlpack(output).get(), cp.from_dlpack(input)[cp.from_dlpack(index)].get())
+        assert torch.equal(torch.from_dlpack(output), torch.from_dlpack(input)[torch.from_dlpack(index)])

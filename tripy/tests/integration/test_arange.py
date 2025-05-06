@@ -23,23 +23,29 @@ from tests import helper
 class TestArange:
     def test_basic_functionality(self):
         out = tp.arange(0, 5)
-        assert np.array_equal(cp.from_dlpack(out).get(), np.arange(0, 5, dtype=np.float32))
+        assert np.array_equal(np.from_dlpack(tp.copy(out, device=tp.device("cpu"))), np.arange(0, 5, dtype=np.float32))
 
     def test_with_step(self):
         out = tp.arange(1, 10, 2)
-        assert np.array_equal(cp.from_dlpack(out).get(), np.arange(1, 10, 2, dtype=np.float32))
+        assert np.array_equal(
+            np.from_dlpack(tp.copy(out, device=tp.device("cpu"))), np.arange(1, 10, 2, dtype=np.float32)
+        )
 
     def test_negative_step(self):
         out = tp.arange(5, 0, -1)
-        assert np.array_equal(cp.from_dlpack(out).get(), np.arange(5, 0, -1, dtype=np.float32))
+        assert np.array_equal(
+            np.from_dlpack(tp.copy(out, device=tp.device("cpu"))), np.arange(5, 0, -1, dtype=np.float32)
+        )
 
     def test_float_values(self):
         out = tp.arange(0.5, 5.5, 0.5)
-        assert np.allclose(cp.from_dlpack(out).get(), np.arange(0.5, 5.5, 0.5, dtype=np.float32))
+        assert np.allclose(
+            np.from_dlpack(tp.copy(out, device=tp.device("cpu"))), np.arange(0.5, 5.5, 0.5, dtype=np.float32)
+        )
 
     def test_single_parameter(self):
         out = tp.arange(5)
-        assert np.array_equal(cp.from_dlpack(out).get(), np.arange(5, dtype=np.float32))
+        assert np.array_equal(np.from_dlpack(tp.copy(out, device=tp.device("cpu"))), np.arange(5, dtype=np.float32))
 
     def test_errors(self):
         with helper.raises(
@@ -51,7 +57,9 @@ class TestArange:
     def test_shapescalar_inputs(self):
         a = tp.ones((1, 5, 1))
         out = tp.arange(a.shape[0], a.shape[1] + 1, a.shape[2])
-        assert np.allclose(cp.from_dlpack(out).get(), np.arange(1.0, 6.0, 1.0, dtype=np.float32))
+        assert np.allclose(
+            np.from_dlpack(tp.copy(out, device=tp.device("cpu"))), np.arange(1.0, 6.0, 1.0, dtype=np.float32)
+        )
 
     @pytest.mark.parametrize(
         "start,stop,step,expected",
@@ -62,4 +70,4 @@ class TestArange:
     )
     def test_dimensionsize_combinations(self, start, stop, step, expected):
         out = tp.arange(start, stop, step)
-        assert np.allclose(cp.from_dlpack(out).get(), expected.astype(np.float32))
+        assert np.allclose(np.from_dlpack(tp.copy(out, device=tp.device("cpu"))), expected.astype(np.float32))

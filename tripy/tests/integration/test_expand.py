@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -25,21 +25,25 @@ class TestExpand:
     def test_int_sizes(self, eager_or_compiled):
         input = tp.ones((2, 1))
         out = eager_or_compiled(tp.expand, input, (-1, 2))
-        assert np.array_equal(cp.from_dlpack(out).get(), np.ones((2, 2), dtype=np.float32))
+        assert np.array_equal(np.from_dlpack(tp.copy(out, device=tp.device("cpu"))), np.ones((2, 2), dtype=np.float32))
 
     def test_shape_sizes(self, eager_or_compiled):
         input = tp.ones((2, 1))
         a = tp.ones((2, 4))
         out = eager_or_compiled(tp.expand, input, a.shape)
-        assert np.array_equal(cp.from_dlpack(out).get(), np.ones((2, 4), dtype=np.float32))
+        assert np.array_equal(np.from_dlpack(tp.copy(out, device=tp.device("cpu"))), np.ones((2, 4), dtype=np.float32))
 
     def test_extra_dims(self, eager_or_compiled):
         input = tp.ones((2, 1))
         out = eager_or_compiled(tp.expand, input, (1, -1, 2))
-        assert np.array_equal(cp.from_dlpack(out).get(), np.ones((1, 2, 2), dtype=np.float32))
+        assert np.array_equal(
+            np.from_dlpack(tp.copy(out, device=tp.device("cpu"))), np.ones((1, 2, 2), dtype=np.float32)
+        )
 
     def test_mixed_sizes(self, eager_or_compiled):
         input = tp.ones((2, 1, 1))
         a = tp.ones((4, 4))
         out = eager_or_compiled(tp.expand, input, (-1, a.shape[0], a.shape[1]))
-        assert np.array_equal(cp.from_dlpack(out).get(), np.ones((2, 4, 4), dtype=np.float32))
+        assert np.array_equal(
+            np.from_dlpack(tp.copy(out, device=tp.device("cpu"))), np.ones((2, 4, 4), dtype=np.float32)
+        )

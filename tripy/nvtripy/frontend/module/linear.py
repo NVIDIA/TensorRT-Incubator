@@ -85,7 +85,7 @@ class Linear(Module):
             input = tp.iota((2, 3))
             output = linear(input)
 
-            assert cp.from_dlpack(output).get().shape == (2, 4)
+            assert np.from_dlpack(tp.copy(output, device=tp.device("cpu"))).shape == (2, 4)
 
         """
         super().__init__()

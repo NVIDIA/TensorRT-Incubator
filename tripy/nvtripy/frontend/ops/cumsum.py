@@ -40,7 +40,7 @@ def cumsum(input: "nvtripy.Tensor", dim: int) -> "nvtripy.Tensor":
         input = tp.arange(4, 0, step=-1, dtype=tp.float32)
         output = tp.cumsum(input, dim=0)
 
-        assert cp.array_equal(cp.cumsum(cp.from_dlpack(input)), cp.from_dlpack(output))
+        assert tp.equal(output, tp.Tensor([4, 7, 9, 10], dtype=tp.float32))
 
     .. code-block:: python
         :linenos:
@@ -49,7 +49,7 @@ def cumsum(input: "nvtripy.Tensor", dim: int) -> "nvtripy.Tensor":
         input = tp.reshape(tp.arange(9, 0, step=-1, dtype=tp.float32), (3, 3))
         output = tp.cumsum(input, dim=0)
 
-        assert cp.array_equal(cp.cumsum(cp.from_dlpack(input), axis=0), cp.from_dlpack(output))
+        assert tp.equal(output, tp.Tensor([[9, 8, 7], [15, 14, 12], [18, 17, 15]], dtype=tp.float32))
     """
     # Consider:
     #

@@ -46,7 +46,7 @@ def __mod__(self: "nvtripy.Tensor", other: TensorLike) -> "nvtripy.Tensor":
         b = tp.Tensor([3.0, 4.0])
         output = a % b
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.array([1.0, 2.0]))
+        assert np.array_equal(np.from_dlpack(tp.copy(output, device=tp.device("cpu"))), np.array([1.0, 2.0]))
     """
     return mod_impl(self, other)
 
@@ -75,6 +75,6 @@ def __rmod__(self: "nvtripy.Tensor", other: TensorLike) -> "nvtripy.Tensor":
         a = tp.Tensor([4.0, 6.0])
         output = 2 % a
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.array([2.0, 2.0]))
+        assert np.array_equal(np.from_dlpack(tp.copy(output, device=tp.device("cpu"))), np.array([2.0, 2.0]))
     """
     return mod_impl(other, self)

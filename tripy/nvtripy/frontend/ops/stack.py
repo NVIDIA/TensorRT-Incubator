@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -46,7 +46,7 @@ def stack(tensors: Sequence["nvtripy.Tensor"], dim: int = 0) -> "nvtripy.Tensor"
 
         output = tp.stack([a, b], dim=0)
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.stack((cp.from_dlpack(a).get(), cp.from_dlpack(b).get()), axis=0))
+        assert np.array_equal(np.from_dlpack(tp.copy(output, device=tp.device("cpu"))), np.stack((np.from_dlpack(tp.copy(a, device=tp.device("cpu"))), np.from_dlpack(tp.copy(b, device=tp.device("cpu")))), axis=0))
     """
 
     from nvtripy.frontend.ops.unsqueeze import unsqueeze

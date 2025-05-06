@@ -18,7 +18,7 @@
 import inspect
 from textwrap import dedent
 
-import cupy as cp
+import numpy as np
 import numpy as np
 import nvtripy as tp
 from tests import helper
@@ -31,7 +31,7 @@ class TestModule:
         assert len(dict(test_net.named_children())) == 2
 
         result = np.array([1.0, 2.0]) + np.full(2, sum(call_args), dtype=np.float32)
-        assert np.array_equal(cp.from_dlpack(test_net(*inputs)).get(), result)
+        assert np.array_equal(np.from_dlpack(tp.copy(test_net(*inputs)), device=tp.device("cpu")), result)
 
     def test_get_set_attr(self, network):
         network.new_attr = True

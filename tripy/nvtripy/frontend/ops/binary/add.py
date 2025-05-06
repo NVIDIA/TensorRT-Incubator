@@ -45,6 +45,6 @@ def __add__(self: "nvtripy.Tensor", other: TensorLike) -> "nvtripy.Tensor":
         b = tp.Tensor([2, 3])
         output = a + b
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.array([3, 5]))
+        assert np.array_equal(np.from_dlpack(tp.copy(output, device=tp.device("cpu"))), np.array([3, 5]))
     """
     return create_binary_op(Add, self, other)

@@ -39,4 +39,4 @@ class TestUnaryElementwise:
     def test_op_funcs(self, tp_func, np_func, eager_or_compiled):
         input = tp.arange(1, 4, dtype=tp.float32)
         output = eager_or_compiled(tp_func, input)
-        assert tp.allclose(output, tp.Tensor(np_func(cp.from_dlpack(input).get())))
+        assert tp.allclose(output, tp.Tensor(np_func(np.from_dlpack(tp.copy(input, device=tp.device("cpu"))))))

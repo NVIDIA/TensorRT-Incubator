@@ -42,4 +42,4 @@ class TestGatherOp:
         a = tp.cast(a, tp.int32)
         out = eager_or_compiled(tp.gather, a, axis, indices_tp)
 
-        assert np.array_equal(cp.from_dlpack(out).get(), np.take(x, indices, axis))
+        assert np.array_equal(np.from_dlpack(tp.copy(out, device=tp.device("cpu"))), np.take(x, indices, axis))

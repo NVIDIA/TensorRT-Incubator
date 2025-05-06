@@ -47,9 +47,7 @@ def repeat(input: "nvtripy.Tensor", repeats: IntLike, dim: int) -> "nvtripy.Tens
         inp = tp.arange(4, dtype=tp.int32)
         out0 = tp.repeat(inp, 2, dim=0)
 
-        cp_inp = cp.from_dlpack(inp) # doc: omit
-        ref_out0 = cp.repeat(cp_inp, 2, 0) # doc: omit
-        assert cp.array_equal(ref_out0, cp.from_dlpack(out0))
+        assert tp.equal(out0, tp.Tensor([0, 0, 1, 1, 2, 2, 3, 3], dtype=tp.int32))
 
 
     .. code-block:: python
@@ -60,12 +58,8 @@ def repeat(input: "nvtripy.Tensor", repeats: IntLike, dim: int) -> "nvtripy.Tens
         out0 = tp.repeat(inp, 2, dim=0)
         out1 = tp.repeat(inp, 2, dim=1)
 
-        cp_inp = cp.from_dlpack(inp) # doc: omit
-        ref_out0 = cp.repeat(cp_inp, 2, 0) # doc: omit
-        assert cp.array_equal(ref_out0, cp.from_dlpack(out0))
-
-        ref_out1 = cp.repeat(cp_inp, 2, 1) # doc: omit
-        assert cp.array_equal(ref_out1, cp.from_dlpack(out1))
+        assert tp.equal(out0, tp.Tensor([[0, 0], [1, 1], [2, 2], [3, 3]], dtype=tp.int32))
+        assert tp.equal(out1, tp.Tensor([[0, 0, 1, 1], [2, 2, 3, 3]], dtype=tp.int32))
     """
     from nvtripy.frontend.dimension_size import DimensionSize
     from nvtripy.frontend.ops.expand import expand

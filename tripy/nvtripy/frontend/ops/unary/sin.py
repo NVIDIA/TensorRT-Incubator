@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -39,6 +39,6 @@ def sin(input: "nvtripy.Tensor") -> "nvtripy.Tensor":
         input = tp.arange(3, dtype=tp.float32)
         output = tp.sin(input)
 
-        assert tp.allclose(output, tp.Tensor(np.sin(cp.from_dlpack(input).get())))
+        assert tp.allclose(output, tp.Tensor(np.sin(np.from_dlpack(tp.copy(input, device=tp.device("cpu"))))))
     """
     return op_utils.create_op(Sin, [input])

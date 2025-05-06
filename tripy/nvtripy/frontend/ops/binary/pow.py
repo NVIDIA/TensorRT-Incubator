@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -44,7 +44,7 @@ def __pow__(self: "nvtripy.Tensor", other: TensorLike) -> "nvtripy.Tensor":
         b = tp.Tensor([2.0, 3.0])
         output = a ** b
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.array([1, 8]))
+        assert np.array_equal(np.from_dlpack(tp.copy(output, device=tp.device("cpu"))), np.array([1, 8]))
     """
     return create_binary_op(Pow, self, other)
 
@@ -74,6 +74,6 @@ def __rpow__(self: "nvtripy.Tensor", other: TensorLike) -> "nvtripy.Tensor":
         b = tp.Tensor([2.0, 3.0])
         output = a ** b
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.array([4.0, 8.0]))
+        assert np.array_equal(np.from_dlpack(tp.copy(output, device=tp.device("cpu"))), np.array([4.0, 8.0]))
     """
     return create_binary_op(Pow, other, self)

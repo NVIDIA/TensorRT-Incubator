@@ -46,7 +46,7 @@ def flip(input: "nvtripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = Non
 
         input = tp.reshape(tp.arange(10), (2, 5))
         output = tp.flip(input) # equivalent to tp.flip(input, dim=[0, 1])
-        assert cp.array_equal(cp.from_dlpack(output), cp.array([[9, 8, 7, 6, 5], [4, 3, 2, 1, 0]]))
+        assert tp.equal(output, tp.Tensor([[9, 8, 7, 6, 5], [4, 3, 2, 1, 0]]))
 
     .. code-block:: python
         :linenos:
@@ -54,7 +54,7 @@ def flip(input: "nvtripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = Non
 
         input = tp.reshape(tp.arange(10), (2, 5))
         output = tp.flip(input, dim=-1)
-        assert cp.array_equal(cp.from_dlpack(output), cp.array([[4, 3, 2, 1, 0], [9, 8, 7, 6, 5]]))
+        assert tp.equal(output, tp.Tensor([[4, 3, 2, 1, 0], [9, 8, 7, 6, 5]]))
     """
     dim = set(op_utils.process_dim_sequence(dim, input.rank))
 

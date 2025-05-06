@@ -76,14 +76,16 @@ class LayerNorm(Module):
             input = tp.iota((2, 3), dim=1)
             output = layer_norm(input)
 
-            np_out = cp.from_dlpack(output).get() # doc: omit
+            np_out = np.from_dlpack(tp.copy(output, device=tp.device("cpu"))) # doc: omit
             assert np_out.shape == (2, 3)
 
             torch_tensor = torch.from_dlpack(input) # doc: omit
-            torch_ln = torch.nn.LayerNorm(3) # doc: omit
+            torch_ln = torch.nn.LayerNorm(3).to(device="cuda") # doc: omit
             torch_ln.weight.data = torch.from_dlpack(layer_norm.weight) # doc: omit
             torch_ln.bias.data = torch.from_dlpack(layer_norm.bias) # doc: omit
-            assert np.allclose(np_out, cp.from_dlpack(torch_ln(torch_tensor).detach()).get())
+            torch_out = torch_ln(torch_tensor) # doc: omit
+            assert output.shape == torch_out.shape
+            assert torch.allclose(torch_out, torch.from_dlpack(output)) # doc: omit
         """
         super().__init__()
 

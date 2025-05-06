@@ -34,7 +34,7 @@ class TestFlatten:
         a = tp.Tensor(cp_a)
         b = eager_or_compiled(tp.flatten, a, start_dim=start_dim, end_dim=end_dim)
         assert b.shape == expected_shape
-        assert np.array_equal(cp.from_dlpack(b).get(), cp_a.reshape(expected_shape).get())
+        assert np.array_equal(np.from_dlpack(tp.copy(b, device=tp.device("cpu"))), cp_a.reshape(expected_shape).get())
 
     def test_flatten_invalid_dims(self, eager_or_compiled):
         shape = (2, 3, 4)
@@ -49,9 +49,9 @@ class TestFlatten:
         # Flattening a single dimension should not change the output
         b = eager_or_compiled(tp.flatten, a, start_dim=1, end_dim=1)
         assert b.shape == (2, 3, 4)
-        assert np.array_equal(cp.from_dlpack(b).get(), np.ones(shape, dtype=np.float32))
+        assert np.array_equal(np.from_dlpack(tp.copy(b, device=tp.device("cpu"))), np.ones(shape, dtype=np.float32))
 
     def test_flatten_with_unknown_dims(self, eager_or_compiled):
         a = tp.ones((2, 3, 4, 5))
         b = eager_or_compiled(tp.flatten, a, start_dim=1, end_dim=-1)
-        assert np.array_equal(cp.from_dlpack(b).get(), np.ones((2, 60), dtype=np.float32))
+        assert np.array_equal(np.from_dlpack(tp.copy(b, device=tp.device("cpu"))), np.ones((2, 60), dtype=np.float32))
