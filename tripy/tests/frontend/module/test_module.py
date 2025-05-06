@@ -181,6 +181,19 @@ class TestModule:
         ).strip()
         assert str(network) == expected_output
 
+    def test_initialize_dummy_parameters(self):
+        linear = tp.Linear(2, 2)
+        assert not isinstance(linear.weight, tp.Tensor)
+        assert not isinstance(linear.bias, tp.Tensor)
+
+        linear.initialize_dummy_parameters()
+        assert isinstance(linear.weight, tp.Tensor)
+        assert isinstance(linear.bias, tp.Tensor)
+
+        out = linear(tp.ones((2, 2), dtype=tp.float32))
+        out.eval()
+        assert out.shape == (2, 2)
+
 
 class TestModuleWithList:
     def test_named_children(self, list_network):

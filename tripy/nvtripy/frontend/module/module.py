@@ -428,3 +428,31 @@ class Module:
         module_str += indent(body_str, " " * 4)
         module_str += f")"
         return module_str
+
+    def initialize_dummy_parameters(self) -> None:
+        """
+        Initializes any uninitialized parameters in the module with dummy values.
+        This is useful for debugging and testing purposes.
+
+        .. code-block:: python
+            :linenos:
+
+            # doc: no-print-locals
+            linear = tp.Linear(2, 2)
+            print(linear.state_dict())
+            assert not isinstance(linear.weight, tp.Tensor)
+            assert not isinstance(linear.bias, tp.Tensor)
+
+            linear.initialize_dummy_parameters()
+            print(linear.state_dict())
+            assert isinstance(linear.weight, tp.Tensor)
+            assert isinstance(linear.bias, tp.Tensor)
+        """
+        from nvtripy.frontend.ops.ones import ones
+
+        state_dict = self.state_dict()
+        for name, param in state_dict.items():
+            if isinstance(param, DefaultParameter):
+                state_dict[name] = ones(shape=param.shape, dtype=param.dtype)
+
+        self.load_state_dict(state_dict)
