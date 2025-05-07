@@ -24,6 +24,41 @@ from nvtripy.frontend.module.module import Module
 from nvtripy.frontend.module.parameter import DefaultParameter
 from nvtripy.frontend.tensor import Tensor
 
+from nvtripy.frontend.ops import utils as op_utils
+from nvtripy.utils import wrappers
+from nvtripy.trace.ops.layernorm import LayerNorm as LayerNormOp
+
+
+@wrappers.interface(
+    dtype_constraints={"input": "T1", "weight": "T1", "bias": "T1", wrappers.RETURN_VALUE: "T1"},
+    dtype_variables={"T1": ["float32", "float16", "bfloat16"]},
+)
+def layernorm(
+    input: "nvtripy.Tensor",
+    weight: "nvtripy.Tensor",
+    bias: "nvtripy.Tensor",
+    eps: float = 1e-5,
+) -> "nvtripy.Tensor":
+
+    normalized_shape = weight.shape
+    D = len(normalized_shape)
+    input_rank = input.rank
+
+    # Reshape weight and bias to match input rank for TensorRT normalization (expects [1, ...] + normalized_shape)
+    if input_rank > D:
+        from nvtripy.frontend.ops.reshape import reshape
+
+        broadcast_shape = (1,) * (input_rank - D) + normalized_shape
+        weight = reshape(weight, broadcast_shape)
+        bias = reshape(bias, broadcast_shape)
+
+    return op_utils.create_op(
+        LayerNormOp,
+        [input, weight, bias],
+        normalized_shape=normalized_shape,
+        eps=eps,
+    )
+
 
 @export.public_api(document_under="operations/modules")
 @dataclass
@@ -109,14 +144,4 @@ class LayerNorm(Module):
         Returns:
             A tensor of the same shape as the input.
         """
-        from nvtripy.frontend.ops.reduce.mean import mean
-        from nvtripy.frontend.ops.reduce.var import var
-        from nvtripy.frontend.ops.unary.rsqrt import rsqrt
-
-        # The mean and the variance are computed over the last D dimensions
-        D = len(self.normalized_shape)
-        reduce_dims = tuple(-i for i in range(D, 0, -1))
-        mean_val = mean(x, dim=reduce_dims, keepdim=True)
-        var_val = var(x, dim=reduce_dims, keepdim=True, correction=0) + self.eps
-        x = (x - mean_val) * rsqrt(var_val)
-        return self.weight * x + self.bias
+        return layernorm(x, self.weight, self.bias, self.eps)
