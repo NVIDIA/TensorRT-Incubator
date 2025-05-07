@@ -35,7 +35,7 @@ class LayerNorm(TraceOp):
         self.outputs[0].dtype = self.inputs[0].dtype
 
     def to_mlir(self, inputs, outputs):
-        rank = len(outputs[0].shape)
+        rank = outputs[0].rank
         D = len(self.normalized_shape)
         axis = ir.DenseI64ArrayAttr.get(list(range(rank - D, rank)))
 

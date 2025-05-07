@@ -37,7 +37,7 @@ def layernorm(
     input: "nvtripy.Tensor",
     weight: "nvtripy.Tensor",
     bias: "nvtripy.Tensor",
-    eps: float = 1e-5,
+    eps: float,
 ) -> "nvtripy.Tensor":
 
     normalized_shape = weight.shape
