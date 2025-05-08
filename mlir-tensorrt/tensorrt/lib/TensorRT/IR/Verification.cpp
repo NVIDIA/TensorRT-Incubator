@@ -194,7 +194,7 @@ LogicalResult tensorrt::NormalizationOp::verify() {
   RankedTensorType biasType = getBias().getType();
   ArrayRef<int64_t> axis = getAxis();
   std::optional<uint32_t> numGroups = getNumGroups();
-
+  uint32_t numChannels = inputType.getDimSize(1);
   auto checkScaleAndBiasShape = [](RankedTensorType type,
                                    int64_t expectedChannelDim) {
     // Check all elements are 1 except one dim
@@ -230,11 +230,11 @@ LogicalResult tensorrt::NormalizationOp::verify() {
     }
 
     if (numGroups.has_value() && *numGroups > 1 &&
-        (failed(checkScaleAndBiasShape(scaleType, *numGroups)) ||
-         failed(checkScaleAndBiasShape(biasType, *numGroups))))
+        (failed(checkScaleAndBiasShape(scaleType, numChannels)) ||
+         failed(checkScaleAndBiasShape(biasType, numChannels))))
       return emitOpError(
                  "If num_groups != 1, scale and bias shape is expected "
-                 "to be [1, num_groups, 1, 1, ... N] where N is rank of input "
+                 "to be [1, num_channels, 1, 1, ... N] where N is rank of input "
                  "tensor i.e. ")
              << inputType.getRank();
     return success();

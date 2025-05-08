@@ -24,6 +24,40 @@ from nvtripy.frontend.module.module import Module
 from nvtripy.frontend.module.parameter import DefaultParameter
 from nvtripy.frontend.tensor import Tensor
 
+from nvtripy.frontend.ops import utils as op_utils
+from nvtripy.utils import wrappers
+from nvtripy.trace.ops.group_norm import GroupNorm as GroupNormOp
+
+
+@wrappers.interface(
+    dtype_constraints={"input": "T1", "weight": "T1", "bias": "T1", wrappers.RETURN_VALUE: "T1"},
+    dtype_variables={"T1": ["float32", "float16", "bfloat16"]},
+)
+def group_norm(
+    input: "nvtripy.Tensor",
+    weight: "nvtripy.Tensor",
+    bias: "nvtripy.Tensor",
+    num_groups: int,
+    num_channels: int,
+    eps: float = 1e-5,
+) -> "nvtripy.Tensor":
+    input_rank = input.rank
+
+    if input_rank > 1:
+        from nvtripy.frontend.ops.reshape import reshape
+
+        # TensorRT expects scale and bias to have shape [1, C, 1, 1, ..., 1]
+        broadcast_shape = (1, num_channels) + (1,) * (input_rank - 2)
+        weight = reshape(weight, broadcast_shape)
+        bias = reshape(bias, broadcast_shape)
+
+    return op_utils.create_op(
+        GroupNormOp,
+        [input, weight, bias],
+        num_groups=num_groups,
+        eps=eps,
+    )
+
 
 @export.public_api(document_under="operations/modules")
 @dataclass
@@ -112,19 +146,4 @@ class GroupNorm(Module):
         Returns:
             A tensor of the same shape as the input.
         """
-        from nvtripy.frontend.ops.reduce.mean import mean
-        from nvtripy.frontend.ops.reduce.var import var
-        from nvtripy.frontend.ops.reshape import reshape
-        from nvtripy.frontend.ops.unary.rsqrt import rsqrt
-
-        input_shape = x.shape
-
-        x = reshape(x, (x.shape[0], self.num_groups, -1))
-        mean_val = mean(x, dim=-1, keepdim=True)
-        var_val = var(x, dim=-1, keepdim=True, correction=0) + self.eps
-        x = (x - mean_val) * rsqrt(var_val)
-        x = reshape(x, input_shape)
-
-        shape_to_broadcast = (1, self.num_channels) + (1,) * (x.rank - 2)
-
-        return reshape(self.weight, shape_to_broadcast) * x + reshape(self.bias, shape_to_broadcast)
+        return group_norm(x, self.weight, self.bias, self.num_groups, self.num_channels, self.eps)
