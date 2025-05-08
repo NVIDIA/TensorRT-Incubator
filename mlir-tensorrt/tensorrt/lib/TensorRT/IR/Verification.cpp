@@ -194,10 +194,13 @@ LogicalResult tensorrt::NormalizationOp::verify() {
   RankedTensorType biasType = getBias().getType();
   ArrayRef<int64_t> axis = getAxis();
   std::optional<uint32_t> numGroups = getNumGroups();
-
+  int64_t numChannels = inputType.getDimSize(1);
   auto checkScaleAndBiasShape = [](RankedTensorType type,
                                    int64_t expectedChannelDim) {
     // Check all elements are 1 except one dim
+    if (type.isDynamicDim(1)) {
+      return success();
+    }
     if (llvm::count(type.getShape(), 1) != type.getRank() - 1)
       return failure();
     if (type.getDimSize(1) != expectedChannelDim)
@@ -216,7 +219,7 @@ LogicalResult tensorrt::NormalizationOp::verify() {
     // The channel dimension is considered to be the second dimension in a [N,
     // C, H, W, ...] formatted tensor
     if (numGroups.has_value() && *numGroups > 1 &&
-        inputType.getShape()[1] % *numGroups != 0)
+        !inputType.isDynamicDim(1) && inputType.getShape()[1] % *numGroups != 0)
       return emitOpError(
           "It is an error to set `num_groups` to a value that does "
           "not evenly divide into the number of channels of the "
@@ -230,11 +233,11 @@ LogicalResult tensorrt::NormalizationOp::verify() {
     }
 
     if (numGroups.has_value() && *numGroups > 1 &&
-        (failed(checkScaleAndBiasShape(scaleType, *numGroups)) ||
-         failed(checkScaleAndBiasShape(biasType, *numGroups))))
+        (failed(checkScaleAndBiasShape(scaleType, numChannels)) ||
+         failed(checkScaleAndBiasShape(biasType, numChannels))))
       return emitOpError(
                  "If num_groups != 1, scale and bias shape is expected "
-                 "to be [1, num_groups, 1, 1, ... N] where N is rank of input "
+                 "to be [1, num_channels, 1, 1, ... N] where N is rank of input "
                  "tensor i.e. ")
              << inputType.getRank();
     return success();
