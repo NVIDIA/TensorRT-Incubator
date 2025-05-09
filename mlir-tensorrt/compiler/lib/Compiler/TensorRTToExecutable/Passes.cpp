@@ -124,18 +124,9 @@ outlineOp(RewriterBase &rewriter, tensorrt::TensorRTModuleOp trtModule,
   if (failed(func))
     return failure();
 
-  StringRef tensorrtShapeBoundsAttrName =
-      mlir::tensorrt::TensorRTDialect::getShapeProfileArgAttrName();
   func::FuncOp funcContainingCluster =
       cluster.back()->getParentOfType<func::FuncOp>();
-  SmallVector<Attribute> profileAttrsPerInput;
   for (Value v : inputs) {
-    auto rtt = dyn_cast<RankedTensorType>(v.getType());
-    if (!rtt || rtt.hasStaticShape()) {
-      profileAttrsPerInput.push_back(Attribute{});
-      continue;
-    }
-
     auto blockArg = dyn_cast<BlockArgument>(v);
     if (!blockArg ||
         blockArg.getOwner()->getParentOp() != funcContainingCluster) {
@@ -144,23 +135,30 @@ outlineOp(RewriterBase &rewriter, tensorrt::TensorRTModuleOp trtModule,
                 "containing this TRT cluster";
     }
 
+    // Get shape profile attribute of the input
     int64_t argIndex = blockArg.getArgNumber();
-    profileAttrsPerInput.push_back(
-        funcContainingCluster.getArgAttrOfType<tensorrt::ShapeProfileAttr>(
-            argIndex, tensorrtShapeBoundsAttrName));
-
-    if (!profileAttrsPerInput.back()) {
-      return emitError(blockArg.getLoc())
-             << "Profile attribute (" << tensorrtShapeBoundsAttrName
-             << ") of argument " << argIndex << " is not set";
+    auto rtt = dyn_cast<RankedTensorType>(v.getType());
+    if (rtt) {
+      StringRef tensorrtShapeBoundsAttrName = rtt.hasStaticShape() ?
+        mlir::tensorrt::TensorRTDialect::getShapeTensorValueBoundsArgAttrName() :
+        mlir::tensorrt::TensorRTDialect::getShapeProfileArgAttrName();
+      auto shapeProfileAttr = funcContainingCluster.getArgAttrOfType<tensorrt::ShapeProfileAttr>(
+        argIndex, tensorrtShapeBoundsAttrName);
+      if (!shapeProfileAttr && !rtt.hasStaticShape()) {
+        return emitError(blockArg.getLoc())
+               << "Profile attribute (" << tensorrtShapeBoundsAttrName
+               << ") of dynamic shaped argument " << argIndex << " is not set";
+      }
+      if (shapeProfileAttr) {
+        func->setArgAttr(argIndex, tensorrtShapeBoundsAttrName, shapeProfileAttr);
+      }
     }
-  }
-
-  for (unsigned idx = 0; idx < func->getNumArguments(); idx++) {
-    if (!profileAttrsPerInput[idx])
-      continue;
-    func->setArgAttr(idx, tensorrtShapeBoundsAttrName,
-                     profileAttrsPerInput[idx]);
+    // Get host tensor attribute of the input
+    StringRef hostTensorAttrName = mlir::getHostTensorArgAttrName();
+    auto hostTensorAttr = funcContainingCluster.getArgAttr(argIndex, hostTensorAttrName);
+    if (hostTensorAttr) {
+      func->setArgAttr(argIndex, hostTensorAttrName, hostTensorAttr);
+    }
   }
 
   rewriter.setInsertionPoint(inlineGroupOp);
