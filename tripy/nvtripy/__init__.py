@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 # Import TensorRT to make sure all dependent libraries are loaded first.
 import tensorrt
