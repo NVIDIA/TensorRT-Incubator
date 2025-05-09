@@ -27,5 +27,7 @@ class TestLayerNorm:
         tp_layernorm.bias = tp.ones((2, 2))
 
         x = tp.ones((5, 5, 5))
-        with helper.raises(tp.TripyException, match="broadcast dimensions must be conformable"):
+        with helper.raises(
+            tp.TripyException, match="The normalization scale is not broadcast-compatible with the input at dimension 1"
+        ):
             tp_layernorm(x).eval()
