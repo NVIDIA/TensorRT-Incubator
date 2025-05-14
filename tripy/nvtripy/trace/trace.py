@@ -16,7 +16,7 @@
 #
 
 from textwrap import indent
-from typing import Dict, List, Optional, Sequence, Set
+from typing import Dict, List, Optional, Sequence, Set, Union
 
 from mlir_tensorrt.compiler import ir
 from mlir_tensorrt.compiler.dialects import func as func_dialect
@@ -29,7 +29,7 @@ from nvtripy.backend.mlir.utils import (
     redirect_stderr,
 )
 from nvtripy.common.exception import raise_error
-from nvtripy.common.shape_bounds import ShapeBounds
+from nvtripy.common.shape_bounds import ShapeBounds, ValueBounds
 from nvtripy.logging import logger
 from nvtripy.trace.tensor import TraceTensor
 from nvtripy.trace.utils import topological_sort
@@ -44,7 +44,7 @@ class Trace:
         self,
         outputs: Sequence[TraceTensor],
         inputs: Sequence[TraceTensor] = [],
-        shapes: Optional[Sequence[ShapeBounds]] = None,
+        shapes: Optional[Sequence[Union[ShapeBounds, ValueBounds]]] = None,
         name: str = "main",
     ) -> None:
         """
@@ -199,9 +199,16 @@ class Trace:
                     for idx in range(len(self.inputs)):
                         attr = {}
                         if self.shapes:
-                            attr["tensorrt.shape_profile"] = ir.Attribute.parse(
+                            attr_name = (
+                                "tensorrt.value_bounds"
+                                if isinstance(self.shapes[idx], ValueBounds)
+                                else "tensorrt.shape_profile"
+                            )
+                            attr[attr_name] = ir.Attribute.parse(
                                 f"#tensorrt.shape_profile<min={list(self.shapes[idx].min)}, opt={list(self.shapes[idx].opt)}, max={list(self.shapes[idx].max)}>"
                             )
+                        if idx == 1:
+                            attr["tensorrt.host_tensor"] = ir.UnitAttr.get()
 
                         arg_attrs.append(ir.DictAttr.get(attr))
 
