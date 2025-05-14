@@ -1,0 +1,48 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+from tests import helper
+
+import nvtripy as tp
+
+
+class TestInstanceNorm:
+
+    def test_instancenorm_improper_rank(self):
+        tp_instancenorm = tp.InstanceNorm(
+            num_channels=3,
+        )
+        tp_instancenorm.weight = tp.ones((3,))
+        tp_instancenorm.bias = tp.ones((3,))
+
+        x = tp.ones((2, 3))
+        with helper.raises(
+            tp.TripyException,
+            match=r"Input is expected to have shape \(N, C, D1, ...\) where N is the batch size, C is the number of channels, and D1, ... are the spatial dimensions",
+        ):
+            tp_instancenorm(x).eval()
+
+    def test_instancenorm_improper_channels(self):
+        tp_instancenorm = tp.InstanceNorm(
+            num_channels=3,
+        )
+        tp_instancenorm.weight = tp.ones((3,))
+        tp_instancenorm.bias = tp.ones((3,))
+
+        x = tp.ones((2, 6, 4, 4))
+        with helper.raises(
+            tp.TripyException,
+            match="The input channel dimension does not match the number of channels specified in the InstanceNorm constructor",
+        ):
+            tp_instancenorm(x).eval()
