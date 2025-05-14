@@ -27,6 +27,8 @@ from nvtripy.utils import wrappers
 from nvtripy.utils.types import type_str_from_arg
 from nvtripy.utils.utils import make_list
 
+EllipsisType = type(Ellipsis)
+
 
 @register_tensor_method("__getitem__")
 @wrappers.interface(
@@ -34,7 +36,8 @@ from nvtripy.utils.utils import make_list
     dtype_variables={"T1": ["float32", "float16", "bfloat16", "int4", "int8", "int32", "int64", "bool"]},
 )
 def __getitem__(
-    self: "nvtripy.Tensor", index: Union["nvtripy.Tensor", slice, IntLike, Sequence[Union[slice, IntLike]]]
+    self: "nvtripy.Tensor",
+    index: Union["nvtripy.Tensor", slice, IntLike, EllipsisType, Sequence[Union[slice, IntLike, EllipsisType]]],
 ) -> "nvtripy.Tensor":
     """
     Returns a tensor containing a slice of this tensor.
@@ -63,6 +66,14 @@ def __getitem__(
         input = tp.reshape(tp.arange(6, dtype=tp.float32), (3, 2))
         output = input[1:]
         assert cp.array_equal(cp.from_dlpack(output), cp.from_dlpack(input)[1:])
+
+    .. code-block:: python
+        :linenos:
+        :caption: Indexing With Ellipsis
+
+        input = tp.reshape(tp.arange(6, dtype=tp.float32), (1, 3, 2))
+        output = input[..., 1:]
+        assert cp.array_equal(cp.from_dlpack(output), cp.from_dlpack(input)[..., 1:])
 
     .. code-block:: python
         :linenos:
@@ -95,8 +106,15 @@ def __getitem__(
         return gather(self, 0, index)
 
     index = make_list(index)
+    ellipsis_count = index.count(Ellipsis)
+    if ellipsis_count > 1:
+        raise_error("Slicing index can only have a single ellipsis ('...')")
     if len(index) > self.rank:
         raise_error(f"Input tensor has a rank of {self.rank} but was attempted to be sliced with {len(index)} indices")
+    if ellipsis_count:
+        ellipsis_idx = index.index(Ellipsis)
+        num_slices = self.rank - len(index) + 1
+        index[ellipsis_idx : ellipsis_idx + 1] = [slice(None)] * num_slices
 
     inp_shape = self.shape
 

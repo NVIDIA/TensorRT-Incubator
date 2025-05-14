@@ -59,6 +59,11 @@ class TestSliceOp:
             ((10,), lambda t: t[2:8]),  # Omit step
             ((10,), lambda t: t[2::2]),  # Omit stop
             ((10,), lambda t: t[:8:2]),  # Omit start
+            # Ellipsis
+            ((2,), lambda t: t[...]),
+            ((2, 2), lambda t: t[..., 0]),
+            ((2, 3, 4), lambda t: t[1, ...]),
+            ((2, 3, 4, 4), lambda t: t[1, ..., 2]),
         ],
     )
     def test_slice(self, use_constant, shape, slice_func, eager_or_compiled):
