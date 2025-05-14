@@ -54,6 +54,7 @@ nitpick_ignore = {
     ("py:class", "nvtripy.types.ShapeLike"),
     ("py:class", "nvtripy.types.TensorLike"),
     ("py:class", "Tensor"),
+    ("py:class", "ellipsis"),
 }
 nitpick_ignore_regex = {
     ("py:class", r"numbers\.Number"),
