@@ -135,6 +135,11 @@ public:
 
   MLIRContext *getContext() const { return dialect->getContext(); }
 
+  LogicalResult promoteOperands(Location loc, ValueRange opOperands,
+                                ValueRange operands, OpBuilder &b,
+                                bool useBarePointerCallConv,
+                                SmallVectorImpl<Value> &result) const;
+
 protected:
   executor::ExecutorDialect *dialect{nullptr};
 
@@ -396,14 +401,25 @@ public:
   void setConstantStride(ImplicitLocOpBuilder &b, unsigned pos,
                          uint64_t stride);
 
-  SmallVector<Value> sizes(ImplicitLocOpBuilder &b) const;
-  SmallVector<Value> strides(ImplicitLocOpBuilder &b) const;
+  SmallVector<Value> sizes(OpBuilder &b, Location loc) const;
+  SmallVector<Value> strides(OpBuilder &b, Location loc) const;
 
-  SmallVector<Value> unpack(ImplicitLocOpBuilder &b) {
-    SmallVector<Value> result{allocatedPtr(b), alignedPtr(b), offset(b)};
-    llvm::append_range(result, sizes(b));
-    llvm::append_range(result, strides(b));
+  SmallVector<Value> sizes(ImplicitLocOpBuilder &b) const {
+    return sizes(b, b.getLoc());
+  }
+  SmallVector<Value> strides(ImplicitLocOpBuilder &b) const {
+    return strides(b, b.getLoc());
+  }
+
+  SmallVector<Value> unpack(OpBuilder &b, Location loc) {
+    SmallVector<Value> result{allocatedPtr(b, loc), alignedPtr(b, loc),
+                              offset(b, loc)};
+    llvm::append_range(result, sizes(b, loc));
+    llvm::append_range(result, strides(b, loc));
     return result;
+  }
+  SmallVector<Value> unpack(ImplicitLocOpBuilder &b) {
+    return unpack(b, b.getLoc());
   }
 
   PointerType getPtrType() {

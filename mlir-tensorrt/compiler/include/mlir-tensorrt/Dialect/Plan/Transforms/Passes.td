@@ -1,6 +1,6 @@
 //===- Passes.td -------------------------------------------*- Tablegen -*-===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -21,6 +21,11 @@
 #define MLIR_TENSORRT_DIALECT_PLAN_TRANSFORMS_PASSES_TD
 
 include "mlir/Pass/PassBase.td"
+
+defvar InputKindOption = Option<"inputKind", "input-kind", "::mlir::plan::InputKind",
+      "::mlir::plan::InputKind::Stablehlo",
+      "specifies the kind of input IR dialect",
+      "::mlir::plan::detail::createInputKindClOptions()">;
 
 //===----------------------------------------------------------------------===//
 // MaterializeShapeCalculationsPass
@@ -172,9 +177,7 @@ def MaterializeShapeCalculationsPass : Pass<"plan-materialize-shape-calculations
   ];
 
   let options = [
-    Option<"inputKind", "input-kind", "::mlir::plan::InputKind",
-      "::mlir::plan::InputKind::Stablehlo",
-      "specifies the kind of input IR dialect">
+    InputKindOption
   ];
 }
 
@@ -199,9 +202,7 @@ def PlanRefineTypesPass : Pass<"plan-refine-types", "::mlir::ModuleOp"> {
   ];
 
   let options = [
-    Option<"inputKind", "input-kind", "::mlir::plan::InputKind",
-      "::mlir::plan::InputKind::Stablehlo",
-      "specifies the kind of input IR dialect">
+    InputKindOption
   ];
 }
 
@@ -247,8 +248,8 @@ def PlanPopulateFunctionBoundsAttributesPass
 //===----------------------------------------------------------------------===//
 
 def ClusteringPass : Pass<"plan-clustering", "::mlir::ModuleOp"> {
-  let summary = "clusters and outlines operations into a `func.func`"
-                " based on different target backends";
+  let summary = "clusters operations into different regions based"
+                " on provided backend configurations";
 
   let description = [{
     This pass clusters groups of operations into encapsulating region
@@ -258,7 +259,9 @@ def ClusteringPass : Pass<"plan-clustering", "::mlir::ModuleOp"> {
 
     The kinds of clusters that can be formed and the specific rules for
     clustering are defined by the clustering configuration specified 
-    by the module's `plan.cluster_kinds` attribute.
+    by the module's `plan.cluster_kinds` attribute. This is an array of
+    attributes which all implement the 
+    [ClusterKindAttrInterface](../IR/PlanInterfaces.td).
   }];
 
   let options = [
@@ -270,14 +273,13 @@ def ClusteringPass : Pass<"plan-clustering", "::mlir::ModuleOp"> {
       "allow backend clusters to directly allocate outputs">,
     Option<"disableCreateShapeFuncPass", "disable-create-shape-func-pass", "bool", "false",
       "don't apply create shape to func pass in TensorRT clusters">,
-    Option<"inputKind", "input-kind", "::mlir::plan::InputKind",
-      "::mlir::plan::InputKind::Stablehlo",
-      "specifies the kind of input IR dialect">
+    InputKindOption
   ];
 
   let dependentDialects = [
-    "::mlir::func::FuncDialect",
-    "::mlir::scf::SCFDialect",
+    // TODO: TensorRT and Tensor dialects needed since the different
+    // backends may create these ops. Add a way for backends to declare
+    // dialect dependencies.
     "::mlir::tensor::TensorDialect",
     "::mlir::tensorrt::TensorRTDialect",
     "::mlir::plan::PlanDialect"
@@ -354,9 +356,7 @@ def CreateClosedRegionsPass : Pass<"plan-create-closed-regions", "::mlir::Module
     Option<"forceEntrypointsReturnAllocs", "force-entrypoints-return-allocs", "bool",
            /*default=*/"false",
            "Allow backend clusters to directly allocate outputs">,
-    Option<"inputKind", "input-kind", "::mlir::plan::InputKind",
-      "::mlir::plan::InputKind::Stablehlo",
-      "specifies the kind of input IR dialect">
+    InputKindOption
   ];
 
   let dependentDialects = [
@@ -387,9 +387,7 @@ def OutlineClustersPass : Pass<"plan-outline-clusters", "::mlir::ModuleOp"> {
   }];
 
   let options = [
-    Option<"inputKind", "input-kind", "::mlir::plan::InputKind",
-      "::mlir::plan::InputKind::Stablehlo",
-      "specifies the kind of input IR dialect">
+    InputKindOption
   ];
 
   let dependentDialects = [

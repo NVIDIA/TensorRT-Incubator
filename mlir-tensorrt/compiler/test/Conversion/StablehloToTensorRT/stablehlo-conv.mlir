@@ -143,13 +143,14 @@ func.func @conv2d_chwb_crsk_hwnc(
 //  CHECK-SAME:     (%[[arg0:.+]]: tensor<{{.+}}xf32>, %[[arg1:.+]]: tensor<{{.+}}xf32>)
 //       CHECK:   %[[v0:.+]] = tensorrt.transpose {permutation = #[[$map]]} %[[arg0]] :
 //       CHECK:   %[[v1:.+]] = tensorrt.transpose {permutation = #[[$map]]} %[[arg1]] :
+//       CHECK:   %[[v2:.+]] = tensorrt.slice %[[v0]][0, 0, 0, 0][1, 4, 6, 6][1, 1, 1, 1] :
 //       CHECK:   %[[v2:.+]] = tensorrt.convolution
 //  CHECK-SAME:       dilation = array<i64: 1, 2>
 //  CHECK-SAME:        num_groups = 2 : ui32
-//  CHECK-SAME:      post_padding = array<i64: 0, -1>
+//  CHECK-SAME:      post_padding = array<i64: 0, 0>
 //  CHECK-SAME:      pre_padding = array<i64: 0, 0>
 //  CHECK-SAME:      stride = array<i64: 1, 1>
-//  CHECK-sAME:        in(%[[v0]] : tensor<1x4x6x7xf32>) kernel(%[[v1]] : tensor<2x2x6x3xf32>) -> tensor<1x2x1x2xf32>
+//  CHECK-sAME:        in(%[[v2]] : tensor<1x4x6x6xf32>) kernel(%[[v1]] : tensor<2x2x6x3xf32>) -> tensor<1x2x1x2xf32>
 //       CHECK:   %[[v3:.+]] = tensorrt.transpose {permutation = #[[$map1]]} %[[v2]]
 //       CHECK:   return %[[v3]] : tensor<1x2x1x2xf32>
 
@@ -306,16 +307,11 @@ func.func @conv2d_nchw_kcrs_lhs_dilate_2(
     return %0 : tensor<1x1x2x2xf32>
 }
 
-//   CHECK-DAG: #[[$map:.+]] = affine_map<(d0, d1, d2, d3) -> (d1, d0, d2, d3)>
-
 // CHECK-LABEL: @conv2d_nchw_kcrs_lhs_dilate_2
 //  CHECK-SAME: (%[[arg0:.+]]: {{.*}}, %[[arg1:.+]]: {{.*}}) -> {{.*}}
-//  CHECK-NEXT: %[[v0:.+]] = tensorrt.slice %[[arg1]][0, 0, 1, 1][1, 2, 2, 2][1, 1, -1, -1]
-//  CHECK-NEXT: %[[v1:.+]] = tensorrt.transpose {permutation = #[[$map]]} %[[v0]]
-//  CHECK-NEXT: %[[v2:.+]] = tensorrt.deconvolution
-//  CHECK-SAME: {dilation = array<i64: 1, 1>, post_padding = array<i64: 2, 2>, pre_padding = array<i64: 2, 2>, stride = array<i64: 1, 1>}
-//  CHECK-SAME: in(%[[arg0]] : tensor<1x2x5x5xf32>) kernelWeights(%[[v1]] : tensor<2x1x2x2xf32>) -> {{.*}}
-//  CHECK-NEXT: return %[[v2:.+]] : {{.*}}
+//  CHECK-NEXT: %[[v0:.+]] = tensorrt.slice %[[arg0]][0, 0, 1, 1][1, 2, 3, 3][1, 1, 1, 1] : tensor<1x2x5x5xf32> to tensor<1x2x3x3xf32>
+//  CHECK-NEXT: %[[v1:.+]] = tensorrt.convolution {dilation = array<i64: 1, 1>, post_padding = array<i64: 0, 0>, pre_padding = array<i64: 0, 0>, stride = array<i64: 1, 1>} in(%[[v0]] : {{.*}}) kernel(%[[arg1]] : {{.*}}) -> {{.*}}
+//  CHECK-NEXT: return %[[v1]] : tensor<1x1x2x2xf32>
 
 // -----
 
@@ -336,16 +332,11 @@ func.func @conv2d_nchw_kcrs_lhs_dilate_3(
     return %0 : tensor<1x1x2x1xf32>
 }
 
-//   CHECK-DAG: #[[$map:.+]] = affine_map<(d0, d1, d2, d3) -> (d1, d0, d2, d3)>
-
 // CHECK-LABEL: @conv2d_nchw_kcrs_lhs_dilate_3
 //  CHECK-SAME: (%[[arg0:.+]]: {{.*}}, %[[arg1:.+]]: {{.*}}) -> {{.*}}
-//  CHECK-NEXT: %[[v0:.+]] = tensorrt.slice %[[arg1]][0, 0, 1, 1][1, 2, 2, 2][1, 1, -1, -1]
-//  CHECK-NEXT: %[[v1:.+]] = tensorrt.transpose {permutation = #[[$map]]} %[[v0]]
-//  CHECK-NEXT: %[[v2:.+]] = tensorrt.deconvolution
-//  CHECK-SAME: {dilation = array<i64: 1, 2>, post_padding = array<i64: 2, 3>, pre_padding = array<i64: 2, 3>, stride = array<i64: 1, 1>}
-//  CHECK-SAME: in(%[[arg0]] : tensor<1x2x5x5xf32>) kernelWeights(%[[v1]] : tensor<2x1x2x2xf32>) -> {{.*}}
-//  CHECK-NEXT: return %[[v2:.+]] : {{.*}}
+//  CHECK-NEXT: %[[v0:.+]] = tensorrt.slice %[[arg0]][0, 0, 1, 1][1, 2, 3, 3][1, 1, 1, 1] : tensor<1x2x5x5xf32> to tensor<1x2x3x3xf32>
+//  CHECK-NEXT: %[[v1:.+]] = tensorrt.convolution {dilation = array<i64: 1, 2>, post_padding = array<i64: 0, 0>, pre_padding = array<i64: 0, 0>, stride = array<i64: 1, 1>} in(%[[v0]] : {{.*}}) kernel(%[[arg1]] : {{.*}}) -> {{.*}}
+//  CHECK-NEXT: return %[[v1:.+]] : {{.*}}
 
 // -----
 
@@ -460,3 +451,16 @@ func.func @conv2d_partially_seperable(%arg0: tensor<1x64x96x128xf16>) -> tensor<
 //  CHECK-SAME:        kernel(%[[w]] : tensor<128x2x5x5xf16>) -> tensor<1x128x64x96xf16>
 //       CHECK:     %[[v2:.+]] = tensorrt.transpose {permutation = #[[$map2]]} %[[v1]] : tensor<1x128x64x96xf16> to tensor<1x64x96x128xf16>
 //       CHECK:     return %[[v2]] : tensor<1x64x96x128xf16>
+
+// -----
+
+func.func @conv2d_nchw_kcrs_neg_padding(%arg0: tensor<2x1x6x7xf32>, %arg1: tensor<2x1x1x2xf32>) -> (tensor<2x2x5x5xf32> {jax.result_info = ""}) {
+    %0 = stablehlo.convolution(%arg0, %arg1) dim_numbers = [b, f, 0, 1]x[o, i, 0, 1]->[b, f, 0, 1], window = {pad = [[0, -1], [0, 0]], rhs_dilate = [2, 2]} {batch_group_count = 1 : i64, feature_group_count = 1 : i64, precision_config = [#stablehlo<precision HIGHEST>, #stablehlo<precision HIGHEST>]} : (tensor<2x1x6x7xf32>, tensor<2x1x1x2xf32>) -> tensor<2x2x5x5xf32>
+    return %0 : tensor<2x2x5x5xf32>
+}
+
+// CHECK-LABEL: @conv2d_nchw_kcrs_neg_padding
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<2x1x6x7xf32>, %[[arg1:.+]]: tensor<2x1x1x2xf32>) -> (tensor<2x2x5x5xf32> {jax.result_info = ""})
+//  CHECK-NEXT: %[[v0:.+]] = tensorrt.slice %[[arg0]][0, 0, 0, 0][2, 1, 5, 7][1, 1, 1, 1] : tensor<2x1x6x7xf32> to tensor<2x1x5x7xf32>
+//  CHECK-NEXT: %[[v1:.+]] = tensorrt.convolution {dilation = array<i64: 2, 2>, post_padding = array<i64: 0, 0>, pre_padding = array<i64: 0, 0>, stride = array<i64: 1, 1>} in(%[[v0]] : tensor<2x1x5x7xf32>) kernel(%[[arg1]] : tensor<2x1x1x2xf32>)
+//  CHECK-NEXT: return %[[v1]] : tensor<2x2x5x5xf32>

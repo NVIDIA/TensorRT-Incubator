@@ -163,7 +163,7 @@ ExecutableView::getFunction(std::string_view name) const {
   return FunctionView(*it);
 }
 
-llvm::SmallVector<DataSegmentInfo> ExecutableView::getConstants() const {
+llvm::SmallVector<DataSegmentInfo> ExecutableView::getDataSegments() const {
   llvm::SmallVector<DataSegmentInfo> views;
   views.reserve(view->data_segments()->size());
   for (unsigned i = 0; i < view->data_segments()->size(); i++)
@@ -1330,17 +1330,20 @@ llvm::raw_ostream &rt::print(llvm::raw_ostream &os, const Executable &exe) {
   os << "RuntimeExecutable<name=" << exe.getName() << ",";
   os << "functions=";
   squareBraces(os, LAMBDAF(interleaveComma(os, exe.getFunctions())));
-  os << "constants=";
-  squareBraces(os, LAMBDAF(interleaveComma(os, exe.getConstants());));
+  os << "data_segments=";
+  squareBraces(os, LAMBDAF(interleaveComma(os, exe.getDataSegments());));
   os << ",source=";
   squareBraces(os, LAMBDAF(os << exe.getCode().size() << " bytes";));
   return os << ">";
 }
 
 llvm::raw_ostream &rt::print(llvm::raw_ostream &os,
-                             const DataSegmentInfo &constant) {
-  os << "Constant<" << constant.getName() << ", " << constant.size() << " bytes"
-     << ">";
+                             const DataSegmentInfo &segment) {
+  os << llvm::formatv("DataSegment<{0}, size={1}, alignment={2}, constant={3}, "
+                      "uninitialized={4}, address_space={5}>",
+                      segment.getName(), segment.size(), segment.getAlignment(),
+                      segment.isConstant(), segment.isUninitialized(),
+                      impl::EnumNamePointerType(segment.getAddressSpace()));
   return os;
 }
 llvm::raw_ostream &rt::print(llvm::raw_ostream &os, const MemRefTypeView &exe) {

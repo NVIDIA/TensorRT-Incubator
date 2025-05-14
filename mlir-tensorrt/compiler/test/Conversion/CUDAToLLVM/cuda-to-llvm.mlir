@@ -78,68 +78,28 @@ func.func @test_cuda_launch(
 // FILE-LABEL: @test_cuda_launch
 
 // CHECK-LABEL: func.func @test_cuda_launch
-//  CHECK-SAME: (%[[arg0:.+]]: !cuda.function, %[[arg1:.+]]: !cuda.stream, %[[arg2:.+]]: memref<4xf32>, %[[arg3:.+]]: memref<4xf32>, %[[arg4:.+]]: index, %[[arg5:.+]]: index) {
-//   CHECK-DAG:     %[[v0:.+]] = builtin.unrealized_conversion_cast %[[arg3]] : memref<4xf32> to !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
-//   CHECK-DAG:     %[[v1:.+]] = builtin.unrealized_conversion_cast %[[arg2]] : memref<4xf32> to !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
-//   CHECK-DAG:     %[[v2:.+]] = builtin.unrealized_conversion_cast %[[arg1]] : !cuda.stream to !llvm.ptr
-//   CHECK-DAG:     %[[v3:.+]] = builtin.unrealized_conversion_cast %[[arg0]] : !cuda.function to !llvm.ptr
+//  CHECK-SAME: (%[[arg0:.+]]: !cuda.function, %[[arg1:.+]]: !cuda.stream, %[[arg2:.+]]: memref<4xf32>, %[[arg3:.+]]: memref<4xf32>, %[[arg4:.+]]: index, %[[arg5:.+]]: index)
+//   CHECK-DAG:     %[[v0:.+]] = builtin.unrealized_conversion_cast %[[arg3]] 
+//   CHECK-DAG:     %[[v1:.+]] = builtin.unrealized_conversion_cast %[[arg2]]
+//   CHECK-DAG:     %[[v2:.+]] = builtin.unrealized_conversion_cast %[[arg1]]
+//   CHECK-DAG:     %[[v3:.+]] = builtin.unrealized_conversion_cast %[[arg0]]
 //   CHECK-DAG:     %[[c1_i32:.+]] = arith.constant 1 : i32
 //   CHECK-DAG:     %[[c0_i32:.+]] = arith.constant 0 : i32
 //   CHECK-DAG:     %[[v4:.+]] = arith.index_cast %[[arg4]] : index to i32
 //   CHECK-DAG:     %[[v5:.+]] = arith.index_cast %[[arg5]] : index to i32
 //   CHECK-DAG:     %[[v6:.+]] = llvm.mlir.constant(1 : index) : i64
-//   CHECK-DAG:     %[[v7:.+]] = llvm.extractvalue %[[v1]][0] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
-//   CHECK-DAG:     %[[v8:.+]] = llvm.extractvalue %[[v1]][1] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
-//   CHECK-DAG:     %[[v9:.+]] = llvm.extractvalue %[[v1]][2] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
-//   CHECK-DAG:     %[[v10:.+]] = llvm.extractvalue %[[v1]][3, 0] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
-//   CHECK-DAG:     %[[v11:.+]] = llvm.extractvalue %[[v1]][4, 0] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
-//   CHECK-DAG:     %[[v12:.+]] = llvm.extractvalue %[[v0]][0] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
-//   CHECK-DAG:     %[[v13:.+]] = llvm.extractvalue %[[v0]][1] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
-//   CHECK-DAG:     %[[v14:.+]] = llvm.extractvalue %[[v0]][2] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
-//   CHECK-DAG:     %[[v15:.+]] = llvm.extractvalue %[[v0]][3, 0] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
-//   CHECK-DAG:     %[[v16:.+]] = llvm.extractvalue %[[v0]][4, 0] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
-//   CHECK-DAG:     %[[v17:.+]] = llvm.alloca %[[v6]] x !llvm.ptr : (i64) -> !llvm.ptr
-//   CHECK-DAG:     llvm.store %[[v7]], %[[v17]] : !llvm.ptr, !llvm.ptr
-//   CHECK-DAG:     %[[v18:.+]] = llvm.alloca %[[v6]] x !llvm.ptr : (i64) -> !llvm.ptr
-//   CHECK-DAG:     llvm.store %[[v8]], %[[v18]] : !llvm.ptr, !llvm.ptr
-//   CHECK-DAG:     %[[v19:.+]] = llvm.alloca %[[v6]] x i64 : (i64) -> !llvm.ptr
-//   CHECK-DAG:     llvm.store %[[v9]], %[[v19]] : i64, !llvm.ptr
-//   CHECK-DAG:     %[[v20:.+]] = llvm.alloca %[[v6]] x i64 : (i64) -> !llvm.ptr
-//   CHECK-DAG:     llvm.store %[[v10]], %[[v20]] : i64, !llvm.ptr
-//   CHECK-DAG:     %[[v21:.+]] = llvm.alloca %[[v6]] x i64 : (i64) -> !llvm.ptr
-//   CHECK-DAG:     llvm.store %[[v11]], %[[v21]] : i64, !llvm.ptr
-//   CHECK-DAG:     %[[v22:.+]] = llvm.alloca %[[v6]] x !llvm.ptr : (i64) -> !llvm.ptr
-//   CHECK-DAG:     llvm.store %[[v12]], %[[v22]] : !llvm.ptr, !llvm.ptr
-//   CHECK-DAG:     %[[v23:.+]] = llvm.alloca %[[v6]] x !llvm.ptr : (i64) -> !llvm.ptr
-//   CHECK-DAG:     llvm.store %[[v13]], %[[v23]] : !llvm.ptr, !llvm.ptr
-//   CHECK-DAG:     %[[v24:.+]] = llvm.alloca %[[v6]] x i64 : (i64) -> !llvm.ptr
-//   CHECK-DAG:     llvm.store %[[v14]], %[[v24]] : i64, !llvm.ptr
-//   CHECK-DAG:     %[[v25:.+]] = llvm.alloca %[[v6]] x i64 : (i64) -> !llvm.ptr
-//   CHECK-DAG:     llvm.store %[[v15]], %[[v25]] : i64, !llvm.ptr
-//   CHECK-DAG:     %[[v26:.+]] = llvm.alloca %[[v6]] x i64 : (i64) -> !llvm.ptr
-//   CHECK-DAG:     llvm.store %[[v16]], %[[v26]] : i64, !llvm.ptr
-//   CHECK-DAG:     %[[v27:.+]] = llvm.alloca %[[v6]] x !llvm.array<10 x ptr> : (i64) -> !llvm.ptr
-//   CHECK-DAG:     %[[v28:.+]] = llvm.getelementptr %[[v27]][0, 0] : (!llvm.ptr) -> !llvm.ptr, !llvm.array<10 x ptr>
-//   CHECK-DAG:     llvm.store %[[v17]], %[[v28]] : !llvm.ptr, !llvm.ptr
-//   CHECK-DAG:     %[[v29:.+]] = llvm.getelementptr %[[v27]][0, 1] : (!llvm.ptr) -> !llvm.ptr, !llvm.array<10 x ptr>
-//   CHECK-DAG:     llvm.store %[[v18]], %[[v29]] : !llvm.ptr, !llvm.ptr
-//   CHECK-DAG:     %[[v30:.+]] = llvm.getelementptr %[[v27]][0, 2] : (!llvm.ptr) -> !llvm.ptr, !llvm.array<10 x ptr>
-//   CHECK-DAG:     llvm.store %[[v19]], %[[v30]] : !llvm.ptr, !llvm.ptr
-//   CHECK-DAG:     %[[v31:.+]] = llvm.getelementptr %[[v27]][0, 3] : (!llvm.ptr) -> !llvm.ptr, !llvm.array<10 x ptr>
-//   CHECK-DAG:     llvm.store %[[v20]], %[[v31]] : !llvm.ptr, !llvm.ptr
-//   CHECK-DAG:     %[[v32:.+]] = llvm.getelementptr %[[v27]][0, 4] : (!llvm.ptr) -> !llvm.ptr, !llvm.array<10 x ptr>
-//   CHECK-DAG:     llvm.store %[[v21]], %[[v32]] : !llvm.ptr, !llvm.ptr
-//   CHECK-DAG:     %[[v33:.+]] = llvm.getelementptr %[[v27]][0, 5] : (!llvm.ptr) -> !llvm.ptr, !llvm.array<10 x ptr>
-//   CHECK-DAG:     llvm.store %[[v22]], %[[v33]] : !llvm.ptr, !llvm.ptr
-//   CHECK-DAG:     %[[v34:.+]] = llvm.getelementptr %[[v27]][0, 6] : (!llvm.ptr) -> !llvm.ptr, !llvm.array<10 x ptr>
-//   CHECK-DAG:     llvm.store %[[v23]], %[[v34]] : !llvm.ptr, !llvm.ptr
-//   CHECK-DAG:     %[[v35:.+]] = llvm.getelementptr %[[v27]][0, 7] : (!llvm.ptr) -> !llvm.ptr, !llvm.array<10 x ptr>
-//   CHECK-DAG:     llvm.store %[[v24]], %[[v35]] : !llvm.ptr, !llvm.ptr
-//   CHECK-DAG:     %[[v36:.+]] = llvm.getelementptr %[[v27]][0, 8] : (!llvm.ptr) -> !llvm.ptr, !llvm.array<10 x ptr>
-//   CHECK-DAG:     llvm.store %[[v25]], %[[v36]] : !llvm.ptr, !llvm.ptr
-//   CHECK-DAG:     %[[v37:.+]] = llvm.getelementptr %[[v27]][0, 9] : (!llvm.ptr) -> !llvm.ptr, !llvm.array<10 x ptr>
-//   CHECK-DAG:     llvm.store %[[v26]], %[[v37]] : !llvm.ptr, !llvm.ptr
-//   CHECK-DAG:     llvm.call @mtrt_cuda_launch_kernel(%[[v3]], %[[v4]], %[[c1_i32]], %[[c1_i32]], %[[v5]], %[[c1_i32]], %[[c1_i32]], %[[c0_i32]], %[[v2]], %[[v27]]) : (!llvm.ptr, i32, i32, i32, i32, i32, i32, i32, !llvm.ptr, !llvm.ptr) -> ()
+//   CHECK-DAG:     %[[v7:.+]] = llvm.extractvalue %[[v1]][1] :
+//   CHECK-DAG:     %[[v8:.+]] = llvm.extractvalue %[[v0]][1] :
+//   CHECK-DAG:     %[[v9:.+]] = llvm.alloca %[[v6]] x !llvm.ptr : (i64) -> !llvm.ptr
+//   CHECK-DAG:     llvm.store %[[v7]], %[[v9]] : !llvm.ptr, !llvm.ptr
+//   CHECK-DAG:     %[[v10:.+]] = llvm.alloca %[[v6]] x !llvm.ptr : (i64) -> !llvm.ptr
+//   CHECK-DAG:     llvm.store %[[v8]], %[[v10]] : !llvm.ptr, !llvm.ptr
+//   CHECK-DAG:     %[[v11:.+]] = llvm.alloca %[[v6]] x !llvm.array<2 x ptr> : (i64) -> !llvm.ptr
+//   CHECK-DAG:     %[[v12:.+]] = llvm.getelementptr %[[v11]][0, 0] 
+//   CHECK-DAG:     llvm.store %[[v9]], %[[v12]] : !llvm.ptr, !llvm.ptr
+//   CHECK-DAG:     %[[v13:.+]] = llvm.getelementptr %[[v11]][0, 1] 
+//   CHECK-DAG:     llvm.store %[[v10]], %[[v13]] : !llvm.ptr, !llvm.ptr
+//   CHECK-DAG:     llvm.call @mtrt_cuda_launch_kernel(%[[v3]], %[[v4]], %[[c1_i32]], %[[c1_i32]], %[[v5]], %[[c1_i32]], %[[c1_i32]], %[[c0_i32]], %[[v2]], %[[v11]])
 //       CHECK:     return
 
 

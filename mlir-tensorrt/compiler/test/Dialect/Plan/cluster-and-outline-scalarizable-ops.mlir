@@ -78,7 +78,6 @@ func.func @cluster_and_outline_test2(%arg0: tensor<f32>) -> (tensor<1xf32> {tens
 //       CHECK:     return %[[from_elements]] : tensor<1xf32>
 //       CHECK: func.func private @host_cluster
 //  CHECK-SAME: (%[[arg0:.+]]: f32)
-//  CHECK-SAME: attributes {cluster.host}
 //       CHECK:     %[[from_elements:.+]] = tensor.from_elements %[[arg0]] : tensor<f32>
 //       CHECK:     %[[v0:.+]] = stablehlo.iota dim = 0 : tensor<1xf32>
 //       CHECK:     %[[v1:.+]] = stablehlo.broadcast_in_dim %[[from_elements]]
@@ -131,7 +130,7 @@ func.func @conversion_ops(%arg0: tensor<4xf32>) -> (tensor<4xf32> {tensorrt.host
 //       CHECK:     return %[[from_elements]] : tensor<4xf32>
 
 //       CHECK: func.func private @host_cluster
-//  CHECK-SAME: (%[[arg0:.+]]: f32, %[[arg1:.+]]: f32, %[[arg2:.+]]: f32, %[[arg3:.+]]: f32) -> (f32, f32, f32, f32) attributes {cluster.host} {
+//  CHECK-SAME: (%[[arg0:.+]]: f32, %[[arg1:.+]]: f32, %[[arg2:.+]]: f32, %[[arg3:.+]]: f32) -> (f32, f32, f32, f32)
 //       CHECK:     %[[from_elements:.+]] = tensor.from_elements %[[arg0]], %[[arg1]], %[[arg2]], %[[arg3]] : tensor<4xf32>
 //       CHECK:     %[[v0:.+]] = stablehlo.bitcast_convert %[[from_elements]] : (tensor<4xf32>) -> tensor<4xi32>
 //       CHECK:     %[[v1:.+]] = stablehlo.convert %[[v0]] : (tensor<4xi32>) -> tensor<4xf32>

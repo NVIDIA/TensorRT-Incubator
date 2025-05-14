@@ -94,6 +94,11 @@ struct Options {
                                       cl::desc("Dump function signature"),
                                       cl::init(false)};
 
+  cl::opt<bool> dumpDataSegments{
+      "dump-data-segments",
+      cl::desc("Dump global data segments with constant initializers"),
+      cl::init(false)};
+
   cl::opt<std::string> outputSplitMarker{
       "output-split-marker",
       llvm::cl::desc("Split marker to use for merging the ouput"),
@@ -228,6 +233,23 @@ LogicalResult executor::ExecutorRunnerMain(
         llvm::raw_string_ostream ss(str);
         mlirtrt::runtime::print(ss, executable->get()->getFunction(i));
         llvm::outs() << ss.str() << "\n";
+      }
+      return success();
+    }
+
+    if (options.dumpDataSegments) {
+      for (const DataSegmentInfo &dataSegment :
+           executable->get()->getDataSegments()) {
+        mlirtrt::runtime::print(llvm::outs(), dataSegment);
+        llvm::outs() << "\n";
+        if (!dataSegment.isUninitialized()) {
+          assert(dataSegment.data() && "data segment should be initialized");
+          llvm::outs() << llvm::formatv(
+              "Data: [{0:$[, ]@(x)}]\n",
+              llvm::iterator_range(llvm::ArrayRef<uint8_t>(
+                  reinterpret_cast<const uint8_t *>(dataSegment.data()),
+                  dataSegment.size())));
+        }
       }
       return success();
     }

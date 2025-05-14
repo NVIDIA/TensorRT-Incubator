@@ -719,16 +719,6 @@ func.func @trt_identity1(%arg0: tensor<10xi1>) -> tensor<10xf32> {
 
 // -----
 
-func.func @trt_identity84(%arg0: tensor<10xi1>) -> tensor<10xf32> {
-  %0 = tensorrt.identity84 %arg0 : tensor<10xi1> to tensor<10xf32>
-  return %0 : tensor<10xf32>
-}
-
-// CHECK-LABEL: @trt_identity84
-//  CHECK-NEXT:  tensorrt.identity84 %{{.+}} : tensor<10xi1> to tensor<10xf32>
-
-// -----
-
 func.func @trt_concatenation(%arg0: tensor<1x10xf32>, %arg1: tensor<3x10xf32>) -> tensor<4x10xf32> {
   %0 = tensorrt.concatenation {axis = 0 : i32} ins(%arg0, %arg1: tensor<1x10xf32>, tensor<3x10xf32>)
     -> tensor<4x10xf32>
@@ -2221,3 +2211,14 @@ func.func @dynamic_quantize_dequantize(%arg0: tensor<?x?xf32>, %arg1: tensor<?x?
 //  CHECK-NEXT: %[[v1:.+]] = tensorrt.quantize {axis = 0 : i32} in(%[[arg0]] : tensor<?x?xf32>)
 //  CHECK-NEXT: %[[v2:.+]] = tensorrt.dequantize {axis = 0 : i32} in(%[[arg1]] : tensor<?x?xi8>)
 //  CHECK-NEXT: return %[[v2]]
+
+// -----
+
+func.func @trt_identity_i32_ui8(%arg0: tensor<10xi32>) -> tensor<10xui8> {
+  %0 = tensorrt.identity %arg0 : tensor<10xi32> to tensor<10xui8>
+  return %0 : tensor<10xui8>
+}
+
+// CHECK-LABEL: @trt_identity_i32_ui8
+//  CHECK-NEXT: %[[v0:.+]] = tensorrt.identity %{{.+}} : tensor<10xi32> to tensor<10xui8>
+//  CHECK-NEXT: return %[[v0]] : tensor<10xui8>

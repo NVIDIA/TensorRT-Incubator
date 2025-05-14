@@ -21,7 +21,7 @@
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/MaterializeShapeCalculations.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
-#include "mlir-tensorrt/Dialect/StableHloExt/Transforms/Patterns.h"
+#include "mlir-tensorrt/Dialect/StablehloExt/Transforms/Patterns.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Dialect/Utils/IndexingUtils.h"

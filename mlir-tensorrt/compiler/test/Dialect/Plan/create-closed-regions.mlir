@@ -970,3 +970,64 @@ func.func @shape_calc(%arg0: tensor<?xf32> {plan.shape_profile = #plan.bounds<sh
 //       CHECK:      res_attrs [#[[$bounds1]]] -> tensor<?x?xf32> {
 //       CHECK:     return %[[v14]] : tensor<?x?xf32>
 
+// -----
+
+func.func @float_tensor_host_access(
+                      %arg0: tensor<2xf32>)
+                      -> (tensor<2xf32>, f32) {
+  %c1 = arith.constant 1 : index
+  %c0 = arith.constant 0 : index
+  %extracted = tensor.extract %arg0[%c0] : tensor<2xf32>
+  %0 = plan.inline_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>)
+        -> tensor<2xf32> {
+    %1 = stablehlo.add %arg0, %arg0 : tensor<2xf32>
+    yield %1 : tensor<2xf32>
+  }
+  return %0, %extracted : tensor<2xf32>, f32
+}
+
+// CHECK-DAG: #[[$bounds:.+]] = #plan.bounds<shape, [2], [2]>
+// CHECK-DAG: #[[$nobounds:.+]] = #plan.bounds<none>
+// CHECK-LABEL: func.func @float_tensor_host_access
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<2xf32>) -> (tensor<2xf32>, f32) {
+//   CHECK-DAG:     %[[c1:.+]] = arith.constant 1 : index
+//   CHECK-DAG:     %[[c0:.+]] = arith.constant 0 : index
+//   CHECK-DAG:     %[[extracted:.+]] = tensor.extract %[[arg0]][%[[c0]]] : tensor<2xf32>
+//   CHECK-DAG:     %[[v0:.+]] = tensor.empty() : tensor<2xf32>
+//       CHECK:     %[[v1:.+]] = plan.inline_closed_group
+//  CHECK-NEXT:      inputs(%[[arg0]] : tensor<2xf32>)
+//  CHECK-NEXT:      outs(%[[v0]] : tensor<2xf32>)
+//  CHECK-NEXT:      in_attrs [#[[$nobounds]]]
+//  CHECK-NEXT:      res_attrs [#[[$bounds]]]
+
+// -----
+
+// CHECK-DAG: #[[$bounds:.+]] = #plan.bounds<value, dense<-2147483648> : tensor<i32>, dense<2147483647> : tensor<i32>>
+// CHECK-DAG: #[[$bounds1:.+]] = #plan.bounds<none>
+
+// CHECK-LABEL: @scf_while_unused_result
+func.func @scf_while_unused_result(%arg0: tensor<i32>) -> (tensor<i32>) {
+  %c20_i32 = arith.constant 20 : i32
+  %c1_i32 = stablehlo.constant dense<1> : tensor<i32>
+  %c2 = stablehlo.constant dense<0.0> : tensor<10xf32>
+  %c0 = arith.constant 0 : index
+  // CHECK: scf.while
+  %1:2 = scf.while (%arg1 = %arg0, %arg2 = %c2)
+      : (tensor<i32>, tensor<10xf32>) -> (tensor<i32>, tensor<10xf32>) {
+    %extracted_0 = tensor.extract %arg1[] : tensor<i32>
+    %cond = arith.cmpi eq, %extracted_0, %c20_i32 : i32
+    scf.condition(%cond) %arg1, %arg2 : tensor<i32>, tensor<10xf32>
+  } do {
+  ^bb0(%arg1: tensor<i32>, %arg2: tensor<10xf32>):
+    // CHECK: plan.inline_closed_group
+    // CHECK: in_attrs [#[[$bounds]], #[[$bounds1]]]
+    %3, %4 = plan.inline_group
+        target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>)
+        -> tensor<i32>, tensor<10xf32> {
+      %1 = stablehlo.add %arg1, %c1_i32 : tensor<i32>
+      plan.yield %1, %arg2  : tensor<i32>, tensor<10xf32>
+    }
+    scf.yield %3, %4 : tensor<i32>, tensor<10xf32>
+  }
+  return %1#0 : tensor<i32>
+}

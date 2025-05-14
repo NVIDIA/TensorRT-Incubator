@@ -32,22 +32,25 @@ static Status makeCudaStringError(cudaError_t errCode,
 }
 #endif
 
-StatusOr<DeviceInfo> mlirtrt::getDeviceInformationFromHost() {
+static StatusOr<DeviceInfo>
+getDeviceInformationFromHostImpl(int cudaDeviceOridinal) {
 #ifdef MLIR_EXECUTOR_ENABLE_CUDA
   cudaDeviceProp properties;
-  cudaError_t err = cudaGetDeviceProperties(&properties, 0);
+  cudaError_t err = cudaGetDeviceProperties(&properties, cudaDeviceOridinal);
   if (err != cudaSuccess)
     return makeCudaStringError(err, "failed to get cuda device properties");
 
   int ccMajor = 0;
   int ccMinor = 0;
   err = cudaDeviceGetAttribute(
-      &ccMajor, cudaDeviceAttr::cudaDevAttrComputeCapabilityMajor, 0);
+      &ccMajor, cudaDeviceAttr::cudaDevAttrComputeCapabilityMajor,
+      cudaDeviceOridinal);
   if (err != cudaSuccess)
     return makeCudaStringError(err,
                                "failed to get cuda device compute capability");
   err = cudaDeviceGetAttribute(
-      &ccMinor, cudaDeviceAttr::cudaDevAttrComputeCapabilityMinor, 0);
+      &ccMinor, cudaDeviceAttr::cudaDevAttrComputeCapabilityMinor,
+      cudaDeviceOridinal);
   if (err != cudaSuccess)
     return makeCudaStringError(err,
                                "failed to get cuda device compute capability");
@@ -59,6 +62,39 @@ StatusOr<DeviceInfo> mlirtrt::getDeviceInformationFromHost() {
   info.maxSharedMemoryPerBlockKb = properties.sharedMemPerBlock / 1024;
   info.maxRegistersPerBlock = properties.regsPerBlock;
   return info;
+#else
+  return getInternalErrorStatus(
+      "MLIR-Executor was not built with CUDA Runtime support");
+#endif
+}
+
+StatusOr<llvm::SmallVector<DeviceInfo>>
+mlirtrt::getAllDeviceInformationFromHost() {
+#ifdef MLIR_EXECUTOR_ENABLE_CUDA
+  int numDevices = 0;
+  cudaError_t err = cudaGetDeviceCount(&numDevices);
+  if (err != cudaSuccess)
+    return makeCudaStringError(err, "failed to get cuda device count");
+
+  llvm::SmallVector<DeviceInfo> deviceInfos;
+  deviceInfos.reserve(numDevices);
+  for (int i = 0; i < numDevices; ++i) {
+    auto info = getDeviceInformationFromHostImpl(i);
+    if (!info.isOk())
+      return info.getStatus();
+    deviceInfos.push_back(*info);
+  }
+  return deviceInfos;
+#else
+  return getInternalErrorStatus(
+      "MLIR-Executor was not built with CUDA Runtime support");
+#endif
+}
+
+StatusOr<DeviceInfo>
+mlirtrt::getDeviceInformationFromHost(int32_t cudaDeviceOrdinal) {
+#ifdef MLIR_EXECUTOR_ENABLE_CUDA
+  return getDeviceInformationFromHostImpl(cudaDeviceOrdinal);
 #else
   return getInternalErrorStatus(
       "MLIR-Executor was not built with CUDA support");

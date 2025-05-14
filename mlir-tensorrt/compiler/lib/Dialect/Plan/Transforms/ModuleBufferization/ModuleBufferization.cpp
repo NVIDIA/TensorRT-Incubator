@@ -456,7 +456,8 @@ runOneShotMultiModuleBufferize(ModuleLikeOp moduleOp,
 
     if (auto scopeOp =
             dyn_cast<mtc::BufferizationScopeOpInterface>(*nestedModule)) {
-      if (failed(scopeOp.performPostBufferizationActions(rewriter)))
+      if (!baseOptions.testAnalysisOnly &&
+          failed(scopeOp.performPostBufferizationActions(rewriter)))
         return failure();
     }
   }

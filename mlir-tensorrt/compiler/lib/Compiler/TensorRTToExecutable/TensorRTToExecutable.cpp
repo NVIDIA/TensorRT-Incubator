@@ -53,7 +53,7 @@ void TensorRTToExecutableTask::buildPostClusteringPipeline(
   {
     auto &trtPM = pm.nest<tensorrt::TensorRTModuleOp>();
 
-    tensorrt::ApplyBugWorkaroundsPassOptions bugWAROptions = {};
+    tensorrt::ApplyWorkaroundsPassOptions bugWAROptions = {};
     bugWAROptions.tensorrtStronglyTyped =
         options.get<TensorRTOptions>().enableStronglyTyped;
     bugWAROptions.forceDefaultSliceInBounds =

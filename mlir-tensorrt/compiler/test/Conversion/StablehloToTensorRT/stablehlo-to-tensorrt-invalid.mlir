@@ -91,3 +91,20 @@ func.func private @block_dq(%arg0: tensor<258x256xi4>) -> tensor<258x256xf32> at
   %3 = stablehlo.multiply %2, %1 : tensor<258x256xf32>
   return %3 : tensor<258x256xf32>
 }
+
+// -----
+
+// CHECK-LABEL: @unsupported_multiple_outer_product_dims
+func.func @unsupported_multiple_outer_product_dims(%arg0: tensor<32x49x32xf32>,
+                                                   %arg1: tensor<32x1x32x49xf32>) -> tensor<32x49x1x49xf32> {
+  // CHECK: stablehlo.dot_general
+  %0 = "stablehlo.dot_general"(%arg0, %arg1) {
+    dot_dimension_numbers = #stablehlo.dot<
+      lhs_batching_dimensions = [0],
+      rhs_batching_dimensions = [0],
+      lhs_contracting_dimensions = [2],
+      rhs_contracting_dimensions = [2]>,
+    precision_config = [#stablehlo<precision DEFAULT>, #stablehlo<precision DEFAULT>]
+  } : (tensor<32x49x32xf32>, tensor<32x1x32x49xf32>) -> tensor<32x49x1x49xf32>
+  return %0 : tensor<32x49x1x49xf32>
+}

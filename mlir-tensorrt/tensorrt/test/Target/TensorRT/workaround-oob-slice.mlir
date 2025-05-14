@@ -1,4 +1,4 @@
-// RUN: %pick-one-gpu tensorrt-opt -pass-pipeline="builtin.module(tensorrt-apply-bug-wars{force-default-slice-in-bounds},translate-tensorrt-to-engine)" \
+// RUN: %pick-one-gpu tensorrt-opt -pass-pipeline="builtin.module(tensorrt-apply-wars{force-default-slice-in-bounds},translate-tensorrt-to-engine)" \
 // RUN:  -mlir-elide-elementsattrs-if-larger=32 -tensorrt-builder-opt-level=0 %s | FileCheck %s
 
 // This shape profile reflects that we don't have good information about %arg1 bounds.

@@ -113,9 +113,15 @@ table Function {
 }
 
 table DataSegment {
-  name:string (offset64);
+  name: string (offset64);
   // A vector of bytes, which are in the 64 bit region.
-  data:[byte] (vector64);
+  data: [byte] (vector64);  
+  alignment: uint32;
+  constant: bool;
+  uninitialized_size: uint64;
+
+  // The address space is assumed to be 'host' unless explicitly given.
+  address_space: PointerType;
 }
 
 table Executable {

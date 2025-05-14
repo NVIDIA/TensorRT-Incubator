@@ -51,7 +51,7 @@ namespace {
 // PopulateDefaultBackendMetadataPass
 //===----------------------------------------------------------------------===//
 // This pass executes a "convert-stablehlo-scalar-to-arith" dynamically on all
-// functions with the `cluster.host` attribute.
+// functions with the #plan.host_cluster target attribute.
 class PopulateDefaultBackendMetadataPass
     : public compiler::impl::PopulateDefaultBackendMetadataPassBase<
           PopulateDefaultBackendMetadataPass> {
@@ -77,7 +77,7 @@ public:
 //===----------------------------------------------------------------------===//
 
 // This pass executes a "convert-stablehlo-scalar-to-arith" dynamically on all
-// functions with the `cluster.host` attribute.
+// functions with the #plan.host_cluster target attribute.
 class ProcessHostClustersPass
     : public compiler::impl::ProcessStablehloHostClustersPassBase<
           ProcessHostClustersPass> {
@@ -86,7 +86,12 @@ public:
 
   void runOnOperation() override {
     func::FuncOp func = getOperation();
-    if (!func.isPrivate() || !func->hasAttr("cluster.host"))
+    if (!func.isPrivate())
+      return;
+
+    auto hostClusterKind = func->getAttrOfType<plan::HostClusterKindAttr>(
+        plan::PlanDialect::kFuncTargetKind);
+    if (!hostClusterKind)
       return;
 
     OpPassManager dynamicPM("func.func");

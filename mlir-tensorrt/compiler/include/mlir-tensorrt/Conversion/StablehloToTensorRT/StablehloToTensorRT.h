@@ -25,7 +25,7 @@
 #define MLIR_TENSORRT_CONVERSION_HLOTOTENSORRT_HLOTOTENSORRT_H
 
 #include "mlir-tensorrt/Conversion/TensorRTCommon/ConvertToTensorRTCommon.h"
-#include "mlir-tensorrt/Dialect/StableHloExt/Utils/GatherScatterUtils.h"
+#include "mlir-tensorrt/Dialect/StablehloExt/Utils/GatherScatterUtils.h"
 #include "mlir/IR/PatternMatch.h"
 
 namespace mlir {

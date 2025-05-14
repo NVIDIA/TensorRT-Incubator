@@ -268,23 +268,6 @@ func.func @op_slice_non_unit_stride(%arg0: tensor<16xf32>) -> tensor<4xf32> {
 
 // -----
 
-func.func @hlo_dot(%arg0: tensor<10x20xi32>, %arg1: tensor<20x30xi32>) -> tensor<10x30xi32> {
-  %0 = "stablehlo.dot"(%arg0, %arg1) {} : (tensor<10x20xi32>, tensor<20x30xi32>) -> tensor<10x30xi32>
-  return %0 : tensor<10x30xi32>
-}
-
-// CHECK-LABEL: @hlo_dot
-//  CHECK-NEXT: %[[i0:.+]] = tensorrt.identity %[[arg0:.+]] : tensor<10x20xi32> to tensor<10x20xf32>
-//  CHECK-NEXT: %[[i1:.+]] = tensorrt.identity %[[arg1:.+]] : tensor<20x30xi32> to tensor<20x30xf32>
-//  CHECK-NEXT: %[[out:.+]] = tensorrt.matrix_multiply {
-//  CHECK-SAME: op0 = #tensorrt.matrix_operation<kNONE>,
-//  CHECK-SAME: op1 = #tensorrt.matrix_operation<kNONE>}
-//  CHECK-SAME: ins(%[[i0]], %[[i1]] : tensor<10x20xf32>, tensor<20x30xf32>) -> tensor<10x30xf32>
-//  CHECK-NEXT: %[[i3:.+]] = tensorrt.identity %[[out]] : tensor<10x30xf32> to tensor<10x30xi32>
-
-
-// -----
-
 func.func @hlo_dot(%arg0: tensor<10x20xf16>, %arg1: tensor<20x30xf16>) -> tensor<10x30xf16> {
   %0 = "stablehlo.dot"(%arg0, %arg1) {} : (tensor<10x20xf16>, tensor<20x30xf16>) -> tensor<10x30xf16>
   return %0 : tensor<10x30xf16>
@@ -501,6 +484,26 @@ func.func @hlo_dot_general2(%arg0: tensor<?x?x64xf32>, %arg1: tensor<?x?x64x100x
 
 // -----
 
+func.func @dot_general_promoted_result_type(%arg0: tensor<?x?x64xf16>, %arg1: tensor<?x?x64x100xf16>) -> tensor<?x?x100xf32> {
+  %0 = "stablehlo.dot_general"(%arg0, %arg1) {
+    dot_dimension_numbers = #stablehlo.dot<
+      lhs_batching_dimensions = [0, 1],
+      rhs_batching_dimensions = [0, 1],
+      lhs_contracting_dimensions = [2],
+      rhs_contracting_dimensions = [2]>,
+    precision_config = [#stablehlo<precision DEFAULT>, #stablehlo<precision DEFAULT>]
+  } : (tensor<?x?x64xf16>, tensor<?x?x64x100xf16>) -> tensor<?x?x100xf32>
+  return %0 : tensor<?x?x100xf32>
+}
+
+// CHECK-LABEL: @dot_general_promoted_result_type
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<{{.*}}>, %[[arg1:.+]]: tensor<{{.*}}>)
+//   CHECK-DAG:   %[[v0:.+]] = tensorrt.identity %[[arg0]] : {{.*}} to tensor<{{.*}}f32>
+//   CHECK-DAG:   %[[v1:.+]] = tensorrt.identity %[[arg1]] : {{.*}} to tensor<{{.*}}f32>
+//       CHECK:   tensorrt.matrix_multiply {{.*}}(%[[v0]], %[[v1]]
+
+// -----
+
 func.func @main(%arg0: tensor<1x1500x384xf32>, %arg1: tensor<384x384xf32>) -> tensor<1x1500x384xf32> {
   %0 = "stablehlo.dot_general"(%arg0, %arg1) {
     dot_dimension_numbers = #stablehlo.dot<
@@ -510,51 +513,6 @@ func.func @main(%arg0: tensor<1x1500x384xf32>, %arg1: tensor<384x384xf32>) -> te
   } : (tensor<1x1500x384xf32>, tensor<384x384xf32>) -> tensor<1x1500x384xf32>
   return %0 : tensor<1x1500x384xf32>
 }
-// -----
-
-func.func @hlo_dot_general3(%arg0: tensor<32x49x32xf32>, %arg1: tensor<32x1x32x49xf32>) -> tensor<32x49x1x49xf32> {
-  %0 = "stablehlo.dot_general"(%arg0, %arg1) {
-    dot_dimension_numbers = #stablehlo.dot<
-      lhs_batching_dimensions = [0],
-      rhs_batching_dimensions = [0],
-      lhs_contracting_dimensions = [2],
-      rhs_contracting_dimensions = [2]>,
-    precision_config = [#stablehlo<precision DEFAULT>, #stablehlo<precision DEFAULT>]
-  } : (tensor<32x49x32xf32>, tensor<32x1x32x49xf32>) -> tensor<32x49x1x49xf32>
-  return %0 : tensor<32x49x1x49xf32>
-}
-
-// CHECK-LABEL: @hlo_dot_general3
-//  CHECK-NEXT:  tensorrt.expand_rank
-//  CHECK-SAME:   tensor<32x49x32xf32> to tensor<32x1x49x32xf32>
-//  CHECK-NEXT:  tensorrt.matrix_multiply
-//  CHECK-SAME:   {op0 = #tensorrt.matrix_operation<kNONE>, op1 = #tensorrt.matrix_operation<kNONE>}
-//  CHECK-SAME:   ins(%{{.+}}, %{{.+}} : tensor<32x1x49x32xf32>, tensor<32x1x32x49xf32>) -> tensor<32x1x49x49xf32>
-//  CHECK-NEXT:  tensorrt.transpose
-//  CHECK-SAME:   tensor<32x1x49x49xf32> to tensor<32x49x1x49xf32>
-
-// -----
-
-func.func @hlo_dot_general4(%arg0: tensor<32x5x49x32xf32>, %arg1: tensor<32x5x1x32x49xf32>) -> tensor<32x5x49x1x49xf32> {
-  %0 = "stablehlo.dot_general"(%arg0, %arg1) {
-    dot_dimension_numbers = #stablehlo.dot<
-      lhs_batching_dimensions = [0, 1],
-      rhs_batching_dimensions = [0, 1],
-      lhs_contracting_dimensions = [3],
-      rhs_contracting_dimensions = [3]>,
-    precision_config = [#stablehlo<precision DEFAULT>, #stablehlo<precision DEFAULT>]
-  } : (tensor<32x5x49x32xf32>, tensor<32x5x1x32x49xf32>) -> tensor<32x5x49x1x49xf32>
-  return %0 : tensor<32x5x49x1x49xf32>
-}
-
-// CHECK-LABEL: @hlo_dot_general4
-//  CHECK-NEXT:  tensorrt.expand_rank
-//  CHECK-SAME:   tensor<32x5x49x32xf32> to tensor<32x5x1x49x32xf32>
-//  CHECK-NEXT:  tensorrt.matrix_multiply
-//  CHECK-SAME:   {op0 = #tensorrt.matrix_operation<kNONE>, op1 = #tensorrt.matrix_operation<kNONE>}
-//  CHECK-SAME:   ins(%{{.+}}, %{{.+}} : tensor<32x5x1x49x32xf32>, tensor<32x5x1x32x49xf32>) -> tensor<32x5x1x49x49xf32>
-//  CHECK-NEXT:  tensorrt.transpose
-//  CHECK-SAME:   tensor<32x5x1x49x49xf32> to tensor<32x5x49x1x49xf32>
 
 // -----
 

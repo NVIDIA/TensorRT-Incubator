@@ -99,8 +99,8 @@ private:
 class TensorRTConversionPatternRewriter {
 public:
   explicit TensorRTConversionPatternRewriter(
-      ConversionPatternRewriter &rewriter)
-      : rewriter(rewriter) {}
+      ConversionPatternRewriter &rewriter, int64_t targetTrtMajorVersion)
+      : rewriter(rewriter), trtMajorVersion(targetTrtMajorVersion) {}
 
   /// Method same as `replaceOpWithNewOp`, except it takes `trtMajorVersion` as
   /// input and checks if elements types of created op are valid for the given
@@ -108,8 +108,7 @@ public:
   /// opset for the latest TensorRT version and element type used might not
   /// be compatible if target `trtMajorVersion` is older.
   template <typename OpTy, typename... Args>
-  OpTy checkAndReplaceOpWithNewOp(Operation *op, int64_t trtMajorVersion,
-                                  Args &&...args) {
+  OpTy checkAndReplaceOpWithNewOp(Operation *op, Args &&...args) {
     auto newOp =
         rewriter.create<OpTy>(op->getLoc(), std::forward<Args>(args)...);
     if (!newOp.isValidForTensorRTVersion(trtMajorVersion)) {
@@ -124,7 +123,7 @@ public:
   /// input and checks if elements types of created op are valid for the given
   /// TensorRT version.
   template <typename OpTy, typename... Args>
-  OpTy checkAndCreate(Location loc, int64_t trtMajorVersion, Args &&...args) {
+  OpTy checkAndCreate(Location loc, Args &&...args) {
     auto newOp = rewriter.create<OpTy>(loc, std::forward<Args>(args)...);
     if (!newOp.isValidForTensorRTVersion(trtMajorVersion)) {
       rewriter.eraseOp(newOp);
@@ -153,6 +152,7 @@ public:
 
 private:
   ConversionPatternRewriter &rewriter;
+  const int64_t trtMajorVersion;
 };
 
 /// A derived ConversionPattern that also allows a variety of helper methods to
@@ -174,13 +174,23 @@ protected:
   /// element type is used.
   static FailureOr<TypedValue<RankedTensorType>>
   castTensor(TensorRTConversionPatternRewriter &rewriter,
-             int64_t trtMajorVersion, Type newTypeOrElementType,
-             TypedValue<RankedTensorType> src);
+             Type newTypeOrElementType, TypedValue<RankedTensorType> src);
+
+  /// If the `replacement` has equivalent type to the single result of
+  /// `toReplace`, just perform replacement. Otherwise, if the types are
+  /// cast-compatible (differ just in element type), insert a TensorRT cast
+  /// operation. In all other cases, return failure.
+  LogicalResult replaceWithCast(TensorRTConversionPatternRewriter &rewriter,
+                                Operation *toReplace,
+                                TypedValue<RankedTensorType> replacement) const;
 
   /// Overides base class templated method to get TensorRT type converter.
   const TensorRTTypeConverter *getTypeConverter() const {
     return ConversionPattern::getTypeConverter<TensorRTTypeConverter>();
   }
+
+  const int64_t targetTrtMajorVersion{
+      getTypeConverter()->getOptions().getTensorRTVersion()};
 };
 
 /// Wrapper that allows declaring a specific source operation in the template

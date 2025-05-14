@@ -431,7 +431,8 @@ struct CudaLaunchOpToLLVMCallConverter
 
     SmallVector<Value> storagePtrs;
     SmallVector<Value> promotedArgs = this->getTypeConverter()->promoteOperands(
-        loc, op.getArgs(), adaptor.getArgs(), rewriter);
+        loc, op.getArgs(), adaptor.getArgs(), rewriter,
+        /*useBarePtrCallConv=*/true);
     for (Value toStoreVal : promotedArgs) {
       Value valuePtr = rewriter.create<LLVM::AllocaOp>(
           loc, llvmPtrType, toStoreVal.getType(), one);

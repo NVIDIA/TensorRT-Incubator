@@ -263,3 +263,28 @@ func.func @not_scatter_nd_wrong_scatter_to_operand_dims(
 
 // CHECK-LABEL: @not_scatter_nd_wrong_scatter_to_operand_dims
 //   CHECK-NOT: tensorrt.scatter_nd
+
+// -----
+
+// This test is a regression test for a bug where one of the patterns
+// was crashing due to empty `scatter_dims_to_operand_dims` array.
+
+// CHECK-LABEL: func.func @scatter_zero_ext_regression
+func.func @scatter_zero_ext_regression(%arg0 : tensor<f32>, %arg1 : tensor<1x0xi32>, %arg2 : tensor<1xf32>) -> tensor<f32> {
+  // CHECK: %[[v0:.+]] = tensorrt.scatter_nd data(%[[arg0]] : tensor<f32>) indices(%[[arg1]] : tensor<1x0xi32>) updates(%[[arg2]] 
+  %0 = "stablehlo.scatter"(%arg0, %arg1, %arg2) ({
+    ^bb0(%arg3: tensor<f32>, %arg4: tensor<f32>):
+      "stablehlo.return"(%arg4) : (tensor<f32>) -> ()
+  }) {
+    scatter_dimension_numbers = #stablehlo.scatter<
+      update_window_dims = [],
+      inserted_window_dims = [],
+      scatter_dims_to_operand_dims = [],
+      index_vector_dim = 1
+    >,
+    indices_are_sorted = true,
+    unique_indices = true
+  } : (tensor<f32>, tensor<1x0xi32>, tensor<1xf32>) -> tensor<f32>  
+  // CHECK: return %[[v0]] : tensor<f32>
+  func.return %0 : tensor<f32>
+}

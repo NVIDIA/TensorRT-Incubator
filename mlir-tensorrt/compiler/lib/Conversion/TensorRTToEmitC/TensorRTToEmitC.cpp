@@ -19,6 +19,7 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
 #include "mlir-tensorrt-dialect/TensorRT/Utils/Utils.h"
+#include "mlir-tensorrt-dialect/Utils/TensorRTVersion.h"
 #include "mlir-tensorrt/Conversion/Passes.h"
 
 #include "mlir/Dialect/EmitC/IR/EmitC.h"
@@ -80,16 +81,14 @@ static COpaqueType getStdioLoggerType(MLIRContext *ctx) {
       ctx, "::std::unique_ptr<::nvinfer1::adaptor::StdioLogger>");
 }
 static COpaqueType getAdaptorBuilderType(MLIRContext *ctx) {
-  return COpaqueType::get(
-      ctx, "::nvinfer1::adaptor::UniquePtr<::nvinfer1::IBuilder>");
+  return COpaqueType::get(ctx, "::std::unique_ptr<::nvinfer1::IBuilder>");
 }
 static COpaqueType getAdaptorNetworkType(MLIRContext *ctx) {
-  return COpaqueType::get(
-      ctx, "::nvinfer1::adaptor::UniquePtr<::nvinfer1::INetworkDefinition>");
+  return COpaqueType::get(ctx,
+                          "::std::unique_ptr<::nvinfer1::INetworkDefinition>");
 }
 static COpaqueType getAdaptorBuilderConfigType(MLIRContext *ctx) {
-  return COpaqueType::get(
-      ctx, "::nvinfer1::adaptor::UniquePtr<::nvinfer1::IBuilderConfig>");
+  return COpaqueType::get(ctx, "::std::unique_ptr<::nvinfer1::IBuilderConfig>");
 }
 static COpaqueType getAdaptorHostMemoryType(MLIRContext *ctx) {
   return COpaqueType::get(ctx, "::std::unique_ptr<::nvinfer1::IHostMemory>");
@@ -158,7 +157,7 @@ static COpaqueAttr getNvInferDimsOpaqueAttr(MLIRContext *ctx, ArrayRef<T> t) {
   return COpaqueAttr::get(ctx, ss.str());
 }
 
-/// Given an optional array ref of integers (for shapoe), either return null
+/// Given an optional array ref of integers (for shape), either return null
 /// dims or return nvinfer1::Dims attr as OpaqueAttr.
 template <typename T, std::enable_if_t<std::is_pod<T>::value, T *> = nullptr>
 static COpaqueAttr getNvInferDimsOpaqueAttr(MLIRContext *ctx,
@@ -445,14 +444,14 @@ static emitc::CallOpaqueOp dispatchLayerBuilderCall(OpBuilder &b,
   Location loc = op.getLoc();
   MLIRContext *ctx = b.getContext();
   Value network = e.getNetworkDefinitionPtr();
-
+  SmallVector<Type> resultTypes(op->getNumResults(),
+                                getNvInferITensorPtrType(ctx));
   auto call = EmitCall(ctx, getLayerBuilderCallee(op))
-                  .setResults({getNvInferITensorPtrType(ctx)})
+                  .setResults(resultTypes)
                   .pushOperand(network);
-
-  // Some ops cannot be handled generically. These operations are: any op that
-  // has API parameters derived from attributes and ops that have multiple
-  // optional parameters.
+  // Some ops cannot be handled generically. These operations are: any op
+  // that has API parameters derived from attributes and ops that have
+  // multiple optional parameters.
   if (auto constOp = dyn_cast<tensorrt::ConstantOp>(op.getOperation())) {
     Value weights = e.getNvInferWeights(b, loc, constOp.getWeights());
     return call.pushNvInferDims(constOp.getType().getShape())
@@ -493,9 +492,13 @@ static emitc::CallOpaqueOp dispatchLayerBuilderCall(OpBuilder &b,
     return call.build(b, loc, e);
   }
   if (auto sliceOp = dyn_cast<SliceOp>(op.getOperation())) {
-    auto sliceMode = COpaqueAttr::get(
-        ctx, ("::nvinfer1::SliceMode::" + stringifySliceMode(sliceOp.getMode()))
-                 .str());
+    auto sliceModeStr = stringifySliceMode(sliceOp.getMode());
+#if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 0, 0)
+    if (sliceModeStr == "kDEFAULT")
+      sliceModeStr = "kSTRICT_BOUNDS";
+#endif
+    auto sliceMode =
+        COpaqueAttr::get(ctx, ("::nvinfer1::SliceMode::" + sliceModeStr).str());
     return call.pushOperand(sliceOp.getInput())
         .pushOperand(sliceOp.getStart())
         .pushOperand(sliceOp.getSize())
@@ -515,6 +518,31 @@ static emitc::CallOpaqueOp dispatchLayerBuilderCall(OpBuilder &b,
         .pushOperand(reduceOp.getKeepDimensionsAttr())
         .pushDimensionListAsBitMask(reduceOp.getReduceAxes())
         .pushOperand(mode)
+        .build(b, loc, e);
+  }
+  if (auto topKOp = dyn_cast<TopKOp>(op.getOperation())) {
+    auto mode = COpaqueAttr::get(ctx, cast<tensorrt::TensorRTEnumAttrInterface>(
+                                          topKOp.getTopkOperationAttr())
+                                          .getNvInferEnumValueStr());
+    return call.pushOperand(topKOp.getInput())
+        .pushOperands<Attribute>({topKOp.getKAttr()})
+        .pushDimensionListAsBitMask(topKOp.getAxis())
+        .pushOperand(mode)
+        .build(b, loc, e);
+  }
+  if (auto softmaxOp = dyn_cast<SoftMaxOp>(op.getOperation())) {
+    return call.pushOperand(softmaxOp.getInput())
+        .pushDimensionListAsBitMask(softmaxOp.getAxis())
+        .build(b, loc, e);
+  }
+  if (auto concatOp = dyn_cast<ConcatenationOp>(op.getOperation())) {
+    return call.pushOperand(concatOp.getAxisAttr())
+        .pushOperands(concatOp.getInputs())
+        .build(b, loc, e);
+  }
+  if (auto identityOp = dyn_cast<IdentityOp>(op.getOperation())) {
+    return call.pushOperand(identityOp.getInput())
+        .pushNvInferDataType(identityOp.getType().getElementType())
         .build(b, loc, e);
   }
 
@@ -784,6 +812,58 @@ static void addIncludesToModule(ModuleOp op) {
     return;
   OpBuilder b(op->getContext());
   b.setInsertionPointToStart(&op.getBodyRegion().front());
+  llvm::StringRef howToUse =
+      R"(//===----------------------------------------------------------------------===//
+// This C++ file is generated by translating the `emitc` IR produced by the mlir-tensorrt
+// `TensorRTToEmitC` pass.
+//
+// For each `func.func` operation in the input IR (named `x` and representing a TensorRT
+// network graph), two corresponding functions are generated: `x_builder` and `x_tester`.
+//
+// The `x_builder` function constructs the `INetworkDefinition` from the IR.
+//
+// The `x_tester` function:
+// 1. Calls `x_builder` with pointers to `INetworkDefinition` and a map for weight lookup.
+// 2. Builds a TensorRT engine from the network definition
+// 3. Returns a pointer to the serialized engine
+//
+// Usage:
+// Implement a `main` function that calls one or more `x_tester` functions
+// for your specific use case. Common use cases include:
+// - Testing engine construction
+// - Running inference
+//
+// Example:
+// The following is a simple example that verifies successful engine construction.
+// ```
+// int main() {
+//   auto engine = x_tester();
+//   return engine ? 0 : 1;
+// }
+// ```
+//
+// Dependencies:
+// Building the generated C++ code requires:
+// 1. Headers from the `mlir-tensorrt` project:
+//    - `NvInferAdaptor.h`
+//    - `TensorRTVersion.h`
+// 2. CUDA headers and libraries
+// 3. TensorRT headers and libraries
+//
+// Build Instructions:
+// Compile the generated C++ code using:
+// ```
+// g++ my_code.cpp -o my_code \
+//     -I/path/to/dir/containing/NvInferAdaptor.h \
+//     -I/usr/local/cuda/include \
+//     -I/path/to/dir/containing/TensorRTVersion.h \
+//     -I/path/to/dir/containing/TensorRT/include \
+//     -lnvinfer \
+//     -L/path/to/dir/containing/TensorRT/lib
+// ```
+//===----------------------------------------------------------------------===//
+  )";
+  b.create<emitc::VerbatimOp>(op.getLoc(), howToUse);
   b.create<emitc::IncludeOp>(op->getLoc(), "NvInfer.h", false);
   b.create<emitc::IncludeOp>(op->getLoc(), "NvInferAdaptor.h", false);
   b.create<emitc::IncludeOp>(op->getLoc(), "cstdint", true);

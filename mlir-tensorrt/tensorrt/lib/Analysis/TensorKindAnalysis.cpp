@@ -29,16 +29,12 @@
 
 using namespace mlir;
 
-static constexpr int64_t kSmallTensorThresholdElements = 8;
-
 /// Returns `true` if the type is a scalar or a tensor with the number of
 /// elements below the threshold.
 static bool isScalarOrSmallTensor(Type v) {
   if (v.isIntOrIndexOrFloat())
     return true;
-  auto rtt = dyn_cast<RankedTensorType>(v);
-  return rtt && rtt.hasStaticShape() &&
-         rtt.getNumElements() <= kSmallTensorThresholdElements;
+  return detail::isHostTensorCandidate(v);
 }
 
 static std::optional<Block *> getEntryBlock(FunctionOpInterface iface) {
@@ -126,7 +122,6 @@ LogicalResult TensorKindAnalysis::visitOperation(
   auto setInferredType = [&](OpOperand &operand, TensorKindInfo kind) {
     assert(operand.getOwner() == op && "operand has the wrong owner");
     unsigned idx = operand.getOperandNumber();
-
     // If this is a function argument, first apply the required constraint info.
     // This is just required to ensure that function arguments get the type
     // "both" if a direct user requires a host tensor (e.g.

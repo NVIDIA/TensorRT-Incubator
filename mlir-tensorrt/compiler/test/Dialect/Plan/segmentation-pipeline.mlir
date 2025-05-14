@@ -107,7 +107,7 @@ func.func @small_reduce_host(%arg0: tensor<4xi32>, %arg1: tensor<i32>)
 //       CHECK:     %[[from_elements_4:.+]] = tensor.from_elements %[[v0]]#1 : tensor<i32>
 //       CHECK:     return %[[from_elements_4]], %[[from_elements]] : tensor<i32>, tensor<i1>
 // CHECK-LABEL: private @host_cluster
-//  CHECK-SAME: (%[[arg0:.+]]: i32, %[[arg1:.+]]: i32, %[[arg2:.+]]: i32, %[[arg3:.+]]: i32, %[[arg4:.+]]: i32) -> (i1, i32) attributes {cluster.host}
+//  CHECK-SAME: (%[[arg0:.+]]: i32, %[[arg1:.+]]: i32, %[[arg2:.+]]: i32, %[[arg3:.+]]: i32, %[[arg4:.+]]: i32) -> (i1, i32)
 //   CHECK-DAG:     %[[v0:.+]] = stablehlo.constant dense<0> : tensor<i32>
 //   CHECK-DAG:     %[[from_elements:.+]] = tensor.from_elements %[[arg0]] : tensor<i32>
 //   CHECK-DAG:     %[[from_elements_0:.+]] = tensor.from_elements %[[arg1]], %[[arg2]], %[[arg3]], %[[arg4]] : tensor<4xi32>

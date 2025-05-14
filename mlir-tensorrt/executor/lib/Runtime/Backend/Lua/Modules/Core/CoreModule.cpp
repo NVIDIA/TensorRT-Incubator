@@ -103,10 +103,7 @@ ResultType integerTruncate(InputType input) {
   if constexpr (sizeof(ResultType) * CHAR_BIT == ResultBits) {
     return static_cast<ResultType>(input);
   }
-  constexpr unsigned ShiftSize = InputBits - ResultBits;
-  return static_cast<ResultType>(
-      (static_cast<std::make_unsigned_t<InputType>>(input) << ShiftSize) >>
-      ShiftSize);
+  return static_cast<ResultType>(input & ((1U << ResultBits) - 1));
 }
 
 template <typename IntType>
@@ -836,11 +833,17 @@ static void registerExecutorCoreModuleLuaRuntimeMethods(
   DEFINE_LOAD_METHOD(i32, int32_t, int32_t);
   DEFINE_LOAD_METHOD(i16, int16_t, int16_t);
   DEFINE_LOAD_METHOD(i8, int8_t, int8_t);
-  DEFINE_LOAD_METHOD(i1, int8_t, int8_t);
   DEFINE_LOAD_METHOD(f16, __half, __half);
   DEFINE_LOAD_METHOD(f8E4M3FN, fp8_e4m3fn, fp8_e4m3fn);
   DEFINE_LOAD_METHOD(bf16, nv_bfloat16, nv_bfloat16);
   DEFINE_LOAD_METHOD(i4, nv_int4, nv_int4);
+
+  // Define i1 load specially to enforce truncation. Otherwise, the Lua
+  // comparisons might not work correctly.
+  lua["_load_i1"] = [](uintptr_t pointer, size_t offset) -> int8_t {
+    ADD_CORE_MODULE_RANGE("core_load_i1");
+    return 0x1 & *reinterpret_cast<const int8_t *>(pointer + offset);
+  };
 #undef DEFINE_LOAD_METHOD
 
 // Create a method `executor_store_[suffix]` that stores a value of type

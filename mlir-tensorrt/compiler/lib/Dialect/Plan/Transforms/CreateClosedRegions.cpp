@@ -353,7 +353,7 @@ static void remapAnalysisState(DataFlowSolver &solver, ValueRange originals,
 
 static FailureOr<SmallVector<BoundsAttr>>
 getInputAttributes(RewriterBase &rewriter, DataFlowSolver &solver, Location loc,
-                   const ValueRange &inputs) {
+                   ValueRange inputs) {
   // Compute input tensor kinds.
   SmallVector<TensorKindInfo> inputTensorKinds;
   inputTensorKinds.reserve(inputs.size());
@@ -364,10 +364,11 @@ getInputAttributes(RewriterBase &rewriter, DataFlowSolver &solver, Location loc,
     }
     const TensorKindLattice *tensorKindLattice =
         solver.lookupState<TensorKindLattice>(input);
-    if (!tensorKindLattice || tensorKindLattice->getValue().isUninitialized())
-      return emitError(loc)
-             << "input operand #" << idx << " of type " << input.getType()
-             << " does not have a TensorKind associated with it";
+    if (!tensorKindLattice || tensorKindLattice->getValue().isUninitialized()) {
+      inputTensorKinds.push_back(TensorKindInfo());
+      continue;
+    }
+
     inputTensorKinds.push_back(tensorKindLattice->getValue());
   }
 
@@ -376,7 +377,7 @@ getInputAttributes(RewriterBase &rewriter, DataFlowSolver &solver, Location loc,
   inputAttrs.reserve(inputTensorKinds.size());
   for (auto [idx, input] : llvm::enumerate(inputs)) {
     auto tensorType = dyn_cast<RankedTensorType>(input.getType());
-    if (!tensorType) {
+    if (!tensorType || inputTensorKinds[idx].isUninitialized()) {
       inputAttrs.push_back(BoundsAttr::get(rewriter.getContext()));
       continue;
     }
@@ -391,8 +392,19 @@ getInputAttributes(RewriterBase &rewriter, DataFlowSolver &solver, Location loc,
                << " does not have value bounds information attached";
 
       plan::BoundsArray bounds = lattice->getValue();
-      if (bounds.isUninitialized())
+      if (bounds.isUninitialized()) {
+        // TensorKindAnalysis may classify a tensor as being host-visible even
+        // if it does not have integer or index element type. This can occur if
+        // e.g. there is a `tensor.extract` present, such that must be lowered
+        // into a host access. However, our bounds analysis and attributes only
+        // deal with integer tensors, so populate an empty bounds attribute if
+        // this is not an integer tensor.
+        if (!isa<IntegerType, IndexType>(tensorType.getElementType())) {
+          inputAttrs.push_back(BoundsAttr::get(rewriter.getContext()));
+          continue;
+        }
         bounds = BoundsArray::getMaxRangeForValueBounds(input);
+      }
       auto [lbAttr, ubAttr] = bounds.getAsElementsAttr(tensorType);
 
       BoundsAttr boundsAttr = BoundsAttr::getChecked(

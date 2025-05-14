@@ -151,3 +151,74 @@ func.func @conv3d_ndhwc_drsck_no_padding_dilated(
 //  CHECK-SAME:        {batch_group_count = 1 : i64, feature_group_count = 1 : i64} : (tensor<1x2x32x64x32xf32>, tensor<128x2x3x3x3xf32>) -> tensor<1x128x28x62x30xf32>
 //       CHECK:     %[[v3:.+]] = stablehlo.transpose %[[v2]], dims = [0, 2, 3, 4, 1] : (tensor<1x128x28x62x30xf32>) -> tensor<1x28x62x30x128xf32>
 //       CHECK:     return %[[v3]] : tensor<1x28x62x30x128xf32>
+
+// -----
+
+// TODO: the pattern should be updated to handle this case
+
+func.func @conv2d_permuted_spatial_dims(%arg0: tensor<4x7x2x6xbf16>,
+              %arg1: tensor<5x2x3x4xbf16>) -> tensor<2x2x5x5xbf16> {
+  %0 = stablehlo.convolution(%arg0, %arg1)
+     dim_numbers = [f, 0, b, 1]x[o, 0, 1, i]->[1, b, f, 0],
+     window = {stride = [1, 2], pad = [[0, 0], [0, 0]],
+      lhs_dilate = [1, 1], rhs_dilate = [2, 1],
+      reverse = [false, false]}
+      {
+       batch_group_count = 1 : i64, feature_group_count = 1 : i64,
+       precision_config = [#stablehlo<precision DEFAULT>, #stablehlo<precision HIGHEST>]
+      } : (tensor<4x7x2x6xbf16>, tensor<5x2x3x4xbf16>) -> tensor<2x2x5x5xbf16>
+  return %0 : tensor<2x2x5x5xbf16>
+}
+
+// CHECK-LABEL: func.func @conv2d_permuted_spatial_dims
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<4x7x2x6xbf16>, %[[arg1:.+]]: tensor<5x2x3x4xbf16>) -> tensor<2x2x5x5xbf16> {
+//       CHECK:     %[[v0:.+]] = stablehlo.convolution(%[[arg0]], %[[arg1]])
+//  CHECK-SAME:      dim_numbers = [f, 0, b, 1]x[o, 0, 1, i]->[1, b, f, 0]
+//       CHECK:     return %[[v0]] : tensor<2x2x5x5xbf16>
+
+// -----
+
+/// Convolution without spatial dimensions is `stablehlo.dot`.
+func.func @no_spatial_dims(%arg0: tensor<10x5xf32>, %arg1: tensor<5x7xf32>)
+    -> tensor<10x7xf32> {
+  %0 = stablehlo.convolution(%arg0, %arg1) dim_numbers = [b, f]x[i, o]->[b, f], 
+    window = {
+      stride = [], 
+      pad = [], 
+      lhs_dilate = [], 
+      rhs_dilate = [], 
+      reverse = []
+    } {batch_group_count = 1 : i64, feature_group_count = 1 : i64, 
+       precision_config = [#stablehlo<precision DEFAULT>, #stablehlo<precision DEFAULT>]
+    } : (tensor<10x5xf32>, tensor<5x7xf32>) -> tensor<10x7xf32>
+  return %0 : tensor<10x7xf32>
+}
+
+// CHECK-LABEL: func.func @no_spatial_dims
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<10x5xf32>, %[[arg1:.+]]: tensor<5x7xf32>) -> tensor<10x7xf32>
+//       CHECK:     %[[v0:.+]] = stablehlo.dot_general %[[arg0]], %[[arg1]], contracting_dims = [1] x [0], precision = [DEFAULT, DEFAULT] : (tensor<10x5xf32>, tensor<5x7xf32>) -> tensor<10x7xf32>
+//       CHECK:     return %[[v0]] : tensor<10x7xf32>
+
+// -----
+
+/// Convolution without spatial dimensions is `stablehlo.dot`.
+func.func @reversed_no_spatial_dims(%arg0: tensor<5x10xf32>, %arg1: tensor<7x5xf32>)
+    -> tensor<10x7xf32> {
+  %0 = stablehlo.convolution(%arg0, %arg1) dim_numbers = [f, b]x[o, i]->[b, f], 
+    window = {
+      stride = [], 
+      pad = [], 
+      lhs_dilate = [], 
+      rhs_dilate = [], 
+      reverse = []
+    } {batch_group_count = 1 : i64, feature_group_count = 1 : i64, 
+       precision_config = [#stablehlo<precision DEFAULT>, #stablehlo<precision DEFAULT>]
+    } : (tensor<5x10xf32>, tensor<7x5xf32>) -> tensor<10x7xf32>
+  return %0 : tensor<10x7xf32>
+}
+
+
+// CHECK-LABEL: func.func @reversed_no_spatial_dims
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<5x10xf32>, %[[arg1:.+]]: tensor<7x5xf32>)
+//       CHECK:     %[[v0:.+]] = stablehlo.dot_general %[[arg0]], %[[arg1]], contracting_dims = [0] x [1], precision = [DEFAULT, DEFAULT] : (tensor<5x10xf32>, tensor<7x5xf32>) -> tensor<10x7xf32>
+//       CHECK:     return %[[v0]] : tensor<10x7xf32>

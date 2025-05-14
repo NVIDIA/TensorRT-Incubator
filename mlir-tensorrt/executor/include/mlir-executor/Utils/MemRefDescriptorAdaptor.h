@@ -128,17 +128,27 @@ public:
   }
 
   /// Builds IR extracting the allocated pointer from the descriptor.
-  Value allocatedPtr(ImplicitLocOpBuilder &b) const {
-    return extractValue(b, kAllocatedPtrPosInMemRefDescriptor);
+  Value allocatedPtr(OpBuilder &b, Location loc) const {
+    return extractValue(b, loc, kAllocatedPtrPosInMemRefDescriptor);
   }
+  Value allocatedPtr(ImplicitLocOpBuilder &b) const {
+    return allocatedPtr(b, b.getLoc());
+  }
+
   /// Builds IR inserting the allocated pointer into the descriptor.
+  void setAllocatedPtr(OpBuilder &b, Location loc, Value ptr) {
+    insertValue(b, loc, kAllocatedPtrPosInMemRefDescriptor, ptr);
+  }
   void setAllocatedPtr(ImplicitLocOpBuilder &b, Value ptr) {
-    insertValue(b, kAllocatedPtrPosInMemRefDescriptor, ptr);
+    setAllocatedPtr(b, b.getLoc(), ptr);
   }
 
   /// Builds IR extracting the aligned pointer from the descriptor.
+  Value alignedPtr(OpBuilder &b, Location loc) const {
+    return extractValue(b, loc, kAlignedPtrPosInMemRefDescriptor);
+  }
   Value alignedPtr(ImplicitLocOpBuilder &b) const {
-    return extractValue(b, kAlignedPtrPosInMemRefDescriptor);
+    return alignedPtr(b, b.getLoc());
   }
 
   /// Builds IR inserting the aligned pointer into the descriptor.
@@ -147,13 +157,14 @@ public:
   }
 
   /// Builds IR extracting the offset from the descriptor.
-  Value offset(ImplicitLocOpBuilder &b) const {
+  Value offset(OpBuilder &b, Location loc) const {
     auto [strides, offset] =
         const_cast<MemRefType &>(memrefType).getStridesAndOffset();
     if (!ShapedType::isDynamic(offset))
-      return constantBuilder(b, b.getLoc(), indexType, offset);
-    return extractValue(b, kOffsetPosInMemRefDescriptor);
+      return constantBuilder(b, loc, indexType, offset);
+    return extractValue(b, loc, kOffsetPosInMemRefDescriptor);
   }
+  Value offset(ImplicitLocOpBuilder &b) const { return offset(b, b.getLoc()); }
 
   /// Builds IR inserting the offset into the descriptor.
   void setOffset(ImplicitLocOpBuilder &b, Value offset) {
@@ -161,11 +172,13 @@ public:
   }
 
   /// Builds IR extracting the pos-th size from the descriptor.
-  virtual Value size(ImplicitLocOpBuilder &b, unsigned pos) const {
+  virtual Value size(OpBuilder &b, Location loc, unsigned pos) const {
     if (memrefType.getDimSize(pos) != ShapedType::kDynamic)
-      return constantBuilder(b, b.getLoc(), indexType,
-                             memrefType.getDimSize(pos));
-    return extractValue(b, kSizePosInMemRefDescriptor + pos);
+      return constantBuilder(b, loc, indexType, memrefType.getDimSize(pos));
+    return extractValue(b, loc, kSizePosInMemRefDescriptor + pos);
+  }
+  Value size(ImplicitLocOpBuilder &b, unsigned pos) const {
+    return size(b, b.getLoc(), pos);
   }
 
   /// Builds IR inserting the pos-th size into the descriptor
@@ -174,9 +187,12 @@ public:
   }
 
   /// Builds IR extracting the pos-th size from the descriptor.
-  virtual Value stride(ImplicitLocOpBuilder &b, unsigned pos) const {
-    return extractValue(b, kSizePosInMemRefDescriptor + memrefType.getRank() +
-                               pos);
+  virtual Value stride(OpBuilder &b, Location loc, unsigned pos) const {
+    return extractValue(
+        b, loc, kSizePosInMemRefDescriptor + memrefType.getRank() + pos);
+  }
+  Value stride(ImplicitLocOpBuilder &b, unsigned pos) const {
+    return stride(b, b.getLoc(), pos);
   }
 
   /// Builds IR inserting the pos-th stride into the descriptor

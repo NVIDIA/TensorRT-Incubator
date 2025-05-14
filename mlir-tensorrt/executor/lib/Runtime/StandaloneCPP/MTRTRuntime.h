@@ -185,14 +185,10 @@ CUfunction cuda_module_get_func(CUmodule module, const char *name);
 /// a CUDA kernel launch.
 /// Arguments will be pushed into 'array' starting at 0-th offset and the
 /// pointer to the ending position is returned.
-template <unsigned Rank>
-void **cuda_launch_args_push(void **array, const RankedMemRef<Rank> &memref) {
-  array[0] = const_cast<void **>(&memref.allocated);
-  array[1] = const_cast<void **>(&memref.aligned);
-  array[2] = const_cast<int64_t *>(&memref.offset);
-  for (unsigned idx = 3; idx < 3 + 2 * Rank; ++idx)
-    array[idx] = const_cast<int64_t *>(&memref.shapeAndStrides[idx]);
-  return array + 3 + 2 * Rank;
+inline void **cuda_launch_args_push(void **array,
+                                    const RankedMemRef<0> &memref) {
+  array[0] = const_cast<void **>(&memref.aligned);
+  return array + 1;
 }
 
 /// Launch a simple CUDA kernel.

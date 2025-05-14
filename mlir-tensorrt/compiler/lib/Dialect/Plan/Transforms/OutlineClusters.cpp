@@ -75,6 +75,9 @@ createFunctionsFromRegions(InputKind inputKind, RewriterBase &rewriter,
     if (!isa<plan::InlineGroupOp, plan::InlineClosedGroupOp,
              plan::InlineClosedAllocGroupOp>(op))
       return WalkResult::advance();
+
+    ClusterKindAttrInterface backend = getClusterTargetForRegionOp(op);
+
     /// TODO: currently the interface has two different ways to specify
     /// outlining. We should reduce this to a single interface method.
     FailureOr<OutlineRegionOptions> opts =
@@ -88,11 +91,11 @@ createFunctionsFromRegions(InputKind inputKind, RewriterBase &rewriter,
         return WalkResult::interrupt();
       }
       auto [outlinedFunc, callOperands] = *outlineResult;
+      outlinedFunc->setAttr(plan::PlanDialect::kFuncTargetKind, backend);
       outlinedFuncs.push_back(outlinedFunc);
       return WalkResult::advance();
     }
 
-    ClusterKindAttrInterface backend = getClusterTargetForRegionOp(op);
     if (failed(backend.outlineClosedCluster(inputKind, rewriter, op,
                                             moduleSymbolTable)))
       return WalkResult::interrupt();
