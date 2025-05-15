@@ -3,12 +3,13 @@ add_mlir_executor_library(MLIRTensorRTTargetLua
   TranslateToRuntimeExecutable.cpp
 
   LINK_LIBS PUBLIC
-  MLIRTensorRTExecutorDialect
-  MLIRTensorRTExecutorRuntimeAPI
+  MLIRExecutorSerializationUtils
   MLIRFuncDialect
+  MLIRIR
   MLIRMemRefDialect
   MLIRSCFDialect
-  MLIRIR
   MLIRSupport
+  MLIRTensorRTExecutorDialect
+  MLIRTensorRTExecutorRuntimeAPI
   MLIRTranslateLib
 )

@@ -1,5 +1,5 @@
 if(MLIR_TRT_ENABLE_HLO)
-  add_subdirectory(StableHloExt)
+  add_subdirectory(StablehloExt)
   add_subdirectory(Plan)
 endif()
 

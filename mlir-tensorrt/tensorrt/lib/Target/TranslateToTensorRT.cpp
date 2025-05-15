@@ -243,12 +243,6 @@ TensorRTTranslationOptions TensorRTTranslationOptions::fromCLFlags() {
   return options;
 }
 
-namespace {
-
-template <typename T>
-using TRTUniquePtr = nvinfer1::adaptor::UniquePtr<T>;
-} // namespace
-
 //===----------------------------------------------------------------------===//
 // Logger
 //===----------------------------------------------------------------------===//
@@ -409,7 +403,7 @@ tensorrt::buildFunction(mlir::FunctionOpInterface op,
               "TensorRT >= 9.1, certain bugs in TensorRT 9.x make the feature "
               "inadvisable for use prior to TensorRT 10.0";
 
-  TRTUniquePtr<nvinfer1::INetworkDefinition> network =
+  std::unique_ptr<nvinfer1::INetworkDefinition> network =
       nvinfer1::adaptor::createNetworkV2(builder, networkCreationFlags);
   if (network == nullptr)
     return failure();
@@ -431,7 +425,7 @@ tensorrt::buildFunction(mlir::FunctionOpInterface op,
 
   // Build the network.
   auto config =
-      TRTUniquePtr<nvinfer1::IBuilderConfig>(builder->createBuilderConfig());
+      std::unique_ptr<nvinfer1::IBuilderConfig>(builder->createBuilderConfig());
   config->addOptimizationProfile(optimProfile);
 
   TensorRTVersion loadedTRTVersion = TensorRTVersion::getLoadedVersion();
@@ -532,7 +526,7 @@ tensorrt::buildFunction(mlir::FunctionOpInterface op,
 
   // Write timing cache
   if (opts.enableTimingCache) {
-    TRTUniquePtr<nvinfer1::IHostMemory> updatedTimingCache(
+    std::unique_ptr<nvinfer1::IHostMemory> updatedTimingCache(
         config->getTimingCache()->serialize());
     serializedTimingCache.replaceWith(mlir::ArrayRef(
         reinterpret_cast<const char *>(updatedTimingCache->data()),

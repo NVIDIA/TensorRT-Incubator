@@ -63,7 +63,12 @@ class Plan_GroupOpBase<string mnemonic, list<Trait> traits = []>
   }];
 
   let extraClassDefinition = [{
+    /// Returns the terminator of the body if it has been created,
+    /// otherwise returns nullptr.
     plan::YieldOp $cppClass::getYield() {
+      // Check to make sure the body has been created.
+      if((*this)->getNumRegions() != 1 || !(*this)->getRegion(0).hasOneBlock())
+        return nullptr;
       return cast<plan::YieldOp>(getBodyBlock()->getTerminator());
     }
   }];

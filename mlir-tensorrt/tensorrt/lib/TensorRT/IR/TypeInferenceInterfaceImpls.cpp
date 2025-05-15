@@ -372,23 +372,6 @@ LogicalResult tensorrt::GatherElementsOp::inferReturnTypeComponents(
 }
 
 //===----------------------------------------------------------------------===//
-// Identity84Op
-//===----------------------------------------------------------------------===//
-
-LogicalResult tensorrt::Identity84Op::inferReturnTypeComponents(
-    MLIRContext *ctx, std::optional<Location> loc, ValueShapeRange operands,
-    DictionaryAttr attributes, OpaqueProperties properties, RegionRange regions,
-    SmallVectorImpl<ShapedTypeComponents> &inferredReturnShapes) {
-  Identity84Op::Adaptor adaptor(operands, attributes, properties, regions);
-  auto rtt = dyn_cast<RankedTensorType>(adaptor.getInput().getType());
-  if (!rtt)
-    return emitOptionalError(loc, "expected input to be a ranked tensor");
-  inferredReturnShapes.emplace_back(/*vec=*/rtt.getShape(),
-                                    /*attr=*/nullptr);
-  return success();
-}
-
-//===----------------------------------------------------------------------===//
 // IdentityOp
 //===----------------------------------------------------------------------===//
 

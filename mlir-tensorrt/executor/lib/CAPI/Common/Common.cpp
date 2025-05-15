@@ -142,10 +142,10 @@ MTRT_Status mtrtExecutableGetDataSegmentInfo(MTRT_Executable executable,
                                              MTRT_StringView *name) {
   assert(data && name && "expected valid data and name output arguments");
   const Executable *exe = unwrap(executable);
-  if (index < 0 || index >= exe->getNumDataSegments()) {
+  if (index < 0 || index >= static_cast<int64_t>(exe->getNumDataSegments()))
     return mtrtStatusCreate(MTRT_StatusCode::MTRT_StatusCode_InvalidArgument,
                             "Invalid data segment index");
-  }
+
   const DataSegmentInfo segment = exe->getDataSegments(index);
   *data = mtrtStringViewCreate(reinterpret_cast<const char *>(segment.data()),
                                segment.size());

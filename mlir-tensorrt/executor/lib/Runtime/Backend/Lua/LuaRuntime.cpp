@@ -42,6 +42,10 @@
 #include "llvm/Support/ManagedStatic.h"
 #include <memory>
 
+#ifdef MLIR_EXECUTOR_ENABLE_CUDA
+#include "cuda_runtime_api.h"
+#endif
+
 #if defined(__clang__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wgnu-zero-variadic-macro-arguments"
@@ -153,6 +157,101 @@ private:
   sol::state luaState;
 };
 
+/// Load a data segment into the Lua state.
+///
+/// If the data segment is not initialized, then we return an error.
+/// If the data segment is not aligned to the minimum alignment, then we
+/// allocate a new buffer and copy the data into it.
+/// Otherwise, we use an pointer to the data segment in the executable memory.
+static Status loadHostDataSegment(sol::state_view &lua,
+                                  const DataSegmentInfo &segment,
+                                  RuntimeSession *session) {
+  assert((segment.getAddressSpace() == PointerType::host ||
+          segment.getAddressSpace() == PointerType::pinned_host) &&
+         "expected host address space");
+  const size_t bytes = segment.size();
+  if (segment.isUninitialized()) {
+    MTRT_ASSIGN_OR_RETURN(
+        StatusOr<PointerInfo> buffer,
+        mlirtrt::runtime::allocate(session->getAllocTracker(),
+                                   segment.getAddressSpace(), bytes,
+                                   segment.getAlignment(), {}));
+    lua[segment.getName()] = buffer->ptr;
+    return getOkStatus();
+  }
+
+  if (!llvm::isAddrAligned(llvm::Align(segment.getAlignment()),
+                           segment.data())) {
+    MTRT_WARNV("constant (name={0}, size={1}) is not aligned to minimum "
+               "{2} bytes; copying into aligned buffer",
+               segment.getName(), segment.size(), segment.getAlignment());
+    MTRT_ASSIGN_OR_RETURN(
+        StatusOr<PointerInfo> buffer,
+        mlirtrt::runtime::allocate(session->getAllocTracker(),
+                                   segment.getAddressSpace(), bytes,
+                                   segment.getAlignment(), {}));
+    std::memcpy(reinterpret_cast<void *>(buffer->ptr),
+                reinterpret_cast<const void *>(segment.data()), bytes);
+    lua[segment.getName()] = buffer->ptr;
+    return getOkStatus();
+  }
+
+  // Otherwise, just use an external view.
+  lua[segment.getName()] = reinterpret_cast<uintptr_t>(segment.data());
+  session->getAllocTracker().track(
+      PointerInfo(reinterpret_cast<uintptr_t>(segment.data()), segment.size(),
+                  PointerType::host, PointerOwner::external));
+
+  return getOkStatus();
+}
+
+/// Load a device data segment into the Lua state.
+static Status loadDeviceDataSegment(sol::state_view &lua,
+                                    const DataSegmentInfo &segment,
+                                    RuntimeSession *session) {
+#ifdef MLIR_EXECUTOR_ENABLE_CUDA
+  assert(segment.getAddressSpace() == PointerType::device &&
+         "expected host address space");
+  const size_t bytes = segment.size();
+
+  MTRT_ASSIGN_OR_RETURN(
+      StatusOr<PointerInfo> buffer,
+      mlirtrt::runtime::allocate(session->getAllocTracker(),
+                                 segment.getAddressSpace(), bytes,
+                                 kMinConstantBufferByteAlignment, {}));
+
+  lua[segment.getName()] = buffer->ptr;
+
+  // No initialization data.
+  if (segment.isUninitialized())
+    return getOkStatus();
+
+  // Copy initial data into buffer.
+  RETURN_ERROR_IF_CUDART_ERROR(
+      cudaMemcpy(reinterpret_cast<void *>(buffer->ptr),
+                 reinterpret_cast<const void *>(segment.data()), bytes,
+                 cudaMemcpyHostToDevice));
+  return getOkStatus();
+#else
+  return getInternalErrorStatus("runtime not compiled with CUDA support");
+#endif
+}
+
+static Status loadDataSegment(sol::state_view &lua,
+                              const DataSegmentInfo &segment,
+                              RuntimeSession *session) {
+  if (segment.getAddressSpace() == PointerType::host ||
+      segment.getAddressSpace() == PointerType::pinned_host)
+    return loadHostDataSegment(lua, segment, session);
+
+  if (segment.getAddressSpace() == PointerType::device)
+    return loadDeviceDataSegment(lua, segment, session);
+
+  return getInternalErrorStatus(
+      "global {0} has unsupported address space {1}", segment.getName(),
+      impl::EnumNamePointerType(segment.getAddressSpace()));
+}
+
 LuaRuntimeSession::LuaRuntimeSession(RuntimeSessionOptions options,
                                      ExecutableView executable)
     : RuntimeSession(std::move(options), std::move(executable)),
@@ -188,31 +287,9 @@ LuaRuntimeSession::create(RuntimeSessionOptions options,
   // TODO: eliminate this copy, we already own the executable.
   if (session->getExecutable()) {
     ExecutableView executable = session->getExecutable();
-    MTRT_DBGF("loading %lu constants", executable.getConstants().size());
-    for (DataSegmentInfo constant : executable.getConstants()) {
-      size_t bytes = constant.size();
-      if (!llvm::isAddrAligned(llvm::Align(kMinConstantBufferByteAlignment),
-                               constant.data())) {
-        MTRT_WARNV("constant (name={0}, size={1}) is not aligned to minimum "
-                   "{2} bytes copying into runtime session context",
-                   constant.getName(), constant.size(),
-                   kMinConstantBufferByteAlignment);
-        MTRT_ASSIGN_OR_RETURN(StatusOr<PointerInfo> buffer,
-                              mlirtrt::runtime::allocate(
-                                  session->getAllocTracker(), PointerType::host,
-                                  bytes, kMinConstantBufferByteAlignment, {}));
-        std::memcpy(reinterpret_cast<void *>(buffer->ptr),
-                    reinterpret_cast<const void *>(constant.data()), bytes);
-        lua[constant.getName()] = buffer->ptr;
-        continue;
-      }
-
-      // Otherwise, just use an external view.
-      lua[constant.getName()] = reinterpret_cast<uintptr_t>(constant.data());
-      session->getAllocTracker().track(PointerInfo(
-          reinterpret_cast<uintptr_t>(constant.data()), constant.size(),
-          PointerType::host, PointerOwner::external));
-    }
+    MTRT_DBGF("loading %lu constants", executable.getDataSegments().size());
+    for (DataSegmentInfo segment : executable.getDataSegments())
+      MTRT_RETURN_IF_ERROR(loadDataSegment(lua, segment, session.get()));
 
     // Load the main Lua script.
     sol::protected_function_result result =

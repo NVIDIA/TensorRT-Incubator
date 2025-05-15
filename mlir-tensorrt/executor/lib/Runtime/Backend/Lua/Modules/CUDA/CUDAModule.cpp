@@ -285,8 +285,8 @@ registerCudaMemoryManagementOps(sol::state_view &lua,
                             int32_t gridX, int32_t gridY, int32_t gridZ,
                             int32_t blockX, int32_t blockY, int32_t blockZ,
                             int32_t dynamicSharedMemory,
-                            CudaStreamPtr streamPtr, uintptr_t callArgsHostPtr,
-                            uint32_t /*numCallArgs*/) {
+                            CudaStreamPtr streamPtr,
+                            uintptr_t callArgsHostPtr) {
     assert(cudaFuncPtr);
     assert(callArgsHostPtr);
     assert(streamPtr);
@@ -522,14 +522,17 @@ registerCudaMemoryManagementOps(sol::state_view &lua,
     }
 #endif
     MTRT_DBGF(
-        "executor_memcpy device-device %lu bytes from %lx + %lu to %lx to %lu",
-        numBytes, src, srcOffset, dest, destOffset);
+        "executor_memcpy device-device %lu bytes from %p + %lu to %p to %lu",
+        numBytes, reinterpret_cast<void *>(src), srcOffset,
+        reinterpret_cast<void *>(dest), destOffset);
     SET_LUA_ERROR_IF_CUDART_ERROR(cudaMemcpyAsync(dstPtr, srcPtr, numBytes,
                                                   cudaMemcpyDeviceToDevice,
                                                   stream),
                                   state);
     // Check if the source pointer is marked for release after consumption
     if (allocTracker->isMarkedForReleaseAfterConsumption(src)) {
+      MTRT_DBGF("executor_memcpy device-device: freeing src pointer %p",
+                reinterpret_cast<void *>(src));
       // This pointer was allocated by TensorRT and used in a device-device
       // or device-host copy operation. It's not wrapped in a memref, so it
       // won't be released by external memref destruction. We need to

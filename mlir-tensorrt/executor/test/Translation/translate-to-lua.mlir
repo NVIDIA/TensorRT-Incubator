@@ -992,3 +992,34 @@ func.func @coro_await() -> (i32) {
 //   CHECK-NEXT:  local [[v6:.+]], [[v7:.+]] <const> = coroutine.resume([[v3]]);
 //   CHECK-NEXT:  return [[v7]];
 //   CHECK-NEXT: end
+
+// -----
+
+func.func @test_values_with_external_use(%arg0: i32) -> i32 {
+  %c1 = executor.constant 1 : i32
+  cf.br ^bb0
+  ^bb0:
+    %1 = executor.addi %arg0, %c1 : i32
+    %2 = executor.subi %arg0, %c1 : i32
+    cf.br ^bb1
+  ^bb1:
+    %3 = executor.addi %1, %2 : i32
+    return %3 : i32
+}
+
+//  CHECK-LABEL: function test_values_with_external_use
+//   CHECK-SAME:  ([[v1:.+]])
+//   CHECK-NEXT:   local [[v2:.+]] = nil;
+//   CHECK-NEXT:   local [[v3:.+]] = nil;
+//   CHECK-NEXT:   local [[v4:.+]] <const> = 1;
+//   CHECK-NEXT:   goto label1;
+//   CHECK-NEXT:   ::label1:: do
+//   CHECK-NEXT:     [[v2]] = [[v1]] + [[v4]];
+//   CHECK-NEXT:     [[v3]] = [[v1]] - [[v4]];
+//   CHECK-NEXT:     goto label2;
+//   CHECK-NEXT:   end
+//   CHECK-NEXT:   ::label2:: do
+//   CHECK-NEXT:     local [[v5:.+]] <const> = [[v2]] + [[v3]];
+//   CHECK-NEXT:     return [[v5]];
+//   CHECK-NEXT:   end
+//   CHECK-NEXT: end

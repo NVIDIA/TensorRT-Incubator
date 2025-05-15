@@ -37,6 +37,17 @@
 namespace mlir {
 namespace plan {
 
+namespace detail {
+/// Shorthand adaptor for declaring LLVM CL options for the InputKind
+/// enum used by different Plan segmentation passes.
+inline llvm::cl::ValuesClass createInputKindClOptions() {
+  return ::llvm::cl::values(
+      clEnumValN(InputKind::Stablehlo, "stablehlo", "StableHLO IR"),
+      clEnumValN(InputKind::TensorRT, "tensorrt", "TensorRT IR"),
+      clEnumValN(InputKind::Linalg, "linalg", "Linalg IR"));
+}
+} // namespace detail
+
 struct ClusterTargetOption;
 
 #define GEN_PASS_DECL

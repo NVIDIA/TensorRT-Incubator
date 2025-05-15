@@ -11,7 +11,7 @@ add_mlir_pdll_library(MLIRTensorRTTransformsNormalizationsPdllGen
 )
 
 add_mtrtd_library(MLIRTensorRTTransforms
-  ApplyBugWorkarounds.cpp
+  ApplyWorkarounds.cpp
   BroadcastElimination.cpp
   ExpandOps.cpp
   InferPluginShapes.cpp

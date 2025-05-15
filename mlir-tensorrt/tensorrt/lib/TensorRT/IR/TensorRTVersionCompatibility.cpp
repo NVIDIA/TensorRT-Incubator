@@ -323,6 +323,16 @@ bool tensorrt::IdentityOp::isValidForTensorRTVersion(int64_t trtMajorVersion) {
   // TODO: Identity is deprecated. Return false once migrated to cast.
   case 9:
   case 10:
+    // There are three separate rules according to the documentation:
+    // (kFLOAT | kHALF | kINT32 | kBOOL | kBFLOAT16) -> (kFLOAT | kHALF | kINT32
+    // | kBOOL | kBFLOAT16)
+    // (kFLOAT | kHALF) -> kUINT8
+    // kUINT8 -> (kFLOAT | kHALF)
+    // However, we allow all combinations during operation creation. kUINT8 is
+    // special and
+    //  `* -> kUINT8 -> *` conversions for unsupported types are handled in the
+    // `ApplyWorkaroundsPass` pass. We hope to avoid breaking TensorRT graphs
+    // with this approach.
     return isType(srcElementType, I1, UI8, I8, I32, F16, BF16, F32) &&
            isType(targetElementType, I1, UI8, I8, I32, F16, BF16, F32);
   default:

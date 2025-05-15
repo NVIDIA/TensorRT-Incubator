@@ -187,6 +187,14 @@ private:
   TensorKindInfo value;
 };
 
+namespace detail {
+/// Returns true if the given value is a candidate for a host tensor based on
+/// its type information. It must be a statically-shaped integer tensor with
+/// fewer than 8 elements.
+bool isHostTensorCandidate(Type type);
+
+} // namespace detail
+
 } // namespace mlir
 
 // Include the generated interface declarations.

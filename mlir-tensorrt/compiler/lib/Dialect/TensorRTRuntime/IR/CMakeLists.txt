@@ -8,11 +8,13 @@ add_mlir_tensorrt_dialect_library(MLIRTensorRTTensorRTRuntimeDialect
   MLIRTensorRTRuntimeOpsIncGen
 
   LINK_LIBS PUBLIC
-  MLIRIR
+  MLIRBufferizationDialect
   MLIRDialect
-  MLIRSupport
-  MLIRFuncDialect
-  MLIRTensorRTDialect
-  MLIRTensorRTCUDADialect
   MLIRExecutorCommonUtils
+  MLIRFuncDialect
+  MLIRIR
+  MLIRMemRefDialect
+  MLIRSupport
+  MLIRTensorRTCUDADialect
+  MLIRTensorRTDialect
   )

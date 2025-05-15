@@ -73,10 +73,10 @@ void StablehloToExecutableTensorRTExtension::populatePasses(
     // Simplify and translate functions nested in `tensorrt.module` ops.
     auto &trtPM = pm.nest<tensorrt::TensorRTModuleOp>();
 
-    tensorrt::ApplyBugWorkaroundsPassOptions bugWAROptions = {};
-    bugWAROptions.tensorrtStronglyTyped = translationOpts.enableStronglyTyped;
-    bugWAROptions.forceDefaultSliceInBounds = this->forceDefaultSliceInBounds;
-    tensorrt::buildTensorRTModuleTransformationPipeline(trtPM, bugWAROptions);
+    tensorrt::ApplyWorkaroundsPassOptions trtWAROptions = {};
+    trtWAROptions.tensorrtStronglyTyped = translationOpts.enableStronglyTyped;
+    trtWAROptions.forceDefaultSliceInBounds = this->forceDefaultSliceInBounds;
+    tensorrt::buildTensorRTModuleTransformationPipeline(trtPM, trtWAROptions);
 
     trtPM.addPass(
         tensorrt::createTranslateTensorRTPass(nullptr, translationOpts));

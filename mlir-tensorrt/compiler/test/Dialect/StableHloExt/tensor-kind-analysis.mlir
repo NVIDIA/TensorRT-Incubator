@@ -1,4 +1,4 @@
-// RUN: mlir-tensorrt-opt -split-input-file -test-tensor-kind-analysis %s 2>&1 | FileCheck %s
+// RUN: mlir-tensorrt-opt -split-input-file -test-tensor-kind-analysis %s 2>&1 >/dev/null | FileCheck %s
 
 func.func @test_ewise(%arg0: tensor<1xi32>) -> tensor<i1> {
   %cst_i32 = stablehlo.constant dense<10> : tensor<1xi32>
@@ -79,6 +79,28 @@ func.func @test_slice_backward_infer2(%arg0: tensor<10xf32>, %arg1: tensor<1xi32
 // CHECK-NEXT:  operand #1: device
 // CHECK-NEXT:  result #0: device
 
+// -----
+
+func.func @test_max_size_limit(%arg0: tensor<10xf32>, %arg1: tensor<i32>) -> f32 {
+  %0 = "stablehlo.dynamic_slice"(%arg0, %arg1) {
+    slice_sizes = array<i64: 1>,
+    tag = "dynamic_slice"
+  } : (tensor<10xf32>, tensor<i32>) -> tensor<1xf32>
+  %c0 = arith.constant 0 : index
+  %1 = tensor.extract %0[%c0] {tag = "extract"} : tensor<1xf32>
+  return %1 : f32
+}
+
+// CHECK-LABEL: func test_max_size_limit:
+// CHECK-NEXT:  arg #0: device
+// CHECK-NEXT:  arg #1: both
+// CHECK-NEXT: test_tag: dynamic_slice:
+// CHECK-NEXT:  operand #0: device
+// CHECK-NEXT:  operand #1: both
+// CHECK-NEXT:  result #0: host
+// CHECK-NEXT: test_tag: extract:
+// CHECK-NEXT:  operand #0: host
+// CHECK-NEXT:  operand #1: <<uninitialized>>
 
 // -----
 

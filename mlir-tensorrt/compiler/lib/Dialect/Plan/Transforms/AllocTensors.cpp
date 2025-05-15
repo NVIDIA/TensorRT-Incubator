@@ -26,6 +26,7 @@
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/ModuleBufferization/ModuleBufferization.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
+#include "mlir-tensorrt/Utils/DataFlowUtils.h"
 #include "mlir-tensorrt/Utils/ModuleUtils.h"
 #include "mlir/Analysis/DataFlow/ConstantPropagationAnalysis.h"
 #include "mlir/Analysis/DataFlow/DeadCodeAnalysis.h"
@@ -42,7 +43,6 @@
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Dialect/Utils/IndexingUtils.h"
-#include "mlir/IR/Value.h"
 #include "mlir/Interfaces/CallInterfaces.h"
 #include "mlir/Interfaces/LoopLikeInterface.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
@@ -73,63 +73,6 @@ using bufferization::func_ext::FuncOpAnalysisState;
 
 static constexpr int64_t kHostConstantToFromElementsNumElementsLimit = 16;
 
-namespace {
-
-/// Remap relevant analysis state of type T from `original` to `replacement`.
-template <typename T>
-static void remapLatticeState(DataFlowSolver &solver, Value original,
-                              Value replacement) {
-  if constexpr (!std::is_same_v<T, dataflow::Executable>) {
-    if (const T *lattice = solver.lookupState<T>(original)) {
-      T *latticeReplacement = solver.getOrCreateState<T>(replacement);
-      latticeReplacement->getValue() = lattice->getValue();
-    }
-  } else {
-    // do nothing for liveness analysis for the moment except create the state
-    if (const auto *oldState =
-            solver.lookupState<dataflow::Executable>(original)) {
-      dataflow::Executable *newState = solver.getOrCreateState<T>(replacement);
-      // Set to live if old state is live. We ignore change status.
-      if (oldState->isLive())
-        (void)newState->setToLive();
-    }
-  }
-}
-
-/// A rewrite listener that transfers replacements to updates to the solver
-/// state.
-class SolverStateListener : public RewriterBase::Listener {
-public:
-  SolverStateListener(DataFlowSolver &solver)
-      : RewriterBase::Listener(), solver(solver) {}
-
-private:
-  void notifyOperationReplaced(Operation *op,
-                               ValueRange replacements) override {
-    for (auto [original, replacement] :
-         llvm::zip_equal(op->getResults(), replacements)) {
-      remapLatticeState<TensorKindLattice>(solver, original, replacement);
-      remapLatticeState<dataflow::Lattice<dataflow::ConstantValue>>(
-          solver, original, replacement);
-      remapLatticeState<dataflow::Executable>(solver, original, replacement);
-    }
-    solver.eraseState(solver.getProgramPointAfter(op));
-  }
-  void notifyOperationReplaced(Operation *op, Operation *replacement) override {
-    notifyOperationReplaced(op, replacement->getResults());
-  }
-
-  void notifyOperationErased(Operation *op) override {
-    solver.eraseState(solver.getProgramPointAfter(op));
-    for (Value res : op->getResults())
-      solver.eraseState(res);
-  }
-
-  DataFlowSolver &solver;
-};
-
-} // namespace
-
 /// Create a tensor using a sequence of chained tensor.insert into a
 /// `bufferization.alloc_tensor` in the specified memory space (which must
 /// either be 'host' or 'host_pinned'). The provided `elements` should be given
@@ -142,6 +85,9 @@ static Value createTensorFromElements(RewriterBase &rewriter, Location loc,
          memorySpace == MemorySpace::host_pinned &&
              "tensor.from_elements must be lowered into an allocation in "
              "a host-visible space");
+  assert(llvm::all_equal(llvm::concat<const Type>(
+             elements.getTypes(), TypeRange{type.getElementType()})) &&
+         "expected all scalars to have the same type");
 
   // Create the allocation.
   RankedTensorType tensorType = RankedTensorType::Builder(type).setEncoding(
@@ -731,6 +677,85 @@ static LogicalResult rewriteLoopBlocksToDestinationStyle(RewriterBase &rewriter,
   return success();
 }
 
+static FailureOr<Value> getShape(RewriterBase &rewriter, Location loc,
+                                 TypedValue<RankedTensorType> v) {
+  RankedTensorType type = v.getType();
+  auto shapeType = RankedTensorType::get(
+      static_cast<int64_t>(type.getShape().size()), rewriter.getIndexType(),
+      plan::MemorySpaceAttr::get(type.getContext(), plan::MemorySpace::host));
+  if (type.hasStaticShape())
+    return rewriter
+        .create<arith::ConstantOp>(
+            loc, DenseElementsAttr::get(shapeType, type.getShape()))
+        .getResult();
+
+  assert(v.getDefiningOp() && "expected a defining op");
+  ReifiedRankedShapedTypeDims shape;
+  if (failed(reifyResultShapes(rewriter, v.getDefiningOp(), shape)))
+    return failure();
+  return rewriter
+      .create<tensor::FromElementsOp>(
+          loc, shapeType,
+          getValueOrCreateConstantIndexOp(rewriter, loc, shape.front()))
+      .getResult();
+}
+
+static FailureOr<TypedValue<RankedTensorType>>
+maybeReshapeOrCast(RewriterBase &rewriter, Location loc,
+                   TypedValue<RankedTensorType> v,
+                   TypedValue<RankedTensorType> toReplace) {
+  RankedTensorType type = toReplace.getType();
+  if (v.getType() == type)
+    return v;
+
+  // Check if we can satisfy the type difference using `tensor.cast`.
+  if (tensor::CastOp::areCastCompatible(v.getType(), type))
+    return cast<TypedValue<RankedTensorType>>(
+        rewriter.create<tensor::CastOp>(loc, type, v).getResult());
+
+  if (v.getType().getElementType() != type.getElementType()) {
+    // Check if we can use `tensor.bitcast`. It only supports integer and float
+    // element types, or it will crash.
+    /// TODO: Fix this upstream.
+    if (isa<IntegerType, FloatType>(v.getType().getElementType()) &&
+        isa<IntegerType, FloatType>(type.getElementType()) &&
+        tensor::BitcastOp::areCastCompatible(v.getType(), type))
+      return cast<TypedValue<RankedTensorType>>(
+          rewriter.create<tensor::BitcastOp>(loc, type, v).getResult());
+    // If we can't use `tensor.bitcast`, then there's no other op to use
+    // currently.
+    return failure();
+  }
+
+  // We may need to reshape `v` to the same shape as `toReplace`. We do this
+  // through `tensor.expand_shape` and `tensor.collapse_shape` operations if
+  // possible, otherwise fallback to `tensor.reshape`.
+  std::optional<SmallVector<ReassociationIndices>> reassociation =
+      getReassociationIndicesForReshape(v.getType(), type);
+  if (!reassociation) {
+    FailureOr<Value> shape = getShape(rewriter, loc, toReplace);
+    if (failed(shape))
+      return failure();
+
+    return cast<TypedValue<RankedTensorType>>(
+        rewriter.create<tensor::ReshapeOp>(loc, type, v, *shape).getResult());
+  }
+
+  if (v.getType().getRank() > type.getRank())
+    return cast<TypedValue<RankedTensorType>>(
+        rewriter.create<tensor::CollapseShapeOp>(loc, type, v, *reassociation)
+            .getResult());
+
+  ReifiedRankedShapedTypeDims shape;
+  if (failed(reifyResultShapes(rewriter, toReplace.getDefiningOp(), shape)))
+    return failure();
+  return cast<TypedValue<RankedTensorType>>(
+      rewriter
+          .create<tensor::ExpandShapeOp>(loc, type, v, *reassociation,
+                                         shape.front())
+          .getResult());
+}
+
 /// Rewrite a single function to destination passing style. Update callers
 /// appropriately.
 static LogicalResult rewriteFuncToDestinationPassingStyle(
@@ -770,21 +795,19 @@ static LogicalResult rewriteFuncToDestinationPassingStyle(
       continue;
     }
 
+    // There is no existing equivalent function argument, so we must create a
+    // new one.
     if (failed(updateFunctionWithNewDpsArg(func, v.get().getLoc(),
                                            v.get().getType(), idx)))
       return failure();
+    auto replacement =
+        cast<TypedValue<RankedTensorType>>(func.getArguments().back());
 
-    auto fallback = [&, idx = idx, v = v.get()]() {
-      rewriter.setInsertionPoint(term);
-      Value replacement =
-          rewriter
-              .create<bufferization::MaterializeInDestinationOp>(
-                  v.getLoc(), v.getType(), v, func.getArguments().back())
-              .getResult();
-      term.getOperandsMutable()[idx].assign(replacement);
-    };
-
-    // There is no equivalent function argument.
+    // The function argument must replace some value or force the returned value
+    // to bufferize into a copy into the new function argument. To do this, we
+    // use the bufferization analysis to find a value derived from e.g.
+    // `tensor.empty` that bufferizes into the same  buffer as the returned
+    // value.
     bufferization::TraversalConfig config;
     config.followEquivalentOnly = true;
     config.alwaysIncludeLeaves = true;
@@ -799,59 +822,120 @@ static LogicalResult rewriteFuncToDestinationPassingStyle(
       llvm::dbgs() << "\n";
     });
 
+    // We're looking for a single `tensor.empty` or `bufferization.alloc_tensor`
+    // operation that we can replace.
     if (equivalentValues.size() != 1 ||
         !isa_and_present<tensor::EmptyOp, bufferization::AllocTensorOp,
                          arith::ConstantOp>(
             equivalentValues.front().getDefiningOp())) {
-      fallback();
+      // If we can't find a single `tensor.empty` or
+      // `bufferization.alloc_tensor` operation that we can replace, we must
+      // insert a `bufferization.materialize_in_destination` operation to force
+      // the returned value to bufferize into the new function argument.
+      rewriter.setInsertionPoint(term);
+      replacement = cast<TypedValue<RankedTensorType>>(
+          rewriter
+              .create<bufferization::MaterializeInDestinationOp>(
+                  v.get().getLoc(), v.get().getType(), v.get(), replacement)
+              .getResult());
+      term.getOperandsMutable()[idx].assign(replacement);
       continue;
     }
 
+    // Our action now depends on what kind of equivalent value we found.
     Operation *equivalentOp = equivalentValues.front().getDefiningOp();
-    if (isa<tensor::EmptyOp>(equivalentOp)) {
-      rewriter.replaceAllOpUsesWith(equivalentOp, func.getArguments().back());
+
+    // A reshape or cast may be required if the equivalent value has a different
+    // type than the new function argument.
+    rewriter.setInsertionPointAfter(equivalentOp);
+    FailureOr<TypedValue<RankedTensorType>> reshaped = maybeReshapeOrCast(
+        rewriter, equivalentValues.front().getLoc(), replacement,
+        cast<TypedValue<RankedTensorType>>(equivalentValues.front()));
+    if (failed(reshaped))
+      return failure();
+    replacement = *reshaped;
+
+    // If the equivalent value is a `tensor.empty`, we can replace its uses
+    // with the new function argument. A reshape or cast may be required.
+    if (auto emptyOp = dyn_cast<tensor::EmptyOp>(equivalentOp)) {
+      rewriter.replaceAllOpUsesWith(equivalentOp, replacement);
       continue;
     }
     if (auto allocOp = dyn_cast<bufferization::AllocTensorOp>(equivalentOp)) {
-      Value replacement = func.getArguments().back();
-      if (replacement.getType() != allocOp.getType()) {
-        rewriter.setInsertionPointAfterValue(replacement);
-        replacement = rewriter.create<tensor::CastOp>(
-            replacement.getLoc(), allocOp.getType(), replacement);
-      }
       if (!allocOp.getCopy()) {
         rewriter.replaceAllOpUsesWith(equivalentOp, replacement);
         continue;
       }
       rewriter.setInsertionPoint(allocOp);
-      Value dest = func.getArguments().back();
-      if (allocOp.getType() != dest.getType())
-        dest = rewriter.create<tensor::CastOp>(dest.getLoc(), allocOp.getType(),
-                                               dest);
       rewriter.replaceOpWithNewOp<bufferization::MaterializeInDestinationOp>(
-          allocOp, allocOp.getCopy(), dest);
+          allocOp, allocOp.getCopy(), replacement);
       continue;
     }
     if (auto constOp = dyn_cast<arith::ConstantOp>(equivalentOp)) {
-      rewriter.setInsertionPoint(constOp);
-      Value dest = func.getArguments().back();
-      if (constOp.getType() != dest.getType())
-        dest = rewriter.create<tensor::CastOp>(dest.getLoc(), constOp.getType(),
-                                               dest);
       auto matOp = rewriter.create<bufferization::MaterializeInDestinationOp>(
-          constOp.getLoc(), constOp, dest);
+          constOp.getLoc(), constOp, replacement);
       rewriter.replaceAllUsesExcept(constOp, matOp.getResult(), matOp);
       continue;
     }
-
     llvm_unreachable("unexpected leaf operation kind");
   }
   return success();
 }
 
-/// Rewrites functions to destination-passing style.
-static LogicalResult rewriteFuncsToDestinationPassingStyle(
-    RewriterBase &rewriter, SymbolTableCollection &symbolTables, ModuleOp op) {
+/// Create a `bufferization.alloc_tensor` operation that clones the given
+/// tensor value.
+static Value createTensorClone(RewriterBase &rewriter, Location loc, Value v) {
+  RankedTensorType type = cast<RankedTensorType>(v.getType());
+  return rewriter.create<bufferization::AllocTensorOp>(loc, type, ValueRange{},
+                                                       /*copy=*/v);
+}
+
+/// If the pass options specify that all entrypoint functions should allocate
+/// their results, then we must ensure that a copy is made if the current
+/// returned value is equivalent to a function argument. Otherwise, the end
+/// result will appear be missing a result value.
+static LogicalResult
+enforceResultAllocationPolicy(RewriterBase &rewriter, func::FuncOp func,
+                              SymbolUserMap &callerMap,
+                              bufferization::OneShotAnalysisState &state) {
+  assert(!func.isDeclaration() && "expected a function with a body");
+
+  if (getFuncOpAnalysisState(state, func) != FuncOpAnalysisState::Analyzed) {
+    LLVM_DEBUG(DBGS() << "function was not analyzed\n");
+    return failure();
+  }
+
+  OpBuilder::InsertionGuard g(rewriter);
+  auto term = cast<func::ReturnOp>(func.getBody().front().getTerminator());
+  rewriter.setInsertionPoint(term);
+  const FuncAnalysisState &funcState = getFuncAnalysisState(state);
+
+  for (auto [idx, v] : llvm::enumerate(term->getOpOperands())) {
+    if (!isa<RankedTensorType>(v.get().getType()))
+      continue;
+
+    // Check if there is already an equivalent function argument.
+    if (std::optional<int64_t> equivalent =
+            getEquivalentFuncArgIdx(func, funcState, idx)) {
+      LLVM_DEBUG(
+          DBGS() << llvm::formatv("for return value #{0} found "
+                                  "equivalent result arg -- argument #{1}\n",
+                                  idx, *equivalent));
+      Value cloned = createTensorClone(rewriter, term.getLoc(), v.get());
+      rewriter.modifyOpInPlace(term,
+                               [v = &v, &cloned]() { v->assign(cloned); });
+      continue;
+    }
+  }
+
+  return success();
+}
+
+/// Updates entrypoint functions to destination-passing style or to require
+/// returning allocations.
+static LogicalResult enforceFunctionCallingStylePolicy(
+    RewriterBase &rewriter, SymbolTableCollection &symbolTables, ModuleOp op,
+    bool forceEntrypointsReturnAllocs) {
 
   SymbolUserMap userMap(symbolTables, op);
   bufferization::OneShotBufferizationOptions options;
@@ -866,8 +950,10 @@ static LogicalResult rewriteFuncsToDestinationPassingStyle(
   if (failed(mlir::getFuncOpsOrderedByCalls(
           mlir::ModuleLikeOp(op), orderedFuncOps, remainingFuncOps,
           [&](func::FuncOp func) -> bool {
-            return func.isPublic() &&
+            return func.isPublic() && !func.isDeclaration() &&
                    func->getParentWithTrait<OpTrait::SymbolTable>() == op &&
+                   llvm::none_of(userMap.getUsers(func),
+                                 llvm::IsaPred<CallOpInterface>) &&
                    (llvm::any_of(func.getArgumentTypes(),
                                  llvm::IsaPred<TensorType>) ||
                     llvm::any_of(func.getResultTypes(),
@@ -876,18 +962,19 @@ static LogicalResult rewriteFuncsToDestinationPassingStyle(
     return failure();
 
   for (func::FuncOp func : orderedFuncOps) {
-    LLVM_DEBUG(DBGS() << "encountered func " << func.getName() << "\n");
     // All functions should be single-block at this point.
     if (func.getBlocks().size() != 1)
       return failure();
 
-    if (llvm::any_of(userMap.getUsers(func), llvm::IsaPred<CallOpInterface>))
-      continue;
     LLVM_DEBUG(DBGS() << "considering func " << func.getName() << "\n");
-
-    if (failed(rewriteFuncToDestinationPassingStyle(rewriter, func, userMap,
+    if (!forceEntrypointsReturnAllocs &&
+        failed(rewriteFuncToDestinationPassingStyle(rewriter, func, userMap,
                                                     state)))
-      continue;
+      return failure();
+
+    if (forceEntrypointsReturnAllocs &&
+        failed(enforceResultAllocationPolicy(rewriter, func, userMap, state)))
+      return failure();
   }
   return success();
 }
@@ -933,7 +1020,10 @@ public:
       return signalPassFailure();
     }
 
-    SolverStateListener solverAwareListener(solver);
+    SolverStateListener<TensorKindLattice,
+                        dataflow::Lattice<dataflow::ConstantValue>,
+                        dataflow::Executable>
+        solverAwareListener(solver);
     GreedyRewriteConfig config;
     config.listener = &solverAwareListener;
     FrozenRewritePatternSet patterns = [&]() {
@@ -969,12 +1059,13 @@ public:
       return signalPassFailure();
     }
 
-    // Establish DPS connectivity between function returns and arguments. We
-    // only do this if we prefer that functions not return allocations.
-    if (!forceEntrypointsReturnAllocs &&
-        failed(rewriteFuncsToDestinationPassingStyle(rewriter, symbolTables,
-                                                     op))) {
-      op->emitError("failed to establish DPS connectivity in public functions");
+    // Depending on the options (DPS vs. force return allocations), we may need
+    // to update the entrypoint function(s) signanatures or internals to reflect
+    // the desired calling style.
+    if (failed(enforceFunctionCallingStylePolicy(
+            rewriter, symbolTables, op, forceEntrypointsReturnAllocs))) {
+      emitError(op.getLoc(),
+                "failed to establish DPS connectivity in public functions");
       return signalPassFailure();
     }
 

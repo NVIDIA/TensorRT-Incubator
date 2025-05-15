@@ -313,6 +313,8 @@ struct PushUpTransposeElementwise : OpRewritePattern<TransposeOp> {
     auto elementwiseOp = op.getInput().getDefiningOp<ElementWiseOp>();
     if (!elementwiseOp)
       return failure();
+
+    Location loc = op->getLoc();
     Operation *lhsParent = elementwiseOp.getInput1().getDefiningOp();
     Operation *rhsParent = elementwiseOp.getInput2().getDefiningOp();
     bool isLhsParentReshapeOrTransposeOrConstant =
@@ -325,7 +327,7 @@ struct PushUpTransposeElementwise : OpRewritePattern<TransposeOp> {
 
     auto addTransposeOp = [&](Value input, AffineMap perm) {
       return rewriter
-          .create<TransposeOp>(op->getLoc(),
+          .create<TransposeOp>(loc,
                                /*input=*/input,
                                /*permutation=*/perm)
           .getResult();
@@ -333,11 +335,10 @@ struct PushUpTransposeElementwise : OpRewritePattern<TransposeOp> {
 
     auto rewriteElementwiseOp = [&](Value lhs, Value rhs) {
       return rewriter
-          .replaceOpWithNewOp<ElementWiseOp>(
-              elementwiseOp,
-              /*input1=*/lhs,
-              /*input2=*/rhs,
-              /*op=*/elementwiseOp.getElementwiseOperation())
+          .create<ElementWiseOp>(loc,
+                                 /*input1=*/lhs,
+                                 /*input2=*/rhs,
+                                 /*op=*/elementwiseOp.getElementwiseOperation())
           .getResult();
     };
 

@@ -46,7 +46,8 @@ using namespace mlir::plan;
 /// that the operation can be converted to Executor IR. It derives this
 /// information based on the operation, the operands, and the TensorKindAnalysis
 /// information.
-bool plan::detail::shouldRunOnHost(Operation *op, DataFlowSolver &solver) {
+bool plan::detail::shouldRunOnHost(Operation *op,
+                                   const DataFlowSolver &solver) {
   // An operation can't be placed on the host if the types are too big.
   LLVM_DEBUG(DBGS() << "should run on host? " << *op << "\n");
   auto isHostType = [](Type t) {
@@ -90,9 +91,11 @@ bool plan::detail::shouldRunOnHost(Operation *op, DataFlowSolver &solver) {
     return llvm::all_of(op->getResults(), [&](Value v) {
       const auto *lattice = solver.lookupState<TensorKindLattice>(v);
       LLVM_DEBUG({
+        DBGS() << "  arg: ";
         if (lattice)
-          DBGS() << "  arg: ";
-        lattice->print(llvm::dbgs());
+          lattice->print(llvm::dbgs());
+        else
+          llvm::dbgs() << "<nullptr>";
         llvm::dbgs() << "\n";
       });
       return lattice && !lattice->getValue().isUninitialized() &&
@@ -111,9 +114,11 @@ bool plan::detail::shouldRunOnHost(Operation *op, DataFlowSolver &solver) {
     const TensorKindLattice *lattice =
         solver.lookupState<TensorKindLattice>(operand);
     LLVM_DEBUG({
+      DBGS() << "  arg: ";
       if (lattice)
-        DBGS() << "  arg: ";
-      lattice->print(llvm::dbgs());
+        lattice->print(llvm::dbgs());
+      else
+        llvm::dbgs() << "<nullptr>";
       llvm::dbgs() << "\n";
     });
     return lattice && !lattice->getValue().isUninitialized() &&
@@ -182,8 +187,7 @@ HostClusterKindAttr::getClusterOutliningOptions(
       /*shouldCloneProducer=*/shouldCloneProducer,
       /*createFunc=*/
       OutlineRegionOptions::getDefaultCreateFuncAndCallStubFunc(
-          moduleSymbolTable, {b.getNamedAttr("cluster.host", b.getUnitAttr())},
-          "host_cluster")};
+          moduleSymbolTable, /*extraFuncAttrs=*/{}, "host_cluster")};
 }
 
 std::function<bool(const Cluster &)>

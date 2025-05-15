@@ -871,25 +871,17 @@ LogicalResult tensorrt::IdentityOp::verify() {
   // Identity impl start
 
   // There are three separate rules according to the documentation:
-  // (kFLOAT | kHALF | kINT32 | kBOOL | kBFLOAT16) -> (kFLOAT | kHALF | kINT32 |
-  // kBOOL | kBFLOAT16)
+  // (kFLOAT | kHALF | kINT32 | kBOOL | kBFLOAT16) -> (kFLOAT | kHALF | kINT32
+  // | kBOOL | kBFLOAT16)
   // (kFLOAT | kHALF) -> kUINT8
   // kUINT8 -> (kFLOAT | kHALF)
+  // However, we allow all combinations during operation creation. kUINT8 is
+  // special and
+  //  `* -> kUINT8 -> *` conversions for unsupported types are handled in the
+  // `ApplyWorkaroundsPass` pass. We hope to avoid breaking TensorRT graphs with
+  // this approach.
 
-  Type dstElType = getType().getElementType();
-  Type srcElType = getInput().getType().getElementType();
-  // Rule #2
-  if (dstElType.isUnsignedInteger(8) &&
-      (!srcElType.isF32() && !srcElType.isF16()))
-    return emitOpError(
-        "if result element type is ui8, input element type must be f32 or f16");
-  // Rule #3
-  if (srcElType.isUnsignedInteger(8) &&
-      (!dstElType.isF32() && !dstElType.isF16()))
-    return emitOpError(
-        "if input element type is ui8, result element type must be f32 or f16");
-
-  // Otherwise, Rule#1 is satisfied given existing ODS constraints.
+  // Rule#1 is satisfied given existing ODS constraints.
 
   // Identity impl end
   return success();

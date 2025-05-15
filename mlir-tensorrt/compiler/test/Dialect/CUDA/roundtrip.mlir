@@ -92,7 +92,7 @@ func.func @cuda_blas_gemm_algo_select_and_run() {
     size_b = array<i64: 200, 300>,
     stride_b = array<i64: 300, 1>,
     size_c = array<i64: 100, 300>,
-    stride_c = array<i64: 300, 1>, 
+    stride_c = array<i64: 300, 1>,
     tile_sizes = array<i64: 16, 16>
   }  %h : !cuda.blas.gemm_algorithm
   cuda.blas.run_gemm %h stream (%s) algo (%r) inputs(alpha %alpha, %a, %b, beta %beta) out (%c) : !cuda.blas.handle,
@@ -234,3 +234,29 @@ func.func @h2u_copy(%arg0: !src_memref_type, %arg1: !dst_memref_type, %stream: !
 // CHECK-LABEL: func.func @h2u_copy
 //  CHECK-SAME: (%[[arg0:.+]]: memref<?x2x?xf32, #executor.memory_type<host>>, %[[arg1:.+]]: memref<?x2x?xf32, #executor.memory_type<unified>>, %[[arg2:.+]]: !cuda.stream)
 //       CHECK:     cuda.copy_h2d stream(%[[arg2]]) %[[arg0]], %[[arg1]] : memref<?x2x?xf32, #executor.memory_type<host>> to memref<?x2x?xf32, #executor.memory_type<unified>>
+
+// -----
+
+func.func @cuda_launch(
+    %func: !cuda.function,
+    %stream: !cuda.stream,
+    %arg0: complex<f32>,
+    %arg1: complex<f32>,
+    %grid_x: i32, %grid_y: i32, %grid_z: i32,
+    %block_x: i32, %block_y: i32, %block_z: i32) {
+    %c0_i32 = arith.constant 0 : i32
+    cuda.launch %func(%arg0, %arg1 : complex<f32>, complex<f32>) with
+      grid(%grid_x, %grid_y, %grid_z)
+      block(%block_x, %block_y, %block_z)
+      smem(%c0_i32) stream(%stream)
+  return
+}
+
+// CHECK-LABEL: @cuda_launch
+//  CHECK-SAME: (%[[func:.+]]: !cuda.function, %[[stream:.+]]: !cuda.stream, %[[arg0:.+]]: {{.*}}, %[[arg1:.+]]: {{.*}}, %[[grid_x:.+]]: i32, %[[grid_y:.+]]: i32, %[[grid_z:.+]]: i32, %[[block_x:.+]]: i32, %[[block_y:.+]]: i32, %[[block_z:.+]]: i32)
+//  CHECK-NEXT: %[[c0_i32:.+]] = arith.constant 0 : i32
+//  CHECK-NEXT: cuda.launch %[[func]](%[[arg0]], %[[arg1]] : {{.*}}) with
+//       CHECK:  grid(%[[grid_x]], %[[grid_y]], %[[grid_z]])
+//       CHECK:  block(%[[block_x]], %[[block_y]], %[[block_z]])
+//       CHECK:  smem(%[[c0_i32]]) stream(%[[stream]])
+//  CHECK-NEXT: return

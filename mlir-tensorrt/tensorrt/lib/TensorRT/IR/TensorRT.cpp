@@ -2379,10 +2379,6 @@ OpFoldResult IdentityOp::fold(FoldAdaptor adaptor) {
   return foldIdentity(getType(), getInput(), adaptor);
 }
 
-OpFoldResult Identity84Op::fold(FoldAdaptor adaptor) {
-  return foldIdentity(getType(), getInput(), adaptor);
-}
-
 //===----------------------------------------------------------------------===//
 // ReduceOp
 //===----------------------------------------------------------------------===//

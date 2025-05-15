@@ -1,6 +1,6 @@
 //===- Clustering.cpp -----------------------------------------------------===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -18,9 +18,7 @@
 //
 //===----------------------------------------------------------------------===//
 ///
-/// Clustering pipeline that operates on Stable HLO IR. It separates the IR into
-/// functions that go down different pipelines: stablehlo-to-arith (scalarizable
-/// op clusters), stablehlo-to-tensorrt, and code generation.
+/// Implementation of the `plan-clustering` pass.
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-executor/Executor/IR/Executor.h"
@@ -30,23 +28,15 @@
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/PlanInterfaces.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
-#include "mlir-tensorrt/Transforms/Passes.h"
+#include "mlir-tensorrt/Utils/DataFlowUtils.h"
 #include "mlir/Analysis/DataFlow/ConstantPropagationAnalysis.h"
 #include "mlir/Analysis/DataFlow/DeadCodeAnalysis.h"
 #include "mlir/Analysis/DataFlowFramework.h"
-#include "mlir/Dialect/Affine/IR/AffineOps.h"
-#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
-#include "mlir/Dialect/Linalg/IR/Linalg.h"
-#include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/OpDefinition.h"
-#include "mlir/Interfaces/ValueBoundsOpInterface.h"
 #include "mlir/Transforms/DialectConversion.h"
-#include "mlir/Transforms/OneToNTypeConversion.h"
 #include "mlir/Transforms/RegionUtils.h"
-#include "stablehlo/dialect/ChloOps.h"
-#include "stablehlo/dialect/StablehloOps.h"
 #include "llvm/ADT/STLExtras.h"
 
 #define DEBUG_TYPE "plan-clustering"
@@ -60,11 +50,58 @@ namespace mlir::plan {
 using namespace mlir;
 using namespace mlir::plan;
 
-//===----------------------------------------------------------------------===//
-// StablehloClusteringPass
-//===----------------------------------------------------------------------===//
-
 using SignatureConversion = TypeConverter::SignatureConversion;
+
+using SolverAwareListener =
+    SolverStateListener<TensorKindLattice,
+                        dataflow::Lattice<dataflow::ConstantValue>,
+                        dataflow::Executable>;
+
+/// A listener that is DataFlowSolver-aware, but it also is aware of inserting
+/// `plan::InlineGroupOp` operations. It sets the `plan::InlineGroupOp` lattice
+/// values to be equivalent to the values yielded by the `plan::YieldOp`
+/// operations in the body.
+class ClusteringListener
+    : public SolverStateListener<TensorKindLattice,
+                                 dataflow::Lattice<dataflow::ConstantValue>,
+                                 dataflow::Executable> {
+public:
+  using SolverStateListener::SolverStateListener;
+
+  void updateClusterResultStates(plan::YieldOp yieldOp) {
+    auto clusterOp = dyn_cast<plan::InlineGroupOp>(yieldOp->getParentOp());
+    if (!clusterOp || clusterOp->getNumResults() != yieldOp->getNumOperands())
+      return;
+    ValueRange yieldedValues = yieldOp->getOperands();
+    ValueRange clusterResults = clusterOp.getResults();
+    for (auto [yielded, result] :
+         llvm::zip_equal(yieldedValues, clusterResults))
+      this->copyLatticeStates(yielded, result);
+  }
+
+  void notifyOperationInserted(Operation *op,
+                               OpBuilder::InsertPoint previous) override {
+    if (previous.isSet())
+      return;
+
+    // Ensure that the `plan::InlineGroupOp` lattice values are updated to
+    // match the values yielded by the `plan::YieldOp` operations in the body.
+    if (auto clusterOp = dyn_cast<plan::InlineGroupOp>(op)) {
+      if (auto yieldOp = clusterOp.getYield())
+        updateClusterResultStates(yieldOp);
+      return;
+    }
+    if (auto yieldOp = dyn_cast<plan::YieldOp>(op)) {
+      updateClusterResultStates(yieldOp);
+      return;
+    }
+  }
+
+  void notifyOperationModified(Operation *op) override {
+    if (auto yieldOp = dyn_cast<plan::YieldOp>(op))
+      updateClusterResultStates(yieldOp);
+  }
+};
 
 /// Creates an empty `plan.inline_group` operation for a given type of cluster
 /// target.
@@ -76,7 +113,7 @@ static Operation *createInlineGroupOp(OpBuilder &b, Location loc,
   return regionOp;
 }
 
-/// Returns true if the op is already constained in a region op that is used to
+/// Returns true if the op is already contained in a region op that is used to
 /// encapsulate clusters.
 static bool isOpInClusterRegion(Operation *op) {
   return op->getParentOfType<plan::InlineGroupOp>();
@@ -105,92 +142,9 @@ applyClusteringToFunc(RewriterBase &rewriter, func::FuncOp func,
     if (failed(regionOps))
       return emitError(func.getLoc())
              << "clustering rewrite " << rewrite->getTarget() << " failed ";
-
-    // The IR probably changed, so re-run the data flow solver. Any new values
-    // yielded by the new region operations won't have lattice values associated
-    // with them.
-    if (failed(solver.initializeAndRun(func)))
-      return func->emitError() << "failed to run dataflow solver";
   }
 
   return success();
-}
-
-/// For all single-result pure producers in `op` that return true from
-/// `isProducerToClone`, clone them for each use. The use-cases for this method
-/// are for improving fusion or clustering performance. See below uses for
-/// examples.
-static void cloneProducersWhereProfitable(
-    RewriterBase &rewriter, Operation *op,
-    llvm::function_ref<bool(Operation *op)> isProducerToClone) {
-  SmallVector<Operation *> producersToClone;
-  op->walk([&](Operation *op) {
-    if (op->getNumResults() != 1 || !isMemoryEffectFree(op))
-      return;
-    if (isProducerToClone(op))
-      producersToClone.push_back(op);
-  });
-
-  for (Operation *producerToClone : producersToClone) {
-    rewriter.setInsertionPoint(producerToClone);
-    SmallVector<OpOperand *> uses;
-    for (OpOperand &use :
-         llvm::make_early_inc_range(producerToClone->getUses()))
-      uses.push_back(&use);
-
-    for (OpOperand *use : ArrayRef(uses).drop_front(1)) {
-      rewriter.setInsertionPoint(use->getOwner());
-      Operation *clone = rewriter.clone(*producerToClone);
-      use->assign(clone->getResult(0));
-    }
-  }
-}
-
-/// Sometimes constant values (especially i32 scalars) have both 'host' and
-/// 'device' uses and thus have TensorKind of 'both'. This function finds such
-/// constants, duplicates them over their users, and then re-runs the
-/// TensorKind analysis. This enables us to more reliably determine which
-/// operations have all their operands/results located purely on the host.
-static LogicalResult
-deconflictConstantsOnHostAndDevice(RewriterBase &rewriter, Operation *op,
-                                   DataFlowSolver &solver) {
-
-  auto isProducerToClone = [&](Operation *op) -> bool {
-    if (!op->hasTrait<OpTrait::ConstantLike>() || op->getNumResults() != 1)
-      return false;
-    const TensorKindLattice *lattice =
-        solver.lookupState<TensorKindLattice>(op->getResult(0));
-    if (!lattice || lattice->getValue().isUninitialized() ||
-        !lattice->getValue().isHostVisible())
-      return false;
-    if (RankedTensorType rtt =
-            dyn_cast<RankedTensorType>(op->getResult(0).getType())) {
-      if (rtt.getNumElements() > 16)
-        return false;
-    }
-    return true;
-  };
-
-  cloneProducersWhereProfitable(rewriter, op, isProducerToClone);
-  if (failed(solver.initializeAndRun(op)))
-    return failure();
-
-  return success();
-}
-
-/// Find `stablehlo.convert(constant)` ops and clone them for each use. This
-/// helps to ensure that each clustered TensorRT engines segment has
-/// self-contained weights and doesn't contain live-out conversions of weights,
-/// which can cause significant perf issues (e.g. 2x latency on FP16 GPT
-/// models).
-static void deconflictStablehloConstConvertOps(RewriterBase &rewriter,
-                                               Operation *op) {
-  auto isProducerToClone = [](Operation *op) -> bool {
-    auto convertOp = dyn_cast<stablehlo::ConvertOp>(op);
-    return convertOp && !convertOp->hasOneUse() &&
-           convertOp.getOperand().getDefiningOp<stablehlo::ConstantOp>();
-  };
-  cloneProducersWhereProfitable(rewriter, op, isProducerToClone);
 }
 
 static auto getIntegerAttrOrDefault(Operation *op, StringRef name,
@@ -229,8 +183,6 @@ public:
       funcs.push_back(mainFunc);
     }
 
-    IRRewriter rewriter(module->getContext());
-
     SymbolTableCollection symbolTable;
     DataFlowSolver solver;
     solver.load<dataflow::DeadCodeAnalysis>();
@@ -239,14 +191,9 @@ public:
     if (failed(solver.initializeAndRun(module)))
       return signalPassFailure();
 
-    // Duplicate constants that have a placement of 'both' (host and device
-    // access).
-    if (failed(deconflictConstantsOnHostAndDevice(rewriter, module, solver)))
-      return signalPassFailure();
-
-    // Duplicate `stablehlo.convert(stablehlo.const)` chains per user to improve
-    // segmentation performance.
-    deconflictStablehloConstConvertOps(rewriter, module);
+    auto listener = std::make_unique<ClusteringListener>(solver);
+    IRRewriter rewriter(module->getContext());
+    rewriter.setListener(listener.get());
 
     // If the `plan.cluster_kinds` already exists on the module, use that,
     // otherwise, populate defaults.

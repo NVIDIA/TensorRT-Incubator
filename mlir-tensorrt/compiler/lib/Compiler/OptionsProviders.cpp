@@ -100,16 +100,40 @@ void DebugOptions::applyToPassManager(PassManager &pm) const {
 // DeviceOptions
 //===----------------------------------------------------------------------===//
 
-llvm::Error DeviceOptions::finalize() {
-  if (shouldInferFromHost) {
-    StatusOr<DeviceInfo> deviceInfo = getDeviceInformationFromHost();
-    if (!deviceInfo.isOk())
-      return llvm::createStringError(deviceInfo.getString());
+DeviceOptions::DeviceOptions(mlir::detail::PassOptions *ctx)
+    : OptionsProvider(ctx) {
+  shouldInferFromHost.setCallback([&](const bool &value) -> void {
+    if (!value)
+      return;
+    StatusOr<DeviceInfo> deviceInfo = getDeviceInformationFromHost(0);
+    if (!deviceInfo.isOk()) {
+      llvm::report_fatal_error(deviceInfo.getString().c_str());
+    }
     computeCapability = deviceInfo->computeCapability;
     maxRegistersPerBlock = deviceInfo->maxRegistersPerBlock;
     maxSharedMemoryPerBlockKb = deviceInfo->maxSharedMemoryPerBlockKb;
-  }
-  return llvm::Error::success();
+  });
+
+  computeCapability.setCallback([&](const int &value) -> void {
+    if (hostDeviceInfo) {
+      assert(shouldInferFromHost && "shouldInferFromHost must be true");
+      computeCapability = hostDeviceInfo->computeCapability;
+    }
+  });
+
+  maxRegistersPerBlock.setCallback([&](const int &value) -> void {
+    if (hostDeviceInfo) {
+      assert(shouldInferFromHost && "shouldInferFromHost must be true");
+      maxRegistersPerBlock = hostDeviceInfo->maxRegistersPerBlock;
+    }
+  });
+
+  maxSharedMemoryPerBlockKb.setCallback([&](const int &value) -> void {
+    if (hostDeviceInfo) {
+      assert(shouldInferFromHost && "shouldInferFromHost must be true");
+      maxSharedMemoryPerBlockKb = hostDeviceInfo->maxSharedMemoryPerBlockKb;
+    }
+  });
 }
 
 //===----------------------------------------------------------------------===//

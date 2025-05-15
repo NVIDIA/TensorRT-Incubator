@@ -38,7 +38,10 @@ struct DeviceInfo {
 
 /// Infer target device information from the first visible CUDA device on the
 /// host.
-StatusOr<DeviceInfo> getDeviceInformationFromHost();
+StatusOr<DeviceInfo> getDeviceInformationFromHost(int32_t cudaDeviceOrdinal);
+
+/// Infer the device information from all visible CUDA devices.
+StatusOr<llvm::SmallVector<DeviceInfo>> getAllDeviceInformationFromHost();
 
 } // namespace mlirtrt
 
