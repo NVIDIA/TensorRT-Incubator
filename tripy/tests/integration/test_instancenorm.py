@@ -36,36 +36,10 @@ class TestInstanceNorm:
         num_channels = input_shape[1]
 
         # Choose appropriate PyTorch InstanceNorm based on input dimensions
-        if len(input_shape) == 3:  # 1D data (NCL)
-            instancenorm = (
-                torch.nn.InstanceNorm1d(
-                    num_features=num_channels,
-                    eps=eps,
-                    affine=True,
-                )
-                .to(torch_dtype)
-                .to("cuda")
-            )
-        elif len(input_shape) == 4:  # 2D data (NCHW)
-            instancenorm = (
-                torch.nn.InstanceNorm2d(
-                    num_features=num_channels,
-                    eps=eps,
-                    affine=True,
-                )
-                .to(torch_dtype)
-                .to("cuda")
-            )
-        elif len(input_shape) == 5:  # 3D data (NCDHW)
-            instancenorm = (
-                torch.nn.InstanceNorm3d(
-                    num_features=num_channels,
-                    eps=eps,
-                    affine=True,
-                )
-                .to(torch_dtype)
-                .to("cuda")
-            )
+        TorchInstanceNorm = {3: torch.nn.InstanceNorm1d, 4: torch.nn.InstanceNorm2d, 5: torch.nn.InstanceNorm3d}[
+            len(input_shape)
+        ]
+        instancenorm = TorchInstanceNorm(num_features=num_channels, eps=eps, affine=True).to(torch_dtype).to("cuda")
 
         tp_instancenorm = tp.InstanceNorm(
             num_channels=num_channels,
