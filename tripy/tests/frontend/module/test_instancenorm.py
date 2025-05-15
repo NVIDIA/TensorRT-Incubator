@@ -43,6 +43,6 @@ class TestInstanceNorm:
         x = tp.ones((2, 6, 4, 4))
         with helper.raises(
             tp.TripyException,
-            match="The input channel dimension does not match the number of channels specified in the InstanceNorm constructor",
+            match="MTRTException: failed to run pass pipeline",
         ):
             tp_instancenorm(x).eval()

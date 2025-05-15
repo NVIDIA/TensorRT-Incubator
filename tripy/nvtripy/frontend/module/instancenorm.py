@@ -46,13 +46,7 @@ def instancenorm(
     if input_rank < 3:
         raise_error(
             "Input is expected to have shape (N, C, D1, ...) where N is the batch size, C is the number of channels, and D1, ... are the spatial dimensions",
-            details=[f"Got {input.shape} which has rank {input_rank} < 3."],
-        )
-
-    if input.shape[1] != num_channels:
-        raise_error(
-            "The input channel dimension does not match the number of channels specified in the InstanceNorm constructor",
-            details=[f"Got {input.shape[1]} channels in the input, but expected {num_channels} channels"],
+            details=[f"Got {input.shape} which has rank {input_rank}."],
         )
 
     # TensorRT expects weight & bias to have shape [1, C, 1, 1, ...]
