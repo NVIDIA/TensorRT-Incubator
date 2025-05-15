@@ -49,6 +49,12 @@ def instancenorm(
             details=[f"Got {input.shape} which has rank {input_rank}."],
         )
 
+    if input.trace_tensor.shape[1] != -1 and input.trace_tensor.shape[1] != num_channels:
+        raise_error(
+            "The input channel dimension does not match the number of channels specified in the InstanceNorm constructor",
+            details=[f"Got {input.shape[1]} channels in the input, but expected {num_channels} channels"],
+        )
+
     # TensorRT expects weight & bias to have shape [1, C, 1, 1, ...]
     from nvtripy.frontend.ops.reshape import reshape
 

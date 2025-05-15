@@ -15,6 +15,7 @@
 from tests import helper
 
 import nvtripy as tp
+import torch
 
 
 class TestInstanceNorm:
@@ -40,9 +41,18 @@ class TestInstanceNorm:
         tp_instancenorm.weight = tp.ones((3,))
         tp_instancenorm.bias = tp.ones((3,))
 
+        # dynamic shape
         x = tp.ones((2, 6, 4, 4))
         with helper.raises(
             tp.TripyException,
             match="MTRTException: failed to run pass pipeline",
+        ):
+            tp_instancenorm(x).eval()
+
+        # static shape
+        x = tp.Tensor(torch.ones((2, 6, 4, 4)))
+        with helper.raises(
+            tp.TripyException,
+            match="The input channel dimension does not match the number of channels specified in the InstanceNorm constructor",
         ):
             tp_instancenorm(x).eval()
