@@ -124,8 +124,7 @@ def compile_executable(program, debug=False):
         # Use the compiler API to compile to executable.
         client = compiler.CompilerClient(context)
         c_opts = [
-            "--tensorrt-builder-opt-level=3",
-            "--tensorrt-strongly-typed=false",
+            "--tensorrt-builder-opt-level=0",
             "--entrypoint=main",
             "--force-entrypoints-return-allocs",
         ]

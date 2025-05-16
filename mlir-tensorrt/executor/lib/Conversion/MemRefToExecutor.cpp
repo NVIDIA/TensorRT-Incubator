@@ -181,8 +181,10 @@ struct ConvertLoad : public ConvertOpToExecutorPattern<memref::LoadOp> {
     if (!resultType)
       return failure();
     auto memrefType = llvm::cast<MemRefType>(op.getMemref().getType());
-    if (!convertLoadStorePreconditions(memrefType))
+    if (!convertLoadStorePreconditions(memrefType) ||
+        !isHostVisibleMemoryType(memrefType))
       return failure();
+
     MemRefDescriptor memref(adaptor.getMemref(), memrefType);
     Value byteOffset = convertOffsetInElementsToBytes(
         b, getLinearizedOffset(b, memref, adaptor.getIndices()), memrefType);
@@ -204,7 +206,8 @@ class ConvertStore : public ConvertOpToExecutorPattern<memref::StoreOp> {
                   ConversionPatternRewriter &rewriter) const override {
     ImplicitLocOpBuilder b(op.getLoc(), rewriter);
     auto memrefType = llvm::cast<MemRefType>(op.getMemref().getType());
-    if (!convertLoadStorePreconditions(memrefType))
+    if (!convertLoadStorePreconditions(memrefType) ||
+        !isHostVisibleMemoryType(memrefType))
       return failure();
 
     MemRefDescriptor memref(adaptor.getMemref(), memrefType);
@@ -342,57 +345,26 @@ struct ConvertMemrefGlobal
   matchAndRewrite(memref::GlobalOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
     MemRefType memrefType = op.getType();
-    Type convertedType = getTypeConverter()->convertType(memrefType);
-    ImplicitLocOpBuilder b(op.getLoc(), rewriter);
-    std::optional<MemoryType> space = getMemorySpace(memrefType);
-    if (!space || *space != MemoryType::host)
-      return failure();
 
     /// If there's no initial value, then just perform the allocation.
-    Attribute initialValue = op.getInitialValueAttr();
-    executor::DataSegmentOp constOp = nullptr;
-    if (initialValue)
-      constOp = rewriter.create<executor::DataSegmentOp>(
-          op.getLoc(),
-          rewriter.getStringAttr(op.getSymName() + "_initializer").str(),
-          cast<ElementsAttr>(initialValue),
-          /*constant=*/true,
-          /*uninitialized=*/false,
-          /*alignment=*/op.getAlignmentAttr());
+    ElementsAttr initialValue =
+        llvm::dyn_cast_or_null<ElementsAttr>(op.getInitialValueAttr());
+    if (!initialValue)
+      initialValue =
+          cast<ElementsAttr>(rewriter.getZeroAttr(RankedTensorType::get(
+              memrefType.getShape(), memrefType.getElementType())));
 
-    bool error = false;
-    rewriter.replaceOpWithNewOp<executor::GlobalOp>(
-        op, op.getSymNameAttr(), convertedType,
-        [&](OpBuilder &nested, Location loc) {
-          ImplicitLocOpBuilder ib(loc, nested);
-          FailureOr<MemRefAllocationInformation> info =
-              getMemRefAllocationInformation(ib, memrefType, {});
-          if (failed(info)) {
-            error = true;
-            return;
-          }
-          Value zero = createIndexConstant(ib, 0);
-          Value one = createIndexConstant(ib, 1);
-          Value allocatedPtr = ib.create<executor::AllocateOp>(
-              getHostPointerType(), info->sizeBytes, one);
-
-          if (initialValue) {
-            Value loadPtr = ib.create<executor::ConstantResourceLoadOp>(
-                FlatSymbolRefAttr::get(constOp));
-            ib.create<executor::MemcpyOp>(loadPtr, zero, allocatedPtr, zero,
-                                          info->sizeBytes);
-          }
-
-          auto memref = MemRefDescriptor::fromComponents(
-              ib, *getTypeConverter(), memrefType, allocatedPtr, allocatedPtr,
-              zero, info->sizes, info->strides);
-          ib.create<executor::ReturnOp>(Value(memref));
-        },
-        op.getConstant());
-
-    if (error)
+    std::optional<executor::MemoryType> space = getMemorySpace(memrefType);
+    if (!space)
       return failure();
 
+    auto segmentOp = rewriter.create<executor::DataSegmentOp>(
+        op.getLoc(), op.getName(), initialValue,
+        /*constant=*/op.getConstant(),
+        /*uninitialized=*/!op.getInitialValue(),
+        /*alignment=*/op.getAlignmentAttr());
+    segmentOp.setAddressSpace(*space);
+    rewriter.eraseOp(op);
     return success();
   }
 };
@@ -404,9 +376,27 @@ struct ConvertMemrefGetGlobal
   LogicalResult
   matchAndRewrite(memref::GetGlobalOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
-    Type convertedType = getTypeConverter()->convertType(op.getType());
-    rewriter.replaceOpWithNewOp<executor::GetGlobalOp>(op, convertedType,
-                                                       op.getNameAttr());
+    MemRefType memrefType = op.getType();
+
+    std::optional<executor::MemoryType> space = getMemorySpace(memrefType);
+    if (!space)
+      return failure();
+
+    Value ptr = rewriter.create<executor::ConstantResourceLoadOp>(
+        op.getLoc(), executor::PointerType::get(rewriter.getContext(), *space),
+        op.getName());
+    ImplicitLocOpBuilder ib(op.getLoc(), rewriter);
+
+    FailureOr<MemRefAllocationInformation> info =
+        getMemRefAllocationInformation(ib, memrefType, {});
+    if (failed(info))
+      return failure();
+
+    Value zero = createIndexConstant(ib, 0);
+    auto memref = MemRefDescriptor::fromComponents(ib, *getTypeConverter(),
+                                                   memrefType, ptr, ptr, zero,
+                                                   info->sizes, info->strides);
+    rewriter.replaceOp(op, Value(memref));
     return success();
   }
 };

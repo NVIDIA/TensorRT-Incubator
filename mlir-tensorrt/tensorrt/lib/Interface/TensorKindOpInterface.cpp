@@ -74,6 +74,16 @@ TensorKindInfo TensorKindInfo::meet(const TensorKindInfo &lhs,
   return join(lhs, rhs);
 }
 
+static constexpr int64_t kSmallTensorThresholdElements = 8;
+
+bool detail::isHostTensorCandidate(Type type) {
+  if (auto tensorType = dyn_cast<RankedTensorType>(type)) {
+    return tensorType.hasStaticShape() &&
+           tensorType.getNumElements() <= kSmallTensorThresholdElements;
+  }
+  return false;
+}
+
 //===----------------------------------------------------------------------===//
 // TensorKindOpInterface & TensorKindAttrInterface Definitions
 //===----------------------------------------------------------------------===//

@@ -213,18 +213,12 @@ void EnqueueAllocOp::getEffects(
                          SideEffects::DefaultResource::get());
   }
 
-  bool resultRequireAllocation{false};
   for (OpResult result : getResults()) {
     if (!isa<MemRefType>(result.getType()))
       continue;
-    resultRequireAllocation = true;
-    effects.emplace_back(MemoryEffects::Write::get(), result,
-                         SideEffects::DefaultResource::get());
+    effects.emplace_back(MemoryEffects::Write::get(), result);
+    effects.emplace_back(MemoryEffects::Allocate::get(), result);
   }
-
-  if (resultRequireAllocation)
-    effects.emplace_back(MemoryEffects::Allocate::get(), 0,
-                         /*effectOnFullRegion=*/true);
 }
 
 //===----------------------------------------------------------------------===//

@@ -343,3 +343,53 @@ func.func @compare_boolean_inputs(%arg0: tensor<i32>, %arg1: tensor<i32>) -> ten
 //       CHECK: %[[v3:.+]] = tensorrt.identity %[[v1]] : tensor<i1> to tensor<i32>
 //       CHECK: tensorrt.element_wise <kEQUAL>(%[[v2]], %[[v3]] : tensor<i32>, tensor<i32>) -> tensor<i1>
 //       CHECK: tensorrt.unary {unaryOperation = #tensorrt.unary_operation<kNOT>}
+
+// -----
+
+func.func @log1p_bf16(%arg0: tensor<3xbf16>) -> tensor<3xbf16> {
+  %0 = stablehlo.log_plus_one %arg0 : tensor<3xbf16>
+  return %0 : tensor<3xbf16>
+}
+
+// CHECK-LABEL: func.func @log1p_bf16
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<3xbf16>)
+//   CHECK-DAG:   %[[cst_bf16:.+]] = tensorrt.constant dense<1.000000e+00> : tensor<1xbf16>
+//   CHECK-DAG:   %[[v0:.+]] = tensorrt.element_wise <kSUM>(%[[arg0]], %[[cst_bf16]] :
+//   CHECK-DAG:   %[[v1:.+]] = tensorrt.element_wise <kEQUAL>(%[[v0]], %[[cst_bf16]] :
+//   CHECK-DAG:   %[[v2:.+]] = tensorrt.unary {unaryOperation = #tensorrt.unary_operation<kLOG>} %[[v0]]
+//   CHECK-DAG:   %[[v3:.+]] = tensorrt.element_wise <kEQUAL>(%[[v0]], %[[v2]]
+//   CHECK-DAG:   %[[v4:.+]] = tensorrt.element_wise <kOR>(%[[v1]], %[[v3]]
+//   CHECK-DAG:   %[[v5:.+]] = tensorrt.element_wise <kSUB>(%[[v0]], %[[cst_bf16]]
+//   CHECK-DAG:   %[[v6:.+]] = tensorrt.element_wise <kDIV>(%[[v2]], %[[v5]]
+//   CHECK-DAG:   %[[v7:.+]] = tensorrt.element_wise <kPROD>(%[[arg0]], %[[v6]]
+//   CHECK-DAG:   %[[v8:.+]] = tensorrt.select ins(%[[v4]], %[[arg0]], %[[v7]]
+//   CHECK-DAG:   return %[[v8]] : tensor<3xbf16>
+
+// -----
+
+func.func @expm1_bf16(%arg0: tensor<3xbf16>) -> tensor<3xbf16> {
+  %0 = stablehlo.exponential_minus_one %arg0 : tensor<3xbf16>
+  return %0 : tensor<3xbf16>
+}
+
+// CHECK-LABEL: func.func @expm1_bf16
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<3xbf16>)
+//   CHECK-DAG:     %[[v0:.+]] = tensorrt.identity %[[arg0]] : tensor<3xbf16> to tensor<3xf32>
+//   CHECK-DAG:     %[[cst_f32:.+]] = tensorrt.constant dense<1.000000e+00> : tensor<1xf32>
+//   CHECK-DAG:     %[[cst_f32_0:.+]] = tensorrt.constant dense<-1.000000e+00> : tensor<1xf32>
+//   CHECK-DAG:     %[[v1:.+]] = tensorrt.unary {unaryOperation = #tensorrt.unary_operation<kEXP>} %[[v0]]
+//   CHECK-DAG:     %[[v2:.+]] = tensorrt.element_wise <kEQUAL>(%[[v1]], %[[cst_f32]] : tensor<3xf32>, tensor<1xf32>)
+//   CHECK-DAG:     %[[v3:.+]] = tensorrt.element_wise <kEQUAL>(%[[v1]], %[[v1]] : tensor<3xf32>, tensor<3xf32>)
+//   CHECK-DAG:     %[[v4:.+]] = tensorrt.unary {unaryOperation = #tensorrt.unary_operation<kNOT>} %[[v3]]
+//   CHECK-DAG:     %[[v5:.+]] = tensorrt.element_wise <kOR>(%[[v2]], %[[v4]] : tensor<3xi1>, tensor<3xi1>
+//   CHECK-DAG:     %[[v6:.+]] = tensorrt.element_wise <kSUB>(%[[v1]], %[[cst_f32]] : 
+//   CHECK-DAG:     %[[v7:.+]] = tensorrt.element_wise <kEQUAL>(%[[v6]], %[[cst_f32_0]]
+//   CHECK-DAG:     %[[v8:.+]] = tensorrt.unary {unaryOperation = #tensorrt.unary_operation<kLOG>} %[[v1]]
+//   CHECK-DAG:     %[[v9:.+]] = tensorrt.element_wise <kEQUAL>(%[[v8]], %[[v1]]
+//   CHECK-DAG:     %[[v10:.+]] = tensorrt.element_wise <kDIV>(%[[v0]], %[[v8]]
+//   CHECK-DAG:     %[[v11:.+]] = tensorrt.element_wise <kPROD>(%[[v6]], %[[v10]]
+//   CHECK-DAG:     %[[v12:.+]] = tensorrt.select ins(%[[v9]], %[[v1]], %[[v11]]
+//   CHECK-DAG:     %[[v13:.+]] = tensorrt.select ins(%[[v7]], %[[cst_f32_0]], %[[v12]]
+//   CHECK-DAG:     %[[v14:.+]] = tensorrt.select ins(%[[v5]], %[[v0]], %[[v13]]
+//   CHECK-DAG:     %[[v15:.+]] = tensorrt.identity %[[v14]] : tensor<3xf32> to tensor<3xbf16>
+//   CHECK-DAG:     return %[[v15]] : tensor<3xbf16>

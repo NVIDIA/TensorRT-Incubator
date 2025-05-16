@@ -407,8 +407,17 @@ public:
 
   std::string_view getName() const { return view->name()->string_view(); }
 
-  const int8_t *data() const { return view->data()->data(); }
-  size_t size() const { return view->data()->size(); }
+  const int8_t *data() const {
+    return view->data() ? view->data()->data() : nullptr;
+  }
+  size_t size() const {
+    return view->data() ? view->data()->size() : getUninitializedSize();
+  }
+  uint32_t getAlignment() const { return view->alignment(); }
+  bool isConstant() const { return view->constant(); }
+  bool isUninitialized() const { return view->uninitialized_size() > 0; }
+  uint64_t getUninitializedSize() const { return view->uninitialized_size(); }
+  PointerType getAddressSpace() const { return view->address_space(); }
 
 private:
   const impl::DataSegment *view;
@@ -460,7 +469,7 @@ public:
   }
 
   /// Return a vector of DataSegmentInfos.
-  llvm::SmallVector<DataSegmentInfo> getConstants() const;
+  llvm::SmallVector<DataSegmentInfo> getDataSegments() const;
 
   /// Return a vector of FunctionViews.
   llvm::SmallVector<FunctionView> getFunctions() const;

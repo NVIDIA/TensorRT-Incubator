@@ -61,13 +61,6 @@ struct OptionsProvider {
   using Option = mlir::detail::PassOptions::Option<T, Mods...>;
   template <typename T, typename... Mods>
   using ListOption = mlir::detail::PassOptions::ListOption<T, Mods...>;
-
-  /// Modifies options after parsing. This is required since we may need
-  /// to make changes to members based on information given gained after
-  /// parsing. For example, in the device options, if
-  /// `infer-device-options-from-host`, is set, then we should modify other
-  /// members based on host information.
-  virtual llvm::Error finalize() { return llvm::Error::success(); }
 };
 
 /// DebugOptions are options that are common to different compiler API
@@ -176,7 +169,7 @@ struct ExecutorOptions : public OptionsProvider {
 
 struct DeviceOptions : public OptionsProvider {
 public:
-  using OptionsProvider::OptionsProvider;
+  DeviceOptions(mlir::detail::PassOptions *ctx);
 
   /// Get results as DeviceInfo struct.
   DeviceInfo info() {
@@ -192,7 +185,6 @@ public:
       llvm::cl::desc("whether to ignore `deviceX` options and instead infer "
                      "them from the host GPU")};
 
-public:
   Option<int64_t> computeCapability{
       this->ctx, "device-compute-capability", llvm::cl::init(60),
       llvm::cl::desc("Sets the device compute capability. Only relevant "
@@ -202,7 +194,11 @@ public:
   Option<uint64_t> maxRegistersPerBlock{
       this->ctx, "device-max-registers-per-block", llvm::cl::init(65536)};
 
-  llvm::Error finalize() final;
+private:
+  /// Stores host device info. This is populated by the callback of
+  /// `shouldInfoFromHost`. If present, then it will also override the other
+  /// options in their callbacks.
+  std::optional<DeviceInfo> hostDeviceInfo{};
 };
 
 struct PlanAllocOptions : public OptionsProvider {
@@ -275,9 +271,6 @@ public:
   mlir::LogicalResult parse(llvm::ArrayRef<llvm::StringRef> args,
                             std::string &err);
 
-  /// Populate the values of values which are calculated after parsing.
-  virtual llvm::Error finalize() { return llvm::Error::success(); }
-
   /// Returns true if this owns a valid DebugOptions struct. If it returns
   /// false, then default MLIR global CL options should be used to populate pass
   /// instrumentation.
@@ -348,20 +341,6 @@ public:
     } else {
       return *std::get<std::unique_ptr<OptionsProviderT>>(optionProviders);
     }
-  }
-
-  /// Calls finalize on all providers.
-  llvm::Error finalize() override {
-    llvm::Error result = llvm::Error::success();
-    std::apply(
-        [&](auto &...optionProvider) {
-          ((result = std::move(llvm::joinErrors(std::move(result),
-                                                optionProvider->finalize()))),
-           ...);
-        },
-        optionProviders);
-
-    return result;
   }
 
 private:

@@ -356,3 +356,36 @@ func.func @memref_reshape_unsupported(%input : memref<2x3xf32>, %shape : memref<
   return
 }
 
+// -----
+
+
+!memref_4xi8 = memref<4xi8, #executor.memory_type<device>>
+
+memref.global "private" @global1 : memref<4xi8, #executor.memory_type<host_pinned>> {alignment = 32 : i64}
+memref.global "private" @global2 : !memref_4xi8 = dense<[5, 6, 7, 8]> {constant}
+memref.global "private" @global3 : !memref_4xi8
+
+func.func @memref_global() -> (memref<4xi8, #executor.memory_type<host_pinned>>, !memref_4xi8, !memref_4xi8) {
+  %1 = memref.get_global @global1 : memref<4xi8, #executor.memory_type<host_pinned>>
+  %2 = memref.get_global @global2 : !memref_4xi8
+  %3 = memref.get_global @global3 : !memref_4xi8
+  return %1, %2, %3 : memref<4xi8, #executor.memory_type<host_pinned>>, !memref_4xi8, !memref_4xi8
+}
+
+//   CHECK-DAG:   executor.data_segment @global1 uninitialized align 32 address_space <host_pinned> dense<0> : tensor<4xi8>
+//   CHECK-DAG:   executor.data_segment @global2 constant address_space <device> dense<[5, 6, 7, 8]> : tensor<4xi8>
+//   CHECK-DAG:   executor.data_segment @global3 uninitialized address_space <device> dense<0> : tensor<4xi8>
+// CHECK-LABEL: func.func @memref_global
+//    CHECK-DAG:     %[[c0_i32:.+]] = executor.constant 0 : i32
+//    CHECK-DAG:     %[[c1_i32:.+]] = executor.constant 1 : i32
+//    CHECK-DAG:     %[[c4_i32:.+]] = executor.constant 4 : i32
+//    CHECK-DAG:     %[[v0:.+]] = executor.load_data_segment @global1 : !executor.ptr<host_pinned>
+//    CHECK-DAG:     %[[v1:.+]] = executor.table.create(%[[v0]], %[[v0]], %[[c0_i32]], %[[c4_i32]], %[[c1_i32]] :
+//    CHECK-DAG:     %[[v2:.+]] = builtin.unrealized_conversion_cast %[[v1]] :
+//    CHECK-DAG:     %[[v3:.+]] = executor.load_data_segment @global2 : !executor.ptr<device>
+//    CHECK-DAG:     %[[v4:.+]] = executor.table.create(%[[v3]], %[[v3]], %[[c0_i32]], %[[c4_i32]], %[[c1_i32]] :
+//    CHECK-DAG:     %[[v5:.+]] = builtin.unrealized_conversion_cast %[[v4]] :
+//    CHECK-DAG:     %[[v6:.+]] = executor.load_data_segment @global3 : !executor.ptr<device>
+//    CHECK-DAG:     %[[v7:.+]] = executor.table.create(%[[v6]], %[[v6]], %[[c0_i32]], %[[c4_i32]], %[[c1_i32]] :
+//    CHECK-DAG:     %[[v8:.+]] = builtin.unrealized_conversion_cast %[[v7]] :
+//    CHECK-DAG:     return %[[v2]], %[[v5]], %[[v8]] :

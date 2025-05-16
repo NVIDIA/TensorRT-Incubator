@@ -83,7 +83,20 @@ def TensorKindOpInterface : OpInterface<"TensorKindOpInterface"> {
       /*methodName=*/"getStaticOperandTensorKind",
       /*args=*/(ins "::mlir::OpOperand&":$operand),
       /*methodBody=*/"",
-      /*defaultImplementation=*/"">
+      /*defaultImplementation=*/"">,
+    StaticInterfaceMethod<
+      /*desc=*/[{
+        Returns true if the given value is a candidate for a host tensor based on
+        its type information. It must be a statically-shaped integer tensor with
+        fewer than 8 elements.
+      }],
+      /*retTy=*/"bool",
+      /*methodName=*/"isHostTensorCandidate",
+      /*args=*/(ins "::mlir::Value":$value),
+      /*methodBody=*/"",
+      /*defaultImplementation=*/[{
+        return ::mlir::detail::isHostTensorCandidate(value.getType());
+      }]>
   ];
 }
 

@@ -37,7 +37,7 @@ namespace detail {
 /// Helper function used by cluster backends that returns 'true' if the given
 /// clusterable operation should be executed on the host as determined by the
 /// TensorKind dataflow analysis and other information about the operation.
-bool shouldRunOnHost(Operation *op, DataFlowSolver &solver);
+bool shouldRunOnHost(Operation *op, const DataFlowSolver &solver);
 } // namespace detail
 
 /// Register the Host backend extensions to the Plan dialect.

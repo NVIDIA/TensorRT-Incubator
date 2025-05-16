@@ -1017,46 +1017,6 @@ def TensorRT_GatherElementsOp : TensorRT_Op<"gather_elements",
 }
 
 //===----------------------------------------------------------------------===//
-// Identity84Op
-//===----------------------------------------------------------------------===//
-
-def TensorRT_Identity84Op : TensorRT_Op<"identity84", [Pure,
-      TensorRTPartiallyInferTensorResultTypes,
-      ElementwiseMappable]>{
-  let summary = "TensorRT identity (IIdentityLayer) operation (TensorRT 8.4 version)";
-  let description = [{
-    The `tensorrt.identity` operation performs a cast from the the input tensor
-    type to the result tensor type, changing only the element type.
-
-    This operation corresponds to the TensorRT 8.4 specification.
-
-    Valid conversions for TensorRT 8.4 are:
-
-      (f32 | f16 | i32 | bool) -> (f32 | f16 | i32)
-  }];
-
-  let arguments = (ins TensorRT_RankedTensorOf<[F32, F16, I32, I1]>:$input);
-  let results = (outs TensorRT_RankedTensorOf<[F32, F16, I32]>:$result);
-  let assemblyFormat = "attr-dict $input `:` type($input) `to` type($result)";
-  let hasFolder = 1;
-
-  let trtLayerAdd = [{
-    nvinfer1::IIdentityLayer *layer = $net->addIdentity(*$input);
-    if (!layer)
-      return failure();
-    if (!$e.isStronglyTyped()){
-      FailureOr<nvinfer1::DataType> outputTrtType = getNvInferDataType($op.getLoc(),
-                                                          $op.getType().getElementType());
-      if (failed(outputTrtType))
-        return failure();
-      layer->setOutputType(0, *outputTrtType);
-    }
-    $results.push_back(layer->getOutput(0));
-    $e.setMetadata(layer, $op);
-  }];
-}
-
-//===----------------------------------------------------------------------===//
 // IdentityOp
 //===----------------------------------------------------------------------===//
 
@@ -1076,6 +1036,14 @@ def TensorRT_IdentityOp : TensorRT_Op<"identity", [
         (f32 | f16 | bf16 | i32 | bool) -> (f32 | f16 | bf16 | i32 | bool)
         (f32 | f16) -> (uint8)
         (uint8) -> (f32 | f16)
+
+    NOTE: When creating this operation, conversions `x -> uint8` and
+    `uint8 -> x` are allowed even when `x` is not strictly limited to {f32, f16}.
+    The `ApplyWorkaroundsPass` pass addresses these situations by inserting an
+    additional `tensorrt.identity` operation for casting through `f32`. This
+    ensures that the TensorRT graph doesn't break due to a single identity operation
+    with strictly not supported `uint8` conversion.
+
   }];
 
   let arguments = (ins TensorRT_RankedTensorOf<[I1, UI8, TensorRT_I8, I32, F16, BF16, F32]>:$input);

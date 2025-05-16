@@ -137,7 +137,6 @@ public:
     // a particular convention between compiler and runtime for the naming of
     // inputs and results.
     mTensorName = "result" + std::to_string(resultIdx);
-
     allocInfo = PointerInfo(0, 0);
   }
 
@@ -162,21 +161,15 @@ public:
 
     StatusOr<PointerInfo> alloc = mlirtrt::runtime::allocate(
         *mTracker, PointerType::device, size, alignment,
-        // TODO (#590): Enable asynchrnous allocations by passing the stream:
-        std::nullopt);
-    if (!alloc.isOk())
+        stream ? std::optional<CudaStreamPtr>(stream) : std::nullopt);
+    if (!alloc.isOk()) {
+      MTRT_ERRF("failed to allocate TensorRT output buffer of size %lu: %s",
+                size, alloc.getString().c_str());
       return nullptr;
-
+    }
     allocInfo = std::move(*alloc);
-    // Mark the output pointer for release after consumption
-    // This is necessary because TensorRT-allocated pointers used in
-    // device-device or device-host copies may not be wrapped in a memref
-    // and tracked by the client. By marking it here, we ensure it will be
-    // explicitly freed after it's consumed in copy operations, preventing
-    // memory leaks.
-    mTracker->markForReleaseAfterConsumption(allocInfo.ptr);
-    MTRT_DBGF("tensorrt module output allocator allocating %lu bytes at 0x%lx",
-              allocInfo.size, allocInfo.ptr);
+    MTRT_DBGF("NvInferResultAllocator: allocated %lu bytes at %p",
+              allocInfo.size, reinterpret_cast<void *>(allocInfo.ptr));
     return reinterpret_cast<void *>(allocInfo.ptr);
   }
 
@@ -456,7 +449,7 @@ static Status setTensorAddressesOrReport(
   for (auto &[name, ptr, dims] : buffers) {
     constexpr intptr_t kMinAlignmentBytes = 256;
     if (ptr % kMinAlignmentBytes != 0)
-      MTRT_WARNV("TensorRT input {0} (ptr = {1}) does not meet minimum "
+      MTRT_WARNV("TensorRT input {0} (ptr = {1:X}) does not meet minimum "
                  "alignment of {2} bytes",
                  name, ptr, kMinAlignmentBytes);
 

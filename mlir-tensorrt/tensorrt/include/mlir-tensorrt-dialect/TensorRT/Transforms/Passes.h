@@ -76,7 +76,7 @@ void buildTensorRTModuleSimplificationPipeline(OpPassManager &pm);
 /// engines.
 void buildTensorRTModuleTransformationPipeline(
     mlir::OpPassManager &pm,
-    const ApplyBugWorkaroundsPassOptions &bugWorkaroundOptions);
+    const ApplyWorkaroundsPassOptions &bugWorkaroundOptions);
 } // namespace mlir::tensorrt
 
 #endif // MLIR_TENSORRT_DIALECT_TENSORRT_TRANSFORMS_PASSES

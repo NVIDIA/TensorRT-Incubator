@@ -756,8 +756,9 @@ LogicalResult LuaEmitter::emitAssignPrefix(Operation *op) {
     os << "local ";
 
   llvm::interleaveComma(op->getResults(), os, [&](Value v) {
-    os << (isLocalVar ? createLocalVariableName(v)
-                      : createGlobalVariableName(v));
+    os << (isLocalVar          ? createLocalVariableName(v)
+           : isValueInScope(v) ? getVariableName(v)
+                               : createGlobalVariableName(v));
   });
 
   // Starting in Lua 5.4, it supports "<const>" attributes for local vars, which
@@ -836,6 +837,21 @@ LogicalResult LuaEmitter::emitBlock(Block &block, bool isEntryBlock) {
       for (BlockArgument arg : otherBlock.getArguments())
         getStream() << "local " << createLocalVariableName(arg, "barg")
                     << " = nil;\n";
+
+      // Declare all results of operations in the block as locals in the entry
+      // block if they are used outside of the block.
+      for (Operation &op : otherBlock) {
+        for (Value result : op.getResults()) {
+          bool usedOutside =
+              llvm::any_of(result.getUsers(), [&](Operation *userOp) {
+                return userOp->getBlock() != &otherBlock;
+              });
+          if (usedOutside) {
+            getStream() << "local " << createLocalVariableName(result)
+                        << " = nil;\n";
+          }
+        }
+      }
     }
   }
 

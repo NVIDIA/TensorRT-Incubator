@@ -396,6 +396,13 @@ func.func @test_trunci_i32_to_i1(%arg0: i32) {
   return
 }
 
+
+func.func @test_trunci_i8_to_i1(%arg0: i8) {
+  %0 = executor.trunc %arg0: i8 to i1
+  executor.print "trunci i8 0x%x to i1 = 0x%x"(%arg0, %0 : i8, i1)
+  return
+}
+
 func.func @print_test_zext_i8(%arg0: i8) {
   %0 = arith.extui %arg0 : i8 to i32
   executor.print "zext i8 %d to i32 %d"(%arg0, %0 : i8, i32)
@@ -1069,6 +1076,13 @@ func.func @main() -> i64 {
   func.call @test_trunci_i32_to_i1(%c32_1) : (i32) -> ()
   func.call @test_trunci_i32_to_i1(%c32_0) : (i32) -> ()
 
+  executor.print "TEST: trunc i8 -> i1"()
+  %cn1_i8 = executor.constant -1 : i8
+  func.call @test_trunci_i8_to_i1(%cn1_i8) : (i8) -> ()
+  func.call @test_trunci_i8_to_i1(%c1_i8) : (i8) -> ()
+  
+  
+
 
   return %ic0 : i64
 }
@@ -1337,3 +1351,7 @@ func.func @main() -> i64 {
 //  CHECK-NEXT: trunci i32 0x2 to i1 = 0
 //  CHECK-NEXT: trunci i32 0x1 to i1 = 1
 //  CHECK-NEXT: trunci i32 0x0 to i1 = 0
+
+// CHECK-LABEL: TEST: trunc i8 -> i1
+//  CHECK-NEXT: trunci i8 0xffffffffffffffff to i1 = 0x1
+//  CHECK-NEXT: trunci i8 0x1 to i1 = 0x1

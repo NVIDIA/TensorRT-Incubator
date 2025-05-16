@@ -33,7 +33,7 @@
 #include "mlir-tensorrt/Compiler/StablehloToExecutable/Passes.h"
 #include "mlir-tensorrt/Compiler/StablehloToExecutable/StablehloToExecutable.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
-#include "mlir-tensorrt/Dialect/StableHloExt/Transforms/Passes.h"
+#include "mlir-tensorrt/Dialect/StablehloExt/Transforms/Passes.h"
 #include "stablehlo/transforms/Passes.h"
 #include "stablehlo/transforms/optimization/Passes.h"
 #endif // MLIR_TRT_ENABLE_HLO

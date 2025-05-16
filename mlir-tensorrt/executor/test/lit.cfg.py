@@ -25,9 +25,6 @@ config.suffixes = [".mlir", ".lua"]
 # test_source_root: The root path where tests are located.
 config.test_source_root = os.path.dirname(__file__)
 
-# test_exec_root: The root path where tests should be run.
-config.test_exec_root = os.path.join(config.executor_obj_root, "test")
-
 config.substitutions.append(("%PATH%", config.environment["PATH"]))
 config.substitutions.append(("%shlibext", config.llvm_shlib_ext))
 

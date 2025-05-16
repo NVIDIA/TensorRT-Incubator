@@ -275,17 +275,6 @@ void registerCompilationTaskWithNoExtensions(llvm::StringRef mnemonic) {
               "failed to parse options string \"{0:$[ ]}\" due to error {1}",
               llvm::iterator_range(options), err);
 
-        llvm::Error finalizeStatus = parsedOptions->finalize();
-        std::optional<std::string> errMsg{};
-        llvm::handleAllErrors(std::move(finalizeStatus),
-                              [&errMsg](const llvm::StringError &err) {
-                                errMsg = err.getMessage();
-                              });
-
-        if (errMsg)
-          return getInvalidArgStatus("failed to parse options due to error {0}",
-                                     errMsg);
-
         std::optional<llvm::hash_code> hashCode = parsedOptions->getHash();
         if (!hashCode)
           return getInvalidArgStatus("failed to hash options");

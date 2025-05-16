@@ -27,6 +27,8 @@ defvar CUDA_ArithFloatTypes = [F64, F32, BF16, F16, F8E4M3FN, BF16];
 defvar CUDA_ArithIntTypes = [I64, I32, I16, I8, I4, Index];
 def CUDA_Integer : AnyTypeOf<!listconcat(CUDA_ArithIntTypes, [I1])>;
 def CUDA_Float : AnyTypeOf<CUDA_ArithFloatTypes>;
+defvar CUDA_Float32Or64 = AnyTypeOf<[F64, F32]>;
+def CUDA_Complex : Complex<CUDA_Float32Or64>;
 
 //===----------------------------------------------------------------------===//
 // CUDA - Device Management Ops
@@ -124,7 +126,7 @@ def CUDA_LaunchOp : CUDA_Op<"launch", [
                        I32:$dynamic_shared_mem,
                        CUDA_Stream:$stream,
                        Variadic<AnyTypeOf<[
-                         CUDA_Integer, CUDA_Float, AnyMemRef
+                         CUDA_Integer, CUDA_Float, AnyMemRef, CUDA_Complex
                        ]>>:$args);
 
   let assemblyFormat = [{
@@ -253,7 +255,7 @@ def CUDA_AllocOp : CUDA_Op<"alloc", [AttrSizedOperandSegments]> {
     [MemAlloc<DefaultResource, 0, FullEffect>]>:$result);
   let assemblyFormat = [{
     `(` ($dynamic_sizes^ `)`) : (`)`)?
-    (`stream` `(` $stream^ `)`)? 
+    (`stream` `(` $stream^ `)`)?
     (`device` `(`$device^ `)`)?
     (`align` $alignment^)?
     attr-dict `:` type($result)
@@ -360,9 +362,9 @@ def CUDA_BlasHeuristicAlgoSelectionOp : CUDA_Op<"blas.algo_select", [Pure]> {
     GEMM computation.
     - `size_c`: Size of input matrix C.
     - `stride_c`: Stride of input matrix C.
-    - `tile_sizes`: Desired CTA tile sizes for the M/N dimensions for the 
+    - `tile_sizes`: Desired CTA tile sizes for the M/N dimensions for the
     selected algorithm. 2 elements are expected in tile sizes. If any element
-    is 0, then this argument will be considered as invalid. 
+    is 0, then this argument will be considered as invalid.
 
     NOTE: All dimensions should be static.
 

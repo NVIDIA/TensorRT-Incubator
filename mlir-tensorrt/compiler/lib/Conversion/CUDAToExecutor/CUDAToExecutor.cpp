@@ -96,12 +96,15 @@ protected:
                                             {hostPointerType},
                                             {hostPointerType, strLiteralType}};
 
-  ExecutorCallBuilder cudaLaunchBuilder = {
-      ctx,
-      "__cuda_launch",
-      {},
-      {hostPointerType, i32Type, i32Type, i32Type, i32Type, i32Type, i32Type,
-       i32Type, hostPointerType, hostPointerType, i32Type}};
+  ExecutorCallBuilder cudaLaunchBuilder = {ctx,
+                                           "__cuda_launch",
+                                           {},
+                                           {/*cuFunction*/ hostPointerType,
+                                            /*grid*/ i32Type, i32Type, i32Type,
+                                            /*block*/ i32Type, i32Type, i32Type,
+                                            /*dsmem*/ i32Type,
+                                            /*stream*/ hostPointerType,
+                                            /*arg ptr array*/ hostPointerType}};
 };
 
 //===----------------------------------------------------------------------===//
@@ -288,73 +291,52 @@ struct LowerCudaLaunchKernelToCall
     : public CUDAOpToExecutorCallLowering<cuda::LaunchOp> {
   using CUDAOpToExecutorCallLowering::CUDAOpToExecutorCallLowering;
 
-  // Constructs two temp buffers:
-  // - One buffer holds the actual argument values.
-  // - One buffer holds a pointer to each argument value in
-  //   the first buffer.
-  // The function returns the pointer to the second buffer and the
-  // number of arguments (number of pointers).
-  std::pair<Value, Value> buildLaunchArgs(RewriterBase &rewriter,
-                                          cuda::LaunchOp launchOp,
-                                          OpAdaptor adaptor) const {
-    auto loc = launchOp.getLoc();
-    MLIRContext *context = rewriter.getContext();
-    assert(launchOp.getArgs().size() == adaptor.getArgs().size());
-    SmallVector<Value> arguments = convertFuncCallOperands(
-        rewriter, loc, launchOp.getArgs(), adaptor.getArgs(),
-        MemRefArgPassingConvention::Unpacked);
-    auto numArguments = arguments.size();
-    SmallVector<Type, 4> argumentTypes;
-    argumentTypes.reserve(numArguments);
-    for (auto argument : arguments)
-      argumentTypes.push_back(argument.getType());
-
-    auto structType = executor::TableType::get(context, argumentTypes);
-    auto llvmPtrIntType = getTypeConverter()->getIndexType();
-    auto llvmPointerType =
-        executor::PointerType::get(context, executor::MemoryType::host);
-    auto one = rewriter.create<executor::ConstantOp>(
-        loc, rewriter.getI32IntegerAttr(1));
-    auto structPtr = rewriter.create<executor::AllocaOp>(
-        loc, llvmPointerType, one, IntegerAttr{}, structType);
-    auto arraySize = rewriter.create<executor::ConstantOp>(
-        loc, rewriter.getI32IntegerAttr(numArguments));
-    auto arrayPtr = rewriter.create<executor::AllocaOp>(
-        loc, llvmPointerType, arraySize, IntegerAttr{}, llvmPointerType);
-    Value structPtrInt =
-        rewriter.create<executor::PtrToIntOp>(loc, llvmPtrIntType, structPtr);
-    for (const auto &[index, arg] : llvm::enumerate(arguments)) {
-      Value fieldValueOffset = rewriter.create<executor::GetOffsetOp>(
-          loc, llvmPtrIntType, structType,
-          ArrayRef<OpFoldResult>{rewriter.getI64IntegerAttr(0),
-                                 rewriter.getI64IntegerAttr(index)});
-      rewriter.create<executor::StoreOp>(loc, structPtr, fieldValueOffset, arg);
-      auto offsetPtrInt = rewriter.create<executor::AddIOp>(loc, structPtrInt,
-                                                            fieldValueOffset);
-      auto offsetPtr = rewriter.create<executor::IntToPtrOp>(
-          loc, llvmPointerType, offsetPtrInt);
-      auto storeOffset = rewriter.create<executor::GetOffsetOp>(
-          loc, llvmPtrIntType, llvmPointerType,
-          ArrayRef<OpFoldResult>{rewriter.getI64IntegerAttr(index)});
-      rewriter.create<executor::StoreOp>(loc, arrayPtr, storeOffset, offsetPtr);
-    }
-    return {arrayPtr, rewriter.create<executor::ConstantOp>(
-                          launchOp.getLoc(),
-                          rewriter.getI32IntegerAttr(arguments.size()))};
-  }
-
   LogicalResult
   matchAndRewrite(cuda::LaunchOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
+    Location loc = op->getLoc();
+    Value one = rewriter.create<executor::ConstantOp>(
+        loc, rewriter.getIntegerAttr(indexType, 1));
 
-    auto [args, numArgs] = buildLaunchArgs(rewriter, op, adaptor);
-    SmallVector<Value> callOperands(adaptor.getOperands().take_front(9));
-    callOperands.append({args, numArgs});
+    SmallVector<Value> storagePtrs;
+    SmallVector<Value> promotedArgs;
+    if (failed(this->getTypeConverter()->promoteOperands(
+            loc, op.getArgs(), adaptor.getArgs(), rewriter,
+            /*useBarePointerCallConv=*/true, promotedArgs)))
+      return failure();
 
-    auto moduleOp = op->getParentOfType<ModuleOp>();
-    auto callOp =
-        cudaLaunchBuilder.create(rewriter, op.getLoc(), moduleOp, callOperands);
-    rewriter.replaceOp(op, callOp);
+    Value zero = rewriter.create<executor::ConstantOp>(
+        loc, rewriter.getIntegerAttr(indexType, 0));
+
+    for (Value toStoreVal : promotedArgs) {
+      Value valuePtr = rewriter.create<executor::AllocaOp>(
+          loc, hostPointerType, one, IntegerAttr{}, toStoreVal.getType());
+      rewriter.create<executor::StoreOp>(loc, valuePtr, zero, toStoreVal);
+      storagePtrs.push_back(valuePtr);
+    }
+
+    // Create and populate the array-of-pointers that is required by the
+    // launch config.
+    auto operandPtrStorageType = executor::TableType::get(
+        ctx, SmallVector<Type>(storagePtrs.size(), hostPointerType));
+    auto argPtrsPtr = rewriter.create<executor::AllocaOp>(
+        loc, hostPointerType, one, IntegerAttr{}, operandPtrStorageType);
+    for (auto [idx, value] : llvm::enumerate(storagePtrs)) {
+      auto offsetOp = rewriter.create<executor::GetOffsetOp>(
+          loc, indexType, operandPtrStorageType,
+          ArrayRef<OpFoldResult>{rewriter.getI64IntegerAttr(0),
+                                 rewriter.getI64IntegerAttr(idx)});
+      rewriter.create<executor::StoreOp>(loc, argPtrsPtr, offsetOp, value);
+    }
+
+    cudaLaunchBuilder.create(
+        rewriter, loc, op->getParentOfType<ModuleOp>(),
+        /*functionInputs*/
+        {adaptor.getFunc(), adaptor.getGridX(), adaptor.getGridY(),
+         adaptor.getGridZ(), adaptor.getBlockX(), adaptor.getBlockY(),
+         adaptor.getBlockZ(), adaptor.getDynamicSharedMem(),
+         adaptor.getStream(), argPtrsPtr});
+    rewriter.eraseOp(op);
     return success();
   }
 };
@@ -723,124 +705,6 @@ private:
       &compiledModuleToGlobalMap;
 };
 
-//===----------------------------------------------------------------------===//
-// GlobalOp
-//===----------------------------------------------------------------------===//
-
-/// Convert `memref.global` to `executor.global`.
-struct ConvertCUDAGlobalToExecutorGlobal
-    : public CUDAOpToExecutorCallLowering<memref::GlobalOp> {
-  using CUDAOpToExecutorCallLowering::CUDAOpToExecutorCallLowering;
-  LogicalResult
-  matchAndRewrite(memref::GlobalOp op, OpAdaptor adaptor,
-                  ConversionPatternRewriter &rewriter) const override {
-    MemRefType memrefType = op.getType();
-    std::optional<MemoryType> space = getMemorySpace(memrefType);
-    if (!isDeviceVisibleMemoryType(memrefType) &&
-        *space != MemoryType::host_pinned)
-      return failure();
-
-    Type convertedType = getTypeConverter()->convertType(memrefType);
-    if (!convertedType)
-      return failure();
-
-    /// If there's no initial value, then just perform the allocation.
-    Attribute initialValue = op.getInitialValueAttr();
-    executor::DataSegmentOp constOp = nullptr;
-    if (initialValue)
-      constOp = rewriter.create<executor::DataSegmentOp>(
-          op.getLoc(),
-          rewriter.getStringAttr(op.getSymName() + "_initializer").str(),
-          cast<ElementsAttr>(initialValue),
-          /*constant=*/true,
-          /*uninitialized=*/false,
-          /*alignment=*/op.getAlignmentAttr());
-
-    bool error = false;
-    rewriter.replaceOpWithNewOp<executor::GlobalOp>(
-        op, op.getSymNameAttr(), convertedType,
-        [&, this](OpBuilder &nested, Location loc) {
-          ImplicitLocOpBuilder ib(loc, nested);
-          FailureOr<MemRefAllocationInformation> info =
-              getMemRefAllocationInformation(ib, memrefType, {});
-          if (failed(info)) {
-            error = true;
-            return;
-          }
-          Value zero = createIndexConstant(ib, 0);
-          // Here we just create a stream inline since we don't want to have
-          // to worry about global ordering.
-          auto module = op->getParentOfType<ModuleOp>();
-          Value stream =
-              streamCreateBuilder.create(ib, loc, module, {}).getResult(0);
-          Value device = getCUDADeviceId(rewriter, loc, module);
-
-          Value alignment = nested.create<executor::ConstantOp>(
-              loc, nested.getI32IntegerAttr(
-                       op.getAlignment() ? *op.getAlignment() : 16));
-
-          Value destPtr = {};
-          if (info->memorySpace == MemoryType::host_pinned) {
-            destPtr =
-                hostPinnedAllocBuilder
-                    .create(nested, loc, module, {info->sizeBytes, alignment})
-                    .getResult(0);
-          } else if (info->memorySpace == MemoryType::device) {
-            destPtr = deviceAllocBuilder
-                          .create(nested, loc, module,
-                                  {stream, device, info->sizeBytes, alignment})
-                          .getResult(0);
-          } else {
-            error = true;
-            return;
-          }
-
-          MemRefDescriptor bufferDescriptor = MemRefDescriptor::fromComponents(
-              ib, *getTypeConverter(), op.getType(), destPtr, destPtr, zero,
-              info->sizes, info->strides);
-          Value allocatedPtr = bufferDescriptor.alignedPtr(ib);
-
-          if (initialValue) {
-            Value constPtr = ib.create<executor::ConstantResourceLoadOp>(
-                FlatSymbolRefAttr::get(constOp));
-            if (info->memorySpace == MemoryType::host_pinned)
-              hostToHostPinnedCopyBuilder.create(
-                  ib, loc, module,
-                  {constPtr, zero, allocatedPtr, zero, info->sizeBytes});
-            else
-              hostToDeviceCopyBuilder.create(ib, loc, module,
-                                             {stream, constPtr, zero,
-                                              allocatedPtr, zero,
-                                              info->sizeBytes});
-          }
-
-          streamSyncBuilder.create(ib, loc, module, {stream});
-          streamDestroyBuilder.create(ib, loc, module, {stream});
-          ib.create<executor::ReturnOp>(Value(bufferDescriptor));
-        },
-        op.getConstant());
-
-    if (error)
-      return failure();
-
-    return success();
-  }
-};
-
-/// Convert `memref.get_global` to `executor.get_global`.
-struct ConvertCUDAGetGlobal
-    : public ConvertOpToExecutorPattern<memref::GetGlobalOp> {
-  using ConvertOpToExecutorPattern::ConvertOpToExecutorPattern;
-  LogicalResult
-  matchAndRewrite(memref::GetGlobalOp op, OpAdaptor adaptor,
-                  ConversionPatternRewriter &rewriter) const override {
-    Type convertedType = getTypeConverter()->convertType(op.getType());
-    rewriter.replaceOpWithNewOp<executor::GetGlobalOp>(op, convertedType,
-                                                       op.getNameAttr());
-    return success();
-  }
-};
-
 } // namespace
 
 /// Replaces a `cuda.compiled_module` operation with a `executor.global`
@@ -979,28 +843,6 @@ public:
           return {};
         });
 
-    auto isLegalGlobalType = [](MemRefType type) {
-      auto space =
-          dyn_cast_or_null<executor::MemoryTypeAttr>(type.getMemorySpace());
-      if (!space)
-        return true;
-      return space.getValue() != MemoryType::device &&
-             space.getValue() != MemoryType::unified &&
-             space.getValue() != MemoryType::host_pinned;
-    };
-
-    target.addDynamicallyLegalOp<memref::GlobalOp>([&](memref::GlobalOp op) {
-      if (isInNestedSymbolTable(op))
-        return true;
-      return isLegalGlobalType(op.getType());
-    });
-    target.addDynamicallyLegalOp<memref::GetGlobalOp>(
-        [&](memref::GetGlobalOp op) {
-          if (isInNestedSymbolTable(op))
-            return true;
-          return isLegalGlobalType(op.getType());
-        });
-
     // For each CompiledModuleOp, convert them into globals for the cuModule,
     // cuFunction, and kernel binary data. We keep a map from symbol names of
     // `cuda.compiled_module` ops to the `executor.global` that replaced it.
@@ -1028,9 +870,7 @@ public:
         CudaDeallocToBuiltinCallConverter,
         CudaMemCopyOpToBuiltinCallConverter<cuda::CopyD2DOp>,
         CudaMemCopyOpToBuiltinCallConverter<cuda::CopyD2HOp>,
-        CudaMemCopyOpToBuiltinCallConverter<cuda::CopyH2DOp>,
-        ConvertCUDAGlobalToExecutorGlobal,
-        ConvertCUDAGetGlobal
+        CudaMemCopyOpToBuiltinCallConverter<cuda::CopyH2DOp>
       >(typeConverter, ctx);
     patterns.add<
         GetFunctionToCallConverter

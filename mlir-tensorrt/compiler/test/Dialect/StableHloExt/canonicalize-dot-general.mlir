@@ -69,6 +69,30 @@ func.func @dot_general_to_mul(%arg0: tensor<12x1x1x1xf32>, %arg1: tensor<12xf32>
 
 // -----
 
+!lhs_type = tensor<12x1x1x1xcomplex<f32>>
+!rhs_type = tensor<12xcomplex<f32>>
+!result_type = tensor<12x1x1x1xcomplex<f64>>
+
+func.func @complex_dot_general_to_mul(%arg0: !lhs_type,
+                                      %arg1: !rhs_type) -> !result_type {
+  %0 = stablehlo.dot_general %arg1, %arg0,
+    batching_dims = [0] x [0],
+    contracting_dims = [] x [],
+    precision = [DEFAULT, DEFAULT]
+    : (!rhs_type, !lhs_type) -> !result_type
+  return %0 : !result_type
+}
+
+// CHECK-LABEL: func.func @complex_dot_general_to_mul
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<12x1x1x1xcomplex<f32>>, %[[arg1:.+]]: tensor<12xcomplex<f32>>)
+//   CHECK-DAG:     %[[v0:.+]] = stablehlo.broadcast_in_dim %[[arg1]], {{.*}} -> tensor<12x1x1x1xcomplex<f32>>
+//   CHECK-DAG:     %[[v1:.+]] = stablehlo.convert %[[v0]] : (tensor<12x1x1x1xcomplex<f32>>) -> tensor<12x1x1x1xcomplex<f64>>
+//   CHECK-DAG:     %[[v2:.+]] = stablehlo.convert %[[arg0]] : (tensor<12x1x1x1xcomplex<f32>>) -> tensor<12x1x1x1xcomplex<f64>>
+//   CHECK-DAG:     %[[v3:.+]] = stablehlo.multiply %[[v1]], %[[v2]]
+//       CHECK:     return %[[v3]]
+
+// -----
+
 // TODO: this can be converted to mul without broadcast, then we can handle the dynamic shapes.
 // We only can't handle this right now since broadcast requires dynamic shape.
 
@@ -393,3 +417,51 @@ func.func public @contracting_collapse_to_batch_vec_vec(%arg0: tensor<2x2x3x4x2x
 //  CHECK-NEXT: %[[v4:.+]] = stablehlo.dot_general %[[v1]], %[[v3]], batching_dims = [0, 1] x [0, 1], contracting_dims = [3] x [3], precision = [DEFAULT, DEFAULT] : (tensor<2x2x1x24xf32>, tensor<2x2x1x24xf32>) -> tensor<2x2x1x1xf32>
 //  CHECK-NEXT: %[[v5:.+]] = stablehlo.reshape %[[v4]] : (tensor<2x2x1x1xf32>) -> tensor<2x2xf32>
 //  CHECK-NEXT: return %[[v5]] : tensor<2x2xf32>
+
+// -----
+
+func.func @hlo_dot_general3(%arg0: tensor<32x49x32xf32>, %arg1: tensor<32x1x32x49xf32>) -> tensor<32x49x1x49xf32> {
+  %0 = "stablehlo.dot_general"(%arg0, %arg1) {
+    dot_dimension_numbers = #stablehlo.dot<
+      lhs_batching_dimensions = [0],
+      rhs_batching_dimensions = [0],
+      lhs_contracting_dimensions = [2],
+      rhs_contracting_dimensions = [2]>,
+    precision_config = [#stablehlo<precision DEFAULT>, #stablehlo<precision DEFAULT>]
+  } : (tensor<32x49x32xf32>, tensor<32x1x32x49xf32>) -> tensor<32x49x1x49xf32>
+  return %0 : tensor<32x49x1x49xf32>
+}
+
+// CHECK-LABEL: func.func @hlo_dot_general3
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<32x49x32xf32>, %[[arg1:.+]]: tensor<32x1x32x49xf32>)
+//   CHECK-DAG:     %[[v0:.+]] = stablehlo.transpose %[[arg0]], dims = [0, 1, 2] : (tensor<32x49x32xf32>) -> tensor<32x49x32xf32>
+//   CHECK-DAG:     %[[v1:.+]] = stablehlo.reshape %[[v0]] : (tensor<32x49x32xf32>) -> tensor<32x49x32xf32>
+//   CHECK-DAG:     %[[v2:.+]] = stablehlo.transpose %[[arg1]], dims = [0, 1, 3, 2] : (tensor<32x1x32x49xf32>) -> tensor<32x1x49x32xf32>
+//   CHECK-DAG:     %[[v3:.+]] = stablehlo.reshape %[[v2]] : (tensor<32x1x49x32xf32>) -> tensor<32x49x32xf32>
+//   CHECK-DAG:     %[[v4:.+]] = stablehlo.dot_general %[[v1]], %[[v3]], batching_dims = [0] x [0], contracting_dims = [2] x [2], precision = [DEFAULT, DEFAULT] : (tensor<32x49x32xf32>, tensor<32x49x32xf32>) -> tensor<32x49x49xf32>
+//   CHECK-DAG:     %[[v5:.+]] = stablehlo.reshape %[[v4]] : (tensor<32x49x49xf32>) -> tensor<32x49x1x49xf32>
+//   CHECK-DAG:     return %[[v5]]
+
+// -----
+
+func.func @hlo_dot_general4(%arg0: tensor<32x5x49x32xf32>, %arg1: tensor<32x5x1x32x49xf32>) -> tensor<32x5x49x1x49xf32> {
+  %0 = "stablehlo.dot_general"(%arg0, %arg1) {
+    dot_dimension_numbers = #stablehlo.dot<
+      lhs_batching_dimensions = [0, 1],
+      rhs_batching_dimensions = [0, 1],
+      lhs_contracting_dimensions = [3],
+      rhs_contracting_dimensions = [3]>,
+    precision_config = [#stablehlo<precision DEFAULT>, #stablehlo<precision DEFAULT>]
+  } : (tensor<32x5x49x32xf32>, tensor<32x5x1x32x49xf32>) -> tensor<32x5x49x1x49xf32>
+  return %0 : tensor<32x5x49x1x49xf32>
+}
+
+// CHECK-LABEL: func.func @hlo_dot_general4
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<32x5x49x32xf32>, %[[arg1:.+]]: tensor<32x5x1x32x49xf32>)
+//   CHECK-DAG:     %[[v0:.+]] = stablehlo.transpose %[[arg0]], dims = [0, 1, 2, 3] : (tensor<32x5x49x32xf32>) -> tensor<32x5x49x32xf32>
+//   CHECK-DAG:     %[[v1:.+]] = stablehlo.reshape %[[v0]] : (tensor<32x5x49x32xf32>) -> tensor<32x5x49x32xf32>
+//   CHECK-DAG:     %[[v2:.+]] = stablehlo.transpose %[[arg1]], dims = [0, 1, 2, 4, 3] : (tensor<32x5x1x32x49xf32>) -> tensor<32x5x1x49x32xf32>
+//   CHECK-DAG:     %[[v3:.+]] = stablehlo.reshape %[[v2]] : (tensor<32x5x1x49x32xf32>) -> tensor<32x5x49x32xf32>
+//   CHECK-DAG:     %[[v4:.+]] = stablehlo.dot_general %[[v1]], %[[v3]], batching_dims = [0, 1] x [0, 1], contracting_dims = [3] x [3], precision = [DEFAULT, DEFAULT] : (tensor<32x5x49x32xf32>, tensor<32x5x49x32xf32>) -> tensor<32x5x49x49xf32>
+//   CHECK-DAG:     %[[v5:.+]] = stablehlo.reshape %[[v4]] : (tensor<32x5x49x49xf32>) -> tensor<32x5x49x1x49xf32>
+//   CHECK-DAG:     return %[[v5]]

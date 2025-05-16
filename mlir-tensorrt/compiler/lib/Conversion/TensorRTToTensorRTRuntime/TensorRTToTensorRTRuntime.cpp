@@ -54,7 +54,7 @@ struct RewriteConstants : public OpRewritePattern<tensorrt::ConstantOp> {
     if (op->getParentOfType<tensorrt::TensorRTModuleOp>())
       return failure();
     rewriter.replaceOpWithNewOp<arith::ConstantOp>(op, op.getWeights());
-    return failure();
+    return success();
   }
 };
 

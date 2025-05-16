@@ -43,3 +43,13 @@ func.func @hlo_sort2() -> tensor<3xi64> {
 // CHECK-LABEL: hlo_sort2
 //  CHECK-NEXT: stablehlo.constant
 //  CHECK-NEXT: stablehlo.sort
+
+// -----
+
+func.func @log1p_bf16(%arg0: tensor<3xbf16>) -> tensor<3xbf16> {
+  %0 = stablehlo.log_plus_one %arg0 : tensor<3xbf16>
+  return %0 : tensor<3xbf16>
+}
+
+// CHECK-LABEL: func.func @log1p_bf16
+//  CHECK-NEXT:     stablehlo.log_plus_one

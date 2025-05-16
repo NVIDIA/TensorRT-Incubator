@@ -9,7 +9,7 @@ func.func @trt_slice_builder(%arg0: tensor<1024x1024xf32>)  -> tensor<128x128xf3
 // CHECK-LABEL: @trt_slice_builder
 //       CHECK: %[[null:.+]] = "emitc.constant"() <{value = #emitc.opaque<"nullptr">}> : () -> !emitc.ptr<!emitc.opaque<"::nvinfer1::ITensor">>
 //       CHECK: %[[input:.+]] = emitc.call_opaque "::nvinfer1::adaptor::networkAddInput"(%{{.+}}) {args = [0 : index, #emitc.opaque<"\22input_0\22">, #emitc.opaque<"::nvinfer1::DataType::kFLOAT">, #emitc.opaque<"::nvinfer1::Dims{2, {1024, 1024}}">]} : (!emitc.ptr<!emitc.opaque<"::nvinfer1::INetworkDefinition">>) -> !emitc.ptr<!emitc.opaque<"::nvinfer1::ITensor">>
-//       CHECK: %[[slice:.+]] = emitc.call_opaque "::nvinfer1::adaptor::networkAddSlice"(%{{.+}}, %[[input]], %[[null]], %[[null]], %[[null]], %[[null]]) {args = [0 : index, 1 : index, 2 : index, 3 : index, 4 : index, 5 : index, #emitc.opaque<"::nvinfer1::Dims{2, {512, 512}}">, #emitc.opaque<"::nvinfer1::Dims{2, {128, 128}}">, #emitc.opaque<"::nvinfer1::Dims{2, {2, 2}}">, #emitc.opaque<"::nvinfer1::SliceMode::kDEFAULT">]} : (!emitc.ptr<!emitc.opaque<"::nvinfer1::INetworkDefinition">>, !emitc.ptr<!emitc.opaque<"::nvinfer1::ITensor">>, !emitc.ptr<!emitc.opaque<"::nvinfer1::ITensor">>, !emitc.ptr<!emitc.opaque<"::nvinfer1::ITensor">>, !emitc.ptr<!emitc.opaque<"::nvinfer1::ITensor">>, !emitc.ptr<!emitc.opaque<"::nvinfer1::ITensor">>) -> !emitc.ptr<!emitc.opaque<"::nvinfer1::ITensor">>
+//       CHECK: %[[slice:.+]] = emitc.call_opaque "::nvinfer1::adaptor::networkAddSlice"(%{{.+}}, %[[input]], %[[null]], %[[null]], %[[null]], %[[null]]) {args = [0 : index, 1 : index, 2 : index, 3 : index, 4 : index, 5 : index, #emitc.opaque<"::nvinfer1::Dims{2, {512, 512}}">, #emitc.opaque<"::nvinfer1::Dims{2, {128, 128}}">, #emitc.opaque<"::nvinfer1::Dims{2, {2, 2}}">, #emitc.opaque<"::nvinfer1::SliceMode::kSTRICT_BOUNDS">]} : (!emitc.ptr<!emitc.opaque<"::nvinfer1::INetworkDefinition">>, !emitc.ptr<!emitc.opaque<"::nvinfer1::ITensor">>, !emitc.ptr<!emitc.opaque<"::nvinfer1::ITensor">>, !emitc.ptr<!emitc.opaque<"::nvinfer1::ITensor">>, !emitc.ptr<!emitc.opaque<"::nvinfer1::ITensor">>, !emitc.ptr<!emitc.opaque<"::nvinfer1::ITensor">>) -> !emitc.ptr<!emitc.opaque<"::nvinfer1::ITensor">>
 //       CHECK: emitc.call_opaque "::nvinfer1::adaptor::networkMarkOutput"(%{{.+}}, %[[slice]]) {args = [0 : index, 1 : index]} : (!emitc.ptr<!emitc.opaque<"::nvinfer1::INetworkDefinition">>, !emitc.ptr<!emitc.opaque<"::nvinfer1::ITensor">>) -> ()
 
 // CPP: void trt_slice_builder_builder(::nvinfer1::INetworkDefinition* {{.+}}, std::unordered_map<const char*, std::vector<uint8_t>>& {{.+}})
@@ -143,3 +143,30 @@ func.func @trt_shape(
   return %1 : tensor<0xi32>
 }
 
+// -----
+
+func.func @trt_topk(%arg0: tensor<10x20xf32>, %arg1: tensor<10x10xf32>) -> tensor<10x10xf32> {
+  %0, %1 = tensorrt.top_k <kMAX> {
+    k = 10 : i64,
+    axis = 1 : i64
+  } %arg0 : tensor<10x20xf32> -> tensor<10x10xf32>, tensor<10x10xi32>
+  %2 = tensorrt.element_wise<kSUM>(%0, %arg1 : tensor<10x10xf32>, tensor<10x10xf32>) -> tensor<10x10xf32>
+  return %2 : tensor<10x10xf32>
+}
+
+// CHECK-LABLEL: @trt_topk_builder
+//        CHECK: %[[v0:.+]] = emitc.call_opaque "::nvinfer1::adaptor::networkAddInput"({{.*}}) {args = [0 : index, #emitc.opaque<"\22input_0\22">, #emitc.opaque<"::nvinfer1::DataType::kFLOAT">, #emitc.opaque<"::nvinfer1::Dims{2, {10, 20}}">]} : (!emitc.ptr<!emitc.opaque<"::nvinfer1::INetworkDefinition">>) -> !emitc.ptr<!emitc.opaque<"::nvinfer1::ITensor">>
+//        CHECK: %[[v1:.+]] = emitc.call_opaque "::nvinfer1::adaptor::networkAddInput"({{.*}}) {args = [0 : index, #emitc.opaque<"\22input_1\22">, #emitc.opaque<"::nvinfer1::DataType::kFLOAT">, #emitc.opaque<"::nvinfer1::Dims{2, {10, 10}}">]} : (!emitc.ptr<!emitc.opaque<"::nvinfer1::INetworkDefinition">>) -> !emitc.ptr<!emitc.opaque<"::nvinfer1::ITensor">>
+//        CHECK: %[[v2:.+]]:2 = emitc.call_opaque "::nvinfer1::adaptor::networkAddTopK"({{.*}}, %[[v0]]) {args = [0 : index, 1 : index, 10, 2 : ui32, #emitc.opaque<"::nvinfer1::TopKOperation::kMAX">]} : (!emitc.ptr<!emitc.opaque<"::nvinfer1::INetworkDefinition">>, !emitc.ptr<!emitc.opaque<"::nvinfer1::ITensor">>) -> (!emitc.ptr<!emitc.opaque<"::nvinfer1::ITensor">>, !emitc.ptr<!emitc.opaque<"::nvinfer1::ITensor">>)
+//        CHECK: %[[v3:.+]] = emitc.call_opaque "::nvinfer1::adaptor::networkAddElementWise"({{.*}}, %[[v2]]#0, %[[v1]]) {args = [0 : index, 1 : index, 2 : index, #emitc.opaque<"::nvinfer1::ElementWiseOperation::kSUM">]} : (!emitc.ptr<!emitc.opaque<"::nvinfer1::INetworkDefinition">>, !emitc.ptr<!emitc.opaque<"::nvinfer1::ITensor">>, !emitc.ptr<!emitc.opaque<"::nvinfer1::ITensor">>) -> !emitc.ptr<!emitc.opaque<"::nvinfer1::ITensor">>
+//        CHECK: emitc.call_opaque "::nvinfer1::adaptor::networkMarkOutput"({{.*}}, %[[v3]]) {args = [0 : index, 1 : index]} : (!emitc.ptr<!emitc.opaque<"::nvinfer1::INetworkDefinition">>, !emitc.ptr<!emitc.opaque<"::nvinfer1::ITensor">>) -> ()
+
+//  CPP-LABEL: void trt_topk_builder
+//   CPP-SAME: (::nvinfer1::INetworkDefinition* [[v1:.+]], std::unordered_map<const char*, std::vector<uint8_t>>& [[v2:.+]]) {
+//    CPP-DAG: ::nvinfer1::ITensor* [[v3:.+]] = ::nvinfer1::adaptor::networkAddInput([[v1]], "input_0", ::nvinfer1::DataType::kFLOAT, ::nvinfer1::Dims{2, {10, 20}});
+//    CPP-DAG: ::nvinfer1::ITensor* [[v4:.+]] = ::nvinfer1::adaptor::networkAddInput([[v1]], "input_1", ::nvinfer1::DataType::kFLOAT, ::nvinfer1::Dims{2, {10, 10}});
+//    CPP-DAG: ::nvinfer1::ITensor* [[v5:.+]];
+//    CPP-DAG: ::nvinfer1::ITensor* [[v6:.+]];
+//        CPP: std::tie([[v5]], [[v6]]) = ::nvinfer1::adaptor::networkAddTopK([[v1]], [[v3]], 10, 2, ::nvinfer1::TopKOperation::kMAX);
+//        CPP: ::nvinfer1::ITensor* [[v7:.+]] = ::nvinfer1::adaptor::networkAddElementWise([[v1]], [[v5]], [[v4]], ::nvinfer1::ElementWiseOperation::kSUM);
+//        CPP: ::nvinfer1::adaptor::networkMarkOutput([[v1]], [[v7]]);

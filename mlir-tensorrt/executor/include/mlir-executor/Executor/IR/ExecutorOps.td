@@ -157,12 +157,15 @@ def Executor_DataSegmentOp : Executor_Op<"data_segment", [Symbol]> {
                        ElementsAttr:$value,
                        UnitAttr:$constant,
                        UnitAttr:$uninitialized,
-                       OptionalAttr<I64Attr>:$alignment);
+                       OptionalAttr<I64Attr>:$alignment,
+                       DefaultValuedAttr<Executor_MemoryTypeAttr,
+                         "::mlir::executor::MemoryType::host">:$address_space);
   let assemblyFormat = [{
     $sym_name attr-dict
       ( `constant` $constant^ )?
       (`uninitialized` $uninitialized^ )?
       (`align` $alignment^)?
+      (`address_space` $address_space^)?
       $value
   }];
 
@@ -209,7 +212,7 @@ def Executor_ConstantResourceLoadOp : Executor_Op<"load_data_segment",
   }];
 
   let arguments = (ins FlatSymbolRefAttr:$name);
-  let results = (outs Executor_HostPtr:$result);
+  let results = (outs Executor_Ptr:$result);
 
   let builders = [OpBuilder<(ins "FlatSymbolRefAttr":$name), [{
     build($_builder, $_state, PointerType::get($_builder.getContext(),

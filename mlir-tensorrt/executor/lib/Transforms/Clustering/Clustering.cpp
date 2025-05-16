@@ -436,7 +436,8 @@ mlir::createRegionOpFromCluster(const Cluster &cluster, RewriterBase &rewriter,
       opInCluster->moveBefore(term);
 
     // Add the terminator.
-    term->setOperands(yieldValues.getArrayRef());
+    rewriter.modifyOpInPlace(
+        term, [&]() { term->setOperands(yieldValues.getArrayRef()); });
   }
 
   // Replace uses of the operations outside of the region op body.

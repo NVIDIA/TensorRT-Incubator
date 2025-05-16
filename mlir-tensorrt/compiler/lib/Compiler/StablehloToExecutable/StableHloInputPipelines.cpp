@@ -19,7 +19,7 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt/Compiler/StablehloToExecutable/Passes.h"
 #include "mlir-tensorrt/Conversion/Passes.h"
-#include "mlir-tensorrt/Dialect/StableHloExt/Transforms/Passes.h"
+#include "mlir-tensorrt/Dialect/StablehloExt/Transforms/Passes.h"
 #include "mlir-tensorrt/Transforms/Passes.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Pass/PassManager.h"

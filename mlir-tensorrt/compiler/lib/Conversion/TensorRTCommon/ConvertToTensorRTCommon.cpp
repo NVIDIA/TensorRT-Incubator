@@ -121,17 +121,36 @@ std::optional<Type> TensorRTTypeConverter::convertTensorType(TensorType type) {
 //===----------------------------------------------------------------------===//
 
 FailureOr<TypedValue<RankedTensorType>> ConvertToTensorRTPattern::castTensor(
-    TensorRTConversionPatternRewriter &rewriter, int64_t trtMajorVersion,
-    Type newTypeOrElementType, TypedValue<RankedTensorType> src) {
+    TensorRTConversionPatternRewriter &rewriter, Type newTypeOrElementType,
+    TypedValue<RankedTensorType> src) {
   Type newElementType = mlir::getElementTypeOrSelf(newTypeOrElementType);
   if (newElementType == src.getType().getElementType())
     return src;
   Type newType =
       RankedTensorType::Builder(cast<RankedTensorType>(src.getType()))
           .setElementType(newElementType);
-  auto identityOp = rewriter.checkAndCreate<tensorrt::IdentityOp>(
-      src.getLoc(), trtMajorVersion, newType, src);
+  auto identityOp =
+      rewriter.checkAndCreate<tensorrt::IdentityOp>(src.getLoc(), newType, src);
   if (!identityOp)
     return failure();
   return identityOp.getResult();
+}
+
+LogicalResult ConvertToTensorRTPattern::replaceWithCast(
+    TensorRTConversionPatternRewriter &rewriter, Operation *toReplace,
+    TypedValue<RankedTensorType> replacement) const {
+  assert(toReplace->getNumResults() == 1 && "expected single-result operation");
+  auto originalType = cast<RankedTensorType>(toReplace->getResult(0).getType());
+  RankedTensorType replacementType = replacement.getType();
+  if (replacementType != originalType) {
+    if (replacementType.getShape() != originalType.getShape() ||
+        replacementType.getEncoding() != originalType.getEncoding())
+      return failure();
+    auto castedReplacement = castTensor(rewriter, originalType, replacement);
+    if (failed(castedReplacement))
+      return failure();
+    replacement = *castedReplacement;
+  }
+  rewriter.replaceOp(toReplace, replacement);
+  return success();
 }

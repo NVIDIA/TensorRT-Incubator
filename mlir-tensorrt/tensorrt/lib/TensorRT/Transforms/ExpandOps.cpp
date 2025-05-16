@@ -115,7 +115,7 @@ struct RewriteReshapeOpToShuffle : public OpRewritePattern<ReshapeOp> {
                                op.getLoc(), shuffleResultType,
                                /*input=*/operand,
                                /*zero_is_placeholder=*/false)));
-    return failure();
+    return success();
   }
 };
 

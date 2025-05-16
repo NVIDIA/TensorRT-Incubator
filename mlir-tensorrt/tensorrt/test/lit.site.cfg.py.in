@@ -1,5 +1,8 @@
 @LIT_SITE_CFG_IN_HEADER@
 
+# test_exec_root: The root path where tests should be run.
+config.test_exec_root = "@CMAKE_CURRENT_BINARY_DIR@"
+
 config.llvm_tools_dir = lit_config.substitute("@LLVM_TOOLS_DIR@")
 config.mlir_obj_dir = "@MLIR_BINARY_DIR@"
 config.tensorrt_dialect_tools_dir = "@LLVM_RUNTIME_OUTPUT_INTDIR@"

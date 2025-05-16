@@ -37,7 +37,7 @@ class Test:
             client = compiler.CompilerClient(context)
             task = client.get_compilation_task(
                 "stablehlo-to-executable",
-                ["--tensorrt-builder-opt-level=3", "--tensorrt-strongly-typed=false"],
+                ["--tensorrt-builder-opt-level=0"],
             )
             task.run(m.operation)
             self.exe = compiler.translate_mlir_to_executable(m.operation)

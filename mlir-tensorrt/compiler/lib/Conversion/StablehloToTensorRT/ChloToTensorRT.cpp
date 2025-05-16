@@ -39,9 +39,8 @@ struct ConvertChloErfToTensorRT
   LogicalResult
   matchAndRewrite(chlo::ErfOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
-    TensorRTConversionPatternRewriter trtRewriter(rewriter);
-    int64_t targetTrtMajorVersion =
-        this->getTypeConverter()->getOptions().getTensorRTVersion();
+    TensorRTConversionPatternRewriter trtRewriter(rewriter,
+                                                  targetTrtMajorVersion);
     Location loc = op->getLoc();
 
     auto operand = adaptor.getOperand();
@@ -53,21 +52,21 @@ struct ConvertChloErfToTensorRT
       RankedTensorType newShape =
           RankedTensorType::get({1}, operandType.getElementType());
       auto expOperand = trtRewriter.checkAndCreate<tensorrt::ExpandRankOp>(
-          loc, targetTrtMajorVersion, newShape, operand);
+          loc, newShape, operand);
       if (!expOperand)
         return failure();
       operand = expOperand;
     }
     auto unaryOp = trtRewriter.checkAndCreate<tensorrt::UnaryOp>(
-        op.getLoc(), targetTrtMajorVersion, operand.getType(), operand,
+        op.getLoc(), operand.getType(), operand,
         tensorrt::UnaryOperation::kERF);
     if (!unaryOp)
       return failure();
     TypedValue<RankedTensorType> result = unaryOp.getResult();
     // Cast back if required.
     if (result.getType().getElementType() != op.getType().getElementType()) {
-      auto castedResult = castTensor(trtRewriter, targetTrtMajorVersion,
-                                     op.getType().getElementType(), result);
+      auto castedResult =
+          castTensor(trtRewriter, op.getType().getElementType(), result);
       if (failed(castedResult))
         return failure();
       result = *castedResult;
@@ -76,7 +75,7 @@ struct ConvertChloErfToTensorRT
     if (result.getType().getRank() != op.getType().getRank()) {
       auto collapsedResult =
           trtRewriter.checkAndCreate<tensorrt::CollapseRankOp>(
-              loc, targetTrtMajorVersion, op.getType(), result);
+              loc, op.getType(), result);
       if (!collapsedResult)
         return failure();
       result = collapsedResult;
@@ -93,9 +92,8 @@ struct ConvertChloTopKOpToTensorRT
   LogicalResult
   matchAndRewrite(chlo::TopKOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
-    TensorRTConversionPatternRewriter trtRewriter(rewriter);
-    int64_t targetTrtMajorVersion =
-        this->getTypeConverter()->getOptions().getTensorRTVersion();
+    TensorRTConversionPatternRewriter trtRewriter(rewriter,
+                                                  targetTrtMajorVersion);
 
     auto operand = adaptor.getOperand();
     RankedTensorType operandType = cast<RankedTensorType>(operand.getType());
@@ -118,15 +116,14 @@ struct ConvertChloTopKOpToTensorRT
       RankedTensorType newShape = RankedTensorType::get(
           {inputType.getShape().front(), 1}, inputType.getElementType());
       auto expandRankOp = trtRewriter.checkAndCreate<tensorrt::ExpandRankOp>(
-          op->getLoc(), targetTrtMajorVersion, newShape, operand);
+          op->getLoc(), newShape, operand);
       if (!expandRankOp)
         return failure();
       operand = expandRankOp;
     }
 
     auto topkOp = trtRewriter.checkAndCreate<tensorrt::TopKOp>(
-        op->getLoc(), targetTrtMajorVersion, operand, k, axis,
-        tensorrt::TopKOperation::kMAX);
+        op->getLoc(), operand, k, axis, tensorrt::TopKOperation::kMAX);
     if (!topkOp)
       return failure();
 
@@ -135,14 +132,12 @@ struct ConvertChloTopKOpToTensorRT
       // back.
       auto collapsedValues =
           trtRewriter.checkAndCreate<tensorrt::CollapseRankOp>(
-              op->getLoc(), targetTrtMajorVersion, op.getValues().getType(),
-              topkOp.getValues());
+              op->getLoc(), op.getValues().getType(), topkOp.getValues());
       if (!collapsedValues)
         return failure();
       auto collapsedIndices =
           trtRewriter.checkAndCreate<tensorrt::CollapseRankOp>(
-              op->getLoc(), targetTrtMajorVersion, op.getIndices().getType(),
-              topkOp.getIndices());
+              op->getLoc(), op.getIndices().getType(), topkOp.getIndices());
       if (!collapsedIndices)
         return failure();
       trtRewriter.replaceOp(op, ValueRange{collapsedValues, collapsedIndices});

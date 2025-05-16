@@ -357,6 +357,62 @@ uint64_t ExecutorTypeConverter::getMemRefElementTypeByteSize(
   return dataLayout.getTypeSize(elType);
 }
 
+// Check if a memref type can be converted to a bare pointer.
+static bool canConvertToBarePtr(BaseMemRefType type) {
+  if (isa<UnrankedMemRefType>(type))
+    // Unranked memref is not supported in the bare pointer calling convention.
+    return false;
+
+  // Check that the memref has static shape, strides and offset. Otherwise, it
+  // cannot be lowered to a bare pointer.
+  auto memrefTy = cast<MemRefType>(type);
+  if (!memrefTy.hasStaticShape())
+    return false;
+
+  int64_t offset = 0;
+  SmallVector<int64_t, 4> strides;
+  if (failed(memrefTy.getStridesAndOffset(strides, offset)))
+    return false;
+
+  for (int64_t stride : strides)
+    if (ShapedType::isDynamic(stride))
+      return false;
+
+  return !ShapedType::isDynamic(offset);
+}
+
+LogicalResult ExecutorTypeConverter::promoteOperands(
+    Location loc, ValueRange opOperands, ValueRange operands,
+    OpBuilder &builder, bool useBarePtrCallConv,
+    SmallVectorImpl<Value> &promotedOperands) const {
+  promotedOperands.reserve(operands.size());
+  for (auto [operand, llvmOperand] : llvm::zip(opOperands, operands)) {
+    if (useBarePtrCallConv) {
+      // For the bare-ptr calling convention, we only have to extract the
+      // aligned pointer of a memref.
+      if (auto memrefType = dyn_cast<MemRefType>(operand.getType())) {
+        if (!canConvertToBarePtr(memrefType))
+          return failure();
+        MemRefDescriptor desc(llvmOperand, memrefType);
+        llvmOperand = desc.alignedPtr(builder, loc);
+      } else if (isa<UnrankedMemRefType>(operand.getType())) {
+        return failure();
+      }
+    } else {
+      if (isa<UnrankedMemRefType>(operand.getType())) {
+        return failure();
+      }
+      if (auto memrefType = dyn_cast<MemRefType>(operand.getType())) {
+        MemRefDescriptor desc(operand, memrefType);
+        llvm::append_range(promotedOperands, desc.unpack(builder, loc));
+        continue;
+      }
+    }
+    promotedOperands.push_back(llvmOperand);
+  }
+  return success();
+}
+
 //===----------------------------------------------------------------------===//
 // Executor Derived Conversion Pattern Rewriters
 //===----------------------------------------------------------------------===//
@@ -634,6 +690,14 @@ bool ConvertToExecutorPattern::isDeviceVisibleMemoryType(MemRefType type) {
   return *space == MemoryType::device || *space == MemoryType::unified;
 }
 
+bool ConvertToExecutorPattern::isHostVisibleMemoryType(MemRefType type) {
+  auto space = getMemorySpace(type);
+  if (!space)
+    return false;
+  return *space == MemoryType::host || *space == MemoryType::host_pinned ||
+         *space == MemoryType::unified;
+}
+
 //===----------------------------------------------------------------------===//
 // ExecutorMemRefBuilder
 //===----------------------------------------------------------------------===//
@@ -711,28 +775,29 @@ void MemRefDescriptor::setConstantStride(ImplicitLocOpBuilder &b, unsigned pos,
   setStride(b, pos, createIntegerConstant(b, indexType, stride));
 }
 
-SmallVector<Value> MemRefDescriptor::sizes(ImplicitLocOpBuilder &b) const {
+SmallVector<Value> MemRefDescriptor::sizes(OpBuilder &b, Location loc) const {
   SmallVector<Value> sizes;
   for (int64_t i = 0; i < getMemRefType().getRank(); i++) {
     if (memrefType.isDynamicDim(i))
-      sizes.push_back(size(b, i));
+      sizes.push_back(size(b, loc, i));
     else
       sizes.push_back(b.create<executor::ConstantOp>(
-          indexType, b.getIntegerAttr(indexType, memrefType.getDimSize(i))));
+          loc, indexType,
+          b.getIntegerAttr(indexType, memrefType.getDimSize(i))));
   }
   return sizes;
 }
 
-SmallVector<Value> MemRefDescriptor::strides(ImplicitLocOpBuilder &b) const {
+SmallVector<Value> MemRefDescriptor::strides(OpBuilder &b, Location loc) const {
   SmallVector<Value> result;
   auto [strides, offset] =
       const_cast<MemRefType &>(memrefType).getStridesAndOffset();
   for (int64_t i = 0; i < getMemRefType().getRank(); i++) {
     if (ShapedType::isDynamic(strides[i]))
-      result.push_back(stride(b, i));
+      result.push_back(stride(b, loc, i));
     else
       result.push_back(b.create<executor::ConstantOp>(
-          indexType, b.getIntegerAttr(indexType, strides[i])));
+          loc, indexType, b.getIntegerAttr(indexType, strides[i])));
   }
   return result;
 }

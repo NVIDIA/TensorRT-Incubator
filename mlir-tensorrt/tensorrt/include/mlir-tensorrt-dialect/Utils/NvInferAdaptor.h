@@ -41,6 +41,7 @@
 
 #include "TensorRTVersion.h"
 #include <cassert>
+#include <cmath>
 #include <cstdio>
 #include <memory>
 #include <unordered_map>
@@ -56,23 +57,6 @@ using ResizeMode = nvinfer1::InterpolationMode;
 #endif
 
 namespace adaptor {
-
-/// A unique pointer with deleter to automatically cleanup certain TensorRT
-/// objects.
-struct TRTUniquePtrDeleter {
-  template <typename T>
-  void operator()(T *obj) const {
-    delete obj;
-  }
-};
-template <typename T>
-using UniquePtr = std::unique_ptr<T, TRTUniquePtrDeleter>;
-
-template <typename T>
-T *getRawPointer(UniquePtr<T> &p) {
-  return p.get();
-}
-
 template <typename T>
 T *getRawPointer(std::unique_ptr<T> &p) {
   return p.get();
@@ -89,6 +73,11 @@ struct OptionalDims {
   operator bool() const { return valid; }
 
   nvinfer1::Dims operator*() const {
+    assert(valid && "accessing invalid optional value");
+    return value;
+  }
+
+  operator Dims() const {
     assert(valid && "accessing invalid optional value");
     return value;
   }
@@ -139,8 +128,8 @@ inline std::unique_ptr<IBuilder> createBuilder(nvinfer1::ILogger *logger) {
 //===----------------------------------------------------------------------===//
 // IBuilderConfig Adaptor
 //===----------------------------------------------------------------------===//
-inline UniquePtr<IBuilderConfig> createBuilderConfig(IBuilder *builder) {
-  return UniquePtr<IBuilderConfig>(builder->createBuilderConfig());
+inline std::unique_ptr<IBuilderConfig> createBuilderConfig(IBuilder *builder) {
+  return std::unique_ptr<IBuilderConfig>(builder->createBuilderConfig());
 }
 
 inline void
@@ -159,7 +148,7 @@ createOptimizationProfile(std::unique_ptr<IBuilder> &builder) {
 }
 
 inline void setOptimizationProfileArgumentShapeBounds(
-    UniquePtr<nvinfer1::INetworkDefinition> &network,
+    std::unique_ptr<nvinfer1::INetworkDefinition> &network,
     IOptimizationProfile *profile, int32_t idx, const Dims &minShape,
     const Dims &optShape, const Dims &maxShape) {
   assert(idx < network->getNbInputs() &&
@@ -223,7 +212,7 @@ Weights trtSetWeightsSplat(WeightsMap &weightsMap, const char *name,
 // INetworkDefinition Adaptor
 //===----------------------------------------------------------------------===//
 
-inline UniquePtr<INetworkDefinition>
+inline std::unique_ptr<INetworkDefinition>
 createNetworkV2(std::unique_ptr<IBuilder> &builder, uint32_t flags = 0) {
   // The ExplicitBatch flag will be removed in TRT10 since implicit batch mode
   // will be removed.
@@ -231,7 +220,7 @@ createNetworkV2(std::unique_ptr<IBuilder> &builder, uint32_t flags = 0) {
   flags |= 1U << static_cast<uint32_t>(
                nvinfer1::NetworkDefinitionCreationFlag::kEXPLICIT_BATCH);
 #endif
-  return UniquePtr<INetworkDefinition>(builder->createNetworkV2(flags));
+  return std::unique_ptr<INetworkDefinition>(builder->createNetworkV2(flags));
 }
 
 /// Returns true if the INetworkDefinition was created with the `STRONGLY_TYPED`
@@ -247,9 +236,9 @@ isStronglyTypedFlagEnabled(const nvinfer1::INetworkDefinition *network) {
 }
 
 inline std::unique_ptr<nvinfer1::IHostMemory>
-buildSerializedNetwork(UniquePtr<IBuilder> &builder,
-                       UniquePtr<INetworkDefinition> &network,
-                       UniquePtr<IBuilderConfig> &config) {
+buildSerializedNetwork(std::unique_ptr<IBuilder> &builder,
+                       std::unique_ptr<INetworkDefinition> &network,
+                       std::unique_ptr<IBuilderConfig> &config) {
   return std::unique_ptr<nvinfer1::IHostMemory>(
       builder->buildSerializedNetwork(*network, *config));
 }
@@ -399,8 +388,15 @@ inline ITensor *networkAddMatrixMultiply(INetworkDefinition *n, ITensor *input0,
 
 /// Adaptor for `addActivation`.
 inline ITensor *networkAddActivation(INetworkDefinition *n, ITensor *input,
-                                     nvinfer1::ActivationType type) {
+                                     nvinfer1::ActivationType type, float alpha,
+                                     float beta) {
   nvinfer1::IActivationLayer *layer = n->addActivation(*input, type);
+  if (alpha != 0.0f) {
+    layer->setAlpha(alpha);
+  }
+  if (beta != 0.0f) {
+    layer->setBeta(beta);
+  }
   return layer->getOutput(0);
 }
 
@@ -439,6 +435,84 @@ inline ITensor *networkAddConvolution(
 /// Adaptor for `addShape`.
 inline ITensor *networkAddShape(INetworkDefinition *n, ITensor *input) {
   IShapeLayer *layer = n->addShape(*input);
+  return layer->getOutput(0);
+}
+
+/// Adaptor for `addTopK`
+inline std::tuple<ITensor *, ITensor *>
+networkAddTopK(INetworkDefinition *n, ITensor *input, int32_t k,
+               uint32_t reduceAxes, TopKOperation op) {
+  ITopKLayer *layer = n->addTopK(*input, op, k, reduceAxes);
+  return {layer->getOutput(0), layer->getOutput(1)};
+}
+
+/// Adaptor for `addSoftmax`
+inline ITensor *networkAddSoftmax(INetworkDefinition *n, ITensor *input,
+                                  uint32_t axis) {
+  nvinfer1::ISoftMaxLayer *layer = n->addSoftMax(*input);
+  layer->setAxes(axis);
+  return layer->getOutput(0);
+}
+
+/// Adaptor for `addUnary`
+inline ITensor *networkAddUnary(INetworkDefinition *n, ITensor *input,
+                                nvinfer1::UnaryOperation operation) {
+  nvinfer1::IUnaryLayer *layer = n->addUnary(*input, operation);
+  return layer->getOutput(0);
+}
+
+/// Adaptor for `addSelect`
+inline ITensor *networkAddSelect(INetworkDefinition *n, ITensor *condition,
+                                 ITensor *thenBranch, ITensor *elseBranch) {
+  ISelectLayer *layer = n->addSelect(*condition, *thenBranch, *elseBranch);
+  return layer->getOutput(0);
+}
+
+/// Adaptor for `addConcatenation`
+template <typename... Args>
+inline ITensor *networkAddConcatenation(INetworkDefinition *n, int32_t axis,
+                                        Args... args) {
+  static_assert((std::is_same_v<Args, ITensor *> && ...),
+                "All operands except axis must be ITensor*");
+  std::vector<ITensor *> concatInputs{args...};
+  IConcatenationLayer *layer =
+      n->addConcatenation(concatInputs.data(), concatInputs.size());
+  layer->setAxis(axis);
+  return layer->getOutput(0);
+}
+
+/// Adaptor for `addIdentity`.
+inline ITensor *networkAddIdentity(INetworkDefinition *n, ITensor *input,
+                                   nvinfer1::DataType targetType) {
+  IIdentityLayer *layer = n->addIdentity(*input);
+  layer->setOutputType(0, targetType);
+  return layer->getOutput(0);
+}
+
+/// Adaptor for `addGatherElements`
+inline ITensor *networkAddGatherElements(INetworkDefinition *n, ITensor *input,
+                                         ITensor *indices, int32_t axis) {
+#if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 0, 0)
+  IGatherLayer *layer =
+      n->addGatherV2(*input, *indices, nvinfer1::GatherMode::kELEMENT);
+  layer->setGatherAxis(axis);
+#else
+  IGatherLayer *layer = n->addGather(*input, *indices, axis);
+  layer->setMode(nvinfer1::GatherMode::kELEMENT);
+#endif
+  return layer->getOutput(0);
+}
+
+/// Adaptor for `addGatherNd`
+inline ITensor *networkAddGatherNd(INetworkDefinition *n, ITensor *input,
+                                   ITensor *indices) {
+#if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 0, 0)
+  IGatherLayer *layer =
+      n->addGatherV2(*input, *indices, nvinfer1::GatherMode::kND);
+#else
+  IGatherLayer *layer = n->addGather(*input, *indices, 0);
+  layer->setMode(nvinfer1::GatherMode::kND);
+#endif
   return layer->getOutput(0);
 }
 

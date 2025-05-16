@@ -125,17 +125,13 @@ def BroadcastEliminationPass : Pass<"tensorrt-broadcast-elimination"> {
 //===----------------------------------------------------------------------===//
 // ApplyBugWorkarounds
 //===----------------------------------------------------------------------===//
-def ApplyBugWorkaroundsPass : Pass<"tensorrt-apply-bug-wars"> {
-  let summary = "Apply workarounds fork known bugs for a specific TRT version";
+def ApplyWorkaroundsPass : Pass<"tensorrt-apply-wars"> {
+  let summary = "Apply workarounds for known bugs and other issues for a specific TRT version";
   let description = [{
-    Applies a set of patterns that rewrite certain IR patterns so as to avoid
-    known TensorRT bugs. The patterns are specific to the given TensorRT
-    version. See the below 'details' for specifics.
-
-    Pattern Specifics:
-
-      - Unary ops fail to find int8 implementation for 1D inputs
-        (TRT 8.5 and 8.6). Rewrite to 2D and reshape back to 1D.
+    Applies a set of patterns that rewrite certain IR patterns so as to
+    1. Avoid known TensorRT bugs.
+    2. Overcome TensorRT layer limitations.
+    The patterns are specific to the given TensorRT version.
   }];
 
   let dependentDialects = [];

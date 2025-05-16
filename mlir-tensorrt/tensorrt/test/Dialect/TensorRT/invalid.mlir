@@ -795,22 +795,6 @@ func.func @trt_broadcast(%arg0: tensor<1x1x1xf32>, %arg1: tensor<?xi32>) -> tens
 
 // -----
 
-func.func @trt_identity(%arg0: tensor<10xui8>) -> tensor<10xi32> {
-  // expected-error @below {{'tensorrt.identity' op if input element type is ui8, result element type must be f32 or f16}}
-  %0 = tensorrt.identity %arg0 : tensor<10xui8> to tensor<10xi32>
-  return %0 : tensor<10xi32>
-}
-
-// -----
-
-func.func @trt_identity(%arg0: tensor<10xi32>) -> tensor<10xui8> {
-  // expected-error @below {{'tensorrt.identity' op if result element type is ui8, input element type must be f32 or f16}}
-  %0 = tensorrt.identity %arg0 : tensor<10xi32> to tensor<10xui8>
-  return %0 : tensor<10xui8>
-}
-
-// -----
-
 func.func @trt_identity(%arg0: tensor<?x1xi32>) -> tensor<?x10xi32> {
   // expected-error @below {{'tensorrt.identity' op result 0 has type tensor<?x10xi32> but inferred tensor of shape <?x1>}}
   %0 = tensorrt.identity %arg0 : tensor<?x1xi32> to tensor<?x10xi32>
@@ -823,16 +807,6 @@ func.func @trt_identity(%arg0: tensor<10x2xi32>) -> tensor<10x2x1xi8> {
   // expected-error @below {{'tensorrt.identity' op result 0 has type tensor<10x2x1xi8> but inferred tensor of shape <10x2>}}
   %0 = tensorrt.identity %arg0 : tensor<10x2xi32> to tensor<10x2x1xi8>
   return %0 : tensor<10x2x1xi8>
-}
-
-// -----
-
-// TensorRT 8.4 version doesn't have uint8 data type.
-
-func.func @trt_identity84(%arg0: tensor<10xui8>) -> tensor<10xf16> {
-  // expected-error @below {{'tensorrt.identity84' op operand #0 must be 0D/1D/2D/3D/4D/5D/6D/7D/8D tensor of 32-bit float or 16-bit float or 32-bit signless integer or 1-bit signless integer values, but got 'tensor<10xui8>'}}
-  %0 = tensorrt.identity84 %arg0 : tensor<10xui8> to tensor<10xf16>
-  return %0 : tensor<10xf16>
 }
 
 // -----
