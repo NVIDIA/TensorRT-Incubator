@@ -24,55 +24,7 @@ from nvtripy.frontend.module.module import Module
 from nvtripy.frontend.module.parameter import DefaultParameter
 from nvtripy.frontend.tensor import Tensor
 
-from nvtripy.frontend.ops import utils as op_utils
-from nvtripy.utils import wrappers
-from nvtripy.trace.ops.groupnorm import GroupNorm as GroupNormOp
-
-
-@wrappers.interface(
-    dtype_constraints={"input": "T1", "weight": "T1", "bias": "T1", wrappers.RETURN_VALUE: "T1"},
-    dtype_variables={"T1": ["float32", "float16", "bfloat16"]},
-)
-def group_norm(
-    input: "nvtripy.Tensor",
-    weight: "nvtripy.Tensor",
-    bias: "nvtripy.Tensor",
-    num_groups: int,
-    num_channels: int,
-    eps: float = 1e-5,
-) -> "nvtripy.Tensor":
-    from nvtripy.frontend.ops.reshape import reshape
-    from nvtripy.frontend.ops.reduce.mean import mean
-
-    # Reshape weight/bias from [num_channels] to [num_groups] by averaging over channels_per_group
-    channels_per_group = num_channels // num_groups
-    weight_reshaped = reshape(weight, (num_groups, channels_per_group))
-    bias_reshaped = reshape(bias, (num_groups, channels_per_group))
-    weight_grouped = mean(weight_reshaped, dim=1)
-    bias_grouped = mean(bias_reshaped, dim=1)
-
-    if input.rank < 3:
-        raise_error(
-            "Input is expected to have shape [N, C, D1, ...] where N is the batch size, C is the number of channels, and D1, D2, ... are the feature dimensions.",
-            details=[f"Got {input.shape} which has rank {input.rank} < 3."],
-        )
-
-    # TensorRT expects scale and bias to have shape [1, G, 1, 1, ..., 1]
-    broadcast_shape = (1, num_groups) + (1,) * (input.rank - 2)
-    weight = reshape(weight_grouped, broadcast_shape)
-    bias = reshape(bias_grouped, broadcast_shape)
-
-    # Set the shape information in the trace_tensors in case of dynamic shapes
-    weight.trace_tensor.shape = broadcast_shape
-    bias.trace_tensor.shape = broadcast_shape
-    input.trace_tensor.shape = input.trace_tensor.shape[:1] + (num_channels,) + input.trace_tensor.shape[2:]
-
-    return op_utils.create_op(
-        GroupNormOp,
-        [input, weight, bias],
-        num_groups=num_groups,
-        eps=eps,
-    )
+from nvtripy.frontend.module.instancenorm import InstanceNorm
 
 
 @export.public_api(document_under="operations/modules")
@@ -87,6 +39,8 @@ class GroupNorm(Module):
     where :math:`\bar{x}` is the mean and :math:`\sigma^2` is the variance.
 
     The input should have shape :math:`[N, C, D1, ...]` where :math:`N` is the batch size, :math:`C` is the number of channels, and :math:`D1, ...` are the feature dimensions.
+
+    Note that the current implementation uses InstanceNorm as a workaround to implement this operation due to TRT API compatibility issues.
     """
 
     num_groups: int
@@ -139,6 +93,9 @@ class GroupNorm(Module):
             assert np_out.shape == torch_out.shape # doc: omit
             assert np.allclose(np_out, torch_out) # doc: omit
         """
+        from nvtripy.frontend.ops.ones import ones
+        from nvtripy.frontend.ops.zeros import zeros
+
         super().__init__()
 
         if num_channels % num_groups:
@@ -156,6 +113,10 @@ class GroupNorm(Module):
         self.bias = DefaultParameter((num_channels,), dtype=dtype)
         self.eps = eps
 
+        self._instance_norm = InstanceNorm(num_groups, dtype=dtype, eps=eps)
+        self._instance_norm.weight = ones((num_groups,), dtype=dtype)
+        self._instance_norm.bias = zeros((num_groups,), dtype=dtype)
+
     def forward(self, x: "nvtripy.Tensor") -> "nvtripy.Tensor":
         r"""
         Args:
@@ -164,4 +125,17 @@ class GroupNorm(Module):
         Returns:
             A tensor of the same shape as the input.
         """
-        return group_norm(x, self.weight, self.bias, self.num_groups, self.num_channels, self.eps)
+        from nvtripy.frontend.ops.reshape import reshape
+
+        # Use InstanceNorm as a WAR due to lack of TRT API compatibility for scale/bias with shape (num_channels, )
+        starting_shape = x.trace_tensor.shape
+        target_shape = (
+            x.trace_tensor.shape[0],
+            self.num_groups,
+            self.num_channels // self.num_groups,
+        ) + x.trace_tensor.shape[2:]
+        input_reshaped = reshape(x, target_shape)
+        x = self._instance_norm(input_reshaped)
+        x = reshape(x, starting_shape)
+        broadcast_shape = (1, self.num_channels) + (1,) * (x.rank - 2)
+        return x * reshape(self.weight, broadcast_shape) + reshape(self.bias, broadcast_shape)
