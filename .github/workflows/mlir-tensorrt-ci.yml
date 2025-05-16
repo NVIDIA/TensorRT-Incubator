@@ -152,16 +152,3 @@ jobs:
           run: |
             cd mlir-tensorrt
             ENABLE_ASAN=ON ./build_tools/scripts/cicd_build.sh
-
-      # Run LIT tests with TensorRT 8
-      - name: Run MLIR-TensorRT lit tests with TensorRT 8
-        uses: addnab/docker-run-action@v3
-        with:
-          image: ${{ env.DEFAULT_IMAGE }}
-          options: -v ${{ github.workspace }}/mlir-tensorrt:/mlir-tensorrt -v ${{ github.workspace }}/ccache:/ccache -v ${{ github.workspace }}/.cache.cpm:/.cache.cpm
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-          run: |
-            cd mlir-tensorrt
-            DOWNLOAD_TENSORRT_VERSION="8.6.1.6" ./build_tools/scripts/cicd_build.sh
