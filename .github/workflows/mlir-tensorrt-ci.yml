@@ -18,9 +18,7 @@ env:
 jobs:
   mlir-tensorrt-test-pr:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
-    # `ubuntu-latest` is a CPU runner.
-    # If selected, tests requiring GPU are not run.
-    runs-on: ubuntu-latest
+    runs-on: tripy-self-hosted
 
     steps:
       # Free some disk space, otherwise we get OOM error.
