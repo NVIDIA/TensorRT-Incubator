@@ -24,6 +24,8 @@ from nvtripy.frontend.module.module import Module
 from nvtripy.frontend.module.parameter import DefaultParameter
 from nvtripy.frontend.tensor import Tensor
 
+from nvtripy.frontend.module.instancenorm import InstanceNorm
+
 
 @export.public_api(document_under="operations/modules")
 @dataclass
@@ -35,6 +37,10 @@ class GroupNorm(Module):
     :math:`\text{GroupNorm}(x) = \Large \frac{x - \bar{x}}{ \sqrt{\sigma^2 + \epsilon}} \normalsize * \gamma + \beta`
 
     where :math:`\bar{x}` is the mean and :math:`\sigma^2` is the variance.
+
+    The input should have shape :math:`[N, C, D1, ...]` where :math:`N` is the batch size, :math:`C` is the number of channels, and :math:`D1, ...` are the feature dimensions.
+
+    Note that the current implementation uses InstanceNorm as a workaround to implement this operation due to TRT API compatibility issues.
     """
 
     num_groups: int
@@ -87,6 +93,9 @@ class GroupNorm(Module):
             assert np_out.shape == torch_out.shape # doc: omit
             assert np.allclose(np_out, torch_out) # doc: omit
         """
+        from nvtripy.frontend.ops.ones import ones
+        from nvtripy.frontend.ops.zeros import zeros
+
         super().__init__()
 
         if num_channels % num_groups:
@@ -104,6 +113,10 @@ class GroupNorm(Module):
         self.bias = DefaultParameter((num_channels,), dtype=dtype)
         self.eps = eps
 
+        self._instance_norm = InstanceNorm(num_groups, dtype=dtype, eps=eps)
+        self._instance_norm.weight = ones((num_groups,), dtype=dtype)
+        self._instance_norm.bias = zeros((num_groups,), dtype=dtype)
+
     def forward(self, x: "nvtripy.Tensor") -> "nvtripy.Tensor":
         r"""
         Args:
@@ -112,19 +125,17 @@ class GroupNorm(Module):
         Returns:
             A tensor of the same shape as the input.
         """
-        from nvtripy.frontend.ops.reduce.mean import mean
-        from nvtripy.frontend.ops.reduce.var import var
         from nvtripy.frontend.ops.reshape import reshape
-        from nvtripy.frontend.ops.unary.rsqrt import rsqrt
 
-        input_shape = x.shape
-
-        x = reshape(x, (x.shape[0], self.num_groups, -1))
-        mean_val = mean(x, dim=-1, keepdim=True)
-        var_val = var(x, dim=-1, keepdim=True, correction=0) + self.eps
-        x = (x - mean_val) * rsqrt(var_val)
-        x = reshape(x, input_shape)
-
-        shape_to_broadcast = (1, self.num_channels) + (1,) * (x.rank - 2)
-
-        return reshape(self.weight, shape_to_broadcast) * x + reshape(self.bias, shape_to_broadcast)
+        # Use InstanceNorm as a WAR due to lack of TRT API compatibility for scale/bias with shape (num_channels, )
+        starting_shape = x.trace_tensor.shape
+        target_shape = (
+            x.trace_tensor.shape[0],
+            self.num_groups,
+            self.num_channels // self.num_groups,
+        ) + x.trace_tensor.shape[2:]
+        input_reshaped = reshape(x, target_shape)
+        x = self._instance_norm(input_reshaped)
+        x = reshape(x, starting_shape)
+        broadcast_shape = (1, self.num_channels) + (1,) * (x.rank - 2)
+        return x * reshape(self.weight, broadcast_shape) + reshape(self.bias, broadcast_shape)
