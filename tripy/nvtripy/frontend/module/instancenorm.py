@@ -17,7 +17,7 @@
 
 from dataclasses import dataclass
 
-from nvtripy import export, utils
+from nvtripy import constants, export, utils
 from nvtripy.common import datatype
 from nvtripy.common.exception import raise_error
 from nvtripy.frontend.module.module import Module
@@ -49,7 +49,7 @@ def instancenorm(
             details=[f"Got {input.shape} which has rank {input_rank}."],
         )
 
-    if input.trace_tensor.shape[1] != -1 and input.trace_tensor.shape[1] != num_channels:
+    if input.trace_tensor.shape[1] != constants.DYNAMIC_DIM and input.trace_tensor.shape[1] != num_channels:
         raise_error(
             "The input channel dimension does not match the number of channels specified in the InstanceNorm constructor",
             details=[f"Got {input.shape[1]} channels in the input, but expected {num_channels} channels"],
