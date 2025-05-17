@@ -29,6 +29,7 @@
 #include "mlir/Dialect/EmitC/IR/EmitC.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
+#include "mlir/Dialect/LLVMIR/Transforms/InlinerInterfaceImpl.h"
 #include "mlir/Dialect/Linalg/IR/ValueBoundsOpInterfaceImpl.h"
 #include "mlir/Dialect/PDL/IR/PDL.h"
 #include "mlir/Dialect/Quant/IR/Quant.h"
@@ -85,6 +86,7 @@ inline void registerAllMlirTensorRtExecutorDialects(DialectRegistry &registry) {
   tensor::registerInferTypeOpInterfaceExternalModels(registry);
   tensor::registerSubsetOpInterfaceExternalModels(registry);
   tensor::registerTilingInterfaceExternalModels(registry);
+  LLVM::registerInlinerInterface(registry);
 }
 
 inline void registerAllMlirTensorRtDialects(DialectRegistry &registry) {
