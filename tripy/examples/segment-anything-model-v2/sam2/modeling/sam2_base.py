@@ -310,8 +310,8 @@ class SAM2Base(torch.nn.Module):
         # b) Handle mask prompts
         # Issue #445 will add mask_input support.
 
-        sam_point_coords = tp.Tensor(sam_point_coords.contiguous())
-        sam_point_labels = tp.Tensor(sam_point_labels.contiguous())
+        sam_point_coords = tp.Tensor.fast_init(sam_point_coords.contiguous())
+        sam_point_labels = tp.Tensor.fast_init(sam_point_labels.contiguous())
 
         sparse_embeddings, dense_embeddings = self.sam_prompt_encoder(
             points_x=sam_point_coords,
@@ -325,9 +325,9 @@ class SAM2Base(torch.nn.Module):
             hres_1 = hres_1.half()
             hres_2 = hres_2.half()
 
-        tp_backbone_features = tp.Tensor(image_embedding.contiguous())
-        hres_1 = tp.Tensor(hres_1.contiguous())
-        hres_2 = tp.Tensor(hres_2.contiguous())
+        tp_backbone_features = tp.Tensor.fast_init(image_embedding.contiguous())
+        hres_1 = tp.Tensor.fast_init(hres_1.contiguous())
+        hres_2 = tp.Tensor.fast_init(hres_2.contiguous())
 
         if multimask_output:
             (
@@ -476,7 +476,7 @@ class SAM2Base(torch.nn.Module):
         """Get the image feature on the input batch."""
         if not isinstance(img_batch, tp.Tensor):
             img_batch = img_batch.to(getattr(torch, self.image_encoder.trunk.dtype)).contiguous()
-            img_batch = tp.Tensor(img_batch)
+            img_batch = tp.Tensor.fast_init(img_batch)
         backbone_out = self.image_encoder(img_batch)
 
         if self.use_high_res_features_in_sam:
@@ -486,11 +486,11 @@ class SAM2Base(torch.nn.Module):
             conv_s1_in = backbone_out["backbone_fpn"][1].contiguous()
 
             if self.model_dtype == tp.float32:
-                conv_s0_in = tp.Tensor(conv_s0_in)
-                conv_s1_in = tp.Tensor(conv_s1_in)
+                conv_s0_in = tp.Tensor.fast_init(conv_s0_in)
+                conv_s1_in = tp.Tensor.fast_init(conv_s1_in)
             else:
-                conv_s0_in = tp.Tensor(conv_s0_in.half())
-                conv_s1_in = tp.Tensor(conv_s1_in.half())
+                conv_s0_in = tp.Tensor.fast_init(conv_s0_in.half())
+                conv_s1_in = tp.Tensor.fast_init(conv_s1_in.half())
 
             backbone_out["backbone_fpn"][0] = torch.from_dlpack(self.sam_mask_decoder.conv_s0(conv_s0_in))
             backbone_out["backbone_fpn"][1] = torch.from_dlpack(self.sam_mask_decoder.conv_s1(conv_s1_in))
@@ -670,11 +670,11 @@ class SAM2Base(torch.nn.Module):
             if self.fake_object_ptrs.shape != (num_obj_ptr_tokens,):
                 self.fake_object_ptrs = torch.ones((num_obj_ptr_tokens,), dtype=torch.int32, device="cuda")
             pix_feat_with_mem = self.memory_attention(
-                curr=tp.Tensor(current_vision_feats[0].half().contiguous()),
-                memory=tp.Tensor(memory.half().contiguous()),
-                curr_pos=tp.Tensor(current_vision_pos_embeds[0].half().contiguous()),
-                memory_pos=tp.Tensor(memory_pos_embed.half().contiguous()),
-                num_obj_ptr_tokens=tp.Tensor(self.fake_object_ptrs),
+                curr=tp.Tensor.fast_init(current_vision_feats[0].half().contiguous()),
+                memory=tp.Tensor.fast_init(memory.half().contiguous()),
+                curr_pos=tp.Tensor.fast_init(current_vision_pos_embeds[0].half().contiguous()),
+                memory_pos=tp.Tensor.fast_init(memory_pos_embed.half().contiguous()),
+                num_obj_ptr_tokens=tp.Tensor.fast_init(self.fake_object_ptrs),
             )
         else:
             pix_feat_with_mem = self.memory_attention(
@@ -721,7 +721,7 @@ class SAM2Base(torch.nn.Module):
             mask_for_mem = mask_for_mem + self.sigmoid_bias_for_mem_enc
 
         maskmem_features, maskmem_pos_enc = self.memory_encoder(
-            tp.Tensor(pix_feat.float().contiguous()), tp.Tensor(mask_for_mem.contiguous())
+            tp.Tensor.fast_init(pix_feat.float().contiguous()), tp.Tensor.fast_init(mask_for_mem.contiguous())
         )  # sigmoid already applied
         maskmem_features = torch.from_dlpack(maskmem_features)
         maskmem_pos_enc = [torch.from_dlpack(maskmem_pos_enc)]

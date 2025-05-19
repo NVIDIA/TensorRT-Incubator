@@ -14,18 +14,60 @@
 # limitations under the License.
 import base64
 import inspect
+import weakref
 from typing import Dict, Sequence, Tuple, Union
 
 import mlir_tensorrt.runtime.api as runtime
+import tensorrt as trt
 from nvtripy import config, export
-from nvtripy.backend.api.stream import default_stream
 from nvtripy.backend.api.input_info import InputInfo
+from nvtripy.backend.api.stream import default_stream
+from nvtripy.backend.mlir import utils as mlir_utils
+from nvtripy.backend.mlir.memref import create_memref
 from nvtripy.backend.mlir.utils import MLIRRuntimeClient
+from nvtripy.common import datatype
 from nvtripy.common.exception import raise_error
 from nvtripy.frontend import Tensor
 from nvtripy.trace.ops.constant import Constant
 from nvtripy.utils import json as json_utils
 from nvtripy.utils.types import str_from_type_annotation
+
+import torch
+
+
+USE_TRT_RUNTIME = True
+
+TP_FROM_TRT_DTYPE = {
+    trt.float32: datatype.float32,
+    trt.float16: datatype.float16,
+    trt.bfloat16: datatype.bfloat16,
+    trt.int8: datatype.int8,
+    trt.int32: datatype.int32,
+    trt.int64: datatype.int64,
+    trt.bool: datatype.bool,
+    trt.fp8: datatype.float8,
+    trt.int4: datatype.int4,
+}
+
+
+class OutputAllocator(trt.IOutputAllocator):
+    def __init__(self, stream):
+        trt.IOutputAllocator.__init__(self)
+        self.memrefs = {}
+        self.shapes = {}
+        self.stream = stream
+
+    def reallocate_output(self, tensor_name, memory, size, alignment):
+        shape = (size,)
+        # TODO: Add reallocation if size changes:
+        if tensor_name not in self.memrefs:
+            # TODO (pranavm): Need custom allocation as memrefs are tied to client and will be freed too early.
+            self.memrefs[tensor_name] = torch.empty(shape, dtype=torch.int8, device="cuda")
+            # self.memrefs[tensor_name] = create_memref(shape, dtype=datatype.int8, stream=self.stream)
+        return self.memrefs[tensor_name].data_ptr()
+
+    def notify_shape(self, tensor_name, shape):
+        self.shapes[tensor_name] = tuple(shape)
 
 
 # Executable.__call__ is in the hot path for benchmarks, so we would not want additional overhead
@@ -48,6 +90,7 @@ class Executable:
         self._runtime_client = MLIRRuntimeClient()
         # TODO (#577): Support multiple devices:
         self._session = runtime.RuntimeSession(runtime.RuntimeSessionOptions(num_devices=1, device_id=0), executable)
+        # TODO (pranavm): Make stream a property so we can update the output allocator stream.
         self.stream = default_stream()
 
         self._arg_names = arg_names
@@ -72,6 +115,20 @@ class Executable:
         """
         Stores metadata, like shapes and data types, for each input to the executable.
         """
+
+        if USE_TRT_RUNTIME:
+            self.runtime = trt.Runtime(trt.Logger())
+            self.engine = self.runtime.deserialize_cuda_engine(self.serialized_tensorrt_engine)
+            self.context = self.engine.create_execution_context()
+            self.output_allocator = OutputAllocator(self.stream)
+
+        # from polygraphy.backend.trt import TrtRunner, EngineFromBytes
+
+        # self.runner = TrtRunner(EngineFromBytes(self.serialized_tensorrt_engine))
+        # self.runner.activate()
+        # self.runner.output_allocator.set_use_torch(True)
+        # self.runner.output_allocator.set_use_torch = lambda use_torch: None
+        # self._finalizer = weakref.finalize(self, lambda runner: runner.deactivate(), self.runner)
 
     def __str__(self) -> str:
         params = [
@@ -201,6 +258,75 @@ class Executable:
                         "Hint: Try calling `.eval()` on the tensor to ensure it is a GPU constant.",
                     ],
                 )
+
+        if USE_TRT_RUNTIME:
+
+            def get_engine_io_names(mode):
+                names = []
+                for idx in range(self.engine.num_io_tensors):
+                    name = self.engine.get_tensor_name(idx)
+                    if self.engine.get_tensor_mode(name) == mode:
+                        names.append(name)
+                return names
+
+            # The order of inputs to the engine should be the same as the order of arguments to the executable.
+            engine_input_names = get_engine_io_names(trt.TensorIOMode.INPUT)
+            engine_output_names = get_engine_io_names(trt.TensorIOMode.OUTPUT)
+
+            for inp, name in zip(input_tensors, engine_input_names):
+                self.context.set_input_shape(name, inp.trace_tensor.shape)
+                self.context.set_tensor_address(name, inp.trace_tensor.producer.data.ptr)
+
+            for name in engine_output_names:
+                self.context.set_output_allocator(name, self.output_allocator)
+
+            self.context.execute_async_v3(self.stream._active_cuda_stream.ptr)
+
+            outputs = []
+            for name in engine_output_names:
+                output = self.output_allocator.memrefs[name]
+                dtype = self.engine.get_tensor_dtype(name)
+
+                output = self._runtime_client.create_device_memref_view(
+                    output.data_ptr(),
+                    self.output_allocator.shapes[name],
+                    mlir_utils.convert_tripy_dtype_to_runtime_dtype(TP_FROM_TRT_DTYPE[dtype]),
+                    # TODO (#577): Choose output device based on input device for multi-device support:
+                    self._runtime_client.get_devices()[0],
+                )
+                tensor_out = Tensor.fast_init(output)
+                tensor_out._mem = self.output_allocator.memrefs[name]
+                outputs.append(tensor_out)
+
+            if len(outputs) > 4:
+                outputs[2], outputs[3] = outputs[3], outputs[2]
+            outputs = tuple(outputs)
+
+            if self.__signature__.return_annotation == Tensor:
+                outputs = outputs[0]
+            return outputs
+
+        assert False
+        # import torch
+
+        # feed_dict = dict(
+        #     zip([f"arg{i}" for i in range(len(input_tensors))], [torch.from_dlpack(inp) for inp in input_tensors])
+        # )
+
+        # # print(self.runner.get_input_metadata())
+        # # print({k: v.shape for k, v in feed_dict.items()})
+
+        # outputs = self.runner.infer(feed_dict, check_inputs=False, copy_outputs_to_host=False)
+
+        # outputs = [Tensor.fast_init(out.contiguous()) for out in outputs.values()]
+
+        # if len(outputs) > 4:
+        #     outputs[2], outputs[3] = outputs[3], outputs[2]
+        # outputs = tuple(outputs)
+
+        # if self.__signature__.return_annotation == Tensor:
+        #     return outputs[0]
+        # return outputs
 
         input_memrefs = [inp.trace_tensor.producer.data for inp in input_tensors]
         try:

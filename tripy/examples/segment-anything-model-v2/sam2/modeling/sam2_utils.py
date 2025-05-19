@@ -110,7 +110,7 @@ def scaled_dot_product_attention(
     if attn_mask is not None and attn_mask.dtype == tp.bool:
         attn_mask = tp.where(
             (attn_mask == 0),
-            tp.ones_like(attn_mask) * -float("inf"),
+            tp.full_like(attn_mask, value=-float("inf")),
             tp.zeros_like(attn_mask),
         )
     if embedding_dim is None:
@@ -180,6 +180,9 @@ class MLP(tp.Module):
         return x
 
 
+# class LayerNorm2d(tp.LayerNorm):
+#     def __init__(self, num_channels: int, eps: float = 1e-6) -> None:
+#         super().__init__(num_channels, eps=eps)
 class LayerNorm2d(tp.Module):
     def __init__(self, num_channels: int, eps: float = 1e-6) -> None:
         super().__init__()
@@ -190,6 +193,10 @@ class LayerNorm2d(tp.Module):
         self.eps = eps
 
     def forward(self, x: tp.Tensor) -> tp.Tensor:
+        # from nvtripy.frontend.module.layernorm import layernorm
+
+        # return layernorm(x, tp.unsqueeze(tp.unsqueeze(self.weight, 1), 2), tp.unsqueeze(tp.unsqueeze(self.bias, 1), 2), self.eps)
+
         original_dtype = x.dtype
         x = tp.cast(x, tp.float32)
         u = tp.mean(x, dim=1, keepdim=True)

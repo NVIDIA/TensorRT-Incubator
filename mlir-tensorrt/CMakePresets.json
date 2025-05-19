@@ -100,6 +100,21 @@
         "MLIR_TRT_ENABLE_NCCL": "OFF",
         "MLIR_TRT_DOWNLOAD_TENSORRT_VERSION": "$env{DOWNLOAD_TENSORRT_VERSION}"
       }
+    },
+    {
+      "name": "ninja-debug-wheels",
+      "displayName": "Ninja debug wheels",
+      "generator": "Ninja",
+      "binaryDir": "build",
+      "inherits": "ninja-gcc",
+      "cacheVariables": {
+        "LLVM_ENABLE_ASSERTIONS": "OFF",
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_PLATFORM_NO_VERSIONED_SONAME": "ON",
+        "LLVM_MINIMUM_PYTHON_VERSION": "$env{PY_VERSION}",
+        "MLIR_TRT_ENABLE_NCCL": "OFF",
+        "MLIR_TRT_DOWNLOAD_TENSORRT_VERSION": "$env{DOWNLOAD_TENSORRT_VERSION}"
+      }
     }
   ]
 }

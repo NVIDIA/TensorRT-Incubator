@@ -29,7 +29,8 @@ from nvtripy.backend.mlir.memref import create_memref
 from nvtripy.common import datatype
 from nvtripy.common import device as tp_device
 from nvtripy.common.exception import raise_error
-from nvtripy.trace.ops.base import TraceOp
+from nvtripy.trace.ops.base import TraceOp, _get_unique_name
+from nvtripy.trace.tensor import TraceTensor
 
 
 def flatten_list(data, _current_dim=0):
@@ -179,8 +180,14 @@ class Constant(TraceOp):
             self.data = memref.create_memref(shape=self.shape, dtype=self.dtype, array=data_array, device=device)
             self.device = device
 
-        # Parent constructor will run rank/type inference, so we need to run it after setting the fields above.
-        super().__init__([])
+        # Fast implementation of __post_init__ since Constant is used in the runtime.
+        self.inputs = []
+        # Constant can never be a compile tracer since it has no inputs:
+        self.outputs = [TraceTensor(_get_unique_name(), producer=self, is_compile_tracer=False)]
+
+        self.infer_dtypes()
+        self.infer_rank()
+        self.infer_devices()
 
     def str_skip_fields(self) -> Set[str]:
         # skip data since it is always a memref value
@@ -195,6 +202,9 @@ class Constant(TraceOp):
 
     def infer_dtypes(self):
         self.outputs[0].dtype = self.dtype
+
+    def infer_devices(self):
+        self.outputs[0].device = tp_device.fast_init("gpu", 0)
 
     def _check_address_space(self):
         if self.data.address_space != runtime.PointerType.host:

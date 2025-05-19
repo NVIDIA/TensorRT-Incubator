@@ -547,7 +547,81 @@ struct ExecutorRuntimeGlobalSetup {
   ExecutorRuntimeGlobalSetup() { mtrtRuntimeInitialize(); }
   ~ExecutorRuntimeGlobalSetup() { mtrtRuntimeShutdown(); }
 };
+
+struct DLPackTensor {
+  ~DLPackTensor();
+
+  // `buffer_reference` is populated if we have shared (read-only) access.
+  py::object buffer_reference;
+
+  std::vector<int64_t> shape;
+  std::vector<int64_t> strides;
+  DLManagedTensor tensor;
+};
 } // namespace
+
+DLPackTensor::~DLPackTensor() {
+  if (buffer_reference)
+    buffer_reference.release();
+}
+
+static void DLPackTensorDeleter(DLManagedTensor *t) {
+  /*
+   * Leak the Python object if the Python runtime is not available.
+   * This can happen if the DLPack consumer destroys the tensor late
+   * after Python runtime finalization (for example in case the tensor
+   * was indirectly kept alive by a C++ static variable).
+   */
+  if (!Py_IsInitialized())
+    return;
+  if (t) {
+    PyGILState_STATE state = PyGILState_Ensure();
+    delete static_cast<DLPackTensor *>(t->manager_ctx);
+    PyGILState_Release(state);
+  }
+}
+
+static DLDataTypeCode toDLPackDataTypeCode(MTRT_ScalarTypeCode type) {
+  switch (type) {
+  case MTRT_ScalarTypeCode_i1:
+    return DLDataTypeCode::kDLBool;
+  case MTRT_ScalarTypeCode_i4:
+  case MTRT_ScalarTypeCode_i8:
+  case MTRT_ScalarTypeCode_i16:
+  case MTRT_ScalarTypeCode_i32:
+  case MTRT_ScalarTypeCode_i64:
+    return DLDataTypeCode::kDLInt;
+  case MTRT_ScalarTypeCode_ui8:
+    return DLDataTypeCode::kDLUInt;
+  case MTRT_ScalarTypeCode_f8e4m3fn:
+  case MTRT_ScalarTypeCode_f16:
+  case MTRT_ScalarTypeCode_f32:
+  case MTRT_ScalarTypeCode_f64:
+    return DLDataTypeCode::kDLFloat;
+  case MTRT_ScalarTypeCode_bf16:
+    return DLDataTypeCode::kDLBfloat;
+  default:
+    throw std::invalid_argument(
+        "Scalar type code conversion to DLPackDataTypeCode is not supported.");
+  }
+  return DLDataTypeCode::kDLFloat;
+}
+
+static DLDeviceType toDLPackDeviceType(MTRT_PointerType address) {
+  switch (address) {
+  case MTRT_PointerType::MTRT_PointerType_device:
+    return DLDeviceType::kDLCUDA;
+  case MTRT_PointerType::MTRT_PointerType_host:
+    return DLDeviceType::kDLCPU;
+  case MTRT_PointerType::MTRT_PointerType_pinned_host:
+    return DLDeviceType::kDLCUDAHost;
+  case MTRT_PointerType::MTRT_PointerType_unified:
+    return DLDeviceType::kDLCUDAManaged;
+  default:
+    throw std::invalid_argument(
+        "Address space conversion to DLPackDeviceType is not supported.");
+  }
+}
 
 PYBIND11_MODULE(_api, m) {
   static ExecutorRuntimeGlobalSetup globalSetup;
@@ -629,15 +703,71 @@ PYBIND11_MODULE(_api, m) {
                              })
       .def(
           "__dlpack__",
-          [](PyMemRefValue &self, int32_t /*stream*/) {
-            MTRT_DLPackManagedTensor tensor;
-            MTRT_Status s =
-                mtrtMemRefValueGetDLPackManagedTensor(self, &tensor);
+          [](py::handle obj, int32_t /*stream*/) {
+            auto pack = std::make_unique<DLPackTensor>();
+
+            PyMemRefValue &buffer = py::cast<PyMemRefValue &>(obj);
+
+            DLTensor &dt = pack->tensor.dl_tensor;
+            pack->buffer_reference = py::reinterpret_borrow<py::object>(obj);
+            pack->tensor.manager_ctx = pack.get();
+            pack->tensor.deleter = DLPackTensorDeleter;
+
+            int32_t device_type, device_id;
+            MTRT_Status s = mtrtMemRefValueGetDLPackDevice(
+                buffer.get(), &device_type, &device_id);
             THROW_IF_MTRT_ERROR(s);
-            assert(tensor.ptr != nullptr &&
-                   "expected valid MTRT_DLPackManagedTensor");
-            return py::capsule(reinterpret_cast<DLManagedTensor *>(tensor.ptr),
-                               "dltensor");
+
+            MTRT_MemRefValueInfo info;
+            s = mtrtMemRefValueGetInfo(buffer.get(), &info);
+            THROW_IF_MTRT_ERROR(s);
+
+            dt.data = reinterpret_cast<void *>(info.ptr);
+            dt.device.device_type = toDLPackDeviceType(info.addressSpace);
+            dt.device.device_id = device_id;
+            dt.ndim = info.rank;
+
+            DLDataType dtype;
+            dtype.code = toDLPackDataTypeCode(info.scalarType);
+
+            int64_t bitsPerElement;
+            s = mtrtScalarTypeCodeBitsPerElement(info.scalarType,
+                                                 &bitsPerElement);
+            THROW_IF_MTRT_ERROR(s);
+            dtype.bits = bitsPerElement;
+            dtype.lanes = 1;
+            dt.dtype = dtype;
+
+            pack->shape =
+                std::vector<int64_t>(info.shape, info.shape + info.rank);
+            pack->strides =
+                std::vector<int64_t>(info.strides, info.strides + info.rank);
+
+            dt.shape = reinterpret_cast<std::int64_t *>(pack->shape.data());
+            dt.strides = reinterpret_cast<std::int64_t *>(pack->strides.data());
+            dt.byte_offset = 0;
+
+            // We cannot use pybind's capsule object constructor because we
+            // need to detect if the capsule name has been changed in the
+            // deleter, but pybind hides the underlying Python object from the
+            // deleter.
+            py::capsule capsule = py::reinterpret_steal<py::capsule>(
+                PyCapsule_New(&pack.release()->tensor, "dltensor",
+                              [](PyObject *obj) noexcept {
+                                DLManagedTensor *dlmt =
+                                    static_cast<DLManagedTensor *>(
+                                        PyCapsule_GetPointer(obj, "dltensor"));
+                                if (dlmt) {
+                                  DLPackTensorDeleter(dlmt);
+                                } else {
+                                  // The tensor has been deleted. Clear any
+                                  // error from PyCapsule_GetPointer.
+                                  PyErr_Clear();
+                                }
+                              }));
+            if (!capsule.ptr())
+              throw py::error_already_set();
+            return capsule;
           },
           py::arg("stream") = 0)
       .def("__dlpack_device__",
@@ -660,15 +790,22 @@ PYBIND11_MODULE(_api, m) {
              MTRT_Status s = mtrtStreamSynchronize(stream);
              THROW_IF_MTRT_ERROR(s);
            })
-      .def("__str__", [](PyStream &self) {
-        auto callback = [](MlirStringRef data, void *initialString) {
-          *reinterpret_cast<std::string *>(initialString) +=
-              llvm::StringRef(data.data, data.length);
-        };
+      .def("__str__",
+           [](PyStream &self) {
+             auto callback = [](MlirStringRef data, void *initialString) {
+               *reinterpret_cast<std::string *>(initialString) +=
+                   llvm::StringRef(data.data, data.length);
+             };
 
-        std::string result;
-        mtrtStreamPrint(self, callback, &result);
-        return result;
+             std::string result;
+             mtrtStreamPrint(self, callback, &result);
+             return result;
+           })
+      .def_property_readonly("ptr", [](PyStream &self) {
+        uintptr_t ptr;
+        MTRT_Status s = mtrtStreamGetPointer(self, &ptr);
+        THROW_IF_MTRT_ERROR(s);
+        return ptr;
       });
 
   py::class_<PyRuntimeClient>(m, "RuntimeClient", py::module_local())

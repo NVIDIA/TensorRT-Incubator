@@ -285,7 +285,7 @@ class SAM2ModelCache:
         else:
             print(f"Compiling {comp_name}...")
             start = time.time()
-            compiled_model = tp.compile(comp_info["model"], args=comp_info["compile_args"])
+            compiled_model = tp.compile(comp_info["model"], args=comp_info["compile_args"], optimization_level=5)
             print(f"Compilation took {time.time() - start:.2f}s")
             compiled_model.save(executable_file)
 

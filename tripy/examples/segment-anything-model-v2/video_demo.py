@@ -33,7 +33,7 @@ from typing import Optional
 
 import os
 import time
-
+import nvtx
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -42,16 +42,12 @@ parser.add_argument(
 
 
 def compute_mask_properties(mask):
-    # Ensure we have a boolean array
-    test_mask = np.asarray(mask, dtype=bool)
-
-    # Calculate basic stats
-    volume = np.sum(test_mask)
+    volume = torch.sum(mask)
 
     # Calculate centroid (center of mass)
     if volume > 0:
-        indices = np.where(test_mask)
-        centroid = tuple(float(np.mean(idx)) for idx in indices)
+        indices = torch.where(mask)
+        centroid = tuple(torch.sum(idx) / float(len(idx)) for idx in indices)
     else:
         centroid = None
     return volume, centroid
@@ -156,15 +152,18 @@ def main(video_dir: str, save_path: Optional[str] = None):
         labels=labels,
     )
 
+    # pr = nvtx.Profile()
+    # pr.enable()
     # run propagation throughout the video and collect the results in a dict
     start = time.perf_counter()
     video_segments = {}  # video_segments contains the per-frame segmentation results
     for out_frame_idx, out_obj_ids, out_mask_logits in predictor.propagate_in_video(inference_state):
         video_segments[out_frame_idx] = {
-            out_obj_id: (out_mask_logits[i] > 0.0).cpu().numpy() for i, out_obj_id in enumerate(out_obj_ids)
+            out_obj_id: (out_mask_logits[i] > 0.0) for i, out_obj_id in enumerate(out_obj_ids)
         }
     end = time.perf_counter()
     print(f"Video segmentation took {(end - start)}s")
+    # pr.disable()
 
     if save_path:
         # render the segmentation results every few frames
@@ -175,7 +174,7 @@ def main(video_dir: str, save_path: Optional[str] = None):
             plt.imshow(Image.open(os.path.join(video_dir, frame_names[out_frame_idx])))
             for out_obj_id, out_mask in video_segments[out_frame_idx].items():
                 vol, centre = compute_mask_properties(out_mask)
-                show_mask(out_mask, plt.gca(), obj_id=out_obj_id)
+                show_mask(out_mask.cpu().numpy(), plt.gca(), obj_id=out_obj_id)
             plt.savefig(os.path.join(save_path, f"video_final_mask_{out_frame_idx}.png"))
 
         # Print the properties of the mask generated for the final image for integration testing.

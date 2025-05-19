@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -46,7 +46,7 @@ def create_memref(shape, dtype, device=tp_device("gpu"), stream=None, array=None
     if device.kind == "gpu":
         kwargs["device"] = mlir_utils.MLIRRuntimeClient().get_devices()[device.index]
         # Streams are only allowed for GPU allocations.
-        kwargs["stream"] = stream
+        kwargs["stream"] = stream._active_cuda_stream if stream else None
 
     memref = mlir_utils.MLIRRuntimeClient().create_memref(*args, **kwargs)
 

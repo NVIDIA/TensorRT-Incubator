@@ -52,6 +52,7 @@ class TensorMeta(type):
         ":special-members:",
         ":exclude-members: __init__, __repr__, __weakref__, __dlpack__, __dlpack_device__",
     ],
+    bypass_dispatch=["fast_init"],
 )
 class Tensor(metaclass=TensorMeta):
     """
