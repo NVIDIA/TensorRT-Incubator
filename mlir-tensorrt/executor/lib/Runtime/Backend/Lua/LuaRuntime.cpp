@@ -333,7 +333,7 @@ CudaStream LuaRuntimeSession::getCudaStream() {
 Status LuaRuntimeSession::setCudaStream(CudaStream stream) {
 #ifdef MLIR_EXECUTOR_ENABLE_CUDA
   sol::state_view lua = getLuaState();
-  lua["stream0"] = CudaStreamPtr(stream);
+  lua["stream0"] = stream;
   return getOkStatus();
 #else
   return getInternalErrorStatus("runtime not compiled with CUDA support");
@@ -466,26 +466,10 @@ static Status pushMemRefTableArg(sol::state_view &lua, AllocTracker &tracker,
 
   args.emplace_back(sol::make_object(lua, std::move(memrefTable)));
 
-  // Determine if the memory is internally managed by the client's AllocTracker
-  AllocTracker &clientTracker = value.getClient()->getAllocTracker();
-  uintptr_t memory = value.getMemory();
-  bool isInternallyManagedByClient =
-      clientTracker.contains(memory) &&
-      clientTracker.get(memory).isInternallyManaged();
-
-  // Create PointerInfo with appropriate ownership based on whether it is
-  // internally managed by the client
-  PointerInfo pointerInfo = value.getPointerInfo(isInternallyManagedByClient
-                                                     ? PointerOwner::internal
-                                                     : PointerOwner::external);
+  PointerInfo pointerInfo = value.getPointerInfo(PointerOwner::external);
 
   // Track the pointer in the current AllocTracker
   tracker.track(pointerInfo);
-
-  // First, mark the pointer as released internally if it is internally managed
-  // by the client
-  if (isInternallyManagedByClient)
-    tracker.markReleasedInternally(pointerInfo.ptr);
 
   return getOkStatus();
 }
@@ -698,7 +682,7 @@ getScalarValue(const sol::protected_function_result &pfr, int index,
 static StatusOr<llvm::SmallVector<std::unique_ptr<RuntimeValue>>>
 parseResults(const sol::protected_function_result &pfr,
              const FunctionSignatureView &sig, LuaRuntimeSession &session,
-             std::optional<RuntimeClient *> client) {
+             RuntimeClient &client) {
   llvm::SmallVector<std::unique_ptr<RuntimeValue>> results;
   results.reserve(sig.getNumResults());
 
@@ -735,45 +719,29 @@ parseResults(const sol::protected_function_result &pfr,
     for (unsigned dim = 0; dim < rank; ++dim)
       strides[dim] = reader.getNextValue<int64_t>();
 
-    if (!client)
-      return getInvalidArgStatus("Runtime client cannot be nullptr");
-
     // Create an external MemRef and track it in both session and client
     // allocation trackers
-    MTRT_DBGF("Creating external MemRef for ptr 0x%lx: "
-              "Session alloc tracker: %p, Session pinned memory allocator: %p, "
-              "Client: %p, Client tracker: %p. "
-              "This ptr is registered with the session and will now be tracked "
-              "by the client as well.",
-              allocPtr, static_cast<void *>(&session.getAllocTracker()),
-              static_cast<void *>(&session.getPinnedMemoryAllocator()),
-              static_cast<void *>(*client),
-              static_cast<void *>(&(*client)->getAllocTracker()));
+    MTRT_DBGF(
+        "Transferring ownership of returned MemRefValue [ptr %p] to client",
+        reinterpret_cast<void *>(allocPtr));
 
-    // We need here actually is to "release" the pointer from the session
-    // ownership and have the client assume
-    PointerInfo info = session.getAllocTracker().get(allocPtr);
-    session.getAllocTracker().untrack(info.ptr);
-
-    // Defer deallocation of this pinned memory pointer
-    // This pointer is likely still in use by the client and should not be
-    // immediately freed. By untracking it here, we ensure it won't be
-    // deallocated in the PinnedMemoryAllocator's destructor, allowing
-    // the client to manage its lifecycle.
-    session.getPinnedMemoryAllocator().untrack(info.ptr);
+    // We are returning the memref, so transfer ownership to the client.
+    session.getAllocTracker().untrack(allocPtr);
+    session.getPinnedMemoryAllocator().untrack(allocPtr);
 
     // Create a memref so that client now tracks it.
-    auto memref = MemRefValue::create(
-        *client, memRefView.getAddressSpace(),
-        memRefView.getElementType().getBitWidth(), allocPtr, offset, shape,
-        strides, (*client)->getDevices()[0].get(), memRefView.getElementType());
+    StatusOr<Ref<MemRefStorage>> storage = client.getAllocator().takeOwnership(
+        allocPtr, memRefView.getAddressSpace(), session.getCudaStream());
+    if (!storage.isOk())
+      return storage.getStatus();
 
+    auto memref = MemRefValue::create(&client, memRefView.getAddressSpace(),
+                                      memRefView.getElementType().getBitWidth(),
+                                      std::move(*storage), offset, shape,
+                                      strides, client.getDevices()[0].get(),
+                                      memRefView.getElementType());
     if (!memref.isOk())
       return memref.getStatus();
-
-    // Track the pointer as internal in the client's AllocTracker
-    (*client)->getAllocTracker().track(
-        (*memref)->getPointerInfo(PointerOwner::internal));
 
     // Add the memref to the results vector
     results.push_back(std::move(*memref));
@@ -863,8 +831,8 @@ runtime::executeFunctionWithLuaBackend(
   if (stream)
     RETURN_STATUS_IF_ERROR(session.setCudaStream(*stream));
 
-  // If the number of arguments exceed a particular threshold, then
-  // we pass arguments packed into a table, otherwise we pass as arguments.
+  // Call the function, passing the arguments either as a table or unpacked as
+  // determined by the calling convention.
   sol::protected_function_result pfr =
       sig.getCConv() == CallingConvention::unpacked
           ? funcObj(sol::as_args(args))
@@ -877,5 +845,28 @@ runtime::executeFunctionWithLuaBackend(
                             "\": ", err.what());
   }
 
-  return parseResults(pfr, sig, session, client);
+  // Forget the input pointers.
+  for (auto [idx, rv] : llvm::enumerate(inputArgs)) {
+    if (MemRefValue *memref = llvm::dyn_cast<MemRefValue>(rv)) {
+      auto it = session.getAllocTracker().find(memref->getMemory());
+      if (it != session.getAllocTracker().end())
+        session.getAllocTracker().erase(it);
+    }
+  }
+  for (auto [idx, rv] : llvm::enumerate(outputArgs)) {
+    if (MemRefValue *memref = llvm::dyn_cast<MemRefValue>(rv)) {
+      auto it = session.getAllocTracker().find(memref->getMemory());
+      if (it != session.getAllocTracker().end())
+        session.getAllocTracker().erase(it);
+    }
+  }
+
+  if (sig.getNumResults() == 0)
+    return llvm::SmallVector<std::unique_ptr<RuntimeValue>>();
+
+  if (!client)
+    return getInvalidArgStatus(
+        "runtime client cannot be nullptr if results are returned");
+
+  return parseResults(pfr, sig, session, **client);
 }

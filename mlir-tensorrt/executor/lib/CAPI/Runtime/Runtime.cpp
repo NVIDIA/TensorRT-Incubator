@@ -22,6 +22,7 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-executor-c/Runtime/Runtime.h"
+#include "dlpack/dlpack.h"
 #include "mlir-executor-c/Common/Common.h"
 #include "mlir-executor-c/Support/Status.h"
 #include "mlir-executor/Runtime/API/API.h"
@@ -302,10 +303,10 @@ MTRT_Status mtrtStreamSynchronize(MTRT_Stream stream) {
   return mtrtStatusGetOk();
 }
 
-MTRT_Status mtrtStreamDestroy(MTRT_Stream stream) {
-  delete unwrap(stream);
-  return mtrtStatusGetOk();
-}
+/// TODO: temporarily leak stream until we switch ownership to the client.
+/// We currently can't be sure that the stream ownership in Python will outlive
+/// references in C++.
+MTRT_Status mtrtStreamDestroy(MTRT_Stream stream) { return mtrtStatusGetOk(); }
 
 MLIR_CAPI_EXPORTED void
 mtrtStreamPrint(MTRT_Stream stream, MlirStringCallback append, void *userData) {
@@ -343,8 +344,22 @@ mtrtMemRefCreate(MTRT_RuntimeClient client, MTRT_PointerType pointerKind,
   if (bufferImpl.isError())
     return wrap(bufferImpl.getStatus());
 
+  [[maybe_unused]] uintptr_t ptr = (*bufferImpl)->getMemory();
   *result = wrap(bufferImpl->release());
+  MTRT_DBGF("mtrtMemRefCreate[%p]: ptr = %p",
+            reinterpret_cast<void *>(result->ptr),
+            reinterpret_cast<void *>(ptr));
+
   return mtrtStatusGetOk();
+}
+
+static std::function<void()>
+unwrapDestroyCallback(MTRT_MemRefDestroyCallback callback) {
+  if (mtrtMemRefDestroyCallbackIsNull(callback))
+    return nullptr;
+  return [callback = std::move(callback)]() {
+    callback.callback(callback.userData);
+  };
 }
 
 MTRT_Status mtrtMemRefCreateExternal(
@@ -352,7 +367,7 @@ MTRT_Status mtrtMemRefCreateExternal(
     int64_t bitsPerElement, uintptr_t ptr, int64_t offset, int64_t rank,
     const int64_t *shape, const int64_t *strides, MTRT_Device device,
     MTRT_ScalarTypeCode scalarType, MTRT_MemRefValue *result,
-    bool assertCanonicalStrides) {
+    bool assertCanonicalStrides, MTRT_MemRefDestroyCallback destroyCallback) {
   StatusOr<std::unique_ptr<MemRefValue>> bufferImpl =
       unwrap(client)->createExternalMemRef(
           unwrap(pointerKind), bitsPerElement, ptr, offset,
@@ -363,12 +378,17 @@ MTRT_Status mtrtMemRefCreateExternal(
           scalarType == MTRT_ScalarTypeCode_unknown
               ? std::nullopt
               : std::optional(ScalarType(unwrap(scalarType))),
-          std::optional(assertCanonicalStrides));
+          std::optional(assertCanonicalStrides),
+          unwrapDestroyCallback(std::move(destroyCallback)));
 
   if (bufferImpl.isError())
     return wrap(bufferImpl.getStatus());
 
   *result = wrap(bufferImpl->release());
+
+  MTRT_DBGF("mtrtMemRefCreateExternal[%p]: ptr = %p",
+            reinterpret_cast<void *>(result->ptr),
+            reinterpret_cast<void *>(ptr));
 
   return mtrtStatusGetOk();
 }
@@ -376,25 +396,19 @@ MTRT_Status mtrtMemRefCreateExternal(
 MTRT_Status mtrtMemRefValueDestroyAsync(MTRT_MemRefValue buffer,
                                         MTRT_Stream stream) {
   MemRefValue *memref = unwrap(buffer);
-  MTRT_DBGF("destroying memref pointer 0x%lx asynchronously",
-            memref->getMemory());
-  Status s = memref->getClient()->deallocate(
-      std::unique_ptr<MemRefValue>(memref),
-      mtrtStreamIsNull(stream) ? std::nullopt
-                               : std::optional(unwrap(stream)->getRawStream()));
-  if (!s.isOk())
-    return wrap(s);
+  MTRT_DBGF("mtrtMemRefValueDestroyAsync[%p]: ptr = %p",
+            reinterpret_cast<void *>(memref),
+            reinterpret_cast<void *>(memref->getMemory()));
+  delete memref;
   return mtrtStatusGetOk();
 }
 
 MTRT_Status mtrtMemRefValueDestroy(MTRT_MemRefValue buffer) {
   MemRefValue *memref = unwrap(buffer);
-  MTRT_DBGF("destroying memref pointer 0x%lx", memref->getMemory());
-  Status s =
-      memref->getClient()->deallocate(std::unique_ptr<MemRefValue>(memref));
-  if (!s.isOk())
-    return wrap(s);
-
+  MTRT_DBGF("mtrtMemRefValueDestroy[%p]: ptr = %p",
+            reinterpret_cast<void *>(memref),
+            reinterpret_cast<void *>(memref->getMemory()));
+  delete memref;
   return mtrtStatusGetOk();
 }
 
@@ -468,33 +482,6 @@ MTRT_Status mtrtGetPointerTypeFromDLDeviceType(DLDeviceType device,
 #undef RETURN_OK
 }
 
-static StatusOr<DLDataTypeCode> toDLPackDataTypeCode(ScalarTypeCode type) {
-  switch (type) {
-  case ScalarTypeCode::i1:
-    return DLDataTypeCode::kDLBool;
-  case ScalarTypeCode::i4:
-  case ScalarTypeCode::i8:
-  case ScalarTypeCode::i16:
-  case ScalarTypeCode::i32:
-  case ScalarTypeCode::i64:
-    return DLDataTypeCode::kDLInt;
-  case ScalarTypeCode::ui8:
-    return DLDataTypeCode::kDLUInt;
-  case ScalarTypeCode::f8e4m3fn:
-  case ScalarTypeCode::f16:
-  case ScalarTypeCode::f32:
-  case ScalarTypeCode::f64:
-    return DLDataTypeCode::kDLFloat;
-  case ScalarTypeCode::bf16:
-    return DLDataTypeCode::kDLBfloat;
-  default:
-    return getStatusWithMsg(
-        StatusCode::InvalidArgument,
-        "Scalar type code conversion to DLPackDataTypeCode is not supported.");
-  }
-  return DLDataTypeCode::kDLFloat;
-}
-
 MTRT_Status mtrtGetScalarTypeCodeFromDLDataType(DLDataType dtype,
                                                 MTRT_ScalarTypeCode *result) {
 #define RETURN_OK(v)                                                           \
@@ -542,76 +529,9 @@ MTRT_Status mtrtGetScalarTypeCodeFromDLDataType(DLDataType dtype,
 #undef RETURN_OK
 }
 
-static void dlpackManagedTensorDeleter(DLManagedTensor *tensor) {
-  if (tensor) {
-    MTRT_DBGF("Deleting DLManagedTensor. Data pointer: %p",
-              tensor->dl_tensor.data);
-    delete[] tensor->dl_tensor.shape;
-    delete[] tensor->dl_tensor.strides;
-    if (tensor->manager_ctx) {
-      static_cast<RuntimeClient *>(tensor->manager_ctx)
-          ->removeDLPackTensorFromTracking(tensor);
-      static_cast<RuntimeClient *>(tensor->manager_ctx)
-          ->getAllocTracker()
-          .decrementExternalCount(
-              reinterpret_cast<uintptr_t>(tensor->dl_tensor.data));
-    }
-    delete tensor;
-  }
-}
-
-MLIR_CAPI_EXPORTED MTRT_Status mtrtMemRefValueGetDLPackManagedTensor(
-    MTRT_MemRefValue memrefValue, MTRT_DLPackManagedTensor *outTensor) {
-  MemRefValue memref = *unwrap(memrefValue);
-
-  std::unique_ptr<DLManagedTensor> managedTensor;
-  managedTensor.reset(new DLManagedTensor());
-
-  managedTensor->dl_tensor.data = memref.getVoidPtr();
-  int device = memref.getDevice().has_value()
-                   ? memref.getDevice().value()->getDeviceNumber()
-                   : 0;
-
-  StatusOr<DLDeviceType> deviceType =
-      toDLPackDeviceType(memref.getAddressSpace());
-  if (!deviceType.isOk())
-    return wrap(deviceType.getStatus());
-
-  managedTensor->dl_tensor.device = {*deviceType, device};
-  managedTensor->dl_tensor.ndim = memref.getRank();
-
-  StatusOr<DLDataTypeCode> dtypeCode =
-      toDLPackDataTypeCode(memref.getScalarType()->getCode());
-  if (!dtypeCode.isOk())
-    return wrap(dtypeCode.getStatus());
-
-  managedTensor->dl_tensor.dtype = {
-      static_cast<uint8_t>(*dtypeCode),
-      static_cast<uint8_t>(memref.getElementBitWidth()),
-      1}; // Assume data is non-vectorized.
-  managedTensor->dl_tensor.shape = new int64_t[managedTensor->dl_tensor.ndim];
-  managedTensor->dl_tensor.strides = new int64_t[managedTensor->dl_tensor.ndim];
-  for (int i = 0; i < managedTensor->dl_tensor.ndim; ++i) {
-    managedTensor->dl_tensor.shape[i] = memref.getShape()[i];
-    managedTensor->dl_tensor.strides[i] = memref.getStrides()[i];
-  }
-  managedTensor->dl_tensor.byte_offset = memref.getOffset();
-  managedTensor->manager_ctx = memref.getClient();
-  managedTensor->deleter = dlpackManagedTensorDeleter;
-
-  // Increment reference count to ensure memory is not released prematurely.
-  memref.getClient()->getAllocTracker().incrementExternalCount(
-      memref.getMemory());
-  // Track DLPackTensor in runtime client such that it's deleter can be
-  // reset when RuntimeClient is destroyed.
-  memref.getClient()->trackDLPackTensor(managedTensor.get());
-
-  *outTensor = wrap(managedTensor.release());
-  return mtrtStatusGetOk();
-}
-
-MLIR_CAPI_EXPORTED MTRT_Status mtrtMemRefValueGetDLPackDevice(
-    MTRT_MemRefValue memrefValue, int32_t *device_type, int32_t *device_id) {
+MLIR_CAPI_EXPORTED MTRT_Status
+mtrtMemRefValueGetDLPackDevice(MTRT_MemRefValue memrefValue,
+                               DLDeviceType *device_type, int32_t *device_id) {
   MemRefValue memref = *unwrap(memrefValue);
   int device = memref.getDevice().has_value()
                    ? memref.getDevice().value()->getDeviceNumber()
@@ -626,19 +546,15 @@ MLIR_CAPI_EXPORTED MTRT_Status mtrtMemRefValueGetDLPackDevice(
   return mtrtStatusGetOk();
 }
 
-MTRT_Status mtrtMemRefReferenceCount(MTRT_RuntimeClient client, uintptr_t ptr,
-                                     int32_t *externalRefCount) {
-  *externalRefCount =
-      unwrap(client)->getAllocTracker().getExternalReferenceCount(ptr);
-  return mtrtStatusGetOk();
+uint32_t mtrtMemRefReferenceCount(MTRT_MemRefValue memref) {
+  unsigned refCount = unwrap(memref)->getStorageRefCount();
+  MTRT_DBGF("mtrtMemRefReferenceCount[%p]: ref_count = %d",
+            reinterpret_cast<void *>(unwrap(memref)), refCount);
+  return refCount;
 }
 
-MTRT_Status mtrtMemRefIsReleasedInternally(MTRT_RuntimeClient client,
-                                           uintptr_t ptr,
-                                           bool *isReleasedInternally) {
-  *isReleasedInternally =
-      unwrap(client)->getAllocTracker().isReleasedInternally(ptr);
-  return mtrtStatusGetOk();
+MTRT_MemRefValue mtrtMemRefCreateRef(MTRT_MemRefValue memref) {
+  return wrap(unwrap(memref)->createRef().release());
 }
 
 //===----------------------------------------------------------------------===//
@@ -660,7 +576,16 @@ MTRT_Status mtrtCopyFromHostToDevice(MTRT_MemRefValue hostBuffer,
   if (!deviceBufferImpl.isOk())
     return wrap(deviceBufferImpl.getStatus());
 
+  [[maybe_unused]] uintptr_t deviceBufferPtr = (*deviceBufferImpl)->getMemory();
   *deviceBuffer = wrap(deviceBufferImpl->release());
+
+  MTRT_DBGF("mtrtCopyFromHostToDevice: from MTRT_MemRefValue %p [ptr = %p] to "
+            "MTRT_MemRefValue %p [ptr = %p]",
+            reinterpret_cast<void *>(hostBuffer.ptr),
+            reinterpret_cast<void *>(unwrap(hostBuffer)->getMemory()),
+            reinterpret_cast<void *>(deviceBuffer->ptr),
+            reinterpret_cast<void *>(deviceBufferPtr));
+
   return mtrtStatusGetOk();
 }
 
@@ -712,11 +637,25 @@ mtrtCopyFromDeviceToExistingHostMemRef(MTRT_MemRefValue deviceBuffer,
 }
 
 //===----------------------------------------------------------------------===//
+// MTRT_ScalarValue
+//===----------------------------------------------------------------------===//
+
+MTRT_Status mtrtScalarValueDestroy(MTRT_ScalarValue value) {
+  if (value.ptr)
+    delete unwrap(value);
+  return mtrtStatusGetOk();
+}
+
+//===----------------------------------------------------------------------===//
+//===----------------------------------------------------------------------===//
 // MTRT_RuntimeValue
 //===----------------------------------------------------------------------===//
 
 MTRT_Status mtrtRuntimeValueDestroy(MTRT_RuntimeValue value) {
-  delete unwrap(value);
+  if (mtrtRuntimeValueIsMemRef(value))
+    return mtrtMemRefValueDestroy(mtrtRuntimeValueDynCastToMemRef(value));
+  if (mtrtRuntimeValueIsScalar(value))
+    return mtrtScalarValueDestroy(mtrtRuntimeValueDynCastToScalar(value));
   return mtrtStatusGetOk();
 }
 

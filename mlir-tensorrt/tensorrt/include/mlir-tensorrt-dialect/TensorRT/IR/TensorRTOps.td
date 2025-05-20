@@ -4224,7 +4224,6 @@ def TensorRT_ScatterOp : TensorRT_Op<"scatter_nd",
     `indices` `(` $indices `:` type($indices) `)`
     `updates` `(` $updates `:` type($updates) `)`
   }];
-  let hasVerifier = 1;
   let extraClassDeclaration = [{
     /// Returns true if created op is valid for TensorRT major version.
     bool isValidForTensorRTVersion(int64_t trtMajorVersion);

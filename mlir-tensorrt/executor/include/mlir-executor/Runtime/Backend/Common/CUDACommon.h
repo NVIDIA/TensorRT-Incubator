@@ -13,11 +13,6 @@ std::ostream &operator<<(std::ostream &es, CUresult result);
 /// Stream a CUDA runtime error to an ostream.
 std::ostream &operator<<(std::ostream &es, cudaError_t error);
 
-struct CudaStreamInfo {
-  cudaStream_t stream{nullptr};
-  bool isView{false};
-};
-
 template <typename T>
 struct PointerWrapper {
 
@@ -28,11 +23,6 @@ struct PointerWrapper {
   operator uintptr_t() { return ptr; }
 
   uintptr_t ptr;
-};
-
-struct CudaStreamPtr : public PointerWrapper<cudaStream_t> {
-  using PointerWrapper<cudaStream_t>::PointerWrapper;
-  static StatusOr<CudaStreamPtr> create(ResourceTracker &tracker);
 };
 
 struct CudaEventPtr : public PointerWrapper<cudaEvent_t> {

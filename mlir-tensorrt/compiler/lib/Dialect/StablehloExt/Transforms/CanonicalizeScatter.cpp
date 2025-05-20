@@ -300,6 +300,15 @@ struct StablehloCanonicalizeScatterToTensorRtScatterNdFormat
         cast<RankedTensorType>(op.getInputs().front().getType());
     RankedTensorType canonicalizedIndexType =
         cast<RankedTensorType>(op.getScatterIndices().getType());
+    RankedTensorType updateType =
+        cast<RankedTensorType>(op.getUpdates().front().getType());
+
+    // Check that the update slices are "full" slices.
+    unsigned updateWindowStart = 1 + canonicalizedIndexType.getShape().back();
+    unsigned inputWindowStart = canonicalizedIndexType.getShape().back();
+    if (canonicalizedInputType.getShape().drop_front(inputWindowStart) !=
+        updateType.getShape().drop_front(updateWindowStart))
+      return failure();
 
     // Reshape the updates if possible.
     int64_t inputRank = canonicalizedInputType.getRank();

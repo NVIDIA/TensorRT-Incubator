@@ -44,21 +44,6 @@ std::ostream &mrt::operator<<(std::ostream &es, cudaError_t error) {
   return es;
 }
 
-StatusOr<CudaStreamPtr> CudaStreamPtr::create(ResourceTracker &tracker) {
-  cudaStream_t stream;
-  RETURN_ERROR_IF_CUDART_ERROR(cudaStreamCreate(&stream));
-  MTRT_DBGF("created cuda stream %lu", reinterpret_cast<uintptr_t>(stream));
-
-  tracker.track(reinterpret_cast<uintptr_t>(stream), [](uintptr_t ptr) {
-    if (ptr) {
-      MTRT_DBGF("freeing cuda stream 0x%lx", ptr);
-      cudaStreamDestroy(reinterpret_cast<cudaStream_t>(ptr));
-    }
-  });
-
-  return CudaStreamPtr(stream);
-}
-
 StatusOr<CudaEventPtr> CudaEventPtr::create(ResourceTracker &tracker) {
   cudaEvent_t event;
   RETURN_ERROR_IF_CUDART_ERROR(cudaEventCreate(&event));

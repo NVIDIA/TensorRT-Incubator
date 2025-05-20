@@ -435,7 +435,7 @@ private:
 
 // Run D = alpha*(A@B) + beta*C, where D=C (inplace update)
 static void runCublasGemm(sol::this_state state, CublasLtHandle handle,
-                          CudaStreamPtr stream, AlgoSelectResult &algo,
+                          CudaStream stream, AlgoSelectResult &algo,
                           AllocTracker &tracker, sol::variadic_args varArgs) {
   MTRT_DBGF("%s", "[cuBLAS] executing gemm");
   auto scalarPointerMode = cublasLtPointerMode_t::CUBLASLT_POINTER_MODE_DEVICE;
@@ -465,14 +465,15 @@ static void runCublasGemm(sol::this_state state, CublasLtHandle handle,
                      reinterpret_cast<void *>(varArgs[4].get<uintptr_t>()),
                      algo.getCLayout(), &(algo.getAlgo().algo),
                      reinterpret_cast<void *>(workspace->ptr),
-                     algo.getAlgo().workspaceSize, stream),
+                     algo.getAlgo().workspaceSize,
+                     reinterpret_cast<cudaStream_t>(stream)),
       state, "[cuBLAS] run gemm failed");
   MTRT_DBGF("%s", "[cuBLAS] successfully executed gemm");
 }
 
 // Run C += A@B
 static void runCublasMatmul(sol::this_state state, CublasLtHandle handle,
-                            CudaStreamPtr stream, AlgoSelectResult &algo,
+                            CudaStream stream, AlgoSelectResult &algo,
                             AllocTracker &tracker, sol::variadic_args varArgs) {
   MTRT_DBGF("%s", "[cuBLAS] executing matmul");
   float alpha = 1.0;
@@ -501,19 +502,19 @@ static void runCublasMatmul(sol::this_state state, CublasLtHandle handle,
             algo.getAlgo().workspaceSize, workspace->ptr);
   SET_LUA_ERROR_IF_ERROR(workspace, state);
   SET_LUA_ERROR_IF_CUBLAS_ERROR(
-      cublasLtMatmul(handle, algo.getMatmulDesc(),
-                     reinterpret_cast<void *>(alphaHostPtr->ptr),
-                     reinterpret_cast<void *>(varArgs[0].get<uintptr_t>()),
-                     algo.getALayout(),
-                     reinterpret_cast<void *>(varArgs[1].get<uintptr_t>()),
-                     algo.getBLayout(),
-                     reinterpret_cast<void *>(betaHostPtr->ptr),
-                     reinterpret_cast<void *>(varArgs[2].get<uintptr_t>()),
-                     algo.getCLayout(),
-                     reinterpret_cast<void *>(varArgs[2].get<uintptr_t>()),
-                     algo.getCLayout(), &(algo.getAlgo().algo),
-                     reinterpret_cast<void *>(workspace->ptr),
-                     algo.getAlgo().workspaceSize, stream),
+      cublasLtMatmul(
+          handle, algo.getMatmulDesc(),
+          reinterpret_cast<void *>(alphaHostPtr->ptr),
+          reinterpret_cast<void *>(varArgs[0].get<uintptr_t>()),
+          algo.getALayout(),
+          reinterpret_cast<void *>(varArgs[1].get<uintptr_t>()),
+          algo.getBLayout(), reinterpret_cast<void *>(betaHostPtr->ptr),
+          reinterpret_cast<void *>(varArgs[2].get<uintptr_t>()),
+          algo.getCLayout(),
+          reinterpret_cast<void *>(varArgs[2].get<uintptr_t>()),
+          algo.getCLayout(), &(algo.getAlgo().algo),
+          reinterpret_cast<void *>(workspace->ptr),
+          algo.getAlgo().workspaceSize, reinterpret_cast<cudaStream_t>(stream)),
       state, "[cuBLAS] run matmul failed");
   MTRT_DBGF("%s", "[cuBLAS] successfully executed matmul");
 }
@@ -564,7 +565,7 @@ static void registerExecutorCuBLASModuleLuaRuntimeMethods(
 
   lua["__cuda_blas_run_gemm"] =
       [allocTracker](sol::this_state state, CublasLtHandle handle,
-                     CudaStreamPtr stream, AlgoSelectResult *algo,
+                     CudaStream stream, AlgoSelectResult *algo,
                      sol::variadic_args varArgs) {
         ADD_CUDA_MODULE_RANGE("cuda_blas_run_gemm");
         assert((varArgs.size() == 3 || varArgs.size() == 5) &&

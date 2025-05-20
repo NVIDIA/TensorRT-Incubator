@@ -387,3 +387,35 @@ func.func @scatter_batching_dims(%arg0: tensor<2x5x4x7x9xi32>, %arg1: tensor<2x3
 
 // CHECK-LABEL: @scatter_batching_dims
 // CHECK: stablehlo.scatter
+
+// -----
+
+
+// -----
+
+// This is a regresssion test to ensure that we don't try to canonicalize
+// into scatter-nd form when the scatter is doing a partial window update
+// rather than a full slice insertion.
+
+func.func @partial_window_slice_regression(%arg0: tensor<10x5xf16>, %arg1: tensor<3x1xi32>, 
+      %arg2: tensor<3x3xf16>) -> tensor<10x5xf16> {
+  %0 = "stablehlo.scatter"(%arg0, %arg1, %arg2) <{scatter_dimension_numbers = 
+    #stablehlo.scatter<update_window_dims = [1], 
+      inserted_window_dims = [0], 
+      scatter_dims_to_operand_dims = [0], 
+      index_vector_dim = 1>}> ({
+  ^bb0(%arg3: tensor<f16>, %arg4: tensor<f16>):
+    stablehlo.return %arg4 : tensor<f16>
+  }) : (tensor<10x5xf16>, tensor<3x1xi32>, tensor<3x3xf16>) -> tensor<10x5xf16>
+  return %0 : tensor<10x5xf16>
+}
+
+// CHECK-LABEL: @partial_window_slice_regression
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<10x5xf16>, %[[arg1:.+]]: tensor<3x1xi32>, 
+//  CHECK-SAME:      %[[arg2:.+]]: tensor<3x3xf16>)
+//       CHECK:     %[[v0:.+]] = stablehlo.reshape %[[arg2]]
+//       CHECK:     %[[v1:.+]] = "stablehlo.scatter"(%[[arg0]], %[[arg1]], %[[v0]]) <
+//  CHECK-SAME:     update_window_dims = [1, 2],
+//  CHECK-SAME:     scatter_dims_to_operand_dims = [0],
+//  CHECK-SAME:     index_vector_dim = 1
+//       CHECK:     return %[[v1]] : tensor<10x5xf16>

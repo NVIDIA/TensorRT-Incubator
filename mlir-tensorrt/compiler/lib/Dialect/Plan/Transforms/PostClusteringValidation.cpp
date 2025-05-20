@@ -37,6 +37,7 @@
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Interfaces/SideEffectInterfaces.h"
+#include "mlir/Interfaces/TilingInterface.h"
 #include "stablehlo/dialect/StablehloOps.h"
 
 #define DEBUG_TYPE "post-clustering-validation"
@@ -58,7 +59,8 @@ static bool isValidOp(Operation *op) {
   if (isPure(op) && llvm::all_of(op->getOperandTypes(), isNonTensor) &&
       llvm::all_of(op->getResultTypes(), isNonTensor))
     return true;
-  return isa<bufferization::BufferizableOpInterface>(op) ||
+  return isa<TilingInterface>(op) ||
+         isa<bufferization::BufferizableOpInterface>(op) ||
          isa<stablehlo::ConstantOp, affine::AffineApplyOp>(op) ||
          isa<tensorrt::TensorRTDialect, trtrt::TensorRTRuntimeDialect,
              executor::ExecutorDialect, func::FuncDialect, arith::ArithDialect,

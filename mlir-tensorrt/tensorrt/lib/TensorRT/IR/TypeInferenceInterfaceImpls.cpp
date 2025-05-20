@@ -31,6 +31,7 @@
 #include "mlir/IR/BuiltinTypeInterfaces.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/ImplicitLocOpBuilder.h"
+#include "mlir/IR/TypeUtilities.h"
 #include "mlir/Interfaces/InferTypeOpInterface.h"
 
 using namespace mlir;
@@ -1487,7 +1488,49 @@ LogicalResult tensorrt::ScatterOp::inferReturnTypeComponents(
     DictionaryAttr attributes, OpaqueProperties properties, RegionRange regions,
     SmallVectorImpl<ShapedTypeComponents> &inferredReturnShapes) {
   ScatterOp::Adaptor adaptor(operands, attributes, properties, regions);
-  TensorType inputDataType = cast<TensorType>(adaptor.getData().getType());
+
+  TensorType inputDataType =
+      cast<RankedTensorType>(adaptor.getData().getType());
+  TensorType indicesDataType =
+      cast<RankedTensorType>(adaptor.getIndices().getType());
+  TensorType updatesDataType =
+      cast<RankedTensorType>(adaptor.getUpdates().getType());
+
+  int64_t inputRank = inputDataType.getRank();
+  int64_t indicesRank = indicesDataType.getRank();
+  int64_t updatesRank = updatesDataType.getRank();
+
+  auto indicesShape = indicesDataType.getShape();
+  if (indicesShape.empty())
+    return emitOptionalError(loc, ScatterOp::getOperationName(),
+                             " indices must have rank >= 1");
+
+  int64_t indexVectorSize = indicesShape.back();
+  if (ShapedType::isDynamic(indexVectorSize))
+    return emitOptionalError(
+        loc, "the last dimension in ", ScatterOp::getOperationName(),
+        " indices tensor (the index vector size) must be static");
+
+  if (indexVectorSize > inputRank)
+    return emitOptionalError(
+        loc, ScatterOp::getOperationName(),
+        " index vector size cannot be larger than the input rank");
+
+  int64_t expectedUpdatesRank = inputRank + indicesRank - indexVectorSize - 1;
+  if (updatesRank != expectedUpdatesRank)
+    return emitOptionalError(loc, ScatterOp::getOperationName(),
+                             " expected updates tensor rank to be ",
+                             expectedUpdatesRank);
+
+  int64_t leadingIndexDims = std::max<int64_t>(0, indicesRank - 1);
+
+  if (failed(mlir::verifyCompatibleShape(
+          updatesDataType.getShape().drop_front(leadingIndexDims),
+          inputDataType.getShape().drop_front(indexVectorSize))))
+    return emitOptionalError(loc, ScatterOp::getOperationName(),
+                             " input tensor shape is incompatible with the "
+                             "shape of the updates tensor");
+
   inferredReturnShapes.emplace_back(ShapeAdaptor(inputDataType));
   return success();
 }

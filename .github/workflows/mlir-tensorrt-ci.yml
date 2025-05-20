@@ -130,7 +130,7 @@ jobs:
         uses: addnab/docker-run-action@v3
         with:
           image: ${{ env.DEFAULT_IMAGE }}
-          options: -v ${{ github.workspace }}/mlir-tensorrt:/mlir-tensorrt -v ${{ github.workspace }}/ccache:/ccache -v ${{ github.workspace }}/.cache.cpm:/.cache.cpm
+          options: -v ${{ github.workspace }}/mlir-tensorrt:/mlir-tensorrt -v ${{ github.workspace }}/ccache:/ccache -v ${{ github.workspace }}/.cache.cpm:/.cache.cpm --gpus all
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
@@ -143,7 +143,7 @@ jobs:
         uses: addnab/docker-run-action@v3
         with:
           image: ${{ env.DEFAULT_IMAGE }}
-          options: -v ${{ github.workspace }}/mlir-tensorrt:/mlir-tensorrt -v ${{ github.workspace }}/ccache:/ccache -v ${{ github.workspace }}/.cache.cpm:/.cache.cpm
+          options: -v ${{ github.workspace }}/mlir-tensorrt:/mlir-tensorrt -v ${{ github.workspace }}/ccache:/ccache -v ${{ github.workspace }}/.cache.cpm:/.cache.cpm --gpus all
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
