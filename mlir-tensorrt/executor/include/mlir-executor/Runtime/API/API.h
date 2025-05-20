@@ -61,6 +61,111 @@ using CallingConvention = impl::CallingConvention;
 class RuntimeClient;
 
 //===----------------------------------------------------------------------===//
+// Intrusive Reference Counting Classes
+//===----------------------------------------------------------------------===//
+
+/// Example usage:
+///
+/// ```cpp
+/// #include <iostream>
+/// class MyObject : public RefCounted<MyObject> {
+/// public:
+///     MyObject(int v) : value(v) {
+///         std::cout << "MyObject(" << value << ") constructed\n";
+///     }
+///     ~MyObject() {
+///         std::cout << "MyObject(" << value << ") destroyed\n";
+///     }
+///     void greet() const {
+///         std::cout << "Hello from " << value << "\n";
+///     }
+/// private:
+///     int value;
+/// };
+/// int main() {
+///     Ref<MyObject> a(new MyObject(42));
+///     {
+///         Ref<MyObject> b = a;
+///         b->greet(); // "Hello from 42"
+///     } // b goes out of scope
+///     a->greet();   // still alive
+/// } // a goes out of scope, MyObject destroyed
+/// ```
+
+template <typename Derived>
+class RefCounted {
+public:
+  void incRef() noexcept { ref_count_.fetch_add(1, std::memory_order_relaxed); }
+
+  void decRef() noexcept {
+    if (ref_count_.fetch_sub(1, std::memory_order_acq_rel) == 1) {
+      delete static_cast<Derived *>(this);
+    }
+  }
+
+  unsigned getRefCount() const {
+    return ref_count_.load(std::memory_order_relaxed);
+  }
+
+protected:
+  RefCounted() noexcept : ref_count_(0) {}
+  ~RefCounted() = default;
+
+private:
+  std::atomic<int> ref_count_;
+};
+
+template <typename T>
+class Ref {
+public:
+  explicit Ref(T *ptr = nullptr) noexcept : ptr_(ptr) {
+    if (ptr_)
+      ptr_->incRef();
+  }
+
+  Ref(const Ref &other) noexcept : ptr_(other.ptr_) {
+    if (ptr_)
+      ptr_->incRef();
+  }
+
+  Ref(Ref &&other) noexcept : ptr_(other.ptr_) { other.ptr_ = nullptr; }
+
+  Ref &operator=(const Ref &other) noexcept {
+    if (this != &other) {
+      if (ptr_)
+        ptr_->decRef();
+      ptr_ = other.ptr_;
+      if (ptr_)
+        ptr_->incRef();
+    }
+    return *this;
+  }
+
+  Ref &operator=(Ref &&other) noexcept {
+    if (this != &other) {
+      if (ptr_)
+        ptr_->decRef();
+      ptr_ = other.ptr_;
+      other.ptr_ = nullptr;
+    }
+    return *this;
+  }
+
+  ~Ref() {
+    if (ptr_)
+      ptr_->decRef();
+  }
+
+  T *get() const noexcept { return ptr_; }
+  T &operator*() const noexcept { return *ptr_; }
+  T *operator->() const noexcept { return ptr_; }
+  explicit operator bool() const noexcept { return ptr_ != nullptr; }
+
+private:
+  T *ptr_;
+};
+
+//===----------------------------------------------------------------------===//
 // ScalarType
 //===----------------------------------------------------------------------===//
 
@@ -672,13 +777,30 @@ private:
 // MemRefValue
 //===----------------------------------------------------------------------===//
 
+class RuntimeClientAllocator;
+
+class MemRefStorage : public RefCounted<MemRefStorage> {
+public:
+  virtual ~MemRefStorage() {}
+
+  uintptr_t getPtr() const { return ptr; }
+
+  virtual PointerType getMemorySpace() const = 0;
+  virtual std::optional<CudaStream> getStream() const { return {}; }
+
+protected:
+  MemRefStorage(uintptr_t ptr) : ptr(ptr) {}
+
+  uintptr_t ptr;
+};
+
 class MemRefValue : public RuntimeValue {
 public:
   /// Create a new MemRef descriptor. All size quantities are in "units of
   /// elements" unless otherwise noted.
   static mlirtrt::StatusOr<std::unique_ptr<MemRefValue>>
   create(RuntimeClient *client, mlirtrt::runtime::PointerType addressSpace,
-         int64_t bitsPerElement, uintptr_t ptr, int64_t offset,
+         int64_t bitsPerElement, Ref<MemRefStorage> storage, int64_t offset,
          llvm::ArrayRef<int64_t> shape, llvm::ArrayRef<int64_t> strides,
          std::optional<const Device *> device,
          std::optional<ScalarType> scalarType,
@@ -691,13 +813,13 @@ public:
   llvm::ArrayRef<int64_t> getStrides() const { return strides; }
   int64_t getRank() const { return shape.size(); }
   int64_t getTotalFootprintInBytes() const;
-  uintptr_t getMemory() const { return ptr; }
-  void *getVoidPtr() const { return reinterpret_cast<void *>(ptr); }
+  uintptr_t getMemory() const { return storage->getPtr(); }
+  void *getVoidPtr() const { return reinterpret_cast<void *>(getMemory()); }
   std::optional<const Device *> getDevice() const { return device; }
   mlirtrt::runtime::PointerInfo
   getPointerInfo(mlirtrt::runtime::PointerOwner ownership) const {
-    return mlirtrt::runtime::PointerInfo(ptr, getTotalFootprintInBytes(),
-                                         addressSpace, ownership);
+    return mlirtrt::runtime::PointerInfo(
+        getMemory(), getTotalFootprintInBytes(), addressSpace, ownership);
   }
   PointerType getAddressSpace() const { return addressSpace; }
 
@@ -709,10 +831,22 @@ public:
 
   RuntimeClient *getClient() const { return client; }
 
+  /// Return the reference count of the underlying storage.
+  unsigned getStorageRefCount() const { return storage->getRefCount(); }
+
+  /// Return a new MemRefValue that references the same storage as this one.
+  /// The reference count of the storage is incremented.
+  std::unique_ptr<MemRefValue> createRef() const {
+    return std::unique_ptr<MemRefValue>(
+        new MemRefValue(client, addressSpace, bitsPerElement, storage,
+                        offsetInBytes, shape, strides, device, scalarType));
+  }
+
 private:
   MemRefValue(RuntimeClient *client, mlirtrt::runtime::PointerType addressSpace,
-              int64_t bitsPerElement, uintptr_t ptr, int64_t offset,
-              llvm::ArrayRef<int64_t> shape, llvm::ArrayRef<int64_t> strides,
+              int64_t bitsPerElement, Ref<MemRefStorage> storage,
+              int64_t offset, llvm::ArrayRef<int64_t> shape,
+              llvm::ArrayRef<int64_t> strides,
               std::optional<const Device *> device,
               std::optional<ScalarType> scalarType);
 
@@ -721,7 +855,8 @@ private:
   /// Address space for the pointer.
   mlirtrt::runtime::PointerType addressSpace;
   int64_t bitsPerElement;
-  uintptr_t ptr;
+  /// Holds the underlying storage object.
+  Ref<MemRefStorage> storage;
   int64_t offsetInBytes;
   llvm::SmallVector<int64_t> shape;
   llvm::SmallVector<int64_t> strides;
@@ -811,40 +946,20 @@ public:
   /// Return true if the tracker's map contains `ptr`.
   bool contains(uintptr_t ptr) const;
 
-  /// Increment external reference count. Assume ptr is already being tracked.
-  void incrementExternalCount(uintptr_t ptr);
-
-  /// Decrement reference count. Also, deallocates ptr when count goes to zero
-  /// and `releasedInternally` is true.
-  void decrementExternalCount(uintptr_t ptr);
-
-  /// Returns external reference count for the ptr.
-  int32_t getExternalReferenceCount(uintptr_t ptr) const;
-
-  /// Set released internally metadata to true so that ptr can be freed when
-  /// external reference count goes to zero.
-  void markReleasedInternally(uintptr_t ptr);
-
-  /// Returns true if the ptr is released internally.
-  bool isReleasedInternally(uintptr_t ptr) const;
-
-  /// Mark pointer for release after consumption
-  void markForReleaseAfterConsumption(uintptr_t ptr);
-
-  /// Check if pointer is marked for release after consumption
-  bool isMarkedForReleaseAfterConsumption(uintptr_t ptr);
-
 private:
   struct Metadata {
-    std::atomic<int32_t> externalReferenceCount = {0};
-    // whether we free'd/released this buffer internally.
-    // if this is true then it should be truelly released and untracked
-    // when decrementExternalCount causes count to go to zero
-    bool releasedInternally{false};
-    bool releaseAfterConsumption{false};
     PointerInfo info;
   };
 
+  using MapType = llvm::DenseMap<uintptr_t, std::unique_ptr<Metadata>>;
+
+public:
+  auto find(uintptr_t ptr) { return map.find(ptr); }
+  auto erase(MapType::iterator it) { map.erase(it); }
+  auto end() const { return map.end(); }
+  auto begin() const { return map.begin(); }
+
+private:
   llvm::DenseMap<uintptr_t, std::unique_ptr<Metadata>> map;
 };
 
@@ -935,6 +1050,28 @@ protected:
 // RuntimeClient
 //===----------------------------------------------------------------------===//
 
+/// RuntimeClientAllocator is the allocation interface for the RuntimeClient.
+/// It differs from the RuntimeSession allocator in that it yields ref-counted
+/// MemRefStorage objects rather than raw pointers.
+/// TODO: In the future, deallocation will  be enqueued on a separate callback
+/// thread pool managed by the client or device.
+class RuntimeClientAllocator {
+public:
+  virtual ~RuntimeClientAllocator() = default;
+
+  virtual StatusOr<Ref<MemRefStorage>>
+  allocate(PointerType pointerType, uint64_t size,
+           std::optional<uint32_t> alignemnt,
+           std::optional<CudaStream> stream) = 0;
+
+  /// Use the given pointer as the storage for the MemRefValue.
+  virtual StatusOr<Ref<MemRefStorage>>
+  takeOwnership(uintptr_t ptr, PointerType pointerType,
+                std::optional<CudaStream> stream) = 0;
+
+  virtual Status deallocate(MemRefStorage &storage) = 0;
+};
+
 /// The `RuntimeClient` provides a convenient way for users of the C++ API
 /// to perform memory allocations and create other resources. The specifics
 /// of the ownership semantics for each resource creation are described by the
@@ -971,12 +1108,8 @@ public:
                        llvm::ArrayRef<int64_t> strides,
                        std::optional<const Device *> device = {},
                        std::optional<ScalarType> scalarType = {},
-                       std::optional<bool> assertCanonicalStrides = {});
-
-  /// Frees the memory in `value`. The `stream` may optionally be provided
-  /// for resources that can be deallocated asynchronously.
-  Status deallocate(std::unique_ptr<MemRefValue> value,
-                    std::optional<CudaStream> stream = {});
+                       std::optional<bool> assertCanonicalStrides = {},
+                       std::function<void()> = nullptr);
 
   // Allocates a new host buffer and fills it with data present in the
   // `hostBuffer`.
@@ -1001,9 +1134,6 @@ public:
   Status copyToHost(const MemRefValue &deviceMemRef, MemRefValue &hostMemRef,
                     std::optional<CudaStream> stream);
 
-  /// Return the AllocTracker.
-  AllocTracker &getAllocTracker() { return allocTracker; }
-
   /// Returns the ResourceTracker.
   ResourceTracker &getResourceTracker() { return resourceTracker; }
 
@@ -1012,22 +1142,17 @@ public:
     return pinnedMemoryAllocator;
   }
 
-  /// Track the DLPack tensors in RuntimeClient such that their deleters can be
-  /// reset when RuntimeClient is destructed.
-  void trackDLPackTensor(DLManagedTensor *tensor);
-
-  /// Remove the DLPack tensor reference from tracking.
-  void removeDLPackTensorFromTracking(DLManagedTensor *tensor);
+  RuntimeClientAllocator &getAllocator() { return *allocator; }
 
 private:
-  RuntimeClient(llvm::SmallVector<std::unique_ptr<Device>> devices)
-      : devices(std::move(devices)) {}
+  RuntimeClient(llvm::SmallVector<std::unique_ptr<Device>> devices,
+                std::unique_ptr<RuntimeClientAllocator> allocator)
+      : devices(std::move(devices)), allocator(std::move(allocator)) {}
 
   llvm::SmallVector<std::unique_ptr<Device>> devices;
   PinnedMemoryAllocator pinnedMemoryAllocator;
-  AllocTracker allocTracker;
   ResourceTracker resourceTracker;
-  llvm::SmallPtrSet<DLManagedTensor *, 16> dlPackTensors;
+  std::unique_ptr<RuntimeClientAllocator> allocator;
 };
 
 //===----------------------------------------------------------------------===//

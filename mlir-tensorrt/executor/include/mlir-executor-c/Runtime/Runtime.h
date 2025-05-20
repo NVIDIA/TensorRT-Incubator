@@ -173,18 +173,42 @@ mtrtMemRefCreate(MTRT_RuntimeClient client, MTRT_PointerType pointerKind,
                  MTRT_ScalarTypeCode scalarType, MTRT_MemRefValue *result,
                  bool assertCanonicalStrides = false);
 
+/// Encapsulates a callback that will be called when the correspdoning
+/// MemRefValue (with view storage) is destroyed. The callback is called with
+/// the userData pointer as the argument.
+typedef struct MTRT_MemRefDestroyCallback {
+  void *userData;
+  void (*callback)(void *userData);
+} MTRT_MemRefDestroyCallback;
+
+/// Returns a null MTRT_MemRefDestroyCallback.
+inline static MTRT_MemRefDestroyCallback mtrtMemRefDestroyCallbackCreateNull() {
+  return MTRT_MemRefDestroyCallback{NULL, NULL};
+}
+
+/// Returns true if the MTRT_MemRefDestroyCallback is null.
+inline static bool
+mtrtMemRefDestroyCallbackIsNull(MTRT_MemRefDestroyCallback callback) {
+  return callback.callback == NULL;
+}
+
 /// Creates an externally managed MemRef value. The caller provides all the
 /// metadata for the MemRef including the shape, strides (in elements), pointer,
 /// offset, and size of the element type in bits, and the device on which the
-/// buffer resides (only if it is a device buffer). The RuntimeClient tracks
-/// this MemRef as an externally managed resource and will not warn the user if
-/// it is not freed when RuntimeClient is destroyed.
+/// buffer resides (only if it is a device buffer).
+///
+/// The underlying "view" storage is reference-counted just like MemRefValues
+/// with storage owned by the RuntimeClient. The difference is that when the
+/// view storage is destroyed, the `destroyCallback` is invoked, allowing for
+/// the caller to provide logic to clean up the underlying storage.
 MLIR_CAPI_EXPORTED MTRT_Status mtrtMemRefCreateExternal(
     MTRT_RuntimeClient client, MTRT_PointerType pointerKind,
     int64_t bitsPerElement, uintptr_t ptr, int64_t offset, int64_t rank,
     const int64_t *shape, const int64_t *strides, MTRT_Device device,
     MTRT_ScalarTypeCode scalarType, MTRT_MemRefValue *result,
-    bool assertCanonicalStrides = false);
+    bool assertCanonicalStrides = false,
+    MTRT_MemRefDestroyCallback destroyCallback =
+        mtrtMemRefDestroyCallbackCreateNull());
 
 /// Destroys `MTRT_MemRefValue` in a potentially asynchronous manner.
 /// If `buffer` is a device buffer, device memory is freed in the stream
@@ -212,19 +236,18 @@ typedef struct MTRT_MemRefValueInfo {
 MLIR_CAPI_EXPORTED MTRT_Status
 mtrtMemRefValueGetInfo(MTRT_MemRefValue memref, MTRT_MemRefValueInfo *info);
 
-/// Create DL Managed tensor from MemRefValue.
-MLIR_CAPI_EXPORTED MTRT_Status mtrtMemRefValueGetDLPackManagedTensor(
-    MTRT_MemRefValue memrefValue, MTRT_DLPackManagedTensor *outTensor);
-
 /// Retrieve DL Device from MemRefValue.
-MLIR_CAPI_EXPORTED MTRT_Status mtrtMemRefValueGetDLPackDevice(
-    MTRT_MemRefValue memrefValue, int32_t *device_type, int32_t *device_id);
+MLIR_CAPI_EXPORTED MTRT_Status
+mtrtMemRefValueGetDLPackDevice(MTRT_MemRefValue memrefValue,
+                               DLDeviceType *device_type, int32_t *device_id);
 
-MLIR_CAPI_EXPORTED MTRT_Status mtrtMemRefReferenceCount(
-    MTRT_RuntimeClient client, uintptr_t ptr, int32_t *externalRefCount);
+/// Return the reference count of the underlying storage.
+MLIR_CAPI_EXPORTED uint32_t mtrtMemRefReferenceCount(MTRT_MemRefValue memref);
 
-MLIR_CAPI_EXPORTED MTRT_Status mtrtMemRefIsReleasedInternally(
-    MTRT_RuntimeClient client, uintptr_t ptr, bool *isReleasedInternally);
+/// Return a new MemRefValue that references the same storage as the input
+/// MemRefValue.
+MLIR_CAPI_EXPORTED MTRT_MemRefValue
+mtrtMemRefCreateRef(MTRT_MemRefValue memref);
 
 //===----------------------------------------------------------------------===//
 // MTRT_RuntimeClient
@@ -322,6 +345,8 @@ typedef struct MTRT_ScalarValue {
 static inline bool mtrtScalarValueIsNull(MTRT_ScalarValue value) {
   return !value.ptr;
 }
+
+MLIR_CAPI_EXPORTED MTRT_Status mtrtScalarValueDestroy(MTRT_ScalarValue value);
 
 //===----------------------------------------------------------------------===//
 // MTRT_RuntimeValue

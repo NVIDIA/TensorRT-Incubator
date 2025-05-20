@@ -375,9 +375,7 @@ AllocTracker::~AllocTracker() {
   llvm::SmallVector<PointerInfo> ptrsToFree;
   ptrsToFree.reserve(map.size());
   for (const auto &[ptrVal, metadata] : map) {
-    if (metadata->info.isInternallyManaged() &&
-        metadata->externalReferenceCount.load() == 0 &&
-        !isReleasedInternally(ptrVal)) {
+    if (metadata->info.isInternallyManaged()) {
       MTRT_DBGF("still live: 0x%lx type %d size %lu", ptrVal,
                 static_cast<int>(metadata->info.type), metadata->info.size);
       ptrsToFree.push_back(metadata->info);
@@ -397,163 +395,18 @@ AllocTracker::~AllocTracker() {
     MTRT_DBGF("freed %zu bytes of unfreed memory", totalSize);
 }
 
-void AllocTracker::markForReleaseAfterConsumption(uintptr_t ptr) {
-  MTRT_CHECK(!llvm::is_contained(map, ptr),
-             llvm::formatv("Pointer {0:X} not found in "
-                           "AllocTracker::markForReleaseAfterConsumption\n",
-                           ptr));
-  std::unique_ptr<Metadata> const &metadata = map.at(ptr);
-  metadata->releaseAfterConsumption = true;
-}
-
-bool AllocTracker::isMarkedForReleaseAfterConsumption(uintptr_t ptr) {
-  MTRT_CHECK(!llvm::is_contained(map, ptr),
-             llvm::formatv("Pointer {0:X} not found in "
-                           "AllocTracker::isMarkedForReleaseAfterConsumption\n",
-                           ptr));
-  std::unique_ptr<Metadata> const &metadata = map.at(ptr);
-  return metadata->releaseAfterConsumption;
-}
-
-void AllocTracker::markReleasedInternally(uintptr_t ptr) {
-  MTRT_CHECK(
-      !llvm::is_contained(map, ptr),
-      llvm::formatv(
-          "Pointer {0:X} not found in AllocTracker::markReleasedInternally\n",
-          ptr));
-  std::unique_ptr<Metadata> const &metadata = map.at(ptr);
-  metadata->releasedInternally = true;
-  MTRT_DBGF("Marked pointer 0x%lx as released internally by allocator %p", ptr,
-            static_cast<void *>(this));
-}
-
-bool AllocTracker::isReleasedInternally(uintptr_t ptr) const {
-  MTRT_CHECK(
-      !llvm::is_contained(map, ptr),
-      llvm::formatv(
-          "Pointer {0:X} not found in AllocTracker::isReleasedInternally\n",
-          ptr));
-  std::unique_ptr<Metadata> const &metadata = map.at(ptr);
-  return metadata->releasedInternally;
-}
-
-void AllocTracker::incrementExternalCount(uintptr_t ptr) {
-  MTRT_CHECK(
-      !llvm::is_contained(map, ptr),
-      llvm::formatv(
-          "Pointer {0:X} not found in AllocTracker::incrementExternalCount\n",
-          ptr));
-  std::unique_ptr<Metadata> const &metadata = map.at(ptr);
-  int32_t ref = ++metadata->externalReferenceCount;
-  MTRT_DBGF("Incremented external reference for pointer 0x%lx to %d in "
-            "allocator tracker %p",
-            ptr, ref, static_cast<void *>(this));
-}
-
-void AllocTracker::decrementExternalCount(uintptr_t ptr) {
-  MTRT_CHECK(
-      !llvm::is_contained(map, ptr),
-      llvm::formatv(
-          "Pointer {0:X} not found in AllocTracker::decrementExternalCount\n",
-          ptr));
-  std::unique_ptr<Metadata> const &metadata = map.at(ptr);
-  int32_t ref = --metadata->externalReferenceCount;
-  MTRT_CHECK(
-      ref < 0,
-      llvm::formatv("External reference count cannot be negative: {0}\n", ref));
-  MTRT_DBGF("Decremented external reference for pointer 0x%lx to %d", ptr, ref);
-  if (ref == 0 && metadata->releasedInternally) {
-    MTRT_DBGF(
-        "External reference to an internally released pointer 0x%lx is 0, "
-        "try deallocating pointer memory of size %lu",
-        ptr, metadata->info.size);
-    Status s = safeDeallocate(*this, metadata->info.ptr);
-    if (!s.isOk())
-      MTRT_DBGF("error while deallocating dangling memory: %s",
-                s.getString().c_str());
-  }
-}
-
-int32_t AllocTracker::getExternalReferenceCount(uintptr_t ptr) const {
-  MTRT_CHECK(!llvm::is_contained(map, ptr),
-             llvm::formatv("Pointer {0:X} not found in "
-                           "AllocTracker::getExternalReferenceCount\n",
-                           ptr));
-  std::unique_ptr<Metadata> const &metadata = map.at(ptr);
-  return metadata->externalReferenceCount.load();
-}
-
 void AllocTracker::track(PointerInfo info) {
-  if (info.isInternallyManaged()) {
-    // If the incoming pointer is internally managed and already being tracked
-    // by the allocator: a) The allocator (session allocator) might track it
-    // internally but not own it. This can happen if the pointer was reused by a
-    // different allocator (client allocator), leading to a metadata mismatch.
-    // b) If the allocator tracks it as an externally managed pointer, we allow
-    // overriding the existing pointer with the incoming one. This handles cases
-    // where the pointer was previously tracked as externally managed and
-    // deallocated, allowing reuse by an internal allocator. This is not an
-    // error.
-    if (contains(info.ptr) && get(info.ptr).isInternallyManaged()) {
-      MTRT_CHECK(
-          !isReleasedInternally(info.ptr),
-          llvm::formatv("Pointer {0:X} in AllocTracker::track is internally "
-                        "managed but should be released internally\n",
-                        info.ptr));
-      const PointerInfo &existingInfo = get(info.ptr);
-      bool infoMismatch = existingInfo.size != info.size ||
-                          existingInfo.type != info.type ||
-                          existingInfo.owner != info.owner;
-      if (infoMismatch) {
-        MTRT_DBGF("Allocator %p: Internally managed pointer 0x%lx has "
-                  "different info. "
-                  "Existing info - size: %lu, type: %s, owner: %s. "
-                  "New info - size: %lu, type: %s, owner: %s",
-                  static_cast<void *>(this), info.ptr, existingInfo.size,
-                  runtime::impl::EnumNamePointerType(existingInfo.type),
-                  runtime::impl::EnumNamePointerOwner(existingInfo.owner),
-                  info.size, runtime::impl::EnumNamePointerType(info.type),
-                  runtime::impl::EnumNamePointerOwner(info.owner));
-      }
-      MTRT_DBGF("Untracking existing internally managed and internally "
-                "released pointer 0x%lx",
-                info.ptr);
-      untrack(info.ptr); // Untrack the existing pointer
-      auto value = std::make_unique<Metadata>();
-      value->externalReferenceCount.store(0);
-      value->releasedInternally = false;
-      value->releaseAfterConsumption = false;
-      value->info = info;
-      map.insert(std::make_pair(info.ptr, std::move(value)));
-      return;
-    }
-  }
-
   MTRT_DBGF(
       "AllocTracker %p is now tracking 0x%lx size=%lu space=%s ownership=%s",
       static_cast<void *>(this), info.ptr, info.size,
       runtime::impl::EnumNamePointerType(info.type),
       runtime::impl::EnumNamePointerOwner(info.owner));
   auto value = std::make_unique<Metadata>();
-  value->externalReferenceCount.store(0);
-  value->releasedInternally = false;
-  value->releaseAfterConsumption = false;
   value->info = info;
   if (!contains(info.ptr)) {
     map.insert(std::make_pair(info.ptr, std::move(value)));
     return;
   }
-
-  MTRT_CHECK(!(get(info.ptr).isExternallyManaged() ||
-               (get(info.ptr).isInternallyManaged() &&
-                isReleasedInternally(info.ptr))),
-             llvm::formatv("Pointer {0:X} is expected to be either "
-                           "externally managed or internally managed "
-                           "and released internally\n",
-                           info.ptr));
-  MTRT_CHECK(
-      getExternalReferenceCount(info.ptr) != 0,
-      llvm::formatv("Pointer {0:X} has external references\n", info.ptr));
   untrack(info.ptr);
   map.insert(std::make_pair(info.ptr, std::move(value)));
 }
@@ -655,38 +508,12 @@ mlirtrt::Status runtime::safeDeallocate(AllocTracker &tracker, uintptr_t ptr,
     return mlirtrt::Status::getOk();
   }
 
-  MTRT_DBGF("external count %d for ptr 0x%lx",
-            tracker.getExternalReferenceCount(ptr), ptr);
-
-  if (tracker.getExternalReferenceCount(ptr) > 0) {
-    if (tracker.get(ptr).isInternallyManaged()) {
-      MTRT_DBGF("Defer freeing internally managed pointer 0x%lx as it has an "
-                "external reference. "
-                "It is the responsibility of the external reference counting "
-                "mechanism to ensure safeDeallocate is called.",
-                ptr);
-      tracker.markReleasedInternally(ptr);
-      return mlirtrt::Status::getOk();
-    } else {
-      MTRT_DBGF("Externally managed pointer 0x%lx has a non-zero external "
-                "reference count. It is the responsibility of the external "
-                "reference counting mechanism to ensure safeDeallocate is "
-                "called only when the external reference count goes to zero.",
-                ptr);
-      return mlirtrt::Status::getOk();
-    }
-  }
-
   PointerInfo obj = tracker.get(ptr);
   if (obj.owner == PointerOwner::external) {
     MTRT_DBGF("Untracking externally managed 0x%lx", ptr);
     tracker.untrack(obj.ptr);
     return mlirtrt::Status::getOk();
   }
-
-  // Ensure that the external reference count is zero before freeing the
-  // pointer.
-  assert(tracker.getExternalReferenceCount(ptr) == 0);
 
   if (obj.type == PointerType::host) {
     MTRT_DBGF("Freeing host memory %lx", ptr);
@@ -760,6 +587,94 @@ StatusOr<std::unique_ptr<Device>> Device::create(int32_t deviceNumber) {
 // MemRefValue
 //===----------------------------------------------------------------------===//
 
+namespace {
+class HostOwnedMemRefStorage : public MemRefStorage {
+public:
+  HostOwnedMemRefStorage(uintptr_t ptr, RuntimeClientAllocator *allocator)
+      : MemRefStorage(ptr), allocator(allocator) {}
+
+  ~HostOwnedMemRefStorage();
+
+  PointerType getMemorySpace() const final { return PointerType::host; }
+
+  RuntimeClientAllocator *allocator;
+};
+
+class DeviceOwnedMemRefStorage : public MemRefStorage {
+public:
+  DeviceOwnedMemRefStorage(uintptr_t ptr, RuntimeClientAllocator *allocator,
+                           PointerType type, std::optional<CudaStream> stream)
+      : MemRefStorage(ptr), allocator(allocator), type(type), stream(stream) {}
+
+  ~DeviceOwnedMemRefStorage();
+
+  PointerType getMemorySpace() const final { return type; }
+  std::optional<CudaStream> getStream() const final { return stream; }
+
+  RuntimeClientAllocator *allocator;
+  PointerType type;
+  std::optional<CudaStream> stream;
+};
+
+class ViewMemRefStorage : public MemRefStorage {
+public:
+  ViewMemRefStorage(uintptr_t ptr, PointerType type,
+                    std::function<void()> destroyCallback)
+      : MemRefStorage(ptr), type(type),
+        destroyCallback(std::move(destroyCallback)) {}
+  ~ViewMemRefStorage();
+
+  PointerType getMemorySpace() const final { return type; }
+
+  PointerType type;
+  std::function<void()> destroyCallback;
+};
+
+} // namespace
+
+static StatusOr<Ref<MemRefStorage>>
+getOwnedMemRefStorage(uintptr_t ptr, PointerType kind,
+                      RuntimeClientAllocator *allocator,
+                      std::optional<CudaStream> stream) {
+  switch (kind) {
+  case PointerType::host:
+    return Ref<MemRefStorage>(new HostOwnedMemRefStorage(ptr, allocator));
+  case PointerType::device:
+  case PointerType::unified:
+  case PointerType::pinned_host:
+    return Ref<MemRefStorage>(
+        new DeviceOwnedMemRefStorage(ptr, allocator, kind, stream));
+  default:
+    return getInvalidArgStatus("unsupported MemRefStorage address space");
+  }
+}
+
+static StatusOr<Ref<MemRefStorage>>
+getViewMemRefStorage(uintptr_t ptr, PointerType kind,
+                     std::function<void()> destroyCallback) {
+  return Ref<MemRefStorage>(
+      new ViewMemRefStorage(ptr, kind, std::move(destroyCallback)));
+}
+
+HostOwnedMemRefStorage::~HostOwnedMemRefStorage() {
+  MTRT_DBGF("HostOwnedMemRefStorage::~HostOwnedMemRefStorage() ptr = %p",
+            reinterpret_cast<void *>(ptr));
+  allocator->deallocate(*this);
+}
+
+DeviceOwnedMemRefStorage::~DeviceOwnedMemRefStorage() {
+  MTRT_DBGF("DeviceOwnedMemRefStorage::~DeviceOwnedMemRefStorage() ptr = %p",
+            reinterpret_cast<void *>(ptr));
+  allocator->deallocate(*this);
+}
+
+ViewMemRefStorage::~ViewMemRefStorage() {
+  MTRT_DBGF("ViewMemRefStorage::~ViewMemRefStorage() ptr = %p",
+            reinterpret_cast<void *>(ptr));
+  if (destroyCallback)
+    destroyCallback();
+}
+
 static StatusOr<int64_t> getFootprintInBytes(llvm::ArrayRef<int64_t> shape,
                                              llvm::ArrayRef<int64_t> strides,
                                              int64_t bitsPerElement) {
@@ -824,7 +739,7 @@ static bool areStridesEquivalent(llvm::ArrayRef<int64_t> shape,
 
 StatusOr<std::unique_ptr<MemRefValue>> MemRefValue::create(
     RuntimeClient *client, mlirtrt::runtime::PointerType addressSpace,
-    int64_t bitsPerElement, uintptr_t ptr, int64_t offset,
+    int64_t bitsPerElement, Ref<MemRefStorage> storage, int64_t offset,
     llvm::ArrayRef<int64_t> shape, llvm::ArrayRef<int64_t> strides,
     std::optional<const Device *> device, std::optional<ScalarType> scalarType,
     std::optional<bool> assertCanonicalStrides) {
@@ -840,7 +755,7 @@ StatusOr<std::unique_ptr<MemRefValue>> MemRefValue::create(
                        [](int64_t s) { return s == 0; });
   };
 
-  if (!ptr && !isEmptyTensor(shape))
+  if (!storage->getPtr() && !isEmptyTensor(shape))
     return getInvalidArgStatus(
         "MemRef objects must be created with a valid pointer for a non-empty "
         "tensor");
@@ -863,20 +778,20 @@ StatusOr<std::unique_ptr<MemRefValue>> MemRefValue::create(
   }
 
   return std::unique_ptr<MemRefValue>(
-      new MemRefValue(client, addressSpace, bitsPerElement, ptr, offset, shape,
-                      strides, device, scalarType));
+      new MemRefValue(client, addressSpace, bitsPerElement, std::move(storage),
+                      offset, shape, strides, device, scalarType));
 }
 
 MemRefValue::MemRefValue(RuntimeClient *client,
                          mlirtrt::runtime::PointerType addressSpace,
-                         int64_t bitsPerElement, uintptr_t ptr, int64_t offset,
-                         llvm::ArrayRef<int64_t> shape,
+                         int64_t bitsPerElement, Ref<MemRefStorage> storage,
+                         int64_t offset, llvm::ArrayRef<int64_t> shape,
                          llvm::ArrayRef<int64_t> strides,
                          std::optional<const Device *> device,
                          std::optional<ScalarType> scalarType)
     : RuntimeValue(Kind::MemRef), client(client), addressSpace(addressSpace),
-      bitsPerElement(bitsPerElement), ptr(ptr), offsetInBytes(offset),
-      shape(shape.begin(), shape.end()),
+      bitsPerElement(bitsPerElement), storage(std::move(storage)),
+      offsetInBytes(offset), shape(shape.begin(), shape.end()),
       strides(strides.begin(), strides.end()), device(device),
       scalarType(scalarType) {}
 
@@ -892,6 +807,142 @@ int64_t MemRefValue::getTotalFootprintInBytes() const {
 //===----------------------------------------------------------------------===//
 // RuntimeClient
 //===----------------------------------------------------------------------===//
+
+namespace {
+class DefaultClientAllocator final : public RuntimeClientAllocator {
+  StatusOr<Ref<MemRefStorage>> allocate(PointerType type, uint64_t size,
+                                        std::optional<uint32_t> alignment,
+                                        std::optional<CudaStream> stream) final;
+
+  StatusOr<Ref<MemRefStorage>>
+  takeOwnership(uintptr_t ptr, PointerType type,
+                std::optional<CudaStream> stream) final;
+
+  Status deallocate(MemRefStorage &storage) final;
+};
+} // namespace
+
+StatusOr<Ref<MemRefStorage>>
+DefaultClientAllocator::allocate(PointerType type, uint64_t size,
+                                 std::optional<uint32_t> alignment,
+                                 std::optional<CudaStream> stream) {
+  if (type == PointerType::host) {
+    assert(alignment && !stream &&
+           "expected alignment, no stream for host allocation");
+    // Alignment has to be at a multiple of `size`. For small size
+    // allocations, make sure to adjust size upward. The frontend may request
+    // e.g. 4 bytes aligned to 16 byte boundary because it chose some minimum
+    // alignment dumbly.
+    size = llvm::alignTo(size, *alignment);
+    void *mem = ::aligned_alloc(*alignment, size);
+    if (mem == 0)
+      return mlirtrt::getInternalErrorStatus(
+          "failed to allocate memory on host");
+    MTRT_DBGF(
+        "DefaultClientAllocator::allocate: Allocated %lu host bytes at %p",
+        size, mem);
+
+    return getOwnedMemRefStorage(reinterpret_cast<uintptr_t>(mem),
+                                 PointerType::host, this, {});
+  }
+
+#ifdef MLIR_EXECUTOR_ENABLE_CUDA
+  if (type == PointerType::device) {
+    size = std::max<size_t>(size, 16);
+    if (!stream) {
+      void *alloc{nullptr};
+      RETURN_ERROR_IF_CUDART_ERROR(cudaMalloc(&alloc, size));
+      MTRT_DBGF("DeviceClientAllocator::allocate: synchronously allocated %lu "
+                "device bytes %p ",
+                size, reinterpret_cast<void *>(alloc));
+      return getOwnedMemRefStorage(reinterpret_cast<uintptr_t>(alloc),
+                                   PointerType::device, this, {});
+    }
+    void *alloc{nullptr};
+    RETURN_ERROR_IF_CUDART_ERROR(
+        cudaMallocAsync(&alloc, size, reinterpret_cast<cudaStream_t>(*stream)));
+    MTRT_DBGF("DeviceClientAllocator::allocate: asynchronously allocated %lu "
+              "device bytes %p on stream %p",
+              size, alloc, reinterpret_cast<void *>(*stream));
+    return getOwnedMemRefStorage(reinterpret_cast<uintptr_t>(alloc),
+                                 PointerType::device, this, stream);
+  }
+  if (type == PointerType::unified) {
+    MTRT_DBGF("DeviceClientAllocator::allocate: allocating %lu unified bytes",
+              size);
+    assert(!stream &&
+           "async stream is not allowed when using unified memory allocator");
+    void *alloc{nullptr};
+    RETURN_ERROR_IF_CUDART_ERROR(cudaMallocManaged(&alloc, size));
+    return getOwnedMemRefStorage(reinterpret_cast<uintptr_t>(alloc),
+                                 PointerType::unified, this, {});
+  }
+  if (type == PointerType::pinned_host) {
+    void *alloc{nullptr};
+    RETURN_ERROR_IF_CUDART_ERROR(cudaMallocHost(&alloc, size));
+    return getOwnedMemRefStorage(reinterpret_cast<uintptr_t>(alloc),
+                                 PointerType::pinned_host, this, {});
+  }
+#endif
+  return getStatusWithMsg(
+      mlirtrt::StatusCode::InvalidArgument,
+      "DeviceClientAllocator::allocate unimplemented allocation type: ",
+      stringifyPointerType(type));
+}
+
+StatusOr<Ref<MemRefStorage>>
+DefaultClientAllocator::takeOwnership(uintptr_t ptr, PointerType type,
+                                      std::optional<CudaStream> stream) {
+  return getOwnedMemRefStorage(
+      ptr, type, static_cast<RuntimeClientAllocator *>(this), stream);
+}
+
+Status DefaultClientAllocator::deallocate(MemRefStorage &storage) {
+  PointerType pointerType = storage.getMemorySpace();
+  std::optional<CudaStream> stream = storage.getStream();
+  uintptr_t ptr = storage.getPtr();
+
+  if (pointerType == PointerType::host) {
+    MTRT_DBGF("Freeing host memory %lx", ptr);
+    std::free(reinterpret_cast<void *>(ptr));
+    return Status::getOk();
+  }
+
+#ifdef MLIR_EXECUTOR_ENABLE_CUDA
+  if (pointerType == PointerType::device ||
+      pointerType == PointerType::unified) {
+    if (stream) {
+      MTRT_DBGF("DefaultClientAllocator::deallocate: Asynchronously freeing "
+                "CUDA device memory %p on stream %p",
+                reinterpret_cast<void *>(ptr),
+                reinterpret_cast<void *>(*stream));
+      RETURN_ERROR_IF_CUDART_ERROR(
+          cudaFreeAsync(reinterpret_cast<void *>(ptr),
+                        reinterpret_cast<cudaStream_t>(*stream)));
+    } else {
+      MTRT_DBGF(
+          "DefaultClientAllocator::deallocate: synchronously freeing CUDA "
+          "device memory %p",
+          reinterpret_cast<void *>(ptr));
+      RETURN_ERROR_IF_CUDART_ERROR(cudaFree(reinterpret_cast<void *>(ptr)));
+    }
+    return Status::getOk();
+  }
+
+  if (pointerType == PointerType::pinned_host) {
+    MTRT_DBGF("DefaultClientAllocator::deallocate: synchronously freeing CUDA "
+              "pinned host memory %p",
+              reinterpret_cast<void *>(ptr));
+    RETURN_ERROR_IF_CUDART_ERROR(cudaFreeHost(reinterpret_cast<void *>(ptr)));
+    return Status::getOk();
+  }
+
+#endif
+
+  return mlirtrt::getInternalErrorStatus("unhandled allocation type");
+  return getStatusWithMsg(mlirtrt::StatusCode::Unimplemented,
+                          "deallocation is not supported");
+}
 
 static Status parseDebugFlags() {
   std::vector<const char *> argv = {"mlir-tensorrt-runtime"};
@@ -937,7 +988,10 @@ StatusOr<std::unique_ptr<RuntimeClient>> RuntimeClient::create() {
   if (!status.isOk())
     return status;
 
-  return std::unique_ptr<RuntimeClient>(new RuntimeClient(std::move(devices)));
+  auto defaultAllocator = std::make_unique<DefaultClientAllocator>();
+
+  return std::unique_ptr<RuntimeClient>(
+      new RuntimeClient(std::move(devices), std::move(defaultAllocator)));
 }
 
 llvm::ArrayRef<std::unique_ptr<Device>> RuntimeClient::getDevices() const {
@@ -963,16 +1017,15 @@ StatusOr<std::unique_ptr<MemRefValue>> RuntimeClient::allocateMemRef(
   if (!allocationSizeBytes.isOk())
     return allocationSizeBytes.getStatus();
 
-  StatusOr<PointerInfo> allocation =
-      runtime::allocate(allocTracker, addressSpace, *allocationSizeBytes,
-                        /*alignment=*/16, stream);
-  if (!allocation.isOk())
-    return allocation.getStatus();
+  StatusOr<Ref<MemRefStorage>> storage = allocator->allocate(
+      addressSpace, *allocationSizeBytes, /*alignment=*/16, stream);
+  if (!storage.isOk())
+    return storage.getStatus();
 
   // Create the descriptor.
   StatusOr<std::unique_ptr<MemRefValue>> bufferImpl = MemRefValue::create(
-      this, addressSpace, bitsPerElement, allocation->ptr, 0, shape, strides,
-      device, scalarType, assertCanonicalStrides);
+      this, addressSpace, bitsPerElement, std::move(*storage), 0, shape,
+      strides, device, scalarType, assertCanonicalStrides);
   if (bufferImpl.isError())
     return bufferImpl.getStatus();
 
@@ -984,33 +1037,22 @@ StatusOr<std::unique_ptr<MemRefValue>> RuntimeClient::createExternalMemRef(
     int64_t offset, llvm::ArrayRef<int64_t> shape,
     llvm::ArrayRef<int64_t> strides, std::optional<const Device *> device,
     std::optional<ScalarType> scalarType,
-    std::optional<bool> assertCanonicalStrides) {
+    std::optional<bool> assertCanonicalStrides,
+    std::function<void()> destroyCallback) {
 
-  MTRT_DBGF("Creating an external MemRef with pointer 0x%lx, using "
-            "AllocTracker 0x%lx",
-            ptr, reinterpret_cast<uintptr_t>(&allocTracker));
+  StatusOr<Ref<MemRefStorage>> storage =
+      getViewMemRefStorage(ptr, addressSpace, std::move(destroyCallback));
+  if (!storage.isOk())
+    return storage.getStatus();
 
   // Create the descriptor.
   StatusOr<std::unique_ptr<MemRefValue>> memref = MemRefValue::create(
-      this, addressSpace, bitsPerElement, ptr, offset, shape, strides, device,
-      scalarType, assertCanonicalStrides);
+      this, addressSpace, bitsPerElement, std::move(*storage), offset, shape,
+      strides, device, scalarType, assertCanonicalStrides);
   if (!memref.isOk())
     return memref.getStatus();
 
-  // Track the pointer if it is not already tracked by the AllocTracker.
-  // If the pointer is internally managed by the client (e.g., returned as a
-  // function result), it does not need to be tracked again.
-  if (!allocTracker.contains(ptr))
-    allocTracker.track((*memref)->getPointerInfo(PointerOwner::external));
-
   return memref;
-}
-
-Status RuntimeClient::deallocate(std::unique_ptr<MemRefValue> value,
-                                 std::optional<CudaStream> stream) {
-
-  return safeDeallocate(
-      allocTracker, reinterpret_cast<uintptr_t>(value->getMemory()), stream);
 }
 
 StatusOr<std::unique_ptr<MemRefValue>>
@@ -1113,18 +1155,16 @@ RuntimeClient::copyToHost(const MemRefValue &deviceMemRef,
 
   int64_t copySizeInBytes = deviceMemRef.getTotalFootprintInBytes();
 
-  // Allocate the host buffer.
-  StatusOr<PointerInfo> allocation =
-      runtime::allocate(this->getAllocTracker(), PointerType::host,
-                        copySizeInBytes, 16, std::nullopt);
-  if (!allocation.isOk())
-    return allocation.getStatus();
+  StatusOr<Ref<MemRefStorage>> storage = allocator->allocate(
+      PointerType::host, copySizeInBytes, /*alignment=*/16, std::nullopt);
+  if (!storage.isOk())
+    return storage.getStatus();
 
-  // Create the device buffer descriptor.
+  // Create the host MemRefValue..
   StatusOr<std::unique_ptr<MemRefValue>> hostMemRef = MemRefValue::create(
-      this, allocation->type, deviceMemRef.getElementBitWidth(),
-      allocation->ptr, 0, deviceMemRef.getShape(), deviceMemRef.getStrides(),
-      {}, deviceMemRef.getScalarType());
+      this, PointerType::host, deviceMemRef.getElementBitWidth(),
+      std::move(*storage), 0, deviceMemRef.getShape(),
+      deviceMemRef.getStrides(), {}, deviceMemRef.getScalarType());
   if (!hostMemRef.isOk())
     return hostMemRef.getStatus();
 
@@ -1193,20 +1233,7 @@ Status RuntimeClient::copyToHost(const MemRefValue &deviceMemRef,
 #endif
 }
 
-void RuntimeClient::trackDLPackTensor(DLManagedTensor *tensor) {
-  dlPackTensors.insert(tensor);
-}
-
-void RuntimeClient::removeDLPackTensorFromTracking(DLManagedTensor *tensor) {
-  dlPackTensors.erase(tensor);
-}
-
-RuntimeClient::~RuntimeClient() {
-  // Reset the manager_ctx for all tracked dlPackTensors
-  for (auto *tensor : dlPackTensors) {
-    tensor->manager_ctx = nullptr;
-  }
-}
+RuntimeClient::~RuntimeClient() = default;
 
 //===----------------------------------------------------------------------===//
 // NCCL Support Functions

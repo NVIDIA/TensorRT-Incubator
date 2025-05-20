@@ -339,6 +339,15 @@ bool stablehlo_ext::isCanonicalScatterNd(stablehlo::ScatterOp scatterOp) {
   if (!checkUpdateComputationReturnsUpdateValues(scatterOp))
     return false;
 
+  // Check that the update slices are "full" slices.
+  unsigned updateWindowStart =
+      info.getUpdateWindowDims().empty()
+          ? static_cast<unsigned>(updateType.getRank())
+          : static_cast<unsigned>(info.getUpdateWindowDims().front());
+  if (operandType.getShape().drop_front(indexDepth) !=
+      updateType.getShape().drop_front(updateWindowStart))
+    return false;
+
   return true;
 }
 

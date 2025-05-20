@@ -156,7 +156,7 @@ func.func @scattern_nd_2d_input(%arg0: !input_type, %arg1: !index_type, %arg2: !
 !index_type = tensor<1xi32>
 !updates_type = tensor<4xf32>
 
-func.func @scattern_nd_2d_2d_input_1d_index(%arg0: !input_type, %arg1: !index_type, %arg2: !updates_type) -> !input_type {
+func.func @scatter_nd_2d_2d_input_1d_index(%arg0: !input_type, %arg1: !index_type, %arg2: !updates_type) -> !input_type {
   %0 = "stablehlo.scatter"(%arg0, %arg1, %arg2) ({
   ^bb0(%arg3: tensor<f32>, %arg4: tensor<f32>):
     stablehlo.return %arg4 : tensor<f32>
@@ -174,7 +174,7 @@ func.func @scattern_nd_2d_2d_input_1d_index(%arg0: !input_type, %arg1: !index_ty
   return %0 : !input_type
 }
 
-// CHECK-LABEL: func.func @scattern_nd_2d_2d_input_1d_index
+// CHECK-LABEL: func.func @scatter_nd_2d_2d_input_1d_index
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<1x4xf32>, %[[arg1:.+]]: tensor<1xi32>, %[[arg2:.+]]: tensor<4xf32>) -> tensor<1x4xf32> {
 //   CHECK-DAG:     %[[v0:.+]] = tensorrt.scatter_nd data(%[[arg0]] : tensor<1x4xf32>) indices(%[[arg1]] : tensor<1xi32>) updates(%[[arg2]] : tensor<4xf32>)
 //   CHECK-DAG:     return %[[v0]] : tensor<1x4xf32>
@@ -288,3 +288,24 @@ func.func @scatter_zero_ext_regression(%arg0 : tensor<f32>, %arg1 : tensor<1x0xi
   // CHECK: return %[[v0]] : tensor<f32>
   func.return %0 : tensor<f32>
 }
+
+// -----
+
+// This is a regression test for a bug where the partial window scatter
+// was not being rejected.
+
+// CHECK-LABEL: @not_scatter_nd_partial_window
+//   CHECK-NOT: tensorrt.scatter_nd
+func.func @not_scatter_nd_partial_window(%arg0: tensor<10x5xf16>, %arg1: tensor<3x1xi32>, 
+                                         %arg2: tensor<3x3xf16>) -> tensor<10x5xf16> {
+  %0 = "stablehlo.scatter"(%arg0, %arg1, %arg2) <{scatter_dimension_numbers = 
+    #stablehlo.scatter<update_window_dims = [1], 
+      inserted_window_dims = [0], 
+      scatter_dims_to_operand_dims = [0], 
+      index_vector_dim = 1>}> ({
+  ^bb0(%arg3: tensor<f16>, %arg4: tensor<f16>):
+    stablehlo.return %arg4 : tensor<f16>
+  }) : (tensor<10x5xf16>, tensor<3x1xi32>, tensor<3x3xf16>) -> tensor<10x5xf16>
+  return %0 : tensor<10x5xf16>
+}
+

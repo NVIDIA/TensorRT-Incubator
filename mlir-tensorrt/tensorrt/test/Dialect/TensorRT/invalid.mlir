@@ -2319,8 +2319,8 @@ func.func @trt_scatter_nd_unexpected_indices_type(%arg0: tensor<4x4x4xf32>, %arg
 
 // -----
 
-func.func @trt_scatter_nd_incorrect_updates_rank(%arg0: tensor<4xf32>, %arg1: tensor<1xi32>, %arg2: tensor<2xf32>) -> tensor<4xf32> {
-  // expected-error @below {{'tensorrt.scatter_nd' op expected updates tensor rank to be 0}}
+func.func @trt_scatter_nd_incorrect_updates_rank(%arg0: tensor<4xf32>, %arg1: tensor<1xi32>, %arg2: tensor<2xf32>) -> tensor<4xf32> {  
+  // expected-error @below {{tensorrt.scatter_nd expected updates tensor rank to be 0}}
   %0 = tensorrt.scatter_nd
     data(%arg0 : tensor<4xf32>)
     indices(%arg1: tensor<1xi32>)
@@ -2330,8 +2330,8 @@ func.func @trt_scatter_nd_incorrect_updates_rank(%arg0: tensor<4xf32>, %arg1: te
 
 // -----
 
-func.func @trt_scatter_nd_incorrect_indices_rank(%arg0: tensor<4xf32>, %arg1: tensor<i32>, %arg2: tensor<f32>) -> tensor<4xf32> {
-  // expected-error @below {{'tensorrt.scatter_nd' op expected indices to have rank >= 1}}
+func.func @trt_scatter_nd_incorrect_indices_rank(%arg0: tensor<4xf32>, %arg1: tensor<i32>, %arg2: tensor<f32>) -> tensor<4xf32> {  
+  // expected-error @below {{tensorrt.scatter_nd indices must have rank >= 1}}
   %0 = tensorrt.scatter_nd
     data(%arg0 : tensor<4xf32>)
     indices(%arg1: tensor<i32>)
@@ -2341,7 +2341,29 @@ func.func @trt_scatter_nd_incorrect_indices_rank(%arg0: tensor<4xf32>, %arg1: te
 
 // -----
 
-func.func @trt_scatter_elements_axis_out_of_bounds(%arg0: tensor<3x3xf32>, %arg1: tensor<2x3xi32>, %arg2: tensor<2x3xf32>) -> tensor<3x3xf32> {
+func.func @scatter_nd_must_be_full_window(%arg0: tensor<10x5xf16>, %arg1: tensor<3x1xi32>,
+                                          %arg2: tensor<3x3xf16>)
+   -> tensor<10x5xf16> {      
+  // expected-error @below {{tensorrt.scatter_nd input tensor shape is incompatible with the shape of the updates tensor}}
+  %0 = tensorrt.scatter_nd data(%arg0 : tensor<10x5xf16>) indices(%arg1 : tensor<3x1xi32>) 
+    updates(%arg2 : tensor<3x3xf16>)
+  return %0 : tensor<10x5xf16>
+}
+
+// -----
+
+func.func @scatter_nd_no_dynamic_index_vector(%arg0: tensor<10x5xf16>, %arg1: tensor<3x?xi32>,
+                                              %arg2: tensor<3x3xf16>)
+   -> tensor<10x5xf16> {  
+  // expected-error @below {{the last dimension in tensorrt.scatter_nd indices tensor (the index vector size) must be static}}
+  %0 = tensorrt.scatter_nd data(%arg0 : tensor<10x5xf16>) indices(%arg1 : tensor<3x?xi32>) 
+    updates(%arg2 : tensor<3x3xf16>)
+  return %0 : tensor<10x5xf16>
+}
+
+// -----
+
+func.func @trt_scatter_elements_axis_out_of_bounds(%arg0: tensor<3x3xf32>, %arg1: tensor<2x3xi32>, %arg2: tensor<2x3xf32>) -> tensor<3x3xf32> {  
   // expected-error @below {{'tensorrt.scatter_elements' op expected axis to be in the range [0, 2)}}
   %0 = tensorrt.scatter_elements {
     axis = 3: i64
@@ -2653,3 +2675,6 @@ func.func @test_plugin_shape_verification(%arg0: tensor<?x4x?x?xf32>) -> tensor<
   }
   return %0 : tensor<41x?x?x16xf32>
 }
+
+// -----
+

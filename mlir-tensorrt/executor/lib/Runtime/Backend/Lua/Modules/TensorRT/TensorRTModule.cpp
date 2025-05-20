@@ -161,7 +161,8 @@ public:
 
     StatusOr<PointerInfo> alloc = mlirtrt::runtime::allocate(
         *mTracker, PointerType::device, size, alignment,
-        stream ? std::optional<CudaStreamPtr>(stream) : std::nullopt);
+        stream ? std::optional<CudaStream>(reinterpret_cast<CudaStream>(stream))
+               : std::nullopt);
     if (!alloc.isOk()) {
       MTRT_ERRF("failed to allocate TensorRT output buffer of size %lu: %s",
                 size, alloc.getString().c_str());
@@ -489,7 +490,7 @@ static Status setTensorAddressesOrReport(
 /// execution call.
 static StatusOr<std::vector<std::tuple<std::string, uintptr_t, nvinfer1::Dims>>>
 prepareBuffers(const AllocTracker &allocTracker,
-               NvInferExecContextWrapper &context, CudaStreamPtr stream,
+               NvInferExecContextWrapper &context, cudaStream_t stream,
                sol::table &va, bool outputAsArg = true) {
   ADD_TENSORRT_MODULE_RANGE("prepare_buffers");
   std::vector<std::tuple<std::string, uintptr_t, nvinfer1::Dims>> result;
@@ -563,10 +564,10 @@ prepareBuffers(const AllocTracker &allocTracker,
       PinnedMemoryBlock &hostBuffer = hostBuffers[indexInHostBuffers];
       MTRT_DBGF("copying %ld bytes from 0x%lx (device) to 0x%lx (host)",
                 buffer.size, pointer, hostBuffer.ptr);
-      cudaError_t cudaErr =
-          cudaMemcpyAsync(reinterpret_cast<void *>(hostBuffer.ptr),
-                          reinterpret_cast<void *>(pointer), buffer.size,
-                          cudaMemcpyDeviceToHost, stream);
+      cudaError_t cudaErr = cudaMemcpyAsync(
+          reinterpret_cast<void *>(hostBuffer.ptr),
+          reinterpret_cast<void *>(pointer), buffer.size,
+          cudaMemcpyDeviceToHost, reinterpret_cast<cudaStream_t>(stream));
       if (cudaErr != cudaSuccess)
         return getStatusWithMsg(StatusCode::InternalError,
                                 "failed to copy shape tensor to host: ",
@@ -583,7 +584,7 @@ prepareBuffers(const AllocTracker &allocTracker,
 static Status enqueueV3Wrapper(AllocTracker &tracker,
                                ResourceTracker &resourceTracker,
                                NvInferExecContextWrapper &context,
-                               CudaStreamPtr stream, sol::table &va) {
+                               cudaStream_t stream, sol::table &va) {
   StatusOr<std::vector<std::tuple<std::string, uintptr_t, nvinfer1::Dims>>>
       buffers = prepareBuffers(tracker, context, stream, va);
   if (!buffers.isOk())
@@ -613,7 +614,7 @@ static Status enqueueAllocV3Wrapper(AllocTracker &tracker,
                                     ResourceTracker &resourceTracker,
                                     NvInferResultAllocators *outputAllocator,
                                     NvInferExecContextWrapper &context,
-                                    CudaStreamPtr stream, sol::table &va,
+                                    cudaStream_t stream, sol::table &va,
                                     OutputDescriptor outputDesc) {
 
   StatusOr<std::vector<std::tuple<std::string, uintptr_t, nvinfer1::Dims>>>
@@ -644,8 +645,8 @@ static Status enqueueAllocV3Wrapper(AllocTracker &tracker,
   cudaError_t waitResult = cudaStreamWaitEvent(stream, inputConsumedEvent);
   RETURN_ERROR_IF_CUDART_ERROR(waitResult);
 
-  MTRT_DBGF("enqueueV3 successful and inputs are consumed on stream 0x%lx",
-            stream.ptr);
+  MTRT_DBGF("enqueueV3 successful and inputs are consumed on stream %p",
+            reinterpret_cast<void *>(stream));
 
   for (int64_t i = 0; i < nbResults; ++i) {
     NvInferResultAllocator *outputAllocatorImpl =
@@ -732,33 +733,36 @@ static void registerExecutorTensorRTModuleLuaRuntimeMethods(
       [allocTracker,
        resourceTracker](sol::this_state state,
                         std::shared_ptr<NvInferExecContextWrapper> context,
-                        CudaStreamPtr stream, sol::table va) {
+                        CudaStream stream, sol::table va) {
         ADD_TENSORRT_MODULE_RANGE("trtrt_enqueue");
         sol::state_view luaState(state);
         assert(context != nullptr);
-        assert(stream != nullptr && "expected valid stream");
-        Status result = enqueueV3Wrapper(*allocTracker, *resourceTracker,
-                                         *context, stream, va);
+        assert(reinterpret_cast<cudaStream_t>(stream) != nullptr &&
+               "expected valid stream");
+        Status result =
+            enqueueV3Wrapper(*allocTracker, *resourceTracker, *context,
+                             reinterpret_cast<cudaStream_t>(stream), va);
         SET_LUA_ERROR_IF_ERROR(result, state);
       };
 
   lua["_trtrt_enqueue_alloc"] =
       [allocTracker, resourceTracker](
           sol::this_state state,
-          std::shared_ptr<NvInferExecContextWrapper> context,
-          CudaStreamPtr stream, uintptr_t outputDesc, sol::table va) {
+          std::shared_ptr<NvInferExecContextWrapper> context, CudaStream stream,
+          uintptr_t outputDesc, sol::table va) {
         ADD_TENSORRT_MODULE_RANGE("trtrt_enqueue_alloc");
         sol::state_view luaState(state);
         assert(context != nullptr);
-        assert(stream != nullptr && "expected valid stream");
+        assert(reinterpret_cast<cudaStream_t>(stream) != nullptr &&
+               "expected valid stream");
 
         OutputDescriptor desc(outputDesc);
 
         auto allocator = std::make_unique<NvInferResultAllocators>(
             allocTracker, **context, desc.getNumberOfResults());
-        Status result =
-            enqueueAllocV3Wrapper(*allocTracker, *resourceTracker,
-                                  allocator.get(), *context, stream, va, desc);
+        Status result = enqueueAllocV3Wrapper(
+            *allocTracker, *resourceTracker, allocator.get(), *context,
+            reinterpret_cast<cudaStream_t>(stream), va, desc);
         SET_LUA_ERROR_IF_ERROR(result, state);
       };
 }

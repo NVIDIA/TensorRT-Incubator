@@ -268,7 +268,7 @@ static void registerNcclOps(sol::state_view &lua, ResourceTracker *tracker) {
 #define DEFINE_NCCL_ALL_REDUCE_METHOD(opsuffix, op, typesuffix, type)          \
   lua["__nccl_all_reduce_" #opsuffix "_" #typesuffix] =                        \
       [](sol::this_state state, ExecPtr sendbuff, ExecPtr recvbuff,            \
-         size_t count, uintptr_t communicator, CudaStreamPtr stream) {         \
+         size_t count, uintptr_t communicator, CudaStream stream) {            \
         MTRT_DBG("__nccl_all_reduce_" #opsuffix "_" #typesuffix                \
                  ": count={0} send={1} recv={2}",                              \
                  count, reinterpret_cast<void *>(sendbuff),                    \
@@ -277,7 +277,7 @@ static void registerNcclOps(sol::state_view &lua, ResourceTracker *tracker) {
         SET_LUA_ERROR_IF_NCCL_ERROR(                                           \
             ncclAllReduce(reinterpret_cast<void *>(sendbuff),                  \
                           reinterpret_cast<void *>(recvbuff), count, type, op, \
-                          comm->comm, stream),                                 \
+                          comm->comm, reinterpret_cast<cudaStream_t>(stream)), \
             state, comm->comm);                                                \
         SET_LUA_ERROR_AND_RETURN_IF_ERROR(                                     \
             waitUntilNcclCommunicatorIsReady(comm->comm), state, );            \
@@ -289,7 +289,7 @@ static void registerNcclOps(sol::state_view &lua, ResourceTracker *tracker) {
 #define DEFINE_NCCL_REDUCE_SCATTER_METHOD(opsuffix, op, typesuffix, type)      \
   lua["__nccl_reduce_scatter_" #opsuffix "_" #typesuffix] =                    \
       [](sol::this_state state, ExecPtr sendbuff, ExecPtr recvbuff,            \
-         size_t recvcount, uintptr_t communicator, CudaStreamPtr stream) {     \
+         size_t recvcount, uintptr_t communicator, CudaStream stream) {        \
         MTRT_DBG("__nccl_reduce_scatter_" #opsuffix "_" #typesuffix            \
                  ": count={0} sendbuff={1} recvbuff={2}",                      \
                  recvcount, reinterpret_cast<void *>(sendbuff),                \
@@ -298,7 +298,8 @@ static void registerNcclOps(sol::state_view &lua, ResourceTracker *tracker) {
         SET_LUA_ERROR_IF_NCCL_ERROR(                                           \
             ncclReduceScatter(reinterpret_cast<void *>(sendbuff),              \
                               reinterpret_cast<void *>(recvbuff), recvcount,   \
-                              type, op, comm->comm, stream),                   \
+                              type, op, comm->comm,                            \
+                              reinterpret_cast<cudaStream_t>(stream)),         \
             state, comm->comm);                                                \
         SET_LUA_ERROR_AND_RETURN_IF_ERROR(                                     \
             waitUntilNcclCommunicatorIsReady(comm->comm), state, );            \
@@ -309,12 +310,13 @@ static void registerNcclOps(sol::state_view &lua, ResourceTracker *tracker) {
 
   lua["__nccl_all_gather"] = [](sol::this_state state, ExecPtr sendbuff,
                                 ExecPtr recvbuff, size_t sendNumBytes,
-                                uintptr_t communicator, CudaStreamPtr stream) {
+                                uintptr_t communicator, CudaStream stream) {
     auto *comm = reinterpret_cast<NcclCommunicator *>(communicator);
     SET_LUA_ERROR_IF_NCCL_ERROR(
         ncclAllGather(reinterpret_cast<void *>(sendbuff),
                       reinterpret_cast<void *>(recvbuff), sendNumBytes,
-                      ncclInt8, comm->comm, stream),
+                      ncclInt8, comm->comm,
+                      reinterpret_cast<cudaStream_t>(stream)),
         state, comm->comm);
     SET_LUA_ERROR_AND_RETURN_IF_ERROR(
         waitUntilNcclCommunicatorIsReady(comm->comm), state, );
@@ -322,18 +324,20 @@ static void registerNcclOps(sol::state_view &lua, ResourceTracker *tracker) {
 
   lua["__nccl_all_to_all"] = [](sol::this_state state, ExecPtr sendbuff,
                                 ExecPtr recvbuff, size_t numBytes,
-                                uintptr_t communicator, CudaStreamPtr stream) {
+                                uintptr_t communicator, CudaStream stream) {
     auto *comm = reinterpret_cast<NcclCommunicator *>(communicator);
     size_t sendBytes = numBytes / comm->numRanks;
     SET_LUA_ERROR_IF_NCCL_ERROR(ncclGroupStart(), state, comm->comm);
     for (int r = 0; r < comm->numRanks; ++r) {
       SET_LUA_ERROR_IF_NCCL_ERROR(
           ncclSend(reinterpret_cast<void *>(sendbuff + r * sendBytes),
-                   sendBytes, ncclInt8, r, comm->comm, stream),
+                   sendBytes, ncclInt8, r, comm->comm,
+                   reinterpret_cast<cudaStream_t>(stream)),
           state, comm->comm);
       SET_LUA_ERROR_IF_NCCL_ERROR(
           ncclRecv(reinterpret_cast<void *>(recvbuff + r * sendBytes),
-                   sendBytes, ncclInt8, r, comm->comm, stream),
+                   sendBytes, ncclInt8, r, comm->comm,
+                   reinterpret_cast<cudaStream_t>(stream)),
           state, comm->comm);
     }
     SET_LUA_ERROR_IF_NCCL_ERROR(ncclGroupEnd(), state, comm->comm);
@@ -345,7 +349,7 @@ static void registerNcclOps(sol::state_view &lua, ResourceTracker *tracker) {
   lua["__nccl_permute"] = [](sol::this_state state, ExecPtr sendbuff,
                              ExecPtr recvbuff, int32_t sendId, int32_t recvId,
                              size_t numBytes, uintptr_t communicator,
-                             CudaStreamPtr stream) {
+                             CudaStream stream) {
     auto *comm = reinterpret_cast<NcclCommunicator *>(communicator);
     MTRT_DBG("__nccl_permute[{6}/{7}]: send {0} bytes @ {1} to {2}, recv {0} "
              "bytes @ "
@@ -358,21 +362,21 @@ static void registerNcclOps(sol::state_view &lua, ResourceTracker *tracker) {
       // Zero out recvbuff if not receiving.
       SET_LUA_ERROR_IF_CUDA_ERROR(
           cuMemsetD8Async(static_cast<CUdeviceptr>(recvbuff), 0, numBytes,
-                          stream),
+                          reinterpret_cast<cudaStream_t>(stream)),
           state);
     }
     SET_LUA_ERROR_IF_NCCL_ERROR(ncclGroupStart(), state, comm->comm);
     if (sendId != -1) {
-      SET_LUA_ERROR_IF_NCCL_ERROR(ncclSend(reinterpret_cast<void *>(sendbuff),
-                                           numBytes, ncclInt8, sendId,
-                                           comm->comm, stream),
-                                  state, comm->comm);
+      SET_LUA_ERROR_IF_NCCL_ERROR(
+          ncclSend(reinterpret_cast<void *>(sendbuff), numBytes, ncclInt8,
+                   sendId, comm->comm, reinterpret_cast<cudaStream_t>(stream)),
+          state, comm->comm);
     }
     if (recvId != -1) {
-      SET_LUA_ERROR_IF_NCCL_ERROR(ncclRecv(reinterpret_cast<void *>(recvbuff),
-                                           numBytes, ncclInt8, recvId,
-                                           comm->comm, stream),
-                                  state, comm->comm);
+      SET_LUA_ERROR_IF_NCCL_ERROR(
+          ncclRecv(reinterpret_cast<void *>(recvbuff), numBytes, ncclInt8,
+                   recvId, comm->comm, reinterpret_cast<cudaStream_t>(stream)),
+          state, comm->comm);
     }
     SET_LUA_ERROR_IF_NCCL_ERROR(ncclGroupEnd(), state, comm->comm);
     SET_LUA_ERROR_AND_RETURN_IF_ERROR(

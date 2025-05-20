@@ -166,7 +166,7 @@ registerCudaMemoryManagementOps(sol::state_view &lua,
   //===----------------------------------------------------------------------===//
 
   auto getCudaMemcpyFunc = [](cudaMemcpyKind kind, const char *dbgKind) {
-    return [kind, dbgKind](sol::this_state state, CudaStreamPtr stream,
+    return [kind, dbgKind](sol::this_state state, CudaStream stream,
                            int64_t rank, int64_t elemSize, uintptr_t srcPointer,
                            size_t srcOffset, uintptr_t srcShapeAndStrides,
                            uintptr_t dstPointer, size_t dstOffset,
@@ -192,7 +192,9 @@ registerCudaMemoryManagementOps(sol::state_view &lua,
       executeStridedCopy(elemSize, srcPointer, srcOffset, srcShape, srcStrides,
                          dstPointer, dstOffset, dstShape, dstStrides,
                          [&](void *dst, void *src, size_t size) {
-                           cudaMemcpyAsync(dst, src, size, kind, stream);
+                           cudaMemcpyAsync(
+                               dst, src, size, kind,
+                               reinterpret_cast<cudaStream_t>(stream));
                          });
     };
   };
@@ -220,23 +222,24 @@ registerCudaMemoryManagementOps(sol::state_view &lua,
     return device;
   };
 
-  lua["__cuda_stream_create"] = [](sol::this_state state) -> CudaStreamPtr {
+  lua["__cuda_stream_create"] = [](sol::this_state state) -> CudaStream {
     ADD_CUDA_MODULE_RANGE("cuda_stream_create");
     cudaStream_t stream{nullptr};
     SET_LUA_ERROR_IF_CUDART_ERROR(cudaStreamCreate(&stream), state);
     return reinterpret_cast<uintptr_t>(stream);
   };
 
-  lua["__cuda_stream_sync"] = [](sol::this_state state, CudaStreamPtr stream) {
-    MTRT_DBG("__cuda_stream_sync @ {0}", reinterpret_cast<void *>(stream.ptr));
+  lua["__cuda_stream_sync"] = [](sol::this_state state, CudaStream stream) {
+    MTRT_DBG("__cuda_stream_sync @ {0}", reinterpret_cast<void *>(stream));
     ADD_CUDA_MODULE_RANGE("cuda_stream_sync");
-    SET_LUA_ERROR_IF_CUDART_ERROR(cudaStreamSynchronize(stream), state);
+    SET_LUA_ERROR_IF_CUDART_ERROR(
+        cudaStreamSynchronize(reinterpret_cast<cudaStream_t>(stream)), state);
   };
 
-  lua["__cuda_stream_destroy"] = [](sol::this_state state,
-                                    CudaStreamPtr stream) {
+  lua["__cuda_stream_destroy"] = [](sol::this_state state, CudaStream stream) {
     ADD_CUDA_MODULE_RANGE("cuda_stream_destroy");
-    SET_LUA_ERROR_IF_CUDART_ERROR(cudaStreamDestroy(stream), state);
+    SET_LUA_ERROR_IF_CUDART_ERROR(
+        cudaStreamDestroy(reinterpret_cast<cudaStream_t>(stream)), state);
   };
 
   lua["__cuda_get_function"] = [](sol::this_state state, uintptr_t cuModulePtr,
@@ -284,8 +287,7 @@ registerCudaMemoryManagementOps(sol::state_view &lua,
   lua["__cuda_launch"] = [](sol::this_state state, uintptr_t cudaFuncPtr,
                             int32_t gridX, int32_t gridY, int32_t gridZ,
                             int32_t blockX, int32_t blockY, int32_t blockZ,
-                            int32_t dynamicSharedMemory,
-                            CudaStreamPtr streamPtr,
+                            int32_t dynamicSharedMemory, CudaStream streamPtr,
                             uintptr_t callArgsHostPtr) {
     assert(cudaFuncPtr);
     assert(callArgsHostPtr);
@@ -302,10 +304,9 @@ registerCudaMemoryManagementOps(sol::state_view &lua,
     }
   };
 
-  lua["__cuda_alloc_device"] = [allocTracker](sol::this_state state,
-                                              CudaStreamPtr stream,
-                                              int32_t device, size_t numBytes,
-                                              int32_t alignment) -> uintptr_t {
+  lua["__cuda_alloc_device"] =
+      [allocTracker](sol::this_state state, CudaStream stream, int32_t device,
+                     size_t numBytes, int32_t alignment) -> uintptr_t {
     ADD_CUDA_MODULE_RANGE("__cuda_alloc");
     SET_LUA_ERROR_AND_RETURN_IF_CUDART_ERROR(cudaSetDevice(device), state, 0);
     StatusOr<PointerInfo> info = allocate(*allocTracker, PointerType::device,
@@ -361,8 +362,8 @@ registerCudaMemoryManagementOps(sol::state_view &lua,
   };
 
   lua["__cuda_free_host_pinned"] = [allocTracker, pinnedMemoryAllocator](
-                                       sol::this_state state,
-                                       CudaStreamPtr stream, uintptr_t ptr) {
+                                       sol::this_state state, CudaStream stream,
+                                       uintptr_t ptr) {
     ADD_CORE_MODULE_RANGE("core_dealloc_host_pinned");
     auto &tracker = *allocTracker;
     PointerInfo info = tracker.get(ptr);
@@ -374,19 +375,20 @@ registerCudaMemoryManagementOps(sol::state_view &lua,
   };
 
   lua["__cuda_free_device"] = [allocTracker](sol::this_state state,
-                                             CudaStreamPtr stream,
-                                             uintptr_t ptr) {
+                                             CudaStream stream, uintptr_t ptr) {
     ADD_CUDA_MODULE_RANGE("cuda_memory_free_async");
     AllocTracker &tracker = *allocTracker;
     PointerInfo info = tracker.get(ptr);
     assert(info.isDeviceVisible() && "expected device-visible pointer");
     SET_LUA_ERROR_IF_CUDART_ERROR(
-        cudaFreeAsync(reinterpret_cast<void *>(ptr), stream), state);
+        cudaFreeAsync(reinterpret_cast<void *>(ptr),
+                      reinterpret_cast<cudaStream_t>(stream)),
+        state);
     tracker.untrack(ptr);
   };
 
   lua["__cuda_memcpy_host2device"] =
-      [allocTracker](sol::this_state state, CudaStreamPtr stream, uintptr_t src,
+      [allocTracker](sol::this_state state, CudaStream stream, uintptr_t src,
                      size_t srcOffset, uintptr_t dest, size_t destOffset,
                      size_t numBytes) {
         ADD_CUDA_MODULE_RANGE("cuda_memcpy_async_h2d");
@@ -405,14 +407,14 @@ registerCudaMemoryManagementOps(sol::state_view &lua,
                  "src and/or dst buffers are insufficiently sized");
         }
 #endif
-        SET_LUA_ERROR_IF_CUDART_ERROR(cudaMemcpyAsync(dstPtr, srcPtr, numBytes,
-                                                      cudaMemcpyHostToDevice,
-                                                      stream),
-                                      state);
+        SET_LUA_ERROR_IF_CUDART_ERROR(
+            cudaMemcpyAsync(dstPtr, srcPtr, numBytes, cudaMemcpyHostToDevice,
+                            reinterpret_cast<cudaStream_t>(stream)),
+            state);
       };
 
   lua["__cuda_memcpy_device2host"] =
-      [allocTracker](sol::this_state state, CudaStreamPtr stream, uintptr_t src,
+      [allocTracker](sol::this_state state, CudaStream stream, uintptr_t src,
                      size_t srcOffset, uintptr_t dest, size_t destOffset,
                      size_t numBytes) {
         ADD_CUDA_MODULE_RANGE("cuda_memcpy_async_d2h");
@@ -431,23 +433,14 @@ registerCudaMemoryManagementOps(sol::state_view &lua,
                  "src and/or dst buffers are insufficiently sized");
         }
 #endif
-        SET_LUA_ERROR_IF_CUDART_ERROR(cudaMemcpyAsync(dstPtr, srcPtr, numBytes,
-                                                      cudaMemcpyDeviceToHost,
-                                                      stream),
-                                      state);
-        // Check if the source pointer is marked for release after consumption
-        if (allocTracker->isMarkedForReleaseAfterConsumption(src)) {
-          // This pointer was allocated by TensorRT and used in a device-device
-          // or device-host copy operation. It's not wrapped in a memref, so it
-          // won't be released by external memref destruction. We need to
-          // explicitly free it.
-          SET_LUA_ERROR_IF_ERROR(runtime::safeDeallocate(*allocTracker, src),
-                                 state);
-        }
+        SET_LUA_ERROR_IF_CUDART_ERROR(
+            cudaMemcpyAsync(dstPtr, srcPtr, numBytes, cudaMemcpyDeviceToHost,
+                            reinterpret_cast<cudaStream_t>(stream)),
+            state);
       };
 
   lua["__cuda_memcpy_host_pinned2device"] =
-      [allocTracker](sol::this_state state, CudaStreamPtr stream, uintptr_t src,
+      [allocTracker](sol::this_state state, CudaStream stream, uintptr_t src,
                      size_t srcOffset, uintptr_t dest, size_t destOffset,
                      size_t numBytes) {
         ADD_CUDA_MODULE_RANGE("cuda_memcpy_host_pinned2device");
@@ -467,14 +460,14 @@ registerCudaMemoryManagementOps(sol::state_view &lua,
                  "src and/or dst buffers are insufficiently sized");
         }
 #endif
-        SET_LUA_ERROR_IF_CUDART_ERROR(cudaMemcpyAsync(dstPtr, srcPtr, numBytes,
-                                                      cudaMemcpyHostToDevice,
-                                                      stream),
-                                      state);
+        SET_LUA_ERROR_IF_CUDART_ERROR(
+            cudaMemcpyAsync(dstPtr, srcPtr, numBytes, cudaMemcpyHostToDevice,
+                            reinterpret_cast<cudaStream_t>(stream)),
+            state);
       };
 
   lua["__cuda_memcpy_device2host_pinned"] =
-      [allocTracker](sol::this_state state, CudaStreamPtr stream, uintptr_t src,
+      [allocTracker](sol::this_state state, CudaStream stream, uintptr_t src,
                      size_t srcOffset, uintptr_t dest, size_t destOffset,
                      size_t numBytes) {
         ADD_CUDA_MODULE_RANGE("cuda_memcpy_async_d2h");
@@ -491,23 +484,14 @@ registerCudaMemoryManagementOps(sol::state_view &lua,
         MTRT_DBGF("__cuda_memcpy_device2host_pinned: %lu bytes from 0x%lx + "
                   "%lu to 0x%lx + %lu",
                   numBytes, src, srcOffset, dest, destOffset);
-        SET_LUA_ERROR_IF_CUDART_ERROR(cudaMemcpyAsync(dstPtr, srcPtr, numBytes,
-                                                      cudaMemcpyDeviceToHost,
-                                                      stream),
-                                      state);
-        // Check if the source pointer is marked for release after consumption
-        if (allocTracker->isMarkedForReleaseAfterConsumption(src)) {
-          // This pointer was allocated by TensorRT and used in a device-device
-          // or device-host copy operation. It's not wrapped in a memref, so it
-          // won't be released by external memref destruction. We need to
-          // explicitly free it.
-          SET_LUA_ERROR_IF_ERROR(runtime::safeDeallocate(*allocTracker, src),
-                                 state);
-        }
+        SET_LUA_ERROR_IF_CUDART_ERROR(
+            cudaMemcpyAsync(dstPtr, srcPtr, numBytes, cudaMemcpyDeviceToHost,
+                            reinterpret_cast<cudaStream_t>(stream)),
+            state);
       };
   lua["__cuda_memcpy_device2device"] = [allocTracker](
                                            sol::this_state state,
-                                           CudaStreamPtr stream, uintptr_t src,
+                                           CudaStream stream, uintptr_t src,
                                            size_t srcOffset, uintptr_t dest,
                                            size_t destOffset, size_t numBytes) {
     ADD_CUDA_MODULE_RANGE("cuda_memcpy_async_d2d");
@@ -525,22 +509,10 @@ registerCudaMemoryManagementOps(sol::state_view &lua,
         "executor_memcpy device-device %lu bytes from %p + %lu to %p to %lu",
         numBytes, reinterpret_cast<void *>(src), srcOffset,
         reinterpret_cast<void *>(dest), destOffset);
-    SET_LUA_ERROR_IF_CUDART_ERROR(cudaMemcpyAsync(dstPtr, srcPtr, numBytes,
-                                                  cudaMemcpyDeviceToDevice,
-                                                  stream),
-                                  state);
-    // Check if the source pointer is marked for release after consumption
-    if (allocTracker->isMarkedForReleaseAfterConsumption(src)) {
-      MTRT_DBGF("executor_memcpy device-device: freeing src pointer %p",
-                reinterpret_cast<void *>(src));
-      // This pointer was allocated by TensorRT and used in a device-device
-      // or device-host copy operation. It's not wrapped in a memref, so it
-      // won't be released by external memref destruction. We need to
-      // explicitly free it.
-      SET_LUA_ERROR_IF_ERROR(runtime::safeDeallocate(*allocTracker, src),
-                             state);
-    }
-    return;
+    SET_LUA_ERROR_IF_CUDART_ERROR(
+        cudaMemcpyAsync(dstPtr, srcPtr, numBytes, cudaMemcpyDeviceToDevice,
+                        reinterpret_cast<cudaStream_t>(stream)),
+        state);
   };
 }
 

@@ -1231,31 +1231,6 @@ LogicalResult tensorrt::DequantizeOp::verify() {
 // ScatterOp
 //===----------------------------------------------------------------------===//
 
-LogicalResult tensorrt::ScatterOp::verify() {
-  auto inputDataType = getData().getType();
-  auto indicesDataType = getIndices().getType();
-  auto updatesDataType = getUpdates().getType();
-
-  int64_t inputRank = inputDataType.getRank();
-  int64_t indicesRank = indicesDataType.getRank();
-  int64_t updatesRank = updatesDataType.getRank();
-
-  auto indicesShape = indicesDataType.getShape();
-  if (indicesShape.empty())
-    return emitOpError("expected indices to have rank >= 1");
-
-  int64_t indicesLastAxisShape = indicesShape.back();
-  int64_t expectedUpdatesRank =
-      inputRank + indicesRank - indicesLastAxisShape - 1;
-
-  if (indicesLastAxisShape > inputRank)
-    return emitOpError("indexing tuple rank cannot be larger than input rank");
-  if (updatesRank != expectedUpdatesRank)
-    return emitOpError("expected updates tensor rank to be ")
-           << expectedUpdatesRank;
-  return success();
-}
-
 LogicalResult tensorrt::ScatterElementsOp::verify() {
   const int64_t inputDataRank = getData().getType().getRank();
   if (inputDataRank < 1)
