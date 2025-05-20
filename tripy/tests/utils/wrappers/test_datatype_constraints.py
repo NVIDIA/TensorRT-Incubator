@@ -108,6 +108,11 @@ CUSTOM_VALUES = {
     "full": {"shape": tp.Tensor([2, 2]), "value": tp.Tensor(1.0)},
     "full_like": {"value": tp.Tensor(1.0)},
     "gather": {"index": tp.Tensor([1])},
+    "instancenorm": {
+        "num_channels": 2,
+        "weight": tp.Tensor(np.ones((2,), dtype=np.float32)),
+        "bias": tp.Tensor(np.zeros((2,), dtype=np.float32)),
+    },
     "iota": {"shape": tp.Tensor([2, 2])},
     "maxpool": {"kernel_dims": [2, 2]},
     "ones": {"shape": [2, 2]},
