@@ -110,6 +110,10 @@ MLIR_CAPI_EXPORTED MTRT_Status mtrtStreamDestroy(MTRT_Stream stream);
 MLIR_CAPI_EXPORTED void
 mtrtStreamPrint(MTRT_Stream stream, MlirStringCallback append, void *userData);
 
+/// Retrieves the pointer to the underlying CUDA stream.
+MLIR_CAPI_EXPORTED MTRT_Status mtrtStreamGetPointer(MTRT_Stream stream,
+                                                    uintptr_t *ptr);
+
 //===----------------------------------------------------------------------===//
 // MTRT_Device
 //===----------------------------------------------------------------------===//

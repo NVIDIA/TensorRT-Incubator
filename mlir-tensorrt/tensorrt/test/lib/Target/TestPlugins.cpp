@@ -311,7 +311,7 @@ public:
 
   virtual ~SymExpr() {}
 
-  void *getExpr() override {
+  void *getExpr() noexcept override {
     return const_cast<void *>(static_cast<const void *>(expr));
   }
 
