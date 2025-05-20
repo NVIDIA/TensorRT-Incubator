@@ -30,7 +30,7 @@ class TestInstanceNorm:
         x = tp.ones((2, 3))
         with helper.raises(
             tp.TripyException,
-            match=r"Input is expected to have shape \(N, C, D1, ...\) where N is the batch size, C is the number of channels, and D1, ... are the spatial dimensions",
+            match=f"InstanceNorm input must have a rank of at least 3, but got input of rank: {x.rank}",
         ):
             tp_instancenorm(x).eval()
 
@@ -53,6 +53,6 @@ class TestInstanceNorm:
         x = tp.Tensor(torch.ones((2, 6, 4, 4)))
         with helper.raises(
             tp.TripyException,
-            match="The input channel dimension does not match the number of channels specified in the InstanceNorm constructor",
+            match=f"Expected 3 channels in the input, but got {x.shape[1]} channels",
         ):
             tp_instancenorm(x).eval()

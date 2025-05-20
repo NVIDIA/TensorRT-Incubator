@@ -19,7 +19,9 @@ import nvtripy as tp
 import pytest
 import torch
 
-DTYPES = [(torch.float16, tp.float16), (torch.float32, tp.float32)]
+from tests.helper import TORCH_DTYPES
+
+DTYPES = [tp.float16, tp.float32]
 INPUT_SHAPES = [
     (2, 3, 4),
     (1, 5, 8, 8),
@@ -29,9 +31,10 @@ INPUT_SHAPES = [
 
 class TestInstanceNorm:
 
-    @pytest.mark.parametrize("torch_dtype, tp_dtype", DTYPES)
+    @pytest.mark.parametrize("dtype", DTYPES)
     @pytest.mark.parametrize("input_shape", INPUT_SHAPES)
-    def test_instancenorm_accuracy(self, torch_dtype, tp_dtype, input_shape, eager_or_compiled):
+    def test_instancenorm_accuracy(self, dtype, input_shape, eager_or_compiled):
+        torch_dtype = TORCH_DTYPES[dtype]
         eps = 1e-5
         num_channels = input_shape[1]
 
@@ -44,7 +47,7 @@ class TestInstanceNorm:
         tp_instancenorm = tp.InstanceNorm(
             num_channels=num_channels,
             eps=eps,
-            dtype=tp_dtype,
+            dtype=dtype,
         )
 
         torch.nn.init.uniform_(instancenorm.weight)
@@ -55,14 +58,14 @@ class TestInstanceNorm:
 
         input = torch.arange(torch.prod(torch.Tensor(input_shape))).reshape(input_shape).to(torch_dtype).to("cuda")
         input = input / 100.0 + 0.5
-        tp_input = tp.Tensor(input, dtype=tp_dtype)
+        tp_input = tp.Tensor(input, dtype=dtype)
 
         output = eager_or_compiled(tp_instancenorm, tp_input)
         with torch.no_grad():
             expected = instancenorm(input)
 
-        rtol_ = 1e-4 if tp_dtype == tp.float32 else 1e-2
-        atol_ = 1e-4 if tp_dtype == tp.float32 else 1e-2
+        rtol_ = 1e-4 if dtype == tp.float32 else 1e-2
+        atol_ = 1e-4 if dtype == tp.float32 else 1e-2
 
         torch_output = torch.from_dlpack(output)
 

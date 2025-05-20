@@ -25,7 +25,7 @@ from mlir_tensorrt.compiler import ir
 @dataclass(repr=False)
 class InstanceNorm(TraceOp):
     num_channels: int
-    eps: float = 1e-5
+    eps: float
 
     infer_rank = op_utils.InferRankPolicies.same_as_input()
 

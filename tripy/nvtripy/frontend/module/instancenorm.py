@@ -38,21 +38,25 @@ def instancenorm(
     weight: "nvtripy.Tensor",
     bias: "nvtripy.Tensor",
     num_channels: int,
-    eps: float = 1e-5,
+    eps: float,
 ) -> "nvtripy.Tensor":
 
     input_rank = input.rank
 
     if input_rank < 3:
         raise_error(
-            "Input is expected to have shape (N, C, D1, ...) where N is the batch size, C is the number of channels, and D1, ... are the spatial dimensions",
-            details=[f"Got {input.shape} which has rank {input_rank}."],
+            f"InstanceNorm input must have a rank of at least 3, but got input of rank: {input.rank}",
+            details=[
+                "Input is expected to have shape (N, C, D1, ...) where N is the batch size, C is the number of channels, and D1, ... are the spatial dimensions"
+            ],
         )
 
     if input.trace_tensor.shape[1] != constants.DYNAMIC_DIM and input.trace_tensor.shape[1] != num_channels:
         raise_error(
-            "The input channel dimension does not match the number of channels specified in the InstanceNorm constructor",
-            details=[f"Got {input.shape[1]} channels in the input, but expected {num_channels} channels"],
+            f"Expected {num_channels} channels in the input, but got {input.shape[1]} channels",
+            details=[
+                "The input channel dimension must match the number of channels specified to the InstanceNorm module."
+            ],
         )
 
     # TensorRT expects weight & bias to have shape [1, C, 1, 1, ...]
@@ -77,7 +81,7 @@ def instancenorm(
 
 @export.public_api(document_under="operations/modules")
 @dataclass
-@utils.wrappers.constant_fields(["num_channels", "dtype"])
+@utils.wrappers.constant_fields(["num_channels", "dtype", "eps"])
 class InstanceNorm(Module):
     r"""
     Applies Instance Normalization over a mini-batch of inputs:
