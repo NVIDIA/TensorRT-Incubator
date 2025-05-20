@@ -215,6 +215,18 @@ def test_devices():
 # CHECK-LABEL: Test: test_devices
 #  CHECK-NEXT: Device name: cuda:0
 
+
+@make_test
+def test_stream():
+    client = runtime.RuntimeClient()
+    stream = client.create_stream()
+
+    assert isinstance(stream.ptr, int)
+
+
+# CHECK-LABEL: Test: test_stream
+
+
 if __name__ == "__main__":
     for t in TESTS:
         t()

@@ -660,15 +660,22 @@ PYBIND11_MODULE(_api, m) {
              MTRT_Status s = mtrtStreamSynchronize(stream);
              THROW_IF_MTRT_ERROR(s);
            })
-      .def("__str__", [](PyStream &self) {
-        auto callback = [](MlirStringRef data, void *initialString) {
-          *reinterpret_cast<std::string *>(initialString) +=
-              llvm::StringRef(data.data, data.length);
-        };
+      .def("__str__",
+           [](PyStream &self) {
+             auto callback = [](MlirStringRef data, void *initialString) {
+               *reinterpret_cast<std::string *>(initialString) +=
+                   llvm::StringRef(data.data, data.length);
+             };
 
-        std::string result;
-        mtrtStreamPrint(self, callback, &result);
-        return result;
+             std::string result;
+             mtrtStreamPrint(self, callback, &result);
+             return result;
+           })
+      .def_property_readonly("ptr", [](PyStream &self) {
+        uintptr_t ptr;
+        MTRT_Status s = mtrtStreamGetPointer(self, &ptr);
+        THROW_IF_MTRT_ERROR(s);
+        return ptr;
       });
 
   py::class_<PyRuntimeClient>(m, "RuntimeClient", py::module_local())

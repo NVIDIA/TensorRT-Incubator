@@ -36,6 +36,7 @@
 
 #include "llvm/ADT/SmallVectorExtras.h"
 #include "llvm/Support/ErrorHandling.h"
+#include <cstdint>
 #include <memory>
 #include <mutex>
 #ifdef MLIR_EXECUTOR_ENABLE_CUDA
@@ -313,6 +314,12 @@ mtrtStreamPrint(MTRT_Stream stream, MlirStringCallback append, void *userData) {
   std::stringstream ss;
   ss << std::hex << reinterpret_cast<uintptr_t>(unwrap(stream)->getRawStream());
   printStream << "CUDA Stream @ 0x" << ss.str();
+}
+
+MLIR_CAPI_EXPORTED MTRT_Status mtrtStreamGetPointer(MTRT_Stream stream,
+                                                    uintptr_t *ptr) {
+  *ptr = reinterpret_cast<uintptr_t>(unwrap(stream)->getRawStream());
+  return mtrtStatusGetOk();
 }
 
 //===----------------------------------------------------------------------===//
