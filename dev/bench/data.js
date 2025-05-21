@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1747794889984,
+  "lastUpdate": 1747858862002,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -12824,6 +12824,47 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000002214358590550131",
             "extra": "mean: 57.953337385902024 usec\nrounds: 17932"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "35f7e20f35567e08a06157c407d16e8b0d320e8c",
+          "message": "Speeds up Tensor.__init__ in certain cases, optimizes Constant.__init__",
+          "timestamp": "2025-05-20T22:03:47Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/643/commits/35f7e20f35567e08a06157c407d16e8b0d320e8c"
+        },
+        "date": 1747858860875,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 5347.581285417173,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00002802839879937961",
+            "extra": "mean: 187.00043003123582 usec\nrounds: 5635"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 6232.0029434945345,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000034201026493805556",
+            "extra": "mean: 160.46205514775636 usec\nrounds: 6669"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_tripy_param_update",
+            "value": 17305.7823185543,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000023251426916270567",
+            "extra": "mean: 57.78415454399052 usec\nrounds: 18089"
           }
         ]
       }
