@@ -52,6 +52,8 @@ class TensorMeta(type):
         ":special-members:",
         ":exclude-members: __init__, __repr__, __weakref__, __dlpack__, __dlpack_device__",
     ],
+    # Skip function registry dispatch for __init__ to avoid runtime overheads.
+    bypass_dispatch=["__init__"],
 )
 class Tensor(metaclass=TensorMeta):
     """
@@ -69,7 +71,6 @@ class Tensor(metaclass=TensorMeta):
         dtype: Optional["nvtripy.dtype"] = None,
         device: Optional["nvtripy.device"] = None,
         name: Optional[str] = None,
-        fetch_stack_info: bool = True,
     ) -> None:
         """
         Args:
@@ -82,9 +83,6 @@ class Tensor(metaclass=TensorMeta):
                 By default, the tensor will be allocated on the same device as the `data` argument.
 
             name: The name of the tensor. If provided, this must be a unique string.
-            fetch_stack_info: Whether to fetch stack information for the tensor.
-                Stack information allows Tripy to generate much higher quality error
-                messages at the cost of a small overhead when initializing the tensor.
 
         .. code-block:: python
             :linenos:
@@ -94,9 +92,22 @@ class Tensor(metaclass=TensorMeta):
         # We use None internally but users should not be permitted to do it
         assert data is not None, "Data argument to Tensor must not be None"
         if isinstance(data, Tensor):
-            raise_error("Cannot initialize Tensor with another Tensor.", [f"Note: `data` argument was: {data}"])
+            raise_error(
+                "Cannot initialize Tensor with another Tensor.", [f"Note: `data` argument was defined here:", data]
+            )
 
         self._stack_info = utils.stack_info.StackInfo([])
+
+        # We include a fast path for the case where we're initializing a Tensor from a DLPack
+        # tensor with no modifications. This usually happens at runtime if we're interoperating
+        # with other frameworks (e.g. multiple executables with framework glue code in between).
+        # In that case, we don't want to add any overheads like fetching stack information.
+        if hasattr(data, "__dlpack__") and device is None and dtype is None:
+            constant = Constant(data, device=device, dtype=dtype)
+            self.trace_tensor = constant.outputs[0]
+            self.trace_tensor.name = utils.utils.default(name, self.trace_tensor.name)
+            self.trace_tensor.stack_info = self._stack_info
+            return
 
         # Small optimization for scalars to avoid unnecessary casts:
         if isinstance(data, numbers.Number) and dtype is not None:
@@ -110,8 +121,7 @@ class Tensor(metaclass=TensorMeta):
         constant = Constant(data, device=device, dtype=dtype)
         self.trace_tensor = constant.outputs[0]
         self.trace_tensor.name = utils.utils.default(name, self.trace_tensor.name)
-        if fetch_stack_info:
-            self.stack_info = utils.stack_info.get_stack_info(include_code_index=1)
+        self.stack_info = utils.stack_info.get_stack_info(include_code_index=1)
 
         # Preserve the device after casting if necessary (otherwise cast will always copy to GPU):
         device = utils.utils.default(device, self.device)
@@ -143,15 +153,6 @@ class Tensor(metaclass=TensorMeta):
         instance = cls.__new__(cls)
         instance.trace_tensor = trace_tensor
         instance.stack_info = utils.stack_info.get_stack_info(include_code_index=include_code_index)
-        return instance
-
-    # Faster constructor that bypasses things like function registry type checks and fetching stack info.
-    @staticmethod
-    def fast_init(data: Any):
-        instance = Tensor.__new__(Tensor)
-        constant = Constant(data)
-        instance.trace_tensor = constant.outputs[0]
-        instance.stack_info = utils.stack_info.StackInfo([])
         return instance
 
     def __getattr__(self, name: str):

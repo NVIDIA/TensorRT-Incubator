@@ -36,7 +36,7 @@ class TraceTensor:
     # Indicates the shape of the tensor. Unknown dimensions are indicated by DYNAMIC_DIM.
     # Generally, the shape will only be known for shape tensors.
     shape: Tuple[int] = field(default=None, init=False)
-    stack_info: StackInfo = field(default_factory=lambda: StackInfo([]), init=False)
+    stack_info: StackInfo = field(default=None, init=False)
 
     # Whether this tensor was constructed in order to trace a computation graph for the compiler.
     is_compile_tracer: bool = False
