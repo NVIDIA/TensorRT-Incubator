@@ -24,8 +24,7 @@ class TestInstanceNorm:
         tp_instancenorm = tp.InstanceNorm(
             num_channels=3,
         )
-        tp_instancenorm.weight = tp.ones((3,))
-        tp_instancenorm.bias = tp.ones((3,))
+        tp_instancenorm.initialize_dummy_parameters()
 
         x = tp.ones((2, 3))
         with helper.raises(
@@ -38,14 +37,13 @@ class TestInstanceNorm:
         tp_instancenorm = tp.InstanceNorm(
             num_channels=3,
         )
-        tp_instancenorm.weight = tp.ones((3,))
-        tp_instancenorm.bias = tp.ones((3,))
+        tp_instancenorm.initialize_dummy_parameters()
 
         # dynamic shape
         x = tp.ones((2, 6, 4, 4))
         with helper.raises(
             tp.TripyException,
-            match="MTRTException: failed to run pass pipeline",
+            match=r"'tensorrt.slice' op inferred type\(s\) 'tensor\<2x6x4x4xf32\>' are incompatible with return type\(s\) of operation 'tensor\<\?x3x\?x\?xf32\>'",
         ):
             tp_instancenorm(x).eval()
 

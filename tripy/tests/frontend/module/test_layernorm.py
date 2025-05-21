@@ -23,8 +23,7 @@ class TestLayerNorm:
         tp_layernorm = tp.LayerNorm(
             normalized_shape=[2, 2],
         )
-        tp_layernorm.weight = tp.ones((2, 2))
-        tp_layernorm.bias = tp.ones((2, 2))
+        tp_layernorm.initialize_dummy_parameters()
 
         x = tp.ones((5, 5, 5))
         with helper.raises(
@@ -34,14 +33,13 @@ class TestLayerNorm:
 
     def test_layernorm_improper_rank(self):
         tp_layernorm = tp.LayerNorm(
-            normalized_shape=[2, 2],
+            normalized_shape=[2],
         )
-        tp_layernorm.weight = tp.ones((2, 2))
-        tp_layernorm.bias = tp.ones((2, 2))
+        tp_layernorm.initialize_dummy_parameters()
 
-        x = tp.ones((2, 2))
+        x = tp.ones((2,))
         with helper.raises(
             tp.TripyException,
-            match=f"Input must have a rank of at least 3, but got input of rank: {x.rank}",
+            match=f"Input must have a rank of at least 2, but got input of rank: {x.rank}",
         ):
             tp_layernorm(x).eval()

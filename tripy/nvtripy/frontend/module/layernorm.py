@@ -45,11 +45,11 @@ def layernorm(
     D = len(normalized_shape)
     input_rank = input.rank
 
-    if input_rank < 3:
+    if input_rank < 2:
         raise_error(
-            f"Input must have a rank of at least 3, but got input of rank: {input.rank}",
+            f"Input must have a rank of at least 2, but got input of rank: {input.rank}",
             details=[
-                "Input is expected to have shape (N, C, D1, ...) where N is the batch size, C is the number of channels, and D1, ... are the spatial dimensions"
+                "Input is expected to have shape (N, *) where N is the batch size, and * represents any number of channel dimension + spatial dimensions"
             ],
         )
 

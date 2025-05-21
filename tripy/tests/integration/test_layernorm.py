@@ -32,10 +32,7 @@ class TestLayerNorm:
         "normalized_shape",
         [
             (8, 4, 4),
-            (
-                4,
-                4,
-            ),
+            (4, 4),
         ],
     )
     def test_layernorm_accuracy(self, dtype, input_shape, normalized_shape, eager_or_compiled):

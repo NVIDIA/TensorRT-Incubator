@@ -125,17 +125,23 @@ class GroupNorm(Module):
         Returns:
             A tensor of the same shape as the input.
         """
+
+        if x.rank < 3:
+            raise_error(
+                f"Input must have a rank of at least 3, but got input of rank: {x.rank}",
+                details=[
+                    "The input should have shape [N, C, D1, ...] where N is the batch size, C is the number of channels, and D1, ... are the feature dimensions."
+                ],
+            )
+
         from nvtripy.frontend.ops.reshape import reshape
+        from nvtripy.frontend.ops.split import split
+        from nvtripy.frontend.ops.stack import stack
+        from nvtripy.frontend.ops.flatten import flatten
 
         # Use InstanceNorm as a WAR due to lack of TRT API compatibility for scale/bias with shape (num_channels, )
-        starting_shape = x.trace_tensor.shape
-        target_shape = (
-            x.trace_tensor.shape[0],
-            self.num_groups,
-            self.num_channels // self.num_groups,
-        ) + x.trace_tensor.shape[2:]
-        input_reshaped = reshape(x, target_shape)
+        input_reshaped = stack(split(x, self.num_groups, 1), 1)
         x = self._instance_norm(input_reshaped)
-        x = reshape(x, starting_shape)
+        x = flatten(x, start_dim=1, end_dim=2)
         broadcast_shape = (1, self.num_channels) + (1,) * (x.rank - 2)
         return x * reshape(self.weight, broadcast_shape) + reshape(self.bias, broadcast_shape)
