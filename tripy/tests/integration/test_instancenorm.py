@@ -35,7 +35,7 @@ class TestInstanceNorm:
     @pytest.mark.parametrize("input_shape", INPUT_SHAPES)
     def test_instancenorm_accuracy(self, dtype, input_shape, eager_or_compiled):
         torch_dtype = TORCH_DTYPES[dtype]
-        eps = 1e-5
+        eps = 0.0
         num_channels = input_shape[1]
 
         # Choose appropriate PyTorch InstanceNorm based on input dimensions
@@ -50,25 +50,39 @@ class TestInstanceNorm:
             dtype=dtype,
         )
 
-        torch.nn.init.uniform_(instancenorm.weight)
-        torch.nn.init.uniform_(instancenorm.bias)
+        input = torch.empty(*input_shape, dtype=torch_dtype, device="cuda").uniform_(0, 10)
+        tp_input = tp.Tensor(input, dtype=dtype)
+
+        # Verify normalized output has approximately mean=0, std=1
+        tp_instancenorm.weight = tp.ones((num_channels,), dtype=dtype)
+        tp_instancenorm.bias = tp.zeros((num_channels,), dtype=dtype)
+
+        output = eager_or_compiled(tp_instancenorm, tp_input)
+        output_torch = torch.from_dlpack(output)
+
+        spatial_dims = tuple(range(2, len(input_shape)))
+        means = output_torch.mean(dim=spatial_dims, keepdim=True)
+        vars = output_torch.var(dim=spatial_dims, keepdim=True, unbiased=False)
+
+        mean_abs = means.abs().mean().item()
+        var_diff = (vars - 1).abs().mean().item()
+
+        assert mean_abs < 2e-4, f"Instance mean should be close to 0, got {mean_abs}"
+        assert var_diff < 1e-3, f"Instance variance should be close to 1, got {var_diff}"
+
+        # Comparison test with the affine transformation included
+        torch.nn.init.uniform_(instancenorm.weight, 0.2, 2)
+        torch.nn.init.uniform_(instancenorm.bias, 0.2, 2)
 
         tp_instancenorm.weight = tp.Tensor(instancenorm.weight.to("cpu").detach())
         tp_instancenorm.bias = tp.Tensor(instancenorm.bias.to("cpu").detach())
-
-        input = torch.arange(torch.prod(torch.Tensor(input_shape))).reshape(input_shape).to(torch_dtype).to("cuda")
-        input = input / 100.0 + 0.5
-        tp_input = tp.Tensor(input, dtype=dtype)
 
         output = eager_or_compiled(tp_instancenorm, tp_input)
         with torch.no_grad():
             expected = instancenorm(input)
 
-        rtol_ = 1e-4 if dtype == tp.float32 else 1e-2
-        atol_ = 1e-4 if dtype == tp.float32 else 1e-2
+        atol_ = 1e-6 if dtype == tp.float32 else 6e-3
 
         torch_output = torch.from_dlpack(output)
-
         assert torch_output.shape == expected.shape
-
-        assert torch.allclose(torch_output, expected, rtol=rtol_, atol=atol_)
+        assert torch.allclose(torch_output, expected, atol=atol_)

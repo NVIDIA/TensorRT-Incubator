@@ -74,24 +74,24 @@ class GroupNorm(Module):
         .. code-block:: python
             :linenos:
 
-            group_norm = tp.GroupNorm(2, 2)
+            group_norm = tp.GroupNorm(2, 4)
 
-            group_norm.weight = tp.iota(group_norm.weight.shape)
-            group_norm.bias = tp.iota(group_norm.bias.shape)
+            group_norm.weight = tp.ones(group_norm.weight.shape)
+            group_norm.bias = tp.zeros(group_norm.bias.shape)
 
-            input = tp.iota((1, 2, 2, 2), dim=1)
+            input = tp.iota((1, 4, 1, 1), dim=1)
             output = group_norm(input)
 
             np_out = cp.from_dlpack(output).get() # doc: omit
-            assert np_out.shape == (1, 2, 2, 2)
+            assert np_out.shape == (1, 4, 1, 1)
 
             torch_tensor = torch.from_dlpack(input) # doc: omit
             torch_gn = torch.nn.GroupNorm(2, 2).to(torch.device("cuda")) # doc: omit
             torch_gn.weight.data = torch.from_dlpack(group_norm.weight) # doc: omit
             torch_gn.bias.data = torch.from_dlpack(group_norm.bias) # doc: omit
             torch_out = cp.from_dlpack(torch_gn(torch_tensor).detach()).get() # doc: omit
-            assert np_out.shape == torch_out.shape # doc: omit
-            assert np.allclose(np_out, torch_out) # doc: omit
+            assert np_out.shape == torch_out.shape
+            assert np.allclose(np_out, torch_out)
         """
         from nvtripy.frontend.ops.ones import ones
         from nvtripy.frontend.ops.zeros import zeros
@@ -100,7 +100,7 @@ class GroupNorm(Module):
 
         if num_channels % num_groups:
             raise_error(
-                "Number of groups must divide number of channels evenly.",
+                "The number of groups must divide number of channels evenly.",
                 details=[f"Got {num_groups} groups but {num_channels} channels."],
             )
 

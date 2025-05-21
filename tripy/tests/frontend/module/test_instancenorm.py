@@ -30,7 +30,7 @@ class TestInstanceNorm:
         x = tp.ones((2, 3))
         with helper.raises(
             tp.TripyException,
-            match=f"InstanceNorm input must have a rank of at least 3, but got input of rank: {x.rank}",
+            match=f"Input must have a rank of at least 3, but got input of rank: {x.rank}",
         ):
             tp_instancenorm(x).eval()
 

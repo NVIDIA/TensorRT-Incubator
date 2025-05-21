@@ -31,3 +31,17 @@ class TestLayerNorm:
             tp.TripyException, match="The normalization scale is not broadcast-compatible with the input at dimension 1"
         ):
             tp_layernorm(x).eval()
+
+    def test_layernorm_improper_rank(self):
+        tp_layernorm = tp.LayerNorm(
+            normalized_shape=[2, 2],
+        )
+        tp_layernorm.weight = tp.ones((2, 2))
+        tp_layernorm.bias = tp.ones((2, 2))
+
+        x = tp.ones((2, 2))
+        with helper.raises(
+            tp.TripyException,
+            match=f"Input must have a rank of at least 3, but got input of rank: {x.rank}",
+        ):
+            tp_layernorm(x).eval()
