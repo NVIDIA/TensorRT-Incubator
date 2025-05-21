@@ -68,7 +68,7 @@ class TestDtypes:
             sequence_func([tp.ones((2, 2), dtype=tp.float32), tp.ones((2, 2), dtype=tp.int32)])
 
 
-STACK_DEPTH_OF_CALLER = 5
+STACK_DEPTH_OF_CALLER = 3
 
 
 class TestTensorConversion:

@@ -251,7 +251,7 @@ class Executable:
                             )
             raise_error(str(err))
 
-        output_tensors = tuple(Tensor.fast_init(output_memref) for output_memref in output_memrefs)
+        output_tensors = tuple(Tensor(output_memref) for output_memref in output_memrefs)
         if self.__signature__.return_annotation == Tensor:
             output_tensors = output_tensors[0]
         return output_tensors
