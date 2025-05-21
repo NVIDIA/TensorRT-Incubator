@@ -162,8 +162,14 @@ class Trace:
                             layer_input_ops = [mlir_ops[inp.name] for inp in op.inputs]
                             output_types = [out.to_mlir() for out in op.outputs]
 
-                            with make_tensor_location(
-                                [inp.name for inp in op.inputs], [out.name for out in op.outputs]
+                            # with make_tensor_location(
+                            #     [inp.name for inp in op.inputs], [out.name for out in op.outputs]
+                            # ):
+                            from nvtripy.common.exception import str_from_stack_info
+
+                            with ir.Location.name(
+                                str_from_stack_info(op.outputs[0].stack_info, enable_color=False, fetch_stack_info=True)
+                                or f"{','.join([inp.name for inp in op.inputs])};;out;;{','.join([out.name for out in op.outputs])}"
                             ):
                                 mlir_output_ops = op.to_mlir(layer_input_ops, output_types)
 

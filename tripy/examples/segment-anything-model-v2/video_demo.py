@@ -152,8 +152,8 @@ def main(video_dir: str, save_path: Optional[str] = None):
         labels=labels,
     )
 
-    # pr = nvtx.Profile()
-    # pr.enable()
+    pr = nvtx.Profile()
+    pr.enable()
     # run propagation throughout the video and collect the results in a dict
     start = time.perf_counter()
     video_segments = {}  # video_segments contains the per-frame segmentation results
@@ -163,7 +163,7 @@ def main(video_dir: str, save_path: Optional[str] = None):
         }
     end = time.perf_counter()
     print(f"Video segmentation took {(end - start)}s")
-    # pr.disable()
+    pr.disable()
 
     if save_path:
         # render the segmentation results every few frames

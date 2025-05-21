@@ -84,7 +84,9 @@ def str_from_source_info(source_info, enable_color=True, is_first_frame=True, ca
     return frame_info
 
 
-def str_from_stack_info(stack_info: "utils.stack_info.StackInfo", enable_color: bool = True) -> Optional[str]:
+def str_from_stack_info(
+    stack_info: "utils.stack_info.StackInfo", enable_color: bool = True, fetch_stack_info: bool = True
+) -> Optional[str]:
     from nvtripy.frontend.module import module
 
     def should_exclude(source_info):
@@ -98,7 +100,8 @@ def str_from_stack_info(stack_info: "utils.stack_info.StackInfo", enable_color: 
     frame_strs = []
     num_frames_printed = 0
 
-    stack_info.fetch_source_code()
+    if fetch_stack_info:
+        stack_info.fetch_source_code()
     for index, source_info in enumerate(stack_info):
         if should_exclude(source_info):
             continue

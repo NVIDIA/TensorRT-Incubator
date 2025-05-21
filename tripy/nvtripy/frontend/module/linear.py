@@ -143,8 +143,14 @@ class Linear(Module):
         else:
             weight = self.weight
 
-        out = x @ (transpose(weight, 1, 0))
+        from nvtripy.frontend.ops.copy import copy
+        from nvtripy.common.device import device as tp_device
+
+        weight = copy((transpose(weight, 1, 0)), device=tp_device("cpu"))
+        out = x @ weight
         if self.bias is not None:
-            out = out + unsqueeze(self.bias, 0)
+
+            bias = copy(unsqueeze(self.bias, 0), device=tp_device("cpu"))
+            out = out + bias
 
         return out
