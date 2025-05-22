@@ -23,6 +23,7 @@ import nvtripy as tp
 
 
 class TestSliceOp:
+
     @pytest.mark.parametrize("use_constant", [True, False])
     @pytest.mark.parametrize(
         "shape, slice_func",
@@ -64,6 +65,10 @@ class TestSliceOp:
             ((2, 2), lambda t: t[..., 0]),
             ((2, 3, 4), lambda t: t[1, ...]),
             ((2, 3, 4, 4), lambda t: t[1, ..., 2]),
+            # None
+            ((2, 3, 4), lambda t: t[None]),
+            ((2, 3, 4), lambda t: t[None, 1:2, :, None]),
+            ((2, 3, 4), lambda t: t[..., None, 0, None]),
         ],
     )
     def test_slice(self, use_constant, shape, slice_func, eager_or_compiled):

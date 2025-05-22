@@ -37,7 +37,9 @@ EllipsisType = type(Ellipsis)
 )
 def __getitem__(
     self: "nvtripy.Tensor",
-    index: Union["nvtripy.Tensor", slice, IntLike, EllipsisType, Sequence[Union[slice, IntLike, EllipsisType]]],
+    index: Union[
+        "nvtripy.Tensor", slice, IntLike, EllipsisType, None, Sequence[Union[slice, IntLike, EllipsisType, None]]
+    ],
 ) -> "nvtripy.Tensor":
     """
     Returns a tensor containing a slice of this tensor.
@@ -47,6 +49,7 @@ def __getitem__(
         index: The index or slice.
             If this is a :class:`Tensor`, the operation is equivalent to calling
             :func:`gather` along the first dimension.
+            If this is `None`, a new dimension of size 1 will be inserted at that position.
 
     Returns:
         A tensor containing the slice of this tensor.
@@ -92,11 +95,20 @@ def __getitem__(
         output = input[index]
         assert cp.array_equal(cp.from_dlpack(output), cp.from_dlpack(input)[cp.array(np.from_dlpack(index))])
 
+    .. code-block:: python
+        :linenos:
+        :caption: Adding New Dimensions With None
+
+        input = tp.reshape(tp.arange(6, dtype=tp.float32), (3, 2))
+        output = input[None, :, None]
+        assert output.shape == (1, 3, 1, 2)
+
     """
     from nvtripy.frontend.dimension_size import DimensionSize
     from nvtripy.frontend.ops.binary.maximum import maximum
     from nvtripy.frontend.ops.binary.minimum import minimum
     from nvtripy.frontend.ops.gather import gather
+    from nvtripy.frontend.ops.reshape import reshape
     from nvtripy.frontend.ops.squeeze import squeeze
     from nvtripy.frontend.ops.where import where
     from nvtripy.frontend.tensor import Tensor
@@ -105,23 +117,43 @@ def __getitem__(
     if isinstance(index, Tensor):
         return gather(self, 0, index)
 
-    index = make_list(index)
+    index = [None] if index is None else make_list(index)
     ellipsis_count = index.count(Ellipsis)
+    new_dim_count = index.count(None)
     if ellipsis_count > 1:
         raise_error("Slicing index can only have a single ellipsis ('...')")
-    if len(index) > self.rank:
+    if len(index) > self.rank + new_dim_count:
         raise_error(f"Input tensor has a rank of {self.rank} but was attempted to be sliced with {len(index)} indices")
     if ellipsis_count:
         ellipsis_idx = index.index(Ellipsis)
-        num_slices = self.rank - len(index) + 1
+        num_slices = self.rank + new_dim_count - len(index) + 1
         index[ellipsis_idx : ellipsis_idx + 1] = [slice(None)] * num_slices
 
     inp_shape = self.shape
+    if new_dim_count:
+        new_shape = []
+        slice_indices = []
+        current_dim = 0
+        for idx in index:
+            if idx is None:
+                new_shape.append(1)
+                slice_indices.append(slice(0, 1))
+            else:
+                new_shape.append(inp_shape[current_dim])
+                slice_indices.append(idx)
+                current_dim += 1
+
+        # Add remaining dimensions
+        for dim_size in inp_shape[current_dim:]:
+            new_shape.append(dim_size)
+
+        self = reshape(self, new_shape)
+        inp_shape = new_shape
+        index = slice_indices
 
     starts = []
     sizes = []
     steps = []
-
     squeeze_dims = []
 
     for dim_idx, (dim_size, slice_idx) in enumerate(zip(inp_shape, index)):
