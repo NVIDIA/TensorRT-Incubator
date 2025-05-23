@@ -55,9 +55,10 @@ def layernorm(
 
     from nvtripy.frontend.ops.reshape import reshape
 
-    broadcast_shape = (1,) * (input_rank - D) + normalized_shape
-    weight = reshape(weight, broadcast_shape)
-    bias = reshape(bias, broadcast_shape)
+    if input_rank > D:
+        broadcast_shape = (1,) * (input_rank - D) + normalized_shape
+        weight = reshape(weight, broadcast_shape)
+        bias = reshape(bias, broadcast_shape)
 
     return op_utils.create_op(
         LayerNormOp,

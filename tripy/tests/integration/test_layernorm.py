@@ -23,42 +23,54 @@ from tests.helper import TORCH_DTYPES
 
 DTYPES = [tp.float16, tp.float32]
 
+dtype_params = pytest.mark.parametrize("dtype", DTYPES)
+input_shape_params = pytest.mark.parametrize("input_shape", [(2, 8, 4, 4)])
+normalized_shape_params = pytest.mark.parametrize(
+    "normalized_shape",
+    [
+        (8, 4, 4),
+        (4, 4),
+    ],
+)
+
+
+@pytest.fixture
+def setup(dtype, input_shape, normalized_shape):
+    eps = 0.0
+    torch_dtype = TORCH_DTYPES[dtype]
+    layernorm = torch.nn.LayerNorm(
+        normalized_shape=normalized_shape,
+        eps=eps,
+        dtype=torch_dtype,
+        device="cuda",
+    )
+    tp_layernorm = tp.LayerNorm(
+        normalized_shape=normalized_shape,
+        eps=eps,
+        dtype=dtype,
+    )
+
+    input = torch.empty(*input_shape, dtype=torch_dtype, device="cuda").uniform_(0, 10)
+    tp_input = tp.Tensor(input, dtype=dtype)
+
+    yield layernorm, tp_layernorm, tp_input
+
 
 class TestLayerNorm:
 
-    @pytest.mark.parametrize("dtype", DTYPES)
-    @pytest.mark.parametrize("input_shape", [(2, 8, 4, 4)])
-    @pytest.mark.parametrize(
-        "normalized_shape",
-        [
-            (8, 4, 4),
-            (4, 4),
-        ],
-    )
-    def test_layernorm_accuracy(self, dtype, input_shape, normalized_shape, eager_or_compiled):
-        eps = 0.0
-        torch_dtype = TORCH_DTYPES[dtype]
-        layernorm = torch.nn.LayerNorm(
-            normalized_shape=normalized_shape,
-            eps=eps,
-            dtype=torch_dtype,
-            device="cuda",
-        )
-        tp_layernorm = tp.LayerNorm(
-            normalized_shape=normalized_shape,
-            eps=eps,
-            dtype=dtype,
-        )
+    @dtype_params
+    @input_shape_params
+    @normalized_shape_params
+    def test_layernorm_normalization(self, input_shape, setup, eager_or_compiled):
+        """Test that normalized output has approximately mean=0, std=1"""
+        _, tp_layernorm, tp_input = setup
+        normalized_shape = tp_layernorm.normalized_shape
+        dtype = tp_layernorm.weight.dtype
 
-        input = torch.empty(*input_shape, dtype=torch_dtype, device="cuda").uniform_(0, 10)
-        tp_input = tp.Tensor(input, dtype=dtype)
-
-        # Verify normalized output has approximately mean=0, std=1
         tp_layernorm.weight = tp.ones(normalized_shape, dtype=dtype)
         tp_layernorm.bias = tp.zeros(normalized_shape, dtype=dtype)
 
         output = eager_or_compiled(tp_layernorm, tp_input)
-
         output_torch = torch.from_dlpack(output)
 
         normalized_dims = list(range(len(input_shape) - len(normalized_shape), len(input_shape)))
@@ -71,7 +83,15 @@ class TestLayerNorm:
         assert mean_abs < 1e-4, f"Mean should be close to 0, got {mean_abs}"
         assert var_diff < 1e-4, f"Variance should be close to 1, got {var_diff}"
 
-        # Comparison test with the affine transformation included
+    @dtype_params
+    @input_shape_params
+    @normalized_shape_params
+    def test_layernorm_affine_transformation(self, setup, eager_or_compiled):
+        """Test the LayerNorm with affine transformation included"""
+        layernorm, tp_layernorm, tp_input = setup
+        dtype = tp_layernorm.weight.dtype
+        input = torch.from_dlpack(tp_input)
+
         torch.nn.init.uniform_(layernorm.weight, 0.2, 2)
         torch.nn.init.uniform_(layernorm.bias, 0.2, 2)
 

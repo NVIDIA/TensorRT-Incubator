@@ -39,8 +39,6 @@ class GroupNorm(Module):
     where :math:`\bar{x}` is the mean and :math:`\sigma^2` is the variance.
 
     The input should have shape :math:`[N, C, D1, ...]` where :math:`N` is the batch size, :math:`C` is the number of channels, and :math:`D1, ...` are the feature dimensions.
-
-    Note that the current implementation uses InstanceNorm as a workaround to implement this operation due to TRT API compatibility issues.
     """
 
     num_groups: int
@@ -93,8 +91,6 @@ class GroupNorm(Module):
             assert np_out.shape == torch_out.shape
             assert np.allclose(np_out, torch_out)
         """
-        from nvtripy.frontend.ops.ones import ones
-        from nvtripy.frontend.ops.zeros import zeros
 
         super().__init__()
 
@@ -112,10 +108,6 @@ class GroupNorm(Module):
         self.weight = DefaultParameter((num_channels,), dtype=dtype)
         self.bias = DefaultParameter((num_channels,), dtype=dtype)
         self.eps = eps
-
-        self._instance_norm = InstanceNorm(num_groups, dtype=dtype, eps=eps)
-        self._instance_norm.weight = ones((num_groups,), dtype=dtype)
-        self._instance_norm.bias = zeros((num_groups,), dtype=dtype)
 
     def forward(self, x: "nvtripy.Tensor") -> "nvtripy.Tensor":
         r"""
@@ -138,10 +130,17 @@ class GroupNorm(Module):
         from nvtripy.frontend.ops.split import split
         from nvtripy.frontend.ops.stack import stack
         from nvtripy.frontend.ops.flatten import flatten
+        from nvtripy.frontend.module.instancenorm import InstanceNorm
+        from nvtripy.frontend.ops.ones import ones
+        from nvtripy.frontend.ops.zeros import zeros
+
+        instance_norm = InstanceNorm(self.num_groups, dtype=self.dtype, eps=self.eps)
+        instance_norm.weight = ones((self.num_groups,), dtype=self.dtype)
+        instance_norm.bias = zeros((self.num_groups,), dtype=self.dtype)
 
         # Use InstanceNorm as a WAR due to lack of TRT API compatibility for scale/bias with shape (num_channels, )
         input_reshaped = stack(split(x, self.num_groups, 1), 1)
-        x = self._instance_norm(input_reshaped)
+        x = instance_norm(input_reshaped)
         x = flatten(x, start_dim=1, end_dim=2)
         broadcast_shape = (1, self.num_channels) + (1,) * (x.rank - 2)
         return x * reshape(self.weight, broadcast_shape) + reshape(self.bias, broadcast_shape)
