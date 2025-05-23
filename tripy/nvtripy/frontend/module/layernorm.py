@@ -20,6 +20,7 @@ from typing import Sequence, Union
 
 from nvtripy import export, utils
 from nvtripy.common import datatype
+from nvtripy.common.exception import raise_error
 from nvtripy.frontend.module.module import Module
 from nvtripy.frontend.module.parameter import DefaultParameter
 from nvtripy.frontend.tensor import Tensor
@@ -44,10 +45,17 @@ def layernorm(
     D = len(normalized_shape)
     input_rank = input.rank
 
-    # Reshape weight and bias to match input rank for TensorRT normalization (expects [1, ...] + normalized_shape)
-    if input_rank > D:
-        from nvtripy.frontend.ops.reshape import reshape
+    if input_rank < 2:
+        raise_error(
+            f"Input must have a rank of at least 2, but got input of rank: {input.rank}",
+            details=[
+                "Input is expected to have shape (N, *) where N is the batch size, and * represents any number of channel dimension + spatial dimensions"
+            ],
+        )
 
+    from nvtripy.frontend.ops.reshape import reshape
+
+    if input_rank > D:
         broadcast_shape = (1,) * (input_rank - D) + normalized_shape
         weight = reshape(weight, broadcast_shape)
         bias = reshape(bias, broadcast_shape)

@@ -27,7 +27,7 @@ from mlir_tensorrt.compiler import ir
 @dataclass(repr=False)
 class LayerNorm(TraceOp):
     normalized_shape: Sequence[int]
-    eps: float = 1e-5
+    eps: float
 
     infer_rank = op_utils.InferRankPolicies.same_as_input()
 

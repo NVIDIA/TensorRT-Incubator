@@ -45,7 +45,7 @@ def instancenorm(
 
     if input_rank < 3:
         raise_error(
-            f"InstanceNorm input must have a rank of at least 3, but got input of rank: {input.rank}",
+            f"Input must have a rank of at least 3, but got input of rank: {input.rank}",
             details=[
                 "Input is expected to have shape (N, C, D1, ...) where N is the batch size, C is the number of channels, and D1, ... are the spatial dimensions"
             ],
