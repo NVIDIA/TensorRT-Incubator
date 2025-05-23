@@ -27,7 +27,9 @@ def test_new_streams():
     stream1 = tp.Stream()
     stream2 = tp.Stream()
     assert stream1 != stream2
+    assert stream1.ptr != stream2.ptr
     assert stream1 != tp.default_stream()
+    assert stream1.ptr != tp.default_stream().ptr
 
 
 def test_enqueue_work_on_stream():

@@ -31,11 +31,8 @@ class Stream:
     This class is a wrapper around the underlying stream object, allowing management of CUDA streams.
     """
 
-    def __init__(self, priority: int = 0) -> None:
+    def __init__(self) -> None:
         """
-        Args:
-            priority : Assign priority for the new stream. Lower number signifies higher priority.
-
         .. code-block:: python
             :linenos:
             :caption: Creating New Streams
@@ -62,11 +59,6 @@ class Stream:
 
             assert tp.equal(output, tp.relu(input))
         """
-        if priority != 0:
-            raise_error(
-                "Incorrect stream priority",
-                [f"Stream priority can only be 0 until #172 is fixed, got priority={priority}."],
-            )
         from nvtripy.backend.mlir.utils import MLIRRuntimeClient
 
         self._active_cuda_stream = MLIRRuntimeClient().create_stream()
@@ -110,6 +102,23 @@ class Stream:
 
     def __hash__(self):
         return hash(id(self))
+
+    @property
+    def ptr(self) -> int:
+        """
+        Returns a pointer to the underlying CUDA stream.
+
+        Returns:
+            A pointer to the underlying CUDA stream.
+
+        .. code-block:: python
+            :linenos:
+            :caption: Retrieving The Default Stream
+
+            stream = tp.Stream()
+            stream_ptr = stream.ptr
+        """
+        return self._active_cuda_stream.ptr
 
 
 @export.public_api(document_under="compiling_code/stream.rst")
