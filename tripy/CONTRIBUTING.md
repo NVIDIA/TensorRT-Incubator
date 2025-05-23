@@ -25,7 +25,7 @@ Thanks for your interest in contributing to Tripy!
         2. Pull and launch the container. From the [`tripy` root directory](.), run:
 
             ```bash
-            docker run --pull always --gpus all -it -p 8080:8080 -v $(pwd):/tripy/ --rm ghcr.io/nvidia/tensorrt-incubator/tripy
+            docker run --pull always --gpus all -it --cap-add=SYS_PTRACE -p 8080:8080 -v $(pwd):/tripy/ --rm ghcr.io/nvidia/tensorrt-incubator/tripy
             ```
 
     - If you made changes to the container
@@ -34,7 +34,7 @@ Thanks for your interest in contributing to Tripy!
 
         ```bash
         docker build -t tripy .
-        docker run --gpus all -it -p 8080:8080 -v $(pwd):/tripy/ --rm tripy:latest
+        docker run --gpus all -it --cap-add=SYS_PTRACE -p 8080:8080 -v $(pwd):/tripy/ --rm tripy:latest
         ```
 
 3. **[Optional]** Run a sanity check in the container:
@@ -159,7 +159,7 @@ The Tripy container includes a build of MLIR-TensorRT, but in some cases, you ma
 
 2. Launch the container with mlir-tensorrt repository mapped for accessing wheels files; from the [`tripy` root directory](.), run:
     ```bash
-    docker run --gpus all -it -p 8080:8080 -v $(pwd):/tripy/ -v $(pwd)/../mlir-tensorrt:/mlir-tensorrt  --rm tripy:latest
+    docker run --gpus all -it --cap-add=SYS_PTRACE -p 8080:8080 -v $(pwd):/tripy/ -v $(pwd)/../mlir-tensorrt:/mlir-tensorrt  --rm tripy:latest
     ```
 
 3. Install MLIR-TensorRT wheels
