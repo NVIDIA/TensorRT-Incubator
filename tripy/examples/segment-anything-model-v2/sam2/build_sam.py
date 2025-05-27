@@ -23,8 +23,6 @@
 # limitations under the License.
 
 
-import logging
-
 import torch
 from hydra import compose
 from hydra.utils import instantiate
@@ -184,10 +182,10 @@ def get_component_configs(model, cfg):
         "memory_encoder": {
             "enabled": True,
             "model": model.memory_encoder,
-            "dtype": "float32",  # TODO add fp16 to yaml
+            "dtype": model_precision,
             "compile_args": [
-                tp.InputInfo((batchsize, 256, 64, 64), tp.float32),
-                tp.InputInfo((batchsize, num_obj, 1024, 1024), tp.float32),
+                tp.InputInfo((batchsize, 256, 64, 64), getattr(tp, model_precision)),
+                tp.InputInfo((batchsize, num_obj, 1024, 1024), getattr(tp, model_precision)),
                 True,
             ],
             "skip_dtype_convert": ["ln", "norm"]
@@ -227,10 +225,7 @@ def get_component_configs(model, cfg):
             "compile_args": [
                 tp.InputInfo(
                     (batchsize, 3, 1024, 1024),
-                    dtype=getattr(
-                        tp,
-                        model_precision,
-                    ),
+                    dtype=getattr(tp, model_precision),
                 ),
             ],
             "skip_dtype_convert": ["norm"],
@@ -285,7 +280,7 @@ class SAM2ModelCache:
         else:
             print(f"Compiling {comp_name}...")
             start = time.time()
-            compiled_model = tp.compile(comp_info["model"], args=comp_info["compile_args"])
+            compiled_model = tp.compile(comp_info["model"], optimization_level=5, args=comp_info["compile_args"])
             print(f"Compilation took {time.time() - start:.2f}s")
             compiled_model.save(executable_file)
 
