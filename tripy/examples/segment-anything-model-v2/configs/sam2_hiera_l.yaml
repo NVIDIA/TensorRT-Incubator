@@ -62,6 +62,7 @@ model:
   memory_encoder:
       _target_: sam2.modeling.memory_encoder.MemoryEncoder
       out_dim: 64
+      dtype: float16
       position_encoding:
         _target_: sam2.modeling.position_encoding.PositionEmbeddingSine
         num_pos_feats: 64
@@ -73,6 +74,7 @@ model:
         kernel_size: 3
         stride: 2
         padding: 1
+        dtype: float16
       fuser:
         _target_: sam2.modeling.memory_encoder.Fuser
         layer:
@@ -82,6 +84,7 @@ model:
           padding: 3
           layer_scale_init_value: 1e-6
           use_dwconv: True  # depth-wise convs
+          dtype: float16
         num_layers: 2
 
   num_maskmem: 7
