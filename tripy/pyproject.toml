@@ -1,6 +1,6 @@
 [project]
 name = "nvtripy"
-version = "0.1.1"
+version = "0.1.2"
 authors = [{ name = "NVIDIA", email = "svc_tensorrt@nvidia.com" }]
 description = "Tripy: A Python Programming Model For TensorRT"
 readme = "README.md"
@@ -8,8 +8,8 @@ requires-python = ">= 3.9"
 license = { text = "Apache 2.0" }
 dependencies = [
   "tensorrt>=10.9",
-  "mlir-tensorrt-compiler==0.1.40+cuda12.trt109",
-  "mlir-tensorrt-runtime==0.1.40+cuda12.trt109",
+  "mlir-tensorrt-compiler==0.1.41+cuda12.trt109",
+  "mlir-tensorrt-runtime==0.1.41+cuda12.trt109",
   "colored==2.2.3",
 ]
 
