@@ -48,6 +48,8 @@ class PositionEmbeddingSine(tp.Module):
         if scale is None:
             scale = 2 * math.pi
         self.scale = scale
+        self.static_memory_embed_shape = [2, 64, 64, 64]
+        self.static_memory_pos_embedding = self.generate_static_embedding(self.static_memory_embed_shape, "float16")
 
     def forward(self, x: tp.Tensor):
         # x: [B, C, H, W]
@@ -105,6 +107,8 @@ class PositionEmbeddingSine(tp.Module):
         return pos.contiguous()
 
     def generate_pos_embedding_torch(self, x):
+        if list(x.shape) == self.static_memory_embed_shape:
+            return self.static_memory_pos_embedding.to(x.dtype).contiguous()
         return self.generate_static_embedding(x.shape).to(x.dtype).contiguous()
 
 
