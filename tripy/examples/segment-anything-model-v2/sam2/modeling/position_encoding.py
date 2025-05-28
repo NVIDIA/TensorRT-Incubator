@@ -80,7 +80,7 @@ class PositionEmbeddingSine(tp.Module):
         pos = tp.permute(pos, (0, 3, 1, 2))
         return pos
 
-    def generate_static_embedding(self, inp_shape, dtype):
+    def generate_static_embedding(self, inp_shape, dtype=None):
         import torch
 
         B, _, H, W = inp_shape
@@ -100,7 +100,12 @@ class PositionEmbeddingSine(tp.Module):
         pos_x = torch.stack((pos_x[:, :, :, 0::2].sin(), pos_x[:, :, :, 1::2].cos()), dim=4).flatten(3)
         pos_y = torch.stack((pos_y[:, :, :, 0::2].sin(), pos_y[:, :, :, 1::2].cos()), dim=4).flatten(3)
         pos = torch.cat((pos_y, pos_x), dim=3).permute(0, 3, 1, 2)
-        return tp.Tensor(pos.to(getattr(torch, dtype)).contiguous())
+        if dtype is not None:
+            pos = pos.to(getattr(torch, dtype))
+        return pos.contiguous()
+
+    def generate_pos_embedding_torch(self, x):
+        return self.generate_static_embedding(x.shape).to(x.dtype).contiguous()
 
 
 class PositionEmbeddingRandom(tp.Module):

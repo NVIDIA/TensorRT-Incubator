@@ -179,6 +179,4 @@ class MemoryEncoder(tp.Module):
         x = self.fuser(x)
         x = self.out_proj(x)
 
-        pos = tp.cast(self.position_encoding(x), x.dtype)
-
-        return x, pos
+        return x

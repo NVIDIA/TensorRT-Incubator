@@ -120,7 +120,8 @@ class FpnNeck(tp.Module):
         self.position_encoding = []
         position_encoding_shapes = [[256, 256], [128, 128], [64, 64], [32, 32]]
         for s in position_encoding_shapes:
-            self.position_encoding.append(position_encoding.generate_static_embedding([1, 256] + s, dtype=dtype))
+            embed = position_encoding.generate_static_embedding([1, 256] + s, dtype=dtype)
+            self.position_encoding.append(tp.Tensor(embed))
 
     def __call__(self, xs: List[tp.Tensor]):
 

@@ -139,6 +139,7 @@ class SAM2Base(torch.nn.Module):
 
         # Part 3: memory encoder for the previous frame's outputs
         self.memory_encoder = memory_encoder
+        self.position_encoder = self.memory_encoder.position_encoding
         self.mem_dim = self.hidden_dim
         if hasattr(self.memory_encoder, "out_proj") and hasattr(self.memory_encoder.out_proj, "weight"):
             # if there is compression of memories along channel dim
@@ -720,11 +721,11 @@ class SAM2Base(torch.nn.Module):
         if self.sigmoid_bias_for_mem_enc != 0.0:
             mask_for_mem = mask_for_mem + self.sigmoid_bias_for_mem_enc
 
-        maskmem_features, maskmem_pos_enc = self.memory_encoder(
+        maskmem_features = self.memory_encoder(
             tp.Tensor(pix_feat.float().contiguous()), tp.Tensor(mask_for_mem.contiguous())
         )  # sigmoid already applied
         maskmem_features = torch.from_dlpack(maskmem_features)
-        maskmem_pos_enc = [torch.from_dlpack(maskmem_pos_enc)]
+        maskmem_pos_enc = [self.position_encoder.generate_pos_embedding_torch(maskmem_features)]
 
         return maskmem_features, maskmem_pos_enc
 
