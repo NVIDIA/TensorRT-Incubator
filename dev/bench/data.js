@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1748465815752,
+  "lastUpdate": 1748470831728,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -13152,6 +13152,47 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0000023057939483687927",
             "extra": "mean: 56.92404707690109 usec\nrounds: 18213"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "5a4c440ce0b28f76b6e90b3ff72db23daf12b4bf",
+          "message": "Use torch to generate pos embeddings",
+          "timestamp": "2025-05-28T17:04:06Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/648/commits/5a4c440ce0b28f76b6e90b3ff72db23daf12b4bf"
+        },
+        "date": 1748470830672,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 5313.637160014826,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000025324639246755207",
+            "extra": "mean: 188.19501028881126 usec\nrounds: 5629"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 6344.772541788534,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00003365820509903115",
+            "extra": "mean: 157.61006299496262 usec\nrounds: 6749"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_tripy_param_update",
+            "value": 17859.89898653921,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000004650732603191299",
+            "extra": "mean: 55.99135811203008 usec\nrounds: 18643"
           }
         ]
       }
