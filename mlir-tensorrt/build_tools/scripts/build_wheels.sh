@@ -14,6 +14,6 @@ python${py_version} -m pip install -r python/requirements-dev.txt
 export DOWNLOAD_TENSORRT_VERSION=${DOWNLOAD_TENSORRT_VERSION:-10.9}
 
 rm -rf build || true
-cmake --preset ninja-release-wheels
+cmake --preset ninja-debug-wheels
 ninja -C build mlir-tensorrt-all-wheels
 rsync -za build/wheels/ .private.wheels/

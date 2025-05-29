@@ -993,6 +993,36 @@ LogicalResult NvInferNetworkEncoder::encodeFunc(FunctionOpInterface func) {
                 "for arg "
              << arg.getArgNumber();
     setProfileDimensions(profile, name, *info);
+
+    auto dimNamesAttr = func.getArgAttrOfType<DictionaryAttr>(
+        // TODO (pranavm): Store name somewhere
+        arg.getArgNumber(), "tensorrt.dimension_names");
+    if (dimNamesAttr) {
+
+      for (NamedAttribute namedAttr : dimNamesAttr) {
+        // Convert key from StringRef to integer
+        int32_t key;
+        if (namedAttr.getName().getValue().getAsInteger(10, key)) {
+          // Handle invalid integer conversion
+          continue;
+        }
+
+        // Extract string value
+        if (StringAttr strAttr = namedAttr.getValue().dyn_cast<StringAttr>()) {
+          StringRef value = strAttr.getValue();
+          // Use key/value pair here
+          inputTensor->setDimensionName(static_cast<int32_t>(key),
+                                        value.str().c_str());
+          llvm::outs() << "Argument: " << name
+                       << " (index = " << arg.getArgNumber() << ")"
+                       << "Dimension name: " << key << " -> "
+                       << inputTensor->getDimensionName(
+                              static_cast<int32_t>(key))
+                       << "\n";
+          llvm::outs().flush();
+        }
+      }
+    }
   }
 
   return success();

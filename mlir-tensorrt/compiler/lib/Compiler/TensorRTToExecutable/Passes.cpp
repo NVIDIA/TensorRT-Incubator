@@ -243,6 +243,7 @@ outlineOp(RewriterBase &rewriter, tensorrt::TensorRTModuleOp trtModule,
   func::FuncOp funcContainingCluster =
       cluster.back()->getParentOfType<func::FuncOp>();
   SmallVector<Attribute> profileAttrsPerInput;
+  SmallVector<Attribute> dimensionNamesAttrsPerInput;
   for (Value v : inputs) {
     auto rtt = dyn_cast<RankedTensorType>(v.getType());
     if (!rtt || rtt.hasStaticShape()) {
@@ -263,18 +264,32 @@ outlineOp(RewriterBase &rewriter, tensorrt::TensorRTModuleOp trtModule,
         funcContainingCluster.getArgAttrOfType<tensorrt::ShapeProfileAttr>(
             argIndex, tensorrtShapeBoundsAttrName));
 
+    // TODO (pranavm): Store name somewhere
+    dimensionNamesAttrsPerInput.push_back(
+        funcContainingCluster.getArgAttrOfType<DictionaryAttr>(
+            argIndex, "tensorrt.dimension_names"));
+
     if (!profileAttrsPerInput.back()) {
       return emitError(blockArg.getLoc())
              << "Profile attribute (" << tensorrtShapeBoundsAttrName
              << ") of argument " << argIndex << " is not set";
     }
+    // TODO (pranavm): Store name somewhere
+    if (!dimensionNamesAttrsPerInput.back()) {
+      return emitError(blockArg.getLoc())
+             << "Dimension name attribute ("
+             << "tensorrt.dimension_names"
+             << ") of argument " << argIndex << " is not set";
+    }
   }
 
   for (unsigned idx = 0; idx < func->getNumArguments(); idx++) {
-    if (!profileAttrsPerInput[idx])
-      continue;
-    func->setArgAttr(idx, tensorrtShapeBoundsAttrName,
-                     profileAttrsPerInput[idx]);
+    if (profileAttrsPerInput[idx])
+      func->setArgAttr(idx, tensorrtShapeBoundsAttrName,
+                       profileAttrsPerInput[idx]);
+    if (dimensionNamesAttrsPerInput[idx])
+      func->setArgAttr(idx, "tensorrt.dimension_names",
+                       dimensionNamesAttrsPerInput[idx]);
   }
 
   rewriter.setInsertionPoint(inlineGroupOp);

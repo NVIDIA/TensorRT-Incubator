@@ -12,13 +12,21 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from typing import Sequence, Tuple, Union
+from typing import Dict, Sequence, Tuple, Union
 
 from nvtripy import export
 from nvtripy.common.shape_bounds import ShapeBounds
 from nvtripy.frontend.dimension_size import DimensionSize
 from nvtripy.types import IntLike
 from nvtripy.utils import json as json_utils
+
+
+# TODO (pranavm): Figure out where to document:
+@export.public_api(document_under="compiling_code/input_info")
+class NamedDimension:
+    def __init__(self, name: str, min: int, opt: int, max: int) -> None:
+        self.shape = (min, opt, max)
+        self.name = name
 
 
 @export.public_api(document_under="compiling_code/input_info/index.rst")
@@ -28,7 +36,9 @@ class InputInfo:
     """
 
     def __init__(
-        self, shape: Sequence[Union[IntLike, Tuple[IntLike, IntLike, IntLike]]], dtype: "nvtripy.dtype"
+        self,
+        shape: Sequence[Union[IntLike, Tuple[IntLike, IntLike, IntLike], NamedDimension]],
+        dtype: "nvtripy.dtype",
     ) -> None:
         """
         Args:
@@ -61,15 +71,23 @@ class InputInfo:
         min_shape = []
         opt_shape = []
         max_shape = []
-        for elem in shape:
+        dimension_names = {}
+        for idx, elem in enumerate(shape):
             if is_int_like(elem):
                 elem = (elem,) * 3
+
+            if isinstance(elem, NamedDimension):
+                dimension_names[idx] = elem.name
+                elem = elem.shape
 
             assert len(elem) == 3 and all(is_int_like(val) for val in elem)
 
             min_shape.append(elem[0])
             opt_shape.append(elem[1])
             max_shape.append(elem[2])
+
+        # TODO (pranavm): Document this?
+        self.dimension_names: Dict[int, str] = dimension_names
 
         self.shape_bounds: ShapeBounds = ShapeBounds(tuple(min_shape), tuple(opt_shape), tuple(max_shape))
         """

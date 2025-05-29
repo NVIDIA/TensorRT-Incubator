@@ -130,7 +130,6 @@ def compile(
     """
     signature = inspect.signature(func)
 
-    shapes = []
     trace_input_map = {}
     input_names = set()
     input_infos = {}
@@ -160,7 +159,6 @@ def compile(
             )
 
             trace_input_map[name] = tensor
-            shapes.append(arg.shape_bounds)
             input_names.add(name)
 
             return tensor
@@ -223,7 +221,10 @@ def compile(
     # Order of trace inputs also needs to match that of the compiled_arg_names
     trace_inputs = [trace_input_map[name].trace_tensor for name in compiled_arg_names]
     trace = Trace(
-        [tensor.trace_tensor for tensor in trace_outputs], trace_inputs, shapes=shapes, name=obj_name_or_type_name(func)
+        [tensor.trace_tensor for tensor in trace_outputs],
+        trace_inputs,
+        input_infos=input_infos,
+        name=obj_name_or_type_name(func),
     )
 
     for op in trace.ops:
