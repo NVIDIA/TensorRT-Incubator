@@ -38,6 +38,12 @@ def TensorRT_Dialect : Dialect {
       return "tensorrt.shape_profile";
     }
 
+    /// Return the name of the function arg attr that encodes
+    /// the dimension names. It should have a type `DictionaryAttr`.
+    static StringRef getDimensionNamesArgAttrName() {
+      return "tensorrt.dimension_names";
+    }
+
     /// TensorRT quantization and dequantization mode markers.
     static constexpr StringRef kTensorRTPerTensorQuantizationMarker = "tensorrt.pt_q";
     static constexpr StringRef kTensorRTPerChannelQuantizationMarker = "tensorrt.pc_q";

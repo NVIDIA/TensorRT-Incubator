@@ -922,6 +922,29 @@ LogicalResult NvInferNetworkEncoder::encodeFunc(FunctionOpInterface func) {
       return failure();
     nvinfer1::ITensor *inputTensor =
         getNetworkDefinition()->addInput(name.c_str(), *dtype, trtShape);
+
+    // setDimensionName must be called immediately after addInput, or TensorRT
+    // will not deduplicate equal dimensions, which leads to perf gaps.
+    auto dimNamesAttr = func.getArgAttrOfType<DictionaryAttr>(
+        arg.getArgNumber(), TensorRTDialect::getDimensionNamesArgAttrName());
+    if (dimNamesAttr) {
+
+      for (NamedAttribute namedAttr : dimNamesAttr) {
+        int32_t key;
+        if (namedAttr.getName().getValue().getAsInteger(10, key)) {
+          return func->emitOpError()
+                 << "dimension name key '" << namedAttr.getName()
+                 << "' is not an integer";
+        }
+
+        if (StringAttr strAttr = namedAttr.getValue().dyn_cast<StringAttr>()) {
+          StringRef value = strAttr.getValue();
+          inputTensor->setDimensionName(static_cast<int32_t>(key),
+                                        value.str().c_str());
+        }
+      }
+    }
+
     if (!usesStronglyTyped && dtype == nvinfer1::DataType::kINT8)
       setIdentityInt8DynamicRange(inputTensor);
     this->map(arg, inputTensor);
