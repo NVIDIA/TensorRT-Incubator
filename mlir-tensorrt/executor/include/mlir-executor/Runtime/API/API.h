@@ -22,8 +22,8 @@
 /// the compielr-runtime or runtime-user interface.
 ///
 //===----------------------------------------------------------------------===//
-#ifndef MLIR_TENSORRT_RUNTIME_API_API
-#define MLIR_TENSORRT_RUNTIME_API_API
+#ifndef MLIR_EXECUTOR_RUNTIME_API_API
+#define MLIR_EXECUTOR_RUNTIME_API_API
 
 #include "dlpack/dlpack.h"
 #include "mlir-executor/Support/Allocators.h"
@@ -34,8 +34,10 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/StringSet.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include <atomic>
+#include <complex>
 #include <memory>
 #include <string_view>
 
@@ -284,7 +286,7 @@ public:
 
 /// A wrapper equivalent to the flatbuffer-generated TypeUnion object. The
 /// `view` object may be a `impl::MemRef|impl::ScalarType|impl::OpaqueType` and
-/// `type` is the tag indicating the poitner type.
+/// `type` is the tag indicating the pointer type.
 struct TypeUnionView {
   impl::Type type;
   const void *view;
@@ -744,32 +746,88 @@ private:
 
 class ScalarValue : public RuntimeValue {
 public:
+  union Storage {
+    uint64_t real;
+    void *complex;
+  };
+
   template <typename T>
   ScalarValue(T data_, ScalarType type)
       : RuntimeValue(Kind::Scalar), type(type) {
-    static_assert(sizeof(T) <= sizeof(int64_t) &&
-                      alignof(T) <= alignof(int64_t),
+    static_assert(sizeof(T) <= sizeof(uint64_t) &&
+                      alignof(T) <= alignof(uint64_t),
                   "expected scalar type size to be <= 8 bytes");
-    *reinterpret_cast<T *>(&data) = data_;
+    *reinterpret_cast<T *>(&data.real) = data_;
   }
+
+  template <typename T>
+  ScalarValue(T real_, T imag_, ScalarType type)
+      : RuntimeValue(Kind::Scalar), type(type) {
+    static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>,
+                  "complex constructor only valid for float and double types.");
+    static_assert(sizeof(T) <= sizeof(uint64_t) &&
+                      alignof(T) <= alignof(uint64_t),
+                  "expected scalar type size to be <= 8 bytes.");
+    assert(isComplex() &&
+           "complex value constructor used for non-complex scalar type.");
+    data.complex = std::make_unique<std::complex<T>>(real_, imag_).release();
+  }
+
+  // Delete copy constructors.
+  ScalarValue(const ScalarValue &other) = delete;
+  ScalarValue &operator=(const ScalarValue &other) = delete;
+
+  // Move constructors.
+  ScalarValue(ScalarValue &&other) noexcept;
+  ScalarValue &operator=(ScalarValue &&other) noexcept;
+
+  ~ScalarValue();
 
   ScalarType getType() const { return type; }
 
   template <typename T>
   T get() const {
-    static_assert(sizeof(T) <= sizeof(int64_t),
-                  "expected scalar type size to be <= 8 bytes");
-    return *reinterpret_cast<const T *>(&data);
+    static_assert(sizeof(T) <= sizeof(uint64_t),
+                  "expected scalar type size to be <= 8 bytes.");
+    assert(!isComplex() && "use `getComplex()` for complex scalar.");
+    return *reinterpret_cast<const T *>(&data.real);
   }
 
-  void *getRaw() { return &data; }
+  template <typename T>
+  std::complex<T> getComplex() const {
+    static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>,
+                  "getComplex() only supports float and double types.");
+    static_assert(sizeof(T) <= sizeof(uint64_t) &&
+                      alignof(T) <= alignof(uint64_t),
+                  "expected scalar type size to be <= 8 bytes.");
+    assert(isComplex() &&
+           "complex value constructor used for non-complex scalar type.");
+    if constexpr (std::is_same_v<T, float>) {
+      assert(
+          type.getCode() == ScalarTypeCode::complex32 &&
+          "Type mismatch: expected scalar type code of complex32 for float.");
+    } else {
+      assert(
+          type.getCode() == ScalarTypeCode::complex64 &&
+          "Type mismatch: expected scalar type code of complex64 for double.");
+    }
+    return *static_cast<const std::complex<T> *>(data.complex);
+  }
+
+  bool isComplex() const {
+    return type.getCode() == ScalarTypeCode::complex32 ||
+           type.getCode() == ScalarTypeCode::complex64;
+  }
+
+  void *getRaw() { return isComplex() ? data.complex : &data.real; }
 
   static bool classof(const RuntimeValue *v) {
     return v->getKind() == Kind::Scalar;
   }
 
 private:
-  int64_t data;
+  void cleanup();
+  Storage data;
   ScalarType type;
 };
 
@@ -882,8 +940,13 @@ public:
   /// devices, and NCCL UUID. Single-device sessions can use the default
   /// options.
   RuntimeSessionOptions(int32_t numDevices = 1, int32_t deviceId = 0,
-                        llvm::StringRef ncclUuid = "")
-      : numDevices(numDevices), deviceId(deviceId), ncclUuid(ncclUuid) {}
+                        llvm::StringRef ncclUuid = "");
+
+  /// Enable the specified features for the runtime session.
+  void enableFeatures(llvm::ArrayRef<std::string> features);
+
+  /// Returns true if the given feature is enabled.
+  bool isFeatureEnabled(llvm::StringRef feature) const;
 
   /// Populates the runtime session options using the MPI calls. Each MPI
   /// process is expected to be associated with a CUDA device associated with
@@ -905,10 +968,17 @@ public:
   /// one device.a
   llvm::StringRef getNcclUuid() const { return ncclUuid; }
 
+  /// Return the set of features that are enabled for this session.
+  const llvm::StringSet<> &getEnabledFeatures() const { return features; }
+
 private:
   int32_t numDevices;
   int32_t deviceId;
   std::string ncclUuid;
+
+  /// A list of features names (e.g. module names) that should be enabled for
+  /// this session.
+  llvm::StringSet<> features;
 };
 
 //===----------------------------------------------------------------------===//
@@ -1123,7 +1193,7 @@ public:
   copyToDevice(const MemRefValue &hostBuffer, const Device &device,
                std::optional<CudaStream> stream);
 
-  /// Allocates a new device buffer and fills it with data present on the host
+  /// Allocates a new host buffer and fills it with data present on the device
   /// in the specified buffer. The allocation and copy are performed on the
   /// given stream.
   StatusOr<std::unique_ptr<MemRefValue>>
@@ -1203,4 +1273,4 @@ inline llvm::raw_ostream &print(llvm::raw_ostream &os,
 
 } // namespace mlirtrt::runtime
 
-#endif // MLIR_TENSORRT_RUNTIME_API_API
+#endif // MLIR_EXECUTOR_RUNTIME_API_API

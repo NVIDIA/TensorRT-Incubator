@@ -23,8 +23,8 @@
 /// mechanisms.
 ///
 //===----------------------------------------------------------------------===//
-#ifndef MLIR_TENSORRT_SUPPORT_STATUS_H
-#define MLIR_TENSORRT_SUPPORT_STATUS_H
+#ifndef MLIR_EXECUTOR_SUPPORT_STATUS
+#define MLIR_EXECUTOR_SUPPORT_STATUS
 
 #include "mlir-executor/Utils/ADTExtras.h"
 #include "llvm/ADT/StringExtras.h"
@@ -260,4 +260,4 @@ private:
 
 } // namespace mlirtrt
 
-#endif // MLIR_TENSORRT_SUPPORT_STATUS_H
+#endif // MLIR_EXECUTOR_SUPPORT_STATUS

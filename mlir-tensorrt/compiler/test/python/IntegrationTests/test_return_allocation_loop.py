@@ -1,4 +1,4 @@
-# RUN: %PYTHON %s
+# RUN: %pick-one-gpu %PYTHON %s
 # Creates a program that requries ~1GB of memory to run.
 # We execute it in a loop, and in each execution the program needs to allocate a new output buffer
 # of size ~1GB.

@@ -60,11 +60,13 @@ if(MLIR_EXECUTOR_ENABLE_CUDA)
   mlir_executor_find_and_patch_libnvptxcompiler(CUDANVPTXCompilerLibraryPatched)
 endif()
 
-mlir_executor_add_nvtx()
+find_package(NVTX REQUIRED)
 mlir_executor_add_lua()
 mlir_executor_add_sol2()
 mlir_tensorrt_find_dlpack()
 find_package(Flatbuffers REQUIRED)
+
+find_package(MLIRTensorRTCommon REQUIRED)
 
 if(MLIR_EXECUTOR_ENABLE_MPI)
   find_package(MPI COMPONENTS C)

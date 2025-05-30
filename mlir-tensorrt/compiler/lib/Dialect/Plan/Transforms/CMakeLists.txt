@@ -6,17 +6,21 @@ add_mlir_tensorrt_library(MLIRTensorRTPlanTransforms
   CreateClosedRegions.cpp
   CreateShapeFuncs.cpp
   EliminateShapeOps.cpp
+  MaterializeExplicitTransfers.cpp
   MaterializeShapeCalculations.cpp
   MaterializeShapeCalculationsStablehlo.cpp
+  ModuleBufferization/BufferResultsToOutParams.cpp
   ModuleBufferization/ModuleBufferization.cpp
   ModuleBufferization/ModuleBufferizationAnalysis.cpp
   ModuleBufferization/ModuleBufferizationUtils.cpp
   ModuleBufferization/RemoveEquivalentBufferResults.cpp
+  OptimizeMemorySpaces.cpp
   OutlineClusters.cpp
   OutlineConstantFoldableSubgraphs.cpp
   Passes.cpp
   PopulateFunctionBoundsAttributes.cpp
   PostClusteringValidation.cpp
+  PromoteHostTensorsToHostPinned.cpp
   RefineTypes.cpp
 
   DEPENDS

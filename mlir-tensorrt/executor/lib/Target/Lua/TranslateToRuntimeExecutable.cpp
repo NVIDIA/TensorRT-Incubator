@@ -134,6 +134,58 @@ private:
 
 } // namespace
 
+static bool isElidedResourceElementsAttr(ElementsAttr attr) {
+  auto denseResourceAttr = dyn_cast<DenseResourceElementsAttr>(attr);
+  if (!denseResourceAttr)
+    return false;
+  DenseResourceElementsHandle handle = denseResourceAttr.getRawHandle();
+  if (handle.getKey() != "__elided__")
+    return false;
+  return true;
+}
+
+static FailureOr<DenseElementsAttr>
+getDenseElementsAttrOfOnes(ElementsAttr attr) {
+  ShapedType tensorType = cast<ShapedType>(attr.getType());
+  Type elementType = tensorType.getElementType();
+  if (elementType.isInteger(1))
+    return DenseElementsAttr::get(tensorType, true);
+  if (elementType.isInteger(8))
+    return DenseElementsAttr::get(tensorType, APInt(8, 1));
+  if (elementType.isInteger(16))
+    return DenseElementsAttr::get(tensorType, APInt(16, 1));
+  if (elementType.isInteger(32))
+    return DenseElementsAttr::get(tensorType, APInt(32, 1));
+  if (elementType.isInteger(64))
+    return DenseElementsAttr::get(tensorType, APInt(64, 1));
+  if (isa<Float8E4M3FNType>(elementType))
+    return DenseElementsAttr::get(tensorType,
+                                  APFloat::getOne(APFloat::Float8E4M3FN()));
+  if (elementType.isF16())
+    return DenseElementsAttr::get(tensorType,
+                                  APFloat::getOne(APFloat::IEEEhalf()));
+  if (elementType.isBF16())
+    return DenseElementsAttr::get(tensorType,
+                                  APFloat::getOne(APFloat::BFloat()));
+  if (elementType.isF32())
+    return DenseElementsAttr::get(tensorType,
+                                  APFloat::getOne(APFloat::IEEEsingle()));
+  if (elementType.isF64())
+    return DenseElementsAttr::get(tensorType,
+                                  APFloat::getOne(APFloat::IEEEdouble()));
+  if (elementType ==
+      ComplexType::get(Float32Type::get(elementType.getContext()))) {
+    std::complex<float> complexOne(1.0f, 1.0f);
+    return DenseElementsAttr::get(tensorType, complexOne);
+  }
+  if (elementType ==
+      ComplexType::get(Float64Type::get(elementType.getContext()))) {
+    std::complex<double> complexOne(1.0, 1.0);
+    return DenseElementsAttr::get(tensorType, complexOne);
+  }
+  return failure();
+}
+
 template <typename T, template <typename...> class OffsetT,
           template <typename...> class VectorT>
 FailureOr<OffsetT<VectorT<T>>>
@@ -141,6 +193,14 @@ FBBuilder::serialize64(Location loc, const DataLayout &dataLayout,
                        ElementsAttr attr, std::optional<uint32_t> alignment) {
   FlatbufferElementsSerializer<T, OffsetT, VectorT> serializer(*this,
                                                                dataLayout);
+  if (isElidedResourceElementsAttr(attr)) {
+    // Elided attribute can't be serialized so we create splat
+    // of `1`s (splat of `true` in case of boolean).
+    auto attrOfOnes = getDenseElementsAttrOfOnes(attr);
+    if (failed(attrOfOnes))
+      return failure();
+    attr = *attrOfOnes;
+  }
   if (failed(mlir::serializeElementsAttr(loc, attr, dataLayout, serializer,
                                          alignment)))
     return failure();
@@ -240,7 +300,8 @@ translateTypeVariant(FBBuilder &fbBuilder, Type t) {
            << "unhandled type (" << t << ") in Executor function metadata";
   };
 
-  if (!isa<MemRefType, IntegerType, FloatType, executor::ExecutorOpaqueType>(t))
+  if (!isa<MemRefType, IntegerType, FloatType, ComplexType,
+           executor::ExecutorOpaqueType>(t))
     return emitTranslateFailure(t);
 
   // Encode as a memref.

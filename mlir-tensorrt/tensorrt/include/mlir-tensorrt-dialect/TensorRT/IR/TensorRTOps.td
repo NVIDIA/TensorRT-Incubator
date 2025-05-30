@@ -1117,7 +1117,7 @@ def TensorRT_LinspaceOp : TensorRT_Op<"linspace", [
   }];
 
   let arguments = (ins
-    Optional<1DTensorOf<[I32]>>:$shape,
+    Optional<1DTensorOf<[I32, I64]>>:$shape,
     Optional<0DTensorOf<[I32, I64, F32]>>:$start,
     Optional<1DTensorOf<[I32, I64, F32]>>:$step,
     OptionalAttr<F64Attr>:$static_start,

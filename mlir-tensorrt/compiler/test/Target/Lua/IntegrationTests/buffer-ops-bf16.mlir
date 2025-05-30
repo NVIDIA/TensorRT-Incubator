@@ -1,7 +1,7 @@
 // REQUIRES: host-has-at-least-1-gpus
 // RUN: mlir-tensorrt-opt %s -convert-memref-to-cuda -convert-plan-to-executor -convert-cuda-to-executor -executor-lowering-pipeline \
 // RUN:   | mlir-tensorrt-translate -mlir-to-runtime-executable \
-// RUN:   | mlir-tensorrt-runner -input-type=rtexe | FileCheck %s
+// RUN:   | mlir-tensorrt-runner -input-type=rtexe -features=core,cuda | FileCheck %s
 
 !descriptor1D = !executor.table<!executor.ptr<device>, !executor.ptr<device>, index, index, index>
 !hostMemRef = memref<4xbf16, #plan.memory_space<host_pinned>>

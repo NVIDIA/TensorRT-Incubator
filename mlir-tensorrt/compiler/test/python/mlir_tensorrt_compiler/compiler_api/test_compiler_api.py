@@ -1,7 +1,7 @@
 # REQUIRES: tensorrt-version-ge-10.0
 # REQUIRES: host-has-at-least-1-gpus
 # REQUIRES: debug-print
-# RUN: %PYTHON %s 2>&1 | FileCheck %s
+# RUN: %pick-one-gpu %PYTHON %s 2>&1 | FileCheck %s
 
 # This test requires TensorRT >= 10.0 since we are testing ability
 # to set the 'tensorrt-strongly-typed' flag.

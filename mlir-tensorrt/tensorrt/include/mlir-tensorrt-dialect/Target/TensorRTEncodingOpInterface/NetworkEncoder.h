@@ -29,6 +29,7 @@
 #include "mlir-tensorrt-dialect/Utils/NvInferPluginUtils.h"
 #include "llvm/ADT/ScopedHashTable.h"
 #include "llvm/ADT/StringSet.h"
+#include <type_traits>
 
 #if defined(__GNUC__) || defined(__clang__)
 #pragma GCC diagnostic push
@@ -271,14 +272,17 @@ static nvinfer1::Dims getNvInferDims(ArrayRef<T> arrayRef) {
          "input array exceeds max dims");
   nvinfer1::Dims dims;
   dims.nbDims = arrayRef.size();
+
+  using NvInferDimType = std::remove_reference_t<decltype(dims.d[0])>;
+
   llvm::copy(llvm::map_range(arrayRef,
-                             [](auto x) {
-                               if (static_cast<int64_t>(x) ==
-                                   ShapedType::kDynamic)
+                             [](auto x) -> NvInferDimType {
+                               if (ShapedType::isDynamic(x))
                                  return -1;
-                               return static_cast<int32_t>(x);
+                               return static_cast<NvInferDimType>(x);
                              }),
              dims.d);
+
   return dims;
 }
 

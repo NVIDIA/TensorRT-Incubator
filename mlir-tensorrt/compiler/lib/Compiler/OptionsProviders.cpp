@@ -154,10 +154,7 @@ std::optional<llvm::hash_code> CompilationTaskOptionsBase::getHash() const {
     llvm::raw_svector_ostream os(str);
     this->print(os);
   }
-  auto val = llvm::hash_value(str);
-  for (const auto &ext : extensions)
-    val = llvm::hash_combine(val, *ext->getHash());
-  return val;
+  return llvm::hash_value(str);
 }
 
 mlir::LogicalResult

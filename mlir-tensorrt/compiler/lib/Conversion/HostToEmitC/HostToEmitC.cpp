@@ -27,11 +27,13 @@
 #include "mlir-tensorrt/Dialect/CUDA/IR/CUDADialect.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir-tensorrt/Dialect/TensorRTRuntime/IR/TensorRTRuntime.h"
+#include "mlir/Analysis/DataLayoutAnalysis.h"
 #include "mlir/Conversion/ArithToEmitC/ArithToEmitC.h"
 #include "mlir/Conversion/FuncToEmitC/FuncToEmitC.h"
 #include "mlir/Conversion/SCFToEmitC/SCFToEmitC.h"
 #include "mlir/Dialect/EmitC/IR/EmitC.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/Func/Transforms/OneToNFuncConversions.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/Utils/IndexingUtils.h"
 #include "mlir/Interfaces/DataLayoutInterfaces.h"
@@ -935,15 +937,20 @@ namespace {
 /// organized by dialect below.
 template <typename OpType>
 struct EmitCConversionPattern : OpConversionPattern<OpType> {
-  using OpConversionPattern<OpType>::OpConversionPattern;
+
+  EmitCConversionPattern(const TypeConverter &typeConverter,
+                         const DataLayout &dataLayout, MLIRContext *ctx,
+                         PatternBenefit benefit = PatternBenefit(10))
+      : OpConversionPattern<OpType>(typeConverter, ctx, benefit),
+        dataLayout(dataLayout) {}
 
   MLIRContext *ctx{this->getContext()};
   EmitCCallBuilders builders{ctx};
   Type voidPtrType{builders.voidPtrType};
-
-  Type i8Type{IntegerType::get(ctx, 8)};
-  Type i32Type{IntegerType::get(ctx, 32)};
-  Type i64Type{IntegerType::get(ctx, 64)};
+  IntegerType i8Type{IntegerType::get(ctx, 8)};
+  IntegerType i32Type{IntegerType::get(ctx, 32)};
+  IntegerType i64Type{IntegerType::get(ctx, 64)};
+  const mlir::DataLayout &dataLayout;
 
   emitc::PointerType getPointerType(Type elementType) const {
     return emitc::PointerType::get(elementType);
@@ -999,8 +1006,6 @@ struct EmitCConversionPattern : OpConversionPattern<OpType> {
                       "mtrt::make_unranked_descriptor", {rankVal, rankedDesc})
         .getResult(0);
   }
-
-  mlir::DataLayout dataLayout;
 };
 
 //===----------------------------------------------------------------------===//
@@ -1070,8 +1075,6 @@ struct TRTEnqueueConverter : EmitCConversionPattern<trtrt::EnqueueOp> {
     rewriter.eraseOp(op);
     return success();
   }
-
-  DataLayout dataLayout;
 };
 
 //===----------------------------------------------------------------------===//
@@ -1282,8 +1285,6 @@ struct CUDAAllocConverter : public EmitCConversionPattern<cuda::AllocOp> {
 
     return success();
   }
-
-  mlir::DataLayout dataLayout;
 };
 
 struct CudaDeallocConverter : public EmitCConversionPattern<cuda::DeallocOp> {
@@ -1334,13 +1335,14 @@ struct CudaCopyConverter : public EmitCConversionPattern<CpyOpType> {
     EmitCMemRefDescriptor src(adaptor.getSource());
     EmitCMemRefDescriptor dest(adaptor.getTarget());
     Location loc = op.getLoc();
-    Value srcStart = src.getMemRefBufferStart(rewriter, loc, dataLayout,
+    Value srcStart = src.getMemRefBufferStart(rewriter, loc, this->dataLayout,
                                               srcType.getElementType());
-    Value destStart = dest.getMemRefBufferStart(rewriter, loc, dataLayout,
+    Value destStart = dest.getMemRefBufferStart(rewriter, loc, this->dataLayout,
                                                 dstType.getElementType());
 
     if (!isCopyStrided(srcType, dstType)) {
-      Value totalSize = src.getSizeInBytes(rewriter, loc, dataLayout, srcType);
+      Value totalSize =
+          src.getSizeInBytes(rewriter, loc, this->dataLayout, srcType);
       this->callOpaque(rewriter, loc, Type{}, "mtrt::cuda_copy",
                        {adaptor.getStream(), srcStart, destStart, totalSize});
       rewriter.eraseOp(op);
@@ -1367,8 +1369,6 @@ struct CudaCopyConverter : public EmitCConversionPattern<CpyOpType> {
     rewriter.eraseOp(op);
     return success();
   }
-
-  DataLayout dataLayout;
 };
 
 //===----------------------------------------------------------------------===//
@@ -1557,6 +1557,22 @@ struct MemRefAllocOpLowering : public EmitCConversionPattern<memref::AllocOp> {
   }
 };
 
+struct MemrefCastOpLowering : public EmitCConversionPattern<memref::CastOp> {
+  using EmitCConversionPattern::EmitCConversionPattern;
+  LogicalResult
+  matchAndRewrite(memref::CastOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    MemRefType sourceType = dyn_cast<MemRefType>(op.getSource().getType());
+    MemRefType targetType = dyn_cast<MemRefType>(op.getResult().getType());
+    if (!sourceType || !targetType)
+      return failure();
+    if (sourceType.getRank() != targetType.getRank())
+      return failure();
+    rewriter.replaceOp(op, adaptor.getSource());
+    return success();
+  }
+};
+
 /// Convert `memref.dealloc` to MTRT C++ API calls.
 struct MemRefDeallocLowering
     : public EmitCConversionPattern<memref::DeallocOp> {
@@ -1620,7 +1636,6 @@ struct MemRefLoadOpLowering : public EmitCConversionPattern<memref::LoadOp> {
     rewriter.replaceOpWithNewOp<emitc::LoadOp>(op, elementType, lval);
     return success();
   }
-  DataLayout dataLayout;
 };
 
 // Convert memref.load to C++.
@@ -1648,7 +1663,6 @@ struct MemRefStoreOpLowering : public EmitCConversionPattern<memref::StoreOp> {
     rewriter.eraseOp(op);
     return success();
   }
-  DataLayout dataLayout;
 };
 
 /// Unpack the pointer returned by a memref.extract_aligned_pointer_as_index.
@@ -1683,8 +1697,9 @@ public:
 //===----------------------------------------------------------------------===//
 
 /// Populate EmitC type conversions and op conversion patterns.
-static void populateEmitCConversionPatterns(TypeConverter &typeConverter,
-                                            RewritePatternSet &patterns) {
+static void populateEmitCConversionPatternsAndLegality(
+    const DataLayout &dataLayout, TypeConverter &typeConverter,
+    ConversionTarget &target, RewritePatternSet &patterns) {
   MLIRContext *ctx = patterns.getContext();
   Type cuEngineType = emitc::OpaqueType::get(ctx, "nvinfer1::ICudaEngine");
   Type cuEnginePtrType = emitc::PointerType::get(cuEngineType);
@@ -1725,6 +1740,19 @@ static void populateEmitCConversionPatterns(TypeConverter &typeConverter,
     return emitc::OpaqueType::get(t.getContext(), name);
   });
 
+  // Setup legality constraints.
+  target.addLegalOp<UnrealizedConversionCastOp>();
+  target.addLegalDialect<emitc::EmitCDialect>();
+  target.addIllegalDialect<trtrt::TensorRTRuntimeDialect, cuda::CUDADialect,
+                           executor::ExecutorDialect>();
+  target.addDynamicallyLegalOp<func::FuncOp>([&typeConverter](func::FuncOp op) {
+    return typeConverter.isSignatureLegal(op.getFunctionType());
+  });
+  target.addDynamicallyLegalOp<func::CallOp>([&typeConverter](func::CallOp op) {
+    return typeConverter.isLegal(op->getResultTypes()) &&
+           typeConverter.isLegal(op->getOperandTypes());
+  });
+
   // clang-format off
   patterns.add<
       CUDAAllocConverter,
@@ -1738,6 +1766,7 @@ static void populateEmitCConversionPatterns(TypeConverter &typeConverter,
       ExecutorPrintConverter,
       ExtractStridedMetadataOpLowering,
       MemRefAllocOpLowering,
+      MemrefCastOpLowering,
       MemRefDimOpLowering,
       MemRefDeallocLowering,
       MemRefExtractAlignedPointerAsIndexConverter,
@@ -1745,8 +1774,13 @@ static void populateEmitCConversionPatterns(TypeConverter &typeConverter,
       MemRefReinterpretCastOpLowering,
       MemRefStoreOpLowering,
       TRTEnqueueConverter
-    >(typeConverter, patterns.getContext());
+    >(typeConverter, dataLayout, patterns.getContext());
   // clang-format on
+  mlir::populateSCFToEmitCConversionPatterns(patterns, typeConverter);
+  mlir::populateArithToEmitCPatterns(typeConverter, patterns);
+  mlir::populateFuncTypeConversionPatterns(typeConverter, patterns);
+  mlir::populateFunctionOpInterfaceTypeConversionPattern<func::FuncOp>(
+      patterns, typeConverter);
 }
 
 namespace {
@@ -1754,29 +1788,6 @@ class HostToEmitCPass
     : public mlir::impl::ConvertHostToEmitCPassBase<HostToEmitCPass> {
 public:
   using Base::Base;
-
-  // Create the rewrite pattern set using all loaded dialects.
-  LogicalResult initialize(MLIRContext *context) final {
-    auto target = std::make_shared<ConversionTarget>(*context);
-    auto typeConverter = std::make_shared<TypeConverter>();
-    target->addLegalOp<UnrealizedConversionCastOp>();
-    target->addLegalDialect<emitc::EmitCDialect>();
-
-    target->addIllegalDialect<func::FuncDialect, trtrt::TensorRTRuntimeDialect,
-                              cuda::CUDADialect, executor::ExecutorDialect>();
-
-    RewritePatternSet patterns_(context);
-    populateEmitCConversionPatterns(*typeConverter, patterns_);
-    mlir::populateSCFToEmitCConversionPatterns(patterns_, *typeConverter);
-    mlir::populateFuncToEmitCPatterns(*typeConverter, patterns_);
-    mlir::populateArithToEmitCPatterns(*typeConverter, patterns_);
-
-    this->patterns =
-        std::make_shared<FrozenRewritePatternSet>(std::move(patterns_));
-    this->target = target;
-    this->typeConverter = typeConverter;
-    return success();
-  }
 
   void runOnOperation() override {
     ModuleOp moduleOp = getOperation();
@@ -1802,7 +1813,17 @@ public:
     if (failed(converter.convert()))
       return signalPassFailure();
 
-    if (failed(applyPartialConversion(moduleOp, *target, *patterns))) {
+    const DataLayoutAnalysis &dataLayoutAnalysis =
+        getAnalysis<DataLayoutAnalysis>();
+    const DataLayout &dataLayout = dataLayoutAnalysis.getAtOrAbove(moduleOp);
+
+    TypeConverter typeConverter;
+    RewritePatternSet patterns(&getContext());
+    ConversionTarget target(getContext());
+    populateEmitCConversionPatternsAndLegality(dataLayout, typeConverter,
+                                               target, patterns);
+
+    if (failed(applyPartialConversion(moduleOp, target, std::move(patterns)))) {
       emitError(getOperation()->getLoc())
           << "failed to apply conversion in " << getArgument();
       return signalPassFailure();
@@ -1846,8 +1867,8 @@ public:
     //===----------------------------------------------------------------------===//
     // cleanup
     //===----------------------------------------------------------------------===//
-    RewritePatternSet patterns(moduleOp->getContext());
-    patterns.add(
+    RewritePatternSet cleanupPatterns(moduleOp->getContext());
+    cleanupPatterns.add(
         +[](emitc::CastOp op, PatternRewriter &rewriter) -> LogicalResult {
           // Eliminate useless casts.
           if (op.getType() == op.getOperand().getType()) {
@@ -1884,11 +1905,7 @@ public:
           return failure();
         });
 
-    (void)mlir::applyPatternsGreedily(moduleOp, std::move(patterns));
+    (void)mlir::applyPatternsGreedily(moduleOp, std::move(cleanupPatterns));
   }
-
-  std::shared_ptr<const FrozenRewritePatternSet> patterns;
-  std::shared_ptr<const ConversionTarget> target;
-  std::shared_ptr<const TypeConverter> typeConverter;
 };
 } // namespace

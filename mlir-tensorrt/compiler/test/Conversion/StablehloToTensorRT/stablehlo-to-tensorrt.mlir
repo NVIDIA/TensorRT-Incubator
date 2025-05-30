@@ -444,7 +444,7 @@ func.func @hlo_dot_general(%arg0: tensor<?x?x32x64xf32>, %arg1: tensor<?x?x64x10
   return %0 : tensor<?x?x32x100xf32>
 }
 
-// CHECK-LABEL: @hlo_dot_general
+// CHECK-LABEL: @hlo_dot_general(
 //       CHECK:   tensorrt.matrix_multiply {op0 = #tensorrt.matrix_operation<kNONE>, op1 = #tensorrt.matrix_operation<kNONE>}
 
 
@@ -501,18 +501,6 @@ func.func @dot_general_promoted_result_type(%arg0: tensor<?x?x64xf16>, %arg1: te
 //   CHECK-DAG:   %[[v0:.+]] = tensorrt.identity %[[arg0]] : {{.*}} to tensor<{{.*}}f32>
 //   CHECK-DAG:   %[[v1:.+]] = tensorrt.identity %[[arg1]] : {{.*}} to tensor<{{.*}}f32>
 //       CHECK:   tensorrt.matrix_multiply {{.*}}(%[[v0]], %[[v1]]
-
-// -----
-
-func.func @main(%arg0: tensor<1x1500x384xf32>, %arg1: tensor<384x384xf32>) -> tensor<1x1500x384xf32> {
-  %0 = "stablehlo.dot_general"(%arg0, %arg1) {
-    dot_dimension_numbers = #stablehlo.dot<
-      lhs_contracting_dimensions = [2],
-      rhs_contracting_dimensions = [0]>,
-    precision_config = [#stablehlo<precision DEFAULT>, #stablehlo<precision DEFAULT>]
-  } : (tensor<1x1500x384xf32>, tensor<384x384xf32>) -> tensor<1x1500x384xf32>
-  return %0 : tensor<1x1500x384xf32>
-}
 
 // -----
 

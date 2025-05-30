@@ -26,6 +26,7 @@
 
 #include "mlir-tensorrt-dialect/Interface/TensorKindOpInterface.h"
 #include "mlir-tensorrt/Compiler/Extension.h"
+#include "mlir-tensorrt/Dialect/Plan/IR/PlanEnums.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/PlanInterfaces.h"
 #include "mlir-tensorrt/Interfaces/InferTensorValueRangeInterface.h"
 #include "mlir/Bytecode/BytecodeOpInterface.h"
@@ -133,11 +134,6 @@ protected:
   SmallVector<DialectLoader> dialectLoaders;
 };
 } // namespace mlir::plan
-
-//===----------------------------------------------------------------------===//
-// Plan Enums
-//===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Dialect/Plan/IR/PlanEnums.h.inc"
 
 //===----------------------------------------------------------------------===//
 // Plan Attributes

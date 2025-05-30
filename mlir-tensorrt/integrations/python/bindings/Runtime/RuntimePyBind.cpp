@@ -1118,16 +1118,32 @@ PYBIND11_MODULE(_api, m) {
   py::class_<PyRuntimeSessionOptions>(m, "RuntimeSessionOptions",
                                       py::module_local())
       .def(py::init<>([](int32_t numDevices, int32_t deviceId,
-                         std::string ncclUuid) -> PyRuntimeSessionOptions * {
+                         std::string ncclUuid,
+                         std::optional<std::vector<std::string>> features)
+                          -> PyRuntimeSessionOptions * {
              MTRT_RuntimeSessionOptions options;
              MTRT_Status s = mtrtRuntimeSessionOptionsCreate(
                  numDevices, deviceId,
                  MTRT_StringView{ncclUuid.data(), ncclUuid.size()}, &options);
              THROW_IF_MTRT_ERROR(s);
+
+             if (features) {
+               for (const std::string &feature : *features)
+                 mtrtRuntimeSessionOptionsEnableFeature(
+                     options, MTRT_StringView{feature.data(), feature.size()});
+             } else {
+               std::array<llvm::StringRef, 3> defaultFeatures = {"core", "cuda",
+                                                                 "tensorrt"};
+               // Enable all the default features.
+               for (const auto &feature : defaultFeatures)
+                 mtrtRuntimeSessionOptionsEnableFeature(
+                     options, MTRT_StringView{feature.data(), feature.size()});
+             }
              return new PyRuntimeSessionOptions(options);
            }),
            py::arg("num_devices") = 1, py::arg("device_id") = 0,
-           py::arg("nccl_uuid") = py::str(""));
+           py::arg("nccl_uuid") = py::str(""),
+           py::arg("features") = py::none());
 
   py::class_<PyRuntimeSession, std::shared_ptr<PyRuntimeSession>>(
       m, "RuntimeSession", py::module_local())
@@ -1135,6 +1151,7 @@ PYBIND11_MODULE(_api, m) {
              MTRT_RuntimeSession session;
              MTRT_Status s = mtrtRuntimeSessionCreate(options, exe, &session);
              THROW_IF_MTRT_ERROR(s);
+
              return std::make_shared<PyRuntimeSession>(session);
            }),
            py::arg("options"), py::arg("executable"))

@@ -1,5 +1,4 @@
 # RUN: %pick-one-gpu %PYTHON %s | FileCheck %s
-# REQUIRES: host-has-at-least-1-gpus
 
 from typing import Callable
 
@@ -219,8 +218,10 @@ def test_devices():
 @make_test
 def test_stream():
     client = runtime.RuntimeClient()
+    devices = client.get_devices()
+    if len(devices) == 0:
+        return
     stream = client.create_stream()
-
     assert isinstance(stream.ptr, int)
 
 

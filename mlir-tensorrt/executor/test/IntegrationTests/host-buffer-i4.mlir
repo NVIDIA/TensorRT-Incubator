@@ -1,6 +1,6 @@
 // RUN: executor-opt %s -test-executor-bufferization-pipeline -executor-lowering-pipeline \
 // RUN:   | executor-translate -mlir-to-runtime-executable \
-// RUN:   | executor-runner -input-type=rtexe | FileCheck %s
+// RUN:   | executor-runner -input-type=rtexe -features=core | FileCheck %s
 
 !memref_type = memref<4xi4, strided<[?], offset: ?>, #executor.memory_type<host>>
 

@@ -1,6 +1,6 @@
 // RUN: executor-opt %s -inline -executor-lowering-pipeline \
 // RUN:   | executor-translate -mlir-to-runtime-executable \
-// RUN:   | executor-runner -input-type=rtexe | FileCheck %s
+// RUN:   | executor-runner -input-type=rtexe -features=core,cuda | FileCheck %s
 
 !scalar_type = f32
 !host_memref_type = memref<4x!scalar_type, #executor.memory_type<host>>

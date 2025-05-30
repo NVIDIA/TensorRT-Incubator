@@ -25,9 +25,15 @@
 #include "mlir-tensorrt-c/Compiler/Registration/RegisterAllDialects.h"
 #include "mlir-tensorrt/Compiler/StablehloToExecutable/StablehloToExecutable.h"
 #include "mlir-tensorrt/Compiler/TensorRTToExecutable/TensorRTToExecutable.h"
+#include "mlir-tensorrt/Features.h"
 #include "mlir-tensorrt/InitAllDialects.h"
 #include "mlir-tensorrt/InitAllExtensions.h"
 #include "mlir-tensorrt/InitAllPasses.h"
+
+#ifdef MLIR_TRT_ENABLE_TORCH
+#include "torch-mlir/InitAll.h"
+#endif
+
 #include "mlir/CAPI/IR.h"
 
 void mtrtCompilerRegisterDialects(MlirDialectRegistry registry) {
@@ -35,7 +41,10 @@ void mtrtCompilerRegisterDialects(MlirDialectRegistry registry) {
   mlirtrt::compiler::registerAllExtensions(*unwrap(registry));
 }
 
-void mtrtCompilerRegisterPasses() { mlirtrt::compiler::registerAllPasses(); }
+void mtrtCompilerRegisterPasses() {
+  mlirtrt::compiler::registerAllPasses();
+  IF_MLIR_TRT_ENABLE_TORCH({ mlir::torch::registerAllPasses(); });
+}
 
 void mtrtCompilerRegisterTasks() {
   mlirtrt::compiler::registerStableHloToExecutableTask();
