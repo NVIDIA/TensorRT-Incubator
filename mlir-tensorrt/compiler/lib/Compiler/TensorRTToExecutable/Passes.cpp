@@ -278,11 +278,16 @@ outlineOp(RewriterBase &rewriter, tensorrt::TensorRTModuleOp trtModule,
 
   StringRef tensorrtShapeBoundsAttrName =
       mlir::tensorrt::TensorRTDialect::getShapeProfileArgAttrName();
+  StringRef tensorrtDimensionNamesAttrName =
+      mlir::tensorrt::TensorRTDialect::getDimensionNamesArgAttrName();
+
   SmallVector<Attribute> profileAttrsPerInput;
+  SmallVector<Attribute> dimensionNamesAttrsPerInput;
   for (Value v : inputs) {
     auto rtt = dyn_cast<RankedTensorType>(v.getType());
     if (!rtt || rtt.hasStaticShape()) {
       profileAttrsPerInput.push_back(Attribute{});
+      dimensionNamesAttrsPerInput.push_back(Attribute{});
       continue;
     }
 
@@ -298,6 +303,10 @@ outlineOp(RewriterBase &rewriter, tensorrt::TensorRTModuleOp trtModule,
         parentFunc.getArgAttrOfType<tensorrt::ShapeProfileAttr>(
             argIndex, tensorrtShapeBoundsAttrName));
 
+    dimensionNamesAttrsPerInput.push_back(
+        parentFunc.getArgAttrOfType<DictionaryAttr>(
+            argIndex, tensorrtDimensionNamesAttrName));
+
     if (!profileAttrsPerInput.back()) {
       return emitError(blockArg.getLoc())
              << "Profile attribute (" << tensorrtShapeBoundsAttrName
@@ -306,10 +315,12 @@ outlineOp(RewriterBase &rewriter, tensorrt::TensorRTModuleOp trtModule,
   }
 
   for (unsigned idx = 0; idx < func->getNumArguments(); idx++) {
-    if (!profileAttrsPerInput[idx])
-      continue;
-    func->setArgAttr(idx, tensorrtShapeBoundsAttrName,
-                     profileAttrsPerInput[idx]);
+    if (profileAttrsPerInput[idx])
+      func->setArgAttr(idx, tensorrtShapeBoundsAttrName,
+                       profileAttrsPerInput[idx]);
+    if (dimensionNamesAttrsPerInput[idx])
+      func->setArgAttr(idx, tensorrtDimensionNamesAttrName,
+                       dimensionNamesAttrsPerInput[idx]);
   }
 
   rewriter.setInsertionPoint(inlineGroupOp);
