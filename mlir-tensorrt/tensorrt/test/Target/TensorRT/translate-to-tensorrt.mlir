@@ -54,3 +54,14 @@ func.func @trt_reduce(%arg0: tensor<1024x1024xf32>) -> tensor<1024x1xf32> {
 func.func @input_passthrough(%arg0: tensor<1xf32>, %arg1: tensor<1xf16>, %arg2: tensor<1xi32>) -> (tensor<1xf32>, tensor<1xf32>, tensor<1xf16>, tensor<1xi32>) {
   return %arg0, %arg0, %arg1, %arg2: tensor<1xf32>, tensor<1xf32>, tensor<1xf16>, tensor<1xi32>
 }
+
+
+// CHECK-LABEL: @trt_dim_names
+//  CHECK-SAME: tensorrt.engine
+func.func @trt_dim_names(
+  %arg0: tensor<?x?xf32> {tensorrt.dimension_names = {"0" = "batch", "1" = "features"}, tensorrt.shape_profile = #tensorrt.shape_profile<min=[2, 2], opt=[5, 5], max=[10, 10]>},
+  %arg1: tensor<?x?xf32> {tensorrt.dimension_names = {"0" = "batch", "1" = "features"}, tensorrt.shape_profile = #tensorrt.shape_profile<min=[2, 2], opt=[5, 5], max=[10, 10]>},
+  %arg2: tensor<2x10xf32>) -> tensor<?x?xf32> {
+  %0 = tensorrt.identity %arg0 : tensor<?x?xf32> to tensor<?x?xf32>
+  return %0 : tensor<?x?xf32>
+}
