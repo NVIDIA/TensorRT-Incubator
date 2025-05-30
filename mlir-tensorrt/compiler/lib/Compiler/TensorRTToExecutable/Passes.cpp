@@ -248,6 +248,7 @@ outlineOp(RewriterBase &rewriter, tensorrt::TensorRTModuleOp trtModule,
     auto rtt = dyn_cast<RankedTensorType>(v.getType());
     if (!rtt || rtt.hasStaticShape()) {
       profileAttrsPerInput.push_back(Attribute{});
+      dimensionNamesAttrsPerInput.push_back(Attribute{});
       continue;
     }
 

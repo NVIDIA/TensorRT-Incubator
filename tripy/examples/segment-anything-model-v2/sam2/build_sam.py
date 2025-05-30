@@ -54,8 +54,12 @@ def get_component_configs(model, cfg):
     """
     Get configurations for different components, including both compilation and weight loading info.
     """
-    batchsize = (1, 2, 4)
-    num_obj = (1, 2, 4)
+    batchsize = tp.NamedDimension("batch", 1, 2, 4)
+    num_obj = tp.NamedDimension("num_obj", 1, 2, 4)
+    seq_len = tp.NamedDimension("seq_len", 4100, 16400, 28736)
+    # seq_len = (4100, 16400, 28736)
+    dim = tp.NamedDimension("dim", 1, 2, 8)
+    # dim = (1, 2, 8)
     model_precision = getattr(cfg["model"], "model_precision", "float32")
     return {
         "memory_attention": {
@@ -64,19 +68,19 @@ def get_component_configs(model, cfg):
             "dtype": model_precision,
             "compile_args": [
                 tp.InputInfo(
-                    (4096, (1, 2, 8), 256),
+                    (4096, dim, 256),
                     getattr(tp, model_precision),
                 ),
                 tp.InputInfo(
-                    ((4100, 16400, 28736), (1, 2, 8), 64),
+                    (seq_len, dim, 64),
                     getattr(tp, model_precision),
                 ),
                 tp.InputInfo(
-                    (4096, (1, 2, 8), 256),
+                    (4096, dim, 256),
                     getattr(tp, model_precision),
                 ),
                 tp.InputInfo(
-                    ((4100, 16400, 28736), (1, 2, 8), 64),
+                    (seq_len, dim, 64),
                     getattr(tp, model_precision),
                 ),
                 # TODO (#594): Remove this hack once we are able to pass in DimensionSizes directly:

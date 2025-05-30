@@ -922,6 +922,39 @@ LogicalResult NvInferNetworkEncoder::encodeFunc(FunctionOpInterface func) {
       return failure();
     nvinfer1::ITensor *inputTensor =
         getNetworkDefinition()->addInput(name.c_str(), *dtype, trtShape);
+
+    // setDimensionName must be called immediately after addInput, or TensorRT
+    // will not deduplicate equal dimensions.
+    auto dimNamesAttr = func.getArgAttrOfType<DictionaryAttr>(
+        // TODO (pranavm): Store name somewhere
+        arg.getArgNumber(), "tensorrt.dimension_names");
+    if (dimNamesAttr) {
+
+      for (NamedAttribute namedAttr : dimNamesAttr) {
+        // Convert key from StringRef to integer
+        int32_t key;
+        if (namedAttr.getName().getValue().getAsInteger(10, key)) {
+          // Handle invalid integer conversion
+          continue;
+        }
+
+        // Extract string value
+        if (StringAttr strAttr = namedAttr.getValue().dyn_cast<StringAttr>()) {
+          StringRef value = strAttr.getValue();
+          // Use key/value pair here
+          inputTensor->setDimensionName(static_cast<int32_t>(key),
+                                        value.str().c_str());
+          llvm::outs() << "Argument: " << name
+                       << " (index = " << arg.getArgNumber() << ")"
+                       << "Dimension name: " << key << " -> "
+                       << inputTensor->getDimensionName(
+                              static_cast<int32_t>(key))
+                       << "\n";
+          llvm::outs().flush();
+        }
+      }
+    }
+
     if (!usesStronglyTyped && dtype == nvinfer1::DataType::kINT8)
       setIdentityInt8DynamicRange(inputTensor);
     this->map(arg, inputTensor);
@@ -993,36 +1026,6 @@ LogicalResult NvInferNetworkEncoder::encodeFunc(FunctionOpInterface func) {
                 "for arg "
              << arg.getArgNumber();
     setProfileDimensions(profile, name, *info);
-
-    auto dimNamesAttr = func.getArgAttrOfType<DictionaryAttr>(
-        // TODO (pranavm): Store name somewhere
-        arg.getArgNumber(), "tensorrt.dimension_names");
-    if (dimNamesAttr) {
-
-      for (NamedAttribute namedAttr : dimNamesAttr) {
-        // Convert key from StringRef to integer
-        int32_t key;
-        if (namedAttr.getName().getValue().getAsInteger(10, key)) {
-          // Handle invalid integer conversion
-          continue;
-        }
-
-        // Extract string value
-        if (StringAttr strAttr = namedAttr.getValue().dyn_cast<StringAttr>()) {
-          StringRef value = strAttr.getValue();
-          // Use key/value pair here
-          inputTensor->setDimensionName(static_cast<int32_t>(key),
-                                        value.str().c_str());
-          llvm::outs() << "Argument: " << name
-                       << " (index = " << arg.getArgNumber() << ")"
-                       << "Dimension name: " << key << " -> "
-                       << inputTensor->getDimensionName(
-                              static_cast<int32_t>(key))
-                       << "\n";
-          llvm::outs().flush();
-        }
-      }
-    }
   }
 
   return success();
