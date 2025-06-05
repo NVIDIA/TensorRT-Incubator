@@ -180,26 +180,14 @@ class MLP(tp.Module):
         return x
 
 
-class LayerNorm2d(tp.Module):
+class LayerNorm2d(tp.LayerNorm):
     def __init__(self, num_channels: int, eps: float = 1e-6) -> None:
-        super().__init__()
-        from nvtripy.frontend.module.parameter import DefaultParameter
-
-        self.weight = DefaultParameter((num_channels,), tp.float32)
-        self.bias = DefaultParameter((num_channels,), tp.float32)
-        self.eps = eps
+        super().__init__(num_channels, dtype=tp.float32, eps=eps)
 
     def forward(self, x: tp.Tensor) -> tp.Tensor:
-        original_dtype = x.dtype
-        x = tp.cast(x, tp.float32)
-        u = tp.mean(x, dim=1, keepdim=True)
-        s = tp.mean((x - u) ** 2, dim=1, keepdim=True)
-        x = (x - u) / tp.sqrt(s + self.eps)
-        w = tp.unsqueeze(tp.unsqueeze(self.weight, 1), 2)
-        b = tp.unsqueeze(tp.unsqueeze(self.bias, 1), 2)
-        x = w * x + b
-        x = tp.cast(x, original_dtype)
-        return x
+        x = tp.permute(x, (0, 2, 3, 1))
+        x = super().forward(x)
+        return tp.permute(x, (0, 3, 1, 2))
 
 
 def get_activation_fn(activation):
