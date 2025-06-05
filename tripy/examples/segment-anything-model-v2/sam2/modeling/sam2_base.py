@@ -710,7 +710,7 @@ class SAM2Base(torch.nn.Module):
         # scale the raw mask logits with a temperature before applying sigmoid
         binarize = self.binarize_mask_from_pts_for_mem_enc and is_mask_from_pts
         if binarize and not self.training:
-            mask_for_mem = (pred_masks_high_res > 0).float()
+            mask_for_mem = pred_masks_high_res > 0
         else:
             # apply sigmoid on the raw mask logits to turn them into range (0, 1)
             mask_for_mem = torch.sigmoid(pred_masks_high_res)
@@ -720,8 +720,11 @@ class SAM2Base(torch.nn.Module):
         if self.sigmoid_bias_for_mem_enc != 0.0:
             mask_for_mem = mask_for_mem + self.sigmoid_bias_for_mem_enc
 
+        if self.memory_encoder.input_infos["masks"].dtype == tp.float16:
+            mask_for_mem = mask_for_mem.half()
+
         maskmem_features, maskmem_pos_enc = self.memory_encoder(
-            tp.Tensor(pix_feat.float().contiguous()), tp.Tensor(mask_for_mem.contiguous())
+            tp.Tensor(pix_feat.contiguous()), tp.Tensor(mask_for_mem.contiguous())
         )  # sigmoid already applied
         maskmem_features = torch.from_dlpack(maskmem_features)
         maskmem_pos_enc = [torch.from_dlpack(maskmem_pos_enc)]

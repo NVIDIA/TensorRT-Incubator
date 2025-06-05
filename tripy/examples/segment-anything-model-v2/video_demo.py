@@ -23,17 +23,17 @@
 # limitations under the License.
 
 import argparse
-import torch
-from sam2.build_sam import build_sam2_video_predictor
-import numpy as np
-import matplotlib.pyplot as plt
-from PIL import Image
-from demo_utils import process_and_show_mask as show_mask
-from typing import Optional
-
 import os
 import time
+from typing import Optional
 
+import matplotlib.pyplot as plt
+import numpy as np
+import nvtripy as tp
+import torch
+from demo_utils import process_and_show_mask as show_mask
+from PIL import Image
+from sam2.build_sam import build_sam2_video_predictor
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -187,4 +187,7 @@ def main(video_dir: str, save_path: Optional[str] = None):
 
 
 if __name__ == "__main__":
-    main("./bedroom", save_path="output")
+    # Ensure all work is done on the default Tripy stream
+    stream = torch.cuda.get_stream_from_external(tp.default_stream().ptr, device=torch.device("cuda"))
+    with torch.cuda.stream(stream):
+        main("./bedroom", save_path="output")
