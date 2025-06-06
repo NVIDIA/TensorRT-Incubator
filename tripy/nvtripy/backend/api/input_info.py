@@ -24,9 +24,33 @@ from nvtripy.utils import json as json_utils
 # TODO (pranavm): Figure out where to document:
 @export.public_api(document_under="compiling_code/input_info")
 class NamedDimension:
+    """
+    Represents a named dimension with its shape bounds.
+
+    Two dimensions with the same name must be equal at runtime.
+    This equality can be exploited by the compiler to achieve better optimizations.
+    """
+
     def __init__(self, name: str, min: int, opt: int, max: int) -> None:
-        self.shape = (min, opt, max)
+        """
+        Args:
+            name: The name of the dimension.
+            min: The minimum size of the dimension.
+            opt: The size of the dimension for which the compiler should optimize.
+            max: The maximum size of the dimension.
+
+        .. code-block:: python
+            :linenos:
+            :caption: Creating a Named Dimension
+
+            named_dim = tp.NamedDimension("batch", 1, 2, 3)
+            assert named_dim.shape == (1, 2, 3)
+        """
+        self.shape_bounds = (min, opt, max)
         self.name = name
+
+    def __str__(self) -> str:
+        return f"NamedDimension(name={self.name}, shape_bounds={self.shape_bounds})"
 
 
 @export.public_api(document_under="compiling_code/input_info/index.rst")
@@ -64,6 +88,20 @@ class InputInfo:
             assert inp.shape_bounds.min == (1, 4)
             assert inp.shape_bounds.opt == (2, 4)
             assert inp.shape_bounds.max == (3, 4)
+
+        .. code-block:: python
+            :linenos:
+            :caption: Naming Dynamic Dimensions
+
+            # Dimensions with the same name must be equal at runtime.
+            # This knowledge can help the compiler optimize better.
+            window_size = tp.NamedDimension("window_size", 3, 5, 7)
+
+            inp = tp.InputInfo((1, window_size, window_size), dtype=tp.float32)
+            assert inp.shape_bounds.min == (1, 3, 3)
+            assert inp.shape_bounds.opt == (1, 5, 5)
+            assert inp.shape_bounds.max == (1, 7, 7)
+            assert inp.dimension_names == {1: "window_size", 2: "window_size"}
         """
         is_int_like = lambda arg: any(isinstance(arg, typ) for typ in {int, DimensionSize})
 
@@ -78,7 +116,7 @@ class InputInfo:
 
             if isinstance(elem, NamedDimension):
                 dimension_names[idx] = elem.name
-                elem = elem.shape
+                elem = elem.shape_bounds
 
             assert len(elem) == 3 and all(is_int_like(val) for val in elem)
 
@@ -86,8 +124,10 @@ class InputInfo:
             opt_shape.append(elem[1])
             max_shape.append(elem[2])
 
-        # TODO (pranavm): Document this?
         self.dimension_names: Dict[int, str] = dimension_names
+        """
+        A mapping of dimension indices to their names, if set.
+        """
 
         self.shape_bounds: ShapeBounds = ShapeBounds(tuple(min_shape), tuple(opt_shape), tuple(max_shape))
         """
