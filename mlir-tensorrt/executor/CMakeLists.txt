@@ -15,7 +15,6 @@ mlir_executor_option(MLIR_EXECUTOR_ENABLE_NCCL "Enable use of NCCL in the runtim
 mlir_executor_option(MLIR_EXECUTOR_ENABLE_MPI "Enable use of MPI in the runtime" ON)
 mlir_executor_option(MLIR_EXECUTOR_ENABLE_TENSORRT "Enable TensorRT runtime module" ON)
 mlir_executor_option(MLIR_EXECUTOR_ENABLE_CUDA "Enable CUDA runtime module" ON)
-mlir_executor_option(MLIR_EXECUTOR_TARGET_LUA "Enable Lua translations and runtime backend" ON)
 mlir_executor_option(MLIR_EXECUTOR_ENABLE_GPU_INTEGRATION_TESTS "Enable integration tests that require GPU" ON)
 
 #-------------------------------------------------------------------------------

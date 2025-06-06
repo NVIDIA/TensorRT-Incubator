@@ -3,6 +3,7 @@
 *.log
 **/llvm-project/**
 **/llvm-project/
+CMakeUserPresets.json
 
 # Docs build artifacts
 /public/

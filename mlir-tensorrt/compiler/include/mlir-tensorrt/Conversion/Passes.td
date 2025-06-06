@@ -125,8 +125,6 @@ def ConvertTensorRTToEmitCPass : Pass<"convert-tensorrt-to-emitc",
   let dependentDialects = ["::mlir::emitc::EmitCDialect"];
 }
 
-#ifdef MLIR_TENSORRT_ENABLE_EXECUTOR
-
 //===----------------------------------------------------------------------===//
 // ConvertMemRefToCUDAPass
 //===----------------------------------------------------------------------===//
@@ -311,9 +309,6 @@ def ConvertTensorRTRuntimeToExecutorPass : Pass<"convert-tensorrt-runtime-to-exe
   ];
   let options = ConvertToExecutorOptions;
 }
-
-
-#endif // MLIR_TENSORRT_ENABLE_EXECUTOR
 
 #ifdef MLIR_TENSORRT_ENABLE_HLO
 //===----------------------------------------------------------------------===//

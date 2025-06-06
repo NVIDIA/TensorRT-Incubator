@@ -85,7 +85,7 @@ struct EnqueueOpInterface
   bool bufferizesToElementwiseAccess(Operation *op,
                                      const bufferization::AnalysisState &state,
                                      ArrayRef<OpOperand *> opOperands) const {
-    return true;
+    return false;
   }
 
   /// Bufferize the `trtrt.enqueue` operation.

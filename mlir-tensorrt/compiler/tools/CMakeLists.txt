@@ -16,6 +16,4 @@ set(LLVM_LINK_COMPONENTS
 add_subdirectory(mlir-tensorrt-opt)
 add_subdirectory(mlir-tensorrt-translate)
 add_subdirectory(mlir-tensorrt-lsp-server)
-if(MLIR_TRT_TARGET_LUA)
-  add_subdirectory(mlir-tensorrt-runner)
-endif()
+add_subdirectory(mlir-tensorrt-runner)

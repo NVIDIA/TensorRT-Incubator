@@ -1,3 +1,5 @@
+get_property(MLIR_TENSORRT_LIBS GLOBAL PROPERTY MLIR_TENSORRT_LIBS)
+
 add_mlir_tensorrt_public_c_api_library(MLIRTensorRTCAPIRegisterAllDialects
   RegisterAllDialects.cpp
 
@@ -17,4 +19,5 @@ add_mlir_tensorrt_public_c_api_library(MLIRTensorRTCAPIRegisterAllDialects
     MLIRTensorRTTensorRTRuntimeTransforms
     MLIRTensorRTTensorRTToEmitC
     MLIRTransformDialect
+    ${MLIR_TENSORRT_LIBS}
     )

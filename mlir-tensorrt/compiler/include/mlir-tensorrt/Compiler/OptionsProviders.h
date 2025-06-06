@@ -113,6 +113,20 @@ public:
                      "tree rooted at this directory. Use in conjunction with "
                      "mlir-print-ir-* flags")};
 
+  //===----------------------------------------------------------------------===//
+  // Printing Flags
+  //===----------------------------------------------------------------------===//
+
+  Option<unsigned> elideElementsAttrIfLarger{
+      this->ctx, "mlir-elide-elementsattrs-if-larger",
+      llvm::cl::desc("Elide ElementsAttrs with \"...\" that have "
+                     "more elements than the given upper limit")};
+
+  Option<unsigned> elideResourceStringsIfLarger{
+      this->ctx, "mlir-elide-resource-strings-if-larger",
+      llvm::cl::desc(
+          "Elide printing value of resources if string is too long in chars.")};
+
   //===--------------------------------------------------------------------===//
   // Pass Statistics
   //===--------------------------------------------------------------------===//

@@ -91,6 +91,35 @@ if(PROJECT_IS_TOP_LEVEL)
 endif()
 
 # -------------------------------------------------
+# Option validation
+# -------------------------------------------------
+# Write out a header file containing convenience macros for each flag.
+function(mtrt_write_feature_flags_header)
+  set(feature_flags_header
+    "${CMAKE_CURRENT_BINARY_DIR}/include/mlir-tensorrt/Features.h")
+
+  # Generate the header at configure time
+  file(WRITE "${feature_flags_header}" [[
+  // Auto-generated feature macros, do not edit.
+  #ifndef MLIR_TENSORRT_FEATURES_H
+  #define MLIR_TENSORRT_FEATURES_H
+
+  ]])
+
+  foreach(FEATURE IN LISTS MLIR_TRT_FEATURE_FLAGS)
+      file(APPEND "${feature_flags_header}" "#ifdef ${FEATURE}\n")
+      file(APPEND "${feature_flags_header}" "#define IF_${FEATURE}(code) do { code } while (0)\n")
+      file(APPEND "${feature_flags_header}" "#else\n")
+      file(APPEND "${feature_flags_header}" "#define IF_${FEATURE}(code) do {} while (0)\n")
+      file(APPEND "${feature_flags_header}" "#endif // ${FEATURE}\n\n")
+  endforeach()
+  file(APPEND "${feature_flags_header}" "#endif // MLIR_TENSORRT_FEATURES_H\n")
+endfunction()
+
+mtrt_write_feature_flags_header()
+include_directories("${CMAKE_CURRENT_BINARY_DIR}/include")
+
+# -------------------------------------------------
 # Setup LLVM/MLIR
 # -------------------------------------------------
 find_package(Python3 REQUIRED

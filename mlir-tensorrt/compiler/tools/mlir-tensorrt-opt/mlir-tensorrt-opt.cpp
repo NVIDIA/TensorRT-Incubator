@@ -23,9 +23,9 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt-dialect/Target/Passes.h"
 #include "mlir-tensorrt-dialect/Target/TranslateToTensorRT.h"
-#include "mlir-tensorrt/Registration/InitLLVMExtensions.h"
-#include "mlir-tensorrt/Registration/RegisterMlirTensorRtDialects.h"
-#include "mlir-tensorrt/Registration/RegisterMlirTensorRtPasses.h"
+#include "mlir-tensorrt/InitAllDialects.h"
+#include "mlir-tensorrt/InitAllExtensions.h"
+#include "mlir-tensorrt/InitAllPasses.h"
 #include "mlir/Tools/mlir-opt/MlirOptMain.h"
 
 using namespace mlir;
@@ -50,16 +50,15 @@ static void registerTestPasses() {
 
 int main(int argc, char **argv) {
   mlir::DialectRegistry registry;
-  mlir::registerAllMlirTensorRtDialects(registry);
-
-  mlirtrt::registerConvertToLLVMExtensions(registry);
+  mlirtrt::compiler::registerAllDialects(registry);
+  mlirtrt::compiler::registerAllExtensions(registry);
 
   mlir::registerTestTensorRTShapeInferencePass();
 #ifdef MLIR_TRT_TARGET_TENSORRT
   mlir::tensorrt::registerTensorRTTranslationCLOpts();
   mlir::tensorrt::registerTensorRTTranslationPasses();
 #endif
-  mlir::tensorrt::registerAllMlirTensorRtPasses();
+  mlirtrt::compiler::registerAllPasses();
 #ifdef MLIR_TRT_ENABLE_TESTING
   registerTestPasses();
 #endif

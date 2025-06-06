@@ -41,21 +41,6 @@ class Operation;
 class Pass;
 namespace tensorrt {
 
-/// A simple logger that implements TensorRT's logging interface. Errors and
-/// warnings are reported stderr. If the 'verbose' flags is active, then all
-/// messages are printed to stderr.
-class Logger : public nvinfer1::ILogger {
-public:
-  explicit Logger(bool verbose = false) : verbose(verbose) {}
-
-protected:
-  void log(Severity severity, const char *msg) noexcept override;
-
-  /// Print only 'error' and 'warning' messages if false, otehrwise print all
-  /// messages.
-  bool verbose;
-};
-
 /// A llvm::cl::opt parser for turning strings like "1024gb" into a number of
 /// bytes. Allowed suffixes are strings like 'gb', 'GiB', 'kb', 'mb', 'b' (case
 /// insensitive, we interpret both 'b|B' as meaning "byte"). This example comes
@@ -128,10 +113,8 @@ struct TensorRTTranslationOptions {
 class TensorRTBuilderContext {
 private:
   TensorRTBuilderContext(TensorRTVersion version, int32_t cudaDevice,
-                         std::unique_ptr<Logger> logger,
                          std::unique_ptr<nvinfer1::IBuilder> builder)
-      : version(version), cudaDevice(cudaDevice), logger(std::move(logger)),
-        builder(std::move(builder)) {}
+      : version(version), cudaDevice(cudaDevice), builder(std::move(builder)) {}
 
 public:
   /// Create a TensorRTBuilderContext from a log configuration and CUDA device
@@ -157,14 +140,10 @@ public:
   /// Return which CUDA device the builder is associated with.
   int32_t getCudaDeviceNumber() const { return cudaDevice; }
 
-  /// Return a handle to the logger.
-  const std::unique_ptr<Logger> &getLogger() const { return logger; }
-
 private:
   TensorRTVersion version;
   /// The CUDA device that this builder is associated with.
   int32_t cudaDevice;
-  std::unique_ptr<Logger> logger;
   std::unique_ptr<nvinfer1::IBuilder> builder;
 };
 

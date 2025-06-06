@@ -29,6 +29,7 @@
 #include "mlir/Dialect/Bufferization/Transforms/Transforms.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
+#include "mlir/IR/DialectResourceBlobManager.h"
 #include "mlir/IR/SymbolTable.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/Support/Debug.h"
@@ -327,6 +328,36 @@ static LogicalResult insertTensorCopiesInModule(
   return insertTensorCopiesWithinModuleScope(module, state);
 }
 
+/// The memref.global operation rejects encodings on the type of the
+/// ElementsAttr. Drop them here.
+/// TODO: fix upstream bufferization to handle this.
+static void fixupMemrefGlobalInitialValueTypes(ModuleLikeOp moduleOp) {
+  for (memref::GlobalOp global : moduleOp.getOps<memref::GlobalOp>()) {
+    ElementsAttr initialValue =
+        llvm::dyn_cast_or_null<ElementsAttr>(global.getInitialValueAttr());
+    if (!initialValue)
+      continue;
+    // Drop the encoding if present.
+    if (auto tensorType = dyn_cast<RankedTensorType>(initialValue.getType())) {
+      if (auto encoding = tensorType.getEncoding()) {
+        tensorType = RankedTensorType::get(tensorType.getShape(),
+                                           tensorType.getElementType());
+        if (auto elementsAttr = dyn_cast<DenseElementsAttr>(initialValue)) {
+          initialValue = elementsAttr.reshape(tensorType);
+          global.setInitialValueAttr(initialValue);
+          continue;
+        }
+        if (auto resourceAttr =
+                dyn_cast<DenseResourceElementsAttr>(initialValue)) {
+          DenseResourceElementsHandle handle = resourceAttr.getRawHandle();
+          initialValue = DenseResourceElementsAttr::get(tensorType, handle);
+          global.setInitialValueAttr(initialValue);
+          continue;
+        }
+      }
+    }
+  }
+}
 static LogicalResult
 bufferizeOneModule(ModuleLikeOp moduleOp,
                    const bufferization::OneShotBufferizationOptions &options,
@@ -371,6 +402,10 @@ bufferizeOneModule(ModuleLikeOp moduleOp,
     return success();
   if (failed(bufferizeOneModuleLikeOp(moduleOp, options, statistics)))
     return failure();
+
+  // Fixup any globals which have incorect encodings on the initial value type.
+  fixupMemrefGlobalInitialValueTypes(moduleOp);
+
   return success();
 }
 

@@ -84,16 +84,23 @@ void DebugOptions::applyToPassManager(PassManager &pm) const {
   if (!shouldPrintBeforePass && !shouldPrintAfterPass)
     return;
 
+  OpPrintingFlags printFlags{};
+  if (this->elideElementsAttrIfLarger > 0)
+    printFlags.elideLargeElementsAttrs(this->elideElementsAttrIfLarger);
+  if (this->elideResourceStringsIfLarger > 0)
+    printFlags.elideLargeResourceString(this->elideResourceStringsIfLarger);
+
   // Otherwise, add the IR printing instrumentation.
   if (!printTreeDir.empty()) {
     pm.enableIRPrintingToFileTree(shouldPrintBeforePass, shouldPrintAfterPass,
                                   printModuleScope, printAfterChange,
-                                  printAfterFailure, printTreeDir);
+                                  printAfterFailure, printTreeDir, printFlags);
     return;
   }
+
   pm.enableIRPrinting(shouldPrintBeforePass, shouldPrintAfterPass,
                       printModuleScope, printAfterChange, printAfterFailure,
-                      llvm::errs());
+                      llvm::errs(), printFlags);
 }
 
 //===----------------------------------------------------------------------===//
