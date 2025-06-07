@@ -280,11 +280,11 @@ func.func @test_dps_chain_repeat(%arg0: tensor<10xf32>) -> (tensor<10xf32>, tens
 // CHECK-LABEL: @test_dps_chain_repeat
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<10xf32>, %[[arg1:.+]]: tensor<10xf32> {plan.result_arg}, %[[arg2:.+]]: tensor<10xf32> {plan.result_arg}, %[[arg3:.+]]: tensor<10xf32> {plan.result_arg}) -> (tensor<10xf32>, tensor<10xf32>, tensor<10xf32>)
 //   CHECK-NOT: bufferization.alloc_tensor()
-//       CHECK: %[[v0:.+]] = linalg.generic {{.*}} ins(%[[arg0]] : tensor<10xf32>) outs(%[[arg1]] : tensor<10xf32>)
+//       CHECK: %[[v0:.+]] = linalg.generic {{.*}} ins(%[[arg0]] : tensor<10xf32>) outs(%[[arg2]] : tensor<10xf32>)
 //       CHECK: %[[v1:.+]] = linalg.generic {{.*}} ins(%[[arg0]] : tensor<10xf32>) outs(%[[v0]] : tensor<10xf32>)
-//       CHECK: %[[v2:.+]] = bufferization.materialize_in_destination %[[v0]] in %[[arg2]] :
+//       CHECK: %[[v2:.+]] = bufferization.materialize_in_destination %[[v1]] in %[[arg1]] :
 //  CHECK-NEXT: %[[v3:.+]] = bufferization.materialize_in_destination %[[v0]] in %[[arg3]] :
-//  CHECK-NEXT: return %[[v1]], %[[v2]], %[[v3]] : tensor<10xf32>, tensor<10xf32>, tensor<10xf32>
+//  CHECK-NEXT: return %[[v2]], %[[v0]], %[[v3]] : tensor<10xf32>, tensor<10xf32>, tensor<10xf32>
 
 // CHECK-ALLOC-LABEL: @test_dps_chain_repeat
 //  CHECK-ALLOC-SAME: (%[[arg0:.+]]: tensor<10xf32>) -> (tensor<10xf32>, tensor<10xf32>, tensor<10xf32>)
@@ -767,7 +767,7 @@ func.func @test_dps_complex_reshape_collapse_equivalent(
 // CHECK-LABEL: func.func @test_dps_complex_reshape_collapse_equivalent
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<2x3xcomplex<f32>, #plan.memory_space<device>>, %[[arg1:.+]]: tensor<2x3xcomplex<f32>, #plan.memory_space<device>>, %[[arg2:.+]]: tensor<6xcomplex<f32>, #plan.memory_space<device>> {plan.result_arg})
 //   CHECK-DAG:     %[[expanded:.+]] = tensor.expand_shape %[[arg2]] {{\[}}[0, 1]] output_shape [2, 3] :
-//   CHECK-DAG:     %[[mapped:.+]] = linalg.map { complex.add } ins(%[[arg0]], %[[arg1]] : 
+//   CHECK-DAG:     %[[mapped:.+]] = linalg.map { complex.add } ins(%[[arg0]], %[[arg1]] :
 //   CHECK-DAG:     %[[collapsed:.+]] = tensor.collapse_shape %[[mapped]]
 //   CHECK-DAG:     return %[[collapsed]]
 
@@ -847,8 +847,8 @@ func.func @test_dps_bitcast_not_equivalent(
 
 // CHECK-LABEL: func.func @test_dps_bitcast_not_equivalent
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<2xi32, #plan.memory_space<device>>, %[[arg1:.+]]: tensor<2xi32, #plan.memory_space<device>>, %[[arg2:.+]]: tensor<2xf32, #plan.memory_space<device>> {plan.result_arg})
-//   CHECK-DAG:     %[[v0:.+]] = bufferization.alloc_tensor() 
+//   CHECK-DAG:     %[[v0:.+]] = bufferization.alloc_tensor()
 //   CHECK-DAG:     %[[mapped:.+]] = linalg.map {{.*}} ins(%[[arg0]], %[[arg1]] : {{.*}}) outs(%[[v0]] : {{.*}})
-//   CHECK-DAG:     %[[v1:.+]] = tensor.bitcast %[[mapped]] 
+//   CHECK-DAG:     %[[v1:.+]] = tensor.bitcast %[[mapped]]
 //   CHECK-DAG:     %[[v2:.+]] = bufferization.materialize_in_destination %[[v1]] in %[[arg2]]
 //   CHECK-DAG:     return %[[v2]]

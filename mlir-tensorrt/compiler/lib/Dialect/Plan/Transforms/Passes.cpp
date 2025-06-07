@@ -62,6 +62,7 @@ static void buildPlanOneShotBufferizePipelinePipeline(
     OpPassManager &pm, const plan::PlanAllocTensorsPassOptions &opts) {
   pm.addPass(createInlinerPass());
   pm.addPass(bufferization::createEmptyTensorEliminationPass());
+  pm.addPass(plan::createPlanAssignMemorySpacesPass());
   pm.addPass(plan::createPlanAllocTensorsPass(opts));
   pm.addPass(plan::createPlanModuleBufferizePass());
   pm.addPass(mlir::createMemRefCastEliminationPass());

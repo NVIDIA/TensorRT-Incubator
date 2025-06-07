@@ -18,12 +18,14 @@
 //
 //===----------------------------------------------------------------------===//
 ///
-/// Registration methods for ConvertToLLVMPatternInterface dialect extensions.
+/// Registration methods for dialect extensions.
 ///
 //===----------------------------------------------------------------------===//
 #ifndef MLIR_TENSORRT_REGISTRATION_INITLLVMEXTENSIONS
 #define MLIR_TENSORRT_REGISTRATION_INITLLVMEXTENSIONS
 
+#include "mlir-tensorrt/Backends/Host/HostBackend.h"
+#include "mlir-tensorrt/Backends/TensorRT/TensorRTBackend.h"
 #include "mlir-tensorrt/Conversion/CUDAToLLVM/CUDAToLLVM.h"
 #include "mlir-tensorrt/Conversion/PlanToLLVM/PlanToLLVM.h"
 #include "mlir-tensorrt/Conversion/TensorRTRuntimeToLLVM/TensorRTRuntimeToLLVM.h"
@@ -37,28 +39,33 @@
 #include "mlir/Conversion/NVVMToLLVM/NVVMToLLVM.h"
 #include "mlir/Conversion/UBToLLVM/UBToLLVM.h"
 #include "mlir/Conversion/VectorToLLVM/ConvertVectorToLLVM.h"
+#include "mlir/Dialect/Func/Extensions/InlinerExtension.h"
 
-namespace mlirtrt {
+namespace mlirtrt::compiler {
 
-/// Register all ConvertToLLVMPatternInterface dialect extensions.
-inline void registerConvertToLLVMExtensions(mlir::DialectRegistry &registry) {
-  // Upstream interfaces.
+inline void registerAllExtensions(mlir::DialectRegistry &registry) {
+  // Register all conversion to LLVM interfaces.
   mlir::arith::registerConvertArithToLLVMInterface(registry);
-  mlir::registerConvertComplexToLLVMInterface(registry);
   mlir::cf::registerConvertControlFlowToLLVMInterface(registry);
+  mlir::index::registerConvertIndexToLLVMInterface(registry);
+  mlir::registerConvertComplexToLLVMInterface(registry);
+  mlir::registerConvertCUDAToLLVMPatternInterface(registry);
   mlir::registerConvertFuncToLLVMInterface(registry);
   mlir::registerConvertMathToLLVMInterface(registry);
   mlir::registerConvertMemRefToLLVMInterface(registry);
   mlir::registerConvertNVVMToLLVMInterface(registry);
-  mlir::ub::registerConvertUBToLLVMInterface(registry);
-  mlir::index::registerConvertIndexToLLVMInterface(registry);
-  mlir::vector::registerConvertVectorToLLVMInterface(registry);
-
-  // MLIR-TRT interfaces.
   mlir::registerConvertPlanToLLVMPatternInterface(registry);
   mlir::registerConvertTensorRTRuntimeToLLVMPatternInterface(registry);
-  mlir::registerConvertCUDAToLLVMPatternInterface(registry);
+  mlir::ub::registerConvertUBToLLVMInterface(registry);
+  mlir::vector::registerConvertVectorToLLVMInterface(registry);
+
+  // Inliner extensions.
+  mlir::func::registerInlinerExtension(registry);
+
+  // Plan Extensions.
+  mlir::plan::registerHostBackend(registry);
+  mlir::plan::registerTensorRTBackend(registry);
 }
-} // namespace mlirtrt
+} // namespace mlirtrt::compiler
 
 #endif // MLIR_TENSORRT_REGISTRATION_INITLLVMEXTENSIONS

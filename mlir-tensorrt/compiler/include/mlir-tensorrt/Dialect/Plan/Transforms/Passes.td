@@ -429,6 +429,27 @@ def PostClusteringValidationPass : Pass<"post-clustering-validation", "func::Fun
 }
 
 //===----------------------------------------------------------------------===//
+// PlanAssignMemorySpacesPass
+//===----------------------------------------------------------------------===//
+
+def PlanAssignMemorySpacesPass : Pass<"plan-assign-memory-spaces",
+                                    "::mlir::ModuleOp"> {
+  let summary = "assigns memory spaces encodings to tensor types";
+
+  let description = [{
+    This pass applies a type conversion that adds a '#plan.memory_space'
+    attribute to all tensor types in the top-level module that do not already
+    have an encoding.
+  }];
+
+  let dependentDialects = [
+    "::mlir::plan::PlanDialect",
+    "::mlir::bufferization::BufferizationDialect",
+    "::mlir::tensor::TensorDialect"
+  ];
+}
+
+//===----------------------------------------------------------------------===//
 // PlanAllocTensorsPass
 //===----------------------------------------------------------------------===//
 

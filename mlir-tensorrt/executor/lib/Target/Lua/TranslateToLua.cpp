@@ -842,9 +842,9 @@ LogicalResult LuaEmitter::emitBlock(Block &block, bool isEntryBlock) {
       // block if they are used outside of the block.
       for (Operation &op : otherBlock) {
         for (Value result : op.getResults()) {
-          bool usedOutside =
-              llvm::any_of(result.getUsers(), [&](Operation *userOp) {
-                return userOp->getBlock() != &otherBlock;
+          bool usedOutside = llvm::any_of(
+              result.getUsers(), [otherBlock = &otherBlock](Operation *userOp) {
+                return userOp->getBlock() != otherBlock;
               });
           if (usedOutside) {
             getStream() << "local " << createLocalVariableName(result)

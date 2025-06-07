@@ -6,12 +6,13 @@ import shutil
 import sys
 from pathlib import Path
 
-import lit.formats
-import lit.util
+from lit.LitConfig import LitConfig
 from lit.llvm import llvm_config
 from lit.llvm.subst import ToolSubst
-from lit.LitConfig import LitConfig
 from lit.TestingConfig import TestingConfig
+import lit.formats
+import lit.util
+import psutil
 
 config: TestingConfig = config  # type: ignore
 lit_config: LitConfig = lit_config  # type: ignore
@@ -46,10 +47,21 @@ def load_gpu_tools_module():
 gpu_tools = load_gpu_tools_module()
 
 
-def estimate_paralllelism(mem_required: float) -> int:
+def estimate_paralllelism(
+    gb_gpu_mem_required: float, gb_sys_mem_required: float
+) -> int:
     try:
+        parallelism = 2
         with gpu_tools.nvml_context() as devices:
-            return gpu_tools.estimate_parallelism_from_memory(devices, mem_required)
+            parallelism = gpu_tools.estimate_parallelism_from_memory(
+                devices, gb_gpu_mem_required
+            )
+        return int(
+            min(
+                parallelism,
+                (psutil.virtual_memory().available / (1024**3)) // gb_sys_mem_required,
+            )
+        )
     except:
         return 2
 
@@ -69,11 +81,17 @@ config.substitutions.append(
 )
 config.substitutions.append(("%trt_lib_dir", config.tensorrt_lib_dir))
 
-# Setup the parallelism groups.
-lit_config.parallelism_groups["non-collective"] = estimate_paralllelism(2.0)
-lit_config.parallelism_groups["collective"] = 1
-lit_config.parallelism_groups["models"] = estimate_paralllelism(8.0)
-lit_config.parallelism_group = None
+# Setup the parallelism groups. Note that just instantiating the TRT builder
+# requires ~2.5 GB of system memory, so we use 3.0 as a baseline limit.
+lit_config.parallelism_groups["default"] = estimate_paralllelism(
+    2.0, gb_sys_mem_required=3.0
+)
+lit_config.parallelism_groups["models"] = estimate_paralllelism(
+    8.0, gb_sys_mem_required=4.0
+)
+lit_config.parallelism_groups["heavy"] = 1
+
+lit_config.parallelism_group = "default"
 
 print(f"Parallelism Groups: {lit_config.parallelism_groups}", file=sys.stderr)
 

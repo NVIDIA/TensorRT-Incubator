@@ -21,6 +21,9 @@
 // This file is the entry point for the `mlir-tensorrt-translate` tool.
 //
 //===----------------------------------------------------------------------===//
+#include "mlir-executor/Target/Lua/TranslateToLua.h"
+#include "mlir-executor/Target/Lua/TranslateToRuntimeExecutable.h"
+#include "mlir-tensorrt/Features.h"
 #include "mlir/InitAllTranslations.h"
 #include "mlir/Tools/mlir-translate/MlirTranslateMain.h"
 
@@ -28,23 +31,15 @@
 #include "mlir-tensorrt-dialect/Target/TranslateToTensorRT.h"
 #endif // MLIR_TRT_TARGET_TENSORRT
 
-#ifdef MLIR_TRT_TARGET_LUA
-#include "mlir-executor/Target/Lua/TranslateToLua.h"
-#include "mlir-executor/Target/Lua/TranslateToRuntimeExecutable.h"
-#endif // MLIR_TRT_TARGET_LUA
-
 int main(int argc, char **argv) {
   mlir::registerToCppTranslation();
-
-#ifdef MLIR_TRT_TARGET_TENSORRT
-  mlir::tensorrt::registerTensorRTTranslationCLOpts();
-  mlir::registerToTensorRTTranslation();
-#endif // MLIR_TRT_TARGET_TENSORRT
-
-#ifdef MLIR_TRT_TARGET_LUA
   mlir::registerToLuaTranslation();
   mlir::registerToRuntimeExecutableTranslation();
-#endif // MLIR_TRT_TARGET_LUA
+
+  IF_MLIR_TRT_TARGET_TENSORRT({
+    mlir::tensorrt::registerTensorRTTranslationCLOpts();
+    mlir::registerToTensorRTTranslation();
+  });
 
   return failed(mlir::mlirTranslateMain(argc, argv,
                                         "MLIR-TensorRT Translation Tool"))

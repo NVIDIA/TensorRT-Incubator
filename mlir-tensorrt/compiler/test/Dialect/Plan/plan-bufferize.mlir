@@ -43,28 +43,39 @@ func.func @main(%arg0: tensor<10xf32>) -> tensor<1xf32> {
 
 //       CHECK:   memref.global "private" constant @__constant_1xf32
 //       CHECK:   memref.global "private" constant @__constant_1xi32
-// CHECK-LABEL: @main
-//  CHECK-SAME: (%[[arg0:.+]]: memref<10xf32, #plan.memory_space<device>>) -> memref<1xf32, #plan.memory_space<device>>
-//       CHECK:     %[[v0:.+]] = memref.get_global @__constant_1xi32
-//       CHECK:     %[[v1:.+]] = memref.get_global @__constant_1xf32
-//       CHECK:     %[[v2:.+]] = cuda.stream.create : !cuda.stream
-//       CHECK:     %[[alloc:.+]] = memref.alloc()
-//       CHECK:     %[[v3:.+]] = trtrt.get_function @trt_while_loop_region
-//       CHECK:     %[[v4:.+]] = trtrt.get_function @trt_while_loop_region_0
-//       CHECK:     %[[alloc_0:.+]] = memref.alloc()
-//       CHECK:     memref.copy %[[v0]], %[[alloc_0]]
-//       CHECK:     %[[alloc_1:.+]] = memref.alloc()
-//       CHECK:     memref.copy %[[v1]], %[[alloc_1]]
-//       CHECK:     %[[v5:.+]]:2 = scf.while (%[[arg1:.+]] = %[[alloc_0]], %[[arg2:.+]] = %[[alloc_1]])
-//       CHECK:       trtrt.enqueue %[[v3]] stream(%[[v2]]) (%[[arg1]]) outs(%[[alloc]])
-//       CHECK:       %[[alloc_2:.+]] = memref.alloc() {{.*}} : memref<i1, #plan.memory_space<host_pinned>>
-//       CHECK:       memref.copy %[[alloc]], %[[alloc_2]] : memref<i1, #plan.memory_space<device>> to memref<i1, #plan.memory_space<host_pinned>>
-//       CHECK:       %[[v6:.+]] = memref.load %[[alloc_2]][] : memref<i1, #plan.memory_space<host_pinned>>
-//       CHECK:       scf.condition(%[[v6]]) %[[arg1]], %[[arg2]]
+// CHECK-LABEL: func.func @main
+//  CHECK-SAME: (%[[arg0:.+]]: memref<10xf32, #plan.memory_space<device>>) 
+//   CHECK-DAG:     %[[v0:.+]] = memref.get_global @__constant_1xi32 : memref<1xi32, #plan.memory_space<device>>
+//   CHECK-DAG:     %[[v1:.+]] = memref.get_global @__constant_1xf32 : memref<1xf32, #plan.memory_space<device>>
+//   CHECK-DAG:     %[[v2:.+]] = cuda.stream.create : !cuda.stream
+//   CHECK-DAG:     %[[alloc:.+]] = memref.alloc() {alignment = 16 : i64} : memref<i1, #plan.memory_space<device>>
+//   CHECK-DAG:     %[[v3:.+]] = trtrt.get_function @trt_while_loop_region : !trtrt.context
+//   CHECK-DAG:     %[[v4:.+]] = trtrt.get_function @trt_while_loop_region_0 : !trtrt.context
+//       CHECK:     %[[alloc_0:.+]] = memref.alloc() 
+//   CHECK-DAG:     memref.copy %[[v0]], %[[alloc_0]]
+//   CHECK-DAG:     %[[alloc_1:.+]] = memref.alloc() 
+//   CHECK-DAG:     memref.copy %[[v1]], %[[alloc_1]]
+//       CHECK:     %[[v5:.+]]:2 = scf.while (%[[arg1:.+]] = %[[alloc_0]], %[[arg2:.+]] = %[[alloc_1]]) : ({{.*}}) ->
+//   CHECK-DAG:       trtrt.enqueue %[[v3]] stream(%[[v2]]) (%[[arg1]]) outs(%[[alloc]]) 
+//   CHECK-DAG:       %[[alloc_2:.+]] = memref.alloc()
+//   CHECK-DAG:       memref.copy %[[alloc]], %[[alloc_2]] 
+//   CHECK-DAG:       %[[c0:.+]] = arith.constant 0 : index
+//   CHECK-DAG:       %[[v6:.+]] = memref.load %[[alloc_2]][] 
+//   CHECK-DAG:       %[[alloc_3:.+]] = memref.alloc() 
+//   CHECK-DAG:       memref.copy %[[arg1]], %[[alloc_3]] 
+//   CHECK-DAG:       %[[alloc_4:.+]] = memref.alloc() 
+//   CHECK-DAG:       memref.copy %[[alloc_3]], %[[alloc_4]]
+//   CHECK-DAG:       %[[alloc_5:.+]] = memref.alloc() 
+//   CHECK-DAG:       memref.copy %[[arg2]], %[[alloc_5]]
+//   CHECK-DAG:       %[[alloc_6:.+]] = memref.alloc() {alignment = 16 : i64} : memref<1xf32, #plan.memory_space<device>>
+//   CHECK-DAG:       memref.copy %[[alloc_5]], %[[alloc_6]] :
+//       CHECK:       scf.condition(%[[v6]]) %[[alloc_4]], %[[alloc_6]] :
 //       CHECK:     } do {
-//       CHECK:     ^bb0(%[[arg1:.+]]: memref<1xi32, #plan.memory_space<device>>, %[[arg2:.+]]: memref<1xf32, #plan.memory_space<device>>):
-//       CHECK:       trtrt.enqueue %[[v4]] stream(%[[v2]]) (%[[arg0]], %[[arg1]], %[[arg2]]) outs(%[[arg1]], %[[arg2]])
-//       CHECK:       scf.yield %[[arg1]], %[[arg2]]
+//       CHECK:     ^bb0(%[[arg1:.+]]: memref<1xi32, #plan.memory_space<device>>, %[[arg2:.+]]: memref< 
+//   CHECK-DAG:       %[[alloc_2:.+]] = memref.alloc() 
+//   CHECK-DAG:       %[[alloc_3:.+]] = memref.alloc() 
+//   CHECK-DAG:       trtrt.enqueue %[[v4]] stream(%[[v2]]) (%[[arg0]], %[[arg1]], %[[arg2]]) outs(%[[alloc_2]], %[[alloc_3]]) :
+//       CHECK:       scf.yield %[[alloc_2]], %[[alloc_3]] :
 //       CHECK:     cuda.stream.sync %[[v2]]
 //       CHECK:     return %[[v5]]#1
 

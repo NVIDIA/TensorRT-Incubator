@@ -43,6 +43,7 @@
 #include <cassert>
 #include <cmath>
 #include <cstdio>
+#include <cstring>
 #include <memory>
 #include <unordered_map>
 #include <vector>
@@ -181,6 +182,7 @@ Weights trtSetWeights(WeightsMap &weightsMap, const char *name,
                       const std::vector<T> &w) {
   weightsMap[name] = std::vector<uint8_t>(w.size() * sizeof(T));
   std::vector<uint8_t> &data = weightsMap[name];
+  std::memcpy(data.data(), w.data(), w.size());
   DataType dt = DataType::kFLOAT;
   if (std::is_same<T, float>::value) {
     dt = DataType::kFLOAT;

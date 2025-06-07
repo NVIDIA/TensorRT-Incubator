@@ -15,6 +15,22 @@ func.func @enqueue_simple(
 
 // -----
 
+func.func @enqueue_alias(
+    %ctx: !trtrt.context, %stream: !cuda.stream,
+    %arg0: tensor<1x3x256x256xf32>) -> tensor<1x3x256x256xf32> {
+  %0 = tensor.empty() : tensor<1x3x256x256xf32>
+  %3 = trtrt.enqueue %ctx stream(%stream) (%arg0) outs(%arg0) : (tensor<1x3x256x256xf32>) -> tensor<1x3x256x256xf32>
+  return %3 : tensor<1x3x256x256xf32>
+}
+
+// CHECK-LABEL: func.func @enqueue_alias
+//  CHECK-SAME: (%[[arg0:.+]]: !trtrt.context, %[[arg1:.+]]: !cuda.stream, %[[arg2:.+]]: memref<
+//       CHECK:     %[[alloc:.+]] = memref.alloc() 
+//       CHECK:     trtrt.enqueue %[[arg0]] stream(%[[arg1]]) (%[[arg2]]) outs(%[[alloc]]) 
+//       CHECK:     return %[[alloc]] :
+
+// -----
+
 func.func @enqueue_host_tensors_space_check(
     %ctx: !trtrt.context, %stream: !cuda.stream,
     %arg0: tensor<4xi32>, %arg1: tensor<128xf32>) -> tensor<128xf32> {

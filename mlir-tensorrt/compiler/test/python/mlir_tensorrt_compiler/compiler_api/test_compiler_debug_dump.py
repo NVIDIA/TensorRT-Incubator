@@ -40,6 +40,8 @@ def compile_asm(ASM):
                 f"--mlir-print-ir-tree-dir={mlir_tree_path.name}",
                 f"--tensorrt-layer-info-dir={trt_path.name}",
                 f"--tensorrt-engines-dir={trt_path.name}",
+                "--mlir-elide-elementsattrs-if-larger=1024",
+                "--mlir-elide-resource-strings-if-larger=1024",
             ],
         )
         task.run(m.operation)

@@ -206,23 +206,20 @@ struct RewriteFromElements : public OpRewritePattern<tensor::FromElementsOp> {
     assert(lattice && !lattice->getValue().isUninitialized());
     TensorKindInfo placementInfo = lattice->getValue();
 
-    MemorySpace originalMemorySpaceConstraint = MemorySpace::host_pinned;
+    std::optional<MemorySpace> originalMemorySpace{};
     if (auto constraint =
-            dyn_cast_or_null<MemorySpaceAttr>(op.getType().getEncoding())) {
-      // A pre-specified 'device' constraint is not allowed.
-      if (constraint.getValue() != MemorySpace::host &&
-          constraint.getValue() != MemorySpace::host_pinned)
-        return failure();
-      originalMemorySpaceConstraint = constraint.getValue();
-    }
+            dyn_cast_or_null<MemorySpaceAttr>(op.getType().getEncoding()))
+      originalMemorySpace = constraint.getValue();
 
     // Create a host allocation and insert the elements.
+    MemorySpace memorySpace = MemorySpace::host_pinned;
     Value hostReplacement = createTensorFromElements(
-        rewriter, op.getLoc(), op.getType(), op.getElements(),
-        originalMemorySpaceConstraint);
+        rewriter, op.getLoc(), op.getType(), op.getElements(), memorySpace);
     Value hostReplacementCasted =
         rewriter.create<tensor::CastOp>(loc, originalType, hostReplacement);
-    if (placementInfo.isHostOnly()) {
+    bool canOptimizeHostReplacement =
+        !originalMemorySpace || (*originalMemorySpace == memorySpace);
+    if (placementInfo.isHostOnly() && canOptimizeHostReplacement) {
       rewriter.replaceOp(op, hostReplacementCasted);
       return success();
     }
@@ -242,14 +239,17 @@ struct RewriteFromElements : public OpRewritePattern<tensor::FromElementsOp> {
             .getResult();
     devReplacement =
         rewriter.create<tensor::CastOp>(loc, originalType, devReplacement);
-    rewriter.replaceOpUsesWithIf(
-        op, hostReplacementCasted, [&](OpOperand &use) {
-          return TensorKindAnalysis::getStaticOperandTensorKind(use) ==
-                 TensorKind::Host;
-        });
+
+    if (canOptimizeHostReplacement)
+      rewriter.replaceOpUsesWithIf(
+          op, hostReplacementCasted, [&](OpOperand &use) {
+            return TensorKindAnalysis::getStaticOperandTensorKind(use) ==
+                   TensorKind::Host;
+          });
     rewriter.replaceOpUsesWithIf(op, devReplacement, [&](OpOperand &use) {
-      return TensorKindAnalysis::getStaticOperandTensorKind(use) !=
-             TensorKind::Host;
+      return !canOptimizeHostReplacement ||
+             TensorKindAnalysis::getStaticOperandTensorKind(use) !=
+                 TensorKind::Host;
     });
     return success();
   }
@@ -810,6 +810,7 @@ static LogicalResult rewriteFuncToDestinationPassingStyle(
     // value.
     bufferization::TraversalConfig config;
     config.followEquivalentOnly = true;
+    config.followInPlaceOnly = true;
     config.alwaysIncludeLeaves = true;
     SetVector<Value> equivalentValues = state.findValueInReverseUseDefChain(
         &v, /*condition=*/
@@ -962,6 +963,10 @@ static LogicalResult enforceFunctionCallingStylePolicy(
     return failure();
 
   for (func::FuncOp func : orderedFuncOps) {
+    LLVM_DEBUG(DBGS() << "encountered func " << func.getName() << "\n");
+    if (func.isDeclaration())
+      continue;
+
     // All functions should be single-block at this point.
     if (func.getBlocks().size() != 1)
       return failure();

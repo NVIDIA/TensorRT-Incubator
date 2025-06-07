@@ -61,6 +61,7 @@ using namespace mlirtrt::runtime;
 
 static constexpr uint64_t kMinConstantBufferByteAlignment = 8;
 
+#ifndef MLIR_EXECUTOR_ENABLE_NCCL
 /// If the runtime is not built with MLIR_EXECUTOR_ENABLE_NCCL, then this
 /// function registers default implementations for the required SPMD functions,
 /// reflecting that the executable is expected to run against a single fixed
@@ -76,6 +77,7 @@ static void registerDefaultDeviceDependentMethods(lua_State *state,
     return deviceIdx;
   };
 }
+#endif // MLIR_EXECUTOR_ENABLE_NCCL
 
 namespace mlirtrt::runtime {
 void registerLuaCoreRuntimeExtension();

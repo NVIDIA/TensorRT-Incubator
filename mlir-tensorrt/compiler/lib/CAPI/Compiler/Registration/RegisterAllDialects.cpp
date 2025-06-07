@@ -25,19 +25,17 @@
 #include "mlir-tensorrt-c/Compiler/Registration/RegisterAllDialects.h"
 #include "mlir-tensorrt/Compiler/StablehloToExecutable/StablehloToExecutable.h"
 #include "mlir-tensorrt/Compiler/TensorRTToExecutable/TensorRTToExecutable.h"
-#include "mlir-tensorrt/Registration/InitLLVMExtensions.h"
-#include "mlir-tensorrt/Registration/RegisterMlirTensorRtDialects.h"
-#include "mlir-tensorrt/Registration/RegisterMlirTensorRtPasses.h"
+#include "mlir-tensorrt/InitAllDialects.h"
+#include "mlir-tensorrt/InitAllExtensions.h"
+#include "mlir-tensorrt/InitAllPasses.h"
 #include "mlir/CAPI/IR.h"
 
 void mtrtCompilerRegisterDialects(MlirDialectRegistry registry) {
-  mlir::registerAllMlirTensorRtDialects(*unwrap(registry));
-  mlirtrt::registerConvertToLLVMExtensions(*unwrap(registry));
+  mlirtrt::compiler::registerAllDialects(*unwrap(registry));
+  mlirtrt::compiler::registerAllExtensions(*unwrap(registry));
 }
 
-void mtrtCompilerRegisterPasses() {
-  mlir::tensorrt::registerAllMlirTensorRtPasses();
-}
+void mtrtCompilerRegisterPasses() { mlirtrt::compiler::registerAllPasses(); }
 
 void mtrtCompilerRegisterTasks() {
   mlirtrt::compiler::registerStableHloToExecutableTask();

@@ -151,6 +151,11 @@ LogicalResult TensorKindAnalysis::visitOperation(
     return success();
   }
 
+  if (auto tensorInsertOp = dyn_cast<tensor::InsertOp>(op)) {
+    setInferredType(tensorInsertOp.getDestMutable(), TensorKind::Host);
+    return success();
+  }
+
   if (auto bufferizeOp = dyn_cast<bufferization::AllocTensorOp>(op)) {
     // It has no tensor operands, nothing to do.
     if (!bufferizeOp.getCopy() || !bufferizeOp.getMemorySpace()) {
@@ -158,7 +163,6 @@ LogicalResult TensorKindAnalysis::visitOperation(
     }
     if (auto memSpace = dyn_cast_or_null<TensorKindAttrInterface>(
             bufferizeOp.getMemorySpaceAttr())) {
-
       if (memSpace.getTensorKind().isHostOnly()) {
         setInferredType(bufferizeOp.getCopyMutable()[0], TensorKind::Device);
         return success();

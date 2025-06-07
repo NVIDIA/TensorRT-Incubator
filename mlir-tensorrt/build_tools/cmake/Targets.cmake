@@ -44,6 +44,16 @@ function(add_mlir_tensorrt_public_c_api_library target)
   endif()
 endfunction()
 
+# --------------------------------------------------------------
+# Adds an upstream MLIR library target to the
+# MLIR_TENSORRT_LIBS global property list to capture it as an
+# implicit dependency for all final tools and compiler
+# end-user products.
+# --------------------------------------------------------------
+function(add_mlir_tensorrt_compiler_dependency target)
+  set_property(GLOBAL APPEND PROPERTY MLIR_TENSORRT_LIBS ${target})
+endfunction()
+
 # ------------------------------------------------------------------------------
 # A wrapper around `add_mlir_dialect_library` that also appends the dialect
 # library to the global `MLIR_TENSORRT_DIALECT_LIBS` list property.
@@ -99,11 +109,11 @@ function(add_mlir_tensorrt_backend_library target)
     BASE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 
   set(LLVM_TARGET_DEFINITIONS "${SRC_TD}")
-  
+
   string(REPLACE ".td" "Attrs.h.inc" h_inc_file ${BIN_TD})
   string(REPLACE ".td" "Attrs.cpp.inc" cpp_inc_file ${BIN_TD})
   mlir_tablegen("${h_inc_file}" -gen-attrdef-decls)
-  mlir_tablegen("${cpp_inc_file}" -gen-attrdef-defs)  
+  mlir_tablegen("${cpp_inc_file}" -gen-attrdef-defs)
 
   add_public_tablegen_target(${target}IncGen)
 
