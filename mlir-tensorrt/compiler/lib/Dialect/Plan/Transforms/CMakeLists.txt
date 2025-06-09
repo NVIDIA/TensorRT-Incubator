@@ -1,5 +1,6 @@
 add_mlir_tensorrt_library(MLIRTensorRTPlanTransforms
   AllocTensors.cpp
+  AssignMemorySpaces.cpp
   Bufferize.cpp
   Clustering.cpp
   CreateClosedRegions.cpp

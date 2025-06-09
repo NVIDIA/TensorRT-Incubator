@@ -22,17 +22,20 @@
 #ifndef REGISTRATION_REGISTERMLIRTENSORRTPASSES_H
 #define REGISTRATION_REGISTERMLIRTENSORRTPASSES_H
 
+#include "mlir-executor/InitAllPasses.h"
 #include "mlir-tensorrt-dialect/TensorRT/Transforms/Passes.h"
 #include "mlir-tensorrt/Conversion/Passes.h"
+#include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
+#include "mlir-tensorrt/Features.h"
 #include "mlir-tensorrt/Transforms/Passes.h"
 #include "mlir/Conversion/Passes.h"
+#include "mlir/Dialect/Bufferization/Transforms/Passes.h"
 #include "mlir/Dialect/EmitC/Transforms/Passes.h"
 #include "mlir/Transforms/Passes.h"
 
 #ifdef MLIR_TRT_ENABLE_HLO
 #include "mlir-tensorrt/Compiler/StablehloToExecutable/Passes.h"
 #include "mlir-tensorrt/Compiler/StablehloToExecutable/StablehloToExecutable.h"
-#include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
 #include "mlir-tensorrt/Dialect/StablehloExt/Transforms/Passes.h"
 #include "stablehlo/transforms/Passes.h"
 #include "stablehlo/transforms/optimization/Passes.h"
@@ -42,47 +45,36 @@
 #include "mlir-tensorrt/Compiler/TensorRTToExecutable/Passes.h"
 #endif // MLIR_TRT_TARGET_TENSORRT
 
-#ifdef MLIR_TRT_ENABLE_EXECUTOR
-#include "mlir-executor/InitAllPasses.h"
-#include "mlir/Dialect/Bufferization/Transforms/Passes.h"
-#endif // MLIR_TRT_ENABLE_EXECUTOR
-
-namespace mlir {
-namespace tensorrt {
+namespace mlirtrt::compiler {
 
 /// Register passes declared within this repo.
-inline void registerAllMlirTensorRtPasses() {
-  registerMLIRTensorRTConversionPasses();
-  registerTensorRTPasses();
-  registerMLIRTensorRTGenericTransformsPasses();
-  mlir::registerTransformsPasses();
-  mlir::registerConvertPDLToPDLInterp();
+inline void registerAllPasses() {
   mlir::emitc::registerEmitCPasses();
+  mlir::plan::registerPlanDialectPipelines();
+  mlir::plan::registerPlanPasses();
   mlir::registerConvertAffineToStandard();
+  mlir::registerConvertPDLToPDLInterp();
+  mlir::registerMLIRTensorRTConversionPasses();
+  mlir::registerMLIRTensorRTGenericTransformsPasses();
+  mlir::registerTransformsPasses();
+  mlir::tensorrt::registerTensorRTPasses();
+  mlir::registerConvertCUDAToExecutorPass();
+  mlir::bufferization::registerBufferizationPasses();
+  mlir::executor::registerAllPasses();
 
-#ifdef MLIR_TRT_ENABLE_HLO
-  mlirtrt::compiler::registerStablehloToExecutablePasses();
-  mlirtrt::compiler::registerStablehloToExecutablePipelines();
-  mlirtrt::compiler::registerStableHloInputPipelines();
-  stablehlo_ext::registerStableHloExtPasses();
-  stablehlo::registerPasses();
-  stablehlo::registerOptimizationPasses();
-  plan::registerPlanPasses();
-  plan::registerPlanDialectPipelines();
-#endif // MLIR_TRT_ENABLE_HLO
+  IF_MLIR_TRT_ENABLE_HLO({
+    mlirtrt::compiler::registerStablehloToExecutablePasses();
+    mlirtrt::compiler::registerStablehloToExecutablePipelines();
+    mlirtrt::compiler::registerStableHloInputPipelines();
+    mlir::stablehlo_ext::registerStableHloExtPasses();
+    mlir::stablehlo::registerPasses();
+    mlir::stablehlo::registerOptimizationPasses();
+  });
 
-#ifdef MLIR_TRT_TARGET_TENSORRT
-  mlirtrt::compiler::registerTensorRTToExecutablePipelines();
-#endif // MLIR_TRT_TARGET_TENSORRT
-
-#ifdef MLIR_TRT_ENABLE_EXECUTOR
-  registerConvertCUDAToExecutorPass();
-  bufferization::registerBufferizationPasses();
-  executor::registerAllPasses();
-#endif // MLIR_TRT_ENABLE_EXECUTOR
+  IF_MLIR_TRT_TARGET_TENSORRT(
+      { mlirtrt::compiler::registerTensorRTToExecutablePipelines(); });
 }
 
-} // namespace tensorrt
-} // namespace mlir
+} // namespace mlirtrt::compiler
 
 #endif // REGISTRATION_REGISTERMLIRTENSORRTPASSES_H

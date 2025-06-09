@@ -24,10 +24,7 @@ config.python_executable = "@Python3_EXECUTABLE@"
 config.enable_hlo = @MLIR_TRT_ENABLE_HLO@
 config.target_tensorrt = @MLIR_TRT_TARGET_TENSORRT@
 config.mlir_tensorrt_compile_time_version = "@MLIR_TRT_TENSORRT_VERSION@"
-config.target_lua = @MLIR_TRT_TARGET_LUA@
 config.enable_nccl = @MLIR_TRT_ENABLE_NCCL@
-config.target_lua = @MLIR_TRT_TARGET_LUA@
-config.enable_executor = @MLIR_TRT_ENABLE_EXECUTOR@
 
 config.enable_asan = @ENABLE_ASAN@
 config.tensorrt_lib_dir = "@MLIR_TRT_TENSORRT_LIB_DIR@"

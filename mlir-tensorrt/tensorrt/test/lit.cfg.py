@@ -5,9 +5,9 @@ import sys
 
 import lit.formats
 import lit.util
-
 from lit.llvm import llvm_config
 from lit.llvm.subst import ToolSubst
+import psutil
 
 # Configuration file for the 'lit' test runner.
 
@@ -114,14 +114,27 @@ if not config.enable_asan:
     config.available_features.add("no-asan")
 
 
-def estimate_parallelism(mem_required: float) -> int:
+def estimate_paralllelism(
+    gb_gpu_mem_required: float, gb_sys_mem_required: float
+) -> int:
     try:
+        parallelism = 2
         with gpu_tools.nvml_context() as devices:
-            return gpu_tools.estimate_parallelism_from_memory(devices, mem_required)
+            parallelism = gpu_tools.estimate_parallelism_from_memory(
+                devices, gb_gpu_mem_required
+            )
+        return int(
+            min(
+                parallelism,
+                (psutil.virtual_memory().available / (1024**3)) // gb_sys_mem_required,
+            )
+        )
     except:
-        return 1
+        return 2
 
 
 # Setup the parallelism groups.
-lit_config.parallelism_groups["translation-tests"] = estimate_parallelism(8.0)
+lit_config.parallelism_groups["translation-tests"] = estimate_paralllelism(
+    8.0, gb_sys_mem_required=3.0
+)
 lit_config.parallelism_group = None

@@ -49,6 +49,7 @@
 #include "llvm/Support/ScopedPrinter.h"
 #include "llvm/Support/Threading.h"
 #include "llvm/Support/ToolOutputFile.h"
+#include <mutex>
 
 #define DEBUG_TYPE "translate-to-tensorrt"
 #define DBGS() llvm::dbgs() << "[" DEBUG_TYPE "] "
@@ -62,6 +63,61 @@ namespace tensorrt {
 
 using namespace mlir;
 using namespace mlir::tensorrt;
+
+//===----------------------------------------------------------------------===//
+// Global TensorRT Logger
+//===----------------------------------------------------------------------===//
+
+namespace {
+/// A simple logger that implements TensorRT's logging interface. Errors and
+/// warnings are reported stderr. If the 'verbose' flags is active, then all
+/// messages are printed to stderr.
+class Logger : public nvinfer1::ILogger {
+public:
+  static Logger &getInstance(bool verbose) {
+    static Logger instance;
+    instance.setVerbose(verbose);
+    return instance;
+  }
+
+  void setVerbose(bool verbose) {
+    std::scoped_lock<std::mutex> guard(lock);
+    this->verbose = verbose;
+  }
+
+protected:
+  Logger() = default;
+  Logger(const Logger &) = delete;
+  Logger &operator=(const Logger &) = delete;
+
+  void log(Severity severity, const char *msg) noexcept override;
+
+  /// Print only 'error' and 'warning' messages if false, otehrwise print all
+  /// messages.
+  bool verbose;
+
+  std::mutex lock;
+};
+} // namespace
+
+void Logger::log(Severity severity, const char *msg) noexcept {
+  if (verbose) {
+    std::scoped_lock<std::mutex> g(lock);
+    llvm::errs() << msg << "\n";
+    return;
+  }
+
+  if (severity == Severity::kERROR || severity == Severity::kINTERNAL_ERROR ||
+      severity == Severity::kWARNING) {
+    std::scoped_lock<std::mutex> g(lock);
+    llvm::errs() << msg << "\n";
+    return;
+  }
+}
+
+//===----------------------------------------------------------------------===//
+// ByteSizeParser
+//===----------------------------------------------------------------------===//
 
 bool ByteSizeParser::parse(llvm::cl::Option &option, StringRef argName,
                            StringRef arg, std::optional<uint64_t> &val) {
@@ -244,23 +300,6 @@ TensorRTTranslationOptions TensorRTTranslationOptions::fromCLFlags() {
 }
 
 //===----------------------------------------------------------------------===//
-// Logger
-//===----------------------------------------------------------------------===//
-
-void tensorrt::Logger::log(Severity severity, const char *msg) noexcept {
-  if (severity == Severity::kERROR || severity == Severity::kINTERNAL_ERROR) {
-    llvm::errs() << msg << "\n";
-    return;
-  }
-  if (severity == Severity::kWARNING) {
-    llvm::errs() << msg << "\n";
-    return;
-  }
-  if (verbose)
-    llvm::errs() << msg << "\n";
-}
-
-//===----------------------------------------------------------------------===//
 // TensorRTBuilderContext
 //===----------------------------------------------------------------------===//
 
@@ -292,17 +331,13 @@ TensorRTBuilderContext::create(bool verbose, int32_t cudaDevice) {
   if (status != cudaSuccess)
     return failure();
 
-  auto logger = std::make_unique<Logger>(verbose);
-  if (!logger)
-    return failure();
-
   auto builder = std::unique_ptr<nvinfer1::IBuilder>(
-      nvinfer1::createInferBuilder(*logger));
+      nvinfer1::createInferBuilder(Logger::getInstance(verbose)));
   if (!builder)
     return failure();
 
-  return std::shared_ptr<TensorRTBuilderContext>(new TensorRTBuilderContext(
-      version, cudaDevice, std::move(logger), std::move(builder)));
+  return std::shared_ptr<TensorRTBuilderContext>(
+      new TensorRTBuilderContext(version, cudaDevice, std::move(builder)));
 }
 
 //===----------------------------------------------------------------------===//
@@ -830,7 +865,8 @@ public:
 
       if (!translationOptions->saveTensorRTLayerInfoDirectory.empty()) {
         std::unique_ptr<nvinfer1::IRuntime> runtime{
-            nvinfer1::createInferRuntime(*builderContext->getLogger())};
+            nvinfer1::createInferRuntime(
+                Logger::getInstance(translationOptions->enableVerboseLogs))};
         std::unique_ptr<nvinfer1::ICudaEngine> cudaEngine{
             runtime->deserializeCudaEngine(serializedEngine->data(),
                                            serializedEngine->size())};

@@ -22,6 +22,7 @@ configure_lit_site_cfg(
 set(MLIR_TENSORRT_TEST_DEPENDS_
   FileCheck count not
   mlir-tensorrt-opt
+  mlir-tensorrt-runner
   mlir-tensorrt-translate
   ${MLIR_TENSORRT_TEST_LIBS}
 )
@@ -30,10 +31,6 @@ if(MLIR_TRT_TARGET_TENSORRT AND
   (MLIR_TRT_TENSORRT_VERSION VERSION_GREATER_EQUAL 10.0))
   list(APPEND MLIR_TENSORRT_TEST_DEPENDS_
     TensorRTTestPlugins)
-endif()
-
-if(MLIR_TRT_TARGET_LUA)
-  list(APPEND MLIR_TENSORRT_TEST_DEPENDS_ mlir-tensorrt-runner)
 endif()
 
 if(MLIR_TRT_ENABLE_PYTHON)

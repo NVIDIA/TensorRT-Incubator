@@ -83,3 +83,47 @@ func.func @small_host_and_device_tensor_constant(%arg0: tensor<?x?xf32>) -> (ten
 //       CHECK:     memref.dealloc %[[alloc]] : memref<4xindex, #plan.memory_space<host>>
 //       CHECK:     memref.dealloc %[[alloc_0]] : memref<4xindex, #plan.memory_space<host>>
 //       CHECK:     return
+
+// -----
+
+func.func private @cond() -> i1
+
+// The test case illustrates a while loop that for whatever reason may not
+// have been "detensorized" earlier in the pipeline. The TensorKindAnalysis
+// will show that all tensors are "host-only", but currently bufferization 
+// does not deduce this via its memory space inference logic. Therefore, the
+// loop will be bufferized so that the buffers are in the device
+// space at branch points, which means lots of copies are inserted. Before
+// adding the 'plan-assign-memory-spaces' pass, we would get a failure here 
+// due to mixed types of init arg and yielded value inferred by bufferization.
+// In the future, we can optimize this case by adding support for rewriting  
+// the encoding attribute of loop-carried tensors to be host for this case.
+
+func.func @while_loop_host_tensor_carried(%arg0: f32) -> f32 {
+  %c0 = arith.constant 0 : index
+  %1 = tensor.from_elements %arg0  : tensor<1xf32>
+  %2 = scf.while (%arg1 = %1) : (tensor<1xf32>) -> tensor<1xf32> {     
+    %cond = func.call @cond() : () -> i1
+    %e = tensor.extract %arg1[%c0] : tensor<1xf32>
+    %f = arith.addf %e, %e : f32
+    %3 = tensor.from_elements %f : tensor<1xf32>
+    scf.condition(%cond) %3 : tensor<1xf32>
+  } do {
+  ^bb0(%arg1: tensor<1xf32>):        
+    %extract = tensor.extract %arg1[%c0] : tensor<1xf32>  
+    %3 = arith.addf %extract, %extract : f32
+    %4 = tensor.from_elements %3 : tensor<1xf32>    
+    scf.yield %4 : tensor<1xf32>
+  }
+  %3 = tensor.extract %2[%c0] : tensor<1xf32>
+  return %3 : f32
+}
+
+// CHECK-LABEL: func.func @while_loop_host_tensor_carried
+//         CHECK:     scf.while : () -> ()
+// CHECK-COUNT-2:       memref.copy
+//         CHECK:       scf.condition
+// CHECK-COUNT-2:       memref.copy
+//         CHECK:       scf.yield
+// CHECK-COUNT-1:       memref.copy
+//     CHECK-NOT:     memref.copy
