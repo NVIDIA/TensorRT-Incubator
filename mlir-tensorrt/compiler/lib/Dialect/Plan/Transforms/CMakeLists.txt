@@ -13,6 +13,7 @@ add_mlir_tensorrt_library(MLIRTensorRTPlanTransforms
   ModuleBufferization/ModuleBufferizationUtils.cpp
   ModuleBufferization/RemoveEquivalentBufferResults.cpp
   OutlineClusters.cpp
+  OutlineConstantFoldableSubgraphs.cpp
   Passes.cpp
   PopulateFunctionBoundsAttributes.cpp
   PostClusteringValidation.cpp

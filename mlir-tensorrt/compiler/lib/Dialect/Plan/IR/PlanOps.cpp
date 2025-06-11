@@ -23,8 +23,10 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt-dialect/Interface/TensorKindOpInterface.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
+#include "mlir-tensorrt/Interfaces/InferTensorValueRangeInterface.h"
 #include "mlir/Conversion/ConvertToLLVM/ToLLVMInterface.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Utils/IndexingUtils.h"
 #include "mlir/IR/Diagnostics.h"
 #include "mlir/IR/DialectImplementation.h"
@@ -42,6 +44,7 @@
 
 using namespace mlir;
 using namespace mlir::plan;
+using namespace mlirtrt::compiler;
 
 //===----------------------------------------------------------------------===//
 // MemorySpaceAttr
@@ -662,6 +665,48 @@ void WithShapeOp::getCanonicalizationPatterns(RewritePatternSet &results,
 //===----------------------------------------------------------------------===//
 // WithValuesOp
 //===----------------------------------------------------------------------===//
+
+void WithValuesOp::inferResultRangesFromOptional(
+    ArrayRef<IntOrTensorValueRange> argBounds,
+    SetTensorValueLatticeFn setResultRanges) {
+  if (!BoundsArray::shouldAnalyzeValueBounds(getResult())) {
+    setResultRanges(getResult(), BoundsArray());
+    return;
+  }
+
+  const auto *tensorBounds = argBounds.front().dyn_cast<const BoundsArray *>();
+
+  SmallVector<ConstantIntRanges> ranges;
+  ArrayRef<IntOrTensorValueRange> scalarBounds = argBounds.drop_front();
+  ranges.reserve(scalarBounds.size());
+  for (unsigned i = 0, e = scalarBounds.size(); i < e; i++) {
+    const auto *scalarBound =
+        scalarBounds[i].dyn_cast<const IntegerValueRange *>();
+    bool scalarIsInvalid = !scalarBound || scalarBound->isUninitialized();
+    if (tensorBounds && !tensorBounds->isUninitialized()) {
+      assert(
+          tensorBounds->getValue().size() == scalarBounds.size() &&
+          "expected number of tensor bounds to equal number of scalar bounds");
+      if (!scalarIsInvalid) {
+        ranges.push_back(
+            scalarBound->getValue().rangeUnion(tensorBounds->getValue()[i]));
+        continue;
+      }
+      ranges.push_back(tensorBounds->getValue()[i]);
+      continue;
+    }
+
+    if (!scalarIsInvalid) {
+      ranges.push_back(scalarBound->getValue());
+      continue;
+    }
+
+    setResultRanges(getResult(), BoundsArray());
+    return;
+  }
+
+  setResultRanges(getResult(), BoundsArray(ranges));
+}
 
 static ParseResult
 parseWithValuesTypes(OpAsmParser &parser,

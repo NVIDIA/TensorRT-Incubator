@@ -103,3 +103,41 @@ func.func @reorder_engine_arguments(%arg0: tensor<2x3x4xf32>, %arg1: tensor<4x2x
 // CHECK-LABEL: tensorrt.module @trt_engines
 // CHECK-LABEL: func.func @tensorrt_cluster
 //  CHECK-SAME: (%[[arg2:.+]]: tensor<2x3x4xf32>, %[[arg3:.+]]: tensor<4x2xf32>) -> tensor<2x3x?xf32>
+
+// -----
+
+func.func @maintain_output_order() -> (tensor<?x?xf32>, tensor<?x?xf32>, tensor<?x?xf32>, tensor<?x?xf32>) {
+    %cst_f32 = tensorrt.constant dense<0.000000e+00> : tensor<f32>
+    %cst_i32 = tensorrt.constant dense<[1, 2]> : tensor<2xi32>
+    %0 = tensorrt.broadcast %cst_f32 broadcast_dims<> shape(%cst_i32 : tensor<2xi32>) : tensor<f32> to tensor<?x?xf32>
+    %cst_f32_0 = tensorrt.constant dense<1.000000e+00> : tensor<f32>
+    %cst_i32_1 = tensorrt.constant dense<[3, 4]> : tensor<2xi32>
+    %1 = tensorrt.broadcast %cst_f32_0 broadcast_dims<> shape(%cst_i32_1 : tensor<2xi32>) : tensor<f32> to tensor<?x?xf32>
+    %cst_f32_2 = tensorrt.constant dense<0.000000e+00> : tensor<f32>
+    %cst_i32_3 = tensorrt.constant dense<[5, 6]> : tensor<2xi32>
+    %2 = tensorrt.broadcast %cst_f32_2 broadcast_dims<> shape(%cst_i32_3 : tensor<2xi32>) : tensor<f32> to tensor<?x?xf32>
+    %cst_f32_4 = tensorrt.constant dense<1.000000e+00> : tensor<f32>
+    %cst_i32_5 = tensorrt.constant dense<[7, 8]> : tensor<2xi32>
+    %3 = tensorrt.broadcast %cst_f32_4 broadcast_dims<> shape(%cst_i32_5 : tensor<2xi32>) : tensor<f32> to tensor<?x?xf32>
+    return %0, %1, %2, %3 : tensor<?x?xf32>, tensor<?x?xf32>, tensor<?x?xf32>, tensor<?x?xf32>
+}
+
+// CHECK-LABEL: @maintain_output_order
+//  CHECK-SAME: () -> (tensor<?x?xf32>, tensor<?x?xf32>, tensor<?x?xf32>, tensor<?x?xf32>)
+//  CHECK-NEXT: %[[v0:.+]]:4 = tensorrt.call_alloc @trt_engines::@tensorrt_cluster()
+//  CHECK-NEXT: return %[[v0]]#0, %[[v0]]#1, %[[v0]]#2, %[[v0]]#3
+// CHECK-LABEL: tensorrt.module @trt_engines
+// CHECK-LABEL: func.func @tensorrt_cluster
+//   CHECK-NEXT: %[[v0:.+]] = tensorrt.constant dense<0.000000e+00> : tensor<f32>
+//   CHECK-NEXT: %[[v1:.+]] = tensorrt.constant dense<[1, 2]> : tensor<2xi32>
+//   CHECK-NEXT: %[[v2:.+]] = tensorrt.broadcast %[[v0]] broadcast_dims<> shape(%[[v1]] : tensor<2xi32>)
+//   CHECK-NEXT: %[[v3:.+]] = tensorrt.constant dense<1.000000e+00> : tensor<f32>
+//   CHECK-NEXT: %[[v4:.+]] = tensorrt.constant dense<[3, 4]> : tensor<2xi32>
+//   CHECK-NEXT: %[[v5:.+]] = tensorrt.broadcast %[[v3]] broadcast_dims<> shape(%[[v4]] : tensor<2xi32>)
+//   CHECK-NEXT: %[[v6:.+]] = tensorrt.constant dense<0.000000e+00> : tensor<f32>
+//   CHECK-NEXT: %[[v7:.+]] = tensorrt.constant dense<[5, 6]> : tensor<2xi32>
+//   CHECK-NEXT: %[[v8:.+]] = tensorrt.broadcast %[[v6]] broadcast_dims<> shape(%[[v7]] : tensor<2xi32>)
+//   CHECK-NEXT: %[[v9:.+]] = tensorrt.constant dense<1.000000e+00> : tensor<f32>
+//   CHECK-NEXT: %[[v10:.+]] = tensorrt.constant dense<[7, 8]> : tensor<2xi32>
+//   CHECK-NEXT: %[[v11:.+]] = tensorrt.broadcast %[[v9]] broadcast_dims<> shape(%[[v10]] : tensor<2xi32>)
+//   return %[[v2]], %[[v5]], %[[v8]], %[[v11]]

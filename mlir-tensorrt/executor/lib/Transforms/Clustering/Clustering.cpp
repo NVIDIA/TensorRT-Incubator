@@ -393,7 +393,8 @@ mlir::analyzeAndClusterOperations(Operation *op, const ClusteringOpts &opts) {
 
 Operation *
 mlir::createRegionOpFromCluster(const Cluster &cluster, RewriterBase &rewriter,
-                                ClusterRegionOpBuilderFunc createRegionOp) {
+                                ClusterRegionOpBuilderFunc createRegionOp,
+                                ReorderRegionOpYieldValues reorderYieldValues) {
   // insert the region to the last Op to because of dominance property
   Operation *insertionOp = cluster.getRoot();
 
@@ -418,6 +419,9 @@ mlir::createRegionOpFromCluster(const Cluster &cluster, RewriterBase &rewriter,
       yieldTypes.emplace_back(use.get().getType());
     }
   }
+
+  if (reorderYieldValues)
+    reorderYieldValues(yieldValues, yieldTypes);
 
   rewriter.setInsertionPoint(insertionOp);
   Operation *regionOp = createRegionOp(rewriter, insertionOp->getLoc(),

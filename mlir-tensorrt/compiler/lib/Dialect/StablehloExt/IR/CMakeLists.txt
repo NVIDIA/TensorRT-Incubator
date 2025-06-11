@@ -1,6 +1,7 @@
 add_mlir_tensorrt_library(MLIRTensorRTStableHloExtIR
+  StablehloInferTensorValueRangeImpl.cpp
+  StablehloReifyTypeInterfaceImpl.cpp
   StablehloTensorKindOpInterfaceImpl.cpp
-  StableHloReifyTypeInterfaceImpl.cpp
 
   LINK_LIBS PUBLIC
   MLIRAffineDialect
@@ -9,6 +10,7 @@ add_mlir_tensorrt_library(MLIRTensorRTStableHloExtIR
   MLIRDialectUtils
   MLIRIR
   MLIRTensorDialect
+  MLIRTensorRTInferTensorValueRangeInterface
   MLIRTensorRTInterfaces
   StablehloOps
 )

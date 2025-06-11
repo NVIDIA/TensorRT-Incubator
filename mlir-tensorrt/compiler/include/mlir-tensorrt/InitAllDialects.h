@@ -189,6 +189,8 @@ inline void registerAllDialects(mlir::DialectRegistry &registry) {
   mlir::vector::registerValueBoundsOpInterfaceExternalModels(registry);
 
   IF_MLIR_TRT_ENABLE_HLO({
+    mlir::stablehlo::registerInferTensorValueRangeInterfaceExternalModels(
+        registry);
     mlir::stablehlo::registerTensorKindOpInterfaceExternalModels(registry);
     mlir::stablehlo::registerTypeInferenceExternalModels(registry);
   });

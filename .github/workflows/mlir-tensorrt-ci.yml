@@ -100,7 +100,7 @@ jobs:
             #!/bin/bash
             set -e
             python3 -m black --check --extend-exclude='.*\.pyi' mlir-tensorrt/compiler/
-            python3 -m black --check --extend-exclude='.*\.pyi' mlir-tensorrt/python/
+            python3 -m black --check --extend-exclude='.*\.pyi' mlir-tensorrt/integrations/python/
             git clang-format HEAD~1 --diff
             EOF
 

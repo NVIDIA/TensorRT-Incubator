@@ -27,6 +27,7 @@
 #include "mlir-tensorrt-dialect/Interface/TensorKindOpInterface.h"
 #include "mlir-tensorrt/Compiler/Extension.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/PlanInterfaces.h"
+#include "mlir-tensorrt/Interfaces/InferTensorValueRangeInterface.h"
 #include "mlir/Bytecode/BytecodeOpInterface.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinOps.h"

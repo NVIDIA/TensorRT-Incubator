@@ -258,9 +258,9 @@ def ClusteringPass : Pass<"plan-clustering", "::mlir::ModuleOp"> {
     operations will be compiled.
 
     The kinds of clusters that can be formed and the specific rules for
-    clustering are defined by the clustering configuration specified 
+    clustering are defined by the clustering configuration specified
     by the module's `plan.cluster_kinds` attribute. This is an array of
-    attributes which all implement the 
+    attributes which all implement the
     [ClusterKindAttrInterface](../IR/PlanInterfaces.td).
   }];
 
@@ -585,5 +585,35 @@ def PlanOwnershipBasedBufferDeallocationPass : Pass<
   ];
 }
 
+//===----------------------------------------------------------------------===//
+// PlanOutlineConstantFoldableSubgraphs
+//===----------------------------------------------------------------------===//
+
+def PlanOutlineConstantFoldableSubgraphsPass : Pass<
+      "plan-outline-constant-foldable-subgraphs",
+      "::mlir::ModuleOp"> {
+  let summary = "Analyze and outline constant foldable subgraphs";
+
+  let description = [{
+    This pass implements forward dataflow analysis (named `SparseConstantFoldabilityAnalysis`)
+    to find out constant foldable ops. This analysis, unlike upstream
+    `ConstantPropagationAnalysis` is very simple and works only for pure ops.
+    If all operands of an operation are constant foldable, all results are marked
+    as constant foldable.
+    Constant foldability analysis is then used along with clustering to
+    find constant foldable subgraphs. These constant foldable subgraphs are
+    finally outlined to a private function with `plan.constant_foldable` attribute.
+  }];
+
+  let options = [
+    Option<"skipClustering", "skip-clustering",
+           "std::function<bool(Operation*)>", /*default=*/"nullptr",
+           "This option enables user to extend default pass behavior and skip "
+           "more ops from clustering. If this method returns true, `op` is not "
+           "clustered. When op is not clustered, it is not outlined for constant "
+           "folding. This is helpful in avoiding clustering of ops that can't be "
+           "run e2e at compile time, in the workflow of user's choice.">,
+  ];
+}
 
 #endif // MLIR_TENSORRT_DIALECT_PLAN_TRANSFORMS_PASSES_TD

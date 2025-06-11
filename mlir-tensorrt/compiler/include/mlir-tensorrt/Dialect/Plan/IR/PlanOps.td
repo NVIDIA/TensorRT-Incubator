@@ -8,6 +8,7 @@ include "mlir/Interfaces/SideEffectInterfaces.td"
 include "mlir/Interfaces/ControlFlowInterfaces.td"
 include "mlir/Interfaces/DestinationStyleOpInterface.td"
 include "mlir/Interfaces/InferTypeOpInterface.td"
+include "mlir-tensorrt/Interfaces/InferTensorValueRangeInterface.td"
 include "mlir/IR/OpAsmInterface.td"
 
 class Plan_NativeOpTrait<string name,
@@ -433,6 +434,8 @@ def Plan_WithShapeOp : Plan_Op<"with_shape",
 def Plan_WithValuesOp : Plan_Op<"with_values",
     [Pure,
      DeclareOpInterfaceMethods<TensorKindOpInterface>,
+     DeclareOpInterfaceMethods<InferTensorValueRangeInterface,
+      ["inferResultRangesFromOptional"]>,
      AllTypesMatch<["operand", "result"]>]> {
   let summary =
     "Ties a tensor value with index SSA values representing its element values";

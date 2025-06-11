@@ -74,8 +74,8 @@ EOF
 ARG PYTHON_VERSION=3.10
 ENV PYENV_ROOT="/pyenv"
 ENV PATH="/pyenv/bin:/pyenv/shims:$PATH"
-COPY python/requirements-dev.txt /tmp/requirements-dev.txt
-COPY python/requirements.txt /tmp/requirements.txt
+COPY integrations/python/requirements-dev.txt /tmp/requirements-dev.txt
+COPY integrations/python/requirements.txt /tmp/requirements.txt
 RUN <<EOF
 set -e
 case "${LINUX_DISTRO}" in

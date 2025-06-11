@@ -25,96 +25,13 @@
 #ifndef MLIR_TENSORRT_DIALECT_PLAN_ANALYSIS_BOUNDSANALYSIS
 #define MLIR_TENSORRT_DIALECT_PLAN_ANALYSIS_BOUNDSANALYSIS
 
+#include "mlir-tensorrt/Interfaces/InferTensorValueRangeInterface.h"
 #include "mlir/Analysis/DataFlow/IntegerRangeAnalysis.h"
 #include "mlir/Analysis/DataFlow/SparseAnalysis.h"
-#include "mlir/Interfaces/InferIntRangeInterface.h"
-#include "llvm/Support/raw_ostream.h"
 
 namespace mlir::plan {
 
-//===----------------------------------------------------------------------===//
-// BoundsArray
-//===----------------------------------------------------------------------===//
-
-/// A BoundsArray is simply an array of ConstantIntRanges used to represent
-/// either the bounds on a shape of a tensor-typed SSA value or the bounds
-/// of the element values of a statically shaped integer tensor-typed SSA value.
-/// When it is used to represent the bounds for the value of a tensor, we use
-/// a canonical packed generalized row-major layout mapping from tensor
-/// coordinates to storage index.
-class BoundsArray {
-public:
-  BoundsArray(
-      std::optional<SmallVector<ConstantIntRanges>> value = std::nullopt)
-      : value(std::move(value)) {}
-
-  bool isUninitialized() const { return !value.has_value(); }
-
-  bool operator==(const BoundsArray &rhs) const { return value == rhs.value; }
-
-  ArrayRef<ConstantIntRanges> getValue() const {
-    assert(!isUninitialized());
-    return *value;
-  }
-
-  /// Return the most conservative integer scalar bounds for an dynamic/unknown
-  /// dimension extent.
-  static ConstantIntRanges getMaxDimRange();
-
-  /// Create a BoundsValue from the min/max bounds of shape. Using this method
-  /// ensures that the `value` are created with the correct storage bitwidth
-  /// (an implementation detail of the analysis).
-  static BoundsArray fromShapeBounds(ArrayRef<int64_t> min,
-                                     ArrayRef<int64_t> max);
-
-  /// Create a `BoundsValue` using the given scalar values encoded as int64_t
-  /// values. However, when storing the bounds, use the given bitwidth.
-  /// TODO: remove this when we migrate away from using
-  /// `#tensorrt.shape_profile` for value bounds.
-  static BoundsArray fromIntegerValueBounds(unsigned bitwidth,
-                                            ArrayRef<int64_t> min,
-                                            ArrayRef<int64_t> max);
-  static BoundsArray fromIntegerValueBounds(ArrayRef<llvm::APInt> min,
-                                            ArrayRef<llvm::APInt> max);
-
-  /// For the given tensor-typed value, return the most conservative bounds for
-  /// the shape of `v`. For each unknown dimension of the shape of `v` the
-  /// `getMaxDimRange()` bound is used.
-  static BoundsArray getMaxRangeForShapeBounds(Value v);
-
-  /// For the given statically shaped integer tensor-typed value, return the
-  /// most conservative bounds for the value of `v`.
-  static BoundsArray getMaxRangeForValueBounds(Value v);
-
-  /// For the given DenseIntElementsAttr, return a corresponding BoudnsValue
-  /// representing constant bounds as indicated by the attribute.
-  static BoundsArray getFromConstantValue(DenseIntElementsAttr attr);
-
-  /// Join two BoundsValues by performing a pointwise union of the integer
-  /// scalar a ranges.
-  static BoundsArray join(const BoundsArray &lhs, const BoundsArray &rhs);
-
-  /// Meet two BoundsValues by performing a pointwise intersection of the
-  /// integer scalar a ranges.
-  static BoundsArray meet(const BoundsArray &lhs, const BoundsArray &rhs);
-
-  /// Print a human-readable representation of the bounds.
-  void print(raw_ostream &os) const;
-
-  /// Return the min/max bounds representation as two DenseElementsAttrs.
-  std::pair<DenseElementsAttr, DenseElementsAttr>
-  getAsElementsAttr(RankedTensorType type) const;
-
-  /// Returns DenseElementsAttr representation if the element ranges are all
-  /// constant (single-value) ranges, otherwise nullopt.
-  std::optional<DenseElementsAttr>
-  getConstantValues(RankedTensorType type) const;
-
-private:
-  std::optional<SmallVector<ConstantIntRanges>> value;
-};
-
-llvm::raw_ostream &operator<<(llvm::raw_ostream &os, const BoundsArray &v);
+using BoundsArray = mlirtrt::compiler::BoundsArray;
 
 //===----------------------------------------------------------------------===//
 // Shape Bounds Analyses
