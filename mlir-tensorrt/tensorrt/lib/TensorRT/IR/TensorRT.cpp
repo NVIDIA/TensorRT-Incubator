@@ -38,6 +38,7 @@
 #include "mlir/IR/TypeUtilities.h"
 #include "mlir/Interfaces/ControlFlowInterfaces.h"
 #include "mlir/Parser/Parser.h"
+#include "mlir/Transforms/InliningUtils.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallVectorExtras.h"
 #include "llvm/ADT/TypeSwitch.h"
@@ -2749,6 +2750,23 @@ class TensorRTDialectOpAsmInterface : public OpAsmDialectInterface {
     return AliasResult::NoAlias;
   }
 };
+
+//===----------------------------------------------------------------------===//
+// TensorRTDialectInlinerInterface
+//===----------------------------------------------------------------------===//
+
+struct TensorRTDialectInlinerInterface : public DialectInlinerInterface {
+  using DialectInlinerInterface::DialectInlinerInterface;
+  bool isLegalToInline(Region *dest, Region *src, bool wouldBeCloned,
+                       IRMapping &valueMapping) const final {
+    return true;
+  }
+  // Pure operations in TensorRT dialect are always legal to inline.
+  bool isLegalToInline(Operation *op, Region *dest, bool wouldBeCloned,
+                       IRMapping &valueMapping) const final {
+    return isPure(op);
+  }
+};
 } // namespace
 
 //===----------------------------------------------------------------------===//
@@ -2778,6 +2796,7 @@ void TensorRTDialect::initialize() {
       >();
 
   addInterface<TensorRTDialectOpAsmInterface>();
+  addInterface<TensorRTDialectInlinerInterface>();
 }
 
 //===----------------------------------------------------------------------===//

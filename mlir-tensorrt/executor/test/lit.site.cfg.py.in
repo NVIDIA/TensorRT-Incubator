@@ -19,7 +19,7 @@ config.enable_assertions = @LLVM_ENABLE_ASSERTIONS@
 
 config.gpu_tools_script = os.path.join(
     "@MLIR_EXECUTOR_SOURCE_DIR@",
-    "../python/mlir_tensorrt_tools/mlir_tensorrt/tools/gpu_tools.py",
+    "../integrations/python/mlir_tensorrt_tools/mlir_tensorrt/tools/gpu_tools.py",
 )
 
 import lit.llvm

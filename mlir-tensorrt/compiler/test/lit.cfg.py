@@ -31,7 +31,7 @@ config.suffixes = {".mlir", ".py", ".test"}
 config.test_source_root = os.path.dirname(__file__)
 config.gpu_tools_script = os.path.join(
     config.test_source_root,
-    "../../python/mlir_tensorrt_tools/mlir_tensorrt/tools/gpu_tools.py",
+    "../../integrations/python/mlir_tensorrt_tools/mlir_tensorrt/tools/gpu_tools.py",
 )
 
 

@@ -48,3 +48,15 @@ add_mlir_tensorrt_interface_library(MLIRTensorRTBufferizationScopeInterface
   MLIRBufferizationDialect
   MLIRBufferizationTransforms
   )
+
+add_mlir_tensorrt_interface_library(MLIRTensorRTInferTensorValueRangeInterface
+  InferTensorValueRangeInterface.cpp
+
+  TD
+    "mlir-tensorrt/Interfaces/InferTensorValueRangeInterface.td"
+  OP
+    "mlir-tensorrt/Interfaces/InferTensorValueRangeInterface"
+
+  LINK_LIBS PUBLIC
+  MLIRInferIntRangeInterface
+  )

@@ -34,6 +34,10 @@ void registerTensorKindOpInterfaceExternalModels(DialectRegistry &registry);
 /// Register StableHlo op implementations for ReifyRankedShapedTypeOpInterface.
 void registerTypeInferenceExternalModels(DialectRegistry &registry);
 
+/// Register StableHlo op implementations for InferTensorValueRangeInterface.
+void registerInferTensorValueRangeInterfaceExternalModels(
+    DialectRegistry &registry);
+
 } // namespace mlir::stablehlo
 
 #endif // MLIR_TENSORRT_DIALECT_STABLEHLOEXT_IR_STABLEHLOEXT_H

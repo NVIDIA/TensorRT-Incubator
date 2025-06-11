@@ -216,6 +216,44 @@ static SmallVector<Value> makeRegionIsolatedFromAboveImpl(
 static FailureOr<tensorrt::CallAllocOp>
 outlineOp(RewriterBase &rewriter, tensorrt::TensorRTModuleOp trtModule,
           const Cluster &cluster) {
+  auto parentFunc = cluster.getRoot()->getParentOfType<func::FuncOp>();
+
+  auto reorderYieldValues = [&](SetVector<Value> &yieldValues,
+                                SmallVectorImpl<Type> &yieldTypes) {
+    auto term = dyn_cast<func::ReturnOp>(
+        parentFunc.getFunctionBody().front().getTerminator());
+    if (!term)
+      return;
+    if (term->getNumOperands() != yieldValues.size())
+      return;
+
+    DenseMap<Value, unsigned> termValueOrder;
+    DenseMap<Type, unsigned> termTypeOrder;
+    for (const auto &it : llvm::enumerate(term.getOperands())) {
+      termValueOrder[it.value()] = it.index();
+      termTypeOrder[it.value().getType()] = it.index();
+    }
+
+    // Make sure each yielded value is terminator operand.
+    if (llvm::any_of(yieldValues,
+                     [&](Value v) { return !termValueOrder.contains(v); }))
+      return;
+
+    SmallVector<Value, 8> valuesVector(yieldValues.begin(), yieldValues.end());
+
+    // Sort both values and type.
+    llvm::stable_sort(valuesVector, [&](Value lhs, Value rhs) {
+      return termValueOrder[lhs] < termValueOrder[rhs];
+    });
+    llvm::stable_sort(yieldTypes, [&](Type lhs, Type rhs) {
+      return termTypeOrder[lhs] < termTypeOrder[rhs];
+    });
+
+    // Write sorted values back to set vector
+    yieldValues.clear();
+    yieldValues.insert(valuesVector.begin(), valuesVector.end());
+  };
+
   auto inlineGroupOp =
       cast<plan::InlineGroupOp>(mlir::createRegionOpFromCluster(
           cluster, rewriter,
@@ -224,10 +262,10 @@ outlineOp(RewriterBase &rewriter, tensorrt::TensorRTModuleOp trtModule,
             b.setInsertionPointToStart(&regionOp.getRegion().emplaceBlock());
             b.create<plan::YieldOp>(loc);
             return regionOp;
-          }));
+          },
+          reorderYieldValues));
 
   // Make the region isolated from above. This captures the input operands.
-  auto parentFunc = cluster.getRoot()->getParentOfType<func::FuncOp>();
   SmallVector<Value> inputs = makeRegionIsolatedFromAboveImpl(
       rewriter, inlineGroupOp.getRegion(), parentFunc, {});
 
@@ -240,8 +278,6 @@ outlineOp(RewriterBase &rewriter, tensorrt::TensorRTModuleOp trtModule,
 
   StringRef tensorrtShapeBoundsAttrName =
       mlir::tensorrt::TensorRTDialect::getShapeProfileArgAttrName();
-  func::FuncOp funcContainingCluster =
-      cluster.back()->getParentOfType<func::FuncOp>();
   SmallVector<Attribute> profileAttrsPerInput;
   for (Value v : inputs) {
     auto rtt = dyn_cast<RankedTensorType>(v.getType());
@@ -251,8 +287,7 @@ outlineOp(RewriterBase &rewriter, tensorrt::TensorRTModuleOp trtModule,
     }
 
     auto blockArg = dyn_cast<BlockArgument>(v);
-    if (!blockArg ||
-        blockArg.getOwner()->getParentOp() != funcContainingCluster) {
+    if (!blockArg || blockArg.getOwner()->getParentOp() != parentFunc) {
       return emitError(blockArg.getLoc())
              << "Block argument is not part of the signature of the function "
                 "containing this TRT cluster";
@@ -260,7 +295,7 @@ outlineOp(RewriterBase &rewriter, tensorrt::TensorRTModuleOp trtModule,
 
     int64_t argIndex = blockArg.getArgNumber();
     profileAttrsPerInput.push_back(
-        funcContainingCluster.getArgAttrOfType<tensorrt::ShapeProfileAttr>(
+        parentFunc.getArgAttrOfType<tensorrt::ShapeProfileAttr>(
             argIndex, tensorrtShapeBoundsAttrName));
 
     if (!profileAttrsPerInput.back()) {

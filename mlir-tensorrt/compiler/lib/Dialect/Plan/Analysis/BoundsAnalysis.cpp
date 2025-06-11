@@ -25,11 +25,13 @@
 #include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/PlanInterfaces.h"
+#include "mlir-tensorrt/Interfaces/InferTensorValueRangeInterface.h"
 #include "mlir/Analysis/DataFlow/IntegerRangeAnalysis.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Dialect/Utils/IndexingUtils.h"
 #include "mlir/IR/Matchers.h"
+#include "mlir/IR/OpDefinition.h"
 #include "mlir/IR/OperationSupport.h"
 #include "mlir/IR/TypeUtilities.h"
 #include "mlir/Interfaces/InferIntRangeInterface.h"
@@ -39,6 +41,7 @@
 using namespace mlir;
 using namespace mlir::dataflow;
 using namespace mlir::plan;
+using namespace mlirtrt::compiler;
 
 #define DEBUG_TYPE "plan-bounds-analysis"
 #define DBGS(x) llvm::dbgs() << " [" DEBUG_TYPE "][" x "] "
@@ -68,154 +71,6 @@ static bool hasShapeFuncMarker(Value value, StringRef attrName) {
   if (attr)
     return true;
   return false;
-}
-
-//===----------------------------------------------------------------------===//
-// BoundsValue
-//===----------------------------------------------------------------------===//
-
-ConstantIntRanges BoundsArray::getMaxDimRange() {
-  APInt smin = APInt(IndexType::kInternalStorageBitWidth, 0);
-  APInt smax = APInt(IndexType::kInternalStorageBitWidth,
-                     std::numeric_limits<int32_t>::max());
-  return ConstantIntRanges::fromSigned(smin, smax);
-}
-
-BoundsArray BoundsArray::getMaxRangeForShapeBounds(Value v) {
-  auto type = cast<ShapedType>(v.getType());
-  SmallVector<ConstantIntRanges> ranges;
-  ranges.reserve(type.getRank());
-  for (int64_t dim : type.getShape()) {
-    if (ShapedType::isDynamic(dim)) {
-      ranges.push_back(getMaxDimRange());
-      continue;
-    }
-    ranges.push_back(ConstantIntRanges::constant(APInt(64, dim)));
-  }
-  return BoundsArray(std::move(ranges));
-}
-
-BoundsArray BoundsArray::getMaxRangeForValueBounds(Value v) {
-  assert(TensorValueBoundsAnalysis::shouldAnalyzeValueBounds(v) &&
-         "value is unsuitable for analysis");
-  Type elementType = mlir::getElementTypeOrSelf(v);
-  unsigned numBits = ConstantIntRanges::getStorageBitwidth(elementType);
-  APInt smin = APInt::getSignedMinValue(numBits);
-  APInt smax = APInt::getSignedMaxValue(numBits);
-  SmallVector<ConstantIntRanges> ranges(
-      cast<ShapedType>(v.getType()).getNumElements(),
-      ConstantIntRanges::fromSigned(smin, smax));
-  return BoundsArray(std::move(ranges));
-}
-
-BoundsArray BoundsArray::getFromConstantValue(DenseIntElementsAttr v) {
-  assert(TensorValueBoundsAnalysis::shouldAnalyzeValueBounds(v.getType()) &&
-         "attribute type is unsuitable for creating value bound state");
-  SmallVector<ConstantIntRanges> ranges;
-  ranges.reserve(cast<ShapedType>(v.getType()).getNumElements());
-  for (const APInt &element : v.getValues<APInt>())
-    ranges.push_back(ConstantIntRanges::constant(element));
-  return BoundsArray(std::move(ranges));
-}
-
-BoundsArray BoundsArray::fromShapeBounds(ArrayRef<int64_t> min,
-                                         ArrayRef<int64_t> max) {
-  SmallVector<ConstantIntRanges> res;
-  for (auto [l, r] : llvm::zip_equal(min, max))
-    res.push_back(ConstantIntRanges::fromSigned(APInt(64, l), APInt(64, r)));
-  return BoundsArray(std::move(res));
-}
-
-BoundsArray BoundsArray::fromIntegerValueBounds(unsigned bitWidth,
-                                                ArrayRef<int64_t> min,
-                                                ArrayRef<int64_t> max) {
-  SmallVector<ConstantIntRanges> res;
-  for (auto [l, r] : llvm::zip_equal(min, max))
-    res.push_back(
-        ConstantIntRanges::fromSigned(APInt(64, l).sextOrTrunc(bitWidth),
-                                      APInt(64, r).sextOrTrunc(bitWidth)));
-  return BoundsArray(std::move(res));
-}
-
-BoundsArray BoundsArray::fromIntegerValueBounds(ArrayRef<llvm::APInt> min,
-                                                ArrayRef<llvm::APInt> max) {
-  SmallVector<ConstantIntRanges> res;
-  for (auto [l, r] : llvm::zip_equal(min, max))
-    res.push_back(ConstantIntRanges::fromSigned(l, r));
-  return BoundsArray(std::move(res));
-}
-
-BoundsArray BoundsArray::join(const BoundsArray &lhs, const BoundsArray &rhs) {
-  if (lhs.isUninitialized())
-    return rhs;
-  if (rhs.isUninitialized())
-    return lhs;
-  SmallVector<ConstantIntRanges> res;
-  for (auto [l, r] : llvm::zip_equal(lhs.getValue(), rhs.getValue()))
-    res.push_back(l.rangeUnion(r));
-  return BoundsArray(std::move(res));
-}
-
-BoundsArray BoundsArray::meet(const BoundsArray &lhs, const BoundsArray &rhs) {
-  if (lhs.isUninitialized())
-    return rhs;
-  if (rhs.isUninitialized())
-    return lhs;
-  SmallVector<ConstantIntRanges> res;
-  for (auto [l, r] : llvm::zip_equal(lhs.getValue(), rhs.getValue()))
-    res.push_back(l.intersection(r));
-  return BoundsArray(std::move(res));
-}
-
-void BoundsArray::print(raw_ostream &os) const {
-  if (!value) {
-    os << "<<uninitialized>>";
-    return;
-  }
-  os << "<";
-  llvm::interleaveComma(*value, os, [&](const ConstantIntRanges &r) {
-    os << "[" << r.smin() << ", " << r.smax() << "]";
-  });
-  os << ">";
-}
-
-llvm::raw_ostream &plan::operator<<(llvm::raw_ostream &os,
-                                    const BoundsArray &v) {
-  v.print(os);
-  return os;
-}
-
-std::pair<DenseElementsAttr, DenseElementsAttr>
-BoundsArray::getAsElementsAttr(RankedTensorType type) const {
-  assert(!isUninitialized() && "expected initialized value");
-  assert(type.getNumElements() == static_cast<int64_t>(value->size()) &&
-         "specified tensor type's volume does not match lattice value volume");
-  SmallVector<APInt> lbs;
-  lbs.reserve(type.getNumElements());
-  SmallVector<APInt> ubs;
-  ubs.reserve(type.getNumElements());
-  for (const ConstantIntRanges &r : *value) {
-    lbs.push_back(r.smin());
-    ubs.push_back(r.smax());
-  }
-  return std::make_pair(DenseElementsAttr::get(type, lbs),
-                        DenseElementsAttr::get(type, ubs));
-}
-
-/// Returns true if the element ranges are constant (single-value) ranges.
-std::optional<DenseElementsAttr>
-BoundsArray::getConstantValues(RankedTensorType type) const {
-  assert(!isUninitialized() && "expected initialized value");
-  assert(type.getNumElements() == static_cast<int64_t>(value->size()) &&
-         "specified tensor type's volume does not match lattice value volume");
-  SmallVector<APInt> lbs;
-  lbs.reserve(type.getNumElements());
-  for (const ConstantIntRanges &r : *value) {
-    if (r.smin() != r.smax())
-      return {};
-    lbs.push_back(r.smin());
-  }
-  return DenseElementsAttr::get(type, lbs);
 }
 
 //===----------------------------------------------------------------------===//
@@ -709,13 +564,11 @@ LogicalResult ShapeIntegerRangeAnalysis::visitOperation(
 //===----------------------------------------------------------------------===//
 
 bool TensorValueBoundsAnalysis::shouldAnalyzeValueBounds(Type type) {
-  if (auto rtt = dyn_cast<RankedTensorType>(type))
-    return rtt.getElementType().isSignlessIntOrIndex() &&
-           rtt.hasStaticShape() && rtt.getNumElements() <= kMaxVolumeThreshold;
-  return false;
+  return BoundsArray::shouldAnalyzeValueBounds(type);
 }
+
 bool TensorValueBoundsAnalysis::shouldAnalyzeValueBounds(Value value) {
-  return shouldAnalyzeValueBounds(value.getType());
+  return BoundsArray::shouldAnalyzeValueBounds(value);
 }
 
 void TensorValueBoundsAnalysis::setToEntryState(
@@ -739,55 +592,46 @@ void TensorValueBoundsAnalysis::setToEntryState(
               shapeProfile->getMaxValues().getValues<llvm::APInt>()))));
 }
 
-static void maybePopulateConstantValueBounds(
-    Value point,
-    llvm::function_ref<void(Value, ArrayRef<ConstantIntRanges>)> joinCallback) {
-  if (!TensorValueBoundsAnalysis::shouldAnalyzeValueBounds(point))
-    return;
-  DenseIntElementsAttr attr;
-  if (!matchPattern(point, m_Constant(&attr)))
-    return;
-  BoundsArray val = BoundsArray::getFromConstantValue(attr);
-  joinCallback(point, val.getValue());
-}
-
-static FailureOr<SmallVector<ConstantIntRanges>>
-intersectTensorValueBoundsAndScalarBounds(
-    ArrayRef<const IntegerValueRangeLattice *> scalarBounds,
-    const TensorValueBoundsLattice *tensorBounds) {
-  SmallVector<ConstantIntRanges> ranges;
-  ranges.reserve(scalarBounds.size());
-  for (unsigned i = 0, e = scalarBounds.size(); i < e; i++) {
-    const IntegerValueRangeLattice *scalar = scalarBounds[i];
-    bool scalarIsInvalid = !scalar || scalar->getValue().isUninitialized();
-    if (tensorBounds && !tensorBounds->getValue().isUninitialized()) {
-      if (!scalarIsInvalid) {
-        ranges.push_back(scalar->getValue().getValue().intersection(
-            tensorBounds->getValue().getValue()[i]));
-        continue;
-      }
-      ranges.push_back(tensorBounds->getValue().getValue()[i]);
-      continue;
-    }
-
-    if (!scalarIsInvalid) {
-      ranges.push_back(scalarBounds[i]->getValue().getValue());
-      continue;
-    }
-
-    return failure();
-  }
-  return ranges;
-}
-
 LogicalResult TensorValueBoundsAnalysis::visitOperation(
     Operation *op, ArrayRef<const TensorValueBoundsLattice *> operands,
     ArrayRef<TensorValueBoundsLattice *> results) {
 
+  if (!isa<InferTensorValueRangeInterface>(op) &&
+      !op->hasTrait<OpTrait::ConstantLike>()) {
+    setAllToEntryStates(results);
+    return success();
+  }
+
   LLVM_DEBUG(DBGS("TensorValueBoundsAnalysis") << "visiting " << *op << "\n");
 
-  auto joinCallback = [&](Value v, ArrayRef<ConstantIntRanges> attrs) {
-    assert(shouldAnalyzeValueBounds(v) && "value is unsuitable for analysis");
+  SmallVector<IntOrTensorValueRange> argRanges;
+  for (auto [idx, operand] : llvm::enumerate(op->getOperands())) {
+    if (isa<RankedTensorType>(operand.getType()) &&
+        shouldAnalyzeValueBounds(operand)) {
+      if (operands[idx])
+        argRanges.emplace_back(&operands[idx]->getValue());
+      else
+        argRanges.emplace_back(nullptr);
+      continue;
+    }
+
+    if (isa<IntegerType, IndexType>(operand.getType())) {
+      const auto *scalarLattice =
+          this->getOrCreateFor<IntegerValueRangeLattice>(
+              getProgramPointAfter(op), operand);
+      if (scalarLattice) {
+        argRanges.emplace_back(&scalarLattice->getValue());
+      } else {
+        argRanges.emplace_back(nullptr);
+      }
+      continue;
+    }
+
+    setAllToEntryStates(results);
+    return success();
+  }
+
+  auto joinCallback = [&](Value v, BoundsArray newRange) {
     auto result = dyn_cast<OpResult>(v);
     if (!result)
       return;
@@ -795,7 +639,6 @@ LogicalResult TensorValueBoundsAnalysis::visitOperation(
 
     TensorValueBoundsLattice *lattice = results[result.getResultNumber()];
     const BoundsArray &oldRanges = lattice->getValue();
-    BoundsArray newRange{llvm::to_vector(attrs)};
 
     LLVM_DEBUG(DBGS("TensorValueBoundsAnalysis")
                << "inferred " << newRange << " for\n\t" << v << "\n");
@@ -818,33 +661,30 @@ LogicalResult TensorValueBoundsAnalysis::visitOperation(
     propagateIfChanged(lattice, changed);
   };
 
-  // If the value is produced by constant op, populate ranges appropriately.
-  // NOTE: we should instead use the mechanism from ConstantIntRanges lattice?
-  for (TensorValueBoundsLattice *lattice : results) {
-    Value point = lattice->getAnchor();
-    if (!shouldAnalyzeValueBounds(point))
-      continue;
-    maybePopulateConstantValueBounds(point, joinCallback);
-  }
-
-  auto getScalarLatticeValues = [&](ValueRange scalars) {
-    SmallVector<const IntegerValueRangeLattice *> result;
-    result.reserve(scalars.size());
-    for (Value v : scalars)
-      result.emplace_back(this->getOrCreateFor<IntegerValueRangeLattice>(
-          getProgramPointAfter(op), v));
-    return result;
-  };
-
-  if (auto withOp = dyn_cast<plan::WithValuesOp>(op)) {
-    FailureOr<SmallVector<ConstantIntRanges>> ranges =
-        intersectTensorValueBoundsAndScalarBounds(
-            getScalarLatticeValues(withOp.getElements()), operands[0]);
-    if (failed(ranges))
+  if (op->hasTrait<OpTrait::ConstantLike>() && op->getNumResults() == 1) {
+    // If the value is produced by constant op, populate ranges appropriately.
+    // NOTE: we should instead use the mechanism from ConstantIntRanges lattice?
+    Value point = results[0]->getAnchor();
+    if (!shouldAnalyzeValueBounds(point)) {
+      setAllToEntryStates(results);
       return success();
-    joinCallback(withOp.getResult(), *ranges);
+    }
+    DenseIntElementsAttr attr;
+    if (!matchPattern(point, m_Constant(&attr))) {
+      setAllToEntryStates(results);
+      return success();
+    }
+    joinCallback(point, BoundsArray::getFromConstantValue(attr));
     return success();
   }
+
+  auto inferrable = dyn_cast<InferTensorValueRangeInterface>(op);
+  if (!inferrable) {
+    setAllToEntryStates(results);
+    return success();
+  }
+
+  inferrable.inferResultRangesFromOptional(argRanges, joinCallback);
   return success();
 }
 

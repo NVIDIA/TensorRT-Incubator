@@ -249,4 +249,4 @@ include_directories(${CMAKE_CURRENT_LIST_DIR}/tensorrt/include)
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/tensorrt/include)
 
 add_subdirectory(compiler)
-add_subdirectory(python)
+add_subdirectory(integrations)
