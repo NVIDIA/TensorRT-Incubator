@@ -78,6 +78,27 @@ inp1 = tp.Tensor([[1., 2.], [2., 3.]], dtype=tp.float32).eval()
 out1 = fast_geglu(inp1)
 ```
 
+### Named Dynamic Dimensions
+
+Dynamic dimensions can be **named** using {class}`nvtripy.NamedDimension`.
+
+- Dimensions with the same name must be **equal** at runtime.
+- The compiler can exploit this equality to make **better optimizations**.
+
+```py
+# doc: no-print-locals fast_add
+def add(a, b):
+    return a + b
+
+batch = tp.NamedDimension("batch", 1, 2, 4)
+
+# The batch dimension is dynamic but is always equal at runtime for both inputs:
+inp_info0 = tp.InputInfo(shape=(batch, 2), dtype=tp.float32)
+inp_info1 = tp.InputInfo(shape=(batch, 2), dtype=tp.float32)
+
+fast_add = tp.compile(add, args=[inp_info0, inp_info1])
+```
+
 
 ## Saving And Loading Executables
 
