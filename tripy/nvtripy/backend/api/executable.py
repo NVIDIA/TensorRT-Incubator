@@ -18,8 +18,8 @@ from typing import Dict, Sequence, Tuple, Union
 
 import mlir_tensorrt.runtime.api as runtime
 from nvtripy import config, export
-from nvtripy.backend.api.stream import default_stream
 from nvtripy.backend.api.input_info import InputInfo
+from nvtripy.backend.api.stream import default_stream
 from nvtripy.backend.mlir.utils import MLIRRuntimeClient
 from nvtripy.common.exception import raise_error
 from nvtripy.frontend import Tensor
@@ -49,6 +49,7 @@ class Executable:
         # TODO (#577): Support multiple devices:
         self._session = runtime.RuntimeSession(runtime.RuntimeSessionOptions(num_devices=1, device_id=0), executable)
         self.stream = default_stream()
+        """The :class:`nvtripy.Stream` used to run this executable."""
 
         self._arg_names = arg_names
         self._num_expected_args = len(arg_names)

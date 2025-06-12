@@ -29,7 +29,6 @@ from nvtripy.backend.mlir.utils import (
     redirect_stderr,
 )
 from nvtripy.common.exception import raise_error
-from nvtripy.common.shape_bounds import ShapeBounds
 from nvtripy.logging import logger
 from nvtripy.trace.tensor import TraceTensor
 from nvtripy.trace.utils import topological_sort
@@ -44,21 +43,14 @@ class Trace:
         self,
         outputs: Sequence[TraceTensor],
         inputs: Sequence[TraceTensor] = [],
-        shapes: Optional[Sequence[ShapeBounds]] = None,
+        input_infos: Optional[Dict[str, "nvtripy.InputInfo"]] = None,
         name: str = "main",
     ) -> None:
-        """
-        Args:
-            tensors: The output TraceTensor(s) to evaluate.
-            inputs: Input TraceTensor(s).
-            shapes: The shape profile, consisting of min, opt, and max shapes for each input tensor.
-                    Must be in the same order as `inputs`.
-        """
         # ops/inputs/outputs are populated by `trace()`
         self.ops: List["TraceOp"] = []
         self.inputs: List[TraceTensor] = []
         self.outputs: List[TraceTensor] = []
-        self.shapes = shapes
+        self.input_infos = input_infos
         self.name = name
 
         self.trace(outputs, inputs)
@@ -120,7 +112,10 @@ class Trace:
 
         inp_sep = get_sep(self.inputs)
         input_strs = []
-        for inp, inp_shape in zip(self.inputs, self.shapes or [None] * len(self.inputs)):
+        for inp, inp_shape in zip(
+            self.inputs,
+            ([info for info in self.input_infos.values()] if self.input_infos else [None] * len(self.inputs)),
+        ):
             input_strs.append(f"{inp}{f' : {inp_shape}' if inp_shape else ''}")
         signature += inp_sep + f",{inp_sep}".join(input_strs)
         if self.inputs:
@@ -196,11 +191,16 @@ class Trace:
                     )
 
                     arg_attrs: List[Dict[str, ir.Attribute]] = []
-                    for idx in range(len(self.inputs)):
+                    for inp in self.inputs:
                         attr = {}
-                        if self.shapes:
+                        if self.input_infos:
+                            input_info = self.input_infos[inp.name]
+                            shape_bounds = input_info.shape_bounds
                             attr["tensorrt.shape_profile"] = ir.Attribute.parse(
-                                f"#tensorrt.shape_profile<min={list(self.shapes[idx].min)}, opt={list(self.shapes[idx].opt)}, max={list(self.shapes[idx].max)}>"
+                                f"#tensorrt.shape_profile<min={list(shape_bounds.min)}, opt={list(shape_bounds.opt)}, max={list(shape_bounds.max)}>"
+                            )
+                            attr["tensorrt.dimension_names"] = ir.DictAttr.get(
+                                {str(idx): ir.StringAttr.get(name) for idx, name in input_info.dimension_names.items()}
                             )
 
                         arg_attrs.append(ir.DictAttr.get(attr))
