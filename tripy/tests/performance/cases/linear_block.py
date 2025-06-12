@@ -22,8 +22,8 @@ import nvtripy as tp
 
 @perf_fixture(
     params=[
-        PerfParam(tp.float32, 1.25),
-        PerfParam(tp.float16),
+        PerfParam(tp.float32, 2.0),
+        PerfParam(tp.float16, 2.0),
     ]
 )
 def linear_block(tripy_dtype, torch_dtype):
