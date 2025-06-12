@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1749742074578,
+  "lastUpdate": 1749744973718,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -13412,6 +13412,61 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0000020674290409226757",
             "extra": "mean: 56.25580547354309 usec\nrounds: 18479"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "4504f364eac211330e20d3d8cec9bacbee9f5cf2",
+          "message": "Adds an API to set dimension names, updates SAMv2 to trigger MHA fusion",
+          "timestamp": "2025-06-12T00:14:58Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/657/commits/4504f364eac211330e20d3d8cec9bacbee9f5cf2"
+        },
+        "date": 1749744972938,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 7452.642994560101,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00002565349313134592",
+            "extra": "mean: 134.18058542854243 usec\nrounds: 7817"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 7809.563504682749,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000028461533819619555",
+            "extra": "mean: 128.04812962982922 usec\nrounds: 8416"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[sdpa-float32]",
+            "value": 1081.0105666702825,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0008371235878873663",
+            "extra": "mean: 925.0603378283246 usec\nrounds: 1261"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[sdpa-float16]",
+            "value": 3190.7086585615493,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000086740344680138",
+            "extra": "mean: 313.40999978695163 usec\nrounds: 3404"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_tripy_param_update",
+            "value": 17666.671418724323,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000020651451118934823",
+            "extra": "mean: 56.60375835937792 usec\nrounds: 18530"
           }
         ]
       }
