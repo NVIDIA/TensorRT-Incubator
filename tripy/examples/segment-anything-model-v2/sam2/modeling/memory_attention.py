@@ -22,16 +22,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Optional, List
-
-from sam2.modeling.sam.transformer import RoPEAttention
-from sam2.modeling.sam2_utils import get_activation_fn
+from typing import List, Optional
 
 import nvtripy as tp
+from sam2.modeling.sam2_utils import get_activation_fn
+from sam2.modeling.sam.transformer import RoPEAttention
 
 
 class MemoryAttentionLayer(tp.Module):
-
     def __init__(
         self,
         activation: str,
@@ -77,8 +75,6 @@ class MemoryAttentionLayer(tp.Module):
         return tgt
 
     def _forward_ca(self, tgt, memory, query_pos, pos, num_k_exclude_rope=0):
-        kwds = {}
-
         # Cross-Attention
         tgt2 = tp.cast(self.norm2(tp.cast(tgt, self.norm2.dtype)), self.dtype)
 
@@ -112,7 +108,6 @@ class MemoryAttentionLayer(tp.Module):
 
 
 class MemoryAttention(tp.Module):
-
     def __init__(
         self,
         d_model: int,

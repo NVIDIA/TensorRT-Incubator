@@ -54,8 +54,10 @@ def get_component_configs(model, cfg):
     """
     Get configurations for different components, including both compilation and weight loading info.
     """
-    batchsize = (1, 2, 4)
-    num_obj = (1, 2, 4)
+    batch = tp.NamedDimension("batch", 1, 2, 4)
+    num_obj = tp.NamedDimension("num_obj", 1, 2, 4)
+    seq_len = tp.NamedDimension("seq_len", 4100, 16400, 28736)
+    mem_attention_batch = tp.NamedDimension("mem_attention_batch", 1, 2, 8)
     model_precision = getattr(cfg["model"], "model_precision", "float32")
     return {
         "memory_attention": {
@@ -64,19 +66,19 @@ def get_component_configs(model, cfg):
             "dtype": model_precision,
             "compile_args": [
                 tp.InputInfo(
-                    (4096, (1, 2, 8), 256),
+                    (4096, mem_attention_batch, 256),
                     getattr(tp, model_precision),
                 ),
                 tp.InputInfo(
-                    ((4100, 16400, 28736), (1, 2, 8), 64),
+                    (seq_len, mem_attention_batch, 64),
                     getattr(tp, model_precision),
                 ),
                 tp.InputInfo(
-                    (4096, (1, 2, 8), 256),
+                    (4096, mem_attention_batch, 256),
                     getattr(tp, model_precision),
                 ),
                 tp.InputInfo(
-                    ((4100, 16400, 28736), (1, 2, 8), 64),
+                    (seq_len, mem_attention_batch, 64),
                     getattr(tp, model_precision),
                 ),
                 # TODO (#594): Remove this hack once we are able to pass in DimensionSizes directly:
@@ -124,7 +126,7 @@ def get_component_configs(model, cfg):
             "dtype": model_precision,
             "compile_args": [
                 tp.InputInfo(
-                    (batchsize, 256, 64, 64),
+                    (batch, 256, 64, 64),
                     dtype=getattr(tp, model_precision),
                 ),  # image_embeddings
                 tp.InputInfo(
@@ -132,21 +134,21 @@ def get_component_configs(model, cfg):
                     dtype=getattr(tp, model_precision),
                 ),  # image_pe
                 tp.InputInfo(
-                    (batchsize, (2, 4, 6), 256),
+                    (batch, (2, 4, 6), 256),
                     dtype=getattr(tp, model_precision),
                 ),  # sparse_prompt_embeddings
                 tp.InputInfo(
-                    (batchsize, 256, 64, 64),
+                    (batch, 256, 64, 64),
                     dtype=getattr(tp, model_precision),
                 ),  # dense_prompt_embeddings
                 True,  # multimask_output
                 False,  # repeat_image
                 tp.InputInfo(
-                    (batchsize, 32, 256, 256),
+                    (batch, 32, 256, 256),
                     dtype=getattr(tp, model_precision),
                 ),  # high_res_features_1
                 tp.InputInfo(
-                    (batchsize, 64, 128, 128),
+                    (batch, 64, 128, 128),
                     dtype=getattr(tp, model_precision),
                 ),  # high_res_features_2
             ],
@@ -159,7 +161,7 @@ def get_component_configs(model, cfg):
             "dtype": model_precision,
             "compile_args": [
                 tp.InputInfo(
-                    (batchsize, 256, 256, 256),
+                    (batch, 256, 256, 256),
                     dtype=getattr(tp, model_precision),
                 )
             ],
@@ -172,7 +174,7 @@ def get_component_configs(model, cfg):
             "dtype": model_precision,
             "compile_args": [
                 tp.InputInfo(
-                    (batchsize, 256, 128, 128),
+                    (batch, 256, 128, 128),
                     dtype=getattr(tp, model_precision),
                 )
             ],
@@ -184,8 +186,8 @@ def get_component_configs(model, cfg):
             "model": model.memory_encoder,
             "dtype": model_precision,
             "compile_args": [
-                tp.InputInfo((batchsize, 256, 64, 64), getattr(tp, model_precision)),
-                tp.InputInfo((batchsize, num_obj, 1024, 1024), getattr(tp, model_precision)),
+                tp.InputInfo((batch, 256, 64, 64), getattr(tp, model_precision)),
+                tp.InputInfo((batch, num_obj, 1024, 1024), getattr(tp, model_precision)),
                 True,
             ],
             "skip_dtype_convert": ["ln", "norm"]
@@ -196,8 +198,8 @@ def get_component_configs(model, cfg):
             "model": model.sam_prompt_encoder,
             "dtype": "float32",
             "compile_args": [
-                tp.InputInfo((batchsize, num_obj, 2), dtype=tp.float32),
-                tp.InputInfo((batchsize, num_obj), dtype=tp.int32),
+                tp.InputInfo((batch, num_obj, 2), dtype=tp.float32),
+                tp.InputInfo((batch, num_obj), dtype=tp.int32),
                 None,
                 None,
             ],
@@ -224,7 +226,7 @@ def get_component_configs(model, cfg):
             "dtype": model_precision,
             "compile_args": [
                 tp.InputInfo(
-                    (batchsize, 3, 1024, 1024),
+                    (batch, 3, 1024, 1024),
                     dtype=getattr(tp, model_precision),
                 ),
             ],
