@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1749684690244,
+  "lastUpdate": 1749687057117,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -13316,6 +13316,47 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0000021618255616124134",
             "extra": "mean: 57.38270282551559 usec\nrounds: 18261"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "115d27ab16f3c2c3ddea2ade3ecb969cbf782d50",
+          "message": "Various improvements to SAMv2 demo",
+          "timestamp": "2025-06-11T23:34:39Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/646/commits/115d27ab16f3c2c3ddea2ade3ecb969cbf782d50"
+        },
+        "date": 1749687056343,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 7488.36797205025,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000025675650721711372",
+            "extra": "mean: 133.54044616028784 usec\nrounds: 7834"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 7929.878915300834,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000025284807826656172",
+            "extra": "mean: 126.1053303185353 usec\nrounds: 8604"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_tripy_param_update",
+            "value": 17294.664555774485,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000063812857029615105",
+            "extra": "mean: 57.821300712427615 usec\nrounds: 18806"
           }
         ]
       }
