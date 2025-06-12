@@ -186,7 +186,11 @@ class LayerNorm2d(tp.LayerNorm):
 
     def forward(self, x: tp.Tensor) -> tp.Tensor:
         x = tp.permute(x, (0, 2, 3, 1))
+        # LayerNorm is always done in float32:
+        original_dtype = x.dtype
+        x = tp.cast(x, tp.float32)
         x = super().forward(x)
+        x = tp.cast(x, original_dtype)
         return tp.permute(x, (0, 3, 1, 2))
 
 
