@@ -37,13 +37,15 @@ TRT_FROM_TRIPY_DTYPE = {
 TRIPY_FROM_TRT_DTYPE = {val: key for key, val in TRT_FROM_TRIPY_DTYPE.items()}
 
 
-# TODO (pranavm): Add link to custom layers guide once published
 @export.public_api(document_under="operations/functions")
 def plugin(
     op: str, inputs: Sequence["nvtripy.Tensor"], **kwargs: Dict[str, Any]
 ) -> Union["nvtripy.Tensor", List["nvtripy.Tensor"]]:
     """
     Calls a TensorRT quickly deployable plugin (QDP).
+
+    .. seealso:: The `custom operations guide <https://nvidia.github.io/TensorRT-Incubator/pre0_user_guides/03-custom-operations.html>`_
+            includes details on implementing and using QDPs.
 
     Args:
         op: The ID of plugin to call, in the form ``"<namespace>::<name>"``.

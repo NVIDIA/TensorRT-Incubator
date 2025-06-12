@@ -207,6 +207,39 @@ class TestTrace:
             ).strip()
         )
 
+    def test_str_for_dynamic_shapes(self):
+        a = tp.ones((3,), dtype=tp.int32)
+        a.name = "a"
+        b = tp.ones((3,), dtype=tp.int32)
+        b.name = "b"
+
+        c = a + b
+        c.name = "c"
+        trace = Trace(
+            [c.trace_tensor],
+            [a.trace_tensor, b.trace_tensor],
+            input_infos={
+                "a": tp.InputInfo([tp.NamedDimension("dim", 2, 3, 4)], dtype=tp.int32),
+                "b": tp.InputInfo([(2, 3, 4)], dtype=tp.int32),
+            },
+        )
+        print(trace)
+        assert (
+            str(trace)
+            == dedent(
+                r"""
+                def main(
+                    a : tensor<?xi32:gpu:0> : InputInfo<ShapeBounds(min=(2,), opt=(3,), max=(4,)), dimension names: {0: 'dim'}, dtype: int32>,
+                    b : tensor<?xi32:gpu:0> : InputInfo<ShapeBounds(min=(2,), opt=(3,), max=(4,)), dimension names: {}, dtype: int32>
+                ) -> (
+                    c : tensor<?xi32:gpu:0>
+                ):
+                    c = add(a : tensor<?xi32:gpu:0>, b : tensor<?xi32:gpu:0>) : tensor<?xi32:gpu:0>
+                    return c
+                """
+            ).strip()
+        )
+
     def test_duplicate_tensor_names_fails(self):
         a = tp.ones((2, 3), dtype=tp.float32)
         b = tp.ones((2, 3), dtype=tp.float32)
