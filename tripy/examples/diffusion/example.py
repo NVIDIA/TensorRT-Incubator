@@ -34,6 +34,10 @@ import nvtx
 
 tp.logger.verbosity = "ir"
 
+batch = tp.NamedDimension("batch", 1, 1, 1)
+max_seq_len = tp.NamedDimension("max_seq_len", 77, 77, 77)
+embed_dim = tp.NamedDimension("embed_dim", 768, 768, 768)
+
 
 def compile_model(model, inputs, verbose=False):
     if verbose:
@@ -51,14 +55,14 @@ def compile_model(model, inputs, verbose=False):
 
 
 def compile_clip(model, dtype=tp.int32, verbose=False):
-    inputs = (tp.InputInfo((1, 77), dtype=dtype),)
+    inputs = (tp.InputInfo((batch, max_seq_len), dtype=dtype),)
     return compile_model(model, inputs, verbose=verbose)
 
 
 def compile_unet(model, dtype, verbose=False):
-    unconditional_context_shape = (1, 77, 768)
-    conditional_context_shape = (1, 77, 768)
-    latent_shape = (1, 4, 64, 64)
+    unconditional_context_shape = (batch, max_seq_len, embed_dim)
+    conditional_context_shape = (batch, max_seq_len, embed_dim)
+    latent_shape = (batch, 4, 64, 64)
     inputs = (
         tp.InputInfo(unconditional_context_shape, dtype=dtype),
         tp.InputInfo(conditional_context_shape, dtype=dtype),
@@ -72,13 +76,13 @@ def compile_unet(model, dtype, verbose=False):
 
 
 def compile_vae(model, dtype, verbose=False):
-    inputs = (tp.InputInfo((1, 4, 64, 64), dtype=dtype),)
+    inputs = (tp.InputInfo((batch, 4, 64, 64), dtype=dtype),)
     return compile_model(model, inputs, verbose=verbose)
 
 
 # equivalent to LMSDiscreteScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000)
 def get_alphas_cumprod(beta_start=0.00085, beta_end=0.0120, n_training_steps=1000, dtype=torch.float32):
-    betas = torch.linspace(beta_start**0.5, beta_end**0.5, n_training_steps, dtype=dtype, device="cpu") ** 2
+    betas = torch.linspace(beta_start**0.5, beta_end**0.5, n_training_steps, dtype=dtype, device="cuda") ** 2
     alphas = 1.0 - betas
     alphas_cumprod = torch.cumprod(alphas, dim=0)
     return alphas_cumprod
@@ -87,26 +91,25 @@ def get_alphas_cumprod(beta_start=0.00085, beta_end=0.0120, n_training_steps=100
 def run_diffusion_loop(model, unconditional_context, context, latent, steps, guidance, dtype):
     torch_dtype = torch.float16 if dtype == tp.float16 else torch.float32
     idx_timesteps = list(range(1, 1000, 1000 // steps))
-    timesteps = torch.tensor(idx_timesteps, dtype=torch_dtype, device="cpu")
-    guidance = torch.tensor([guidance], dtype=torch_dtype, device="cpu")
+    num_timesteps = len(idx_timesteps)
+    timesteps = torch.tensor(idx_timesteps, dtype=torch_dtype, device="cuda")
+    guidance = torch.tensor([guidance], dtype=torch_dtype, device="cuda")
 
     print(f"[I] Running diffusion for {steps} timesteps...")
     alphas = get_alphas_cumprod(dtype=torch_dtype)[idx_timesteps]
-    alphas_prev = torch.cat((torch.tensor([1.0], dtype=torch_dtype, device="cpu"), alphas[:-1]))
+    alphas_prev = torch.cat((torch.tensor([1.0], dtype=torch_dtype, device="cuda"), alphas[:-1]))
 
-    model.stream = tp.Stream()
-    for index, timestep in (t := tqdm(list(enumerate(timesteps))[::-1])):
+    for index in (t := tqdm(list(range(num_timesteps))[::-1])):
         latent = model(
             unconditional_context,
             context,
             latent,
-            tp.copy(tp.Tensor(torch.tensor([timestep], dtype=torch_dtype)), device=tp.device("gpu")),
-            tp.copy(tp.Tensor(alphas[index : index + 1]), device=tp.device("gpu")),
-            tp.copy(tp.Tensor(alphas_prev[index : index + 1]), device=tp.device("gpu")),
-            tp.copy(tp.Tensor(guidance), device=tp.device("gpu")),
+            tp.Tensor(timesteps[index : index + 1]),
+            tp.Tensor(alphas[index : index + 1]),
+            tp.Tensor(alphas_prev[index : index + 1]),
+            tp.Tensor(guidance),
         )
 
-    model.stream.synchronize()
     return latent
 
 
@@ -174,30 +177,29 @@ def tripy_diffusion(args):
 
     print("[I] Getting CLIP conditional and unconditional context...", end=" ")
     clip_run_start = time.perf_counter()
-    clip_compiled.stream = tp.Stream()
     context = clip_compiled(prompt)
     unconditional_context = clip_compiled(unconditional_prompt)
-    clip_compiled.stream.synchronize()
+    tp.default_stream().synchronize()
     clip_run_end = time.perf_counter()
     print(f"took {clip_run_end - clip_run_start} seconds.")
 
     # Backbone of diffusion - the UNet
     if args.seed is not None:
         torch.manual_seed(args.seed)
-    torch_latent = torch.randn((1, 4, 64, 64), dtype=torch_dtype, device="cpu")
-    latent = tp.copy(tp.Tensor(torch_latent), device=tp.device("gpu"))
+    torch_latent = torch.randn((1, 4, 64, 64), dtype=torch_dtype, device="cuda")
+    latent = tp.Tensor(torch_latent)
 
     diffusion_run_start = time.perf_counter()
     latent = run_diffusion_loop(unet_compiled, unconditional_context, context, latent, args.steps, args.guidance, dtype)
+    tp.default_stream().synchronize()
     diffusion_run_end = time.perf_counter()
     print(f"[I] Finished diffusion denoising. Inference took {diffusion_run_end - diffusion_run_start} seconds.")
 
     # Upsample latent space to image with autoencoder
     print(f"[I] Decoding latent...", end=" ")
-    vae_compiled.stream = tp.Stream()
     vae_run_start = time.perf_counter()
     x = vae_compiled(latent)
-    vae_compiled.stream.synchronize()
+    tp.default_stream().synchronize()
     vae_run_end = time.perf_counter()
     print(f"took {vae_run_end - vae_run_start} seconds.")
 
