@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -35,7 +35,7 @@ class VAEConfig:
 
 class AttnBlock(tp.Module):
     def __init__(self, config: VAEConfig, in_channels):
-        self.group_norm = tp.GroupNorm(32, in_channels, dtype=tp.float32)
+        self.group_norm = tp.GroupNorm(32, in_channels, dtype=config.dtype)
         self.to_q = tp.Linear(in_channels, in_channels, dtype=config.dtype)
         self.to_k = tp.Linear(in_channels, in_channels, dtype=config.dtype)
         self.to_v = tp.Linear(in_channels, in_channels, dtype=config.dtype)
@@ -63,9 +63,9 @@ class AttnBlock(tp.Module):
 # Not to be confused with ResBlock. Called ResnetBlock2D in HF diffusers
 class ResnetBlock(tp.Module):
     def __init__(self, config: VAEConfig, in_channels, out_channels=None):
-        self.norm1 = tp.GroupNorm(32, in_channels, dtype=tp.float32)
+        self.norm1 = tp.GroupNorm(32, in_channels, dtype=config.dtype)
         self.conv1 = tp.Conv(in_channels, out_channels, (3, 3), padding=((1, 1), (1, 1)), dtype=config.dtype)
-        self.norm2 = tp.GroupNorm(32, out_channels, dtype=tp.float32)
+        self.norm2 = tp.GroupNorm(32, out_channels, dtype=config.dtype)
         self.conv2 = tp.Conv(out_channels, out_channels, (3, 3), padding=((1, 1), (1, 1)), dtype=config.dtype)
         self.nonlinearity = tp.silu
         self.conv_shortcut = (
@@ -145,7 +145,7 @@ class Decoder(tp.Module):
             for i in range(num_resolutions)
         ]
         self.mid_block = Mid(config, up_channels[0])
-        self.conv_norm_out = tp.GroupNorm(32, config.model_channel, dtype=tp.float32)
+        self.conv_norm_out = tp.GroupNorm(32, config.model_channel, dtype=config.dtype)
         self.conv_act = tp.silu
         self.conv_out = tp.Conv(
             config.model_channel, config.io_channels, (3, 3), padding=((1, 1), (1, 1)), dtype=config.dtype
@@ -188,7 +188,7 @@ class Encoder(tp.Module):
             for i in range(num_resolutions)
         ]
         self.mid_block = Mid(config, down_channels[-1])
-        self.conv_norm_out = tp.GroupNorm(32, down_channels[-1], dtype=tp.float32)
+        self.conv_norm_out = tp.GroupNorm(32, down_channels[-1], dtype=config.dtype)
         self.conv_act = tp.silu
         self.conv_out = tp.Conv(down_channels[-1], 8, (3, 3), padding=((1, 1), (1, 1)), dtype=config.dtype)
 

@@ -20,11 +20,10 @@ from dataclasses import dataclass
 from nvtripy import export, utils
 from nvtripy.common import datatype
 from nvtripy.common.exception import raise_error
+from nvtripy.frontend.module.instancenorm import InstanceNorm
 from nvtripy.frontend.module.module import Module
 from nvtripy.frontend.module.parameter import DefaultParameter
 from nvtripy.frontend.tensor import Tensor
-
-from nvtripy.frontend.module.instancenorm import InstanceNorm
 
 
 @export.public_api(document_under="operations/modules")
@@ -91,6 +90,8 @@ class GroupNorm(Module):
             assert np_out.shape == torch_out.shape
             assert np.allclose(np_out, torch_out)
         """
+        from nvtripy.frontend.ops.ones import ones
+        from nvtripy.frontend.ops.zeros import zeros
 
         super().__init__()
 
@@ -109,6 +110,16 @@ class GroupNorm(Module):
         self.bias = DefaultParameter((num_channels,), dtype=dtype)
         self.eps = eps
 
+        # Hack to hide the instance norm module from the state_dict
+        class Hide:
+            def __init__(self, instance_norm):
+                self.instance_norm = instance_norm
+
+        self.impl = Hide(InstanceNorm(self.num_groups, dtype=self.dtype, eps=self.eps))
+        # Bypass shape checks:
+        object.__setattr__(self.impl.instance_norm, "weight", ones((self.num_groups,), dtype=self.dtype))
+        object.__setattr__(self.impl.instance_norm, "bias", zeros((self.num_groups,), dtype=self.dtype))
+
     def forward(self, x: "nvtripy.Tensor") -> "nvtripy.Tensor":
         r"""
         Args:
@@ -117,6 +128,7 @@ class GroupNorm(Module):
         Returns:
             A tensor of the same shape as the input.
         """
+        from nvtripy.frontend.ops.reshape import reshape
 
         if x.rank < 3:
             raise_error(
@@ -126,21 +138,11 @@ class GroupNorm(Module):
                 ],
             )
 
-        from nvtripy.frontend.ops.reshape import reshape
-        from nvtripy.frontend.ops.split import split
-        from nvtripy.frontend.ops.stack import stack
-        from nvtripy.frontend.ops.flatten import flatten
-        from nvtripy.frontend.module.instancenorm import InstanceNorm
-        from nvtripy.frontend.ops.ones import ones
-        from nvtripy.frontend.ops.zeros import zeros
-
-        instance_norm = InstanceNorm(self.num_groups, dtype=self.dtype, eps=self.eps)
-        instance_norm.weight = ones((self.num_groups,), dtype=self.dtype)
-        instance_norm.bias = zeros((self.num_groups,), dtype=self.dtype)
+        original_shape = x.shape
 
         # Use InstanceNorm as a WAR due to lack of TRT API compatibility for scale/bias with shape (num_channels, )
-        input_reshaped = stack(split(x, self.num_groups, 1), 1)
-        x = instance_norm(input_reshaped)
-        x = flatten(x, start_dim=1, end_dim=2)
+        x = reshape(x, (x.shape[0], self.num_groups, -1) + x.shape[2:])
+        x = self.impl.instance_norm(x)
+        x = reshape(x, original_shape)
         broadcast_shape = (1, self.num_channels) + (1,) * (x.rank - 2)
         return x * reshape(self.weight, broadcast_shape) + reshape(self.bias, broadcast_shape)

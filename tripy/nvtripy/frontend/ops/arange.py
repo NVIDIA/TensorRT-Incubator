@@ -88,12 +88,8 @@ def arange(
     size = op_utils.tensor_from_shape_like([size])
 
     linspace_dtype = Linspace.get_closest_dtype(dtype)
-    start = Tensor(start, dtype=linspace_dtype) if not isinstance(start, DimensionSize) else cast(start, linspace_dtype)
-    step = (
-        Tensor([step], dtype=linspace_dtype)
-        if not isinstance(step, DimensionSize)
-        else cast(reshape(step, (1,)), linspace_dtype)
-    )
+    start = cast(Tensor(start) if not isinstance(start, DimensionSize) else start, linspace_dtype)
+    step = cast(Tensor([step]) if not isinstance(step, DimensionSize) else reshape(step, (1,)), linspace_dtype)
     out = op_utils.create_op(Linspace, [size, start, step], dtype=linspace_dtype)
     return cast(out, dtype)
 
