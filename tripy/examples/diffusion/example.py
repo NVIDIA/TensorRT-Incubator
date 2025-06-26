@@ -41,7 +41,7 @@ def compile_model(model, inputs, verbose=False):
         print(f"[I] Compiling {name}...", end=" ", flush=True)
         compile_start_time = time.perf_counter()
 
-    compiled_model = tp.compile(model, args=inputs)
+    compiled_model = tp.compile(model, args=inputs, optimization_level=5)
 
     if verbose:
         compile_end_time = time.perf_counter()
