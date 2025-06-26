@@ -45,7 +45,7 @@ def compile_model(model, inputs, verbose=False):
         print(f"[I] Compiling {name}...", end=" ", flush=True)
         compile_start_time = time.perf_counter()
 
-    compiled_model = tp.compile(model, args=inputs)
+    compiled_model = tp.compile(model, args=inputs, optimization_level=5)
 
     if verbose:
         compile_end_time = time.perf_counter()
@@ -141,10 +141,10 @@ def tripy_diffusion(args):
     dtype, torch_dtype = (tp.float16, torch.float16) if args.fp16 else (tp.float32, torch.float32)
 
     if os.path.isdir(args.engine_dir):
-        print("[I] Loading cached engines from disk...")
-        clip_compiled = tp.Executable.load(os.path.join("engines", "clip_executable.json"))
-        unet_compiled = tp.Executable.load(os.path.join("engines", "unet_executable.json"))
-        vae_compiled = tp.Executable.load(os.path.join("engines", "vae_executable.json"))
+        print(f"[I] Loading cached engines from {args.engine_dir}...")
+        clip_compiled = tp.Executable.load(os.path.join(args.engine_dir, "clip_executable.tpymodel"))
+        unet_compiled = tp.Executable.load(os.path.join(args.engine_dir, "unet_executable.tpymodel"))
+        vae_compiled = tp.Executable.load(os.path.join(args.engine_dir, "vae_executable.tpymodel"))
     else:
         model = StableDiffusion(StableDiffusionConfig(dtype=dtype))
         print("[I] Loading model weights...", flush=True)
@@ -155,9 +155,9 @@ def tripy_diffusion(args):
 
         os.mkdir(args.engine_dir)
         print(f"[I] Saving engines to ./{args.engine_dir}...")
-        clip_compiled.save(os.path.join("engines", "clip_executable.json"))
-        unet_compiled.save(os.path.join("engines", "unet_executable.json"))
-        vae_compiled.save(os.path.join("engines", "vae_executable.json"))
+        clip_compiled.save(os.path.join(args.engine_dir, "clip_executable.tpymodel"))
+        unet_compiled.save(os.path.join(args.engine_dir, "unet_executable.tpymodel"))
+        vae_compiled.save(os.path.join(args.engine_dir, "vae_executable.tpymodel"))
 
     pr = nvtx.Profile()
     pr.enable()
