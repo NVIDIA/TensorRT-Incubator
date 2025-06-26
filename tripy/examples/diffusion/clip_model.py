@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -80,9 +80,9 @@ class CLIPAttention(tp.Module):
 class CLIPEncoderLayer(tp.Module):
     def __init__(self, config: CLIPConfig):
         self.self_attn = CLIPAttention(config)
-        self.layer_norm1 = tp.LayerNorm(config.embedding_size, dtype=tp.float32)
+        self.layer_norm1 = tp.LayerNorm(config.embedding_size, config.dtype)
         self.mlp = CLIPMLP(config)
-        self.layer_norm2 = tp.LayerNorm(config.embedding_size, dtype=tp.float32)
+        self.layer_norm2 = tp.LayerNorm(config.embedding_size, config.dtype)
 
     def __call__(self, hidden_states, causal_attention_mask):
         residual = hidden_states
@@ -121,7 +121,7 @@ class CLIPTextTransformer(tp.Module):
     def __init__(self, config: CLIPConfig):
         self.embeddings = CLIPTextEmbeddings(config)
         self.encoder = CLIPEncoder(config)
-        self.final_layer_norm = tp.LayerNorm(config.embedding_size, dtype=tp.float32)
+        self.final_layer_norm = tp.LayerNorm(config.embedding_size, config.dtype)
         self.max_seq_len = config.max_seq_len
 
     def __call__(self, input_ids):
