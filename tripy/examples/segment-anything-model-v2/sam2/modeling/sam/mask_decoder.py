@@ -99,7 +99,7 @@ class MaskDecoder(tp.Module):
                 stride=(2, 2),
                 dtype=dtype,
             ),
-            LayerNorm2d(transformer_dim // 4),
+            LayerNorm2d(transformer_dim // 4, dtype=dtype),
             Dummy(),  # Accounts for Dropout layer, needed for weight loading
             tp.ConvTranspose(
                 transformer_dim // 4,
@@ -289,13 +289,13 @@ class MaskDecoder(tp.Module):
 
         if not self.use_high_res_features:
             dc1, ln1, _, dc2, _ = self.output_upscaling
-            post_ln1 = tp.cast(ln1(tp.cast(dc1(src), tp.float32)), src.dtype)
+            post_ln1 = ln1(dc1(src))
             upscaled_embedding = act2(dc2(act1(post_ln1)))
             # upscaled_embedding = act2(dc2(act1(ln1(dc1(src)))))
         else:
             dc1, ln1, _, dc2, _ = self.output_upscaling
             feat_s0, feat_s1 = high_res_features_1, high_res_features_2
-            post_ln1 = tp.cast(ln1(tp.cast(dc1(src) + feat_s1, tp.float32)), src.dtype)
+            post_ln1 = ln1(dc1(src) + feat_s1)
             upscaled_embedding = act1(post_ln1)
             # upscaled_embedding = act1(ln1(dc1(src) + feat_s1))
             upscaled_embedding = act2(dc2(upscaled_embedding) + feat_s0)

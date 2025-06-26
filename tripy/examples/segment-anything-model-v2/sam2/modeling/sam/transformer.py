@@ -81,7 +81,7 @@ class TwoWayTransformer(tp.Module):
             downsample_rate=attention_downsample_rate,
             dtype=dtype,
         )
-        self.norm_final_attn = tp.LayerNorm(embedding_dim)
+        self.norm_final_attn = tp.LayerNorm(embedding_dim, dtype=dtype)
 
     def forward(
         self,
@@ -134,10 +134,7 @@ class TwoWayTransformer(tp.Module):
         k = keys + image_pe
         attn_out = self.final_attn_token_to_image(q=q, k=k, v=keys)
         queries = queries + attn_out
-        queries = tp.cast(
-            self.norm_final_attn(tp.cast(queries, self.norm_final_attn.dtype)),
-            queries.dtype,
-        )
+        queries = self.norm_final_attn(queries)
         # queries = self.norm_final_attn(queries)
 
         return queries, keys
@@ -170,7 +167,7 @@ class TwoWayAttentionBlock(tp.Module):
         """
         super().__init__()
         self.self_attn = Attention(embedding_dim, num_heads, dtype=dtype)
-        self.norm1 = tp.LayerNorm(embedding_dim)
+        self.norm1 = tp.LayerNorm(embedding_dim, dtype=dtype)
 
         self.cross_attn_token_to_image = Attention(
             embedding_dim,
@@ -178,7 +175,7 @@ class TwoWayAttentionBlock(tp.Module):
             downsample_rate=attention_downsample_rate,
             dtype=dtype,
         )
-        self.norm2 = tp.LayerNorm(embedding_dim)
+        self.norm2 = tp.LayerNorm(embedding_dim, dtype=dtype)
 
         self.mlp = MLP(
             embedding_dim,
@@ -188,9 +185,9 @@ class TwoWayAttentionBlock(tp.Module):
             activation=activation,
             dtype=dtype,
         )
-        self.norm3 = tp.LayerNorm(embedding_dim)
+        self.norm3 = tp.LayerNorm(embedding_dim, dtype=dtype)
 
-        self.norm4 = tp.LayerNorm(embedding_dim)
+        self.norm4 = tp.LayerNorm(embedding_dim, dtype=dtype)
         self.cross_attn_image_to_token = Attention(
             embedding_dim,
             num_heads,
@@ -212,7 +209,7 @@ class TwoWayAttentionBlock(tp.Module):
             attn_out = self.self_attn(q=q, k=q, v=queries)
             queries = queries + attn_out
 
-        queries = tp.cast(self.norm1(tp.cast(queries, self.norm1.dtype)), queries.dtype)
+        queries = self.norm1(queries)
 
         # Cross attention block, tokens attending to image embedding
         q = queries + query_pe
@@ -220,13 +217,13 @@ class TwoWayAttentionBlock(tp.Module):
         attn_out = self.cross_attn_token_to_image(q=q, k=k, v=keys)
         queries = queries + attn_out
 
-        queries = tp.cast(self.norm2(tp.cast(queries, self.norm2.dtype)), queries.dtype)
+        queries = self.norm2(queries)
         # queries = self.norm2(queries)
 
         # MLP block
         mlp_out = self.mlp(queries)
         queries = queries + mlp_out
-        queries = tp.cast(self.norm3(tp.cast(queries, self.norm3.dtype)), queries.dtype)
+        queries = self.norm3(queries)
         # queries = self.norm3(queries)
 
         # Cross attention block, image embedding attending to tokens
@@ -234,7 +231,7 @@ class TwoWayAttentionBlock(tp.Module):
         k = keys + key_pe
         attn_out = self.cross_attn_image_to_token(q=k, k=q, v=queries)
         keys = keys + attn_out
-        keys = tp.cast(self.norm4(tp.cast(keys, self.norm4.dtype)), keys.dtype)
+        keys = self.norm4(keys)
         # keys = self.norm4(keys)
 
         return queries, keys
