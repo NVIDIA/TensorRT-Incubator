@@ -113,7 +113,7 @@ class MultiScaleBlock(tp.Module):
         super().__init__()
 
         if isinstance(norm_layer, str):
-            norm_layer = partial(getattr(tp, norm_layer), eps=1e-6)
+            norm_layer = partial(getattr(tp, norm_layer), eps=1e-6, dtype=dtype)
 
         self.dim = dim
         self.dim_out = dim_out
@@ -149,15 +149,8 @@ class MultiScaleBlock(tp.Module):
             self.proj = tp.Linear(dim, dim_out, dtype=dtype)
 
     def forward(self, x):
-
-        def call_norm(x, norm):
-            x_dtype = x.dtype
-            x = tp.cast(x, tp.float32)
-            x = norm(x)
-            return tp.cast(x, x_dtype)
-
         shortcut = x  # B, H, W, C
-        x = call_norm(x, self.norm1)
+        x = self.norm1(x)
 
         # Skip connection
         if self.dim != self.dim_out:
@@ -189,7 +182,7 @@ class MultiScaleBlock(tp.Module):
 
         x = shortcut + x
         # MLP
-        t = call_norm(x, self.norm2)
+        t = self.norm2(x)
         x = x + self.mlp(t)
         return x
 

@@ -54,9 +54,9 @@ class MemoryAttentionLayer(tp.Module):
         self.linear1 = tp.Linear(d_model, dim_feedforward, dtype=self.dtype)
         self.linear2 = tp.Linear(dim_feedforward, d_model, dtype=self.dtype)
 
-        self.norm1 = tp.LayerNorm(d_model)
-        self.norm2 = tp.LayerNorm(d_model)
-        self.norm3 = tp.LayerNorm(d_model)
+        self.norm1 = tp.LayerNorm(d_model, dtype=self.dtype)
+        self.norm2 = tp.LayerNorm(d_model, dtype=self.dtype)
+        self.norm3 = tp.LayerNorm(d_model, dtype=self.dtype)
 
         self.activation_str = activation
         self.activation = get_activation_fn(activation)
@@ -68,7 +68,7 @@ class MemoryAttentionLayer(tp.Module):
 
     def _forward_sa(self, tgt, query_pos):
         # Self-Attention
-        tgt2 = tp.cast(self.norm1(tp.cast(tgt, self.norm1.dtype)), self.dtype)
+        tgt2 = self.norm1(tgt)
         q = k = tgt2 + query_pos if self.pos_enc_at_attn else tgt2
         tgt2 = self.self_attn(q, k, v=tgt2, num_k_exclude_rope=0)
         tgt = tgt + tgt2
@@ -76,7 +76,7 @@ class MemoryAttentionLayer(tp.Module):
 
     def _forward_ca(self, tgt, memory, query_pos, pos, num_k_exclude_rope=0):
         # Cross-Attention
-        tgt2 = tp.cast(self.norm2(tp.cast(tgt, self.norm2.dtype)), self.dtype)
+        tgt2 = self.norm2(tgt)
 
         tgt2 = self.cross_attn_image(
             q=tgt2 + query_pos if self.pos_enc_at_cross_attn_queries else tgt2,
@@ -100,7 +100,7 @@ class MemoryAttentionLayer(tp.Module):
         tgt = self._forward_sa(tgt, query_pos)
         tgt = self._forward_ca(tgt, memory, query_pos, pos, num_k_exclude_rope)
         # MLP
-        tgt2 = tp.cast(self.norm3(tp.cast(tgt, self.norm3.dtype)), self.dtype)
+        tgt2 = self.norm3(tgt)
 
         tgt2 = self.linear2(self.activation(self.linear1(tgt2)))
         tgt = tgt + tgt2
@@ -137,12 +137,13 @@ class MemoryAttention(tp.Module):
         dtype="float32",
     ):
         super().__init__()
+        self.dtype = getattr(tp, dtype)
+
         self.d_model = d_model
         self.num_layers = num_layers
-        self.norm = tp.LayerNorm(d_model)
+        self.norm = tp.LayerNorm(d_model, self.dtype)
         self.pos_enc_at_input = pos_enc_at_input
         self.batch_first = batch_first
-        self.dtype = getattr(tp, dtype)
         self.layers = []
         for _ in range(num_layers):
             self_attn = RoPEAttention(
@@ -215,7 +216,7 @@ class MemoryAttention(tp.Module):
                 **kwds,
             )
 
-        normed_output = tp.cast(self.norm(tp.cast(output, self.norm.dtype)), self.dtype)
+        normed_output = self.norm(output)
 
         if self.batch_first:
             # Convert back to seq first

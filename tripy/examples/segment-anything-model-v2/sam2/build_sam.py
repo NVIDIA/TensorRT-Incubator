@@ -84,7 +84,7 @@ def get_component_configs(model, cfg):
                 # TODO (#594): Remove this hack once we are able to pass in DimensionSizes directly:
                 tp.InputInfo(((4, 16, 64),), tp.int32),
             ],
-            "skip_dtype_convert": ["ln", "norm"],
+            "skip_dtype_convert": [],
         },
         "sam_mask_decoder_false": {
             "enabled": True,
@@ -118,7 +118,7 @@ def get_component_configs(model, cfg):
                     dtype=getattr(tp, model_precision),
                 ),  # high_res_features_2
             ],
-            "skip_dtype_convert": ["ln", "norm", "output_upscaling.1"],
+            "skip_dtype_convert": [],
         },
         "sam_mask_decoder_true": {
             "enabled": True,
@@ -152,7 +152,7 @@ def get_component_configs(model, cfg):
                     dtype=getattr(tp, model_precision),
                 ),  # high_res_features_2
             ],
-            "skip_dtype_convert": ["ln", "norm", "output_upscaling.1"],
+            "skip_dtype_convert": [],
             "skip_load_state_dict": True,
         },
         "sam_mask_decoder.conv_s0": {
@@ -190,8 +190,7 @@ def get_component_configs(model, cfg):
                 tp.InputInfo((batch, num_obj, 1024, 1024), getattr(tp, model_precision)),
                 True,
             ],
-            "skip_dtype_convert": ["ln", "norm"]
-            + [f"encoder.{i}.{param}" for i in range(1, 40, 3) for param in ("weight", "bias")],
+            "skip_dtype_convert": [],
         },
         "sam_prompt_encoder": {
             "enabled": True,
@@ -230,7 +229,7 @@ def get_component_configs(model, cfg):
                     dtype=getattr(tp, model_precision),
                 ),
             ],
-            "skip_dtype_convert": ["norm"],
+            "skip_dtype_convert": [],
             "special_key_loading": lambda key: (
                 # If it's a neck.convs key that contains 'conv.'
                 # neck.convs.0.conv.weight -> neck.convs.0.weight

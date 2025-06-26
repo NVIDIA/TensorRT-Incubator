@@ -71,7 +71,7 @@ class MaskDownSampler(tp.Module):
                     dtype=self.dtype,
                 )
             )
-            self.encoder.append(LayerNorm2d(mask_out_chans))
+            self.encoder.append(LayerNorm2d(mask_out_chans, dtype=self.dtype))
             self.encoder.append(activation)
             mask_in_chans = mask_out_chans
 
@@ -108,7 +108,7 @@ class CXBlock(tp.Module):
             groups=dim if use_dwconv else 1,
             dtype=self.dtype,
         )  # depthwise conv
-        self.norm = LayerNorm2d(dim, eps=1e-6)
+        self.norm = LayerNorm2d(dim, eps=1e-6, dtype=self.dtype)
         self.pwconv1 = tp.Linear(dim, 4 * dim, dtype=self.dtype)  # pointwise/1x1 convs, implemented with linear layers
         self.act = tp.gelu
         self.pwconv2 = tp.Linear(4 * dim, dim, dtype=self.dtype)

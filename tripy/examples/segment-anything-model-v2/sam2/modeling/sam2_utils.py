@@ -181,16 +181,12 @@ class MLP(tp.Module):
 
 
 class LayerNorm2d(tp.LayerNorm):
-    def __init__(self, num_channels: int, eps: float = 1e-6) -> None:
-        super().__init__(num_channels, dtype=tp.float32, eps=eps)
+    def __init__(self, num_channels: int, eps: float = 1e-6, dtype: tp.dtype = tp.float32) -> None:
+        super().__init__(num_channels, dtype=dtype, eps=eps)
 
     def forward(self, x: tp.Tensor) -> tp.Tensor:
         x = tp.permute(x, (0, 2, 3, 1))
-        # LayerNorm is always done in float32:
-        original_dtype = x.dtype
-        x = tp.cast(x, tp.float32)
         x = super().forward(x)
-        x = tp.cast(x, original_dtype)
         return tp.permute(x, (0, 3, 1, 2))
 
 
