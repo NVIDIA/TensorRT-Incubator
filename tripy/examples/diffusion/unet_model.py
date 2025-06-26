@@ -40,10 +40,10 @@ class UNetConfig:
 # Used for UNet, not to be confused with ResnetBlock, called ResnetBlock2D in HF diffusers
 class ResBlock(tp.Module):
     def __init__(self, config: UNetConfig, channels, emb_channels, out_channels):
-        self.norm1 = tp.GroupNorm(32, channels, dtype=tp.float32)
+        self.norm1 = tp.GroupNorm(32, channels, dtype=config.dtype)
         self.conv1 = tp.Conv(channels, out_channels, (3, 3), padding=((1, 1), (1, 1)), dtype=config.dtype)
         self.time_emb_proj = tp.Linear(emb_channels, out_channels, dtype=config.dtype)
-        self.norm2 = tp.GroupNorm(32, out_channels, dtype=tp.float32)
+        self.norm2 = tp.GroupNorm(32, out_channels, dtype=config.dtype)
         self.conv2 = tp.Conv(out_channels, out_channels, (3, 3), padding=((1, 1), (1, 1)), dtype=config.dtype)
         self.nonlinearity = tp.silu
         self.conv_shortcut = (
@@ -51,12 +51,12 @@ class ResBlock(tp.Module):
         )
 
     def __call__(self, x, emb):
-        h = tp.cast(self.norm1(tp.cast(x, self.norm1.dtype)), x.dtype)
+        h = self.norm1(x)
         h = self.conv1(self.nonlinearity(h))
         emb_out = self.time_emb_proj(self.nonlinearity(emb))
         target_shape = emb_out.shape + (1, 1)
         h = h + tp.reshape(emb_out, target_shape)
-        h = tp.cast(self.norm2(tp.cast(h, self.norm2.dtype)), h.dtype)
+        h = self.norm2(h)
         h = self.conv2(self.nonlinearity(h))
         ret = self.conv_shortcut(x) + h
         return ret
@@ -122,20 +122,20 @@ class BasicTransformerBlock(tp.Module):
         self.attn1 = CrossAttention(config, dim, dim, n_heads, d_head)
         self.ff = FeedForward(config, dim)
         self.attn2 = CrossAttention(config, dim, context_dim, n_heads, d_head)
-        self.norm1 = tp.LayerNorm(dim, dtype=tp.float32)
-        self.norm2 = tp.LayerNorm(dim, dtype=tp.float32)
-        self.norm3 = tp.LayerNorm(dim, dtype=tp.float32)
+        self.norm1 = tp.LayerNorm(dim, dtype=config.dtype)
+        self.norm2 = tp.LayerNorm(dim, dtype=config.dtype)
+        self.norm3 = tp.LayerNorm(dim, dtype=config.dtype)
 
     def __call__(self, x, context=None):
-        x = self.attn1(tp.cast(self.norm1(tp.cast(x, self.norm1.dtype)), x.dtype)) + x
-        x = self.attn2(tp.cast(self.norm2(tp.cast(x, self.norm2.dtype)), x.dtype), context=context) + x
-        x = self.ff(tp.cast(self.norm3(tp.cast(x, self.norm3.dtype)), x.dtype)) + x
+        x = self.attn1(self.norm1(x)) + x
+        x = self.attn2(self.norm2(x), context=context) + x
+        x = self.ff(self.norm3(x)) + x
         return x
 
 
 class SpatialTransformer(tp.Module):  # Transformer2dModel in HF diffusers
     def __init__(self, config: UNetConfig, channels, context_dim, n_heads, d_head):
-        self.norm = tp.GroupNorm(32, channels, dtype=tp.float32)
+        self.norm = tp.GroupNorm(32, channels, dtype=config.dtype)
         assert channels == n_heads * d_head
         self.proj_in = tp.Conv(channels, n_heads * d_head, (1, 1), dtype=config.dtype)
         self.transformer_blocks = [BasicTransformerBlock(config, channels, context_dim, n_heads, d_head)]
@@ -144,7 +144,7 @@ class SpatialTransformer(tp.Module):  # Transformer2dModel in HF diffusers
     def __call__(self, x, context=None):
         b, c, h, w = x.shape
         x_in = x
-        x = tp.cast(self.norm(tp.cast(x, self.norm.dtype)), x.dtype)
+        x = self.norm(x)
         x = self.proj_in(x)
         x = tp.permute(tp.reshape(x, (b, c, h * w)), (0, 2, 1))
         for block in self.transformer_blocks:
@@ -292,7 +292,7 @@ class UNetModel(tp.Module):
             CrossAttnUpBlock2D(config, up_channels[2:5], down_channels[2]),
             CrossAttnUpBlock2D(config, up_channels[4:7], down_channels[1], use_upsampler=False),
         ]
-        self.conv_norm_out = tp.GroupNorm(32, config.model_channels, dtype=tp.float32)
+        self.conv_norm_out = tp.GroupNorm(32, config.model_channels, dtype=config.dtype)
         self.conv_act = tp.silu
         self.conv_out = tp.Conv(
             config.model_channels, config.io_channels, (3, 3), padding=((1, 1), (1, 1)), dtype=config.dtype
@@ -322,6 +322,6 @@ class UNetModel(tp.Module):
             else:
                 x = block(x, emb, context, partial_inputs)
 
-        act = tp.cast(self.conv_norm_out(tp.cast(x, self.conv_norm_out.dtype)), x.dtype)
+        act = self.conv_norm_out(x)
         act = self.conv_out(self.conv_act(act))
         return act
