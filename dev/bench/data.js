@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1750966173379,
+  "lastUpdate": 1751056398801,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -13522,6 +13522,61 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000002340424801533955",
             "extra": "mean: 56.42483917371992 usec\nrounds: 18185"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "d21d4ec3d32ef6f2cd61e38697d44e036ad2ddad",
+          "message": "Remove casts in nanoGPT's layernorms",
+          "timestamp": "2025-06-26T23:31:19Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/662/commits/d21d4ec3d32ef6f2cd61e38697d44e036ad2ddad"
+        },
+        "date": 1751056398015,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 7327.964942429695,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000026612739080816898",
+            "extra": "mean: 136.4635349454108 usec\nrounds: 7670"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 7585.484508078198,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000026161843934045767",
+            "extra": "mean: 131.83073525956652 usec\nrounds: 8110"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[sdpa-float32]",
+            "value": 1122.274858289664,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0006322590967394918",
+            "extra": "mean: 891.0473157386688 usec\nrounds: 1258"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[sdpa-float16]",
+            "value": 3146.766120489153,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00012007676545283918",
+            "extra": "mean: 317.7865661794254 usec\nrounds: 3379"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_tripy_param_update",
+            "value": 17655.101240203534,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000021638574500083595",
+            "extra": "mean: 56.64085333721211 usec\nrounds: 18172"
           }
         ]
       }
