@@ -51,8 +51,7 @@ def load_weights_from_hf(model, model_type, dtype):
         if any(key.endswith(w) for w in transposed):
             with torch.no_grad():
                 weight = hf_state_dict[key].t().contiguous()
-        if "ln" not in key:
-            weight = weight.to(torch_dtype)
+        weight = weight.to(torch_dtype)
         param = tp.Tensor(weight)
         tripy_state_dict[key] = param
 
@@ -112,8 +111,7 @@ def load_quant_weights_from_hf(model, model_type, dtype, quant_mode):
             key, _ = key.split("quantizer._amax")
             key += "scale"
 
-        if "ln" not in key:
-            weight = weight.to(torch_dtype)
+        weight = weight.to(torch_dtype)
         param = tp.Tensor(weight.contiguous())
         assert key in expected_keys
         tripy_state_dict[key] = param
