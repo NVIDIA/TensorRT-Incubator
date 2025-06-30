@@ -34,6 +34,9 @@ using namespace mlirtrt::compiler;
 static void buildStableHloSimplificationPipeline(
     OpPassManager &pm,
     const mlir::ConvertChloToStableHloExtPassOptions &chloToStablehloOptions) {
+  pm.addNestedPass<func::FuncOp>(
+      stablehlo::createStablehloLegalizeCompositeToCallPass());
+  pm.addPass(createInlinerPass());
   // Some match-and-raise patterns should be performed before canonicalization,
   // since the pattern is based on specific frontend patterns (e.g. JAX).
   pm.addPass(stablehlo_ext::createExpandTuplesPass());

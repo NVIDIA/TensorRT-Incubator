@@ -484,12 +484,6 @@ uint64_t PointerType::getABIAlignment(const DataLayout &dataLayhout,
   return kDefaultPointerAlignment;
 }
 
-uint64_t
-PointerType::getPreferredAlignment(const DataLayout &dataLayout,
-                                   DataLayoutEntryListRef params) const {
-  return getABIAlignment(dataLayout, params);
-}
-
 //===----------------------------------------------------------------------===//
 // ExecutorTableType
 //===----------------------------------------------------------------------===//
@@ -525,11 +519,6 @@ uint64_t TableType::getABIAlignment(const DataLayout &dataLayout,
     structAlignment = std::max<uint64_t>(dataLayout.getTypeABIAlignment(iter),
                                          structAlignment);
   return structAlignment;
-}
-
-uint64_t TableType::getPreferredAlignment(const DataLayout &dataLayout,
-                                          DataLayoutEntryListRef params) const {
-  return getABIAlignment(dataLayout, params);
 }
 
 //===----------------------------------------------------------------------===//

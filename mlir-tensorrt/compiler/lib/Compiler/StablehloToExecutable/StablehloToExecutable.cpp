@@ -204,7 +204,7 @@ void StablehloToExecutableTask::populatePassManager(
     // For EmitC lowering, we rely on preserving control flow. Otherwise the C
     // code could be very unreadable.
     if (hostTarget != HostTarget::EmitC)
-      pm.addPass(createConvertSCFToCFPass());
+      pm.addPass(mlir::createSCFToControlFlowPass());
 
     pm.addPass(memref::createFoldMemRefAliasOpsPass());
     pm.addPass(memref::createExpandOpsPass());
@@ -238,65 +238,6 @@ void StablehloToExecutableTask::populatePassManager(
     }
     return;
   }
-}
-
-mlirtrt::StatusOr<std::unique_ptr<runtime::Executable>>
-StablehloToExecutableTask::compileStableHLOToExecutable(
-    CompilerClient &client, mlir::ModuleOp module,
-    const StablehloToExecutableOptions &options) {
-  if (client.getContext() != module->getContext())
-    return getInternalErrorStatus("CompilerClient has a MLIRContext that is "
-                                  "different from the ModuleOp's MLIRContext");
-
-  LLVM_DEBUG({
-    DBGS() << "compiling with options:\n";
-    options.print(llvm::dbgs());
-    llvm::dbgs() << "\n";
-  });
-
-#ifndef NDEBUG
-  if (options.get<DebugOptions>().enableLLVMDebugFlag) {
-    SmallVector<const char *> debugTypeLiterals =
-        llvm::map_to_vector(options.get<DebugOptions>().llvmDebugTypes,
-                            [](const std::string &x) { return x.c_str(); });
-    llvm::setCurrentDebugTypes(debugTypeLiterals.data(),
-                               debugTypeLiterals.size());
-    llvm::DebugFlag = true;
-  }
-#endif
-
-  std::string result;
-  llvm::raw_string_ostream ss(result);
-  options.print(ss);
-  ss.flush();
-  StatusOr<CompilationTaskBase *> runner =
-      client.getCompilationTask<StablehloToExecutableTask>(
-          llvm::StringRef(result).drop_front(1).drop_back(1),
-          /*enableDebugOptions=*/false);
-  if (!runner.isOk())
-    return runner.getStatus();
-
-  // Setup pass manager
-  if (failed((*runner)->run(module)))
-    return getInternalErrorStatus(
-        "failed to run compilation on module with symbol name: {0}",
-        module.getName() ? *module.getName() : "no-symbol-name");
-
-  // Translate to Runtime Executable
-  FailureOr<std::unique_ptr<runtime::ExecutableStorage>> exeStorage =
-      mlir::translateToRuntimeExecutable(module);
-  if (failed(exeStorage))
-    return getStatusWithMsg(StatusCode::InternalError,
-                            "failed to translate compiled MLIR module to a "
-                            "MLIR-TensorRT runtime Executable");
-
-#ifndef NDEBUG
-  // Turn debugging back off if we turned it on.
-  if (options.get<DebugOptions>().enableLLVMDebugFlag)
-    llvm::DebugFlag = false;
-#endif
-
-  return std::make_unique<runtime::Executable>(std::move(*exeStorage));
 }
 
 void mlirtrt::compiler::registerStableHloToExecutableTask() {

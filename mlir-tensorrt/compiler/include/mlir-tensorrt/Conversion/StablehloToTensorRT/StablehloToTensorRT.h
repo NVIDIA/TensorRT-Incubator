@@ -31,11 +31,20 @@
 namespace mlir {
 class ConversionTarget;
 
-// Collection of rewrite patterns for lowering of Stable HLO to TensorRT
-// dialect.
+/// Populate patterns for converting Stablehlo reduction and contraction ops to
+/// TensorRT.
+void populateStablehloReductionAndContractionToTensorRtConversionPattern(
+    TensorRTTypeConverter &typeConverter, RewritePatternSet &patterns,
+    PatternBenefit benefit = 1, PatternBenefit dotToEinsumBenefit = 0);
+
+/// Collection of rewrite patterns for lowering of Stable HLO to TensorRT
+/// dialect.
+/// The `preferEinsum` parameter controls whether `tensorrt.einsum` is used
+/// as the primary method for converting `stablehlo.dot_general` or only for
+/// fallback when conversion to `tensorrt.matrix_multiply` is not possible.
 void populateStablehloToTensorRtConversionPattern(
     TensorRTTypeConverter &typeConverter, RewritePatternSet &patterns,
-    ShapeInfoCallbacks shapeInfoCallbacks = {});
+    ShapeInfoCallbacks shapeInfoCallbacks = {}, bool preferEinsum = false);
 
 /// Populate patterns for convert Chlo ops to TensorRT ops.
 void populateChloToTensorRtLegalityAndPatterns(

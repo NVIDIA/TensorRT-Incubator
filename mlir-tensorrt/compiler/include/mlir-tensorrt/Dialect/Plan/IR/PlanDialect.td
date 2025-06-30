@@ -91,6 +91,14 @@ def Plan_Dialect : Dialect {
       return "plan.shape_profile";
     }
 
+    /// Return the name of the attribute used to encode memory space
+    /// constraints. It should appear in function attributes or in
+    /// function arg/result attribute dictionaries.
+    static StringRef getMemorySpaceConstraintAttrName() {
+      return "plan.memory_space";
+    }
+
+
   private:
     ::llvm::StringMap<AttrParsingHook> attrParsingHooks;
     ::llvm::DenseMap<::mlir::TypeID, AttrPrintingHook> attrPrintingHooks;

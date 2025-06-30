@@ -6,10 +6,16 @@ include(${CMAKE_CURRENT_LIST_DIR}/TensorRTDownloadURL.cmake)
 # expected version.
 #-------------------------------------------------------------------------------------
 macro(get_tensorrt_version nvinfer_version_file out_var)
-  file(STRINGS "${nvinfer_version_file}" VERSION_STRINGS REGEX "#define NV_TENSORRT_.*")
+  file(STRINGS "${nvinfer_version_file}" VERSION_STRINGS REGEX "#define (TRT_.+|NV_TENSORRT_.+) [0-9]+")
   foreach(TYPE MAJOR MINOR PATCH BUILD)
-    string(REGEX MATCH "NV_TENSORRT_${TYPE} [0-9]+" TRT_TYPE_STRING ${VERSION_STRINGS})
-    string(REGEX MATCH "[0-9]+" TRT_${TYPE} ${TRT_TYPE_STRING})
+    string(REGEX MATCH "(TRT_${TYPE}_ENTERPRISE|NV_TENSORRT_${TYPE}) [0-9]+" TRT_TYPE_STRING ${VERSION_STRINGS})
+    if("${TRT_TYPE_STRING}" STREQUAL "")
+      message(FATAL_ERROR "Failed to extract TensorRT ${TYPE} version from ${nvinfer_version_file}")
+    endif()
+    string(REGEX MATCH "[0-9]+" "TRT_${TYPE}" "${TRT_TYPE_STRING}")
+    if("TRT_${TYPE}" STREQUAL "")
+      message(FATAL_ERROR "Failed to extract TensorRT ${TYPE} version from ${nvinfer_version_file}")
+    endif()
   endforeach(TYPE)
   set("${out_var}" "${TRT_MAJOR}.${TRT_MINOR}.${TRT_PATCH}.${TRT_BUILD}")
 endmacro()
@@ -50,7 +56,7 @@ macro(configure_tensorrt_python_plugin_header)
   if(ARG_INSTALL_DIR)
     find_file(
       trt_python_plugin_header
-      NAMES plugin.h
+      NAMES NvInferPythonPlugin.h plugin.h
       HINTS ${ARG_INSTALL_DIR} ${ARG_INSTALL_DIR}/python/include/impl
       PATHS ${ARG_INSTALL_DIR} ${ARG_INSTALL_DIR}/python/include/impl
       REQUIRED
@@ -60,7 +66,7 @@ macro(configure_tensorrt_python_plugin_header)
   else()
     find_path(
       trt_python_plugin_header
-      NAMES plugin.h
+      NAMES NvInferPythonPlugin.h plugin.h
       REQUIRED
       NO_CACHE
     )
@@ -172,36 +178,6 @@ function(find_tensorrt)
     $<$<COMPILE_LANGUAGE:CXX>:-Wno-deprecated-declarations>
     )
 endfunction()
-
-macro(configure_tensorrt_python_plugin_header)
-  if(ARG_INSTALL_DIR)
-    find_file(
-      trt_python_plugin_header
-      NAMES plugin.h
-      HINTS ${ARG_INSTALL_DIR} ${ARG_INSTALL_DIR}/python/include/impl
-      PATHS ${ARG_INSTALL_DIR} ${ARG_INSTALL_DIR}/python/include/impl
-      REQUIRED
-      NO_CMAKE_PATH NO_DEFAULT_PATH
-      NO_CACHE
-    )
-  else()
-    find_path(
-      trt_python_plugin_header
-      NAMES plugin.h
-      REQUIRED
-      NO_CACHE
-    )
-  endif()
-  file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/include/nvinfer")
-  file(COPY_FILE "${trt_python_plugin_header}"
-    "${CMAKE_BINARY_DIR}/include/nvinfer/trt_plugin_python.h"
-    ONLY_IF_DIFFERENT
-    RESULT copy_result
-  )
-  if(copy_result)
-    message(FATAL_ERROR "failed to copy TensorRT QDP plugin header: ${copy_result}")
-  endif()
-endmacro()
 
 #-------------------------------------------------------------------------------------
 # Download and add DLPack to the build (header only)

@@ -1,5 +1,4 @@
 # REQUIRES: tensorrt-version-ge-10.0
-# REQUIRES: host-has-at-least-1-gpus
 # RUN: %PYTHON %s 2>&1 | FileCheck %s
 import ctypes
 

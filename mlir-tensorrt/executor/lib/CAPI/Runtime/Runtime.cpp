@@ -725,6 +725,12 @@ mtrtRuntimeSessionOptionsDestroy(MTRT_RuntimeSessionOptions options) {
   return mtrtStatusGetOk();
 }
 
+void mtrtRuntimeSessionOptionsEnableFeature(MTRT_RuntimeSessionOptions options,
+                                            MTRT_StringView feature) {
+  RuntimeSessionOptions *cppOptions = unwrap(options);
+  cppOptions->enableFeatures(std::string(feature.data, feature.length));
+}
+
 //===----------------------------------------------------------------------===//
 // MTRT_RuntimeSession
 //===----------------------------------------------------------------------===//

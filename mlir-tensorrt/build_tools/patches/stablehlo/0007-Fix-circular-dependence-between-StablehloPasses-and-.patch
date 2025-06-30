@@ -1,17 +1,15 @@
-From e0b197588de8367b729b726009be028da3ed74a7 Mon Sep 17 00:00:00 2001
-From: Christopher Bate <cbate@nvidia.com>
-Date: Sun, 23 Mar 2025 01:54:33 +0000
-Subject: [PATCH 7/7] Fix circular dependence between StablehloPasses and
- StablehloOptimizationPasses
+From f20e3614c528d44e0d877cf6cb29ffa90a5ceab8 Mon Sep 17 00:00:00 2001
+From: Sagar Shelke <shelkesagar29@yahoo.com>
+Date: Tue, 1 Jul 2025 21:54:40 +0000
+Subject: [PATCH] Apply patch
 
-Fixes build when BUILD_SHARED_LIBS=ON.
 ---
  stablehlo/transforms/CMakeLists.txt              | 12 +++++++++++-
  stablehlo/transforms/optimization/CMakeLists.txt |  1 +
  2 files changed, 12 insertions(+), 1 deletion(-)
 
 diff --git a/stablehlo/transforms/CMakeLists.txt b/stablehlo/transforms/CMakeLists.txt
-index 4787369d..50c87304 100644
+index a7fada9b..3f986735 100644
 --- a/stablehlo/transforms/CMakeLists.txt
 +++ b/stablehlo/transforms/CMakeLists.txt
 @@ -39,6 +39,16 @@ set(LLVM_TARGET_DEFINITIONS VhloToVersionPatterns.td)
@@ -31,15 +29,15 @@ index 4787369d..50c87304 100644
  
  add_mlir_dialect_library(StablehloPasses
    PARTIAL_SOURCES_INTENDED
-@@ -59,7 +69,6 @@ add_mlir_dialect_library(StablehloPasses
-   StablehloRefineShapes.cpp
+@@ -60,7 +70,6 @@ add_mlir_dialect_library(StablehloPasses
+   StablehloWrapInComposite.cpp
    VhloLegalizeToStablehlo.cpp
    VhloToVersion.cpp
 -  PassUtils.cpp
  
    DEPENDS
    ChloDecompositionPatternsIncGen
-@@ -90,6 +99,7 @@ add_mlir_dialect_library(StablehloPasses
+@@ -91,6 +100,7 @@ add_mlir_dialect_library(StablehloPasses
    StablehloLinalgTransforms
    StablehloOps
    StablehloOptimizationPasses
@@ -59,5 +57,5 @@ index d43d77be..d063a49d 100644
    StablehloTypeInference
  )
 -- 
-2.46.0
+2.48.1
 

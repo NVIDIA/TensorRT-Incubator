@@ -28,8 +28,10 @@
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Math/IR/Math.h"
+#include "mlir/IR/AsmState.h"
+#include "mlir/IR/DialectResourceBlobManager.h"
+#include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/PassOptions.h"
-#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "stablehlo/dialect/StablehloOps.h"
 
 #ifdef MLIR_TRT_ENABLE_HLO
@@ -109,6 +111,27 @@ public:
 //  ConvertStablehloConstantToArithPass
 //===----------------------------------------------------------------------===//
 
+static FailureOr<ElementsAttr>
+handleStablehloConstantAttr(Location loc, ElementsAttr elAttr) {
+  Type elementType = elAttr.getElementType();
+  if (auto integerType = dyn_cast<IntegerType>(elementType)) {
+    if (integerType.isSignless())
+      return elAttr;
+    Type signlessType =
+        IntegerType::get(elAttr.getContext(), integerType.getWidth());
+    if (auto denseElementsAttr = dyn_cast<DenseElementsAttr>(elAttr))
+      return ElementsAttr(denseElementsAttr.bitcast(signlessType));
+    if (auto denseResourceElementsAttr =
+            dyn_cast<DenseResourceElementsAttr>(elAttr)) {
+      auto handle = denseResourceElementsAttr.getRawHandle();
+      return ElementsAttr(DenseResourceElementsAttr::get(
+          elAttr.getShapedType().clone(signlessType), handle));
+    }
+    return emitError(loc, "unsupported constant attribute kind");
+  }
+  return elAttr;
+}
+
 class ConvertStablehloConstantToArithPass
     : public compiler::impl::ConvertStablehloConstantsToArithPassBase<
           ConvertStablehloConstantToArithPass> {
@@ -117,23 +140,27 @@ public:
 
   void runOnOperation() override {
     func::FuncOp func = getOperation();
-
-    // Apply other preparation and simplification patterns.
-    RewritePatternSet patterns(func->getContext());
-    // Convert `stablehlo.constant` to `arith.constant`.
-    patterns.add<stablehlo::ConstantOp>(
-        +[](stablehlo::ConstantOp constOp,
-            PatternRewriter &rewriter) -> LogicalResult {
-          rewriter.replaceOpWithNewOp<arith::ConstantOp>(constOp,
-                                                         constOp.getValue());
-          return success();
+    IRRewriter rewriter(func->getContext());
+    auto walkResult =
+        func.walk<WalkOrder::PostOrder>([&](stablehlo::ConstantOp constOp) {
+          FailureOr<ElementsAttr> elAttr =
+              handleStablehloConstantAttr(constOp.getLoc(), constOp.getValue());
+          if (failed(elAttr))
+            return WalkResult::interrupt();
+          Type newType = elAttr->getType();
+          rewriter.setInsertionPoint(constOp);
+          auto newConstOp = rewriter.create<arith::ConstantOp>(
+              constOp.getLoc(), newType, *elAttr);
+          if (newType == constOp.getType()) {
+            rewriter.replaceOp(constOp, newConstOp);
+          } else {
+            rewriter.replaceOpWithNewOp<UnrealizedConversionCastOp>(
+                constOp, constOp.getType(), newConstOp.getResult());
+          }
+          return WalkResult::advance();
         });
-
-    if (failed(applyPatternsGreedily(func, std::move(patterns)))) {
-      emitError(func.getLoc())
-          << "failed to apply patterns in " << getArgument();
+    if (walkResult.wasInterrupted())
       return signalPassFailure();
-    }
   }
 
   void getDependentDialects(DialectRegistry &registry) const override {

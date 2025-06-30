@@ -110,6 +110,10 @@ struct Options {
       cl::values(clEnumValN(Lua, "lua", "interpret the input as Lua code")),
       cl::values(clEnumValN(ExecutorRuntimeExecutable, "rtexe",
                             "load the input file as an Executor executable"))};
+
+  cl::list<std::string> features{
+      "features", llvm::cl::list_init<std::string>({"core"}),
+      cl::CommaSeparated, cl::desc("runtime features/modules to enable")};
 };
 } // namespace
 
@@ -138,8 +142,30 @@ static LogicalResult initializeCudaRuntime() {
     llvm::errs() << "cudaFree failed: " << cudaGetErrorString(result);
     return failure();
   }
-#endif
   return success();
+#else
+  llvm::errs() << "runtime was not built with CUDA support\n";
+  return failure();
+#endif
+}
+
+static StatusOr<RuntimeSessionOptions>
+getRuntimeSessionOptions(const Options &options,
+                         ArrayRef<std::string> features) {
+#ifdef MLIR_EXECUTOR_ENABLE_NCCL
+  if (llvm::is_contained(features, "nccl")) {
+    StatusOr<RuntimeSessionOptions> opts =
+        RuntimeSessionOptions::createUsingSingleHostMpi();
+    if (!opts.isOk())
+      return opts.getStatus();
+    opts->enableFeatures(features);
+    return opts;
+  }
+#endif
+
+  RuntimeSessionOptions opts;
+  opts.enableFeatures(features);
+  return opts;
 }
 
 LogicalResult executor::ExecutorRunnerMain(
@@ -148,17 +174,24 @@ LogicalResult executor::ExecutorRunnerMain(
         registerExtraLuaFuncs) {
   llvm::InitLLVM initLLVM(argc, argv);
 
-  Status mpiStatus = maybeInitializeMpi();
-
-  if (!mpiStatus.isOk()) {
-    llvm::errs() << "failed to initialize MPI: " << mpiStatus.getString()
-                 << "\n";
-    return failure();
-  }
-
   // Register and parse CLI args.
   Options options;
   cl::ParseCommandLineOptions(argc, argv, "MLIR-TensorRT Runtime Interpreter");
+
+  if (!options.dumpFunctionSignature) {
+    if (llvm::is_contained(options.features, "nccl")) {
+      Status mpiStatus = maybeInitializeMpi();
+      if (!mpiStatus.isOk()) {
+        llvm::errs() << "failed to initialize MPI: " << mpiStatus.getString()
+                     << "\n";
+        return failure();
+      }
+    }
+
+    if (llvm::is_contained(options.features, "cuda") &&
+        failed(initializeCudaRuntime()))
+      return failure();
+  }
 
   if (postInitCallback)
     postInitCallback();
@@ -194,13 +227,14 @@ LogicalResult executor::ExecutorRunnerMain(
     if (options.inputType != InputType::ExecutorRuntimeExecutable)
       return emitError(loc) << "function signature can only be dumped with "
                                "Runtime Executable inputs";
-  } else {
-    // We only need to initialize the CUDA runtime if we are going to run
-    // something.
-    // TODO: Allow enable/disable CUDA requirement on command-line.
-    if (failed(initializeCudaRuntime()))
-      return failure();
   }
+
+  StatusOr<RuntimeSessionOptions> sessionOptions =
+      getRuntimeSessionOptions(options, options.features);
+  if (!sessionOptions.isOk())
+    return emitError(UnknownLoc::get(&context))
+           << "failed to get runtime session options: "
+           << sessionOptions.getStatus().getString();
 
   // Read the buffer as a Lua script and execute.
   auto processBuffer = [&](std::unique_ptr<llvm::MemoryBuffer> input,
@@ -209,8 +243,8 @@ LogicalResult executor::ExecutorRunnerMain(
       assert(!options.dumpFunctionSignature &&
              "Can not dump function signature for Lua input type.");
       mlirtrt::StatusOr<int64_t> result =
-          mlirtrt::runtime::runExecutorLuaScript(input->getBuffer(),
-                                                 registerExtraLuaFuncs);
+          mlirtrt::runtime::runExecutorLuaScript(
+              *sessionOptions, input->getBuffer(), registerExtraLuaFuncs);
       if (!result.isOk())
         return emitError(UnknownLoc::get(&context)) << result.getString();
       return success(*result == 0);
@@ -256,7 +290,8 @@ LogicalResult executor::ExecutorRunnerMain(
 
     mlirtrt::StatusOr<int64_t> executionResult =
         mlirtrt::runtime::runExecutorExecutable(
-            std::move(*executable), std::move(registerExtraLuaFuncs));
+            *sessionOptions, std::move(*executable),
+            std::move(registerExtraLuaFuncs));
     if (!executionResult.isOk())
       return emitError(UnknownLoc::get(&context))
              << "failed to load and run executable: "

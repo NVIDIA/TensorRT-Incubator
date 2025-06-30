@@ -1,7 +1,7 @@
-From fafd462cdae170e3b615cb559e907b30840d7cf7 Mon Sep 17 00:00:00 2001
-From: Christopher Bate <cbate@nvidia.com>
-Date: Fri, 21 Mar 2025 04:00:05 +0000
-Subject: [PATCH 6/7] Remove explicit use of LLVMSupport
+From ac6ac8785d9a6429304d1ccd6f9c894373182dc0 Mon Sep 17 00:00:00 2001
+From: Sagar Shelke <shelkesagar29@yahoo.com>
+Date: Tue, 1 Jul 2025 21:54:20 +0000
+Subject: [PATCH] Apply patch
 
 ---
  stablehlo/transforms/conversions/CMakeLists.txt | 1 -
@@ -20,5 +20,5 @@ index e1da2c8b..7aac80f1 100644
    MLIRSupport
    MLIRTransformUtils
 -- 
-2.46.0
+2.48.1
 

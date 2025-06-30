@@ -15,13 +15,22 @@
 ///
 //===----------------------------------------------------------------------===//
 
+#include "mlir-tensorrt/Transforms/Transforms.h"
+#include "mlir/Analysis/SliceAnalysis.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
+#include "mlir/Dialect/SCF/Transforms/Patterns.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
+#include "mlir/IR/Matchers.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Transforms/OneToNTypeConversion.h"
+#include "stablehlo/conversions/linalg/transforms/MapStablehloToScalarOp.h"
 #include "stablehlo/dialect/StablehloOps.h"
+#include "llvm/ADT/TypeSwitch.h"
+#include "llvm/Support/Debug.h"
 
 namespace mlir {
 #define GEN_PASS_DEF_CONVERTSTABLEHLOTOSCFPASS
@@ -50,12 +59,10 @@ static void inlineStablehloRegionIntoSCFRegion(PatternRewriter &rewriter,
 /// Extracts a scalar from tensor with a single element.
 static Value extractScalarFromTensorValue(OpBuilder &b, Value tensor) {
   Location loc = tensor.getLoc();
-  // If ranked tensor, first collapse shape.
-  if (cast<RankedTensorType>(tensor.getType()).getRank() != 0)
-    tensor = b.create<tensor::CollapseShapeOp>(
-        loc, tensor, SmallVector<ReassociationIndices>());
-
-  return b.create<tensor::ExtractOp>(loc, tensor, ValueRange());
+  RankedTensorType rtt = cast<RankedTensorType>(tensor.getType());
+  SmallVector<Value> zeros(rtt.getRank(),
+                           b.create<arith::ConstantIndexOp>(loc, 0));
+  return b.create<tensor::ExtractOp>(loc, tensor, zeros);
 }
 
 namespace {
@@ -185,7 +192,324 @@ struct ConvertCaseOp : public OpConversionPattern<stablehlo::CaseOp> {
     return success();
   }
 };
+} // namespace
 
+//===----------------------------------------------------------------------===//
+// Code after this point is not part of the original MHLO pass.
+//===----------------------------------------------------------------------===//
+
+//===----------------------------------------------------------------------===//
+// These patterns are meant to perform canonicalization and uplift of
+// scf.while to scf.for after the conversion from stablehlo to scf.
+//===----------------------------------------------------------------------===//
+
+/// Scalarize a `stablehlo.compare` op.
+static Value scalarizeStablehloCompareOp(stablehlo::CompareOp op,
+                                         PatternRewriter &rewriter) {
+  auto scalarOperands = llvm::map_to_vector(op.getOperands(), [&](Value v) {
+    return extractScalarFromTensorValue(rewriter, v);
+  });
+  return stablehlo::StablehloOpToStdScalarOp::mapOp<stablehlo::CompareOp>(
+      op, op.getType().getElementType(), scalarOperands, &rewriter);
+}
+
+namespace {
+
+/// Scalarize a `stablehlo.compare` op used by a `tensor.extract` op.
+struct ScalarizeStablehloCompareUsedByExtractPattern
+    : public OpRewritePattern<tensor::ExtractOp> {
+  using OpRewritePattern::OpRewritePattern;
+  LogicalResult matchAndRewrite(tensor::ExtractOp op,
+                                PatternRewriter &rewriter) const override {
+    auto compareOp = op.getTensor().getDefiningOp<stablehlo::CompareOp>();
+    if (!compareOp || !compareOp.getType().hasStaticShape() ||
+        compareOp.getType().getNumElements() != 1 ||
+        !compareOp.getType().getElementType().isSignlessIntOrIndex())
+      return failure();
+    rewriter.setInsertionPoint(compareOp);
+    Value scalarCompare = scalarizeStablehloCompareOp(compareOp, rewriter);
+    rewriter.replaceOp(op, scalarCompare);
+    return success();
+  }
+};
+} // namespace
+
+static bool isScalarizable(Type type) {
+  if (auto rtt = dyn_cast<RankedTensorType>(type))
+    return rtt.hasStaticShape() && rtt.getNumElements() == 1;
+  return false;
+}
+
+static FailureOr<Value> convertToScalar(Operation *op,
+                                        PatternRewriter &rewriter) {
+  OpBuilder::InsertionGuard guard(rewriter);
+  rewriter.setInsertionPoint(op);
+  RankedTensorType rtt = cast<RankedTensorType>(op->getResult(0).getType());
+  SmallVector<Value> scalarOperands;
+  for (Value operand : op->getOperands())
+    scalarOperands.push_back(extractScalarFromTensorValue(rewriter, operand));
+  return llvm::TypeSwitch<Operation *, FailureOr<Value>>(op)
+      .Case<
+          // clang-format off
+          stablehlo::AbsOp,
+          stablehlo::AddOp,
+          stablehlo::AndOp,
+          stablehlo::Atan2Op,
+          stablehlo::BitcastConvertOp,
+          stablehlo::CbrtOp,
+          stablehlo::CeilOp,
+          stablehlo::ClampOp,
+          stablehlo::ClzOp,
+          stablehlo::CompareOp,
+          stablehlo::ComplexOp,
+          stablehlo::ConvertOp,
+          stablehlo::CosineOp,
+          stablehlo::DivOp,
+          stablehlo::ExpOp,
+          stablehlo::Expm1Op,
+          stablehlo::FloorOp,
+          stablehlo::ImagOp,
+          stablehlo::IsFiniteOp,
+          stablehlo::Log1pOp,
+          stablehlo::LogOp,
+          stablehlo::LogisticOp,
+          stablehlo::MaxOp,
+          stablehlo::MinOp,
+          stablehlo::MulOp,
+          stablehlo::NegOp,
+          stablehlo::NotOp,
+          stablehlo::OrOp,
+          stablehlo::PopulationCountOp,
+          stablehlo::PowOp,
+          stablehlo::RealOp,
+          stablehlo::ReducePrecisionOp,
+          stablehlo::RemOp,
+          stablehlo::RoundNearestEvenOp,
+          stablehlo::RoundOp,
+          stablehlo::RsqrtOp,
+          stablehlo::SelectOp,
+          stablehlo::ShiftLeftOp,
+          stablehlo::ShiftRightArithmeticOp,
+          stablehlo::ShiftRightLogicalOp,
+          stablehlo::SignOp,
+          stablehlo::SineOp,
+          stablehlo::SqrtOp,
+          stablehlo::SubtractOp,
+          stablehlo::TanhOp,
+          stablehlo::XorOp
+          // clang-format on
+          >([&](auto op) -> FailureOr<Value> {
+        return stablehlo::StablehloOpToStdScalarOp::mapOp(
+            op, rtt.getElementType(), scalarOperands, &rewriter);
+      })
+      .Default([](auto op) -> FailureOr<Value> { return failure(); });
+}
+
+namespace {
+/// Scalarize operations which feed into the condition argument of
+/// `scf.condition`.
+struct ScalarizeWhileConditionProducers
+    : public OpRewritePattern<scf::ConditionOp> {
+  using OpRewritePattern::OpRewritePattern;
+  LogicalResult matchAndRewrite(scf::ConditionOp op,
+                                PatternRewriter &rewriter) const override {
+    auto scfWhile = op->getParentOfType<scf::WhileOp>();
+    if (!scfWhile || scfWhile.getBefore() != op->getParentRegion())
+      return rewriter.notifyMatchFailure(
+          op, "op is not in the before region of a scf.while op");
+
+    Region &beforeRegion = scfWhile.getBefore();
+    BackwardSliceOptions options{};
+    options.inclusive = false;
+    options.omitUsesFromAbove = true;
+    options.omitBlockArguments = true;
+    options.filter = [&](Operation *op) {
+      return beforeRegion.isAncestor(op->getParentRegion()) &&
+             (llvm::isa_and_present<stablehlo::StablehloDialect>(
+                  op->getDialect()) ||
+              llvm::isa<tensor::ExtractOp>(op));
+    };
+
+    SetVector<Operation *> producers;
+    getBackwardSlice(op.getCondition(), &producers, options);
+
+    bool changed = false;
+    for (Operation *producer : producers) {
+      if (!isa_and_present<stablehlo::StablehloDialect>(
+              producer->getDialect()) ||
+          !producer->hasTrait<OpTrait::Elementwise>() ||
+          producer->getNumResults() != 1)
+        continue;
+      if (!isScalarizable(producer->getResult(0).getType()))
+        continue;
+      if (!llvm::all_of(producer->getOperandTypes(), isScalarizable))
+        continue;
+      FailureOr<Value> scalarized = convertToScalar(producer, rewriter);
+      if (failed(scalarized))
+        continue;
+      rewriter.setInsertionPointAfterValue(*scalarized);
+      rewriter.replaceOpWithNewOp<tensor::FromElementsOp>(
+          producer, producer->getResult(0).getType(), scalarized.value());
+      changed = true;
+    }
+    return success(changed);
+  }
+};
+} // namespace
+
+/// Check if the add op is a valid induction variable increment.
+static bool matchInductionVariableIncrement(stablehlo::AddOp op,
+                                            scf::WhileOp parentWhile) {
+  Value lhs = op.getLhs();
+  Value rhs = op.getRhs();
+  if (matchPattern(lhs, m_Constant()) || matchPattern(rhs, m_Constant()))
+    return true;
+  Region *whileRegion = parentWhile->getParentRegion();
+  return lhs.getParentRegion()->isAncestor(whileRegion) ||
+         rhs.getParentRegion()->isAncestor(whileRegion);
+}
+
+namespace {
+/// Scalarize any `stablehlo.add` operations in the 'after' region of
+/// a scf.while op.
+struct ScalarizeStablehloAddOp : public OpRewritePattern<stablehlo::AddOp> {
+  using OpRewritePattern<stablehlo::AddOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(stablehlo::AddOp op,
+                                PatternRewriter &rewriter) const override {
+    if (!op->hasOneUse())
+      return rewriter.notifyMatchFailure(
+          op, "op has more than one use, cannot scalarize");
+    auto extractUser = dyn_cast<tensor::ExtractOp>(*op->user_begin());
+    if (!extractUser || !extractUser->hasOneUse() ||
+        !isa<scf::YieldOp>(*extractUser->user_begin()))
+      return rewriter.notifyMatchFailure(
+          op, "op result is not extracted and yielded from region");
+
+    auto scfWhile = extractUser->getParentOfType<scf::WhileOp>();
+    if (!scfWhile || scfWhile.getAfter() != op->getParentRegion())
+      return rewriter.notifyMatchFailure(
+          op, "op is not in the after region of a scf.while op");
+
+    // One operand must be a constant or defined above in order to be
+    // considered as the loop step.
+    if (!matchInductionVariableIncrement(op, scfWhile))
+      return rewriter.notifyMatchFailure(
+          op, "op is not a valid induction variable increment");
+
+    // Find a block argument that has been scalarized.
+    auto findBlockArgument = [](Value v) -> BlockArgument {
+      Value source{};
+      if (matchPattern(v,
+                       m_Op<tensor::FromElementsOp>(matchers::m_Any(&source))))
+        return dyn_cast<BlockArgument>(source);
+      return {};
+    };
+    BlockArgument arg = findBlockArgument(op.getLhs());
+    if (!arg)
+      arg = findBlockArgument(op.getRhs());
+    if (!arg || arg.getParentRegion() != scfWhile.getAfter())
+      return rewriter.notifyMatchFailure(
+          op, "could not find block argument in after region");
+
+    // Check that the corresponding block argument in the `before` region feeds
+    // into a comparison.
+    Region &before = scfWhile.getBefore();
+    if (arg.getArgNumber() >= before.getNumArguments() ||
+        before.getArgument(arg.getArgNumber()).getType() != arg.getType())
+      return rewriter.notifyMatchFailure(
+          op, "could not find block argument in before region");
+    auto beforeArg = before.getArgument(arg.getArgNumber());
+    if (!llvm::all_of(beforeArg.getUsers(),
+                      llvm::IsaPred<scf::ConditionOp, arith::CmpIOp>))
+      return rewriter.notifyMatchFailure(
+          op, "block argument is not consumed by a comparison op");
+
+    // Check that the before region has a block argument in the same position
+    // and is consumed by a comparison op.
+    RankedTensorType rtt = op.getType();
+    Type elementType = rtt.getElementType();
+    if (!rtt.hasStaticShape() || rtt.getNumElements() != 1 ||
+        !elementType.isSignlessIntOrIndex())
+      return rewriter.notifyMatchFailure(op, "op is not a scalar add op");
+
+    auto scalarOperands = llvm::map_to_vector(op.getOperands(), [&](Value v) {
+      return extractScalarFromTensorValue(rewriter, v);
+    });
+
+    auto scalarAdd =
+        stablehlo::StablehloOpToStdScalarOp::mapOp<stablehlo::AddOp>(
+            op, elementType, scalarOperands, &rewriter);
+    auto fromElements =
+        rewriter.create<tensor::FromElementsOp>(op.getLoc(), rtt, scalarAdd);
+    rewriter.replaceOp(op, fromElements);
+    return success();
+  }
+};
+} // namespace
+
+/// This is used by the SCF while detensorization patterns to determine whether
+/// a block argument of the 'before' region should be scalarized. We want to
+/// scalarize the block argument corresponding to the induction variable of the
+/// for loop. It will have a user like `stablehlo.compare` or `tensor.extract`.
+static bool shouldScalarizeWhileBeforeArg(BlockArgument arg, Value initOperand,
+                                          Value yieldOperand) {
+  return cast<RankedTensorType>(arg.getType())
+             .getElementType()
+             .isSignlessIntOrIndex() &&
+         llvm::count_if(arg.getUsers(),
+                        llvm::IsaPred<stablehlo::CompareOp, arith::CmpIOp,
+                                      tensor::ExtractOp>) >= 1;
+}
+
+/// This is used by the SCF while detensorization patterns to determine whether
+/// a block argument of the 'after' region should be scalarized. We want to
+/// scalarize the block argument corresponding to the induction variable of the
+/// for loop. It will have a user like `stablehlo.add` or `tensor.extract`.
+static bool shouldScalarizeWhileAfterArg(BlockArgument arg, Value condOperand,
+                                         Value result) {
+  RankedTensorType rtt = cast<RankedTensorType>(arg.getType());
+  auto whileOp = arg.getParentRegion()->getParentOfType<scf::WhileOp>();
+  Region &before = whileOp.getBefore();
+  if (before.getNumArguments() <= arg.getArgNumber() ||
+      before.getArgument(arg.getArgNumber()).getType() !=
+          rtt.getElementType() ||
+      !llvm::all_of(before.getArgument(arg.getArgNumber()).getUsers(),
+                    llvm::IsaPred<arith::CmpIOp, tensor::FromElementsOp>))
+    return false;
+
+  auto condProducer = condOperand.getDefiningOp<tensor::FromElementsOp>();
+  if (!condProducer || condProducer.getElements().size() != 1 ||
+      !isa<BlockArgument>(condProducer.getElements().front()))
+    return false;
+
+  return rtt.getElementType().isSignlessIntOrIndex() &&
+         llvm::count_if(arg.getUsers(),
+                        llvm::IsaPred<stablehlo::AddOp, arith::AddIOp,
+                                      tensor::ExtractOp>) >= 1;
+}
+
+/// Populates the patterns to uplift scf.while to scf.for. This requires
+/// detensorization as well as the upstream uplift patterns.
+static LogicalResult applyWhileToForUpliftPatterns(Operation *op) {
+  RewritePatternSet patterns(op->getContext());
+  scf::populateUpliftWhileToForPatterns(patterns);
+  scf::WhileOp::getCanonicalizationPatterns(patterns, op->getContext());
+  scf::IfOp::getCanonicalizationPatterns(patterns, op->getContext());
+  scf::populateSCFForLoopCanonicalizationPatterns(patterns);
+  tensor::FromElementsOp::getCanonicalizationPatterns(patterns,
+                                                      patterns.getContext());
+  tensor::ExtractOp::getCanonicalizationPatterns(patterns,
+                                                 patterns.getContext());
+  populateSCFDetensorizeWhilePatterns(patterns, shouldScalarizeWhileBeforeArg,
+                                      shouldScalarizeWhileAfterArg,
+                                      /*benefit=*/10);
+  patterns.add<ScalarizeStablehloAddOp,
+               ScalarizeStablehloCompareUsedByExtractPattern,
+               ScalarizeWhileConditionProducers>(op->getContext());
+  return applyPatternsGreedily(op, std::move(patterns));
+}
+
+namespace {
 struct StablehloToScfPass
     : public impl::ConvertStablehloToScfPassBase<StablehloToScfPass> {
 public:
@@ -204,7 +528,13 @@ public:
                                       std::move(patterns)))) {
       emitError(getOperation()->getLoc())
           << "failed to apply patterns in " << getArgument();
-      signalPassFailure();
+      return signalPassFailure();
+    }
+    if (failed(applyWhileToForUpliftPatterns(getOperation()))) {
+      emitError(getOperation()->getLoc())
+          << "failed to apply while-to-for uplift patterns in "
+          << getArgument();
+      return signalPassFailure();
     }
   }
 };

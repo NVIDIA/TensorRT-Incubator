@@ -1,7 +1,7 @@
 // RUN: executor-opt %s \
 // RUN:    -executor-lower-to-runtime-builtins | \
 // RUN: executor-translate -mlir-to-runtime-executable |\
-// RUN: executor-runner -input-type=rtexe | FileCheck %s
+// RUN: executor-runner -input-type=rtexe -features=core,cuda | FileCheck %s
 
 executor.data_segment @dense_i32 constant dense<[32, 33]> : tensor<2xi32>
 executor.data_segment @device_i32 constant address_space<device> dense<[99, 101]> : tensor<2xi32>

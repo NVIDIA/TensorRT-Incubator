@@ -1,4 +1,4 @@
-# RUN: %PYTHON %s | FileCheck %s
+# RUN: %pick-one-gpu %PYTHON %s | FileCheck %s
 import mlir_tensorrt.compiler.api as compiler
 import mlir_tensorrt.compiler.ir as ir
 import mlir_tensorrt.runtime.api as runtime

@@ -11,6 +11,7 @@ add_mlir_tensorrt_library(MLIRTensorRTHostToEmitC
   MLIRTensorRTTensorRTToEmitC
   MLIRTensorRTExecutorDialect
   MLIRFuncToEmitC
+  MLIRFuncTransforms
   MLIRTensorRTCUDADialect
   MLIRTensorRTTensorRTRuntimeDialect
   MLIRTensorRTLLVMConversionUtils

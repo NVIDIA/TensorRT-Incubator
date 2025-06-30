@@ -24,8 +24,6 @@
 #ifndef MLIR_TENSORRT_RUNTIME_BACKEND_UTILS_NVTXUTILS_H
 #define MLIR_TENSORRT_RUNTIME_BACKEND_UTILS_NVTXUTILS_H
 
-#ifdef MLIR_TRT_ENABLE_NVTX
-
 #if defined(__GNUC__) || defined(__clang__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmissing-braces"
@@ -70,17 +68,5 @@ constexpr inline nvtx3::rgb CudaModuleColor() {
 #define ADD_CUDA_MODULE_RANGE(funcName)                                        \
   mlirtrt::runtime::NvtxRange r(mlirtrt::runtime::tracing::CudaModuleColor(),  \
                                 funcName)
-
-#else
-
-#define ADD_RUNTIME_MODULE_RANGE(funcName)
-
-#define ADD_CORE_MODULE_RANGE(funcName)
-
-#define ADD_TENSORRT_MODULE_RANGE(funcName)
-
-#define ADD_CUDA_MODULE_RANGE(funcName)
-
-#endif
 
 #endif // MLIR_TENSORRT_RUNTIME_BACKEND_UTILS_NVTXUTILS_H

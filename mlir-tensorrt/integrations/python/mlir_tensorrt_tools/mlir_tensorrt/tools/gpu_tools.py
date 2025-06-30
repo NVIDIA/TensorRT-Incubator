@@ -9,9 +9,9 @@ import time
 from contextlib import contextmanager
 from typing import List, Optional, Tuple
 
+from pynvml import *
 import click
 import numpy as np
-from pynvml import *
 
 
 def get_uniform_devices() -> List[int]:
@@ -134,7 +134,28 @@ def cli():
     required=False,
     type=click.FLOAT,
 )
-def pick_device(required_memory: Optional[float]):
+@click.option(
+    "--required-host-memory",
+    help="causes the command to block until the specified amount of host memory (in gigabytes) is available",
+    required=False,
+    type=click.FLOAT,
+    default=2.0,
+)
+def pick_device(required_memory: Optional[float], required_host_memory: float):
+    try:
+        import psutil
+
+        while True:
+            # Force to wait until at least 10GB of host memory is available.
+            required_host_memory = max(required_host_memory, 10.0)
+            gb_host_mem_avail = psutil.virtual_memory().available / (1024**3)
+            if gb_host_mem_avail < required_host_memory:
+                time.sleep(1.0)
+                continue
+            break
+    except:
+        pass
+
     with nvml_context() as devices:
         if len(devices) == 0:
             return

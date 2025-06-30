@@ -11,6 +11,7 @@
 
 #include "mlir-executor/InitAllDialects.h"
 #include "mlir-executor/Runtime/API/API.h"
+#include "mlir-executor/Runtime/Backend/Lua/LuaExtensions.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaRuntime.h"
 #include "mlir-executor/Target/Lua/TranslateToRuntimeExecutable.h"
 #include "mlir/IR/AsmState.h"
@@ -30,6 +31,7 @@ class TestRuntime : public ::testing::Test {
 protected:
   void SetUp() override {
     mlir::executor::registerAllRequiredDialects(registry);
+    mlirtrt::runtime::registerLuaRuntimeExtensions();
     context = std::make_unique<mlir::MLIRContext>(registry);
   }
 
@@ -44,8 +46,9 @@ protected:
 
   StatusOr<std::unique_ptr<LuaRuntimeSession>> createLuaRuntimeSession(
       const std::unique_ptr<runtime::Executable> &executable) {
-    return LuaRuntimeSession::create(RuntimeSessionOptions(),
-                                     executable->getView(), {});
+    RuntimeSessionOptions options;
+    options.enableFeatures({"core"});
+    return LuaRuntimeSession::create(options, executable->getView(), {});
   }
 
   void assertScalarValuesEqual(const ScalarValue *result,
@@ -95,12 +98,14 @@ TEST_F(TestRuntime, TestRuntimeExecution) {
       std::make_unique<runtime::Executable>(std::move(*exeStorage));
 
   auto session = createLuaRuntimeSession(executable);
-  ASSERT_TRUE(session.isOk());
+  ASSERT_TRUE(session.isOk()) << session.getString();
 
-  std::vector<ScalarValue> scalarValues = {{1, ScalarTypeCode::i32},
-                                           {2, ScalarTypeCode::i32},
-                                           {3, ScalarTypeCode::i32},
-                                           {4, ScalarTypeCode::i32}};
+  std::vector<ScalarValue> scalarValues;
+  scalarValues.reserve(4);
+  scalarValues.emplace_back(1, ScalarTypeCode::i32);
+  scalarValues.emplace_back(2, ScalarTypeCode::i32);
+  scalarValues.emplace_back(3, ScalarTypeCode::i32);
+  scalarValues.emplace_back(4, ScalarTypeCode::i32);
 
   llvm::SmallVector<RuntimeValue *> reference = {
       &scalarValues[2], &scalarValues[3], &scalarValues[0], &scalarValues[1]};
@@ -109,12 +114,12 @@ TEST_F(TestRuntime, TestRuntimeExecution) {
   llvm::SmallVector<RuntimeValue *> outputArgs;
 
   auto client = createRuntimeClient();
-  ASSERT_TRUE(client.isOk());
+  ASSERT_TRUE(client.isOk()) << client.getString();
 
   auto result = executeFunctionWithLuaBackend(
       *(*session).get(), "main", inputArgs, outputArgs, std::nullopt,
       std::optional((*client).get()));
-  ASSERT_TRUE(result.isOk());
+  ASSERT_TRUE(result.isOk()) << result.getString();
 
   ASSERT_EQ((*result).size(), reference.size()) << "Vector sizes don't match";
 

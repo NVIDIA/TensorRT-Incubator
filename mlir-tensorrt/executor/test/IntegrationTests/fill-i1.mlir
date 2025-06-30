@@ -1,6 +1,6 @@
 // RUN: executor-opt %s -test-executor-bufferization-pipeline -inline -executor-lowering-pipeline \
 // RUN:   | executor-translate -mlir-to-runtime-executable \
-// RUN:   | executor-runner -input-type=rtexe | FileCheck %s
+// RUN:   | executor-runner -input-type=rtexe -features=core | FileCheck %s
 
 !scalar_type = i1
 

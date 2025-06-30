@@ -78,7 +78,7 @@ private:
 /// integer result (which is returned if the execution is successful).
 /// TODO: this should take a handle to a function for streaming output/errors.
 StatusOr<int64_t> runExecutorLuaScript(
-    std::string_view luaScript,
+    RuntimeSessionOptions options, std::string_view luaScript,
     LuaRuntimeSession::LuaModuleRegistrationFunc registerExtraLuaFuncs = {});
 
 /// Synchronously run a serialized executor Executable one time. An `Executable`
@@ -92,7 +92,7 @@ StatusOr<int64_t> runExecutorLuaScript(
 /// TODO: this should take a handle to a function for
 /// streaming output/errors.
 StatusOr<int64_t> runExecutorExecutable(
-    std::unique_ptr<Executable> executable,
+    RuntimeSessionOptions options, std::unique_ptr<Executable> executable,
     LuaRuntimeSession::LuaModuleRegistrationFunc registerExtraLuaFuncs = {});
 
 /// Execute a named function in the session with the specified input args and

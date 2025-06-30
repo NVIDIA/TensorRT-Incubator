@@ -204,6 +204,10 @@ bool HostClusterKindAttr::supportsInputKind(InputKind inputKind) const {
   return inputKind == InputKind::Stablehlo;
 }
 
+MemorySpace HostClusterKindAttr::getDefaultMemorySpace() const {
+  return MemorySpace::host;
+}
+
 //===----------------------------------------------------------------------===//
 // Extension Registration
 //===----------------------------------------------------------------------===//

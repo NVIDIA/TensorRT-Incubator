@@ -45,7 +45,8 @@ namespace {
 /// common components without the code duplication here.
 class LuaEmitter {
 public:
-  explicit LuaEmitter(MLIRContext *ctx, raw_ostream &os);
+  explicit LuaEmitter(MLIRContext *ctx, raw_ostream &os,
+                      const DataLayout &dataLayout);
 
   /// Emit Lua ofr a "module-like" operation. This creates a new scope for all
   /// resources. It is expected that this is only used as the top-level
@@ -149,6 +150,9 @@ protected:
 
   MLIRContext *ctx;
   raw_indented_ostream os;
+
+  /// The data layout of the module.
+  mlir::DataLayout moduleDataLayout;
 };
 } // namespace
 
@@ -400,6 +404,29 @@ static LogicalResult printOperation(LuaEmitter &emitter,
   return success();
 }
 
+static LogicalResult printPtrToIntOp(LuaEmitter &emitter,
+                                     executor::PtrToIntOp op,
+                                     const DataLayout &dataLayout) {
+  if (failed(emitter.emitAssignPrefix(op)))
+    return failure();
+
+  uint64_t ptrWidth = dataLayout.getTypeSizeInBits(op.getArg().getType());
+  emitter << "_ptrtoint_i" << ptrWidth << "_" << op.getType() << "("
+          << emitter.getVariableName(op.getArg()) << ");\n";
+  return success();
+}
+
+static LogicalResult printIntToPtrOp(LuaEmitter &emitter,
+                                     executor::IntToPtrOp op,
+                                     const DataLayout &dataLayout) {
+  if (failed(emitter.emitAssignPrefix(op)))
+    return failure();
+  uint64_t ptrWidth = dataLayout.getTypeSizeInBits(op.getType());
+  emitter << "_inttoptr_i" << ptrWidth << "_" << op.getOperand().getType()
+          << "(" << emitter.getVariableName(op.getArg()) << ");\n";
+  return success();
+}
+
 static LogicalResult printExecutorBinaryInfixOperation(LuaEmitter &emitter,
                                                        Operation *op) {
   Value lhs = op->getOperand(0);
@@ -496,6 +523,15 @@ static LogicalResult printOperation(LuaEmitter &emitter, executor::PrintOp op) {
     emitter << emitter.getVariableName(v);
   });
   emitter << ");\n";
+  return success();
+}
+
+static LogicalResult printMemCpyOp(LuaEmitter &emitter, executor::MemcpyOp op) {
+  emitter << "executor_memcpy(" << emitter.getVariableName(op.getSrc()) << ", "
+          << emitter.getVariableName(op.getSrcOffset()) << ", "
+          << emitter.getVariableName(op.getDest()) << ", "
+          << emitter.getVariableName(op.getDestOffset()) << ", "
+          << emitter.getVariableName(op.getNumBytes()) << ");\n";
   return success();
 }
 
@@ -674,7 +710,9 @@ static LogicalResult printOperation(LuaEmitter &emitter, executor::FuncOp op) {
 // LuaEmitter implementation
 //===----------------------------------------------------------------------===//
 
-LuaEmitter::LuaEmitter(MLIRContext *ctx, raw_ostream &os) : ctx(ctx), os(os) {
+LuaEmitter::LuaEmitter(MLIRContext *ctx, raw_ostream &os,
+                       const DataLayout &dataLayout)
+    : ctx(ctx), os(os), moduleDataLayout(dataLayout) {
   localsInScopeCount.push(0);
   labelInScopeCount.push(0);
   globalsInScopeCount.push(0);
@@ -925,6 +963,8 @@ LogicalResult LuaEmitter::emitOperation(Operation &op) {
             [&](auto op) { return printOperation(*this, op); })
         .Case<executor::PrintOp>(
             [&](auto op) { return printOperation(*this, op); })
+        .Case<executor::MemcpyOp>(
+            [&](auto op) { return printMemCpyOp(*this, op); })
         .Case<executor::StrLiteralOp, executor::ConstantResourceLoadOp,
               executor::GetGlobalOp, executor::SetGlobalOp>(
             [&](auto op) { return printOperation(*this, op); })
@@ -933,6 +973,12 @@ LogicalResult LuaEmitter::emitOperation(Operation &op) {
         .Case<executor::CoroAwaitOp, executor::CoroYieldOp,
               executor::CoroCreateOp>(
             [&](auto op) { return printOperation(*this, op); })
+        .Case<executor::PtrToIntOp>([&](auto op) {
+          return printPtrToIntOp(*this, op, moduleDataLayout);
+        })
+        .Case<executor::IntToPtrOp>([&](auto op) {
+          return printIntToPtrOp(*this, op, moduleDataLayout);
+        })
         .Default([&](Operation *) {
           return op.emitOpError("unable to find printer for op");
         });
@@ -952,7 +998,7 @@ LogicalResult LuaEmitter::emitOperation(Operation &op) {
 }
 
 LogicalResult mlir::translateToLua(Operation *op, raw_ostream &os) {
-  LuaEmitter luaEmitter(op->getContext(), os);
+  LuaEmitter luaEmitter(op->getContext(), os, DataLayout::closest(op));
   if (isa<FunctionOpInterface>(op))
     return luaEmitter.emitOperation(*op);
   if (isModuleLike(*op))

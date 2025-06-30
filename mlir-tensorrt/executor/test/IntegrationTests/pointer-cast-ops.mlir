@@ -1,6 +1,6 @@
 // RUN: executor-opt %s -executor-lower-to-runtime-builtins  \
 // RUN:   | executor-translate -mlir-to-lua \
-// RUN:   | executor-runner -input-type=lua | FileCheck %s
+// RUN:   | executor-runner -input-type=lua -features=core | FileCheck %s
 
 func.func @main() -> i32 {
   %cst0 = executor.constant 123 : i32

@@ -31,6 +31,7 @@ add_mlir_tensorrt_compiler_dependency(MLIRNVVMTarget)
 add_mlir_tensorrt_compiler_dependency(MLIRPtrDialect)
 add_mlir_tensorrt_compiler_dependency(MLIRTargetLLVM)
 add_mlir_tensorrt_compiler_dependency(MLIRTensorTransformOps)
+add_mlir_tensorrt_compiler_dependency(MLIREmitCExtDataLayoutImpl)
 
 add_subdirectory(include)
 add_subdirectory(lib)

@@ -1,7 +1,8 @@
 add_mlir_tensorrt_library(MLIRTensorRTStablehloToTensorRT
-  StablehloToTensorRT.cpp
   ControlFlowOps.cpp
   ChloToTensorRT.cpp
+  ReductionConversions.cpp
+  StablehloToTensorRT.cpp
 
   DEPENDS
   MLIRTensorRTConversionPassIncGen
