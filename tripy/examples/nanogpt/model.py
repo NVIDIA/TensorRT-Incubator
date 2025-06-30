@@ -117,16 +117,14 @@ class MLP(tp.Module):
 class Block(tp.Module):
     def __init__(self, config):
         super().__init__()
-        self.ln_1 = tp.LayerNorm(config.embedding_size)
+        self.ln_1 = tp.LayerNorm(config.embedding_size, dtype=config.dtype)
         self.attn = CausalSelfAttention(config)
-        self.ln_2 = tp.LayerNorm(config.embedding_size)
+        self.ln_2 = tp.LayerNorm(config.embedding_size, dtype=config.dtype)
         self.mlp = MLP(config)
 
     def forward(self, x):
-        x_ln1 = tp.cast(self.ln_1(tp.cast(x, self.ln_1.dtype)), x.dtype)
-        x = x + self.attn(x_ln1)
-        x_ln2 = tp.cast(self.ln_2(tp.cast(x, self.ln_2.dtype)), x.dtype)
-        x = x + self.mlp(x_ln2)
+        x = x + self.attn(self.ln_1(x))
+        x = x + self.mlp(self.ln_2(x))
         return x
 
 
@@ -137,7 +135,7 @@ class Transformer(tp.Module):
         self.wte = tp.Embedding(config.vocab_size, config.embedding_size, dtype=config.dtype)
         self.wpe = tp.Embedding(config.block_size, config.embedding_size, dtype=config.dtype)
         self.h = tp.Sequential(*[Block(config) for _ in range(config.num_layers)])
-        self.ln_f = tp.LayerNorm(config.embedding_size)
+        self.ln_f = tp.LayerNorm(config.embedding_size, dtype=config.dtype)
 
     def forward(self, idx):
         tok_emb = self.wte(idx)  # token embeddings of shape (batch_size, seq_len, embedding_size)
@@ -145,7 +143,7 @@ class Transformer(tp.Module):
         pos_emb = self.wpe(pos)  # position embeddings of shape (seq_len, embedding_size)
         x = tok_emb + pos_emb  # (batch_size, seq_len, embedding_size)
         x = self.h(x)
-        x = tp.cast(self.ln_f(tp.cast(x, self.ln_f.dtype)), x.dtype)
+        x = self.ln_f(x)
         return x
 
 
