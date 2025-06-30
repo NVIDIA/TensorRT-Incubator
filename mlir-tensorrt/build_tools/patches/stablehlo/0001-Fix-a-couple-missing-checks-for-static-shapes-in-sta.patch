@@ -1,8 +1,7 @@
-From b387be5903482200f4c36f64f8ed102c288c0c29 Mon Sep 17 00:00:00 2001
-From: Christopher Bate <cbate@nvidia.com>
-Date: Wed, 27 Nov 2024 00:10:11 +0000
-Subject: [PATCH 1/7] Fix a couple missing checks for static shapes in
- `stablehlo-aggressive-folder`
+From 47b6e97db1681d3a7e94d4ceefc6cbe0fd62535e Mon Sep 17 00:00:00 2001
+From: Sagar Shelke <shelkesagar29@yahoo.com>
+Date: Tue, 1 Jul 2025 21:46:35 +0000
+Subject: [PATCH] Apply patch
 
 ---
  .../stablehlo_aggressive_folder.mlir          | 27 +++++++++++++------
@@ -10,12 +9,12 @@ Subject: [PATCH 1/7] Fix a couple missing checks for static shapes in
  2 files changed, 28 insertions(+), 8 deletions(-)
 
 diff --git a/stablehlo/tests/transforms/stablehlo_aggressive_folder.mlir b/stablehlo/tests/transforms/stablehlo_aggressive_folder.mlir
-index 5b21a10d..c90c89c6 100644
+index 2b778a9b..3137bc35 100644
 --- a/stablehlo/tests/transforms/stablehlo_aggressive_folder.mlir
 +++ b/stablehlo/tests/transforms/stablehlo_aggressive_folder.mlir
 @@ -4,14 +4,17 @@
  // AddOp
- 
+
  // CHECK-LABEL: @add_fold_cst
 -func.func @add_fold_cst() -> (tensor<i32>, tensor<f32>) {
 +func.func @add_fold_cst() -> (tensor<i32>, tensor<f32>, tensor<?xf32>) {
@@ -31,11 +30,11 @@ index 5b21a10d..c90c89c6 100644
 +  %2 = stablehlo.add %cst_2, %cst_2 : (tensor<1xf32>, tensor<1xf32>) ->  tensor<?xf32>
 +  return %0, %1, %2 : tensor<i32>, tensor<f32>, tensor<?xf32>
  }
- 
+
  // -----
 @@ -106,14 +109,17 @@ func.func @concatenate_fold() -> (tensor<6xi32>, tensor<3xi32>, tensor<3x3xi32>,
  // MulOp
- 
+
  // CHECK-LABEL: @mul_fold_cst
 -func.func @mul_fold_cst() -> (tensor<i32>, tensor<f32>) {
 +func.func @mul_fold_cst() -> (tensor<i32>, tensor<f32>, tensor<?xf32>) {
@@ -51,11 +50,11 @@ index 5b21a10d..c90c89c6 100644
 +  %2 = stablehlo.multiply %cst_2, %cst_2 : (tensor<1xf32>, tensor<1xf32>) -> tensor<?xf32>
 +  return %0, %1, %2 : tensor<i32>, tensor<f32>, tensor<?xf32>
  }
- 
+
  // -----
 @@ -122,16 +128,21 @@ func.func @mul_fold_cst() -> (tensor<i32>, tensor<f32>) {
  // SubtractOp
- 
+
  // CHECK-LABEL: @subtract_fold_cst
 -func.func @subtract_fold_cst() -> (tensor<i32>, tensor<f32>) {
 +func.func @subtract_fold_cst() -> (tensor<i32>, tensor<f32>, tensor<?xf32>) {
@@ -77,42 +76,42 @@ index 5b21a10d..c90c89c6 100644
 +  %2 = stablehlo.subtract %cst_4, %cst_5 : (tensor<1xf32>, tensor<1xf32>) -> tensor<?xf32>
 +  return %0, %1, %2 : tensor<i32>, tensor<f32>, tensor<?xf32>
  }
- 
+
  // -----
 diff --git a/stablehlo/transforms/optimization/StablehloAggressiveFolder.cpp b/stablehlo/transforms/optimization/StablehloAggressiveFolder.cpp
-index 2b5198b4..52a28e97 100644
+index 7cd4724d..cddbffc6 100644
 --- a/stablehlo/transforms/optimization/StablehloAggressiveFolder.cpp
 +++ b/stablehlo/transforms/optimization/StablehloAggressiveFolder.cpp
-@@ -257,6 +257,9 @@ struct FoldAddOpPattern final : OpRewritePattern<mlir::stablehlo::AddOp> {
- 
+@@ -266,6 +266,9 @@ struct FoldAddOpPattern final : OpRewritePattern<mlir::stablehlo::AddOp> {
+
    LogicalResult matchAndRewrite(mlir::stablehlo::AddOp op,
                                  PatternRewriter& rewriter) const override {
-+    if (failed(validateResultTypeForEval(rewriter, op, op.getType())))
++    if (failed(validateStaticShapeResult(rewriter, op, op.getType())))
 +      return failure();
 +
      Value lhs = op.getLhs();
      Value rhs = op.getRhs();
- 
-@@ -549,6 +552,9 @@ struct FoldMulOpPattern final : OpRewritePattern<mlir::stablehlo::MulOp> {
- 
+
+@@ -569,6 +572,9 @@ struct FoldMulOpPattern final : OpRewritePattern<mlir::stablehlo::MulOp> {
+
    LogicalResult matchAndRewrite(mlir::stablehlo::MulOp op,
                                  PatternRewriter& rewriter) const override {
-+    if (failed(validateResultTypeForEval(rewriter, op, op.getType())))
++    if (failed(validateStaticShapeResult(rewriter, op, op.getType())))
 +      return failure();
 +
-     auto elemType = op.getType().getElementType();
-     Value lhs = op.getLhs();
-     Value rhs = op.getRhs();
-@@ -748,6 +754,9 @@ struct FoldSubtractOpPattern final
- 
+     TypedAttr lhsAttr;
+     matchPattern(op.getLhs(), m_Constant(&lhsAttr));
+
+@@ -758,6 +764,9 @@ struct FoldSubtractOpPattern final
+
    LogicalResult matchAndRewrite(mlir::stablehlo::SubtractOp op,
                                  PatternRewriter& rewriter) const override {
-+    if (failed(validateResultTypeForEval(rewriter, op, op.getType())))
++    if (failed(validateStaticShapeResult(rewriter, op, op.getType())))
 +      return failure();
 +
      Value lhs = op.getLhs();
      Value rhs = op.getRhs();
- 
--- 
-2.46.0
+
+--
+2.48.1
 

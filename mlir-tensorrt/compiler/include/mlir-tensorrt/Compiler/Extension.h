@@ -73,11 +73,6 @@ public:
   template <typename T, typename... Mods>
   using ListOption = mlir::detail::PassOptions::ListOption<T, Mods...>;
 
-protected:
-  /// Whether this extension is disabled. Should default to false and be
-  /// associated with a flag `--disable-[name]-extension`.
-  bool disabled{false};
-
 private:
   mlir::TypeID typeID;
 

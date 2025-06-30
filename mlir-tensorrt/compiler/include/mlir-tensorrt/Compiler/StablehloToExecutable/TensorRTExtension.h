@@ -60,8 +60,8 @@ public:
     this->workspaceMemoryPoolLimit = options.workspaceMemoryPoolLimit;
   }
 
-  Option<bool> disable{this->ctx, "disable-tensorrt-extension",
-                       llvm::cl::init(false)};
+  Option<bool> disabled{this->ctx, "disable-tensorrt-extension",
+                        llvm::cl::init(false)};
 
   Option<TensorRTTargetFormat> format{
       this->ctx, "tensorrt-target",

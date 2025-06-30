@@ -208,8 +208,11 @@ struct RewriteFromElements : public OpRewritePattern<tensor::FromElementsOp> {
 
     std::optional<MemorySpace> originalMemorySpace{};
     if (auto constraint =
-            dyn_cast_or_null<MemorySpaceAttr>(op.getType().getEncoding()))
+            dyn_cast_or_null<MemorySpaceAttr>(op.getType().getEncoding())) {
+      if (constraint.isHostVisible())
+        return failure();
       originalMemorySpace = constraint.getValue();
+    }
 
     // Create a host allocation and insert the elements.
     MemorySpace memorySpace = MemorySpace::host_pinned;
@@ -318,9 +321,14 @@ struct TensorDeviceExtractRewriter
     if (lattice->getValue().isHostOnly())
       return rewriter.notifyMatchFailure(op, "lattice value is host-only");
 
-    Value source = op.getTensor();
+    if (auto constraint = dyn_cast_if_present<MemorySpaceAttr>(
+            op.getTensor().getType().getEncoding())) {
+      if (constraint.isHostVisible())
+        return rewriter.notifyMatchFailure(
+            op, "source tensor already is in a host-visible space");
+    }
 
-    if (failed(replaceHostUsesWithHostAlloc(rewriter, source)))
+    if (failed(replaceHostUsesWithHostAlloc(rewriter, op.getTensor())))
       return failure();
 
     return success();
@@ -846,12 +854,24 @@ static LogicalResult rewriteFuncToDestinationPassingStyle(
     // Our action now depends on what kind of equivalent value we found.
     Operation *equivalentOp = equivalentValues.front().getDefiningOp();
 
+    // Check if the user of `toReplace` is a `tensor.reshape` operation.
+    // Since `toReplace` is bufferizes to the equivalent of `tensor.reshape`,
+    // we can just try to replace the reshape instead.
+    if (equivalentOp->hasOneUse()) {
+      if (auto reshapeOp =
+              dyn_cast<tensor::ReshapeOp>(*equivalentOp->user_begin())) {
+        if (reshapeOp.getSource() == equivalentOp->getResult(0)) {
+          equivalentOp = reshapeOp;
+        }
+      }
+    }
+
     // A reshape or cast may be required if the equivalent value has a different
     // type than the new function argument.
     rewriter.setInsertionPointAfter(equivalentOp);
     FailureOr<TypedValue<RankedTensorType>> reshaped = maybeReshapeOrCast(
-        rewriter, equivalentValues.front().getLoc(), replacement,
-        cast<TypedValue<RankedTensorType>>(equivalentValues.front()));
+        rewriter, equivalentOp->getLoc(), replacement,
+        cast<TypedValue<RankedTensorType>>(equivalentOp->getResult(0)));
     if (failed(reshaped))
       return failure();
     replacement = *reshaped;
@@ -867,7 +887,6 @@ static LogicalResult rewriteFuncToDestinationPassingStyle(
         rewriter.replaceAllOpUsesWith(equivalentOp, replacement);
         continue;
       }
-      rewriter.setInsertionPoint(allocOp);
       rewriter.replaceOpWithNewOp<bufferization::MaterializeInDestinationOp>(
           allocOp, allocOp.getCopy(), replacement);
       continue;
@@ -876,6 +895,10 @@ static LogicalResult rewriteFuncToDestinationPassingStyle(
       auto matOp = rewriter.create<bufferization::MaterializeInDestinationOp>(
           constOp.getLoc(), constOp, replacement);
       rewriter.replaceAllUsesExcept(constOp, matOp.getResult(), matOp);
+      continue;
+    }
+    if (auto reshapeOp = dyn_cast<tensor::ReshapeOp>(equivalentOp)) {
+      rewriter.replaceAllOpUsesWith(equivalentOp, replacement);
       continue;
     }
     llvm_unreachable("unexpected leaf operation kind");

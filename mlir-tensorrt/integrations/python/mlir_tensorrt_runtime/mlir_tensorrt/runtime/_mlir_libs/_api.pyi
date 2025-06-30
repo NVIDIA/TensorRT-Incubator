@@ -226,7 +226,11 @@ class RuntimeSession:
 
 class RuntimeSessionOptions:
     def __init__(
-        self, num_devices: int = 1, device_id: int = 0, nccl_uuid: str = ""
+        self,
+        num_devices: int = 1,
+        device_id: int = 0,
+        nccl_uuid: str = "",
+        features: list[str] | None = None,
     ) -> None: ...
 
 class RuntimeValue:

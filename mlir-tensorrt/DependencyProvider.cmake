@@ -17,7 +17,7 @@ if("${MLIR_TRT_USE_LLVM}" STREQUAL "prebuilt")
   set(MTRT_BUILD_LLVM_FROM_SOURCE OFF)
 endif()
 
-set(MLIR_TRT_LLVM_COMMIT "729416e586fba71b4f63d71b1b5c765aefbf200b")
+set(MLIR_TRT_LLVM_COMMIT "f137c3d592e96330e450a8fd63ef7e8877fc1908")
 
 set(mlir_patch_dir "${CMAKE_CURRENT_LIST_DIR}/build_tools/patches/mlir")
 
@@ -43,7 +43,7 @@ else()
       "${mlir_patch_dir}/0005-mlir-memref-Fix-memref.global-overly-constrained-ver.patch"
       "${mlir_patch_dir}/0006-mlir-emitc-Fix-two-EmitC-bugs.patch"
       "${mlir_patch_dir}/0009-mlir-Support-FileLineColRange-in-LLVM-debug-translat.patch"
-      "${mlir_patch_dir}/0010-MLIR-Fix-LLVMIRTransforms-build-failure-125485.patch"
+      "${mlir_patch_dir}/0011-MLIR-Fix-bufferization-interface-for-tensor-reshape.patch"
     # Set the CPM cache key to the Git hash for easy navigation.
     PRE_ADD_HOOK [[
       list(APPEND _vap_UNPARSED_ARGUMENTS
@@ -62,6 +62,8 @@ else()
         REQUIRED
       )
       list(APPEND CMAKE_MODULE_PATH "${MLIR_CMAKE_DIR}")
+
+      set(MLIR_MAIN_SRC_DIR "${LLVM_SOURCE_DIR}/mlir" CACHE STRING "" FORCE)
 
       if(TARGET MLIRPythonExtension.Core)
         get_property(mlir_core_pybind_capi_embed
@@ -102,14 +104,12 @@ set(stablehlo_patch_dir "${CMAKE_SOURCE_DIR}/build_tools/patches/stablehlo")
 nv_register_package(
   NAME Stablehlo
   VERSION 1.9.3
-  GIT_TAG 459897561d365ef97caba46984847f9184d472ec
+  GIT_TAG 4bf77d23bd9150782a70d85fda9c12a2dec5328c
   GIT_REPOSITORY "https://github.com/openxla/stablehlo.git"
   PATCHES
     "${stablehlo_patch_dir}/0001-Fix-a-couple-missing-checks-for-static-shapes-in-sta.patch"
     "${stablehlo_patch_dir}/0002-cmake-Update-usage-of-HandleLLVMOptions-and-LLVM_DEF.patch"
-    "${stablehlo_patch_dir}/0003-Don-t-insert-unnecessary-arith.index_cast-ops.patch"
     "${stablehlo_patch_dir}/0004-Fix-ZeroExtent-condition-in-simplification-pattern.patch"
-    "${stablehlo_patch_dir}/0005-Fix-crash-on-ComplexType-in-PointwiseToLinalgMapConv.patch"
     "${stablehlo_patch_dir}/0006-Remove-explicit-use-of-LLVMSupport.patch"
     "${stablehlo_patch_dir}/0007-Fix-circular-dependence-between-StablehloPasses-and-.patch"
   OPTIONS
@@ -120,6 +120,42 @@ nv_register_package(
     set(STABLEHLO_INCLUDE_DIRS
       ${Stablehlo_SOURCE_DIR}
       ${Stablehlo_BINARY_DIR})
+  ]]
+)
+
+#-------------------------------------------------------------------------------------
+# MLIRTensorRTCommon
+#
+# MLIRTensorRTCommon is a sub-project that contains components used across the
+# other sub-projects like MLIRExecutor and MLIRTensorRTDialect.
+#-------------------------------------------------------------------------------------
+
+nv_register_package(
+  NAME MLIRTensorRTCommon
+  SOURCE_DIR "${CMAKE_SOURCE_DIR}/common"
+)
+
+# -----------------------------------------------------------------------------
+# NVTX
+# -----------------------------------------------------------------------------
+
+nv_register_package(
+  NAME NVTX
+  GIT_REPOSITORY https://github.com/NVIDIA/NVTX.git
+  GIT_TAG v3.1.0
+  GIT_SHALLOW TRUE
+  SOURCE_SUBDIR c
+  EXCLUDE_FROM_ALL TRUE
+  DOWNLOAD_ONLY TRUE
+  POST_ADD_HOOK [[
+    if(NOT TARGET nvtx3-cpp)
+      add_library(nvtx3-cpp INTERFACE IMPORTED)
+      target_include_directories(nvtx3-cpp INTERFACE
+        "$<BUILD_INTERFACE:${NVTX_SOURCE_DIR}/c/include>")
+      # Ignore some warnings due to NVTX3 code style.
+      target_compile_options(nvtx3-cpp INTERFACE
+        -Wno-missing-braces)
+    endif()
   ]]
 )
 
@@ -158,26 +194,23 @@ nv_register_package(
 #-------------------------------------------------------------------------------------
 # Torch-MLIR
 #-------------------------------------------------------------------------------------
-set(torch_mlir_patch_dir "${CMAKE_SOURCE_DIR}/build_tools/patches/torch_mlir")
-
+set(MLIR_TRT_TORCH_MLIR_COMMIT "9f2ba5abaa85cefd95cc85579fafd0c53c1101e8")
 nv_register_package(
   NAME torch_mlir
-  GIT_REPOSITORY https://github.com/llvm/torch-mlir.git
-  GIT_TAG 0bb263e99415d43255350d29263097b4980303bf
-  PATCHES 
-    "build_tools/patches/torch_mlir/0001-cmake-Allow-finding-Stablehlo-via-find_package.patch"
-    "build_tools/patches/torch_mlir/0002-Make-compatible-with-more-recent-Stablehlo-version.patch"
-    "build_tools/patches/torch_mlir/0003-Fix-some-configuration-paths-in-LIT-cfg.patch"
-  EXCLUDE_FROM_ALL TRUE
+  URL "https://github.com/llvm/torch-mlir/archive/${MLIR_TRT_TORCH_MLIR_COMMIT}.zip"
   # We need to specify an existing directory that is not actually a submodule
   # since GIT_SUBMODULES does not except the empty string due to
   # https://gitlab.kitware.com/cmake/cmake/-/issues/24578
   GIT_SUBMODULES "docs"
-  OPTIONS
-    "TORCH_MLIR_OUT_OF_TREE_BUILD ON"
-    "TORCH_MLIR_ENABLE_STABLEHLO ON"
-    "TORCH_MLIR_EXTERNAL_STABLEHLO_DIR find_package"
-    "TORCH_MLIR_ENABLE_TOSA OFF"
+  DOWNLOAD_ONLY TRUE
+
+  POST_ADD_HOOK [[
+    add_subdirectory(
+        ${CMAKE_SOURCE_DIR}/third_party/torch-mlir-cmake
+        ${CMAKE_BINARY_DIR}/_deps/torch_mlir-build
+        EXCLUDE_FROM_ALL
+    )
+  ]]
 )
 
 #-------------------------------------------------------------------------------------
@@ -202,7 +235,7 @@ macro(mtrt_provide_dependency method dep_name)
   endif()
 
   if("${dep_name}" MATCHES
-     "^(MLIRExecutor|MLIRTensorRTDialect|Stablehlo|torch_mlir)$")
+     "^(MLIRExecutor|MLIRTensorRTDialect|Stablehlo|torch_mlir|NVTX|MLIRTensorRTCommon)$")
     nv_add_package("${dep_name}")
     set("${dep_name}_FOUND" TRUE)
   endif()
@@ -230,6 +263,7 @@ macro(mtrt_provide_dependency method dep_name)
       find_package(LLVM ${ARGN} BYPASS_PROVIDER)
     endif()
   endif()
+
 endmacro()
 
 cmake_language(

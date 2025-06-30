@@ -1,4 +1,4 @@
-# RUN: %PYTHON %s
+# RUN: %pick-one-gpu %PYTHON %s
 # REQUIRES: tensorrt-version-ge-10.0
 import mlir_tensorrt.compiler.api as compiler
 import mlir_tensorrt.compiler.ir as ir

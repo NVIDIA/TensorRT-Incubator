@@ -5,12 +5,18 @@ add_mlir_tensorrt_library(MLIRTensorRTStablehloToSCF
   MLIRTensorRTConversionPassIncGen
 
   LINK_LIBS PUBLIC
+  MLIRArithDialect
   MLIRDialectUtils
   MLIRIR
+  MLIRMathDialect
   MLIRPass
   MLIRRewrite
   MLIRSCFDialect
+  MLIRSCFTransforms
   MLIRTensorDialect
+  MLIRTensorDialect
+  MLIRTensorRTSCFDetensorizeLoops
   MLIRTransformUtils
+  StablehloLinalgTransforms
   StablehloOps
   )

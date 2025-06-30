@@ -21,8 +21,8 @@
 /// Data structures and functions for manipulating compiler options.
 ///
 //===----------------------------------------------------------------------===//
-#ifndef MLIR_TENSORRT_COMPILER_OPTIONS
-#define MLIR_TENSORRT_COMPILER_OPTIONS
+#ifndef MLIR_TENSORRT_COMPILER_OPTIONSPROVIDERS
+#define MLIR_TENSORRT_COMPILER_OPTIONSPROVIDERS
 
 #include "mlir-executor/Support/DeviceInfo.h"
 #include "mlir/Pass/PassManager.h"
@@ -210,7 +210,7 @@ public:
 
 private:
   /// Stores host device info. This is populated by the callback of
-  /// `shouldInfoFromHost`. If present, then it will also override the other
+  /// `shouldInferFromHost`. If present, then it will also override the other
   /// options in their callbacks.
   std::optional<DeviceInfo> hostDeviceInfo{};
 };
@@ -316,7 +316,6 @@ public:
                                  llvm::cl::desc("entrypoint function name")};
 
 protected:
-  std::vector<std::unique_ptr<CompilationTaskOptionsBase>> extensions;
   std::unique_ptr<DebugOptions> debugOptions{nullptr};
 };
 
@@ -363,4 +362,4 @@ private:
 
 } // namespace mlirtrt::compiler
 
-#endif // MLIR_TENSORRT_COMPILER_OPTIONS
+#endif // MLIR_TENSORRT_COMPILER_OPTIONSPROVIDERS

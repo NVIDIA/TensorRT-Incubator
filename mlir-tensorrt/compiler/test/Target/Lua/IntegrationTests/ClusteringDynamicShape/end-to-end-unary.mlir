@@ -1,10 +1,10 @@
-// RUN: mlir-tensorrt-opt %s  \
+// RUN: %pick-one-gpu mlir-tensorrt-opt %s  \
 // RUN: -pass-pipeline="builtin.module(stablehlo-preprocessing-pipeline{disable-inliner},\
 // RUN: stablehlo-clustering-pipeline{entrypoint=}, \
 // RUN: post-clustering-pipeline, \
 // RUN: executor-lowering-pipeline)" \
 // RUN: | mlir-tensorrt-translate -mlir-to-runtime-executable -allow-unregistered-dialect | \
-// RUN: mlir-tensorrt-runner -input-type=rtexe | FileCheck %s
+// RUN: %pick-one-gpu mlir-tensorrt-runner -input-type=rtexe -features=core,cuda,tensorrt | FileCheck %s
 
 #profile0 = #tensorrt.shape_profile<min = [1], opt = [5], max = [10]>
 #profile1 = #tensorrt.shape_profile<min = [2], opt = [5], max = [6]>

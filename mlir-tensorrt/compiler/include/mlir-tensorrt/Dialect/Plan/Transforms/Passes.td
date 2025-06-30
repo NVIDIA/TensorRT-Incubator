@@ -450,6 +450,83 @@ def PlanAssignMemorySpacesPass : Pass<"plan-assign-memory-spaces",
 }
 
 //===----------------------------------------------------------------------===//
+// PlanOptimizeMemorySpacesPass
+//===----------------------------------------------------------------------===//
+
+def PlanOptimizeMemorySpacesPass : Pass<"plan-optimize-memory-spaces",
+                                    "::mlir::func::FuncOp"> {
+  let summary = "optimizes memory spaces encodings to tensor types";
+
+  let description = [{
+    This pass applies a set of transformations that attempt to optimize the
+    memory space encodings of tensor types in terms of host vs. device
+    placement. This includes changes such as (but not limited to):
+
+    - Removing redundant memory space changes.
+    - Hoisting memory space changes out of loops.
+    - Ensuring operations that require certain operands to live in specific
+      memory spaces (host vs. device) have such constraints met.
+
+    Note that this pass only deals with 'host' and 'device' memory spaces. The
+    current contract is that use of other specialized memory spaces (e.g.
+    `host_pinned`) is done via follow-on specialized optimization passes.
+  }];
+
+  let dependentDialects = [
+    "::mlir::plan::PlanDialect",
+    "::mlir::bufferization::BufferizationDialect",
+    "::mlir::tensor::TensorDialect"
+  ];
+}
+
+//===----------------------------------------------------------------------===//
+// PlanPromoteHostTensorsToHostPinnedPass
+//===----------------------------------------------------------------------===//
+
+def PlanPromoteHostTensorsToHostPinnedPass
+        : Pass<"plan-promote-host-tensors-to-host-pinned", "::mlir::func::FuncOp"> {
+  let summary = "promotes host tensors to host pinned tensors";
+
+  let description = [{
+    This pass finds host tensors which are ideal candidates for promotion to the
+    'host-pinned' memory space. This pass must be run after the
+    `plan-optimize-memory-spaces` pass.
+  }];
+
+  let dependentDialects = [
+    "::mlir::plan::PlanDialect",
+    "::mlir::bufferization::BufferizationDialect",
+    "::mlir::tensor::TensorDialect"
+  ];
+}
+
+//===----------------------------------------------------------------------===//
+// PlanMaterializeExplicitTransfersPass
+//===----------------------------------------------------------------------===//
+
+def PlanMaterializeExplicitTransfersPass
+                                : Pass<"plan-materialize-explicit-transfers"> {
+  let summary = "Turn `tensor.cast` that cast between memory spaces into "
+                "explicit transfers using bufferization ops.";
+
+  let description = [{
+    This pass materializes explicit transfers between memory spaces by
+    lowering `tensor.cast` operations that change the memory space specified
+    by the tensor encoding attributes of the operand/result types.
+
+    The transfers are materialized as explicit `bufferization.alloc_tensor`
+    and `bufferization.materialize_in_destination` operations to perform the
+    copy (the more concise `bufferization.alloc_tensor` with `copy` operand
+    currently cannot change between memory spaces).
+  }];
+
+  let dependentDialects = [
+    "::mlir::bufferization::BufferizationDialect",
+    "::mlir::tensor::TensorDialect",
+  ];
+}
+
+//===----------------------------------------------------------------------===//
 // PlanAllocTensorsPass
 //===----------------------------------------------------------------------===//
 
@@ -552,6 +629,30 @@ def PlanRemoveEquivalentBufferResultsPass : Pass<"plan-remove-equivalent-buffer-
     arguments. The logic is similar to the corresponding upstream pass, but
     we handle potentially nested modules.
   }];
+}
+
+//===----------------------------------------------------------------------===//
+// PlanBufferResultsToOutParamsPass
+//===----------------------------------------------------------------------===//
+
+def PlanBufferResultsToOutParamsPass : Pass<"plan-buffer-results-to-out-params",
+                                           "::mlir::ModuleOp"> {
+  let summary = "Convert buffer results to out params";
+
+  let description = [{
+    This pass converts function memref results to out params. There is a similar
+    upstream pass, but our version is more advanced and can handle promoting
+    a set of memref results.
+  }];
+
+  let dependentDialects = [
+    "::mlir::memref::MemRefDialect"
+  ];
+
+  let options = [
+    Option<"ignorePublicFunctions", "ignore-public-functions", "bool",
+      "false", "do not apply the transformation on public functions">
+  ];
 }
 
 //===----------------------------------------------------------------------===//

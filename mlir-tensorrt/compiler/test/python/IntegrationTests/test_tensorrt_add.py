@@ -1,4 +1,4 @@
-# RUN: %PYTHON %s
+# RUN: %pick-one-gpu %PYTHON %s | FileCheck %s
 # Restricted to TRT 10+ due to use of "strongly-typed" mode below.
 # REQUIRES: tensorrt-version-ge-10.0
 import time
@@ -89,14 +89,14 @@ if __name__ == "__main__":
 #      CHECK:   [ 0.  2.  4.  6.]
 # CHECK-NEXT:   [ 8. 10. 12. 14.]
 # CHECK-NEXT:   [16. 18. 20. 22.]]
-# CHECK-NEXT:
-# CHECK-NEXT:   [24. 26. 28. 30.]
+
+#      CHECK:   [24. 26. 28. 30.]
 # CHECK-NEXT:   [32. 34. 36. 38.]
 # CHECK-NEXT:   [40. 42. 44. 46.]]]
 # CHECK-NEXT:   [  0.  32.  64.  96.]
 # CHECK-NEXT:   [128. 160. 192. 224.]
 # CHECK-NEXT:   [256. 288. 320. 352.]]
-# CHECK-NEXT:
-# CHECK-NEXT:   [384. 416. 448. 480.]
+
+#      CHECK:   [384. 416. 448. 480.]
 # CHECK-NEXT:   [512. 544. 576. 608.]
 # CHECK-NEXT:   [640. 672. 704. 736.]

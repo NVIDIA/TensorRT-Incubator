@@ -257,26 +257,6 @@ public:
       : ConvertToTensorRTPattern(typeConverter, SourceOp::getOperationName(),
                                  benefit, context) {}
 
-  /// Wrappers around the ConversionPattern methods that pass the derived op
-  /// type.
-  LogicalResult match(Operation *op) const final {
-    return match(cast<SourceOp>(op));
-  }
-  void rewrite(Operation *op, ArrayRef<Value> operands,
-               ConversionPatternRewriter &rewriter) const final {
-    if constexpr (SourceOp::hasProperties())
-      return rewrite(cast<SourceOp>(op),
-                     OpAdaptor(operands, op->getAttrDictionary(),
-                               cast<SourceOp>(op).getProperties()),
-                     rewriter);
-    rewrite(cast<SourceOp>(op), OpAdaptor(operands, op->getAttrDictionary()),
-            rewriter);
-  }
-  void rewrite(Operation *op, ArrayRef<ValueRange> operands,
-               ConversionPatternRewriter &rewriter) const final {
-    auto sourceOp = cast<SourceOp>(op);
-    rewrite(sourceOp, OneToNOpAdaptor(operands, sourceOp), rewriter);
-  }
   LogicalResult
   matchAndRewrite(Operation *op, ArrayRef<Value> operands,
                   ConversionPatternRewriter &rewriter) const override {
@@ -313,32 +293,10 @@ public:
                            rewriter);
   }
 
-  /// Rewrite and Match methods that operate on the SourceOp type. These must be
-  /// overridden by the derived pattern class.
-  virtual LogicalResult match(SourceOp op) const {
-    (void)op;
-    llvm_unreachable("must override match or matchAndRewrite");
-  }
-  virtual void rewrite(SourceOp op, OpAdaptor adaptor,
-                       ConversionPatternRewriter &rewriter) const {
-    (void)op;
-    (void)adaptor;
-    (void)rewriter;
-    llvm_unreachable("must override matchAndRewrite or a rewrite method");
-  }
-  virtual void rewrite(SourceOp op, OneToNOpAdaptor adaptor,
-                       ConversionPatternRewriter &rewriter) const {
-    SmallVector<Value> oneToOneOperands =
-        getOneToOneAdaptorOperands(adaptor.getOperands());
-    rewrite(op, OpAdaptor(oneToOneOperands, adaptor), rewriter);
-  }
   virtual LogicalResult
   matchAndRewrite(SourceOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const {
-    if (failed(match(op)))
-      return failure();
-    rewrite(op, adaptor, rewriter);
-    return success();
+    llvm_unreachable("must override matchAndRewrite");
   }
   virtual LogicalResult
   matchAndRewrite(SourceOp op, OneToNOpAdaptor adaptor,

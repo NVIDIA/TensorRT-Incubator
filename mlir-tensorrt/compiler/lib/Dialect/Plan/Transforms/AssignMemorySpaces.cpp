@@ -23,6 +23,7 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt-dialect/Analysis/TensorKindAnalysis.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
+#include "mlir-tensorrt/Dialect/Plan/IR/PlanInterfaces.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
 #include "mlir-tensorrt/Utils/ModuleUtils.h"
 #include "mlir/Analysis/DataFlow/ConstantPropagationAnalysis.h"
@@ -36,6 +37,7 @@
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/AsmState.h"
 #include "mlir/IR/DialectResourceBlobManager.h"
+#include "mlir/IR/OpDefinition.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
@@ -61,6 +63,9 @@ public:
   LogicalResult
   matchAndRewrite(Operation *op, ArrayRef<Value> operands,
                   ConversionPatternRewriter &rewriter) const final {
+    if (isa<arith::ConstantOp, bufferization::AllocTensorOp>(op))
+      return failure();
+
     SmallVector<Type> resultTypes;
     if (failed(typeConverter->convertTypes(op->getResultTypes(), resultTypes)))
       return failure();
@@ -77,6 +82,67 @@ public:
     }
     rewriter.insert(newOp);
     rewriter.replaceOp(op, newOp->getResults());
+    return success();
+  }
+};
+
+/// Apply special conversion logic for `bufferization.alloc_tensor` operations.
+/// It has a `memory_space` attribute that acts as a constraint.
+/// memory space of the allocated tensor.
+class ConvertAllocTensorPattern
+    : public OpConversionPattern<bufferization::AllocTensorOp> {
+public:
+  using OpConversionPattern::OpConversionPattern;
+
+  LogicalResult
+  matchAndRewrite(bufferization::AllocTensorOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    auto originalType = dyn_cast<RankedTensorType>(op.getType());
+    if (!originalType)
+      return failure();
+
+    auto resultConstraint =
+        dyn_cast_or_null<MemorySpaceAttr>(originalType.getEncoding());
+    auto opMemorySpaceConstraint =
+        dyn_cast_if_present<MemorySpaceAttr>(op.getMemorySpaceAttr());
+
+    auto expectedResultType = dyn_cast_if_present<RankedTensorType>(
+        getTypeConverter()->convertType(op.getType()));
+    if (!expectedResultType)
+      return failure();
+
+    MemorySpaceAttr constraint =
+        opMemorySpaceConstraint ? opMemorySpaceConstraint : resultConstraint;
+
+    RankedTensorType constraintedType =
+        constraint ? originalType.cloneWithEncoding(constraint)
+                   : expectedResultType;
+
+    if (adaptor.getCopy()) {
+      auto castToConstraint = rewriter.create<tensor::CastOp>(
+          op.getLoc(), constraintedType, adaptor.getCopy());
+      auto castOp = rewriter.create<tensor::CastOp>(
+          op.getLoc(), expectedResultType, castToConstraint);
+      rewriter.replaceOp(op, castOp);
+      return success();
+    }
+
+    rewriter.modifyOpInPlace(op, [&]() {
+      op.getResult().setType(constraintedType);
+      op.setMemorySpaceAttr(constraintedType.getEncoding());
+      op.getCopyMutable().clear();
+    });
+    rewriter.setInsertionPointAfter(op);
+
+    auto newAllocOp = rewriter.create<bufferization::AllocTensorOp>(
+        op.getLoc(), constraintedType,
+        /*dynamic_dimensions=*/adaptor.getDynamicSizes(),
+        /*copy=*/Value{},
+        /*size_hint=*/Value{},
+        /*memory_space=*/constraintedType.getEncoding());
+    auto castOp = rewriter.create<tensor::CastOp>(
+        op.getLoc(), expectedResultType, newAllocOp.getResult());
+    rewriter.replaceOp(op, castOp);
     return success();
   }
 };
@@ -112,189 +178,285 @@ public:
 };
 } // namespace
 
-/// Return true if the op is likely in a compute region, like the region of
-/// `stablehlo.reduce` or `linalg.generic`.
-static bool inComputeRegion(Operation *op) {
-  Operation *parent = op->getParentOp();
-  while (parent) {
-    if (isa<func::FuncOp>(parent))
-      return false;
-    if (!isa<RegionBranchOpInterface>(parent))
-      return true;
-    parent = parent->getParentOp();
-  }
-  return false;
-}
-
 namespace {
-/// Use an explicit 'host_pinned' staging tensor to materialie the
-/// 'from_elements' before creating explicitly moving it to the 'device' space.
-/// Other optimization patterns below help avoid the host-device transfer when
-/// possible.
-struct FixUpFromElements : public OpRewritePattern<tensor::FromElementsOp> {
-  FixUpFromElements(MLIRContext *ctx, const DataFlowSolver &solver,
-                    PatternBenefit benefit = 1)
-      : OpRewritePattern(ctx, benefit), solver(solver) {}
 
-  LogicalResult matchAndRewrite(tensor::FromElementsOp op,
-                                PatternRewriter &rewriter) const override {
-    auto space = dyn_cast_or_null<MemorySpaceAttr>(op.getType().getEncoding());
-    if (!space)
-      return failure();
-    if (space.getValue() != plan::MemorySpace::device)
-      return failure();
-
-    const TensorKindLattice *lattice =
-        solver.lookupState<TensorKindLattice>(op.getResult());
-    if (!lattice || lattice->getValue().isUninitialized() ||
-        !lattice->getValue().isHostVisible())
-      return failure();
-
-    RankedTensorType originalType = op.getType();
-    RankedTensorType newType = RankedTensorType::get(
-        originalType.getShape(), originalType.getElementType(),
-        MemorySpaceAttr::get(originalType.getContext(),
-                             plan::MemorySpace::host_pinned));
-    auto newOp = rewriter.create<tensor::FromElementsOp>(op.getLoc(), newType,
-                                                         op.getElements());
-    Value deviceTensor = rewriter.create<tensor::EmptyOp>(
-        op.getLoc(), originalType.getShape(), originalType.getElementType(),
-        originalType.getEncoding());
-    Value rematDevReplacement =
-        rewriter
-            .create<bufferization::MaterializeInDestinationOp>(
-                op.getLoc(), originalType, newOp.getResult(), deviceTensor)
-            .getResult();
-    rewriter.replaceOp(op, rematDevReplacement);
-    return success();
-  }
-
-  const DataFlowSolver &solver;
-};
-
-static bool isHostVisible(TypedValue<RankedTensorType> v) {
-  auto space = dyn_cast_or_null<MemorySpaceAttr>(v.getType().getEncoding());
-  if (!space)
-    return false;
-  switch (space.getValue()) {
-  case plan::MemorySpace::host:
-  case plan::MemorySpace::host_pinned:
-  case plan::MemorySpace::unified:
-    return true;
-  default:
-    return false;
-  }
-}
-
-/// For any 'shape' parameter of a 'tensor.reshape', get the shape by skipping
-/// past any unnecessary explicit host-device transfers.
-struct ReshapeAbsorbDeviceCast : public OpRewritePattern<tensor::ReshapeOp> {
-  using OpRewritePattern::OpRewritePattern;
-  LogicalResult matchAndRewrite(tensor::ReshapeOp op,
-                                PatternRewriter &rewriter) const override {
-    if (isHostVisible(op.getShape()))
-      return failure();
-    auto matOp =
-        op.getShape()
-            .getDefiningOp<bufferization::MaterializeInDestinationOp>();
-    if (!matOp)
-      return failure();
-    auto source = dyn_cast<TypedValue<RankedTensorType>>(matOp.getSource());
-    if (!source || !isHostVisible(source))
-      return failure();
-    rewriter.modifyOpInPlace(op,
-                             [&]() { op.getShapeMutable().assign(source); });
-    return success();
-  }
-};
-
-/// Rewrite `memref.load` that acts on device memory to first copy the buffer to
-/// the host and load from the host buffer.
-struct TensorDeviceExtractRewriter
-    : public OpRewritePattern<tensor::ExtractOp> {
-
-  using OpRewritePattern::OpRewritePattern;
-
-  LogicalResult matchAndRewrite(tensor::ExtractOp op,
-                                PatternRewriter &rewriter) const override {
-    auto source = op.getTensor();
-    if (isHostVisible(source))
-      return failure();
-
-    if (inComputeRegion(op))
-      return failure();
-
-    rewriter.setInsertionPointAfterValue(source);
-    Value hostTensor = rewriter.create<tensor::CastOp>(
-        op.getLoc(),
-        RankedTensorType::get(
-            source.getType().getShape(), source.getType().getElementType(),
-            plan::MemorySpaceAttr::get(op->getContext(),
-                                       plan::MemorySpace::host_pinned)),
-        source);
-
-    rewriter.replaceUsesWithIf(op.getTensor(), hostTensor, [&](OpOperand &use) {
-      return isa<tensor::ExtractOp>(use.getOwner());
-    });
-
-    return success();
-  }
-};
-
-/// Remap relevant analysis state of type T from `original` to `replacement`.
-template <typename T>
-static void remapLatticeState(DataFlowSolver &solver, Value original,
-                              Value replacement) {
-  if constexpr (!std::is_same_v<T, dataflow::Executable>) {
-    if (const T *lattice = solver.lookupState<T>(original)) {
-      T *latticeReplacement = solver.getOrCreateState<T>(replacement);
-      latticeReplacement->getValue() = lattice->getValue();
-    }
-  } else {
-    // do nothing for liveness analysis for the moment except create the state
-    if (const auto *oldState =
-            solver.lookupState<dataflow::Executable>(original)) {
-      dataflow::Executable *newState = solver.getOrCreateState<T>(replacement);
-      // Set to live if old state is live. We ignore change status.
-      if (oldState->isLive())
-        (void)newState->setToLive();
-    }
-  }
-}
-
-/// A rewrite listener that transfers replacements to updates to the solver
-/// state.
-class SolverStateListener : public RewriterBase::Listener {
+/// A type converter that adds a MemorySpaceAttr the the encoding of tensor
+/// types. TensorTypes are legal only if they have the required encoding.
+class TensorEncodingConverter : public TypeConverter {
 public:
-  SolverStateListener(DataFlowSolver &solver)
-      : RewriterBase::Listener(), solver(solver) {}
+  TensorEncodingConverter(MLIRContext &context, plan::MemorySpace encoding)
+      : requiredMemorySpace{plan::MemorySpaceAttr::get(&context, encoding)} {
+    addConversion([&](Type type) -> std::optional<Type> { return type; });
+    addConversion([&](RankedTensorType type) -> std::optional<Type> {
+      return type.cloneWithEncoding(requiredMemorySpace);
+    });
+    addSourceMaterialization([&](OpBuilder &builder, Type resultType,
+                                 ValueRange inputs, Location loc) -> Value {
+      return builder.create<tensor::CastOp>(loc, resultType, inputs.front());
+    });
+    addTargetMaterialization([&](OpBuilder &builder, TypeRange resultTypes,
+                                 ValueRange inputs,
+                                 Location loc) -> SmallVector<Value> {
+      return {
+          builder
+              .create<tensor::CastOp>(loc, resultTypes.front(), inputs.front())
+              .getResult()};
+    });
+  }
+
+  /// Convert a function signature, accounting for constraints specified in the
+  /// arg/result attributes.
+  FunctionType convertFuncSignature(func::FuncOp func) const {
+    FunctionType funcType = func.getFunctionType();
+    SmallVector<Type> newInputs, newResults;
+    for (unsigned i = 0, e = funcType.getNumInputs(); i != e; ++i)
+      newInputs.push_back(convertFuncSignatureElement(funcType.getInput(i),
+                                                      func.getArgAttrDict(i)));
+    for (unsigned i = 0, e = funcType.getNumResults(); i != e; ++i)
+      newResults.push_back(convertFuncSignatureElement(
+          funcType.getResult(i), func.getResultAttrDict(i)));
+    return FunctionType::get(func.getContext(), newInputs, newResults);
+  }
 
 private:
-  void notifyOperationReplaced(Operation *op,
-                               ValueRange replacements) override {
-    for (auto [original, replacement] :
-         llvm::zip_equal(op->getResults(), replacements)) {
-      remapLatticeState<TensorKindLattice>(solver, original, replacement);
-      remapLatticeState<dataflow::Lattice<dataflow::ConstantValue>>(
-          solver, original, replacement);
-      remapLatticeState<dataflow::Executable>(solver, original, replacement);
+  /// Convert a single element (arg or result type) of a function signature. The
+  /// `dict` should contain the arg/result attributes or nullptr if not present.
+  Type convertFuncSignatureElement(Type type, DictionaryAttr dict) const {
+    if (auto rtt = dyn_cast<RankedTensorType>(type)) {
+      if (auto constraint =
+              dict ? dyn_cast_if_present<plan::MemorySpaceAttr>(dict.get(
+                         PlanDialect::getMemorySpaceConstraintAttrName()))
+                   : nullptr)
+        return rtt.cloneWithEncoding(constraint);
+      if (auto existing =
+              dyn_cast_if_present<MemorySpaceAttr>(rtt.getEncoding()))
+        return rtt;
     }
-    solver.eraseState(solver.getProgramPointAfter(op));
-  }
-  void notifyOperationReplaced(Operation *op, Operation *replacement) override {
-    notifyOperationReplaced(op, replacement->getResults());
+    return convertType(type);
   }
 
-  void notifyOperationErased(Operation *op) override {
-    solver.eraseState(solver.getProgramPointAfter(op));
-    for (Value res : op->getResults())
-      solver.eraseState(res);
-  }
-
-  DataFlowSolver &solver;
+  plan::MemorySpaceAttr requiredMemorySpace;
 };
-
 } // namespace
+
+/// Convert the block arguments for a single block where the RankedTensorTypes
+/// may have received an updated encoding.
+static void applySignatureConversion(RewriterBase &rewriter, Block *block,
+                                     const TensorEncodingConverter &converter,
+                                     TypeRange convertedTypes) {
+  OpBuilder::InsertionGuard g(rewriter);
+  assert(convertedTypes.size() == block->getNumArguments() &&
+         "convertedTypes size mismatch");
+  for (BlockArgument arg : block->getArguments()) {
+    Type origType = arg.getType();
+    if (origType == convertedTypes[arg.getArgNumber()])
+      continue;
+    auto castOp = rewriter.create<tensor::CastOp>(
+        arg.getLoc(), convertedTypes[arg.getArgNumber()], arg);
+    rewriter.replaceAllUsesExcept(arg, castOp, castOp);
+    arg.setType(convertedTypes[arg.getArgNumber()]);
+  }
+}
+
+/// Convert the block arguments for all Blocks in a function body where the
+/// RankedTensorTypes may have received an updated encoding.
+static LogicalResult
+convertFuncRegionTypes(RewriterBase &rewriter, func::FuncOp funcOp,
+                       const TensorEncodingConverter &converter,
+                       FunctionType newType) {
+  if (funcOp.isDeclaration())
+    return success();
+
+  Region *region = &funcOp.getBody();
+
+  // Convert the arguments of each non-entry block within the region.
+  for (Block &block :
+       llvm::make_early_inc_range(llvm::drop_begin(*region, 1))) {
+    rewriter.setInsertionPointToStart(&block);
+    // Compute the signature for the block with the provided converter.
+    std::optional<TypeConverter::SignatureConversion> conversion =
+        converter.convertBlockSignature(&block);
+    if (!conversion)
+      return failure();
+    // Convert the block with the computed signature.
+    applySignatureConversion(rewriter, &block, converter,
+                             conversion->getConvertedTypes());
+  }
+
+  rewriter.setInsertionPointToStart(&funcOp.getBody().front());
+  applySignatureConversion(rewriter, &funcOp.getBody().front(), converter,
+                           newType.getInputs());
+
+  return success();
+}
+
+/// Convert the operands and results of a function's callers after the `func`
+/// has been updated to a new function signature type. The only types that can
+/// change are RankedTensorTypes where the encoding has been updated. Therefore,
+/// we only insert `tensor.cast` operations to cast the values back to their
+/// original types.
+struct LogicalResult convertFuncUsers(RewriterBase &rewriter, func::FuncOp func,
+                                      const SymbolUserMap &userMap) {
+  OpBuilder::InsertionGuard g(rewriter);
+  FunctionType funcType = func.getFunctionType();
+  auto handleValue = [&](Value value, Type desiredType) -> Value {
+    if (value.getType() == desiredType)
+      return value;
+    return rewriter.create<tensor::CastOp>(value.getLoc(), desiredType, value);
+  };
+  for (Operation *user : userMap.getUsers(func)) {
+    auto call = dyn_cast<func::CallOp>(user);
+    if (!call)
+      continue;
+    rewriter.setInsertionPoint(call);
+    SmallVector<Value> newOperands;
+    for (auto [newType, arg] :
+         llvm::zip_equal(funcType.getInputs(), call.getOperands()))
+      newOperands.push_back(handleValue(arg, newType));
+
+    rewriter.setInsertionPointAfter(call);
+    SmallVector<Value> replacements;
+    for (auto [newType, result] :
+         llvm::zip_equal(funcType.getResults(), call.getResults()))
+      replacements.push_back(handleValue(result, newType));
+
+    rewriter.modifyOpInPlace(call, [&]() {
+      call.getOperandsMutable().assign(newOperands);
+      for (auto [oldResult, replacement, newType] : llvm::zip_equal(
+               call.getResults(), replacements, funcType.getResults())) {
+        if (oldResult.getType() != newType) {
+          oldResult.setType(newType);
+          rewriter.replaceAllUsesExcept(oldResult, replacement,
+                                        replacement.getDefiningOp());
+        }
+      }
+    });
+  }
+  return success();
+}
+
+/// Conver the signature, block arguments, terminator operands, and caller
+/// operands/results of a particular function by updating the types in place to
+/// include the required memory space encodings. `tensor.cast` operations are
+/// inserted to cast values back to their original types.
+static LogicalResult
+convertFuncOpTypes(func::FuncOp funcOp,
+                   const TensorEncodingConverter &typeConverter,
+                   RewriterBase &rewriter, const SymbolUserMap &userMap) {
+  FunctionType type = funcOp.getFunctionType();
+  FunctionType newType = typeConverter.convertFuncSignature(funcOp);
+  if (type == newType)
+    return success();
+  if (failed(convertFuncRegionTypes(rewriter, funcOp, typeConverter, newType)))
+    return failure();
+  rewriter.modifyOpInPlace(funcOp, [&] { funcOp.setType(newType); });
+
+  if (!funcOp.isDeclaration()) {
+    funcOp.walk([&](func::ReturnOp op) {
+      rewriter.setInsertionPoint(op);
+      SmallVector<Value> newTermOperands;
+      bool changed = false;
+      for (auto [newType, arg] :
+           llvm::zip_equal(newType.getResults(), op.getOperands())) {
+        if (arg.getType() == newType) {
+          newTermOperands.push_back(arg);
+          continue;
+        }
+        changed = true;
+        auto cast = rewriter.create<tensor::CastOp>(arg.getLoc(), newType, arg);
+        newTermOperands.push_back(cast);
+      }
+      if (!changed)
+        return;
+      rewriter.modifyOpInPlace(
+          op, [&]() { op.getOperandsMutable().assign(newTermOperands); });
+    });
+  }
+
+  return convertFuncUsers(rewriter, funcOp, userMap);
+}
+
+/// Get the default memory space for a particular function.
+static plan::MemorySpace getFuncitonDefaultEncoding(func::FuncOp func) {
+  // The `plan.memory_space` attribute takes precedence over the cluster kind
+  // default memory space.
+  if (auto constraintOverride = func->getAttrOfType<plan::MemorySpaceAttr>(
+          plan::PlanDialect::getMemorySpaceConstraintAttrName()))
+    return constraintOverride.getValue();
+  if (auto clusterKindAttr = func->getAttrOfType<ClusterKindAttrInterface>(
+          plan::PlanDialect::kFuncTargetKind))
+    return clusterKindAttr.getDefaultMemorySpace();
+  return plan::MemorySpace::device;
+}
+
+/// Convert the signatures of functions and their callers by adding the
+/// appropriate memory space attribute to all tensor types.
+static LogicalResult
+assignMemorySpacesToFunctionBoundaries(IRRewriter &rewriter, ModuleOp module) {
+  SymbolTableCollection symbolTables;
+  SymbolUserMap symbolUserMap(symbolTables, module);
+  for (auto func : module.getOps<func::FuncOp>()) {
+    plan::MemorySpace defaultEncoding = getFuncitonDefaultEncoding(func);
+    TensorEncodingConverter converter(*func.getContext(), defaultEncoding);
+    if (failed(convertFuncOpTypes(func, converter, rewriter, symbolUserMap)))
+      return failure();
+  }
+  return success();
+}
+
+static bool hasMemorySpaceEncoding(Type type) {
+  auto tensorType = dyn_cast<RankedTensorType>(type);
+  if (!tensorType)
+    return false;
+  return dyn_cast_if_present<MemorySpaceAttr>(tensorType.getEncoding()) !=
+         nullptr;
+}
+
+static LogicalResult applyConversionToFunction(func::FuncOp func) {
+  MLIRContext *context = func.getContext();
+  auto defaultEncoding = [&]() {
+    if (auto constraintOverride = func->getAttrOfType<plan::MemorySpaceAttr>(
+            plan::PlanDialect::getMemorySpaceConstraintAttrName()))
+      return constraintOverride.getValue();
+    if (auto clusterKindAttr = func->getAttrOfType<ClusterKindAttrInterface>(
+            plan::PlanDialect::kFuncTargetKind))
+      return clusterKindAttr.getDefaultMemorySpace();
+    return plan::MemorySpace::device;
+  }();
+  TensorEncodingConverter converter(*context, defaultEncoding);
+
+  // Ops are legal if they are in a nested module or if their operand and
+  // result types are legal.
+  ConversionTarget target(*context);
+  target.markUnknownOpDynamicallyLegal([&](Operation *op) {
+    return converter.isLegal(op->getOperandTypes()) &&
+           converter.isLegal(op->getResultTypes());
+  });
+  target.addDynamicallyLegalOp<arith::ConstantOp>([&](arith::ConstantOp op) {
+    return converter.isLegal(op.getType()) &&
+           converter.isLegal(op.getValue().getType());
+  });
+  target.addDynamicallyLegalOp<tensor::CastOp>([&](tensor::CastOp op) {
+    return hasMemorySpaceEncoding(op.getType()) &&
+           hasMemorySpaceEncoding(op.getOperand().getType());
+  });
+  target.addDynamicallyLegalOp<bufferization::AllocTensorOp>(
+      [&](bufferization::AllocTensorOp op) {
+        if (op.getCopy())
+          return false;
+        return hasMemorySpaceEncoding(op.getType());
+      });
+  target.addLegalDialect<func::FuncDialect>();
+
+  RewritePatternSet patterns(context);
+  patterns.add<GenericConvertSpace, ConvertConstantPattern,
+               ConvertAllocTensorPattern>(converter, context);
+  scf::populateSCFStructuralTypeConversionsAndLegality(converter, patterns,
+                                                       target);
+  if (failed(applyFullConversion(func, target, std::move(patterns))))
+    return emitError(func.getLoc(), "failed to assign memory spaces");
+  return success();
+}
 
 namespace {
 struct AssignMemorySpacesPass
@@ -303,96 +465,19 @@ struct AssignMemorySpacesPass
   void runOnOperation() override {
 
     MLIRContext *context = &getContext();
-    ConversionTarget target(*context);
 
-    TypeConverter converter;
-    converter.addConversion(
-        [&](Type type) -> std::optional<Type> { return type; });
+    IRRewriter rewriter(context);
 
-    // The default tensor type converter just adds the 'device' memory type
-    // info.
-    auto deviceEncoding =
-        plan::MemorySpaceAttr::get(context, plan::MemorySpace::device);
-    converter.addConversion([&](RankedTensorType type) -> std::optional<Type> {
-      if (type.getEncoding())
-        return type;
-      return RankedTensorType::get(type.getShape(), type.getElementType(),
-                                   deviceEncoding);
-    });
-
-    // Ops are legal if they are in a nested module or if their operand and
-    // result types are legal.
-    target.markUnknownOpDynamicallyLegal([&](Operation *op) {
-      if (op->getParentWithTrait<OpTrait::SymbolTable>() != getOperation())
-        return true;
-      return converter.isLegal(op->getOperandTypes()) &&
-             converter.isLegal(op->getResultTypes());
-    });
-    target.addDynamicallyLegalOp<func::FuncOp>([&](func::FuncOp op) {
-      if (op->getParentWithTrait<OpTrait::SymbolTable>() != getOperation())
-        return true;
-      return converter.isSignatureLegal(op.getFunctionType());
-    });
-    target.markOpRecursivelyLegal<func::FuncOp>(
-        [&](func::FuncOp op) -> std::optional<bool> {
-          if (op->getParentWithTrait<OpTrait::SymbolTable>() != getOperation())
-            return true;
-          return false;
-        });
-    target.addDynamicallyLegalOp<arith::ConstantOp>([&](arith::ConstantOp op) {
-      if (op->getParentWithTrait<OpTrait::SymbolTable>() != getOperation())
-        return true;
-      return converter.isLegal(op.getType()) &&
-             converter.isLegal(op.getValue().getType());
-    });
-
-    RewritePatternSet patterns(&getContext());
-    patterns.add<GenericConvertSpace, ConvertConstantPattern>(converter,
-                                                              context);
-
-    // FuncOp is special as it has type encoding via attributes.
-    populateFunctionOpInterfaceTypeConversionPattern<func::FuncOp>(patterns,
-                                                                   converter);
-    scf::populateSCFStructuralTypeConversionsAndLegality(converter, patterns,
-                                                         target);
-
-    auto module = getOperation();
-    if (failed(applyFullConversion(module, target, std::move(patterns)))) {
-      emitError(module.getLoc(), "failed to assign memory spaces");
+    /// Update all function signatures and their callers to include the required
+    /// memory space encodings.
+    if (failed(
+            assignMemorySpacesToFunctionBoundaries(rewriter, getOperation())))
       return signalPassFailure();
-    }
 
-    // Perform some minor optimizations involving tensor.from_elements.
-    {
-      SymbolTableCollection symbolTables;
-      DataFlowSolver solver(DataFlowConfig().setInterprocedural(false));
-      solver.load<dataflow::DeadCodeAnalysis>();
-      solver.load<dataflow::SparseConstantPropagation>();
-      solver.load<TensorKindAnalysis>(symbolTables);
-
-      if (failed(solver.initializeAndRun(getOperation()))) {
-        emitError(getOperation().getLoc())
-            << "failed to run TensorKindAnalysis";
+    for (auto func :
+         llvm::make_early_inc_range(getOperation().getOps<func::FuncOp>())) {
+      if (failed(applyConversionToFunction(func)))
         return signalPassFailure();
-      }
-
-      SolverStateListener solverAwareListener(solver);
-      GreedyRewriteConfig config;
-      config.listener = &solverAwareListener;
-      FrozenRewritePatternSet patterns = [&]() {
-        RewritePatternSet patterns_(&getContext());
-        patterns_.insert<FixUpFromElements>(&getContext(), solver);
-        patterns_.insert<ReshapeAbsorbDeviceCast>(&getContext());
-        patterns_.insert<TensorDeviceExtractRewriter>(&getContext());
-        return patterns_;
-      }();
-      for (FunctionOpInterface func :
-           getOperation().getOps<FunctionOpInterface>()) {
-        if (failed(applyPatternsGreedily(func, patterns))) {
-          emitError(func.getLoc()) << "failed to run " << getArgument();
-          return signalPassFailure();
-        }
-      }
     }
   }
 };
