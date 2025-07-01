@@ -19,6 +19,7 @@ from dataclasses import dataclass
 
 from nvtripy import export, utils
 from nvtripy.common import datatype
+from nvtripy.common.device import device
 from nvtripy.common.exception import raise_error
 from nvtripy.frontend.module.instancenorm import InstanceNorm
 from nvtripy.frontend.module.module import Module
@@ -90,6 +91,7 @@ class GroupNorm(Module):
             assert np_out.shape == torch_out.shape
             assert np.allclose(np_out, torch_out)
         """
+        from nvtripy.frontend.ops.copy import copy
         from nvtripy.frontend.ops.ones import ones
         from nvtripy.frontend.ops.zeros import zeros
 
@@ -117,8 +119,12 @@ class GroupNorm(Module):
 
         self.impl = Hide(InstanceNorm(self.num_groups, dtype=self.dtype, eps=self.eps))
         # Bypass shape checks:
-        object.__setattr__(self.impl.instance_norm, "weight", ones((self.num_groups,), dtype=self.dtype))
-        object.__setattr__(self.impl.instance_norm, "bias", zeros((self.num_groups,), dtype=self.dtype))
+        object.__setattr__(
+            self.impl.instance_norm, "weight", copy(ones((self.num_groups,), dtype=self.dtype), device=device("cpu"))
+        )
+        object.__setattr__(
+            self.impl.instance_norm, "bias", copy(zeros((self.num_groups,), dtype=self.dtype), device=device("cpu"))
+        )
 
     def forward(self, x: "nvtripy.Tensor") -> "nvtripy.Tensor":
         r"""
