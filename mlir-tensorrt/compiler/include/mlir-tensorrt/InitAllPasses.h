@@ -36,7 +36,6 @@
 
 #ifdef MLIR_TRT_ENABLE_HLO
 #include "mlir-tensorrt/Compiler/StablehloToExecutable/Passes.h"
-#include "mlir-tensorrt/Compiler/StablehloToExecutable/StablehloToExecutable.h"
 #include "mlir-tensorrt/Dialect/StablehloExt/Transforms/Passes.h"
 #include "stablehlo/transforms/Passes.h"
 #include "stablehlo/transforms/optimization/Passes.h"
@@ -45,6 +44,13 @@
 #ifdef MLIR_TRT_TARGET_TENSORRT
 #include "mlir-tensorrt/Compiler/TensorRTToExecutable/Passes.h"
 #endif // MLIR_TRT_TARGET_TENSORRT
+
+#ifdef MLIR_TRT_ENABLE_TORCH
+#include "torch-mlir-dialects/Dialect/TMTensor/Transforms/Passes.h"
+#include "torch-mlir/Conversion/Passes.h"
+#include "torch-mlir/Dialect/Torch/Transforms/Passes.h"
+#include "torch-mlir/Dialect/TorchConversion/Transforms/Passes.h"
+#endif // MLIR_TRT_ENABLE_TORCH
 
 namespace mlirtrt::compiler {
 
@@ -71,6 +77,13 @@ inline void registerAllPasses() {
     mlir::stablehlo_ext::registerStableHloExtPasses();
     mlir::stablehlo::registerPasses();
     mlir::stablehlo::registerOptimizationPasses();
+  });
+
+  IF_MLIR_TRT_ENABLE_TORCH({
+    mlir::torch::registerTorchPasses();
+    mlir::torch::registerTorchConversionPasses();
+    mlir::torch::registerConversionPasses();
+    mlir::torch::TMTensor::registerPasses();
   });
 
   IF_MLIR_TRT_TARGET_TENSORRT(

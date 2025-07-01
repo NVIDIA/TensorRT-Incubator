@@ -1,6 +1,7 @@
 #-------------------------------------------------------------------------------------
 # This file is used to declare Torch-MLIR CMake targets in lieu of using the CMake
-# code that comes with Torch-MLIR.
+# code that comes with Torch-MLIR. We will do this until we have enough resources
+# and support to fix the upstream Torch-MLIR CMake code.
 #-------------------------------------------------------------------------------------
 
 message(STATUS "Adding Torch-MLIR CMake targets")
@@ -24,7 +25,6 @@ set(TORCH_MLIR_ENABLE_STABLEHLO "${MLIR_TRT_ENABLE_HLO}")
 set(TORCH_MLIR_ENABLE_REFBACKEND OFF)
 set(TORCH_MLIR_ENABLE_TOSA OFF)
 set(TORCH_MLIR_ENABLE_ONNX_C_IMPORTER OFF)
-
 
 if(TORCH_MLIR_ENABLE_STABLEHLO)
   add_definitions(-DTORCH_MLIR_ENABLE_STABLEHLO)
