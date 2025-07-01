@@ -1,5 +1,11 @@
 poetry.lock
 
+# Tripy executables
+*.tpymodel
+
+# nsys traces
+*.nsys-rep
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
