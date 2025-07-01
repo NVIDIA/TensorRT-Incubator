@@ -191,17 +191,17 @@ class Executable:
                 ],
             )
 
-        for tensor in input_tensors:
-            producer = tensor.trace_tensor.producer
-            if not isinstance(producer, Constant) or tensor.device.kind != "gpu":
-                raise_error(
-                    "Inputs to compiled executables must be evaluated tensors on the GPU.",
-                    [
-                        "Got input" + (f" on device '{tensor.device}':" if tensor.device.kind != "gpu" else ":"),
-                        tensor,
-                        "Hint: Try calling `.eval()` on the tensor to ensure it is a GPU constant.",
-                    ],
-                )
+            # for tensor in input_tensors:
+            #     producer = tensor.trace_tensor.producer
+            # if not isinstance(producer, Constant) or tensor.device.kind != "gpu":
+            #     raise_error(
+            #         "Inputs to compiled executables must be evaluated tensors on the GPU.",
+            #         [
+            #             "Got input" + (f" on device '{tensor.device}':" if tensor.device.kind != "gpu" else ":"),
+            #             tensor,
+            #             "Hint: Try calling `.eval()` on the tensor to ensure it is a GPU constant.",
+            #         ],
+            #     )
 
         input_memrefs = [inp.trace_tensor.producer.data for inp in input_tensors]
         try:

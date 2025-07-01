@@ -20,7 +20,7 @@ from typing import Any, Callable, Dict, Sequence
 
 from nvtripy import constants, export, utils
 from nvtripy.backend.api.executable import Executable
-from nvtripy.backend.api.input_info import InputInfo
+from nvtripy.backend.api.input_info import InputInfo, DimensionInputInfo
 from nvtripy.backend.mlir import Compiler
 from nvtripy.common.exception import raise_error
 from nvtripy.frontend import Tensor, Trace
@@ -162,6 +162,22 @@ def compile(
             input_names.add(name)
 
             return tensor
+
+        if isinstance(arg, DimensionInputInfo):
+            from nvtripy.frontend.dimension_size import DimensionSize
+
+            input_infos[name] = arg
+
+            tensor = DimensionSize(arg.value_bounds.opt[0])
+            tensor.name = name
+            tensor.trace_tensor.is_compile_tracer = True
+            assert tensor.trace_tensor.shape == ()
+
+            trace_input_map[name] = tensor
+            input_names.add(name)
+
+            return tensor
+
         return arg
 
     compiled_arg_names = []
