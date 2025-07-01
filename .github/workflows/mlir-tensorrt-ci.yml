@@ -112,10 +112,10 @@ jobs:
           mkdir -p ${{ github.workspace }}/ccache
           mkdir -p ${{ github.workspace }}/.cache.cpm
 
-      # Create cache action
-      - name: Create cache action
-        id: core-build-cache
-        uses: actions/cache@v4
+      # Restore cache, if exists.
+      - name: Restore cache
+        id: restore-cache
+        uses: actions/cache/restore@v4
         with:
           key: ${{ runner.os }}-mlir-tensorrt-cache-${{ hashFiles('mlir-tensorrt/**/*.cpp', 'mlir-tensorrt/**/*.h', 'mlir-tensorrt/build_tools/**/*') }}
           restore-keys: |
@@ -125,8 +125,30 @@ jobs:
             ${{ github.workspace }}/.cache.cpm/*
             !${{ github.workspace }}/.cache.cpm/tensorrt
 
-      # Run LIT tests with TensorRT 10
-      - name: Run MLIR-TensorRT lit tests with TensorRT 10
+      # TensorRT 10 tests
+      - name: TensorRT 10 build
+        uses: addnab/docker-run-action@v3
+        with:
+          image: ${{ env.DEFAULT_IMAGE }}
+          options: -v ${{ github.workspace }}/mlir-tensorrt:/mlir-tensorrt -v ${{ github.workspace }}/ccache:/ccache -v ${{ github.workspace }}/.cache.cpm:/.cache.cpm --gpus all
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          run: |
+            cd mlir-tensorrt
+            ./build_tools/scripts/cicd_build.sh --build_only
+
+      - name: Save cache
+        id: save-cache
+        uses: actions/cache/save@v4
+        with:
+          key: ${{ runner.os }}-mlir-tensorrt-cache-${{ hashFiles('mlir-tensorrt/**/*.cpp', 'mlir-tensorrt/**/*.h', 'mlir-tensorrt/build_tools/**/*') }}
+          path: |
+            ${{ github.workspace }}/ccache
+            ${{ github.workspace }}/.cache.cpm/*
+            !${{ github.workspace }}/.cache.cpm/tensorrt
+
+      - name: TensorRT 10 test
         uses: addnab/docker-run-action@v3
         with:
           image: ${{ env.DEFAULT_IMAGE }}
@@ -138,8 +160,8 @@ jobs:
             cd mlir-tensorrt
             ./build_tools/scripts/cicd_build.sh
 
-      # Run LIT tests with TensorRT 10 & ASAN
-      - name: Run MLIR-TensorRT lit tests with TensorRT 10, ASAN enabled
+      # TensorRT 10 & ASAN
+      - name: TensorRT 10 ASAN test
         uses: addnab/docker-run-action@v3
         with:
           image: ${{ env.DEFAULT_IMAGE }}
