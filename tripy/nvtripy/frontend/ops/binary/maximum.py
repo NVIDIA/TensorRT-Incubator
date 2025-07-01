@@ -15,6 +15,7 @@
 from nvtripy import export
 from nvtripy.frontend.ops.binary.create import create_binary_op
 from nvtripy.trace.ops.binary import Max
+from nvtripy.types import TensorLike
 from nvtripy.utils import wrappers
 
 
@@ -22,8 +23,9 @@ from nvtripy.utils import wrappers
 @wrappers.interface(
     dtype_constraints={"lhs": "T1", "rhs": "T1", wrappers.RETURN_VALUE: "T1"},
     dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64", "bool"]},
+    convert_to_tensors=True,
 )
-def maximum(lhs: "nvtripy.Tensor", rhs: "nvtripy.Tensor") -> "nvtripy.Tensor":
+def maximum(lhs: TensorLike, rhs: TensorLike) -> "nvtripy.Tensor":
     """
     Performs an elementwise maximum.
 
