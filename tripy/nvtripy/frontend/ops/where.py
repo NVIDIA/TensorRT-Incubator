@@ -19,6 +19,7 @@
 from nvtripy import export
 from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.trace.ops.where import Where
+from nvtripy.types import TensorLike
 from nvtripy.utils import wrappers
 
 
@@ -29,8 +30,9 @@ from nvtripy.utils import wrappers
         "T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64"],
         "T2": ["bool"],
     },
+    convert_to_tensors=True,
 )
-def where(condition: "nvtripy.Tensor", input: "nvtripy.Tensor", other: "nvtripy.Tensor") -> "nvtripy.Tensor":
+def where(condition: "nvtripy.Tensor", input: TensorLike, other: TensorLike) -> "nvtripy.Tensor":
     r"""
     Returns a new tensor of elements selected from either ``input`` or ``other``, depending on ``condition``.
 

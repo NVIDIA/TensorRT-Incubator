@@ -32,8 +32,6 @@ from examples.diffusion.weight_loader import load_from_diffusers
 
 import nvtx
 
-tp.logger.verbosity = "ir"
-
 
 def compile_model(model, inputs, verbose=False):
     if verbose:

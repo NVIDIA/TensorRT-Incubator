@@ -1,3 +1,17 @@
+# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 import math
 from typing import Optional
 
@@ -13,11 +27,7 @@ def scaled_dot_product_attention(
 ) -> tp.Tensor:
     dtype = query.dtype
     if attn_mask is not None and attn_mask.dtype == tp.bool:
-        attn_mask = tp.where(
-            (attn_mask == 0),
-            tp.ones_like(attn_mask, dtype=dtype) * -float("inf"),
-            tp.zeros_like(attn_mask, dtype=dtype),
-        )
+        attn_mask = tp.where((attn_mask == 0), tp.cast(tp.Tensor(-float("inf")), dtype=dtype), 0.0)
     if attn_mask is not None:
         attn_mask = tp.cast(attn_mask, dtype)
     k_t = tp.transpose(key, -2, -1)
@@ -26,4 +36,4 @@ def scaled_dot_product_attention(
 
 
 def clamp(tensor: tp.Tensor, min: int, max: int):
-    return tp.minimum(tp.maximum(tensor, tp.ones_like(tensor) * min), tp.ones_like(tensor) * max)
+    return tp.minimum(tp.maximum(tensor, min), max)
