@@ -21,7 +21,6 @@
 #include "mlir-executor/Runtime/API/ExecutableFlatbuffer.h"
 #include "mlir-executor/Runtime/Support/Support.h"
 #include "mlir-executor/Support/Allocators.h"
-#include "mlir-executor/Support/CUDAWrappers.h"
 #include "mlir-executor/Support/Status.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/Support/CommandLine.h"
@@ -30,6 +29,10 @@
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/Threading.h"
 #include <cstdlib>
+
+#ifdef MLIR_EXECUTOR_ENABLE_CUDA
+#include "cuda_runtime_api.h"
+#endif
 
 #ifdef MLIR_EXECUTOR_ENABLE_NCCL
 #define OMPI_SKIP_MPICXX

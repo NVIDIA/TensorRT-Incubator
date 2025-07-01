@@ -21,7 +21,6 @@
 #include "mlir-executor/Runtime/API/API.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaRuntime.h"
 #include "mlir-executor/Runtime/Support/MPI.h"
-#include "mlir-executor/Support/CUDAWrappers.h"
 #include "mlir/IR/Diagnostics.h"
 #include "mlir/IR/Location.h"
 #include "mlir/IR/MLIRContext.h"
@@ -35,6 +34,10 @@
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/raw_ostream.h"
+
+#ifdef MLIR_EXECUTOR_ENABLE_CUDA
+#include "cuda_runtime_api.h"
+#endif // MLIR_EXECUTOR_ENABLE_CUDA
 
 using namespace mlir;
 using namespace mlir::executor;

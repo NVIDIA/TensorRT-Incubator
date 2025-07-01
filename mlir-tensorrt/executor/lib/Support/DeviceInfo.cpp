@@ -18,8 +18,11 @@
 //
 //===----------------------------------------------------------------------===//
 #include "mlir-executor/Support/DeviceInfo.h"
-#include "mlir-executor/Support/CUDAWrappers.h"
 #include "mlir-executor/Support/Status.h"
+
+#ifdef MLIR_EXECUTOR_ENABLE_CUDA
+#include "cuda_runtime_api.h"
+#endif // MLIR_EXECUTOR_ENABLE_CUDA
 
 using namespace mlirtrt;
 
@@ -30,7 +33,7 @@ static Status makeCudaStringError(cudaError_t errCode,
   return getInternalErrorStatus("{0}: {1}", context,
                                 cudaGetErrorString(errCode));
 }
-#endif
+#endif // MLIR_EXECUTOR_ENABLE_CUDA
 
 static StatusOr<DeviceInfo>
 getDeviceInformationFromHostImpl(int cudaDeviceOridinal) {
