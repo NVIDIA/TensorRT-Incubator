@@ -108,11 +108,7 @@ def scaled_dot_product_attention(
         target_shape.trace_tensor.shape = (2,)
         attn_mask = tp.cast(tp.tril(tp.ones(target_shape)), tp.bool)
     if attn_mask is not None and attn_mask.dtype == tp.bool:
-        attn_mask = tp.where(
-            (attn_mask == 0),
-            tp.ones_like(attn_mask) * -float("inf"),
-            tp.zeros_like(attn_mask),
-        )
+        attn_mask = tp.where((attn_mask == 0), tp.cast(tp.Tensor(-float("inf")), dtype=query.dtype), 0.0)
     if embedding_dim is None:
         embedding_dim = query.shape[-1]
     qk = query @ tp.transpose(key, -2, -1) / tp.sqrt(tp.cast(embedding_dim, query.dtype))
