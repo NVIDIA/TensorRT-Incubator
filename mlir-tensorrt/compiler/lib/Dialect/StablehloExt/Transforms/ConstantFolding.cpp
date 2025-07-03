@@ -202,43 +202,6 @@ struct CombineConsecutiveTranspose : OpRewritePattern<stablehlo::TransposeOp> {
 };
 
 //===----------------------------------------------------------------------===//
-// BroadcastInDimOp
-//===----------------------------------------------------------------------===//
-
-/// Rewrite a `stablehlo.broadcast_in_dim` operation to a reshape when possible.
-/// The upstream version of this is overly conservative.
-struct BroadcastInDimOpCanon final
-    : OpRewritePattern<mlir::stablehlo::BroadcastInDimOp> {
-  using OpRewritePattern::OpRewritePattern;
-
-  LogicalResult matchAndRewrite(mlir::stablehlo::BroadcastInDimOp op,
-                                PatternRewriter &rewriter) const override {
-    RankedTensorType type = op.getType();
-
-    TypedValue<RankedTensorType> operand = op.getOperand();
-    RankedTensorType operandTy = operand.getType();
-
-    ArrayRef<int64_t> dims = op.getBroadcastDimensions();
-
-    if (dims.empty() || !type.hasStaticShape() || !operandTy.hasStaticShape() ||
-        type.getNumElements() != operandTy.getNumElements())
-      return failure();
-
-    // Check that dims are an increasing sequence. Check that
-    // no broadcasting occurs along these dimensions.
-    int64_t lastDimIdx = dims.front();
-    for (int64_t dimIdx : dims.drop_front()) {
-      if (dimIdx < lastDimIdx)
-        return failure();
-      lastDimIdx = dimIdx;
-    }
-
-    rewriter.replaceOpWithNewOp<mlir::stablehlo::ReshapeOp>(op, type, operand);
-    return success();
-  }
-};
-
-//===----------------------------------------------------------------------===//
 // MinOp and MaxOp
 //===----------------------------------------------------------------------===//
 
@@ -649,32 +612,6 @@ struct ConstFoldSub : public OpRewritePattern<stablehlo::SubtractOp> {
 };
 
 //===----------------------------------------------------------------------===//
-// IotaOp
-//===----------------------------------------------------------------------===//
-
-/// Rewrites Iota operation across multiple dimensions to a single dimension
-/// Iota on 0th dimension, followed by BroadcastInDim.
-struct CanonicalizeIotaToUnitRank : OpRewritePattern<IotaOp> {
-  using OpRewritePattern<IotaOp>::OpRewritePattern;
-  LogicalResult matchAndRewrite(IotaOp iotaOp,
-                                PatternRewriter &rewriter) const override {
-    RankedTensorType resultType = iotaOp.getType();
-    if (resultType.getRank() < 2)
-      return rewriter.notifyMatchFailure(iotaOp->getLoc(),
-                                         "rank needs to be >= 2");
-    uint64_t iotaDimension = iotaOp.getIotaDimension();
-    RankedTensorType newIotaType = RankedTensorType::get(
-        {resultType.getDimSize(iotaDimension)}, resultType.getElementType());
-    Value newIotaOp = rewriter.create<IotaOp>(iotaOp->getLoc(), newIotaType,
-                                              /*iota_dimension=*/0);
-    SmallVector<int64_t> broadcastDims{static_cast<int64_t>(iotaDimension)};
-    rewriter.replaceOpWithNewOp<BroadcastInDimOp>(iotaOp, resultType, newIotaOp,
-                                                  broadcastDims);
-    return success();
-  }
-};
-
-//===----------------------------------------------------------------------===//
 // OrOp
 //===----------------------------------------------------------------------===//
 
@@ -881,28 +818,9 @@ struct SimplifyTrivialSlice : public OpRewritePattern<stablehlo::SliceOp> {
 // simplification patterns.
 //===----------------------------------------------------------------------===//
 
-/// Drop any segments of `stablehlo.concatenate`that are empty.
-struct ConcatDropEmptySegments
-    : public OpRewritePattern<stablehlo::ConcatenateOp> {
-  using OpRewritePattern::OpRewritePattern;
-
-  LogicalResult matchAndRewrite(stablehlo::ConcatenateOp op,
-                                PatternRewriter &rewriter) const override {
-    auto isNotEmpty = [](Value value) {
-      auto rtt = cast<RankedTensorType>(value.getType());
-      return !rtt.hasStaticShape() || rtt.getNumElements() > 0;
-    };
-    if (llvm::all_of(op.getInputs(), isNotEmpty))
-      return failure();
-    auto newInputs =
-        llvm::to_vector(llvm::make_filter_range(op.getInputs(), isNotEmpty));
-    rewriter.modifyOpInPlace(
-        op, [&]() { op.getInputsMutable().assign(newInputs); });
-    return success();
-  }
-};
-
 /// If there is only one operand, just replace with itself.
+/// TODO: This only differs from the equivalent upstream pattern in that it
+/// inserts a cast if the types differ.
 struct ConcatSingleSegment : public OpRewritePattern<stablehlo::ConcatenateOp> {
   using OpRewritePattern::OpRewritePattern;
 
@@ -1189,10 +1107,7 @@ public:
     RewritePatternSet patterns(ctx);
     // clang-format off
     patterns.insert<
-        BroadcastInDimOpCanon,
-        CanonicalizeIotaToUnitRank,
         CombineConsecutiveTranspose,
-        ConcatDropEmptySegments,
         ConcatSingleSegment,
         ConstFoldCompare,
         ConstFoldConvert,
