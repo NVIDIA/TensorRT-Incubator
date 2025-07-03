@@ -19,6 +19,7 @@ import os
 import sys
 
 ROOT_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), os.path.pardir)
+import sphinx_toolbox
 sys.path.insert(0, ROOT_DIR)
 import inspect
 import re
@@ -290,12 +291,35 @@ def process_signature(app, what, name, obj, options, signature, return_annotatio
     return None
 
 
+def visit_collapse_node(self, node):
+    label = getattr(node, 'label', None)
+    
+    if label:
+        label = label.strip()
+        if label:
+            self.add_text(f"\n{label}:\n")
+
+    self.new_state(indent=0)
+
+
+def depart_collapse_node(self, node):
+    self.end_state()
+
+
 def setup(app):
     # A note on aliases: if you rename a class via an import statement, e.g. `import X as Y`,
     # the documentation generated for `Y` will just be: "Alias of X"
     # To get the real documentation, you can make Sphinx think that `Y` is not an alias but instead a real
     # class/function. To do so, you just need to define the __name__ attribute in this function (*not* in tripy code!):
     #   Y.__name__ = "Y"
+
+    # This is used to ensure that sphinx text build does not fail when it encounters a collapse node.
+    app.add_node(
+        sphinx_toolbox.collapse.CollapseNode,
+        html=(sphinx_toolbox.collapse.visit_collapse_node, sphinx_toolbox.collapse.depart_collapse_node),
+        override=True,
+        text=(visit_collapse_node, depart_collapse_node),
+    )
 
     app.connect("autodoc-process-docstring", process_docstring)
     app.connect("autodoc-process-signature", process_signature)
