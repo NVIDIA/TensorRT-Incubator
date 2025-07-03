@@ -25,8 +25,9 @@
 #ifndef MLIR_TENSORRT_COMPILER_STABLEHLOTOEXECUTABLE_PASSES
 #define MLIR_TENSORRT_COMPILER_STABLEHLOTOEXECUTABLE_PASSES
 
+#include "mlir-tensorrt/Dialect/StablehloExt/Transforms/Passes.h"
+#include "mlir/Pass/Pass.h"
 #include <memory>
-#include <mlir/Pass/Pass.h>
 
 namespace mlir {
 class OpPassManager;
@@ -74,6 +75,13 @@ struct StableHloInputOptions {
 
   /// Whether to disable running the inliner.
   bool disableInliner = false;
+
+  /// Options for target-specific optimizations.
+  mlir::stablehlo_ext::TargetSpecificCanonicalizationOptions
+      targetSpecificOptions{};
+
+  /// The computation size limit for constant folding.
+  int64_t constantFoldSizeLimit = 65536;
 };
 
 /// Construct a pipeline for preprocessing StableHLO IR to convert it into the

@@ -21,6 +21,9 @@
 /// Declarations for pattern sets related to StableHlo.
 ///
 //===----------------------------------------------------------------------===//
+#include "mlir/IR/PatternMatch.h"
+#include "mlir/Support/LLVM.h"
+
 namespace mlir {
 class RewritePatternSet;
 namespace stablehlo_ext {
@@ -29,6 +32,12 @@ namespace stablehlo_ext {
 /// `tensor.cast` producers.
 void populateStableHloAbsorbTensorCastPatterns(RewritePatternSet &patterns);
 
+/// Populate patterns that perform target-independent simplifications.
+/// The `sizeLimit` is the maximum tensor volume beyond which constant folding
+/// is not attempted.
+void populateTargetIndependentSimplificationPatterns(
+    RewritePatternSet &patterns, int64_t sizeLimit, PatternBenefit benefit = 1);
+
 /// Populate patterns to canonicalize `stablehlo.convolution`.
 void populateCanonicalizeStablehloConvolutionPatterns(
     RewritePatternSet &patterns);
@@ -36,6 +45,20 @@ void populateCanonicalizeStablehloConvolutionPatterns(
 /// Populate the pattern set with patterns to canonicalize `stablehlo.scatter`
 /// operations to correspond to `tensorrt.scatter`/`onnx.ScatterNd`.
 void populateCanonicalizeStablehloScatterPatterns(RewritePatternSet &patterns);
+
+/// Populate the pattern set with patterns to canonicalize `stablehlo.gather`
+/// operations to correspond to `tensorrt.gather`/`onnx.GatherND`.
+void populateCanonicalizeStablehloGatherPatterns(RewritePatternSet &patterns);
+
+/// Populate the pattern set with patterns to canonicalize
+/// `stablehlo.dot_general` operations to correspond to
+/// `tensorrt.dot`/`onnx.MatMul`.
+void populateCanonicalizeStablehloDotGeneralPatterns(
+    RewritePatternSet &patterns);
+
+/// Populate the pattern set with patterns to canonicalize `stablehlo.gather`
+/// operations to correspond to `tensorrt.gather`/`onnx.GatherND`.
+void populateGatherToSlicePatterns(RewritePatternSet &patterns);
 
 } // namespace stablehlo_ext
 } // namespace mlir

@@ -62,12 +62,46 @@ struct StablehloToExecutableOptions
   /// extension).
   StablehloToExecutableOptions(bool enableDebugOptions = false);
 
-  /// Whether to disallow host tensors in TensorRT clusters.
+  //===----------------------------------------------------------------------===//
+  // Options
+  //===----------------------------------------------------------------------===//
+
+  /// TODO: Somehow move this to the TensorRT extension class? This is used when
+  /// populating the default backend metadata. We should instead enable
+  /// specification of backend default as a raw string which is parsed inside
+  /// the `PopulateDefaultBackendMetadata` class.
   Option<bool> disallowHostTensorsInTensorRTClusters{
       *this, "plan-clustering-disallow-host-tensors-in-tensorrt-clusters",
       llvm::cl::init(false),
       llvm::cl::desc("Don't allow TensorRt clusters to contain host tensor "
                      "calculations (but they can still be inputs)")};
+
+  /// This is exposed to enable experimentating with disabling certain
+  /// optimizations applied during pre-processing which may not always be
+  /// beneficial.
+  ListOption<std::string> stablehloTargetSpecificPatternSets{
+      *this, "stablehlo-input-optimization-pattern-sets",
+      llvm::cl::list_init<std::string>({"all"}),
+      llvm::cl::desc(
+          "Optional target-specific optimization pattern sets to enable for "
+          "the StableHLO "
+          "preprocessing pipeline. Available pattern sets: dot-general, "
+          "gather, scatter, convolution, gather-to-slice, all. Default is "
+          "'all'.")};
+
+  /// This is exposed to enable controlling the aggressiveness of rewrite-based
+  /// constant folding. Setting this to large can result in slow compilation
+  /// times and higher compilation-time memory usage (due to use of
+  /// DenseElementsAttr).
+  Option<int64_t> stablehloInputRewriteConstantFoldVolumeLimit{
+      *this, "stablehlo-input-rewrite-constant-fold-volume-limit",
+      llvm::cl::init(65536),
+      llvm::cl::desc("Specifies the maximum tensor volume for the "
+                     "rewrite-based Stablehlo constant folding patterns.")};
+
+  //===----------------------------------------------------------------------===//
+  // Extension Utilities
+  //===----------------------------------------------------------------------===//
 
   /// Base class for extensions associated with StableHloToExecutableTask.
   class ExtensionBase : public TaskExtensionBase {

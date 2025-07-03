@@ -22,6 +22,7 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt/Dialect/StablehloExt/Transforms/Passes.h"
+#include "mlir-tensorrt/Dialect/StablehloExt/Transforms/Patterns.h"
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/TypeUtilities.h"
@@ -389,6 +390,15 @@ struct DotGeneralCollapsingRewrite : public DotGeneralCanonicalizerBase {
   }
 };
 
+} // namespace
+
+void stablehlo_ext::populateCanonicalizeStablehloDotGeneralPatterns(
+    RewritePatternSet &patterns) {
+  patterns.add<DotGeneralToMulRewriter, RewriteDotGeneral,
+               DotGeneralCollapsingRewrite>(patterns.getContext());
+}
+
+namespace {
 class CanonicalizeDotGeneralPass
     : public stablehlo_ext::impl::CanonicalizeDotGeneralPassBase<
           CanonicalizeDotGeneralPass> {
@@ -398,8 +408,7 @@ public:
     Operation *op = getOperation();
     MLIRContext *ctx = &getContext();
     RewritePatternSet patterns(ctx);
-    patterns.add<DotGeneralToMulRewriter, RewriteDotGeneral,
-                 DotGeneralCollapsingRewrite>(ctx);
+    stablehlo_ext::populateCanonicalizeStablehloDotGeneralPatterns(patterns);
     if (failed(applyPatternsGreedily(op, std::move(patterns)))) {
       emitError(op->getLoc())
           << "failed to apply rewrite patterns in " << getArgument();
