@@ -1,6 +1,6 @@
 //===- Utils.h --------------------------------------------------*- C++ -*-===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -44,6 +44,12 @@ bool canUpdateTypeWithoutCast(
 /// uses.ø
 bool canUpdateTypeWithoutCast(
     OpOperand &use, const std::function<bool(OpOperand &)> &otherCases = {});
+
+/// Returns `true` if the given Stablehlo op can be converted to a linalg op.
+/// TODO: This is an approximation since it only checks the operation type. It
+/// does not check operand types or properties of the operation that could cause
+/// converison to fail.
+bool canConvertToLinalg(Operation *op);
 
 } // namespace stablehlo
 } // namespace mlir

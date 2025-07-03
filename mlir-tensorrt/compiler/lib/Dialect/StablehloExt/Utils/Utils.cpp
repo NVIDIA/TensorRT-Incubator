@@ -19,6 +19,7 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt/Dialect/StablehloExt/Utils/Utils.h"
 #include "stablehlo/dialect/StablehloOps.h"
+#include "llvm/ADT/TypeSwitch.h"
 
 using namespace mlir;
 using namespace mlir::stablehlo;
@@ -73,4 +74,96 @@ bool stablehlo::canUpdateTypeWithoutCast(
     return canUpdateTypeWithoutCast(use) ||
            (otherCases && otherCases(use.getOwner()));
   });
+}
+
+bool stablehlo::canConvertToLinalg(Operation *op) {
+  auto returnTrue = [](Operation *op) { return true; };
+  // Elementwise ops. Taken from `StablehloToLinalgPointwise.cpp`.
+  return llvm::TypeSwitch<Operation *, bool>(op)
+      // clang-format off
+      .Case<
+         stablehlo::AbsOp,
+         stablehlo::AddOp,
+         stablehlo::AndOp,
+         stablehlo::Atan2Op,
+         stablehlo::BitcastConvertOp,
+         stablehlo::CbrtOp,
+         stablehlo::CeilOp,
+         stablehlo::ClampOp,
+         stablehlo::ClzOp,
+         stablehlo::CompareOp,
+         stablehlo::ComplexOp,
+         stablehlo::ConvertOp,
+         stablehlo::CosineOp,
+         stablehlo::DivOp,
+         stablehlo::ExpOp,
+         stablehlo::Expm1Op,
+         stablehlo::FloorOp,
+         stablehlo::ImagOp,
+         stablehlo::IsFiniteOp,
+         stablehlo::Log1pOp,
+         stablehlo::LogOp,
+         stablehlo::LogisticOp,
+         stablehlo::MaxOp,
+         stablehlo::MinOp,
+         stablehlo::MulOp,
+         stablehlo::NegOp,
+         stablehlo::NotOp,
+         stablehlo::OrOp,
+         stablehlo::PopulationCountOp,
+         stablehlo::PowOp,
+         stablehlo::RealOp,
+         stablehlo::ReducePrecisionOp,
+         stablehlo::RemOp,
+         stablehlo::RoundNearestEvenOp,
+         stablehlo::RoundOp,
+         stablehlo::RsqrtOp,
+         stablehlo::SelectOp,
+         stablehlo::ShiftLeftOp,
+         stablehlo::ShiftRightArithmeticOp,
+         stablehlo::ShiftRightLogicalOp,
+         stablehlo::SignOp,
+         stablehlo::SineOp,
+         stablehlo::SqrtOp,
+         stablehlo::SubtractOp,
+         stablehlo::TanhOp,
+         stablehlo::XorOp>
+      // clang-format on
+      (returnTrue)
+      // Random ops. Taken from `StablehloToLinalgRandom.cpp`.
+      .Case<stablehlo::RngBitGeneratorOp, stablehlo::RngOp>(returnTrue)
+      // Reductions.
+      .Case<stablehlo::ReduceOp, stablehlo::ReduceWindowOp>(returnTrue)
+      // Basic Contractions.
+      .Case<stablehlo::DotOp, stablehlo::DotGeneralOp>(returnTrue)
+      // Convolutions.
+      .Case<stablehlo::ConvolutionOp>(returnTrue)
+      // Other ops.
+      // From `StablehloLegalizeToLinalg.cpp`.
+      // Note: Left out `stablehlo.reverse` since currently it generates IR with
+      // index maps which cannot be tiled.
+      // clang-format off
+      .Case<stablehlo::BitcastConvertOp,
+            stablehlo::BroadcastInDimOp,
+            stablehlo::BroadcastOp,
+            stablehlo::ConcatenateOp,
+            stablehlo::ConstantOp,
+            stablehlo::DynamicBroadcastInDimOp,
+            stablehlo::DynamicIotaOp,
+            stablehlo::DynamicSliceOp,
+            stablehlo::EinsumOp,
+            stablehlo::GatherOp,
+            stablehlo::IotaOp,
+            stablehlo::MapOp,
+            stablehlo::PadOp,
+            stablehlo::RealDynamicSliceOp,
+            stablehlo::ReshapeOp,
+            stablehlo::SelectAndScatterOp,
+            stablehlo::SetDimensionSizeOp,
+            stablehlo::SliceOp,
+            stablehlo::TorchIndexSelectOp,
+            stablehlo::TransposeOp
+            >(returnTrue)
+      // clang-format on
+      .Default([](Operation *op) { return false; });
 }
