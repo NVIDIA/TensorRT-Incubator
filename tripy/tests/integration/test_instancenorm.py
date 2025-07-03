@@ -51,7 +51,7 @@ def setup(dtype, input_shape):
     )
 
     input = torch.empty(*input_shape, dtype=torch_dtype, device="cuda").uniform_(0, 10)
-    tp_input = tp.Tensor(input, dtype=dtype)
+    tp_input = tp.Tensor(input)
 
     yield instancenorm, tp_instancenorm, tp_input, num_channels
 

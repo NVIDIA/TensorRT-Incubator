@@ -78,16 +78,17 @@ class Tensor(metaclass=TensorMeta):
                 For types that support the DLPack protocol, copying data is avoided if possible.
 
             dtype: The data type of the tensor.
+                This parameter is only allowed when `data` is an empty list.
+
             device: The device on which to allocate the tensor.
-                If the provided data is not on this device, it will be copied.
-                By default, the tensor will be allocated on the same device as the `data` argument.
+                This parameter is only allowed when `data` is a Python number or list.
 
             name: The name of the tensor. If provided, this must be a unique string.
 
         .. code-block:: python
             :linenos:
 
-            tensor = tp.Tensor([1.0, 2.0, 3.0], dtype=tp.float32)
+            tensor = tp.Tensor([1.0, 2.0, 3.0])
         """
         # We use None internally but users should not be permitted to do it
         assert data is not None, "Data argument to Tensor must not be None"
@@ -109,43 +110,11 @@ class Tensor(metaclass=TensorMeta):
             self.trace_tensor.stack_info = self._stack_info
             return
 
-        # Small optimization for scalars to avoid unnecessary casts:
-        if isinstance(data, numbers.Number) and dtype is not None:
-            if issubclass(dtype, datatype.floating):
-                data = float(data)
-            elif issubclass(dtype, datatype.integer):
-                data = int(data)
-            elif dtype == datatype.bool:
-                data = bool(data)
-
+        # dtype and device are only allowed for specific cases in Constant.
         constant = Constant(data, device=device, dtype=dtype)
         self.trace_tensor = constant.outputs[0]
         self.trace_tensor.name = utils.utils.default(name, self.trace_tensor.name)
         self.stack_info = utils.stack_info.get_stack_info(include_code_index=1)
-
-        # Preserve the device after casting if necessary (otherwise cast will always copy to GPU):
-        device = utils.utils.default(device, self.device)
-
-        # Cast/copy if necessary:
-        casted_copied_tensor = self
-        if dtype is not None and dtype != casted_copied_tensor.dtype:
-            from nvtripy.frontend.ops.cast import cast
-
-            casted_copied_tensor = cast(casted_copied_tensor, dtype=dtype)
-
-        # We do not check trace_tensor.device, since that will always be GPU
-        # (Constants always generate outputs in GPU memory).
-        if device is not None and device != casted_copied_tensor.device:
-            # Copy to the new device
-            from nvtripy.frontend.ops.copy import copy
-
-            casted_copied_tensor = copy(casted_copied_tensor, device=device)
-
-        # We must evaluate the new tensor prior to assigning self.trace_tensor or we could
-        # end up in an infinite loop since the input *and* output of cast/copy would both
-        # point to this frontend tensor.
-        casted_copied_tensor._eval_for_internal_methods()
-        self.trace_tensor = casted_copied_tensor.trace_tensor
 
     # Left undocumented because these should only be used internally.
     @classmethod
@@ -325,7 +294,7 @@ class Tensor(metaclass=TensorMeta):
             :linenos:
 
             # doc: print-locals tensor_scalar
-            tensor = tp.Tensor(2.0, dtype=tp.float32)
+            tensor = tp.Tensor(2.0)
             tensor_scalar = tensor.tolist()
 
             assert tensor_scalar == 2.0

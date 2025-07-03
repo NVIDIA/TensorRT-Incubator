@@ -34,7 +34,7 @@ class DimensionSize(Tensor):
             data: The value of the DimensionSize, which should be a scalar integer.
             name: An optional name.
         """
-        super().__init__(data=data, dtype=int32, name=name)
+        super().__init__(data=data, name=name)
 
     def __int__(self) -> int:
         return self.tolist()

@@ -40,7 +40,7 @@ def __abs__(self: "nvtripy.Tensor") -> "nvtripy.Tensor":
     .. code-block:: python
         :linenos:
 
-        input = tp.Tensor([-1, -2], dtype=tp.int32)
+        input = tp.Tensor([-1, -2])
         output = abs(input)
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.array([1, 2], dtype=np.float32))

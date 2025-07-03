@@ -22,7 +22,7 @@ from tests import helper
 
 class TestQuantize:
     def test_invalid_input_dtype(self):
-        a = tp.Tensor([1, 2], dtype=tp.int32)
+        a = tp.Tensor([1, 2])
         with helper.raises(
             tp.TripyException,
             match="Unsupported data type in 'quantize'",

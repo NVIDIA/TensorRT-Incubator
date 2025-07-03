@@ -140,7 +140,7 @@ class MixedContainerNetwork(tp.Module):
 @pytest.fixture(params=[(Network, ())])
 def all_network_modes(request):
     call_args = request.param[1]
-    inputs = [tp.Tensor(cp.full(2, v, dtype=np.float32), device=tp.device("gpu")) for v in call_args]
+    inputs = [tp.Tensor(cp.full(2, v, dtype=np.float32)) for v in call_args]
     yield request.param[0](), call_args, inputs
 
 

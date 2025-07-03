@@ -118,14 +118,14 @@ class Module:
         class AddBias(tp.Module):
             def __init__(self):
                 super().__init__()
-                self.bias = tp.Tensor([1.0, 1.0], dtype=tp.float32)
+                self.bias = tp.Tensor([1.0, 1.0])
 
             def forward(self, x):
                 return x + self.bias
 
         add_bias = AddBias()
 
-        input = tp.Tensor([1.0, 1.0], dtype=tp.float32)
+        input = tp.Tensor([1.0, 1.0])
         output = add_bias(input)
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.array([2.0, 2.0]))

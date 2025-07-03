@@ -43,7 +43,7 @@ def topk_impl(TopKType, input, dim, k):
 
     if input.rank == 0:
         # TODO (#496): Remove this hack of adding 0 when inputs can be returned directly in compiled functions.
-        return input + 0, Tensor(0, dtype=datatype.int32)
+        return input + 0, Tensor(0)
 
     dim = op_utils.process_dim(dim, input.rank)
 
@@ -70,7 +70,7 @@ def arg_min_max_impl(TopKType, input, dim, keepdim):
     original_rank = input.rank
 
     if original_rank == 0:
-        return Tensor(0, dtype=datatype.int32)
+        return Tensor(0)
 
     # The semantics of argmin/argmax are that the input is treated as a
     # flattened tensor if dim is not set, except the output rank should match

@@ -87,7 +87,7 @@ def quantize(
         :linenos:
         :caption: Per-channel quantization
 
-        input = tp.Tensor([[0, 1, 2], [3, 4, 5]], dtype=tp.float32)
+        input = tp.Tensor([[0., 1., 2.], [3., 4., 5.]])
         scale = [0.99872, 0.96125]
         output = tp.quantize(input, scale, tp.int8, dim=0)
 
@@ -100,7 +100,7 @@ def quantize(
 
         # doc: print-locals input, output
 
-        input = tp.Tensor([[0, 1], [2, 3]], dtype=tp.float32)
+        input = tp.Tensor([[0., 1.], [2., 3.]])
         scale = [[1.0, 1.0]]
         quant = tp.quantize(input, scale, tp.int4)
         output = tp.dequantize(quant, scale, tp.float32)

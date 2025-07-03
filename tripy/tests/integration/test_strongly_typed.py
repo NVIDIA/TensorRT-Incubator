@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -27,7 +27,7 @@ class TestStronglyTyped:
     """
 
     def test_fp16_no_overflow(self):
-        a = tp.Tensor([10000, 60000], dtype=tp.float32)
+        a = tp.Tensor([10000.0, 60000.0])
         a = tp.sum(a)  # 7e+4 is out of fp16 upperbound
         a = a / 5.0
         a = tp.cast(a, tp.float16)

@@ -44,7 +44,7 @@ def all(
     .. code-block:: python
         :linenos:
 
-        input = tp.Tensor([True, True], dtype=tp.bool)
+        input = tp.Tensor([True, True])
         out = tp.all(input)
         assert bool(out)
     """

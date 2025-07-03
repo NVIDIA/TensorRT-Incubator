@@ -24,9 +24,9 @@ from tests import helper
 
 class TestWhere:
     def test_bool_condition(self):
-        cond = tp.Tensor([False, True, False], dtype=tp.bool)
-        a = tp.Tensor([1, 2, 3], dtype=tp.int32)
-        b = tp.Tensor([4, 5, 6], dtype=tp.int32)
+        cond = tp.Tensor([False, True, False])
+        a = tp.Tensor([1, 2, 3])
+        b = tp.Tensor([4, 5, 6])
         w = tp.where(cond, a, b)
         assert isinstance(w, tp.Tensor)
         assert isinstance(w.trace_tensor.producer, Where)

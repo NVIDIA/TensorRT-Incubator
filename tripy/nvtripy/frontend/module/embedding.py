@@ -53,7 +53,7 @@ class Embedding(Module):
 
             embedding.weight = tp.iota(embedding.weight.shape)
 
-            input = tp.Tensor([0, 2], dtype=tp.int32)
+            input = tp.Tensor([0, 2])
             output = embedding(input)
 
             assert np.array_equal(cp.from_dlpack(output).get(), cp.from_dlpack(embedding.weight).get()[[0,2], :])

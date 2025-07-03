@@ -158,11 +158,34 @@ class Constant(TraceOp):
         # Otherwise, it is inferred from the data.
         dtype: Optional[datatype.dtype] = None,
     ) -> None:
+        def disallow_dtype():
+            if dtype is not None:
+                raise_error(
+                    "Data type can only be specified for empty lists.",
+                    details=[
+                        "For all other cases, data type is inferred from the input data.\n",
+                        "Hint: Use `tp.cast` to change the data type of a tensor.",
+                    ],
+                )
+
+        def disallow_device():
+            if device is not None:
+                raise_error(
+                    "Device can only be specified for Python lists and numbers.",
+                    details=[
+                        "For all other cases, like arrays supporting the DLPack protocol, device is inferred from the input data.\n"
+                        "Hint: Use `tp.copy` to move a tensor to a different device.",
+                    ],
+                )
+
         # Handle if data is dlpacked but not memref yet
         if hasattr(data, "__dlpack__") and not isinstance(data, runtime.MemRefValue):
             data = memref.create_memref_view(data)
 
         if isinstance(data, runtime.MemRefValue):
+            disallow_dtype()
+            disallow_device()
+
             self.data = data
             self.dtype = mlir_utils.convert_runtime_dtype_to_tripy_dtype(self.data.dtype)
             self.shape = tuple(data.shape)
@@ -174,6 +197,8 @@ class Constant(TraceOp):
                 self.dtype = utils.utils.default(dtype, datatype.float32)
                 data_array = None
             else:
+                disallow_dtype()
+
                 self.dtype = get_element_type(data)
                 data_array = convert_list_to_array(flatten_list(data), dtype=self.dtype)
             self.shape = tuple(get_shape(data))

@@ -74,7 +74,7 @@ fast_geglu = tp.compile(layer, args=[inp_info])
 out0 = fast_geglu(inp)
 
 # Now use an input with a different shape: (2, 2):
-inp1 = tp.Tensor([[1., 2.], [2., 3.]], dtype=tp.float32).eval()
+inp1 = tp.Tensor([[1., 2.], [2., 3.]]).eval()
 out1 = fast_geglu(inp1)
 ```
 

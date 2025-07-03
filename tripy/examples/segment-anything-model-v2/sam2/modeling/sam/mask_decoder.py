@@ -332,7 +332,7 @@ class MaskDecoder(tp.Module):
         stability_delta = self.dynamic_multimask_stability_delta
         area_i = tp.cast(tp.sum(tp.cast(mask_logits > stability_delta, tp.float32), dim=-1), self.dtype)
         area_u = tp.cast(tp.sum(tp.cast(mask_logits > -stability_delta, tp.float32), dim=-1), self.dtype)
-        stability_scores = tp.where(area_u > 0, area_i / area_u, tp.Tensor(1.0, dtype=self.dtype))
+        stability_scores = tp.where(area_u > 0, area_i / area_u, 1.0)
         return stability_scores
 
     def _dynamic_multimask_via_stability(self, all_mask_logits, all_iou_scores):

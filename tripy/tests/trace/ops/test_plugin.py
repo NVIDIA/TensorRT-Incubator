@@ -51,7 +51,7 @@ class TestPlugin:
     )
     def test_incorrect_plugin_fields(self, params, expected_error):
         X = tp.iota((1, 2, 4, 4))
-        rois = tp.Tensor([[0.0, 0.0, 9.0, 9.0], [0.0, 5.0, 4.0, 9.0]], dtype=tp.float32)
+        rois = tp.Tensor([[0.0, 0.0, 9.0, 9.0], [0.0, 5.0, 4.0, 9.0]])
         batch_indices = tp.zeros((2,), dtype=tp.int32)
 
         out = tp.plugin(

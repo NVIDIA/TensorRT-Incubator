@@ -28,7 +28,7 @@ class TestFlip:
     )
     def test_flip(self, dims, eager_or_compiled):
         cp_a = cp.arange(16).reshape((4, 4)).astype(cp.float32)
-        a = tp.Tensor(cp_a, device=tp.device("gpu"))
+        a = tp.Tensor(cp_a)
         f = tp.flip(a, dim=dims)
         assert np.array_equal(cp.from_dlpack(f).get(), np.flip(cp_a.get(), axis=dims))
 
@@ -38,7 +38,7 @@ class TestFlip:
 
     def test_no_op(self, eager_or_compiled):
         cp_a = cp.arange(16).reshape((4, 4)).astype(cp.float32)
-        a = tp.Tensor(cp_a, device=tp.device("gpu"))
+        a = tp.Tensor(cp_a)
         f = eager_or_compiled(tp.flip, a, dim=[])
         assert tp.equal(a, f)
 
@@ -53,7 +53,7 @@ class TestFlip:
     )
     def test_equivalences(self, dims1, dims2, eager_or_compiled):
         cp_a = cp.arange(16).reshape((4, 4)).astype(cp.float32)
-        a = tp.Tensor(cp_a, device=tp.device("gpu"))
+        a = tp.Tensor(cp_a)
         f1 = eager_or_compiled(tp.flip, a, dim=dims1)
         f2 = eager_or_compiled(tp.flip, a, dim=dims2)
         assert tp.equal(f1, f2)

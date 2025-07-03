@@ -29,7 +29,7 @@ class TestBinaryElementwise:
         [
             (tp.Tensor([1.0]), tp.Tensor([2.0])),
             # shape of (0,) is broadcastable with (1,)
-            (tp.Tensor([], dtype=tp.float32), tp.Tensor([1.0], dtype=tp.float32)),
+            (tp.Tensor([], dtype=tp.float32), tp.Tensor([1.0])),
             (tp.Tensor([1.0]), 2.0),
             (1.0, tp.Tensor([2.0])),
         ],
@@ -57,7 +57,7 @@ class TestBinaryElementwise:
         assert isinstance(out, tp.Tensor)
 
     def test_mismatched_dtypes_fails(self):
-        a = tp.Tensor([1, 2], dtype=tp.float32)
+        a = tp.Tensor([1.0, 2.0])
         b = tp.ones((2,), dtype=tp.float16)
 
         with helper.raises(

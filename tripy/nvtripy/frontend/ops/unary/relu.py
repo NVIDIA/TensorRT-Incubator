@@ -45,7 +45,7 @@ def relu(input: "nvtripy.Tensor") -> "nvtripy.Tensor":
     .. code-block:: python
         :linenos:
 
-        input = tp.Tensor([1., 2., 3., 4.], dtype=tp.float32)
+        input = tp.Tensor([1., 2., 3., 4.])
         output = tp.relu(input)
 
         t = torch.tensor([1, 2, 3, 4], dtype=torch.float32) # doc: omit
@@ -53,10 +53,9 @@ def relu(input: "nvtripy.Tensor") -> "nvtripy.Tensor":
 
     """
     from nvtripy.frontend.ops.binary.maximum import maximum
-    from nvtripy.frontend.tensor import Tensor
 
     if issubclass(input.dtype, datatype.integer):
         # Activation in TensorRT does not support integral types.
-        return maximum(input, Tensor(0, dtype=input.dtype))
+        return maximum(input, 0)
 
     return op_utils.create_op(Relu, [input])

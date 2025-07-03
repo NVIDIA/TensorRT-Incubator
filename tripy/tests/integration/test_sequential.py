@@ -34,7 +34,7 @@ class TestSequential:
         tp_model[1].bias = tp.Tensor(torch_model[1].bias.to("cpu").detach())
 
         input_tensor = torch.tensor([[1.0]], dtype=torch.float32, device="cuda")
-        tp_input = tp.Tensor(input_tensor, dtype=tp.float32)
+        tp_input = tp.Tensor(input_tensor)
 
         tp_output = eager_or_compiled(tp_model, tp_input)
 
@@ -60,7 +60,7 @@ class TestSequential:
         tp_model["layer2"].bias = tp.Tensor(torch_model[1].bias.to("cpu").detach())
 
         input_tensor = torch.tensor([[1.0]], dtype=torch.float32, device="cuda")
-        tp_input = tp.Tensor(input_tensor, dtype=tp.float32)
+        tp_input = tp.Tensor(input_tensor)
 
         tp_output = eager_or_compiled(tp_model, tp_input)
 
@@ -93,7 +93,7 @@ class TestSequential:
         tp_model[1][1].bias = tp.Tensor(torch_model[1][1].bias.to("cpu").detach())
 
         input_tensor = torch.tensor([[1.0]], dtype=torch.float32, device="cuda")
-        tp_input = tp.Tensor(input_tensor, dtype=tp.float32)
+        tp_input = tp.Tensor(input_tensor)
 
         tp_output = eager_or_compiled(tp_model, tp_input)
 

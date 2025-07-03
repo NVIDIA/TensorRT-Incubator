@@ -132,7 +132,7 @@ def main():
         # Append sampled index to the running sequence and continue
         idx = torch.from_dlpack(idx).to(torch.int32)
         idx = torch.concat([idx, idx_next], dim=1).to(torch.int32)
-        idx = tp.Tensor(idx, device=tp.device("gpu"))
+        idx = tp.Tensor(idx)
 
     response = encoder.decode(torch.from_dlpack(idx[0, :]).tolist())
     end_time = time.perf_counter()

@@ -38,6 +38,6 @@ class TestUnsqueezeOp:
 
     def test_unsqueeze_compile(self):
         def func(a):
-            return tp.unsqueeze(a, 3) == tp.Tensor(3, dtype=tp.float32)
+            return tp.unsqueeze(a, 3) == tp.Tensor(3.0)
 
         c = tp.compile(func, args=[tp.InputInfo(((1, 2, 3), 2, 3), dtype=tp.float32)])

@@ -85,7 +85,7 @@ def tensor_from_shape_like(arg: "nvtripy.ShapeLike") -> "nvtripy.Tensor":
         if not int_buffer:
             return
 
-        concat_tensors.append(Tensor(int_buffer, dtype=int32))
+        concat_tensors.append(Tensor(int_buffer))
         int_buffer.clear()
 
     for elem in arg:
