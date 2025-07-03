@@ -73,7 +73,7 @@ def relu(input: "nvtripy.Tensor") -> "nvtripy.Tensor":
     .. code-block:: python
         :linenos:
 
-        input = tp.Tensor([1., 2., 3., 4.], dtype=tp.float32)
+        input = tp.Tensor([1., 2., 3., 4.])
         output = tp.relu(input)
 
         t = torch.tensor([1, 2, 3, 4], dtype=torch.float32) # doc: omit

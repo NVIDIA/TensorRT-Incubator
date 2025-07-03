@@ -52,7 +52,7 @@ class TestSplitOp:
     )
     def test_split(self, dims_a, num_split_or_sizes, dim, reference_slices, eager_or_compiled):
         a_cp = cp.arange(np.prod(dims_a)).reshape(dims_a).astype(cp.float32)
-        a = tp.Tensor(a_cp, device=tp.device("gpu"))
+        a = tp.Tensor(a_cp)
 
         def func(t):
             return tp.split(t, num_split_or_sizes, dim)

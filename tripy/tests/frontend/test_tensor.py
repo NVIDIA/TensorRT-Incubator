@@ -49,18 +49,11 @@ class TestTensor:
         # Make sure that if we initialize the tensor with a list, the tensor
         # contents are not modified if we update the list.
         lst = [1, 2, 3]
-        a = tp.Tensor(lst, dtype=tp.int32)
+        a = tp.Tensor(lst)
 
         lst.clear()
         assert lst == []
         assert a.tolist() == [1, 2, 3]
-
-    @pytest.mark.parametrize("kind", ["cpu", "gpu"])
-    def test_tensor_device(self, kind):
-        a = tp.Tensor([1, 2, 3], device=tp.device(kind))
-
-        assert isinstance(a.trace_tensor.producer, Constant)
-        assert a.trace_tensor.producer.device.kind == kind
 
     @pytest.mark.parametrize("dtype", NUMPY_TO_TRIPY.keys())
     def test_dtype_from_numpy(self, dtype):
@@ -72,16 +65,10 @@ class TestTensor:
 
     def test_bool_tensor(self):
         bool_values = [True, False, True]
-        t = tp.Tensor(bool_values, dtype=tp.bool)
+        t = tp.Tensor(bool_values)
         assert isinstance(t, tp.Tensor)
         assert t.trace_tensor.producer.inputs == []
         assert np.from_dlpack(t).tolist() == bool_values
-
-    @pytest.mark.parametrize("input_data", [[], [0.0, 1.0, 2.0, 3.0], [1, 2, 3, 4], [False, True, False, True]])
-    @pytest.mark.parametrize("dtype", DATA_TYPE_TEST_CASES)
-    def test_dtype_from_list(self, input_data, dtype):
-        tensor = tp.Tensor(input_data, dtype=dtype)
-        assert tensor.dtype == dtype
 
     @pytest.mark.parametrize("dtype", DATA_TYPE_TEST_CASES)
     def test_dtype_printing(self, dtype):
@@ -95,7 +82,7 @@ class TestTensor:
                 data = [False, True, False, True]
             elif dtype in [tp.int8, tp.int32, tp.int64]:
                 data = [0, 1, 2, 3]
-            a = tp.Tensor(data, dtype=dtype)
+            a = tp.cast(tp.Tensor(data), dtype)
             print(a)
 
     # In this test we only check the two innermost stack frames since beyond that it's all pytest code.
@@ -196,65 +183,6 @@ class TestTensor:
             bool(tensor)
 
     @pytest.mark.parametrize(
-        "data",
-        [
-            [[1, 2], [3, 4]],  # from python list
-            np.ones((2, 2), dtype=np.float32),
-            cp.ones((2, 2), dtype=cp.float32),
-        ],
-    )
-    def test_explicit_cast(self, data):
-        a = tp.Tensor(data, dtype=tp.float16)
-        assert a.dtype == tp.float16
-        a.eval()
-
-    def test_no_explicit_cast(self):
-        from nvtripy.trace.ops.constant import Constant
-
-        a_np = np.ones((2, 2), dtype=np.float32)
-        a = tp.Tensor(a_np, dtype=tp.float32)
-        assert a.dtype == tp.float32
-        assert isinstance(a.trace_tensor.producer, Constant)
-
-    @pytest.mark.parametrize(
-        "devices",
-        [
-            ("cpu", "gpu"),
-            ("gpu", "cpu"),
-        ],
-    )
-    def test_explicit_copy(self, devices):
-        # Setting the device parameter in the constructor will perform a copy if necessary.
-        a_torch = torch.ones((2, 2), dtype=torch.float32).to("cpu")
-        if devices[0] == "gpu":
-            a_torch = a_torch.to("cuda")
-        a = tp.Tensor(a_torch, device=tp.device(devices[1]))
-        assert a.device.kind == devices[1]
-
-    @pytest.mark.parametrize(
-        "devices",
-        [
-            ("cpu", "cpu"),
-            ("gpu", "gpu"),
-        ],
-    )
-    def test_no_explicit_copy(self, devices):
-        a_torch = torch.ones((2, 2), dtype=torch.float32)
-        if devices[0] == "gpu":
-            a_torch = a_torch.to("cuda")
-        a = tp.Tensor(a_torch)
-        assert a.device.kind == devices[1]
-
-    # Parametrize so we check both CPU/GPU data.
-    @pytest.mark.parametrize("mod", [np, cp])
-    def test_explicit_cast_copy(self, mod):
-        data = mod.ones((2, 2), dtype=np.float32)
-        a = tp.Tensor(data, dtype=tp.float16, device=tp.device("gpu"))
-        assert a.dtype == tp.float16
-        assert a.device.kind == "gpu"
-        a.eval()
-
-    @pytest.mark.parametrize(
         "tensor, expected",
         [
             (tp.Tensor([0]), [0]),
@@ -307,3 +235,29 @@ class TestTensor:
     def test_unequal_length_sublists(self):
         with helper.raises(tp.TripyException, match="Mismatched dimension sizes in provided sequence"):
             tp.Tensor([[1, 2], [3]])
+
+    @pytest.mark.parametrize(
+        "data",
+        [
+            [1, 2, 3],
+            np.ones((2, 2)),
+        ],
+    )
+    def test_dtype_non_empty_list_rejected(self, data):
+        with helper.raises(tp.TripyException, match="Data type can only be specified for empty lists."):
+            tensor = tp.Tensor(data, dtype=tp.float16)
+
+    @pytest.mark.parametrize("kind", ["cpu", "gpu"])
+    @pytest.mark.parametrize("data", [3.14, [], [1, 2, 3]])
+    def test_device_for_lists(self, kind, data):
+        a = tp.Tensor(data, device=tp.device(kind))
+
+        assert isinstance(a.trace_tensor.producer, Constant)
+        assert a.trace_tensor.producer.device.kind == kind
+
+    @pytest.mark.parametrize("kind", ["cpu", "gpu"])
+    def test_device_dlpack_rejected(self, kind):
+        a = torch.ones((2, 2), dtype=torch.float32)
+
+        with helper.raises(tp.TripyException, match="Device can only be specified for Python lists and numbers."):
+            tp.Tensor(a, device=tp.device(kind))

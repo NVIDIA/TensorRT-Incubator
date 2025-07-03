@@ -44,7 +44,7 @@ def any(
     .. code-block:: python
         :linenos:
 
-        input = tp.Tensor([True, False], dtype=tp.bool)
+        input = tp.Tensor([True, False])
         out = tp.any(input)
         assert bool(out)
     """

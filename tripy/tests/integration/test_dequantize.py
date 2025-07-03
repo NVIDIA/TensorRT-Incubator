@@ -29,9 +29,9 @@ class TestDequantize:
     )
     def test_dequantize_int8_per_tensor(self, dtype, eager_or_compiled):
         data = [4, 8]
-        input_tp = tp.Tensor(data, dtype=tp.int8)
+        input_tp = tp.cast(tp.Tensor(data), tp.int8)
         scale = torch.tensor(0.5, dtype=TORCH_DTYPES[dtype])
-        scale_tp = tp.Tensor(scale, dtype=dtype)
+        scale_tp = tp.Tensor(scale)
 
         def func(input):
             return tp.dequantize(input, scale_tp, dtype)
@@ -49,9 +49,9 @@ class TestDequantize:
         if dtype == tp.float16:
             pytest.skip("TRT does not support fp16->int8 per-channel dequant.")
         data = [[4, 8], [4, 8]]
-        input_tp = tp.Tensor(data, dtype=tp.int8)
+        input_tp = tp.cast(tp.Tensor(data), tp.int8)
         scale = torch.tensor([0.8, 0.9], dtype=TORCH_DTYPES[dtype])
-        scale_tp = tp.Tensor(scale, dtype=dtype)
+        scale_tp = tp.Tensor(scale)
 
         def func(input):
             return tp.dequantize(input, scale_tp, dtype, dim=0)
@@ -68,9 +68,9 @@ class TestDequantize:
     @skip_if_older_than_sm89
     def test_dequantize_float8_per_tensor(self, dtype):
         data_value = [1.0, 1.0]
-        input_tp = tp.Tensor(data_value, dtype=tp.float8)
+        input_tp = tp.cast(tp.Tensor(data_value), dtype=tp.float8)
         scale = torch.tensor(0.5, dtype=TORCH_DTYPES[dtype])
-        scale_tp = tp.Tensor(scale, dtype=dtype)
+        scale_tp = tp.Tensor(scale)
         dequantized = tp.dequantize(input_tp, scale_tp, dtype)
         assert dequantized.dtype == dtype
         print(dequantized)
@@ -84,9 +84,9 @@ class TestDequantize:
     @skip_if_older_than_sm89
     def test_dequantize_float8_per_channel(self, dtype):
         data_value = [[1.0, 1.0], [1.0, 1.0]]
-        input_tp = tp.Tensor(data_value, dtype=tp.float8)
+        input_tp = tp.cast(tp.Tensor(data_value), dtype=tp.float8)
         scale = torch.tensor([0.8, 0.9], dtype=TORCH_DTYPES[dtype])
-        scale_tp = tp.Tensor(scale, dtype=dtype)
+        scale_tp = tp.Tensor(scale)
         dequantized = tp.dequantize(input_tp, scale_tp, dtype, dim=0)
         assert dequantized.dtype == dtype
         print(dequantized)

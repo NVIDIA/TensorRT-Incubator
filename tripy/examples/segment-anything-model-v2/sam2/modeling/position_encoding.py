@@ -113,8 +113,7 @@ class PositionEmbeddingRandom(tp.Module):
         if scale is None or scale <= 0.0:
             scale = 1.0
         self.positional_encoding_gaussian_matrix = tp.Tensor(
-            scale * np.random.randn(2, num_pos_feats).astype(np.float32),
-            dtype=tp.float32,
+            scale * np.random.randn(2, num_pos_feats).astype(np.float32)
         )
 
     def _pe_encoding(self, coords: tp.Tensor) -> tp.Tensor:

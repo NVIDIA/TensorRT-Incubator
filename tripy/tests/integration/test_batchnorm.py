@@ -43,7 +43,7 @@ class TestBatchNorm:
         tp_batchnorm.running_var = tp.Tensor(batchnorm.running_var.detach())
 
         input = torch.randn(input_shape, dtype=torch_dtype).to("cuda")
-        tp_input = tp.Tensor(input, dtype=tp_dtype)
+        tp_input = tp.Tensor(input)
 
         output = eager_or_compiled(tp_batchnorm, tp_input)
 

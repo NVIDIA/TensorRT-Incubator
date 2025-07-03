@@ -175,12 +175,12 @@ class TestTensorConversion:
         def func(a: tp.Tensor, b: tp.types.TensorLike):
             return a, b
 
-        a, b = func(tp.Tensor([1.0], dtype=tp.float16), 4.0)
+        a, b = func(tp.ones([1], dtype=tp.float16), 4.0)
 
         assert isinstance(b, tp.Tensor)
         assert b.dtype == tp.float16
 
-        a, b = func(tp.Tensor([1.0], dtype=tp.float16), 4)
+        a, b = func(tp.ones([1], dtype=tp.float16), 4)
 
         assert isinstance(b, tp.Tensor)
         assert b.dtype == tp.float16
@@ -196,7 +196,7 @@ class TestTensorConversion:
             return a, b
 
         with helper.raises(tp.TripyException, "Refusing to automatically cast"):
-            func(tp.Tensor([1, 2], dtype=dtype), arg)
+            func(tp.ones([2], dtype=dtype), arg)
 
     def test_preprocess_func(self):
 

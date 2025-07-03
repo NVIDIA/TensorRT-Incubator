@@ -38,7 +38,7 @@ class TestLinear:
         net.linear.weight = tp.iota((2, 4))
         net.linear.bias = tp.iota((2,))
         cp_a1 = cp.ones((3, 4), dtype=cp.float32)
-        a1 = tp.Tensor(cp_a1, device=tp.device("gpu"))
+        a1 = tp.Tensor(cp_a1)
 
         out = eager_or_compiled(net, a1)
 
@@ -93,7 +93,7 @@ class TestQuantLinear:
         net = self._create_network(use_input_scale, quant_dtype, weight_quant_dim)
 
         cp_a1 = cp.ones((3, 4), dtype=cp.float32)
-        a1 = tp.Tensor(cp_a1, device=tp.device("gpu"))
+        a1 = tp.Tensor(cp_a1)
         if use_input_scale and weight_quant_dim == 1:
             with helper.raises(
                 tp.TripyException,
@@ -133,7 +133,7 @@ class TestQuantLinear:
         linear.bias = tp.Tensor(np_bias)
 
         cp_input = cp.ones((4, 4), dtype=np.float32)
-        input = tp.Tensor(cp_input, device=tp.device("gpu"))
+        input = tp.Tensor(cp_input)
         out = eager_or_compiled(linear, input)
 
         np_out = cp_input.get() @ (np_weight.transpose()) + np_bias

@@ -32,8 +32,8 @@ class TestQuantize:
     def test_quantize_int8_per_tensor(self, dtype, eager_or_compiled):
         input = torch.tensor([1.0, 2.0], dtype=TORCH_DTYPES[dtype])
         scale = torch.tensor(0.5, dtype=TORCH_DTYPES[dtype])
-        input_tp = tp.Tensor(input, dtype=dtype)
-        scale_tp = tp.Tensor(scale, dtype=dtype)
+        input_tp = tp.Tensor(input)
+        scale_tp = tp.Tensor(scale)
 
         def func(input):
             return tp.quantize(input, scale_tp, tp.int8)
@@ -58,8 +58,8 @@ class TestQuantize:
     def test_quantize_int8_per_channel(self, dtype, eager_or_compiled):
         input = torch.tensor([[1.0, 2.0], [3.0, 4.0]], dtype=TORCH_DTYPES[dtype])
         scale = torch.tensor([0.2, 0.1], dtype=TORCH_DTYPES[dtype])
-        input_tp = tp.Tensor(input, dtype=dtype)
-        scale_tp = tp.Tensor(scale, dtype=dtype)
+        input_tp = tp.Tensor(input)
+        scale_tp = tp.Tensor(scale)
 
         def func(input):
             return tp.quantize(input, scale_tp, tp.int8, dim=0)
@@ -75,8 +75,8 @@ class TestQuantize:
     def test_quantize_float8_per_tensor(self, dtype, eager_or_compiled):
         input = torch.tensor([1.0, 2.0], dtype=TORCH_DTYPES[dtype])
         scale = torch.tensor(0.5, dtype=TORCH_DTYPES[dtype])
-        input_tp = tp.Tensor(input, dtype=dtype)
-        scale_tp = tp.Tensor(scale, dtype=dtype)
+        input_tp = tp.Tensor(input)
+        scale_tp = tp.Tensor(scale)
 
         def func(input):
             return tp.quantize(input, scale_tp, tp.float8)
@@ -98,8 +98,8 @@ class TestQuantize:
     def test_quantize_float8_per_channel(self, dtype, eager_or_compiled):
         input = torch.tensor([[1.0, 2.0], [3.0, 4.0]], dtype=TORCH_DTYPES[dtype])
         scale = torch.tensor([0.2, 0.1], dtype=TORCH_DTYPES[dtype])
-        input_tp = tp.Tensor(input, dtype=dtype)
-        scale_tp = tp.Tensor(scale, dtype=dtype)
+        input_tp = tp.Tensor(input)
+        scale_tp = tp.Tensor(scale)
 
         def func(input):
             return tp.quantize(input, scale_tp, tp.float8, dim=0)
@@ -133,7 +133,7 @@ class TestQuantize:
             scale = torch.ones((4,), dtype=TORCH_DTYPES[dtype])
 
         input = torch.ones((4, 4), dtype=TORCH_DTYPES[dtype])
-        input_tp = tp.Tensor(input, dtype=dtype)
+        input_tp = tp.Tensor(input)
 
         def func(inp):
             scale_tp = tp.Tensor(scale)

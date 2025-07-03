@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,8 +20,8 @@ import nvtripy as tp
 @pytest.mark.parametrize(
     "a, b, expected",
     [
-        (tp.Tensor([1, 2], dtype=tp.float32), tp.Tensor([1, 2], dtype=tp.float32), True),
-        (tp.ones((2, 2), dtype=tp.int32), tp.Tensor([[1, 1], [1, 1]], dtype=tp.int32), True),
+        (tp.Tensor([1.0, 2.0]), tp.Tensor([1.0, 2.0]), True),
+        (tp.ones((2, 2), dtype=tp.int32), tp.Tensor([[1, 1], [1, 1]]), True),
         (tp.ones((1, 4)), tp.ones((4, 1)), False),
     ],
 )

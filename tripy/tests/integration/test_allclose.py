@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -32,7 +32,5 @@ class TestAllClose:
         ],
     )
     def test_all_close_float32(self, tensor_a, tensor_b, rtol, atol, expected):
-        out = tp.allclose(
-            tp.Tensor(tensor_a, dtype=tp.float32), tp.Tensor(tensor_b, dtype=tp.float32), rtol=rtol, atol=atol
-        )
+        out = tp.allclose(tp.Tensor(tensor_a), tp.Tensor(tensor_b), rtol=rtol, atol=atol)
         assert out == expected

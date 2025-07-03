@@ -63,6 +63,7 @@ def pad(
         expected = np.pad(input_np, ((1, 0), (0, 1))) # doc: omit
         assert np.array_equal(cp.from_dlpack(output).get(), expected)
     """
+    from nvtripy.frontend.ops.cast import cast
     from nvtripy.frontend.tensor import Tensor
 
     if len(pad) != input.rank:
@@ -88,4 +89,4 @@ def pad(
     sizes = input_shape + padding_lows + padding_highs
     steps = op_utils.tensor_from_shape_like([1] * input.rank)
 
-    return op_utils.create_op(SliceFill, [input, starts, sizes, steps, Tensor(value, dtype=input.dtype)])
+    return op_utils.create_op(SliceFill, [input, starts, sizes, steps, cast(Tensor(value), dtype=input.dtype)])

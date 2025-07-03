@@ -44,11 +44,10 @@ class TestCast:
         ],
     )
     def test_cast(self, input_dtype, target_dtype, eager_or_compiled):
-        tp_input_dtype = NUMPY_TO_TRIPY[input_dtype]
         tp_target_dtype = NUMPY_TO_TRIPY[target_dtype]
 
         # TODO(#222): Integer casts with negative numbers fail in many cases
-        input_tensor = tp.Tensor([0, 1, 2], dtype=tp_input_dtype).eval()
+        input_tensor = tp.copy(tp.Tensor(np.ones((2, 3), dtype=input_dtype)), tp.device("gpu"))
 
         output = eager_or_compiled(tp.cast, input_tensor, tp_target_dtype)
 
@@ -59,7 +58,7 @@ class TestCast:
     @pytest.mark.parametrize("source_dtype", [pytest.param(tp.float8, marks=skip_if_older_than_sm89), tp.int4])
     def test_cast_quantized_dtypes_into_bool(self, source_dtype, eager_or_compiled):
         # TODO(#223): Using an odd size leads to a strange crash, so can't just use [-1.0, 0.0, 1.0]
-        input_tensor = tp.Tensor([-1.0, 0.0, 0.0, 1.0], dtype=tp.float32)
+        input_tensor = tp.Tensor([-1.0, 0.0, 0.0, 1.0])
 
         def func(input):
             q = tp.quantize(input, scale=1.0, dtype=source_dtype)

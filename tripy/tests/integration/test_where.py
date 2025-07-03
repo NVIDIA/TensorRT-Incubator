@@ -46,13 +46,13 @@ class TestWhereOp:
         assert np.array_equal(cp.from_dlpack(out).get(), np.array(np.where((t_cond % 2 == 0), x, y)))
 
     def test_dimension_size_inputs(self):
-        condition = tp.Tensor(True, dtype=tp.bool)
+        condition = tp.Tensor(True)
         out = tp.where(condition, tp.DimensionSize(0), tp.DimensionSize(1))
         assert isinstance(out, tp.DimensionSize)
         assert out.tolist() == 0
 
     def test_explicit_condition(self, eager_or_compiled):
-        select_indices = tp.Tensor([True, False, True, False], dtype=tp.bool)
+        select_indices = tp.Tensor([True, False, True, False])
         ones = tp.ones((4,), dtype=tp.int32)
         zeros = tp.zeros((4,), dtype=tp.int32)
         w = eager_or_compiled(tp.where, select_indices, ones, zeros)

@@ -30,11 +30,11 @@ def iota_impl(shape: "nvtripy.Tensor", dim: int, dtype: datatype.dtype) -> "nvtr
     from nvtripy.frontend.tensor import Tensor
 
     linspace_dtype = Linspace.get_closest_dtype(dtype)
-    start = Tensor(0, dtype=linspace_dtype)
+    start = cast(Tensor(0), dtype=linspace_dtype)
 
     step = [0] * op_utils.get_shape_len(shape)  # output rank
     step[dim] = 1
-    step = Tensor(step, dtype=linspace_dtype)
+    step = cast(Tensor(step), dtype=linspace_dtype)
 
     out = op_utils.create_op(Linspace, [shape, start, step], dtype=linspace_dtype)
     return cast(out, dtype)
