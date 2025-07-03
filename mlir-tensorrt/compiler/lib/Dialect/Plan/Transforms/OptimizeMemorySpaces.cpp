@@ -29,6 +29,8 @@
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
+#include "mlir/IR/AsmState.h"
+#include "mlir/IR/DialectResourceBlobManager.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
@@ -36,6 +38,8 @@ namespace mlir::plan {
 #define GEN_PASS_DEF_PLANOPTIMIZEMEMORYSPACESPASS
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h.inc"
 } // namespace mlir::plan
+
+constexpr int64_t kConstantDuplicationLimit = 1024;
 
 using namespace mlir;
 using namespace mlir::plan;
@@ -361,6 +365,62 @@ struct AllocTensorAbsorbCastPattern : public OpRewritePattern<tensor::CastOp> {
   }
 };
 
+/// Absorb `tensor.cast` into `arith.constant` producer by folding in-place or
+/// duplicating the  constant (within limits).
+struct ConstantAbsorbCastPattern : public OpRewritePattern<tensor::CastOp> {
+  using OpRewritePattern::OpRewritePattern;
+  LogicalResult matchAndRewrite(tensor::CastOp op,
+                                PatternRewriter &rewriter) const override {
+    auto source = op.getOperand();
+    auto resultType = dyn_cast<RankedTensorType>(op.getType());
+    if (!resultType || !resultType.hasStaticShape())
+      return rewriter.notifyMatchFailure(op, "skipping non-ranked-tensor type");
+    auto constantOp = source.getDefiningOp<arith::ConstantOp>();
+    if (!constantOp)
+      return rewriter.notifyMatchFailure(op, "skipping non-constant source");
+
+    bool canUpdateInPlace = constantOp->hasOneUse();
+    if (!canUpdateInPlace) {
+      if (resultType.getNumElements() > kConstantDuplicationLimit)
+        return rewriter.notifyMatchFailure(
+            op, "skipping constant with too many elements and multiple users");
+    }
+
+    auto constantType = dyn_cast<RankedTensorType>(constantOp.getType());
+    if (!constantType)
+      return rewriter.notifyMatchFailure(op, "skipping non-ranked-tensor type");
+    auto constantMemorySpace =
+        llvm::dyn_cast_if_present<MemorySpaceAttr>(constantType.getEncoding());
+    if (!constantMemorySpace)
+      return rewriter.notifyMatchFailure(op, "skipping non-host-visible");
+
+    ElementsAttr newAttr{};
+    if (auto elementsAttr = dyn_cast<DenseElementsAttr>(constantOp.getValue()))
+      newAttr = elementsAttr.reshape(resultType);
+    if (auto resourceAttr =
+            dyn_cast<DenseResourceElementsAttr>(constantOp.getValue())) {
+      DenseResourceElementsHandle handle = resourceAttr.getRawHandle();
+      newAttr = DenseResourceElementsAttr::get(resultType, handle);
+    }
+    if (!newAttr)
+      return rewriter.notifyMatchFailure(op, "unhandled attribute value type");
+
+    // Modify the constant op in-place if possible.
+    if (canUpdateInPlace) {
+      rewriter.modifyOpInPlace(constantOp, [&]() {
+        constantOp.setValueAttr(newAttr);
+        constantOp.getResult().setType(resultType);
+      });
+      rewriter.replaceOp(op, constantOp);
+      return success();
+    }
+
+    // Otherwise, duplicate the constant using the new encoding type.
+    rewriter.replaceOpWithNewOp<arith::ConstantOp>(op, resultType, newAttr);
+    return success();
+  }
+};
+
 /// Rewrite `memref.load` that acts on device memory to first copy the buffer to
 /// the host and load from the host buffer.
 struct TensorDeviceExtractRewriter
@@ -533,15 +593,16 @@ struct OptimizeMemorySpacesPass
     // clang-format off
     patterns.insert<
       AllocTensorAbsorbCastPattern,
+      ConstantAbsorbCastPattern,
       DeviceInsertRewriter,
+      LoopFromElementsPattern,
       ReshapeAbsorbDeviceCast,
       SCFForAbsorbCastPattern,
       SCFWhileAbsorbCastAfterPattern,
       SCFWhileAbsorbCastBeforePattern,
-      TensorDeviceExtractRewriter,
-      LoopFromElementsPattern
+      TensorDeviceExtractRewriter
     >(&getContext());
-
+    // clang-format on
 
     if (failed(applyPatternsGreedily(func, std::move(patterns)))) {
       emitError(func.getLoc()) << "failed to run " << getArgument();
