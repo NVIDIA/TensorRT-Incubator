@@ -30,10 +30,6 @@ from examples.diffusion.clip_model import CLIPConfig
 from examples.diffusion.model import StableDiffusion, StableDiffusionConfig
 from examples.diffusion.weight_loader import load_from_diffusers
 
-import nvtx
-
-tp.logger.verbosity = "ir"
-
 batch = tp.NamedDimension("batch", 1, 1, 1)
 max_seq_len = tp.NamedDimension("max_seq_len", 77, 77, 77)
 embed_dim = tp.NamedDimension("embed_dim", 768, 768, 768)
@@ -158,9 +154,6 @@ def tripy_diffusion(args):
         clip_compiled.save(os.path.join(args.engine_dir, "clip_executable.tpymodel"))
         unet_compiled.save(os.path.join(args.engine_dir, "unet_executable.tpymodel"))
         vae_compiled.save(os.path.join(args.engine_dir, "vae_executable.tpymodel"))
-
-    pr = nvtx.Profile()
-    pr.enable()
 
     # Run through CLIP to get context from prompt
     tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14")
