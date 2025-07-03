@@ -1,6 +1,6 @@
 //===- ConstantFolding.cpp  -----------------------------------------------===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -16,6 +16,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
+// Where noted below, some code is reproduced from upstream Stablehlo
+// "aggressive folder" patterns. They can be removed once we fix upstream and
+// can directly use those patterns. The copyright/license is reproduced below:
+//
+// Copyright 2024 The StableHLO Authors.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+//
 //===----------------------------------------------------------------------===//
 ///
 /// Implementation of the `stablehlo-ext-constant-folding` pass.
@@ -27,16 +35,19 @@
 #include "mlir-tensorrt/Dialect/StablehloExt/Transforms/Patterns.h"
 #include "mlir-tensorrt/Dialect/StablehloExt/Utils/GatherScatterUtils.h"
 #include "mlir-tensorrt/Dialect/StablehloExt/Utils/Utils.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/CommonFolders.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Dialect/UB/IR/UBOps.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
+#include "stablehlo/conversions/linalg/transforms/MapStablehloToScalarOp.h"
 #include "stablehlo/dialect/StablehloOps.h"
 #include "stablehlo/dialect/TypeInference.h"
 #include "stablehlo/transforms/Passes.h"
 #include "stablehlo/transforms/optimization/Passes.h"
 #include "llvm/ADT/STLExtras.h"
+#include <numeric>
 
 namespace mlir {
 namespace stablehlo_ext {
@@ -147,19 +158,100 @@ static APFloat roundToMatchingMlirType(FloatType mlirType,
   return valueToConvert;
 }
 
+/// Fold elementwise `calculate(lhs, rhs)` and return the result as an
+/// ElementsAttr.
+/// NOTE: this is a slightly optimized version of `mlir::constantFoldBinaryOp`
+/// which also allows the result element type to be different from the operand
+/// element type.
+template <typename ElementValueT, typename ResultValueT = ElementValueT>
+static ElementsAttr constFoldBinaryOpImpl(
+    ElementsAttr lhs, ElementsAttr rhs, RankedTensorType resultType,
+    function_ref<std::optional<ResultValueT>(ElementValueT, ElementValueT)>
+        calculate) {
+  assert(lhs.getType() == rhs.getType() && "expected equal operand types");
+
+  // Fast path if both operands are splat.
+  if (lhs.isSplat() && rhs.isSplat()) {
+    auto lhsValue = lhs.getSplatValue<ElementValueT>();
+    auto rhsValue = rhs.getSplatValue<ElementValueT>();
+    if (auto result = calculate(lhsValue, rhsValue))
+      return DenseElementsAttr::get(resultType, *result);
+    return {};
+  }
+
+  auto maybeLhsIt = lhs.try_value_begin<ElementValueT>();
+  auto maybeRhsIt = rhs.try_value_begin<ElementValueT>();
+  if (!maybeLhsIt || !maybeRhsIt)
+    return {};
+  auto lhsIt = *maybeLhsIt;
+  auto rhsIt = *maybeRhsIt;
+  SmallVector<ResultValueT, 4> elementResults;
+  elementResults.reserve(lhs.getNumElements());
+  for (size_t i = 0, e = lhs.getNumElements(); i < e; ++i, ++lhsIt, ++rhsIt) {
+    auto elementResult = calculate(*lhsIt, *rhsIt);
+    if (!elementResult)
+      return {};
+    elementResults.emplace_back(std::move(*elementResult));
+  }
+  return DenseElementsAttr::get(resultType, elementResults);
+}
+
+namespace {
+/// This is the base class for simple binary operations whose folding operation
+/// can be described using a simple functor object like `std::multiplies<>`.
+template <typename OpType, typename ArithOpFunctor>
+struct EvalBinaryOpPattern : public OpRewritePattern<OpType> {
+  using OpRewritePattern<OpType>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(OpType op,
+                                PatternRewriter &rewriter) const override {
+    static_assert(OpType::template hasTrait<OpTrait::NOperands<2>::Impl>(),
+                  "expected binary op");
+
+    ElementsAttr lhs, rhs;
+    if (!matchPattern(op->getOperand(0), m_Constant(&lhs)) ||
+        !matchPattern(op->getOperand(1), m_Constant(&rhs)) ||
+        exceedsSizeLimit(lhs, rhs))
+      return failure();
+
+    if (lhs.getElementType().isIntOrIndex() &&
+        rhs.getElementType().isIntOrIndex()) {
+      auto result = constFoldBinaryOpImpl<APInt, APInt>(
+          lhs, rhs, op.getLhs().getType(),
+          [](const APInt &a, const APInt &b) -> std::optional<APInt> {
+            return ArithOpFunctor{}(std::move(a), b);
+          });
+      if (!result)
+        return failure();
+      return replaceOpWithNewOpAndMaybeCast<stablehlo::ConstantOp>(rewriter, op,
+                                                                   result);
+    }
+    if (lhs.getElementType().isFloat() && rhs.getElementType().isFloat()) {
+      auto result = constFoldBinaryOpImpl<APFloat, APFloat>(
+          lhs, rhs, op.getLhs().getType(),
+          [](const APFloat &a, const APFloat &b) -> std::optional<APFloat> {
+            return ArithOpFunctor{}(std::move(a), b);
+          });
+      if (!result)
+        return failure();
+      return replaceOpWithNewOpAndMaybeCast<stablehlo::ConstantOp>(rewriter, op,
+                                                                   result);
+    }
+    return failure();
+  }
+};
+
 //===----------------------------------------------------------------------===//
 // TransposeOp
 //===----------------------------------------------------------------------===//
 
-namespace {
 /// Perform folding of `stablehlo.transpose(stablehlo.constant)`.
 struct ConstFoldTranspose : OpRewritePattern<stablehlo::TransposeOp> {
   using OpRewritePattern::OpRewritePattern;
   LogicalResult matchAndRewrite(stablehlo::TransposeOp op,
                                 PatternRewriter &rewriter) const override {
-    RankedTensorType inputType =
-        dyn_cast<RankedTensorType>(op.getOperand().getType());
-    RankedTensorType resultType = dyn_cast<RankedTensorType>(op.getType());
+    RankedTensorType inputType = op.getOperand().getType();
+    RankedTensorType resultType = op.getType();
     if (!inputType || !resultType)
       return failure();
 
@@ -168,6 +260,13 @@ struct ConstFoldTranspose : OpRewritePattern<stablehlo::TransposeOp> {
     if (!matchPattern(op.getOperand(), m_Constant(&inputConst)) ||
         exceedsSizeLimit(inputConst))
       return failure();
+
+    // Handle the zero-dim case.
+    if (inputType.getRank() == 0) {
+      rewriter.replaceOpWithNewOp<stablehlo::ConstantOp>(op, resultType,
+                                                         inputConst);
+      return success();
+    }
 
     auto permRange = op.getPermutation();
     AffineMap perm = AffineMap::getPermutationMap(
@@ -226,14 +325,16 @@ struct SimplifyTrivialMinOrTrivalMax final : OpRewritePattern<OpType> {
 //===----------------------------------------------------------------------===//
 
 /// Fold `stablehlo.reshape` with the constant producer.
+/// TODO: This pattern differs from the upstream in that it handles
+/// DenseResourceElementsAttr. Move this upstream.
 struct ConstFoldReshape : public OpRewritePattern<stablehlo::ReshapeOp> {
   using OpRewritePattern::OpRewritePattern;
   LogicalResult matchAndRewrite(stablehlo::ReshapeOp op,
                                 PatternRewriter &rewriter) const override {
-    auto constOp = op.getOperand().getDefiningOp<stablehlo::ConstantOp>();
-    if (!constOp)
+    ElementsAttr elAttr{};
+    if (!matchPattern(op.getOperand(), m_Constant(&elAttr)))
       return failure();
-    auto attr = mlir::constantFoldReshape(op.getType(), constOp.getValueAttr());
+    ElementsAttr attr = mlir::constantFoldReshape(op.getType(), elAttr);
     if (!attr)
       return failure();
     return replaceOpWithNewOpAndMaybeCast<stablehlo::ConstantOp>(rewriter, op,
@@ -461,80 +562,79 @@ struct RsqrtFolder : public OpRewritePattern<stablehlo::RsqrtOp> {
 // CompareOp
 //===----------------------------------------------------------------------===//
 
-template <typename Convert>
-static ElementsAttr compareFolder(RankedTensorType resultType,
-                                  ElementsAttr lhsAttr, ElementsAttr rhsAttr) {
-  DenseElementsAttr lhs = dyn_cast<DenseElementsAttr>(lhsAttr);
-  DenseElementsAttr rhs = dyn_cast<DenseElementsAttr>(rhsAttr);
-  if (!lhs || !rhs)
-    return nullptr;
-  assert(lhs.getType() == rhs.getType() && "expected equal type lhs/rhs");
-
-  if (!isa<FloatType>(lhs.getType().getElementType()))
-    return nullptr;
-
-  if (lhs.isSplat() && rhs.isSplat())
-    return DenseElementsAttr::get(
-        resultType,
-        Convert()(lhs.getSplatValue<APFloat>(), rhs.getSplatValue<APFloat>()));
-
-  SmallVector<bool> values;
-  values.reserve(lhs.getNumElements());
-  for (auto [lVal, rVal] :
-       llvm::zip(lhs.getValues<APFloat>(), rhs.getValues<APFloat>()))
-    values.push_back(Convert()(lVal, rVal));
-  return DenseElementsAttr::get(cast<ShapedType>(resultType), values);
-}
-
 namespace {
+
 struct ConstFoldCompare : public OpRewritePattern<stablehlo::CompareOp> {
   using OpRewritePattern::OpRewritePattern;
 
   LogicalResult matchAndRewrite(stablehlo::CompareOp op,
                                 PatternRewriter &rewriter) const override {
-    if (!isa<FloatType>(op.getLhs().getType().getElementType()) ||
-        !isa<FloatType>(op.getRhs().getType().getElementType()))
-      return rewriter.notifyMatchFailure(op->getLoc(),
-                                         "lhs and rhs should be float");
-    if (!op.getType().hasStaticShape())
 
-      return rewriter.notifyMatchFailure(op->getLoc(),
-                                         "result type must be static");
-
-    ElementsAttr lhsAttr{};
-    if (!matchPattern(op.getLhs(), m_Constant(&lhsAttr)))
-      return rewriter.notifyMatchFailure(op->getLoc(),
-                                         "lhs needs to be a constant");
-    ElementsAttr rhsAttr{};
-    if (!matchPattern(op.getRhs(), m_Constant(&rhsAttr)))
-      return rewriter.notifyMatchFailure(op->getLoc(),
-                                         "rhs needs to be a constant");
-
-    ComparisonDirection direction = op.getComparisonDirection();
+    ElementsAttr lhsAttr{}, rhsAttr{};
+    if (!matchPattern(op.getLhs(), m_Constant(&lhsAttr)) ||
+        !matchPattern(op.getRhs(), m_Constant(&rhsAttr)))
+      return rewriter.notifyMatchFailure(op->getLoc(), "operands not constant");
 
     if (exceedsSizeLimit(lhsAttr, rhsAttr))
       return failure();
 
-// Upstream StableHLO `StablehloAggresiveSimplification` pass has folders for
-// integer type.
-#define COMPARE_FOLDER(comparison, Func)                                       \
-  if (direction == comparison) {                                               \
-    ElementsAttr resultFloat =                                                 \
-        compareFolder<Func<APFloat>>(op.getType(), lhsAttr, rhsAttr);          \
-    if (!resultFloat)                                                          \
-      return failure();                                                        \
-    return replaceOpWithNewOpAndMaybeCast<stablehlo::ConstantOp>(rewriter, op, \
-                                                                 resultFloat); \
-  }
+    ComparisonDirection direction = op.getComparisonDirection();
+    std::optional<ComparisonType> kind = op.getCompareType();
 
-    COMPARE_FOLDER(ComparisonDirection::EQ, std::equal_to);
-    COMPARE_FOLDER(ComparisonDirection::NE, std::not_equal_to);
-    COMPARE_FOLDER(ComparisonDirection::LT, std::less);
-    COMPARE_FOLDER(ComparisonDirection::LE, std::less_equal);
-    COMPARE_FOLDER(ComparisonDirection::GT, std::greater);
-    COMPARE_FOLDER(ComparisonDirection::GE, std::greater_equal);
-#undef COMPARE_FOLDER
-    return success();
+    if (lhsAttr.getElementType().isIntOrIndex() &&
+        rhsAttr.getElementType().isIntOrIndex()) {
+      // We the comparison kind is SIGNED unless:
+      // - explictly set to UNSIGNED.
+      // - the lhs operand type is unsigned integer and no kind
+      //   has been explicitly set.
+      bool isUnsigned = kind == ComparisonType::UNSIGNED;
+      if (!kind && lhsAttr.getElementType().isUnsignedInteger())
+        isUnsigned = true;
+      std::optional<arith::CmpIPredicate> predicate =
+          stablehlo::impl::getCmpPredicate<arith::CmpIPredicate>(direction,
+                                                                 !isUnsigned);
+      if (!predicate)
+        return failure();
+      Attribute result = constFoldBinaryOpImpl<APInt, APInt>(
+          lhsAttr, rhsAttr, op.getLhs().getType().clone(rewriter.getI1Type()),
+          [&](const APInt &lhs, const APInt &rhs) {
+            return APInt(1,
+                         mlir::arith::applyCmpPredicate(*predicate, lhs, rhs));
+          });
+      if (!result)
+        return failure();
+      return replaceOpWithNewOpAndMaybeCast<stablehlo::ConstantOp>(rewriter, op,
+                                                                   result);
+    }
+
+    if (lhsAttr.getElementType().isFloat() &&
+        rhsAttr.getElementType().isFloat()) {
+      std::optional<arith::CmpFPredicate> predicate =
+          stablehlo::impl::getCmpPredicate<arith::CmpFPredicate>(
+              direction, /*isSigned=*/true);
+      if (!predicate)
+        return failure();
+
+      auto maybeLhsIt = lhsAttr.try_value_begin<APFloat>();
+      auto maybeRhsIt = rhsAttr.try_value_begin<APFloat>();
+      if (!maybeLhsIt || !maybeRhsIt)
+        return failure();
+      auto lhsIt = *maybeLhsIt;
+      auto rhsIt = *maybeRhsIt;
+      SmallVector<APInt, 4> elementResults;
+      elementResults.reserve(lhsAttr.getNumElements());
+      for (size_t i = 0, e = lhsAttr.getNumElements(); i < e;
+           ++i, ++lhsIt, ++rhsIt) {
+        elementResults.push_back(APInt(
+            1, mlir::arith::applyCmpPredicate(*predicate, *lhsIt, *rhsIt)));
+      }
+      auto result = DenseElementsAttr::get(
+          op.getLhs().getType().clone(rewriter.getI1Type()), elementResults);
+      return replaceOpWithNewOpAndMaybeCast<stablehlo::ConstantOp>(rewriter, op,
+                                                                   result);
+    }
+
+    return failure();
   }
 };
 
@@ -1090,6 +1190,111 @@ struct FoldBroadcastInDimSplatPattern final
 };
 } // namespace
 
+//===----------------------------------------------------------------------===//
+// These patterns are reproduced from upstream Stablehlo
+// "aggressive folder" patterns. They can be removed once we fix upstream and
+// can directly use those patterns.
+//
+//===----------------------------------------------------------------------===//
+
+namespace {
+/// Fold `stablehlo.iota` only if the result type has integer type and is very
+/// small.
+struct EvalIotaOpPattern : public OpRewritePattern<IotaOp> {
+  using OpRewritePattern::OpRewritePattern;
+  LogicalResult matchAndRewrite(IotaOp op,
+                                PatternRewriter &rewriter) const override {
+    auto resultType = cast<RankedTensorType>(op.getType());
+    size_t numElems = resultType.getNumElements();
+    if (numElems > kFoldOpEltLimit)
+      return rewriter.notifyMatchFailure(op, "too many elements to fold");
+
+    auto elementType = resultType.getElementType();
+
+    if (!elementType.isInteger())
+      return rewriter.notifyMatchFailure(op, "expected integer result type");
+
+    auto outputSize = resultType.getNumElements();
+    auto resultBitWidth = elementType.getIntOrFloatBitWidth();
+    int64_t dimension = op.getIotaDimension();
+
+    if (outputSize == 0) {
+      rewriter.replaceOpWithNewOp<ConstantOp>(
+          op, DenseIntElementsAttr::get(resultType, ArrayRef<APInt>{}));
+      return success();
+    }
+
+    llvm::SmallVector<APInt> values;
+    values.reserve(outputSize);
+
+    int64_t sequences = 1;
+    int64_t sequenceMax = resultType.getDimSize(dimension);
+    int64_t elementRepetitions = 1;
+    for (int64_t i = 0; i < resultType.getRank(); i++) {
+      sequences *= i < dimension ? resultType.getDimSize(i) : 1;
+      elementRepetitions *= i > dimension ? resultType.getDimSize(i) : 1;
+    }
+
+    for (int64_t i = 0; i < sequences; ++i) {
+      for (int64_t value = 0; value < sequenceMax; ++value) {
+        for (int64_t k = 0; k < elementRepetitions; ++k) {
+          values.push_back(APInt(resultBitWidth, value));
+        }
+      }
+    }
+
+    rewriter.replaceOpWithNewOp<ConstantOp>(
+        op, DenseIntElementsAttr::get(resultType, values));
+    return success();
+  }
+};
+
+struct FoldConcatenateOpPattern final
+    : OpRewritePattern<mlir::stablehlo::ConcatenateOp> {
+  using OpRewritePattern::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(mlir::stablehlo::ConcatenateOp op,
+                                PatternRewriter &rewriter) const override {
+    RankedTensorType type = op.getType();
+    if (!type.hasStaticShape() || type.getNumElements() > kFoldOpEltLimit)
+      return failure();
+
+    // Fold concatenate when all inputs are constants.
+    OperandRange inputs = op.getInputs();
+    SmallVector<ElementsAttr> constants(inputs.size());
+    for (auto [input, constant] : llvm::zip_equal(inputs, constants)) {
+      if (!matchPattern(input, m_Constant(&constant)))
+        return failure();
+    }
+
+    uint64_t dim = op.getDimension();
+    ArrayRef<int64_t> shape = type.getShape();
+    int64_t topSize = std::accumulate(shape.begin(), shape.begin() + dim,
+                                      int64_t{1}, std::multiplies<>{});
+
+    SmallVector<Attribute> newElems;
+    newElems.reserve(type.getNumElements());
+
+    for (int64_t i = 0; i != topSize; ++i) {
+      for (ElementsAttr attr : constants) {
+        size_t bottomSize = attr.getNumElements() / topSize;
+        auto begin = attr.value_begin<Attribute>() + (i * bottomSize);
+        newElems.append(begin, begin + bottomSize);
+      }
+    }
+
+    rewriter.replaceOpWithNewOp<mlir::stablehlo::ConstantOp>(
+        op, DenseElementsAttr::get(op.getType(), newElems));
+    return success();
+  }
+};
+
+} // namespace
+
+//===----------------------------------------------------------------------===//
+// Public Functions and Pass Implementation
+//===----------------------------------------------------------------------===//
+
 void stablehlo_ext::populateStableHloAbsorbTensorCastPatterns(
     RewritePatternSet &patterns) {
   patterns.add<AbsorbTensorCastProducer>(patterns.getContext());
@@ -1119,9 +1324,14 @@ public:
         ConstFoldSub,
         ConstFoldTranspose,
         EliminateCascadedConverts,
+        EvalBinaryOpPattern<stablehlo::AddOp, std::plus<>>,
+        EvalBinaryOpPattern<stablehlo::MulOp, std::multiplies<>>,
+        EvalBinaryOpPattern<stablehlo::SubtractOp, std::minus<>>,
+        EvalIotaOpPattern,
         FixInvalidReturnWorkaround,
         FoldAndOp,
         FoldBroadcastInDimSplatPattern,
+        FoldConcatenateOpPattern,
         FoldOrOp,
         RewriteTrivialLogicalRightShiftPattern,
         RsqrtFolder,
