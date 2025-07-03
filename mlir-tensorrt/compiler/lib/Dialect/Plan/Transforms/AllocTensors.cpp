@@ -71,8 +71,6 @@ using bufferization::OneShotAnalysisState;
 using bufferization::func_ext::FuncAnalysisState;
 using bufferization::func_ext::FuncOpAnalysisState;
 
-static constexpr int64_t kHostConstantToFromElementsNumElementsLimit = 16;
-
 /// Create a tensor using a sequence of chained tensor.insert into a
 /// `bufferization.alloc_tensor` in the specified memory space (which must
 /// either be 'host' or 'host_pinned'). The provided `elements` should be given
@@ -335,108 +333,19 @@ struct TensorDeviceExtractRewriter
   }
 };
 
-/// Rewrite `arith.constant` host tensors to use an explicit local buffer using
-/// `bufferization.alloc_tensors`. Otherwise, the constant will be turned into a
-/// memref.global during bufferization.
-/// TODO: This pattern is required because currently we may not have memory
-/// space annotations on the constant tensors. It could be removed if we revise
-/// the strategy to populate memory space annotations on all tensors.
-struct HostShapeConstantsToAllocTensorPattern
-    : public OpRewritePattern<arith::ConstantOp> {
-  HostShapeConstantsToAllocTensorPattern(MLIRContext *ctx,
-                                         DataFlowSolver &solver)
-      : OpRewritePattern(ctx), solver(solver) {}
-  DataFlowSolver &solver;
-
-  LogicalResult matchAndRewrite(arith::ConstantOp op,
-                                PatternRewriter &rewriter) const override {
-    auto elementsAttr = dyn_cast<ElementsAttr>(op.getValue());
-    if (!elementsAttr ||
-        // Only tensor-typed elements are supported.
-        !isa<RankedTensorType>(elementsAttr.getType())
-        // Complex element types are not supported.
-        || !elementsAttr.getElementType().isIntOrIndexOrFloat())
-      return failure();
-    if (elementsAttr.getNumElements() >
-        kHostConstantToFromElementsNumElementsLimit)
-      return failure();
-    const TensorKindLattice *lattice =
-        solver.lookupState<TensorKindLattice>(op.getResult());
-    if (!lattice || lattice->getValue().isUninitialized() ||
-        lattice->getValue().isDeviceOnly())
-      return failure();
-
-    // Enumerate the uses which require host-side access. We only use this set
-    // if the value kind is 'both host and device', but we want to bail out
-    // early if we can't find any host uses. That indicates that the pattern
-    // already ran (but the analysis might now be out-of-date).
-    llvm::SmallPtrSet<OpOperand *, 4> hostUses =
-        getUsesFromSpace(op.getResult(), TensorKind::Host);
-    if (hostUses.empty())
-      return failure();
-
-    SmallVector<Value> elements;
-    for (Attribute attr : elementsAttr.getValues<Attribute>())
-      elements.push_back(rewriter.create<arith::ConstantOp>(
-          op.getLoc(), cast<TypedAttr>(attr)));
-
-    Value result = createTensorFromElements(
-        rewriter, op.getLoc(), cast<RankedTensorType>(elementsAttr.getType()),
-        elements, plan::MemorySpace::host);
-
-    if (lattice->getValue().isHostOnly()) {
-      rewriter.replaceOp(op, result);
-      return success();
-    }
-
-    assert(lattice->getValue().isBothHostAndDevice() &&
-           "expected value to be used on host");
-    rewriter.replaceUsesWithIf(op.getResult(), result, [&](OpOperand &use) {
-      return hostUses.contains(&use);
-    });
-    return success();
-  }
-};
-
-/// Rewrite `arith.constant` host tensors that are used on the host.
-/// This pattern differs from the above in that it is used only for constants
-/// larger than the limit `kHostConstantToFromElementsNumElementsLimit`.
-struct LargeHostConstantsAllocTensorPattern
-    : public OpRewritePattern<arith::ConstantOp> {
-  LargeHostConstantsAllocTensorPattern(MLIRContext *ctx, DataFlowSolver &solver)
-      : OpRewritePattern(ctx), solver(solver) {}
-  DataFlowSolver &solver;
-
-  LogicalResult matchAndRewrite(arith::ConstantOp op,
-                                PatternRewriter &rewriter) const override {
-    auto elementsAttr = dyn_cast<ElementsAttr>(op.getValue());
-    if (!elementsAttr || !isa<RankedTensorType>(elementsAttr.getType()))
-      return failure();
-    if (elementsAttr.getNumElements() <=
-        kHostConstantToFromElementsNumElementsLimit)
-      return failure();
-    const TensorKindLattice *lattice =
-        solver.lookupState<TensorKindLattice>(op.getResult());
-    if (!lattice || lattice->getValue().isUninitialized() ||
-        lattice->getValue().isDeviceOnly())
-      return failure();
-
-    if (failed(replaceHostUsesWithHostAlloc(rewriter, op.getResult())))
-      return failure();
-    return success();
-  }
-};
-
 /// Rewrite `tensor.empty` to `bufferization.alloc_tensor` in the `device`
 /// memory space.
 struct RewriteEmptyTensor : public OpRewritePattern<tensor::EmptyOp> {
   using OpRewritePattern::OpRewritePattern;
   LogicalResult matchAndRewrite(tensor::EmptyOp op,
                                 PatternRewriter &rewriter) const override {
+    auto memorySpace =
+        dyn_cast_or_null<MemorySpaceAttr>(op.getType().getEncoding());
+    if (!memorySpace)
+      return failure();
     rewriter.replaceOpWithNewOp<bufferization::AllocTensorOp>(
         op, op.getType(), op.getDynamicSizes(),
-        /*copy=*/Value{}, /*size_hint=*/Value{},
-        plan::MemorySpaceAttr::get(op.getContext(), plan::MemorySpace::device));
+        /*copy=*/Value{}, /*size_hint=*/Value{}, memorySpace);
     return success();
   }
 };
@@ -1056,9 +965,8 @@ public:
     config.listener = &solverAwareListener;
     FrozenRewritePatternSet patterns = [&]() {
       RewritePatternSet patterns_(ctx);
-      patterns_.insert<HostShapeConstantsToAllocTensorPattern,
-                       RewriteFromElements, TensorDeviceExtractRewriter,
-                       LargeHostConstantsAllocTensorPattern>(ctx, solver);
+      patterns_.insert<RewriteFromElements, TensorDeviceExtractRewriter>(
+          ctx, solver);
       return patterns_;
     }();
     for (FunctionOpInterface func : op.getOps<FunctionOpInterface>()) {

@@ -236,3 +236,46 @@ func.func @alloc_tensor_2(%arg0: tensor<2x128xf32>) -> tensor<2x128xf32> {
 // CHECK-LABEL: func.func @alloc_tensor_2
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<2x128xf32, #plan.memory_space<device>>) -> tensor<2x128xf32, #plan.memory_space<device>> {
 //       CHECK:     return %[[arg0]]
+
+// -----
+
+func.func @large_constant() -> (tensor<1024xindex> {plan.memory_space = #plan.memory_space<host>}) {
+  %0 = arith.constant dense<1> : tensor<1024xindex>
+  return %0 : tensor<1024xindex>
+}
+
+// CHECK-LABEL: func.func @large_constant
+//  CHECK-SAME:  -> (tensor<1024xindex, #plan.memory_space<host>>
+//       CHECK:     %[[cst:.+]] = arith.constant dense<1> : tensor<1024xindex, #plan.memory_space<host>>
+//       CHECK:     return %[[cst]] : tensor<1024xindex, #plan.memory_space<host>>
+
+
+// -----
+
+func.func @small_host_tensor_constant(%arg0: tensor<?x?xf32>) -> (tensor<?x?x?x?xf32>) {
+  %0 = arith.constant dense<[1, 2, 3, 4]> : tensor<4xindex>
+  %1 = tensor.reshape %arg0 (%0) : (tensor<?x?xf32>, tensor<4xindex>) -> tensor<?x?x?x?xf32>
+  return %1 : tensor<?x?x?x?xf32>
+}
+
+// CHECK-LABEL: func.func @small_host_tensor_constant
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<?x?xf32, #plan.memory_space<device>>) -> tensor<?x?x?x?xf32, #plan.memory_space<device>> {
+//   CHECK-DAG:     %[[cst:.+]] = arith.constant dense<[1, 2, 3, 4]> : tensor<4xindex, #plan.memory_space<host>>
+//   CHECK-DAG:     %[[reshape:.+]] = tensor.reshape %[[arg0]](%[[cst]]) :
+//   CHECK-DAG:     return %[[reshape]] :
+
+// -----
+
+func.func @small_host_and_device_tensor_constant(%arg0: tensor<?x?xf32>) -> (tensor<?x?x?x?xf32>, tensor<4xindex>) {
+  %0 = arith.constant dense<[1, 2, 3, 4]> : tensor<4xindex>
+  %1 = tensor.reshape %arg0 (%0) : (tensor<?x?xf32>, tensor<4xindex>) -> tensor<?x?x?x?xf32>
+  return %1, %0 : tensor<?x?x?x?xf32>, tensor<4xindex>
+}
+
+// CHECK-LABEL: func.func @small_host_and_device_tensor_constant
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<?x?xf32, #plan.memory_space<device>>)
+//  CHECK-SAME: -> (tensor<?x?x?x?xf32, #plan.memory_space<device>>, tensor<4xindex, #plan.memory_space<device>>) {
+//   CHECK-DAG:     %[[cst:.+]] = arith.constant dense<[1, 2, 3, 4]> : tensor<4xindex, #plan.memory_space<device>>
+//   CHECK-DAG:     %[[cst_host:.+]] = arith.constant dense<[1, 2, 3, 4]> : tensor<4xindex, #plan.memory_space<host>>
+//   CHECK-DAG:     %[[reshape:.+]] = tensor.reshape %[[arg0]](%[[cst_host]]) :
+//   CHECK-DAG:     return %[[reshape]], %[[cst]] :

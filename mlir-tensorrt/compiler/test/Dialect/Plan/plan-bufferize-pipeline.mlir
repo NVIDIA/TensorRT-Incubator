@@ -3,6 +3,9 @@
 
 // RUN: mlir-tensorrt-opt %s -split-input-file -plan-bufferize-pipeline | FileCheck %s
 
+// RUN: mlir-tensorrt-opt %s -split-input-file -plan-bufferize-pipeline="force-entrypoints-return-allocs=true" \
+// RUN: | FileCheck %s --check-prefix=ALLOC
+
 func.func @from_elements_staging_buffer(%arg0: f32, %arg1: f32) -> tensor<2xf32> {
   %0 = tensor.from_elements %arg0, %arg1 : tensor<2xf32>
   return %0 : tensor<2xf32>
@@ -19,6 +22,9 @@ func.func @from_elements_staging_buffer(%arg0: f32, %arg1: f32) -> tensor<2xf32>
 //  CHECK-NEXT:     memref.dealloc %[[alloc]] : memref<2xf32, #plan.memory_space<host_pinned>>
 //  CHECK-NEXT:     return
 
+// ALLOC-LABEL: func.func @from_elements_staging_buffer
+
+
 // -----
 
 func.func @small_host_tensor_constant(%arg0: tensor<?x?xf32>) -> (tensor<?x?x?x?xf32>) {
@@ -27,19 +33,28 @@ func.func @small_host_tensor_constant(%arg0: tensor<?x?xf32>) -> (tensor<?x?x?x?
   return %1 : tensor<?x?x?x?xf32>
 }
 
-// There should be a copy since `%arg0` is not writable under our default settings.
-// We can only avoid a copy if we use `force-entrypoints-return-allocs`.
-
-//       CHECK: memref.global "private" constant
 // CHECK-LABEL: func.func @small_host_tensor_constant
 //  CHECK-SAME: (%[[arg0:.+]]: memref<?x?xf32, #plan.memory_space<device>>, %[[arg1:.+]]: memref<?x?x?x?xf32, #plan.memory_space<device>> {plan.result_arg}) {
-//       CHECK:     %[[v0:.+]] = memref.get_global
-//       CHECK:     %[[alloc:.+]] = memref.alloc() {{.*}} : memref<4xindex, #plan.memory_space<host>>
-//       CHECK:     memref.copy %[[v0]], %[[alloc]]
-//       CHECK:     %[[reshape:.+]] = memref.reshape %[[arg0]](%[[alloc]])
+//       CHECK:     %[[global:.+]] = memref.get_global {{.*}} : memref<4xindex, #plan.memory_space<host>>
+//       CHECK:     %[[reshape:.+]] = memref.reshape %[[arg0]](%[[global]])
 //       CHECK:     memref.copy %[[reshape]], %[[arg1]]
-//       CHECK:     memref.dealloc %[[alloc]]
 
+
+// ALLOC-LABEL: func.func @small_host_tensor_constant
+//  ALLOC-SAME: (%[[arg0:.+]]: memref<?x?xf32, #plan.memory_space<device>>) -> memref<?x?x?x?xf32, #plan.memory_space<device>> {
+//   ALLOC-DAG:     %[[c3:.+]] = arith.constant 3 : index
+//   ALLOC-DAG:     %[[c2:.+]] = arith.constant 2 : index
+//   ALLOC-DAG:     %[[c1:.+]] = arith.constant 1 : index
+//   ALLOC-DAG:     %[[c0:.+]] = arith.constant 0 : index
+//   ALLOC-DAG:     %[[v0:.+]] = memref.get_global @{{.*}} : memref<4xindex, #plan.memory_space<host>>
+//   ALLOC-DAG:     %[[reshape:.+]] = memref.reshape %[[arg0]](%[[v0]]) :
+//   ALLOC-DAG:     %[[v1:.+]] = memref.load %[[v0]][%[[c3]]] : memref<4xindex, #plan.memory_space<host>>
+//   ALLOC-DAG:     %[[v2:.+]] = memref.load %[[v0]][%[[c2]]] : memref<4xindex, #plan.memory_space<host>>
+//   ALLOC-DAG:     %[[v3:.+]] = memref.load %[[v0]][%[[c1]]] : memref<4xindex, #plan.memory_space<host>>
+//   ALLOC-DAG:     %[[v4:.+]] = memref.load %[[v0]][%[[c0]]] : memref<4xindex, #plan.memory_space<host>>
+//       ALLOC:     %[[alloc:.+]] = memref.alloc(%[[v4]], %[[v3]], %[[v2]], %[[v1]])
+//       ALLOC:     memref.copy %[[reshape]], %[[alloc]] :
+//  ALLOC-NEXT:     return %[[alloc]] : memref<?x?x?x?xf32, #plan.memory_space<device>>
 
 // -----
 
@@ -49,17 +64,33 @@ func.func @small_host_and_device_tensor_constant(%arg0: tensor<?x?xf32>) -> (ten
   return %1, %0 : tensor<?x?x?x?xf32>, tensor<4xindex>
 }
 
-//       CHECK:   memref.global "private" constant @__constant_4xindex
 // CHECK-LABEL: func.func @small_host_and_device_tensor_constant
 //  CHECK-SAME: (%[[arg0:.+]]: memref<?x?xf32, #plan.memory_space<device>>, %[[arg1:.+]]: memref<?x?x?x?xf32, #plan.memory_space<device>> {plan.result_arg}, %[[arg2:.+]]: memref<4xindex, #plan.memory_space<device>> {plan.result_arg})
-//       CHECK:     %[[v0:.+]] = memref.get_global {{.*}} #plan.memory_space<device>>
-//       CHECK:     memref.copy %[[v0]], %[[arg2]] :
-//       CHECK:     %[[alloc:.+]] = memref.alloc() {{.*}} #plan.memory_space<host>
-//       CHECK:     memref.copy %[[arg2]], %[[alloc]]
-//       CHECK:     %[[reshape:.+]] = memref.reshape %[[arg0]](%[[alloc]])
+//   CHECK-DAG:     %[[global_device:.+]] = memref.get_global {{.*}} #plan.memory_space<device>>
+//   CHECK-DAG:     %[[global_host:.+]] = memref.get_global {{.*}} #plan.memory_space<host>>
+//       CHECK:     memref.copy %[[global_device]], %[[arg2]] :
+//       CHECK:     %[[reshape:.+]] = memref.reshape %[[arg0]](%[[global_host]])
 //       CHECK:     memref.copy %[[reshape]], %[[arg1]]
-//       CHECK:     memref.dealloc %[[alloc]]
 //       CHECK:     return
+
+// -----
+
+// External user is assumed to require read/write access by default.
+func.func private @ext_user(%arg0: tensor<1024xindex> {plan.memory_space = #plan.memory_space<host>})
+
+func.func @large_constant() {
+  %0 = arith.constant dense<1> : tensor<1024xindex>
+  call @ext_user(%0) : (tensor<1024xindex>) -> ()
+  return
+}
+
+//       CHECK: memref.global {{.*}} : memref<1024xindex, #plan.memory_space<host>>
+// CHECK-LABEL: func.func @large_constant
+//   CHECK-DAG:   %[[v0:.+]] = memref.get_global @{{.*}} : memref<1024xindex, #plan.memory_space<host>>
+//   CHECK-DAG:   %[[alloc:.+]] = memref.alloc() {{.*}} : memref<1024xindex, #plan.memory_space<host>>
+//       CHECK:   memref.copy %[[v0]], %[[alloc]] :
+//       CHECK:   call @ext_user(%[[alloc]]) : (memref<1024xindex, #plan.memory_space<host>>) -> ()
+//       CHECK:   memref.dealloc %[[alloc]] : memref<1024xindex, #plan.memory_space<host>>
 
 // -----
 
