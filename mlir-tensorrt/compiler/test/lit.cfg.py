@@ -84,6 +84,7 @@ config.substitutions.append(
     ("%trt_include_dir", os.path.join(config.tensorrt_lib_dir, "..", "include"))
 )
 config.substitutions.append(("%trt_lib_dir", config.tensorrt_lib_dir))
+config.substitutions.append(("%stablehlo_src_dir", config.stablehlo_source_root))
 
 # Setup the parallelism groups. Note that just instantiating the TRT builder
 # requires ~2.5 GB of system memory, so we use 3.0 as a baseline limit.

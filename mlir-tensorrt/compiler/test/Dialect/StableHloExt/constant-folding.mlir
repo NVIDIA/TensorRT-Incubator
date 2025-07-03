@@ -604,9 +604,8 @@ func.func @canonicalize_iota() -> tensor<18x12xi32>{
 }
 
 // CHECK-LABEL: canonicalize_iota
-//  CHECK-NEXT: %[[v0:.+]] = stablehlo.iota dim = 0
-//  CHECK-NEXT: %[[v1:.+]] = stablehlo.broadcast_in_dim %[[v0]], dims = [1]
-//  CHECK-NEXT: return %[[v1]]
+//  CHECK-NEXT: %[[v0:.+]] = stablehlo.constant
+//  CHECK-NEXT: return %[[v0]]
 
 // -----
 
@@ -964,10 +963,8 @@ func.func @fold_compare_dynamic_result() -> tensor<1xi32>{
 }
 
 // CHECK-LABEL: fold_compare_dynamic_result
-//       CHECK: stablehlo.compare
-//  CHECK-NEXT: stablehlo.get_dimension_size
-//  CHECK-NEXT: stablehlo.reshape
-//  CHECK-NEXT: return
+//  CHECK-NEXT: %[[v0:.+]] = stablehlo.constant dense<1> : tensor<1xi32>
+//  CHECK-NEXT: return %[[v0]]
 
 // -----
 

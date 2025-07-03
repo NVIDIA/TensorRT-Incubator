@@ -17,6 +17,7 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt-dialect/Utils/ConstantFoldUtils.h"
 #include "mlir-tensorrt-dialect/Utils/StaticValueUtils.h"
+#include "mlir/Dialect/CommonFolders.h"
 #include "mlir/Dialect/Utils/IndexingUtils.h"
 #include "mlir/IR/AffineMap.h"
 #include "mlir/IR/BuiltinTypeInterfaces.h"
@@ -128,50 +129,45 @@ ElementsAttr mlir::constantFoldReshape(ShapedType newType, ElementsAttr attr) {
 
 static ElementsAttr constantFoldConvertFromFloatType(Type newElementType,
                                                      ElementsAttr attr) {
-  ShapedType inputType = attr.getShapedType();
   // FloatType -> FloatType
   if (auto newType = dyn_cast<FloatType>(newElementType)) {
-    if (attr.isSplat() && isa<DenseElementsAttr>(attr)) {
-      APFloat in = attr.getSplatValue<APFloat>();
-      bool losesInfo{false};
-      in.convert(newType.getFloatSemantics(), APFloat::rmNearestTiesToEven,
-                 &losesInfo);
-      return DenseElementsAttr::get(inputType.clone(newType), in);
-    }
-
-    auto els = dyn_cast<DenseElementsAttr>(attr);
-    if (!els)
-      return nullptr;
-    return els.mapValues(newType, [&](const APFloat &floatVal) -> APInt {
-      APFloat convertedFloat = floatVal;
-      bool losesInfo = false;
-      convertedFloat.convert(newType.getFloatSemantics(),
-                             APFloat::rmNearestTiesToEven, &losesInfo);
-      return convertedFloat.bitcastToAPInt();
-    });
+    const auto &targetSemantics = newType.getFloatSemantics();
+    return dyn_cast_if_present<ElementsAttr>(
+        mlir::constFoldCastOp<FloatAttr, FloatAttr, APFloat, APFloat, void>(
+            attr, cast<RankedTensorType>(attr.getType()).clone(newType),
+            [&](const APFloat &floatVal, bool &castStatus) {
+              bool losesInfo;
+              APFloat newValue = floatVal;
+              castStatus =
+                  APFloat::opInvalidOp !=
+                  newValue.convert(targetSemantics,
+                                   llvm::RoundingMode::NearestTiesToEven,
+                                   &losesInfo);
+              return newValue;
+            }));
   }
 
   // FloatType -> IntegerType
   if (auto newType = dyn_cast<IntegerType>(newElementType)) {
-    bool isIntegerTypeUnsigned =
+    size_t newBitWidth = newType.getIntOrFloatBitWidth();
+    bool isNewTypeUnsigned =
         newType.isUnsignedInteger() || newType.isInteger(1);
-    if (attr.isSplat() && isa<DenseElementsAttr>(attr)) {
-      APFloat in = attr.getSplatValue<APFloat>();
-      APSInt out(newType.getIntOrFloatBitWidth(), isIntegerTypeUnsigned);
-      bool isExact;
-      in.convertToInteger(out, APFloat::rmTowardZero, &isExact);
-      return DenseElementsAttr::get(inputType.clone(newElementType), out);
-    }
-
-    auto els = dyn_cast<DenseElementsAttr>(attr);
-    if (!els)
-      return nullptr;
-    return els.mapValues(newElementType, [&](const APFloat &floatVal) -> APInt {
-      APSInt out(newType.getIntOrFloatBitWidth(), isIntegerTypeUnsigned);
-      bool isExact;
-      floatVal.convertToInteger(out, APFloat::rmTowardZero, &isExact);
-      return std::move(out);
-    });
+    return dyn_cast_if_present<ElementsAttr>(
+        mlir::constFoldCastOp<FloatAttr, IntegerAttr, APFloat, APInt, void>(
+            attr, cast<RankedTensorType>(attr.getType()).clone(newType),
+            [&newBitWidth, &isNewTypeUnsigned](const APFloat &operand,
+                                               bool &castStatus) {
+              APSInt api(newBitWidth, isNewTypeUnsigned);
+              if (operand.isInfinity() || operand.isNegZero()) {
+                castStatus = false;
+                return api;
+              }
+              bool ignored;
+              castStatus = APFloat::opInvalidOp !=
+                           operand.convertToInteger(api, APFloat::rmTowardZero,
+                                                    &ignored);
+              return api;
+            }));
   }
 
   return nullptr;
@@ -240,6 +236,9 @@ ElementsAttr mlir::constantFoldConvert(Type newElementType, ElementsAttr attr) {
   if (inputType.getElementType() == newElementType)
     return attr;
 
+  // If the constant is elided, then we can simulate the conversion. Note that
+  // this assumes the elided constant does not values that would cause the
+  // conversion to abort (e.g. NaN float to integer).
   if (std::optional<DenseResourceElementsHandle> handle =
           mlir::getElidedResourceElementsAttr(attr))
     return DenseResourceElementsAttr::get(inputType.clone(newElementType),
@@ -247,6 +246,7 @@ ElementsAttr mlir::constantFoldConvert(Type newElementType, ElementsAttr attr) {
 
   if (auto floatType = dyn_cast<FloatType>(inputType.getElementType()))
     return constantFoldConvertFromFloatType(newElementType, attr);
+
   if (auto intType = dyn_cast<IntegerType>(inputType.getElementType()))
     return constantFoldConvertFromIntegerType(newElementType, attr);
 

@@ -9,6 +9,7 @@ config.mlir_src_root = "@MLIR_MAIN_SRC_DIR@"
 config.mlir_tensorrt_obj_root = "@CMAKE_BINARY_DIR@"
 config.mlir_tensorrt_root = "@MLIR_TENSORRT_ROOT_DIR@"
 config.mlir_tensorrt_lib_dir = "@LLVM_LIBRARY_OUTPUT_INTDIR@"
+config.stablehlo_source_root = "@Stablehlo_SOURCE_DIR@"
 
 config.host_os = "@HOST_OS@"
 config.host_cc = "@HOST_CC@"
