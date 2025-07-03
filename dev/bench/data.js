@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1751509711749,
+  "lastUpdate": 1751583278669,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -13742,6 +13742,61 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000003324802177516936",
             "extra": "mean: 57.48234303980006 usec\nrounds: 18324"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "38561ca006c60bcf36de924cf21b45a537e1c5ff",
+          "message": "Add text option to sphinx-build and update pyproject.toml dependencies",
+          "timestamp": "2025-07-03T18:26:12Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/668/commits/38561ca006c60bcf36de924cf21b45a537e1c5ff"
+        },
+        "date": 1751583277826,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 7075.976775303222,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000028320640879384097",
+            "extra": "mean: 141.3232450804854 usec\nrounds: 7526"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 7183.6149254735665,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000024807504256444873",
+            "extra": "mean: 139.20567992222618 usec\nrounds: 7647"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[sdpa-float32]",
+            "value": 1106.1908517289803,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0006127510902872109",
+            "extra": "mean: 904.003136924335 usec\nrounds: 1225"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[sdpa-float16]",
+            "value": 3153.8087040753894,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00008738401296597502",
+            "extra": "mean: 317.07693580393385 usec\nrounds: 3348"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_tripy_param_update",
+            "value": 17828.430635751654,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00000225238886096775",
+            "extra": "mean: 56.09018653580664 usec\nrounds: 18425"
           }
         ]
       }
