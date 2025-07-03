@@ -180,6 +180,7 @@ endif()
 
 if(MLIR_TRT_ENABLE_TORCH)
   find_package(torch_mlir REQUIRED)
+  include_directories(${torch_mlir_SOURCE_DIR}/include)
 endif()
 
 if(MLIR_TRT_TARGET_TENSORRT)
@@ -189,6 +190,8 @@ endif()
 if(MLIR_TRT_ENABLE_PYTHON)
   mlir_tensorrt_find_dlpack()
 endif()
+
+find_package(MLIRTensorRTCommon REQUIRED)
 
 #--------------------------------------------------
 # Diagnostics

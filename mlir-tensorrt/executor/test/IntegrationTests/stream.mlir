@@ -1,6 +1,6 @@
 // RUN: executor-opt %s -executor-lowering-pipeline \
 // RUN:   | executor-translate -mlir-to-lua \
-// RUN:   | executor-runner -input-type=lua | FileCheck %s
+// RUN:   | executor-runner -input-type=lua -features=core,cuda | FileCheck %s
 
 executor.func private @__cuda_stream_create() -> (!executor.ptr<host>)
 executor.func private @__cuda_stream_sync(!executor.ptr<host>) -> ()

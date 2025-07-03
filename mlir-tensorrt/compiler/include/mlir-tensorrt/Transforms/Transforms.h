@@ -25,13 +25,32 @@
 #ifndef MLIR_TENSORRT_TRANSFORMS_TRANSFORMS_H
 #define MLIR_TENSORRT_TRANSFORMS_TRANSFORMS_H
 
+#include "mlir/IR/PatternMatch.h"
+#include "mlir/IR/Value.h"
+#include <functional>
 namespace mlir {
 class ModuleOp;
 class RewriterBase;
+class RewritePatternSet;
 
 /// Remove any operations nested below `op` that have the "IsolatedFromAbove"
 /// and "SymbolTable" attribute.
 void dropNestedModules(RewriterBase &rewriter, ModuleOp op);
+
+using ShouldScalarizeWhileBeforeArgFunc =
+    std::function<bool(BlockArgument, Value initOperand, Value yieldOperand)>;
+using ShouldScalarizeWhileAfterArgFunc =
+    std::function<bool(BlockArgument, Value condOperand, Value result)>;
+
+/// Populates the patterns to detensorize scf.while ops. The provided functions
+/// are used to control whether the arguments in each region are a candidate for
+/// scalarization. They will currently only receive arguments that are tensor
+/// types with a single element.
+void populateSCFDetensorizeWhilePatterns(
+    RewritePatternSet &patterns,
+    ShouldScalarizeWhileBeforeArgFunc shouldScalarizeBeforeArg,
+    ShouldScalarizeWhileAfterArgFunc shouldScalarizeAfterArg,
+    PatternBenefit benefit = 1);
 
 } // namespace mlir
 

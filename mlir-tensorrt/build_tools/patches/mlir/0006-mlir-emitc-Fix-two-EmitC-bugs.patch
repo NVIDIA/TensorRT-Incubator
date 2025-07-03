@@ -1,7 +1,7 @@
-From 47c84211f72fb407d72e2c8f87019802cda30432 Mon Sep 17 00:00:00 2001
-From: Christopher Bate <cbate@nvidia.com>
-Date: Mon, 27 Jan 2025 08:28:33 +0000
-Subject: [PATCH 06/10] [mlir][emitc] Fix two EmitC bugs
+From d81aaed8cb0190807dbe378e469fde53101f32eb Mon Sep 17 00:00:00 2001
+From: Sagar Shelke <shelkesagar29@yahoo.com>
+Date: Tue, 1 Jul 2025 00:19:03 +0000
+Subject: [PATCH] Apply patch 0006
 
 ---
  .../mlir/Conversion/FuncToEmitC/FuncToEmitC.h |  4 +-
@@ -112,10 +112,10 @@ index 0b97f2641ad0..d2f368a7148d 100644
    if (failed(
            applyPartialConversion(getOperation(), target, std::move(patterns))))
 diff --git a/mlir/lib/Target/Cpp/TranslateToCpp.cpp b/mlir/lib/Target/Cpp/TranslateToCpp.cpp
-index 01de0e41f203..4f600f92ba6d 100644
+index b00820ffc542..803c58cc35c6 100644
 --- a/mlir/lib/Target/Cpp/TranslateToCpp.cpp
 +++ b/mlir/lib/Target/Cpp/TranslateToCpp.cpp
-@@ -273,6 +273,7 @@ private:
+@@ -282,6 +282,7 @@ private:
    ExpressionOp emittedExpression;
    SmallVector<int> emittedExpressionPrecedence;
  
@@ -123,7 +123,7 @@ index 01de0e41f203..4f600f92ba6d 100644
    void pushExpressionPrecedence(int precedence) {
      emittedExpressionPrecedence.push_back(precedence);
    }
-@@ -670,12 +671,14 @@ static LogicalResult printOperation(CppEmitter &emitter,
+@@ -695,12 +696,14 @@ static LogicalResult printOperation(CppEmitter &emitter,
      if (auto t = dyn_cast<IntegerAttr>(attr)) {
        // Index attributes are treated specially as operand index.
        if (t.getType().isIndex()) {
@@ -143,5 +143,5 @@ index 01de0e41f203..4f600f92ba6d 100644
        }
      }
 -- 
-2.46.0
+2.48.1
 

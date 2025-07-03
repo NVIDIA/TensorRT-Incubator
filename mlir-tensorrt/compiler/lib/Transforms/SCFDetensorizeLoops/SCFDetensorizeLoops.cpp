@@ -23,6 +23,7 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt-dialect/Analysis/TensorKindAnalysis.h"
 #include "mlir-tensorrt/Transforms/Passes.h"
+#include "mlir-tensorrt/Transforms/Transforms.h"
 #include "mlir/Analysis/DataFlow/ConstantPropagationAnalysis.h"
 #include "mlir/Analysis/DataFlow/DeadCodeAnalysis.h"
 #include "mlir/Analysis/DataFlowFramework.h"
@@ -48,133 +49,188 @@ static bool isHostTensor(Value value, const DataFlowSolver &solver) {
   return lattice->getValue().isHostOnly();
 }
 
-/// Returns true if it is OK to scalarize the given loop-carried variable.
-static bool isValidToScalarize(BlockArgument arg,
-                               const DataFlowSolver &solver) {
-  auto tensorType = dyn_cast<RankedTensorType>(arg.getType());
-  if (!tensorType || tensorType.getNumElements() != 1)
-    return false;
-
-  // Check that all uses are by a `tensor.extract` operation or the terminator.
-  return isHostTensor(arg, solver);
-}
-
 namespace {
-/// Attempts to rewrite `scf.while` operations to scalarize the loop-carried
-/// variables if possible.
-struct DetensorizeWhilePattern : public OpRewritePattern<scf::WhileOp> {
-  using OpRewritePattern::OpRewritePattern;
+/// Absorb cast operations into the while loop 'before' region and init types.
+struct WhileScalarizeBeforeArgPattern : public OpRewritePattern<scf::WhileOp> {
+  WhileScalarizeBeforeArgPattern(
+      MLIRContext *ctx,
+      ShouldScalarizeWhileBeforeArgFunc shouldScalarizeBeforeArg,
+      PatternBenefit benefit)
+      : OpRewritePattern(ctx, benefit),
+        shouldScalarizeBeforeArg(std::move(shouldScalarizeBeforeArg)) {}
 
-  DetensorizeWhilePattern(MLIRContext *ctx, const DataFlowSolver &solver)
-      : OpRewritePattern(ctx), solver(solver) {}
+  ShouldScalarizeWhileBeforeArgFunc shouldScalarizeBeforeArg;
 
-  LogicalResult matchAndRewrite(WhileOp op,
+  LogicalResult matchAndRewrite(scf::WhileOp op,
                                 PatternRewriter &rewriter) const override {
     SmallVector<int64_t> iterArgsToUpdate;
     Region &after = op.getAfter();
     Region &before = op.getBefore();
-    if (after.getArgumentTypes() != before.getArgumentTypes())
-      return rewriter.notifyMatchFailure(
-          op, "only scf.while with same before/after region argument types are "
-              "supported");
+    auto originalYield = cast<scf::YieldOp>(after.front().getTerminator());
 
-    for (BlockArgument arg : after.getArguments()) {
-      if (!isValidToScalarize(arg, solver) ||
-          !isValidToScalarize(before.getArgument(arg.getArgNumber()), solver))
+    SmallVector<Value> newOperands(op.getOperands());
+    SmallVector<Value> newYieldOperands(originalYield.getOperands());
+    SmallVector<std::pair<unsigned, Type>> blockTypeUpdates;
+    bool hasUpdate = false;
+    for (BlockArgument arg : before.getArguments()) {
+      auto tensorType = dyn_cast<RankedTensorType>(arg.getType());
+      if (!tensorType || !tensorType.hasStaticShape() ||
+          tensorType.getNumElements() != 1)
         continue;
-      iterArgsToUpdate.push_back(arg.getArgNumber());
+      Value aboveOperand = op.getOperand(arg.getArgNumber());
+      Value yieldOperand = originalYield.getOperands()[arg.getArgNumber()];
+      if (!shouldScalarizeBeforeArg(arg, aboveOperand, yieldOperand))
+        continue;
+      rewriter.setInsertionPoint(op);
+      newOperands[arg.getArgNumber()] = rewriter.create<tensor::ExtractOp>(
+          op.getLoc(), aboveOperand,
+          SmallVector<Value>(
+              tensorType.getRank(),
+              rewriter.create<arith::ConstantIndexOp>(op.getLoc(), 0)));
+      rewriter.setInsertionPoint(originalYield);
+      newYieldOperands[arg.getArgNumber()] = rewriter.create<tensor::ExtractOp>(
+          op.getLoc(), yieldOperand,
+          SmallVector<Value>(
+              tensorType.getRank(),
+              rewriter.create<arith::ConstantIndexOp>(op.getLoc(), 0)));
+      blockTypeUpdates.emplace_back(arg.getArgNumber(),
+                                    tensorType.getElementType());
+      hasUpdate = true;
     }
-
-    if (iterArgsToUpdate.empty())
+    if (!hasUpdate)
       return failure();
 
-    // Create the `tensor.extract` operations before the loop op.
-    Value zero = rewriter.create<arith::ConstantIndexOp>(op.getLoc(), 0);
-    SmallVector<Type> newTypes(op->getResultTypes());
-    SmallVector<Value> newOperands(op.getOperands());
-    for (int64_t idx : iterArgsToUpdate) {
-      auto tensorType = cast<RankedTensorType>(newTypes[idx]);
-      newTypes[idx] = tensorType.getElementType();
-      newOperands[idx] = rewriter.create<tensor::ExtractOp>(
-          op.getLoc(), newOperands[idx],
-          SmallVector<Value>(tensorType.getRank(), zero));
+    rewriter.setInsertionPointToStart(&before.front());
+    for (auto [argNumber, type] : blockTypeUpdates) {
+      Type originalType = before.getArgument(argNumber).getType();
+      auto fromElements = rewriter.create<tensor::FromElementsOp>(
+          op.getLoc(), originalType, before.getArgument(argNumber));
+      rewriter.replaceAllUsesExcept(before.getArgument(argNumber), fromElements,
+                                    fromElements);
     }
 
-    // Update the `while` op by moving the regions to a new while op.
-    auto whileOp = rewriter.create<WhileOp>(op.getLoc(), newTypes, newOperands);
-    rewriter.inlineRegionBefore(before, whileOp.getBefore(),
-                                whileOp.getBefore().end());
-    rewriter.inlineRegionBefore(after, whileOp.getAfter(),
-                                whileOp.getAfter().end());
-    auto yield = cast<YieldOp>(whileOp.getAfterBody()->getTerminator());
-    auto cond = cast<ConditionOp>(whileOp.getBeforeBody()->getTerminator());
+    rewriter.modifyOpInPlace(op, [&]() {
+      op.getInitsMutable().assign(newOperands);
+      for (auto [argNumber, type] : blockTypeUpdates)
+        before.getArgument(argNumber).setType(type);
+    });
 
-    SmallVector<Value> newConditionArgs(cond.getArgs());
-    SmallVector<Value> newYieldArgs(yield.getOperands());
-
-    for (int64_t idx : iterArgsToUpdate) {
-      // For each loop-carried arg being transformed, update the block argument
-      // types.
-      auto oldType = cast<RankedTensorType>(
-          whileOp.getBeforeBody()->getArgument(idx).getType());
-      whileOp.getBeforeBody()->getArgument(idx).setType(newTypes[idx]);
-      whileOp.getAfterBody()->getArgument(idx).setType(newTypes[idx]);
-
-      // Update uses. By design of preconditions.
-      for (BlockArgument arg : {whileOp.getBeforeBody()->getArgument(idx),
-                                whileOp.getAfterBody()->getArgument(idx)}) {
-        rewriter.setInsertionPointToStart(arg.getOwner());
-
-        tensor::FromElementsOp replacement =
-            rewriter.create<tensor::FromElementsOp>(arg.getLoc(), oldType, arg);
-        rewriter.replaceAllUsesExcept(arg, replacement, replacement);
-      }
-
-      // Update the terminator to be a `tensor.extract` if the yielded value is
-      // not exactly the block argument.
-      auto getCoord = [&](Location loc) {
-        return oldType.getRank() == 0
-                   ? Value{}
-                   : rewriter.create<arith::ConstantIndexOp>(loc, 0)
-                         .getResult();
-      };
-      if (isa<RankedTensorType>(cond.getArgs()[idx].getType())) {
-        rewriter.setInsertionPoint(cond);
-        Location loc = cond.getArgs()[idx].getLoc();
-        Value coord = getCoord(loc);
-        auto extractOp = rewriter.create<tensor::ExtractOp>(
-            loc, cond.getArgs()[idx], coord ? ValueRange{coord} : ValueRange{});
-        newConditionArgs[idx] = extractOp;
-      }
-      if (isa<RankedTensorType>(yield.getOperands()[idx].getType())) {
-        rewriter.setInsertionPoint(yield);
-        Location loc = yield.getOperand(idx).getLoc();
-        Value coord = getCoord(loc);
-        auto extractOp = rewriter.create<tensor::ExtractOp>(
-            loc, yield.getOperand(idx),
-            coord ? ValueRange{coord} : ValueRange{});
-        newYieldArgs[idx] = extractOp;
-      }
-    }
-
-    rewriter.modifyOpInPlace(
-        yield, [&]() { yield.getResultsMutable().assign(newYieldArgs); });
-    rewriter.modifyOpInPlace(
-        cond, [&]() { cond.getArgsMutable().assign(newConditionArgs); });
-
-    // Replace the loop with new values. Create the scalars as necessary.
-    rewriter.setInsertionPointAfter(whileOp);
-    SmallVector<Value> replacements(whileOp.getResults());
-    for (int64_t idx : iterArgsToUpdate)
-      replacements[idx] = rewriter.create<tensor::FromElementsOp>(
-          op.getLoc(), op->getResult(idx).getType(), replacements[idx]);
-
-    rewriter.replaceOp(op, replacements);
+    rewriter.setInsertionPointToStart(&before.front());
+    rewriter.modifyOpInPlace(originalYield, [&]() {
+      originalYield.getResultsMutable().assign(newYieldOperands);
+    });
     return success();
   }
-
-  const DataFlowSolver &solver;
 };
+
+/// Absorb cast operations into the while loop 'after' region and result types.
+struct WhileScalarizeAfterArgPattern : public OpRewritePattern<scf::WhileOp> {
+  WhileScalarizeAfterArgPattern(
+      MLIRContext *ctx,
+      ShouldScalarizeWhileAfterArgFunc shouldScalarizeAfterArg,
+      PatternBenefit benefit)
+      : OpRewritePattern(ctx, benefit),
+        shouldScalarizeAfterArg(std::move(shouldScalarizeAfterArg)) {}
+
+  ShouldScalarizeWhileAfterArgFunc shouldScalarizeAfterArg;
+
+  LogicalResult matchAndRewrite(scf::WhileOp op,
+                                PatternRewriter &rewriter) const override {
+    SmallVector<int64_t> iterArgsToUpdate;
+    Region &after = op.getAfter();
+    Region &before = op.getBefore();
+    auto originalCond = cast<scf::ConditionOp>(before.front().getTerminator());
+
+    SmallVector<Value> newCondOperands(originalCond.getArgs());
+    SmallVector<std::pair<unsigned, Type>> blockTypeUpdates;
+    bool hasUpdate = false;
+    for (BlockArgument arg : after.getArguments()) {
+      auto tensorType = dyn_cast<RankedTensorType>(arg.getType());
+      if (!tensorType || !tensorType.hasStaticShape() ||
+          tensorType.getNumElements() != 1)
+        continue;
+      Value condOperand = originalCond.getArgs()[arg.getArgNumber()];
+      Value result = op.getResult(arg.getArgNumber());
+      if (!shouldScalarizeAfterArg(arg, condOperand, result))
+        continue;
+      rewriter.setInsertionPoint(originalCond);
+      newCondOperands[arg.getArgNumber()] = rewriter.create<tensor::ExtractOp>(
+          op.getLoc(), condOperand,
+          SmallVector<Value>(
+              tensorType.getRank(),
+              rewriter.create<arith::ConstantIndexOp>(op.getLoc(), 0)));
+      blockTypeUpdates.emplace_back(arg.getArgNumber(),
+                                    tensorType.getElementType());
+      hasUpdate = true;
+    }
+    if (!hasUpdate)
+      return failure();
+
+    for (auto [argNumber, type] : blockTypeUpdates) {
+      rewriter.setInsertionPointToStart(&after.front());
+      Type originalType = op.getResult(argNumber).getType();
+      auto fromElements = rewriter.create<tensor::FromElementsOp>(
+          op.getLoc(), originalType, after.getArgument(argNumber));
+      rewriter.replaceAllUsesExcept(after.getArgument(argNumber), fromElements,
+                                    fromElements);
+
+      rewriter.setInsertionPointAfter(op);
+      auto fromElements2 = rewriter.create<tensor::FromElementsOp>(
+          op.getLoc(), originalType, op.getResult(argNumber));
+      rewriter.replaceAllUsesExcept(op.getResult(argNumber), fromElements2,
+                                    fromElements2);
+    }
+
+    rewriter.modifyOpInPlace(op, [&]() {
+      for (auto [argNumber, type] : blockTypeUpdates) {
+        after.getArgument(argNumber).setType(type);
+        op.getResult(argNumber).setType(type);
+      }
+    });
+    rewriter.modifyOpInPlace(originalCond, [&]() {
+      originalCond.getArgsMutable().assign(newCondOperands);
+    });
+    return success();
+  }
+};
+} // namespace
+
+static bool defaultShouldScalarizeBeforeArg(BlockArgument arg,
+                                            Value initOperand,
+                                            Value yieldOperand) {
+  RankedTensorType type = cast<RankedTensorType>(arg.getType());
+  return isa<IntegerType, IndexType>(type.getElementType()) &&
+         (initOperand.getDefiningOp<tensor::FromElementsOp>() ||
+          matchPattern(initOperand, m_Constant())) &&
+         (yieldOperand.getDefiningOp<tensor::FromElementsOp>() ||
+          matchPattern(yieldOperand, m_Constant()));
+}
+
+static bool defaultShouldScalarizeAfterArg(BlockArgument arg, Value condOperand,
+                                           Value result) {
+  RankedTensorType type = cast<RankedTensorType>(arg.getType());
+  return isa<IntegerType, IndexType>(type.getElementType()) &&
+         result.hasOneUse() &&
+         (isa<BlockArgument>(condOperand) ||
+          condOperand.getDefiningOp<tensor::FromElementsOp>());
+}
+
+void mlir::populateSCFDetensorizeWhilePatterns(
+    RewritePatternSet &patterns,
+    ShouldScalarizeWhileBeforeArgFunc shouldScalarizeBeforeArg,
+    ShouldScalarizeWhileAfterArgFunc shouldScalarizeAfterArg,
+    PatternBenefit benefit) {
+  if (!shouldScalarizeBeforeArg)
+    shouldScalarizeBeforeArg = defaultShouldScalarizeBeforeArg;
+  if (!shouldScalarizeAfterArg)
+    shouldScalarizeAfterArg = defaultShouldScalarizeAfterArg;
+  patterns.add<WhileScalarizeBeforeArgPattern>(
+      patterns.getContext(), shouldScalarizeBeforeArg, benefit);
+  patterns.add<WhileScalarizeAfterArgPattern>(patterns.getContext(),
+                                              shouldScalarizeAfterArg, benefit);
+}
+
+namespace {
 
 class SCFDetensorizeLoopsPass
     : public impl::SCFDetensorizeLoopsPassBase<SCFDetensorizeLoopsPass> {
@@ -194,8 +250,17 @@ public:
       emitError(op->getLoc()) << "failed to run TensorKindAnalysis";
       return signalPassFailure();
     }
-
-    patterns.add<DetensorizeWhilePattern>(ctx, solver);
+    auto shouldScalarizeBeforeArg = [&](BlockArgument arg, Value initOperand,
+                                        Value yieldOperand) {
+      return isHostTensor(arg, solver);
+    };
+    auto shouldScalarizeAfterArg = [&](BlockArgument arg, Value condOperand,
+                                       Value result) {
+      return isHostTensor(arg, solver);
+    };
+    populateSCFDetensorizeWhilePatterns(patterns, shouldScalarizeBeforeArg,
+                                        shouldScalarizeAfterArg,
+                                        /*benefit=*/1);
     if (failed(applyPatternsGreedily(getOperation(), std::move(patterns))))
       return signalPassFailure();
   }

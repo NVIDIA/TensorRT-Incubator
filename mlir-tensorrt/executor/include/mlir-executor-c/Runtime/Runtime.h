@@ -418,6 +418,11 @@ MLIR_CAPI_EXPORTED MTRT_Status mtrtRuntimeSessionOptionsCreate(
     int32_t numDevices, int32_t deviceId, MTRT_StringView ncclUuid,
     MTRT_RuntimeSessionOptions *options);
 
+/// Enable a particular feature for the runtime session.
+MLIR_CAPI_EXPORTED void
+mtrtRuntimeSessionOptionsEnableFeature(MTRT_RuntimeSessionOptions options,
+                                       MTRT_StringView feature);
+
 /// Destroy `options` and free any resources.
 MLIR_CAPI_EXPORTED MTRT_Status
 mtrtRuntimeSessionOptionsDestroy(MTRT_RuntimeSessionOptions options);

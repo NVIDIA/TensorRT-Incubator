@@ -19,7 +19,7 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-executor/Conversion/Passes.h"
 #include "mlir-executor/Executor/Transforms/Passes.h"
-#include "mlir/Conversion/SCFToControlFlow/SCFToControlFlow.h"
+#include "mlir/Conversion/Passes.h"
 #include "mlir/Dialect/Arith/Transforms/Passes.h"
 #include "mlir/Dialect/Func/Transforms/Passes.h"
 #include "mlir/Dialect/MemRef/Transforms/Passes.h"
@@ -36,9 +36,7 @@ inline void registerAllPasses() {
   mlir::func::registerDuplicateFunctionEliminationPass();
   mlir::memref::registerMemRefPasses();
   mlir::registerTransformsPasses();
-  mlir::registerPass([]() -> std::unique_ptr<::mlir::Pass> {
-    return mlir::createConvertSCFToCFPass();
-  });
+  mlir::registerSCFToControlFlowPass();
 }
 
 } // namespace mlir::executor

@@ -352,315 +352,6 @@ struct SortToTopK : public ConvertHloOpToTensorRTPattern<stablehlo::SortOp> {
 };
 } // namespace
 
-/// Given a stablehlo reduction operation, convert to a `tensorrt.reduce`
-/// operation if it is a simple reduction (e.g. sum, mul, max/min) that be
-/// converted 1-1. Caller must do the replacement, this just creates the new
-/// operation and returns the new value.
-static FailureOr<Value>
-convertSimpleReductions(TensorRTConversionPatternRewriter &rewriter,
-                        stablehlo::ReduceOp op, ArrayRef<int64_t> reductionDim,
-                        Value input, Value init, int64_t trtMajorVersion) {
-  // TODO: verify the init is the neutral value based on the op below.
-  if (!matchPattern(init, m_Constant()))
-    return failure();
-
-  Block *reduceBody = &op.getBody().front();
-  auto termOp = cast<stablehlo::ReturnOp>(reduceBody->getTerminator());
-  if (termOp->getNumOperands() != 1 || reduceBody->getNumArguments() != 2)
-    return failure();
-
-  Location loc = op.getLoc();
-  Value retValue = termOp.getOperands()[0];
-  auto bbLhs = matchers::m_Val(reduceBody->getArgument(0));
-  auto bbRhs = matchers::m_Val(reduceBody->getArgument(1));
-
-  tensorrt::ReduceOperation reductionOp;
-  if (matchPattern(retValue, m_Op<stablehlo::AddOp>(bbLhs, bbRhs)))
-    reductionOp = tensorrt::ReduceOperation::kSUM;
-  else if (matchPattern(retValue, m_Op<stablehlo::MulOp>(bbLhs, bbRhs)))
-    reductionOp = tensorrt::ReduceOperation::kPROD;
-  else if (matchPattern(retValue, m_Op<stablehlo::MinOp>(bbLhs, bbRhs)))
-    reductionOp = tensorrt::ReduceOperation::kMIN;
-  else if (matchPattern(retValue, m_Op<stablehlo::MaxOp>(bbLhs, bbRhs)))
-    reductionOp = tensorrt::ReduceOperation::kMAX;
-  else
-    return failure();
-
-  auto reduceOp = rewriter.checkAndCreate<tensorrt::ReduceOp>(
-      loc, op.getType(0), input,
-      /*reduceDims=*/
-      reductionDim,
-      /*keepdims=*/false, reductionOp);
-  if (!reduceOp)
-    return failure();
-  return reduceOp.getResult();
-}
-
-static FailureOr<Value> convertBooleanReductions(RewriterBase &rewriter,
-                                                 stablehlo::ReduceOp op,
-                                                 ArrayRef<int64_t> reductionDim,
-                                                 Value input, Value init) {
-  Location loc = op.getLoc();
-  // Create an int32 tensor types equivalent to the boolean tensor types.
-  auto originalInputType = cast<RankedTensorType>(input.getType());
-  auto originalResultType = cast<RankedTensorType>(op->getResultTypes()[0]);
-  if (!originalResultType.getElementType().isInteger(1) ||
-      !originalInputType.getElementType().isInteger(1))
-    return failure();
-
-  RankedTensorType integerInputType =
-      RankedTensorType::Builder(originalInputType)
-          .setElementType(rewriter.getI32Type());
-  RankedTensorType integerResultType =
-      RankedTensorType::Builder(originalResultType)
-          .setElementType(rewriter.getI32Type());
-
-  // Create the new reduction type.
-  Block *reduceBody = &op.getBody().front();
-  auto termOp = cast<stablehlo::ReturnOp>(reduceBody->getTerminator());
-  if (termOp->getNumOperands() != 1 || reduceBody->getNumArguments() != 2)
-    return failure();
-  Value retValue = termOp.getOperands()[0];
-  auto bbLhs = matchers::m_Val(reduceBody->getArgument(0));
-  auto bbRhs = matchers::m_Val(reduceBody->getArgument(1));
-  tensorrt::ReduceOperation reductionOpType;
-  if (matchPattern(retValue, m_Op<stablehlo::OrOp>(bbLhs, bbRhs)))
-    reductionOpType = tensorrt::ReduceOperation::kSUM;
-  else if (matchPattern(retValue, m_Op<stablehlo::AndOp>(bbLhs, bbRhs)))
-    reductionOpType = tensorrt::ReduceOperation::kPROD;
-  else
-    return failure();
-
-  // Cast i1 to i32.
-  Value i32Input =
-      rewriter.create<tensorrt::IdentityOp>(loc, integerInputType, input);
-
-  auto reduceOp = rewriter.create<tensorrt::ReduceOp>(
-      loc, integerResultType, i32Input,
-      /*reduceDims=*/SmallVector<int64_t>{reductionDim},
-      /*keepdims=*/false, reductionOpType);
-  // Cast i32 to i1.
-  return rewriter
-      .create<tensorrt::IdentityOp>(loc, originalResultType,
-                                    reduceOp.getResult())
-      .getResult();
-}
-
-/// Drop the unit dimension at `dimToDrop` from each of `values`.
-static SmallVector<Value>
-createRankReducedResults(TensorRTConversionPatternRewriter &rewriter,
-                         Location loc, ResultRange values, int64_t dimToDrop,
-                         int64_t trtMajorVersion) {
-  assert(!values.empty());
-  SmallVector<Value> result;
-  result.reserve(values.size());
-  for (Value v : values) {
-    auto inputType = dyn_cast<RankedTensorType>(v.getType());
-    assert((!inputType || inputType.getDimSize(dimToDrop) == 1) &&
-           "expected value to have unit dim to drop");
-    auto rtt = RankedTensorType::Builder(inputType);
-    rtt.dropDim(dimToDrop);
-    Value collapsed =
-        rewriter.checkAndCreate<tensorrt::CollapseRankOp>(loc, Type(rtt), v);
-    result.push_back(collapsed);
-  }
-  return result;
-}
-
-template <typename TensorRTOpType, stablehlo::ComparisonDirection dir>
-static LogicalResult matchAndReplaceStablehloArgMinMax(
-    stablehlo::ReduceOp op, TensorRTConversionPatternRewriter &rewriter,
-    Value operand, ArrayRef<int64_t> reductionDims, int64_t trtMajorVersion) {
-  if (!matchPattern(op,
-                    matchers::detail::StablehloArgMinMaxReduceMatcher<dir>()))
-    return failure();
-  auto argMinOrMaxOp = rewriter.checkAndCreate<TensorRTOpType>(
-      op.getLoc(),
-      /*input=*/operand, /*axis=*/reductionDims.front());
-  // Rank reduce the results.
-  if (!argMinOrMaxOp)
-    return failure();
-  SmallVector<Value> replacements = createRankReducedResults(
-      rewriter, op.getLoc(), argMinOrMaxOp.getResults(), reductionDims.front(),
-      trtMajorVersion);
-  rewriter.replaceOp(op, replacements);
-  return success();
-}
-
-namespace {
-// Converts a `stablehlo.reduce` operation to a `tensorrt.reduce` operation.
-struct ConvertReduceOp
-    : public ConvertHloOpToTensorRTPattern<stablehlo::ReduceOp> {
-  using ConvertHloOpToTensorRTPattern::ConvertHloOpToTensorRTPattern;
-
-  LogicalResult
-  matchAndRewrite(stablehlo::ReduceOp op, OpAdaptor adaptor,
-                  ConversionPatternRewriter &rewriter) const override {
-    TensorRTConversionPatternRewriter trtRewriter(rewriter,
-                                                  targetTrtMajorVersion);
-
-    Value operand = adaptor.getInputs().front();
-    SmallVector<int64_t> reductionDims = llvm::to_vector(op.getDimensions());
-    // Try to match and handle the ArgMin/ArgMax cases.
-    if (succeeded(matchAndReplaceStablehloArgMinMax<
-                  tensorrt::ArgMaxOp, stablehlo::ComparisonDirection::GE>(
-            op, trtRewriter, operand, reductionDims, targetTrtMajorVersion)))
-      return success();
-    if (succeeded(matchAndReplaceStablehloArgMinMax<
-                  tensorrt::ArgMinOp, stablehlo::ComparisonDirection::LE>(
-            op, trtRewriter, operand, reductionDims, targetTrtMajorVersion)))
-      return success();
-
-    // Try to match the simpler reductions across a single input.
-    if (op.getInputs().size() != 1)
-      return rewriter.notifyMatchFailure(op,
-                                         "number of reduction inputs not 1");
-    Value init = adaptor.getInitValues().front();
-
-    FailureOr<Value> replacement =
-        convertBooleanReductions(rewriter, op, reductionDims, operand, init);
-    if (succeeded(replacement)) {
-      trtRewriter.replaceOp(op, *replacement);
-      return success();
-    }
-
-    replacement = convertSimpleReductions(trtRewriter, op, reductionDims,
-                                          operand, init, targetTrtMajorVersion);
-    if (failed(replacement))
-      return rewriter.notifyMatchFailure(
-          op, "could not do simple reduction transform");
-    trtRewriter.replaceOp(op, *replacement);
-    return success();
-  }
-};
-
-/// Convert `stablehlo.dot` to `tensorrt.matrix_multiply`.
-/// TODO: clean since `dot` op is removed from stable hlo in the favor of
-/// `dot_general`.
-struct ConvertDot : public ConvertHloOpToTensorRTPattern<stablehlo::DotOp> {
-  using ConvertHloOpToTensorRTPattern<
-      stablehlo::DotOp>::ConvertHloOpToTensorRTPattern;
-  LogicalResult
-  matchAndRewrite(stablehlo::DotOp op, OpAdaptor adaptor,
-                  ConversionPatternRewriter &rewriter) const override {
-    TensorRTConversionPatternRewriter trtRewriter(rewriter,
-                                                  targetTrtMajorVersion);
-
-    TensorType resultType = op.getType();
-    tensorrt::MatrixOperation qualifierLhs = tensorrt::MatrixOperation::kNONE;
-    tensorrt::MatrixOperation qualifierRhs = tensorrt::MatrixOperation::kNONE;
-    auto lhsType = cast<TensorType>(adaptor.getLhs().getType());
-    auto rhsType = cast<TensorType>(adaptor.getRhs().getType());
-    if (lhsType.getRank() == 1)
-      qualifierLhs = tensorrt::MatrixOperation::kVECTOR;
-    if (rhsType.getRank() == 1)
-      qualifierRhs = tensorrt::MatrixOperation::kVECTOR;
-
-    Value lhs = adaptor.getLhs();
-    Value rhs = adaptor.getRhs();
-    auto replacement = trtRewriter.checkAndCreate<tensorrt::MatrixMultiplyOp>(
-        op->getLoc(), resultType, lhs, rhs, qualifierLhs, qualifierRhs);
-    if (!replacement)
-      return failure();
-
-    return replaceWithCast(trtRewriter, op, replacement.getResult());
-  }
-};
-
-/// Convert `stablehlo.dot_general` to `tensorrt.matrix_multiply`.
-struct ConvertDotGeneral
-    : public ConvertHloOpToTensorRTPattern<stablehlo::DotGeneralOp> {
-  using ConvertHloOpToTensorRTPattern<
-      stablehlo::DotGeneralOp>::ConvertHloOpToTensorRTPattern;
-  LogicalResult
-  matchAndRewrite(stablehlo::DotGeneralOp op, OpAdaptor adaptor,
-                  ConversionPatternRewriter &rewriter) const override {
-    TensorRTConversionPatternRewriter trtRewriter(rewriter,
-                                                  targetTrtMajorVersion);
-
-    stablehlo::DotDimensionNumbersAttr dimNums = op.getDotDimensionNumbers();
-    ArrayRef<int64_t> lhsBatchDims = dimNums.getLhsBatchingDimensions();
-    const int64_t numBatchDims = lhsBatchDims.size();
-    const int64_t numContractionDims =
-        dimNums.getRhsContractingDimensions().size();
-
-    TensorType resultType = op.getType();
-    // Determine the TRT equivalent qualifier.
-    tensorrt::MatrixOperation qualifierLhs = tensorrt::MatrixOperation::kNONE;
-    tensorrt::MatrixOperation qualifierRhs = tensorrt::MatrixOperation::kNONE;
-    auto lhs = cast<TensorValue>(adaptor.getLhs());
-    auto rhs = cast<TensorValue>(adaptor.getRhs());
-    TensorType lhsType = lhs.getType();
-    TensorType rhsType = rhs.getType();
-
-    if (lhsType.getElementType().isInteger(32))
-      return failure();
-
-    // 'stablehlo.dot_general' allows for promotion of the result element type.
-    // We treat this as equivalent to compute/accumulator element type being
-    // equal to the result type. In TensorRT, we have limited control over the
-    // accumulator element type, but you're supposed to be able to specify it
-    // using cast operaitons on the operands.
-    Type computeElementType = resultType.getElementType();
-    if (computeElementType != lhsType.getElementType()) {
-      FailureOr<TensorValue> castedLhs =
-          this->castTensor(trtRewriter, computeElementType, lhs);
-      FailureOr<TensorValue> castedRhs =
-          this->castTensor(trtRewriter, computeElementType, rhs);
-      if (failed(castedLhs) || failed(castedRhs))
-        return failure();
-      lhs = std::move(*castedLhs);
-      rhs = std::move(*castedRhs);
-    }
-
-    // We don't handle multiple contraction dims.
-    if (numContractionDims != 1)
-      return failure();
-
-    // We don't handle multiple outer product dimensions.
-    if (rhsType.getRank() > numBatchDims + numContractionDims + 1 ||
-        lhsType.getRank() > numBatchDims + numContractionDims + 1)
-      return failure();
-
-    if (lhsType.getRank() == numBatchDims + numContractionDims + 1) {
-      if (dimNums.getLhsContractingDimensions().front() ==
-          lhsType.getRank() - 1)
-        qualifierLhs = tensorrt::MatrixOperation::kNONE;
-      else if (dimNums.getLhsContractingDimensions().front() ==
-               lhsType.getRank() - 2)
-        qualifierLhs = tensorrt::MatrixOperation::kTRANSPOSE;
-      else
-        return failure();
-      // No explicit outer product dimension
-    } else if (lhsType.getRank() == numBatchDims + numContractionDims) {
-      qualifierLhs = tensorrt::MatrixOperation::kVECTOR;
-    } else {
-      return failure();
-    }
-
-    if (rhsType.getRank() == numBatchDims + numContractionDims + 1) {
-      if (dimNums.getRhsContractingDimensions().front() ==
-          rhsType.getRank() - 1)
-        qualifierRhs = tensorrt::MatrixOperation::kTRANSPOSE;
-      else if (dimNums.getRhsContractingDimensions().front() ==
-               rhsType.getRank() - 2)
-        qualifierRhs = tensorrt::MatrixOperation::kNONE;
-      else
-        return failure();
-    } else if (rhsType.getRank() == numBatchDims + numContractionDims) {
-      qualifierRhs = tensorrt::MatrixOperation::kVECTOR;
-    } else {
-      return failure();
-    }
-    auto replacement = trtRewriter.checkAndCreate<tensorrt::MatrixMultiplyOp>(
-        op->getLoc(), resultType, lhs, rhs, qualifierLhs, qualifierRhs);
-    if (!replacement)
-      return failure();
-    return replaceWithCast(trtRewriter, op, replacement.getResult());
-  }
-};
-} // namespace
-
 /// Given an expression try to find a single-character string from `termPool`
 /// that is not used in `expression`. Returns the index of the unused character.
 static FailureOr<unsigned> getUnusedTerm(StringRef expression,
@@ -4372,7 +4063,9 @@ public:
         return op.isPrivate() && op->hasAttr("plan.decomposition");
       });
 
-      populateStablehloToTensorRtConversionPattern(typeConverter, patterns);
+      populateStablehloToTensorRtConversionPattern(
+          typeConverter, patterns, {}, /*preferEinsum=*/preferEinsum);
+
       populateStablehloControlFlowToTensorRtPatterns(
           typeConverter, patterns, convertLoops, convertConditionals);
       populateChloToTensorRtLegalityAndPatterns(typeConverter, target,
@@ -4391,14 +4084,14 @@ public:
 
 void mlir::populateStablehloToTensorRtConversionPattern(
     TensorRTTypeConverter &typeConverter, RewritePatternSet &patterns,
-    ShapeInfoCallbacks shapeInfoCallbacks) {
+    ShapeInfoCallbacks shapeInfoCallbacks, bool preferEinsum) {
   // Add larger patterns with a higher
   // benefit so that they run first.
   patterns.add<SortToTopK, ConvertReduceWindow>(
       typeConverter, patterns.getContext(), PatternBenefit(100));
   patterns.add<
       // Contraction Operations
-      ConvertDot, ConvertDotGeneral, ConvertEinsum,
+      ConvertEinsum,
       // Shape related operations
       ReshapeConverter, ConvertBroadcastInDim, ConvertDynamicBroadcastInDim,
       ConvertBroadcast, ConvertIota, ConvertDynamicIota,
@@ -4445,9 +4138,9 @@ void mlir::populateStablehloToTensorRtConversionPattern(
       MAKE_UNARY_OP_CONVERTER(RoundNearestEvenOp, kROUND),
 
 #undef MAKE_UNARY_OP_CONVERTER
-      ConvertRemainder, ConvertReduceOp, TorchIndexSelectConverter,
-      ReverseConverter, PadConverter, DynamicPadConverter, CompareConverter,
-      ClampConverter, GetDimensionSizeConverter, UniformQuantizeConverter,
+      ConvertRemainder, TorchIndexSelectConverter, ReverseConverter,
+      PadConverter, DynamicPadConverter, CompareConverter, ClampConverter,
+      GetDimensionSizeConverter, UniformQuantizeConverter,
       UniformDequantizeConverter,
       HloUnaryOpToActivationConverter<stablehlo::LogisticOp,
                                       tensorrt::ActivationType::kSIGMOID>,
@@ -4465,6 +4158,10 @@ void mlir::populateStablehloToTensorRtConversionPattern(
       CompositeToQDQConverter, ConvertStablehloCustomCall
     >(typeConverter, patterns.getContext(), PatternBenefit(1));
   // clang-format on
+
+  populateStablehloReductionAndContractionToTensorRtConversionPattern(
+      typeConverter, patterns, PatternBenefit(1),
+      /*dotToEinsumBenefit=*/PatternBenefit(preferEinsum ? 2 : 0));
 
   if (!shapeInfoCallbacks.isElementValueEqualToConstant)
     shapeInfoCallbacks.isElementValueEqualToConstant =

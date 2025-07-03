@@ -30,7 +30,6 @@
 #include "mlir-executor/Runtime/Backend/Common/CommonRuntime.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaExtensionRegistry.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaExtensions.h"
-#include "mlir-executor/Runtime/Backend/Lua/LuaRegistration.h"
 #include "mlir-executor/Runtime/Backend/Lua/Modules/Utils/MemRefUtils.h"
 #include "mlir-executor/Runtime/Backend/Utils/NvtxUtils.h"
 #include "mlir-executor/Runtime/Support/Support.h"
@@ -61,11 +60,11 @@ using namespace mlirtrt::runtime;
 
 static constexpr uint64_t kMinConstantBufferByteAlignment = 8;
 
-#ifndef MLIR_EXECUTOR_ENABLE_NCCL
-/// If the runtime is not built with MLIR_EXECUTOR_ENABLE_NCCL, then this
-/// function registers default implementations for the required SPMD functions,
-/// reflecting that the executable is expected to run against a single fixed
-/// CUDA device and is not part of a larger device grid.
+/// This function registers default implementations for the required SPMD
+/// functions, reflecting that the executable is expected to run against a
+/// single fixed CUDA device and is not part of a larger device grid.
+/// These functions are only used if the runtime session is created with the
+/// "single-device" feature enabled.
 static void registerDefaultDeviceDependentMethods(lua_State *state,
                                                   int32_t numDevices,
                                                   int32_t deviceIdx) {
@@ -77,7 +76,6 @@ static void registerDefaultDeviceDependentMethods(lua_State *state,
     return deviceIdx;
   };
 }
-#endif // MLIR_EXECUTOR_ENABLE_NCCL
 
 namespace mlirtrt::runtime {
 void registerLuaCoreRuntimeExtension();
@@ -108,9 +106,12 @@ void runtime::registerLuaRuntimeExtensions() {
 #endif
 #ifdef MLIR_EXECUTOR_ENABLE_NCCL
   registerLuaNcclRuntimeExtension();
-#else
+#endif
+
+  // The "single-device" module provides default implementation for the SPMD
+  // device rank/num rank functions which just map to the one enabled device .
   registerLuaRuntimeExtension(
-      "spmd",
+      "single-device",
       LuaRuntimeExtension{
           [](const RuntimeSessionOptions &options, lua_State *state,
              PinnedMemoryAllocator *pinnedMemoryAllocator,
@@ -118,15 +119,6 @@ void runtime::registerLuaRuntimeExtensions() {
             registerDefaultDeviceDependentMethods(
                 state, options.getNumDevices(), options.getDeviceId());
           }});
-#endif
-}
-
-void mlirtrt::runtime::registerLuaRuntimeMethods(
-    lua_State *state, const RuntimeSessionOptions &options,
-    PinnedMemoryAllocator *pinnedMemoryAllocator, AllocTracker *allocTracker,
-    ResourceTracker *resourceTracker) {
-  populateRuntimeExtensions(options, state, pinnedMemoryAllocator, allocTracker,
-                            resourceTracker);
 }
 
 /// If the program was compiled with NCCL enabled, then check for the
@@ -275,10 +267,10 @@ LuaRuntimeSession::create(RuntimeSessionOptions options,
   lua.open_libraries(sol::lib::base, sol::lib::string, sol::lib::coroutine);
 
   // Register builtin methods.
-  registerLuaRuntimeMethods(lua.lua_state(), session->getOptions(),
-                            &session->getPinnedMemoryAllocator(),
-                            &session->getAllocTracker(),
-                            &session->getResourceTracker());
+  MTRT_RETURN_IF_ERROR(populateRuntimeExtensions(
+      session->getOptions(), lua.lua_state(),
+      &session->getPinnedMemoryAllocator(), &session->getAllocTracker(),
+      &session->getResourceTracker()));
 
   // Register user-provided methods.
   if (registerExtraLuaFuncs)
@@ -347,7 +339,7 @@ Status LuaRuntimeSession::setCudaStream(CudaStream stream) {
 //===----------------------------------------------------------------------===//
 
 StatusOr<int64_t> mlirtrt::runtime::runExecutorLuaScript(
-    std::string_view luaScript,
+    RuntimeSessionOptions options, std::string_view luaScript,
     LuaRuntimeSession::LuaModuleRegistrationFunc registerExtraLuaFuncs) {
   ADD_RUNTIME_MODULE_RANGE("runtime_runExecutorLuaScript");
 
@@ -355,20 +347,13 @@ StatusOr<int64_t> mlirtrt::runtime::runExecutorLuaScript(
   if (!client.isOk())
     return client.getStatus();
 
-#ifdef MLIR_EXECUTOR_ENABLE_NCCL
-  StatusOr<RuntimeSessionOptions> options =
-      RuntimeSessionOptions::createUsingSingleHostMpi();
-#else
-  StatusOr<RuntimeSessionOptions> options = RuntimeSessionOptions();
-#endif
-
   MTRT_ASSIGN_OR_RETURN(
       std::unique_ptr<LuaRuntimeSession> session,
-      LuaRuntimeSession::create(std::move(*options), ExecutableView(nullptr),
+      LuaRuntimeSession::create(std::move(options), ExecutableView(nullptr),
                                 std::move(registerExtraLuaFuncs)));
 
   sol::state_view lua = session->getLuaState();
-  sol::protected_function_result result = lua.script(luaScript);
+  sol::protected_function_result result = lua.safe_script(luaScript);
   if (!result.valid()) {
     sol::error err = result;
     return getStatusWithMsg(StatusCode::InternalError,
@@ -396,25 +381,16 @@ StatusOr<int64_t> mlirtrt::runtime::runExecutorLuaScript(
 }
 
 StatusOr<int64_t> mlirtrt::runtime::runExecutorExecutable(
-    std::unique_ptr<Executable> executable,
+    RuntimeSessionOptions options, std::unique_ptr<Executable> executable,
     LuaRuntimeSession::LuaModuleRegistrationFunc registerExtraLuaFuncs) {
 
   StatusOr<std::unique_ptr<RuntimeClient>> client = RuntimeClient::create();
   if (!client.isOk())
     return client.getStatus();
 
-#ifdef MLIR_EXECUTOR_ENABLE_NCCL
-  StatusOr<RuntimeSessionOptions> options =
-      RuntimeSessionOptions::createUsingSingleHostMpi();
-#else
-  StatusOr<RuntimeSessionOptions> options = RuntimeSessionOptions();
-#endif
-  if (!options.isOk())
-    return options.getStatus();
-
   MTRT_ASSIGN_OR_RETURN(
       std::unique_ptr<LuaRuntimeSession> session,
-      LuaRuntimeSession::create(*options, executable->getView(),
+      LuaRuntimeSession::create(std::move(options), executable->getView(),
                                 std::move(registerExtraLuaFuncs)));
 
   // Call the main function, if present.
@@ -658,7 +634,7 @@ getScalarValue(const sol::protected_function_result &pfr, int index,
   case ScalarTypeCode::i64:
     return std::make_unique<ScalarValue>(pfr[index].get<int64_t>(), code);
   case ScalarTypeCode::f8e4m3fn:
-    return std::make_unique<ScalarValue>(pfr[index].get<float>(), code);
+    return std::make_unique<ScalarValue>(pfr[index].get<__nv_fp8_e4m3>(), code);
   case ScalarTypeCode::f16:
     return std::make_unique<ScalarValue>(pfr[index].get<__half>(), code);
   case ScalarTypeCode::bf16:
@@ -667,20 +643,22 @@ getScalarValue(const sol::protected_function_result &pfr, int index,
     return std::make_unique<ScalarValue>(pfr[index].get<float>(), code);
   case ScalarTypeCode::f64:
     return std::make_unique<ScalarValue>(pfr[index].get<double>(), code);
+  case ScalarTypeCode::complex32:
+    return std::make_unique<ScalarValue>(
+        static_cast<float>(static_cast<sol::table>(pfr[index])[1]),
+        static_cast<float>(static_cast<sol::table>(pfr[index])[2]), code);
+  case ScalarTypeCode::complex64:
+    return std::make_unique<ScalarValue>(
+        static_cast<double>(static_cast<sol::table>(pfr[index])[1]),
+        static_cast<double>(static_cast<sol::table>(pfr[index])[2]), code);
   default:
-    return getInvalidArgStatus("Unsupported scalar type code: ",
+    return getInvalidArgStatus("Unsupported scalar type code: {0}",
                                impl::EnumNameScalarTypeCode(code));
   }
 }
 
 /// Parses the results of a function call, handling both scalar and MemRef
 /// return types.
-///
-/// @param pfr The protected function result to parse.
-/// @param sig The function signature view.
-/// @param session Lua runtime session.
-/// @param client Optional runtime client pointer.
-/// @return A vector of unique pointers to RuntimeValue, or an error status.
 static StatusOr<llvm::SmallVector<std::unique_ptr<RuntimeValue>>>
 parseResults(const sol::protected_function_result &pfr,
              const FunctionSignatureView &sig, LuaRuntimeSession &session,

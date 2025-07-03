@@ -57,9 +57,13 @@ def estimate_paralllelism(
                 devices, gb_gpu_mem_required
             )
         return int(
-            min(
-                parallelism,
-                (psutil.virtual_memory().available / (1024**3)) // gb_sys_mem_required,
+            max(
+                min(
+                    parallelism,
+                    (0.5 * psutil.virtual_memory().available / (1024**3))
+                    // gb_sys_mem_required,
+                ),
+                1,
             )
         )
     except:
@@ -83,15 +87,14 @@ config.substitutions.append(("%trt_lib_dir", config.tensorrt_lib_dir))
 
 # Setup the parallelism groups. Note that just instantiating the TRT builder
 # requires ~2.5 GB of system memory, so we use 3.0 as a baseline limit.
-lit_config.parallelism_groups["default"] = estimate_paralllelism(
-    2.0, gb_sys_mem_required=3.0
+lit_config.parallelism_groups["non-collective"] = estimate_paralllelism(
+    2.0, gb_sys_mem_required=5.0
 )
+lit_config.parallelism_groups["collective"] = 1
 lit_config.parallelism_groups["models"] = estimate_paralllelism(
-    8.0, gb_sys_mem_required=4.0
+    8.0, gb_sys_mem_required=6.0
 )
-lit_config.parallelism_groups["heavy"] = 1
-
-lit_config.parallelism_group = "default"
+config.parallelism_group = "non-collective"
 
 print(f"Parallelism Groups: {lit_config.parallelism_groups}", file=sys.stderr)
 

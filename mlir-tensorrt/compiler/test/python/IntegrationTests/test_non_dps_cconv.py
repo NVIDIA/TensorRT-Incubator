@@ -1,4 +1,4 @@
-# RUN: %PYTHON %s
+# RUN: %pick-one-gpu %PYTHON %s
 import time
 
 import mlir_tensorrt.compiler.api as compiler

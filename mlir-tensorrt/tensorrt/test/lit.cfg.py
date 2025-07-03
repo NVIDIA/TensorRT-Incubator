@@ -137,4 +137,4 @@ def estimate_paralllelism(
 lit_config.parallelism_groups["translation-tests"] = estimate_paralllelism(
     8.0, gb_sys_mem_required=3.0
 )
-lit_config.parallelism_group = None
+config.parallelism_group = None

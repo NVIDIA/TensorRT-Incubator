@@ -1,15 +1,14 @@
-From 51c99ccf1a291295aed12a36395760026c268cbb Mon Sep 17 00:00:00 2001
-From: Christopher Bate <cbate@nvidia.com>
-Date: Tue, 11 Mar 2025 22:34:24 +0000
-Subject: [PATCH 09/10] [mlir] Support FileLineColRange in LLVM debug
- translation
+From d679ee8c7978fe63321e90c5c6583b604ca3d1a5 Mon Sep 17 00:00:00 2001
+From: Sagar Shelke <shelkesagar29@yahoo.com>
+Date: Tue, 1 Jul 2025 00:25:43 +0000
+Subject: [PATCH] Apply patch 0009
 
 ---
  mlir/lib/Target/LLVMIR/DebugTranslation.cpp | 8 ++++++++
  1 file changed, 8 insertions(+)
 
 diff --git a/mlir/lib/Target/LLVMIR/DebugTranslation.cpp b/mlir/lib/Target/LLVMIR/DebugTranslation.cpp
-index cf734de49acd..c55d9a204468 100644
+index 1d3ed6f3262f..93e1d08faf4f 100644
 --- a/mlir/lib/Target/LLVMIR/DebugTranslation.cpp
 +++ b/mlir/lib/Target/LLVMIR/DebugTranslation.cpp
 @@ -547,6 +547,14 @@ llvm::DILocation *DebugTranslation::translateLoc(Location loc,
@@ -28,5 +27,5 @@ index cf734de49acd..c55d9a204468 100644
      ArrayRef<Location> locations = fusedLoc.getLocations();
  
 -- 
-2.46.0
+2.48.1
 

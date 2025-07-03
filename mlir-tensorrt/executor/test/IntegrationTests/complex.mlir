@@ -1,7 +1,7 @@
  // RUN: executor-opt %s \
  // RUN:  -executor-lowering-pipeline \
  // RUN:  | executor-translate -mlir-to-runtime-executable \
- // RUN:  | executor-runner -input-type=rtexe \
+ // RUN:  | executor-runner -input-type=rtexe -features=core \
  // RUN:  | FileCheck %s
 
 func.func @print_complex(%arg0: complex<f32>) {

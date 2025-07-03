@@ -2,10 +2,10 @@
 // RUN: executor-opt %s -executor-lowering-pipeline -o %t.mlir
 
 // RUN: executor-translate -mlir-to-lua  %t.mlir \
-// RUN:   | executor-runner -input-type=lua | FileCheck %s
+// RUN:   | executor-runner -input-type=lua -features=core | FileCheck %s
 
 // RUN: executor-translate -mlir-to-runtime-executable %t.mlir \
-// RUN:   | executor-runner -input-type=rtexe | FileCheck %s
+// RUN:   | executor-runner -input-type=rtexe -features=core | FileCheck %s
 
 func.func @test_addi(%arg0: i64, %arg1: i64) {
   %0 = executor.addi %arg0, %arg1 : i64
@@ -1080,8 +1080,8 @@ func.func @main() -> i64 {
   %cn1_i8 = executor.constant -1 : i8
   func.call @test_trunci_i8_to_i1(%cn1_i8) : (i8) -> ()
   func.call @test_trunci_i8_to_i1(%c1_i8) : (i8) -> ()
-  
-  
+
+
 
 
   return %ic0 : i64

@@ -85,7 +85,7 @@ func.func private @pt_q(%arg0: tensor<?x3x?x?xf32>) -> tensor<?x3x?x?xi8> attrib
 //       SHAPE:     return %[[arg0]], %[[c3]], %[[arg1]], %[[arg2]] : index, index, index, index
 //       SHAPE:   }
 // SHAPE-LABEL: func.func @stablehlo_composite_dynamic_shapes_get_shapes
-//  SHAPE-SAME: (%[[arg0:.+]]: tensor<4xindex, #plan.memory_space<host>> {tensorrt.host_tensor})
+//  SHAPE-SAME: (%[[arg0:.+]]: tensor<4xindex, #plan.memory_space<host>>)
 //   SHAPE-DAG:     %[[c0:.+]] = arith.constant 0 : index
 //   SHAPE-DAG:     %[[extracted:.+]] = tensor.extract %[[arg0]][%[[c0]]] : tensor<4xindex, #plan.memory_space<host>>
 //   SHAPE-DAG:     %[[c2:.+]] = arith.constant 2 : index

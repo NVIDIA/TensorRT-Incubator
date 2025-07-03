@@ -1288,7 +1288,7 @@ def Executor_StoreOp : Executor_Op<"store", [
   }];
 }
 
-def Executor_MemcpyOp : Executor_Op<"memcpy", [Executor_LowerToFuncCallTrait,
+def Executor_MemcpyOp : Executor_Op<"memcpy", [
   AllTypesMatch<["src_offset", "dest_offset", "num_bytes"]>
 ]> {
   let description = [{
@@ -1338,8 +1338,7 @@ def Executor_StridedMemrefCopyOp : Executor_Op<"strided_memref_copy", [
 
 class Executor_PointerCastOp <string mnemonic, list<Trait> traits = []> :
   Executor_Op<mnemonic,
-      !listconcat(traits, [Pure, DeclareOpInterfaceMethods<RuntimeBuiltinInterface,
-        ["getRuntimeBuiltinFunctionName"]>])> {
+      !listconcat(traits, [Pure])> {
   let assemblyFormat = [{
     attr-dict $arg `:` functional-type(operands, results)
   }];
@@ -1348,36 +1347,11 @@ class Executor_PointerCastOp <string mnemonic, list<Trait> traits = []> :
 def Executor_PtrToIntOp : Executor_PointerCastOp<"ptrtoint"> {
   let arguments = (ins Executor_Ptr:$arg);
   let results = (outs Executor_Index:$result);
-  let extraClassDefinition = [{
-    FailureOr<std::string>
-    $cppClass::getRuntimeBuiltinFunctionName(const DataLayout &dataLayout) {
-      std::string result;
-      llvm::raw_string_ostream ss(result);
-      uint64_t ptrWidth = dataLayout.getTypeSizeInBits(getArg().getType());
-      ss << "_ptrtoint_i" << ptrWidth
-         << "_" << getType();
-      ss.flush();
-      return result;
-    }
-  }];
 }
 
 def Executor_IntToPtrOp : Executor_PointerCastOp<"inttoptr"> {
   let arguments = (ins Executor_Index:$arg);
   let results = (outs Executor_Ptr:$result);
-  let extraClassDefinition = [{
-    /// Specify the function type. Different pointer types can be used, so treat as variadic.
-    FailureOr<std::string>
-    $cppClass::getRuntimeBuiltinFunctionName(const DataLayout &dataLayout) {
-      std::string result;
-      uint64_t ptrWidth = dataLayout.getTypeSizeInBits(getType());
-      llvm::raw_string_ostream ss(result);
-      ss << "_inttoptr_i" << ptrWidth
-         << "_" << getArg().getType();
-      ss.flush();
-      return result;
-    }
-  }];
 }
 
 #endif // MLIR_TENSORRT_DIALECT_EXECUTOR_IR_EXECUTOROPS_TD

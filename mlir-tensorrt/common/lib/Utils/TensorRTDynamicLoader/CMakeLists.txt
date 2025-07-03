@@ -1,4 +1,4 @@
-add_mlir_executor_library(MLIRTRTTensorRTDynamicLoader
+add_mlir_tensorrt_library(MLIRTRTTensorRTDynamicLoader
   TensorRTDynamicLoader.cpp
 
   LINK_LIBS PRIVATE

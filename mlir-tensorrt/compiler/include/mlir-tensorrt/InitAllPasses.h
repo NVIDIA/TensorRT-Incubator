@@ -23,6 +23,7 @@
 #define REGISTRATION_REGISTERMLIRTENSORRTPASSES_H
 
 #include "mlir-executor/InitAllPasses.h"
+#include "mlir-tensorrt-common/Conversion/Passes.h"
 #include "mlir-tensorrt-dialect/TensorRT/Transforms/Passes.h"
 #include "mlir-tensorrt/Conversion/Passes.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
@@ -52,8 +53,8 @@ inline void registerAllPasses() {
   mlir::emitc::registerEmitCPasses();
   mlir::plan::registerPlanDialectPipelines();
   mlir::plan::registerPlanPasses();
-  mlir::registerConvertAffineToStandard();
-  mlir::registerConvertPDLToPDLInterp();
+  mlir::registerLowerAffinePass();
+  mlir::registerConvertPDLToPDLInterpPass();
   mlir::registerMLIRTensorRTConversionPasses();
   mlir::registerMLIRTensorRTGenericTransformsPasses();
   mlir::registerTransformsPasses();
@@ -61,6 +62,7 @@ inline void registerAllPasses() {
   mlir::registerConvertCUDAToExecutorPass();
   mlir::bufferization::registerBufferizationPasses();
   mlir::executor::registerAllPasses();
+  mlir::registerMLIRTensorRTCommonConversionPasses();
 
   IF_MLIR_TRT_ENABLE_HLO({
     mlirtrt::compiler::registerStablehloToExecutablePasses();

@@ -35,6 +35,7 @@ include(cmake/TensorRTFunctions.cmake)
 #-------------------------------------------------------------------------------
 # Dependencies
 #-------------------------------------------------------------------------------
+find_package(MLIRTensorRTCommon REQUIRED)
 
 if(NOT TARGET MLIRSupport)
   find_package(MLIR REQUIRED CONFIG)

@@ -1,4 +1,4 @@
-# RUN: %PYTHON %s | FileCheck %s
+# RUN: %pick-one-gpu %PYTHON %s | FileCheck %s
 # REQUIRES: all-gpus-support-fp8
 # REQUIRES: tensorrt-version-ge-10.0
 from dataclasses import dataclass

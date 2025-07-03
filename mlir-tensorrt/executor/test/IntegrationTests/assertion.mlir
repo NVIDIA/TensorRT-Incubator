@@ -1,6 +1,6 @@
 // RUN: executor-opt %s -executor-lowering-pipeline \
 // RUN:   | executor-translate -mlir-to-lua \
-// RUN:   | not executor-runner -input-type=lua 2>&1 | FileCheck %s
+// RUN:   | not executor-runner -input-type=lua -features=core 2>&1 | FileCheck %s
 
 func.func @main() -> i32 {
   %c0 = executor.constant 0 : i32

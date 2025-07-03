@@ -35,8 +35,8 @@ func.func @detensorize_while(%arg0: tensor<i32>, %arg1: tensor<1xi32>)
 //  CHECK-NEXT:     ^bb0(%[[arg2:.+]]: i32, %[[arg3:.+]]: i32):
 //  CHECK-NEXT:       %[[v1:.+]] = arith.addi %[[arg2]], %[[arg3]] : i32
 //  CHECK-NEXT:       scf.yield %[[v1]], %[[v1]] : i32, i32
-//       CHECK:     %[[from_elements:.+]] = tensor.from_elements %[[v0]]#0 : tensor<i32>
-//  CHECK-NEXT:     %[[from_elements_1:.+]] = tensor.from_elements %[[v0]]#1 : tensor<1xi32>
+//  CHECK-DAG:     %[[from_elements:.+]] = tensor.from_elements %[[v0]]#0 : tensor<i32>
+//   CHECK-DAG:     %[[from_elements_1:.+]] = tensor.from_elements %[[v0]]#1 : tensor<1xi32>
 //  CHECK-NEXT:     return %[[from_elements]], %[[from_elements_1]] : tensor<i32>, tensor<1xi32>
 
 // -----
