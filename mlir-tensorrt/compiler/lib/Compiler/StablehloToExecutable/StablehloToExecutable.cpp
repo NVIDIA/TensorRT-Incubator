@@ -178,9 +178,22 @@ void StablehloToExecutableTask::populatePassManager(
 
   // StableHLO Preprocessing
   mlirtrt::compiler::StableHloInputOptions opts{};
+  // We legalize to SCF later.
   opts.legalizeControlFlowToSCF = false;
   opts.preserveChloErf = true;
   opts.preserveChloTopK = true;
+  {
+    FailureOr<stablehlo_ext::TargetSpecificCanonicalizationOptions> parsed =
+        stablehlo_ext::TargetSpecificCanonicalizationOptions::parse(
+            options.stablehloTargetSpecificPatternSets);
+    if (failed(parsed)) {
+      llvm::report_fatal_error("Invalid target-specific Stablehlo optimization "
+                               "pattern set names.");
+    }
+    opts.targetSpecificOptions = std::move(*parsed);
+    opts.constantFoldSizeLimit =
+        options.stablehloInputRewriteConstantFoldVolumeLimit;
+  }
   mlirtrt::compiler::buildStablehloPreProcessingPipeline(pm, opts);
 
   buildClusteringPipeline(pm, options);

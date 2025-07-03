@@ -14,6 +14,7 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt/Dialect/StablehloExt/Transforms/Passes.h"
+#include "mlir-tensorrt/Dialect/StablehloExt/Transforms/Patterns.h"
 #include "mlir-tensorrt/Dialect/StablehloExt/Utils/GatherScatterUtils.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
@@ -201,6 +202,14 @@ struct CanonicalizeGather : public OpRewritePattern<GatherOp> {
     return success();
   }
 };
+} // namespace
+
+void stablehlo_ext::populateCanonicalizeStablehloGatherPatterns(
+    RewritePatternSet &patterns) {
+  patterns.add<CanonicalizeGather>(patterns.getContext());
+}
+
+namespace {
 
 struct CanonicalizeGatherPass
     : public stablehlo_ext::impl::CanonicalizeGatherPassBase<
@@ -208,7 +217,7 @@ struct CanonicalizeGatherPass
   void runOnOperation() override {
     MLIRContext *ctx = &getContext();
     RewritePatternSet patterns(ctx);
-    patterns.add<CanonicalizeGather>(ctx);
+    stablehlo_ext::populateCanonicalizeStablehloGatherPatterns(patterns);
     if (failed(applyPatternsGreedily(getOperation(), std::move(patterns)))) {
       emitError(getOperation()->getLoc())
           << "failed to apply patterns in " << getArgument();

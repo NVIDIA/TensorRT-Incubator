@@ -63,6 +63,11 @@ def ConstantFoldingPass : Pass<"stablehlo-ext-constant-folding"> {
   let dependentDialects = [
     "::mlir::tensor::TensorDialect"
   ];
+
+  let options = [
+    Option<"constantFoldSizeLimit", "constant-fold-size-limit", "int64_t",
+     "65536", "The computation size limit for constant folding.">
+  ];
 }
 
 //===----------------------------------------------------------------------===//
@@ -207,6 +212,22 @@ def LowerSpecialCustomCalls : Pass<"stablehlo-ext-lower-special-custom-calls"> {
 
 def CanonicalizeConvolutionPass : Pass<"stablehlo-ext-canonicalize-convolution"> {
   let summary = "Canonicalizes stablehlo convolution operations";
+}
+
+//===----------------------------------------------------------------------===//
+// TargetSpecificOptimizationsPass
+//===----------------------------------------------------------------------===//
+
+def TargetSpecificOptimizationsPass : Pass<"stablehlo-ext-target-specific-optimizations"> {
+  let summary = "Canonicalizes stablehlo operations";
+  let options = [
+    ListOption<"patternSetNames", "patterns", "std::string",
+      "Comma-separated list of target-specific optimization patterns to enable. "
+      "Available patterns: "
+      "dot-general, gather, scatter, convolution, gather-to-slice">,
+    Option<"constantFoldSizeLimit", "constant-fold-size-limit", "int64_t",
+     "65536", "The computation size limit for constant folding.">
+  ];
 }
 
 //===----------------------------------------------------------------------===//

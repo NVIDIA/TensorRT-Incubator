@@ -22,6 +22,7 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt/Dialect/StablehloExt/Transforms/Passes.h"
+#include "mlir-tensorrt/Dialect/StablehloExt/Transforms/Patterns.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
@@ -187,6 +188,13 @@ struct RewriteSliceLikeGather : public OpRewritePattern<stablehlo::GatherOp> {
     return success();
   }
 };
+} // namespace
+
+void stablehlo_ext::populateGatherToSlicePatterns(RewritePatternSet &patterns) {
+  patterns.add<RewriteSliceLikeGather>(patterns.getContext());
+}
+
+namespace {
 
 class GatherToSlicePass
     : public stablehlo_ext::impl::GatherToSlicePassBase<GatherToSlicePass> {
@@ -196,7 +204,7 @@ public:
     Operation *op = getOperation();
     MLIRContext *ctx = &getContext();
     RewritePatternSet patterns(ctx);
-    patterns.add<RewriteSliceLikeGather>(ctx);
+    stablehlo_ext::populateGatherToSlicePatterns(patterns);
     if (failed(applyPatternsGreedily(op, std::move(patterns)))) {
       emitError(op->getLoc())
           << "failed to apply rewrite patterns in " << getArgument();

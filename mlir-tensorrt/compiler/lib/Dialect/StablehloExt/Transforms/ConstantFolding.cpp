@@ -32,6 +32,7 @@
 #include "mlir-tensorrt-dialect/Utils/ConstantFoldUtils.h"
 #include "mlir-tensorrt-dialect/Utils/ShapeUtils.h"
 #include "mlir-tensorrt-dialect/Utils/StaticValueUtils.h"
+#include "mlir-tensorrt/Dialect/StablehloExt/Transforms/Passes.h"
 #include "mlir-tensorrt/Dialect/StablehloExt/Transforms/Patterns.h"
 #include "mlir-tensorrt/Dialect/StablehloExt/Utils/GatherScatterUtils.h"
 #include "mlir-tensorrt/Dialect/StablehloExt/Utils/Utils.h"
@@ -59,29 +60,6 @@ namespace stablehlo_ext {
 using namespace mlir;
 using namespace mlir::stablehlo;
 using namespace mlir::stablehlo_ext;
-
-/// Specifies the builtin limit on the number of elements in a result beyond
-/// which we do not fold (to prevent long compilation time and excess memory
-/// usage in the resulting program). This may not apply in certain cases such as
-/// when folding operations on splat constants.
-///
-/// The current values  was chosen to match the corresponding limit in MLIR-MHLO
-/// folders. It skews heavily toward making compilation time fast since a float
-/// constant with 65536 elements would only take 256kB. However, our cases,
-/// often times it is desireable to fold more aggressively (e.g. so that the
-/// constant can be baked into a TRT engine). In the future we will have
-/// different levels to reflect this tradeoff.
-constexpr int64_t kFoldOpEltLimit = 65536;
-
-template <typename AttrType>
-static bool exceedsSizeLimit(AttrType attr) {
-  return !attr.isSplat() && attr.getNumElements() > kFoldOpEltLimit;
-}
-
-template <typename AttrType, typename... AttrTypes>
-static bool exceedsSizeLimit(AttrType attr, AttrTypes... other) {
-  return exceedsSizeLimit(attr) || exceedsSizeLimit(other...);
-}
 
 /// Replace `originalOp` with `v` if the types match. Otherwise, insert a
 /// `tensor.cast` of `v` if the types are "cast compatible", meaning that one
@@ -196,12 +174,32 @@ static ElementsAttr constFoldBinaryOpImpl(
   return DenseElementsAttr::get(resultType, elementResults);
 }
 
+template <typename OpType>
+struct StablehloExtFoldOpPattern : public OpRewritePattern<OpType> {
+  StablehloExtFoldOpPattern(int64_t sizeLimit, MLIRContext *ctx,
+                            PatternBenefit benefit = 1)
+      : OpRewritePattern<OpType>(ctx, benefit), sizeLimit(sizeLimit) {}
+
+  bool exceedsSizeLimit(ElementsAttr attr) const {
+    return !attr.isSplat() && attr.getNumElements() > sizeLimit;
+  }
+
+  template <typename... Attrs>
+  bool exceedsSizeLimit(ElementsAttr attr, Attrs... other) const {
+    return this->exceedsSizeLimit(attr) || this->exceedsSizeLimit(other...);
+  }
+
+protected:
+  int64_t sizeLimit;
+};
+
 namespace {
+
 /// This is the base class for simple binary operations whose folding operation
 /// can be described using a simple functor object like `std::multiplies<>`.
 template <typename OpType, typename ArithOpFunctor>
-struct EvalBinaryOpPattern : public OpRewritePattern<OpType> {
-  using OpRewritePattern<OpType>::OpRewritePattern;
+struct EvalBinaryOpPattern : public StablehloExtFoldOpPattern<OpType> {
+  using StablehloExtFoldOpPattern<OpType>::StablehloExtFoldOpPattern;
 
   LogicalResult matchAndRewrite(OpType op,
                                 PatternRewriter &rewriter) const override {
@@ -211,7 +209,7 @@ struct EvalBinaryOpPattern : public OpRewritePattern<OpType> {
     ElementsAttr lhs, rhs;
     if (!matchPattern(op->getOperand(0), m_Constant(&lhs)) ||
         !matchPattern(op->getOperand(1), m_Constant(&rhs)) ||
-        exceedsSizeLimit(lhs, rhs))
+        this->exceedsSizeLimit(lhs, rhs))
       return failure();
 
     if (lhs.getElementType().isIntOrIndex() &&
@@ -246,8 +244,10 @@ struct EvalBinaryOpPattern : public OpRewritePattern<OpType> {
 //===----------------------------------------------------------------------===//
 
 /// Perform folding of `stablehlo.transpose(stablehlo.constant)`.
-struct ConstFoldTranspose : OpRewritePattern<stablehlo::TransposeOp> {
-  using OpRewritePattern::OpRewritePattern;
+struct ConstFoldTranspose
+    : public StablehloExtFoldOpPattern<stablehlo::TransposeOp> {
+  using StablehloExtFoldOpPattern::StablehloExtFoldOpPattern;
+
   LogicalResult matchAndRewrite(stablehlo::TransposeOp op,
                                 PatternRewriter &rewriter) const override {
     RankedTensorType inputType = op.getOperand().getType();
@@ -258,7 +258,7 @@ struct ConstFoldTranspose : OpRewritePattern<stablehlo::TransposeOp> {
     // Fold the input to a constant if possible, otherwise return.
     ElementsAttr inputConst;
     if (!matchPattern(op.getOperand(), m_Constant(&inputConst)) ||
-        exceedsSizeLimit(inputConst))
+        this->exceedsSizeLimit(inputConst))
       return failure();
 
     // Handle the zero-dim case.
@@ -281,8 +281,9 @@ struct ConstFoldTranspose : OpRewritePattern<stablehlo::TransposeOp> {
 };
 
 // Combine consecutive transpose.
-struct CombineConsecutiveTranspose : OpRewritePattern<stablehlo::TransposeOp> {
-  using OpRewritePattern::OpRewritePattern;
+struct CombineConsecutiveTranspose
+    : StablehloExtFoldOpPattern<stablehlo::TransposeOp> {
+  using StablehloExtFoldOpPattern::StablehloExtFoldOpPattern;
   LogicalResult matchAndRewrite(stablehlo::TransposeOp op,
                                 PatternRewriter &rewriter) const override {
     auto parentTranspose = op.getOperand().getDefiningOp<TransposeOp>();
@@ -306,8 +307,8 @@ struct CombineConsecutiveTranspose : OpRewritePattern<stablehlo::TransposeOp> {
 
 /// Simplify `MinOp` if the operands are identical.
 template <typename OpType>
-struct SimplifyTrivialMinOrTrivalMax final : OpRewritePattern<OpType> {
-  using OpRewritePattern<OpType>::OpRewritePattern;
+struct SimplifyTrivialMinOrTrivalMax : StablehloExtFoldOpPattern<OpType> {
+  using StablehloExtFoldOpPattern<OpType>::StablehloExtFoldOpPattern;
 
   LogicalResult matchAndRewrite(OpType op,
                                 PatternRewriter &rewriter) const override {
@@ -327,8 +328,9 @@ struct SimplifyTrivialMinOrTrivalMax final : OpRewritePattern<OpType> {
 /// Fold `stablehlo.reshape` with the constant producer.
 /// TODO: This pattern differs from the upstream in that it handles
 /// DenseResourceElementsAttr. Move this upstream.
-struct ConstFoldReshape : public OpRewritePattern<stablehlo::ReshapeOp> {
-  using OpRewritePattern::OpRewritePattern;
+struct ConstFoldReshape
+    : public StablehloExtFoldOpPattern<stablehlo::ReshapeOp> {
+  using StablehloExtFoldOpPattern::StablehloExtFoldOpPattern;
   LogicalResult matchAndRewrite(stablehlo::ReshapeOp op,
                                 PatternRewriter &rewriter) const override {
     ElementsAttr elAttr{};
@@ -349,8 +351,8 @@ struct ConstFoldReshape : public OpRewritePattern<stablehlo::ReshapeOp> {
 /// Replace the sequence of stablehlo.reshape, stablehlo.broadcast_in_dim, and
 /// stablehlo.reshape with stablehlo.broadcast_in_dim.
 struct SimplifyReshapeBroadcastInDimReshape
-    : public OpRewritePattern<stablehlo::ReshapeOp> {
-  using OpRewritePattern::OpRewritePattern;
+    : public StablehloExtFoldOpPattern<stablehlo::ReshapeOp> {
+  using StablehloExtFoldOpPattern::StablehloExtFoldOpPattern;
   LogicalResult matchAndRewrite(stablehlo::ReshapeOp op,
                                 PatternRewriter &rewriter) const override {
     auto outputType = op.getType();
@@ -427,13 +429,14 @@ struct SimplifyReshapeBroadcastInDimReshape
 //===----------------------------------------------------------------------===//
 
 /// Fold `stablehlo.convert` with the constant input.
-struct ConstFoldConvert : public OpRewritePattern<stablehlo::ConvertOp> {
-  using OpRewritePattern::OpRewritePattern;
+struct ConstFoldConvert
+    : public StablehloExtFoldOpPattern<stablehlo::ConvertOp> {
+  using StablehloExtFoldOpPattern::StablehloExtFoldOpPattern;
   LogicalResult matchAndRewrite(stablehlo::ConvertOp op,
                                 PatternRewriter &rewriter) const override {
     ElementsAttr operandValue{};
     if (!matchPattern(op.getOperand(), m_Constant(&operandValue)) ||
-        exceedsSizeLimit(operandValue))
+        this->exceedsSizeLimit(operandValue))
       return failure();
 
     auto attr =
@@ -449,8 +452,8 @@ struct ConstFoldConvert : public OpRewritePattern<stablehlo::ConvertOp> {
 /// possible. For replacement to happen, first conversion should happen to
 /// higher bit width data type.
 struct EliminateCascadedConverts
-    : public OpRewritePattern<stablehlo::ConvertOp> {
-  using OpRewritePattern::OpRewritePattern;
+    : public StablehloExtFoldOpPattern<stablehlo::ConvertOp> {
+  using StablehloExtFoldOpPattern::StablehloExtFoldOpPattern;
   LogicalResult matchAndRewrite(stablehlo::ConvertOp op,
                                 PatternRewriter &rewriter) const override {
     auto parentConvert = op.getOperand().getDefiningOp<ConvertOp>();
@@ -486,8 +489,8 @@ struct EliminateCascadedConverts
 //===----------------------------------------------------------------------===//
 
 /// Folds `stablehlo::SqrtOp` for float operands.
-struct SqrtOpFolder : public OpRewritePattern<stablehlo::SqrtOp> {
-  using OpRewritePattern::OpRewritePattern;
+struct SqrtOpFolder : public StablehloExtFoldOpPattern<stablehlo::SqrtOp> {
+  using StablehloExtFoldOpPattern::StablehloExtFoldOpPattern;
 
   LogicalResult matchAndRewrite(stablehlo::SqrtOp op,
                                 PatternRewriter &rewriter) const override {
@@ -499,7 +502,7 @@ struct SqrtOpFolder : public OpRewritePattern<stablehlo::SqrtOp> {
     // Check for constant operand.
     ElementsAttr inpAttr{};
     if (!matchPattern(op.getOperand(), m_Constant(&inpAttr)) ||
-        exceedsSizeLimit(inpAttr))
+        this->exceedsSizeLimit(inpAttr))
       return failure();
 
     Attribute foldedResult =
@@ -524,8 +527,8 @@ struct SqrtOpFolder : public OpRewritePattern<stablehlo::SqrtOp> {
 //===----------------------------------------------------------------------===//
 
 /// Fold `stablehlo.rsqrt` with the constant producer.
-struct RsqrtFolder : public OpRewritePattern<stablehlo::RsqrtOp> {
-  using OpRewritePattern::OpRewritePattern;
+struct RsqrtFolder : public StablehloExtFoldOpPattern<stablehlo::RsqrtOp> {
+  using StablehloExtFoldOpPattern::StablehloExtFoldOpPattern;
   LogicalResult matchAndRewrite(stablehlo::RsqrtOp op,
                                 PatternRewriter &rewriter) const override {
     // This op can accept Float and Complex types. We only handle float here.
@@ -537,7 +540,7 @@ struct RsqrtFolder : public OpRewritePattern<stablehlo::RsqrtOp> {
     // Check for constant operand.
     DenseElementsAttr attr{};
     if (!matchPattern(op.getOperand(), m_Constant(&attr)) ||
-        exceedsSizeLimit(attr))
+        this->exceedsSizeLimit(attr))
       return failure();
 
     Attribute foldedResult =
@@ -564,8 +567,9 @@ struct RsqrtFolder : public OpRewritePattern<stablehlo::RsqrtOp> {
 
 namespace {
 
-struct ConstFoldCompare : public OpRewritePattern<stablehlo::CompareOp> {
-  using OpRewritePattern::OpRewritePattern;
+struct ConstFoldCompare
+    : public StablehloExtFoldOpPattern<stablehlo::CompareOp> {
+  using StablehloExtFoldOpPattern::StablehloExtFoldOpPattern;
 
   LogicalResult matchAndRewrite(stablehlo::CompareOp op,
                                 PatternRewriter &rewriter) const override {
@@ -641,15 +645,15 @@ struct ConstFoldCompare : public OpRewritePattern<stablehlo::CompareOp> {
 /// Perform constant folding for 'stablehlo.div'. Note that this only handles
 /// floating-point element types since the upstream folder handles integer
 /// element types.
-struct ConstFoldDiv : public OpRewritePattern<stablehlo::DivOp> {
-  using OpRewritePattern::OpRewritePattern;
+struct ConstFoldDiv : public StablehloExtFoldOpPattern<stablehlo::DivOp> {
+  using StablehloExtFoldOpPattern::StablehloExtFoldOpPattern;
 
   LogicalResult matchAndRewrite(stablehlo::DivOp op,
                                 PatternRewriter &rewriter) const override {
     DenseFPElementsAttr lhsAttr{}, rhsAttr{};
     if (!matchPattern(op.getLhs(), m_Constant(&lhsAttr)) ||
         !matchPattern(op.getRhs(), m_Constant(&rhsAttr)) ||
-        exceedsSizeLimit(lhsAttr, rhsAttr))
+        this->exceedsSizeLimit(lhsAttr, rhsAttr))
       return failure();
 
     DenseFPElementsAttr result = llvm::dyn_cast_if_present<DenseFPElementsAttr>(
@@ -664,14 +668,14 @@ struct ConstFoldDiv : public OpRewritePattern<stablehlo::DivOp> {
 
 /// Perform constant folding for 'stablehlo.floor' (round toward negative
 /// infinity).
-struct ConstFoldFloor : public OpRewritePattern<stablehlo::FloorOp> {
-  using OpRewritePattern::OpRewritePattern;
+struct ConstFoldFloor : public StablehloExtFoldOpPattern<stablehlo::FloorOp> {
+  using StablehloExtFoldOpPattern::StablehloExtFoldOpPattern;
 
   LogicalResult matchAndRewrite(stablehlo::FloorOp op,
                                 PatternRewriter &rewriter) const override {
     DenseFPElementsAttr operandAttr{};
     if (!matchPattern(op.getOperand(), m_Constant(&operandAttr)) ||
-        exceedsSizeLimit(operandAttr))
+        this->exceedsSizeLimit(operandAttr))
       return failure();
 
     DenseFPElementsAttr result = llvm::dyn_cast_if_present<DenseFPElementsAttr>(
@@ -690,15 +694,15 @@ struct ConstFoldFloor : public OpRewritePattern<stablehlo::FloorOp> {
 /// Perform constant folding for 'stablehlo.sub'. Note that this only handles
 /// floating-point element types since the upstream folder handles integer
 /// element types.
-struct ConstFoldSub : public OpRewritePattern<stablehlo::SubtractOp> {
-  using OpRewritePattern::OpRewritePattern;
+struct ConstFoldSub : public StablehloExtFoldOpPattern<stablehlo::SubtractOp> {
+  using StablehloExtFoldOpPattern::StablehloExtFoldOpPattern;
 
   LogicalResult matchAndRewrite(stablehlo::SubtractOp op,
                                 PatternRewriter &rewriter) const override {
     DenseFPElementsAttr lhsAttr{}, rhsAttr{};
     if (!matchPattern(op.getLhs(), m_Constant(&lhsAttr)) ||
         !matchPattern(op.getRhs(), m_Constant(&rhsAttr)) ||
-        exceedsSizeLimit(lhsAttr, rhsAttr))
+        this->exceedsSizeLimit(lhsAttr, rhsAttr))
       return failure();
 
     DenseFPElementsAttr result = llvm::dyn_cast_if_present<DenseFPElementsAttr>(
@@ -715,14 +719,14 @@ struct ConstFoldSub : public OpRewritePattern<stablehlo::SubtractOp> {
 // OrOp
 //===----------------------------------------------------------------------===//
 
-struct FoldOrOp : public OpRewritePattern<stablehlo::OrOp> {
-  using OpRewritePattern::OpRewritePattern;
+struct FoldOrOp : public StablehloExtFoldOpPattern<stablehlo::OrOp> {
+  using StablehloExtFoldOpPattern::StablehloExtFoldOpPattern;
 
   LogicalResult matchAndRewrite(stablehlo::OrOp op,
                                 PatternRewriter &rewriter) const override {
     RankedTensorType resultType = op.getType();
     if (!resultType.hasStaticShape() ||
-        resultType.getNumElements() > kFoldOpEltLimit)
+        resultType.getNumElements() > this->sizeLimit)
       return rewriter.notifyMatchFailure(
           op->getLoc(), "result type must be static and number of "
                         "elements less than `kFoldOpEltLimit`");
@@ -778,14 +782,14 @@ struct FoldOrOp : public OpRewritePattern<stablehlo::OrOp> {
 // AndOp
 //===----------------------------------------------------------------------===//
 
-struct FoldAndOp : public OpRewritePattern<stablehlo::AndOp> {
-  using OpRewritePattern::OpRewritePattern;
+struct FoldAndOp : public StablehloExtFoldOpPattern<stablehlo::AndOp> {
+  using StablehloExtFoldOpPattern::StablehloExtFoldOpPattern;
 
   LogicalResult matchAndRewrite(stablehlo::AndOp op,
                                 PatternRewriter &rewriter) const override {
     RankedTensorType resultType = op.getType();
     if (!resultType.hasStaticShape() ||
-        resultType.getNumElements() > kFoldOpEltLimit)
+        resultType.getNumElements() > this->sizeLimit)
       return rewriter.notifyMatchFailure(
           op->getLoc(), "result type must be static and number of "
                         "elements less than `kFoldOpEltLimit`");
@@ -842,8 +846,9 @@ struct FoldAndOp : public OpRewritePattern<stablehlo::AndOp> {
 //===----------------------------------------------------------------------===//
 
 /// Fold `stablehlo.slice(constant)`, inserting a cast if required.
-struct ConstFoldStablehloSlice : public OpRewritePattern<stablehlo::SliceOp> {
-  using OpRewritePattern::OpRewritePattern;
+struct ConstFoldStablehloSlice
+    : public StablehloExtFoldOpPattern<stablehlo::SliceOp> {
+  using StablehloExtFoldOpPattern::StablehloExtFoldOpPattern;
 
   LogicalResult matchAndRewrite(stablehlo::SliceOp op,
                                 PatternRewriter &rewriter) const override {
@@ -865,7 +870,7 @@ struct ConstFoldStablehloSlice : public OpRewritePattern<stablehlo::SliceOp> {
 
     auto newResultType = cast<RankedTensorType>(resultTypeVec.front());
     if (!operandValue.isSplat() && !op.getOperand().hasOneUse() &&
-        exceedsSizeLimit(operandValue))
+        this->exceedsSizeLimit(operandValue))
       return rewriter.notifyMatchFailure(
           op, "result type num elements > fold limit");
 
@@ -881,8 +886,9 @@ struct ConstFoldStablehloSlice : public OpRewritePattern<stablehlo::SliceOp> {
 };
 
 /// Simplify trivial slices that represent an identity.
-struct SimplifyTrivialSlice : public OpRewritePattern<stablehlo::SliceOp> {
-  using OpRewritePattern::OpRewritePattern;
+struct SimplifyTrivialSlice
+    : public StablehloExtFoldOpPattern<stablehlo::SliceOp> {
+  using StablehloExtFoldOpPattern::StablehloExtFoldOpPattern;
 
   LogicalResult matchAndRewrite(stablehlo::SliceOp op,
                                 PatternRewriter &rewriter) const override {
@@ -921,8 +927,9 @@ struct SimplifyTrivialSlice : public OpRewritePattern<stablehlo::SliceOp> {
 /// If there is only one operand, just replace with itself.
 /// TODO: This only differs from the equivalent upstream pattern in that it
 /// inserts a cast if the types differ.
-struct ConcatSingleSegment : public OpRewritePattern<stablehlo::ConcatenateOp> {
-  using OpRewritePattern::OpRewritePattern;
+struct ConcatSingleSegment
+    : public StablehloExtFoldOpPattern<stablehlo::ConcatenateOp> {
+  using StablehloExtFoldOpPattern::StablehloExtFoldOpPattern;
 
   LogicalResult matchAndRewrite(stablehlo::ConcatenateOp op,
                                 PatternRewriter &rewriter) const override {
@@ -938,8 +945,9 @@ struct ConcatSingleSegment : public OpRewritePattern<stablehlo::ConcatenateOp> {
 
 /// Repalce `stablehlo.gather` with `stablehlo.constant` when the data operand
 /// is a splat constant and the result type is statically shaped.
-struct ConstFoldGatherOnSplat : public OpRewritePattern<stablehlo::GatherOp> {
-  using OpRewritePattern::OpRewritePattern;
+struct ConstFoldGatherOnSplat
+    : public StablehloExtFoldOpPattern<stablehlo::GatherOp> {
+  using StablehloExtFoldOpPattern::StablehloExtFoldOpPattern;
   LogicalResult matchAndRewrite(stablehlo::GatherOp op,
                                 PatternRewriter &rewriter) const override {
     SplatElementsAttr splatConst{};
@@ -961,8 +969,8 @@ struct ConstFoldGatherOnSplat : public OpRewritePattern<stablehlo::GatherOp> {
 /// Fold trivial `stablehlo.logical_shift_right` when the shift has a greater
 /// width than the element type.
 struct RewriteTrivialLogicalRightShiftPattern
-    : public OpRewritePattern<stablehlo::ShiftRightLogicalOp> {
-  using OpRewritePattern::OpRewritePattern;
+    : public StablehloExtFoldOpPattern<stablehlo::ShiftRightLogicalOp> {
+  using StablehloExtFoldOpPattern::StablehloExtFoldOpPattern;
   LogicalResult matchAndRewrite(stablehlo::ShiftRightLogicalOp op,
                                 PatternRewriter &rewriter) const override {
     TensorType resultType = op.getType();
@@ -1000,8 +1008,9 @@ struct RewriteTrivialLogicalRightShiftPattern
 /// source tensor. It does not yet detect when there are multiple slices that
 /// insert into 'iota' indices, which would also be valid for replacement
 /// by the updates tensors.
-struct SimplifyTrivialScatter : public OpRewritePattern<stablehlo::ScatterOp> {
-  using OpRewritePattern::OpRewritePattern;
+struct SimplifyTrivialScatter
+    : public StablehloExtFoldOpPattern<stablehlo::ScatterOp> {
+  using StablehloExtFoldOpPattern::StablehloExtFoldOpPattern;
   LogicalResult matchAndRewrite(stablehlo::ScatterOp op,
                                 PatternRewriter &rewriter) const override {
     // Check whether the indices are uniformly zero.
@@ -1078,8 +1087,9 @@ struct SimplifyTrivialScatter : public OpRewritePattern<stablehlo::ScatterOp> {
 /// the end of the pass if left unhandled. Therefore, we insert this pattern to
 /// automatically insert required casts if possible until upstream figures out
 /// how to avoid this mistake from occurring.
-struct FixInvalidReturnWorkaround : public OpRewritePattern<func::ReturnOp> {
-  using OpRewritePattern::OpRewritePattern;
+struct FixInvalidReturnWorkaround
+    : public StablehloExtFoldOpPattern<func::ReturnOp> {
+  using StablehloExtFoldOpPattern::StablehloExtFoldOpPattern;
 
   LogicalResult matchAndRewrite(func::ReturnOp op,
                                 PatternRewriter &rewriter) const override {
@@ -1171,8 +1181,8 @@ struct AbsorbTensorCastProducer : public RewritePattern {
 /// TODO: This pattern is reproduced from upstream because we have no way of
 /// selectively including it but excluding other patterns.
 struct FoldBroadcastInDimSplatPattern final
-    : OpRewritePattern<mlir::stablehlo::BroadcastInDimOp> {
-  using OpRewritePattern::OpRewritePattern;
+    : StablehloExtFoldOpPattern<mlir::stablehlo::BroadcastInDimOp> {
+  using StablehloExtFoldOpPattern::StablehloExtFoldOpPattern;
 
   LogicalResult matchAndRewrite(mlir::stablehlo::BroadcastInDimOp op,
                                 PatternRewriter &rewriter) const override {
@@ -1200,13 +1210,13 @@ struct FoldBroadcastInDimSplatPattern final
 namespace {
 /// Fold `stablehlo.iota` only if the result type has integer type and is very
 /// small.
-struct EvalIotaOpPattern : public OpRewritePattern<IotaOp> {
-  using OpRewritePattern::OpRewritePattern;
+struct EvalIotaOpPattern : public StablehloExtFoldOpPattern<IotaOp> {
+  using StablehloExtFoldOpPattern::StablehloExtFoldOpPattern;
   LogicalResult matchAndRewrite(IotaOp op,
                                 PatternRewriter &rewriter) const override {
-    auto resultType = cast<RankedTensorType>(op.getType());
-    size_t numElems = resultType.getNumElements();
-    if (numElems > kFoldOpEltLimit)
+    RankedTensorType resultType = op.getType();
+    int64_t numElems = resultType.getNumElements();
+    if (numElems > sizeLimit)
       return rewriter.notifyMatchFailure(op, "too many elements to fold");
 
     auto elementType = resultType.getElementType();
@@ -1250,13 +1260,13 @@ struct EvalIotaOpPattern : public OpRewritePattern<IotaOp> {
 };
 
 struct FoldConcatenateOpPattern final
-    : OpRewritePattern<mlir::stablehlo::ConcatenateOp> {
-  using OpRewritePattern::OpRewritePattern;
+    : StablehloExtFoldOpPattern<mlir::stablehlo::ConcatenateOp> {
+  using StablehloExtFoldOpPattern::StablehloExtFoldOpPattern;
 
   LogicalResult matchAndRewrite(mlir::stablehlo::ConcatenateOp op,
                                 PatternRewriter &rewriter) const override {
     RankedTensorType type = op.getType();
-    if (!type.hasStaticShape() || type.getNumElements() > kFoldOpEltLimit)
+    if (!type.hasStaticShape() || type.getNumElements() > this->sizeLimit)
       return failure();
 
     // Fold concatenate when all inputs are constants.
@@ -1300,57 +1310,70 @@ void stablehlo_ext::populateStableHloAbsorbTensorCastPatterns(
   patterns.add<AbsorbTensorCastProducer>(patterns.getContext());
 }
 
+void stablehlo_ext::populateTargetIndependentSimplificationPatterns(
+    RewritePatternSet &patterns, int64_t sizeLimit, PatternBenefit benefit) {
+  MLIRContext *ctx = patterns.getContext();
+  // clang-format off
+  patterns.insert<
+      CombineConsecutiveTranspose,
+      ConcatSingleSegment,
+      ConstFoldCompare,
+      ConstFoldConvert,
+      ConstFoldDiv,
+      ConstFoldFloor,
+      ConstFoldGatherOnSplat,
+      ConstFoldReshape,
+      ConstFoldStablehloSlice,
+      ConstFoldSub,
+      ConstFoldTranspose,
+      EliminateCascadedConverts,
+      EvalBinaryOpPattern<stablehlo::AddOp, std::plus<>>,
+      EvalBinaryOpPattern<stablehlo::MulOp, std::multiplies<>>,
+      EvalBinaryOpPattern<stablehlo::SubtractOp, std::minus<>>,
+      EvalIotaOpPattern,
+      FixInvalidReturnWorkaround,
+      FoldAndOp,
+      FoldBroadcastInDimSplatPattern,
+      FoldConcatenateOpPattern,
+      FoldOrOp,
+      RewriteTrivialLogicalRightShiftPattern,
+      RsqrtFolder,
+      SimplifyReshapeBroadcastInDimReshape,
+      SimplifyTrivialMinOrTrivalMax<MaxOp>,
+      SimplifyTrivialMinOrTrivalMax<MinOp>,
+      SimplifyTrivialScatter,
+      SimplifyTrivialSlice,
+      SqrtOpFolder
+    >(sizeLimit, ctx, benefit);
+  // clang-format on
+  populateStableHloAbsorbTensorCastPatterns(patterns);
+  stablehlo::populateStablehloCanonicalizationPatterns(
+      ctx, &patterns, benefit.getBenefit() - 1);
+  tensor::EmptyOp::getCanonicalizationPatterns(patterns, ctx);
+  tensor::CastOp::getCanonicalizationPatterns(patterns, ctx);
+}
+
 namespace {
 class ConstantFoldingPass
     : public stablehlo_ext::impl::ConstantFoldingPassBase<ConstantFoldingPass> {
 public:
   using Base::Base;
 
+  std::shared_ptr<FrozenRewritePatternSet> patterns;
+
+  LogicalResult initialize(MLIRContext *ctx) override {
+    RewritePatternSet patterns_(ctx);
+    stablehlo_ext::populateTargetIndependentSimplificationPatterns(
+        patterns_, constantFoldSizeLimit);
+    patterns = std::make_shared<FrozenRewritePatternSet>(std::move(patterns_));
+    return success();
+  }
+
   void runOnOperation() override {
     Operation *op = getOperation();
-    MLIRContext *ctx = &getContext();
-    RewritePatternSet patterns(ctx);
-    // clang-format off
-    patterns.insert<
-        CombineConsecutiveTranspose,
-        ConcatSingleSegment,
-        ConstFoldCompare,
-        ConstFoldConvert,
-        ConstFoldDiv,
-        ConstFoldFloor,
-        ConstFoldGatherOnSplat,
-        ConstFoldReshape,
-        ConstFoldStablehloSlice,
-        ConstFoldSub,
-        ConstFoldTranspose,
-        EliminateCascadedConverts,
-        EvalBinaryOpPattern<stablehlo::AddOp, std::plus<>>,
-        EvalBinaryOpPattern<stablehlo::MulOp, std::multiplies<>>,
-        EvalBinaryOpPattern<stablehlo::SubtractOp, std::minus<>>,
-        EvalIotaOpPattern,
-        FixInvalidReturnWorkaround,
-        FoldAndOp,
-        FoldBroadcastInDimSplatPattern,
-        FoldConcatenateOpPattern,
-        FoldOrOp,
-        RewriteTrivialLogicalRightShiftPattern,
-        RsqrtFolder,
-        SimplifyReshapeBroadcastInDimReshape,
-        SimplifyTrivialMinOrTrivalMax<MaxOp>,
-        SimplifyTrivialMinOrTrivalMax<MinOp>,
-        SimplifyTrivialScatter,
-        SimplifyTrivialSlice,
-        SqrtOpFolder
-      >(ctx);
-    // clang-format on
-    populateStableHloAbsorbTensorCastPatterns(patterns);
-    stablehlo::populateStablehloCanonicalizationPatterns(ctx, &patterns);
-    tensor::EmptyOp::getCanonicalizationPatterns(patterns, ctx);
-    tensor::CastOp::getCanonicalizationPatterns(patterns, ctx);
-
     GreedyRewriteConfig config{};
     config.useTopDownTraversal = true;
-    if (failed(applyPatternsGreedily(op, std::move(patterns), config))) {
+    if (failed(applyPatternsGreedily(op, *patterns, config))) {
       emitError(op->getLoc())
           << "failed to apply patterns in " << getArgument();
       ;

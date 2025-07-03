@@ -31,6 +31,38 @@ namespace mlir::stablehlo_ext {
 #define GEN_PASS_DECL
 #define GEN_PASS_REGISTRATION
 #include "mlir-tensorrt/Dialect/StablehloExt/Transforms/Passes.h.inc"
+
+/// Options for enabling/disabling sets of opionated/target-specific Stablehlo
+/// simplification patterns.
+struct TargetSpecificCanonicalizationOptions {
+
+  /// Enable canonicalization of `stablehlo.dot_general` operations.
+  bool enableDotGeneralCanonicalization = true;
+
+  /// Enable canonicalization of `stablehlo.gather` operations.
+  bool enableGatherCanonicalization = true;
+
+  /// Enable canonicalization of `stablehlo.scatter` operations.
+  bool enableScatterCanonicalization = true;
+
+  /// Enable canonicalization of `stablehlo.convolution` operations.
+  bool enableConvolutionCanonicalization = true;
+
+  /// Enable canonicalization of `stablehlo.gather` operations to
+  /// `stablehlo.slice` where possible.
+  bool enableGatherToSlice = true;
+
+  /// Parse the given arguments into a `TargetSpecificCanonicalizationOptions`
+  static FailureOr<TargetSpecificCanonicalizationOptions>
+  parse(llvm::ArrayRef<std::string> args);
+};
+
+/// Create a pass that applies the given target-specific patterns and has the
+/// specified constant folding size limit.
+std::unique_ptr<mlir::Pass> createTargetSpecificOptimizationsPass(
+    TargetSpecificCanonicalizationOptions options,
+    int64_t constantFoldSizeLimit);
+
 } // namespace mlir::stablehlo_ext
 
 #endif // MLIR_TENSORRT_DIALECT_STABLEHLOEXT_TRANSFORMS_PASSES

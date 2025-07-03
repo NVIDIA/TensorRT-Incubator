@@ -8,8 +8,9 @@ add_mlir_tensorrt_library(MLIRTensorRTStableHloExtTransforms
     ExpandTuples.cpp
     GatherToSlice.cpp
     LowerSpecialCustomCalls.cpp
-    StablehloRaiseQDQ.cpp
     MaterializeDenseResourceElementsAttr.cpp
+    StablehloRaiseQDQ.cpp
+    TargetSpecificOptimizations.cpp
 
     LINK_LIBS PUBLIC
     ChloOps
