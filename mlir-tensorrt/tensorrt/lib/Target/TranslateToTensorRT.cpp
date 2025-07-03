@@ -524,9 +524,10 @@ tensorrt::buildFunction(mlir::FunctionOpInterface op,
 
   // If created, engines and their layer information are
   // with detailed description.
-  if (!opts.saveTensorRTEnginesToDirectory.empty() ||
-      !opts.saveTensorRTLayerInfoDirectory.empty())
-    config->setProfilingVerbosity(nvinfer1::ProfilingVerbosity::kDETAILED);
+  // TODO (pranavm): Expose as option:
+  // if (!opts.saveTensorRTEnginesToDirectory.empty() ||
+  //     !opts.saveTensorRTLayerInfoDirectory.empty())
+  config->setProfilingVerbosity(nvinfer1::ProfilingVerbosity::kDETAILED);
 
   setBuilderOptimizationLevel(config.get(), opts.tensorrtBuilderOptLevel,
                               builderContext.getTensorRTVersion());
