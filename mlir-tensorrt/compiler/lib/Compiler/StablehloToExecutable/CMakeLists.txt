@@ -14,10 +14,12 @@ add_mlir_tensorrt_library(MLIRTensorRTCompilerStableHloToExecutable
     MLIRIR
     MLIRLLVMIRTransforms
     MLIRTensorRTChloToStablehloExt
+    MLIRTensorRTCommonConvertToLoops
     MLIRTensorRTCompilerClient
     MLIRTensorRTCUDAToExecutor
     MLIRTensorRTDropNestedModules
     MLIRTensorRTExecutorTransforms
+    MLIRTensorRTHostBackend
     MLIRTensorRTHostToEmitC
     MLIRTensorRTHostToLLVM
     MLIRTensorRTMemRefToCUDA
@@ -29,9 +31,8 @@ add_mlir_tensorrt_library(MLIRTensorRTCompilerStableHloToExecutable
     MLIRTensorRTStablehloToTensorRT
     MLIRTensorRTTargetLua
     MLIRTensorRTTargetTensorRT
+    MLIRTensorRTTensorRTBackend
     MLIRTensorRTTensorRTToTensorRTRuntime
     MLIRTensorRTTransforms
     StablehloLinalgTransforms
-    MLIRTensorRTTensorRTBackend
-    MLIRTensorRTHostBackend
     )

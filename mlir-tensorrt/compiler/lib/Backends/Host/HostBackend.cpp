@@ -23,9 +23,13 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt/Backends/Host/HostBackend.h"
 #include "mlir-executor/Transforms/Clustering/Clustering.h"
-#include "mlir-tensorrt/Conversion/StablehloScalarToArith/StablehloScalarToArith.h"
+#include "mlir-executor/Transforms/Clustering/Patterns.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
+#include "mlir-tensorrt/Dialect/StablehloExt/Utils/Utils.h"
 #include "mlir/Analysis/DataFlowFramework.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
+#include "mlir/Dialect/Math/IR/Math.h"
+#include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/DialectImplementation.h"
 #include "stablehlo/dialect/StablehloOps.h"
 #include "llvm/ADT/TypeSwitch.h"
@@ -42,6 +46,14 @@ using namespace mlir::plan;
 #define GET_ATTRDEF_CLASSES
 #include "mlir-tensorrt/Backends/Host/HostBackendAttrs.cpp.inc"
 
+static bool isScalarizableType(Type t) {
+  auto rtt = dyn_cast<RankedTensorType>(t);
+  if (!rtt || !rtt.hasStaticShape() ||
+      !rtt.getElementType().isIntOrIndexOrFloat())
+    return false;
+  return rtt.getNumElements() <= 16;
+}
+
 /// Returns true if the given operation should run "on the host". This means
 /// that the operation can be converted to Executor IR. It derives this
 /// information based on the operation, the operands, and the TensorKindAnalysis
@@ -50,11 +62,8 @@ bool plan::detail::shouldRunOnHost(Operation *op,
                                    const DataFlowSolver &solver) {
   // An operation can't be placed on the host if the types are too big.
   LLVM_DEBUG(DBGS() << "should run on host? " << *op << "\n");
-  auto isHostType = [](Type t) {
-    return t.isIntOrIndexOrFloat() || stablehlo_ext::isScalarizableType(t);
-  };
-  if (!llvm::all_of(op->getResultTypes(), isHostType) ||
-      !llvm::all_of(op->getOperandTypes(), isHostType)) {
+  if (!llvm::all_of(op->getResultTypes(), isScalarizableType) ||
+      !llvm::all_of(op->getOperandTypes(), isScalarizableType)) {
     LLVM_DEBUG(DBGS() << "  types not all host compatible\n");
     return false;
   }
@@ -75,13 +84,9 @@ bool plan::detail::shouldRunOnHost(Operation *op,
     return false;
 
   // Filter for which operations we support on the host.
-  if (!op->hasTrait<OpTrait::Elementwise>() &&
-      !isa<stablehlo::ConcatenateOp, stablehlo::IotaOp, stablehlo::ReshapeOp,
-           stablehlo::BroadcastInDimOp, stablehlo::SliceOp,
-           stablehlo::BitcastConvertOp, stablehlo::ConvertOp,
-           stablehlo::SelectOp, stablehlo::ReduceOp>(op)) {
-    LLVM_DEBUG(DBGS() << "  not a supported op\n");
-    return false;
+  if (isa_and_present<stablehlo::StablehloDialect>(op->getDialect())) {
+    if (!stablehlo::canConvertToLinalg(op))
+      return false;
   }
 
   // If the operation doesn't have any operands, then we can run on host if
@@ -134,6 +139,29 @@ int64_t HostClusterKindAttr::getClusterBenefit(InputKind inputKind) const {
   return getBenefit();
 }
 
+/// Return true if the op is likely in a "compute" region, like the region of
+/// `stablehlo.reduce` or `linalg.generic`. For the purposes of this pass, we're
+/// defining "compute" region as a region where the normal flow-of-control does
+/// not enter from outside. It's only used to define the semantics of the parent
+/// operation.a
+static bool inComputeRegion(Operation *op) {
+  Operation *parent = op->getParentOp();
+  while (parent) {
+    // If the parent is a function, then we're in a normal region.
+    if (isa<FunctionOpInterface>(parent))
+      return false;
+    // We are in a region which is not a control flow region and not a function,
+    // so it's probably a "compute" region.
+    if (!isa<RegionBranchOpInterface>(parent))
+      return true;
+    // If we're in a control flow region, we may still be nested in a "compute"
+    // region. E.g. `scf.if` is allowed in `linalg.generic` region. Keep going
+    // up to find the parent function.
+    parent = parent->getParentOp();
+  }
+  return false;
+}
+
 /// ClusteringOpts that identifies groups of `stablehlo` ops that can be
 /// converted to scalars and will be clustered into scalar cluster.
 FailureOr<ClusteringOpts>
@@ -143,10 +171,25 @@ HostClusterKindAttr::getClusterKindOptions(InputKind inputKind, Operation *op,
   opts.mergeIndependentClusters = [](Operation *, ClusterRange, Operation *,
                                      ClusterRange) { return true; };
   opts.clusterTarget = *this;
-  opts.isClusterableOp = [&solver](Operation *op) {
+  opts.isClusterableOp = [](Operation *op) {
+    if (inComputeRegion(op))
+      return false;
+
     if (llvm::isa<plan::WithValuesOp>(op))
       return true;
-    return plan::detail::shouldRunOnHost(op, solver);
+    if (llvm::isa_and_present<stablehlo::StablehloDialect>(op->getDialect())) {
+      return stablehlo::canConvertToLinalg(op);
+    }
+    if (llvm::isa_and_present<arith::ArithDialect, math::MathDialect>(
+            op->getDialect()) &&
+        llvm::all_of(op->getOperandTypes(),
+                     llvm::IsaPred<IntegerType, FloatType>)) {
+      return true;
+    }
+    if (llvm::isa<tensor::ExtractOp, tensor::InsertOp>(op)) {
+      return true;
+    }
+    return false;
   };
   return opts;
 }
@@ -183,7 +226,7 @@ HostClusterKindAttr::getClusterOutliningOptions(
     SymbolTable &moduleSymbolTable) const {
   OpBuilder b(ctx);
   return OutlineRegionOptions{
-      /*typeConverter=*/stablehlo_ext::getScalarizationTypeConverter(),
+      /*typeConverter=*/getIdentityTypeConverter(),
       /*shouldCloneProducer=*/shouldCloneProducer,
       /*createFunc=*/
       OutlineRegionOptions::getDefaultCreateFuncAndCallStubFunc(

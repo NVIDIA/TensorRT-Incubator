@@ -19,6 +19,7 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt/Compiler/StablehloToExecutable/Passes.h"
 #include "mlir-executor/Executor/Transforms/Passes.h"
+#include "mlir-tensorrt-common/Conversion/Passes.h"
 #include "mlir-tensorrt/Backends/Host/HostBackend.h"
 #include "mlir-tensorrt/Backends/TensorRT/TensorRTBackend.h"
 #include "mlir-tensorrt/Compiler/StablehloToExecutable/StablehloToExecutable.h"
@@ -27,11 +28,13 @@
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/Linalg/Passes.h"
 #include "mlir/Dialect/Math/IR/Math.h"
 #include "mlir/IR/AsmState.h"
 #include "mlir/IR/DialectResourceBlobManager.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/PassOptions.h"
+#include "stablehlo/conversions/linalg/transforms/Passes.h"
 #include "stablehlo/dialect/StablehloOps.h"
 
 #ifdef MLIR_TRT_ENABLE_HLO
@@ -84,7 +87,12 @@ class ProcessHostClustersPass
     : public compiler::impl::ProcessStablehloHostClustersPassBase<
           ProcessHostClustersPass> {
 public:
-  using Base::Base;
+  ProcessHostClustersPass() {
+    dynamicPM = OpPassManager("func.func");
+    dynamicPM.addPass(stablehlo::createStablehloLegalizeToLinalgPass());
+    dynamicPM.addPass(mlir::createLinalgDetensorizePass());
+    dynamicPM.addPass(mlir::createConvertToLoops());
+  }
 
   void runOnOperation() override {
     func::FuncOp func = getOperation();
@@ -96,8 +104,6 @@ public:
     if (!hostClusterKind)
       return;
 
-    OpPassManager dynamicPM("func.func");
-    dynamicPM.addPass(createConvertStablehloScalarToArithPass());
     if (failed(runPipeline(dynamicPM, func)))
       return signalPassFailure();
   }
@@ -105,6 +111,8 @@ public:
   void getDependentDialects(DialectRegistry &registry) const override {
     registry.insert<arith::ArithDialect>();
   }
+
+  OpPassManager dynamicPM;
 };
 
 //===----------------------------------------------------------------------===//

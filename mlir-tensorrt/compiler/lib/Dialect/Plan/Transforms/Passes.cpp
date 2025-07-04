@@ -59,7 +59,6 @@ void plan::buildPlanSegmentationPipeline(
 
 static void buildPlanOneShotBufferizePipelinePipeline(
     OpPassManager &pm, const plan::PlanAllocTensorsPassOptions &opts) {
-  pm.addPass(createInlinerPass());
   pm.addPass(bufferization::createEmptyTensorEliminationPass());
   pm.addPass(plan::createPlanAssignMemorySpacesPass());
   pm.addNestedPass<func::FuncOp>(plan::createPlanOptimizeMemorySpacesPass());
@@ -68,8 +67,24 @@ static void buildPlanOneShotBufferizePipelinePipeline(
   pm.addNestedPass<func::FuncOp>(
       plan::createPlanMaterializeExplicitTransfersPass());
   pm.addPass(plan::createPlanAllocTensorsPass(opts));
+
+  // Perform inlining after memory space selection and optimizations since we
+  // rely on function-scoped attributes to determine the default bufferization
+  // memory space.
+  pm.addPass(createInlinerPass());
+
   pm.addPass(plan::createPlanModuleBufferizePass());
   pm.addPass(mlir::createMemRefCastEliminationPass());
+
+  // If inlining does not occur (e.g. because a function is marked no_inline),
+  // then we need to transform to DPS style and move allocation to the caller.
+  // Otherwise the deallocation pipeline will produce very inefficient code; its
+  // alias analysis is very conservative  and it can't see across calls
+  // boundaries.
+  pm.addPass(plan::createPlanBufferResultsToOutParamsPass(
+      plan::PlanBufferResultsToOutParamsPassOptions{
+          /*ignorePublicFunctions=*/opts.forceEntrypointsReturnAllocs}));
+
   /// TODO: Currently we must canonicalize prior to dropping buffer results
   /// since it helps to identify return values that are actually block
   /// arguments. Loop memref results that feed into returns, for example, are

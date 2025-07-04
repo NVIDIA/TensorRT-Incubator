@@ -3,10 +3,11 @@ add_mlir_tensorrt_backend_library(MLIRTensorRTHostBackend
 
   TD
     "mlir-tensorrt/Backends/Host/HostBackend.td"
-    
+
   LINK_LIBS PUBLIC
   ChloOps
   MLIRTensorRTPlanDialect
+  MLIRTensorRTStableHloExtUtils
+  StablehloLinalgTransforms
   StablehloOps
-  MLIRTensorRTStablehloScalarToArith
   )
