@@ -1,4 +1,12 @@
-accelerate
+-f https://nvidia.github.io/TensorRT-Incubator/packages.html
+nvtripy
+torch>=2.3.1
+torchvision>=0.18.1
+numpy>=1.24.4
+tqdm>=4.66.1
+accelerate==1.8.1
+# iopath>=0.1.10
+pillow>=9.4.0
 diffusers==0.31.0
 transformers==4.42.2
-scikit-image
+scikit-image==0.24.0

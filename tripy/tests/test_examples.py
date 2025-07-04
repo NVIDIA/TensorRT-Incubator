@@ -89,7 +89,7 @@ EXAMPLES = [
         ["segment-anything-model-v2"],
         artifact_names=["truck.jpg", "bedroom", "saved_engines_l/", "output/", "checkpoints/*.pt"],
     ),
-    Example(["diffusion"]),
+    Example(["diffusion"], artifact_names=["test_fp16_engines/", "output/"]),
 ]
 
 
@@ -154,6 +154,9 @@ def test_examples(example, tripy_virtualenv):
                 print("Checking command output against expected output: ", end="")
                 actual = outputs[-1].strip()
                 expected = dedent(code).strip()
+
+                print("Actual: ", actual)
+                print("Expected: ", expected)
 
                 expected, tolerance_specs = process_tolerances(expected)
                 # Apply the DOTALL flag to allow `.` to match newlines
