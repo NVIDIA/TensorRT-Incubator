@@ -386,6 +386,10 @@ static plan::MemorySpace getFuncitonDefaultEncoding(func::FuncOp func) {
   if (auto clusterKindAttr = func->getAttrOfType<ClusterKindAttrInterface>(
           plan::PlanDialect::kFuncTargetKind))
     return clusterKindAttr.getDefaultMemorySpace();
+  if (auto parentModule = func->getParentWithTrait<OpTrait::SymbolTable>())
+    if (auto constraint = parentModule->getAttrOfType<plan::MemorySpaceAttr>(
+            plan::PlanDialect::getMemorySpaceConstraintAttrName()))
+      return constraint.getValue();
   return plan::MemorySpace::device;
 }
 

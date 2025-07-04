@@ -381,6 +381,18 @@ struct RewriteReturn : ConvertOpToExecutorPattern<func::ReturnOp> {
     return success();
   }
 };
+
+/// Rewrite `cf.assert` to `executor.assert`.
+struct RewriteAssertPattern : ConvertOpToExecutorPattern<cf::AssertOp> {
+  using ConvertOpToExecutorPattern::ConvertOpToExecutorPattern;
+  LogicalResult
+  matchAndRewrite(cf::AssertOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    rewriter.replaceOpWithNewOp<executor::AssertOp>(op, adaptor.getArg(),
+                                                    op.getMsg());
+    return success();
+  }
+};
 } // namespace
 
 namespace {
@@ -412,8 +424,8 @@ void executor::populateFuncToExecutorPatterns(
 
 void executor::populateControlFlowToExecutorPatterns(
     RewritePatternSet &patterns, ExecutorTypeConverter &typeConverter) {
-  patterns.add<ConvertCfBranch, ConvertCfCondBranch>(typeConverter,
-                                                     patterns.getContext());
+  patterns.add<ConvertCfBranch, ConvertCfCondBranch, RewriteAssertPattern>(
+      typeConverter, patterns.getContext());
 }
 
 void executor::populateArithToExecutorPatterns(
@@ -488,6 +500,7 @@ public:
           [&](Operation *op) {
             return typeConverter.isLegal(op->getOperandTypes());
           });
+      target.addIllegalOp<cf::AssertOp>();
 
       RewritePatternSet patterns(&getContext());
       executor::populateFuncToExecutorPatterns(patterns, typeConverter);

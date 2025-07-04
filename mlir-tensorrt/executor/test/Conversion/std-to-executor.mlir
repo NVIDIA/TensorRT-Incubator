@@ -499,3 +499,15 @@ func.func @select(%arg0: i1, %arg1: index, %arg2: index, %arg3: memref<32xf32>, 
 //       CHECK:     %[[v5:.+]] = executor.select
 //       CHECK:     %[[v6:.+]] = executor.select
 //       CHECK:     return %[[v4]], %[[v5]], %[[v6]] :
+
+// -----
+
+func.func @cf_assert(%arg0: i1) {
+  cf.assert %arg0, "assert failed"
+  return
+}
+
+// CHECK-LABEL: @cf_assert
+//  CHECK-SAME: (%[[arg0:.+]]: i1)
+//  CHECK-NEXT:     executor.assert %[[arg0]], "assert failed"
+//  CHECK-NEXT:     return

@@ -59,7 +59,8 @@ class Executor_FloatCastOp<string mnemonic, list<Trait> traits = []>
 // AssertOp
 //===----------------------------------------------------------------------===//
 
-def Executor_AssertOp : Executor_Op<"assert"> {
+def Executor_AssertOp : Executor_Op<"assert", [
+     DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]> {
   let summary = "Assert operation with message attribute";
   let description = [{
 

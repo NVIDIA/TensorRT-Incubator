@@ -26,6 +26,7 @@
 #include "mlir-tensorrt/Compiler/StablehloToExecutable/TensorRTExtension.h"
 #include "mlir-tensorrt/Conversion/Passes.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
+#include "mlir-tensorrt/Transforms/Passes.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Linalg/Passes.h"
@@ -34,6 +35,7 @@
 #include "mlir/IR/DialectResourceBlobManager.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/PassOptions.h"
+#include "mlir/Transforms/Passes.h"
 #include "stablehlo/conversions/linalg/transforms/Passes.h"
 #include "stablehlo/dialect/StablehloOps.h"
 
@@ -92,6 +94,9 @@ public:
     dynamicPM.addPass(stablehlo::createStablehloLegalizeToLinalgPass());
     dynamicPM.addPass(mlir::createLinalgDetensorizePass());
     dynamicPM.addPass(mlir::createConvertToLoops());
+    dynamicPM.addPass(mlir::createCSEPass());
+    dynamicPM.addPass(mlir::createCanonicalizerPass());
+    dynamicPM.addPass(mlir::createSCFDetensorizeLoopsPass());
   }
 
   void runOnOperation() override {
