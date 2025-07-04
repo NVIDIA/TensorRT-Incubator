@@ -23,5 +23,18 @@ The model defaults to running in `float32`, but is recommended to run in `float1
 2. Run the example:
 
     ```bash
-    python3 example.py --seed 0 --steps 50 --prompt "a beautiful photograph of Mt. Fuji during cherry blossom" --fp16 --engine-dir fp16_engines
+    python3 example.py --seed 420 --steps 50 --prompt "a beautiful photograph of Mt. Fuji during cherry blossom" --fp16 --engine-dir fp16_engines --verbose
     ```
+
+3. (Optional) Compare with torch reference to verify accuracy:
+    ```bash
+    python3 compare_images.py --seed 420 --steps 50 --prompt "a beautiful photograph of Mt. Fuji during cherry blossom" --fp16 --engine-dir fp16_engines
+    ```
+
+    <!--
+    Tripy: TEST: EXPECTED_STDOUT Start
+    ```
+    .*Passed: Images are similar.*SSIM.*0\.8
+    ```
+    Tripy: TEST: EXPECTED_STDOUT End
+    -->
