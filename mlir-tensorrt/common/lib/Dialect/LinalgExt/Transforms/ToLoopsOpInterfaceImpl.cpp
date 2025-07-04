@@ -148,6 +148,15 @@ mlir::linalg_ext::convertLinalgOpToLoops(RewriterBase &rewriter,
 
   SmallVector<Range, 4> loopRanges =
       linalgOp.createLoopRanges(rewriter, linalgOp.getLoc());
+
+  // TODO: If there are no loops (which makes the `linalg.generic` effectively a
+  // scalar operation, then the below GenerateLoopNest will still create the
+  // correct IR but we don't yet have a way to return the replacement to the
+  // caller. Modify the `lowerToLoops` method to allow returning non-loop
+  // replacement values.
+  if (loopRanges.empty())
+    return failure();
+
   SmallVector<utils::IteratorType> iteratorTypes =
       linalgOp.getIteratorTypesArray();
 

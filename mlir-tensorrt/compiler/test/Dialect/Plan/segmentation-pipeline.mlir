@@ -90,32 +90,16 @@ func.func @small_reduce_host(%arg0: tensor<4xi32>, %arg1: tensor<i32>)
 
 }
 
-
 // CHECK-LABEL: func.func @small_reduce_host
-//  CHECK-SAME: (%[[arg0:.+]]: tensor<4xi32>, %[[arg1:.+]]: tensor<i32>) -> (tensor<i32> {tensorrt.host_tensor}, tensor<i1> {tensorrt.host_tensor})
-//   CHECK-DAG:     %[[c0:.+]] = arith.constant 0 : index
-//   CHECK-DAG:     %[[c1:.+]] = arith.constant 1 : index
-//   CHECK-DAG:     %[[c2:.+]] = arith.constant 2 : index
-//   CHECK-DAG:     %[[c3:.+]] = arith.constant 3 : index
-//   CHECK-DAG:     %[[extracted:.+]] = tensor.extract %[[arg1]][] : tensor<i32>
-//   CHECK-DAG:     %[[extracted_0:.+]] = tensor.extract %[[arg0]][%[[c0]]] : tensor<4xi32>
-//   CHECK-DAG:     %[[extracted_1:.+]] = tensor.extract %[[arg0]][%[[c1]]] : tensor<4xi32>
-//   CHECK-DAG:     %[[extracted_2:.+]] = tensor.extract %[[arg0]][%[[c2]]] : tensor<4xi32>
-//   CHECK-DAG:     %[[extracted_3:.+]] = tensor.extract %[[arg0]][%[[c3]]] : tensor<4xi32>
-//       CHECK:     %[[v0:.+]]:2 = call @host_cluster(%[[extracted]], %[[extracted_0]], %[[extracted_1]], %[[extracted_2]], %[[extracted_3]]) :
-//       CHECK:     %[[from_elements:.+]] = tensor.from_elements %[[v0]]#0 : tensor<i1>
-//       CHECK:     %[[from_elements_4:.+]] = tensor.from_elements %[[v0]]#1 : tensor<i32>
-//       CHECK:     return %[[from_elements_4]], %[[from_elements]] : tensor<i32>, tensor<i1>
-// CHECK-LABEL: private @host_cluster
-//  CHECK-SAME: (%[[arg0:.+]]: i32, %[[arg1:.+]]: i32, %[[arg2:.+]]: i32, %[[arg3:.+]]: i32, %[[arg4:.+]]: i32) -> (i1, i32)
-//   CHECK-DAG:     %[[v0:.+]] = stablehlo.constant dense<0> : tensor<i32>
-//   CHECK-DAG:     %[[from_elements:.+]] = tensor.from_elements %[[arg0]] : tensor<i32>
-//   CHECK-DAG:     %[[from_elements_0:.+]] = tensor.from_elements %[[arg1]], %[[arg2]], %[[arg3]], %[[arg4]] : tensor<4xi32>
-//   CHECK-DAG:     %[[v1:.+]] = stablehlo.compare  EQ, %[[v0]]
-//   CHECK-DAG:     %[[v2:.+]] = stablehlo.reduce(%[[from_elements_0]] init: %[[v0]]) applies stablehlo.add across dimensions = [0] :
-//   CHECK-DAG:     %[[extracted:.+]] = tensor.extract %[[v1]][]
-//   CHECK-DAG:     %[[extracted_1:.+]] = tensor.extract %[[v2]][]
-//   CHECK-DAG:     return %[[extracted]], %[[extracted_1]]
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<4xi32>, %[[arg1:.+]]: tensor<i32>)
+//       CHECK:     %[[v0]]:2 = call @host_cluster(%[[arg1]], %[[arg0]])
+//       CHECK:     return %[[v0]]#1, %[[v0]]#0
+// CHECK-LABEL: func.func private @host_cluster
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<i32>, %[[arg1:.+]]: tensor<4xi32>)
+//       CHECK:     %[[c:.+]] = stablehlo.constant
+//       CHECK:     %[[v0:.+]] = stablehlo.compare  EQ, %[[c]], %[[arg0]]
+//       CHECK:     %[[v1:.+]] = stablehlo.reduce(%[[arg1]] init: %[[c]])
+//       CHECK:     return %[[v0]], %[[v1]]
 
 // -----
 

@@ -155,20 +155,20 @@ builtin.module attributes {
 } {
 
 func.func @test_data_flow_state_update(
-    %arg0: tensor<10xf32>, %arg1: tensor<1xi32>, %arg2: tensor<1xf32>) 
+    %arg0: tensor<10xf32>, %arg1: tensor<1xi32>, %arg2: tensor<1xf32>)
     -> (tensor<1xi32>, tensor<1xf32>, tensor<1xf32>) {
   %cst_i32 = stablehlo.constant dense<1> : tensor<1xi32>
   %1 = stablehlo.add %cst_i32, %arg1  : (tensor<1xi32>, tensor<1xi32>) -> tensor<1xi32>
   %offset = stablehlo.reshape %1  : (tensor<1xi32>) -> tensor<i32>
   %0 = "stablehlo.dynamic_slice"(%arg0, %offset) {
     slice_sizes = array<i64: 1>
-  } : (tensor<10xf32>, tensor<i32>) -> tensor<1xf32>    
+  } : (tensor<10xf32>, tensor<i32>) -> tensor<1xf32>
   %2 = stablehlo.add %0, %arg2  : (tensor<1xf32>, tensor<1xf32>) -> tensor<1xf32>
   %3 = stablehlo.convert %2  : (tensor<1xf32>) -> tensor<1xi32>
   %4 = stablehlo.reshape %3 : (tensor<1xi32>) -> tensor<i32>
   %5 = "stablehlo.dynamic_slice"(%arg0, %4) {
     slice_sizes = array<i64: 1>
-  } : (tensor<10xf32>, tensor<i32>) -> tensor<1xf32>    
+  } : (tensor<10xf32>, tensor<i32>) -> tensor<1xf32>
   return %1, %0, %5 : tensor<1xi32>, tensor<1xf32>, tensor<1xf32>
 }
 
@@ -177,15 +177,15 @@ func.func @test_data_flow_state_update(
 // CHECK-LABEL: func.func @test_data_flow_state_update
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<10xf32>, %[[arg1:.+]]: tensor<1xi32>, %[[arg2:.+]]:
 //   CHECK-DAG:     %[[c:.+]] = stablehlo.constant dense<1> : tensor<1xi32>
-//   CHECK-DAG:     %[[v0]]:2 = plan.inline_group target(#plan.host_cluster
+//   CHECK-DAG:     %[[v0:.+]]:2 = plan.inline_group target(#plan.host_cluster
 //   CHECK-DAG:       %[[v4:.+]] = stablehlo.add %[[c]], %[[arg1]]
 //   CHECK-DAG:       %[[v5:.+]] = stablehlo.reshape %[[v4]]
 //   CHECK-DAG:       yield %[[v4]], %[[v5]] :
 //   CHECK-DAG:     %[[v1:.+]] = plan.inline_group target(#plan.tensorrt_cluster
 //   CHECK-DAG:       %[[v4:.+]] = stablehlo.dynamic_slice %[[arg0]], %[[v0]]#1,
-//   CHECK-DAG:       yield %[[v4]] 
+//   CHECK-DAG:       yield %[[v4]]
 //   CHECK-DAG:     %[[v2:.+]] = plan.inline_group target(#plan.host_cluster
-//   CHECK-DAG:       %[[v4:.+]] = stablehlo.add %[[v1]], %[[arg2]] 
+//   CHECK-DAG:       %[[v4:.+]] = stablehlo.add %[[v1]], %[[arg2]]
 //   CHECK-DAG:       %[[v5:.+]] = stablehlo.convert %[[v4]]
 //   CHECK-DAG:       %[[v6:.+]] = stablehlo.reshape %[[v5]]
 //   CHECK-DAG:       yield %[[v6]] : tensor<i32>
