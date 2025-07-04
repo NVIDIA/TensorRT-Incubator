@@ -285,3 +285,101 @@ func.func @fill_buffers_using_for_loops() -> (tensor<2x128xf32>, tensor<128xf32>
 //       CHECK:     memref.dealloc %[[alloc]] : memref<2x128xf32, #plan.memory_space<host>>
 //       CHECK:     memref.dealloc %[[alloc_0]] : memref<128xf32, #plan.memory_space<host>>
 //       CHECK:     return
+
+// -----
+
+// CHECK-LABEL: module @calls_no_inline
+module @calls_no_inline {
+  // CHECK-LABEL: func.func private @check_eq
+  // CHECK-SAME: (%[[arg0:.+]]: memref<5xi8, #plan.memory_space<host>>, %[[arg1:.+]]: memref<5xi8, #plan.memory_space<host>>)
+  func.func private @check_eq(%arg0: tensor<5xi8>, %arg1: tensor<5xi8>)
+      attributes {no_inline, plan.memory_space = #plan.memory_space<host>} {
+    %c1 = arith.constant 1 : index
+    %c5 = arith.constant 5 : index
+    %c0 = arith.constant 0 : index
+    %true = arith.constant true
+    // CHECK: %[[alloc:.+]] = memref.alloc() {{.*}} #plan.memory_space<host>
+    // CHECK: scf.for
+    // CHECK-NEXT: memref.load %[[arg0]]
+    // CHECK-NEXT: memref.load %[[arg1]]
+    // CHECK-NEXT: arith.cmpi
+    // CHECK-NEXT: memref.store {{.*}}, %[[alloc]]
+    %0 = tensor.empty() : tensor<5xi1>
+    %1 = scf.for %arg2 = %c0 to %c5 step %c1 iter_args(%arg3 = %0) -> (tensor<5xi1>) {
+      %extracted_0 = tensor.extract %arg0[%arg2] : tensor<5xi8>
+      %extracted_1 = tensor.extract %arg1[%arg2] : tensor<5xi8>
+      %5 = arith.cmpi eq, %extracted_0, %extracted_1 : i8
+      %inserted = tensor.insert %5 into %arg3[%arg2] : tensor<5xi1>
+      scf.yield %inserted : tensor<5xi1>
+    }
+    // CHECK: %[[alloc_0:.+]] = memref.alloc() {{.*}} #plan.memory_space<host>
+    %2 = tensor.empty() : tensor<i1>
+    // CHECK-NEXT: linalg.fill
+    %3 = linalg.fill ins(%true : i1) outs(%2 : tensor<i1>) -> tensor<i1>
+    // CHECK-NEXT: scf.for
+    %4 = scf.for %arg2 = %c0 to %c5 step %c1 iter_args(%arg3 = %3) -> (tensor<i1>) {
+      // CHECK-NEXT: memref.load
+      // CHECK-NEXT: memref.load
+      // CHECK-NEXT: arith.andi
+      // CHECK-NEXT: memref.store
+      %extracted_0 = tensor.extract %1[%arg2] : tensor<5xi1>
+      %extracted_1 = tensor.extract %arg3[] : tensor<i1>
+      %5 = arith.andi %extracted_1, %extracted_0 : i1
+      %inserted = tensor.insert %5 into %arg3[] : tensor<i1>
+      scf.yield %inserted : tensor<i1>
+    }
+    // CHECK: memref.load %[[alloc_0]]
+    // CHECK-NEXT: cf.assert
+    %extracted = tensor.extract %4[] : tensor<i1>
+    // CHECK-DAG: memref.dealloc %[[alloc_0]]
+    // CHECK-DAG: memref.dealloc %[[alloc]]
+    cf.assert %extracted, "check_eq failed"
+    // CHECK: return
+    return
+  }
+
+  // CHECK-LABEL: func.func private @compute
+  // CHECK-SAME: (%[[arg0:.+]]: memref<5xi8, #plan.memory_space<host>>, %[[arg1:.+]]: memref<5xi8, #plan.memory_space<host>>,
+  // CHECK-SAME:  %[[arg2:.+]]: memref<5xi8, #plan.memory_space<host>> {plan.result_arg})
+  func.func private @compute(%arg0: tensor<5xi8>, %arg1: tensor<5xi8>) -> tensor<5xi8>
+     attributes {no_inline, plan.memory_space = #plan.memory_space<host>} {
+    %c1 = arith.constant 1 : index
+    %c5 = arith.constant 5 : index
+    %c0 = arith.constant 0 : index
+    %0 = tensor.empty() : tensor<5xi8>
+    // CHECK: %[[alloc]] = memref.alloc() {{.*}} #plan.memory_space<host>
+    // CHECK: scf.for
+    %1 = scf.for %arg2 = %c0 to %c5 step %c1 iter_args(%arg3 = %0) -> (tensor<5xi8>) {
+      // CHECK-NEXT: memref.load %[[arg0]]
+      // CHECK-NEXT: memref.load %[[arg1]]
+      %extracted = tensor.extract %arg0[%arg2] : tensor<5xi8>
+      %extracted_0 = tensor.extract %arg1[%arg2] : tensor<5xi8>
+      // CHECK-NEXT: arith.addi
+      %2 = arith.addi %extracted, %extracted_0 : i8
+      // CHECK-NEXT: memref.store {{.*}}, %[[alloc]]
+      %inserted = tensor.insert %2 into %arg3[%arg2] : tensor<5xi8>
+      scf.yield %inserted : tensor<5xi8>
+    }
+    //      CHECK: memref.copy %[[alloc]], %[[arg2]]
+    // CHECK-NEXT: memref.dealloc %[[alloc]]
+    // CHECK-NEXT: return
+    return %1 : tensor<5xi8>
+  }
+
+  // CHECK-LABEL: func.func @main()
+  func.func @main() attributes {plan.memory_space = #plan.memory_space<host>} {
+    // CHECK: %[[v0:.+]] = memref.get_global
+    // CHECK: %[[v1:.+]] = memref.get_global
+    // CHECK: %[[v2:.+]] = memref.get_global
+    // CHECK: %[[alloc:.+]] = memref.alloc() {{.*}} #plan.memory_space<host>
+    %cst = arith.constant dense<[-128, 0, 16, -18, 127]> : tensor<5xi8>
+    %cst_0 = arith.constant dense<[0, 1, 8, -9, 0]> : tensor<5xi8>
+    %cst_1 = arith.constant dense<[-128, -1, 8, -9, 127]> : tensor<5xi8>
+    // CHECK: call @compute(%[[v1]], %[[v2]], %[[alloc]])
+    %0 = call @compute(%cst_0, %cst_1) : (tensor<5xi8>, tensor<5xi8>) -> tensor<5xi8>
+    // CHECK: call @check_eq(%[[alloc]], %[[v0]])
+    call @check_eq(%0, %cst) : (tensor<5xi8>, tensor<5xi8>) -> ()
+    // CHECK: memref.dealloc %[[alloc]]
+    return
+  }
+}

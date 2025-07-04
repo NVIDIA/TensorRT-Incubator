@@ -127,6 +127,8 @@ void mlirtrt::compiler::buildStablehloPreProcessingPipeline(
   // - Fixed point iteration
   pm.addPass(stablehlo_ext::createCanonicalizeShapesPass());
 
+  pm.addPass(stablehlo::createStablehloConvertToSignlessPass());
+
   // `cse`:
   pm.addPass(createCSEPass());
 

@@ -1,4 +1,4 @@
-// RUN: mlir-tensorrt-opt %s -split-input-file -scf-detensorize-loops | FileCheck %s
+// RUN: mlir-tensorrt-opt %s -split-input-file -scf-detensorize-loops -allow-unregistered-dialect | FileCheck %s
 
 func.func @detensorize_while(%arg0: tensor<i32>, %arg1: tensor<1xi32>)
     -> (tensor<i32> {tensorrt.host_tensor}, tensor<1xi32> {tensorrt.host_tensor}) {
@@ -104,7 +104,9 @@ func.func @detensorize_while_mixed(%arg0: tensor<1xi32>, %arg1: tensor<2xi32>) -
     scf.condition (%2) %arg2, %arg3 : tensor<1xi32>, tensor<2xi32>
   } do {
   ^bb0(%arg2: tensor<1xi32>, %arg3: tensor<2xi32>):
-    scf.yield %arg2, %arg3 : tensor<1xi32>, tensor<2xi32>
+    %3 = "test.foo"(%arg2) : (tensor<1xi32>) -> (tensor<1xi32>)
+    %4 = "test.foo"(%arg3) : (tensor<2xi32>) -> (tensor<2xi32>)
+    scf.yield %3, %4 : tensor<1xi32>, tensor<2xi32>
   }
   return %0#0, %0#1 : tensor<1xi32>, tensor<2xi32>
 }
@@ -112,3 +114,82 @@ func.func @detensorize_while_mixed(%arg0: tensor<1xi32>, %arg1: tensor<2xi32>) -
 // CHECK-LABEL: @detensorize_while_mixed
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<1xi32>, %[[arg1:.+]]: tensor<2xi32>)
 //       CHECK:     scf.while {{.+}} : (i32, tensor<2xi32>) -> (i32, tensor<2xi32>)
+
+// -----
+
+// CHECK-LABEL: func @hoist_matching_extract_insert(
+//  CHECK-SAME:     %[[arg:.*]]: tensor<?xf32>
+func.func @hoist_matching_extract_insert(%arg: tensor<?xf32>) -> tensor<?xf32> {
+  %lb = "test.foo"() : () -> (index)
+  %ub = "test.foo"() : () -> (index)
+  %step = "test.foo"() : () -> (index)
+
+  %c0 = arith.constant 0 : index
+  %c1 = arith.constant 1 : index
+  %c9 = arith.constant 9 : index
+  %add = arith.addi %c0, %c1 : index
+  %sub = arith.subi %add, %c1 : index
+
+  // CHECK-DAG: %[[c9:.+]] = arith.constant 9 : index
+  // CHECK-DAG: %[[c0:.+]] = arith.constant 0 : index
+
+  // CHECK: %[[extract:.*]] = tensor.extract %[[arg]][%[[c0]]]
+  // CHECK: %[[for:.*]] = scf.for {{.*}} iter_args(%[[hoisted:.*]] = %[[extract]])
+  %0 = scf.for %iv = %lb to %ub step %step iter_args(%t = %arg) -> (tensor<?xf32>) {
+
+
+    %standalone = tensor.extract %t[%c9] : tensor<?xf32>
+    "test.foo"(%standalone) : (f32) -> ()
+
+    %1 = tensor.extract %t[%c0] : tensor<?xf32>
+    // CHECK: %[[foo:.*]] = "test.foo"(%[[hoisted]])
+    %2 = "test.foo"(%1) : (f32) -> (f32)
+    // Obfuscate the IR by inserting at offset %sub instead of 0; both of them
+    // have the same value.
+    %3 = tensor.insert %2 into %t[%sub] : tensor<?xf32>
+    // CHECK: scf.yield %[[foo]]
+    scf.yield %3 : tensor<?xf32>
+  }
+  // CHECK: %[[insert:.*]] = tensor.insert %[[for]] into %[[arg]][%[[c0]]]
+
+  // CHECK: return %[[insert]]
+  return %0 : tensor<?xf32>
+}
+
+// -----
+
+// CHECK-LABEL: func @subset_of_subset
+// CHECK-SAME:     (%[[arg:.*]]: tensor
+func.func @subset_of_subset(%arg: tensor<?xf32>) -> tensor<?xf32> {
+  %lb = "test.foo"() : () -> (index)
+  %ub = "test.foo"() : () -> (index)
+  %step = "test.foo"() : () -> (index)
+  %c1 = arith.constant 1 : index
+
+  // CHECK: %[[extract1:.*]] = tensor.extract_slice %[[arg]]
+  // CHECK: %[[extract2:.*]] = tensor.extract_slice %[[extract1]]
+  // CHECK: %[[extract3:.+]] = tensor.extract %[[extract2]]
+  // CHECK: %[[for:.*]] = scf.for {{.*}} iter_args(%[[hoisted2:.*]] = %[[extract3]])
+  %0 = scf.for %iv = %lb to %ub step %step iter_args(%t = %arg) -> (tensor<?xf32>) {
+    %extract1 = tensor.extract_slice %t[0][5][1] : tensor<?xf32> to tensor<5xf32>
+    %extract2 = tensor.extract_slice %extract1[1][2][1] : tensor<5xf32> to tensor<2xf32>
+    %extract3 = tensor.extract %extract2[%c1] : tensor<2xf32>
+
+    // CHECK: %[[foo:.*]] = "test.foo"(%[[hoisted2]])
+    %2 = "test.foo"(%extract3) : (f32) -> (f32)
+
+    %insert0 = tensor.insert %2 into %extract2[%c1] : tensor<2xf32>
+    %insert1 = tensor.insert_slice %insert0 into %extract1[1][2][1] : tensor<2xf32> into tensor<5xf32>
+    %insert2 = tensor.insert_slice %insert1 into %t[0][5][1] : tensor<5xf32> into tensor<?xf32>
+
+    // CHECK: scf.yield %[[foo]]
+    scf.yield %insert2 : tensor<?xf32>
+  }
+  // CHECK: %[[inserted:.+]] = tensor.insert %[[for]] into %[[extract2]]
+  // CHECK: %[[insert2:.*]] = tensor.insert_slice %[[inserted]] into %[[extract1]][1] [2] [1]
+  // CHECK: %[[insert1:.*]] = tensor.insert_slice %[[insert2]] into %[[arg]]
+
+  // CHECK: return %[[insert1]]
+  return %0 : tensor<?xf32>
+}
+

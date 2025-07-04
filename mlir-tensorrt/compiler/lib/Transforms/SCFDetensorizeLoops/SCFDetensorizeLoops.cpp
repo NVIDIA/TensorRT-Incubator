@@ -30,7 +30,10 @@
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
+#include "mlir/Interfaces/SubsetOpInterface.h"
+#include "mlir/Interfaces/ValueBoundsOpInterface.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
+#include "mlir/Transforms/LoopInvariantCodeMotionUtils.h"
 
 namespace mlir {
 #define GEN_PASS_DEF_SCFDETENSORIZELOOPSPASS
@@ -228,9 +231,59 @@ void mlir::populateSCFDetensorizeWhilePatterns(
       patterns.getContext(), shouldScalarizeBeforeArg, benefit);
   patterns.add<WhileScalarizeAfterArgPattern>(patterns.getContext(),
                                               shouldScalarizeAfterArg, benefit);
+  scf::ForOp::getCanonicalizationPatterns(patterns, patterns.getContext());
+  scf::WhileOp::getCanonicalizationPatterns(patterns, patterns.getContext());
 }
 
 namespace {
+
+struct TensorExtractSubsetExtractionOpInterface
+    : public SubsetExtractionOpInterface::ExternalModel<
+          TensorExtractSubsetExtractionOpInterface, tensor::ExtractOp> {
+  OpOperand &getSourceOperand(Operation *op) const {
+    return cast<tensor::ExtractOp>(op).getTensorMutable();
+  }
+};
+
+template <typename OpTy>
+struct SubsetOpInterfaceImpl
+    : public SubsetOpInterface::ExternalModel<SubsetOpInterfaceImpl<OpTy>,
+                                              OpTy> {
+  FailureOr<HyperrectangularSlice>
+  getAccessedHyperrectangularSlice(Operation *op) const {
+    SmallVector<OpFoldResult> indices = cast<OpTy>(op).getIndices();
+    SmallVector<OpFoldResult> ones(
+        indices.size(), IntegerAttr::get(IndexType::get(op->getContext()), 1));
+    return HyperrectangularSlice(indices, ones, ones);
+  }
+};
+
+struct TensorInsertSubsetInsertionOpInterface
+    : public SubsetInsertionOpInterface::ExternalModel<
+          TensorInsertSubsetInsertionOpInterface, tensor::InsertOp> {
+
+  OpOperand &getSourceOperand(Operation *op) const {
+    return cast<tensor::InsertOp>(op).getScalarMutable();
+  }
+
+  OpOperand &getDestinationOperand(Operation *op) const {
+    return cast<tensor::InsertOp>(op).getDestMutable();
+  }
+
+  OpResult getUpdatedDestination(Operation *op) const {
+    return cast<tensor::InsertOp>(op)->getOpResult(0);
+  }
+
+  SmallVector<Value>
+  getValuesNeededToBuildSubsetExtraction(Operation *op) const {
+    return {cast<tensor::InsertOp>(op).getDest()};
+  }
+
+  Value buildSubsetExtraction(Operation *op, OpBuilder &builder,
+                              Location loc) const {
+    return Value{};
+  }
+};
 
 class SCFDetensorizeLoopsPass
     : public impl::SCFDetensorizeLoopsPassBase<SCFDetensorizeLoopsPass> {
@@ -240,6 +293,14 @@ public:
     MLIRContext *ctx = &getContext();
     RewritePatternSet patterns(ctx);
     Operation *op = getOperation();
+
+    // Walk through all loops in a function in innermost-loop-first order. This
+    // way, we first hoist from the inner loop, and place the ops in the outer
+    // loop, which in turn can be further hoisted from.
+    IRRewriter rewriter(ctx);
+    op->walk([&](LoopLikeOpInterface loopLike) {
+      loopLike = mlir::hoistLoopInvariantSubsets(rewriter, loopLike);
+    });
 
     SymbolTableCollection symbolTable;
     DataFlowSolver solver;
@@ -258,11 +319,28 @@ public:
                                        Value result) {
       return isHostTensor(arg, solver);
     };
+
     populateSCFDetensorizeWhilePatterns(patterns, shouldScalarizeBeforeArg,
                                         shouldScalarizeAfterArg,
                                         /*benefit=*/1);
     if (failed(applyPatternsGreedily(getOperation(), std::move(patterns))))
       return signalPassFailure();
+  }
+
+  void getDependentDialects(DialectRegistry &registry) const override {
+    Base::getDependentDialects(registry);
+
+    registry.addExtension(+[](MLIRContext *ctx,
+                              tensor::TensorDialect *dialect) {
+      tensor::ExtractOp::attachInterface<
+          SubsetOpInterfaceImpl<tensor::ExtractOp>>(*ctx);
+      tensor::InsertOp::attachInterface<
+          SubsetOpInterfaceImpl<tensor::InsertOp>>(*ctx);
+      tensor::ExtractOp::attachInterface<
+          TensorExtractSubsetExtractionOpInterface>(*ctx);
+      tensor::InsertOp::attachInterface<TensorInsertSubsetInsertionOpInterface>(
+          *ctx);
+    });
   }
 };
 } // namespace

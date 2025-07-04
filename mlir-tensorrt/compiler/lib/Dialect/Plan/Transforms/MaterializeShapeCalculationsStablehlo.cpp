@@ -38,8 +38,20 @@ static SmallVector<Value> getScalarOperands(RewriterBase &rewriter,
                                             Location loc, OperandRange operands,
                                             ValueRange indices) {
   SmallVector<Value> result;
+  MLIRContext *ctx = rewriter.getContext();
   for (Value operand : operands) {
-    result.push_back(rewriter.create<tensor::ExtractOp>(loc, operand, indices));
+    Value extracted = rewriter.create<tensor::ExtractOp>(loc, operand, indices);
+    if (auto integerType = dyn_cast<IntegerType>(extracted.getType());
+        integerType && integerType.isUnsignedInteger()) {
+      extracted =
+          rewriter
+              .create<UnrealizedConversionCastOp>(
+                  loc,
+                  IntegerType::get(ctx, integerType.getIntOrFloatBitWidth()),
+                  extracted)
+              .getResult(0);
+    }
+    result.push_back(extracted);
   }
   return result;
 }
