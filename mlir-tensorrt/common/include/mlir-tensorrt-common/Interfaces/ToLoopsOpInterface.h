@@ -31,6 +31,13 @@ class RewriterBase;
 namespace scf {
 class ForOp;
 } // namespace scf
+
+struct LowerToLoopsResult {
+  /// Loops from outer to inner-most.
+  SmallVector<Operation *> loops;
+  /// Replacements for the original op.
+  SmallVector<Value> replacements;
+};
 } // namespace mlir
 
 #include "mlir-tensorrt-common/Interfaces/ToLoopsOpInterface.h.inc"
