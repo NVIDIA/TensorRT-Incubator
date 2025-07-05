@@ -136,8 +136,48 @@ emitScalarImplementation(OpBuilder &b, Location loc, ValueRange allIvs,
       operandValuesToUse.take_back(linalgOp.getNumDpsInits()));
 }
 
+/// Given a list of subview ranges, extract individual values for lower, upper
+/// bounds and steps and put them into the corresponding vectors.
+static void unpackRanges(OpBuilder &builder, Location loc,
+                         ArrayRef<Range> ranges, SmallVectorImpl<Value> &lbs,
+                         SmallVectorImpl<Value> &ubs,
+                         SmallVectorImpl<Value> &steps) {
+  for (Range range : ranges) {
+    lbs.emplace_back(
+        getValueOrCreateConstantIndexOp(builder, loc, range.offset));
+    ubs.emplace_back(getValueOrCreateConstantIndexOp(builder, loc, range.size));
+    steps.emplace_back(
+        getValueOrCreateConstantIndexOp(builder, loc, range.stride));
+  }
+}
+
+/// Specialization to build an scf "for" nest.
+static scf::LoopNest
+generateScfForLoopNest(OpBuilder &b, Location loc, ArrayRef<Range> loopRanges,
+                       LinalgOp linalgOp,
+                       ArrayRef<utils::IteratorType> iteratorTypes,
+                       function_ref<scf::ValueVector(OpBuilder &, Location,
+                                                     ValueRange, ValueRange)>
+                           bodyBuilderFn) {
+  SmallVector<Value> iterArgInitValues = linalgOp.getDpsInits();
+  SmallVector<Value, 4> lbs, ubs, steps;
+  unpackRanges(b, loc, loopRanges, lbs, ubs, steps);
+  return mlir::scf::buildLoopNest(
+      b, loc, lbs, ubs, steps, iterArgInitValues,
+      [&](OpBuilder &b, Location loc, ValueRange ivs, ValueRange iterArgs) {
+        assert(iterArgs.size() == iterArgInitValues.size() &&
+               "expect the number of output tensors and iter args to match");
+        SmallVector<Value> operandValuesToUse = linalgOp->getOperands();
+        if (!iterArgs.empty()) {
+          operandValuesToUse = linalgOp.getDpsInputs();
+          operandValuesToUse.append(iterArgs.begin(), iterArgs.end());
+        }
+        return bodyBuilderFn(b, loc, ivs, operandValuesToUse);
+      });
+}
+
 /// Lower the LinalgOp to a 'scf.for' loop nest.
-FailureOr<SmallVector<Operation *>>
+FailureOr<LowerToLoopsResult>
 mlir::linalg_ext::convertLinalgOpToLoops(RewriterBase &rewriter,
                                          linalg::LinalgOp linalgOp) {
   // The flattened loopToOperandRangesMaps is expected to be an invertible
@@ -151,9 +191,8 @@ mlir::linalg_ext::convertLinalgOpToLoops(RewriterBase &rewriter,
 
   // TODO: If there are no loops (which makes the `linalg.generic` effectively a
   // scalar operation, then the below GenerateLoopNest will still create the
-  // correct IR but we don't yet have a way to return the replacement to the
-  // caller. Modify the `lowerToLoops` method to allow returning non-loop
-  // replacement values.
+  // correct IR but it doesn't pass those results up to the caller. Fix here or
+  // upstream.
   if (loopRanges.empty())
     return failure();
 
@@ -161,20 +200,17 @@ mlir::linalg_ext::convertLinalgOpToLoops(RewriterBase &rewriter,
       linalgOp.getIteratorTypesArray();
 
   // Generate the loop nest using the 'mlir::linalg::GenerateLoopNest' utility.
-  SmallVector<Operation *> loops;
-  mlir::linalg::GenerateLoopNest<scf::ForOp>::doit(
+  scf::LoopNest loopNest = generateScfForLoopNest(
       rewriter, linalgOp.getLoc(), loopRanges, linalgOp, iteratorTypes,
       [&](OpBuilder &b, Location loc, ValueRange ivs,
           ValueRange operandValuesToUse) -> scf::ValueVector {
-        for (Value v : ivs) {
-          BlockArgument ivVal = cast<BlockArgument>(v);
-          loops.push_back(ivVal.getOwner()->getParentOp());
-        }
         return emitScalarImplementation(b, loc, ivs, linalgOp,
                                         operandValuesToUse);
       });
 
-  return loops;
+  return LowerToLoopsResult{
+      SmallVector<Operation *>(loopNest.loops.begin(), loopNest.loops.end()),
+      loopNest.loops.front()->getResults()};
 }
 
 namespace {
@@ -182,14 +218,14 @@ template <typename OpTy>
 struct ToLoopsOpInterfaceImpl
     : public ToLoopsOpInterface::ExternalModel<ToLoopsOpInterfaceImpl<OpTy>,
                                                OpTy> {
-  FailureOr<Operation *> lowerToLoops(Operation *op,
-                                      RewriterBase &rewriter) const {
-    FailureOr<SmallVector<Operation *>> loops =
-        convertLinalgOpToLoops(rewriter, cast<linalg::LinalgOp>(op));
-    if (failed(loops))
+  FailureOr<LowerToLoopsResult> lowerToLoops(Operation *op,
+                                             RewriterBase &rewriter) const {
+    FailureOr<LowerToLoopsResult> result =
+        linalg_ext::convertLinalgOpToLoops(rewriter, cast<OpTy>(op));
+    if (failed(result))
       return failure();
-    rewriter.replaceOp(op, loops->front());
-    return loops->front();
+    rewriter.replaceOp(op, result->replacements);
+    return result;
   }
 };
 } // namespace
@@ -198,6 +234,5 @@ void linalg_ext::registerToLoopsOpInterfaceExternalModels(
     DialectRegistry &registry) {
   registry.addExtension(+[](MLIRContext *ctx, linalg::LinalgDialect *dialect) {
     linalg::GenericOp::attachInterface<ToLoopsOpInterfaceImpl<GenericOp>>(*ctx);
-    // linalg::MapOp::attachInterface<ToLoopsOpInterfaceImpl<MapOp>>(*ctx);
   });
 }

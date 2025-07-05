@@ -45,8 +45,8 @@ namespace mlir::linalg_ext {
 void registerToLoopsOpInterfaceExternalModels(DialectRegistry &registry);
 
 /// Convert a LinalgOp (on tensors) to SCF loops.
-FailureOr<SmallVector<Operation *>>
-convertLinalgOpToLoops(RewriterBase &rewriter, linalg::LinalgOp op);
+FailureOr<LowerToLoopsResult> convertLinalgOpToLoops(RewriterBase &rewriter,
+                                                     linalg::LinalgOp op);
 
 } // namespace mlir::linalg_ext
 

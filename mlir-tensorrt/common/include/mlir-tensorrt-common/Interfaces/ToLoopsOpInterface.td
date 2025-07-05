@@ -14,7 +14,7 @@ def ToLoopsOpInterface : OpInterface<"ToLoopsOpInterface"> {
         the outermost loop that should replace the original
         op, but does not actually perform the replacement.
       }],
-        "::mlir::FailureOr<::mlir::Operation*>",
+        "::mlir::FailureOr<::mlir::LowerToLoopsResult>",
         "lowerToLoops",
         (ins "::mlir::RewriterBase&":$rewriter),
         "",

@@ -53,11 +53,11 @@ struct ConvertLinalgOpToLoopsPattern
   using OpInterfaceRewritePattern::OpInterfaceRewritePattern;
   LogicalResult matchAndRewrite(linalg::LinalgOp op,
                                 PatternRewriter &rewriter) const override {
-    FailureOr<SmallVector<Operation *>> loops =
+    FailureOr<LowerToLoopsResult> result =
         linalg_ext::convertLinalgOpToLoops(rewriter, op);
-    if (failed(loops))
+    if (failed(result))
       return failure();
-    rewriter.replaceOp(op, loops->front()->getResults());
+    rewriter.replaceOp(op, result->replacements);
     return success();
   }
 };
