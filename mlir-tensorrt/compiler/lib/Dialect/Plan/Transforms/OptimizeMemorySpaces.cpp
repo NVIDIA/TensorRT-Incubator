@@ -21,10 +21,7 @@
 ///  Implementation of the `plan-optimize-memory-spaces` pass.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt-dialect/Analysis/TensorKindAnalysis.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
-#include "mlir/Analysis/DataFlow/ConstantPropagationAnalysis.h"
-#include "mlir/Analysis/DataFlow/DeadCodeAnalysis.h"
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
@@ -77,37 +74,12 @@ static bool inComputeRegion(Operation *op) {
   return false;
 }
 
-/// Remap relevant analysis state of type T from `original` to `replacement`.
-template <typename T>
-static void remapLatticeState(DataFlowSolver &solver, Value original,
-                              Value replacement) {
-  if constexpr (!std::is_same_v<T, dataflow::Executable>) {
-    if (const T *lattice = solver.lookupState<T>(original)) {
-      T *latticeReplacement = solver.getOrCreateState<T>(replacement);
-      latticeReplacement->getValue() = lattice->getValue();
-    }
-  } else {
-    // do nothing for liveness analysis for the moment except create the state
-    if (const auto *oldState =
-            solver.lookupState<dataflow::Executable>(original)) {
-      dataflow::Executable *newState = solver.getOrCreateState<T>(replacement);
-      // Set to live if old state is live. We ignore change status.
-      if (oldState->isLive())
-        (void)newState->setToLive();
-    }
-  }
-}
-
 namespace {
 
-/// Use an explicit 'host_pinned' staging tensor to materialie the
-/// 'from_elements' before creating explicitly moving it to the 'device' space.
-/// Other optimization patterns below help avoid the host-device transfer when
-/// possible.
+/// Use an explicit host-visible staging tensor to materialie the
+/// 'from_elements' before casting it to the non-host-visible space.
 struct FixUpFromElements : public OpRewritePattern<tensor::FromElementsOp> {
-  FixUpFromElements(MLIRContext *ctx, const DataFlowSolver &solver,
-                    PatternBenefit benefit = 1)
-      : OpRewritePattern(ctx, benefit), solver(solver) {}
+  using OpRewritePattern::OpRewritePattern;
 
   LogicalResult matchAndRewrite(tensor::FromElementsOp op,
                                 PatternRewriter &rewriter) const override {
@@ -115,14 +87,6 @@ struct FixUpFromElements : public OpRewritePattern<tensor::FromElementsOp> {
     if (!space || space.isHostVisible())
       return rewriter.notifyMatchFailure(
           op, "skipping no encoding or already host-visible");
-
-    const TensorKindLattice *lattice =
-        solver.lookupState<TensorKindLattice>(op.getResult());
-    if (!lattice || lattice->getValue().isUninitialized() ||
-        !lattice->getValue().isHostVisible()) {
-      return rewriter.notifyMatchFailure(
-          op, "skipping uninitialized TensorKindLattice value");
-    }
 
     RankedTensorType originalType = op.getType();
     RankedTensorType newType = RankedTensorType::get(
@@ -134,59 +98,12 @@ struct FixUpFromElements : public OpRewritePattern<tensor::FromElementsOp> {
     rewriter.replaceOpWithNewOp<tensor::CastOp>(op, originalType, newOp);
     return success();
   }
-
-  const DataFlowSolver &solver;
 };
 
-/// Absorb cast operations into the while loop 'before' region and init types.
-struct SCFWhileAbsorbCastBeforePattern : public OpRewritePattern<scf::WhileOp> {
-  using OpRewritePattern::OpRewritePattern;
-
-  LogicalResult matchAndRewrite(scf::WhileOp op,
-                                PatternRewriter &rewriter) const override {
-    SmallVector<int64_t> iterArgsToUpdate;
-    Region &after = op.getAfter();
-    Region &before = op.getBefore();
-    auto originalYield = cast<scf::YieldOp>(after.front().getTerminator());
-
-    SmallVector<Value> newOperands(op.getOperands());
-    SmallVector<Value> newYieldOperands(originalYield.getOperands());
-    SmallVector<std::pair<unsigned, Type>> blockTypeUpdates;
-    bool hasUpdate = false;
-    for (BlockArgument arg : before.getArguments()) {
-      auto tensorType = dyn_cast<RankedTensorType>(arg.getType());
-      if (!tensorType)
-        continue;
-      Value aboveOperand = op.getOperand(arg.getArgNumber());
-      Value yieldOperand = originalYield.getOperands()[arg.getArgNumber()];
-      auto aboveCast = aboveOperand.getDefiningOp<tensor::CastOp>();
-      auto yieldCast = yieldOperand.getDefiningOp<tensor::CastOp>();
-      if (!aboveCast || !yieldCast ||
-          aboveCast.getOperand().getType() != yieldCast.getOperand().getType())
-        continue;
-      newOperands[arg.getArgNumber()] = aboveCast.getOperand();
-      newYieldOperands[arg.getArgNumber()] = yieldCast.getOperand();
-      blockTypeUpdates.emplace_back(arg.getArgNumber(),
-                                    aboveCast.getOperand().getType());
-      hasUpdate = true;
-    }
-    if (!hasUpdate)
-      return failure();
-
-    rewriter.modifyOpInPlace(op, [&]() {
-      op.getInitsMutable().assign(newOperands);
-      for (auto [argNumber, type] : blockTypeUpdates)
-        before.getArgument(argNumber).setType(type);
-    });
-    rewriter.modifyOpInPlace(originalYield, [&]() {
-      originalYield.getResultsMutable().assign(newYieldOperands);
-    });
-    return success();
-  }
-};
-
-/// Absorb cast operations into the while loop 'after' region and result types.
-struct SCFWhileAbsorbCastAfterPattern : public OpRewritePattern<scf::WhileOp> {
+/// Absorb cast operations into the while loop 'before' and 'after' regions and
+/// result types as long as region argument types are changed to the same new
+/// type.
+struct SCFWhileAbsorbCastPattern : public OpRewritePattern<scf::WhileOp> {
   using OpRewritePattern::OpRewritePattern;
 
   LogicalResult matchAndRewrite(scf::WhileOp op,
@@ -195,39 +112,76 @@ struct SCFWhileAbsorbCastAfterPattern : public OpRewritePattern<scf::WhileOp> {
     Region &after = op.getAfter();
     Region &before = op.getBefore();
     auto originalCond = cast<scf::ConditionOp>(before.front().getTerminator());
+    auto originalYield = cast<scf::YieldOp>(after.front().getTerminator());
+
+    if (after.getArgumentTypes() != before.getArgumentTypes())
+      return failure();
 
     SmallVector<Value> newCondOperands(originalCond.getArgs());
-    SmallVector<std::pair<unsigned, Type>> blockTypeUpdates;
+    SmallVector<Value> newOperands(op.getOperands());
+    SmallVector<Value> newYieldOperands(originalYield.getOperands());
+    SmallVector<std::pair<unsigned, Type>> afterBlockTypeUpdates;
+    SmallVector<std::pair<unsigned, Type>> beforeBlockTypeUpdates;
     bool hasUpdate = false;
-    for (BlockArgument arg : after.getArguments()) {
-      auto tensorType = dyn_cast<RankedTensorType>(arg.getType());
+    for (auto [afterArg, beforeArg] :
+         llvm::zip_equal(after.getArguments(), before.getArguments())) {
+      // After/before have same type as checked above.
+      auto tensorType = dyn_cast<RankedTensorType>(afterArg.getType());
       if (!tensorType)
         continue;
-      Value condOperand = originalCond.getArgs()[arg.getArgNumber()];
-      Value result = op.getResult(arg.getArgNumber());
+      Value condOperand = originalCond.getArgs()[afterArg.getArgNumber()];
+      Value aboveOperand = op.getOperand(beforeArg.getArgNumber());
+      Value yieldOperand =
+          originalYield.getOperands()[beforeArg.getArgNumber()];
+      Value result = op.getResult(afterArg.getArgNumber());
       if (!result.hasOneUse())
+        continue;
+      auto aboveCast = aboveOperand.getDefiningOp<tensor::CastOp>();
+      auto yieldCast = yieldOperand.getDefiningOp<tensor::CastOp>();
+      if (!aboveCast || !yieldCast ||
+          aboveCast.getOperand().getType() != yieldCast.getOperand().getType())
         continue;
       auto condCast = condOperand.getDefiningOp<tensor::CastOp>();
       auto resultCast = dyn_cast<tensor::CastOp>(*result.user_begin());
       if (!condCast || !resultCast ||
           condCast.getOperand().getType() != resultCast.getType())
         continue;
-      newCondOperands[arg.getArgNumber()] = condCast.getOperand();
-      blockTypeUpdates.emplace_back(arg.getArgNumber(),
-                                    condCast.getOperand().getType());
+
+      // We must be changing the region arg types to the same new type.
+      if (aboveCast.getOperand().getType() != condCast.getOperand().getType())
+        continue;
+
+      newOperands[beforeArg.getArgNumber()] = aboveCast.getOperand();
+      newYieldOperands[beforeArg.getArgNumber()] = yieldCast.getOperand();
+      beforeBlockTypeUpdates.emplace_back(beforeArg.getArgNumber(),
+                                          aboveCast.getOperand().getType());
+
+      newCondOperands[afterArg.getArgNumber()] = condCast.getOperand();
+      afterBlockTypeUpdates.emplace_back(afterArg.getArgNumber(),
+                                         condCast.getOperand().getType());
       hasUpdate = true;
     }
     if (!hasUpdate)
       return failure();
 
     rewriter.modifyOpInPlace(op, [&]() {
-      for (auto [argNumber, type] : blockTypeUpdates) {
+      for (auto [argNumber, type] : afterBlockTypeUpdates) {
         after.getArgument(argNumber).setType(type);
         op.getResult(argNumber).setType(type);
       }
     });
     rewriter.modifyOpInPlace(originalCond, [&]() {
       originalCond.getArgsMutable().assign(newCondOperands);
+    });
+
+    // Modifications for the "before" region.
+    rewriter.modifyOpInPlace(op, [&]() {
+      op.getInitsMutable().assign(newOperands);
+      for (auto [argNumber, type] : beforeBlockTypeUpdates)
+        before.getArgument(argNumber).setType(type);
+    });
+    rewriter.modifyOpInPlace(originalYield, [&]() {
+      originalYield.getResultsMutable().assign(newYieldOperands);
     });
     return success();
   }
@@ -507,7 +461,7 @@ struct DeviceInsertRewriter : public OpRewritePattern<tensor::InsertOp> {
 ///
 /// Note that you could also use `tensor.insert` to assemble the result, but the
 /// BufferizableOpInterface implementation for `tensor.insert` is suboptimal.
-struct LoopFromElementsPattern
+struct FromElementsYieldFromLoopPattern
     : public OpRewritePattern<tensor::FromElementsOp> {
   using OpRewritePattern::OpRewritePattern;
   LogicalResult matchAndRewrite(tensor::FromElementsOp op,
@@ -518,8 +472,24 @@ struct LoopFromElementsPattern
     if (!user->hasTrait<OpTrait::IsTerminator>())
       return failure();
 
+    // This can actually make things worse if the `scf.while` operation's
+    // before/after args don't have match.
     auto parentOp = op->getParentOp();
     if (!isa<scf::WhileOp, scf::ForOp>(parentOp))
+      return failure();
+    if (auto whileOp = dyn_cast_if_present<scf::WhileOp>(parentOp)) {
+      Region *before = &whileOp.getBefore();
+      Region *after = &whileOp.getAfter();
+      if (after->getArgumentTypes() != before->getArgumentTypes())
+        return failure();
+    }
+
+    // Check to make sure this has a 'host' space, otherwise it will conflict
+    // with the FixupFromElements pattern. This pattern doesn't matter if there
+    // is a cast between the `from_elements` and the `yield` since an explicit
+    // materialization will be applied t here later as well.
+    auto space = dyn_cast_or_null<MemorySpaceAttr>(op.getType().getEncoding());
+    if (!space || !space.isHostVisible())
       return failure();
 
     rewriter.setInsertionPointAfter(op);
@@ -535,71 +505,24 @@ struct LoopFromElementsPattern
   }
 };
 
-/// A rewrite listener that transfers replacements to updates to the solver
-/// state.
-class SolverStateListener : public RewriterBase::Listener {
-public:
-  SolverStateListener(DataFlowSolver &solver)
-      : RewriterBase::Listener(), solver(solver) {}
-
-private:
-  void notifyOperationReplaced(Operation *op,
-                               ValueRange replacements) override {
-    for (auto [original, replacement] :
-         llvm::zip_equal(op->getResults(), replacements)) {
-      remapLatticeState<TensorKindLattice>(solver, original, replacement);
-      remapLatticeState<dataflow::Lattice<dataflow::ConstantValue>>(
-          solver, original, replacement);
-      remapLatticeState<dataflow::Executable>(solver, original, replacement);
-    }
-    solver.eraseState(solver.getProgramPointAfter(op));
-  }
-  void notifyOperationReplaced(Operation *op, Operation *replacement) override {
-    notifyOperationReplaced(op, replacement->getResults());
-  }
-
-  void notifyOperationErased(Operation *op) override {
-    solver.eraseState(solver.getProgramPointAfter(op));
-    for (Value res : op->getResults())
-      solver.eraseState(res);
-  }
-
-  DataFlowSolver &solver;
-};
-
 struct OptimizeMemorySpacesPass
     : public plan::impl::PlanOptimizeMemorySpacesPassBase<
           OptimizeMemorySpacesPass> {
   void runOnOperation() override {
     func::FuncOp func = getOperation();
 
-    SymbolTableCollection symbolTables;
-    DataFlowSolver solver(DataFlowConfig().setInterprocedural(false));
-    solver.load<dataflow::DeadCodeAnalysis>();
-    solver.load<dataflow::SparseConstantPropagation>();
-    solver.load<TensorKindAnalysis>(symbolTables);
-
-    if (failed(solver.initializeAndRun(func))) {
-      emitError(getOperation().getLoc()) << "failed to run TensorKindAnalysis";
-      return signalPassFailure();
-    }
-
-    SolverStateListener solverAwareListener(solver);
-    GreedyRewriteConfig config;
-    config.listener = &solverAwareListener;
     RewritePatternSet patterns(&getContext());
-    patterns.insert<FixUpFromElements>(&getContext(), solver);
     tensor::CastOp::getCanonicalizationPatterns(patterns, &getContext());
     // clang-format off
     patterns.insert<
       AllocTensorAbsorbCastPattern,
       ConstantAbsorbCastPattern,
       DeviceInsertRewriter,
-      LoopFromElementsPattern,
+      FixUpFromElements,
+      FromElementsYieldFromLoopPattern,
       ReshapeAbsorbDeviceCast,
       SCFForAbsorbCastPattern,
-      SCFWhileAbsorbCastAfterPattern,
-      SCFWhileAbsorbCastBeforePattern,
+      SCFWhileAbsorbCastPattern,
       TensorDeviceExtractRewriter
     >(&getContext());
     // clang-format on

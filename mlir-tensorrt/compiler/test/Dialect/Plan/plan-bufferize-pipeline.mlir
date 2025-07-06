@@ -141,6 +141,54 @@ func.func @while_loop_host_tensor_carried(%arg0: f32) -> f32 {
 
 // -----
 
+module @while_loop {
+
+func.func private @cond() -> i1
+
+// This test checks that we don't bufferize a while loop such that the
+// arguments have different memory spaces. That is catastrophic to the
+// performance since current bufferization doesn't handle this efficiently.
+
+func.func @while_loop_device_tensor_from_elements(%arg0: f32) -> tensor<1xf32> {
+  %c0 = arith.constant 0 : index
+  %1 = tensor.from_elements %arg0  : tensor<1xf32>
+  %2 = scf.while (%arg1 = %1) : (tensor<1xf32>) -> tensor<1xf32> {
+    %cond = func.call @cond() : () -> i1
+    %e = tensor.extract %arg1[%c0] : tensor<1xf32>
+    %f = arith.addf %e, %e : f32
+    %3 = tensor.from_elements %f : tensor<1xf32>
+    scf.condition(%cond) %3 : tensor<1xf32>
+  } do {
+  ^bb0(%arg1: tensor<1xf32>):
+    %extract = tensor.extract %arg1[%c0] : tensor<1xf32>
+    %3 = arith.addf %extract, %extract : f32
+    %4 = tensor.from_elements %3 : tensor<1xf32>
+    scf.yield %4 : tensor<1xf32>
+  }
+  return %2 : tensor<1xf32>
+}
+
+}
+
+// CHECK-LABEL: func.func @while_loop_device_tensor_from_elements
+//         CHECK:     scf.while : () -> ()
+// CHECK-COUNT-1:       memref.copy
+//         CHECK:       memref.load
+//         CHECK:       memref.store
+//         CHECK:       memref.copy
+//     CHECK-NOT:       memref.copy
+//         CHECK:       scf.condition
+//         CHECK:       memref.copy
+//         CHECK:       memref.load
+//         CHECK:       memref.store
+//         CHECK:       memref.copy
+//     CHECK-NOT:       memref.copy
+//         CHECK:       scf.yield
+//     CHECK-NOT:     memref.copy
+//         CHECK:     return
+
+// -----
+
 // This test checks that if we create a function with specific constraints,
 // then we should not insert unnecessary copies to tranfer between other spaces.
 
@@ -347,7 +395,6 @@ module @calls_no_inline {
     %c5 = arith.constant 5 : index
     %c0 = arith.constant 0 : index
     %0 = tensor.empty() : tensor<5xi8>
-    // CHECK: %[[alloc]] = memref.alloc() {{.*}} #plan.memory_space<host>
     // CHECK: scf.for
     %1 = scf.for %arg2 = %c0 to %c5 step %c1 iter_args(%arg3 = %0) -> (tensor<5xi8>) {
       // CHECK-NEXT: memref.load %[[arg0]]
@@ -356,13 +403,12 @@ module @calls_no_inline {
       %extracted_0 = tensor.extract %arg1[%arg2] : tensor<5xi8>
       // CHECK-NEXT: arith.addi
       %2 = arith.addi %extracted, %extracted_0 : i8
-      // CHECK-NEXT: memref.store {{.*}}, %[[alloc]]
+      // CHECK-NEXT: memref.store {{.*}}, %[[arg2]]
       %inserted = tensor.insert %2 into %arg3[%arg2] : tensor<5xi8>
       scf.yield %inserted : tensor<5xi8>
     }
-    //      CHECK: memref.copy %[[alloc]], %[[arg2]]
-    // CHECK-NEXT: memref.dealloc %[[alloc]]
-    // CHECK-NEXT: return
+    // CHECK-NOT: memref.copy
+    // CHECK: return
     return %1 : tensor<5xi8>
   }
 
