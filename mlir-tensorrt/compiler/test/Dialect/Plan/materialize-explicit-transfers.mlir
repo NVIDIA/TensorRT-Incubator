@@ -6,10 +6,7 @@
 // CHECK-LABEL: func.func @tensor_cast
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<1xf32, #plan.memory_space<host>>
 func.func @tensor_cast(%arg0: !host_type) -> !device_type {
-  //      CHECK: %[[v0:.+]] = bufferization.alloc_tensor()
-  // CHECK-SAME:  memory_space = #plan.memory_space<device>
-  // CHECK-SAME:  tensor<1xf32, #plan.memory_space<device>>
-
+  //      CHECK: %[[v0:.+]] = tensor.empty() {{.*}} #plan.memory_space<device>
   //      CHECK: %[[v1:.+]] = bufferization.materialize_in_destination
   // CHECK-SAME:   %[[arg0]] in %[[v0]]
   %1 = tensor.cast %arg0 : !host_type to !device_type
@@ -29,8 +26,7 @@ func.func @dynamic_shape(%arg0: !host_type) -> !device_type {
 //    CHECK-DAG: %[[c0:.+]] = arith.constant 0 : index
 //    CHECK-DAG: %[[dim:.+]] = tensor.dim %[[arg0]], %[[c0]] :
 //    CHECK-DAG: %[[dim_0:.+]] = tensor.dim %[[arg0]], %[[c2]] :
-  //      CHECK: %[[v0:.+]] = bufferization.alloc_tensor(%[[dim]], %[[dim_0]])
-  // CHECK-SAME:  memory_space = #plan.memory_space<device>
+  //      CHECK: %[[v0:.+]] = tensor.empty(%[[dim]], %[[dim_0]])
   // CHECK-SAME:  tensor<?x4x?xf32, #plan.memory_space<device>>
 
   //      CHECK: %[[v1:.+]] = bufferization.materialize_in_destination

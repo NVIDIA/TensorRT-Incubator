@@ -57,16 +57,39 @@ func.func @cluster_and_outline_test2(%arg0: tensor<f32>) -> (tensor<1xf32> {tens
 
 // -----
 
-func.func @const_only_dont_cluster(%arg0: tensor<4xf32>) -> (tensor<f32> {tensorrt.host_tensor}, tensor<1xf32> {tensorrt.host_tensor}) {
+// This test checks that we clone constants during outlining rather than
+// clustering them into initial regions. We don't want other clusters
+// to consume small constants as outputs of other clusters. The effect
+// should be as if the constant was duplicated prior to clustering.
+
+builtin.module attributes {
+  plan.cluster_kinds = [#plan.host_cluster<benefit=1>]
+} {
+
+
+func.func @clone_constants(%arg0: tensor<4xf32>) -> (tensor<f32>, tensor<f32>, tensor<1xf32>) {
   %cst = stablehlo.constant dense<-0.000000e+00> : tensor<f32>
   %cst1 = stablehlo.constant dense<1.000000e+00> : tensor<1xf32>
-  return %cst, %cst1 : tensor<f32>, tensor<1xf32>
+  %reshape = stablehlo.reshape %cst1 : (tensor<1xf32>) -> tensor<f32>
+  %add = stablehlo.add %cst, %reshape : tensor<f32>
+  return %add, %cst, %cst1 : tensor<f32>, tensor<f32>, tensor<1xf32>
+}
 }
 
-// CHECK-LABEL: func.func @const_only_dont_cluster
-//  CHECK-NEXT:     %[[cst:.+]] = stablehlo.constant
-//  CHECK-NEXT:     %[[cst_0:.+]] = stablehlo.constant
-//  CHECK-NEXT:     return %[[cst]], %[[cst_0]]
+// CHECK-LABEL: func.func @clone_constants
+//  CHECK-SAME: (%[[arg0:.+]]:
+//   CHECK-DAG:     %[[cst:.+]] = stablehlo.constant dense<-0.000000e+00>
+//   CHECK-DAG:     %[[cst_0:.+]] = stablehlo.constant dense<1.000000e+00>
+//   CHECK-DAG:     %[[v0:.+]] = call @host_cluster() : () -> tensor<f32>
+//   CHECK-DAG:     return %[[v0]], %[[cst]], %[[cst_0]]
+
+// CHECK-LABEL: func.func private @host_cluster
+//   CHECK-DAG:     %[[cst:.+]] = stablehlo.constant dense<-0.000000e+00>
+//   CHECK-DAG:     %[[cst_0:.+]] = stablehlo.constant dense<1.000000e+00>
+//   CHECK-DAG:     %[[v0:.+]] = stablehlo.reshape %[[cst_0]]
+//   CHECK-DAG:     %[[v1:.+]] = stablehlo.add %[[cst]], %[[v0]]
+//   CHECK-DAG:     return %[[v1]]
+
 
 // -----
 

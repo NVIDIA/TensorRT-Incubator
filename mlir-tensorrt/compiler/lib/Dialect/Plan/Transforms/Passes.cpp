@@ -76,6 +76,11 @@ static void buildPlanOneShotBufferizePipelinePipeline(
   pm.addPass(plan::createPlanModuleBufferizePass());
   pm.addPass(mlir::createMemRefCastEliminationPass());
 
+  // We must canonicalize prior to `buffer-results-to-out-params` in order to
+  // eliminate loop-carried arguments that bufferize in-place. Otherwise, we may
+  // append too many output argumetns to functions that return loop results.
+  pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
+
   // If inlining does not occur (e.g. because a function is marked no_inline),
   // then we need to transform to DPS style and move allocation to the caller.
   // Otherwise the deallocation pipeline will produce very inefficient code; its

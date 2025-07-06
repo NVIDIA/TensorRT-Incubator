@@ -172,6 +172,9 @@ HostClusterKindAttr::getClusterKindOptions(InputKind inputKind, Operation *op,
                                      ClusterRange) { return true; };
   opts.clusterTarget = *this;
   opts.isClusterableOp = [](Operation *op) {
+    if (op->hasTrait<OpTrait::ConstantLike>())
+      return false;
+
     if (inComputeRegion(op))
       return false;
 

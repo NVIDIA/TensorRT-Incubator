@@ -116,10 +116,9 @@ struct TensorCastToAllocAndCopyPattern
     if (failed(dynamicDims))
       return failure();
 
-    auto allocOp = rewriter.create<bufferization::AllocTensorOp>(
-        op.getLoc(), targetType, *dynamicDims, /*copy=*/Value{},
-        /*size_hint=*/Value{},
-        /*memory_space=*/targetSpace);
+    auto allocOp = rewriter.create<tensor::EmptyOp>(
+        op.getLoc(), targetType.getShape(), targetType.getElementType(),
+        *dynamicDims, targetType.getEncoding());
 
     rewriter.replaceOpWithNewOp<bufferization::MaterializeInDestinationOp>(
         op, targetType, op.getOperand(), allocOp.getResult());
