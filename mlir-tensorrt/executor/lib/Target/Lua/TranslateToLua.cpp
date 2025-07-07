@@ -251,10 +251,7 @@ static LogicalResult printControlFlowOp(LuaEmitter &emitter,
 
   SmallVector<Value> trueOperands, falseOperands;
 
-  // Assign variables for the destination Block's BlockArguments. If this is the
-  // entry block, then we create locals, but we need to be sure that this occurs
-  // before the 'if .... goto .. end' since locals inside the 'if' block will go
-  // out of scope.
+  // Assign variables for the destination Block's BlockArguments.
   auto emitBlockArgs = [&](Block *destBlock, ValueRange operands) {
     // Declare non-local args to hold block arguments.
     for (auto [operand, blockArg] :
@@ -264,8 +261,6 @@ static LogicalResult printControlFlowOp(LuaEmitter &emitter,
     }
   };
 
-  emitBlockArgs(op.getTrueDest(), op.getTrueDestOperands());
-  emitBlockArgs(op.getFalseDest(), op.getFalseDestOperands());
   auto condName = emitter.getVariableName(op.getCondition());
 
   emitter << "if (" << condName << " == 1) or (" << condName << " == true)"
@@ -273,6 +268,7 @@ static LogicalResult printControlFlowOp(LuaEmitter &emitter,
 
   auto emitBranch = [&](Block *destBlock, ValueRange operands) {
     emitter.getStream().indent();
+    emitBlockArgs(destBlock, operands);
     emitter << "goto " << emitter.getOrCreateLabel(*destBlock) << ";\n";
     emitter.getStream().unindent();
   };

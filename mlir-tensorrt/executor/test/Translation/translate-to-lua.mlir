@@ -711,11 +711,11 @@ func.func @cf_cond_br_forward_entry(%arg0: i64, %arg1: i64) -> i64 attributes {e
 // CHECK-NEXT:   local [[barg4:barg.+]] = nil
 // CHECK-NEXT:   local [[l2:.+]] <const>  = _icmp_eq_i64([[arg0]], [[arg1]]);
 // CHECK-NEXT:   local [[l3:.+]] <const>  = 1;
-// CHECK-NEXT:   [[barg2]] = [[arg0]]
-// CHECK-NEXT:   [[barg3]] = [[arg1]]
 // CHECK-NEXT:   if ([[l2]] == 1) or ([[l2]] == true) then
+// CHECK-NEXT:     [[barg2]] = [[arg0]]
 // CHECK-NEXT:     goto label1;
 // CHECK-NEXT:   else
+// CHECK-NEXT:     [[barg3]] = [[arg1]]
 // CHECK-NEXT:     goto label2;
 // CHECK-NEXT:   end
 // CHECK-NEXT:   ::label1:: do
@@ -733,6 +733,79 @@ func.func @cf_cond_br_forward_entry(%arg0: i64, %arg1: i64) -> i64 attributes {e
 // CHECK-NEXT:   end
 // CHECK-NEXT: end
 
+// -----
+
+// This test contains a nested loop structure. The cond_br in bb3 jumps to bb1 and
+// must assign the block argument arg2 (bb2). The assignment should only occur if
+// the branch condition is false, otherwise arg2(bb2) referenced in bb4 will be
+// wrong.
+
+func.func @block_arg_handling(%arg0: i64, %arg1: i64) {
+  %0 = executor.addi %arg0, %arg1 : i64
+  %c0 = executor.constant 0 : i64
+  %c1 = executor.constant 1 : i64
+  %c5 = executor.constant 5 : i64
+  cf.br ^bb1(%0: i64)
+^bb1(%arg2: i64):
+  %1 = executor.icmp <slt> %arg2, %c5 : i64
+  cf.cond_br %1, ^bb2, ^bb5
+^bb2:
+  %2 = executor.addi %arg2, %c1 : i64
+  cf.br ^bb3(%c0: i64)
+^bb3(%arg3: i64):
+  %3 = executor.icmp <sle> %arg3, %arg2 : i64
+  cf.cond_br %3, ^bb4, ^bb1(%2: i64)
+^bb4:
+  executor.print "%arg2 = %d"(%arg2 : i64)
+  %4 = executor.addi %arg2, %c1 : i64
+  cf.br ^bb3(%4: i64)
+^bb5:
+  return
+}
+
+// CHECK-LABEL: function block_arg_handling
+//  CHECK-SAME:  ([[arg0:.+]], [[arg1:.+]])
+//   CHECK-DAG:   local [[barg2:barg2]] = nil;
+//   CHECK-DAG:   local [[l3:.+]] = nil;
+//   CHECK-DAG:   local [[barg4:barg4]] = nil;
+//   CHECK-DAG:   local [[l5:.+]] <const>  = [[arg0]] + [[arg1]];
+//   CHECK-DAG:   local [[l6:.+]] <const>  = 0;
+//   CHECK-DAG:   local [[l7:.+]] <const>  = 1;
+//   CHECK-DAG:   local [[l8:.+]] <const>  = 5;
+//       CHECK:   [[barg2]] = [[l5]];
+//       CHECK:   goto label1;
+//  CHECK-NEXT:   ::label1:: do
+//  CHECK-NEXT:     local [[l9:.+]] <const>  = _icmp_slt_i64([[barg2]], [[l8]]);
+//  CHECK-NEXT:     if ([[l9]] == 1) or ([[l9]] == true) then
+//  CHECK-NEXT:       goto label2;
+//  CHECK-NEXT:     else
+//  CHECK-NEXT:       goto label3;
+//  CHECK-NEXT:     end
+//       CHECK:   end
+//       CHECK:   ::label2:: do
+//  CHECK-NEXT:     [[l3]] = [[barg2]] + [[l7]];
+//  CHECK-NEXT:     [[barg4]] = [[l6]];
+//  CHECK-NEXT:     goto label4;
+//       CHECK:   end
+//       CHECK:   ::label4:: do
+//       CHECK:     local [[l9:.+]] <const>  = _icmp_sle_i64([[barg4]], [[barg2]]);
+//       CHECK:     if ([[l9]] == 1) or ([[l9]] == true) then
+//  CHECK-NEXT:       goto label5;
+//       CHECK:     else
+//  CHECK-NEXT:      [[barg2]] = [[l3]];
+//  CHECK-NEXT:      goto label1;
+//       CHECK:     end
+//       CHECK:   end
+//       CHECK:   ::label5:: do
+//   CHECK-DAG:     print(string.format("%arg2 = %d", [[barg2]]));
+//   CHECK-DAG:     local [[l9:.+]] <const>  = [[barg2]] + [[l7]];
+//  CHECK-NEXT:     [[barg4]] = [[l9]];
+//  CHECK-NEXT:     goto label4;
+//       CHECK:   end
+//       CHECK:   ::label3:: do
+//       CHECK:     return;
+//       CHECK:   end
+//       CHECK: end
 
 // -----
 
