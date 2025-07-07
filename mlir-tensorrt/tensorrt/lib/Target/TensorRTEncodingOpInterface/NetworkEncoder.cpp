@@ -278,6 +278,10 @@ void NvInferNetworkEncoder::setMetadata(nvinfer1::ILayer *layer,
                                         Operation *sourceOp) {
   std::string name = createName(namesSet, sourceOp);
   layer->setName(name.c_str());
+  if (auto metadataAttr = sourceOp->getAttrOfType<StringAttr>(
+          TensorRTDialect::kTensorRTLayerMetadataMarker)) {
+    layer->setMetadata(metadataAttr.getValue().str().c_str());
+  }
 }
 
 nvinfer1::ITensor *NvInferNetworkEncoder::lookup(Value v) const {

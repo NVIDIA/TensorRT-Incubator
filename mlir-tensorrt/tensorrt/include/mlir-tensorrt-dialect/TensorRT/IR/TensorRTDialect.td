@@ -51,6 +51,9 @@ def TensorRT_Dialect : Dialect {
     static constexpr StringRef kTensorRTPerTensorDequantizationMarker = "tensorrt.pt_dq";
     static constexpr StringRef kTensorRTPerChannelDequantizationMarker = "tensorrt.pc_dq";
     static constexpr StringRef kTensorRTBlockDequantizationMarker = "tensorrt.block_dq";
+
+    /// TensorRT layer metadata markder.
+    static constexpr StringRef kTensorRTLayerMetadataMarker = "metadata";
   }];
 
   let dependentDialects = [

@@ -522,11 +522,10 @@ tensorrt::buildFunction(mlir::FunctionOpInterface op,
              << "failed to set timing cache";
   }
 
-  // If created, engines and their layer information are
-  // with detailed description.
-  if (!opts.saveTensorRTEnginesToDirectory.empty() ||
-      !opts.saveTensorRTLayerInfoDirectory.empty())
-    config->setProfilingVerbosity(nvinfer1::ProfilingVerbosity::kDETAILED);
+  // Enable kDETAILED verbosity unconditionally, then use
+  // `IExecutionContext::setNvtxVerbosity` to change the verbosity at runtime
+  // (lower verbosity performs better generally).
+  config->setProfilingVerbosity(nvinfer1::ProfilingVerbosity::kDETAILED);
 
   setBuilderOptimizationLevel(config.get(), opts.tensorrtBuilderOptLevel,
                               builderContext.getTensorRTVersion());

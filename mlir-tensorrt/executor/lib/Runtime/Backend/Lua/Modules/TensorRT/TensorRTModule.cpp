@@ -42,6 +42,23 @@
 using namespace mlirtrt;
 using namespace mlirtrt::runtime;
 
+static constexpr std::string_view kNvtxVerbosityEnvVariable =
+    "MTRT_TENSORRT_NVTX";
+
+/// Helper method that gets nvtx verbosity from environment value
+static nvinfer1::ProfilingVerbosity getNvtxVerbosity() {
+  const char *verbosity_str = std::getenv(kNvtxVerbosityEnvVariable.data());
+  if (!verbosity_str)
+    return nvinfer1::ProfilingVerbosity::kLAYER_NAMES_ONLY;
+  if (std::string_view(verbosity_str) == "NONE")
+    return nvinfer1::ProfilingVerbosity::kNONE;
+  if (std::string_view(verbosity_str) == "DETAILED")
+    return nvinfer1::ProfilingVerbosity::kDETAILED;
+  return nvinfer1::ProfilingVerbosity::kLAYER_NAMES_ONLY;
+}
+
+static const nvinfer1::ProfilingVerbosity gNvtxVerbosity = getNvtxVerbosity();
+
 namespace {
 /// A simple logger that implements TensorRT's logging interface. Errors and
 /// warnings are reported through TensorRT's diagnostic system, everything else
@@ -611,6 +628,8 @@ static Status enqueueV3Wrapper(AllocTracker &tracker,
     return getStatusWithMsg(StatusCode::InternalError,
                             "failed to set input-consumed event");
 
+  context->setNvtxVerbosity(gNvtxVerbosity);
+
   if (!context->enqueueV3(stream))
     return getStatusWithMsg(StatusCode::InternalError,
                             "failed to enqueue engine execution on stream");
@@ -649,6 +668,8 @@ static Status enqueueAllocV3Wrapper(AllocTracker &tracker,
 
   // Number of results are known in advance.
   int64_t nbResults = outputDesc.getNumberOfResults();
+
+  context->setNvtxVerbosity(gNvtxVerbosity);
 
   if (!context->enqueueV3(stream))
     return getStatusWithMsg(StatusCode::InternalError,
