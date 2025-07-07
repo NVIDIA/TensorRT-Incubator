@@ -72,7 +72,8 @@ static TensorKindInfo getFunctionArgInfo(Value value) {
   auto func =
       blockArg.getParentRegion()->getParentOfType<FunctionOpInterface>();
   TensorKindInfo argConstraint = TensorKindInfo(TensorKind::Device);
-  if (func.getArgAttr(blockArg.getArgNumber(), getHostTensorArgAttrName()))
+  if (func == blockArg.getParentBlock()->getParentOp() &&
+      func.getArgAttr(blockArg.getArgNumber(), getHostTensorArgAttrName()))
     argConstraint = TensorKindInfo(TensorKind::Host);
   return argConstraint;
 }
@@ -215,12 +216,14 @@ LogicalResult TensorKindAnalysis::visitOperation(
 
 void TensorKindAnalysis::setToExitState(TensorKindLattice *lattice) {
   Value v = lattice->getPoint();
+  ChangeResult changed = lattice->meet(TensorKindInfo(TensorKind::Unknown));
   for (OpOperand &use : v.getUses()) {
     if (isReturnedValue(use)) {
       TensorKindInfo info = getReturnedValueInfo(use);
-      propagateIfChanged(lattice, lattice->meet(info));
+      changed |= lattice->meet(info);
     }
   }
+  propagateIfChanged(lattice, changed);
 }
 
 void TensorKindAnalysis::visitBranchOperand(OpOperand &operand) {
@@ -236,12 +239,45 @@ void TensorKindAnalysis::visitBranchOperand(OpOperand &operand) {
 }
 
 void TensorKindAnalysis::visitCallOperand(OpOperand &operand) {
-  if (!isa<RankedTensorType>(operand.get().getType()))
-    return;
   // This function is called for non-forwarded call operands. An example of a
   // non-forwarded operand is something like a special call parameter. We always
   // just specify that these most be on the host.
+#ifndef NDEBUG
+  auto callOpInterface = dyn_cast<CallOpInterface>(operand.getOwner());
+  assert(callOpInterface && "expected CallOpInterface");
+  assert(
+      !llvm::is_contained(callOpInterface.getArgOperandsMutable(), operand) &&
+      "expected operand not to be a forwarded call argument");
+#endif
+
   TensorKindLattice *lattice = getLatticeElement(operand.get());
+
+  if (!isa<RankedTensorType>(operand.get().getType()))
+    return;
+
   ChangeResult change = lattice->getValue().setKind(TensorKind::Host);
   propagateIfChanged(lattice, change);
+}
+
+void TensorKindAnalysis::visitExternalCall(
+    CallOpInterface callOpInterface, ArrayRef<TensorKindLattice *> operands,
+    ArrayRef<const TensorKindLattice *> results) {
+  llvm::MutableArrayRef<OpOperand> forwardedOperands =
+      callOpInterface.getArgOperandsMutable();
+
+  llvm::SmallPtrSet<OpOperand *, 8> forwardedOperandsSet;
+  for (OpOperand &operand : forwardedOperands)
+    forwardedOperandsSet.insert(&operand);
+
+  // This function is called for external calls. We always just specify that
+  // these most be on the host.
+  for (auto [lattice, operand] :
+       llvm::zip_equal(operands, callOpInterface->getOpOperands())) {
+    if (llvm::is_contained(forwardedOperandsSet, &operand)) {
+      setToExitState(lattice);
+      continue;
+    }
+    // This is a non-forwarded operand. We set it to host.
+    visitCallOperand(operand);
+  }
 }

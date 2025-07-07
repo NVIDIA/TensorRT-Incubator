@@ -1,4 +1,5 @@
 // RUN: tensorrt-opt -split-input-file -test-tensor-kind-analysis %s 2>&1 | FileCheck %s
+// RUN: tensorrt-opt -split-input-file -test-tensor-kind-analysis="interprocedural=true" %s 2>&1 | FileCheck %s
 
 func.func @test_ewise(%arg0: tensor<1xi32>) -> tensor<i1> attributes {tensorrt.engine = dense<0> : vector<10xi8>} {
   %cst_i32 = tensorrt.constant dense<10> : tensor<1xi32>

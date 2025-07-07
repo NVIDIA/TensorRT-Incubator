@@ -117,7 +117,7 @@ def TensorRT_CallOp : TensorRT_Op<"call", [
     // CallOpInterface
     //===------------------------------------------------------------------===//
     operand_range getArgOperands() {
-      return getOperation()->getOperands();
+      return getInputs();
     }
     CallInterfaceCallable getCallableForCallee() {
       return (*this)->getAttrOfType<SymbolRefAttr>("callee");
@@ -128,7 +128,7 @@ def TensorRT_CallOp : TensorRT_Op<"call", [
     }
 
     MutableOperandRange getArgOperandsMutable() {
-      return MutableOperandRange(getOperation());
+      return getInputsMutable();
     }
   }];
 

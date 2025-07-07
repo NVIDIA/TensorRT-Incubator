@@ -63,12 +63,17 @@ struct TestTensorKindPass
     : public PassWrapper<TestTensorKindPass, OperationPass<>> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(TestTensorKindPass)
 
+  TestTensorKindPass() = default;
+  TestTensorKindPass(const TestTensorKindPass &other) : PassWrapper(other) {
+    interprocedural = other.interprocedural;
+  }
+
   StringRef getArgument() const override { return "test-tensor-kind-analysis"; }
 
   void runOnOperation() override {
     Operation *op = getOperation();
     SymbolTableCollection symbolTable;
-    DataFlowSolver solver;
+    DataFlowSolver solver(DataFlowConfig().setInterprocedural(interprocedural));
     solver.load<dataflow::DeadCodeAnalysis>();
     solver.load<dataflow::SparseConstantPropagation>();
     solver.load<TensorKindAnalysis>(symbolTable);
@@ -98,6 +103,11 @@ struct TestTensorKindPass
       }
     });
   }
+
+  Option<bool> interprocedural{
+      *this, "interprocedural",
+      llvm::cl::desc("Run the analysis in interprocedural mode"),
+      llvm::cl::init(false)};
 };
 } // namespace
 
