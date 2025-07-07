@@ -41,7 +41,7 @@ module @simple_add_iota attributes {plan.cluster_kinds = [#plan.host_cluster<ben
     return
   }
 
-  func.func @main() attributes {plan.memory_space = #plan.memory_space<host>} {
+  func.func @main() -> i32 attributes {plan.memory_space = #plan.memory_space<host>} {
     %0 = stablehlo.constant dense<1.0> : tensor<128xf32>
     %1 = call @add_iota(%0) : (tensor<128xf32>) -> tensor<128xf32>
     call @print_tensor(%1) : (tensor<128xf32>) -> ()
@@ -62,7 +62,9 @@ module @simple_add_iota attributes {plan.cluster_kinds = [#plan.host_cluster<ben
     %2 = call @num_differences(%1, %expected) : (tensor<128xf32>, tensor<128xf32>) -> tensor<i32>
     %num = tensor.extract %2[] : tensor<i32>
     executor.print "num errors = %d"(%num : i32)
-    return
+
+    %c0 = arith.constant 0 : i32
+    return %c0 : i32
   }
 }
 

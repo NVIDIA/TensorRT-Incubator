@@ -376,8 +376,13 @@ StatusOr<int64_t> mlirtrt::runtime::runExecutorLuaScript(
     return getStatusWithMsg(StatusCode::InternalError,
                             "failed to run main function: ", err.what());
   }
-  int returnCode = result;
-  return returnCode;
+
+  if (result.return_count() != 1 || result.get_type(0) != sol::type::number)
+    return getStatusWithMsg(
+        StatusCode::InternalError,
+        "main function did not return an integer return code");
+
+  return result[0].get<int64_t>();
 }
 
 StatusOr<int64_t> mlirtrt::runtime::runExecutorExecutable(
@@ -410,7 +415,13 @@ StatusOr<int64_t> mlirtrt::runtime::runExecutorExecutable(
     return getStatusWithMsg(StatusCode::InternalError,
                             "failed to run main function: ", err.what());
   }
-  return result.get<int64_t>();
+
+  if (result.return_count() != 1 || result.get_type(0) != sol::type::number)
+    return getStatusWithMsg(
+        StatusCode::InternalError,
+        "main function did not return an integer return code");
+
+  return result[0].get<int64_t>();
 }
 
 /// A "memref" in executor IR is packed into a table of

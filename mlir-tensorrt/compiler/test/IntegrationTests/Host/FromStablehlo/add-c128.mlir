@@ -27,13 +27,15 @@ func.func private @compute(%arg0: !tensor_type, %arg1: !tensor_type) -> !tensor_
   return %0 : !tensor_type
 }
 
-func.func @main() {
+func.func @main() -> i32 {
   %0 = stablehlo.constant dense<[(1.5, 2.5), (7.5, 5.5)]> : tensor<2xcomplex<f64>>
   %1 = stablehlo.constant dense<[(1.5, 2.5), (7.5, 5.5)]> : tensor<2xcomplex<f64>>
   %2 = call @compute(%0, %1) : (!tensor_type, !tensor_type) -> !tensor_type
   %expected = stablehlo.constant dense<[(3.000000e+00, 5.000000e+00), (1.500000e+01, 1.100000e+01)]> : tensor<2xcomplex<f64>>
   call @check_almost_eq(%2, %expected) : (tensor<2xcomplex<f64>>, tensor<2xcomplex<f64>>) -> ()
-  func.return
+
+  %c0 = arith.constant 0 : i32
+  return %c0 : i32
 }
 
 }
