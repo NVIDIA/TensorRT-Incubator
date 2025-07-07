@@ -66,12 +66,13 @@ static void buildPlanOneShotBufferizePipelinePipeline(
       plan::createPlanPromoteHostTensorsToHostPinnedPass());
   pm.addNestedPass<func::FuncOp>(
       plan::createPlanMaterializeExplicitTransfersPass());
-  pm.addPass(plan::createPlanAllocTensorsPass(opts));
 
   // Perform inlining after memory space selection and optimizations since we
   // rely on function-scoped attributes to determine the default bufferization
   // memory space.
   pm.addPass(createInlinerPass());
+
+  pm.addPass(plan::createPlanAllocTensorsPass(opts));
 
   pm.addPass(plan::createPlanModuleBufferizePass());
   pm.addPass(mlir::createMemRefCastEliminationPass());

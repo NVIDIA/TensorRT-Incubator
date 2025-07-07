@@ -33,6 +33,7 @@
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Bufferization/IR/BufferizableOpInterface.h"
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
+#include "mlir/Dialect/ControlFlow/IR/ControlFlow.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
@@ -64,7 +65,7 @@ static bool isValidOp(Operation *op) {
          isa<stablehlo::ConstantOp, affine::AffineApplyOp>(op) ||
          isa<tensorrt::TensorRTDialect, trtrt::TensorRTRuntimeDialect,
              executor::ExecutorDialect, func::FuncDialect, arith::ArithDialect,
-             scf::SCFDialect, tensor::TensorDialect,
+             cf::ControlFlowDialect, scf::SCFDialect, tensor::TensorDialect,
              bufferization::BufferizationDialect, plan::PlanDialect,
              cuda::CUDADialect>(op->getDialect());
 }
