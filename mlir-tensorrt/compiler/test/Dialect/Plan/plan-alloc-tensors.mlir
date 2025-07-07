@@ -334,58 +334,6 @@ func.func @test_already_dps(%arg0: tensor<10xf32>, %arg1: tensor<10xf32> {plan.r
 
 // -----
 
-func.func @test_loop_region_dps_rewrite_while(%arg0: tensor<10xf32>) -> tensor<10xf32> {
-  %c0 = arith.constant 0 : index
-  %c0f = arith.constant 0.0 : f32
-  %0 = tensor.empty() : tensor<10xf32>
-  %r = scf.while(%arg1 = %arg0) : (tensor<10xf32>) -> (tensor<10xf32>) {
-    %v0 = tensor.extract %arg1[%c0] : tensor<10xf32>
-    %cond = arith.cmpf ogt, %v0, %c0f : f32
-    scf.condition(%cond) %arg1 : tensor<10xf32>
-  } do {
-  ^bb0(%arg2: tensor<10xf32>):
-    %1 = linalg.map {math.exp}
-      ins(%arg2 : tensor<10xf32>)
-      outs(%0 : tensor<10xf32>)
-    scf.yield %1 : tensor<10xf32>
-  }
-  return %r : tensor<10xf32>
-}
-
-// CHECK-LABEL: @test_loop_region_dps_rewrite_while
-//  CHECK-SAME: (%[[arg0:.+]]: tensor<10xf32>, %[[arg1:.+]]: tensor<10xf32> {plan.result_arg}) -> tensor<10xf32> {
-//   CHECK-DAG:     %[[c0:.+]] = arith.constant 0 :
-//   CHECK-DAG:     %[[cst:.+]] = arith.constant 0.000000e+00
-//       CHECK:     %[[v0:.+]] = scf.while (%[[argB:.+]] = %[[arg0]])
-//       CHECK:       %[[v2:.+]] = bufferization.alloc_tensor() copy(%[[argB]])
-//       CHECK:       %[[extracted:.+]] = tensor.extract %[[v2]][%[[c0]]] : tensor<10xf32>
-//       CHECK:       %[[v3:.+]] = arith.cmpf ogt, %[[extracted]], %[[cst]] : f32
-//       CHECK:       scf.condition(%[[v3]]) %[[argB]] : tensor<10xf32>
-//       CHECK:     } do {
-//       CHECK:     ^bb0(%[[arg3:.+]]: tensor<10xf32>):
-//       CHECK:       %[[mapped:.+]] = linalg.map { math.exp } ins(%[[arg3]] : tensor<10xf32>) outs(%[[arg3]] :
-//       CHECK:       scf.yield %[[mapped]] :
-//       CHECK:     %[[v1:.+]] = bufferization.materialize_in_destination %[[v0]] in %[[arg1]] :
-//       CHECK:     return %[[v1]] :
-
-// CHECK-ALLOC-LABEL: @test_loop_region_dps_rewrite_while
-//  CHECK-ALLOC-SAME: (%[[arg0:.+]]: tensor<10xf32>) -> tensor<10xf32> {
-//   CHECK-ALLOC-DAG:     %[[c0:.+]] = arith.constant 0 :
-//   CHECK-ALLOC-DAG:     %[[cst:.+]] = arith.constant 0.000000e+00
-//       CHECK-ALLOC:     %[[v0:.+]] = scf.while (%[[argB:.+]] = %[[arg0]])
-//       CHECK-ALLOC:       %[[v2:.+]] = bufferization.alloc_tensor() copy(%[[argB]])
-//       CHECK-ALLOC:       %[[extracted:.+]] = tensor.extract %[[v2]][%[[c0]]] : tensor<10xf32>
-//       CHECK-ALLOC:       %[[v3:.+]] = arith.cmpf ogt, %[[extracted]], %[[cst]] : f32
-//       CHECK-ALLOC:       scf.condition(%[[v3]]) %[[argB]] : tensor<10xf32>
-//       CHECK-ALLOC:     } do {
-//       CHECK-ALLOC:     ^bb0(%[[arg3:.+]]: tensor<10xf32>):
-//       CHECK-ALLOC:       %[[mapped:.+]] = linalg.map { math.exp } ins(%[[arg3]] : tensor<10xf32>) outs(%[[arg3]] :
-//       CHECK-ALLOC:       scf.yield %[[mapped]] :
-//   CHECK-ALLOC-DAG:     %[[copy:.+]] = bufferization.alloc_tensor() copy(%[[v0]])
-//       CHECK-ALLOC:     return %[[copy]] :
-
-// -----
-
 // This test is like the above, but the 'scf.while' does not forward
 // all arguments from the "before" region to the "after" region. This
 // is a pattern that can appear when the condition is purely calculated
@@ -474,73 +422,6 @@ func.func @test_loop_region_dps_rewrite_for(%arg0: tensor<10xf32>) -> tensor<10x
 //       CHECK-ALLOC:       scf.yield %[[mapped]] : tensor<10xf32>
 //   CHECK-ALLOC-DAG:     %[[copy:.+]] = bufferization.alloc_tensor() copy(%[[v0]])
 //       CHECK-ALLOC:     return %[[copy]] :
-
-
-// -----
-
-func.func @alloc_tensors_from_elements(%arg0: i32) -> (tensor<1xi32> {tensorrt.host_tensor}, tensor<1xi32>) {
-  %0 = tensor.from_elements %arg0 : tensor<1xi32>
-  %1 = tensor.from_elements %arg0 : tensor<1xi32>
-  return %0, %1 : tensor<1xi32>, tensor<1xi32>
-}
-
-// CHECK-LABEL: func.func @alloc_tensors_from_elements
-//  CHECK-SAME: (%[[arg0:.+]]: i32, %[[arg1:.+]]: tensor<1xi32> {plan.result_arg}, %[[arg2:.+]]: tensor<1xi32> {plan.result_arg}) -> (tensor<1xi32> {tensorrt.host_tensor}, tensor<1xi32>) {
-//   CHECK-DAG:     %[[c0:.+]] = arith.constant 0 : index
-//   CHECK-DAG:     %[[cast:.+]] = tensor.cast %[[arg2]] : tensor<1xi32> to tensor<1xi32, #plan.memory_space<device>>
-//   CHECK-DAG:     %[[cast_0:.+]] = tensor.cast %[[arg1]] : tensor<1xi32> to tensor<1xi32, #plan.memory_space<host_pinned>>
-//   CHECK-DAG:     %[[inserted:.+]] = tensor.insert %[[arg0]] into %[[cast_0]][%[[c0]]] : tensor<1xi32, #plan.memory_space<host_pinned>>
-//   CHECK-DAG:     %[[cast_1:.+]] = tensor.cast %[[inserted]] : tensor<1xi32, #plan.memory_space<host_pinned>> to tensor<1xi32>
-//   CHECK-DAG:     %[[v0:.+]] = bufferization.alloc_tensor() {memory_space = #plan.memory_space<host_pinned>} : tensor<1xi32, #plan.memory_space<host_pinned>>
-//   CHECK-DAG:     %[[inserted_2:.+]] = tensor.insert %[[arg0]] into %[[v0]][%[[c0]]] : tensor<1xi32, #plan.memory_space<host_pinned>>
-//   CHECK-DAG:     %[[v1:.+]] = bufferization.materialize_in_destination %[[inserted_2]] in %[[cast]] :
-//   CHECK-DAG:     %[[cast_3:.+]] = tensor.cast %[[v1]] : tensor<1xi32, #plan.memory_space<device>> to tensor<1xi32>
-//       CHECK:     return %[[cast_1]], %[[cast_3]] : tensor<1xi32>, tensor<1xi32>
-
-// CHECK-ALLOC-LABEL: func.func @alloc_tensors_from_elements
-//  CHECK-ALLOC-SAME: (%[[arg0:.+]]: i32) -> (tensor<1xi32> {tensorrt.host_tensor}, tensor<1xi32>) {
-//       CHECK-ALLOC:     %[[c0:.+]] = arith.constant 0 : index
-//       CHECK-ALLOC:     %[[v0:.+]] = bufferization.alloc_tensor() {memory_space = #plan.memory_space<host_pinned>}
-//       CHECK-ALLOC:     %[[inserted:.+]] = tensor.insert %[[arg0]] into %[[v0]][%[[c0]]] :
-//       CHECK-ALLOC:     %[[cast:.+]] = tensor.cast %[[inserted]] : tensor<1xi32, #plan.memory_space<host_pinned>> to tensor<1xi32>
-//       CHECK-ALLOC:     %[[v1:.+]] = bufferization.alloc_tensor() {memory_space = #plan.memory_space<host_pinned>}
-//       CHECK-ALLOC:     %[[inserted_0:.+]] = tensor.insert %[[arg0]] into %[[v1]][%[[c0]]]
-//       CHECK-ALLOC:     %[[v2:.+]] = bufferization.alloc_tensor() {memory_space = #plan.memory_space<device>}
-//       CHECK-ALLOC:     %[[v3:.+]] = bufferization.materialize_in_destination %[[inserted_0]] in %[[v2]] :
-//       CHECK-ALLOC:     %[[cast_1:.+]] = tensor.cast %[[v3]] : tensor<1xi32, #plan.memory_space<device>> to tensor<1xi32>
-//       CHECK-ALLOC:     return %[[cast]], %[[cast_1]] : tensor<1xi32>, tensor<1xi32>
-
-
-
-// -----
-
-func.func @alloc_tensors_from_elements(%arg0: i32) -> (tensor<1xi32> {tensorrt.host_tensor}, tensor<1xi32>) {
-  %0 = tensor.from_elements %arg0 : tensor<1xi32>
-  return %0, %0 : tensor<1xi32>, tensor<1xi32>
-}
-
-// CHECK-LABEL: func.func @alloc_tensors_from_elements
-//  CHECK-SAME: (%[[arg0:.+]]: i32, %[[arg1:.+]]: tensor<1xi32> {plan.result_arg}, %[[arg2:.+]]: tensor<1xi32> {plan.result_arg}) -> (tensor<1xi32> {tensorrt.host_tensor}, tensor<1xi32>) {
-//       CHECK:     %[[c0:.+]] = arith.constant 0 : index
-//   CHECK-DAG:     %[[cast:.+]] = tensor.cast %[[arg2]] : tensor<1xi32> to tensor<1xi32, #plan.memory_space<device>>
-//   CHECK-DAG:     %[[cast_0:.+]] = tensor.cast %[[arg1]] : tensor<1xi32> to tensor<1xi32, #plan.memory_space<host_pinned>>
-//   CHECK-DAG:     %[[inserted:.+]] = tensor.insert %[[arg0]] into %[[cast_0]][%[[c0]]] : tensor<1xi32, #plan.memory_space<host_pinned>>
-//   CHECK-DAG:     %[[cast_1:.+]] = tensor.cast %[[inserted]] : tensor<1xi32, #plan.memory_space<host_pinned>> to tensor<1xi32>
-//   CHECK-DAG:     %[[v0:.+]] = bufferization.materialize_in_destination %[[inserted]] in %[[cast]] : (tensor<1xi32, #plan.memory_space<host_pinned>>, tensor<1xi32, #plan.memory_space<device>>) -> tensor<1xi32, #plan.memory_space<device>>
-//   CHECK-DAG:     %[[cast_2:.+]] = tensor.cast %[[v0]] : tensor<1xi32, #plan.memory_space<device>> to tensor<1xi32>
-//   CHECK-DAG:     return %[[cast_1]], %[[cast_2]] : tensor<1xi32>, tensor<1xi32>
-
-// CHECK-ALLOC-LABEL: func.func @alloc_tensors_from_elements
-//  CHECK-ALLOC-SAME: (%[[arg0:.+]]: i32) -> (tensor<1xi32> {tensorrt.host_tensor}, tensor<1xi32>) {
-//   CHECK-ALLOC-DAG:     %[[c0:.+]] = arith.constant 0 : index
-//   CHECK-ALLOC-DAG:     %[[v0:.+]] = bufferization.alloc_tensor() {memory_space = #plan.memory_space<host_pinned>} : tensor<1xi32, #plan.memory_space<host_pinned>>
-//   CHECK-ALLOC-DAG:     %[[inserted:.+]] = tensor.insert %[[arg0]] into %[[v0]][%[[c0]]]
-//   CHECK-ALLOC-DAG:     %[[cast:.+]] = tensor.cast %[[inserted]] : tensor<1xi32, #plan.memory_space<host_pinned>> to tensor<1xi32>
-//   CHECK-ALLOC-DAG:     %[[v1:.+]] = bufferization.alloc_tensor() {memory_space = #plan.memory_space<device>}
-//   CHECK-ALLOC-DAG:     %[[v2:.+]] = bufferization.materialize_in_destination %[[inserted]] in %[[v1]]
-//   CHECK-ALLOC-DAG:     %[[cast_1:.+]] = tensor.cast %[[v2]] : tensor<1xi32, #plan.memory_space<device>> to tensor<1xi32>
-//   CHECK-ALLOC-DAG:     return %[[cast]], %[[cast_1]] : tensor<1xi32>, tensor<1xi32>
-
 
 // -----
 
@@ -632,25 +513,6 @@ func.func @constant_with_memory_space_encoding() {
 //   CHECK-DAG:   %[[cst:.+]] = arith.constant dense<1> : tensor<1024xindex, #plan.memory_space<host>>
 //   CHECK-DAG:   call @ext_user(%[[cst]]) : (tensor<1024xindex, #plan.memory_space<host>>)
 //   CHECK-DAG:   return
-
-// -----
-
-func.func @device_extract(%arg0: tensor<128xi1>, %arg1: index) -> i1 {
-  %1 = tensor.extract %arg0[%arg1] : tensor<128xi1>
-  return %1 : i1
-}
-
-// CHECK-LABEL: @device_extract
-//  CHECK-SAME: (%[[arg0:.+]]: tensor<128xi1>, %[[arg1:.+]]: index)
-//       CHECK:     %[[v0:.+]] = bufferization.alloc_tensor() copy(%[[arg0]]) {memory_space = #plan.memory_space<host_pinned>}
-//       CHECK:     %[[extracted:.+]] = tensor.extract %[[v0]][%[[arg1]]] : tensor<128xi1>
-//       CHECK:     return %[[extracted]]
-
-// CHECK-ALLOC-LABEL: @device_extract
-//  CHECK-ALLOC-SAME: (%[[arg0:.+]]: tensor<128xi1>, %[[arg1:.+]]: index)
-//       CHECK-ALLOC:     %[[v0:.+]] = bufferization.alloc_tensor() copy(%[[arg0]]) {memory_space = #plan.memory_space<host_pinned>}
-//       CHECK-ALLOC:     %[[extracted:.+]] = tensor.extract %[[v0]][%[[arg1]]] : tensor<128xi1>
-//       CHECK-ALLOC:     return %[[extracted]]
 
 // -----
 

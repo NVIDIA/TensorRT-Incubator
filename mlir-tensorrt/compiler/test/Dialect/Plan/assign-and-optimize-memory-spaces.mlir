@@ -279,3 +279,18 @@ func.func @small_host_and_device_tensor_constant(%arg0: tensor<?x?xf32>) -> (ten
 //   CHECK-DAG:     %[[cst_host:.+]] = arith.constant dense<[1, 2, 3, 4]> : tensor<4xindex, #plan.memory_space<host>>
 //   CHECK-DAG:     %[[reshape:.+]] = tensor.reshape %[[arg0]](%[[cst_host]]) :
 //   CHECK-DAG:     return %[[reshape]], %[[cst]] :
+
+// -----
+
+
+module @module_scoped_default attributes {plan.memory_space = #plan.memory_space<host>} {
+  func.func @module_scoped_default_func(%arg0: tensor<2x128xf32>) -> tensor<2x128xf32> {
+    %0 = arith.constant dense<1.0> : tensor<2x128xf32>
+    return %0 : tensor<2x128xf32>
+  }
+}
+
+// CHECK-LABEL: func.func @module_scoped_default_func(%{{.*}}: tensor<2x128xf32, #plan.memory_space<host>>)
+// CHECK-SAME: -> tensor<2x128xf32, #plan.memory_space<host>>
+// CHECK-DAG: %[[cst:.+]] = arith.constant dense<1.{{.*}}> : tensor<2x128xf32, #plan.memory_space<host>>
+// CHECK-DAG: return %[[cst]] :

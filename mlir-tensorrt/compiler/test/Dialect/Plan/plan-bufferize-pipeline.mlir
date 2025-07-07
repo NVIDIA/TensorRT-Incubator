@@ -429,3 +429,93 @@ module @calls_no_inline {
     return
   }
 }
+
+// -----
+
+func.func @test_loop_region_dps_rewrite_while(%arg0: tensor<10xf32>) -> tensor<10xf32> {
+  %c0 = arith.constant 0 : index
+  %c0f = arith.constant 0.0 : f32
+  %0 = tensor.empty() : tensor<10xf32>
+  %r = scf.while(%arg1 = %arg0) : (tensor<10xf32>) -> (tensor<10xf32>) {
+    %v0 = tensor.extract %arg1[%c0] : tensor<10xf32>
+    %cond = arith.cmpf ogt, %v0, %c0f : f32
+    scf.condition(%cond) %arg1 : tensor<10xf32>
+  } do {
+  ^bb0(%arg2: tensor<10xf32>):
+    %1 = linalg.map {math.exp}
+      ins(%arg2 : tensor<10xf32>)
+      outs(%0 : tensor<10xf32>)
+    scf.yield %1 : tensor<10xf32>
+  }
+  return %r : tensor<10xf32>
+}
+
+// CHECK-LABEL: func.func @test_loop_region_dps_rewrite_while
+//  CHECK-SAME: (%[[arg0:.+]]: memref<10xf32, #plan.memory_space<device>>,
+//  CHECK-SAME:  %[[arg1:.+]]: memref<10xf32, #plan.memory_space<device>> {plan.result_arg})
+//   CHECK-DAG:     %[[cst:.+]] = arith.constant 0.0
+//   CHECK-DAG:     %[[c0:.+]] = arith.constant 0 : index
+//   CHECK-DAG:     %[[alloc:.+]] = memref.alloc() {{.*}} : memref<10xf32, #plan.memory_space<host_pinned>>
+//       CHECK:     scf.while : () -> () {
+//       CHECK:       memref.copy %[[arg0]], %[[alloc]]
+//       CHECK:       %[[v0:.+]] = memref.load %[[alloc]][%[[c0]]]
+//       CHECK:       %[[v1:.+]] = arith.cmpf ogt, %[[v0]], %[[cst]] : f32
+//       CHECK:       scf.condition(%[[v1]])
+//       CHECK:     } do {
+//  CHECK-NEXT:       linalg.map {{.*}} ins(%[[arg0]] : {{.*}}) outs(%[[arg0]] :
+//  CHECK-NEXT:       scf.yield
+//       CHECK:     memref.copy %[[arg0]], %[[arg1]]
+//       CHECK:     memref.dealloc %[[alloc]]
+//       CHECK:     return
+
+// -----
+
+func.func @alloc_tensors_from_elements(%arg0: i32) -> (
+    tensor<1xi32> {plan.memory_space = #plan.memory_space<host>},
+    tensor<1xi32>) {
+  %0 = tensor.from_elements %arg0 : tensor<1xi32>
+  %1 = tensor.from_elements %arg0 : tensor<1xi32>
+  return %0, %1 : tensor<1xi32>, tensor<1xi32>
+}
+
+// CHECK-LABEL: func.func @alloc_tensors_from_elements
+//  CHECK-SAME: (%[[arg0:.+]]: i32, %[[arg1:.+]]: memref<1xi32, #plan.memory_space<host>> {plan.result_arg},
+//  CHECK-SAME:  %[[arg2:.+]]: memref<1xi32, #plan.memory_space<device>> {plan.result_arg}) {
+//       CHECK:     %[[c0:.+]] = arith.constant 0 : index
+//       CHECK:     %[[alloc:.+]] = memref.alloc() {{.*}} : memref<1xi32, #plan.memory_space<host>>
+//       CHECK:     memref.store %[[arg0]], %[[alloc]][%[[c0]]]
+//       CHECK:     %[[alloc_0:.+]] = memref.alloc() {{.*}} : memref<1xi32, #plan.memory_space<host_pinned>>
+//       CHECK:     memref.store %[[arg0]], %[[alloc_0]][%[[c0]]]
+//   CHECK-DAG:     memref.copy %[[alloc_0]], %[[arg2]]
+//   CHECK-DAG:     memref.copy %[[alloc]], %[[arg1]]
+//   CHECK-DAG:     memref.dealloc %[[alloc]]
+//   CHECK-DAG:     memref.dealloc %[[alloc_0]]
+//  CHECK-NEXT:     return
+
+// ALLOC-LABEL: func.func @alloc_tensors_from_elements
+//  ALLOC-SAME: (%[[arg0:.+]]: i32)
+//       ALLOC:     %[[c0:.+]] = arith.constant 0 : index
+//       ALLOC:     %[[alloc:.+]] = memref.alloc() {{.*}} : memref<1xi32, #plan.memory_space<host>>
+//       ALLOC:     memref.store %[[arg0]], %[[alloc]][%[[c0]]]
+//       ALLOC:     %[[alloc_0:.+]] = memref.alloc() {{.*}} : memref<1xi32, #plan.memory_space<host_pinned>>
+//       ALLOC:     memref.store %[[arg0]], %[[alloc_0]][%[[c0]]]
+//       ALLOC:     %[[alloc_1:.+]] = memref.alloc() {{.*}} : memref<1xi32, #plan.memory_space<device>>
+//       ALLOC:     memref.copy %[[alloc_0]], %[[alloc_1]]
+//       ALLOC:     memref.dealloc %[[alloc_0]]
+//       ALLOC:     return %[[alloc]], %[[alloc_1]]
+
+
+// -----
+
+func.func @device_extract(%arg0: tensor<128xi1>, %arg1: index) -> i1 {
+  %1 = tensor.extract %arg0[%arg1] : tensor<128xi1>
+  return %1 : i1
+}
+
+// CHECK-LABEL: func.func @device_extract
+//  CHECK-SAME: (%[[arg0:.+]]: memref<128xi1, #plan.memory_space<device>>, %[[arg1:.+]]: index) -> i1
+//       CHECK:     %[[alloc:.+]] = memref.alloc() {{.*}} : memref<128xi1, #plan.memory_space<host_pinned>>
+//       CHECK:     memref.copy %[[arg0]], %[[alloc]]
+//       CHECK:     %[[v0:.+]] = memref.load %[[alloc]][%[[arg1]]]
+//       CHECK:     memref.dealloc %[[alloc]]
+//       CHECK:     return %[[v0]]

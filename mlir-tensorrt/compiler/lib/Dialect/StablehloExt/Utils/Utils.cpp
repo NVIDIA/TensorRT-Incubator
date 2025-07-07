@@ -151,6 +151,7 @@ bool stablehlo::canConvertToLinalg(Operation *op) {
             stablehlo::DynamicBroadcastInDimOp,
             stablehlo::DynamicIotaOp,
             stablehlo::DynamicSliceOp,
+            stablehlo::DynamicUpdateSliceOp,
             stablehlo::EinsumOp,
             stablehlo::GatherOp,
             stablehlo::IotaOp,

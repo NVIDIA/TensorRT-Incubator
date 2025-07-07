@@ -107,7 +107,7 @@ struct FromElementsPromotionPattern
                            RankedTensorType destType,
                            PatternRewriter &rewriter) const override {
     auto fromElementsOp =
-        dyn_cast<tensor::FromElementsOp>(op.getOperand().getDefiningOp());
+        op.getOperand().getDefiningOp<tensor::FromElementsOp>();
     if (!fromElementsOp)
       return failure();
     auto hostPinnedType = sourceType.cloneWithEncoding(hostPinnedSpaceAttr);

@@ -21,16 +21,10 @@
 ///  Implementation of the `plan-alloc-tensors` pass.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt-dialect/Analysis/TensorKindAnalysis.h"
-#include "mlir-tensorrt-dialect/Interface/TensorKindOpInterface.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/ModuleBufferization/ModuleBufferization.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
-#include "mlir-tensorrt/Utils/DataFlowUtils.h"
 #include "mlir-tensorrt/Utils/ModuleUtils.h"
-#include "mlir/Analysis/DataFlow/ConstantPropagationAnalysis.h"
-#include "mlir/Analysis/DataFlow/DeadCodeAnalysis.h"
-#include "mlir/Analysis/DataFlowFramework.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Bufferization/IR/BufferizableOpInterface.h"
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
@@ -42,12 +36,10 @@
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
-#include "mlir/Dialect/Utils/IndexingUtils.h"
 #include "mlir/Interfaces/CallInterfaces.h"
 #include "mlir/Interfaces/LoopLikeInterface.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FormatVariadic.h"
@@ -71,190 +63,7 @@ using bufferization::OneShotAnalysisState;
 using bufferization::func_ext::FuncAnalysisState;
 using bufferization::func_ext::FuncOpAnalysisState;
 
-/// Create a tensor using a sequence of chained tensor.insert into a
-/// `bufferization.alloc_tensor` in the specified memory space (which must
-/// either be 'host' or 'host_pinned'). The provided `elements` should be given
-/// in the canonical row-major order.
-static Value createTensorFromElements(RewriterBase &rewriter, Location loc,
-                                      RankedTensorType type,
-                                      ValueRange elements,
-                                      MemorySpace memorySpace) {
-  assert(memorySpace == MemorySpace::host ||
-         memorySpace == MemorySpace::host_pinned &&
-             "tensor.from_elements must be lowered into an allocation in "
-             "a host-visible space");
-  assert(llvm::all_equal(llvm::concat<const Type>(
-             elements.getTypes(), TypeRange{type.getElementType()})) &&
-         "expected all scalars to have the same type");
-
-  // Create the allocation.
-  RankedTensorType tensorType = RankedTensorType::Builder(type).setEncoding(
-      MemorySpaceAttr::get(rewriter.getContext(), memorySpace));
-  auto allocOp = rewriter.create<bufferization::AllocTensorOp>(loc, tensorType,
-                                                               ValueRange());
-  allocOp.setMemorySpaceAttr(tensorType.getEncoding());
-
-  // Handle the rank 0 case and early exit.
-  if (tensorType.getRank() == 0) {
-    Value replacement = rewriter.create<tensor::InsertOp>(
-        loc, elements.front(), allocOp.getResult(), ValueRange{});
-    return replacement;
-  }
-
-  // Create the chain of `tensor.insert` operations.
-  SmallVector<int64_t> basis =
-      mlir::computeSuffixProduct(tensorType.getShape());
-  Value result = allocOp.getResult();
-  for (auto [i, element] : llvm::enumerate(elements)) {
-    SmallVector<Value> coords = llvm::map_to_vector(
-        mlir::delinearize(i, basis), [&](int64_t dim) -> Value {
-          return rewriter.create<arith::ConstantIndexOp>(loc, dim);
-        });
-    result = rewriter.create<tensor::InsertOp>(loc, element, result, coords);
-  }
-  return result;
-}
-
-/// Find a `bufferization.alloc_tensor` user of `v` that copies `v` to the
-/// specified space or create a new `bufferization.alloc_tensor` operation to
-/// accomplish the copy.
-static Value findOrCreateCopyToSpace(RewriterBase &rewriter, Value v,
-                                     plan::MemorySpace memSpace) {
-  for (Operation *user : v.getUsers()) {
-    auto allocOp = dyn_cast<bufferization::AllocTensorOp>(user);
-    if (!allocOp)
-      continue;
-    auto space = llvm::dyn_cast_or_null<plan::MemorySpaceAttr>(
-        allocOp.getMemorySpaceAttr());
-    if (!space)
-      continue;
-    if (allocOp.getCopy() == v && space.getValue() == memSpace)
-      return allocOp.getResult();
-  }
-
-  return rewriter.create<bufferization::AllocTensorOp>(
-      v.getLoc(), v.getType(), /*dynamic_sizes=*/ValueRange{},
-      /*copy=*/v,
-      /*size_hint=*/Value{},
-      plan::MemorySpaceAttr::get(v.getContext(), memSpace));
-}
-
-/// Iterate over the uses of `v` and find uses that are statically known to be
-/// on host or device.
-static llvm::SmallPtrSet<OpOperand *, 4> getUsesFromSpace(Value v,
-                                                          TensorKind useKind) {
-  assert((useKind == TensorKind::Device || useKind == TensorKind::Host) &&
-         "useKind should be either Device or Host");
-  llvm::SmallPtrSet<OpOperand *, 4> uses;
-  for (OpOperand &operand : v.getUses()) {
-    TensorKind kind = TensorKindAnalysis::getStaticOperandTensorKind(operand);
-    if (kind == useKind)
-      uses.insert(&operand);
-  }
-  return uses;
-}
-
-/// Given value `v` that has mixed host/device uses (`TensorKind::Both`), find
-/// or create a `bufferization.alloc_tensor` operation that copies `v` into a
-/// host tensor and use that to replace all uses that are statically known to
-/// require host access.
-static LogicalResult replaceHostUsesWithHostAlloc(RewriterBase &rewriter,
-                                                  Value v) {
-  OpBuilder::InsertionGuard g(rewriter);
-  if (auto blockArg = dyn_cast<BlockArgument>(v))
-    rewriter.setInsertionPointToStart(blockArg.getOwner());
-  else
-    rewriter.setInsertionPointAfter(v.getDefiningOp());
-
-  llvm::SmallPtrSet<OpOperand *, 4> hostUses =
-      getUsesFromSpace(v, TensorKind::Host);
-  if (hostUses.empty())
-    return failure();
-
-  // Create the host tensor. Note that dynamic sizes are not needed to be
-  // pased since we pass the `copy` argument.
-  Value alloc =
-      findOrCreateCopyToSpace(rewriter, v, plan::MemorySpace::host_pinned);
-  rewriter.replaceUsesWithIf(
-      v, alloc, [&](OpOperand &use) { return hostUses.contains(&use); });
-  return success();
-}
-
 namespace {
-
-/// Rewrite `tensor.from_elements` to be in destination-passing-style. It
-/// creates a tensor with `bufferization.alloc_tensor` in the host_pinned space,
-/// populates the elements, and either replaces all uses with the result (if
-/// the TensorKindAnalysis knows that all sues are host uses), or it also
-/// creates a host-to-device copy and replaces only uses statically known to be
-/// on host with the host buffer and the rest of the uses with the device copy.
-struct RewriteFromElements : public OpRewritePattern<tensor::FromElementsOp> {
-  DataFlowSolver &solver;
-
-  RewriteFromElements(MLIRContext *ctx, DataFlowSolver &solver,
-                      PatternBenefit benefit = 1)
-      : OpRewritePattern(ctx, benefit), solver(solver) {}
-
-  LogicalResult matchAndRewrite(tensor::FromElementsOp op,
-                                PatternRewriter &rewriter) const override {
-    RankedTensorType originalType = op.getType();
-    Location loc = op.getLoc();
-    const TensorKindLattice *lattice =
-        solver.lookupState<TensorKindLattice>(op.getResult());
-    assert(lattice && !lattice->getValue().isUninitialized());
-    TensorKindInfo placementInfo = lattice->getValue();
-
-    std::optional<MemorySpace> originalMemorySpace{};
-    if (auto constraint =
-            dyn_cast_or_null<MemorySpaceAttr>(op.getType().getEncoding())) {
-      if (constraint.isHostVisible())
-        return failure();
-      originalMemorySpace = constraint.getValue();
-    }
-
-    // Create a host allocation and insert the elements.
-    MemorySpace memorySpace = MemorySpace::host_pinned;
-    Value hostReplacement = createTensorFromElements(
-        rewriter, op.getLoc(), op.getType(), op.getElements(), memorySpace);
-    Value hostReplacementCasted =
-        rewriter.create<tensor::CastOp>(loc, originalType, hostReplacement);
-    bool canOptimizeHostReplacement =
-        !originalMemorySpace || (*originalMemorySpace == memorySpace);
-    if (placementInfo.isHostOnly() && canOptimizeHostReplacement) {
-      rewriter.replaceOp(op, hostReplacementCasted);
-      return success();
-    }
-
-    // Now insert another `bufferization.alloc_tensor` to force copying to the
-    // device --- only if we know that the user can interpret this correctly.
-    RankedTensorType destType = RankedTensorType::get(
-        originalType.getShape(), originalType.getElementType(),
-        MemorySpaceAttr::get(originalType.getContext(), MemorySpace::device));
-    auto allocOp = rewriter.create<bufferization::AllocTensorOp>(loc, destType,
-                                                                 ValueRange{});
-    allocOp.setMemorySpaceAttr(destType.getEncoding());
-    Value devReplacement =
-        rewriter
-            .create<bufferization::MaterializeInDestinationOp>(
-                loc, destType, hostReplacement, allocOp.getResult())
-            .getResult();
-    devReplacement =
-        rewriter.create<tensor::CastOp>(loc, originalType, devReplacement);
-
-    if (canOptimizeHostReplacement)
-      rewriter.replaceOpUsesWithIf(
-          op, hostReplacementCasted, [&](OpOperand &use) {
-            return TensorKindAnalysis::getStaticOperandTensorKind(use) ==
-                   TensorKind::Host;
-          });
-    rewriter.replaceOpUsesWithIf(op, devReplacement, [&](OpOperand &use) {
-      return !canOptimizeHostReplacement ||
-             TensorKindAnalysis::getStaticOperandTensorKind(use) !=
-                 TensorKind::Host;
-    });
-    return success();
-  }
-};
 
 /// Simplify a func.return operand produced by
 /// `materialize_in_dest(cast(materialize_in_dest(..., %alloc)), %out_arg)` so
@@ -294,41 +103,6 @@ struct RemoveRedundantMaterializeInDestPattern
         loc, producer.getDest().getType(), dest);
     // Update the producer materialization to materialize into the block arg.
     rewriter.replaceOp(producer.getDest().getDefiningOp(), blockArgCast);
-    return success();
-  }
-};
-
-/// Rewrite `memref.load` that acts on device memory to first copy the buffer to
-/// the host and load from the host buffer.
-struct TensorDeviceExtractRewriter
-    : public OpRewritePattern<tensor::ExtractOp> {
-  DataFlowSolver &solver;
-
-  TensorDeviceExtractRewriter(MLIRContext *ctx, DataFlowSolver &solver,
-                              PatternBenefit benefit = 1)
-      : OpRewritePattern(ctx, benefit), solver(solver) {}
-
-  LogicalResult matchAndRewrite(tensor::ExtractOp op,
-                                PatternRewriter &rewriter) const override {
-
-    // Return early if there are no device placement requirements.
-    const TensorKindLattice *lattice =
-        solver.lookupState<TensorKindLattice>(op.getTensor());
-    if (!lattice || lattice->getValue().isUninitialized())
-      return rewriter.notifyMatchFailure(op, "lattice value is uninitialized");
-    if (lattice->getValue().isHostOnly())
-      return rewriter.notifyMatchFailure(op, "lattice value is host-only");
-
-    if (auto constraint = dyn_cast_if_present<MemorySpaceAttr>(
-            op.getTensor().getType().getEncoding())) {
-      if (constraint.isHostVisible())
-        return rewriter.notifyMatchFailure(
-            op, "source tensor already is in a host-visible space");
-    }
-
-    if (failed(replaceHostUsesWithHostAlloc(rewriter, op.getTensor())))
-      return failure();
-
     return success();
   }
 };
@@ -945,38 +719,6 @@ public:
   void runOnOperation() override {
     ModuleOp op = getOperation();
     MLIRContext *ctx = &getContext();
-
-    SymbolTableCollection symbolTables;
-    DataFlowSolver solver(DataFlowConfig().setInterprocedural(false));
-    solver.load<dataflow::DeadCodeAnalysis>();
-    solver.load<dataflow::SparseConstantPropagation>();
-    solver.load<TensorKindAnalysis>(symbolTables);
-
-    if (failed(solver.initializeAndRun(op))) {
-      op.emitError() << "failed to run TensorKindAnalysis";
-      return signalPassFailure();
-    }
-
-    SolverStateListener<TensorKindLattice,
-                        dataflow::Lattice<dataflow::ConstantValue>,
-                        dataflow::Executable>
-        solverAwareListener(solver);
-    GreedyRewriteConfig config;
-    config.listener = &solverAwareListener;
-    FrozenRewritePatternSet patterns = [&]() {
-      RewritePatternSet patterns_(ctx);
-      patterns_.insert<RewriteFromElements, TensorDeviceExtractRewriter>(
-          ctx, solver);
-      return patterns_;
-    }();
-    for (FunctionOpInterface func : op.getOps<FunctionOpInterface>()) {
-      if (failed(applyPatternsGreedily(func, patterns))) {
-        op->emitError() << "failed to run " << getArgument()
-                        << " patterns for rewriting host constants";
-        return signalPassFailure();
-      }
-    }
-
     IRRewriter rewriter(ctx);
 
     /// Some 'tensor.empty' can have multiple uses. Duplicate the 'tensor.empty'
@@ -998,6 +740,7 @@ public:
     // Depending on the options (DPS vs. force return allocations), we may need
     // to update the entrypoint function(s) signanatures or internals to reflect
     // the desired calling style.
+    SymbolTableCollection symbolTables;
     if (failed(enforceFunctionCallingStylePolicy(
             rewriter, symbolTables, op, forceEntrypointsReturnAllocs))) {
       emitError(op.getLoc(),

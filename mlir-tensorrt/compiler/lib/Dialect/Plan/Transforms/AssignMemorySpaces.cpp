@@ -418,15 +418,7 @@ static bool hasMemorySpaceEncoding(Type type) {
 
 static LogicalResult applyConversionToFunction(func::FuncOp func) {
   MLIRContext *context = func.getContext();
-  auto defaultEncoding = [&]() {
-    if (auto constraintOverride = func->getAttrOfType<plan::MemorySpaceAttr>(
-            plan::PlanDialect::getMemorySpaceConstraintAttrName()))
-      return constraintOverride.getValue();
-    if (auto clusterKindAttr = func->getAttrOfType<ClusterKindAttrInterface>(
-            plan::PlanDialect::kFuncTargetKind))
-      return clusterKindAttr.getDefaultMemorySpace();
-    return plan::MemorySpace::device;
-  }();
+  plan::MemorySpace defaultEncoding = getFuncitonDefaultEncoding(func);
   TensorEncodingConverter converter(*context, defaultEncoding);
 
   // Ops are legal if they are in a nested module or if their operand and
