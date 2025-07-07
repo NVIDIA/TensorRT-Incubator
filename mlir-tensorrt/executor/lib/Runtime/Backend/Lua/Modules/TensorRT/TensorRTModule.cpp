@@ -308,8 +308,11 @@ private:
 //===----------------------------------------------------------------------===//
 
 /// Map NvInfer data type to the number of bytes required per element, according
-/// to TRT's I/O data layout requirements.
-static int64_t getBytesPerNvInferType(nvinfer1::DataType t) {
+/// to TRT's I/O data layout requirements. This is only used for calculating
+/// shape tensor allocation size. Note that as of TRT 10.12, only a limited
+/// subset of data types can be used as shape tensors; this is here for
+/// completion.
+static int64_t getShapeTensorBytesPerDataType(nvinfer1::DataType t) {
   using nvinfer1::DataType;
   switch (t) {
   case DataType::kFLOAT:
@@ -333,23 +336,32 @@ static int64_t getBytesPerNvInferType(nvinfer1::DataType t) {
     return 8;
 #endif
 #if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 0, 0)
+    // Note: Conservative. If I4 is ever allowed as shape tensor type, then it
+    // would probably be packed.
   case DataType::kINT4:
     return 1;
 #endif
 #if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 9, 0)
+    // Note: Conservative. If FP4 is ever allowed as shape tensor type, then it
+    // would probably be packed.
   case DataType::kFP4:
+    return 1;
+#endif
+#if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 12, 0)
+  case DataType::kE8M0:
     return 1;
 #endif
   }
   llvm_unreachable("unknown TensorRT data type");
 }
 
+/// Return the number of bytes to allocate for holding shape tensor I/O data.
 static int64_t getShapeTensorAllocationSize(const nvinfer1::Dims &dims,
                                             nvinfer1::DataType type) {
   int64_t dimVolume = 1;
   for (int32_t i = 0; i <= dims.nbDims; ++i)
     dimVolume *= dims.d[i];
-  return dimVolume * getBytesPerNvInferType(type);
+  return dimVolume * getShapeTensorBytesPerDataType(type);
 }
 
 namespace {
