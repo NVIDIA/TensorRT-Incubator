@@ -182,6 +182,8 @@ static LogicalResult doesOperandRepresentIndices(stablehlo::SortOp op,
       1) {
     // Check that indices are formed from iota
     Operation *maybeIotaOp = indexOperand.getDefiningOp();
+    if (!maybeIotaOp)
+      return failure();
     if (!matchPattern(maybeIotaOp, m_Op<stablehlo::IotaOp>()) &&
         !matchPattern(maybeIotaOp, m_Op<tensorrt::LinspaceOp>()))
       return failure();
