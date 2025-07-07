@@ -1,4 +1,5 @@
 // RUN: mlir-tensorrt-opt %s -split-input-file -test-tensor-kind-analysis 2>&1 | FileCheck %s
+// RUN: mlir-tensorrt-opt -split-input-file -test-tensor-kind-analysis="interprocedural=true" %s 2>&1 | FileCheck %s
 
 func.func @enqueue_host_tensors_space_check(
     %ctx: !trtrt.context, %stream: !cuda.stream,

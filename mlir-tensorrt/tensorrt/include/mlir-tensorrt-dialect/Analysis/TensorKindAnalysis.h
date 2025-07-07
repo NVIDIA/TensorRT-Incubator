@@ -74,7 +74,17 @@ public:
 
   void visitBranchOperand(OpOperand &operand) override;
 
+  /// Visit an operand of a call that is not tied to the block arguments of the
+  /// callee.
   void visitCallOperand(OpOperand &operand) override;
+
+  /// Visit a CallOpInterface where the callee is external or not visible to the
+  /// DataFlowSolver. This is invoked when the solver encounters CallOpInterface
+  /// when the solver is in non-interprocedural mode and when the callee is not
+  /// a symbol or is only a declaration.
+  void visitExternalCall(CallOpInterface callOpInterface,
+                         ArrayRef<TensorKindLattice *> operands,
+                         ArrayRef<const TensorKindLattice *> results) override;
 };
 
 } // namespace mlir

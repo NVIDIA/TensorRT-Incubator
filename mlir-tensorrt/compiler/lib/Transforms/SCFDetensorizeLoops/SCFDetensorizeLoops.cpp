@@ -46,8 +46,7 @@ using namespace mlir::scf;
 static bool isHostTensor(Value value, const DataFlowSolver &solver) {
   const TensorKindLattice *lattice =
       solver.lookupState<TensorKindLattice>(value);
-  assert(lattice && "expected valid lattice point");
-  if (lattice->getValue().isUninitialized())
+  if (!lattice || lattice->getValue().isUninitialized())
     return false;
   return lattice->getValue().isHostOnly();
 }
@@ -303,7 +302,7 @@ public:
     });
 
     SymbolTableCollection symbolTable;
-    DataFlowSolver solver;
+    DataFlowSolver solver(DataFlowConfig().setInterprocedural(false));
     solver.load<dataflow::DeadCodeAnalysis>();
     solver.load<dataflow::SparseConstantPropagation>();
     solver.load<TensorKindAnalysis>(symbolTable);
