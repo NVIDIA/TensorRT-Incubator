@@ -120,6 +120,9 @@ public:
 
   StringRef getVariableName(Value val);
 
+  /// Returns true if the type is supported for operands/results.
+  bool isSupportedFloatingPointType(Type type) const;
+
   [[nodiscard]] bool isValueInScope(Value val) const;
 
   raw_indented_ostream &getStream() { return os; }
@@ -155,6 +158,11 @@ protected:
   mlir::DataLayout moduleDataLayout;
 };
 } // namespace
+
+bool LuaEmitter::isSupportedFloatingPointType(Type type) const {
+  return type.isF16() || type.isBF16() || type.isF32() || type.isF64() ||
+         isa<Float8E4M3FNType>(type);
+}
 
 //===----------------------------------------------------------------------===//
 // Helpers for emitting attributes
@@ -466,6 +474,19 @@ static LogicalResult printOperation(LuaEmitter &emitter,
     emitter << emitter.getVariableName(v);
   });
   emitter << "};\n";
+  return success();
+}
+
+static LogicalResult printRemF(LuaEmitter &emitter, executor::RemFOp op) {
+  if (!emitter.isSupportedFloatingPointType(op.getType()))
+    return op->emitOpError()
+           << "unsupported floating-point type: " << op.getType();
+
+  if (failed(emitter.emitAssignPrefix(op)))
+    return failure();
+  emitter << "_remf_" << op.getType() << "("
+          << emitter.getVariableName(op.getLhs()) << ", "
+          << emitter.getVariableName(op.getRhs()) << ");\n";
   return success();
 }
 
@@ -935,6 +956,7 @@ LogicalResult LuaEmitter::emitOperation(Operation &op) {
               executor::SubFOp, executor::SRemIOp>([&](auto op) {
           return printExecutorBinaryInfixOperation(*this, op);
         })
+        .Case<executor::RemFOp>([&](auto op) { return printRemF(*this, op); })
         .Case<executor::BitwiseAndIOp, executor::BitwiseOrIOp,
               executor::BitwiseXOrIOp, executor::ShiftLeftIOp,
               executor::ShiftRightArithmeticIOp, executor::ShiftRightLogicalIOp,

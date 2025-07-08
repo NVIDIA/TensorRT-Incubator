@@ -29,6 +29,33 @@ func.func @exec_addf(%arg0: f64, %arg1: f64) -> f64
 
 // -----
 
+func.func @exec_remf(
+    %arg0: f64, %arg1: f64,
+    %arg2: f32, %arg3: f32,
+    %arg4: f16, %arg5: f16,
+    %arg6: f8E4M3FN, %arg7: f8E4M3FN,
+    %arg8: bf16, %arg9: bf16) ->
+    (f64, f32, f16, f8E4M3FN, bf16) {
+  %0 = executor.remf %arg0, %arg1 : f64
+  %1 = executor.remf %arg2, %arg3 : f32
+  %2 = executor.remf %arg4, %arg5 : f16
+  %3 = executor.remf %arg6, %arg7 : f8E4M3FN
+  %4 = executor.remf %arg8, %arg9 : bf16
+  return %0, %1, %2, %3, %4 : f64, f32, f16, f8E4M3FN, bf16
+}
+
+// CHECK-LABEL: exec_remf
+//  CHECK-SAME: ([[v1:.+]], [[v2:.+]], [[v3:.+]], [[v4:.+]], [[v5:.+]], [[v6:.+]], [[v7:.+]], [[v8:.+]], [[v9:.+]], [[v10:.+]])
+//  CHECK-NEXT:     local [[v11:.+]] <const> = _remf_f64([[v1]], [[v2]]);
+//  CHECK-NEXT:     local [[v12:.+]] <const> = _remf_f32([[v3]], [[v4]]);
+//  CHECK-NEXT:     local [[v13:.+]] <const> = _remf_f16([[v5]], [[v6]]);
+//  CHECK-NEXT:     local [[v14:.+]] <const> = _remf_f8E4M3FN([[v7]], [[v8]]);
+//  CHECK-NEXT:     local [[v15:.+]] <const> = _remf_bf16([[v9]], [[v10]]);
+//  CHECK-NEXT:     return [[v11]], [[v12]], [[v13]], [[v14]], [[v15]];
+//  CHECK-NEXT: end
+
+// -----
+
 func.func @exec_subi(%arg0: i64, %arg1: i64) -> i64
   attributes{executor.function_metadata=#executor.func_meta<[i64, i64],[i64], num_output_args = 0>}{
   %0 = executor.subi %arg0, %arg1 : i64
