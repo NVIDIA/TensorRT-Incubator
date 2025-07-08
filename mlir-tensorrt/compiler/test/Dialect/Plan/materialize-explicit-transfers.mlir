@@ -56,3 +56,79 @@ func.func @redundant_materialize_in_dest(%arg0: !device_type) -> !host_type {
 //       CHECK:     %[[v0:.+]] = tensor.empty() : tensor<4xf32, #plan.memory_space<host>>
 //       CHECK:     %[[v1:.+]] = bufferization.materialize_in_destination %[[arg0]] in %[[v0]]
 //       CHECK:     return %[[v1]] : tensor<4xf32, #plan.memory_space<host>>
+
+// -----
+
+func.func @if_constant_mat(%cond: i1) -> tensor<1xf32> {
+  %0 = scf.if %cond -> tensor<1xf32> {
+    %1 = arith.constant dense<1.0> : tensor<1xf32>
+    %empty = tensor.empty() : tensor<1xf32>
+    %2 = bufferization.materialize_in_destination %1 in %empty : (tensor<1xf32>, tensor<1xf32>) -> tensor<1xf32>
+    scf.yield %2 : tensor<1xf32>
+  } else {
+    %cst = arith.constant dense<2.0> : tensor<1xf32>
+    scf.yield %cst : tensor<1xf32>
+  }
+  return %0 : tensor<1xf32>
+}
+
+// CHECK-LABEL: func.func @if_constant_mat
+//       CHECK:     scf.if
+//       CHECK:       bufferization.materialize_in_destination
+//       CHECK:       scf.yield
+//       CHECK:     } else {
+//       CHECK:       bufferization.materialize_in_destination
+//       CHECK:       scf.yield
+
+// -----
+
+
+func.func @if_constant_mat_hoisted(%cond: i1) -> tensor<1xf32> {
+  %cst = arith.constant dense<2.0> : tensor<1xf32>
+
+  %1 = arith.constant dense<1.0> : tensor<1xf32>
+  %empty = tensor.empty() : tensor<1xf32>
+  %2 = bufferization.materialize_in_destination %1 in %empty : (tensor<1xf32>, tensor<1xf32>) -> tensor<1xf32>
+
+  %0 = scf.if %cond -> tensor<1xf32> {
+    scf.yield %2 : tensor<1xf32>
+  } else {
+    scf.yield %cst : tensor<1xf32>
+  }
+  return %0 : tensor<1xf32>
+}
+
+
+// CHECK-LABEL: func.func @if_constant_mat_hoisted
+//       CHECK:       bufferization.materialize_in_destination
+//       CHECK:     scf.if
+//       CHECK:       scf.yield
+//       CHECK:     } else {
+//       CHECK:       bufferization.materialize_in_destination
+//       CHECK:       scf.yield
+
+// -----
+
+func.func @if_else_yield_constant_mat(%cond: i1) -> tensor<1xf32> {
+  %0 = scf.if %cond -> tensor<1xf32> {
+    %cst = arith.constant dense<2.0> : tensor<1xf32>
+    scf.yield %cst : tensor<1xf32>
+  } else {
+    %1 = arith.constant dense<1.0> : tensor<1xf32>
+    %empty = tensor.empty() : tensor<1xf32>
+    %2 = bufferization.materialize_in_destination %1 in %empty : (tensor<1xf32>, tensor<1xf32>) -> tensor<1xf32>
+    scf.yield %2 : tensor<1xf32>
+  }
+  return %0 : tensor<1xf32>
+}
+
+// CHECK-LABEL: func.func @if_else_yield_constant_mat
+//       CHECK:     scf.if
+//       CHECK:       bufferization.materialize_in_destination
+//       CHECK:       scf.yield
+//       CHECK:     } else {
+//       CHECK:       bufferization.materialize_in_destination
+//       CHECK:       scf.yield
+
+// -----
+
