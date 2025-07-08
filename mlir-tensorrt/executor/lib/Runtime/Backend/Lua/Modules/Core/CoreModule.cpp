@@ -141,6 +141,22 @@ static bool checkAccessBounds(lua_State *state, const AllocTracker &tracker,
   return true;
 }
 
+/// Implementation of 'executor.remf', which is equivalent to `std::fmod`. For
+/// small floating point types we upcast to f32 then truncate.
+template <typename T>
+T remf(T lhs, T rhs) {
+  if constexpr (std::is_floating_point_v<T>) {
+    return std::fmod<T>(lhs, rhs);
+  } else if constexpr (std::is_same_v<T, __half>) {
+    return std::fmod(__half2float(lhs), __half2float(rhs));
+  } else if constexpr (std::is_same_v<T, fp8_e4m3fn>) {
+    return fp8_e4m3fn(std::fmod(float(lhs), float(rhs)));
+  } else {
+    static_assert(std::is_same_v<T, nv_bfloat16>, "unsupported llvm_remf type");
+    return nv_bfloat16(std::fmod(__bfloat162float(lhs), __bfloat162float(rhs)));
+  }
+}
+
 //===----------------------------------------------------------------------===//
 // Executor - Core operations
 //===----------------------------------------------------------------------===//
@@ -726,6 +742,16 @@ static void registerExecutorCoreModuleLuaRuntimeMethods(
 #undef DEFINE_OFCMP_METHOD
 #undef DEFINE_UFCMP_METHOD
 #undef DEFINE_OTHERFCMP_METHOD
+
+  //===----------------------------------------------------------------------===//
+  // arith.remf
+  //===----------------------------------------------------------------------===//
+
+  lua["_remf_f64"] = remf<double>;
+  lua["_remf_f32"] = remf<float>;
+  lua["_remf_f16"] = remf<__half>;
+  lua["_remf_f8E4M3FN"] = remf<fp8_e4m3fn>;
+  lua["_remf_bf16"] = remf<nv_bfloat16>;
 
   //===----------------------------------------------------------------------===//
   // aggregate ops

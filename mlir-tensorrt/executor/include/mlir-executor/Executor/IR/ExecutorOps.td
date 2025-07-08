@@ -688,6 +688,7 @@ def Executor_AddFOp : Executor_ArithBinaryFloatOp<"addf",  [Commutative]>;
 def Executor_SubFOp : Executor_ArithBinaryFloatOp<"subf">;
 def Executor_MulFOp : Executor_ArithBinaryFloatOp<"mulf", [Commutative]>;
 def Executor_DivFOp : Executor_ArithBinaryFloatOp<"divf">;
+def Executor_RemFOp : Executor_ArithBinaryFloatOp<"remf">;
 
 //===----------------------------------------------------------------------===//
 // Floating-point math ops
