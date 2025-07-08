@@ -23,6 +23,7 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
@@ -127,6 +128,89 @@ struct TensorCastToAllocAndCopyPattern
   }
 };
 
+/// One pattern that consistently causes failures is if one branch of  an
+/// `scf.if` operation returns a `bufferization.materialize_in_destination` op
+/// but the other branch returns a constant. This can cause
+/// one-shot-bufferization to fail with a "cannot avoid a RaW conflict" error.
+/// To solve this, we can create an explicit materialization for the constant as
+/// well.
+/// TODO: this creates an allocation+copy for the constant, which is not
+/// necessarily actually needed if the result of `scf.if` is only read. To fix
+/// this, we need to fix the issues with `bufferization.alloc_tensor` or create
+/// our own alloc tensor op with a combined allocate+copy semantic until the
+/// upstream one can be fixed can be fixed.
+struct HandleIfOpPattern : public OpRewritePattern<scf::IfOp> {
+  using OpRewritePattern::OpRewritePattern;
+  LogicalResult matchAndRewrite(scf::IfOp op,
+                                PatternRewriter &rewriter) const override {
+    if (op->getNumResults() == 0)
+      return rewriter.notifyMatchFailure(op, "op has no results");
+
+    Region &thenRegion = op.getThenRegion();
+    Region &elseRegion = op.getElseRegion();
+    if (!thenRegion.hasOneBlock() || !elseRegion.hasOneBlock())
+      return rewriter.notifyMatchFailure(op, "expected single block regions");
+
+    auto thenYield = cast<scf::YieldOp>(thenRegion.front().getTerminator());
+    auto elseYield = cast<scf::YieldOp>(elseRegion.front().getTerminator());
+    auto thenOperands = thenYield.getResultsMutable();
+    auto elseOperands = elseYield.getResultsMutable();
+    Location loc = op.getLoc();
+    SmallVector<Value> newThenYieldOperands(thenYield->getOperands());
+    SmallVector<Value> newElseYieldOperands(elseYield->getOperands());
+    bool thenChanged = false, elseChanged = false;
+
+    auto createExplictMaterialize = [&](scf::YieldOp yield, Value oldOperand,
+                                        RankedTensorType tensorType) {
+      rewriter.setInsertionPoint(yield);
+      Value emptyTensor = rewriter.create<tensor::EmptyOp>(
+          loc, tensorType.getShape(), tensorType.getElementType(), ValueRange{},
+          tensorType.getEncoding());
+      return rewriter.create<bufferization::MaterializeInDestinationOp>(
+          loc, tensorType, oldOperand, emptyTensor);
+    };
+
+    for (auto [idx, thenOperand, elseOperand, resultType] :
+         llvm::enumerate(thenOperands, elseOperands, op->getResultTypes())) {
+      auto tensorType = dyn_cast<RankedTensorType>(resultType);
+      if (!tensorType || !tensorType.hasStaticShape())
+        continue;
+
+      auto thenDef = thenOperand.get().getDefiningOp();
+      auto elseDef = elseOperand.get().getDefiningOp();
+
+      if (thenDef->hasTrait<OpTrait::ConstantLike>() &&
+          isa<bufferization::MaterializeInDestinationOp>(elseDef)) {
+        auto materializeOp =
+            createExplictMaterialize(thenYield, thenOperand.get(), tensorType);
+        newThenYieldOperands[idx] = materializeOp.getResult();
+        thenChanged = true;
+        continue;
+      }
+
+      if (elseDef->hasTrait<OpTrait::ConstantLike>() &&
+          isa<bufferization::MaterializeInDestinationOp>(thenDef)) {
+        auto materializeOp =
+            createExplictMaterialize(elseYield, elseOperand.get(), tensorType);
+        newElseYieldOperands[idx] = materializeOp.getResult();
+        elseChanged = true;
+        continue;
+      }
+    }
+
+    if (thenChanged)
+      rewriter.modifyOpInPlace(thenYield, [&]() {
+        thenYield.getResultsMutable().assign(newThenYieldOperands);
+      });
+
+    if (elseChanged)
+      rewriter.modifyOpInPlace(elseYield, [&]() {
+        elseYield.getResultsMutable().assign(newElseYieldOperands);
+      });
+    return success(thenChanged || elseChanged);
+  }
+};
+
 /// Remove redundant explicit `bufferization.materialize_in_dest` ops.
 struct RemoveRedundantMaterializeInDestPattern
     : OpRewritePattern<bufferization::MaterializeInDestinationOp> {
@@ -147,34 +231,81 @@ struct RemoveRedundantMaterializeInDestPattern
   }
 };
 
+/// Remove redundant explicit `bufferization.materialize_in_dest` ops if the
+/// consumer is materializing into a `tensor.empty` without changing the memory
+/// space and the producer has a single use. Then we can just replace with the
+/// producer.
+struct RemoveRedundantMaterializationsPattern
+    : OpRewritePattern<bufferization::MaterializeInDestinationOp> {
+  using OpRewritePattern::OpRewritePattern;
+  LogicalResult matchAndRewrite(bufferization::MaterializeInDestinationOp op,
+                                PatternRewriter &rewriter) const override {
+    auto producer =
+        op.getSource()
+            .getDefiningOp<bufferization::MaterializeInDestinationOp>();
+    if (!producer || !producer.getResult().hasOneUse() ||
+        producer.getType() != op.getType())
+      return failure();
+
+    rewriter.replaceOp(op, producer);
+    return success();
+  }
+};
+
 class MaterializeExplicitTransfersPass
     : public plan::impl::PlanMaterializeExplicitTransfersPassBase<
           MaterializeExplicitTransfersPass> {
+  using Base::Base;
+
+  LogicalResult initialize(MLIRContext *context) override {
+
+    // Populate patterns that are used to clean up the IR prior to the
+    // main pattern application.
+    preprocessingPatterns = std::make_shared<FrozenRewritePatternSet>([&] {
+      RewritePatternSet patterns(context);
+      patterns.add<
+          // Currently `bufferization.alloc_tensor` ops with `copy` argument
+          // where the `memory_spacee` annotation does not match the type
+          // will break bufferization. Rewrite into a `tensor.cast` pattern.
+          RewriteAllocTensorWithCopyToCastPattern>(context);
+
+      // Ensure that we fold `tensor.cast` into `tensor.empty`. Otherwise we
+      // will create trivially redundant copies.
+      tensor::EmptyOp::getCanonicalizationPatterns(patterns, context);
+
+      return patterns;
+    }());
+
+    // Populate the main patterns.
+    mainPatterns = std::make_shared<FrozenRewritePatternSet>([&] {
+      RewritePatternSet patterns(context);
+      patterns.add<TensorCastToAllocAndCopyPattern,
+                   RemoveRedundantMaterializeInDestPattern,
+                   RemoveRedundantMaterializationsPattern, HandleIfOpPattern>(
+          context);
+      return patterns;
+    }());
+
+    return success();
+  }
+
   void runOnOperation() override {
     Operation *op = getOperation();
 
-    // Eliminate `bufferization.alloc_tensor` ops with `copy` argument and
-    // simplify `tensor.cast` ops.
-    {
-      RewritePatternSet patterns(op->getContext());
-      patterns.add<RewriteAllocTensorWithCopyToCastPattern>(op->getContext());
-      tensor::CastOp::getCanonicalizationPatterns(patterns, op->getContext());
-      if (failed(applyPatternsGreedily(op, std::move(patterns)))) {
-        emitError(op->getLoc())
-            << "failed to apply patterns in " << getArgument();
-        return;
-      }
+    if (failed(applyPatternsGreedily(op, *preprocessingPatterns))) {
+      emitError(op->getLoc())
+          << "failed to apply patterns in " << getArgument();
+      return;
     }
 
-    RewritePatternSet patterns(op->getContext());
-    patterns.add<TensorCastToAllocAndCopyPattern,
-                 RemoveRedundantMaterializeInDestPattern>(op->getContext());
-
-    if (failed(applyPatternsGreedily(op, std::move(patterns)))) {
+    if (failed(applyPatternsGreedily(op, *mainPatterns))) {
       emitError(op->getLoc())
           << "failed to apply patterns in " << getArgument();
       return;
     }
   }
+
+  std::shared_ptr<FrozenRewritePatternSet> preprocessingPatterns;
+  std::shared_ptr<FrozenRewritePatternSet> mainPatterns;
 };
 } // namespace

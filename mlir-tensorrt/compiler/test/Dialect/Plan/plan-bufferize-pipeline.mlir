@@ -519,3 +519,98 @@ func.func @device_extract(%arg0: tensor<128xi1>, %arg1: index) -> i1 {
 //       CHECK:     %[[v0:.+]] = memref.load %[[alloc]][%[[arg1]]]
 //       CHECK:     memref.dealloc %[[alloc]]
 //       CHECK:     return %[[v0]]
+
+// -----
+
+// Check that some problematic cases involving space transfers within
+// `scf.if` produce functionally correct IR. These cases cannot be
+// well optimized until we have a alloc-tensor like operation with
+// combined alloc + space transfer semantic. And `plan-alloc-tensors`
+// inserts an extra copy at the return that could be eliminated.
+
+module @if_yield_constant_cases {
+
+func.func @if_constant_mat(%cond: i1, %value: f32)
+    -> (tensor<1xf32> {plan.memory_space = #plan.memory_space<device>}) {
+  %0 = scf.if %cond -> tensor<1xf32> {
+    %1 = tensor.from_elements %value : tensor<1xf32>
+    scf.yield %1 : tensor<1xf32>
+  } else {
+    %cst = arith.constant dense<2.0> : tensor<1xf32>
+    scf.yield %cst : tensor<1xf32>
+  }
+  return %0 : tensor<1xf32>
+}
+
+// CHECK-LABEL: func.func @if_constant_mat
+// CHECK: memref.alloc()
+// CHECK: memref.alloc()
+// CHECK: if
+// CHECK:   memref.alloc
+// CHECK:   memref.store
+// CHECK:   memref.copy
+// CHECK:   memref.dealloc
+// CHECK: else
+// CHECK:     memref.copy
+// CHECK-NOT: memref.copy
+// CHECK: memref.copy
+// CHECK: memref.dealloc
+// CHECK: memref.dealloc
+// CHECK: return
+
+func.func @if_constant_mat_hoisted(%cond: i1, %value: f32)
+    -> (tensor<1xf32> {plan.memory_space = #plan.memory_space<device>}) {
+  %cst = arith.constant dense<2.0> : tensor<1xf32>
+  %2 = tensor.from_elements %value : tensor<1xf32>
+
+  %0 = scf.if %cond -> tensor<1xf32> {
+    scf.yield %2 : tensor<1xf32>
+  } else {
+    scf.yield %cst : tensor<1xf32>
+  }
+  return %0 : tensor<1xf32>
+}
+
+
+// CHECK-LABEL: func.func @if_constant_mat
+// CHECK: memref.alloc
+// CHECK: memref.alloc
+// CHECK: memref.copy
+// CHECK: memref.alloc
+// CHECK: scf.if
+// CHECK-NEXT: } else {
+// CHECK-NEXT: memref.copy
+// CHECK: memref.copy
+// CHECK: memref.dealloc
+// CHECK: memref.dealloc
+// CHECK: memref.dealloc
+// CHECK: return
+
+func.func @if_else_yield_constant_mat(%cond: i1, %value: f32)
+    -> (tensor<1xf32> {plan.memory_space = #plan.memory_space<device>}) {
+  %0 = scf.if %cond -> tensor<1xf32> {
+    %cst = arith.constant dense<2.0> : tensor<1xf32>
+    scf.yield %cst : tensor<1xf32>
+  } else {
+    %1 = tensor.from_elements %value : tensor<1xf32>
+    scf.yield %1 : tensor<1xf32>
+  }
+  return %0 : tensor<1xf32>
+}
+
+// CHECK-LABEL: func.func @if_else_yield_constant_mat
+// CHECK: memref.alloc()
+// CHECK: memref.alloc()
+// CHECK: if
+// CHECK:     memref.copy
+// CHECK-NOT: memref.copy
+// CHECK: else
+// CHECK:   memref.alloc
+// CHECK:   memref.store
+// CHECK:   memref.copy
+// CHECK:   memref.dealloc
+// CHECK: memref.copy
+// CHECK: memref.dealloc
+// CHECK: memref.dealloc
+// CHECK: return
+}
