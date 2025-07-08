@@ -178,6 +178,8 @@ struct HandleIfOpPattern : public OpRewritePattern<scf::IfOp> {
 
       auto thenDef = thenOperand.get().getDefiningOp();
       auto elseDef = elseOperand.get().getDefiningOp();
+      if (!thenDef || !elseDef)
+        continue;
 
       if (thenDef->hasTrait<OpTrait::ConstantLike>() &&
           isa<bufferization::MaterializeInDestinationOp>(elseDef)) {

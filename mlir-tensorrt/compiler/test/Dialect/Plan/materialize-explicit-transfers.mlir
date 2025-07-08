@@ -72,13 +72,32 @@ func.func @if_constant_mat(%cond: i1) -> tensor<1xf32> {
   return %0 : tensor<1xf32>
 }
 
-// CHECK-LABEL: func.func @if_constant_mat
+// CHECK-LABEL: func.func @if_constant_mat(
 //       CHECK:     scf.if
 //       CHECK:       bufferization.materialize_in_destination
 //       CHECK:       scf.yield
 //       CHECK:     } else {
 //       CHECK:       bufferization.materialize_in_destination
 //       CHECK:       scf.yield
+
+// -----
+
+func.func @if_constant_mat_block_arg(%cond: i1, %arg0: tensor<1xf32>) -> tensor<1xf32> {
+  %0 = scf.if %cond -> tensor<1xf32> {
+    scf.yield %arg0 : tensor<1xf32>
+  } else {
+    %cst = arith.constant dense<2.0> : tensor<1xf32>
+    scf.yield %cst : tensor<1xf32>
+  }
+  return %0 : tensor<1xf32>
+}
+
+// CHECK-LABEL: func.func @if_constant_mat_block_arg
+//       CHECK:       arith.constant
+//       CHECK:     scf.if
+//  CHECK-NEXT:       scf.yield
+//  CHECK-NEXT:     } else {
+//  CHECK-NEXT:       scf.yield
 
 // -----
 
