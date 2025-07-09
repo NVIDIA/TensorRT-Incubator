@@ -63,81 +63,6 @@ using bufferization::OneShotAnalysisState;
 using bufferization::func_ext::FuncAnalysisState;
 using bufferization::func_ext::FuncOpAnalysisState;
 
-namespace {
-
-/// Simplify a func.return operand produced by
-/// `materialize_in_dest(cast(materialize_in_dest(..., %alloc)), %out_arg)` so
-/// that only the single `materialize_in_dest` is used directly into the block
-/// argument.
-struct RemoveRedundantMaterializeInDestPattern
-    : OpRewritePattern<bufferization::MaterializeInDestinationOp> {
-  using OpRewritePattern::OpRewritePattern;
-  LogicalResult matchAndRewrite(bufferization::MaterializeInDestinationOp op,
-                                PatternRewriter &rewriter) const override {
-    if (!op->hasOneUse() || !isa<func::ReturnOp>(*op->user_begin()))
-      return failure();
-
-    auto dest = dyn_cast<BlockArgument>(op.getDest());
-    auto castOp = op.getSource().getDefiningOp<tensor::CastOp>();
-    auto funcOp = op->getParentOfType<func::FuncOp>();
-    if (!castOp || !dest || !funcOp ||
-        dest.getOwner() != &funcOp.getBody().front())
-      return failure();
-
-    auto producer =
-        castOp.getSource()
-            .getDefiningOp<bufferization::MaterializeInDestinationOp>();
-    if (!producer || !producer->hasOneUse() ||
-        !producer.getDest().hasOneUse() ||
-        !producer.getDest().getDefiningOp<bufferization::AllocTensorOp>())
-      return failure();
-
-    // Replace the returned value with the result of the cast.
-    Location loc = op->getLoc();
-    rewriter.replaceOp(op, castOp);
-
-    // Create a new cast on the block arg to the type of the producer alloc
-    // result.
-    rewriter.setInsertionPoint(producer);
-    auto blockArgCast = rewriter.create<tensor::CastOp>(
-        loc, producer.getDest().getType(), dest);
-    // Update the producer materialization to materialize into the block arg.
-    rewriter.replaceOp(producer.getDest().getDefiningOp(), blockArgCast);
-    return success();
-  }
-};
-
-/// Rewrite `tensor.empty` to `bufferization.alloc_tensor` in the `device`
-/// memory space.
-struct RewriteEmptyTensor : public OpRewritePattern<tensor::EmptyOp> {
-  using OpRewritePattern::OpRewritePattern;
-  LogicalResult matchAndRewrite(tensor::EmptyOp op,
-                                PatternRewriter &rewriter) const override {
-    auto memorySpace =
-        dyn_cast_or_null<MemorySpaceAttr>(op.getType().getEncoding());
-    if (!memorySpace)
-      return failure();
-    rewriter.replaceOpWithNewOp<bufferization::AllocTensorOp>(
-        op, op.getType(), op.getDynamicSizes(),
-        /*copy=*/Value{}, /*size_hint=*/Value{}, memorySpace);
-    return success();
-  }
-};
-
-/// Drop `bufferization.alloc_tensor` operations that do not have uses.
-struct CleanupAllocTensorOps
-    : public OpRewritePattern<bufferization::AllocTensorOp> {
-  using OpRewritePattern::OpRewritePattern;
-  LogicalResult matchAndRewrite(bufferization::AllocTensorOp op,
-                                PatternRewriter &rewriter) const override {
-    if (!op->use_empty())
-      return failure();
-    rewriter.eraseOp(op);
-    return success();
-  }
-};
-} // namespace
-
 /// Creates a DPS argument of type `argType` in the first block of `func` by
 /// appending to the end of current arguments. It then updates the function
 /// type, adds a `executor.result_arg` argument attribute to the new arg, and
@@ -701,7 +626,12 @@ static void uniqueEmptyTensorUses(RewriterBase &rewriter, ModuleLikeOp op) {
       return WalkResult::advance();
     if (nestedOp->hasOneUse())
       return WalkResult::advance();
+    unsigned firstUse = true;
     for (OpOperand &use : llvm::make_early_inc_range(emptyOp->getUses())) {
+      if (firstUse) {
+        firstUse = false;
+        continue;
+      }
       rewriter.setInsertionPoint(use.getOwner());
       auto clonedOp = cast<tensor::EmptyOp>(rewriter.clone(*emptyOp));
       use.assign(clonedOp);
@@ -748,22 +678,16 @@ public:
       return signalPassFailure();
     }
 
-    // Eliminate any straggling `tensor.empty` operations. Only run this on
-    // functions in the host module.
-    {
-      FrozenRewritePatternSet patterns = [&]() {
-        RewritePatternSet patterns_(ctx);
-        patterns_.insert<RewriteEmptyTensor, CleanupAllocTensorOps,
-                         RemoveRedundantMaterializeInDestPattern>(ctx);
-        return patterns_;
-      }();
-      for (FunctionOpInterface func : op.getOps<FunctionOpInterface>()) {
-        if (failed(applyPatternsGreedily(func, patterns))) {
-          op->emitError() << "failed to run " << getArgument() << " patterns";
-          return signalPassFailure();
-        }
-      }
-    }
+    // Remove leftover empty tensors.
+    op->walk<WalkOrder::PreOrder>([&](Operation *nestedOp) {
+      if (ModuleLikeOp(nestedOp) && nestedOp != op)
+        return WalkResult::skip();
+      auto emptyOp = dyn_cast<tensor::EmptyOp>(nestedOp);
+      if (!emptyOp || !emptyOp.use_empty())
+        return WalkResult::advance();
+      rewriter.eraseOp(emptyOp);
+      return WalkResult::skip();
+    });
   }
 };
 } // namespace

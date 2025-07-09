@@ -67,8 +67,8 @@ func.func @small_host_and_device_tensor_constant(%arg0: tensor<?x?xf32>) -> (ten
 // CHECK-LABEL: func.func @small_host_and_device_tensor_constant
 //  CHECK-SAME: (%[[arg0:.+]]: memref<?x?xf32, #plan.memory_space<device>>, %[[arg1:.+]]: memref<?x?x?x?xf32, #plan.memory_space<device>> {plan.result_arg}, %[[arg2:.+]]: memref<4xindex, #plan.memory_space<device>> {plan.result_arg})
 //   CHECK-DAG:     %[[global_device:.+]] = memref.get_global {{.*}} #plan.memory_space<device>>
-//   CHECK-DAG:     %[[global_host:.+]] = memref.get_global {{.*}} #plan.memory_space<host>>
 //       CHECK:     memref.copy %[[global_device]], %[[arg2]] :
+//   CHECK-DAG:     %[[global_host:.+]] = memref.get_global {{.*}} #plan.memory_space<host>>
 //       CHECK:     %[[reshape:.+]] = memref.reshape %[[arg0]](%[[global_host]])
 //       CHECK:     memref.copy %[[reshape]], %[[arg1]]
 //       CHECK:     return
@@ -522,14 +522,6 @@ func.func @device_extract(%arg0: tensor<128xi1>, %arg1: index) -> i1 {
 
 // -----
 
-// Check that some problematic cases involving space transfers within
-// `scf.if` produce functionally correct IR. These cases cannot be
-// well optimized until we have a alloc-tensor like operation with
-// combined alloc + space transfer semantic. And `plan-alloc-tensors`
-// inserts an extra copy at the return that could be eliminated.
-
-module @if_yield_constant_cases {
-
 func.func @if_constant_mat(%cond: i1, %value: f32)
     -> (tensor<1xf32> {plan.memory_space = #plan.memory_space<device>}) {
   %0 = scf.if %cond -> tensor<1xf32> {
@@ -543,20 +535,21 @@ func.func @if_constant_mat(%cond: i1, %value: f32)
 }
 
 // CHECK-LABEL: func.func @if_constant_mat
-// CHECK: memref.alloc()
-// CHECK: memref.alloc()
-// CHECK: if
-// CHECK:   memref.alloc
-// CHECK:   memref.store
-// CHECK:   memref.copy
-// CHECK:   memref.dealloc
-// CHECK: else
-// CHECK:     memref.copy
-// CHECK-NOT: memref.copy
-// CHECK: memref.copy
-// CHECK: memref.dealloc
-// CHECK: memref.dealloc
-// CHECK: return
+//     CHECK: %[[v0:.+]] = memref.get_global
+//     CHECK: %[[alloc:.+]] = memref.alloc()
+//     CHECK: arith.select %{{.*}}, %[[alloc]], %[[v0]]
+//     CHECK: if
+//     CHECK:   %[[alloc_0:.+]] = memref.alloc
+//     CHECK:   memref.store
+//     CHECK:   memref.copy %[[alloc_0]], %[[alloc]]
+//     CHECK:   memref.dealloc %[[alloc_0]]
+// CHECK-NOT: else
+//     CHECK: }
+//     CHECK: memref.copy %[[v1]], %[[arg2]]
+//     CHECK: memref.dealloc %[[alloc]]
+//     CHECK: return
+
+// -----
 
 func.func @if_constant_mat_hoisted(%cond: i1, %value: f32)
     -> (tensor<1xf32> {plan.memory_space = #plan.memory_space<device>}) {
@@ -573,18 +566,18 @@ func.func @if_constant_mat_hoisted(%cond: i1, %value: f32)
 
 
 // CHECK-LABEL: func.func @if_constant_mat
-// CHECK: memref.alloc
-// CHECK: memref.alloc
-// CHECK: memref.copy
-// CHECK: memref.alloc
-// CHECK: scf.if
-// CHECK-NEXT: } else {
-// CHECK-NEXT: memref.copy
-// CHECK: memref.copy
-// CHECK: memref.dealloc
-// CHECK: memref.dealloc
-// CHECK: memref.dealloc
-// CHECK: return
+//       CHECK: %[[v0:.+]] = memref.get_global
+//       CHECK: %[[alloc:.+]] = memref.alloc
+//       CHECK: memref.store %{{.*}}, %[[alloc]]
+//       CHECK: %[[alloc_0:.+]] = memref.alloc
+//       CHECK: memref.copy %[[alloc]], %[[alloc_0]]
+//       CHECK: arith.select %{{.*}}, %[[alloc_0]], %[[v0]]
+//       CHECK: memref.copy %[[v1]], %[[arg2]]
+//   CHECK-DAG: memref.dealloc %[[alloc]]
+//   CHECK-DAG: memref.dealloc %[[alloc_0]]
+//       CHECK: return
+
+// -----
 
 func.func @if_else_yield_constant_mat(%cond: i1, %value: f32)
     -> (tensor<1xf32> {plan.memory_space = #plan.memory_space<device>}) {
@@ -599,23 +592,22 @@ func.func @if_else_yield_constant_mat(%cond: i1, %value: f32)
 }
 
 // CHECK-LABEL: func.func @if_else_yield_constant_mat
-// CHECK: memref.alloc()
-// CHECK: memref.alloc()
-// CHECK: if
-// CHECK:     memref.copy
-// CHECK-NOT: memref.copy
-// CHECK: else
-// CHECK:   memref.alloc
-// CHECK:   memref.store
-// CHECK:   memref.copy
-// CHECK:   memref.dealloc
-// CHECK: memref.copy
-// CHECK: memref.dealloc
-// CHECK: memref.dealloc
-// CHECK: return
-}
+//       CHECK: %[[v0:.+]] = memref.get_global
+//       CHECK: %[[alloc:.+]] = memref.alloc
+//       CHECK: arith.select %{{.*}}, %[[v0]], %[[alloc]]
+//       CHECK: scf.if
+//  CHECK-NEXT: else
+//       CHECK:   %[[alloc_0:.+]] = memref.alloc
+//       CHECK:   memref.store
+//       CHECK:   memref.copy %[[alloc_0]], %[[alloc]]
+//       CHECK:   memref.dealloc %[[alloc_0]]
+//       CHECK: }
+//       CHECK: memref.copy %[[v1]], %[[arg2]]
+//       CHECK: memref.dealloc %[[alloc]]
+//       CHECK: return
 
 // -----
+
 
 func.func @test_optimization_barrier(%arg0: tensor<1x1xf32>, %arg1: tensor<i8>) -> (tensor<1x1xf32>, tensor<i8>) {
   %0, %1 = plan.optimization_barrier %arg0, %arg1 : tensor<1x1xf32>, tensor<i8>

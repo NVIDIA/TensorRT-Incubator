@@ -65,13 +65,11 @@ def ConvertStablehloToTensorRTPass : Pass<"convert-stablehlo-to-tensorrt"> {
       "prefer converting to 'tensorrt.einsum' over 'tensorrt.matrix_multiply'">
   ];
 }
-#endif // MLIR_TENSORRT_ENABLE_HLO
 
 //===----------------------------------------------------------------------===//
 // ChloToStableHloExt
 //===----------------------------------------------------------------------===//
 
-#ifdef MLIR_TENSORRT_ENABLE_HLO
 def ConvertChloToStableHloExtPass : Pass<"convert-chlo-to-stablehlo-ext"> {
   let summary = "Convert specific CHLO operations to stablehlo";
   let description = [{
@@ -89,9 +87,8 @@ def ConvertChloToStableHloExtPass : Pass<"convert-chlo-to-stablehlo-ext"> {
       "do not convert chlo.topk ops">,
   ];
 }
+
 #endif // MLIR_TENSORRT_ENABLE_HLO
-
-
 
 //===----------------------------------------------------------------------===//
 // HostToEmitC
@@ -143,6 +140,17 @@ def ConvertTensorRTToEmitCPass : Pass<"convert-tensorrt-to-emitc",
   }];
 
   let dependentDialects = ["::mlir::emitc::EmitCDialect"];
+}
+
+//===----------------------------------------------------------------------===//
+// LowerLinalgCopiesPass
+//===----------------------------------------------------------------------===//
+
+def LowerLinalgCopiesPass : Pass<"lower-linalg-copies"> {
+  let summary = "Lower linalg.copy to memref.copy or other operations";
+  let description = [{
+    This pass lowers `linalg.copy` to `memref.copy`.
+  }];
 }
 
 //===----------------------------------------------------------------------===//
