@@ -1,6 +1,6 @@
 //===- Passes.td -------------------------------------------*- Tablegen -*-===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -22,11 +22,29 @@
 
 include "mlir/Pass/PassBase.td"
 
+
+#ifdef MLIR_TENSORRT_ENABLE_HLO
+
+//===----------------------------------------------------------------------===//
+// StablehloToPlan
+//===----------------------------------------------------------------------===//
+
+def ConvertStablehloToPlanPass : Pass<"convert-stablehlo-to-plan"> {
+  let summary = "Convert certain StableHLO dialect ops to Plan dialect ops";
+  let description = [{
+    This pass converts supported Stable HLO dialect ops to Plan dialect ops.
+    Currently the only conversions supported are:
+    - `stablehlo.optimization_barrier` -> `plan.optimization_barrier`
+  }];
+  let dependentDialects = [
+    "::mlir::plan::PlanDialect"
+  ];
+}
+
 //===----------------------------------------------------------------------===//
 // StablehloToTensorRT
 //===----------------------------------------------------------------------===//
 
-#ifdef MLIR_TENSORRT_ENABLE_HLO
 def ConvertStablehloToTensorRTPass : Pass<"convert-stablehlo-to-tensorrt"> {
   let summary = "Convert Stable HLO dialect to TensorRT dialect";
   let description = [{

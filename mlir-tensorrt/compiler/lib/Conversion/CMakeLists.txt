@@ -1,6 +1,7 @@
 add_subdirectory(TensorRTCommon)
 
 if(MLIR_TRT_ENABLE_HLO)
+  add_subdirectory(StablehloToPlan)
   add_subdirectory(StablehloToTensorRT)
   add_subdirectory(StablehloScalarToArith)
   add_subdirectory(StablehloToScf)

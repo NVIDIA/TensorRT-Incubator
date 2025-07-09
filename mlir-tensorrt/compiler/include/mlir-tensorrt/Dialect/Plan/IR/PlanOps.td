@@ -6,6 +6,7 @@ include "mlir-tensorrt/Dialect/Plan/IR/PlanAttributes.td"
 include "mlir-tensorrt-dialect/Interface/TensorKindOpInterface.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 include "mlir/Interfaces/ControlFlowInterfaces.td"
+include "mlir/Dialect/Bufferization/IR/BufferizableOpInterface.td"
 include "mlir/Interfaces/DestinationStyleOpInterface.td"
 include "mlir/Interfaces/InferTypeOpInterface.td"
 include "mlir-tensorrt/Interfaces/InferTensorValueRangeInterface.td"
@@ -481,5 +482,39 @@ def Plan_ConstraintOp : Plan_Op<"constraint", [Pure]>{
 
   let assemblyFormat = "`(` $memrefToConstrain `)` attr-dict  `:` type($memrefToConstrain)";
 }
+
+//===----------------------------------------------------------------------===//
+// OptimizationBarrierOp
+//===----------------------------------------------------------------------===//
+
+def Plan_OptimizationBarrierOp : Plan_Op<"optimization_barrier", [Pure,
+    RangedTypesMatchWith<"result type matches operand",
+     "operands", "results",
+     "llvm::make_range($_self.begin(), $_self.end())">,
+    DeclareOpInterfaceMethods<BufferizableOpInterface, [
+      "bufferizesToMemoryRead",
+      "bufferizesToMemoryWrite",
+      "getAliasingValues",
+      "bufferize"
+    ]>]> {
+
+  let summary = "identity operation that prevents optimizations";
+  let description = [{
+    The `plan.optimization_barrier` is a utility operation that is used to
+    prevent some optimizations which match patterns in the input IR (e.g.
+    constant folding) from being applied. Semantically, the operation
+    is an identity -- the operands are tied to the results -- but it
+    disrupts potential pattern matching.
+
+    Note that the operation is still functionally pure, so it does not
+    prevent optimizations like loop-invariant code motion or CSE.
+  }];
+
+  let arguments = (ins Variadic<AnyRankedTensor>:$operands);
+  let results = (outs Variadic<AnyRankedTensor>:$results);
+
+  let assemblyFormat = "$operands attr-dict  `:` type($operands)";
+}
+
 
 #endif // MLIR_TENSORRT_DIALECT_PLAN_IR_PLANOPS_TD

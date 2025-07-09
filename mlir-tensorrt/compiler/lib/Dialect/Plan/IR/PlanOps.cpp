@@ -26,6 +26,7 @@
 #include "mlir-tensorrt/Interfaces/InferTensorValueRangeInterface.h"
 #include "mlir/Conversion/ConvertToLLVM/ToLLVMInterface.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
+#include "mlir/Dialect/Bufferization/IR/BufferizableOpInterface.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Utils/IndexingUtils.h"
 #include "mlir/IR/Diagnostics.h"
@@ -752,6 +753,46 @@ void WithValuesOp::inferOperandKind(
   assert(results.size() == 1 && "expected one result");
   if (results[0] && !results[0]->getValue().isUninitialized())
     setOperandKind(getOperandMutable(), results[0]->getValue().getKind());
+}
+
+//===----------------------------------------------------------------------===//
+// OptimizationBarrierOp
+//===----------------------------------------------------------------------===//
+
+bool OptimizationBarrierOp::bufferizesToMemoryRead(
+    OpOperand &operand, const bufferization::AnalysisState &state) {
+  // no reads occur.
+  return false;
+}
+
+bool OptimizationBarrierOp::bufferizesToMemoryWrite(
+    OpOperand &operand, const bufferization::AnalysisState &state) {
+  // no writes occur.
+  return false;
+}
+
+bufferization::AliasingValueList OptimizationBarrierOp::getAliasingValues(
+    OpOperand &operand, const bufferization::AnalysisState &state) {
+  // operands are tied to results.
+  return {{getOperation()->getResult(operand.getOperandNumber()),
+           bufferization::BufferRelation::Equivalent, /*isDefinite=*/true}};
+}
+
+LogicalResult OptimizationBarrierOp::bufferize(
+    RewriterBase &rewriter,
+    const bufferization::BufferizationOptions &options) {
+  // Just forward input buffers as the  result buffers.
+  SmallVector<Value> buffers;
+  for (OpOperand &operand : getOperation()->getOpOperands()) {
+    FailureOr<Value> buffer =
+        bufferization::getBuffer(rewriter, operand.get(), options);
+    if (failed(buffer))
+      return failure();
+    buffers.push_back(*buffer);
+  }
+  bufferization::replaceOpWithBufferizedValues(rewriter, *this, buffers);
+
+  return success();
 }
 
 //===----------------------------------------------------------------------===//
