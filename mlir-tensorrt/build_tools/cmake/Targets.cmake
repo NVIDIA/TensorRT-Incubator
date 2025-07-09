@@ -1,4 +1,3 @@
-include(build_tools/cmake/CompilationOptions.cmake)
 include(CMakeParseArguments)
 
 # --------------------------------------------------------------

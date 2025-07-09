@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.25)
 project(mlir-tensorrt-common LANGUAGES CXX)
 
+include(${CMAKE_CURRENT_SOURCE_DIR}/../build_tools/cmake/Targets.cmake)
+
 # Depdendencies
 find_package(LLVM REQUIRED CONFIG)
 find_package(MLIR REQUIRED CONFIG)
