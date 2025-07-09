@@ -23,6 +23,7 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
+#include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/PatternMatch.h"
@@ -121,115 +122,52 @@ struct TensorCastToAllocAndCopyPattern
         op.getLoc(), targetType.getShape(), targetType.getElementType(),
         *dynamicDims, targetType.getEncoding());
 
-    rewriter.replaceOpWithNewOp<bufferization::MaterializeInDestinationOp>(
-        op, targetType, op.getOperand(), allocOp.getResult());
+    rewriter.replaceOpWithNewOp<linalg::CopyOp>(op, targetType, op.getOperand(),
+                                                allocOp.getResult());
 
     return success();
   }
 };
+} // namespace
 
-/// One pattern that consistently causes failures is if one branch of  an
-/// `scf.if` operation returns a `bufferization.materialize_in_destination` op
-/// but the other branch returns a constant. This can cause
-/// one-shot-bufferization to fail with a "cannot avoid a RaW conflict" error.
-/// To solve this, we can create an explicit materialization for the constant as
-/// well.
-/// TODO: this creates an allocation+copy for the constant, which is not
-/// necessarily actually needed if the result of `scf.if` is only read. To fix
-/// this, we need to fix the issues with `bufferization.alloc_tensor` or create
-/// our own alloc tensor op with a combined allocate+copy semantic until the
-/// upstream one can be fixed can be fixed.
-struct HandleIfOpPattern : public OpRewritePattern<scf::IfOp> {
-  using OpRewritePattern::OpRewritePattern;
-  LogicalResult matchAndRewrite(scf::IfOp op,
+template <typename OpTy>
+struct RemoveRedundantCopyOpPatternBase : public OpRewritePattern<OpTy> {
+  using OpRewritePattern<OpTy>::OpRewritePattern;
+
+  virtual Value getDest(OpTy op) const = 0;
+  virtual MutableOperandRange getDestMutable(OpTy op) const = 0;
+  virtual Value getSource(OpTy op) const = 0;
+
+  LogicalResult matchAndRewrite(OpTy op,
                                 PatternRewriter &rewriter) const override {
-    if (op->getNumResults() == 0)
-      return rewriter.notifyMatchFailure(op, "op has no results");
-
-    Region &thenRegion = op.getThenRegion();
-    Region &elseRegion = op.getElseRegion();
-    if (!thenRegion.hasOneBlock() || !elseRegion.hasOneBlock())
-      return rewriter.notifyMatchFailure(op, "expected single block regions");
-
-    auto thenYield = cast<scf::YieldOp>(thenRegion.front().getTerminator());
-    auto elseYield = cast<scf::YieldOp>(elseRegion.front().getTerminator());
-    auto thenOperands = thenYield.getResultsMutable();
-    auto elseOperands = elseYield.getResultsMutable();
-    Location loc = op.getLoc();
-    SmallVector<Value> newThenYieldOperands(thenYield->getOperands());
-    SmallVector<Value> newElseYieldOperands(elseYield->getOperands());
-    bool thenChanged = false, elseChanged = false;
-
-    auto createExplictMaterialize = [&](scf::YieldOp yield, Value oldOperand,
-                                        RankedTensorType tensorType) {
-      rewriter.setInsertionPoint(yield);
-      Value emptyTensor = rewriter.create<tensor::EmptyOp>(
-          loc, tensorType.getShape(), tensorType.getElementType(), ValueRange{},
-          tensorType.getEncoding());
-      return rewriter.create<bufferization::MaterializeInDestinationOp>(
-          loc, tensorType, oldOperand, emptyTensor);
-    };
-
-    for (auto [idx, thenOperand, elseOperand, resultType] :
-         llvm::enumerate(thenOperands, elseOperands, op->getResultTypes())) {
-      auto tensorType = dyn_cast<RankedTensorType>(resultType);
-      if (!tensorType || !tensorType.hasStaticShape())
-        continue;
-
-      auto thenDef = thenOperand.get().getDefiningOp();
-      auto elseDef = elseOperand.get().getDefiningOp();
-      if (!thenDef || !elseDef)
-        continue;
-
-      if (thenDef->hasTrait<OpTrait::ConstantLike>() &&
-          isa<bufferization::MaterializeInDestinationOp>(elseDef)) {
-        auto materializeOp =
-            createExplictMaterialize(thenYield, thenOperand.get(), tensorType);
-        newThenYieldOperands[idx] = materializeOp.getResult();
-        thenChanged = true;
-        continue;
-      }
-
-      if (elseDef->hasTrait<OpTrait::ConstantLike>() &&
-          isa<bufferization::MaterializeInDestinationOp>(thenDef)) {
-        auto materializeOp =
-            createExplictMaterialize(elseYield, elseOperand.get(), tensorType);
-        newElseYieldOperands[idx] = materializeOp.getResult();
-        elseChanged = true;
-        continue;
-      }
-    }
-
-    if (thenChanged)
-      rewriter.modifyOpInPlace(thenYield, [&]() {
-        thenYield.getResultsMutable().assign(newThenYieldOperands);
-      });
-
-    if (elseChanged)
-      rewriter.modifyOpInPlace(elseYield, [&]() {
-        elseYield.getResultsMutable().assign(newElseYieldOperands);
-      });
-    return success(thenChanged || elseChanged);
-  }
-};
-
-/// Remove redundant explicit `bufferization.materialize_in_dest` ops.
-struct RemoveRedundantMaterializeInDestPattern
-    : OpRewritePattern<bufferization::MaterializeInDestinationOp> {
-  using OpRewritePattern::OpRewritePattern;
-  LogicalResult matchAndRewrite(bufferization::MaterializeInDestinationOp op,
-                                PatternRewriter &rewriter) const override {
-    auto producer =
-        op.getDest().getDefiningOp<bufferization::MaterializeInDestinationOp>();
+    auto producer = getDest(op).template getDefiningOp<OpTy>();
     if (!producer)
       return failure();
 
-    if (producer.getDest().getType() != op.getDest().getType())
+    if (getDest(producer).getType() != getDest(op).getType())
       return failure();
 
     rewriter.modifyOpInPlace(
-        op, [&]() { op.getDestMutable().assign(producer.getDest()); });
+        op, [&]() { getDestMutable(op).assign(getDest(producer)); });
     return success();
+  }
+};
+
+namespace {
+/// Remove redundant explicit `bufferization.materialize_in_dest` ops.
+struct RemoveRedundantMaterializeInDestPattern final
+    : RemoveRedundantCopyOpPatternBase<
+          bufferization::MaterializeInDestinationOp> {
+  using RemoveRedundantCopyOpPatternBase::RemoveRedundantCopyOpPatternBase;
+  Value getDest(bufferization::MaterializeInDestinationOp op) const override {
+    return op.getDest();
+  }
+  MutableOperandRange
+  getDestMutable(bufferization::MaterializeInDestinationOp op) const override {
+    return op.getDestMutable();
+  }
+  Value getSource(bufferization::MaterializeInDestinationOp op) const override {
+    return op.getSource();
   }
 };
 
@@ -237,7 +175,7 @@ struct RemoveRedundantMaterializeInDestPattern
 /// consumer is materializing into a `tensor.empty` without changing the memory
 /// space and the producer has a single use. Then we can just replace with the
 /// producer.
-struct RemoveRedundantMaterializationsPattern
+struct RemoveRedundantMaterializationsPattern final
     : OpRewritePattern<bufferization::MaterializeInDestinationOp> {
   using OpRewritePattern::OpRewritePattern;
   LogicalResult matchAndRewrite(bufferization::MaterializeInDestinationOp op,
@@ -251,6 +189,21 @@ struct RemoveRedundantMaterializationsPattern
 
     rewriter.replaceOp(op, producer);
     return success();
+  }
+};
+
+/// Remove redundant explicit `linalg.copy` pattern.
+struct RemoveRedundantLinalgCopyPattern final
+    : RemoveRedundantCopyOpPatternBase<linalg::CopyOp> {
+  using RemoveRedundantCopyOpPatternBase::RemoveRedundantCopyOpPatternBase;
+  Value getDest(linalg::CopyOp op) const override {
+    return op.getOutputs().front();
+  }
+  MutableOperandRange getDestMutable(linalg::CopyOp op) const override {
+    return op.getOutputsMutable();
+  }
+  Value getSource(linalg::CopyOp op) const override {
+    return op.getInputs().front();
   }
 };
 
@@ -283,8 +236,8 @@ class MaterializeExplicitTransfersPass
       RewritePatternSet patterns(context);
       patterns.add<TensorCastToAllocAndCopyPattern,
                    RemoveRedundantMaterializeInDestPattern,
-                   RemoveRedundantMaterializationsPattern, HandleIfOpPattern>(
-          context);
+                   RemoveRedundantMaterializationsPattern,
+                   RemoveRedundantLinalgCopyPattern>(context);
       return patterns;
     }());
 

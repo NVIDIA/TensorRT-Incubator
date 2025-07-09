@@ -252,18 +252,6 @@ struct ReshapeAbsorbDeviceCast : public OpRewritePattern<tensor::ReshapeOp> {
   using OpRewritePattern::OpRewritePattern;
   LogicalResult matchAndRewrite(tensor::ReshapeOp op,
                                 PatternRewriter &rewriter) const override {
-    // Skip past any explicit host-device transfers or host<->host-pinned
-    // transfers
-    if (auto matOp =
-            op.getShape()
-                .getDefiningOp<bufferization::MaterializeInDestinationOp>()) {
-      auto source = matOp.getSource();
-      if (isHostVisible(source)) {
-        rewriter.modifyOpInPlace(
-            op, [&]() { op.getShapeMutable().assign(source); });
-        return success();
-      }
-    }
     if (auto castOp = op.getShape().getDefiningOp<tensor::CastOp>()) {
       auto source = castOp.getOperand();
       if (isHostVisible(source)) {
@@ -313,7 +301,7 @@ struct AllocTensorAbsorbCastPattern : public OpRewritePattern<tensor::CastOp> {
       return failure();
     rewriter.replaceOpWithNewOp<bufferization::AllocTensorOp>(
         op, op.getType(), allocOp.getDynamicSizes(), /*copy=*/Value{},
-        /*size_hint=*/Value{},
+        /*size_hint=*/allocOp.getSizeHint(),
         /*memory_space=*/castMemorySpace);
     return success();
   }

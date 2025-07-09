@@ -22,6 +22,7 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
+#include "mlir-tensorrt/Conversion/Passes.h"
 #include "mlir-tensorrt/Transforms/Passes.h"
 #include "mlir/Conversion/BufferizationToMemRef/BufferizationToMemRef.h"
 #include "mlir/Dialect/Bufferization/IR/BufferDeallocationOpInterface.h"
@@ -100,6 +101,8 @@ static void buildPlanOneShotBufferizePipelinePipeline(
   /// simplification/phase ordering should be eliminated.
   pm.addPass(createCanonicalizerPass());
   pm.addPass(plan::createPlanRemoveEquivalentBufferResultsPass());
+
+  pm.addNestedPass<func::FuncOp>(createLowerLinalgCopiesPass());
 }
 
 static void buildPlanBufferOptimizationPipeline(OpPassManager &pm) {
