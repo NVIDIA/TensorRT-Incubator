@@ -10,6 +10,7 @@ add_mlir_tensorrt_dialect_library(MLIRTensorRTPlanDialect
 
   LINK_LIBS PUBLIC
   MLIRControlFlowInterfaces
+  MLIRBufferizationDialect
   MLIRDialect
   MLIRExecutorGenericClustering
   MLIRFuncDialect

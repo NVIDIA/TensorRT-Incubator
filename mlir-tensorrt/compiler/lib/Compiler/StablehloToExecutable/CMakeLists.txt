@@ -27,6 +27,7 @@ add_mlir_tensorrt_library(MLIRTensorRTCompilerStableHloToExecutable
     MLIRTensorRTPlanTransforms
     MLIRTensorRTRuntimeToExecutor
     MLIRTensorRTSCFDetensorizeLoops
+    MLIRTensorRTStablehloToPlan
     MLIRTensorRTStablehloToSCF
     MLIRTensorRTStablehloToTensorRT
     MLIRTensorRTTargetLua

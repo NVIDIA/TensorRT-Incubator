@@ -83,6 +83,10 @@ void mlirtrt::compiler::buildStablehloPreProcessingPipeline(
   // - May change function types.
   pm.addPass(stablehlo_ext::createExpandTuplesPass());
 
+  // `convert-stablehlo-to-plan`:
+  // - Convert `stablehlo.optimization_barrier` to `plan.optimization_barrier`.
+  pm.addNestedPass<func::FuncOp>(createConvertStablehloToPlanPass());
+
   // `stablehlo-ext-raise-qdq`:
   // - Some match-and-raise patterns for Q/DQ that
   //   should be performed before canonicalization

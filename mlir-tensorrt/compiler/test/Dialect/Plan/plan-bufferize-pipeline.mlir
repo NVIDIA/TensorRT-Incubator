@@ -614,3 +614,24 @@ func.func @if_else_yield_constant_mat(%cond: i1, %value: f32)
 // CHECK: memref.dealloc
 // CHECK: return
 }
+
+// -----
+
+func.func @test_optimization_barrier(%arg0: tensor<1x1xf32>, %arg1: tensor<i8>) -> (tensor<1x1xf32>, tensor<i8>) {
+  %0, %1 = plan.optimization_barrier %arg0, %arg1 : tensor<1x1xf32>, tensor<i8>
+  return %0, %1 : tensor<1x1xf32>, tensor<i8>
+}
+
+// CHECK-LABEL: func.func @test_optimization_barrier
+//  CHECK-SAME: (%[[arg0:.+]]: memref{{.*}}, %[[arg1:.+]]: memref{{.*}}, %[[arg2:.+]]: memref{{.*}} {plan.result_arg}, %[[arg3:.+]]: memref{{.*}} {plan.result_arg})
+//       CHECK:     memref.copy %[[arg0]], %[[arg2]]
+//       CHECK:     memref.copy %[[arg1]], %[[arg3]]
+//       CHECK:     return
+
+// ALLOC-LABEL: func.func @test_optimization_barrier
+//  ALLOC-SAME: (%[[arg0:.+]]: memref{{.*}}, %[[arg1:.+]]: memref{{.*}})
+//       ALLOC:     %[[alloc:.+]] = memref.alloc() {{.*}}
+//       ALLOC:     memref.copy %[[arg0]], %[[alloc]]
+//       ALLOC:     %[[alloc_0:.+]] = memref.alloc() {{.*}}
+//       ALLOC:     memref.copy %[[arg1]], %[[alloc_0]]
+//       ALLOC:     return %[[alloc]], %[[alloc_0]]
