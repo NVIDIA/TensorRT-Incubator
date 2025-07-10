@@ -42,7 +42,9 @@ def ConvertStablehloToTensorRTPass : Pass<"convert-stablehlo-to-tensorrt"> {
     Option<"convertConditionals", "convert-conditionals", "bool", "true",
       "convert conditionals to TensorRT's conditional layer">,
     Option<"trtMajorVersion", "trt-major-version", "int64_t", "10",
-    "target TensorRT version for conversion">
+    "target TensorRT version for conversion">,
+    Option<"preferEinsum", "prefer-einsum", "bool", "false",
+      "prefer converting to 'tensorrt.einsum' over 'tensorrt.matrix_multiply'">
   ];
 }
 #endif // MLIR_TENSORRT_ENABLE_HLO
@@ -321,7 +323,10 @@ def ConvertStablehloToScfPass : Pass<"convert-stablehlo-to-scf"> {
   }];
   let dependentDialects = [
     "::mlir::tensor::TensorDialect",
-    "::mlir::scf::SCFDialect"
+    "::mlir::scf::SCFDialect",
+    "::mlir::tensor::TensorDialect",
+    "::mlir::arith::ArithDialect",
+    "::mlir::math::MathDialect"
   ];
 }
 

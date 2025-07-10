@@ -25,6 +25,8 @@
 #define MLIR_TENSORRT_INIT_ALL_DIALECTS
 
 #include "mlir-executor/Executor/IR/Executor.h"
+#include "mlir-tensorrt-common/Dialect/EmitCExt/IR/DataLayoutImpl.h"
+#include "mlir-tensorrt-common/Dialect/LinalgExt/Transforms/ToLoopsOpInterfaceImpl.h"
 #include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
 #include "mlir-tensorrt-dialect/TensorRT/Target/TensorRTEncodingImpl.h"
 #include "mlir-tensorrt/Backends/Host/HostBackend.h"
@@ -158,11 +160,13 @@ inline void registerAllDialects(mlir::DialectRegistry &registry) {
   mlir::cf::registerBufferDeallocationOpInterfaceExternalModels(registry);
   mlir::cf::registerBufferizableOpInterfaceExternalModels(registry);
   mlir::cuda::registerBufferizableOpInterfaceExternalModels(registry);
+  mlir::emitc_ext::registerDataLayoutInterfaceExternalModels(registry);
   mlir::linalg::registerBufferizableOpInterfaceExternalModels(registry);
   mlir::linalg::registerRuntimeVerifiableOpInterfaceExternalModels(registry);
   mlir::linalg::registerSubsetOpInterfaceExternalModels(registry);
   mlir::linalg::registerTilingInterfaceExternalModels(registry);
   mlir::linalg::registerValueBoundsOpInterfaceExternalModels(registry);
+  mlir::linalg_ext::registerToLoopsOpInterfaceExternalModels(registry);
   mlir::LLVM::registerInlinerInterface(registry);
   mlir::memref::registerAllocationOpInterfaceExternalModels(registry);
   mlir::memref::registerBufferViewFlowOpInterfaceExternalModels(registry);

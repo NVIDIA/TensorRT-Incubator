@@ -1,4 +1,4 @@
-# RUN: %PYTHON %s | FileCheck %s
+# RUN: %pick-one-gpu %PYTHON %s | FileCheck %s
 from typing import Iterable
 
 import mlir_tensorrt.compiler.api as compiler

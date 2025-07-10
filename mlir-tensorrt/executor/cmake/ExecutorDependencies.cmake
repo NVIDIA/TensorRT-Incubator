@@ -135,28 +135,6 @@ macro(mlir_executor_add_sol2)
 endmacro()
 
 # -----------------------------------------------------------------------------
-# Downloads NVTX from Github and adds it to the build
-# -----------------------------------------------------------------------------
-function(mlir_executor_add_nvtx)
-  CPMAddPackage(
-    NAME nvtx
-    GIT_REPOSITORY https://github.com/NVIDIA/NVTX.git
-    GIT_TAG v3.1.0
-    GIT_SHALLOW TRUE
-    SOURCE_SUBDIR c
-    EXCLUDE_FROM_ALL TRUE
-    DOWNLOAD_ONLY TRUE
-  )
-  add_library(nvtx3-cpp INTERFACE IMPORTED)
-  target_include_directories(nvtx3-cpp INTERFACE
-    "$<BUILD_INTERFACE:${nvtx_SOURCE_DIR}/c/include>")
-  # Ignore some warnings due to NVTX3 code style.
-  target_compile_options(nvtx3-cpp INTERFACE
-    -Wno-missing-braces)
-endfunction()
-
-
-# -----------------------------------------------------------------------------
 # Finds the NCCL headers and creates an interface target `NCCL`.
 # -----------------------------------------------------------------------------
 function(mlir_executor_find_nccl)

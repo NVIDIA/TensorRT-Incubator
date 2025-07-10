@@ -190,6 +190,8 @@ if(MLIR_TRT_ENABLE_PYTHON)
   mlir_tensorrt_find_dlpack()
 endif()
 
+find_package(MLIRTensorRTCommon REQUIRED)
+
 #--------------------------------------------------
 # Diagnostics
 #--------------------------------------------------

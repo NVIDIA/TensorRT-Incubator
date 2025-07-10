@@ -212,11 +212,12 @@ nvinfer1::Permutation tensorrt::getNvInferPermutation(ArrayRef<int64_t> array) {
 
 static std::string getUniqueName(NvInferNetworkEncoder::NamesSet &names,
                                  std::string name) {
-  unsigned i = 0;
-  while (names.contains(name))
-    name = name + "_" + std::to_string(i++);
-  names.insert(name);
-  return name;
+  static unsigned i = 0;
+  std::string uniqueName = name;
+  while (names.contains(uniqueName))
+    uniqueName = name + "_" + std::to_string(i++);
+  names.insert(uniqueName);
+  return uniqueName;
 }
 
 /// Print a representation of the given location to the string. Since MLIR has
@@ -267,6 +268,7 @@ static std::string createName(NvInferNetworkEncoder::NamesSet &names,
   static constexpr size_t kLayerNameSizeLimit = 2048;
   if (name.size() > kLayerNameSizeLimit)
     name = name.substr(0, kLayerNameSizeLimit);
+
   // TRT name does not allow nested quotations.
   name = llvm::join(llvm::split(name, "\""), "");
   return getUniqueName(names, name);
@@ -761,6 +763,16 @@ static void setProfileDimensions(nvinfer1::IOptimizationProfile *profile,
                          getNvInferDims(maxShape));
 }
 
+using NvInferShapeValueType = std::remove_const_t<std::remove_reference_t<
+    decltype(std::declval<nvinfer1::IOptimizationProfile>().getShapeValues(
+        "arg0", nvinfer1::OptProfileSelector::kMIN)[0])>>;
+
+static NvInferShapeValueType clampToNvInferShapeValueType(int64_t x) {
+  return static_cast<NvInferShapeValueType>(std::max<int64_t>(
+      std::min<int64_t>(x, std::numeric_limits<NvInferShapeValueType>::max()),
+      std::numeric_limits<NvInferShapeValueType>::min()));
+}
+
 /// Add the argument and shape tensor bounds information to the optimization
 /// profile.
 static void setShapeTensorInputProfile(nvinfer1::IOptimizationProfile *profile,
@@ -775,9 +787,10 @@ static void setShapeTensorInputProfile(nvinfer1::IOptimizationProfile *profile,
   SmallVector<ArrayRef<int64_t>> shapes{minShape, optShape, maxShape};
   for (auto [kind, shape] : llvm::zip(profiles, shapes)) {
     nvinfer1::Dims dims = getNvInferDims(shape);
-    SmallVector<int32_t> shapeValues;
+    SmallVector<NvInferShapeValueType> shapeValues;
     shapeValues.reserve(dims.nbDims);
-    std::copy_n(dims.d, dims.nbDims, std::back_inserter(shapeValues));
+    for (int32_t i = 0, e = dims.nbDims; i < e; ++i)
+      shapeValues.push_back(clampToNvInferShapeValueType(dims.d[i]));
     profile->setShapeValues(argName.c_str(), kind, shapeValues.data(),
                             shapeValues.size());
   }

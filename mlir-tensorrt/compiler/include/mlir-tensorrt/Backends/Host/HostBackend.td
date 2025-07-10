@@ -5,7 +5,7 @@ include "mlir-tensorrt/Dialect/Plan/IR/PlanDialect.td"
 include "mlir-tensorrt/Dialect/Plan/IR/PlanInterfaces.td"
 
 def Plan_HostClusterKindAttr : Plan_Attr<"HostClusterKind", "host_cluster",
-      [DeclareAttrInterfaceMethods<ClusterKindAttrInterface>]> {
+      [DeclareAttrInterfaceMethods<ClusterKindAttrInterface, ["getDefaultMemorySpace"]>]> {
   let parameters = (ins "int64_t":$benefit);
   let assemblyFormat = "`<` struct(params) `>`";
 }

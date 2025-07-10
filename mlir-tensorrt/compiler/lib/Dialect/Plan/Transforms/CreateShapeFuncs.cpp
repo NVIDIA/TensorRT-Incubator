@@ -524,16 +524,12 @@ static FailureOr<func::FuncOp> createAggregateShapeFunc(
         fromElementsOperands));
   }
 
-  // Make sure to mark that the shape function arg and results as host tensors.
-  // The TensorKindAnalysis currently doesn't inspect encoding attributes.
-  for (unsigned i = 0; i < aggregateShapeFunc.getNumResults(); i++)
-    aggregateShapeFunc.setResultAttr(i, getHostTensorArgAttrName(),
-                                     rewriter.getUnitAttr());
-  for (unsigned i = 0; i < aggregateShapeFunc.getNumArguments(); i++)
-    aggregateShapeFunc.setArgAttr(i, getHostTensorArgAttrName(),
-                                  rewriter.getUnitAttr());
-
   rewriter.create<func::ReturnOp>(func.getLoc(), shapeFuncReturns);
+
+  // Mark the function as having default memory space of 'host'
+  aggregateShapeFunc->setAttr(
+      PlanDialect::getMemorySpaceConstraintAttrName(),
+      plan::MemorySpaceAttr::get(rewriter.getContext(), MemorySpace::host));
 
   return aggregateShapeFunc;
 }

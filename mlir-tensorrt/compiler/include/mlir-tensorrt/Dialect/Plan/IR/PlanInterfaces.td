@@ -68,6 +68,16 @@ def ClusterKindAttrInterface : AttrInterface<"ClusterKindAttrInterface"> {
           /*defaultImplementation=*/""
         >,
         InterfaceMethod<
+          /*desc*/[{
+            Returns the default memory space used for this cluster kind.
+          }],
+          /*retTy*/"::mlir::plan::MemorySpace",
+          "getDefaultMemorySpace",
+          (ins),
+          "",
+          "return ::mlir::plan::MemorySpace::device;"
+        >,
+        InterfaceMethod<
           /*desc=*/[{
             Return true if the cluster requires closure prior to
             outlining. If false, then the the outlining step must accept

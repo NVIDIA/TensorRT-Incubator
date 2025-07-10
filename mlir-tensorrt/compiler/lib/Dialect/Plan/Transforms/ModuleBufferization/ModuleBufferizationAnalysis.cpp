@@ -205,36 +205,67 @@ aliasingFuncOpBBArgsAnalysis(func::FuncOp funcOp, OneShotAnalysisState &state,
 static LogicalResult
 funcOpBbArgReadWriteAnalysis(func::FuncOp funcOp, OneShotAnalysisState &state,
                              FuncAnalysisState &funcState) {
-  for (int64_t idx = 0, e = funcOp.getNumArguments(); idx < e; ++idx) {
-    // Skip non-tensor arguments.
-    if (!isa<TensorType>(funcOp.getFunctionType().getInput(idx)))
-      continue;
-    bool isRead;
-    bool isWritten;
-    if (auto accessAttr = funcOp.getArgAttrOfType<StringAttr>(
-            idx, BufferizationDialect::kBufferAccessAttrName)) {
-      // Buffer access behavior is specified on the function. Skip the analysis.
-      StringRef str = accessAttr.getValue();
-      isRead = str == "read" || str == "read-write";
-      isWritten = str == "write" || str == "read-write";
-    } else if (funcOp.isDeclaration()) {
-      // If the function has no body, conservatively assume that all args are
-      // read + written.
-      isRead = true;
-      isWritten = true;
-    } else {
-      // Analyze the body of the function.
-      BlockArgument bbArg = funcOp.getArgument(idx);
-      isRead = state.isValueRead(bbArg);
-      isWritten = state.isValueWritten(bbArg);
-    }
 
+  auto recordArgAccessKind = [&](int64_t idx, bool isRead, bool isWritten) {
     if (state.getOptions().testAnalysisOnly)
       annotateFuncArgAccess(funcOp, idx, isRead, isWritten);
     if (isRead)
       funcState.readBbArgs[funcOp].insert(idx);
     if (isWritten)
       funcState.writtenBbArgs[funcOp].insert(idx);
+  };
+
+  for (int64_t idx = 0, e = funcOp.getNumArguments(); idx < e; ++idx) {
+    // Skip arguments that are not tensors or memrefs.
+    if (!isa<MemRefType, TensorType>(funcOp.getArgumentTypes()[idx]))
+      continue;
+
+    if (funcOp.isDeclaration()) {
+      // If the function has no body, conservatively assume that all args are
+      // read + written.
+      recordArgAccessKind(idx, true, true);
+      continue;
+    }
+
+    Value bbArg = funcOp.getArgument(idx);
+
+    // You can't call `state.isValueRead` or `state.isValueWritten` on memref
+    // values. So search for a `bufferization.to_tensor` op that has a
+    // `restrict` attribute.
+    if (auto memrefType = dyn_cast<MemRefType>(bbArg.getType())) {
+      bufferization::ToTensorOp toTensorOp;
+      for (Operation *user : bbArg.getUsers()) {
+        if (auto toTensorUser = dyn_cast<bufferization::ToTensorOp>(user)) {
+          toTensorOp = toTensorUser;
+          break;
+        }
+      }
+      // If we fail to find a `bufferization.to_tensor` op that has a
+      // `restrict` attribute, conservatively assume that the memref bbArg is
+      // read + written.
+      if (!toTensorOp || !toTensorOp.getRestrict()) {
+        recordArgAccessKind(idx, true, true);
+        continue;
+      }
+      bbArg = toTensorOp.getResult();
+    }
+
+    bool isRead;
+    bool isWritten;
+    if (auto accessAttr = funcOp.getArgAttrOfType<StringAttr>(
+            idx, BufferizationDialect::kBufferAccessAttrName)) {
+      // Buffer access behavior is specified on the function. Skip the
+      // analysis.
+      StringRef str = accessAttr.getValue();
+      isRead = str == "read" || str == "read-write";
+      isWritten = str == "write" || str == "read-write";
+    } else {
+      // Analyze the body of the function.
+      isRead = state.isValueRead(bbArg);
+      isWritten = state.isValueWritten(bbArg);
+    }
+
+    recordArgAccessKind(idx, isRead, isWritten);
   }
 
   return success();

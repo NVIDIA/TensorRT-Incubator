@@ -297,6 +297,40 @@ Status Executable::verify() const {
 //===----------------------------------------------------------------------===//
 // RuntimeSessionOptions
 //===----------------------------------------------------------------------===//
+RuntimeSessionOptions::RuntimeSessionOptions(int32_t numDevices,
+                                             int32_t deviceId,
+                                             llvm::StringRef ncclUuid)
+    : numDevices(numDevices), deviceId(deviceId), ncclUuid(ncclUuid) {
+  this->enableFeatures({"core"});
+}
+
+void RuntimeSessionOptions::enableFeatures(
+    llvm::ArrayRef<std::string> toEnable) {
+  for (const auto &feature : toEnable) {
+    if (feature == "cuda") {
+      // If the "cuda" feature is enabled, then we need to enable a module
+      // that provides the device ID and number of devices. This is either SPMD
+      // (default module for single-device, no NCCL/MPI) or NCCL.
+      if (!features.contains("single-device") && !features.contains("nccl"))
+        this->enableFeatures({"single-device"});
+    }
+    // If we enable the NCCL feature, disable the SPMD feature if present.
+    if (feature == "nccl") {
+      // If the "nccl" feature is enabled, then we override the default
+      // "single-device" feature.
+      if (auto it = features.find("single-device"); it != features.end())
+        features.erase(it);
+
+      // If NCCL is enabled, then enable CUDA as well.
+      this->features.insert("cuda");
+    }
+    this->features.insert(feature);
+  }
+}
+
+bool RuntimeSessionOptions::isFeatureEnabled(llvm::StringRef feature) const {
+  return features.contains(feature);
+}
 
 StatusOr<RuntimeSessionOptions>
 RuntimeSessionOptions::createUsingSingleHostMpi() {
@@ -581,6 +615,46 @@ void ResourceTracker::untrack(uintptr_t ptr) { tracker.erase(ptr); }
 
 StatusOr<std::unique_ptr<Device>> Device::create(int32_t deviceNumber) {
   return std::unique_ptr<Device>(new Device(deviceNumber));
+}
+
+//===----------------------------------------------------------------------===//
+// ScalarValue
+//===----------------------------------------------------------------------===//
+
+ScalarValue::ScalarValue(ScalarValue &&other) noexcept
+    : RuntimeValue(Kind::Scalar), type(other.type) {
+  if (other.isComplex()) {
+    data.complex = other.data.complex;
+    other.data.complex = nullptr;
+  } else {
+    data.real = other.data.real;
+  }
+}
+
+ScalarValue &ScalarValue::operator=(ScalarValue &&other) noexcept {
+  if (this != &other) {
+    cleanup();
+    type = other.type;
+    if (other.isComplex()) {
+      data.complex = other.data.complex;
+      other.data.complex = nullptr;
+    } else {
+      data.real = other.data.real;
+    }
+  }
+  return *this;
+}
+
+ScalarValue::~ScalarValue() { cleanup(); }
+
+void ScalarValue::cleanup() {
+  if (isComplex()) {
+    if (type.getCode() == ScalarTypeCode::complex32) {
+      delete static_cast<std::complex<float> *>(data.complex);
+    } else {
+      delete static_cast<std::complex<double> *>(data.complex);
+    }
+  }
 }
 
 //===----------------------------------------------------------------------===//
@@ -985,8 +1059,9 @@ StatusOr<std::unique_ptr<RuntimeClient>> RuntimeClient::create() {
   // Setup device objects. Create a view of the device pointers.
   llvm::SmallVector<std::unique_ptr<Device>> devices;
   mlirtrt::Status status = populateDevices(devices);
-  if (!status.isOk())
-    return status;
+  if (!status.isOk()) {
+    // TODO: we should emit a warning here.
+  }
 
   auto defaultAllocator = std::make_unique<DefaultClientAllocator>();
 

@@ -1,7 +1,7 @@
 // REQUIRES: host-has-at-least-1-gpus
 // RUN: mlir-tensorrt-opt %s -convert-memref-to-cuda -convert-cuda-to-executor -executor-lowering-pipeline \
 // RUN:   | mlir-tensorrt-translate -mlir-to-runtime-executable \
-// RUN:   | mlir-tensorrt-runner -input-type=rtexe | FileCheck %s
+// RUN:   | mlir-tensorrt-runner -input-type=rtexe -features=core,cuda | FileCheck %s
 
 func.func @run_with_shape_2d(%arg0: memref<?xindex>, %arg1: memref<2xindex>) {
   %c0 = arith.constant 0 : index

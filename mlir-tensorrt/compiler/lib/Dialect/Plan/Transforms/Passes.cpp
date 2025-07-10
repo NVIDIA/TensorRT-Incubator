@@ -1,7 +1,6 @@
-//===- Passes.cpp
-//----------------------------------------------------------===//
+//===- Passes.cpp --------------------------------------------------------===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -63,6 +62,11 @@ static void buildPlanOneShotBufferizePipelinePipeline(
   pm.addPass(createInlinerPass());
   pm.addPass(bufferization::createEmptyTensorEliminationPass());
   pm.addPass(plan::createPlanAssignMemorySpacesPass());
+  pm.addNestedPass<func::FuncOp>(plan::createPlanOptimizeMemorySpacesPass());
+  pm.addNestedPass<func::FuncOp>(
+      plan::createPlanPromoteHostTensorsToHostPinnedPass());
+  pm.addNestedPass<func::FuncOp>(
+      plan::createPlanMaterializeExplicitTransfersPass());
   pm.addPass(plan::createPlanAllocTensorsPass(opts));
   pm.addPass(plan::createPlanModuleBufferizePass());
   pm.addPass(mlir::createMemRefCastEliminationPass());
@@ -92,9 +96,10 @@ static void buildPlanBufferDeallocationPipeline(
   pm.addPass(createCanonicalizerPass());
   pm.addPass(bufferization::createBufferDeallocationSimplificationPass());
   pm.addPass(bufferization::createLowerDeallocationsPass());
-  pm.addPass(mlir::createBufferizationToMemRefPass());
-  pm.addPass(createCSEPass());
-  pm.addPass(createCanonicalizerPass());
+  pm.addNestedPass<func::FuncOp>(
+      mlir::createConvertBufferizationToMemRefPass());
+  pm.addNestedPass<func::FuncOp>(createCSEPass());
+  pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
 }
 
 namespace {
