@@ -100,21 +100,23 @@ nv_register_package(
 # Stablehlo
 #-------------------------------------------------------------------------------------
 set(stablehlo_patch_dir "${CMAKE_SOURCE_DIR}/build_tools/patches/stablehlo")
+set(MLIR_TRT_STABLEHLO_COMMIT "4bf77d23bd9150782a70d85fda9c12a2dec5328c")
+
 
 nv_register_package(
   NAME Stablehlo
-  VERSION 1.9.3
-  GIT_TAG 4bf77d23bd9150782a70d85fda9c12a2dec5328c
-  GIT_REPOSITORY "https://github.com/openxla/stablehlo.git"
-  PATCHES
-    "${stablehlo_patch_dir}/0001-Fix-a-couple-missing-checks-for-static-shapes-in-sta.patch"
-    "${stablehlo_patch_dir}/0002-cmake-Update-usage-of-HandleLLVMOptions-and-LLVM_DEF.patch"
-    "${stablehlo_patch_dir}/0004-Fix-ZeroExtent-condition-in-simplification-pattern.patch"
-    "${stablehlo_patch_dir}/0006-Remove-explicit-use-of-LLVMSupport.patch"
-    "${stablehlo_patch_dir}/0007-Fix-circular-dependence-between-StablehloPasses-and-.patch"
+  URL "https://github.com/openxla/stablehlo/archive/${MLIR_TRT_STABLEHLO_COMMIT}.zip"
+  EXCLUDE_FROM_ALL TRUE
   OPTIONS
     "STABLEHLO_ENABLE_BINDINGS_PYTHON ON"
     "STABLEHLO_BUILD_EMBEDDED ON"
+  PATCHES
+   "${stablehlo_patch_dir}/0001-cmake-Update-usage-of-HandleLLVMOptions-and-LLVM_DEF.patch"
+   "${stablehlo_patch_dir}/0002-Fix-ZeroExtent-condition-in-simplification-pattern.patch"
+   "${stablehlo_patch_dir}/0003-Remove-explicit-use-of-LLVMSupport.patch"
+   "${stablehlo_patch_dir}/0004-Fix-circular-dependence-between-StablehloPasses-and-.patch"
+   "${stablehlo_patch_dir}/0005-Modernize-the-stablehlo-convert-to-signless-pass.patch"
+
   POST_ADD_HOOK [[
     # Mimic what a StablehloConfig.cmake file would do.
     set(STABLEHLO_INCLUDE_DIRS

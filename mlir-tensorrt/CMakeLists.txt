@@ -173,7 +173,7 @@ include(HandleLLVMOptions)
 # -------------------------------------------------
 
 # Download Stablehlo if it isn't provided by a parent project.
-if(MLIR_TRT_ENABLE_HLO AND NOT TARGET StablehloOps)
+if(MLIR_TRT_ENABLE_HLO)
   find_package(Stablehlo REQUIRED)
   include_directories(${STABLEHLO_INCLUDE_DIRS})
 endif()

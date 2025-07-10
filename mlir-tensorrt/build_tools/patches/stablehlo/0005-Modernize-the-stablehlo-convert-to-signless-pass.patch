@@ -1,0 +1,112 @@
+From 71e198eeffaacb6fc8057d94d20d662aad3f305b Mon Sep 17 00:00:00 2001
+From: Christopher Bate <cbate@nvidia.com>
+Date: Fri, 4 Jul 2025 15:04:55 +0000
+Subject: [PATCH 5/5] Modernize the 'stablehlo-convert-to-signless' pass
+
+- 'arith.constant' doesn't allow unsigned integers, so remove that
+  conversion (which is also untested)
+- Handle 'stablehlo.constant' and handle ElementsAttr cases for
+  DenseElementsAttr and DenseResourceElementsAttr efficiently.
+---
+ .../transforms/StablehloConvertToSignless.cpp | 54 +++++++++++--------
+ 1 file changed, 33 insertions(+), 21 deletions(-)
+
+diff --git a/stablehlo/transforms/StablehloConvertToSignless.cpp b/stablehlo/transforms/StablehloConvertToSignless.cpp
+index 0d16756a..c1298009 100644
+--- a/stablehlo/transforms/StablehloConvertToSignless.cpp
++++ b/stablehlo/transforms/StablehloConvertToSignless.cpp
+@@ -16,20 +16,18 @@ limitations under the License.
+ #include <utility>
+ 
+ #include "llvm/ADT/STLExtras.h"
+-#include "llvm/ADT/SmallVector.h"
+ #include "mlir/Dialect/Arith/IR/Arith.h"
+ #include "mlir/Dialect/Func/IR/FuncOps.h"
+-#include "mlir/IR/BuiltinAttributes.h"
++#include "mlir/IR/AsmState.h"
+ #include "mlir/IR/BuiltinTypeInterfaces.h"
+-#include "mlir/IR/BuiltinTypes.h"
++#include "mlir/IR/DialectResourceBlobManager.h"
+ #include "mlir/IR/MLIRContext.h"
+ #include "mlir/IR/Operation.h"
+ #include "mlir/IR/PatternMatch.h"
+-#include "mlir/IR/Region.h"
+ #include "mlir/Pass/Pass.h"
+ #include "mlir/Support/LLVM.h"
+-#include "mlir/Support/LogicalResult.h"
+ #include "mlir/Transforms/DialectConversion.h"
++#include "stablehlo/dialect/StablehloOps.h"
+ #include "stablehlo/transforms/conversions/TypeConversion.h"
+ 
+ namespace mlir {
+@@ -71,26 +69,39 @@ class ConvertToSignless : public ConversionPattern {
+ };
+ 
+ // A pattern that converts the type of the attribute used as an operand for
+-// arith.constant
+-class ConvertConstantToSignless
+-    : public OpConversionPattern<arith::ConstantOp> {
++// stablehlo.constant
++class ConvertConstantToSignless : public OpConversionPattern<ConstantOp> {
+  public:
+   ConvertConstantToSignless(TypeConverter& typeConverter, MLIRContext* context)
+-      : OpConversionPattern<arith::ConstantOp>(typeConverter, context) {}
++      : OpConversionPattern<ConstantOp>(typeConverter, context) {}
+ 
+   LogicalResult matchAndRewrite(
+-      arith::ConstantOp constantOp, arith::ConstantOpAdaptor adaptor,
++      ConstantOp constantOp, ConstantOpAdaptor adaptor,
+       ConversionPatternRewriter& rewriter) const override {
+-    // We only care about unsigned integers
+-    if (!isa<DenseIntElementsAttr>(adaptor.getValue())) return failure();
+-
+-    auto values = llvm::to_vector(
+-        cast<DenseIntElementsAttr>(adaptor.getValue()).getValues<APInt>());
++    RankedTensorType originalType = constantOp.getType();
++    if (!originalType.getElementType().isUnsignedInteger()) return failure();
+     Type type = typeConverter->convertType(constantOp.getType());
++    if (!type) return failure();
+     auto shapedType = dyn_cast<ShapedType>(type);
+-    auto newValues = DenseIntElementsAttr::get(shapedType, values);
++    if (!shapedType) return failure();
++
++    // Conver the ElementsAttr type to use the new signless integer type.
++    ElementsAttr values = constantOp.getValue();
++    if (auto denseIntElementsAttr = dyn_cast<DenseIntElementsAttr>(values)) {
++      // For DenseElementsAttr, we can just use the 'bitcast' method.
++      values = denseIntElementsAttr.bitcast(shapedType.getElementType());
++    } else if (auto resourceAttr =
++                   dyn_cast<DenseResourceElementsAttr>(values)) {
++      // For DenseResourceElementsAttr, we can create a new
++      // DenseResourceElementsAttr with the new type but use the original
++      // handle.
++      DenseResourceElementsHandle handle = resourceAttr.getRawHandle();
++      values = DenseResourceElementsAttr::get(shapedType, handle);
++    } else {
++      return failure();
++    }
+ 
+-    rewriter.replaceOpWithNewOp<arith::ConstantOp>(constantOp, newValues);
++    rewriter.replaceOpWithNewOp<ConstantOp>(constantOp, shapedType, values);
+     return success();
+   }
+ };
+@@ -111,10 +122,11 @@ struct StablehloConvertToSignlessPass
+     target.addDynamicallyLegalOp<func::FuncOp>([&](func::FuncOp op) {
+       return converter.isSignatureLegal(op.getFunctionType());
+     });
+-    target.addDynamicallyLegalOp<arith::ConstantOp>([&](arith::ConstantOp op) {
+-      return converter.isLegal(op.getType()) &&
+-             converter.isLegal(op.getValue().getType());
+-    });
++    target.addDynamicallyLegalOp<stablehlo::ConstantOp>(
++        [&](stablehlo::ConstantOp op) {
++          return converter.isLegal(op.getType()) &&
++                 converter.isLegal(op.getValue().getType());
++        });
+ 
+     RewritePatternSet patterns(&getContext());
+     patterns.add<ConvertToSignless, ConvertConstantToSignless>(converter,
+-- 
+2.49.0
+

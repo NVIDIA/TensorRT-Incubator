@@ -19,7 +19,7 @@ macro(nv_add_package name)
     cmake_language(EVAL CODE "${_vap_PRE_ADD_HOOK}")
   endif()
   if(_vap_DOWNLOAD_NAME)
-    mlir_tensorrt_aCPdd_package(
+    mlir_tensorrt_add_package(
       NAME ${_vap_DOWNLOAD_NAME}
       ${_vap_UNPARSED_ARGUMENTS})
     set(${NAME}_SOURCE_DIR
