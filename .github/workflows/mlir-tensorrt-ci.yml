@@ -37,48 +37,6 @@ jobs:
           sudo apt-get autoremove -y
           sudo apt-get autoclean -y
 
-      # Value of `github.workspace` is /home/runner/work/{repo_name}/{repo-name}
-      # i.e. /home/runner/work/TensorRT-Incubator/TensorRT-Incubator in our case.
-      # After this action, repo is cloned inside above path.
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 5
-
-      - name: Validate commit message
-        if: ${{ github.event_name == 'pull_request' }}
-        env:
-          PR_HEAD_COMMIT_SHA: ${{ github.event.pull_request.head.sha }}
-        run: |
-          cat > commit_message_checker.py <<EOF
-          #!/usr/bin/python3
-          import re
-          import sys
-          import subprocess
-
-          git_cmd = f"git show -s --format=%B {sys.argv[1]}"
-          try:
-            commit_message_cmd = subprocess.run(git_cmd.split(' '), capture_output=True, text=True, check=True)
-            commit_message = commit_message_cmd.stdout.strip()
-          except subprocess.CalledProcessError as e:
-            print(f"Failed to get PR HEAD commit message with error: {e.stderr.strip()}")
-
-          match = re.search(r"^(\[bot\].+|NFC: .+|(.+\n\n+.+\n+.+))$", commit_message, re.DOTALL)
-          if match:
-            print("Commit message is in canonical form :)")
-            sys.exit(0)
-          print("Commit message is not in the canonical form!")
-          print(commit_message)
-          print("")
-          print("Expected format is, ")
-          print("<title>")
-          print("<body>")
-          print("NOTE: Body should start on new line. '2 spaces + enter' for new line!")
-          print("NOTE: Body should be at least two lines.")
-          sys.exit(1)
-          EOF
-
-          python3 commit_message_checker.py ${PR_HEAD_COMMIT_SHA}
-
       # Run initial format check
       - name: Run python format and clang check
         uses: addnab/docker-run-action@v3
