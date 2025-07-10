@@ -1,8 +1,10 @@
-From f20e3614c528d44e0d877cf6cb29ffa90a5ceab8 Mon Sep 17 00:00:00 2001
-From: Sagar Shelke <shelkesagar29@yahoo.com>
-Date: Tue, 1 Jul 2025 21:54:40 +0000
-Subject: [PATCH] Apply patch
+From 604e5c6106d428612a4137e12d316fec8d5578c5 Mon Sep 17 00:00:00 2001
+From: Christopher Bate <cbate@nvidia.com>
+Date: Sun, 23 Mar 2025 01:54:33 +0000
+Subject: [PATCH 4/5] Fix circular dependence between StablehloPasses and
+ StablehloOptimizationPasses
 
+Fixes build when BUILD_SHARED_LIBS=ON.
 ---
  stablehlo/transforms/CMakeLists.txt              | 12 +++++++++++-
  stablehlo/transforms/optimization/CMakeLists.txt |  1 +
@@ -57,5 +59,5 @@ index d43d77be..d063a49d 100644
    StablehloTypeInference
  )
 -- 
-2.48.1
+2.49.0
 

@@ -1,8 +1,37 @@
-From 25883f24b5e027eb0a09c041a6ac6192d8817042 Mon Sep 17 00:00:00 2001
-From: Sagar Shelke <shelkesagar29@yahoo.com>
-Date: Tue, 1 Jul 2025 21:49:41 +0000
-Subject: [PATCH] Apply patch
+From 001e90350acd87b8c0cb9282220d968768ee15c8 Mon Sep 17 00:00:00 2001
+From: Christopher Bate <cbate@nvidia.com>
+Date: Sat, 15 Feb 2025 22:02:17 +0000
+Subject: [PATCH 1/5] [cmake] Update usage of `HandleLLVMOptions` and
+ `LLVM_DEFINITIONS`
 
+This change attempts to resolve issues with use of `HandleLLVMOptions`
+and `LLVM_DEFINITIONS`, see
+https://github.com/llvm/llvm-project/issues/125779.
+
+Note that this is a breaking change because it could cause build
+breakage for downstream users. As noted in the comments added to the
+CMakeLists.txt file, there may not be one perfect CMake incantation
+for setting Stablehlo's options that works for all users.
+
+Since it's easier to *add* compiler options at a specific scope than it is
+to alter/remove options that Stablehlo itself is setting, this change
+is hoisting responsibility to the user for setting any compiler
+options previously provided by the `HandleLLVMOptions` call when
+building in embedded mode.
+
+This means that if user was using
+`FetchContent|add_subdirectory|CPMAddPackage` to build Stablehlo
+in their project, they should invoke
+
+```
+find_package(LLVM CONFIG REQUIRED)
+separate_arguments(LLVM_DEFINITIONS_LIST NATIVE_COMMAND ${LLVM_DEFINITIONS})
+add_definitions(${LLVM_DEFINITIONS_LIST})
+include(HandleLLVMOptions)
+```
+
+in their project at the appropriate scope, or set desired flags in some
+other manner.
 ---
  CMakeLists.txt | 40 ++++++++++++++++++++++++++++++++++++----
  1 file changed, 36 insertions(+), 4 deletions(-)
@@ -76,5 +105,5 @@ index bf5f0172..2a119e01 100644
  #-------------------------------------------------------------------------------
  # Sanitizer configuration
 -- 
-2.48.1
+2.49.0
 
