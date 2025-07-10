@@ -1095,6 +1095,44 @@ func.func @coro_await() -> (i32) {
 
 // -----
 
+// This test ensures that an operation with both local and outer-scope results
+// can be emitted correctly.
+
+func.func @coro(%arg0: i32) -> i32 {
+  executor.coro_yield %arg0 : i32
+  return %arg0 : i32
+}
+
+func.func @test_mixed_scoped_results() -> (i32) {
+  %c0 = executor.constant 0 : i32
+  cf.br ^bb0
+^bb0:
+  %coro = executor.coro_create @coro : (i32) -> i32
+  %0:2 = executor.coro_await %coro () : (i32) -> i32
+  cf.br ^bb1
+^bb1:
+  return %0#1 : i32
+}
+
+
+// CHECK-LABEL: function coro
+// CHECK-LABEL: function test_mixed_scoped_results ()
+//  CHECK-NEXT:   local [[l0:.+]] = nil;
+//  CHECK-NEXT:   local [[l1:.+]] <const> = 0;
+//  CHECK-NEXT:   goto label1;
+//  CHECK-NEXT:   ::label1:: do
+//  CHECK-NEXT:     local [[l2:.+]] <const> = coroutine.create(coro);
+//  CHECK-NEXT:     local [[l3:.+]] <const>;
+//  CHECK-NEXT:     [[l3]], [[l0]] = coroutine.resume([[l2]]);
+//  CHECK-NEXT:     goto label2;
+//  CHECK-NEXT:   end
+//  CHECK-NEXT:   ::label2:: do
+//  CHECK-NEXT:     return [[l0]];
+//  CHECK-NEXT:   end
+//  CHECK-NEXT: end
+
+// -----
+
 func.func @test_values_with_external_use(%arg0: i32) -> i32 {
   %c1 = executor.constant 1 : i32
   cf.br ^bb0

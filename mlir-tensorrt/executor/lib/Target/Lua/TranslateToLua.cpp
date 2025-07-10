@@ -803,25 +803,47 @@ LogicalResult LuaEmitter::emitAssignPrefix(Operation *op) {
   // since MLIR guarantees that we can't jump into the scope of these variables.
   constexpr unsigned kMaxNumLocals = 200;
   bool isEntryBlock = op->getBlock()->isEntryBlock();
-  bool isLocalVar =
-      (isEntryBlock || !op->isUsedOutsideOfBlock(op->getBlock())) &&
-      localsInScopeCount.top() + op->getNumResults() < kMaxNumLocals;
+  // Helper to check if a value can be emitted as a local variable.
+  auto isLocalVar = [&](Value v) -> bool {
+    return (isEntryBlock || !v.isUsedOutsideOfBlock(op->getBlock())) &&
+           localsInScopeCount.top() + op->getNumResults() < kMaxNumLocals;
+  };
+  SmallVector<Value> localVars;
+  for (Value v : op->getResults()) {
+    if (isLocalVar(v))
+      localVars.push_back(v);
+  }
 
-  if (isLocalVar)
+  // Inline variable declarations when all results are locals.
+  if (localVars.size() == op->getNumResults()) {
     os << "local ";
+    llvm::interleaveComma(op->getResults(), os,
+                          [&](Value v) { os << createLocalVariableName(v); });
+    // Starting in Lua 5.4, it supports "<const>" attributes for local vars,
+    // which can save a lot of register movement, especially when passed to
+    // calls.
+    os << " <const> = ";
+    return success();
+  }
 
+  // Otherwise, declare the locals separately first before assignment.
+  if (!localVars.empty()) {
+    os << "local ";
+    llvm::interleaveComma(localVars, os,
+                          [&](Value v) { os << createLocalVariableName(v); });
+    os << " <const>;\n";
+  }
   llvm::interleaveComma(op->getResults(), os, [&](Value v) {
-    os << (isLocalVar          ? createLocalVariableName(v)
-           : isValueInScope(v) ? getVariableName(v)
-                               : createGlobalVariableName(v));
+    // TODO: if a value is not in scope at this point, we emit it as a global
+    // variable. This can lead to unintended global sharing between Lua threads.
+    // Use a local table to store the values instead.
+    if (isValueInScope(v))
+      os << getVariableName(v);
+    else
+      os << createGlobalVariableName(v);
   });
-
-  // Starting in Lua 5.4, it supports "<const>" attributes for local vars, which
-  // can save a lot of register movement, especially when passed to calls.
-  if (isLocalVar)
-    os << " <const> ";
-
   os << " = ";
+
   return success();
 }
 
@@ -897,11 +919,7 @@ LogicalResult LuaEmitter::emitBlock(Block &block, bool isEntryBlock) {
       // block if they are used outside of the block.
       for (Operation &op : otherBlock) {
         for (Value result : op.getResults()) {
-          bool usedOutside = llvm::any_of(
-              result.getUsers(), [otherBlock = &otherBlock](Operation *userOp) {
-                return userOp->getBlock() != otherBlock;
-              });
-          if (usedOutside) {
+          if (result.isUsedOutsideOfBlock(&otherBlock)) {
             getStream() << "local " << createLocalVariableName(result)
                         << " = nil;\n";
           }
