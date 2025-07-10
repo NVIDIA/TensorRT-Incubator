@@ -357,6 +357,33 @@ def ConvertStablehloToScfPass : Pass<"convert-stablehlo-to-scf"> {
 }
 
 //===----------------------------------------------------------------------===//
+// StablehloToLinalg
+//===----------------------------------------------------------------------===//
+
+def StablehloToLinalgPass : Pass<"convert-stablehlo-to-linalg"> {
+  let summary = "Convert Stablehlo dialect to Linalg dialect";
+  let description = [{
+    This pass converts supported Stablehlo dialect ops to the Linalg dialect.
+
+    This pass just uses the patterns of the upstream
+    `stablehlo-legalize-to-linalg` pass, but we correct an issue where
+    operations inside of regions like `stablehlo.reduce` are converted.
+
+    TODO: Remove this pass once the upstream pass is fixed.
+  }];
+  let dependentDialects = [
+    "::mlir::bufferization::BufferizationDialect",
+    "::mlir::complex::ComplexDialect",
+    "::mlir::linalg::LinalgDialect",
+    "::mlir::math::MathDialect",
+    "::mlir::arith::ArithDialect",
+    "::mlir::tensor::TensorDialect",
+    "::mlir::scf::SCFDialect",
+    "::mlir::shape::ShapeDialect"
+  ];
+}
+
+//===----------------------------------------------------------------------===//
 // StablehloScalarToArith
 //===----------------------------------------------------------------------===//
 def ConvertStablehloScalarToArithPass : Pass<"convert-stablehlo-scalar-to-arith"> {
@@ -378,6 +405,6 @@ def ConvertStablehloScalarToArithPass : Pass<"convert-stablehlo-scalar-to-arith"
     "::mlir::math::MathDialect"
   ];
 }
-#endif
+#endif // MLIR_TENSORRT_ENABLE_HLO
 
 #endif // MLIR_TENSORRT_CONVERSION_PASSES_TD

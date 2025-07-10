@@ -91,7 +91,7 @@ class ProcessHostClustersPass
 public:
   ProcessHostClustersPass() {
     dynamicPM = OpPassManager("func.func");
-    dynamicPM.addPass(stablehlo::createStablehloLegalizeToLinalgPass());
+    dynamicPM.addPass(mlir::createStablehloToLinalgPass());
     dynamicPM.addPass(mlir::createLinalgDetensorizePass(
         mlir::LinalgDetensorizePassOptions{/*aggressiveMode=*/true}));
     dynamicPM.addPass(mlir::createConvertToLoops());
