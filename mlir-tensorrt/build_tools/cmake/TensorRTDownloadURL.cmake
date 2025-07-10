@@ -76,6 +76,10 @@ function(mtrt_get_tensorrt_download_url ARG_VERSION OS_NAME TARGET_ARCH ARG_OUT_
     set(ARG_VERSION "10.9.0.34")
   endif()
 
+  if(ARG_VERSION VERSION_EQUAL "10.12")
+    set(ARG_VERSION "10.12.0.36")
+  endif()
+
   set(downloadable_versions
     "8.6.1.6"
     "9.0.1.4" "9.1.0.4" "9.2.0.5"
@@ -92,6 +96,7 @@ function(mtrt_get_tensorrt_download_url ARG_VERSION OS_NAME TARGET_ARCH ARG_OUT_
     "10.7.0.23"
     "10.8.0.43"
     "10.9.0.34"
+    "10.12.0.36"
   )
 
   if(NOT ARG_VERSION IN_LIST downloadable_versions)
@@ -146,18 +151,19 @@ function(mtrt_get_tensorrt_download_url ARG_VERSION OS_NAME TARGET_ARCH ARG_OUT_
     endif()
   endif()
 
-  # Handle TensorRT 8 versions. These are publicly accessible download links.
-  if(ARG_VERSION VERSION_LESS 9.0)
-    set(TRT_CUDA_VERSION 12.0)
-  elseif(ARG_VERSION VERSION_GREATER 10.2 AND
+  if(ARG_VERSION VERSION_GREATER 10.2 AND
      ARG_VERSION VERSION_LESS 10.4)
     set(TRT_CUDA_VERSION 12.5)
   elseif(
       ARG_VERSION VERSION_GREATER 10.4 AND
       ARG_VERSION VERSION_LESS 10.8)
     set(TRT_CUDA_VERSION 12.6)
-  elseif(ARG_VERSION VERSION_GREATER 10.7)
+  elseif(ARG_VERSION VERSION_GREATER 10.7
+      AND ARG_VERSION VERSION_LESS 10.10)
     set(TRT_CUDA_VERSION 12.8)
+  elseif(ARG_VERSION VERSION_GREATER 10.10
+      AND ARG_VERSION VERSION_LESS 10.13)
+    set(TRT_CUDA_VERSION 12.9)
   endif()
 
   # Handle TRT 8 versions.
