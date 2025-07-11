@@ -76,3 +76,15 @@ func.func @remf(%arg0: f32, %arg1: f32) -> f32 {
 //  BOTH-SAME: (%[[arg0:.+]]: f32, %[[arg1:.+]]: f32) -> f32
 //       BOTH:     %[[v0:.+]] = executor.remf %[[arg0]], %[[arg1]]
 //       BOTH:     return %[[v0]] : f32
+
+// -----
+
+func.func @uitofp(%arg0: i32) -> f32 {
+  %0 = arith.uitofp %arg0 : i32 to f32
+  return %0 : f32
+}
+
+// BOTH-LABEL: @uitofp
+//  BOTH-SAME: (%[[arg0:.+]]: i32) -> f32
+//       BOTH:     %[[v0:.+]] = executor.uitofp %[[arg0]] : i32 to f32
+//       BOTH:     return %[[v0]] : f32
