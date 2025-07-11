@@ -723,6 +723,24 @@ static LogicalResult printOperation(LuaEmitter &emitter, executor::FuncOp op) {
   return success();
 }
 
+static LogicalResult printOperation(LuaEmitter &emitter,
+                                    executor::SIToFPOp op) {
+  if (failed(emitter.emitAssignPrefix(op)))
+    return failure();
+  emitter << "_sitofp_" << op.getOperand().getType() << "_" << op.getType()
+          << "(" << emitter.getVariableName(op.getOperand()) << ");\n";
+  return success();
+}
+
+static LogicalResult printOperation(LuaEmitter &emitter,
+                                    executor::UIToFPOp op) {
+  if (failed(emitter.emitAssignPrefix(op)))
+    return failure();
+  emitter << "_uitofp_" << op.getOperand().getType() << "_" << op.getType()
+          << "(" << emitter.getVariableName(op.getOperand()) << ");\n";
+  return success();
+}
+
 //===----------------------------------------------------------------------===//
 // LuaEmitter implementation
 //===----------------------------------------------------------------------===//
@@ -1015,6 +1033,8 @@ LogicalResult LuaEmitter::emitOperation(Operation &op) {
         .Case<executor::IntToPtrOp>([&](auto op) {
           return printIntToPtrOp(*this, op, moduleDataLayout);
         })
+        .Case<executor::SIToFPOp, executor::UIToFPOp>(
+            [&](auto op) { return printOperation(*this, op); })
         .Default([&](Operation *) {
           return op.emitOpError("unable to find printer for op");
         });

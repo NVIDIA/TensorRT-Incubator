@@ -651,6 +651,18 @@ func.func @exec_sitofp_i32_f64(%arg0: i32) -> f64
 
 // -----
 
+func.func @exec_uitofp_i32_f64(%arg0: i32) -> f64 {
+  %0 = executor.uitofp %arg0 : i32 to f64
+  return %0 : f64
+}
+// CHECK-LABEL: exec_uitofp_i32_f64
+//  CHECK-SAME: ([[v1:.+]])
+//  CHECK-NEXT:     local [[v2:.+]] <const> = _uitofp_i32_f64([[v1]]);
+//  CHECK-NEXT:     return [[v2]];
+//  CHECK-NEXT: end
+
+// -----
+
 func.func @exec_fptosi_f32_i64(%arg0: f32) -> i64
   attributes{executor.function_metadata=#executor.func_meta<[f32],[i64], num_output_args = 0>}{
   %0 = executor.fptosi %arg0 : f32 to i64
