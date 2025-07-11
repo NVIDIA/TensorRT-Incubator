@@ -128,7 +128,6 @@ static bool checkAccessBounds(lua_State *state, const AllocTracker &tracker,
     }
 
     if (offset + sizeof(ElementType) > srcInfo.size) {
-      // luaL_error(state, )
       auto errMsg = llvm::formatv(
           "attempting to access memory in range [{0} + {1}, {0} + {2}), "
           "which will access memory out of bounds (size of allocation is {3})",
@@ -155,6 +154,11 @@ T remf(T lhs, T rhs) {
     static_assert(std::is_same_v<T, nv_bfloat16>, "unsupported llvm_remf type");
     return nv_bfloat16(std::fmod(__bfloat162float(lhs), __bfloat162float(rhs)));
   }
+}
+
+template <typename InpType, typename ResType>
+auto extf(InpType input) {
+  return static_cast<ResType>(input);
 }
 
 //===----------------------------------------------------------------------===//
@@ -483,55 +487,41 @@ static void registerExecutorCoreModuleLuaRuntimeMethods(
   //===----------------------------------------------------------------------===//
   // executor.sitofp
   //===----------------------------------------------------------------------===//
+  // executor.sitofp, executor.uitofp
+  //===----------------------------------------------------------------------===//
 
-#define DEFINE_SITOFP_METHOD(inpSuffix, resSuffix, inpType, resType)           \
-  lua["_sitofp_" #inpSuffix "_" #resSuffix] = [](inpType input) -> resType {   \
-    ADD_CORE_MODULE_RANGE("core_sitofp");                                      \
-    return static_cast<resType>(input);                                        \
-  }
+#define REGISTER_TOFP_FUNCS(inpSuffix, resSuffix, inpType, resType)            \
+  lua["_sitofp_" #inpSuffix "_" #resSuffix] = extf<inpType, resType>;          \
+  lua["_uitofp_" #inpSuffix "_" #resSuffix] =                                  \
+      extf<std::make_unsigned_t<inpType>, resType>
 
-  DEFINE_SITOFP_METHOD(i8, f8E4M3FN, int8_t, fp8_e4m3fn);
-  DEFINE_SITOFP_METHOD(i16, f8E4M3FN, int16_t, fp8_e4m3fn);
-  DEFINE_SITOFP_METHOD(i32, f8E4M3FN, int32_t, fp8_e4m3fn);
-  DEFINE_SITOFP_METHOD(i64, f8E4M3FN, int64_t, fp8_e4m3fn);
-  DEFINE_SITOFP_METHOD(i8, bf16, int8_t, nv_bfloat16);
-  DEFINE_SITOFP_METHOD(i16, bf16, int16_t, nv_bfloat16);
-  DEFINE_SITOFP_METHOD(i32, bf16, int32_t, nv_bfloat16);
-  DEFINE_SITOFP_METHOD(i64, bf16, int64_t, nv_bfloat16);
-  DEFINE_SITOFP_METHOD(i8, f32, int8_t, float);
-  DEFINE_SITOFP_METHOD(i8, f64, int8_t, double);
-  DEFINE_SITOFP_METHOD(i16, f32, int16_t, float);
-  DEFINE_SITOFP_METHOD(i16, f64, int16_t, double);
-  DEFINE_SITOFP_METHOD(i32, f32, int32_t, float);
-  DEFINE_SITOFP_METHOD(i32, f64, int32_t, double);
-  DEFINE_SITOFP_METHOD(i64, f32, int64_t, float);
-  DEFINE_SITOFP_METHOD(i64, f64, int64_t, double);
-  DEFINE_SITOFP_METHOD(i4, f32, nv_int4, float);
-  DEFINE_SITOFP_METHOD(i4, f64, nv_int4, double);
-  DEFINE_SITOFP_METHOD(i4, f16, nv_int4, __half);
-  DEFINE_SITOFP_METHOD(i4, f8E4M3FN, nv_int4, fp8_e4m3fn);
-  DEFINE_SITOFP_METHOD(i4, bf16, nv_int4, nv_bfloat16);
-#undef DEFINE_SITOFP_METHOD
+  REGISTER_TOFP_FUNCS(i8, f8E4M3FN, int8_t, fp8_e4m3fn);
+  REGISTER_TOFP_FUNCS(i16, f8E4M3FN, int16_t, fp8_e4m3fn);
+  REGISTER_TOFP_FUNCS(i32, f8E4M3FN, int32_t, fp8_e4m3fn);
+  REGISTER_TOFP_FUNCS(i64, f8E4M3FN, int64_t, fp8_e4m3fn);
+  REGISTER_TOFP_FUNCS(i8, bf16, int8_t, nv_bfloat16);
+  REGISTER_TOFP_FUNCS(i16, bf16, int16_t, nv_bfloat16);
+  REGISTER_TOFP_FUNCS(i32, bf16, int32_t, nv_bfloat16);
+  REGISTER_TOFP_FUNCS(i64, bf16, int64_t, nv_bfloat16);
+  REGISTER_TOFP_FUNCS(i8, f16, int8_t, __half);
+  REGISTER_TOFP_FUNCS(i16, f16, int16_t, __half);
+  REGISTER_TOFP_FUNCS(i32, f16, int32_t, __half);
+  REGISTER_TOFP_FUNCS(i64, f16, int64_t, __half);
+  REGISTER_TOFP_FUNCS(i8, f32, int8_t, float);
+  REGISTER_TOFP_FUNCS(i16, f32, int16_t, float);
+  REGISTER_TOFP_FUNCS(i32, f32, int32_t, float);
+  REGISTER_TOFP_FUNCS(i64, f32, int64_t, float);
+  REGISTER_TOFP_FUNCS(i8, f64, int8_t, double);
+  REGISTER_TOFP_FUNCS(i16, f64, int16_t, double);
+  REGISTER_TOFP_FUNCS(i32, f64, int32_t, double);
+  REGISTER_TOFP_FUNCS(i64, f64, int64_t, double);
+  REGISTER_TOFP_FUNCS(i4, f32, nv_int4, float);
+  REGISTER_TOFP_FUNCS(i4, f64, nv_int4, double);
+  REGISTER_TOFP_FUNCS(i4, f16, nv_int4, __half);
+  REGISTER_TOFP_FUNCS(i4, f8E4M3FN, nv_int4, fp8_e4m3fn);
+  REGISTER_TOFP_FUNCS(i4, bf16, nv_int4, nv_bfloat16);
 
-  lua["_sitofp_i8_f16"] = [](int8_t input) -> __half {
-    ADD_CORE_MODULE_RANGE("core_sitofp");
-    return __float2half(static_cast<float>(input));
-  };
-
-  lua["_sitofp_i16_f16"] = [](int16_t input) -> __half {
-    ADD_CORE_MODULE_RANGE("core_sitofp");
-    return __float2half(static_cast<float>(input));
-  };
-
-  lua["_sitofp_i32_f16"] = [](int32_t input) -> __half {
-    ADD_CORE_MODULE_RANGE("core_sitofp");
-    return __float2half(static_cast<float>(input));
-  };
-
-  lua["_sitofp_i64_f16"] = [](int64_t input) -> __half {
-    ADD_CORE_MODULE_RANGE("core_sitofp");
-    return __double2half(static_cast<double>(input));
-  };
+#undef REGISTER_TOFP_FUNCS
 
   //===----------------------------------------------------------------------===//
   // executor.fptosi

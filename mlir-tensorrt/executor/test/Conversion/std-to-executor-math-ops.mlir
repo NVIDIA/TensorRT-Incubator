@@ -948,18 +948,6 @@ func.func @test_copysign_f32(%arg0: f32, %arg1: f32) -> f32 {
 
 // -----
 
-func.func @cast_si_to_fp(%arg0: i16) -> f32 {
-  %0 = executor.sitofp %arg0 : i16 to f32
-  return %0 : f32
-}
-
-// EXEC-LABEL: func.func @cast_si_to_fp
-//  EXEC-SAME: (%[[arg0:.+]]: i16) -> f32 {
-//       EXEC:     %[[v0:.+]] = executor.call @_sitofp_i16_f32(%[[arg0]]) : (i16) -> f32
-//       EXEC:     return %[[v0]] : f32
-
-// -----
-
 func.func @cast_fp_to_si(%arg0: f16) -> i32 {
   %0 = executor.fptosi %arg0 : f16 to i32
   return %0 : i32

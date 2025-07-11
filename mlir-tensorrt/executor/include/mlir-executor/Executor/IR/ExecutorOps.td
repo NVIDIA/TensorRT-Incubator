@@ -830,7 +830,7 @@ def Executor_TruncfOp : Executor_FloatCastOp<"truncf"> {
 // SIToFPOp
 //===----------------------------------------------------------------------===//
 
-def Executor_SIToFPOp : Executor_CastOp<"sitofp"> {
+def Executor_SIToFPOp : Executor_Op<"sitofp", [Pure]> {
   let description = [{
     `executor.sitofp` casts signed integer to the corresponding floating point
     value. This is similar to `static_cast` in C++. If value can't be exactly
@@ -838,6 +838,20 @@ def Executor_SIToFPOp : Executor_CastOp<"sitofp"> {
   }];
   let arguments = (ins AnyTypeOf<Executor_ArithIntTypes>:$operand);
   let results = (outs AnyTypeOf<Executor_ArithFloatTypes>:$result);
+  let assemblyFormat = "$operand attr-dict `:` type($operand) `to` type($result)";
+}
+
+def Executor_UIToFPOp : Executor_Op<"uitofp", [Pure]> {
+  let description = [{
+    `executor.uitofp` casts unsigned integer to the corresponding floating point
+    value. If value can't be exactly represented, it is rounded
+    (implementation-defined). Out-of-range casts (truncations) result in mapping
+    to +/-inf or max/min value depending on whether the target floating point
+    type has a representation for infinities.
+  }];
+  let arguments = (ins AnyTypeOf<Executor_ArithIntTypes>:$operand);
+  let results = (outs AnyTypeOf<Executor_ArithFloatTypes>:$result);
+  let assemblyFormat = "$operand attr-dict `:` type($operand) `to` type($result)";
 }
 
 //===----------------------------------------------------------------------===//

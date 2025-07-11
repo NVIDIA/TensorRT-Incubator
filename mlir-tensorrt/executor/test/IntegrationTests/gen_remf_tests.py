@@ -116,7 +116,6 @@ CASES = [
 
 
 # MLIR element types to cover
-# TYPES = ["f64", "f32", "bf16", "f16", "f8E4M3FN"]
 TYPES = ["f64", "f32", "f16", "bf16", "f8E4M3FN"]
 INT_FOR_FP = {"f64": "i64", "f32": "i32", "bf16": "i16", "f16": "i16", "f8E4M3FN": "i8"}
 

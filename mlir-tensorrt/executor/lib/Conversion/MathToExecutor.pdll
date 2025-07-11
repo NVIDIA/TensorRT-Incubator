@@ -159,6 +159,10 @@ Pattern =>
   replace op<arith.remf>(args: ValueRange) -> (results: TypeRange)
     with op<executor.remf>(convertValues(args)) -> (convertTypes(results));
 
+Pattern =>
+  replace op<arith.uitofp>(args: ValueRange) -> (results: TypeRange)
+    with op<executor.uitofp>(convertValues(args)) -> (convertTypes(results));
+
 Pattern {
   let root = op<complex.constant>() -> (result: Type);
   rewrite root with {
