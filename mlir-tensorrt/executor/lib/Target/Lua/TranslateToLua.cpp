@@ -180,6 +180,20 @@ static LogicalResult emitAttribute(raw_ostream &os, Location loc,
     return success();
   }
 
+  // For i64 integers, emit as a hex string if the value is very large in
+  // magnitude. Lua has an issue with its parser for very large integers
+  // where it will convert to float. This doesn't matter from Lua's
+  // perspective, but it is a problem for our VM tests where we may raise
+  // an error if we expect an integer but receive a float.
+  if (val.getBitWidth() == 64 &&
+      (val.getSExtValue() >= std::numeric_limits<int64_t>::max() - 10 ||
+       val.getSExtValue() <= std::numeric_limits<int64_t>::min() + 10)) {
+    SmallString<128> strValue;
+    val.toString(strValue, 16, /*Signed=*/true, /*formatAsCLiteral=*/true);
+    os << strValue;
+    return success();
+  }
+
   // Otherwise, convert to a Lua integer. We convert i4, i8, 16, i32 and i64 to
   // Lua integer (`number` strictly). In any case, we never use unsigned
   // representation.
