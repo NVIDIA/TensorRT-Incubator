@@ -157,8 +157,14 @@ T remf(T lhs, T rhs) {
 }
 
 template <typename InpType, typename ResType>
-auto extf(InpType input) {
+ResType sitofp(InpType input) {
   return static_cast<ResType>(input);
+}
+
+template <typename InpType, typename ResType>
+ResType uitofp(InpType input) {
+  return static_cast<ResType>(
+      *reinterpret_cast<const std::make_unsigned_t<InpType> *>(&input));
 }
 
 //===----------------------------------------------------------------------===//
@@ -491,9 +497,8 @@ static void registerExecutorCoreModuleLuaRuntimeMethods(
   //===----------------------------------------------------------------------===//
 
 #define REGISTER_TOFP_FUNCS(inpSuffix, resSuffix, inpType, resType)            \
-  lua["_sitofp_" #inpSuffix "_" #resSuffix] = extf<inpType, resType>;          \
-  lua["_uitofp_" #inpSuffix "_" #resSuffix] =                                  \
-      extf<std::make_unsigned_t<inpType>, resType>
+  lua["_sitofp_" #inpSuffix "_" #resSuffix] = sitofp<inpType, resType>;        \
+  lua["_uitofp_" #inpSuffix "_" #resSuffix] = uitofp<inpType, resType>;
 
   REGISTER_TOFP_FUNCS(i8, f8E4M3FN, int8_t, fp8_e4m3fn);
   REGISTER_TOFP_FUNCS(i16, f8E4M3FN, int16_t, fp8_e4m3fn);
