@@ -755,6 +755,16 @@ static LogicalResult printOperation(LuaEmitter &emitter,
   return success();
 }
 
+template <typename OpTy>
+static LogicalResult printMinMaxOp(LuaEmitter &emitter, OpTy op) {
+  if (failed(emitter.emitAssignPrefix(op)))
+    return failure();
+  emitter << "_" << op->getName().stripDialect() << "_" << op.getType() << "("
+          << emitter.getVariableName(op.getLhs()) << ", "
+          << emitter.getVariableName(op.getRhs()) << ");\n";
+  return success();
+}
+
 //===----------------------------------------------------------------------===//
 // LuaEmitter implementation
 //===----------------------------------------------------------------------===//
@@ -1049,6 +1059,9 @@ LogicalResult LuaEmitter::emitOperation(Operation &op) {
         })
         .Case<executor::SIToFPOp, executor::UIToFPOp>(
             [&](auto op) { return printOperation(*this, op); })
+        .Case<executor::UMinOp, executor::UMaxOp, executor::SMinOp,
+              executor::SMaxOp, executor::FMinOp, executor::FMaxOp>(
+            [&](auto op) { return printMinMaxOp(*this, op); })
         .Default([&](Operation *) {
           return op.emitOpError("unable to find printer for op");
         });

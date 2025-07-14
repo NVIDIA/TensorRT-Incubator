@@ -16,8 +16,8 @@ add_mlir_executor_library(MLIRTensorRTConvertToExecutorCommon
   )
 
 add_mlir_pdll_library(MLIRExecutorStdToExectutorPatternsIncGen
-  MathToExecutor.pdll
-  MathToExecutor.pdll.h.inc
+  StdToExecutor.pdll
+  StdToExecutor.pdll.h.inc
   )
 
 add_mlir_executor_library(MLIRTensorRTStdToExecutor

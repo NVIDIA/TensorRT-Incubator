@@ -156,6 +156,30 @@ T remf(T lhs, T rhs) {
   }
 }
 
+/// Calculate smin for integer types. For some types like i1, we need to
+/// explicitly specify the relevant bitwidth to avoid implicit zero extension.
+template <typename T, unsigned NumBits>
+T smin(T lhs, T rhs) {
+  if constexpr (NumBits == 1) {
+    // For i1, 0b1 = -1.
+    return lhs || rhs ? 1 : 0;
+  } else {
+    return std::min(lhs, rhs);
+  }
+}
+
+/// Calculate smax for integer types. For some types like i1, we need to
+/// explicitly specify the relevant bitwidth to avoid implicit zero extension.
+template <typename T, unsigned NumBits>
+T smax(T lhs, T rhs) {
+  if constexpr (NumBits == 1) {
+    // For i1, 0b1 = -1.
+    return (lhs & 0b1) && (rhs & 0b1) ? 1 : 0;
+  } else {
+    return std::max(lhs, rhs);
+  }
+}
+
 template <typename InpType, typename ResType>
 ResType sitofp(InpType input) {
   return static_cast<ResType>(input);
@@ -321,7 +345,8 @@ static void registerExecutorCoreModuleLuaRuntimeMethods(
   DEFINE_UICMP_METHOD(u##pred, i32, int32_t, uint32_t, opSymbol);              \
   DEFINE_UICMP_METHOD(u##pred, i16, int16_t, uint16_t, opSymbol);              \
   DEFINE_UICMP_METHOD(u##pred, i8, int8_t, uint8_t, opSymbol);                 \
-  DEFINE_UICMP_METHOD(u##pred, i4, nv_int4, nv_uint4, opSymbol)
+  DEFINE_UICMP_METHOD(u##pred, i4, nv_int4, nv_uint4, opSymbol);               \
+  DEFINE_UICMP_METHOD(u##pred, i1, uint8_t, uint8_t, opSymbol)
 
   DEFINE_SICMP_METHODS(eq, ==);
   DEFINE_SICMP_METHODS(ne, !=);
@@ -421,11 +446,9 @@ static void registerExecutorCoreModuleLuaRuntimeMethods(
 
 #define DEFINE_FMAX_METHOD(suffix, type)                                       \
   lua["_fmax_" #suffix] = [](type lhs, type rhs) -> type {                     \
-    ADD_CORE_MODULE_RANGE("core_fmax");                                        \
     return std::max(lhs, rhs);                                                 \
   };                                                                           \
   lua["_fmin_" #suffix] = [](type lhs, type rhs) -> type {                     \
-    ADD_CORE_MODULE_RANGE("core_fmin");                                        \
     return std::min(lhs, rhs);                                                 \
   }
 
@@ -637,21 +660,42 @@ static void registerExecutorCoreModuleLuaRuntimeMethods(
   // executor.smin/executor.smax
   //===----------------------------------------------------------------------===//
 
-#define DEFINE_MIN_MAX(suffix, inpType)                                        \
-  lua["_smin_" #suffix] = [](inpType lhs, inpType rhs) -> inpType {            \
-    ADD_CORE_MODULE_RANGE("core_imin");                                        \
+#define DEFINE_MIN_MAX(suffix, inpType, numBits)                               \
+  lua["_smin_" #suffix] = smin<inpType, numBits>;                              \
+  lua["_smax_" #suffix] = smax<inpType, numBits>;                              \
+  lua["_umin_" #suffix] =                                                      \
+      [](std::make_unsigned_t<inpType> lhs,                                    \
+         std::make_unsigned_t<inpType> rhs) -> std::make_unsigned_t<inpType> { \
     return std::min(lhs, rhs);                                                 \
   };                                                                           \
-  lua["_smax_" #suffix] = [](inpType lhs, inpType rhs) -> inpType {            \
-    ADD_CORE_MODULE_RANGE("core_imax");                                        \
+  lua["_umax_" #suffix] =                                                      \
+      [](std::make_unsigned_t<inpType> lhs,                                    \
+         std::make_unsigned_t<inpType> rhs) -> std::make_unsigned_t<inpType> { \
     return std::max(lhs, rhs);                                                 \
   }
 
-  DEFINE_MIN_MAX(i8, int8_t);
-  DEFINE_MIN_MAX(i16, int16_t);
-  DEFINE_MIN_MAX(i32, int32_t);
-  DEFINE_MIN_MAX(i64, int64_t);
-  DEFINE_MIN_MAX(i4, nv_int4);
+  DEFINE_MIN_MAX(i1, int8_t, 1);
+  DEFINE_MIN_MAX(i8, int8_t, 8);
+  DEFINE_MIN_MAX(i16, int16_t, 16);
+  DEFINE_MIN_MAX(i32, int32_t, 32);
+  DEFINE_MIN_MAX(i64, int64_t, 64);
+
+  lua["_smin_i4"] = [](nv_int4 lhs, nv_int4 rhs) -> nv_int4 {
+    return std::min(lhs, rhs);
+  };
+  lua["_smax_i4"] = [](nv_int4 lhs, nv_int4 rhs) -> nv_int4 {
+    return std::max(lhs, rhs);
+  };
+  lua["_umin_i4"] = [](nv_int4 lhs, nv_int4 rhs) -> nv_int4 {
+    auto x = std::min(*reinterpret_cast<nv_uint4 *>(&lhs),
+                      *reinterpret_cast<nv_uint4 *>(&rhs));
+    return *reinterpret_cast<nv_int4 *>(&x);
+  };
+  lua["_umax_i4"] = [](nv_int4 lhs, nv_int4 rhs) -> nv_int4 {
+    auto x = std::max(*reinterpret_cast<nv_uint4 *>(&lhs),
+                      *reinterpret_cast<nv_uint4 *>(&rhs));
+    return *reinterpret_cast<nv_int4 *>(&x);
+  };
 
 #undef DEFINE_MIN_MAX
 
@@ -939,9 +983,8 @@ static void registerExecutorCoreModuleLuaRuntimeMethods(
                                    sol::variadic_args varArgs) {
     ADD_CORE_MODULE_RANGE("core_strided_memref_copy");
     if (varArgs.size() != 2 * getNumArgsPerMemRef(rank)) {
-      luaL_error(
-          state,
-          "unexpected variadic argument pack size in for strided memref copy");
+      luaL_error(state, "unexpected variadic argument pack size in for "
+                        "strided memref copy");
       return;
     }
 
