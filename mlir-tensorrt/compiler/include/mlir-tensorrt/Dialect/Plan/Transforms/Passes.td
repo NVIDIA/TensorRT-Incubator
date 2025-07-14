@@ -523,6 +523,7 @@ def PlanMaterializeExplicitTransfersPass
   let dependentDialects = [
     "::mlir::bufferization::BufferizationDialect",
     "::mlir::tensor::TensorDialect",
+    "::mlir::plan::PlanDialect"
   ];
 }
 

@@ -120,7 +120,7 @@ module @test_no_dps_return {
 //  CHECK-DAG: %[[out1:.+]] = tensor.empty()
 //  CHECK-NEXT: %[[v1:.+]]:2 = {{.*}} ins(%[[arg0]], %[[arg1]] : {{.*}}) outs(%[[out1]], %[[out0]] : {{.*}})
 //       CHECK: %[[v2:.+]] = arith.addf %[[v1]]#0, %[[v1]]#1 : tensor<10xf32
-//  CHECK-NEXT: %[[v3:.+]] = bufferization.materialize_in_destination %[[v2]] in %[[arg2]] :
+//  CHECK-NEXT: %[[v3:.+]] = linalg.copy  ins(%[[v2]] : {{.*}}) outs(%[[arg2]] : {{.*}})
 //  CHECK-NEXT: return %[[v3]] : tensor<10xf32
 
 // CHECK-ALLOC-LABEL: @main
@@ -158,7 +158,7 @@ module @test_one_dps_other_no_dps_return {
 //    CHECK-NOT: bufferization.alloc_tensor()
 //        CHECK: %[[v0:.+]] = linalg.generic {{.*}} ins(%[[arg0]] : tensor<{{.*}}>) outs(%[[arg2]] : tensor<{{.*}}>)
 //        CHECK: %[[v1:.+]] = arith.addf %[[v0]], %[[arg0]] : tensor<{{.*}}>
-//   CHECK-NEXT: %[[v2:.+]] = bufferization.materialize_in_destination %[[v1]] in %[[arg1]] :
+//   CHECK-NEXT: %[[v2:.+]] = linalg.copy  ins(%[[v1]] : {{.*}}) outs(%[[arg1]] : {{.*}})
 //   CHECK-NEXT: return %[[v2]], %[[v0]] : tensor<{{.*}}>, tensor<{{.*}}>
 
 //  CHECK-ALLOC-LABEL: @main
@@ -233,9 +233,9 @@ func.func @test_repeat_returns(%arg0: !tensor_type, %arg1: !tensor_type) -> (!te
 //   CHECK-NOT: bufferization.alloc_tensor()
 //       CHECK: %[[v0:.+]]:2 = linalg.generic {{.*}} ins(%[[arg0]], %[[arg1]] : {{.*}}) outs(%[[arg2]], %[[arg3]] : {{.*}})
 //       CHECK: %[[v1:.+]] = arith.addf %[[v0]]#0, %[[arg0]] : tensor<{{.*}}>
-//  CHECK-NEXT: %[[v2:.+]] = bufferization.materialize_in_destination %[[v0]]#0 in %[[arg4]] :
-//  CHECK-NEXT: %[[v3:.+]] = bufferization.materialize_in_destination %[[v0]]#1 in %[[arg5]] :
-//  CHECK-NEXT: %[[v4:.+]] = bufferization.materialize_in_destination %[[v1]] in %[[arg6]] :
+//  CHECK-NEXT: %[[v2:.+]] = linalg.copy  ins(%[[v0]]#0 : {{.*}}) outs(%[[arg4]] : {{.*}})
+//  CHECK-NEXT: %[[v3:.+]] = linalg.copy  ins(%[[v0]]#1 : {{.*}}) outs(%[[arg5]] : {{.*}})
+//  CHECK-NEXT: %[[v4:.+]] = linalg.copy  ins(%[[v1]] : {{.*}}) outs(%[[arg6]] : {{.*}})
 //  CHECK-NEXT: return %[[v0]]#0, %[[v0]]#1, %[[v2]], %[[v3]], %[[v4]] :
 
 // CHECK-ALLOC-LABEL: @test_repeat_returns
@@ -279,8 +279,8 @@ func.func @test_dps_chain_repeat(%arg0: !tensor_type) -> (!tensor_type, !tensor_
 //   CHECK-NOT: bufferization.alloc_tensor()
 //       CHECK: %[[v0:.+]] = linalg.generic {{.*}} ins(%[[arg0]] : tensor<{{.*}}>) outs(%[[arg2]] : tensor<{{.*}}>)
 //       CHECK: %[[v1:.+]] = linalg.generic {{.*}} ins(%[[arg0]] : tensor<{{.*}}>) outs(%[[v0]] : tensor<{{.*}}>)
-//       CHECK: %[[v2:.+]] = bufferization.materialize_in_destination %[[v1]] in %[[arg1]] :
-//  CHECK-NEXT: %[[v3:.+]] = bufferization.materialize_in_destination %[[v0]] in %[[arg3]] :
+//       CHECK: %[[v2:.+]] = linalg.copy  ins(%[[v1]] : {{.*}}) outs(%[[arg1]] : {{.*}})
+//  CHECK-NEXT: %[[v3:.+]] = linalg.copy  ins(%[[v0]] : {{.*}}) outs(%[[arg3]] : {{.*}})
 //  CHECK-NEXT: return %[[v2]], %[[v0]], %[[v3]] :
 
 // CHECK-ALLOC-LABEL: @test_dps_chain_repeat
@@ -299,7 +299,7 @@ func.func @test_return_arg(%arg0: tensor<10xf32>) -> tensor<10xf32> {
 
 // CHECK-LABEL: @test_return_arg
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<10xf32>, %[[arg1:.+]]: tensor<10xf32> {plan.result_arg})
-//       CHECK:     %[[v0:.+]] = bufferization.materialize_in_destination %[[arg0]] in %[[arg1]]
+//       CHECK:     %[[v0:.+]] = linalg.copy  ins(%[[arg0]] : {{.*}}) outs(%[[arg1]] : {{.*}})
 //       CHECK:     return %[[v0]]
 
 // CHECK-ALLOC-LABEL: @test_return_arg
@@ -381,7 +381,7 @@ func.func @test_loop_region_dps_rewrite_while_arg_mismatch(%arg0: tensor<10xf32,
 //   CHECK-DAG:       %[[v3:.+]] = arith.cmpf ogt, %[[extracted]], %[[cst]] : f32
 //   CHECK-DAG:       scf.yield %[[arg2]], %[[v3]], %[[mapped]] :
 //  CHECK-NEXT:     }
-//   CHECK-DAG:     %[[v2:.+]] = bufferization.materialize_in_destination %[[v1]]#1 in %[[arg1]]
+//   CHECK-DAG:     %[[v2:.+]] = linalg.copy  ins(%[[v1]]#1 : {{.*}}) outs(%[[arg1]] : {{.*}})
 //   CHECK-DAG:     return %[[v2]] :
 
 // -----
@@ -408,7 +408,7 @@ func.func @test_loop_region_dps_rewrite_for(%arg0: tensor<10xf32>) -> tensor<10x
 //       CHECK:     %[[v0:.+]] = scf.for %[[arg2:.+]] = %[[c0]] to %[[c10]] step %[[c1]] iter_args(%[[arg3:.+]] = %[[arg0]])
 //       CHECK:       %[[mapped:.+]] = linalg.map { math.exp } ins(%[[arg3]] : tensor<10xf32>) outs(%[[arg3]] : tensor<10xf32>)
 //       CHECK:       scf.yield %[[mapped]] : tensor<10xf32>
-//       CHECK:     %[[v1:.+]] = bufferization.materialize_in_destination %[[v0]] in %[[arg1]]
+//       CHECK:     %[[v1:.+]] = linalg.copy  ins(%[[v0]] : {{.*}}) outs(%[[arg1]] : {{.*}})
 //       CHECK:     return %[[v1]]
 
 // CHECK-ALLOC-LABEL: @test_loop_region_dps_rewrite_for
@@ -438,7 +438,7 @@ func.func @small_host_tensor_constant(%arg0: tensor<?x?xf32, #plan.memory_space<
 //  CHECK-SAME:  %[[arg1:.+]]: tensor<?x?x?x?xf32, #plan.memory_space<device>> {plan.result_arg})
 //       CHECK:     %[[cst:.+]] = arith.constant dense<[1, 2, 3, 4]> : tensor<4xindex, #plan.memory_space<host>>
 //       CHECK:     %[[reshape:.+]] = tensor.reshape %[[arg0]](%[[cst]]) :
-//       CHECK:     %[[v0:.+]] = bufferization.materialize_in_destination %[[reshape]] in %[[arg1]] :
+//       CHECK:     %[[v0:.+]] = linalg.copy  ins(%[[reshape]] : {{.*}}) outs(%[[arg1]] : {{.*}})
 //       CHECK:     return %[[v0]] : tensor<?x?x?x?xf32, #plan.memory_space<device>>
 
 // CHECK-ALLOC-LABEL: func.func @small_host_tensor_constant
@@ -466,9 +466,9 @@ func.func @small_host_and_device_tensor_constant(%arg0: tensor<?x?xf32, #plan.me
 //  CHECK-SAME:  %[[arg2:.+]]: tensor<4xindex, #plan.memory_space<device>> {plan.result_arg})
 //   CHECK-DAG:     %[[cst:.+]] = arith.constant dense<[1, 2, 3, 4]> : tensor<4xindex, #plan.memory_space<host>>
 //   CHECK-DAG:     %[[cst_0:.+]] = arith.constant dense<[1, 2, 3, 4]> : tensor<4xindex, #plan.memory_space<device>>
-//   CHECK-DAG:     %[[v0:.+]] = bufferization.materialize_in_destination %[[cst_0]] in %[[arg2]] :
+//   CHECK-DAG:     %[[v0:.+]] = linalg.copy  ins(%[[cst_0]] : {{.*}}) outs(%[[arg2]] : {{.*}})
 //   CHECK-DAG:     %[[reshape:.+]] = tensor.reshape %[[arg0]](%[[cst]])
-//   CHECK-DAG:     %[[v1:.+]] = bufferization.materialize_in_destination %[[reshape]] in %[[arg1]] :
+//   CHECK-DAG:     %[[v1:.+]] = linalg.copy  ins(%[[reshape]] : {{.*}}) outs(%[[arg1]] : {{.*}})
 //   CHECK-DAG:     return %[[v1]], %[[v0]]
 
 // CHECK-ALLOC-LABEL: func.func @small_host_and_device_tensor_constant
@@ -489,7 +489,7 @@ func.func @big_host_tensor_constant() -> (tensor<1024xindex, #plan.memory_space<
 // CHECK-LABEL: func.func @big_host_tensor_constant
 //  CHECK-SAME: (%[[arg1:.+]]: tensor<1024xindex, #plan.memory_space<host>>
 //    CHECK-DAG:     %[[cst:.+]] = arith.constant dense<1> : tensor<1024xindex, #plan.memory_space<host>>
-//    CHECK-DAG:     %[[v0:.+]] = bufferization.materialize_in_destination %[[cst]] in %[[arg1]]
+//    CHECK-DAG:     %[[v0:.+]] = linalg.copy  ins(%[[cst]] : {{.*}}) outs(%[[arg1]] : {{.*}})
 //    CHECK-DAG:     return %[[v0]]
 
 
@@ -700,5 +700,5 @@ func.func @test_dps_bitcast_not_equivalent(
 //   CHECK-DAG:     %[[v0:.+]] = tensor.empty()
 //   CHECK-DAG:     %[[mapped:.+]] = linalg.map {{.*}} ins(%[[arg0]], %[[arg1]] : {{.*}}) outs(%[[v0]] : {{.*}})
 //   CHECK-DAG:     %[[v1:.+]] = tensor.bitcast %[[mapped]]
-//   CHECK-DAG:     %[[v2:.+]] = bufferization.materialize_in_destination %[[v1]] in %[[arg2]]
+//   CHECK-DAG:     %[[v2:.+]] = linalg.copy  ins(%[[v1]] : {{.*}}) outs(%[[arg2]] : {{.*}})
 //   CHECK-DAG:     return %[[v2]]

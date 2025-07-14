@@ -28,6 +28,7 @@
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Bufferization/IR/BufferizableOpInterface.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Dialect/Utils/IndexingUtils.h"
 #include "mlir/IR/Diagnostics.h"
 #include "mlir/IR/DialectImplementation.h"
@@ -796,8 +797,43 @@ LogicalResult OptimizationBarrierOp::bufferize(
 }
 
 //===----------------------------------------------------------------------===//
-// Other interface helpers
+// TransferOp
 //===----------------------------------------------------------------------===//
+
+LogicalResult TransferOp::verify() { return success(); }
+
+OpFoldResult TransferOp::fold(FoldAdaptor adaptor) {
+  if (getOperand().getType() == getResult().getType())
+    return getOperand();
+  if (auto producerOp = getOperand().getDefiningOp<TransferOp>()) {
+    if (producerOp.getOperand().getType() == getType())
+      return producerOp.getOperand();
+  }
+  return {};
+}
+
+namespace {
+struct TensorEmptyAbsorbTransferPattern : OpRewritePattern<TransferOp> {
+  using OpRewritePattern::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(TransferOp op,
+                                PatternRewriter &rewriter) const override {
+    auto source = op.getOperand();
+    auto emptyOp = source.getDefiningOp<tensor::EmptyOp>();
+    if (!emptyOp)
+      return failure();
+    rewriter.replaceOpWithNewOp<tensor::EmptyOp>(
+        op, emptyOp.getType().getShape(), emptyOp.getType().getElementType(),
+        emptyOp.getDynamicSizes(), op.getType().getEncoding());
+    return success();
+  }
+};
+} // namespace
+
+void TransferOp::getCanonicalizationPatterns(RewritePatternSet &results,
+                                             MLIRContext *context) {
+  results.add<TensorEmptyAbsorbTransferPattern>(context);
+}
 
 //===----------------------------------------------------------------------===//
 // PlanDialect Interfaces

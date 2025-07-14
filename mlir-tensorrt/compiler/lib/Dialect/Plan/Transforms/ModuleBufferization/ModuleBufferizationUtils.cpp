@@ -36,70 +36,6 @@
 using namespace mlir;
 using OneShotBufferizationOptions = bufferization::OneShotBufferizationOptions;
 
-/// Create a subview containing a single element.
-static Value createUnitSubView(RewriterBase &rewriter, Location loc, Value base,
-                               ValueRange offsets) {
-  auto type = cast<MemRefType>(base.getType());
-  if (type.hasStaticShape() && type.getNumElements() == 1)
-    return base;
-  SmallVector<OpFoldResult> coords =
-      llvm::map_to_vector(offsets, [](Value v) { return OpFoldResult(v); });
-  SmallVector<OpFoldResult> ones(coords.size(), rewriter.getIndexAttr(1));
-  return rewriter.create<memref::SubViewOp>(loc, base, coords, ones, ones);
-}
-
-static FailureOr<Value>
-copyElementToHost(RewriterBase &rewriter, Location loc, Value source,
-                  ValueRange coord,
-                  const bufferization::OneShotBufferizationOptions &options) {
-  MemRefType sourceType = cast<MemRefType>(source.getType());
-
-  // Create the type for the new allocation -- just enough to hold a single
-  // element.
-  auto allocType = MemRefType::get(
-      SmallVector<int64_t>(coord.size(), 1), sourceType.getElementType(),
-      MemRefLayoutAttrInterface{},
-      plan::MemorySpaceAttr::get(rewriter.getContext(),
-                                 plan::MemorySpace::host_pinned));
-
-  // Create the subview of the original source.
-  Value sourceView = createUnitSubView(rewriter, loc, source, coord);
-
-  // Allocate the staging buffer, copy the element to it, and synchronize.
-  FailureOr<Value> allocated =
-      options.createAlloc(rewriter, loc, allocType, ValueRange{});
-  if (failed(allocated))
-    return failure();
-  if (failed(options.createMemCpy(rewriter, loc, sourceView, *allocated)))
-    return failure();
-  return *allocated;
-}
-
-static LogicalResult
-copyElementToDevice(RewriterBase &rewriter, Location loc, Value scalarToStore,
-                    Value destMemRef, ValueRange coord,
-                    const bufferization::OneShotBufferizationOptions &options) {
-  MemRefType destType = cast<MemRefType>(destMemRef.getType());
-
-  // Create the type for the new allocation -- just enough to hold a single
-  // element.
-  auto allocType =
-      MemRefType::get(SmallVector<int64_t>(coord.size(), 1),
-                      destType.getElementType(), MemRefLayoutAttrInterface{},
-                      plan::MemorySpaceAttr::get(rewriter.getContext(),
-                                                 plan::MemorySpace::host));
-
-  // Create the subview of the original source.
-  Value destView = createUnitSubView(rewriter, loc, destMemRef, coord);
-
-  // Allocate the staging buffer, copy the element to it, and synchronize.
-  FailureOr<Value> alloc = options.createAlloc(rewriter, loc, allocType, {});
-  Value zero = rewriter.create<arith::ConstantIndexOp>(loc, 0);
-  rewriter.create<memref::StoreOp>(
-      loc, scalarToStore, *alloc, SmallVector<Value>(destType.getRank(), zero));
-  return options.createMemCpy(rewriter, loc, *alloc, destView);
-}
-
 LogicalResult plan::fixupHostModule(
     ModuleLikeOp module,
     const bufferization::OneShotBufferizationOptions &options) {
@@ -114,16 +50,8 @@ LogicalResult plan::fixupHostModule(
       auto space = dyn_cast<plan::MemorySpaceAttr>(fromType.getMemorySpace());
       if (!space || space.isHostVisible())
         return WalkResult::skip();
-      rewriter.setInsertionPoint(loadOp);
-      FailureOr<Value> copiedToHost =
-          copyElementToHost(rewriter, loadOp.getLoc(), loadOp.getMemRef(),
-                            loadOp.getIndices(), options);
-      if (failed(copiedToHost))
-        return WalkResult::interrupt();
-      Value zero = rewriter.create<arith::ConstantIndexOp>(loadOp.getLoc(), 0);
-      rewriter.replaceOpWithNewOp<memref::LoadOp>(
-          loadOp, *copiedToHost, SmallVector<Value>(fromType.getRank(), zero));
-      return WalkResult::skip();
+      emitError(loadOp.getLoc()) << "load on device memory is not supported";
+      return WalkResult::interrupt();
     }
 
     if (auto storeOp = dyn_cast<memref::StoreOp>(op)) {
@@ -131,13 +59,8 @@ LogicalResult plan::fixupHostModule(
       auto space = dyn_cast<plan::MemorySpaceAttr>(fromType.getMemorySpace());
       if (!space || space.isHostVisible())
         return WalkResult::skip();
-      rewriter.setInsertionPoint(storeOp);
-      if (failed(copyElementToDevice(rewriter, storeOp.getLoc(),
-                                     storeOp.getValue(), storeOp.getMemRef(),
-                                     storeOp.getIndices(), options)))
-        return WalkResult::interrupt();
-      rewriter.eraseOp(storeOp);
-      return WalkResult::skip();
+      emitError(storeOp.getLoc()) << "store on device memory is not supported";
+      return WalkResult::interrupt();
     }
 
     return WalkResult::advance();

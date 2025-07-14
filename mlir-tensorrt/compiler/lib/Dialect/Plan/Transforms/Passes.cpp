@@ -59,7 +59,7 @@ void plan::buildPlanSegmentationPipeline(
 }
 
 static void buildPlanOneShotBufferizePipelinePipeline(
-    OpPassManager &pm, const plan::PlanAllocTensorsPassOptions &opts) {
+    OpPassManager &pm, const plan::PlanBufferizationOptions &opts) {
   pm.addPass(bufferization::createEmptyTensorEliminationPass());
   pm.addPass(plan::createPlanAssignMemorySpacesPass());
   pm.addNestedPass<func::FuncOp>(plan::createPlanOptimizeMemorySpacesPass());
@@ -73,7 +73,9 @@ static void buildPlanOneShotBufferizePipelinePipeline(
   // memory space.
   pm.addPass(createInlinerPass());
 
-  pm.addPass(plan::createPlanAllocTensorsPass(opts));
+  plan::PlanAllocTensorsPassOptions allocOpts{};
+  allocOpts.forceEntrypointsReturnAllocs = opts.forceEntrypointsReturnAllocs;
+  pm.addPass(plan::createPlanAllocTensorsPass(allocOpts));
 
   pm.addPass(plan::createPlanModuleBufferizePass());
   pm.addPass(mlir::createMemRefCastEliminationPass());
@@ -105,18 +107,23 @@ static void buildPlanOneShotBufferizePipelinePipeline(
   pm.addNestedPass<func::FuncOp>(createLowerLinalgCopiesPass());
 }
 
-static void buildPlanBufferOptimizationPipeline(OpPassManager &pm) {
-  pm.addNestedPass<func::FuncOp>(bufferization::createBufferLoopHoistingPass());
-  pm.addNestedPass<func::FuncOp>(bufferization::createBufferHoistingPass());
+static void buildPlanBufferOptimizationPipeline(
+    OpPassManager &pm, const plan::PlanBufferizationOptions &options) {
+  if (options.enableBufferLoopHoisting)
+    pm.addNestedPass<func::FuncOp>(
+        bufferization::createBufferLoopHoistingPass());
+  if (options.enableBufferHoisting)
+    pm.addNestedPass<func::FuncOp>(bufferization::createBufferHoistingPass());
 }
 
 static void buildPlanBufferDeallocationPipeline(
-    OpPassManager &pm, const bufferization::DeallocationOptions &options) {
+    OpPassManager &pm, const plan::PlanBufferizationOptions &options) {
   pm.addPass(memref::createExpandReallocPass(/*emitDeallocs=*/false));
   pm.addPass(createCanonicalizerPass());
+
   pm.addPass(plan::createPlanOwnershipBasedBufferDeallocationPass(
       plan::PlanOwnershipBasedBufferDeallocationPassOptions{
-          options.privateFuncDynamicOwnership}));
+          options.deallocationPrivateFuncDynamicOwnership}));
   pm.addPass(createCanonicalizerPass());
   pm.addPass(bufferization::createBufferDeallocationSimplificationPass());
   pm.addPass(bufferization::createLowerDeallocationsPass());
@@ -152,11 +159,10 @@ struct PlanBufferizationPipelineCliOpts
 } // namespace
 
 void plan::buildPlanBufferizationPipeline(
-    OpPassManager &pm, const plan::PlanAllocTensorsPassOptions &options,
-    const bufferization::DeallocationOptions &deallocationOptions) {
+    OpPassManager &pm, const plan::PlanBufferizationOptions &options) {
   buildPlanOneShotBufferizePipelinePipeline(pm, options);
-  buildPlanBufferOptimizationPipeline(pm);
-  buildPlanBufferDeallocationPipeline(pm, deallocationOptions);
+  buildPlanBufferOptimizationPipeline(pm, options);
+  buildPlanBufferDeallocationPipeline(pm, options);
 }
 
 // Register pipelines.
@@ -166,11 +172,10 @@ void plan::registerPlanDialectPipelines() {
           "plan-bufferize-pipeline",
           "perform one-shot-bufferization, optimizations, and dallocation",
           [](OpPassManager &pm, const PlanBufferizationPipelineCliOpts &opts) {
-            PlanAllocTensorsPassOptions allocTensorOpts{};
-            allocTensorOpts.forceEntrypointsReturnAllocs =
+            plan::PlanBufferizationOptions bufferizationOpts{};
+            bufferizationOpts.forceEntrypointsReturnAllocs =
                 opts.forceEntrypointsReturnAllocs;
-            buildPlanBufferizationPipeline(
-                pm, allocTensorOpts, bufferization::DeallocationOptions{false});
+            buildPlanBufferizationPipeline(pm, bufferizationOpts);
           });
 
   PassPipelineRegistration<ClusteringPipelineCliOpts> segPipelineRegistration(

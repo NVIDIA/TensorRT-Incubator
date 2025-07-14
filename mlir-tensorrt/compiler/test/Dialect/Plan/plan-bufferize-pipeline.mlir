@@ -67,10 +67,10 @@ func.func @small_host_and_device_tensor_constant(%arg0: tensor<?x?xf32>) -> (ten
 // CHECK-LABEL: func.func @small_host_and_device_tensor_constant
 //  CHECK-SAME: (%[[arg0:.+]]: memref<?x?xf32, #plan.memory_space<device>>, %[[arg1:.+]]: memref<?x?x?x?xf32, #plan.memory_space<device>> {plan.result_arg}, %[[arg2:.+]]: memref<4xindex, #plan.memory_space<device>> {plan.result_arg})
 //   CHECK-DAG:     %[[global_device:.+]] = memref.get_global {{.*}} #plan.memory_space<device>>
-//       CHECK:     memref.copy %[[global_device]], %[[arg2]] :
 //   CHECK-DAG:     %[[global_host:.+]] = memref.get_global {{.*}} #plan.memory_space<host>>
 //       CHECK:     %[[reshape:.+]] = memref.reshape %[[arg0]](%[[global_host]])
 //       CHECK:     memref.copy %[[reshape]], %[[arg1]]
+//       CHECK:     memref.copy %[[global_device]], %[[arg2]] :
 //       CHECK:     return
 
 // -----
