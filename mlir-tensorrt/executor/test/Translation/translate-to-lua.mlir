@@ -334,13 +334,38 @@ func.func @exec_bitcast_f16_i16(%arg0: f16) -> i16
 
 // -----
 
-func.func @max_i32(%arg0: i32, %arg1: i32) -> i32
+func.func @umin_i32(%arg0: i32, %arg1: i32) -> i32 {
+  %0 = executor.umin %arg0, %arg1 : i32
+  return %0 : i32
+}
+
+// CHECK-LABEL: umin_i32
+//  CHECK-SAME: ([[v1:.+]], [[v2:.+]])
+//  CHECK-NEXT:     local [[v3:.+]] <const> = _umin_i32([[v1]], [[v2]]);
+//  CHECK-NEXT:     return [[v3]];
+//  CHECK-NEXT: end
+
+// -----
+
+func.func @umax_i32(%arg0: i32, %arg1: i32) -> i32 {
+  %0 = executor.umax %arg0, %arg1 : i32
+  return %0 : i32
+}
+
+// CHECK-LABEL: umax_i32
+//  CHECK-SAME: ([[v1:.+]], [[v2:.+]])
+//  CHECK-NEXT:     local [[v3:.+]] <const> = _umax_i32([[v1]], [[v2]]);
+//  CHECK-NEXT:     return [[v3]];
+//  CHECK-NEXT: end
+
+// -----
+
+func.func @smax_i32(%arg0: i32, %arg1: i32) -> i32
   attributes{executor.function_metadata=#executor.func_meta<[i32, i32],[i32], num_output_args = 0>}{
   %0 = executor.smax %arg0, %arg1 : i32
   return %0 : i32
 }
-// CHECK-LABEL: __check_for_function("_smax_i32")
-// CHECK-LABEL: max_i32
+// CHECK-LABEL: smax_i32
 //  CHECK-SAME: ([[v1:.+]], [[v2:.+]])
 //  CHECK-NEXT:     local [[v3:.+]] <const> = _smax_i32([[v1]], [[v2]]);
 //  CHECK-NEXT:     return [[v3]];
@@ -348,13 +373,12 @@ func.func @max_i32(%arg0: i32, %arg1: i32) -> i32
 
 // -----
 
-func.func @max_i64(%arg0: i64, %arg1: i64) -> i64
+func.func @smax_i64(%arg0: i64, %arg1: i64) -> i64
   attributes{executor.function_metadata=#executor.func_meta<[i64, i64],[i64], num_output_args = 0>}{
   %0 = executor.smax %arg0, %arg1 : i64
   return %0 : i64
 }
-// CHECK-LABEL: __check_for_function("_smax_i64")
-// CHECK-LABEL: max_i64
+// CHECK-LABEL: smax_i64
 //  CHECK-SAME: ([[v1:.+]], [[v2:.+]])
 //  CHECK-NEXT:     local [[v3:.+]] <const> = _smax_i64([[v1]], [[v2]]);
 //  CHECK-NEXT:     return [[v3]];
@@ -367,7 +391,6 @@ func.func @max_f32(%arg0: f32, %arg1: f32) -> f32
   %0 = executor.fmax %arg0, %arg1 : f32
   return %0 : f32
 }
-// CHECK-LABEL: __check_for_function("_fmax_f32")
 // CHECK-LABEL: max_f32
 //  CHECK-SAME: ([[v1:.+]], [[v2:.+]])
 //  CHECK-NEXT:     local [[v3:.+]] <const> = _fmax_f32([[v1]], [[v2]]);
@@ -381,7 +404,7 @@ func.func @max_f64(%arg0: f64, %arg1: f64) -> f64
   %0 = executor.fmax %arg0, %arg1 : f64
   return %0 : f64
 }
-// CHECK-LABEL: __check_for_function("_fmax_f64")
+
 // CHECK-LABEL: max_f64
 //  CHECK-SAME: ([[v1:.+]], [[v2:.+]])
 //  CHECK-NEXT:     local [[v3:.+]] <const> = _fmax_f64([[v1]], [[v2]]);

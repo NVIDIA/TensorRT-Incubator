@@ -41,7 +41,7 @@ using executor::ExecutorConversionTarget;
 using executor::ExecutorTypeConverter;
 using executor::LowerToExecutorOptions;
 
-#include "MathToExecutor.pdll.h.inc"
+#include "StdToExecutor.pdll.h.inc"
 
 namespace {
 /// Rewrite `arith.constant` to `executor.constant`.

@@ -911,13 +911,12 @@ def Executor_SIExtOp : Executor_CastOp<"siext"> {
 }
 
 //===----------------------------------------------------------------------===//
-// SMinOp / SMaxOp
+// SMinOp / SMaxOp / UMinOp / UMaxOp
 //===----------------------------------------------------------------------===//
 
 class Executor_MinMaxOp<string mnemonic, Type type> : Executor_Op<mnemonic, [
     Pure,
     AllTypesMatch<["lhs", "rhs", "result"]>,
-    RuntimeBuiltinInterface,
     Commutative]> {
   let assemblyFormat = "operands attr-dict `:` type($lhs)";
   let arguments = (ins type:$lhs, type:$rhs);
@@ -926,6 +925,8 @@ class Executor_MinMaxOp<string mnemonic, Type type> : Executor_Op<mnemonic, [
 
 def Executor_SMaxOp : Executor_MinMaxOp<"smax", Executor_Integer>;
 def Executor_SMinOp : Executor_MinMaxOp<"smin", Executor_Integer>;
+def Executor_UMaxOp : Executor_MinMaxOp<"umax", Executor_Integer>;
+def Executor_UMinOp : Executor_MinMaxOp<"umin", Executor_Integer>;
 def Executor_FMaxOp : Executor_MinMaxOp<"fmax", Executor_Float>;
 def Executor_FMinOp : Executor_MinMaxOp<"fmin", Executor_Float>;
 
