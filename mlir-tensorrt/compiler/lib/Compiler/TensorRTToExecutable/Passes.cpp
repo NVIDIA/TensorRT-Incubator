@@ -280,14 +280,15 @@ outlineOp(RewriterBase &rewriter, tensorrt::TensorRTModuleOp trtModule,
       mlir::tensorrt::TensorRTDialect::getShapeProfileArgAttrName();
   StringRef tensorrtDimensionNamesAttrName =
       mlir::tensorrt::TensorRTDialect::getDimensionNamesArgAttrName();
+  StringRef tensorrtValueBoundsAttrName =
+      mlir::tensorrt::TensorRTDialect::getShapeTensorValueBoundsArgAttrName();
+  StringRef hostTensorAttrName = mlir::getHostTensorArgAttrName();
+  StringRef memorySpaceAttrName =
+      plan::PlanDialect::getMemorySpaceConstraintAttrName();
 
-  SmallVector<Attribute> profileAttrsPerInput;
-  SmallVector<Attribute> dimensionNamesAttrsPerInput;
   for (Value v : inputs) {
     auto rtt = dyn_cast<RankedTensorType>(v.getType());
-    if (!rtt || rtt.hasStaticShape()) {
-      profileAttrsPerInput.push_back(Attribute{});
-      dimensionNamesAttrsPerInput.push_back(Attribute{});
+    if (!rtt) {
       continue;
     }
 
@@ -299,28 +300,40 @@ outlineOp(RewriterBase &rewriter, tensorrt::TensorRTModuleOp trtModule,
     }
 
     int64_t argIndex = blockArg.getArgNumber();
-    profileAttrsPerInput.push_back(
-        parentFunc.getArgAttrOfType<tensorrt::ShapeProfileAttr>(
-            argIndex, tensorrtShapeBoundsAttrName));
-
-    dimensionNamesAttrsPerInput.push_back(
-        parentFunc.getArgAttrOfType<DictionaryAttr>(
-            argIndex, tensorrtDimensionNamesAttrName));
-
-    if (!profileAttrsPerInput.back()) {
-      return emitError(blockArg.getLoc())
-             << "Profile attribute (" << tensorrtShapeBoundsAttrName
-             << ") of argument " << argIndex << " is not set";
+    // Get shape profile and dynamision name attributes of the input
+    if (rtt.hasStaticShape()) {
+      // static-shaped argument can only have value bound attr (shape input)
+      auto valueBoundAttr =
+          parentFunc.getArgAttrOfType<tensorrt::ShapeProfileAttr>(
+              argIndex, tensorrtValueBoundsAttrName);
+      if (valueBoundAttr) {
+        func->setArgAttr(argIndex, tensorrtValueBoundsAttrName, valueBoundAttr);
+      }
+      // Get memory space attribute of the input
+      auto memorySpaceAttr =
+          parentFunc.getArgAttr(argIndex, memorySpaceAttrName);
+      if (memorySpaceAttr) {
+        func->setArgAttr(argIndex, memorySpaceAttrName, memorySpaceAttr);
+        // Add tensorrt.host_tensor attr, it is needed by NetworkEncoder for now
+        func->setArgAttr(argIndex, hostTensorAttrName, rewriter.getUnitAttr());
+      }
+    } else {
+      auto shapeBoundAttr =
+          parentFunc.getArgAttrOfType<tensorrt::ShapeProfileAttr>(
+              argIndex, tensorrtShapeBoundsAttrName);
+      if (!shapeBoundAttr) {
+        return emitError(blockArg.getLoc())
+               << "Profile attribute (" << tensorrtShapeBoundsAttrName
+               << ") of argument " << argIndex << " is not set";
+      }
+      func->setArgAttr(argIndex, tensorrtShapeBoundsAttrName, shapeBoundAttr);
+      auto dimensionNameAttr = parentFunc.getArgAttrOfType<DictionaryAttr>(
+          argIndex, tensorrtDimensionNamesAttrName);
+      if (dimensionNameAttr) {
+        func->setArgAttr(argIndex, tensorrtDimensionNamesAttrName,
+                         dimensionNameAttr);
+      }
     }
-  }
-
-  for (unsigned idx = 0; idx < func->getNumArguments(); idx++) {
-    if (profileAttrsPerInput[idx])
-      func->setArgAttr(idx, tensorrtShapeBoundsAttrName,
-                       profileAttrsPerInput[idx]);
-    if (dimensionNamesAttrsPerInput[idx])
-      func->setArgAttr(idx, tensorrtDimensionNamesAttrName,
-                       dimensionNamesAttrsPerInput[idx]);
   }
 
   rewriter.setInsertionPoint(inlineGroupOp);
