@@ -1,4 +1,4 @@
-//===- MathToExecutor.pdll -------------------------------------*- PDLL -*-===//
+//===- StdToExecutor.pdll -------------------------------------*- PDLL -*-===//
 //
 // SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
@@ -17,7 +17,7 @@
 // limitations under the License.
 //
 //===----------------------------------------------------------------------===//
-// PDLL rewrites for Math dialect to Executor dialect.
+// PDLL rewrites for Arith, Complex, Math dialects to Executor dialect.
 //===----------------------------------------------------------------------===//
 #include "mlir/Dialect/Math/IR/MathOps.td"
 #include "mlir/Dialect/Complex/IR/ComplexOps.td"
@@ -138,6 +138,14 @@ Pattern =>
 Pattern =>
   replace op<arith.maxsi>(args: ValueRange) -> (results: TypeRange)
     with op<executor.smax>(convertValues(args)) -> (convertTypes(results));
+
+Pattern =>
+  replace op<arith.minui>(args: ValueRange) -> (results: TypeRange)
+    with op<executor.umin>(convertValues(args)) -> (convertTypes(results));
+
+Pattern =>
+  replace op<arith.maxui>(args: ValueRange) -> (results: TypeRange)
+    with op<executor.umax>(convertValues(args)) -> (convertTypes(results));
 
 Pattern =>
   replace op<arith.minimumf>(args: ValueRange) -> (results: TypeRange)
