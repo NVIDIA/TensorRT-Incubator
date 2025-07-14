@@ -17,6 +17,7 @@ add_mlir_tensorrt_dialect_library(MLIRTensorRTPlanDialect
   MLIRInferTypeOpInterface
   MLIRIR
   MLIRSupport
+  MLIRTensorDialect
   MLIRTensorRTInferTensorValueRangeInterface
   MLIRTensorRTInterfaces
   MLIRTensorRTSupportStatus

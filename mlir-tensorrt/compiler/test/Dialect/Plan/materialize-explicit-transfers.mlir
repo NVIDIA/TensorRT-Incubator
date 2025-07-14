@@ -9,7 +9,7 @@ func.func @tensor_cast(%arg0: !host_type) -> !device_type {
   //      CHECK: %[[v0:.+]] = tensor.empty() {{.*}} #plan.memory_space<device>
   //      CHECK: %[[v1:.+]] = linalg.copy
   // CHECK-SAME:   ins(%[[arg0]] {{.*}}) outs(%[[v0]] {{.*}})
-  %1 = tensor.cast %arg0 : !host_type to !device_type
+  %1 = plan.transfer %arg0 : !host_type to !device_type
   //      CHECK: return %[[v1]] : tensor<1xf32, #plan.memory_space<device>>
   return %1 : !device_type
 }
@@ -31,7 +31,7 @@ func.func @dynamic_shape(%arg0: !host_type) -> !device_type {
 
   //      CHECK: %[[v1:.+]] = linalg.copy
   // CHECK-SAME:   ins(%[[arg0]] {{.*}}) outs(%[[v0]] {{.*}})
-  %1 = tensor.cast %arg0 : !host_type to !device_type
+  %1 = plan.transfer %arg0 : !host_type to !device_type
   //      CHECK: return %[[v1]] : tensor<?x4x?xf32, #plan.memory_space<device>>
   return %1 : !device_type
 }

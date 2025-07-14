@@ -24,9 +24,7 @@
 #include "mlir-tensorrt/Compiler/StablehloToExecutable/StablehloToExecutable.h"
 #include "mlir-executor/Conversion/Passes.h"
 #include "mlir-executor/Executor/Transforms/Passes.h"
-#include "mlir-executor/Runtime/API/API.h"
 #include "mlir-executor/Support/Status.h"
-#include "mlir-executor/Target/Lua/TranslateToRuntimeExecutable.h"
 #include "mlir-tensorrt/Compiler/Client.h"
 #include "mlir-tensorrt/Compiler/Extension.h"
 #include "mlir-tensorrt/Compiler/OptionsProviders.h"
@@ -39,7 +37,6 @@
 #include "mlir/Conversion/ComplexToStandard/ComplexToStandard.h"
 #include "mlir/Conversion/SCFToControlFlow/SCFToControlFlow.h"
 #include "mlir/Dialect/Affine/Passes.h"
-#include "mlir/Dialect/Bufferization/IR/BufferDeallocationOpInterface.h"
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
 #include "mlir/Dialect/EmitC/Transforms/Passes.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -47,18 +44,28 @@
 #include "mlir/Dialect/MemRef/Transforms/Passes.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/Passes.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/raw_ostream.h"
 #include <memory>
-
-#define DEBUG_TYPE "compiler-api"
-#define DBGS() (llvm::dbgs() << "[" DEBUG_TYPE "]")
 
 using namespace mlirtrt;
 using namespace mlirtrt::compiler;
 using namespace mlir;
 
 #ifdef MLIR_TRT_ENABLE_HLO
+
+static plan::PlanBufferizationOptions
+convertBufferizationOptions(const StablehloToExecutableOptions &pipelineOpts) {
+  const BufferizationOptions &opts = pipelineOpts.get<BufferizationOptions>();
+  plan::PlanBufferizationOptions bufferizationOpts{};
+  bufferizationOpts.forceEntrypointsReturnAllocs =
+      opts.forceEntrypointsReturnAllocs;
+  bufferizationOpts.deallocationPrivateFuncDynamicOwnership =
+      opts.deallocationPrivateFuncDynamicOwnership;
+  bufferizationOpts.enableBufferLoopHoisting = opts.enableBufferLoopHoisting;
+  bufferizationOpts.enableBufferHoisting = opts.enableBufferHoisting;
+  bufferizationOpts.enablePinnedMemoryPromotion =
+      opts.enablePinnedMemoryPromotion;
+  return bufferizationOpts;
+}
 
 //===----------------------------------------------------------------------===//
 // StableHLOToExecutableOptions
@@ -134,10 +141,7 @@ void StablehloToExecutableTask::buildPostClusteringPipeline(
   populateExtensionPasses(pm, opts, Phase::PreBufferization);
 
   // Perform bufferization.
-  plan::buildPlanBufferizationPipeline(
-      pm, {opts.get<PlanAllocOptions>().forceEntrypointsReturnAllocs},
-      bufferization::DeallocationOptions{
-          /*privateFuncDynamicOwnership=*/false});
+  plan::buildPlanBufferizationPipeline(pm, convertBufferizationOptions(opts));
 
   populateExtensionPasses(pm, opts, Phase::PostBufferization);
 

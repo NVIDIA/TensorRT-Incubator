@@ -603,7 +603,7 @@ public:
       patterns_.add<
         ResolveDimOfInferShapedTypePattern,
         SimplifyDimOfWithShapeOp,
-        SimplifyExtractOfCast,   
+        SimplifyExtractOfCast,
         SimplifyExtractOfShapeOf,
         SimplifyExtractOfWithValuesRewrite,
         SimplifyRedundantMaxSI

@@ -52,7 +52,7 @@ class StablehloToExecutableTask;
 
 struct StablehloToExecutableOptions
     : public CompilationTaskOptions<ExecutorOptions, DeviceOptions,
-                                    PlanAllocOptions> {
+                                    BufferizationOptions> {
   /// Initializes the options. The extensions in the provided registry
   /// must be extensions for the StableHloToExecutable task.
   StablehloToExecutableOptions(TaskExtensionRegistry extensions,

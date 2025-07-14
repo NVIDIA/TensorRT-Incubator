@@ -59,11 +59,34 @@ struct ClusterTargetOption;
 void buildPlanSegmentationPipeline(OpPassManager &pm,
                                    const plan::ClusteringPassOptions &opts);
 
+struct PlanBufferizationOptions {
+  /// Force entrypoint functions to return allocations rather than trying to use
+  /// destination-passing (DPS) style.
+  bool forceEntrypointsReturnAllocs{false};
+
+  /// In the buffer deallocation transformation, calls to private functions use
+  /// a default behavior where the private function may not assume ownership of
+  /// memref arguments and the ownership of any returned memrefs is assumed by
+  /// the caller. Setting this option to 'true' allows the transformation to
+  /// instead rewrite private functions and their call sites to add additional
+  /// `i1` arguments and results to pass ownership information across the
+  /// function boundary.
+  bool deallocationPrivateFuncDynamicOwnership{false};
+
+  /// Enable buffer hoisting out of loops.
+  bool enableBufferLoopHoisting{true};
+
+  /// Enable buffer hoisting.
+  bool enableBufferHoisting{true};
+
+  /// Enable promotion of host buffers to pinned memory using heuristics.
+  bool enablePinnedMemoryPromotion{true};
+};
+
 /// Build a complete bufferization pipeline, which includes: bufferization,
 /// optimizations, and buffer deallocation.
-void buildPlanBufferizationPipeline(
-    OpPassManager &pm, const plan::PlanAllocTensorsPassOptions &options,
-    const bufferization::DeallocationOptions &deallocationOptions);
+void buildPlanBufferizationPipeline(OpPassManager &pm,
+                                    const PlanBufferizationOptions &options);
 
 /// Register PassPipelines associated with the Plan dialect.
 void registerPlanDialectPipelines();

@@ -90,7 +90,7 @@ public:
 
 struct TensorRTToExecutableOptions
     : public CompilationTaskOptions<DeviceOptions, ExecutorOptions,
-                                    PlanAllocOptions, TensorRTOptions> {
+                                    BufferizationOptions, TensorRTOptions> {
   using CompilationTaskOptions::CompilationTaskOptions;
 };
 
