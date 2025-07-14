@@ -325,7 +325,8 @@ maybeReshapeOrCast(RewriterBase &rewriter, Location loc,
     return v;
 
   // Check if we can satisfy the type difference using `tensor.cast`.
-  if (tensor::CastOp::areCastCompatible(v.getType(), type))
+  if (tensor::CastOp::areCastCompatible(v.getType(), type) &&
+      v.getType().getEncoding() == type.getEncoding())
     return cast<TypedValue<RankedTensorType>>(
         rewriter.create<tensor::CastOp>(loc, type, v).getResult());
 
@@ -372,6 +373,18 @@ maybeReshapeOrCast(RewriterBase &rewriter, Location loc,
           .getResult());
 }
 
+/// Return true if the given function argument is considered "writable". It is
+/// writable if it has attribute 'bufferization.writable' set to true or has
+/// unit attribute 'plan.result_arg' set.
+static bool isArgumentWritable(func::FuncOp func, int64_t idx) {
+  if (func.getArgAttr(idx, PlanDialect::kResultArgAttrName))
+    return true;
+  if (auto writableAttr = func.getArgAttrOfType<BoolAttr>(
+          idx, bufferization::BufferizationDialect::kWritableAttrName))
+    return writableAttr.getValue();
+  return false;
+}
+
 /// Rewrite a single function to destination passing style. Update callers
 /// appropriately.
 static LogicalResult rewriteFuncToDestinationPassingStyle(
@@ -402,8 +415,7 @@ static LogicalResult rewriteFuncToDestinationPassingStyle(
     // Check if there is already an equivalent function argument.
     if (std::optional<int64_t> equivalent =
             getEquivalentFuncArgIdx(func, funcState, idx);
-        equivalent &&
-        func.getArgAttr(*equivalent, PlanDialect::kResultArgAttrName)) {
+        equivalent && isArgumentWritable(func, *equivalent)) {
       LLVM_DEBUG(
           DBGS() << llvm::formatv("for return value #{0} found existing "
                                   "equivalent result arg -- argument #{1}\n",
@@ -442,20 +454,18 @@ static LogicalResult rewriteFuncToDestinationPassingStyle(
     // We're looking for a single `tensor.empty` or `bufferization.alloc_tensor`
     // operation that we can replace.
     if (equivalentValues.size() != 1 ||
-        !isa_and_present<tensor::EmptyOp, bufferization::AllocTensorOp,
-                         arith::ConstantOp>(
+        !isa_and_present<tensor::EmptyOp, bufferization::AllocTensorOp>(
             equivalentValues.front().getDefiningOp())) {
       // If we can't find a single `tensor.empty` or
       // `bufferization.alloc_tensor` operation that we can replace, we must
       // insert a `bufferization.materialize_in_destination` operation to force
       // the returned value to bufferize into the new function argument.
       rewriter.setInsertionPoint(term);
-      replacement = cast<TypedValue<RankedTensorType>>(
-          rewriter
-              .create<bufferization::MaterializeInDestinationOp>(
-                  v.get().getLoc(), v.get().getType(), v.get(), replacement)
-              .getResult());
-      term.getOperandsMutable()[idx].assign(replacement);
+
+      RankedTensorType targetType = cast<RankedTensorType>(v.get().getType());
+      auto copyOp = rewriter.create<linalg::CopyOp>(
+          v.get().getLoc(), targetType, v.get(), replacement);
+      term.getOperandsMutable()[idx].assign(copyOp.getResult(0));
       continue;
     }
 

@@ -21,6 +21,7 @@
 ///  Implementation of the `plan-optimize-memory-spaces` pass.
 ///
 //===----------------------------------------------------------------------===//
+#include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -95,7 +96,7 @@ struct FixUpFromElements : public OpRewritePattern<tensor::FromElementsOp> {
                              plan::MemorySpace::host));
     auto newOp = rewriter.create<tensor::FromElementsOp>(op.getLoc(), newType,
                                                          op.getElements());
-    rewriter.replaceOpWithNewOp<tensor::CastOp>(op, originalType, newOp);
+    rewriter.replaceOpWithNewOp<TransferOp>(op, originalType, newOp);
     return success();
   }
 };
@@ -136,13 +137,13 @@ struct SCFWhileAbsorbCastPattern : public OpRewritePattern<scf::WhileOp> {
       Value result = op.getResult(afterArg.getArgNumber());
       if (!result.hasOneUse())
         continue;
-      auto aboveCast = aboveOperand.getDefiningOp<tensor::CastOp>();
-      auto yieldCast = yieldOperand.getDefiningOp<tensor::CastOp>();
+      auto aboveCast = aboveOperand.getDefiningOp<TransferOp>();
+      auto yieldCast = yieldOperand.getDefiningOp<TransferOp>();
       if (!aboveCast || !yieldCast ||
           aboveCast.getOperand().getType() != yieldCast.getOperand().getType())
         continue;
-      auto condCast = condOperand.getDefiningOp<tensor::CastOp>();
-      auto resultCast = dyn_cast<tensor::CastOp>(*result.user_begin());
+      auto condCast = condOperand.getDefiningOp<TransferOp>();
+      auto resultCast = dyn_cast<TransferOp>(*result.user_begin());
       if (!condCast || !resultCast ||
           condCast.getOperand().getType() != resultCast.getType())
         continue;
@@ -206,14 +207,14 @@ struct SCFForAbsorbCastPattern : public OpRewritePattern<scf::ForOp> {
       auto tensorType = dyn_cast<RankedTensorType>(arg.getType());
       if (!tensorType)
         continue;
-      auto argCast = dyn_cast<tensor::CastOp>(*arg.user_begin());
+      auto argCast = dyn_cast<TransferOp>(*arg.user_begin());
       if (!argCast)
         continue;
       Value yieldOperand = originalYield.getOperands()[iterArgIdx];
-      auto yieldCast = yieldOperand.getDefiningOp<tensor::CastOp>();
+      auto yieldCast = yieldOperand.getDefiningOp<TransferOp>();
       if (!yieldCast || argCast.getType() != yieldCast.getOperand().getType())
         continue;
-      Value newToOperand = rewriter.create<tensor::CastOp>(
+      Value newToOperand = rewriter.create<TransferOp>(
           op.getLoc(), argCast.getType(), op.getInitArgs()[iterArgIdx]);
       newOperands[iterArgIdx] = newToOperand;
       newYieldOperands[iterArgIdx] = yieldCast.getOperand();
@@ -226,8 +227,8 @@ struct SCFForAbsorbCastPattern : public OpRewritePattern<scf::ForOp> {
     rewriter.setInsertionPointAfter(op);
     for (auto [iterArgIdx, type] : blockTypeUpdates) {
       Type originalType = op.getResultTypes()[iterArgIdx];
-      auto castOp = rewriter.create<tensor::CastOp>(op.getLoc(), originalType,
-                                                    op.getResult(iterArgIdx));
+      auto castOp = rewriter.create<TransferOp>(op.getLoc(), originalType,
+                                                op.getResult(iterArgIdx));
       rewriter.replaceAllUsesExcept(op.getResult(iterArgIdx), castOp, castOp);
     }
 
@@ -252,7 +253,7 @@ struct ReshapeAbsorbDeviceCast : public OpRewritePattern<tensor::ReshapeOp> {
   using OpRewritePattern::OpRewritePattern;
   LogicalResult matchAndRewrite(tensor::ReshapeOp op,
                                 PatternRewriter &rewriter) const override {
-    if (auto castOp = op.getShape().getDefiningOp<tensor::CastOp>()) {
+    if (auto castOp = op.getShape().getDefiningOp<TransferOp>()) {
       auto source = castOp.getOperand();
       if (isHostVisible(source)) {
         rewriter.modifyOpInPlace(
@@ -264,7 +265,7 @@ struct ReshapeAbsorbDeviceCast : public OpRewritePattern<tensor::ReshapeOp> {
     if (isHostVisible(op.getShape()))
       return rewriter.notifyMatchFailure(op, "skipping already host-visible");
     // Otherwise, insert a direct cast-to-host.
-    auto castOp = rewriter.create<tensor::CastOp>(
+    auto castOp = rewriter.create<TransferOp>(
         op.getLoc(),
         op.getShape().getType().cloneWithEncoding(plan::MemorySpaceAttr::get(
             op->getContext(), plan::MemorySpace::host)),
@@ -277,9 +278,9 @@ struct ReshapeAbsorbDeviceCast : public OpRewritePattern<tensor::ReshapeOp> {
 
 // Abosrb `tensor.cast` into `bufferization.alloc_tensor` (with no copy
 // operand).
-struct AllocTensorAbsorbCastPattern : public OpRewritePattern<tensor::CastOp> {
+struct AllocTensorAbsorbCastPattern : public OpRewritePattern<TransferOp> {
   using OpRewritePattern::OpRewritePattern;
-  LogicalResult matchAndRewrite(tensor::CastOp op,
+  LogicalResult matchAndRewrite(TransferOp op,
                                 PatternRewriter &rewriter) const override {
     auto source = op.getOperand();
     auto allocOp = source.getDefiningOp<bufferization::AllocTensorOp>();
@@ -309,14 +310,15 @@ struct AllocTensorAbsorbCastPattern : public OpRewritePattern<tensor::CastOp> {
 
 /// Absorb `tensor.cast` into `arith.constant` producer by folding in-place or
 /// duplicating the  constant (within limits).
-struct ConstantAbsorbCastPattern : public OpRewritePattern<tensor::CastOp> {
+struct ConstantAbsorbCastPattern : public OpRewritePattern<TransferOp> {
   using OpRewritePattern::OpRewritePattern;
-  LogicalResult matchAndRewrite(tensor::CastOp op,
+  LogicalResult matchAndRewrite(TransferOp op,
                                 PatternRewriter &rewriter) const override {
     auto source = op.getOperand();
-    auto resultType = dyn_cast<RankedTensorType>(op.getType());
-    if (!resultType || !resultType.hasStaticShape())
-      return rewriter.notifyMatchFailure(op, "skipping non-ranked-tensor type");
+    RankedTensorType resultType = op.getResult().getType();
+    if (!op.getResultMemorySpace())
+      return rewriter.notifyMatchFailure(
+          op, "skipping cast to unspecified memory space");
     auto constantOp = source.getDefiningOp<arith::ConstantOp>();
     if (!constantOp)
       return rewriter.notifyMatchFailure(op, "skipping non-constant source");
@@ -380,7 +382,7 @@ struct TensorDeviceExtractRewriter
       return failure();
 
     // First check if there is an existing `tensor.cast` which can be absorbed.
-    if (auto castOp = source.getDefiningOp<tensor::CastOp>()) {
+    if (auto castOp = source.getDefiningOp<TransferOp>()) {
       if (isHostVisible(castOp.getOperand())) {
         rewriter.modifyOpInPlace(
             op, [&]() { op.getTensorMutable().assign(castOp.getOperand()); });
@@ -389,7 +391,7 @@ struct TensorDeviceExtractRewriter
     }
 
     rewriter.setInsertionPointAfterValue(source);
-    Value hostTensor = rewriter.create<tensor::CastOp>(
+    Value hostTensor = rewriter.create<TransferOp>(
         op.getLoc(),
         RankedTensorType::get(source.getType().getShape(),
                               source.getType().getElementType(),
@@ -418,21 +420,12 @@ struct DeviceInsertRewriter : public OpRewritePattern<tensor::InsertOp> {
       return failure();
     if (inComputeRegion(op))
       return failure();
-    rewriter.setInsertionPointAfterValue(dest);
-    auto newType = RankedTensorType::get(
-        dest.getType().getShape(), dest.getType().getElementType(),
+    auto newType = dest.getType().cloneWithEncoding(
         plan::MemorySpaceAttr::get(op->getContext(), plan::MemorySpace::host));
-    Value hostTensor =
-        rewriter.create<tensor::CastOp>(op.getLoc(), newType, dest);
-    rewriter.replaceUsesWithIf(op.getDest(), hostTensor, [&](OpOperand &use) {
-      return isa<tensor::InsertOp>(use.getOwner());
-    });
-    Type originalType = op.getType();
-    rewriter.modifyOpInPlace(op, [&]() { op.getResult().setType(newType); });
-    rewriter.setInsertionPointAfter(op);
-    auto castBack = rewriter.create<tensor::CastOp>(op.getLoc(), originalType,
-                                                    op.getResult());
-    rewriter.replaceAllUsesExcept(op.getResult(), castBack, castBack);
+    Value hostTensor = rewriter.create<TransferOp>(op.getLoc(), newType, dest);
+    auto newInsertOp = rewriter.create<tensor::InsertOp>(
+        op.getLoc(), newType, op.getScalar(), hostTensor, op.getIndices());
+    rewriter.replaceOpWithNewOp<TransferOp>(op, op.getType(), newInsertOp);
     return success();
   }
 };
@@ -501,6 +494,8 @@ struct OptimizeMemorySpacesPass
 
     RewritePatternSet patterns(&getContext());
     tensor::CastOp::getCanonicalizationPatterns(patterns, &getContext());
+    TransferOp::getCanonicalizationPatterns(patterns, &getContext());
+
     // clang-format off
     patterns.insert<
       AllocTensorAbsorbCastPattern,

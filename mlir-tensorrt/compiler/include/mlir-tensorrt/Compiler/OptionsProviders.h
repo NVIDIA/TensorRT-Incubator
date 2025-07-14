@@ -29,10 +29,8 @@
 #include "mlir/Pass/PassOptions.h"
 #include "mlir/Support/LLVM.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Support/Error.h"
 #include "llvm/Support/ErrorHandling.h"
 #include <string>
-#include <vector>
 
 namespace mlirtrt::compiler {
 
@@ -215,24 +213,38 @@ private:
   std::optional<DeviceInfo> hostDeviceInfo{};
 };
 
-struct PlanAllocOptions : public OptionsProvider {
+/// Encapsulates options related to the bufferization pipeline.
+struct BufferizationOptions : public OptionsProvider {
 public:
   using OptionsProvider::OptionsProvider;
 
-  /// Forces entrypoint functions to return allocations corresponding to the
-  /// original tensor results. Otherwise, entrypoints will be lowered to use
-  /// destination passing style whenever possible, but some results may still
-  /// lower to returned allocations (because the output shape may not be
-  /// computable from the inputs). In either case, the user should verify the
-  /// final calling convention of the compiled function(s) by inspecting the
-  /// compiled function signature metadata.
   Option<bool> forceEntrypointsReturnAllocs{
       this->ctx, "force-entrypoints-return-allocs", llvm::cl::init(false),
       llvm::cl::desc(
-          "Require entrypoint functions to return allocations corresponding "
-          "to"
-          " the original tensor results, otherwise they are transformed"
-          " into destination arguments whenever possible.")};
+          "Require entrypoint functions to return allocations corresponding to "
+          "the original tensor results, otherwise they are transformed into "
+          "destination arguments whenever possible.")};
+
+  Option<bool> deallocationPrivateFuncDynamicOwnership{
+      this->ctx, "deallocation-private-func-dynamic-ownership",
+      llvm::cl::init(false),
+      llvm::cl::desc(
+          "Overrides the default private function ABI in the buffer "
+          "deallocation pipeline to allow for dynamic ownership of memref "
+          "arguments and returned memrefs.")};
+
+  Option<bool> enablePinnedMemoryPromotion{
+      this->ctx, "enable-pinned-memory-promotion", llvm::cl::init(true),
+      llvm::cl::desc("Enable promotion of host buffers to pinned memory using "
+                     "heuristics.")};
+
+  Option<bool> enableBufferLoopHoisting{
+      this->ctx, "enable-buffer-loop-hoisting", llvm::cl::init(true),
+      llvm::cl::desc("Enable buffer hoisting out of loops.")};
+
+  Option<bool> enableBufferHoisting{this->ctx, "enable-buffer-hoisting",
+                                    llvm::cl::init(true),
+                                    llvm::cl::desc("Enable buffer hoisting.")};
 };
 
 //===----------------------------------------------------------------------===//

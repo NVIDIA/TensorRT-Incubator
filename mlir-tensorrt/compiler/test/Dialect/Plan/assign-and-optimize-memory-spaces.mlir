@@ -90,11 +90,11 @@ func.func @host_func(%arg0: tensor<2xf32>, %arg1: tensor<2xf32>) -> tensor<2xf32
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<2xf32, #plan.memory_space<device>>, %[[arg1:.+]]: tensor<2xf32, #plan.memory_space<host>>
 //  CHECK-SAME:  -> (tensor<2xf32, #plan.memory_space<device>>, tensor<2xf32, #plan.memory_space<host>> {plan.memory_space = #plan.memory_space<host>})
 func.func @default_func(%arg0: tensor<2xf32>, %arg1: tensor<2xf32> {plan.memory_space = #plan.memory_space<host>}) -> (tensor<2xf32>, tensor<2xf32> {plan.memory_space = #plan.memory_space<host>}) {
-  // CHECK-DAG: %[[cast:.+]] = tensor.cast %[[arg0]]
+  // CHECK-DAG: %[[cast:.+]] = plan.transfer %[[arg0]]
   // CHECK-DAG: %[[v0:.+]] = call @host_func(%[[cast]], %[[arg1]]) :
   %0 = func.call @host_func(%arg0, %arg1) : (tensor<2xf32>, tensor<2xf32>) -> tensor<2xf32>
   // CHECK-DAG: %[[c0:.+]] = arith.constant 0 : index
-  // CHECK-DAG: %[[cast_0:.+]] = tensor.cast %[[v0]] : tensor<2xf32, #plan.memory_space<host>> to tensor<2xf32, #plan.memory_space<device>>
+  // CHECK-DAG: %[[cast_0:.+]] = plan.transfer %[[v0]] : tensor<2xf32, #plan.memory_space<host>> to tensor<2xf32, #plan.memory_space<device>>
   // CHECK-DAG: %[[extracted:.+]] = tensor.extract %[[v0]][%[[c0]]] : tensor<2xf32, #plan.memory_space<host>>
   // CHECK-DAG: %[[inserted:.+]] = tensor.insert %[[extracted]] into %[[v0]][%[[c0]]]
   // CHECK-DAG: return %[[cast_0]], %[[inserted]]
@@ -118,9 +118,9 @@ func.func private @decl(tensor<2xf32>, tensor<2xf32> {plan.memory_space = #plan.
 // CHECK-LABEL: func.func @caller
 // CHECK-SAME: (%[[arg0:.+]]: tensor<2xf32, #plan.memory_space<device>>, %[[arg1:.+]]: tensor<2xf32, #plan.memory_space<device>>
 func.func @caller(%arg0: tensor<2xf32>, %arg1: tensor<2xf32>) -> tensor<2xf32> {
-  // CHECK-DAG: %[[cast:.+]] = tensor.cast %[[arg1]] : tensor<2xf32, #plan.memory_space<device>> to tensor<2xf32, #plan.memory_space<host>>
+  // CHECK-DAG: %[[cast:.+]] = plan.transfer %[[arg1]] : tensor<2xf32, #plan.memory_space<device>> to tensor<2xf32, #plan.memory_space<host>>
   // CHECK-DAG: %[[v0:.+]]:2 = call @decl(%[[arg0]], %[[cast]])
-  // CHECK-DAG: %[[v1:.+]] = tensor.cast %[[v0]]#0
+  // CHECK-DAG: %[[v1:.+]] = plan.transfer %[[v0]]#0
   // CHECK-DAG: %[[v2:.+]] = arith.addf %[[v1]], %[[v0]]#1
   // CHECK-DAG: return %[[v2]]
   %0:2 = func.call @decl(%arg0, %arg1) : (tensor<2xf32>, tensor<2xf32>) -> (tensor<2xf32>, tensor<2xf32>)
@@ -137,7 +137,7 @@ func.func @multiple_blocks(
       %c: i1,
       %th: tensor<10xf32> {plan.memory_space = #plan.memory_space<host>})
      -> (tensor<5xf32> {plan.memory_space = #plan.memory_space<device>}) {
-  // CHECK: %[[cast:.+]] = tensor.cast %[[arg1]] {{.*}}device>>
+  // CHECK: %[[cast:.+]] = plan.transfer %[[arg1]] {{.*}}device>>
   // CHECK: %[[v0:.+]] = tensor.empty() {{.*}}device>>
   %td = tensor.empty() : tensor<10xf32>
   // CHECK: cf.cond_br
@@ -160,7 +160,6 @@ func.func @multiple_blocks(
 
 // Test that the `plan.memory_space` attribute on a function is respected
 // but can be overriden by other constraints.
-
 
 func.func @function_level_override(
   %arg0: tensor<2xi32>,
@@ -221,7 +220,7 @@ func.func @alloc_tensor() -> tensor<2x128xf32> {
 //   CHECK-DAG:   %[[c0:.+]] = arith.constant 0 : index
 //   CHECK-DAG:   %[[v1:.+]] = bufferization.alloc_tensor() {memory_space = #plan.memory_space<host>} : tensor<2x128xf32, #plan.memory_space<host>>
 //   CHECK-DAG:   %[[inserted:.+]] = tensor.insert %[[cst]] into %[[v1]][%[[c0]], %[[c0]]]
-//   CHECK-DAG:   %[[cast:.+]] = tensor.cast %[[inserted]] : tensor<2x128xf32, #plan.memory_space<host>> to tensor<2x128xf32, #plan.memory_space<device>>
+//   CHECK-DAG:   %[[cast:.+]] = plan.transfer %[[inserted]] : tensor<2x128xf32, #plan.memory_space<host>> to tensor<2x128xf32, #plan.memory_space<device>>
 //   CHECK-DAG:   return %[[cast]]
 
 // -----
@@ -294,3 +293,27 @@ module @module_scoped_default attributes {plan.memory_space = #plan.memory_space
 // CHECK-SAME: -> tensor<2x128xf32, #plan.memory_space<host>>
 // CHECK-DAG: %[[cst:.+]] = arith.constant dense<1.{{.*}}> : tensor<2x128xf32, #plan.memory_space<host>>
 // CHECK-DAG: return %[[cst]] :
+
+
+// -----
+
+func.func @tensor_insert_multi_user(%arg0: tensor<2xi32>, %arg1: i32, %arg2: i32)
+    -> (tensor<2xi32> {plan.memory_space = #plan.memory_space<device>},
+        tensor<2xi32> {plan.memory_space = #plan.memory_space<host>}) {
+  %0 = tensor.empty() : tensor<2xi32>
+  %c0 = arith.constant 0 : index
+  %c1 = arith.constant 1 : index
+  %1 = tensor.insert %arg1 into %0[%c0] : tensor<2xi32>
+  %2 = tensor.insert %arg2 into %1[%c1] : tensor<2xi32>
+  return %2, %2 : tensor<2xi32>, tensor<2xi32>
+}
+
+// CHECK-LABEL: func.func @tensor_insert_multi_user
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<2xi32, #plan.memory_space<device>>,
+//   CHECK-DAG:     %[[c1:.+]] = arith.constant 1 : index
+//   CHECK-DAG:     %[[c0:.+]] = arith.constant 0 : index
+//   CHECK-DAG:     %[[v0:.+]] = tensor.empty() : tensor<2xi32, #plan.memory_space<host>>
+//   CHECK-DAG:     %[[inserted:.+]] = tensor.insert %{{.*}} into %[[v0]][%[[c0]]]
+//   CHECK-DAG:     %[[inserted_0:.+]] = tensor.insert %{{.*}} into %[[inserted]][%[[c1]]]
+//   CHECK-DAG:     %[[v1:.+]] = plan.transfer %[[inserted_0]] {{.*}} to tensor<2xi32, #plan.memory_space<device>>
+//   CHECK-DAG:     return %[[v1]], %[[inserted_0]]

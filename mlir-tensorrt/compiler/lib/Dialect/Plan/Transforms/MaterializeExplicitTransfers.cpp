@@ -21,6 +21,7 @@
 ///  Implementation of the `plan-materialize-explicit-transfers` pass.
 ///
 //===----------------------------------------------------------------------===//
+#include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
@@ -85,17 +86,15 @@ struct RewriteAllocTensorWithCopyToCastPattern
 
     auto newType = op.getType().cloneWithEncoding(memorySpace);
 
-    auto castOp =
-        rewriter.create<tensor::CastOp>(op.getLoc(), newType, copySource);
-    rewriter.replaceOpWithNewOp<tensor::CastOp>(op, newType, castOp);
+    auto castOp = rewriter.create<TransferOp>(op.getLoc(), newType, copySource);
+    rewriter.replaceOpWithNewOp<TransferOp>(op, newType, castOp);
     return success();
   }
 };
 
-struct TensorCastToAllocAndCopyPattern
-    : public OpRewritePattern<tensor::CastOp> {
-  using OpRewritePattern<tensor::CastOp>::OpRewritePattern;
-  LogicalResult matchAndRewrite(tensor::CastOp op,
+struct TensorCastToAllocAndCopyPattern : public OpRewritePattern<TransferOp> {
+  using OpRewritePattern<TransferOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(TransferOp op,
                                 PatternRewriter &rewriter) const override {
 
     auto sourceType = cast<RankedTensorType>(op.getOperand().getType());

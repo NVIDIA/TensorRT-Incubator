@@ -516,5 +516,42 @@ def Plan_OptimizationBarrierOp : Plan_Op<"optimization_barrier", [Pure,
   let assemblyFormat = "$operands attr-dict  `:` type($operands)";
 }
 
+//===----------------------------------------------------------------------===//
+// TransferOp
+//===----------------------------------------------------------------------===//
+
+def Plan_TransferOp : Plan_Op<"transfer", [Pure,
+      AllShapesMatch<["operand", "result"]>,
+      AllElementTypesMatch<["operand", "result"]>]> {
+  let summary = "Transfer a tensor from one memory space to another";
+  let description = [{
+    The `plan.transfer` operation is a utility operation that is used to
+    transfer a tensor from one memory space to another. It is converted
+    into a `linalg.copy` prior to running one-shot-bufferization.
+  }];
+
+  let arguments = (ins AnyRankedTensor:$operand);
+  let results = (outs AnyRankedTensor:$result);
+
+  let assemblyFormat = "$operand attr-dict  `:` type($operand) `to` type($result)";
+
+  let hasVerifier = 1;
+  let hasCanonicalizer = 1;
+  let hasFolder = 1;
+
+  let extraClassDeclaration = [{
+    /// Return the memory space of the operand.
+    plan::MemorySpaceAttr getOperandMemorySpace() {
+      return llvm::dyn_cast_if_present<plan::MemorySpaceAttr>(
+          getOperand().getType().getEncoding());
+    }
+
+    /// Return the memory space of the result.
+    plan::MemorySpaceAttr getResultMemorySpace() {
+      return llvm::dyn_cast_if_present<plan::MemorySpaceAttr>(
+          getResult().getType().getEncoding());
+    }
+  }];
+}
 
 #endif // MLIR_TENSORRT_DIALECT_PLAN_IR_PLANOPS_TD

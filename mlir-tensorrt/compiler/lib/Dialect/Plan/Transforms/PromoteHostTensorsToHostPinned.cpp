@@ -42,18 +42,16 @@ using namespace mlir::plan;
 namespace {
 
 template <plan::MemorySpace sourceSpace, plan::MemorySpace destSpace>
-struct CastPromotionPattern : public OpRewritePattern<tensor::CastOp> {
+struct CastPromotionPattern : public OpRewritePattern<TransferOp> {
   using OpRewritePattern::OpRewritePattern;
-  LogicalResult matchAndRewrite(tensor::CastOp op,
+  LogicalResult matchAndRewrite(TransferOp op,
                                 PatternRewriter &rewriter) const override {
-    auto sourceType = dyn_cast<RankedTensorType>(op.getOperand().getType());
-    auto destType = dyn_cast<RankedTensorType>(op.getType());
+    auto sourceType = op.getOperand().getType();
+    auto destType = op.getType();
     if (!sourceType || !destType)
       return failure();
-    auto sourceSpaceAttr =
-        llvm::dyn_cast_if_present<MemorySpaceAttr>(sourceType.getEncoding());
-    auto destSpaceAttr =
-        llvm::dyn_cast_if_present<MemorySpaceAttr>(destType.getEncoding());
+    auto sourceSpaceAttr = op.getOperandMemorySpace();
+    auto destSpaceAttr = op.getResultMemorySpace();
     if (!sourceSpaceAttr || !destSpaceAttr)
       return failure();
     if (sourceSpaceAttr.getValue() != sourceSpace ||
@@ -62,8 +60,7 @@ struct CastPromotionPattern : public OpRewritePattern<tensor::CastOp> {
     return handleCast(op, sourceType, destType, rewriter);
   }
 
-  virtual LogicalResult handleCast(tensor::CastOp op,
-                                   RankedTensorType sourceType,
+  virtual LogicalResult handleCast(TransferOp op, RankedTensorType sourceType,
                                    RankedTensorType destType,
                                    PatternRewriter &rewriter) const = 0;
 
@@ -82,7 +79,7 @@ struct DeviceToHostCastPattern
                                   plan::MemorySpace::host> {
   using CastPromotionPattern::CastPromotionPattern;
 
-  LogicalResult handleCast(tensor::CastOp op, RankedTensorType sourceType,
+  LogicalResult handleCast(TransferOp op, RankedTensorType sourceType,
                            RankedTensorType destType,
                            PatternRewriter &rewriter) const override {
     // TODO: this should be replaced with some more general conditions. To
@@ -91,7 +88,7 @@ struct DeviceToHostCastPattern
     if (!llvm::all_of(op->getUsers(), llvm::IsaPred<tensor::ExtractOp>))
       return failure();
     auto newType = destType.cloneWithEncoding(hostPinnedSpaceAttr);
-    rewriter.replaceOpWithNewOp<tensor::CastOp>(op, newType, op.getOperand());
+    rewriter.replaceOpWithNewOp<TransferOp>(op, newType, op.getOperand());
     return success();
   }
 };
@@ -103,17 +100,23 @@ struct FromElementsPromotionPattern
                                   plan::MemorySpace::device> {
   using CastPromotionPattern::CastPromotionPattern;
 
-  LogicalResult handleCast(tensor::CastOp op, RankedTensorType sourceType,
+  LogicalResult handleCast(TransferOp op, RankedTensorType sourceType,
                            RankedTensorType destType,
                            PatternRewriter &rewriter) const override {
     auto fromElementsOp =
         op.getOperand().getDefiningOp<tensor::FromElementsOp>();
     if (!fromElementsOp)
       return failure();
-    auto hostPinnedType = sourceType.cloneWithEncoding(hostPinnedSpaceAttr);
-    rewriter.modifyOpInPlace(fromElementsOp, [&]() {
-      fromElementsOp.getResult().setType(hostPinnedType);
-    });
+
+    rewriter.setInsertionPointAfter(fromElementsOp);
+    auto newFromElementsOp = rewriter.create<tensor::FromElementsOp>(
+        fromElementsOp.getLoc(),
+        fromElementsOp.getType().cloneWithEncoding(hostPinnedSpaceAttr),
+        fromElementsOp.getElements());
+
+    rewriter.setInsertionPoint(op);
+    rewriter.replaceOpWithNewOp<TransferOp>(op, op.getType(),
+                                            newFromElementsOp);
     return success();
   };
 };

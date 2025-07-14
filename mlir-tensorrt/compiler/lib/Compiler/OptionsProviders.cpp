@@ -22,11 +22,9 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt/Compiler/OptionsProviders.h"
-#include "cuda_runtime_api.h"
 #include "mlir-executor/Support/DeviceInfo.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Support/Timing.h"
-#include "llvm/Support/Error.h"
 #include "llvm/Support/ErrorHandling.h"
 
 using namespace mlir;

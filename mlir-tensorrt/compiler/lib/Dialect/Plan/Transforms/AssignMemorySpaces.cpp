@@ -119,10 +119,10 @@ public:
                    : expectedResultType;
 
     if (adaptor.getCopy()) {
-      auto castToConstraint = rewriter.create<tensor::CastOp>(
+      auto castToConstraint = rewriter.create<TransferOp>(
           op.getLoc(), constraintedType, adaptor.getCopy());
-      auto castOp = rewriter.create<tensor::CastOp>(
-          op.getLoc(), expectedResultType, castToConstraint);
+      auto castOp = rewriter.create<TransferOp>(op.getLoc(), expectedResultType,
+                                                castToConstraint);
       rewriter.replaceOp(op, castOp);
       return success();
     }
@@ -140,8 +140,8 @@ public:
         /*copy=*/Value{},
         /*size_hint=*/Value{},
         /*memory_space=*/constraintedType.getEncoding());
-    auto castOp = rewriter.create<tensor::CastOp>(
-        op.getLoc(), expectedResultType, newAllocOp.getResult());
+    auto castOp = rewriter.create<TransferOp>(op.getLoc(), expectedResultType,
+                                              newAllocOp.getResult());
     rewriter.replaceOp(op, castOp);
     return success();
   }
@@ -192,14 +192,13 @@ public:
     });
     addSourceMaterialization([&](OpBuilder &builder, Type resultType,
                                  ValueRange inputs, Location loc) -> Value {
-      return builder.create<tensor::CastOp>(loc, resultType, inputs.front());
+      return builder.create<TransferOp>(loc, resultType, inputs.front());
     });
     addTargetMaterialization([&](OpBuilder &builder, TypeRange resultTypes,
                                  ValueRange inputs,
                                  Location loc) -> SmallVector<Value> {
       return {
-          builder
-              .create<tensor::CastOp>(loc, resultTypes.front(), inputs.front())
+          builder.create<TransferOp>(loc, resultTypes.front(), inputs.front())
               .getResult()};
     });
   }
@@ -251,7 +250,7 @@ static void applySignatureConversion(RewriterBase &rewriter, Block *block,
     Type origType = arg.getType();
     if (origType == convertedTypes[arg.getArgNumber()])
       continue;
-    auto castOp = rewriter.create<tensor::CastOp>(
+    auto castOp = rewriter.create<TransferOp>(
         arg.getLoc(), convertedTypes[arg.getArgNumber()], arg);
     rewriter.replaceAllUsesExcept(arg, castOp, castOp);
     arg.setType(convertedTypes[arg.getArgNumber()]);
@@ -302,7 +301,7 @@ struct LogicalResult convertFuncUsers(RewriterBase &rewriter, func::FuncOp func,
   auto handleValue = [&](Value value, Type desiredType) -> Value {
     if (value.getType() == desiredType)
       return value;
-    return rewriter.create<tensor::CastOp>(value.getLoc(), desiredType, value);
+    return rewriter.create<TransferOp>(value.getLoc(), desiredType, value);
   };
   for (Operation *user : userMap.getUsers(func)) {
     auto call = dyn_cast<func::CallOp>(user);
@@ -363,7 +362,7 @@ convertFuncOpTypes(func::FuncOp funcOp,
           continue;
         }
         changed = true;
-        auto cast = rewriter.create<tensor::CastOp>(arg.getLoc(), newType, arg);
+        auto cast = rewriter.create<TransferOp>(arg.getLoc(), newType, arg);
         newTermOperands.push_back(cast);
       }
       if (!changed)
@@ -432,9 +431,19 @@ static LogicalResult applyConversionToFunction(func::FuncOp func) {
     return converter.isLegal(op.getType()) &&
            converter.isLegal(op.getValue().getType());
   });
-  target.addDynamicallyLegalOp<tensor::CastOp>([&](tensor::CastOp op) {
+  target.addDynamicallyLegalOp<TransferOp>([&](TransferOp op) {
     return hasMemorySpaceEncoding(op.getType()) &&
            hasMemorySpaceEncoding(op.getOperand().getType());
+  });
+  target.addDynamicallyLegalOp<tensor::CastOp>([&](tensor::CastOp op) {
+    auto sourceType = dyn_cast<RankedTensorType>(op.getOperand().getType());
+    auto destType = dyn_cast<RankedTensorType>(op.getType());
+    if (!sourceType || !destType ||
+        !isa_and_present<plan::MemorySpaceAttr>(destType.getEncoding()) ||
+        !isa_and_present<plan::MemorySpaceAttr>(sourceType.getEncoding()) ||
+        destType.getEncoding() != sourceType.getEncoding())
+      return false;
+    return true;
   });
   target.addDynamicallyLegalOp<bufferization::AllocTensorOp>(
       [&](bufferization::AllocTensorOp op) {
