@@ -28,7 +28,7 @@ from nvtripy.backend.mlir.utils import (
     map_error_to_user_code_and_raise,
     redirect_stderr,
 )
-from nvtripy.common.exception import raise_error
+from nvtripy.common.exception import raise_error, str_from_stack_info
 from nvtripy.logging import logger
 from nvtripy.trace.tensor import TraceTensor
 from nvtripy.trace.utils import topological_sort
@@ -177,6 +177,25 @@ class Trace:
 
                                 if num_known_dims(output_type) >= num_known_dims(mlir_output_op.type):
                                     mlir_output_op.set_type(output_type)
+
+                                mlir_output_op.owner.attributes["metadata"] = ir.StringAttr.get(
+                                    f"<TraceOp: {op}, Stack Info: "
+                                    + ", ".join(
+                                        (
+                                            str_from_stack_info(
+                                                # include_code_index points to the first "useful" frame, i.e. usually the API
+                                                # that the user calls, or a few frames below that:
+                                                out.stack_info[out.stack_info.include_code_index or 0 :],
+                                                enable_color=False,
+                                                fetch_source_code=False,
+                                            )
+                                            if out.stack_info
+                                            else ""
+                                        ).replace("\n", " ")
+                                        for out in op.outputs
+                                    )
+                                    + " >, "
+                                )
 
                             mlir_ops.update(zip([out.name for out in op.outputs], mlir_output_ops))
 

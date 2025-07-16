@@ -15,8 +15,6 @@
 # limitations under the License.
 #
 
-import inspect
-from dataclasses import dataclass
 from textwrap import indent
 from typing import Any, List, Optional, Tuple
 
@@ -84,12 +82,14 @@ def str_from_source_info(source_info, enable_color=True, is_first_frame=True, ca
     return frame_info
 
 
-def str_from_stack_info(stack_info: "utils.stack_info.StackInfo", enable_color: bool = True) -> Optional[str]:
+def str_from_stack_info(
+    stack_info: "utils.stack_info.StackInfo", enable_color: bool = True, fetch_source_code: bool = True
+) -> Optional[str]:
     from nvtripy.frontend.module import module
 
     def should_exclude(source_info):
         return (
-            source_info.code is None
+            (fetch_source_code and source_info.code is None)
             or source_info.module in utils.stack_info.get_module_names_to_exclude_from_stack_info()
             # Exclude module.__call__ since it just invokes forward and clutters the stack trace
             or (source_info.module == module.__name__ and source_info.function == "__call__")
@@ -98,7 +98,8 @@ def str_from_stack_info(stack_info: "utils.stack_info.StackInfo", enable_color: 
     frame_strs = []
     num_frames_printed = 0
 
-    stack_info.fetch_source_code()
+    if fetch_source_code:
+        stack_info.fetch_source_code()
     for index, source_info in enumerate(stack_info):
         if should_exclude(source_info):
             continue
