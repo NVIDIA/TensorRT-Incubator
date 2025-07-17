@@ -56,16 +56,15 @@ stablehlo::ReshapeOp StablehloBuilder::squeezeDims(Value v, int64_t idx) {
 
 stablehlo::TransposeOp StablehloBuilder::transpose(Value v,
                                                    ArrayRef<int64_t> perm) {
-  RankedTensorType rtt = cast<RankedTensorType>(v.getType());
-  assert(static_cast<int64_t>(perm.size()) == rtt.getRank() &&
+  assert(static_cast<int64_t>(perm.size()) ==
+             cast<RankedTensorType>(v.getType()).getRank() &&
          "expected size of 'permutation' list to match rank of tensor");
   return rewriter.create<stablehlo::TransposeOp>(v.getLoc(), v, perm);
 }
 
 stablehlo::TransposeOp StablehloBuilder::transpose(Value v, AffineMap perm) {
   assert(perm.isPermutation() && "expected permutation");
-  RankedTensorType rtt = cast<RankedTensorType>(v.getType());
-  assert(perm.getNumResults() == rtt.getRank());
+  assert(perm.getNumResults() == cast<RankedTensorType>(v.getType()).getRank());
   SmallVector<int64_t, 4> elements;
   for (unsigned i = 0; i < perm.getNumResults(); i++)
     elements.push_back(

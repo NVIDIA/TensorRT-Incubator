@@ -349,12 +349,12 @@ registerCudaMemoryManagementOps(sol::state_view &lua,
 
     AllocTracker &tracker = *allocTracker;
     if (tracker.contains(src)) {
-      const PointerInfo &srcInfo = tracker.get(src);
-      assert(srcInfo.isHostVisible() && "expected host visible src pointer");
+      assert(tracker.get(src).isHostVisible() &&
+             "expected host visible src pointer");
     }
     if (tracker.contains(dst)) {
-      const PointerInfo &dstInfo = tracker.get(dst);
-      assert(dstInfo.isHostVisible() && "expected host visible dst pointer");
+      assert(tracker.get(dst).isHostVisible() &&
+             "expected host visible dst pointer");
     }
     MTRT_DBGF("executor_memcpy host-host %lu bytes src %lx + %lu dst %lx + %lu",
               numBytes, src, srcOffset, dst, destOffset);
@@ -378,8 +378,8 @@ registerCudaMemoryManagementOps(sol::state_view &lua,
                                              CudaStream stream, uintptr_t ptr) {
     ADD_CUDA_MODULE_RANGE("cuda_memory_free_async");
     AllocTracker &tracker = *allocTracker;
-    PointerInfo info = tracker.get(ptr);
-    assert(info.isDeviceVisible() && "expected device-visible pointer");
+    assert(tracker.get(ptr).isDeviceVisible() &&
+           "expected device-visible pointer");
     SET_LUA_ERROR_IF_CUDART_ERROR(
         cudaFreeAsync(reinterpret_cast<void *>(ptr),
                       reinterpret_cast<cudaStream_t>(stream)),
@@ -396,6 +396,7 @@ registerCudaMemoryManagementOps(sol::state_view &lua,
                   numBytes, src, srcOffset, dest, destOffset);
         void *srcPtr = reinterpret_cast<void *>(src + srcOffset);
         void *dstPtr = reinterpret_cast<void *>(dest + destOffset);
+        (void)allocTracker;
 #ifndef NDEBUG
         {
           AllocTracker &tracker = *allocTracker;
@@ -422,6 +423,7 @@ registerCudaMemoryManagementOps(sol::state_view &lua,
                   numBytes, src, srcOffset, dest, destOffset);
         void *srcPtr = reinterpret_cast<void *>(src + srcOffset);
         void *dstPtr = reinterpret_cast<void *>(dest + destOffset);
+        (void)allocTracker;
 #ifndef NDEBUG
         {
           AllocTracker &tracker = *allocTracker;
@@ -449,6 +451,7 @@ registerCudaMemoryManagementOps(sol::state_view &lua,
                   numBytes, src, srcOffset, dest, destOffset);
         void *srcPtr = reinterpret_cast<void *>(src + srcOffset);
         void *dstPtr = reinterpret_cast<void *>(dest + destOffset);
+        (void)allocTracker;
 #ifndef NDEBUG
         {
           AllocTracker &tracker = *allocTracker;
@@ -473,6 +476,7 @@ registerCudaMemoryManagementOps(sol::state_view &lua,
         ADD_CUDA_MODULE_RANGE("cuda_memcpy_async_d2h");
         void *srcPtr = reinterpret_cast<void *>(src + srcOffset);
         void *dstPtr = reinterpret_cast<void *>(dest + destOffset);
+        (void)allocTracker;
 #ifndef NDEBUG
         {
           AllocTracker &tracker = *allocTracker;
@@ -497,6 +501,7 @@ registerCudaMemoryManagementOps(sol::state_view &lua,
     ADD_CUDA_MODULE_RANGE("cuda_memcpy_async_d2d");
     void *srcPtr = reinterpret_cast<void *>(src + srcOffset);
     void *dstPtr = reinterpret_cast<void *>(dest + destOffset);
+    (void)allocTracker;
 #ifndef NDEBUG
     {
       AllocTracker &tracker = *allocTracker;

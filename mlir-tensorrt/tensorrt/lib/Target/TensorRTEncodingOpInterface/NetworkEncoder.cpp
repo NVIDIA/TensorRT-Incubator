@@ -72,6 +72,15 @@ Type tensorrt::getNvInferDataTypeAsMlirType(MLIRContext *ctx,
   case DataType::kINT4:
     return IntegerType::get(ctx, 4);
 #endif
+#if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 9, 0)
+  case DataType::kFP4:
+    return Float4E2M1FNType::get(ctx);
+#endif
+#if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 12, 0)
+  case DataType::kE8M0:
+    return Float8E4M3FNType::get(
+        ctx); // Using FP8 as a proxy since MLIR doesn't have E8M0
+#endif
   }
   llvm_unreachable("invalid TRT -> MLIR type conversion for the given TensorRT "
                    "version. ");
@@ -378,12 +387,17 @@ nvinfer1::ILayer *NvInferNetworkEncoder::addFillLayer(
     nvinfer1::ITensor *dynamicAlpha, nvinfer1::ITensor *dynamicBeta) {
 #if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(9, 1, 0)
   if (dynamicShape) {
+
     // Starting in TensorRT 10.5, TensorRT will give an error if we don't give a
     // fully valid static result shape, even if we are about to override it with
     // a dynamic shape.
+
+#ifndef NDEBUG
     nvinfer1::Dims shapeDims = dynamicShape->getDimensions();
     assert(shapeDims.nbDims == 1 && shapeDims.d[0] > 0 &&
            "invalid shape tensor shape");
+#endif // NDEBUG
+
     staticShape.nbDims = 1;
     staticShape.d[0] = 1;
   }

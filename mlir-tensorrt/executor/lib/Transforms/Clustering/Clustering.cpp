@@ -39,7 +39,7 @@ using namespace mlir;
 
 /// Print out the cluster by printing out all Operation* pointers belonging
 /// to the cluster.
-// void debugPrintClus
+#ifndef NDEBUG
 static void debugPrintCluster(const ClusteringState &state, Operation *op,
                               llvm::raw_ostream &os) {
   unsigned idx = 0;
@@ -47,6 +47,7 @@ static void debugPrintCluster(const ClusteringState &state, Operation *op,
     os << " - " << idx++ << ": " << *member << "\n";
   });
 }
+#endif // NDEBUG
 
 /// Check if merging `src_root` cluster into `dst_root` cluster will obey
 /// dominance property. Here `src_root` is before `dst_root`, so what this
@@ -328,8 +329,10 @@ mlir::analyzeAndClusterOperations(ClusteringState &clusterer) {
   if (std::distance(clusterer.ec.begin(), clusterer.ec.end()) == 0)
     return SmallVector<Cluster>{};
 
-  // Get the module for debug printing.
+// Get the module for debug printing.
+#ifndef NDEBUG
   ModuleOp op = (*clusterer.ec.begin()).getData()->getParentOfType<ModuleOp>();
+#endif // NDEBUG
 
   LLVM_DEBUG({
     annotateClustersWithClusterIdAttribute(clusterer);

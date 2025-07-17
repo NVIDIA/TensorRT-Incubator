@@ -368,8 +368,8 @@ static FailureOr<std::unique_ptr<llvm::ToolOutputFile>>
 serializeDenseSplatElementsAttrToFile(Location loc, DenseElementsAttr values,
                                       StringRef outputPath) {
   assert(values && "expected non-null attribute");
-  ShapedType type = values.getType();
-  assert(type.getNumElements() > 0 && "Expected non-empty elements attribute");
+  assert(values.getType().getNumElements() > 0 &&
+         "Expected non-empty elements attribute");
   assert(values.isSplat() && "expected splat elements");
   std::string err;
   std::unique_ptr<llvm::ToolOutputFile> of =

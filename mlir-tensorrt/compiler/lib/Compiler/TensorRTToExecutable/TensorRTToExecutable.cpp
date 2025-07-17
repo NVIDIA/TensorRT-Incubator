@@ -34,6 +34,21 @@
 using namespace mlir;
 using namespace mlirtrt::compiler;
 
+static plan::PlanBufferizationOptions
+convertBufferizationOptions(const TensorRTToExecutableOptions &pipelineOpts) {
+  const BufferizationOptions &opts = pipelineOpts.get<BufferizationOptions>();
+  plan::PlanBufferizationOptions bufferizationOpts{};
+  bufferizationOpts.forceEntrypointsReturnAllocs =
+      opts.forceEntrypointsReturnAllocs;
+  bufferizationOpts.deallocationPrivateFuncDynamicOwnership =
+      opts.deallocationPrivateFuncDynamicOwnership;
+  bufferizationOpts.enableBufferLoopHoisting = opts.enableBufferLoopHoisting;
+  bufferizationOpts.enableBufferHoisting = opts.enableBufferHoisting;
+  bufferizationOpts.enablePinnedMemoryPromotion =
+      opts.enablePinnedMemoryPromotion;
+  return bufferizationOpts;
+}
+
 //===----------------------------------------------------------------------===//
 // TensorRTToExecutableTask
 //===----------------------------------------------------------------------===//
@@ -80,10 +95,8 @@ void TensorRTToExecutableTask::buildPostClusteringPipeline(
   pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
 
   // Pre-bufferization
-  plan::buildPlanBufferizationPipeline(
-      pm, {options.get<PlanAllocOptions>().forceEntrypointsReturnAllocs},
-      bufferization::DeallocationOptions{
-          /*privateFuncDynamicOwnership=*/false});
+  plan::buildPlanBufferizationPipeline(pm,
+                                       convertBufferizationOptions(options));
 
   // Post-bufferization
   pm.addPass(createConvertMemRefToCUDAPass());
