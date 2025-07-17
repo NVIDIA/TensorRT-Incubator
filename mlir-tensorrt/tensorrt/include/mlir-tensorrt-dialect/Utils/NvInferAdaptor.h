@@ -484,11 +484,22 @@ inline ITensor *networkAddConcatenation(INetworkDefinition *n, int32_t axis,
 }
 
 /// Adaptor for `addIdentity`.
+inline ITensor *networkAddCast(INetworkDefinition *n, ITensor *input,
+                               nvinfer1::DataType targetType) {
+  ICastLayer *layer = n->addCast(*input, targetType);
+  return layer->getOutput(0);
+}
+
+/// Adaptor for `addIdentity`.
 inline ITensor *networkAddIdentity(INetworkDefinition *n, ITensor *input,
                                    nvinfer1::DataType targetType) {
+#if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_LT(10, 0, 0)
   IIdentityLayer *layer = n->addIdentity(*input);
   layer->setOutputType(0, targetType);
   return layer->getOutput(0);
+#else
+  return networkAddCast(n, input, targetType);
+#endif
 }
 
 /// Adaptor for `addGatherElements`

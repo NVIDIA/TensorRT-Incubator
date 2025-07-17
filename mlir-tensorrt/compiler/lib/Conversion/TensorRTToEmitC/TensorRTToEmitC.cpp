@@ -545,6 +545,11 @@ static emitc::CallOpaqueOp dispatchLayerBuilderCall(OpBuilder &b,
         .pushNvInferDataType(identityOp.getType().getElementType())
         .build(b, loc, e);
   }
+  if (auto castOp = dyn_cast<CastOp>(op.getOperation())) {
+    return call.pushOperand(castOp.getInput())
+        .pushNvInferDataType(castOp.getType().getElementType())
+        .build(b, loc, e);
+  }
 
   // All other operands can be handled generically in the below manner.
 
