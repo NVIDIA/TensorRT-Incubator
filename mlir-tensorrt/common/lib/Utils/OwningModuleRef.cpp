@@ -50,16 +50,15 @@ void mlir::detail::releaseReferencedResourceElementsAttrsBlobs(
 }
 
 OwningModuleRef::OwningModuleRef(std::nullptr_t)
-    : op(nullptr), beforeDestroyHook(nullptr), afterDestroyHook(nullptr) {}
+    : beforeDestroyHook(nullptr), afterDestroyHook(nullptr), op(nullptr) {}
 
 OwningModuleRef::OwningModuleRef(ModuleOp op)
-    : op(op),
-      beforeDestroyHook(detail::releaseReferencedResourceElementsAttrsBlobs),
-      afterDestroyHook(nullptr) {}
+    : beforeDestroyHook(detail::releaseReferencedResourceElementsAttrsBlobs),
+      afterDestroyHook(nullptr), op(op) {}
 
 OwningModuleRef::OwningModuleRef(OwningModuleRef &&other)
-    : op(other.release()), beforeDestroyHook(other.beforeDestroyHook),
-      afterDestroyHook(other.afterDestroyHook) {}
+    : beforeDestroyHook(other.beforeDestroyHook),
+      afterDestroyHook(other.afterDestroyHook), op(other.release()) {}
 
 OwningModuleRef::~OwningModuleRef() { eraseOp(); }
 

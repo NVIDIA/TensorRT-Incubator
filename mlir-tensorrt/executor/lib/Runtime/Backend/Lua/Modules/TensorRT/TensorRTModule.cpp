@@ -277,8 +277,8 @@ public:
 
   void setShape(int resultIndex, const std::vector<int64_t> &shape) {
     size_t index = getIndexForResult(resultIndex);
-    unsigned rank = static_cast<unsigned>(mData[index]);
-    assert(shape.size() == rank && "Shape size doesn't match the rank");
+    assert(shape.size() == static_cast<unsigned>(mData[index]) &&
+           "Shape size doesn't match the rank");
     index += OUTPUT_DESC_FIXED_FIELDS;
     std::copy(shape.begin(), shape.end(), mData + index);
   }
@@ -417,9 +417,9 @@ public:
       nvinfer1::TensorLocation location = (*engine)->getTensorLocation(name);
       if (location != nvinfer1::TensorLocation::kHOST)
         continue;
-      bool isShapeInferenceIO = (*engine)->isShapeInferenceIO(name);
 
-      assert(isShapeInferenceIO && "expected host tensor to be shape tensor");
+      assert((*engine)->isShapeInferenceIO(name) &&
+             "expected host tensor to be shape tensor");
 
       const nvinfer1::Dims dims = (*engine)->getTensorShape(name);
       const nvinfer1::DataType dataType = (*engine)->getTensorDataType(name);
