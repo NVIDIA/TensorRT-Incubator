@@ -174,6 +174,11 @@ static FailureOr<Value> convertBooleanReductions(RewriterBase &rewriter,
       .getResult();
 }
 
+/// Returns true if `dims` is a contiguous sequence of integers starting from 0.
+static bool isSequence(ArrayRef<int64_t> dims) {
+  return llvm::equal(dims, llvm::seq<int64_t>(0, dims.size()));
+}
+
 namespace {
 
 // Converts a `stablehlo.reduce` operation to a `tensorrt.reduce` operation.
@@ -421,8 +426,8 @@ struct ConvertDotGeneralToEinsum
 /// Convert `stablehlo.dot_general` to `tensorrt.matrix_multiply`.
 struct ConvertDotGeneralToMatrixMultiply
     : public ConvertHloOpToTensorRTPattern<stablehlo::DotGeneralOp> {
-  using ConvertHloOpToTensorRTPattern<
-      stablehlo::DotGeneralOp>::ConvertHloOpToTensorRTPattern;
+  using ConvertHloOpToTensorRTPattern::ConvertHloOpToTensorRTPattern;
+
   LogicalResult
   matchAndRewrite(stablehlo::DotGeneralOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
@@ -430,19 +435,24 @@ struct ConvertDotGeneralToMatrixMultiply
                                                   targetTrtMajorVersion);
 
     stablehlo::DotDimensionNumbersAttr dimNums = op.getDotDimensionNumbers();
-    ArrayRef<int64_t> lhsBatchDims = dimNums.getLhsBatchingDimensions();
-    const int64_t numBatchDims = lhsBatchDims.size();
     const int64_t numContractionDims =
         dimNums.getRhsContractingDimensions().size();
 
-    TensorType resultType = op.getType();
+    // The batching dimensions must form a contiguous sequence [0, ....,
+    // NumBatchingDims-1].
+    if (!isSequence(dimNums.getLhsBatchingDimensions()) ||
+        !isSequence(dimNums.getRhsBatchingDimensions()))
+      return failure();
+
+    RankedTensorType resultType = op.getType();
+
     // Determine the TRT equivalent qualifier.
     tensorrt::MatrixOperation qualifierLhs = tensorrt::MatrixOperation::kNONE;
     tensorrt::MatrixOperation qualifierRhs = tensorrt::MatrixOperation::kNONE;
     auto lhs = cast<TensorValue>(adaptor.getLhs());
     auto rhs = cast<TensorValue>(adaptor.getRhs());
-    TensorType lhsType = lhs.getType();
-    TensorType rhsType = rhs.getType();
+    RankedTensorType lhsType = lhs.getType();
+    RankedTensorType rhsType = rhs.getType();
 
     if (lhsType.getElementType().isInteger(32))
       return failure();
@@ -469,6 +479,8 @@ struct ConvertDotGeneralToMatrixMultiply
       return failure();
 
     // We don't handle multiple outer product dimensions.
+    int64_t numBatchDims =
+        static_cast<int64_t>(dimNums.getLhsBatchingDimensions().size());
     if (rhsType.getRank() > numBatchDims + numContractionDims + 1 ||
         lhsType.getRank() > numBatchDims + numContractionDims + 1)
       return failure();
