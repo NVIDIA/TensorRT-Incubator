@@ -239,12 +239,10 @@ public:
       if (location != nvinfer1::TensorLocation::kHOST)
         continue;
 
-      nvinfer1::DataType dataType = (*engine)->getTensorDataType(name);
-
       assert((*engine)->isShapeInferenceIO(name) &&
              "expected host tensor to be shape tensor");
       // We expect the host shape tensor to be a 0-d or 1-d tensor.
-      assert(dataType == nvinfer1::DataType::kINT32 &&
+      assert((*engine)->getTensorDataType(name) == nvinfer1::DataType::kINT32 &&
              "expected i32 data type for shape");
 
       // Create the pinned host buffer. Minimum allocation is 16 bytes. These
