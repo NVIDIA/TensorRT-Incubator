@@ -50,7 +50,6 @@ add_mlir_tensorrt_library(MLIRTensorRTPlanTransforms
   MLIRTensorRTPlanAnalysis
   MLIRTensorRTPlanDialect
   MLIRTensorRTStableHloExtTransforms
-  MLIRTensorRTStablehloScalarToArith
   MLIRTensorRTStablehloToTensorRT
   MLIRTensorRTTensorRTRuntimeDialect
   MLIRTransforms
