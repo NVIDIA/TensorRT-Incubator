@@ -36,5 +36,6 @@ add_mlir_tensorrt_library(MLIRTensorRTCompilerStableHloToExecutable
     MLIRTensorRTTensorRTBackend
     MLIRTensorRTTensorRTToTensorRTRuntime
     MLIRTensorRTTransforms
+    MLIRTensorRTTransformsUnrollForLoops
     StablehloLinalgTransforms
     )
