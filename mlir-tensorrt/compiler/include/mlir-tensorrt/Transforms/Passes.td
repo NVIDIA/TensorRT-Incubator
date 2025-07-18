@@ -65,6 +65,7 @@ def MemRefCastEliminationPass : Pass<"memref-cast-elimination"> {
 //===----------------------------------------------------------------------===//
 // SCFDetensorizeLoopsPass
 //===----------------------------------------------------------------------===//
+
 def SCFDetensorizeLoopsPass : Pass<"scf-detensorize-loops"> {
   let summary = "try to replace loop-carried scalar tensors with scalar-typed values";
 
@@ -90,8 +91,33 @@ def SCFDetensorizeLoopsPass : Pass<"scf-detensorize-loops"> {
 }
 
 //===----------------------------------------------------------------------===//
+// UnrollForLoopsPass
+//===----------------------------------------------------------------------===//
+
+def UnrollForLoopsPass : Pass<"scf-ext-unroll-for-loops"> {
+   let summary = "Unroll for loops with static trip count";
+
+   let description = [{
+    Unroll `scf.for` loops with static trip count. Loops are fully unrolled
+    if they have a cost below the `unroll-threshold`.
+
+    Currently the cost is estimated by counting the number of operations in the
+    loop body and multiplying it by the trip count.
+   }];
+
+   let dependentDialects = ["::mlir::scf::SCFDialect"];
+
+   let options = [
+    Option<"unrollThreshold", "unroll-threshold", "uint64_t",
+    /*default=*/"100",
+    "Unroll for loops if the cost is below this limit">
+   ];
+}
+
+//===----------------------------------------------------------------------===//
 // FuncExtDuplicateFunctionEliminationPass
 //===----------------------------------------------------------------------===//
+
 def FuncExtDuplicateFunctionEliminationPass : Pass<"func-ext-duplicate-function-elimination",
   "::mlir::ModuleOp"> {
   let summary = "Deduplicates func.func operations";
