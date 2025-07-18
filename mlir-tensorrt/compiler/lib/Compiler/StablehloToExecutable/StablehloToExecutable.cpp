@@ -111,7 +111,6 @@ static void populateExtensionPasses(
 void StablehloToExecutableTask::buildClusteringPipeline(
     OpPassManager &pm, const StablehloToExecutableOptions &opts) {
   using Phase = StablehloToExecutableOptions::ExtensionBase::Phase;
-  pm.addPass(createConvertStablehloToScfPass());
 
   // Add pre-clustering extension passes
   populateExtensionPasses(pm, opts, Phase::PreClustering);
@@ -183,9 +182,10 @@ void StablehloToExecutableTask::populatePassManager(
   // StableHLO Preprocessing
   mlirtrt::compiler::StableHloInputOptions opts{};
   // We legalize to SCF later.
-  opts.legalizeControlFlowToSCF = false;
+  opts.legalizeControlFlowToSCF = true;
   opts.preserveChloErf = true;
   opts.preserveChloTopK = true;
+  opts.unrollThreshold = options.unrollThreshold;
   {
     FailureOr<stablehlo_ext::TargetSpecificCanonicalizationOptions> parsed =
         stablehlo_ext::TargetSpecificCanonicalizationOptions::parse(

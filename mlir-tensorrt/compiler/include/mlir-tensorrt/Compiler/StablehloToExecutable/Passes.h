@@ -82,6 +82,10 @@ struct StableHloInputOptions {
 
   /// The computation size limit for constant folding.
   int64_t constantFoldSizeLimit = 65536;
+
+  /// The cost threshold for unrolling for loops. Loops with a cost <= the
+  /// threshold will be unrolled.
+  uint64_t unrollThreshold = 100;
 };
 
 /// Construct a pipeline for preprocessing StableHLO IR to convert it into the

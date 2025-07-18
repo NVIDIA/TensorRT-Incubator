@@ -99,6 +99,17 @@ struct StablehloToExecutableOptions
       llvm::cl::desc("Specifies the maximum tensor volume for the "
                      "rewrite-based Stablehlo constant folding patterns.")};
 
+  Option<int64_t> unrollThreshold{
+      *this, "unroll-threshold", llvm::cl::init(100),
+      llvm::cl::desc("The cost threshold for unrolling for loops. Loops with a "
+                     "cost <= the threshold will be unrolled. The cost is "
+                     "estimated by counting the number of operations in the "
+                     "loop body and multiplying it by the trip count.The cost "
+                     "threshold for unrolling for loops. Loops with a "
+                     "cost <= the threshold will be unrolled. The cost is "
+                     "estimated by counting the number of operations in the "
+                     "loop body and multiplying it by the trip count.")};
+
   //===----------------------------------------------------------------------===//
   // Extension Utilities
   //===----------------------------------------------------------------------===//

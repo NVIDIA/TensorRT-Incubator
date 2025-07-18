@@ -107,8 +107,11 @@ void mlirtrt::compiler::buildStablehloPreProcessingPipeline(
   //===----------------------------------------------------------------------===//
 
   // `convert-stablehlo-to-scf`:
-  if (opts.legalizeControlFlowToSCF)
+  if (opts.legalizeControlFlowToSCF) {
     pm.addNestedPass<func::FuncOp>(mlir::createConvertStablehloToScfPass());
+    pm.addNestedPass<func::FuncOp>(mlir::createUnrollForLoopsPass(
+        mlir::UnrollForLoopsPassOptions{opts.unrollThreshold}));
+  }
 
   // `convert-chlo-to-stablehlo-ext`:
   // We don't do the CHLO legalization until this point since we want to wait
@@ -174,6 +177,11 @@ struct StableHloInputPipelineOptions
                      "Available pattern sets: dot-general, gather, scatter, "
                      "convolution, gather-to-slice, all"),
       llvm::cl::list_init<std::string>({"all"})};
+
+  Option<int64_t> unrollThreshold{
+      *this, "unroll-threshold",
+      llvm::cl::desc("The cost threshold for unrolling loops."),
+      llvm::cl::init(100)};
 };
 } // namespace
 
@@ -188,6 +196,7 @@ void mlirtrt::compiler::registerStableHloInputPipelines() {
         inputOpts.preserveChloErf = opts.preserveChloErf;
         inputOpts.preserveChloTopK = opts.preserveChloTopK;
         inputOpts.disableInliner = opts.disableInliner;
+        inputOpts.unrollThreshold = opts.unrollThreshold;
 
         FailureOr<stablehlo_ext::TargetSpecificCanonicalizationOptions> parsed =
             stablehlo_ext::TargetSpecificCanonicalizationOptions::parse(
