@@ -382,29 +382,6 @@ def StablehloToLinalgPass : Pass<"convert-stablehlo-to-linalg"> {
     "::mlir::shape::ShapeDialect"
   ];
 }
-
-//===----------------------------------------------------------------------===//
-// StablehloScalarToArith
-//===----------------------------------------------------------------------===//
-def ConvertStablehloScalarToArithPass : Pass<"convert-stablehlo-scalar-to-arith"> {
-  let summary = "Convert Stablehlo scalar ops to Arith dialect";
-  let description = [{
-    This pass tries to convert Stablehlo ops with single element tensor input/s to Arith
-    or Math dialect op/s operating on scalars extracted from the input tensor/s.
-    The purpose of this conversion is two fold
-    1. Many Stablehlo ops with scalar inputs (e.g. bitcast_convert, shift_left, bitwise ops)
-    are not supported by TensorRT.
-    2. Even when an op with scalar operand/s is supported by TensorRT, operand/s
-    needs to be expanded to 1D tensor in almost all cases.
-
-  }];
-  let dependentDialects = [
-    "::mlir::arith::ArithDialect",
-    "::mlir::tensor::TensorDialect",
-    "::mlir::scf::SCFDialect",
-    "::mlir::math::MathDialect"
-  ];
-}
 #endif // MLIR_TENSORRT_ENABLE_HLO
 
 #endif // MLIR_TENSORRT_CONVERSION_PASSES_TD
