@@ -81,7 +81,7 @@ struct StableHloInputOptions {
       targetSpecificOptions{};
 
   /// The computation size limit for constant folding.
-  int64_t constantFoldSizeLimit = 65536;
+  int64_t constantFoldSizeLimit = 10;
 
   /// The cost threshold for unrolling for loops. Loops with a cost <= the
   /// threshold will be unrolled.
@@ -90,9 +90,13 @@ struct StableHloInputOptions {
 
 /// Construct a pipeline for preprocessing StableHLO IR to convert it into the
 /// canonical form. Some passes in this pipeline transforms ops to simplify
-/// TensorRT conversion.
-void buildStablehloPreProcessingPipeline(mlir::OpPassManager &pm,
-                                         const StableHloInputOptions &opts);
+/// TensorRT conversion. Argument `addConstantFoldingPasses` is a callable that
+/// adds stablehlo constant folding passes.
+void buildStablehloPreProcessingPipeline(
+    mlir::OpPassManager &pm, const StableHloInputOptions &opts,
+    std::function<void(mlir::OpPassManager &pm,
+                       const StableHloInputOptions &opts)>
+        &&addConstantFoldingPasses);
 
 /// Register stablehlo input pipelines.
 void registerStableHloInputPipelines();
