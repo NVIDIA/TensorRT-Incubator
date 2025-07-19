@@ -862,17 +862,13 @@ static void registerExecutorCoreModuleLuaRuntimeMethods(
     void *srcPtr = reinterpret_cast<void *>(src + srcOffset);
     void *dstPtr = reinterpret_cast<void *>(dst + destOffset);
 
-    AllocTracker &tracker = *allocTracker;
-    if (tracker.contains(src)) {
-      const PointerInfo &srcInfo = tracker.get(src);
-      assert(srcInfo.ptr && srcInfo.isHostVisible() &&
-             "expected host visible src pointer");
-    }
-    if (tracker.contains(dst)) {
-      const PointerInfo &dstInfo = tracker.get(dst);
-      assert(dstInfo.ptr && dstInfo.isHostVisible() &&
-             "expected host visible dst pointer");
-    }
+    assert(!allocTracker->contains(src) ||
+           allocTracker->get(src).isHostVisible() &&
+               "expected host visible src pointer");
+    assert(!allocTracker->contains(dst) ||
+           allocTracker->get(dst).isHostVisible() &&
+               "expected host visible dst pointer");
+
     MTRT_DBGF("executor_memcpy host-host %lu bytes src %lx + %lu dst %lx + %lu",
               numBytes, src, srcOffset, dst, destOffset);
     std::memcpy(dstPtr, srcPtr, numBytes);

@@ -7,7 +7,6 @@ set(SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/mlir_tensorrt_compiler/mlir_tensorrt/co
 set(OUT_DIR "${MLIR_TENSORRT_ROOT_BINARY_DIR}/python_packages/mlir_tensorrt_compiler")
 # - SETUP_PY: Setup file (relative to SRC_DIR). This will be configured (hard copied)
 set(SETUP_PY ../../setup.py)
-set(WHEEL_TARGET_NAME "mlir-tensorrt-compiler-wheel")
 
 cmake_path(ABSOLUTE_PATH SETUP_PY NORMALIZE
   BASE_DIRECTORY "${SRC_DIR}"
@@ -152,20 +151,4 @@ add_mlir_python_modules("MLIRTensorRTPythonCompilerModules"
   DECLARED_SOURCES ${source_groups}
   COMMON_CAPI_LINK_LIBS
   "MLIRTensorRTPythonCompilerCLibrary"
-  )
-
-################################################################################
-# Wheel assembly target
-# This produces a target that generates a `.whl` file under the output
-# directory.
-################################################################################
-
-add_mtrt_python_wheel(${WHEEL_TARGET_NAME}
-  DEPENDS
-  "MLIRTensorRTPythonCompilerModules"
-  PACKAGE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/mlir_tensorrt_compiler"
-  PACKAGE_BINARY_DIR "${OUT_DIR}"
-  OUTPUT_DIR "${WHEEL_OUTPUT_DIR}"
-  ADD_TO_PARENT mlir-tensorrt-all-wheels
-  VERSION "${ARG_VERSION}"
   )

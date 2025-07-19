@@ -21,16 +21,16 @@
 /// Expansions of template or support tools defined under 'llvm/ADT'.
 ///
 //===----------------------------------------------------------------------===//
-#ifndef MLIR_EXECUTOR_UTILS_ADTEXTRAS_H
-#define MLIR_EXECUTOR_UTILS_ADTEXTRAS_H
+#ifndef MLIR_EXECUTOR_UTILS_ADTEXTRAS
+#define MLIR_EXECUTOR_UTILS_ADTEXTRAS
 
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/iterator_range.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Support/FormatVariadic.h"
-#include "llvm/Support/FormatVariadicDetails.h"
+#include "llvm/Support/FormatProviders.h"
 #include "llvm/Support/raw_ostream.h"
+#include <array>
 #include <type_traits>
 
 namespace llvm {
@@ -82,11 +82,10 @@ public:
 // Teach the 'llvm::formatv' how to handle std::array
 //===----------------------------------------------------------------------===//
 
-template <template <typename, std::size_t> class Container, typename T,
-          std::size_t N>
-class format_provider<Container<T, N>> {
+template <typename T, std::size_t N>
+class format_provider<std::array<T, N>> {
 public:
-  using ValueType = Container<T, N>;
+  using ValueType = std::array<T, N>;
   using ElementType = typename ValueType::value_type;
   static_assert(!support::detail::uses_missing_provider<ElementType>::value,
                 "no format provider for container element type");
@@ -97,6 +96,9 @@ public:
     adapter.format(Stream, Style);
   }
 };
+
+static_assert(support::detail::uses_format_provider<std::array<int, 3>>::value,
+              "std::array should have a format provider");
 
 //===----------------------------------------------------------------------===//
 // Teach the 'llvm::formatv' how to handle llvm::SmallVector.
@@ -174,16 +176,23 @@ class format_provider<std::tuple<Ts...>> {
     return Default;
   }
 
+  template <std::size_t I = 0, typename... Us>
+  static auto buildStylesTuple(const std::tuple<Us...> &V, StringRef &Style) {
+    if constexpr (I == sizeof...(Us)) {
+      return std::make_tuple();
+    } else {
+      auto currentStyle = consumeOneOption(std::get<I>(V), Style, '@', "");
+      auto restStyles = buildStylesTuple<I + 1>(V, Style);
+      return std::tuple_cat(std::make_tuple(currentStyle), restStyles);
+    }
+  }
+
 public:
   static void format(const ValueType &V, llvm::raw_ostream &Stream,
                      StringRef Style) {
     StringRef seperator = consumeOneOption<void *>(nullptr, Style, '$', ", ");
 
-    auto styles = std::apply(
-        [&](auto... x) {
-          return std::make_tuple(consumeOneOption(x, Style, '@', "")...);
-        },
-        V);
+    auto styles = buildStylesTuple(V, Style);
 
     unsigned iter = 0;
     auto op = [&](const auto &Ve, StringRef ElStyle) {
@@ -227,4 +236,4 @@ public:
 
 } // namespace llvm
 
-#endif // MLIR_EXECUTOR_UTILS_ADTEXTRAS_H
+#endif // MLIR_EXECUTOR_UTILS_ADTEXTRAS

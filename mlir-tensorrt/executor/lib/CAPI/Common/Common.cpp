@@ -311,7 +311,7 @@ MTRT_Status mtrtBoundsGetSize(MTRT_Bounds bounds,
     boundValues->size = d->min.size();
     return mtrtStatusGetOk();
   }
-  if (auto d = b->AsNoneBounds()) {
+  if (b->AsNoneBounds()) {
     boundValues->size = 0;
     return mtrtStatusGetOk();
   }
@@ -333,7 +333,7 @@ MTRT_Status mtrtBoundsGetMin(MTRT_Bounds bounds, MTRT_ArrayRefI64 *minBounds) {
       minBounds->ptr[i] = d->min[i];
     return mtrtStatusGetOk();
   }
-  if (auto d = b->AsNoneBounds()) {
+  if (b->AsNoneBounds()) {
     return mtrtStatusGetOk();
   }
   return mtrtStatusCreate(
@@ -354,7 +354,7 @@ MTRT_Status mtrtBoundsGetMax(MTRT_Bounds bounds, MTRT_ArrayRefI64 *maxBounds) {
       maxBounds->ptr[i] = d->max[i];
     return mtrtStatusGetOk();
   }
-  if (auto d = b->AsNoneBounds()) {
+  if (b->AsNoneBounds()) {
     return mtrtStatusGetOk();
   }
   return mtrtStatusCreate(

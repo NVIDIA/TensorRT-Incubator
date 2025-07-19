@@ -1,7 +1,6 @@
 string(REGEX MATCH "([0-9]+)\.([0-9]+)" TRT_VERSION "${MLIR_TRT_TENSORRT_VERSION}")
 string(REPLACE "." "" TRT_VERSION "${TRT_VERSION}")
 set(PKG_VERSION "${MLIR_TENSORRT_VERSION}+cuda12.trt${TRT_VERSION}")
-set(WHEEL_OUTPUT_DIR "${MLIR_TENSORRT_ROOT_BINARY_DIR}/wheels/python${Python3_VERSION}/trt${TRT_VERSION}")
 
 # Specifies that all MLIR packages are co-located under the `mlir_tensorrt.compiler`
 # top level package. This definition is used in the MLIR Python binding headers for
@@ -23,13 +22,6 @@ include_directories(
   "$<$<BOOL:${MLIR_TRT_ENABLE_HLO}>:${stablehlo_SOURCE_DIR}>"
   "$<$<BOOL:${MLIR_TRT_ENABLE_TORCH}>:${torch_mlir_SOURCE_DIR}/include>"
   )
-
-# Create an aggregate target for building all wheels. The below
-# `add_mtrt_python_wheel` calls declare targets that can be built independently, but
-# they are also added to this target
-add_custom_target(mlir-tensorrt-all-wheels)
-
-include(CompilerPackageUtils.cmake)
 
 find_package(CUDAToolkit REQUIRED)
 
@@ -82,15 +74,6 @@ if(MLIR_TRT_ENABLE_PYTHON)
     DECLARED_SOURCES
       MLIRTensorRTPythonRuntimeSources
     COMMON_CAPI_LINK_LIBS
-    )
-
-  add_mtrt_python_wheel(mlir-tensorrt-runtime-wheel
-    DEPENDS MLIRTensorRTPythonRuntimeModules
-    PACKAGE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/mlir_tensorrt_runtime"
-    PACKAGE_BINARY_DIR "${MLIR_TENSORRT_ROOT_BINARY_DIR}/python_packages/mlir_tensorrt_runtime"
-    OUTPUT_DIR "${WHEEL_OUTPUT_DIR}"
-    ADD_TO_PARENT mlir-tensorrt-all-wheels
-    VERSION "${PKG_VERSION}"
     )
 
   # -------------------------------------------------
