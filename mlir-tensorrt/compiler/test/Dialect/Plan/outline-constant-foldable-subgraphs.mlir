@@ -153,6 +153,35 @@ func.func @scf_for_case3(%arg0: tensor<4xf32>) -> tensor<4xf32>{
 
 // -----
 
+func.func @scf_for_case4(%arg0: tensor<1111x1345xf32>) -> tensor<1111x1345xf32> {
+  %c10_i64 = arith.constant 10 : i64
+  %cst = stablehlo.constant dense<3.000000e+00> : tensor<1345x1111xf16>
+  %c = stablehlo.constant dense<1> : tensor<i64>
+  %c_0 = stablehlo.constant dense<0> : tensor<i64>
+  %c1_i64 = arith.constant 1 : i64
+  %0:2 = scf.for %arg1 = %c1_i64 to %c10_i64 step %c1_i64 iter_args(%arg2 =
+    %c_0, %arg3 = %arg0) -> (tensor<i64>, tensor<1111x1345xf32>)  : i64 {
+    %1 = stablehlo.add %arg2, %c : tensor<i64>
+    %2 = stablehlo.convert %cst : (tensor<1345x1111xf16>) ->tensor<1345x1111xf32>
+    %3 = stablehlo.transpose %2, dims = [1, 0] : (tensor<1345x1111xf32>) ->tensor<1111x1345xf32>
+    %4 = stablehlo.add %arg3, %3 : tensor<1111x1345xf32>
+    scf.yield %1, %4 : tensor<i64>,tensor<1111x1345xf32>
+  }
+  return %0#1 : tensor<1111x1345xf32>
+}
+
+// CHECK-LABEL: @scf_for_case4
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<1111x1345xf32>) -> tensor<1111x1345xf32>
+//       CHECK: %[[v1:.+]]:2 = scf.for
+//  CHECK-NEXT: func.call @constant_subgraph() : () -> tensor<1111x1345xf32>
+//  CHECK-NEXT: stablehlo.add
+//  CHECK-NEXT: stablehlo.add
+//  CHECK-NEXT: scf.yield
+//       CHECK: return %[[v1]]#1 : tensor<1111x1345xf32>
+//       CHECK: func.func private @constant_subgraph() -> tensor<1111x1345xf32> attributes {plan.constant_foldable}
+
+// -----
+
 func.func @scf_while_case1(%init: tensor<4xf32>) -> tensor<4xf32>{
   %cst0 = stablehlo.constant dense<2.0> : tensor<4xf32>
   %cst1 = stablehlo.constant dense<3.0> : tensor<4xf32>

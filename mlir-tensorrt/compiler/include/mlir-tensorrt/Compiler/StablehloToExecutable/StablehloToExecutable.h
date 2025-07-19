@@ -127,6 +127,7 @@ struct StablehloToExecutableOptions
     }
 
     enum class Phase {
+      ConstantFolding,
       PreClustering,
       PostClustering,
       PreBufferization,

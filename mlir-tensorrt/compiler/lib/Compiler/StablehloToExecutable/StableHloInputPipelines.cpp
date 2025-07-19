@@ -62,7 +62,10 @@ static void buildStableHloSimplificationPipeline(
 }
 
 void mlirtrt::compiler::buildStablehloPreProcessingPipeline(
-    OpPassManager &pm, const StableHloInputOptions &opts) {
+    OpPassManager &pm, const StableHloInputOptions &opts,
+    std::function<void(mlir::OpPassManager &pm,
+                       const StableHloInputOptions &opts)>
+        &&addConstantFoldingPasses) {
 
   // `stablehlo-ext-lower-special-custom-calls`:
   // Lower `stablehlo.custom_call` that have special meanings.
@@ -93,9 +96,16 @@ void mlirtrt::compiler::buildStablehloPreProcessingPipeline(
   //   since the pattern is based on specific frontend patterns (e.g. JAX).
   pm.addNestedPass<func::FuncOp>(stablehlo_ext::createStablehloRaiseQDQPass());
 
+  // `convert-stablehlo-to-scf`:
+  if (opts.legalizeControlFlowToSCF) {
+    pm.addNestedPass<func::FuncOp>(mlir::createConvertStablehloToScfPass());
+    pm.addNestedPass<func::FuncOp>(mlir::createUnrollForLoopsPass(
+        mlir::UnrollForLoopsPassOptions{opts.unrollThreshold}));
+  }
+
   // `stablehlo-ext-constant-folding`:
   // Constant fold on functions.
-  pm.addNestedPass<func::FuncOp>(stablehlo_ext::createConstantFoldingPass());
+  addConstantFoldingPasses(pm, opts);
 
   // `stablehlo-ext-canonicalize-shapes`:
   // - Fixed point interation of dynamic pipeline.
@@ -105,13 +115,6 @@ void mlirtrt::compiler::buildStablehloPreProcessingPipeline(
   //===----------------------------------------------------------------------===//
   // Non-folding simplifications.
   //===----------------------------------------------------------------------===//
-
-  // `convert-stablehlo-to-scf`:
-  if (opts.legalizeControlFlowToSCF) {
-    pm.addNestedPass<func::FuncOp>(mlir::createConvertStablehloToScfPass());
-    pm.addNestedPass<func::FuncOp>(mlir::createUnrollForLoopsPass(
-        mlir::UnrollForLoopsPassOptions{opts.unrollThreshold}));
-  }
 
   // `convert-chlo-to-stablehlo-ext`:
   // We don't do the CHLO legalization until this point since we want to wait
@@ -168,7 +171,7 @@ struct StableHloInputPipelineOptions
   Option<int64_t> constantFoldSizeLimit{
       *this, "constant-fold-size-limit",
       llvm::cl::desc("The computation size limit for constant folding"),
-      llvm::cl::init(65536)};
+      llvm::cl::init(10)};
 
   ListOption<std::string> targetSpecificOptimizationsPatterns{
       *this, "target-specific-optimizations-patterns",
@@ -207,7 +210,14 @@ void mlirtrt::compiler::registerStableHloInputPipelines() {
         inputOpts.targetSpecificOptions = std::move(*parsed);
         inputOpts.constantFoldSizeLimit = opts.constantFoldSizeLimit;
 
-        buildStablehloPreProcessingPipeline(pm, inputOpts);
+        buildStablehloPreProcessingPipeline(
+            pm, inputOpts,
+            [](mlir::OpPassManager &pm, const StableHloInputOptions &opts) {
+              pm.addNestedPass<func::FuncOp>(
+                  stablehlo_ext::createConstantFoldingPass(
+                      stablehlo_ext::ConstantFoldingPassOptions{
+                          opts.constantFoldSizeLimit}));
+            });
       });
 
   PassPipelineRegistration<StableHloInputPipelineOptions>(
