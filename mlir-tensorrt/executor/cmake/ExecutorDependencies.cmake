@@ -124,8 +124,8 @@ endfunction()
 macro(mlir_executor_add_sol2)
   CPMAddPackage(
     NAME sol2
-    URL "https://github.com/ThePhD/sol2/archive/eab1430ccdbf61a0d61d11bf86b4975838dcfb9a.zip"
-    URL_HASH MD5=c15a2db4cf1f859154bc75542ef8bff5
+    URL "https://github.com/ThePhD/sol2/archive/refs/tags/v3.5.0.tar.gz"
+    URL_HASH MD5=ce4cc1aa7549021212ca71c74cd096e0
     EXCLUDE_FROM_ALL TRUE
     OPTIONS
       "SOL2_ENABLE_INSTALL ON"

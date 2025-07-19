@@ -1,11 +1,23 @@
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = [
+    "setuptools>=61.0",
+    "wheel",
+    "cmake>=3.25",
+    "ninja",
+    "click",
+    "packaging>=24.0",
+    "numpy>=1.19.5, <=2.1.2",
+    "pybind11>=2.8.0, <=2.13.6",
+    "nanobind>=2.4, <3.0",
+    "PyYAML>= 5.4.1, <=6.0.1",
+    "ml_dtypes<=0.6.0"
+]
 build-backend = "setuptools.build_meta"
 
-[tools.setuptools]
+[tool.setuptools]
 include-package-data = true
 
-[tools.setuptools.packages.find]
+[tool.setuptools.packages.find]
 where = ["."]
 
 [tool.setuptools.package-data]
