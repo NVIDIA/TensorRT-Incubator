@@ -717,8 +717,14 @@ parseResults(const sol::protected_function_result &pfr,
         reinterpret_cast<void *>(allocPtr));
 
     // We are returning the memref, so transfer ownership to the client.
-    session.getAllocTracker().untrack(allocPtr);
-    session.getPinnedMemoryAllocator().untrack(allocPtr);
+    // Since ownership is transferred, we can stop tracking `allocPtr` if it
+    // exists in `AllocTracker`. Checking existence is important to avoid
+    // calling `untrack` multiple times when different views of the same buffer
+    // are returned in result.
+    if (session.getAllocTracker().contains(allocPtr)) {
+      session.getAllocTracker().untrack(allocPtr);
+      session.getPinnedMemoryAllocator().untrack(allocPtr);
+    }
 
     // Create a memref so that client now tracks it.
     StatusOr<Ref<MemRefStorage>> storage = client.getAllocator().takeOwnership(

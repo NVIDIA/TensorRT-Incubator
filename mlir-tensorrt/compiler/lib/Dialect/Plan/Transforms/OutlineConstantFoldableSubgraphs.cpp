@@ -128,7 +128,56 @@ public:
           operandLattice->getValue().getKnownState();
     }
 
-    // If all operands are constant foldable, results are constant foldable.
+    // Even when `areAllOperandsConstantFoldable = true` at this stage, it is
+    // possible for operands to be block argument of control flow ops. Consider
+    // the IR below,
+    //
+    // clang-format off
+    // func.func @main(%arg0: tensor<1111x1345xf32>) -> tensor<1111x1345xf32> {
+    //   %c10_i64 = arith.constant 10 : i64
+    //   %cst = stablehlo.constant dense<3.000000e+00> : tensor<1345x1111xf16>
+    //   %c = stablehlo.constant dense<1> : tensor<i64>
+    //   %c_0 = stablehlo.constant dense<0> : tensor<i64>
+    //   %c1_i64 = arith.constant 1 : i64
+    //   %0:2 = scf.for %arg1 = %c1_i64 to %c10_i64 step %c1_i64 iter_args(%arg2 =
+    //     %c_0, %arg3 = %arg0) -> (tensor<i64>, tensor<1111x1345xf32>)  : i64 {
+    //     %1 = stablehlo.add %arg2, %c : tensor<i64>
+    //     %2 = stablehlo.convert %cst : (tensor<1345x1111xf16>) ->tensor<1345x1111xf32>
+    //     %3 = stablehlo.transpose %2, dims = [1, 0] : (tensor<1345x1111xf32>) ->tensor<1111x1345xf32>
+    //     %4 = stablehlo.add %arg3, %3 : tensor<1111x1345xf32>
+    //     scf.yield %1, %4 : tensor<i64>,tensor<1111x1345xf32>
+    //   }
+    //   return %0#1 : tensor<1111x1345xf32>
+    // }
+    // clang-format on
+    //
+    // where DFA framework correctly marks `%arg2` as constant foldable since it
+    // is assigned output of `stablehlo.constant` op. Op `%1` uses `%arg2` as
+    // argument along with another constant argument. This will mark
+    // `%1` as constant foldable. In its current stage, outlined constant
+    // foldable subgraphs don't support input argument. When `%1` is outlined
+    // to constant foldable function, there is no way of getting parent of
+    // `%arg2` and clone into constant foldable function. Thus, outlining such
+    // op is rejected by `isOpStandalone` function. This becomes problematic
+    // specially when such op is merged into another fully standalone cluster
+    // because merging independent clusters is enabled. This makes
+    // `isClusterStandalone` function reject the cluster where some large potion
+    // could be constant folded since it was standalone. We miss big opportunity
+    // because of a single op.
+    // Thus, is `areAllOperandsConstantFoldable = true`, we check to make sure
+    // operands are not block arguments. If they are block arguments, we set
+    // `areAllOperandsConstantFoldable` to false.
+    // TODO: @Sagar remove this when constant foldable clusters can take input
+    // arguments.
+    if (areAllOperandsConstantFoldable) {
+      for (Value operand : op->getOperands()) {
+        if (isa<BlockArgument>(operand)) {
+          areAllOperandsConstantFoldable = false;
+          break;
+        }
+      }
+    }
+
     for (auto *resultLattice : results)
       propagateIfChanged(resultLattice,
                          resultLattice->join(ConstantFoldabilityState(
@@ -433,6 +482,7 @@ static bool shouldClusterOp(Operation *op, const DataFlowSolver &solver) {
   // 2. If control-flow op is constant foldable, like above, its own
   // canonicalizer kicks in to keep clusters only in executable regions, as
   // shown below.
+  //
   // %0 = call @constant_subgraph() : () -> tensor<4xf32>
   // func.func private @constant_subgraph() -> tensor<4xf32> attributes
   // {plan.constant_foldable} {

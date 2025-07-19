@@ -32,6 +32,7 @@
 #include "mlir-tensorrt/Compiler/StablehloToExecutable/TensorRTExtension.h"
 #include "mlir-tensorrt/Conversion/Passes.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
+#include "mlir-tensorrt/Dialect/StablehloExt/Transforms/Passes.h"
 #include "mlir-tensorrt/Transforms/Passes.h"
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Conversion/ComplexToStandard/ComplexToStandard.h"
@@ -181,7 +182,6 @@ void StablehloToExecutableTask::populatePassManager(
 
   // StableHLO Preprocessing
   mlirtrt::compiler::StableHloInputOptions opts{};
-  // We legalize to SCF later.
   opts.legalizeControlFlowToSCF = true;
   opts.preserveChloErf = true;
   opts.preserveChloTopK = true;
@@ -198,7 +198,17 @@ void StablehloToExecutableTask::populatePassManager(
     opts.constantFoldSizeLimit =
         options.stablehloInputRewriteConstantFoldVolumeLimit;
   }
-  mlirtrt::compiler::buildStablehloPreProcessingPipeline(pm, opts);
+
+  mlirtrt::compiler::buildStablehloPreProcessingPipeline(
+      pm, opts,
+      [&](mlir::OpPassManager &pm, const StableHloInputOptions &opts) {
+        pm.addNestedPass<func::FuncOp>(stablehlo_ext::createConstantFoldingPass(
+            stablehlo_ext::ConstantFoldingPassOptions{
+                opts.constantFoldSizeLimit}));
+        populateExtensionPasses(pm, options,
+                                StablehloToExecutableOptions::ExtensionBase::
+                                    Phase::ConstantFolding);
+      });
 
   buildClusteringPipeline(pm, options);
 
