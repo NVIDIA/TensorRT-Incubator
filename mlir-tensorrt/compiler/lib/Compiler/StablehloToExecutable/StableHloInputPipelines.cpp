@@ -173,13 +173,13 @@ struct StableHloInputPipelineOptions
       llvm::cl::desc("The computation size limit for constant folding"),
       llvm::cl::init(10)};
 
-  ListOption<std::string> targetSpecificOptimizationsPatterns{
-      *this, "target-specific-optimizations-patterns",
+  ListOption<std::string> disableTargetSpecificOptimizationPatterns{
+      *this, "disable-target-specific-optimization-patterns",
       llvm::cl::desc("Comma-separated list of target-specific optimization "
-                     "pattern sets to enable. "
+                     "pattern sets to disable. "
                      "Available pattern sets: dot-general, gather, scatter, "
-                     "convolution, gather-to-slice, all"),
-      llvm::cl::list_init<std::string>({"all"})};
+                     "convolution, gather-to-slice"),
+      llvm::cl::list_init<std::string>({})};
 
   Option<int64_t> unrollThreshold{
       *this, "unroll-threshold",
@@ -203,7 +203,7 @@ void mlirtrt::compiler::registerStableHloInputPipelines() {
 
         FailureOr<stablehlo_ext::TargetSpecificCanonicalizationOptions> parsed =
             stablehlo_ext::TargetSpecificCanonicalizationOptions::parse(
-                opts.targetSpecificOptimizationsPatterns);
+                opts.disableTargetSpecificOptimizationPatterns);
         if (failed(parsed))
           llvm::report_fatal_error("Invalid target-specific Stablehlo "
                                    "optimization pattern set names.");

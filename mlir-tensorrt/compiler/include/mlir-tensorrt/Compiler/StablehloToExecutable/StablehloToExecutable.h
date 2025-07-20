@@ -79,15 +79,12 @@ struct StablehloToExecutableOptions
   /// This is exposed to enable experimentating with disabling certain
   /// optimizations applied during pre-processing which may not always be
   /// beneficial.
-  ListOption<std::string> stablehloTargetSpecificPatternSets{
-      *this, "stablehlo-input-optimization-pattern-sets",
-      llvm::cl::list_init<std::string>({"all"}),
-      llvm::cl::desc(
-          "Optional target-specific optimization pattern sets to enable for "
-          "the StableHLO "
-          "preprocessing pipeline. Available pattern sets: dot-general, "
-          "gather, scatter, convolution, gather-to-slice, all. Default is "
-          "'all'.")};
+  ListOption<std::string> stablehloDisableOptimizationPatternSet{
+      *this, "stablehlo-disable-optimization-pattern-sets",
+      llvm::cl::list_init<std::string>({}),
+      llvm::cl::desc("List specific optimization pattern sets to disable. "
+                     "Available pattern sets: dot-general, "
+                     "gather, scatter, convolution, gather-to-slice")};
 
   /// This is exposed to enable controlling the aggressiveness of rewrite-based
   /// constant folding. Setting this to large can result in slow compilation
@@ -167,6 +164,8 @@ class StablehloToExecutableTask
     : public CompilationTask<StablehloToExecutableTask,
                              StablehloToExecutableOptions> {
 public:
+  using Phase = StablehloToExecutableOptions::ExtensionBase::Phase;
+
   StablehloToExecutableTask(
       mlir::MLIRContext *ctx,
       std::unique_ptr<StablehloToExecutableOptions> options);

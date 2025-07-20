@@ -221,8 +221,8 @@ def CanonicalizeConvolutionPass : Pass<"stablehlo-ext-canonicalize-convolution">
 def TargetSpecificOptimizationsPass : Pass<"stablehlo-ext-target-specific-optimizations"> {
   let summary = "Canonicalizes stablehlo operations";
   let options = [
-    ListOption<"patternSetNames", "patterns", "std::string",
-      "Comma-separated list of target-specific optimization patterns to enable. "
+    ListOption<"disablePatterns", "disable-patterns", "std::string",
+      "Comma-separated list of target-specific optimization patterns to disable. "
       "Available patterns: "
       "dot-general, gather, scatter, convolution, gather-to-slice">,
     Option<"constantFoldSizeLimit", "constant-fold-size-limit", "int64_t",
