@@ -91,6 +91,10 @@ void buildPlanBufferizationPipeline(OpPassManager &pm,
 /// Register PassPipelines associated with the Plan dialect.
 void registerPlanDialectPipelines();
 
+/// Construct a pass that outlines constant foldable subgraphs.
+std::unique_ptr<Pass> createOutlineConstantFoldableSubgraphsPass(
+    std::function<bool(Operation *)> skipClustering = {});
+
 } // namespace plan
 } // namespace mlir
 
