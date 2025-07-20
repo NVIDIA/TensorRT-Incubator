@@ -28,7 +28,6 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "stablehlo/transforms/Passes.h"
 #include "stablehlo/transforms/optimization/Passes.h"
-#include "llvm/ADT/StringSwitch.h"
 
 namespace mlir::stablehlo_ext {
 #define GEN_PASS_DEF_TARGETSPECIFICOPTIMIZATIONSPASS
@@ -39,25 +38,25 @@ using namespace mlir;
 using namespace mlir::stablehlo_ext;
 
 FailureOr<TargetSpecificCanonicalizationOptions>
-TargetSpecificCanonicalizationOptions::parse(llvm::ArrayRef<std::string> args) {
-  TargetSpecificCanonicalizationOptions o;
-  if (args.size() == 1 &&
-      (args.front() == "default" || args.front() == "all")) {
-    // Default constructed options are equivalent to "all".
-    return TargetSpecificCanonicalizationOptions();
-  }
+TargetSpecificCanonicalizationOptions::parse(
+    llvm::ArrayRef<std::string> disabled) {
+  SmallVector<llvm::StringRef> optimizations = {
+      "convolution", "gather", "scatter", "dot-general", "gather-to-slice",
+  };
 
-  for (llvm::StringRef arg : args) {
+  TargetSpecificCanonicalizationOptions o{};
+  for (StringRef arg : optimizations) {
+    bool enable = !llvm::is_contained(disabled, arg);
     if (arg == "convolution")
-      o.enableConvolutionCanonicalization = true;
+      o.enableConvolutionCanonicalization = enable;
     else if (arg == "gather")
-      o.enableGatherCanonicalization = true;
+      o.enableGatherCanonicalization = enable;
     else if (arg == "scatter")
-      o.enableScatterCanonicalization = true;
+      o.enableScatterCanonicalization = enable;
     else if (arg == "dot-general")
-      o.enableDotGeneralCanonicalization = true;
+      o.enableDotGeneralCanonicalization = enable;
     else if (arg == "gather-to-slice")
-      o.enableGatherToSlice = true;
+      o.enableGatherToSlice = enable;
     else
       return failure();
   }
@@ -82,7 +81,7 @@ public:
 
     if (!options) {
       FailureOr<TargetSpecificCanonicalizationOptions> parsed =
-          TargetSpecificCanonicalizationOptions::parse(patternSetNames);
+          TargetSpecificCanonicalizationOptions::parse(disablePatterns);
       if (failed(parsed))
         return failure();
       options = std::move(parsed);
@@ -103,13 +102,13 @@ public:
     stablehlo_ext::populateTargetIndependentSimplificationPatterns(
         patterns_, constantFoldSizeLimit);
 
-    patterns = std::make_shared<FrozenRewritePatternSet>(std::move(patterns_));
+    patterns = std::move(patterns_);
     return success();
   }
 
   void runOnOperation() override {
     Operation *op = getOperation();
-    if (failed(applyPatternsGreedily(op, *patterns))) {
+    if (failed(applyPatternsGreedily(op, patterns))) {
       emitError(op->getLoc())
           << "failed to apply patterns in " << getArgument();
       return signalPassFailure();
@@ -117,7 +116,7 @@ public:
   }
 
   std::optional<TargetSpecificCanonicalizationOptions> options{};
-  std::shared_ptr<FrozenRewritePatternSet> patterns{nullptr};
+  FrozenRewritePatternSet patterns{nullptr};
 };
 
 } // namespace

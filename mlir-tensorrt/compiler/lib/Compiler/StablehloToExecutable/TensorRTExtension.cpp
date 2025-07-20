@@ -26,7 +26,6 @@
 #include "mlir-tensorrt-dialect/TensorRT/Transforms/Passes.h"
 #include "mlir-tensorrt/Conversion/Passes.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
-#include "llvm/Support/Debug.h"
 
 using namespace mlirtrt::compiler;
 using namespace mlirtrt;
@@ -43,20 +42,6 @@ void StablehloToExecutableTensorRTExtension::populatePasses(
   if (this->disabled)
     return;
 
-  tensorrt::TensorRTTranslationOptions translationOpts;
-  if (useGlobalCLFlags) {
-    translationOpts = tensorrt::TensorRTTranslationOptions::fromCLFlags();
-  } else {
-    translationOpts.saveTensorRTEnginesToDirectory =
-        saveTensorRTEnginesToDirectory;
-    translationOpts.saveTensorRTLayerInfoDirectory =
-        saveTensorRTLayerInfoDirectory;
-    translationOpts.tensorrtBuilderOptLevel = tensorrtBuilderOptLevel;
-    translationOpts.enableStronglyTyped = enableStronglyTyped;
-    translationOpts.timingCachePath = timingCachePath;
-    translationOpts.workspaceMemoryPoolLimit = workspaceMemoryPoolLimit;
-  }
-
   if (phase == Phase::PreClustering) {
     // We must materialize TRT plugion shape regions prior to clustering.
     pm.addNestedPass<func::FuncOp>(tensorrt::createInferPluginShapesPass());
@@ -64,12 +49,29 @@ void StablehloToExecutableTensorRTExtension::populatePasses(
   }
 
   if (phase == Phase::PostClustering) {
+    ConvertStablehloToTensorRTPassOptions convertOpts{};
+    convertOpts.preferEinsum = this->preferEinsum;
     pm.addNestedPass<tensorrt::TensorRTModuleOp>(
-        mlir::createConvertStablehloToTensorRTPass());
+        mlir::createConvertStablehloToTensorRTPass(std::move(convertOpts)));
     return;
   }
 
   if (phase == Phase::PreBufferization) {
+
+    tensorrt::TensorRTTranslationOptions translationOpts;
+    if (useGlobalCLFlags) {
+      translationOpts = tensorrt::TensorRTTranslationOptions::fromCLFlags();
+    } else {
+      translationOpts.saveTensorRTEnginesToDirectory =
+          saveTensorRTEnginesToDirectory;
+      translationOpts.saveTensorRTLayerInfoDirectory =
+          saveTensorRTLayerInfoDirectory;
+      translationOpts.tensorrtBuilderOptLevel = tensorrtBuilderOptLevel;
+      translationOpts.enableStronglyTyped = enableStronglyTyped;
+      translationOpts.timingCachePath = timingCachePath;
+      translationOpts.workspaceMemoryPoolLimit = workspaceMemoryPoolLimit;
+    }
+
     // Simplify and translate functions nested in `tensorrt.module` ops.
     auto &trtPM = pm.nest<tensorrt::TensorRTModuleOp>();
 

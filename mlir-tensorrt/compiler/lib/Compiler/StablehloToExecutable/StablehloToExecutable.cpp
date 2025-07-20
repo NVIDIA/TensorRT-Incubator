@@ -111,7 +111,6 @@ static void populateExtensionPasses(
 
 void StablehloToExecutableTask::buildClusteringPipeline(
     OpPassManager &pm, const StablehloToExecutableOptions &opts) {
-  using Phase = StablehloToExecutableOptions::ExtensionBase::Phase;
 
   // Add pre-clustering extension passes
   populateExtensionPasses(pm, opts, Phase::PreClustering);
@@ -189,7 +188,7 @@ void StablehloToExecutableTask::populatePassManager(
   {
     FailureOr<stablehlo_ext::TargetSpecificCanonicalizationOptions> parsed =
         stablehlo_ext::TargetSpecificCanonicalizationOptions::parse(
-            options.stablehloTargetSpecificPatternSets);
+            options.stablehloDisableOptimizationPatternSet);
     if (failed(parsed)) {
       llvm::report_fatal_error("Invalid target-specific Stablehlo optimization "
                                "pattern set names.");
