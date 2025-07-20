@@ -99,6 +99,13 @@ public:
       llvm::cl::desc("Specifies whether we should constrain dynamic offset and "
                      "sizes operands of 'default' (no OOB access allowed) "
                      "slice ops so that all accesses will be in bounds")};
+
+  Option<bool> preferEinsum{this->ctx, "tensorrt-prefer-einsum",
+                            llvm::cl::init(true),
+                            llvm::cl::desc("Specifies whether the compiler "
+                                           "should prefer to use "
+                                           "'tensorrt.einsum' over "
+                                           "'tensorrt.matrix_multiply'")};
 };
 
 } // namespace mlirtrt::compiler
