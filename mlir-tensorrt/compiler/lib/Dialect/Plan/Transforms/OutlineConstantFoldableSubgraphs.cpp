@@ -532,7 +532,10 @@ class PlanOutlineConstantFoldableSubgraphsPass
     : public mlir::plan::impl::PlanOutlineConstantFoldableSubgraphsPassBase<
           PlanOutlineConstantFoldableSubgraphsPass> {
 public:
-  using Base::Base;
+  PlanOutlineConstantFoldableSubgraphsPass(
+      std::function<bool(Operation *)> skipClustering = {})
+      : skipClustering(std::move(skipClustering)) {}
+
   void runOnOperation() override {
     ModuleOp moduleOp = getOperation();
 
@@ -562,5 +565,13 @@ public:
       }
     }
   }
+
+  std::function<bool(Operation *)> skipClustering;
 };
 } // namespace
+
+std::unique_ptr<Pass> plan::createOutlineConstantFoldableSubgraphsPass(
+    std::function<bool(Operation *)> skipClustering) {
+  return std::make_unique<PlanOutlineConstantFoldableSubgraphsPass>(
+      std::move(skipClustering));
+}

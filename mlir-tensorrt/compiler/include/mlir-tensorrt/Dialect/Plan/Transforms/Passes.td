@@ -706,16 +706,6 @@ def PlanOutlineConstantFoldableSubgraphsPass : Pass<
     find constant foldable subgraphs. These constant foldable subgraphs are
     finally outlined to a private function with `plan.constant_foldable` attribute.
   }];
-
-  let options = [
-    Option<"skipClustering", "skip-clustering",
-           "std::function<bool(Operation*)>", /*default=*/"nullptr",
-           "This option enables user to extend default pass behavior and skip "
-           "more ops from clustering. If this method returns true, `op` is not "
-           "clustered. When op is not clustered, it is not outlined for constant "
-           "folding. This is helpful in avoiding clustering of ops that can't be "
-           "run e2e at compile time, in the workflow of user's choice.">,
-  ];
 }
 
 #endif // MLIR_TENSORRT_DIALECT_PLAN_TRANSFORMS_PASSES_TD
