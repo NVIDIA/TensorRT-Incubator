@@ -70,10 +70,17 @@ class TestInput:
         assert inp.shape_bounds.max == (3,)
         assert inp.dimension_names == {0: "batch"}
 
-    def test_serialize(self):
+    def test_serialize_input_info(self):
         batch = tp.NamedDimension("batch", 1, 2, 3)
         inp_info = tp.InputInfo(shape=[batch, 3, 28, 28], dtype=tp.float32)
 
         deserialized = json_utils.from_json(json_utils.to_json(inp_info))
 
         assert inp_info.__dict__ == deserialized.__dict__
+
+    def test_serialize_dim_input_info(self):
+        dim_inp_info = tp.DimensionInputInfo(value_bounds=(2, 4, 6))
+
+        deserialized = json_utils.from_json(json_utils.to_json(dim_inp_info))
+
+        assert dim_inp_info.__dict__ == deserialized.__dict__

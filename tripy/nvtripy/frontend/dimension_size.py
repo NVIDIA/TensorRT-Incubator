@@ -15,10 +15,9 @@
 # limitations under the License.
 #
 
-from typing import Optional, Union
+from typing import Optional
 
 from nvtripy import export
-from nvtripy.common.datatype import int32
 from nvtripy.frontend.tensor import Tensor
 
 
@@ -48,7 +47,30 @@ class DimensionSize(Tensor):
         return str(val)
 
     def eval(self) -> "nvtripy.Tensor":
+        """
+        Immediately evaluates this ``DimensionSize`` object.
+
+        .. note:: ``DimensionSize`` will always reside on host even it is evaluated.
+
+        Returns:
+            The evaluated ``DimensionSize``.
+
+        .. code-block:: python
+            :linenos:
+
+            import time
+
+            start = time.perf_counter()
+            dim_size = tp.DimensionSize(2)
+            print(dim_size.device)
+            dim_size.eval()
+            print(dim_size.device)
+            assert dim_size.device.kind == "cpu"
+
+        """
+        from nvtripy.common import device
         from nvtripy.trace.ops.shape import GetDimensionSize, Shape
+        from nvtripy.frontend.ops.copy import copy
 
         # TODO (#593): Generalize this to any branchy graph:
         # If we find a pattern like Shape -> GetDimensionSize, we want to eval the Shape operation
@@ -62,4 +84,4 @@ class DimensionSize(Tensor):
             dim_size.outputs[0].is_compile_tracer = self.trace_tensor.is_compile_tracer
             self.trace_tensor = dim_size.outputs[0]
 
-        return super().eval()
+        return copy(super().eval(), device("cpu"))

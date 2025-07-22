@@ -12,6 +12,7 @@ We include some environment variables to enable extra debugging information from
 - `export TRIPY_MLIR_DEBUG_PATH=<mlir-debug-path>` sets the directory for IR dumps. The default path is `mlir-dumps`.
 - `export TRIPY_TRT_DEBUG_ENABLED=1` will dump TensorRT engines and their layer information.
 - `export TRIPY_TRT_DEBUG_PATH=<trt-debug-path>` sets the directory for TensorRT dumps. Default path is `tensorrt-dumps`.
+- `export MTRT_TENSORRT_NVTX=DETAILED` will enable detailed nvtx profiling verbosity for TRT layers.
 
 
 ## Using A Debugger
