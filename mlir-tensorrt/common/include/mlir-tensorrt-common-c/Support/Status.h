@@ -1,6 +1,6 @@
-//===- Status.h -------------------------------------------------*- C++ -*-===//
+//===- Status.h -------------------------------------------------*- C -*-===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -21,8 +21,8 @@
 /// Declarations for the MLIR-TensorRT Runtime Status C API.
 ///
 //===----------------------------------------------------------------------===//
-#ifndef MLIR_TENSORRT_C_RUNTIME_STATUS_H
-#define MLIR_TENSORRT_C_RUNTIME_STATUS_H
+#ifndef MLIR_TENSORRT_COMMON_C_SUPPORT_STATUS_H
+#define MLIR_TENSORRT_COMMON_C_SUPPORT_STATUS_H
 
 #include <stddef.h>
 
@@ -57,7 +57,7 @@ extern "C" {
 #endif
 
 #define GEN_ENUM_DECLS
-#include "mlir-executor/Support/StatusEnums.c.h.inc"
+#include "mlir-tensorrt-common/Support/StatusEnums.c.h.inc"
 
 //===----------------------------------------------------------------------===//
 // MTRT_Status
@@ -132,4 +132,4 @@ typedef struct MTRT_PrintCallbackInfo {
 }
 #endif
 
-#endif // MLIR_TENSORRT_C_RUNTIME_STATUS_H
+#endif // MLIR_TENSORRT_COMMON_C_SUPPORT_STATUS_H

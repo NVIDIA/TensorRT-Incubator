@@ -24,7 +24,7 @@
 #ifndef MLIR_EXECUTOR_RUNTIME_BACKEND_C_COREMODULE
 #define MLIR_EXECUTOR_RUNTIME_BACKEND_C_COREMODULE
 
-#include "mlir-executor-c/Support/Status.h"
+#include "mlir-tensorrt-common-c/Support/Status.h"
 #include "stdint.h"
 
 #ifdef __cplusplus

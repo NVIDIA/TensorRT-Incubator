@@ -27,7 +27,7 @@
 
 #include "dlpack/dlpack.h"
 #include "mlir-executor/Support/Allocators.h"
-#include "mlir-executor/Support/Status.h"
+#include "mlir-tensorrt-common/Support/Status.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/MapVector.h"

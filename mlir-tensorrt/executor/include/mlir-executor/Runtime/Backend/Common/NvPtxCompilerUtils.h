@@ -24,7 +24,7 @@
 #ifndef RUNTIME_BACKEND_LUA_MODULES_CUDA_NVPTXCOMPILERUTILS_H
 #define RUNTIME_BACKEND_LUA_MODULES_CUDA_NVPTXCOMPILERUTILS_H
 
-#include "mlir-executor/Support/Status.h"
+#include "mlir-tensorrt-common/Support/Status.h"
 #include <cstdint>
 #include <memory>
 #include <string_view>

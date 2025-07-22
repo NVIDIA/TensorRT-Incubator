@@ -32,7 +32,7 @@
 #define MLIR_TENSORRT_COMPILER_STABLEHLOTOEXECUTABLE
 
 #include "mlir-executor/Runtime/API/API.h"
-#include "mlir-executor/Support/Status.h"
+#include "mlir-tensorrt-common/Support/Status.h"
 #include "mlir-tensorrt/Compiler/Client.h"
 #include "mlir-tensorrt/Compiler/Extension.h"
 #include "mlir-tensorrt/Compiler/OptionsProviders.h"

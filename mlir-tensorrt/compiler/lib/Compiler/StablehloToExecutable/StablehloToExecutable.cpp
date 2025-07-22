@@ -24,7 +24,7 @@
 #include "mlir-tensorrt/Compiler/StablehloToExecutable/StablehloToExecutable.h"
 #include "mlir-executor/Conversion/Passes.h"
 #include "mlir-executor/Executor/Transforms/Passes.h"
-#include "mlir-executor/Support/Status.h"
+#include "mlir-tensorrt-common/Support/Status.h"
 #include "mlir-tensorrt/Compiler/Client.h"
 #include "mlir-tensorrt/Compiler/Extension.h"
 #include "mlir-tensorrt/Compiler/OptionsProviders.h"

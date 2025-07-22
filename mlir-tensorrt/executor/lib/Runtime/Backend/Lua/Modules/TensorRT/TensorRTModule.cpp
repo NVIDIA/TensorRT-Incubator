@@ -26,7 +26,7 @@
 #include "mlir-executor/Runtime/Backend/Lua/SolAdaptor.h"
 #include "mlir-executor/Runtime/Backend/Utils/NvtxUtils.h"
 #include "mlir-executor/Support/Allocators.h"
-#include "mlir-executor/Support/Status.h"
+#include "mlir-tensorrt-common/Support/Status.h"
 #include "mlir-tensorrt-dialect/Utils/TensorRTVersion.h"
 #include <memory>
 

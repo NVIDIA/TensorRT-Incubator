@@ -28,7 +28,7 @@
 #include "mlir-c/Pass.h"
 #include "mlir-c/Support.h"
 #include "mlir-executor-c/Common/Common.h"
-#include "mlir-executor-c/Support/Status.h"
+#include "mlir-tensorrt-common-c/Support/Status.h"
 
 #ifdef __cplusplus
 extern "C" {

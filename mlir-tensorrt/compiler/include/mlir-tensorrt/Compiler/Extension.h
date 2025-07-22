@@ -31,7 +31,7 @@
 #ifndef MLIR_TENSORRT_COMPILER_EXTENSION
 #define MLIR_TENSORRT_COMPILER_EXTENSION
 
-#include "mlir-executor/Support/Status.h"
+#include "mlir-tensorrt-common/Support/Status.h"
 #include "mlir-tensorrt/Compiler/OptionsProviders.h"
 #include "mlir/Support/TypeID.h"
 

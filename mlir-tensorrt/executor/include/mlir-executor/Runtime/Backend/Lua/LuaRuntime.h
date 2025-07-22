@@ -26,7 +26,7 @@
 
 #include "mlir-executor/Runtime/API/API.h"
 #include "mlir-executor/Runtime/Backend/Lua/SolAdaptor.h"
-#include "mlir-executor/Support/Status.h"
+#include "mlir-tensorrt-common/Support/Status.h"
 #include <functional>
 #include <string_view>
 
