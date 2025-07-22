@@ -20,7 +20,7 @@
 #include "mlir-executor/Runtime/Backend/Common/CommonRuntime.h"
 #include "mlir-executor/Runtime/API/API.h"
 #include "mlir-executor/Runtime/Backend/Common/NvPtxCompilerUtils.h"
-#include "mlir-executor/Support/Status.h"
+#include "mlir-tensorrt-common/Support/Status.h"
 #include "llvm/ADT/StringRef.h"
 
 using namespace mlirtrt;

@@ -27,7 +27,7 @@
 #ifndef MLIR_TENSORRT_COMPILER_CLIENT
 #define MLIR_TENSORRT_COMPILER_CLIENT
 
-#include "mlir-executor/Support/Status.h"
+#include "mlir-tensorrt-common/Support/Status.h"
 #include "mlir-tensorrt/Compiler/OptionsProviders.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/Pass/PassManager.h"

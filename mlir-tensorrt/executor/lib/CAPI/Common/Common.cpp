@@ -22,8 +22,8 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-executor-c/Common/Common.h"
-#include "mlir-executor-c/Support/Status.h"
 #include "mlir-executor/Runtime/API/API.h"
+#include "mlir-tensorrt-common-c/Support/Status.h"
 
 using namespace mlirtrt;
 using namespace mlirtrt::runtime;

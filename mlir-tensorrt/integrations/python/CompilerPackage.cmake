@@ -96,16 +96,15 @@ declare_mlir_python_extension(MLIRTensorRTPythonCompiler.CompilerAPI.PyBind
   ADD_TO_PARENT MLIRTensorRTPythonCompiler.CompilerAPI
   SOURCES
       bindings/Compiler/CompilerPyBind.cpp
-  EMBED_CAPI_LINK_LIBS
-    MLIRTensorRTCAPICompiler
-    MLIRTensorRTCAPISupportStatus
-    MLIRTensorRTCAPICommon
-    MLIRTensorRTCAPIExecutorTranslations
   PRIVATE_LINK_LIBS
-    LLVMSupport
-    TensorRTHeaderOnly
-    MLIRTRTTensorRTDynamicLoader
     CUDA::cudart
+    LLVMSupport
+    MLIRTensorRTCAPICommon
+    MLIRTensorRTCAPICompiler
+    MLIRTensorRTCAPIExecutorTranslations
+    MLIRTensorRTCAPISupportStatus
+    MLIRTRTTensorRTDynamicLoader
+    TensorRTHeaderOnly
   )
 
 ################################################################################
@@ -150,5 +149,5 @@ add_mlir_python_modules("MLIRTensorRTPythonCompilerModules"
   INSTALL_PREFIX "python_packages/mlir_tensorrt_compiler/mlir_tensorrt/compiler"
   DECLARED_SOURCES ${source_groups}
   COMMON_CAPI_LINK_LIBS
-  "MLIRTensorRTPythonCompilerCLibrary"
+    "MLIRTensorRTPythonCompilerCLibrary"
   )

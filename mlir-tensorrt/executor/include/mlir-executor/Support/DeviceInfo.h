@@ -24,7 +24,7 @@
 #ifndef MLIR_TENSORRT_SUPPORT_DEVICEINFO
 #define MLIR_TENSORRT_SUPPORT_DEVICEINFO
 
-#include "mlir-executor/Support/Status.h"
+#include "mlir-tensorrt-common/Support/Status.h"
 
 namespace mlirtrt {
 

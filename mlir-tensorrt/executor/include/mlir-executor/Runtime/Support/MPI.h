@@ -24,7 +24,7 @@
 #ifndef MLIR_EXECUTOR_RUNTIME_SUPPORT_MPI
 #define MLIR_EXECUTOR_RUNTIME_SUPPORT_MPI
 
-#include "mlir-executor/Support/Status.h"
+#include "mlir-tensorrt-common/Support/Status.h"
 #include <memory>
 
 namespace mlirtrt::runtime {

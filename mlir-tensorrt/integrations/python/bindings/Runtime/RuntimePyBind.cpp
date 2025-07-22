@@ -11,7 +11,7 @@
 #include "dlpack/dlpack.h"
 #include "mlir-executor-c/Common/Common.h"
 #include "mlir-executor-c/Runtime/Runtime.h"
-#include "mlir-executor-c/Support/Status.h"
+#include "mlir-tensorrt-common-c/Support/Status.h"
 #include "pybind11/numpy.h"
 #include "pybind11/pybind11.h"
 #include "pybind11/stl.h"

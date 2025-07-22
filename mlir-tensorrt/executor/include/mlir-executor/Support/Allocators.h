@@ -24,7 +24,7 @@
 #ifndef MLIR_TENSORRT_SUPPORT_ALLOCATORS_H
 #define MLIR_TENSORRT_SUPPORT_ALLOCATORS_H
 
-#include "mlir-executor/Support/Status.h"
+#include "mlir-tensorrt-common/Support/Status.h"
 #include <memory>
 
 namespace mlirtrt {

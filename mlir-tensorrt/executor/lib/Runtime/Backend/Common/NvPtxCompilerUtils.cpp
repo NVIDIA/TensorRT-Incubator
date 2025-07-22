@@ -27,7 +27,7 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-executor/Runtime/Backend/Common/NvPtxCompilerUtils.h"
 #include "mlir-executor/Runtime/Support/Support.h"
-#include "mlir-executor/Support/Status.h"
+#include "mlir-tensorrt-common/Support/Status.h"
 #include "nvPTXCompiler.h"
 #include "llvm/ADT/ScopeExit.h"
 #include <cstdio>

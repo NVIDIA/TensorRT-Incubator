@@ -18,9 +18,9 @@
 //
 //===----------------------------------------------------------------------===//
 #include "mlir-executor-c/Target/ExecutorTranslations.h"
-#include "mlir-executor-c/Support/Status.h"
 #include "mlir-executor/Runtime/API/API.h"
 #include "mlir-executor/Target/Lua/TranslateToRuntimeExecutable.h"
+#include "mlir-tensorrt-common-c/Support/Status.h"
 #include "mlir/CAPI/IR.h"
 
 using namespace mlir;

@@ -21,7 +21,7 @@
 #include "mlir-executor/Runtime/Backend/Common/CommonRuntime.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaErrorHandling.h"
 #include "mlir-executor/Runtime/Backend/Lua/SolAdaptor.h"
-#include "mlir-executor/Support/Status.h"
+#include "mlir-tensorrt-common/Support/Status.h"
 #include "llvm/Support/raw_ostream.h"
 
 namespace mrt = mlirtrt::runtime;
