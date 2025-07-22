@@ -227,7 +227,8 @@ class Trace:
                                         for idx, name in input_info.dimension_names.items()
                                     }
                                 )
-                            elif isinstance(input_info, DimensionInputInfo):
+                            else:
+                                assert isinstance(input_info, DimensionInputInfo)
                                 value_bounds = input_info.value_bounds
                                 attr["tensorrt.value_bounds"] = ir.Attribute.parse(
                                     f"#tensorrt.shape_profile<min={list(value_bounds.min)}, opt={list(value_bounds.opt)}, max={list(value_bounds.max)}>"

@@ -16,7 +16,7 @@ from typing import Dict, Sequence, Tuple, Union
 
 from nvtripy import export
 from nvtripy.backend.api.named_dimension import NamedDimension
-from nvtripy.backend.api.shape_bounds import ShapeBounds, ValueBounds
+from nvtripy.backend.api.bounds import Bounds
 from nvtripy.frontend.dimension_size import DimensionSize
 from nvtripy.types import IntLike
 from nvtripy.utils import json as json_utils
@@ -97,7 +97,7 @@ class InputInfo:
         A mapping of dimension indices to their names, if set.
         """
 
-        self.shape_bounds: ShapeBounds = ShapeBounds(tuple(min_shape), tuple(opt_shape), tuple(max_shape))
+        self.shape_bounds: Bounds = Bounds(tuple(min_shape), tuple(opt_shape), tuple(max_shape))
         """
         The shape bounds of the input.
         """
@@ -152,7 +152,9 @@ class DimensionInputInfo:
             assert dim_inp.opt == 2
             assert dim_inp.max == 3
         """
-        self.value_bounds = ValueBounds(
+        # Evaluate `DimensionSize` early to avoid duplicate evaluation
+        value_bounds = tuple(map(int, value_bounds))
+        self.value_bounds = Bounds(
             min=tuple([value_bounds[0]]), opt=tuple([value_bounds[1]]), max=tuple([value_bounds[2]])
         )
 
@@ -171,5 +173,6 @@ def encode_dim_input_info(dim_input_info):
 
 @json_utils.Decoder.register(DimensionInputInfo)
 def decode_dim_input_info(dim_input_info_dict):
-    dim_input_info_dict.value_bounds = dim_input_info_dict["value_bounds"]
-    return dim_input_info_dict
+    dim_input_info = DimensionInputInfo((-1, -1, -1))
+    dim_input_info.value_bounds = dim_input_info_dict["value_bounds"]
+    return dim_input_info
