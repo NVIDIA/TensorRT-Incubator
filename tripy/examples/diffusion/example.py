@@ -25,39 +25,42 @@ import numpy as np
 import nvtripy as tp
 
 from transformers import CLIPTokenizer
-from examples.diffusion.clip_model import CLIPConfig
-from examples.diffusion.model import StableDiffusion, StableDiffusionConfig
+from examples.diffusion.models.clip_model import CLIPConfig
+from examples.diffusion.models.model import StableDiffusion, StableDiffusionConfig
 from examples.diffusion.weight_loader import load_from_diffusers
 
-batch = tp.NamedDimension("batch", 1, 1, 1)
-max_seq_len = tp.NamedDimension("max_seq_len", 77, 77, 77)
-embed_dim = tp.NamedDimension("embed_dim", 768, 768, 768)
 
+def compile_model(model, inputs, engine_path, verbose=False):
+    if os.path.exists(engine_path):
+        if verbose:
+            print(f"[I] Loading cached engines from {engine_path}...")
+        return tp.Executable.load(engine_path)
 
-def compile_model(model, inputs, verbose=False):
     if verbose:
         name = model.__class__.__name__ if isinstance(model, tp.Module) else model.__name__
         print(f"[I] Compiling {name}...", end=" ", flush=True)
         compile_start_time = time.perf_counter()
 
     compiled_model = tp.compile(model, args=inputs, optimization_level=5)
+    compiled_model.save(engine_path)
 
     if verbose:
         compile_end_time = time.perf_counter()
+        print(f"saved engine to {engine_path}.")
         print(f"took {compile_end_time - compile_start_time} seconds.")
 
     return compiled_model
 
 
-def compile_clip(model, dtype=tp.int32, verbose=False):
-    inputs = (tp.InputInfo((batch, max_seq_len), dtype=dtype),)
-    return compile_model(model, inputs, verbose=verbose)
+def compile_clip(model, engine_path, dtype=tp.int32, verbose=False):
+    inputs = (tp.InputInfo((1, 77), dtype=dtype),)
+    return compile_model(model, inputs, engine_path, verbose=verbose)
 
 
-def compile_unet(model, dtype, verbose=False):
-    unconditional_context_shape = (batch, max_seq_len, embed_dim)
-    conditional_context_shape = (batch, max_seq_len, embed_dim)
-    latent_shape = (batch, 4, 64, 64)
+def compile_unet(model, engine_path, dtype, verbose=False):
+    unconditional_context_shape = (1, 77, 768)
+    conditional_context_shape = (1, 77, 768)
+    latent_shape = (1, 4, 64, 64)
     inputs = (
         tp.InputInfo(unconditional_context_shape, dtype=dtype),
         tp.InputInfo(conditional_context_shape, dtype=dtype),
@@ -67,12 +70,12 @@ def compile_unet(model, dtype, verbose=False):
         tp.InputInfo((1,), dtype=dtype),
         tp.InputInfo((1,), dtype=dtype),
     )
-    return compile_model(model, inputs, verbose=verbose)
+    return compile_model(model, inputs, engine_path, verbose=verbose)
 
 
-def compile_vae(model, dtype, verbose=False):
-    inputs = (tp.InputInfo((batch, 4, 64, 64), dtype=dtype),)
-    return compile_model(model, inputs, verbose=verbose)
+def compile_vae(model, engine_path, dtype, verbose=False):
+    inputs = (tp.InputInfo((1, 4, 64, 64), dtype=dtype),)
+    return compile_model(model, inputs, engine_path, verbose=verbose)
 
 
 # equivalent to LMSDiscreteScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000)
@@ -119,8 +122,8 @@ def save_image(image, args):
         filename = args.out
     else:
         filename = (
-            f"{'torch' if args.torch_inference else 'tp'}-"
-            f"{'fp16' if args.fp16 else 'fp32'}-"
+            f"{'tp'}-"
+            f"{'fp32' if args.fp32 else 'fp16'}-"
             f"{args.prompt[:10].replace(' ', '_')}-"
             f"steps{args.steps}-"
             f"seed{args.seed if args.seed else 'rand'}-"
@@ -139,29 +142,30 @@ def save_image(image, args):
 def tripy_diffusion(args):
     run_start_time = time.perf_counter() if args.verbose else None
 
-    dtype, torch_dtype = (tp.float16, torch.float16) if args.fp16 else (tp.float32, torch.float32)
+    dtype, torch_dtype = (tp.float32, torch.float32) if args.fp32 else (tp.float16, torch.float16)
 
-    if os.path.isdir(args.engine_dir):
-        if args.verbose:
-            print(f"[I] Loading cached engines from {args.engine_dir}...")
-        clip_compiled = tp.Executable.load(os.path.join(args.engine_dir, "clip_executable.tpymodel"))
-        unet_compiled = tp.Executable.load(os.path.join(args.engine_dir, "unet_executable.tpymodel"))
-        vae_compiled = tp.Executable.load(os.path.join(args.engine_dir, "vae_executable.tpymodel"))
-    else:
-        model = StableDiffusion(StableDiffusionConfig(dtype=dtype))
+    # Check which engines we need to compile (if any)
+    clip_path = os.path.join(args.engine_dir, "clip_executable.tpymodel")
+    unet_path = os.path.join(args.engine_dir, "unet_executable.tpymodel")
+    vae_path = os.path.join(args.engine_dir, "vae_executable.tpymodel")
+
+    clip_exists = os.path.exists(clip_path)
+    unet_exists = os.path.exists(unet_path)
+    vae_exists = os.path.exists(vae_path)
+
+    model = StableDiffusion(StableDiffusionConfig(dtype=dtype))
+    if not (clip_exists and unet_exists and vae_exists):
         if args.verbose:
             print("[I] Loading model weights...", flush=True)
-        load_from_diffusers(model, dtype, args.hf_token, debug=True)
-        clip_compiled = compile_clip(model.cond_stage_model.transformer.text_model, verbose=args.verbose)
-        unet_compiled = compile_unet(model, dtype, verbose=args.verbose)
-        vae_compiled = compile_vae(model.decode, dtype, verbose=args.verbose)
+        load_from_diffusers(model, dtype, args.hf_token)
 
+    if not os.path.isdir(args.engine_dir):
         os.mkdir(args.engine_dir)
-        if args.verbose:
-            print(f"[I] Saving engines to ./{args.engine_dir}...")
-        clip_compiled.save(os.path.join(args.engine_dir, "clip_executable.tpymodel"))
-        unet_compiled.save(os.path.join(args.engine_dir, "unet_executable.tpymodel"))
-        vae_compiled.save(os.path.join(args.engine_dir, "vae_executable.tpymodel"))
+
+    # Load existing engines if they exist, otherwise compile and save them
+    clip_compiled = compile_clip(model.text_encoder, engine_path=clip_path, verbose=args.verbose)
+    unet_compiled = compile_unet(model, engine_path=unet_path, dtype=dtype, verbose=args.verbose)
+    vae_compiled = compile_vae(model.decode, engine_path=vae_path, dtype=dtype, verbose=args.verbose)
 
     # Run through CLIP to get context from prompt
     tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14")
@@ -259,12 +263,9 @@ def main():
     parser.add_argument("--steps", type=int, default=30, help="Number of denoising steps in diffusion")
     parser.add_argument("--prompt", type=str, default=default_prompt, help="Phrase to render")
     parser.add_argument("--out", type=str, default=None, help="Output filepath")
-    parser.add_argument("--fp16", action="store_true", help="Cast the weights to float16")
+    parser.add_argument("--fp32", action="store_true", help="Run the model in fp32 precision")
     parser.add_argument("--seed", type=int, help="Set the random latent seed")
     parser.add_argument("--guidance", type=float, default=7.5, help="Prompt strength")
-    parser.add_argument(
-        "--torch-inference", action="store_true", help="Run inference with PyTorch (eager mode) instead of TensorRT."
-    )
     parser.add_argument(
         "--hf-token", type=str, default="", help="HuggingFace API access token for downloading model checkpoints"
     )
@@ -274,10 +275,7 @@ def main():
     )
     args = parser.parse_args()
 
-    if args.torch_inference:
-        image, times = hf_diffusion(args)
-    else:
-        image, times = tripy_diffusion(args)
+    image, times = tripy_diffusion(args)
 
     save_image(image, args)
     print_summary(args.steps, times, verbose=args.verbose)

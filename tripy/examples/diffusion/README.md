@@ -1,16 +1,15 @@
-# Implementing Stable Diffusion With Tripy
+# Implementing Stable Diffusion
 
 ## Introduction
 
-This example demonstrates how to implement a Stable Diffusion model using Tripy APIs.
+This example implements a Stable Diffusion model using Tripy.
+There are 3 components:
 
-It's broken up into three components:
-
-1. `model.py` defines the model using `tripy.Module` and associated APIs. `clip_model.py`, `unet_model.py`, `vae_model.py` implement specific components of the diffusion model. 
+1. `model.py` defines the model using `tripy.Module` and associated APIs. `clip_model.py`, `unet_model.py`, `vae_model.py` implement specific components of the diffusion model. All files live under the `models/` folder.
 2. `weight_loader.py` loads weights from a HuggingFace checkpoint.
-3. `example.py` runs the end-to-end example, taking input text as a command-line argument, running inference, and then displaying the generated output.
+3. `example.py` runs the end-to-end example, taking input text as a command-line argument, running inference, and then saves the generated output.
 
-The model defaults to running in `float32`, but is recommended to run in `float16` by providing the `--fp16` flag if you have less than 20-24 GB of GPU memory (note that normalization layers will still run in `float32` to preserve accuracy).
+The model defaults to running in `float16`, but you can increase the precision by using the `--fp32` flag.
 
 ## Running The Example
 
@@ -23,12 +22,12 @@ The model defaults to running in `float32`, but is recommended to run in `float1
 2. Run the example:
 
     ```bash
-    python3 example.py --seed 420 --steps 50 --prompt "a beautiful photograph of Mt. Fuji during cherry blossom" --fp16 --engine-dir fp16_engines --verbose
+    python3 example.py --seed 420 --steps 50 --prompt "a beautiful photograph of Mt. Fuji during cherry blossom" --engine-dir fp16_engines --verbose
     ```
 
-3. (Optional) Compare with torch reference to verify accuracy:
+3. **[Optional]** Compare with torch reference to verify accuracy:
     ```bash
-    python3 compare_images.py --seed 420 --steps 50 --prompt "a beautiful photograph of Mt. Fuji during cherry blossom" --fp16 --engine-dir fp16_engines
+    python3 compare_images.py
     ```
 
     <!--

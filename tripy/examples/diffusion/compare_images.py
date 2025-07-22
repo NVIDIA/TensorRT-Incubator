@@ -19,10 +19,8 @@ import argparse
 import os
 import numpy as np
 from PIL import Image
-from argparse import Namespace
 from skimage.metrics import structural_similarity
-
-from example import tripy_diffusion
+import glob
 
 
 def load_reference_image(image_path, verbose=False):
@@ -33,6 +31,37 @@ def load_reference_image(image_path, verbose=False):
     if verbose:
         print(f"[I] Loading reference image from {image_path}")
     return Image.open(image_path)
+
+
+def load_tripy_image(image_path, verbose=False):
+    """Load tripy image from file path."""
+    if not os.path.exists(image_path):
+        raise FileNotFoundError(f"Tripy image not found: {image_path}")
+
+    if verbose:
+        print(f"[I] Loading tripy image from {image_path}")
+    return Image.open(image_path)
+
+
+def find_latest_image_in_output(output_dir="output", verbose=False):
+    """Find the most recent image in the output directory."""
+    if not os.path.exists(output_dir):
+        raise FileNotFoundError(f"Output directory not found: {output_dir}")
+
+    # Look for PNG files in the output directory
+    pattern = os.path.join(output_dir, "*.png")
+    image_files = glob.glob(pattern)
+
+    if not image_files:
+        raise FileNotFoundError(f"No PNG images found in {output_dir}")
+
+    image_files.sort(key=os.path.getmtime, reverse=True)
+
+    if verbose:
+        print(f"[I] Found {len(image_files)} images in {output_dir}")
+        print(f"[I] Using most recent image: {image_files[0]}")
+
+    return image_files[0]
 
 
 def compare_images(tripy_img, reference_img, threshold=0.80):
@@ -65,7 +94,13 @@ def main():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
-    # Reference image argument
+    # Image loading options
+    parser.add_argument(
+        "--tripy-image",
+        type=str,
+        default=None,
+        help="Path to tripy output image to compare. If not specified, will use the most recent image in output/ directory",
+    )
     parser.add_argument(
         "--reference",
         type=str,
@@ -73,25 +108,7 @@ def main():
         help="Path to reference image file to compare against",
     )
 
-    # Diffusion parameters (matching example.py)
-    parser.add_argument("--steps", type=int, default=30, help="Number of denoising steps in diffusion")
-    parser.add_argument(
-        "--prompt",
-        type=str,
-        default="a beautiful photograph of Mt. Fuji during cherry blossom",
-        help="Phrase to render",
-    )
-    parser.add_argument("--fp16", action="store_true", help="Cast the weights to float16")
-    parser.add_argument("--seed", type=int, help="Set the random latent seed")
-    parser.add_argument("--guidance", type=float, default=7.5, help="Prompt strength")
-    parser.add_argument(
-        "--hf-token", type=str, default="", help="HuggingFace API access token for downloading model checkpoints"
-    )
-    parser.add_argument("--engine-dir", type=str, default="engines", help="Output directory for TensorRT engines")
-
-    # Comparison parameters
     parser.add_argument("--threshold", type=float, default=0.80, help="SSIM threshold for considering images similar")
-    parser.add_argument("--save-output", type=str, default=None, help="Save the tripy output image to this path")
     parser.add_argument(
         "--verbose", action="store_true", default=False, help="Enable verbose output with timing and progress bars"
     )
@@ -105,47 +122,20 @@ def main():
         print(f"[E] {e}")
         return 1
 
-    # Create args namespace for tripy_diffusion
-    tripy_args = Namespace(
-        steps=args.steps,
-        prompt=args.prompt,
-        out=args.save_output,
-        fp16=args.fp16,
-        seed=args.seed,
-        guidance=args.guidance,
-        torch_inference=False,
-        hf_token=args.hf_token,
-        engine_dir=args.engine_dir,
-        verbose=args.verbose,
-    )
-
-    # Run tripy diffusion
-    if args.verbose:
-        print(f"[I] Running tripy diffusion with parameters:")
-        print(f"    Prompt: {args.prompt}")
-        print(f"    Steps: {args.steps}")
-        print(f"    FP16: {args.fp16}")
-        print(f"    Seed: {args.seed}")
-        print(f"    Guidance: {args.guidance}")
-
+    # Load tripy image
     try:
-        tripy_img, times = tripy_diffusion(tripy_args)
-    except Exception as e:
-        print(f"[E] Error running tripy diffusion: {e}")
+        if args.tripy_image:
+            tripy_img = load_tripy_image(args.tripy_image, args.verbose)
+        else:
+            image_path = find_latest_image_in_output(verbose=args.verbose)
+            tripy_img = load_tripy_image(image_path, args.verbose)
+    except FileNotFoundError as e:
+        print(f"[E] {e}")
         return 1
 
-    # Compare images
     is_similar = compare_images(tripy_img, reference_img, args.threshold)
 
-    # Save output if requested
-    if args.save_output:
-        if not os.path.isdir(os.path.dirname(args.save_output)):
-            os.makedirs(os.path.dirname(args.save_output), exist_ok=True)
-        tripy_img.save(args.save_output)
-        print(f"[I] Saved tripy output to {args.save_output}")
-
-    # Return appropriate exit code
-    return 0 if is_similar else 1
+    return not is_similar
 
 
 if __name__ == "__main__":
