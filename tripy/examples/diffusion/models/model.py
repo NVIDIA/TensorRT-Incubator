@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -26,9 +26,9 @@ import nvtripy as tp
 from typing import Optional
 from dataclasses import dataclass, field
 
-from examples.diffusion.clip_model import CLIPTextTransformer, CLIPConfig
-from examples.diffusion.unet_model import UNetModel, UNetConfig
-from examples.diffusion.vae_model import AutoencoderKL, VAEConfig
+from examples.diffusion.models.clip_model import CLIPTextTransformer, CLIPConfig
+from examples.diffusion.models.unet_model import UNetModel, UNetConfig
+from examples.diffusion.models.vae_model import AutoencoderKL, VAEConfig
 from examples.diffusion.helper import clamp
 
 
@@ -47,11 +47,9 @@ class StableDiffusionConfig:
 
 class StableDiffusion(tp.Module):
     def __init__(self, config: StableDiffusionConfig):
-        self.model = namedtuple("DiffusionModel", ["diffusion_model"])(diffusion_model=UNetModel(config.unet_config))
-        self.first_stage_model = AutoencoderKL(config.vae_config)
-        self.cond_stage_model = namedtuple("CondStageModel", ["transformer"])(
-            transformer=namedtuple("Transformer", ["text_model"])(text_model=CLIPTextTransformer(config.clip_config))
-        )
+        self.text_encoder = CLIPTextTransformer(config.clip_config)
+        self.backbone = UNetModel(config.unet_config)
+        self.vae = AutoencoderKL(config.vae_config)
 
     def get_x_prev_and_pred_x0(self, x, e_t, a_t, a_prev):
         temperature = 1
@@ -67,7 +65,7 @@ class StableDiffusion(tp.Module):
         return x_prev, pred_x0
 
     def get_model_output(self, unconditional_context, context, latent, timestep, unconditional_guidance_scale):
-        latents = self.model.diffusion_model(
+        latents = self.backbone(
             tp.expand(latent, (2, latent.shape[1], latent.shape[2], latent.shape[3])),
             # tp.concatenate([latent, latent], dim=0), # WAR, in this case equivalent to expand
             timestep,
@@ -78,8 +76,8 @@ class StableDiffusion(tp.Module):
         return e_t
 
     def decode(self, x):
-        x = self.first_stage_model.post_quant_conv(1 / 0.18215 * x)
-        x = self.first_stage_model.decoder(x)
+        x = self.vae.post_quant_conv(1 / 0.18215 * x)
+        x = self.vae.decoder(x)
 
         # make image correct size and scale
         x = (x + 1.0) / 2.0

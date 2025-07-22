@@ -22,7 +22,7 @@ import nvtripy as tp
 from dataclasses import dataclass
 
 from examples.diffusion.helper import scaled_dot_product_attention
-from examples.diffusion.vae_model import Upsample, Downsample
+from examples.diffusion.models.vae_model import Upsample, Downsample
 
 
 @dataclass
@@ -97,19 +97,11 @@ class GEGLU(tp.Module):
         return x * tp.gelu(gate)
 
 
-class Dummy(tp.Module):
-    def __init__(self):
-        pass
-
-    def __call__(self, x):
-        return x
-
-
 class FeedForward(tp.Module):
     def __init__(self, config: UNetConfig, dim, mult=4):
         self.net = tp.Sequential(
             GEGLU(config, dim, dim * mult),
-            Dummy(),  # Accounts for Dropout layer, needed for weight loading
+            lambda x: x,  # Accounts for Dropout layer, needed for weight loading
             tp.Linear(dim * mult, dim, dtype=config.dtype),
         )
 
@@ -299,7 +291,6 @@ class UNetModel(tp.Module):
         )
 
     def __call__(self, x, timesteps=None, context=None):
-        # TODO: real time embedding
         t_emb = timestep_embedding(timesteps, self.config.model_channels, self.config.dtype)
         emb = self.time_embedding(t_emb)
         x = self.conv_in(x)

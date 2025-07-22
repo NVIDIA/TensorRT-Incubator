@@ -125,6 +125,6 @@ class CLIPTextTransformer(tp.Module):
         self.max_seq_len = config.max_seq_len
 
     def __call__(self, input_ids):
-        x = self.embeddings(input_ids, tp.reshape(tp.iota((input_ids.shape[1],), dtype=tp.int32), (1, -1)))
+        x = self.embeddings(input_ids, tp.unsqueeze(tp.iota((input_ids.shape[1],), dtype=tp.int32), 0))
         x = self.encoder(x, tp.triu(tp.full((1, 1, self.max_seq_len, self.max_seq_len), float("-inf")), 1))
         return self.final_layer_norm(x)

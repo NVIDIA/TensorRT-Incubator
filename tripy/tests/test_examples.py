@@ -89,7 +89,7 @@ EXAMPLES = [
         ["segment-anything-model-v2"],
         artifact_names=["truck.jpg", "bedroom", "saved_engines_l/", "output/", "checkpoints/*.pt"],
     ),
-    Example(["diffusion"], artifact_names=["test_fp16_engines/", "output/"]),
+    Example(["diffusion"], artifact_names=["output/", "fp16_engines/"]),
 ]
 
 
