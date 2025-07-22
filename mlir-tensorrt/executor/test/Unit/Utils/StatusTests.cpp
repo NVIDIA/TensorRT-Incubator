@@ -21,7 +21,7 @@
 /// Tests for the Status object.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-executor/Support/Status.h"
+#include "mlir-tensorrt-common/Support/Status.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 

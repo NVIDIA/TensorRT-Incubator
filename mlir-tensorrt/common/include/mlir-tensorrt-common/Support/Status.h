@@ -1,6 +1,6 @@
 //===- Status.h -------------------------------------------------*- C++ -*-===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -26,7 +26,7 @@
 #ifndef MLIR_EXECUTOR_SUPPORT_STATUS
 #define MLIR_EXECUTOR_SUPPORT_STATUS
 
-#include "mlir-executor/Utils/ADTExtras.h"
+#include "mlir-tensorrt-common/Support/ADTExtras.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/FormatVariadic.h"
 #include <cassert>
@@ -39,7 +39,7 @@
 namespace mlirtrt {
 
 #define GEN_ENUM_DECLS
-#include "mlir-executor/Support/StatusEnums.h.inc"
+#include "mlir-tensorrt-common/Support/StatusEnums.h.inc"
 
 class Status {
 public:

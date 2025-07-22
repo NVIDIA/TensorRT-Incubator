@@ -18,7 +18,7 @@
 //
 //===----------------------------------------------------------------------===//
 #include "mlir-executor/Support/DeviceInfo.h"
-#include "mlir-executor/Support/Status.h"
+#include "mlir-tensorrt-common/Support/Status.h"
 
 #ifdef MLIR_EXECUTOR_ENABLE_CUDA
 #include "cuda_runtime_api.h"

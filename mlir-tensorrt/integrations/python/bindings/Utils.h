@@ -39,7 +39,7 @@
 
 #include "CPyBindInterop.h"
 #include "mlir-executor-c/Common/Common.h"
-#include "mlir-executor-c/Support/Status.h"
+#include "mlir-tensorrt-common-c/Support/Status.h"
 #include "pybind11/pybind11.h"
 #include "pybind11/stl.h"
 #include "llvm/ADT/Twine.h"

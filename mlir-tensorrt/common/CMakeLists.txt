@@ -27,8 +27,11 @@ target_include_directories(MLIRTensorRTCommonIncludes INTERFACE
   "$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>"
 )
 
+add_subdirectory(tools/mtrt-tblgen)
 add_subdirectory(include/mlir-tensorrt-common)
 add_subdirectory(lib)
+
+add_dependencies(MLIRTensorRTCommonIncludes MLIRTensorRTStatusEnumIncGen)
 
 install(TARGETS MLIRTensorRTCommonIncludes
   EXPORT MLIRTensorRTCommonTargets
@@ -37,4 +40,3 @@ install(TARGETS MLIRTensorRTCommonIncludes
   ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
   INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
-

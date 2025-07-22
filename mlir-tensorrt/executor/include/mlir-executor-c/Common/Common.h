@@ -25,7 +25,7 @@
 #ifndef MLIR_EXECUTOR_C_COMMON_COMMON
 #define MLIR_EXECUTOR_C_COMMON_COMMON
 
-#include "mlir-executor-c/Support/Status.h"
+#include "mlir-tensorrt-common-c/Support/Status.h"
 #include <stdint.h>
 
 #ifdef __cplusplus
