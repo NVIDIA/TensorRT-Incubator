@@ -93,7 +93,7 @@ class GEGLU(tp.Module):
 
     def __call__(self, x):
         proj = self.proj(x)
-        x, gate = tp.split(proj, 2, proj.rank - 1)  # TODO: allow negative dim in split
+        x, gate = tp.split(proj, 2, -1)
         return x * tp.gelu(gate)
 
 

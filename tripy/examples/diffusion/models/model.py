@@ -19,9 +19,6 @@
 # https://github.com/ekagra-ranjan/huggingface-blog/blob/main/stable_diffusion.md
 # Adapted from https://github.com/tinygrad/tinygrad/blob/master/examples/stable_diffusion.py
 
-from collections import namedtuple
-
-import numpy as np
 import nvtripy as tp
 from typing import Optional
 from dataclasses import dataclass, field
@@ -67,7 +64,6 @@ class StableDiffusion(tp.Module):
     def get_model_output(self, unconditional_context, context, latent, timestep, unconditional_guidance_scale):
         latents = self.backbone(
             tp.expand(latent, (2, latent.shape[1], latent.shape[2], latent.shape[3])),
-            # tp.concatenate([latent, latent], dim=0), # WAR, in this case equivalent to expand
             timestep,
             tp.concatenate([unconditional_context, context], dim=0),
         )

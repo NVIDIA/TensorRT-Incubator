@@ -269,7 +269,7 @@ def main():
     parser.add_argument(
         "--hf-token", type=str, default="", help="HuggingFace API access token for downloading model checkpoints"
     )
-    parser.add_argument("--engine-dir", type=str, default="engines", help="Output directory for TensorRT engines")
+    parser.add_argument("--engine-dir", type=str, default="engines", help="Output directory for Tripy executables")
     parser.add_argument(
         "--verbose", action="store_true", default=False, help="Enable verbose output with timing and progress bars"
     )

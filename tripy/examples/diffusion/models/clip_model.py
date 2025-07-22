@@ -53,7 +53,6 @@ class CLIPAttention(tp.Module):
         self.v_proj = tp.Linear(self.embed_dim, self.embed_dim, dtype=config.dtype)
         self.q_proj = tp.Linear(self.embed_dim, self.embed_dim, dtype=config.dtype)
         self.out_proj = tp.Linear(self.embed_dim, self.embed_dim, dtype=config.dtype)
-        self.dtype = config.dtype
 
     def __call__(self, hidden_states, causal_attention_mask):
         bsz, tgt_len, embed_dim = hidden_states.shape[0], hidden_states.shape[1], hidden_states.shape[2]
