@@ -224,3 +224,20 @@ class TestCompile:
             tp.TripyException, match="Tensors that are not inputs to compiled functions must reside in CPU memory."
         ):
             tp.compile(func, args=[tp.InputInfo((2, 3), dtype=tp.float32)])
+
+    def test_dimension_input(self):
+        dummy = tp.ones((3, 4))
+        compiled = tp.compile(
+            dynamic_reshape,
+            args=[
+                tp.InputInfo(shape=((2, 4, 6), 4), dtype=tp.float32),
+                tp.DimensionInputInfo(value_bounds=(2, dummy.shape[1], 6)),
+            ],
+        )
+        for reshape_dim in [2, 4, 6]:
+            inp_cp = cp.arange(12, dtype=cp.float32).reshape((3, 4))
+            inp = tp.Tensor(inp_cp)
+            dim_inp = tp.DimensionSize(reshape_dim)
+            out = compiled(inp, dim_inp)
+            expected = (inp_cp + inp_cp).reshape((-1, reshape_dim))
+            assert cp.array_equal(cp.from_dlpack(out), expected)

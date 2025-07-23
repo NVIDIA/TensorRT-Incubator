@@ -25,37 +25,37 @@ from nvtripy.utils import json as json_utils
 
 @export.public_api(document_under="compiling_code/input_info", document_init_sig=False)
 @dataclass
-class ShapeBounds:
+class Bounds:
     min: Tuple[IntLike]
     """
-    The minimum shape.
+    The minimum value.
     """
     opt: Tuple[IntLike]
     """
-    The shape to optimize for.
+    The value to optimize for.
     """
     max: Tuple[IntLike]
     """
-    The maximum shape.
+    The maximum value.
     """
 
     def is_static(self):
         return self.min == self.opt == self.max
 
 
-@json_utils.Encoder.register(ShapeBounds)
-def encode_shape_bounds(shape_bounds):
+@json_utils.Encoder.register(Bounds)
+def encode_bounds(bounds):
     return {
-        "min": shape_bounds.min,
-        "opt": shape_bounds.opt,
-        "max": shape_bounds.max,
+        "min": bounds.min,
+        "opt": bounds.opt,
+        "max": bounds.max,
     }
 
 
-@json_utils.Decoder.register(ShapeBounds)
-def decode_shape_bounds(shape_bounds_dict):
-    return ShapeBounds(
-        min=tuple(shape_bounds_dict["min"]),
-        opt=tuple(shape_bounds_dict["opt"]),
-        max=tuple(shape_bounds_dict["max"]),
+@json_utils.Decoder.register(Bounds)
+def decode_bounds(bounds_dict):
+    return Bounds(
+        min=tuple(bounds_dict["min"]),
+        opt=tuple(bounds_dict["opt"]),
+        max=tuple(bounds_dict["max"]),
     )

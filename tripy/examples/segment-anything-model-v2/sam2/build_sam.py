@@ -81,8 +81,7 @@ def get_component_configs(model, cfg):
                     (seq_len, mem_attention_batch, 64),
                     getattr(tp, model_precision),
                 ),
-                # TODO (#594): Remove this hack once we are able to pass in DimensionSizes directly:
-                tp.InputInfo(((4, 16, 64),), tp.int32),
+                tp.DimensionInputInfo(value_bounds=(4, 16, 64)),
             ],
             "skip_dtype_convert": [],
         },
