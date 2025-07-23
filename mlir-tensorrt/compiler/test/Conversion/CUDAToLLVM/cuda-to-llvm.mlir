@@ -79,7 +79,7 @@ func.func @test_cuda_launch(
 
 // CHECK-LABEL: func.func @test_cuda_launch
 //  CHECK-SAME: (%[[arg0:.+]]: !cuda.function, %[[arg1:.+]]: !cuda.stream, %[[arg2:.+]]: memref<4xf32>, %[[arg3:.+]]: memref<4xf32>, %[[arg4:.+]]: index, %[[arg5:.+]]: index)
-//   CHECK-DAG:     %[[v0:.+]] = builtin.unrealized_conversion_cast %[[arg3]] 
+//   CHECK-DAG:     %[[v0:.+]] = builtin.unrealized_conversion_cast %[[arg3]]
 //   CHECK-DAG:     %[[v1:.+]] = builtin.unrealized_conversion_cast %[[arg2]]
 //   CHECK-DAG:     %[[v2:.+]] = builtin.unrealized_conversion_cast %[[arg1]]
 //   CHECK-DAG:     %[[v3:.+]] = builtin.unrealized_conversion_cast %[[arg0]]
@@ -95,9 +95,9 @@ func.func @test_cuda_launch(
 //   CHECK-DAG:     %[[v10:.+]] = llvm.alloca %[[v6]] x !llvm.ptr : (i64) -> !llvm.ptr
 //   CHECK-DAG:     llvm.store %[[v8]], %[[v10]] : !llvm.ptr, !llvm.ptr
 //   CHECK-DAG:     %[[v11:.+]] = llvm.alloca %[[v6]] x !llvm.array<2 x ptr> : (i64) -> !llvm.ptr
-//   CHECK-DAG:     %[[v12:.+]] = llvm.getelementptr %[[v11]][0, 0] 
+//   CHECK-DAG:     %[[v12:.+]] = llvm.getelementptr %[[v11]][0, 0]
 //   CHECK-DAG:     llvm.store %[[v9]], %[[v12]] : !llvm.ptr, !llvm.ptr
-//   CHECK-DAG:     %[[v13:.+]] = llvm.getelementptr %[[v11]][0, 1] 
+//   CHECK-DAG:     %[[v13:.+]] = llvm.getelementptr %[[v11]][0, 1]
 //   CHECK-DAG:     llvm.store %[[v10]], %[[v13]] : !llvm.ptr, !llvm.ptr
 //   CHECK-DAG:     llvm.call @mtrt_cuda_launch_kernel(%[[v3]], %[[v4]], %[[c1_i32]], %[[c1_i32]], %[[v5]], %[[c1_i32]], %[[c1_i32]], %[[c0_i32]], %[[v2]], %[[v11]])
 //       CHECK:     return
@@ -106,9 +106,10 @@ func.func @test_cuda_launch(
 // -----
 
 func.func @cuda_global_stream() -> (!cuda.stream, !cuda.stream, !cuda.stream) {
-  %0 = cuda.get_global_stream 0
-  %1 = cuda.get_global_stream 1
-  %2 = cuda.get_global_stream 0
+  %device = cuda.get_active_device
+  %0 = cuda.get_global_stream device(%device)[0]
+  %1 = cuda.get_global_stream device(%device)[1]
+  %2 = cuda.get_global_stream device(%device)[0]
   return %0, %1, %2 : !cuda.stream, !cuda.stream, !cuda.stream
 }
 
@@ -129,7 +130,8 @@ func.func @cuda_global_stream() -> (!cuda.stream, !cuda.stream, !cuda.stream) {
 
 
 // CHECK-LABEL: llvm.func @stream_0_init
-//       CHECK:     %[[v0:.+]] = llvm.call @mtrt_cuda_stream_create() : () -> !llvm.ptr
+//       CHECK:     %[[device:.+]] = llvm.call @mtrt_cuda_get_active_device() : () -> i32
+//       CHECK:     %[[v0:.+]] = llvm.call @mtrt_cuda_stream_create(%[[device]])
 //       CHECK:     %[[v1:.+]] = llvm.mlir.addressof @stream_0 : !llvm.ptr
 //       CHECK:     llvm.store %[[v0]], %[[v1]] : !llvm.ptr, !llvm.ptr
 //       CHECK:     llvm.return
@@ -143,7 +145,8 @@ func.func @cuda_global_stream() -> (!cuda.stream, !cuda.stream, !cuda.stream) {
 //       CHECK:   llvm.mlir.global_dtors {dtors = [@stream_0_deinit], priorities = [0 : i32]}
 
 // CHECK-LABEL: llvm.func @stream_1_init
-//       CHECK:     %[[v0:.+]] = llvm.call @mtrt_cuda_stream_create() : () -> !llvm.ptr
+//       CHECK:     %[[device:.+]] = llvm.call @mtrt_cuda_get_active_device() : () -> i32
+//       CHECK:     %[[v0:.+]] = llvm.call @mtrt_cuda_stream_create(%[[device]])
 //       CHECK:     %[[v1:.+]] = llvm.mlir.addressof @stream_1 : !llvm.ptr
 //       CHECK:     llvm.store %[[v0]], %[[v1]] : !llvm.ptr, !llvm.ptr
 //       CHECK:     llvm.return
@@ -161,7 +164,7 @@ func.func @cuda_global_stream() -> (!cuda.stream, !cuda.stream, !cuda.stream) {
 !memref_4xi8 = memref<?x2x?xf32, #plan.memory_space<device>>
 
 func.func @device_alloc(%arg0: index, %arg1: index, %stream: !cuda.stream, %device: i32) -> !memref_4xi8 {
-  %0 = cuda.alloc(%arg0, %arg1) stream(%stream) device(%device) align 8 : !memref_4xi8
+  %0 = cuda.alloc(%arg0, %arg1) stream(%stream) align 8 : !memref_4xi8
   return %0 : !memref_4xi8
 }
 
@@ -180,7 +183,7 @@ func.func @device_alloc(%arg0: index, %arg1: index, %stream: !cuda.stream, %devi
 //   CHECK-DAG:     %[[v10:.+]] = llvm.getelementptr %[[v9]][%[[v8]]] : (!llvm.ptr, i64) -> !llvm.ptr, f32
 //   CHECK-DAG:     %[[v11:.+]] = llvm.ptrtoint %[[v10]] : !llvm.ptr to i64
 //   CHECK-DAG:     %[[v12:.+]] = llvm.mlir.constant(8 : i32) : i32
-//   CHECK-DAG:     %[[v13:.+]] = llvm.call @mtrt_cuda_alloc_async(%[[v2]], %[[arg3]], %[[v11]], %[[v12]], %[[v4]], %[[v3]]) :
+//   CHECK-DAG:     %[[v13:.+]] = llvm.call @mtrt_cuda_alloc_async(%[[v2]], %[[v11]], %[[v12]], %[[v4]], %[[v3]]) :
 //   CHECK-DAG:     %[[v14:.+]] = llvm.mlir.poison : !llvm.struct<(ptr, ptr, i64, array<3 x i64>, array<3 x i64>)>
 //   CHECK-DAG:     %[[v15:.+]] = llvm.insertvalue %[[v13]], %[[v14]][0] :
 //   CHECK-DAG:     %[[v16:.+]] = llvm.insertvalue %[[v13]], %[[v15]][1] :
@@ -198,7 +201,7 @@ func.func @device_alloc(%arg0: index, %arg1: index, %stream: !cuda.stream, %devi
 // -----
 
 func.func @memref_device_alloc_i1(%arg0: !cuda.stream, %device: i32) -> memref<1500x1500xi1, #plan.memory_space<device>> {
-  %0 = cuda.alloc () stream(%arg0) device(%device) : memref<1500x1500xi1, #plan.memory_space<device>>
+  %0 = cuda.alloc () stream(%arg0) : memref<1500x1500xi1, #plan.memory_space<device>>
   return %0 : memref<1500x1500xi1, #plan.memory_space<device>>
 }
 
@@ -215,7 +218,7 @@ func.func @memref_device_alloc_i1(%arg0: !cuda.stream, %device: i32) -> memref<1
 //   CHECK-DAG:     %[[v8:.+]] = llvm.getelementptr %[[v7]][%[[v6]]] : (!llvm.ptr, i64) -> !llvm.ptr, i1
 //   CHECK-DAG:     %[[v9:.+]] = llvm.ptrtoint %[[v8]] : !llvm.ptr to i64
 //   CHECK-DAG:     %[[v10:.+]] = llvm.mlir.constant(16 : i32) : i32
-//   CHECK-DAG:     %[[v11:.+]] = llvm.call @mtrt_cuda_alloc_async(%[[v0]], %[[arg1]], %[[v9]], %[[v10]], %[[v2]], %[[v1]]) : (!llvm.ptr, i32, i64, i32, i8, i8) -> !llvm.ptr
+//   CHECK-DAG:     %[[v11:.+]] = llvm.call @mtrt_cuda_alloc_async(%[[v0]], %[[v9]], %[[v10]], %[[v2]], %[[v1]])
 //   CHECK-DAG:     %[[v12:.+]] = llvm.mlir.poison : !llvm.struct<(ptr, ptr, i64, array<2 x i64>, array<2 x i64>)>
 //   CHECK-DAG:     %[[v13:.+]] = llvm.insertvalue %[[v11]], %[[v12]][0] : !llvm.struct<(ptr, ptr, i64, array<2 x i64>, array<2 x i64>)>
 //   CHECK-DAG:     %[[v14:.+]] = llvm.insertvalue %[[v11]], %[[v13]][1] : !llvm.struct<(ptr, ptr, i64, array<2 x i64>, array<2 x i64>)>
@@ -252,8 +255,7 @@ func.func @pinned_alloc(%arg0: index, %arg1: index, %stream: !cuda.stream, %devi
 //   CHECK-DAG:     %[[v10:.+]] = llvm.ptrtoint %[[v9]] : !llvm.ptr to i64
 //   CHECK-DAG:     %[[v11:.+]] = llvm.mlir.zero : !llvm.ptr
 //   CHECK-DAG:     %[[v12:.+]] = llvm.mlir.constant(8 : i32) : i32
-//   CHECK-DAG:     %[[v13:.+]] = llvm.mlir.constant(-1 : i32) : i32
-//   CHECK-DAG:     %[[v14:.+]] = llvm.call @mtrt_cuda_alloc_async(%[[v11]], %[[v13]], %[[v10]], %[[v12]], %[[v3]], %[[v2]]) :
+//   CHECK-DAG:     %[[v14:.+]] = llvm.call @mtrt_cuda_alloc_async(%[[v11]], %[[v10]], %[[v12]], %[[v3]], %[[v2]]) :
 //   CHECK-DAG:     %[[v15:.+]] = llvm.mlir.poison : !llvm.struct<(ptr, ptr, i64, array<3 x i64>, array<3 x i64>)>
 //   CHECK-DAG:     %[[v16:.+]] = llvm.insertvalue %[[v14]], %[[v15]][0] : !llvm.struct<(ptr, ptr, i64, array<3 x i64>, array<3 x i64>)>
 //   CHECK-DAG:     %[[v17:.+]] = llvm.insertvalue %[[v14]], %[[v16]][1] : !llvm.struct<(ptr, ptr, i64, array<3 x i64>, array<3 x i64>)>
@@ -499,11 +501,11 @@ func.func @copy_h2d(%arg0: !src_memref_type, %arg1: !dst_memref_type,  %stream: 
 
 // -----
 
-func.func @cuda_get_current_device() -> i32 {
-  %0 = cuda.get_current_device
+func.func @cuda_get_active_device() -> i32 {
+  %0 = cuda.get_active_device
   return %0 : i32
 }
 
-// CHECK-LABEL: func.func @cuda_get_current_device
-//   CHECK-DAG:   %[[v0:.+]] = llvm.call @mtrt_cuda_get_current_device() : () -> i32
+// CHECK-LABEL: func.func @cuda_get_active_device
+//   CHECK-DAG:   %[[v0:.+]] = llvm.call @mtrt_cuda_get_active_device() : () -> i32
 //   CHECK-DAG:   return %[[v0]] : i32

@@ -107,7 +107,8 @@ TensorRTCallAndEngineConverter::convert(tensorrt::CallOp op,
   Location loc = op.getLoc();
   Value executionContext =
       rewriter.create<trtrt::GetFunctionOp>(loc, globalOp.getSymName());
-  Value stream = rewriter.create<cuda::GetGlobalStreamOp>(loc, 0);
+  Value device = rewriter.create<cuda::GetActiveDeviceOp>(loc);
+  Value stream = rewriter.create<cuda::GetGlobalStreamOp>(loc, device, 0);
   ValueRange inputs = op.getInputs();
   ValueRange outputs = op.getOutputs();
 
@@ -127,7 +128,8 @@ TensorRTCallAndEngineConverter::convert(tensorrt::CallAllocOp op,
   Location loc = op.getLoc();
   Value executionContext =
       rewriter.create<trtrt::GetFunctionOp>(loc, globalOp.getSymName());
-  Value stream = rewriter.create<cuda::GetGlobalStreamOp>(loc, 0);
+  Value device = rewriter.create<cuda::GetActiveDeviceOp>(loc);
+  Value stream = rewriter.create<cuda::GetGlobalStreamOp>(loc, device, 0);
   ValueRange inputs = op.getInputs();
   auto enqueueOp = rewriter.create<trtrt::EnqueueAllocOp>(
       loc, op.getResultTypes(), executionContext, stream, inputs,

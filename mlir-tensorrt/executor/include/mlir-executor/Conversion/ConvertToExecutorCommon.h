@@ -407,14 +407,10 @@ private:
 struct ExecutorCallBuilder {
   ExecutorCallBuilder(MLIRContext *ctx, StringRef functionName,
                       ArrayRef<Type> returnType, ArrayRef<Type> argumentTypes,
-                      bool trailingVarArgs = false)
-      : functionName(functionName),
-        functionType(executor::ExecutorFunctionType::get(
-            ctx, argumentTypes, returnType,
-            trailingVarArgs ? UnitAttr::get(ctx) : nullptr)) {}
+                      bool trailingVarArgs = false);
 
   executor::CallOp create(OpBuilder &builder, Location loc, ModuleOp module,
-                          ArrayRef<Value> arguments) const;
+                          ValueRange arguments) const;
 
   std::string functionName;
   executor::ExecutorFunctionType functionType;

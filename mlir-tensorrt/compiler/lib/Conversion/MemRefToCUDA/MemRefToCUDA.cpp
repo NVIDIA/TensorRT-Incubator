@@ -92,22 +92,22 @@ struct MemRefCopyToCUDACopyPattern : public OpRewritePattern<memref::CopyOp> {
       return failure();
 
     Location loc = op.getLoc();
+    Value device = rewriter.create<cuda::GetActiveDeviceOp>(loc);
+    Value stream = rewriter.create<cuda::GetGlobalStreamOp>(loc, device, 0);
+
     if (isDeviceVisible(*sourceSpace) && isDeviceVisible(*targetSpace)) {
-      Value stream = rewriter.create<cuda::GetGlobalStreamOp>(loc, 0);
       rewriter.replaceOpWithNewOp<cuda::CopyD2DOp>(op, stream, op.getSource(),
                                                    op.getTarget());
       return success();
     }
 
     if (isHostOnly(*sourceSpace) && isDeviceVisible(*targetSpace)) {
-      Value stream = rewriter.create<cuda::GetGlobalStreamOp>(loc, 0);
       rewriter.replaceOpWithNewOp<cuda::CopyH2DOp>(op, stream, op.getSource(),
                                                    op.getTarget());
       return success();
     }
 
     if (isDeviceVisible(*sourceSpace) && isHostOnly(*targetSpace)) {
-      Value stream = rewriter.create<cuda::GetGlobalStreamOp>(loc, 0);
       rewriter.create<cuda::CopyD2HOp>(loc, stream, op.getSource(),
                                        op.getTarget());
       rewriter.create<cuda::StreamSyncOp>(loc, stream);
@@ -130,16 +130,15 @@ struct MemRefAllocToCUDAAllocPattern
       return failure();
     Location loc = op.getLoc();
     if (*space != MemorySpace::host_pinned) {
-      Value device = rewriter.create<cuda::GetCurrentDeviceOp>(loc);
-      Value stream = rewriter.create<cuda::GetGlobalStreamOp>(loc, 0);
+      Value device = rewriter.create<cuda::GetActiveDeviceOp>(loc);
+      Value stream = rewriter.create<cuda::GetGlobalStreamOp>(loc, device, 0);
       rewriter.replaceOpWithNewOp<cuda::AllocOp>(op, op.getType(), stream,
-                                                 device, op.getDynamicSizes(),
+                                                 op.getDynamicSizes(),
                                                  op.getAlignmentAttr());
       return success();
     }
-    rewriter.replaceOpWithNewOp<cuda::AllocOp>(op, op.getType(), Value{},
-                                               Value{}, op.getDynamicSizes(),
-                                               op.getAlignmentAttr());
+    rewriter.replaceOpWithNewOp<cuda::AllocOp>(
+        op, op.getType(), Value{}, op.getDynamicSizes(), op.getAlignmentAttr());
     return success();
   }
 };
@@ -153,7 +152,9 @@ struct MemRefDeallocToCUDADeallocPattern
     std::optional<MemorySpace> space = getMemorySpace(op.getMemref().getType());
     if (!space || *space == MemorySpace::host)
       return failure();
-    Value stream = rewriter.create<cuda::GetGlobalStreamOp>(op.getLoc(), 0);
+    Value device = rewriter.create<cuda::GetActiveDeviceOp>(op.getLoc());
+    Value stream =
+        rewriter.create<cuda::GetGlobalStreamOp>(op.getLoc(), device, 0);
     rewriter.replaceOpWithNewOp<cuda::DeallocOp>(op, stream, op.getMemref());
     return success();
   }

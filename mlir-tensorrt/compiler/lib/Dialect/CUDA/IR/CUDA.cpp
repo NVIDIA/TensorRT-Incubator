@@ -84,37 +84,35 @@ LogicalResult AllocOp::verify() {
   if (auto space =
           dyn_cast_or_null<executor::MemoryTypeAttr>(type.getMemorySpace())) {
     if (space.getValue() == executor::MemoryType::host_pinned) {
-      if (getStream() || getDevice())
+      if (getStream())
         return emitOpError()
-               << "'stream' and 'device' arguments should not be specified "
+               << "'stream' argument should not be specified "
                   "when the allocation type is host pinned memory";
     }
     if (space.getValue() == executor::MemoryType::host)
       return emitOpError()
              << "result memory space should be device or host_pinned";
 
-    if (space.getValue() != executor::MemoryType::host_pinned &&
-        (!getStream() || !getDevice()))
-      return emitOpError() << "should have 'stream' and 'device' operands when "
-                              "allocation is in device space";
+    if (space.getValue() != executor::MemoryType::host_pinned && !getStream())
+      return emitOpError() << "should have 'stream' operand when allocation is "
+                              "in device space";
   }
 
   if (auto space =
           dyn_cast_or_null<plan::MemorySpaceAttr>(type.getMemorySpace())) {
     if (space.getValue() == plan::MemorySpace::host_pinned) {
-      if (getStream() || getDevice())
+      if (getStream())
         return emitOpError()
-               << "'stream' and 'device' arguments should not be specified "
+               << "'stream' argument should not be specified "
                   "when the allocation type is host pinned memory";
     }
     if (space.getValue() == plan::MemorySpace::host)
       return emitOpError()
              << "result memory space should be device or host_pinned";
 
-    if (space.getValue() != plan::MemorySpace::host_pinned &&
-        (!getStream() || !getDevice()))
-      return emitOpError() << "should have 'stream' and 'device' operands when "
-                              "allocation is in device space";
+    if (space.getValue() != plan::MemorySpace::host_pinned && !getStream())
+      return emitOpError() << "should have 'stream' operand when allocation is "
+                              "in device space";
   }
 
   return success();

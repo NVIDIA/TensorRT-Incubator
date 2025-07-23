@@ -82,7 +82,6 @@ static void registerCudaOps(sol::state_view &lua, AllocTracker *allocTracker,
   // CUDA - Device Management Ops
   //===----------------------------------------------------------------------===//
   lua["__cuda_num_devices"] = [](sol::this_state state) -> int32_t {
-    ADD_CUDA_MODULE_RANGE("cuda_device_count");
     int count = 0;
     SET_LUA_ERROR_IF_CUDART_ERROR(cudaGetDeviceCount(&count), state);
     return count;
@@ -90,10 +89,19 @@ static void registerCudaOps(sol::state_view &lua, AllocTracker *allocTracker,
 
   lua["__cuda_get_device"] = [](sol::this_state state,
                                 int32_t deviceNumber) -> int32_t {
-    ADD_CUDA_MODULE_RANGE("cuda_device_get");
     StatusOr<int32_t> device = getDevice(deviceNumber);
     SET_LUA_ERROR_AND_RETURN_IF_ERROR(device, state, 0);
     return *device;
+  };
+
+  lua["__cuda_set_active_device"] = [](sol::this_state state,
+                                       int32_t deviceNumber) {
+    SET_LUA_ERROR_IF_CUDART_ERROR(cudaSetDevice(deviceNumber), state);
+  };
+  lua["__cuda_get_active_device"] = [](sol::this_state state) -> int32_t {
+    int32_t device{0};
+    SET_LUA_ERROR_AND_RETURN_IF_CUDART_ERROR(cudaGetDevice(&device), state, 0);
+    return device;
   };
 
   //===----------------------------------------------------------------------===//
@@ -305,10 +313,9 @@ registerCudaMemoryManagementOps(sol::state_view &lua,
   };
 
   lua["__cuda_alloc_device"] =
-      [allocTracker](sol::this_state state, CudaStream stream, int32_t device,
-                     size_t numBytes, int32_t alignment) -> uintptr_t {
+      [allocTracker](sol::this_state state, CudaStream stream, size_t numBytes,
+                     int32_t alignment) -> uintptr_t {
     ADD_CUDA_MODULE_RANGE("__cuda_alloc");
-    SET_LUA_ERROR_AND_RETURN_IF_CUDART_ERROR(cudaSetDevice(device), state, 0);
     StatusOr<PointerInfo> info = allocate(*allocTracker, PointerType::device,
                                           numBytes, alignment, stream);
     SET_LUA_ERROR_AND_RETURN_IF_ERROR(info, state, 0);

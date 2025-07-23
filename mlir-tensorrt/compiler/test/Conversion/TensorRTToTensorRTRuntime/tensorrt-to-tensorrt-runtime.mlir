@@ -24,10 +24,12 @@ tensorrt.module @trt_engines {
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<1x3x256x256xf32>, %[[arg1:.+]]: tensor<1x3x256x256xf32>) -> tensor<1x3x256x256xf32> {
 //   CHECK-DAG:     %[[v0:.+]] = tensor.empty() : tensor<1x3x256x256xf32>
 //   CHECK-DAG:     %[[v1:.+]] = trtrt.get_function @trt_func_engine_data : !trtrt.context
-//   CHECK-DAG:     %[[v2:.+]] = cuda.get_global_stream 0
+//   CHECK-DAG:     %[[device:.+]] = cuda.get_active_device
+//   CHECK-DAG:     %[[v2:.+]] = cuda.get_global_stream device(%[[device]]) [0]
 //   CHECK-DAG:     %[[v3:.+]] = trtrt.enqueue %[[v1]] stream(%[[v2]]) (%[[arg0]]) outs(%[[v0]]) : (tensor<1x3x256x256xf32>) -> tensor<1x3x256x256xf32>
 //   CHECK-DAG:     %[[v4:.+]] = trtrt.get_function @trt_func_engine_data : !trtrt.context
-//   CHECK-DAG:     %[[v5:.+]] = cuda.get_global_stream 0
+//   CHECK-DAG:     %[[device:.+]] = cuda.get_active_device
+//   CHECK-DAG:     %[[v5:.+]] = cuda.get_global_stream device(%[[device]]) [0]
 //   CHECK-DAG:     %[[v6:.+]] = trtrt.enqueue %[[v4]] stream(%[[v5]]) (%[[v3]]) outs(%[[v0]]) : (tensor<1x3x256x256xf32>) -> tensor<1x3x256x256xf32>
 //   CHECK-DAG:     return %[[v6]] : tensor<1x3x256x256xf32>
 //   CHECK-NOT:   tensorrt.module
@@ -55,7 +57,8 @@ tensorrt.module @trt_engines {
 // CHECK-LABEL: func.func @test_alloc_call
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<1x3x256x256xf32>, %[[arg1:.+]]: tensor<1x3x256x256xf32>) -> tensor<1x3x256x256xf32> {
 //   CHECK-DAG:     %[[v0:.+]] = trtrt.get_function @trt_func_engine_data : !trtrt.context
-//   CHECK-DAG:     %[[v1:.+]] = cuda.get_global_stream 0
+//   CHECK-DAG:     %[[device:.+]] = cuda.get_active_device
+//   CHECK-DAG:     %[[v1:.+]] = cuda.get_global_stream device(%[[device]]) [0]
 //   CHECK-DAG:     %[[v2:.+]] = trtrt.enqueue_alloc %[[v0]] stream(%[[v1]]) (%[[arg0]]) : (tensor<1x3x256x256xf32>) -> tensor<1x3x256x256xf32>
 //   CHECK-DAG:     return %[[v2]] : tensor<1x3x256x256xf32>
 //   CHECK-NOT:   tensorrt.module
@@ -128,7 +131,8 @@ tensorrt.module @trt_engines {
 //       CHECK:     %[[v0:.+]]:2 = scf.while (%[[arg1]] = %[[cst:.+]], %[[arg2:.+]] = %[[cst_0]])
 //   CHECK-DAG:       %[[v1:.+]] = tensor.empty() : tensor<i1>
 //   CHECK-DAG:       %[[v2:.+]] = trtrt.get_function @main_region_engine_data : !trtrt.context
-//   CHECK-DAG:       %[[v3:.+]] = cuda.get_global_stream 0
+//   CHECK-DAG:       %[[device:.+]] = cuda.get_active_device
+//   CHECK-DAG:       %[[v3:.+]] = cuda.get_global_stream device(%[[device]]) [0]
 //   CHECK-DAG:       %[[v4:.+]] = trtrt.enqueue %[[v2]] stream(%[[v3]]) (%[[arg1]]) outs(%[[v1]]) : (tensor<i32>) -> tensor<i1>
 //   CHECK-DAG:       %[[extracted:.+]] = tensor.extract %[[v4]][] : tensor<i1>
 //   CHECK-DAG:       scf.condition(%[[extracted]]) %[[arg1]], %[[arg2]] : tensor<i32>, tensor<f16>
@@ -137,7 +141,8 @@ tensorrt.module @trt_engines {
 //   CHECK-DAG:       %[[v1:.+]] = tensor.empty() : tensor<f16>
 //   CHECK-DAG:       %[[v2:.+]] = tensor.empty() : tensor<i32>
 //   CHECK-DAG:       %[[v3:.+]] = trtrt.get_function @main_region_0_engine_data : !trtrt.context
-//   CHECK-DAG:       %[[v4:.+]] = cuda.get_global_stream 0
+//   CHECK-DAG:       %[[device:.+]] = cuda.get_active_device
+//   CHECK-DAG:       %[[v4:.+]] = cuda.get_global_stream device(%[[device]]) [0]
 //   CHECK-DAG:       %[[v5:.+]]:2 = trtrt.enqueue %[[v3]] stream(%[[v4]]) host_tensor_args [0] (%[[arg1]], %[[arg0]], %[[arg2]]) outs(%[[v1]], %[[v2]])
 //   CHECK-DAG:       scf.yield %[[v5]]#1, %[[v5]]#0
 //   CHECK-DAG:     return %[[v0]]#0, %[[v0]]#1

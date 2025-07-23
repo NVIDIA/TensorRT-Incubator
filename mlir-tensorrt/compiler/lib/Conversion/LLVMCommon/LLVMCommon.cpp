@@ -37,7 +37,7 @@
 using namespace mlir;
 
 LLVM::CallOp LLVMOpaqueCallBuilder::create(Location loc, OpBuilder &builder,
-                                           ArrayRef<Value> arguments,
+                                           ValueRange arguments,
                                            SymbolTable *symbolTable) const {
   auto function = [&] {
     OpBuilder::InsertionGuard g(builder);
