@@ -1,11 +1,11 @@
 // RUN: mlir-tensorrt-opt %s -split-input-file | mlir-tensorrt-opt -split-input-file | FileCheck %s
 
-func.func @cuda_create_stream() -> !cuda.stream {
-  %0 = cuda.stream.create : !cuda.stream
+func.func @cuda_create_stream(%device: i32) -> !cuda.stream {
+  %0 = cuda.stream.create device(%device)
   return %0: !cuda.stream
 }
 // CHECK-LABEL: @cuda_create_stream
-//       CHECK: %[[v0:.+]] = cuda.stream.create : !cuda.stream
+//       CHECK: %[[v0:.+]] = cuda.stream.create device(%{{.*}})
 //       CHECK: return %[[v0]] : !cuda.stream
 
 // -----
@@ -20,38 +20,32 @@ func.func @cuda_create_event() -> !cuda.event {
 
 // -----
 
-func.func @cuda_stream_wait_event() {
-  %0 = cuda.stream.create : !cuda.stream
-  %1 = cuda.event.create : !cuda.event
-  cuda.stream.wait_event %0, %1
+func.func @cuda_stream_wait_event(%stream: !cuda.stream, %event: !cuda.event) {
+  cuda.stream.wait_event %stream, %event
   return
 }
 // CHECK-LABEL: @cuda_stream_wait_event
-//       CHECK: %[[v0:.+]] = cuda.stream.create : !cuda.stream
-//       CHECK: %[[v1:.+]] = cuda.event.create : !cuda.event
-//       CHECK: cuda.stream.wait_event %[[v0]], %[[v1]]
+//       CHECK: cuda.stream.wait_event %{{.*}}, %{{.*}}
 
 // -----
 
-func.func @cuda_stream_sync() {
-  %0 = cuda.stream.create : !cuda.stream
+func.func @cuda_stream_sync(%device: i32) {
+  %0 = cuda.stream.create device(%device)
   cuda.stream.sync %0 : !cuda.stream
   return
 }
 // CHECK-LABEL: @cuda_stream_sync
-//       CHECK: %[[v0:.+]] = cuda.stream.create : !cuda.stream
+//       CHECK: %[[v0:.+]] = cuda.stream.create device(%{{.*}})
 //       CHECK: cuda.stream.sync %[[v0]] : !cuda.stream
 
 // -----
 
-func.func @cuda_stream_destroy() {
-  %0 = cuda.stream.create : !cuda.stream
-  cuda.stream.destroy %0 : !cuda.stream
+func.func @cuda_stream_destroy(%stream: !cuda.stream) {
+  cuda.stream.destroy %stream : !cuda.stream
   return
 }
 // CHECK-LABEL: @cuda_stream_destroy
-//       CHECK: %[[v0:.+]] = cuda.stream.create : !cuda.stream
-//       CHECK: cuda.stream.destroy %[[v0]] : !cuda.stream
+//       CHECK: cuda.stream.destroy %{{.*}} : !cuda.stream
 
 // -----
 
@@ -77,14 +71,13 @@ func.func @cuda_blas_handle_destroy() {
 
 // -----
 
-func.func @cuda_blas_gemm_algo_select_and_run() {
+func.func @cuda_blas_gemm_algo_select_and_run(%stream: !cuda.stream) {
   %a = memref.alloc() {alignment = 64 : i64} : memref<100x200xf32>
   %b = memref.alloc() {alignment = 64 : i64} : memref<200x300xf32>
   %c = memref.alloc() {alignment = 64 : i64} : memref<100x300xf32>
   %beta = memref.alloc() {alignment = 64 : i64} : memref<1xf32>
   %alpha = memref.alloc() {alignment = 64 : i64} : memref<1xf32>
   %h = cuda.blas.handle.create : !cuda.blas.handle
-  %s = cuda.stream.create : !cuda.stream
   %r = cuda.blas.algo_select {
     data_type = f32,
     size_a = array<i64: 100, 200>,
@@ -95,11 +88,10 @@ func.func @cuda_blas_gemm_algo_select_and_run() {
     stride_c = array<i64: 300, 1>,
     tile_sizes = array<i64: 16, 16>
   }  %h : !cuda.blas.gemm_algorithm
-  cuda.blas.run_gemm %h stream (%s) algo (%r) inputs(alpha %alpha, %a, %b, beta %beta) out (%c) : !cuda.blas.handle,
+  cuda.blas.run_gemm %h stream (%stream) algo (%r) inputs(alpha %alpha, %a, %b, beta %beta) out (%c) : !cuda.blas.handle,
     !cuda.stream, !cuda.blas.gemm_algorithm, memref<1xf32>, memref<100x200xf32>,
     memref<200x300xf32>, memref<1xf32>, memref<100x300xf32>
   cuda.blas.handle.destroy %h : !cuda.blas.handle
-  cuda.stream.destroy %s : !cuda.stream
   return
 }
 
@@ -110,20 +102,17 @@ func.func @cuda_blas_gemm_algo_select_and_run() {
 //  CHECK-NEXT: %[[alloc_2:.+]] = memref.alloc() {{.*}} : memref<1xf32>
 //  CHECK-NEXT: %[[alloc_3:.+]] = memref.alloc() {{.*}} : memref<1xf32>
 //  CHECK-NEXT: %[[v0:.+]] = cuda.blas.handle.create : !cuda.blas.handle
-//  CHECK-NEXT: %[[v1:.+]] = cuda.stream.create : !cuda.stream
 //  CHECK-NEXT: %[[v2:.+]] = cuda.blas.algo_select {data_type = f32, size_a = array<i64: 100, 200>, size_b = array<i64: 200, 300>, size_c = array<i64: 100, 300>, stride_a = array<i64: 200, 1>, stride_b = array<i64: 300, 1>, stride_c = array<i64: 300, 1>, tile_sizes = array<i64: 16, 16>} %[[v0]] : !cuda.blas.gemm_algorithm
-//  CHECK-NEXT: cuda.blas.run_gemm %[[v0]] stream(%[[v1]]) algo(%[[v2]]) inputs(alpha %[[alloc_3]], %[[alloc]], %[[alloc_0]], beta %[[alloc_2]]) out(%[[alloc_1]]) : !cuda.blas.handle, !cuda.stream, !cuda.blas.gemm_algorithm, memref<1xf32>, memref<100x200xf32>, memref<200x300xf32>, memref<1xf32>, memref<100x300xf32>
+//  CHECK-NEXT: cuda.blas.run_gemm %[[v0]] stream(%{{.*}}) algo(%[[v2]]) inputs(alpha %[[alloc_3]], %[[alloc]], %[[alloc_0]], beta %[[alloc_2]]) out(%[[alloc_1]]) : !cuda.blas.handle, !cuda.stream, !cuda.blas.gemm_algorithm, memref<1xf32>, memref<100x200xf32>, memref<200x300xf32>, memref<1xf32>, memref<100x300xf32>
 //  CHECK-NEXT: cuda.blas.handle.destroy %[[v0]] : !cuda.blas.handle
-//  CHECK-NEXT: cuda.stream.destroy %[[v1]] : !cuda.stream
 
 // -----
 
-func.func @cuda_blas_matmul_algo_select_and_run() {
+func.func @cuda_blas_matmul_algo_select_and_run(%stream: !cuda.stream) {
   %a = memref.alloc() {alignment = 64 : i64} : memref<100x200xf32>
   %b = memref.alloc() {alignment = 64 : i64} : memref<200x300xf32>
   %c = memref.alloc() {alignment = 64 : i64} : memref<100x300xf32>
   %h = cuda.blas.handle.create : !cuda.blas.handle
-  %s = cuda.stream.create : !cuda.stream
   %r = cuda.blas.algo_select {
     data_type = f32,
     size_a = array<i64: 100, 200>,
@@ -134,11 +123,10 @@ func.func @cuda_blas_matmul_algo_select_and_run() {
     stride_c = array<i64: 300, 1>,
     tile_sizes = array<i64: 8, 8>
   }  %h : !cuda.blas.gemm_algorithm
-  cuda.blas.run_gemm %h stream (%s) algo (%r) inputs(%a, %b) out (%c) : !cuda.blas.handle,
+  cuda.blas.run_gemm %h stream (%stream) algo (%r) inputs(%a, %b) out (%c) : !cuda.blas.handle,
     !cuda.stream, !cuda.blas.gemm_algorithm, memref<100x200xf32>,
     memref<200x300xf32>, memref<100x300xf32>
   cuda.blas.handle.destroy %h : !cuda.blas.handle
-  cuda.stream.destroy %s : !cuda.stream
   return
 }
 
@@ -147,11 +135,8 @@ func.func @cuda_blas_matmul_algo_select_and_run() {
 //  CHECK-NEXT: %[[alloc_0:.+]] = memref.alloc() {alignment = 64 : i64} : memref<200x300xf32>
 //  CHECK-NEXT: %[[alloc_1:.+]] = memref.alloc() {alignment = 64 : i64} : memref<100x300xf32>
 //  CHECK-NEXT: %[[v0:.+]] = cuda.blas.handle.create : !cuda.blas.handle
-//  CHECK-NEXT: %[[v1:.+]] = cuda.stream.create : !cuda.stream
 //  CHECK-NEXT: %[[v2:.+]] = cuda.blas.algo_select {data_type = f32, size_a = array<i64: 100, 200>, size_b = array<i64: 200, 300>, size_c = array<i64: 100, 300>, stride_a = array<i64: 200, 1>, stride_b = array<i64: 300, 1>, stride_c = array<i64: 300, 1>, tile_sizes = array<i64: 8, 8>} %0 : !cuda.blas.gemm_algorithm
-//  CHECK-NEXT: cuda.blas.run_gemm %[[v0]] stream(%[[v1]]) algo(%[[v2]]) inputs( %[[alloc]], %[[alloc_0]]) out(%[[alloc_1]]) : !cuda.blas.handle, !cuda.stream, !cuda.blas.gemm_algorithm, memref<100x200xf32>, memref<200x300xf32>, memref<100x300xf32>
-//  CHECK-NEXT: cuda.blas.handle.destroy %[[v0]] : !cuda.blas.handle
-//  CHECK-NEXT: cuda.stream.destroy %[[v1]] : !cuda.stream
+//  CHECK-NEXT: cuda.blas.run_gemm %[[v0]] stream(%{{.*}}) algo(%[[v2]]) inputs( %[[alloc]], %[[alloc_0]]) out(%[[alloc_1]]) : !cuda.blas.handle, !cuda.stream, !cuda.blas.gemm_algorithm, memref<100x200xf32>, memref<200x300xf32>, memref<100x300xf32>
 
 // -----
 
@@ -161,14 +146,14 @@ func.func @cuda_blas_matmul_algo_select_and_run() {
 
 func.func @device_alloc_dealloc(%arg0: index, %arg1: index,
   %stream: !cuda.stream, %device: i32) {
-  %0 = cuda.alloc(%arg0, %arg1) stream(%stream) device(%device) : !memref_type
+  %0 = cuda.alloc(%arg0, %arg1) stream(%stream) : !memref_type
   cuda.dealloc stream(%stream) %0 : !memref_type
   return
 }
 
 // CHECK-LABEL: func.func @device_alloc_dealloc
 //  CHECK-SAME: (%[[arg0:.+]]: index, %[[arg1:.+]]: index, %[[arg2:.+]]: !cuda.stream, %[[arg3:.+]]: i32)
-//       CHECK:     %[[v0:.+]] = cuda.alloc(%[[arg0]], %[[arg1]]) stream(%[[arg2]]) device(%[[arg3]]) : memref<?x2x?xf32, #executor.memory_type<device>>
+//       CHECK:     %[[v0:.+]] = cuda.alloc(%[[arg0]], %[[arg1]]) stream(%[[arg2]]) : memref<?x2x?xf32, #executor.memory_type<device>>
 //       CHECK:     cuda.dealloc stream(%[[arg2]]) %[[v0]] : memref<?x2x?xf32, #executor.memory_type<device>>
 
 // -----

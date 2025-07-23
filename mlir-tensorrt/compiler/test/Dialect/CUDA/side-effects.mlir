@@ -1,14 +1,13 @@
 // RUN: mlir-tensorrt-opt %s -split-input-file -canonicalize | FileCheck %s
 
-func.func @tensor_input(){
+func.func @tensor_input(%stream: !cuda.stream){
   %h = cuda.blas.handle.create : !cuda.blas.handle
-  %s = cuda.stream.create : !cuda.stream
 
   %a_0 = arith.constant dense<[[1.0, 2.0], [3.0, 4.0]]> : tensor<2x2xf32>
   %b_0 = arith.constant dense<[[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]> : tensor<2x3xf32>
   %c_0 = arith.constant dense<0.0> : tensor<2x3xf32>
 
-  %r_0 = cuda.blas.run_gemm %h stream (%s) inputs(%a_0, %b_0) out (%c_0) : !cuda.blas.handle,
+  %r_0 = cuda.blas.run_gemm %h stream (%stream) inputs(%a_0, %b_0) out (%c_0) : !cuda.blas.handle,
     !cuda.stream, tensor<2x2xf32>, tensor<2x3xf32>, tensor<2x3xf32>
   return
 }
@@ -18,9 +17,8 @@ func.func @tensor_input(){
 
 // -----
 
-func.func @memref_input(){
+func.func @memref_input(%stream: !cuda.stream){
   %h = cuda.blas.handle.create : !cuda.blas.handle
-  %s = cuda.stream.create : !cuda.stream
 
   %a_0 = memref.alloc() {alignment = 64 : i64} : memref<2x2xf32>
   %b_0 = memref.alloc() {alignment = 64 : i64} : memref<2x3xf32>
@@ -37,7 +35,7 @@ func.func @memref_input(){
     tile_sizes = array<i64: 8, 16>
   }  %h : !cuda.blas.gemm_algorithm
 
-  cuda.blas.run_gemm %h stream (%s) algo (%r) inputs(%a_0, %b_0) out (%c_0) : !cuda.blas.handle,
+  cuda.blas.run_gemm %h stream (%stream) algo (%r) inputs(%a_0, %b_0) out (%c_0) : !cuda.blas.handle,
     !cuda.stream, !cuda.blas.gemm_algorithm, memref<2x2xf32>, memref<2x3xf32>, memref<2x3xf32>
   return
 }

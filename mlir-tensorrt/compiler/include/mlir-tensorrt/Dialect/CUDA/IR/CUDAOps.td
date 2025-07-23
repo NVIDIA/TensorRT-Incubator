@@ -39,6 +39,10 @@ def CUDA_DeviceCountOp : CUDA_Op<"num_devices", [Pure]> {
   let description = [{
     Returns the number of CUDA devices (e.g. GPUs) on the host. This is
     equivalent to the `cudaDeviceCount` CUDA runtime API call.
+
+    Note that this operation is marked as being speculatable and
+    side-effect free. We assume that the number of devices cannot
+    change during the execution of the program.
   }];
   let results = (outs I32:$result);
   let assemblyFormat = "attr-dict `:` type($result)";
@@ -48,26 +52,71 @@ def CUDA_GetDeviceOp : CUDA_Op<"get_device", [Pure]> {
   let summary = "returns the identifier of a particular device";
   let description = [{
     Returns the identifier for a particular CUDA device. Note that
-    currently this is just the identity function since CUDA identifies
-    devices by their ordinal.
+    currently this is just the identity function since the CUDA runtime
+    identifies devices by their ordinal.
+
+    Note that this operation is marked as being speculatable and
+    side-effect free. We assume that the number of devices cannot
+    change during the execution of the program and that the
+    IDs associated with devices cannot change.
   }];
   let arguments = (ins I32:$deviceNumber);
   let results = (outs I32:$result);
   let assemblyFormat = "attr-dict $deviceNumber `:` type($result)";
 }
 
-def CUDA_GetCurrentDeviceOp : CUDA_Op<"get_current_device", [Pure]> {
-  let summary = "returns the ID of the device associated with the runtime execution context";
+def CUDA_GetActiveDeviceOp : CUDA_Op<"get_active_device", [
+      MemoryEffects<[MemRead]>]> {
+  let summary = "returns the ID of the device associated with the active CUDA context";
   let description = [{
-    Returns the ID of the CUDA device that is active for the
-    current runtime execution context. In our runtime model, each
-    execution context is associated with a single CUDA device.
-    Programs that represent the collective action of multiple devices
-    must be shaded into either an SPMD program or different programs
-    that are mapped onto the available devices.
+    Returns the ID of the CUDA device that is active for the current
+    thread. This is equivalent to the device associated with the currently
+    active CUDA driver context (CUcontext).
+
+    In our runtime model, a program is usually associated with a
+    single-threaded execution context, and the CUDA runtime associates an
+    "active context" with each thread. If no operation is invoked that can
+    change the active context associatd with the thread within each
+    function, then we we are free to deduplicate or hoist instances
+    of this operation.
+
+    Programs that use multiple devices must perform additional analysis
+    to determine whether de-duplication or reordering of this operation
+    is safe.
+
+    This operation is marked as having a read side-effect on an
+    unknown resource in order to prevent speculation. However, it can
+    be safely dropped if there are no users.
   }];
   let results = (outs I32:$result);
   let assemblyFormat = "attr-dict";
+}
+
+def CUDA_SetActiveDeviceOp : CUDA_Op<"set_active_device", [
+      MemoryEffects<[MemWrite]>]> {
+  let summary = "sets the active CUDA device context";
+  let description = [{
+    Sets the active CUDA device context for the current thread.
+
+    This operation is marked as having a write side-effect on an
+    unknown resource in order to prevent speculation. Since this
+    change the active device, it cannot be safely reordered or
+    dropped without careful analysis.
+
+    This operation is rarely used outside of testing since
+    currently our Executor runtime assumes that there is a
+    single device per execution context and that multi-device
+    programs are executed in SPMD fashion by utilizing one execution
+    session per device and one thread per execution context.
+
+    In the future, we may support multiple devices for a
+    single program and/or multiple threads per program. In such
+    cases, this operation can be utilized to change the device.
+  }];
+
+  let arguments = (ins I32:$device);
+  let results = (outs );
+  let assemblyFormat = "attr-dict $device";
 }
 
 //===----------------------------------------------------------------------===//
@@ -165,16 +214,25 @@ def CUDA_EventElapsedTimeOp : CUDA_Op<"event.elapsed"> {
 
 def CUDA_StreamCreateOp : CUDA_Op<"stream.create", [AlwaysSpeculatable]> {
   let summary = "Creates an asynchronous CUDA stream";
+  let arguments = (ins I32:$device);
   let results = (outs Res<CUDA_Stream, "",
                           [MemAlloc<DefaultResource, 0, FullEffect>]>:$result);
-  let assemblyFormat = "attr-dict `:` type($result)";
+  let assemblyFormat = "attr-dict `device` `(` $device `)`";
 }
 
 def CUDA_GetGlobalStreamOp : CUDA_Op<"get_global_stream", [Pure]> {
-  let summary = "gets handle to global CUDA stream";
-  let arguments = (ins I64Attr:$index);
+  let summary = "gets handle to the runtime's CUDA stream associated with the specified device";
+
+  let description = [{
+    The `cuda.stream.get_global_stream` operation returns a handle to the
+    runtime's CUDA stream associated with the specified device.
+
+    Currently, each device has a single stream associated with it.
+  }];
+
+  let arguments = (ins I32:$device, I64Attr:$index);
   let results = (outs CUDA_Stream:$result);
-  let assemblyFormat = "attr-dict $index";
+  let assemblyFormat = "attr-dict `device` `(` $device `)` `[` $index `]`";
 }
 
 def CUDA_StreamWaitEventOp : CUDA_Op<"stream.wait_event",
@@ -239,7 +297,8 @@ def CUDA_StreamDestroyOp : CUDA_Op<"stream.destroy"> {
 def CUDA_AllocOp : CUDA_Op<"alloc", [AttrSizedOperandSegments]> {
   let description = [{
     `cuda.memory.alloc` performs an asynchronous memory allocation on the
-    provided `stream`. The memory is associated with the provided device ID.
+    provided `stream`. The memory is associated with the device that is
+    associated with the stream.
 
     The `dynamic_sizes` must be provided for each dynamic dimension of the
     result type.
@@ -248,7 +307,6 @@ def CUDA_AllocOp : CUDA_Op<"alloc", [AttrSizedOperandSegments]> {
   }];
   let arguments = (ins
         Optional<CUDA_Stream>:$stream,
-        Optional<I32>:$device,
         Variadic<Index>:$dynamic_sizes,
         OptionalAttr<I64Attr>:$alignment);
   let results = (outs Res<AnyMemRef, "",
@@ -256,7 +314,6 @@ def CUDA_AllocOp : CUDA_Op<"alloc", [AttrSizedOperandSegments]> {
   let assemblyFormat = [{
     `(` ($dynamic_sizes^ `)`) : (`)`)?
     (`stream` `(` $stream^ `)`)?
-    (`device` `(`$device^ `)`)?
     (`align` $alignment^)?
     attr-dict `:` type($result)
   }];

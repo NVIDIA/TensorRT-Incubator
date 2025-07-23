@@ -53,14 +53,20 @@
 extern "C" {
 #endif
 
+MTRT_CAPI_EXPORTED int32_t mtrt_cuda_get_active_device();
+
+MTRT_CAPI_EXPORTED int32_t mtrt_cuda_set_active_device(int32_t device);
+
+MTRT_CAPI_EXPORTED int32_t mtrt_cuda_get_device(int32_t device);
+
 MTRT_CAPI_EXPORTED CUstream mtrt_cuda_stream_create();
 
 MTRT_CAPI_EXPORTED void mtrt_cuda_stream_destroy(CUstream stream);
 
 MTRT_CAPI_EXPORTED void mtrt_cuda_stream_sync(CUstream stream);
 
-MTRT_CAPI_EXPORTED void *mtrt_cuda_alloc_async(CUstream stream, int32_t device,
-                                               int64_t size, int32_t alignment,
+MTRT_CAPI_EXPORTED void *mtrt_cuda_alloc_async(CUstream stream, int64_t size,
+                                               int32_t alignment,
                                                int8_t isHostPinned,
                                                int8_t isManaged);
 
@@ -108,13 +114,12 @@ inline static void mtrt_cuda_stream_destroy_cwrapper(void *stream) {
 inline static void mtrt_cuda_stream_sync_cwrapper(void *stream) {
   return mtrt_cuda_stream_sync((CUstream)stream);
 }
-inline static void *mtrt_cuda_alloc_async_cwrapper(void *stream, int32_t device,
-                                                   int64_t size,
+inline static void *mtrt_cuda_alloc_async_cwrapper(void *stream, int64_t size,
                                                    int32_t alignment,
                                                    int8_t isHostPinned,
                                                    int8_t isManaged) {
-  return mtrt_cuda_alloc_async((CUstream)stream, device, size, alignment,
-                               isHostPinned, isManaged);
+  return mtrt_cuda_alloc_async((CUstream)stream, size, alignment, isHostPinned,
+                               isManaged);
 }
 inline static void mtrt_cuda_memcpy_async_cwrapper(void *stream, void *src,
                                                    void *dest, int64_t size) {

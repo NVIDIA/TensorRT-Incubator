@@ -1170,6 +1170,9 @@ RuntimeClient::copyToDevice(const MemRefValue &hostBufferImpl,
   int64_t totalBufferSize = hostBufferImpl.getTotalFootprintInBytes();
 
   // Set the CUDA device.
+  // TODO: This device should be implicit based on the stream. The stream's
+  // device implies the device. Having both stream and device is redundant or
+  // possibly incorrect. Remove once the stream is non-optional.
   RETURN_ERROR_IF_CUDART_ERROR(cudaSetDevice(device.getDeviceNumber()));
 
   // Allocate device memory
