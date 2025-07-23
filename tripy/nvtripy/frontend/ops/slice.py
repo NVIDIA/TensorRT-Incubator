@@ -220,7 +220,7 @@ def __getitem__(
                 # If `start` is past the end, clamp it - if we're going backwards, we need to clamp it to a valid value;
                 # otherwise, we can clamp it out of bounds (which will yield an empty tensor):
                 start = get_min(start, select(step >= 0, dim_size, dim_size - 1))
-                start = get_max(start, 0)  # if the start is negative and greater than the dimension size, clamp it to 0
+                start = get_max(start, 0)  # if the adjusted start is still negative, clamp it to 0
             else:
                 start = default_start
 
