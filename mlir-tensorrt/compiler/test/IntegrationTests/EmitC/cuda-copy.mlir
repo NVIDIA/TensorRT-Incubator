@@ -19,13 +19,12 @@ memref.global @gv2 : memref<2x3xf32> = dense<[[0.0, 1.0, 2.0], [3.0, 4.0, 5.0]]>
 
 func.func @main() -> i32 {
   %c0 = arith.constant 0 : i32
-
-  %stream = cuda.get_global_stream 0
+  %device = cuda.get_active_device
+  %stream = cuda.get_global_stream device(%device)[0]
 
   %size = arith.constant 16 : i64
 
-  %0 = cuda.get_current_device
-  %dev_buffer = cuda.alloc() stream(%stream) device(%0) : memref<2x3xf32, #device>
+  %dev_buffer = cuda.alloc() stream(%stream) : memref<2x3xf32, #device>
   %host_buffer = cuda.alloc() : memref<2x3xf32, #host>
 
   %src = memref.get_global @gv2 : memref<2x3xf32>

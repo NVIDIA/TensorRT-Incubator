@@ -10,16 +10,16 @@ func.func @zero_d_alloc() -> memref<1xf32, #host_pinned> {
 }
 
 // CPP-LABEL: mtrt::RankedMemRef<1> zero_d_alloc() {
-// CPP-NEXT:   int32_t v1 = 0;
-// CPP-NEXT:   CUstream v2 = nullptr;
-// CPP-NEXT:   int8_t v3 = 0;
-// CPP-NEXT:   int8_t v4 = 1;
-// CPP-NEXT:   int64_t v5 = 1;
-// CPP-NEXT:   int32_t v6 = 4;
-// CPP-NEXT:   int64_t v7 = v6 * v5;
-// CPP-NEXT:   void* v8 = mtrt::cuda_alloc(v2, v1, v7, v4, v3);
-// CPP-NEXT:   mtrt::RankedMemRef<1> v9 = mtrt::make_memref_descriptor<1>(v8, v8, v1, v5, v5);
-// CPP-NEXT:   return v9;
+// CPP-NEXT:   int32_t [[v1:.+]] = 0;
+// CPP-NEXT:   CUstream [[v2:.+]] = nullptr;
+// CPP-NEXT:   int8_t [[v3:.+]] = 0;
+// CPP-NEXT:   int8_t [[v4:.+]] = 1;
+// CPP-NEXT:   int64_t [[v5:.+]] = 1;
+// CPP-NEXT:   int32_t [[v6:.+]] = 4;
+// CPP-NEXT:   int64_t [[v7:.+]] = [[v6]] * [[v5]];
+// CPP-NEXT:   void* [[v8:.+]] = mtrt::cuda_alloc([[v2]], [[v7]], [[v4]], [[v3]]);
+// CPP-NEXT:   mtrt::RankedMemRef<1> [[v9:.+]] = mtrt::make_memref_descriptor<1>([[v8]], [[v8]], [[v1]], [[v5]], [[v5]]);
+// CPP-NEXT:   return [[v9]];
 
 // -----
 

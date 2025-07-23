@@ -1141,11 +1141,11 @@ struct CUDALaunchConverter : public EmitCConversionPattern<cuda::LaunchOp> {
 };
 
 struct CUDAGetCurrentDeviceConverter
-    : public EmitCConversionPattern<cuda::GetCurrentDeviceOp> {
+    : public EmitCConversionPattern<cuda::GetActiveDeviceOp> {
   using EmitCConversionPattern::EmitCConversionPattern;
 
   LogicalResult
-  matchAndRewrite(cuda::GetCurrentDeviceOp op, OpAdaptor adaptor,
+  matchAndRewrite(cuda::GetActiveDeviceOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
     Location loc = op.getLoc();
     rewriter.replaceOp(op,
@@ -1271,12 +1271,9 @@ struct CUDAAllocConverter : public EmitCConversionPattern<cuda::AllocOp> {
     Value stream = adaptor.getStream()
                        ? adaptor.getStream()
                        : getNullptr(rewriter, loc, builders.cuStreamType);
-    Value device =
-        adaptor.getDevice() ? adaptor.getDevice() : getI32Val(rewriter, loc, 0);
-    Value ptr =
-        callOpaque(rewriter, loc, voidPtrType, "mtrt::cuda_alloc",
-                   ValueRange{stream, device, sizeBytes, isPinned, isManaged})
-            .getResult(0);
+    Value ptr = callOpaque(rewriter, loc, voidPtrType, "mtrt::cuda_alloc",
+                           ValueRange{stream, sizeBytes, isPinned, isManaged})
+                    .getResult(0);
 
     Value replacement = makeMemRefDescriptor(
         rewriter, loc, ptr, ptr, getI32Val(rewriter, loc, 0), shape, strides);

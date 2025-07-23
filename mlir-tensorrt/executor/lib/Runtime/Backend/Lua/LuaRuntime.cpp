@@ -825,8 +825,21 @@ runtime::executeFunctionWithLuaBackend(
                                idx + 1, name);
   }
 
-  if (stream)
-    RETURN_STATUS_IF_ERROR(session.setCudaStream(*stream));
+#ifdef MLIR_EXECUTOR_ENABLE_CUDA
+  int32_t requiredDevice = 0, callerDevice = 0;
+  if (session.getOptions().isFeatureEnabled("cuda")) {
+    // TODO: This is a temporary hack to ensure that the current device
+    // context is set correctly.
+    RETURN_ERROR_IF_CUDART_ERROR(cudaGetDevice(&callerDevice));
+    requiredDevice = session.getOptions().getDeviceId();
+    if (requiredDevice != callerDevice)
+      RETURN_ERROR_IF_CUDART_ERROR(cudaSetDevice(requiredDevice));
+
+    // Set stream if provided.
+    if (stream)
+      RETURN_STATUS_IF_ERROR(session.setCudaStream(*stream));
+  }
+#endif // MLIR_EXECUTOR_ENABLE_CUDA
 
   // Call the function, passing the arguments either as a table or unpacked as
   // determined by the calling convention.
@@ -857,6 +870,13 @@ runtime::executeFunctionWithLuaBackend(
         session.getAllocTracker().erase(it);
     }
   }
+
+#ifdef MLIR_EXECUTOR_ENABLE_CUDA
+  if (session.getOptions().isFeatureEnabled("cuda")) {
+    if (requiredDevice != callerDevice)
+      RETURN_ERROR_IF_CUDART_ERROR(cudaSetDevice(callerDevice));
+  }
+#endif // MLIR_EXECUTOR_ENABLE_CUDA
 
   if (sig.getNumResults() == 0)
     return llvm::SmallVector<std::unique_ptr<RuntimeValue>>();

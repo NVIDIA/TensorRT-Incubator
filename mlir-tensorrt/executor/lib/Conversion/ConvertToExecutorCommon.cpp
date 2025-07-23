@@ -843,9 +843,19 @@ bool MemRefDescriptor::isMemRefDescriptorFieldTypes(MemRefType originalType,
 // ExecutorCallBuilder
 //===----------------------------------------------------------------------===//
 
+ExecutorCallBuilder::ExecutorCallBuilder(MLIRContext *ctx,
+                                         StringRef functionName,
+                                         ArrayRef<Type> returnType,
+                                         ArrayRef<Type> argumentTypes,
+                                         bool trailingVarArgs)
+    : functionName(functionName),
+      functionType(executor::ExecutorFunctionType::get(
+          ctx, argumentTypes, returnType,
+          trailingVarArgs ? UnitAttr::get(ctx) : nullptr)) {}
+
 executor::CallOp ExecutorCallBuilder::create(OpBuilder &builder, Location loc,
                                              ModuleOp module,
-                                             ArrayRef<Value> arguments) const {
+                                             ValueRange arguments) const {
   auto *context = module.getContext();
   SymbolRefAttr callee = SymbolRefAttr::get(context, functionName);
   if (!module.lookupSymbol<FuncOp>(functionName)) {

@@ -53,6 +53,19 @@
 using namespace mlirtrt;
 using namespace mlirtrt::runtime;
 
+int32_t mtrt_cuda_get_active_device() {
+  int32_t device{0};
+  HANDLE_CUDART_ERROR(cudaGetDevice(&device), 0);
+  return device;
+}
+
+int32_t mtrt_cuda_set_active_device(int32_t device) {
+  HANDLE_CUDART_ERROR(cudaSetDevice(device), 0);
+  return device;
+}
+
+int32_t mtrt_get_device(int32_t device) { return device; }
+
 CUstream mtrt_cuda_stream_create() {
   CUstream stream;
   HANDLE_CUDART_ERROR(cudaStreamCreate(&stream), nullptr);
@@ -67,9 +80,8 @@ void mtrt_cuda_stream_sync(CUstream stream) {
   HANDLE_CUDART_ERROR(cudaStreamSynchronize(stream), );
 }
 
-void *mtrt_cuda_alloc_async(CUstream stream, int32_t device, int64_t size,
-                            int32_t alignment, int8_t isHostPinned,
-                            int8_t isManaged) {
+void *mtrt_cuda_alloc_async(CUstream stream, int64_t size, int32_t alignment,
+                            int8_t isHostPinned, int8_t isManaged) {
   void *result{nullptr};
   if (isHostPinned || isManaged) {
     HANDLE_CUDART_ERROR(cudaMallocManaged(&result, size), nullptr);

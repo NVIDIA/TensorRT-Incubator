@@ -2,14 +2,16 @@
 
 func.func @cuda_event(){
   %0 = cuda.event.create : !cuda.event
-  %1 = cuda.stream.create : !cuda.stream
+  %device = cuda.get_active_device
+  %1 = cuda.stream.create device(%device)
   cuda.stream.wait_event %1, %0
   return
 }
 
 // CHECK-LABEL: @cuda_event
 //       CHECK: %[[v0:.+]] = executor.call @__cuda_event_create() : () -> !executor.ptr<host>
-//       CHECK: %[[v1:.+]] = executor.call @__cuda_stream_create() : () -> !executor.ptr<host>
+//       CHECK: %[[device:.+]] = executor.call @__cuda_get_active_device() : () -> i32
+//       CHECK: %[[v1:.+]] = executor.call @__cuda_stream_create(%[[device]]) : (i32) -> !executor.ptr<host>
 //       CHECK: executor.call @__cuda_stream_wait_event(%[[v1]], %[[v0]]) : (!executor.ptr<host>, !executor.ptr<host>) -> ()
 //       CHECK: return
 
@@ -27,13 +29,13 @@ func.func @cuda_num_devices() -> i32 {
 
 // -----
 
-func.func @test_get_current_device() -> i32 {
-  %0 = cuda.get_current_device
+func.func @test_get_active_device() -> i32 {
+  %0 = cuda.get_active_device
   return %0 : i32
 }
 
-// CHECK-LABEL: @test_get_current_device
-//       CHECK:     %[[v0:.+]] = executor.call @__spmd_global_rank() : () -> i32
+// CHECK-LABEL: @test_get_active_device
+//       CHECK:     %[[v0:.+]] = executor.call @__cuda_get_active_device() : () -> i32
 //       CHECK:     return %[[v0]] : i32
 
 // -----
@@ -53,7 +55,7 @@ func.func @convert_cuda_get_device(%arg0: i32) -> i32 {
 !memref_4xi8 = memref<?x2x?xf32, #executor.memory_type<device>>
 
 func.func @device_alloc(%arg0: index, %arg1: index, %stream: !cuda.stream, %device: i32) -> !memref_4xi8 {
-  %0 = cuda.alloc(%arg0, %arg1) stream(%stream) device(%device) align 8 : !memref_4xi8
+  %0 = cuda.alloc(%arg0, %arg1) stream(%stream) align 8 : !memref_4xi8
   return %0 : !memref_4xi8
 }
 
@@ -66,7 +68,7 @@ func.func @device_alloc(%arg0: index, %arg1: index, %stream: !cuda.stream, %devi
 //       CHECK:     %[[v2:.+]] = executor.muli %[[v1]], %[[arg0]] : i64
 //       CHECK:     %[[c4_i64:.+]] = executor.constant 4 : i64
 //       CHECK:     %[[v3:.+]] = executor.muli %[[v2]], %[[c4_i64]] : i64
-//       CHECK:     %[[v4:.+]] = executor.call @__cuda_alloc_device(%[[arg2]], %[[arg3]], %[[v3]], %{{.+}}) : (!executor.ptr<host>, i32, i64, i32) -> !executor.ptr<device>
+//       CHECK:     %[[v4:.+]] = executor.call @__cuda_alloc_device(%[[arg2]], %[[v3]], %{{.+}})
 //       CHECK:     %[[c0_i64:.+]] = executor.constant 0 : i64
 //       CHECK:     %[[v5:.+]] = executor.table.create(%[[v4]], %[[v4]], %[[c0_i64]], %[[arg0]], %[[c2_i64]], %[[arg1]], %[[v1]], %[[v0]], %[[c1_i64]] : !executor.ptr<device>, !executor.ptr<device>, i64, i64, i64, i64, i64, i64, i64) : <!executor.ptr<device>, !executor.ptr<device>, i64, i64, i64, i64, i64, i64, i64>
 //       CHECK:     return %[[v5]]
@@ -74,7 +76,7 @@ func.func @device_alloc(%arg0: index, %arg1: index, %stream: !cuda.stream, %devi
 // -----
 
 func.func @memref_device_alloc_i1(%arg0: !cuda.stream, %device: i32) -> memref<1500x1500xi1, #executor.memory_type<device>> {
-  %0 = cuda.alloc () stream(%arg0) device(%device) : memref<1500x1500xi1, #executor.memory_type<device>>
+  %0 = cuda.alloc () stream(%arg0) : memref<1500x1500xi1, #executor.memory_type<device>>
   return %0 : memref<1500x1500xi1, #executor.memory_type<device>>
 }
 
@@ -87,7 +89,7 @@ func.func @memref_device_alloc_i1(%arg0: !cuda.stream, %device: i32) -> memref<1
 //       CHECK:     %[[v1:.+]] = executor.muli %[[v0]], %[[c1500_i64]] : i64
 //       CHECK:     %[[c1_i64_1:.+]] = executor.constant 1 : i64
 //       CHECK:     %[[v2:.+]] = executor.muli %[[v1]], %[[c1_i64_1]] : i64
-//       CHECK:     %[[v3:.+]] = executor.call @__cuda_alloc_device(%[[arg0]], %[[arg1]], %[[v2]], %{{.+}}) : (!executor.ptr<host>, i32, i64, i32) -> !executor.ptr<device>
+//       CHECK:     %[[v3:.+]] = executor.call @__cuda_alloc_device(%[[arg0]], %[[v2]], %{{.+}})
 //       CHECK:     %[[c0_i64:.+]] = executor.constant 0 : i64
 //       CHECK:     %[[v4:.+]] = executor.table.create(%[[v3]], %[[v3]], %[[c0_i64]], %[[c1500_i64]], %[[c1500_i64_0]], %[[v0]], %[[c1_i64]] : !executor.ptr<device>, !executor.ptr<device>, i64, i64, i64, i64, i64) : <!executor.ptr<device>, !executor.ptr<device>, i64, i64, i64, i64, i64>
 //       CHECK:     return %[[v4]] : !executor.table<!executor.ptr<device>, !executor.ptr<device>, i64, i64, i64, i64, i64>
@@ -284,18 +286,20 @@ func.func @copy_h2d(%arg0: !src_memref_type, %arg1: !dst_memref_type,  %stream: 
 // -----
 
 func.func @get_global_stream() {
-  %0 = cuda.get_global_stream 0
-  %1 = cuda.get_global_stream 0
-  %2 = cuda.get_global_stream 1
+  %device = cuda.get_active_device
+  %0 = cuda.get_global_stream device(%device) [0]
+  %1 = cuda.get_global_stream device(%device) [0]
+  %2 = cuda.get_global_stream device(%device) [1]
   return
 }
 
 //       CHECK:   executor.global @stream1 constant : !executor.ptr<host>
-//       CHECK:     %[[v0:.+]] = executor.call @__cuda_stream_create()
+//       CHECK:     %[[device:.+]] = executor.call @__cuda_get_active_device() : () -> i32
+//       CHECK:     %[[v0:.+]] = executor.call @__cuda_stream_create(%[[device]])
 //       CHECK:     executor.return %[[v0]] : !executor.ptr<host>
-//       CHECK:   executor.func private @__cuda_stream_create()
 //       CHECK:   executor.global @stream0 constant : !executor.ptr<host>
-//       CHECK:     %[[v0:.+]] = executor.call @__cuda_stream_create()
+//       CHECK:     %[[device:.+]] = executor.call @__cuda_get_active_device()
+//       CHECK:     %[[v0:.+]] = executor.call @__cuda_stream_create(%[[device]])
 //       CHECK:     executor.return %[[v0]] : !executor.ptr<host>
 // CHECK-LABEL: func.func @get_global_stream
 //       CHECK:     %[[v0:.+]] = executor.get_global @stream0 : !executor.ptr<host>
@@ -319,7 +323,8 @@ func.func @test_cuda_launch(
   %c0_i32 = arith.constant 0 : i32
   %1 = arith.index_cast %arg2 : index to i32
   %2 = arith.index_cast %arg3 : index to i32
-  %3 = cuda.get_global_stream 0
+  %device = cuda.get_active_device
+  %3 = cuda.get_global_stream device(%device) [0]
   cuda.launch %0(%arg0, %arg1 : !memref_4xi80, !memref_4xi81) with
     grid(%1, %c1_i32, %c1_i32)
     block(%2, %c1_i32, %c1_i32)
@@ -338,17 +343,17 @@ func.func @test_cuda_launch(
 //   CHECK-DAG:     %[[v4:.+]] = arith.index_cast %[[v0]] : index to i32
 //   CHECK-DAG:     %[[v5:.+]] = executor.get_global @stream0 : !executor.ptr<host>
 //   CHECK-DAG:     %[[c1_i64:.+]] = executor.constant 1 : i64
-//   CHECK-DAG:     %[[v6:.+]] = executor.table.get %[[arg0]][1] 
-//   CHECK-DAG:     %[[v7:.+]] = executor.table.get %[[arg1]][1] 
+//   CHECK-DAG:     %[[v6:.+]] = executor.table.get %[[arg0]][1]
+//   CHECK-DAG:     %[[v7:.+]] = executor.table.get %[[arg1]][1]
 //   CHECK-DAG:     %[[c0_i64:.+]] = executor.constant 0 : i64
 //   CHECK-DAG:     %[[v8:.+]] = executor.alloca %[[c1_i64]] x !executor.ptr<device> : (i64) -> !executor.ptr<host>
-//   CHECK-DAG:     executor.store %[[v6]] to %[[v8]] + %[[c0_i64]] 
+//   CHECK-DAG:     executor.store %[[v6]] to %[[v8]] + %[[c0_i64]]
 //   CHECK-DAG:     %[[v9:.+]] = executor.alloca %[[c1_i64]] x !executor.ptr<device> : (i64) -> !executor.ptr<host>
-//   CHECK-DAG:     executor.store %[[v7]] to %[[v9]] + %[[c0_i64]] 
+//   CHECK-DAG:     executor.store %[[v7]] to %[[v9]] + %[[c0_i64]]
 //   CHECK-DAG:     %[[v10:.+]] = executor.alloca %[[c1_i64]] x !executor.table<!executor.ptr<host>, !executor.ptr<host>> : (i64) -> !executor.ptr<host>
-//   CHECK-DAG:     %[[v11:.+]] = executor.getoffset[0, 0] 
-//   CHECK-DAG:     executor.store %[[v8]] to %[[v10]] + %[[v11]] 
-//   CHECK-DAG:     %[[v12:.+]] = executor.getoffset[0, 1] 
+//   CHECK-DAG:     %[[v11:.+]] = executor.getoffset[0, 0]
+//   CHECK-DAG:     executor.store %[[v8]] to %[[v10]] + %[[v11]]
+//   CHECK-DAG:     %[[v12:.+]] = executor.getoffset[0, 1]
 //   CHECK-DAG:     executor.store %[[v9]] to %[[v10]] + %[[v12]]
 //   CHECK-DAG:     executor.call @__cuda_launch(%[[v2]], %[[v3]], %[[c1_i32]], %[[c1_i32]], %[[v4]], %[[c1_i32]], %[[c1_i32]], %[[c0_i32]], %[[v5]], %[[v10]])
 //       CHECK:     return

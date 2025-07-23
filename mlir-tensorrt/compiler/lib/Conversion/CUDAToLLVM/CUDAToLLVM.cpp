@@ -34,6 +34,7 @@
 #include "mlir/Dialect/LLVMIR/FunctionCallUtils.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/LLVMIR/LLVMTypes.h"
+#include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Support/FileUtilities.h"
 #include "mlir/Transforms/DialectConversion.h"
@@ -62,7 +63,7 @@ struct CUDAExternalCallBuilders {
   Type llvmVoidType{LLVM::LLVMVoidType::get(ctx)};
 
   LLVMOpaqueCallBuilder streamCreateBuilder = {
-      "mtrt_cuda_stream_create", llvmPtrType, {}};
+      "mtrt_cuda_stream_create", llvmPtrType, {/*device=*/i32Type}};
   LLVMOpaqueCallBuilder streamDestroyBuilder = {
       "mtrt_cuda_stream_destroy", llvmVoidType, {llvmPtrType}};
   LLVMOpaqueCallBuilder streamSyncBuilder = {
@@ -102,7 +103,6 @@ struct CUDAExternalCallBuilders {
   LLVMOpaqueCallBuilder cudaAllocAsyncBuilder = {"mtrt_cuda_alloc_async",
                                                  llvmPtrType,
                                                  {/*stream*/ llvmPtrType,
-                                                  /*device*/ i32Type,
                                                   /*bytes*/ i64Type,
                                                   /*alignment*/ i32Type,
                                                   /*isHostPinned*/ i8Type,
@@ -130,8 +130,14 @@ struct CUDAExternalCallBuilders {
        /*dsta rank*/ i64Type,
        /*dst descriptor*/ llvmPtrType}};
 
-  LLVMOpaqueCallBuilder cudaGetCurrentDeviceBuilder = {
-      "mtrt_cuda_get_current_device", i32Type, {}};
+  LLVMOpaqueCallBuilder cudaGetActiveDeviceBuilder = {
+      "mtrt_cuda_get_active_device", i32Type, {}};
+  LLVMOpaqueCallBuilder cudaSetActiveDeviceBuilder = {
+      "mtrt_cuda_set_active_device", llvmVoidType, {/*device*/ i32Type}};
+  LLVMOpaqueCallBuilder cudaGetDeviceCountBuilder = {
+      "mtrt_cuda_get_device_count", i32Type, {}};
+  LLVMOpaqueCallBuilder cudaGetDeviceBuilder = {
+      "mtrt_cuda_get_device", i32Type, {/*device*/ i32Type}};
 };
 
 //===----------------------------------------------------------------------===//
@@ -234,8 +240,65 @@ protected:
   CUDAExternalCallBuilders cudaFuncs{ctx};
 };
 
+template <typename Derived, typename OpType>
+struct SimpleCudaOpToLLVMCallLowering : public ConvertOpToLLVMPattern<OpType> {
+  using ConvertOpToLLVMPattern<OpType>::ConvertOpToLLVMPattern;
+
+  LogicalResult
+  matchAndRewrite(OpType op,
+                  typename ConvertOpToLLVMPattern<OpType>::OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const final {
+    auto callOp = static_cast<const Derived *>(this)->callBuilder.create(
+        op.getLoc(), rewriter, adaptor.getOperands());
+    rewriter.replaceOp(op, callOp);
+    return success();
+  }
+
+  CUDAExternalCallBuilders callBuilders{this->getContext()};
+};
+
 namespace {
-struct CudaAllocConverter : public ConvertCUDAOpToLLVMPattern<cuda::AllocOp> {
+
+struct CudaGetActiveDeviceConverter final
+    : public SimpleCudaOpToLLVMCallLowering<CudaGetActiveDeviceConverter,
+                                            cuda::GetActiveDeviceOp> {
+  using SimpleCudaOpToLLVMCallLowering::SimpleCudaOpToLLVMCallLowering;
+  LLVMOpaqueCallBuilder &callBuilder =
+      this->callBuilders.cudaGetActiveDeviceBuilder;
+};
+
+struct CudaSetActiveDeviceConverter final
+    : public SimpleCudaOpToLLVMCallLowering<CudaSetActiveDeviceConverter,
+                                            cuda::SetActiveDeviceOp> {
+  using SimpleCudaOpToLLVMCallLowering::SimpleCudaOpToLLVMCallLowering;
+  LLVMOpaqueCallBuilder &callBuilder =
+      this->callBuilders.cudaSetActiveDeviceBuilder;
+};
+
+struct CudaGetDeviceCountConverter final
+    : public SimpleCudaOpToLLVMCallLowering<CudaGetDeviceCountConverter,
+                                            cuda::DeviceCountOp> {
+  using SimpleCudaOpToLLVMCallLowering::SimpleCudaOpToLLVMCallLowering;
+  LLVMOpaqueCallBuilder &callBuilder =
+      this->callBuilders.cudaGetDeviceCountBuilder;
+};
+
+struct CudaGetDeviceConverter final
+    : public SimpleCudaOpToLLVMCallLowering<CudaGetDeviceConverter,
+                                            cuda::GetDeviceOp> {
+  using SimpleCudaOpToLLVMCallLowering::SimpleCudaOpToLLVMCallLowering;
+  LLVMOpaqueCallBuilder &callBuilder = this->callBuilders.cudaGetDeviceBuilder;
+};
+
+struct CudaStreamSyncConverter final
+    : public SimpleCudaOpToLLVMCallLowering<CudaStreamSyncConverter,
+                                            cuda::StreamSyncOp> {
+  using SimpleCudaOpToLLVMCallLowering::SimpleCudaOpToLLVMCallLowering;
+  LLVMOpaqueCallBuilder &callBuilder = this->callBuilders.streamSyncBuilder;
+};
+
+struct CudaAllocConverter final
+    : public ConvertCUDAOpToLLVMPattern<cuda::AllocOp> {
   using ConvertCUDAOpToLLVMPattern::ConvertCUDAOpToLLVMPattern;
   LogicalResult
   matchAndRewrite(cuda::AllocOp op, OpAdaptor adaptor,
@@ -280,15 +343,10 @@ struct CudaAllocConverter : public ConvertCUDAOpToLLVMPattern<cuda::AllocOp> {
         loc, rewriter.getI32IntegerAttr(op.getAlignment() ? *op.getAlignment()
                                                           : 16));
 
-    Value device = adaptor.getDevice()
-                       ? adaptor.getDevice()
-                       : rewriter.create<LLVM::ConstantOp>(
-                             loc, rewriter.getI32IntegerAttr(-1));
-
     Value allocatedPtr =
         cudaFuncs.cudaAllocAsyncBuilder
             .create(loc, rewriter,
-                    {stream, device, sizeBytes, alignment, isPinned, isManaged})
+                    {stream, sizeBytes, alignment, isPinned, isManaged})
             .getResult();
 
     // Create the MemRef descriptor.
@@ -326,33 +384,6 @@ struct CudaDeallocConverter
                                      {adaptor.getStream(),
                                       descriptor.allocatedPtr(rewriter, loc),
                                       isPinned, isManaged});
-    rewriter.eraseOp(op);
-    return success();
-  }
-};
-
-struct CudaGetCurrentDeviceConverter
-    : public ConvertCUDAOpToLLVMPattern<cuda::GetCurrentDeviceOp> {
-  using ConvertCUDAOpToLLVMPattern::ConvertCUDAOpToLLVMPattern;
-  LogicalResult
-  matchAndRewrite(cuda::GetCurrentDeviceOp op, OpAdaptor adaptor,
-                  ConversionPatternRewriter &rewriter) const override {
-    Value device =
-        cudaFuncs.cudaGetCurrentDeviceBuilder.create(op.getLoc(), rewriter, {})
-            .getResult();
-    rewriter.replaceOp(op, device);
-    return success();
-  }
-};
-
-struct CudaStreamSyncConverter
-    : public ConvertCUDAOpToLLVMPattern<cuda::StreamSyncOp> {
-  using ConvertCUDAOpToLLVMPattern::ConvertCUDAOpToLLVMPattern;
-  LogicalResult
-  matchAndRewrite(cuda::StreamSyncOp op, OpAdaptor adaptor,
-                  ConversionPatternRewriter &rewriter) const override {
-    cudaFuncs.streamSyncBuilder.create(op.getLoc(), rewriter,
-                                       {adaptor.getStream()});
     rewriter.eraseOp(op);
     return success();
   }
@@ -672,8 +703,12 @@ insertOrCreateStreamGlobal(RewriterBase &rewriter, Location loc,
   insertLLVMCtorFunction(
       rewriter, loc, symbolTable, (global.getName() + "_init").str(), 0,
       [&](OpBuilder &rewriter, Location loc) {
+        Value device =
+            cudaFuncs.cudaGetActiveDeviceBuilder.create(loc, rewriter, {})
+                .getResult();
         Value stream =
-            cudaFuncs.streamCreateBuilder.create(loc, rewriter, {}).getResult();
+            cudaFuncs.streamCreateBuilder.create(loc, rewriter, {device})
+                .getResult();
         rewriter.create<LLVM::StoreOp>(
             loc, stream, rewriter.create<LLVM::AddressOfOp>(loc, global));
       });
@@ -701,6 +736,14 @@ static LogicalResult lowerGetGlobalStreamOps(RewriterBase &rewriter,
   SmallVector<cuda::GetGlobalStreamOp> getStreamOps;
   module->walk([&](cuda::GetGlobalStreamOp op) { getStreamOps.push_back(op); });
   for (cuda::GetGlobalStreamOp op : getStreamOps) {
+
+    if (!matchPattern(op.getDevice(), m_Op<cuda::GetActiveDeviceOp>())) {
+      return emitError(op.getLoc(), "currently only 'cuda.get_active_device' "
+                                    "is supported as device for global streams")
+                 .attachNote(op.getDevice().getLoc())
+             << "see device here";
+    }
+
     Location loc = op->getLoc();
     rewriter.setInsertionPoint(op);
     LLVM::GlobalOp streamGlobal = insertOrCreateStreamGlobal(
@@ -737,9 +780,14 @@ void mlir::populateCUDAToLLVMConversionPatterns(
     CudaCopyConverter<cuda::CopyH2DOp>,
     CudaDeallocConverter,
     CudaLaunchOpToLLVMCallConverter,
-    CudaGetCurrentDeviceConverter,
     CudaStreamSyncConverter
   >(typeConverter);
+  patterns.add<
+    CudaGetActiveDeviceConverter,
+    CudaSetActiveDeviceConverter,
+    CudaGetDeviceCountConverter,
+    CudaGetDeviceConverter
+  >(typeConverter, PatternBenefit(10));
   // clang-format on
 }
 

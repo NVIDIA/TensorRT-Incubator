@@ -81,8 +81,7 @@ struct LLVMOpaqueCallBuilder {
 
   /// Lookup or insert the function declaration and create a call to that
   /// function at the current insertion point.
-  LLVM::CallOp create(Location loc, OpBuilder &builder,
-                      ArrayRef<Value> arguments,
+  LLVM::CallOp create(Location loc, OpBuilder &builder, ValueRange arguments,
                       SymbolTable *symbolTable = nullptr) const;
 
   StringRef functionName;
