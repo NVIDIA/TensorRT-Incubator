@@ -204,7 +204,7 @@ class Executable:
                 raise_error(
                     "Unexpected tensor device.",
                     [
-                        f"For tensor: `{arg_name}`, expected to be on device: {expected_device} but got: {tensor.device.kind}.\n",
+                        f"Expected tensor: `{arg_name}` to be on device: {expected_device} but it was on: {tensor.device.kind}.\n",
                     ],
                 )
 
