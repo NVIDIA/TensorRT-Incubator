@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1753223641507,
+  "lastUpdate": 1753296067862,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -14127,6 +14127,61 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0000024455169883461243",
             "extra": "mean: 57.11352995732113 usec\nrounds: 18167"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "c5702ca9c64914f6ad4dcbfca3afc44facc89127",
+          "message": "#675: Fix OOB negative slice bug",
+          "timestamp": "2025-07-22T19:15:26Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/676/commits/c5702ca9c64914f6ad4dcbfca3afc44facc89127"
+        },
+        "date": 1753296066904,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 7419.908877656623,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000027139740008241248",
+            "extra": "mean: 134.77254458087398 usec\nrounds: 7790"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 7725.0881045318665,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000025993757381934827",
+            "extra": "mean: 129.44836181393936 usec\nrounds: 8287"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[sdpa-float32]",
+            "value": 1138.2632694601245,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000560286361642637",
+            "extra": "mean: 878.5313791898931 usec\nrounds: 1258"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[sdpa-float16]",
+            "value": 3228.9209154583086,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00003467816398285627",
+            "extra": "mean: 309.70098871500585 usec\nrounds: 3409"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_tripy_param_update",
+            "value": 17291.685695721677,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000023969905761547578",
+            "extra": "mean: 57.831261659319935 usec\nrounds: 17806"
           }
         ]
       }
