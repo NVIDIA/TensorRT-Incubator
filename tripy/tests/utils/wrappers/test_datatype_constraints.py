@@ -222,8 +222,7 @@ def test_datatype_constraints(case: DtypeConstraintCase):
             outputs = make_list(case.func(**inputs))
 
             # Some APIs do not generate Tensor outputs (e.g. `allclose`), so we don't need to evaluate those.
-            # For DimensionSizes, we don't need to check the type either (they can only be one type)
-            if not any(type(out) == tp.Tensor for out in outputs):
+            if not any(isinstance(out, tp.Tensor) for out in outputs):
                 return
 
             expected_return_types = [
