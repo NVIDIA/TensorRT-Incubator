@@ -168,8 +168,8 @@ int32_t mtrt::cuda_get_current_device() {
 }
 
 /// Perform a CUDA allocation.
-void *mtrt::cuda_alloc(CUstream stream, int32_t device, int64_t size,
-                       bool isHostPinned, bool isManaged) {
+void *mtrt::cuda_alloc(CUstream stream, int64_t size, bool isHostPinned,
+                       bool isManaged) {
   void *result{nullptr};
   if (isHostPinned || isManaged) {
     HANDLE_CUDART_ERROR(cudaMallocManaged(&result, size), nullptr);

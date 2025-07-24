@@ -167,8 +167,7 @@ int32_t cuda_get_current_device();
 void cuda_stream_sync(CUstream stream);
 
 /// Perform a CUDA allocation.
-void *cuda_alloc(CUstream stream, int32_t device, int64_t size, bool isPinned,
-                 bool isManaged);
+void *cuda_alloc(CUstream stream, int64_t size, bool isPinned, bool isManaged);
 
 void cuda_free(CUstream stream, void *ptr, int8_t isHostPinned,
                int8_t isManaged);

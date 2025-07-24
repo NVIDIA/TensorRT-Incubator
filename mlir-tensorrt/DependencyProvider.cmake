@@ -116,6 +116,8 @@ nv_register_package(
    "${stablehlo_patch_dir}/0003-Remove-explicit-use-of-LLVMSupport.patch"
    "${stablehlo_patch_dir}/0004-Fix-circular-dependence-between-StablehloPasses-and-.patch"
    "${stablehlo_patch_dir}/0005-Modernize-the-stablehlo-convert-to-signless-pass.patch"
+   "${stablehlo_patch_dir}/0006-Add-additional-support-for-stablehlo-chlo-ops-to-lin.patch"
+   "${stablehlo_patch_dir}/0007-Fix-stablehlo-convert-to-signless-pass-to-handle-sta.patch"
 
   POST_ADD_HOOK [[
     # Mimic what a StablehloConfig.cmake file would do.
