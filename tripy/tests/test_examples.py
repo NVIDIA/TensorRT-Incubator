@@ -93,8 +93,9 @@ EXAMPLES = [
 
 
 def test_all_examples_tested():
-    num_dirs = len([d for d in os.listdir(EXAMPLES_ROOT) if os.path.isdir(os.path.join(EXAMPLES_ROOT, d))])
-    assert num_dirs == len(EXAMPLES), "Not all examples are being tested!"
+    tested_examples = set(os.path.relpath(example.path, EXAMPLES_ROOT) for example in EXAMPLES)
+    all_examples = set(d for d in os.listdir(EXAMPLES_ROOT) if os.path.isdir(os.path.join(EXAMPLES_ROOT, d)))
+    assert tested_examples == all_examples, "Not all examples are being tested!"
 
 
 # We want to test our examples with both the latest commit and public build.
