@@ -18,6 +18,7 @@
 //
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt/Dialect/StablehloExt/Utils/Utils.h"
+#include "stablehlo/dialect/ChloOps.h"
 #include "stablehlo/dialect/StablehloOps.h"
 #include "llvm/ADT/TypeSwitch.h"
 
@@ -82,6 +83,8 @@ bool stablehlo::canConvertToLinalg(Operation *op) {
   return llvm::TypeSwitch<Operation *, bool>(op)
       // clang-format off
       .Case<
+         chlo::ErfOp,
+         chlo::ErfcOp,
          stablehlo::AbsOp,
          stablehlo::AddOp,
          stablehlo::AndOp,
@@ -143,7 +146,8 @@ bool stablehlo::canConvertToLinalg(Operation *op) {
       // Note: Left out `stablehlo.reverse` since currently it generates IR with
       // index maps which cannot be tiled.
       // clang-format off
-      .Case<stablehlo::BitcastConvertOp,
+      .Case<
+            stablehlo::BitcastConvertOp,
             stablehlo::BroadcastInDimOp,
             stablehlo::BroadcastOp,
             stablehlo::ConcatenateOp,

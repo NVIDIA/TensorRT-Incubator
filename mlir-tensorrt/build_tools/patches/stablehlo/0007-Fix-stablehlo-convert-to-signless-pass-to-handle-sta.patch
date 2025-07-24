@@ -1,0 +1,28 @@
+From 52becd456dfad2b8b4c33bc5da174473ddb38b6e Mon Sep 17 00:00:00 2001
+From: Christopher Bate <cbate@nvidia.com>
+Date: Wed, 23 Jul 2025 22:38:32 +0000
+Subject: [PATCH 7/7] Fix `stablehlo-convert-to-signless` pass to handle
+ `stablehlo.replica_id`
+
+The replica id operation has an explicit unsigned integer type constraint
+---
+ stablehlo/transforms/StablehloConvertToSignless.cpp | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/stablehlo/transforms/StablehloConvertToSignless.cpp b/stablehlo/transforms/StablehloConvertToSignless.cpp
+index c1298009..271589b3 100644
+--- a/stablehlo/transforms/StablehloConvertToSignless.cpp
++++ b/stablehlo/transforms/StablehloConvertToSignless.cpp
+@@ -128,6 +128,9 @@ struct StablehloConvertToSignlessPass
+                  converter.isLegal(op.getValue().getType());
+         });
+ 
++    // ReplicaID specifically restricts to unsigned.
++    target.addLegalOp<stablehlo::ReplicaIdOp>();
++
+     RewritePatternSet patterns(&getContext());
+     patterns.add<ConvertToSignless, ConvertConstantToSignless>(converter,
+                                                                &context);
+-- 
+2.50.1
+

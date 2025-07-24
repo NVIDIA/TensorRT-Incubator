@@ -22,3 +22,43 @@ func.func @reverse(%input: tensor<2048xf32>) -> tensor<2048xf32> {
 //   CHECK-DAG:       %[[extracted:.+]] = tensor.extract %[[arg0]][%[[v3]]]
 //   CHECK-DAG:       linalg.yield %[[extracted]] : f32
 //       CHECK:     return %[[v1]] : tensor<2048xf32>
+
+// -----
+
+// CHECK-LABEL: func.func @erf(
+func.func @erf(%input: tensor<2048xf32>) -> tensor<2048xf32> {
+  // CHECK: linalg.generic
+  // CHECK:   math.erf %{{.*}} : f32
+  %result = "chlo.erf"(%input) : (tensor<2048xf32>) -> tensor<2048xf32>
+  return %result : tensor<2048xf32>
+}
+
+// -----
+
+// CHECK-LABEL: func.func @erfc(
+func.func @erfc(%input: tensor<2048xf32>) -> tensor<2048xf32> {
+  // CHECK: linalg.generic
+  // CHECK:   math.erfc %{{.*}} : f32
+  %result = "chlo.erfc"(%input) : (tensor<2048xf32>) -> tensor<2048xf32>
+  return %result : tensor<2048xf32>
+}
+
+// -----
+
+// CHECK-LABEL: func.func @tanh(
+func.func @tanh(%input: tensor<2048xf32>) -> tensor<2048xf32> {
+  // CHECK: linalg.generic
+  // CHECK:   math.tanh %{{.*}} : f32
+  %result = "stablehlo.tanh"(%input) : (tensor<2048xf32>) -> tensor<2048xf32>
+  return %result : tensor<2048xf32>
+}
+
+// -----
+
+// CHECK-LABEL: func.func @tan(
+func.func @tan(%input: tensor<2048xf32>) -> tensor<2048xf32> {
+  // CHECK: linalg.generic
+  // CHECK:   math.tan %{{.*}} : f32
+  %result = "stablehlo.tan"(%input) : (tensor<2048xf32>) -> tensor<2048xf32>
+  return %result : tensor<2048xf32>
+}
