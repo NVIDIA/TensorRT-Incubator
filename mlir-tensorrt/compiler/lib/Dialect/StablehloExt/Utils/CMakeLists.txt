@@ -4,6 +4,8 @@ add_mlir_tensorrt_library(MLIRTensorRTStableHloExtUtils
   Utils.cpp
 
   LINK_LIBS PUBLIC
+  ChloOps
   MLIRTensorRTStableHloExtIR
   MLIRTensorRTUtilsShapeInfo
+  StablehloOps
   )
