@@ -50,8 +50,12 @@ public:
     MLIRContext *ctx = &getContext();
     RewritePatternSet patterns(ctx);
 
-    if (targetTensorRTVersion >= TensorRTVersion(10, 0))
+    if (targetTensorRTVersion >= TensorRTVersion(10, 0)) {
       patterns.add<RaiseToGeluTanh>(ctx);
+      patterns.add<RaiseToGeluTanh2>(ctx);
+      patterns.add<RaiseToGeluErf>(ctx);
+    }
+    patterns.add<RaiseMaxMinToClip>(ctx);
 
     if (failed(applyPatternsGreedily(getOperation(), std::move(patterns)))) {
       emitError(getOperation()->getLoc())
