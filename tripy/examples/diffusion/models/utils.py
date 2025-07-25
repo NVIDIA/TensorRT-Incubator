@@ -38,3 +38,21 @@ def scaled_dot_product_attention(
 
 def clamp(tensor: tp.Tensor, min: int, max: int):
     return tp.minimum(tp.maximum(tensor, min), max)
+
+
+class Upsample(tp.Module):
+    def __init__(self, config, channels):
+        self.conv = tp.Conv(channels, channels, (3, 3), padding=((1, 1), (1, 1)), dtype=config.dtype)
+
+    def __call__(self, x):
+        bs, c, py, px = x.shape
+        x = tp.reshape(tp.expand(tp.reshape(x, (bs, c, py, 1, px, 1)), (bs, c, py, 2, px, 2)), (bs, c, py * 2, px * 2))
+        return self.conv(x)
+
+
+class Downsample(tp.Module):
+    def __init__(self, config, channels):
+        self.conv = tp.Conv(channels, channels, (3, 3), stride=(2, 2), padding=((1, 1), (1, 1)), dtype=config.dtype)
+
+    def __call__(self, x):
+        return self.conv(x)

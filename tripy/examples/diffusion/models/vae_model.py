@@ -20,7 +20,7 @@ from typing import Tuple
 import nvtripy as tp
 from dataclasses import dataclass
 
-from examples.diffusion.helper import scaled_dot_product_attention
+from examples.diffusion.models.utils import scaled_dot_product_attention, Upsample, Downsample
 
 
 @dataclass
@@ -78,24 +78,6 @@ class ResnetBlock(tp.Module):
         h = self.conv1(self.nonlinearity(self.norm1(x)))
         h = self.conv2(self.nonlinearity(self.norm2(h)))
         return self.conv_shortcut(x) + h
-
-
-class Downsample(tp.Module):
-    def __init__(self, config, channels):
-        self.conv = tp.Conv(channels, channels, (3, 3), stride=(2, 2), padding=((1, 1), (1, 1)), dtype=config.dtype)
-
-    def __call__(self, x):
-        return self.conv(x)
-
-
-class Upsample(tp.Module):
-    def __init__(self, config, channels):
-        self.conv = tp.Conv(channels, channels, (3, 3), padding=((1, 1), (1, 1)), dtype=config.dtype)
-
-    def __call__(self, x):
-        bs, c, py, px = x.shape
-        x = tp.reshape(tp.expand(tp.reshape(x, (bs, c, py, 1, px, 1)), (bs, c, py, 2, px, 2)), (bs, c, py * 2, px * 2))
-        return self.conv(x)
 
 
 class UpDecoderBlock2D(tp.Module):

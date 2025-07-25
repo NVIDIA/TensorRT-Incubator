@@ -26,12 +26,12 @@ from dataclasses import dataclass, field
 from examples.diffusion.models.clip_model import CLIPTextTransformer, CLIPConfig
 from examples.diffusion.models.unet_model import UNetModel, UNetConfig
 from examples.diffusion.models.vae_model import AutoencoderKL, VAEConfig
-from examples.diffusion.helper import clamp
+from examples.diffusion.models.utils import clamp
 
 
 @dataclass
 class StableDiffusionConfig:
-    dtype: tp.dtype = tp.float32
+    dtype: tp.dtype
     clip_config: Optional[CLIPConfig] = field(default=None, init=False)
     unet_config: Optional[UNetConfig] = field(default=None, init=False)
     vae_config: Optional[VAEConfig] = field(default=None, init=False)

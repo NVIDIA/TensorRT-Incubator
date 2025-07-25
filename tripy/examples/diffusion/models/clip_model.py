@@ -19,7 +19,7 @@ import nvtripy as tp
 
 from dataclasses import dataclass
 
-from examples.diffusion.helper import scaled_dot_product_attention
+from examples.diffusion.models.utils import scaled_dot_product_attention
 
 
 @dataclass

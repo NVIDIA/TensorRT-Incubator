@@ -21,8 +21,7 @@ from typing import List, Tuple
 import nvtripy as tp
 from dataclasses import dataclass
 
-from examples.diffusion.helper import scaled_dot_product_attention
-from examples.diffusion.models.vae_model import Upsample, Downsample
+from examples.diffusion.models.utils import scaled_dot_product_attention, Upsample, Downsample
 
 
 @dataclass

@@ -47,7 +47,7 @@ def compile_model(model, inputs, engine_path, verbose=False):
     if verbose:
         compile_end_time = time.perf_counter()
         print(f"saved engine to {engine_path}.")
-        print(f"took {compile_end_time - compile_start_time} seconds.")
+        print(f"Took {compile_end_time - compile_start_time} seconds.")
 
     return compiled_model
 
@@ -133,9 +133,7 @@ def save_image(image, args):
 
     # Save image
     print(f"[I] Saving image to {filename}")
-    if not os.path.isdir(os.path.dirname(filename)):
-        print(f"[I] Creating '{os.path.dirname(filename)}' directory.")
-        os.makedirs(os.path.dirname(filename))
+    os.makedirs(os.path.dirname(filename), exist_ok=True)
     image.save(filename)
 
 
