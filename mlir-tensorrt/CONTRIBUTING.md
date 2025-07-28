@@ -9,6 +9,35 @@ described here: https://llvm.org/docs/CodingStandards.html
 
 Python files are formatted using the [`black` formatter](https://black.readthedocs.io/en/stable/).
 
+## Development Environment
+
+This project provides a pre-configured CUDA 12.5 development environment using [Dev Containers](https://containers.dev/). We offer configurations for both `ubuntu` and `rockylinux8`, located in the `.devcontainer` directory.
+
+### VS Code (Recommended)
+1. Install the [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers).
+2. Open the project in VS Code.
+3. When prompted, click "Reopen in Container" and select your preferred OS configuration.
+
+VS Code will automatically build the container and connect to the development environment.
+
+### Dev Containers CLI
+If you are not using VS Code, you can manage the environment with the [Dev Containers CLI](https://github.com/devcontainers/cli).
+
+1.  Install the CLI.
+2.  Choose one of the available configurations from the `.devcontainer` directory (e.g., `cuda12.5-ubuntu-llvm17`).
+3.  From the project root, build and start the container by running the `up` command. Replace `<config-name>` with your chosen configuration.
+    ```bash
+    devcontainer up --workspace-folder . --config .devcontainer/<config-name>/devcontainer.json
+    ```
+    For example:
+    ```bash
+    devcontainer up --workspace-folder . --config .devcontainer/cuda12.5-ubuntu-llvm17/devcontainer.json
+    ```
+4.  To open a shell inside the running container, use the `exec` command:
+    ```bash
+    devcontainer exec --workspace-folder . --config .devcontainer/<config-name>/devcontainer.json /bin/bash
+    ```
+
 ## How to Submit a PR
 
 - Fork the repo on GitHub
