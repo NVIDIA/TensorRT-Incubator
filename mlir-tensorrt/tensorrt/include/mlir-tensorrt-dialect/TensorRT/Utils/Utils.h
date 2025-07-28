@@ -68,6 +68,11 @@ TypedValue<RankedTensorType>
 scatterShapeTensor(RewriterBase &b, Location loc, ArrayRef<int64_t> baseShape,
                    int32_t scatterDim, TypedValue<RankedTensorType> update);
 
+/// Get a splatted constant's attribute by going up a chain of reshape and cast
+/// operations to find the original constant.  The constant can be a different
+/// data type if there is a cast operation in the chain.
+FailureOr<Attribute> getSplatConstantElementAttribute(Value x);
+
 } // namespace tensorrt
 } // namespace mlir
 

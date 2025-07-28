@@ -22,6 +22,7 @@
 #include "mlir-tensorrt-dialect/TensorRT/Utils/Utils.h"
 
 #include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
+#include "mlir/IR/Matchers.h"
 #include "mlir/Interfaces/FunctionInterfaces.h"
 
 using namespace mlir;
@@ -157,4 +158,35 @@ tensorrt::scatterShapeTensor(RewriterBase &b, Location loc,
   }
 
   return b.create<tensorrt::ConcatenationOp>(loc, parts, 0);
+}
+
+FailureOr<Attribute> tensorrt::getSplatConstantElementAttribute(Value x) {
+  while (true) {
+    if (auto expandRank = x.getDefiningOp<tensorrt::ExpandRankOp>())
+      x = expandRank.getInput();
+    else if (auto collapseRank = x.getDefiningOp<tensorrt::CollapseRankOp>())
+      x = collapseRank.getInput();
+    else if (auto reshape = x.getDefiningOp<tensorrt::ReshapeOp>())
+      x = reshape.getInput();
+    else if (auto broadcast = x.getDefiningOp<tensorrt::BroadcastOp>())
+      x = broadcast.getInput();
+    else if (auto cast = x.getDefiningOp<tensorrt::CastOp>())
+      x = cast.getInput();
+    else if (auto identity = x.getDefiningOp<tensorrt::IdentityOp>())
+      x = identity.getInput();
+    else if (auto slice = x.getDefiningOp<tensorrt::SliceOp>())
+      x = slice.getInput();
+    else if (auto constant = x.getDefiningOp<tensorrt::ConstantOp>()) {
+      SplatElementsAttr els{};
+      if (!matchPattern(x, m_Constant(&els)))
+        return failure();
+      Attribute value = els.getSplatValue<Attribute>();
+      if (!isa<FloatAttr, IntegerAttr>(value))
+        return failure();
+      return value;
+    } else {
+      return failure();
+    }
+  }
+  return failure();
 }
