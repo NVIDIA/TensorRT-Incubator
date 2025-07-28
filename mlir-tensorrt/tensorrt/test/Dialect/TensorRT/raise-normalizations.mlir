@@ -53,3 +53,38 @@ func.func @raise_inst_norm_nchw(%arg0: tensor<1x3x1x1xf32>, %arg1: tensor<1x3x1x
 
 // CHECK-LABEL: @neg_raise_nhwc
 //   CHECK-NOT: tensorrt.normalization
+
+// -----
+
+// CHECK: @raise_layer_norm_pytorch(%[[arg0:.+]]: tensor<16x1024x1024xf32>)
+// CHECK: %[[ret:.+]] = tensorrt.normalization [[attr:.+]](%[[arg0]] : tensor<16x1024x1024xf32>, %[[gamma:.+]] : tensor<1x1x1024xf32>, %[[beta:.+]] : tensor<1x1x1024xf32>)
+// CHECK: return %[[ret]]
+func.func @raise_layer_norm_pytorch(%arg0: tensor<16x1024x1024xf32>) -> tensor<16x1024x1024xf32> {
+    %cst_i64 = tensorrt.constant dense<1024> : tensor<i64>
+    %cst_f32 = tensorrt.constant dense<9.99999974E-6> : tensor<1x1x1xf32>
+
+    %cst_bf16_1 = tensorrt.constant dense_resource<__elided__> : tensor<1024xbf16>  // beta (added)
+    %cst_bf16_2 = tensorrt.constant dense_resource<__elided__> : tensor<1024xbf16>   // gamma (multiplied)
+
+    %6 = tensorrt.reduce <kSUM> %arg0 {keepDimensions = true, reduceAxes = array<i64: 2>} : tensor<16x1024x1024xf32> -> tensor<16x1024x1xf32>
+    %7 = tensorrt.cast %cst_i64 : tensor<i64> to tensor<f32>
+    %8 = tensorrt.expand_rank %7 : tensor<f32> to tensor<1x1x1xf32>
+    %9 = tensorrt.element_wise <kDIV>(%6, %8 : tensor<16x1024x1xf32>, tensor<1x1x1xf32>) -> tensor<16x1024x1xf32>
+    %10 = tensorrt.element_wise <kSUB>(%arg0, %9 : tensor<16x1024x1024xf32>, tensor<16x1024x1xf32>) -> tensor<16x1024x1024xf32>
+    %11 = tensorrt.element_wise <kPROD>(%10, %10 : tensor<16x1024x1024xf32>, tensor<16x1024x1024xf32>) -> tensor<16x1024x1024xf32>
+    %12 = tensorrt.reduce <kSUM> %11 {keepDimensions = true, reduceAxes = array<i64: 2>} : tensor<16x1024x1024xf32> -> tensor<16x1024x1xf32>
+    %13 = tensorrt.element_wise <kDIV>(%12, %8 : tensor<16x1024x1xf32>, tensor<1x1x1xf32>) -> tensor<16x1024x1xf32>  // Var[x]
+    %15 = tensorrt.reduce <kAVG> %arg0 {keepDimensions = true, reduceAxes = array<i64: 2>} : tensor<16x1024x1024xf32> -> tensor<16x1024x1xf32>  // E[x]
+    %16 = tensorrt.element_wise <kSUM>(%13, %cst_f32 : tensor<16x1024x1xf32>, tensor<1x1x1xf32>) -> tensor<16x1024x1xf32> // Var[x] + epsilon
+    %17 = tensorrt.unary {unaryOperation = #tensorrt.unary_operation<kRECIP>} %16 : tensor<16x1024x1xf32>
+    %18 = tensorrt.unary {unaryOperation = #tensorrt.unary_operation<kSQRT>} %17 : tensor<16x1024x1xf32>    // compute 1/sqrt(...)
+    %19 = tensorrt.element_wise <kSUB>(%arg0, %15 : tensor<16x1024x1024xf32>, tensor<16x1024x1xf32>) -> tensor<16x1024x1024xf32>
+    %20 = tensorrt.element_wise <kPROD>(%19, %18 : tensor<16x1024x1024xf32>, tensor<16x1024x1xf32>) -> tensor<16x1024x1024xf32>  // multiply for division
+    %21 = tensorrt.cast %cst_bf16_2 : tensor<1024xbf16> to tensor<1024xf32>
+    %22 = tensorrt.expand_rank %21 : tensor<1024xf32> to tensor<1x1x1024xf32>
+    %23 = tensorrt.element_wise <kPROD>(%20, %22 : tensor<16x1024x1024xf32>, tensor<1x1x1024xf32>) -> tensor<16x1024x1024xf32> // multiply gamma
+    %24 = tensorrt.cast %cst_bf16_1 : tensor<1024xbf16> to tensor<1024xf32>
+    %25 = tensorrt.expand_rank %24 : tensor<1024xf32> to tensor<1x1x1024xf32>
+    %26 = tensorrt.element_wise <kSUM>(%23, %25 : tensor<16x1024x1024xf32>, tensor<1x1x1024xf32>) -> tensor<16x1024x1024xf32> // add beta
+    return %26 : tensor<16x1024x1024xf32>
+}
