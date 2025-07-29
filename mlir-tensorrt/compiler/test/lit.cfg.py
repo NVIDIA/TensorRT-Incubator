@@ -251,3 +251,12 @@ if not config.enable_asan:
 # solution, we can only run those tests when debug printing is available.
 if config.enable_assertions:
     config.available_features.add("debug-print")
+
+try:
+    print(f"CUDA Toolkit Version: {config.cuda_toolkit_version}", file=sys.stderr)
+    cuda_toolkit_major = int(config.cuda_toolkit_version.split(".")[0])
+except:
+    cuda_toolkit_major = 12
+
+if cuda_toolkit_major <= 12:
+    config.available_features.add("cuda-toolkit-major-version-lte-12")

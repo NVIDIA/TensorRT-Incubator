@@ -168,6 +168,8 @@ include(AddLLVM)
 include(AddMLIR)
 include(HandleLLVMOptions)
 
+find_package(CUDAToolkit)
+
 # -------------------------------------------------
 # Dependencies
 # -------------------------------------------------
