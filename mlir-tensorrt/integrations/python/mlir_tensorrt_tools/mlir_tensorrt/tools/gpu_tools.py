@@ -81,8 +81,14 @@ def select_device(devices: List[int], required_memory: Optional[float] = None) -
     assert len(devices) > 0
 
     while True:
-        avail_mem_gb, _, _ = get_stats(devices)
-        avail_mem_gb = np.asarray(avail_mem_gb)
+
+        try:
+            avail_mem_gb, _, _ = get_stats(devices)
+            avail_mem_gb = np.asarray(avail_mem_gb)
+        except:
+            # Some systems (like Jetson) do not support the `nvmlGetMemoryInfo` API.
+            # Assume 8GB of memory per device.
+            avail_mem_gb = np.asarray([8.0] * len(devices))
 
         if required_memory and avail_mem_gb.max() * 1024.0 < required_memory:
             time.sleep(1.0)
