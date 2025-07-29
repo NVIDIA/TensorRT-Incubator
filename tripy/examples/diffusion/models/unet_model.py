@@ -21,7 +21,7 @@ from typing import List, Tuple
 import nvtripy as tp
 from dataclasses import dataclass
 
-from examples.diffusion.models.utils import scaled_dot_product_attention, Upsample, Downsample
+from models.utils import scaled_dot_product_attention, Upsample, Downsample
 
 
 @dataclass
@@ -289,7 +289,7 @@ class UNetModel(tp.Module):
             config.model_channels, config.io_channels, (3, 3), padding=((1, 1), (1, 1)), dtype=config.dtype
         )
 
-    def __call__(self, x, timesteps=None, context=None):
+    def __call__(self, x, timesteps=None, context=None, index=None):
         t_emb = timestep_embedding(timesteps, self.config.model_channels, self.config.dtype)
         emb = self.time_embedding(t_emb)
         x = self.conv_in(x)

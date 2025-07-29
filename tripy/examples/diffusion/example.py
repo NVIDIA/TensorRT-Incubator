@@ -25,9 +25,9 @@ import numpy as np
 import nvtripy as tp
 
 from transformers import CLIPTokenizer
-from examples.diffusion.models.clip_model import CLIPConfig
-from examples.diffusion.models.model import StableDiffusion, StableDiffusionConfig
-from examples.diffusion.weight_loader import load_from_diffusers
+from models.clip_model import CLIPConfig
+from models.model import StableDiffusion, StableDiffusionConfig
+from weight_loader import load_from_diffusers
 
 
 def compile_model(model, inputs, engine_path, verbose=False):
@@ -57,7 +57,7 @@ def compile_clip(model, engine_path, dtype=tp.int32, verbose=False):
     return compile_model(model, inputs, engine_path, verbose=verbose)
 
 
-def compile_unet(model, engine_path, dtype, verbose=False):
+def compile_unet(model, steps, engine_path, dtype, verbose=False):
     unconditional_context_shape = (1, 77, 768)
     conditional_context_shape = (1, 77, 768)
     latent_shape = (1, 4, 64, 64)
@@ -65,10 +65,11 @@ def compile_unet(model, engine_path, dtype, verbose=False):
         tp.InputInfo(unconditional_context_shape, dtype=dtype),
         tp.InputInfo(conditional_context_shape, dtype=dtype),
         tp.InputInfo(latent_shape, dtype=dtype),
+        tp.InputInfo((steps,), dtype=dtype),
+        tp.InputInfo((steps,), dtype=dtype),
+        tp.InputInfo((steps,), dtype=dtype),
         tp.InputInfo((1,), dtype=dtype),
-        tp.InputInfo((1,), dtype=dtype),
-        tp.InputInfo((1,), dtype=dtype),
-        tp.InputInfo((1,), dtype=dtype),
+        tp.InputInfo((1,), dtype=tp.int32),
     )
     return compile_model(model, inputs, engine_path, verbose=verbose)
 
@@ -90,6 +91,7 @@ def run_diffusion_loop(model, unconditional_context, context, latent, steps, gui
     torch_dtype = torch.float16 if dtype == tp.float16 else torch.float32
     idx_timesteps = list(range(1, 1000, 1000 // steps))
     num_timesteps = len(idx_timesteps)
+    print(f"num_timesteps: {num_timesteps}")
     timesteps = torch.tensor(idx_timesteps, dtype=torch_dtype, device="cuda")
     guidance = torch.tensor([guidance], dtype=torch_dtype, device="cuda")
 
@@ -104,14 +106,16 @@ def run_diffusion_loop(model, unconditional_context, context, latent, steps, gui
         iterator = list(range(num_timesteps))[::-1]
 
     for index in iterator:
+        idx = torch.tensor([index], dtype=torch.int32, device="cuda")
         latent = model(
             unconditional_context,
             context,
             latent,
-            tp.Tensor(timesteps[index : index + 1]),
-            tp.Tensor(alphas[index : index + 1]),
-            tp.Tensor(alphas_prev[index : index + 1]),
+            tp.Tensor(timesteps),
+            tp.Tensor(alphas),
+            tp.Tensor(alphas_prev),
             tp.Tensor(guidance),
+            tp.Tensor(idx),
         )
 
     return latent
@@ -161,8 +165,9 @@ def tripy_diffusion(args):
         os.mkdir(args.engine_dir)
 
     # Load existing engines if they exist, otherwise compile and save them
+    timesteps_size = len(list(range(1, 1000, 1000 // args.steps)))
     clip_compiled = compile_clip(model.text_encoder, engine_path=clip_path, verbose=args.verbose)
-    unet_compiled = compile_unet(model, engine_path=unet_path, dtype=dtype, verbose=args.verbose)
+    unet_compiled = compile_unet(model, timesteps_size, engine_path=unet_path, dtype=dtype, verbose=args.verbose)
     vae_compiled = compile_vae(model.decode, engine_path=vae_path, dtype=dtype, verbose=args.verbose)
 
     # Run through CLIP to get context from prompt

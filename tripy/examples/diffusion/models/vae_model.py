@@ -20,7 +20,7 @@ from typing import Tuple
 import nvtripy as tp
 from dataclasses import dataclass
 
-from examples.diffusion.models.utils import scaled_dot_product_attention, Upsample, Downsample
+from models.utils import scaled_dot_product_attention, Upsample, Downsample
 
 
 @dataclass
