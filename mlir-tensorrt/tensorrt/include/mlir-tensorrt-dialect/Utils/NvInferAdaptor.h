@@ -390,8 +390,8 @@ inline ITensor *networkAddMatrixMultiply(INetworkDefinition *n, ITensor *input0,
 
 /// Adaptor for `addActivation`.
 inline ITensor *networkAddActivation(INetworkDefinition *n, ITensor *input,
-                                     nvinfer1::ActivationType type, float alpha,
-                                     float beta) {
+                                     nvinfer1::ActivationType type,
+                                     float alpha = 0.0f, float beta = 0.0f) {
   nvinfer1::IActivationLayer *layer = n->addActivation(*input, type);
   if (alpha != 0.0f) {
     layer->setAlpha(alpha);
