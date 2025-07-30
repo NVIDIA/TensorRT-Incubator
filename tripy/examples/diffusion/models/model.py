@@ -81,12 +81,7 @@ class StableDiffusion(tp.Module):
         x = clamp(tp.permute(tp.reshape(x, (3, 512, 512)), (1, 2, 0)), 0, 1) * 255
         return x
 
-    def __call__(
-        self, unconditional_context, context, latent, timesteps, alphas_cumprod, alphas_cumprod_prev, guidance, index
-    ):
-        timestep = tp.reshape(timesteps[index], (1,))
-        alphas = alphas_cumprod[index]
-        alphas_prev = alphas_cumprod_prev[index]
+    def __call__(self, unconditional_context, context, latent, timestep, alphas, alphas_prev, guidance):
         e_t = self.get_model_output(unconditional_context, context, latent, timestep, guidance)
         x_prev, _ = self.get_x_prev_and_pred_x0(latent, e_t, alphas, alphas_prev)
         return x_prev

@@ -289,7 +289,7 @@ class UNetModel(tp.Module):
             config.model_channels, config.io_channels, (3, 3), padding=((1, 1), (1, 1)), dtype=config.dtype
         )
 
-    def __call__(self, x, timesteps=None, context=None, index=None):
+    def __call__(self, x, timesteps=None, context=None):
         t_emb = timestep_embedding(timesteps, self.config.model_channels, self.config.dtype)
         emb = self.time_embedding(t_emb)
         x = self.conv_in(x)
