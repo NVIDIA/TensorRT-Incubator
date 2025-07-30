@@ -120,6 +120,7 @@ def compile(
         compiled_reshape = tp.compile(
             dynamic_reshape,
             args=[
+                tp.InputInfo(shape=(3, (2, 4, 6)), dtype=tp.float32),
                 tp.DimensionInputInfo(value_bounds=(1, 2, 4)),
             ],
         )

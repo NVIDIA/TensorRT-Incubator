@@ -143,14 +143,14 @@ class DimensionInputInfo:
 
         .. code-block:: python
             :linenos:
-            :caption: Dynamic Dimensions
+            :caption: Dimension Size Input
 
             # The dimension size will support values in the range [1, 3],
             # optimizing for a size of 2.
             dim_inp = tp.DimensionInputInfo((1, 2, 3))
-            assert dim_inp.min == 1
-            assert dim_inp.opt == 2
-            assert dim_inp.max == 3
+            assert dim_inp.value_bounds.min == (1,)
+            assert dim_inp.value_bounds.opt == (2,)
+            assert dim_inp.value_bounds.max == (3,)
         """
         # Evaluate `DimensionSize` early to avoid duplicate evaluation
         value_bounds = tuple(map(int, value_bounds))

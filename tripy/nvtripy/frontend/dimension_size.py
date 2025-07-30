@@ -46,7 +46,7 @@ class DimensionSize(Tensor):
         assert isinstance(val, int)
         return str(val)
 
-    def eval(self) -> "nvtripy.Tensor":
+    def eval(self) -> "nvtripy.DimensionSize":
         """
         Immediately evaluates this ``DimensionSize`` object.
 
@@ -61,16 +61,15 @@ class DimensionSize(Tensor):
             import time
 
             start = time.perf_counter()
-            dim_size = tp.DimensionSize(2)
-            print(dim_size.device)
+            dim_size = tp.ones((2, 2)).shape[0]
             dim_size.eval()
             print(dim_size.device)
             assert dim_size.device.kind == "cpu"
 
         """
-        from nvtripy.common import device
+        from nvtripy.backend.mlir import memref
+        from nvtripy.trace.ops.constant import Constant
         from nvtripy.trace.ops.shape import GetDimensionSize, Shape
-        from nvtripy.frontend.ops.copy import copy
 
         # TODO (#593): Generalize this to any branchy graph:
         # If we find a pattern like Shape -> GetDimensionSize, we want to eval the Shape operation
@@ -84,4 +83,9 @@ class DimensionSize(Tensor):
             dim_size.outputs[0].is_compile_tracer = self.trace_tensor.is_compile_tracer
             self.trace_tensor = dim_size.outputs[0]
 
-        return copy(super().eval(), device("cpu"))
+        if not isinstance(producer, Constant):
+            super().eval()
+        dim_value = memref.tolist(self.trace_tensor.producer.data)
+        dim_size = DimensionSize(data=int(dim_value), name=self.name)
+        self.trace_tensor = dim_size.trace_tensor
+        return self
