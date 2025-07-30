@@ -96,15 +96,17 @@ declare_mlir_python_extension(MLIRTensorRTPythonCompiler.CompilerAPI.PyBind
   ADD_TO_PARENT MLIRTensorRTPythonCompiler.CompilerAPI
   SOURCES
       bindings/Compiler/CompilerPyBind.cpp
-  PRIVATE_LINK_LIBS
-    CUDA::cudart
-    LLVMSupport
+  EMBED_CAPI_LINK_LIBS
     MLIRTensorRTCAPICommon
     MLIRTensorRTCAPICompiler
     MLIRTensorRTCAPIExecutorTranslations
     MLIRTensorRTCAPISupportStatus
     MLIRTRTTensorRTDynamicLoader
+  PRIVATE_LINK_LIBS
+    CUDA::cudart
+    LLVMSupport
     TensorRTHeaderOnly
+    MLIRTensorRTCommonIncludes
   )
 
 ################################################################################
