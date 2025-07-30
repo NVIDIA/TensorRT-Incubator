@@ -57,11 +57,12 @@ if(MLIR_TRT_ENABLE_PYTHON)
     ADD_TO_PARENT MLIRTensorRTPythonRuntimeSources
     SOURCES
       bindings/Runtime/RuntimePyBind.cpp
-    PRIVATE_LINK_LIBS
-      LLVMSupport
+    EMBED_CAPI_LINK_LIBS
       MLIRTensorRTCAPISupportStatus
       MLIRTensorRTCAPICommon
+    PRIVATE_LINK_LIBS
       MLIRTensorRTCAPIRuntime
+      LLVMSupport
     )
 
   add_mlir_python_modules(MLIRTensorRTPythonRuntimeModules
