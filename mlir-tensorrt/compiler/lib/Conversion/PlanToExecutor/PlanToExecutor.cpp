@@ -27,6 +27,7 @@
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Func/Transforms/FuncConversions.h"
+#include "mlir/Dialect/GPU/IR/GPUDialect.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/SCF/Transforms/Patterns.h"
 #include "mlir/Interfaces/ControlFlowInterfaces.h"
@@ -78,6 +79,22 @@ struct MemRefGlobalConverterPattern
   using OpConversionPattern::OpConversionPattern;
   LogicalResult
   matchAndRewrite(memref::GlobalOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    MemRefType convertedType = llvm::dyn_cast_if_present<MemRefType>(
+        getTypeConverter()->convertType(op.getType()));
+    if (!convertedType || convertedType == op.getType())
+      return failure();
+    rewriter.modifyOpInPlace(op, [&]() { op.setType(convertedType); });
+    return success();
+  }
+};
+
+/// Rewrite `executor.global` if it has an illegal type attribute.
+struct ExecutorGlobalConverterPattern
+    : public OpConversionPattern<executor::GlobalOp> {
+  using OpConversionPattern::OpConversionPattern;
+  LogicalResult
+  matchAndRewrite(executor::GlobalOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
     MemRefType convertedType = llvm::dyn_cast_if_present<MemRefType>(
         getTypeConverter()->convertType(op.getType()));
@@ -279,9 +296,22 @@ class PlanToExecutorPass
           }
           llvm_unreachable("unknown plan::MemorySpace enumeration value");
         });
+    typeConverter.addSourceMaterialization([&](OpBuilder &builder,
+                                               Type resultType,
+                                               ValueRange inputs,
+                                               Location loc) {
+      return builder.create<UnrealizedConversionCastOp>(loc, resultType, inputs)
+          .getResult(0);
+    });
+    typeConverter.addTargetMaterialization([&](OpBuilder &builder,
+                                               Type resultType,
+                                               ValueRange inputs,
+                                               Location loc) {
+      return builder.create<UnrealizedConversionCastOp>(loc, resultType, inputs)
+          .getResult(0);
+    });
 
     ConversionTarget target(getContext());
-    target.addLegalDialect<executor::ExecutorDialect>();
     target.addIllegalDialect<plan::PlanDialect>();
     target.addDynamicallyLegalOp<func::FuncOp>(
         [&typeConverter](func::FuncOp op) {
@@ -291,6 +321,11 @@ class PlanToExecutorPass
         [&typeConverter](memref::GlobalOp op) {
           return typeConverter.isLegal(op.getType());
         });
+    target.addDynamicallyLegalOp<executor::GlobalOp>(
+        [&typeConverter](executor::GlobalOp op) {
+          return typeConverter.isLegal(op.getType());
+        });
+    target.addLegalOp<gpu::GPUModuleOp>();
     target.markUnknownOpDynamicallyLegal([&typeConverter](Operation *op) {
       if (!isLegalOp(op, typeConverter))
         return false;
@@ -312,10 +347,13 @@ class PlanToExecutorPass
       }
       return true;
     });
+    target.markOpRecursivelyLegal<gpu::GPUModuleOp>();
+    target.addLegalOp<UnrealizedConversionCastOp>();
 
     RewritePatternSet patterns(&getContext());
     patterns.add<GenericStructuralConverter, ConstantOpConverter,
-                 MemRefGlobalConverterPattern>(typeConverter, &getContext());
+                 MemRefGlobalConverterPattern, ExecutorGlobalConverterPattern>(
+        typeConverter, &getContext());
     populateFunctionOpInterfaceTypeConversionPattern<func::FuncOp>(
         patterns, typeConverter);
     populateReturnOpTypeConversionPattern(patterns, typeConverter);
