@@ -229,8 +229,8 @@ class TestTrace:
             == dedent(
                 r"""
                 def main(
-                    a : tensor<?xi32:gpu:0> : InputInfo<ShapeBounds(min=(2,), opt=(3,), max=(4,)), dimension names: {0: 'dim'}, dtype: int32>,
-                    b : tensor<?xi32:gpu:0> : InputInfo<ShapeBounds(min=(2,), opt=(3,), max=(4,)), dimension names: {}, dtype: int32>
+                    a : tensor<?xi32:gpu:0> : InputInfo<Bounds(min=(2,), opt=(3,), max=(4,)), dimension names: {0: 'dim'}, dtype: int32>,
+                    b : tensor<?xi32:gpu:0> : InputInfo<Bounds(min=(2,), opt=(3,), max=(4,)), dimension names: {}, dtype: int32>
                 ) -> (
                     c : tensor<?xi32:gpu:0>
                 ):

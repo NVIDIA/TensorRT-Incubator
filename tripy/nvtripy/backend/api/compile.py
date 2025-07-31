@@ -20,7 +20,7 @@ from typing import Any, Callable, Dict, Sequence
 
 from nvtripy import constants, export, utils
 from nvtripy.backend.api.executable import Executable
-from nvtripy.backend.api.input_info import InputInfo
+from nvtripy.backend.api.input_info import InputInfo, DimensionInputInfo
 from nvtripy.backend.mlir import Compiler
 from nvtripy.common.exception import raise_error
 from nvtripy.frontend import Tensor, Trace
@@ -106,6 +106,30 @@ def compile(
 
         big_out = compiled_add(big_a, big_b)
 
+    .. code-block:: python
+        :linenos:
+        :caption: Shape Input
+
+        def dynamic_reshape(x, s):
+            return tp.reshape(x, (-1, s))
+
+        # doc: no-print-locals compiled_reshape
+
+        # Support dynamic dim in the range of 1 to 4, optimizing for a
+        # dim value of 2
+        compiled_reshape = tp.compile(
+            dynamic_reshape,
+            args=[
+                tp.InputInfo(shape=(3, (2, 4, 6)), dtype=tp.float32),
+                tp.DimensionInputInfo(value_bounds=(1, 2, 4)),
+            ],
+        )
+
+        a = tp.ones((3, 4), dtype=tp.float32).eval()
+        s = tp.DimensionSize(2)
+
+        out = compiled_reshape(a, s)
+        assert out.shape == (6, 2)
 
     .. code-block:: python
         :linenos:
@@ -162,6 +186,22 @@ def compile(
             input_names.add(name)
 
             return tensor
+
+        if isinstance(arg, DimensionInputInfo):
+            from nvtripy.frontend.dimension_size import DimensionSize
+
+            input_infos[name] = arg
+
+            tensor = DimensionSize(arg.value_bounds.opt[0])
+            tensor.name = name
+            tensor.trace_tensor.is_compile_tracer = True
+            assert tensor.trace_tensor.shape == ()
+
+            trace_input_map[name] = tensor
+            input_names.add(name)
+
+            return tensor
+
         return arg
 
     compiled_arg_names = []

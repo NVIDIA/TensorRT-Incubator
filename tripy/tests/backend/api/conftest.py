@@ -12,6 +12,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import nvtripy as tp
+
+
 def add(a, b):
     return a + b
 
@@ -38,3 +41,8 @@ def variadic_positional(*args):
 
 def variadic_keyword(**kwargs):
     return sum(kwargs.values())
+
+
+def dynamic_reshape(a, b):
+    a = a + a
+    return tp.reshape(a, (-1, b))

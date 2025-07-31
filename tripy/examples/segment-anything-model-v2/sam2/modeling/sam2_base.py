@@ -242,8 +242,6 @@ class SAM2Base(torch.nn.Module):
         else:
             self.obj_ptr_tpos_proj = torch.nn.Identity()
 
-        self.fake_object_ptrs = torch.ones((1,), dtype=torch.int32, device="cuda")
-
     def _forward_sam_heads(
         self,
         backbone_features,
@@ -667,14 +665,12 @@ class SAM2Base(torch.nn.Module):
         memory = torch.cat(to_cat_memory, dim=0)
         memory_pos_embed = torch.cat(to_cat_memory_pos_embed, dim=0)
         if isinstance(self.memory_attention, tp.Module) or isinstance(self.memory_attention, tp.Executable):
-            if self.fake_object_ptrs.shape != (num_obj_ptr_tokens,):
-                self.fake_object_ptrs = torch.ones((num_obj_ptr_tokens,), dtype=torch.int32, device="cuda")
             pix_feat_with_mem = self.memory_attention(
                 curr=tp.Tensor(current_vision_feats[0].half().contiguous()),
                 memory=tp.Tensor(memory.half().contiguous()),
                 curr_pos=tp.Tensor(current_vision_pos_embeds[0].half().contiguous()),
                 memory_pos=tp.Tensor(memory_pos_embed.half().contiguous()),
-                num_obj_ptr_tokens=tp.Tensor(self.fake_object_ptrs),
+                num_obj_ptr_tokens=tp.DimensionSize(num_obj_ptr_tokens),
             )
         else:
             pix_feat_with_mem = self.memory_attention(

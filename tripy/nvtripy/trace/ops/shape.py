@@ -19,6 +19,7 @@ from dataclasses import dataclass
 
 from mlir_tensorrt.compiler.dialects import tensorrt
 from nvtripy.common.datatype import int32
+from nvtripy.common.device import device
 from nvtripy.trace.ops.base import TraceOp
 
 
@@ -45,6 +46,9 @@ class GetDimensionSize(TraceOp):
 
     def infer_dtypes(self):
         self.outputs[0].dtype = int32
+
+    def infer_devices(self):
+        self.outputs[0].device = device.fast_init("cpu", 0)
 
     def to_mlir(self, inputs, outputs):
         return [
