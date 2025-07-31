@@ -477,12 +477,6 @@ static Status setTensorAddressesOrReport(
   ADD_TENSORRT_MODULE_RANGE("set_tensor_addresses");
   unsigned idx = 0;
   for (auto &[name, ptr, dims] : buffers) {
-    constexpr intptr_t kMinAlignmentBytes = 256;
-    if (ptr % kMinAlignmentBytes != 0)
-      MTRT_WARNV("TensorRT input {0} (ptr = {1:X}) does not meet minimum "
-                 "alignment of {2} bytes",
-                 name, ptr, kMinAlignmentBytes);
-
     bool result =
         context->setTensorAddress(name.c_str(), reinterpret_cast<void *>(ptr));
 
