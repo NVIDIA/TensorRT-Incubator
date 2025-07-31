@@ -54,6 +54,12 @@
 #define DEBUG_TYPE "translate-to-tensorrt"
 #define DBGS() llvm::dbgs() << "[" DEBUG_TYPE "] "
 
+#if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 12, 0)
+static constexpr bool kStronglyTypedDefault = true;
+#else
+static constexpr bool kStronglyTypedDefault = false;
+#endif
+
 namespace mlir {
 namespace tensorrt {
 #define GEN_PASS_DEF_TRANSLATETOTENSORRTENGINEPASS
@@ -200,7 +206,7 @@ struct TensorRTTranslationCLFlags {
       "tensorrt-strongly-typed",
       llvm::cl::desc("forces TensorRT builder to build a strongly typed "
                      "network."),
-      llvm::cl::init(false), llvm::cl::cat(optCategory)};
+      llvm::cl::init(kStronglyTypedDefault), llvm::cl::cat(optCategory)};
   llvm::cl::opt<std::optional<uint64_t>, /*ExternalStorage=*/false,
                 /*ParserClass=*/ByteSizeParser>
       tensorrtWorkspaceMemoryPoolLimit{
