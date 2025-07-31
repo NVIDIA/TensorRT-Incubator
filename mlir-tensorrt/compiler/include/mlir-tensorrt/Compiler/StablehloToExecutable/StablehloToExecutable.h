@@ -107,6 +107,12 @@ struct StablehloToExecutableOptions
                      "estimated by counting the number of operations in the "
                      "loop body and multiplying it by the trip count.")};
 
+  Option<bool> hoistAllocsToGlobals{
+      *this, "hoist-allocs-to-globals", llvm::cl::init(true),
+      llvm::cl::desc(
+          "Hoist large local allocations to static global allocations if "
+          "possible. May also apply some memory reuse optimizations.")};
+
   //===----------------------------------------------------------------------===//
   // Extension Utilities
   //===----------------------------------------------------------------------===//
