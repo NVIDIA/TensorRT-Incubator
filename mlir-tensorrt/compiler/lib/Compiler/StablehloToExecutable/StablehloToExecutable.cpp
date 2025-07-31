@@ -143,13 +143,16 @@ void StablehloToExecutableTask::buildPostClusteringPipeline(
   plan::buildPlanBufferizationPipeline(pm, convertBufferizationOptions(opts));
 
   populateExtensionPasses(pm, opts, Phase::PostBufferization);
+  HostTarget hostTarget = opts.hostTarget;
+
+  if (hostTarget == HostTarget::Executor && opts.hoistAllocsToGlobals) {
+    pm.addPass(executor::createExecutorAllocsToGlobalsPass());
+  }
 
   pm.addPass(createConvertMemRefToCUDAPass());
 
-  HostTarget hostTarget = opts.hostTarget;
   if (hostTarget == HostTarget::Executor) {
     pm.addPass(createConvertPlanToExecutorPass());
-    pm.addPass(executor::createExecutorAllocsToGlobalsPass());
     pm.addNestedPass<func::FuncOp>(
         executor::createExecutorPopulateFunctionMetadataPass());
   }
