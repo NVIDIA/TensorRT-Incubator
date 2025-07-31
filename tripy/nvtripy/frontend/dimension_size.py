@@ -50,7 +50,7 @@ class DimensionSize(Tensor):
         """
         Immediately evaluates this ``DimensionSize`` object.
 
-        .. note:: ``DimensionSize`` will always reside on host even it is evaluated.
+        .. note:: ``DimensionSize`` will always reside on host even after it is evaluated.
 
         Returns:
             The evaluated ``DimensionSize``.
@@ -58,9 +58,7 @@ class DimensionSize(Tensor):
         .. code-block:: python
             :linenos:
 
-            import time
 
-            start = time.perf_counter()
             dim_size = tp.ones((2, 2)).shape[0]
             dim_size.eval()
             print(dim_size.device)
