@@ -797,6 +797,60 @@ func.func @cf_cond_br_forward_entry(%arg0: i64, %arg1: i64) -> i64 attributes {e
 
 // -----
 
+func.func @cf_switch_op(%arg0: i64) -> i64 {
+  %c0 = executor.constant 0 : i64
+  %c1 = executor.constant 1 : i64
+  %c2 = executor.constant 2 : i64
+  cf.switch %arg0 : i64, [
+    default: ^bb1(%c0 : i64),
+    1: ^bb2(%c1 : i64),
+    2: ^bb3(%c2 : i64)
+  ]
+  ^bb1(%arg1: i64):
+    %1 = executor.addi %arg1, %c1 : i64
+    cf.br ^bb3(%1 : i64)
+  ^bb2(%arg2: i64):
+    %2 = executor.addi %arg2, %c2 : i64
+    cf.br ^bb3(%2 : i64)
+  ^bb3(%arg3: i64):
+    return %arg3 : i64
+}
+
+// CHECK-LABEL: cf_switch_op
+//  CHECK-SAME: ([[arg0:.+]])
+//  CHECK-NEXT:   local [[barg1:.+]] = nil;
+//  CHECK-NEXT:   local [[barg2:.+]] = nil;
+//  CHECK-NEXT:   local [[barg3:.+]] = nil;
+//   CHECK-DAG:   local [[l4:.+]] <const> = 0;
+//   CHECK-DAG:   local [[l5:.+]] <const> = 1;
+//   CHECK-DAG:   local [[l6:.+]] <const> = 2;
+//  CHECK-NEXT:   if ([[arg0]] == 1) then
+//  CHECK-NEXT:     [[barg2]] = [[l5]];
+//  CHECK-NEXT:     goto label1;
+//  CHECK-NEXT:   elseif ([[arg0]] == 2) then
+//  CHECK-NEXT:     [[barg3]] = [[l6]];
+//  CHECK-NEXT:     goto label2;
+//  CHECK-NEXT:   else
+//  CHECK-NEXT:     [[barg1]] = [[l4]];
+//  CHECK-NEXT:     goto label3;
+//  CHECK-NEXT:   end
+//  CHECK-NEXT:   ::label3:: do
+//  CHECK-NEXT:     local [[l7:.+]] <const> = [[barg1]] + [[l5]];
+//  CHECK-NEXT:     [[barg3]] = [[l7]];
+//  CHECK-NEXT:     goto label2;
+//  CHECK-NEXT:   end
+//  CHECK-NEXT:   ::label1:: do
+//  CHECK-NEXT:     local [[l7:.+]] <const> = [[barg2]] + [[l6]];
+//  CHECK-NEXT:     [[barg3]] = [[l7]];
+//  CHECK-NEXT:     goto label2;
+//  CHECK-NEXT:   end
+//  CHECK-NEXT:   ::label2:: do
+//  CHECK-NEXT:     return [[barg3]];
+//  CHECK-NEXT:   end
+//  CHECK-NEXT: end
+
+// -----
+
 // This test contains a nested loop structure. The cond_br in bb3 jumps to bb1 and
 // must assign the block argument arg2 (bb2). The assignment should only occur if
 // the branch condition is false, otherwise arg2(bb2) referenced in bb4 will be
