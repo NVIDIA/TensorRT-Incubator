@@ -22,6 +22,7 @@
 #include "mlir-tensorrt/Dialect/TensorRTRuntime/IR/TensorRTRuntime.h"
 #include "mlir/Dialect/Bufferization/IR/BufferizableOpInterface.h"
 #include "mlir/Dialect/Bufferization/IR/DstBufferizableOpInterfaceImpl.h"
+#include "mlir/Dialect/Utils/IndexingUtils.h"
 #include "llvm/ADT/STLExtras.h"
 
 using namespace mlir;
@@ -41,6 +42,19 @@ static bool isInMemorySpace(Type memrefType, plan::MemorySpace memType) {
   return space == plan::MemorySpaceAttr::get(type.getContext(), memType);
 }
 
+static bool hasCanonicalStrides(MemRefType memRefType) {
+  if (memRefType.getLayout().isIdentity())
+    return true;
+
+  if (memRefType.hasStaticShape()) {
+    auto shape = memRefType.getShape();
+    auto [strides, offset] = memRefType.getStridesAndOffset();
+    if (llvm::equal(strides, mlir::computeSuffixProduct(shape)))
+      return true;
+  }
+  return false;
+}
+
 namespace {
 
 static FailureOr<Value> getBufferCopy(Operation *op, RewriterBase &rewriter,
@@ -51,7 +65,7 @@ static FailureOr<Value> getBufferCopy(Operation *op, RewriterBase &rewriter,
   FailureOr<Value> alloc = options.createAlloc(
       rewriter, op->getLoc(),
       MemRefType::get(memRefType.getShape(), memRefType.getElementType(),
-                      memRefType.getLayout(),
+                      MemRefLayoutAttrInterface(),
                       plan::MemorySpaceAttr::get(ctx, memSpace)),
       ValueRange{});
   if (failed(alloc))
@@ -116,7 +130,8 @@ struct EnqueueOpInterface
 
       // Check if this input is a host tensor. Insert a copy if required.
       if (enqueueOp.isOperandOnHost(opOperand) &&
-          !isInMemorySpace(memRefType, plan::MemorySpace::host_pinned)) {
+          (!isInMemorySpace(memRefType, plan::MemorySpace::host_pinned) ||
+           !hasCanonicalStrides(memRefType))) {
         FailureOr<Value> hostBuffer =
             getBufferCopy(enqueueOp, rewriter, ctx, loc, memRefType, *buffer,
                           options, plan::MemorySpace::host_pinned);
@@ -128,7 +143,8 @@ struct EnqueueOpInterface
 
       // If we are in host space, then copy to the device.
       if (!enqueueOp.isOperandOnHost(opOperand) &&
-          !isInMemorySpace(memRefType, plan::MemorySpace::device)) {
+          (!isInMemorySpace(memRefType, plan::MemorySpace::device) ||
+           !hasCanonicalStrides(memRefType))) {
         FailureOr<Value> deviceBuffer =
             getBufferCopy(enqueueOp, rewriter, ctx, loc, memRefType, *buffer,
                           options, plan::MemorySpace::device);
