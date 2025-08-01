@@ -144,6 +144,42 @@ static bool isLikelyYieldedFromLoopAndBufferizeInPlace(Operation *op) {
   return true;
 }
 
+/// Return true if the value is likely to be a shape tensor that resides in the
+/// host memory space.
+static bool isLikelyShapeTensor(Value v, const DataFlowSolver &solver) {
+  const auto *lattice = solver.lookupState<TensorKindLattice>(v);
+  return lattice && !lattice->getValue().isUninitialized() &&
+         lattice->getValue().isHostVisible();
+}
+
+/// Return the types of all operands that are likely to be shape tensors.
+static SmallVector<RankedTensorType, 2>
+checkForShapeTensorOperands(Operation *op, const DataFlowSolver &solver) {
+  SmallVector<RankedTensorType, 2> shapeTensorsTypes;
+  llvm::for_each(op->getOperands(), [&](Value v) {
+    auto tensorType = dyn_cast<RankedTensorType>(v.getType());
+    if (!tensorType || !tensorType.hasStaticShape())
+      return;
+    if (isLikelyShapeTensor(v, solver))
+      shapeTensorsTypes.push_back(tensorType);
+  });
+  return shapeTensorsTypes;
+}
+
+/// Return the types of all operands that are likely to be shape tensors.
+static SmallVector<RankedTensorType, 2>
+checkForShapeTensorResults(Operation *op, const DataFlowSolver &solver) {
+  SmallVector<RankedTensorType, 2> shapeTensorsTypes;
+  llvm::for_each(op->getResults(), [&](Value v) {
+    auto tensorType = dyn_cast<RankedTensorType>(v.getType());
+    if (!tensorType || !tensorType.hasStaticShape())
+      return;
+    if (isLikelyShapeTensor(v, solver))
+      shapeTensorsTypes.push_back(tensorType);
+  });
+  return shapeTensorsTypes;
+}
+
 /// ClusteringOpts that identifies groups of TensorRT operations and will be
 /// clustered into one TensorRT function (which is eventually translated to a
 /// engine).
@@ -218,9 +254,24 @@ FailureOr<ClusteringOpts> TensorRTClusterKindAttr::getClusterKindOptions(
     if (isLikelyYieldedFromLoopAndBufferizeInPlace(op))
       return false;
 
-    if (!disallowShapeTensorCalculations)
-      return true;
-    return !plan::detail::shouldRunOnHost(op, *solver);
+    SmallVector<RankedTensorType, 2> shapeTensorOperandTypes =
+        checkForShapeTensorOperands(op, *solver);
+    SmallVector<RankedTensorType, 2> shapeTensorResultTypes =
+        checkForShapeTensorResults(op, *solver);
+
+    // Don't cluster operations that have boolean shape tensor operands.
+    // Otherwise clustering may create clusters with boolean shape tensors as
+    // inputs to the cluster; we don't have a way to reject such cases
+    // currently.
+    if (llvm::any_of(shapeTensorOperandTypes, [](RankedTensorType type) {
+          return type.getElementType().isInteger(1);
+        }))
+      return false;
+
+    if (disallowShapeTensorCalculations && !shapeTensorResultTypes.empty())
+      return false;
+
+    return true;
   };
 
   return opts;
