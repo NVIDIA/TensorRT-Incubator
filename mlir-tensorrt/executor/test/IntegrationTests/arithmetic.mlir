@@ -1209,7 +1209,7 @@ func.func @main() -> i64 {
 //       CHECK: false=0, oeq=0, ogt=0, oge=0, olt=1, ole=1, one=1, ord=1, ueq=0, ugt=0, uge=0, ult=1, ule=1, une=1, uno=0, true=1
 // CHECK-LABEL: comparing 42.000000 and -inf
 //       CHECK: false=0, oeq=0, ogt=1, oge=1, olt=0, ole=0, one=1, ord=1, ueq=0, ugt=1, uge=1, ult=0, ule=0, une=1, uno=0, true=1
-// CHECK-LABEL: comparing 42.000000 and nan
+// CHECK-LABEL: comparing 42.000000 and {{[\+-]?nan}}
 //       CHECK: false=0, oeq=0, ogt=0, oge=0, olt=0, ole=0, one=0, ord=0, ueq=1, ugt=1, uge=1, ult=1, ule=1, une=1, uno=1, true=1
 // CHECK-LABEL: comparing 42.000000 and 42.000000
 //       CHECK: false=0, oeq=1, ogt=0, oge=1, olt=0, ole=1, one=0, ord=1, ueq=1, ugt=0, uge=1, ult=0, ule=1, une=0, uno=0, true=1
