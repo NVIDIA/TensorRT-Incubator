@@ -51,6 +51,8 @@ public:
     MLIRContext *ctx = &getContext();
     RewritePatternSet patterns(ctx);
     patterns.add<RaiseInstanceNormalization_NCHW>(ctx);
+    patterns.add<RaisePytorchLayerNorm>(ctx);
+    patterns.add<RemoveLayerNormCast>(ctx);
 
     if (failed(applyPatternsGreedily(getOperation(), std::move(patterns)))) {
       emitError(getOperation()->getLoc())
