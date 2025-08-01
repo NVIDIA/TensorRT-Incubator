@@ -86,9 +86,7 @@ void tensorrt::buildTensorRTModuleSimplificationPipeline(OpPassManager &pm) {
   // Try to eliminate as many `tensorrt.broadcast` ops as possible.
   pm.addPass(tensorrt::createBroadcastEliminationPass());
   addCleanupPasses(pm);
-  pm.addPass(tensorrt::createTransposeEliminationPass());
-  addCleanupPasses(pm);
-  pm.addPass(tensorrt::createReshapeEliminationPass());
+  pm.addPass(tensorrt::createTransposeReshapeEliminationPass());
   addCleanupPasses(pm);
   pm.addPass(tensorrt::createRaiseNormalizationsPass());
   addCleanupPasses(pm);

@@ -21,6 +21,7 @@ add_mtrtd_library(MLIRTensorRTTransforms
   RaiseNormalizations.cpp
   ReshapeElimination.cpp
   TransposeElimination.cpp
+  TransposeReshapeElimination.cpp
 
   DEPENDS
   MLIRTensorRTTransformsActivationsPdllGen

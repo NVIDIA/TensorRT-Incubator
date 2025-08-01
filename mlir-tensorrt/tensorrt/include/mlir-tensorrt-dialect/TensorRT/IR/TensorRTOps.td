@@ -3790,6 +3790,7 @@ def TensorRT_ReshapeOp : TensorRT_Op<"reshape",
   let extraClassDeclaration = [{
     /// Returns true if created op is valid for TensorRT major version.
     bool isValidForTensorRTVersion(int64_t trtMajorVersion);
+    static void getCanonicalizationPatternsSameOp(RewritePatternSet &results, MLIRContext *context);
   }] # baseClassDeclaration;
 }
 

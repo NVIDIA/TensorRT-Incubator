@@ -1,4 +1,4 @@
-// RUN: tensorrt-opt %s -split-input-file -tensorrt-transpose-elimination | FileCheck %s
+// RUN: tensorrt-opt %s -split-input-file -tensorrt-transpose-reshape-elimination | FileCheck %s
 
 func.func @transpose_const_fold() -> tensor<2x2xi32> {
   %const = tensorrt.constant dense<[[0, 1], [2, 3]]> : tensor<2x2xi32>
@@ -224,10 +224,8 @@ func.func @push_up_transpose_elementwise_lhs(%arg0: tensor<1x197x1x64xf32>) -> t
 // CHECK-LABEL: @push_up_transpose_elementwise_lhs
 //  CHECK-SAME: (%[[arg0:.+]]: {{.*}})
 //  CHECK-NEXT: %[[cst_f32:.+]] = tensorrt.constant
-//  CHECK-NEXT: %[[v0:.+]] = tensorrt.reshape %[[cst_f32]]
 //  CHECK-NEXT: %[[v1:.+]] = tensorrt.transpose {permutation = #[[$map]]} %[[arg0]]
-//  CHECK-NEXT: %[[v2:.+]] = tensorrt.transpose {permutation = #[[$map]]} %[[v0]]
-//  CHECK-NEXT: %[[v3:.+]] = tensorrt.element_wise <kDIV>(%[[v2]], %[[v1]] : {{.*}})
+//  CHECK-NEXT: %[[v3:.+]] = tensorrt.element_wise <kDIV>(%[[cst_f32]], %[[v1]] : {{.*}})
 //  CHECK-NEXT: return %[[v3]]
 
 // -----
@@ -261,10 +259,8 @@ func.func @push_up_transpose_elementwise_rhs(%arg0: tensor<1x197x1x64xf32>) -> t
 // CHECK-LABEL: @push_up_transpose_elementwise_rhs
 //  CHECK-SAME: (%[[arg0:.+]]: {{.*}})
 //  CHECK-NEXT: %[[cst_f32:.+]] = tensorrt.constant
-//  CHECK-NEXT: %[[v0:.+]] = tensorrt.reshape %[[cst_f32]]
 //  CHECK-NEXT: %[[v1:.+]] = tensorrt.transpose {permutation = #[[$map]]} %[[arg0]]
-//  CHECK-NEXT: %[[v2:.+]] = tensorrt.transpose {permutation = #[[$map]]} %[[v0]]
-//  CHECK-NEXT: %[[v3:.+]] = tensorrt.element_wise <kDIV>(%[[v1]], %[[v2]] : {{.*}})
+//  CHECK-NEXT: %[[v3:.+]] = tensorrt.element_wise <kDIV>(%[[v1]], %[[cst_f32]] : {{.*}})
 //  CHECK-NEXT: return %[[v3]]
 
 // -----
@@ -416,9 +412,8 @@ func.func @push_up_transpose_elementwise_reshape_reshape_neg(%arg0: tensor<3152x
 // CHECK-LABEL: @push_up_transpose_elementwise_reshape_reshape_neg
 //  CHECK-SAME: (%[[arg0:.+]]: {{.*}})
 //  CHECK-NEXT: %[[cst_f32:.+]] = tensorrt.constant
-//  CHECK-NEXT: %[[v0:.+]] = tensorrt.reshape %[[cst_f32]]
 //  CHECK-NEXT: %[[v1:.+]] = tensorrt.reshape %[[arg0]]
-//  CHECK-NEXT: %[[v2:.+]] = tensorrt.element_wise <kDIV>(%[[v1]], %[[v0]] : {{.*}})
+//  CHECK-NEXT: %[[v2:.+]] = tensorrt.element_wise <kDIV>(%[[v1]], %[[cst_f32]] : {{.*}})
 //  CHECK-NEXT: %[[v3:.+]] = tensorrt.transpose {permutation = #[[$map]]} %[[v2]]
 //  CHECK-NEXT: return %[[v3]]
 
