@@ -268,14 +268,11 @@ static LogicalResult printControlFlowOp(LuaEmitter &emitter, cf::BranchOp op) {
   return success();
 }
 
-static LogicalResult printControlFlowOp(LuaEmitter &emitter,
-                                        cf::CondBranchOp op) {
-
-  SmallVector<Value> trueOperands, falseOperands;
-
+/// Emit a branch to a destination block.
+static void emitBranch(LuaEmitter &emitter, Block *destBlock,
+                       ValueRange operands) {
   // Assign variables for the destination Block's BlockArguments.
   auto emitBlockArgs = [&](Block *destBlock, ValueRange operands) {
-    // Declare non-local args to hold block arguments.
     for (auto [operand, blockArg] :
          llvm::zip(operands, destBlock->getArguments())) {
       emitter << emitter.getVariableName(blockArg);
@@ -283,21 +280,42 @@ static LogicalResult printControlFlowOp(LuaEmitter &emitter,
     }
   };
 
-  auto condName = emitter.getVariableName(op.getCondition());
+  emitter.getStream().indent();
+  emitBlockArgs(destBlock, operands);
+  emitter << "goto " << emitter.getOrCreateLabel(*destBlock) << ";\n";
+  emitter.getStream().unindent();
+}
 
+static LogicalResult printControlFlowOp(LuaEmitter &emitter,
+                                        cf::CondBranchOp op) {
+
+  auto condName = emitter.getVariableName(op.getCondition());
   emitter << "if (" << condName << " == 1) or (" << condName << " == true)"
           << " then\n";
-
-  auto emitBranch = [&](Block *destBlock, ValueRange operands) {
-    emitter.getStream().indent();
-    emitBlockArgs(destBlock, operands);
-    emitter << "goto " << emitter.getOrCreateLabel(*destBlock) << ";\n";
-    emitter.getStream().unindent();
-  };
-
-  emitBranch(op.getTrueDest(), op.getTrueDestOperands());
+  emitBranch(emitter, op.getTrueDest(), op.getTrueDestOperands());
   emitter << "else\n";
-  emitBranch(op.getFalseDest(), op.getFalseDestOperands());
+  emitBranch(emitter, op.getFalseDest(), op.getFalseDestOperands());
+  emitter << "end\n";
+  return success();
+}
+
+static LogicalResult printControlFlowOp(LuaEmitter &emitter, cf::SwitchOp op) {
+  auto caseValues = op.getCaseValues()->getValues<IntegerAttr>();
+  auto caseDestinations = op.getCaseDestinations();
+  for (auto it : llvm::enumerate(llvm::zip(caseValues, caseDestinations))) {
+    auto i = it.index();
+    auto [caseValue, caseBlock] = it.value();
+    if (i == 0) {
+      emitter << "if (" << emitter.getVariableName(op.getFlag())
+              << " == " << caseValue.getInt() << ") then\n";
+    } else {
+      emitter << "elseif (" << emitter.getVariableName(op.getFlag())
+              << " == " << caseValue.getInt() << ") then\n";
+    }
+    emitBranch(emitter, caseBlock, op.getCaseOperands()[i]);
+  }
+  emitter << "else\n";
+  emitBranch(emitter, op.getDefaultDestination(), op.getDefaultOperands());
   emitter << "end\n";
   return success();
 }
@@ -1073,7 +1091,7 @@ LogicalResult LuaEmitter::emitOperation(Operation &op) {
       .Case<func::CallOp, func::FuncOp, func::ReturnOp, func::CallIndirectOp>(
           [&](auto op) { return printOperation(*this, op); })
       // CF ops
-      .Case<cf::BranchOp, cf::CondBranchOp>(
+      .Case<cf::BranchOp, cf::CondBranchOp, cf::SwitchOp>(
           [&](auto op) { return printControlFlowOp(*this, op); })
       .Default([&](Operation *) {
         return op.emitOpError("unable to find printer for op");
