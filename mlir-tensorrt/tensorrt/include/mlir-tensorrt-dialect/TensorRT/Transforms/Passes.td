@@ -256,4 +256,18 @@ def ReshapeEliminationPass : Pass<"tensorrt-reshape-elimination"> {
   }];
 }
 
+//===----------------------------------------------------------------------===//
+// TransposeReshapeEliminationPass
+//===----------------------------------------------------------------------===//
+def TransposeReshapeEliminationPass : Pass<"tensorrt-transpose-reshape-elimination"> {
+  let summary = "try to eliminate tensorrt.transpose, tensorrt.reshape, and tensorrt.shuffle operations";
+
+  let description = [{
+    Push tensorrt.transpose and tensorrt.reshape operations around to attempt to eleminate them
+    and merge them with other ops such as matrix multiply.  The intention is to improve
+    pattern matching and fusion inside of TensorRT.
+  }];
+}
+
+
 #endif // MLIR_TENSORRT_DIALECT_TENSORRT_TRANSFORMS_PASSES
