@@ -17,10 +17,11 @@
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 
 from nvtripy import export
 from nvtripy.common import datatype
+from nvtripy.frontend.dimension_size import DimensionSize
 from nvtripy.frontend.module.conv.base import ConvBase
 from nvtripy.frontend.module.conv.utils import conv_deconv_helper
 from nvtripy.frontend.module.parameter import DefaultParameter
@@ -116,13 +117,13 @@ class Conv(ConvBase):
 
     def __init__(
         self,
-        in_channels: int,
-        out_channels: int,
-        kernel_dims: Sequence[int],
+        in_channels: Union[int, DimensionSize],
+        out_channels: Union[int, DimensionSize],
+        kernel_dims: Union[Sequence[int], Sequence[DimensionSize]],
         stride: Optional[Sequence[int]] = None,
         padding: Optional[Sequence[Tuple[int, int]]] = None,
         dilation: Optional[Sequence[int]] = None,
-        groups: Optional[int] = None,
+        groups: Optional[Union[int, DimensionSize]] = None,
         bias: bool = True,
         dtype: datatype.dtype = datatype.float32,
     ) -> None:
