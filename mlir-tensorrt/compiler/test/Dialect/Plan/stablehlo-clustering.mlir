@@ -177,19 +177,8 @@ func.func @test_data_flow_state_update(
 // CHECK-LABEL: func.func @test_data_flow_state_update
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<10xf32>, %[[arg1:.+]]: tensor<1xi32>, %[[arg2:.+]]:
 //   CHECK-DAG:     %[[c:.+]] = stablehlo.constant dense<1> : tensor<1xi32>
-//   CHECK-DAG:     %[[v0:.+]]:2 = plan.inline_group target(#plan.host_cluster
-//   CHECK-DAG:       %[[v4:.+]] = stablehlo.add %[[c]], %[[arg1]]
-//   CHECK-DAG:       %[[v5:.+]] = stablehlo.reshape %[[v4]]
-//   CHECK-DAG:       yield %[[v4]], %[[v5]] :
-//   CHECK-DAG:     %[[v1:.+]] = plan.inline_group target(#plan.tensorrt_cluster
-//   CHECK-DAG:       %[[v4:.+]] = stablehlo.dynamic_slice %[[arg0]], %[[v0]]#1,
-//   CHECK-DAG:       yield %[[v4]]
-//   CHECK-DAG:     %[[v2:.+]] = plan.inline_group target(#plan.host_cluster
-//   CHECK-DAG:       %[[v4:.+]] = stablehlo.add %[[v1]], %[[arg2]]
-//   CHECK-DAG:       %[[v5:.+]] = stablehlo.convert %[[v4]]
-//   CHECK-DAG:       %[[v6:.+]] = stablehlo.reshape %[[v5]]
-//   CHECK-DAG:       yield %[[v6]] : tensor<i32>
+//   CHECK-DAG:     %[[v0:.+]]:3 = plan.inline_group target(#plan.host_cluster
 //   CHECK-DAG:     %[[v3:.+]] = plan.inline_group target(#plan.tensorrt_cluster
-//   CHECK-DAG:       %[[v4:.+]] = stablehlo.dynamic_slice %[[arg0]], %[[v2]],
+//   CHECK-DAG:       %[[v4:.+]] = stablehlo.dynamic_slice %[[arg0]], %[[v0]]#2
 //   CHECK-DAG:       yield %[[v4]] : tensor<1xf32>
-//   CHECK-DAG:     return %[[v0]]#0, %[[v1]], %[[v3]] :
+//   CHECK-DAG:     return %[[v0]]#0, %[[v0]]#1, %[[v3]] :
