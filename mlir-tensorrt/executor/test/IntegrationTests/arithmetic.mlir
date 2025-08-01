@@ -881,8 +881,8 @@ func.func @main() -> i64 {
   %c4_f16 = executor.constant 4.0 : f16
   %cm4_f16 = executor.constant -4.0 : f16
 
-  %f32c_cast = executor.constant 123456.897 : f32
-  %f64c_cast = executor.constant 123456798989.34567 : f64
+  %f32c_cast = executor.constant 16777216.0 : f32
+  %f64c_cast = executor.constant 2147483647.0 : f64
   %i64c_cast = executor.constant 9223372855707 : i64
   %i32c_cast = executor.constant 2143547678 : i32
   %i16c_cast = executor.constant 32667 : i16
@@ -1176,14 +1176,20 @@ func.func @main() -> i64 {
 // CHECK-NEXT:  sitofp i16 to f32 of 32667 = 32667.000000
 // CHECK-NEXT:  sitofp i8 to f64 of 28 = 28.000000
 // CHECK-NEXT:  sitofp i8 to f32 of 28 = 28.000000
-// CHECK-NEXT:  fptosi f64 to i64 of 123456798989.345673 = 123456798989
-// CHECK-NEXT:  fptosi f64 to i32 of 123456798989.345673 = -2147483648
-// CHECK-NEXT:  fptosi f64 to i16 of 123456798989.345673 = 0
-// CHECK-NEXT:  fptosi f64 to i8 of 123456798989.345673 = 0
-// CHECK-NEXT:  fptosi f32 to i64 of 123456.898000 = 123456
-// CHECK-NEXT:  fptosi f32 to i32 of 123456.898000 = 123456
-// CHECK-NEXT:  fptosi f32 to i16 of 123456.898000 = -7616
-// CHECK-NEXT:  fptosi f64 to i8 of 123456.898000 = 64
+// CHECK-NEXT:  fptosi f64 to i64 of 2147483647.{{0+}} = 2147483647
+// CHECK-NEXT:  fptosi f64 to i32 of 2147483647.{{0+}} = 2147483647
+
+// fptosi is undefined behavior in LLVM and C if the value falls outside
+// the floating point min/max range, so don't match anything in particular
+// in these cases.
+
+// CHECK-NEXT:  fptosi f64 to i16 of 2147483647.{{0+}} = {{.*}}
+// CHECK-NEXT:  fptosi f64 to i8 of 2147483647.{{0+}} = {{.*}}
+// CHECK-NEXT:  fptosi f32 to i64 of 16777216.{{0+}} = 16777216
+// CHECK-NEXT:  fptosi f32 to i32 of 16777216.{{0+}} = 16777216
+// CHECK-NEXT:  fptosi f32 to i16 of 16777216.{{0+}} = {{.*}}
+// CHECK-NEXT:  fptosi f64 to i8 of 16777216.{{0+}} = {{.*}}
+
 // CHECK-NEXT:  4 eq 4 = 1
 // CHECK-NEXT:  4 ne 4 = 0
 // CHECK-NEXT:  4 sgt 4 = 0
