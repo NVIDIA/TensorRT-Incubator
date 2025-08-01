@@ -186,6 +186,15 @@ FailureOr<ClusteringOpts> TensorRTClusterKindAttr::getClusterKindOptions(
     Operation *parent = op->getParentOp();
     if (parent && isStableHloOrChloOp(parent) && legalizedOps.contains(parent))
       return false;
+
+    // Don't cluster operations which are slices of a block input input. These
+    // are unlikely to have good performance and Myelin often will materialize
+    // copies.
+    if (auto sliceOp = llvm::dyn_cast<stablehlo::SliceOp>(op)) {
+      if (llvm::isa<BlockArgument>(sliceOp.getOperand()))
+        return false;
+    }
+
     if (!disallowShapeTensorCalculations)
       return true;
     return !plan::detail::shouldRunOnHost(op, *solver);
