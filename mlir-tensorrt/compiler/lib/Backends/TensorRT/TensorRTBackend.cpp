@@ -33,9 +33,11 @@
 #include "mlir/Analysis/DataFlowFramework.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Dialect/Utils/StaticValueUtils.h"
 #include "mlir/IR/DialectImplementation.h"
+#include "mlir/IR/OpDefinition.h"
 #include "stablehlo/dialect/ChloOps.h"
 #include "stablehlo/dialect/StablehloOps.h"
 #include "llvm/ADT/TypeSwitch.h"
@@ -126,6 +128,22 @@ static bool isStableHloOrChloOp(Operation *op) {
                                tensorrt::TensorRTDialect>(op->getDialect());
 }
 
+/// Return true if the op is a loop-carried dependency that likely should be
+/// bufferized in-place while re-using an input buffer for the output buffer.
+/// Such operations should not be offloaded to TensorRT due to I/O aliasing
+/// constraints.
+static bool isLikelyYieldedFromLoopAndBufferizeInPlace(Operation *op) {
+  if (!llvm::any_of(op->getUsers(),
+                    llvm::IsaPred<scf::YieldOp, scf::ConditionOp>))
+    return false;
+  if (!llvm::any_of(op->getOperands(), llvm::IsaPred<BlockArgument>))
+    return false;
+  if (!op->hasTrait<OpTrait::Elementwise>() &&
+      !llvm::isa<stablehlo::DynamicUpdateSliceOp>(op))
+    return false;
+  return true;
+}
+
 /// ClusteringOpts that identifies groups of TensorRT operations and will be
 /// clustered into one TensorRT function (which is eventually translated to a
 /// engine).
@@ -194,6 +212,11 @@ FailureOr<ClusteringOpts> TensorRTClusterKindAttr::getClusterKindOptions(
       if (llvm::isa<BlockArgument>(sliceOp.getOperand()))
         return false;
     }
+
+    // Check for operations that would not benefit from TensorRT offloading due
+    // to TensorRT's I/O aliasing constraints.
+    if (isLikelyYieldedFromLoopAndBufferizeInPlace(op))
+      return false;
 
     if (!disallowShapeTensorCalculations)
       return true;
