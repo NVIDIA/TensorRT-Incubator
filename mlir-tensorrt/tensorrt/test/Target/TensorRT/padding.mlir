@@ -2,13 +2,15 @@
 // RUN:  --mlir-elide-elementsattrs-if-larger=32 %s | FileCheck %s
 
 
-func.func @trt_padding(%arg0: tensor<1x1x10x10xf32>) -> (tensor<1x1x8x8xf32>) {
+func.func @trt_padding(%arg0: tensor<1x1x10x10xf32>) -> (tensor<1x1xf32>) {
   %0 = tensorrt.padding {
     prePadding = array<i64: -1, -1>,
     postPadding = array<i64: -1, -1>
   } ins(%arg0 : tensor<1x1x10x10xf32>) -> tensor<1x1x8x8xf32>
-
-  return %0 : tensor<1x1x8x8xf32>
+  %1 = tensorrt.einsum {
+    equation = "ijkl->ij"
+  } ins(%0 : tensor<1x1x8x8xf32>) -> tensor<1x1xf32>
+  return %1 : tensor<1x1xf32>
 }
 
 // CHECK-LABEL: @trt_padding
