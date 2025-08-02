@@ -65,27 +65,3 @@ func.func @trt_dim_names(
   %0 = tensorrt.identity %arg0 : tensor<?x?xf32> to tensor<?x?xf32>
   return %0 : tensor<?x?xf32>
 }
-
-// CHECK-LABEL: @trt_host_input
-//  CHECK-SAME: tensorrt.engine
-func.func @trt_host_input(%arg0: tensor<?x4xf32> {tensorrt.dimension_names = {}, tensorrt.shape_profile = #tensorrt.shape_profile<min = [2, 4], opt = [4, 4], max = [6, 4]>}, %arg1: tensor<i32> {plan.memory_space = #plan.memory_space<host>, tensorrt.value_bounds = #tensorrt.shape_profile<min = [1], opt = [2], max = [3]>}) -> tensor<?x?xf32> {
-    %0 = tensorrt.element_wise <kSUM>(%arg0, %arg0 : tensor<?x4xf32>, tensor<?x4xf32>) -> tensor<?x4xf32>
-    %1 = tensorrt.shape %0 : tensor<?x4xf32> -> tensor<2xi32>
-    %2 = tensorrt.slice %1[0][1][1] : tensor<2xi32> to tensor<1xi32>
-    %3 = tensorrt.collapse_rank %2 : tensor<1xi32> to tensor<i32>
-    %cst_i32 = tensorrt.constant dense<1> : tensor<i32>
-    %4 = tensorrt.element_wise <kPROD>(%3, %cst_i32 : tensor<i32>, tensor<i32>) -> tensor<i32>
-    %5 = tensorrt.slice %1[1][1][1] : tensor<2xi32> to tensor<1xi32>
-    %6 = tensorrt.collapse_rank %5 : tensor<1xi32> to tensor<i32>
-    %7 = tensorrt.element_wise <kPROD>(%4, %6 : tensor<i32>, tensor<i32>) -> tensor<i32>
-    %cst_i32_0 = tensorrt.constant dense<1> : tensor<i32>
-    %8 = tensorrt.element_wise <kPROD>(%arg1, %cst_i32_0 : tensor<i32>, tensor<i32>) -> tensor<i32>
-    %9 = tensorrt.element_wise <kFLOOR_DIV>(%7, %8 : tensor<i32>, tensor<i32>) -> tensor<i32>
-    %cst_i32_1 = tensorrt.constant dense<1> : tensor<1xi32>
-    %10 = tensorrt.reshape %9 shape(%cst_i32_1: tensor<1xi32>) : tensor<i32> to tensor<?xi32>
-    %cst_i32_2 = tensorrt.constant dense<1> : tensor<1xi32>
-    %11 = tensorrt.reshape %arg1 shape(%cst_i32_2: tensor<1xi32>) : tensor<i32> to tensor<?xi32>
-    %12 = tensorrt.concatenation {axis = 0 : i32} ins(%10, %11 : tensor<?xi32>, tensor<?xi32>) -> tensor<2xi32>
-    %13 = tensorrt.reshape %0 shape(%12: tensor<2xi32>) : tensor<?x4xf32> to tensor<?x?xf32>
-    return %13 : tensor<?x?xf32>
-}

@@ -127,6 +127,7 @@ def run_cmake_build(python_package_name: str, python_wheel_staging_dir: Path):
         cmake_options.append(
             f'-DMLIR_TRT_ENABLE_CUBLAS={os.environ["MLIR_TRT_ENABLE_CUBLAS"]}'
         )
+
     # Override TensorRT version if specified
     cmake_options.append(f"-DMLIR_TRT_DOWNLOAD_TENSORRT_VERSION={TENSORRT_VERSION}")
 
