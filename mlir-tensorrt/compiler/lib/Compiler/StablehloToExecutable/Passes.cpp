@@ -27,6 +27,7 @@
 #include "mlir-tensorrt/Conversion/Passes.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
 #include "mlir-tensorrt/Transforms/Passes.h"
+#include "mlir/AsmParser/AsmParser.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Linalg/Passes.h"
@@ -58,7 +59,7 @@ namespace {
 // PopulateDefaultBackendMetadataPass
 //===----------------------------------------------------------------------===//
 // This pass executes a "convert-stablehlo-scalar-to-arith" dynamically on all
-// functions with the #plan.host_cluster target attribute.
+// functions with the #plan.host_backend target attribute.
 class PopulateDefaultBackendMetadataPass
     : public compiler::impl::PopulateDefaultBackendMetadataPassBase<
           PopulateDefaultBackendMetadataPass> {
@@ -66,16 +67,20 @@ public:
   using Base::Base;
   void runOnOperation() override {
     ModuleOp module = getOperation();
-    if (module->hasAttr(plan::PlanDialect::kModuleClusterKindsAttrName))
+    if (module->hasAttr(plan::PlanDialect::kBackendsAttrName))
       return;
-    SmallVector<Attribute> clusterKinds;
-    clusterKinds.push_back(mlir::plan::TensorRTClusterKindAttr::get(
-        module->getContext(), disallowHostTensorsInTensorRTClusters, 10,
-        tensorrtVersionMajor));
-    clusterKinds.push_back(
-        mlir::plan::HostClusterKindAttr::get(module->getContext(), 9));
-    module->setAttr(plan::PlanDialect::kModuleClusterKindsAttrName,
-                    ArrayAttr::get(module->getContext(), clusterKinds));
+
+    std::string backendsStr =
+        llvm::formatv("[{0}]", llvm::iterator_range(backends));
+
+    Attribute configArrayAttr =
+        mlir::parseAttribute(backendsStr, module->getContext());
+    if (!configArrayAttr || !isa<ArrayAttr>(configArrayAttr)) {
+      emitError(module->getLoc(),
+                "failed to parse config as an array attribute: " + backendsStr);
+      return signalPassFailure();
+    }
+    module->setAttr(plan::PlanDialect::kBackendsAttrName, configArrayAttr);
   }
 };
 
@@ -84,7 +89,7 @@ public:
 //===----------------------------------------------------------------------===//
 
 // This pass executes a "convert-stablehlo-scalar-to-arith" dynamically on all
-// functions with the #plan.host_cluster target attribute.
+// functions with the #plan.host_backend target attribute.
 class ProcessHostClustersPass
     : public compiler::impl::ProcessStablehloHostClustersPassBase<
           ProcessHostClustersPass> {
@@ -105,9 +110,9 @@ public:
     if (!func.isPrivate())
       return;
 
-    auto hostClusterKind = func->getAttrOfType<plan::HostClusterKindAttr>(
+    auto HostBackend = func->getAttrOfType<plan::HostBackendAttr>(
         plan::PlanDialect::kFuncTargetKind);
-    if (!hostClusterKind)
+    if (!HostBackend)
       return;
 
     if (failed(runPipeline(dynamicPM, func)))
@@ -182,31 +187,5 @@ public:
   }
 };
 } // namespace
-
-//===----------------------------------------------------------------------===//
-// Pipeline Registrations
-//===----------------------------------------------------------------------===//
-
-void mlirtrt::compiler::registerStablehloToExecutablePipelines() {
-  PassPipelineRegistration<StablehloToExecutableOptions>(
-      "stablehlo-clustering-pipeline",
-      "apply clustering and initial transformations to stablehlo IR",
-      [](OpPassManager &pm, const StablehloToExecutableOptions &opts) {
-        StablehloToExecutableTask::buildClusteringPipeline(pm, opts);
-      });
-
-  PassPipelineRegistration<StablehloToExecutableOptions>(
-      "stablehlo-to-executable-pipeline",
-      "apply the full stablehlo-to-executable pipeline",
-      [](OpPassManager &pm, const StablehloToExecutableOptions &opts) {
-        StablehloToExecutableTask::populatePassManager(pm, opts);
-      });
-
-  PassPipelineRegistration<StablehloToExecutableOptions>(
-      "post-clustering-pipeline", "apply compilation post-clustering",
-      [](OpPassManager &pm, const StablehloToExecutableOptions &opts) {
-        StablehloToExecutableTask::buildPostClusteringPipeline(pm, opts);
-      });
-}
 
 #endif // MLIR_TRT_ENABLE_HLO

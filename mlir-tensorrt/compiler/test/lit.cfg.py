@@ -29,22 +29,6 @@ config.suffixes = {".mlir", ".py", ".test"}
 
 # test_source_root: The root path where tests are located.
 config.test_source_root = os.path.dirname(__file__)
-config.gpu_tools_script = os.path.join(
-    config.test_source_root,
-    "../../integrations/python/mlir_tensorrt_tools/mlir_tensorrt/tools/gpu_tools.py",
-)
-
-
-def load_gpu_tools_module():
-    assert Path(config.gpu_tools_script).exists(), "gpu_tools.py script does not exist"
-    spec = importlib.util.spec_from_file_location("gpu_tools", config.gpu_tools_script)
-    gpu_tools = importlib.util.module_from_spec(spec)
-    sys.modules["gpu_tools"] = gpu_tools
-    spec.loader.exec_module(gpu_tools)
-    return gpu_tools
-
-
-gpu_tools = load_gpu_tools_module()
 
 
 def estimate_paralllelism(
@@ -52,10 +36,11 @@ def estimate_paralllelism(
 ) -> int:
     try:
         parallelism = 2
-        with gpu_tools.nvml_context() as devices:
-            parallelism = gpu_tools.estimate_parallelism_from_memory(
-                devices, gb_gpu_mem_required
-            )
+        if config.enable_cuda:
+            with gpu_tools.nvml_context() as (devices, _):
+                parallelism = gpu_tools.estimate_parallelism_from_memory(
+                    devices, gb_gpu_mem_required
+                )
         return int(
             max(
                 min(
@@ -85,6 +70,13 @@ config.substitutions.append(
 )
 config.substitutions.append(("%trt_lib_dir", config.tensorrt_lib_dir))
 config.substitutions.append(("%stablehlo_src_dir", config.stablehlo_source_root))
+config.substitutions.append(
+    (
+        "%cuda_toolkit_linux_cxx_flags",
+        config.cuda_toolkit_linux_cxx_flags,
+    )
+)
+
 
 # Setup the parallelism groups. Note that just instantiating the TRT builder
 # requires ~2.5 GB of system memory, so we use 3.0 as a baseline limit.
@@ -144,13 +136,15 @@ def make_tool_with_single_device_selection(tool: str):
 tool_dirs = [config.mlir_tensorrt_tools_dir]
 tools = [
     ToolSubst("%mlir_src_dir", config.mlir_src_root, unresolved="ignore"),
-    "mlir-tensorrt-opt",
     ToolSubst(
         "%pick-one-gpu",
         f"CUDA_VISIBLE_DEVICES=$(python3 -m mlir_tensorrt.tools.gpu_tools pick-device)",
     ),
-    "mlir-tensorrt-translate",
+    "mlir-tensorrt-compiler",
+    "mlir-tensorrt-opt",
     "mlir-tensorrt-runner",
+    "mlir-tensorrt-translate",
+    ToolSubst("%host_cxx", command=config.host_cxx, unresolved="warn"),
 ]
 
 LINUX_ASAN_ENABLED = "Linux" in config.host_os and config.enable_asan
@@ -202,48 +196,19 @@ llvm_config.with_environment(
 )
 
 
-def get_num_cuda_devices() -> int:
-    try:
-        with gpu_tools.nvml_context() as devices:
-            return len(devices)
-    except:
-        return 0
-
-
-def all_gpus_have_fp8_support() -> bool:
-    try:
-        with gpu_tools.nvml_context() as _:
-            return gpu_tools.has_fp8_support()
-    except:
-        return False
-
-
 # Add configuration features that depend on the host or flags defined with the
 # `-D[flag-name]=[value]` option via the `llvm-lit` CLI. These features can be
 # used to predicate tests by adding "REQUIRES: feature-name" to the top of the
 # test file near the RUN command.
-trt_version = config.mlir_tensorrt_compile_time_version.split(".")
-trt_version_major, trt_version_minor = int(trt_version[0]), int(trt_version[1])
-for i in range(1, get_num_cuda_devices() + 1):
-    config.available_features.add(f"host-has-at-least-{i}-gpus")
-
-if all_gpus_have_fp8_support():
-    config.available_features.add(f"all-gpus-support-fp8")
-
 if shutil.which("nsys"):
     config.available_features.add("host-has-nsight-systems")
 if lit.util.pythonize_bool(lit_config.params.get("enable_benchmark_suite", None)):
     config.available_features.add("enable_benchmark_suite")
 if lit.util.pythonize_bool(lit_config.params.get("enable_functional_suite", None)):
     config.available_features.add("enable_functional_suite")
-if trt_version_major < 9:
-    config.available_features.add("tensorrt-version-lt-9.0")
-if trt_version_major == 9:
-    config.available_features.add("tensorrt-version-eq-9")
-if trt_version_major >= 10:
-    config.available_features.add("tensorrt-version-ge-10.0")
 if not config.enable_asan:
     config.available_features.add("no-asan")
+
 
 # Some of our tests utilize checks against debug output in order to verify
 # that flags were correctly propagated from e.g. Python all the way to the TensorRT
@@ -251,12 +216,3 @@ if not config.enable_asan:
 # solution, we can only run those tests when debug printing is available.
 if config.enable_assertions:
     config.available_features.add("debug-print")
-
-try:
-    print(f"CUDA Toolkit Version: {config.cuda_toolkit_version}", file=sys.stderr)
-    cuda_toolkit_major = int(config.cuda_toolkit_version.split(".")[0])
-except:
-    cuda_toolkit_major = 12
-
-if cuda_toolkit_major <= 12:
-    config.available_features.add("cuda-toolkit-major-version-lte-12")

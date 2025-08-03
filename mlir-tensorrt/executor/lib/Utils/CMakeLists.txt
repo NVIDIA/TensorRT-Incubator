@@ -8,6 +8,7 @@ add_mlir_executor_library(MLIRExecutorCommonUtils
   MLIRTransformUtils
   MLIRPass
   MLIRSupport
+  MLIRExecutorIncludes
   )
 
 add_mlir_executor_library(MLIRExecutorSerializationUtils
@@ -17,4 +18,5 @@ add_mlir_executor_library(MLIRExecutorSerializationUtils
   LINK_LIBS PUBLIC
   MLIRIR
   MLIRDataLayoutInterfaces
+  MLIRExecutorIncludes
   )

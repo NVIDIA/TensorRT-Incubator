@@ -1,18 +1,14 @@
-// RUN: %pick-one-gpu mlir-tensorrt-opt %s  \
-// RUN: -pass-pipeline="builtin.module(stablehlo-preprocessing-pipeline{disable-inliner},\
-// RUN: stablehlo-clustering-pipeline{entrypoint=}, \
-// RUN: post-clustering-pipeline, \
-// RUN: executor-lowering-pipeline)" \
-// RUN: | mlir-tensorrt-translate -mlir-to-runtime-executable -allow-unregistered-dialect | \
-// RUN: %pick-one-gpu mlir-tensorrt-runner -input-type=rtexe -features=core,cuda,tensorrt | FileCheck %s
+// RUN: mlir-tensorrt-compiler %s -opts="entrypoint=" -o - | \
+// RUN: %pick-one-gpu mlir-tensorrt-runner -input-type=rtexe -features=core,cuda,tensorrt -split-input-file | \
+// RUN: FileCheck %s
 
 #profile0 = #tensorrt.shape_profile<min = [1], opt = [5], max = [10]>
 #profile1 = #tensorrt.shape_profile<min = [2], opt = [5], max = [6]>
 
 builtin.module @end_to_end_unary attributes {
-  plan.cluster_kinds = [
-    #plan.tensorrt_cluster<benefit = 1, disallow_shape_tensor_calculations=false, tensorrt_major_version = 10>,
-    #plan.host_cluster<benefit = 0>
+  plan.backends = [
+    #plan.tensorrt_backend<benefit = 1, disallow_shape_tensor_calculations=false>,
+    #plan.host_backend<benefit = 0>
   ]
 } {
 

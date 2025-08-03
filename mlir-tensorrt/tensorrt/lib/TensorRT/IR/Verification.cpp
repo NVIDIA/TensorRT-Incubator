@@ -1161,68 +1161,222 @@ LogicalResult tensorrt::AssertionOp::verify() {
 }
 
 //===----------------------------------------------------------------------===//
+// QuantizeOp
+//===----------------------------------------------------------------------===//
+
+/// Returns blocking dimension which is first dimensions where
+/// input and scale shape has different values. Returns -1 if couldn't decide
+/// blocking dimension.
+static int32_t getQDQBlockingDim(RankedTensorType inputType,
+                                 RankedTensorType scaleType) {
+  for (int64_t i = 0; i < inputType.getRank(); i++) {
+    if (inputType.isDynamicDim(i))
+      continue;
+    if (inputType.getDimSize(i) == scaleType.getDimSize(i))
+      continue;
+    return i;
+  }
+  return -1;
+}
+
+LogicalResult tensorrt::QuantizeOp::verify() {
+  auto inputType = getInput().getType();
+  auto scale = getScale().getType();
+  std::optional<int32_t> axis = getAxis();
+  const int64_t inputRank = getInput().getType().getRank();
+  // Quantization can be per-tensor, per-channel or block quantization.
+  // Axis value is only valid for per-channel quantization.
+  // Block quantization is valid only for f4 or i4 result type.
+
+  // Scale value is scalar for per-tensor quantization, 1D for per-channel
+  // quantization and, same rank as the input for block quantization.
+  if (!(scale.getRank() == 0 || scale.getRank() == 1 ||
+        scale.getRank() == inputRank))
+    return emitOpError("Scale value must be scalar for per-tensor "
+                       "quantization, 1D for per-channel quantization, and "
+                       "same rank as the input for block quantization.");
+
+  // Check 1: For per-tensor quantization, there should only be scalar scale and
+  // no axis.
+  if (scale.getRank() == 0 && axis.has_value()) {
+    return emitOpError("When scale value is scalar, quantization is per-tensor "
+                       "and thus axis value shouldn't be provided.");
+  }
+
+  // Check 2: For per-channel quantization, scale value should be 1D tensor and
+  // axis value must be provided.
+  if (scale.getRank() == 1) {
+    if (!axis)
+      return emitOpError("When scale is 1D tensor, quantization is per-channel "
+                         "and thus axis value must be provided.");
+
+    // Check 2A: Axis value must be within range.
+    if (*axis >= inputRank || *axis < 0)
+      return emitOpError("expected axis to be non-negative and less than ")
+             << inputRank;
+
+    // Check 2B: Scale tensor dimension must match `axis` dimension of input.
+    if (!inputType.isDynamicDim(*axis) &&
+        inputType.getDimSize(*axis) != scale.getDimSize(0))
+      return emitOpError("For per-channel quantization, expected the scales "
+                         "tensor dimension to match the quantization "
+                         "axis dimension of input tensor");
+  }
+
+  // Check 3: For block quantization, scale value should have same rank as that
+  // of input and axis value must be provided.
+  if (scale.getRank() == inputRank) {
+    if (axis)
+      return emitOpError("Scale has same rank as that of input, thus this is "
+                         "block quantization. Axis is not valid in this case.");
+
+    // Check 3A: Block quantization is supported only for f4 and i4 type.
+    auto resultQuantizedElementType = getResult().getType().getElementType();
+    if (!resultQuantizedElementType.isIntOrFloat() ||
+        resultQuantizedElementType.getIntOrFloatBitWidth() >= 8)
+      return emitOpError(
+          "Block quantization is supported only for f4 or i4 output types.");
+
+    // Check 3B: Blocking dimension should be last or second last.
+    int32_t mayBeBlockingDim = getQDQBlockingDim(inputType, scale);
+    if (mayBeBlockingDim != -1 && mayBeBlockingDim < inputRank - 2)
+      return emitOpError("For block quantization, blocking dimension should be "
+                         "either last or second last.");
+
+    // Check 3C: All dimensions of input and scale should match, except
+    // quantization axis dim. shape(scale)[axis] = shape(input)[axis] // B
+    // where B is block size and axis is blocking axis.
+    for (int64_t i = 0; i < inputRank; i++) {
+      if (inputType.isDynamicDim(i))
+        continue;
+      if (inputType.getDimSize(i) == scale.getDimSize(i))
+        continue;
+      if (mayBeBlockingDim != -1 && i == mayBeBlockingDim) {
+        continue;
+      }
+      return emitOpError(
+                 "For block quantization, all input and scale dimensions match "
+                 "except a single blocking dimension : ")
+             << mayBeBlockingDim;
+    }
+  }
+  return success();
+} // LogicalResult tensorrt::QuantizeOp::verify()
+
+//===----------------------------------------------------------------------===//
+// DynamicQuantizeOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult tensorrt::DynamicQuantizeOp::verify() {
+  const int32_t supportedBlockSize = 16;
+  // Check 1: Block size must be 16.
+  auto blockSize = getBlockSize();
+  if (blockSize != supportedBlockSize)
+    return emitOpError("currently only block size of 16 is supported!");
+  // Check 2: Axis must be the last or second last input dimension.
+  auto inputType = getInput().getType();
+  auto axis = getAxis();
+  if (axis < inputType.getRank() - 2 || axis >= inputType.getRank())
+    return emitOpError("invalid axis! Axis can be either last or second last "
+                       "dimension of the input.");
+  // Check 3: Axis dim, if static, must be multiple of 16.
+  if (!inputType.isDynamicDim(axis)) {
+    if (inputType.getDimSize(axis) % supportedBlockSize != 0)
+      return emitOpError("shape(input)[axis] must be divisible by 16.");
+  }
+
+  return success();
+} // LogicalResult tensorrt::DynamicQuantizeOp::verify()
+
+//===----------------------------------------------------------------------===//
 // DequantizeOp
 //===----------------------------------------------------------------------===//
 
 LogicalResult tensorrt::DequantizeOp::verify() {
   auto inputType = getInput().getType();
-  const int64_t inputRank = getInput().getType().getRank();
   auto scale = getScale().getType();
-  if (auto axis = getAxis()) {
-    int32_t axisI32 = *axis;
-    if (axisI32 >= inputRank || axis < 0)
-      return emitOpError("expected axis to be non-negative and less than ")
-             << inputRank;
-    // Scale is 1D for per-channel quantization
-    if (scale.getRank() != 1)
-      return emitOpError("if axis is provided, scale must be a 1D tensor for "
-                         "per channel quantization");
-    // size of scales must match the size of input on quantization
-    // axis
-    if (!inputType.isDynamicDim(axisI32) &&
-        (inputType.getDimSize(axisI32) != scale.getDimSize(0)))
-      return emitOpError("expected the scales size to match the dequantization "
-                         "axis of input tensor");
-  } else {
-    if (scale.getRank() == 2) {
-      if (!inputType.getElementType().isInteger(4))
-        return emitOpError(
-            "2D scale is supported only for dequantizing INT4 input");
-      if (inputType.getRank() != 2)
-        return emitOpError("INT4 block-dequantization needs 2D input.");
-      if (!inputType.isDynamicDim(scale.getRank() - 1) &&
-          (scale.getDimSize(scale.getRank() - 1) !=
-           inputType.getDimSize(scale.getRank() - 1)))
-        return emitOpError(
-            " The last dimension of scale and input tensors must "
-            "match (INT4 block-dequantization is performed over the first "
-            "dimension)");
-    } else {
-      if (scale.getRank() != 0)
-        return emitOpError(
-            "if no axis is provided and input is not INT4, dequantization is "
-            "per-tensor. In this case, `scale` must be a scalar i.e. 0 dim "
-            "tensor.");
-    }
+  std::optional<int32_t> axis = getAxis();
+  const int64_t inputRank = getInput().getType().getRank();
+  // Dequantization can be per-tensor, per-channel or block dequantization.
+  // Axis value is only valid for per-channel dequantization.
+  // Block dequantization is valid only for f4 or i4 input type.
+
+  // Scale value is scalar for per-tensor dequantization, 1D for per-channel
+  // dequantization and, same rank as the input for block dequantization.
+  if (!(scale.getRank() == 0 || scale.getRank() == 1 ||
+        scale.getRank() == inputRank))
+    return emitOpError("Scale value must be scalar for per-tensor "
+                       "dequantization, 1D for per-channel dequantization, and "
+                       "same rank as the input for block dequantization.");
+
+  // Check 1: For per-tensor dequantization, there should only be scalar scale
+  // and no axis.
+  if (scale.getRank() == 0 && axis.has_value()) {
+    return emitOpError(
+        "When scale value is scalar, dequantization is per-tensor "
+        "and thus axis value shouldn't be provided.");
   }
 
-  // Sub-byte input types must have even final dimension. As of TensorRT 10.5,
-  // the only sub-byte element type supported is i4, and the typical use case is
-  // to dequantize i4 constants (weights). I4 weights must be packed, and while
-  // this could allow a range of valid constants shapes like '4x3xi4', TensorRT
-  // effectively makes an additional requirement that the last dimension must be
-  // vectorizable to `vector<2xi4>`.
-  Type quantizedElementType = inputType.getElementType();
-  if (auto quantType = dyn_cast<quant::QuantizedType>(quantizedElementType))
-    quantizedElementType = quantType.getStorageType();
-  if (!quantizedElementType.isIntOrFloat())
-    return emitOpError("expected element type to be int or float type");
-  if (quantizedElementType.getIntOrFloatBitWidth() < 8 &&
-      inputType.getDimSize(inputRank - 1) % 2 == 1)
-    return emitOpError(
-               "input tensor with sub-byte element type must have even final "
-               "dimension, but input tensor has final dimension of size ")
-           << inputType.getDimSize(inputRank - 1);
+  // Check 2: For per-channel dequantization, scale value should be 1D tensor
+  // and axis value must be provided.
+  if (scale.getRank() == 1) {
+    if (!axis)
+      return emitOpError(
+          "When scale is 1D tensor, dequantization is per-channel "
+          "and thus axis value must be provided.");
+
+    // Check 2A: Axis value must be within range.
+    if (*axis >= inputRank || *axis < 0)
+      return emitOpError("expected axis to be non-negative and less than ")
+             << inputRank;
+
+    // Check 2B: Scale tensor dimension must match `axis` dimension of input.
+    if (!inputType.isDynamicDim(*axis) &&
+        inputType.getDimSize(*axis) != scale.getDimSize(0))
+      return emitOpError("For per-channel dequantization, expected the scales "
+                         "tensor dim to match the dequantization "
+                         "axis dimension of input tensor");
+  }
+
+  // Check 3: For block dequantization, scale value should have same rank as
+  // that of input and axis value must be provided.
+  if (scale.getRank() == inputRank) {
+    if (axis)
+      return emitOpError(
+          "Scale has same rank as that of input, thus this is "
+          "block dequantization. Axis is not valid in this case.");
+
+    // Check 3A: Block dequantization is supported only for f4 and i4 type.
+    auto inputQuantizedElementType = getInput().getType().getElementType();
+    if (!inputQuantizedElementType.isIntOrFloat() ||
+        inputQuantizedElementType.getIntOrFloatBitWidth() >= 8)
+      return emitOpError(
+          "Block dequantization is supported only for f4 or i4 input types.");
+
+    // Check 3B: Blocking dimension should be last or second last.
+    int32_t mayBeBlockingDim = getQDQBlockingDim(inputType, scale);
+    if (mayBeBlockingDim != -1 && mayBeBlockingDim < inputRank - 2)
+      return emitOpError(
+          "For block dequantization, blocking dimension should be "
+          "either last or second last.");
+
+    // Check 3C: All dimensions of input and scale should match, except a single
+    // blocking axis dim. shape(scale)[axis] = shape(input)[axis] // B where B
+    // is block size and axis is blocking axis.
+    for (int64_t i = 0; i < inputRank; i++) {
+      if (inputType.isDynamicDim(i))
+        continue;
+      if (inputType.getDimSize(i) == scale.getDimSize(i))
+        continue;
+      if (mayBeBlockingDim != -1 && i == mayBeBlockingDim) {
+        continue;
+      }
+      return emitOpError("For block dequantization, all input and scale "
+                         "dimensions match "
+                         "except a single blocking dimension : ")
+             << mayBeBlockingDim;
+    }
+  }
 
   return success();
 }
@@ -1247,54 +1401,6 @@ LogicalResult tensorrt::ScatterElementsOp::verify() {
 
   return success();
 } // LogicalResult tensorrt::ScatterElementsOp::verify()
-
-LogicalResult tensorrt::QuantizeOp::verify() {
-  // axis must be non-negative and must be smaller than input's Rank
-  auto inputType = getInput().getType();
-  auto scale = getScale().getType();
-  const int64_t inputRank = getInput().getType().getRank();
-  if (auto axis = getAxis()) {
-    int32_t axisI32 = *axis;
-    if (axisI32 >= inputRank || axis < 0)
-      return emitOpError("expected axis to be non-negative and less than ")
-             << inputRank;
-    // Scale is 1D for per-channel quantization
-    if (scale.getRank() != 1)
-      return emitOpError("if axis is provided, scale must be a 1D tensor for "
-                         "per channel quantization");
-    // size of scales must match the size of input on quantization
-    // axis
-    if (!inputType.isDynamicDim(axisI32) &&
-        inputType.getDimSize(axisI32) != scale.getDimSize(0))
-      return emitOpError("expected the scales size to match the "
-                         "quantization "
-                         "axis of input tensor");
-  } else {
-    // If scale is 2D, its INT4 block quantization
-    if (scale.getRank() == 2) {
-      if (!getType().getElementType().isInteger(4))
-        return emitOpError(
-            "2D scale is supported only for quantizing INT4 output");
-      if (inputType.getRank() != 2)
-        return emitOpError("INT4 block-quantization needs 2D input.");
-      if (!inputType.isDynamicDim(scale.getRank() - 1) &&
-          (scale.getDimSize(scale.getRank() - 1) !=
-           inputType.getDimSize(scale.getRank() - 1)))
-        return emitOpError(
-            " The last dimension of scale and input tensors must "
-            "match (INT4 block-quantization is performed over the first "
-            "dimension)");
-    } else {
-      // It has to be per-tensor quantization now
-      if (scale.getRank() != 0)
-        return emitOpError(
-            "if no axis is provided and input is not INT4, quantization is "
-            "per-tensor. In this case, `scale` must be a scalar i.e. 0 dim "
-            "tensor.");
-    }
-  }
-  return success();
-} // LogicalResult tensorrt::QuantizeOp::verify()
 
 /// Return the disjunction of the callables invoked with the element type of
 /// `t`.

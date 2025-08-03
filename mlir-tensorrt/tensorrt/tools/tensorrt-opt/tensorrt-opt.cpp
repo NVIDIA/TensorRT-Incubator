@@ -1,6 +1,6 @@
 //===- tensorrt-opt.cpp ---------------------------------------------------===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -48,12 +48,16 @@ int main(int argc, char **argv) {
   mlir::registerTestTensorKindAnalysisPass();
   mlir::registerTestTensorRTShapeInferencePass();
   mlir::func::registerInlinerExtension(registry);
-  mlir::tensorrt::registerTensorRTTranslationCLOpts();
   mlir::tensorrt::registerTensorRTPasses();
   mlir::tensorrt::registerTensorRTTranslationPasses();
   mlir::registerTransformsPasses();
   mlir::tensorrt::registerTensorKindOpInterfaceExternalModels(registry);
+
+#ifdef MLIR_TRT_TARGET_TENSORRT
+  mlir::tensorrt::registerTensorRTTranslationCLOpts();
   mlir::tensorrt::registerTensorRTEncodingOpInterfaceExternalModels(registry);
+#endif // MLIR_TRT_TARGET_TENSORRT
+
   return mlir::asMainReturnCode(
       mlir::MlirOptMain(argc, argv, "Standalone optimizer driver\n", registry));
 }

@@ -6,10 +6,15 @@ add_mtrtd_library(MLIRTensorRTTensorRTDialectBase
   LINK_LIBS PUBLIC
   MLIRIR
   MLIRQuantDialect
+  MLIRTensorRTCommonIncludes
   )
 
+set(optional_deps)
+if(MLIR_TRT_TARGET_TENSORRT)
+  list(APPEND optional_deps MLIRTensorRTNvInferUtils)
+endif()
 
-add_mtrtd_library(MLIRTensorRTDialect
+add_mtrtd_library(MLIRTensorRTTensorRTDialect
   EinsumHelper.cpp
   TensorRT.cpp
   Verification.cpp
@@ -30,18 +35,20 @@ add_mtrtd_library(MLIRTensorRTDialect
 
   LINK_LIBS PUBLIC
   MLIRArithDialect
-  MLIRIR
-  MLIRDialect
-  MLIRSupport
-  MLIRInferTypeOpInterface
   MLIRControlFlowInterfaces
-  MLIRFuncDialect
-  MLIRQuantDialect
   MLIRDestinationStyleOpInterface
+  MLIRDialect
+  MLIRFuncDialect
+  MLIRInferTypeOpInterface
+  MLIRIR
+  MLIRQuantDialect
+  MLIRSupport
   MLIRTensorDialect
-  MLIRTensorRTInterfaces
-  MLIRTensorRTNvInferUtils
-  MLIRTensorRTShapeUtils
+  MLIRTensorRTCommonIncludes
+  MLIRTensorRTCommonTensorKindInterface
   MLIRTensorRTConstantFoldingUtils
+  MLIRTensorRTDialectIncludes
+  MLIRTensorRTShapeUtils
   MLIRTensorRTTensorRTDialectBase
+  ${optional_deps}
   )

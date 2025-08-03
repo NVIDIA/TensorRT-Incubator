@@ -19,7 +19,7 @@
 //===----------------------------------------------------------------------===//
 ///
 /// This file contains the declarations for the TensorRTBackend extensions to
-/// the Plan dialect. It defines the TensorRTClusterKindAttr; see the associated
+/// the Plan dialect. It defines the TensorRTBackendAttr; see the associated
 ///
 //===----------------------------------------------------------------------===//
 #ifndef MLIR_TENSORRT_BACKENDS_TENSORRT_TENSORRTBACKEND

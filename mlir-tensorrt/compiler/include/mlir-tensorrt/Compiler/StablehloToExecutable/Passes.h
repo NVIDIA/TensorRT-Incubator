@@ -42,22 +42,6 @@ namespace mlirtrt::compiler {
 #define GEN_PASS_REGISTRATION
 #include "mlir-tensorrt/Compiler/StablehloToExecutable/Passes.h.inc"
 
-//===----------------------------------------------------------------------===//
-// Pipeline Registrations
-//===----------------------------------------------------------------------===//
-
-/// Register the StableHLO clustering and compilation pipelines.
-/// Note that currently it's not possible to use dynamically loaded extensions
-/// when using pass pipelines directly from the command line. Instead, you need
-/// to invoke the extension passes directly in the appropriate locations.
-/// TODO: this limitation is caused by not having access to MLIRContext when the
-/// pass pipeline is constructed. We can only use the dynamic extension
-/// population mechanism when we have a context/CompilationClient, e.g. in
-/// or from Python API.
-/// The pipelines registered here will use "default extensions"
-/// (TensorRTExtension).
-void registerStablehloToExecutablePipelines();
-
 /// Options for processing StableHLO input IR.
 struct StableHloInputOptions {
   /// Whether to lower Stablehlo control flow ops to SCF dialect ops.

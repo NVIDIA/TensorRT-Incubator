@@ -24,7 +24,7 @@
 #ifndef MLIR_TENSORRT_DIALECT_TENSORRTRUNTIME_IR_TENSORRTRUNTIME_H
 #define MLIR_TENSORRT_DIALECT_TENSORRTRUNTIME_IR_TENSORRTRUNTIME_H
 
-#include "mlir-tensorrt-dialect/Interface/TensorKindOpInterface.h"
+#include "mlir-tensorrt-common/Interfaces/TensorKindOpInterface.h"
 #include "mlir-tensorrt/Dialect/CUDA/IR/CUDADialect.h"
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/OpDefinition.h"

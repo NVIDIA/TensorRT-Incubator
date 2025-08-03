@@ -259,9 +259,9 @@ def ClusteringPass : Pass<"plan-clustering", "::mlir::ModuleOp"> {
 
     The kinds of clusters that can be formed and the specific rules for
     clustering are defined by the clustering configuration specified
-    by the module's `plan.cluster_kinds` attribute. This is an array of
+    by the module's `plan.backends` attribute. This is an array of
     attributes which all implement the
-    [ClusterKindAttrInterface](../IR/PlanInterfaces.td).
+    [CompilerBackendAttrInterface](../IR/PlanInterfaces.td).
   }];
 
   let options = [
@@ -615,6 +615,28 @@ def PlanModuleBufferizePass : Pass<"plan-module-bufferize",
     "::mlir::memref::MemRefDialect",
     "::mlir::bufferization::BufferizationDialect",
     "::mlir::plan::PlanDialect"
+  ];
+}
+
+//===----------------------------------------------------------------------===//
+// PlanConfirmArgumentDonation
+//===----------------------------------------------------------------------===//
+def PlanConfirmArgumentDonationPass : Pass<"plan-confirm-argument-donation",
+                                            "func::FuncOp"> {
+  let summary = "Confirms if donated arguments are used after bufferization.";
+
+  let description = [{
+    For each argument marked with `plan.aliasing_output = N`, check whether the
+    N-th returned value from the function is equivalent to the argument, after
+    bufferization. If not, either emit an error (if `fail-on-donation-argument-
+    rejection=true`) or remove the `plan.aliasing_output` attribute.
+  }];
+
+  let options = [
+    Option<"failOnDonationArgumentRejection", "fail-on-donation-argument-rejection",
+           "bool", /*default=*/"false",
+           "Allows controlling whether pass should fail if aliasing fails after "
+           "bufferization.">,
   ];
 }
 

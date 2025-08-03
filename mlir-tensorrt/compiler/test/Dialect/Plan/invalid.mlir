@@ -6,7 +6,7 @@
 
 // -----
 
-// expected-error @below {{min_shape must be pointwise less-than-or-equal-to max_shape, but min_values[2] = 3 > max_values[2] = 2}}
+// expected-error @below {{min_shape must be pointwise less-than-or-equal-to max_shape, but min_shape[2] = 3 > max_shape[2] = 2}}
 #plan_shape_bounds = #plan.bounds<shape, [1, 2, 3], [4, 5, 2]>
 
 // -----
@@ -109,7 +109,7 @@ func.func @value_bounds_scalar_shape_ok(%arg0: i32 {plan.value_bounds = #bounds}
 
 func.func @plan_inline_group_mismatched_result_types(%arg0: tensor<10xf32>, %arg1: index) {
   // expected-error @below {{'plan.inline_group' op expected types of yielded operands ('tensor<10xf32>', 'index') to equal types of results ('index', 'tensor<10xf32>')}}
-  plan.inline_group target(#plan.tensorrt_cluster<benefit=1, disallow_shape_tensor_calculations=false>) -> index, tensor<10xf32> {
+  plan.inline_group target(#plan.tensorrt_backend<benefit=1, disallow_shape_tensor_calculations=false>) -> index, tensor<10xf32> {
     yield %arg0, %arg1 : tensor<10xf32>, index
   }
   return
@@ -119,7 +119,7 @@ func.func @plan_inline_group_mismatched_result_types(%arg0: tensor<10xf32>, %arg
 
 func.func @inline_closed_group_wrong_num_block_args(%arg0: tensor<?xf32>, %arg1: index, %arg2: tensor<?xf32>) -> tensor<?xf32> {
   // expected-error @below {{'plan.inline_closed_group' op  region control flow edge from parent operands to Region #0: source has 3 operands, but target successor needs 4}}
-  %2 = plan.inline_closed_group target(#plan.tensorrt_cluster<benefit=1, disallow_shape_tensor_calculations=false>)
+  %2 = plan.inline_closed_group target(#plan.tensorrt_backend<benefit=1, disallow_shape_tensor_calculations=false>)
     inputs(%arg0, %arg1 : tensor<?xf32>, index)
     outs(%arg2 : tensor<?xf32>)
     in_attrs [#plan.bounds<shape, [10], [20]>, #plan.bounds<none>]
@@ -136,7 +136,7 @@ func.func @inline_closed_group_wrong_num_block_args(%arg0: tensor<?xf32>, %arg1:
 
 func.func @inline_closed_alloc_group_wrong_num_block_args(%arg0: tensor<?xf32>, %arg1: index, %arg2: tensor<?xf32>) -> tensor<?xf32> {
   // expected-error @below {{'plan.inline_closed_alloc_group' op  region control flow edge from parent operands to Region #0: source has 2 operands, but target successor needs 3}}
-  %2 = plan.inline_closed_alloc_group target(#plan.tensorrt_cluster<benefit=1, disallow_shape_tensor_calculations=false>)
+  %2 = plan.inline_closed_alloc_group target(#plan.tensorrt_backend<benefit=1, disallow_shape_tensor_calculations=false>)
     inputs(%arg0, %arg1 : tensor<?xf32>, index)
     in_attrs [#plan.bounds<shape, [10], [20]>, #plan.bounds<none>] -> tensor<?xf32> {
   ^bb0(%in0: tensor<?xf32>, %in1: index, %out0: tensor<?xf32>):
@@ -151,7 +151,7 @@ func.func @inline_closed_alloc_group_wrong_num_block_args(%arg0: tensor<?xf32>, 
 
 func.func @inline_closed_group_wrong_size_bounds_attrs(%arg0: tensor<?xf32>, %arg1: index, %arg2: tensor<?xf32>) -> tensor<?xf32> {
   // expected-error @below {{'plan.inline_closed_group' op expected number of inputs (2) to equal the number of input_attrs BoundsAttrs (0)}}
-  %2 = plan.inline_closed_group target(#plan.tensorrt_cluster<benefit=1, disallow_shape_tensor_calculations=false>)
+  %2 = plan.inline_closed_group target(#plan.tensorrt_backend<benefit=1, disallow_shape_tensor_calculations=false>)
     inputs(%arg0, %arg1 : tensor<?xf32>, index)
     outs(%arg2 : tensor<?xf32>)
     in_attrs []
@@ -168,7 +168,7 @@ func.func @inline_closed_group_wrong_size_bounds_attrs(%arg0: tensor<?xf32>, %ar
 
 func.func @inline_closed_alloc_group_wrong_size_bounds_attrs(%arg0: tensor<?xf32>, %arg1: index, %arg2: tensor<?xf32>) -> tensor<?xf32> {
   // expected-error @below {{'plan.inline_closed_alloc_group' op expected number of inputs (2) to equal the number of input_attrs BoundsAttrs (0)}}
-  %2 = plan.inline_closed_alloc_group target(#plan.tensorrt_cluster<benefit=1, disallow_shape_tensor_calculations=false>)
+  %2 = plan.inline_closed_alloc_group target(#plan.tensorrt_backend<benefit=1, disallow_shape_tensor_calculations=false>)
     inputs(%arg0, %arg1 : tensor<?xf32>, index)
     in_attrs [] -> tensor<?xf32> {
   ^bb0(%in0: tensor<?xf32>, %in1: index):
@@ -183,7 +183,7 @@ func.func @inline_closed_alloc_group_wrong_size_bounds_attrs(%arg0: tensor<?xf32
 
 func.func @inline_closed_group_wrong_scalar_bounds_type(%arg0: tensor<?xf32>, %arg1: index, %arg2: tensor<?xf32>) -> tensor<?xf32> {
   // expected-error @below {{'plan.inline_closed_group' op expected only value bounds or none bounds for scalar inputs #0 of type 'index', but got #plan.bounds<shape, [10], [20]>}}
-  %2 = plan.inline_closed_group target(#plan.tensorrt_cluster<benefit=1, disallow_shape_tensor_calculations=false>)
+  %2 = plan.inline_closed_group target(#plan.tensorrt_backend<benefit=1, disallow_shape_tensor_calculations=false>)
     inputs(%arg1, %arg0 : index, tensor<?xf32>)
     outs(%arg2 : tensor<?xf32>)
     in_attrs [#plan.bounds<shape, [10], [20]>, #plan.bounds<none>]
@@ -200,7 +200,7 @@ func.func @inline_closed_group_wrong_scalar_bounds_type(%arg0: tensor<?xf32>, %a
 
 func.func @inline_closed_group_alloc_wrong_scalar_bounds_type(%arg0: tensor<?xf32>, %arg1: index, %arg2: tensor<?xf32>) -> tensor<?xf32> {
   // expected-error @below {{'plan.inline_closed_alloc_group' op expected only value bounds or none bounds for scalar inputs #0 of type 'index', but got #plan.bounds<shape, [10], [20]>}}
-  %2 = plan.inline_closed_alloc_group target(#plan.tensorrt_cluster<benefit=1, disallow_shape_tensor_calculations=false>)
+  %2 = plan.inline_closed_alloc_group target(#plan.tensorrt_backend<benefit=1, disallow_shape_tensor_calculations=false>)
     inputs(%arg1, %arg0 : index, tensor<?xf32>)
     in_attrs [#plan.bounds<shape, [10], [20]>, #plan.bounds<none>] -> tensor<?xf32> {
   ^bb0(%in0: tensor<?xf32>, %in1: index):
@@ -215,7 +215,7 @@ func.func @inline_closed_group_alloc_wrong_scalar_bounds_type(%arg0: tensor<?xf3
 
 func.func @inline_closed_group_wrong_bounds_type(%arg0: tensor<?xf32>, %arg1: index, %arg2: tensor<?xf32>) -> tensor<?xf32> {
   // expected-error @below {{'plan.inline_closed_group' op inputs #0 has type 'tensor<?xf32>', whose rank is not equal to the rank of the corresponding shape bounds #plan.bounds<shape, [10, 10], [20, 20]>}}
-  %2 = plan.inline_closed_group target(#plan.tensorrt_cluster<benefit=1, disallow_shape_tensor_calculations=false>)
+  %2 = plan.inline_closed_group target(#plan.tensorrt_backend<benefit=1, disallow_shape_tensor_calculations=false>)
     inputs(%arg0, %arg1 : tensor<?xf32>, index)
     outs(%arg2 : tensor<?xf32>)
     in_attrs [#plan.bounds<shape, [10, 10], [20, 20]>, #plan.bounds<none>]
@@ -231,7 +231,7 @@ func.func @inline_closed_group_wrong_bounds_type(%arg0: tensor<?xf32>, %arg1: in
 
 func.func @inline_closed_alloc_group_wrong_bounds_type(%arg0: tensor<?xf32>, %arg1: index, %arg2: tensor<?xf32>) -> tensor<?xf32> {
   // expected-error @below {{'plan.inline_closed_alloc_group' op inputs #0 has type 'tensor<?xf32>', whose rank is not equal to the rank of the corresponding shape bounds #plan.bounds<shape, [10, 10], [20, 20]>}}
-  %2 = plan.inline_closed_alloc_group target(#plan.tensorrt_cluster<benefit=1, disallow_shape_tensor_calculations=false>)
+  %2 = plan.inline_closed_alloc_group target(#plan.tensorrt_backend<benefit=1, disallow_shape_tensor_calculations=false>)
     inputs(%arg0, %arg1 : tensor<?xf32>, index)
     in_attrs [#plan.bounds<shape, [10, 10], [20, 20]>, #plan.bounds<none>] -> tensor<?xf32> {
   ^bb0(%in0: tensor<?xf32>, %in1: index):
@@ -246,7 +246,7 @@ func.func @inline_closed_alloc_group_wrong_bounds_type(%arg0: tensor<?xf32>, %ar
 
 func.func @inline_closed_group_wrong_bounds_type(%arg0: tensor<?xf32>, %arg1: index, %arg2: tensor<?xf32>) -> tensor<?xf32> {
   // expected-error @below {{'plan.inline_closed_group' op inputs #0 has type 'tensor<?xf32>', but has a corresponding bounds attribute of 'value' kind, which is only allowed for staticly shaped operands}}
-  %2 = plan.inline_closed_group target(#plan.tensorrt_cluster<benefit=1, disallow_shape_tensor_calculations=false>)
+  %2 = plan.inline_closed_group target(#plan.tensorrt_backend<benefit=1, disallow_shape_tensor_calculations=false>)
     inputs(%arg0, %arg1 : tensor<?xf32>, index)
     outs(%arg2 : tensor<?xf32>)
     in_attrs [#plan.bounds<value, dense<[10]> : tensor<1xi64>, dense<[10]> : tensor<1xi64>>,
@@ -264,7 +264,7 @@ func.func @inline_closed_group_wrong_bounds_type(%arg0: tensor<?xf32>, %arg1: in
 
 func.func @inline_closed_alloc_group_wrong_bounds_type(%arg0: tensor<?xf32>, %arg1: index, %arg2: tensor<?xf32>) -> tensor<?xf32> {
   // expected-error @below {{'plan.inline_closed_alloc_group' op inputs #0 has type 'tensor<?xf32>', but has a corresponding bounds attribute of 'value' kind, which is only allowed for staticly shaped operands}}
-  %2 = plan.inline_closed_alloc_group target(#plan.tensorrt_cluster<benefit=1, disallow_shape_tensor_calculations=false>)
+  %2 = plan.inline_closed_alloc_group target(#plan.tensorrt_backend<benefit=1, disallow_shape_tensor_calculations=false>)
     inputs(%arg0, %arg1 : tensor<?xf32>, index)
     in_attrs [#plan.bounds<value, dense<[10]> : tensor<1xi64>, dense<[10]> : tensor<1xi64>>,
               #plan.bounds<none>] -> tensor<?xf32> {
@@ -280,7 +280,7 @@ func.func @inline_closed_alloc_group_wrong_bounds_type(%arg0: tensor<?xf32>, %ar
 
 func.func @inline_closed_group_wrong_bounds_type(%arg0: tensor<1xf32>, %arg1: index, %arg2: tensor<1xf32>) -> tensor<1xf32> {
   // expected-error @below {{'plan.inline_closed_group' op inputs #0 expected element type of value bounds elements ('i64') to be compatible with the type ('tensor<1xf32>')}}
-  %2 = plan.inline_closed_group target(#plan.tensorrt_cluster<benefit=1, disallow_shape_tensor_calculations=false>)
+  %2 = plan.inline_closed_group target(#plan.tensorrt_backend<benefit=1, disallow_shape_tensor_calculations=false>)
     inputs(%arg0, %arg1 : tensor<1xf32>, index)
     outs(%arg2 : tensor<1xf32>)
     in_attrs [#plan.bounds<value, dense<[10]> : tensor<1xi64>, dense<[10]> : tensor<1xi64>>,
@@ -299,7 +299,7 @@ func.func @inline_closed_group_wrong_bounds_type(%arg0: tensor<1xf32>, %arg1: in
 
 func.func @inline_closed_alloc_group_wrong_bounds_type(%arg0: tensor<1xf32>, %arg1: index, %arg2: tensor<1xf32>) -> tensor<1xf32> {
   // expected-error @below {{'plan.inline_closed_alloc_group' op inputs #0 expected element type of value bounds elements ('i64') to be compatible with the type ('tensor<1xf32>')}}
-  %2 = plan.inline_closed_alloc_group target(#plan.tensorrt_cluster<benefit=1, disallow_shape_tensor_calculations=false>)
+  %2 = plan.inline_closed_alloc_group target(#plan.tensorrt_backend<benefit=1, disallow_shape_tensor_calculations=false>)
     inputs(%arg0, %arg1 : tensor<1xf32>, index)
     in_attrs [#plan.bounds<value, dense<[10]> : tensor<1xi64>, dense<[10]> : tensor<1xi64>>,
               #plan.bounds<none>] -> tensor<1xf32> {
@@ -315,7 +315,7 @@ func.func @inline_closed_alloc_group_wrong_bounds_type(%arg0: tensor<1xf32>, %ar
 
 func.func @inline_closed_group_wrong_bounds_type(%arg0: tensor<1xf32>, %arg1: index, %arg2: tensor<1xf32>) -> tensor<1xf32> {
   // expected-error @below {{'plan.inline_closed_group' op inputs #0 expected type of values bounds elements ('tensor<2xf32>') to be compatible with the type ('tensor<1xf32>')}}
-  %2 = plan.inline_closed_group target(#plan.tensorrt_cluster<benefit=1, disallow_shape_tensor_calculations=false>)
+  %2 = plan.inline_closed_group target(#plan.tensorrt_backend<benefit=1, disallow_shape_tensor_calculations=false>)
     inputs(%arg0, %arg1 : tensor<1xf32>, index)
     outs(%arg2 : tensor<1xf32>)
     in_attrs [#plan.bounds<value, dense<[10., 20.]> : tensor<2xf32>, dense<[20., 30.]> : tensor<2xf32>>,
@@ -333,7 +333,7 @@ func.func @inline_closed_group_wrong_bounds_type(%arg0: tensor<1xf32>, %arg1: in
 
 func.func @inline_closed_alloc_group_wrong_bounds_type(%arg0: tensor<1xf32>, %arg1: index, %arg2: tensor<1xf32>) -> tensor<1xf32> {
   // expected-error @below {{'plan.inline_closed_alloc_group' op inputs #0 expected type of values bounds elements ('tensor<2xf32>') to be compatible with the type ('tensor<1xf32>')}}
-  %2 = plan.inline_closed_alloc_group target(#plan.tensorrt_cluster<benefit=1, disallow_shape_tensor_calculations=false>)
+  %2 = plan.inline_closed_alloc_group target(#plan.tensorrt_backend<benefit=1, disallow_shape_tensor_calculations=false>)
     inputs(%arg0, %arg1 : tensor<1xf32>, index)
     in_attrs [#plan.bounds<value, dense<[10., 20.]> : tensor<2xf32>, dense<[20., 30.]> : tensor<2xf32>>,
               #plan.bounds<none>] -> tensor<1xf32> {
@@ -348,7 +348,7 @@ func.func @inline_closed_alloc_group_wrong_bounds_type(%arg0: tensor<1xf32>, %ar
 // -----
 
 func.func @inline_closed_alloc_group_missing_input_attr(%arg0: tensor<1xf32>) -> tensor<1xf32> {
-  %1 = plan.inline_closed_alloc_group target(#plan.tensorrt_cluster<benefit=1, disallow_shape_tensor_calculations=false>)
+  %1 = plan.inline_closed_alloc_group target(#plan.tensorrt_backend<benefit=1, disallow_shape_tensor_calculations=false>)
   // expected-error @below {{'plan.inline_closed_alloc_group' expected 'in_attrs'}}
     inputs(%arg0: tensor<1xf32>) -> tensor<1xf32> {
   ^bb0(%in0: tensor<1xf32>):
@@ -360,7 +360,7 @@ func.func @inline_closed_alloc_group_missing_input_attr(%arg0: tensor<1xf32>) ->
 // -----
 
 func.func @inline_closed_alloc_group_unallowed_res_attr(%arg0: tensor<?xf32>) -> tensor<?xf32> {
-  %1 = plan.inline_closed_alloc_group target(#plan.tensorrt_cluster<benefit=1, disallow_shape_tensor_calculations=false>)
+  %1 = plan.inline_closed_alloc_group target(#plan.tensorrt_backend<benefit=1, disallow_shape_tensor_calculations=false>)
     inputs(%arg0: tensor<?xf32>)
   // expected-error @below {{expected '->'}}
     in_attrs [#plan.bounds<shape, [10], [20]>, #plan.bounds<none>]

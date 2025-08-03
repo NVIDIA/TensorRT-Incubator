@@ -18,7 +18,7 @@
 //
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt-dialect/Analysis/TensorKindAnalysis.h"
-#include "mlir-tensorrt-dialect/Interface/TensorKindOpInterface.h"
+#include "mlir-tensorrt-common/Interfaces/TensorKindOpInterface.h"
 #include "mlir/Analysis/DataFlowFramework.h"
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"

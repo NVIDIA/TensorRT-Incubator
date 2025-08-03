@@ -20,38 +20,25 @@
 #ifndef MLIR_TENSORRT_TARGET_TENSORRT_TRANSLATETOTENSORRT_H
 #define MLIR_TENSORRT_TARGET_TENSORRT_TRANSLATETOTENSORRT_H
 
-#ifdef MLIR_TRT_TARGET_TENSORRT
-#include "mlir-tensorrt-dialect/Target/TensorRTEncodingOpInterface/NetworkEncoder.h"
+#include "mlir-tensorrt-common/Utils/TensorRTVersion.h"
+#include "mlir/Support/LLVM.h"
 #include "mlir/Support/LogicalResult.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
+#include <mutex>
 
-#if defined(__GNUC__) || defined(__clang__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-#endif
-#include <NvInfer.h>
-#if defined(__GNUC__) || defined(__clang__)
-#pragma GCC diagnostic pop
-#endif
+namespace nvinfer1 {
+class IBuilder;
+class IHostMemory;
+class IBuilderConfig;
+class ITimingCache;
+} // namespace nvinfer1
 
 namespace mlir {
 class FunctionOpInterface;
 class Operation;
 class Pass;
 namespace tensorrt {
-
-/// A llvm::cl::opt parser for turning strings like "1024gb" into a number of
-/// bytes. Allowed suffixes are strings like 'gb', 'GiB', 'kb', 'mb', 'b' (case
-/// insensitive, we interpret both 'b|B' as meaning "byte"). This example comes
-/// straight from the LLVM documentation
-/// (https://llvm.org/docs/CommandLine.html#writing-a-custom-parser).
-struct ByteSizeParser : public llvm::cl::parser<std::optional<uint64_t>> {
-  using llvm::cl::parser<std::optional<uint64_t>>::parser;
-  // parse - Return true on error.
-  bool parse(llvm::cl::Option &O, StringRef ArgName, StringRef ArgValue,
-             std::optional<uint64_t> &Val);
-};
 
 /// TensorRTTranslationOptions wraps all available options for constructing
 /// TensorRT engine from MLIR. This should expose all TensorRT
@@ -113,10 +100,11 @@ struct TensorRTTranslationOptions {
 class TensorRTBuilderContext {
 private:
   TensorRTBuilderContext(TensorRTVersion version, int32_t cudaDevice,
-                         std::unique_ptr<nvinfer1::IBuilder> builder)
-      : version(version), cudaDevice(cudaDevice), builder(std::move(builder)) {}
+                         std::unique_ptr<nvinfer1::IBuilder> builder);
 
 public:
+  ~TensorRTBuilderContext();
+
   /// Create a TensorRTBuilderContext from a log configuration and CUDA device
   /// number. It will also load the TensorRT shlib dynamically and check the
   /// version against the version in the header at compile time. The CUDA device
@@ -127,15 +115,13 @@ public:
   create(bool verbose = false, int32_t cudaDevice = 0);
 
   /// Return a handle to the TensorRT builder.
-  const std::unique_ptr<nvinfer1::IBuilder> &getBuilder() const {
-    return builder;
-  }
+  const std::unique_ptr<nvinfer1::IBuilder> &getBuilder() const;
 
   /// Return a handle to the TensorRT builder.
-  std::unique_ptr<nvinfer1::IBuilder> &getBuilder() { return builder; }
+  std::unique_ptr<nvinfer1::IBuilder> &getBuilder();
 
   /// Return the loaded TensorRT version information.
-  const TensorRTVersion &getTensorRTVersion() const { return version; }
+  const TensorRTVersion &getTensorRTVersion() const;
 
   /// Return which CUDA device the builder is associated with.
   int32_t getCudaDeviceNumber() const { return cudaDevice; }
@@ -217,5 +203,4 @@ void registerToTensorRTTranslation();
 
 } // namespace mlir
 
-#endif // MLIR_TRT_TARGET_TENSORRT
 #endif // MLIR_TENSORRT_TARGET_TENSORRT_TRANSLATETOTENSORRT_H

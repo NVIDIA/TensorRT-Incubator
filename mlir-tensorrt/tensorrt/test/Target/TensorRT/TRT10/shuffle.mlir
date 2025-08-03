@@ -14,3 +14,17 @@ func.func @trt_shuffle_infer_bf16(%arg0: tensor<30x20x10x1xbf16>) -> tensor<30x2
   } ins(%arg0 : tensor<30x20x10x1xbf16>) -> tensor<30x20x10xbf16>
   return %0 : tensor<30x20x10xbf16>
 }
+
+// -----
+
+// CHECK-LABEL: @trt_shuffle_infer_i64
+//  CHECK-sAME: tensorrt.engine
+func.func @trt_shuffle_infer_i64(%arg0: tensor<30x20x10x1xi64>) -> tensor<30x20x10xi64> {
+  %0 = tensorrt.shuffle {
+    first_transpose = array<i64: 0, 1, 2, 3>,
+    reshape = array<i64: -1, 0, 0>,
+    second_transpose = array<i64: 0, 1, 2>,
+    zero_is_placeholder = true
+  } ins(%arg0 : tensor<30x20x10x1xi64>) -> tensor<30x20x10xi64>
+  return %0 : tensor<30x20x10xi64>
+}

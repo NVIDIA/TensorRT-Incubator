@@ -172,11 +172,6 @@ struct ExecutorOptions : public OptionsProvider {
   Option<int64_t> indexBitwidth{this->ctx, "executor-index-bitwidth",
                                 llvm::cl::init(64),
                                 llvm::cl::desc("executor index bitwidth")};
-
-  Option<bool> usePackedMemRefCConv{
-      this->ctx, "executor-use-packed-memref-cconv", llvm::cl::init(true),
-      llvm::cl::desc(
-          "whether to use packed or unpacked memref calling convention")};
 };
 
 struct DeviceOptions : public OptionsProvider {

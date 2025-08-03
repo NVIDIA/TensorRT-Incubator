@@ -4,7 +4,7 @@ This directory contains backend definitions that define how operations in the in
 may be grouped and compiled.
 
 In particular, each "backend" defines an attribute which implements the Plan
-dialect's `ClusterKindAttrInterface` interface. It implements a set of method that define:
+dialect's `CompilerBackendAttrInterface` interface. It implements a set of method that define:
 
 1. What kinds of operations from the input IR can or should be implemented 
    using this particular backend strategy. In other words, what operations

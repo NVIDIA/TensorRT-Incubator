@@ -4,7 +4,7 @@
 include "mlir-tensorrt/Dialect/TensorRTRuntime/IR/TensorRTRuntimeDialect.td"
 include "mlir-tensorrt/Dialect/TensorRTRuntime/IR/TensorRTRuntimeTypes.td"
 include "mlir-tensorrt/Dialect/CUDA/IR/CUDATypes.td"
-include "mlir-tensorrt-dialect/Interface/TensorKindOpInterface.td"
+include "mlir-tensorrt-common/Interfaces/TensorKindOpInterface.td"
 include "mlir/IR/SymbolInterfaces.td"
 include "mlir/IR/RegionKindInterface.td"
 include "mlir/Interfaces/DestinationStyleOpInterface.td"

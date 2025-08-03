@@ -1,5 +1,6 @@
 add_mlir_executor_runtime_library(MLIRTensorRTExecutorRuntimeCommon
   CommonRuntime.cpp
+  DataTypes.cpp
   PARTIAL_SOURCES_INTENDED
 
   LINK_LIBS
@@ -8,7 +9,7 @@ add_mlir_executor_runtime_library(MLIRTensorRTExecutorRuntimeCommon
   MLIRTensorRTExecutorRuntimeAPI
 )
 
-if(MLIR_EXECUTOR_ENABLE_CUDA)
+if(MLIR_TRT_ENABLE_CUDA)
 
   add_mlir_executor_runtime_library(MLIRTensorRTExecutorPtxCompilerUtils
     NvPtxCompilerUtils.cpp

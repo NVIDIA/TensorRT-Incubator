@@ -1,12 +1,11 @@
-// RUN: mlir-tensorrt-opt %s -stablehlo-to-executable-pipeline="disable-tensorrt-extension entrypoint=" \
-// RUN: | mlir-tensorrt-translate -mlir-to-runtime-executable -allow-unregistered-dialect -split-input-file \
-// RUN: | mlir-tensorrt-runner -input-type=rtexe -features=core -split-input-file
+// RUN: mlir-tensorrt-compiler %s -opts="disable-tensorrt-extension entrypoint=" -o - | \
+// RUN: mlir-tensorrt-runner -input-type=rtexe -features=core -split-input-file
 
 !tensor_type = tensor<2xcomplex<f64>>
 !compare_type = tensor<2xi1>
 
 module @add_op_test_c128 attributes {
-  plan.cluster_kinds = [#plan.host_cluster<benefit = 1>],
+  plan.backends = [#plan.host_backend<benefit = 1>],
   plan.memory_space = #plan.memory_space<host>
 } {
 

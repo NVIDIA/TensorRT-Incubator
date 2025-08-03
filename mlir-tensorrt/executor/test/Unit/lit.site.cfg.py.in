@@ -5,14 +5,14 @@ import sys
 config.llvm_tools_dir = lit_config.substitute("@LLVM_TOOLS_DIR@")
 config.llvm_build_mode = lit_config.substitute("@LLVM_BUILD_MODE@")
 config.mlir_obj_dir = "@MLIR_BINARY_DIR@"
-config.enable_bindings_python = @MLIR_ENABLE_BINDINGS_PYTHON@
+config.enable_python = @MLIR_ENABLE_BINDINGS_PYTHON@
 config.executor_obj_root = "@MLIR_EXECUTOR_BINARY_DIR@"
 config.llvm_shlib_ext = "@SHLIBEXT@"
 
 config.enable_asan = @ENABLE_ASAN@
-config.enable_cublas = @MLIR_EXECUTOR_ENABLE_CUBLAS@
-config.enable_nccl = @MLIR_EXECUTOR_ENABLE_NCCL@
-config.enable_mpi = @MLIR_EXECUTOR_ENABLE_MPI@
+config.enable_cublas = @MLIR_TRT_ENABLE_CUBLAS@
+config.enable_nccl = @MLIR_TRT_ENABLE_NCCL@
+config.enable_mpi = @MLIR_TRT_ENABLE_MPI@
 config.enable_assertions = @LLVM_ENABLE_ASSERTIONS@
 
 # Let the main config do the real work.

@@ -13,6 +13,7 @@ add_mlir_executor_library(MLIRTensorRTConvertToExecutorCommon
   MLIRDLTIDialect
   MLIRTensorRTExecutorDialect
   MLIRTensorRTExecutorUtils
+  MLIRExecutorIncludes
   )
 
 add_mlir_pdll_library(MLIRExecutorStdToExectutorPatternsIncGen
@@ -44,4 +45,5 @@ add_mlir_executor_library(MLIRTensorRTStdToExecutor
   MLIRTensorRTConvertToExecutorCommon
   MLIRTransforms
   MLIRTransformUtils
+  MLIRExecutorIncludes
 )

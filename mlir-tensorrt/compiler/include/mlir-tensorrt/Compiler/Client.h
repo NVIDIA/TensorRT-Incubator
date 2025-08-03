@@ -28,13 +28,15 @@
 #define MLIR_TENSORRT_COMPILER_CLIENT
 
 #include "mlir-tensorrt-common/Support/Status.h"
+#include "mlir-tensorrt/Compiler/Extension.h"
 #include "mlir-tensorrt/Compiler/OptionsProviders.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/Pass/PassManager.h"
-#include "mlir/Support/TypeID.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/Hashing.h"
+#include "llvm/ADT/StringMap.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/ToolOutputFile.h"
 #include <memory>
 
 namespace mlirtrt::compiler {
@@ -43,60 +45,119 @@ namespace mlirtrt::compiler {
 // CompilationTask
 //===----------------------------------------------------------------------===//
 
-/// Base class for all compilation tasks. CompilationTasks have associated
-/// unique TypeID. A CompilationTask is also a PassManager and has all the same
-/// methods. However, the CompilationTask's constructor is meant to construct to
-/// implement a function that maps a specific Options instance to a set of
-/// Passes that accomplish the task with the options. After construction,
-/// CompilationTask should be considered "frozen".
-/// TODO: consider moving this upstream so that we can properly implement the
-/// "freezing" API and disallow further modifications to the pipeline.
+/// Base class for all "compilation tasks". A "compilation task" is like a MLIR
+/// PassManager, but it has some additional functionality. Primarily, it is
+/// associated with a CompilationOptions object which should capture all options
+/// that may modify the behavior of the compiler pipeline and a list of
+/// extensions. Each concrete subclass type is associated with a unique name
+/// (static string literal ID).
+///
+/// Extensions are loaded from a global registry and will update the owned
+/// options object. It is up to the derived class to actually invoke the
+/// extension hooks for populating passes inside `populatePassManager`.
+///
+/// A CompilationTaskBase should never be constructed directly. Instead, tasks
+/// are constructed in a "default" state through the CompilerClient API. They
+/// are then lazily initialized using the `initialize` method, which loads
+/// extensions and populates the passes.
+///
+/// Concrete subclasses should implement `populatePassManager`. Subclasses
+/// should be implemented by deriving from the `CompilationTask` CRTP template
+/// rather than directly inheriting from this class.
+///
+/// The additional methods `openOutputFile` and `translateToTargetFormat` are
+/// provided to simplify implementation of the final compilation steps.
 class CompilationTaskBase : public mlir::PassManager {
 public:
-  CompilationTaskBase(mlir::MLIRContext *context, mlir::TypeID typeID,
-                      std::unique_ptr<CompilationTaskOptionsBase> options);
-
   virtual ~CompilationTaskBase();
 
-  mlir::TypeID getTypeID() const { return typeID; }
+  /// Initialize the CompilationTask using the given command line options.
+  /// This should be called after all extensions have been constructed.
+  /// It can only be called once, otherwise it will return an error.
+  /// The `overrideArtifactsDir` parameter can be used to specify an artifacts
+  /// directory and will override the `--artifacts-dir` flag that may also
+  /// be provided through `options`. The purpose of this is to simplify the
+  /// implementation of tools like `mlir-tensorrt-compiler`.
+  Status initialize(llvm::ArrayRef<llvm::StringRef> options,
+                    std::optional<llvm::StringRef> overrideArtifactsDir);
 
-  const CompilationTaskOptionsBase &getTaskOptions() { return *taskOptions; }
+  /// Return the options for the task.
+  const CompilationTaskOptionsBase &getTaskOptions() const {
+    return *taskOptions;
+  }
+
+  /// Return the (mutable) options for the task.
+  CompilationTaskOptionsBase &getTaskOptions() { return *taskOptions; }
+
+  /// Open an output file with the given name. If the file cannot be opened,
+  /// then the error message is passed through `errorMessage`. If
+  /// `outputFileName` is `-`, then the output file corresponds to stdout. If
+  /// the `outputFileName` is an absolute path, then it that file is opened or
+  /// created. If it is a relative path, then it is appended to the artifacts
+  /// directory path if the artifacts directory is set and exists. Otherwise,
+  /// the output file is opened relative to the current directory. Any existing
+  /// file is overwritten.
+  std::unique_ptr<llvm::ToolOutputFile>
+  openOutputFile(llvm::StringRef outputFileName, std::string &errorMessage,
+                 std::optional<llvm::StringRef> overrideExtension = {});
+
+  /// Translate to the final target format.
+  mlir::LogicalResult translateToTargetFormat(mlir::ModuleOp module,
+                                              llvm::raw_ostream &os);
 
 protected:
+  CompilationTaskBase(llvm::StringRef taskName, mlir::MLIRContext *context,
+                      std::unique_ptr<CompilationTaskOptionsBase> options);
+
+  /// Populate the pass manager with the appropriate passes. This should be
+  /// implemented by concrete subclasses. The pass manager is empty when this
+  /// method is called, and it will only be called once.
+  virtual void populatePassManager() = 0;
+
   /// Populate pass manager instrumentation (e.g. dumping IR after passes,
   /// timing, debug actions, etc) based on the given options. If the
   /// DebugOptions is nullptr, then the instrumentation and timing are populated
   /// from global CL options.
   void setupPassManagerInstrumentation(const DebugOptions *options);
 
-  /// The TypeID of the task.
-  const mlir::TypeID typeID;
+  const llvm::StringRef name;
 
   /// Options for the task.
   std::unique_ptr<CompilationTaskOptionsBase> taskOptions;
+
+  /// The Extensions associated with this task.
+  ExtensionList extensions;
+
+  /// A flag to indicate whether the task has been fully initialized.
+  bool initialized{false};
 };
 
-/// CRTP base class for compilation tasks. The derived classes must define
-/// `populatePassManager` and use appropriate macros to define their unique
-/// TypeID.
+/// CRTP base class for compilation tasks.
 template <typename DerivedTaskT, typename OptionsT>
 class CompilationTask : public CompilationTaskBase {
 public:
+  using OptionsType = OptionsT;
+
   CompilationTask(mlir::MLIRContext *context, std::unique_ptr<OptionsT> options)
-      : CompilationTaskBase(context, mlir::TypeID::get<DerivedTaskT>(),
-                            std::move(options)) {
-    DerivedTaskT::populatePassManager(*this, getOptions());
-  }
+      : CompilationTaskBase(DerivedTaskT::getName(), context,
+                            std::move(options)) {}
 
   const OptionsT &getOptions() {
     return static_cast<const OptionsT &>(*this->taskOptions);
   }
 
   using Base = CompilationTask;
+};
 
-  static bool classof(const CompilationTaskBase *base) {
-    return base->getTypeID() == mlir::TypeID::get<DerivedTaskT>();
-  }
+/// Phase describes the overall phases of the compilation pipeline. Not all
+/// phases are applicable to all tasks.
+enum class Phase {
+  ConstantFolding,
+  PreClustering,
+  PostClustering,
+  PreBufferization,
+  PostBufferization,
+  ExecutorLowering
 };
 
 //===----------------------------------------------------------------------===//
@@ -104,13 +165,20 @@ public:
 //===----------------------------------------------------------------------===//
 
 /// C++ users of the MLIR-TensorRT Compiler API should create a CompilerClient
-/// once for each process or thread that will be performing concurrent
-/// compilation work. The CompilerClient holds long-lived resources such as the
-/// MLIRContext and a TensorRT builder cache. Clients don't share resources
-/// since concurrent access could create issues, and currently we prefer to
-/// avoid cross-client locks. This means that separate clients have separate
-/// TensorRT builder caches and should be initialized with unique paths if the
-/// builder caches are being persisted to disk.
+/// once for each MLIRContext that is in use. Currently it is recommended
+/// to instantiate different clients for different MLIRContexts and to only
+/// associate a single client with a particular MLIRContext.
+///
+/// The MLIRContext is only referenced, so the lifetime must outlive the Client
+/// object.
+///
+/// The CompilerClient provides an API to construct CompilationTasks from
+/// the mnemonic and pass pipeline options. The CompilerClient assumes ownership
+/// of the pipeline and subsequent queries using the same options will return
+/// the same CompilationTaskBase object.
+///
+/// TODO: We should remove the caching mechanism; that should be the
+/// responsibility of the downstream user.
 class CompilerClient {
 public:
   static StatusOr<std::unique_ptr<CompilerClient>>
@@ -123,69 +191,23 @@ public:
   /// then it is constructed using the registered construction function and
   /// inserted into the cache.
   StatusOr<CompilationTaskBase *>
-  getCompilationTask(mlir::TypeID taskID,
+  getCompilationTask(llvm::StringRef taskName,
                      llvm::ArrayRef<llvm::StringRef> options,
-                     bool enableDebugOptions);
-
-  /// Create or retrieve from the cache a compilation task of the specified
-  /// type ID and options. If an existing compilation task is not in the cache,
-  /// then it is constructed using the registered construction function and
-  /// inserted into the cache.
-  StatusOr<CompilationTaskBase *>
-  getCompilationTask(mlir::TypeID taskID, llvm::ArrayRef<std::string> options,
-                     bool enableDebugOptions) {
-    return getCompilationTask(
-        taskID,
-        llvm::map_to_vector(
-            options, [](const std::string &x) { return llvm::StringRef(x); }),
-        enableDebugOptions);
-  }
-
-  StatusOr<CompilationTaskBase *>
-  getCompilationTask(llvm::StringRef mnemonic,
-                     llvm::ArrayRef<llvm::StringRef> options,
-                     bool enableDebugOptions);
-
-  /// Create or retrieve from the cache a compilation task of the specified
-  /// type and options. If an existing compilation task is not in the cache,
-  /// then it is constructed using the registered construction function and
-  /// inserted into the cache.
-  template <typename T, typename... Args>
-  StatusOr<CompilationTaskBase *> getCompilationTask(Args &&...args) {
-    return getCompilationTask(mlir::TypeID::get<T>(),
-                              std::forward<Args>(args)...);
-  }
+                     std::optional<llvm::StringRef> overrideArtifactsDir = {},
+                     bool enableDebugOptions = false);
 
   /// Insert a compilation task of type T with options hash `hash` into the
   /// cache.
-  template <typename T>
-  void updateCachedCompilationTask(const llvm::hash_code &hash,
-                                   std::unique_ptr<CompilationTaskBase> task) {
-    cachedPassManagers[std::make_pair(mlir::TypeID::get<T>(), hash)] =
-        std::move(task);
-  }
+  void updateCachedCompilationTask(llvm::StringRef taskName,
+                                   const llvm::hash_code &hash,
+                                   std::unique_ptr<CompilationTaskBase> task);
 
-  /// Check whether a CompilationTask with the specified typeID and whose
+  /// Check whether a CompilationTask with the specified task type and whose
   /// options have the given hash is in the cache. If so, return it; otherwise
   /// returns nullptr.
   CompilationTaskBase *
-  lookupCachedCompilationTask(mlir::TypeID taskID,
-                              const llvm::hash_code &optionsHash) {
-    auto key = std::make_pair(taskID, optionsHash);
-    auto it = cachedPassManagers.find(key);
-    if (it == cachedPassManagers.end())
-      return nullptr;
-    return it->second.get();
-  }
-
-  /// Check whether a CompilationTask with the specified type T and whose
-  /// options have the given hash is in the cache. If so, return it; otherwise
-  /// returns nullptr.
-  template <typename T>
-  CompilationTaskBase *
-  lookupCachedCompilationTask(const llvm::hash_code &optionsHash) {
-    return lookupCachedCompilationTask(mlir::TypeID::get<T>(), optionsHash);
-  }
+  lookupCachedCompilationTask(llvm::StringRef taskName,
+                              const llvm::hash_code &optionsHash) const;
 
   /// Return the MLIRContext associated with the client.
   mlir::MLIRContext *getContext() const { return context; }
@@ -196,13 +218,11 @@ protected:
   /// The MLIRContext in use by this client.
   mlir::MLIRContext *context;
 
-  /// Key pair of [PassManager Kind, Options Hash].
-  using PassManagerKey = std::pair<mlir::TypeID, llvm::hash_code>;
-
   /// A registry of pass managers for specific kinds of tasks. The map is
-  /// indexed by the TypeID of the PassManager kind and the hash of the options
+  /// indexed by the task name and the hash of the options
   /// used to create the PM.
-  llvm::DenseMap<PassManagerKey, std::unique_ptr<CompilationTaskBase>>
+  llvm::StringMap<
+      llvm::DenseMap<llvm::hash_code, std::unique_ptr<CompilationTaskBase>>>
       cachedPassManagers;
 };
 
@@ -213,6 +233,7 @@ protected:
 /// should always return failure.
 using TaskRegistryFunction = std::function<StatusOr<CompilationTaskBase *>(
     CompilerClient &client, llvm::ArrayRef<llvm::StringRef> options,
+    std::optional<llvm::StringRef> overrideArtifactsDir,
     bool enableDebugOptions)>;
 
 struct TaskRegistration {
@@ -232,30 +253,21 @@ llvm::SmallVector<llvm::StringRef> getRegisteredCompilationTaskNames();
 void printCompilationTaskHelpInfo(mlir::MLIRContext *ctx,
                                   llvm::StringRef mnemonic);
 
-/// Construct a task by creating a temporary CompilerClient. This is only
-/// recommended for tools that wouldn't benefit from re-using the task's pass
-/// manger.
-StatusOr<CompilationTaskBase *> buildTask(mlir::MLIRContext *ctx,
-                                          llvm::StringRef mnemonic,
-                                          llvm::StringRef options);
-
 //===----------------------------------------------------------------------===//
 // Task Registration Utilities
 //===----------------------------------------------------------------------===//
 
 namespace detail {
-/// Register task given the mnemonic and the options class' TypeID.
-void registerCompilationTask(llvm::StringRef mnemonic, mlir::TypeID typeID,
+/// Register task given the mnemonic and the options registration function.
+void registerCompilationTask(llvm::StringRef mnemonic,
                              TaskRegistryFunction func);
 } // namespace detail
 
 /// Register a task by providing an explicit registration function for the given
 /// options type.
 template <typename T>
-void registerCompilationTask(llvm::StringRef mnemonic,
-                             TaskRegistryFunction func) {
-  return detail::registerCompilationTask(mnemonic, mlir::TypeID::get<T>(),
-                                         std::move(func));
+void registerCompilationTask(TaskRegistryFunction func) {
+  return detail::registerCompilationTask(T::getName(), std::move(func));
 }
 
 /// This helper provides a convenience registration wrapper for most tasks whose
@@ -264,31 +276,36 @@ void registerCompilationTask(llvm::StringRef mnemonic,
 template <typename T, typename OptionsType>
 void registerCompilationTaskWithNoExtensions(llvm::StringRef mnemonic) {
   registerCompilationTask<T>(
-      mnemonic,
       [](CompilerClient &client, llvm::ArrayRef<llvm::StringRef> options,
+         std::optional<llvm::StringRef> overrideArtifactsDir,
          bool enableDebugOptions) -> StatusOr<CompilationTaskBase *> {
-        auto parsedOptions = std::make_unique<OptionsType>(enableDebugOptions);
+        // Hash the flags directly.
+        llvm::hash_code hashCode =
+            llvm::hash_combine_range(options.begin(), options.end());
 
-        std::string err;
-        if (failed(parsedOptions->parse(options, err)))
-          return getInvalidArgStatus(
-              "failed to parse options string \"{0:$[ ]}\" due to error {1}",
-              llvm::iterator_range(options), err);
-
-        std::optional<llvm::hash_code> hashCode = parsedOptions->getHash();
-        if (!hashCode)
-          return getInvalidArgStatus("failed to hash options");
-
+        // Check the cache.
         CompilationTaskBase *cached =
-            client.lookupCachedCompilationTask<T>(*hashCode);
+            client.lookupCachedCompilationTask(T::getName(), hashCode);
         if (cached)
           return cached;
 
-        auto newPM =
-            std::make_unique<T>(client.getContext(), std::move(parsedOptions));
+        /// Construct "uninitialized" options, which are just default options
+        /// prior to updating the value from the command line flags.
+        auto uninitOptions = std::make_unique<OptionsType>(enableDebugOptions);
 
+        // No cached task, so construct a new task.
+        auto newPM =
+            std::make_unique<T>(client.getContext(), std::move(uninitOptions));
+
+        // Invoke the initialization.
+        if (Status s = newPM->initialize(options, overrideArtifactsDir);
+            !s.isOk())
+          return s;
+
+        // Give ownership to the client.
         auto ptr = newPM.get();
-        client.updateCachedCompilationTask<T>(*hashCode, std::move(newPM));
+        client.updateCachedCompilationTask(T::getName(), hashCode,
+                                           std::move(newPM));
         return ptr;
       });
 }

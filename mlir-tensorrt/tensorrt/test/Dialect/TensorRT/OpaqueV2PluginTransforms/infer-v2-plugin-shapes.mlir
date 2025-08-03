@@ -1,3 +1,4 @@
+// REQUIRES: tensorrt
 // RUN: tensorrt-opt %s -split-input-file -tensorrt-infer-plugin-shapes | FileCheck %s
 
 // This test will load the plugin creator from the registry, instantiate the plugin, then

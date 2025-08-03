@@ -15,7 +15,7 @@ add_mlir_tensorrt_library(MLIRTensorRTStablehloToTensorRT
   MLIRQuantDialect
   MLIRRewrite
   MLIRTensorRTConvertToTensorRTCommon
-  MLIRTensorRTDialect
+  MLIRTensorRTTensorRTDialect
   MLIRTensorRTStableHloExtUtils
   MLIRTensorRTStablehloMatchers
   MLIRTensorRTTensorRTUtils

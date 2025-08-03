@@ -24,7 +24,7 @@
 #include "../../../C/CoreModule.h"
 #include "mlir-executor/Runtime/API/API.h"
 #include "mlir-executor/Runtime/Backend/Common/CommonRuntime.h"
-#include "mlir-executor/Runtime/Backend/Common/Int4.h"
+#include "mlir-executor/Runtime/Backend/Common/DataTypes.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaErrorHandling.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaExtensionRegistry.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaRuntime.h"
@@ -36,37 +36,8 @@
 #include <climits>
 #include <type_traits>
 
-#if defined(__clang__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wgnu-zero-variadic-macro-arguments"
-#endif
-#include "cuda_bf16.h"
-#include "cuda_fp16.h"
-#include "cuda_fp8.h"
-#if defined(__clang__)
-#pragma GCC diagnostic pop
-#endif
-
 using namespace mlirtrt;
 using namespace mlirtrt::runtime;
-
-typedef __nv_fp8_e4m3 fp8_e4m3fn;
-
-//===----------------------------------------------------------------------===//
-// Helpers for f16 type (half) other math ops
-//===----------------------------------------------------------------------===//
-
-static std::ostream &operator<<(std::ostream &os, const half &scalar) {
-  return os << __half2float(scalar);
-}
-
-static std::ostream &operator<<(std::ostream &os, const fp8_e4m3fn &scalar) {
-  return os << float(scalar);
-}
-
-static std::ostream &operator<<(std::ostream &os, const nv_bfloat16 &scalar) {
-  return os << __bfloat162float(scalar);
-}
 
 //===----------------------------------------------------------------------===//
 // Templated helpers
@@ -76,14 +47,70 @@ static std::ostream &operator<<(std::ostream &os, const nv_bfloat16 &scalar) {
 /// types.
 template <typename T>
 bool isNan(T val) {
-  if constexpr (std::is_same_v<T, half>)
-    return std::isnan(__half2float(val));
-  else if constexpr (std::is_same_v<T, fp8_e4m3fn>)
-    return std::isnan(float(val));
-  else if constexpr (std::is_same_v<T, nv_bfloat16>)
-    return std::isnan(__bfloat162float(val));
+  if constexpr (std::is_same_v<T, Float16>)
+    return val.isNaN();
+  else if constexpr (std::is_same_v<T, F8E4M3FN>)
+    return val.isNaN();
+  else if constexpr (std::is_same_v<T, BFloat16>)
+    return val.isNaN();
   else
     return std::isnan(val);
+}
+
+template <typename T>
+inline constexpr bool always_false = false;
+
+template <typename IntType, typename FloatType>
+IntType fptosi_helper(FloatType val) {
+  if constexpr (std::is_same_v<IntType, int8_t>)
+    return val.toInt8Sat();
+  else if constexpr (std::is_same_v<IntType, int16_t>)
+    return val.toInt16Sat();
+  else if constexpr (std::is_same_v<IntType, int32_t>)
+    return val.toInt32Sat();
+  else if constexpr (std::is_same_v<IntType, int64_t>)
+    return val.toInt64Sat();
+  else if constexpr (std::is_same_v<IntType, Int4>)
+    return Int4(std::trunc(float(val)));
+  else
+    static_assert(always_false<IntType>, "unsupported fptosi type");
+}
+
+template <typename IntType, typename FloatType>
+IntType fptosi(FloatType val) {
+  if constexpr (std::is_same_v<FloatType, Float16>)
+    return fptosi_helper<IntType, Float16>(val);
+  else if constexpr (std::is_same_v<FloatType, F8E4M3FN>)
+    return fptosi_helper<IntType, F8E4M3FN>(val);
+  else if constexpr (std::is_same_v<FloatType, BFloat16>)
+    return fptosi_helper<IntType, BFloat16>(val);
+  else
+    return static_cast<IntType>(val);
+}
+
+template <typename IntType>
+IntType shift_right_logical(IntType val, IntType shift) {
+  if constexpr (std::is_same_v<IntType, Int4>) {
+    return (val.toUInt4() >> shift).toInt4();
+  } else {
+    return static_cast<std::make_unsigned_t<IntType>>(val) >> shift;
+  }
+}
+
+template <typename T>
+struct is4BitType {
+  static constexpr bool value =
+      std::is_same_v<T, Int4> || std::is_same_v<T, UInt4>;
+};
+
+template <typename FromType, typename ToType>
+ToType bitcast(FromType val) {
+  if constexpr (is4BitType<FromType>::value) {
+    static_assert(is4BitType<ToType>::value, "invalid 4-bit type bitcast");
+    return ToType(val);
+  } else {
+    return *reinterpret_cast<const ToType *>(&val);
+  }
 }
 
 /// Negation operator for in unary op definitions below.
@@ -145,14 +172,14 @@ static bool checkAccessBounds(lua_State *state, const AllocTracker &tracker,
 template <typename T>
 T remf(T lhs, T rhs) {
   if constexpr (std::is_floating_point_v<T>) {
-    return std::fmod<T>(lhs, rhs);
-  } else if constexpr (std::is_same_v<T, __half>) {
-    return std::fmod(__half2float(lhs), __half2float(rhs));
-  } else if constexpr (std::is_same_v<T, fp8_e4m3fn>) {
-    return fp8_e4m3fn(std::fmod(float(lhs), float(rhs)));
+    return std::fmod(lhs, rhs);
+  } else if constexpr (std::is_same_v<T, Float16>) {
+    return Float16(std::fmod(float(lhs), float(rhs)));
+  } else if constexpr (std::is_same_v<T, F8E4M3FN>) {
+    return F8E4M3FN(std::fmod(float(lhs), float(rhs)));
   } else {
-    static_assert(std::is_same_v<T, nv_bfloat16>, "unsupported llvm_remf type");
-    return nv_bfloat16(std::fmod(__bfloat162float(lhs), __bfloat162float(rhs)));
+    static_assert(std::is_same_v<T, BFloat16>, "unsupported llvm_remf type");
+    return BFloat16(std::fmod(float(lhs), float(rhs)));
   }
 }
 
@@ -187,8 +214,12 @@ ResType sitofp(InpType input) {
 
 template <typename InpType, typename ResType>
 ResType uitofp(InpType input) {
-  return static_cast<ResType>(
-      *reinterpret_cast<const std::make_unsigned_t<InpType> *>(&input));
+  if constexpr (std::is_same_v<InpType, Int4>) {
+    return static_cast<ResType>(input.toUInt4());
+  } else {
+    return static_cast<ResType>(
+        *reinterpret_cast<const std::make_unsigned_t<InpType> *>(&input));
+  }
 }
 
 //===----------------------------------------------------------------------===//
@@ -224,99 +255,95 @@ static void registerExecutorCoreModuleLuaRuntimeMethods(
   //===----------------------------------------------------------------------===//
   // f16 "half" type registration and ancillary operations.
   //===----------------------------------------------------------------------===//
-  lua.new_usertype<__half>(
-      "half", sol::constructors<__half(), __half(float), __half(__half)>(),
+  lua.new_usertype<Float16>(
+      "half", sol::constructors<Float16(), Float16(float), Float16(Float16)>(),
       sol::meta_function::addition,
-      [](const half &lhs, const half &rhs) -> half { return lhs + rhs; },
-      sol::meta_function::multiplication,
-      [](const half &lhs, const half &rhs) -> half { return lhs * rhs; },
-      sol::meta_function::subtraction,
-      [](const half &lhs, const half &rhs) -> half { return lhs - rhs; },
-      sol::meta_function::division,
-      [](const half &lhs, const half &rhs) -> half { return lhs / rhs; });
-
-  lua["executor_constant_f16"] = [](float val) { return __half(val); };
-
-  //===----------------------------------------------------------------------===//
-  // fp8_e4m3fn "f8E4M3FN" type registration and ancillary operations.
-  //===----------------------------------------------------------------------===//
-  lua.new_usertype<fp8_e4m3fn>(
-      "fp8_e4m3fn", sol::constructors<fp8_e4m3fn(__half), fp8_e4m3fn(float)>(),
-      sol::meta_function::addition,
-      [](const fp8_e4m3fn &lhs, const fp8_e4m3fn &rhs) -> fp8_e4m3fn {
-        return fp8_e4m3fn(float(lhs) + float(rhs));
-      },
-      sol::meta_function::multiplication,
-      [](const fp8_e4m3fn &lhs, const fp8_e4m3fn &rhs) -> fp8_e4m3fn {
-        return fp8_e4m3fn(float(lhs) * float(rhs));
-      },
-      sol::meta_function::subtraction,
-      [](const fp8_e4m3fn &lhs, const fp8_e4m3fn &rhs) -> fp8_e4m3fn {
-        return fp8_e4m3fn(float(lhs) - float(rhs));
-      },
-      sol::meta_function::division,
-      [](const fp8_e4m3fn &lhs, const fp8_e4m3fn &rhs) -> fp8_e4m3fn {
-        return fp8_e4m3fn(float(lhs) / float(rhs));
-      });
-
-  lua["executor_constant_f8E4M3FN"] = [](float val) { return fp8_e4m3fn(val); };
-
-  //===----------------------------------------------------------------------===//
-  // bf16 "nv_bfloat16" type registration and ancillary operations.
-  //===----------------------------------------------------------------------===//
-  lua.new_usertype<nv_bfloat16>(
-      "bf16", sol::constructors<nv_bfloat16(double), nv_bfloat16(float)>(),
-      sol::meta_function::addition,
-      [](const nv_bfloat16 &lhs, const nv_bfloat16 &rhs) -> nv_bfloat16 {
+      [](const Float16 &lhs, const Float16 &rhs) -> Float16 {
         return lhs + rhs;
       },
       sol::meta_function::multiplication,
-      [](const nv_bfloat16 &lhs, const nv_bfloat16 &rhs) -> nv_bfloat16 {
+      [](const Float16 &lhs, const Float16 &rhs) -> Float16 {
         return lhs * rhs;
       },
       sol::meta_function::subtraction,
-      [](const nv_bfloat16 &lhs, const nv_bfloat16 &rhs) -> nv_bfloat16 {
+      [](const Float16 &lhs, const Float16 &rhs) -> Float16 {
         return lhs - rhs;
       },
       sol::meta_function::division,
-      [](const nv_bfloat16 &lhs, const nv_bfloat16 &rhs) -> nv_bfloat16 {
+      [](const Float16 &lhs, const Float16 &rhs) -> Float16 {
         return lhs / rhs;
       });
 
-  lua["executor_constant_bf16"] = [](float val) { return nv_bfloat16(val); };
+  lua["executor_constant_f16"] = [](float val) { return Float16(val); };
 
   //===----------------------------------------------------------------------===//
-  // i4 "nv_int4" type registration and ancillary operations.
+  // F8E4M3FN "f8E4M3FN" type registration and ancillary operations.
   //===----------------------------------------------------------------------===//
-
-  lua.new_usertype<nv_int4>(
-      "i4", sol::constructors<nv_int4(float), nv_int4(double)>(),
+  lua.new_usertype<F8E4M3FN>(
+      "F8E4M3FN", sol::constructors<F8E4M3FN(Float16), F8E4M3FN(float)>(),
       sol::meta_function::addition,
-      [](const nv_int4 &lhs, const nv_int4 &rhs) -> nv_int4 {
-        return lhs + rhs;
-      },
-      sol::meta_function::subtraction,
-      [](const nv_int4 &lhs, const nv_int4 &rhs) -> nv_int4 {
-        return lhs - rhs;
+      [](const F8E4M3FN &lhs, const F8E4M3FN &rhs) -> F8E4M3FN {
+        return F8E4M3FN(float(lhs) + float(rhs));
       },
       sol::meta_function::multiplication,
-      [](const nv_int4 &lhs, const nv_int4 &rhs) -> nv_int4 {
-        return lhs * rhs;
+      [](const F8E4M3FN &lhs, const F8E4M3FN &rhs) -> F8E4M3FN {
+        return F8E4M3FN(float(lhs) * float(rhs));
+      },
+      sol::meta_function::subtraction,
+      [](const F8E4M3FN &lhs, const F8E4M3FN &rhs) -> F8E4M3FN {
+        return F8E4M3FN(float(lhs) - float(rhs));
       },
       sol::meta_function::division,
-      [](const nv_int4 &lhs, const nv_int4 &rhs) -> nv_int4 {
-        return lhs / rhs;
+      [](const F8E4M3FN &lhs, const F8E4M3FN &rhs) -> F8E4M3FN {
+        return F8E4M3FN(float(lhs) / float(rhs));
+      });
+
+  lua["executor_constant_f8E4M3FN"] = [](float val) { return F8E4M3FN(val); };
+
+  //===----------------------------------------------------------------------===//
+  // bf16 "BFloat16" type registration and ancillary operations.
+  //===----------------------------------------------------------------------===//
+  lua.new_usertype<BFloat16>(
+      "bf16", sol::constructors<BFloat16(double), BFloat16(float)>(),
+      sol::meta_function::addition,
+      [](const BFloat16 &lhs, const BFloat16 &rhs) -> BFloat16 {
+        return lhs + rhs;
       },
+      sol::meta_function::multiplication,
+      [](const BFloat16 &lhs, const BFloat16 &rhs) -> BFloat16 {
+        return lhs * rhs;
+      },
+      sol::meta_function::subtraction,
+      [](const BFloat16 &lhs, const BFloat16 &rhs) -> BFloat16 {
+        return lhs - rhs;
+      },
+      sol::meta_function::division,
+      [](const BFloat16 &lhs, const BFloat16 &rhs) -> BFloat16 {
+        return lhs / rhs;
+      });
+
+  lua["executor_constant_bf16"] = [](float val) { return BFloat16(val); };
+
+  //===----------------------------------------------------------------------===//
+  // i4 "Int4" type registration and ancillary operations.
+  //===----------------------------------------------------------------------===//
+
+  lua.new_usertype<Int4>(
+      "i4", sol::constructors<Int4(float), Int4(double)>(),
+      sol::meta_function::addition,
+      [](const Int4 &lhs, const Int4 &rhs) -> Int4 { return lhs + rhs; },
+      sol::meta_function::subtraction,
+      [](const Int4 &lhs, const Int4 &rhs) -> Int4 { return lhs - rhs; },
+      sol::meta_function::multiplication,
+      [](const Int4 &lhs, const Int4 &rhs) -> Int4 { return lhs * rhs; },
+      sol::meta_function::division,
+      [](const Int4 &lhs, const Int4 &rhs) -> Int4 { return lhs / rhs; },
       sol::meta_function::modulus,
-      [](const nv_int4 &lhs, const nv_int4 &rhs) -> nv_int4 {
-        return lhs % rhs;
-      },
+      [](const Int4 &lhs, const Int4 &rhs) -> Int4 { return lhs % rhs; },
       sol::meta_function::floor_division,
-      [](const nv_int4 &lhs, const nv_int4 &rhs) -> nv_int4 {
-        return lhs / rhs;
-      });
+      [](const Int4 &lhs, const Int4 &rhs) -> Int4 { return lhs / rhs; });
 
-  lua["executor_constant_i4"] = [](float val) { return nv_int4(val); };
+  lua["executor_constant_i4"] = [](float val) { return Int4(val); };
 
   //===----------------------------------------------------------------------===//
   // arithmetic extension ops
@@ -338,14 +365,14 @@ static void registerExecutorCoreModuleLuaRuntimeMethods(
   DEFINE_SICMP_METHOD(pred, i32, int32_t, opSymbol);                           \
   DEFINE_SICMP_METHOD(pred, i16, int16_t, opSymbol);                           \
   DEFINE_SICMP_METHOD(pred, i8, int8_t, opSymbol);                             \
-  DEFINE_SICMP_METHOD(pred, i4, nv_int4, opSymbol)
+  DEFINE_SICMP_METHOD(pred, i4, Int4, opSymbol)
 #define DEFINE_ICMP_METHODS(pred, opSymbol)                                    \
   DEFINE_SICMP_METHODS(s##pred, opSymbol);                                     \
   DEFINE_UICMP_METHOD(u##pred, i64, int64_t, uint64_t, opSymbol);              \
   DEFINE_UICMP_METHOD(u##pred, i32, int32_t, uint32_t, opSymbol);              \
   DEFINE_UICMP_METHOD(u##pred, i16, int16_t, uint16_t, opSymbol);              \
   DEFINE_UICMP_METHOD(u##pred, i8, int8_t, uint8_t, opSymbol);                 \
-  DEFINE_UICMP_METHOD(u##pred, i4, nv_int4, nv_uint4, opSymbol);               \
+  DEFINE_UICMP_METHOD(u##pred, i4, Int4, UInt4, opSymbol);                     \
   DEFINE_UICMP_METHOD(u##pred, i1, uint8_t, uint8_t, opSymbol)
 
   DEFINE_SICMP_METHODS(eq, ==);
@@ -373,7 +400,7 @@ static void registerExecutorCoreModuleLuaRuntimeMethods(
   DEFINE_SDIVI_METHOD(i32, int32_t);
   DEFINE_SDIVI_METHOD(i16, int16_t);
   DEFINE_SDIVI_METHOD(i8, int8_t);
-  DEFINE_SDIVI_METHOD(i4, nv_int4);
+  DEFINE_SDIVI_METHOD(i4, Int4);
 #undef DEFINE_SDIVI_METHOD
 
 #define DEFINE_DIVF_METHOD(suffix, type)                                       \
@@ -384,13 +411,13 @@ static void registerExecutorCoreModuleLuaRuntimeMethods(
 
   DEFINE_DIVF_METHOD(f32, float);
   DEFINE_DIVF_METHOD(f64, double);
-  DEFINE_DIVF_METHOD(f16, __half);
-  DEFINE_DIVF_METHOD(bf16, nv_bfloat16);
+  DEFINE_DIVF_METHOD(f16, Float16);
+  DEFINE_DIVF_METHOD(bf16, BFloat16);
 #undef DEFINE_DIVF_METHOD
 
-  lua["_divf_f8E4M3FN"] = [](fp8_e4m3fn lhs, fp8_e4m3fn rhs) -> fp8_e4m3fn {
+  lua["_divf_f8E4M3FN"] = [](F8E4M3FN lhs, F8E4M3FN rhs) -> F8E4M3FN {
     ADD_CORE_MODULE_RANGE("core_divf_f8E4M3FN");
-    return fp8_e4m3fn(float(lhs) / float(rhs));
+    return F8E4M3FN(float(lhs) / float(rhs));
   };
 
 #define DEFINE_BITWISE_METHOD(suffix, type, opSymbol, opName)                  \
@@ -404,21 +431,21 @@ static void registerExecutorCoreModuleLuaRuntimeMethods(
   DEFINE_BITWISE_METHOD(i16, int16_t, |, ori);
   DEFINE_BITWISE_METHOD(i8, int8_t, |, ori);
   DEFINE_BITWISE_METHOD(i1, int8_t, |, ori);
-  DEFINE_BITWISE_METHOD(i4, nv_int4, |, ori);
+  DEFINE_BITWISE_METHOD(i4, Int4, |, ori);
 
   DEFINE_BITWISE_METHOD(i64, int64_t, &, andi);
   DEFINE_BITWISE_METHOD(i32, int32_t, &, andi);
   DEFINE_BITWISE_METHOD(i16, int16_t, &, andi);
   DEFINE_BITWISE_METHOD(i8, int8_t, &, andi);
   DEFINE_BITWISE_METHOD(i1, int8_t, &, andi);
-  DEFINE_BITWISE_METHOD(i4, nv_int4, &, andi);
+  DEFINE_BITWISE_METHOD(i4, Int4, &, andi);
 
   DEFINE_BITWISE_METHOD(i64, int64_t, ^, xori);
   DEFINE_BITWISE_METHOD(i32, int32_t, ^, xori);
   DEFINE_BITWISE_METHOD(i16, int16_t, ^, xori);
   DEFINE_BITWISE_METHOD(i8, int8_t, ^, xori);
   DEFINE_BITWISE_METHOD(i1, int8_t, ^, xori);
-  DEFINE_BITWISE_METHOD(i4, nv_int4, ^, xori);
+  DEFINE_BITWISE_METHOD(i4, Int4, ^, xori);
 
   //===----------------------------------------------------------------------===//
   // executor.bitcast
@@ -427,17 +454,14 @@ static void registerExecutorCoreModuleLuaRuntimeMethods(
 #undef DEFINE_BITWISE_METHOD
 
 #define DEFINE_BITCAST_METHOD(inpSuffix, resSuffix, inpType, resType)          \
-  lua["_bitcast_" #inpSuffix "_" #resSuffix] = [](inpType input) -> resType {  \
-    ADD_CORE_MODULE_RANGE("_bitcast_" #inpSuffix "_" #resSuffix);              \
-    return *reinterpret_cast<resType *>(&input);                               \
-  }
+  lua["_bitcast_" #inpSuffix "_" #resSuffix] = bitcast<inpType, resType>;
 
   DEFINE_BITCAST_METHOD(i64, f64, int64_t, double);
   DEFINE_BITCAST_METHOD(i32, f32, int32_t, float);
-  DEFINE_BITCAST_METHOD(i16, f16, int16_t, __half);
+  DEFINE_BITCAST_METHOD(i16, f16, int16_t, Float16);
   DEFINE_BITCAST_METHOD(f64, i64, double, int64_t);
   DEFINE_BITCAST_METHOD(f32, i32, float, int32_t);
-  DEFINE_BITCAST_METHOD(f16, i16, __half, int16_t);
+  DEFINE_BITCAST_METHOD(f16, i16, Float16, int16_t);
 #undef DEFINE_BITCAST_METHOD
 
   //===----------------------------------------------------------------------===//
@@ -454,18 +478,18 @@ static void registerExecutorCoreModuleLuaRuntimeMethods(
 
   DEFINE_FMAX_METHOD(f64, double);
   DEFINE_FMAX_METHOD(f32, float);
-  DEFINE_FMAX_METHOD(f16, __half);
-  DEFINE_FMAX_METHOD(bf16, nv_bfloat16);
+  DEFINE_FMAX_METHOD(f16, Float16);
+  DEFINE_FMAX_METHOD(bf16, BFloat16);
 #undef DEFINE_FMAX_METHOD
 
-  lua["_fmax_f8E4M3FN"] = [](fp8_e4m3fn lhs, fp8_e4m3fn rhs) -> fp8_e4m3fn {
+  lua["_fmax_f8E4M3FN"] = [](F8E4M3FN lhs, F8E4M3FN rhs) -> F8E4M3FN {
     ADD_CORE_MODULE_RANGE("core_fmax");
-    return fp8_e4m3fn(std::max(float(lhs), float(rhs)));
+    return F8E4M3FN(std::max(float(lhs), float(rhs)));
   };
 
-  lua["_fmin_f8E4M3FN"] = [](fp8_e4m3fn lhs, fp8_e4m3fn rhs) -> fp8_e4m3fn {
+  lua["_fmin_f8E4M3FN"] = [](F8E4M3FN lhs, F8E4M3FN rhs) -> F8E4M3FN {
     ADD_CORE_MODULE_RANGE("core_fmin");
-    return fp8_e4m3fn(std::min(float(lhs), float(rhs)));
+    return F8E4M3FN(std::min(float(lhs), float(rhs)));
   };
 
   //===----------------------------------------------------------------------===//
@@ -483,7 +507,7 @@ static void registerExecutorCoreModuleLuaRuntimeMethods(
   DEFINE_SHIFT_LEFT_METHOD(i32, int32_t);
   DEFINE_SHIFT_LEFT_METHOD(i16, int16_t);
   DEFINE_SHIFT_LEFT_METHOD(i8, int8_t);
-  DEFINE_SHIFT_LEFT_METHOD(i4, nv_int4);
+  DEFINE_SHIFT_LEFT_METHOD(i4, Int4);
 #undef DEFINE_SHIFT_LEFT_METHOD
 
 #define DEFINE_SHIFT_RIGHT_ARITHMETIC_METHOD(suffix, type)                     \
@@ -496,21 +520,17 @@ static void registerExecutorCoreModuleLuaRuntimeMethods(
   DEFINE_SHIFT_RIGHT_ARITHMETIC_METHOD(i32, int32_t);
   DEFINE_SHIFT_RIGHT_ARITHMETIC_METHOD(i16, int16_t);
   DEFINE_SHIFT_RIGHT_ARITHMETIC_METHOD(i8, int8_t);
-  DEFINE_SHIFT_RIGHT_ARITHMETIC_METHOD(i4, nv_int4);
+  DEFINE_SHIFT_RIGHT_ARITHMETIC_METHOD(i4, Int4);
 #undef DEFINE_SHIFT_RIGHT_ARITHMETIC_METHOD
 
 #define DEFINE_SHIFT_RIGHT_LOGICAL_METHOD(suffix, dtype)                       \
-  lua["_shift_right_logicali_" #suffix] = [](dtype lhs, dtype rhs) -> dtype {  \
-    ADD_CORE_MODULE_RANGE("core_shift right logical");                         \
-    return static_cast<dtype>(                                                 \
-        static_cast<typename std::make_unsigned<dtype>::type>(lhs) >> rhs);    \
-  }
+  lua["_shift_right_logicali_" #suffix] = shift_right_logical<dtype>;
 
   DEFINE_SHIFT_RIGHT_LOGICAL_METHOD(i64, int64_t);
   DEFINE_SHIFT_RIGHT_LOGICAL_METHOD(i32, int32_t);
   DEFINE_SHIFT_RIGHT_LOGICAL_METHOD(i16, int16_t);
   DEFINE_SHIFT_RIGHT_LOGICAL_METHOD(i8, int8_t);
-  DEFINE_SHIFT_RIGHT_LOGICAL_METHOD(i4, nv_int4);
+  DEFINE_SHIFT_RIGHT_LOGICAL_METHOD(i4, Int4);
 #undef DEFINE_SHIFT_RIGHT_LOGICAL_METHOD
 
   //===----------------------------------------------------------------------===//
@@ -523,18 +543,18 @@ static void registerExecutorCoreModuleLuaRuntimeMethods(
   lua["_sitofp_" #inpSuffix "_" #resSuffix] = sitofp<inpType, resType>;        \
   lua["_uitofp_" #inpSuffix "_" #resSuffix] = uitofp<inpType, resType>;
 
-  REGISTER_TOFP_FUNCS(i8, f8E4M3FN, int8_t, fp8_e4m3fn);
-  REGISTER_TOFP_FUNCS(i16, f8E4M3FN, int16_t, fp8_e4m3fn);
-  REGISTER_TOFP_FUNCS(i32, f8E4M3FN, int32_t, fp8_e4m3fn);
-  REGISTER_TOFP_FUNCS(i64, f8E4M3FN, int64_t, fp8_e4m3fn);
-  REGISTER_TOFP_FUNCS(i8, bf16, int8_t, nv_bfloat16);
-  REGISTER_TOFP_FUNCS(i16, bf16, int16_t, nv_bfloat16);
-  REGISTER_TOFP_FUNCS(i32, bf16, int32_t, nv_bfloat16);
-  REGISTER_TOFP_FUNCS(i64, bf16, int64_t, nv_bfloat16);
-  REGISTER_TOFP_FUNCS(i8, f16, int8_t, __half);
-  REGISTER_TOFP_FUNCS(i16, f16, int16_t, __half);
-  REGISTER_TOFP_FUNCS(i32, f16, int32_t, __half);
-  REGISTER_TOFP_FUNCS(i64, f16, int64_t, __half);
+  REGISTER_TOFP_FUNCS(i8, f8E4M3FN, int8_t, F8E4M3FN);
+  REGISTER_TOFP_FUNCS(i16, f8E4M3FN, int16_t, F8E4M3FN);
+  REGISTER_TOFP_FUNCS(i32, f8E4M3FN, int32_t, F8E4M3FN);
+  REGISTER_TOFP_FUNCS(i64, f8E4M3FN, int64_t, F8E4M3FN);
+  REGISTER_TOFP_FUNCS(i8, bf16, int8_t, BFloat16);
+  REGISTER_TOFP_FUNCS(i16, bf16, int16_t, BFloat16);
+  REGISTER_TOFP_FUNCS(i32, bf16, int32_t, BFloat16);
+  REGISTER_TOFP_FUNCS(i64, bf16, int64_t, BFloat16);
+  REGISTER_TOFP_FUNCS(i8, f16, int8_t, Float16);
+  REGISTER_TOFP_FUNCS(i16, f16, int16_t, Float16);
+  REGISTER_TOFP_FUNCS(i32, f16, int32_t, Float16);
+  REGISTER_TOFP_FUNCS(i64, f16, int64_t, Float16);
   REGISTER_TOFP_FUNCS(i8, f32, int8_t, float);
   REGISTER_TOFP_FUNCS(i16, f32, int16_t, float);
   REGISTER_TOFP_FUNCS(i32, f32, int32_t, float);
@@ -543,11 +563,11 @@ static void registerExecutorCoreModuleLuaRuntimeMethods(
   REGISTER_TOFP_FUNCS(i16, f64, int16_t, double);
   REGISTER_TOFP_FUNCS(i32, f64, int32_t, double);
   REGISTER_TOFP_FUNCS(i64, f64, int64_t, double);
-  REGISTER_TOFP_FUNCS(i4, f32, nv_int4, float);
-  REGISTER_TOFP_FUNCS(i4, f64, nv_int4, double);
-  REGISTER_TOFP_FUNCS(i4, f16, nv_int4, __half);
-  REGISTER_TOFP_FUNCS(i4, f8E4M3FN, nv_int4, fp8_e4m3fn);
-  REGISTER_TOFP_FUNCS(i4, bf16, nv_int4, nv_bfloat16);
+  REGISTER_TOFP_FUNCS(i4, f32, Int4, float);
+  REGISTER_TOFP_FUNCS(i4, f64, Int4, double);
+  REGISTER_TOFP_FUNCS(i4, f16, Int4, Float16);
+  REGISTER_TOFP_FUNCS(i4, f8E4M3FN, Int4, F8E4M3FN);
+  REGISTER_TOFP_FUNCS(i4, bf16, Int4, BFloat16);
 
 #undef REGISTER_TOFP_FUNCS
 
@@ -556,23 +576,20 @@ static void registerExecutorCoreModuleLuaRuntimeMethods(
   //===----------------------------------------------------------------------===//
 
 #define DEFINE_FPTOSI_METHOD(inpSuffix, resSuffix, inpType, resType)           \
-  lua["_fptosi_" #inpSuffix "_" #resSuffix] = [](inpType input) -> resType {   \
-    ADD_CORE_MODULE_RANGE("core_fptosi");                                      \
-    return static_cast<resType>(input);                                        \
-  }
+  lua["_fptosi_" #inpSuffix "_" #resSuffix] = fptosi<resType, inpType>;
 
-  DEFINE_FPTOSI_METHOD(f8E4M3FN, i8, fp8_e4m3fn, int8_t);
-  DEFINE_FPTOSI_METHOD(f8E4M3FN, i16, fp8_e4m3fn, int16_t);
-  DEFINE_FPTOSI_METHOD(f8E4M3FN, i32, fp8_e4m3fn, int32_t);
-  DEFINE_FPTOSI_METHOD(f8E4M3FN, i64, fp8_e4m3fn, int64_t);
-  DEFINE_FPTOSI_METHOD(bf16, i8, nv_bfloat16, int8_t);
-  DEFINE_FPTOSI_METHOD(bf16, i16, nv_bfloat16, int16_t);
-  DEFINE_FPTOSI_METHOD(bf16, i32, nv_bfloat16, int32_t);
-  DEFINE_FPTOSI_METHOD(bf16, i64, nv_bfloat16, int64_t);
-  DEFINE_FPTOSI_METHOD(f16, i8, __half, int8_t);
-  DEFINE_FPTOSI_METHOD(f16, i16, __half, int16_t);
-  DEFINE_FPTOSI_METHOD(f16, i32, __half, int32_t);
-  DEFINE_FPTOSI_METHOD(f16, i64, __half, int64_t);
+  DEFINE_FPTOSI_METHOD(f8E4M3FN, i8, F8E4M3FN, int8_t);
+  DEFINE_FPTOSI_METHOD(f8E4M3FN, i16, F8E4M3FN, int16_t);
+  DEFINE_FPTOSI_METHOD(f8E4M3FN, i32, F8E4M3FN, int32_t);
+  DEFINE_FPTOSI_METHOD(f8E4M3FN, i64, F8E4M3FN, int64_t);
+  DEFINE_FPTOSI_METHOD(bf16, i8, BFloat16, int8_t);
+  DEFINE_FPTOSI_METHOD(bf16, i16, BFloat16, int16_t);
+  DEFINE_FPTOSI_METHOD(bf16, i32, BFloat16, int32_t);
+  DEFINE_FPTOSI_METHOD(bf16, i64, BFloat16, int64_t);
+  DEFINE_FPTOSI_METHOD(f16, i8, Float16, int8_t);
+  DEFINE_FPTOSI_METHOD(f16, i16, Float16, int16_t);
+  DEFINE_FPTOSI_METHOD(f16, i32, Float16, int32_t);
+  DEFINE_FPTOSI_METHOD(f16, i64, Float16, int64_t);
   DEFINE_FPTOSI_METHOD(f32, i8, float, int8_t);
   DEFINE_FPTOSI_METHOD(f32, i16, float, int16_t);
   DEFINE_FPTOSI_METHOD(f32, i32, float, int32_t);
@@ -581,11 +598,11 @@ static void registerExecutorCoreModuleLuaRuntimeMethods(
   DEFINE_FPTOSI_METHOD(f64, i16, double, int16_t);
   DEFINE_FPTOSI_METHOD(f64, i32, double, int32_t);
   DEFINE_FPTOSI_METHOD(f64, i64, double, int64_t);
-  DEFINE_FPTOSI_METHOD(f64, i4, double, nv_int4);
-  DEFINE_FPTOSI_METHOD(f32, i4, float, nv_int4);
-  DEFINE_FPTOSI_METHOD(f16, i4, __half, nv_int4);
-  DEFINE_FPTOSI_METHOD(bf16, i4, nv_bfloat16, nv_int4);
-  DEFINE_FPTOSI_METHOD(f8E4M3FN, i4, fp8_e4m3fn, nv_int4);
+  DEFINE_FPTOSI_METHOD(f64, i4, double, Int4);
+  DEFINE_FPTOSI_METHOD(f32, i4, float, Int4);
+  DEFINE_FPTOSI_METHOD(f16, i4, Float16, Int4);
+  DEFINE_FPTOSI_METHOD(bf16, i4, BFloat16, Int4);
+  DEFINE_FPTOSI_METHOD(f8E4M3FN, i4, F8E4M3FN, Int4);
 #undef DEFINE_FPTOSI_METHOD
 
   //===----------------------------------------------------------------------===//
@@ -614,7 +631,7 @@ static void registerExecutorCoreModuleLuaRuntimeMethods(
 #define DEFINE_IEXT_METHOD_I4(inpSuffix, resSuffix, inpType, resType)          \
   lua["_zext_" #inpSuffix "_" #resSuffix] = [](inpType input) -> resType {     \
     ADD_CORE_MODULE_RANGE("core_zext");                                        \
-    auto tmp = static_cast<u##resType>(*reinterpret_cast<nv_uint4 *>(&input)); \
+    auto tmp = static_cast<u##resType>(*reinterpret_cast<UInt4 *>(&input));    \
     return *reinterpret_cast<const resType *>(&tmp);                           \
   };                                                                           \
   lua["_siext_" #inpSuffix "_" #resSuffix] = [](inpType input) -> resType {    \
@@ -623,10 +640,10 @@ static void registerExecutorCoreModuleLuaRuntimeMethods(
     return *reinterpret_cast<const resType *>(&tmp);                           \
   }
 
-  DEFINE_IEXT_METHOD_I4(i4, i8, nv_int4, int8_t);
-  DEFINE_IEXT_METHOD_I4(i4, i16, nv_int4, int16_t);
-  DEFINE_IEXT_METHOD_I4(i4, i32, nv_int4, int32_t);
-  DEFINE_IEXT_METHOD_I4(i4, i64, nv_int4, int32_t);
+  DEFINE_IEXT_METHOD_I4(i4, i8, Int4, int8_t);
+  DEFINE_IEXT_METHOD_I4(i4, i16, Int4, int16_t);
+  DEFINE_IEXT_METHOD_I4(i4, i32, Int4, int32_t);
+  DEFINE_IEXT_METHOD_I4(i4, i64, Int4, int32_t);
 #undef DEFINE_IEXT_METHOD
 #undef DEFINE_IEXT_METHOD_I4
 
@@ -643,15 +660,15 @@ static void registerExecutorCoreModuleLuaRuntimeMethods(
   DEFINE_TRUNC_METHOD(32, 64, int32_t, int64_t);
   DEFINE_TRUNC_METHOD(16, 64, int16_t, int64_t);
   DEFINE_TRUNC_METHOD(8, 64, int8_t, int64_t);
-  DEFINE_TRUNC_METHOD(4, 64, nv_int4, int64_t);
+  DEFINE_TRUNC_METHOD(4, 64, Int4, int64_t);
   DEFINE_TRUNC_METHOD(1, 64, int8_t, int64_t);
 
   DEFINE_TRUNC_METHOD(16, 32, int16_t, int32_t);
   DEFINE_TRUNC_METHOD(8, 32, int8_t, int32_t);
-  DEFINE_TRUNC_METHOD(4, 32, nv_int4, int32_t);
+  DEFINE_TRUNC_METHOD(4, 32, Int4, int32_t);
   DEFINE_TRUNC_METHOD(1, 32, int8_t, int32_t);
 
-  DEFINE_TRUNC_METHOD(4, 8, nv_int4, int8_t);
+  DEFINE_TRUNC_METHOD(4, 8, Int4, int8_t);
   DEFINE_TRUNC_METHOD(1, 8, int8_t, int8_t);
 
 #undef DEFINE_TRUNC_METHOD
@@ -680,21 +697,21 @@ static void registerExecutorCoreModuleLuaRuntimeMethods(
   DEFINE_MIN_MAX(i32, int32_t, 32);
   DEFINE_MIN_MAX(i64, int64_t, 64);
 
-  lua["_smin_i4"] = [](nv_int4 lhs, nv_int4 rhs) -> nv_int4 {
+  lua["_smin_i4"] = [](Int4 lhs, Int4 rhs) -> Int4 {
     return std::min(lhs, rhs);
   };
-  lua["_smax_i4"] = [](nv_int4 lhs, nv_int4 rhs) -> nv_int4 {
+  lua["_smax_i4"] = [](Int4 lhs, Int4 rhs) -> Int4 {
     return std::max(lhs, rhs);
   };
-  lua["_umin_i4"] = [](nv_int4 lhs, nv_int4 rhs) -> nv_int4 {
-    auto x = std::min(*reinterpret_cast<nv_uint4 *>(&lhs),
-                      *reinterpret_cast<nv_uint4 *>(&rhs));
-    return *reinterpret_cast<nv_int4 *>(&x);
+  lua["_umin_i4"] = [](Int4 lhs, Int4 rhs) -> Int4 {
+    auto x = std::min(*reinterpret_cast<UInt4 *>(&lhs),
+                      *reinterpret_cast<UInt4 *>(&rhs));
+    return *reinterpret_cast<Int4 *>(&x);
   };
-  lua["_umax_i4"] = [](nv_int4 lhs, nv_int4 rhs) -> nv_int4 {
-    auto x = std::max(*reinterpret_cast<nv_uint4 *>(&lhs),
-                      *reinterpret_cast<nv_uint4 *>(&rhs));
-    return *reinterpret_cast<nv_int4 *>(&x);
+  lua["_umax_i4"] = [](Int4 lhs, Int4 rhs) -> Int4 {
+    auto x = std::max(*reinterpret_cast<UInt4 *>(&lhs),
+                      *reinterpret_cast<UInt4 *>(&rhs));
+    return *reinterpret_cast<Int4 *>(&x);
   };
 
 #undef DEFINE_MIN_MAX
@@ -716,10 +733,10 @@ static void registerExecutorCoreModuleLuaRuntimeMethods(
     return shortType(input);                                                   \
   }
 
-  DEFINE_FLOAT_CAST_METHODS(f16, f32, __half, float);
-  DEFINE_FLOAT_CAST_METHODS(f8E4M3FN, f16, fp8_e4m3fn, __half);
-  DEFINE_FLOAT_CAST_METHODS(f8E4M3FN, f32, fp8_e4m3fn, float);
-  DEFINE_FLOAT_CAST_METHODS(bf16, f32, nv_bfloat16, float);
+  DEFINE_FLOAT_CAST_METHODS(f16, f32, Float16, float);
+  DEFINE_FLOAT_CAST_METHODS(f8E4M3FN, f16, F8E4M3FN, Float16);
+  DEFINE_FLOAT_CAST_METHODS(f8E4M3FN, f32, F8E4M3FN, float);
+  DEFINE_FLOAT_CAST_METHODS(bf16, f32, BFloat16, float);
 
 #undef DEFINE_FLOAT_CAST_METHODS
 
@@ -774,9 +791,9 @@ static void registerExecutorCoreModuleLuaRuntimeMethods(
 
   DEFINE_FCMP_METHODS(f32, float, float);
   DEFINE_FCMP_METHODS(f64, double, double);
-  DEFINE_FCMP_METHODS(f16, __half, __half);
-  DEFINE_FCMP_METHODS(f8E4M3FN, fp8_e4m3fn, float);
-  DEFINE_FCMP_METHODS(bf16, nv_bfloat16, float);
+  DEFINE_FCMP_METHODS(f16, Float16, Float16);
+  DEFINE_FCMP_METHODS(f8E4M3FN, F8E4M3FN, float);
+  DEFINE_FCMP_METHODS(bf16, BFloat16, float);
 
 #undef DEFINE_OFCMP_METHOD
 #undef DEFINE_UFCMP_METHOD
@@ -788,9 +805,9 @@ static void registerExecutorCoreModuleLuaRuntimeMethods(
 
   lua["_remf_f64"] = remf<double>;
   lua["_remf_f32"] = remf<float>;
-  lua["_remf_f16"] = remf<__half>;
-  lua["_remf_f8E4M3FN"] = remf<fp8_e4m3fn>;
-  lua["_remf_bf16"] = remf<nv_bfloat16>;
+  lua["_remf_f16"] = remf<Float16>;
+  lua["_remf_f8E4M3FN"] = remf<F8E4M3FN>;
+  lua["_remf_bf16"] = remf<BFloat16>;
 
   //===----------------------------------------------------------------------===//
   // aggregate ops
@@ -894,10 +911,10 @@ static void registerExecutorCoreModuleLuaRuntimeMethods(
   DEFINE_LOAD_METHOD(i32, int32_t, int32_t);
   DEFINE_LOAD_METHOD(i16, int16_t, int16_t);
   DEFINE_LOAD_METHOD(i8, int8_t, int8_t);
-  DEFINE_LOAD_METHOD(f16, __half, __half);
-  DEFINE_LOAD_METHOD(f8E4M3FN, fp8_e4m3fn, fp8_e4m3fn);
-  DEFINE_LOAD_METHOD(bf16, nv_bfloat16, nv_bfloat16);
-  DEFINE_LOAD_METHOD(i4, nv_int4, nv_int4);
+  DEFINE_LOAD_METHOD(f16, Float16, Float16);
+  DEFINE_LOAD_METHOD(f8E4M3FN, F8E4M3FN, F8E4M3FN);
+  DEFINE_LOAD_METHOD(bf16, BFloat16, BFloat16);
+  DEFINE_LOAD_METHOD(i4, Int4, Int4);
 
   // Define i1 load specially to enforce truncation. Otherwise, the Lua
   // comparisons might not work correctly.
@@ -934,10 +951,10 @@ static void registerExecutorCoreModuleLuaRuntimeMethods(
   DEFINE_STORE_METHOD(ptr_host_pinned, uintptr_t, uintptr_t);
   DEFINE_STORE_METHOD(i8, int8_t, int8_t);
   DEFINE_STORE_METHOD(i1, int8_t, int8_t);
-  DEFINE_STORE_METHOD(f16, __half, __half);
-  DEFINE_STORE_METHOD(f8E4M3FN, fp8_e4m3fn, fp8_e4m3fn);
-  DEFINE_STORE_METHOD(bf16, nv_bfloat16, nv_bfloat16);
-  DEFINE_STORE_METHOD(i4, nv_int4, nv_int4);
+  DEFINE_STORE_METHOD(f16, Float16, Float16);
+  DEFINE_STORE_METHOD(f8E4M3FN, F8E4M3FN, F8E4M3FN);
+  DEFINE_STORE_METHOD(bf16, BFloat16, BFloat16);
+  DEFINE_STORE_METHOD(i4, Int4, Int4);
 
 #undef DEFINE_STORE_METHOD
   //===----------------------------------------------------------------------===//
@@ -1039,7 +1056,7 @@ static void registerExecutorCoreModuleLuaRuntimeMethods(
   DEFINE_UNARY_OP_(name, i64, int64_t, op);                                    \
   DEFINE_UNARY_OP_(name, i16, int64_t, op);                                    \
   DEFINE_UNARY_OP_(name, i8, int8_t, op);                                      \
-  DEFINE_UNARY_SPECIAL_TYPES_(name, i4, nv_int4, op)
+  DEFINE_UNARY_SPECIAL_TYPES_(name, i4, Int4, op)
 
   // 'Math' unary ops
   DEFINE_INT_UNARY_OP(absi, std::abs);
@@ -1050,9 +1067,9 @@ static void registerExecutorCoreModuleLuaRuntimeMethods(
 #define DEFINE_FLOAT_UNARY_OP(name, op)                                        \
   DEFINE_UNARY_OP_(name, f32, float, op);                                      \
   DEFINE_UNARY_OP_(name, f64, double, op);                                     \
-  DEFINE_UNARY_SPECIAL_TYPES_(name, f16, half, op);                            \
-  DEFINE_UNARY_SPECIAL_TYPES_(name, f8E4M3FN, fp8_e4m3fn, op);                 \
-  DEFINE_UNARY_SPECIAL_TYPES_(name, bf16, nv_bfloat16, op)
+  DEFINE_UNARY_SPECIAL_TYPES_(name, f16, Float16, op);                         \
+  DEFINE_UNARY_SPECIAL_TYPES_(name, f8E4M3FN, F8E4M3FN, op);                   \
+  DEFINE_UNARY_SPECIAL_TYPES_(name, bf16, BFloat16, op)
 
   // Unary float ops
   DEFINE_FLOAT_UNARY_OP(absf, std::abs);
@@ -1081,9 +1098,9 @@ static void registerExecutorCoreModuleLuaRuntimeMethods(
 #define DEFINE_FLOAT_BINARY_OP(name, op)                                       \
   DEFINE_BINARY_OP_(name, f32, float, op);                                     \
   DEFINE_BINARY_OP_(name, f64, double, op);                                    \
-  DEFINE_BINARY_SPECIAL_TYPES_(name, f16, half, op);                           \
-  DEFINE_BINARY_SPECIAL_TYPES_(name, f8E4M3FN, fp8_e4m3fn, op);                \
-  DEFINE_BINARY_SPECIAL_TYPES_(name, bf16, nv_bfloat16, op)
+  DEFINE_BINARY_SPECIAL_TYPES_(name, f16, Float16, op);                        \
+  DEFINE_BINARY_SPECIAL_TYPES_(name, f8E4M3FN, F8E4M3FN, op);                  \
+  DEFINE_BINARY_SPECIAL_TYPES_(name, bf16, BFloat16, op)
 
   DEFINE_FLOAT_BINARY_OP(atan2, std::atan2);
   DEFINE_FLOAT_BINARY_OP(copysign, std::copysign);

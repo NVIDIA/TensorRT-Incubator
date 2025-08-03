@@ -1,5 +1,3 @@
-add_mlir_executor_unittest(Int4Tests Int4Tests.cpp)
-
-if(MLIR_EXECUTOR_ENABLE_GPU_INTEGRATION_TESTS)
-    add_subdirectory(LuaRuntime)
-endif()
+add_mlir_executor_unittest(DataTypeTests DataTypeTests.cpp)
+target_link_libraries(DataTypeTests PRIVATE MLIRTensorRTExecutorRuntimeCommon)
+add_subdirectory(LuaRuntime)

@@ -6,7 +6,7 @@
 
 func.func @test_outline_closed_alloc_group(%arg0: tensor<?x10xf32> {plan.shape_profile=#profile0}) -> tensor<?x10xf32> {
   %0 = plan.inline_closed_alloc_group
-        target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>)
+        target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>)
         inputs(%arg0 : tensor<?x10xf32>)
         in_attrs [#profile0] -> tensor<?x10xf32> {
   ^bb0(%in0: tensor<?x10xf32>):

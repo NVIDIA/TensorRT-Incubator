@@ -157,8 +157,7 @@ ExecutorTypeConverter::ExecutorTypeConverter(
   });
 
   addConversion([](Type t) -> std::optional<Type> {
-    if (isa<executor::PointerType, executor::StrLiteralType,
-            executor::ExecutorOpaqueType>(t))
+    if (isa<executor::PointerType, executor::StrLiteralType>(t))
       return t;
     return std::nullopt;
   });
@@ -238,19 +237,6 @@ convertFuncArg(const ExecutorTypeConverter &converter, Type type) {
   SmallVector<Type> results;
   if (isa<UnrankedMemRefType>(type))
     return failure();
-  if (auto memref = dyn_cast<MemRefType>(type)) {
-    if (converter.getOptions().memrefArgPassingConvention ==
-        MemRefArgPassingConvention::Unpacked) {
-      // In signatures, Memref descriptors are expanded into lists of
-      // non-aggregate values.
-      FailureOr<SmallVector<Type>> memrefArgs =
-          converter.getMemRefDescriptorFields(memref);
-      if (failed(memrefArgs))
-        return failure();
-      llvm::append_range(results, *memrefArgs);
-      return results;
-    }
-  }
   Type converted = converter.convertType(type);
   if (!converted)
     return failure();
@@ -545,38 +531,14 @@ PointerType ConvertToExecutorPattern::getDevicePointerType() const {
   return PointerType::get(getContext(), MemoryType::device);
 }
 
-/// Append values corresponding to a memref argument to the converted
-/// `func.call's operands `callOperands`.
-static void appendMemRefTypeOperands(
-    SmallVectorImpl<Value> &callOperands, ImplicitLocOpBuilder &b,
-    TypedValue<MemRefType> memrefValue, Value descriptorValue,
-    executor::MemRefArgPassingConvention cconv) {
-  // If the calling convention is "packed", then we pass the descriptor
-  // directly.
-  if (cconv == executor::MemRefArgPassingConvention::Packed) {
-    callOperands.push_back(descriptorValue);
-    return;
-  }
-  // Otherwise, push the unpacked descriptor as scalars.
-  llvm::append_range(
-      callOperands,
-      MemRefDescriptor(descriptorValue, memrefValue.getType()).unpack(b));
-}
-
 SmallVector<Value> ConvertToExecutorPattern::convertFuncCallOperands(
     RewriterBase &rewriter, Location loc, ValueRange originalOperands,
-    ValueRange adaptorOperands,
-    executor::MemRefArgPassingConvention cconv) const {
+    ValueRange adaptorOperands) const {
   ImplicitLocOpBuilder b(loc, rewriter);
   SmallVector<Value> operands;
   for (auto [original, converted] :
-       llvm::zip_equal(originalOperands, adaptorOperands)) {
-    if (auto memref = dyn_cast<TypedValue<MemRefType>>(original)) {
-      appendMemRefTypeOperands(operands, b, memref, converted, cconv);
-      continue;
-    }
+       llvm::zip_equal(originalOperands, adaptorOperands))
     operands.push_back(converted);
-  }
   return operands;
 }
 

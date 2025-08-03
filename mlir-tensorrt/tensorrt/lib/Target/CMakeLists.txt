@@ -1,5 +1,16 @@
-add_subdirectory(PluginRegistry)
-add_subdirectory(TensorRTEncodingOpInterface)
+
+
+if(MLIR_TRT_TARGET_TENSORRT)
+  add_subdirectory(PluginRegistry)
+  add_subdirectory(TensorRTEncodingOpInterface)
+  set(translation_deps
+    MLIRTensorRTTensorRTEncodingImpl
+    MLIRTensorRTTensorRTEncodingOpInterface
+    TensorRTHeaderOnly
+    MLIRTRTTensorRTDynamicLoader
+    MLIRTensorRTTensorRTPluginRegistry
+    )
+endif()
 
 add_mtrtd_library(MLIRTensorRTTargetTensorRT
   Registration.cpp
@@ -9,17 +20,12 @@ add_mtrtd_library(MLIRTensorRTTargetTensorRT
   MLIRDialect
   MLIRIR
   MLIRPass
-  MLIRTensorRTDialect
-  MLIRTensorRTTensorRTEncodingImpl
-  MLIRTensorRTTensorRTEncodingOpInterface
-  MLIRTensorRTTensorRTPluginRegistry
+  MLIRTensorRTCommandLineExtras
+  MLIRTensorRTTensorRTDialect
   MLIRTensorRTTensorRTUtils
   MLIRTransformUtils
   MLIRTranslateLib
-  MLIRTRTTensorRTDynamicLoader
-
-  LINK_LIBS PRIVATE
-  TensorRTHeaderOnly
+  ${translation_deps}
 
   DEPENDS
   MLIRTensorRTTranslationPassIncGen

@@ -120,9 +120,6 @@ class LowerToRuntimeBuiltinsPass
         });
     LowerToExecutorOptions opts;
     opts.indexType = IntegerType::get(ctx, indexBitwidth);
-    opts.memrefArgPassingConvention =
-        usePackedMemRefCConv ? executor::MemRefArgPassingConvention::Packed
-                             : executor::MemRefArgPassingConvention::Unpacked;
     Operation *op = getOperation();
     FailureOr<DataLayout> dataLayout =
         executor::setDataLayoutSpec(op, indexBitwidth, 64);

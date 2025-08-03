@@ -32,6 +32,8 @@ declare_mlir_python_extension(MLIRTensorRTDialectPythonSources.Dialect.tensorrt.
     DialectTensorRT.cpp
   EMBED_CAPI_LINK_LIBS
     MLIRTensorRTCAPITensorRTDialect
+  PRIVATE_LINK_LIBS
+    MLIRTensorRTDialectIncludes
 )
 
 ################################################################################

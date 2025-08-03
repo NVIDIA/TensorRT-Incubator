@@ -60,7 +60,10 @@ func.func @device_alloc(%arg0: index, %arg1: index, %stream: !cuda.stream, %devi
 }
 
 // CHECK-LABEL: func.func @device_alloc
-//  CHECK-SAME: (%[[arg0:.+]]: i64, %[[arg1:.+]]: i64, %[[arg2:.+]]: !executor.ptr<host>, %[[arg3:.+]]: i32) -> !executor.table<!executor.ptr<device>, !executor.ptr<device>, i64, i64, i64, i64, i64, i64, i64> {
+//  CHECK-SAME: (%[[arg0_index:.+]]: index, %[[arg1_index:.+]]: index, %[[arg2_stream:.+]]: !cuda.stream, %[[arg3:.+]]: i32)
+//   CHECK-DAG:     %[[arg0:.+]] = builtin.unrealized_conversion_cast %[[arg0_index]] : index to i64
+//   CHECK-DAG:     %[[arg1:.+]] = builtin.unrealized_conversion_cast %[[arg1_index]] : index to i64
+//   CHECK-DAG:     %[[arg2:.+]] = builtin.unrealized_conversion_cast %[[arg2_stream]] : !cuda.stream to !executor.ptr<host>
 //       CHECK:     %[[c2_i64:.+]] = executor.constant 2 : i64
 //       CHECK:     %[[c1_i64:.+]] = executor.constant 1 : i64
 //       CHECK:     %[[v0:.+]] = executor.muli %[[c1_i64]], %[[arg1]] : i64
@@ -71,7 +74,8 @@ func.func @device_alloc(%arg0: index, %arg1: index, %stream: !cuda.stream, %devi
 //       CHECK:     %[[v4:.+]] = executor.call @__cuda_alloc_device(%[[arg2]], %[[v3]], %{{.+}})
 //       CHECK:     %[[c0_i64:.+]] = executor.constant 0 : i64
 //       CHECK:     %[[v5:.+]] = executor.table.create(%[[v4]], %[[v4]], %[[c0_i64]], %[[arg0]], %[[c2_i64]], %[[arg1]], %[[v1]], %[[v0]], %[[c1_i64]] : !executor.ptr<device>, !executor.ptr<device>, i64, i64, i64, i64, i64, i64, i64) : <!executor.ptr<device>, !executor.ptr<device>, i64, i64, i64, i64, i64, i64, i64>
-//       CHECK:     return %[[v5]]
+//       CHECK:     %[[v6:.+]] = builtin.unrealized_conversion_cast %[[v5]]
+//       CHECK:     return %[[v6]]
 
 // -----
 
@@ -81,7 +85,8 @@ func.func @memref_device_alloc_i1(%arg0: !cuda.stream, %device: i32) -> memref<1
 }
 
 // CHECK-LABEL: func.func @memref_device_alloc_i1
-//  CHECK-SAME: (%[[arg0:.+]]: !executor.ptr<host>, %[[arg1:.+]]: i32) -> !executor.table<!executor.ptr<device>, !executor.ptr<device>, i64, i64, i64, i64, i64> {
+//  CHECK-SAME: (%[[arg0_stream:.+]]: !cuda.stream, %[[arg1:.+]]: i32) -> memref<1500x1500xi1, #executor.memory_type<device>> {
+//       CHECK:     %[[arg0:.+]] = builtin.unrealized_conversion_cast %[[arg0_stream]] : !cuda.stream to !executor.ptr<host>
 //       CHECK:     %[[c1500_i64:.+]] = executor.constant 1500 : i64
 //       CHECK:     %[[c1500_i64_0:.+]] = executor.constant 1500 : i64
 //       CHECK:     %[[c1_i64:.+]] = executor.constant 1 : i64
@@ -92,7 +97,8 @@ func.func @memref_device_alloc_i1(%arg0: !cuda.stream, %device: i32) -> memref<1
 //       CHECK:     %[[v3:.+]] = executor.call @__cuda_alloc_device(%[[arg0]], %[[v2]], %{{.+}})
 //       CHECK:     %[[c0_i64:.+]] = executor.constant 0 : i64
 //       CHECK:     %[[v4:.+]] = executor.table.create(%[[v3]], %[[v3]], %[[c0_i64]], %[[c1500_i64]], %[[c1500_i64_0]], %[[v0]], %[[c1_i64]] : !executor.ptr<device>, !executor.ptr<device>, i64, i64, i64, i64, i64) : <!executor.ptr<device>, !executor.ptr<device>, i64, i64, i64, i64, i64>
-//       CHECK:     return %[[v4]] : !executor.table<!executor.ptr<device>, !executor.ptr<device>, i64, i64, i64, i64, i64>
+//       CHECK:     %[[v5:.+]] = builtin.unrealized_conversion_cast %[[v4]] : !executor.table<!executor.ptr<device>, !executor.ptr<device>, i64, i64, i64, i64, i64> to memref<1500x1500xi1, #executor.memory_type<device>>
+//       CHECK:     return %[[v5]] : memref<1500x1500xi1, #executor.memory_type<device>>
 
 // -----
 
@@ -104,7 +110,9 @@ func.func @pinned_alloc(%arg0: index, %arg1: index, %stream: !cuda.stream, %devi
 }
 
 // CHECK-LABEL: func.func @pinned_alloc
-//  CHECK-SAME: (%[[arg0:.+]]: i64, %[[arg1:.+]]: i64, %[[arg2:.+]]: !executor.ptr<host>, %[[arg3:.+]]: i32) -> !executor.table<!executor.ptr<host_pinned>, !executor.ptr<host_pinned>, i64, i64, i64, i64, i64, i64, i64> {
+//  CHECK-SAME: (%[[arg0_index:.+]]: index, %[[arg1_index:.+]]: index, %[[arg2_stream:.+]]: !cuda.stream, %[[arg3:.+]]: i32)
+//   CHECK-DAG:     %[[arg0:.+]] = builtin.unrealized_conversion_cast %[[arg0_index]] : index to i64
+//   CHECK-DAG:     %[[arg1:.+]] = builtin.unrealized_conversion_cast %[[arg1_index]] : index to i64
 //   CHECK-DAG:     %[[c2_i64:.+]] = executor.constant 2 : i64
 //   CHECK-DAG:     %[[c1_i64:.+]] = executor.constant 1 : i64
 //   CHECK-DAG:     %[[v0:.+]] = executor.muli %[[c1_i64]], %[[arg1]] : i64
@@ -115,7 +123,8 @@ func.func @pinned_alloc(%arg0: index, %arg1: index, %stream: !cuda.stream, %devi
 //   CHECK-DAG:     %[[v4:.+]] = executor.call @__cuda_alloc_host_pinned(%[[v3]], %{{.+}}) : (i64, i32) -> !executor.ptr<host_pinned>
 //   CHECK-DAG:     %[[c0_i64:.+]] = executor.constant 0 : i64
 //   CHECK-DAG:     %[[v5:.+]] = executor.table.create(%[[v4]], %[[v4]], %[[c0_i64]], %[[arg0]], %[[c2_i64]], %[[arg1]], %[[v1]], %[[v0]], %[[c1_i64]] : !executor.ptr<host_pinned>, !executor.ptr<host_pinned>, i64, i64, i64, i64, i64, i64, i64) : <!executor.ptr<host_pinned>, !executor.ptr<host_pinned>, i64, i64, i64, i64, i64, i64, i64>
-//   CHECK-DAG:     return %[[v5]] : !executor.table<!executor.ptr<host_pinned>, !executor.ptr<host_pinned>, i64, i64, i64, i64, i64, i64, i64>
+//   CHECK-DAG:     %[[v6:.+]] = builtin.unrealized_conversion_cast %[[v5]]
+//   CHECK-DAG:     return %[[v6]]
 
 // -----
 
@@ -126,7 +135,9 @@ func.func @device_free(%arg0: !cuda.stream, %arg1: !memref_4xi8) {
 }
 
 // CHECK-LABEL: func.func @device_free
-//  CHECK-SAME: (%[[arg0:.+]]: !executor.ptr<host>, %[[arg1:.+]]: !executor.table<!executor.ptr<device>, !executor.ptr<device>, i64, i64, i64, i64, i64, i64, i64>) {
+//  CHECK-SAME: (%[[arg0_stream:.+]]: !cuda.stream, %[[arg1_memref:.+]]: memref<
+//   CHECK-DAG:     %[[arg1:.+]] = builtin.unrealized_conversion_cast %[[arg1_memref]]
+//   CHECK-DAG:     %[[arg0:.+]] = builtin.unrealized_conversion_cast %[[arg0_stream]]
 //       CHECK:     %[[v0:.+]] = executor.table.get %[[arg1]][0] : <!executor.ptr<device>, !executor.ptr<device>, i64, i64, i64, i64, i64, i64, i64>
 //       CHECK:     executor.call @__cuda_free_device(%[[arg0]], %[[v0]]) : (!executor.ptr<host>, !executor.ptr<device>) -> ()
 
@@ -139,7 +150,9 @@ func.func @pinned_free(%arg0: !cuda.stream, %arg1: !memref_4xi8) {
 }
 
 // CHECK-LABEL: func.func @pinned_free
-//  CHECK-SAME: (%[[arg0:.+]]: !executor.ptr<host>, %[[arg1:.+]]: !executor.table<!executor.ptr<host_pinned>, !executor.ptr<host_pinned>, i64, i64, i64, i64, i64, i64, i64>) {
+//  CHECK-SAME: (%[[arg0_stream:.+]]: !cuda.stream, %[[arg1_memref:.+]]: memref<{{.*}}>
+//   CHECK-DAG:     %[[arg1:.+]] = builtin.unrealized_conversion_cast %[[arg1_memref]]
+//   CHECK-DAG:     %[[arg0:.+]] = builtin.unrealized_conversion_cast %[[arg0_stream]]
 //       CHECK:     %[[v0:.+]] = executor.table.get %[[arg1]][0] : <!executor.ptr<host_pinned>, !executor.ptr<host_pinned>, i64, i64, i64, i64, i64, i64, i64>
 //       CHECK:     executor.call @__cuda_free_host_pinned(%[[arg0]], %[[v0]])
 
@@ -156,7 +169,10 @@ func.func @copy_d2d(%arg0: !src_memref_type, %arg1: !dst_memref_type, %stream: !
 }
 
 // CHECK-LABEL: func.func @copy_d2d
-//  CHECK-SAME: (%[[arg0:.+]]: !executor.table<!executor.ptr<device>, !executor.ptr<device>, i64, i64, i64, i64, i64, i64, i64>, %[[arg1:.+]]: !executor.table<!executor.ptr<device>, !executor.ptr<device>, i64, i64, i64, i64, i64, i64, i64>, %[[arg2:.+]]: !executor.ptr<host>) {
+//  CHECK-SAME: (%[[arg0_src:.+]]: memref<{{.*}}>, %[[arg1_dst:.+]]: memref<{{.*}}>, %[[arg2_stream:.+]]: !cuda.stream) {
+//   CHECK-DAG:     %[[arg1:.+]] = builtin.unrealized_conversion_cast %[[arg1_dst]] 
+//   CHECK-DAG:     %[[arg0:.+]] = builtin.unrealized_conversion_cast %[[arg0_src]] 
+//   CHECK-DAG:     %[[arg2:.+]] = builtin.unrealized_conversion_cast %[[arg2_stream]]
 //       CHECK:     %[[c0_i64:.+]] = executor.constant 0 : i64
 //       CHECK:     %[[v0:.+]] = executor.getoffset[%[[c0_i64]]] : (i64) -> i64, f32
 //       CHECK:     %[[c0_i64_0:.+]] = executor.constant 0 : i64
@@ -184,7 +200,10 @@ func.func @copy_d2h_offset(%arg0: memref<128x16xf32, strided<[16, 1], offset: 16
 }
 
 // CHECK-LABEL: func.func @copy_d2h_offset
-//  CHECK-SAME: (%[[arg0:.+]]: !executor.table<!executor.ptr<device>, !executor.ptr<device>, i64, i64, i64, i64, i64>, %[[arg1:.+]]: !executor.table<!executor.ptr<host>, !executor.ptr<host>, i64, i64, i64, i64, i64>, %[[arg2:.+]]: !executor.ptr<host>) {
+//  CHECK-SAME: (%[[arg0_src:.+]]: memref<128x16xf32, strided<[16, 1], offset: 16>, #executor.memory_type<device>>, %[[arg1_dst:.+]]: memref<128x16xf32, strided<[16, 1], offset: 8>, #executor.memory_type<host>>, %[[arg2_stream:.+]]: !cuda.stream) {
+//   CHECK-DAG:     %[[arg1:.+]] = builtin.unrealized_conversion_cast %[[arg1_dst]] : memref<128x16xf32, strided<[16, 1], offset: 8>, #executor.memory_type<host>> to !executor.table<!executor.ptr<host>, !executor.ptr<host>, i64, i64, i64, i64, i64>
+//   CHECK-DAG:     %[[arg0:.+]] = builtin.unrealized_conversion_cast %[[arg0_src]] : memref<128x16xf32, strided<[16, 1], offset: 16>, #executor.memory_type<device>> to !executor.table<!executor.ptr<device>, !executor.ptr<device>, i64, i64, i64, i64, i64>
+//   CHECK-DAG:     %[[arg2:.+]] = builtin.unrealized_conversion_cast %[[arg2_stream]] : !cuda.stream to !executor.ptr<host>
 //       CHECK:     %[[c16_i64:.+]] = executor.constant 16 : i64
 //       CHECK:     %[[v0:.+]] = executor.getoffset[%[[c16_i64]]] : (i64) -> i64, f32
 //       CHECK:     %[[c8_i64:.+]] = executor.constant 8 : i64
@@ -207,7 +226,10 @@ func.func @copy_d2h_strided(%arg0: !srcType,
 }
 
 // CHECK-LABEL: func.func @copy_d2h_strided
-//  CHECK-SAME: (%[[arg0:.+]]: !executor.table<!executor.ptr<device>, !executor.ptr<device>, i64, i64, i64>, %[[arg1:.+]]: !executor.table<!executor.ptr<host>, !executor.ptr<host>, i64, i64, i64>, %[[arg2:.+]]: !executor.ptr<host>) {
+//  CHECK-SAME: (%[[arg0_src:.+]]: memref<{{.*}}>, %[[arg1_dst:.+]]: memref<{{.*}}>, %[[arg2_stream:.+]]: !cuda.stream) {
+//   CHECK-DAG:     %[[arg1:.+]] = builtin.unrealized_conversion_cast %[[arg1_dst]] 
+//   CHECK-DAG:     %[[arg0:.+]] = builtin.unrealized_conversion_cast %[[arg0_src]] 
+//   CHECK-DAG:     %[[arg2:.+]] = builtin.unrealized_conversion_cast %[[arg2_stream]]
 //       CHECK:     %[[c1_i32:.+]] = executor.constant 1 : i32
 //       CHECK:     %[[v0:.+]] = executor.alloca %[[c1_i32]] x !executor.table<i64, i64> : (i32) -> !executor.ptr<host>
 //       CHECK:     %[[v1:.+]] = executor.getoffset[0, 0] : () -> i64, !executor.table<i64, i64>
@@ -244,7 +266,10 @@ func.func @memref_copy_contiguous_non_identity(%arg0: !srcType, %arg1: !dstType,
 }
 
 // CHECK-LABEL: func.func @memref_copy_contiguous_non_identity
-//  CHECK-SAME: (%[[arg0:.+]]: !executor.table<!executor.ptr<device>, !executor.ptr<device>, i64, i64, i64, i64, i64, i64, i64>, %[[arg1:.+]]: !executor.table<!executor.ptr<host>, !executor.ptr<host>, i64, i64, i64, i64, i64, i64, i64>, %[[arg2:.+]]: !executor.ptr<host>) {
+//  CHECK-SAME: (%[[arg0_src:.+]]: memref<{{.*}}>, %[[arg1_dst:.+]]: memref<{{.*}}>, %[[arg2_stream:.+]]: !cuda.stream) {
+//   CHECK-DAG:     %[[arg1:.+]] = builtin.unrealized_conversion_cast %[[arg1_dst]] 
+//   CHECK-DAG:     %[[arg0:.+]] = builtin.unrealized_conversion_cast %[[arg0_src]] 
+//   CHECK-DAG:     %[[arg2:.+]] = builtin.unrealized_conversion_cast %[[arg2_stream]]
 //       CHECK:     %[[v0:.+]] = executor.table.get %[[arg0]][2] : <!executor.ptr<device>, !executor.ptr<device>, i64, i64, i64, i64, i64, i64, i64>
 //       CHECK:     %[[v1:.+]] = executor.getoffset[%[[v0]]] : (i64) -> i64, f32
 //       CHECK:     %[[v2:.+]] = executor.table.get %[[arg1]][2] : <!executor.ptr<host>, !executor.ptr<host>, i64, i64, i64, i64, i64, i64, i64>
@@ -333,14 +358,14 @@ func.func @test_cuda_launch(
 }
 
 // CHECK-LABEL: func.func @test_cuda_launch
-//  CHECK-SAME: (%[[arg0:.+]]: !executor.table<!executor.ptr<device>, !executor.ptr<device>, i64, i64, i64>, %[[arg1:.+]]: !executor.table<!executor.ptr<device>, !executor.ptr<device>, i64, i64, i64>, %[[arg2:.+]]: i64, %[[arg3:.+]]: i64) {
-//   CHECK-DAG:     %[[v0:.+]] = builtin.unrealized_conversion_cast %[[arg3]] : i64 to index
-//   CHECK-DAG:     %[[v1:.+]] = builtin.unrealized_conversion_cast %[[arg2]] : i64 to index
+//  CHECK-SAME: (%[[arg0_memref:.+]]: memref<{{.*}}>, %[[arg1_memref:.+]]: memref<{{.*}}>, %[[arg2:.+]]: index, %[[arg3:.+]]: index) {
+//   CHECK-DAG:     %[[arg1:.+]] = builtin.unrealized_conversion_cast %[[arg1_memref]] 
+//   CHECK-DAG:     %[[arg0:.+]] = builtin.unrealized_conversion_cast %[[arg0_memref]]
 //   CHECK-DAG:     %[[v2:.+]] = executor.get_global @kernels_cuModule_0_cuModule_kernel_cuFunc : !executor.ptr<host>
 //   CHECK-DAG:     %[[c1_i32:.+]] = arith.constant 1 : i32
 //   CHECK-DAG:     %[[c0_i32:.+]] = arith.constant 0 : i32
-//   CHECK-DAG:     %[[v3:.+]] = arith.index_cast %[[v1]] : index to i32
-//   CHECK-DAG:     %[[v4:.+]] = arith.index_cast %[[v0]] : index to i32
+//   CHECK-DAG:     %[[v3:.+]] = arith.index_cast %[[arg2]] : index to i32
+//   CHECK-DAG:     %[[v4:.+]] = arith.index_cast %[[arg3]] : index to i32
 //   CHECK-DAG:     %[[v5:.+]] = executor.get_global @stream0 : !executor.ptr<host>
 //   CHECK-DAG:     %[[c1_i64:.+]] = executor.constant 1 : i64
 //   CHECK-DAG:     %[[v6:.+]] = executor.table.get %[[arg0]][1]

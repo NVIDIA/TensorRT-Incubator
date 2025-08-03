@@ -5,9 +5,9 @@
 // propositions.
 
 builtin.module attributes {
-  plan.cluster_kinds = [
-    #plan.tensorrt_cluster<benefit = 1, disallow_shape_tensor_calculations=false, tensorrt_major_version = 10>,
-    #plan.host_cluster<benefit = 0>
+  plan.backends = [
+    #plan.tensorrt_backend<benefit = 1, disallow_shape_tensor_calculations=false, tensorrt_major_version = 10>,
+    #plan.host_backend<benefit = 0>
   ]
 } {
 
@@ -35,7 +35,7 @@ func.func @simple_gather_dynamic(%arg0: tensor<?x?x256x256xi32>, %arg1: tensor<?
 }
 
 // CHECK-LABEL: func.func @simple_gather_dynamic(
-//       CHECK:     %[[v1:.+]] = plan.inline_group target(#plan.tensorrt_cluster<
+//       CHECK:     %[[v1:.+]] = plan.inline_group target(#plan.tensorrt_backend<
 //  CHECK-NEXT:       with_shape
 //  CHECK-NEXT:       with_values
 //  CHECK-NEXT:       stablehlo.dynamic_gather
@@ -46,10 +46,10 @@ func.func @simple_gather_dynamic(%arg0: tensor<?x?x256x256xi32>, %arg1: tensor<?
 // Test that interleaved `plan.with_values` and `arith` dialect operations don't disrupt
 // the clustering of stablehlo ops that can be put into host clusters.
 
-builtin.module @host_clusters_with_values attributes {
-  plan.cluster_kinds = [
-    #plan.tensorrt_cluster<benefit = 1, disallow_shape_tensor_calculations=true>,
-    #plan.host_cluster<benefit = 0>
+builtin.module @host_backends_with_values attributes {
+  plan.backends = [
+    #plan.tensorrt_backend<benefit = 1, disallow_shape_tensor_calculations=true>,
+    #plan.host_backend<benefit = 0>
   ]
 } {
 
@@ -75,7 +75,7 @@ func.func @test(%arg0: tensor<4xi32>, %arg1: tensor<i32>)
 
 }
 
-// CHECK-LABEL: module @host_clusters_with_values attributes
+// CHECK-LABEL: module @host_backends_with_values attributes
 // CHECK-LABEL: func.func @test
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<4xi32>, %[[arg1:.+]]: tensor<i32>)
 //   CHECK-DAG:     %[[cst:.+]] = stablehlo.constant dense<0.000000e+00> : tensor<f32>
@@ -84,7 +84,7 @@ func.func @test(%arg0: tensor<4xi32>, %arg1: tensor<i32>)
 //   CHECK-DAG:     %[[c0_i32:.+]] = arith.constant 0 : i32
 //   CHECK-DAG:     %[[extracted:.+]] = tensor.extract %[[arg1]][] : tensor<i32>
 //   CHECK-DAG:     %[[v0:.+]] = arith.cmpi eq
-//   CHECK-DAG:     %[[v1:.+]]:2 = plan.inline_group target(#plan.host_cluster<benefit = 0>)
+//   CHECK-DAG:     %[[v1:.+]]:2 = plan.inline_group target(#plan.host_backend<benefit = 0>)
 //   CHECK-DAG:       %[[v2:.+]] = stablehlo.compare  EQ, %[[c]], %[[arg1]] :
 //   CHECK-DAG:       %[[v3:.+]] = with_values %[[v2]](%[[v0]]) : tensor<i1>
 //   CHECK-DAG:       %[[v4:.+]] = stablehlo.reduce(%[[arg0]] init: %[[c]])
@@ -101,12 +101,12 @@ func.func @test(%arg0: tensor<4xi32>, %arg1: tensor<i32>)
 // reduce performance.
 
 builtin.module attributes {
-  plan.cluster_kinds = [
-    #plan.host_cluster<benefit = 0>
+  plan.backends = [
+    #plan.host_backend<benefit = 0>
   ]
 } {
 
-func.func @host_cluster_filtering(%arg0: tensor<i32>, %arg1: i32)
+func.func @host_backend_filtering(%arg0: tensor<i32>, %arg1: i32)
     -> (tensor<i32> {tensorrt.host_tensor}, tensor<i32> {tensorrt.host_tensora}) {
   %0 = plan.with_values %arg0 (%arg1) : tensor<i32>
   %1 = stablehlo.constant dense<1> : tensor<i32>
@@ -117,14 +117,14 @@ func.func @host_cluster_filtering(%arg0: tensor<i32>, %arg1: i32)
 
 }
 
-// CHECK-LABEL: func.func @host_cluster_filtering
+// CHECK-LABEL: func.func @host_backend_filtering
 //   CHECK-NOT:  plan.inline_group
 
 // -----
 
 builtin.module attributes {
-  plan.cluster_kinds = [
-    #plan.tensorrt_cluster<benefit = 1, disallow_shape_tensor_calculations=false>
+  plan.backends = [
+    #plan.tensorrt_backend<benefit = 1, disallow_shape_tensor_calculations=false>
   ]
 } {
 
@@ -148,9 +148,9 @@ func.func @tensorrt_cluster_filtering(%arg0: tensor<?xf32>, %arg1: i32, %arg2: t
 // for the results of the host clusters.
 
 builtin.module attributes {
-  plan.cluster_kinds = [
-    #plan.tensorrt_cluster<benefit = 1, disallow_shape_tensor_calculations=true>,
-    #plan.host_cluster<benefit = 0>
+  plan.backends = [
+    #plan.tensorrt_backend<benefit = 1, disallow_shape_tensor_calculations=true>,
+    #plan.host_backend<benefit = 0>
   ]
 } {
 
@@ -177,8 +177,8 @@ func.func @test_data_flow_state_update(
 // CHECK-LABEL: func.func @test_data_flow_state_update
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<10xf32>, %[[arg1:.+]]: tensor<1xi32>, %[[arg2:.+]]:
 //   CHECK-DAG:     %[[c:.+]] = stablehlo.constant dense<1> : tensor<1xi32>
-//   CHECK-DAG:     %[[v0:.+]]:3 = plan.inline_group target(#plan.host_cluster
-//   CHECK-DAG:     %[[v3:.+]] = plan.inline_group target(#plan.tensorrt_cluster
+//   CHECK-DAG:     %[[v0:.+]]:3 = plan.inline_group target(#plan.host_backend
+//   CHECK-DAG:     %[[v3:.+]] = plan.inline_group target(#plan.tensorrt_backend
 //   CHECK-DAG:       %[[v4:.+]] = stablehlo.dynamic_slice %[[arg0]], %[[v0]]#2
 //   CHECK-DAG:       yield %[[v4]] : tensor<1xf32>
 //   CHECK-DAG:     return %[[v0]]#0, %[[v0]]#1, %[[v3]] :

@@ -5,7 +5,7 @@ set_target_properties(MLIRTensorRTExecutorUnitTests PROPERTIES FOLDER "MLIR-Tens
 # Use this function for populating GTest-based unit tests.
 function(add_mlir_executor_unittest target)
   set(LLVM_LINK_COMPONENTS Support)
-  add_llvm_executable(${target} IGNORE_EXTERNALIZE_DEBUGINFO NO_INSTALL_RPATH ${ARGN})
+  add_llvm_executable(${target} IGNORE_EXTERNALIZE_DEBUGINFO NO_INSTALL_RPATH PARTIAL_SOURCES_INTENDED ${ARGN})
   set_target_properties(${target} PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}")
   add_dependencies(MLIRTensorRTExecutorUnitTests ${target})
   llvm_update_compile_flags(${target})

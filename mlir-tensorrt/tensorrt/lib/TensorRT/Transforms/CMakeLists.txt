@@ -31,8 +31,9 @@ add_mtrtd_library(MLIRTensorRTTransforms
   MLIRParser
   MLIRPass
   MLIRTensorRTAnalysis
+  MLIRTensorRTCommonIncludes
   MLIRTensorRTConstantFoldingUtils
-  MLIRTensorRTDialect
+  MLIRTensorRTTensorRTDialect
   MLIRTensorRTTensorRTUtils
   MLIRTransforms
   )

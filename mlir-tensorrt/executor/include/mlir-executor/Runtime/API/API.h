@@ -25,13 +25,12 @@
 #ifndef MLIR_EXECUTOR_RUNTIME_API_API
 #define MLIR_EXECUTOR_RUNTIME_API_API
 
-#include "dlpack/dlpack.h"
+#include "mlir-executor/Runtime/API/Executable.h"
 #include "mlir-executor/Support/Allocators.h"
 #include "mlir-tensorrt-common/Support/Status.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/MapVector.h"
-#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/StringSet.h"
@@ -41,24 +40,7 @@
 #include <memory>
 #include <string_view>
 
-#if defined(__clang__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wcovered-switch-default"
-#endif
-#include "mlir-executor/Runtime/API/ExecutableFlatbuffer.h"
-#if defined(__clang__)
-#pragma GCC diagnostic pop
-#endif
-
 namespace mlirtrt::runtime {
-
-// Alias some objects from the generated Flatbuffer object API class instead of
-// using them directly.
-using ScalarTypeCode = impl::ScalarTypeCode;
-using PointerType = impl::PointerType;
-using PointerOwner = impl::PointerOwner;
-using TypeCode = impl::Type;
-using CallingConvention = impl::CallingConvention;
 
 class RuntimeClient;
 
@@ -225,7 +207,7 @@ std::string_view stringifyPointerType(PointerType ptrType);
 //===----------------------------------------------------------------------===//
 // TypeView
 // This section includes classes that form the TypeUnion:
-// MemRefTypeView, ScalarTypeView, ExternalOpaqueTypeView
+// MemRefTypeView, ScalarTypeView
 //===----------------------------------------------------------------------===//
 
 /// Base class for all the below classes that provide flatbuffer-view wrappers
@@ -245,16 +227,6 @@ class ScalarTypeView : public FlatbufferTypeObjectView<impl::ScalarType,
 public:
   using FlatbufferTypeObjectView::FlatbufferTypeObjectView;
   operator impl::ScalarTypeCode() const { return view->type(); }
-};
-
-/// A wrapper around the generated `impl::ExternalOpaqueType`.  It does not own
-/// any memory; it only provides a read-only view into the buffer.
-class ExternalOpaqueTypeView
-    : public FlatbufferTypeObjectView<impl::ExternalOpaqueRefType,
-                                      impl::Type::ExternalOpaqueRefType> {
-public:
-  using FlatbufferTypeObjectView::FlatbufferTypeObjectView;
-  operator impl::ExternalOpaqueRefKind() const { return view->code(); }
 };
 
 /// A wrapper around `impl::MemRefTypeT` to provide additional convenience
@@ -285,7 +257,7 @@ public:
 };
 
 /// A wrapper equivalent to the flatbuffer-generated TypeUnion object. The
-/// `view` object may be a `impl::MemRef|impl::ScalarType|impl::OpaqueType` and
+/// `view` object may be a `impl::MemRef|impl::ScalarType` and
 /// `type` is the tag indicating the pointer type.
 struct TypeUnionView {
   impl::Type type;
@@ -586,26 +558,6 @@ public:
 
 protected:
   const impl::Executable *view;
-};
-
-//===----------------------------------------------------------------------===//
-// ExecutableStorage
-//===----------------------------------------------------------------------===//
-
-/// A ExecutableStorage manages storage for the executable. Different concrete
-/// implementations may choose to manage the storage using e.g.
-/// `llvm::MemoryBuffer` or via a just-encoded flatbuffer-allocated buffer.
-class ExecutableStorage {
-public:
-  ExecutableStorage() = default;
-  virtual ~ExecutableStorage() {}
-  ExecutableStorage(const ExecutableStorage &) = delete;
-  ExecutableStorage &operator=(const ExecutableStorage &) = delete;
-
-  virtual std::unique_ptr<ExecutableStorage> getCopy() const = 0;
-
-  virtual const void *data() const = 0;
-  virtual size_t size() const = 0;
 };
 
 //===----------------------------------------------------------------------===//
@@ -1247,9 +1199,6 @@ llvm::raw_ostream &print(llvm::raw_ostream &os,
 llvm::raw_ostream &print(llvm::raw_ostream &os, const MemRefTypeView &type);
 /// Print a text summary of the type to the stream.
 llvm::raw_ostream &print(llvm::raw_ostream &os, const ScalarTypeView &type);
-/// Print a text summary of the type to the stream.
-llvm::raw_ostream &print(llvm::raw_ostream &os,
-                         const ExternalOpaqueTypeView &type);
 /// Print a text summary of the signature to the stream.
 llvm::raw_ostream &print(llvm::raw_ostream &os,
                          const FunctionSignatureView &sig);

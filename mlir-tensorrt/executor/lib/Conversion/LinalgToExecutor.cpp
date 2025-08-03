@@ -25,6 +25,7 @@
 #include "mlir-executor/Conversion/Passes.h"
 #include "mlir-executor/Executor/IR/Executor.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
+#include "mlir/Dialect/Linalg/IR/LinalgInterfaces.h"
 #include "mlir/IR/MLIRContext.h"
 
 namespace mlir::executor {
@@ -224,9 +225,6 @@ class ConvertLinalgToExecutorPass
     // We allow index type during memref lowering prior to lowering of certain
     // executor ops to func-calls.
     opts.indexType = IntegerType::get(ctx, indexBitwidth);
-    opts.memrefArgPassingConvention =
-        usePackedMemRefCConv ? executor::MemRefArgPassingConvention::Packed
-                             : executor::MemRefArgPassingConvention::Unpacked;
     Operation *op = getOperation();
     FailureOr<DataLayout> dataLayout =
         executor::setDataLayoutSpec(op, indexBitwidth, 64);

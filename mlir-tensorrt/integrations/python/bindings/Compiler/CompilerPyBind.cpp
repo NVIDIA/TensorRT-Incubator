@@ -9,7 +9,6 @@
 //===----------------------------------------------------------------------===//
 #include "../CPyBindInterop.h"
 #include "../Utils.h"
-#include "NvInferRuntime.h"
 #include "mlir-c/IR.h"
 #include "mlir-c/Pass.h"
 #include "mlir-c/Support.h"
@@ -25,6 +24,7 @@
 #include <pybind11/attr.h>
 
 #ifdef MLIR_TRT_TARGET_TENSORRT
+#include "NvInferRuntime.h"
 #include "mlir-tensorrt-dialect/Utils/NvInferAdaptor.h"
 #if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 9, 0)
 #include "nvinfer/trt_plugin_python.h"

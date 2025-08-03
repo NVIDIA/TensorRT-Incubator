@@ -8,7 +8,7 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt/Dialect/Plan/IR/PlanInterfaces.h"
-#include "mlir-tensorrt-dialect/Interface/TensorKindOpInterface.h"
+#include "mlir-tensorrt-common/Interfaces/TensorKindOpInterface.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 
 #define DEBUG_TYPE "plan-interfaces"

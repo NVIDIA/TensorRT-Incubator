@@ -3,7 +3,7 @@ add_mlir_tensorrt_library(MLIRTensorRTPlanAnalysis
 
   LINK_LIBS PUBLIC
   MLIRAnalysis
-  MLIRTensorRTDialect
+  MLIRTensorRTTensorRTDialect
   MLIRTensorRTInferTensorValueRangeInterface
   MLIRTensorRTPlanDialect
   MLIRValueBoundsOpInterface

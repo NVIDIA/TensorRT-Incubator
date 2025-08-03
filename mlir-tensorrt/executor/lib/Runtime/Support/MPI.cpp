@@ -25,7 +25,7 @@
 #include "mlir-executor/Runtime/Support/Support.h"
 #include "llvm/Support/raw_ostream.h"
 
-#ifdef MLIR_EXECUTOR_ENABLE_MPI
+#ifdef MLIR_TRT_ENABLE_MPI
 #define OMPI_SKIP_MPICXX
 #if defined(__clang__) || defined(__GNUC__)
 #pragma GCC diagnostic push
@@ -35,12 +35,12 @@
 #if defined(__clang__) || defined(__GNUC__)
 #pragma GCC diagnostic pop
 #endif // defined(__clang__) || defined(__GNUC__)
-#endif // MLIR_EXECUTOR_ENABLE_MPI
+#endif // MLIR_TRT_ENABLE_MPI
 
 using namespace mlirtrt;
 using namespace mlirtrt::runtime;
 
-#ifdef MLIR_EXECUTOR_ENABLE_MPI
+#ifdef MLIR_TRT_ENABLE_MPI
 
 static Status getMPIErrorStatus(llvm::StringRef msg, int32_t errCode) {
   llvm::SmallString<MPI_MAX_ERROR_STRING> str;
@@ -75,10 +75,10 @@ MPIManager::~MPIManager() {
   }
 }
 
-#else // MLIR_EXECUTOR_ENABLE_MPI
+#else // MLIR_TRT_ENABLE_MPI
 
 MPIManager::MPIManager() {}
 
 MPIManager::~MPIManager() {}
 
-#endif // MLIR_EXECUTOR_ENABLE_MPI
+#endif // MLIR_TRT_ENABLE_MPI

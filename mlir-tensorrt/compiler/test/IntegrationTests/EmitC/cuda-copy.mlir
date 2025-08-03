@@ -1,15 +1,19 @@
 // REQUIRES: host-has-at-least-1-gpus
+// REQUIRES: cuda
+// REQUIRES: system-linux
+// REQUIRES: tensorrt
+
 // RUN: rm -rf %t/cpp || true
 // RUN: mkdir -p %t/cpp
 // RUN: mlir-tensorrt-opt %s -lower-affine -convert-host-to-emitc="artifacts-dir=%t/cpp" -cse -canonicalize -form-expressions | \
-// RUN: mlir-tensorrt-translate -mlir-to-cpp | tee %t/cpp/cuda-copy.cpp | \
-// RUN: clang++ -x c++ - \
+// RUN: mlir-tensorrt-translate -mlir-to-cpp | tee %t/cpp/cuda-copy.cpp
+// RUN: %host_cxx \
+// RUN:   %t/cpp/cuda-copy.cpp \
 // RUN:   %mtrt_src_dir/executor/lib/Runtime/StandaloneCPP/MTRTRuntime.cpp \
 // RUN:  -I%mtrt_src_dir/executor/lib/Runtime/StandaloneCPP \
-// RUN:  -I/usr/local/cuda/include \
 // RUN:  -I%trt_include_dir \
-// RUN:  -L/usr/local/cuda/targets/x86_64-linux/lib \
-// RUN:  -lcudart -lcuda -o %t/cpp/cuda-copy-test
+// RUN:  %cuda_toolkit_linux_cxx_flags \
+// RUN:  -o %t/cpp/cuda-copy-test
 // RUN: cd %t/cpp && ./cuda-copy-test | FileCheck %s
 
 #device = #plan.memory_space<device>

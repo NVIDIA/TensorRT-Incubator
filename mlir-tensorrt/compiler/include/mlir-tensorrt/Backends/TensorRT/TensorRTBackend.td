@@ -4,8 +4,8 @@
 include "mlir-tensorrt/Dialect/Plan/IR/PlanDialect.td"
 include "mlir-tensorrt/Dialect/Plan/IR/PlanInterfaces.td"
 
-def Plan_TensorRTClusterKindAttr : Plan_Attr<"TensorRTClusterKind", "tensorrt_cluster",
-      [DeclareAttrInterfaceMethods<ClusterKindAttrInterface,
+def Plan_TensorRTBackendAttr : Plan_Attr<"TensorRTBackend", "tensorrt_backend",
+      [DeclareAttrInterfaceMethods<CompilerBackendAttrInterface,
         ["getClusterFilter", "outlineClosedCluster"]>]> {
   let parameters = (ins
     "bool":$disallow_shape_tensor_calculations,

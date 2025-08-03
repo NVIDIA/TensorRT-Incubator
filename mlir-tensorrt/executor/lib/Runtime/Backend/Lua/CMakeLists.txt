@@ -1,6 +1,3 @@
-mlir_executor_add_lua()
-mlir_executor_add_sol2()
-
 add_subdirectory(Modules)
 
 add_mlir_executor_runtime_library(MLIRTensorRTLuaExtensionRegistry

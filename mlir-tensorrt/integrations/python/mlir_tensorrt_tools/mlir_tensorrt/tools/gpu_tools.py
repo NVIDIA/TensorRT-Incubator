@@ -14,7 +14,7 @@ import click
 import numpy as np
 
 
-def get_uniform_devices() -> List[int]:
+def get_uniform_devices() -> Tuple[List[int], float]:
     """Returns a list of device IDs matching the highest SM version
     of all devices on the system.
     """
@@ -25,25 +25,12 @@ def get_uniform_devices() -> List[int]:
         cc = nvmlDeviceGetCudaComputeCapability(handle)
         sm_versions.append(float(f"{cc[0]}.{cc[1]}"))
     if len(sm_versions) == 0:
-        return []
+        return [], 0.0
     sm_versions = np.asarray(sm_versions)
     max_version = sm_versions.max()
     if not np.all(sm_versions == max_version):
         return np.flatnonzero(sm_versions == max_version).tolist()
-    return list(x for x in range(deviceCount))
-
-
-def get_sm_version() -> Tuple[int, int]:
-    """Returns the largest/latest SM version among all devices on the host."""
-    deviceCount = nvmlDeviceGetCount()
-    version = (0, 0)
-    for i in range(deviceCount):
-        handle = nvmlDeviceGetHandleByIndex(i)
-        cc = nvmlDeviceGetCudaComputeCapability(handle)
-        cc = (cc[0], cc[1])
-        if cc > version:
-            version = cc
-    return version
+    return list(x for x in range(deviceCount)), max_version
 
 
 @contextmanager
@@ -53,8 +40,8 @@ def nvml_context(*args, **kwargs):
     """
     nvmlInit()
     try:
-        devices = get_uniform_devices()
-        yield devices
+        devices, compute_capability = get_uniform_devices()
+        yield devices, compute_capability
     finally:
         nvmlShutdown()
 
@@ -117,12 +104,144 @@ def estimate_parallelism_from_memory(devices: List[int], required_mem: float) ->
 
 def has_fp8_support():
     """Returns True if the devices support FP8"""
-    return get_sm_version() >= (8, 9)
+    try:
+        with nvml_context() as (_, compute_capability):
+            return compute_capability >= 8.9
+    except:
+        return False
+
+
+def has_fp4_support():
+    """Returns True if the devices support FP4"""
+    try:
+        with nvml_context() as (_, compute_capability):
+            return compute_capability >= 10.0
+    except:
+        return False
+
+
+all_gpus_have_fp8_support = has_fp8_support
+all_gpus_have_fp4_support = has_fp4_support
+
+
+def get_cuda_version() -> Tuple[int, int]:
+    """Returns the CUDA driver major and minor version as a tuple (major, minor).
+    Returns (0, 0) if unable to determine CUDA version.
+    """
+    try:
+        with nvml_context():
+            cuda_version = nvmlSystemGetCudaDriverVersion()
+
+            # The version is encoded as an integer
+            # For example: 12090 means CUDA 12.9
+            # Major version = value // 1000
+            # Minor version = (value % 1000) // 10
+            major = cuda_version // 1000
+            minor = (cuda_version % 1000) // 10
+
+            return major, minor
+    except:
+        return 0, 0
+
+
+def get_max_ptx_version() -> int:
+    """Returns the maximum PTX version supported by the current CUDA installation."""
+    major, minor = get_cuda_version()
+
+    if major == 0 and minor == 0:
+        return 0
+
+    if major >= 13:
+        return 90
+    elif major == 12 and minor >= 9:
+        return 88
+    elif major == 12 and minor >= 8:
+        return 87
+    elif major == 12 and minor >= 7:
+        return 86
+    elif major == 12 and minor >= 5:
+        return 85
+    elif major == 12 and minor >= 4:
+        return 84
+    elif major == 12 and minor >= 3:
+        return 83
+    elif major == 12 and minor >= 2:
+        return 82
+    elif major == 12 and minor >= 1:
+        return 81
+    elif major == 12 and minor >= 0:
+        return 80
+    elif major == 11 and minor >= 8:
+        return 78
+    elif major == 11 and minor >= 7:
+        return 77
+    elif major == 11 and minor >= 6:
+        return 76
+    elif major == 11 and minor >= 5:
+        return 75
+    elif major == 11 and minor >= 4:
+        return 74
+    elif major == 11 and minor >= 3:
+        return 73
+    elif major == 11 and minor >= 2:
+        return 72
+    elif major == 11 and minor >= 1:
+        return 71
+    elif major == 11 and minor >= 0:
+        return 70
+    elif major == 10 and minor >= 2:
+        return 65
+    else:
+        # Unsupported CUDA version (too old)
+        return 0
+
+
+def get_supported_ptx_versions() -> List[int]:
+    """Returns a list of all PTX versions supported by the current CUDA installation."""
+    max_ptx = get_max_ptx_version()
+
+    if max_ptx == 0:
+        return []
+
+    all_ptx_versions = [
+        90,
+        88,
+        87,
+        86,
+        85,
+        84,
+        83,
+        82,
+        81,
+        80,
+        78,
+        77,
+        76,
+        75,
+        74,
+        73,
+        72,
+        71,
+        70,
+        65,
+    ]
+
+    return [v for v in all_ptx_versions if v <= max_ptx]
+
+
+def get_supported_sm_versions() -> List[int]:
+    """Returns a list of supported SM versions. All versions older than SM version found for device are supported."""
+    all_sm_versions = [8.0, 9.0, 10.0, 12.0]
+    try:
+        with nvml_context() as (_, compute_capability):
+            return [v for v in all_sm_versions if compute_capability >= v]
+    except:
+        return []
 
 
 def get_num_cuda_devices() -> int:
     try:
-        with nvml_context() as devices:
+        with nvml_context() as (devices, _):
             return len(devices)
     except:
         return 0
@@ -162,7 +281,7 @@ def pick_device(required_memory: Optional[float], required_host_memory: float):
     except:
         pass
 
-    with nvml_context() as devices:
+    with nvml_context() as (devices, _):
         if len(devices) == 0:
             return
         print(select_device(devices))
@@ -174,7 +293,7 @@ def pick_device(required_memory: Optional[float], required_host_memory: float):
     "--required-mem", help="required GPU memory in GB", default=1.0, type=click.FLOAT
 )
 def get_parallelism(required_mem: float):
-    with nvml_context() as devices:
+    with nvml_context() as (devices, _):
         print(estimate_parallelism_from_memory(devices, required_mem))
 
 

@@ -23,8 +23,8 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt/Backends/TensorRT/TensorRTBackend.h"
 #include "mlir-executor/Transforms/Clustering/Clustering.h"
+#include "mlir-tensorrt-common/Utils/TensorRTVersion.h"
 #include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
-#include "mlir-tensorrt-dialect/Utils/TensorRTVersion.h"
 #include "mlir-tensorrt/Backends/Host/HostBackend.h"
 #include "mlir-tensorrt/Conversion/StablehloToTensorRT/StablehloToTensorRT.h"
 #include "mlir-tensorrt/Conversion/TensorRTCommon/ConvertToTensorRTCommon.h"
@@ -56,7 +56,7 @@ using namespace mlir::plan;
 #include "mlir-tensorrt/Backends/TensorRT/TensorRTBackendAttrs.cpp.inc"
 
 //===----------------------------------------------------------------------===//
-// TensorRTClusterKindAttr
+// TensorRTBackendAttr
 //===----------------------------------------------------------------------===//
 
 static ShapeInfoCallbacks getShapeInfoCallbacks() {
@@ -183,8 +183,9 @@ checkForShapeTensorResults(Operation *op, const DataFlowSolver &solver) {
 /// ClusteringOpts that identifies groups of TensorRT operations and will be
 /// clustered into one TensorRT function (which is eventually translated to a
 /// engine).
-FailureOr<ClusteringOpts> TensorRTClusterKindAttr::getClusterKindOptions(
-    InputKind inputKind, Operation *op, DataFlowSolver &solver) const {
+FailureOr<ClusteringOpts>
+TensorRTBackendAttr::getClusterKindOptions(InputKind inputKind, Operation *op,
+                                           DataFlowSolver &solver) const {
   // Any properties used in the returned lambdas must be copied by value,
   // otherwise it will not work correctly.
   bool disallowShapeTensorCalculations = getDisallowShapeTensorCalculations();
@@ -277,12 +278,12 @@ FailureOr<ClusteringOpts> TensorRTClusterKindAttr::getClusterKindOptions(
   return opts;
 }
 
-int64_t TensorRTClusterKindAttr::getClusterBenefit(InputKind inputKind) const {
+int64_t TensorRTBackendAttr::getClusterBenefit(InputKind inputKind) const {
   return getBenefit();
 }
 
 std::function<bool(const Cluster &)>
-TensorRTClusterKindAttr::getClusterFilter(InputKind inputKind) const {
+TensorRTBackendAttr::getClusterFilter(InputKind inputKind) const {
   // Disregard the cluster if it is all constant ops.
   return [](const Cluster &cluster) -> bool {
     return !llvm::all_of(cluster, [](Operation *op) {
@@ -293,7 +294,7 @@ TensorRTClusterKindAttr::getClusterFilter(InputKind inputKind) const {
 }
 
 std::optional<OutlineRegionOptions>
-TensorRTClusterKindAttr::getClusterOutliningOptions(
+TensorRTBackendAttr::getClusterOutliningOptions(
     InputKind inputKind, MLIRContext *ctx,
     SymbolTable &moduleSymbolTable) const {
   return {};
@@ -531,9 +532,9 @@ static LogicalResult outlineTensorRTRegion(RewriterBase &rewriter,
   return success();
 }
 
-bool TensorRTClusterKindAttr::requiresClosure(InputKind) const { return true; }
+bool TensorRTBackendAttr::requiresClosure(InputKind) const { return true; }
 
-LogicalResult TensorRTClusterKindAttr::outlineClosedCluster(
+LogicalResult TensorRTBackendAttr::outlineClosedCluster(
     InputKind inputKind, RewriterBase &rewriter, Operation *op,
     SymbolTable &moduleSymbolTable) const {
   if (auto group = llvm::dyn_cast<plan::InlineClosedGroupOp>(op)) {
@@ -550,7 +551,7 @@ LogicalResult TensorRTClusterKindAttr::outlineClosedCluster(
   return failure();
 }
 
-bool TensorRTClusterKindAttr::supportsInputKind(InputKind inputKind) const {
+bool TensorRTBackendAttr::supportsInputKind(InputKind inputKind) const {
   if (inputKind == InputKind::Stablehlo) {
 #ifdef MLIR_TRT_ENABLE_HLO
     return true;
@@ -576,7 +577,7 @@ public:
   void init() {
     (void)&generatedAttributeParser;
     (void)&generatedAttributePrinter;
-    registerAttributes<plan::TensorRTClusterKindAttr>();
+    registerAttributes<plan::TensorRTBackendAttr>();
   }
 };
 } // namespace

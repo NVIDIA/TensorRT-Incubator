@@ -28,6 +28,7 @@
 #include "mlir-executor/Runtime/API/ExecutableFlatbuffer.h"
 #include "mlir-executor/Runtime/Backend/Common/CUDACommon.h"
 #include "mlir-executor/Runtime/Backend/Common/CommonRuntime.h"
+#include "mlir-executor/Runtime/Backend/Common/DataTypes.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaExtensionRegistry.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaExtensions.h"
 #include "mlir-executor/Runtime/Backend/Lua/Modules/Utils/MemRefUtils.h"
@@ -41,19 +42,9 @@
 #include "llvm/Support/ManagedStatic.h"
 #include <memory>
 
-#ifdef MLIR_EXECUTOR_ENABLE_CUDA
+#ifdef MLIR_TRT_ENABLE_CUDA
 #include "cuda_runtime_api.h"
-#endif
-
-#if defined(__clang__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wgnu-zero-variadic-macro-arguments"
-#endif
-#include "cuda_fp16.h"
-#include "cuda_fp8.h"
-#if defined(__clang__)
-#pragma GCC diagnostic pop
-#endif
+#endif // MLIR_TRT_ENABLE_CUDA
 
 using namespace mlirtrt;
 using namespace mlirtrt::runtime;
@@ -79,32 +70,32 @@ static void registerDefaultDeviceDependentMethods(lua_State *state,
 
 namespace mlirtrt::runtime {
 void registerLuaCoreRuntimeExtension();
-#ifdef MLIR_EXECUTOR_ENABLE_CUDA
+#ifdef MLIR_TRT_ENABLE_CUDA
 void registerLuaCudaRuntimeExtension();
 #endif
-#ifdef MLIR_EXECUTOR_ENABLE_CUBLAS
+#ifdef MLIR_TRT_ENABLE_CUBLAS
 void registerLuaCublasRuntimeExtension();
 #endif
-#ifdef MLIR_EXECUTOR_ENABLE_TENSORRT
+#ifdef MLIR_TRT_TARGET_TENSORRT
 void registerLuaTensorRTRuntimeExtension();
 #endif
-#ifdef MLIR_EXECUTOR_ENABLE_NCCL
+#ifdef MLIR_TRT_ENABLE_NCCL
 void registerLuaNcclRuntimeExtension();
 #endif
 } // namespace mlirtrt::runtime
 
 void runtime::registerLuaRuntimeExtensions() {
   registerLuaCoreRuntimeExtension();
-#ifdef MLIR_EXECUTOR_ENABLE_CUDA
+#ifdef MLIR_TRT_ENABLE_CUDA
   registerLuaCudaRuntimeExtension();
 #endif
-#ifdef MLIR_EXECUTOR_ENABLE_CUBLAS
+#ifdef MLIR_TRT_ENABLE_CUBLAS
   registerLuaCublasRuntimeExtension();
 #endif
-#ifdef MLIR_EXECUTOR_ENABLE_TENSORRT
+#ifdef MLIR_TRT_TARGET_TENSORRT
   registerLuaTensorRTRuntimeExtension();
 #endif
-#ifdef MLIR_EXECUTOR_ENABLE_NCCL
+#ifdef MLIR_TRT_ENABLE_NCCL
   registerLuaNcclRuntimeExtension();
 #endif
 
@@ -124,7 +115,7 @@ void runtime::registerLuaRuntimeExtensions() {
 /// If the program was compiled with NCCL enabled, then check for the
 /// NCCL uuid if the system has multiple GPUs.
 static Status maybeCheckForValidNcclUuid(const RuntimeSessionOptions &options) {
-#if MLIR_EXECUTOR_ENABLE_NCCL
+#if MLIR_TRT_ENABLE_NCCL
 
   if (options.getNumDevices() > 1 && options.getNcclUuid().empty())
     return getInternalErrorStatus(
@@ -203,7 +194,7 @@ static Status loadHostDataSegment(sol::state_view &lua,
 static Status loadDeviceDataSegment(sol::state_view &lua,
                                     const DataSegmentInfo &segment,
                                     RuntimeSession *session) {
-#ifdef MLIR_EXECUTOR_ENABLE_CUDA
+#ifdef MLIR_TRT_ENABLE_CUDA
   assert(segment.getAddressSpace() == PointerType::device &&
          "expected host address space");
   const size_t bytes = segment.size();
@@ -315,7 +306,7 @@ LuaRuntimeSession::create(RuntimeSessionOptions options,
 
 /// Get the primary stream for the loaded executable to use.
 CudaStream LuaRuntimeSession::getCudaStream() {
-#ifdef MLIR_EXECUTOR_ENABLE_CUDA
+#ifdef MLIR_TRT_ENABLE_CUDA
   auto stream = sol::state_view(getLuaState())["stream0"].get<CudaStream>();
   return stream;
 #else
@@ -325,7 +316,7 @@ CudaStream LuaRuntimeSession::getCudaStream() {
 
 /// Set the primary stream for the loaded executable to use.
 Status LuaRuntimeSession::setCudaStream(CudaStream stream) {
-#ifdef MLIR_EXECUTOR_ENABLE_CUDA
+#ifdef MLIR_TRT_ENABLE_CUDA
   sol::state_view lua = getLuaState();
   lua["stream0"] = stream;
   return getOkStatus();
@@ -470,13 +461,13 @@ static Status pushScalarArgument(sol::state_view &lua,
   sol::object obj;
   switch (type.getCode()) {
   case ScalarTypeCode::f8e4m3fn:
-    obj = sol::make_object(lua, value.get<__nv_fp8_e4m3>());
+    obj = sol::make_object(lua, value.get<F8E4M3FN>());
     break;
   case ScalarTypeCode::f16:
-    obj = sol::make_object(lua, value.get<__half>());
+    obj = sol::make_object(lua, value.get<Float16>());
     break;
   case ScalarTypeCode::bf16:
-    obj = sol::make_object(lua, value.get<nv_bfloat16>());
+    obj = sol::make_object(lua, value.get<BFloat16>());
     break;
   case ScalarTypeCode::f32:
     obj = sol::make_object(lua, value.get<float>());
@@ -645,11 +636,11 @@ getScalarValue(const sol::protected_function_result &pfr, int index,
   case ScalarTypeCode::i64:
     return std::make_unique<ScalarValue>(pfr[index].get<int64_t>(), code);
   case ScalarTypeCode::f8e4m3fn:
-    return std::make_unique<ScalarValue>(pfr[index].get<__nv_fp8_e4m3>(), code);
+    return std::make_unique<ScalarValue>(pfr[index].get<F8E4M3FN>(), code);
   case ScalarTypeCode::f16:
-    return std::make_unique<ScalarValue>(pfr[index].get<__half>(), code);
+    return std::make_unique<ScalarValue>(pfr[index].get<Float16>(), code);
   case ScalarTypeCode::bf16:
-    return std::make_unique<ScalarValue>(pfr[index].get<nv_bfloat16>(), code);
+    return std::make_unique<ScalarValue>(pfr[index].get<BFloat16>(), code);
   case ScalarTypeCode::f32:
     return std::make_unique<ScalarValue>(pfr[index].get<float>(), code);
   case ScalarTypeCode::f64:
@@ -825,7 +816,7 @@ runtime::executeFunctionWithLuaBackend(
                                idx + 1, name);
   }
 
-#ifdef MLIR_EXECUTOR_ENABLE_CUDA
+#ifdef MLIR_TRT_ENABLE_CUDA
   int32_t requiredDevice = 0, callerDevice = 0;
   if (session.getOptions().isFeatureEnabled("cuda")) {
     // TODO: This is a temporary hack to ensure that the current device
@@ -839,7 +830,7 @@ runtime::executeFunctionWithLuaBackend(
     if (stream)
       RETURN_STATUS_IF_ERROR(session.setCudaStream(*stream));
   }
-#endif // MLIR_EXECUTOR_ENABLE_CUDA
+#endif // MLIR_TRT_ENABLE_CUDA
 
   // Call the function, passing the arguments either as a table or unpacked as
   // determined by the calling convention.
@@ -871,12 +862,12 @@ runtime::executeFunctionWithLuaBackend(
     }
   }
 
-#ifdef MLIR_EXECUTOR_ENABLE_CUDA
+#ifdef MLIR_TRT_ENABLE_CUDA
   if (session.getOptions().isFeatureEnabled("cuda")) {
     if (requiredDevice != callerDevice)
       RETURN_ERROR_IF_CUDART_ERROR(cudaSetDevice(callerDevice));
   }
-#endif // MLIR_EXECUTOR_ENABLE_CUDA
+#endif // MLIR_TRT_ENABLE_CUDA
 
   if (sig.getNumResults() == 0)
     return llvm::SmallVector<std::unique_ptr<RuntimeValue>>();

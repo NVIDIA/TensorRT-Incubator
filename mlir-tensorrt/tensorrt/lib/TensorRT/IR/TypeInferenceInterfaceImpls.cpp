@@ -497,7 +497,7 @@ LogicalResult tensorrt::PoolingOp::inferReturnTypeComponents(
     return emitOptionalError(
         loc, "failed to create input shape components. Input must be 4D or 5D");
 
-  long spatialDimsSize = inputType.getRank() - 2;
+  int64_t spatialDimsSize = inputType.getRank() - 2;
   ArrayRef<int64_t> windowSize = adaptor.getWindowSize();
   ArrayRef<int64_t> stride = adaptor.getStride();
   ArrayRef<int64_t> prePadding = adaptor.getPrePadding();
@@ -1588,6 +1588,32 @@ LogicalResult tensorrt::QuantizeOp::inferReturnTypeComponents(
     return emitOptionalError(loc, "expected input to be a ranked tensor");
   inferredReturnShapes.emplace_back(/*vec=*/rtt.getShape(),
                                     /*elementType=*/nullptr);
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// DynamicQuantizeOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult tensorrt::DynamicQuantizeOp::inferReturnTypeComponents(
+    MLIRContext *ctx, std::optional<Location> loc, ValueShapeRange operands,
+    DictionaryAttr attributes, OpaqueProperties properties, RegionRange regions,
+    SmallVectorImpl<ShapedTypeComponents> &inferredReturnShapes) {
+  DynamicQuantizeOp::Adaptor adaptor(operands, attributes, properties, regions);
+  auto rtt = dyn_cast<RankedTensorType>(adaptor.getInput().getType());
+  if (!rtt)
+    return emitOptionalError(loc, "expected input to be a ranked tensor");
+  // `result` has same shape as input but f4 type.
+  inferredReturnShapes.emplace_back(/*vec=*/rtt.getShape(),
+                                    /*elementType=*/Float4E2M1FNType::get(ctx));
+  // `scale` has same shape as input except `axis` dim and has f8 type.
+  // `axis` dimension is `shape(input)[axis] / 16` i.e. divided by block size.
+  SmallVector<int64_t> scaleShape = llvm::to_vector(rtt.getShape());
+  auto quantizationAxis = adaptor.getAxis();
+  if (!rtt.isDynamicDim(quantizationAxis))
+    scaleShape[quantizationAxis] = scaleShape[quantizationAxis] / 16;
+  inferredReturnShapes.emplace_back(/*vec=*/scaleShape,
+                                    /*elementType=*/Float8E4M3FNType::get(ctx));
   return success();
 }
 

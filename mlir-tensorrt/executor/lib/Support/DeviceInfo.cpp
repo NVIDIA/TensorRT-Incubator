@@ -20,24 +20,24 @@
 #include "mlir-executor/Support/DeviceInfo.h"
 #include "mlir-tensorrt-common/Support/Status.h"
 
-#ifdef MLIR_EXECUTOR_ENABLE_CUDA
+#ifdef MLIR_TRT_ENABLE_CUDA
 #include "cuda_runtime_api.h"
-#endif // MLIR_EXECUTOR_ENABLE_CUDA
+#endif // MLIR_TRT_ENABLE_CUDA
 
 using namespace mlirtrt;
 
-#ifdef MLIR_EXECUTOR_ENABLE_CUDA
+#ifdef MLIR_TRT_ENABLE_CUDA
 static Status makeCudaStringError(cudaError_t errCode,
                                   llvm::StringRef context) {
   // Create a detailed error message using llvm::createStringError
   return getInternalErrorStatus("{0}: {1}", context,
                                 cudaGetErrorString(errCode));
 }
-#endif // MLIR_EXECUTOR_ENABLE_CUDA
+#endif // MLIR_TRT_ENABLE_CUDA
 
 static StatusOr<DeviceInfo>
 getDeviceInformationFromHostImpl(int cudaDeviceOridinal) {
-#ifdef MLIR_EXECUTOR_ENABLE_CUDA
+#ifdef MLIR_TRT_ENABLE_CUDA
   cudaDeviceProp properties;
   cudaError_t err = cudaGetDeviceProperties(&properties, cudaDeviceOridinal);
   if (err != cudaSuccess)
@@ -73,7 +73,7 @@ getDeviceInformationFromHostImpl(int cudaDeviceOridinal) {
 
 StatusOr<llvm::SmallVector<DeviceInfo>>
 mlirtrt::getAllDeviceInformationFromHost() {
-#ifdef MLIR_EXECUTOR_ENABLE_CUDA
+#ifdef MLIR_TRT_ENABLE_CUDA
   int numDevices = 0;
   cudaError_t err = cudaGetDeviceCount(&numDevices);
   if (err != cudaSuccess)
@@ -96,7 +96,7 @@ mlirtrt::getAllDeviceInformationFromHost() {
 
 StatusOr<DeviceInfo>
 mlirtrt::getDeviceInformationFromHost(int32_t cudaDeviceOrdinal) {
-#ifdef MLIR_EXECUTOR_ENABLE_CUDA
+#ifdef MLIR_TRT_ENABLE_CUDA
   return getDeviceInformationFromHostImpl(cudaDeviceOrdinal);
 #else
   return getInternalErrorStatus(

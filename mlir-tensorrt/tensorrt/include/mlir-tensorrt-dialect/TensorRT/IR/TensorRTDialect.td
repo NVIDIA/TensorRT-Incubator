@@ -145,6 +145,8 @@ def TensorRT_F8 : AnyTypeOf<[F8E4M3FN]>;
 
 def TensorRT_I4 : I<4>;
 
+def TensorRT_F4 : AnyTypeOf<[F4E2M1FN]>;
+
 // We only support up to 8 ranks for TensorRT Tensors
 class TensorRT_RankedTensorOf<list<Type> allowedTypes>
   : TensorRankOf<allowedTypes, [0, 1, 2, 3, 4, 5, 6, 7, 8]>;
@@ -155,6 +157,9 @@ class TensorRT_Non0RankedTensorOf<list<Type> allowedTypes>
 
 def TensorRT_Tensor : TensorRT_RankedTensorOf<
       [I1, TensorRT_I8, I32, I64, F16, BF16, F32]>;
+
+def TensorRT_AllTypesTensor : TensorRT_RankedTensorOf<
+      [I1, TensorRT_I4, TensorRT_I8, I32, I64, F32, F16, BF16, TensorRT_F8]>;
 
 def TensorRT_DimensionListAttr : ConfinedAttr<DenseI64ArrayAttr,[
       DenseArrayStrictlySorted<DenseI64ArrayAttr>,

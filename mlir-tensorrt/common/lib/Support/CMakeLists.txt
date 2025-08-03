@@ -7,5 +7,12 @@ add_mlir_tensorrt_library(MLIRTensorRTSupportStatus
 
   DEPENDS
   MLIRTensorRTStatusEnumIncGen
-)
+  )
 
+add_mlir_tensorrt_library(MLIRTensorRTCommandLineExtras
+  PARTIAL_SOURCES_INTENDED
+  CommandLineExtras.cpp
+
+  LINK_LIBS PUBLIC
+  MLIRTensorRTCommonIncludes
+  )

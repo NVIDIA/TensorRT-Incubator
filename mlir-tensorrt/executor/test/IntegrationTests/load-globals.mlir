@@ -1,3 +1,4 @@
+// REQUIRES: host-has-at-least-1-gpus
 // RUN: executor-opt %s \
 // RUN:    -executor-lower-to-runtime-builtins | \
 // RUN: executor-translate -mlir-to-runtime-executable |\

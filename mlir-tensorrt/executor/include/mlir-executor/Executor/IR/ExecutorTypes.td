@@ -112,26 +112,4 @@ def Executor_ExecutorFunctionType : TypeDef<Executor_Dialect, "ExecutorFunction"
   }];
 }
 
-//===----------------------------------------------------------------------===//
-// FunctionType
-//===----------------------------------------------------------------------===//
-def Executor_OpaqueType : TypeDef<Executor_Dialect, "ExecutorOpaque", []> {
-  let mnemonic = "opaque";
-
-  let description = [{
-    Represents an opaque type that will be bound to a type
-    defined by the runtime backend. This would include things defined in outside
-    dialects such as the TensorRTRuntime dialect types (`!trtrt.engine`, etc).
-    We don't want to include conversion/translation logic for those types, so the
-    opaque type should be used when converting from those dialects to the
-    executor dialect.
-  }];
-
-  let parameters = (ins StringRefParameter<>:$name);
-  let assemblyFormat = [{
-    `<` $name `>`
-  }];
-}
-
-
 #endif // MLIR_TENSORRT_DIALECT_EXECUTOR_IR_EXECUTORTYPES_TD

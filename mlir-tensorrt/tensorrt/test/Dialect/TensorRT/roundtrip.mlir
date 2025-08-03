@@ -2222,3 +2222,15 @@ func.func @trt_identity_i32_ui8(%arg0: tensor<10xi32>) -> tensor<10xui8> {
 // CHECK-LABEL: @trt_identity_i32_ui8
 //  CHECK-NEXT: %[[v0:.+]] = tensorrt.identity %{{.+}} : tensor<10xi32> to tensor<10xui8>
 //  CHECK-NEXT: return %[[v0]] : tensor<10xui8>
+
+// -----
+
+func.func @dynamic_quantization(%arg0: tensor<2x32xf32>, %arg1: tensor<f32>) -> (tensor<2x32xf4E2M1FN>, tensor<2x2xf8E4M3FN>){
+    %quantized, %scales = tensorrt.dynamic_quantize {axis = 1 : i32} in(%arg0 : tensor<2x32xf32>) double_quant_scale(%arg1 : tensor<f32>) -> tensor<2x32xf4E2M1FN>, tensor<2x2xf8E4M3FN>
+    return %quantized, %scales : tensor<2x32xf4E2M1FN>, tensor<2x2xf8E4M3FN>
+}
+
+// CHECK-LABEL: @dynamic_quantization
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<2x32xf32>, %[[arg1:.+]]: tensor<f32>) -> (tensor<2x32xf4E2M1FN>, tensor<2x2xf8E4M3FN>)
+//  CHECK-NEXT: %[[v0:.+]], %[[v1:.+]] = tensorrt.dynamic_quantize {axis = 1 : i32} in(%[[arg0]] : tensor<2x32xf32>) double_quant_scale(%[[arg1]] : tensor<f32>) -> tensor<2x32xf4E2M1FN>, tensor<2x2xf8E4M3FN>
+//  CHECK-NEXT: return %[[v0]], %[[v1]] : tensor<2x32xf4E2M1FN>, tensor<2x2xf8E4M3FN>

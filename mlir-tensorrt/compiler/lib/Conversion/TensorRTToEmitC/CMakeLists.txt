@@ -9,7 +9,8 @@ add_mlir_tensorrt_library(MLIRTensorRTTensorRTToEmitC
   MLIRFuncDialect
   MLIRPass
   MLIRRewrite
-  MLIRTensorRTDialect
+  MLIRTensorRTCommonIncludes
+  MLIRTensorRTTensorRTDialect
   MLIRTensorRTTensorRTUtils
   MLIRTransforms
   MLIRTransformUtils

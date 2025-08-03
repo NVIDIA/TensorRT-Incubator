@@ -32,7 +32,7 @@ def PopulateDefaultBackendMetadataPass : Pass<"populate-default-backend-metadata
                 "already present";
 
   let description = [{
-    The compiler uses an attribute 'plan.cluster_kinds' located on the module
+    The compiler uses an attribute 'plan.backends' located on the module
     in order to understand the relative priority of each backend. If the
     attribute is not present, then this pass will populate it with a default
     value.
@@ -44,12 +44,10 @@ def PopulateDefaultBackendMetadataPass : Pass<"populate-default-backend-metadata
   ];
 
   let options = [
-    Option<"disallowHostTensorsInTensorRTClusters",
-      "disallow-host-tensors-in-tensorrt-clusters", "bool", "false",
-      "whether to allow host tensor calculations in TensorRT clusters">,
-    Option<"tensorrtVersionMajor",
-      "tensorrt-version-major", "int64_t", "10",
-      "which TensorRT major version to target">
+    ListOption<"backends", "backends", "std::string",
+    "A list of default backend attributes to use for compilation if no "
+    "'plan.backends' attribute is provided on the top-level module.",
+    "llvm::cl::list_init<std::string>({\"#plan.host_backend<benefit=1>\"})">
   ];
 }
 

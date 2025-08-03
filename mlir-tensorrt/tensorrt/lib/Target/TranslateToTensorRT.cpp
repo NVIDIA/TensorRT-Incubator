@@ -22,11 +22,10 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt-dialect/Target/TranslateToTensorRT.h"
+#include "mlir-tensorrt-common/Support/CommandLineExtras.h"
 #include "mlir-tensorrt-dialect/Target/Passes.h"
-#include "mlir-tensorrt-dialect/Target/TensorRTEncodingOpInterface/NetworkEncoder.h"
 #include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
 #include "mlir-tensorrt-dialect/TensorRT/Utils/Utils.h"
-#include "mlir-tensorrt-dialect/Utils/NvInferAdaptor.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/Diagnostics.h"
 #include "mlir/IR/TypeUtilities.h"
@@ -51,6 +50,11 @@
 #include "llvm/Support/ToolOutputFile.h"
 #include <mutex>
 
+#ifdef MLIR_TRT_TARGET_TENSORRT
+#include "mlir-tensorrt-dialect/Target/TensorRTEncodingOpInterface/NetworkEncoder.h"
+#include "mlir-tensorrt-dialect/Utils/NvInferAdaptor.h"
+#endif // MLIR_TRT_TARGET_TENSORRT
+
 #define DEBUG_TYPE "translate-to-tensorrt"
 #define DBGS() llvm::dbgs() << "[" DEBUG_TYPE "] "
 
@@ -73,7 +77,7 @@ using namespace mlir::tensorrt;
 //===----------------------------------------------------------------------===//
 // Global TensorRT Logger
 //===----------------------------------------------------------------------===//
-
+#ifdef MLIR_TRT_TARGET_TENSORRT
 namespace {
 /// A simple logger that implements TensorRT's logging interface. Errors and
 /// warnings are reported stderr. If the 'verbose' flags is active, then all
@@ -120,53 +124,7 @@ void Logger::log(Severity severity, const char *msg) noexcept {
     return;
   }
 }
-
-//===----------------------------------------------------------------------===//
-// ByteSizeParser
-//===----------------------------------------------------------------------===//
-
-bool ByteSizeParser::parse(llvm::cl::Option &option, StringRef argName,
-                           StringRef arg, std::optional<uint64_t> &val) {
-  val = std::nullopt;
-  if (arg.empty() || arg.lower() == "none")
-    return false;
-
-  char *End;
-
-  // Parse integer part, leaving 'End' pointing to the first non-integer char
-  val = std::strtoull(arg.data(), &End, 0);
-
-  while (1) {
-    if (std::distance(arg.data(), static_cast<const char *>(End)) >=
-        static_cast<int64_t>(arg.size()))
-      return false;
-    switch (*End++) {
-    case 0:
-      return false; // No error
-    case 'i':       // Ignore the 'i' in KiB if people use that
-    case 'b':
-    case 'B': // Ignore B suffix
-      break;
-    case 'g':
-    case 'G':
-      *val *= 1024ull * 1024ull * 1024ull;
-      break;
-    case 'm':
-    case 'M':
-      *val *= 1024ull * 1024ull;
-      break;
-    case 'k':
-    case 'K':
-      *val *= 1024ull;
-      break;
-    default:
-      // Print an error message if unrecognized character.
-      return option.error("'" + arg +
-                          "' value invalid for byte size argument!");
-    }
-  }
-  return false;
-}
+#endif // MLIR_TRT_TARGET_TENSORRT
 
 namespace {
 struct TensorRTTranslationCLFlags {
@@ -208,7 +166,7 @@ struct TensorRTTranslationCLFlags {
                      "network."),
       llvm::cl::init(kStronglyTypedDefault), llvm::cl::cat(optCategory)};
   llvm::cl::opt<std::optional<uint64_t>, /*ExternalStorage=*/false,
-                /*ParserClass=*/ByteSizeParser>
+                /*ParserClass=*/mlir::ByteSizeParser>
       tensorrtWorkspaceMemoryPoolLimit{
           "tensorrt-workspace-memory-pool-limit",
           llvm::cl::desc(
@@ -309,6 +267,32 @@ TensorRTTranslationOptions TensorRTTranslationOptions::fromCLFlags() {
 // TensorRTBuilderContext
 //===----------------------------------------------------------------------===//
 
+// TODO: TensorRTBuilderContext is declared but not used in the
+// the MLIR_TRT_TARGET_TENSORRT=OFF mode, so the implementation of core methods
+// can be guarded. However, we should find a better way to structure this in the
+// future.
+
+#ifdef MLIR_TRT_TARGET_TENSORRT
+TensorRTBuilderContext::TensorRTBuilderContext(
+    TensorRTVersion version, int32_t cudaDevice,
+    std::unique_ptr<nvinfer1::IBuilder> builder)
+    : version(version), cudaDevice(cudaDevice), builder(std::move(builder)) {}
+
+TensorRTBuilderContext::~TensorRTBuilderContext() {}
+
+const std::unique_ptr<nvinfer1::IBuilder> &
+TensorRTBuilderContext::getBuilder() const {
+  return builder;
+}
+
+std::unique_ptr<nvinfer1::IBuilder> &TensorRTBuilderContext::getBuilder() {
+  return builder;
+}
+
+const TensorRTVersion &TensorRTBuilderContext::getTensorRTVersion() const {
+  return version;
+}
+
 /// Return version information for the runtime loaded TensorRT library. Emit a
 /// warning if this differs from the TensorRT version present at compile time.
 static TensorRTVersion getTensorRTLoadedLibraryVersion() {
@@ -332,6 +316,7 @@ static TensorRTVersion getTensorRTLoadedLibraryVersion() {
 
 FailureOr<std::shared_ptr<TensorRTBuilderContext>>
 TensorRTBuilderContext::create(bool verbose, int32_t cudaDevice) {
+#ifdef MLIR_TRT_TARGET_TENSORRT
   auto version = getTensorRTLoadedLibraryVersion();
   cudaError_t status = cudaSetDevice(cudaDevice);
   if (status != cudaSuccess)
@@ -344,7 +329,12 @@ TensorRTBuilderContext::create(bool verbose, int32_t cudaDevice) {
 
   return std::shared_ptr<TensorRTBuilderContext>(
       new TensorRTBuilderContext(version, cudaDevice, std::move(builder)));
+#else
+  return failure();
+#endif // MLIR_TRT_TARGET_TENSORRT
 }
+
+#endif // MLIR_TRT_TARGET_TENSORRT
 
 //===----------------------------------------------------------------------===//
 // TensorRTSerializedTimingCache
@@ -352,6 +342,7 @@ TensorRTBuilderContext::create(bool verbose, int32_t cudaDevice) {
 
 std::unique_ptr<nvinfer1::ITimingCache>
 TensorRTSerializedTimingCache::createCache(nvinfer1::IBuilderConfig &config) {
+#ifdef MLIR_TRT_TARGET_TENSORRT
   std::scoped_lock<std::mutex> g(lock);
 
   LLVM_DEBUG(DBGS() << "deserializing TensorRT builder timing cache ("
@@ -359,6 +350,9 @@ TensorRTSerializedTimingCache::createCache(nvinfer1::IBuilderConfig &config) {
 
   return std::unique_ptr<nvinfer1::ITimingCache>(
       config.createTimingCache(data.data(), data.size()));
+#else
+  return nullptr;
+#endif
 }
 
 void TensorRTSerializedTimingCache::replaceWith(ArrayRef<char> newData) {
@@ -383,6 +377,7 @@ void TensorRTSerializedTimingCache::write(llvm::raw_ostream &os) {
 //===----------------------------------------------------------------------===//
 // Core TensorRT Translation Entrypoint
 //===----------------------------------------------------------------------===//
+#ifdef MLIR_TRT_TARGET_TENSORRT
 
 /// Set the 'builder optimization level' on the TensorRT builder. This is
 /// primarily used to tradeoff compilation time and performance. Since we
@@ -762,6 +757,7 @@ static void maybeWriteTimingCache(TensorRTSerializedTimingCache &timingCache,
                   "trying to lock the file: "
                << llvm::to_string(err) << "\n";
 }
+#endif // MLIR_TRT_TARGET_TENSORRT
 
 namespace {
 class TranslateToTensorRTEnginePass
@@ -778,9 +774,11 @@ public:
   }
 
   LogicalResult initialize(MLIRContext *context) final {
+
     if (!translationOptions)
       this->translationOptions = TensorRTTranslationOptions::fromCLFlags();
 
+#ifdef MLIR_TRT_TARGET_TENSORRT
     if (!this->builderContext) {
       FailureOr<std::shared_ptr<TensorRTBuilderContext>> builderResult =
           TensorRTBuilderContext::create(
@@ -798,7 +796,7 @@ public:
     if (!this->timingCache)
       this->timingCache =
           loadSerializedTimingCache(translationOptions->timingCachePath);
-
+#endif // MLIR_TRT_TARGET_TENSORRT
     return success();
   }
 
@@ -813,6 +811,11 @@ public:
         llvm::to_vector(rootOp->getRegion(0).getOps<func::FuncOp>());
     if (funcs.empty())
       return;
+
+#ifndef MLIR_TRT_TARGET_TENSORRT
+    emitError(rootOp->getLoc()) << "TensorRT is not enabled";
+    return signalPassFailure();
+#else  // MLIR_TRT_TARGET_TENSORRT
 
     // Set the current device to the one the builder is associated with.
     if (cudaSetDevice(builderContext->getCudaDeviceNumber()) != cudaSuccess) {
@@ -913,6 +916,7 @@ public:
 
     // update the timing cache if required.
     maybeWriteTimingCache(*timingCache, translationOptions->timingCachePath);
+#endif // MLIR_TRT_TARGET_TENSORRT
   }
 
   void getDependentDialects(DialectRegistry &registry) const override {

@@ -30,7 +30,7 @@
 #include <deque>
 #include <set>
 
-#ifdef MLIR_EXECUTOR_ENABLE_CUDA
+#ifdef MLIR_TRT_ENABLE_CUDA
 #include "cuda_runtime_api.h"
 #endif
 
@@ -46,7 +46,7 @@ using namespace mlirtrt;
 
 StatusOr<std::unique_ptr<PoolTrackedCudaEvent>>
 PoolTrackedCudaEvent::get(EventPool *pool) {
-#ifdef MLIR_EXECUTOR_ENABLE_CUDA
+#ifdef MLIR_TRT_ENABLE_CUDA
   assert(pool != nullptr && "expected valid device event pool");
   cudaEvent_t event;
   RETURN_ERROR_IF_CUDART_ERROR(cudaEventCreate(&event));
@@ -168,7 +168,7 @@ struct PinnedMemoryAllocator::BlockEventQueue {
 
 Status PinnedMemoryAllocator::BlockEventQueue::checkForFreeBlocks(
     std::unique_ptr<PinnedMemoryAllocator::BlockSet> &freeBlocks) {
-#ifdef MLIR_EXECUTOR_ENABLE_CUDA
+#ifdef MLIR_TRT_ENABLE_CUDA
   while (std::optional<BlockEvent> blockEvent = getNextOldestBlockEvent()) {
     auto &[eventPtr, block] = *blockEvent;
     cudaError_t status =
@@ -192,7 +192,7 @@ Status PinnedMemoryAllocator::BlockEventQueue::checkForFreeBlocks(
 }
 
 static void cudaFreeHostWrapper(uintptr_t ptr) {
-#ifdef MLIR_EXECUTOR_ENABLE_CUDA
+#ifdef MLIR_TRT_ENABLE_CUDA
   cudaError_t err = cudaFreeHost(reinterpret_cast<void *>(ptr));
   if (err != cudaSuccess) {
     llvm::errs() << llvm::formatv("'cudaFreeHost' error: ({0}) {1}\n",
@@ -238,7 +238,7 @@ PinnedMemoryAllocator::PinnedMemoryAllocator()
 PinnedMemoryAllocator::~PinnedMemoryAllocator() {}
 
 StatusOr<PinnedMemoryBlock> PinnedMemoryAllocator::allocate(size_t size) {
-#ifdef MLIR_EXECUTOR_ENABLE_CUDA
+#ifdef MLIR_TRT_ENABLE_CUDA
   if (size == 0)
     return PinnedMemoryBlock{0, 0};
 
@@ -286,7 +286,7 @@ void PinnedMemoryAllocator::untrack(uintptr_t ptr) {
 
 // Free the given block.
 Status PinnedMemoryAllocator::freeAsync(uintptr_t ptr, CudaStream stream) {
-#ifdef MLIR_EXECUTOR_ENABLE_CUDA
+#ifdef MLIR_TRT_ENABLE_CUDA
   if (ptr == 0)
     return getOkStatus();
 

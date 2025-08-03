@@ -62,3 +62,12 @@ func.func @tan(%input: tensor<2048xf32>) -> tensor<2048xf32> {
   %result = "stablehlo.tan"(%input) : (tensor<2048xf32>) -> tensor<2048xf32>
   return %result : tensor<2048xf32>
 }
+
+// -----
+
+// CHECK-LABEL: func.func @dot_general_algorithm_attr(
+func.func @dot_general_algorithm_attr(%arg0: tensor<3x4xf32>, %arg1: tensor<4x3xf32>) -> tensor<3x3xf32> {
+  // CHECK: linalg.matmul
+  %0 = stablehlo.dot_general %arg0, %arg1, contracting_dims = [1] x [0], algorithm = <lhs_precision_type = f32, rhs_precision_type = f32, accumulation_type = f32, lhs_component_count = 1, rhs_component_count = 1, num_primitive_operations = 1, allow_imprecise_accumulation = false> : (tensor<3x4xf32>, tensor<4x3xf32>) -> tensor<3x3xf32>
+  return %0 : tensor<3x3xf32>
+}

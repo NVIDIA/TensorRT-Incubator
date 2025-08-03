@@ -22,7 +22,9 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-executor/Transforms/Clustering/Patterns.h"
+#include "mlir-tensorrt-common/Utils/RegionUtils.h"
 #include "mlir-tensorrt-dialect/Analysis/TensorKindAnalysis.h"
+#include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
 #include "mlir-tensorrt/Dialect/Plan/Analysis/BoundsAnalysis.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
@@ -409,7 +411,8 @@ getInputAttributes(RewriterBase &rewriter, DataFlowSolver &solver, Location loc,
 
       BoundsAttr boundsAttr = BoundsAttr::getChecked(
           loc, rewriter.getContext(), BoundsKind::Value, DenseI64ArrayAttr{},
-          DenseI64ArrayAttr{}, lbAttr, ubAttr);
+          DenseI64ArrayAttr{}, static_cast<ElementsAttr>(lbAttr),
+          static_cast<ElementsAttr>(ubAttr));
       if (!boundsAttr)
         return failure();
       inputAttrs.push_back(boundsAttr);
@@ -584,7 +587,7 @@ static LogicalResult createClosedGroupOp(RewriterBase &rewriter,
       return failure();
 
   // Make the region isolated from above. This captures the input operands.
-  SmallVector<Value> inputs = makeRegionIsolatedFromAbove(
+  SmallVector<Value> inputs = mlir::createClosedRegion(
       rewriter, op.getRegion(), [&](Operation *producer) {
         return shouldCloneProducer(producer, op.getRegion());
       });
@@ -610,7 +613,7 @@ public:
     MLIRContext *ctx = op->getContext();
 
     auto opFilterFn = [&](plan::InlineGroupOp groupOp) {
-      return cast<ClusterKindAttrInterface>(groupOp.getTarget())
+      return cast<CompilerBackendAttrInterface>(groupOp.getTarget())
           .requiresClosure(inputKind);
     };
 

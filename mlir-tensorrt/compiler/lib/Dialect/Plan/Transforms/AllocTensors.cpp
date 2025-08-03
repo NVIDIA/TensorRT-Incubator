@@ -385,6 +385,120 @@ static bool isArgumentWritable(func::FuncOp func, int64_t idx) {
   return false;
 }
 
+/// This function integrates a destination-passing style `argument` into the
+/// function body. This `argument` could be newly created to enable an in-place
+/// update, or it could be an existing argument that was identified as donating
+/// its buffer for `termOperand`.
+///
+/// The goal is to ensure that `termOperand`, which represents a function
+/// result, will use the same buffer as that of `argument`, if possible OR its
+/// value will be available in `argument`. This is achieved in one of two ways:
+///
+/// 1.  Replace an Equivalent Allocation: Find a value (lets call it
+///     `toReplace` value) inside the function (e.g., from a `tensor.empty`)
+///     that bufferizes to the same buffer as `termOPerand`. If such value
+///     exists, that value is replaced with the new `argument` everywhere.
+///
+/// 2.  Copy buffer: If no such value exists, this function insert a
+///     `linalg::CopyOp` operation so that buffer associated with
+///     `termOperand` is copied into `argument`.
+///
+/// For 1, we use reverse def chain analysis to find all values equivalent to
+/// `termOperand`.
+static LogicalResult accommodateDestinationStyleArgument(
+    RewriterBase &rewriter, TypedValue<RankedTensorType> argument,
+    func::ReturnOp term, OpOperand &termOperand,
+    bufferization::OneShotAnalysisState &state) {
+
+  // Find equivalent values.
+  bufferization::TraversalConfig config;
+  config.followEquivalentOnly = true;
+  config.followInPlaceOnly = true;
+  config.alwaysIncludeLeaves = true;
+  SetVector<Value> equivalentValues = state.findValueInReverseUseDefChain(
+      &termOperand, /*condition=*/
+      [](Value val) { return false; }, config);
+
+  LLVM_DEBUG({
+    DBGS() << llvm::formatv("equivalent values for return value #{0}:\n",
+                            termOperand.getOperandNumber());
+    llvm::interleave(equivalentValues, llvm::dbgs(), "\n - ");
+    llvm::dbgs() << "\n";
+  });
+
+  //  We're looking for a single `tensor.empty` or `bufferization.alloc_tensor`
+  //  operation that we can replace.
+  if (equivalentValues.size() != 1 ||
+      !isa_and_present<tensor::EmptyOp, bufferization::AllocTensorOp>(
+          equivalentValues.front().getDefiningOp())) {
+    // In this case we can't find a single `tensor.empty` or
+    // `bufferization.alloc_tensor` operation that we can replace, we
+    // insert a `linalg::CopyOp` operation so that buffer associated with
+    // `termOperand` is copied into `argument`.
+    rewriter.setInsertionPoint(term);
+
+    RankedTensorType targetType =
+        cast<RankedTensorType>(termOperand.get().getType());
+    auto copyOp = rewriter.create<linalg::CopyOp>(
+        termOperand.get().getLoc(), targetType, termOperand.get(), argument);
+    term.getOperandsMutable()[termOperand.getOperandNumber()].assign(
+        copyOp.getResult(0));
+    return success();
+  }
+
+  // Our action now depends on what kind of equivalent value we found.
+  Operation *equivalentOp = equivalentValues.front().getDefiningOp();
+
+  // Check if the user of `toReplace` is a `tensor.reshape` operation. Op
+  // `tensor.reshape` bufferizes to equivalent of `toReplace` since it doesn't
+  // allocate new memory but instead simply provides new view. Thus, we can just
+  // try to replace the reshape instead.
+  if (equivalentOp->hasOneUse()) {
+    if (auto reshapeOp =
+            dyn_cast<tensor::ReshapeOp>(*equivalentOp->user_begin())) {
+      if (reshapeOp.getSource() == equivalentOp->getResult(0))
+        equivalentOp = reshapeOp;
+    }
+  }
+
+  // A reshape or cast may be required if the equivalent value has a different
+  // type than the new function argument.
+  rewriter.setInsertionPointAfter(equivalentOp);
+  FailureOr<TypedValue<RankedTensorType>> reshaped = maybeReshapeOrCast(
+      rewriter, equivalentOp->getLoc(), argument,
+      cast<TypedValue<RankedTensorType>>(equivalentOp->getResult(0)));
+  if (failed(reshaped))
+    return failure();
+  argument = *reshaped;
+
+  // If the equivalent value is a `tensor.empty`, we can replace its uses
+  // with the new function argument. A reshape or cast may be required.
+  if (auto emptyOp = dyn_cast<tensor::EmptyOp>(equivalentOp)) {
+    rewriter.replaceAllOpUsesWith(equivalentOp, argument);
+    return success();
+  }
+  if (auto allocOp = dyn_cast<bufferization::AllocTensorOp>(equivalentOp)) {
+    if (!allocOp.getCopy()) {
+      rewriter.replaceAllOpUsesWith(equivalentOp, argument);
+      return success();
+    }
+    rewriter.replaceOpWithNewOp<bufferization::MaterializeInDestinationOp>(
+        allocOp, allocOp.getCopy(), argument);
+    return success();
+  }
+  if (auto constOp = dyn_cast<arith::ConstantOp>(equivalentOp)) {
+    auto matOp = rewriter.create<bufferization::MaterializeInDestinationOp>(
+        constOp.getLoc(), constOp, argument);
+    rewriter.replaceAllUsesExcept(constOp, matOp.getResult(), matOp);
+    return success();
+  }
+  if (auto reshapeOp = dyn_cast<tensor::ReshapeOp>(equivalentOp)) {
+    rewriter.replaceAllOpUsesWith(equivalentOp, argument);
+    return success();
+  }
+  llvm_unreachable("unexpected leaf operation kind");
+}
+
 /// Rewrite a single function to destination passing style. Update callers
 /// appropriately.
 static LogicalResult rewriteFuncToDestinationPassingStyle(
@@ -408,6 +522,18 @@ static LogicalResult rewriteFuncToDestinationPassingStyle(
   auto term = cast<func::ReturnOp>(func.getBody().front().getTerminator());
   const FuncAnalysisState &funcState = getFuncAnalysisState(state);
 
+  // Build a map of result index -> argument index for donated arguments.
+  llvm::DenseMap<int64_t, unsigned> donatedArgMap;
+  for (unsigned i = 0; i < func.getNumArguments(); ++i) {
+    if (auto donationAttr = func.getArgAttrOfType<IntegerAttr>(
+            i, plan::PlanDialect::kDonationArgAttrName)) {
+      // Check result index donated by donation arguments are within bound.
+      if (donationAttr.getInt() >= func.getFunctionType().getNumResults())
+        return failure();
+      donatedArgMap[donationAttr.getInt()] = i;
+    }
+  }
+
   for (auto [idx, v] : llvm::enumerate(term->getOpOperands())) {
     if (!isa<RankedTensorType>(v.get().getType()))
       continue;
@@ -423,103 +549,35 @@ static LogicalResult rewriteFuncToDestinationPassingStyle(
       continue;
     }
 
-    // There is no existing equivalent function argument, so we must create a
-    // new one.
+    // Check if some argument is donated for this result value. Shape and
+    // element type of donated argument must match with result.
+    auto donatedIt = donatedArgMap.find(idx);
+    if (donatedIt != donatedArgMap.end()) {
+      auto donatedArg = cast<TypedValue<RankedTensorType>>(
+          func.getArgument(donatedIt->second));
+      if (donatedArg.getType() != v.get().getType()) {
+        return func.emitError("donation argument is found but its type (")
+               << donatedArg.getType()
+               << ") doesn't match with corresponding result type ("
+               << v.get().getType() << ")";
+      }
+      if (failed(accommodateDestinationStyleArgument(rewriter, donatedArg, term,
+                                                     v, state)))
+        return failure();
+      continue;
+    }
+
+    // There is no existing equivalent or valid donation function argument, so
+    // we must create a new one.
     if (failed(updateFunctionWithNewDpsArg(func, v.get().getLoc(),
                                            v.get().getType(), idx)))
       return failure();
     auto replacement =
         cast<TypedValue<RankedTensorType>>(func.getArguments().back());
 
-    // The function argument must replace some value or force the returned value
-    // to bufferize into a copy into the new function argument. To do this, we
-    // use the bufferization analysis to find a value derived from e.g.
-    // `tensor.empty` that bufferizes into the same  buffer as the returned
-    // value.
-    bufferization::TraversalConfig config;
-    config.followEquivalentOnly = true;
-    config.followInPlaceOnly = true;
-    config.alwaysIncludeLeaves = true;
-    SetVector<Value> equivalentValues = state.findValueInReverseUseDefChain(
-        &v, /*condition=*/
-        [](Value val) { return false; }, config);
-
-    LLVM_DEBUG({
-      DBGS() << llvm::formatv("equivalent values for return value #{0}:\n",
-                              idx);
-      llvm::interleave(equivalentValues, llvm::dbgs(), "\n - ");
-      llvm::dbgs() << "\n";
-    });
-
-    // We're looking for a single `tensor.empty` or `bufferization.alloc_tensor`
-    // operation that we can replace.
-    if (equivalentValues.size() != 1 ||
-        !isa_and_present<tensor::EmptyOp, bufferization::AllocTensorOp>(
-            equivalentValues.front().getDefiningOp())) {
-      // If we can't find a single `tensor.empty` or
-      // `bufferization.alloc_tensor` operation that we can replace, we must
-      // insert a `bufferization.materialize_in_destination` operation to force
-      // the returned value to bufferize into the new function argument.
-      rewriter.setInsertionPoint(term);
-
-      RankedTensorType targetType = cast<RankedTensorType>(v.get().getType());
-      auto copyOp = rewriter.create<linalg::CopyOp>(
-          v.get().getLoc(), targetType, v.get(), replacement);
-      term.getOperandsMutable()[idx].assign(copyOp.getResult(0));
-      continue;
-    }
-
-    // Our action now depends on what kind of equivalent value we found.
-    Operation *equivalentOp = equivalentValues.front().getDefiningOp();
-
-    // Check if the user of `toReplace` is a `tensor.reshape` operation.
-    // Since `toReplace` is bufferizes to the equivalent of `tensor.reshape`,
-    // we can just try to replace the reshape instead.
-    if (equivalentOp->hasOneUse()) {
-      if (auto reshapeOp =
-              dyn_cast<tensor::ReshapeOp>(*equivalentOp->user_begin())) {
-        if (reshapeOp.getSource() == equivalentOp->getResult(0)) {
-          equivalentOp = reshapeOp;
-        }
-      }
-    }
-
-    // A reshape or cast may be required if the equivalent value has a different
-    // type than the new function argument.
-    rewriter.setInsertionPointAfter(equivalentOp);
-    FailureOr<TypedValue<RankedTensorType>> reshaped = maybeReshapeOrCast(
-        rewriter, equivalentOp->getLoc(), replacement,
-        cast<TypedValue<RankedTensorType>>(equivalentOp->getResult(0)));
-    if (failed(reshaped))
+    if (failed(accommodateDestinationStyleArgument(rewriter, replacement, term,
+                                                   v, state)))
       return failure();
-    replacement = *reshaped;
-
-    // If the equivalent value is a `tensor.empty`, we can replace its uses
-    // with the new function argument. A reshape or cast may be required.
-    if (auto emptyOp = dyn_cast<tensor::EmptyOp>(equivalentOp)) {
-      rewriter.replaceAllOpUsesWith(equivalentOp, replacement);
-      continue;
-    }
-    if (auto allocOp = dyn_cast<bufferization::AllocTensorOp>(equivalentOp)) {
-      if (!allocOp.getCopy()) {
-        rewriter.replaceAllOpUsesWith(equivalentOp, replacement);
-        continue;
-      }
-      rewriter.replaceOpWithNewOp<bufferization::MaterializeInDestinationOp>(
-          allocOp, allocOp.getCopy(), replacement);
-      continue;
-    }
-    if (auto constOp = dyn_cast<arith::ConstantOp>(equivalentOp)) {
-      auto matOp = rewriter.create<bufferization::MaterializeInDestinationOp>(
-          constOp.getLoc(), constOp, replacement);
-      rewriter.replaceAllUsesExcept(constOp, matOp.getResult(), matOp);
-      continue;
-    }
-    if (auto reshapeOp = dyn_cast<tensor::ReshapeOp>(equivalentOp)) {
-      rewriter.replaceAllOpUsesWith(equivalentOp, replacement);
-      continue;
-    }
-    llvm_unreachable("unexpected leaf operation kind");
   }
   return success();
 }

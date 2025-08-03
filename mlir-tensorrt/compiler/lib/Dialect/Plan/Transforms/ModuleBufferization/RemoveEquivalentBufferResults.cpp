@@ -46,13 +46,36 @@ dropEquivalentFuncBufferResults(RewriterBase &rewriter, func::FuncOp funcOp,
     bool erased = false;
     for (BlockArgument bbArg : funcOp.getArguments()) {
       Value val = it.value();
-      while (auto castOp = val.getDefiningOp<memref::CastOp>())
-        val = castOp.getSource();
+      // Look through all view-changing operations (cast, reshape, expand,
+      // collapse).
+      while (true) {
+        bool viewChange = false;
+        if (auto castOp = val.getDefiningOp<memref::CastOp>()) {
+          val = castOp.getSource();
+          viewChange = true;
+        } else if (auto reshapeOp = val.getDefiningOp<memref::ReshapeOp>()) {
+          val = reshapeOp.getSource();
+          viewChange = true;
+        } else if (auto expandOp = val.getDefiningOp<memref::ExpandShapeOp>()) {
+          val = expandOp.getSrc();
+          viewChange = true;
+        } else if (auto collapseOp =
+                       val.getDefiningOp<memref::CollapseShapeOp>()) {
+          val = collapseOp.getSrc();
+          viewChange = true;
+        }
+        if (!viewChange)
+          break;
+      }
 
       if (val == bbArg) {
-        resultToArgs[it.index()] = bbArg.getArgNumber();
-        erased = true;
-        break;
+        // Only remove the result if the types are cast-compatible.
+        if (memref::CastOp::areCastCompatible(it.value().getType(),
+                                              bbArg.getType())) {
+          resultToArgs[it.index()] = bbArg.getArgNumber();
+          erased = true;
+          break;
+        }
       }
     }
 

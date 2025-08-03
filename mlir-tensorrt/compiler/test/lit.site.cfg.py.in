@@ -16,20 +16,12 @@ config.host_os = "@HOST_OS@"
 config.host_cc = "@HOST_CC@"
 config.host_cxx = "@HOST_CXX@"
 config.host_arch = "@HOST_ARCH@"
-
-config.enable_assertions = @MLIR_TRT_ENABLE_ASSERTIONS@
-
-config.enable_bindings_python = @MLIR_TRT_ENABLE_PYTHON@
-config.enable_torch_mlir = @MLIR_TRT_ENABLE_TORCH@
 config.python_executable = "@Python3_EXECUTABLE@"
-
-config.enable_hlo = @MLIR_TRT_ENABLE_HLO@
-config.target_tensorrt = @MLIR_TRT_TARGET_TENSORRT@
-config.mlir_tensorrt_compile_time_version = "@MLIR_TRT_TENSORRT_VERSION@"
-config.enable_nccl = @MLIR_TRT_ENABLE_NCCL@
-
+config.cuda_toolkit_linux_cxx_flags = "@EMITC_CUDA_CXX_FLAGS@"
 config.enable_asan = @ENABLE_ASAN@
 config.tensorrt_lib_dir = "@MLIR_TRT_TENSORRT_LIB_DIR@"
+
+@MLIR_TRT_COMMON_LIT_CONFIG@
 
 import lit.llvm
 lit.llvm.initialize(lit_config, config)

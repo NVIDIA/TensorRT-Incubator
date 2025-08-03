@@ -1,6 +1,6 @@
 //===- MemRefToExecutorPatterns.cpp ---------------------------------------===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -48,33 +48,19 @@ using executor::MemoryType;
 using executor::MemoryTypeAttr;
 using executor::MemRefDescriptor;
 
-//===----------------------------------------------------------------------===//
-/// Helpers for allocation alignment.
-/// The below two functions are helpers are adapted from "MemrefToLLVM"
-/// upstream.
-/// TODO: patch upstream to move these to a more generic location?
-//===----------------------------------------------------------------------===//
-
-/// The minimum alignment required for an aligned allocation, which is typically
-/// sizeof(max_align_t), or 16 bytes on common platforms.
-/// TODO: This could be 8 bytes on some platforms? Do we need more omplex logic
-/// here? upstream memref lowering also uses this parameter and does not query
-/// DataLayout.
-static constexpr uint64_t kMinAlignedAllocAlignment = alignof(max_align_t);
-static_assert(kMinAlignedAllocAlignment == 16, "expected min alignment of 16");
-
 /// Return the alignment required by an AllocOp (assuming conversion to
 /// Executor's aligned allocation function, which is lowered to a call to
 /// `std::aligned_alloc` at runtime).
-static uint64_t getAlignment(memref::AllocOp op,
-                             const ExecutorTypeConverter &typeConverter) {
+static FailureOr<uint64_t>
+getAlignment(memref::AllocOp op, const ExecutorTypeConverter &typeConverter) {
   if (std::optional<uint64_t> alignment = op.getAlignment())
     return *alignment;
-  unsigned eltSizeBytes =
-      typeConverter.getMemRefElementTypeByteSize(op.getType());
-  // The alignement must be a power of two and at least sizeof(max_align_t),
-  // which is typically 16 bytes.
-  return std::max(kMinAlignedAllocAlignment, llvm::PowerOf2Ceil(eltSizeBytes));
+  Type convertedElementType =
+      typeConverter.convertType(op.getType().getElementType());
+  if (!convertedElementType)
+    return failure();
+  return typeConverter.getDataLayout().getTypePreferredAlignment(
+      convertedElementType);
 }
 
 //===----------------------------------------------------------------------===//
@@ -105,14 +91,16 @@ class ConvertAlloc : public ConvertOpToExecutorPattern<memref::AllocOp> {
       return rewriter.notifyMatchFailure(op, "failed to get allocation info");
 
     // Get the alignement requirement and memory space.
-    Value alignment =
-        createIndexConstant(b, getAlignment(op, *getTypeConverter()));
+    FailureOr<uint64_t> alignment = getAlignment(op, *getTypeConverter());
+    if (failed(alignment))
+      return rewriter.notifyMatchFailure(op, "failed to get alignment");
+    Value alignmentValue = createIndexConstant(b, *alignment);
 
     Value alloc;
     if (info->memorySpace == MemoryType::host) {
       alloc = b.create<executor::AllocateOp>(
           getTypeConverter()->getOpaquePointerType(info->memorySpace),
-          info->sizeBytes, alignment);
+          info->sizeBytes, alignmentValue);
     } else {
       return rewriter.notifyMatchFailure(op, "unsupported memory space");
     }
@@ -554,9 +542,6 @@ public:
     // We allow index type during memref lowering prior to lowering of certain
     // executor ops to func-calls.
     opts.indexType = IntegerType::get(ctx, indexBitwidth);
-    opts.memrefArgPassingConvention =
-        usePackedMemRefCConv ? executor::MemRefArgPassingConvention::Packed
-                             : executor::MemRefArgPassingConvention::Unpacked;
     Operation *op = getOperation();
     FailureOr<DataLayout> dataLayout =
         executor::setDataLayoutSpec(op, indexBitwidth, 64);

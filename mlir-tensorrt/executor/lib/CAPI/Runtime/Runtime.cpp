@@ -26,6 +26,7 @@
 #include "mlir-executor-c/Common/Common.h"
 #include "mlir-executor/Runtime/API/API.h"
 #include "mlir-executor/Runtime/API/ExecutableFlatbuffer.h"
+#include "mlir-executor/Runtime/Backend/Common/DataTypes.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaExtensions.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaRuntime.h"
 #include "mlir-executor/Runtime/Support/Support.h"
@@ -33,26 +34,15 @@
 #include "mlir-tensorrt-common/Support/Status.h"
 #include "mlir/CAPI/Utils.h"
 #include "mlir/Support/FileUtilities.h"
-#include "llvm/Support/Debug.h"
-
 #include "llvm/ADT/SmallVectorExtras.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
 #include <cstdint>
 #include <memory>
 #include <mutex>
-#ifdef MLIR_EXECUTOR_ENABLE_CUDA
-#include "cuda_runtime_api.h"
-#endif
 
-#if defined(__clang__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wgnu-zero-variadic-macro-arguments"
-#endif
-#include "cuda_bf16.h"
-#include "cuda_fp16.h"
-#include "cuda_fp8.h"
-#if defined(__clang__)
-#pragma GCC diagnostic pop
+#ifdef MLIR_TRT_ENABLE_CUDA
+#include "cuda_runtime_api.h"
 #endif
 
 struct MTRT_StreamImpl;
@@ -260,7 +250,7 @@ private:
 };
 
 StatusOr<std::unique_ptr<MTRT_StreamImpl>> MTRT_StreamImpl::create() {
-#ifdef MLIR_EXECUTOR_ENABLE_CUDA
+#ifdef MLIR_TRT_ENABLE_CUDA
   CudaStream s;
   RETURN_ERROR_IF_CUDART_ERROR(
       cudaStreamCreate(reinterpret_cast<cudaStream_t *>(&s)));
@@ -272,14 +262,14 @@ StatusOr<std::unique_ptr<MTRT_StreamImpl>> MTRT_StreamImpl::create() {
 }
 
 MTRT_StreamImpl::~MTRT_StreamImpl() {
-#ifdef MLIR_EXECUTOR_ENABLE_CUDA
+#ifdef MLIR_TRT_ENABLE_CUDA
   if (stream)
     cudaStreamDestroy(reinterpret_cast<cudaStream_t>(stream));
 #endif
 }
 
 Status MTRT_StreamImpl::sync() {
-#ifdef MLIR_EXECUTOR_ENABLE_CUDA
+#ifdef MLIR_TRT_ENABLE_CUDA
   RETURN_ERROR_IF_CUDART_ERROR(
       cudaStreamSynchronize(reinterpret_cast<cudaStream_t>(stream)));
   return getOkStatus();
@@ -860,13 +850,13 @@ MTRT_Status mtrtScalarValueGet(MTRT_ScalarValue scalar, int64_t *data) {
   ScalarTypeCode code = cppScalar->getType().getCode();
   switch (code) {
   case ScalarTypeCode::f8e4m3fn:
-    *data = static_cast<int64_t>(cppScalar->get<__nv_fp8_e4m3>());
+    *data = static_cast<int64_t>(cppScalar->get<F8E4M3FN>());
     break;
   case ScalarTypeCode::f16:
-    *data = static_cast<int64_t>(cppScalar->get<__half>());
+    *data = static_cast<int64_t>(cppScalar->get<Float16>());
     break;
   case ScalarTypeCode::bf16:
-    *data = static_cast<int64_t>(cppScalar->get<nv_bfloat16>());
+    *data = static_cast<int64_t>(cppScalar->get<BFloat16>());
     break;
   case ScalarTypeCode::f32:
     *data = static_cast<int64_t>(cppScalar->get<float>());

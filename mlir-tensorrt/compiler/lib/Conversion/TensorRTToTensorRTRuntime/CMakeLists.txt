@@ -3,7 +3,7 @@ add_mlir_tensorrt_library(MLIRTensorRTTensorRTToTensorRTRuntime
 
   LINK_LIBS PUBLIC
   MLIRTensorRTExecutorUtils
-  MLIRTensorRTDialect
+  MLIRTensorRTTensorRTDialect
   MLIRTensorRTTensorRTRuntimeDialect
   MLIRTensorRTAnalysis
   MLIRRewrite

@@ -19,9 +19,6 @@ include_directories(
   "$<$<BOOL:${MLIR_TRT_ENABLE_TORCH}>:${torch_mlir_SOURCE_DIR}/include>"
   )
 
-find_package(CUDAToolkit REQUIRED)
-
-
 if(MLIR_TRT_ENABLE_PYTHON)
   # This is the directory under `llvm-project/mlir/python`.
   set(MLIR_MAIN_PYTHON_DIR "${MLIR_MAIN_SRC_DIR}/python")

@@ -23,8 +23,9 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-executor/Executor/IR/Executor.h"
 #include "mlir-executor/Transforms/Clustering/Patterns.h"
+#include "mlir-tensorrt-common/Interfaces/TensorKindOpInterface.h"
 #include "mlir-tensorrt-dialect/Analysis/TensorKindAnalysis.h"
-#include "mlir-tensorrt-dialect/Interface/TensorKindOpInterface.h"
+#include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/PlanInterfaces.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
@@ -123,7 +124,7 @@ static bool isOpInClusterRegion(Operation *op) {
 static LogicalResult
 applyClusteringToFunc(RewriterBase &rewriter, func::FuncOp func,
                       DataFlowSolver &solver,
-                      ArrayRef<ClusterKindAttrInterface> clusters,
+                      ArrayRef<CompilerBackendAttrInterface> clusters,
                       const ClusteringPassOptions &opts) {
   ClusteringPatternSet<ClusteringRewriter> patterns;
   for (const auto &[idx, target] : llvm::enumerate(clusters)) {
@@ -195,28 +196,28 @@ public:
     IRRewriter rewriter(module->getContext());
     rewriter.setListener(listener.get());
 
-    // If the `plan.cluster_kinds` already exists on the module, use that,
+    // If the `plan.backends` already exists on the module, use that,
     // otherwise, populate defaults.
-    SmallVector<ClusterKindAttrInterface> schedule;
+    SmallVector<CompilerBackendAttrInterface> schedule;
     if (ArrayAttr clusterKind = module->getAttrOfType<ArrayAttr>(
-            plan::PlanDialect::kModuleClusterKindsAttrName)) {
+            plan::PlanDialect::kBackendsAttrName)) {
       for (Attribute kind : clusterKind) {
-        auto kindAttr = llvm::dyn_cast<ClusterKindAttrInterface>(kind);
-        if (!kind) {
+        auto kindAttr = llvm::dyn_cast<CompilerBackendAttrInterface>(kind);
+        if (!kindAttr) {
           emitError(module.getLoc())
-              << "in '" << plan::PlanDialect::kModuleClusterKindsAttrName
+              << "in '" << plan::PlanDialect::kBackendsAttrName
               << "' found attribute " << kind
-              << ", but it is not a ClusterKindAttrInterface";
+              << ", but it is not a CompilerBackendAttrInterface";
           return signalPassFailure();
         }
         schedule.push_back(kindAttr);
       }
     }
-    llvm::sort(schedule,
-               [&](ClusterKindAttrInterface lhs, ClusterKindAttrInterface rhs) {
-                 return lhs.getClusterBenefit(inputKind) >
-                        rhs.getClusterBenefit(inputKind);
-               });
+    llvm::sort(schedule, [&](CompilerBackendAttrInterface lhs,
+                             CompilerBackendAttrInterface rhs) {
+      return lhs.getClusterBenefit(inputKind) >
+             rhs.getClusterBenefit(inputKind);
+    });
 
     for (func::FuncOp func : funcs) {
       if (failed(applyClusteringToFunc(
@@ -243,7 +244,7 @@ public:
     }
 
     // Drop clustering attributes since they are no longer needed.
-    module->removeAttr(plan::PlanDialect::kModuleClusterKindsAttrName);
+    module->removeAttr(plan::PlanDialect::kBackendsAttrName);
   }
 };
 } // namespace

@@ -29,7 +29,6 @@
 #include "mlir/Analysis/DataFlow/IntegerRangeAnalysis.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
-#include "mlir/Dialect/Utils/IndexingUtils.h"
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/IR/OperationSupport.h"
@@ -137,14 +136,14 @@ void ShapeBoundsForwardAnalysis::setToEntryState(ShapeBoundsLattice *lattice) {
         lattice, lattice->join(BoundsArray::getMaxRangeForShapeBounds(
                      lattice->getAnchor())));
 
-  std::optional<plan::TensorBoundsAttrInterface> shapeProfile =
-      maybeGetFunctionArgBound<plan::TensorBoundsAttrInterface>(
+  std::optional<BoundsAttrInterface> shapeProfile =
+      maybeGetFunctionArgBound<BoundsAttrInterface>(
           lattice->getAnchor(), plan::PlanDialect::getShapeBoundsAttrName());
 
   if (!shapeProfile)
     return propagateIfChanged(lattice, lattice->join(BoundsArray()));
   SmallVector<int64_t> minBound, maxBound;
-  if (failed(shapeProfile->getShapeBounds(minBound, maxBound)))
+  if (failed(shapeProfile->getShapeRange(minBound, maxBound)))
     return;
   return propagateIfChanged(
       lattice, lattice->join(BoundsArray::fromShapeBounds(minBound, maxBound)));
@@ -319,26 +318,30 @@ void ShapeBoundsBackwardsAnalysis::visitCallOperand(OpOperand &operand) {
 //===----------------------------------------------------------------------===//
 
 static std::optional<ConstantIntRanges>
-maybeGetValueBounds(Value value, std::optional<int64_t> linearIndex) {
-  Type elType = cast<RankedTensorType>(value.getType()).getElementType();
+maybeGetValueBounds(Value value, ArrayRef<uint64_t> coordinate = {}) {
+  RankedTensorType rtt = cast<RankedTensorType>(value.getType());
+  Type elType = rtt.getElementType();
   assert(elType.isSignlessIntOrIndex() && "expected integer or index type");
-  std::optional<plan::TensorBoundsAttrInterface> bound =
-      maybeGetFunctionArgBound<plan::TensorBoundsAttrInterface>(
+  std::optional<BoundsAttrInterface> bound =
+      maybeGetFunctionArgBound<BoundsAttrInterface>(
           value, plan::PlanDialect::getValueBoundsAttrName());
   if (!bound)
     return {};
 
-  SmallVector<APInt> mins, maxs;
-  if (failed(bound->getIntegerValueBounds(mins, maxs)))
+  if (!coordinate.empty())
+    return bound->getIntegerValueRangeAtCoordinate(coordinate);
+  if (rtt.getNumElements() == 1)
+    return bound->getIntegerValueRangeAtCoordinate(
+        SmallVector<uint64_t>(rtt.getRank(), 0));
+
+  std::optional<SmallVector<ConstantIntRanges>> ranges =
+      bound->getIntegerValueRanges();
+  if (!ranges || ranges->empty())
     return {};
-  auto comp = [](const llvm::APInt &lhs, const llvm::APInt &rhs) {
-    return lhs.sle(rhs);
-  };
-  if (!linearIndex)
-    return ConstantIntRanges::fromSigned(
-        *std::min_element(mins.begin(), mins.end(), comp),
-        *std::max_element(maxs.begin(), maxs.end(), comp));
-  return ConstantIntRanges::fromSigned(mins[*linearIndex], maxs[*linearIndex]);
+  ConstantIntRanges r = ranges->front();
+  for (const auto &it : *ranges)
+    r = r.rangeUnion(it);
+  return r;
 }
 
 static ConstantIntRanges
@@ -359,27 +362,39 @@ static ConstantIntRanges truncateToNonNegative(const ConstantIntRanges &lhs) {
 
 /// If the `extractOp` indices can be trivially folded to constants, then
 /// return the equivalent static linear index.
-static std::optional<int64_t> getLinearIndex(tensor::ExtractOp extractOp) {
+static std::optional<SmallVector<uint64_t>>
+getStaticCoordinates(tensor::ExtractOp extractOp) {
   if (!extractOp.getTensor().getType().hasStaticShape())
     return {};
 
-  int64_t linearIndex = 0;
-  SmallVector<int64_t> indices;
+  SmallVector<uint64_t> indices;
   for (Value v : extractOp.getIndices()) {
     APInt index;
     if (!matchPattern(v, m_ConstantInt(&index)))
       return {};
-    indices.push_back(index.getSExtValue());
+    indices.push_back(index.getZExtValue());
   }
-
-  if (!indices.empty()) {
-    SmallVector<int64_t> basis =
-        mlir::computeSuffixProduct(extractOp.getTensor().getType().getShape());
-    linearIndex = mlir::linearize(indices, basis);
-  }
-  return linearIndex;
+  return indices;
 }
 
+/// Infer the integer range bounds for the result of a tensor.dim operation.
+/// This function analyzes the dimension being queried and returns appropriate
+/// bounds based on the tensor's shape information.
+///
+/// The analysis considers several cases:
+/// 1. If the dimension index is not constant and the tensor doesn't have a
+///    static shape, returns maximum possible dimension range.
+/// 2. If the dimension index is not constant but the tensor has a static shape,
+///    returns the range [min_dim, max_dim] across all dimensions.
+/// 3. If the dimension index is constant and refers to a static dimension,
+///    returns the exact static size as a singleton range.
+/// 4. If the dimension index is constant and refers to a dynamic dimension,
+///    attempts to use shape bounds from function argument attributes if
+///    available.
+///
+/// \param dimOp The tensor.dim operation to analyze
+/// \param ranges Input ranges for the operands (unused in this implementation)
+/// \param setResultRanges Callback to set the computed range for the result
 static void inferResultRanges(tensor::DimOp dimOp,
                               ArrayRef<ConstantIntRanges> ranges,
                               SetIntRangeFn setResultRanges) {
@@ -387,9 +402,13 @@ static void inferResultRanges(tensor::DimOp dimOp,
 
   std::optional<int64_t> staticDimNum =
       getConstantIntValue(dimOp.getDimension());
+  // Case 1: We cannot determine which dimension is being queried.
   if (!staticDimNum) {
+    // Case 1.1: The tensor has a dynamic shape, no bounds can be inferred.
     if (!tensorType.hasStaticShape())
       return setResultRanges(dimOp.getResult(), getMaxDimRange());
+    // Case 1.2: The tensor has a static shape, we can infer a bound by reducing
+    // across all dimensions.
     auto shape = tensorType.getShape();
     int64_t minVal = *std::min_element(shape.begin(), shape.end());
     int64_t maxVal = *std::max_element(shape.begin(), shape.end());
@@ -400,25 +419,32 @@ static void inferResultRanges(tensor::DimOp dimOp,
             APInt(IndexType::kInternalStorageBitWidth, maxVal)));
   }
 
+  // Case 2: The dimension queried is statically known.
   if (!tensorType.isDynamicDim(*staticDimNum)) {
     APInt intStatic(IndexType::kInternalStorageBitWidth,
                     tensorType.getDimSize(*staticDimNum));
-    return setResultRanges(dimOp.getResult(),
-                           ConstantIntRanges::fromSigned(intStatic, intStatic));
+    return setResultRanges(dimOp.getResult(), ConstantIntRanges::fromUnsigned(
+                                                  intStatic, intStatic));
   }
 
-  std::optional<plan::BoundsAttr> shapeProfile =
-      maybeGetFunctionArgBound<plan::BoundsAttr>(
+  // Case 3: The dimension queried is dynamic, we can use shape bounds from
+  // function argument attributes if available, otherwise we cannot infer any
+  // bounds.
+  std::optional<BoundsAttrInterface> shapeProfile =
+      maybeGetFunctionArgBound<BoundsAttrInterface>(
           dimOp.getSource(), plan::PlanDialect::getShapeBoundsAttrName());
   if (!shapeProfile)
     return setResultRanges(dimOp.getResult(), getMaxDimRange());
 
-  setResultRanges(dimOp.getResult(),
-                  ConstantIntRanges::fromSigned(
-                      APInt(IndexType::kInternalStorageBitWidth,
-                            shapeProfile->getMinShape()[*staticDimNum]),
-                      APInt(IndexType::kInternalStorageBitWidth,
-                            shapeProfile->getMaxShape()[*staticDimNum])));
+  SmallVector<int64_t> minBound, maxBound;
+  if (failed(shapeProfile->getShapeRange(minBound, maxBound)))
+    return setResultRanges(dimOp.getResult(), getMaxDimRange());
+
+  setResultRanges(
+      dimOp.getResult(),
+      ConstantIntRanges::fromSigned(
+          APInt(IndexType::kInternalStorageBitWidth, minBound[*staticDimNum]),
+          APInt(IndexType::kInternalStorageBitWidth, maxBound[*staticDimNum])));
 }
 
 static void inferResultRanges(tensor::ExtractOp extractOp,
@@ -436,9 +462,10 @@ static void inferResultRanges(tensor::ExtractOp extractOp,
   if (!operandType.hasStaticShape())
     return setResultRanges(extractOp.getResult(), getMaxValueRange(bitWidth));
 
-  std::optional<int64_t> linearIndex = getLinearIndex(extractOp);
-  std::optional<ConstantIntRanges> intRange =
-      maybeGetValueBounds(extractOp.getTensor(), linearIndex);
+  std::optional<SmallVector<uint64_t>> coordinates =
+      getStaticCoordinates(extractOp);
+  std::optional<ConstantIntRanges> intRange = maybeGetValueBounds(
+      extractOp.getTensor(), coordinates ? *coordinates : ArrayRef<uint64_t>{});
   if (!intRange)
     return setResultRanges(extractOp.getResult(), getMaxValueRange(bitWidth));
 
@@ -469,23 +496,20 @@ void ShapeIntegerRangeAnalysis::setToEntryState(
   if (!lattice->getAnchor().getType().isIntOrIndex())
     return propagateIfChanged(lattice, lattice->join(IntegerValueRange()));
 
-  std::optional<plan::BoundsAttr> shapeProfile =
-      maybeGetFunctionArgBound<plan::BoundsAttr>(
+  std::optional<BoundsAttrInterface> shapeProfile =
+      maybeGetFunctionArgBound<BoundsAttrInterface>(
           lattice->getAnchor(), plan::PlanDialect::getValueBoundsAttrName());
-  if (!shapeProfile) {
+  std::optional<ConstantIntRanges> intRange =
+      shapeProfile ? shapeProfile->getIntegerValueRange() : std::nullopt;
+  if (!intRange) {
     IntegerValueRange range =
         IntegerValueRange::getMaxRange(lattice->getAnchor());
     if (hasShapeUser)
       range = IntegerValueRange(truncateToNonNegative(range.getValue()));
     return propagateIfChanged(lattice, lattice->join(range));
   }
-  assert(shapeProfile->getMaxValues().getNumElements() == 1 &&
-         "expected one element for scalar value bounds");
-
-  return propagateIfChanged(
-      lattice, lattice->join(IntegerValueRange(ConstantIntRanges::fromSigned(
-                   shapeProfile->getMinValues().getSplatValue<APInt>(),
-                   shapeProfile->getMaxValues().getSplatValue<APInt>()))));
+  return propagateIfChanged(lattice,
+                            lattice->join(IntegerValueRange(*intRange)));
 }
 
 /// Visit an operation. Invoke the transfer function on each operation that
@@ -577,19 +601,18 @@ void TensorValueBoundsAnalysis::setToEntryState(
   if (!shouldAnalyzeValueBounds(point))
     return propagateIfChanged(lattice, lattice->join(BoundsArray()));
 
-  std::optional<plan::BoundsAttr> shapeProfile =
-      maybeGetFunctionArgBound<plan::BoundsAttr>(
+  std::optional<BoundsAttrInterface> shapeProfile =
+      maybeGetFunctionArgBound<BoundsAttrInterface>(
           point, plan::PlanDialect::getValueBoundsAttrName());
-  if (!shapeProfile || !shapeProfile->isValueBound())
+  if (!shapeProfile)
     return propagateIfChanged(lattice, lattice->join(BoundsArray()));
 
-  return propagateIfChanged(
-      lattice,
-      lattice->join(BoundsArray::fromIntegerValueBounds(
-          llvm::to_vector(
-              shapeProfile->getMinValues().getValues<llvm::APInt>()),
-          llvm::to_vector(
-              shapeProfile->getMaxValues().getValues<llvm::APInt>()))));
+  std::optional<SmallVector<ConstantIntRanges>> ranges =
+      shapeProfile->getIntegerValueRanges();
+  if (!ranges || ranges->empty())
+    return propagateIfChanged(lattice, lattice->join(BoundsArray()));
+
+  return propagateIfChanged(lattice, lattice->join(BoundsArray(*ranges)));
 }
 
 LogicalResult TensorValueBoundsAnalysis::visitOperation(

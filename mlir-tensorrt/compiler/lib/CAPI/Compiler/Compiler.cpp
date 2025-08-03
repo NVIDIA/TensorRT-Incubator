@@ -1,6 +1,6 @@
 //===- Compiler.cpp -------------------------------------------------------===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -25,17 +25,10 @@
 #include "mlir-c/IR.h"
 #include "mlir-c/Pass.h"
 #include "mlir-c/Support.h"
-#include "mlir-executor/Target/Lua/TranslateToRuntimeExecutable.h"
 #include "mlir-tensorrt-common-c/Support/Status.h"
-#include "mlir-tensorrt-dialect/Target/TranslateToTensorRT.h"
-#include "mlir-tensorrt/Compiler/Extension.h"
-#include "mlir-tensorrt/Compiler/StablehloToExecutable/StablehloToExecutable.h"
-#include "mlir-tensorrt/Compiler/StablehloToExecutable/TensorRTExtension.h"
-#include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
+#include "mlir-tensorrt/Compiler/Client.h"
 #include "mlir/CAPI/IR.h"
-#include "mlir/CAPI/Utils.h"
 #include "mlir/Pass/PassManager.h"
-#include "llvm/ADT/StringExtras.h"
 
 using namespace mlirtrt;
 using namespace mlirtrt::compiler;
@@ -71,22 +64,6 @@ static MTRT_Status wrap(const mlirtrt::Status &status) {
 
 MTRT_Status mtrtCompilerClientCreate(MlirContext context,
                                      MTRT_CompilerClient *client) {
-  MLIRContext *ctx = unwrap(context);
-  // Populate default task extension set. This assumes the PlanDialect has
-  // already been loaded.
-  // TODO: We should only modify the loaded PlanDialect
-  // via a class derived from DialectExtension and using
-  // `registry.addExtensions` to append to the registry.
-  mlir::plan::PlanDialect *planDialect =
-      ctx->getOrLoadDialect<mlir::plan::PlanDialect>();
-  assert(planDialect && "expected loaded PlanDialect");
-  if (failed(planDialect->extensionConstructors.addCheckedExtensionConstructor<
-             compiler::StablehloToExecutableTask,
-             compiler::StablehloToExecutableTensorRTExtension>()))
-    emitWarning(mlir::UnknownLoc::get(ctx))
-        << "ignoring duplicate extension load request; TensorRTExtension is "
-           "already loaded";
-
   StatusOr<std::unique_ptr<CompilerClient>> cppClient =
       CompilerClient::create(unwrap(context));
   if (!cppClient.isOk())
@@ -111,7 +88,7 @@ MTRT_Status mtrtCompilerClientGetCompilationTask(MTRT_CompilerClient client,
     argvStrRef[i] = llvm::StringRef(argv[i].data, argv[i].length);
   StatusOr<CompilationTaskBase *> task = unwrap(client)->getCompilationTask(
       StringRef(taskMnemonic.data, taskMnemonic.length), argvStrRef,
-      /*enableDebugOptions=*/true);
+      /*overrideArtifactsDir=*/std::nullopt, /*enableDebugOptions=*/true);
   if (!task.isOk())
     return wrap(task.getStatus());
   *result = MlirPassManager{static_cast<mlir::PassManager *>(*task)};

@@ -23,7 +23,7 @@
 /// for more information.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt-dialect/Interface/TensorKindOpInterface.h"
+#include "mlir-tensorrt-common/Interfaces/TensorKindOpInterface.h"
 #include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
 
 using namespace mlir;

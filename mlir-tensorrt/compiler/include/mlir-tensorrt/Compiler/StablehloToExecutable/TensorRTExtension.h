@@ -24,7 +24,9 @@
 #ifndef MLIR_TENSORRT_COMPILER_STABLEHLOTOEXECUTABLE_TENSORRTEXTENSION
 #define MLIR_TENSORRT_COMPILER_STABLEHLOTOEXECUTABLE_TENSORRTEXTENSION
 
+#include "mlir-tensorrt-common/Support/CommandLineExtras.h"
 #include "mlir-tensorrt-dialect/Target/TranslateToTensorRT.h"
+#include "mlir-tensorrt/Compiler/Extension.h"
 #include "mlir-tensorrt/Compiler/StablehloToExecutable/StablehloToExecutable.h"
 
 namespace mlirtrt::compiler {
@@ -34,19 +36,17 @@ namespace mlirtrt::compiler {
 //===----------------------------------------------------------------------===//
 
 class StablehloToExecutableTensorRTExtension
-    : public StablehloToExecutableOptions::Extension<
-          StablehloToExecutableTensorRTExtension> {
+    : public Extension<StablehloToExecutableTensorRTExtension,
+                       StablehloToExecutableTask> {
 public:
-  using StablehloToExecutableOptions::Extension<
-      StablehloToExecutableTensorRTExtension>::Extension;
+  static llvm::StringRef getName() { return "tensorrt-extension"; }
 
-  llvm::StringRef getName() const final { return "tensorrt-extension"; }
+  using Extension::Extension;
 
   /// Hook invoked for populating passes associated with a particular phase.
   /// It is not guarunteed the order in which different extensions are run
   /// relative to each other (yet).
-  void populatePasses(mlir::OpPassManager &pm, Phase phase,
-                      const StablehloToExecutableOptions &options) const final;
+  void populatePasses(mlir::OpPassManager &pm, Phase phase) const final;
 
   /// Override the current options.
   void setOptions(mlir::tensorrt::TensorRTTranslationOptions options) {
@@ -54,7 +54,7 @@ public:
     this->enableStronglyTyped = options.enableStronglyTyped;
     this->tensorrtBuilderOptLevel = options.tensorrtBuilderOptLevel;
     this->saveTensorRTEnginesToDirectory =
-        options.saveTensorRTLayerInfoDirectory;
+        options.saveTensorRTEnginesToDirectory;
     this->saveTensorRTLayerInfoDirectory =
         options.saveTensorRTLayerInfoDirectory;
     this->workspaceMemoryPoolLimit = options.workspaceMemoryPoolLimit;
@@ -88,7 +88,7 @@ public:
       this->ctx, "tensorrt-engines-dir", llvm::cl::init("")};
   Option<std::string> saveTensorRTLayerInfoDirectory{
       this->ctx, "tensorrt-layer-info-dir", llvm::cl::init("")};
-  Option<std::optional<uint64_t>, mlir::tensorrt::ByteSizeParser>
+  Option<std::optional<uint64_t>, mlir::ByteSizeParser>
       workspaceMemoryPoolLimit{this->ctx,
                                "tensorrt-workspace-memory-pool-limit",
                                llvm::cl::init(std::nullopt)};
@@ -108,9 +108,9 @@ public:
                                            "'tensorrt.matrix_multiply'")};
 };
 
-} // namespace mlirtrt::compiler
+/// Register the TensorRT extension.
+void registerTensorRTExtension(mlir::DialectRegistry &registry);
 
-MLIR_DECLARE_EXPLICIT_TYPE_ID(
-    mlirtrt::compiler::StablehloToExecutableTensorRTExtension)
+} // namespace mlirtrt::compiler
 
 #endif // MLIR_TENSORRT_COMPILER_STABLEHLOTOEXECUTABLE_TENSORRTEXTENSION

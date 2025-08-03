@@ -1,6 +1,8 @@
 add_mlir_tensorrt_dialect_library(MLIRTensorRTPlanDialect
+  PlanAttributes.cpp
   PlanInterfaces.cpp
   PlanOps.cpp
+  PlanTypes.cpp
 
   DEPENDS
   MLIRPlanOpsIncGen
@@ -9,8 +11,8 @@ add_mlir_tensorrt_dialect_library(MLIRTensorRTPlanDialect
   MLIRTensorRTPlanDialectAttrInterfacesIncGen
 
   LINK_LIBS PUBLIC
-  MLIRControlFlowInterfaces
   MLIRBufferizationDialect
+  MLIRControlFlowInterfaces
   MLIRDialect
   MLIRExecutorGenericClustering
   MLIRFuncDialect
@@ -18,8 +20,9 @@ add_mlir_tensorrt_dialect_library(MLIRTensorRTPlanDialect
   MLIRIR
   MLIRSupport
   MLIRTensorDialect
+  MLIRTensorRTCommonBoundsAttrInterface
   MLIRTensorRTInferTensorValueRangeInterface
-  MLIRTensorRTInterfaces
+  MLIRTensorRTCommonTensorKindInterface
   MLIRTensorRTSupportStatus
   MLIRTensorRTUtilsShapeInfo
   )

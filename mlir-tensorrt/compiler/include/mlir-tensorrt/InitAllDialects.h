@@ -31,6 +31,7 @@
 #include "mlir-tensorrt-dialect/TensorRT/Target/TensorRTEncodingImpl.h"
 #include "mlir-tensorrt/Backends/Host/HostBackend.h"
 #include "mlir-tensorrt/Backends/TensorRT/TensorRTBackend.h"
+#include "mlir-tensorrt/Compiler/StablehloToExecutable/TensorRTExtension.h"
 #include "mlir-tensorrt/Dialect/CUDA/IR/CUDADialect.h"
 #include "mlir-tensorrt/Dialect/CUDA/Transforms/BufferizableOpInterfaceImpl.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
@@ -186,11 +187,14 @@ inline void registerAllDialects(mlir::DialectRegistry &registry) {
   mlir::tensor::registerTilingInterfaceExternalModels(registry);
   mlir::tensor::registerValueBoundsOpInterfaceExternalModels(registry);
   mlir::tensorrt::registerTensorKindOpInterfaceExternalModels(registry);
-  mlir::tensorrt::registerTensorRTEncodingOpInterfaceExternalModels(registry);
   mlir::trtrt::registerBufferizableOpInterfaceExternalModels(registry);
   mlir::vector::registerBufferizableOpInterfaceExternalModels(registry);
   mlir::vector::registerSubsetOpInterfaceExternalModels(registry);
   mlir::vector::registerValueBoundsOpInterfaceExternalModels(registry);
+
+  IF_MLIR_TRT_TARGET_TENSORRT({
+    mlir::tensorrt::registerTensorRTEncodingOpInterfaceExternalModels(registry);
+  });
 
   IF_MLIR_TRT_ENABLE_HLO({
     mlir::stablehlo::registerInferTensorValueRangeInterfaceExternalModels(
@@ -198,6 +202,8 @@ inline void registerAllDialects(mlir::DialectRegistry &registry) {
     mlir::stablehlo::registerTensorKindOpInterfaceExternalModels(registry);
     mlir::stablehlo::registerTypeInferenceExternalModels(registry);
   });
+
+  mlirtrt::compiler::registerTensorRTExtension(registry);
 }
 
 } // namespace mlirtrt::compiler

@@ -17,9 +17,9 @@
 // limitations under the License.
 //
 //===----------------------------------------------------------------------===//
+#include "mlir-tensorrt-common/Utils/TensorRTVersion.h"
 #include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
 #include "mlir-tensorrt-dialect/TensorRT/Utils/Utils.h"
-#include "mlir-tensorrt-dialect/Utils/TensorRTVersion.h"
 #include "mlir-tensorrt/Conversion/Passes.h"
 
 #include "mlir/Dialect/EmitC/IR/EmitC.h"

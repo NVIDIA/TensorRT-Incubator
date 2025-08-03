@@ -2911,7 +2911,7 @@ def TensorRT_ShuffleOp : TensorRT_Op<"shuffle",
   }];
 
   let arguments = (ins
-    TensorRT_Tensor:$input,
+    TensorRT_AllTypesTensor:$input,
     Optional<1DTensorOf<[I32]>>:$dynamic_reshape,
     DenseI64ArrayAttr:$first_transpose,
     OptionalAttr<DenseI64ArrayAttr>:$reshape,
@@ -2919,7 +2919,7 @@ def TensorRT_ShuffleOp : TensorRT_Op<"shuffle",
     DefaultValuedAttr<BoolAttr, "true">:$zero_is_placeholder
   );
   let results = (outs
-    AnyRankedTensor:$result  );
+    TensorRT_AllTypesTensor:$result  );
   let assemblyFormat = "attr-dict `ins` `(` operands `:` type(operands) `)` `->` type(results)";
 
   let hasFolder = 1;
@@ -3203,8 +3203,8 @@ def TensorRT_QuantizeOp : TensorRT_Op<"quantize",
   }];
 
   let arguments = (ins
-    TensorRT_RankedTensorOf<[F32, F16, BF16]>:$input,
-    TensorRankOf<[F32, F16, BF16], [0, 1, 2]>:$scale,
+    TensorRT_Non0RankedTensorOf<[F32, F16, BF16]>:$input,
+    TensorRT_RankedTensorOf<[F32, F16, BF16]>:$scale,
     OptionalAttr<I32Attr>:$axis
   );
   let results = (outs TensorRT_RankedTensorOf<[TensorRT_I8, TensorRT_F8, TensorRT_I4]>:$result);
@@ -3272,6 +3272,91 @@ def TensorRT_QuantizeOp : TensorRT_Op<"quantize",
 }
 
 //===----------------------------------------------------------------------===//
+// DynamicQuantizeOp
+//===----------------------------------------------------------------------===//
+
+def TensorRT_DynamicQuantizeOp : TensorRT_Op<"dynamic_quantize",
+    [Pure,
+    TensorRTInferTensorResultTypes,
+    AllRanksMatch<["input", "result", "scales"]>]>{
+  let summary = "TensorRT DynamicQuantize(IDynamicQuantize) operation";
+  let description = [{
+    This layer performs dynamic, per-block quantization on the `input` tensor,
+    converting it to the NVFP4 format. It uses a "double quantization" scheme
+    to maintain accuracy while minimizing memory usage.
+
+    The quantization process involves two levels of scaling:
+    1. **First-Level Scale (Dynamic, Per-Block)**: For each block of `block_size`
+    (currently, only block size of 16 is supported) values along the specified `axis`,
+    the layer dynamically computes a scaling factor.
+    2. **Second-Level Scale (Static, Per-Tensor)**: A single `FP32` scaling factor,
+    `double_quant_scale`, is provided as an input to the layer. This
+    "scale for the scales" is computed offline via calibration and is used
+    to quantize the first-level scales into the limited `FP8` range `scales`.
+
+    Thus, final quantized `result` is in `FP4` format and scales `scales`
+    is in `FP8` format.
+
+    **Constraints:**
+    - The `block_size` is fixed at 16.
+    - The dimension of the `axis` must be a compile-time constant and be divisible by 16.
+
+    **Example**
+    ```
+    %double_quant_scale = tensorrt.constant dense<1.0> : tensor<f32>
+    %axis = arith.constant 1 : i32
+    %inp_f32 = tensorrt.constant ... : tensor<2x32xf32>
+    %out_f4, %scale_f8 = tensorrt.dynamic_quantize {axis = 1, block_size = 16}
+        in(%inp_f32 : tensor<2x2xf32>) double_quant_scale(%double_quant_scale : tensor<f32>)
+        -> (tensor<2x32xf4E2M1FN>, tensor<2x2xf8E4M3FN>);
+
+    .....
+
+    %dequantize_scale = tensorrt.dequantize in(%scale_f8 : tensor<2x2xf8E4M3FN>)
+        scale(%double_quant_scale : tensor<f32>) -> tensor<2x2xf32>
+    %dequantize_data = tensorrt.dequantize {axis = 1} in(%out_f4 : tensor<2x32xf4E2M1FN>)
+        scale(%dequantize_scale : tensor<2x2xf32>) -> tensor<2x32xf32>
+    ```
+  }];
+  let arguments = (ins
+    TensorRT_Non0RankedTensorOf<[F32, F16, BF16]>:$input,
+    TensorRankOf<[F32, F16, BF16], [0]>:$double_quant_scale,
+    I32Attr:$axis,
+    DefaultValuedAttr<I32Attr, "16">:$block_size
+  );
+  let results = (outs
+    TensorRT_RankedTensorOf<[TensorRT_F4]>:$result,
+    TensorRT_RankedTensorOf<[TensorRT_F8]>:$scales
+  );
+  let assemblyFormat = [{
+    attr-dict `in` `(` $input `:` type($input) `)`
+    `double_quant_scale` `(` $double_quant_scale `:` type($double_quant_scale) `)`
+    `->` type(results)
+  }];
+  let hasVerifier = 1;
+  let extraClassDeclaration = [{
+    /// Returns true if created op is valid for TensorRT major version.
+    bool isValidForTensorRTVersion(int64_t trtMajorVersion);
+  }] # baseClassDeclaration;
+  let trtLayerAdd = [{
+#if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_LT(10, 9, 0)
+    llvm_unreachable("Dynamic quantization is supported for TensorRT version >= 10.9.0");
+#else
+    nvinfer1::IDynamicQuantizeLayer *dynamicQuantizeLayer{nullptr};
+    dynamicQuantizeLayer = $net->addDynamicQuantize(*$input, $axis, $block_size,
+      nvinfer1::DataType::kFP4, nvinfer1::DataType::kFP8);
+    if (!dynamicQuantizeLayer)
+      return failure();
+    dynamicQuantizeLayer->setInput(1, *$double_quant_scale);
+    if ($axis)
+      dynamicQuantizeLayer->setAxis($axis);
+    $results.push_back(dynamicQuantizeLayer->getOutput(0));
+    $results.push_back(dynamicQuantizeLayer->getOutput(1));
+#endif
+  }];
+}
+
+//===----------------------------------------------------------------------===//
 // DequantizeOp
 //===----------------------------------------------------------------------===//
 
@@ -3280,7 +3365,7 @@ def TensorRT_DequantizeOp : TensorRT_Op<"dequantize",
      TensorRTPartiallyInferTensorResultTypes,
      AllRanksMatch<["input", "result"]>]>{
   let summary = "TensorRT Dequantize(IDequantizeLayer) operation";
-    let description = [{
+  let description = [{
     The `tensorrt.dequantize` operation dequantize an 8-bit signed integer into
     a floating-point output tensor using the `scale` input.
 
@@ -3369,8 +3454,8 @@ def TensorRT_DequantizeOp : TensorRT_Op<"dequantize",
   }];
 
   let arguments = (ins
-    TensorRT_Non0RankedTensorOf<[TensorRT_I8, TensorRT_F8, TensorRT_I4]>:$input,
-    TensorRankOf<[F32, F16, BF16], [0, 1, 2]>:$scale,
+    TensorRT_Non0RankedTensorOf<[TensorRT_I8, TensorRT_F8, TensorRT_F4, TensorRT_I4]>:$input,
+    TensorRT_RankedTensorOf<[F32, F16, BF16]>:$scale,
     OptionalAttr<I32Attr>:$axis
   );
   let results = (outs TensorRT_RankedTensorOf<[F32, F16, BF16]>:$result);
@@ -3443,11 +3528,11 @@ def TensorRT_TransposeOp : TensorRT_Op<"transpose",
   }];
 
   let arguments = (ins
-    TensorRT_Tensor:$input,
+    TensorRT_AllTypesTensor:$input,
     AffineMapAttr:$permutation
   );
 
-  let results = (outs TensorRT_Tensor:$result);
+  let results = (outs TensorRT_AllTypesTensor:$result);
   let hasVerifier = 1;
   let hasFolder = 1;
   let hasCanonicalizer = 1;
@@ -3478,10 +3563,10 @@ def TensorRT_ExpandRankOp : TensorRT_Op<"expand_rank",
   }];
 
   let arguments = (ins
-    AnyRankedTensor:$input
+    TensorRT_AllTypesTensor:$input
   );
 
-  let results = (outs AnyRankedTensor:$result);
+  let results = (outs TensorRT_AllTypesTensor:$result);
 
   let hasVerifier = 1;
   let hasCanonicalizer = 1;
@@ -3536,10 +3621,10 @@ def TensorRT_CollapseRankOp : TensorRT_Op<"collapse_rank",
   }];
 
   let arguments = (ins
-    AnyRankedTensor:$input
+    TensorRT_AllTypesTensor:$input
   );
 
-  let results = (outs AnyRankedTensor:$result);
+  let results = (outs TensorRT_AllTypesTensor:$result);
 
   let hasVerifier = 1;
   let hasCanonicalizer = 1;
@@ -3616,12 +3701,12 @@ def TensorRT_BroadcastOp : TensorRT_Op<"broadcast",
   }];
 
   let arguments = (ins
-    TensorRT_Tensor:$input,
+    TensorRT_AllTypesTensor:$input,
     Optional<TensorRT_ShapeTensor>:$shape,
     DenseI64ArrayAttr:$broadcast_dims
   );
 
-  let results = (outs TensorRT_Tensor:$result);
+  let results = (outs TensorRT_AllTypesTensor:$result);
 
   let builders = [
     // Static builder.
@@ -3768,10 +3853,10 @@ def TensorRT_ReshapeOp : TensorRT_Op<"reshape",
   }];
 
   let arguments = (ins
-    TensorRT_Tensor:$input,
+    TensorRT_AllTypesTensor:$input,
     Optional<1DTensorOf<[I32]>>:$shape
   );
-  let results = (outs TensorRT_Tensor:$result);
+  let results = (outs TensorRT_AllTypesTensor:$result);
 
   // Note: the `` after "$shape^" is to remove the extra space between the SSA
   // shape value and the colon. So it prints like `shape($shape: tensor<2xi32>)`

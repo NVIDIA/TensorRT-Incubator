@@ -1,4 +1,4 @@
-// RUN: mlir-tensorrt-opt %s -tensorrt-clustering-pipeline -split-input-file -verify-diagnostics | FileCheck %s
+// RUN: mlir-tensorrt-opt %s -outline-tensorrt-ops -split-input-file -verify-diagnostics | FileCheck %s
 
 func.func @trt_relu(%arg0: tensor<?xf16> {tensorrt.shape_profile = #tensorrt.shape_profile<min=[1],opt =[4],max=[7]>}) -> (tensor<?xf16>) {
   %0 = tensorrt.activation {

@@ -1,8 +1,6 @@
 add_subdirectory(Analysis)
 add_subdirectory(CAPI)
-add_subdirectory(Interface)
 add_subdirectory(TensorRT)
 add_subdirectory(Utils)
-if(MLIR_TRT_TARGET_TENSORRT)
-  add_subdirectory(Target)
-endif()
+add_subdirectory(Target)
+

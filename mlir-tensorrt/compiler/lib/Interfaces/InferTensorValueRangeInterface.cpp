@@ -154,7 +154,7 @@ llvm::raw_ostream &mlirtrt::compiler::operator<<(llvm::raw_ostream &os,
   return os;
 }
 
-std::pair<DenseElementsAttr, DenseElementsAttr>
+std::pair<ElementsAttr, ElementsAttr>
 BoundsArray::getAsElementsAttr(RankedTensorType type) const {
   assert(!isUninitialized() && "expected initialized value");
   assert(type.getNumElements() == static_cast<int64_t>(value->size()) &&
@@ -172,7 +172,7 @@ BoundsArray::getAsElementsAttr(RankedTensorType type) const {
 }
 
 /// Returns true if the element ranges are constant (single-value) ranges.
-std::optional<DenseElementsAttr>
+std::optional<ElementsAttr>
 BoundsArray::getConstantValues(RankedTensorType type) const {
   assert(!isUninitialized() && "expected initialized value");
   assert(type.getNumElements() == static_cast<int64_t>(value->size()) &&

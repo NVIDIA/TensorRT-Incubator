@@ -1,4 +1,5 @@
 add_mlir_executor_library(MLIRTensorRTTargetLua
+  LuaAllocation.cpp
   TranslateToLua.cpp
   TranslateToRuntimeExecutable.cpp
 
@@ -10,6 +11,6 @@ add_mlir_executor_library(MLIRTensorRTTargetLua
   MLIRSCFDialect
   MLIRSupport
   MLIRTensorRTExecutorDialect
-  MLIRTensorRTExecutorRuntimeAPI
+  MLIRTensorRTRuntimeExecutableInterface
   MLIRTranslateLib
 )

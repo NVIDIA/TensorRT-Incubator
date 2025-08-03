@@ -28,7 +28,7 @@
 #ifndef INCLUDE_MLIR_TENSORRT_DIALECT_ANALYSIS_TENSORKINDANALYSIS
 #define INCLUDE_MLIR_TENSORRT_DIALECT_ANALYSIS_TENSORKINDANALYSIS
 
-#include "mlir-tensorrt-dialect/Interface/TensorKindOpInterface.h"
+#include "mlir-tensorrt-common/Interfaces/TensorKindOpInterface.h"
 #include "mlir/Analysis/DataFlow/SparseAnalysis.h"
 #include "mlir/Analysis/DataFlowFramework.h"
 

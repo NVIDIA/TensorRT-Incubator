@@ -36,15 +36,15 @@ def Plan_Dialect : Dialect {
 
     /// Attribute attached to top-level modules which dictate which cluster kinds
     /// should be used to drive compilation.
-    static constexpr llvm::StringLiteral kModuleClusterKindsAttrName = "plan.cluster_kinds";
+    static constexpr llvm::StringLiteral kBackendsAttrName = "plan.backends";
 
     /// The name of the function argument attribute that indicates an argument
     /// is tied with a result. Arguments tagged in this manner are associated
     /// with results based on the order in the argument list.
     static constexpr StringRef kResultArgAttrName = "plan.result_arg";
 
-    /// List of known Compilation Task Extension constructors.
-    mlirtrt::compiler::ExtensionConstructorRegistry extensionConstructors;
+    /// The name of the function argument attribute that hints donated argument.
+    static constexpr StringRef kDonationArgAttrName = "plan.aliasing_output";
 
     template<typename, typename ...>
     friend class PlanDialectExtension;
@@ -98,10 +98,21 @@ def Plan_Dialect : Dialect {
       return "plan.memory_space";
     }
 
+    /// Return the name of attribute used to encode donation information.
+    static StringRef getDonationAttrName() {
+      return "plan.aliasing_output";
+    }
+
 
   private:
     ::llvm::StringMap<AttrParsingHook> attrParsingHooks;
     ::llvm::DenseMap<::mlir::TypeID, AttrPrintingHook> attrPrintingHooks;
+
+    /// Invoke the generated attribute registration functions.
+    void registerAttributes();
+
+    /// Invoke the generated type registration functions.
+    void registerTypes();
   }];
 }
 

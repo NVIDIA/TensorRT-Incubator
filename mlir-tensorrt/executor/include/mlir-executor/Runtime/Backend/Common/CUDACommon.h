@@ -1,6 +1,6 @@
 #ifndef MLIR_EXECUTOR_RUNTIME_BACKEND_COMMON_CUDACOMMON
 #define MLIR_EXECUTOR_RUNTIME_BACKEND_COMMON_CUDACOMMON
-#ifdef MLIR_EXECUTOR_ENABLE_CUDA
+#ifdef MLIR_TRT_ENABLE_CUDA
 
 #include "cuda.h"
 #include "cuda_runtime_api.h"
@@ -44,5 +44,5 @@ struct CudaFunctionPtr : public PointerWrapper<CUfunction> {
 
 } // namespace mlirtrt::runtime
 
-#endif // MLIR_EXECUTOR_ENABLE_CUDA
+#endif // MLIR_TRT_ENABLE_CUDA
 #endif // MLIR_EXECUTOR_RUNTIME_BACKEND_COMMON_CUDACOMMON

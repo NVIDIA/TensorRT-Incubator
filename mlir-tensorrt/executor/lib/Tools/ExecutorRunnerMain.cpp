@@ -35,9 +35,9 @@
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/raw_ostream.h"
 
-#ifdef MLIR_EXECUTOR_ENABLE_CUDA
+#ifdef MLIR_TRT_ENABLE_CUDA
 #include "cuda_runtime_api.h"
-#endif // MLIR_EXECUTOR_ENABLE_CUDA
+#endif // MLIR_TRT_ENABLE_CUDA
 
 using namespace mlir;
 using namespace mlir::executor;
@@ -46,12 +46,12 @@ using namespace mlirtrt;
 
 namespace cl = llvm::cl;
 
-#ifdef MLIR_EXECUTOR_ENABLE_NCCL
+#ifdef MLIR_TRT_ENABLE_NCCL
 static llvm::ManagedStatic<std::unique_ptr<MPIManager>> mpiManager;
-#endif // MLIR_EXECUTOR_ENABLE_NCCL
+#endif // MLIR_TRT_ENABLE_NCCL
 
 static Status maybeInitializeMpi() {
-#ifdef MLIR_EXECUTOR_ENABLE_NCCL
+#ifdef MLIR_TRT_ENABLE_NCCL
 
   StatusOr<std::unique_ptr<MPIManager>> mgr = MPIManager::create();
   if (!mgr.isOk())
@@ -62,7 +62,7 @@ static Status maybeInitializeMpi() {
   return Status::getOk();
 #else
   return mlirtrt::Status::getOk();
-#endif // MLIR_EXECUTOR_ENABLE_NCCL
+#endif // MLIR_TRT_ENABLE_NCCL
 }
 
 /// Try to infer the input type from the filename, otherwise return failure.
@@ -121,7 +121,7 @@ struct Options {
 } // namespace
 
 static LogicalResult initializeCudaRuntime() {
-#ifdef MLIR_EXECUTOR_ENABLE_CUDA
+#ifdef MLIR_TRT_ENABLE_CUDA
   int device = 0;
   // Context must be created for the correct device we will be using in this
   // process. Currently, assume direct mapping from local rank -> device.
@@ -155,7 +155,7 @@ static LogicalResult initializeCudaRuntime() {
 static StatusOr<RuntimeSessionOptions>
 getRuntimeSessionOptions(const Options &options,
                          ArrayRef<std::string> features) {
-#ifdef MLIR_EXECUTOR_ENABLE_NCCL
+#ifdef MLIR_TRT_ENABLE_NCCL
   if (llvm::is_contained(features, "nccl")) {
     StatusOr<RuntimeSessionOptions> opts =
         RuntimeSessionOptions::createUsingSingleHostMpi();
@@ -220,6 +220,12 @@ LogicalResult executor::ExecutorRunnerMain(
       openInputFile(options.inputFilename, &errorMessage);
   if (!input)
     return emitError(loc) << "failed to open input buffer: " << errorMessage;
+
+  // Since an empty input could parse as a valid serialized flatbuffer, we
+  // explicitly guard against this case. Otherwise, could get false positives
+  // in faulty shell pipelines used in LIT tests.
+  if (input->getBufferSize() == 0)
+    return emitError(loc) << "input buffer is empty";
 
   std::unique_ptr<llvm::ToolOutputFile> output =
       openOutputFile(options.outputFilename, &errorMessage);

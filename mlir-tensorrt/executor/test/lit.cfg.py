@@ -48,21 +48,5 @@ tools = ["executor-opt", "executor-translate", "executor-runner"]
 
 llvm_config.add_tool_substitutions(tools, tool_dirs)
 
-
-def load_gpu_tools_module():
-    assert Path(config.gpu_tools_script).exists(), "gpu_tools.py script does not exist"
-    spec = importlib.util.spec_from_file_location("gpu_tools", config.gpu_tools_script)
-    gpu_tools = importlib.util.module_from_spec(spec)
-    sys.modules["gpu_tools"] = gpu_tools
-    spec.loader.exec_module(gpu_tools)
-    return gpu_tools
-
-
-gpu_tools = load_gpu_tools_module()
-config.num_cuda_devices = gpu_tools.get_num_cuda_devices()
-
 if config.enable_assertions:
     config.available_features.add("debug-print")
-
-for i in range(config.num_cuda_devices):
-    config.available_features.add(f"host-has-at-least-{i+1}-gpus")

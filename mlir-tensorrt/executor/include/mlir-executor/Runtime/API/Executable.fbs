@@ -15,7 +15,8 @@ enum ScalarTypeCode : byte {
   bf16 = 11,
   i4 = 12,
   complex32 = 13,
-  complex64 = 14
+  complex64 = 14,
+  f4e2m1fn = 15,
 }
 
 enum PointerType : byte {
@@ -56,16 +57,7 @@ table MemRefType {
   address_space:PointerType = unknown;
 }
 
-enum ExternalOpaqueRefKind : byte {
-  cuda_stream,
-  unknown
-}
-
-table ExternalOpaqueRefType {
-  code:ExternalOpaqueRefKind;
-}
-
-union Type {ScalarType, MemRefType, ExternalOpaqueRefType}
+union Type {ScalarType, MemRefType}
 
 // Represents linear array of dimensions indexed by canonical packed layout with decreasing strides
 table DimensionBounds {
@@ -115,7 +107,7 @@ table Function {
 table DataSegment {
   name: string (offset64);
   // A vector of bytes, which are in the 64 bit region.
-  data: [byte] (vector64);  
+  data: [byte] (vector64);
   alignment: uint32;
   constant: bool;
   uninitialized_size: uint64;

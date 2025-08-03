@@ -10,7 +10,7 @@ add_mlir_tensorrt_library(MLIRTensorRTRuntimeToExecutor
   MLIRRewrite
   MLIRTensorRTConvertToExecutorCommon
   MLIRTensorRTCUDADialect
-  MLIRTensorRTDialect
+  MLIRTensorRTTensorRTDialect
   MLIRTensorRTExecutorDialect
   MLIRTensorRTExecutorUtils
   MLIRTensorRTTensorRTRuntimeDialect

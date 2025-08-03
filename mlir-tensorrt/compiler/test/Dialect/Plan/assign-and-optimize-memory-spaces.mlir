@@ -79,7 +79,7 @@ func.func @existing_constraint_2(%arg0: tensor<2xf32, #plan.memory_space<host>>)
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<2xf32, #plan.memory_space<host>>, %[[arg1:.+]]: tensor<2xf32, #plan.memory_space<host>>)
 //  CHECK-SAME: -> tensor<2xf32, #plan.memory_space<host>>
 func.func @host_func(%arg0: tensor<2xf32>, %arg1: tensor<2xf32>) -> tensor<2xf32>
-    attributes {plan.cluster_kind = #plan.host_cluster<benefit = 1>} {
+    attributes {plan.cluster_kind = #plan.host_backend<benefit = 1>} {
   // CHECK: %[[v0:.+]] = arith.addf %[[arg0]], %[[arg1]] : tensor<2xf32, #plan.memory_space<host>>
   %0 = arith.addf %arg0, %arg1 : tensor<2xf32>
   // CHECK: return %[[v0]]

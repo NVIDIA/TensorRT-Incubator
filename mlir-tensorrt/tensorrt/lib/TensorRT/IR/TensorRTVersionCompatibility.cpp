@@ -742,6 +742,17 @@ bool tensorrt::QuantizeOp::isValidForTensorRTVersion(int64_t trtMajorVersion) {
 }
 
 //===----------------------------------------------------------------------===//
+// DynamicQuantizeOp
+//===----------------------------------------------------------------------===//
+
+bool tensorrt::DynamicQuantizeOp::isValidForTensorRTVersion(
+    int64_t trtMajorVersion) {
+  if (trtMajorVersion < 10)
+    return false;
+  return true;
+}
+
+//===----------------------------------------------------------------------===//
 // DequantizeOp
 //===----------------------------------------------------------------------===//
 

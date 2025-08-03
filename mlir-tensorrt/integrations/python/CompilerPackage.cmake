@@ -90,6 +90,19 @@ declare_mlir_python_extension(MLIRTensorRTPythonCompiler.SiteInitializer.PyBind
     LLVMSupport
   )
 
+set(COMPILER_OPTIONAL_EMBED_CAPI_LINK_LIBS)
+set(COMPILER_OPTIONAL_PRIVATE_LINK_LIBS)
+if(MLIR_TRT_TARGET_TENSORRT)
+  list(APPEND COMPILER_OPTIONAL_EMBED_CAPI_LINK_LIBS
+    MLIRTRTTensorRTDynamicLoader
+    )
+  list(APPEND COMPILER_OPTIONAL_PRIVATE_LINK_LIBS
+    ${MLIR_TRT_CUDA_TARGET}
+    MLIRTensorRTDialectIncludes
+    TensorRTHeaderOnly
+    )
+endif()
+
 # Compiler the compiler Pybind11 module.
 declare_mlir_python_extension(MLIRTensorRTPythonCompiler.CompilerAPI.PyBind
   MODULE_NAME _api
@@ -101,12 +114,11 @@ declare_mlir_python_extension(MLIRTensorRTPythonCompiler.CompilerAPI.PyBind
     MLIRTensorRTCAPICompiler
     MLIRTensorRTCAPIExecutorTranslations
     MLIRTensorRTCAPISupportStatus
-    MLIRTRTTensorRTDynamicLoader
+    ${COMPILER_OPTIONAL_EMBED_CAPI_LINK_LIBS}
   PRIVATE_LINK_LIBS
-    CUDA::cudart
     LLVMSupport
-    TensorRTHeaderOnly
     MLIRTensorRTCommonIncludes
+    ${COMPILER_OPTIONAL_PRIVATE_LINK_LIBS}
   )
 
 ################################################################################

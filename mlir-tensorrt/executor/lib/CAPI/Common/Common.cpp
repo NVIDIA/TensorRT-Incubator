@@ -44,8 +44,6 @@ DEFINE_C_API_PTR_METHODS(MTRT_Type, ::mlirtrt::runtime::impl::TypeUnion)
 DEFINE_C_API_PTR_METHODS(MTRT_Bounds, ::mlirtrt::runtime::impl::BoundsUnion)
 DEFINE_C_API_PTR_METHODS(MTRT_ScalarType, ::mlirtrt::runtime::impl::ScalarTypeT)
 DEFINE_C_API_PTR_METHODS(MTRT_MemRefType, ::mlirtrt::runtime::impl::MemRefTypeT)
-DEFINE_C_API_PTR_METHODS(MTRT_ExternalOpaqueRefType,
-                         ::mlirtrt::runtime::impl::ExternalOpaqueRefTypeT)
 DEFINE_C_API_PTR_METHODS(MTRT_FunctionSignature,
                          ::mlirtrt::runtime::impl::FunctionSignature)
 DEFINE_C_API_PTR_METHODS(MTRT_Executable, ::mlirtrt::runtime::Executable)
@@ -272,20 +270,6 @@ MTRT_Status mtrtMemRefTypeGetInfo(MTRT_Type memref, MTRT_MemRefTypeInfo *info) {
   result.elementType = static_cast<MTRT_ScalarTypeCode>(cppType->element_type);
   result.addressSpace = static_cast<MTRT_PointerType>(cppType->address_space);
   *info = std::move(result);
-  return mtrtStatusGetOk();
-}
-
-//===----------------------------------------------------------------------===//
-// MTRT_ExternalOpaqueRefType
-//===----------------------------------------------------------------------===//
-
-bool mtrtExternalOpaqueRefTypeIsNull(MTRT_ExternalOpaqueRefType opaque) {
-  return !opaque.ptr;
-}
-
-MTRT_Status
-mtrtExternalOpaqueRefTypeDestroy(MTRT_ExternalOpaqueRefType opaque) {
-  delete unwrap(opaque);
   return mtrtStatusGetOk();
 }
 

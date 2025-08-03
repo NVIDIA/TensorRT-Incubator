@@ -24,8 +24,8 @@
 #ifndef MLIR_TENSORRT_DIALECT_PLAN_IR_PLAN_H
 #define MLIR_TENSORRT_DIALECT_PLAN_IR_PLAN_H
 
-#include "mlir-tensorrt-dialect/Interface/TensorKindOpInterface.h"
-#include "mlir-tensorrt/Compiler/Extension.h"
+#include "mlir-tensorrt-common/Interfaces/BoundsAttrInterface.h"
+#include "mlir-tensorrt-common/Interfaces/TensorKindOpInterface.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/PlanEnums.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/PlanInterfaces.h"
 #include "mlir-tensorrt/Interfaces/InferTensorValueRangeInterface.h"
@@ -142,6 +142,14 @@ protected:
 
 #define GET_ATTRDEF_CLASSES
 #include "mlir-tensorrt/Dialect/Plan/IR/PlanAttributes.h.inc"
+
+namespace mlir::plan::detail {
+/// Verify a single bounds attribute.
+LogicalResult
+verifyBoundsAttr(StringRef argOrResult, unsigned idx, Type type,
+                 BoundsAttr boundsAttr,
+                 llvm::function_ref<InFlightDiagnostic()> emitOpError);
+} // namespace mlir::plan::detail
 
 //===----------------------------------------------------------------------===//
 // Plan Types

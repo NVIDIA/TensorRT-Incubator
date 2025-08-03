@@ -22,7 +22,7 @@
 // to a TensorRT network.
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt-dialect/Target/TensorRTEncodingOpInterface/NetworkEncoder.h"
-#include "mlir-tensorrt-dialect/Interface/TensorKindOpInterface.h"
+#include "mlir-tensorrt-common/Interfaces/TensorKindOpInterface.h"
 #include "mlir-tensorrt-dialect/Target/TensorRTEncodingOpInterface/TensorRTEncodingOpInterface.h"
 #include "mlir-tensorrt-dialect/TensorRT/Utils/Utils.h"
 #include "mlir-tensorrt-dialect/Utils/NvInferAdaptor.h"
@@ -761,7 +761,7 @@ NvInferNetworkEncoder::getNvInferWeights(std::optional<ElementsAttr> attr) {
 static bool isValidTensorRTInputType(Type t) {
   Type elType = mlir::getElementTypeOrSelf(t);
   return elType.isF32() || elType.isF16() || isTensorRTInt8Type(elType) ||
-         elType.isInteger(32) || elType.isInteger(1) ||
+         elType.isInteger(32) || elType.isInteger(1) || elType.isInteger(4) ||
          elType.isUnsignedInteger(8) || isa<Float8E4M3FNType>(elType) ||
          elType.isBF16() || elType.isInteger(64);
 }
@@ -935,10 +935,6 @@ LogicalResult NvInferNetworkEncoder::encodeFunc(FunctionOpInterface func) {
     RankedTensorType argType = dyn_cast<RankedTensorType>(arg.getType());
     if (!argType)
       return func.emitOpError() << "expect all inputs to be ranked tensors";
-    if (argType.getElementType().isInteger(4))
-      return func->emitOpError()
-             << "function argument #" << arg.getArgNumber() << " has type "
-             << argType << ", but int4 is an unsupported input type";
     if (!isValidTensorRTInputType(argType))
       return func->emitError()
              << "input does not have valid TensorRT type: " << argType;

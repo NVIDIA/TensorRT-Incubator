@@ -1,3 +1,4 @@
+# REQUIRES: host-has-at-least-1-gpus
 # RUN: %pick-one-gpu %PYTHON %s | FileCheck %s
 
 from typing import Callable

@@ -19,6 +19,8 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt/Compiler/TensorRTToExecutable/Passes.h"
 #include "mlir-executor/Executor/Transforms/Passes.h"
+#include "mlir-tensorrt-common/Utils/RegionUtils.h"
+#include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
 #include "mlir-tensorrt/Compiler/TensorRTToExecutable/TensorRTToExecutable.h"
 #include "mlir-tensorrt/Conversion/Passes.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
@@ -101,116 +103,15 @@ getOrCreateTensorRTModuleOp(ModuleOp moduleOp) {
   return result;
 }
 
-/// Same as upstream `makeRegionIsolatedFromAbove` except
-/// `finalCapturedValues` are checked for being block arguments of
-/// `parentFunc` and are sorted by argument number. This works for
-/// `plan::InlineGroupOp` which doesn't have any entry block arguments when
-/// cluster is captured and only `finalCapturedValues` represent entry block
-/// arguments.
-static SmallVector<Value> makeRegionIsolatedFromAboveImpl(
-    RewriterBase &rewriter, Region &region, func::FuncOp parentFunc,
-    llvm::function_ref<bool(Operation *)> cloneOperationIntoRegion) {
-
-  // Get initial list of values used within region but defined above.
-  llvm::SetVector<Value> initialCapturedValues;
-  mlir::getUsedValuesDefinedAbove(region, initialCapturedValues);
-
-  std::deque<Value> worklist(initialCapturedValues.begin(),
-                             initialCapturedValues.end());
-  llvm::DenseSet<Value> visited;
-  llvm::DenseSet<Operation *> visitedOps;
-
-  llvm::SetVector<Value> finalCapturedValuesSet;
-  SmallVector<Operation *> clonedOperations;
-  while (!worklist.empty()) {
-    Value currValue = worklist.front();
-    worklist.pop_front();
-    if (visited.count(currValue))
-      continue;
-    visited.insert(currValue);
-
-    Operation *definingOp = currValue.getDefiningOp();
-    if (!definingOp || visitedOps.count(definingOp)) {
-      finalCapturedValuesSet.insert(currValue);
-      continue;
-    }
-    visitedOps.insert(definingOp);
-
-    if (!cloneOperationIntoRegion(definingOp)) {
-      // Defining operation isnt cloned, so add the current value to final
-      // captured values list.
-      finalCapturedValuesSet.insert(currValue);
-      continue;
-    }
-
-    // Add all operands of the operation to the worklist and mark the op as to
-    // be cloned.
-    for (Value operand : definingOp->getOperands()) {
-      if (visited.count(operand))
-        continue;
-      worklist.push_back(operand);
-    }
-    clonedOperations.push_back(definingOp);
-  }
-
-  // Verify and sort `finalCapturedValues`.
-  SmallVector<Value> finalCapturedValues =
-      llvm::to_vector(finalCapturedValuesSet);
-  auto isFuncBlockArg = [&](Value v) {
-    return isa<BlockArgument>(v) &&
-           cast<BlockArgument>(v).getOwner()->getParentOp() == parentFunc;
-  };
-  assert(llvm::all_of(finalCapturedValues, isFuncBlockArg) &&
-         "not all finalCapturedValues are block arguments of `parentFunc`");
-  llvm::stable_sort(finalCapturedValues, [](Value lhs, Value rhs) {
+/// A function to reorder
+static void reorderCapturedValues(SmallVectorImpl<Value> &capturedValues) {
+  auto isFuncBlockArg = [&](Value v) { return isa<BlockArgument>(v); };
+  assert(llvm::all_of(capturedValues, isFuncBlockArg) &&
+         "not all capturedValues are block arguments");
+  llvm::stable_sort(capturedValues, [](Value lhs, Value rhs) {
     return cast<BlockArgument>(lhs).getArgNumber() <
            cast<BlockArgument>(rhs).getArgNumber();
   });
-
-  // The operations to be cloned need to be ordered in topological order
-  // so that they can be cloned into the region without violating use-def
-  // chains.
-  mlir::computeTopologicalSorting(clonedOperations);
-
-  OpBuilder::InsertionGuard g(rewriter);
-  // Collect types of existing block
-  Block *entryBlock = &region.front();
-  SmallVector<Type> newArgTypes =
-      llvm::to_vector(entryBlock->getArgumentTypes());
-  SmallVector<Location> newArgLocs = llvm::to_vector(llvm::map_range(
-      entryBlock->getArguments(), [](BlockArgument b) { return b.getLoc(); }));
-
-  // Append the types of the captured values.
-  for (auto value : finalCapturedValues) {
-    newArgTypes.push_back(value.getType());
-    newArgLocs.push_back(value.getLoc());
-  }
-
-  // Create a new entry block.
-  Block *newEntryBlock =
-      rewriter.createBlock(&region, region.begin(), newArgTypes, newArgLocs);
-  auto newEntryBlockArgs = newEntryBlock->getArguments();
-
-  // Create a mapping between the captured values and the new arguments added.
-  IRMapping map;
-  auto replaceIfFn = [&](OpOperand &use) {
-    return use.getOwner()->getBlock()->getParent() == &region;
-  };
-  for (auto [arg, capturedVal] :
-       llvm::zip(newEntryBlockArgs.take_back(finalCapturedValues.size()),
-                 finalCapturedValues)) {
-    map.map(capturedVal, arg);
-    rewriter.replaceUsesWithIf(capturedVal, arg, replaceIfFn);
-  }
-  rewriter.setInsertionPointToStart(newEntryBlock);
-  for (auto *clonedOp : clonedOperations) {
-    Operation *newOp = rewriter.clone(*clonedOp, map);
-    rewriter.replaceOpUsesWithIf(clonedOp, newOp->getResults(), replaceIfFn);
-  }
-  rewriter.mergeBlocks(
-      entryBlock, newEntryBlock,
-      newEntryBlock->getArguments().take_front(entryBlock->getNumArguments()));
-  return finalCapturedValues;
 }
 
 static FailureOr<tensorrt::CallAllocOp>
@@ -266,8 +167,8 @@ outlineOp(RewriterBase &rewriter, tensorrt::TensorRTModuleOp trtModule,
           reorderYieldValues));
 
   // Make the region isolated from above. This captures the input operands.
-  SmallVector<Value> inputs = makeRegionIsolatedFromAboveImpl(
-      rewriter, inlineGroupOp.getRegion(), parentFunc, {});
+  SmallVector<Value> inputs = mlir::createClosedRegion(
+      rewriter, inlineGroupOp.getRegion(), {}, reorderCapturedValues);
 
   // Create the outlined function
   FailureOr<FunctionOpInterface> func = createOutlinedFunc(
@@ -394,21 +295,3 @@ public:
   }
 };
 } // namespace
-
-//===----------------------------------------------------------------------===//
-// Pipeline Registrations
-//===----------------------------------------------------------------------===//
-
-void mlirtrt::compiler::registerTensorRTToExecutablePipelines() {
-  PassPipelineRegistration<TensorRTToExecutableOptions>(
-      "tensorrt-clustering-pipeline", "apply clustering to tensorrt IR",
-      [](OpPassManager &pm, const TensorRTToExecutableOptions &opts) {
-        TensorRTToExecutableTask::buildTensorRTClusteringPipeline(pm, opts);
-      });
-
-  PassPipelineRegistration<TensorRTToExecutableOptions>(
-      "tensorrt-compilation-pipeline", "apply compilation post-clustering",
-      [](OpPassManager &pm, const TensorRTToExecutableOptions &opts) {
-        TensorRTToExecutableTask::buildPostClusteringPipeline(pm, opts);
-      });
-}

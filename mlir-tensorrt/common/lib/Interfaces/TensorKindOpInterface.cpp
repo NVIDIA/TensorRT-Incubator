@@ -21,7 +21,7 @@
 /// Implementation of TensorKindOpInterface.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt-dialect/Interface/TensorKindOpInterface.h"
+#include "mlir-tensorrt-common/Interfaces/TensorKindOpInterface.h"
 #include "llvm/Support/ErrorHandling.h"
 
 using namespace mlir;
@@ -87,5 +87,5 @@ bool detail::isHostTensorCandidate(Type type) {
 //===----------------------------------------------------------------------===//
 // TensorKindOpInterface & TensorKindAttrInterface Definitions
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt-dialect/Interface/TensorKindAttrInterface.cpp.inc"
-#include "mlir-tensorrt-dialect/Interface/TensorKindOpInterface.cpp.inc"
+#include "mlir-tensorrt-common/Interfaces/TensorKindAttrInterface.cpp.inc"
+#include "mlir-tensorrt-common/Interfaces/TensorKindOpInterface.cpp.inc"

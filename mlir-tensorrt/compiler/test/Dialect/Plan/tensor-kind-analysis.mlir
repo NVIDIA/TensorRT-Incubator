@@ -32,7 +32,7 @@ func.func @test_reshape_partition(%arg0: tensor<128xf32>, %arg1: index, %arg2: i
 
 func.func @test_inline_group(%arg0: tensor<1xi32>,
                              %arg1: tensor<1xf32>) -> (tensor<1xi32>, tensor<1xf32> {tensorrt.host_tensor}) {
-  %1:2 = plan.inline_group target(#plan.tensorrt_cluster<benefit=1, disallow_shape_tensor_calculations=false>) attributes {tag = "inline_group"} -> tensor<1xi32>, tensor<1xf32> {
+  %1:2 = plan.inline_group target(#plan.tensorrt_backend<benefit=1, disallow_shape_tensor_calculations=false>) attributes {tag = "inline_group"} -> tensor<1xi32>, tensor<1xf32> {
     yield %arg0, %arg1 : tensor<1xi32>, tensor<1xf32>
   }
   return %1#0, %1#1 : tensor<1xi32>, tensor<1xf32>
@@ -50,7 +50,7 @@ func.func @test_inline_group(%arg0: tensor<1xi32>,
 
 func.func @test_inline_closed_group(%arg0: tensor<?xf32>, %arg1: tensor<2xi32>, %arg2: index, %arg3: index) -> tensor<?x?xf32> {
   %empty = tensor.empty(%arg2, %arg3) : tensor<?x?xf32>
-  %1 = plan.inline_closed_group  target(#plan.tensorrt_cluster<benefit=1,disallow_shape_tensor_calculations=false>)
+  %1 = plan.inline_closed_group  target(#plan.tensorrt_backend<benefit=1,disallow_shape_tensor_calculations=false>)
     inputs( %arg0, %arg1, %arg2, %arg3 : tensor<?xf32>, tensor<2xi32>, index, index)
     outs(%empty : tensor<?x?xf32> )
     in_attrs [#plan.bounds<none>, #plan.bounds<none>, #plan.bounds<none>, #plan.bounds<none>]

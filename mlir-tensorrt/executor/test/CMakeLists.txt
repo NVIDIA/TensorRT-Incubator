@@ -2,7 +2,7 @@ llvm_canonicalize_cmake_booleans(
   MLIR_ENABLE_BINDINGS_PYTHON
   ENABLE_ASAN
   LLVM_ENABLE_ASSERTIONS
-  ${MLIR_EXECUTOR_FEATURE_FLAGS}
+  ${MLIR_TRT_FEATURE_FLAGS}
 )
 
 add_subdirectory(lib)
@@ -10,13 +10,9 @@ add_subdirectory(lib)
 # All the GTest-based unit tests are located under 'Unit' subfolder.
 add_subdirectory(Unit)
 
-configure_lit_site_cfg(
-  ${CMAKE_CURRENT_SOURCE_DIR}/lit.site.cfg.py.in
-  ${CMAKE_CURRENT_BINARY_DIR}/lit.site.cfg.py
-  MAIN_CONFIG
-  ${CMAKE_CURRENT_SOURCE_DIR}/lit.cfg.py
-)
-get_property(MLIR_EXECUTOR_TEST_LIBS GLOBAL PROPERTY MLIR_EXECUTOR_TEST_LIBS)
+mtrt_configure_lit_test_site_config(lit.site.cfg.py.in)
+
+mtrt_get_project_targets(MLIRExecutor LIBRARY_TYPE TEST_LIBS OUT_VAR MLIR_EXECUTOR_TEST_LIBS)
 
 set(MLIR_EXECUTOR_TEST_DEPENDS
   FileCheck count not

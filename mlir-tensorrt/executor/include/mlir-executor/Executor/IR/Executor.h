@@ -24,12 +24,12 @@
 #ifndef MLIR_TENSORRT_DIALECT_EXECUTOR_IR_EXECUTOR_H
 #define MLIR_TENSORRT_DIALECT_EXECUTOR_IR_EXECUTOR_H
 
+#include "mlir-executor/Executor/IR/ExecutorAttributes.h"
 #include "mlir/Dialect/DLTI/DLTI.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/BuiltinTypeInterfaces.h"
 #include "mlir/IR/Dialect.h"
-#include "mlir/IR/DialectImplementation.h"
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/IR/Types.h"
 #include "mlir/Interfaces/CallInterfaces.h"
@@ -67,17 +67,6 @@ lowerToCallDefaultImpl(Operation *op, ArrayRef<Value> operands, ModuleOp module,
 #include "mlir-executor/Executor/IR/ExecutorOpsDialect.h.inc"
 
 //===----------------------------------------------------------------------===//
-// Executor Enums
-//===----------------------------------------------------------------------===//
-#include "mlir-executor/Executor/IR/ExecutorEnums.h.inc"
-
-//===----------------------------------------------------------------------===//
-// Executor Attributes
-//===----------------------------------------------------------------------===//
-#define GET_ATTRDEF_CLASSES
-#include "mlir-executor/Executor/IR/ExecutorAttributes.h.inc"
-
-//===----------------------------------------------------------------------===//
 // Executor Types
 //===----------------------------------------------------------------------===//
 #define GET_TYPEDEF_CLASSES
@@ -100,12 +89,6 @@ template <typename ConcreteType>
 class LowerToFuncCallTrait
     : public mlir::TypeTrait::TraitBase<ConcreteType, LowerToFuncCallTrait> {};
 
-/// Returns the name of the attribute attached to the top-level module that
-/// holds the function symbol that will initialize all globals after the
-/// `executor.global` regions are lowered. This is the only function that is
-/// allowed to make `executor.set_global` calls to gloals marked constant.
-StringRef getExecutorGlobalInitializerFuncNameAttr();
-
 } // namespace mlir::executor
 
 //===----------------------------------------------------------------------===//
@@ -123,22 +106,6 @@ namespace mlir::executor {
 SymbolRefAttr getOrInsertFuncDeclaration(OpBuilder &rewriter, Location loc,
                                          ModuleOp module, StringRef name,
                                          ExecutorFunctionType sig);
-
-/// Return the process grid shape as specified by the attribute attached to the
-/// module operation.
-FailureOr<ArrayRef<int64_t>> getModuleProcessGridShape(Operation *op);
-
-/// Set the process grid shape on the module.
-LogicalResult setModuleProcessGridShape(Operation *op, ArrayRef<int64_t> shape);
-
-/// Extract func argument attribute at an index. Attribute should have a
-/// concrete type of `executor::ValueBoundsAttr` or
-/// `executor::DimensionBoundsAttr`.
-Attribute getFuncArgsBounds(func::FuncOp func, int64_t argIdx);
-
-// Extract func result attribute at an index. Attribute should have a concrete
-/// type of `executor::ValueBoundsAttr` or `executor::DimensionBoundsAttr`.
-Attribute getFuncResultBounds(func::FuncOp func, int64_t resultIdx);
 
 } // namespace mlir::executor
 

@@ -81,35 +81,7 @@ tools = [
 
 llvm_config.add_tool_substitutions(tools, tool_dirs)
 
-# Setup information about CUDA devices on the host.
-gpu_tools = sys.modules["gpu_tools"]
-config.num_cuda_devices = gpu_tools.get_num_cuda_devices()
 
-
-def all_gpus_have_fp8_support() -> bool:
-    try:
-        with gpu_tools.nvml_context() as _:
-            return gpu_tools.has_fp8_support()
-    except Exception as e:
-        return False
-
-
-if all_gpus_have_fp8_support():
-    config.available_features.add(f"all-gpus-support-fp8")
-for i in range(config.num_cuda_devices):
-    config.available_features.add(f"host-has-at-least-{i+1}-gpus")
-
-# Setup features related to the TensorRT version
-trt_version = config.mlir_tensorrt_compile_time_version.split(".")
-trt_version_major, trt_version_minor = int(trt_version[0]), int(trt_version[1])
-if trt_version_major < 9:
-    config.available_features.add("tensorrt-version-lt-9.0")
-if trt_version_major == 9:
-    config.available_features.add("tensorrt-version-eq-9")
-if trt_version_major >= 10:
-    config.available_features.add("tensorrt-version-ge-10.0")
-if (trt_version_major * 10 + trt_version_minor) >= 109:
-    config.available_features.add("tensorrt-version-ge-10.9")
 if not config.enable_asan:
     config.available_features.add("no-asan")
 
@@ -119,7 +91,7 @@ def estimate_paralllelism(
 ) -> int:
     try:
         parallelism = 2
-        with gpu_tools.nvml_context() as devices:
+        with gpu_tools.nvml_context() as (devices, _):
             parallelism = gpu_tools.estimate_parallelism_from_memory(
                 devices, gb_gpu_mem_required
             )
