@@ -12,8 +12,8 @@ add_mlir_executor_runtime_capability_library(MLIRTensorRTExecutorRuntimeNCCLModu
   lua::core
   CUDA::cudart
   CUDA::cuda_driver
-  $<$<BOOL:${MLIR_EXECUTOR_ENABLE_NCCL}>:MPI::MPI_C>
-  $<$<BOOL:${MLIR_EXECUTOR_ENABLE_NCCL}>:NCCL>
+  $<$<BOOL:${MLIR_TRT_ENABLE_NCCL}>:MPI::MPI_C>
+  $<$<BOOL:${MLIR_TRT_ENABLE_NCCL}>:NCCL>
   MLIRTensorRTExecutorRuntimeCommon
   MLIRTensorRTLuaExtensionRegistry
 )

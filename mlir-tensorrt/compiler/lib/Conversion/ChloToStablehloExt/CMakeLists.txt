@@ -10,7 +10,7 @@ add_mlir_tensorrt_library(MLIRTensorRTChloToStablehloExt
   MLIRIR
   MLIRPass
   MLIRRewrite
-  MLIRTensorRTDialect
+  MLIRTensorRTTensorRTDialect
   MLIRTransformUtils
   StablehloOps
   StablehloPasses

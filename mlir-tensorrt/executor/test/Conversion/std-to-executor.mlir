@@ -1,9 +1,6 @@
-// RUN: executor-opt %s -split-input-file -convert-scf-to-cf -convert-memref-to-executor="use-packed-memref-cconv=false index-bitwidth=32" \
-// RUN:   -convert-executor-to-executor="use-packed-memref-cconv=false index-bitwidth=32" -executor-expand-ops \
-// RUN:   -convert-std-to-executor="use-packed-memref-cconv=false index-bitwidth=32" -canonicalize -reconcile-unrealized-casts | FileCheck %s
 // RUN: executor-opt %s -split-input-file -convert-scf-to-cf -convert-memref-to-executor="index-bitwidth=32" \
 // RUN:   -convert-executor-to-executor="index-bitwidth=32" -executor-expand-ops \
-// RUN:   -convert-std-to-executor="index-bitwidth=32" -canonicalize -reconcile-unrealized-casts | FileCheck %s --check-prefix=PACKED
+// RUN:   -convert-std-to-executor="index-bitwidth=32" -canonicalize -reconcile-unrealized-casts | FileCheck %s
 
 func.func @alloc(%arg0: index, %arg1: index) -> memref<?x?xf32> {
   %0 = memref.alloc (%arg0, %arg1) : memref<?x?xf32>
@@ -54,83 +51,86 @@ func.func @main() -> index {
 // CHECK-LABEL: @alloc
 //  CHECK-SAME: (%[[arg0:.+]]: i32, %[[arg1:.+]]: i32) -> !executor.table<!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32, i32, i32> {
 //   CHECK-DAG:     %[[c0_i32:.+]] = executor.constant 0 : i32
-//   CHECK-DAG:     %[[c16_i32:.+]] = executor.constant 16 : i32
 //   CHECK-DAG:     %[[c4_i32:.+]] = executor.constant 4 : i32
 //   CHECK-DAG:     %[[c1_i32:.+]] = executor.constant 1 : i32
-//       CHECK:     %[[v0:.+]] = executor.muli %[[arg1]], %[[arg0]] : i32
-//       CHECK:     %[[v1:.+]] = executor.muli %[[v0]], %[[c4_i32]] : i32
-//       CHECK:     %[[v4:.+]] = executor.alloc %[[v1]] bytes
-//       CHECK:     %[[v5:.+]] = executor.table.create(%[[v4]], %[[v4]], %[[c0_i32]], %[[arg0]], %[[arg1]], %[[arg1]], %[[c1_i32]]
+//   CHECK-DAG:     %[[v0:.+]] = executor.muli %[[arg1]], %[[arg0]] : i32
+//   CHECK-DAG:     %[[v1:.+]] = executor.muli %[[v0]], %[[c4_i32]] : i32
+//   CHECK-DAG:     %[[v4:.+]] = executor.alloc %[[v1]] bytes
+//   CHECK-DAG:     %[[v5:.+]] = executor.table.create(%[[v4]], %[[v4]], %[[c0_i32]], %[[arg0]], %[[arg1]], %[[arg1]], %[[c1_i32]]
 //       CHECK:     return %[[v5]] : !executor.table<!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32, i32, i32>
 
 // CHECK-LABEL: @subview_load
-//  CHECK-SAME: (%[[arg0:.+]]: !executor.ptr<host>, %[[arg1:.+]]: !executor.ptr<host>, %[[arg2:.+]]: i32, %[[arg3:.+]]: i32, %[[arg4:.+]]: i32, %[[arg5:.+]]: i32, %[[arg6:.+]]: i32) -> f32 {
-//       CHECK:     %[[c8_i32:.+]] = executor.constant 8 : i32
-//       CHECK:     %[[v0:.+]] = executor.load %[[arg1]] + %[[c8_i32]]
+//  CHECK-SAME: (%[[arg0:.+]]: !executor.table<{{.*}}>) -> f32 {
+//   CHECK-DAG:     %[[c8_i32:.+]] = executor.constant 8 : i32
+//   CHECK-DAG:     %[[ptr:.+]] = executor.table.get %[[arg0]][1] : <!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32, i32, i32>
+//       CHECK:     %[[v0:.+]] = executor.load %[[ptr]] + %[[c8_i32]]
 //       CHECK:     return %[[v0]] : f32
 
-// CHECK-LABEL: @load_strided
-//  CHECK-SAME: (%[[arg0:.+]]: !executor.ptr<host>, %[[arg1:.+]]: !executor.ptr<host>, %[[arg2:.+]]: i32, %[[arg3:.+]]: i32, %[[arg4:.+]]: i32, %[[arg5:.+]]: i32, %[[arg6:.+]]: i32, %[[arg7:.+]]: i32, %[[arg8:.+]]: i32) -> f32 {
-//       CHECK:     %[[c4_i32:.+]] = executor.constant 4 : i32
-//       CHECK:     %[[v0:.+]] = executor.muli %[[arg7]], %[[arg5]] : i32
-//       CHECK:     %[[v1:.+]] = executor.addi %[[arg2]], %[[v0]] : i32
-//       CHECK:     %[[v2:.+]] = executor.muli %[[arg8]], %[[arg6]] : i32
-//       CHECK:     %[[v3:.+]] = executor.addi %[[v1]], %[[v2]] : i32
-//       CHECK:     %[[v4:.+]] = executor.muli %[[v3]], %[[c4_i32]] : i32
-//       CHECK:     %[[v5:.+]] = executor.load %[[arg1]] + %[[v4]]
-//       CHECK:     return %[[v5]] : f32
-// CHECK-LABEL: @copy
-//  CHECK-SAME: (%[[arg0:.+]]: !executor.ptr<host>, %[[arg1:.+]]: !executor.ptr<host>, %[[arg2:.+]]: i32, %[[arg3:.+]]: i32, %[[arg4:.+]]: i32, %[[arg5:.+]]: i32, %[[arg6:.+]]: i32, %[[arg7:.+]]: !executor.ptr<host>, %[[arg8:.+]]: !executor.ptr<host>, %[[arg9:.+]]: i32, %[[arg10:.+]]: i32, %[[arg11:.+]]: i32, %[[arg12:.+]]: i32, %[[arg13:.+]]: i32) {
+
+// CHECK-LABEL: func.func @load_strided
+//  CHECK-SAME: (%[[arg0:.+]]: !executor.table<!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32, i32, i32>, %[[arg1:.+]]: i32, %[[arg2:.+]]: i32) -> f32 {
+//   CHECK-DAG:     %[[c4_i32:.+]] = executor.constant 4 : i32
+//   CHECK-DAG:     %[[v0:.+]] = executor.table.get %[[arg0]][2] : <!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32, i32, i32>
+//   CHECK-DAG:     %[[v1:.+]] = executor.table.get %[[arg0]][5] : <!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32, i32, i32>
+//   CHECK-DAG:     %[[v2:.+]] = executor.muli %[[arg1]], %[[v1]] : i32
+//   CHECK-DAG:     %[[v3:.+]] = executor.addi %[[v0]], %[[v2]] : i32
+//   CHECK-DAG:     %[[v4:.+]] = executor.table.get %[[arg0]][6] : <!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32, i32, i32>
+//   CHECK-DAG:     %[[v5:.+]] = executor.muli %[[arg2]], %[[v4]] : i32
+//   CHECK-DAG:     %[[v6:.+]] = executor.addi %[[v3]], %[[v5]] : i32
+//   CHECK-DAG:     %[[v7:.+]] = executor.muli %[[v6]], %[[c4_i32]] : i32
+//   CHECK-DAG:     %[[v8:.+]] = executor.table.get %[[arg0]][1] : <!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32, i32, i32>
+//   CHECK-DAG:     %[[v9:.+]] = executor.load %[[v8]] + %[[v7]] : (!executor.ptr<host>, i32) -> f32
+//       CHECK:     return %[[v9]] : f32
+
+// CHECK-LABEL: func.func @copy
+//  CHECK-SAME: (%[[arg0:.+]]: !executor.table<!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32, i32, i32>, %[[arg1:.+]]: !executor.table<!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32, i32, i32>)
 //   CHECK-DAG:     %[[c0_i32:.+]] = executor.constant 0 : i32
 //   CHECK-DAG:     %[[c1_i32:.+]] = executor.constant 1 : i32
-//   CHECK-DAG:     %[[fill:.+]] = executor.constant 1.000000e-01 : f32
+//   CHECK-DAG:     %[[cst_f32:.+]] = executor.constant 1.000000e-01 : f32
 //   CHECK-DAG:     %[[c4_i32:.+]] = executor.constant 4 : i32
+//   CHECK-DAG:     %[[v0:.+]] = executor.table.get %[[arg1]][3] : <!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32, i32, i32>
+//   CHECK-DAG:     %[[v1:.+]] = executor.table.get %[[arg1]][4] : <!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32, i32, i32>
 //       CHECK:     cf.br ^bb1(%[[c0_i32]] : i32)
-//       CHECK:   ^bb1(%[[v0]]: i32):  // 2 preds: ^bb0, ^bb4
-//       CHECK:     %[[v1:.+]] = executor.icmp <slt> %[[v0]], %[[arg10]] : i32
-//       CHECK:     cf.cond_br %[[v1]], ^bb2(%[[c0_i32]] : i32), ^bb5
-//       CHECK:   ^bb2(%[[v2]]: i32):  // 2 preds: ^bb1, ^bb3
-//       CHECK:     %[[v3:.+]] = executor.icmp <slt> %[[v2]], %[[arg11]] : i32
-//       CHECK:     cf.cond_br %[[v3]], ^bb3, ^bb4
+//       CHECK:   ^bb1(%[[v2]]: i32):  // 2 preds: ^bb0, ^bb4
+//       CHECK:     %[[v3:.+]] = executor.icmp <slt> %[[v2]], %[[v0]] : i32
+//       CHECK:     cf.cond_br %[[v3]], ^bb2(%[[c0_i32]] : i32), ^bb5
+//       CHECK:   ^bb2(%[[v4]]: i32):  // 2 preds: ^bb1, ^bb3
+//       CHECK:     %[[v5:.+]] = executor.icmp <slt> %[[v4]], %[[v1]] : i32
+//       CHECK:     cf.cond_br %[[v5]], ^bb3, ^bb4
 //       CHECK:   ^bb3:  // pred: ^bb2
-//       CHECK:     %[[v4:.+]] = executor.muli %[[v0]], %[[arg12]] : i32
-//       CHECK:     %[[v5:.+]] = executor.addi %[[v4]], %[[v2]] : i32
-//       CHECK:     %[[v6:.+]] = executor.muli %[[v5]], %[[c4_i32]] : i32
-//       CHECK:     executor.store %[[fill]] to %[[arg8]] + %[[v6]]
-//       CHECK:     %[[v7:.+]] = executor.muli %[[v0]], %[[arg12]] : i32
-//       CHECK:     %[[v8:.+]] = executor.addi %[[v7]], %[[v2]] : i32
-//       CHECK:     %[[v9:.+]] = executor.muli %[[v8]], %[[c4_i32]] : i32
-//       CHECK:     %[[v10:.+]] = executor.load %[[arg8]] + %[[v9]]
-//       CHECK:     %[[v11:.+]] = executor.muli %[[v0]], %[[arg5]] : i32
-//       CHECK:     %[[v12:.+]] = executor.addi %[[v11]], %[[v2]] : i32
-//       CHECK:     %[[v13:.+]] = executor.muli %[[v12]], %[[c4_i32]] : i32
-//       CHECK:     executor.store %[[v10]] to %[[arg1]] + %[[v13]]
-//       CHECK:     %[[v14:.+]] = executor.addi %[[v2]], %[[c1_i32]] : i32
-//       CHECK:     cf.br ^bb2(%[[v14]] : i32)
+//   CHECK-DAG:     %[[v6:.+]] = executor.table.get %[[arg1]][5] : <!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32, i32, i32>
+//   CHECK-DAG:     %[[v7:.+]] = executor.muli %[[v2]], %[[v6]] : i32
+//   CHECK-DAG:     %[[v8:.+]] = executor.addi %[[v7]], %[[v4]] : i32
+//   CHECK-DAG:     %[[v9:.+]] = executor.muli %[[v8]], %[[c4_i32]] : i32
+//   CHECK-DAG:     %[[v10:.+]] = executor.table.get %[[arg1]][1] : <!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32, i32, i32>
+//       CHECK:     executor.store %[[cst_f32]] to %[[v10]] + %[[v9]] : f32, !executor.ptr<host>, i32
+//   CHECK-DAG:     %[[v11:.+]] = executor.table.get %[[arg1]][5] : <!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32, i32, i32>
+//   CHECK-DAG:     %[[v12:.+]] = executor.muli %[[v2]], %[[v11]] : i32
+//   CHECK-DAG:     %[[v13:.+]] = executor.addi %[[v12]], %[[v4]] : i32
+//   CHECK-DAG:     %[[v14:.+]] = executor.muli %[[v13]], %[[c4_i32]] : i32
+//   CHECK-DAG:     %[[v15:.+]] = executor.table.get %[[arg1]][1] : <!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32, i32, i32>
+//   CHECK-DAG:     %[[v16:.+]] = executor.load %[[v15]] + %[[v14]] : (!executor.ptr<host>, i32) -> f32
+//   CHECK-DAG:     %[[v17:.+]] = executor.table.get %[[arg0]][5] : <!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32, i32, i32>
+//   CHECK-DAG:     %[[v18:.+]] = executor.muli %[[v2]], %[[v17]] : i32
+//   CHECK-DAG:     %[[v19:.+]] = executor.addi %[[v18]], %[[v4]] : i32
+//   CHECK-DAG:     %[[v20:.+]] = executor.muli %[[v19]], %[[c4_i32]] : i32
+//   CHECK-DAG:     %[[v21:.+]] = executor.table.get %[[arg0]][1] : <!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32, i32, i32>
+//       CHECK:     executor.store %[[v16]] to %[[v21]] + %[[v20]] : f32, !executor.ptr<host>, i32
+//       CHECK:     %[[v22:.+]] = executor.addi %[[v4]], %[[c1_i32]] : i32
+//       CHECK:     cf.br ^bb2(%[[v22]] : i32)
 //       CHECK:   ^bb4:  // pred: ^bb2
-//       CHECK:     %[[v15:.+]] = executor.addi %[[v0]], %[[c1_i32]] : i32
-//       CHECK:     cf.br ^bb1(%[[v15]] : i32)
+//       CHECK:     %[[v23:.+]] = executor.addi %[[v2]], %[[c1_i32]] : i32
+//       CHECK:     cf.br ^bb1(%[[v23]] : i32)
 //       CHECK:   ^bb5:  // pred: ^bb1
 //       CHECK:     return
-// CHECK-LABEL: @main
-//  CHECK-SAME: () -> i32 {
-//   CHECK-DAG:     %[[c1_i32:.+]] = executor.constant 1 : i32
+
+// CHECK-LABEL: func.func @main
 //   CHECK-DAG:     %[[c0_i32:.+]] = executor.constant 0 : i32
 //   CHECK-DAG:     %[[c64_i32:.+]] = executor.constant 64 : i32
 //   CHECK-DAG:     %[[c128_i32:.+]] = executor.constant 128 : i32
-//       CHECK:     %[[v0:.+]] = call @alloc(%[[c64_i32]], %[[c128_i32]]) : (i32, i32) -> !executor.table<!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32, i32, i32>
-//       CHECK:     %[[v1:.+]] = call @alloc(%[[c64_i32]], %[[c128_i32]]) : (i32, i32) -> !executor.table<!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32, i32, i32>
-//       CHECK:     %[[v2:.+]] = executor.table.get %[[v1]][0] : <!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32, i32, i32>
-//       CHECK:     %[[v3:.+]] = executor.table.get %[[v1]][1] : <!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32, i32, i32>
-//       CHECK:     %[[v5:.+]] = executor.table.get %[[v1]][3] : <!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32, i32, i32>
-//       CHECK:     %[[v6:.+]] = executor.table.get %[[v1]][4] : <!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32, i32, i32>
-//       CHECK:     %[[v7:.+]] = executor.table.get %[[v1]][5] : <!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32, i32, i32>
-//       CHECK:     %[[v8:.+]] = executor.table.get %[[v0]][0] : <!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32, i32, i32>
-//       CHECK:     %[[v9:.+]] = executor.table.get %[[v0]][1] : <!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32, i32, i32>
-//       CHECK:     %[[v11:.+]] = executor.table.get %[[v0]][3] : <!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32, i32, i32>
-//       CHECK:     %[[v12:.+]] = executor.table.get %[[v0]][4] : <!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32, i32, i32>
-//       CHECK:     %[[v13:.+]] = executor.table.get %[[v0]][5] : <!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32, i32, i32>
-//       CHECK:     call @copy(%[[v2]], %[[v3]], %[[c0_i32]], %[[v5]], %[[v6]], %[[v7]], %[[c1_i32]], %[[v8]], %[[v9]], %[[c0_i32]], %[[v11]], %[[v12]], %[[v13]], %[[c1_i32]])
+//   CHECK-DAG:     %[[v0:.+]] = call @alloc(%[[c64_i32]], %[[c128_i32]]) : (i32, i32) -> !executor.table<!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32, i32, i32>
+//   CHECK-DAG:     %[[v1:.+]] = call @alloc(%[[c64_i32]], %[[c128_i32]]) : (i32, i32) -> !executor.table<!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32, i32, i32>
+//       CHECK:     call @copy(%[[v1]], %[[v0]]) : (!executor.table<!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32, i32, i32>, !executor.table<!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32, i32, i32>) -> ()
 //       CHECK:     return %[[c0_i32]] : i32
 
 
@@ -146,24 +146,12 @@ func.func @executor_f16_arg(%arg0: memref<10xf16>) -> memref<10xf16> {
 }
 
 // CHECK-LABEL: @callee
-//  CHECK-SAME: (%[[arg0:.+]]: !executor.ptr<host>, %[[arg1:.+]]: !executor.ptr<host>, %[[arg2:.+]]: i32, %[[arg3:.+]]: i32, %[[arg4:.+]]: i32) -> !executor.table<!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32> {
-//       CHECK:     %[[v0:.+]] = executor.table.create(%[[arg0]], %[[arg1]], %[[arg2]], %[[arg3]], %[[arg4]] : !executor.ptr<host>, !executor.ptr<host>, i32, i32, i32) : <!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32>
-//       CHECK:     return %[[v0]] : !executor.table<!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32>
+//  CHECK-SAME: (%[[arg0:.+]]: !executor.table<!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32>) -> !executor.table<!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32> {
+//       CHECK:     return %[[arg0]] : !executor.table<!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32>
 // CHECK-LABEL: @executor_f16_arg
-//  CHECK-SAME: (%[[arg0:.+]]: !executor.ptr<host>, %[[arg1:.+]]: !executor.ptr<host>, %[[arg2:.+]]: i32, %[[arg3:.+]]: i32, %[[arg4:.+]]: i32) -> !executor.table<!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32> {
-//   CHECK-DAG:     %[[c1_i32:.+]] = executor.constant 1 : i32
-//   CHECK-DAG:     %[[c10_i32:.+]] = executor.constant 10 : i32
-//   CHECK-DAG:     %[[c0_i32:.+]] = executor.constant 0 : i32
-//       CHECK:     %[[v0:.+]] = call @callee(%[[arg0]], %[[arg1]], %[[c0_i32]], %[[c10_i32]], %[[c1_i32]]) : (!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32) -> !executor.table<!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32>
-//       CHECK:     return %[[v0]] : !executor.table<!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32>
-
-// PACKED-LABEL: @callee
-//  PACKED-SAME: (%[[arg0:.+]]: !executor.table<!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32>) -> !executor.table<!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32> {
-//       PACKED:     return %[[arg0]] : !executor.table<!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32>
-// PACKED-LABEL: @executor_f16_arg
-//  PACKED-SAME: (%[[arg0:.+]]: !executor.table<!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32>) -> !executor.table<!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32> {
-//       PACKED:     %[[v0:.+]] = call @callee(%[[arg0]]) : (!executor.table<!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32>) -> !executor.table<!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32>
-//       PACKED:     return %[[v0]]
+//  CHECK-SAME: (%[[arg0:.+]]: !executor.table<!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32>) -> !executor.table<!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32> {
+//       CHECK:     %[[v0:.+]] = call @callee(%[[arg0]]) : (!executor.table<!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32>) -> !executor.table<!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32>
+//       CHECK:     return %[[v0]]
 
 // -----
 

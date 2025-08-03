@@ -20,7 +20,7 @@
 ///
 /// Declarations for code common to all "Convert X-to-Executor" passes.
 ///
-//===----------------------------------------------------------------------===//a
+//===----------------------------------------------------------------------===//
 #ifndef INCLUDE_MLIR_EXECUTOR_CONVERSION_CONVERTTOEXECUTORCOMMON
 #define INCLUDE_MLIR_EXECUTOR_CONVERSION_CONVERTTOEXECUTORCOMMON
 
@@ -37,17 +37,6 @@ namespace executor {
 // Executor Conversion Options
 //===----------------------------------------------------------------------===//
 
-/// Determines how `memref` typed arguments in function signatures are
-/// converted.
-enum class MemRefArgPassingConvention {
-  /// MemRef arguments are passed as unpacked individual scalars.
-  /// Unpacking/repacking of the struct occurs at function call boundaries and
-  /// at the start of function bodies respectively.
-  Unpacked,
-  /// MemRef arguments are passed as structs by value.
-  Packed
-};
-
 /// Encapsulates options that can be chosen by the caller.
 struct LowerToExecutorOptions {
   LowerToExecutorOptions() = default;
@@ -55,8 +44,6 @@ struct LowerToExecutorOptions {
   explicit LowerToExecutorOptions(Type indexType) : indexType(indexType) {}
 
   Type indexType;
-
-  MemRefArgPassingConvention memrefArgPassingConvention;
 };
 
 //===----------------------------------------------------------------------===//
@@ -225,11 +212,10 @@ protected:
   /// Convert the operands a function call. This treats values that originally
   /// had type `memref` specially depending on the type converter's calling
   /// convention options.
-  SmallVector<Value>
-  convertFuncCallOperands(RewriterBase &rewriter, Location loc,
-                          ValueRange originalOperands,
-                          ValueRange adaptorOperands,
-                          executor::MemRefArgPassingConvention cconv) const;
+  SmallVector<Value> convertFuncCallOperands(RewriterBase &rewriter,
+                                             Location loc,
+                                             ValueRange originalOperands,
+                                             ValueRange adaptorOperands) const;
 
   /// Return the byte type size of `t` or failure if `t` does not have a known
   /// fixed type size.

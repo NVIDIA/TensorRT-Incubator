@@ -1,7 +1,12 @@
 function(add_mlir_executor_test_library target)
-  add_mlir_library(${target} ${ARGN}
-    EXCLUDE_FROM_LIBMLIR)
-  set_property(GLOBAL APPEND PROPERTY MLIR_EXECUTOR_TEST_LIBS ${target})
+  mtrt_add_project_library(${target}
+    PROJECT_NAME MLIRExecutor
+    EXCLUDE_FROM_LIBMLIR
+    DISABLE_INSTALL
+    LIBRARY_TYPE TEST_LIBS
+    PARTIAL_SOURCES_INTENDED
+    ${ARGN}
+    )
 endfunction()
 
 add_mlir_executor_test_library(MLIRExecutorBufferizationTestPass

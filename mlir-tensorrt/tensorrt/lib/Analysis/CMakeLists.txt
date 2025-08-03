@@ -6,5 +6,6 @@ add_mtrtd_library(MLIRTensorRTAnalysis
   MLIRBufferizationDialect
   MLIRFunctionInterfaces
   MLIRTensorDialect
-  MLIRTensorRTInterfaces
+  MLIRTensorRTCommonTensorKindInterface
+  MLIRTensorRTDialectIncludes
 )

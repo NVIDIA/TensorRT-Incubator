@@ -23,8 +23,7 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-executor/Target/Lua/TranslateToRuntimeExecutable.h"
 #include "mlir-executor/Executor/IR/Executor.h"
-#include "mlir-executor/Runtime/API/API.h"
-#include "mlir-executor/Runtime/API/ExecutableFlatbuffer.h"
+#include "mlir-executor/Runtime/API/Executable.h"
 #include "mlir-executor/Target/Lua/TranslateToLua.h"
 #include "mlir-executor/Utils/SerializationUtils.h"
 #include "mlir/Dialect/ControlFlow/IR/ControlFlow.h"
@@ -161,6 +160,9 @@ getDenseElementsAttrOfOnes(ElementsAttr attr) {
   if (isa<Float8E4M3FNType>(elementType))
     return DenseElementsAttr::get(tensorType,
                                   APFloat::getOne(APFloat::Float8E4M3FN()));
+  if (isa<Float4E2M1FNType>(elementType))
+    return DenseElementsAttr::get(tensorType,
+                                  APFloat::getOne(APFloat::Float4E2M1FN()));
   if (elementType.isF16())
     return DenseElementsAttr::get(tensorType,
                                   APFloat::getOne(APFloat::IEEEhalf()));
@@ -227,6 +229,8 @@ static FailureOr<rt::ScalarTypeCode> translateScalarType(Type t) {
     return rt::ScalarTypeCode::bf16;
   if (isa<Float8E4M3FNType>(t))
     return rt::ScalarTypeCode::f8e4m3fn;
+  if (isa<Float4E2M1FNType>(t))
+    return rt::ScalarTypeCode::f4e2m1fn;
   if (t.isIndex())
     return rt::ScalarTypeCode::i32;
   if (t.isInteger(1))
@@ -300,8 +304,8 @@ translateTypeVariant(FBBuilder &fbBuilder, Type t) {
            << "unhandled type (" << t << ") in Executor function metadata";
   };
 
-  if (!isa<MemRefType, IntegerType, FloatType, ComplexType,
-           executor::ExecutorOpaqueType>(t))
+  if (!isa<MemRefType, IntegerType, FloatType, Float8E4M3FNType,
+           Float4E2M1FNType, ComplexType>(t))
     return emitTranslateFailure(t);
 
   // Encode as a memref.
@@ -331,22 +335,6 @@ translateTypeVariant(FBBuilder &fbBuilder, Type t) {
                                                      addressSpace)
                               .Union());
   }
-
-  // Encode as opaque external reference.
-  if (auto opaqueType = llvm::dyn_cast<executor::ExecutorOpaqueType>(t)) {
-
-    // TODO: replace hard-coded name with better logic. This should be part of
-    // the runner/executable API.
-    rt::impl::ExternalOpaqueRefKind refKind =
-        rt::impl::ExternalOpaqueRefKind::unknown;
-    if (opaqueType.getName() == "cuda_stream")
-      refKind = rt::impl::ExternalOpaqueRefKind::cuda_stream;
-
-    return std::make_pair(
-        rt::impl::Type::ExternalOpaqueRefType,
-        rt::impl::CreateExternalOpaqueRefType(fbBuilder, refKind).Union());
-  }
-
   // Encode as a scalar type.
   FailureOr<rt::ScalarTypeCode> code = translateScalarType(t);
   if (failed(code))

@@ -22,7 +22,7 @@
 /// `tensorrt.opaque_plugin` translation.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt-dialect/Utils/TensorRTVersion.h"
+#include "mlir-tensorrt-common/Utils/TensorRTVersion.h"
 #if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 0, 0)
 
 #include "NvInferRuntime.h"

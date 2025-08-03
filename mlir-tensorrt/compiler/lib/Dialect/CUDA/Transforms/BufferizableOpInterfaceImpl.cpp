@@ -99,18 +99,18 @@ struct BlasRunGemmOpInterface
       FailureOr<SmallVector<int64_t>> sizeA = getMemrefShape(bufferAType);
       if (failed(sizeA))
         return failure();
-      SmallVector<long, 6> strideA = bufferAType.getStridesAndOffset().first;
+      SmallVector<int64_t, 6> strideA = bufferAType.getStridesAndOffset().first;
       MemRefType bufferBType = dyn_cast<MemRefType>((*bufferB).getType());
       FailureOr<SmallVector<int64_t>> sizeB = getMemrefShape(bufferBType);
       if (failed(sizeB))
         return failure();
-      SmallVector<long, 6> strideB = bufferBType.getStridesAndOffset().first;
+      SmallVector<int64_t, 6> strideB = bufferBType.getStridesAndOffset().first;
       MemRefType resultBufferType =
           dyn_cast<MemRefType>((*resultBuffer).getType());
       FailureOr<SmallVector<int64_t>> sizeC = getMemrefShape(resultBufferType);
       if (failed(sizeC))
         return failure();
-      SmallVector<long, 6> strideC =
+      SmallVector<int64_t, 6> strideC =
           resultBufferType.getStridesAndOffset().first;
       SmallVector<int64_t> tileSizes{0, 0};
       algo = rewriter.create<BlasHeuristicAlgoSelectionOp>(

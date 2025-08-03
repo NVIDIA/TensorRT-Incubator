@@ -64,8 +64,9 @@ typedef enum MTRT_ScalarTypeCode {
   MTRT_ScalarTypeCode_i4 = 12,
   MTRT_ScalarTypeCode_complex32 = 13,
   MTRT_ScalarTypeCode_complex64 = 14,
+  MTRT_ScalarTypeCode_f4e2m1fn = 15,
   MTRT_ScalarTypeCode_MIN = MTRT_ScalarTypeCode_unknown,
-  MTRT_ScalarTypeCode_MAX = MTRT_ScalarTypeCode_complex64
+  MTRT_ScalarTypeCode_MAX = MTRT_ScalarTypeCode_f4e2m1fn
 } MTRT_ScalarTypeCode;
 
 typedef enum MTRT_PointerType {
@@ -195,23 +196,6 @@ MTRT_CAPI_EXPORTED MTRT_MemRefType mtrtTypeGetMemRefType(MTRT_Type type);
 /// Retrieve metadata for the provided memref.
 MTRT_CAPI_EXPORTED MTRT_Status mtrtMemRefTypeGetInfo(MTRT_Type memref,
                                                      MTRT_MemRefTypeInfo *info);
-
-// TODO: Add a methd to retrieve element type which return a MTRT_Type. We need
-// this to support nested objects like memref<...xmemref<....> >.
-
-//===----------------------------------------------------------------------===//
-// MTRT_ExternalOpaqueRefType
-//===----------------------------------------------------------------------===//
-
-typedef struct MTRT_ExternalOpaqueRefType {
-  void *ptr;
-} MTRT_ExternalOpaqueRefType;
-
-MTRT_CAPI_EXPORTED bool
-mtrtExternalOpaqueRefTypeIsNull(MTRT_ExternalOpaqueRefType opaque);
-
-MTRT_CAPI_EXPORTED MTRT_Status
-mtrtExternalOpaqueRefTypeDestroy(MTRT_ExternalOpaqueRefType opaque);
 
 //===----------------------------------------------------------------------===//
 // MTRT_Bounds

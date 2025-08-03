@@ -35,6 +35,7 @@
 #if defined(__clang__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wgnu-zero-variadic-macro-arguments"
+#pragma GCC diagnostic ignored "-Wc++20-extensions"
 #endif
 #include "cublasLt.h"
 #if defined(__clang__)

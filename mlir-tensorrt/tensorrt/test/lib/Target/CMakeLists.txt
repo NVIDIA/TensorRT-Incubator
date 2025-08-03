@@ -16,6 +16,7 @@ add_llvm_library(TensorRTTestPlugins
     TestPlugins.cpp TestV2Plugins.cpp
     LINK_LIBS PRIVATE
     CUDA::cudart
+    MLIRTensorRTCommonIncludes
     MLIRTRTTensorRTDynamicLoader
     TensorRTHeaderOnly
     )

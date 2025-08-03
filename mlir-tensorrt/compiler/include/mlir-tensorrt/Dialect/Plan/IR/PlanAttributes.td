@@ -3,15 +3,25 @@
 
 include "mlir-tensorrt/Dialect/Plan/IR/PlanEnums.td"
 include "mlir-tensorrt/Dialect/Plan/IR/PlanInterfaces.td"
+include "mlir-tensorrt-common/Interfaces/BoundsAttrInterface.td"
 
 def Plan_BoundsAttr : Plan_Attr<"Bounds", "bounds", [
-    DeclareAttrInterfaceMethods<TensorBoundsAttrInterface>]>{
+    DeclareAttrInterfaceMethods<BoundsAttrInterface, [
+      "getShapeRange",
+      "getDimensionRange",
+      "getIntegerValueRange",
+      "getIntegerValueRangeAtCoordinate",
+      "getIntegerValueRanges",
+      "getFloatValueRange",
+      "getFloatValueRanges",
+      "getFloatValueRangeAtCoordinate"
+    ]>]>{
   let parameters = (ins
       EnumParameter<Plan_BoundsKind>:$kind,
       OptionalParameter<"DenseI64ArrayAttr">:$min_shape,
       OptionalParameter<"DenseI64ArrayAttr">:$max_shape,
-      OptionalParameter<"DenseElementsAttr">:$min_values,
-      OptionalParameter<"DenseElementsAttr">:$max_values);
+      OptionalParameter<"ElementsAttr">:$min_values,
+      OptionalParameter<"ElementsAttr">:$max_values);
   let hasCustomAssemblyFormat = 1;
   let genVerifyDecl = 1;
   let builders = [
@@ -43,7 +53,7 @@ def Plan_BoundsAttr : Plan_Attr<"Bounds", "bounds", [
 
     /// Returns the type of the values bounds attributes. Asserts
     /// that the bounds has 'value' kind.
-    RankedTensorType getValuesType() {
+    RankedTensorType getValuesType() const {
       assert(isValueBound() && "expected value bound kind");
       return llvm::cast<RankedTensorType>(getMaxValues().getType());
     }

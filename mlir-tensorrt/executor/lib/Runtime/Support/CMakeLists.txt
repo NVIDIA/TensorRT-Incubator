@@ -7,5 +7,5 @@ add_mlir_executor_runtime_library(MLIRTensorRTRuntimeSupport
   MLIRTensorRTSupportStatus
 
   PRIVATE
-  $<$<BOOL:${MLIR_EXECUTOR_ENABLE_MPI}>:MPI::MPI_C>
+  $<$<BOOL:${MLIR_TRT_ENABLE_MPI}>:MPI::MPI_C>
 )

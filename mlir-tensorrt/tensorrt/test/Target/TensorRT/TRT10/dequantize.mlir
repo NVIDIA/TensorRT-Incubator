@@ -29,3 +29,28 @@ func.func @dequantize_to_bf16_bf16_scale(%arg0: tensor<10xf8E4M3FN>) -> tensor<1
 
 // CHECK-LABEL: @dequantize_to_bf16_bf16_scale
 //  CHECK-SAME: tensorrt.engine
+
+func.func @int4_quantize_dequantize() -> tensor<4x8xf32>{
+    %weight = tensorrt.constant dense<4.0> : tensor<4x8xf32>
+    %scale = tensorrt.constant dense<1.0> : tensor<2x8xf32>
+    %quantized_i4 = tensorrt.quantize in(%weight : tensor<4x8xf32>) scale(%scale : tensor<2x8xf32>) -> tensor<4x8xi4>
+    %dequantize_i4 = tensorrt.dequantize in(%quantized_i4 : tensor<4x8xi4>) scale(%scale : tensor<2x8xf32>) -> tensor<4x8xf32>
+    return %dequantize_i4 : tensor<4x8xf32>
+}
+
+// CHECK-LABEL: @int4_quantize_dequantize
+//  CHECK-SAME: tensorrt.engine
+
+func.func @trt_subbyte_dequantize_even_final_dim(%arg0: tensor<3x5xf16>) -> tensor<4x5xf16> {
+  %k = tensorrt.constant dense<2> : tensor<4x3xi4>
+  %scale = tensorrt.constant dense<1.0> : tensor<2x3xf16>
+  %dq_k = tensorrt.dequantize in (%k: tensor<4x3xi4>) scale (%scale: tensor<2x3xf16>) -> tensor<4x3xf16>
+  %r = tensorrt.matrix_multiply {
+                op0 = #tensorrt.matrix_operation<kNONE>,
+                op1 = #tensorrt.matrix_operation<kNONE>
+                } ins(%dq_k, %arg0 : tensor<4x3xf16>, tensor<3x5xf16>) -> tensor<4x5xf16>
+  return %r : tensor<4x5xf16>
+}
+
+// CHECK-LABEL: @trt_subbyte_dequantize_even_final_dim
+//  CHECK-SAME: tensorrt.engine

@@ -3,7 +3,7 @@
 // RUN: mlir-tensorrt-opt %s -plan-create-closed-regions=force-entrypoints-return-allocs=true -split-input-file | FileCheck %s --check-prefix=CHECK-ALLOC
 
 func.func @test_simple_static(%arg0: tensor<10xf32>, %arg1: tensor<10xf32>) -> tensor<10xf32> {
-  %0 = plan.inline_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>) -> tensor<10xf32> {
+  %0 = plan.inline_group target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>) -> tensor<10xf32> {
     %1 = stablehlo.add %arg0, %arg1 : tensor<10xf32>
     yield %1 : tensor<10xf32>
   }
@@ -15,7 +15,7 @@ func.func @test_simple_static(%arg0: tensor<10xf32>, %arg1: tensor<10xf32>) -> t
 // CHECK-LABEL: @test_simple_static
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<10xf32>, %[[arg1:.+]]: tensor<10xf32>) -> tensor<10xf32>
 //       CHECK:     %[[v0:.+]] = tensor.empty() : tensor<10xf32>
-//       CHECK:     %[[v1:.+]] = plan.inline_closed_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>)
+//       CHECK:     %[[v1:.+]] = plan.inline_closed_group target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>)
 //       CHECK:      inputs(%[[arg0]], %[[arg1]] : tensor<10xf32>, tensor<10xf32>)
 //       CHECK:      outs(%[[v0]] : tensor<10xf32>)
 //       CHECK:      in_attrs [#[[$nobounds]], #[[$nobounds]]]
@@ -26,7 +26,7 @@ func.func @test_simple_static(%arg0: tensor<10xf32>, %arg1: tensor<10xf32>) -> t
 //       CHECK-ALLOC: #[[$nobounds:.+]] = #plan.bounds<none>
 // CHECK-ALLOC-LABEL: @test_simple_static
 //  CHECK-ALLOC-SAME: (%[[arg0:.+]]: tensor<10xf32>, %[[arg1:.+]]: tensor<10xf32>) -> tensor<10xf32>
-//       CHECK-ALLOC:     %[[v1:.+]] = plan.inline_closed_alloc_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>)
+//       CHECK-ALLOC:     %[[v1:.+]] = plan.inline_closed_alloc_group target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>)
 //       CHECK-ALLOC:      inputs(%[[arg0]], %[[arg1]] : tensor<10xf32>, tensor<10xf32>)
 //       CHECK-ALLOC:      in_attrs [#[[$nobounds]], #[[$nobounds]]]
 //       CHECK-ALLOC:      -> tensor<10xf32> {
@@ -41,7 +41,7 @@ func.func @test_simple_shape_bound(%arg0: tensor<?x10xf32> {plan.shape_profile=#
   %c10 = arith.constant 10 : index
   %c0 = arith.constant 0 : index
   %dim = tensor.dim %arg0, %c0 : tensor<?x10xf32>
-  %0 = plan.inline_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>) attributes {__cluster_target__ = #plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>} -> tensor<?x10xf32> {
+  %0 = plan.inline_group target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>) attributes {__cluster_target__ = #plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>} -> tensor<?x10xf32> {
     %1 = stablehlo.exponential %arg0 : tensor<?x10xf32>
     %2 = with_shape %1(%dim, %c10) : (tensor<?x10xf32>, index, index) -> tensor<?x10xf32>
     yield %2 : tensor<?x10xf32>
@@ -63,7 +63,7 @@ func.func @test_simple_shape_bound(%arg0: tensor<?x10xf32> {plan.shape_profile=#
 //       CHECK:     %[[c10_0:.+]] = arith.constant 10 : index
 //       CHECK:     %[[from_elements:.+]] = tensor.from_elements %[[dim]], %[[c10_0]] : tensor<2xindex>
 //       CHECK:     %[[reshape:.+]] = tensor.reshape %[[extracted_slice]](%[[from_elements]]) : (tensor<?xf32>, tensor<2xindex>) -> tensor<?x10xf32>
-//       CHECK:     %[[v2:.+]] = plan.inline_closed_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>)
+//       CHECK:     %[[v2:.+]] = plan.inline_closed_group target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>)
 //       CHECK:      inputs(%[[arg0]], %[[dim]], %[[c10]] : tensor<?x10xf32>, index, index)
 //       CHECK:      outs(%[[reshape]] : tensor<?x10xf32>)
 //       CHECK:      in_attrs [#[[$arg0bounds]], #[[$nobounds]], #[[$nobounds]]]
@@ -81,7 +81,7 @@ func.func @test_simple_shape_bound(%arg0: tensor<?x10xf32> {plan.shape_profile=#
 //       CHECK-ALLOC:     %[[c10:.+]] = arith.constant 10 : index
 //       CHECK-ALLOC:     %[[c0:.+]] = arith.constant 0 : index
 //       CHECK-ALLOC:     %[[dim:.+]] = tensor.dim %[[arg0]], %[[c0]] : tensor<?x10xf32>
-//       CHECK-ALLOC:     %[[v2:.+]] = plan.inline_closed_alloc_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>)
+//       CHECK-ALLOC:     %[[v2:.+]] = plan.inline_closed_alloc_group target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>)
 //       CHECK-ALLOC:      inputs(%[[arg0]], %[[dim]], %[[c10]] : tensor<?x10xf32>, index, index)
 //       CHECK-ALLOC:      in_attrs [#[[$arg0bounds]], #[[$nobounds]], #[[$nobounds]]]
 //       CHECK-ALLOC:      -> tensor<?x10xf32> {
@@ -104,7 +104,7 @@ func.func @test_dynamic_reshape(%arg0: tensor<?xf32> {plan.shape_profile = #prof
   %0 = arith.index_cast %extracted : i32 to index
   %extracted_0 = tensor.extract %arg1[%c1] : tensor<2xi32>
   %1 = arith.index_cast %extracted_0 : i32 to index
-  %2 = plan.inline_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>) attributes {__cluster_target__ = #plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>} -> tensor<?x?xf32> {
+  %2 = plan.inline_group target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>) attributes {__cluster_target__ = #plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>} -> tensor<?x?xf32> {
     %3 = stablehlo.dynamic_reshape %arg0, %arg1 : (tensor<?xf32>, tensor<2xi32>) -> tensor<?x?xf32>
     %4 = with_shape %3(%0, %1) : (tensor<?x?xf32>, index, index) -> tensor<?x?xf32>
     yield %4 : tensor<?x?xf32>
@@ -130,7 +130,7 @@ func.func @test_dynamic_reshape(%arg0: tensor<?xf32> {plan.shape_profile = #prof
 //       CHECK:     %[[extracted_slice:.+]] = tensor.extract_slice %[[v2]][0] [%[[v3]]] [1] : tensor<1600xf32> to tensor<?xf32>
 //       CHECK:     %[[from_elements:.+]] = tensor.from_elements %[[v0]], %[[v1]] : tensor<2xindex>
 //       CHECK:     %[[reshape:.+]] = tensor.reshape %[[extracted_slice]](%[[from_elements]]) : (tensor<?xf32>, tensor<2xindex>) -> tensor<?x?xf32>
-//       CHECK:     %[[v4:.+]] = plan.inline_closed_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>)
+//       CHECK:     %[[v4:.+]] = plan.inline_closed_group target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>)
 //       CHECK:      inputs(%[[arg0]], %[[arg1]], %[[v0]], %[[v1]] : tensor<?xf32>, tensor<2xi32>, index, index)
 //       CHECK:      outs(%[[reshape]] : tensor<?x?xf32>)
 //  CHECK-NEXT:      in_attrs [
@@ -156,7 +156,7 @@ func.func @test_dynamic_reshape(%arg0: tensor<?xf32> {plan.shape_profile = #prof
 //       CHECK-ALLOC:     %[[v0:.+]] = arith.index_cast %[[extracted]] : i32 to index
 //       CHECK-ALLOC:     %[[extracted_0:.+]] = tensor.extract %[[arg1]][%[[c1]]] : tensor<2xi32>
 //       CHECK-ALLOC:     %[[v1:.+]] = arith.index_cast %[[extracted_0]] : i32 to index
-//       CHECK-ALLOC:     %[[v4:.+]] = plan.inline_closed_alloc_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>)
+//       CHECK-ALLOC:     %[[v4:.+]] = plan.inline_closed_alloc_group target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>)
 //       CHECK-ALLOC:      inputs(%[[arg0]], %[[arg1]], %[[v0]], %[[v1]] : tensor<?xf32>, tensor<2xi32>, index, index)
 //  CHECK-ALLOC-NEXT:      in_attrs [
 //  CHECK-ALLOC-SAME:          #[[$bounds0]],
@@ -184,7 +184,7 @@ func.func @test_get_dim_size_max(%arg0: tensor<?x?xf32> {plan.shape_profile=#pro
   %dim_1 = tensor.dim %arg0, %c1 : tensor<?x?xf32>
   %dim_2 = tensor.dim %arg1, %c1 : tensor<?x?xf32>
   %2 = arith.maxsi %dim_1, %dim_2 : index
-  %3 = plan.inline_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>) attributes {__cluster_target__ = #plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>} -> tensor<?x?xf32> {
+  %3 = plan.inline_group target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>) attributes {__cluster_target__ = #plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>} -> tensor<?x?xf32> {
     %4 = "stablehlo.get_dimension_size"(%arg0) {dimension = 0 : i64} : (tensor<?x?xf32>) -> tensor<i32>
     %5 = stablehlo.reshape %4 : (tensor<i32>) -> tensor<1xi32>
     %6 = "stablehlo.get_dimension_size"(%arg0) {dimension = 1 : i64} : (tensor<?x?xf32>) -> tensor<i32>
@@ -223,7 +223,7 @@ func.func @test_get_dim_size_max(%arg0: tensor<?x?xf32> {plan.shape_profile=#pro
 //       CHECK:     %[[extracted_slice:.+]] = tensor.extract_slice %[[v3]][0] [%[[v4]]] [1] : tensor<6000xf32> to tensor<?xf32>
 //       CHECK:     %[[from_elements:.+]] = tensor.from_elements %[[v1]], %[[v2]] : tensor<2xindex>
 //       CHECK:     %[[reshape:.+]] = tensor.reshape %[[extracted_slice]](%[[from_elements]]) : (tensor<?xf32>, tensor<2xindex>) -> tensor<?x?xf32>
-//       CHECK:     %[[v5:.+]] = plan.inline_closed_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>)
+//       CHECK:     %[[v5:.+]] = plan.inline_closed_group target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>)
 //       CHECK:      inputs(%[[arg0]], %[[arg1]], %[[v1]], %[[v2]] : tensor<?x?xf32>, tensor<?x?xf32>, index, index)
 //       CHECK:      outs(%[[reshape]] : tensor<?x?xf32>)
 //       CHECK:      in_attrs [
@@ -258,7 +258,7 @@ func.func @real_dynamic_slice(%arg0: tensor<?xf32> {plan.shape_profile = #profil
   %1 = arith.addi %extracted_1, %0 : index
   %2 = arith.subi %1, %c1 : index
   %3 = arith.divsi %2, %extracted_1 : index
-  %4 = plan.inline_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>) attributes {__cluster_target__ = #plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>} -> tensor<?xf32> {
+  %4 = plan.inline_group target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>) attributes {__cluster_target__ = #plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>} -> tensor<?xf32> {
     %5 = stablehlo.real_dynamic_slice %arg0, %arg1, %arg2, %arg3 : (tensor<?xf32>, tensor<1xindex>, tensor<1xindex>, tensor<1xindex>) -> tensor<?xf32>
     %6 = with_shape %5(%3) : (tensor<?xf32>, index) -> tensor<?xf32>
     yield %6 : tensor<?xf32>
@@ -284,7 +284,7 @@ func.func @real_dynamic_slice(%arg0: tensor<?xf32> {plan.shape_profile = #profil
 //       CHECK:     %[[v3:.+]] = arith.divsi %[[v2]], %[[extracted_1]] : index
 //       CHECK:     %[[v4:.+]] = tensor.empty() : tensor<100xf32>
 //       CHECK:     %[[extracted_slice:.+]] = tensor.extract_slice %[[v4]][0] [%[[v3]]] [1] : tensor<100xf32> to tensor<?xf32>
-//       CHECK:     %[[v5:.+]] = plan.inline_closed_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>)
+//       CHECK:     %[[v5:.+]] = plan.inline_closed_group target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>)
 //       CHECK:      inputs(%[[arg0]], %[[arg1]], %[[arg2]], %[[arg3]], %[[v3]] : tensor<?xf32>, tensor<1xindex>, tensor<1xindex>, tensor<1xindex>, index)
 //       CHECK:      outs(%[[extracted_slice]] : tensor<?xf32>)
 //       CHECK:      in_attrs [
@@ -313,7 +313,7 @@ func.func @dot_general_c12(%arg0: tensor<?x?x?xf32> {plan.shape_profile = #profi
   %dim = tensor.dim %arg0, %c0 : tensor<?x?x?xf32>
   %dim_0 = tensor.dim %arg0, %c2 : tensor<?x?x?xf32>
   %dim_1 = tensor.dim %arg1, %c2 : tensor<?x?x?xf32>
-  %0 = plan.inline_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>) attributes {__cluster_target__ = #plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>} -> tensor<?x?x?xf32> {
+  %0 = plan.inline_group target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>) attributes {__cluster_target__ = #plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>} -> tensor<?x?x?xf32> {
     %1 = "stablehlo.dot_general"(%arg0, %arg1) {dot_dimension_numbers = #stablehlo.dot<lhs_batching_dimensions = [0], rhs_batching_dimensions = [0], lhs_contracting_dimensions = [1], rhs_contracting_dimensions = [1]>} : (tensor<?x?x?xf32>, tensor<?x?x?xf32>) -> tensor<?x?x?xf32>
     %2 = with_shape %1(%dim, %dim_0, %dim_1) : (tensor<?x?x?xf32>, index, index, index) -> tensor<?x?x?xf32>
     yield %2 : tensor<?x?x?xf32>
@@ -336,7 +336,7 @@ func.func @dot_general_c12(%arg0: tensor<?x?x?xf32> {plan.shape_profile = #profi
 //       CHECK:     %[[extracted_slice:.+]] = tensor.extract_slice %[[v0]][0] [%[[v1]]] [1] : tensor<1048576xf32> to tensor<?xf32>
 //       CHECK:     %[[from_elements:.+]] = tensor.from_elements %[[dim]], %[[dim_0]], %[[dim_1]] : tensor<3xindex>
 //       CHECK:     %[[reshape:.+]] = tensor.reshape %[[extracted_slice]](%[[from_elements]]) : (tensor<?xf32>, tensor<3xindex>) -> tensor<?x?x?xf32>
-//       CHECK:     %[[v2:.+]] = plan.inline_closed_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>)
+//       CHECK:     %[[v2:.+]] = plan.inline_closed_group target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>)
 //       CHECK:      inputs(%[[arg0]], %[[arg1]], %[[dim]], %[[dim_0]], %[[dim_1]] : tensor<?x?x?xf32>, tensor<?x?x?xf32>, index, index, index)
 //       CHECK:      outs(%[[reshape]] : tensor<?x?x?xf32>)
 //       CHECK:      in_attrs [#[[$bounds0]], #[[$bounds0]], #[[$nobounds]], #[[$nobounds]], #[[$nobounds]]]
@@ -370,7 +370,7 @@ func.func @dynamic_pad(%arg0: tensor<?xf32> {plan.shape_profile = #profile0},
   %5 = arith.addi %4, %dim : index
   %6 = arith.addi %5, %extracted : index
   %7 = arith.addi %6, %extracted_0 : index
-  %8 = plan.inline_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>) attributes {__cluster_target__ = #plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>} -> tensor<?xf32> {
+  %8 = plan.inline_group target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>) attributes {__cluster_target__ = #plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>} -> tensor<?xf32> {
     %0 = stablehlo.dynamic_pad %arg0, %arg1, %arg2, %arg3, %arg4 : (tensor<?xf32>, tensor<f32>, tensor<1xindex>, tensor<1xindex>, tensor<1xindex>) -> tensor<?xf32>
     %9 = with_shape %0(%7) : (tensor<?xf32>, index) -> tensor<?xf32>
     yield %9 : tensor<?xf32>
@@ -399,7 +399,7 @@ func.func @dynamic_pad(%arg0: tensor<?xf32> {plan.shape_profile = #profile0},
 //       CHECK:     %[[v6:.+]] = arith.addi %[[v5]], %[[extracted_0]] : index
 //       CHECK:     %[[v7:.+]] = tensor.empty() : tensor<302xf32>
 //       CHECK:     %[[extracted_slice:.+]] = tensor.extract_slice %[[v7]][0] [%[[v6]]] [1] : tensor<302xf32> to tensor<?xf32>
-//       CHECK:     %[[v8:.+]] = plan.inline_closed_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>)
+//       CHECK:     %[[v8:.+]] = plan.inline_closed_group target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>)
 //       CHECK:      inputs(%[[arg0]], %[[arg1]], %[[arg2]], %[[arg3]], %[[arg4]], %[[v6]] : tensor<?xf32>, tensor<f32>, tensor<1xindex>, tensor<1xindex>, tensor<1xindex>, index)
 //       CHECK:      outs(%[[extracted_slice]] : tensor<?xf32>)
 //       CHECK:      in_attrs [
@@ -425,7 +425,7 @@ func.func @broadcast(%arg0: tensor<?xi32> {plan.shape_profile = #profile0}) -> t
   %c2 = arith.constant 2 : index
   %c1 = arith.constant 1 : index
   %dim = tensor.dim %arg0, %c0 : tensor<?xi32>
-  %0 = plan.inline_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>) attributes {__cluster_target__ = #plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>} -> tensor<1x2x?xi32> {
+  %0 = plan.inline_group target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>) attributes {__cluster_target__ = #plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>} -> tensor<1x2x?xi32> {
     %1 = "stablehlo.broadcast"(%arg0) {broadcast_sizes = array<i64: 1, 2>} : (tensor<?xi32>) -> tensor<1x2x?xi32>
     %2 = with_shape %1(%c1, %c2, %dim) : (tensor<1x2x?xi32>, index, index, index) -> tensor<1x2x?xi32>
     yield %2 : tensor<1x2x?xi32>
@@ -446,7 +446,7 @@ func.func @transpose(%arg0: tensor<?x?x?x?xi32> {plan.shape_profile = #profile0}
   %dim_0 = tensor.dim %arg0, %c0 : tensor<?x?x?x?xi32>
   %dim_1 = tensor.dim %arg0, %c3 : tensor<?x?x?x?xi32>
   %dim_2 = tensor.dim %arg0, %c2 : tensor<?x?x?x?xi32>
-  %0 = plan.inline_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>) attributes {__cluster_target__ = #plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>} -> tensor<?x?x?x?xi32> {
+  %0 = plan.inline_group target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>) attributes {__cluster_target__ = #plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>} -> tensor<?x?x?x?xi32> {
     %1 = "stablehlo.transpose"(%arg0) {permutation = array<i64: 1, 0, 3, 2>} : (tensor<?x?x?x?xi32>) -> tensor<?x?x?x?xi32>
     %2 = with_shape %1(%dim, %dim_0, %dim_1, %dim_2) : (tensor<?x?x?x?xi32>, index, index, index, index) -> tensor<?x?x?x?xi32>
     yield %2 : tensor<?x?x?x?xi32>
@@ -473,7 +473,7 @@ func.func @transpose(%arg0: tensor<?x?x?x?xi32> {plan.shape_profile = #profile0}
 //       CHECK:     %[[extracted_slice:.+]] = tensor.extract_slice %[[v0]][0] [%[[v1]]] [1] : tensor<6144xi32> to tensor<?xi32>
 //       CHECK:     %[[from_elements:.+]] = tensor.from_elements %[[dim]], %[[dim_0]], %[[dim_1]], %[[dim_2]] : tensor<4xindex>
 //       CHECK:     %[[reshape:.+]] = tensor.reshape %[[extracted_slice]](%[[from_elements]]) : (tensor<?xi32>, tensor<4xindex>) -> tensor<?x?x?x?xi32>
-//       CHECK:     %[[v2:.+]] = plan.inline_closed_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>)
+//       CHECK:     %[[v2:.+]] = plan.inline_closed_group target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>)
 //       CHECK:      inputs(%[[arg0]], %[[dim]], %[[dim_0]], %[[dim_1]], %[[dim_2]] : tensor<?x?x?x?xi32>, index, index, index, index)
 //       CHECK:      outs(%[[reshape]] : tensor<?x?x?x?xi32>)
 //       CHECK:      in_attrs [#[[$bounds0]], #[[$nobounds]], #[[$nobounds]], #[[$nobounds]], #[[$nobounds]]]
@@ -491,7 +491,7 @@ func.func @transpose(%arg0: tensor<?x?x?x?xi32> {plan.shape_profile = #profile0}
 func.func @dynamic_iota(%arg0: tensor<1xindex> {plan.value_bounds = #profile0}) -> tensor<?xf32> {
   %c0 = arith.constant 0 : index
   %extracted = tensor.extract %arg0[%c0] : tensor<1xindex>
-  %0 = plan.inline_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>) attributes {__cluster_target__ = #plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>} -> tensor<?xf32> {
+  %0 = plan.inline_group target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>) attributes {__cluster_target__ = #plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>} -> tensor<?xf32> {
     %1 = "stablehlo.dynamic_iota"(%arg0) {iota_dimension = 0 : i64} : (tensor<1xindex>) -> tensor<?xf32>
     %2 = with_shape %1(%extracted) : (tensor<?xf32>, index) -> tensor<?xf32>
     yield %2 : tensor<?xf32>
@@ -509,7 +509,7 @@ func.func @dynamic_iota(%arg0: tensor<1xindex> {plan.value_bounds = #profile0}) 
 //       CHECK:     %[[extracted:.+]] = tensor.extract %[[arg0]][%[[c0]]] : tensor<1xindex>
 //       CHECK:     %[[v0:.+]] = tensor.empty() : tensor<6xf32>
 //       CHECK:     %[[extracted_slice:.+]] = tensor.extract_slice %[[v0]][0] [%[[extracted]]] [1] : tensor<6xf32> to tensor<?xf32>
-//       CHECK:     %[[v1:.+]] = plan.inline_closed_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>)
+//       CHECK:     %[[v1:.+]] = plan.inline_closed_group target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>)
 //       CHECK:      inputs(%[[arg0]], %[[extracted]] : tensor<1xindex>, index)
 //       CHECK:      outs(%[[extracted_slice]] : tensor<?xf32>)
 //       CHECK:      in_attrs [
@@ -537,7 +537,7 @@ func.func @add_dynamic(%arg0: tensor<i64> {plan.value_bounds = #profile0},
   %0 = stablehlo.constant dense<2> : tensor<1xi32>
   %1 = stablehlo.constant dense<4> : tensor<1xi32>
   %2 = stablehlo.constant dense<1> : tensor<1xi32>
-  %3 = plan.inline_group target(#plan.host_cluster<benefit = 1>) -> tensor<i32> {
+  %3 = plan.inline_group target(#plan.host_backend<benefit = 1>) -> tensor<i32> {
     %6 = stablehlo.convert %arg0 : (tensor<i64>) -> tensor<i32>
     %v = tensor.extract %arg0[] : tensor<i64>
     %v_i32 = arith.trunci %v : i64 to i32
@@ -546,7 +546,7 @@ func.func @add_dynamic(%arg0: tensor<i64> {plan.value_bounds = #profile0},
   }
   %extracted = tensor.extract %arg0[] : tensor<i64>
   %4 = arith.index_cast %extracted : i64 to index
-  %5 = plan.inline_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>) attributes {__cluster_target__ = #plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>} -> tensor<2x?x4xf32> {
+  %5 = plan.inline_group target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>) attributes {__cluster_target__ = #plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>} -> tensor<2x?x4xf32> {
     %6 = stablehlo.reshape %3 : (tensor<i32>) -> tensor<1xi32>
     %7 = "stablehlo.concatenate"(%2, %6, %1) {dimension = 0 : i64} : (tensor<1xi32>, tensor<1xi32>, tensor<1xi32>) -> tensor<3xi32>
     %8 = "stablehlo.dynamic_broadcast_in_dim"(%arg1, %7) {broadcast_dimensions = array<i64: 1, 2>} : (tensor<?x4xf32>, tensor<3xi32>) -> tensor<1x?x4xf32>
@@ -573,7 +573,7 @@ func.func @add_dynamic(%arg0: tensor<i64> {plan.value_bounds = #profile0},
 //       CHECK:   %[[v0:.+]] = stablehlo.constant dense<2> : tensor<1xi32>
 //       CHECK:   %[[v1:.+]] = stablehlo.constant dense<4> : tensor<1xi32>
 //       CHECK:   %[[v2:.+]] = stablehlo.constant dense<1> : tensor<1xi32>
-//       CHECK:   %[[v3:.+]] = plan.inline_group target(#plan.host_cluster<benefit = 1>) -> tensor<i32>
+//       CHECK:   %[[v3:.+]] = plan.inline_group target(#plan.host_backend<benefit = 1>) -> tensor<i32>
 //       CHECK:      yield
 //       CHECK:   %[[extracted:.+]] = tensor.extract %[[arg0]][] : tensor<i64>
 //       CHECK:   %[[v4:.+]] = arith.index_cast %[[extracted]] : i64 to index
@@ -584,7 +584,7 @@ func.func @add_dynamic(%arg0: tensor<i64> {plan.value_bounds = #profile0},
 //       CHECK:   %[[c4_1:.+]] = arith.constant 4 : index
 //       CHECK:   %[[from_elements:.+]] = tensor.from_elements %[[c2_0]], %[[v4]], %[[c4_1]] : tensor<3xindex>
 //       CHECK:   %[[reshape:.+]] = tensor.reshape %[[extracted_slice]](%[[from_elements]]) : (tensor<?xf32>, tensor<3xindex>) -> tensor<2x?x4xf32>
-//       CHECK:   %[[v7:.+]] = plan.inline_closed_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>)
+//       CHECK:   %[[v7:.+]] = plan.inline_closed_group target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>)
 //  CHECK-NEXT:    inputs(%[[v3]], %[[arg1]], %[[c1]], %[[v4]], %[[c4]], %[[c2]], %[[arg2]] :
 //  CHECK-NEXT:    outs(%[[reshape]] : tensor<2x?x4xf32>)
 //  CHECK-NEXT:    in_attrs [#[[$bounds1]], #[[$bounds2]], #[[$nobounds]], #[[$nobounds]], #[[$nobounds]], #[[$nobounds]], #[[$bounds3]]]
@@ -605,14 +605,14 @@ func.func @collapse_dynamic(%arg0: tensor<i64> {plan.value_bounds = #profile0},
   %c5 = arith.constant 5 : index
   %0 = stablehlo.constant dense<7> : tensor<1xi32>
   %1 = stablehlo.constant dense<5> : tensor<i64>
-  %2 = plan.inline_group target(#plan.host_cluster<benefit = 1>) -> tensor<i32> {
+  %2 = plan.inline_group target(#plan.host_backend<benefit = 1>) -> tensor<i32> {
     %10 = stablehlo.convert %arg0 : (tensor<i64>) -> tensor<i32>
     %v = tensor.extract %arg0[] : tensor<i64>
     %v_i32 = arith.trunci %v : i64 to i32
     %100 = plan.with_values %10(%v_i32) : tensor<i32>
     yield %100 : tensor<i32>
   }
-  %3 = plan.inline_group target(#plan.host_cluster<benefit = 1>) -> tensor<i32> {
+  %3 = plan.inline_group target(#plan.host_backend<benefit = 1>) -> tensor<i32> {
     %10 = stablehlo.multiply %arg1, %arg2 : tensor<i64>
     %11 = stablehlo.multiply %10, %1 : tensor<i64>
     %12 = stablehlo.convert %11 : (tensor<i64>) -> tensor<i32>
@@ -631,7 +631,7 @@ func.func @collapse_dynamic(%arg0: tensor<i64> {plan.value_bounds = #profile0},
   %6 = arith.index_cast %extracted_1 : i64 to index
   %7 = arith.muli %5, %6 : index
   %8 = arith.muli %7, %c5 : index
-  %9 = plan.inline_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>) attributes {__cluster_target__ = #plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>} -> tensor<?x?x7xf32> {
+  %9 = plan.inline_group target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>) attributes {__cluster_target__ = #plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>} -> tensor<?x?x7xf32> {
     %10 = stablehlo.reshape %2 : (tensor<i32>) -> tensor<1xi32>
     %11 = stablehlo.reshape %3 : (tensor<i32>) -> tensor<1xi32>
     %12 = "stablehlo.concatenate"(%10, %11, %0) {dimension = 0 : i64} : (tensor<1xi32>, tensor<1xi32>, tensor<1xi32>) -> tensor<3xi32>
@@ -653,9 +653,9 @@ func.func @collapse_dynamic(%arg0: tensor<i64> {plan.value_bounds = #profile0},
 //   CHECK-DAG:     %[[c5:.+]] = arith.constant 5 : index
 //       CHECK:     %[[v0:.+]] = stablehlo.constant dense<7> : tensor<1xi32>
 //       CHECK:     %[[v1:.+]] = stablehlo.constant dense<5> : tensor<i64>
-//       CHECK:     %[[v2:.+]] = plan.inline_group target(#plan.host_cluster<benefit = 1>) -> tensor<i32>
+//       CHECK:     %[[v2:.+]] = plan.inline_group target(#plan.host_backend<benefit = 1>) -> tensor<i32>
 //       CHECK:        yield
-//       CHECK:     %[[v3:.+]] = plan.inline_group target(#plan.host_cluster<benefit = 1>) -> tensor<i32>
+//       CHECK:     %[[v3:.+]] = plan.inline_group target(#plan.host_backend<benefit = 1>) -> tensor<i32>
 //       CHECK:        yield
 //       CHECK:     %[[extracted:.+]] = tensor.extract %[[arg0]][] : tensor<i64>
 //       CHECK:     %[[v4:.+]] = arith.index_cast %[[extracted]] : i64 to index
@@ -671,7 +671,7 @@ func.func @collapse_dynamic(%arg0: tensor<i64> {plan.value_bounds = #profile0},
 //       CHECK:     %[[c7_2:.+]] = arith.constant 7 : index
 //       CHECK:     %[[from_elements:.+]] = tensor.from_elements %[[v4]], %[[v8]], %[[c7_2]] : tensor<3xindex>
 //       CHECK:     %[[reshape:.+]] = tensor.reshape %[[extracted_slice]](%[[from_elements]]) : (tensor<?xf32>, tensor<3xindex>) -> tensor<?x?x7xf32>
-//       CHECK:     %[[v11:.+]] = plan.inline_closed_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>)
+//       CHECK:     %[[v11:.+]] = plan.inline_closed_group target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>)
 //       CHECK:      inputs(%[[v2]], %[[v3]], %[[arg3]], %[[v4]], %[[v8]], %[[c7]] : tensor<i32>, tensor<i32>, tensor<?x?x5x?x7xf32>, index, index, index)
 //       CHECK:      outs(%[[reshape]] : tensor<?x?x7xf32>)
 //       CHECK:      in_attrs [#[[$bounds0]],
@@ -698,14 +698,14 @@ func.func @test_separated(%arg0: tensor<?xf32> {plan.shape_profile = #profile0},
     -> tensor<?xf32> {
   %c0 = arith.constant 0 : index
   %dim = tensor.dim %arg0, %c0 : tensor<?xf32>
-  %0 = plan.inline_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>) attributes {__cluster_target__ = #plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>} -> tensor<?xf32> {
+  %0 = plan.inline_group target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>) attributes {__cluster_target__ = #plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>} -> tensor<?xf32> {
     %2 = stablehlo.exponential %arg0 : tensor<?xf32>
     %3 = with_shape {tag = "with_shape0"} %2(%dim) : (tensor<?xf32>, index) -> tensor<?xf32>
     yield %3 : tensor<?xf32>
   }
   %extracted_slice = tensor.extract_slice %0[0] [%arg1] [1] {tag = "extract_slice"} : tensor<?xf32> to tensor<?xf32>
   %extracted_slice2 = plan.with_shape %extracted_slice (%arg1) : (tensor<?xf32>, index) -> tensor<?xf32>
-  %1 = plan.inline_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>) attributes {__cluster_target__ = #plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>} -> tensor<?xf32> {
+  %1 = plan.inline_group target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>) attributes {__cluster_target__ = #plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>} -> tensor<?xf32> {
     %2 = stablehlo.exponential %extracted_slice : tensor<?xf32>
     %3 = with_shape {tag = "with_shape1"} %2(%arg1) : (tensor<?xf32>, index) -> tensor<?xf32>
     yield %3 : tensor<?xf32>
@@ -722,7 +722,7 @@ func.func @test_separated(%arg0: tensor<?xf32> {plan.shape_profile = #profile0},
 //       CHECK:     %[[dim:.+]] = tensor.dim %[[arg0]], %[[c0]] : tensor<?xf32>
 //       CHECK:     %[[v0:.+]] = tensor.empty() : tensor<10xf32>
 //       CHECK:     %[[extracted_slice:.+]] = tensor.extract_slice %[[v0]][0] [%[[dim]]] [1] : tensor<10xf32> to tensor<?xf32>
-//       CHECK:     %[[v1:.+]] = plan.inline_closed_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>)
+//       CHECK:     %[[v1:.+]] = plan.inline_closed_group target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>)
 //       CHECK:      inputs(%[[arg0]], %[[dim]] : tensor<?xf32>, index)
 //       CHECK:      outs(%[[extracted_slice]] : tensor<?xf32>)
 //       CHECK:      in_attrs [#[[$bounds0]], #[[$nobounds]]]
@@ -735,7 +735,7 @@ func.func @test_separated(%arg0: tensor<?xf32> {plan.shape_profile = #profile0},
 //       CHECK:     %[[v2:.+]] = plan.with_shape %[[extracted_slice_0]](%[[arg1]]) :
 //       CHECK:     %[[v3:.+]] = tensor.empty() : tensor<6xf32>
 //       CHECK:     %[[extracted_slice_1:.+]] = tensor.extract_slice %[[v3]][0] [%[[arg1]]] [1] : tensor<6xf32> to tensor<?xf32>
-//       CHECK:     %[[v4:.+]] = plan.inline_closed_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>)
+//       CHECK:     %[[v4:.+]] = plan.inline_closed_group target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>)
 //       CHECK:      inputs(%[[extracted_slice_0]], %[[arg1]] : tensor<?xf32>, index)
 //       CHECK:      outs(%[[extracted_slice_1]] : tensor<?xf32>)
 //       CHECK:      in_attrs [#[[$bounds1]], #[[$nobounds]]]
@@ -758,7 +758,7 @@ func.func @test_separated(%arg0: tensor<?xf32> {plan.shape_profile = #profile0},
 func.func @test_unneeded_dynamism(%arg0: tensor<?xf32> {plan.shape_profile = #profile0}) -> tensor<?xf32> {
   %0 = stablehlo.constant dense<[1]> : tensor<1xi32>
   %c1 = arith.constant 1 : index
-  %1 = plan.inline_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>) -> tensor<?xf32> {
+  %1 = plan.inline_group target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>) -> tensor<?xf32> {
     %1 = "stablehlo.dynamic_broadcast_in_dim"(%arg0, %0) {broadcast_dimensions = array<i64: 0>} : (tensor<?xf32>, tensor<1xi32>) -> tensor<?xf32>
     %2 = with_shape %1 (%c1) : (tensor<?xf32>, index) -> tensor<?xf32>
     yield %2 : tensor<?xf32>
@@ -777,7 +777,7 @@ func.func @test_unneeded_dynamism(%arg0: tensor<?xf32> {plan.shape_profile = #pr
 //       CHECK:     %[[c1_0:.+]] = arith.constant 1 : index
 //       CHECK:     %[[from_elements:.+]] = tensor.from_elements %[[c1_0]] : tensor<1xindex>
 //       CHECK:     %[[reshape:.+]] = tensor.reshape %[[extracted_slice]](%[[from_elements]]) : (tensor<1xf32>, tensor<1xindex>) -> tensor<?xf32>
-//       CHECK:     %[[v2:.+]] = plan.inline_closed_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>)
+//       CHECK:     %[[v2:.+]] = plan.inline_closed_group target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>)
 //       CHECK:      inputs(%[[arg0]], %[[c1]] : tensor<?xf32>, index)
 //       CHECK:      outs(%[[reshape]] : tensor<?xf32>)
 //       CHECK:      in_attrs [#[[$bounds0]], #[[$nobounds]]]
@@ -802,13 +802,13 @@ func.func @test_connected_regions(%arg0: tensor<?xf32> {plan.shape_profile = #pr
     -> tensor<?xf32> {
   %c0 = arith.constant 0 : index
   %dim = tensor.dim %arg0, %c0 : tensor<?xf32>
-  %0 = plan.inline_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>) attributes {__cluster_target__ = #plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>} -> tensor<?xf32> {
+  %0 = plan.inline_group target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>) attributes {__cluster_target__ = #plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>} -> tensor<?xf32> {
     %2 = stablehlo.exponential %arg0 : tensor<?xf32>
     %3 = with_shape %2(%dim) : (tensor<?xf32>, index) -> tensor<?xf32>
     yield %3 : tensor<?xf32>
   }
   %dim1 = tensor.dim %arg1, %c0 : tensor<?xf32>
-  %1 = plan.inline_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>) attributes {__cluster_target__ = #plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>} -> tensor<?xf32> {
+  %1 = plan.inline_group target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>) attributes {__cluster_target__ = #plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>} -> tensor<?xf32> {
     %2 = stablehlo.add %0, %arg1 : tensor<?xf32>
     %3 = with_shape %2 (%dim1) : (tensor<?xf32>, index) -> tensor<?xf32>
     yield %3 : tensor<?xf32>
@@ -862,11 +862,11 @@ func.func @test_connected_regions_host_values(
                   %arg1: tensor<4xf32>,
                   %arg2: tensor<i32> {tensorrt.host_tensor, plan.value_bounds = #profile0})
                   -> tensor<128xf32> {
-  %0:2 = plan.inline_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>) attributes {__cluster_target__ = #plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>} -> tensor<128xf32>, tensor<i32> {
+  %0:2 = plan.inline_group target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>) attributes {__cluster_target__ = #plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>} -> tensor<128xf32>, tensor<i32> {
     %1 = stablehlo.dynamic_update_slice %arg0, %arg1, %arg2 : (tensor<128xf32>, tensor<4xf32>, tensor<i32>) -> tensor<128xf32>
     yield %1, %arg2 : tensor<128xf32>, tensor<i32>
   }
-  %1 = plan.inline_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>) attributes {__cluster_target__ = #plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>} -> tensor<128xf32> {
+  %1 = plan.inline_group target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>) attributes {__cluster_target__ = #plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>} -> tensor<128xf32> {
     %2 = stablehlo.dynamic_update_slice %arg0, %arg1, %0#1 : (tensor<128xf32>, tensor<4xf32>, tensor<i32>) -> tensor<128xf32>
     yield %2 : tensor<128xf32>
   }
@@ -878,12 +878,12 @@ func.func @test_connected_regions_host_values(
 //   CHECK-DAG: #[[$bounds1:.+]] = #plan.bounds<shape, [128], [128]>
 //   CHECK-DAG: #[[$bounds2:.+]] = #plan.bounds<shape, [], []>
 // CHECK-LABEL: @test_connected_regions_host_values
-//       CHECK:     %[[v2:.+]]:2 = plan.inline_closed_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>)
+//       CHECK:     %[[v2:.+]]:2 = plan.inline_closed_group target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>)
 //  CHECK-NEXT:        inputs({{.+}} : tensor<128xf32>, tensor<4xf32>, tensor<i32>)
 //  CHECK-NEXT:        outs(%{{.+}} : tensor<128xf32>, tensor<i32>)
 //  CHECK-NEXT:        in_attrs [#[[$nobounds]], #[[$nobounds]], #[[$bounds0]]]
 //  CHECK-NEXT:        res_attrs [#[[$bounds1]], #[[$bounds2]]] -> tensor<128xf32>, tensor<i32> {
-//       CHECK:     plan.inline_closed_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>)
+//       CHECK:     plan.inline_closed_group target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>)
 //  CHECK-NEXT:        inputs({{.*}}, %[[v2]]#1 : tensor<128xf32>, tensor<4xf32>, tensor<i32>)
 //  CHECK-NEXT:        outs(%[[v3]] : tensor<128xf32>)
 //  CHECK-NEXT:        in_attrs [#[[$nobounds]], #[[$nobounds]], #[[$bounds0]]]
@@ -915,7 +915,7 @@ func.func @shape_calc(%arg0: tensor<?xf32> {plan.shape_profile = #plan.bounds<sh
   %9 = arith.index_cast %extracted_0 : i32 to index
   %10 = arith.addi %8, %9 : index
   %11 = arith.muli %10, %10 : index
-  %12 = plan.inline_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>) attributes {__cluster_target__ = #plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>} -> tensor<?x?xf32> {
+  %12 = plan.inline_group target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>) attributes {__cluster_target__ = #plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>} -> tensor<?x?xf32> {
     %13 = with_values %arg2(%extracted, %extracted_0) : tensor<2xi32>
     %14 = with_values %arg1(%extracted_1, %extracted_2) : tensor<2xi32>
     %15 = stablehlo.add %14, %13 : tensor<2xi32>
@@ -959,7 +959,7 @@ func.func @shape_calc(%arg0: tensor<?xf32> {plan.shape_profile = #plan.bounds<sh
 //   CHECK-DAG:     %[[extracted_slice:.+]] = tensor.extract_slice %[[v12]][0] [%[[v13]]] [1] : tensor<256xf32> to tensor<?xf32>
 //   CHECK-DAG:     %[[from_elements:.+]] = tensor.from_elements %[[v7]], %[[v11]] : tensor<2xindex>
 //   CHECK-DAG:     %[[reshape:.+]] = tensor.reshape %[[extracted_slice]](%[[from_elements]]) : (tensor<?xf32>, tensor<2xindex>) -> tensor<?x?xf32>
-//       CHECK:     %[[v14:.+]] = plan.inline_closed_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>)
+//       CHECK:     %[[v14:.+]] = plan.inline_closed_group target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>)
 //       CHECK:      inputs(%[[arg2]], %[[extracted]], %[[extracted_0]], %[[arg1]], %[[extracted_1]], %[[extracted_2]], %[[v0]], %[[v1]], %[[v2]], %[[v3]], %[[arg0]], %[[v7]], %[[v11]] :
 //       CHECK:      outs(%[[reshape]] : tensor<?x?xf32>)
 //       CHECK:      in_attrs [#[[$bounds0]],
@@ -978,7 +978,7 @@ func.func @float_tensor_host_access(
   %c1 = arith.constant 1 : index
   %c0 = arith.constant 0 : index
   %extracted = tensor.extract %arg0[%c0] : tensor<2xf32>
-  %0 = plan.inline_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>)
+  %0 = plan.inline_group target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>)
         -> tensor<2xf32> {
     %1 = stablehlo.add %arg0, %arg0 : tensor<2xf32>
     yield %1 : tensor<2xf32>
@@ -1022,7 +1022,7 @@ func.func @scf_while_unused_result(%arg0: tensor<i32>) -> (tensor<i32>) {
     // CHECK: plan.inline_closed_group
     // CHECK: in_attrs [#[[$bounds]], #[[$bounds1]]]
     %3, %4 = plan.inline_group
-        target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>)
+        target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>)
         -> tensor<i32>, tensor<10xf32> {
       %1 = stablehlo.add %arg1, %c1_i32 : tensor<i32>
       plan.yield %1, %arg2  : tensor<i32>, tensor<10xf32>

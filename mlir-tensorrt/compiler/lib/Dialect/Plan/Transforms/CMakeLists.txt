@@ -3,6 +3,7 @@ add_mlir_tensorrt_library(MLIRTensorRTPlanTransforms
   AssignMemorySpaces.cpp
   Bufferize.cpp
   Clustering.cpp
+  ConfirmArgumentDonation.cpp
   CreateClosedRegions.cpp
   CreateShapeFuncs.cpp
   EliminateShapeOps.cpp
@@ -42,13 +43,14 @@ add_mlir_tensorrt_library(MLIRTensorRTPlanTransforms
   MLIRTensorRTAnalysis
   MLIRTensorRTBufferizationScopeInterface
   MLIRTensorRTCUDADialect
-  MLIRTensorRTDialect
+  MLIRTensorRTTensorRTDialect
   MLIRTensorRTDuplicateFunctionElimination
   MLIRTensorRTExecutorDialect
   MLIRTensorRTLowerLinalgCopies
   MLIRTensorRTMemRefCastElimination
   MLIRTensorRTPlanAnalysis
   MLIRTensorRTPlanDialect
+  MLIRTensorRTRegionUtils
   MLIRTensorRTStableHloExtTransforms
   MLIRTensorRTStablehloToTensorRT
   MLIRTensorRTTensorRTRuntimeDialect

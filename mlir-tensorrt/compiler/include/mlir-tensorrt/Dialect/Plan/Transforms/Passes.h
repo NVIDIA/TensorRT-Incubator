@@ -24,7 +24,6 @@
 #ifndef MLIR_TENSORRT_DIALECT_PLAN_TRANSFORMS_PASSES_H
 #define MLIR_TENSORRT_DIALECT_PLAN_TRANSFORMS_PASSES_H
 
-#include "mlir-tensorrt-dialect/Target/TranslateToTensorRT.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir/Dialect/Bufferization/IR/BufferDeallocationOpInterface.h"
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
@@ -63,6 +62,14 @@ struct PlanBufferizationOptions {
   /// Force entrypoint functions to return allocations rather than trying to use
   /// destination-passing (DPS) style.
   bool forceEntrypointsReturnAllocs{false};
+
+  /// Function argument attribute `plan.aliasing_output`, if present, hints
+  /// argument is donated. However, it is not guaranteed that donated argument
+  /// is bufferized to the same buffer as that of result it is donated for,
+  /// after `-plan-module-bufferize` pass. If this flag is set to true, pass
+  /// `-plan-confirm-argument-donation` fails if true donation doesn't happen.
+  /// By default, this flag is set to false.
+  bool failOnDonationArgumentRejection{false};
 
   /// In the buffer deallocation transformation, calls to private functions use
   /// a default behavior where the private function may not assume ownership of

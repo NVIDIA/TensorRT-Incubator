@@ -20,15 +20,9 @@
 #ifndef MLIR_TENSORRT_COMPILER_TENSORRTTOEXECUTABLE
 #define MLIR_TENSORRT_COMPILER_TENSORRTTOEXECUTABLE
 
-#include "mlir-tensorrt/Compiler/Extension.h"
-
-// TODO (pranavm): MLIR_TRT_TARGET_TENSORRT is only needed because we pull in
-// the TranslateToTensorRT.h header. If we move the translation options, we
-// won't need it.
-#ifdef MLIR_TRT_TARGET_TENSORRT
+#include "mlir-tensorrt-common/Support/CommandLineExtras.h"
 #include "mlir-tensorrt-dialect/Target/TranslateToTensorRT.h"
 #include "mlir-tensorrt/Compiler/Client.h"
-#include "mlir-tensorrt/Compiler/Extension.h"
 
 namespace mlirtrt::compiler {
 
@@ -52,7 +46,7 @@ public:
       this->ctx, "tensorrt-engines-dir", llvm::cl::init("")};
   Option<std::string> saveTensorRTLayerInfoDirectory{
       this->ctx, "tensorrt-layer-info-dir", llvm::cl::init("")};
-  Option<std::optional<uint64_t>, mlir::tensorrt::ByteSizeParser>
+  Option<std::optional<uint64_t>, mlir::ByteSizeParser>
       workspaceMemoryPoolLimit{this->ctx,
                                "tensorrt-workspace-memory-pool-limit",
                                llvm::cl::init(std::nullopt)};
@@ -106,18 +100,9 @@ public:
       mlir::MLIRContext *ctx,
       std::unique_ptr<TensorRTToExecutableOptions> options);
 
-  /// Build the clustering pipeline that occurs on TensorRT Ops.
-  static void
-  buildTensorRTClusteringPipeline(mlir::OpPassManager &pm,
-                                  const TensorRTToExecutableOptions &options);
+  static llvm::StringRef getName() { return "tensorrt-to-executable"; }
 
-  /// Build the compilation pipeline that runs after clustering.
-  static void
-  buildPostClusteringPipeline(mlir::OpPassManager &pm,
-                              const TensorRTToExecutableOptions &options);
-
-  static void populatePassManager(mlir::PassManager &pm,
-                                  const TensorRTToExecutableOptions &options);
+  void populatePassManager() final;
 };
 
 /// Register the task/options with the client's registry.
@@ -125,7 +110,4 @@ void registerTensorRTToExecutableTask();
 
 } // namespace mlirtrt::compiler
 
-MLIR_DECLARE_EXPLICIT_TYPE_ID(mlirtrt::compiler::TensorRTToExecutableTask)
-
-#endif // MLIR_TRT_TARGET_TENSORRT
 #endif // MLIR_TENSORRT_COMPILER_TENSORRTTOEXECUTABLE

@@ -24,7 +24,7 @@
 #ifndef MLIR_TENSORRT_TARGET_LUA_TRANSLATETORUNTIMEEXECUTABLE
 #define MLIR_TENSORRT_TARGET_LUA_TRANSLATETORUNTIMEEXECUTABLE
 
-#include "mlir-executor/Runtime/API/API.h"
+#include "mlir-executor/Runtime/API/Executable.h"
 #include "mlir/IR/Operation.h"
 #include "mlir/Support/LLVM.h"
 #include "mlir/Support/LogicalResult.h"

@@ -1,6 +1,6 @@
 //===- StablehloToExecutable.h ----------------------------------*- C++ -*-===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -31,14 +31,10 @@
 #ifndef MLIR_TENSORRT_COMPILER_STABLEHLOTOEXECUTABLE
 #define MLIR_TENSORRT_COMPILER_STABLEHLOTOEXECUTABLE
 
-#include "mlir-executor/Runtime/API/API.h"
-#include "mlir-tensorrt-common/Support/Status.h"
 #include "mlir-tensorrt/Compiler/Client.h"
 #include "mlir-tensorrt/Compiler/Extension.h"
 #include "mlir-tensorrt/Compiler/OptionsProviders.h"
-#include "mlir/IR/BuiltinOps.h"
 #include "mlir/Pass/PassManager.h"
-#include "mlir/Support/TypeID.h"
 
 #ifdef MLIR_TRT_ENABLE_HLO
 
@@ -53,30 +49,13 @@ class StablehloToExecutableTask;
 struct StablehloToExecutableOptions
     : public CompilationTaskOptions<ExecutorOptions, DeviceOptions,
                                     BufferizationOptions> {
-  /// Initializes the options. The extensions in the provided registry
-  /// must be extensions for the StableHloToExecutable task.
-  StablehloToExecutableOptions(TaskExtensionRegistry extensions,
-                               bool enableDebugOptions);
-
-  /// Initializes the options using a default extension set (TensorRT
-  /// extension).
-  StablehloToExecutableOptions(bool enableDebugOptions = false);
+  using CompilationTaskOptions::CompilationTaskOptions;
 
   //===----------------------------------------------------------------------===//
   // Options
   //===----------------------------------------------------------------------===//
 
-  /// TODO: Somehow move this to the TensorRT extension class? This is used when
-  /// populating the default backend metadata. We should instead enable
-  /// specification of backend default as a raw string which is parsed inside
-  /// the `PopulateDefaultBackendMetadata` class.
-  Option<bool> disallowHostTensorsInTensorRTClusters{
-      *this, "plan-clustering-disallow-host-tensors-in-tensorrt-clusters",
-      llvm::cl::init(false),
-      llvm::cl::desc("Don't allow TensorRt clusters to contain host tensor "
-                     "calculations (but they can still be inputs)")};
-
-  /// This is exposed to enable experimentating with disabling certain
+  /// This is exposed to enable experimenting with disabling certain
   /// optimizations applied during pre-processing which may not always be
   /// beneficial.
   ListOption<std::string> stablehloDisableOptimizationPatternSet{
@@ -101,10 +80,6 @@ struct StablehloToExecutableOptions
       llvm::cl::desc("The cost threshold for unrolling for loops. Loops with a "
                      "cost <= the threshold will be unrolled. The cost is "
                      "estimated by counting the number of operations in the "
-                     "loop body and multiplying it by the trip count.The cost "
-                     "threshold for unrolling for loops. Loops with a "
-                     "cost <= the threshold will be unrolled. The cost is "
-                     "estimated by counting the number of operations in the "
                      "loop body and multiplying it by the trip count.")};
 
   Option<bool> hoistAllocsToGlobals{
@@ -113,50 +88,18 @@ struct StablehloToExecutableOptions
           "Hoist large local allocations to static global allocations if "
           "possible. May also apply some memory reuse optimizations.")};
 
-  //===----------------------------------------------------------------------===//
-  // Extension Utilities
-  //===----------------------------------------------------------------------===//
-
-  /// Base class for extensions associated with StableHloToExecutableTask.
-  class ExtensionBase : public TaskExtensionBase {
-  public:
-    ExtensionBase(mlir::TypeID typeID, CompilationTaskOptionsBase &ctx)
-        : TaskExtensionBase(
-              typeID, mlir::TypeID::get<StablehloToExecutableTask>(), ctx) {}
-
-    static bool classof(const TaskExtensionBase *extension) {
-      return extension->getTaskID() ==
-             mlir::TypeID::get<StablehloToExecutableTask>();
-    }
-
-    enum class Phase {
-      ConstantFolding,
-      PreClustering,
-      PostClustering,
-      PreBufferization,
-      PostBufferization,
-      ExecutorLowering
-    };
-
-    /// Hook invoked for populating passes associated with a particular phase.
-    /// It is not guarunteed the order in which different extensions are run
-    /// relative to each other (yet).
-    virtual void
-    populatePasses(mlir::OpPassManager &pm, Phase phase,
-                   const StablehloToExecutableOptions &options) const = 0;
-  };
-
-  /// A StableHLOToExecutableOptions::Extension is an extension that must
-  /// implement the base hooks to modify how a
-  template <typename DerivedTy>
-  class Extension : public ExtensionBase {
-  public:
-    Extension(CompilationTaskOptionsBase &ctx)
-        : ExtensionBase(mlir::TypeID::get<DerivedTy>(), ctx) {}
-  };
-
-  /// List of extensions (in no defined order).
-  TaskExtensionRegistry extensions;
+  ListOption<std::string> defaultBackends{
+      *this, "backends",
+      // clang-format off
+      llvm::cl::list_init<std::string>({
+        "#plan.tensorrt_backend<disallow_shape_tensor_calculations=false, benefit=2>",
+        "#plan.host_backend<benefit=1>"
+      }),
+      // clang-format on
+      llvm::cl::desc(
+          "The default list of backends to use for the compilation if no "
+          "explicit 'plan.backends' attribute is provided on the top-level "
+          "module.")};
 };
 
 //===----------------------------------------------------------------------===//
@@ -170,33 +113,19 @@ class StablehloToExecutableTask
     : public CompilationTask<StablehloToExecutableTask,
                              StablehloToExecutableOptions> {
 public:
-  using Phase = StablehloToExecutableOptions::ExtensionBase::Phase;
+  static llvm::StringRef getName() { return "stablehlo-to-executable"; }
 
   StablehloToExecutableTask(
       mlir::MLIRContext *ctx,
       std::unique_ptr<StablehloToExecutableOptions> options);
 
-  /// Build the clustering pipeline that occurs on Stablehlo Ops.
-  static void
-  buildClusteringPipeline(mlir::OpPassManager &pm,
-                          const StablehloToExecutableOptions &options);
-
-  /// Build the pipeline (bufferization and lowering) that runs after
-  /// clustering.
-  static void
-  buildPostClusteringPipeline(mlir::OpPassManager &pm,
-                              const StablehloToExecutableOptions &options);
-
-  static void populatePassManager(mlir::OpPassManager &pm,
-                                  const StablehloToExecutableOptions &options);
+  void populatePassManager() final;
 };
 
 /// Register the task/options with the client's registry.
 void registerStableHloToExecutableTask();
 
 } // namespace mlirtrt::compiler
-
-MLIR_DECLARE_EXPLICIT_TYPE_ID(mlirtrt::compiler::StablehloToExecutableTask)
 
 #endif // MLIR_TRT_ENABLE_HLO
 #endif // MLIR_TENSORRT_COMPILER_STABLEHLOTOEXECUTABLE

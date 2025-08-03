@@ -198,7 +198,7 @@ bool isHostTensorCandidate(Type type);
 } // namespace mlir
 
 // Include the generated interface declarations.
-#include "mlir-tensorrt-dialect/Interface/TensorKindAttrInterface.h.inc"
-#include "mlir-tensorrt-dialect/Interface/TensorKindOpInterface.h.inc"
+#include "mlir-tensorrt-common/Interfaces/TensorKindAttrInterface.h.inc"
+#include "mlir-tensorrt-common/Interfaces/TensorKindOpInterface.h.inc"
 
 #endif // MLIR_TENSORRT_INTERFACE_TENSORKINDOPINTERFACE_H

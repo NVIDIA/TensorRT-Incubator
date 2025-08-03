@@ -2,9 +2,9 @@
 // RUN:  -plan-segmentation-pipeline -cse -verify-diagnostics %s | FileCheck %s
 
 builtin.module attributes {
-  plan.cluster_kinds = [
-    #plan.tensorrt_cluster<benefit = 1, disallow_shape_tensor_calculations=true, tensorrt_major_version=10>,
-    #plan.host_cluster<benefit = 0>
+  plan.backends = [
+    #plan.tensorrt_backend<benefit = 1, disallow_shape_tensor_calculations=true, tensorrt_major_version=10>,
+    #plan.host_backend<benefit = 0>
   ]
 } {
   func.func @chlo_erf_to_trt_cluster(%arg0: tensor<1x197x3072xf32>) -> tensor<1x197x3072xf32> {
@@ -29,9 +29,9 @@ builtin.module attributes {
 // -----
 
 builtin.module attributes {
-  plan.cluster_kinds = [
-    #plan.tensorrt_cluster<benefit = 1, disallow_shape_tensor_calculations=true, tensorrt_major_version=10>,
-    #plan.host_cluster<benefit = 0>
+  plan.backends = [
+    #plan.tensorrt_backend<benefit = 1, disallow_shape_tensor_calculations=true, tensorrt_major_version=10>,
+    #plan.host_backend<benefit = 0>
   ]
 } {
 
@@ -68,9 +68,9 @@ func.func @reduce(%arg0: tensor<4xi32>, %arg1: tensor<i32>) -> (tensor<i32>, ten
 
 // -----
 builtin.module attributes {
-  plan.cluster_kinds = [
-    #plan.tensorrt_cluster<benefit = 1, disallow_shape_tensor_calculations=true, tensorrt_major_version=10>,
-    #plan.host_cluster<benefit = 0>
+  plan.backends = [
+    #plan.tensorrt_backend<benefit = 1, disallow_shape_tensor_calculations=true, tensorrt_major_version=10>,
+    #plan.host_backend<benefit = 0>
   ]
 } {
 
@@ -92,9 +92,9 @@ func.func @small_reduce_host(%arg0: tensor<4xi32>, %arg1: tensor<i32>)
 
 // CHECK-LABEL: func.func @small_reduce_host
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<4xi32>, %[[arg1:.+]]: tensor<i32>)
-//       CHECK:     %[[v0]]:2 = call @host_cluster(%[[arg1]], %[[arg0]])
+//       CHECK:     %[[v0]]:2 = call @host_backend(%[[arg1]], %[[arg0]])
 //       CHECK:     return %[[v0]]#1, %[[v0]]#0
-// CHECK-LABEL: func.func private @host_cluster
+// CHECK-LABEL: func.func private @host_backend
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<i32>, %[[arg1:.+]]: tensor<4xi32>)
 //       CHECK:     %[[c:.+]] = stablehlo.constant
 //       CHECK:     %[[v0:.+]] = stablehlo.compare  EQ, %[[c]], %[[arg0]]
@@ -104,9 +104,9 @@ func.func @small_reduce_host(%arg0: tensor<4xi32>, %arg1: tensor<i32>)
 // -----
 
 builtin.module attributes {
-  plan.cluster_kinds = [
-    #plan.tensorrt_cluster<benefit = 1, disallow_shape_tensor_calculations=false, tensorrt_major_version=10>,
-    #plan.host_cluster<benefit = 0>
+  plan.backends = [
+    #plan.tensorrt_backend<benefit = 1, disallow_shape_tensor_calculations=false, tensorrt_major_version=10>,
+    #plan.host_backend<benefit = 0>
   ]
 } {
 
@@ -158,9 +158,9 @@ builtin.module attributes {
 // -----
 
 builtin.module @simple_gather_dynamic attributes {
-  plan.cluster_kinds = [
-    #plan.tensorrt_cluster<benefit = 1, disallow_shape_tensor_calculations=false, tensorrt_major_version=10>,
-    #plan.host_cluster<benefit = 0>
+  plan.backends = [
+    #plan.tensorrt_backend<benefit = 1, disallow_shape_tensor_calculations=false, tensorrt_major_version=10>,
+    #plan.host_backend<benefit = 0>
   ]
 } {
   func.func @simple_gather_dynamic(%arg0: tensor<?x?x256x256xi32>, %arg1: tensor<?xi32>) -> tensor<?x?x256x256xi32> {
@@ -213,9 +213,9 @@ builtin.module @simple_gather_dynamic attributes {
 // -----
 
 builtin.module attributes {
-  plan.cluster_kinds = [
-    #plan.tensorrt_cluster<benefit = 1, disallow_shape_tensor_calculations=true, tensorrt_major_version=10>,
-    #plan.host_cluster<benefit = 0>
+  plan.backends = [
+    #plan.tensorrt_backend<benefit = 1, disallow_shape_tensor_calculations=true, tensorrt_major_version=10>,
+    #plan.host_backend<benefit = 0>
   ]
 } {
   func.func @static_type_refinement() -> tensor<?x?xi32>{

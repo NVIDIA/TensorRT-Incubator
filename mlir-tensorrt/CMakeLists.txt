@@ -1,10 +1,17 @@
 cmake_minimum_required(VERSION 3.25)
 project(mlir-tensorrt LANGUAGES CXX C)
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/build_tools/cmake")
 
-# -------------------------------------------------
-# Set CMake behavior policies
-# -------------------------------------------------
-include(build_tools/cmake/CMakePolicy.cmake NO_POLICY_SCOPE)
+include(MTRTCMakePolicy NO_POLICY_SCOPE)
+
+include(CMakeDependentOption)
+include(CMakePrintHelpers)
+include(MTRTCPM)
+include(MTRTDependencies)
+include(MTRTFeatures)
+include(AddMLIRTensorRT)
+include(Version.cmake)
+include(CMakeOptions.cmake)
 
 # -------------------------------------------------
 # Package cache configuration
@@ -15,46 +22,6 @@ if(NOT CPM_SOURCE_CACHE)
   your build directory (for example '$PWD/.cache.cpm')")
 endif()
 
-# -------------------------------------------------
-# Include utils/tools
-# -------------------------------------------------
-include(build_tools/cmake/CPM.cmake)
-include(build_tools/cmake/CompilationOptions.cmake)
-include(build_tools/cmake/Targets.cmake)
-include(build_tools/cmake/Dependencies.cmake)
-include(Version.cmake)
-
-# -------------------------------------------------
-# Project Options / Configuration
-# -------------------------------------------------
-set(MLIR_TRT_FEATURE_FLAGS)
-macro(mtrt_option name)
-  option(${name} ${ARGN})
-  list(APPEND MLIR_TRT_FEATURE_FLAGS ${name})
-endmacro()
-
-mtrt_option(MLIR_TRT_ENABLE_HLO "Whether to include stablehlo features" ON)
-mtrt_option(MLIR_TRT_ENABLE_ASSERTIONS "Enables assertions" ON)
-mtrt_option(MLIR_TRT_TARGET_TENSORRT "Enable exporting TensorRT dialect IR to a TensorRT engine" ON)
-mtrt_option(MLIR_TRT_TARGET_CPP "Enable exporting TensorRT dialect IR to C++ code that calls the TensorRT API" ON)
-mtrt_option(MLIR_TRT_ENABLE_PYTHON "Enable building the mlir_tensorrt_compiler python package." ON)
-mtrt_option(MLIR_TRT_ENABLE_NVTX "Enable NVTX tracing" ON)
-mtrt_option(MLIR_TRT_ENABLE_TESTING "Enable building optional tests" ON)
-mtrt_option(MLIR_TRT_TARGET_LUA "Enable translating MLIR to the Lua target" ON)
-mtrt_option(MLIR_TRT_ENABLE_EXECUTOR "Build the Executor dialect and MLIR-TensorRT Execution Engine" ON)
-mtrt_option(MLIR_TRT_ENABLE_NCCL "Enable the NCCL runtime module" ON)
-mtrt_option(MLIR_TRT_ENABLE_TORCH "Whether to include torch-mlir features" OFF)
-
-set(MLIR_TRT_TENSORRT_DIR "" CACHE STRING "Path to TensorRT install directory")
-set(MLIR_TRT_DOWNLOAD_TENSORRT_VERSION "10.9" CACHE STRING
-   "Version of TensorRT to download and use. It overrides MLIR_TRT_TENSORRT_DIR.")
-set(MLIR_TRT_PACKAGE_CACHE_DIR "" CACHE STRING "Directory where to cache downloaded C++ packages")
-set(MLIR_TRT_USE_LINKER "" CACHE STRING "Specify a linker to use (e.g. LLD); this is just an alias for LLVM_USE_LINKER")
-
-# Configure dependent Executor options.
-set(MLIR_EXECUTOR_ENABLE_NCCL ${MLIR_TRT_ENABLE_NCCL} CACHE BOOL "" FORCE)
-set(MLIR_EXECUTOR_ENABLE_MPI ${MLIR_TRT_ENABLE_NCCL} CACHE BOOL "" FORCE)
-set(MLIR_EXECUTOR_ENABLE_CUBLAS ${MLIR_TRT_ENABLE_CUBLAS} CACHE BOOL "" FORCE)
 
 # List of dialects to embed in the Python package. This is different between internal
 # and public versions of the code.
@@ -62,6 +29,25 @@ set(MLIR_TRT_PYTHON_UPSTREAM_DIALECTS_EMBED
   affine arith bufferization builtin complex func math quant scf
   tensor
   )
+
+# List of dialects to embed in the Python package. This is different between internal
+# and public versions of the code.
+set(MLIR_TRT_PYTHON_UPSTREAM_DIALECTS_EMBED
+  affine arith bufferization builtin complex index func gpu math memref quant scf
+  tensor linalg
+  )
+
+# Specifies whether we require CUDA at build time.
+set(MLIR_TRT_REQUIRES_CUDA FALSE)
+if(MLIR_TRT_TARGET_TENSORRT OR
+   MLIR_TRT_ENABLE_CUBLAS OR
+   MLIR_TRT_ENABLE_NCCL)
+  set(MLIR_TRT_REQUIRES_CUDA TRUE)
+endif()
+
+if(MLIR_TRT_REQUIRES_CUDA AND NOT MLIR_TRT_ENABLE_CUDA)
+  message(FATAL_ERROR "CUDA is required but MLIR_TRT_ENABLE_CUDA is disabled")
+endif()
 
 # -------------------------------------------------
 # Option validation
@@ -85,47 +71,26 @@ endif()
 # project.
 # Enables generation of compile_commands.json for clangd.
 if(PROJECT_IS_TOP_LEVEL)
-  include(build_tools/cmake/CompilerCache.cmake)
+  include(MTRTCompilerCache)
   mtrt_use_compiler_cache()
   set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+  set(CMAKE_BUILD_WITH_INSTALL_NAME_DIR ON)
 endif()
 
-# -------------------------------------------------
-# Option validation
-# -------------------------------------------------
-# Write out a header file containing convenience macros for each flag.
-function(mtrt_write_feature_flags_header)
-  set(feature_flags_header
-    "${CMAKE_CURRENT_BINARY_DIR}/include/mlir-tensorrt/Features.h")
-
-  # Generate the header at configure time
-  file(WRITE "${feature_flags_header}" [[
-  // Auto-generated feature macros, do not edit.
-  #ifndef MLIR_TENSORRT_FEATURES_H
-  #define MLIR_TENSORRT_FEATURES_H
-
-  ]])
-
-  foreach(FEATURE IN LISTS MLIR_TRT_FEATURE_FLAGS)
-      file(APPEND "${feature_flags_header}" "#ifdef ${FEATURE}\n")
-      file(APPEND "${feature_flags_header}" "#define IF_${FEATURE}(code) do { code } while (0)\n")
-      file(APPEND "${feature_flags_header}" "#else\n")
-      file(APPEND "${feature_flags_header}" "#define IF_${FEATURE}(code) do {} while (0)\n")
-      file(APPEND "${feature_flags_header}" "#endif // ${FEATURE}\n\n")
-  endforeach()
-  file(APPEND "${feature_flags_header}" "#endif // MLIR_TENSORRT_FEATURES_H\n")
-endfunction()
-
-mtrt_write_feature_flags_header()
-include_directories("${CMAKE_CURRENT_BINARY_DIR}/include")
+# The CUDA headers will trigger excessive "C++20 extensions warning" with
+# clang19+ in macro usage.
+include(CheckCXXCompilerFlag)
+check_cxx_compiler_flag("-Wc++20-extensions"
+  CXX_SUPPORTS_C20_EXTENSIONS_FLAG)
+if(CXX_SUPPORTS_C20_EXTENSIONS_FLAG)
+  add_compile_options(-Wno-c++20-extensions)
+endif()
 
 # -------------------------------------------------
 # Setup LLVM/MLIR
 # -------------------------------------------------
 find_package(Python3 REQUIRED
   COMPONENTS Interpreter Development)
-
-set(CMAKE_BUILD_WITH_INSTALL_NAME_DIR ON)
 
 if(PROJECT_IS_TOP_LEVEL)
   set(MLIR_TRT_EXTERNAL_PROJECT_BUILD OFF)
@@ -168,11 +133,13 @@ include(AddLLVM)
 include(AddMLIR)
 include(HandleLLVMOptions)
 
-find_package(CUDAToolkit)
-
 # -------------------------------------------------
 # Dependencies
 # -------------------------------------------------
+
+if(MLIR_TRT_REQUIRES_CUDA)
+  find_package(CUDAToolkit REQUIRED)
+endif()
 
 # Download Stablehlo if it isn't provided by a parent project.
 if(MLIR_TRT_ENABLE_HLO)
@@ -191,8 +158,6 @@ endif()
 if(MLIR_TRT_ENABLE_PYTHON)
   mlir_tensorrt_find_dlpack()
 endif()
-
-find_package(MLIRTensorRTCommon REQUIRED)
 
 #--------------------------------------------------
 # Diagnostics
@@ -222,6 +187,9 @@ include_directories(${MLIR_INCLUDE_DIRS})
 link_directories(${LLVM_BUILD_LIBRARY_DIR})
 add_definitions(${LLVM_DEFINITIONS} ${MLIR_TRT_DEFINITIONS})
 
+mtrt_write_feature_flags_header()
+include_directories("${CMAKE_CURRENT_BINARY_DIR}/include")
+
 add_compile_options(-Wno-deprecated-declarations)
 
 include(AddMLIRPython)
@@ -244,13 +212,7 @@ add_custom_target("mlir-tensorrt-doc")
 add_custom_target(check-all-mlir-tensorrt)
 add_custom_target(check-all-mlir-tensorrt-build-only)
 
-if(MLIR_TRT_ENABLE_EXECUTOR)
-  add_subdirectory(executor EXCLUDE_FROM_ALL)
-endif()
-
-add_subdirectory(tensorrt EXCLUDE_FROM_ALL)
-include_directories(${CMAKE_CURRENT_LIST_DIR}/tensorrt/include)
-include_directories(${CMAKE_CURRENT_BINARY_DIR}/tensorrt/include)
-
-add_subdirectory(compiler)
-add_subdirectory(integrations)
+add_subdirectory(common)
+foreach(project_name IN LISTS MLIR_TRT_ENABLE_PROJECTS)
+  add_subdirectory(${project_name})
+endforeach()

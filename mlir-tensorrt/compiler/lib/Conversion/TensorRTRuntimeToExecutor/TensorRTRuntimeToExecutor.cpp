@@ -431,9 +431,6 @@ public:
     MLIRContext *ctx = &getContext();
     LowerToExecutorOptions opts;
     opts.indexType = IntegerType::get(ctx, indexBitwidth);
-    opts.memrefArgPassingConvention =
-        usePackedMemRefCConv ? MemRefArgPassingConvention::Packed
-                             : MemRefArgPassingConvention::Unpacked;
     Operation *op = getOperation();
     FailureOr<DataLayout> dataLayout =
         executor::setDataLayoutSpec(op, indexBitwidth, 64);

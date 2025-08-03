@@ -2,22 +2,16 @@ add_mlir_executor_runtime_capability_library(MLIRTensorRTExecutorRuntimeTensorRT
   TensorRTModule.cpp
 
   LINK_LIBS PUBLIC
-  MLIRTensorRTExecutorRuntimeAPI
+  lua::core
+  MLIRTensorRTCommonIncludes
   MLIRTensorRTExecutorCUDAUtils
-
-  PRIVATE
+  MLIRTensorRTExecutorRuntimeAPI
   MLIRTensorRTExecutorRuntimeCommon
   MLIRTensorRTExecutorRuntimeModuleUtils
-  MLIRTRTTensorRTDynamicLoader
-  MLIRTensorRTSupportAllocators
-  sol2::sol2
-  lua::core
-  nvtx3-cpp
-  TensorRTHeaderOnly
   MLIRTensorRTLuaExtensionRegistry
-)
-
-target_include_directories(MLIRTensorRTExecutorRuntimeTensorRTModule
-  PRIVATE
-  ${MLIR_TENSORRT_ROOT_DIR}/tensorrt/include
+  MLIRTensorRTSupportAllocators
+  MLIRTRTTensorRTDynamicLoader
+  nvtx3-cpp
+  sol2::sol2
+  TensorRTHeaderOnly
 )

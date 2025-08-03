@@ -11,6 +11,6 @@ add_mlir_tensorrt_library(MLIRTensorRTStableHloExtIR
   MLIRIR
   MLIRTensorDialect
   MLIRTensorRTInferTensorValueRangeInterface
-  MLIRTensorRTInterfaces
+  MLIRTensorRTCommonTensorKindInterface
   StablehloOps
 )

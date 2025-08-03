@@ -1,3 +1,8 @@
+mtrt_get_project_targets(
+    TensorRTDialect
+    OUT_VAR MTRTD_LIBS
+)
+
 add_mlir_tensorrt_library(MLIRTensorRTCompilerStableHloToExecutable
     StableHloInputPipelines.cpp
     StablehloToExecutable.cpp
@@ -10,12 +15,14 @@ add_mlir_tensorrt_library(MLIRTensorRTCompilerStableHloToExecutable
     MLIRTensorRTStablehloToExecutableIncGen
 
     LINK_LIBS PUBLIC
+    ${MTRTD_LIBS}
     MLIREmitCTransforms
     MLIRIR
     MLIRLLVMIRTransforms
     MLIRTensorRTChloToStablehloExt
     MLIRTensorRTCommonConvertToLoops
     MLIRTensorRTCompilerClient
+    MLIRTensorRTCompilerIncludes
     MLIRTensorRTCUDAToExecutor
     MLIRTensorRTDropNestedModules
     MLIRTensorRTExecutorTransforms
@@ -32,10 +39,8 @@ add_mlir_tensorrt_library(MLIRTensorRTCompilerStableHloToExecutable
     MLIRTensorRTStablehloToSCF
     MLIRTensorRTStablehloToTensorRT
     MLIRTensorRTTargetLua
-    MLIRTensorRTTargetTensorRT
     MLIRTensorRTTensorRTBackend
     MLIRTensorRTTensorRTToTensorRTRuntime
-    MLIRTensorRTTransforms
     MLIRTensorRTTransformsUnrollForLoops
     StablehloLinalgTransforms
     )

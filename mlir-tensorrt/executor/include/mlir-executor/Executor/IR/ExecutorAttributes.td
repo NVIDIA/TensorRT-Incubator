@@ -57,8 +57,8 @@ def Executor_ValueBoundsAttr : Executor_Attr<"ValueBounds", "value_bounds"> {
   }];
 
   let parameters = (ins
-    "::mlir::DenseElementsAttr":$min,
-    "::mlir::DenseElementsAttr":$max
+    "::mlir::ElementsAttr":$min,
+    "::mlir::ElementsAttr":$max
   );
 
   let assemblyFormat = [{

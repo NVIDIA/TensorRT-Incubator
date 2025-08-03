@@ -23,6 +23,7 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-executor/Transforms/Clustering/Clustering.h"
 #include "mlir-executor/Transforms/Clustering/Patterns.h"
+#include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/PlanInterfaces.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
@@ -42,13 +43,13 @@ namespace mlir::plan {
 using namespace mlir;
 using namespace mlir::plan;
 
-static ClusterKindAttrInterface getClusterTargetForRegionOp(Operation *op) {
+static CompilerBackendAttrInterface getClusterTargetForRegionOp(Operation *op) {
   if (auto regionOp = dyn_cast<plan::InlineGroupOp>(op))
-    return cast<ClusterKindAttrInterface>(regionOp.getTarget());
+    return cast<CompilerBackendAttrInterface>(regionOp.getTarget());
   if (auto regionOp = dyn_cast<plan::InlineClosedGroupOp>(op))
-    return cast<ClusterKindAttrInterface>(regionOp.getTarget());
+    return cast<CompilerBackendAttrInterface>(regionOp.getTarget());
   if (auto regionOp = dyn_cast<plan::InlineClosedAllocGroupOp>(op))
-    return cast<ClusterKindAttrInterface>(regionOp.getTarget());
+    return cast<CompilerBackendAttrInterface>(regionOp.getTarget());
   llvm_unreachable("unknown cluster region op kind");
 }
 
@@ -56,7 +57,7 @@ static ClusterKindAttrInterface getClusterTargetForRegionOp(Operation *op) {
 static FailureOr<OutlineRegionOptions>
 getOutliningParam(InputKind inputKind, Operation *op,
                   SymbolTable &moduleSymbolTable) {
-  ClusterKindAttrInterface target = getClusterTargetForRegionOp(op);
+  CompilerBackendAttrInterface target = getClusterTargetForRegionOp(op);
   std::optional<OutlineRegionOptions> opts = target.getClusterOutliningOptions(
       inputKind, op->getContext(), moduleSymbolTable);
   if (!opts)
@@ -76,7 +77,7 @@ createFunctionsFromRegions(InputKind inputKind, RewriterBase &rewriter,
              plan::InlineClosedAllocGroupOp>(op))
       return WalkResult::advance();
 
-    ClusterKindAttrInterface backend = getClusterTargetForRegionOp(op);
+    CompilerBackendAttrInterface backend = getClusterTargetForRegionOp(op);
 
     /// TODO: currently the interface has two different ways to specify
     /// outlining. We should reduce this to a single interface method.
@@ -128,7 +129,7 @@ public:
     for (func::FuncOp func : funcs) {
       SmallVector<plan::InlineGroupOp> clusters;
       func->walk([&](plan::InlineGroupOp clusterOp) {
-        if (!isa<ClusterKindAttrInterface>(clusterOp.getTarget()))
+        if (!isa<CompilerBackendAttrInterface>(clusterOp.getTarget()))
           return WalkResult::advance();
         clusters.push_back(clusterOp);
         return WalkResult::skip();

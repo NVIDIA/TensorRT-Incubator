@@ -27,6 +27,7 @@
 #if defined(__GNUC__) || defined(__clang__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmissing-braces"
+#pragma GCC diagnostic ignored "-Wcovered-switch-default"
 #endif
 #include "nvtx3/nvtx3.hpp"
 #if defined(__GNUC__) || defined(__clang__)

@@ -1,6 +1,6 @@
 //===- TranslateToTensorRT.cpp ----------------------------------*- C++ -*-===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -17,7 +17,9 @@
 // limitations under the License.
 //
 //===----------------------------------------------------------------------===//
-// Registers translation MLIR -> TensorRT engine.
+///
+/// Registers translation MLIR -> TensorRT engine.
+///
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt-dialect/Target/TranslateToTensorRT.h"
 #include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
@@ -28,6 +30,10 @@
 #include "mlir/Interfaces/FunctionInterfaces.h"
 #include "mlir/Tools/mlir-translate/Translation.h"
 #include "llvm/Support/raw_ostream.h"
+
+#ifdef MLIR_TRT_TARGET_TENSORRT
+#include "mlir-tensorrt-dialect/Utils/NvInferAdaptor.h"
+#endif // MLIR_TRT_TARGET_TENSORRT
 
 static mlir::LogicalResult translateToTensorRT(mlir::Operation *op,
                                                llvm::raw_ostream &os);
@@ -56,6 +62,7 @@ using namespace mlir;
 using namespace mlir::tensorrt;
 
 static LogicalResult translateToTensorRT(Operation *op, llvm::raw_ostream &os) {
+#ifdef MLIR_TRT_TARGET_TENSORRT
   auto moduleOp = dyn_cast<ModuleOp>(op);
   if (!moduleOp)
     return failure();
@@ -74,4 +81,7 @@ static LogicalResult translateToTensorRT(Operation *op, llvm::raw_ostream &os) {
     break;
   }
   return success();
+#else
+  return emitError(op->getLoc()) << "not compiled with MLIR-TensorRT support";
+#endif // MLIR_TRT_TARGET_TENSORRT
 }

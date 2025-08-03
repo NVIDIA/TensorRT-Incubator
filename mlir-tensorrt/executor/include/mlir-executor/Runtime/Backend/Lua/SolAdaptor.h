@@ -31,6 +31,7 @@
 #pragma GCC diagnostic ignored "-Wstring-conversion"
 #pragma GCC diagnostic ignored "-Wcovered-switch-default"
 #endif
+#define SOL_ALL_SAFETIES_ON 1
 #include "sol/sol.hpp"
 #if defined(__clang__)
 #pragma GCC diagnostic pop

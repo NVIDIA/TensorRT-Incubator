@@ -28,13 +28,14 @@
 #include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/Threading.h"
+#include <cstddef>
 #include <cstdlib>
 
-#ifdef MLIR_EXECUTOR_ENABLE_CUDA
+#ifdef MLIR_TRT_ENABLE_CUDA
 #include "cuda_runtime_api.h"
 #endif
 
-#ifdef MLIR_EXECUTOR_ENABLE_NCCL
+#ifdef MLIR_TRT_ENABLE_NCCL
 #define OMPI_SKIP_MPICXX
 #if defined(__clang__) || defined(__GNUC__)
 #pragma GCC diagnostic push
@@ -45,7 +46,7 @@
 #if defined(__clang__) || defined(__GNUC__)
 #pragma GCC diagnostic pop
 #endif
-#endif //  MLIR_EXECUTOR_ENABLE_NCCL
+#endif //  MLIR_TRT_ENABLE_NCCL
 
 using namespace mlirtrt;
 namespace rt = mlirtrt::runtime;
@@ -84,6 +85,8 @@ int64_t rt::getBitsPerElement(ScalarTypeCode elType) {
   case ScalarTypeCode::f8e4m3fn:
     return 8;
   case ScalarTypeCode::i4:
+    return 4;
+  case ScalarTypeCode::f4e2m1fn:
     return 4;
   // We treat i1 types as having byte-level storage currently.
   case ScalarTypeCode::i1:
@@ -337,7 +340,7 @@ bool RuntimeSessionOptions::isFeatureEnabled(llvm::StringRef feature) const {
 
 StatusOr<RuntimeSessionOptions>
 RuntimeSessionOptions::createUsingSingleHostMpi() {
-#ifdef MLIR_EXECUTOR_ENABLE_NCCL
+#ifdef MLIR_TRT_ENABLE_NCCL
   auto getErrStatus = [](llvm::StringRef msg, int32_t errCode) {
     llvm::SmallString<MPI_MAX_ERROR_STRING> str;
     str.resize(MPI_MAX_ERROR_STRING);
@@ -385,10 +388,10 @@ RuntimeSessionOptions::createUsingSingleHostMpi() {
     return getErrStatus("MPI_Comm_rank failed", errCode);
 
   return RuntimeSessionOptions(size, rank, uniqueIdStr);
-#else  // MLIR_EXECUTOR_ENABLE_NCCL
+#else  // MLIR_TRT_ENABLE_NCCL
   return getInternalErrorStatus(
       "MLIR-TensorRT was not configured and built with MPI and NCCL support");
-#endif // MLIR_EXECUTOR_ENABLE_NCCL
+#endif // MLIR_TRT_ENABLE_NCCL
 }
 
 //===----------------------------------------------------------------------===//
@@ -483,9 +486,10 @@ StatusOr<PointerInfo> runtime::allocate(AllocTracker &tracker, PointerType type,
     // allocations, make sure to adjust size upward. The frontend may request
     // e.g. 4 bytes aligned to 16 byte boundary because it chose some minimum
     // alignment dumbly.
+    alignment = std::max<uint32_t>(*alignment, alignof(std::max_align_t));
     size = llvm::alignTo(size, *alignment);
     uintptr_t mem =
-        reinterpret_cast<uintptr_t>(::aligned_alloc(*alignment, size));
+        reinterpret_cast<uintptr_t>(std::aligned_alloc(*alignment, size));
     if (mem == 0)
       return mlirtrt::getInternalErrorStatus(
           "failed to allocate memory on host");
@@ -495,7 +499,7 @@ StatusOr<PointerInfo> runtime::allocate(AllocTracker &tracker, PointerType type,
     return info;
   }
 
-#ifdef MLIR_EXECUTOR_ENABLE_CUDA
+#ifdef MLIR_TRT_ENABLE_CUDA
   if (type == PointerType::device) {
     size = std::max<size_t>(size, 16);
     if (!stream) {
@@ -559,7 +563,7 @@ mlirtrt::Status runtime::safeDeallocate(AllocTracker &tracker, uintptr_t ptr,
     return Status::getOk();
   }
 
-#ifdef MLIR_EXECUTOR_ENABLE_CUDA
+#ifdef MLIR_TRT_ENABLE_CUDA
   if (obj.type == PointerType::device || obj.type == PointerType::unified) {
     if (stream && *stream != 0) {
       MTRT_DBGF("Asynchronously freeing CUDA device/pinned host memory 0x%lx "
@@ -910,8 +914,9 @@ DefaultClientAllocator::allocate(PointerType type, uint64_t size,
     // allocations, make sure to adjust size upward. The frontend may request
     // e.g. 4 bytes aligned to 16 byte boundary because it chose some minimum
     // alignment dumbly.
+    alignment = std::max<uint32_t>(*alignment, alignof(std::max_align_t));
     size = llvm::alignTo(size, *alignment);
-    void *mem = ::aligned_alloc(*alignment, size);
+    void *mem = std::aligned_alloc(*alignment, size);
     if (mem == 0)
       return mlirtrt::getInternalErrorStatus(
           "failed to allocate memory on host");
@@ -923,7 +928,7 @@ DefaultClientAllocator::allocate(PointerType type, uint64_t size,
                                  PointerType::host, this, {});
   }
 
-#ifdef MLIR_EXECUTOR_ENABLE_CUDA
+#ifdef MLIR_TRT_ENABLE_CUDA
   if (type == PointerType::device) {
     size = std::max<size_t>(size, 16);
     if (!stream) {
@@ -985,7 +990,7 @@ Status DefaultClientAllocator::deallocate(MemRefStorage &storage) {
     return Status::getOk();
   }
 
-#ifdef MLIR_EXECUTOR_ENABLE_CUDA
+#ifdef MLIR_TRT_ENABLE_CUDA
   if (pointerType == PointerType::device ||
       pointerType == PointerType::unified) {
     if (stream) {
@@ -1037,7 +1042,7 @@ static Status parseDebugFlags() {
 
 static mlirtrt::Status
 populateDevices(llvm::SmallVectorImpl<std::unique_ptr<Device>> &devices) {
-#ifdef MLIR_EXECUTOR_ENABLE_CUDA
+#ifdef MLIR_TRT_ENABLE_CUDA
   int32_t numDevices = 0;
   // Find the number of devices. In single-process mode, the "addressable
   // devices" is equivalent to any devices the process can view, but this
@@ -1160,7 +1165,7 @@ StatusOr<std::unique_ptr<MemRefValue>>
 RuntimeClient::copyToDevice(const MemRefValue &hostBufferImpl,
                             const Device &device,
                             std::optional<CudaStream> cudaStream) {
-#ifdef MLIR_EXECUTOR_ENABLE_CUDA
+#ifdef MLIR_TRT_ENABLE_CUDA
   if (!isHostVisible(hostBufferImpl.getAddressSpace()))
     return getInvalidArgStatus(
         "to copy a MemRef to a device its data must reside in an address space "
@@ -1228,7 +1233,7 @@ RuntimeClient::copyToDevice(const MemRefValue &hostBufferImpl,
 StatusOr<std::unique_ptr<MemRefValue>>
 RuntimeClient::copyToHost(const MemRefValue &deviceMemRef,
                           std::optional<CudaStream> cudaStream) {
-#ifdef MLIR_EXECUTOR_ENABLE_CUDA
+#ifdef MLIR_TRT_ENABLE_CUDA
   if (!isDeviceVisible(deviceMemRef.getAddressSpace()))
     return getInvalidArgStatus("to copy a MemRef to the host from a device, "
                                "its data must reside in an address space "
@@ -1268,7 +1273,7 @@ RuntimeClient::copyToHost(const MemRefValue &deviceMemRef,
 Status RuntimeClient::copyToHost(const MemRefValue &deviceMemRef,
                                  MemRefValue &hostMemRef,
                                  std::optional<CudaStream> stream) {
-#ifdef MLIR_EXECUTOR_ENABLE_CUDA
+#ifdef MLIR_TRT_ENABLE_CUDA
   if (!isDeviceVisible(deviceMemRef.getAddressSpace()))
     return getInvalidArgStatus(
         "to copy a MemRef to the host from a device, "
@@ -1321,7 +1326,7 @@ RuntimeClient::~RuntimeClient() = default;
 //===----------------------------------------------------------------------===//
 
 StatusOr<std::string> runtime::getCommunicatorUniqueId() {
-#ifdef MLIR_EXECUTOR_ENABLE_NCCL
+#ifdef MLIR_TRT_ENABLE_NCCL
   ncclUniqueId id;
   RETURN_ERROR_IF_NCCL_ERROR(ncclGetUniqueId(&id), nullptr);
   std::string asString = std::string(id.internal, NCCL_UNIQUE_ID_BYTES);
@@ -1398,8 +1403,6 @@ llvm::raw_ostream &rt::print(llvm::raw_ostream &os, const TypeUnionView &arg) {
     return print(os, arg.get<MemRefTypeView>());
   if (arg.isa<ScalarTypeView>())
     return print(os, arg.get<ScalarTypeView>());
-  if (arg.isa<ExternalOpaqueTypeView>())
-    return print(os, arg.get<ExternalOpaqueTypeView>());
   return os << "UNK";
 }
 
@@ -1478,11 +1481,6 @@ llvm::raw_ostream &rt::print(llvm::raw_ostream &os, const MemRefTypeView &exe) {
 llvm::raw_ostream &rt::print(llvm::raw_ostream &os,
                              const ScalarTypeView &scalarType) {
   return os << impl::EnumNameScalarTypeCode(scalarType);
-}
-llvm::raw_ostream &rt::print(llvm::raw_ostream &os,
-                             const ExternalOpaqueTypeView &type) {
-  return os << "ExternalOpaqueRefType<"
-            << impl::EnumNameExternalOpaqueRefKind(type) << ">";
 }
 llvm::raw_ostream &rt::print(llvm::raw_ostream &os,
                              const FunctionSignatureView &signature) {

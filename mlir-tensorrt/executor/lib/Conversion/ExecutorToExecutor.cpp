@@ -127,14 +127,8 @@ struct ConvertExecutorCall
     SmallVector<Type> resultTypes;
     if (failed(typeConverter->convertTypes(op->getResultTypes(), resultTypes)))
       return failure();
-
-    ImplicitLocOpBuilder b(op.getLoc(), rewriter);
-    SmallVector<Value> operands = convertFuncCallOperands(
-        rewriter, op.getLoc(), op.getOperands(), adaptor.getOperands(),
-        getTypeConverter()->getOptions().memrefArgPassingConvention);
-
-    rewriter.replaceOpWithNewOp<executor::CallOp>(op, resultTypes,
-                                                  op.getCallee(), operands);
+    rewriter.replaceOpWithNewOp<executor::CallOp>(
+        op, resultTypes, op.getCallee(), adaptor.getOperands());
     return success();
   }
 };
@@ -276,14 +270,20 @@ class ConvertExecutorToExecutorPass
           ConvertExecutorToExecutorPass> {
 public:
   using Base::Base;
+
+  ConvertExecutorToExecutorPass(
+      const executor::ConvertExecutorToExecutorPassOptions
+          &executorToExecutorOpts,
+      const std::function<void(TypeConverter &)>
+          &populateAdditionalTypeConversions)
+      : Base(executorToExecutorOpts),
+        populateAdditionalTypeConversions(populateAdditionalTypeConversions) {}
+
   void runOnOperation() override {
     MLIRContext *ctx = &getContext();
     ConversionTarget target(*ctx);
     LowerToExecutorOptions opts;
     opts.indexType = IntegerType::get(ctx, indexBitwidth);
-    opts.memrefArgPassingConvention =
-        usePackedMemRefCConv ? executor::MemRefArgPassingConvention::Packed
-                             : executor::MemRefArgPassingConvention::Unpacked;
     Operation *op = getOperation();
     FailureOr<DataLayout> dataLayout =
         executor::setDataLayoutSpec(op, indexBitwidth, 64);
@@ -293,7 +293,11 @@ public:
              "inconsistent with provided options";
       return signalPassFailure();
     }
+
     ExecutorTypeConverter typeConverter(ctx, opts, std::move(*dataLayout));
+    if (populateAdditionalTypeConversions)
+      populateAdditionalTypeConversions(typeConverter);
+
     RewritePatternSet patterns(ctx);
     executor::populateExecutorStructuralConversionPatternsAndLegality(
         patterns, typeConverter, target);
@@ -305,5 +309,16 @@ public:
     if (failed(convertExecutorFunctionMetadataAttrs(op, typeConverter)))
       return signalPassFailure();
   }
+
+private:
+  std::function<void(TypeConverter &)> populateAdditionalTypeConversions{};
 };
 } // namespace
+
+std::unique_ptr<Pass> mlir::executor::createConvertExecutorToExecutorPass(
+    const ConvertExecutorToExecutorPassOptions &executorToExecutorOpts,
+    const std::function<void(TypeConverter &)>
+        &populateAdditionalTypeConversions) {
+  return std::make_unique<ConvertExecutorToExecutorPass>(
+      executorToExecutorOpts, populateAdditionalTypeConversions);
+}

@@ -15,16 +15,15 @@
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #endif
-#include "NvInfer.h"
+#include <NvInferRuntime.h>
 #if defined(__GNUC__) || defined(__clang__)
 #pragma GCC diagnostic pop
 #endif
 
 #include "cuda.h"
-#include <NvInferRuntime.h>
+#include "cuda_runtime_api.h"
 #include <array>
 #include <cstdint>
-#include <cuda_runtime_api.h>
 
 namespace mtrt {
 

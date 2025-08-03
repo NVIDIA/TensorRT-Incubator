@@ -1,6 +1,6 @@
 //===- StableHloToExecutable.cpp ------------------------------------------===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -30,6 +30,7 @@
 #include "mlir-tensorrt/Compiler/OptionsProviders.h"
 #include "mlir-tensorrt/Compiler/StablehloToExecutable/Passes.h"
 #include "mlir-tensorrt/Compiler/StablehloToExecutable/TensorRTExtension.h"
+#include "mlir-tensorrt/Conversion/CUDAToExecutor/CUDAToExecutor.h"
 #include "mlir-tensorrt/Conversion/Passes.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
 #include "mlir-tensorrt/Dialect/StablehloExt/Transforms/Passes.h"
@@ -43,6 +44,7 @@
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/LLVMIR/Transforms/RequestCWrappers.h"
 #include "mlir/Dialect/MemRef/Transforms/Passes.h"
+#include "mlir/Pass/Pass.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/Passes.h"
 #include <memory>
@@ -69,30 +71,6 @@ convertBufferizationOptions(const StablehloToExecutableOptions &pipelineOpts) {
 }
 
 //===----------------------------------------------------------------------===//
-// StableHLOToExecutableOptions
-//===----------------------------------------------------------------------===//
-
-StablehloToExecutableOptions::StablehloToExecutableOptions(
-    TaskExtensionRegistry extensions, bool enableDebugOptions)
-    : CompilationTaskOptions(enableDebugOptions),
-      extensions(std::move(extensions)) {
-  for (const auto &[typeID, builder] : this->extensions.builders) {
-    this->extensions.extensions[typeID] = builder(*this);
-  }
-}
-
-static TaskExtensionRegistry getDefaultExtensions() {
-  TaskExtensionRegistry extensions;
-  extensions.registerExtension<StablehloToExecutableTensorRTExtension>();
-  return extensions;
-}
-
-StablehloToExecutableOptions::StablehloToExecutableOptions(
-    bool enableDebugOptions)
-    : mlirtrt::compiler::StablehloToExecutableOptions(getDefaultExtensions(),
-                                                      enableDebugOptions) {}
-
-//===----------------------------------------------------------------------===//
 // StableHloToExecutableTask
 //===----------------------------------------------------------------------===//
 
@@ -100,75 +78,12 @@ StablehloToExecutableTask::StablehloToExecutableTask(
     MLIRContext *ctx, std::unique_ptr<StablehloToExecutableOptions> options)
     : CompilationTask(ctx, std::move(options)) {}
 
-static void populateExtensionPasses(
-    mlir::OpPassManager &pm, const StablehloToExecutableOptions &options,
-    StablehloToExecutableOptions::ExtensionBase::Phase phase) {
-  for (auto &[key, ext] : options.extensions) {
-    llvm::cast<StablehloToExecutableOptions::ExtensionBase>(ext.get())
-        ->populatePasses(pm, phase, options);
+static void populateExtensionPasses(mlir::OpPassManager &pm,
+                                    const StablehloToExecutableOptions &options,
+                                    Phase phase, ExtensionList &extensions) {
+  for (auto &[key, ext] : extensions) {
+    ext->populatePasses(pm, phase);
   }
-}
-
-void StablehloToExecutableTask::buildClusteringPipeline(
-    OpPassManager &pm, const StablehloToExecutableOptions &opts) {
-
-  // Add pre-clustering extension passes
-  populateExtensionPasses(pm, opts, Phase::PreClustering);
-
-  plan::ClusteringPassOptions clusteringOpts{};
-  clusteringOpts.entrypoint = opts.entrypoint;
-  clusteringOpts.inputKind = plan::InputKind::Stablehlo;
-  plan::buildPlanSegmentationPipeline(pm, clusteringOpts);
-
-  // Compile outlined scalarizable host clusters.
-  pm.addNestedPass<func::FuncOp>(createProcessStablehloHostClustersPass());
-  pm.addNestedPass<func::FuncOp>(createConvertStablehloConstantsToArithPass());
-
-  populateExtensionPasses(pm, opts, Phase::PostClustering);
-
-  pm.addNestedPass<func::FuncOp>(plan::createPostClusteringValidationPass());
-
-  // We then perform some final simplification on the top-level func.func ops
-  // (e.g. public entrypoint functions).
-  pm.addNestedPass<func::FuncOp>(createSCFDetensorizeLoopsPass());
-  pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
-}
-
-void StablehloToExecutableTask::buildPostClusteringPipeline(
-    OpPassManager &pm, const StablehloToExecutableOptions &opts) {
-  using Phase = StablehloToExecutableOptions::ExtensionBase::Phase;
-  populateExtensionPasses(pm, opts, Phase::PreBufferization);
-
-  // Perform bufferization.
-  plan::buildPlanBufferizationPipeline(pm, convertBufferizationOptions(opts));
-
-  populateExtensionPasses(pm, opts, Phase::PostBufferization);
-  HostTarget hostTarget = opts.hostTarget;
-
-  if (hostTarget == HostTarget::Executor && opts.hoistAllocsToGlobals) {
-    pm.addPass(executor::createExecutorAllocsToGlobalsPass());
-  }
-
-  pm.addPass(createConvertMemRefToCUDAPass());
-
-  if (hostTarget == HostTarget::Executor) {
-    pm.addPass(createConvertPlanToExecutorPass());
-    pm.addNestedPass<func::FuncOp>(
-        executor::createExecutorPopulateFunctionMetadataPass());
-  }
-
-  populateExtensionPasses(pm, opts, Phase::ExecutorLowering);
-
-  if (hostTarget == HostTarget::Executor) {
-    ConvertCUDAToExecutorPassOptions cudaToExecutorOpts;
-    cudaToExecutorOpts.indexBitwidth =
-        opts.get<ExecutorOptions>().indexBitwidth;
-    cudaToExecutorOpts.usePackedMemRefCConv =
-        opts.get<ExecutorOptions>().usePackedMemRefCConv;
-    pm.addPass(createConvertCUDAToExecutorPass(cudaToExecutorOpts));
-  }
-
-  pm.addPass(createDropNestedModulesPass());
 }
 
 static void addCleanupPasses(OpPassManager &pm) {
@@ -176,11 +91,17 @@ static void addCleanupPasses(OpPassManager &pm) {
   pm.addPass(mlir::createCanonicalizerPass());
 }
 
-void StablehloToExecutableTask::populatePassManager(
-    mlir::OpPassManager &pm, const StablehloToExecutableOptions &options) {
+void StablehloToExecutableTask::populatePassManager() {
+  const StablehloToExecutableOptions &options = getOptions();
+  mlir::PassManager &pm = *this;
+
+  assert(pm.getPasses().empty() && "expected empty pass manager");
+
   pm.addPass(createPopulateDefaultBackendMetadataPass(
       PopulateDefaultBackendMetadataPassOptions{
-          options.disallowHostTensorsInTensorRTClusters, NV_TENSORRT_MAJOR}));
+          /*defaultBackends=*/SmallVector<std::string>(
+              options.defaultBackends.begin(),
+              options.defaultBackends.end())}));
 
   // StableHLO Preprocessing
   mlirtrt::compiler::StableHloInputOptions opts{};
@@ -207,21 +128,70 @@ void StablehloToExecutableTask::populatePassManager(
         pm.addNestedPass<func::FuncOp>(stablehlo_ext::createConstantFoldingPass(
             stablehlo_ext::ConstantFoldingPassOptions{
                 opts.constantFoldSizeLimit}));
-        populateExtensionPasses(pm, options,
-                                StablehloToExecutableOptions::ExtensionBase::
-                                    Phase::ConstantFolding);
+        populateExtensionPasses(pm, options, Phase::ConstantFolding,
+                                extensions);
       });
 
-  buildClusteringPipeline(pm, options);
+  // Add pre-clustering extension passes
+  populateExtensionPasses(pm, options, Phase::PreClustering, extensions);
 
-  buildPostClusteringPipeline(pm, options);
+  plan::ClusteringPassOptions clusteringOpts{};
+  clusteringOpts.entrypoint = options.entrypoint;
+  clusteringOpts.inputKind = plan::InputKind::Stablehlo;
+  plan::buildPlanSegmentationPipeline(pm, clusteringOpts);
 
-  HostTarget hostTarget = options.hostTarget;
+  // Compile outlined scalarizable host clusters.
+  pm.addNestedPass<func::FuncOp>(createProcessStablehloHostClustersPass());
+  pm.addNestedPass<func::FuncOp>(createConvertStablehloConstantsToArithPass());
+
+  populateExtensionPasses(pm, options, Phase::PostClustering, extensions);
+
+  pm.addNestedPass<func::FuncOp>(plan::createPostClusteringValidationPass());
+
+  // We then perform some final simplification on the top-level func.func ops
+  // (e.g. public entrypoint functions).
+  pm.addNestedPass<func::FuncOp>(createSCFDetensorizeLoopsPass());
+  pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
+
+  populateExtensionPasses(pm, options, Phase::PreBufferization, extensions);
+
+  // Perform bufferization.
+  plan::buildPlanBufferizationPipeline(pm,
+                                       convertBufferizationOptions(options));
+
+  populateExtensionPasses(pm, options, Phase::PostBufferization, extensions);
+  const HostTarget hostTarget = options.hostTarget;
+
+  if (hostTarget == HostTarget::Executor && options.hoistAllocsToGlobals) {
+    pm.addPass(executor::createExecutorAllocsToGlobalsPass());
+  }
+
+  pm.addPass(createConvertMemRefToCUDAPass());
+
+  if (hostTarget == HostTarget::Executor) {
+    pm.addPass(createConvertPlanToExecutorPass());
+    pm.addNestedPass<func::FuncOp>(
+        executor::createExecutorPopulateFunctionMetadataPass());
+  }
+
+  populateExtensionPasses(pm, options, Phase::ExecutorLowering, extensions);
+
+  if (hostTarget == HostTarget::Executor) {
+    ConvertCUDAToExecutorPassOptions cudaToExecutorOpts;
+    cudaToExecutorOpts.indexBitwidth =
+        options.get<ExecutorOptions>().indexBitwidth;
+    pm.addPass(createConvertCUDAToExecutorPass(cudaToExecutorOpts));
+  }
+
+  pm.addPass(createDropNestedModulesPass());
+
   if (hostTarget == HostTarget::Executor) {
     mlir::executor::ConvertStdToExecutorPassOptions stdToExecOpts;
     stdToExecOpts.indexBitwidth = options.get<ExecutorOptions>().indexBitwidth;
-    stdToExecOpts.usePackedMemRefCConv = true;
-    mlir::executor::buildExecutorLoweringPipeline(pm, stdToExecOpts);
+    mlir::executor::buildExecutorLoweringPipeline(
+        pm, stdToExecOpts, [](mlir::TypeConverter &typeConverter) {
+          mlir::populateCUDAToExecutorTypeConversions(typeConverter);
+        });
     return;
   }
 
@@ -270,45 +240,9 @@ void StablehloToExecutableTask::populatePassManager(
 }
 
 void mlirtrt::compiler::registerStableHloToExecutableTask() {
-  registerCompilationTask<StablehloToExecutableTask>(
-      "stablehlo-to-executable",
-      [](CompilerClient &client, llvm::ArrayRef<llvm::StringRef> options,
-         bool enableDebugOptions) -> StatusOr<CompilationTaskBase *> {
-        // Load available extensions.
-        mlir::MLIRContext *context = client.getContext();
-        mlir::plan::PlanDialect *planDialect =
-            context->getLoadedDialect<mlir::plan::PlanDialect>();
-        compiler::TaskExtensionRegistry extensions =
-            planDialect->extensionConstructors
-                .getExtensionRegistryForTask<StablehloToExecutableTask>();
-
-        auto opts = std::make_unique<StablehloToExecutableOptions>(
-            std::move(extensions), enableDebugOptions);
-
-        std::string err;
-        if (failed(opts->parse(options, err)))
-          return getInvalidArgStatus(
-              "failed to parse options string \"{0:$[ ]}\" due to error {1}",
-              llvm::iterator_range(options), err);
-
-        std::optional<llvm::hash_code> hashCode = opts->getHash();
-        if (!hashCode)
-          return getInvalidArgStatus("failed to hash options");
-
-        CompilationTaskBase *cached = client.lookupCachedCompilationTask(
-            mlir::TypeID::get<StablehloToExecutableTask>(), *hashCode);
-        if (cached)
-          return cached;
-
-        auto newPM = std::make_unique<StablehloToExecutableTask>(
-            client.getContext(), std::move(opts));
-        auto ptr = newPM.get();
-        client.updateCachedCompilationTask<StablehloToExecutableTask>(
-            *hashCode, std::move(newPM));
-        return ptr;
-      });
+  registerCompilationTaskWithNoExtensions<StablehloToExecutableTask,
+                                          StablehloToExecutableOptions>(
+      mlirtrt::compiler::StablehloToExecutableTask::getName());
 }
-
-MLIR_DEFINE_EXPLICIT_TYPE_ID(mlirtrt::compiler::StablehloToExecutableTask)
 
 #endif // MLIR_TRT_ENABLE_HLO

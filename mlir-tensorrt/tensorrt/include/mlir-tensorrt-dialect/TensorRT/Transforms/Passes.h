@@ -20,7 +20,7 @@
 #ifndef MLIR_TENSORRT_DIALECT_TENSORRT_TRANSFORMS_PASSES
 #define MLIR_TENSORRT_DIALECT_TENSORRT_TRANSFORMS_PASSES
 
-#include "mlir-tensorrt-dialect/Utils/TensorRTVersion.h"
+#include "mlir-tensorrt-common/Utils/TensorRTVersion.h"
 #include "mlir/Pass/PassManager.h"
 #include <memory>
 #include <mlir/Pass/Pass.h>

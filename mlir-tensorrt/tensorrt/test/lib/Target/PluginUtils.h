@@ -26,7 +26,7 @@
 
 #include "NvInferRuntime.h"
 #include "NvInferRuntimePlugin.h"
-#include "mlir-tensorrt-dialect/Utils/TensorRTVersion.h"
+#include "mlir-tensorrt-common/Utils/TensorRTVersion.h"
 #include "tensorrttestplugins_export.h"
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/APInt.h"

@@ -132,10 +132,10 @@ bool plan::detail::shouldRunOnHost(Operation *op,
 }
 
 //===----------------------------------------------------------------------===//
-// HostClusterKindAttr
+// HostBackendAttr
 //===----------------------------------------------------------------------===//
 
-int64_t HostClusterKindAttr::getClusterBenefit(InputKind inputKind) const {
+int64_t HostBackendAttr::getClusterBenefit(InputKind inputKind) const {
   return getBenefit();
 }
 
@@ -165,8 +165,8 @@ static bool inComputeRegion(Operation *op) {
 /// ClusteringOpts that identifies groups of `stablehlo` ops that can be
 /// converted to scalars and will be clustered into scalar cluster.
 FailureOr<ClusteringOpts>
-HostClusterKindAttr::getClusterKindOptions(InputKind inputKind, Operation *op,
-                                           DataFlowSolver &solver) const {
+HostBackendAttr::getClusterKindOptions(InputKind inputKind, Operation *op,
+                                       DataFlowSolver &solver) const {
   ClusteringOpts opts;
   opts.mergeIndependentClusters = [](Operation *, ClusterRange, Operation *,
                                      ClusterRange) { return true; };
@@ -221,10 +221,9 @@ static bool shouldCloneProducer(Value v, Region &cluster) {
 
 /// Host regions do not require closre since we have no need for shape or value
 /// bounds information.
-bool HostClusterKindAttr::requiresClosure(InputKind) const { return false; }
+bool HostBackendAttr::requiresClosure(InputKind) const { return false; }
 
-std::optional<OutlineRegionOptions>
-HostClusterKindAttr::getClusterOutliningOptions(
+std::optional<OutlineRegionOptions> HostBackendAttr::getClusterOutliningOptions(
     InputKind inputKind, MLIRContext *ctx,
     SymbolTable &moduleSymbolTable) const {
   OpBuilder b(ctx);
@@ -233,11 +232,11 @@ HostClusterKindAttr::getClusterOutliningOptions(
       /*shouldCloneProducer=*/shouldCloneProducer,
       /*createFunc=*/
       OutlineRegionOptions::getDefaultCreateFuncAndCallStubFunc(
-          moduleSymbolTable, /*extraFuncAttrs=*/{}, "host_cluster")};
+          moduleSymbolTable, /*extraFuncAttrs=*/{}, "host_backend")};
 }
 
 std::function<bool(const Cluster &)>
-HostClusterKindAttr::getClusterFilter(InputKind) const {
+HostBackendAttr::getClusterFilter(InputKind) const {
   return [](const Cluster &cluster) {
     return !llvm::all_of(cluster, [](Operation *op) {
       return op->hasTrait<OpTrait::ConstantLike>() ||
@@ -246,11 +245,11 @@ HostClusterKindAttr::getClusterFilter(InputKind) const {
   };
 }
 
-bool HostClusterKindAttr::supportsInputKind(InputKind inputKind) const {
+bool HostBackendAttr::supportsInputKind(InputKind inputKind) const {
   return inputKind == InputKind::Stablehlo;
 }
 
-MemorySpace HostClusterKindAttr::getDefaultMemorySpace() const {
+MemorySpace HostBackendAttr::getDefaultMemorySpace() const {
   return MemorySpace::host;
 }
 
@@ -269,7 +268,7 @@ public:
   void init() {
     (void)&generatedAttributeParser;
     (void)&generatedAttributePrinter;
-    registerAttributes<plan::HostClusterKindAttr>();
+    registerAttributes<plan::HostBackendAttr>();
   }
 };
 } // namespace

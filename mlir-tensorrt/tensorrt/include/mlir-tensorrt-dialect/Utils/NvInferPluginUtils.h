@@ -23,7 +23,6 @@
 //===----------------------------------------------------------------------===//
 #ifndef INCLUDE_MLIR_TENSORRT_DIALECT_UTILS_NVINFERPLUGINUTILS
 #define INCLUDE_MLIR_TENSORRT_DIALECT_UTILS_NVINFERPLUGINUTILS
-#include <type_traits>
 
 #if defined(__GNUC__) || defined(__clang__)
 #pragma GCC diagnostic push
@@ -40,6 +39,7 @@
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/Support/LogicalResult.h"
 #include "llvm/ADT/StringMap.h"
+#include <type_traits>
 
 namespace mlir::tensorrt {
 

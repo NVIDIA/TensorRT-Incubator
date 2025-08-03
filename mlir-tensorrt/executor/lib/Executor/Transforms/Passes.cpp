@@ -38,8 +38,9 @@ static void addCleanupPasses(OpPassManager &pm) {
 }
 
 void executor::buildExecutorLoweringPipeline(
-    OpPassManager &pm,
-    const ConvertStdToExecutorPassOptions &stdToExecutorOpts) {
+    OpPassManager &pm, const ConvertStdToExecutorPassOptions &stdToExecutorOpts,
+    const std::function<void(TypeConverter &)>
+        &populateAdditionalTypeConversions) {
   pm.addPass(createConvertComplexToStandardPass());
   pm.addPass(mlir::createSCFToControlFlowPass());
   pm.addPass(memref::createFoldMemRefAliasOpsPass());
@@ -49,23 +50,19 @@ void executor::buildExecutorLoweringPipeline(
   pm.addPass(affine::createAffineExpandIndexOpsAsAffinePass());
   pm.addPass(mlir::createLowerAffinePass());
   addCleanupPasses(pm);
-  pm.addPass(
-      createConvertLinalgToExecutorPass(ConvertLinalgToExecutorPassOptions{
-          stdToExecutorOpts.indexBitwidth,
-          stdToExecutorOpts.usePackedMemRefCConv}));
-  pm.addPass(
-      createConvertMemRefToExecutorPass(ConvertMemRefToExecutorPassOptions{
-          stdToExecutorOpts.indexBitwidth,
-          stdToExecutorOpts.usePackedMemRefCConv}));
+  pm.addPass(createConvertLinalgToExecutorPass(
+      ConvertLinalgToExecutorPassOptions{stdToExecutorOpts.indexBitwidth}));
+  pm.addPass(createConvertMemRefToExecutorPass(
+      ConvertMemRefToExecutorPassOptions{stdToExecutorOpts.indexBitwidth}));
   addCleanupPasses(pm);
-  pm.addPass(createConvertStdToExecutorPass(stdToExecutorOpts));
+  pm.addPass(createConvertStdToExecutorPass(stdToExecutorOpts,
+                                            populateAdditionalTypeConversions));
   pm.addPass(createCSEPass());
   pm.addPass(createCanonicalizerPass());
   pm.addPass(createExecutorLowerGlobalsPass());
-  pm.addPass(
-      createConvertExecutorToExecutorPass(ConvertExecutorToExecutorPassOptions{
-          stdToExecutorOpts.indexBitwidth,
-          stdToExecutorOpts.usePackedMemRefCConv}));
+  pm.addPass(createConvertExecutorToExecutorPass(
+      ConvertExecutorToExecutorPassOptions{stdToExecutorOpts.indexBitwidth},
+      populateAdditionalTypeConversions));
   pm.addPass(createReconcileUnrealizedCastsPass());
   pm.addPass(createExecutorDecomposeAggregateLoadsAndStoresPass());
   pm.addPass(createExecutorExpandOpsPass());
@@ -84,11 +81,6 @@ struct ExecutorLoweringCommonOptions : public PassPipelineOptions<T> {
       *this, "index-bitwidth", llvm::cl::init(64),
       llvm::cl::desc("all index types will be converted to signless integers "
                      "of this bitwidth")};
-
-  typename Derived::template Option<bool> usePackedMemrefCConv{
-      *this, "use-packed-memref-cconv", llvm::cl::init(true),
-      llvm::cl::desc("convert memref arguments in functions to table/struct "
-                     "rather than to an unpacked list of scalars")};
 };
 
 /// Options for `executor-lowering-pipeline`.
@@ -104,7 +96,6 @@ void executor::registerExecutorPassPipelines() {
       [](OpPassManager &pm, const ExecutorLoweringPipelineOptions &opts) {
         ConvertStdToExecutorPassOptions stdToExecOpts;
         stdToExecOpts.indexBitwidth = opts.indexBitWidth;
-        stdToExecOpts.usePackedMemRefCConv = opts.usePackedMemrefCConv;
         buildExecutorLoweringPipeline(pm, stdToExecOpts);
       });
 }

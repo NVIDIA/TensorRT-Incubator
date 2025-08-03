@@ -1,6 +1,5 @@
-// RUN: mlir-tensorrt-opt %s -stablehlo-to-executable-pipeline="disable-tensorrt-extension entrypoint=" \
-// RUN: | mlir-tensorrt-translate -mlir-to-runtime-executable -allow-unregistered-dialect -split-input-file \
-// RUN: | mlir-tensorrt-runner -input-type=rtexe -features=core -split-input-file
+// RUN: mlir-tensorrt-compiler %s -opts="disable-tensorrt-extension entrypoint=" -o - | \
+// RUN: mlir-tensorrt-runner -input-type=rtexe -features=core -split-input-file
 
 // This test contains a nested loop structure. It is derived from an upstream JAX
 // unit test in 'lax_control_flow_test.py' that exposed a bug in the executor
@@ -9,11 +8,11 @@
 // The computation just computes
 
 #cluster_kinds = [
-  #plan.host_cluster<benefit = 1>
+  #plan.host_backend<benefit = 1>
 ]
 
 module @nested_while attributes {
-    plan.cluster_kinds = #cluster_kinds,
+    plan.backends = #cluster_kinds,
     plan.memory_space = #plan.memory_space<host>
 } {
 
@@ -123,5 +122,3 @@ module @nested_while attributes {
     return %c0_i32 : i32
   }
 }
-
-

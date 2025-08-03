@@ -3,7 +3,7 @@
 
 include "mlir-tensorrt/Dialect/Plan/IR/PlanDialect.td"
 include "mlir-tensorrt/Dialect/Plan/IR/PlanAttributes.td"
-include "mlir-tensorrt-dialect/Interface/TensorKindOpInterface.td"
+include "mlir-tensorrt-common/Interfaces/TensorKindOpInterface.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 include "mlir/Interfaces/ControlFlowInterfaces.td"
 include "mlir/Dialect/Bufferization/IR/BufferizableOpInterface.td"

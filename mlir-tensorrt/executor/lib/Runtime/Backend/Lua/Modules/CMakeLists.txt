@@ -8,19 +8,19 @@ add_subdirectory(Utils)
 
 add_subdirectory(Core)
 
-if(MLIR_EXECUTOR_ENABLE_CUDA)
+if(MLIR_TRT_ENABLE_CUDA)
     add_subdirectory(CUDA)
 endif()
 
-if(MLIR_EXECUTOR_ENABLE_TENSORRT)
+if(MLIR_TRT_TARGET_TENSORRT)
     add_subdirectory(TensorRT)
 endif()
 
-if(MLIR_EXECUTOR_ENABLE_NCCL)
+if(MLIR_TRT_ENABLE_NCCL)
     add_subdirectory(NCCL)
 endif()
 
-if(MLIR_EXECUTOR_ENABLE_CUBLAS)
+if(MLIR_TRT_ENABLE_CUBLAS)
     add_subdirectory(CuBLAS)
 endif()
 

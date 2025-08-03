@@ -58,8 +58,9 @@ void plan::buildPlanSegmentationPipeline(
   pm.addPass(plan::createEliminateShapeOpsPass());
 }
 
-static void buildPlanOneShotBufferizePipelinePipeline(
-    OpPassManager &pm, const plan::PlanBufferizationOptions &opts) {
+static void
+buildPlanOneShotBufferizePipeline(OpPassManager &pm,
+                                  const plan::PlanBufferizationOptions &opts) {
   pm.addPass(bufferization::createEmptyTensorEliminationPass());
   pm.addPass(plan::createPlanAssignMemorySpacesPass());
   pm.addNestedPass<func::FuncOp>(plan::createPlanOptimizeMemorySpacesPass());
@@ -78,31 +79,35 @@ static void buildPlanOneShotBufferizePipelinePipeline(
   pm.addPass(plan::createPlanAllocTensorsPass(allocOpts));
 
   pm.addPass(plan::createPlanModuleBufferizePass());
+  pm.addNestedPass<func::FuncOp>(plan::createPlanConfirmArgumentDonationPass(
+      plan::PlanConfirmArgumentDonationPassOptions{
+          opts.failOnDonationArgumentRejection}));
   pm.addPass(mlir::createMemRefCastEliminationPass());
 
-  // We must canonicalize prior to `buffer-results-to-out-params` in order to
-  // eliminate loop-carried arguments that bufferize in-place. Otherwise, we may
-  // append too many output argumetns to functions that return loop results.
-  pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
+  // We must canonicalize prior to `plan-remove-equivalent-buffer-results`. This
+  // helps to eliminate operations such as casts which would otherwise prevent
+  // us from identifying that a returned value is exactly equivalent to an
+  // argument.
+  pm.addPass(createCanonicalizerPass());
 
-  // If inlining does not occur (e.g. because a function is marked no_inline),
-  // then we need to transform to DPS style and move allocation to the caller.
-  // Otherwise the deallocation pipeline will produce very inefficient code; its
-  // alias analysis is very conservative  and it can't see across calls
-  // boundaries.
+  // 'plan-remove-equivalent-buffer-results': Drop function memref results that
+  // are known to be exactly equivalent to function block arguments. This runs
+  // on all functions, even in nested modules.
+  pm.addPass(plan::createPlanRemoveEquivalentBufferResultsPass());
+
+  // If functions are returning memref results that are not equivalent to
+  // function arguments, then we rewrite the functions to use 'out' parameters
+  // where possible. If we can prove that a function result is a new allocation,
+  // then we also try to hoist that allocation to the caller (this depends on
+  // also hoisting the size calculation, if present). If hoisting an allocation
+  // is not possible, then we leave the returned value as-is. The buffer
+  // deallocation pipeline will enforce conditions that the returned value is
+  // a new allocation (e.g. by cloning the value if necessary) which does
+  // not alias any other memref returned from the call or live-in to the
+  // function. The caller can then assume ownership of any returned value.
   pm.addPass(plan::createPlanBufferResultsToOutParamsPass(
       plan::PlanBufferResultsToOutParamsPassOptions{
           /*ignorePublicFunctions=*/opts.forceEntrypointsReturnAllocs}));
-
-  /// TODO: Currently we must canonicalize prior to dropping buffer results
-  /// since it helps to identify return values that are actually block
-  /// arguments. Loop memref results that feed into returns, for example, are
-  /// one such case where canonicalization will drop the loop memref results if
-  /// it is loop invariant. This can result in establishing that the result
-  /// value is actually a block argument. Ideally this sort of
-  /// simplification/phase ordering should be eliminated.
-  pm.addPass(createCanonicalizerPass());
-  pm.addPass(plan::createPlanRemoveEquivalentBufferResultsPass());
 
   pm.addNestedPass<func::FuncOp>(createLowerLinalgCopiesPass());
 }
@@ -154,13 +159,23 @@ struct PlanBufferizationPipelineCliOpts
           "Require entrypoint functions to return allocations corresponding to"
           " the original tensor results, otherwise they are transformed"
           " into destination arguments whenever possible.")};
+  Option<bool> failOnDonationArgumentRejection{
+      *this, "fail-on-donation-argument-rejection", llvm::cl::init(false),
+      llvm::cl::desc(
+          "Function argument attribute `plan.aliasing_output`, if present, "
+          "hints argument is donated. However, it is not guaranteed that "
+          "donated argument is bufferized to the same buffer as that of result "
+          "it is donated for, after `-plan-module-bufferize` pass. If this "
+          "flag is set to true, pass `-plan-confirm-argument-donation` fails "
+          "if true donation doesn't happen. By default, this flag is set to "
+          "false.")};
 };
 
 } // namespace
 
 void plan::buildPlanBufferizationPipeline(
     OpPassManager &pm, const plan::PlanBufferizationOptions &options) {
-  buildPlanOneShotBufferizePipelinePipeline(pm, options);
+  buildPlanOneShotBufferizePipeline(pm, options);
   buildPlanBufferOptimizationPipeline(pm, options);
   buildPlanBufferDeallocationPipeline(pm, options);
 }
@@ -175,6 +190,8 @@ void plan::registerPlanDialectPipelines() {
             plan::PlanBufferizationOptions bufferizationOpts{};
             bufferizationOpts.forceEntrypointsReturnAllocs =
                 opts.forceEntrypointsReturnAllocs;
+            bufferizationOpts.failOnDonationArgumentRejection =
+                opts.failOnDonationArgumentRejection;
             buildPlanBufferizationPipeline(pm, bufferizationOpts);
           });
 

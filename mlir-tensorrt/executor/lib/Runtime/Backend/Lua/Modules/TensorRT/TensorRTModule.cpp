@@ -27,7 +27,7 @@
 #include "mlir-executor/Runtime/Backend/Utils/NvtxUtils.h"
 #include "mlir-executor/Support/Allocators.h"
 #include "mlir-tensorrt-common/Support/Status.h"
-#include "mlir-tensorrt-dialect/Utils/TensorRTVersion.h"
+#include "mlir-tensorrt-common/Utils/TensorRTVersion.h"
 #include <memory>
 
 #if defined(__GNUC__) || defined(__clang__)

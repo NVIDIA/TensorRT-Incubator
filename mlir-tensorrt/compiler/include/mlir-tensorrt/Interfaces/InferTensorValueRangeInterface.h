@@ -100,13 +100,13 @@ public:
   /// Print a human-readable representation of the bounds.
   void print(llvm::raw_ostream &os) const;
 
-  /// Return the min/max bounds representation as two DenseElementsAttrs.
-  std::pair<mlir::DenseElementsAttr, mlir::DenseElementsAttr>
+  /// Return the min/max bounds representation as two ElementsAttrs.
+  std::pair<mlir::ElementsAttr, mlir::ElementsAttr>
   getAsElementsAttr(mlir::RankedTensorType type) const;
 
-  /// Returns DenseElementsAttr representation if the element ranges are all
+  /// Returns ElementsAttr representation if the element ranges are all
   /// constant (single-value) ranges, otherwise nullopt.
-  std::optional<mlir::DenseElementsAttr>
+  std::optional<mlir::ElementsAttr>
   getConstantValues(mlir::RankedTensorType type) const;
 
   /// The maximum allowed volume of a tensor that we allow tracking the value

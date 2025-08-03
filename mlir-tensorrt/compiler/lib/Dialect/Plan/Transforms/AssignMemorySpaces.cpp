@@ -334,7 +334,7 @@ struct LogicalResult convertFuncUsers(RewriterBase &rewriter, func::FuncOp func,
   return success();
 }
 
-/// Conver the signature, block arguments, terminator operands, and caller
+/// Convert the signature, block arguments, terminator operands, and caller
 /// operands/results of a particular function by updating the types in place to
 /// include the required memory space encodings. `tensor.cast` operations are
 /// inserted to cast values back to their original types.
@@ -382,7 +382,7 @@ static plan::MemorySpace getFuncitonDefaultEncoding(func::FuncOp func) {
   if (auto constraintOverride = func->getAttrOfType<plan::MemorySpaceAttr>(
           plan::PlanDialect::getMemorySpaceConstraintAttrName()))
     return constraintOverride.getValue();
-  if (auto clusterKindAttr = func->getAttrOfType<ClusterKindAttrInterface>(
+  if (auto clusterKindAttr = func->getAttrOfType<CompilerBackendAttrInterface>(
           plan::PlanDialect::kFuncTargetKind))
     return clusterKindAttr.getDefaultMemorySpace();
   if (auto parentModule = func->getParentWithTrait<OpTrait::SymbolTable>())

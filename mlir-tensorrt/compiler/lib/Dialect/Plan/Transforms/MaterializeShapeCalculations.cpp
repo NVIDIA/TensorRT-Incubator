@@ -396,7 +396,7 @@ struct SimplifyConstantWithValuesPattern
     if (!maybeResultRange || maybeResultRange->getValue().isUninitialized())
       return failure();
 
-    std::optional<DenseElementsAttr> constVal =
+    std::optional<ElementsAttr> constVal =
         maybeResultRange->getValue().getConstantValues(op.getType());
     if (!constVal)
       return failure();

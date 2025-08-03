@@ -1,4 +1,6 @@
 # RUN: %PYTHON %s
+# REQUIRES: cuda
+# REQUIRES: host-has-at-least-1-gpus
 # Tests Numpy -> GPU -> Numpy roundtrip with async copies.
 import mlir_tensorrt.runtime.api as runtime
 import numpy as np

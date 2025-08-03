@@ -23,6 +23,7 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-executor/Target/Lua/TranslateToLua.h"
 #include "mlir-executor/Executor/IR/Executor.h"
+#include "mlir-executor/Target/Lua/LuaAllocation.h"
 #include "mlir/Dialect/ControlFlow/IR/ControlFlowOps.h"
 #include "mlir/Dialect/DLTI/DLTI.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -40,6 +41,9 @@
 using namespace mlir;
 
 namespace {
+
+constexpr llvm::StringLiteral kLocalTableVarialbeName = "locals";
+
 /// Helper class for emitting Lua code. It is inspired by the C++ emitter in
 /// upstream MLIR. Potentially upstream could be refactored to provide the
 /// common components without the code duplication here.
@@ -66,33 +70,24 @@ public:
   /// RAII helper function to manage entering/exiting scopes.
   struct RegionScope {
     explicit RegionScope(LuaEmitter &emitter)
-        : valueMapperScope(emitter.valueMapper),
-          blockMapperScope(emitter.blockMapper), emitter(emitter) {
+        : blockMapperScope(emitter.blockMapper), emitter(emitter) {
       emitter.labelInScopeCount.push(emitter.labelInScopeCount.top());
-      emitter.globalsInScopeCount.push(emitter.globalsInScopeCount.top());
     }
-    ~RegionScope() {
-      emitter.labelInScopeCount.pop();
-      emitter.globalsInScopeCount.pop();
-    }
+    ~RegionScope() { emitter.labelInScopeCount.pop(); }
 
   private:
-    llvm::ScopedHashTableScope<Value, std::string> valueMapperScope;
     llvm::ScopedHashTableScope<Block *, std::string> blockMapperScope;
     LuaEmitter &emitter;
   };
 
   struct LocalVariableScope {
-    explicit LocalVariableScope(LuaEmitter &emitter, unsigned additionalLocals)
-        : localMapperScope(emitter.localMapper), emitter(emitter) {
-      emitter.localsInScopeCount.push(emitter.localsInScopeCount.top() +
-                                      additionalLocals);
-    }
-    ~LocalVariableScope() { emitter.localsInScopeCount.pop(); }
+    explicit LocalVariableScope(LuaEmitter &emitter)
+        : localMapperScope(emitter.localMapper),
+          localReuseTrackerScope(emitter.localReuseTracker) {}
 
   private:
     llvm::ScopedHashTableScope<Value, std::string> localMapperScope;
-    LuaEmitter &emitter;
+    llvm::ScopedHashTableScope<unsigned, bool> localReuseTrackerScope;
   };
 
   // Returns whether a label is assigned to the block.
@@ -114,9 +109,8 @@ public:
   /// Generate a new variable name consisting of `v+[number]`. The number will
   /// always be monotonic within a single scope, regardless of which prefix is
   /// used.
-  StringRef createGlobalVariableName(Value val, StringRef prefix = "v");
-  StringRef getOrCreateGlobalVariableName(Value val, StringRef prefix = "v");
-  StringRef createLocalVariableName(Value val, StringRef prefix = "l");
+  std::pair<StringRef, bool> createLocalVariableName(Value val,
+                                                     StringRef prefix = "l");
 
   StringRef getVariableName(Value val);
 
@@ -133,22 +127,21 @@ public:
     return *this;
   }
 
-  void setVariableName(Value val, StringRef name) {
-    valueMapper.insert(val, name.str());
+  LuaAllocation *getLuaAllocation() const { return allocation.get(); }
+  void setLuaAllocation(std::unique_ptr<LuaAllocation> allocation) {
+    this->allocation = std::move(allocation);
   }
 
 protected:
   /// Map from value to name of lua variable that contain the name.
-  ValueMapper valueMapper;
   ValueMapper localMapper;
+
+  /// Track if a local variable is reused.
+  llvm::ScopedHashTable<unsigned, bool> localReuseTracker;
 
   /// Map from block to name of lua label.
   BlockMapper blockMapper;
 
-  /// The number of values in the current scope. This is used to declare the
-  /// names of values in a scope.
-  std::stack<int64_t> localsInScopeCount;
-  std::stack<int64_t> globalsInScopeCount;
   std::stack<int64_t> labelInScopeCount;
 
   MLIRContext *ctx;
@@ -156,6 +149,9 @@ protected:
 
   /// The data layout of the module.
   mlir::DataLayout moduleDataLayout;
+
+  /// The allocation of the current function.
+  std::unique_ptr<LuaAllocation> allocation;
 };
 } // namespace
 
@@ -345,14 +341,16 @@ static LogicalResult printOperation(LuaEmitter &emitter, func::FuncOp op) {
 
   emitter << "function " << op.getName() << " ";
 
-  // We augment the local count with what is required for call ops.
-  LuaEmitter::LocalVariableScope localScope(emitter, /*additionalLocals=*/0);
+  LuaEmitter::LocalVariableScope localScope(emitter);
+
+  // Create a new allocation for the function.
+  emitter.setLuaAllocation(std::make_unique<LuaAllocation>(op));
 
   emitter << "(";
-  llvm::interleaveComma(
-      op.getArguments(), emitter.getStream(), [&](BlockArgument &arg) {
-        emitter << emitter.createLocalVariableName(arg, "arg");
-      });
+  llvm::interleaveComma(op.getArguments(), emitter.getStream(),
+                        [&](BlockArgument &arg) {
+                          emitter << emitter.createLocalVariableName(arg).first;
+                        });
   emitter << ")\n";
   emitter.getStream().indent();
 
@@ -790,9 +788,7 @@ static LogicalResult printMinMaxOp(LuaEmitter &emitter, OpTy op) {
 LuaEmitter::LuaEmitter(MLIRContext *ctx, raw_ostream &os,
                        const DataLayout &dataLayout)
     : ctx(ctx), os(os), moduleDataLayout(dataLayout) {
-  localsInScopeCount.push(0);
   labelInScopeCount.push(0);
-  globalsInScopeCount.push(0);
 }
 
 bool LuaEmitter::hasBlockLabel(Block &block) const {
@@ -817,38 +813,30 @@ StringRef LuaEmitter::getOrCreateLabel(Block &block) {
 }
 
 bool LuaEmitter::isValueInScope(Value val) const {
-  return valueMapper.count(val) != 0 || localMapper.count(val) != 0;
+  return localMapper.count(val) != 0;
 }
 
-StringRef LuaEmitter::createGlobalVariableName(Value val, StringRef prefix) {
-  assert(!isValueInScope(val) && "expected val not to be in scope");
+std::pair<StringRef, bool>
+LuaEmitter::createLocalVariableName(Value val, StringRef prefix) {
+  assert(!isValueInScope(val) && "expected value not to be in scope");
+  auto allocationResult = allocation->getAllocationResult(val);
+  assert(allocationResult.type != LuaAllocationType::Global &&
+         "expected val to be allocated as a local variable");
   std::string valueName =
-      llvm::formatv("{0}{1}", prefix, ++globalsInScopeCount.top()).str();
-  valueMapper.insert(val, valueName);
-  return *valueMapper.begin(val);
-}
-
-StringRef LuaEmitter::getOrCreateGlobalVariableName(Value val,
-                                                    StringRef prefix) {
-  if (localMapper.count(val) != 0)
-    return *localMapper.begin(val);
-  if (valueMapper.count(val) == 0)
-    return createGlobalVariableName(val, prefix);
-  return *valueMapper.begin(val);
-}
-
-StringRef LuaEmitter::createLocalVariableName(Value val, StringRef prefix) {
-  assert(!isValueInScope(val) && "expected val not to be in scope");
-  std::string valueName =
-      llvm::formatv("{0}{1}", prefix, localsInScopeCount.top()++).str();
+      llvm::formatv("{0}{1}",
+                    allocationResult.type == LuaAllocationType::Spill
+                        ? kLocalTableVarialbeName + "." + prefix
+                        : prefix,
+                    allocationResult.id)
+          .str();
   localMapper.insert(val, valueName);
-  return *localMapper.begin(val);
+  bool reuse = localReuseTracker.count(allocationResult.id) > 0;
+  if (!reuse)
+    localReuseTracker.insert(allocationResult.id, true);
+  return {*localMapper.begin(val), reuse};
 }
 
 StringRef LuaEmitter::getVariableName(Value val) {
-  auto it = valueMapper.begin(val);
-  if (it != valueMapper.end())
-    return *it;
   auto itLocal = localMapper.begin(val);
   if (itLocal != localMapper.end())
     return *itLocal;
@@ -856,51 +844,20 @@ StringRef LuaEmitter::getVariableName(Value val) {
 }
 
 LogicalResult LuaEmitter::emitAssignPrefix(Operation *op) {
-  // In Lua, a variable can be declared local as long is it is not used in
-  // another block. Lua locals go out of scope when the block terminates. Since
-  // we translate Blocks 1-1 with Lua blocks, just check if it is used in
-  // another block (that is not a child). The only exception is the entry-block
-  // since MLIR guarantees that we can't jump into the scope of these variables.
-  constexpr unsigned kMaxNumLocals = 200;
-  bool isEntryBlock = op->getBlock()->isEntryBlock();
-  // Helper to check if a value can be emitted as a local variable.
-  auto isLocalVar = [&](Value v) -> bool {
-    return (isEntryBlock || !v.isUsedOutsideOfBlock(op->getBlock())) &&
-           localsInScopeCount.top() + op->getNumResults() < kMaxNumLocals;
-  };
-  SmallVector<Value> localVars;
-  for (Value v : op->getResults()) {
-    if (isLocalVar(v))
-      localVars.push_back(v);
+  // Emit the variable declarations (if not reusing locals).
+  for (auto [idx, result] : llvm::enumerate(op->getResults())) {
+    if (isValueInScope(result))
+      continue;
+    auto [valueName, reuse] = createLocalVariableName(result);
+    if (allocation->getAllocationResult(result).type ==
+            LuaAllocationType::Local &&
+        !reuse)
+      os << "local " << valueName << ";\n";
   }
-
-  // Inline variable declarations when all results are locals.
-  if (localVars.size() == op->getNumResults()) {
-    os << "local ";
-    llvm::interleaveComma(op->getResults(), os,
-                          [&](Value v) { os << createLocalVariableName(v); });
-    // Starting in Lua 5.4, it supports "<const>" attributes for local vars,
-    // which can save a lot of register movement, especially when passed to
-    // calls.
-    os << " <const> = ";
-    return success();
-  }
-
-  // Otherwise, declare the locals separately first before assignment.
-  if (!localVars.empty()) {
-    os << "local ";
-    llvm::interleaveComma(localVars, os,
-                          [&](Value v) { os << createLocalVariableName(v); });
-    os << " <const>;\n";
-  }
+  // Emit the assignment.
   llvm::interleaveComma(op->getResults(), os, [&](Value v) {
-    // TODO: if a value is not in scope at this point, we emit it as a global
-    // variable. This can lead to unintended global sharing between Lua threads.
-    // Use a local table to store the values instead.
-    if (isValueInScope(v))
-      os << getVariableName(v);
-    else
-      os << createGlobalVariableName(v);
+    assert(isValueInScope(v) && "expected value to be in scope");
+    os << getVariableName(v);
   });
   os << " = ";
 
@@ -953,18 +910,32 @@ LogicalResult LuaEmitter::emitBlock(Block &block, bool isEntryBlock) {
   // If this is a non-entry block, then push a new scope for the locals.
   // We don't need additional locals since no new arguments are created.
   std::unique_ptr<LocalVariableScope> scope =
-      isEntryBlock
-          ? std::unique_ptr<LocalVariableScope>(nullptr)
-          : std::make_unique<LocalVariableScope>(*this, /*additionalLocals=*/0);
-
+      isEntryBlock ? std::unique_ptr<LocalVariableScope>(nullptr)
+                   : std::make_unique<LocalVariableScope>(*this);
+  auto emitLocal = [&](Value val) {
+    auto [valueName, reuse] = createLocalVariableName(val);
+    if (reuse)
+      return;
+    if (allocation->getAllocationResult(val).type == LuaAllocationType::Local)
+      os << "local ";
+    os << valueName << " = nil;\n";
+  };
   // Only declare new Lua block scope for non-entry blocks.
   if (!isEntryBlock) {
     os << "::" << getOrCreateLabel(block) << ":: do\n";
     os.indent();
   } else {
+    // Declare a table to store the locals if we will exceed the max locals
+    // limit.
+    if (isa<func::FuncOp>(block.getParentOp())) {
+      if (allocation->hasSpill())
+        getStream() << "local " << kLocalTableVarialbeName << " = {};\n";
+    }
+
     // In the entry block, declare all of the block arguments needed throughout
     // the region as local variables. Initialize them all to nil. This avoids
-    // having to use ad-hoc globals at the branch points.
+    // having to use ad-hoc globals at the branch points. These locals act as
+    // upvalues and are hence visible to all blocks in the region.
     Region *region = block.getParent();
     for (auto [idx, otherBlock] : llvm::enumerate(region->getBlocks())) {
       // We don't need to declare block arguments for the entry block; those are
@@ -972,17 +943,15 @@ LogicalResult LuaEmitter::emitBlock(Block &block, bool isEntryBlock) {
       if (idx == 0)
         continue;
       for (BlockArgument arg : otherBlock.getArguments())
-        getStream() << "local " << createLocalVariableName(arg, "barg")
-                    << " = nil;\n";
+        emitLocal(arg);
 
       // Declare all results of operations in the block as locals in the entry
-      // block if they are used outside of the block.
+      // block if they are used outside of the block. Similar to the block
+      // arguments, these locals are upvalues as well.
       for (Operation &op : otherBlock) {
         for (Value result : op.getResults()) {
-          if (result.isUsedOutsideOfBlock(&otherBlock)) {
-            getStream() << "local " << createLocalVariableName(result)
-                        << " = nil;\n";
-          }
+          if (result.isUsedOutsideOfBlock(&otherBlock))
+            emitLocal(result);
         }
       }
     }
@@ -1009,7 +978,7 @@ static bool isModuleLike(Operation &op) {
 LogicalResult LuaEmitter::emitModule(Operation &op) {
   assert(isModuleLike(op) && "expected module-like operation");
   LuaEmitter::RegionScope scope(*this);
-  LuaEmitter::LocalVariableScope localScope(*this, /*additionalLocals=*/0);
+  LuaEmitter::LocalVariableScope localScope(*this);
   return emitBlock(op.getRegion(0).front(), /*isEntryBlock=*/true);
 }
 

@@ -1,6 +1,6 @@
-//===- RegisterMlirTensorRtPasses.h -----------------------------*- C++ -*-===//
+//===- InitAllPasses.h ----------------------------------------------------===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -19,12 +19,13 @@
 //===----------------------------------------------------------------------===//
 // Registration for mlir-tensorrt passes
 //===----------------------------------------------------------------------===//
-#ifndef REGISTRATION_REGISTERMLIRTENSORRTPASSES_H
-#define REGISTRATION_REGISTERMLIRTENSORRTPASSES_H
+#ifndef MLIR_TENSORRT_INITALLPASSES
+#define MLIR_TENSORRT_INITALLPASSES
 
 #include "mlir-executor/InitAllPasses.h"
 #include "mlir-tensorrt-common/Conversion/Passes.h"
 #include "mlir-tensorrt-dialect/TensorRT/Transforms/Passes.h"
+#include "mlir-tensorrt/Compiler/TensorRTToExecutable/Passes.h"
 #include "mlir-tensorrt/Conversion/Passes.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
 #include "mlir-tensorrt/Features.h"
@@ -41,10 +42,6 @@
 #include "stablehlo/transforms/optimization/Passes.h"
 #endif // MLIR_TRT_ENABLE_HLO
 
-#ifdef MLIR_TRT_TARGET_TENSORRT
-#include "mlir-tensorrt/Compiler/TensorRTToExecutable/Passes.h"
-#endif // MLIR_TRT_TARGET_TENSORRT
-
 #ifdef MLIR_TRT_ENABLE_TORCH
 #include "torch-mlir-dialects/Dialect/TMTensor/Transforms/Passes.h"
 #include "torch-mlir/Conversion/Passes.h"
@@ -56,23 +53,23 @@ namespace mlirtrt::compiler {
 
 /// Register passes declared within this repo.
 inline void registerAllPasses() {
+  mlir::bufferization::registerBufferizationPasses();
   mlir::emitc::registerEmitCPasses();
+  mlir::executor::registerAllPasses();
   mlir::plan::registerPlanDialectPipelines();
   mlir::plan::registerPlanPasses();
-  mlir::registerLowerAffinePass();
+  mlir::registerConvertCUDAToExecutorPass();
   mlir::registerConvertPDLToPDLInterpPass();
+  mlir::registerLowerAffinePass();
+  mlir::registerMLIRTensorRTCommonConversionPasses();
   mlir::registerMLIRTensorRTConversionPasses();
   mlir::registerMLIRTensorRTGenericTransformsPasses();
   mlir::registerTransformsPasses();
   mlir::tensorrt::registerTensorRTPasses();
-  mlir::registerConvertCUDAToExecutorPass();
-  mlir::bufferization::registerBufferizationPasses();
-  mlir::executor::registerAllPasses();
-  mlir::registerMLIRTensorRTCommonConversionPasses();
+  mlirtrt::compiler::registerTensorRTToExecutablePasses();
 
   IF_MLIR_TRT_ENABLE_HLO({
     mlirtrt::compiler::registerStablehloToExecutablePasses();
-    mlirtrt::compiler::registerStablehloToExecutablePipelines();
     mlirtrt::compiler::registerStableHloInputPipelines();
     mlir::stablehlo_ext::registerStableHloExtPasses();
     mlir::stablehlo::registerPasses();
@@ -85,11 +82,8 @@ inline void registerAllPasses() {
     mlir::torch::registerConversionPasses();
     mlir::torch::TMTensor::registerPasses();
   });
-
-  IF_MLIR_TRT_TARGET_TENSORRT(
-      { mlirtrt::compiler::registerTensorRTToExecutablePipelines(); });
 }
 
 } // namespace mlirtrt::compiler
 
-#endif // REGISTRATION_REGISTERMLIRTENSORRTPASSES_H
+#endif // MLIR_TENSORRT_INITALLPASSES

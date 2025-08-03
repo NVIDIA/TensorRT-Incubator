@@ -19,7 +19,7 @@
 //===----------------------------------------------------------------------===//
 ///
 /// This file contains the declarations for the HostBackend extensions to the
-/// Plan dialect. It defines the HostClusterKindAttr; see the associated
+/// Plan dialect. It defines the HostBackendAttr; see the associated
 /// tablegen file "HostBackend.td" for more details.
 ///
 //===----------------------------------------------------------------------===//

@@ -2,16 +2,16 @@
 #define MLIR_TENSORRT_DIALECT_PLAN_IR_PLANENUMS
 
 include "mlir-tensorrt/Dialect/Plan/IR/PlanDialect.td"
-include "mlir-tensorrt-dialect/Interface/TensorKindOpInterface.td"
+include "mlir-tensorrt-common/Interfaces/TensorKindAttrInterface.td"
 
 include "mlir/IR/EnumAttr.td"
 
 def Plan_InputKind : Plan_I32EnumAttr<
-  "InputKind", 
+  "InputKind",
   "kind of input IR dialect",
   [
     I32EnumAttrCase<"Stablehlo", 0, "stablehlo">,
-    I32EnumAttrCase<"TensorRT", 1, "tensorrt">, 
+    I32EnumAttrCase<"TensorRT", 1, "tensorrt">,
     I32EnumAttrCase<"Linalg", 2, "linalg">
   ]
 >;

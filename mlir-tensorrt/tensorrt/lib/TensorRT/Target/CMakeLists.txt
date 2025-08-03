@@ -3,7 +3,7 @@ add_mtrtd_library(MLIRTensorRTTensorRTEncodingImpl
 
   LINK_LIBS PUBLIC
   MLIRIR
-  MLIRTensorRTDialect
+  MLIRTensorRTTensorRTDialect
   MLIRTensorRTTensorRTEncodingOpInterface
   MLIRTransformUtils
 

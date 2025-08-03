@@ -26,37 +26,38 @@ func.func @cuda_blas_gemm_algo_select_and_run(%stream: !cuda.stream) {
   return
 }
 
-//       CHECK:   executor.func private @__cuda_blas_handle_destroy(!executor.opaque<"cuda_blas_handle">)
-//       CHECK:   executor.func private @__cuda_blas_run_gemm(!executor.opaque<"cuda_blas_handle">, !executor.ptr<host>, !executor.opaque<"cuda_blas_gemm_algorithm">, !executor.ptr<host>, !executor.ptr<host>, !executor.ptr<host>, !executor.ptr<host>, !executor.ptr<host>)
-//       CHECK:   executor.func private @__cuda_blas_algo_select(!executor.opaque<"cuda_blas_handle">, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64) -> !executor.opaque<"cuda_blas_gemm_algorithm">
-//       CHECK:   executor.func private @__cuda_blas_handle_create() -> !executor.opaque<"cuda_blas_handle">
+//   CHECK-DAG:   executor.func private @__cuda_blas_handle_destroy(!executor.ptr<host>)
+//   CHECK-DAG:   executor.func private @__cuda_blas_run_gemm
+//   CHECK-DAG:   executor.func private @__cuda_blas_algo_select
+//   CHECK-DAG:   executor.func private @__cuda_blas_handle_create
 // CHECK-LABEL: func.func @cuda_blas_gemm_algo_select_and_run
-//  CHECK-SAME: (%[[stream:.+]]:
-//       CHECK:     %[[c300_i64:.+]] = executor.constant 300 : i64
-//       CHECK:     %[[c200_i64:.+]] = executor.constant 200 : i64
-//       CHECK:     %[[c100_i64:.+]] = executor.constant 100 : i64
-//       CHECK:     %[[c0_i64:.+]] = executor.constant 0 : i64
-//       CHECK:     %[[c1_i64:.+]] = executor.constant 1 : i64
-//       CHECK:     %[[c3_i64:.+]] = executor.constant 3 : i64
-//       CHECK:     %[[alloc:.+]] = memref.alloc() {alignment = 64 : i64} : memref<100x200xf32>
-//       CHECK:     %[[v0:.+]] = builtin.unrealized_conversion_cast %[[alloc]] : memref<100x200xf32> to !executor.table<!executor.ptr<host>, !executor.ptr<host>, i64, i64, i64, i64, i64>
-//       CHECK:     %[[alloc_0:.+]] = memref.alloc() {alignment = 64 : i64} : memref<200x300xf32>
-//       CHECK:     %[[v1:.+]] = builtin.unrealized_conversion_cast %[[alloc_0]] : memref<200x300xf32> to !executor.table<!executor.ptr<host>, !executor.ptr<host>, i64, i64, i64, i64, i64>
-//       CHECK:     %[[alloc_1:.+]] = memref.alloc() {alignment = 64 : i64} : memref<100x300xf32>
-//       CHECK:     %[[v2:.+]] = builtin.unrealized_conversion_cast %[[alloc_1]] : memref<100x300xf32> to !executor.table<!executor.ptr<host>, !executor.ptr<host>, i64, i64, i64, i64, i64>
-//       CHECK:     %[[alloc_2:.+]] = memref.alloc() {alignment = 64 : i64} : memref<1xf32>
-//       CHECK:     %[[v3:.+]] = builtin.unrealized_conversion_cast %[[alloc_2]] : memref<1xf32> to !executor.table<!executor.ptr<host>, !executor.ptr<host>, i64, i64, i64>
-//       CHECK:     %[[alloc_3:.+]] = memref.alloc() {alignment = 64 : i64} : memref<1xf32>
-//       CHECK:     %[[v4:.+]] = builtin.unrealized_conversion_cast %[[alloc_3]] : memref<1xf32> to !executor.table<!executor.ptr<host>, !executor.ptr<host>, i64, i64, i64>
-//       CHECK:     %[[v5:.+]] = executor.call @__cuda_blas_handle_create() : () -> !executor.opaque<"cuda_blas_handle">
-//       CHECK:     %[[v7:.+]] = executor.call @__cuda_blas_algo_select(%[[v5]], %[[c3_i64]], %[[c1_i64]], %[[c100_i64]], %[[c200_i64]], %[[c200_i64]], %[[c1_i64]], %[[c0_i64]], %[[c200_i64]], %[[c300_i64]], %[[c300_i64]], %[[c1_i64]], %[[c0_i64]], %[[c100_i64]], %[[c300_i64]], %[[c300_i64]], %[[c1_i64]], %[[c0_i64]], %[[c0_i64]], %[[c0_i64]]) : (!executor.opaque<"cuda_blas_handle">, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64) -> !executor.opaque<"cuda_blas_gemm_algorithm">
-//       CHECK:     %[[v8:.+]] = executor.table.get %[[v4]][1] : <!executor.ptr<host>, !executor.ptr<host>, i64, i64, i64>
-//       CHECK:     %[[v9:.+]] = executor.table.get %[[v0]][1] : <!executor.ptr<host>, !executor.ptr<host>, i64, i64, i64, i64, i64>
-//       CHECK:     %[[v10:.+]] = executor.table.get %[[v1]][1] : <!executor.ptr<host>, !executor.ptr<host>, i64, i64, i64, i64, i64>
-//       CHECK:     %[[v11:.+]] = executor.table.get %[[v3]][1] : <!executor.ptr<host>, !executor.ptr<host>, i64, i64, i64>
-//       CHECK:     %[[v12:.+]] = executor.table.get %[[v2]][1] : <!executor.ptr<host>, !executor.ptr<host>, i64, i64, i64, i64, i64>
-//       CHECK:     executor.call @__cuda_blas_run_gemm(%[[v5]], %[[stream]], %[[v7]], %[[v8]], %[[v9]], %[[v10]], %[[v11]], %[[v12]]) : (!executor.opaque<"cuda_blas_handle">, !executor.ptr<host>, !executor.opaque<"cuda_blas_gemm_algorithm">, !executor.ptr<host>, !executor.ptr<host>, !executor.ptr<host>, !executor.ptr<host>, !executor.ptr<host>) -> ()
-//       CHECK:     executor.call @__cuda_blas_handle_destroy(%[[v5]]) : (!executor.opaque<"cuda_blas_handle">) -> ()
+//  CHECK-SAME: (%[[arg_stream:.+]]:
+//   CHECK-DAG:     %[[stream:.+]] = builtin.unrealized_conversion_cast %[[arg_stream]] : !cuda.stream to !executor.ptr<host>
+//   CHECK-DAG:     %[[c300_i64:.+]] = executor.constant 300 : i64
+//   CHECK-DAG:     %[[c200_i64:.+]] = executor.constant 200 : i64
+//   CHECK-DAG:     %[[c100_i64:.+]] = executor.constant 100 : i64
+//   CHECK-DAG:     %[[c0_i64:.+]] = executor.constant 0 : i64
+//   CHECK-DAG:     %[[c1_i64:.+]] = executor.constant 1 : i64
+//   CHECK-DAG:     %[[c3_i64:.+]] = executor.constant 3 : i64
+//   CHECK-DAG:     %[[alloc:.+]] = memref.alloc() {alignment = 64 : i64} : memref<100x200xf32>
+//   CHECK-DAG:     %[[v0:.+]] = builtin.unrealized_conversion_cast %[[alloc]] : memref<100x200xf32> to !executor.table<!executor.ptr<host>, !executor.ptr<host>, i64, i64, i64, i64, i64>
+//   CHECK-DAG:     %[[alloc_0:.+]] = memref.alloc() {alignment = 64 : i64} : memref<200x300xf32>
+//   CHECK-DAG:     %[[v1:.+]] = builtin.unrealized_conversion_cast %[[alloc_0]] : memref<200x300xf32> to !executor.table<!executor.ptr<host>, !executor.ptr<host>, i64, i64, i64, i64, i64>
+//   CHECK-DAG:     %[[alloc_1:.+]] = memref.alloc() {alignment = 64 : i64} : memref<100x300xf32>
+//   CHECK-DAG:     %[[v2:.+]] = builtin.unrealized_conversion_cast %[[alloc_1]] : memref<100x300xf32> to !executor.table<!executor.ptr<host>, !executor.ptr<host>, i64, i64, i64, i64, i64>
+//   CHECK-DAG:     %[[alloc_2:.+]] = memref.alloc() {alignment = 64 : i64} : memref<1xf32>
+//   CHECK-DAG:     %[[v3:.+]] = builtin.unrealized_conversion_cast %[[alloc_2]] : memref<1xf32> to !executor.table<!executor.ptr<host>, !executor.ptr<host>, i64, i64, i64>
+//   CHECK-DAG:     %[[alloc_3:.+]] = memref.alloc() {alignment = 64 : i64} : memref<1xf32>
+//   CHECK-DAG:     %[[v4:.+]] = builtin.unrealized_conversion_cast %[[alloc_3]] : memref<1xf32> to !executor.table<!executor.ptr<host>, !executor.ptr<host>, i64, i64, i64>
+//   CHECK-DAG:     %[[v5:.+]] = executor.call @__cuda_blas_handle_create()
+//   CHECK-DAG:     %[[v7:.+]] = executor.call @__cuda_blas_algo_select(%[[v5]], %[[c3_i64]], %[[c1_i64]], %[[c100_i64]], %[[c200_i64]], %[[c200_i64]], %[[c1_i64]], %[[c0_i64]], %[[c200_i64]], %[[c300_i64]], %[[c300_i64]], %[[c1_i64]], %[[c0_i64]], %[[c100_i64]], %[[c300_i64]], %[[c300_i64]], %[[c1_i64]], %[[c0_i64]], %[[c0_i64]], %[[c0_i64]]) : (!executor.ptr<host>
+//   CHECK-DAG:     %[[v8:.+]] = executor.table.get %[[v4]][1] : <!executor.ptr<host>, !executor.ptr<host>, i64, i64, i64>
+//   CHECK-DAG:     %[[v9:.+]] = executor.table.get %[[v0]][1] : <!executor.ptr<host>, !executor.ptr<host>, i64, i64, i64, i64, i64>
+//   CHECK-DAG:     %[[v10:.+]] = executor.table.get %[[v1]][1] : <!executor.ptr<host>, !executor.ptr<host>, i64, i64, i64, i64, i64>
+//   CHECK-DAG:     %[[v11:.+]] = executor.table.get %[[v3]][1] : <!executor.ptr<host>, !executor.ptr<host>, i64, i64, i64>
+//   CHECK-DAG:     %[[v12:.+]] = executor.table.get %[[v2]][1] : <!executor.ptr<host>, !executor.ptr<host>, i64, i64, i64, i64, i64>
+//   CHECK-DAG:     executor.call @__cuda_blas_run_gemm(%[[v5]], %[[stream]], %[[v7]], %[[v8]], %[[v9]], %[[v10]], %[[v11]], %[[v12]])
+//   CHECK-DAG:     executor.call @__cuda_blas_handle_destroy(%[[v5]])
 
 // -----
 
@@ -75,8 +76,8 @@ func.func @cuda_blas_gemm_algo_select_with_tile_size() {
   return
 }
 
-//       CHECK:   executor.func private @__cuda_blas_algo_select(!executor.opaque<"cuda_blas_handle">, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64) -> !executor.opaque<"cuda_blas_gemm_algorithm">
-//       CHECK:   executor.func private @__cuda_blas_handle_create() -> !executor.opaque<"cuda_blas_handle">
+//       CHECK:   executor.func private @__cuda_blas_algo_select(!executor.ptr<host>
+//       CHECK:   executor.func private @__cuda_blas_handle_create() -> !executor.ptr<host>
 // CHECK-LABEL: func.func @cuda_blas_gemm_algo_select_with_tile_size
 //       CHECK:     %[[c16_i64:.+]] = executor.constant 16 : i64
 //       CHECK:     %[[c300_i64:.+]] = executor.constant 300 : i64
@@ -85,5 +86,5 @@ func.func @cuda_blas_gemm_algo_select_with_tile_size() {
 //       CHECK:     %[[c0_i64:.+]] = executor.constant 0 : i64
 //       CHECK:     %[[c1_i64:.+]] = executor.constant 1 : i64
 //       CHECK:     %[[c3_i64:.+]] = executor.constant 3 : i64
-//       CHECK:     %[[v5:.+]] = executor.call @__cuda_blas_handle_create() : () -> !executor.opaque<"cuda_blas_handle">
-//       CHECK:     %[[v7:.+]] = executor.call @__cuda_blas_algo_select(%[[v5]], %[[c3_i64]], %[[c1_i64]], %[[c100_i64]], %[[c200_i64]], %[[c200_i64]], %[[c1_i64]], %[[c0_i64]], %[[c200_i64]], %[[c300_i64]], %[[c300_i64]], %[[c1_i64]], %[[c0_i64]], %[[c100_i64]], %[[c300_i64]], %[[c300_i64]], %[[c1_i64]], %[[c0_i64]], %[[c16_i64]], %[[c16_i64]]) : (!executor.opaque<"cuda_blas_handle">, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64) -> !executor.opaque<"cuda_blas_gemm_algorithm">
+//       CHECK:     %[[v5:.+]] = executor.call @__cuda_blas_handle_create() : () -> !executor.ptr<host>
+//       CHECK:     %[[v7:.+]] = executor.call @__cuda_blas_algo_select(%[[v5]], %[[c3_i64]], %[[c1_i64]], %[[c100_i64]], %[[c200_i64]], %[[c200_i64]], %[[c1_i64]], %[[c0_i64]], %[[c200_i64]], %[[c300_i64]], %[[c300_i64]], %[[c1_i64]], %[[c0_i64]], %[[c100_i64]], %[[c300_i64]], %[[c300_i64]], %[[c1_i64]], %[[c0_i64]], %[[c16_i64]], %[[c16_i64]]) : (!executor.ptr<host>

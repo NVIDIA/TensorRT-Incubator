@@ -1,10 +1,10 @@
 add_mlir_tensorrt_library(MLIRTensorRTConvertToTensorRTCommon
-  ConvertToTensorRTCommon.cpp  
+  ConvertToTensorRTCommon.cpp
 
   LINK_LIBS PUBLIC
   MLIRFuncDialect
   MLIRIR
   MLIRSupport
-  MLIRTensorRTDialect
+  MLIRTensorRTTensorRTDialect
   MLIRTransforms
-)
+  )

@@ -17,14 +17,14 @@
 // limitations under the License.
 //
 //===----------------------------------------------------------------------===//
-#ifdef MLIR_TRT_TARGET_TENSORRT
-
 #include "mlir-tensorrt/Compiler/TensorRTToExecutable/TensorRTToExecutable.h"
 #include "mlir-executor/Conversion/Passes.h"
 #include "mlir-executor/Executor/Transforms/Passes.h"
+#include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
 #include "mlir-tensorrt-dialect/TensorRT/Transforms/Passes.h"
 #include "mlir-tensorrt/Compiler/OptionsProviders.h"
 #include "mlir-tensorrt/Compiler/TensorRTToExecutable/Passes.h"
+#include "mlir-tensorrt/Conversion/CUDAToExecutor/CUDAToExecutor.h"
 #include "mlir-tensorrt/Conversion/Passes.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
 #include "mlir-tensorrt/Transforms/Passes.h"
@@ -57,13 +57,12 @@ TensorRTToExecutableTask::TensorRTToExecutableTask(
     MLIRContext *ctx, std::unique_ptr<TensorRTToExecutableOptions> options)
     : CompilationTask(ctx, std::move(options)) {}
 
-void TensorRTToExecutableTask::buildTensorRTClusteringPipeline(
-    OpPassManager &pm, const TensorRTToExecutableOptions &opts) {
-  pm.addPass(createOutlineTensorRTOpPass());
-}
+void TensorRTToExecutableTask::populatePassManager() {
+  PassManager &pm = *this;
+  const TensorRTToExecutableOptions &options = getOptions();
 
-void TensorRTToExecutableTask::buildPostClusteringPipeline(
-    OpPassManager &pm, const TensorRTToExecutableOptions &options) {
+  pm.addPass(createOutlineTensorRTOpPass());
+
   // Simplify and translate functions nested in `tensorrt.module` ops.
   {
     auto &trtPM = pm.nest<tensorrt::TensorRTModuleOp>();
@@ -108,30 +107,21 @@ void TensorRTToExecutableTask::buildPostClusteringPipeline(
   // Executor lowering
   ConvertTensorRTRuntimeToExecutorPassOptions toExecutorOpts;
   toExecutorOpts.indexBitwidth = options.get<ExecutorOptions>().indexBitwidth;
-  toExecutorOpts.usePackedMemRefCConv =
-      options.get<ExecutorOptions>().usePackedMemRefCConv;
   pm.addPass(createConvertTensorRTRuntimeToExecutorPass(toExecutorOpts));
 
   ConvertCUDAToExecutorPassOptions cudaToExecutorOpts;
   cudaToExecutorOpts.indexBitwidth =
       options.get<ExecutorOptions>().indexBitwidth;
-  cudaToExecutorOpts.usePackedMemRefCConv =
-      options.get<ExecutorOptions>().usePackedMemRefCConv;
   pm.addPass(createConvertCUDAToExecutorPass(cudaToExecutorOpts));
 
   pm.addPass(createDropNestedModulesPass());
-}
-
-void TensorRTToExecutableTask::populatePassManager(
-    mlir::PassManager &pm, const TensorRTToExecutableOptions &options) {
-  buildTensorRTClusteringPipeline(pm, options);
-
-  buildPostClusteringPipeline(pm, options);
 
   mlir::executor::ConvertStdToExecutorPassOptions stdToExecOpts;
   stdToExecOpts.indexBitwidth = options.get<ExecutorOptions>().indexBitwidth;
-  stdToExecOpts.usePackedMemRefCConv = true;
-  mlir::executor::buildExecutorLoweringPipeline(pm, stdToExecOpts);
+  mlir::executor::buildExecutorLoweringPipeline(
+      pm, stdToExecOpts, [](mlir::TypeConverter &typeConverter) {
+        mlir::populateCUDAToExecutorTypeConversions(typeConverter);
+      });
 }
 
 void mlirtrt::compiler::registerTensorRTToExecutableTask() {
@@ -139,7 +129,3 @@ void mlirtrt::compiler::registerTensorRTToExecutableTask() {
                                           TensorRTToExecutableOptions>(
       "tensorrt-to-executable");
 }
-
-MLIR_DEFINE_EXPLICIT_TYPE_ID(mlirtrt::compiler::TensorRTToExecutableTask)
-
-#endif

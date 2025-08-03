@@ -21,7 +21,7 @@
 /// Implementation of TensorKindOpInterface for Stable HLO ops.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt-dialect/Interface/TensorKindOpInterface.h"
+#include "mlir-tensorrt-common/Interfaces/TensorKindOpInterface.h"
 #include "mlir-tensorrt/Dialect/StablehloExt/IR/StableHloExt.h"
 #include "mlir/IR/DialectRegistry.h"
 #include "stablehlo/dialect/StablehloOps.h"

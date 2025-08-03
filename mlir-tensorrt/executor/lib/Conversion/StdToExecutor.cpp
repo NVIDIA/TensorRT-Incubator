@@ -407,8 +407,7 @@ struct ConvertCall : public ConvertOpToExecutorPattern<func::CallOp> {
       return failure();
     ImplicitLocOpBuilder b(op.getLoc(), rewriter);
     SmallVector<Value> operands = convertFuncCallOperands(
-        rewriter, op.getLoc(), op.getOperands(), adaptor.getOperands(),
-        getTypeConverter()->getOptions().memrefArgPassingConvention);
+        rewriter, op.getLoc(), op.getOperands(), adaptor.getOperands());
     rewriter.replaceOpWithNewOp<func::CallOp>(op, types, op.getCallee(),
                                               operands);
     return success();
@@ -462,6 +461,13 @@ class ConvertStdToExecutorPass
 public:
   using Base::Base;
 
+  ConvertStdToExecutorPass(
+      const executor::ConvertStdToExecutorPassOptions &stdToExecutorOpts,
+      const std::function<void(TypeConverter &)>
+          &populateAdditionalTypeConversions)
+      : Base(stdToExecutorOpts),
+        populateAdditionalTypeConversions(populateAdditionalTypeConversions) {}
+
   void runOnOperation() override {
     MLIRContext *ctx = &getContext();
 
@@ -470,9 +476,6 @@ public:
     {
       LowerToExecutorOptions opts;
       opts.indexType = IntegerType::get(ctx, indexBitwidth);
-      opts.memrefArgPassingConvention =
-          usePackedMemRefCConv ? executor::MemRefArgPassingConvention::Packed
-                               : executor::MemRefArgPassingConvention::Unpacked;
       Operation *op = getOperation();
       FailureOr<DataLayout> dataLayout =
           executor::setDataLayoutSpec(op, indexBitwidth, 64);
@@ -482,7 +485,11 @@ public:
                "inconsistent with provided options";
         return signalPassFailure();
       }
+
       ExecutorTypeConverter typeConverter(ctx, opts, std::move(*dataLayout));
+      if (populateAdditionalTypeConversions)
+        populateAdditionalTypeConversions(typeConverter);
+
       ExecutorConversionTarget target(getContext());
       target.addIllegalDialect<arith::ArithDialect>();
       target.addDynamicallyLegalOp<func::FuncOp>([&](func::FuncOp op) {
@@ -517,5 +524,15 @@ public:
         return signalPassFailure();
     }
   }
+
+  std::function<void(TypeConverter &)> populateAdditionalTypeConversions{};
 };
 } // namespace
+
+std::unique_ptr<Pass> mlir::executor::createConvertStdToExecutorPass(
+    const ConvertStdToExecutorPassOptions &stdToExecutorOpts,
+    const std::function<void(TypeConverter &)>
+        &populateAdditionalTypeConversions) {
+  return std::make_unique<ConvertStdToExecutorPass>(
+      stdToExecutorOpts, populateAdditionalTypeConversions);
+}

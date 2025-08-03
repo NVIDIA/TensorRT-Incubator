@@ -1,13 +1,37 @@
 cmake_minimum_required(VERSION 3.24)
 
-# Bootstrap CPM
+# Bootstrap CPM and package registration/download utilities.
 set(CMAKE_POLICY_DEFAULT_CMP0168 NEW)
-set(CPM_SOURCE_CACHE "${CMAKE_SOURCE_DIR}/.cache.cpm" CACHE STRING "")
+set(CPM_SOURCE_CACHE "${CMAKE_CURRENT_LIST_DIR}/.cache.cpm" CACHE STRING "")
 set(CPM_DONT_UPDATE_MODULE_PATH ON CACHE BOOL "" FORCE)
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/build_tools/cmake")
+include(MTRTCPM)
+include(MTRTPackageUtils)
 
-include(build_tools/cmake/CPM.cmake)
-include(build_tools/cmake/PackageUtils.cmake)
-include(build_tools/cmake/Dependencies.cmake)
+# We often need to reference files relative to the top-level MLIR-TensorRT
+# directory. Using `CMAKE_CURRENT_LIST_DIR` is not correct inside
+# `(PRE|POST)_ADD_HOOK` code, use this variable instead.
+set(MTRT_TOP_LEVEL_DIR "${CMAKE_CURRENT_LIST_DIR}")
+
+#-------------------------------------------------------------------------------------
+# DLPack
+#-------------------------------------------------------------------------------------
+
+nv_register_package(
+  NAME DLPack
+  VERSION 1.0rc
+  URL https://github.com/dmlc/dlpack/archive/refs/tags/v1.0rc.tar.gz
+  EXCLUDE_FROM_ALL TRUE
+  DOWNLOAD_ONLY TRUE
+  POST_ADD_HOOK [[
+    if(NOT TARGET DLPackHeaderOnly)
+      add_library(DLPackHeaderOnly INTERFACE IMPORTED)
+      target_include_directories(DLPackHeaderOnly INTERFACE
+        $<BUILD_INTERFACE:${DLPack_SOURCE_DIR}/include>)
+      add_library(DLPack::Headers ALIAS DLPackHeaderOnly)
+    endif()
+  ]]
+)
 
 #-------------------------------------------------------------------------------------
 # Declare the LLVM dependency.
@@ -128,15 +152,82 @@ nv_register_package(
 )
 
 #-------------------------------------------------------------------------------------
-# MLIRTensorRTCommon
-#
-# MLIRTensorRTCommon is a sub-project that contains components used across the
-# other sub-projects like MLIRExecutor and MLIRTensorRTDialect.
+# Lua
+#-------------------------------------------------------------------------------------
+
+macro(lua_set_target_copts target)
+    target_compile_options(${target} PRIVATE
+      # These come from the Makefile that ships with lua.
+      -std=c99 -Wfatal-errors -Wextra -Wshadow
+      -Wsign-compare -Wundef -Wwrite-strings -Wredundant-decls
+      -Wdisabled-optimization -Wdouble-promotion -Wmissing-declarations
+      "$<$<CXX_COMPILER_ID:GNU>:-Wno-pedantic>"
+      # We enable -Wall by default globally. Suppress
+      # some warnings that will appear in Lua C code.
+      "$<$<CXX_COMPILER_ID:Clang>:-Wno-gnu-label-as-value>"
+      -Wno-implicit-fallthrough -Wno-cast-qual)
+    # TODO: fix these if platform is not linux
+    target_compile_definitions(${target} PRIVATE
+      LUA_USE_LINUX
+      LUA_USE_READLINE
+    )
+    target_include_directories(${target} PUBLIC
+      "$<BUILD_INTERFACE:${Lua_SOURCE_DIR}/src>"
+    )
+    set_target_properties(${target}
+      PROPERTIES
+      ARCHIVE_OUTPUT_DIRECTORY "${Lua_BINARY_DIR}"
+      LIBRARY_OUTPUT_DIRECTORY "${Lua_BINARY_DIR}"
+      RUNTIME_OUTPUT_DIRECTORY "${Lua_BINARY_DIR}"
+    )
+  endmacro()
+
+nv_register_package(
+  NAME Lua
+  URL https://www.lua.org/ftp/lua-5.4.4.tar.gz
+  EXCLUDE_FROM_ALL TRUE
+  DOWNLOAD_ONLY TRUE
+  POST_ADD_HOOK [[
+    FILE(GLOB lua_sources ${Lua_SOURCE_DIR}/src/*.c)
+    # Remove lua.c (standalone lua interpreter) and onelua.c (a combination of all files).
+    list(REMOVE_ITEM lua_sources
+      "${Lua_SOURCE_DIR}/src/lua.c"
+      "${Lua_SOURCE_DIR}/src/luac.c"
+      "${Lua_SOURCE_DIR}/src/onelua.c")
+    # Main lua library
+    add_library(lua-core EXCLUDE_FROM_ALL ${lua_sources})
+    lua_set_target_copts(lua-core)
+    target_link_libraries(lua-core PUBLIC dl m)
+    # Other libs should link `lua::core`.
+    add_library(lua::core ALIAS lua-core)
+    # Allow building main lua interpreter for whatever reason.
+    add_executable(lua-interpreter EXCLUDE_FROM_ALL "${Lua_SOURCE_DIR}/src/lua.c")
+    add_executable(luac EXCLUDE_FROM_ALL
+      "${Lua_SOURCE_DIR}/src/luac.c"
+      ${lua_sources})
+    lua_set_target_copts(lua-interpreter)
+    lua_set_target_copts(luac)
+    # Note that this requires `libreadline-dev` package, we we don't install by
+    # default in the devcontainer.
+    target_link_libraries(lua-interpreter PRIVATE lua::core m dl readline)
+    target_link_libraries(luac PRIVATE lua::core m dl)
+    set_target_properties(lua-interpreter PROPERTIES
+        OUTPUT_NAME "lua"
+    )
+  ]]
+)
+
+#-------------------------------------------------------------------------------------
+# Sol2
 #-------------------------------------------------------------------------------------
 
 nv_register_package(
-  NAME MLIRTensorRTCommon
-  SOURCE_DIR "${CMAKE_SOURCE_DIR}/common"
+  NAME Sol2
+  URL https://github.com/ThePhD/sol2/archive/refs/tags/v3.5.0.tar.gz
+  EXCLUDE_FROM_ALL TRUE
+  OPTIONS
+    "SOL2_ENABLE_INSTALL ON"
+    "SOL2_SINGLE OFF"
 )
 
 # -----------------------------------------------------------------------------
@@ -160,38 +251,6 @@ nv_register_package(
       target_compile_options(nvtx3-cpp INTERFACE
         -Wno-missing-braces)
     endif()
-  ]]
-)
-
-#-------------------------------------------------------------------------------------
-# MLIR-Executor
-#
-# We build MLIR-Executor as an independent sub-project
-#-------------------------------------------------------------------------------------
-nv_register_package(
-  NAME MLIRExecutor
-  SOURCE_DIR "${CMAKE_SOURCE_DIR}/executor"
-  POST_ADD_HOOK [[
-    # Mimic what would be in MLIRExecutorConfig.cmake
-    set(MLIR_EXECUTOR_INCLUDE_DIRS
-      "${MLIRExecutor_SOURCE_DIR}/include"
-      "${MLIRExecutor_BINARY_DIR}/include")
-  ]]
-)
-
-#-------------------------------------------------------------------------------------
-# MLIRTensorRTDialect
-#
-# We build MLIR-TensorRT-Dialect as an independent sub-project
-#-------------------------------------------------------------------------------------
-nv_register_package(
-  NAME MLIRTensorRTDialect
-  SOURCE_DIR "${CMAKE_SOURCE_DIR}/tensorrt"
-  POST_ADD_HOOK [[
-    # Mimic what would be in TensorRTDialectConfig.cmake
-    set(MLIR_TENSORRT_DIALECT_INCLUDE_DIRS
-      "${MLIRTensorRTDialect_SOURCE_DIR}/include"
-      "${MLIRTensorRTDialect_BINARY_DIR}/include")
   ]]
 )
 
@@ -239,7 +298,7 @@ macro(mtrt_provide_dependency method dep_name)
   endif()
 
   if("${dep_name}" MATCHES
-     "^(MLIRExecutor|MLIRTensorRTDialect|Stablehlo|torch_mlir|NVTX|MLIRTensorRTCommon)$")
+     "^(Stablehlo|torch_mlir|NVTX|Sol2|Lua|DLPack)$")
     nv_add_package("${dep_name}")
     set("${dep_name}_FOUND" TRUE)
   endif()

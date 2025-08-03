@@ -39,7 +39,7 @@
 #pragma GCC diagnostic pop
 #endif
 
-#include "TensorRTVersion.h"
+#include "mlir-tensorrt-common/Utils/TensorRTVersion.h"
 #include <cassert>
 #include <cmath>
 #include <cstdio>

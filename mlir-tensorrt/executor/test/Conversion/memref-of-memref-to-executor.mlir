@@ -19,15 +19,15 @@ func.func @test_memref_of_memref_load_store_1d() {
 // CHECK-LABEL: @test_memref_of_memref_load_store_1d
 //   CHECK-DAG:     %[[c4096_i64:.+]] = executor.constant 4096 : i64
 //   CHECK-DAG:     %[[c80_i64:.+]] = executor.constant 80 : i64
-//   CHECK-DAG:     %[[c16_i64:.+]] = executor.constant 16 : i64
+//   CHECK-DAG:     %[[c4_i64:.+]] = executor.constant 4 : i64
+//   CHECK-DAG:     %[[c8_i64:.+]] = executor.constant 8 : i64
 //   CHECK-DAG:     %[[c1024_i64:.+]] = executor.constant 1024 : i64
 //   CHECK-DAG:     %[[c0_i64:.+]] = executor.constant 0 : i64
-//   CHECK-DAG:     %[[c64_i64:.+]] = executor.constant 64 : i64
 //   CHECK-DAG:     %[[c1_i64:.+]] = executor.constant 1 : i64
 //   CHECK-DAG:     %[[c1:.+]] = arith.constant 1 : index
 //   CHECK-DAG:     %[[v0:.+]] = builtin.unrealized_conversion_cast %[[c1]] : index to i64
-//       CHECK:     %[[v1:.+]] = executor.alloc %[[c80_i64]] bytes align(%[[c64_i64]]) : (i64, i64) -> !executor.ptr<host>
-//       CHECK:     %[[v2:.+]] = executor.alloc %[[c4096_i64]] bytes align(%[[c16_i64]]) : (i64, i64) -> !executor.ptr<host>
+//       CHECK:     %[[v1:.+]] = executor.alloc %[[c80_i64]] bytes align(%[[c8_i64]])
+//       CHECK:     %[[v2:.+]] = executor.alloc %[[c4096_i64]] bytes align(%[[c4_i64]])
 //       CHECK:     %[[v3:.+]] = executor.table.create(%[[v2]], %[[v2]], %[[c0_i64]], %[[c1024_i64]], %[[c1_i64]] : !executor.ptr<host>, !executor.ptr<host>, i64, i64, i64)
 //       CHECK:     %[[v4:.+]] = executor.getoffset[%[[v0]]] : (i64) -> i64, !executor.table<!executor.ptr<host>, !executor.ptr<host>, i64, i64, i64>
 //       CHECK:     executor.store %[[v3]] to %[[v1]] + %[[v4]] : !executor.table<!executor.ptr<host>, !executor.ptr<host>, i64, i64, i64>, !executor.ptr<host>, i64
@@ -57,6 +57,8 @@ func.func @test_2d_memref_of_1d_memref_load_store() {
 // CHECK-LABEL: @test_2d_memref_of_1d_memref_load_store
 //   CHECK-DAG:     %[[c160_i64:.+]] = executor.constant 160 : i64
 //   CHECK-DAG:     %[[c16_i64:.+]] = executor.constant 16 : i64
+//   CHECK-DAG:     %[[c8_i64:.+]] = executor.constant 8 : i64
+//   CHECK-DAG:     %[[c4_i64:.+]] = executor.constant 4 : i64
 //   CHECK-DAG:     %[[c0_i64:.+]] = executor.constant 0 : i64
 //   CHECK-DAG:     %[[c64_i64:.+]] = executor.constant 64 : i64
 //   CHECK-DAG:     %[[c1_i64:.+]] = executor.constant 1 : i64
@@ -65,8 +67,8 @@ func.func @test_2d_memref_of_1d_memref_load_store() {
 //   CHECK-DAG:     %[[c1:.+]] = arith.constant 1 : index
 //       CHECK:     %[[v0:.+]] = builtin.unrealized_conversion_cast %[[c1]] : index to i64
 //       CHECK:     %[[v1:.+]] = builtin.unrealized_conversion_cast %[[c0]] : index to i64
-//       CHECK:     %[[v2:.+]] = executor.alloc %[[c160_i64]] bytes align(%[[c64_i64]]) : (i64, i64) -> !executor.ptr<host>
-//       CHECK:     %[[v3:.+]] = executor.alloc %[[c64_i64]] bytes align(%[[c16_i64]]) : (i64, i64) -> !executor.ptr<host>
+//       CHECK:     %[[v2:.+]] = executor.alloc %[[c160_i64]] bytes align(%[[c8_i64]])
+//       CHECK:     %[[v3:.+]] = executor.alloc %[[c64_i64]] bytes align(%[[c4_i64]])
 //       CHECK:     %[[v4:.+]] = executor.table.create(%[[v3]], %[[v3]], %[[c0_i64]], %[[c16_i64]], %[[c1_i64]] : !executor.ptr<host>, !executor.ptr<host>, i64, i64, i64) : <!executor.ptr<host>, !executor.ptr<host>, i64, i64, i64>
 //       CHECK:     %[[v5:.+]] = executor.muli %[[v0]], %[[c2_i64]] : i64
 //       CHECK:     %[[v6:.+]] = executor.addi %[[v5]], %[[v1]] : i64
@@ -97,17 +99,16 @@ func.func @test_dynamic_memref_of_0d_memref_load_store(%arg0: index) {
 
 // CHECK-LABEL: @test_dynamic_memref_of_0d_memref_load_store
 //  CHECK-SAME: (%[[arg0:.+]]: index) {
-//   CHECK-DAG:     %[[c16_i64:.+]] = executor.constant 16 : i64
+//   CHECK-DAG:     %[[c8_i64:.+]] = executor.constant 8 : i64
 //   CHECK-DAG:     %[[c4_i64:.+]] = executor.constant 4 : i64
 //   CHECK-DAG:     %[[c0_i64:.+]] = executor.constant 0 : i64
-//   CHECK-DAG:     %[[c32_i64:.+]] = executor.constant 32 : i64
 //   CHECK-DAG:     %[[c24_i64:.+]] = executor.constant 24 : i64
 //   CHECK-DAG:     %[[c1:.+]] = arith.constant 1 : index
 //       CHECK:     %[[v0:.+]] = builtin.unrealized_conversion_cast %[[arg0]] : index to i64
 //       CHECK:     %[[v1:.+]] = builtin.unrealized_conversion_cast %[[c1]] : index to i64
 //       CHECK:     %[[v2:.+]] = executor.muli %[[v0]], %[[c24_i64]] : i64
-//       CHECK:     %[[v3:.+]] = executor.alloc %[[v2]] bytes align(%[[c32_i64]]) : (i64, i64) -> !executor.ptr<host>
-//       CHECK:     %[[v4:.+]] = executor.alloc %[[c4_i64]] bytes align(%[[c16_i64]]) : (i64, i64) -> !executor.ptr<host>
+//       CHECK:     %[[v3:.+]] = executor.alloc %[[v2]] bytes align(%[[c8_i64]]) : (i64, i64) -> !executor.ptr<host>
+//       CHECK:     %[[v4:.+]] = executor.alloc %[[c4_i64]] bytes align(%[[c4_i64]]) : (i64, i64) -> !executor.ptr<host>
 //       CHECK:     %[[v5:.+]] = executor.table.create(%[[v4]], %[[v4]], %[[c0_i64]] : !executor.ptr<host>, !executor.ptr<host>, i64) : <!executor.ptr<host>, !executor.ptr<host>, i64>
 //       CHECK:     %[[v6:.+]] = executor.getoffset[%[[v1]]] : (i64) -> i64, !executor.table<!executor.ptr<host>, !executor.ptr<host>, i64>
 //       CHECK:     executor.store %[[v5]] to %[[v3]] + %[[v6]] : !executor.table<!executor.ptr<host>, !executor.ptr<host>, i64>, !executor.ptr<host>, i64

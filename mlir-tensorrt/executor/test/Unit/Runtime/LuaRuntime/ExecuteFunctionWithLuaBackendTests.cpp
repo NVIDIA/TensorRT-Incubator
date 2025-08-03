@@ -1,7 +1,6 @@
-//===- ExecuteFunctionWithLuaBackendTests.cpp
-//-------------------------------------===//
+//===- ExecuteFunctionWithLuaBackendTests.cpp -----------------------------===//
 //
-// Copyright (c) 2024, NVIDIA CORPORATION. All rights reserved.
+// Copyright (c) 2024-2025, NVIDIA CORPORATION. All rights reserved.
 //
 //===----------------------------------------------------------------------===//
 ///

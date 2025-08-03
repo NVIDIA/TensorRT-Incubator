@@ -3,6 +3,7 @@ add_mlir_public_c_api_library(MLIRTensorRTCAPITensorRTDialect
   TensorRTDialect.cpp
 
   LINK_LIBS PUBLIC
-  MLIRTensorRTDialect
+  MLIRTensorRTTensorRTDialect
   MLIRTensorRTTransforms
+  MLIRTensorRTDialectIncludes
 )

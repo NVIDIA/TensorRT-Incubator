@@ -9,7 +9,7 @@ py_version=${PY_VERSION:-3.10}
 PATH=$PATH:/pyenv/bin
 mkdir -p .private.wheels || true
 pyenv local ${py_version}
-python${py_version} -m pip install -r integrations/python/requirements-dev.txt
+python${py_version} -m pip install -r integrations/python/requirements-dev.txt --use-pep517
 
 export DOWNLOAD_TENSORRT_VERSION=${DOWNLOAD_TENSORRT_VERSION:-10.9}
 

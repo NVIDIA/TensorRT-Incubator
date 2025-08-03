@@ -22,7 +22,6 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-executor/Executor/IR/Executor.h"
-#include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
 #include "mlir-tensorrt/Conversion/Passes.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -185,6 +184,11 @@ static void convertArgAndResultAttrs(OpBuilder &b, func::FuncOp op) {
       op.removeArgAttr(idx, plan::PlanDialect::kResultArgAttrName);
       op.setArgAttr(idx, executor::ExecutorDialect::kResultArgAttrName, attr);
     }
+    if (auto attr =
+            op.getArgAttr(idx, plan::PlanDialect::kDonationArgAttrName)) {
+      op.setArgAttr(idx, executor::ExecutorDialect::kDonatedArgAttrName, attr);
+      op.removeArgAttr(idx, plan::PlanDialect::kDonationArgAttrName);
+    }
   }
   for (unsigned idx = 0; idx < op.getNumResults(); idx++) {
     if (auto attr = op.getResultAttr(idx, planShapeBoundsAttrName)) {
@@ -259,7 +263,8 @@ class PlanToExecutorPass
         });
 
     typeConverter.addTypeAttributeConversion(
-        [](RankedTensorType type, plan::MemorySpaceAttr attr) -> Attribute {
+        [](ShapedType type, plan::MemorySpaceAttr attr)
+            -> TypeConverter::AttributeConversionResult {
           auto getSpace = [&](executor::MemoryType x) {
             return executor::MemoryTypeAttr::get(type.getContext(), x);
           };
@@ -275,27 +280,9 @@ class PlanToExecutorPass
           case plan::MemorySpace::unknown:
             return Attribute{};
           }
-          llvm_unreachable("unknown plan::MemorySpace enumeration value");
+          return TypeConverter::AttributeConversionResult::abort();
         });
-    typeConverter.addTypeAttributeConversion(
-        [](MemRefType type, plan::MemorySpaceAttr attr) -> Attribute {
-          auto getSpace = [&](executor::MemoryType x) {
-            return executor::MemoryTypeAttr::get(type.getContext(), x);
-          };
-          switch (attr.getValue()) {
-          case plan::MemorySpace::device:
-            return getSpace(executor::MemoryType::device);
-          case plan::MemorySpace::host:
-            return getSpace(executor::MemoryType::host);
-          case plan::MemorySpace::host_pinned:
-            return getSpace(executor::MemoryType::host_pinned);
-          case plan::MemorySpace::unified:
-            return getSpace(executor::MemoryType::unified);
-          case plan::MemorySpace::unknown:
-            return Attribute{};
-          }
-          llvm_unreachable("unknown plan::MemorySpace enumeration value");
-        });
+
     typeConverter.addSourceMaterialization([&](OpBuilder &builder,
                                                Type resultType,
                                                ValueRange inputs,
@@ -330,22 +317,10 @@ class PlanToExecutorPass
       if (!isLegalOp(op, typeConverter))
         return false;
 
-      if (op->hasTrait<OpTrait::ReturnLike>())
-        return typeConverter.isLegal(op->getOperandTypes());
-
-      if (isa<BranchOpInterface>(op)) {
-        return mlir::isLegalForBranchOpInterfaceTypeConversionPattern(
-            op, typeConverter);
-      }
-      if (isa<func::ReturnOp>(op)) {
-        return isLegalForReturnOpTypeConversionPattern(op, typeConverter);
-      }
-
-      for (Region &region : op->getRegions()) {
-        if (!typeConverter.isLegal(region.getArgumentTypes()))
-          return false;
-      }
-      return true;
+      return mlir::isNotBranchOpInterfaceOrReturnLikeOp(op) ||
+             mlir::isLegalForBranchOpInterfaceTypeConversionPattern(
+                 op, typeConverter) ||
+             mlir::isLegalForReturnOpTypeConversionPattern(op, typeConverter);
     });
     target.markOpRecursivelyLegal<gpu::GPUModuleOp>();
     target.addLegalOp<UnrealizedConversionCastOp>();

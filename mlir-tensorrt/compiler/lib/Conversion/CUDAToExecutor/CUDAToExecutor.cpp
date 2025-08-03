@@ -1,6 +1,6 @@
 //===- CUDAToExecutor.cpp -------------------------------------------------===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -21,6 +21,7 @@
 /// Implementation of the `convert-cuda-to-executor` pass.
 ///
 //===----------------------------------------------------------------------===//
+#include "mlir-tensorrt/Conversion/CUDAToExecutor/CUDAToExecutor.h"
 #include "mlir-executor/Conversion/ConvertToExecutorCommon.h"
 #include "mlir-executor/Executor/IR/Executor.h"
 #include "mlir-executor/Executor/Utils/Utils.h"
@@ -807,6 +808,16 @@ static LogicalResult lowerCompiledModuleOps(
   return success();
 }
 
+void mlir::populateCUDAToExecutorTypeConversions(TypeConverter &typeConverter) {
+  typeConverter.addConversion([&](Type t) -> std::optional<Type> {
+    if (isa<cuda::StreamType, cuda::EventType, cuda::ModuleType,
+            cuda::FunctionType, cuda::BlasHandleType,
+            cuda::BlasGemmAlgorithmType>(t))
+      return PointerType::get(t.getContext(), MemoryType::host);
+    return {};
+  });
+}
+
 namespace {
 class CUDAToExecutorPass
     : public mlir::impl::ConvertCUDAToExecutorPassBase<CUDAToExecutorPass> {
@@ -817,9 +828,6 @@ public:
     MLIRContext *ctx = &getContext();
     LowerToExecutorOptions opts;
     opts.indexType = IntegerType::get(ctx, indexBitwidth);
-    opts.memrefArgPassingConvention =
-        usePackedMemRefCConv ? executor::MemRefArgPassingConvention::Packed
-                             : executor::MemRefArgPassingConvention::Unpacked;
     FailureOr<DataLayout> dataLayout =
         executor::setDataLayoutSpec(rootOp, indexBitwidth, 64);
     if (failed(dataLayout)) {
@@ -829,21 +837,7 @@ public:
       return signalPassFailure();
     }
     ExecutorTypeConverter typeConverter(ctx, opts, std::move(*dataLayout));
-    auto hostPointerType = PointerType::get(ctx, MemoryType::host);
-
-    typeConverter.addConversion([&](Type t) -> std::optional<Type> {
-      if (isa<cuda::StreamType, cuda::EventType, cuda::ModuleType,
-              cuda::FunctionType>(t))
-        return hostPointerType;
-      return {};
-    });
-    typeConverter.addConversion([](cuda::BlasHandleType t) {
-      return ExecutorOpaqueType::get(t.getContext(), "cuda_blas_handle");
-    });
-    typeConverter.addConversion([](cuda::BlasGemmAlgorithmType t) {
-      return ExecutorOpaqueType::get(t.getContext(),
-                                     "cuda_blas_gemm_algorithm");
-    });
+    populateCUDAToExecutorTypeConversions(typeConverter);
 
     ConversionTarget target(*ctx);
     target.addIllegalDialect<cuda::CUDADialect>();
@@ -854,31 +848,10 @@ public:
       return symbolTableParent != rootOp && op != rootOp;
     };
 
-    target.addDynamicallyLegalOp<func::FuncOp>([&](func::FuncOp op) {
-      if (isInNestedSymbolTable(op))
-        return true;
-      return typeConverter.isSignatureLegal(op.getFunctionType()) &&
-             typeConverter.isLegal(&op.getBody());
-    });
-    target.addDynamicallyLegalOp<func::ReturnOp>([&](func::ReturnOp op) {
-      if (isInNestedSymbolTable(op))
-        return true;
-      return typeConverter.isLegal(op->getOperandTypes());
-    });
-    target.addDynamicallyLegalOp<func::CallOp>([&](func::CallOp op) {
-      if (isInNestedSymbolTable(op))
-        return true;
-      return typeConverter.isLegal(op.getOperandTypes()) &&
-             typeConverter.isLegal(op.getResultTypes());
-    });
-
     target.markUnknownOpDynamicallyLegal(
         [&](Operation *op) -> std::optional<bool> {
           if (isInNestedSymbolTable(op))
             return true;
-          if (isa<BranchOpInterface>(op))
-            return mlir::isLegalForBranchOpInterfaceTypeConversionPattern(
-                op, typeConverter);
           return {};
         });
 
@@ -917,12 +890,6 @@ public:
         GetFunctionToCallConverter
       >(compiledModuleToGlobalMap,  typeConverter, ctx);
     // clang-format on
-    mlir::populateReturnOpTypeConversionPattern(patterns, typeConverter);
-    mlir::populateCallOpTypeConversionPattern(patterns, typeConverter);
-    mlir::populateFunctionOpInterfaceTypeConversionPattern<func::FuncOp>(
-        patterns, typeConverter);
-    mlir::populateBranchOpInterfaceTypeConversionPattern(patterns,
-                                                         typeConverter);
 
     if (failed(applyPartialConversion(rootOp, target, std::move(patterns)))) {
       emitError(getOperation()->getLoc())

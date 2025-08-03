@@ -18,7 +18,7 @@ func.func @plan_attrs() attributes {
 
 func.func @plan_inline_group(%arg0: tensor<10xf32>, %arg1: tensor<10xf32>) -> tensor<10xf32> {
 
-  %0 = plan.inline_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>) -> tensor<10xf32> {
+  %0 = plan.inline_group target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>) -> tensor<10xf32> {
     %1 = stablehlo.add %arg0, %arg1 : tensor<10xf32>
     yield %1 : tensor<10xf32>
   }
@@ -39,7 +39,7 @@ func.func @plan_inline_group(%arg0: tensor<10xf32>, %arg1: tensor<10xf32>) -> te
 
 // CHECK-LABEL: @plan_inline_group
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<10xf32>, %[[arg1:.+]]: tensor<10xf32>) -> tensor<10xf32> {
-//       CHECK-NEXT:     %[[v0:.+]] = plan.inline_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>) -> tensor<10xf32> {
+//       CHECK-NEXT:     %[[v0:.+]] = plan.inline_group target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>) -> tensor<10xf32> {
 //       CHECK-NEXT:       %[[v2:.+]] = stablehlo.add %[[arg0]], %[[arg1]] : tensor<10xf32>
 //       CHECK-NEXT:       yield %[[v2]] : tensor<10xf32>
 //       CHECK-NEXT:     }
@@ -56,7 +56,7 @@ func.func @plan_inline_group(%arg0: tensor<10xf32>, %arg1: tensor<10xf32>) -> te
 // -----
 
 func.func @inline_closed_group(%arg0: tensor<?xf32>, %arg1: index, %arg2: tensor<?xf32>) -> tensor<?xf32> {
-  %2 = plan.inline_closed_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>)
+  %2 = plan.inline_closed_group target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>)
     inputs(%arg0, %arg1 : tensor<?xf32>, index)
     outs(%arg2 : tensor<?xf32>)
     in_attrs [#plan.bounds<shape, [10], [20]>, #plan.bounds<none>]
@@ -70,7 +70,7 @@ func.func @inline_closed_group(%arg0: tensor<?xf32>, %arg1: index, %arg2: tensor
 }
 
 // CHECK-LABEL: func.func @inline_closed_group
-//       CHECK:  plan.inline_closed_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>)
+//       CHECK:  plan.inline_closed_group target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>)
 //  CHECK-NEXT:   inputs(%{{.+}}, %{{.+}} : tensor<?xf32>, index)
 //  CHECK-NEXT:   outs(%{{.+}} : tensor<?xf32>)
 //  CHECK-NEXT:   in_attrs [#plan.bounds<shape, [10], [20]>, #plan.bounds<none>]
@@ -85,7 +85,7 @@ func.func @inline_closed_group(%arg0: tensor<?xf32>, %arg1: index, %arg2: tensor
 // -----
 
 func.func @inline_closed_alloc_group(%arg0: tensor<?xf32>, %arg1: index) -> tensor<?xf32> {
-  %2 = plan.inline_closed_alloc_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>)
+  %2 = plan.inline_closed_alloc_group target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>)
     inputs(%arg0, %arg1 : tensor<?xf32>, index)
     in_attrs [#plan.bounds<shape, [10], [20]>, #plan.bounds<none>] -> tensor<?xf32> {
   ^bb0(%in0: tensor<?xf32>, %in1: index):
@@ -97,7 +97,7 @@ func.func @inline_closed_alloc_group(%arg0: tensor<?xf32>, %arg1: index) -> tens
 }
 
 // CHECK-LABEL: func.func @inline_closed_alloc_group
-//       CHECK:  plan.inline_closed_alloc_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>)
+//       CHECK:  plan.inline_closed_alloc_group target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>)
 //  CHECK-NEXT:   inputs(%{{.+}}, %{{.+}} : tensor<?xf32>, index)
 //  CHECK-NEXT:   in_attrs [#plan.bounds<shape, [10], [20]>, #plan.bounds<none>]
 //  CHECK-NEXT:   -> tensor<?xf32> {

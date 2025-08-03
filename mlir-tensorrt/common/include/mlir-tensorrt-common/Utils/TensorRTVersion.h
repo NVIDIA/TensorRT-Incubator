@@ -21,38 +21,12 @@
 /// Utilities for handling TensorRT versions.
 ///
 //===----------------------------------------------------------------------===//
-#ifndef INCLUDE_MLIR_TENSORRT_DIALECT_UTILS_TENSORRTVERSION
-#define INCLUDE_MLIR_TENSORRT_DIALECT_UTILS_TENSORRTVERSION
-#if defined(__GNUC__) || defined(__clang__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-#endif
-#include "NvInferVersion.h"
-#if defined(__GNUC__) || defined(__clang__)
-#pragma GCC diagnostic pop
-#endif
+#ifndef MLIR_TENSORRT_COMMON_UTILS_TENSORRTVERSION_H
+#define MLIR_TENSORRT_COMMON_UTILS_TENSORRTVERSION_H
 
+#include "mlir-tensorrt-common/Utils/TensorRTVersionDetail.h"
 #include <cstdint>
 #include <sstream>
-
-extern "C" int32_t getInferLibVersion() noexcept;
-extern "C" int32_t getInferLibBuildVersion() noexcept;
-
-/// Evaluates to true if the version of TensorRT that we are compiling against
-/// is greater than or equal to the given version number.
-#define MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(major, minor, patch)        \
-  (NV_TENSORRT_MAJOR > major ||                                                \
-   (NV_TENSORRT_MAJOR == major &&                                              \
-    (NV_TENSORRT_MINOR > minor ||                                              \
-     (NV_TENSORRT_MINOR == minor && NV_TENSORRT_PATCH >= patch))))
-
-/// Evaluates to true if the version of TensorRT that we are compiling against
-/// is less than the given version number.
-#define MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_LT(major, minor, patch)         \
-  (NV_TENSORRT_MAJOR < major ||                                                \
-   (NV_TENSORRT_MAJOR == major &&                                              \
-    (NV_TENSORRT_MINOR < minor ||                                              \
-     (NV_TENSORRT_MINOR == minor && NV_TENSORRT_PATCH < patch))))
 
 namespace mlir::tensorrt {
 
@@ -71,11 +45,16 @@ struct TensorRTVersion {
   TensorRTVersion() { *this = TensorRTVersion::getCompileTimeVersion(); }
 
   static TensorRTVersion getCompileTimeVersion() {
+#ifdef MLIR_TRT_TARGET_TENSORRT
     return TensorRTVersion(NV_TENSORRT_MAJOR, NV_TENSORRT_MINOR,
                            NV_TENSORRT_PATCH, NV_TENSORRT_BUILD);
+#else
+    return TensorRTVersion(0, 0, 0, 0);
+#endif
   }
 
   static TensorRTVersion getLoadedVersion() {
+#ifdef MLIR_TRT_TARGET_TENSORRT
     // The format is as for TENSORRT_VERSION: (TENSORRT_MAJOR *
     // MAJOR_VERSION_DIVISOR) + (TENSORRT_MINOR * 100) + TENSOR_PATCH.
     int32_t version = getInferLibVersion();
@@ -89,6 +68,9 @@ struct TensorRTVersion {
     return TensorRTVersion(version / MAJOR_VERSION_DIVISOR,
                            (version % MAJOR_VERSION_DIVISOR) / 100,
                            version % 100, build);
+#else
+    return TensorRTVersion::getCompileTimeVersion();
+#endif
   }
 
   std::string getAsString() const {
@@ -123,4 +105,4 @@ struct TensorRTVersion {
 };
 } // namespace mlir::tensorrt
 
-#endif // INCLUDE_MLIR_TENSORRT_DIALECT_UTILS_TENSORRTVERSION
+#endif // MLIR_TENSORRT_COMMON_UTILS_TENSORRTVERSION_H

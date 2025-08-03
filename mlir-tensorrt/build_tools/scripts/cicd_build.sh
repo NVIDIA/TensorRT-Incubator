@@ -27,7 +27,7 @@ export ENABLE_ASAN=${ENABLE_ASAN:-OFF}
 export CPM_SOURCE_CACHE=${CPM_SOURCE_CACHE:-/.cache.cpm}
 export CCACHE_DIR=${CCACHE_DIR:-/ccache}
 
-python3 -m pip install -r integrations/python/requirements-dev.txt
+python3 -m pip install -r integrations/python/requirements-dev.txt --use-pep517
 
 ccache --zero-stats || true
 rm -rf ${BUILD_DIR}  || true

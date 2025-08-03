@@ -1,6 +1,6 @@
 //===- Extension.cpp ------------------------------------------------------===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -22,8 +22,60 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt/Compiler/Extension.h"
+#include "llvm/Support/ManagedStatic.h"
+#include "llvm/Support/Mutex.h"
+
+#define DEBUG_TYPE "compiler-extensions"
+#define DBGV(fmt, ...)                                                         \
+  LLVM_DEBUG(llvm::dbgs() << llvm::formatv("[" DEBUG_TYPE "] " fmt "\n",       \
+                                           __VA_ARGS__))
 
 using namespace mlirtrt;
 using namespace mlirtrt::compiler;
 
+static llvm::ManagedStatic<ExtensionConstructorRegistry>
+    globalTaskExtensionRegistry;
+
 TaskExtensionBase::~TaskExtensionBase() {}
+
+void ExtensionList::loadExtensions(CompilationTaskOptionsBase &task) {
+  for (auto &[extensionName, builder] : builders) {
+    if (extensions.contains(extensionName))
+      continue;
+    DBGV("Loading extension: {0}", extensionName);
+    extensions.insert(std::make_pair(extensionName, builder(task)));
+  }
+}
+
+void ExtensionConstructorRegistry::addExtension(llvm::StringRef taskName,
+                                                llvm::StringRef extensionName,
+                                                ConstructorFunc constructor) {
+  llvm::sys::ScopedLock lock(registryMutex);
+  if (!constructors.contains(taskName)) {
+    ExtensionList::ExtensionBuilders inner = {
+        {extensionName, std::move(constructor)}};
+    constructors.insert(std::make_pair(taskName, std::move(inner)));
+    return;
+  }
+  constructors[taskName].insert(
+      std::make_pair(extensionName, std::move(constructor)));
+}
+
+ExtensionList ExtensionConstructorRegistry::getExtensionsForTask(
+    llvm::StringRef taskName) const {
+  llvm::sys::ScopedLock lock(registryMutex);
+  if (!constructors.contains(taskName))
+    return ExtensionList();
+  return ExtensionList(constructors.lookup(taskName));
+}
+
+void compiler::registerExtension(llvm::StringRef taskName,
+                                 llvm::StringRef extensionName,
+                                 ExtensionList::ConstructorFunc constructor) {
+  globalTaskExtensionRegistry->addExtension(taskName, extensionName,
+                                            constructor);
+}
+
+ExtensionList compiler::getExtensionsForTask(llvm::StringRef taskName) {
+  return globalTaskExtensionRegistry->getExtensionsForTask(taskName);
+}

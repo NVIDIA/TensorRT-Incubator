@@ -24,11 +24,7 @@ include "mlir/Pass/PassBase.td"
 
 defvar ConvertToExecutorOptions = [
   Option<"indexBitwidth", "index-bitwidth", "int64_t", "64",
-  "all index types will be converted to signless integers of this bitwidth">,
-  Option<"usePackedMemRefCConv", "use-packed-memref-cconv",
-    "bool", "true",
-    "convert memref arguments in functions to table/struct rather than to "
-    "an unpacked list of scalars">
+  "all index types will be converted to signless integers of this bitwidth">
 ];
 
 def ConvertLinalgToExecutorPass : Pass<"convert-linalg-to-executor"> {

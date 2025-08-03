@@ -23,6 +23,7 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt/Conversion/Passes.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Transforms/WalkPatternRewriteDriver.h"
 #include "stablehlo/dialect/StablehloOps.h"
 
@@ -31,6 +32,28 @@ namespace mlir {
 #include "mlir-tensorrt/Conversion/Passes.h.inc"
 } // namespace mlir
 using namespace mlir;
+
+static constexpr StringRef kStablehloDonationArgumentAttr =
+    "tf.aliasing_output";
+
+/// If function argument has attribute `tf.aliasing_output = N`, replace it with
+/// `plan.aliasing_output = N`. Such attribute represents argument donation hint
+/// in stablehlo IR. This function also checks if N is within bound i.e. `N <
+/// func.getNumResults()`. When Stablehlo IR is coming from JAX bounded N is
+/// guaranteed.
+static LogicalResult checkAndUpdateFunction(func::FuncOp func) {
+  FunctionType funcType = func.getFunctionType();
+  for (size_t i = 0; i < funcType.getNumInputs(); i++) {
+    if (auto N = func.getArgAttrOfType<IntegerAttr>(
+            i, kStablehloDonationArgumentAttr)) {
+      if (N.getInt() >= funcType.getNumResults())
+        return failure();
+      func.setArgAttr(i, plan::PlanDialect::kDonationArgAttrName, N);
+      func.removeArgAttr(i, kStablehloDonationArgumentAttr);
+    }
+  }
+  return success();
+}
 
 namespace {
 
@@ -68,6 +91,8 @@ struct ConvertStablehloToPlanPass
   }
 
   void runOnOperation() override {
+    if (failed(checkAndUpdateFunction(getOperation())))
+      return signalPassFailure();
     walkAndApplyPatterns(getOperation(), *patterns);
   }
 };

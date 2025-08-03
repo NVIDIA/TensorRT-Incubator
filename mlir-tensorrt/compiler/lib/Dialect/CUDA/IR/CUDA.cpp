@@ -19,7 +19,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir-executor/Executor/IR/Executor.h"
-#include "mlir-tensorrt-dialect/Utils/ShapeUtils.h"
 #include "mlir-tensorrt/Dialect/CUDA/IR/CUDADialect.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir/Conversion/ConvertToLLVM/ToLLVMInterface.h"

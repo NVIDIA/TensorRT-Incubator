@@ -23,9 +23,15 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt/Compiler/StablehloToExecutable/TensorRTExtension.h"
 #include "mlir-tensorrt-dialect/Target/TranslateToTensorRT.h"
+#include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
 #include "mlir-tensorrt-dialect/TensorRT/Transforms/Passes.h"
 #include "mlir-tensorrt/Conversion/Passes.h"
+#include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "llvm/Support/Debug.h"
+
+#define DEBUG_TYPE "tensorrt-extension"
+#define DBGS() llvm::dbgs() << "[" DEBUG_TYPE << "] "
 
 using namespace mlirtrt::compiler;
 using namespace mlirtrt;
@@ -36,8 +42,9 @@ using namespace mlir;
 //===----------------------------------------------------------------------===//
 
 void StablehloToExecutableTensorRTExtension::populatePasses(
-    mlir::OpPassManager &pm, Phase phase,
-    const StablehloToExecutableOptions &options) const {
+    mlir::OpPassManager &pm, Phase phase) const {
+
+  const StablehloToExecutableOptions &options = this->getOptions();
 
   if (this->disabled)
     return;
@@ -96,8 +103,6 @@ void StablehloToExecutableTensorRTExtension::populatePasses(
       ConvertTensorRTRuntimeToExecutorPassOptions toExecutorOpts;
       toExecutorOpts.indexBitwidth =
           options.get<ExecutorOptions>().indexBitwidth;
-      toExecutorOpts.usePackedMemRefCConv =
-          options.get<ExecutorOptions>().usePackedMemRefCConv;
       pm.addPass(createConvertTensorRTRuntimeToExecutorPass(
           std::move(toExecutorOpts)));
       return;
@@ -111,5 +116,15 @@ void StablehloToExecutableTensorRTExtension::populatePasses(
   }
 }
 
-MLIR_DEFINE_EXPLICIT_TYPE_ID(
-    mlirtrt::compiler::StablehloToExecutableTensorRTExtension)
+//===----------------------------------------------------------------------===//
+// Extension Registration
+//===----------------------------------------------------------------------===//
+
+void mlirtrt::compiler::registerTensorRTExtension(DialectRegistry &registry) {
+  registerExtension(
+      "stablehlo-to-executable", "tensorrt-extension",
+      [](CompilationTaskOptionsBase &ctx)
+          -> std::unique_ptr<TaskExtensionBase> {
+        return std::make_unique<StablehloToExecutableTensorRTExtension>(ctx);
+      });
+}

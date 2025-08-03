@@ -4,7 +4,6 @@ add_mlir_tool(mlir-tensorrt-opt
 
   DEPENDS
   MLIRTensorRTConversionPassIncGen
-  MLIRTensorRTTranslationPassIncGen
   MLIROptLib
   ${MLIR_TENSORRT_LIBS}
 

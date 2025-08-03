@@ -27,6 +27,7 @@ namespace mlir {
 class RewritePatternSet;
 class ConversionTarget;
 class DataLayout;
+class TypeConverter;
 } // namespace mlir
 
 //===----------------------------------------------------------------------===//
@@ -69,6 +70,20 @@ void populateExecutorDialectLegality(ExecutorTypeConverter &typeConverter,
 void populateExecutorStructuralConversionPatternsAndLegality(
     RewritePatternSet &patterns, ExecutorTypeConverter &converter,
     ConversionTarget &target);
+
+/// Create a `std-to-executor` pass with additional type conversions added via
+/// callback.
+std::unique_ptr<Pass> createConvertStdToExecutorPass(
+    const ConvertStdToExecutorPassOptions &stdToExecutorOpts,
+    const std::function<void(TypeConverter &)>
+        &populateAdditionalTypeConversions);
+
+/// Create a `executor-to-executor` pass with additional type conversions added
+/// via callback.
+std::unique_ptr<Pass> createConvertExecutorToExecutorPass(
+    const ConvertExecutorToExecutorPassOptions &executorToExecutorOpts,
+    const std::function<void(TypeConverter &)>
+        &populateAdditionalTypeConversions);
 
 } // namespace mlir::executor
 

@@ -80,6 +80,11 @@ def Executor_Dialect : Dialect {
     /// with results based on the order in the argument list.
     static constexpr StringRef kResultArgAttrName = "executor.result_arg";
 
+    /// The name of the function argument attribute that indicates an argument
+    /// donated for result. Arguments tagged in this manner are associated
+    /// with result at index represented by attribute value.
+    static constexpr StringRef kDonatedArgAttrName = "executor.donated_arg";
+
     /// Name of the attribute attached to a module that describes the shape of the
     /// process grid for which the exported functions assume to be a part of.
     static constexpr StringRef kProcessGridShapeAttrName = "executor.process_grid_shape";
@@ -95,6 +100,10 @@ def Executor_Dialect : Dialect {
     static StringRef getShapeBoundsAttrName() {
       return "executor.shape_profile";
     }
+
+  private:
+    /// Register attributes for the Executor dialect.
+    void registerAttributes();
   }];
   // Temporary until CUDA ops are completely removed out of Executor dialect
   let dependentDialects = [

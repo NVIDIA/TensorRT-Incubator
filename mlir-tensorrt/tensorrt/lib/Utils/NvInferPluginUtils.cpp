@@ -81,6 +81,11 @@ FailureOr<nvinfer1::DataType> mlir::tensorrt::getNvInferDataType(Location loc,
     return nvinfer1::DataType::kINT4;
 #endif
 
+#if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 9, 0)
+  if (isa<Float4E2M1FNType>(elType))
+    return nvinfer1::DataType::kFP4;
+#endif
+
   return emitError(loc) << "MLIR Type " << t
                         << " can't be converted to TensorRT type";
 }

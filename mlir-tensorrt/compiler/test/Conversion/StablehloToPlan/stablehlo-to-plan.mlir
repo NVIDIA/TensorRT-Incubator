@@ -20,3 +20,25 @@ func.func @test_optimization_barrier_with_tokens(%arg0: tensor<1x1xf32>, %arg1: 
 
 // CHECK-LABEL: func.func @test_optimization_barrier_with_tokens(
 //   CHECK-NOT: plan.optimization_barrier
+
+// -----
+
+func.func @donation_attr(%arg0: tensor<2x2xf32> {tf.aliasing_output = 0 : i32}, %arg1 : tensor<2x2xf32>) -> tensor<2x2xf32>{
+  %r = stablehlo.add %arg0, %arg1 : tensor<2x2xf32>
+  return %r : tensor<2x2xf32>
+}
+
+// CHECK-LABEL: @donation_attr
+//  CHECK-SAME: {plan.aliasing_output = 0 : i32}
+//   CHECK-NOT: {tf.aliasing_output = 0 : i32}
+
+// -----
+
+func.func @no_donation_attr(%arg0: tensor<2x2xf32>, %arg1 : tensor<2x2xf32>) -> tensor<2x2xf32>{
+  %r = stablehlo.add %arg0, %arg1 : tensor<2x2xf32>
+  return %r : tensor<2x2xf32>
+}
+
+// CHECK-LABEL: @no_donation_attr
+//   CHECK-NOT: {plan.aliasing_output = 0 : i32}
+//   CHECK-NOT: {tf.aliasing_output = 0 : i32}

@@ -30,6 +30,56 @@ namespace mlir {
 
 using namespace mlir;
 
+/// Strip algorithm attribute from dot_general when safe for Linalg conversion.
+static LogicalResult stripDotGeneralAlgorithm(stablehlo::DotGeneralOp op) {
+  auto algorithm = op.getAlgorithm();
+  if (!algorithm)
+    return failure();
+
+  // Extract element types using modern cast API
+  auto lhsElemType = op.getLhs().getType().getElementType();
+  auto rhsElemType = op.getRhs().getType().getElementType();
+  auto resultElemType = op.getType().getElementType();
+
+  // Verify algorithm can be safely removed
+  if (algorithm->getLhsPrecisionType() != lhsElemType ||
+      algorithm->getRhsPrecisionType() != rhsElemType)
+    return failure(); // Precision mismatch
+
+  Type accType = algorithm->getAccumulationType();
+  bool validAccumulator = false;
+
+  // Check if accumulator matches result type
+  if (accType == resultElemType)
+    validAccumulator = true;
+  else if (lhsElemType.isF16() && rhsElemType.isF16() && accType.isF32())
+    validAccumulator = true;
+  else if (lhsElemType.isBF16() && rhsElemType.isBF16() && accType.isF32())
+    validAccumulator = true;
+  else if (lhsElemType.isTF32() && rhsElemType.isTF32() && accType.isF32())
+    validAccumulator = true;
+
+  if (!validAccumulator)
+    return failure();
+
+  if (algorithm->getLhsComponentCount() != 1 ||
+      algorithm->getRhsComponentCount() != 1 ||
+      algorithm->getNumPrimitiveOperations() != 1)
+    return failure();
+
+  // Create new op without algorithm attribute
+  OpBuilder builder(op);
+  auto newOp = builder.create<stablehlo::DotGeneralOp>(
+      op.getLoc(), op.getType(), op.getLhs(), op.getRhs(),
+      op.getDotDimensionNumbers(), op.getPrecisionConfig().value_or(nullptr),
+      /*algorithm=*/nullptr);
+
+  op->replaceAllUsesWith(newOp);
+  op.erase();
+
+  return success();
+}
+
 /// Match indexing map '-DN + const' and return the dimension in 'dim'.
 static bool matchReverseIndexingExpr(AffineExpr expr, unsigned &dim,
                                      int64_t &offset) {
@@ -191,6 +241,14 @@ class StablehloToLinalgPass
   }
 
   void runOnOperation() override {
+    // First, strip algorithm attributes from dot_general ops
+    getOperation()->walk([&](stablehlo::DotGeneralOp dotOp) {
+      // Attempt to strip the algorithm attribute; failures are silently ignored
+      // as they indicate the op should keep its algorithm attribute
+      (void)stripDotGeneralAlgorithm(dotOp);
+    });
+
+    // Then apply the conversion patterns
     if (failed(applyPartialConversion(getOperation(), *target, patterns))) {
       emitError(getOperation()->getLoc(), "failed to apply conversion in ")
           << getArgument();

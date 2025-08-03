@@ -1,8 +1,8 @@
 add_llvm_executable(executor-opt executor-opt.cpp)
 
 llvm_update_compile_flags(executor-opt)
-
-get_property(MLIR_EXECUTOR_TEST_LIBS GLOBAL PROPERTY MLIR_EXECUTOR_TEST_LIBS)
+mtrt_get_project_targets(MLIRExecutor LIBRARY_TYPE LIBS OUT_VAR MLIR_EXECUTOR_LIBS)
+mtrt_get_project_targets(MLIRExecutor LIBRARY_TYPE TEST_LIBS OUT_VAR MLIR_EXECUTOR_TEST_LIBS)
 
 target_link_libraries(executor-opt PRIVATE
   MLIRArithDialect
@@ -16,11 +16,9 @@ target_link_libraries(executor-opt PRIVATE
   MLIRMemRefDialect
   MLIROptLib
   MLIRSCFDialect
-  MLIRSCFToControlFlow
-  MLIRTensorRTExecutorDialect
-  MLIRTensorRTExecutorTransforms
-  MLIRTensorRTStdToExecutor
+  MLIRSCFToControlFlow  
   MLIRTransforms
+  ${MLIR_EXECUTOR_LIBS}
   ${MLIR_EXECUTOR_TEST_LIBS}
   )
 

@@ -1655,7 +1655,7 @@ func.func @trt_quantize_per_axis(%arg0: tensor<10x10xf32>, %arg1: tensor<10xf32>
 // -----
 
 func.func @trt_quantize_per_axis(%arg0: tensor<10x10xf32>, %arg1: tensor<11xf32>) -> tensor<10x10xi8> {
-  // expected-error @below {{'tensorrt.quantize' op expected the scales size to match the quantization axis of input tensor}}
+  // expected-error @below {{'tensorrt.quantize' op For per-channel quantization, expected the scales tensor dimension to match the quantization axis dimension of input tensor}}
   %result = tensorrt.quantize {
     axis = 1 : i32
   } in(%arg0 : tensor<10x10xf32>) scale(%arg1 : tensor<11xf32>) -> tensor<10x10xi8>
@@ -1665,7 +1665,7 @@ func.func @trt_quantize_per_axis(%arg0: tensor<10x10xf32>, %arg1: tensor<11xf32>
 // -----
 
 func.func @trt_quantize(%arg0: tensor<10x10xf32>, %arg1: tensor<2xf32>) -> tensor<10x10xi8> {
-  // expected-error @below {{'tensorrt.quantize' op if no axis is provided and input is not INT4, quantization is per-tensor. In this case, `scale` must be a scalar i.e. 0 dim tensor.}}
+  // expected-error @below {{'tensorrt.quantize' op When scale is 1D tensor, quantization is per-channel and thus axis value must be provided.}}
   %result = tensorrt.quantize in(%arg0 : tensor<10x10xf32>) scale(%arg1 : tensor<2xf32>) -> tensor<10x10xi8>
   return %result : tensor<10x10xi8>
 }
@@ -1681,7 +1681,7 @@ func.func @trt_quantize_shape_mismatch(%arg0: tensor<10x10xf32>, %arg1: tensor<f
 // -----
 
 func.func @trt_quantize_i4(%arg0: tensor<10x10xf32>, %arg1: tensor<2x10xf32>) -> tensor<10x10xi8> {
-  // expected-error @below {{'tensorrt.quantize' op 2D scale is supported only for quantizing INT4 output}}
+  // expected-error @below {{'tensorrt.quantize' op Block quantization is supported only for f4 or i4 output types.}}
   %result = tensorrt.quantize in(%arg0 : tensor<10x10xf32>) scale(%arg1 : tensor<2x10xf32>) -> tensor<10x10xi8>
   return %result : tensor<10x10xi8>
 }
@@ -1699,7 +1699,7 @@ func.func @trt_dequantize_per_axis(%arg0: tensor<10x10xi8>, %arg1: tensor<10xf32
 // -----
 
 func.func @trt_dequantize_per_axis(%arg0: tensor<10x10xi8>, %arg1: tensor<11xf32>) -> tensor<10x10xf32> {
-  // expected-error @below {{'tensorrt.dequantize' op expected the scales size to match the dequantization axis of input tensor}}
+  // expected-error @below {{'tensorrt.dequantize' op For per-channel dequantization, expected the scales tensor dim to match the dequantization axis dimension of input tensor}}
   %result = tensorrt.dequantize {
     axis = 1 : i32
   } in(%arg0 : tensor<10x10xi8>) scale(%arg1 : tensor<11xf32>) -> tensor<10x10xf32>
@@ -1709,7 +1709,7 @@ func.func @trt_dequantize_per_axis(%arg0: tensor<10x10xi8>, %arg1: tensor<11xf32
 // -----
 
 func.func @trt_dequantize(%arg0: tensor<10x10xi8>, %arg1: tensor<2xf32>) -> tensor<10x10xf32> {
-  // expected-error @below {{'tensorrt.dequantize' op if no axis is provided and input is not INT4, dequantization is per-tensor. In this case, `scale` must be a scalar i.e. 0 dim tensor.}}
+  // expected-error @below {{'tensorrt.dequantize' op When scale is 1D tensor, dequantization is per-channel and thus axis value must be provided}}
   %result = tensorrt.dequantize in(%arg0 : tensor<10x10xi8>) scale(%arg1 : tensor<2xf32>) -> tensor<10x10xf32>
   return %result : tensor<10x10xf32>
 }
@@ -1727,19 +1727,9 @@ func.func @trt_dequantize_shape_mismatch(%arg0: tensor<10x10xi8>, %arg1: tensor<
 func.func @trt_dequanize_non_zero_input_rank(%arg0: tensor<f16>) -> tensor<f16> {
   %k = tensorrt.constant dense<2> : tensor<i8>
   %scale = tensorrt.constant dense<1.0> : tensor<f16>
-  // expected-error @below {{'tensorrt.dequantize' op operand #0 must be 1D/2D/3D/4D/5D/6D/7D/8D tensor of allowed TensorRT tensor i8 element types or f8E4M3FN type or 4-bit signless integer values, but got 'tensor<i8>'}}
+  // expected-error @below {{'tensorrt.dequantize' op operand #0 must be 1D/2D/3D/4D/5D/6D/7D/8D tensor of allowed TensorRT tensor i8 element types or f8E4M3FN type or f4E2M1FN type or 4-bit signless integer values, but got 'tensor<i8>'}}
   %dq_k = tensorrt.dequantize in (%k: tensor<i8>) scale (%scale: tensor<f16>) -> tensor<f16>
   return %dq_k : tensor<f16>
-}
-
-// -----
-
-func.func @trt_subbyte_dequantize_even_final_dim(%arg0: tensor<4x3xf16>) -> tensor<4x3xf16> {
-  %k = tensorrt.constant dense<2> : tensor<4x3xi4>
-  %scale = tensorrt.constant dense<1.0> : tensor<f16>
-  // expected-error @below {{'tensorrt.dequantize' op input tensor with sub-byte element type must have even final dimension, but input tensor has final dimension of size 3}}
-  %dq_k = tensorrt.dequantize in (%k: tensor<4x3xi4>) scale (%scale: tensor<f16>) -> tensor<4x3xf16>
-  return %dq_k : tensor<4x3xf16>
 }
 
 // -----
@@ -2319,7 +2309,7 @@ func.func @trt_scatter_nd_unexpected_indices_type(%arg0: tensor<4x4x4xf32>, %arg
 
 // -----
 
-func.func @trt_scatter_nd_incorrect_updates_rank(%arg0: tensor<4xf32>, %arg1: tensor<1xi32>, %arg2: tensor<2xf32>) -> tensor<4xf32> {  
+func.func @trt_scatter_nd_incorrect_updates_rank(%arg0: tensor<4xf32>, %arg1: tensor<1xi32>, %arg2: tensor<2xf32>) -> tensor<4xf32> {
   // expected-error @below {{tensorrt.scatter_nd expected updates tensor rank to be 0}}
   %0 = tensorrt.scatter_nd
     data(%arg0 : tensor<4xf32>)
@@ -2330,7 +2320,7 @@ func.func @trt_scatter_nd_incorrect_updates_rank(%arg0: tensor<4xf32>, %arg1: te
 
 // -----
 
-func.func @trt_scatter_nd_incorrect_indices_rank(%arg0: tensor<4xf32>, %arg1: tensor<i32>, %arg2: tensor<f32>) -> tensor<4xf32> {  
+func.func @trt_scatter_nd_incorrect_indices_rank(%arg0: tensor<4xf32>, %arg1: tensor<i32>, %arg2: tensor<f32>) -> tensor<4xf32> {
   // expected-error @below {{tensorrt.scatter_nd indices must have rank >= 1}}
   %0 = tensorrt.scatter_nd
     data(%arg0 : tensor<4xf32>)
@@ -2343,9 +2333,9 @@ func.func @trt_scatter_nd_incorrect_indices_rank(%arg0: tensor<4xf32>, %arg1: te
 
 func.func @scatter_nd_must_be_full_window(%arg0: tensor<10x5xf16>, %arg1: tensor<3x1xi32>,
                                           %arg2: tensor<3x3xf16>)
-   -> tensor<10x5xf16> {      
+   -> tensor<10x5xf16> {
   // expected-error @below {{tensorrt.scatter_nd input tensor shape is incompatible with the shape of the updates tensor}}
-  %0 = tensorrt.scatter_nd data(%arg0 : tensor<10x5xf16>) indices(%arg1 : tensor<3x1xi32>) 
+  %0 = tensorrt.scatter_nd data(%arg0 : tensor<10x5xf16>) indices(%arg1 : tensor<3x1xi32>)
     updates(%arg2 : tensor<3x3xf16>)
   return %0 : tensor<10x5xf16>
 }
@@ -2354,16 +2344,16 @@ func.func @scatter_nd_must_be_full_window(%arg0: tensor<10x5xf16>, %arg1: tensor
 
 func.func @scatter_nd_no_dynamic_index_vector(%arg0: tensor<10x5xf16>, %arg1: tensor<3x?xi32>,
                                               %arg2: tensor<3x3xf16>)
-   -> tensor<10x5xf16> {  
+   -> tensor<10x5xf16> {
   // expected-error @below {{the last dimension in tensorrt.scatter_nd indices tensor (the index vector size) must be static}}
-  %0 = tensorrt.scatter_nd data(%arg0 : tensor<10x5xf16>) indices(%arg1 : tensor<3x?xi32>) 
+  %0 = tensorrt.scatter_nd data(%arg0 : tensor<10x5xf16>) indices(%arg1 : tensor<3x?xi32>)
     updates(%arg2 : tensor<3x3xf16>)
   return %0 : tensor<10x5xf16>
 }
 
 // -----
 
-func.func @trt_scatter_elements_axis_out_of_bounds(%arg0: tensor<3x3xf32>, %arg1: tensor<2x3xi32>, %arg2: tensor<2x3xf32>) -> tensor<3x3xf32> {  
+func.func @trt_scatter_elements_axis_out_of_bounds(%arg0: tensor<3x3xf32>, %arg1: tensor<2x3xi32>, %arg2: tensor<2x3xf32>) -> tensor<3x3xf32> {
   // expected-error @below {{'tensorrt.scatter_elements' op expected axis to be in the range [0, 2)}}
   %0 = tensorrt.scatter_elements {
     axis = 3: i64
@@ -2678,3 +2668,33 @@ func.func @test_plugin_shape_verification(%arg0: tensor<?x4x?x?xf32>) -> tensor<
 
 // -----
 
+func.func @dynamic_quantization_invalid_block_size(%arg0: tensor<2x32xf32>, %arg1: tensor<f32>) -> (tensor<2x32xf4E2M1FN>, tensor<2x2xf8E4M3FN>){
+    // expected-error @below {{op currently only block size of 16 is supported!}}
+    %quantized, %scales = tensorrt.dynamic_quantize {axis = 1 : i32, block_size = 32 : i32} in(%arg0 : tensor<2x32xf32>) double_quant_scale(%arg1 : tensor<f32>) -> tensor<2x32xf4E2M1FN>, tensor<2x2xf8E4M3FN>
+    return %quantized, %scales : tensor<2x32xf4E2M1FN>, tensor<2x2xf8E4M3FN>
+}
+
+// -----
+
+func.func @dynamic_quantization_invalid_axis(%arg0: tensor<2x16x16x32xf32>, %arg1: tensor<f32>) -> (tensor<2x16x32x32xf4E2M1FN>, tensor<2x1x32x32xf8E4M3FN>){
+    // expected-error @below {{op invalid axis! Axis can be either last or second last dimension of the input.}}
+    %quantized, %scales = tensorrt.dynamic_quantize {axis = 1 : i32} in(%arg0 : tensor<2x16x16x32xf32>) double_quant_scale(%arg1 : tensor<f32>) -> tensor<2x16x32x32xf4E2M1FN>, tensor<2x1x32x32xf8E4M3FN>
+    return %quantized, %scales : tensor<2x16x32x32xf4E2M1FN>, tensor<2x1x32x32xf8E4M3FN>
+}
+
+// -----
+
+func.func @dynamic_quantization_invalid_input_dim(%arg0: tensor<2x34xf32>, %arg1: tensor<f32>) -> (tensor<2x34xf4E2M1FN>, tensor<2x2xf8E4M3FN>){
+    // expected-error @below {{op shape(input)[axis] must be divisible by 16.}}
+    %quantized, %scales = tensorrt.dynamic_quantize {axis = 1 : i32} in(%arg0 : tensor<2x34xf32>) double_quant_scale(%arg1 : tensor<f32>) -> tensor<2x34xf4E2M1FN>, tensor<2x2xf8E4M3FN>
+    return %quantized, %scales : tensor<2x34xf4E2M1FN>, tensor<2x2xf8E4M3FN>
+}
+
+// -----
+
+func.func @dynamic_quantization(%arg0: tensor<2x32xf32>, %arg1: tensor<f32>) -> (tensor<2x32xf4E2M1FN>, tensor<2x3xf8E4M3FN>){
+    // expected-error @below {{op failed to infer returned types}}
+    // expected-error @below {{op inferred type(s) 'tensor<2x32xf4E2M1FN>', 'tensor<2x2xf8E4M3FN>' are incompatible with return type(s) of operation 'tensor<2x32xf4E2M1FN>', 'tensor<2x3xf8E4M3FN>'}}
+    %quantized, %scales = tensorrt.dynamic_quantize {axis = 1 : i32} in(%arg0 : tensor<2x32xf32>) double_quant_scale(%arg1 : tensor<f32>) -> tensor<2x32xf4E2M1FN>, tensor<2x3xf8E4M3FN>
+    return %quantized, %scales : tensor<2x32xf4E2M1FN>, tensor<2x3xf8E4M3FN>
+}

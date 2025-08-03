@@ -26,9 +26,9 @@ include "mlir/Pass/PassBase.td"
 // OutlineTensorRTOpPass
 //===----------------------------------------------------------------------===//
 
-def OutlineTensorRTOpPass : Pass<"outline-tensorrt-op",
+def OutlineTensorRTOpPass : Pass<"outline-tensorrt-ops",
       "::mlir::ModuleOp"> {
-  let summary = "Outline all tensorrt ops into a tensorrt module";
+  let summary = "Segment and outline all TensorRT Dialect ops into a 'tensorrt.module'";
 
   let dependentDialects = [
     "::mlir::plan::PlanDialect"

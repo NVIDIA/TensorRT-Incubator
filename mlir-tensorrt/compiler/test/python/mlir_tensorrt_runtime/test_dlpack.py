@@ -9,7 +9,6 @@ import mlir_tensorrt.runtime.api as runtime
 import numpy as np
 
 client = runtime.RuntimeClient()
-stream = client.create_stream()
 devices = client.get_devices()
 
 

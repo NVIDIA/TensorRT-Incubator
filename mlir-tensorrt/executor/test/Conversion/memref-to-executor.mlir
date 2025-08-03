@@ -1,4 +1,4 @@
-// RUN: executor-opt %s -split-input-file -convert-memref-to-executor="index-bitwidth=32 use-packed-memref-cconv=false allow-unchecked-memref-cast-conversion=false" -canonicalize  -verify-diagnostics | FileCheck %s
+// RUN: executor-opt %s -split-input-file -convert-memref-to-executor="index-bitwidth=32 allow-unchecked-memref-cast-conversion=false" -canonicalize  -verify-diagnostics | FileCheck %s
 
 !hostBuffer = memref<4xf32, #executor.memory_type<host>>
 
@@ -8,12 +8,11 @@ func.func @memref_host_alloc() -> !hostBuffer {
 }
 
 // CHECK-LABEL: @memref_host_alloc
-//  CHECK-SAME: () -> memref<4xf32, #executor.memory_type<host>> {
 //   CHECK-DAG:     %[[c16:.+]] = executor.constant 16 : i32
-//   CHECK-DAG:     %[[c0:.+]] = executor.constant 0 : i32
 //   CHECK-DAG:     %[[c4:.+]] = executor.constant 4 : i32
+//   CHECK-DAG:     %[[c0:.+]] = executor.constant 0 : i32
 //   CHECK-DAG:     %[[c1:.+]] = executor.constant 1 : i32
-//       CHECK:     %[[v0:.+]] = executor.alloc %[[c16]] bytes align(%[[c16]]) : (i32, i32) -> !executor.ptr<host>
+//       CHECK:     %[[v0:.+]] = executor.alloc %[[c16]] bytes align(%[[c4]]) : (i32, i32) -> !executor.ptr<host>
 //       CHECK:     %[[v1:.+]] = executor.table.create(%[[v0]], %[[v0]], %[[c0]], %[[c4]], %[[c1]] : !executor.ptr<host>, !executor.ptr<host>, i32, i32, i32) : <!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32>
 //       CHECK:     %[[v2:.+]] = builtin.unrealized_conversion_cast %[[v1]] : !executor.table<!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32> to memref<4xf32, #executor.memory_type<host>>
 //       CHECK:     return %[[v2]] : memref<4xf32, #executor.memory_type<host>>
@@ -26,12 +25,11 @@ func.func @memref_default_alloc() -> memref<4xf32> {
 }
 
 // CHECK-LABEL: @memref_default_alloc
-//  CHECK-SAME: () -> memref<4xf32> {
 //   CHECK-DAG:     %[[c16:.+]] = executor.constant 16 : i32
-//   CHECK-DAG:     %[[c0:.+]] = executor.constant 0 : i32
 //   CHECK-DAG:     %[[c4:.+]] = executor.constant 4 : i32
+//   CHECK-DAG:     %[[c0:.+]] = executor.constant 0 : i32
 //   CHECK-DAG:     %[[c1:.+]] = executor.constant 1 : i32
-//       CHECK:     %[[v0:.+]] = executor.alloc %[[c16]] bytes align(%[[c16]]) : (i32, i32) -> !executor.ptr<host>
+//       CHECK:     %[[v0:.+]] = executor.alloc %[[c16]] bytes align(%[[c4]]) : (i32, i32) -> !executor.ptr<host>
 //       CHECK:     %[[v1:.+]] = executor.table.create(%[[v0]], %[[v0]], %[[c0]], %[[c4]], %[[c1]] : !executor.ptr<host>, !executor.ptr<host>, i32, i32, i32) : <!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32>
 //       CHECK:     %[[v2:.+]] = builtin.unrealized_conversion_cast %[[v1]] : !executor.table<!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32> to memref<4xf32>
 //       CHECK:     return %[[v2]] : memref<4xf32>
@@ -107,20 +105,19 @@ func.func @scalar_edge_cases() -> i32 {
 //   CHECK-DAG:     %[[c0_i32:.+]] = executor.constant 0 : i32
 //   CHECK-DAG:     %[[true:.+]] = arith.constant true
 //   CHECK-DAG:     %[[false:.+]] = arith.constant false
-//   CHECK-DAG:     %[[c16_i32:.+]] = executor.constant 16 : i32
 //   CHECK-DAG:     %[[c0_i32_0:.+]] = arith.constant 0 : i32
 //   CHECK-DAG:     %[[c99_i32:.+]] = arith.constant 99 : i32
 //   CHECK-DAG:     %[[c1_i32:.+]] = executor.constant 1 : i32
 //   CHECK-DAG:     %[[c4_i32:.+]] = executor.constant 4 : i32
-//       CHECK:     %[[v0:.+]] = executor.alloc %[[c4_i32]] bytes align(%[[c16_i32]]) : (i32, i32) -> !executor.ptr<host>
-//       CHECK:     %[[v1:.+]] = executor.alloc %[[c4_i32]] bytes align(%[[c16_i32]]) : (i32, i32) -> !executor.ptr<host>
+//       CHECK:     %[[v0:.+]] = executor.alloc %[[c4_i32]] bytes align(%[[c4_i32]]) : (i32, i32) -> !executor.ptr<host>
+//       CHECK:     %[[v1:.+]] = executor.alloc %[[c4_i32]] bytes align(%[[c4_i32]]) : (i32, i32) -> !executor.ptr<host>
 //       CHECK:     executor.store %[[c99_i32]] to %[[v0]] + %[[c0_i32]] : i32, !executor.ptr<host>, i32
 //       CHECK:     executor.store %[[c0_i32_0]] to %[[v1]] + %[[c0_i32]] : i32, !executor.ptr<host>, i32
 //       CHECK:     %[[v2:.+]] = executor.getoffset[1] : () -> i32, i32
 //       CHECK:     executor.memcpy %[[v0]] + %[[c0]] to %[[v1]] + %[[c0]] size %[[v2]] : !executor.ptr<host>, i32, !executor.ptr<host>, i32, i32
 //       CHECK:     executor.load %[[v1]] + %[[c0]] : (!executor.ptr<host>, i32) -> i32
-//       CHECK:     %[[v3:.+]] = executor.alloc %[[c1]] bytes align(%[[c16]]) : (i32, i32) -> !executor.ptr<host>
-//       CHECK:     %[[v4:.+]] = executor.alloc %[[c1]] bytes align(%[[c16]]) : (i32, i32) -> !executor.ptr<host>
+//       CHECK:     %[[v3:.+]] = executor.alloc %[[c1]] bytes align(%[[c1_i32]]) : (i32, i32) -> !executor.ptr<host>
+//       CHECK:     %[[v4:.+]] = executor.alloc %[[c1]] bytes align(%[[c1_i32]]) : (i32, i32) -> !executor.ptr<host>
 //       CHECK:     executor.store %[[true]] to %[[v3]] + %[[c0]] : i1, !executor.ptr<host>, i32
 //       CHECK:     executor.store %[[false]] to %[[v4]] + %[[c0]] : i1, !executor.ptr<host>, i32
 //       CHECK:     %[[v6:.+]] = executor.getoffset[1] : () -> i32, i1
@@ -135,12 +132,11 @@ func.func @alloc_i1() -> memref<1500x1500xi1, #executor.memory_type<host>> {
 }
 
 // CHECK-LABEL: func.func @alloc_i1
-//       CHECK:     %[[c0_i32:.+]] = executor.constant 0 : i32
-//       CHECK:     %[[c16_i32:.+]] = executor.constant 16 : i32
-//       CHECK:     %[[c1500_i32:.+]] = executor.constant 1500 : i32
-//       CHECK:     %[[c1_i32:.+]] = executor.constant 1 : i32
-//       CHECK:     %[[c2250000_i32:.+]] = executor.constant 2250000 : i32
-//       CHECK:     %[[v0:.+]] = executor.alloc %[[c2250000_i32]] bytes align(%[[c16_i32]]) : (i32, i32) -> !executor.ptr<host>
+//   CHECK-DAG:     %[[c0_i32:.+]] = executor.constant 0 : i32
+//   CHECK-DAG:     %[[c1500_i32:.+]] = executor.constant 1500 : i32
+//   CHECK-DAG:     %[[c1_i32:.+]] = executor.constant 1 : i32
+//   CHECK-DAG:     %[[c2250000_i32:.+]] = executor.constant 2250000 : i32
+//       CHECK:     %[[v0:.+]] = executor.alloc %[[c2250000_i32]] bytes align(%[[c1_i32]]) : (i32, i32) -> !executor.ptr<host>
 //       CHECK:     %[[v1:.+]] = executor.table.create(%[[v0]], %[[v0]], %[[c0_i32]], %[[c1500_i32]], %[[c1500_i32]], %[[c1500_i32]], %[[c1_i32]] : !executor.ptr<host>, !executor.ptr<host>, i32, i32, i32, i32, i32) : <!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32, i32, i32>
 //       CHECK:     %[[v2:.+]] = builtin.unrealized_conversion_cast %[[v1]] : !executor.table<!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32, i32, i32> to memref<1500x1500xi1, #executor.memory_type<host>>
 //       CHECK:     return %[[v2]] : memref<1500x1500xi1, #executor.memory_type<host>>

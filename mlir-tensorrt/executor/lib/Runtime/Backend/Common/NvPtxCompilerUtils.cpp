@@ -55,7 +55,22 @@ rt::compilePtxToCuBin(const char *ptxData, size_t len, std::string_view arch) {
   NVPTXCOMPILER_SAFE_CALL(nvPTXCompilerGetVersion(&majorVer, &minorVer));
   MTRT_DBGF("libptxcompiler version : %d.%d\n", majorVer, minorVer);
 
-  std::string target = "--gpu-name=" + std::string(arch);
+  // Starting Compute Capability 9.0, there is a baseline feature set,
+  // architecture specific feature set (selected by using suffix `a` in the
+  // compilation target name), and family specific feature set (selected by
+  // using suffix `f` in the compilation target name).
+  // To enable using wider PTX instructions set, we set compilation target to
+  // use architecture specific feature set if Compute Capability is found to be
+  // greater than 9.0.
+  std::string archAndFeatureSetVariant(arch);
+  llvm::StringRef archRef(arch);
+  if (archRef.starts_with("sm_") &&
+      !(archRef.ends_with("a") || archRef.ends_with("f"))) {
+    unsigned smVersion;
+    if (!archRef.drop_front(3).getAsInteger(10, smVersion) && smVersion >= 90)
+      archAndFeatureSetVariant += "a";
+  }
+  std::string target = "--gpu-name=" + archAndFeatureSetVariant;
   std::vector<char const *> compileOptions = {target.c_str(), "--verbose"};
   nvPTXCompileResult status = nvPTXCompilerCompile(
       compiler, static_cast<int32_t>(compileOptions.size()),

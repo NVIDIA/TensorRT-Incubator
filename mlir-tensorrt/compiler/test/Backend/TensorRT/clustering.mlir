@@ -3,7 +3,7 @@
 // RUN: | FileCheck %s
 
 builtin.module attributes {
-  plan.cluster_kinds = [#plan.tensorrt_cluster<benefit=1, disallow_shape_tensor_calculations=false>]
+  plan.backends = [#plan.tensorrt_backend<benefit=1, disallow_shape_tensor_calculations=false>]
 } {
 
   func.func @cluster_and_outline_test(%arg0: tensor<4xf32>) -> (tensor<2xf32>) {

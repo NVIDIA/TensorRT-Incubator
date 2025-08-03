@@ -5,7 +5,7 @@ add_mlir_tensorrt_backend_library(MLIRTensorRTTensorRTBackend
     "mlir-tensorrt/Backends/TensorRT/TensorRTBackend.td"
 
   LINK_LIBS PUBLIC
-  MLIRTensorRTDialect
+  MLIRTensorRTTensorRTDialect
   MLIRTensorRTHostBackend
   MLIRTensorRTPlanDialect
   # TODO: remove unconditional dependence on Stablehlo dialect.

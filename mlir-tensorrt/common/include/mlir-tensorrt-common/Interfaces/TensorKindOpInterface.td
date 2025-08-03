@@ -22,33 +22,6 @@
 
 include "mlir/IR/OpBase.td"
 
-def TensorKindAttrInterface : AttrInterface<"TensorKindAttrInterface"> {
-
-  let description = [{
-
-    The 'TensorKindAttrInterface' is implemented by attributes that are
-    able to determine whether a tensor type should be interpreted as
-    belonging to a certain memory space (e.g. 'device', 'host', 'both', or
-    'unknown').
-
-    This interface should be implemented by attributes that are used
-    as tensor type encoding attributes or used as a memory space in
-    bufferization ops like `bufferization.alloc_tensor'.
-
-  }];
-
-  let cppNamespace = "::mlir";
-  let methods = [
-    InterfaceMethod<
-      /*desc=*/"Performs the tensor kind transfer function",
-      /*retTy=*/"TensorKindInfo",
-      /*methodName=*/"getTensorKind",
-      /*args=*/(ins ),
-      /*methodBody=*/"",
-      /*defaultImplementation=*/"">,
-  ];
-}
-
 def TensorKindOpInterface : OpInterface<"TensorKindOpInterface"> {
   let description = [{
     The 'TensorKindOpInterface' is implemented by operations to participate

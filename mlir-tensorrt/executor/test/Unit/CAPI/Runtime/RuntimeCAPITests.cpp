@@ -50,7 +50,7 @@ TEST(RuntimeCAPI, TestStatusCreate) {
 TEST(RuntimeCAPI, TestStreamCreate) {
   MTRT_Stream stream{nullptr};
   MTRT_Status streamStatus = mtrtStreamCreate(&stream);
-#ifdef MLIR_EXECUTOR_ENABLE_CUDA
+#ifdef MLIR_TRT_ENABLE_CUDA
   ASSERT_TRUE(mtrtStatusIsOk(streamStatus));
   ASSERT_TRUE(!mtrtStreamIsNull(stream));
   mtrtStreamDestroy(stream);
@@ -164,7 +164,7 @@ TEST(RuntimeCAPI, TestHostToHostCopy) {
   ASSERT_TRUE(mtrtStatusIsOk(status));
 }
 
-#ifdef MLIR_EXECUTOR_ENABLE_CUDA
+#ifdef MLIR_TRT_ENABLE_CUDA
 TEST(RuntimeCAPI, TestHostToDeviceAndBackCopy) {
 
   MTRT_RuntimeClient client;

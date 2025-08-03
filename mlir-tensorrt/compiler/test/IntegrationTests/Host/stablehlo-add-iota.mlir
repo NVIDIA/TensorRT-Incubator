@@ -1,9 +1,7 @@
-// RUN: mlir-tensorrt-opt %s -stablehlo-to-executable-pipeline="disable-tensorrt-extension entrypoint=" \
-// RUN: | mlir-tensorrt-translate -mlir-to-runtime-executable -allow-unregistered-dialect \
-// RUN: | mlir-tensorrt-runner -input-type=rtexe -features=core | \
-// RUN: FileCheck %s
+// RUN: mlir-tensorrt-compiler %s -opts="disable-tensorrt-extension entrypoint=" -o - | \
+// RUN: mlir-tensorrt-runner -input-type=rtexe -features=core -split-input-file | FileCheck %s
 
-module @simple_add_iota attributes {plan.cluster_kinds = [#plan.host_cluster<benefit = 1>]} {
+module @simple_add_iota attributes {plan.backends = [#plan.host_backend<benefit = 1>]} {
 
   func.func private @add_iota(%arg0: tensor<128xf32>) -> (tensor<128xf32>)
       attributes {no_inline, plan.memory_space = #plan.memory_space<host>} {

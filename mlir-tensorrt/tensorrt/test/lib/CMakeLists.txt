@@ -1,8 +1,15 @@
 function(add_mlir_tensorrt_dialect_test_library target)
-  add_mtrtd_library(${target} ${ARGN}
-    EXCLUDE_FROM_LIBMLIR)
-  set_property(GLOBAL APPEND PROPERTY MLIR_TENSORRT_DIALECT_TEST_LIBS ${target})
+  mtrt_add_project_library(${target}
+    PROJECT_NAME TensorRTDialect
+    LIBRARY_TYPE TEST_LIBS
+    DISABLE_INSTALL
+    EXCLUDE_FROM_LIBMLIR
+    PARTIAL_SOURCES_INTENDED
+    ${ARGN}
+  )
 endfunction()
 
-add_subdirectory(Target)
+if(MLIR_TRT_TARGET_TENSORRT)
+  add_subdirectory(Target)
+endif()
 add_subdirectory(TensorRT)

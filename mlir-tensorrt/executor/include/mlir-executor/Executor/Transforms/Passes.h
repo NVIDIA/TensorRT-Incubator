@@ -29,6 +29,7 @@
 #include <memory>
 
 namespace mlir {
+class TypeConverter;
 namespace func {
 class FuncDialect;
 }
@@ -43,9 +44,16 @@ struct ConvertStdToExecutorPassOptions;
 
 /// Builds a pipeline from lowering Executor-compatible IR to the final form
 /// prior to target translation.
+/// Additional type conversions can be applied during the `std-to-executor` and
+/// `executor-to-executor` passes by supplying the
+/// `populateAdditionalTypeConversions` callback. This should be used to convert
+/// additional opaque types that are defined in custom dialects within function,
+/// control-flow, and global operations that have not yet had type conversions
+/// applied.
 void buildExecutorLoweringPipeline(
-    OpPassManager &pm,
-    const ConvertStdToExecutorPassOptions &stdToExecutorOpts);
+    OpPassManager &pm, const ConvertStdToExecutorPassOptions &stdToExecutorOpts,
+    const std::function<void(TypeConverter &)>
+        &populateAdditionalTypeConversions = {});
 
 /// Register Executor-related pass pipelines.
 void registerExecutorPassPipelines();

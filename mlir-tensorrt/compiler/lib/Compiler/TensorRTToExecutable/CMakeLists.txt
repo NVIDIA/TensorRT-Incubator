@@ -1,3 +1,8 @@
+mtrt_get_project_targets(
+    TensorRTDialect
+    OUT_VAR MTRTD_LIBS
+)
+
 add_mlir_tensorrt_library(MLIRTensorRTCompilerTensorRTToExecutable
     TensorRTToExecutable.cpp
     Passes.cpp
@@ -20,10 +25,11 @@ add_mlir_tensorrt_library(MLIRTensorRTCompilerTensorRTToExecutable
     MLIRTensorRTMemRefToCUDA
     MLIRTensorRTPlanToExecutor
     MLIRTensorRTPlanTransforms
+    MLIRTensorRTRegionUtils
     MLIRTensorRTRuntimeToExecutor
     MLIRTensorRTSCFDetensorizeLoops
     MLIRTensorRTTargetLua
-    MLIRTensorRTTargetTensorRT
     MLIRTensorRTTensorRTToTensorRTRuntime
     MLIRTensorRTTransforms
+    ${MTRTD_LIBS}
     )

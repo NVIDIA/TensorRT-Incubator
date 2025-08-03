@@ -36,13 +36,6 @@ namespace mlirtrt::compiler {
 #define GEN_PASS_REGISTRATION
 #include "mlir-tensorrt/Compiler/TensorRTToExecutable/Passes.h.inc"
 
-//===----------------------------------------------------------------------===//
-// Pipeline Registrations
-//===----------------------------------------------------------------------===//
-
-/// Register the TensorRT clustering and compilation pipelines.
-void registerTensorRTToExecutablePipelines();
-
 } // namespace mlirtrt::compiler
 
 #endif // MLIR_TENSORRT_COMPILER_TENSORRTTOEXECUTABLE_PASSES

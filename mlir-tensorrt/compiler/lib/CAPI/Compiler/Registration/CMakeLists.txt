@@ -1,4 +1,4 @@
-get_property(MLIR_TENSORRT_LIBS GLOBAL PROPERTY MLIR_TENSORRT_LIBS)
+mtrt_get_project_targets(MLIRTensorRT OUT_VAR MLIR_TENSORRT_LIBS)
 
 add_mlir_tensorrt_public_c_api_library(MLIRTensorRTCAPIRegisterAllDialects
   RegisterAllDialects.cpp

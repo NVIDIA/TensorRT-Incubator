@@ -4,43 +4,15 @@
 include "mlir/IR/OpBase.td"
 
 //===----------------------------------------------------------------------===//
-// TensorBoundsAttrInterface
+// CompilerBackendAttrInterface
 //===----------------------------------------------------------------------===//
 
-def TensorBoundsAttrInterface : AttrInterface<"TensorBoundsAttrInterface"> {
-  let cppNamespace = "::mlir::plan";
-  let methods = [
-    InterfaceMethod<
-      /*desc=*/"Return the shape bounds associated with the attribute",
-      /*retTy=*/"LogicalResult",
-      "getShapeBounds",
-      (ins "llvm::SmallVectorImpl<int64_t> &":$min,
-           "llvm::SmallVectorImpl<int64_t> &":$max),
-      /*body=*/"",
-      ""
-    >,
-    InterfaceMethod<
-      /*desc=*/"Return the integer value bounds associated with the attribute",
-      /*retTy=*/"LogicalResult",
-      "getIntegerValueBounds",
-      (ins "llvm::SmallVectorImpl<llvm::APInt> &":$min,
-           "llvm::SmallVectorImpl<llvm::APInt> &":$max),
-      /*body=*/"",
-      ""
-    >
-  ];
-}
-
-//===----------------------------------------------------------------------===//
-// ClusterKindInterface
-//===----------------------------------------------------------------------===//
-
-def ClusterKindAttrInterface : AttrInterface<"ClusterKindAttrInterface"> {
+def CompilerBackendAttrInterface : AttrInterface<"CompilerBackendAttrInterface"> {
     let cppNamespace = "::mlir::plan";
     let methods = [
       InterfaceMethod<
           /*desc=*/[{
-            Return true if the cluster kind supports the given input kind.
+            Return true if the backend supports the given input kind.
           }],
           "bool",
           "supportsInputKind",
@@ -50,7 +22,7 @@ def ClusterKindAttrInterface : AttrInterface<"ClusterKindAttrInterface"> {
         >,
         InterfaceMethod<
           /*desc=*/[{
-            Returns the clustering options for this cluster kind. The
+            Returns the clustering options for this backend. The
             scope of the clustering is restricted to `op`, so `op` can
             be utilized to perform e.g. analysis conversion and use
             the results in the callbacks returned from this method.
@@ -69,7 +41,7 @@ def ClusterKindAttrInterface : AttrInterface<"ClusterKindAttrInterface"> {
         >,
         InterfaceMethod<
           /*desc*/[{
-            Returns the default memory space used for this cluster kind.
+            Returns the default memory space used for this backend.
           }],
           /*retTy*/"::mlir::plan::MemorySpace",
           "getDefaultMemorySpace",
@@ -83,7 +55,7 @@ def ClusterKindAttrInterface : AttrInterface<"ClusterKindAttrInterface"> {
             outlining. If false, then the the outlining step must accept
             a `plan::InlineGroupOp`.
 
-            Generally, this can be set to return true if the cluster kind
+            Generally, this can be set to return true if the backend
             does not require value or dimension bounds information for the
             cluster. Bounds for values and dynamic shapes are only analyzed
             during the region closure step.
@@ -93,7 +65,7 @@ def ClusterKindAttrInterface : AttrInterface<"ClusterKindAttrInterface"> {
           ""
         >,
         InterfaceMethod<
-          /*desc=*/"Return the region outlining options for the cluster",
+          /*desc=*/"Return the region outlining options for the backend",
           /*retTy*/"std::optional<OutlineRegionOptions>",
           "getClusterOutliningOptions",
           (ins
@@ -106,7 +78,7 @@ def ClusterKindAttrInterface : AttrInterface<"ClusterKindAttrInterface"> {
         InterfaceMethod<
           /*desc=*/[{
             This method specifies a method for manually outlining a closed
-            cluster, which is either a `plan::InlineClosedGroupOp` or
+            backend, which is either a `plan::InlineClosedGroupOp` or
             a `plan::InlineClosedAllocGroupOp`.
 
             The `moduleSymbolTable` is the symbol table of the immediately
@@ -123,7 +95,7 @@ def ClusterKindAttrInterface : AttrInterface<"ClusterKindAttrInterface"> {
           "return failure();"
         >,
         InterfaceMethod<
-          "Returns the cluster benefit",
+          "Returns the backend benefit",
           "int64_t",
           "getClusterBenefit",
           (ins "::mlir::plan::InputKind":$input_kind),
@@ -131,7 +103,7 @@ def ClusterKindAttrInterface : AttrInterface<"ClusterKindAttrInterface"> {
           ""
         >,
         InterfaceMethod<
-          "Return a post-clustering filter function",
+          "Return a post-s filter function",
           "std::function<bool(const Cluster &cluster)>",
           "getClusterFilter",
           (ins "::mlir::plan::InputKind":$input_kind),
