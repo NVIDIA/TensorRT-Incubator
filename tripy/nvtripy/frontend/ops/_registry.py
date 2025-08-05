@@ -16,6 +16,7 @@
 #
 
 from typing import Any, Callable
+from functools import wraps
 
 # We use the tensor method registry to define methods on the `Tensor` class out of line.
 # This lets the method live alongside the trace operation and makes it a bit more modular
@@ -32,18 +33,19 @@ def register_tensor_method(name: str):
     """
 
     # We make a special exception for "shape" since we actually do want that to be a property
+    # We also add additional methods of the tensor class that are not magic methods
     allowed_methods = ["copy", "cast", "shape", "reshape", "transpose", "flatten", "permute", "squeeze", "unsqueeze"]
     assert name in allowed_methods or name.startswith(
         "__"
     ), f"The tensor method registry should only be used for magic methods, but was used for: {name}"
 
     def impl(func: Callable[..., Any]) -> Callable[..., Any]:
-        # Don't wrap properties (like shape)
         if name == "shape":
             TENSOR_METHOD_REGISTRY[name] = func
         else:
             # Create a method wrapper that maps 'self' to the first argument (input)
             # This is the standard pattern for all tensor methods except 'shape' (which is a property)
+            @wraps(func)
             def method_wrapper(self, *args, **kwargs):
                 return func(self, *args, **kwargs)
 
