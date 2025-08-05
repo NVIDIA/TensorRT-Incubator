@@ -125,6 +125,11 @@ class Tensor(metaclass=TensorMeta):
         return instance
 
     def __getattr__(self, name: str):
+        if name in TENSOR_METHOD_REGISTRY:
+            import types
+
+            return types.MethodType(TENSOR_METHOD_REGISTRY[name], self)
+
         import nvtripy as tp
         from nvtripy.common.exception import search_for_missing_attr
 

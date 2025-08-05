@@ -21,10 +21,12 @@ from nvtripy.backend.mlir.utils import MLIRRuntimeClient
 from nvtripy.common import device as tp_device
 from nvtripy.common.datatype import DATA_TYPES
 from nvtripy.common.exception import raise_error
+from nvtripy.frontend.ops._registry import register_tensor_method
 from nvtripy.utils import wrappers
 
 
 @export.public_api(document_under="operations/functions")
+@register_tensor_method("copy")
 @wrappers.interface(
     dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
     dtype_variables={"T1": list(DATA_TYPES.keys())},

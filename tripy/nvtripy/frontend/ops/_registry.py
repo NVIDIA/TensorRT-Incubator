@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -32,13 +32,23 @@ def register_tensor_method(name: str):
     """
 
     # We make a special exception for "shape" since we actually do want that to be a property
-    allowed_methods = ["shape"]
+    allowed_methods = ["copy", "cast", "shape", "reshape", "transpose", "flatten", "permute", "squeeze", "unsqueeze"]
     assert name in allowed_methods or name.startswith(
         "__"
     ), f"The tensor method registry should only be used for magic methods, but was used for: {name}"
 
     def impl(func: Callable[..., Any]) -> Callable[..., Any]:
-        TENSOR_METHOD_REGISTRY[name] = func
+        # Don't wrap properties (like shape)
+        if name == "shape":
+            TENSOR_METHOD_REGISTRY[name] = func
+        else:
+            # Create a method wrapper that maps 'self' to the first argument (input)
+            # This is the standard pattern for all tensor methods except 'shape' (which is a property)
+            def method_wrapper(self, *args, **kwargs):
+                return func(self, *args, **kwargs)
+
+            TENSOR_METHOD_REGISTRY[name] = method_wrapper
+
         return func
 
     return impl
