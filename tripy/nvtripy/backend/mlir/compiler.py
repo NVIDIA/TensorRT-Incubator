@@ -58,6 +58,9 @@ class Compiler:
         if config.enable_mlir_debug or config.enable_tensorrt_debug:
             opts.append("--debug=true")
             if config.enable_mlir_debug:
+                # elide large constants by default, can remove this option
+                # if we want to run the dumped IR
+                opts.append(f"--mlir-elide-elementsattrs-if-larger=1024")
                 opts.append(f"--debug-only={config.mlir_debug_types}")
                 opts.append(f"--mlir-print-ir-after-all")
                 opts.append(f"--mlir-print-ir-tree-dir={config.mlir_debug_tree_path}")
