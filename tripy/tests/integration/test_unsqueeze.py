@@ -41,3 +41,14 @@ class TestUnsqueezeOp:
             return tp.unsqueeze(a, 3) == tp.Tensor(3.0)
 
         c = tp.compile(func, args=[tp.InputInfo(((1, 2, 3), 2, 3), dtype=tp.float32)])
+
+    @pytest.mark.parametrize("axis", [-1, 0, 2])
+    def test_unsqueeze_tensor_method(self, axis, eager_or_compiled):
+        """Test that tensor.unsqueeze() method works and produces same result as free function."""
+        inp = np.ones((4, 2, 2, 3), dtype=np.float32)
+
+        out = eager_or_compiled(lambda t: t.unsqueeze(axis), tp.Tensor(inp))
+        ref_out = np.expand_dims(inp, axis=axis)
+        assert tp.allclose(out, tp.Tensor(ref_out))
+
+        assert out.shape == tuple(ref_out.shape)

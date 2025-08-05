@@ -23,25 +23,27 @@ import nvtripy as tp
 from tests.conftest import skip_if_older_than_sm89
 from tests.helper import NUMPY_TO_TRIPY
 
+dtype_pairs = [
+    (np.int32, np.float32),
+    (np.float32, np.int32),
+    (np.int32, np.int8),
+    (np.float32, np.int8),
+    (np.int8, np.int32),
+    (np.int8, np.float32),
+    # important to test conversion into bool because default StableHLO semantics
+    # are simply to truncate to i1, which is not desirable
+    (np.float32, bool),
+    (np.int32, bool),
+    # requires a dequantization first
+    # TODO(#219): Dequantize fails with dynamic shapes
+    # (np.int8, bool),
+]
+
 
 class TestCast:
     @pytest.mark.parametrize(
         "input_dtype, target_dtype",
-        [
-            (np.int32, np.float32),
-            (np.float32, np.int32),
-            (np.int32, np.int8),
-            (np.float32, np.int8),
-            (np.int8, np.int32),
-            (np.int8, np.float32),
-            # important to test conversion into bool because default StableHLO semantics
-            # are simply to truncate to i1, which is not desirable
-            (np.float32, bool),
-            (np.int32, bool),
-            # requires a dequantization first
-            # TODO(#219): Dequantize fails with dynamic shapes
-            # (np.int8, bool),
-        ],
+        dtype_pairs,
     )
     def test_cast(self, input_dtype, target_dtype, eager_or_compiled):
         tp_target_dtype = NUMPY_TO_TRIPY[target_dtype]
@@ -83,3 +85,18 @@ class TestCast:
 
         np_compare_to_zero = np_input.astype(target_dtype) == 0
         assert np.array_equal(tp_compare_to_zero, np_compare_to_zero)
+
+    @pytest.mark.parametrize(
+        "input_dtype, target_dtype",
+        dtype_pairs,
+    )
+    def test_cast_tensor_method(self, input_dtype, target_dtype, eager_or_compiled):
+        """Test that tensor.cast() method works and produces same result as free function."""
+        tp_target_dtype = NUMPY_TO_TRIPY[target_dtype]
+
+        input_tensor = tp.copy(tp.Tensor(np.ones((2, 3), dtype=input_dtype)), tp.device("gpu"))
+
+        output = eager_or_compiled(lambda t: t.cast(tp_target_dtype), input_tensor)
+
+        np_input = cp.from_dlpack(input_tensor).get()
+        assert np.array_equal(cp.from_dlpack(output).get(), np_input.astype(target_dtype))

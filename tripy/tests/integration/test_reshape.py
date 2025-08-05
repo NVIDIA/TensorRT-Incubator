@@ -20,16 +20,18 @@ import cupy as cp
 import pytest
 import nvtripy as tp
 
+test_cases = [
+    ((2, 4), (1, 8)),
+    ((2, 4, 8, 9), (8, 8, 9)),
+    ((2, 4), (8,)),  # change rank of output
+    ((2, 4), (1, -1)),  # check negative dim
+]
+
 
 class TestReshape:
     @pytest.mark.parametrize(
         "shape, new_shape",
-        [
-            ((2, 4), (1, 8)),
-            ((2, 4, 8, 9), (8, 8, 9)),
-            ((2, 4), (8,)),  # change rank of output
-            ((2, 4), (1, -1)),  # check negative dim
-        ],
+        test_cases,
     )
     def test_static_reshape(self, shape, new_shape, eager_or_compiled):
         cp_a = cp.arange(np.prod(shape)).reshape(shape).astype(np.float32)
@@ -49,3 +51,16 @@ class TestReshape:
         a = tp.ones((2, 3, 4))
         out = eager_or_compiled(tp.reshape, a, (2, a.shape[1], a.shape[2] / 2, -1))
         assert np.array_equal(cp.from_dlpack(out).get(), np.ones((2, 3, 2, 2), dtype=np.float32))
+
+    @pytest.mark.parametrize(
+        "shape, new_shape",
+        test_cases,
+    )
+    def test_reshape_tensor_method(self, shape, new_shape, eager_or_compiled):
+        """Test that tensor.reshape() method works and produces same result as free function."""
+        cp_a = cp.arange(np.prod(shape)).reshape(shape).astype(np.float32)
+        a = tp.Tensor(cp_a)
+        b = eager_or_compiled(lambda t: t.reshape(new_shape), a)
+        if -1 in new_shape:
+            new_shape = tuple(np.prod(shape) // -np.prod(new_shape) if d == -1 else d for d in new_shape)
+        assert np.array_equal(cp.from_dlpack(b).get(), cp_a.reshape(new_shape).get())
