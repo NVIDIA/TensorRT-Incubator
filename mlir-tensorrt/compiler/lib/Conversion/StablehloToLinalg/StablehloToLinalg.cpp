@@ -208,6 +208,9 @@ class StablehloToLinalgPass
           if (isa<stablehlo::ScatterOp>(op))
             return std::nullopt;
 
+          if (isa<stablehlo::CustomCallOp>(op))
+            return std::nullopt;
+
           // Check if parent is op like `stablehlo.reduce`.
           Operation *parent = op->getParentOp();
           while (parent) {
