@@ -146,6 +146,10 @@ Constraint ReduceSumImpl(val: Value)[{
               (reduceOp.getInput().getType().getRank() - 1)));
 }];
 
+Constraint AvgImpl(op: Op) [{
+    return success(cast<tensorrt::ReduceOp>(op).getReduceOperation() == ReduceOperation::kAVG);
+}];
+
 Constraint CheckRank4(val: Value)[{
  RankedTensorType rtt = cast<RankedTensorType>(val.getType());
  return success(rtt.getRank() == 4);
@@ -196,10 +200,10 @@ Constraint ReverseSqrt(val : Value) -> Value{
 }
 
 Constraint FlattenTailDims(val: Value) -> Value {
- CheckRank4(val);
- let reshapeRes = op<tensorrt.reshape>(val);
- FlattenConstraintImpl(reshapeRes);
- return reshapeRes;
+    CheckRank4(val);
+    let reshapeRes = op<tensorrt.reshape>(val);
+    FlattenConstraintImpl(reshapeRes);
+    return reshapeRes;
 }
 
 Constraint ReduceSum(val: Value) -> Value{
@@ -218,6 +222,35 @@ Constraint ExpandTailDims(val: Value) -> Value{
 Constraint Mean(input: Value, numHW: Value){
  return Div(ExpandTailDims(ReduceSum(FlattenTailDims(input))), numHW);
 }
+
+Constraint ReduceAvg(input: Value, reduceAxes: Attr) {
+    let avgOp = op<tensorrt.reduce>(input) {keepDimensions = attr<"true">, reduceAxes = reduceAxes};
+    AvgImpl(avgOp);
+    return avgOp;
+}
+
+
+Rewrite GetSplatElementAttr(x: Value) -> Attr [{
+  return *getSplatConstantElementAttribute(x);
+}];
+
+Constraint HasSplatElements(x: Value) [{
+  return LogicalResult(getSplatConstantElementAttribute(x));
+}];
+
+Constraint SameElementType(a: Value, b: Value) [{
+    return success(cast<RankedTensorType>(a.getType()).getElementType() == cast<RankedTensorType>(b.getType()).getElementType());
+}];
+
+Rewrite CreateCast(x: Value, refValue: Value) -> Value [{
+    Type retType = RankedTensorType::Builder(cast<RankedTensorType>(x.getType())).setElementType(cast<RankedTensorType>(refValue.getType()).getElementType());
+    return rewriter.createOrFold<tensorrt::CastOp>(
+        x.getLoc(),
+        retType,
+        x
+    );
+}];
+
 
 Pattern RaiseInstanceNormalization_NCHW {
    let inputType : Type;
@@ -239,4 +272,58 @@ Pattern RaiseInstanceNormalization_NCHW {
    let addOffset = Add(prod, offset);
    CheckRank4(addOffset);
   replace addOffset with op<tensorrt.normalization>(input, scale, offset){axis = attr<"array<i64: 2,3>">};
+}
+
+Pattern RaisePytorchLayerNorm {
+    let x: Value;
+    let beta: Value;
+    let gamma: Value;
+    let axis: Attr;
+    let epsilon: Value;
+
+    let mean = ReduceAvg(x, axis);
+    let diffMean = Sub(x, mean);
+
+    let varianceDenominator: Value;
+    let varianceMean = Div(ReduceSum(x), varianceDenominator);  // for some reason Pytorch's lowering computes the mean in 2 different ways....
+    let varianceDiff = Sub(x, varianceMean);
+    let varianceDiffSquared = Mul(varianceDiff, varianceDiff);
+    let varianceNumerator = ReduceSum(varianceDiffSquared);
+    let variance = Div(varianceNumerator, varianceDenominator);
+    let varianceEps = Add(variance, epsilon);
+
+    let inverseSqrt = ReverseSqrt(varianceEps);
+    let normed = Mul(diffMean, inverseSqrt);
+    let prod = Mul(normed, gamma);
+    let root = Add(prod, beta);
+
+    HasSplatElements(epsilon);
+    HasSplatElements(varianceDenominator);
+
+    rewrite root with {
+        let epsilonAttr = GetSplatElementAttr(epsilon);
+        let replacement = op<tensorrt.normalization>(x, gamma, beta) {axis = axis, eps = epsilonAttr};
+        replace root with replacement;
+    };
+}
+
+Pattern RemoveLayerNormCast {
+    let x: Value;
+    let gamma: Value;
+    let beta: Value;
+    let axis: Attr;
+    let epsilonAttr: Attr;
+
+    let castInput = op<tensorrt.cast>(x);
+    let norm = op<tensorrt.normalization>(castInput, gamma, beta) {axis = axis, eps = epsilonAttr};
+    let root = op<tensorrt.cast>(norm);
+
+    SameElementType(x, root);
+
+    rewrite root with {
+        let newGamma = CreateCast(gamma, x);
+        let newBeta = CreateCast(beta, x);
+        let replacement = op<tensorrt.normalization>(x, newGamma, newBeta) {axis = axis, eps = epsilonAttr};
+        replace root with replacement;
+    };
 }

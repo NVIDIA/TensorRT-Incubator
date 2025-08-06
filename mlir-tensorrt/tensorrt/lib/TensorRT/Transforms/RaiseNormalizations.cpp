@@ -23,6 +23,7 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
 #include "mlir-tensorrt-dialect/TensorRT/Transforms/Passes.h"
+#include "mlir-tensorrt-dialect/TensorRT/Utils/Utils.h"
 #include "mlir/Dialect/PDL/IR/PDL.h"
 #include "mlir/Dialect/PDLInterp/IR/PDLInterp.h"
 #include "mlir/IR/Matchers.h"
@@ -51,6 +52,8 @@ public:
     MLIRContext *ctx = &getContext();
     RewritePatternSet patterns(ctx);
     patterns.add<RaiseInstanceNormalization_NCHW>(ctx);
+    patterns.add<RaisePytorchLayerNorm>(ctx);
+    patterns.add<RemoveLayerNormCast>(ctx);
 
     if (failed(applyPatternsGreedily(getOperation(), std::move(patterns)))) {
       emitError(getOperation()->getLoc())

@@ -401,6 +401,7 @@ def TensorRT_CastOp : TensorRT_Op<"cast", [
   let arguments = (ins TensorRT_RankedTensorOf<[I1, UI8, TensorRT_I8, I32, I64, F16, BF16, F32]>:$input);
   let results = (outs TensorRT_RankedTensorOf<[I1, UI8, TensorRT_I8, I32, I64, F16, BF16, F32]>:$result);
   let assemblyFormat = "attr-dict $input `:` type($input) `to` type($result)";
+  let hasFolder = 1;
 
   let extraClassDeclaration = [{
     /// Returns true if created op is valid for TensorRT major version.
