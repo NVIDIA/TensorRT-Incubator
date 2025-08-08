@@ -23,6 +23,7 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
 #include "mlir-tensorrt-dialect/TensorRT/Transforms/Passes.h"
+#include "mlir-tensorrt-dialect/TensorRT/Utils/Utils.h"
 #include "mlir/Dialect/PDL/IR/PDL.h"
 #include "mlir/Dialect/PDLInterp/IR/PDLInterp.h"
 #include "mlir/IR/Matchers.h"
@@ -50,8 +51,12 @@ public:
     MLIRContext *ctx = &getContext();
     RewritePatternSet patterns(ctx);
 
-    if (targetTensorRTVersion >= TensorRTVersion(10, 0))
+    if (targetTensorRTVersion >= TensorRTVersion(10, 0)) {
       patterns.add<RaiseToGeluTanh>(ctx);
+      patterns.add<RaiseToGeluTanh2>(ctx);
+      patterns.add<RaiseToGeluErf>(ctx);
+    }
+    patterns.add<RaiseMaxMinToClip>(ctx);
 
     if (failed(applyPatternsGreedily(getOperation(), std::move(patterns)))) {
       emitError(getOperation()->getLoc())

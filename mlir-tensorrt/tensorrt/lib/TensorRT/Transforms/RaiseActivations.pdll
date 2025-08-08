@@ -47,6 +47,30 @@ Constraint TanhConstraintImpl(op: Op) [{
         ActivationType::kTANH
     );
 }];
+Constraint MaxConstraintImpl(op: Op) [{
+    return mlir::success(
+        cast<tensorrt::ElementWiseOp>(op).getElementwiseOperation() ==
+        ElementWiseOperation::kMAX
+    );
+}];
+Constraint MinConstraintImpl(op: Op) [{
+    return mlir::success(
+        cast<tensorrt::ElementWiseOp>(op).getElementwiseOperation() ==
+        ElementWiseOperation::kMIN
+    );
+}];
+Constraint PowConstraintImpl(op: Op) [{
+    return mlir::success(
+        cast<tensorrt::ElementWiseOp>(op).getElementwiseOperation() ==
+        ElementWiseOperation::kPOW
+    );
+}];
+Constraint ErfConstraintImpl(op: Op) [{
+  return mlir::success(
+      cast<tensorrt::UnaryOp>(op).getUnaryOperation() ==
+        UnaryOperation::kERF
+    );
+}];
 Constraint MulConstraint(op: Op<tensorrt.element_wise>) -> Op {
   MulConstraintImpl(op);
   return op;
@@ -59,6 +83,22 @@ Constraint TanhConstraint(op: Op<tensorrt.activation>) -> Op {
   TanhConstraintImpl(op);
   return op;
 }
+Constraint MaxConstraint(op: Op<tensorrt.element_wise>) -> Op {
+  MaxConstraintImpl(op);
+  return op;
+}
+Constraint MinConstraint(op: Op<tensorrt.element_wise>) -> Op {
+  MinConstraintImpl(op);
+  return op;
+}
+Constraint PowConstraint(op: Op<tensorrt.element_wise>) -> Op {
+  PowConstraintImpl(op);
+  return op;
+}
+Constraint ErfConstraint(op: Op<tensorrt.unary>) -> Op {
+  ErfConstraintImpl(op);
+  return op;
+}
 Constraint Mul(lhs: Value, rhs: Value) -> Op {
   return MulConstraint(op<tensorrt.element_wise>(lhs, rhs));
 }
@@ -68,17 +108,36 @@ Constraint Add(lhs: Value, rhs: Value) -> Op {
 Constraint Tanh(x: Value) -> Op {
   return TanhConstraint(op<tensorrt.activation>(x));
 }
+Constraint Max(lhs: Value, rhs: Value) -> Op {
+  return MaxConstraint(op<tensorrt.element_wise>(lhs, rhs));
+}
+Constraint Min(lhs: Value, rhs: Value) -> Op {
+  return MinConstraint(op<tensorrt.element_wise>(lhs, rhs));
+}
+Constraint Pow(lhs: Value, rhs: Value) -> Op {
+  return PowConstraint(op<tensorrt.element_wise>(lhs, rhs));
+}
+Constraint Erf(x: Value) -> Op {
+  return ErfConstraint(op<tensorrt.unary>(x));
+}
+
+Rewrite GetSplatElementAttr(x: Value) -> Attr [{
+  return *getSplatConstantElementAttribute(x);
+}];
+
+Constraint HasSplatElements(x: Value) [{
+  return LogicalResult(getSplatConstantElementAttribute(x));
+}];
 
 /// Is true if `x` is a constant op that has a splat constant
 /// where splat element is equal to `attr`.
-Constraint SplatElements(x: Op, attr: Attr) [{
-  DenseElementsAttr els{};
-  if(!matchPattern(x, m_Constant(&els)))
-    return failure();
-  if(!els.isSplat())
-    return failure();
-  Attribute value = els.getSplatValue<Attribute>();
-  return success(value == attr);
+Constraint SplatElements(x: Value, attr: Attr) [{
+  FailureOr<Attribute> value = getSplatConstantElementAttribute(x);
+  if(LogicalResult(value).failed()) return failure();
+  if(*value == attr) return success();
+  FloatAttr fvalue = dyn_cast<FloatAttr>(*value);
+  FloatAttr fattr = dyn_cast<FloatAttr>(attr);
+  return success(fvalue && fattr && std::abs(fvalue.getValueAsDouble() - fattr.getValueAsDouble()) < .001); // handle different floating point type
 }];
 
 /// We need a native C++ function since we can't create the right
@@ -87,6 +146,16 @@ Rewrite CreateGeluTanh(x: Value) -> Op [{
   return rewriter.create<tensorrt::ActivationOp>(x.getLoc(),
     x, ActivationType::kGELU_TANH, FloatAttr{}, FloatAttr{}
   );
+}];
+Rewrite CreateGeluErf(x: Value) -> Op [{
+  return rewriter.create<tensorrt::ActivationOp>(x.getLoc(),
+    x, ActivationType::kGELU_ERF, FloatAttr{}, FloatAttr{}
+  );
+}];
+
+Rewrite CreateClipActivation(x: Value, min: Attr, max: Attr) -> Op [{
+  return rewriter.create<tensorrt::ActivationOp>(x.getLoc(),
+    x, ActivationType::kCLIP, cast<FloatAttr>(max), cast<FloatAttr>(min));
 }];
 
 Constraint TypesMatch(x: Value, y: Value) [{
@@ -98,13 +167,13 @@ Constraint TypesMatch(x: Value, y: Value) [{
 /// `https://github.com/google/jax/blob/main/jax/_src/nn/functions.py#L424-L455`.
 Pattern RaiseToGeluTanh {
   let x: Value;
-  let const0 = op<tensorrt.constant>();
+  let const0: Value;
   SplatElements(const0, attr<"4.471500e-02 : f32">);
-  let rootPiOverTwo = op<tensorrt.constant>();
+  let rootPiOverTwo: Value;
   SplatElements(rootPiOverTwo, attr<"0.797884583 : f32">);
-  let one = op<tensorrt.constant>();
+  let one: Value;
   SplatElements(one, attr<"1.0 : f32">);
-  let half = op<tensorrt.constant>();
+  let half: Value;
   SplatElements(half, attr<"0.5 : f32">);
   let scaledCube = Mul(Mul(Mul(x, x), x), const0);
   let tanArg = Mul(Add(x, scaledCube), rootPiOverTwo);
@@ -116,6 +185,78 @@ Pattern RaiseToGeluTanh {
 
   rewrite root with {
     let replacement = CreateGeluTanh(x);
+    replace root with replacement;
+  };
+}
+
+/// Raise a sequence of "approximate" GELU to `tensorrt.ext.gelu_tanh`.
+/// Matching pattern of Ops from PyTorch/torch-mlir
+Pattern RaiseToGeluTanh2 {
+  let x: Value;
+  let half2: Value;
+  SplatElements(half2, attr<"0.5 : f32">);
+  let one: Value;
+  SplatElements(one, attr<"1.0 : f32">);
+  let three: Value;
+  SplatElements(three, attr<"3.0 : f32">);
+  let const0: Value;
+  SplatElements(const0, attr<"4.471500e-02 : f32">);
+  let scaledCube = Mul(Pow(x, three), const0);
+  let half1: Value;
+  SplatElements(half1, attr<"0.5 : f32">);
+  let twoOverPi: Value;
+  SplatElements(twoOverPi, attr<"0.63661977236 : f32">);
+  let sqrt2pi = Pow(twoOverPi, half1);
+  let tanArg = Mul(sqrt2pi, Add(x, scaledCube));
+  let inner = Add(Tanh(tanArg), one);
+  let root = Mul(Mul(x, half2), inner);
+
+  // Sanity check for cases where we could have broadcasted x.
+  TypesMatch(root, x);
+
+  rewrite root with {
+    let replacement = CreateGeluTanh(x);
+    replace root with replacement;
+  };
+}
+
+/// Raise a sequence of GELU to `tensorrt.ext.gelu_none`.
+/// Matching pattern of Ops from PyTorch/torch-mlir
+Pattern RaiseToGeluErf {
+  let x: Value;
+  let half: Value;
+  SplatElements(half, attr<"0.5 : f32">);
+  let one: Value;
+  SplatElements(one, attr<"1.0 : f32">);
+  let const0: Value;
+  SplatElements(const0, attr<"7.070310e-01 : f32">);
+  let erf = Erf(Mul(x, const0));
+  let normalCdf = Mul(Add(erf, one), half);
+  let root = Mul(x, normalCdf);
+
+  rewrite root with {
+    let replacement = CreateGeluErf(x);
+    replace root with replacement;
+  };
+}
+
+/// Raise a elementwise min/max to the CLIP activation
+/// Matching pattern of Ops from PyTorch/torch-mlir
+Pattern RaiseMaxMinToClip {
+  let x: Value;
+  let minValue: Value;
+  let maxValue: Value;
+  let root = Min(minValue, Max(x, maxValue));
+
+  TypesMatch(root, x);
+
+  HasSplatElements(minValue);
+  HasSplatElements(maxValue);
+
+  rewrite root with {
+    let min: Attr = GetSplatElementAttr(minValue);
+    let max: Attr = GetSplatElementAttr(maxValue);
+    let replacement = CreateClipActivation(x, min, max);
     replace root with replacement;
   };
 }
