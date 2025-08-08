@@ -123,6 +123,7 @@ def get_arg_candidate_column_offsets(
                 arg_node = node.keywords[index - num_positional]
             else:
                 # Detect method calls by examining AST structure
+                # For methods, the `self` argument is omitted from ast.Call.args
                 is_method_call = isinstance(node.func, ast.Attribute)
                 if is_method_call:
                     index -= 1
