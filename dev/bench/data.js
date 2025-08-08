@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1754689284479,
+  "lastUpdate": 1754689733315,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -14842,6 +14842,61 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0000023966129129471657",
             "extra": "mean: 56.83422004718273 usec\nrounds: 18248"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "7b3ec36e0cfd1bad64bf2e145a24d8aed8308a4a",
+          "message": "Add tensor methods for cast, copy, and shape manipulation ops",
+          "timestamp": "2025-08-08T18:27:36Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/688/commits/7b3ec36e0cfd1bad64bf2e145a24d8aed8308a4a"
+        },
+        "date": 1754689732594,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 7273.7439952972545,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000028495673890716464",
+            "extra": "mean: 137.48078027581627 usec\nrounds: 7686"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 7504.935468761332,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000025616285136957966",
+            "extra": "mean: 133.2456493679948 usec\nrounds: 8085"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[sdpa-float32]",
+            "value": 1139.2995310033148,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0005499666236113914",
+            "extra": "mean: 877.7323019867815 usec\nrounds: 1247"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[sdpa-float16]",
+            "value": 3403.833406562504,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00006196411022194773",
+            "extra": "mean: 293.7864109541982 usec\nrounds: 3548"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_tripy_param_update",
+            "value": 17156.586089242548,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000022097213009569973",
+            "extra": "mean: 58.28665416291741 usec\nrounds: 17771"
           }
         ]
       }
