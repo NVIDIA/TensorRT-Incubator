@@ -31,10 +31,16 @@ class TestFlatten:
         "shape, start_dim, end_dim, expected_shape",
         test_cases,
     )
-    def test_flatten(self, shape, start_dim, end_dim, expected_shape, eager_or_compiled):
+    @pytest.mark.parametrize("use_tensor_method", [False, True])
+    def test_flatten(self, shape, start_dim, end_dim, expected_shape, use_tensor_method, eager_or_compiled):
         cp_a = cp.arange(np.prod(shape)).reshape(shape).astype(np.float32)
         a = tp.Tensor(cp_a)
-        b = eager_or_compiled(tp.flatten, a, start_dim=start_dim, end_dim=end_dim)
+
+        if use_tensor_method:
+            b = eager_or_compiled(lambda t: t.flatten(start_dim=start_dim, end_dim=end_dim), a)
+        else:
+            b = eager_or_compiled(tp.flatten, a, start_dim=start_dim, end_dim=end_dim)
+
         assert b.shape == expected_shape
         assert np.array_equal(cp.from_dlpack(b).get(), cp_a.reshape(expected_shape).get())
 
@@ -57,15 +63,3 @@ class TestFlatten:
         a = tp.ones((2, 3, 4, 5))
         b = eager_or_compiled(tp.flatten, a, start_dim=1, end_dim=-1)
         assert np.array_equal(cp.from_dlpack(b).get(), np.ones((2, 60), dtype=np.float32))
-
-    @pytest.mark.parametrize(
-        "shape, start_dim, end_dim, expected_shape",
-        test_cases,
-    )
-    def test_flatten_tensor_method(self, shape, start_dim, end_dim, expected_shape, eager_or_compiled):
-        """Test that tensor.flatten() method works and produces same result as free function."""
-        cp_a = cp.arange(np.prod(shape)).reshape(shape).astype(np.float32)
-        a = tp.Tensor(cp_a)
-        b = eager_or_compiled(lambda t: t.flatten(start_dim=start_dim, end_dim=end_dim), a)
-        assert b.shape == expected_shape
-        assert np.array_equal(cp.from_dlpack(b).get(), cp_a.reshape(expected_shape).get())

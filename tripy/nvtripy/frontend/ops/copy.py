@@ -25,8 +25,8 @@ from nvtripy.frontend.ops._registry import register_tensor_method
 from nvtripy.utils import wrappers
 
 
-@export.public_api(document_under="operations/functions")
 @register_tensor_method("copy")
+@export.public_api(document_under="operations/functions")
 @wrappers.interface(
     dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
     dtype_variables={"T1": list(DATA_TYPES.keys())},

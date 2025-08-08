@@ -20,8 +20,8 @@ from nvtripy.frontend.ops._registry import register_tensor_method
 from nvtripy.utils import wrappers
 
 
-@export.public_api(document_under="operations/functions")
 @register_tensor_method("squeeze")
+@export.public_api(document_under="operations/functions")
 @wrappers.interface(
     dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
     dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64", "bool"]},

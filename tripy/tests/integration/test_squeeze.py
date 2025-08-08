@@ -28,17 +28,13 @@ class TestSqueeze:
         "input_shape, dims, expected_shape",
         test_cases,
     )
-    def test_squeeze(self, input_shape, dims, expected_shape):
+    @pytest.mark.parametrize("use_tensor_method", [False, True])
+    def test_squeeze(self, input_shape, dims, expected_shape, use_tensor_method):
         input_tensor = tp.ones(input_shape, dtype=tp.float32)
-        output_tensor = tp.squeeze(input_tensor, dims=dims)
-        assert output_tensor.shape == expected_shape
 
-    @pytest.mark.parametrize(
-        "input_shape, dims, expected_shape",
-        test_cases,
-    )
-    def test_squeeze_tensor_method(self, input_shape, dims, expected_shape):
-        """Test that tensor.squeeze() method works and produces same result as free function."""
-        input_tensor = tp.ones(input_shape, dtype=tp.float32)
-        output_tensor = input_tensor.squeeze(dims)
+        if use_tensor_method:
+            output_tensor = input_tensor.squeeze(dims)
+        else:
+            output_tensor = tp.squeeze(input_tensor, dims=dims)
+
         assert output_tensor.shape == expected_shape

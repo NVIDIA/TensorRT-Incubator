@@ -29,7 +29,8 @@ def register_tensor_method(name: str):
     Decorator to add the method to the tensor method registry with the name specified.
     This does not use the FunctionRegistry decorator because every tensor method would also be
     registered in the public function registry and we would prefer to avoid having overhead
-    from having to dispatch overloads and check types twice.
+    from having to dispatch overloads and check types twice. This needs to be the top level decorator so we can
+    get input type validation from other decorators like `public_api`.
     """
 
     # We make a special exception for "shape" since we actually do want that to be a property
@@ -37,20 +38,10 @@ def register_tensor_method(name: str):
     allowed_methods = ["copy", "cast", "shape", "reshape", "transpose", "flatten", "permute", "squeeze", "unsqueeze"]
     assert name in allowed_methods or name.startswith(
         "__"
-    ), f"The tensor method registry should only be used for magic methods, but was used for: {name}"
+    ), f"The tensor method registry should only be used for magic methods and specially allowed methods, but was used for: {name}"
 
     def impl(func: Callable[..., Any]) -> Callable[..., Any]:
-        if name == "shape":
-            TENSOR_METHOD_REGISTRY[name] = func
-        else:
-            # Create a method wrapper that maps 'self' to the first argument (input)
-            # This is the standard pattern for all tensor methods except 'shape' (which is a property)
-            @wraps(func)
-            def method_wrapper(self, *args, **kwargs):
-                return func(self, *args, **kwargs)
-
-            TENSOR_METHOD_REGISTRY[name] = method_wrapper
-
+        TENSOR_METHOD_REGISTRY[name] = func
         return func
 
     return impl

@@ -45,13 +45,17 @@ class TestCast:
         "input_dtype, target_dtype",
         dtype_pairs,
     )
-    def test_cast(self, input_dtype, target_dtype, eager_or_compiled):
+    @pytest.mark.parametrize("use_tensor_method", [False, True])
+    def test_cast(self, input_dtype, target_dtype, use_tensor_method, eager_or_compiled):
         tp_target_dtype = NUMPY_TO_TRIPY[target_dtype]
 
         # TODO(#222): Integer casts with negative numbers fail in many cases
         input_tensor = tp.copy(tp.Tensor(np.ones((2, 3), dtype=input_dtype)), tp.device("gpu"))
 
-        output = eager_or_compiled(tp.cast, input_tensor, tp_target_dtype)
+        if use_tensor_method:
+            output = eager_or_compiled(lambda t: t.cast(tp_target_dtype), input_tensor)
+        else:
+            output = eager_or_compiled(tp.cast, input_tensor, tp_target_dtype)
 
         np_input = cp.from_dlpack(input_tensor).get()
         assert np.array_equal(cp.from_dlpack(output).get(), np_input.astype(target_dtype))
@@ -85,18 +89,3 @@ class TestCast:
 
         np_compare_to_zero = np_input.astype(target_dtype) == 0
         assert np.array_equal(tp_compare_to_zero, np_compare_to_zero)
-
-    @pytest.mark.parametrize(
-        "input_dtype, target_dtype",
-        dtype_pairs,
-    )
-    def test_cast_tensor_method(self, input_dtype, target_dtype, eager_or_compiled):
-        """Test that tensor.cast() method works and produces same result as free function."""
-        tp_target_dtype = NUMPY_TO_TRIPY[target_dtype]
-
-        input_tensor = tp.copy(tp.Tensor(np.ones((2, 3), dtype=input_dtype)), tp.device("gpu"))
-
-        output = eager_or_compiled(lambda t: t.cast(tp_target_dtype), input_tensor)
-
-        np_input = cp.from_dlpack(input_tensor).get()
-        assert np.array_equal(cp.from_dlpack(output).get(), np_input.astype(target_dtype))

@@ -43,8 +43,8 @@ def infer_dimensions(input: "nvtripy.Tensor", shape: ShapeLike) -> ShapeLike:
     return {"shape": shape}
 
 
-@export.public_api(document_under="operations/functions")
 @register_tensor_method("reshape")
+@export.public_api(document_under="operations/functions")
 @wrappers.interface(
     dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
     dtype_variables={"T1": ["float32", "float16", "bfloat16", "int4", "int8", "int32", "int64", "bool"]},

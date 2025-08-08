@@ -25,8 +25,8 @@ from nvtripy.trace.ops.permute import Permute
 from nvtripy.utils import wrappers
 
 
-@export.public_api(document_under="operations/functions")
 @register_tensor_method("permute")
+@export.public_api(document_under="operations/functions")
 @wrappers.interface(
     dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
     dtype_variables={"T1": ["float32", "float16", "bfloat16", "int4", "int8", "int32", "int64", "bool"]},
