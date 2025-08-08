@@ -21,3 +21,13 @@ from nvtripy.frontend.ops.unary import *
 import nvtripy.frontend.ops.matmul
 import nvtripy.frontend.ops.shape
 import nvtripy.frontend.ops.slice
+
+# Import regular methods that should be available as tensor methods
+import nvtripy.frontend.ops.cast
+import nvtripy.frontend.ops.copy
+import nvtripy.frontend.ops.reshape
+import nvtripy.frontend.ops.transpose
+import nvtripy.frontend.ops.flatten
+import nvtripy.frontend.ops.permute
+import nvtripy.frontend.ops.squeeze
+import nvtripy.frontend.ops.unsqueeze

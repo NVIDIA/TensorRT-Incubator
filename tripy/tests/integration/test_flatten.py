@@ -17,22 +17,30 @@ import cupy as cp
 import pytest
 import nvtripy as tp
 
+test_cases = [
+    ((2, 3, 4), 0, -1, (24,)),  # Flatten all dimensions
+    ((2, 3, 4), 1, -1, (2, 12)),  # Flatten dimensions 1 through end
+    ((2, 3, 4), 1, 2, (2, 12)),  # Flatten dimensions 1 through 2
+    ((2, 3, 4), 0, 1, (6, 4)),  # Flatten dimensions 0 through 1
+    ((2, 3, 4, 5), 1, 3, (2, 60)),  # Flatten dimensions 1 through 3
+]
+
 
 class TestFlatten:
     @pytest.mark.parametrize(
         "shape, start_dim, end_dim, expected_shape",
-        [
-            ((2, 3, 4), 0, -1, (24,)),  # Flatten all dimensions
-            ((2, 3, 4), 1, -1, (2, 12)),  # Flatten dimensions 1 through end
-            ((2, 3, 4), 1, 2, (2, 12)),  # Flatten dimensions 1 through 2
-            ((2, 3, 4), 0, 1, (6, 4)),  # Flatten dimensions 0 through 1
-            ((2, 3, 4, 5), 1, 3, (2, 60)),  # Flatten dimensions 1 through 3
-        ],
+        test_cases,
     )
-    def test_flatten(self, shape, start_dim, end_dim, expected_shape, eager_or_compiled):
+    @pytest.mark.parametrize("use_tensor_method", [False, True])
+    def test_flatten(self, shape, start_dim, end_dim, expected_shape, use_tensor_method, eager_or_compiled):
         cp_a = cp.arange(np.prod(shape)).reshape(shape).astype(np.float32)
         a = tp.Tensor(cp_a)
-        b = eager_or_compiled(tp.flatten, a, start_dim=start_dim, end_dim=end_dim)
+
+        if use_tensor_method:
+            b = eager_or_compiled(lambda t: t.flatten(start_dim=start_dim, end_dim=end_dim), a)
+        else:
+            b = eager_or_compiled(tp.flatten, a, start_dim=start_dim, end_dim=end_dim)
+
         assert b.shape == expected_shape
         assert np.array_equal(cp.from_dlpack(b).get(), cp_a.reshape(expected_shape).get())
 

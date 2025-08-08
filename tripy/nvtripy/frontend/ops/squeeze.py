@@ -16,9 +16,11 @@ from typing import Sequence, Union
 
 from nvtripy import export, utils
 from nvtripy.frontend.ops import utils as op_utils
+from nvtripy.frontend.ops._registry import register_tensor_method
 from nvtripy.utils import wrappers
 
 
+@register_tensor_method("squeeze")
 @export.public_api(document_under="operations/functions")
 @wrappers.interface(
     dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},

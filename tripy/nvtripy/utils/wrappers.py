@@ -17,6 +17,7 @@
 
 import functools
 import inspect
+import types
 from dataclasses import dataclass
 from textwrap import indent
 from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple, Union
@@ -40,7 +41,7 @@ RETURN_VALUE = "__RETURN_VALUE"
 
 
 # Try to include correct column offsets for non-tensor arguments.
-def _add_column_info(arg, arg_index, is_kwarg, num_positional, func_name, arg_names):
+def _add_column_info(arg, arg_index, is_kwarg, num_positional, func_name):
     from nvtripy.frontend.tensor import Tensor
 
     assert isinstance(arg, Tensor), f"This function should only be called for objects that are already Tensor instances"
@@ -94,7 +95,7 @@ def _add_column_info(arg, arg_index, is_kwarg, num_positional, func_name, arg_na
         dispatch_target = dispatch_target.replace("__r", "__")
 
     candidates = utils.ast.get_arg_candidate_column_offsets(
-        source_info.code, arg_index, num_positional, dispatch_target or func_name, is_kwarg, arg_names
+        source_info.code, arg_index, num_positional, dispatch_target or func_name, is_kwarg
     )
 
     # Only set column range if there is exactly one candidate, otherwise we can't reliably determine
@@ -202,7 +203,6 @@ def convert_input_types(
                 name in kwargs,
                 len(args),
                 func.__name__,
-                [name for name, _ in merged_args],
             )
 
             dtype = None
