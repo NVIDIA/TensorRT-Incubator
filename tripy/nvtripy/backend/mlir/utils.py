@@ -124,8 +124,9 @@ UNKNOWN_LOC = "unknown"
 OUTPUT_SEPARATOR = ";;<out>;;"
 
 
-def make_tensor_location(input_names: List[str], output_names: List[str]) -> ir.Location:
-    return ir.Location.name(f"{','.join(input_names)}{OUTPUT_SEPARATOR}{','.join(output_names)}")
+def make_tensor_location(input_names: List[str], output_names: List[str], metadata: str) -> ir.Location:
+    loc = ir.Location.name(f"{','.join(input_names)}{OUTPUT_SEPARATOR}{','.join(output_names)}")
+    return ir.Location.fused([loc], ir.StringAttr.get(metadata))
 
 
 # The way locations are printed by MLIR-TRT differs from how they are printed by TRT, hence all the `?`s.

@@ -159,8 +159,29 @@ class Trace:
                             layer_input_ops = [mlir_ops[inp.name] for inp in op.inputs]
                             output_types = [out.to_mlir() for out in op.outputs]
 
+                            metadata = (
+                                f"<TraceOp: {op}, Stack Info: "
+                                + ", ".join(
+                                    (
+                                        str_from_stack_info(
+                                            # include_code_index points to the first "useful" frame, i.e. usually the API
+                                            # that the user calls, or a few frames below that:
+                                            out.stack_info[out.stack_info.include_code_index or 0 :],
+                                            enable_color=False,
+                                            fetch_source_code=False,
+                                        )
+                                        if out.stack_info
+                                        else ""
+                                    ).replace("\n", " ")
+                                    for out in op.outputs
+                                )
+                                + " >, "
+                            )
+
                             with make_tensor_location(
-                                [inp.name for inp in op.inputs], [out.name for out in op.outputs]
+                                [inp.name for inp in op.inputs],
+                                [out.name for out in op.outputs],
+                                metadata,
                             ):
                                 mlir_output_ops = op.to_mlir(layer_input_ops, output_types)
 
@@ -179,25 +200,6 @@ class Trace:
 
                                 if num_known_dims(output_type) >= num_known_dims(mlir_output_op.type):
                                     mlir_output_op.set_type(output_type)
-
-                                mlir_output_op.owner.attributes["metadata"] = ir.StringAttr.get(
-                                    f"<TraceOp: {op}, Stack Info: "
-                                    + ", ".join(
-                                        (
-                                            str_from_stack_info(
-                                                # include_code_index points to the first "useful" frame, i.e. usually the API
-                                                # that the user calls, or a few frames below that:
-                                                out.stack_info[out.stack_info.include_code_index or 0 :],
-                                                enable_color=False,
-                                                fetch_source_code=False,
-                                            )
-                                            if out.stack_info
-                                            else ""
-                                        ).replace("\n", " ")
-                                        for out in op.outputs
-                                    )
-                                    + " >, "
-                                )
 
                             mlir_ops.update(zip([out.name for out in op.outputs], mlir_output_ops))
 
