@@ -20,12 +20,14 @@ from nvtripy import export
 from nvtripy.common.datatype import bool as tp_bool
 from nvtripy.common.datatype import float32, int8
 from nvtripy.frontend.ops import utils as op_utils
+from nvtripy.frontend.ops._registry import register_tensor_method
 from nvtripy.frontend.ops.dequantize import dequantize
 from nvtripy.frontend.ops.quantize import quantize
 from nvtripy.trace.ops.cast import Cast
 from nvtripy.utils import wrappers
 
 
+@register_tensor_method("cast")
 @export.public_api(document_under="operations/functions")
 @wrappers.interface(
     dtype_constraints={"input": "T1", "dtype": "T2", wrappers.RETURN_VALUE: "T2"},

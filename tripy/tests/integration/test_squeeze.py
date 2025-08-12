@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,18 +15,26 @@
 import nvtripy as tp
 import pytest
 
+test_cases = [
+    ((1, 2, 1), 0, (2, 1)),  # Squeeze first dimension
+    ((1, 2, 1), (0, 2), (2,)),  # Squeeze first and third dimensions
+    ((1, 2, 1), tuple(), (1, 2, 1)),  # No dimensions to squeeze
+    ((1, 2, 1), (-3, -1), (2,)),  # Squeeze using negative dimensions
+]
+
 
 class TestSqueeze:
     @pytest.mark.parametrize(
         "input_shape, dims, expected_shape",
-        [
-            ((1, 2, 1), 0, (2, 1)),  # Squeeze first dimension
-            ((1, 2, 1), (0, 2), (2,)),  # Squeeze first and third dimensions
-            ((1, 2, 1), tuple(), (1, 2, 1)),  # No dimensions to squeeze
-            ((1, 2, 1), (-3, -1), (2,)),  # Squeeze using negative dimensions
-        ],
+        test_cases,
     )
-    def test_squeeze(self, input_shape, dims, expected_shape):
+    @pytest.mark.parametrize("use_tensor_method", [False, True])
+    def test_squeeze(self, input_shape, dims, expected_shape, use_tensor_method):
         input_tensor = tp.ones(input_shape, dtype=tp.float32)
-        output_tensor = tp.squeeze(input_tensor, dims=dims)
+
+        if use_tensor_method:
+            output_tensor = input_tensor.squeeze(dims)
+        else:
+            output_tensor = tp.squeeze(input_tensor, dims=dims)
+
         assert output_tensor.shape == expected_shape

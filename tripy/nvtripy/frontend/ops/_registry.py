@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -28,14 +28,16 @@ def register_tensor_method(name: str):
     Decorator to add the method to the tensor method registry with the name specified.
     This does not use the FunctionRegistry decorator because every tensor method would also be
     registered in the public function registry and we would prefer to avoid having overhead
-    from having to dispatch overloads and check types twice.
+    from having to dispatch overloads and check types twice. This needs to be the top level decorator so we can
+    get input type validation from other decorators like `public_api`.
     """
 
     # We make a special exception for "shape" since we actually do want that to be a property
-    allowed_methods = ["shape"]
+    # We also add additional methods of the tensor class that are not magic methods
+    allowed_methods = ["copy", "cast", "shape", "reshape", "transpose", "flatten", "permute", "squeeze", "unsqueeze"]
     assert name in allowed_methods or name.startswith(
         "__"
-    ), f"The tensor method registry should only be used for magic methods, but was used for: {name}"
+    ), f"The tensor method registry should only be used for magic methods and specially allowed methods, but was used for: {name}"
 
     def impl(func: Callable[..., Any]) -> Callable[..., Any]:
         TENSOR_METHOD_REGISTRY[name] = func

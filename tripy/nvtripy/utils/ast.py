@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -102,9 +102,8 @@ def get_ast_node_func_name(node) -> Optional[str]:
 
 # Gets the column offset of the argument at `index` to function called `func_name` in the provided `code` snippet.
 def get_arg_candidate_column_offsets(
-    code: str, index: int, num_positional: int, func_name: str, is_kwarg: bool, arg_names: List[str]
+    code: str, index: int, num_positional: int, func_name: str, is_kwarg: bool
 ) -> Tuple[int, int]:
-
     candidates = []
 
     result = get_parsed_ast(code)
@@ -123,8 +122,10 @@ def get_arg_candidate_column_offsets(
             if is_kwarg:
                 arg_node = node.keywords[index - num_positional]
             else:
+                # Detect method calls by examining AST structure
                 # For methods, the `self` argument is omitted from ast.Call.args
-                if "self" in arg_names:
+                is_method_call = isinstance(node.func, ast.Attribute)
+                if is_method_call:
                     index -= 1
                 # If the final argument is a starred object, then we treat any args
                 # past the end as pointing to the starred object (this would be a variadic call,

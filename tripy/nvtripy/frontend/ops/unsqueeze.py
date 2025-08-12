@@ -17,9 +17,11 @@
 
 from nvtripy import export
 from nvtripy.frontend.ops import utils as op_utils
+from nvtripy.frontend.ops._registry import register_tensor_method
 from nvtripy.utils import wrappers
 
 
+@register_tensor_method("unsqueeze")
 @export.public_api(document_under="operations/functions")
 @wrappers.interface(
     dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
