@@ -42,8 +42,7 @@ def topk_impl(TopKType, input, dim, k):
     from nvtripy.frontend.tensor import Tensor
 
     if input.rank == 0:
-        # TODO (#496): Remove this hack of adding 0 when inputs can be returned directly in compiled functions.
-        return input + 0, Tensor(0)
+        return input, Tensor(0)
 
     dim = op_utils.process_dim(dim, input.rank)
 
