@@ -21,7 +21,7 @@ from nvtripy import export
 from nvtripy.common.exception import raise_error
 from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.trace.ops.shape import Shape
-from nvtripy.trace.ops.slice import SliceFill
+from nvtripy.trace.ops.slice import SliceFill, SliceReflect
 from nvtripy.types import IntLike
 from nvtripy.utils import wrappers
 
@@ -46,21 +46,35 @@ def pad(
             of ``input``. Each element of ``pad`` is a tuple of integers or :class:`DimensionSize` s ``(low, high)``,
             which represents the padding sizes before the lowest index and after the highest index at
             the corresponding dimension.
-        mode: The padding mode. Only "constant" is supported.
-        value: The padding value for "constant" mode.
+        mode: The padding mode. Must be one of:
+
+            - ``"constant"``: Pads with a constant value (default).
+            - ``"reflect"``: Pads by reflecting the input tensor.
+        value: The padding value for "constant" mode. Has no effect for other modes.
 
     Returns:
         The padded tensor.
 
     .. code-block:: python
         :linenos:
-        :caption: Constant padding.
+        :caption: Constant Padding
 
         input = tp.reshape(tp.arange(6, dtype=tp.float32), (2, 3))
         output = tp.pad(input, [(1, 0), (0, 1)])
 
         input_np = np.arange(6, dtype=np.float32).reshape((2, 3)) # doc: omit
         expected = np.pad(input_np, ((1, 0), (0, 1))) # doc: omit
+        assert np.array_equal(cp.from_dlpack(output).get(), expected)
+
+    .. code-block:: python
+        :linenos:
+        :caption: Reflect Padding
+
+        input = tp.reshape(tp.arange(6, dtype=tp.float32), (2, 3))
+        output = tp.pad(input, [(1, 1), (1, 1)], mode="reflect")
+
+        input_np = np.arange(6, dtype=np.float32).reshape((2, 3)) # doc: omit
+        expected = np.pad(input_np, ((1, 1), (1, 1)), mode="reflect") # doc: omit
         assert np.array_equal(cp.from_dlpack(output).get(), expected)
     """
     from nvtripy.frontend.ops.cast import cast
@@ -72,7 +86,7 @@ def pad(
             [f"Got pad={pad}, ", f" input's rank={input.rank}"],
         )
 
-    supported_modes = {"constant"}
+    supported_modes = {"constant", "reflect"}
     if mode not in supported_modes:
         raise_error(
             "Unsupported padding mode.",
@@ -89,4 +103,9 @@ def pad(
     sizes = input_shape + padding_lows + padding_highs
     steps = op_utils.tensor_from_shape_like([1] * input.rank)
 
-    return op_utils.create_op(SliceFill, [input, starts, sizes, steps, cast(Tensor(value), dtype=input.dtype)])
+    inputs = [input, starts, sizes, steps]
+    if mode == "constant":
+        inputs.append(cast(Tensor(value), dtype=input.dtype))
+
+    OpType = {"constant": SliceFill, "reflect": SliceReflect}[mode]
+    return op_utils.create_op(OpType, inputs)

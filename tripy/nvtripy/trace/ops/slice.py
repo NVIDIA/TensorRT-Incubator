@@ -22,40 +22,33 @@ from nvtripy.trace.ops import utils as op_utils
 from nvtripy.trace.ops.base import TraceOp
 
 
-@dataclass(repr=False)
-class Slice(TraceOp):
+def make_slice_op(name, mode):
+    @dataclass(repr=False)
+    class SliceOp(TraceOp):
 
-    infer_rank = op_utils.InferRankPolicies.same_as_input()
+        infer_rank = op_utils.InferRankPolicies.same_as_input()
 
-    def infer_dtypes(self):
-        self.outputs[0].dtype = self.inputs[0].dtype
+        def infer_dtypes(self):
+            self.outputs[0].dtype = self.inputs[0].dtype
 
-    def to_mlir(self, inputs, outputs):
-        assert len(inputs) == 4, "Slice operation must have exactly 4 inputs."
+        def to_mlir(self, inputs, outputs):
+            mode_attr = tensorrt.SliceModeAttr.get(mode)
 
-        return [tensorrt.slice(inputs[0], start=inputs[1], size=inputs[2], stride=inputs[3])]
+            return [
+                tensorrt.slice(
+                    inputs[0],
+                    start=inputs[1],
+                    size=inputs[2],
+                    stride=inputs[3],
+                    fill=inputs[4] if len(inputs) > 4 else None,
+                    mode=mode_attr,
+                )
+            ]
+
+    SliceOp.__name__ = name
+    return SliceOp
 
 
-@dataclass(repr=False)
-class SliceFill(TraceOp):
-
-    infer_rank = op_utils.InferRankPolicies.same_as_input()
-
-    def infer_dtypes(self):
-        self.outputs[0].dtype = self.inputs[0].dtype
-
-    def to_mlir(self, inputs, outputs):
-        assert len(inputs) == 5, "SliceFill operation must have exactly 5 inputs."
-
-        mode_attr = tensorrt.SliceModeAttr.get("kFILL")
-
-        return [
-            tensorrt.slice(
-                inputs[0],
-                start=inputs[1],
-                size=inputs[2],
-                stride=inputs[3],
-                fill=inputs[4],
-                mode=mode_attr,
-            )
-        ]
+Slice = make_slice_op("Slice", "kDEFAULT")
+SliceFill = make_slice_op("SliceFill", "kFILL")
+SliceReflect = make_slice_op("SliceReflect", "kREFLECT")

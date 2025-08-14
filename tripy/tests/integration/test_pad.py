@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -43,5 +43,14 @@ class TestPad:
         inp_tp = tp.Tensor(inp)
         out = eager_or_compiled(tp.pad, tp.Tensor(inp), ((0, inp_tp.shape[0]), (inp_tp.shape[1], 0)))
         expected = np.pad(inp, ((0, 2), (3, 0)))
+
+        assert np.array_equal(cp.from_dlpack(out).get(), expected)
+
+    @pytest.mark.parametrize("pad", [((1, 0), (0, 1)), ((2, 1), (1, 2))])
+    def test_pad_reflect(self, pad, eager_or_compiled):
+        inp = np.arange(6, dtype=np.float32).reshape((2, 3))
+
+        out = eager_or_compiled(tp.pad, tp.Tensor(inp), pad, mode="reflect")
+        expected = np.pad(inp, pad, mode="reflect")
 
         assert np.array_equal(cp.from_dlpack(out).get(), expected)
