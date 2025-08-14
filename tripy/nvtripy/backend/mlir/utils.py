@@ -130,10 +130,10 @@ def make_tensor_location(input_names: List[str], output_names: List[str], metada
 
 
 # MLIR-TRT prints the fused location in the format: loc(fused<"...">["..."]):
-TENSOR_NAME_PATTERN = re.compile(r'"([^"]*;;<out>;;[^"]*)"')
+TENSOR_NAME_PATTERN = re.compile(rf'"([^"]*{OUTPUT_SEPARATOR}[^"]*)"')
 # Noncapturing pattern is required so that when we `.split`, we eliminate the entire pattern and not just
 # the captured portions.
-TENSOR_NAME_PATTERN_NO_CAPTURE = re.compile(r'loc\((?:fused.*?">\[)?"[^"]*;;<out>;;[^"]*"(?:\])?\):? ?')
+TENSOR_NAME_PATTERN_NO_CAPTURE = re.compile(rf'loc\((?:fused.*?">\[)?"[^"]*{OUTPUT_SEPARATOR}[^"]*"(?:\])?\):? ?')
 
 
 def parse_tensor_names_from_location(msg: str) -> Tuple[List[str], List[str], str]:
