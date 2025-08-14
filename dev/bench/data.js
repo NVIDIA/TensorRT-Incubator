@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1755206271677,
+  "lastUpdate": 1755213322345,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -15172,6 +15172,61 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0000021247329059458766",
             "extra": "mean: 57.13003059478379 usec\nrounds: 18151"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "5ff298e561802301d8d5fa347c15b938bfd6158b",
+          "message": "Use FusedLocation to hold layer metadata",
+          "timestamp": "2025-08-14T21:45:39Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/690/commits/5ff298e561802301d8d5fa347c15b938bfd6158b"
+        },
+        "date": 1755213321558,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 7308.913334154336,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000027887838923754015",
+            "extra": "mean: 136.81924443227825 usec\nrounds: 7665"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 7510.835668888274,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000025707185086567932",
+            "extra": "mean: 133.140977127518 usec\nrounds: 8055"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[sdpa-float32]",
+            "value": 1116.656927840481,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0005673186433534336",
+            "extra": "mean: 895.5301982802491 usec\nrounds: 1247"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[sdpa-float16]",
+            "value": 3438.6684275453013,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000038970438115358264",
+            "extra": "mean: 290.8102427060266 usec\nrounds: 3537"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_tripy_param_update",
+            "value": 17294.99307459598,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000002337764135091796",
+            "extra": "mean: 57.820202395389536 usec\nrounds: 17984"
           }
         ]
       }
