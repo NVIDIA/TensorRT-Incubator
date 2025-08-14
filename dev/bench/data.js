@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1755113322100,
+  "lastUpdate": 1755200818314,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -15062,6 +15062,61 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000003015702437316844",
             "extra": "mean: 58.095619021624735 usec\nrounds: 18006"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "4ea2d8b0a6f6b3283c25b8bf7963f9a0c926e2eb",
+          "message": "Adds support for reflect mode in the pad operation",
+          "timestamp": "2025-08-12T22:01:23Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/696/commits/4ea2d8b0a6f6b3283c25b8bf7963f9a0c926e2eb"
+        },
+        "date": 1755200817363,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 7291.548875654887,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000027843319165451823",
+            "extra": "mean: 137.14507261122702 usec\nrounds: 7652"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 7381.2929480436815,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00002550166384739731",
+            "extra": "mean: 135.47761984775818 usec\nrounds: 7938"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[sdpa-float32]",
+            "value": 1070.757273842772,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0007529703531821442",
+            "extra": "mean: 933.9184747362623 usec\nrounds: 1225"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[sdpa-float16]",
+            "value": 3451.0077124854174,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00003129231683947165",
+            "extra": "mean: 289.77043325116176 usec\nrounds: 3542"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_tripy_param_update",
+            "value": 17332.34200329518,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000002237804017287359",
+            "extra": "mean: 57.6956074262718 usec\nrounds: 18029"
           }
         ]
       }
