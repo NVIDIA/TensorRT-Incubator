@@ -28,6 +28,7 @@
 #include "mlir/IR/Matchers.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
+#include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/Debug.h"
 #include <numeric>
 
@@ -52,8 +53,7 @@ static int64_t memoryCost(RankedTensorType type) {
   // If the type is dynamic, then return max.
   if (!type.hasStaticShape())
     return std::numeric_limits<int64_t>::max();
-  ArrayRef<int64_t> shape = type.getShape();
-  return std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
+  return type.getNumElements();
 }
 
 static TransposeOp getLowestTransposeCost(ElementWiseOp consumer,
@@ -448,9 +448,8 @@ public:
     using tensorrt::MatrixOperation;
 
     int numBatchDims = op.getCollectionRank(0);
-    if (numBatchDims != op.getCollectionRank(1)) {
-      return failure("unknown number of batch dimensions");
-    }
+    if (numBatchDims != op.getCollectionRank(1))
+      return failure(/* unknown number of batch dimensions */);
 
     std::string arg0Pattern = "", arg1Pattern = "", outPattern = "";
     char nextChar = 'a';
@@ -480,7 +479,7 @@ public:
       arg0Pattern += matrix0B;
       outPattern += matrix0B;
     } else {
-      return failure("unknown matrix operation");
+      return failure(/* unknown matrix operation */);
     }
 
     if (op.getOp1() == MatrixOperation::kVECTOR) {
@@ -500,7 +499,7 @@ public:
       arg1Pattern += matrix1B;
       outPattern += matrix1A;
     } else {
-      return failure("unknown matrix operation");
+      return failure(/* unknown matrix operation */);
     }
 
     SmallVector<Value> args{op.getInput0(), op.getInput1()};
@@ -526,9 +525,8 @@ public:
                                 PatternRewriter &rewriter) const override {
     Value input = op.getInput();
 
-    if (op.getZeroIsPlaceholder()) {
+    if (op.getZeroIsPlaceholder())
       return failure();
-    }
 
     input = rewriter.createOrFold<tensorrt::TransposeOp>(
         op.getLoc(), input,
@@ -536,18 +534,13 @@ public:
     if (op.getReshape()) {
       input = rewriter.createOrFold<tensorrt::ReshapeOp>(
           op.getLoc(),
-          RankedTensorType::get(
-              *op.getReshape(),
-              cast<RankedTensorType>(input.getType()).getElementType()),
+          cast<RankedTensorType>(input.getType()).clone(*op.getReshape()),
           input);
     } else if (op.getDynamicReshape()) {
-      SmallVector<int64_t> shape(
-          ShapedType::kDynamic,
-          cast<RankedTensorType>(op.getResult().getType()).getRank());
+      SmallVector<int64_t> shape(ShapedType::kDynamic,
+                                 op.getResult().getType().getRank());
       input = rewriter.createOrFold<tensorrt::ReshapeOp>(
-          op.getLoc(),
-          RankedTensorType::get(
-              shape, cast<RankedTensorType>(input.getType()).getElementType()),
+          op.getLoc(), cast<RankedTensorType>(input.getType()).clone(shape),
           input, op.getDynamicReshape());
     }
     input = rewriter.createOrFold<tensorrt::TransposeOp>(
@@ -574,7 +567,47 @@ public:
 } // namespace
 
 namespace {
+struct EinsumEquation {
+  llvm::StringRef equation;
+  SmallVector<llvm::SmallString<128>> lhsParts;
+  llvm::SmallString<128> lhs;
+  llvm::SmallString<128> rhs;
 
+  LogicalResult parse(llvm::StringRef einsumEquation) {
+    size_t pos = einsumEquation.find("->");
+    if (pos == std::string::npos)
+      return failure();
+    equation = einsumEquation;
+    lhs = equation.substr(0, pos);
+    rhs = equation.substr(pos + 2);
+    SmallVector<llvm::StringRef> parts;
+    llvm::SplitString(lhs, parts, ",");
+    for (llvm::StringRef part : parts)
+      lhsParts.push_back(part); // cast from StringRef to SmallString
+    return success();
+  }
+
+  StringRef generateEquation() const {
+    llvm::SmallString<128> ret = lhsParts[0];
+    for (size_t i = 1; i < lhsParts.size(); i++) {
+      ret.append({",", lhsParts[i]});
+    }
+    ret.append({"->", rhs});
+    return ret;
+  }
+};
+} // namespace
+
+namespace {
+// Control when fusing a transpose into another op.
+// Currently always fuse
+static bool shouldFuseTranspose(tensorrt::TransposeOp transposeOp,
+                                mlir::Operation *targetFusion) {
+  return true;
+}
+} // namespace
+
+namespace {
 // Push down transpose to into an einsum, rearranging the axes of the input
 // tensors in the einsum as needed einsum(x1, transpose(x2), ...) -> einsum(x1,
 // x2, ...)
@@ -583,60 +616,39 @@ public:
   using OpRewritePattern<tensorrt::EinsumOp>::OpRewritePattern;
   LogicalResult matchAndRewrite(tensorrt::EinsumOp op,
                                 PatternRewriter &rewriter) const override {
-    std::string einsumEquation{op.getEquation()};
-    size_t pos = einsumEquation.find("->");
-    if (pos == std::string::npos)
+    EinsumEquation einsumEquation;
+    if (failed(einsumEquation.parse(op.getEquation())))
       return failure();
-    std::string einsumEquationLhs = einsumEquation.substr(0, pos);
-    std::string einsumEquationRhs = einsumEquation.substr(pos + 2);
-    SmallVector<std::string> einsumEquationLhsParts;
-    std::string currentPart;
-    std::istringstream lhsStream(einsumEquationLhs);
-    while (std::getline(lhsStream, currentPart, ',')) {
-      einsumEquationLhsParts.push_back(currentPart);
-    }
 
     bool hasTransposeInput = false;
-    // Question: in the case that a transpose is used by multiple ops, might not
-    // want to push down into einsum
-    for (auto input : op.getInputs()) {
-      if (input.getDefiningOp<tensorrt::TransposeOp>()) {
-        auto perm =
-            input.getDefiningOp<tensorrt::TransposeOp>().getPermutation();
-        if (!perm.isPermutation())
-          return failure("Transpose is not a permutation");
-        hasTransposeInput = true;
-      }
-    }
-    if (!hasTransposeInput)
-      return failure();
-
     SmallVector<Value> newInputs;
     for (size_t i = 0; i < op.getInputs().size(); i++) {
       auto input = op.getInputs()[i];
-      if (auto transpose = input.getDefiningOp<tensorrt::TransposeOp>()) {
-        auto perm = transpose.getPermutation();
+      tensorrt::TransposeOp transpose =
+          input.getDefiningOp<tensorrt::TransposeOp>();
+      if (transpose && shouldFuseTranspose(transpose, op)) {
+        AffineMap perm = transpose.getPermutation();
+        if (!perm.isPermutation())
+          return failure(/* Transpose is not a permutation */);
         SmallVector<int64_t> equation;
-        for (char c : einsumEquationLhsParts[i]) {
+        for (char c : einsumEquation.lhsParts[i])
           equation.push_back(c);
-        }
 
         equation = inversePermutation(perm).compose(equation);
-        einsumEquationLhsParts[i] = "";
-        for (int j = 0; j < equation.size(); j++) {
-          einsumEquationLhsParts[i] += (char)equation[j];
-        }
+        einsumEquation.lhsParts[i] = "";
+        for (size_t j = 0; j < equation.size(); j++)
+          einsumEquation.lhsParts[i] += (char)equation[j];
         newInputs.push_back(transpose.getInput());
+        hasTransposeInput = true;
       } else {
         newInputs.push_back(input);
       }
     }
 
-    std::string newEinsumEquation = einsumEquationLhsParts[0];
-    for (int i = 1; i < einsumEquationLhsParts.size(); i++) {
-      newEinsumEquation += "," + einsumEquationLhsParts[i];
-    }
-    newEinsumEquation += "->" + einsumEquationRhs;
+    if (!hasTransposeInput)
+      return failure();
+
+    StringRef newEinsumEquation = einsumEquation.generateEquation();
 
     rewriter.replaceOpWithNewOp<tensorrt::EinsumOp>(op, op.getType(), newInputs,
                                                     newEinsumEquation);
@@ -653,7 +665,7 @@ public:
   using OpRewritePattern<tensorrt::TransposeOp>::OpRewritePattern;
   LogicalResult matchAndRewrite(tensorrt::TransposeOp op,
                                 PatternRewriter &rewriter) const override {
-    auto perm = op.getPermutation();
+    AffineMap perm = op.getPermutation();
     if (!perm.isPermutation())
       return failure();
 
@@ -661,34 +673,29 @@ public:
     if (!einsum)
       return failure();
 
-    SmallVector<OpOperand> einsumUsers(einsum->getUsers());
-    if (einsumUsers.size() != 1)
+    if (!einsum->hasOneUse())
       return failure();
 
-    std::string einsumEquation{einsum.getEquation()};
-    size_t pos = einsumEquation.find("->");
-    if (pos == std::string::npos)
+    if (!shouldFuseTranspose(op, einsum))
       return failure();
-    std::string einsumEquationLhs = einsumEquation.substr(0, pos);
-    std::string einsumEquationRhs = einsumEquation.substr(pos + 2);
+
+    EinsumEquation einsumEquation;
+    if (failed(einsumEquation.parse(einsum.getEquation())))
+      return failure();
 
     SmallVector<int64_t> einsumRhs;
-    for (char c : einsumEquationRhs) {
+    for (char c : einsumEquation.rhs)
       einsumRhs.push_back(c);
-    }
     einsumRhs = perm.compose(einsumRhs);
-    einsumEquationRhs = "";
-    for (int i = 0; i < einsumRhs.size(); i++) {
-      einsumEquationRhs += (char)einsumRhs[i];
-    }
+    einsumEquation.rhs = "";
+    for (size_t i = 0; i < einsumRhs.size(); i++)
+      einsumEquation.rhs += (char)einsumRhs[i];
 
-    std::string newEinsumEquation =
-        einsumEquationLhs + "->" + einsumEquationRhs;
+    StringRef newEinsumEquation = einsumEquation.generateEquation();
 
     auto newEinsum = rewriter.create<tensorrt::EinsumOp>(
         op.getLoc(), op.getType(), einsum.getInputs(), newEinsumEquation);
     rewriter.replaceOp(op, newEinsum.getResult());
-    rewriter.eraseOp(einsum);
     return success();
   }
 };
@@ -704,35 +711,26 @@ public:
   LogicalResult matchAndRewrite(tensorrt::EinsumOp op,
                                 PatternRewriter &rewriter) const override {
     for (auto input : op.getInputs()) {
-      if (input.getDefiningOp<tensorrt::TransposeOp>()) {
+      if (input.getDefiningOp<tensorrt::TransposeOp>())
         return failure(); // Wait until the transpose is pushed into the einsum
                           // first
-      }
     }
     // determine the "best" order.
     // Ideally, we want the einsum to be reducable to a matmul.  So the batch
     // elements should appear first in the output
-    std::string einsumEquation{op.getEquation()};
-    size_t pos = einsumEquation.find("->");
-    if (pos == std::string::npos)
+
+    EinsumEquation equation;
+    if (failed(equation.parse(op.getEquation())))
       return failure();
-    std::string einsumEquationLhs = einsumEquation.substr(0, pos);
-    std::string einsumEquationRhs = einsumEquation.substr(pos + 2);
-    SmallVector<std::string> einsumEquationLhsParts;
-    std::string currentPart;
-    std::istringstream lhsStream(einsumEquationLhs);
-    while (std::getline(lhsStream, currentPart, ',')) {
-      einsumEquationLhsParts.push_back(currentPart);
-    }
 
     SmallVector<std::pair<char, int64_t>> outputAxes;
-    for (int i = 0; i < einsumEquationRhs.size(); i++) {
-      outputAxes.push_back(std::make_pair(einsumEquationRhs[i], i));
+    for (size_t i = 0; i < equation.rhs.size(); i++) {
+      outputAxes.push_back(std::make_pair(equation.rhs[i], i));
     }
     std::sort(outputAxes.begin(), outputAxes.end(),
               [&](const std::pair<char, int64_t> &a,
                   const std::pair<char, int64_t> &b) {
-                for (std::string &eqLhs : einsumEquationLhsParts) {
+                for (auto &eqLhs : equation.lhsParts) {
                   if (eqLhs.find(a.first) != std::string::npos) {
                     if (eqLhs.find(b.first) != std::string::npos) {
                       return eqLhs.find(a.first) < eqLhs.find(b.first);
@@ -748,22 +746,20 @@ public:
 
     SmallVector<int64_t> newEinsumShape;
     SmallVector<int64_t> outputPerm;
-    std::string newEinsumRhs = "";
+    SmallString<128> newEinsumRhs{""};
     for (auto &[c, i] : outputAxes) {
       newEinsumRhs += c;
       newEinsumShape.push_back(op.getType().getDimSize(i));
       outputPerm.push_back(i);
     }
-    if (newEinsumRhs == einsumEquationRhs) {
+    if (newEinsumRhs == equation.rhs)
       return failure(); // no change
-    }
 
-    std::string newEinsumEquation = einsumEquationLhs + "->" + newEinsumRhs;
+    StringRef newEinsumEquation = equation.generateEquation();
 
     auto newEinsum = rewriter.create<tensorrt::EinsumOp>(
-        op.getLoc(),
-        RankedTensorType::get(newEinsumShape, op.getType().getElementType()),
-        op.getInputs(), newEinsumEquation);
+        op.getLoc(), op.getType().clone(newEinsumShape), op.getInputs(),
+        newEinsumEquation);
 
     auto newTranspose = rewriter.create<tensorrt::TransposeOp>(
         op.getLoc(), newEinsum.getResult(),
@@ -785,34 +781,24 @@ public:
   using OpRewritePattern<tensorrt::EinsumOp>::OpRewritePattern;
   LogicalResult matchAndRewrite(tensorrt::EinsumOp op,
                                 PatternRewriter &rewriter) const override {
-    std::string einsumEquation{op.getEquation()};
-    size_t pos = einsumEquation.find("->");
-    if (pos == std::string::npos)
+    EinsumEquation equation;
+    if (failed(equation.parse(op.getEquation())))
       return failure();
-    std::string einsumEquationLhs = einsumEquation.substr(0, pos);
-    std::string einsumEquationRhs = einsumEquation.substr(pos + 2);
-    SmallVector<std::string> einsumEquationLhsParts;
-    std::string currentPart;
-    std::istringstream lhsStream(einsumEquationLhs);
-    while (std::getline(lhsStream, currentPart, ',')) {
-      einsumEquationLhsParts.push_back(currentPart);
-    }
 
     bool didChange = false;
     SmallVector<Value> newInputs;
-    for (int i = 0; i < op.getInputs().size(); i++) {
-      TypedValue<RankedTensorType> input =
-          cast<TypedValue<RankedTensorType>>(op.getInputs()[i]);
-      auto inputType = cast<RankedTensorType>(input.getType());
+    for (size_t i = 0; i < op.getInputs().size(); i++) {
+      auto input = cast<TypedValue<RankedTensorType>>(op.getInputs()[i]);
+      RankedTensorType inputType = input.getType();
       SmallVector<std::pair<char, int64_t>> inputAxes;
       for (int j = 0; j < inputType.getRank(); j++) {
-        inputAxes.push_back(std::make_pair(einsumEquationLhsParts[i][j], j));
+        inputAxes.push_back(std::make_pair(equation.lhsParts[i][j], j));
       }
       std::sort(inputAxes.begin(), inputAxes.end(),
                 [&](const std::pair<char, int64_t> &a,
                     const std::pair<char, int64_t> &b) {
-                  size_t posA = einsumEquationRhs.find(a.first);
-                  size_t posB = einsumEquationRhs.find(b.first);
+                  size_t posA = equation.rhs.find(a.first);
+                  size_t posB = equation.rhs.find(b.first);
                   if (posA != std::string::npos && posB != std::string::npos) {
                     // both letters are in the rhs, meaning that these are
                     // either batch or dims of the matrix try to match the order
@@ -827,10 +813,10 @@ public:
                     // if the character is one of the last two outputs, then we
                     // would rather preserve the ordering as the transpose
                     // property on the matrix multiply can be used to handle
-                    if ((i == 0 && (posA == einsumEquationRhs.size() - 2 ||
-                                    posB == einsumEquationRhs.size() - 2)) ||
-                        (i == 1 && (posA == einsumEquationRhs.size() - 1 ||
-                                    posB == einsumEquationRhs.size() - 1))) {
+                    if ((i == 0 && (posA == equation.rhs.size() - 2 ||
+                                    posB == equation.rhs.size() - 2)) ||
+                        (i == 1 && (posA == equation.rhs.size() - 1 ||
+                                    posB == equation.rhs.size() - 1))) {
                       return a.second < b.second; // preserve ordering
                     }
                     // does not match expected pattern, put the ordering so that
@@ -839,14 +825,14 @@ public:
                   }
                 });
       std::string newEquation = "";
-      for (int j = 0; j < inputAxes.size(); j++) {
+      for (size_t j = 0; j < inputAxes.size(); j++) {
         newEquation += inputAxes[j].first;
       }
-      if (newEquation != einsumEquationLhsParts[i]) {
-        einsumEquationLhsParts[i] = newEquation;
+      if (newEquation != equation.lhsParts[i]) {
+        equation.lhsParts[i] = newEquation;
         didChange = true;
         SmallVector<int64_t> perm;
-        for (int j = 0; j < inputAxes.size(); j++) {
+        for (size_t j = 0; j < inputAxes.size(); j++) {
           perm.push_back(inputAxes[j].second);
         }
         auto newTranspose = rewriter.create<tensorrt::TransposeOp>(
@@ -861,11 +847,7 @@ public:
     if (!didChange)
       return failure();
 
-    std::string newEquation = einsumEquationLhsParts[0];
-    for (int i = 1; i < einsumEquationLhsParts.size(); i++) {
-      newEquation += "," + einsumEquationLhsParts[i];
-    }
-    newEquation += "->" + einsumEquationRhs;
+    StringRef newEquation = equation.generateEquation();
     rewriter.replaceOpWithNewOp<tensorrt::EinsumOp>(op, op.getType(), newInputs,
                                                     newEquation);
     return success();
@@ -887,26 +869,16 @@ public:
   using OpRewritePattern<tensorrt::EinsumOp>::OpRewritePattern;
   LogicalResult matchAndRewrite(tensorrt::EinsumOp op,
                                 PatternRewriter &rewriter) const override {
-    std::string einsumEquation{op.getEquation()};
-    size_t pos = einsumEquation.find("->");
-    if (pos == std::string::npos)
+    EinsumEquation einsumEquation;
+    if (failed(einsumEquation.parse(op.getEquation())))
       return failure();
-    std::string einsumEquationLhs = einsumEquation.substr(0, pos);
-    std::string einsumEquationRhs = einsumEquation.substr(pos + 2);
-    SmallVector<std::string> einsumEquationLhsParts;
-    std::string currentPart;
-    std::istringstream lhsStream(einsumEquationLhs);
-    while (std::getline(lhsStream, currentPart, ',')) {
-      einsumEquationLhsParts.push_back(currentPart);
-    }
 
     bool madeChange = false;
     SmallVector<Value> newInputs;
 
-    for (int i = 0; i < op.getInputs().size(); i++) {
-      TypedValue<RankedTensorType> input =
-          cast<TypedValue<RankedTensorType>>(op.getInputs()[i]);
-      auto inputType = cast<RankedTensorType>(input.getType());
+    for (size_t i = 0; i < op.getInputs().size(); i++) {
+      auto input = cast<TypedValue<RankedTensorType>>(op.getInputs()[i]);
+      RankedTensorType inputType = input.getType();
       std::string equation = "";
       bool change = false;
       SmallVector<int64_t> newInputShape;
@@ -916,20 +888,18 @@ public:
           // remove it from the einsum
           madeChange = change = true;
         } else {
-          equation += einsumEquationLhsParts[i][j];
+          equation += einsumEquation.lhsParts[i][j];
           newInputShape.push_back(inputType.getDimSize(j));
         }
       }
       if (change) {
-        auto newInput = rewriter
-                            .create<tensorrt::ReshapeOp>(
-                                op.getLoc(),
-                                RankedTensorType::get(
-                                    newInputShape, inputType.getElementType()),
-                                input)
-                            .getResult();
+        auto newInput =
+            rewriter
+                .create<tensorrt::ReshapeOp>(
+                    op.getLoc(), inputType.clone(newInputShape), input)
+                .getResult();
         newInputs.push_back(newInput);
-        einsumEquationLhsParts[i] = equation;
+        einsumEquation.lhsParts[i] = equation;
       } else {
         newInputs.push_back(input);
       }
@@ -938,8 +908,9 @@ public:
     if (!madeChange)
       return failure();
 
-    auto outputType = cast<RankedTensorType>(op.getType());
-    std::string newOutputEquation = "";
+    RankedTensorType outputType = op.getType();
+    EinsumEquation newEinsumEquation = einsumEquation;
+    newEinsumEquation.rhs = "";
     SmallVector<int64_t> newOutputShape;
     bool changeOutput = false;
     for (int i = 0; i < outputType.getRank(); i++) {
@@ -948,21 +919,16 @@ public:
         // remove it from the einsum
         changeOutput = true;
       } else {
-        newOutputEquation += einsumEquationRhs[i];
+        newEinsumEquation.rhs += einsumEquation.rhs[i];
         newOutputShape.push_back(outputType.getDimSize(i));
       }
     }
-    std::string newEquation = einsumEquationLhsParts[0];
-    for (int i = 1; i < einsumEquationLhsParts.size(); i++) {
-      newEquation += "," + einsumEquationLhsParts[i];
-    }
-    newEquation += "->" + newOutputEquation;
+    StringRef newEquation = newEinsumEquation.generateEquation();
 
     if (changeOutput) {
       auto newEinsum = rewriter.create<tensorrt::EinsumOp>(
-          op.getLoc(),
-          RankedTensorType::get(newOutputShape, outputType.getElementType()),
-          newInputs, newEquation);
+          op.getLoc(), outputType.clone(newOutputShape), newInputs,
+          newEquation);
       auto outReshape =
           rewriter
               .create<tensorrt::ReshapeOp>(op.getLoc(), op.getType(),
@@ -985,24 +951,15 @@ public:
   using OpRewritePattern<tensorrt::EinsumOp>::OpRewritePattern;
   LogicalResult matchAndRewrite(tensorrt::EinsumOp op,
                                 PatternRewriter &rewriter) const override {
-    std::string einsumEquation{op.getEquation()};
-    size_t pos = einsumEquation.find("->");
-    if (pos == std::string::npos)
+    EinsumEquation equation;
+    if (failed(equation.parse(op.getEquation())))
       return failure();
-    std::string einsumEquationLhs = einsumEquation.substr(0, pos);
-    std::string einsumEquationRhs = einsumEquation.substr(pos + 2);
-    SmallVector<std::string> einsumEquationLhsParts;
-    std::string currentPart;
-    std::istringstream lhsStream(einsumEquationLhs);
-    while (std::getline(lhsStream, currentPart, ',')) {
-      einsumEquationLhsParts.push_back(currentPart);
-    }
 
     char nextChar = 'a';
     auto getNextChar = [&]() -> char {
       while (nextChar <= 'z') {
         char c = nextChar++;
-        if (einsumEquation.find(c) == std::string::npos)
+        if (equation.equation.find(c) == std::string::npos)
           return c;
       }
       return 0;
@@ -1010,45 +967,39 @@ public:
 
     SmallVector<Value> newInputs;
     bool madeChange = false;
-    for (int i = 0; i < op.getInputs().size(); i++) {
+    for (size_t i = 0; i < op.getInputs().size(); i++) {
       Value input = op.getInputs()[i];
       if (auto collapse = input.getDefiningOp<tensorrt::CollapseRankOp>()) {
-        auto inputType = cast<RankedTensorType>(collapse.getInput().getType());
+        RankedTensorType inputType = collapse.getInput().getType();
         if (!inputType.hasStaticShape()) {
-          return failure("collapse rank op with dynamic shape");
+          return failure(/* collapse rank op with dynamic shape */);
         }
         auto inputShape = inputType.getShape();
         std::string newEquation = "";
-        int k = 0;
-        for (int j = 0; j < inputShape.size(); j++) {
+        size_t k = 0;
+        for (size_t j = 0; j < inputShape.size(); j++) {
           if (inputShape[j] == 1) {
             char c = getNextChar();
-            if (c == 0) {
-              return failure("no more einsum characters available");
-            }
+            if (c == 0)
+              return failure(/* no more einsum characters available */);
             newEquation += c;
           } else {
-            newEquation += einsumEquationLhsParts[i][k++];
+            newEquation += equation.lhsParts[i][k++];
           }
         }
-        assert(k == einsumEquationLhsParts[i].size());
+        assert(k == equation.lhsParts[i].size());
         newInputs.push_back(collapse.getInput());
-        einsumEquationLhsParts[i] = newEquation;
+        equation.lhsParts[i] = newEquation;
         madeChange = true;
       } else {
         newInputs.push_back(input);
       }
     }
 
-    if (!madeChange) {
+    if (!madeChange)
       return failure();
-    }
 
-    std::string newEquation = einsumEquationLhsParts[0];
-    for (int i = 1; i < einsumEquationLhsParts.size(); i++) {
-      newEquation += "," + einsumEquationLhsParts[i];
-    }
-    newEquation += "->" + einsumEquationRhs;
+    StringRef newEquation = equation.generateEquation();
 
     rewriter.replaceOpWithNewOp<tensorrt::EinsumOp>(op, op.getType(), newInputs,
                                                     newEquation);
@@ -1063,71 +1014,54 @@ public:
   using OpRewritePattern<tensorrt::ExpandRankOp>::OpRewritePattern;
   LogicalResult matchAndRewrite(tensorrt::ExpandRankOp op,
                                 PatternRewriter &rewriter) const override {
-    if (!cast<RankedTensorType>(op.getResult().getType()).hasStaticShape()) {
-      return failure("only handle static expand rank");
+    if (!op.getType().hasStaticShape()) {
+      return failure(/* only handle static expand rank */);
     }
     auto einsum = op.getInput().getDefiningOp<tensorrt::EinsumOp>();
     if (!einsum)
       return failure();
-    if (!cast<Value>(einsum.getResult()).hasOneUse()) {
-      return failure(
-          "einsum used more than once, can't modify"); // do not want to
-                                                       // duplicate the einsum,
-                                                       // better to keep the
-                                                       // reshape
-    }
-    std::string einsumEquation{einsum.getEquation()};
-    size_t pos = einsumEquation.find("->");
-    if (pos == std::string::npos)
+    if (!einsum->hasOneUse())
+      return failure(/* einsum used more than once, can't modify */);
+
+    EinsumEquation equation;
+    if (failed(equation.parse(einsum.getEquation())))
       return failure();
-    std::string einsumEquationLhs = einsumEquation.substr(0, pos);
-    std::string einsumEquationRhs = einsumEquation.substr(pos + 2);
-    SmallVector<std::string> einsumEquationLhsParts;
-    std::string currentPart;
-    std::istringstream lhsStream(einsumEquationLhs);
-    while (std::getline(lhsStream, currentPart, ',')) {
-      einsumEquationLhsParts.push_back(currentPart);
-    }
 
     SmallVector<char> oneAxisChars;
-    for (int i = 0; i < einsum.getInputs().size(); i++) {
+    for (size_t i = 0; i < einsum.getInputs().size(); i++) {
       auto inputShape =
           cast<RankedTensorType>(einsum.getInputs()[i].getType()).getShape();
-      for (int j = 0; j < inputShape.size(); j++) {
+      for (size_t j = 0; j < inputShape.size(); j++) {
         if (inputShape[j] == 1) {
-          oneAxisChars.push_back(einsumEquationLhsParts[i][j]);
+          oneAxisChars.push_back(equation.lhsParts[i][j]);
         }
       }
     }
 
-    if (oneAxisChars.empty()) {
-      return failure("no one axis inputs found");
-    }
+    if (oneAxisChars.empty())
+      return failure(/* no one axis inputs found */);
 
-    auto einsumShape =
-        cast<RankedTensorType>(op.getInput().getType()).getShape();
-    auto outputShape =
-        cast<RankedTensorType>(op.getResult().getType()).getShape();
+    auto einsumShape = op.getInput().getType().getShape();
+    auto outputShape = op.getResult().getType().getShape();
     std::string newRhs = "";
-    for (int i = 0, j = 0, k = 0; i < outputShape.size(); i++) {
+    for (size_t i = 0, j = 0, k = 0; i < outputShape.size(); i++) {
       if (outputShape[i] == 1) {
         if (k >= oneAxisChars.size()) {
           return failure();
         }
         newRhs += oneAxisChars[k++];
       } else {
-        if (j >= einsumEquationRhs.size()) {
+        if (j >= equation.rhs.size()) {
           return failure();
         }
         assert(einsumShape[j] == outputShape[i]);
-        newRhs += einsumEquationRhs[j++];
+        newRhs += equation.rhs[j++];
       }
     }
 
-    std::string newEquation = einsumEquationLhs + "->" + newRhs;
+    SmallString<128> newEquation{equation.lhs, "->", newRhs};
     rewriter.replaceOpWithNewOp<tensorrt::EinsumOp>(
         op, op.getType(), einsum.getInputs(), newEquation);
-    rewriter.eraseOp(einsum);
     return success();
   }
 };
@@ -1143,51 +1077,38 @@ public:
   using OpRewritePattern<tensorrt::ReshapeOp>::OpRewritePattern;
   LogicalResult matchAndRewrite(tensorrt::ReshapeOp op,
                                 PatternRewriter &rewriter) const override {
-    if (!cast<RankedTensorType>(op.getResult().getType()).hasStaticShape())
-      return failure("only handle static reshapes");
-    // return failure();
+    if (!op.getResult().getType().hasStaticShape())
+      return failure(/* only handle static reshapes */);
 
     auto einsum = op.getInput().getDefiningOp<tensorrt::EinsumOp>();
     if (!einsum)
       return failure();
-    SmallVector<OpOperand> einsumUsers(einsum->getUsers());
-    if (einsumUsers.size() != 1)
+    if (!einsum->hasOneUse())
       return failure();
 
-    std::string einsumEquation{einsum.getEquation()};
-    size_t pos = einsumEquation.find("->");
-    if (pos == std::string::npos)
+    EinsumEquation equation;
+    if (failed(equation.parse(einsum.getEquation())))
       return failure();
-    std::string einsumEquationLhs = einsumEquation.substr(0, pos);
-    std::string einsumEquationRhs = einsumEquation.substr(pos + 2);
-    SmallVector<std::string> einsumEquationLhsParts;
-    std::string currentPart;
-    std::istringstream lhsStream(einsumEquationLhs);
-    while (std::getline(lhsStream, currentPart, ',')) {
-      einsumEquationLhsParts.push_back(currentPart);
-    }
 
     char nextChar = 'a';
     auto getNextChar = [&]() -> char {
       while (nextChar <= 'z') {
         char c = nextChar++;
-        if (einsumEquation.find(c) == std::string::npos)
+        if (equation.equation.find(c) == std::string::npos)
           return c;
       }
       return 0;
     };
 
     SmallVector<SmallVector<int64_t>> inputShapes;
-    for (auto input : einsum.getInputs()) {
+    for (Value input : einsum.getInputs()) {
       SmallVector<int64_t> shape(
           cast<RankedTensorType>(input.getType()).getShape());
       inputShapes.push_back(shape);
     }
 
-    auto reshapeInShape =
-        cast<RankedTensorType>(op.getInput().getType()).getShape();
-    auto reshapeOutShape =
-        cast<RankedTensorType>(op.getResult().getType()).getShape();
+    auto reshapeInShape = op.getInput().getType().getShape();
+    auto reshapeOutShape = op.getResult().getType().getShape();
 
     bool has1OutputShape = false;
     bool hasNonTrivalReshape = false;
@@ -1199,9 +1120,9 @@ public:
     std::string inAxes = "";
     std::string outAxes = "";
     SmallVector<int64_t> outShape;
-    for (int i = 0, j = 0; i < reshapeOutShape.size(); i++) {
+    for (size_t i = 0, j = 0; i < reshapeOutShape.size(); i++) {
       if (reshapeOutShape[i] == 0) {
-        return failure("0-shape not supported");
+        return failure(/* 0-shape not supported */);
       }
       if (reshapeOutShape[i] == 1) {
         has1OutputShape = true;
@@ -1211,11 +1132,11 @@ public:
       outShape.push_back(reshapeOutShape[i]);
       char c = getNextChar();
       if (c == 0)
-        return failure("no more einsum characters available");
+        return failure(/* no more einsum characters available */);
       outAxes += c;
       while (j < reshapeInShape.size() && inputNumElems < outputNumElems) {
         inputNumElems *= reshapeInShape[j];
-        inAxes += einsumEquationRhs[j++];
+        inAxes += equation.rhs[j++];
       }
       if (inputNumElems == outputNumElems) {
         if (inAxes.size() != outAxes.size()) {
@@ -1228,10 +1149,9 @@ public:
       }
     }
     if (inputNumElems != outputNumElems)
-      return failure("should not happen, unexpected reshape");
-    if (!hasNonTrivalReshape) {
-      return failure("reshape is only expanding rank");
-    }
+      return failure(/* should not happen, unexpected reshape */);
+    if (!hasNonTrivalReshape)
+      return failure(/* reshape is only expanding rank */);
 
     std::unordered_map<char, std::string> charToGroup;
     for (auto &[k, v] : inputToReshapedMap)
@@ -1241,59 +1161,56 @@ public:
     // check that all of the inputs are have the right groupping.  If this
     // doesn't happen then that means that the reshape can not get pushed
     // through
-    for (std::string &eqLhs : einsumEquationLhsParts) {
+    for (auto &eqLhs : equation.lhsParts) {
       for (char c : eqLhs) {
         auto it = charToGroup.find(c);
         if (it == charToGroup.end())
           continue;
         for (char c2 : it->second) {
           if (eqLhs.find(c2) == std::string::npos) {
-            return failure("Not able to push reshape through einsum");
+            return failure(/* Not able to push reshape through einsum */);
           }
         }
       }
     }
 
-    std::string newEinsumEquationRhs = "";
-    for (char c : einsumEquationRhs) {
+    EinsumEquation newEquation = equation;
+    newEquation.rhs = "";
+    for (char c : equation.rhs) {
       assert(charToGroup.count(c));
-      if (charToGroup[c][0] == c) {
-        newEinsumEquationRhs += inputToReshapedMap[charToGroup[c]].first;
-      }
+      if (charToGroup[c][0] == c)
+        newEquation.rhs += inputToReshapedMap[charToGroup[c]].first;
     }
 
     // generate a `x` -> `reshape(transpose(x))` if necessary
     SmallVector<Value> newInputs;
-    SmallVector<std::string> newEquationLhsParts;
-    for (int i = 0; i < einsum.getInputs().size(); i++) {
-      auto input = einsum.getInputs()[i];
+    newEquation.lhsParts.clear();
+    for (size_t i = 0; i < einsum.getInputs().size(); i++) {
+      Value input = einsum.getInputs()[i];
       auto inputType = cast<RankedTensorType>(input.getType());
-      std::string newInputEquation = "";
+      SmallString<128> newInputEquation{""};
       SmallVector<int64_t> newInputShape;
       SmallVector<int64_t> newInputTranspose;
       for (int j = 0; j < inputType.getRank(); j++) {
-        auto group = charToGroup.find(einsumEquationLhsParts[i][j]);
+        auto group = charToGroup.find(equation.lhsParts[i][j]);
         if (group == charToGroup.end()) {
           // this must be going into the multply, so it should just keep this
           // letter
-          newInputEquation += einsumEquationLhsParts[i][j];
+          newInputEquation += equation.lhsParts[i][j];
           newInputTranspose.push_back(j);
           newInputShape.push_back(inputType.getDimSize(j));
         } else {
           // then there is some pattern that is getting consumed
-          if (group->second[0] != einsumEquationLhsParts[i][j]) {
-            // then this isn't the first character, so it should have already
-            // been processed
-            continue;
-          }
-          // this is the first character in the group.  So
-          for (char c : group->second) {
-            newInputTranspose.push_back(einsumEquationLhsParts[i].find(c));
-          }
+          if (group->second[0] != equation.lhsParts[i][j])
+            continue; // then this isn't the first character, so it should have
+                      // already been processed
+          // this is the first character in the group.  So process all of the
+          // group
+          for (char c : group->second)
+            newInputTranspose.push_back(equation.lhsParts[i].find(c));
           newInputEquation += inputToReshapedMap[group->second].first;
-          for (int64_t v : inputToReshapedMap[group->second].second) {
+          for (int64_t v : inputToReshapedMap[group->second].second)
             newInputShape.push_back(v);
-          }
         }
       }
       auto newTranspose = rewriter.createOrFold<tensorrt::TransposeOp>(
@@ -1301,19 +1218,13 @@ public:
           AffineMap::getPermutationMap(newInputTranspose,
                                        op.getLoc().getContext()));
       auto newReshape = rewriter.createOrFold<tensorrt::ReshapeOp>(
-          op.getLoc(),
-          RankedTensorType::get(newInputShape, inputType.getElementType()),
-          newTranspose);
+          op.getLoc(), inputType.clone(newInputShape), newTranspose);
 
       newInputs.push_back(newReshape);
-      newEquationLhsParts.push_back(newInputEquation);
+      newEquation.lhsParts.push_back(newInputEquation);
     }
 
-    std::string newEquation = newEquationLhsParts[0];
-    for (int i = 1; i < newEquationLhsParts.size(); i++) {
-      newEquation += "," + newEquationLhsParts[i];
-    }
-    newEquation += "->" + newEinsumEquationRhs;
+    StringRef newEquationStr = newEquation.generateEquation();
 
     if (has1OutputShape) {
       SmallVector<int64_t> newShape;
@@ -1322,19 +1233,16 @@ public:
           newShape.push_back(i);
       }
       auto newEinsum = rewriter.create<tensorrt::EinsumOp>(
-          op.getLoc(),
-          RankedTensorType::get(newShape, op.getType().getElementType()),
-          newInputs, newEquation);
+          op.getLoc(), op.getType().clone(newShape), newInputs, newEquationStr);
       auto expandRank = rewriter.create<tensorrt::ReshapeOp>(
           op.getLoc(), op.getType(), newEinsum.getResult());
       rewriter.replaceOp(op, expandRank.getResult());
     } else {
       auto newEinsum = rewriter.create<tensorrt::EinsumOp>(
-          op.getLoc(), op.getType(), newInputs, newEquation);
+          op.getLoc(), op.getType(), newInputs, newEquationStr);
       rewriter.replaceOp(op, newEinsum.getResult());
     }
 
-    rewriter.eraseOp(einsum);
     return success();
   }
 };
@@ -1342,41 +1250,35 @@ public:
 
 namespace {
 static uint64_t estimateShuffleCost(Value input) {
-  // TODO: this heuristic could use more "stuff"
+  // This is a heuristic.  One may wish to update this in the future depending
+  // on their use case. This heuristic currently attempts to put shuffles
+  // "together" which allows two shuffles to be merged, and put shuffles on
+  // constant values which allows for them to be merged with the constant.
 
-  // if there is a shuffle on the input, what is the estimated "cost".
-  // The cost being that it would break up some pattern matching or cause
-  // tensors to get transposed at runtime and be slow this function is 100% a
-  // heuristic based on guesses about what TensorRT will match against
-
-  // constant tensors should be 0 cost, as the shuffle can be baked into the
-  // constant
   Operation *op = input.getDefiningOp();
   bool foundShuffle = false;
   bool canMergeUp = true;
   for (int i = 0; op && i < 10; i++) {
-    if (isa<tensorrt::ConstantOp>(op)) {
-      return 0;
-    }
+    if (isa<tensorrt::ConstantOp>(op))
+      return 0; // This has found a constant.  The constant can be
+                // reshaped/rearranged as necessary to absorb the shuffle.
+                // Hence, mark this as having 0 cost.
     if (canMergeUp &&
         isa<tensorrt::ShuffleOp, tensorrt::ReshapeOp, tensorrt::TransposeOp>(
-            op)) {
+            op))
       foundShuffle = true;
-    }
     if (!isa<tensorrt::UnaryOp, tensorrt::ActivationOp, tensorrt::IdentityOp,
              tensorrt::ReshapeOp, tensorrt::TransposeOp, tensorrt::ShuffleOp>(
-            op)) {
+            op))
       canMergeUp = false;
-    }
     if (op->getNumOperands() != 1)
       break;
     op = op->getOperand(0).getDefiningOp();
   }
 
-  if (foundShuffle) {
+  if (foundShuffle)
     return 100; // should be able to merge this op up into another shuffle.  So
                 // it gets a lower cost
-  }
 
   // if there is no constant or no existing shuffle, then there is nothing to
   // merge with, so we are going to mark this as "high cost"
@@ -1397,41 +1299,29 @@ public:
     // this needs to some "heuristic" to determine if a reshape should
     // get pushed down as reshapes might need to get added to other inputs to
     // make the shapes work
-    bool has_reshape_input = false;
+    bool hasReshapeInput = false;
     for (auto input : op.getInputs()) {
       if (!cast<RankedTensorType>(input.getType()).hasStaticShape()) {
-        return failure("dynamic input not supported");
+        return failure(/* dynamic input not supported */);
       }
       if (auto reshape = input.getDefiningOp<tensorrt::ReshapeOp>()) {
-        if (!cast<RankedTensorType>(reshape.getInput().getType())
-                 .hasStaticShape()) {
-          return failure("dynamic reshape input not supported");
-        }
-        has_reshape_input = true;
+        if (!reshape.getInput().getType().hasStaticShape())
+          return failure(/* dynamic reshape input not supported */);
+        hasReshapeInput = true;
       }
     }
-    if (!has_reshape_input) {
+    if (!hasReshapeInput)
       return failure();
-    }
 
-    std::string einsumEquation{op.getEquation()};
-    size_t pos = einsumEquation.find("->");
-    if (pos == std::string::npos)
+    EinsumEquation equation;
+    if (failed(equation.parse(op.getEquation())))
       return failure();
-    std::string einsumEquationLhs = einsumEquation.substr(0, pos);
-    std::string einsumEquationRhs = einsumEquation.substr(pos + 2);
-    SmallVector<std::string> einsumEquationLhsParts;
-    std::string currentPart;
-    std::istringstream lhsStream(einsumEquationLhs);
-    while (std::getline(lhsStream, currentPart, ',')) {
-      einsumEquationLhsParts.push_back(currentPart);
-    }
 
     char nextChar = 'a';
     auto getNextChar = [&]() -> char {
       while (nextChar <= 'z') {
         char c = nextChar++;
-        if (einsumEquation.find(c) == std::string::npos)
+        if (equation.equation.find(c) == std::string::npos)
           return c;
       }
       return 0;
@@ -1445,9 +1335,9 @@ public:
       std::string newEinsumStr;
     };
     std::unordered_map<std::string, ReshapeInfo> inputToReshapedMap;
-    for (int i = 0; i < op.getInputs().size(); i++) {
+    for (size_t i = 0; i < op.getInputs().size(); i++) {
       auto input = op.getInputs()[i];
-      auto einsumInputType =
+      RankedTensorType einsumInputType =
           cast<RankedTensorType>(input.getType()); // reshape output type
       if (auto reshape = input.getDefiningOp<tensorrt::ReshapeOp>()) {
         currentEstimatedCost += estimateShuffleCost(input);
@@ -1456,22 +1346,21 @@ public:
         SmallVector<int64_t> inputShape;
         SmallVector<int64_t> outputShape;
         std::string outputEinsumStr = "";
-        RankedTensorType reshapeInputType =
-            cast<RankedTensorType>(reshape.getInput().getType());
+        RankedTensorType reshapeInputType = reshape.getInput().getType();
         for (int j = 0, k = 0; j < einsumInputType.getRank(); j++) {
           if (einsumInputType.getDimSize(j) <= 1) {
             // if 0-shape, then means the tensor is empty.  Annoying edge case
             // that not going to handle
             // TODO: if 1-shape, then need additional logic to handle this
-            return failure("0 or 1 dim not supported");
+            return failure(/* 0 or 1 dim not supported */);
           }
           outputNumElems *= einsumInputType.getDimSize(j);
           outputShape.push_back(einsumInputType.getDimSize(j));
-          outputEinsumStr += einsumEquationLhsParts[i][j];
+          outputEinsumStr += equation.lhsParts[i][j];
           while (k < reshapeInputType.getRank() &&
                  inputNumElems < outputNumElems) {
             if (reshapeInputType.getDimSize(k) == 1) {
-              return failure("1 dim not supported");
+              return failure(/* 1 dim not supported */);
             }
             inputNumElems *= reshapeInputType.getDimSize(k);
             inputShape.push_back(reshapeInputType.getDimSize(k++));
@@ -1480,17 +1369,16 @@ public:
             auto it = inputToReshapedMap.find(outputEinsumStr);
             if (it != inputToReshapedMap.end()) {
               if (it->second.inputShape != inputShape ||
-                  it->second.outputShape != outputShape) {
+                  it->second.outputShape != outputShape)
                 return failure(
-                    "a single axis has multiple inconsistent reshapes");
-              }
+                    /* a single axis has multiple inconsistent reshapes */);
             } else {
               if (outputShape != inputShape) {
                 std::string newEinsumStr = "";
-                for (int l = 0; l < inputShape.size(); l++) {
+                for (size_t l = 0; l < inputShape.size(); l++) {
                   char c = getNextChar();
                   if (c == 0)
-                    return failure("no more characters available");
+                    return failure(/* no more characters available */);
                   newEinsumStr += c;
                 }
                 assert(outputEinsumStr.size() == outputShape.size());
@@ -1518,48 +1406,46 @@ public:
     for (auto &[k, v] : inputToReshapedMap) {
       for (char c : k) {
         auto it = charToGroup.find(c);
-        if (it == charToGroup.end()) {
+        if (it == charToGroup.end())
           charToGroup[c] = k;
-        } else {
-          return failure("a single axis has multiple inconsistent reshapes");
-        }
+        else
+          return failure(
+              /* a single axis has multiple inconsistent reshapes */);
       }
     }
 
-    for (std::string &part : einsumEquationLhsParts) {
+    for (auto &part : equation.lhsParts) {
       for (char c : part) {
         auto group = charToGroup.find(c);
         if (group == charToGroup.end())
           continue;
         for (char c2 : group->second) {
-          if (part.find(c2) == std::string::npos) {
+          if (part.find(c2) == StringRef::npos)
             return failure(
-                "Missing dimensions that need to be reshaped together");
-          }
+                /* Missing dimensions that need to be reshaped together */);
         }
       }
     }
 
-    for (char c : einsumEquationRhs) {
+    for (char c : equation.rhs) {
       auto group = charToGroup.find(c);
       if (group == charToGroup.end())
         continue;
       for (char c2 : group->second) {
-        if (einsumEquationRhs.find(c2) == std::string::npos) {
+        if (equation.rhs.find(c2) == StringRef::npos)
           return failure(
-              "Missing dimensions that need to be reshaped together");
-        }
+              /* Missing dimensions that need to be reshaped together */);
       }
     }
 
     size_t newEstimatedCost = 0;
 
-    for (int i = 0; i < op.getInputs().size(); i++) {
-      auto input = op.getInputs()[i];
-      auto inputType = cast<RankedTensorType>(input.getType());
+    for (size_t i = 0; i < op.getInputs().size(); i++) {
+      Value input = op.getInputs()[i];
+      RankedTensorType inputType = cast<RankedTensorType>(input.getType());
       SmallVector<int64_t> newInputShape;
       for (int j = 0; j < inputType.getRank(); j++) {
-        char c = einsumEquationLhsParts[i][j];
+        char c = equation.lhsParts[i][j];
         auto it = charToGroup.find(c);
         if (it == charToGroup.end()) {
           newInputShape.push_back(inputType.getDimSize(j));
@@ -1567,7 +1453,7 @@ public:
           if (it->second[0] != c)
             continue; // this will be processed on the first letter
           auto group = inputToReshapedMap.find(it->second);
-          for (int k = 0; k < group->second.inputShape.size(); k++) {
+          for (size_t k = 0; k < group->second.inputShape.size(); k++) {
             newInputShape.push_back(group->second.inputShape[k]);
           }
         }
@@ -1578,31 +1464,28 @@ public:
       }
       SmallVector<int64_t> reshapeInShape{
           cast<RankedTensorType>(reshapeIn.getType()).getShape()};
-      if (reshapeInShape != newInputShape) {
+      if (reshapeInShape != newInputShape)
         newEstimatedCost += estimateShuffleCost(reshapeIn);
-      }
     }
 
-    if (newEstimatedCost >= currentEstimatedCost) {
-      return failure("new cost is not better than current cost");
-    }
+    if (newEstimatedCost >= currentEstimatedCost)
+      return failure(/* new cost is not better than current cost */);
 
     // done matching against the pattern.  Going to start modifying the MLIR at
     // this point
 
     SmallVector<Value> newInputs;
-    SmallVector<std::string> newEquationLhsParts;
-    for (int i = 0; i < op.getInputs().size(); i++) {
-      auto input = op.getInputs()[i];
-      auto inputType = cast<RankedTensorType>(input.getType());
+    EinsumEquation newEquation;
+    for (size_t i = 0; i < op.getInputs().size(); i++) {
+      Value input = op.getInputs()[i];
+      RankedTensorType inputType = cast<RankedTensorType>(input.getType());
       SmallVector<int64_t> newInputShape;
       SmallVector<int64_t> newInputTranspose;
-      std::string newEinsumStr = "";
+      SmallString<128> newEinsumStr{""};
       for (int j = 0; j < inputType.getRank(); j++) {
-        char c = einsumEquationLhsParts[i][j];
+        char c = equation.lhsParts[i][j];
         auto it = charToGroup.find(c);
         if (it == charToGroup.end()) {
-          // llvm::outs() << "char not found " << c << "\n";
           newInputShape.push_back(inputType.getDimSize(j));
           newInputTranspose.push_back(j);
           newEinsumStr += c;
@@ -1611,12 +1494,12 @@ public:
             continue; // this will be processed on the first letter
           auto group = inputToReshapedMap.find(it->second);
           newEinsumStr += group->second.newEinsumStr;
-          for (int k = 0; k < group->second.inputShape.size(); k++) {
+          for (size_t k = 0; k < group->second.inputShape.size(); k++) {
             newInputShape.push_back(group->second.inputShape[k]);
           }
           for (char c2 : group->first) {
-            size_t pos = einsumEquationLhsParts[i].find(c2);
-            assert(pos != std::string::npos);
+            size_t pos = equation.lhsParts[i].find(c2);
+            assert(pos != StringRef::npos);
             newInputTranspose.push_back(pos);
           }
         }
@@ -1625,73 +1508,62 @@ public:
       Value reshapeIn = rewriter.createOrFold<tensorrt::TransposeOp>(
           op.getLoc(), input,
           AffineMap::getPermutationMap(newInputTranspose, op.getContext()));
-      while (auto defining_op =
-                 reshapeIn.getDefiningOp<tensorrt::ReshapeOp>()) {
+      while (auto definingOp = reshapeIn.getDefiningOp<tensorrt::ReshapeOp>()) {
         // two sequential reshapes just results in the shape of the last
         // reshape.  There are canonicalization patterns that do this as well
         // but do it here so that the reshape op that was an input is no longer
         // used.
-        reshapeIn = defining_op.getInput();
+        reshapeIn = definingOp.getInput();
       }
       auto reshape = rewriter.createOrFold<tensorrt::ReshapeOp>(
-          op.getLoc(),
-          RankedTensorType::get(newInputShape, inputType.getElementType()),
-          reshapeIn);
+          op.getLoc(), inputType.clone(newInputShape), reshapeIn);
 
       newInputs.push_back(reshape);
-      newEquationLhsParts.push_back(newEinsumStr);
+      newEquation.lhsParts.push_back(newEinsumStr);
     }
 
-    RankedTensorType outputType =
-        cast<RankedTensorType>(op.getResult().getType());
+    RankedTensorType outputType = op.getType();
     SmallVector<int64_t> einsumOutputShape;
     SmallVector<int64_t> afterEinsumReshape;
     SmallVector<int64_t> afterReshapeTranspose;
-    std::string newEinsumRhs = "";
 
     for (int j = 0; j < outputType.getRank(); j++) {
-      char c = einsumEquationRhs[j];
+      char c = equation.rhs[j];
       auto it = charToGroup.find(c);
       if (it == charToGroup.end()) {
         einsumOutputShape.push_back(outputType.getDimSize(j));
         afterEinsumReshape.push_back(outputType.getDimSize(j));
         afterReshapeTranspose.push_back(j);
-        newEinsumRhs += c;
+        newEquation.rhs += c;
       } else {
         if (it->second[0] != c)
           continue;
         auto group = inputToReshapedMap.find(it->second);
-        newEinsumRhs += group->second.newEinsumStr;
-        for (int k = 0; k < group->second.inputShape.size(); k++) {
+        newEquation.rhs += group->second.newEinsumStr;
+        for (size_t k = 0; k < group->second.inputShape.size(); k++) {
           // the output shape of the einsum is the input shape of the reshape
           // now as the reshape will appear after the einsum
           einsumOutputShape.push_back(group->second.inputShape[k]);
         }
-        for (int k = 0; k < group->second.outputShape.size(); k++) {
+        for (size_t k = 0; k < group->second.outputShape.size(); k++) {
           afterEinsumReshape.push_back(group->second.outputShape[k]);
         }
         for (char c2 : it->second) {
-          size_t pos = einsumEquationRhs.find(c2);
-          assert(pos != std::string::npos);
+          size_t pos = equation.rhs.find(c2);
+          assert(pos != StringRef::npos);
           afterReshapeTranspose.push_back(pos);
         }
       }
     }
 
-    std::string newEinsumEquation = newEquationLhsParts[0];
-    for (int i = 1; i < newEquationLhsParts.size(); i++) {
-      newEinsumEquation += "," + newEquationLhsParts[i];
-    }
-    newEinsumEquation += "->" + newEinsumRhs;
+    StringRef newEinsumEquation = newEquation.generateEquation();
 
     auto newEinsum = rewriter.create<tensorrt::EinsumOp>(
-        op.getLoc(),
-        RankedTensorType::get(einsumOutputShape, outputType.getElementType()),
-        newInputs, newEinsumEquation);
+        op.getLoc(), outputType.clone(einsumOutputShape), newInputs,
+        newEinsumEquation);
 
     auto newReshape = rewriter.createOrFold<tensorrt::ReshapeOp>(
-        op.getLoc(),
-        RankedTensorType::get(afterEinsumReshape, outputType.getElementType()),
+        op.getLoc(), outputType.clone(afterEinsumReshape),
         newEinsum.getResult());
 
     Value newOut = rewriter.createOrFold<tensorrt::TransposeOp>(
@@ -1718,11 +1590,10 @@ public:
     if (!transpose)
       return failure();
 
-    auto transposeInputType =
-        cast<RankedTensorType>(transpose.getInput().getType());
-    auto reshapeInputType = cast<RankedTensorType>(
-        op.getInput().getType()); // transpose output type
-    auto reshapeOutputType = cast<RankedTensorType>(op.getType());
+    RankedTensorType transposeInputType = transpose.getInput().getType();
+    RankedTensorType reshapeInputType =
+        op.getInput().getType(); // transpose output type
+    RankedTensorType reshapeOutputType = op.getType();
     if (!reshapeInputType.hasStaticShape() ||
         !reshapeOutputType.hasStaticShape() ||
         !transposeInputType.hasStaticShape())
@@ -1733,7 +1604,7 @@ public:
       transposePerm.push_back(i);
     }
     if (!transpose.getPermutation().isPermutation()) {
-      return failure("Transpose is not a permutation");
+      return failure(/* Transpose is not a permutation */);
     }
 
     transposePerm = transpose.getPermutation().compose(transposePerm);
@@ -1755,7 +1626,7 @@ public:
       inputNumElems *= reshapeInputType.getDimSize(i);
       if (!transposeInAxes.empty() &&
           transposeInAxes.back() + 1 != transposePerm[i]) {
-        return failure("the transpose and the reshape are not commutative");
+        return failure(/* the transpose and the reshape are not commutative */);
       }
       transposeInAxes.push_back(transposePerm[i]);
       while (j < reshapeOutputType.getRank() &&
@@ -1799,15 +1670,12 @@ public:
     });
 
     for (auto &group : reshapeGroups) {
-      for (int i = 0; i < group.reshapeOut.size(); i++) {
+      for (size_t i = 0; i < group.reshapeOut.size(); i++)
         newTranspose.push_back(group.startOutputIdx + i);
-      }
     }
 
     Value newReshapeOp = rewriter.createOrFold<tensorrt::ReshapeOp>(
-        op.getLoc(),
-        RankedTensorType::get(newReshape, reshapeInputType.getElementType()),
-        transpose.getInput());
+        op.getLoc(), reshapeInputType.clone(newReshape), transpose.getInput());
     Value newTransposeOp = rewriter.createOrFold<tensorrt::TransposeOp>(
         op.getLoc(), newReshapeOp,
         AffineMap::getPermutationMap(newTranspose, op.getContext()));
@@ -1832,86 +1700,83 @@ public:
     if (!reshape)
       return failure();
 
-    auto reshape_input_type =
-        cast<RankedTensorType>(reshape.getInput().getType());
-    auto reshape_output_type = cast<RankedTensorType>(reshape.getType());
-    auto transpose_output_type = cast<RankedTensorType>(op.getType());
-    if (!reshape_input_type.hasStaticShape() ||
-        !reshape_output_type.hasStaticShape() ||
-        !transpose_output_type.hasStaticShape())
+    RankedTensorType reshapeInputType = reshape.getInput().getType();
+    RankedTensorType reshapeOutputType = reshape.getType();
+    RankedTensorType transposeOutputType = op.getType();
+    if (!reshapeInputType.hasStaticShape() ||
+        !reshapeOutputType.hasStaticShape() ||
+        !transposeOutputType.hasStaticShape())
       return failure();
 
-    SmallVector<int64_t> transpose_perm;
-    for (int i = 0; i < reshape_output_type.getRank(); i++) {
-      transpose_perm.push_back(i);
+    SmallVector<int64_t> transposePerm;
+    for (int i = 0; i < reshapeOutputType.getRank(); i++) {
+      transposePerm.push_back(i);
     }
-    transpose_perm = op.getPermutation().compose(transpose_perm);
+    transposePerm = op.getPermutation().compose(
+        transposePerm); // TODO: check if this is correct
 
     struct ReshapeGroup {
-      SmallVector<int64_t> input_axes;
-      SmallVector<int64_t> output_axes;
-      SmallVector<int64_t> reshape_out;
+      SmallVector<int64_t> inputAxes;
+      SmallVector<int64_t> outputAxes;
+      SmallVector<int64_t> reshapeOut;
     };
-    SmallVector<ReshapeGroup> reshape_groups;
+    SmallVector<ReshapeGroup> reshapeGroups;
 
-    SmallVector<int64_t> input_axes;
-    SmallVector<int64_t> output_axes;
-    SmallVector<int64_t> group_reshape_out;
-    size_t input_num_elems = 1;
-    size_t output_num_elems = 1;
-    for (int i = 0, j = 0; i < reshape_input_type.getRank(); i++) {
-      input_num_elems *= reshape_input_type.getDimSize(i);
-      input_axes.push_back(i);
-      while (j < reshape_output_type.getRank() &&
-             input_num_elems > output_num_elems) {
-        output_num_elems *= reshape_output_type.getDimSize(j);
-        group_reshape_out.push_back(reshape_output_type.getDimSize(j));
-        if (!output_axes.empty() &&
-            output_axes.back() + 1 != transpose_perm[j]) {
-          return failure("the transpose and the reshape are not commutative");
+    SmallVector<int64_t> inputAxes;
+    SmallVector<int64_t> outputAxes;
+    SmallVector<int64_t> groupReshapeOut;
+    size_t inputNumElems = 1;
+    size_t outputNumElems = 1;
+    for (int i = 0, j = 0; i < reshapeInputType.getRank(); i++) {
+      inputNumElems *= reshapeInputType.getDimSize(i);
+      inputAxes.push_back(i);
+      while (j < reshapeOutputType.getRank() &&
+             inputNumElems > outputNumElems) {
+        outputNumElems *= reshapeOutputType.getDimSize(j);
+        groupReshapeOut.push_back(reshapeOutputType.getDimSize(j));
+        if (!outputAxes.empty() && outputAxes.back() + 1 != transposePerm[j]) {
+          return failure(
+              /* the transpose and the reshape are not commutative */);
         }
-        output_axes.push_back(transpose_perm[j++]);
+        outputAxes.push_back(transposePerm[j++]);
       }
-      if (input_num_elems == output_num_elems) {
-        reshape_groups.push_back(ReshapeGroup{
-            .input_axes = input_axes,
-            .output_axes = output_axes,
-            .reshape_out = group_reshape_out,
+      if (inputNumElems == outputNumElems) {
+        reshapeGroups.push_back(ReshapeGroup{
+            .inputAxes = inputAxes,
+            .outputAxes = outputAxes,
+            .reshapeOut = groupReshapeOut,
         });
-        input_axes.clear();
-        output_axes.clear();
-        group_reshape_out.clear();
+        inputAxes.clear();
+        outputAxes.clear();
+        groupReshapeOut.clear();
       }
     }
 
-    SmallVector<int64_t> new_transpose;
-    SmallVector<int64_t> new_reshape;
+    SmallVector<int64_t> newTranspose;
+    SmallVector<int64_t> newReshape;
 
-    std::sort(reshape_groups.begin(), reshape_groups.end(),
-              [](auto &a, auto &b) {
-                if (a.output_axes.empty())
-                  return false;
-                if (b.output_axes.empty())
-                  return true;
-                return a.output_axes[0] < b.output_axes[0];
-              });
+    std::sort(reshapeGroups.begin(), reshapeGroups.end(), [](auto &a, auto &b) {
+      if (a.outputAxes.empty())
+        return false;
+      if (b.outputAxes.empty())
+        return true;
+      return a.outputAxes[0] < b.outputAxes[0];
+    });
 
-    for (auto &group : reshape_groups) {
-      for (int64_t i : group.input_axes)
-        new_transpose.push_back(i);
-      for (int64_t i : group.reshape_out)
-        new_reshape.push_back(i);
+    for (auto &group : reshapeGroups) {
+      for (int64_t i : group.inputAxes)
+        newTranspose.push_back(i);
+      for (int64_t i : group.reshapeOut)
+        newReshape.push_back(i);
     }
 
-    Value new_transpose_op = rewriter.createOrFold<tensorrt::TransposeOp>(
+    Value newTransposeOp = rewriter.createOrFold<tensorrt::TransposeOp>(
         op.getLoc(), reshape.getInput(),
-        AffineMap::getPermutationMap(new_transpose, op.getContext()));
-    Value new_reshape_op = rewriter.createOrFold<tensorrt::ReshapeOp>(
-        op.getLoc(),
-        RankedTensorType::get(new_reshape, reshape_input_type.getElementType()),
-        new_transpose_op);
+        AffineMap::getPermutationMap(newTranspose, op.getContext()));
+    Value newReshapeOp = rewriter.createOrFold<tensorrt::ReshapeOp>(
+        op.getLoc(), reshapeInputType.clone(newReshape), newTransposeOp);
 
-    rewriter.replaceOp(op, new_reshape_op);
+    rewriter.replaceOp(op, newReshapeOp);
     return success();
   }
 };
@@ -1972,10 +1837,8 @@ public:
     if (!producer)
       return failure();
 
-    Type newIdentityType =
-        RankedTensorType::Builder(
-            cast<RankedTensorType>(producer.getInput().getType()))
-            .setElementType(op.getType().getElementType());
+    RankedTensorType newIdentityType =
+        producer.getInput().getType().clone(op.getType().getElementType());
 
     Value newIdentityResult = rewriter.create<IdentityOp>(
         op.getLoc(), newIdentityType, producer.getInput());
@@ -2000,8 +1863,7 @@ public:
       return failure();
 
     Type reshapeType =
-        RankedTensorType::Builder(cast<RankedTensorType>(op.getType()))
-            .setElementType(producer.getInput().getType().getElementType());
+        op.getType().clone(producer.getInput().getType().getElementType());
 
     Value newReshapeResult = rewriter.create<tensorrt::ReshapeOp>(
         op.getLoc(), reshapeType, producer.getInput(), op.getShape());
@@ -2040,9 +1902,8 @@ public:
     auto input = quantizeOp.getInput();
     auto pushedOp = rewriter.create<OpType>(
         op.getLoc(), op.getResult().getType(), input, op->getAttrs());
-    Type newQuantizedType =
-        RankedTensorType::Builder(cast<RankedTensorType>(pushedOp.getType()))
-            .setElementType(quantizeOp.getResult().getType().getElementType());
+    RankedTensorType newQuantizedType = pushedOp.getType().clone(
+        quantizeOp.getResult().getType().getElementType());
     auto newQuantizeOp = rewriter.create<tensorrt::QuantizeOp>(
         quantizeOp.getLoc(), newQuantizedType, pushedOp, scale,
         quantizeOp.getAxisAttr());
@@ -2065,7 +1926,7 @@ public:
   LogicalResult matchAndRewrite(tensorrt::DequantizeOp dequantizeOp,
                                 PatternRewriter &rewriter) const override {
     Value scale = dequantizeOp.getScale();
-    RankedTensorType scaleType = cast<RankedTensorType>(scale.getType());
+    auto scaleType = cast<RankedTensorType>(scale.getType());
     if (!(scaleType.getRank() == 0 ||
           (scaleType.getRank() == 1 && scaleType.getDimSize(0) == 1)) ||
         dequantizeOp.getAxis().has_value())
@@ -2082,16 +1943,13 @@ public:
       return failure();
 
     auto input = op.getInput();
-    Type newQuantizedType =
-        RankedTensorType::Builder(cast<RankedTensorType>(input.getType()))
-            .setElementType(quantizeOp.getResult().getType().getElementType());
+    RankedTensorType newQuantizedType = input.getType().clone(
+        quantizeOp.getResult().getType().getElementType());
     auto newQuantizeOp = rewriter.create<tensorrt::QuantizeOp>(
         quantizeOp.getLoc(), newQuantizedType, input, scale,
         quantizeOp.getAxisAttr());
-    Type newDequantizedType =
-        RankedTensorType::Builder(cast<RankedTensorType>(newQuantizedType))
-            .setElementType(
-                dequantizeOp.getResult().getType().getElementType());
+    RankedTensorType newDequantizedType = newQuantizedType.clone(
+        dequantizeOp.getResult().getType().getElementType());
     auto newDequantizeOp = rewriter.create<tensorrt::DequantizeOp>(
         dequantizeOp.getLoc(), newDequantizedType, newQuantizeOp.getResult(),
         scale, dequantizeOp.getAxisAttr());
@@ -2113,63 +1971,54 @@ public:
     if (op.getInputs().size() != 2)
       return failure();
 
-    std::string einsumEquation{op.getEquation()};
-    size_t pos = einsumEquation.find("->");
-    if (pos == std::string::npos)
+    EinsumEquation equation;
+    if (failed(equation.parse(op.getEquation())))
       return failure();
-    std::string einsumEquationLhs = einsumEquation.substr(0, pos);
-    std::string einsumEquationRhs = einsumEquation.substr(pos + 2);
-    SmallVector<std::string> einsumEquationLhsParts;
-    std::string currentPart;
-    std::istringstream lhsStream(einsumEquationLhs);
-    while (std::getline(lhsStream, currentPart, ',')) {
-      einsumEquationLhsParts.push_back(currentPart);
-    }
 
     char matrixAxis[2] = {0, 0};
     char multipliedAxis = 0;
     std::string batchAxes = "";
 
-    for (int i = 0; i < einsumEquationRhs.size(); i++) {
-      char c = einsumEquationRhs[i];
-      size_t lhsPos = einsumEquationLhsParts[0].find(c);
-      size_t rhsPos = einsumEquationLhsParts[1].find(c);
+    for (size_t i = 0; i < equation.rhs.size(); i++) {
+      char c = equation.rhs[i];
+      size_t lhsPos = equation.lhsParts[0].find(c);
+      size_t rhsPos = equation.lhsParts[1].find(c);
       if (lhsPos != std::string::npos && lhsPos == rhsPos && lhsPos == i) {
         if (matrixAxis[0] != 0 || matrixAxis[1] != 0) {
-          return failure("einsum does not match matrix multiply format");
+          return failure(/* einsum does not match matrix multiply format */);
         }
         batchAxes += c;
       } else if (lhsPos != std::string::npos && rhsPos == std::string::npos) {
         if (matrixAxis[0] == 0) {
           matrixAxis[0] = c;
         } else {
-          return failure("multiple matrix lhs axes");
+          return failure(/* multiple matrix lhs axes */);
         }
       } else if (lhsPos == std::string::npos && rhsPos != std::string::npos) {
         if (matrixAxis[1] == 0) {
           matrixAxis[1] = c;
         } else {
-          return failure("multiple matrix rhs axes");
+          return failure(/* multiple matrix rhs axes */);
         }
       } else {
-        return failure("einsum does not match matrix multiply format");
+        return failure(/* einsum does not match matrix multiply format */);
       }
     }
     for (int i = 0; i < 2; i++) {
-      for (char c : einsumEquationLhsParts[i]) {
+      for (char c : equation.lhsParts[i]) {
         if (!(c == matrixAxis[0] || c == matrixAxis[1] ||
               batchAxes.find(c) != std::string::npos)) {
           if (multipliedAxis == 0 || multipliedAxis == c) {
             multipliedAxis = c;
           } else {
-            return failure("multiple multiplied axes");
+            return failure(/* multiple multiplied axes */);
           }
         }
       }
     }
 
     if (multipliedAxis == 0) {
-      return failure("no multiplied axis");
+      return failure(/* no multiplied axis */);
     }
 
     MatrixOperation opType[2];
@@ -2177,25 +2026,23 @@ public:
       std::string e = batchAxes;
       if (matrixAxis[i] == 0) {
         e += multipliedAxis;
-        if (e == einsumEquationLhsParts[i]) {
+        if (e == equation.lhsParts[i])
           opType[i] = MatrixOperation::kVECTOR;
-        } else {
-          return failure("einsum does not match matrix multiply format");
-        }
+        else
+          return failure(/* einsum does not match matrix multiply format */);
       } else {
         e += matrixAxis[i];
         e += multipliedAxis;
-        if (e == einsumEquationLhsParts[i]) {
+        if (e == equation.lhsParts[i]) {
           opType[i] = MatrixOperation::kNONE;
         } else {
           e = batchAxes;
           e += multipliedAxis;
           e += matrixAxis[i];
-          if (e == einsumEquationLhsParts[i]) {
+          if (e == equation.lhsParts[i])
             opType[i] = MatrixOperation::kTRANSPOSE;
-          } else {
-            return failure("einsum does not match matrix multiply format");
-          }
+          else
+            return failure(/* einsum does not match matrix multiply format */);
         }
       }
     }
@@ -2235,8 +2082,7 @@ public:
         return failure();
       }
       if (auto reshape = input.getDefiningOp<tensorrt::ReshapeOp>()) {
-        if (!cast<RankedTensorType>(reshape.getInput().getType())
-                 .hasStaticShape()) {
+        if (!reshape.getInput().getType().hasStaticShape()) {
           return failure();
         }
         hasReshapeInput = true;
@@ -2246,8 +2092,8 @@ public:
     if (!hasReshapeInput)
       return failure();
 
-    if (cast<RankedTensorType>(op.getInput1().getType()).getShape() !=
-        cast<RankedTensorType>(op.getInput2().getType()).getShape()) {
+    if (op.getInput1().getType().getShape() !=
+        op.getInput2().getType().getShape()) {
       return failure();
     }
 
@@ -2256,8 +2102,8 @@ public:
     auto reshape2 = op.getInput2().getDefiningOp<tensorrt::ReshapeOp>();
     bool useLhsShape = true;
     if (reshape1 && reshape2 &&
-        cast<RankedTensorType>(reshape1.getInput().getType()).getShape() ==
-            cast<RankedTensorType>(reshape2.getInput().getType()).getShape()) {
+        reshape1.getInput().getType().getShape() ==
+            reshape2.getInput().getType().getShape()) {
       newCost = 0; // should always do it
     } else {
       uint64_t cost1 = estimateShuffleCost(op.getInput1());
@@ -2286,23 +2132,18 @@ public:
       newRhs = reshape.getInput();
     }
 
-    auto newShape =
-        useLhsShape
-            ? cast<RankedTensorType>(reshape1.getInput().getType()).getShape()
-            : cast<RankedTensorType>(reshape2.getInput().getType()).getShape();
+    auto newShape = useLhsShape ? reshape1.getInput().getType().getShape()
+                                : reshape2.getInput().getType().getShape();
 
-    Type newLhsType =
-        RankedTensorType::Builder(op.getInput1().getType()).setShape(newShape);
-    Type newRhsType =
-        RankedTensorType::Builder(op.getInput2().getType()).setShape(newShape);
+    RankedTensorType newLhsType = op.getInput1().getType().clone(newShape);
+    RankedTensorType newRhsType = op.getInput2().getType().clone(newShape);
 
     newLhs = rewriter.createOrFold<tensorrt::ReshapeOp>(op.getLoc(), newLhsType,
                                                         newLhs);
     newRhs = rewriter.createOrFold<tensorrt::ReshapeOp>(op.getLoc(), newRhsType,
                                                         newRhs);
 
-    Type elementwiseType =
-        RankedTensorType::Builder(op.getResult().getType()).setShape(newShape);
+    RankedTensorType elementwiseType = op.getResult().getType().clone(newShape);
     auto newElementwiseOp = rewriter.create<tensorrt::ElementWiseOp>(
         op.getLoc(), elementwiseType, newLhs, newRhs,
         op.getElementwiseOperation());
@@ -2325,15 +2166,13 @@ public:
     if (!elementwiseOp)
       return failure();
 
-    auto type = cast<RankedTensorType>(op.getType());
+    RankedTensorType type = op.getType();
     if (!type.hasStaticShape()) {
       return failure();
     }
 
-    if (cast<RankedTensorType>(elementwiseOp.getInput1().getType())
-            .getShape() !=
-        cast<RankedTensorType>(elementwiseOp.getInput2().getType())
-            .getShape()) {
+    if (elementwiseOp.getInput1().getType().getShape() !=
+        elementwiseOp.getInput2().getType().getShape()) {
       return failure();
     }
 
@@ -2348,12 +2187,10 @@ public:
         !isRhsParentReshapeOrTransposeOrConstant)
       return failure();
 
-    Type newLhsType = RankedTensorType::Builder(type).setElementType(
-        cast<RankedTensorType>(elementwiseOp.getInput1().getType())
-            .getElementType());
-    Type newRhsType = RankedTensorType::Builder(type).setElementType(
-        cast<RankedTensorType>(elementwiseOp.getInput2().getType())
-            .getElementType());
+    RankedTensorType newLhsType =
+        type.clone(elementwiseOp.getInput1().getType().getElementType());
+    RankedTensorType newRhsType =
+        type.clone(elementwiseOp.getInput2().getType().getElementType());
     auto newLhs = rewriter.createOrFold<tensorrt::ReshapeOp>(
         op.getLoc(), newLhsType, elementwiseOp.getInput1());
     auto newRhs = rewriter.createOrFold<tensorrt::ReshapeOp>(
@@ -2383,15 +2220,15 @@ public:
       if (operation == MatrixOperation::kVECTOR) {
         return std::make_tuple(arg, operation);
       }
-      if (auto transpose = arg.getDefiningOp<tensorrt::TransposeOp>()) {
+      auto transpose = arg.getDefiningOp<tensorrt::TransposeOp>();
+      if (transpose && shouldFuseTranspose(transpose, op)) {
         AffineMap perm = transpose.getPermutation();
         // Check if perm swaps its last two axes while keeping everything else
         // the same
         auto permVec = llvm::to_vector(perm.getResults());
         int64_t rank = permVec.size();
-        if (rank < 2) {
+        if (rank < 2)
           return std::make_tuple(arg, operation);
-        }
         bool swapsLastTwo = true;
         for (int64_t i = 0; i < rank - 2; ++i) {
           auto expr = permVec[i].dyn_cast<AffineDimExpr>();
@@ -2445,7 +2282,7 @@ public:
     MLIRContext *ctx = &getContext();
     Operation *op = getOperation();
 
-    // First, convert ops to a "simpler" form using einsums and reshapes and
+    // 1), convert ops to a "simpler" form using einsums and reshapes and
     // transposes
     {
       RewritePatternSet patterns(ctx);
@@ -2462,7 +2299,7 @@ public:
       }
     }
 
-    // Second, eliminate 1-axis einsums as these are reshapes that can be pushed
+    // 1.1), eliminate 1-axis einsums as these are reshapes that can be pushed
     // around further
     {
       RewritePatternSet patterns(ctx);
@@ -2474,7 +2311,7 @@ public:
       }
     }
 
-    // Third, we try to eliminate transpose operations by "pushing down" the
+    // 2) we try to eliminate transpose operations by "pushing down" the
     // transpose operations. This involves performing rewrites of the form
     // "op(transpose(y))->transpose(op(y))". Often, this will eliminate most
     // transpose operations in CNN networks produced by frameworks that use NHWC
@@ -2501,7 +2338,7 @@ public:
       }
     }
 
-    // Fourth, we try to eliminate transpose operations by "pushing up" (commute
+    // 3) we try to eliminate transpose operations by "pushing up" (commute
     // in the reverse direction). This can possible eliminate additional
     // transpose ops.
     {
@@ -2526,7 +2363,7 @@ public:
       }
     }
 
-    // Fifth, convert einsums back to matrix multiplies
+    // 4) convert einsums back to matrix multiplies
     // (Unsure if this is necessary as TensorRT seems to generate the same
     // matrix mulitiply kernels)
     {
@@ -2545,7 +2382,7 @@ public:
       }
     }
 
-    // Sixth, if there are any remaining einsums, merge the transposes back into
+    // 4.1) if there are any remaining einsums, merge the transposes back into
     // the einsum
     {
       RewritePatternSet patterns(ctx);
