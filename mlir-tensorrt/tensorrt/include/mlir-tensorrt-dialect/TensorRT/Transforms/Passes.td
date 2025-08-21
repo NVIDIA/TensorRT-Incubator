@@ -263,9 +263,70 @@ def TransposeReshapeEliminationPass : Pass<"tensorrt-transpose-reshape-eliminati
   let summary = "try to eliminate tensorrt.transpose, tensorrt.reshape, and tensorrt.shuffle operations";
 
   let description = [{
-    Push tensorrt.transpose and tensorrt.reshape operations around to attempt to eliminate them
-    and merge them with other ops such as matrix multiply.  The intention is to improve
-    pattern matching and fusion inside of TensorRT.
+    It is well-known that excessive number of transpose or reshapes ops (either
+    "tensorrt.transpose", "tensorrt.reshape" or "tensorrt.shuffle")
+    can cause performance issues with TensorRT. For example, this commonly occurs
+    when the input source being converted represents convolutions in "NHWC" format
+    vs. TensorRT's preferred "NCHW" format. In the conversion of these types of
+    convolutions, a number of transpose operations must be inserted. These
+    transpose operations can prevent fusions. For example, a transpose operation
+    between a convolution and a pointwise addition can prevent convolution-bias
+    fusion.  Fusions can also be blocked if a reshape is placed between a
+    matrix multiplication and an activation.
+
+    The pass tries to eliminate transposes and reshapes by pushing the transposes and reshapes around to combine them into identity transposes and reshapes which can be eliminated from the program.  To accomplish this, this pass uses several rewrite rules that push transposes and reshapes from the output of an Operation to the operation's input, and vice-versa.  The rewrites currently included in this pass handle common cases, though currently does not every possible scenario---one may which to extend this pass in the future as needed.
+
+    The process is as follows:
+    1) Normalize transpose, reshape, shuffle and matrix multiply into a common set of ops.
+       - shuffle(x) -> reshape(transpose(reshape(x)))
+       - matrix_multiply(x, y) -> einsum("ij,jk->ik", x, y)
+       - expand_rank(x) -> reshape(x)
+       - collapse_rank(x) -> reshape(x)
+    2) Push down reshape and transpose, eliminating when possible. E.g. op(transpose(x)) -> transpose(op(x))
+       - einsum(transpose(x), ...) -> einsum(x, ...)    Merge transpose into einsum
+       - einsum(...) -> transpose(einsum(...))          Pull transpose out of einsum (to try to match matrix multiply pattern)
+       - einsum(reshape(x), y, ...) -> transpose(reshape(einsum(x, reshape(transpose(y)), ...)) Push reshape down. Possibly add reshape and transposes to other inputs as needed. Conditioned on heuristic checking if "better"
+       - unary(transpose(x)) -> transpose(unary(x))
+       - activation(transpose(x)) -> transpose(activation(x))
+       - identity_op(transpose(x)) -> transpose(identity_op(x))
+       - activation(reshape(x)) -> reshape(activation(x))
+       - unary(reshape(x)) -> reshape(unary(x))
+       - identity_op(reshape(x)) -> reshape(identity_op(x))
+       - reshape(transpose(x)) -> transpose(reshape(x)) if possible put reshape before transpose
+       - dequantize(quantize(transpose(x))) -> transpose(dequantize(quantize((x))) if the scale is 0-dim
+       - dequantize(quantize(reshape(x))) -> reshape(dequantize(quantize(x))) if the scale is 0-dim
+       - reshape(reshape(x)) -> reshape(x)
+       - transpose(transpose(x)) -> transpose(x)
+       - reshape(x) -> x if reshape is identity
+       - transpose(x) -> x if transpose is identity
+       - elementwise(reshape(a), b) -> reshape(elementwise(a, reshape(b))) conditioned on heuristic
+       - elementwise(transpose(a), b) -> transpose(elementwise(a, transpose(b)))
+    3) Push up reshape and transpose, eliminating when possible.  E.g. transpose(op(x)) -> op(transpose(x))
+       - transpose(einsum(...)) -> einsum(...). Merge transpose into einsum
+       - einsum(...) -> einsum(transpose(x), ...). Pull transposes out of einsum (to try to match matrix multiply pattern)
+       - reshape(einsum(...)) -> einsum(reshape(transpose(x)), ...) Push reshapes up through einsum. Adding transposes as needed
+       - transpose(activation(x)) -> activation(transpose(x))
+       - transpose(unary(x)) -> unary(transpose(x))
+       - transpose(identity_op(x)) -> identity_op(transpose(x))
+       - reshape(activation(x)) -> activation(reshape(x))
+       - reshape(unary(x)) -> unary(reshape(x))
+       - reshape(identity_op(x)) -> identity_op(reshape(x))
+       - reshape(reshape(x)) -> reshape(x)
+       - transpose(transpose(x)) -> transpose(x)
+       - reshape(x) -> x if reshape is identity
+       - transpose(x) -> x if transpose is identity
+       - transpose(reshape(x)) -> reshape(transpose(x)) if possible put transpose before reshape
+       - transpose(dequantize(quantize(x))) -> dequantize(quantize(transpose(x))) if the scale is 0-dim
+       - reshape(dequantize(quantize(x))) -> dequantize(quantize(reshape(x))) if the scale is 0-dim
+       - reshape(elementwise(a, b)) -> elementwise(reshape(a), reshape(b))
+       - transpose(elementwise(a, b)) -> elementwise(transpose(a), transpose(b))
+    4) Final clean up.  Fuse leftover transposes and reshapes with other ops.
+       - einsum(x, y) -> matrix_multiply(x, y) if einsum matches a matrix multiply pattern
+       - matrix_multiply(transpose(x), y) -> matrix_multiply(x, y) merge transpose if possible
+       - transpose(einsum(...)) -> einsum(...)
+       - einsum(tranpose(x), ...) -> einsum(...)
+       - einsum(collapse_rank(x), ...) -> einsum(...)
+       - expand_rank(einsum(...)) -> einsum(...)
   }];
 }
 

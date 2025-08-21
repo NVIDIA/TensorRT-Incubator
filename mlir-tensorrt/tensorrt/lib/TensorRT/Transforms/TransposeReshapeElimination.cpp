@@ -2341,7 +2341,7 @@ public:
     MLIRContext *ctx = &getContext();
     Operation *op = getOperation();
 
-    // First, convert ops to a "simpler" form using einsums and reshapes and
+    // 1), convert ops to a "simpler" form using einsums and reshapes and
     // transposes
     {
       RewritePatternSet patterns(ctx);
@@ -2358,7 +2358,7 @@ public:
       }
     }
 
-    // Second, eliminate 1-axis einsums as these are reshapes that can be pushed
+    // 1.1), eliminate 1-axis einsums as these are reshapes that can be pushed
     // around further
     {
       RewritePatternSet patterns(ctx);
@@ -2370,7 +2370,7 @@ public:
       }
     }
 
-    // Third, we try to eliminate transpose operations by "pushing down" the
+    // 2) we try to eliminate transpose operations by "pushing down" the
     // transpose operations. This involves performing rewrites of the form
     // "op(transpose(y))->transpose(op(y))". Often, this will eliminate most
     // transpose operations in CNN networks produced by frameworks that use NHWC
@@ -2397,7 +2397,7 @@ public:
       }
     }
 
-    // Fourth, we try to eliminate transpose operations by "pushing up" (commute
+    // 3) we try to eliminate transpose operations by "pushing up" (commute
     // in the reverse direction). This can possible eliminate additional
     // transpose ops.
     {
@@ -2422,7 +2422,7 @@ public:
       }
     }
 
-    // Fifth, convert einsums back to matrix multiplies
+    // 4), convert einsums back to matrix multiplies
     // (Unsure if this is necessary as TensorRT seems to generate the same
     // matrix mulitiply kernels)
     {
@@ -2441,7 +2441,7 @@ public:
       }
     }
 
-    // Sixth, if there are any remaining einsums, merge the transposes back into
+    // 4.1) if there are any remaining einsums, merge the transposes back into
     // the einsum
     {
       RewritePatternSet patterns(ctx);
