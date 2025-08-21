@@ -263,7 +263,7 @@ def TransposeReshapeEliminationPass : Pass<"tensorrt-transpose-reshape-eliminati
   let summary = "try to eliminate tensorrt.transpose, tensorrt.reshape, and tensorrt.shuffle operations";
 
   let description = [{
-    Push tensorrt.transpose and tensorrt.reshape operations around to attempt to eleminate them
+    Push tensorrt.transpose and tensorrt.reshape operations around to attempt to eliminate them
     and merge them with other ops such as matrix multiply.  The intention is to improve
     pattern matching and fusion inside of TensorRT.
   }];
