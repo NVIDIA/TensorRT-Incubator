@@ -538,9 +538,8 @@ public:
               cast<RankedTensorType>(input.getType()).getElementType()),
           input);
     } else if (op.getDynamicReshape()) {
-      SmallVector<int64_t> shape(
-          ShapedType::kDynamic,
-          cast<RankedTensorType>(op.getResult().getType()).getRank());
+      SmallVector<int64_t> shape(ShapedType::kDynamic,
+                                 op.getResult().getType().getRank());
       input = rewriter.createOrFold<tensorrt::ReshapeOp>(
           op.getLoc(), cast<RankedTensorType>(input.getType()).clone(shape),
           input, op.getDynamicReshape());
@@ -811,7 +810,7 @@ public:
     for (size_t i = 0; i < op.getInputs().size(); i++) {
       TypedValue<RankedTensorType> input =
           cast<TypedValue<RankedTensorType>>(op.getInputs()[i]);
-      auto inputType = cast<RankedTensorType>(input.getType());
+      auto inputType = input.getType();
       SmallVector<std::pair<char, int64_t>> inputAxes;
       for (int j = 0; j < inputType.getRank(); j++) {
         inputAxes.push_back(std::make_pair(equation.lhsParts[i][j], j));
@@ -901,7 +900,7 @@ public:
     for (size_t i = 0; i < op.getInputs().size(); i++) {
       TypedValue<RankedTensorType> input =
           cast<TypedValue<RankedTensorType>>(op.getInputs()[i]);
-      auto inputType = cast<RankedTensorType>(input.getType());
+      auto inputType = input.getType();
       std::string equation = "";
       bool change = false;
       SmallVector<int64_t> newInputShape;
@@ -933,7 +932,7 @@ public:
     if (!madeChange)
       return failure();
 
-    auto outputType = cast<RankedTensorType>(op.getType());
+    RankedTensorType outputType = op.getType();
     EinsumEquation newEinsumEquation = einsumEquation;
     newEinsumEquation.rhs = "";
     SmallVector<int64_t> newOutputShape;
@@ -996,7 +995,7 @@ public:
     for (size_t i = 0; i < op.getInputs().size(); i++) {
       Value input = op.getInputs()[i];
       if (auto collapse = input.getDefiningOp<tensorrt::CollapseRankOp>()) {
-        auto inputType = cast<RankedTensorType>(collapse.getInput().getType());
+        RankedTensorType inputType = collapse.getInput().getType();
         if (!inputType.hasStaticShape()) {
           return failure(/* collapse rank op with dynamic shape */);
         }
@@ -1040,7 +1039,7 @@ public:
   using OpRewritePattern<tensorrt::ExpandRankOp>::OpRewritePattern;
   LogicalResult matchAndRewrite(tensorrt::ExpandRankOp op,
                                 PatternRewriter &rewriter) const override {
-    if (!cast<RankedTensorType>(op.getResult().getType()).hasStaticShape()) {
+    if (!op.getType().hasStaticShape()) {
       return failure(/* only handle static expand rank */);
     }
     auto einsum = op.getInput().getDefiningOp<tensorrt::EinsumOp>();
@@ -1067,10 +1066,8 @@ public:
     if (oneAxisChars.empty())
       return failure(/* no one axis inputs found */);
 
-    auto einsumShape =
-        cast<RankedTensorType>(op.getInput().getType()).getShape();
-    auto outputShape =
-        cast<RankedTensorType>(op.getResult().getType()).getShape();
+    auto einsumShape = op.getInput().getType().getShape();
+    auto outputShape = op.getResult().getType().getShape();
     std::string newRhs = "";
     for (size_t i = 0, j = 0, k = 0; i < outputShape.size(); i++) {
       if (outputShape[i] == 1) {
@@ -1135,8 +1132,7 @@ public:
       inputShapes.push_back(shape);
     }
 
-    auto reshapeInShape =
-        cast<RankedTensorType>(op.getInput().getType()).getShape();
+    auto reshapeInShape = op.getInput().getType().getShape();
     auto reshapeOutShape = op.getResult().getType().getShape();
 
     bool has1OutputShape = false;
@@ -1343,8 +1339,7 @@ public:
         return failure(/* dynamic input not supported */);
       }
       if (auto reshape = input.getDefiningOp<tensorrt::ReshapeOp>()) {
-        if (!cast<RankedTensorType>(reshape.getInput().getType())
-                 .hasStaticShape())
+        if (!reshape.getInput().getType().hasStaticShape())
           return failure(/* dynamic reshape input not supported */);
         hasReshapeInput = true;
       }
@@ -1385,8 +1380,7 @@ public:
         SmallVector<int64_t> inputShape;
         SmallVector<int64_t> outputShape;
         std::string outputEinsumStr = "";
-        RankedTensorType reshapeInputType =
-            cast<RankedTensorType>(reshape.getInput().getType());
+        RankedTensorType reshapeInputType = reshape.getInput().getType();
         for (int j = 0, k = 0; j < einsumInputType.getRank(); j++) {
           if (einsumInputType.getDimSize(j) <= 1) {
             // if 0-shape, then means the tensor is empty.  Annoying edge case
@@ -1566,8 +1560,7 @@ public:
       newEquation.lhsParts.push_back(newEinsumStr);
     }
 
-    RankedTensorType outputType =
-        cast<RankedTensorType>(op.getResult().getType());
+    RankedTensorType outputType = op.getType();
     SmallVector<int64_t> einsumOutputShape;
     SmallVector<int64_t> afterEinsumReshape;
     SmallVector<int64_t> afterReshapeTranspose;
@@ -1637,11 +1630,10 @@ public:
     if (!transpose)
       return failure();
 
-    auto transposeInputType =
-        cast<RankedTensorType>(transpose.getInput().getType());
-    auto reshapeInputType = cast<RankedTensorType>(
-        op.getInput().getType()); // transpose output type
-    auto reshapeOutputType = cast<RankedTensorType>(op.getType());
+    RankedTensorType transposeInputType = transpose.getInput().getType();
+    RankedTensorType reshapeInputType =
+        op.getInput().getType(); // transpose output type
+    RankedTensorType reshapeOutputType = op.getType();
     if (!reshapeInputType.hasStaticShape() ||
         !reshapeOutputType.hasStaticShape() ||
         !transposeInputType.hasStaticShape())
@@ -1751,10 +1743,9 @@ public:
     if (!reshape)
       return failure();
 
-    auto reshapeInputType =
-        cast<RankedTensorType>(reshape.getInput().getType());
-    auto reshapeOutputType = cast<RankedTensorType>(reshape.getType());
-    auto transposeOutputType = cast<RankedTensorType>(op.getType());
+    RankedTensorType reshapeInputType = reshape.getInput().getType();
+    RankedTensorType reshapeOutputType = reshape.getType();
+    RankedTensorType transposeOutputType = op.getType();
     if (!reshapeInputType.hasStaticShape() ||
         !reshapeOutputType.hasStaticShape() ||
         !transposeOutputType.hasStaticShape())
@@ -1891,8 +1882,8 @@ public:
     if (!producer)
       return failure();
 
-    Type newIdentityType = cast<RankedTensorType>(producer.getInput().getType())
-                               .clone(op.getType().getElementType());
+    RankedTensorType newIdentityType =
+        producer.getInput().getType().clone(op.getType().getElementType());
 
     Value newIdentityResult = rewriter.create<IdentityOp>(
         op.getLoc(), newIdentityType, producer.getInput());
@@ -1917,8 +1908,7 @@ public:
       return failure();
 
     Type reshapeType =
-        cast<RankedTensorType>(op.getType())
-            .clone(producer.getInput().getType().getElementType());
+        op.getType().clone(producer.getInput().getType().getElementType());
 
     Value newReshapeResult = rewriter.create<tensorrt::ReshapeOp>(
         op.getLoc(), reshapeType, producer.getInput(), op.getShape());
@@ -1957,9 +1947,8 @@ public:
     auto input = quantizeOp.getInput();
     auto pushedOp = rewriter.create<OpType>(
         op.getLoc(), op.getResult().getType(), input, op->getAttrs());
-    Type newQuantizedType =
-        cast<RankedTensorType>(pushedOp.getType())
-            .clone(quantizeOp.getResult().getType().getElementType());
+    RankedTensorType newQuantizedType = pushedOp.getType().clone(
+        quantizeOp.getResult().getType().getElementType());
     auto newQuantizeOp = rewriter.create<tensorrt::QuantizeOp>(
         quantizeOp.getLoc(), newQuantizedType, pushedOp, scale,
         quantizeOp.getAxisAttr());
@@ -1982,7 +1971,7 @@ public:
   LogicalResult matchAndRewrite(tensorrt::DequantizeOp dequantizeOp,
                                 PatternRewriter &rewriter) const override {
     Value scale = dequantizeOp.getScale();
-    RankedTensorType scaleType = cast<RankedTensorType>(scale.getType());
+    auto scaleType = cast<RankedTensorType>(scale.getType());
     if (!(scaleType.getRank() == 0 ||
           (scaleType.getRank() == 1 && scaleType.getDimSize(0) == 1)) ||
         dequantizeOp.getAxis().has_value())
@@ -1999,15 +1988,13 @@ public:
       return failure();
 
     auto input = op.getInput();
-    Type newQuantizedType =
-        cast<RankedTensorType>(input.getType())
-            .clone(quantizeOp.getResult().getType().getElementType());
+    RankedTensorType newQuantizedType = input.getType().clone(
+        quantizeOp.getResult().getType().getElementType());
     auto newQuantizeOp = rewriter.create<tensorrt::QuantizeOp>(
         quantizeOp.getLoc(), newQuantizedType, input, scale,
         quantizeOp.getAxisAttr());
-    Type newDequantizedType =
-        cast<RankedTensorType>(newQuantizedType)
-            .clone(dequantizeOp.getResult().getType().getElementType());
+    RankedTensorType newDequantizedType = newQuantizedType.clone(
+        dequantizeOp.getResult().getType().getElementType());
     auto newDequantizeOp = rewriter.create<tensorrt::DequantizeOp>(
         dequantizeOp.getLoc(), newDequantizedType, newQuantizeOp.getResult(),
         scale, dequantizeOp.getAxisAttr());
@@ -2142,8 +2129,7 @@ public:
         return failure();
       }
       if (auto reshape = input.getDefiningOp<tensorrt::ReshapeOp>()) {
-        if (!cast<RankedTensorType>(reshape.getInput().getType())
-                 .hasStaticShape()) {
+        if (!reshape.getInput().getType().hasStaticShape()) {
           return failure();
         }
         hasReshapeInput = true;
@@ -2153,8 +2139,8 @@ public:
     if (!hasReshapeInput)
       return failure();
 
-    if (cast<RankedTensorType>(op.getInput1().getType()).getShape() !=
-        cast<RankedTensorType>(op.getInput2().getType()).getShape()) {
+    if (op.getInput1().getType().getShape() !=
+        op.getInput2().getType().getShape()) {
       return failure();
     }
 
@@ -2163,8 +2149,8 @@ public:
     auto reshape2 = op.getInput2().getDefiningOp<tensorrt::ReshapeOp>();
     bool useLhsShape = true;
     if (reshape1 && reshape2 &&
-        cast<RankedTensorType>(reshape1.getInput().getType()).getShape() ==
-            cast<RankedTensorType>(reshape2.getInput().getType()).getShape()) {
+        reshape1.getInput().getType().getShape() ==
+            reshape2.getInput().getType().getShape()) {
       newCost = 0; // should always do it
     } else {
       uint64_t cost1 = estimateShuffleCost(op.getInput1());
@@ -2193,23 +2179,18 @@ public:
       newRhs = reshape.getInput();
     }
 
-    auto newShape =
-        useLhsShape
-            ? cast<RankedTensorType>(reshape1.getInput().getType()).getShape()
-            : cast<RankedTensorType>(reshape2.getInput().getType()).getShape();
+    auto newShape = useLhsShape ? reshape1.getInput().getType().getShape()
+                                : reshape2.getInput().getType().getShape();
 
-    Type newLhsType =
-        cast<RankedTensorType>(op.getInput1().getType()).clone(newShape);
-    Type newRhsType =
-        cast<RankedTensorType>(op.getInput2().getType()).clone(newShape);
+    RankedTensorType newLhsType = op.getInput1().getType().clone(newShape);
+    RankedTensorType newRhsType = op.getInput2().getType().clone(newShape);
 
     newLhs = rewriter.createOrFold<tensorrt::ReshapeOp>(op.getLoc(), newLhsType,
                                                         newLhs);
     newRhs = rewriter.createOrFold<tensorrt::ReshapeOp>(op.getLoc(), newRhsType,
                                                         newRhs);
 
-    Type elementwiseType =
-        cast<RankedTensorType>(op.getResult().getType()).clone(newShape);
+    RankedTensorType elementwiseType = op.getResult().getType().clone(newShape);
     auto newElementwiseOp = rewriter.create<tensorrt::ElementWiseOp>(
         op.getLoc(), elementwiseType, newLhs, newRhs,
         op.getElementwiseOperation());
@@ -2232,15 +2213,13 @@ public:
     if (!elementwiseOp)
       return failure();
 
-    auto type = cast<RankedTensorType>(op.getType());
+    RankedTensorType type = op.getType();
     if (!type.hasStaticShape()) {
       return failure();
     }
 
-    if (cast<RankedTensorType>(elementwiseOp.getInput1().getType())
-            .getShape() !=
-        cast<RankedTensorType>(elementwiseOp.getInput2().getType())
-            .getShape()) {
+    if (elementwiseOp.getInput1().getType().getShape() !=
+        elementwiseOp.getInput2().getType().getShape()) {
       return failure();
     }
 
@@ -2255,12 +2234,10 @@ public:
         !isRhsParentReshapeOrTransposeOrConstant)
       return failure();
 
-    Type newLhsType = cast<RankedTensorType>(type).clone(
-        cast<RankedTensorType>(elementwiseOp.getInput1().getType())
-            .getElementType());
-    Type newRhsType = cast<RankedTensorType>(type).clone(
-        cast<RankedTensorType>(elementwiseOp.getInput2().getType())
-            .getElementType());
+    RankedTensorType newLhsType =
+        type.clone(elementwiseOp.getInput1().getType().getElementType());
+    RankedTensorType newRhsType =
+        type.clone(elementwiseOp.getInput2().getType().getElementType());
     auto newLhs = rewriter.createOrFold<tensorrt::ReshapeOp>(
         op.getLoc(), newLhsType, elementwiseOp.getInput1());
     auto newRhs = rewriter.createOrFold<tensorrt::ReshapeOp>(
@@ -2291,7 +2268,6 @@ public:
         return std::make_tuple(arg, operation);
       }
       auto transpose = arg.getDefiningOp<tensorrt::TransposeOp>();
-
       if (transpose && shouldFuseTranspose(transpose, op)) {
         AffineMap perm = transpose.getPermutation();
         // Check if perm swaps its last two axes while keeping everything else
