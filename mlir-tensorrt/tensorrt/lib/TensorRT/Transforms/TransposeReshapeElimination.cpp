@@ -607,7 +607,15 @@ struct EinsumEquation {
 } // namespace
 
 namespace {
+// Control when fusing a transpose into another op.
+// Currently always fuse
+static bool shouldFuseTranspose(tensorrt::TransposeOp transposeOp,
+                                mlir::Operation *targetFusion) {
+  return true;
+}
+} // namespace
 
+namespace {
 // Push down transpose to into an einsum, rearranging the axes of the input
 // tensors in the einsum as needed einsum(x1, transpose(x2), ...) -> einsum(x1,
 // x2, ...)
@@ -621,15 +629,15 @@ public:
       return failure();
 
     bool hasTransposeInput = false;
-    // Question: in the case that a transpose is used by multiple ops, might not
-    // want to push down into einsum
-    for (auto input : op.getInputs()) {
-      if (input.getDefiningOp<tensorrt::TransposeOp>()) {
-        auto perm =
-            input.getDefiningOp<tensorrt::TransposeOp>().getPermutation();
+    for (Value input : op.getInputs()) {
+      auto transpose = input.getDefiningOp<tensorrt::TransposeOp>();
+      if (transpose) {
+        auto perm = transpose.getPermutation();
         if (!perm.isPermutation())
           return failure(/* Transpose is not a permutation */);
-        hasTransposeInput = true;
+        if (shouldFuseTranspose(input.getDefiningOp<tensorrt::TransposeOp>(),
+                                op))
+          hasTransposeInput = true;
       }
     }
     if (!hasTransposeInput)
@@ -638,7 +646,9 @@ public:
     SmallVector<Value> newInputs;
     for (size_t i = 0; i < op.getInputs().size(); i++) {
       auto input = op.getInputs()[i];
-      if (auto transpose = input.getDefiningOp<tensorrt::TransposeOp>()) {
+      tensorrt::TransposeOp transpose =
+          input.getDefiningOp<tensorrt::TransposeOp>();
+      if (transpose && shouldFuseTranspose(transpose, op)) {
         auto perm = transpose.getPermutation();
         SmallVector<int64_t> equation;
         for (char c : einsumEquation.lhsParts[i]) {
@@ -682,6 +692,9 @@ public:
       return failure();
 
     if (!einsum->hasOneUse())
+      return failure();
+
+    if (!shouldFuseTranspose(op, einsum))
       return failure();
 
     EinsumEquation einsumEquation;
@@ -2277,7 +2290,9 @@ public:
       if (operation == MatrixOperation::kVECTOR) {
         return std::make_tuple(arg, operation);
       }
-      if (auto transpose = arg.getDefiningOp<tensorrt::TransposeOp>()) {
+      auto transpose = arg.getDefiningOp<tensorrt::TransposeOp>();
+
+      if (transpose && shouldFuseTranspose(transpose, op)) {
         AffineMap perm = transpose.getPermutation();
         // Check if perm swaps its last two axes while keeping everything else
         // the same
