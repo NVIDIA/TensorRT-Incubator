@@ -533,9 +533,7 @@ public:
     if (op.getReshape()) {
       input = rewriter.createOrFold<tensorrt::ReshapeOp>(
           op.getLoc(),
-          RankedTensorType::get(
-              *op.getReshape(),
-              cast<RankedTensorType>(input.getType()).getElementType()),
+          cast<RankedTensorType>(input.getType()).clone(*op.getReshape()),
           input);
     } else if (op.getDynamicReshape()) {
       SmallVector<int64_t> shape(ShapedType::kDynamic,
@@ -777,9 +775,8 @@ public:
     std::string newEinsumEquation = equation.generateEquation();
 
     auto newEinsum = rewriter.create<tensorrt::EinsumOp>(
-        op.getLoc(),
-        RankedTensorType::get(newEinsumShape, op.getType().getElementType()),
-        op.getInputs(), newEinsumEquation);
+        op.getLoc(), op.getType().clone(newEinsumShape), op.getInputs(),
+        newEinsumEquation);
 
     auto newTranspose = rewriter.create<tensorrt::TransposeOp>(
         op.getLoc(), newEinsum.getResult(),
@@ -913,13 +910,11 @@ public:
         }
       }
       if (change) {
-        auto newInput = rewriter
-                            .create<tensorrt::ReshapeOp>(
-                                op.getLoc(),
-                                RankedTensorType::get(
-                                    newInputShape, inputType.getElementType()),
-                                input)
-                            .getResult();
+        auto newInput =
+            rewriter
+                .create<tensorrt::ReshapeOp>(
+                    op.getLoc(), inputType.clone(newInputShape), input)
+                .getResult();
         newInputs.push_back(newInput);
         einsumEquation.lhsParts[i] = equation;
       } else {
@@ -949,9 +944,8 @@ public:
 
     if (changeOutput) {
       auto newEinsum = rewriter.create<tensorrt::EinsumOp>(
-          op.getLoc(),
-          RankedTensorType::get(newOutputShape, outputType.getElementType()),
-          newInputs, newEquation);
+          op.getLoc(), outputType.clone(newOutputShape), newInputs,
+          newEquation);
       auto outReshape =
           rewriter
               .create<tensorrt::ReshapeOp>(op.getLoc(), op.getType(),
@@ -1242,9 +1236,7 @@ public:
           AffineMap::getPermutationMap(newInputTranspose,
                                        op.getLoc().getContext()));
       auto newReshape = rewriter.createOrFold<tensorrt::ReshapeOp>(
-          op.getLoc(),
-          RankedTensorType::get(newInputShape, inputType.getElementType()),
-          newTranspose);
+          op.getLoc(), inputType.clone(newInputShape), newTranspose);
 
       newInputs.push_back(newReshape);
       newEquation.lhsParts.push_back(newInputEquation);
@@ -1259,9 +1251,7 @@ public:
           newShape.push_back(i);
       }
       auto newEinsum = rewriter.create<tensorrt::EinsumOp>(
-          op.getLoc(),
-          RankedTensorType::get(newShape, op.getType().getElementType()),
-          newInputs, newEquationStr);
+          op.getLoc(), op.getType().clone(newShape), newInputs, newEquationStr);
       auto expandRank = rewriter.create<tensorrt::ReshapeOp>(
           op.getLoc(), op.getType(), newEinsum.getResult());
       rewriter.replaceOp(op, expandRank.getResult());
@@ -1548,9 +1538,7 @@ public:
         reshapeIn = definingOp.getInput();
       }
       auto reshape = rewriter.createOrFold<tensorrt::ReshapeOp>(
-          op.getLoc(),
-          RankedTensorType::get(newInputShape, inputType.getElementType()),
-          reshapeIn);
+          op.getLoc(), inputType.clone(newInputShape), reshapeIn);
 
       newInputs.push_back(reshape);
       newEquation.lhsParts.push_back(newEinsumStr);
@@ -1593,13 +1581,11 @@ public:
     std::string newEinsumEquation = newEquation.generateEquation();
 
     auto newEinsum = rewriter.create<tensorrt::EinsumOp>(
-        op.getLoc(),
-        RankedTensorType::get(einsumOutputShape, outputType.getElementType()),
-        newInputs, newEinsumEquation);
+        op.getLoc(), outputType.clone(einsumOutputShape), newInputs,
+        newEinsumEquation);
 
     auto newReshape = rewriter.createOrFold<tensorrt::ReshapeOp>(
-        op.getLoc(),
-        RankedTensorType::get(afterEinsumReshape, outputType.getElementType()),
+        op.getLoc(), outputType.clone(afterEinsumReshape),
         newEinsum.getResult());
 
     Value newOut = rewriter.createOrFold<tensorrt::TransposeOp>(
@@ -1712,9 +1698,7 @@ public:
     }
 
     Value newReshapeOp = rewriter.createOrFold<tensorrt::ReshapeOp>(
-        op.getLoc(),
-        RankedTensorType::get(newReshape, reshapeInputType.getElementType()),
-        transpose.getInput());
+        op.getLoc(), reshapeInputType.clone(newReshape), transpose.getInput());
     Value newTransposeOp = rewriter.createOrFold<tensorrt::TransposeOp>(
         op.getLoc(), newReshapeOp,
         AffineMap::getPermutationMap(newTranspose, op.getContext()));
@@ -1813,9 +1797,7 @@ public:
         op.getLoc(), reshape.getInput(),
         AffineMap::getPermutationMap(newTranspose, op.getContext()));
     Value newReshapeOp = rewriter.createOrFold<tensorrt::ReshapeOp>(
-        op.getLoc(),
-        RankedTensorType::get(newReshape, reshapeInputType.getElementType()),
-        newTransposeOp);
+        op.getLoc(), reshapeInputType.clone(newReshape), newTransposeOp);
 
     rewriter.replaceOp(op, newReshapeOp);
     return success();
