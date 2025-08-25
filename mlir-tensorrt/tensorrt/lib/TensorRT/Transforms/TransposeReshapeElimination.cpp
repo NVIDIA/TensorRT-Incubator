@@ -631,7 +631,7 @@ public:
     for (Value input : op.getInputs()) {
       auto transpose = input.getDefiningOp<tensorrt::TransposeOp>();
       if (transpose) {
-        auto perm = transpose.getPermutation();
+        AffineMap perm = transpose.getPermutation();
         if (!perm.isPermutation())
           return failure(/* Transpose is not a permutation */);
         if (shouldFuseTranspose(input.getDefiningOp<tensorrt::TransposeOp>(),
@@ -648,7 +648,7 @@ public:
       tensorrt::TransposeOp transpose =
           input.getDefiningOp<tensorrt::TransposeOp>();
       if (transpose && shouldFuseTranspose(transpose, op)) {
-        auto perm = transpose.getPermutation();
+        AffineMap perm = transpose.getPermutation();
         SmallVector<int64_t> equation;
         for (char c : einsumEquation.lhsParts[i]) {
           equation.push_back(c);
@@ -682,7 +682,7 @@ public:
   using OpRewritePattern<tensorrt::TransposeOp>::OpRewritePattern;
   LogicalResult matchAndRewrite(tensorrt::TransposeOp op,
                                 PatternRewriter &rewriter) const override {
-    auto perm = op.getPermutation();
+    AffineMap perm = op.getPermutation();
     if (!perm.isPermutation())
       return failure();
 
@@ -808,9 +808,8 @@ public:
     bool didChange = false;
     SmallVector<Value> newInputs;
     for (size_t i = 0; i < op.getInputs().size(); i++) {
-      TypedValue<RankedTensorType> input =
-          cast<TypedValue<RankedTensorType>>(op.getInputs()[i]);
-      auto inputType = input.getType();
+      auto input = cast<TypedValue<RankedTensorType>>(op.getInputs()[i]);
+      RankedTensorType inputType = input.getType();
       SmallVector<std::pair<char, int64_t>> inputAxes;
       for (int j = 0; j < inputType.getRank(); j++) {
         inputAxes.push_back(std::make_pair(equation.lhsParts[i][j], j));
@@ -898,9 +897,8 @@ public:
     SmallVector<Value> newInputs;
 
     for (size_t i = 0; i < op.getInputs().size(); i++) {
-      TypedValue<RankedTensorType> input =
-          cast<TypedValue<RankedTensorType>>(op.getInputs()[i]);
-      auto inputType = input.getType();
+      auto input = cast<TypedValue<RankedTensorType>>(op.getInputs()[i]);
+      RankedTensorType inputType = input.getType();
       std::string equation = "";
       bool change = false;
       SmallVector<int64_t> newInputShape;
@@ -1280,21 +1278,19 @@ public:
 
 namespace {
 static uint64_t estimateShuffleCost(Value input) {
-  // TODO: this heuristic could use more "stuff"
+  // This is a heuristic.  One may wish to update this in the future depending
+  // on their use case. This heuristic currently attempts to put shuffles
+  // "together" which allows two shuffles to be merged, and put shuffles on
+  // constant values which allows for them to be merged with the constant.
 
-  // if there is a shuffle on the input, what is the estimated "cost".
-  // The cost being that it would break up some pattern matching or cause
-  // tensors to get transposed at runtime and be slow this function is 100% a
-  // heuristic based on guesses about what TensorRT will match against
-
-  // constant tensors should be 0 cost, as the shuffle can be baked into the
-  // constant
   Operation *op = input.getDefiningOp();
   bool foundShuffle = false;
   bool canMergeUp = true;
   for (int i = 0; op && i < 10; i++) {
     if (isa<tensorrt::ConstantOp>(op))
-      return 0;
+      return 0; // This has found a constant.  The constant can be
+                // reshaped/rearranged as necessary to absorb the shuffle.
+                // Hence, mark this as having 0 cost.
     if (canMergeUp &&
         isa<tensorrt::ShuffleOp, tensorrt::ReshapeOp, tensorrt::TransposeOp>(
             op)) {
