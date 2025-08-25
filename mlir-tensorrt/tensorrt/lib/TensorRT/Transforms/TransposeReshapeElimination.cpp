@@ -626,20 +626,6 @@ public:
       return failure();
 
     bool hasTransposeInput = false;
-    for (Value input : op.getInputs()) {
-      auto transpose = input.getDefiningOp<tensorrt::TransposeOp>();
-      if (transpose) {
-        AffineMap perm = transpose.getPermutation();
-        if (!perm.isPermutation())
-          return failure(/* Transpose is not a permutation */);
-        if (shouldFuseTranspose(input.getDefiningOp<tensorrt::TransposeOp>(),
-                                op))
-          hasTransposeInput = true;
-      }
-    }
-    if (!hasTransposeInput)
-      return failure();
-
     SmallVector<Value> newInputs;
     for (size_t i = 0; i < op.getInputs().size(); i++) {
       auto input = op.getInputs()[i];
@@ -647,21 +633,25 @@ public:
           input.getDefiningOp<tensorrt::TransposeOp>();
       if (transpose && shouldFuseTranspose(transpose, op)) {
         AffineMap perm = transpose.getPermutation();
+        if (!perm.isPermutation())
+          return failure(/* Transpose is not a permutation */);
         SmallVector<int64_t> equation;
-        for (char c : einsumEquation.lhsParts[i]) {
+        for (char c : einsumEquation.lhsParts[i])
           equation.push_back(c);
-        }
 
         equation = inversePermutation(perm).compose(equation);
         einsumEquation.lhsParts[i] = "";
-        for (size_t j = 0; j < equation.size(); j++) {
+        for (size_t j = 0; j < equation.size(); j++)
           einsumEquation.lhsParts[i] += (char)equation[j];
-        }
         newInputs.push_back(transpose.getInput());
+        hasTransposeInput = true;
       } else {
         newInputs.push_back(input);
       }
     }
+
+    if (!hasTransposeInput)
+      return failure();
 
     std::string newEinsumEquation = einsumEquation.generateEquation();
 
