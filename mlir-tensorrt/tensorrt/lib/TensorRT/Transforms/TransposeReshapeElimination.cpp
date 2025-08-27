@@ -28,7 +28,6 @@
 #include "mlir/IR/Matchers.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
-#include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/Debug.h"
 #include <numeric>
 
@@ -568,31 +567,37 @@ public:
 
 namespace {
 struct EinsumEquation {
-  llvm::StringRef equation;
-  SmallVector<llvm::SmallString<128>> lhsParts;
-  llvm::SmallString<128> lhs;
-  llvm::SmallString<128> rhs;
+  std::string equation;
+  SmallVector<std::string> lhsParts;
+  std::string lhs;
+  std::string rhs;
 
   LogicalResult parse(llvm::StringRef einsumEquation) {
+    std::string e{einsumEquation};
+    return parse(e);
+  }
+
+  LogicalResult parse(const std::string &einsumEquation) {
     size_t pos = einsumEquation.find("->");
     if (pos == std::string::npos)
       return failure();
     equation = einsumEquation;
-    lhs = equation.substr(0, pos);
-    rhs = equation.substr(pos + 2);
-    SmallVector<llvm::StringRef> parts;
-    llvm::SplitString(lhs, parts, ",");
-    for (llvm::StringRef part : parts)
-      lhsParts.push_back(part); // cast from StringRef to SmallString
+    lhs = einsumEquation.substr(0, pos);
+    rhs = einsumEquation.substr(pos + 2);
+    std::istringstream lhsStream(lhs);
+    std::string currentPart;
+    while (std::getline(lhsStream, currentPart, ',')) {
+      lhsParts.push_back(currentPart);
+    }
     return success();
   }
 
-  StringRef generateEquation() const {
-    llvm::SmallString<128> ret = lhsParts[0];
+  std::string generateEquation() const {
+    std::string ret = lhsParts[0];
     for (size_t i = 1; i < lhsParts.size(); i++) {
-      ret.append({",", lhsParts[i]});
+      ret += "," + lhsParts[i];
     }
-    ret.append({"->", rhs});
+    ret += "->" + rhs;
     return ret;
   }
 };
@@ -648,7 +653,7 @@ public:
     if (!hasTransposeInput)
       return failure();
 
-    StringRef newEinsumEquation = einsumEquation.generateEquation();
+    std::string newEinsumEquation = einsumEquation.generateEquation();
 
     rewriter.replaceOpWithNewOp<tensorrt::EinsumOp>(op, op.getType(), newInputs,
                                                     newEinsumEquation);
@@ -691,7 +696,7 @@ public:
     for (size_t i = 0; i < einsumRhs.size(); i++)
       einsumEquation.rhs += (char)einsumRhs[i];
 
-    StringRef newEinsumEquation = einsumEquation.generateEquation();
+    std::string newEinsumEquation = einsumEquation.generateEquation();
 
     auto newEinsum = rewriter.create<tensorrt::EinsumOp>(
         op.getLoc(), op.getType(), einsum.getInputs(), newEinsumEquation);
@@ -730,7 +735,7 @@ public:
     std::sort(outputAxes.begin(), outputAxes.end(),
               [&](const std::pair<char, int64_t> &a,
                   const std::pair<char, int64_t> &b) {
-                for (auto &eqLhs : equation.lhsParts) {
+                for (std::string &eqLhs : equation.lhsParts) {
                   if (eqLhs.find(a.first) != std::string::npos) {
                     if (eqLhs.find(b.first) != std::string::npos) {
                       return eqLhs.find(a.first) < eqLhs.find(b.first);
@@ -746,7 +751,7 @@ public:
 
     SmallVector<int64_t> newEinsumShape;
     SmallVector<int64_t> outputPerm;
-    SmallString<128> newEinsumRhs{""};
+    std::string newEinsumRhs = "";
     for (auto &[c, i] : outputAxes) {
       newEinsumRhs += c;
       newEinsumShape.push_back(op.getType().getDimSize(i));
@@ -755,7 +760,7 @@ public:
     if (newEinsumRhs == equation.rhs)
       return failure(); // no change
 
-    StringRef newEinsumEquation = equation.generateEquation();
+    std::string newEinsumEquation = equation.generateEquation();
 
     auto newEinsum = rewriter.create<tensorrt::EinsumOp>(
         op.getLoc(), op.getType().clone(newEinsumShape), op.getInputs(),
@@ -847,7 +852,7 @@ public:
     if (!didChange)
       return failure();
 
-    StringRef newEquation = equation.generateEquation();
+    std::string newEquation = equation.generateEquation();
     rewriter.replaceOpWithNewOp<tensorrt::EinsumOp>(op, op.getType(), newInputs,
                                                     newEquation);
     return success();
@@ -923,7 +928,7 @@ public:
         newOutputShape.push_back(outputType.getDimSize(i));
       }
     }
-    StringRef newEquation = newEinsumEquation.generateEquation();
+    std::string newEquation = newEinsumEquation.generateEquation();
 
     if (changeOutput) {
       auto newEinsum = rewriter.create<tensorrt::EinsumOp>(
@@ -999,7 +1004,7 @@ public:
     if (!madeChange)
       return failure();
 
-    StringRef newEquation = equation.generateEquation();
+    std::string newEquation = equation.generateEquation();
 
     rewriter.replaceOpWithNewOp<tensorrt::EinsumOp>(op, op.getType(), newInputs,
                                                     newEquation);
@@ -1059,7 +1064,7 @@ public:
       }
     }
 
-    SmallString<128> newEquation{equation.lhs, "->", newRhs};
+    std::string newEquation = equation.lhs + "->" + newRhs;
     rewriter.replaceOpWithNewOp<tensorrt::EinsumOp>(
         op, op.getType(), einsum.getInputs(), newEquation);
     return success();
@@ -1161,7 +1166,7 @@ public:
     // check that all of the inputs are have the right groupping.  If this
     // doesn't happen then that means that the reshape can not get pushed
     // through
-    for (auto &eqLhs : equation.lhsParts) {
+    for (std::string &eqLhs : equation.lhsParts) {
       for (char c : eqLhs) {
         auto it = charToGroup.find(c);
         if (it == charToGroup.end())
@@ -1188,7 +1193,7 @@ public:
     for (size_t i = 0; i < einsum.getInputs().size(); i++) {
       Value input = einsum.getInputs()[i];
       auto inputType = cast<RankedTensorType>(input.getType());
-      SmallString<128> newInputEquation{""};
+      std::string newInputEquation = "";
       SmallVector<int64_t> newInputShape;
       SmallVector<int64_t> newInputTranspose;
       for (int j = 0; j < inputType.getRank(); j++) {
@@ -1224,7 +1229,7 @@ public:
       newEquation.lhsParts.push_back(newInputEquation);
     }
 
-    StringRef newEquationStr = newEquation.generateEquation();
+    std::string newEquationStr = newEquation.generateEquation();
 
     if (has1OutputShape) {
       SmallVector<int64_t> newShape;
@@ -1414,13 +1419,13 @@ public:
       }
     }
 
-    for (auto &part : equation.lhsParts) {
+    for (std::string &part : equation.lhsParts) {
       for (char c : part) {
         auto group = charToGroup.find(c);
         if (group == charToGroup.end())
           continue;
         for (char c2 : group->second) {
-          if (part.find(c2) == StringRef::npos)
+          if (part.find(c2) == std::string::npos)
             return failure(
                 /* Missing dimensions that need to be reshaped together */);
         }
@@ -1432,7 +1437,7 @@ public:
       if (group == charToGroup.end())
         continue;
       for (char c2 : group->second) {
-        if (equation.rhs.find(c2) == StringRef::npos)
+        if (equation.rhs.find(c2) == std::string::npos)
           return failure(
               /* Missing dimensions that need to be reshaped together */);
       }
@@ -1481,7 +1486,7 @@ public:
       RankedTensorType inputType = cast<RankedTensorType>(input.getType());
       SmallVector<int64_t> newInputShape;
       SmallVector<int64_t> newInputTranspose;
-      SmallString<128> newEinsumStr{""};
+      std::string newEinsumStr = "";
       for (int j = 0; j < inputType.getRank(); j++) {
         char c = equation.lhsParts[i][j];
         auto it = charToGroup.find(c);
@@ -1499,7 +1504,7 @@ public:
           }
           for (char c2 : group->first) {
             size_t pos = equation.lhsParts[i].find(c2);
-            assert(pos != StringRef::npos);
+            assert(pos != std::string::npos);
             newInputTranspose.push_back(pos);
           }
         }
@@ -1550,13 +1555,13 @@ public:
         }
         for (char c2 : it->second) {
           size_t pos = equation.rhs.find(c2);
-          assert(pos != StringRef::npos);
+          assert(pos != std::string::npos);
           afterReshapeTranspose.push_back(pos);
         }
       }
     }
 
-    StringRef newEinsumEquation = newEquation.generateEquation();
+    std::string newEinsumEquation = newEquation.generateEquation();
 
     auto newEinsum = rewriter.create<tensorrt::EinsumOp>(
         op.getLoc(), outputType.clone(einsumOutputShape), newInputs,
