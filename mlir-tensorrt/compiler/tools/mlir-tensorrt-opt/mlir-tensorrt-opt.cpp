@@ -23,9 +23,8 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt-dialect/Target/Passes.h"
 #include "mlir-tensorrt-dialect/Target/TranslateToTensorRT.h"
-#include "mlir-tensorrt/InitAllDialects.h"
-#include "mlir-tensorrt/InitAllExtensions.h"
-#include "mlir-tensorrt/InitAllPasses.h"
+#include "mlir-tensorrt/Compiler/InitAllDialects.h"
+#include "mlir-tensorrt/Compiler/InitAllPasses.h"
 #include "mlir/Tools/mlir-opt/MlirOptMain.h"
 
 using namespace mlir;

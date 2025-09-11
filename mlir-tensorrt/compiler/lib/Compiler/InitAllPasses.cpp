@@ -1,6 +1,6 @@
-//===- InitAllPasses.h ----------------------------------------------------===//
+//===- InitAllPasses.cpp --------------------------------------------------===//
 //
-// SPDX-FileCopyrightText: Copyright 2024-2025 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2025 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -17,10 +17,11 @@
 // limitations under the License.
 //
 //===----------------------------------------------------------------------===//
-// Registration for mlir-tensorrt passes
+///
+/// Registration for MLIR-TensorRT passes.
+///
 //===----------------------------------------------------------------------===//
-#ifndef MLIR_TENSORRT_INITALLPASSES
-#define MLIR_TENSORRT_INITALLPASSES
+#include "mlir-tensorrt/Compiler/InitAllPasses.h"
 
 #include "mlir-executor/InitAllPasses.h"
 #include "mlir-tensorrt-common/Conversion/Passes.h"
@@ -49,10 +50,8 @@
 #include "torch-mlir/Dialect/TorchConversion/Transforms/Passes.h"
 #endif // MLIR_TRT_ENABLE_TORCH
 
-namespace mlirtrt::compiler {
-
 /// Register passes declared within this repo.
-inline void registerAllPasses() {
+void mlirtrt::compiler::registerAllPasses() {
   mlir::bufferization::registerBufferizationPasses();
   mlir::emitc::registerEmitCPasses();
   mlir::executor::registerAllPasses();
@@ -83,7 +82,3 @@ inline void registerAllPasses() {
     mlir::torch::TMTensor::registerPasses();
   });
 }
-
-} // namespace mlirtrt::compiler
-
-#endif // MLIR_TENSORRT_INITALLPASSES

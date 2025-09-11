@@ -25,10 +25,12 @@ include_directories(${common_include_dirs} ${executor_include_dirs})
 # ("PromisedInterfaces/ExternalModels") which is registered at runtime, it is
 # difficult to capture all dependencies for dialects we require in the compiler
 # purely through target dependency properties. To see what we require from
-# usptream, look at the file `mlir-tensorrt/InitAllDialects.h`. Therefore, we
+# usptream, look at the file `mlir-tensorrt/Compiler/InitAllDialects.h`. Therefore, we
 # manually enumerate some dependencies here, mainly for providing the functions
 # registering interface external models.
-mtrt_add_project_targets(MLIRTensorRT TARGETS
+mtrt_add_project_targets(MLIRTensorRT
+  LIBRARY_TYPE LIBS
+  TARGETS
   MLIRArithTransforms
   MLIRArithValueBoundsOpInterfaceImpl
   MLIRAsyncDialect

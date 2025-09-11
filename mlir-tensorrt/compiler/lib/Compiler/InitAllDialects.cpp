@@ -1,4 +1,4 @@
-//===- InitAllDialects.h ----------------------------------------*- C++ -*-===//
+//===- InitAllDialects.cpp ------------------------------------------------===//
 //
 // SPDX-FileCopyrightText: Copyright 2025 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
@@ -21,8 +21,7 @@
 /// Registration methods for MLIR dialects.
 ///
 //===----------------------------------------------------------------------===//
-#ifndef MLIR_TENSORRT_INIT_ALL_DIALECTS
-#define MLIR_TENSORRT_INIT_ALL_DIALECTS
+#include "mlir-tensorrt/Compiler/InitAllDialects.h"
 
 #include "mlir-executor/Executor/IR/Executor.h"
 #include "mlir-tensorrt-common/Dialect/EmitCExt/IR/DataLayoutImpl.h"
@@ -32,6 +31,9 @@
 #include "mlir-tensorrt/Backends/Host/HostBackend.h"
 #include "mlir-tensorrt/Backends/TensorRT/TensorRTBackend.h"
 #include "mlir-tensorrt/Compiler/StablehloToExecutable/TensorRTExtension.h"
+#include "mlir-tensorrt/Conversion/CUDAToLLVM/CUDAToLLVM.h"
+#include "mlir-tensorrt/Conversion/PlanToLLVM/PlanToLLVM.h"
+#include "mlir-tensorrt/Conversion/TensorRTRuntimeToLLVM/TensorRTRuntimeToLLVM.h"
 #include "mlir-tensorrt/Dialect/CUDA/IR/CUDADialect.h"
 #include "mlir-tensorrt/Dialect/CUDA/Transforms/BufferizableOpInterfaceImpl.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
@@ -39,6 +41,16 @@
 #include "mlir-tensorrt/Dialect/TensorRTRuntime/IR/TensorRTRuntime.h"
 #include "mlir-tensorrt/Dialect/TensorRTRuntime/Transforms/BufferizableOpInterfaceImpl.h"
 #include "mlir-tensorrt/Features.h"
+#include "mlir/Conversion/ArithToLLVM/ArithToLLVM.h"
+#include "mlir/Conversion/ComplexToLLVM/ComplexToLLVM.h"
+#include "mlir/Conversion/ControlFlowToLLVM/ControlFlowToLLVM.h"
+#include "mlir/Conversion/FuncToLLVM/ConvertFuncToLLVM.h"
+#include "mlir/Conversion/IndexToLLVM/IndexToLLVM.h"
+#include "mlir/Conversion/MathToLLVM/MathToLLVM.h"
+#include "mlir/Conversion/MemRefToLLVM/MemRefToLLVM.h"
+#include "mlir/Conversion/NVVMToLLVM/NVVMToLLVM.h"
+#include "mlir/Conversion/UBToLLVM/UBToLLVM.h"
+#include "mlir/Conversion/VectorToLLVM/ConvertVectorToLLVM.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Affine/IR/ValueBoundsOpInterfaceImpl.h"
 #include "mlir/Dialect/Arith/IR/ValueBoundsOpInterfaceImpl.h"
@@ -49,11 +61,12 @@
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
 #include "mlir/Dialect/Bufferization/Transforms/FuncBufferizableOpInterfaceImpl.h"
 #include "mlir/Dialect/Complex/IR/Complex.h"
-#include "mlir/Dialect/ControlFlow/IR/ControlFlowOps.h"
+#include "mlir/Dialect/ControlFlow/IR/ControlFlow.h"
 #include "mlir/Dialect/ControlFlow/Transforms/BufferDeallocationOpInterfaceImpl.h"
 #include "mlir/Dialect/ControlFlow/Transforms/BufferizableOpInterfaceImpl.h"
 #include "mlir/Dialect/DLTI/DLTI.h"
 #include "mlir/Dialect/EmitC/IR/EmitC.h"
+#include "mlir/Dialect/Func/Extensions/InlinerExtension.h"
 #include "mlir/Dialect/GPU/IR/GPUDialect.h"
 #include "mlir/Dialect/Index/IR/IndexDialect.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
@@ -104,43 +117,41 @@
 #include "stablehlo/dialect/VhloOps.h"
 #endif
 
-namespace mlirtrt::compiler {
-
-inline void registerAllDialects(mlir::DialectRegistry &registry) {
+void mlirtrt::compiler::registerAllDialects(mlir::DialectRegistry &registry) {
   // clang-format off
-  registry.insert<
-      mlir::affine::AffineDialect,
-      mlir::arith::ArithDialect,
-      mlir::async::AsyncDialect,
-      mlir::bufferization::BufferizationDialect,
-      mlir::cf::ControlFlowDialect,
-      mlir::complex::ComplexDialect,
-      mlir::cuda::CUDADialect,
-      mlir::DLTIDialect,
-      mlir::emitc::EmitCDialect,
-      mlir::executor::ExecutorDialect,
-      mlir::func::FuncDialect,
-      mlir::gpu::GPUDialect,
-      mlir::index::IndexDialect,
-      mlir::linalg::LinalgDialect,
-      mlir::LLVM::LLVMDialect,
-      mlir::math::MathDialect,
-      mlir::memref::MemRefDialect,
-      mlir::NVVM::NVVMDialect,
-      mlir::pdl_interp::PDLInterpDialect,
-      mlir::pdl::PDLDialect,
-      mlir::plan::PlanDialect,
-      mlir::ptr::PtrDialect,
-      mlir::quant::QuantDialect,
-      mlir::scf::SCFDialect,
-      mlir::shape::ShapeDialect,
-      mlir::tensor::TensorDialect,
-      mlir::tensorrt::TensorRTDialect,
-      mlir::transform::TransformDialect,
-      mlir::trtrt::TensorRTRuntimeDialect,
-      mlir::ub::UBDialect,
-      mlir::vector::VectorDialect
-    >();
+    registry.insert<
+        mlir::affine::AffineDialect,
+        mlir::arith::ArithDialect,
+        mlir::async::AsyncDialect,
+        mlir::bufferization::BufferizationDialect,
+        mlir::cf::ControlFlowDialect,
+        mlir::complex::ComplexDialect,
+        mlir::cuda::CUDADialect,
+        mlir::DLTIDialect,
+        mlir::emitc::EmitCDialect,
+        mlir::executor::ExecutorDialect,
+        mlir::func::FuncDialect,
+        mlir::gpu::GPUDialect,
+        mlir::index::IndexDialect,
+        mlir::linalg::LinalgDialect,
+        mlir::LLVM::LLVMDialect,
+        mlir::math::MathDialect,
+        mlir::memref::MemRefDialect,
+        mlir::NVVM::NVVMDialect,
+        mlir::pdl_interp::PDLInterpDialect,
+        mlir::pdl::PDLDialect,
+        mlir::plan::PlanDialect,
+        mlir::ptr::PtrDialect,
+        mlir::quant::QuantDialect,
+        mlir::scf::SCFDialect,
+        mlir::shape::ShapeDialect,
+        mlir::tensor::TensorDialect,
+        mlir::tensorrt::TensorRTDialect,
+        mlir::transform::TransformDialect,
+        mlir::trtrt::TensorRTRuntimeDialect,
+        mlir::ub::UBDialect,
+        mlir::vector::VectorDialect
+      >();
   // clang-format on
 
   IF_MLIR_TRT_ENABLE_HLO({
@@ -206,6 +217,26 @@ inline void registerAllDialects(mlir::DialectRegistry &registry) {
   mlirtrt::compiler::registerTensorRTExtension(registry);
 }
 
-} // namespace mlirtrt::compiler
+void mlirtrt::compiler::registerAllExtensions(mlir::DialectRegistry &registry) {
+  // Register all conversion to LLVM interfaces.
+  mlir::arith::registerConvertArithToLLVMInterface(registry);
+  mlir::cf::registerConvertControlFlowToLLVMInterface(registry);
+  mlir::index::registerConvertIndexToLLVMInterface(registry);
+  mlir::registerConvertComplexToLLVMInterface(registry);
+  mlir::registerConvertCUDAToLLVMPatternInterface(registry);
+  mlir::registerConvertFuncToLLVMInterface(registry);
+  mlir::registerConvertMathToLLVMInterface(registry);
+  mlir::registerConvertMemRefToLLVMInterface(registry);
+  mlir::registerConvertNVVMToLLVMInterface(registry);
+  mlir::registerConvertPlanToLLVMPatternInterface(registry);
+  mlir::registerConvertTensorRTRuntimeToLLVMPatternInterface(registry);
+  mlir::ub::registerConvertUBToLLVMInterface(registry);
+  mlir::vector::registerConvertVectorToLLVMInterface(registry);
 
-#endif // MLIR_TENSORRT_INIT_ALL_DIALECTS
+  // Inliner extensions.
+  mlir::func::registerInlinerExtension(registry);
+
+  // Plan Extensions.
+  mlir::plan::registerHostBackend(registry);
+  mlir::plan::registerTensorRTBackend(registry);
+}
