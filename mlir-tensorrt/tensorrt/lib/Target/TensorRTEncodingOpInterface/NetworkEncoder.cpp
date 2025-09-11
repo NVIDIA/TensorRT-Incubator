@@ -308,7 +308,8 @@ void NvInferNetworkEncoder::setMetadata(nvinfer1::ILayer *layer,
   std::string name = createName(namesSet, sourceOp);
   layer->setName(name.c_str());
   if (auto fusedLoc = dyn_cast<FusedLoc>(sourceOp->getLoc()))
-    if (auto metadataAttr = dyn_cast<StringAttr>(fusedLoc.getMetadata()))
+    if (auto metadataAttr =
+            dyn_cast_if_present<StringAttr>(fusedLoc.getMetadata()))
       layer->setMetadata(metadataAttr.getValue().str().c_str());
 }
 
