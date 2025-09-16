@@ -614,18 +614,54 @@ private:
 // Device
 //===----------------------------------------------------------------------===//
 
+/// DeviceGuard is an abstract RAII handle that scopes a temporary activation
+/// of device-specific state (for example, making a device current). Concrete
+/// backends create instances via `Device::createDeviceGuard()`. When a guard
+/// is destroyed, the backend must restore the previous device/context.
+class DeviceGuard {
+public:
+  DeviceGuard() = default;
+  virtual ~DeviceGuard() = default;
+
+  DeviceGuard(DeviceGuard &&) = delete;
+  DeviceGuard(const DeviceGuard &) = delete;
+  DeviceGuard &operator=(DeviceGuard &&) = delete;
+  DeviceGuard &operator=(const DeviceGuard &) = delete;
+};
+
+/// Device is an abstract handle describing a compute device visible to the
+/// runtime (e.g., a CUDA GPU). It exposes a stable numeric identifier, a
+/// backend kind string, and a factory for acquiring a `DeviceGuard` that makes
+/// the device current for the guard's lifetime.
 class Device {
 public:
-  /// Creates a new device. Verifies that the CUDA device ordinal is valid for
-  /// the current system.
-  static StatusOr<std::unique_ptr<Device>> create(int32_t deviceNumber);
+  Device() = default;
 
-  int32_t getDeviceNumber() const { return deviceNumber; }
+  virtual ~Device() = default;
 
-private:
-  Device(int32_t deviceNumber) : deviceNumber(deviceNumber) {}
+  /// Return a backend-specific, zero-based device ordinal that uniquely
+  /// identifies this device within the process.
+  virtual int32_t getDeviceNumber() const = 0;
 
-  int32_t deviceNumber;
+  /// Create an RAII guard that activates this device for the duration of the
+  /// guard's lifetime. Implementations must restore any prior device/context on
+  /// guard destruction.
+  virtual StatusOr<std::unique_ptr<DeviceGuard>> createDeviceGuard() const = 0;
+
+  /// Return a short, lower-case backend identifier for this device (e.g.
+  /// "cuda").
+  virtual llvm::StringRef getDeviceKind() const = 0;
+
+  /// Return a backend-specific, human-readable name for this device (e.g.
+  /// "cuda:0").
+  virtual llvm::StringRef getDeviceName() const = 0;
+
+  bool operator==(const Device &other) const {
+    return getDeviceNumber() == other.getDeviceNumber() &&
+           getDeviceKind() == other.getDeviceKind();
+  }
+
+  bool operator!=(const Device &other) const { return !(*this == other); }
 };
 
 //===----------------------------------------------------------------------===//

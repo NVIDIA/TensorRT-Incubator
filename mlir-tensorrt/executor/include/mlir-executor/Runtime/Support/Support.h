@@ -27,7 +27,7 @@
 
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FormatVariadic.h"
-#include <iostream>
+#include "llvm/Support/raw_ostream.h"
 
 namespace mlirtrt::runtime {
 
@@ -64,11 +64,27 @@ void _MTRT_WARNV(const char *format, const char *file, int64_t line,
                << llvm::formatv(format, std::forward<Args>(args)...).str();
 }
 
+/// Prints an error message where "format" and "...args" are pased to
+/// llvm::formatv. The message is prefixed by `<file>:<line> [ERR] `.
+template <typename... Args>
+void _MTRT_ERRV(const char *format, const char *file, int64_t line,
+                Args &&...args) {
+  llvm::errs() << file << ":" << line << " [ERR] "
+               << llvm::formatv(format, std::forward<Args>(args)...).str();
+}
+
 /// Prints a warning message where "format" and "...args" are passed to
 /// llvm::formatv.
 #define MTRT_WARNV(format, ...)                                                \
   do {                                                                         \
     _MTRT_WARNV(format, __FILE__, __LINE__, __VA_ARGS__);                      \
+  } while (false)
+
+/// Prints an error message where "format" and "...args" are passed to
+/// llvm::formatv. The message is prefixed by `<file>:<line> [ERR] `.
+#define MTRT_ERRV(format, ...)                                                 \
+  do {                                                                         \
+    _MTRT_ERRV(format, __FILE__, __LINE__, __VA_ARGS__);                       \
   } while (false)
 
 #ifndef MTRT_RETURN_IF_ERROR

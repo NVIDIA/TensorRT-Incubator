@@ -19,6 +19,7 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-executor/Runtime/API/API.h"
 #include "mlir-executor/Runtime/API/ExecutableFlatbuffer.h"
+#include "mlir-executor/Runtime/Support/CUDAHelpers.h"
 #include "mlir-executor/Runtime/Support/Support.h"
 #include "mlir-executor/Support/Allocators.h"
 #include "mlir-tensorrt-common/Support/Status.h"
@@ -30,10 +31,6 @@
 #include "llvm/Support/Threading.h"
 #include <cstddef>
 #include <cstdlib>
-
-#ifdef MLIR_TRT_ENABLE_CUDA
-#include "cuda_runtime_api.h"
-#endif
 
 #ifdef MLIR_TRT_ENABLE_NCCL
 #define OMPI_SKIP_MPICXX
@@ -499,42 +496,30 @@ StatusOr<PointerInfo> runtime::allocate(AllocTracker &tracker, PointerType type,
     return info;
   }
 
-#ifdef MLIR_TRT_ENABLE_CUDA
   if (type == PointerType::device) {
     size = std::max<size_t>(size, 16);
     if (!stream) {
-      void *alloc{nullptr};
-      RETURN_ERROR_IF_CUDART_ERROR(cudaMalloc(&alloc, size));
-      MTRT_DBGF("Synchronously allocated %lu device bytes 0x%lx", size,
-                reinterpret_cast<uintptr_t>(alloc));
-      PointerInfo info{reinterpret_cast<uintptr_t>(alloc), size, type,
-                       PointerOwner::internal};
+      MTRT_ASSIGN_OR_RETURN(uintptr_t devPtr, mallocCUDA(size));
+      PointerInfo info{devPtr, size, type, PointerOwner::internal};
       tracker.track(info);
       return info;
     }
-    void *alloc{nullptr};
-    RETURN_ERROR_IF_CUDART_ERROR(
-        cudaMallocAsync(&alloc, size, reinterpret_cast<cudaStream_t>(*stream)));
-    MTRT_DBGF("Asynchronously allocated %lu device bytes 0x%lx on stream 0x%lx",
-              size, reinterpret_cast<uintptr_t>(alloc),
-              reinterpret_cast<uintptr_t>(*stream));
-    PointerInfo info{reinterpret_cast<uintptr_t>(alloc), size, type,
-                     PointerOwner::internal};
+    MTRT_ASSIGN_OR_RETURN(
+        uintptr_t devPtr,
+        mallocCUDAAsync(size, reinterpret_cast<uintptr_t>(*stream)));
+    PointerInfo info{devPtr, size, type, PointerOwner::internal};
     tracker.track(info);
     return info;
   }
   if (type == PointerType::unified) {
-    MTRT_DBGF("Allocating %lu unified bytes", size);
-    assert(!stream &&
-           "async stream is not allowed when using unified memory allocator");
-    void *alloc{nullptr};
-    RETURN_ERROR_IF_CUDART_ERROR(cudaMallocManaged(&alloc, size));
-    PointerInfo info{reinterpret_cast<uintptr_t>(alloc), size, type,
-                     PointerOwner::internal};
+    if (stream)
+      return getInvalidArgStatus(
+          "stream is not allowed when using unified memory allocator");
+    MTRT_ASSIGN_OR_RETURN(uintptr_t managedPtr, mallocCUDAManaged(size));
+    PointerInfo info{managedPtr, size, type, PointerOwner::internal};
     tracker.track(info);
     return info;
   }
-#endif
   return getStatusWithMsg(
       mlirtrt::StatusCode::InvalidArgument,
       "unimplemented allocation type: ", stringifyPointerType(type));
@@ -563,21 +548,12 @@ mlirtrt::Status runtime::safeDeallocate(AllocTracker &tracker, uintptr_t ptr,
     return Status::getOk();
   }
 
-#ifdef MLIR_TRT_ENABLE_CUDA
   if (obj.type == PointerType::device || obj.type == PointerType::unified) {
     if (stream && *stream != 0) {
-      MTRT_DBGF("Asynchronously freeing CUDA device/pinned host memory 0x%lx "
-                "type %d on stream %lx",
-                ptr, static_cast<int32_t>(obj.type),
-                reinterpret_cast<uintptr_t>(*stream));
-      RETURN_ERROR_IF_CUDART_ERROR(
-          cudaFreeAsync(reinterpret_cast<void *>(obj.ptr),
-                        reinterpret_cast<cudaStream_t>(*stream)));
+      MTRT_RETURN_IF_ERROR(
+          freeCUDAAsync(obj.ptr, reinterpret_cast<uintptr_t>(*stream)));
     } else {
-      MTRT_DBGF(
-          "Synchronously freeing CUDA device/pinned host memory 0x%lx type %d",
-          ptr, static_cast<int32_t>(obj.type));
-      RETURN_ERROR_IF_CUDART_ERROR(cudaFree(reinterpret_cast<void *>(obj.ptr)));
+      MTRT_RETURN_IF_ERROR(freeCUDA(obj.ptr));
     }
     tracker.untrack(ptr);
     return Status::getOk();
@@ -589,8 +565,6 @@ mlirtrt::Status runtime::safeDeallocate(AllocTracker &tracker, uintptr_t ptr,
         reinterpret_cast<void *>(obj.ptr));
     return Status::getOk();
   }
-
-#endif
 
   return mlirtrt::getInternalErrorStatus("unhandled allocation type");
 }
@@ -620,9 +594,63 @@ void ResourceTracker::untrack(uintptr_t ptr) { tracker.erase(ptr); }
 // Device
 //===----------------------------------------------------------------------===//
 
-StatusOr<std::unique_ptr<Device>> Device::create(int32_t deviceNumber) {
-  return std::unique_ptr<Device>(new Device(deviceNumber));
-}
+namespace {
+
+/// Wrapper around `cudaSetDevice` and `cudaGetDevice` to ensure that at
+/// destruction time, the CUDA device is set to the device active immediately
+/// prior to construction.
+struct CUDAGPUDeviceGuard final : public DeviceGuard {
+  static StatusOr<std::unique_ptr<DeviceGuard>> create(int32_t deviceNumber) {
+    StatusOr<int32_t> currentDevice = getCurrentCUDADevice();
+    if (!currentDevice.isOk())
+      return currentDevice.getStatus();
+    int32_t originalDeviceNumber = *currentDevice;
+    Status setDeviceStatus = setCurrentCUDADevice(deviceNumber);
+    RETURN_STATUS_IF_ERROR(setDeviceStatus.getStatus());
+    CUDA_DBGV("CUDAGPUDeviceGuard: original={0} new={1}", originalDeviceNumber,
+              deviceNumber);
+    return std::unique_ptr<DeviceGuard>(
+        new CUDAGPUDeviceGuard(originalDeviceNumber));
+  }
+
+  ~CUDAGPUDeviceGuard() {
+    if (originalDeviceNumber < 0)
+      return;
+    CUDA_DBGV("CUDAGPUDeviceGuard: restoring original device {0}",
+              originalDeviceNumber);
+    Status setDeviceStatus = setCurrentCUDADevice(originalDeviceNumber);
+    if (!setDeviceStatus.isOk())
+      llvm::report_fatal_error(setDeviceStatus.getStatus().getString().c_str());
+  }
+
+private:
+  CUDAGPUDeviceGuard(int32_t originalDeviceNumber)
+      : originalDeviceNumber(originalDeviceNumber) {}
+
+  int32_t originalDeviceNumber;
+};
+
+/// CUDA device implementation of the Device abstract class.
+class CUDADevice final : public Device {
+public:
+  CUDADevice(int32_t deviceNumber) : deviceNumber(deviceNumber) {
+    deviceName = llvm::formatv("cuda:{0}", deviceNumber).str();
+  }
+  ~CUDADevice() = default;
+  llvm::StringRef getDeviceKind() const final { return "cuda"; }
+  int32_t getDeviceNumber() const final { return deviceNumber; }
+  StatusOr<std::unique_ptr<DeviceGuard>> createDeviceGuard() const final {
+    MTRT_ASSIGN_OR_RETURN(std::unique_ptr<DeviceGuard> deviceGuard,
+                          CUDAGPUDeviceGuard::create(deviceNumber));
+    return deviceGuard;
+  }
+  llvm::StringRef getDeviceName() const final { return deviceName; }
+
+private:
+  const int32_t deviceNumber;
+  std::string deviceName;
+};
+} // namespace
 
 //===----------------------------------------------------------------------===//
 // ScalarValue
@@ -932,48 +960,32 @@ DefaultClientAllocator::allocate(PointerType type, uint64_t size,
                                  {});
   }
 
-#ifdef MLIR_TRT_ENABLE_CUDA
   if (type == PointerType::device) {
     size = std::max<size_t>(size, 16);
     if (!stream) {
-      void *alloc{nullptr};
-      RETURN_ERROR_IF_CUDART_ERROR(cudaMalloc(&alloc, size));
-      MTRT_DBGF("DeviceClientAllocator::allocate: synchronously allocated %lu "
-                "device bytes %p ",
-                size, reinterpret_cast<void *>(alloc));
-      return getOwnedMemRefStorage(reinterpret_cast<uintptr_t>(alloc),
-                                   PointerType::device,
+      MTRT_ASSIGN_OR_RETURN(uintptr_t devPtr, mallocCUDA(size));
+      return getOwnedMemRefStorage(devPtr, PointerType::device,
                                    Ref<RuntimeClient>(&client), {});
     }
-    void *alloc{nullptr};
-    RETURN_ERROR_IF_CUDART_ERROR(
-        cudaMallocAsync(&alloc, size, reinterpret_cast<cudaStream_t>(*stream)));
-    MTRT_DBGF("DeviceClientAllocator::allocate: asynchronously allocated %lu "
-              "device bytes %p on stream %p",
-              size, alloc, reinterpret_cast<void *>(*stream));
-    return getOwnedMemRefStorage(reinterpret_cast<uintptr_t>(alloc),
-                                 PointerType::device,
+    MTRT_ASSIGN_OR_RETURN(
+        uintptr_t devPtr,
+        mallocCUDAAsync(size, reinterpret_cast<uintptr_t>(*stream)));
+    return getOwnedMemRefStorage(devPtr, PointerType::device,
                                  Ref<RuntimeClient>(&client), stream);
   }
   if (type == PointerType::unified) {
-    MTRT_DBGF("DeviceClientAllocator::allocate: allocating %lu unified bytes",
-              size);
-    assert(!stream &&
-           "async stream is not allowed when using unified memory allocator");
-    void *alloc{nullptr};
-    RETURN_ERROR_IF_CUDART_ERROR(cudaMallocManaged(&alloc, size));
-    return getOwnedMemRefStorage(reinterpret_cast<uintptr_t>(alloc),
-                                 PointerType::unified,
+    if (stream)
+      return getInvalidArgStatus(
+          "stream is not allowed when using unified memory allocator");
+    MTRT_ASSIGN_OR_RETURN(uintptr_t managedPtr, mallocCUDAManaged(size));
+    return getOwnedMemRefStorage(managedPtr, PointerType::unified,
                                  Ref<RuntimeClient>(&client), {});
   }
   if (type == PointerType::pinned_host) {
-    void *alloc{nullptr};
-    RETURN_ERROR_IF_CUDART_ERROR(cudaMallocHost(&alloc, size));
-    return getOwnedMemRefStorage(reinterpret_cast<uintptr_t>(alloc),
-                                 PointerType::pinned_host,
+    MTRT_ASSIGN_OR_RETURN(uintptr_t hostPtr, mallocCUDAPinnedHost(size));
+    return getOwnedMemRefStorage(hostPtr, PointerType::pinned_host,
                                  Ref<RuntimeClient>(&client), {});
   }
-#endif
   return getStatusWithMsg(
       mlirtrt::StatusCode::InvalidArgument,
       "DeviceClientAllocator::allocate unimplemented allocation type: ",
@@ -997,40 +1009,23 @@ Status DefaultClientAllocator::deallocate(MemRefStorage &storage) {
     return Status::getOk();
   }
 
-#ifdef MLIR_TRT_ENABLE_CUDA
   if (pointerType == PointerType::device ||
       pointerType == PointerType::unified) {
     if (stream) {
-      MTRT_DBGF("DefaultClientAllocator::deallocate: Asynchronously freeing "
-                "CUDA device memory %p on stream %p",
-                reinterpret_cast<void *>(ptr),
-                reinterpret_cast<void *>(*stream));
-      RETURN_ERROR_IF_CUDART_ERROR(
-          cudaFreeAsync(reinterpret_cast<void *>(ptr),
-                        reinterpret_cast<cudaStream_t>(*stream)));
+      MTRT_RETURN_IF_ERROR(
+          freeCUDAAsync(ptr, reinterpret_cast<uintptr_t>(*stream)));
     } else {
-      MTRT_DBGF(
-          "DefaultClientAllocator::deallocate: synchronously freeing CUDA "
-          "device memory %p",
-          reinterpret_cast<void *>(ptr));
-      RETURN_ERROR_IF_CUDART_ERROR(cudaFree(reinterpret_cast<void *>(ptr)));
+      MTRT_RETURN_IF_ERROR(freeCUDA(ptr));
     }
     return Status::getOk();
   }
 
   if (pointerType == PointerType::pinned_host) {
-    MTRT_DBGF("DefaultClientAllocator::deallocate: synchronously freeing CUDA "
-              "pinned host memory %p",
-              reinterpret_cast<void *>(ptr));
-    RETURN_ERROR_IF_CUDART_ERROR(cudaFreeHost(reinterpret_cast<void *>(ptr)));
+    MTRT_RETURN_IF_ERROR(freeCUDAPinnedHost(ptr));
     return Status::getOk();
   }
 
-#endif
-
   return mlirtrt::getInternalErrorStatus("unhandled allocation type");
-  return getStatusWithMsg(mlirtrt::StatusCode::Unimplemented,
-                          "deallocation is not supported");
 }
 
 static Status parseDebugFlags() {
@@ -1047,23 +1042,16 @@ static Status parseDebugFlags() {
   return Status::getOk();
 }
 
+// Populate the devices with CUDA devices. Note that failure to enumerate CUDA
+// devices is not treated as an error here.
 static mlirtrt::Status
 populateDevices(llvm::SmallVectorImpl<std::unique_ptr<Device>> &devices) {
-#ifdef MLIR_TRT_ENABLE_CUDA
-  int32_t numDevices = 0;
-  // Find the number of devices. In single-process mode, the "addressable
-  // devices" is equivalent to any devices the process can view, but this
-  // is not true in multi-process mode.
-  RETURN_ERROR_IF_CUDART_ERROR(cudaGetDeviceCount(&numDevices));
-
-  devices.reserve(numDevices);
-  for (int32_t i = 0; i < numDevices; ++i) {
-    StatusOr<std::unique_ptr<Device>> device = Device::create(i);
-    if (!device.isOk())
-      return device.getStatus();
-    devices.push_back(std::move(*device));
-  }
-#endif
+  StatusOr<int32_t> deviceCount = getCUDADeviceCount();
+  if (!deviceCount.isOk())
+    return getOkStatus();
+  devices.reserve(*deviceCount);
+  for (int32_t i = 0; i < *deviceCount; ++i)
+    devices.push_back(std::unique_ptr<Device>(new CUDADevice(i)));
   return getOkStatus();
 }
 
@@ -1172,7 +1160,6 @@ StatusOr<std::unique_ptr<MemRefValue>>
 RuntimeClient::copyToDevice(const MemRefValue &hostBufferImpl,
                             const Device &device,
                             std::optional<CudaStream> cudaStream) {
-#ifdef MLIR_TRT_ENABLE_CUDA
   if (!isHostVisible(hostBufferImpl.getAddressSpace()))
     return getInvalidArgStatus(
         "to copy a MemRef to a device its data must reside in an address space "
@@ -1185,7 +1172,8 @@ RuntimeClient::copyToDevice(const MemRefValue &hostBufferImpl,
   // TODO: This device should be implicit based on the stream. The stream's
   // device implies the device. Having both stream and device is redundant or
   // possibly incorrect. Remove once the stream is non-optional.
-  RETURN_ERROR_IF_CUDART_ERROR(cudaSetDevice(device.getDeviceNumber()));
+  MTRT_ASSIGN_OR_RETURN(std::unique_ptr<DeviceGuard> deviceGuard,
+                        device.createDeviceGuard());
 
   // Allocate device memory
   StatusOr<std::unique_ptr<MemRefValue>> deviceMemRef =
@@ -1216,10 +1204,9 @@ RuntimeClient::copyToDevice(const MemRefValue &hostBufferImpl,
              hostBufferImpl.getVoidPtr(), (*deviceMemRef)->getVoidPtr(),
              totalBufferSize, stagingHostMemPtr);
 
-    RETURN_ERROR_IF_CUDART_ERROR(
-        cudaMemcpyAsync((*deviceMemRef)->getVoidPtr(), stagingHostMemPtr,
-                        totalBufferSize, cudaMemcpyKind::cudaMemcpyHostToDevice,
-                        reinterpret_cast<cudaStream_t>(*cudaStream)));
+    MTRT_RETURN_IF_ERROR(copyCUDAHostToDeviceAsync(
+        (*deviceMemRef)->getVoidPtr(), stagingHostMemPtr, totalBufferSize,
+        reinterpret_cast<uintptr_t>(*cudaStream)));
 
     // Free pinned host memory asynchronously.
     getPinnedMemoryAllocator().freeAsync(pinnedMemory->ptr, *cudaStream);
@@ -1227,20 +1214,17 @@ RuntimeClient::copyToDevice(const MemRefValue &hostBufferImpl,
     MTRT_DBG("synchronously copying {0} (host) to {1} (device), size={2} bytes",
              hostBufferImpl.getVoidPtr(), (*deviceMemRef)->getVoidPtr(),
              totalBufferSize);
-    RETURN_ERROR_IF_CUDART_ERROR(
-        cudaMemcpy((*deviceMemRef)->getVoidPtr(), hostBufferImpl.getVoidPtr(),
-                   totalBufferSize, cudaMemcpyKind::cudaMemcpyHostToDevice));
+    MTRT_RETURN_IF_ERROR(copyCUDAHostToDeviceAsync(
+        (*deviceMemRef)->getVoidPtr(), hostBufferImpl.getVoidPtr(),
+        totalBufferSize, /*stream=*/0));
+    MTRT_RETURN_IF_ERROR(synchronizeCUDAStream(/*stream=*/0));
   }
   return std::move(*deviceMemRef);
-#else
-  return getInternalErrorStatus("runtime not compiled with CUDA enabled");
-#endif
 }
 
 StatusOr<std::unique_ptr<MemRefValue>>
 RuntimeClient::copyToHost(const MemRefValue &deviceMemRef,
                           std::optional<CudaStream> cudaStream) {
-#ifdef MLIR_TRT_ENABLE_CUDA
   if (!isDeviceVisible(deviceMemRef.getAddressSpace()))
     return getInvalidArgStatus("to copy a MemRef to the host from a device, "
                                "its data must reside in an address space "
@@ -1262,25 +1246,22 @@ RuntimeClient::copyToHost(const MemRefValue &deviceMemRef,
     return hostMemRef.getStatus();
 
   if (!cudaStream) {
-    RETURN_ERROR_IF_CUDART_ERROR(
-        cudaMemcpy((*hostMemRef)->getVoidPtr(), deviceMemRef.getVoidPtr(),
-                   copySizeInBytes, cudaMemcpyKind::cudaMemcpyDeviceToHost));
+    MTRT_RETURN_IF_ERROR(copyCUDADeviceToHostAsync(
+        (*hostMemRef)->getVoidPtr(), deviceMemRef.getVoidPtr(), copySizeInBytes,
+        /*stream=*/0));
+    MTRT_RETURN_IF_ERROR(synchronizeCUDAStream(/*stream=*/0));
   } else {
-    RETURN_ERROR_IF_CUDART_ERROR(
-        cudaMemcpyAsync((*hostMemRef)->getVoidPtr(), deviceMemRef.getVoidPtr(),
-                        copySizeInBytes, cudaMemcpyKind::cudaMemcpyDeviceToHost,
-                        reinterpret_cast<cudaStream_t>(*cudaStream)));
+    MTRT_RETURN_IF_ERROR(copyCUDADeviceToHostAsync(
+        (*hostMemRef)->getVoidPtr(), deviceMemRef.getVoidPtr(), copySizeInBytes,
+        reinterpret_cast<uintptr_t>(*cudaStream)));
   }
 
   return std::move(*hostMemRef);
-#endif
-  return getInternalErrorStatus("runtime not compiled with CUDA enabled");
 }
 
 Status RuntimeClient::copyToHost(const MemRefValue &deviceMemRef,
                                  MemRefValue &hostMemRef,
                                  std::optional<CudaStream> stream) {
-#ifdef MLIR_TRT_ENABLE_CUDA
   if (!isDeviceVisible(deviceMemRef.getAddressSpace()))
     return getInvalidArgStatus(
         "to copy a MemRef to the host from a device, "
@@ -1311,19 +1292,16 @@ Status RuntimeClient::copyToHost(const MemRefValue &deviceMemRef,
 
   int64_t copySizeInBytes = deviceMemRef.getTotalFootprintInBytes();
   if (!stream) {
-    RETURN_ERROR_IF_CUDART_ERROR(
-        cudaMemcpy(hostMemRef.getVoidPtr(), deviceMemRef.getVoidPtr(),
-                   copySizeInBytes, cudaMemcpyKind::cudaMemcpyDeviceToHost));
+    MTRT_RETURN_IF_ERROR(copyCUDADeviceToHostAsync(
+        hostMemRef.getVoidPtr(), deviceMemRef.getVoidPtr(), copySizeInBytes,
+        /*stream=*/0));
+    MTRT_RETURN_IF_ERROR(synchronizeCUDAStream(/*stream=*/0));
   } else {
-    RETURN_ERROR_IF_CUDART_ERROR(
-        cudaMemcpyAsync(hostMemRef.getVoidPtr(), deviceMemRef.getVoidPtr(),
-                        copySizeInBytes, cudaMemcpyKind::cudaMemcpyDeviceToHost,
-                        reinterpret_cast<cudaStream_t>(*stream)));
+    MTRT_RETURN_IF_ERROR(copyCUDADeviceToHostAsync(
+        hostMemRef.getVoidPtr(), deviceMemRef.getVoidPtr(), copySizeInBytes,
+        reinterpret_cast<uintptr_t>(*stream)));
   }
   return getOkStatus();
-#else
-  return getInternalErrorStatus("runtime not compiled with CUDA enabled");
-#endif
 }
 
 RuntimeClient::~RuntimeClient() = default;

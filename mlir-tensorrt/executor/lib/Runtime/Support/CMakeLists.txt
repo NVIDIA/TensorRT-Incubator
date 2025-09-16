@@ -1,5 +1,6 @@
 add_mlir_executor_runtime_library(MLIRTensorRTRuntimeSupport
   MPI.cpp
+  CUDAHelpers.cpp
 
   LINK_LIBS
 
@@ -8,4 +9,5 @@ add_mlir_executor_runtime_library(MLIRTensorRTRuntimeSupport
 
   PRIVATE
   $<$<BOOL:${MLIR_TRT_ENABLE_MPI}>:MPI::MPI_C>
+  ${MLIR_TRT_CUDA_TARGET}
 )
