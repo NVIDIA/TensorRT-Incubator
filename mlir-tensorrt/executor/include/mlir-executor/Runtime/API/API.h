@@ -229,6 +229,10 @@ public:
   operator impl::ScalarTypeCode() const { return view->type(); }
 };
 
+/// A constant representing a dynamic size. This mirrors the same value as MLIR
+/// 'ShapedType::kDynamic'.
+static constexpr int64_t kDynamicSize = std::numeric_limits<int64_t>::min();
+
 /// A wrapper around `impl::MemRefTypeT` to provide additional convenience
 /// utilities.  It does not own any memory; it only
 // provides a read-only view into the buffer.
