@@ -671,28 +671,25 @@ void ScalarValue::cleanup() {
 namespace {
 class HostOwnedMemRefStorage : public MemRefStorage {
 public:
-  HostOwnedMemRefStorage(uintptr_t ptr, RuntimeClientAllocator *allocator)
-      : MemRefStorage(ptr), allocator(allocator) {}
+  HostOwnedMemRefStorage(uintptr_t ptr, Ref<RuntimeClient> client)
+      : MemRefStorage(ptr, std::move(client)) {}
 
   ~HostOwnedMemRefStorage();
 
   PointerType getMemorySpace() const final { return PointerType::host; }
-
-  RuntimeClientAllocator *allocator;
 };
 
 class DeviceOwnedMemRefStorage : public MemRefStorage {
 public:
-  DeviceOwnedMemRefStorage(uintptr_t ptr, RuntimeClientAllocator *allocator,
+  DeviceOwnedMemRefStorage(uintptr_t ptr, Ref<RuntimeClient> client,
                            PointerType type, std::optional<CudaStream> stream)
-      : MemRefStorage(ptr), allocator(allocator), type(type), stream(stream) {}
+      : MemRefStorage(ptr, std::move(client)), type(type), stream(stream) {}
 
   ~DeviceOwnedMemRefStorage();
 
   PointerType getMemorySpace() const final { return type; }
   std::optional<CudaStream> getStream() const final { return stream; }
 
-  RuntimeClientAllocator *allocator;
   PointerType type;
   std::optional<CudaStream> stream;
 };
@@ -700,8 +697,9 @@ public:
 class ViewMemRefStorage : public MemRefStorage {
 public:
   ViewMemRefStorage(uintptr_t ptr, PointerType type,
-                    std::function<void()> destroyCallback)
-      : MemRefStorage(ptr), type(type),
+                    std::function<void()> destroyCallback,
+                    Ref<RuntimeClient> client)
+      : MemRefStorage(ptr, std::move(client)), type(type),
         destroyCallback(std::move(destroyCallback)) {}
   ~ViewMemRefStorage();
 
@@ -715,16 +713,17 @@ public:
 
 static StatusOr<Ref<MemRefStorage>>
 getOwnedMemRefStorage(uintptr_t ptr, PointerType kind,
-                      RuntimeClientAllocator *allocator,
+                      Ref<RuntimeClient> client,
                       std::optional<CudaStream> stream) {
   switch (kind) {
   case PointerType::host:
-    return Ref<MemRefStorage>(new HostOwnedMemRefStorage(ptr, allocator));
+    return Ref<MemRefStorage>(
+        new HostOwnedMemRefStorage(ptr, std::move(client)));
   case PointerType::device:
   case PointerType::unified:
   case PointerType::pinned_host:
     return Ref<MemRefStorage>(
-        new DeviceOwnedMemRefStorage(ptr, allocator, kind, stream));
+        new DeviceOwnedMemRefStorage(ptr, std::move(client), kind, stream));
   default:
     return getInvalidArgStatus("unsupported MemRefStorage address space");
   }
@@ -732,21 +731,22 @@ getOwnedMemRefStorage(uintptr_t ptr, PointerType kind,
 
 static StatusOr<Ref<MemRefStorage>>
 getViewMemRefStorage(uintptr_t ptr, PointerType kind,
-                     std::function<void()> destroyCallback) {
-  return Ref<MemRefStorage>(
-      new ViewMemRefStorage(ptr, kind, std::move(destroyCallback)));
+                     std::function<void()> destroyCallback,
+                     Ref<RuntimeClient> client) {
+  return Ref<MemRefStorage>(new ViewMemRefStorage(
+      ptr, kind, std::move(destroyCallback), std::move(client)));
 }
 
 HostOwnedMemRefStorage::~HostOwnedMemRefStorage() {
   MTRT_DBGF("HostOwnedMemRefStorage::~HostOwnedMemRefStorage() ptr = %p",
             reinterpret_cast<void *>(ptr));
-  allocator->deallocate(*this);
+  client->getAllocator().deallocate(*this);
 }
 
 DeviceOwnedMemRefStorage::~DeviceOwnedMemRefStorage() {
   MTRT_DBGF("DeviceOwnedMemRefStorage::~DeviceOwnedMemRefStorage() ptr = %p",
             reinterpret_cast<void *>(ptr));
-  allocator->deallocate(*this);
+  client->getAllocator().deallocate(*this);
 }
 
 ViewMemRefStorage::~ViewMemRefStorage() {
@@ -819,12 +819,12 @@ static bool areStridesEquivalent(llvm::ArrayRef<int64_t> shape,
 }
 
 StatusOr<std::unique_ptr<MemRefValue>> MemRefValue::create(
-    RuntimeClient *client, mlirtrt::runtime::PointerType addressSpace,
-    int64_t bitsPerElement, Ref<MemRefStorage> storage, int64_t offset,
-    llvm::ArrayRef<int64_t> shape, llvm::ArrayRef<int64_t> strides,
-    std::optional<const Device *> device, std::optional<ScalarType> scalarType,
+    mlirtrt::runtime::PointerType addressSpace, int64_t bitsPerElement,
+    Ref<MemRefStorage> storage, int64_t offset, llvm::ArrayRef<int64_t> shape,
+    llvm::ArrayRef<int64_t> strides, std::optional<const Device *> device,
+    std::optional<ScalarType> scalarType,
     std::optional<bool> assertCanonicalStrides) {
-  if (!client)
+  if (!storage->getClient())
     return getInvalidArgStatus("a valid RuntimeClient must be provided to "
                                "create a tracked MemRef object");
   if (!::getFootprintInBytes(shape, strides, bitsPerElement).isOk())
@@ -859,18 +859,17 @@ StatusOr<std::unique_ptr<MemRefValue>> MemRefValue::create(
   }
 
   return std::unique_ptr<MemRefValue>(
-      new MemRefValue(client, addressSpace, bitsPerElement, std::move(storage),
-                      offset, shape, strides, device, scalarType));
+      new MemRefValue(addressSpace, bitsPerElement, std::move(storage), offset,
+                      shape, strides, device, scalarType));
 }
 
-MemRefValue::MemRefValue(RuntimeClient *client,
-                         mlirtrt::runtime::PointerType addressSpace,
+MemRefValue::MemRefValue(mlirtrt::runtime::PointerType addressSpace,
                          int64_t bitsPerElement, Ref<MemRefStorage> storage,
                          int64_t offset, llvm::ArrayRef<int64_t> shape,
                          llvm::ArrayRef<int64_t> strides,
                          std::optional<const Device *> device,
                          std::optional<ScalarType> scalarType)
-    : RuntimeValue(Kind::MemRef), client(client), addressSpace(addressSpace),
+    : RuntimeValue(Kind::MemRef), addressSpace(addressSpace),
       bitsPerElement(bitsPerElement), storage(std::move(storage)),
       offsetInBytes(offset), shape(shape.begin(), shape.end()),
       strides(strides.begin(), strides.end()), device(device),
@@ -891,6 +890,10 @@ int64_t MemRefValue::getTotalFootprintInBytes() const {
 
 namespace {
 class DefaultClientAllocator final : public RuntimeClientAllocator {
+public:
+  DefaultClientAllocator(RuntimeClient &client)
+      : RuntimeClientAllocator(client) {}
+
   StatusOr<Ref<MemRefStorage>> allocate(PointerType type, uint64_t size,
                                         std::optional<uint32_t> alignment,
                                         std::optional<CudaStream> stream) final;
@@ -925,7 +928,8 @@ DefaultClientAllocator::allocate(PointerType type, uint64_t size,
         size, mem);
 
     return getOwnedMemRefStorage(reinterpret_cast<uintptr_t>(mem),
-                                 PointerType::host, this, {});
+                                 PointerType::host, Ref<RuntimeClient>(&client),
+                                 {});
   }
 
 #ifdef MLIR_TRT_ENABLE_CUDA
@@ -938,7 +942,8 @@ DefaultClientAllocator::allocate(PointerType type, uint64_t size,
                 "device bytes %p ",
                 size, reinterpret_cast<void *>(alloc));
       return getOwnedMemRefStorage(reinterpret_cast<uintptr_t>(alloc),
-                                   PointerType::device, this, {});
+                                   PointerType::device,
+                                   Ref<RuntimeClient>(&client), {});
     }
     void *alloc{nullptr};
     RETURN_ERROR_IF_CUDART_ERROR(
@@ -947,7 +952,8 @@ DefaultClientAllocator::allocate(PointerType type, uint64_t size,
               "device bytes %p on stream %p",
               size, alloc, reinterpret_cast<void *>(*stream));
     return getOwnedMemRefStorage(reinterpret_cast<uintptr_t>(alloc),
-                                 PointerType::device, this, stream);
+                                 PointerType::device,
+                                 Ref<RuntimeClient>(&client), stream);
   }
   if (type == PointerType::unified) {
     MTRT_DBGF("DeviceClientAllocator::allocate: allocating %lu unified bytes",
@@ -957,13 +963,15 @@ DefaultClientAllocator::allocate(PointerType type, uint64_t size,
     void *alloc{nullptr};
     RETURN_ERROR_IF_CUDART_ERROR(cudaMallocManaged(&alloc, size));
     return getOwnedMemRefStorage(reinterpret_cast<uintptr_t>(alloc),
-                                 PointerType::unified, this, {});
+                                 PointerType::unified,
+                                 Ref<RuntimeClient>(&client), {});
   }
   if (type == PointerType::pinned_host) {
     void *alloc{nullptr};
     RETURN_ERROR_IF_CUDART_ERROR(cudaMallocHost(&alloc, size));
     return getOwnedMemRefStorage(reinterpret_cast<uintptr_t>(alloc),
-                                 PointerType::pinned_host, this, {});
+                                 PointerType::pinned_host,
+                                 Ref<RuntimeClient>(&client), {});
   }
 #endif
   return getStatusWithMsg(
@@ -975,8 +983,7 @@ DefaultClientAllocator::allocate(PointerType type, uint64_t size,
 StatusOr<Ref<MemRefStorage>>
 DefaultClientAllocator::takeOwnership(uintptr_t ptr, PointerType type,
                                       std::optional<CudaStream> stream) {
-  return getOwnedMemRefStorage(
-      ptr, type, static_cast<RuntimeClientAllocator *>(this), stream);
+  return getOwnedMemRefStorage(ptr, type, Ref<RuntimeClient>(&client), stream);
 }
 
 Status DefaultClientAllocator::deallocate(MemRefStorage &storage) {
@@ -1060,7 +1067,7 @@ populateDevices(llvm::SmallVectorImpl<std::unique_ptr<Device>> &devices) {
   return getOkStatus();
 }
 
-StatusOr<std::unique_ptr<RuntimeClient>> RuntimeClient::create() {
+StatusOr<Ref<RuntimeClient>> RuntimeClient::create() {
   static llvm::once_flag onceFlag{};
   llvm::call_once(onceFlag, parseDebugFlags);
 
@@ -1071,10 +1078,10 @@ StatusOr<std::unique_ptr<RuntimeClient>> RuntimeClient::create() {
     // TODO: we should emit a warning here.
   }
 
-  auto defaultAllocator = std::make_unique<DefaultClientAllocator>();
-
-  return std::unique_ptr<RuntimeClient>(
-      new RuntimeClient(std::move(devices), std::move(defaultAllocator)));
+  auto client = Ref<RuntimeClient>(new RuntimeClient(std::move(devices)));
+  auto defaultAllocator = std::make_unique<DefaultClientAllocator>(*client);
+  client->setAllocator(std::move(defaultAllocator));
+  return client;
 }
 
 llvm::ArrayRef<std::unique_ptr<Device>> RuntimeClient::getDevices() const {
@@ -1107,8 +1114,8 @@ StatusOr<std::unique_ptr<MemRefValue>> RuntimeClient::allocateMemRef(
 
   // Create the descriptor.
   StatusOr<std::unique_ptr<MemRefValue>> bufferImpl = MemRefValue::create(
-      this, addressSpace, bitsPerElement, std::move(*storage), 0, shape,
-      strides, device, scalarType, assertCanonicalStrides);
+      addressSpace, bitsPerElement, std::move(*storage), 0, shape, strides,
+      device, scalarType, assertCanonicalStrides);
   if (bufferImpl.isError())
     return bufferImpl.getStatus();
 
@@ -1123,15 +1130,15 @@ StatusOr<std::unique_ptr<MemRefValue>> RuntimeClient::createExternalMemRef(
     std::optional<bool> assertCanonicalStrides,
     std::function<void()> destroyCallback) {
 
-  StatusOr<Ref<MemRefStorage>> storage =
-      getViewMemRefStorage(ptr, addressSpace, std::move(destroyCallback));
+  StatusOr<Ref<MemRefStorage>> storage = getViewMemRefStorage(
+      ptr, addressSpace, std::move(destroyCallback), Ref<RuntimeClient>(this));
   if (!storage.isOk())
     return storage.getStatus();
 
   // Create the descriptor.
   StatusOr<std::unique_ptr<MemRefValue>> memref = MemRefValue::create(
-      this, addressSpace, bitsPerElement, std::move(*storage), offset, shape,
-      strides, device, scalarType, assertCanonicalStrides);
+      addressSpace, bitsPerElement, std::move(*storage), offset, shape, strides,
+      device, scalarType, assertCanonicalStrides);
   if (!memref.isOk())
     return memref.getStatus();
 
@@ -1248,9 +1255,9 @@ RuntimeClient::copyToHost(const MemRefValue &deviceMemRef,
 
   // Create the host MemRefValue..
   StatusOr<std::unique_ptr<MemRefValue>> hostMemRef = MemRefValue::create(
-      this, PointerType::host, deviceMemRef.getElementBitWidth(),
-      std::move(*storage), 0, deviceMemRef.getShape(),
-      deviceMemRef.getStrides(), {}, deviceMemRef.getScalarType());
+      PointerType::host, deviceMemRef.getElementBitWidth(), std::move(*storage),
+      0, deviceMemRef.getShape(), deviceMemRef.getStrides(), {},
+      deviceMemRef.getScalarType());
   if (!hostMemRef.isOk())
     return hostMemRef.getStatus();
 

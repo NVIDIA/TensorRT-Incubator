@@ -793,6 +793,10 @@ private:
 
 class RuntimeClientAllocator;
 
+/// MemRefStorage is an abstract base class that owns the underlying buffer
+/// associated with a MemRefValue. It is reference counted to enable shared
+/// ownership across the C++ runtime API and other external users (e.g. C API,
+/// Python API).
 class MemRefStorage : public RefCounted<MemRefStorage> {
 public:
   virtual ~MemRefStorage() {}
@@ -802,10 +806,18 @@ public:
   virtual PointerType getMemorySpace() const = 0;
   virtual std::optional<CudaStream> getStream() const { return {}; }
 
+  Ref<RuntimeClient> getClient() const { return client; }
+
 protected:
-  MemRefStorage(uintptr_t ptr) : ptr(ptr) {}
+  MemRefStorage(uintptr_t ptr, Ref<RuntimeClient> client)
+      : ptr(ptr), client(std::move(client)) {}
 
   uintptr_t ptr;
+
+  /// Reference back to RuntimeClient. This provides concrete subclasses access
+  /// to the client's allocator object. It also ensures that the client is not
+  /// destroyed while any users of the storage are still alive.
+  Ref<RuntimeClient> client;
 };
 
 class MemRefValue : public RuntimeValue {
@@ -813,8 +825,8 @@ public:
   /// Create a new MemRef descriptor. All size quantities are in "units of
   /// elements" unless otherwise noted.
   static mlirtrt::StatusOr<std::unique_ptr<MemRefValue>>
-  create(RuntimeClient *client, mlirtrt::runtime::PointerType addressSpace,
-         int64_t bitsPerElement, Ref<MemRefStorage> storage, int64_t offset,
+  create(mlirtrt::runtime::PointerType addressSpace, int64_t bitsPerElement,
+         Ref<MemRefStorage> storage, int64_t offset,
          llvm::ArrayRef<int64_t> shape, llvm::ArrayRef<int64_t> strides,
          std::optional<const Device *> device,
          std::optional<ScalarType> scalarType,
@@ -843,7 +855,7 @@ public:
 
   const std::optional<ScalarType> &getScalarType() const { return scalarType; }
 
-  RuntimeClient *getClient() const { return client; }
+  Ref<RuntimeClient> getClient() const { return storage->getClient(); }
 
   /// Return the reference count of the underlying storage.
   unsigned getStorageRefCount() const { return storage->getRefCount(); }
@@ -852,20 +864,18 @@ public:
   /// The reference count of the storage is incremented.
   std::unique_ptr<MemRefValue> createRef() const {
     return std::unique_ptr<MemRefValue>(
-        new MemRefValue(client, addressSpace, bitsPerElement, storage,
-                        offsetInBytes, shape, strides, device, scalarType));
+        new MemRefValue(addressSpace, bitsPerElement, storage, offsetInBytes,
+                        shape, strides, device, scalarType));
   }
 
 private:
-  MemRefValue(RuntimeClient *client, mlirtrt::runtime::PointerType addressSpace,
+  MemRefValue(mlirtrt::runtime::PointerType addressSpace,
               int64_t bitsPerElement, Ref<MemRefStorage> storage,
               int64_t offset, llvm::ArrayRef<int64_t> shape,
               llvm::ArrayRef<int64_t> strides,
               std::optional<const Device *> device,
               std::optional<ScalarType> scalarType);
 
-  /// Non-owned reference back to RuntimeClient that tracks this MemRef.
-  RuntimeClient *client;
   /// Address space for the pointer.
   mlirtrt::runtime::PointerType addressSpace;
   int64_t bitsPerElement;
@@ -1096,6 +1106,11 @@ public:
                 std::optional<CudaStream> stream) = 0;
 
   virtual Status deallocate(MemRefStorage &storage) = 0;
+
+protected:
+  RuntimeClientAllocator(RuntimeClient &client) : client(client) {}
+
+  RuntimeClient &client;
 };
 
 /// The `RuntimeClient` provides a convenient way for users of the C++ API
@@ -1109,13 +1124,13 @@ public:
 /// or warn the user about the dangling resources when it is destructed.
 /// Therefore, any resource created by the RuntimeClient should outlive the
 /// RuntimeClient and be destroyed/deallocated through the appropriate method.
-class RuntimeClient {
+class RuntimeClient : public RefCounted<RuntimeClient> {
 public:
   ~RuntimeClient();
 
   /// Creates the client. Enumerates CUDA devices on the machine. Creates the
   /// internal allocators.
-  static StatusOr<std::unique_ptr<RuntimeClient>> create();
+  static StatusOr<Ref<RuntimeClient>> create();
 
   llvm::ArrayRef<std::unique_ptr<Device>> getDevices() const;
 
@@ -1171,9 +1186,12 @@ public:
   RuntimeClientAllocator &getAllocator() { return *allocator; }
 
 private:
-  RuntimeClient(llvm::SmallVector<std::unique_ptr<Device>> devices,
-                std::unique_ptr<RuntimeClientAllocator> allocator)
-      : devices(std::move(devices)), allocator(std::move(allocator)) {}
+  void setAllocator(std::unique_ptr<RuntimeClientAllocator> allocator) {
+    this->allocator = std::move(allocator);
+  }
+
+  RuntimeClient(llvm::SmallVector<std::unique_ptr<Device>> devices)
+      : devices(std::move(devices)), allocator(nullptr) {}
 
   llvm::SmallVector<std::unique_ptr<Device>> devices;
   PinnedMemoryAllocator pinnedMemoryAllocator;

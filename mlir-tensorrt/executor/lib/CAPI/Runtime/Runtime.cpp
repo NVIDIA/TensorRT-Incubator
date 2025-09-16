@@ -47,6 +47,12 @@
 
 struct MTRT_StreamImpl;
 
+namespace {
+struct RuntimeClientRef {
+  mlirtrt::runtime::Ref<mlirtrt::runtime::RuntimeClient> ref;
+};
+} // namespace
+
 #define DEFINE_C_API_PTR_METHODS(name, cpptype)                                \
   static inline name wrap(cpptype *cpp) { return name{cpp}; }                  \
   static inline cpptype *unwrap(name c) {                                      \
@@ -65,7 +71,7 @@ DEFINE_C_API_PTR_METHODS(MTRT_Executable, ::mlirtrt::runtime::Executable)
 DEFINE_C_API_PTR_METHODS(MTRT_Stream, MTRT_StreamImpl)
 DEFINE_C_API_PTR_METHODS(MTRT_RuntimeValue, ::mlirtrt::runtime::RuntimeValue)
 DEFINE_C_API_PTR_METHODS(MTRT_ScalarValue, ::mlirtrt::runtime::ScalarValue)
-DEFINE_C_API_PTR_METHODS(MTRT_RuntimeClient, ::mlirtrt::runtime::RuntimeClient)
+DEFINE_C_API_PTR_METHODS(MTRT_RuntimeClient, RuntimeClientRef)
 DEFINE_C_API_PTR_METHODS(MTRT_MemRefValue, ::mlirtrt::runtime::MemRefValue)
 DEFINE_C_API_PTR_METHODS(MTRT_Device, ::mlirtrt::runtime::Device)
 DEFINE_C_API_PTR_METHODS(MTRT_DLPackManagedTensor, DLManagedTensor)
@@ -324,7 +330,7 @@ mtrtMemRefCreate(MTRT_RuntimeClient client, MTRT_PointerType pointerKind,
                  MTRT_ScalarTypeCode scalarType, MTRT_MemRefValue *result,
                  bool assertCanonicalStrides) {
   StatusOr<std::unique_ptr<MemRefValue>> bufferImpl =
-      unwrap(client)->allocateMemRef(
+      unwrap(client)->ref->allocateMemRef(
           unwrap(pointerKind), bitsPerElement,
           llvm::ArrayRef(shape, shape + rank),
           llvm::ArrayRef(strides, strides + rank),
@@ -366,7 +372,7 @@ MTRT_Status mtrtMemRefCreateExternal(
     MTRT_ScalarTypeCode scalarType, MTRT_MemRefValue *result,
     bool assertCanonicalStrides, MTRT_MemRefDestroyCallback destroyCallback) {
   StatusOr<std::unique_ptr<MemRefValue>> bufferImpl =
-      unwrap(client)->createExternalMemRef(
+      unwrap(client)->ref->createExternalMemRef(
           unwrap(pointerKind), bitsPerElement, ptr, offset,
           llvm::ArrayRef(shape, shape + rank),
           llvm::ArrayRef(strides, strides + rank),
@@ -434,7 +440,7 @@ MTRT_Status mtrtMemRefValueGetInfo(MTRT_MemRefValue memref,
 }
 
 MTRT_RuntimeClient mtrtMemRefGetClient(MTRT_MemRefValue memref) {
-  return wrap(unwrap(memref)->getClient());
+  return wrap(new RuntimeClientRef{unwrap(memref)->getClient()});
 }
 
 static StatusOr<DLDeviceType> toDLPackDeviceType(PointerType address) {
@@ -764,8 +770,9 @@ MTRT_Status mtrtRuntimeSessionExecuteFunction(
           !mtrtStreamIsNull(stream)
               ? std::optional(unwrap(stream)->getRawStream())
               : std::nullopt,
-          !mtrtRuntimeClientIsNull(client) ? std::optional(unwrap(client))
-                                           : std::nullopt);
+          !mtrtRuntimeClientIsNull(client)
+              ? std::optional(unwrap(client)->ref.get())
+              : std::nullopt);
   if (!resultValues.isOk())
     return wrap(resultValues.getStatus());
 
@@ -794,11 +801,11 @@ MTRT_Status mtrtRuntimeSessionGetNumResults(MTRT_RuntimeSession session,
 //===----------------------------------------------------------------------===//
 
 MTRT_Status mtrtRuntimeClientCreate(MTRT_RuntimeClient *client) {
-  StatusOr<std::unique_ptr<RuntimeClient>> cppClient = RuntimeClient::create();
+  StatusOr<Ref<RuntimeClient>> cppClient = RuntimeClient::create();
   if (!cppClient.isOk())
     return wrap(cppClient.getStatus());
 
-  *client = MTRT_RuntimeClient{cppClient->release()};
+  *client = MTRT_RuntimeClient{new RuntimeClientRef{std::move(*cppClient)}};
   return mtrtStatusGetOk();
 }
 
@@ -809,14 +816,14 @@ MTRT_Status mtrtRuntimeClientDestroy(MTRT_RuntimeClient client) {
 
 MTRT_Status mtrtRuntimeClientGetNumDevices(MTRT_RuntimeClient client,
                                            int32_t *numDevices) {
-  RuntimeClient *cppClient = unwrap(client);
+  RuntimeClient *cppClient = unwrap(client)->ref.get();
   *numDevices = cppClient->getDevices().size();
   return mtrtStatusGetOk();
 }
 
 MTRT_Status mtrtRuntimeClientGetDevice(MTRT_RuntimeClient client, int32_t index,
                                        MTRT_Device *device) {
-  RuntimeClient *cppClient = unwrap(client);
+  RuntimeClient *cppClient = unwrap(client)->ref.get();
   if (index >= static_cast<int64_t>(cppClient->getDevices().size()))
     return wrap(getInvalidArgStatus(
         "the provided index is greater than the number of devices"));

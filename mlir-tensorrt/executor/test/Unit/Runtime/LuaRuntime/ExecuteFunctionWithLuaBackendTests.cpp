@@ -39,7 +39,7 @@ protected:
         moduleStr, mlir::ParserConfig(context.get()));
   }
 
-  StatusOr<std::unique_ptr<RuntimeClient>> createRuntimeClient() {
+  StatusOr<Ref<RuntimeClient>> createRuntimeClient() {
     return RuntimeClient::create();
   }
 

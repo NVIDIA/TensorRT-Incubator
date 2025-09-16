@@ -334,7 +334,7 @@ StatusOr<int64_t> mlirtrt::runtime::runExecutorLuaScript(
     LuaRuntimeSession::LuaModuleRegistrationFunc registerExtraLuaFuncs) {
   ADD_RUNTIME_MODULE_RANGE("runtime_runExecutorLuaScript");
 
-  StatusOr<std::unique_ptr<RuntimeClient>> client = RuntimeClient::create();
+  StatusOr<Ref<RuntimeClient>> client = RuntimeClient::create();
   if (!client.isOk())
     return client.getStatus();
 
@@ -380,7 +380,7 @@ StatusOr<int64_t> mlirtrt::runtime::runExecutorExecutable(
     RuntimeSessionOptions options, std::unique_ptr<Executable> executable,
     LuaRuntimeSession::LuaModuleRegistrationFunc registerExtraLuaFuncs) {
 
-  StatusOr<std::unique_ptr<RuntimeClient>> client = RuntimeClient::create();
+  StatusOr<Ref<RuntimeClient>> client = RuntimeClient::create();
   if (!client.isOk())
     return client.getStatus();
 
@@ -723,11 +723,10 @@ parseResults(const sol::protected_function_result &pfr,
     if (!storage.isOk())
       return storage.getStatus();
 
-    auto memref = MemRefValue::create(&client, memRefView.getAddressSpace(),
-                                      memRefView.getElementType().getBitWidth(),
-                                      std::move(*storage), offset, shape,
-                                      strides, client.getDevices()[0].get(),
-                                      memRefView.getElementType());
+    auto memref = MemRefValue::create(
+        memRefView.getAddressSpace(), memRefView.getElementType().getBitWidth(),
+        std::move(*storage), offset, shape, strides,
+        client.getDevices()[0].get(), memRefView.getElementType());
     if (!memref.isOk())
       return memref.getStatus();
 

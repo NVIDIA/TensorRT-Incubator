@@ -1,6 +1,20 @@
 //===- Client.cpp  --------------------------------------------------------===//
 //
-// Copyright (c) 2024, NVIDIA CORPORATION. All rights reserved.
+// SPDX-FileCopyrightText: Copyright 2024-2025 NVIDIA CORPORATION & AFFILIATES.
+// All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 //
 //===----------------------------------------------------------------------===//
 ///
@@ -14,18 +28,12 @@
 #include "mlir-tensorrt-common-c/Support/Status.h"
 #include "pybind11/numpy.h"
 #include "pybind11/pybind11.h"
-#include "pybind11/stl.h"
 #include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/ScopeExit.h"
 #include "llvm/ADT/SmallVectorExtras.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/Twine.h"
-#include "llvm/Support/Debug.h"
 #include "llvm/Support/MathExtras.h"
-#include "llvm/Support/raw_ostream.h"
-#include <exception>
 #include <memory>
 #include <stdexcept>
 #include <string_view>
@@ -110,9 +118,7 @@ public:
 /// Python object of wrapper for `MTRT_RuntimeValue`.
 class PyRuntimeValue {
 public:
-  PyRuntimeValue(std::shared_ptr<PyRuntimeClient> client,
-                 MTRT_RuntimeValue value)
-      : client(client), value(value) {}
+  PyRuntimeValue(MTRT_RuntimeValue value) : value(value) {}
 
   PyRuntimeValue(const PyRuntimeValue &other) = delete;
 
@@ -123,28 +129,22 @@ public:
 
   MTRT_RuntimeValue getRuntimeValue() { return value; }
 
-  std::shared_ptr<PyRuntimeClient> getClient() { return client; }
-
 protected:
-  std::shared_ptr<PyRuntimeClient> client;
   MTRT_RuntimeValue value;
 };
 
 /// Python wrapper around MTRT_ScalarValue.
 class PyScalarValue : public PyRuntimeValue {
 public:
-  PyScalarValue(std::shared_ptr<PyRuntimeClient> client,
-                MTRT_RuntimeValue value)
-      : PyRuntimeValue(std::move(client), value) {
+  PyScalarValue(MTRT_RuntimeValue value) : PyRuntimeValue(value) {
     if (!mtrtRuntimeValueIsScalar(value))
       throw std::invalid_argument("value is not a scalar value");
   }
 
   PyScalarValue(const PyScalarValue &other) = delete;
 
-  PyScalarValue(std::shared_ptr<PyRuntimeClient> client, MTRT_ScalarValue value)
-      : PyRuntimeValue(std::move(client),
-                       mtrtScalarValueCastToRuntimeValue(value)) {}
+  PyScalarValue(MTRT_ScalarValue value)
+      : PyRuntimeValue(mtrtScalarValueCastToRuntimeValue(value)) {}
 
   operator MTRT_ScalarValue() { return mtrtRuntimeValueDynCastToScalar(value); }
 };
@@ -152,15 +152,12 @@ public:
 /// Python wrapper around MTRT_MemRefValue.
 class PyMemRefValue : public PyRuntimeValue {
 public:
-  PyMemRefValue(std::shared_ptr<PyRuntimeClient> client,
-                MTRT_RuntimeValue value)
-      : PyRuntimeValue(std::move(client), value) {
+  PyMemRefValue(MTRT_RuntimeValue value) : PyRuntimeValue(value) {
     if (!mtrtRuntimeValueIsMemRef(value))
       throw std::invalid_argument("value is not a memref value");
   }
-  PyMemRefValue(std::shared_ptr<PyRuntimeClient> client, MTRT_MemRefValue value)
-      : PyRuntimeValue(std::move(client), mtrtMemRefCastToRuntimeValue(value)) {
-  }
+  PyMemRefValue(MTRT_MemRefValue value)
+      : PyRuntimeValue(mtrtMemRefCastToRuntimeValue(value)) {}
 
   PyMemRefValue(const PyMemRefValue &other) = delete;
   PyMemRefValue &operator=(const PyMemRefValue &other) = delete;
@@ -195,7 +192,7 @@ public:
 };
 
 /// Python wrapper around MTRT_RuntimeClient.
-class PyRuntimeClient : public std::enable_shared_from_this<PyRuntimeClient> {
+class PyRuntimeClient {
 public:
   PyRuntimeClient(MTRT_RuntimeClient client) : client(client) {}
   ~PyRuntimeClient() {
@@ -211,7 +208,6 @@ public:
 
 private:
   MTRT_RuntimeClient client;
-
   std::unordered_set<std::shared_ptr<PyRuntimeSession>> sessions;
 };
 
@@ -306,7 +302,7 @@ static std::unique_ptr<PyMemRefValue> createMemRef(
                        device ? *device : mtrtDeviceGetNull(),
                        stream ? *stream : mtrtStreamGetNull(), dtype, &result);
   THROW_IF_MTRT_ERROR(s);
-  return std::make_unique<PyMemRefValue>(client.shared_from_this(), result);
+  return std::make_unique<PyMemRefValue>(result);
 }
 
 static std::unique_ptr<PyMemRefValue> getMemRefFromHostBufferProtocol(
@@ -378,7 +374,7 @@ static std::unique_ptr<PyMemRefValue> getMemRefFromHostBufferProtocol(
     MTRT_MemRefValue result{nullptr};
     s = mtrtCopyFromHostToHost(hostView, &result);
     THROW_IF_MTRT_ERROR(s);
-    return std::make_unique<PyMemRefValue>(client.shared_from_this(), result);
+    return std::make_unique<PyMemRefValue>(result);
   }
 
   MTRT_MemRefValue result{nullptr};
@@ -392,7 +388,7 @@ static std::unique_ptr<PyMemRefValue> getMemRefFromHostBufferProtocol(
     THROW_IF_MTRT_ERROR(s);
   }
 
-  return std::make_unique<PyMemRefValue>(client.shared_from_this(), result);
+  return std::make_unique<PyMemRefValue>(result);
 }
 
 static std::unique_ptr<PyMemRefValue> getMemRefViewWithCContiguousLayout(
@@ -419,7 +415,7 @@ static std::unique_ptr<PyMemRefValue> getMemRefViewWithCContiguousLayout(
                                scalarType, &view);
   THROW_IF_MTRT_ERROR(s);
 
-  return std::make_unique<PyMemRefValue>(client.shared_from_this(), view);
+  return std::make_unique<PyMemRefValue>(view);
 }
 
 template <typename Type>
@@ -664,7 +660,7 @@ createMemRefViewFromDLPack(PyRuntimeClient &client, py::capsule capsule,
   }
 
   THROW_IF_MTRT_ERROR(s);
-  return std::make_unique<PyMemRefValue>(client.shared_from_this(), result);
+  return std::make_unique<PyMemRefValue>(result);
 }
 
 static py::capsule pyMemRefValueToDLPackCapsule(py::handle obj,
@@ -676,7 +672,7 @@ static py::capsule pyMemRefValueToDLPackCapsule(py::handle obj,
   MTRT_MemRefValue ref = mtrtMemRefCreateRef(buffer);
 
   auto pack = std::make_unique<DLPackManagerContext>();
-  pack->memref = std::make_unique<PyMemRefValue>(buffer.getClient(), ref);
+  pack->memref = std::make_unique<PyMemRefValue>(ref);
   pack->tensor.manager_ctx = pack.get();
   pack->tensor.deleter = DLPackTensorDeleter;
 
@@ -765,7 +761,7 @@ PYBIND11_MODULE(_api, m) {
              MTRT_Status s = mtrtRuntimeValueScalarCreate(
                  scalar, MTRT_ScalarTypeCode_i64, &value);
              THROW_IF_MTRT_ERROR(s);
-             return new PyRuntimeValue(client->shared_from_this(), value);
+             return new PyRuntimeValue(value);
            }),
            py::arg("client"), py::arg("scalar_int"));
 
@@ -945,8 +941,7 @@ PYBIND11_MODULE(_api, m) {
               THROW_IF_MTRT_ERROR(s);
 
               // Cast from RuntimeValue to ScalarValue and return PyScalarValue.
-              return new PyScalarValue(self.shared_from_this(),
-                                       mtrtRuntimeValueDynCastToScalar(value));
+              return new PyScalarValue(mtrtRuntimeValueDynCastToScalar(value));
             }
 
             // Other path when user provides a Python int object but no type
@@ -959,8 +954,7 @@ PYBIND11_MODULE(_api, m) {
                   idata, MTRT_ScalarTypeCode_i64, &value);
               THROW_IF_MTRT_ERROR(s);
               // Cast from RuntimeValue to ScalarValue and return PyScalarValue.
-              return new PyScalarValue(self.shared_from_this(),
-                                       mtrtRuntimeValueDynCastToScalar(value));
+              return new PyScalarValue(mtrtRuntimeValueDynCastToScalar(value));
             }
 
             throw std::runtime_error("Unsupported scalar type!");
@@ -1086,7 +1080,7 @@ PYBIND11_MODULE(_api, m) {
                 hostMemRef, device, stream ? *stream : mtrtStreamGetNull(),
                 &deviceMemRef);
             THROW_IF_MTRT_ERROR(s);
-            return new PyMemRefValue(self.shared_from_this(), deviceMemRef);
+            return new PyMemRefValue(deviceMemRef);
           },
           py::arg("host_memref"), py::arg("device"),
           py::arg("stream") = py::none(), py::keep_alive<0, 1>())
@@ -1099,7 +1093,7 @@ PYBIND11_MODULE(_api, m) {
                 deviceMemRef, stream ? *stream : mtrtStreamGetNull(),
                 &hostMemRef);
             THROW_IF_MTRT_ERROR(s);
-            return new PyMemRefValue(self.shared_from_this(), hostMemRef);
+            return new PyMemRefValue(hostMemRef);
           },
           py::arg("device_memref"), py::arg("stream") = py::none(),
           py::keep_alive<0, 1>())
@@ -1200,12 +1194,10 @@ PYBIND11_MODULE(_api, m) {
               for (const MTRT_RuntimeValue &arg : resultsGeneric)
                 if (mtrtRuntimeValueIsMemRef(arg))
                   resultPyObject.push_back(std::unique_ptr<PyRuntimeValue>(
-                      new PyMemRefValue(client->shared_from_this(),
-                                        mtrtRuntimeValueDynCastToMemRef(arg))));
+                      new PyMemRefValue(mtrtRuntimeValueDynCastToMemRef(arg))));
                 else
                   resultPyObject.push_back(std::unique_ptr<PyRuntimeValue>(
-                      new PyScalarValue(client->shared_from_this(),
-                                        mtrtRuntimeValueDynCastToScalar(arg))));
+                      new PyScalarValue(mtrtRuntimeValueDynCastToScalar(arg))));
             }
 
             if (client) {
