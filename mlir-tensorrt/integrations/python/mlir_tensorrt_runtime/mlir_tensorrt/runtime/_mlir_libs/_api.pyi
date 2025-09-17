@@ -294,6 +294,8 @@ class ScalarTypeCode:
     i16: typing.ClassVar[ScalarTypeCode]  # value = <ScalarTypeCode.i16: 8>
     i32: typing.ClassVar[ScalarTypeCode]  # value = <ScalarTypeCode.i32: 9>
     i64: typing.ClassVar[ScalarTypeCode]  # value = <ScalarTypeCode.i64: 10>
+    complex32: typing.ClassVar[ScalarTypeCode]  # value = <ScalarTypeCode.complex32: 13>
+    complex64: typing.ClassVar[ScalarTypeCode]  # value = <ScalarTypeCode.complex64: 14>
     i8: typing.ClassVar[ScalarTypeCode]  # value = <ScalarTypeCode.i8: 6>
     ui8: typing.ClassVar[ScalarTypeCode]  # value = <ScalarTypeCode.ui8: 7>
     def __eq__(self, other: typing.Any) -> bool: ...
@@ -341,3 +343,5 @@ pinned_host: PointerType  # value = <PointerType.pinned_host: 1>
 ui8: ScalarTypeCode  # value = <ScalarTypeCode.ui8: 7>
 unified: PointerType  # value = <PointerType.unified: 3>
 unknown: PointerType  # value = <PointerType.unknown: 4>
+complex32: ScalarTypeCode  # value = <ScalarTypeCode.complex32: 13>
+complex64: ScalarTypeCode  # value = <ScalarTypeCode.complex64: 14>

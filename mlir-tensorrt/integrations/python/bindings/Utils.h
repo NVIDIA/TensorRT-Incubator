@@ -612,6 +612,9 @@ static inline void populateCommonBindingsInModule(py::module &m) {
       .value("i16", MTRT_ScalarTypeCode::MTRT_ScalarTypeCode_i16)
       .value("i32", MTRT_ScalarTypeCode::MTRT_ScalarTypeCode_i32)
       .value("i64", MTRT_ScalarTypeCode::MTRT_ScalarTypeCode_i64)
+      .value("complex32", MTRT_ScalarTypeCode::MTRT_ScalarTypeCode_complex32)
+      .value("complex64", MTRT_ScalarTypeCode::MTRT_ScalarTypeCode_complex64)
+      .value("f4e2m1fn", MTRT_ScalarTypeCode::MTRT_ScalarTypeCode_f4e2m1fn)
       .export_values();
 
   py::enum_<MTRT_PointerType>(m, "PointerType", py::module_local())

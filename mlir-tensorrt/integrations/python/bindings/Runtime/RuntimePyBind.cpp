@@ -272,6 +272,10 @@ getScalarTypeCodeFromPyBufferProtocolFormat(llvm::StringRef format,
       // i16
       elementType = MTRT_ScalarTypeCode::MTRT_ScalarTypeCode_i16;
     }
+  } else if (format == "Zf") {
+    elementType = MTRT_ScalarTypeCode::MTRT_ScalarTypeCode_complex32;
+  } else if (format == "Zd") {
+    elementType = MTRT_ScalarTypeCode::MTRT_ScalarTypeCode_complex64;
   }
   if (elementType == MTRT_ScalarTypeCode::MTRT_ScalarTypeCode_unknown)
     throw std::invalid_argument(
@@ -567,6 +571,9 @@ static DLDataTypeCode toDLPackDataTypeCode(MTRT_ScalarTypeCode type) {
     return DLDataTypeCode::kDLFloat;
   case MTRT_ScalarTypeCode_bf16:
     return DLDataTypeCode::kDLBfloat;
+  case MTRT_ScalarTypeCode_complex32:
+  case MTRT_ScalarTypeCode_complex64:
+    return DLDataTypeCode::kDLComplex;
   default:
     throw std::invalid_argument(
         "Scalar type code conversion to DLPackDataTypeCode is not supported.");

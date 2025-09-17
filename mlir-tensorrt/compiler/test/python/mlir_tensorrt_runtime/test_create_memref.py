@@ -106,6 +106,8 @@ NUMPY_TO_MLIR_TRT = {
     np.float16: runtime.ScalarTypeCode.f16,
     np.float32: runtime.ScalarTypeCode.f32,
     np.float64: runtime.ScalarTypeCode.f64,
+    np.complex64: runtime.ScalarTypeCode.complex32,
+    np.complex128: runtime.ScalarTypeCode.complex64,
 }
 
 
@@ -150,6 +152,10 @@ test_memref_view_from_numpy()
 #  CHECK-NEXT: Numpy Array (float32):  [1. 2. 3.]
 #  CHECK-NEXT: Array: [1. 2. 3.] dtype=float64
 #  CHECK-NEXT: Numpy Array (float64):  [1. 2. 3.]
+#  CHECK-NEXT: Array: [1.+0.j 2.+0.j 3.+0.j] dtype=complex64
+#  CHECK-NEXT: Numpy Array (complex64):  [1.+0.j 2.+0.j 3.+0.j]
+#  CHECK-NEXT: Array: [1.+0.j 2.+0.j 3.+0.j] dtype=complex128
+#  CHECK-NEXT: Numpy Array (complex128):  [1.+0.j 2.+0.j 3.+0.j]
 
 
 def test_memref_allocations():

@@ -44,6 +44,9 @@ def test_enums():
 #       CHECK:   i16 ScalarTypeCode.i16 8
 #       CHECK:   i32 ScalarTypeCode.i32 9
 #       CHECK:   i64 ScalarTypeCode.i64 10
+#       CHECK:   complex32 ScalarTypeCode.complex32 13
+#       CHECK:   complex64 ScalarTypeCode.complex64 14
+#       CHECK:   f4e2m1fn ScalarTypeCode.f4e2m1fn 15
 #       CHECK:   host PointerType.host 0
 #       CHECK:   pinned_host PointerType.pinned_host 1
 #       CHECK:   device PointerType.device 2
