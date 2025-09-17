@@ -78,7 +78,7 @@ public:
 
   /// Get the human-readable string representation of this type.
   llvm::StringRef getStrRef() const {
-    return impl::EnumNameScalarTypeCode(code);
+    return mtrt::flat::EnumNameScalarTypeCode(code);
   }
 
   /// Get the equivalent ScalarTypeCode integer value that has the given number
@@ -117,34 +117,36 @@ std::string_view stringifyPointerType(PointerType ptrType);
 
 /// Base class for all the below classes that provide flatbuffer-view wrappers
 /// for flatbuffer tables that comprise the `Type` union in the schema.
-template <typename T, impl::Type ObjType>
+template <typename T, mtrt::flat::Type ObjType>
 struct FlatbufferTypeObjectView {
   FlatbufferTypeObjectView(const T *view) : view(view) {}
 
-  static constexpr impl::Type type = ObjType;
+  static constexpr mtrt::flat::Type type = ObjType;
   const T *view;
 };
 
-/// A wrapper around the generated `impl::ScalarTypeView`.  It does not own any
-/// memory; it only provides a read-only view into the buffer.
-class ScalarTypeView : public FlatbufferTypeObjectView<impl::ScalarType,
-                                                       impl::Type::ScalarType> {
+/// A wrapper around the generated `mtrt::flat::ScalarTypeView`.  It does not
+/// own any memory; it only provides a read-only view into the buffer.
+class ScalarTypeView
+    : public FlatbufferTypeObjectView<mtrt::flat::ScalarType,
+                                      mtrt::flat::Type::ScalarType> {
 public:
   using FlatbufferTypeObjectView::FlatbufferTypeObjectView;
-  operator impl::ScalarTypeCode() const { return view->type(); }
+  operator mtrt::ScalarTypeCode() const { return view->type(); }
 };
 
 /// A constant representing a dynamic size. This mirrors the same value as MLIR
 /// 'ShapedType::kDynamic'.
 static constexpr int64_t kDynamicSize = std::numeric_limits<int64_t>::min();
 
-/// A wrapper around `impl::MemRefTypeT` to provide additional convenience
-/// utilities.  It does not own any memory; it only
+/// A wrapper around `mtrt::flat::MemRefTypeT` to provide additional
+/// convenience utilities.  It does not own any memory; it only
 // provides a read-only view into the buffer.
-class MemRefTypeView : public FlatbufferTypeObjectView<impl::MemRefType,
-                                                       impl::Type::MemRefType> {
+class MemRefTypeView
+    : public FlatbufferTypeObjectView<mtrt::flat::MemRefType,
+                                      mtrt::flat::Type::MemRefType> {
 public:
-  MemRefTypeView(const impl::MemRefType *view)
+  MemRefTypeView(const mtrt::flat::MemRefType *view)
       : FlatbufferTypeObjectView(view) {}
 
   int64_t getRank() const { return view->shape()->size(); }
@@ -166,10 +168,10 @@ public:
 };
 
 /// A wrapper equivalent to the flatbuffer-generated TypeUnion object. The
-/// `view` object may be a `impl::MemRef|impl::ScalarType` and
+/// `view` object may be a `mtrt::flat::MemRef|mtrt::flat::ScalarType` and
 /// `type` is the tag indicating the pointer type.
 struct TypeUnionView {
-  impl::Type type;
+  mtrt::flat::Type type;
   const void *view;
 
   template <typename T>
@@ -186,19 +188,19 @@ struct TypeUnionView {
 
 /// Base class for all the below classes that provide flatbuffer-view wrappers
 /// for flatbuffer tables that comprise the `Bounds` union in the schema.
-template <typename T, impl::Bounds ObjType>
+template <typename T, mtrt::flat::Bounds ObjType>
 struct FlatbufferBoundsObjectView {
   FlatbufferBoundsObjectView(const T *view) : view(view) {}
 
-  static constexpr impl::Bounds bound = ObjType;
+  static constexpr mtrt::flat::Bounds bound = ObjType;
   const T *view;
 };
 
 class DimensionBoundsView
-    : public FlatbufferBoundsObjectView<impl::DimensionBounds,
-                                        impl::Bounds::DimensionBounds> {
+    : public FlatbufferBoundsObjectView<mtrt::flat::DimensionBounds,
+                                        mtrt::flat::Bounds::DimensionBounds> {
 public:
-  DimensionBoundsView(const impl::DimensionBounds *view)
+  DimensionBoundsView(const mtrt::flat::DimensionBounds *view)
       : FlatbufferBoundsObjectView(view) {}
 
   llvm::ArrayRef<int64_t> getMin() const {
@@ -210,10 +212,10 @@ public:
 };
 
 class ValueBoundsView
-    : public FlatbufferBoundsObjectView<impl::ValueBounds,
-                                        impl::Bounds::ValueBounds> {
+    : public FlatbufferBoundsObjectView<mtrt::flat::ValueBounds,
+                                        mtrt::flat::Bounds::ValueBounds> {
 public:
-  ValueBoundsView(const impl::ValueBounds *view)
+  ValueBoundsView(const mtrt::flat::ValueBounds *view)
       : FlatbufferBoundsObjectView(view) {}
 
   llvm::ArrayRef<int64_t> getMin() const {
@@ -225,10 +227,11 @@ public:
 };
 
 /// A wrapper equivalent to the flatbuffer-generated BoundsUnion object. The
-/// `view` object may be a `impl::DimensionBounds|impl::ValueBounds` and
-/// `bound` is the tag indicating the bound type.
+/// `view` object may be a
+/// `mtrt::flat::DimensionBounds|mtrt::flat::ValueBounds` and `bound` is the
+/// tag indicating the bound type.
 struct BoundsUnionView {
-  impl::Bounds bound;
+  mtrt::flat::Bounds bound;
   const void *view;
 
   template <typename T>
@@ -257,7 +260,8 @@ llvm::raw_ostream &print(llvm::raw_ostream &os,
 /// provides a read-only view into the buffer.
 class FunctionSignatureView {
 public:
-  FunctionSignatureView(const impl::FunctionSignature *view) : view(view) {
+  FunctionSignatureView(const mtrt::flat::FunctionSignature *view)
+      : view(view) {
     assert(view != nullptr && "expected valid view");
   }
 
@@ -360,14 +364,14 @@ public:
   /// Returns the calling convention associated with this function.
   CallingConvention getCConv() const { return view->calling_convention(); }
 
-  const impl::FunctionSignature *view;
+  const mtrt::flat::FunctionSignature *view;
 };
 
 /// A FunctionView is a thin wrapper around a flatbuffer Function object. It
 /// does not own any memory; it only provides a read-only view into the buffer.
 class FunctionView {
 public:
-  FunctionView(const impl::Function *view) : view(view) {
+  FunctionView(const mtrt::flat::Function *view) : view(view) {
     assert(view != nullptr);
   }
   FunctionView() : view(nullptr) {}
@@ -380,10 +384,10 @@ public:
 
   operator bool() const { return view != nullptr; }
 
-  operator const impl::Function *() const { return view; }
+  operator const mtrt::flat::Function *() const { return view; }
 
 private:
-  const impl::Function *view;
+  const mtrt::flat::Function *view;
 };
 
 /// A DataSegmentInfo is a thin wrapper around a flatbuffer DataSegment object.
@@ -391,7 +395,7 @@ private:
 /// buffer.
 class DataSegmentInfo {
 public:
-  DataSegmentInfo(const impl::DataSegment *view) : view(view) {}
+  DataSegmentInfo(const mtrt::flat::DataSegment *view) : view(view) {}
 
   std::string_view getName() const { return view->name()->string_view(); }
 
@@ -408,7 +412,7 @@ public:
   PointerType getAddressSpace() const { return view->address_space(); }
 
 private:
-  const impl::DataSegment *view;
+  const mtrt::flat::DataSegment *view;
 };
 
 //===----------------------------------------------------------------------===//
@@ -419,7 +423,7 @@ private:
 /// API for accessing an Executable object serialized into a flatbuffer.
 class ExecutableView {
 public:
-  ExecutableView(const impl::Executable *view) : view(view) {}
+  ExecutableView(const mtrt::flat::Executable *view) : view(view) {}
 
   std::string_view getCode() const { return view->source()->string_view(); }
 
@@ -466,7 +470,7 @@ public:
   operator bool() const { return view != nullptr; }
 
 protected:
-  const impl::Executable *view;
+  const mtrt::flat::Executable *view;
 };
 
 //===----------------------------------------------------------------------===//

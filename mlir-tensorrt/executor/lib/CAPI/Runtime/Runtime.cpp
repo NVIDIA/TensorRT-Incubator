@@ -891,7 +891,7 @@ MTRT_Status mtrtScalarValueGet(MTRT_ScalarValue scalar, int64_t *data) {
   default:
     return wrap(getInvalidArgStatus(
         "function input argument with scalar type {0} is unsupported",
-        impl::EnumNameScalarTypeCode(code)));
+        mtrt::flat::EnumNameScalarTypeCode(code)));
   }
   return mtrtStatusGetOk();
 }

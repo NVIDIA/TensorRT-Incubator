@@ -40,12 +40,12 @@ using namespace mlirtrt::runtime;
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
 #endif
-DEFINE_C_API_PTR_METHODS(MTRT_Type, ::mlirtrt::runtime::impl::TypeUnion)
-DEFINE_C_API_PTR_METHODS(MTRT_Bounds, ::mlirtrt::runtime::impl::BoundsUnion)
-DEFINE_C_API_PTR_METHODS(MTRT_ScalarType, ::mlirtrt::runtime::impl::ScalarTypeT)
-DEFINE_C_API_PTR_METHODS(MTRT_MemRefType, ::mlirtrt::runtime::impl::MemRefTypeT)
+DEFINE_C_API_PTR_METHODS(MTRT_Type, ::mtrt::flat::TypeUnion)
+DEFINE_C_API_PTR_METHODS(MTRT_Bounds, ::mtrt::flat::BoundsUnion)
+DEFINE_C_API_PTR_METHODS(MTRT_ScalarType, ::mtrt::flat::ScalarTypeT)
+DEFINE_C_API_PTR_METHODS(MTRT_MemRefType, ::mtrt::flat::MemRefTypeT)
 DEFINE_C_API_PTR_METHODS(MTRT_FunctionSignature,
-                         ::mlirtrt::runtime::impl::FunctionSignature)
+                         ::mtrt::flat::FunctionSignature)
 DEFINE_C_API_PTR_METHODS(MTRT_Executable, ::mlirtrt::runtime::Executable)
 #if defined(__GNUC__) || defined(__clang__)
 #pragma GCC diagnostic pop
@@ -174,7 +174,7 @@ MTRT_Status mtrtScalarTypeCodeBitsPerElement(MTRT_ScalarTypeCode code,
 }
 
 const char *mtrtScalarTypeCodeGetString(MTRT_ScalarTypeCode code) {
-  return impl::EnumNameScalarTypeCode(static_cast<ScalarTypeCode>(code));
+  return mtrt::flat::EnumNameScalarTypeCode(static_cast<ScalarTypeCode>(code));
 }
 
 //===----------------------------------------------------------------------===//
@@ -189,7 +189,7 @@ MTRT_Status mtrtScalarTypeDestroy(MTRT_ScalarType scalar) {
 }
 
 bool mtrtTypeIsaScalarType(MTRT_Type type) {
-  return unwrap(type)->type == impl::Type::ScalarType;
+  return unwrap(type)->type == mtrt::flat::Type::ScalarType;
 }
 
 MTRT_ScalarTypeCode mtrtScalarTypeGetCode(MTRT_ScalarType type) {
@@ -198,17 +198,17 @@ MTRT_ScalarTypeCode mtrtScalarTypeGetCode(MTRT_ScalarType type) {
 
 MTRT_ScalarType mtrtTypeGetScalarType(MTRT_Type type) {
   assert(mtrtTypeIsaScalarType(type) && "expected ScalarType");
-  impl::TypeUnion *typeUnion = unwrap(type);
+  mtrt::flat::TypeUnion *typeUnion = unwrap(type);
   return wrap(typeUnion->AsScalarType());
 }
 
 MTRT_Status mtrtScalarTypeCreate(MTRT_ScalarTypeCode code, MTRT_Type *result) {
-  impl::ScalarTypeT cppScalarType;
+  mtrt::flat::ScalarTypeT cppScalarType;
   cppScalarType.type = (static_cast<ScalarTypeCode>(code));
 
   // Allocate the TypeUnion object, populate it by moving in the
   // concrete object, and release it to be owned by the CAPI object.
-  auto cppType = std::make_unique<impl::TypeUnion>();
+  auto cppType = std::make_unique<mtrt::flat::TypeUnion>();
   cppType->Set(std::move(cppScalarType));
   *result = wrap(cppType.release());
   return mtrtStatusGetOk();
@@ -226,18 +226,18 @@ MTRT_Status mtrtMemRefTypeDestroy(MTRT_MemRefType memref) {
 }
 
 bool mtrtTypeIsaMemRefType(MTRT_Type type) {
-  return unwrap(type)->type == impl::Type::MemRefType;
+  return unwrap(type)->type == mtrt::flat::Type::MemRefType;
 }
 
 MTRT_Status mtrtMemRefTypeCreate(int64_t rank, const int64_t *shape,
                                  MTRT_ScalarTypeCode elementType,
                                  MTRT_PointerType addressSpace,
                                  MTRT_Type *result) {
-  impl::MemRefTypeT memref;
+  mtrt::flat::MemRefTypeT memref;
   /// TODO: update this so that element type becomes nested Type union.
   memref.element_type = static_cast<ScalarTypeCode>(elementType);
   memref.shape = std::vector(shape, shape + rank);
-  memref.address_space = static_cast<impl::PointerType>(addressSpace);
+  memref.address_space = static_cast<mtrt::flat::PointerType>(addressSpace);
 
   // allocate default strides (can expose a different creation method if needed
   // to set explicitly).
@@ -248,7 +248,7 @@ MTRT_Status mtrtMemRefTypeCreate(int64_t rank, const int64_t *shape,
 
   // Allocate the TypeUnion object, populate it by moving in the
   // concrete object, and release it to be owned by the CAPI object.
-  auto cppType = std::make_unique<impl::TypeUnion>();
+  auto cppType = std::make_unique<mtrt::flat::TypeUnion>();
   cppType->Set(std::move(memref));
   *result = wrap(cppType.release());
   return mtrtStatusGetOk();
@@ -256,13 +256,13 @@ MTRT_Status mtrtMemRefTypeCreate(int64_t rank, const int64_t *shape,
 
 MTRT_MemRefType mtrtTypeGetMemRefType(MTRT_Type type) {
   assert(mtrtTypeIsaMemRefType(type) && "expected MemRefType");
-  impl::TypeUnion *typeUnion = unwrap(type);
+  mtrt::flat::TypeUnion *typeUnion = unwrap(type);
   return wrap(typeUnion->AsMemRefType());
 }
 
 /// Retrieve metadata for the provided memref.
 MTRT_Status mtrtMemRefTypeGetInfo(MTRT_Type memref, MTRT_MemRefTypeInfo *info) {
-  impl::MemRefTypeT *cppType = unwrap(mtrtTypeGetMemRefType(memref));
+  mtrt::flat::MemRefTypeT *cppType = unwrap(mtrtTypeGetMemRefType(memref));
   MTRT_MemRefTypeInfo result;
   result.rank = cppType->shape.size();
   result.shape = cppType->shape.data();
@@ -299,7 +299,7 @@ MTRT_Status mtrtBoundsGetSize(MTRT_Bounds bounds,
     boundValues->size = 0;
     return mtrtStatusGetOk();
   }
-  assert(b->type == impl::Bounds::NONE);
+  assert(b->type == mtrt::flat::Bounds::NONE);
   boundValues->size = 0;
   return mtrtStatusGetOk();
 }
@@ -352,14 +352,14 @@ MTRT_Status mtrtBoundsGetMax(MTRT_Bounds bounds, MTRT_ArrayRefI64 *maxBounds) {
 
 MTRT_FunctionSignature mtrtGetFunctionSignature(MTRT_Executable exec,
                                                 const char *name) {
-  auto sig = const_cast<impl::FunctionSignature *>(
+  auto sig = const_cast<mtrt::flat::FunctionSignature *>(
       (*unwrap(exec)->getFunction(name)).getSignature().view);
   return wrap(sig);
 }
 
 MTRT_Status mtrtFunctionSignatureGetString(MTRT_FunctionSignature signature,
                                            MTRT_PrintCallbackInfo callback) {
-  const impl::FunctionSignature *sig = unwrap(signature);
+  const mtrt::flat::FunctionSignature *sig = unwrap(signature);
   CallbackOstream stream(callback);
   mlirtrt::runtime::print(stream, sig);
   return mtrtStatusGetOk();
@@ -371,14 +371,14 @@ bool mtrtFunctionSignatureIsNull(MTRT_FunctionSignature signature) {
 
 MTRT_Status mtrtFunctionSignatureGetNumArgs(MTRT_FunctionSignature signature,
                                             int64_t *numArgs) {
-  const impl::FunctionSignature *sig = unwrap(signature);
+  const mtrt::flat::FunctionSignature *sig = unwrap(signature);
   *numArgs = FunctionSignatureView(sig).getNumArgs();
   return mtrtStatusGetOk();
 }
 
 MTRT_Status mtrtFunctionSignatureGetNumResults(MTRT_FunctionSignature signature,
                                                int64_t *numResults) {
-  const impl::FunctionSignature *sig = unwrap(signature);
+  const mtrt::flat::FunctionSignature *sig = unwrap(signature);
   *numResults = FunctionSignatureView(sig).getNumResults();
   return mtrtStatusGetOk();
 }
@@ -386,7 +386,7 @@ MTRT_Status mtrtFunctionSignatureGetNumResults(MTRT_FunctionSignature signature,
 MTRT_Status
 mtrtFunctionSignatureGetNumInputArgs(MTRT_FunctionSignature signature,
                                      int64_t *numInputArgs) {
-  const impl::FunctionSignature *sig = unwrap(signature);
+  const mtrt::flat::FunctionSignature *sig = unwrap(signature);
   *numInputArgs = FunctionSignatureView(sig).getNumInputArgs();
   return mtrtStatusGetOk();
 }
@@ -394,7 +394,7 @@ mtrtFunctionSignatureGetNumInputArgs(MTRT_FunctionSignature signature,
 MTRT_Status
 mtrtFunctionSignatureGetNumOutputArgs(MTRT_FunctionSignature signature,
                                       int64_t *numOutputArgs) {
-  const impl::FunctionSignature *sig = unwrap(signature);
+  const mtrt::flat::FunctionSignature *sig = unwrap(signature);
   *numOutputArgs = FunctionSignatureView(sig).getNumOutputArgs();
   return mtrtStatusGetOk();
 }
@@ -402,11 +402,11 @@ mtrtFunctionSignatureGetNumOutputArgs(MTRT_FunctionSignature signature,
 MTRT_Status getTypeHelper(TypeUnionView typeUnionView, MTRT_Type *type) {
   // Allocate the TypeUnion object, populate it by moving in the
   // concrete object, and release it to be owned by the CAPI object.
-  auto typeUnion = std::make_unique<impl::TypeUnion>();
+  auto typeUnion = std::make_unique<mtrt::flat::TypeUnion>();
   // Extract the correct type.
   if (typeUnionView.isa<MemRefTypeView>()) {
     auto memrefView = typeUnionView.get<MemRefTypeView>();
-    impl::MemRefTypeT memref;
+    mtrt::flat::MemRefTypeT memref;
     memref.shape = memrefView.getShape();
     memref.strides = memrefView.getStrides();
     memref.element_type = memrefView.getElementType();
@@ -415,7 +415,7 @@ MTRT_Status getTypeHelper(TypeUnionView typeUnionView, MTRT_Type *type) {
   }
   if (typeUnionView.isa<ScalarTypeView>()) {
     auto scalarView = typeUnionView.get<ScalarTypeView>();
-    impl::ScalarTypeT scalar;
+    mtrt::flat::ScalarTypeT scalar;
     scalar.type = scalarView;
     typeUnion->Set(std::move(scalar));
   }
@@ -425,14 +425,14 @@ MTRT_Status getTypeHelper(TypeUnionView typeUnionView, MTRT_Type *type) {
 
 MTRT_Status mtrtFunctionSignatureGetResult(MTRT_FunctionSignature signature,
                                            int64_t index, MTRT_Type *type) {
-  const impl::FunctionSignature *sig = unwrap(signature);
+  const mtrt::flat::FunctionSignature *sig = unwrap(signature);
   auto typeUnionView = FunctionSignatureView(sig).getResult(index);
   return getTypeHelper(typeUnionView, type);
 }
 
 MTRT_Status mtrtFunctionSignatureGetArg(MTRT_FunctionSignature signature,
                                         int64_t index, MTRT_Type *type) {
-  const impl::FunctionSignature *sig = unwrap(signature);
+  const mtrt::flat::FunctionSignature *sig = unwrap(signature);
   auto typeUnionView = FunctionSignatureView(sig).getArg(index);
   return getTypeHelper(typeUnionView, type);
 }
@@ -440,7 +440,7 @@ MTRT_Status mtrtFunctionSignatureGetArg(MTRT_FunctionSignature signature,
 MTRT_Status
 mtrtFunctionSignatureGetNumArgBounds(MTRT_FunctionSignature signature,
                                      int64_t *numArgBounds) {
-  const impl::FunctionSignature *sig = unwrap(signature);
+  const mtrt::flat::FunctionSignature *sig = unwrap(signature);
   *numArgBounds = FunctionSignatureView(sig).getNumArgBounds();
   return mtrtStatusGetOk();
 }
@@ -448,7 +448,7 @@ mtrtFunctionSignatureGetNumArgBounds(MTRT_FunctionSignature signature,
 MTRT_Status
 mtrtFunctionSignatureGetNumResBounds(MTRT_FunctionSignature signature,
                                      int64_t *numResBounds) {
-  const impl::FunctionSignature *sig = unwrap(signature);
+  const mtrt::flat::FunctionSignature *sig = unwrap(signature);
   *numResBounds = FunctionSignatureView(sig).getNumResBounds();
   return mtrtStatusGetOk();
 }
@@ -456,7 +456,7 @@ mtrtFunctionSignatureGetNumResBounds(MTRT_FunctionSignature signature,
 MTRT_Status
 mtrtFunctionSignatureGetShapeFuncName(MTRT_FunctionSignature signature,
                                       MTRT_StringView *name) {
-  const impl::FunctionSignature *sig = unwrap(signature);
+  const mtrt::flat::FunctionSignature *sig = unwrap(signature);
   std::optional<std::string_view> str =
       FunctionSignatureView(sig).getShapeFunctionName();
   if (!str) {
@@ -471,18 +471,18 @@ MTRT_Status getBoundsHelper(BoundsUnionView boundsUnionView,
                             MTRT_Bounds *bounds) {
   // Allocate the BoundsUnion object, populate it by moving in the
   // concrete object, and release it to be owned by the CAPI object.
-  auto boundsUnion = std::make_unique<impl::BoundsUnion>();
+  auto boundsUnion = std::make_unique<mtrt::flat::BoundsUnion>();
   // Extract the correct type.
   if (boundsUnionView.isa<DimensionBoundsView>()) {
     auto dimBounds = boundsUnionView.get<DimensionBoundsView>();
-    impl::DimensionBoundsT dims;
+    mtrt::flat::DimensionBoundsT dims;
     dims.min = dimBounds.getMin();
     dims.max = dimBounds.getMax();
     boundsUnion->Set(std::move(dims));
   }
   if (boundsUnionView.isa<ValueBoundsView>()) {
     auto valBounds = boundsUnionView.get<ValueBoundsView>();
-    impl::ValueBoundsT vals;
+    mtrt::flat::ValueBoundsT vals;
     vals.min = valBounds.getMin();
     vals.max = valBounds.getMax();
     boundsUnion->Set(std::move(vals));
@@ -494,7 +494,7 @@ MTRT_Status getBoundsHelper(BoundsUnionView boundsUnionView,
 MTRT_Status mtrtFunctionSignatureGetArgBound(MTRT_FunctionSignature signature,
                                              int64_t index,
                                              MTRT_Bounds *bounds) {
-  const impl::FunctionSignature *sig = unwrap(signature);
+  const mtrt::flat::FunctionSignature *sig = unwrap(signature);
   auto boundsUnionView = FunctionSignatureView(sig).getArgBound(index);
   return getBoundsHelper(boundsUnionView, bounds);
 }
@@ -502,7 +502,7 @@ MTRT_Status mtrtFunctionSignatureGetArgBound(MTRT_FunctionSignature signature,
 MTRT_Status
 mtrtFunctionSignatureGetResultBound(MTRT_FunctionSignature signature,
                                     int64_t index, MTRT_Bounds *bounds) {
-  const impl::FunctionSignature *sig = unwrap(signature);
+  const mtrt::flat::FunctionSignature *sig = unwrap(signature);
   auto boundsUnionView = FunctionSignatureView(sig).getResultBound(index);
   return getBoundsHelper(boundsUnionView, bounds);
 }

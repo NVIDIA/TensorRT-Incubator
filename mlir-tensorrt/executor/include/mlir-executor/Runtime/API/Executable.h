@@ -34,14 +34,24 @@
 #pragma GCC diagnostic pop
 #endif
 
+namespace mtrt {
+// Alias some objects from the generated Flatbuffer object API class instead of
+// using them directly.
+using ScalarTypeCode = mtrt::flat::ScalarTypeCode;
+using PointerType = mtrt::flat::PointerType;
+using PointerOwner = mtrt::flat::PointerOwner;
+using TypeCode = mtrt::flat::Type;
+using CallingConvention = mtrt::flat::CallingConvention;
+} // namespace mtrt
+
 namespace mlirtrt::runtime {
 // Alias some objects from the generated Flatbuffer object API class instead of
 // using them directly.
-using ScalarTypeCode = impl::ScalarTypeCode;
-using PointerType = impl::PointerType;
-using PointerOwner = impl::PointerOwner;
-using TypeCode = impl::Type;
-using CallingConvention = impl::CallingConvention;
+using ScalarTypeCode = mtrt::ScalarTypeCode;
+using PointerType = mtrt::flat::PointerType;
+using PointerOwner = mtrt::flat::PointerOwner;
+using TypeCode = mtrt::flat::Type;
+using CallingConvention = mtrt::flat::CallingConvention;
 
 //===----------------------------------------------------------------------===//
 // ExecutableStorage

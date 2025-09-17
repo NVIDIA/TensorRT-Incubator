@@ -1,4 +1,4 @@
-namespace mlirtrt.runtime.impl;
+namespace mtrt.flat;
 
 enum ScalarTypeCode : byte {
   unknown = 0,

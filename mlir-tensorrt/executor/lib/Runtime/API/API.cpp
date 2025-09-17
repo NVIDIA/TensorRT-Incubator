@@ -58,10 +58,10 @@ using namespace rt;
 //===----------------------------------------------------------------------===//
 
 ScalarTypeCode rt::parseElementType(std::string_view str) {
-  const char *const *names = rt::impl::EnumNamesScalarTypeCode();
-  const ScalarTypeCode *values = rt::impl::EnumValuesScalarTypeCode();
+  const char *const *names = mtrt::flat::EnumNamesScalarTypeCode();
+  const ScalarTypeCode *values = mtrt::flat::EnumValuesScalarTypeCode();
   // Flatbuffers' 'enum::MAX' is inclusive (equals largest value).
-  constexpr unsigned maxEnum = static_cast<unsigned>(impl::ScalarTypeCode::MAX);
+  constexpr unsigned maxEnum = static_cast<unsigned>(mtrt::ScalarTypeCode::MAX);
   for (unsigned i = 0; i <= maxEnum; i++) {
     if (str == names[i])
       return values[i];
@@ -155,11 +155,11 @@ PointerType rt::parsePointerType(std::string_view str) {
 }
 
 llvm::raw_ostream &rt::operator<<(llvm::raw_ostream &os, PointerType ptrType) {
-  return os << rt::impl::EnumNamePointerType(ptrType);
+  return os << mtrt::flat::EnumNamePointerType(ptrType);
 }
 
 std::string_view rt::stringifyPointerType(PointerType ptrType) {
-  return rt::impl::EnumNamePointerType(ptrType);
+  return mtrt::flat::EnumNamePointerType(ptrType);
 }
 
 static bool isDeviceVisible(PointerType type) {
@@ -176,10 +176,10 @@ static bool isHostVisible(PointerType type) {
 
 StatusOr<FunctionView>
 ExecutableView::getFunction(std::string_view name) const {
-  const flatbuffers::Vector<flatbuffers::Offset<impl::Function>> &functions =
-      *view->functions();
+  const flatbuffers::Vector<flatbuffers::Offset<mtrt::flat::Function>>
+      &functions = *view->functions();
   auto it = std::find_if(functions.begin(), functions.end(),
-                         [&](const impl::Function *x) {
+                         [&](const mtrt::flat::Function *x) {
                            return x->name()->string_view() == name;
                          });
   if (it == view->functions()->end())
@@ -234,7 +234,7 @@ private:
 Executable::Executable(Executable &&other)
     : ExecutableView(nullptr), storage(std::move(other.storage)) {
   other.storage.reset();
-  this->view = impl::GetExecutable(this->storage->data());
+  this->view = mtrt::flat::GetExecutable(this->storage->data());
 }
 
 StatusOr<std::unique_ptr<Executable>>
@@ -290,7 +290,7 @@ Executable::loadFromUnalignedRef(llvm::ArrayRef<char> data) {
 rt::Executable::Executable(std::unique_ptr<ExecutableStorage> storage_)
     : ExecutableView(nullptr), storage(std::move(storage_)) {
   assert(this->storage && "expected valid storage pointer");
-  this->view = impl::GetExecutable(this->storage->data());
+  this->view = mtrt::flat::GetExecutable(this->storage->data());
 }
 
 Executable::~Executable() {}
@@ -311,7 +311,7 @@ Status Executable::verify() const {
   flatbuffers::Verifier verifier(
       reinterpret_cast<const uint8_t *>(getStorage()->data()),
       getStorage()->size(), options);
-  if (!impl::VerifyExecutableBuffer(verifier))
+  if (!mtrt::flat::VerifyExecutableBuffer(verifier))
     return getStatusWithMsg(
         StatusCode::InvalidArgument,
         "failed to verify that the provided buffer contains "
@@ -458,8 +458,8 @@ void AllocTracker::track(PointerInfo info) {
   MTRT_DBGF(
       "AllocTracker %p is now tracking 0x%lx size=%lu space=%s ownership=%s",
       static_cast<void *>(this), info.ptr, info.size,
-      runtime::impl::EnumNamePointerType(info.type),
-      runtime::impl::EnumNamePointerOwner(info.owner));
+      mtrt::flat::EnumNamePointerType(info.type),
+      mtrt::flat::EnumNamePointerOwner(info.owner));
   auto value = std::make_unique<Metadata>();
   value->info = info;
   if (!contains(info.ptr)) {
@@ -886,7 +886,7 @@ std::ostream &runtime::operator<<(std::ostream &os, const BufferType &t) {
   os << "buffer<";
   for (auto x : t.getShape())
     os << x << "x";
-  os << rt::impl::EnumNameScalarTypeCode(t.getElementType().getCode());
+  os << mtrt::flat::EnumNameScalarTypeCode(t.getElementType().getCode());
   os << ", " << t.getLayout().toString() << ">";
   return os;
 }
@@ -1444,12 +1444,12 @@ Status RuntimeClient::copyToHost(const MemRefValue &deviceMemRef,
         "to copy a MemRef to the host from a device, "
         "its data must reside in an address space "
         "that the host can access but got {0}",
-        impl::EnumNamePointerType(deviceMemRef.getAddressSpace()));
+        mtrt::flat::EnumNamePointerType(deviceMemRef.getAddressSpace()));
   if (!isHostVisible(hostMemRef.getAddressSpace()))
     return getInvalidArgStatus(
         "to copy a MemRef to an existing host MemRef, the destination MemRef's "
         "address space must be host-visible but got address space {0}",
-        impl::EnumNamePointerType(hostMemRef.getAddressSpace()));
+        mtrt::flat::EnumNamePointerType(hostMemRef.getAddressSpace()));
   if (deviceMemRef.getElementBitWidth() != hostMemRef.getElementBitWidth())
     return getInvalidArgStatus(
         "copying device MemRef to host MemRef requires that the element type "
@@ -1612,11 +1612,12 @@ llvm::raw_ostream &rt::print(llvm::raw_ostream &os, const Executable &exe) {
 
 llvm::raw_ostream &rt::print(llvm::raw_ostream &os,
                              const DataSegmentInfo &segment) {
-  os << llvm::formatv("DataSegment<{0}, size={1}, alignment={2}, constant={3}, "
-                      "uninitialized={4}, address_space={5}>",
-                      segment.getName(), segment.size(), segment.getAlignment(),
-                      segment.isConstant(), segment.isUninitialized(),
-                      impl::EnumNamePointerType(segment.getAddressSpace()));
+  os << llvm::formatv(
+      "DataSegment<{0}, size={1}, alignment={2}, constant={3}, "
+      "uninitialized={4}, address_space={5}>",
+      segment.getName(), segment.size(), segment.getAlignment(),
+      segment.isConstant(), segment.isUninitialized(),
+      mtrt::flat::EnumNamePointerType(segment.getAddressSpace()));
   return os;
 }
 llvm::raw_ostream &rt::print(llvm::raw_ostream &os, const MemRefTypeView &exe) {
@@ -1632,7 +1633,7 @@ llvm::raw_ostream &rt::print(llvm::raw_ostream &os, const MemRefTypeView &exe) {
   interleave(os, exe.getShape(), handleDimOrStride, "x");
   if (!exe.getShape().empty())
     os << "x";
-  os << mlirtrt::runtime::impl::EnumNameScalarTypeCode(exe.getElementType());
+  os << mtrt::flat::EnumNameScalarTypeCode(exe.getElementType());
   if (!exe.getStrides().empty()) {
     os << ",";
     interleave(os, exe.getStrides(), handleDimOrStride, "x");
@@ -1642,7 +1643,7 @@ llvm::raw_ostream &rt::print(llvm::raw_ostream &os, const MemRefTypeView &exe) {
 }
 llvm::raw_ostream &rt::print(llvm::raw_ostream &os,
                              const ScalarTypeView &scalarType) {
-  return os << impl::EnumNameScalarTypeCode(scalarType);
+  return os << mtrt::flat::EnumNameScalarTypeCode(scalarType);
 }
 llvm::raw_ostream &rt::print(llvm::raw_ostream &os,
                              const FunctionSignatureView &signature) {
@@ -1661,7 +1662,7 @@ llvm::raw_ostream &rt::print(llvm::raw_ostream &os,
   os << ", result_bounds=";
   squareBraces(os, LAMBDAF(interleaveComma(os, llvm::ArrayRef(result_bounds))));
   os << ", cconv=";
-  os << impl::EnumNameCallingConvention(signature.getCConv());
+  os << mtrt::flat::EnumNameCallingConvention(signature.getCConv());
   os << ">";
   return os;
 }

@@ -247,7 +247,7 @@ static FailureOr<rt::ScalarTypeCode> translateScalarType(Type t) {
 /// Serialize the given attribute into the flatbuffer as a Union object. This
 /// returns two offsets (one for Bounds enum code, another for the actual
 /// concrete bounds object)
-static FailureOr<UnionOffset<rt::impl::Bounds>>
+static FailureOr<UnionOffset<mtrt::flat::Bounds>>
 translateAttribute(FBBuilder &fb, Attribute attr) {
   if (!isa<executor::DimensionBoundsAttr, executor::ValueBoundsAttr, UnitAttr>(
           attr))
@@ -259,8 +259,8 @@ translateAttribute(FBBuilder &fb, Attribute attr) {
     auto min = fb.serialize<int64_t>(dims.getMin());
     auto max = fb.serialize<int64_t>(dims.getMax());
     return std::make_pair(
-        rt::impl::Bounds::DimensionBounds,
-        rt::impl::CreateDimensionBounds(fb, min, max).Union());
+        mtrt::flat::Bounds::DimensionBounds,
+        mtrt::flat::CreateDimensionBounds(fb, min, max).Union());
   }
 
   if (auto vals = llvm::dyn_cast<executor::ValueBoundsAttr>(attr)) {
@@ -269,13 +269,13 @@ translateAttribute(FBBuilder &fb, Attribute attr) {
         llvm::map_to_vector(vals.getMin().getValues<APInt>(), toI64));
     auto max = fb.serialize<int64_t>(
         llvm::map_to_vector(vals.getMax().getValues<APInt>(), toI64));
-    return std::make_pair(rt::impl::Bounds::ValueBounds,
-                          rt::impl::CreateValueBounds(fb, min, max).Union());
+    return std::make_pair(mtrt::flat::Bounds::ValueBounds,
+                          mtrt::flat::CreateValueBounds(fb, min, max).Union());
   }
 
   assert(isa<UnitAttr>(attr) && "Must be a unit attribute");
-  return std::make_pair(rt::impl::Bounds::NoneBounds,
-                        rt::impl::CreateNoneBounds(fb).Union());
+  return std::make_pair(mtrt::flat::Bounds::NoneBounds,
+                        mtrt::flat::CreateNoneBounds(fb).Union());
 }
 
 /// Translate the memory type into the equivalent flatbuffer API object.
@@ -297,7 +297,7 @@ static FailureOr<rt::PointerType> translateMemoryType(executor::MemoryType t) {
 /// Serialize the given type into the flatbuffer as a Union object. This returns
 /// two offsets (one for Type enum code, another for the actual concrete type
 /// object.)
-static FailureOr<UnionOffset<rt::impl::Type>>
+static FailureOr<UnionOffset<mtrt::flat::Type>>
 translateTypeVariant(FBBuilder &fbBuilder, Type t) {
   auto emitTranslateFailure = [&](Type t) {
     return emitError(UnknownLoc::get(t.getContext()))
@@ -329,28 +329,28 @@ translateTypeVariant(FBBuilder &fbBuilder, Type t) {
               .getAddressSpace();
       addressSpace = *translateMemoryType(memoryType);
     }
-    return std::make_pair(rt::impl::Type::MemRefType,
-                          rt::impl::CreateMemRefType(fbBuilder, *code, shape,
-                                                     stridesOffset,
-                                                     addressSpace)
+    return std::make_pair(mtrt::flat::Type::MemRefType,
+                          mtrt::flat::CreateMemRefType(fbBuilder, *code, shape,
+                                                       stridesOffset,
+                                                       addressSpace)
                               .Union());
   }
   // Encode as a scalar type.
   FailureOr<rt::ScalarTypeCode> code = translateScalarType(t);
   if (failed(code))
     return emitTranslateFailure(t);
-  return std::make_pair(rt::impl::Type::ScalarType,
-                        rt::impl::CreateScalarType(fbBuilder, *code).Union());
+  return std::make_pair(mtrt::flat::Type::ScalarType,
+                        mtrt::flat::CreateScalarType(fbBuilder, *code).Union());
 }
 
 /// Translate the calling convention.
-static rt::impl::CallingConvention
+static mtrt::flat::CallingConvention
 translateCallingConvention(executor::CallingConvention cconv) {
   switch (cconv) {
   case executor::CallingConvention::packed:
-    return rt::impl::CallingConvention::packed;
+    return mtrt::flat::CallingConvention::packed;
   case executor::CallingConvention::unpacked:
-    return rt::impl::CallingConvention::unpacked;
+    return mtrt::flat::CallingConvention::unpacked;
   }
   llvm_unreachable(
       "unknown MLIR Executor -> MTRT runtime calling convention translation");
@@ -358,13 +358,13 @@ translateCallingConvention(executor::CallingConvention cconv) {
 
 /// Encode the FunctionSignature into the flatbuffer and return the offset of
 /// the serialized data.
-static FailureOr<Offset<rt::impl::FunctionSignature>>
+static FailureOr<Offset<mtrt::flat::FunctionSignature>>
 translateSignature(FBBuilder &fbBuilder,
                    executor::FunctionMetadataAttr metadata) {
   assert(metadata && "expected valid FunctionMetadataAttr");
 
   // Union type must be encoded as variant type + data.
-  SmallVector<rt::impl::Type> argVariantTypes, resultVariantTypes;
+  SmallVector<mtrt::flat::Type> argVariantTypes, resultVariantTypes;
   SmallVector<Offset<void>> argOffsets, resultOffsets;
   argVariantTypes.reserve(metadata.getArgs().size());
   argOffsets.reserve(metadata.getArgs().size());
@@ -389,7 +389,7 @@ translateSignature(FBBuilder &fbBuilder,
     resultOffsets.push_back(resultOffset);
   }
 
-  SmallVector<rt::impl::Bounds> argBounds, resBounds;
+  SmallVector<mtrt::flat::Bounds> argBounds, resBounds;
   SmallVector<Offset<void>> argBoundsOffsets, resBoundsOffsets;
 
   for (Attribute a : metadata.getArgBounds()) {
@@ -418,7 +418,7 @@ translateSignature(FBBuilder &fbBuilder,
           ? fbBuilder.CreateString(metadata.getShapeFunc().getAttr().str())
           : fbBuilder.CreateString("");
 
-  return rt::impl::CreateFunctionSignature(
+  return mtrt::flat::CreateFunctionSignature(
       fbBuilder, fbBuilder.serialize(argVariantTypes),
       fbBuilder.serialize(argOffsets), fbBuilder.serialize(resultVariantTypes),
       fbBuilder.serialize(resultOffsets), metadata.getNumOutputArgs(), fbBounds,
@@ -429,16 +429,16 @@ translateSignature(FBBuilder &fbBuilder,
 
 /// Generate a function signature. This is used if there is no explicit
 /// 'executor.function_metadata' attached to the function.
-static FailureOr<Offset<rt::impl::FunctionSignature>>
+static FailureOr<Offset<mtrt::flat::FunctionSignature>>
 generateSignature(FBBuilder &fbBuilder, FunctionType metadata) {
   // Union type must be encoded as variant type + data.
-  SmallVector<rt::impl::Type> argVariantTypes, resultVariantTypes;
+  SmallVector<mtrt::flat::Type> argVariantTypes, resultVariantTypes;
   SmallVector<Offset<void>> argOffsets, resultOffsets;
   argVariantTypes.reserve(metadata.getNumInputs());
   argOffsets.reserve(metadata.getNumInputs());
   resultVariantTypes.reserve(metadata.getNumResults());
   resultOffsets.reserve(metadata.getNumResults());
-  return rt::impl::CreateFunctionSignature(
+  return mtrt::flat::CreateFunctionSignature(
       fbBuilder, fbBuilder.serialize(argVariantTypes),
       fbBuilder.serialize(argOffsets), fbBuilder.serialize(resultVariantTypes),
       fbBuilder.serialize(resultOffsets), /*num_output_args=*/0,
@@ -537,7 +537,7 @@ mlir::translateToRuntimeExecutable(Operation *op) {
   //===----------------------------------------------------------------------===//
   // 32 bit section
   //===----------------------------------------------------------------------===//
-  SmallVector<Offset<rt::impl::DataSegment>> constantOffsets;
+  SmallVector<Offset<mtrt::flat::DataSegment>> constantOffsets;
   constantOffsets.reserve(constData.size());
   for (const auto &[dataOffset, nameOffset, globalOp] :
        llvm::zip_equal(constData, globalNames, globalOps)) {
@@ -562,12 +562,12 @@ mlir::translateToRuntimeExecutable(Operation *op) {
     if (std::optional<uint64_t> alignment = globalOp.getAlignment())
       align = std::max<uint64_t>(align, *alignment);
     constantOffsets.push_back(
-        rt::impl::CreateDataSegment(fbBuilder, nameOffset, dataOffset,
-                                    /*alignment=*/
-                                    align,
-                                    /*constant=*/globalOp.getConstant(),
-                                    /*uninitialized_size=*/*uninitializedSize,
-                                    /*address_space=*/*addrSpace));
+        mtrt::flat::CreateDataSegment(fbBuilder, nameOffset, dataOffset,
+                                      /*alignment=*/
+                                      align,
+                                      /*constant=*/globalOp.getConstant(),
+                                      /*uninitialized_size=*/*uninitializedSize,
+                                      /*address_space=*/*addrSpace));
   }
 
   std::string sourceString;
@@ -580,12 +580,12 @@ mlir::translateToRuntimeExecutable(Operation *op) {
 
   // Loop over all functions and collect metadata (function names and
   // signatures) that we will embed in the executable.
-  SmallVector<Offset<rt::impl::Function>> funcOffsets;
+  SmallVector<Offset<mtrt::flat::Function>> funcOffsets;
   for (auto func : op->getRegion(0).getOps<func::FuncOp>()) {
     if (func.isPrivate())
       continue;
 
-    FailureOr<Offset<rt::impl::FunctionSignature>> offt;
+    FailureOr<Offset<mtrt::flat::FunctionSignature>> offt;
     if (auto metaAttr = func->getAttrOfType<executor::FunctionMetadataAttr>(
             executor::ExecutorDialect::kFunctionMetadataAttrName)) {
       offt = translateSignature(fbBuilder, metaAttr);
@@ -599,7 +599,7 @@ mlir::translateToRuntimeExecutable(Operation *op) {
         fbBuilder.CreateString(func.getName().str());
 
     funcOffsets.push_back(
-        rt::impl::CreateFunction(fbBuilder, funcNameOffset, *offt));
+        mtrt::flat::CreateFunction(fbBuilder, funcNameOffset, *offt));
   }
 
   // Get the process grid by default we use a 2D process grid of shape (1, 1) if
@@ -621,7 +621,7 @@ mlir::translateToRuntimeExecutable(Operation *op) {
                                    ? SymbolTable::getSymbolName(op).strref()
                                    : "unnamed-module";
   auto nameOffset = fbBuilder.CreateString(moduleName.str());
-  rt::impl::ExecutableBuilder exeBuilder(fbBuilder);
+  mtrt::flat::ExecutableBuilder exeBuilder(fbBuilder);
   exeBuilder.add_process_grid_shape(processGridShapeOffset);
   exeBuilder.add_functions(vecFuncOffsets);
   exeBuilder.add_data_segments(constVecOffsets);
@@ -637,7 +637,7 @@ mlir::translateToRuntimeExecutable(Operation *op) {
     verifierOptions.max_size = FLATBUFFERS_MAX_64_BUFFER_SIZE;
     flatbuffers::Verifier verifier(detached.data(), detached.size(),
                                    verifierOptions);
-    if (!rt::impl::VerifyExecutableBuffer(verifier))
+    if (!mtrt::flat::VerifyExecutableBuffer(verifier))
       return emitError(op->getLoc())
              << "failed to create a valid Executable buffer";
   }

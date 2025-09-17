@@ -234,7 +234,7 @@ static Status loadDataSegment(sol::state_view &lua,
 
   return getInternalErrorStatus(
       "global {0} has unsupported address space {1}", segment.getName(),
-      impl::EnumNamePointerType(segment.getAddressSpace()));
+      mtrt::flat::EnumNamePointerType(segment.getAddressSpace()));
 }
 
 LuaRuntimeSession::LuaRuntimeSession(RuntimeSessionOptions options,
@@ -500,7 +500,7 @@ static Status pushScalarArgument(sol::state_view &lua,
   default:
     return getInvalidArgStatus(
         "function input argument with scalar type {0} is unsupported",
-        impl::EnumNameScalarTypeCode(type.getCode()));
+        mtrt::flat::EnumNameScalarTypeCode(type.getCode()));
   }
   args.push_back(obj);
   return getOkStatus();
@@ -583,8 +583,8 @@ static Status validateArgsTypesAgainstFuncArgs(const RuntimeValue *runArg,
       return getInvalidArgStatus(
           "function expects a scalar type with element type {0} but "
           "receieved {1}",
-          impl::EnumNameScalarTypeCode(view),
-          impl::EnumNameScalarTypeCode(value->getType().getCode()));
+          mtrt::flat::EnumNameScalarTypeCode(view),
+          mtrt::flat::EnumNameScalarTypeCode(value->getType().getCode()));
   }
   return getOkStatus();
 }
@@ -656,7 +656,7 @@ getScalarValue(const sol::protected_function_result &pfr, int index,
         static_cast<double>(static_cast<sol::table>(pfr[index])[2]), code);
   default:
     return getInvalidArgStatus("Unsupported scalar type code: {0}",
-                               impl::EnumNameScalarTypeCode(code));
+                               mtrt::flat::EnumNameScalarTypeCode(code));
   }
 }
 

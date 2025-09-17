@@ -98,18 +98,18 @@ struct CublasLtHandle : public PointerWrapper<cublasLtHandle_t> {
 //===----------------------------------------------------------------------===//
 
 static std::tuple<cublasComputeType_t, cudaDataType_t>
-getCublasComputeAndDataType(impl::ScalarTypeCode scalarType) {
+getCublasComputeAndDataType(mtrt::ScalarTypeCode scalarType) {
   switch (scalarType) {
-  case (impl::ScalarTypeCode::f16):
+  case (mtrt::ScalarTypeCode::f16):
     return std::make_tuple(cublasComputeType_t::CUBLAS_COMPUTE_16F,
                            cudaDataType_t::CUDA_R_16F);
-  case (impl::ScalarTypeCode::f32):
+  case (mtrt::ScalarTypeCode::f32):
     return std::make_tuple(cublasComputeType_t::CUBLAS_COMPUTE_32F,
                            cudaDataType_t::CUDA_R_32F);
-  case (impl::ScalarTypeCode::f64):
+  case (mtrt::ScalarTypeCode::f64):
     return std::make_tuple(cublasComputeType_t::CUBLAS_COMPUTE_64F,
                            cudaDataType_t::CUDA_R_64F);
-  case (impl::ScalarTypeCode::i32):
+  case (mtrt::ScalarTypeCode::i32):
     return std::make_tuple(cublasComputeType_t::CUBLAS_COMPUTE_32I,
                            cudaDataType_t::CUDA_R_32I);
   default:
@@ -195,7 +195,7 @@ private:
     MTRT_DBGF("%s", "[cuBLAS] preparing for matmul and algorithm selection");
     // First element of the argument tells about data type
     std::tuple computeAndDataType = getCublasComputeAndDataType(
-        static_cast<impl::ScalarTypeCode>(algoSelectorArgs[0]));
+        static_cast<mtrt::ScalarTypeCode>(algoSelectorArgs[0]));
     MTRT_DBGF("cublas type: %d, cuda type: %d", std::get<0>(computeAndDataType),
               std::get<1>(computeAndDataType));
     int32_t batchSize = algoSelectorArgs[1];
