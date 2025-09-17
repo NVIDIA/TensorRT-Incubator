@@ -126,6 +126,7 @@ static ScalarTypeCode unwrap(MTRT_ScalarTypeCode type) {
   ASSERT_ENUM_MATCH(ScalarTypeCode, i4);
   ASSERT_ENUM_MATCH(ScalarTypeCode, complex32);
   ASSERT_ENUM_MATCH(ScalarTypeCode, complex64);
+  ASSERT_ENUM_MATCH(ScalarTypeCode, f4e2m1fn);
   ASSERT_ENUM_MATCH(ScalarTypeCode, unknown);
   ASSERT_ENUM_MATCH(ScalarTypeCode, MIN);
   ASSERT_ENUM_MATCH(ScalarTypeCode, MAX);

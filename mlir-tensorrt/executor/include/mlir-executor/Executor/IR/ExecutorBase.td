@@ -17,7 +17,7 @@ class Executor_Op<
 >;
 
 def I4  : I<4>;
-defvar Executor_ArithFloatTypes = [F64, F32, F16, F8E4M3FN, BF16];
+defvar Executor_ArithFloatTypes = [F64, F32, F16, F8E4M3FN, BF16, F4E2M1FN];
 defvar Executor_ArithIntTypes = [I64, I32, I16, I8, I4, Index];
 
 // Integer signness semantics are specified by individual operations, not

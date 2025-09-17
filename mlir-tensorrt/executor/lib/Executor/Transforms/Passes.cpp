@@ -57,6 +57,7 @@ void executor::buildExecutorLoweringPipeline(
   addCleanupPasses(pm);
   pm.addPass(createConvertStdToExecutorPass(stdToExecutorOpts,
                                             populateAdditionalTypeConversions));
+  pm.addPass(createExecutorEmulateUnsupportedFloatsPass());
   pm.addPass(createCSEPass());
   pm.addPass(createCanonicalizerPass());
   pm.addPass(createExecutorLowerGlobalsPass());

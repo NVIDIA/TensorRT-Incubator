@@ -779,8 +779,8 @@ def Executor_BitcastOp : Executor_Op<"bitcast",
   let description = [{
     `executor.bitcast` op performs a bitcast between values of equal bit width.
   }];
-  let arguments = (ins AnyTypeOf<[F64, F32, F16, I64, I32, I16]>:$input);
-  let results = (outs AnyTypeOf<[F64, F32, F16, I64, I32, I16]>:$result);
+  let arguments = (ins AnyTypeOf<[F4E2M1FN, F64, F32, F16, I64, I32, I16, I4]>:$input);
+  let results = (outs AnyTypeOf<[F4E2M1FN, F64, F32, F16, I64, I32, I16, I4]>:$result);
   let assemblyFormat = "attr-dict $input `:` type($input) `to` type($result)";
   let hasVerifier = 1;
   let hasFolder = 1;

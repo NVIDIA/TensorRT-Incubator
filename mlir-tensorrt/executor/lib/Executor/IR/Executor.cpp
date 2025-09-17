@@ -1078,6 +1078,8 @@ OpFoldResult BitcastOp::fold(FoldAdaptor adaptor) {
 }
 
 auto isBitcastSupported = [](Type inputType, Type resultType) -> bool {
+  if (inputType.isInteger(4) || isa<Float4E2M1FNType>(inputType))
+    return isa<Float4E2M1FNType>(resultType) || resultType.isInteger(4);
   if (inputType.isInteger(16) || inputType.isF16())
     return resultType.isF16() || resultType.isInteger(16);
   if (inputType.isInteger(32) || inputType.isF32())
@@ -1091,6 +1093,7 @@ LogicalResult BitcastOp::verify() {
   Type inputType = getInput().getType();
   Type resultType = getResult().getType();
   // Supported casts
+  // i4 | F4E2M1FN <-> i4 | F4E2M1FN
   // i16 | F16 <-> i16 | F16
   // i32 | F32 <-> i32 | F32
   // i64 | F64 <-> i64 | F64

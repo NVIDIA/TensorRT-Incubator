@@ -7,6 +7,7 @@ add_mlir_executor_library(MLIRTensorRTExecutorTransforms
   Passes.cpp
   PackArguments.cpp
   PopulateFunctionMetadata.cpp
+  EmulateUnsupportedFloats.cpp
 
   DEPENDS
   MLIRTensorRTExecutorTransformsPassIncGen

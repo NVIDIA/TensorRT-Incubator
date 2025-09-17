@@ -648,6 +648,15 @@ static LogicalResult printBitcastOp(LuaEmitter &emitter,
   Value input = op.getInput();
   if (failed(emitter.emitAssignPrefix(op)))
     return failure();
+  // bitcasting i4 <-> f4E2M1FN.
+  // This bitcast is no op since for both i4 and f4E2M1FN, lower 4 bits
+  // of a byte represent data. That is i4 can be interprested as f4E2M1FN.
+  if (isa<Float4E2M1FNType>(op.getInput().getType()) ||
+      isa<Float4E2M1FNType>(op.getResult().getType())) {
+    emitter << emitter.getVariableName(input) << "\n";
+    return success();
+  }
+
   emitter << "_bitcast_" << input.getType() << "_" << op.getType() << "("
           << emitter.getVariableName(input) << ");\n";
   return success();

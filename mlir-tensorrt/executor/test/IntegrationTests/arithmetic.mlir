@@ -856,6 +856,87 @@ func.func @test_i4(){
   return
 }
 
+// Test f4E2M1
+
+func.func @base_f4_execute(%arg0: f4E2M1FN, %arg1: f4E2M1FN) -> (f4E2M1FN, f4E2M1FN, f4E2M1FN, f4E2M1FN, f4E2M1FN, f4E2M1FN){
+  %0 = executor.addf %arg0, %arg1 : f4E2M1FN
+  %1 = executor.subf %arg0, %arg1 : f4E2M1FN
+  %2 = executor.mulf %arg0, %arg1 : f4E2M1FN
+  %3 = executor.divf %arg0, %arg1 : f4E2M1FN
+  %4 = executor.fmax %arg0, %arg1 : f4E2M1FN
+  %5 = executor.fmin %arg0, %arg1 : f4E2M1FN
+  return %0, %1, %2, %3, %4, %5 : f4E2M1FN, f4E2M1FN, f4E2M1FN, f4E2M1FN, f4E2M1FN, f4E2M1FN
+}
+
+func.func @test_base_f4(%arg0: f4E2M1FN, %arg1: f4E2M1FN) {
+  %0, %1, %2, %3, %4, %5 = func.call @base_f4_execute(%arg0, %arg1) : (f4E2M1FN, f4E2M1FN) -> (f4E2M1FN, f4E2M1FN, f4E2M1FN, f4E2M1FN, f4E2M1FN, f4E2M1FN)
+  executor.print "%s add_f4 %s = %s"(%arg0, %arg1, %0 : f4E2M1FN, f4E2M1FN, f4E2M1FN)
+  executor.print "%s sub_f4 %s = %s"(%arg0, %arg1, %1 : f4E2M1FN, f4E2M1FN, f4E2M1FN)
+  executor.print "%s mul_f4 %s = %s"(%arg0, %arg1, %2 : f4E2M1FN, f4E2M1FN, f4E2M1FN)
+  executor.print "%s div_f4 %s = %s"(%arg0, %arg1, %3 : f4E2M1FN, f4E2M1FN, f4E2M1FN)
+  executor.print "%s fmax_f4 %s = %s"(%arg0, %arg1, %4 : f4E2M1FN, f4E2M1FN, f4E2M1FN)
+  executor.print "%s fmin_f4 %s = %s"(%arg0, %arg1, %5 : f4E2M1FN, f4E2M1FN, f4E2M1FN)
+  return
+}
+
+func.func @unary_f4_execute(%arg0: f4E2M1FN) -> (f4E2M1FN, f4E2M1FN, f4E2M1FN, f4E2M1FN, f4E2M1FN, f4E2M1FN){
+  %0 = executor.negf %arg0 : f4E2M1FN
+  %1 = executor.sqrt %arg0 : f4E2M1FN
+  %2 = executor.log1p %arg0 : f4E2M1FN
+  %3 = executor.log10 %arg0 : f4E2M1FN
+  %4 = executor.tan %arg0 : f4E2M1FN
+  %5 = executor.exp %arg0 : f4E2M1FN
+  return %0, %1, %2, %3, %4, %5 : f4E2M1FN, f4E2M1FN, f4E2M1FN, f4E2M1FN, f4E2M1FN, f4E2M1FN
+}
+
+func.func @test_unary_f4(%arg0: f4E2M1FN){
+  %0, %1, %2, %3, %4, %5 = func.call @unary_f4_execute(%arg0) : (f4E2M1FN) -> (f4E2M1FN, f4E2M1FN, f4E2M1FN, f4E2M1FN, f4E2M1FN, f4E2M1FN)
+  executor.print "negative_f4 %s = %s"(%arg0, %0 : f4E2M1FN, f4E2M1FN)
+  executor.print "sqrt_f4 %s = %s"(%arg0, %1 : f4E2M1FN, f4E2M1FN)
+  executor.print "log1p_f4 %s = %s"(%arg0, %2 : f4E2M1FN, f4E2M1FN)
+  executor.print "log10_f4 %s = %s"(%arg0, %3 : f4E2M1FN, f4E2M1FN)
+  executor.print "tan_f4 %s = %s"(%arg0, %4 : f4E2M1FN, f4E2M1FN)
+  executor.print "exp_f4 %s = %s"(%arg0, %5 : f4E2M1FN, f4E2M1FN)
+  return
+}
+
+func.func @compare_f4_execute(%arg0: f4E2M1FN, %arg1: f4E2M1FN) -> (i1, i1, i1, i1, i1, i1, i1, i1, i1, i1, i1, i1, i1, i1, i1, i1){
+  %0 = executor.fcmp <_false> %arg0, %arg1 : f4E2M1FN
+  %1 = executor.fcmp <oeq> %arg0, %arg1 : f4E2M1FN
+  %2 = executor.fcmp <ogt> %arg0, %arg1 : f4E2M1FN
+  %3 = executor.fcmp <oge> %arg0, %arg1 : f4E2M1FN
+  %4 = executor.fcmp <olt> %arg0, %arg1 : f4E2M1FN
+  %5 = executor.fcmp <ole> %arg0, %arg1 : f4E2M1FN
+  %6 = executor.fcmp <one> %arg0, %arg1 : f4E2M1FN
+  %7 = executor.fcmp <ord> %arg0, %arg1 : f4E2M1FN
+  %8 = executor.fcmp <ueq> %arg0, %arg1 : f4E2M1FN
+  %9 = executor.fcmp <ugt> %arg0, %arg1 : f4E2M1FN
+  %10 = executor.fcmp <uge> %arg0, %arg1 : f4E2M1FN
+  %11 = executor.fcmp <ult> %arg0, %arg1 : f4E2M1FN
+  %12 = executor.fcmp <ule> %arg0, %arg1 : f4E2M1FN
+  %13 = executor.fcmp <une> %arg0, %arg1 : f4E2M1FN
+  %14 = executor.fcmp <uno> %arg0, %arg1 : f4E2M1FN
+  %15 = executor.fcmp <_true> %arg0, %arg1 : f4E2M1FN
+  return %0, %1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13, %14, %15 : i1, i1, i1, i1, i1, i1, i1, i1, i1, i1, i1, i1, i1, i1, i1, i1
+}
+
+func.func @test_compare_f4(%arg0: f4E2M1FN, %arg1: f4E2M1FN){
+  %0, %1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13, %14, %15 = func.call @compare_f4_execute(%arg0, %arg1) : (f4E2M1FN, f4E2M1FN) -> (i1, i1, i1, i1, i1, i1, i1, i1, i1, i1, i1, i1, i1, i1, i1, i1)
+  executor.print "comparison results for %s and %s"(%arg0, %arg1: f4E2M1FN, f4E2M1FN)
+  executor.print "false=%d, oeq=%d, ogt=%d, oge=%d, olt=%d, ole=%d, one=%d, ord=%d, ueq=%d, ugt=%d, uge=%d, ult=%d, ule=%d, une=%d, uno=%d, true=%d"
+    (%0, %1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13, %14, %15 : i1, i1, i1, i1, i1, i1, i1, i1, i1, i1, i1, i1, i1, i1, i1, i1)
+  return
+}
+
+func.func @test_f4(){
+  %0 = executor.constant 1.5 : f4E2M1FN
+  %1 = executor.constant 4.0 : f4E2M1FN
+  func.call @test_base_f4(%0, %1) : (f4E2M1FN, f4E2M1FN) -> ()
+  func.call @test_unary_f4(%1) : (f4E2M1FN) -> ()
+  func.call @test_compare_f4(%0, %1) : (f4E2M1FN, f4E2M1FN) -> ()
+  return
+}
+
 func.func @main() -> i64 {
   %ic0 = executor.constant 0 : i64
   %ic4 = executor.constant 4 : i64
@@ -1046,6 +1127,9 @@ func.func @main() -> i64 {
 
   // INT4 tests
   func.call @test_i4():()->()
+
+  // FP4 tests
+  func.call @test_f4():()->()
 
   // integer trunc tests
   executor.print "TEST: trunc i64 -> i32"()
@@ -1340,6 +1424,23 @@ func.func @main() -> i64 {
 //  CHECK-NEXT: sext i4 -3 to i8 -3
 //  CHECK-NEXT: sext i4 -3 to i16 -3
 //  CHECK-NEXT: sext i4 -3 to i32 -3
+
+// F4 Tests
+
+//  CHECK-NEXT: 1.5 add_f4 4 = 6
+//  CHECK-NEXT: 1.5 sub_f4 4 = -2
+//  CHECK-NEXT: 1.5 mul_f4 4 = 6
+//  CHECK-NEXT: 1.5 div_f4 4 = 0.5
+//  CHECK-NEXT: 1.5 fmax_f4 4 = 4
+//  CHECK-NEXT: 1.5 fmin_f4 4 = 1.5
+//  CHECK-NEXT: negative_f4 4 = -4
+//  CHECK-NEXT: sqrt_f4 4 = 2
+//  CHECK-NEXT: log1p_f4 4 = 1.5
+//  CHECK-NEXT: log10_f4 4 = 0.5
+//  CHECK-NEXT: tan_f4 4 = 1
+//  CHECK-NEXT: exp_f4 4 = 6
+// CHECK-LABEL: comparison results for 1.5 and 4
+//  CHECK-NEXT: false=0, oeq=0, ogt=0, oge=0, olt=1, ole=1, one=1, ord=1, ueq=0, ugt=0, uge=0, ult=1, ule=1, une=1, uno=0, true=1
 
 // CHECK-LABEL: TEST: trunc i64 -> i32
 //  CHECK-NEXT: trunci i64 0xffffffff to i32 = -1

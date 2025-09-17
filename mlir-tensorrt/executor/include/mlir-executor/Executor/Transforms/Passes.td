@@ -129,7 +129,7 @@ def ExecutorLowerToRuntimeBuiltinsPass :
     Option<"target", "target", "std::string", "\"lua\"",
       "a target which helps identify which ops must be lowered to calls">,
     Option<"indexBitwidth", "index-bitwidth", "int64_t", "64",
-      "all index types will be converted to signless integers of this bitwidth">    
+      "all index types will be converted to signless integers of this bitwidth">
   ];
 }
 
@@ -170,6 +170,38 @@ def ExecutorAllocsToGlobalsPass : ModuleLikePass<"executor-allocs-to-globals"> {
     allocation and deallocation of the temporary buffers out of the function
     execution codepath.
   }];
+
+  let dependentDialects = [
+    "::mlir::executor::ExecutorDialect"
+  ];
+}
+
+//===----------------------------------------------------------------------===//
+// ExecutorEmulateUnsupportedFloatsPass
+//===----------------------------------------------------------------------===//
+def ExecutorEmulateUnsupportedFloatsPass :
+        ModuleLikePass<"executor-emulate-unsupported-floats"> {
+  let summary = "Emulate executor dialect operations for unsupported floats";
+  let description = [{
+    The Executor dialect doesn't provide runtime implementation of its operations
+    for low-precision quantized float types such as `f4E2M1FN`. This pass emulates
+    computations on the `f4E2M1FN` type using `f16`. Function boundaries maintain
+    the `f4E2M1FN` type, while materialization between `f4E2M1FN` ↔ `f16` occurs
+    via the executor's `extf` and `truncf` ops.
+
+    Constant-like ops of type `f4E2M1FN` are converted to `f16` ops.
+
+    The emulation target type is fixed as half-precision (f16). The option
+    `unsupportedSourceTypes` can be used to specify unsupported executor runtime
+    types. If no option is provided, `f4E2M1FN` is added by default, as it
+    is not supported by the executor runtime.
+
+  }];
+
+  let options = [
+    ListOption<"unsupportedSourceTypes", "unsupported-source-types", "std::string",
+    "MLIR types without executor runtime support">,
+  ];
 
   let dependentDialects = [
     "::mlir::executor::ExecutorDialect"
