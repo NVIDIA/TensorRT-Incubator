@@ -30,12 +30,12 @@
 #include "mlir-tensorrt-common/Support/Status.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/IntrusiveRefCntPtr.h"
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/StringSet.h"
 #include "llvm/Support/MemoryBuffer.h"
-#include <atomic>
 #include <complex>
 #include <memory>
 #include <string_view>
@@ -44,110 +44,11 @@ namespace mlirtrt::runtime {
 
 class RuntimeClient;
 
-//===----------------------------------------------------------------------===//
-// Intrusive Reference Counting Classes
-//===----------------------------------------------------------------------===//
-
-/// Example usage:
-///
-/// ```cpp
-/// #include <iostream>
-/// class MyObject : public RefCounted<MyObject> {
-/// public:
-///     MyObject(int v) : value(v) {
-///         std::cout << "MyObject(" << value << ") constructed\n";
-///     }
-///     ~MyObject() {
-///         std::cout << "MyObject(" << value << ") destroyed\n";
-///     }
-///     void greet() const {
-///         std::cout << "Hello from " << value << "\n";
-///     }
-/// private:
-///     int value;
-/// };
-/// int main() {
-///     Ref<MyObject> a(new MyObject(42));
-///     {
-///         Ref<MyObject> b = a;
-///         b->greet(); // "Hello from 42"
-///     } // b goes out of scope
-///     a->greet();   // still alive
-/// } // a goes out of scope, MyObject destroyed
-/// ```
-
-template <typename Derived>
-class RefCounted {
-public:
-  void incRef() noexcept { ref_count_.fetch_add(1, std::memory_order_relaxed); }
-
-  void decRef() noexcept {
-    if (ref_count_.fetch_sub(1, std::memory_order_acq_rel) == 1) {
-      delete static_cast<Derived *>(this);
-    }
-  }
-
-  unsigned getRefCount() const {
-    return ref_count_.load(std::memory_order_relaxed);
-  }
-
-protected:
-  RefCounted() noexcept : ref_count_(0) {}
-  ~RefCounted() = default;
-
-private:
-  std::atomic<int> ref_count_;
-};
+template <typename T>
+using RefCounted = llvm::ThreadSafeRefCountedBase<T>;
 
 template <typename T>
-class Ref {
-public:
-  explicit Ref(T *ptr = nullptr) noexcept : ptr_(ptr) {
-    if (ptr_)
-      ptr_->incRef();
-  }
-
-  Ref(const Ref &other) noexcept : ptr_(other.ptr_) {
-    if (ptr_)
-      ptr_->incRef();
-  }
-
-  Ref(Ref &&other) noexcept : ptr_(other.ptr_) { other.ptr_ = nullptr; }
-
-  Ref &operator=(const Ref &other) noexcept {
-    if (this != &other) {
-      if (ptr_)
-        ptr_->decRef();
-      ptr_ = other.ptr_;
-      if (ptr_)
-        ptr_->incRef();
-    }
-    return *this;
-  }
-
-  Ref &operator=(Ref &&other) noexcept {
-    if (this != &other) {
-      if (ptr_)
-        ptr_->decRef();
-      ptr_ = other.ptr_;
-      other.ptr_ = nullptr;
-    }
-    return *this;
-  }
-
-  ~Ref() {
-    if (ptr_)
-      ptr_->decRef();
-  }
-
-  T *get() const noexcept { return ptr_; }
-  T &operator*() const noexcept { return *ptr_; }
-  T *operator->() const noexcept { return ptr_; }
-  explicit operator bool() const noexcept { return ptr_ != nullptr; }
-
-private:
-  T *ptr_;
-};
+using Ref = llvm::IntrusiveRefCntPtr<T>;
 
 //===----------------------------------------------------------------------===//
 // ScalarType
@@ -1045,7 +946,7 @@ public:
   Ref<RuntimeClient> getClient() const { return storage->getClient(); }
 
   /// Return the reference count of the underlying storage.
-  unsigned getStorageRefCount() const { return storage->getRefCount(); }
+  unsigned getStorageRefCount() const { return storage->UseCount(); }
 
   /// Return a new MemRefValue that references the same storage as this one.
   /// The reference count of the storage is incremented.
