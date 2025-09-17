@@ -40,6 +40,9 @@ Status setCurrentCUDADevice(int32_t deviceNumber);
 /// Wrapper around `cudaGetDeviceCount`.
 StatusOr<int32_t> getCUDADeviceCount();
 
+/// Convenience helper to initialize the CUDA runtime (calls cudaFree(0)).
+Status warmupCUDA();
+
 /// Wrapper around `cudaStreamCreateWithFlags` to create a non-blocking stream.
 StatusOr<uintptr_t> createCUDAStream();
 
@@ -94,6 +97,10 @@ StatusOr<bool> queryCUDAEvent(uintptr_t event);
 /// Wrapper around `cudaEventElapsedTime`. Returns milliseconds between events.
 StatusOr<float> getCUDAEventElapsedTimeMs(uintptr_t startEvent,
                                           uintptr_t endEvent);
+
+/// CUDA device properties helpers
+/// Wrapper to retrieve device name via cudaGetDeviceProperties.
+StatusOr<std::string> getCUDADeviceName(int32_t deviceNumber);
 
 /// CUDA Memory API wrappers
 /// Wrapper around `cudaMalloc`. Returns device pointer.

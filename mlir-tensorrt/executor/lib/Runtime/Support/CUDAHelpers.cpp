@@ -61,6 +61,17 @@ StatusOr<int32_t> getCUDADeviceCount() {
 #endif
 }
 
+Status warmupCUDA() {
+#ifdef MLIR_TRT_ENABLE_CUDA
+  // Trigger CUDA runtime initialization.
+  cudaError_t e = cudaFree(nullptr);
+  RETURN_ERROR_IF_CUDART_ERROR(e);
+  return getOkStatus();
+#else
+  return getInternalErrorStatus("runtime not compiled with CUDA enabled");
+#endif
+}
+
 StatusOr<uintptr_t> createCUDAStream() {
 #ifdef MLIR_TRT_ENABLE_CUDA
   cudaStream_t stream;
@@ -273,6 +284,16 @@ StatusOr<float> getCUDAEventElapsedTimeMs(uintptr_t startEvent,
   CUDA_DBGV("getCUDAEventElapsedTimeMs: start={0:X} end={1:X} -> {2}",
             startEvent, endEvent, ms);
   return ms;
+#else
+  return getInternalErrorStatus("runtime not compiled with CUDA enabled");
+#endif
+}
+
+StatusOr<std::string> getCUDADeviceName(int32_t deviceNumber) {
+#ifdef MLIR_TRT_ENABLE_CUDA
+  cudaDeviceProp prop{};
+  RETURN_ERROR_IF_CUDART_ERROR(cudaGetDeviceProperties(&prop, deviceNumber));
+  return std::string(prop.name);
 #else
   return getInternalErrorStatus("runtime not compiled with CUDA enabled");
 #endif
