@@ -324,15 +324,16 @@ MLIR_CAPI_EXPORTED MTRT_Status mtrtStreamGetPointer(MTRT_Stream stream,
 // MTRT_MemRefValue
 //===----------------------------------------------------------------------===//
 
-MTRT_Status
-mtrtMemRefCreate(MTRT_RuntimeClient client, MTRT_PointerType pointerKind,
-                 int64_t bitsPerElement, int64_t rank, const int64_t *shape,
-                 const int64_t *strides, MTRT_Device device, MTRT_Stream stream,
-                 MTRT_ScalarTypeCode scalarType, MTRT_MemRefValue *result,
-                 bool assertCanonicalStrides) {
+MTRT_Status mtrtMemRefCreate(MTRT_RuntimeClient client,
+                             MTRT_PointerType pointerKind,
+                             MTRT_ScalarTypeCode scalarType, int64_t rank,
+                             const int64_t *shape, const int64_t *strides,
+                             MTRT_Device device, MTRT_Stream stream,
+                             MTRT_MemRefValue *result,
+                             bool assertCanonicalStrides) {
   StatusOr<std::unique_ptr<MemRefValue>> bufferImpl =
       unwrap(client)->ref->allocateMemRef(
-          unwrap(pointerKind), bitsPerElement,
+          unwrap(pointerKind), unwrap(scalarType),
           llvm::ArrayRef(shape, shape + rank),
           llvm::ArrayRef(strides, strides + rank),
           mtrtDeviceIsNull(device) ? std::nullopt
@@ -340,9 +341,6 @@ mtrtMemRefCreate(MTRT_RuntimeClient client, MTRT_PointerType pointerKind,
           mtrtStreamIsNull(stream)
               ? std::nullopt
               : std::optional(unwrap(stream)->getRawStream()),
-          scalarType != MTRT_ScalarTypeCode::MTRT_ScalarTypeCode_unknown
-              ? std::optional(ScalarType(unwrap(scalarType)))
-              : std::nullopt,
           std::optional(assertCanonicalStrides));
 
   if (bufferImpl.isError())
@@ -368,20 +366,17 @@ unwrapDestroyCallback(MTRT_MemRefDestroyCallback callback) {
 
 MTRT_Status mtrtMemRefCreateExternal(
     MTRT_RuntimeClient client, MTRT_PointerType pointerKind,
-    int64_t bitsPerElement, uintptr_t ptr, int64_t offset, int64_t rank,
+    MTRT_ScalarTypeCode scalarType, uintptr_t ptr, int64_t offset, int64_t rank,
     const int64_t *shape, const int64_t *strides, MTRT_Device device,
-    MTRT_ScalarTypeCode scalarType, MTRT_MemRefValue *result,
-    bool assertCanonicalStrides, MTRT_MemRefDestroyCallback destroyCallback) {
+    MTRT_MemRefValue *result, bool assertCanonicalStrides,
+    MTRT_MemRefDestroyCallback destroyCallback) {
   StatusOr<std::unique_ptr<MemRefValue>> bufferImpl =
       unwrap(client)->ref->createExternalMemRef(
-          unwrap(pointerKind), bitsPerElement, ptr, offset,
+          unwrap(pointerKind), unwrap(scalarType), ptr, offset,
           llvm::ArrayRef(shape, shape + rank),
           llvm::ArrayRef(strides, strides + rank),
           mtrtDeviceIsNull(device) ? std::nullopt
                                    : std::optional(unwrap(device)),
-          scalarType == MTRT_ScalarTypeCode_unknown
-              ? std::nullopt
-              : std::optional(ScalarType(unwrap(scalarType))),
           std::optional(assertCanonicalStrides),
           unwrapDestroyCallback(std::move(destroyCallback)));
 
@@ -424,7 +419,7 @@ MTRT_Status mtrtMemRefValueGetInfo(MTRT_MemRefValue memref,
   result.ptr = cppMemRef->getMemory();
   result.rank = cppMemRef->getRank();
   result.bitsPerElement = cppMemRef->getElementBitWidth();
-  result.offset = cppMemRef->getOffset();
+  result.offset = cppMemRef->getLayout().getOffset();
   result.shape = cppMemRef->getShape().data();
   result.strides = cppMemRef->getStrides().data();
   result.addressSpace = wrap(cppMemRef->getBufferKind());

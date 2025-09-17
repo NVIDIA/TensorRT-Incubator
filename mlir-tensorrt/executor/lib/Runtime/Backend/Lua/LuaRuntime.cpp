@@ -432,11 +432,12 @@ static Status pushMemRefTableArg(sol::state_view &lua, AllocTracker &tracker,
 
   std::vector<sol::object> memrefTable;
   memrefTable.reserve(3 + 2 * value.getRank());
-  llvm::append_range(memrefTable, llvm::ArrayRef<sol::object>{
-                                      sol::make_object(lua, ptr),
-                                      sol::make_object(lua, ptr),
-                                      sol::make_object(lua, value.getOffset()),
-                                  });
+  llvm::append_range(memrefTable,
+                     llvm::ArrayRef<sol::object>{
+                         sol::make_object(lua, ptr),
+                         sol::make_object(lua, ptr),
+                         sol::make_object(lua, value.getLayout().getOffset()),
+                     });
 
   // Push shape/strides.
   for (int64_t dim : value.getShape())
@@ -514,12 +515,12 @@ static Status validateArgsTypesAgainstFuncArgs(const RuntimeValue *runArg,
     auto view = sigArg.get<MemRefTypeView>();
     auto value = static_cast<const MemRefValue *>(runArg);
 
-    if (view.getElementType() != *value->getScalarType())
+    if (view.getElementType() != value->getScalarType())
       return getInvalidArgStatus(
           "function expects a memref type with element type {0} but "
           "receieved {1}",
           view.getElementType().getStrRef(),
-          value->getScalarType()->getStrRef());
+          value->getScalarType().getStrRef());
 
     if (view.getRank() != value->getRank())
       return getInvalidArgStatus(
@@ -690,6 +691,7 @@ parseResults(const sol::protected_function_result &pfr,
     uintptr_t allocPtr = reader.getNextValue<uintptr_t>();
     [[maybe_unused]] uintptr_t alignedPtr = reader.getNextValue<uintptr_t>();
     int64_t offset = reader.getNextValue<int64_t>();
+    assert(offset == 0 && "expected offset to be 0");
 
     unsigned rank = memRefView.getRank();
     llvm::SmallVector<int64_t, 4> shape(rank);
@@ -723,10 +725,10 @@ parseResults(const sol::protected_function_result &pfr,
     if (!storage.isOk())
       return storage.getStatus();
 
-    auto memref = MemRefValue::create(
-        memRefView.getAddressSpace(), memRefView.getElementType().getBitWidth(),
-        std::move(*storage), offset, shape, strides,
-        client.getDevices()[0].get(), memRefView.getElementType());
+    auto memref = MemRefValue::create(memRefView.getAddressSpace(),
+                                      memRefView.getElementType(),
+                                      std::move(*storage), offset, shape,
+                                      strides, client.getDevices()[0].get());
     if (!memref.isOk())
       return memref.getStatus();
 

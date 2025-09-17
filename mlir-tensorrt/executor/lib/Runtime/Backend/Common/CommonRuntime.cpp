@@ -1,6 +1,6 @@
 //===- CommonRuntime.cpp  -------------------------------------------------===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -18,10 +18,6 @@
 //
 //===----------------------------------------------------------------------===//
 #include "mlir-executor/Runtime/Backend/Common/CommonRuntime.h"
-#include "mlir-executor/Runtime/API/API.h"
-#include "mlir-executor/Runtime/Backend/Common/NvPtxCompilerUtils.h"
-#include "mlir-tensorrt-common/Support/Status.h"
-#include "llvm/ADT/StringRef.h"
 
 using namespace mlirtrt;
 namespace mrt = mlirtrt::runtime;
@@ -33,16 +29,15 @@ void mrt::executeStridedCopy(
     uintptr_t dst, int64_t dstOffset, const std::vector<int64_t> &dstShape,
     std::vector<int64_t> &dstStrides,
     std::function<void(void *dst, void *src, size_t size)> memcpyFunc) {
+  const int64_t rank = srcShape.size();
   // Handle edge case of empty source tensor.
-  if (std::all_of(srcShape.begin(), srcShape.end(),
-                  [](int64_t dimSize) { return dimSize == 0; }))
+  if (rank > 0 && llvm::find(srcShape, 0) != srcShape.end())
     return;
 
   char *srcPtr = reinterpret_cast<char *>(src + srcOffset * elemSize);
   char *dstPtr = reinterpret_cast<char *>(dst + dstOffset * elemSize);
 
   // Handle edge case of rank-0 tensor.
-  int64_t rank = srcShape.size();
   if (rank == 0) {
     memcpyFunc(dstPtr, srcPtr, elemSize);
     return;
@@ -84,16 +79,16 @@ void mrt::executeStridedByteCopy(
     int64_t dstOffsetBytes, const std::vector<int64_t> &dstShape,
     const std::vector<int64_t> &dstByteStrides, size_t elemSizeBytes,
     std::function<void(void *dst, void *src, size_t size)> memcpyFunc) {
+  const int64_t rank = srcShape.size();
+
   // Handle edge case of empty source tensor.
-  if (std::all_of(srcShape.begin(), srcShape.end(),
-                  [](int64_t dimSize) { return dimSize == 0; }))
+  if (rank > 0 && llvm::find(srcShape, 0) != srcShape.end())
     return;
 
   char *srcPtr = reinterpret_cast<char *>(src + srcOffsetBytes);
   char *dstPtr = reinterpret_cast<char *>(dst + dstOffsetBytes);
 
   // Handle edge case of rank-0 tensor.
-  int64_t rank = srcShape.size();
   if (rank == 0) {
     memcpyFunc(dstPtr, srcPtr, elemSizeBytes);
     return;

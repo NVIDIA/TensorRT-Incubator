@@ -18,19 +18,23 @@
 //
 //===----------------------------------------------------------------------===//
 #include "mlir-executor/Runtime/API/API.h"
+#include "mlir-executor/Runtime/API/Executable.h"
 #include "mlir-executor/Runtime/API/ExecutableFlatbuffer.h"
 #include "mlir-executor/Runtime/Support/CUDAHelpers.h"
 #include "mlir-executor/Runtime/Support/Support.h"
 #include "mlir-executor/Support/Allocators.h"
 #include "mlir-tensorrt-common/Support/Status.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/Sequence.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/Threading.h"
+#include "llvm/Support/raw_ostream.h"
 #include <cstddef>
 #include <cstdlib>
+#include <numeric>
 
 #ifdef MLIR_TRT_ENABLE_NCCL
 #define OMPI_SKIP_MPICXX
@@ -114,6 +118,24 @@ int64_t rt::ScalarType::getBitWidth() const {
   int64_t result = getBitsPerElement(code);
   assert(result != 0 && "expected positive bitwidth");
   return result;
+}
+
+StatusOr<ScalarTypeCode>
+rt::ScalarType::getIntegerTypeWithBitWidth(int64_t bitWidth) {
+  switch (bitWidth) {
+  case 4:
+    return ScalarTypeCode::i4;
+  case 8:
+    return ScalarTypeCode::i8;
+  case 16:
+    return ScalarTypeCode::i16;
+  case 32:
+    return ScalarTypeCode::i32;
+  case 64:
+    return ScalarTypeCode::i64;
+  }
+  return getInvalidArgStatus("unknown integer type with bit width ({0})",
+                             bitWidth);
 }
 
 //===----------------------------------------------------------------------===//
@@ -607,8 +629,8 @@ struct CUDAGPUDeviceGuard final : public DeviceGuard {
     int32_t originalDeviceNumber = *currentDevice;
     Status setDeviceStatus = setCurrentCUDADevice(deviceNumber);
     RETURN_STATUS_IF_ERROR(setDeviceStatus.getStatus());
-    CUDA_DBGV("CUDAGPUDeviceGuard: original={0} new={1}", originalDeviceNumber,
-              deviceNumber);
+    MTRT_DBG("CUDAGPUDeviceGuard: original={0} new={1}", originalDeviceNumber,
+             deviceNumber);
     return std::unique_ptr<DeviceGuard>(
         new CUDAGPUDeviceGuard(originalDeviceNumber));
   }
@@ -616,8 +638,8 @@ struct CUDAGPUDeviceGuard final : public DeviceGuard {
   ~CUDAGPUDeviceGuard() {
     if (originalDeviceNumber < 0)
       return;
-    CUDA_DBGV("CUDAGPUDeviceGuard: restoring original device {0}",
-              originalDeviceNumber);
+    MTRT_DBG("CUDAGPUDeviceGuard: restoring original device {0}",
+             originalDeviceNumber);
     Status setDeviceStatus = setCurrentCUDADevice(originalDeviceNumber);
     if (!setDeviceStatus.isOk())
       llvm::report_fatal_error(setDeviceStatus.getStatus().getString().c_str());
@@ -690,6 +712,189 @@ void ScalarValue::cleanup() {
       delete static_cast<std::complex<double> *>(data.complex);
     }
   }
+}
+
+//===----------------------------------------------------------------------===//
+// BufferType
+//===----------------------------------------------------------------------===//
+
+BufferType
+BufferType::createWithByteStrides(mlirtrt::runtime::ScalarType elementType,
+                                  const std::vector<int64_t> &shape,
+                                  const std::vector<int64_t> &byteStrides,
+                                  mlirtrt::runtime::PointerType addressSpace) {
+  BufferType result;
+  result.elementType = elementType.getCode();
+  result.shape = shape;
+
+  result.addressSpace = addressSpace;
+  std::vector<int64_t> strides;
+  int64_t bytesPerElement = llvm::divideCeil(elementType.getBitWidth(), 8);
+  for (int64_t s : byteStrides) {
+    assert(s % bytesPerElement == 0 &&
+           "expected stride to be a multiple of the element size");
+    result.layout.strides.push_back(s / bytesPerElement);
+  }
+
+  return result;
+}
+
+BufferType BufferType::createWithElementStrides(
+    mlirtrt::runtime::ScalarType elementType, const std::vector<int64_t> &shape,
+    const std::vector<int64_t> &elementStrides,
+    mlirtrt::runtime::PointerType addressSpace) {
+  BufferType result;
+  result.elementType = elementType.getCode();
+  result.shape = shape;
+  result.layout.strides = elementStrides;
+
+  result.addressSpace = addressSpace;
+
+  return result;
+}
+
+static std::vector<int64_t>
+getCanonicalRowMajorByteStrides(const rt::ScalarType &elType,
+                                const std::vector<int64_t> &shape) {
+  if (shape.empty())
+    return {};
+  if (llvm::any_of(shape, [](int64_t v) { return v == 0; }))
+    return std::vector<int64_t>(shape.size(), 0);
+  // Compute reverse suffix product for strides.
+  size_t sizeBytes = llvm::divideCeil(elType.getBitWidth(), 8);
+  std::vector<int64_t> strides(shape.size());
+  int64_t stride = sizeBytes;
+  for (int64_t i = static_cast<int64_t>(shape.size()) - 1; i >= 0; --i) {
+    strides[i] = stride;
+    stride *= shape[i];
+  }
+  return strides;
+}
+
+BufferType BufferType::createWithCanonicalLayout(
+    mlirtrt::runtime::ScalarType elementType, const std::vector<int64_t> &shape,
+    mlirtrt::runtime::PointerType addressSpace) {
+
+  return BufferType::createWithByteStrides(
+      elementType, shape, getCanonicalRowMajorByteStrides(elementType, shape),
+      addressSpace);
+}
+
+bool BufferType::hasStaticShape() const {
+  return llvm::all_of(
+      shape, [](int64_t v) { return v != mlirtrt::runtime::kDynamicSize; });
+}
+
+int64_t BufferType::getNumElements() const {
+  return std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
+}
+
+BufferType BufferType::getFromSerializedType(const rt::MemRefTypeView &type) {
+  return BufferType::createWithElementStrides(
+      type.getElementType(), type.getShape(), type.getStrides(),
+      type.getAddressSpace());
+}
+
+bool BufferType::isCanonicalRowMajor() const {
+  if (llvm::any_of(shape, [](int64_t v) { return v == 0; }))
+    return true;
+  const std::vector<int64_t> byteStrides = getByteStrides();
+  if (byteStrides.size() > 0) {
+    int64_t stride =
+        llvm::divideCeil(rt::ScalarType(elementType).getBitWidth(), 8);
+    assert(stride > 0 && "expected stride >= 1");
+    for (int64_t i = layout.strides.size() - 1; i >= 0; --i) {
+      if (byteStrides[i] != stride)
+        return false;
+      stride *= shape[i];
+    }
+  }
+  return true;
+}
+
+bool BufferType::isCanonicalColMajor() const {
+  if (llvm::any_of(getShape(), [](int64_t v) { return v == 0; }))
+    return true;
+  const std::vector<int64_t> byteStrides = getByteStrides();
+  if (getRank() > 0) {
+    int64_t stride =
+        llvm::divideCeil(rt::ScalarType(elementType).getBitWidth(), 8);
+    assert(stride > 0 && "expected stride >= 1");
+    for (unsigned i = 0; i < byteStrides.size(); i++) {
+      if (byteStrides[i] != stride)
+        return false;
+      stride *= getShape()[i];
+    }
+  }
+  return true;
+}
+
+std::vector<int64_t> BufferType::getByteStrides() const {
+  std::vector<int64_t> byteStrides(layout.strides.size());
+  unsigned bytesPerElement =
+      llvm::divideCeil(rt::ScalarType(elementType).getBitWidth(), 8);
+  for (unsigned i = 0, e = layout.strides.size(); i < e; i++)
+    byteStrides[i] = layout.strides[i] * bytesPerElement;
+  return byteStrides;
+}
+
+bool BufferType::isCanonicalPacked() const {
+  return isCanonicalRowMajor() || isCanonicalColMajor();
+}
+
+static StatusOr<int64_t> getFootprintInBytes(llvm::ArrayRef<int64_t> shape,
+                                             llvm::ArrayRef<int64_t> strides,
+                                             int64_t bitsPerElement) {
+  assert(shape.size() == strides.size() &&
+         "expected equal rank shape and strides");
+  if (llvm::find(shape, 0) != shape.end())
+    return 0;
+  if (!llvm::all_of(strides, [](int64_t x) { return x >= 0; }))
+    return getInvalidArgStatus("only positive strides are supported");
+
+  int64_t elementByteSize = llvm::divideCeil(bitsPerElement, 8);
+  int64_t sizeBytes = elementByteSize;
+  if (shape.empty())
+    return sizeBytes;
+
+  // Add the offset for the element positioned furthest away.
+  for (auto [dimExtent, stride] : llvm::zip_equal(shape, strides))
+    sizeBytes += (dimExtent - 1) * stride * elementByteSize;
+
+  return sizeBytes;
+}
+
+size_t BufferType::getFootprintSizeInBytes() const {
+  auto shape = getShape();
+  assert(hasStaticShape() && "expected static shape");
+  StatusOr<int64_t> sizeBytes = getFootprintInBytes(
+      shape, layout.strides, rt::ScalarType(elementType).getBitWidth());
+  assert(sizeBytes.isOk() && "expected valid size bytes");
+  return *sizeBytes;
+}
+
+std::string BufferStridedLayout::toString() const {
+  std::string str = "layout<";
+  llvm::raw_string_ostream ss(str);
+  ss << "offset=" << offset << ", strides=[";
+  llvm::interleaveComma(strides, ss);
+  ss << "]>";
+  return str;
+}
+
+std::ostream &runtime::operator<<(std::ostream &os, const BufferType &t) {
+  os << "buffer<";
+  for (auto x : t.getShape())
+    os << x << "x";
+  os << rt::impl::EnumNameScalarTypeCode(t.getElementType().getCode());
+  os << ", " << t.getLayout().toString() << ">";
+  return os;
+}
+
+std::string BufferType::toString() const {
+  std::stringstream ss;
+  ss << *this;
+  return ss.str();
 }
 
 //===----------------------------------------------------------------------===//
@@ -784,26 +989,6 @@ ViewMemRefStorage::~ViewMemRefStorage() {
     destroyCallback();
 }
 
-static StatusOr<int64_t> getFootprintInBytes(llvm::ArrayRef<int64_t> shape,
-                                             llvm::ArrayRef<int64_t> strides,
-                                             int64_t bitsPerElement) {
-  assert(shape.size() == strides.size() &&
-         "expected equal rank shape and strides");
-  if (llvm::any_of(strides, [](int64_t x) { return x < 0; }))
-    return getInvalidArgStatus("only positive strides are supported");
-
-  int64_t elementByteSize = llvm::divideCeil(bitsPerElement, 8);
-  int64_t sizeBytes = elementByteSize;
-  if (shape.empty())
-    return sizeBytes;
-
-  // Add the offset for the element positioned furthest away.
-  for (auto [dimExtent, stride] : llvm::zip_equal(shape, strides))
-    sizeBytes += (dimExtent - 1) * stride * elementByteSize;
-
-  return sizeBytes;
-}
-
 static llvm::SmallVector<int64_t>
 getCanonicalStride(const llvm::ArrayRef<int64_t> &shape) {
   if (shape.empty())
@@ -847,15 +1032,16 @@ static bool areStridesEquivalent(llvm::ArrayRef<int64_t> shape,
 }
 
 StatusOr<std::unique_ptr<MemRefValue>> MemRefValue::create(
-    mlirtrt::runtime::PointerType addressSpace, int64_t bitsPerElement,
+    mlirtrt::runtime::PointerType addressSpace, ScalarTypeCode elementType,
     Ref<MemRefStorage> storage, int64_t offset, llvm::ArrayRef<int64_t> shape,
     llvm::ArrayRef<int64_t> strides, std::optional<const Device *> device,
-    std::optional<ScalarType> scalarType,
     std::optional<bool> assertCanonicalStrides) {
   if (!storage->getClient())
     return getInvalidArgStatus("a valid RuntimeClient must be provided to "
                                "create a tracked MemRef object");
-  if (!::getFootprintInBytes(shape, strides, bitsPerElement).isOk())
+  if (!::getFootprintInBytes(shape, strides,
+                             ScalarType(elementType).getBitWidth())
+           .isOk())
     return getInvalidArgStatus(
         "only memrefs with non-negative strides are allowed");
 
@@ -887,29 +1073,22 @@ StatusOr<std::unique_ptr<MemRefValue>> MemRefValue::create(
   }
 
   return std::unique_ptr<MemRefValue>(
-      new MemRefValue(addressSpace, bitsPerElement, std::move(storage), offset,
-                      shape, strides, device, scalarType));
+      new MemRefValue(addressSpace, elementType, std::move(storage), offset,
+                      shape, strides, device));
 }
 
 MemRefValue::MemRefValue(mlirtrt::runtime::PointerType addressSpace,
-                         int64_t bitsPerElement, Ref<MemRefStorage> storage,
+                         ScalarTypeCode elementType, Ref<MemRefStorage> storage,
                          int64_t offset, llvm::ArrayRef<int64_t> shape,
                          llvm::ArrayRef<int64_t> strides,
-                         std::optional<const Device *> device,
-                         std::optional<ScalarType> scalarType)
-    : RuntimeValue(Kind::MemRef), addressSpace(addressSpace),
-      bitsPerElement(bitsPerElement), storage(std::move(storage)),
-      offsetInBytes(offset), shape(shape.begin(), shape.end()),
-      strides(strides.begin(), strides.end()), device(device),
-      scalarType(scalarType) {}
+                         std::optional<const Device *> device)
+    : RuntimeValue(Kind::MemRef), storage(std::move(storage)), device(device) {
+  assert(offset == 0 && "offset must be 0");
+  type = BufferType(elementType, shape, strides, addressSpace);
+}
 
 int64_t MemRefValue::getTotalFootprintInBytes() const {
-  StatusOr<int64_t> result =
-      getFootprintInBytes(shape, strides, bitsPerElement);
-  // Failing the calculation at this point is unexpected and not recoverable.
-  if (!result.isOk())
-    llvm_unreachable("invalid stride specification in memref");
-  return *result;
+  return type.getFootprintSizeInBytes();
 }
 
 //===----------------------------------------------------------------------===//
@@ -1077,10 +1256,9 @@ llvm::ArrayRef<std::unique_ptr<Device>> RuntimeClient::getDevices() const {
 }
 
 StatusOr<std::unique_ptr<MemRefValue>> RuntimeClient::allocateMemRef(
-    PointerType addressSpace, int64_t bitsPerElement,
+    PointerType addressSpace, ScalarTypeCode elementType,
     llvm::ArrayRef<int64_t> shape, llvm::ArrayRef<int64_t> strides,
     std::optional<const Device *> device, std::optional<CudaStream> stream,
-    std::optional<ScalarType> scalarType,
     std::optional<bool> assertCanonicalStrides) {
   if (addressSpace == PointerType::device ||
       addressSpace == PointerType::unified) {
@@ -1088,6 +1266,8 @@ StatusOr<std::unique_ptr<MemRefValue>> RuntimeClient::allocateMemRef(
       return getInvalidArgStatus(
           "a specific device must be specified when creating a device buffer");
   }
+
+  int64_t bitsPerElement = ScalarType(elementType).getBitWidth();
 
   // Allocate required memory.
   StatusOr<int64_t> allocationSizeBytes =
@@ -1102,8 +1282,8 @@ StatusOr<std::unique_ptr<MemRefValue>> RuntimeClient::allocateMemRef(
 
   // Create the descriptor.
   StatusOr<std::unique_ptr<MemRefValue>> bufferImpl = MemRefValue::create(
-      addressSpace, bitsPerElement, std::move(*storage), 0, shape, strides,
-      device, scalarType, assertCanonicalStrides);
+      addressSpace, elementType, std::move(*storage), /*offset=*/0, shape,
+      strides, device, assertCanonicalStrides);
   if (bufferImpl.isError())
     return bufferImpl.getStatus();
 
@@ -1111,10 +1291,9 @@ StatusOr<std::unique_ptr<MemRefValue>> RuntimeClient::allocateMemRef(
 }
 
 StatusOr<std::unique_ptr<MemRefValue>> RuntimeClient::createExternalMemRef(
-    PointerType addressSpace, int64_t bitsPerElement, uintptr_t ptr,
+    PointerType addressSpace, ScalarTypeCode elementType, uintptr_t ptr,
     int64_t offset, llvm::ArrayRef<int64_t> shape,
     llvm::ArrayRef<int64_t> strides, std::optional<const Device *> device,
-    std::optional<ScalarType> scalarType,
     std::optional<bool> assertCanonicalStrides,
     std::function<void()> destroyCallback) {
 
@@ -1125,8 +1304,8 @@ StatusOr<std::unique_ptr<MemRefValue>> RuntimeClient::createExternalMemRef(
 
   // Create the descriptor.
   StatusOr<std::unique_ptr<MemRefValue>> memref = MemRefValue::create(
-      addressSpace, bitsPerElement, std::move(*storage), offset, shape, strides,
-      device, scalarType, assertCanonicalStrides);
+      addressSpace, elementType, std::move(*storage), offset, shape, strides,
+      device, assertCanonicalStrides);
   if (!memref.isOk())
     return memref.getStatus();
 
@@ -1143,10 +1322,9 @@ RuntimeClient::copyHostToHost(const MemRefValue &hostBuffer) {
   int64_t totalBufferSize = hostBuffer.getTotalFootprintInBytes();
 
   // Allocate a new host MemRef
-  StatusOr<std::unique_ptr<MemRefValue>> hostMemRef =
-      allocateMemRef(PointerType::host, hostBuffer.getElementBitWidth(),
-                     hostBuffer.getShape(), hostBuffer.getStrides(),
-                     std::nullopt, std::nullopt, hostBuffer.getScalarType());
+  StatusOr<std::unique_ptr<MemRefValue>> hostMemRef = allocateMemRef(
+      PointerType::host, hostBuffer.getScalarType(), hostBuffer.getShape(),
+      hostBuffer.getStrides(), std::nullopt, std::nullopt);
   if (!hostMemRef.isOk())
     return hostMemRef.getStatus();
 
@@ -1177,9 +1355,9 @@ RuntimeClient::copyToDevice(const MemRefValue &hostBufferImpl,
 
   // Allocate device memory
   StatusOr<std::unique_ptr<MemRefValue>> deviceMemRef =
-      allocateMemRef(PointerType::device, hostBufferImpl.getElementBitWidth(),
+      allocateMemRef(PointerType::device, hostBufferImpl.getScalarType(),
                      hostBufferImpl.getShape(), hostBufferImpl.getStrides(),
-                     &device, cudaStream, hostBufferImpl.getScalarType());
+                     &device, cudaStream);
   if (!deviceMemRef.isOk())
     return deviceMemRef.getStatus();
 
@@ -1239,9 +1417,8 @@ RuntimeClient::copyToHost(const MemRefValue &deviceMemRef,
 
   // Create the host MemRefValue..
   StatusOr<std::unique_ptr<MemRefValue>> hostMemRef = MemRefValue::create(
-      PointerType::host, deviceMemRef.getElementBitWidth(), std::move(*storage),
-      0, deviceMemRef.getShape(), deviceMemRef.getStrides(), {},
-      deviceMemRef.getScalarType());
+      PointerType::host, deviceMemRef.getScalarType(), std::move(*storage), 0,
+      deviceMemRef.getShape(), deviceMemRef.getStrides(), {});
   if (!hostMemRef.isOk())
     return hostMemRef.getStatus();
 
@@ -1281,7 +1458,7 @@ Status RuntimeClient::copyToHost(const MemRefValue &deviceMemRef,
         deviceMemRef.getElementBitWidth(), hostMemRef.getElementBitWidth());
 
   if (deviceMemRef.getShape() != hostMemRef.getShape() ||
-      deviceMemRef.getStrides() != hostMemRef.getStrides())
+      deviceMemRef.getLayout() != hostMemRef.getLayout())
     return getInvalidArgStatus(
         "copying device MemRef to host MemRef requires the shape and strides "
         "to match, "

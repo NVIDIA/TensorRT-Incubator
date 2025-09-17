@@ -41,14 +41,15 @@ namespace mlirtrt::runtime {
 /// prefixed by other text when wrapped by another runtime system (e.g.
 /// 'mpirun').
 #define MTRT_DBGF(fmt, ...)                                                    \
-  DEBUG_WITH_TYPE("runtime", fprintf(stderr, " %s:%d " fmt "\n", __FILE__,     \
-                                     __LINE__, __VA_ARGS__))
+  DEBUG_WITH_TYPE("runtime", fprintf(stderr, "%s:%d [runtime][DBG] " fmt "\n", \
+                                     __FILE__, __LINE__, __VA_ARGS__))
 
 template <typename... Args>
-void MTRT_DBG(const char *fmt, Args... args) {
+void _MTRT_DBGV(const char *fmt, const char *file, int64_t line,
+                Args &&...args) {
   DEBUG_WITH_TYPE(
       "runtime",
-      fprintf(stderr, "[runtime] %s\n",
+      fprintf(stderr, "%s:%ld [runtime][DBG] %s\n", file, line,
               llvm::formatv(fmt, std::forward<Args>(args)...).str().c_str()));
 }
 
@@ -60,7 +61,7 @@ void MTRT_DBG(const char *fmt, Args... args) {
 template <typename... Args>
 void _MTRT_WARNV(const char *format, const char *file, int64_t line,
                  Args &&...args) {
-  llvm::dbgs() << file << ":" << line << " [WARN] "
+  llvm::dbgs() << file << ":" << line << "[runtime][WARN] "
                << llvm::formatv(format, std::forward<Args>(args)...).str();
 }
 
@@ -69,7 +70,7 @@ void _MTRT_WARNV(const char *format, const char *file, int64_t line,
 template <typename... Args>
 void _MTRT_ERRV(const char *format, const char *file, int64_t line,
                 Args &&...args) {
-  llvm::errs() << file << ":" << line << " [ERR] "
+  llvm::errs() << file << ":" << line << "[runtime][ERR] "
                << llvm::formatv(format, std::forward<Args>(args)...).str();
 }
 
@@ -87,15 +88,12 @@ void _MTRT_ERRV(const char *format, const char *file, int64_t line,
     _MTRT_ERRV(format, __FILE__, __LINE__, __VA_ARGS__);                       \
   } while (false)
 
-#ifndef MTRT_RETURN_IF_ERROR
-#define MTRT_RETURN_IF_ERROR(x, y)                                             \
+/// Prints an error message where "format" and "...args" are passed to
+/// llvm::formatv. The message is prefixed by `<file>:<line> [DBG] `.
+#define MTRT_DBG(format, ...)                                                  \
   do {                                                                         \
-    if (!x.ok()) {                                                             \
-      std::cerr << x.getStatus() << std::endl;                                 \
-      return y.getStatus();                                                    \
-    }                                                                          \
+    _MTRT_DBGV(format, __FILE__, __LINE__, __VA_ARGS__);                       \
   } while (false)
-#endif
 
 } // namespace mlirtrt::runtime
 

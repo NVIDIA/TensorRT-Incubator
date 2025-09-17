@@ -180,6 +180,10 @@ public:
     return impl::EnumNameScalarTypeCode(code);
   }
 
+  /// Get the equivalent ScalarTypeCode integer value that has the given number
+  /// of bits.
+  static StatusOr<ScalarTypeCode> getIntegerTypeWithBitWidth(int64_t bitWidth);
+
   bool operator==(const ScalarType &other) const {
     return other.code == this->code;
   }
@@ -856,40 +860,187 @@ protected:
   Ref<RuntimeClient> client;
 };
 
+//===----------------------------------------------------------------------===//
+// BufferStridedLayout
+//===----------------------------------------------------------------------===//
+
+class BufferStridedLayout {
+public:
+  BufferStridedLayout() = default;
+  BufferStridedLayout(llvm::ArrayRef<int64_t> strides, int64_t offset)
+      : strides(strides), offset(offset) {}
+
+  llvm::ArrayRef<int64_t> getStrides() const { return strides; }
+  int64_t getOffset() const { return offset; }
+
+  /// Return whether the layout is equal to another layout.
+  bool operator==(const BufferStridedLayout &other) const {
+    return strides == other.strides && offset == other.offset;
+  }
+  bool operator!=(const BufferStridedLayout &other) const {
+    return !(*this == other);
+  }
+
+  /// Return debug string representation of the layout.
+  std::string toString() const;
+
+  friend class BufferType;
+
+private:
+  std::vector<int64_t> strides;
+  int64_t offset{0};
+};
+
+//===----------------------------------------------------------------------===//
+// BufferType
+//===----------------------------------------------------------------------===//
+
+/// Encapsulates the information about a runtime buffer (MemRefValue)'s logical
+/// type: scalar element type, shape, strides, offset, and address space.
+class BufferType {
+public:
+  BufferType() = default;
+
+  BufferType(mlirtrt::runtime::ScalarType elementType,
+             const std::vector<int64_t> &shape,
+             const std::vector<int64_t> &strides,
+             mlirtrt::runtime::PointerType addressSpace)
+      : elementType(elementType), shape(shape), layout(strides, 0),
+        addressSpace(addressSpace) {}
+
+  static BufferType
+  createWithByteStrides(mlirtrt::runtime::ScalarType elementType,
+                        const std::vector<int64_t> &shape,
+                        const std::vector<int64_t> &byteStrides,
+                        mlirtrt::runtime::PointerType addressSpace);
+
+  static BufferType
+  createWithElementStrides(mlirtrt::runtime::ScalarType elementType,
+                           const std::vector<int64_t> &shape,
+                           const std::vector<int64_t> &elementStrides,
+                           mlirtrt::runtime::PointerType addressSpace);
+
+  static BufferType
+  createWithCanonicalLayout(mlirtrt::runtime::ScalarType elementType,
+                            const std::vector<int64_t> &shape,
+                            mlirtrt::runtime::PointerType addressSpace);
+
+  /// Creates a BufferType the flatbuffers' MemRefTypeView.
+  static BufferType
+  getFromSerializedType(const mlirtrt::runtime::MemRefTypeView &type);
+
+  /// Return whether the shape is static.
+  bool hasStaticShape() const;
+
+  /// Return the number of elements in the buffer (volume of shape).
+  int64_t getNumElements() const;
+
+  /// Return the number of bytes occupied by this buffer type, taking into
+  /// account the strides, which may have padding.
+  size_t getFootprintSizeInBytes() const;
+
+  int64_t getRank() const { return static_cast<int64_t>(shape.size()); }
+
+  /// Return the shape of the buffer.
+  llvm::ArrayRef<int64_t> getShape() const {
+    return llvm::ArrayRef<int64_t>(shape.data(), shape.size());
+  }
+
+  mlirtrt::runtime::ScalarType getElementType() const {
+    return mlirtrt::runtime::ScalarType(elementType);
+  }
+
+  /// Return the strides of the buffer in terms of bytes.
+  std::vector<int64_t> getByteStrides() const;
+
+  /// Return the layout of the buffer.
+  const BufferStridedLayout &getLayout() const { return layout; }
+
+  /// Compare the type to another type.
+  bool operator==(const BufferType &other) const {
+    return other.elementType == elementType && other.shape == shape &&
+           other.layout == layout && other.addressSpace == addressSpace;
+  }
+  bool operator!=(const BufferType &other) const { return !(*this == other); }
+
+  /// Returns a string representation of the buffer type.
+  std::string toString() const;
+
+  /// Return the address space of the buffer.
+  PointerType getAddressSpace() const { return addressSpace; }
+
+  /// Returns true if the buffer layout has a canonical "row major" layout,
+  /// meaning that the dimensions are ordered major-to-minor in terms of strides
+  /// and the buffer is fully packed and contiguous (no padding).
+  bool isCanonicalPacked() const;
+
+  /// Returns true if the buffer layout (shape + strides) has the
+  /// canonical layout.
+  bool isCanonicalRowMajor() const;
+
+  /// Returns true if the buffer layout has a canonical "column major" layout,
+  /// meaning that the dimensions are ordered minor-to-major in terms of strides
+  /// and the buffer is fully packed and contiguous (no padding).
+  bool isCanonicalColMajor() const;
+
+private:
+  mlirtrt::runtime::ScalarTypeCode elementType{
+      mlirtrt::runtime::ScalarTypeCode::unknown};
+  std::vector<int64_t> shape;
+  BufferStridedLayout layout;
+  mlirtrt::runtime::PointerType addressSpace{
+      mlirtrt::runtime::PointerType::unknown};
+};
+
+std::ostream &operator<<(std::ostream &os, const BufferType &t);
+
+//===----------------------------------------------------------------------===//
+// MemRefValue
+//===----------------------------------------------------------------------===//
+
+/// A MemRefValue encapsulates a reference to MemRefStorage along with logical
+/// buffer type information (e.g. scalar value type, shape, strides, etc).
 class MemRefValue : public RuntimeValue {
 public:
   /// Create a new MemRef descriptor. All size quantities are in "units of
   /// elements" unless otherwise noted.
   static mlirtrt::StatusOr<std::unique_ptr<MemRefValue>>
-  create(mlirtrt::runtime::PointerType addressSpace, int64_t bitsPerElement,
+  create(mlirtrt::runtime::PointerType addressSpace, ScalarTypeCode elementType,
          Ref<MemRefStorage> storage, int64_t offset,
          llvm::ArrayRef<int64_t> shape, llvm::ArrayRef<int64_t> strides,
          std::optional<const Device *> device,
-         std::optional<ScalarType> scalarType,
          std::optional<bool> assertCanonicalStrides = {});
 
-  mlirtrt::runtime::PointerType getBufferKind() { return addressSpace; }
-  int64_t getElementBitWidth() const { return bitsPerElement; }
-  int64_t getOffset() const { return offsetInBytes; }
-  llvm::ArrayRef<int64_t> getShape() const { return shape; }
-  llvm::ArrayRef<int64_t> getStrides() const { return strides; }
-  int64_t getRank() const { return shape.size(); }
+  mlirtrt::runtime::PointerType getBufferKind() {
+    return type.getAddressSpace();
+  }
+  int64_t getElementBitWidth() const {
+    return type.getElementType().getBitWidth();
+  }
+  /// Return the layout of the buffer.
+  const BufferStridedLayout &getLayout() const { return type.getLayout(); }
+  llvm::ArrayRef<int64_t> getShape() const { return type.getShape(); }
+  llvm::ArrayRef<int64_t> getStrides() const {
+    return type.getLayout().getStrides();
+  }
+  int64_t getRank() const { return type.getRank(); }
   int64_t getTotalFootprintInBytes() const;
   uintptr_t getMemory() const { return storage->getPtr(); }
   void *getVoidPtr() const { return reinterpret_cast<void *>(getMemory()); }
   std::optional<const Device *> getDevice() const { return device; }
   mlirtrt::runtime::PointerInfo
   getPointerInfo(mlirtrt::runtime::PointerOwner ownership) const {
-    return mlirtrt::runtime::PointerInfo(
-        getMemory(), getTotalFootprintInBytes(), addressSpace, ownership);
+    return mlirtrt::runtime::PointerInfo(getMemory(),
+                                         getTotalFootprintInBytes(),
+                                         type.getAddressSpace(), ownership);
   }
-  PointerType getAddressSpace() const { return addressSpace; }
+  PointerType getAddressSpace() const { return type.getAddressSpace(); }
 
   static bool classof(const RuntimeValue *v) {
     return v->getKind() == Kind::MemRef;
   }
 
-  const std::optional<ScalarType> &getScalarType() const { return scalarType; }
+  ScalarType getScalarType() const { return type.getElementType(); }
 
   Ref<RuntimeClient> getClient() const { return storage->getClient(); }
 
@@ -900,30 +1051,25 @@ public:
   /// The reference count of the storage is incremented.
   std::unique_ptr<MemRefValue> createRef() const {
     return std::unique_ptr<MemRefValue>(
-        new MemRefValue(addressSpace, bitsPerElement, storage, offsetInBytes,
-                        shape, strides, device, scalarType));
+        new MemRefValue(type.getAddressSpace(), type.getElementType(), storage,
+                        type.getLayout().getOffset(), type.getShape(),
+                        type.getLayout().getStrides(), device));
   }
 
 private:
   MemRefValue(mlirtrt::runtime::PointerType addressSpace,
-              int64_t bitsPerElement, Ref<MemRefStorage> storage,
+              ScalarTypeCode elementType, Ref<MemRefStorage> storage,
               int64_t offset, llvm::ArrayRef<int64_t> shape,
               llvm::ArrayRef<int64_t> strides,
-              std::optional<const Device *> device,
-              std::optional<ScalarType> scalarType);
+              std::optional<const Device *> device);
 
-  /// Address space for the pointer.
-  mlirtrt::runtime::PointerType addressSpace;
-  int64_t bitsPerElement;
   /// Holds the underlying storage object.
   Ref<MemRefStorage> storage;
-  int64_t offsetInBytes;
-  llvm::SmallVector<int64_t> shape;
-  llvm::SmallVector<int64_t> strides;
+  /// The logical type of the buffer.
+  BufferType type;
   /// Non-owned view to the associated device if the address space is a device
   /// address.
   std::optional<const Device *> device;
-  std::optional<ScalarType> scalarType{};
 };
 
 //===----------------------------------------------------------------------===//
@@ -1171,20 +1317,18 @@ public:
   llvm::ArrayRef<std::unique_ptr<Device>> getDevices() const;
 
   StatusOr<std::unique_ptr<MemRefValue>>
-  allocateMemRef(PointerType addressSpace, int64_t bitsPerElement,
+  allocateMemRef(PointerType addressSpace, ScalarTypeCode elementType,
                  llvm::ArrayRef<int64_t> shape, llvm::ArrayRef<int64_t> strides,
                  std::optional<const Device *> device = {},
                  std::optional<CudaStream> stream = {},
-                 std::optional<ScalarType> scalarType = {},
                  std::optional<bool> assertCanonicalStrides = {});
 
   StatusOr<std::unique_ptr<MemRefValue>>
-  createExternalMemRef(PointerType addressSpace, int64_t bitsPerElement,
+  createExternalMemRef(PointerType addressSpace, ScalarTypeCode elementType,
                        uintptr_t ptr, int64_t offset,
                        llvm::ArrayRef<int64_t> shape,
                        llvm::ArrayRef<int64_t> strides,
                        std::optional<const Device *> device = {},
-                       std::optional<ScalarType> scalarType = {},
                        std::optional<bool> assertCanonicalStrides = {},
                        std::function<void()> = nullptr);
 

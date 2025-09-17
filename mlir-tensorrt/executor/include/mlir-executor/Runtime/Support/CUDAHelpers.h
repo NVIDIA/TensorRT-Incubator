@@ -20,12 +20,11 @@
 #ifndef MLIR_EXECUTOR_RUNTIME_SUPPORT_CUDAHELPERS
 #define MLIR_EXECUTOR_RUNTIME_SUPPORT_CUDAHELPERS
 
+#include "mlir-executor/Runtime/Support/Support.h"
 #include "mlir-tensorrt-common/Support/Status.h"
 #include <cstdint>
 
-#define CUDA_DBGV(fmt, ...)                                                    \
-  DEBUG_WITH_TYPE("runtime", llvm::dbgs() << llvm::formatv("[CUDA] " fmt "\n", \
-                                                           __VA_ARGS__))
+#define CUDA_DBGV(fmt, ...) MTRT_DBG("[cuda] " fmt, __VA_ARGS__)
 
 // CUDA runtime headers are only required in the implementation.
 

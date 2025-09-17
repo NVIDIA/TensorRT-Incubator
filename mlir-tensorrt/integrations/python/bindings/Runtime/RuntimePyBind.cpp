@@ -291,20 +291,15 @@ static std::unique_ptr<PyMemRefValue> createMemRef(
     std::optional<MTRT_Stream> stream,
     MTRT_PointerType addressSpace = MTRT_PointerType::MTRT_PointerType_device) {
   llvm::SmallVector<int64_t> strides;
-  int64_t bitSize{0};
-  MTRT_Status s = mtrtScalarTypeCodeBitsPerElement(dtype, &bitSize);
-  THROW_IF_MTRT_ERROR(s);
-  int64_t bytesPerElement = llvm::divideCeil(bitSize, 8);
-
   strides.resize(shape.size(), 1);
   for (int64_t idx = shape.size() - 2; idx >= 0; idx--)
     strides[idx] = strides[idx + 1] * shape[idx + 1];
 
   MTRT_MemRefValue result{nullptr};
-  s = mtrtMemRefCreate(client, addressSpace, bytesPerElement * 8, shape.size(),
-                       shape.data(), strides.data(),
-                       device ? *device : mtrtDeviceGetNull(),
-                       stream ? *stream : mtrtStreamGetNull(), dtype, &result);
+  MTRT_Status s =
+      mtrtMemRefCreate(client, addressSpace, dtype, shape.size(), shape.data(),
+                       strides.data(), device ? *device : mtrtDeviceGetNull(),
+                       stream ? *stream : mtrtStreamGetNull(), &result);
   THROW_IF_MTRT_ERROR(s);
   return std::make_unique<PyMemRefValue>(result);
 }
@@ -365,9 +360,9 @@ static std::unique_ptr<PyMemRefValue> getMemRefFromHostBufferProtocol(
 
   MTRT_MemRefValue hostView{nullptr};
   MTRT_Status s = mtrtMemRefCreateExternal(
-      client, MTRT_PointerType_host, bytesPerElement * 8,
+      client, MTRT_PointerType_host, elementType,
       reinterpret_cast<uintptr_t>(view.buf), 0, shape.size(), shape.data(),
-      strides.data(), mtrtDeviceGetNull(), elementType, &hostView);
+      strides.data(), mtrtDeviceGetNull(), &hostView);
   THROW_IF_MTRT_ERROR(s);
   auto cleanupView = llvm::make_scope_exit([&]() {
     MTRT_Status s = mtrtMemRefValueDestroy(hostView);
@@ -408,15 +403,10 @@ static std::unique_ptr<PyMemRefValue> getMemRefViewWithCContiguousLayout(
       strides[idx] = strides[idx + 1] * shape[idx + 1];
   }
 
-  int64_t bitWidth{0};
-  MTRT_Status s = mtrtScalarTypeCodeBitsPerElement(scalarType, &bitWidth);
-  THROW_IF_MTRT_ERROR(s);
-
   MTRT_MemRefValue view{nullptr};
-  s = mtrtMemRefCreateExternal(client, addressSpace, bitWidth, ptr, 0,
-                               shape.size(), shape.data(), strides.data(),
-                               device ? *device : mtrtDeviceGetNull(),
-                               scalarType, &view);
+  MTRT_Status s = mtrtMemRefCreateExternal(
+      client, addressSpace, scalarType, ptr, 0, shape.size(), shape.data(),
+      strides.data(), device ? *device : mtrtDeviceGetNull(), &view);
   THROW_IF_MTRT_ERROR(s);
 
   return std::make_unique<PyMemRefValue>(view);
@@ -633,7 +623,20 @@ createMemRefViewFromDLPack(PyRuntimeClient &client, py::capsule capsule,
   s = mtrtGetScalarTypeCodeFromDLDataType(dtype, &elementType);
   THROW_IF_MTRT_ERROR(s);
 
-  int64_t bytesPerElement = llvm::divideCeil(dtype.bits, 8);
+  int64_t bitsPerElementExpected;
+  s = mtrtScalarTypeCodeBitsPerElement(elementType, &bitsPerElementExpected);
+  THROW_IF_MTRT_ERROR(s);
+  if (dtype.bits != bitsPerElementExpected) {
+    throw std::invalid_argument("DLPack tensor has unexpected bit width: " +
+                                std::to_string(dtype.bits) + " expected: " +
+                                std::to_string(bitsPerElementExpected));
+  }
+
+  if (dtype.lanes != 1) {
+    throw std::invalid_argument(
+        "DLPack tensor has unsupported number of lanes: " +
+        std::to_string(dtype.lanes) + "; only lanes = 1 is supported");
+  }
 
   MTRT_PointerType addressSpace;
   s = mtrtGetPointerTypeFromDLDeviceType(device_type, &addressSpace);
@@ -652,18 +655,17 @@ createMemRefViewFromDLPack(PyRuntimeClient &client, py::capsule capsule,
 
   if (data) {
     s = mtrtMemRefCreateExternal(
-        client, addressSpace, bytesPerElement * 8,
-        reinterpret_cast<uintptr_t>(data), offset, rank, shape, strides, device,
-        elementType, &result,
+        client, addressSpace, elementType, reinterpret_cast<uintptr_t>(data),
+        offset, rank, shape, strides, device, &result,
         assertCanonicalStrides ? *assertCanonicalStrides : false,
         /*destroyCallback=*/
         MTRT_MemRefDestroyCallback{reinterpret_cast<void *>(managedTensor),
                                    memrefViewDLPackDestructionCallback});
   } else {
-    s = mtrtMemRefCreate(
-        client, addressSpace, bytesPerElement * 8, rank, shape, strides, device,
-        mtrtStreamGetNull(), elementType, &result,
-        assertCanonicalStrides ? *assertCanonicalStrides : false);
+    s = mtrtMemRefCreate(client, addressSpace, elementType, rank, shape,
+                         strides, device, mtrtStreamGetNull(), &result,
+                         assertCanonicalStrides ? *assertCanonicalStrides
+                                                : false);
   }
 
   THROW_IF_MTRT_ERROR(s);

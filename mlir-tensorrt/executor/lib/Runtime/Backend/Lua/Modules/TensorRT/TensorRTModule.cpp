@@ -503,7 +503,7 @@ static Status setTensorAddressesOrReport(
         return getInternalErrorStatus("failed to set input shape");
     }
 
-    MTRT_DBGF("Set tensor address [%d] = %lu", idx, ptr);
+    MTRT_DBG("Set tensor address [{0}] = {1}", idx, ptr);
     idx++;
   }
   return getOkStatus();

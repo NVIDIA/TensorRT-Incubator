@@ -14,8 +14,6 @@
 #include <numeric>
 #include <utility>
 
-static constexpr int64_t kBitsPerByte = 8;
-
 TEST(RuntimeCAPI, ScalarTypeCodeSize) {
   std::vector<std::pair<MTRT_ScalarTypeCode, int64_t>> testData = {
       std::make_pair(MTRT_ScalarTypeCode_f8e4m3fn, 8),
@@ -106,10 +104,9 @@ TEST(RuntimeCAPI, TestHostBufferCreateExternalAndTracking) {
   MTRT_MemRefValue buffer{nullptr};
   MTRT_PointerType addressSpace{MTRT_PointerType::MTRT_PointerType_host};
   status = mtrtMemRefCreateExternal(
-      client, addressSpace, sizeof(float) * kBitsPerByte,
+      client, addressSpace, MTRT_ScalarTypeCode_f32,
       reinterpret_cast<uintptr_t>(data.data()), /*offsetInElements=*/0,
-      shape.size(), shape.data(), strides.data(), mtrtDeviceGetNull(),
-      MTRT_ScalarTypeCode_unknown, &buffer);
+      shape.size(), shape.data(), strides.data(), mtrtDeviceGetNull(), &buffer);
   ASSERT_TRUE(mtrtStatusIsOk(status));
   ASSERT_FALSE(mtrtMemRefValueIsNull(buffer));
 
@@ -141,10 +138,10 @@ TEST(RuntimeCAPI, TestHostToHostCopy) {
   std::vector<int64_t> strides{2, 1};
   MTRT_MemRefValue hostBuffer;
   status = mtrtMemRefCreateExternal(
-      client, MTRT_PointerType::MTRT_PointerType_host,
-      sizeof(float) * kBitsPerByte, reinterpret_cast<uintptr_t>(data.data()),
+      client, MTRT_PointerType::MTRT_PointerType_host, MTRT_ScalarTypeCode_f32,
+      reinterpret_cast<uintptr_t>(data.data()),
       /*offset=*/0, shape.size(), shape.data(), strides.data(),
-      mtrtDeviceGetNull(), MTRT_ScalarTypeCode_unknown, &hostBuffer);
+      mtrtDeviceGetNull(), &hostBuffer);
 
   ASSERT_TRUE(mtrtStatusIsOk(status));
   ASSERT_FALSE(mtrtMemRefValueIsNull(hostBuffer));
@@ -195,10 +192,10 @@ TEST(RuntimeCAPI, TestHostToDeviceAndBackCopy) {
   std::vector<int64_t> strides{2, 1};
   MTRT_MemRefValue hostBuffer;
   status = mtrtMemRefCreateExternal(
-      client, MTRT_PointerType::MTRT_PointerType_host,
-      sizeof(float) * kBitsPerByte, reinterpret_cast<uintptr_t>(data.data()),
+      client, MTRT_PointerType::MTRT_PointerType_host, MTRT_ScalarTypeCode_f32,
+      reinterpret_cast<uintptr_t>(data.data()),
       /*offset=*/0, shape.size(), shape.data(), strides.data(),
-      mtrtDeviceGetNull(), MTRT_ScalarTypeCode_unknown, &hostBuffer);
+      mtrtDeviceGetNull(), &hostBuffer);
 
   MTRT_MemRefValue deviceBuffer{nullptr};
   status = mtrtCopyFromHostToDevice(hostBuffer, device, mtrtStreamGetNull(),

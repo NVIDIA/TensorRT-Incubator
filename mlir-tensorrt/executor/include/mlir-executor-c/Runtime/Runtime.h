@@ -166,12 +166,11 @@ static inline bool mtrtMemRefValueIsNull(MTRT_MemRefValue memref) {
 ///   - `stream` may optionally be provided in order to provide for asynchronous
 ///   allocation, otherwise
 ///      the result of `mtrtStreamGetNull()` should be passed.
-MLIR_CAPI_EXPORTED MTRT_Status
-mtrtMemRefCreate(MTRT_RuntimeClient client, MTRT_PointerType pointerKind,
-                 int64_t bitsPerElement, int64_t rank, const int64_t *shape,
-                 const int64_t *strides, MTRT_Device device, MTRT_Stream stream,
-                 MTRT_ScalarTypeCode scalarType, MTRT_MemRefValue *result,
-                 bool assertCanonicalStrides = false);
+MLIR_CAPI_EXPORTED MTRT_Status mtrtMemRefCreate(
+    MTRT_RuntimeClient client, MTRT_PointerType pointerKind,
+    MTRT_ScalarTypeCode scalarType, int64_t rank, const int64_t *shape,
+    const int64_t *strides, MTRT_Device device, MTRT_Stream stream,
+    MTRT_MemRefValue *result, bool assertCanonicalStrides = false);
 
 /// Encapsulates a callback that will be called when the correspdoning
 /// MemRefValue (with view storage) is destroyed. The callback is called with
@@ -203,10 +202,9 @@ mtrtMemRefDestroyCallbackIsNull(MTRT_MemRefDestroyCallback callback) {
 /// the caller to provide logic to clean up the underlying storage.
 MLIR_CAPI_EXPORTED MTRT_Status mtrtMemRefCreateExternal(
     MTRT_RuntimeClient client, MTRT_PointerType pointerKind,
-    int64_t bitsPerElement, uintptr_t ptr, int64_t offset, int64_t rank,
+    MTRT_ScalarTypeCode scalarType, uintptr_t ptr, int64_t offset, int64_t rank,
     const int64_t *shape, const int64_t *strides, MTRT_Device device,
-    MTRT_ScalarTypeCode scalarType, MTRT_MemRefValue *result,
-    bool assertCanonicalStrides = false,
+    MTRT_MemRefValue *result, bool assertCanonicalStrides = false,
     MTRT_MemRefDestroyCallback destroyCallback =
         mtrtMemRefDestroyCallbackCreateNull());
 

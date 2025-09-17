@@ -184,14 +184,15 @@ private:
 #define MTRT_ASSIGN_OR_RETURN(lhs, rexpr)                                      \
   MTRT_ASSIGN_OR_RETURN_(MTRT_CONCAT(_status_or_value, __COUNTER__), lhs, rexpr)
 
-#define MTRT_RETURN_IF_ERROR(rexpr)                                            \
-  MTRT_RETURN_IF_ERROR_(MTRT_CONCAT(_tmpStatus, __COUNTER__), rexpr)
 #define MTRT_RETURN_IF_ERROR_(tmpName, rexpr)                                  \
   do {                                                                         \
     auto tmpName = (rexpr);                                                    \
     if (!tmpName.isOk())                                                       \
       return tmpName;                                                          \
   } while (false)
+
+#define MTRT_RETURN_IF_ERROR(rexpr)                                            \
+  MTRT_RETURN_IF_ERROR_(MTRT_CONCAT(_tmpStatus, __COUNTER__), rexpr)
 
 #define RETURN_ERROR_IF_CUDART_ERROR(x)                                        \
   do {                                                                         \
