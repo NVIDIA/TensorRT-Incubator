@@ -49,9 +49,9 @@ static void registerTestPasses() {
 
 int main(int argc, char **argv) {
   mlir::DialectRegistry registry;
-  mlirtrt::compiler::registerAllDialects(registry);
-  mlirtrt::compiler::registerAllExtensions(registry);
-  mlirtrt::compiler::registerAllPasses();
+  mtrt::compiler::registerAllDialects(registry);
+  mtrt::compiler::registerAllExtensions(registry);
+  mtrt::compiler::registerAllPasses();
 
   IF_MLIR_TRT_ENABLE_TESTING({ registerTestPasses(); });
 

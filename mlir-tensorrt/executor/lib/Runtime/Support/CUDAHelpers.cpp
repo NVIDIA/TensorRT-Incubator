@@ -23,7 +23,7 @@
 #include <cuda_runtime_api.h>
 #endif
 
-namespace mlirtrt::runtime {
+namespace mtrt {
 
 StatusOr<int32_t> getCurrentCUDADevice() {
 #ifdef MLIR_TRT_ENABLE_CUDA
@@ -383,4 +383,4 @@ Status freeCUDAPinnedHost(uintptr_t ptr) {
 #endif
 }
 
-} // namespace mlirtrt::runtime
+} // namespace mtrt

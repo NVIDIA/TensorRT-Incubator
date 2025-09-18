@@ -32,7 +32,7 @@
 #include "llvm/Support/ErrorHandling.h"
 #include <string>
 
-namespace mlirtrt::compiler {
+namespace mtrt::compiler {
 
 /// An OptionsProvider is a utility to attach options onto a different
 /// PassOptions/CompilationTaskOptions struct. The parent to attach to is given
@@ -371,6 +371,6 @@ private:
   std::tuple<std::unique_ptr<Providers>...> optionProviders;
 };
 
-} // namespace mlirtrt::compiler
+} // namespace mtrt::compiler
 
 #endif // MLIR_TENSORRT_COMPILER_OPTIONSPROVIDERS

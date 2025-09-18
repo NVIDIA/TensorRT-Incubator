@@ -28,7 +28,7 @@
 
 using namespace mlir;
 using namespace mlir::stablehlo;
-using namespace mlirtrt::compiler;
+using namespace mtrt::compiler;
 
 static BoundsArray extUIRanges(ArrayRef<ConstantIntRanges> ranges,
                                unsigned destWidth) {

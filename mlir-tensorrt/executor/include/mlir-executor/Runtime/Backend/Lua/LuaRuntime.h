@@ -32,7 +32,7 @@
 
 struct lua_State;
 
-namespace mlirtrt::runtime {
+namespace mtrt {
 
 /// Implementation of the LuaRuntimeSession.
 class LuaRuntimeSession : public RuntimeSession {
@@ -107,6 +107,6 @@ executeFunctionWithLuaBackend(LuaRuntimeSession &session, std::string_view name,
                               std::optional<CudaStream> stream = {},
                               std::optional<RuntimeClient *> client = {});
 
-} // namespace mlirtrt::runtime
+} // namespace mtrt
 
 #endif // MLIR_TENSORRT_RUNTIME_BACKEND_LUA_LUARUNTIME_H

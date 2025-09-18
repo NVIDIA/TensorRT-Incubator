@@ -49,15 +49,13 @@
 #endif
 #endif //  MLIR_TRT_ENABLE_NCCL
 
-using namespace mlirtrt;
-namespace rt = mlirtrt::runtime;
-using namespace rt;
+using namespace mtrt;
 
 //===----------------------------------------------------------------------===//
 // Scalar Type
 //===----------------------------------------------------------------------===//
 
-ScalarTypeCode rt::parseElementType(std::string_view str) {
+ScalarTypeCode mtrt::parseElementType(std::string_view str) {
   const char *const *names = mtrt::flat::EnumNamesScalarTypeCode();
   const ScalarTypeCode *values = mtrt::flat::EnumValuesScalarTypeCode();
   // Flatbuffers' 'enum::MAX' is inclusive (equals largest value).
@@ -69,7 +67,7 @@ ScalarTypeCode rt::parseElementType(std::string_view str) {
   return ScalarTypeCode::unknown;
 }
 
-int64_t rt::getBitsPerElement(ScalarTypeCode elType) {
+int64_t mtrt::getBitsPerElement(ScalarTypeCode elType) {
   switch (elType) {
   case ScalarTypeCode::i64:
   case ScalarTypeCode::f64:
@@ -105,7 +103,7 @@ ScalarType::ScalarType(ScalarTypeCode code) : code(code) {
   assert(code != ScalarTypeCode::unknown && "expected known element type code");
 }
 
-StatusOr<ScalarType> rt::ScalarType::fromString(std::string_view str) {
+StatusOr<ScalarType> mtrt::ScalarType::fromString(std::string_view str) {
   auto code = parseElementType(str);
   assert(code != ScalarTypeCode::unknown && "expected known element type code");
   if (code != ScalarTypeCode::unknown)
@@ -114,14 +112,14 @@ StatusOr<ScalarType> rt::ScalarType::fromString(std::string_view str) {
                           str, ")");
 }
 
-int64_t rt::ScalarType::getBitWidth() const {
+int64_t mtrt::ScalarType::getBitWidth() const {
   int64_t result = getBitsPerElement(code);
   assert(result != 0 && "expected positive bitwidth");
   return result;
 }
 
 StatusOr<ScalarTypeCode>
-rt::ScalarType::getIntegerTypeWithBitWidth(int64_t bitWidth) {
+mtrt::ScalarType::getIntegerTypeWithBitWidth(int64_t bitWidth) {
   switch (bitWidth) {
   case 4:
     return ScalarTypeCode::i4;
@@ -142,7 +140,7 @@ rt::ScalarType::getIntegerTypeWithBitWidth(int64_t bitWidth) {
 // PointerType
 //===----------------------------------------------------------------------===//
 
-PointerType rt::parsePointerType(std::string_view str) {
+PointerType mtrt::parsePointerType(std::string_view str) {
   if (str == "host")
     return PointerType::host;
   if (str == "pinned_host")
@@ -154,11 +152,12 @@ PointerType rt::parsePointerType(std::string_view str) {
   return PointerType::unknown;
 }
 
-llvm::raw_ostream &rt::operator<<(llvm::raw_ostream &os, PointerType ptrType) {
+llvm::raw_ostream &mtrt::operator<<(llvm::raw_ostream &os,
+                                    PointerType ptrType) {
   return os << mtrt::flat::EnumNamePointerType(ptrType);
 }
 
-std::string_view rt::stringifyPointerType(PointerType ptrType) {
+std::string_view mtrt::stringifyPointerType(PointerType ptrType) {
   return mtrt::flat::EnumNamePointerType(ptrType);
 }
 
@@ -287,7 +286,7 @@ Executable::loadFromUnalignedRef(llvm::ArrayRef<char> data) {
   return result;
 }
 
-rt::Executable::Executable(std::unique_ptr<ExecutableStorage> storage_)
+mtrt::Executable::Executable(std::unique_ptr<ExecutableStorage> storage_)
     : ExecutableView(nullptr), storage(std::move(storage_)) {
   assert(this->storage && "expected valid storage pointer");
   this->view = mtrt::flat::GetExecutable(this->storage->data());
@@ -494,10 +493,10 @@ PointerInfo AllocTracker::lookupOrDefault(uintptr_t ptr) const {
   return map.at(ptr)->info;
 }
 
-StatusOr<PointerInfo> runtime::allocate(AllocTracker &tracker, PointerType type,
-                                        uint64_t size,
-                                        std::optional<uint32_t> alignment,
-                                        std::optional<CudaStream> stream) {
+StatusOr<PointerInfo> mtrt::allocate(AllocTracker &tracker, PointerType type,
+                                     uint64_t size,
+                                     std::optional<uint32_t> alignment,
+                                     std::optional<CudaStream> stream) {
   if (type == PointerType::host) {
     assert(alignment && !stream &&
            "expected alignment, no stream for host allocation");
@@ -510,8 +509,7 @@ StatusOr<PointerInfo> runtime::allocate(AllocTracker &tracker, PointerType type,
     uintptr_t mem =
         reinterpret_cast<uintptr_t>(std::aligned_alloc(*alignment, size));
     if (mem == 0)
-      return mlirtrt::getInternalErrorStatus(
-          "failed to allocate memory on host");
+      return mtrt::getInternalErrorStatus("failed to allocate memory on host");
     MTRT_DBGF("Allocated %lu host bytes at 0x%lx", size, mem);
     PointerInfo info{mem, size, type, PointerOwner::internal};
     tracker.track(info);
@@ -543,24 +541,24 @@ StatusOr<PointerInfo> runtime::allocate(AllocTracker &tracker, PointerType type,
     return info;
   }
   return getStatusWithMsg(
-      mlirtrt::StatusCode::InvalidArgument,
+      mtrt::StatusCode::InvalidArgument,
       "unimplemented allocation type: ", stringifyPointerType(type));
 }
 
-mlirtrt::Status runtime::safeDeallocate(AllocTracker &tracker, uintptr_t ptr,
-                                        std::optional<CudaStream> stream) {
+mtrt::Status mtrt::safeDeallocate(AllocTracker &tracker, uintptr_t ptr,
+                                  std::optional<CudaStream> stream) {
   if (!tracker.contains(ptr)) {
     MTRT_DBGF("ignoring ptr 0x%lx because it was either already freed, "
               "externally managed, or has an external reference",
               ptr);
-    return mlirtrt::Status::getOk();
+    return mtrt::Status::getOk();
   }
 
   PointerInfo obj = tracker.get(ptr);
   if (obj.owner == PointerOwner::external) {
     MTRT_DBGF("Untracking externally managed 0x%lx", ptr);
     tracker.untrack(obj.ptr);
-    return mlirtrt::Status::getOk();
+    return mtrt::Status::getOk();
   }
 
   if (obj.type == PointerType::host) {
@@ -588,7 +586,7 @@ mlirtrt::Status runtime::safeDeallocate(AllocTracker &tracker, uintptr_t ptr,
     return Status::getOk();
   }
 
-  return mlirtrt::getInternalErrorStatus("unhandled allocation type");
+  return mtrt::getInternalErrorStatus("unhandled allocation type");
 }
 
 //===----------------------------------------------------------------------===//
@@ -718,11 +716,9 @@ void ScalarValue::cleanup() {
 // BufferType
 //===----------------------------------------------------------------------===//
 
-BufferType
-BufferType::createWithByteStrides(mlirtrt::runtime::ScalarType elementType,
-                                  const std::vector<int64_t> &shape,
-                                  const std::vector<int64_t> &byteStrides,
-                                  mlirtrt::runtime::PointerType addressSpace) {
+BufferType BufferType::createWithByteStrides(
+    mtrt::ScalarType elementType, const std::vector<int64_t> &shape,
+    const std::vector<int64_t> &byteStrides, mtrt::PointerType addressSpace) {
   BufferType result;
   result.elementType = elementType.getCode();
   result.shape = shape;
@@ -739,10 +735,11 @@ BufferType::createWithByteStrides(mlirtrt::runtime::ScalarType elementType,
   return result;
 }
 
-BufferType BufferType::createWithElementStrides(
-    mlirtrt::runtime::ScalarType elementType, const std::vector<int64_t> &shape,
-    const std::vector<int64_t> &elementStrides,
-    mlirtrt::runtime::PointerType addressSpace) {
+BufferType
+BufferType::createWithElementStrides(mtrt::ScalarType elementType,
+                                     const std::vector<int64_t> &shape,
+                                     const std::vector<int64_t> &elementStrides,
+                                     mtrt::PointerType addressSpace) {
   BufferType result;
   result.elementType = elementType.getCode();
   result.shape = shape;
@@ -754,7 +751,7 @@ BufferType BufferType::createWithElementStrides(
 }
 
 static std::vector<int64_t>
-getCanonicalRowMajorByteStrides(const rt::ScalarType &elType,
+getCanonicalRowMajorByteStrides(const mtrt::ScalarType &elType,
                                 const std::vector<int64_t> &shape) {
   if (shape.empty())
     return {};
@@ -771,9 +768,10 @@ getCanonicalRowMajorByteStrides(const rt::ScalarType &elType,
   return strides;
 }
 
-BufferType BufferType::createWithCanonicalLayout(
-    mlirtrt::runtime::ScalarType elementType, const std::vector<int64_t> &shape,
-    mlirtrt::runtime::PointerType addressSpace) {
+BufferType
+BufferType::createWithCanonicalLayout(mtrt::ScalarType elementType,
+                                      const std::vector<int64_t> &shape,
+                                      mtrt::PointerType addressSpace) {
 
   return BufferType::createWithByteStrides(
       elementType, shape, getCanonicalRowMajorByteStrides(elementType, shape),
@@ -781,15 +779,14 @@ BufferType BufferType::createWithCanonicalLayout(
 }
 
 bool BufferType::hasStaticShape() const {
-  return llvm::all_of(
-      shape, [](int64_t v) { return v != mlirtrt::runtime::kDynamicSize; });
+  return llvm::all_of(shape, [](int64_t v) { return v != mtrt::kDynamicSize; });
 }
 
 int64_t BufferType::getNumElements() const {
   return std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
 }
 
-BufferType BufferType::getFromSerializedType(const rt::MemRefTypeView &type) {
+BufferType BufferType::getFromSerializedType(const mtrt::MemRefTypeView &type) {
   return BufferType::createWithElementStrides(
       type.getElementType(), type.getShape(), type.getStrides(),
       type.getAddressSpace());
@@ -801,7 +798,7 @@ bool BufferType::isCanonicalRowMajor() const {
   const std::vector<int64_t> byteStrides = getByteStrides();
   if (byteStrides.size() > 0) {
     int64_t stride =
-        llvm::divideCeil(rt::ScalarType(elementType).getBitWidth(), 8);
+        llvm::divideCeil(mtrt::ScalarType(elementType).getBitWidth(), 8);
     assert(stride > 0 && "expected stride >= 1");
     for (int64_t i = layout.strides.size() - 1; i >= 0; --i) {
       if (byteStrides[i] != stride)
@@ -818,7 +815,7 @@ bool BufferType::isCanonicalColMajor() const {
   const std::vector<int64_t> byteStrides = getByteStrides();
   if (getRank() > 0) {
     int64_t stride =
-        llvm::divideCeil(rt::ScalarType(elementType).getBitWidth(), 8);
+        llvm::divideCeil(mtrt::ScalarType(elementType).getBitWidth(), 8);
     assert(stride > 0 && "expected stride >= 1");
     for (unsigned i = 0; i < byteStrides.size(); i++) {
       if (byteStrides[i] != stride)
@@ -832,7 +829,7 @@ bool BufferType::isCanonicalColMajor() const {
 std::vector<int64_t> BufferType::getByteStrides() const {
   std::vector<int64_t> byteStrides(layout.strides.size());
   unsigned bytesPerElement =
-      llvm::divideCeil(rt::ScalarType(elementType).getBitWidth(), 8);
+      llvm::divideCeil(mtrt::ScalarType(elementType).getBitWidth(), 8);
   for (unsigned i = 0, e = layout.strides.size(); i < e; i++)
     byteStrides[i] = layout.strides[i] * bytesPerElement;
   return byteStrides;
@@ -868,7 +865,7 @@ size_t BufferType::getFootprintSizeInBytes() const {
   auto shape = getShape();
   assert(hasStaticShape() && "expected static shape");
   StatusOr<int64_t> sizeBytes = getFootprintInBytes(
-      shape, layout.strides, rt::ScalarType(elementType).getBitWidth());
+      shape, layout.strides, mtrt::ScalarType(elementType).getBitWidth());
   assert(sizeBytes.isOk() && "expected valid size bytes");
   return *sizeBytes;
 }
@@ -882,7 +879,7 @@ std::string BufferStridedLayout::toString() const {
   return str;
 }
 
-std::ostream &runtime::operator<<(std::ostream &os, const BufferType &t) {
+std::ostream &mtrt::operator<<(std::ostream &os, const BufferType &t) {
   os << "buffer<";
   for (auto x : t.getShape())
     os << x << "x";
@@ -1032,7 +1029,7 @@ static bool areStridesEquivalent(llvm::ArrayRef<int64_t> shape,
 }
 
 StatusOr<std::unique_ptr<MemRefValue>> MemRefValue::create(
-    mlirtrt::runtime::PointerType addressSpace, ScalarTypeCode elementType,
+    mtrt::PointerType addressSpace, ScalarTypeCode elementType,
     Ref<MemRefStorage> storage, int64_t offset, llvm::ArrayRef<int64_t> shape,
     llvm::ArrayRef<int64_t> strides, std::optional<const Device *> device,
     std::optional<bool> assertCanonicalStrides) {
@@ -1077,7 +1074,7 @@ StatusOr<std::unique_ptr<MemRefValue>> MemRefValue::create(
                       shape, strides, device));
 }
 
-MemRefValue::MemRefValue(mlirtrt::runtime::PointerType addressSpace,
+MemRefValue::MemRefValue(mtrt::PointerType addressSpace,
                          ScalarTypeCode elementType, Ref<MemRefStorage> storage,
                          int64_t offset, llvm::ArrayRef<int64_t> shape,
                          llvm::ArrayRef<int64_t> strides,
@@ -1128,8 +1125,7 @@ DefaultClientAllocator::allocate(PointerType type, uint64_t size,
     size = llvm::alignTo(size, *alignment);
     void *mem = std::aligned_alloc(*alignment, size);
     if (mem == 0)
-      return mlirtrt::getInternalErrorStatus(
-          "failed to allocate memory on host");
+      return mtrt::getInternalErrorStatus("failed to allocate memory on host");
     MTRT_DBGF(
         "DefaultClientAllocator::allocate: Allocated %lu host bytes at %p",
         size, mem);
@@ -1166,7 +1162,7 @@ DefaultClientAllocator::allocate(PointerType type, uint64_t size,
                                  Ref<RuntimeClient>(&client), {});
   }
   return getStatusWithMsg(
-      mlirtrt::StatusCode::InvalidArgument,
+      mtrt::StatusCode::InvalidArgument,
       "DeviceClientAllocator::allocate unimplemented allocation type: ",
       stringifyPointerType(type));
 }
@@ -1204,7 +1200,7 @@ Status DefaultClientAllocator::deallocate(MemRefStorage &storage) {
     return Status::getOk();
   }
 
-  return mlirtrt::getInternalErrorStatus("unhandled allocation type");
+  return mtrt::getInternalErrorStatus("unhandled allocation type");
 }
 
 static Status parseDebugFlags() {
@@ -1223,7 +1219,7 @@ static Status parseDebugFlags() {
 
 // Populate the devices with CUDA devices. Note that failure to enumerate CUDA
 // devices is not treated as an error here.
-static mlirtrt::Status
+static mtrt::Status
 populateDevices(llvm::SmallVectorImpl<std::unique_ptr<Device>> &devices) {
   StatusOr<int32_t> deviceCount = getCUDADeviceCount();
   if (!deviceCount.isOk())
@@ -1240,7 +1236,7 @@ StatusOr<Ref<RuntimeClient>> RuntimeClient::create() {
 
   // Setup device objects. Create a view of the device pointers.
   llvm::SmallVector<std::unique_ptr<Device>> devices;
-  mlirtrt::Status status = populateDevices(devices);
+  mtrt::Status status = populateDevices(devices);
   if (!status.isOk()) {
     // TODO: we should emit a warning here.
   }
@@ -1368,7 +1364,7 @@ RuntimeClient::copyToDevice(const MemRefValue &hostBufferImpl,
     // Allocate a staging buffer and copy host memory to the staging buffer.
     // TODO: Currently, this implementation supports only row major packed
     // canonical layout (no padding).
-    StatusOr<mlirtrt::PinnedMemoryBlock> pinnedMemory =
+    StatusOr<PinnedMemoryBlock> pinnedMemory =
         this->getPinnedMemoryAllocator().allocate(totalBufferSize);
     if (!pinnedMemory.isOk())
       return pinnedMemory.getStatus();
@@ -1487,7 +1483,7 @@ RuntimeClient::~RuntimeClient() = default;
 // NCCL Support Functions
 //===----------------------------------------------------------------------===//
 
-StatusOr<std::string> runtime::getCommunicatorUniqueId() {
+StatusOr<std::string> mtrt::getCommunicatorUniqueId() {
 #ifdef MLIR_TRT_ENABLE_NCCL
   ncclUniqueId id;
   RETURN_ERROR_IF_NCCL_ERROR(ncclGetUniqueId(&id), nullptr);
@@ -1513,9 +1509,9 @@ struct has_stream_printer<
 template <typename S, typename T, typename = void>
 struct has_print_func : std::false_type {};
 template <typename S, typename T>
-struct has_print_func<S, T,
-                      std::void_t<decltype(mlirtrt::runtime::print(
-                          std::declval<S &>(), std::declval<T>()))>>
+struct has_print_func<
+    S, T,
+    std::void_t<decltype(mtrt::print(std::declval<S &>(), std::declval<T>()))>>
     : std::true_type {};
 
 template <typename T, typename Callable>
@@ -1541,7 +1537,7 @@ template <typename T,
 static llvm::raw_ostream &interleaveComma(llvm::raw_ostream &os,
                                           llvm::ArrayRef<T> x) {
   interleave(
-      os, x, [](llvm::raw_ostream &os, const auto &x) { rt::print(os, x); },
+      os, x, [](llvm::raw_ostream &os, const auto &x) { mtrt::print(os, x); },
       ", ");
   return os;
 }
@@ -1560,7 +1556,8 @@ static llvm::raw_ostream &squareBraces(llvm::raw_ostream &os, Callable c) {
   return os << "]";
 }
 
-llvm::raw_ostream &rt::print(llvm::raw_ostream &os, const TypeUnionView &arg) {
+llvm::raw_ostream &mtrt::print(llvm::raw_ostream &os,
+                               const TypeUnionView &arg) {
   if (arg.isa<MemRefTypeView>())
     return print(os, arg.get<MemRefTypeView>());
   if (arg.isa<ScalarTypeView>())
@@ -1568,8 +1565,8 @@ llvm::raw_ostream &rt::print(llvm::raw_ostream &os, const TypeUnionView &arg) {
   return os << "UNK";
 }
 
-llvm::raw_ostream &rt::print(llvm::raw_ostream &os,
-                             const DimensionBoundsView &exe) {
+llvm::raw_ostream &mtrt::print(llvm::raw_ostream &os,
+                               const DimensionBoundsView &exe) {
   os << "dim_bounds<min = [";
   interleave(
       os, exe.getMin(), [](llvm::raw_ostream &os, auto x) { os << x; }, ",");
@@ -1579,8 +1576,8 @@ llvm::raw_ostream &rt::print(llvm::raw_ostream &os,
   return os << "]>";
 }
 
-llvm::raw_ostream &rt::print(llvm::raw_ostream &os,
-                             const ValueBoundsView &exe) {
+llvm::raw_ostream &mtrt::print(llvm::raw_ostream &os,
+                               const ValueBoundsView &exe) {
   os << "value_bounds<min = [";
   interleave(
       os, exe.getMin(), [](llvm::raw_ostream &os, auto x) { os << x; }, ",");
@@ -1590,8 +1587,8 @@ llvm::raw_ostream &rt::print(llvm::raw_ostream &os,
   return os << "]>";
 }
 
-llvm::raw_ostream &rt::print(llvm::raw_ostream &os,
-                             const BoundsUnionView &bounds) {
+llvm::raw_ostream &mtrt::print(llvm::raw_ostream &os,
+                               const BoundsUnionView &bounds) {
   if (bounds.isa<DimensionBoundsView>())
     return print(os, bounds.get<DimensionBoundsView>());
   if (bounds.isa<ValueBoundsView>())
@@ -1599,7 +1596,7 @@ llvm::raw_ostream &rt::print(llvm::raw_ostream &os,
   return os << "UNK";
 }
 
-llvm::raw_ostream &rt::print(llvm::raw_ostream &os, const Executable &exe) {
+llvm::raw_ostream &mtrt::print(llvm::raw_ostream &os, const Executable &exe) {
   os << "RuntimeExecutable<name=" << exe.getName() << ",";
   os << "functions=";
   squareBraces(os, LAMBDAF(interleaveComma(os, exe.getFunctions())));
@@ -1610,8 +1607,8 @@ llvm::raw_ostream &rt::print(llvm::raw_ostream &os, const Executable &exe) {
   return os << ">";
 }
 
-llvm::raw_ostream &rt::print(llvm::raw_ostream &os,
-                             const DataSegmentInfo &segment) {
+llvm::raw_ostream &mtrt::print(llvm::raw_ostream &os,
+                               const DataSegmentInfo &segment) {
   os << llvm::formatv(
       "DataSegment<{0}, size={1}, alignment={2}, constant={3}, "
       "uninitialized={4}, address_space={5}>",
@@ -1620,7 +1617,8 @@ llvm::raw_ostream &rt::print(llvm::raw_ostream &os,
       mtrt::flat::EnumNamePointerType(segment.getAddressSpace()));
   return os;
 }
-llvm::raw_ostream &rt::print(llvm::raw_ostream &os, const MemRefTypeView &exe) {
+llvm::raw_ostream &mtrt::print(llvm::raw_ostream &os,
+                               const MemRefTypeView &exe) {
 
   auto handleDimOrStride = [](llvm::raw_ostream &os, int64_t x) {
     if (x != std::numeric_limits<int64_t>::min())
@@ -1641,12 +1639,12 @@ llvm::raw_ostream &rt::print(llvm::raw_ostream &os, const MemRefTypeView &exe) {
   os << "," << exe.getAddressSpace();
   return os << ">";
 }
-llvm::raw_ostream &rt::print(llvm::raw_ostream &os,
-                             const ScalarTypeView &scalarType) {
+llvm::raw_ostream &mtrt::print(llvm::raw_ostream &os,
+                               const ScalarTypeView &scalarType) {
   return os << mtrt::flat::EnumNameScalarTypeCode(scalarType);
 }
-llvm::raw_ostream &rt::print(llvm::raw_ostream &os,
-                             const FunctionSignatureView &signature) {
+llvm::raw_ostream &mtrt::print(llvm::raw_ostream &os,
+                               const FunctionSignatureView &signature) {
   llvm::SmallVector<TypeUnionView> args = signature.getArgs();
   llvm::SmallVector<TypeUnionView> results = signature.getResults();
   llvm::SmallVector<BoundsUnionView> arg_bounds = signature.getArgBounds();
@@ -1667,7 +1665,8 @@ llvm::raw_ostream &rt::print(llvm::raw_ostream &os,
   return os;
 }
 
-llvm::raw_ostream &rt::print(llvm::raw_ostream &os, const FunctionView &func) {
+llvm::raw_ostream &mtrt::print(llvm::raw_ostream &os,
+                               const FunctionView &func) {
   os << "Function<" << func.getName() << ", ";
   print(os, func.getSignature());
   return os << ">";

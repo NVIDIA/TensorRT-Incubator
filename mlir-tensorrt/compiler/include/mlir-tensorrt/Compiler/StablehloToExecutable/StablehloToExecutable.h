@@ -38,7 +38,7 @@
 
 #ifdef MLIR_TRT_ENABLE_HLO
 
-namespace mlirtrt::compiler {
+namespace mtrt::compiler {
 
 //===----------------------------------------------------------------------===//
 // StableHLOToExecutableOptions
@@ -125,7 +125,7 @@ public:
 /// Register the task/options with the client's registry.
 void registerStableHloToExecutableTask();
 
-} // namespace mlirtrt::compiler
+} // namespace mtrt::compiler
 
 #endif // MLIR_TRT_ENABLE_HLO
 #endif // MLIR_TENSORRT_COMPILER_STABLEHLOTOEXECUTABLE

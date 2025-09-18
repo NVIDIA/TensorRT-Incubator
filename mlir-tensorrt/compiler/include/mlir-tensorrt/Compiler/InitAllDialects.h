@@ -28,7 +28,7 @@ namespace mlir {
 class DialectRegistry;
 }
 
-namespace mlirtrt::compiler {
+namespace mtrt::compiler {
 
 /// Register all the dialects used by MLIR-TensorRT to the registry.
 void registerAllDialects(mlir::DialectRegistry &registry);
@@ -36,6 +36,6 @@ void registerAllDialects(mlir::DialectRegistry &registry);
 /// Register all the Dialect extensions used by MLIR-TensorRT to the registry.
 void registerAllExtensions(mlir::DialectRegistry &registry);
 
-} // namespace mlirtrt::compiler
+} // namespace mtrt::compiler
 
 #endif // MLIR_TENSORRT_COMPILER_INITALLDIALECTS

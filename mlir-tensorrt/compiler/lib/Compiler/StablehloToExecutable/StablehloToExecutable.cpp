@@ -49,8 +49,8 @@
 #include "mlir/Transforms/Passes.h"
 #include <memory>
 
-using namespace mlirtrt;
-using namespace mlirtrt::compiler;
+using namespace mtrt;
+using namespace mtrt::compiler;
 using namespace mlir;
 
 #ifdef MLIR_TRT_ENABLE_HLO
@@ -104,7 +104,7 @@ void StablehloToExecutableTask::populatePassManager() {
               options.defaultBackends.end())}));
 
   // StableHLO Preprocessing
-  mlirtrt::compiler::StableHloInputOptions opts{};
+  mtrt::compiler::StableHloInputOptions opts{};
   opts.legalizeControlFlowToSCF = true;
   opts.preserveChloErf = true;
   opts.preserveChloTopK = true;
@@ -122,7 +122,7 @@ void StablehloToExecutableTask::populatePassManager() {
         options.stablehloInputRewriteConstantFoldVolumeLimit;
   }
 
-  mlirtrt::compiler::buildStablehloPreProcessingPipeline(
+  mtrt::compiler::buildStablehloPreProcessingPipeline(
       pm, opts,
       [&](mlir::OpPassManager &pm, const StableHloInputOptions &opts) {
         pm.addNestedPass<func::FuncOp>(stablehlo_ext::createConstantFoldingPass(
@@ -239,10 +239,10 @@ void StablehloToExecutableTask::populatePassManager() {
   }
 }
 
-void mlirtrt::compiler::registerStableHloToExecutableTask() {
+void mtrt::compiler::registerStableHloToExecutableTask() {
   registerCompilationTaskWithNoExtensions<StablehloToExecutableTask,
                                           StablehloToExecutableOptions>(
-      mlirtrt::compiler::StablehloToExecutableTask::getName());
+      mtrt::compiler::StablehloToExecutableTask::getName());
 }
 
 #endif // MLIR_TRT_ENABLE_HLO

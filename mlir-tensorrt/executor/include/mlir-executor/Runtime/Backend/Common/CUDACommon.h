@@ -6,7 +6,7 @@
 #include "cuda_runtime_api.h"
 #include "mlir-executor/Runtime/API/API.h"
 
-namespace mlirtrt::runtime {
+namespace mtrt {
 
 /// Stream a CUDA driver error to an ostream.
 std::ostream &operator<<(std::ostream &es, CUresult result);
@@ -42,7 +42,7 @@ struct CudaFunctionPtr : public PointerWrapper<CUfunction> {
   create(ResourceTracker &tracker, CudaModulePtr module, llvm::StringRef name);
 };
 
-} // namespace mlirtrt::runtime
+} // namespace mtrt
 
 #endif // MLIR_TRT_ENABLE_CUDA
 #endif // MLIR_EXECUTOR_RUNTIME_BACKEND_COMMON_CUDACOMMON

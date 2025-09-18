@@ -34,7 +34,7 @@
 #include "cuda_runtime_api.h"
 #endif
 
-using namespace mlirtrt;
+using namespace mtrt;
 
 #define ALLOC_DBGF(fmt, ...)                                                   \
   DEBUG_WITH_TYPE("allocators", fprintf(stderr, "%s:%d " fmt "\n", __FILE__,   \

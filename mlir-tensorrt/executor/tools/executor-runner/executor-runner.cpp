@@ -21,7 +21,7 @@
 #include "mlir-executor/Tools/ExecutorRunnerMain.h"
 
 int main(int argc, char **argv) {
-  mlirtrt::runtime::registerLuaRuntimeExtensions();
+  mtrt::registerLuaRuntimeExtensions();
   return mlir::executor::asMainReturnCode(
       mlir::executor::ExecutorRunnerMain(argc, argv));
 }

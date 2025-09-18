@@ -30,7 +30,7 @@ struct this_state;
 struct variadic_args;
 } // namespace sol
 
-namespace mlirtrt::runtime {
+namespace mtrt {
 
 /// Populates `offset`, `shape` and `strides` with memref info derived from the
 /// list `args` and returns pointer. This method differs from the "safe" version
@@ -48,4 +48,4 @@ unsigned getNumArgsPerMemRef(unsigned rank);
 /// corresponds to the the start of the strides vector.
 unsigned getStrideBeginArgNum(unsigned rank);
 
-} // namespace mlirtrt::runtime
+} // namespace mtrt

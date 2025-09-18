@@ -39,8 +39,8 @@
 #pragma GCC diagnostic pop
 #endif
 
-using namespace mlirtrt;
-using namespace mlirtrt::runtime;
+using namespace mtrt;
+using namespace mtrt;
 
 static constexpr std::string_view kNvtxVerbosityEnvVariable =
     "MTRT_TENSORRT_NVTX";
@@ -176,7 +176,7 @@ public:
     size = std::max(size, static_cast<uint64_t>(1));
     size = roundUp(size, alignment);
 
-    StatusOr<PointerInfo> alloc = mlirtrt::runtime::allocate(
+    StatusOr<PointerInfo> alloc = mtrt::allocate(
         *mTracker, PointerType::device, size, alignment,
         stream ? std::optional<CudaStream>(reinterpret_cast<CudaStream>(stream))
                : std::nullopt);
@@ -794,7 +794,7 @@ static void registerExecutorTensorRTModuleLuaRuntimeMethods(
       };
 }
 
-namespace mlirtrt::runtime {
+namespace mtrt {
 void registerLuaTensorRTRuntimeExtension() {
   registerLuaRuntimeExtension(
       "tensorrt",
@@ -806,4 +806,4 @@ void registerLuaTensorRTRuntimeExtension() {
                 state, pinnedMemoryAllocator, allocTracker, resourceTracker);
           }});
 }
-} // namespace mlirtrt::runtime
+} // namespace mtrt

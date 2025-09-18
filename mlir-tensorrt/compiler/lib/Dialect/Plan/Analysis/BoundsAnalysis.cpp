@@ -40,7 +40,7 @@
 using namespace mlir;
 using namespace mlir::dataflow;
 using namespace mlir::plan;
-using namespace mlirtrt::compiler;
+using namespace mtrt::compiler;
 
 #define DEBUG_TYPE "plan-bounds-analysis"
 #define DBGS(x) llvm::dbgs() << " [" DEBUG_TYPE "][" x "] "

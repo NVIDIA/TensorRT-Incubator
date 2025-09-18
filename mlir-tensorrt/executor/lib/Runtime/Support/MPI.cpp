@@ -37,8 +37,8 @@
 #endif // defined(__clang__) || defined(__GNUC__)
 #endif // MLIR_TRT_ENABLE_MPI
 
-using namespace mlirtrt;
-using namespace mlirtrt::runtime;
+using namespace mtrt;
+using namespace mtrt;
 
 #ifdef MLIR_TRT_ENABLE_MPI
 

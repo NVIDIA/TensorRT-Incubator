@@ -21,8 +21,8 @@
 #include "mlir/Support/LogicalResult.h"
 #include "gtest/gtest.h"
 
-using namespace mlirtrt;
-using namespace mlirtrt::runtime;
+using namespace mtrt;
+using namespace mtrt;
 
 namespace {
 
@@ -30,7 +30,7 @@ class TestRuntime : public ::testing::Test {
 protected:
   void SetUp() override {
     mlir::executor::registerAllRequiredDialects(registry);
-    mlirtrt::runtime::registerLuaRuntimeExtensions();
+    mtrt::registerLuaRuntimeExtensions();
     context = std::make_unique<mlir::MLIRContext>(registry);
   }
 
@@ -43,8 +43,8 @@ protected:
     return RuntimeClient::create();
   }
 
-  StatusOr<std::unique_ptr<LuaRuntimeSession>> createLuaRuntimeSession(
-      const std::unique_ptr<runtime::Executable> &executable) {
+  StatusOr<std::unique_ptr<LuaRuntimeSession>>
+  createLuaRuntimeSession(const std::unique_ptr<mtrt::Executable> &executable) {
     RuntimeSessionOptions options;
     options.enableFeatures({"core"});
     return LuaRuntimeSession::create(options, executable->getView(), {});
@@ -93,8 +93,7 @@ TEST_F(TestRuntime, TestRuntimeExecution) {
   auto exeStorage = mlir::translateToRuntimeExecutable(*module);
   ASSERT_TRUE(mlir::succeeded(exeStorage));
 
-  auto executable =
-      std::make_unique<runtime::Executable>(std::move(*exeStorage));
+  auto executable = std::make_unique<mtrt::Executable>(std::move(*exeStorage));
 
   auto session = createLuaRuntimeSession(executable);
   ASSERT_TRUE(session.isOk()) << session.getString();

@@ -36,8 +36,8 @@
 #include <climits>
 #include <type_traits>
 
-using namespace mlirtrt;
-using namespace mlirtrt::runtime;
+using namespace mtrt;
+using namespace mtrt;
 
 //===----------------------------------------------------------------------===//
 // Templated helpers
@@ -1110,7 +1110,7 @@ static void registerExecutorCoreModuleLuaRuntimeMethods(
 #undef DEFINE_BINARY_OP_
 #undef DEFINE_UNARY_OP_
 
-namespace mlirtrt::runtime {
+namespace mtrt {
 void registerLuaCoreRuntimeExtension() {
   registerLuaRuntimeExtension(
       "core",
@@ -1122,4 +1122,4 @@ void registerLuaCoreRuntimeExtension() {
                 state, pinnedMemoryAllocator, allocTracker);
           }});
 }
-} // namespace mlirtrt::runtime
+} // namespace mtrt

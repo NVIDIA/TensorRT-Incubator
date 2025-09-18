@@ -26,12 +26,12 @@
 #include "llvm/Support/FormatVariadic.h"
 #include <string>
 
-namespace mlirtrt {
+namespace mtrt {
 #define GEN_ENUM_DEFS
 #include "mlir-tensorrt-common/Support/StatusEnums.h.inc"
-} // namespace mlirtrt
+} // namespace mtrt
 
-using namespace mlirtrt;
+using namespace mtrt;
 
 Status::Status(StatusCode code, std::string_view msg)
     : code(code), additionalMsg(msg.empty() ? std::nullopt
@@ -62,6 +62,6 @@ std::string Status::getString() const {
                        : std::string(stringifyStatusCode(code));
 }
 
-std::ostream &mlirtrt::operator<<(std::ostream &os, const Status &x) {
+std::ostream &mtrt::operator<<(std::ostream &os, const Status &x) {
   return os << x.getString();
 }

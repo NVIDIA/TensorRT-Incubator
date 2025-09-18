@@ -13,7 +13,7 @@ def InferTensorValueRangeInterface : OpInterface<"InferTensorValueRangeInterface
     providing a methods that allows them to specify lower and upper bounds on their
     result(s) given lower and upper bounds on their input(s) if known.
   }];
-  let cppNamespace = "::mlirtrt::compiler";
+  let cppNamespace = "::mtrt::compiler";
 
   let methods = [
     InterfaceMethod<[{
@@ -29,8 +29,8 @@ def InferTensorValueRangeInterface : OpInterface<"InferTensorValueRangeInterface
     }],
     /*retTy=*/"void",
     /*methodName=*/"inferResultRangesFromOptional",
-    /*args=*/(ins "::llvm::ArrayRef<::mlirtrt::compiler::IntOrTensorValueRange>":$argRanges,
-                  "::mlirtrt::compiler::SetTensorValueLatticeFn":$setResultRanges),
+    /*args=*/(ins "::llvm::ArrayRef<::mtrt::compiler::IntOrTensorValueRange>":$argRanges,
+                  "::mtrt::compiler::SetTensorValueLatticeFn":$setResultRanges),
     /*methodBody=*/"",
     /*defaultImplementation=*/[{}]>,
   ];

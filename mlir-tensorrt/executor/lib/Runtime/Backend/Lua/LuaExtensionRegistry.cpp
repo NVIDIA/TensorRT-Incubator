@@ -28,18 +28,18 @@
 #include "llvm/ADT/StringMap.h"
 #include "llvm/Support/ManagedStatic.h"
 
-using namespace mlirtrt;
-using namespace mlirtrt::runtime;
+using namespace mtrt;
+using namespace mtrt;
 
 static llvm::ManagedStatic<llvm::StringMap<LuaRuntimeExtension>>
     extensionRegistry;
 
-void runtime::registerLuaRuntimeExtension(llvm::StringRef name,
-                                          LuaRuntimeExtension extensionInfo) {
+void mtrt::registerLuaRuntimeExtension(llvm::StringRef name,
+                                       LuaRuntimeExtension extensionInfo) {
   (*extensionRegistry)[name] = std::move(extensionInfo);
 }
 
-Status runtime::populateRuntimeExtensions(
+Status mtrt::populateRuntimeExtensions(
     const RuntimeSessionOptions &options, lua_State *state,
     PinnedMemoryAllocator *pinnedMemoryAllocator, AllocTracker *allocTracker,
     ResourceTracker *resourceTracker) {

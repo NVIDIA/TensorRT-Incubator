@@ -40,7 +40,7 @@
 #include <memory>
 #include <string_view>
 
-namespace mlirtrt::runtime {
+namespace mtrt {
 
 class RuntimeClient;
 
@@ -806,33 +806,28 @@ class BufferType {
 public:
   BufferType() = default;
 
-  BufferType(mlirtrt::runtime::ScalarType elementType,
-             const std::vector<int64_t> &shape,
+  BufferType(ScalarType elementType, const std::vector<int64_t> &shape,
              const std::vector<int64_t> &strides,
-             mlirtrt::runtime::PointerType addressSpace)
+             mtrt::PointerType addressSpace)
       : elementType(elementType), shape(shape), layout(strides, 0),
         addressSpace(addressSpace) {}
 
-  static BufferType
-  createWithByteStrides(mlirtrt::runtime::ScalarType elementType,
-                        const std::vector<int64_t> &shape,
-                        const std::vector<int64_t> &byteStrides,
-                        mlirtrt::runtime::PointerType addressSpace);
+  static BufferType createWithByteStrides(
+      ScalarType elementType, const std::vector<int64_t> &shape,
+      const std::vector<int64_t> &byteStrides, mtrt::PointerType addressSpace);
 
   static BufferType
-  createWithElementStrides(mlirtrt::runtime::ScalarType elementType,
+  createWithElementStrides(ScalarType elementType,
                            const std::vector<int64_t> &shape,
                            const std::vector<int64_t> &elementStrides,
-                           mlirtrt::runtime::PointerType addressSpace);
+                           mtrt::PointerType addressSpace);
 
-  static BufferType
-  createWithCanonicalLayout(mlirtrt::runtime::ScalarType elementType,
-                            const std::vector<int64_t> &shape,
-                            mlirtrt::runtime::PointerType addressSpace);
+  static BufferType createWithCanonicalLayout(ScalarType elementType,
+                                              const std::vector<int64_t> &shape,
+                                              mtrt::PointerType addressSpace);
 
   /// Creates a BufferType the flatbuffers' MemRefTypeView.
-  static BufferType
-  getFromSerializedType(const mlirtrt::runtime::MemRefTypeView &type);
+  static BufferType getFromSerializedType(const MemRefTypeView &type);
 
   /// Return whether the shape is static.
   bool hasStaticShape() const;
@@ -851,9 +846,7 @@ public:
     return llvm::ArrayRef<int64_t>(shape.data(), shape.size());
   }
 
-  mlirtrt::runtime::ScalarType getElementType() const {
-    return mlirtrt::runtime::ScalarType(elementType);
-  }
+  ScalarType getElementType() const { return ScalarType(elementType); }
 
   /// Return the strides of the buffer in terms of bytes.
   std::vector<int64_t> getByteStrides() const;
@@ -889,12 +882,10 @@ public:
   bool isCanonicalColMajor() const;
 
 private:
-  mlirtrt::runtime::ScalarTypeCode elementType{
-      mlirtrt::runtime::ScalarTypeCode::unknown};
+  ScalarTypeCode elementType{ScalarTypeCode::unknown};
   std::vector<int64_t> shape;
   BufferStridedLayout layout;
-  mlirtrt::runtime::PointerType addressSpace{
-      mlirtrt::runtime::PointerType::unknown};
+  mtrt::PointerType addressSpace{mtrt::PointerType::unknown};
 };
 
 std::ostream &operator<<(std::ostream &os, const BufferType &t);
@@ -909,16 +900,14 @@ class MemRefValue : public RuntimeValue {
 public:
   /// Create a new MemRef descriptor. All size quantities are in "units of
   /// elements" unless otherwise noted.
-  static mlirtrt::StatusOr<std::unique_ptr<MemRefValue>>
-  create(mlirtrt::runtime::PointerType addressSpace, ScalarTypeCode elementType,
+  static mtrt::StatusOr<std::unique_ptr<MemRefValue>>
+  create(mtrt::PointerType addressSpace, ScalarTypeCode elementType,
          Ref<MemRefStorage> storage, int64_t offset,
          llvm::ArrayRef<int64_t> shape, llvm::ArrayRef<int64_t> strides,
          std::optional<const Device *> device,
          std::optional<bool> assertCanonicalStrides = {});
 
-  mlirtrt::runtime::PointerType getBufferKind() {
-    return type.getAddressSpace();
-  }
+  mtrt::PointerType getBufferKind() { return type.getAddressSpace(); }
   int64_t getElementBitWidth() const {
     return type.getElementType().getBitWidth();
   }
@@ -933,11 +922,9 @@ public:
   uintptr_t getMemory() const { return storage->getPtr(); }
   void *getVoidPtr() const { return reinterpret_cast<void *>(getMemory()); }
   std::optional<const Device *> getDevice() const { return device; }
-  mlirtrt::runtime::PointerInfo
-  getPointerInfo(mlirtrt::runtime::PointerOwner ownership) const {
-    return mlirtrt::runtime::PointerInfo(getMemory(),
-                                         getTotalFootprintInBytes(),
-                                         type.getAddressSpace(), ownership);
+  PointerInfo getPointerInfo(PointerOwner ownership) const {
+    return PointerInfo(getMemory(), getTotalFootprintInBytes(),
+                       type.getAddressSpace(), ownership);
   }
   PointerType getAddressSpace() const { return type.getAddressSpace(); }
 
@@ -962,10 +949,9 @@ public:
   }
 
 private:
-  MemRefValue(mlirtrt::runtime::PointerType addressSpace,
-              ScalarTypeCode elementType, Ref<MemRefStorage> storage,
-              int64_t offset, llvm::ArrayRef<int64_t> shape,
-              llvm::ArrayRef<int64_t> strides,
+  MemRefValue(mtrt::PointerType addressSpace, ScalarTypeCode elementType,
+              Ref<MemRefStorage> storage, int64_t offset,
+              llvm::ArrayRef<int64_t> shape, llvm::ArrayRef<int64_t> strides,
               std::optional<const Device *> device);
 
   /// Holds the underlying storage object.
@@ -1327,6 +1313,6 @@ inline llvm::raw_ostream &print(llvm::raw_ostream &os,
   return print(os, *obj);
 }
 
-} // namespace mlirtrt::runtime
+} // namespace mtrt
 
 #endif // MLIR_EXECUTOR_RUNTIME_API_API

@@ -38,8 +38,9 @@
 #include <memory>
 #include <string>
 
-using namespace mlirtrt;
-using namespace mlirtrt::runtime;
+using namespace mtrt;
+using namespace mtrt;
+using namespace mtrt;
 
 static StatusOr<std::string> getDeviceArch(int32_t deviceNumber) {
   CUdevice deviceID;
@@ -175,7 +176,7 @@ registerCudaMemoryManagementOps(sol::state_view &lua,
   //===----------------------------------------------------------------------===//
 
   auto getCudaMemcpyFunc = [](cudaMemcpyKind kind, const char *dbgKind) {
-    return [kind, dbgKind](sol::this_state state, CudaStream stream,
+    return [kind, dbgKind](sol::this_state state, mtrt::CudaStream stream,
                            int64_t rank, int64_t elemSize, uintptr_t srcPointer,
                            size_t srcOffset, uintptr_t srcShapeAndStrides,
                            uintptr_t dstPointer, size_t dstOffset,
@@ -275,9 +276,9 @@ registerCudaMemoryManagementOps(sol::state_view &lua,
     MTRT_DBGF("given size = %lu, actual size = %lu", ptxDataSize, info.size);
     assert(info.size == ptxDataSize);
 
-    StatusOr<std::unique_ptr<runtime::CuBinWrapper>> cubinWrapper =
-        runtime::compilePtxToCuBin(reinterpret_cast<const char *>(ptxData),
-                                   info.size, *arch);
+    StatusOr<std::unique_ptr<mtrt::CuBinWrapper>> cubinWrapper =
+        mtrt::compilePtxToCuBin(reinterpret_cast<const char *>(ptxData),
+                                info.size, *arch);
     SET_LUA_ERROR_AND_RETURN_IF_ERROR(cubinWrapper, state, 0);
     if (*cubinWrapper == nullptr) {
       auto err = getInternalErrorStatus("failed to load PTX to cubin");
@@ -529,7 +530,7 @@ registerCudaMemoryManagementOps(sol::state_view &lua,
   };
 }
 
-namespace mlirtrt::runtime {
+namespace mtrt {
 void registerLuaCudaRuntimeExtension() {
   registerLuaRuntimeExtension(
       "cuda",
@@ -544,4 +545,4 @@ void registerLuaCudaRuntimeExtension() {
                                             pinnedMemoryAllocator);
           }});
 }
-} // namespace mlirtrt::runtime
+} // namespace mtrt

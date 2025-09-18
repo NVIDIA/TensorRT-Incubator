@@ -32,7 +32,7 @@
 #include <cassert>
 #include <iostream>
 
-namespace mlirtrt::runtime {
+namespace mtrt {
 
 //===----------------------------------------------------------------------===//
 // Copy utilities
@@ -53,6 +53,6 @@ void executeStridedByteCopy(
     const std::vector<int64_t> &dstByteStrides, size_t elemSizeBytes,
     std::function<void(void *dst, void *src, size_t size)> memcpyFunc);
 
-} // namespace mlirtrt::runtime
+} // namespace mtrt
 
 #endif // MLIR_TENSORRT_RUNTIME_COMMON_COMMONRUNTIME_H

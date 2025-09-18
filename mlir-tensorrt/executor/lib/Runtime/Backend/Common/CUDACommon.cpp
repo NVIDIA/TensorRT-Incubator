@@ -21,8 +21,8 @@
 #include "mlir-executor/Runtime/Backend/Common/NvPtxCompilerUtils.h"
 #include "mlir-executor/Runtime/Support/Support.h"
 
-using namespace mlirtrt;
-namespace mrt = mlirtrt::runtime;
+using namespace mtrt;
+namespace mrt = mtrt;
 using namespace mrt;
 
 std::ostream &mrt::operator<<(std::ostream &es, CUresult result) {

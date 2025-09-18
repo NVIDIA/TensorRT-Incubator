@@ -42,8 +42,8 @@
 #pragma GCC diagnostic pop
 #endif
 
-using namespace mlirtrt::runtime;
-using namespace mlirtrt;
+using namespace mtrt;
+using namespace mtrt;
 
 #define SET_LUA_ERROR_IF_CUBLAS_ERROR(x, lstate, msg)                          \
   do {                                                                         \
@@ -578,7 +578,7 @@ static void registerExecutorCuBLASModuleLuaRuntimeMethods(
       };
 }
 
-namespace mlirtrt::runtime {
+namespace mtrt {
 void registerLuaCublasRuntimeExtension() {
   registerLuaRuntimeExtension(
       "cublas",
@@ -591,4 +591,4 @@ void registerLuaCublasRuntimeExtension() {
           }});
 }
 
-} // namespace mlirtrt::runtime
+} // namespace mtrt

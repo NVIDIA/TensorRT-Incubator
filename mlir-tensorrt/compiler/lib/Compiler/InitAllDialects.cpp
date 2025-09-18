@@ -118,7 +118,7 @@
 #include "stablehlo/dialect/VhloOps.h"
 #endif
 
-void mlirtrt::compiler::registerAllDialects(mlir::DialectRegistry &registry) {
+void mtrt::compiler::registerAllDialects(mlir::DialectRegistry &registry) {
   // clang-format off
     registry.insert<
         mlir::affine::AffineDialect,
@@ -216,11 +216,11 @@ void mlirtrt::compiler::registerAllDialects(mlir::DialectRegistry &registry) {
   });
 
   // Register CompilerTasks.
-  mlirtrt::compiler::registerStableHloToExecutableTask();
-  mlirtrt::compiler::registerTensorRTToExecutableTask();
+  mtrt::compiler::registerStableHloToExecutableTask();
+  mtrt::compiler::registerTensorRTToExecutableTask();
 }
 
-void mlirtrt::compiler::registerAllExtensions(mlir::DialectRegistry &registry) {
+void mtrt::compiler::registerAllExtensions(mlir::DialectRegistry &registry) {
   // Register all conversion to LLVM interfaces.
   mlir::arith::registerConvertArithToLLVMInterface(registry);
   mlir::cf::registerConvertControlFlowToLLVMInterface(registry);
@@ -244,5 +244,5 @@ void mlirtrt::compiler::registerAllExtensions(mlir::DialectRegistry &registry) {
   mlir::plan::registerTensorRTBackend(registry);
 
   // Compiler task extensions.
-  mlirtrt::compiler::registerTensorRTExtension(registry);
+  mtrt::compiler::registerTensorRTExtension(registry);
 }

@@ -25,12 +25,12 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
-using namespace mlirtrt;
+using namespace mtrt;
 
 TEST(TestStatus, TestStatusMacros) {
   auto result = []() -> Status {
     auto internalErr =
-        mlirtrt::getInternalErrorStatus("some error - {0}", "some explanation");
+        mtrt::getInternalErrorStatus("some error - {0}", "some explanation");
     RETURN_STATUS_IF_ERROR(internalErr);
     return getOkStatus();
   }();

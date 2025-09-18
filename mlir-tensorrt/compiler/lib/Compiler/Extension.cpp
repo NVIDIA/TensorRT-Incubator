@@ -30,8 +30,8 @@
   LLVM_DEBUG(llvm::dbgs() << llvm::formatv("[" DEBUG_TYPE "] " fmt "\n",       \
                                            __VA_ARGS__))
 
-using namespace mlirtrt;
-using namespace mlirtrt::compiler;
+using namespace mtrt;
+using namespace mtrt::compiler;
 
 static llvm::ManagedStatic<ExtensionConstructorRegistry>
     globalTaskExtensionRegistry;

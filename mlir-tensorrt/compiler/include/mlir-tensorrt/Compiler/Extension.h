@@ -36,7 +36,7 @@
 #include "mlir/IR/BuiltinOps.h"
 #include "llvm/Support/Mutex.h"
 
-namespace mlirtrt::compiler {
+namespace mtrt::compiler {
 
 enum class Phase;
 
@@ -189,6 +189,6 @@ void registerExtension() {
 /// given task name in the global Extension registry.
 ExtensionList getExtensionsForTask(llvm::StringRef taskName);
 
-} // namespace mlirtrt::compiler
+} // namespace mtrt::compiler
 
 #endif // MLIR_TENSORRT_COMPILER_EXTENSION

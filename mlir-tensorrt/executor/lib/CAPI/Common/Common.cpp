@@ -25,8 +25,8 @@
 #include "mlir-executor/Runtime/API/API.h"
 #include "mlir-tensorrt-common-c/Support/Status.h"
 
-using namespace mlirtrt;
-using namespace mlirtrt::runtime;
+using namespace mtrt;
+using namespace mtrt;
 
 #define DEFINE_C_API_PTR_METHODS(name, cpptype)                                \
   static inline name wrap(cpptype *cpp) { return name{cpp}; }                  \
@@ -46,7 +46,7 @@ DEFINE_C_API_PTR_METHODS(MTRT_ScalarType, ::mtrt::flat::ScalarTypeT)
 DEFINE_C_API_PTR_METHODS(MTRT_MemRefType, ::mtrt::flat::MemRefTypeT)
 DEFINE_C_API_PTR_METHODS(MTRT_FunctionSignature,
                          ::mtrt::flat::FunctionSignature)
-DEFINE_C_API_PTR_METHODS(MTRT_Executable, ::mlirtrt::runtime::Executable)
+DEFINE_C_API_PTR_METHODS(MTRT_Executable, ::mtrt::Executable)
 #if defined(__GNUC__) || defined(__clang__)
 #pragma GCC diagnostic pop
 #endif
@@ -361,7 +361,7 @@ MTRT_Status mtrtFunctionSignatureGetString(MTRT_FunctionSignature signature,
                                            MTRT_PrintCallbackInfo callback) {
   const mtrt::flat::FunctionSignature *sig = unwrap(signature);
   CallbackOstream stream(callback);
-  mlirtrt::runtime::print(stream, sig);
+  mtrt::print(stream, sig);
   return mtrtStatusGetOk();
 }
 

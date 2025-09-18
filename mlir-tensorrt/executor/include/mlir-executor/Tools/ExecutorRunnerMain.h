@@ -43,8 +43,8 @@ enum InputType {
 /// Implementation for tools like `executor-runner`.
 LogicalResult ExecutorRunnerMain(
     int argc, char **argv, std::function<void()> postInitCallback = {},
-    mlirtrt::runtime::LuaRuntimeSession::LuaModuleRegistrationFunc
-        registerExtraLuaFuncs = {});
+    mtrt::LuaRuntimeSession::LuaModuleRegistrationFunc registerExtraLuaFuncs =
+        {});
 
 /// Helper wrapper to return the result of ExecutorRunnerMain directly from
 /// main.

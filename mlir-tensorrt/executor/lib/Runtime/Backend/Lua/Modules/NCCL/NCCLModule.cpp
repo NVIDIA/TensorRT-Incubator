@@ -40,8 +40,8 @@
 #pragma GCC diagnostic pop
 #endif
 
-using namespace mlirtrt;
-using namespace mlirtrt::runtime;
+using namespace mtrt;
+using namespace mtrt;
 
 using ExecPtr = uintptr_t;
 
@@ -410,7 +410,7 @@ static void registerDeviceDependentNCCLMethods(lua_State *state,
   };
 }
 
-namespace mlirtrt::runtime {
+namespace mtrt {
 void registerLuaNcclRuntimeExtension() {
   registerLuaRuntimeExtension(
       "nccl",
@@ -424,4 +424,4 @@ void registerLuaNcclRuntimeExtension() {
                                                options.getNcclUuid());
           }});
 }
-} // namespace mlirtrt::runtime
+} // namespace mtrt

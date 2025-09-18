@@ -30,7 +30,7 @@
 
 int main(int argc, char **argv) {
   mlir::DialectRegistry registry;
-  mlirtrt::compiler::registerAllDialects(registry);
-  mlirtrt::compiler::registerAllExtensions(registry);
+  mtrt::compiler::registerAllDialects(registry);
+  mtrt::compiler::registerAllExtensions(registry);
   return mlir::failed(mlir::MlirLspServerMain(argc, argv, registry));
 }

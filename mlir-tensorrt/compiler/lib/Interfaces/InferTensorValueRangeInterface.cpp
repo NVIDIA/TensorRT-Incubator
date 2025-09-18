@@ -27,7 +27,7 @@
 #include "mlir/Interfaces/InferIntRangeInterface.h"
 #include "mlir/Support/LLVM.h"
 
-using namespace mlirtrt::compiler;
+using namespace mtrt::compiler;
 using namespace mlir;
 
 //===----------------------------------------------------------------------===//
@@ -148,8 +148,8 @@ void BoundsArray::print(raw_ostream &os) const {
   os << ">";
 }
 
-llvm::raw_ostream &mlirtrt::compiler::operator<<(llvm::raw_ostream &os,
-                                                 const BoundsArray &v) {
+llvm::raw_ostream &mtrt::compiler::operator<<(llvm::raw_ostream &os,
+                                              const BoundsArray &v) {
   v.print(os);
   return os;
 }

@@ -46,7 +46,7 @@
 #endif
 
 namespace py = pybind11;
-using namespace mlirtrt;
+using namespace mtrt;
 
 namespace {
 

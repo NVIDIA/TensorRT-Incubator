@@ -39,7 +39,7 @@
 #include <string_view>
 
 namespace py = pybind11;
-using namespace mlirtrt;
+using namespace mtrt;
 
 //===----------------------------------------------------------------------===//
 // MTRT_* <-> PyCapsule utilities.
@@ -187,7 +187,7 @@ public:
   using Base::Base;
   DECLARE_WRAPPER_CONSTRUCTORS(PyRuntimeSession)
 
-  static constexpr auto kMethodTable = mlirtrt::CAPITable<MTRT_RuntimeSession>{
+  static constexpr auto kMethodTable = mtrt::CAPITable<MTRT_RuntimeSession>{
       mtrtRuntimeSessionIsNull, mtrtRuntimeSessionDestroy};
 };
 

@@ -19,8 +19,8 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-executor/Runtime/Backend/Common/CommonRuntime.h"
 
-using namespace mlirtrt;
-namespace mrt = mlirtrt::runtime;
+using namespace mtrt;
+namespace mrt = mtrt;
 using namespace mrt;
 
 void mrt::executeStridedCopy(

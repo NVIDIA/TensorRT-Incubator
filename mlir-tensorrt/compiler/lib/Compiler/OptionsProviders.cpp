@@ -28,8 +28,8 @@
 #include "llvm/Support/ErrorHandling.h"
 
 using namespace mlir;
-using namespace mlirtrt;
-using namespace mlirtrt::compiler;
+using namespace mtrt;
+using namespace mtrt::compiler;
 
 //===----------------------------------------------------------------------===//
 // DebugOptions

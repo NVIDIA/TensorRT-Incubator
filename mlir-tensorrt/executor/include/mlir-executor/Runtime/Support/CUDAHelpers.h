@@ -28,7 +28,7 @@
 
 // CUDA runtime headers are only required in the implementation.
 
-namespace mlirtrt::runtime {
+namespace mtrt {
 
 /// Wrapper around `cudaGetDevice`.
 StatusOr<int32_t> getCurrentCUDADevice();
@@ -117,6 +117,6 @@ Status freeCUDAAsync(uintptr_t ptr, uintptr_t stream);
 /// Wrapper around `cudaFreeHost` for pinned host memory.
 Status freeCUDAPinnedHost(uintptr_t ptr);
 
-} // namespace mlirtrt::runtime
+} // namespace mtrt
 
 #endif // MLIR_EXECUTOR_RUNTIME_SUPPORT_CUDAHELPERS

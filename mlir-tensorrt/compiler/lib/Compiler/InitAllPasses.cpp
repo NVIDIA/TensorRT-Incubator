@@ -52,7 +52,7 @@
 #endif // MLIR_TRT_ENABLE_TORCH
 
 /// Register passes declared within this repo.
-void mlirtrt::compiler::registerAllPasses() {
+void mtrt::compiler::registerAllPasses() {
   mlir::bufferization::registerBufferizationPasses();
   mlir::emitc::registerEmitCPasses();
   mlir::executor::registerAllPasses();
@@ -66,11 +66,11 @@ void mlirtrt::compiler::registerAllPasses() {
   mlir::registerMLIRTensorRTGenericTransformsPasses();
   mlir::registerTransformsPasses();
   mlir::tensorrt::registerTensorRTPasses();
-  mlirtrt::compiler::registerTensorRTToExecutablePasses();
+  mtrt::compiler::registerTensorRTToExecutablePasses();
 
   IF_MLIR_TRT_ENABLE_HLO({
-    mlirtrt::compiler::registerStablehloToExecutablePasses();
-    mlirtrt::compiler::registerStableHloInputPipelines();
+    mtrt::compiler::registerStablehloToExecutablePasses();
+    mtrt::compiler::registerStableHloInputPipelines();
     mlir::stablehlo_ext::registerStableHloExtPasses();
     mlir::stablehlo::registerPasses();
     mlir::stablehlo::registerOptimizationPasses();

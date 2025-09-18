@@ -30,8 +30,8 @@
 #include "mlir/CAPI/IR.h"
 #include "mlir/Pass/PassManager.h"
 
-using namespace mlirtrt;
-using namespace mlirtrt::compiler;
+using namespace mtrt;
+using namespace mtrt::compiler;
 using namespace mlir;
 
 #if defined(__GNUC__) || defined(__clang__)
@@ -44,13 +44,13 @@ DEFINE_C_API_PTR_METHODS(MTRT_CompilerClient, CompilerClient)
 #endif
 
 /// Return the MTRT_StatusCode. These are auto-generated from the same schema as
-/// the `mlirtrt::StatusCode`.
+/// the `mtrt::StatusCode`.
 static MTRT_StatusCode
-getMTRTStatusCodeFromRuntimeStatusCode(mlirtrt::StatusCode code) {
+getMTRTStatusCodeFromRuntimeStatusCode(mtrt::StatusCode code) {
   return static_cast<MTRT_StatusCode>(code);
 }
 
-static MTRT_Status wrap(const mlirtrt::Status &status) {
+static MTRT_Status wrap(const mtrt::Status &status) {
   if (status.isOk())
     return mtrtStatusGetOk();
   return mtrtStatusCreate(

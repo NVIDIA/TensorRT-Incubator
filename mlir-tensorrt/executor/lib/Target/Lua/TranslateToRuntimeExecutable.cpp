@@ -38,7 +38,6 @@
 #include "llvm/Support/MathExtras.h"
 
 using namespace mlir;
-namespace rt = mlirtrt::runtime;
 
 namespace {
 namespace fb = ::flatbuffers;
@@ -210,37 +209,37 @@ FBBuilder::serialize64(Location loc, const DataLayout &dataLayout,
 }
 
 /// Translate the scalar type into the equivalent flatbuffer API object.
-static FailureOr<rt::ScalarTypeCode> translateScalarType(Type t) {
+static FailureOr<mtrt::ScalarTypeCode> translateScalarType(Type t) {
   if (t.isInteger(32))
-    return rt::ScalarTypeCode::i32;
+    return mtrt::ScalarTypeCode::i32;
   if (t.isInteger(16))
-    return rt::ScalarTypeCode::i16;
+    return mtrt::ScalarTypeCode::i16;
   if (t.isInteger(64))
-    return rt::ScalarTypeCode::i64;
+    return mtrt::ScalarTypeCode::i64;
   if (t.isInteger(8))
-    return rt::ScalarTypeCode::i8;
+    return mtrt::ScalarTypeCode::i8;
   if (t.isF32())
-    return rt::ScalarTypeCode::f32;
+    return mtrt::ScalarTypeCode::f32;
   if (t.isF64())
-    return rt::ScalarTypeCode::f64;
+    return mtrt::ScalarTypeCode::f64;
   if (t.isF16())
-    return rt::ScalarTypeCode::f16;
+    return mtrt::ScalarTypeCode::f16;
   if (t.isBF16())
-    return rt::ScalarTypeCode::bf16;
+    return mtrt::ScalarTypeCode::bf16;
   if (isa<Float8E4M3FNType>(t))
-    return rt::ScalarTypeCode::f8e4m3fn;
+    return mtrt::ScalarTypeCode::f8e4m3fn;
   if (isa<Float4E2M1FNType>(t))
-    return rt::ScalarTypeCode::f4e2m1fn;
+    return mtrt::ScalarTypeCode::f4e2m1fn;
   if (t.isIndex())
-    return rt::ScalarTypeCode::i32;
+    return mtrt::ScalarTypeCode::i32;
   if (t.isInteger(1))
-    return rt::ScalarTypeCode::i1;
+    return mtrt::ScalarTypeCode::i1;
   if (t.isInteger(4))
-    return rt::ScalarTypeCode::i4;
+    return mtrt::ScalarTypeCode::i4;
   if (t == ComplexType::get(Float32Type::get(t.getContext())))
-    return rt::ScalarTypeCode::complex32;
+    return mtrt::ScalarTypeCode::complex32;
   if (t == ComplexType::get(Float64Type::get(t.getContext())))
-    return rt::ScalarTypeCode::complex64;
+    return mtrt::ScalarTypeCode::complex64;
   return failure();
 }
 
@@ -279,16 +278,17 @@ translateAttribute(FBBuilder &fb, Attribute attr) {
 }
 
 /// Translate the memory type into the equivalent flatbuffer API object.
-static FailureOr<rt::PointerType> translateMemoryType(executor::MemoryType t) {
+static FailureOr<mtrt::PointerType>
+translateMemoryType(executor::MemoryType t) {
   switch (t) {
   case executor::MemoryType::host:
-    return rt::PointerType::host;
+    return mtrt::PointerType::host;
   case executor::MemoryType::host_pinned:
-    return rt::PointerType::pinned_host;
+    return mtrt::PointerType::pinned_host;
   case executor::MemoryType::device:
-    return rt::PointerType::device;
+    return mtrt::PointerType::device;
   case executor::MemoryType::unified:
-    return rt::PointerType::unified;
+    return mtrt::PointerType::unified;
   default:
     return failure();
   }
@@ -310,7 +310,7 @@ translateTypeVariant(FBBuilder &fbBuilder, Type t) {
 
   // Encode as a memref.
   if (auto memrefType = llvm::dyn_cast<MemRefType>(t)) {
-    FailureOr<rt::ScalarTypeCode> code =
+    FailureOr<mtrt::ScalarTypeCode> code =
         translateScalarType(memrefType.getElementType());
     if (failed(code))
       return emitTranslateFailure(memrefType.getElementType());
@@ -318,7 +318,7 @@ translateTypeVariant(FBBuilder &fbBuilder, Type t) {
     auto [strides, offset] = memrefType.getStridesAndOffset();
     auto stridesOffset = fbBuilder.serialize<int64_t>(strides);
 
-    auto addressSpace = rt::PointerType::unknown;
+    auto addressSpace = mtrt::PointerType::unknown;
     if (llvm::isa_and_nonnull<executor::MemoryTypeAttr>(
             memrefType.getMemorySpace())) {
       auto memoryType =
@@ -336,7 +336,7 @@ translateTypeVariant(FBBuilder &fbBuilder, Type t) {
                               .Union());
   }
   // Encode as a scalar type.
-  FailureOr<rt::ScalarTypeCode> code = translateScalarType(t);
+  FailureOr<mtrt::ScalarTypeCode> code = translateScalarType(t);
   if (failed(code))
     return emitTranslateFailure(t);
   return std::make_pair(mtrt::flat::Type::ScalarType,
@@ -444,7 +444,7 @@ generateSignature(FBBuilder &fbBuilder, FunctionType metadata) {
       fbBuilder.serialize(resultOffsets), /*num_output_args=*/0,
       /*arg_bounds_type=*/0, /*arg_bounds=*/0, /*result_bounds_type=*/0,
       /*result_bounds=*/0, /*shape_function_name=*/0,
-      mlirtrt::runtime::CallingConvention::packed);
+      mtrt::CallingConvention::packed);
 }
 
 /// Return a sanitized version of a symbol name by replacing special characters
@@ -459,7 +459,7 @@ namespace {
 /// An implementation of `ExecutableStorage` that just uses a
 /// `flatbuffers::DetachedBuffer`. This allows us to avoid a copy of the
 /// serialized buffer.
-class ExecutableStorageFlatbuffer : public mlirtrt::runtime::ExecutableStorage {
+class ExecutableStorageFlatbuffer : public mtrt::ExecutableStorage {
 public:
   ExecutableStorageFlatbuffer(flatbuffers::DetachedBuffer storage)
       : storage(std::move(storage)) {}
@@ -475,7 +475,7 @@ private:
 
 } // namespace
 
-FailureOr<std::unique_ptr<mlirtrt::runtime::ExecutableStorage>>
+FailureOr<std::unique_ptr<mtrt::ExecutableStorage>>
 mlir::translateToRuntimeExecutable(Operation *op) {
 
   FBBuilder fbBuilder;
@@ -551,7 +551,7 @@ mlir::translateToRuntimeExecutable(Operation *op) {
              << "failed to calculate data size for global "
              << globalOp.getSymName();
 
-    FailureOr<rt::PointerType> addrSpace =
+    FailureOr<mtrt::PointerType> addrSpace =
         translateMemoryType(globalOp.getAddressSpace());
     if (failed(addrSpace))
       return emitError(globalOp.getLoc())
@@ -642,14 +642,14 @@ mlir::translateToRuntimeExecutable(Operation *op) {
              << "failed to create a valid Executable buffer";
   }
 
-  std::unique_ptr<mlirtrt::runtime::ExecutableStorage> result =
+  std::unique_ptr<mtrt::ExecutableStorage> result =
       std::make_unique<ExecutableStorageFlatbuffer>(std::move(detached));
   return result;
 }
 
 LogicalResult mlir::translateToRuntimeExecutable(Operation *op,
                                                  raw_ostream &os) {
-  FailureOr<std::unique_ptr<mlirtrt::runtime::ExecutableStorage>> storage =
+  FailureOr<std::unique_ptr<mtrt::ExecutableStorage>> storage =
       translateToRuntimeExecutable(op);
   if (failed(storage) || !*storage)
     return failure();

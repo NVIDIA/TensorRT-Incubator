@@ -49,7 +49,7 @@ struct MTRT_StreamImpl;
 
 namespace {
 struct RuntimeClientRef {
-  mlirtrt::runtime::Ref<mlirtrt::runtime::RuntimeClient> ref;
+  mtrt::Ref<mtrt::RuntimeClient> ref;
 };
 } // namespace
 
@@ -63,28 +63,27 @@ struct RuntimeClientRef {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
 #endif
-DEFINE_C_API_PTR_METHODS(MTRT_RuntimeSession,
-                         ::mlirtrt::runtime::RuntimeSession)
+DEFINE_C_API_PTR_METHODS(MTRT_RuntimeSession, ::mtrt::RuntimeSession)
 DEFINE_C_API_PTR_METHODS(MTRT_RuntimeSessionOptions,
-                         ::mlirtrt::runtime::RuntimeSessionOptions)
-DEFINE_C_API_PTR_METHODS(MTRT_Executable, ::mlirtrt::runtime::Executable)
+                         ::mtrt::RuntimeSessionOptions)
+DEFINE_C_API_PTR_METHODS(MTRT_Executable, ::mtrt::Executable)
 DEFINE_C_API_PTR_METHODS(MTRT_Stream, MTRT_StreamImpl)
-DEFINE_C_API_PTR_METHODS(MTRT_RuntimeValue, ::mlirtrt::runtime::RuntimeValue)
-DEFINE_C_API_PTR_METHODS(MTRT_ScalarValue, ::mlirtrt::runtime::ScalarValue)
+DEFINE_C_API_PTR_METHODS(MTRT_RuntimeValue, ::mtrt::RuntimeValue)
+DEFINE_C_API_PTR_METHODS(MTRT_ScalarValue, ::mtrt::ScalarValue)
 DEFINE_C_API_PTR_METHODS(MTRT_RuntimeClient, RuntimeClientRef)
-DEFINE_C_API_PTR_METHODS(MTRT_MemRefValue, ::mlirtrt::runtime::MemRefValue)
-DEFINE_C_API_PTR_METHODS(MTRT_Device, ::mlirtrt::runtime::Device)
+DEFINE_C_API_PTR_METHODS(MTRT_MemRefValue, ::mtrt::MemRefValue)
+DEFINE_C_API_PTR_METHODS(MTRT_Device, ::mtrt::Device)
 DEFINE_C_API_PTR_METHODS(MTRT_DLPackManagedTensor, DLManagedTensor)
 DEFINE_C_API_PTR_METHODS(MTRT_DLPackDevice, DLDevice)
 #if defined(__GNUC__) || defined(__clang__)
 #pragma GCC diagnostic pop
 #endif
 
-using namespace mlirtrt;
-using namespace mlirtrt::runtime;
+using namespace mtrt;
+using namespace mtrt;
 
 /// Return the MTRT_StatusCode. These are auto-generated from the same schema as
-/// the `mlirtrt::StatusCode`.
+/// the `mtrt::StatusCode`.
 static MTRT_StatusCode getMTRTStatusCodeFromRuntimeStatusCode(StatusCode code) {
   return static_cast<MTRT_StatusCode>(code);
 }
@@ -166,9 +165,7 @@ namespace {
 struct ExecutorRuntimeGlobalInit {
   static std::mutex m;
 
-  ExecutorRuntimeGlobalInit() {
-    mlirtrt::runtime::registerLuaRuntimeExtensions();
-  }
+  ExecutorRuntimeGlobalInit() { mtrt::registerLuaRuntimeExtensions(); }
 };
 } // namespace
 

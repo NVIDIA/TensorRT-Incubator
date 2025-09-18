@@ -50,8 +50,8 @@
     }                                                                          \
   } while (false)
 
-using namespace mlirtrt;
-using namespace mlirtrt::runtime;
+using namespace mtrt;
+using namespace mtrt;
 
 int32_t mtrt_cuda_get_active_device() {
   int32_t device{0};
@@ -140,9 +140,9 @@ CUmodule mtrt_cuda_module_load_from_ptx(const char *ptxData, size_t ptxLen) {
     return nullptr;
   }
 
-  StatusOr<std::unique_ptr<mlirtrt::runtime::CuBinWrapper>> cubinWrapper =
-      mlirtrt::runtime::compilePtxToCuBin(
-          reinterpret_cast<const char *>(ptxData), ptxLen, *arch);
+  StatusOr<std::unique_ptr<mtrt::CuBinWrapper>> cubinWrapper =
+      mtrt::compilePtxToCuBin(reinterpret_cast<const char *>(ptxData), ptxLen,
+                              *arch);
   if (!cubinWrapper.isOk()) {
     llvm::errs() << cubinWrapper.getString() << "\n";
     return nullptr;
@@ -198,8 +198,8 @@ CUmodule mtrt_cuda_module_load_from_ptx_file(const char *filename,
   if (readInputFile(std::string(filename, filenameLength), buffer))
     return nullptr;
 
-  StatusOr<std::unique_ptr<mlirtrt::runtime::CuBinWrapper>> cubinWrapper =
-      mlirtrt::runtime::compilePtxToCuBin(buffer.data(), buffer.size(), *arch);
+  StatusOr<std::unique_ptr<mtrt::CuBinWrapper>> cubinWrapper =
+      mtrt::compilePtxToCuBin(buffer.data(), buffer.size(), *arch);
   if (!cubinWrapper.isOk()) {
     llvm::errs() << cubinWrapper.getString() << "\n";
     return nullptr;

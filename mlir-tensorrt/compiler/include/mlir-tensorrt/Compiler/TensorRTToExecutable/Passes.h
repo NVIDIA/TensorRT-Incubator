@@ -27,7 +27,7 @@
 #include <memory>
 #include <mlir/Pass/Pass.h>
 
-namespace mlirtrt::compiler {
+namespace mtrt::compiler {
 
 //===----------------------------------------------------------------------===//
 // Add Tablegen'd pass declarations and registration methods.
@@ -36,6 +36,6 @@ namespace mlirtrt::compiler {
 #define GEN_PASS_REGISTRATION
 #include "mlir-tensorrt/Compiler/TensorRTToExecutable/Passes.h.inc"
 
-} // namespace mlirtrt::compiler
+} // namespace mtrt::compiler
 
 #endif // MLIR_TENSORRT_COMPILER_TENSORRTTOEXECUTABLE_PASSES

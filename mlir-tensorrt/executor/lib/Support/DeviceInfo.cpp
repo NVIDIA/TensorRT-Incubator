@@ -24,7 +24,7 @@
 #include "cuda_runtime_api.h"
 #endif // MLIR_TRT_ENABLE_CUDA
 
-using namespace mlirtrt;
+using namespace mtrt;
 
 #ifdef MLIR_TRT_ENABLE_CUDA
 static Status makeCudaStringError(cudaError_t errCode,
@@ -72,7 +72,7 @@ getDeviceInformationFromHostImpl(int cudaDeviceOridinal) {
 }
 
 StatusOr<llvm::SmallVector<DeviceInfo>>
-mlirtrt::getAllDeviceInformationFromHost() {
+mtrt::getAllDeviceInformationFromHost() {
 #ifdef MLIR_TRT_ENABLE_CUDA
   int numDevices = 0;
   cudaError_t err = cudaGetDeviceCount(&numDevices);
@@ -95,7 +95,7 @@ mlirtrt::getAllDeviceInformationFromHost() {
 }
 
 StatusOr<DeviceInfo>
-mlirtrt::getDeviceInformationFromHost(int32_t cudaDeviceOrdinal) {
+mtrt::getDeviceInformationFromHost(int32_t cudaDeviceOrdinal) {
 #ifdef MLIR_TRT_ENABLE_CUDA
   return getDeviceInformationFromHostImpl(cudaDeviceOrdinal);
 #else

@@ -11,7 +11,7 @@
 #include <limits>
 #include <sstream>
 
-using namespace mlirtrt::runtime;
+using namespace mtrt;
 
 namespace {
 

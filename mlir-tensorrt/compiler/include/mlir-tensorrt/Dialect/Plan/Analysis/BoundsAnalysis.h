@@ -31,7 +31,7 @@
 
 namespace mlir::plan {
 
-using BoundsArray = mlirtrt::compiler::BoundsArray;
+using BoundsArray = mtrt::compiler::BoundsArray;
 
 //===----------------------------------------------------------------------===//
 // Shape Bounds Analyses

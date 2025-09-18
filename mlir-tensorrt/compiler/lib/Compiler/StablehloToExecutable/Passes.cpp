@@ -42,15 +42,15 @@
 
 #ifdef MLIR_TRT_ENABLE_HLO
 
-namespace mlirtrt::compiler {
+namespace mtrt::compiler {
 #define GEN_PASS_DEF_PROCESSSTABLEHLOHOSTCLUSTERSPASS
 #define GEN_PASS_DEF_CONVERTSTABLEHLOCONSTANTSTOARITHPASS
 #define GEN_PASS_DEF_POPULATEDEFAULTBACKENDMETADATAPASS
 #include "mlir-tensorrt/Compiler/StablehloToExecutable/Passes.h.inc"
-} // namespace mlirtrt::compiler
+} // namespace mtrt::compiler
 
-using namespace mlirtrt;
-using namespace mlirtrt::compiler;
+using namespace mtrt;
+using namespace mtrt::compiler;
 using namespace mlir;
 
 namespace {

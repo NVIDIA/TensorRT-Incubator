@@ -29,7 +29,7 @@
 #include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/raw_ostream.h"
 
-namespace mlirtrt::runtime {
+namespace mtrt {
 
 //===----------------------------------------------------------------------===//
 // Debugging and logging tools
@@ -95,6 +95,6 @@ void _MTRT_ERRV(const char *format, const char *file, int64_t line,
     _MTRT_DBGV(format, __FILE__, __LINE__, __VA_ARGS__);                       \
   } while (false)
 
-} // namespace mlirtrt::runtime
+} // namespace mtrt
 
 #endif // MLIR_TENSORRT_RUNTIME_COMMON_DEBUG

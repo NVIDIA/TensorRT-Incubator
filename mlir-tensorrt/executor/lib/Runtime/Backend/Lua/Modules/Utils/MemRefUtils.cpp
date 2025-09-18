@@ -24,8 +24,8 @@
 #include "mlir-tensorrt-common/Support/Status.h"
 #include "llvm/Support/raw_ostream.h"
 
-namespace mrt = mlirtrt::runtime;
-using namespace mlirtrt::runtime;
+namespace mrt = mtrt;
+using namespace mtrt;
 
 constexpr unsigned kAlignedPtrArgNum = 1;
 constexpr unsigned kShapeBeginArgNum = 3;

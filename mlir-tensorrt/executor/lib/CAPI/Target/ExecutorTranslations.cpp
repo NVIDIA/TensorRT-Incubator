@@ -27,15 +27,14 @@ using namespace mlir;
 
 MTRT_Status translateToRuntimeExecutable(MlirOperation op,
                                          MTRT_Executable *result) {
-  FailureOr<std::unique_ptr<mlirtrt::runtime::ExecutableStorage>> exeStorage =
+  FailureOr<std::unique_ptr<mtrt::ExecutableStorage>> exeStorage =
       mlir::translateToRuntimeExecutable(unwrap(op));
   if (failed(exeStorage))
     return mtrtStatusCreate(MTRT_StatusCode_InternalError,
                             "failed to translate to executable");
 
   *result = MTRT_Executable{
-      std::make_unique<mlirtrt::runtime::Executable>(std::move(*exeStorage))
-          .release()};
+      std::make_unique<mtrt::Executable>(std::move(*exeStorage)).release()};
 
   return mtrtStatusGetOk();
 }

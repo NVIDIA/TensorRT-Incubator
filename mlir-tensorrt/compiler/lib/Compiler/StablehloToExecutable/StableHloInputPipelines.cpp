@@ -28,8 +28,8 @@
 #include "stablehlo/transforms/Passes.h"
 
 using namespace mlir;
-using namespace mlirtrt;
-using namespace mlirtrt::compiler;
+using namespace mtrt;
+using namespace mtrt::compiler;
 
 static void buildStableHloSimplificationPipeline(
     OpPassManager &pm,
@@ -61,7 +61,7 @@ static void buildStableHloSimplificationPipeline(
   pm.addPass(stablehlo_ext::createCanonicalizeShapesPass());
 }
 
-void mlirtrt::compiler::buildStablehloPreProcessingPipeline(
+void mtrt::compiler::buildStablehloPreProcessingPipeline(
     OpPassManager &pm, const StableHloInputOptions &opts,
     std::function<void(mlir::OpPassManager &pm,
                        const StableHloInputOptions &opts)>
@@ -188,7 +188,7 @@ struct StableHloInputPipelineOptions
 };
 } // namespace
 
-void mlirtrt::compiler::registerStableHloInputPipelines() {
+void mtrt::compiler::registerStableHloInputPipelines() {
   PassPipelineRegistration<StableHloInputPipelineOptions>(
       "stablehlo-preprocessing-pipeline",
       "Apply StableHlo input processing pipeline to prepare for "

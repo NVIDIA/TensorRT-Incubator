@@ -42,16 +42,6 @@ using PointerType = mtrt::flat::PointerType;
 using PointerOwner = mtrt::flat::PointerOwner;
 using TypeCode = mtrt::flat::Type;
 using CallingConvention = mtrt::flat::CallingConvention;
-} // namespace mtrt
-
-namespace mlirtrt::runtime {
-// Alias some objects from the generated Flatbuffer object API class instead of
-// using them directly.
-using ScalarTypeCode = mtrt::ScalarTypeCode;
-using PointerType = mtrt::flat::PointerType;
-using PointerOwner = mtrt::flat::PointerOwner;
-using TypeCode = mtrt::flat::Type;
-using CallingConvention = mtrt::flat::CallingConvention;
 
 //===----------------------------------------------------------------------===//
 // ExecutableStorage
@@ -73,6 +63,21 @@ public:
   virtual size_t size() const = 0;
 };
 
-} // namespace mlirtrt::runtime
+} // namespace mtrt
+
+namespace mtrt {
+// Alias some objects from the generated Flatbuffer object API class instead of
+// using them directly.
+using ScalarTypeCode = mtrt::ScalarTypeCode;
+using PointerType = mtrt::flat::PointerType;
+using PointerOwner = mtrt::flat::PointerOwner;
+using TypeCode = mtrt::flat::Type;
+using CallingConvention = mtrt::flat::CallingConvention;
+using CudaStream = uintptr_t;
+using CudaEvent = uintptr_t;
+
+using ExecutableStorage = mtrt::ExecutableStorage;
+
+} // namespace mtrt
 
 #endif // MLIR_EXECUTOR_RUNTIME_API_EXECUTABLE

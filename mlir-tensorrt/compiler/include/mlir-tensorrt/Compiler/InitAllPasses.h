@@ -24,11 +24,11 @@
 #ifndef MLIR_TENSORRT_COMPILER_INITALLPASSES
 #define MLIR_TENSORRT_COMPILER_INITALLPASSES
 
-namespace mlirtrt::compiler {
+namespace mtrt::compiler {
 
 /// Register passes declared within this repo.
 void registerAllPasses();
 
-} // namespace mlirtrt::compiler
+} // namespace mtrt::compiler
 
 #endif // MLIR_TENSORRT_COMPILER_INITALLPASSES

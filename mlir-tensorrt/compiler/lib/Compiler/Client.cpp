@@ -36,8 +36,8 @@
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/Path.h"
 
-using namespace mlirtrt;
-using namespace mlirtrt::compiler;
+using namespace mtrt;
+using namespace mtrt::compiler;
 using namespace mlir;
 
 #define DEBUG_TYPE "compiler-api"

@@ -33,7 +33,7 @@ namespace mlir {
 class OpPassManager;
 }
 
-namespace mlirtrt::compiler {
+namespace mtrt::compiler {
 
 //===----------------------------------------------------------------------===//
 // Add Tablegen'd pass declarations and registration methods.
@@ -85,6 +85,6 @@ void buildStablehloPreProcessingPipeline(
 /// Register stablehlo input pipelines.
 void registerStableHloInputPipelines();
 
-} // namespace mlirtrt::compiler
+} // namespace mtrt::compiler
 
 #endif // MLIR_TENSORRT_COMPILER_STABLEHLOTOEXECUTABLE_PASSES

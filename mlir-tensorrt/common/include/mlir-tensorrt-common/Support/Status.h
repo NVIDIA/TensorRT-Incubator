@@ -36,7 +36,7 @@
 #include <string_view>
 #include <type_traits>
 
-namespace mlirtrt {
+namespace mtrt {
 
 #define GEN_ENUM_DECLS
 #include "mlir-tensorrt-common/Support/StatusEnums.h.inc"
@@ -198,9 +198,9 @@ private:
   do {                                                                         \
     cudaError_t err = (x);                                                     \
     if (err != cudaSuccess) {                                                  \
-      return ::mlirtrt::getInternalErrorStatus(                                \
-          "{0}:{1} ({2}) {3}", __FILE__, __LINE__, cudaGetErrorName(err),      \
-          cudaGetErrorString(err));                                            \
+      return ::mtrt::getInternalErrorStatus("{0}:{1} ({2}) {3}", __FILE__,     \
+                                            __LINE__, cudaGetErrorName(err),   \
+                                            cudaGetErrorString(err));          \
     }                                                                          \
   } while (false);
 
@@ -208,7 +208,7 @@ private:
   do {                                                                         \
     CUresult err = (x);                                                        \
     if (err != CUDA_SUCCESS) {                                                 \
-      return ::mlirtrt::getInternalErrorStatus("{0}:{1} {2}");                 \
+      return ::mtrt::getInternalErrorStatus("{0}:{1} {2}");                    \
     }                                                                          \
   } while (false);
 
@@ -220,7 +220,7 @@ private:
       cuGetErrorName(err, &errName);                                           \
       const char *errStr;                                                      \
       cuGetErrorString(err, &errStr);                                          \
-      return ::mlirtrt::getInternalErrorStatus(                                \
+      return ::mtrt::getInternalErrorStatus(                                   \
           "{0}:{1} {2} ({3}); {4}", __FILE__, __LINE__, msg,                   \
           errName ? errName : "", errStr ? errStr : "");                       \
     }                                                                          \
@@ -243,8 +243,8 @@ private:
   do {                                                                         \
     auto err = (rexpr);                                                        \
     if (!err.isOk()) {                                                         \
-      return ::mlirtrt::getInternalErrorStatus("{0}:{1} {2}", __FILE__,        \
-                                               __LINE__, err.getString());     \
+      return ::mtrt::getInternalErrorStatus("{0}:{1} {2}", __FILE__, __LINE__, \
+                                            err.getString());                  \
     }                                                                          \
   } while (false);
 
@@ -259,6 +259,6 @@ private:
 #define MTRT_CHECK(cond, msg)
 #endif
 
-} // namespace mlirtrt
+} // namespace mtrt
 
 #endif // MLIR_EXECUTOR_SUPPORT_STATUS

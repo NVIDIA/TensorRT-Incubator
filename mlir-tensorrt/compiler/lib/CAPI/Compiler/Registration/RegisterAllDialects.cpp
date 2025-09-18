@@ -31,8 +31,8 @@
 #include "mlir/CAPI/IR.h"
 
 void mtrtCompilerRegisterDialects(MlirDialectRegistry registry) {
-  mlirtrt::compiler::registerAllDialects(*unwrap(registry));
-  mlirtrt::compiler::registerAllExtensions(*unwrap(registry));
+  mtrt::compiler::registerAllDialects(*unwrap(registry));
+  mtrt::compiler::registerAllExtensions(*unwrap(registry));
 }
 
-void mtrtCompilerRegisterPasses() { mlirtrt::compiler::registerAllPasses(); }
+void mtrtCompilerRegisterPasses() { mtrt::compiler::registerAllPasses(); }

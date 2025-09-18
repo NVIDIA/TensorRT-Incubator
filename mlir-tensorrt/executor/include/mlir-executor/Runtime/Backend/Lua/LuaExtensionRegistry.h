@@ -24,7 +24,7 @@
 
 struct lua_State;
 
-namespace mlirtrt::runtime {
+namespace mtrt {
 
 struct LuaRuntimeExtension {
   std::function<void(const RuntimeSessionOptions &options, lua_State *state,
@@ -46,6 +46,6 @@ Status populateRuntimeExtensions(const RuntimeSessionOptions &options,
                                  AllocTracker *allocTracker,
                                  ResourceTracker *resourceTracker);
 
-} // namespace mlirtrt::runtime
+} // namespace mtrt
 
 #endif // MLIR_EXECUTOR_RUNTIME_BACKEND_LUA_LUAEXTENSIONREGISTRY

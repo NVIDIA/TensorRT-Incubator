@@ -46,8 +46,8 @@
 #include "cuda_runtime_api.h"
 #endif // MLIR_TRT_ENABLE_CUDA
 
-using namespace mlirtrt;
-using namespace mlirtrt::runtime;
+using namespace mtrt;
+using namespace mtrt;
 
 static constexpr uint64_t kMinConstantBufferByteAlignment = 8;
 
@@ -68,7 +68,7 @@ static void registerDefaultDeviceDependentMethods(lua_State *state,
   };
 }
 
-namespace mlirtrt::runtime {
+namespace mtrt {
 void registerLuaCoreRuntimeExtension();
 #ifdef MLIR_TRT_ENABLE_CUDA
 void registerLuaCudaRuntimeExtension();
@@ -82,9 +82,9 @@ void registerLuaTensorRTRuntimeExtension();
 #ifdef MLIR_TRT_ENABLE_NCCL
 void registerLuaNcclRuntimeExtension();
 #endif
-} // namespace mlirtrt::runtime
+} // namespace mtrt
 
-void runtime::registerLuaRuntimeExtensions() {
+void mtrt::registerLuaRuntimeExtensions() {
   registerLuaCoreRuntimeExtension();
 #ifdef MLIR_TRT_ENABLE_CUDA
   registerLuaCudaRuntimeExtension();
@@ -156,11 +156,10 @@ static Status loadHostDataSegment(sol::state_view &lua,
          "expected host address space");
   const size_t bytes = segment.size();
   if (segment.isUninitialized()) {
-    MTRT_ASSIGN_OR_RETURN(
-        StatusOr<PointerInfo> buffer,
-        mlirtrt::runtime::allocate(session->getAllocTracker(),
-                                   segment.getAddressSpace(), bytes,
-                                   segment.getAlignment(), {}));
+    MTRT_ASSIGN_OR_RETURN(StatusOr<PointerInfo> buffer,
+                          mtrt::allocate(session->getAllocTracker(),
+                                         segment.getAddressSpace(), bytes,
+                                         segment.getAlignment(), {}));
     lua[segment.getName()] = buffer->ptr;
     return getOkStatus();
   }
@@ -170,11 +169,10 @@ static Status loadHostDataSegment(sol::state_view &lua,
     MTRT_WARNV("constant (name={0}, size={1}) is not aligned to minimum "
                "{2} bytes; copying into aligned buffer",
                segment.getName(), segment.size(), segment.getAlignment());
-    MTRT_ASSIGN_OR_RETURN(
-        StatusOr<PointerInfo> buffer,
-        mlirtrt::runtime::allocate(session->getAllocTracker(),
-                                   segment.getAddressSpace(), bytes,
-                                   segment.getAlignment(), {}));
+    MTRT_ASSIGN_OR_RETURN(StatusOr<PointerInfo> buffer,
+                          mtrt::allocate(session->getAllocTracker(),
+                                         segment.getAddressSpace(), bytes,
+                                         segment.getAlignment(), {}));
     std::memcpy(reinterpret_cast<void *>(buffer->ptr),
                 reinterpret_cast<const void *>(segment.data()), bytes);
     lua[segment.getName()] = buffer->ptr;
@@ -199,11 +197,10 @@ static Status loadDeviceDataSegment(sol::state_view &lua,
          "expected host address space");
   const size_t bytes = segment.size();
 
-  MTRT_ASSIGN_OR_RETURN(
-      StatusOr<PointerInfo> buffer,
-      mlirtrt::runtime::allocate(session->getAllocTracker(),
-                                 segment.getAddressSpace(), bytes,
-                                 kMinConstantBufferByteAlignment, {}));
+  MTRT_ASSIGN_OR_RETURN(StatusOr<PointerInfo> buffer,
+                        mtrt::allocate(session->getAllocTracker(),
+                                       segment.getAddressSpace(), bytes,
+                                       kMinConstantBufferByteAlignment, {}));
 
   lua[segment.getName()] = buffer->ptr;
 
@@ -329,7 +326,7 @@ Status LuaRuntimeSession::setCudaStream(CudaStream stream) {
 // Convenience Functions
 //===----------------------------------------------------------------------===//
 
-StatusOr<int64_t> mlirtrt::runtime::runExecutorLuaScript(
+StatusOr<int64_t> mtrt::runExecutorLuaScript(
     RuntimeSessionOptions options, std::string_view luaScript,
     LuaRuntimeSession::LuaModuleRegistrationFunc registerExtraLuaFuncs) {
   ADD_RUNTIME_MODULE_RANGE("runtime_runExecutorLuaScript");
@@ -376,7 +373,7 @@ StatusOr<int64_t> mlirtrt::runtime::runExecutorLuaScript(
   return result[0].get<int64_t>();
 }
 
-StatusOr<int64_t> mlirtrt::runtime::runExecutorExecutable(
+StatusOr<int64_t> mtrt::runExecutorExecutable(
     RuntimeSessionOptions options, std::unique_ptr<Executable> executable,
     LuaRuntimeSession::LuaModuleRegistrationFunc registerExtraLuaFuncs) {
 
@@ -740,11 +737,12 @@ parseResults(const sol::protected_function_result &pfr,
 }
 
 StatusOr<llvm::SmallVector<std::unique_ptr<RuntimeValue>>>
-runtime::executeFunctionWithLuaBackend(
-    LuaRuntimeSession &session, std::string_view name,
-    llvm::ArrayRef<RuntimeValue *> inputArgs,
-    llvm::ArrayRef<RuntimeValue *> outputArgs, std::optional<CudaStream> stream,
-    std::optional<RuntimeClient *> client) {
+mtrt::executeFunctionWithLuaBackend(LuaRuntimeSession &session,
+                                    std::string_view name,
+                                    llvm::ArrayRef<RuntimeValue *> inputArgs,
+                                    llvm::ArrayRef<RuntimeValue *> outputArgs,
+                                    std::optional<CudaStream> stream,
+                                    std::optional<RuntimeClient *> client) {
 
   StatusOr<FunctionView> func = session.getExecutable().getFunction(name);
   if (func.isError())

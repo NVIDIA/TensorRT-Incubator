@@ -41,8 +41,8 @@
 
 using namespace mlir;
 using namespace llvm;
-using namespace mlirtrt;
-using namespace mlirtrt::compiler;
+using namespace mtrt;
+using namespace mtrt::compiler;
 
 static cl::OptionCategory OptCat{"MLIR-TensorRT Options"};
 
@@ -176,8 +176,8 @@ int main(int argc, char **argv) {
 
   mlir::MLIRContext context;
   mlir::DialectRegistry registry;
-  mlirtrt::compiler::registerAllDialects(registry);
-  mlirtrt::compiler::registerAllExtensions(registry);
+  mtrt::compiler::registerAllDialects(registry);
+  mtrt::compiler::registerAllExtensions(registry);
 
   context.appendDialectRegistry(registry);
 
@@ -192,8 +192,8 @@ int main(int argc, char **argv) {
   mlir::SourceMgrDiagnosticHandler sourceMgrHandler(sourceMgr, &context);
   parseInputMLIR(sourceMgr, context, module);
 
-  StatusOr<std::unique_ptr<mlirtrt::compiler::CompilerClient>> client =
-      mlirtrt::compiler::CompilerClient::create(&context);
+  StatusOr<std::unique_ptr<mtrt::compiler::CompilerClient>> client =
+      mtrt::compiler::CompilerClient::create(&context);
   if (!client.isOk()) {
     llvm::errs() << "[error] failed to create compiler client: "
                  << client.getString() << "\n";

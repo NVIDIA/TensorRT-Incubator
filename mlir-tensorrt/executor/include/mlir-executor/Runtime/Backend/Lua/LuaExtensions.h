@@ -24,10 +24,10 @@
 #ifndef MLIR_TENSORRT_RUNTIME_LUARUNTIME_MODULES_CORE_COREMODULE_H
 #define MLIR_TENSORRT_RUNTIME_LUARUNTIME_MODULES_CORE_COREMODULE_H
 
-namespace mlirtrt::runtime {
+namespace mtrt {
 
 void registerLuaRuntimeExtensions();
 
-} // namespace mlirtrt::runtime
+} // namespace mtrt
 
 #endif // MLIR_TENSORRT_RUNTIME_LUARUNTIME_MODULES_CORE_COREMODULE_H
