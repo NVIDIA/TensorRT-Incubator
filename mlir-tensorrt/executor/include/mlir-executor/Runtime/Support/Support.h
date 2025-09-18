@@ -78,21 +78,21 @@ void _MTRT_ERRV(const char *format, const char *file, int64_t line,
 /// llvm::formatv.
 #define MTRT_WARNV(format, ...)                                                \
   do {                                                                         \
-    _MTRT_WARNV(format, __FILE__, __LINE__, __VA_ARGS__);                      \
+    ::mtrt::_MTRT_WARNV(format, __FILE__, __LINE__, __VA_ARGS__);              \
   } while (false)
 
 /// Prints an error message where "format" and "...args" are passed to
 /// llvm::formatv. The message is prefixed by `<file>:<line> [ERR] `.
 #define MTRT_ERRV(format, ...)                                                 \
   do {                                                                         \
-    _MTRT_ERRV(format, __FILE__, __LINE__, __VA_ARGS__);                       \
+    ::mtrt::_MTRT_ERRV(format, __FILE__, __LINE__, __VA_ARGS__);               \
   } while (false)
 
 /// Prints an error message where "format" and "...args" are passed to
 /// llvm::formatv. The message is prefixed by `<file>:<line> [DBG] `.
 #define MTRT_DBG(format, ...)                                                  \
   do {                                                                         \
-    _MTRT_DBGV(format, __FILE__, __LINE__, __VA_ARGS__);                       \
+    ::mtrt::_MTRT_DBGV(format, __FILE__, __LINE__, __VA_ARGS__);               \
   } while (false)
 
 } // namespace mtrt

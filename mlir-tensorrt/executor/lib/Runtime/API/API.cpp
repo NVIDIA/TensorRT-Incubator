@@ -970,13 +970,15 @@ getViewMemRefStorage(uintptr_t ptr, PointerType kind,
 HostOwnedMemRefStorage::~HostOwnedMemRefStorage() {
   MTRT_DBGF("HostOwnedMemRefStorage::~HostOwnedMemRefStorage() ptr = %p",
             reinterpret_cast<void *>(ptr));
-  client->getAllocator().deallocate(*this);
+  mtrt::logUnhandledErrors(client->getAllocator().deallocate(*this),
+                           llvm::errs());
 }
 
 DeviceOwnedMemRefStorage::~DeviceOwnedMemRefStorage() {
   MTRT_DBGF("DeviceOwnedMemRefStorage::~DeviceOwnedMemRefStorage() ptr = %p",
             reinterpret_cast<void *>(ptr));
-  client->getAllocator().deallocate(*this);
+  mtrt::logUnhandledErrors(client->getAllocator().deallocate(*this),
+                           llvm::errs());
 }
 
 ViewMemRefStorage::~ViewMemRefStorage() {
@@ -1211,8 +1213,8 @@ static Status parseDebugFlags() {
                                          "MLIR-TRT Runtime flags", &ss,
                                          "MTRT_FLAGS", false)) {
     ss.flush();
-    getInternalErrorStatus("Failed to parse MTRT_FLAGS options: {0}",
-                           error.c_str());
+    return getInternalErrorStatus("Failed to parse MTRT_FLAGS options: {0}",
+                                  error.c_str());
   }
   return Status::getOk();
 }
@@ -1383,7 +1385,9 @@ RuntimeClient::copyToDevice(const MemRefValue &hostBufferImpl,
         reinterpret_cast<uintptr_t>(*cudaStream)));
 
     // Free pinned host memory asynchronously.
-    getPinnedMemoryAllocator().freeAsync(pinnedMemory->ptr, *cudaStream);
+    mtrt::logUnhandledErrors(
+        getPinnedMemoryAllocator().freeAsync(pinnedMemory->ptr, *cudaStream),
+        llvm::errs());
   } else {
     MTRT_DBG("synchronously copying {0} (host) to {1} (device), size={2} bytes",
              hostBufferImpl.getVoidPtr(), (*deviceMemRef)->getVoidPtr(),

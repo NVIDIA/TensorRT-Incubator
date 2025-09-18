@@ -28,6 +28,7 @@
 
 #include "mlir-tensorrt-common/Support/ADTExtras.h"
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/Support/Error.h"
 #include "llvm/Support/FormatVariadic.h"
 #include <cassert>
 #include <iostream>
@@ -41,9 +42,9 @@ namespace mtrt {
 #define GEN_ENUM_DECLS
 #include "mlir-tensorrt-common/Support/StatusEnums.h.inc"
 
-class Status {
+class [[nodiscard]] Status {
 public:
-  Status() = delete;
+  Status() = default;
   Status(const Status &);
   Status &operator=(const Status &) = default;
   Status(Status &&) = default;
@@ -72,11 +73,20 @@ public:
   }
 
 private:
-  StatusCode code;
+  StatusCode code{StatusCode::Success};
   std::optional<std::string> additionalMsg{};
 };
 
 std::ostream &operator<<(std::ostream &os, const Status &x);
+
+/// Logs the unhandled errors to the given output stream. Used in cases where
+/// there is no reasonable way to handle the error and, besides logging it,
+/// ignoring the error and proceeding is the best option.
+void logUnhandledErrors(Status status, llvm::raw_ostream &os);
+
+/// Handles the error via llvm::report_fatal_error. Used in cases where the
+/// error is fatal and the program should terminate.
+void cantFail(Status status);
 
 //===----------------------------------------------------------------------===//
 // Convenience Builders for Status objects
@@ -96,18 +106,24 @@ Status getInternalErrorStatus(const char *format, Args &&...args) {
 }
 
 template <typename... Args>
+Status getUnimplementedStatus(const char *format, Args &&...args) {
+  return Status(StatusCode::Unimplemented,
+                llvm::formatv(format, std::forward<Args>(args)...));
+}
+
+template <typename... Args>
 inline Status getStatusWithMsg(StatusCode code, Args &&...strings) {
   return Status(code, llvm::join_items("", std::forward<Args>(strings)...));
 }
 
 template <typename T>
-class StatusOr {
+class [[nodiscard]] StatusOr {
 public:
   StatusOr() = delete;
   StatusOr(T &&payload)
       : status(Status::getOk()), payload(std::forward<T>(payload)) {}
-  StatusOr(const StatusOr<T> &) = delete;
   StatusOr(StatusOr<T> &&) = default;
+  StatusOr(const StatusOr &other) = default;
   StatusOr(Status &&status)
       : status(std::forward<Status>(status)), payload(std::nullopt) {
     assert(this->status.isError() && "expected error status");
@@ -115,9 +131,15 @@ public:
   StatusOr(const Status &status) : status(status), payload(std::nullopt) {
     assert(this->status.isError() && "expected error status");
   }
+  StatusOr<T> &operator=(const Status &status) {
+    assert(this->payload == std::nullopt && "expected no payload");
+    assert(status.isError() && "expected error status");
+    this->status = status;
+    this->payload = std::nullopt;
+    return *this;
+  }
 
-  StatusOr<T> &operator=(const Status &status) = delete;
-  StatusOr<T> &operator=(Status &&status) = delete;
+  StatusOr<T> &operator=(const StatusOr &status) = default;
 
   template <typename S,
             typename std::enable_if<std::is_base_of<

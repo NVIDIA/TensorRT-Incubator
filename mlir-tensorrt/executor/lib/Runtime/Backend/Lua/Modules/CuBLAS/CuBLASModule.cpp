@@ -29,6 +29,7 @@
 #include "mlir-executor/Runtime/Backend/Lua/Modules/Utils/MemRefUtils.h"
 #include "mlir-executor/Runtime/Backend/Lua/SolAdaptor.h"
 #include "mlir-executor/Runtime/Backend/Utils/NvtxUtils.h"
+#include "mlir-tensorrt-common/Support/Status.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/Support/ErrorHandling.h"
 
@@ -145,8 +146,8 @@ public:
   static StatusOr<std::unique_ptr<AlgoSelectResult>>
   get(CublasLtHandle handle, llvm::ArrayRef<int64_t> algoSelectorArgs) {
     auto r = std::make_unique<AlgoSelectResult>();
-    r->prepare(algoSelectorArgs);
-    r->selectAlgo(handle);
+    MTRT_RETURN_IF_ERROR(r->prepare(algoSelectorArgs));
+    MTRT_RETURN_IF_ERROR(r->selectAlgo(handle));
     return r;
   };
   cublasLtMatmulPreference_t &getMatmulPreference() { return preference; }
@@ -189,7 +190,7 @@ public:
   }
 
 private:
-  StatusOr<bool> prepare(llvm::ArrayRef<int64_t> algoSelectorArgs) {
+  Status prepare(llvm::ArrayRef<int64_t> algoSelectorArgs) {
     assert(algoSelectorArgs.size() == 19 &&
            "expected 19 arguments to cuBLAS algorithm selection");
     MTRT_DBGF("%s", "[cuBLAS] preparing for matmul and algorithm selection");
@@ -313,14 +314,14 @@ private:
       targetTileSizes = std::make_unique<std::pair<int, int>>(
           std::make_pair<int, int>(algoSelectorArgs[17], algoSelectorArgs[18]));
 
-    return true;
+    return getOkStatus();
   }
 
   // MxN tile size parameter
   // change the requestedAlgoCount to get all possible values
   // go through the result to get the closest
-  StatusOr<bool> selectAlgo(CublasLtHandle handle,
-                            std::pair<int, int> targetTileSizes) {
+  Status selectAlgo(CublasLtHandle handle,
+                    std::pair<int, int> targetTileSizes) {
     int returnedResults = 0;
     const int requestedAlgoCount = 32;
     cublasLtMatmulHeuristicResult_t heuristicResult[requestedAlgoCount] = {};
@@ -394,10 +395,10 @@ private:
               closestAlgoId);
     algo = heuristicResult[closestAlgoId];
 
-    return true;
+    return getOkStatus();
   }
 
-  StatusOr<bool> selectAlgo(CublasLtHandle handle) {
+  Status selectAlgo(CublasLtHandle handle) {
     // use restricted tile sizes if possible
     if (targetTileSizes)
       return selectAlgo(handle, *targetTileSizes);
@@ -417,7 +418,7 @@ private:
     }
     MTRT_DBGF("[cuBLAS] selected %d matmul algorithm heuristically",
               returnedResults);
-    return true;
+    return getOkStatus();
   }
 
   cublasLtMatmulHeuristicResult_t algo;

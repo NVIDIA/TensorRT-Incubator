@@ -65,3 +65,15 @@ std::string Status::getString() const {
 std::ostream &mtrt::operator<<(std::ostream &os, const Status &x) {
   return os << x.getString();
 }
+
+void mtrt::logUnhandledErrors(Status status, llvm::raw_ostream &os) {
+  if (status.isOk())
+    return;
+  os << "error: " << status.getString() << "\n";
+}
+
+void mtrt::cantFail(Status status) {
+  if (status.isOk())
+    return;
+  llvm::report_fatal_error(llvm::createStringError(status.getString()));
+}
