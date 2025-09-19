@@ -224,3 +224,4 @@ load_common_config()
     ${CMAKE_CURRENT_SOURCE_DIR}/lit.cfg.py
   )
 endfunction()
+
