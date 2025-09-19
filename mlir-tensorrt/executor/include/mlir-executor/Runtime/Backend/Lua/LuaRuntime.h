@@ -61,16 +61,17 @@ public:
   lua_State *getLuaState();
 
   /// Set the primary stream for the loaded executable to use.
-  Status setCudaStream(CudaStream stream);
+  Status setCudaStream(Ref<Stream> stream);
 
   /// Get the primary stream for the loaded executable to use.
-  CudaStream getCudaStream();
+  Ref<Stream> getCudaStream();
 
 private:
   LuaRuntimeSession(RuntimeSessionOptions options, ExecutableView executable);
 
   class Impl;
   std::unique_ptr<Impl> impl;
+  Ref<Stream> cudaStream;
 };
 
 /// Convenience method that loads the given Lua script and then executes the
@@ -104,7 +105,7 @@ StatusOr<llvm::SmallVector<std::unique_ptr<RuntimeValue>>>
 executeFunctionWithLuaBackend(LuaRuntimeSession &session, std::string_view name,
                               llvm::ArrayRef<RuntimeValue *> inputArgs,
                               llvm::ArrayRef<RuntimeValue *> outputArgs,
-                              std::optional<CudaStream> stream = {},
+                              std::optional<Ref<Stream>> stream = {},
                               std::optional<RuntimeClient *> client = {});
 
 } // namespace mtrt

@@ -36,8 +36,10 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/StringSet.h"
 #include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/ThreadPool.h"
 #include <complex>
 #include <memory>
+#include <mutex>
 #include <string_view>
 
 namespace mtrt {
@@ -538,10 +540,37 @@ public:
   DeviceGuard &operator=(const DeviceGuard &) = delete;
 };
 
+/// CRTP template for creating integer ID type wrappers.
+template <typename Derived>
+struct StrongTypeWrapper {
+  explicit StrongTypeWrapper(int value) : value(value) {}
+  bool operator==(const StrongTypeWrapper &other) const {
+    return value == other.value;
+  }
+  bool operator!=(const StrongTypeWrapper &other) const {
+    return value != other.value;
+  }
+  operator int() const { return value; }
+
+private:
+  int value;
+};
+
+/// Strong type wrapper to represent a hardware id. This is essentially the CUDA
+/// ordinal.
+struct HardwareId : public StrongTypeWrapper<HardwareId> {
+  using StrongTypeWrapper::StrongTypeWrapper;
+};
+
+class Stream;
+
 /// Device is an abstract handle describing a compute device visible to the
 /// runtime (e.g., a CUDA GPU). It exposes a stable numeric identifier, a
 /// backend kind string, and a factory for acquiring a `DeviceGuard` that makes
 /// the device current for the guard's lifetime.
+/// Devices are always uniquely owned by the RuntimeClient, so the
+/// RuntimeClient's lifetime should always exceed the lifetime of any object
+/// that takes a reference to a Device.
 class Device {
 public:
   Device() = default;
@@ -550,7 +579,7 @@ public:
 
   /// Return a backend-specific, zero-based device ordinal that uniquely
   /// identifies this device within the process.
-  virtual int32_t getDeviceNumber() const = 0;
+  virtual HardwareId getDeviceNumber() const = 0;
 
   /// Create an RAII guard that activates this device for the duration of the
   /// guard's lifetime. Implementations must restore any prior device/context on
@@ -565,12 +594,143 @@ public:
   /// "cuda:0").
   virtual llvm::StringRef getDeviceName() const = 0;
 
+  virtual Ref<Stream> getStream() const = 0;
+
+  virtual llvm::ThreadPoolInterface &getThreadPool() = 0;
+
   bool operator==(const Device &other) const {
     return getDeviceNumber() == other.getDeviceNumber() &&
            getDeviceKind() == other.getDeviceKind();
   }
 
   bool operator!=(const Device &other) const { return !(*this == other); }
+};
+
+/// Create a CUDA device given the CUDA device ordinal.
+StatusOr<std::unique_ptr<Device>> createCUDADevice(HardwareId deviceNumber);
+
+//===----------------------------------------------------------------------===//
+// Stream
+//===----------------------------------------------------------------------===//
+
+/// A stream is a sequence of operations that execute on GPU in the order in
+/// which they are issued by the host.
+class Stream : public llvm::ThreadSafeRefCountedBase<Stream> {
+public:
+  virtual ~Stream() = default;
+  /// Get the underlying CUDA stream handle.
+  virtual CudaStream getCUDAHandle() const = 0;
+  /// Get the device that this stream is associated with.
+  virtual Device *getDevice() const = 0;
+  /// Synchronize the stream with host.
+  virtual Status sync() = 0;
+};
+
+//===----------------------------------------------------------------------===//
+// Event
+//===----------------------------------------------------------------------===//
+
+/// A functional type representing a generic callback that should be invoked
+/// when an event is ready.
+using OnReadyCallback = std::function<void(Status status, void *userData)>;
+
+/// This class implements a future interface built on top of CUDA runtime. The
+/// event is created on the head of a Stream and becomes ready when the Stream's
+/// execution reaches that point.
+///
+/// ## Callbacks
+///
+/// Callbacks which are invoked when the Stream becomes ready can
+/// be added via `addReadyCallback`. It is safe to perform CUDA operations in
+/// the callbacks. Callbacks are invoked on the thread pool owned by the
+/// Stream's associated Device.
+///
+/// ## Lifecycle
+///
+/// Events are managed by unique_ptr. Ownership of an event can be relinquished
+/// by invoking `Stream::releaseWhenReady`, which transfers the ownership to an
+/// on-ready callback, ensuring that the Event and its resources (e.g. CUDA
+/// handle) outlive any other callbacks.
+///
+/// ## CUDA Interop
+///
+/// The Event class provides future-like interface. The underlying mechanism
+/// uses a CUDA stream and `cudaLaunchHostFunc` to signal the event
+/// ready state. Technically, a CUDA Event Handle is not needed to implement
+/// this mechanism, but it remains useful to expose a CUDA Event associated
+/// with the with the point on the stream timeline immediately prior to
+/// signaling the ready state. This allows for synchronization with other
+/// CUDA streams. However, care must be taken when using `Event::getCudaHandle`
+/// to ensure that the lifetime of the owning `unique_ptr<Event>` outlives
+/// any use of the raw CUDA handle.
+///
+/// TODO: consider renaming this "Future" and make "Event <=> cudaEvent_t"
+/// reference counted.
+class Event {
+public:
+  /// Create a new event associated with a CUDA event that is recorded onto the
+  /// given stream. Then event will become ready when the associated CUDA event
+  /// is ready.
+  static StatusOr<std::unique_ptr<Event>> create(Ref<Stream> stream);
+
+  /// Create a trivially ready event.
+  static std::unique_ptr<Event> createReadyEvent();
+
+  /// Destroys the event. Joins `thread` if possible to ensure the Event has
+  /// lapsed and callbacks are invoked.
+  ~Event();
+
+  /// Returns true if this event is ready.
+  bool checkIsReady();
+
+  /// Set the event to 'ready' and invoke all callbacks.
+  void setReady(Status s);
+
+  /// Add `callback` to the callback queue. If the event is ready, then
+  /// `callback` is invoked immediately on the current thread. Otherwise,
+  /// callbacks are invoked asynchronously on the Device thread pool
+  /// associated with the event's Stream.
+  void addReadyCallback(OnReadyCallback callback, void *userData);
+
+  /// Get the status of the event.
+  Status getStatus();
+
+  /// Wait for the event to be ready.
+  Status waitForReady(
+      std::chrono::microseconds timeout = std::chrono::microseconds::max());
+
+  /// Get the raw CUDA event handle associated with the timepoint immediately
+  /// prior to signaling the ready state.
+  CudaEvent getCudaHandle() const { return cudaEventHandle; }
+
+  /// Complete the lifecycle of an Event by appending an on-ready callback that
+  /// deletes the given `event`. Note that the event may be deleted immediately
+  /// on the current thread if the event is already ready, otherwise the
+  /// deletion will occur on whatever thread executes the callbacks.
+  static void releaseWhenReady(std::unique_ptr<Event> event);
+
+private:
+  Event(bool ready, Status status, CudaEvent cudaEventHandle);
+
+  /// Set the internal status.
+  void setStatus(Status status);
+
+  CudaEvent cudaEventHandle;
+
+  /// Lock to protect state.
+  std::mutex lock;
+
+  /// Tracks the events ready state.
+  bool ready;
+
+  /// The set of callbacks which will be called asynchronously by a work in
+  /// `threadPool` when the event becomes ready.
+  std::vector<std::pair<OnReadyCallback, void *>> callbacks;
+
+  /// An internal status code for the error. When the event completion callbacks
+  /// are invoked, the status will be passed to the callbacks so that they can
+  /// be notified of any errors.
+  Status status{Status::getOk()};
 };
 
 //===----------------------------------------------------------------------===//
@@ -749,15 +909,19 @@ public:
   uintptr_t getPtr() const { return ptr; }
 
   virtual PointerType getMemorySpace() const = 0;
-  virtual std::optional<CudaStream> getStream() const { return {}; }
+  virtual Ref<Stream> getStream() const { return nullptr; }
 
   Ref<RuntimeClient> getClient() const { return client; }
 
+  Device *getDevice() const { return device; }
+
 protected:
-  MemRefStorage(uintptr_t ptr, Ref<RuntimeClient> client)
-      : ptr(ptr), client(std::move(client)) {}
+  MemRefStorage(uintptr_t ptr, Device *device, Ref<RuntimeClient> client)
+      : ptr(ptr), device(device), client(std::move(client)) {}
 
   uintptr_t ptr;
+
+  Device *device;
 
   /// Reference back to RuntimeClient. This provides concrete subclasses access
   /// to the client's allocator object. It also ensures that the client is not
@@ -808,23 +972,26 @@ public:
 
   BufferType(ScalarType elementType, const std::vector<int64_t> &shape,
              const std::vector<int64_t> &strides,
-             mtrt::PointerType addressSpace)
-      : elementType(elementType), shape(shape), layout(strides, 0),
+             mtrt::PointerType addressSpace, int64_t offset)
+      : elementType(elementType), shape(shape), layout(strides, offset),
         addressSpace(addressSpace) {}
 
-  static BufferType createWithByteStrides(
-      ScalarType elementType, const std::vector<int64_t> &shape,
-      const std::vector<int64_t> &byteStrides, mtrt::PointerType addressSpace);
+  static BufferType
+  createWithByteStrides(ScalarType elementType,
+                        const std::vector<int64_t> &shape,
+                        const std::vector<int64_t> &byteStrides,
+                        mtrt::PointerType addressSpace, int64_t offset);
 
   static BufferType
   createWithElementStrides(ScalarType elementType,
                            const std::vector<int64_t> &shape,
                            const std::vector<int64_t> &elementStrides,
-                           mtrt::PointerType addressSpace);
+                           mtrt::PointerType addressSpace, int64_t offset);
 
   static BufferType createWithCanonicalLayout(ScalarType elementType,
                                               const std::vector<int64_t> &shape,
-                                              mtrt::PointerType addressSpace);
+                                              mtrt::PointerType addressSpace,
+                                              int64_t offset);
 
   /// Creates a BufferType the flatbuffers' MemRefTypeView.
   static BufferType getFromSerializedType(const MemRefTypeView &type);
@@ -904,8 +1071,17 @@ public:
   create(mtrt::PointerType addressSpace, ScalarTypeCode elementType,
          Ref<MemRefStorage> storage, int64_t offset,
          llvm::ArrayRef<int64_t> shape, llvm::ArrayRef<int64_t> strides,
-         std::optional<const Device *> device,
-         std::optional<bool> assertCanonicalStrides = {});
+         Device *device = nullptr, bool assertCanonicalStrides = false);
+
+  static mtrt::StatusOr<std::unique_ptr<MemRefValue>>
+  create(mtrt::PointerType addressSpace, const BufferType &type,
+         Ref<MemRefStorage> storage, Device *device = nullptr,
+         bool assertCanonicalStrides = false) {
+    return create(addressSpace, type.getElementType(), std::move(storage),
+                  type.getLayout().getOffset(), type.getShape(),
+                  type.getLayout().getStrides(), device,
+                  assertCanonicalStrides);
+  }
 
   mtrt::PointerType getBufferKind() { return type.getAddressSpace(); }
   int64_t getElementBitWidth() const {
@@ -921,7 +1097,7 @@ public:
   int64_t getTotalFootprintInBytes() const;
   uintptr_t getMemory() const { return storage->getPtr(); }
   void *getVoidPtr() const { return reinterpret_cast<void *>(getMemory()); }
-  std::optional<const Device *> getDevice() const { return device; }
+  Device *getDevice() const { return device; }
   PointerInfo getPointerInfo(PointerOwner ownership) const {
     return PointerInfo(getMemory(), getTotalFootprintInBytes(),
                        type.getAddressSpace(), ownership);
@@ -948,19 +1124,25 @@ public:
                         type.getLayout().getStrides(), device));
   }
 
+  /// Return the type of the buffer.
+  const BufferType &getType() const { return type; }
+
 private:
   MemRefValue(mtrt::PointerType addressSpace, ScalarTypeCode elementType,
               Ref<MemRefStorage> storage, int64_t offset,
               llvm::ArrayRef<int64_t> shape, llvm::ArrayRef<int64_t> strides,
-              std::optional<const Device *> device);
+              Device *device);
 
   /// Holds the underlying storage object.
   Ref<MemRefStorage> storage;
+
   /// The logical type of the buffer.
   BufferType type;
+
   /// Non-owned view to the associated device if the address space is a device
-  /// address.
-  std::optional<const Device *> device;
+  /// address. This may be nullptr in the case of a host buffer or an externally
+  /// managed buffer.
+  Device *device;
 };
 
 //===----------------------------------------------------------------------===//
@@ -1170,13 +1352,14 @@ public:
 
   virtual StatusOr<Ref<MemRefStorage>>
   allocate(PointerType pointerType, uint64_t size,
-           std::optional<uint32_t> alignemnt,
-           std::optional<CudaStream> stream) = 0;
+           std::optional<uint32_t> alignemnt, Device *device,
+           Ref<Stream> stream) = 0;
 
   /// Use the given pointer as the storage for the MemRefValue.
-  virtual StatusOr<Ref<MemRefStorage>>
-  takeOwnership(uintptr_t ptr, PointerType pointerType,
-                std::optional<CudaStream> stream) = 0;
+  virtual StatusOr<Ref<MemRefStorage>> takeOwnership(uintptr_t ptr,
+                                                     PointerType pointerType,
+                                                     Device *device,
+                                                     Ref<Stream> stream) = 0;
 
   virtual Status deallocate(MemRefStorage &storage) = 0;
 
@@ -1210,18 +1393,14 @@ public:
   StatusOr<std::unique_ptr<MemRefValue>>
   allocateMemRef(PointerType addressSpace, ScalarTypeCode elementType,
                  llvm::ArrayRef<int64_t> shape, llvm::ArrayRef<int64_t> strides,
-                 std::optional<const Device *> device = {},
-                 std::optional<CudaStream> stream = {},
-                 std::optional<bool> assertCanonicalStrides = {});
+                 Device *device = nullptr, Ref<Stream> stream = nullptr,
+                 bool assertCanonicalStrides = false);
 
-  StatusOr<std::unique_ptr<MemRefValue>>
-  createExternalMemRef(PointerType addressSpace, ScalarTypeCode elementType,
-                       uintptr_t ptr, int64_t offset,
-                       llvm::ArrayRef<int64_t> shape,
-                       llvm::ArrayRef<int64_t> strides,
-                       std::optional<const Device *> device = {},
-                       std::optional<bool> assertCanonicalStrides = {},
-                       std::function<void()> = nullptr);
+  StatusOr<std::unique_ptr<MemRefValue>> createExternalMemRef(
+      PointerType addressSpace, ScalarTypeCode elementType, uintptr_t ptr,
+      int64_t offset, llvm::ArrayRef<int64_t> shape,
+      llvm::ArrayRef<int64_t> strides, Device *device = nullptr,
+      bool assertCanonicalStrides = false, std::function<void()> = nullptr);
 
   // Allocates a new host buffer and fills it with data present in the
   // `hostBuffer`.
@@ -1232,19 +1411,28 @@ public:
   /// host in the specified buffer. The allocation and copy are performed on
   /// the given stream.
   StatusOr<std::unique_ptr<MemRefValue>>
-  copyToDevice(const MemRefValue &hostBuffer, const Device &device,
-               std::optional<CudaStream> stream);
+  copyToDevice(const MemRefValue &hostBuffer, Device &device,
+               Ref<Stream> stream);
 
   /// Allocates a new host buffer and fills it with data present on the device
   /// in the specified buffer. The allocation and copy are performed on the
   /// given stream.
   StatusOr<std::unique_ptr<MemRefValue>>
-  copyToHost(const MemRefValue &deviceMemRef, std::optional<CudaStream> stream);
+  copyToHost(const MemRefValue &deviceMemRef, Ref<Stream> stream);
 
   /// Copy from the given device MemRefValue to an existing MemRefValue on the
   /// host.
   Status copyToHost(const MemRefValue &deviceMemRef, MemRefValue &hostMemRef,
-                    std::optional<CudaStream> stream);
+                    Ref<Stream> stream);
+
+  /// Copy the given device buffer to another device. The copy occurs
+  /// asynchronously on the destination Device's stream. The event associated
+  /// with copy completion (which currently also signals done with use of source
+  /// buffer), is returned in `copyDoneEvent`.
+  StatusOr<std::unique_ptr<MemRefValue>>
+  copyDeviceBufferToOtherDevice(const MemRefValue &sourceBuffer,
+                                Device &dstDevice,
+                                std::unique_ptr<Event> &copyDoneEvent);
 
   /// Returns the ResourceTracker.
   ResourceTracker &getResourceTracker() { return resourceTracker; }
@@ -1255,6 +1443,9 @@ public:
   }
 
   RuntimeClientAllocator &getAllocator() { return *allocator; }
+
+  /// Return the current stream of the current CUDA device.
+  StatusOr<Ref<Stream>> getCurrentDeviceStream() const;
 
 private:
   void setAllocator(std::unique_ptr<RuntimeClientAllocator> allocator) {

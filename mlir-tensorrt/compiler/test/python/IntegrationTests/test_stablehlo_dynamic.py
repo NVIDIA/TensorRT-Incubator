@@ -74,7 +74,10 @@ def infer_output_shape(client, session, exe, input_shape):
     outs = [client.create_memref(out_0, shape=shape, dtype=runtime.ScalarTypeCode.i64)]
 
     session.execute_function(
-        exe.get_signature("main").get_shape_func_name(), in_args=ins, out_args=outs
+        exe.get_signature("main").get_shape_func_name(),
+        in_args=ins,
+        out_args=outs,
+        stream=client.get_devices()[0].stream,
     )
 
     # Copy output shape from device to host. Also, convert to int32 type since shape calculation uses int64 type.
@@ -99,11 +102,10 @@ def compile(client, op):
 def test_program(client, exe, input_shape: Iterable[int]):
     # The RuntimeClient can and should persist across multiple Executables, RuntimeSessions, etc.
     # It is primarily an interface for creating and manipulating buffers.
-    stream = client.create_stream()
     devices = client.get_devices()
-
     if len(devices) == 0:
         return
+    stream = devices[0].stream
 
     session_options = runtime.RuntimeSessionOptions(num_devices=1, device_id=0)
     session = runtime.RuntimeSession(session_options, exe)

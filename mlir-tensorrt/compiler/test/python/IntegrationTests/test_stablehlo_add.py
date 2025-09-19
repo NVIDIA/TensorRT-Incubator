@@ -31,11 +31,10 @@ def stablehlo_add():
     # The RuntimeClient can and should persist across multiple Executables, RuntimeSessions, etc.
     # It is primarily an interface for creating and manipulating buffers.
     client = runtime.RuntimeClient()
-    stream = client.create_stream()
     devices = client.get_devices()
-
     if len(devices) == 0:
         return
+    stream = devices[0].stream
 
     session_options = runtime.RuntimeSessionOptions(num_devices=1, device_id=0)
     session = runtime.RuntimeSession(session_options, exe)

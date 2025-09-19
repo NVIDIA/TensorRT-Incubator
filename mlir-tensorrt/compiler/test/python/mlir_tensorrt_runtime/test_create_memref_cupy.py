@@ -2,15 +2,18 @@
 # REQUIRES: host-has-at-least-1-gpus
 # REQUIRES: cuda-toolkit-major-version-lte-12
 import array
-import gc
+import sys
 
 import mlir_tensorrt.runtime.api as runtime
 import numpy as np
 import cupy as cp
 
 client = runtime.RuntimeClient()
-stream = client.create_stream()
 devices = client.get_devices()
+if len(devices) == 0:
+    sys.exit(0)
+
+stream = devices[0].stream
 
 
 def create_memref_from_array_gpu(arr, explicit_dtype=None):

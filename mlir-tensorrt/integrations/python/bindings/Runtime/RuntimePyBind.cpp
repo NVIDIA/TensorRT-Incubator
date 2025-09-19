@@ -378,12 +378,11 @@ static std::unique_ptr<PyMemRefValue> getMemRefFromHostBufferProtocol(
 
   MTRT_MemRefValue result{nullptr};
   s = mtrtCopyFromHostToDevice(hostView, device ? *device : mtrtDeviceGetNull(),
-                               !stream ? mtrtStreamGetNull() : *stream,
-                               &result);
+                               stream ? *stream : mtrtStreamGetNull(), &result);
   THROW_IF_MTRT_ERROR(s);
 
   if (stream) {
-    s = mtrtStreamSynchronize(stream ? *stream : mtrtStreamGetNull());
+    s = mtrtStreamSynchronize(*stream);
     THROW_IF_MTRT_ERROR(s);
   }
 
@@ -756,12 +755,19 @@ PYBIND11_MODULE(_api, m) {
 
   py::class_<PyDevice>(m, "Device", py::module_local())
       .def_property_readonly(MTRT_PYTHON_CAPI_PTR_ATTR, &PyDevice::getCapsule)
-      .def("get_name", [](PyDevice &self) -> py::str {
-        int32_t index;
-        MTRT_Status s = mtrtDeviceGetIndex(self, &index);
+      .def("get_name",
+           [](PyDevice &self) -> py::str {
+             int32_t index;
+             MTRT_Status s = mtrtDeviceGetIndex(self, &index);
+             THROW_IF_MTRT_ERROR(s);
+             std::string deviceName = "cuda:" + std::to_string(index);
+             return py::str(deviceName.c_str());
+           })
+      .def_property_readonly("stream", [](PyDevice &self) {
+        MTRT_Stream stream{nullptr};
+        MTRT_Status s = mtrtDeviceGetStream(self, &stream);
         THROW_IF_MTRT_ERROR(s);
-        std::string deviceName = "cuda:" + std::to_string(index);
-        return py::str(deviceName.c_str());
+        return PyStream(stream);
       });
 
   py::class_<PyRuntimeValue>(m, "RuntimeValue", py::module_local())
@@ -1070,15 +1076,6 @@ PYBIND11_MODULE(_api, m) {
                 .release();
           },
           py::arg("ptr"), py::arg("shape"), py::arg("dtype") = py::none(),
-          py::keep_alive<0, 1>())
-      .def(
-          "create_stream",
-          [](PyRuntimeClient &self) {
-            MTRT_Stream stream{nullptr};
-            MTRT_Status s = mtrtStreamCreate(&stream);
-            THROW_IF_MTRT_ERROR(s);
-            return PyStream(stream);
-          },
           py::keep_alive<0, 1>())
       .def(
           "copy_to_device",

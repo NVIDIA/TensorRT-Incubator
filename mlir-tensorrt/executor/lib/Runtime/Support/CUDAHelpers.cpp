@@ -81,7 +81,7 @@ StatusOr<uintptr_t> createCUDAStream() {
   StatusOr<int32_t> device = getCurrentCUDADevice();
   if (!device.isOk())
     return device.getStatus();
-  CUDA_DBGV("createCUDAStream: {0:X} for device {1}",
+  CUDA_DBGV("createCUDAStream: {0:x} for device {1}",
             reinterpret_cast<uintptr_t>(stream), *device);
 #endif
   return reinterpret_cast<uintptr_t>(stream);
@@ -94,7 +94,7 @@ Status destroyCUDAStream(uintptr_t stream) {
 #ifdef MLIR_TRT_ENABLE_CUDA
   RETURN_ERROR_IF_CUDART_ERROR(
       cudaStreamDestroy(reinterpret_cast<cudaStream_t>(stream)));
-  CUDA_DBGV("destroyCUDAStream: {0:X}", stream);
+  CUDA_DBGV("destroyCUDAStream: {0:x}", stream);
   return getOkStatus();
 #else
   return getInternalErrorStatus("runtime not compiled with CUDA enabled");
@@ -105,7 +105,7 @@ Status synchronizeCUDAStream(uintptr_t stream) {
 #ifdef MLIR_TRT_ENABLE_CUDA
   RETURN_ERROR_IF_CUDART_ERROR(
       cudaStreamSynchronize(reinterpret_cast<cudaStream_t>(stream)));
-  CUDA_DBGV("synchronizeCUDAStream: {0:X}", stream);
+  CUDA_DBGV("synchronizeCUDAStream: {0:x}", stream);
   return getOkStatus();
 #else
   return getInternalErrorStatus("runtime not compiled with CUDA enabled");
@@ -120,7 +120,7 @@ Status copyCUDAAsync(void *dst, const void *src, uint64_t numBytes,
                       static_cast<cudaMemcpyKind>(copyKind),
                       reinterpret_cast<cudaStream_t>(stream)));
   CUDA_DBGV(
-      "copyCUDAAsync: dst={0:X} src={1:X} bytes={2} kind={3} stream={4:X}",
+      "copyCUDAAsync: dst={0:x} src={1:x} bytes={2} kind={3} stream={4:x}",
       reinterpret_cast<uintptr_t>(dst), reinterpret_cast<uintptr_t>(src),
       numBytes, copyKind, stream);
   return getOkStatus();
@@ -136,7 +136,7 @@ Status copyCUDADeviceToDeviceAsync(void *dstDevice, const void *srcDevice,
       dstDevice, srcDevice, static_cast<size_t>(numBytes),
       cudaMemcpyDeviceToDevice, reinterpret_cast<cudaStream_t>(stream)));
   CUDA_DBGV(
-      "copyCUDADeviceToDeviceAsync: dst={0:X} src={1:X} bytes={2} stream={3:X}",
+      "copyCUDADeviceToDeviceAsync: dst={0:x} src={1:x} bytes={2} stream={3:x}",
       reinterpret_cast<uintptr_t>(dstDevice),
       reinterpret_cast<uintptr_t>(srcDevice), numBytes, stream);
   return getOkStatus();
@@ -152,7 +152,7 @@ Status copyCUDAHostToDeviceAsync(void *dstDevice, const void *srcHost,
       dstDevice, srcHost, static_cast<size_t>(numBytes), cudaMemcpyHostToDevice,
       reinterpret_cast<cudaStream_t>(stream)));
   CUDA_DBGV(
-      "copyCUDAHostToDeviceAsync: dst={0:X} src={1:X} bytes={2} stream={3:X}",
+      "copyCUDAHostToDeviceAsync: dst={0:x} src={1:x} bytes={2} stream={3:x}",
       reinterpret_cast<uintptr_t>(dstDevice),
       reinterpret_cast<uintptr_t>(srcHost), numBytes, stream);
   return getOkStatus();
@@ -168,7 +168,7 @@ Status copyCUDADeviceToHostAsync(void *dstHost, const void *srcDevice,
       dstHost, srcDevice, static_cast<size_t>(numBytes), cudaMemcpyDeviceToHost,
       reinterpret_cast<cudaStream_t>(stream)));
   CUDA_DBGV(
-      "copyCUDADeviceToHostAsync: dst={0:X} src={1:X} bytes={2} stream={3:X}",
+      "copyCUDADeviceToHostAsync: dst={0:x} src={1:x} bytes={2} stream={3:x}",
       reinterpret_cast<uintptr_t>(dstHost),
       reinterpret_cast<uintptr_t>(srcDevice), numBytes, stream);
   return getOkStatus();
@@ -184,8 +184,8 @@ Status copyCUDAPeerAsync(void *dstDevice, int32_t dstDeviceId,
   RETURN_ERROR_IF_CUDART_ERROR(cudaMemcpyPeerAsync(
       dstDevice, dstDeviceId, srcDevice, srcDeviceId,
       static_cast<size_t>(numBytes), reinterpret_cast<cudaStream_t>(stream)));
-  CUDA_DBGV("copyCUDAPeerAsync: dst={0:X} dstDev={1} src={2:X} srcDev={3} "
-            "bytes={4} stream={5:X}",
+  CUDA_DBGV("copyCUDAPeerAsync: dst={0:x} dstDev={1} src={2:x} srcDev={3} "
+            "bytes={4} stream={5:x}",
             reinterpret_cast<uintptr_t>(dstDevice), dstDeviceId,
             reinterpret_cast<uintptr_t>(srcDevice), srcDeviceId, numBytes,
             stream);
@@ -201,7 +201,7 @@ StatusOr<uintptr_t> createCUDAEvent() {
   RETURN_ERROR_IF_CUDART_ERROR(
       cudaEventCreateWithFlags(&event, cudaEventDefault));
 #ifndef NDEBUG
-  CUDA_DBGV("createCUDAEvent: {0:X} ", reinterpret_cast<uintptr_t>(event));
+  CUDA_DBGV("createCUDAEvent: {0:x} ", reinterpret_cast<uintptr_t>(event));
 #endif
   return reinterpret_cast<uintptr_t>(event);
 #else
@@ -213,7 +213,7 @@ Status destroyCUDAEvent(uintptr_t event) {
 #ifdef MLIR_TRT_ENABLE_CUDA
   RETURN_ERROR_IF_CUDART_ERROR(
       cudaEventDestroy(reinterpret_cast<cudaEvent_t>(event)));
-  CUDA_DBGV("destroyCUDAEvent: {0:X}", event);
+  CUDA_DBGV("destroyCUDAEvent: {0:x}", event);
   return getOkStatus();
 #else
   return getInternalErrorStatus("runtime not compiled with CUDA enabled");
@@ -225,7 +225,7 @@ Status recordCUDAEvent(uintptr_t event, uintptr_t stream) {
   RETURN_ERROR_IF_CUDART_ERROR(
       cudaEventRecord(reinterpret_cast<cudaEvent_t>(event),
                       reinterpret_cast<cudaStream_t>(stream)));
-  CUDA_DBGV("recordCUDAEvent: event={0:X} stream={1:X}", event, stream);
+  CUDA_DBGV("recordCUDAEvent: event={0:x} stream={1:x}", event, stream);
   return getOkStatus();
 #else
   return getInternalErrorStatus("runtime not compiled with CUDA enabled");
@@ -237,7 +237,7 @@ Status waitCUDAEventOnStream(uintptr_t stream, uintptr_t event) {
   RETURN_ERROR_IF_CUDART_ERROR(
       cudaStreamWaitEvent(reinterpret_cast<cudaStream_t>(stream),
                           reinterpret_cast<cudaEvent_t>(event), 0));
-  CUDA_DBGV("waitCUDAEventOnStream: stream={0:X} event={1:X}", stream, event);
+  CUDA_DBGV("waitCUDAEventOnStream: stream={0:x} event={1:x}", stream, event);
   return getOkStatus();
 #else
   return getInternalErrorStatus("runtime not compiled with CUDA enabled");
@@ -248,7 +248,7 @@ Status synchronizeCUDAEvent(uintptr_t event) {
 #ifdef MLIR_TRT_ENABLE_CUDA
   RETURN_ERROR_IF_CUDART_ERROR(
       cudaEventSynchronize(reinterpret_cast<cudaEvent_t>(event)));
-  CUDA_DBGV("synchronizeCUDAEvent: {0:X}", event);
+  CUDA_DBGV("synchronizeCUDAEvent: {0:x}", event);
   return getOkStatus();
 #else
   return getInternalErrorStatus("runtime not compiled with CUDA enabled");
@@ -260,11 +260,11 @@ StatusOr<bool> queryCUDAEvent(uintptr_t event) {
   cudaError_t eventQueryStatus =
       cudaEventQuery(reinterpret_cast<cudaEvent_t>(event));
   if (eventQueryStatus == cudaSuccess) {
-    CUDA_DBGV("queryCUDAEvent: {0:X} -> ready", event);
+    CUDA_DBGV("queryCUDAEvent: {0:x} -> ready", event);
     return true;
   }
   if (eventQueryStatus == cudaErrorNotReady) {
-    CUDA_DBGV("queryCUDAEvent: {0:X} -> not ready", event);
+    CUDA_DBGV("queryCUDAEvent: {0:x} -> not ready", event);
     return false;
   }
   RETURN_ERROR_IF_CUDART_ERROR(eventQueryStatus);
@@ -281,7 +281,7 @@ StatusOr<float> getCUDAEventElapsedTimeMs(uintptr_t startEvent,
   RETURN_ERROR_IF_CUDART_ERROR(
       cudaEventElapsedTime(&ms, reinterpret_cast<cudaEvent_t>(startEvent),
                            reinterpret_cast<cudaEvent_t>(endEvent)));
-  CUDA_DBGV("getCUDAEventElapsedTimeMs: start={0:X} end={1:X} -> {2}",
+  CUDA_DBGV("getCUDAEventElapsedTimeMs: start={0:x} end={1:x} -> {2}",
             startEvent, endEvent, ms);
   return ms;
 #else
@@ -304,7 +304,7 @@ StatusOr<uintptr_t> mallocCUDA(uint64_t numBytes) {
   void *alloc{nullptr};
   RETURN_ERROR_IF_CUDART_ERROR(
       cudaMalloc(&alloc, static_cast<size_t>(numBytes)));
-  CUDA_DBGV("mallocCUDA: size={0} -> {1:X}", numBytes,
+  CUDA_DBGV("mallocCUDA: size={0} -> {1:x}", numBytes,
             reinterpret_cast<uintptr_t>(alloc));
   return reinterpret_cast<uintptr_t>(alloc);
 #else
@@ -318,7 +318,7 @@ StatusOr<uintptr_t> mallocCUDAAsync(uint64_t numBytes, uintptr_t stream) {
   RETURN_ERROR_IF_CUDART_ERROR(
       cudaMallocAsync(&alloc, static_cast<size_t>(numBytes),
                       reinterpret_cast<cudaStream_t>(stream)));
-  CUDA_DBGV("mallocCUDAAsync: size={0} stream={1:X} -> {2:X}", numBytes, stream,
+  CUDA_DBGV("mallocCUDAAsync: size={0} stream={1:x} -> {2:x}", numBytes, stream,
             reinterpret_cast<uintptr_t>(alloc));
   return reinterpret_cast<uintptr_t>(alloc);
 #else
@@ -331,7 +331,7 @@ StatusOr<uintptr_t> mallocCUDAManaged(uint64_t numBytes) {
   void *alloc{nullptr};
   RETURN_ERROR_IF_CUDART_ERROR(
       cudaMallocManaged(&alloc, static_cast<size_t>(numBytes)));
-  CUDA_DBGV("mallocCUDAManaged: size={0} -> {1:X}", numBytes,
+  CUDA_DBGV("mallocCUDAManaged: size={0} -> {1:x}", numBytes,
             reinterpret_cast<uintptr_t>(alloc));
   return reinterpret_cast<uintptr_t>(alloc);
 #else
@@ -344,7 +344,7 @@ StatusOr<uintptr_t> mallocCUDAPinnedHost(uint64_t numBytes) {
   void *alloc{nullptr};
   RETURN_ERROR_IF_CUDART_ERROR(
       cudaMallocHost(&alloc, static_cast<size_t>(numBytes)));
-  CUDA_DBGV("mallocCUDAPinnedHost: size={0} -> {1:X}", numBytes,
+  CUDA_DBGV("mallocCUDAPinnedHost: size={0} -> {1:x}", numBytes,
             reinterpret_cast<uintptr_t>(alloc));
   return reinterpret_cast<uintptr_t>(alloc);
 #else
@@ -355,7 +355,7 @@ StatusOr<uintptr_t> mallocCUDAPinnedHost(uint64_t numBytes) {
 Status freeCUDA(uintptr_t ptr) {
 #ifdef MLIR_TRT_ENABLE_CUDA
   RETURN_ERROR_IF_CUDART_ERROR(cudaFree(reinterpret_cast<void *>(ptr)));
-  CUDA_DBGV("freeCUDA: ptr={0:X}", ptr);
+  CUDA_DBGV("freeCUDA: ptr={0:x}", ptr);
   return getOkStatus();
 #else
   return getInternalErrorStatus("runtime not compiled with CUDA enabled");
@@ -366,7 +366,7 @@ Status freeCUDAAsync(uintptr_t ptr, uintptr_t stream) {
 #ifdef MLIR_TRT_ENABLE_CUDA
   RETURN_ERROR_IF_CUDART_ERROR(cudaFreeAsync(
       reinterpret_cast<void *>(ptr), reinterpret_cast<cudaStream_t>(stream)));
-  CUDA_DBGV("freeCUDAAsync: ptr={0:X} stream={1:X}", ptr, stream);
+  CUDA_DBGV("freeCUDAAsync: ptr={0:x} stream={1:x}", ptr, stream);
   return getOkStatus();
 #else
   return getInternalErrorStatus("runtime not compiled with CUDA enabled");
@@ -376,7 +376,21 @@ Status freeCUDAAsync(uintptr_t ptr, uintptr_t stream) {
 Status freeCUDAPinnedHost(uintptr_t ptr) {
 #ifdef MLIR_TRT_ENABLE_CUDA
   RETURN_ERROR_IF_CUDART_ERROR(cudaFreeHost(reinterpret_cast<void *>(ptr)));
-  CUDA_DBGV("freeCUDAPinnedHost: ptr={0:X}", ptr);
+  CUDA_DBGV("freeCUDAPinnedHost: ptr={0:x}", ptr);
+  return getOkStatus();
+#else
+  return getInternalErrorStatus("runtime not compiled with CUDA enabled");
+#endif
+}
+
+Status launchCUDAHostFunc(uintptr_t stream, void (*callback)(void *),
+                          void *userData) {
+#ifdef MLIR_TRT_ENABLE_CUDA
+  CUDA_DBGV("launchCUDAHostFunc: stream={0:x} callback={1:x} userData={2:x}",
+            stream, reinterpret_cast<uintptr_t>(callback),
+            reinterpret_cast<uintptr_t>(userData));
+  RETURN_ERROR_IF_CUDART_ERROR(cudaLaunchHostFunc(
+      reinterpret_cast<cudaStream_t>(stream), callback, userData));
   return getOkStatus();
 #else
   return getInternalErrorStatus("runtime not compiled with CUDA enabled");

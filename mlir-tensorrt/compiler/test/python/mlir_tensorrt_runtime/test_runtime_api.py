@@ -225,7 +225,7 @@ def test_stream():
     devices = client.get_devices()
     if len(devices) == 0:
         return
-    stream = client.create_stream()
+    stream = devices[0].stream
     assert isinstance(stream.ptr, int)
 
 

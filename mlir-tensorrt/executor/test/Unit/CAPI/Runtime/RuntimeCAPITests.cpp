@@ -45,19 +45,6 @@ TEST(RuntimeCAPI, TestStatusCreate) {
   mtrtStatusDestroy(status);
 }
 
-TEST(RuntimeCAPI, TestStreamCreate) {
-  MTRT_Stream stream{nullptr};
-  MTRT_Status streamStatus = mtrtStreamCreate(&stream);
-#ifdef MLIR_TRT_ENABLE_CUDA
-  ASSERT_TRUE(mtrtStatusIsOk(streamStatus));
-  ASSERT_TRUE(!mtrtStreamIsNull(stream));
-  mtrtStreamDestroy(stream);
-#else
-  ASSERT_FALSE(mtrtStatusIsOk(streamStatus));
-  ASSERT_TRUE(mtrtStreamIsNull(stream));
-#endif
-}
-
 TEST(RuntimeCAPI, TestClientCreate) {
   MTRT_RuntimeClient client;
   mtrtRuntimeClientCreate(&client);
@@ -82,6 +69,13 @@ TEST(RuntimeCAPI, TestClientGetDevices) {
   MTRT_Device device;
   status = mtrtRuntimeClientGetDevice(client, 0, &device);
   ASSERT_TRUE(mtrtStatusIsOk(status));
+
+  // get the stream.
+  MTRT_Stream stream;
+  status = mtrtDeviceGetStream(device, &stream);
+  ASSERT_TRUE(mtrtStatusIsOk(status));
+  ASSERT_TRUE(!mtrtStreamIsNull(stream));
+  ASSERT_TRUE(mtrtStatusIsOk(mtrtStreamDestroy(stream)));
 
   status = mtrtRuntimeClientDestroy(client);
   ASSERT_TRUE(mtrtStatusIsOk(status));
@@ -169,23 +163,22 @@ TEST(RuntimeCAPI, TestHostToDeviceAndBackCopy) {
   ASSERT_TRUE(mtrtStatusIsOk(status));
   ASSERT_TRUE(!mtrtRuntimeClientIsNull(client));
 
-  MTRT_Stream stream;
-  status = mtrtStreamCreate(&stream);
-  ASSERT_TRUE(mtrtStatusIsOk(status));
-
-  int numDevices{0};
+  int32_t numDevices{0};
   status = mtrtRuntimeClientGetNumDevices(client, &numDevices);
   ASSERT_TRUE(mtrtStatusIsOk(status));
+
   if (numDevices < 1) {
-    mtrtStreamDestroy(stream);
     mtrtRuntimeClientDestroy(client);
     return;
   }
-
   MTRT_Device device;
   status = mtrtRuntimeClientGetDevice(client, 0, &device);
   ASSERT_TRUE(mtrtStatusIsOk(status));
   ASSERT_TRUE(!mtrtDeviceIsNull(device));
+
+  MTRT_Stream stream;
+  status = mtrtDeviceGetStream(device, &stream);
+  ASSERT_TRUE(mtrtStatusIsOk(status));
 
   std::vector<float> data{1, 2, 3, 4};
   std::vector<int64_t> shape{2, 2};
@@ -196,6 +189,8 @@ TEST(RuntimeCAPI, TestHostToDeviceAndBackCopy) {
       reinterpret_cast<uintptr_t>(data.data()),
       /*offset=*/0, shape.size(), shape.data(), strides.data(),
       mtrtDeviceGetNull(), &hostBuffer);
+
+  ASSERT_TRUE(mtrtStatusIsOk(status));
 
   MTRT_MemRefValue deviceBuffer{nullptr};
   status = mtrtCopyFromHostToDevice(hostBuffer, device, mtrtStreamGetNull(),

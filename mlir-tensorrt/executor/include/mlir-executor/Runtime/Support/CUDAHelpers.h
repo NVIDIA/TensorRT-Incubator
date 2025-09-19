@@ -117,6 +117,10 @@ Status freeCUDAAsync(uintptr_t ptr, uintptr_t stream);
 /// Wrapper around `cudaFreeHost` for pinned host memory.
 Status freeCUDAPinnedHost(uintptr_t ptr);
 
+/// Wrapper around `cudaLaunchHostFunc`.
+Status launchCUDAHostFunc(uintptr_t stream, void (*callback)(void *),
+                          void *userData);
+
 } // namespace mtrt
 
 #endif // MLIR_EXECUTOR_RUNTIME_SUPPORT_CUDAHELPERS

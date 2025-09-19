@@ -302,20 +302,16 @@ LuaRuntimeSession::create(RuntimeSessionOptions options,
 }
 
 /// Get the primary stream for the loaded executable to use.
-CudaStream LuaRuntimeSession::getCudaStream() {
-#ifdef MLIR_TRT_ENABLE_CUDA
-  auto stream = sol::state_view(getLuaState())["stream0"].get<CudaStream>();
-  return stream;
-#else
-  llvm::report_fatal_error("runtime not compiled with CUDA support");
-#endif
-}
+Ref<Stream> LuaRuntimeSession::getCudaStream() { return this->cudaStream; }
 
 /// Set the primary stream for the loaded executable to use.
-Status LuaRuntimeSession::setCudaStream(CudaStream stream) {
+Status LuaRuntimeSession::setCudaStream(Ref<Stream> stream) {
+  if (!stream)
+    return getInvalidArgStatus("stream cannot be null");
+  this->cudaStream = stream;
 #ifdef MLIR_TRT_ENABLE_CUDA
   sol::state_view lua = getLuaState();
-  lua["stream0"] = stream;
+  lua["stream0"] = stream->getCUDAHandle();
   return getOkStatus();
 #else
   return getInternalErrorStatus("runtime not compiled with CUDA support");
@@ -718,7 +714,8 @@ parseResults(const sol::protected_function_result &pfr,
 
     // Create a memref so that client now tracks it.
     StatusOr<Ref<MemRefStorage>> storage = client.getAllocator().takeOwnership(
-        allocPtr, memRefView.getAddressSpace(), session.getCudaStream());
+        allocPtr, memRefView.getAddressSpace(),
+        session.getCudaStream()->getDevice(), session.getCudaStream());
     if (!storage.isOk())
       return storage.getStatus();
 
@@ -741,7 +738,7 @@ mtrt::executeFunctionWithLuaBackend(LuaRuntimeSession &session,
                                     std::string_view name,
                                     llvm::ArrayRef<RuntimeValue *> inputArgs,
                                     llvm::ArrayRef<RuntimeValue *> outputArgs,
-                                    std::optional<CudaStream> stream,
+                                    std::optional<Ref<Stream>> stream,
                                     std::optional<RuntimeClient *> client) {
 
   StatusOr<FunctionView> func = session.getExecutable().getFunction(name);

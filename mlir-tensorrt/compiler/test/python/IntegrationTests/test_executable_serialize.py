@@ -28,11 +28,10 @@ def test_serialize(ASM):
         exe = compiler.translate_mlir_to_executable(m.operation)
 
     client = runtime.RuntimeClient()
-    stream = client.create_stream()
     devices = client.get_devices()
-
     if len(devices) == 0:
         return
+    stream = devices[0].stream
 
     session_options = runtime.RuntimeSessionOptions(num_devices=1, device_id=0)
     session0 = runtime.RuntimeSession(session_options, exe)

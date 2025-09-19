@@ -133,6 +133,9 @@ static inline MTRT_Device mtrtDeviceGetNull() { return MTRT_Device{NULL}; }
 MLIR_CAPI_EXPORTED MTRT_Status mtrtDeviceGetIndex(MTRT_Device device,
                                                   int32_t *index);
 
+MLIR_CAPI_EXPORTED MTRT_Status mtrtDeviceGetStream(MTRT_Device device,
+                                                   MTRT_Stream *stream);
+
 //===----------------------------------------------------------------------===//
 // MTRT_MemRefValue
 //===----------------------------------------------------------------------===//

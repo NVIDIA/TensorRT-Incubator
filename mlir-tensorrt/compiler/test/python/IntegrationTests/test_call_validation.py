@@ -43,7 +43,7 @@ class Test:
             self.exe = compiler.translate_mlir_to_executable(m.operation)
 
         self.client = runtime.RuntimeClient()
-        self.stream = self.client.create_stream()
+        self.stream = self.client.get_devices()[0].stream
         self.devices = self.client.get_devices()
         self.session_options = runtime.RuntimeSessionOptions(num_devices=1, device_id=0)
 

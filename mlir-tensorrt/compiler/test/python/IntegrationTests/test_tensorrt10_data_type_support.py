@@ -63,11 +63,11 @@ if __name__ == "__main__":
     # The RuntimeClient can and should persist across multiple Executables, RuntimeSessions, etc.
     # It is primarily an interface for creating and manipulating buffers.
     client = runtime.RuntimeClient()
-    stream = client.create_stream()
     devices = client.get_devices()
     if len(devices) == 0:
         print("No GPU device found!")
         exit()
+    stream = devices[0].stream
     numpy_f8 = np.asarray([[0.4, 4.24], [6.61, 8.81]], dtype=float8_e4m3fn)
     numpy_f8_reinterpret_ui8 = numpy_f8.view(np.uint8, np.ndarray)
     numpy_bf16 = np.asarray([[0.4, 4.24], [6.61, 8.81]], dtype=bfloat16)

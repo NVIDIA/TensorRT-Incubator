@@ -1,4 +1,5 @@
 # RUN: %pick-one-gpu %PYTHON %s
+import sys
 import time
 
 import mlir_tensorrt.compiler.api as compiler
@@ -112,8 +113,10 @@ func.func @main() -> (tensor<?x?xi32, #plan.memory_space<host_pinned>> {tensorrt
 # The RuntimeClient can and should persist across multiple Executables, RuntimeSessions, etc.
 # It is primarily an interface for creating and manipulating buffers.
 client = runtime.RuntimeClient()
-stream = client.create_stream()
 devices = client.get_devices()
+if len(devices) == 0:
+    sys.exit(0)
+stream = devices[0].stream
 
 
 def compile_executable(program, debug=False):

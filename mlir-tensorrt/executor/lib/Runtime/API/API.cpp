@@ -24,6 +24,7 @@
 #include "mlir-executor/Runtime/Support/Support.h"
 #include "mlir-executor/Support/Allocators.h"
 #include "mlir-tensorrt-common/Support/Status.h"
+#include "llvm/ADT/IntrusiveRefCntPtr.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/Sequence.h"
 #include "llvm/Support/CommandLine.h"
@@ -650,15 +651,44 @@ private:
   int32_t originalDeviceNumber;
 };
 
+class CUDAStream : public Stream {
+public:
+  ~CUDAStream() {
+    Status s = destroyCUDAStream(stream);
+    if (!s.isOk())
+      mtrt::logUnhandledErrors(s, llvm::errs());
+  }
+  CudaStream getCUDAHandle() const final { return stream; }
+  Device *getDevice() const final { return device; }
+  Status sync() final { return synchronizeCUDAStream(stream); }
+  static StatusOr<Ref<CUDAStream>> create(Device *device) {
+    MTRT_ASSIGN_OR_RETURN(
+        std::unique_ptr<DeviceGuard> deviceGuard,
+        CUDAGPUDeviceGuard::create(device->getDeviceNumber()));
+    MTRT_ASSIGN_OR_RETURN(uintptr_t stream, createCUDAStream());
+    return Ref<CUDAStream>(new CUDAStream(stream, device));
+  }
+
+private:
+  CUDAStream(CudaStream stream, Device *device)
+      : stream(stream), device(device) {}
+
+  /// Opaque handle to the underlying CUDA stream object.
+  CudaStream stream;
+
+  /// Pointer to the associated Device. Device's are uniquely owned by
+  /// the RuntimeClient, so their lifetime should always outlive other
+  /// objects, including Streams, which can only be created from Device
+  /// objects.
+  Device *device;
+};
+
 /// CUDA device implementation of the Device abstract class.
 class CUDADevice final : public Device {
 public:
-  CUDADevice(int32_t deviceNumber) : deviceNumber(deviceNumber) {
-    deviceName = llvm::formatv("cuda:{0}", deviceNumber).str();
-  }
   ~CUDADevice() = default;
   llvm::StringRef getDeviceKind() const final { return "cuda"; }
-  int32_t getDeviceNumber() const final { return deviceNumber; }
+  HardwareId getDeviceNumber() const final { return deviceNumber; }
   StatusOr<std::unique_ptr<DeviceGuard>> createDeviceGuard() const final {
     MTRT_ASSIGN_OR_RETURN(std::unique_ptr<DeviceGuard> deviceGuard,
                           CUDAGPUDeviceGuard::create(deviceNumber));
@@ -666,11 +696,242 @@ public:
   }
   llvm::StringRef getDeviceName() const final { return deviceName; }
 
-private:
-  const int32_t deviceNumber;
+  Ref<Stream> getStream() const final {
+    assert(stream && "expected valid stream");
+    return stream;
+  }
+
+  llvm::ThreadPoolInterface &getThreadPool() final {
+    assert(stream && "expected valid stream");
+    return threadPool;
+  }
+
+  static StatusOr<std::unique_ptr<Device>> create(HardwareId deviceNumber) {
+    auto result =
+        std::unique_ptr<CUDADevice>(new CUDADevice(deviceNumber, nullptr));
+    MTRT_ASSIGN_OR_RETURN(Ref<CUDAStream> stream,
+                          CUDAStream::create(result.get()));
+    result->stream = std::move(stream);
+    // Convert the pointer type to Device.
+    return StatusOr<std::unique_ptr<Device>>(std::move(result));
+  }
+
+protected:
+  CUDADevice(HardwareId deviceNumber, Ref<CUDAStream> stream)
+      : deviceNumber(deviceNumber), stream(std::move(stream)), threadPool() {
+    deviceName = llvm::formatv("cuda:{0}", deviceNumber).str();
+  }
+
+  const HardwareId deviceNumber;
   std::string deviceName;
+
+  /// Reference the the stream associated with this device, and streams take a
+  /// back reference-by-pointer to the owning device. This is the initial
+  /// stream reference, but as the program runs references will also be taken by
+  /// potentially long-lived objects such as MemRefStorage.
+  /// RuntimeClient must always outlive all other objects, so the lifetime
+  /// of the Device should outlive any child stream associated with it.
+  Ref<CUDAStream> stream;
+
+  llvm::StdThreadPool threadPool;
 };
 } // namespace
+
+StatusOr<std::unique_ptr<Device>>
+mtrt::createCUDADevice(HardwareId deviceNumber) {
+  return CUDADevice::create(deviceNumber);
+}
+
+//===----------------------------------------------------------------------===//
+// Event
+//===----------------------------------------------------------------------===//
+
+namespace {
+// Completion token transported to CUDA callback and IO worker.
+// T is the result type.
+struct CompletionToken
+    : public llvm::ThreadSafeRefCountedBase<CompletionToken> {
+  CompletionToken(Device *device, llvm::ThreadPoolInterface *ioThreadPool,
+                  Event *event)
+      : device(device), ioThreadPool(ioThreadPool), event(std::move(event)) {
+    assert(this->device && "expected valid device");
+    assert(this->ioThreadPool && "expected valid io thread pool");
+    assert(this->event && "expected valid event");
+    assert(this->event->getCudaHandle() && "expected valid cuda event handle");
+  }
+  Device *device;
+  llvm::ThreadPoolInterface *ioThreadPool;
+  Event *event;
+};
+} // namespace
+
+// Host callback invoked by CUDA runtime when stream work preceding it
+// completes. userData is a heap-allocated pointer to
+// std::shared_ptr<CompletionToken<T>>. Implementation posts a small job to IO
+// thread pool and returns.
+void cuda_event_host_callback(void *userData) {
+  // // userData is pointer-to-heap-allocated Ref<CompletionToken>.
+  Ref<CompletionToken> *tokenPtr =
+      static_cast<Ref<CompletionToken> *>(userData);
+  // Increment reference count by making a copy.
+  Ref<CompletionToken> token = *tokenPtr;
+  // Then delete the heap allocated reference.
+  delete tokenPtr;
+
+  // Use the IO thread pool to run the callback.
+  llvm::ThreadPoolInterface *ioThreadPool = token->ioThreadPool;
+  ioThreadPool->async([token = std::move(token)]() {
+    Status s = Status::getOk();
+
+    // Create device guard
+    StatusOr<std::unique_ptr<DeviceGuard>> deviceGuard =
+        token->device->createDeviceGuard();
+    mtrt::cantFail(deviceGuard.getStatus());
+    mtrt::StatusOr<bool> eventStatus =
+        mtrt::queryCUDAEvent(token->event->getCudaHandle());
+    if (!eventStatus.isOk())
+      s = std::move(eventStatus.getStatus());
+    else if (!*eventStatus)
+      s = mtrt::getInternalErrorStatus(
+          "event is not ready, but host callback was invoked");
+
+    // May invoke callbacks.
+    token->event->setReady(std::move(s));
+  });
+}
+
+Event::Event(bool ready, Status status, CudaEvent cudaEventHandle)
+    : cudaEventHandle(cudaEventHandle), ready(ready),
+      status(std::move(status)) {}
+
+std::unique_ptr<Event> Event::createReadyEvent() {
+  return std::unique_ptr<Event>(new Event(true, Status::getOk(), CudaEvent(0)));
+}
+
+StatusOr<std::unique_ptr<Event>> Event::create(Ref<Stream> stream) {
+  assert(stream && "expected valid stream");
+  MTRT_ASSIGN_OR_RETURN(CudaEvent eventHandle, mtrt::createCUDAEvent());
+  MTRT_RETURN_IF_ERROR(
+      mtrt::recordCUDAEvent(eventHandle, stream->getCUDAHandle()));
+
+  auto eventRef =
+      std::unique_ptr<Event>(new Event(false, Status::getOk(), eventHandle));
+  auto heapPtr = new Ref<CompletionToken>(new CompletionToken(
+      stream->getDevice(), &stream->getDevice()->getThreadPool(),
+      eventRef.get()));
+  // Schedule host callback to run after all previously enqueued work on
+  // stream finishes. The callback runs on a CUDA runtime thread and is
+  // forbidden from invoking CUDA APis. Instead, it just sets up the completion
+  // handler to run on the device's thread pool. The completion handler checks
+  // for CUDA errors, sets the event state to ready, and invokes the callbacks,
+  // which may include deleting the event.
+  MTRT_RETURN_IF_ERROR(mtrt::launchCUDAHostFunc(stream->getCUDAHandle(),
+                                                &cuda_event_host_callback,
+                                                static_cast<void *>(heapPtr)));
+  return eventRef;
+}
+
+/// Complete the lifecycle of an Event by appending an on-ready callback that
+/// deletes the event.
+void Event::releaseWhenReady(std::unique_ptr<Event> event) {
+  // Move the event to the callback so that the event is deleted after the
+  // callback is invoked. Deletion will occur on whatever thread is executing
+  // the callbacks unless the Event is already ready, in which case deletion
+  // occurs immediately.
+  event->addReadyCallback(
+      [](Status, void *userData) mutable {
+        auto event =
+            std::unique_ptr<Event>(reinterpret_cast<Event *>(userData));
+        event.reset();
+      },
+      event.release());
+}
+
+Event::~Event() {
+  MTRT_DBG("destroying mtrt::Event {0} ready={1} status={2}", this, ready,
+           status.isOk() ? "ok" : status.getString());
+  if (cudaEventHandle) {
+    mtrt::logUnhandledErrors(mtrt::destroyCUDAEvent(cudaEventHandle),
+                             llvm::errs());
+    this->cudaEventHandle = 0;
+    return;
+  }
+}
+
+bool Event::checkIsReady() {
+  std::lock_guard<std::mutex> g(lock);
+  return ready;
+}
+
+void Event::setReady(Status s) {
+  std::vector<std::pair<OnReadyCallback, void *>> callbacksCopy;
+
+  {
+    // Copy callbacks to avoid race condition.
+    std::lock_guard<std::mutex> g(lock);
+    if (ready)
+      return;
+    this->ready = true;
+    this->status = s;
+    std::swap(this->callbacks, callbacksCopy);
+  }
+
+  for (const auto &[callback, userData] : callbacksCopy) {
+    MTRT_DBG("mtrt::Event {0} invoking callback with data {1}",
+             reinterpret_cast<void *>(this), userData);
+    callback(s, userData);
+  }
+}
+
+Status Event::waitForReady(std::chrono::microseconds timeout) {
+  if (this->checkIsReady())
+    return getStatus();
+  CudaEvent e = getCudaHandle();
+  if (!e)
+    return getInternalErrorStatus("Event {0} has invalid CUDA event handle",
+                                  this);
+  std::chrono::duration<double, std::micro> elapsed(0.0);
+  while (elapsed < timeout) {
+    MTRT_ASSIGN_OR_RETURN(bool evReady, mtrt::queryCUDAEvent(e));
+    // The first boolean check is for the CUDA event, the second is to ensure
+    // the event callbacks have been invoked.
+    if (!evReady || !checkIsReady()) {
+      std::this_thread::sleep_for(std::chrono::microseconds(10));
+      elapsed += std::chrono::microseconds(10);
+      continue;
+    }
+    return getStatus();
+  }
+  return getInternalErrorStatus("Event {0} timed out", this);
+}
+
+void Event::setStatus(Status status) {
+  std::lock_guard<std::mutex> g(lock);
+  this->status = std::move(status);
+}
+
+Status Event::getStatus() {
+  std::lock_guard<std::mutex> g(lock);
+  return status;
+}
+
+void Event::addReadyCallback(OnReadyCallback callback, void *userData) {
+  Status s = Status::getOk();
+  {
+    std::lock_guard<std::mutex> g(lock);
+    if (!ready) {
+      MTRT_DBG("mtrt::Event {0} is not ready, enqueueing callback",
+               reinterpret_cast<void *>(this));
+      callbacks.push_back(std::make_pair(callback, userData));
+      return;
+    }
+    s = this->status;
+  }
+  MTRT_DBG(
+      "mtrt::Event {0} is already in 'ready' state, call callback immediately",
+      reinterpret_cast<void *>(this));
+  callback(s, userData);
+}
 
 //===----------------------------------------------------------------------===//
 // ScalarValue
@@ -718,13 +979,14 @@ void ScalarValue::cleanup() {
 
 BufferType BufferType::createWithByteStrides(
     mtrt::ScalarType elementType, const std::vector<int64_t> &shape,
-    const std::vector<int64_t> &byteStrides, mtrt::PointerType addressSpace) {
+    const std::vector<int64_t> &byteStrides, mtrt::PointerType addressSpace,
+    int64_t offset) {
   BufferType result;
   result.elementType = elementType.getCode();
   result.shape = shape;
-
   result.addressSpace = addressSpace;
-  std::vector<int64_t> strides;
+  result.layout.offset = offset;
+
   int64_t bytesPerElement = llvm::divideCeil(elementType.getBitWidth(), 8);
   for (int64_t s : byteStrides) {
     assert(s % bytesPerElement == 0 &&
@@ -735,18 +997,16 @@ BufferType BufferType::createWithByteStrides(
   return result;
 }
 
-BufferType
-BufferType::createWithElementStrides(mtrt::ScalarType elementType,
-                                     const std::vector<int64_t> &shape,
-                                     const std::vector<int64_t> &elementStrides,
-                                     mtrt::PointerType addressSpace) {
+BufferType BufferType::createWithElementStrides(
+    mtrt::ScalarType elementType, const std::vector<int64_t> &shape,
+    const std::vector<int64_t> &elementStrides, mtrt::PointerType addressSpace,
+    int64_t offset) {
   BufferType result;
   result.elementType = elementType.getCode();
   result.shape = shape;
   result.layout.strides = elementStrides;
-
+  result.layout.offset = offset;
   result.addressSpace = addressSpace;
-
   return result;
 }
 
@@ -768,14 +1028,12 @@ getCanonicalRowMajorByteStrides(const mtrt::ScalarType &elType,
   return strides;
 }
 
-BufferType
-BufferType::createWithCanonicalLayout(mtrt::ScalarType elementType,
-                                      const std::vector<int64_t> &shape,
-                                      mtrt::PointerType addressSpace) {
-
+BufferType BufferType::createWithCanonicalLayout(
+    mtrt::ScalarType elementType, const std::vector<int64_t> &shape,
+    mtrt::PointerType addressSpace, int64_t offset) {
   return BufferType::createWithByteStrides(
       elementType, shape, getCanonicalRowMajorByteStrides(elementType, shape),
-      addressSpace);
+      addressSpace, offset);
 }
 
 bool BufferType::hasStaticShape() const {
@@ -787,9 +1045,11 @@ int64_t BufferType::getNumElements() const {
 }
 
 BufferType BufferType::getFromSerializedType(const mtrt::MemRefTypeView &type) {
+  /// Serialized types in function signature currently have implicit zero
+  /// offset.
   return BufferType::createWithElementStrides(
       type.getElementType(), type.getShape(), type.getStrides(),
-      type.getAddressSpace());
+      type.getAddressSpace(), /*offset=*/0);
 }
 
 bool BufferType::isCanonicalRowMajor() const {
@@ -902,7 +1162,7 @@ namespace {
 class HostOwnedMemRefStorage : public MemRefStorage {
 public:
   HostOwnedMemRefStorage(uintptr_t ptr, Ref<RuntimeClient> client)
-      : MemRefStorage(ptr, std::move(client)) {}
+      : MemRefStorage(ptr, nullptr, std::move(client)) {}
 
   ~HostOwnedMemRefStorage();
 
@@ -911,25 +1171,27 @@ public:
 
 class DeviceOwnedMemRefStorage : public MemRefStorage {
 public:
-  DeviceOwnedMemRefStorage(uintptr_t ptr, Ref<RuntimeClient> client,
-                           PointerType type, std::optional<CudaStream> stream)
-      : MemRefStorage(ptr, std::move(client)), type(type), stream(stream) {}
+  DeviceOwnedMemRefStorage(uintptr_t ptr, Device *device,
+                           Ref<RuntimeClient> client, PointerType type,
+                           Ref<Stream> stream)
+      : MemRefStorage(ptr, device, std::move(client)), type(type),
+        stream(std::move(stream)) {}
 
   ~DeviceOwnedMemRefStorage();
 
   PointerType getMemorySpace() const final { return type; }
-  std::optional<CudaStream> getStream() const final { return stream; }
+  Ref<Stream> getStream() const final { return stream; }
 
   PointerType type;
-  std::optional<CudaStream> stream;
+  Ref<Stream> stream;
 };
 
 class ViewMemRefStorage : public MemRefStorage {
 public:
-  ViewMemRefStorage(uintptr_t ptr, PointerType type,
+  ViewMemRefStorage(uintptr_t ptr, Device *device, PointerType type,
                     std::function<void()> destroyCallback,
                     Ref<RuntimeClient> client)
-      : MemRefStorage(ptr, std::move(client)), type(type),
+      : MemRefStorage(ptr, device, std::move(client)), type(type),
         destroyCallback(std::move(destroyCallback)) {}
   ~ViewMemRefStorage();
 
@@ -942,9 +1204,8 @@ public:
 } // namespace
 
 static StatusOr<Ref<MemRefStorage>>
-getOwnedMemRefStorage(uintptr_t ptr, PointerType kind,
-                      Ref<RuntimeClient> client,
-                      std::optional<CudaStream> stream) {
+getOwnedMemRefStorage(uintptr_t ptr, PointerType kind, Device *device,
+                      Ref<RuntimeClient> client, Ref<Stream> stream) {
   switch (kind) {
   case PointerType::host:
     return Ref<MemRefStorage>(
@@ -952,19 +1213,19 @@ getOwnedMemRefStorage(uintptr_t ptr, PointerType kind,
   case PointerType::device:
   case PointerType::unified:
   case PointerType::pinned_host:
-    return Ref<MemRefStorage>(
-        new DeviceOwnedMemRefStorage(ptr, std::move(client), kind, stream));
+    return Ref<MemRefStorage>(new DeviceOwnedMemRefStorage(
+        ptr, device, std::move(client), kind, std::move(stream)));
   default:
     return getInvalidArgStatus("unsupported MemRefStorage address space");
   }
 }
 
 static StatusOr<Ref<MemRefStorage>>
-getViewMemRefStorage(uintptr_t ptr, PointerType kind,
+getViewMemRefStorage(uintptr_t ptr, PointerType kind, Device *device,
                      std::function<void()> destroyCallback,
                      Ref<RuntimeClient> client) {
   return Ref<MemRefStorage>(new ViewMemRefStorage(
-      ptr, kind, std::move(destroyCallback), std::move(client)));
+      ptr, device, kind, std::move(destroyCallback), std::move(client)));
 }
 
 HostOwnedMemRefStorage::~HostOwnedMemRefStorage() {
@@ -1022,19 +1283,20 @@ static bool areStridesEquivalent(llvm::ArrayRef<int64_t> shape,
 
   for (size_t i = 0; i < shape.size(); ++i)
     // Allow arbitrary strides for dimensions with size 0 or 1
-    // This accounts for discrepancies in how different frameworks handle these
-    // cases
+    // This accounts for discrepancies in how different frameworks handle
+    // these cases
     if (stride[i] != expectedStride[i] && shape[i] != 0 && shape[i] != 1)
       return false;
 
   return true;
 }
 
-StatusOr<std::unique_ptr<MemRefValue>> MemRefValue::create(
-    mtrt::PointerType addressSpace, ScalarTypeCode elementType,
-    Ref<MemRefStorage> storage, int64_t offset, llvm::ArrayRef<int64_t> shape,
-    llvm::ArrayRef<int64_t> strides, std::optional<const Device *> device,
-    std::optional<bool> assertCanonicalStrides) {
+StatusOr<std::unique_ptr<MemRefValue>>
+MemRefValue::create(mtrt::PointerType addressSpace, ScalarTypeCode elementType,
+                    Ref<MemRefStorage> storage, int64_t offset,
+                    llvm::ArrayRef<int64_t> shape,
+                    llvm::ArrayRef<int64_t> strides, Device *device,
+                    bool assertCanonicalStrides) {
   if (!storage->getClient())
     return getInvalidArgStatus("a valid RuntimeClient must be provided to "
                                "create a tracked MemRef object");
@@ -1050,16 +1312,16 @@ StatusOr<std::unique_ptr<MemRefValue>> MemRefValue::create(
   };
 
   if (!storage->getPtr() && !isEmptyTensor(shape))
-    return getInvalidArgStatus(
-        "MemRef objects must be created with a valid pointer for a non-empty "
-        "tensor");
+    return getInvalidArgStatus("MemRef objects must be created with a "
+                               "valid pointer for a non-empty "
+                               "tensor");
 
-  if (isDeviceVisible(addressSpace) && (!device || !*device))
+  if (isDeviceVisible(addressSpace) && !device)
     return getInvalidArgStatus("a specific device must be provided for MemRefs "
                                "that are device-visible");
 
   // Check if given strides match canonical stride
-  if (assertCanonicalStrides && *assertCanonicalStrides) {
+  if (assertCanonicalStrides) {
     llvm::SmallVector<int64_t> canonicalStride = getCanonicalStride(shape);
     if (!strides.empty() &&
         !areStridesEquivalent(shape, strides, canonicalStride)) {
@@ -1079,11 +1341,10 @@ StatusOr<std::unique_ptr<MemRefValue>> MemRefValue::create(
 MemRefValue::MemRefValue(mtrt::PointerType addressSpace,
                          ScalarTypeCode elementType, Ref<MemRefStorage> storage,
                          int64_t offset, llvm::ArrayRef<int64_t> shape,
-                         llvm::ArrayRef<int64_t> strides,
-                         std::optional<const Device *> device)
+                         llvm::ArrayRef<int64_t> strides, Device *device)
     : RuntimeValue(Kind::MemRef), storage(std::move(storage)), device(device) {
   assert(offset == 0 && "offset must be 0");
-  type = BufferType(elementType, shape, strides, addressSpace);
+  type = BufferType(elementType, shape, strides, addressSpace, offset);
 }
 
 int64_t MemRefValue::getTotalFootprintInBytes() const {
@@ -1102,11 +1363,12 @@ public:
 
   StatusOr<Ref<MemRefStorage>> allocate(PointerType type, uint64_t size,
                                         std::optional<uint32_t> alignment,
-                                        std::optional<CudaStream> stream) final;
+                                        Device *device,
+                                        Ref<Stream> stream) final;
 
-  StatusOr<Ref<MemRefStorage>>
-  takeOwnership(uintptr_t ptr, PointerType type,
-                std::optional<CudaStream> stream) final;
+  StatusOr<Ref<MemRefStorage>> takeOwnership(uintptr_t ptr, PointerType type,
+                                             Device *device,
+                                             Ref<Stream> stream) final;
 
   Status deallocate(MemRefStorage &storage) final;
 };
@@ -1115,14 +1377,14 @@ public:
 StatusOr<Ref<MemRefStorage>>
 DefaultClientAllocator::allocate(PointerType type, uint64_t size,
                                  std::optional<uint32_t> alignment,
-                                 std::optional<CudaStream> stream) {
+                                 Device *device, Ref<Stream> stream) {
   if (type == PointerType::host) {
     assert(alignment && !stream &&
            "expected alignment, no stream for host allocation");
     // Alignment has to be at a multiple of `size`. For small size
-    // allocations, make sure to adjust size upward. The frontend may request
-    // e.g. 4 bytes aligned to 16 byte boundary because it chose some minimum
-    // alignment dumbly.
+    // allocations, make sure to adjust size upward. The frontend may
+    // request e.g. 4 bytes aligned to 16 byte boundary because it chose
+    // some minimum alignment dumbly.
     alignment = std::max<uint32_t>(*alignment, alignof(std::max_align_t));
     size = llvm::alignTo(size, *alignment);
     void *mem = std::aligned_alloc(*alignment, size);
@@ -1133,21 +1395,26 @@ DefaultClientAllocator::allocate(PointerType type, uint64_t size,
         size, mem);
 
     return getOwnedMemRefStorage(reinterpret_cast<uintptr_t>(mem),
-                                 PointerType::host, Ref<RuntimeClient>(&client),
-                                 {});
+                                 PointerType::host, nullptr,
+                                 Ref<RuntimeClient>(&client), nullptr);
   }
 
   if (type == PointerType::device) {
+    assert(device && "expected valid device");
     size = std::max<size_t>(size, 16);
+    MTRT_ASSIGN_OR_RETURN(auto deviceGuard, device->createDeviceGuard());
     if (!stream) {
       MTRT_ASSIGN_OR_RETURN(uintptr_t devPtr, mallocCUDA(size));
-      return getOwnedMemRefStorage(devPtr, PointerType::device,
-                                   Ref<RuntimeClient>(&client), {});
+      return getOwnedMemRefStorage(devPtr, PointerType::device, device,
+                                   Ref<RuntimeClient>(&client), nullptr);
     }
-    MTRT_ASSIGN_OR_RETURN(
-        uintptr_t devPtr,
-        mallocCUDAAsync(size, reinterpret_cast<uintptr_t>(*stream)));
-    return getOwnedMemRefStorage(devPtr, PointerType::device,
+    MTRT_DBG("DefaultClientAllocator::allocate: Allocating {0} device bytes at "
+             "{1:x}",
+             size, stream.get());
+    assert(stream && stream->getCUDAHandle() && "expected valid stream");
+    MTRT_ASSIGN_OR_RETURN(uintptr_t devPtr,
+                          mallocCUDAAsync(size, stream->getCUDAHandle()));
+    return getOwnedMemRefStorage(devPtr, PointerType::device, device,
                                  Ref<RuntimeClient>(&client), stream);
   }
   if (type == PointerType::unified) {
@@ -1155,13 +1422,13 @@ DefaultClientAllocator::allocate(PointerType type, uint64_t size,
       return getInvalidArgStatus(
           "stream is not allowed when using unified memory allocator");
     MTRT_ASSIGN_OR_RETURN(uintptr_t managedPtr, mallocCUDAManaged(size));
-    return getOwnedMemRefStorage(managedPtr, PointerType::unified,
-                                 Ref<RuntimeClient>(&client), {});
+    return getOwnedMemRefStorage(managedPtr, PointerType::unified, nullptr,
+                                 Ref<RuntimeClient>(&client), nullptr);
   }
   if (type == PointerType::pinned_host) {
     MTRT_ASSIGN_OR_RETURN(uintptr_t hostPtr, mallocCUDAPinnedHost(size));
-    return getOwnedMemRefStorage(hostPtr, PointerType::pinned_host,
-                                 Ref<RuntimeClient>(&client), {});
+    return getOwnedMemRefStorage(hostPtr, PointerType::pinned_host, nullptr,
+                                 Ref<RuntimeClient>(&client), nullptr);
   }
   return getStatusWithMsg(
       mtrt::StatusCode::InvalidArgument,
@@ -1171,13 +1438,14 @@ DefaultClientAllocator::allocate(PointerType type, uint64_t size,
 
 StatusOr<Ref<MemRefStorage>>
 DefaultClientAllocator::takeOwnership(uintptr_t ptr, PointerType type,
-                                      std::optional<CudaStream> stream) {
-  return getOwnedMemRefStorage(ptr, type, Ref<RuntimeClient>(&client), stream);
+                                      Device *device, Ref<Stream> stream) {
+  return getOwnedMemRefStorage(ptr, type, device, Ref<RuntimeClient>(&client),
+                               stream);
 }
 
 Status DefaultClientAllocator::deallocate(MemRefStorage &storage) {
   PointerType pointerType = storage.getMemorySpace();
-  std::optional<CudaStream> stream = storage.getStream();
+  Ref<Stream> stream = storage.getStream();
   uintptr_t ptr = storage.getPtr();
 
   if (pointerType == PointerType::host) {
@@ -1189,8 +1457,8 @@ Status DefaultClientAllocator::deallocate(MemRefStorage &storage) {
   if (pointerType == PointerType::device ||
       pointerType == PointerType::unified) {
     if (stream) {
-      MTRT_RETURN_IF_ERROR(
-          freeCUDAAsync(ptr, reinterpret_cast<uintptr_t>(*stream)));
+      MTRT_RETURN_IF_ERROR(freeCUDAAsync(
+          ptr, reinterpret_cast<uintptr_t>(stream->getCUDAHandle())));
     } else {
       MTRT_RETURN_IF_ERROR(freeCUDA(ptr));
     }
@@ -1227,8 +1495,11 @@ populateDevices(llvm::SmallVectorImpl<std::unique_ptr<Device>> &devices) {
   if (!deviceCount.isOk())
     return getOkStatus();
   devices.reserve(*deviceCount);
-  for (int32_t i = 0; i < *deviceCount; ++i)
-    devices.push_back(std::unique_ptr<Device>(new CUDADevice(i)));
+  for (int32_t i = 0; i < *deviceCount; ++i) {
+    MTRT_ASSIGN_OR_RETURN(std::unique_ptr<Device> device,
+                          CUDADevice::create(HardwareId(i)));
+    devices.push_back(std::move(device));
+  }
   return getOkStatus();
 }
 
@@ -1256,13 +1527,12 @@ llvm::ArrayRef<std::unique_ptr<Device>> RuntimeClient::getDevices() const {
 StatusOr<std::unique_ptr<MemRefValue>> RuntimeClient::allocateMemRef(
     PointerType addressSpace, ScalarTypeCode elementType,
     llvm::ArrayRef<int64_t> shape, llvm::ArrayRef<int64_t> strides,
-    std::optional<const Device *> device, std::optional<CudaStream> stream,
-    std::optional<bool> assertCanonicalStrides) {
+    Device *device, Ref<Stream> stream, bool assertCanonicalStrides) {
   if (addressSpace == PointerType::device ||
       addressSpace == PointerType::unified) {
-    if (!device || !*device)
-      return getInvalidArgStatus(
-          "a specific device must be specified when creating a device buffer");
+    if (!device)
+      return getInvalidArgStatus("a specific device must be specified when "
+                                 "creating a device buffer");
   }
 
   int64_t bitsPerElement = ScalarType(elementType).getBitWidth();
@@ -1274,7 +1544,7 @@ StatusOr<std::unique_ptr<MemRefValue>> RuntimeClient::allocateMemRef(
     return allocationSizeBytes.getStatus();
 
   StatusOr<Ref<MemRefStorage>> storage = allocator->allocate(
-      addressSpace, *allocationSizeBytes, /*alignment=*/16, stream);
+      addressSpace, *allocationSizeBytes, /*alignment=*/16, device, stream);
   if (!storage.isOk())
     return storage.getStatus();
 
@@ -1291,12 +1561,11 @@ StatusOr<std::unique_ptr<MemRefValue>> RuntimeClient::allocateMemRef(
 StatusOr<std::unique_ptr<MemRefValue>> RuntimeClient::createExternalMemRef(
     PointerType addressSpace, ScalarTypeCode elementType, uintptr_t ptr,
     int64_t offset, llvm::ArrayRef<int64_t> shape,
-    llvm::ArrayRef<int64_t> strides, std::optional<const Device *> device,
-    std::optional<bool> assertCanonicalStrides,
-    std::function<void()> destroyCallback) {
-
+    llvm::ArrayRef<int64_t> strides, Device *device,
+    bool assertCanonicalStrides, std::function<void()> destroyCallback) {
   StatusOr<Ref<MemRefStorage>> storage = getViewMemRefStorage(
-      ptr, addressSpace, std::move(destroyCallback), Ref<RuntimeClient>(this));
+      ptr, addressSpace, nullptr, std::move(destroyCallback),
+      Ref<RuntimeClient>(this));
   if (!storage.isOk())
     return storage.getStatus();
 
@@ -1322,7 +1591,8 @@ RuntimeClient::copyHostToHost(const MemRefValue &hostBuffer) {
   // Allocate a new host MemRef
   StatusOr<std::unique_ptr<MemRefValue>> hostMemRef = allocateMemRef(
       PointerType::host, hostBuffer.getScalarType(), hostBuffer.getShape(),
-      hostBuffer.getStrides(), std::nullopt, std::nullopt);
+      /*strides=*/hostBuffer.getStrides(), /*device=*/nullptr,
+      /*stream=*/nullptr);
   if (!hostMemRef.isOk())
     return hostMemRef.getStatus();
 
@@ -1333,21 +1603,20 @@ RuntimeClient::copyHostToHost(const MemRefValue &hostBuffer) {
 }
 
 StatusOr<std::unique_ptr<MemRefValue>>
-RuntimeClient::copyToDevice(const MemRefValue &hostBufferImpl,
-                            const Device &device,
-                            std::optional<CudaStream> cudaStream) {
+RuntimeClient::copyToDevice(const MemRefValue &hostBufferImpl, Device &device,
+                            Ref<Stream> cudaStream) {
   if (!isHostVisible(hostBufferImpl.getAddressSpace()))
-    return getInvalidArgStatus(
-        "to copy a MemRef to a device its data must reside in an address space "
-        "that the host can access");
+    return getInvalidArgStatus("to copy a MemRef to a device its data must "
+                               "reside in an address space "
+                               "that the host can access");
 
   // Get the total buffer footprint.
   int64_t totalBufferSize = hostBufferImpl.getTotalFootprintInBytes();
 
   // Set the CUDA device.
   // TODO: This device should be implicit based on the stream. The stream's
-  // device implies the device. Having both stream and device is redundant or
-  // possibly incorrect. Remove once the stream is non-optional.
+  // device implies the device. Having both stream and device is redundant
+  // or possibly incorrect. Remove once the stream is non-optional.
   MTRT_ASSIGN_OR_RETURN(std::unique_ptr<DeviceGuard> deviceGuard,
                         device.createDeviceGuard());
 
@@ -1361,48 +1630,42 @@ RuntimeClient::copyToDevice(const MemRefValue &hostBufferImpl,
 
   // If stream is given, copy the host memory to device asynchronously
   // (using staging buffer), otherwise execute a synchronous CUDA memcpy.
-  if (cudaStream) {
-
-    // Allocate a staging buffer and copy host memory to the staging buffer.
-    // TODO: Currently, this implementation supports only row major packed
-    // canonical layout (no padding).
-    StatusOr<PinnedMemoryBlock> pinnedMemory =
-        this->getPinnedMemoryAllocator().allocate(totalBufferSize);
-    if (!pinnedMemory.isOk())
-      return pinnedMemory.getStatus();
-
-    void *stagingHostMemPtr = reinterpret_cast<void *>(pinnedMemory->ptr);
-    std::memcpy(stagingHostMemPtr, hostBufferImpl.getVoidPtr(),
-                totalBufferSize);
-
-    MTRT_DBG("copying {0} to {1} size={2} bytes asynchronously via pinned "
-             "staging buffer at {3}",
-             hostBufferImpl.getVoidPtr(), (*deviceMemRef)->getVoidPtr(),
-             totalBufferSize, stagingHostMemPtr);
-
-    MTRT_RETURN_IF_ERROR(copyCUDAHostToDeviceAsync(
-        (*deviceMemRef)->getVoidPtr(), stagingHostMemPtr, totalBufferSize,
-        reinterpret_cast<uintptr_t>(*cudaStream)));
-
-    // Free pinned host memory asynchronously.
-    mtrt::logUnhandledErrors(
-        getPinnedMemoryAllocator().freeAsync(pinnedMemory->ptr, *cudaStream),
-        llvm::errs());
-  } else {
-    MTRT_DBG("synchronously copying {0} (host) to {1} (device), size={2} bytes",
-             hostBufferImpl.getVoidPtr(), (*deviceMemRef)->getVoidPtr(),
-             totalBufferSize);
-    MTRT_RETURN_IF_ERROR(copyCUDAHostToDeviceAsync(
-        (*deviceMemRef)->getVoidPtr(), hostBufferImpl.getVoidPtr(),
-        totalBufferSize, /*stream=*/0));
-    MTRT_RETURN_IF_ERROR(synchronizeCUDAStream(/*stream=*/0));
+  if (!cudaStream) {
+    cudaStream = device.getStream();
+    assert(cudaStream && "expected valid stream");
   }
+
+  // Allocate a staging buffer and copy host memory to the staging buffer.
+  // TODO: Currently, this implementation supports only row major packed
+  // canonical layout (no padding).
+  StatusOr<PinnedMemoryBlock> pinnedMemory =
+      this->getPinnedMemoryAllocator().allocate(totalBufferSize);
+  if (!pinnedMemory.isOk())
+    return pinnedMemory.getStatus();
+
+  void *stagingHostMemPtr = reinterpret_cast<void *>(pinnedMemory->ptr);
+  std::memcpy(stagingHostMemPtr, hostBufferImpl.getVoidPtr(), totalBufferSize);
+
+  MTRT_DBG("copying {0} to {1} size={2} bytes asynchronously via pinned "
+           "staging buffer at {3}",
+           hostBufferImpl.getVoidPtr(), (*deviceMemRef)->getVoidPtr(),
+           totalBufferSize, stagingHostMemPtr);
+
+  MTRT_RETURN_IF_ERROR(copyCUDAHostToDeviceAsync(
+      (*deviceMemRef)->getVoidPtr(), stagingHostMemPtr, totalBufferSize,
+      reinterpret_cast<uintptr_t>(cudaStream->getCUDAHandle())));
+
+  // Free pinned host memory asynchronously.
+  mtrt::logUnhandledErrors(getPinnedMemoryAllocator().freeAsync(
+                               pinnedMemory->ptr, cudaStream->getCUDAHandle()),
+                           llvm::errs());
+
   return std::move(*deviceMemRef);
 }
 
 StatusOr<std::unique_ptr<MemRefValue>>
 RuntimeClient::copyToHost(const MemRefValue &deviceMemRef,
-                          std::optional<CudaStream> cudaStream) {
+                          Ref<Stream> cudaStream) {
   if (!isDeviceVisible(deviceMemRef.getAddressSpace()))
     return getInvalidArgStatus("to copy a MemRef to the host from a device, "
                                "its data must reside in an address space "
@@ -1411,7 +1674,7 @@ RuntimeClient::copyToHost(const MemRefValue &deviceMemRef,
   int64_t copySizeInBytes = deviceMemRef.getTotalFootprintInBytes();
 
   StatusOr<Ref<MemRefStorage>> storage = allocator->allocate(
-      PointerType::host, copySizeInBytes, /*alignment=*/16, std::nullopt);
+      PointerType::host, copySizeInBytes, /*alignment=*/16, nullptr, nullptr);
   if (!storage.isOk())
     return storage.getStatus();
 
@@ -1423,22 +1686,24 @@ RuntimeClient::copyToHost(const MemRefValue &deviceMemRef,
     return hostMemRef.getStatus();
 
   if (!cudaStream) {
+    if (Device *device = deviceMemRef.getDevice())
+      cudaStream = device->getStream();
+    if (!cudaStream)
+      return getInvalidArgStatus("to copy a MemRef to the host from a device, "
+                                 "a stream must be provided");
     MTRT_RETURN_IF_ERROR(copyCUDADeviceToHostAsync(
         (*hostMemRef)->getVoidPtr(), deviceMemRef.getVoidPtr(), copySizeInBytes,
-        /*stream=*/0));
-    MTRT_RETURN_IF_ERROR(synchronizeCUDAStream(/*stream=*/0));
+        /*stream=*/cudaStream->getCUDAHandle()));
   } else {
     MTRT_RETURN_IF_ERROR(copyCUDADeviceToHostAsync(
         (*hostMemRef)->getVoidPtr(), deviceMemRef.getVoidPtr(), copySizeInBytes,
-        reinterpret_cast<uintptr_t>(*cudaStream)));
+        reinterpret_cast<uintptr_t>(cudaStream->getCUDAHandle())));
   }
-
   return std::move(*hostMemRef);
 }
 
 Status RuntimeClient::copyToHost(const MemRefValue &deviceMemRef,
-                                 MemRefValue &hostMemRef,
-                                 std::optional<CudaStream> stream) {
+                                 MemRefValue &hostMemRef, Ref<Stream> stream) {
   if (!isDeviceVisible(deviceMemRef.getAddressSpace()))
     return getInvalidArgStatus(
         "to copy a MemRef to the host from a device, "
@@ -1447,12 +1712,14 @@ Status RuntimeClient::copyToHost(const MemRefValue &deviceMemRef,
         mtrt::flat::EnumNamePointerType(deviceMemRef.getAddressSpace()));
   if (!isHostVisible(hostMemRef.getAddressSpace()))
     return getInvalidArgStatus(
-        "to copy a MemRef to an existing host MemRef, the destination MemRef's "
+        "to copy a MemRef to an existing host MemRef, the destination "
+        "MemRef's "
         "address space must be host-visible but got address space {0}",
         mtrt::flat::EnumNamePointerType(hostMemRef.getAddressSpace()));
   if (deviceMemRef.getElementBitWidth() != hostMemRef.getElementBitWidth())
     return getInvalidArgStatus(
-        "copying device MemRef to host MemRef requires that the element type "
+        "copying device MemRef to host MemRef requires that the element "
+        "type "
         "bit-widths match, but got source bitwidth={0} and destination "
         "bitwidth={1}",
         deviceMemRef.getElementBitWidth(), hostMemRef.getElementBitWidth());
@@ -1460,9 +1727,11 @@ Status RuntimeClient::copyToHost(const MemRefValue &deviceMemRef,
   if (deviceMemRef.getShape() != hostMemRef.getShape() ||
       deviceMemRef.getLayout() != hostMemRef.getLayout())
     return getInvalidArgStatus(
-        "copying device MemRef to host MemRef requires the shape and strides "
+        "copying device MemRef to host MemRef requires the shape and "
+        "strides "
         "to match, "
-        " but the source MemRef has shape=({0,$[, ]}) strides=({1,$[, ]}) and "
+        " but the source MemRef has shape=({0,$[, ]}) strides=({1,$[, ]}) "
+        "and "
         "the destination MemRef has shape=({2,$[, ]}) strides=({3,$[, ]})",
         deviceMemRef.getShape(), deviceMemRef.getStrides(),
         hostMemRef.getShape(), hostMemRef.getStrides());
@@ -1476,12 +1745,103 @@ Status RuntimeClient::copyToHost(const MemRefValue &deviceMemRef,
   } else {
     MTRT_RETURN_IF_ERROR(copyCUDADeviceToHostAsync(
         hostMemRef.getVoidPtr(), deviceMemRef.getVoidPtr(), copySizeInBytes,
-        reinterpret_cast<uintptr_t>(*stream)));
+        reinterpret_cast<uintptr_t>(stream->getCUDAHandle())));
   }
   return getOkStatus();
 }
 
 RuntimeClient::~RuntimeClient() = default;
+
+StatusOr<Ref<Stream>> RuntimeClient::getCurrentDeviceStream() const {
+  MTRT_ASSIGN_OR_RETURN(int32_t deviceId, getCurrentCUDADevice());
+  auto it = llvm::find_if(devices, [&](const auto &device) {
+    return device->getDeviceNumber() == deviceId;
+  });
+  if (it == devices.end())
+    return getInvalidArgStatus("device not found");
+  return (*it)->getStream();
+}
+
+StatusOr<std::unique_ptr<MemRefValue>>
+RuntimeClient::copyDeviceBufferToOtherDevice(
+    const MemRefValue &sourceBuffer, Device &dstDevice,
+    std::unique_ptr<Event> &copyDoneEvent) {
+  if (!isDeviceVisible(sourceBuffer.getAddressSpace()))
+    return getInvalidArgStatus("source buffer is not device visible");
+  if (!sourceBuffer.getDevice())
+    return getInvalidArgStatus("source buffer is not associated with a device");
+
+  Ref<Stream> destStream = dstDevice.getStream();
+  Ref<Stream> sourceStream = sourceBuffer.getDevice()->getStream();
+
+  // Create a new event.
+  std::unique_ptr<mtrt::Event> sourceReadyEvent{nullptr};
+  {
+    // Record the event onto the source buffer's stream so that we can wait
+    // until
+    // the source buffer is ready. This assumes the definition of the source
+    // buffer is on the source stream, at or prior to the head of the stream.
+    MTRT_ASSIGN_OR_RETURN(auto devGuard,
+                          sourceBuffer.getDevice()->createDeviceGuard());
+    MTRT_ASSIGN_OR_RETURN(sourceReadyEvent, mtrt::Event::create(sourceStream));
+  }
+
+  MTRT_ASSIGN_OR_RETURN(auto devGuard, dstDevice.createDeviceGuard());
+  const BufferType &type = sourceBuffer.getType();
+
+  MTRT_ASSIGN_OR_RETURN(
+      Ref<MemRefStorage> destStorage,
+      allocator->allocate(PointerType::device,
+                          sourceBuffer.getTotalFootprintInBytes(),
+                          /*alignment=*/16, &dstDevice, destStream));
+
+  MTRT_ASSIGN_OR_RETURN(std::unique_ptr<MemRefValue> dstBuffer,
+                        MemRefValue::create(PointerType::device, type,
+                                            std::move(destStorage),
+                                            /*device=*/&dstDevice,
+                                            /*assertCanonicalStrides=*/false));
+
+  // Wait until the source buffer is ready on the destination device stream and
+  // then copy from source to destination device using the destination device
+  // stream.
+
+  // There are two options for doing this: use the CUDA event handle to
+  // place a wait on the destination stream or invoke the copy from a
+  // completion callback added to the 'sourceReady' event.
+  //
+  // Since we are assuming CUDA implementation, go ahead and use the CUDA
+  // specific option.
+  Status waitStatus = mtrt::waitCUDAEventOnStream(
+      destStream->getCUDAHandle(), sourceReadyEvent->getCudaHandle());
+  if (!waitStatus.isOk())
+    return mtrt::getInternalErrorStatus("failed to wait on CUDA event: {0}",
+                                        waitStatus.getString());
+  Status copyStatus = mtrt::copyCUDAPeerAsync(
+      dstBuffer->getVoidPtr(), dstDevice.getDeviceNumber(),
+      sourceBuffer.getVoidPtr(), sourceBuffer.getDevice()->getDeviceNumber(),
+      sourceBuffer.getType().getFootprintSizeInBytes(),
+      destStream->getCUDAHandle());
+  if (!copyStatus.isOk())
+    return mtrt::getInternalErrorStatus(
+        "failed to copy CUDA device-to-device: {0}", copyStatus.getString());
+
+  MTRT_ASSIGN_OR_RETURN(copyDoneEvent, Event::create(destStream));
+
+  // Move the "sourceReadyEvent" into a completion callback of the copy so its
+  // lifetime exceeds the point where the raw cuda handle is needed above.
+  copyDoneEvent->addReadyCallback(
+      [](Status status, void *userData) {
+        auto sourceReadyEvent =
+            std::unique_ptr<Event>(reinterpret_cast<Event *>(userData));
+        MTRT_DBG("device-to-device copy completion callback invoked, "
+                 "sourceReadyEvent={0}",
+                 sourceReadyEvent.get());
+        Event::releaseWhenReady(std::move(sourceReadyEvent));
+      },
+      sourceReadyEvent.release());
+
+  return std::move(dstBuffer);
+}
 
 //===----------------------------------------------------------------------===//
 // NCCL Support Functions
@@ -1623,7 +1983,6 @@ llvm::raw_ostream &mtrt::print(llvm::raw_ostream &os,
 }
 llvm::raw_ostream &mtrt::print(llvm::raw_ostream &os,
                                const MemRefTypeView &exe) {
-
   auto handleDimOrStride = [](llvm::raw_ostream &os, int64_t x) {
     if (x != std::numeric_limits<int64_t>::min())
       os << x;

@@ -216,8 +216,11 @@ void mtrt::compiler::registerAllDialects(mlir::DialectRegistry &registry) {
   });
 
   // Register CompilerTasks.
-  mtrt::compiler::registerStableHloToExecutableTask();
-  mtrt::compiler::registerTensorRTToExecutableTask();
+  static llvm::once_flag once;
+  llvm::call_once(once, []() {
+    mtrt::compiler::registerStableHloToExecutableTask();
+    mtrt::compiler::registerTensorRTToExecutableTask();
+  });
 }
 
 void mtrt::compiler::registerAllExtensions(mlir::DialectRegistry &registry) {

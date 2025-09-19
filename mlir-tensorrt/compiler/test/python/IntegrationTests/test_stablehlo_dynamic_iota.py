@@ -58,10 +58,10 @@ def build_exe(client, dtype, iota_dim):
 
 def run_test(exe, dtype, iota_dim):
     client = runtime.RuntimeClient()
-    stream = client.create_stream()
     devices = client.get_devices()
     if len(devices) == 0:
         return
+    stream = devices[0].stream
 
     session_options = runtime.RuntimeSessionOptions(num_devices=1, device_id=0)
     session = runtime.RuntimeSession(session_options, exe)
