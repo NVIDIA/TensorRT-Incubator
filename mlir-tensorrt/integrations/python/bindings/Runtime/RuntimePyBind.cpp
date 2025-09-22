@@ -33,6 +33,7 @@
 #include "llvm/ADT/ScopeExit.h"
 #include "llvm/ADT/SmallVectorExtras.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Support/MathExtras.h"
 #include <memory>
 #include <stdexcept>
@@ -672,23 +673,65 @@ createMemRefViewFromDLPack(PyRuntimeClient &client, py::capsule capsule,
 }
 
 static py::capsule pyMemRefValueToDLPackCapsule(py::handle obj,
-                                                int32_t /*stream*/) {
+                                                py::object providedStream,
+                                                py::object dlDevice,
+                                                bool copy) {
   // This cast should always succeed since this is a member function
   // of PyMemRefValue.
   PyMemRefValue &buffer = py::cast<PyMemRefValue &>(obj);
-
   MTRT_MemRefValue ref = mtrtMemRefCreateRef(buffer);
+
+  // Get the current device.
+  DLDeviceType currentDeviceType;
+  int32_t currentDeviceId;
+  MTRT_Status s = mtrtMemRefValueGetDLPackDevice(buffer, &currentDeviceType,
+                                                 &currentDeviceId);
+  THROW_IF_MTRT_ERROR(s);
+
+  // Check if the dl_device is provided. If not, we assume the requested device
+  // is the current device.
+  DLDeviceType requestedDeviceType = currentDeviceType;
+  int32_t requestedDeviceId = currentDeviceId;
+  if (dlDevice != py::none()) {
+    py::tuple dlDeviceTuple = py::cast<py::tuple>(dlDevice);
+    requestedDeviceType =
+        static_cast<DLDeviceType>(py::cast<int32_t>(dlDeviceTuple[0]));
+    requestedDeviceId = py::cast<int32_t>(dlDeviceTuple[1]);
+  }
+
+  if (copy)
+    throw std::invalid_argument("copy=True is not supported");
+
+  if (requestedDeviceType != currentDeviceType ||
+      requestedDeviceId != currentDeviceId)
+    throw std::invalid_argument("unsupported: different device requested than "
+                                "the buffer's current device");
+
+  MTRT_Stream currentStream{nullptr};
+  s = mtrtMemRefValueGetStream(buffer, &currentStream);
+  THROW_IF_MTRT_ERROR(s);
+
+  // If a stream is provided, we need to wait on it before creating the DLPack
+  // tensor.
+  if (providedStream != py::none()) {
+    uintptr_t providedStreamHandle = py::cast<uintptr_t>(providedStream);
+    uintptr_t currentStreamHandle{0};
+    THROW_IF_MTRT_ERROR(
+        mtrtStreamGetPointer(currentStream, &currentStreamHandle));
+    if (providedStreamHandle != currentStreamHandle) {
+      MTRT_Status s = mtrtExternalStreamWaitOnMTRTStream(providedStreamHandle,
+                                                         currentStream);
+      THROW_IF_MTRT_ERROR(s);
+    }
+  } else /* providedStream == py::none() */ {
+    MTRT_Status s = mtrtMemRefValueWaitForReady(buffer);
+    THROW_IF_MTRT_ERROR(s);
+  }
 
   auto pack = std::make_unique<DLPackManagerContext>();
   pack->memref = std::make_unique<PyMemRefValue>(ref);
   pack->tensor.manager_ctx = pack.get();
   pack->tensor.deleter = DLPackTensorDeleter;
-
-  DLDeviceType device_type;
-  int32_t device_id;
-  MTRT_Status s =
-      mtrtMemRefValueGetDLPackDevice(buffer, &device_type, &device_id);
-  THROW_IF_MTRT_ERROR(s);
 
   MTRT_MemRefValueInfo info;
   s = mtrtMemRefValueGetInfo(buffer, &info);
@@ -702,8 +745,8 @@ static py::capsule pyMemRefValueToDLPackCapsule(py::handle obj,
 
   DLTensor &dt = pack->tensor.dl_tensor;
   dt.data = reinterpret_cast<void *>(info.ptr);
-  dt.device.device_type = device_type;
-  dt.device.device_id = device_id;
+  dt.device.device_type = requestedDeviceType;
+  dt.device.device_id = requestedDeviceId;
   dt.ndim = info.rank;
 
   DLDataType dtype;
@@ -838,10 +881,13 @@ PYBIND11_MODULE(_api, m) {
                                THROW_IF_MTRT_ERROR(s);
                                return info.addressSpace;
                              })
-      .def("__dlpack__", pyMemRefValueToDLPackCapsule, py::arg("stream") = 0)
+      .def("__dlpack__", pyMemRefValueToDLPackCapsule,
+           py::arg("stream") = py::none(), py::arg("dl_device") = py::none(),
+           py::arg("copy") = false)
       .def("__dlpack_device__",
            [](PyMemRefValue &self) {
              DLDeviceType device_type;
+
              int32_t device_id;
              MTRT_Status s =
                  mtrtMemRefValueGetDLPackDevice(self, &device_type, &device_id);

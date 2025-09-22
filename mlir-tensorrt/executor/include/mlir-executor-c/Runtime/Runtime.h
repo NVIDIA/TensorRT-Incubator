@@ -114,6 +114,11 @@ mtrtStreamPrint(MTRT_Stream stream, MlirStringCallback append, void *userData);
 MLIR_CAPI_EXPORTED MTRT_Status mtrtStreamGetPointer(MTRT_Stream stream,
                                                     uintptr_t *ptr);
 
+/// Add a wait on the `externalStream` for the `stream` to complete all
+/// outstanding operations as of now.
+MLIR_CAPI_EXPORTED MTRT_Status mtrtExternalStreamWaitOnMTRTStream(
+    uintptr_t externalWaitingStream, MTRT_Stream streamToWaitOn);
+
 //===----------------------------------------------------------------------===//
 // MTRT_Device
 //===----------------------------------------------------------------------===//
@@ -249,6 +254,14 @@ MLIR_CAPI_EXPORTED uint32_t mtrtMemRefReferenceCount(MTRT_MemRefValue memref);
 /// MemRefValue.
 MLIR_CAPI_EXPORTED MTRT_MemRefValue
 mtrtMemRefCreateRef(MTRT_MemRefValue memref);
+
+/// Retrieve the stream associated with the memref.
+MLIR_CAPI_EXPORTED MTRT_Status mtrtMemRefValueGetStream(MTRT_MemRefValue memref,
+                                                        MTRT_Stream *stream);
+/// Wait for the current value to be "ready". If the value is a device
+/// memrefvalue, then it will incur a CUDA stream synchronization.
+MLIR_CAPI_EXPORTED MTRT_Status
+mtrtMemRefValueWaitForReady(MTRT_MemRefValue value);
 
 //===----------------------------------------------------------------------===//
 // MTRT_RuntimeClient

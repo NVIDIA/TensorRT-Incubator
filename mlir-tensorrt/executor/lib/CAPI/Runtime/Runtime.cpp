@@ -29,6 +29,7 @@
 #include "mlir-executor/Runtime/Backend/Common/DataTypes.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaExtensions.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaRuntime.h"
+#include "mlir-executor/Runtime/Support/CUDAHelpers.h"
 #include "mlir-executor/Runtime/Support/Support.h"
 #include "mlir-tensorrt-common-c/Support/Status.h"
 #include "mlir-tensorrt-common/Support/Status.h"
@@ -489,6 +490,53 @@ uint32_t mtrtMemRefReferenceCount(MTRT_MemRefValue memref) {
 
 MTRT_MemRefValue mtrtMemRefCreateRef(MTRT_MemRefValue memref) {
   return wrap(unwrap(memref)->createRef().release());
+}
+
+MTRT_Status mtrtMemRefValueGetStream(MTRT_MemRefValue memref,
+                                     MTRT_Stream *stream) {
+  Device *device = unwrap(memref)->getDevice();
+  if (!device) {
+    *stream = MTRT_Stream{nullptr};
+    return mtrtStatusGetOk();
+  }
+  *stream = wrap(new StreamRef{device->getStream()});
+  return mtrtStatusGetOk();
+}
+
+/// Wait for the current value to be "ready". If the value is a device
+/// memrefvalue, then it will incur a CUDA stream synchronization.
+MTRT_Status mtrtMemRefValueWaitForReady(MTRT_MemRefValue value) {
+  Device *device = unwrap(value)->getDevice();
+  if (!device)
+    return mtrtStatusGetOk();
+  Status s = device->getStream()->sync();
+  if (!s.isOk())
+    return wrap(s);
+  return mtrtStatusGetOk();
+}
+
+/// Add a wait on the `externalStream` for the `stream` to complete all
+/// outstanding operations as of now.
+MTRT_Status mtrtExternalStreamWaitOnMTRTStream(uintptr_t externalWaitingStream,
+                                               MTRT_Stream streamToWaitOn) {
+
+  mtrt::StatusOr<std::unique_ptr<mtrt::Event>> event =
+      mtrt::Event::create(unwrap(streamToWaitOn)->ref);
+  if (!event.isOk())
+    return wrap(event.getStatus());
+
+  /// Get the raw cuda event handle that will be ready when the streamToWaitOn
+  /// is ready.
+  uintptr_t cudaEventHandle = (*event)->getCudaHandle();
+  Status waitStatus =
+      mtrt::waitCUDAEventOnStream(externalWaitingStream, cudaEventHandle);
+  if (!waitStatus.isOk())
+    return wrap(waitStatus.getStatus());
+
+  // Release the event when the wait is complete
+  mtrt::Event::releaseWhenReady(std::move(*event));
+
+  return mtrtStatusGetOk();
 }
 
 //===----------------------------------------------------------------------===//
