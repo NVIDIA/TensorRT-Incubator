@@ -64,7 +64,7 @@ def run_test(exe, dtype, iota_dim):
     stream = devices[0].stream
 
     session_options = runtime.RuntimeSessionOptions(num_devices=1, device_id=0)
-    session = runtime.RuntimeSession(session_options, exe)
+    session = runtime.RuntimeSession(client, session_options, exe)
 
     dynamic_size = 128
 

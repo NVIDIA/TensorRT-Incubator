@@ -44,10 +44,12 @@ protected:
   }
 
   StatusOr<std::unique_ptr<LuaRuntimeSession>>
-  createLuaRuntimeSession(const std::unique_ptr<mtrt::Executable> &executable) {
+  createLuaRuntimeSession(Ref<RuntimeClient> client,
+                          const std::unique_ptr<mtrt::Executable> &executable) {
     RuntimeSessionOptions options;
     options.enableFeatures({"core"});
-    return LuaRuntimeSession::create(options, executable->getView(), {});
+    return LuaRuntimeSession::create(client, options, executable->getView(),
+                                     {});
   }
 
   void assertScalarValuesEqual(const ScalarValue *result,
@@ -95,7 +97,10 @@ TEST_F(TestRuntime, TestRuntimeExecution) {
 
   auto executable = std::make_unique<mtrt::Executable>(std::move(*exeStorage));
 
-  auto session = createLuaRuntimeSession(executable);
+  auto client = createRuntimeClient();
+  ASSERT_TRUE(client.isOk()) << client.getString();
+
+  auto session = createLuaRuntimeSession(*client, executable);
   ASSERT_TRUE(session.isOk()) << session.getString();
 
   std::vector<ScalarValue> scalarValues;
@@ -109,20 +114,15 @@ TEST_F(TestRuntime, TestRuntimeExecution) {
       &scalarValues[2], &scalarValues[3], &scalarValues[0], &scalarValues[1]};
   llvm::SmallVector<RuntimeValue *> inputArgs = {&scalarValues[1],
                                                  &scalarValues[1]};
-  llvm::SmallVector<RuntimeValue *> outputArgs;
 
-  auto client = createRuntimeClient();
-  ASSERT_TRUE(client.isOk()) << client.getString();
+  auto results = (*session)->executeFunction("main", inputArgs, {},
+                                             /*stream=*/nullptr);
+  ASSERT_TRUE(results.isOk()) << results.getStatus().getString();
 
-  auto result = executeFunctionWithLuaBackend(
-      *(*session).get(), "main", inputArgs, outputArgs, std::nullopt,
-      std::optional((*client).get()));
-  ASSERT_TRUE(result.isOk()) << result.getString();
+  ASSERT_EQ(results->size(), reference.size()) << "Vector sizes don't match";
 
-  ASSERT_EQ((*result).size(), reference.size()) << "Vector sizes don't match";
-
-  for (size_t i = 0; i < (*result).size(); ++i) {
-    assertScalarValuesEqual(llvm::dyn_cast<ScalarValue>((*result)[i].get()),
+  for (size_t i = 0; i < results->size(); ++i) {
+    assertScalarValuesEqual(llvm::dyn_cast<ScalarValue>((*results)[i].get()),
                             llvm::dyn_cast<ScalarValue>(reference[i]));
   }
 }

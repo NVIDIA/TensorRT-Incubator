@@ -48,16 +48,14 @@ def tensorrt_add():
     stream = devices[0].stream
 
     session_options = runtime.RuntimeSessionOptions(num_devices=1, device_id=0)
-    session = runtime.RuntimeSession(session_options, exe)
+    session = runtime.RuntimeSession(client, session_options, exe)
 
     arg0 = client.create_memref(
         np.arange(0.0, 24.0, dtype=np.float32).reshape(2, 3, 4).data,
         device=devices[0],
         stream=stream,
     )
-    results = session.execute_function(
-        "main", in_args=[arg0], stream=stream, client=client
-    )
+    results = session.execute_function("main", in_args=[arg0], stream=stream)
 
     data = np.asarray(client.copy_to_host(results[0], stream=stream))
     stream.sync()
@@ -70,9 +68,7 @@ def tensorrt_add():
     start_time = time.time()
     for _ in range(0, num_iter):
         arg0 = results[0]
-        results = session.execute_function(
-            "main", in_args=[arg0], stream=stream, client=client
-        )
+        results = session.execute_function("main", in_args=[arg0], stream=stream)
     data = np.asarray(client.copy_to_host(results[0], stream=stream))
     stream.sync()
     end_time = time.time()

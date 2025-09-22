@@ -108,7 +108,7 @@ def test_program(client, exe, input_shape: Iterable[int]):
     stream = devices[0].stream
 
     session_options = runtime.RuntimeSessionOptions(num_devices=1, device_id=0)
-    session = runtime.RuntimeSession(session_options, exe)
+    session = runtime.RuntimeSession(client, session_options, exe)
 
     arg0 = client.create_memref(
         np.ones(input_shape, dtype=np.float32).data,

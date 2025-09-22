@@ -418,8 +418,8 @@ RuntimeSessionOptions::createUsingSingleHostMpi() {
 //===----------------------------------------------------------------------===//
 
 RuntimeSession::RuntimeSession(RuntimeSessionOptions options,
-                               ExecutableView exe)
-    : options(std::move(options)), executable(exe),
+                               ExecutableView exe, Ref<RuntimeClient> client)
+    : client(std::move(client)), options(std::move(options)), executable(exe),
       pinnedMemoryAllocator(std::make_unique<PinnedMemoryAllocator>()),
       allocTracker(std::make_unique<AllocTracker>()),
       resourceTracker(std::make_unique<ResourceTracker>()) {}
@@ -1841,6 +1841,28 @@ RuntimeClient::copyDeviceBufferToOtherDevice(
       sourceReadyEvent.release());
 
   return std::move(dstBuffer);
+}
+
+StatusOr<std::unique_ptr<RuntimeSession>>
+RuntimeClient::createSession(llvm::StringRef kind,
+                             RuntimeSessionOptions options,
+                             ExecutableView executable) {
+  auto it = sessionFactories.find(kind);
+  if (it == sessionFactories.end())
+    return getInvalidArgStatus("no session factory registered for the name {0}",
+                               kind);
+  return it->second(Ref<RuntimeClient>(this), options, executable);
+}
+
+void RuntimeClient::registerSessionFactory(llvm::StringRef kind,
+                                           RuntimeSessionFactory factory) {
+  if (sessionFactories.count(kind) > 0) {
+    // Duplicate registration is a fatal error.
+    mtrt::cantFail(getInvalidArgStatus("session factory already registered for "
+                                       "the name {0}",
+                                       kind));
+  }
+  sessionFactories[kind] = factory;
 }
 
 //===----------------------------------------------------------------------===//

@@ -44,7 +44,6 @@ __all__ = [
 class Device:
     @property
     def _CAPIPtr(self) -> typing.Any: ...
-
     @property
     def stream(self) -> Stream: ...
 
@@ -211,11 +210,15 @@ class RuntimeClient:
         """
         creates a runtime ScalarValue from the provided Python object; an explicit type may be provided, otherwise defaults to i64 for Python integers and f32 for Python floats
         """
+
     def get_devices(self) -> list[Device]: ...
 
 class RuntimeSession:
     def __init__(
-        self, options: RuntimeSessionOptions, executable: Executable
+        self,
+        client: RuntimeClient,
+        options: RuntimeSessionOptions,
+        executable: Executable,
     ) -> None: ...
     def execute_function(
         self,

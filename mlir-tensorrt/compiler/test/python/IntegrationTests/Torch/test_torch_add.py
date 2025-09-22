@@ -49,7 +49,7 @@ def torch_add():
     stream = devices[0].stream
 
     session_options = runtime.RuntimeSessionOptions(num_devices=1, device_id=0)
-    session = runtime.RuntimeSession(session_options, exe)
+    session = runtime.RuntimeSession(client, session_options, exe)
 
     torch_arg0 = torch.arange(0.0, 4.0, dtype=torch.float32).reshape(2, 2)
     arg0 = client.create_memref_view_from_dlpack(torch_arg0.__dlpack__())

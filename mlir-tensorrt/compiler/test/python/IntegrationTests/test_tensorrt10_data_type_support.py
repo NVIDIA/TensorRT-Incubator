@@ -39,7 +39,7 @@ def test_stablehlo_add(
             exe = compiler.translate_mlir_to_executable(m.operation)
 
             session_options = runtime.RuntimeSessionOptions(num_devices=1, device_id=0)
-            session = runtime.RuntimeSession(session_options, exe)
+            session = runtime.RuntimeSession(client, session_options, exe)
 
             session.execute_function(
                 "main", in_args=test.in_args, out_args=test.out_args, stream=stream

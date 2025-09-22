@@ -140,15 +140,13 @@ def compile_executable(program, debug=False):
 def test_single_return():
     exe = compile_executable(single_return)
     session_options = runtime.RuntimeSessionOptions(num_devices=1, device_id=0)
-    session = runtime.RuntimeSession(session_options, exe)
+    session = runtime.RuntimeSession(client, session_options, exe)
     arg0 = client.create_memref(
         np.arange(0.0, 24.0, dtype=np.float32).reshape(2, 3, 4).data,
         device=devices[0],
         stream=stream,
     )
-    results = session.execute_function(
-        "main", in_args=[arg0], stream=stream, client=client
-    )
+    results = session.execute_function("main", in_args=[arg0], stream=stream)
 
     output = np.asarray(client.copy_to_host(results[0], stream=stream))
     stream.sync()
@@ -159,15 +157,13 @@ def test_single_return():
 def test_scalar_return():
     exe = compile_executable(scalar_return)
     session_options = runtime.RuntimeSessionOptions(num_devices=1, device_id=0)
-    session = runtime.RuntimeSession(session_options, exe)
+    session = runtime.RuntimeSession(client, session_options, exe)
     arg0 = client.create_memref(
         np.arange(0.0, 24.0, dtype=np.float32).reshape(2, 3, 4).data,
         device=devices[0],
         stream=stream,
     )
-    results = session.execute_function(
-        "main", in_args=[arg0], stream=stream, client=client
-    )
+    results = session.execute_function("main", in_args=[arg0], stream=stream)
 
     print(results[0].data)
 
@@ -175,15 +171,13 @@ def test_scalar_return():
 def test_mixed_return():
     exe = compile_executable(mixed_return)
     session_options = runtime.RuntimeSessionOptions(num_devices=1, device_id=0)
-    session = runtime.RuntimeSession(session_options, exe)
+    session = runtime.RuntimeSession(client, session_options, exe)
     arg0 = client.create_memref(
         np.arange(0.0, 24.0, dtype=np.float32).reshape(2, 3, 4).data,
         device=devices[0],
         stream=stream,
     )
-    results = session.execute_function(
-        "main", in_args=[arg0], stream=stream, client=client
-    )
+    results = session.execute_function("main", in_args=[arg0], stream=stream)
 
     assert type(results[0]) == runtime.MemRefValue
     assert type(results[1]) == runtime.ScalarValue
@@ -198,15 +192,13 @@ def test_mixed_return():
 def test_multiple_return():
     exe = compile_executable(multiple_return)
     session_options = runtime.RuntimeSessionOptions(num_devices=1, device_id=0)
-    session = runtime.RuntimeSession(session_options, exe)
+    session = runtime.RuntimeSession(client, session_options, exe)
     arg0 = client.create_memref(
         np.arange(0.0, 24.0, dtype=np.float32).reshape(2, 3, 4).data,
         device=devices[0],
         stream=stream,
     )
-    results = session.execute_function(
-        "main", in_args=[arg0], stream=stream, client=client
-    )
+    results = session.execute_function("main", in_args=[arg0], stream=stream)
 
     output_0 = np.asarray(client.copy_to_host(results[0], stream=stream))
     output_1 = np.asarray(client.copy_to_host(results[1], stream=stream))
@@ -220,7 +212,7 @@ def test_multiple_return():
 def test_dynamic_shape():
     exe = compile_executable(dynamic_shape)
     session_options = runtime.RuntimeSessionOptions(num_devices=1, device_id=0)
-    session = runtime.RuntimeSession(session_options, exe)
+    session = runtime.RuntimeSession(client, session_options, exe)
     arg0 = client.create_memref(
         np.arange(0.0, 8.0, dtype=np.float32).reshape((4, 2)).data,
         device=devices[0],
@@ -230,9 +222,7 @@ def test_dynamic_shape():
         np.ones((4, 2), dtype=np.float32).data, device=devices[0], stream=stream
     )
 
-    results = session.execute_function(
-        "main", in_args=[arg0, arg1], stream=stream, client=client
-    )
+    results = session.execute_function("main", in_args=[arg0, arg1], stream=stream)
 
     output = np.asarray(client.copy_to_host(results[0], stream=stream))
     stream.sync()
@@ -243,8 +233,8 @@ def test_dynamic_shape():
 def test_session_tracking_d2h():
     exe = compile_executable(session_tracking_h2h)
     session_options = runtime.RuntimeSessionOptions(num_devices=1, device_id=0)
-    session = runtime.RuntimeSession(session_options, exe)
-    results = session.execute_function("main", in_args=[], stream=stream, client=client)
+    session = runtime.RuntimeSession(client, session_options, exe)
+    results = session.execute_function("main", in_args=[], stream=stream)
     stream.sync()
     print(np.asarray(results[0]))
 
@@ -252,8 +242,8 @@ def test_session_tracking_d2h():
 def test_empty_shape_tensor():
     exe = compile_executable(empty_shape_tensor)
     session_options = runtime.RuntimeSessionOptions(num_devices=1, device_id=0)
-    session = runtime.RuntimeSession(session_options, exe)
-    results = session.execute_function("main", in_args=[], stream=stream, client=client)
+    session = runtime.RuntimeSession(client, session_options, exe)
+    results = session.execute_function("main", in_args=[], stream=stream)
     stream.sync()
     print(np.asarray(results[0]))
 

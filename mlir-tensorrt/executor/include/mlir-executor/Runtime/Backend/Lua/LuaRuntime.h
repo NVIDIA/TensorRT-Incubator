@@ -52,7 +52,8 @@ public:
   /// TODO: add capabilities options to 'options' so that only modules
   /// specifically required are registered.
   static StatusOr<std::unique_ptr<LuaRuntimeSession>>
-  create(RuntimeSessionOptions options, ExecutableView executable,
+  create(Ref<RuntimeClient> client, RuntimeSessionOptions options,
+         ExecutableView executable,
          LuaModuleRegistrationFunc registerExtraLuaFunctions = {});
 
   /// Return a reference to the Lua state. Note that `sol::state` or any other
@@ -66,8 +67,17 @@ public:
   /// Get the primary stream for the loaded executable to use.
   Ref<Stream> getCudaStream();
 
+  /// Execute a named function in the session with the specified input args and
+  /// output (destination args). Returns optional results supporting both DPS
+  /// and non-DPS style calling convention.
+  StatusOr<llvm::SmallVector<std::unique_ptr<RuntimeValue>>>
+  executeFunction(llvm::StringRef name, llvm::ArrayRef<RuntimeValue *> inputs,
+                  llvm::ArrayRef<RuntimeValue *> outArgs,
+                  Ref<Stream> stream) final;
+
 private:
-  LuaRuntimeSession(RuntimeSessionOptions options, ExecutableView executable);
+  LuaRuntimeSession(Ref<RuntimeClient> client, RuntimeSessionOptions options,
+                    ExecutableView executable);
 
   class Impl;
   std::unique_ptr<Impl> impl;
@@ -95,18 +105,6 @@ StatusOr<int64_t> runExecutorLuaScript(
 StatusOr<int64_t> runExecutorExecutable(
     RuntimeSessionOptions options, std::unique_ptr<Executable> executable,
     LuaRuntimeSession::LuaModuleRegistrationFunc registerExtraLuaFuncs = {});
-
-/// Execute a named function in the session with the specified input args and
-/// output (destination args). Returns optional results supporting both DPS and
-/// non-DPS style calling convention.
-/// `client` argument is required in case the function return atleast one memref
-/// value.
-StatusOr<llvm::SmallVector<std::unique_ptr<RuntimeValue>>>
-executeFunctionWithLuaBackend(LuaRuntimeSession &session, std::string_view name,
-                              llvm::ArrayRef<RuntimeValue *> inputArgs,
-                              llvm::ArrayRef<RuntimeValue *> outputArgs,
-                              std::optional<Ref<Stream>> stream = {},
-                              std::optional<RuntimeClient *> client = {});
 
 } // namespace mtrt
 

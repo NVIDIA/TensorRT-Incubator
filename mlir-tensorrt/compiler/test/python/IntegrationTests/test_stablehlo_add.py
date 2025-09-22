@@ -37,7 +37,7 @@ def stablehlo_add():
     stream = devices[0].stream
 
     session_options = runtime.RuntimeSessionOptions(num_devices=1, device_id=0)
-    session = runtime.RuntimeSession(session_options, exe)
+    session = runtime.RuntimeSession(client, session_options, exe)
 
     arg0 = client.create_memref(
         np.arange(0.0, 24.0, dtype=np.float32).reshape(2, 3, 4).data,

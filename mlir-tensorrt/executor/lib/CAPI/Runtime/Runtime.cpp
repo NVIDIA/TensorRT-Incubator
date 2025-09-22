@@ -662,13 +662,16 @@ void mtrtRuntimeSessionOptionsEnableFeature(MTRT_RuntimeSessionOptions options,
 // MTRT_RuntimeSession
 //===----------------------------------------------------------------------===//
 
-MTRT_Status mtrtRuntimeSessionCreate(MTRT_RuntimeSessionOptions options,
+MTRT_Status mtrtRuntimeSessionCreate(MTRT_RuntimeClient client,
+                                     MTRT_RuntimeSessionOptions options,
                                      MTRT_Executable executable,
                                      MTRT_RuntimeSession *result) {
+  Ref<RuntimeClient> cppClient = unwrap(client)->ref;
   RuntimeSessionOptions *cppOptions = unwrap(options);
   Executable *cppExecutable = unwrap(executable);
   StatusOr<std::unique_ptr<LuaRuntimeSession>> session =
-      LuaRuntimeSession::create(*cppOptions, cppExecutable->getView(), {});
+      LuaRuntimeSession::create(cppClient, *cppOptions,
+                                cppExecutable->getView(), {});
   if (session.isError())
     return wrap(session.getStatus());
   *result = wrap(session->release());
@@ -684,7 +687,7 @@ MTRT_Status mtrtRuntimeSessionExecuteFunction(
     MTRT_RuntimeSession session, MTRT_StringView name,
     const MTRT_RuntimeValue *inArgs, size_t numInArgs,
     const MTRT_RuntimeValue *outArgs, size_t numOutArgs,
-    MTRT_RuntimeValue *results, MTRT_Stream stream, MTRT_RuntimeClient client) {
+    MTRT_RuntimeValue *results, MTRT_Stream stream) {
   LuaRuntimeSession *cppSession =
       static_cast<LuaRuntimeSession *>(unwrap(session));
 
@@ -698,12 +701,8 @@ MTRT_Status mtrtRuntimeSessionExecuteFunction(
   if (!mtrtStreamIsNull(stream))
     streamRef = unwrap(stream)->ref;
   StatusOr<llvm::SmallVector<std::unique_ptr<RuntimeValue>>> resultValues =
-      executeFunctionWithLuaBackend(
-          *cppSession, std::string_view(name.data, name.length), inArgValues,
-          outArgValues, streamRef,
-          !mtrtRuntimeClientIsNull(client)
-              ? std::optional(unwrap(client)->ref.get())
-              : std::nullopt);
+      cppSession->executeFunction(std::string_view(name.data, name.length),
+                                  inArgValues, outArgValues, streamRef);
   if (!resultValues.isOk())
     return wrap(resultValues.getStatus());
 

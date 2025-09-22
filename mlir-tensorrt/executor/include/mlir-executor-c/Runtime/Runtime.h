@@ -446,8 +446,8 @@ typedef struct MTRT_RuntimeSession {
 /// that the session only has a read-only view in to the Executable for code and
 /// constant data. Therefore the Executable must outlive the RuntimeSession.
 MLIR_CAPI_EXPORTED MTRT_Status mtrtRuntimeSessionCreate(
-    MTRT_RuntimeSessionOptions options, MTRT_Executable executable,
-    MTRT_RuntimeSession *result);
+    MTRT_RuntimeClient client, MTRT_RuntimeSessionOptions options,
+    MTRT_Executable executable, MTRT_RuntimeSession *result);
 
 /// Destory the session. This does not destroy the associated Executable, which
 /// may be shared among many sessions.
@@ -474,7 +474,7 @@ MLIR_CAPI_EXPORTED MTRT_Status mtrtRuntimeSessionExecuteFunction(
     MTRT_RuntimeSession session, MTRT_StringView name,
     const MTRT_RuntimeValue *inArgs, size_t numInArgs,
     const MTRT_RuntimeValue *outArgs, size_t numOutArgs,
-    MTRT_RuntimeValue *results, MTRT_Stream stream, MTRT_RuntimeClient client);
+    MTRT_RuntimeValue *results, MTRT_Stream stream);
 
 /// Return number of results given a function name. Function name refers
 /// to an exported function in the executable.

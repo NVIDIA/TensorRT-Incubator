@@ -1147,21 +1147,22 @@ PYBIND11_MODULE(_api, m) {
 
   py::class_<PyRuntimeSession, std::shared_ptr<PyRuntimeSession>>(
       m, "RuntimeSession", py::module_local())
-      .def(py::init<>([](PyRuntimeSessionOptions &options, PyExecutable &exe) {
+      .def(py::init<>([](PyRuntimeClient &client,
+                         PyRuntimeSessionOptions &options, PyExecutable &exe) {
              MTRT_RuntimeSession session;
-             MTRT_Status s = mtrtRuntimeSessionCreate(options, exe, &session);
+             MTRT_Status s =
+                 mtrtRuntimeSessionCreate(client, options, exe, &session);
              THROW_IF_MTRT_ERROR(s);
 
              return std::make_shared<PyRuntimeSession>(session);
            }),
-           py::arg("options"), py::arg("executable"))
+           py::arg("client"), py::arg("options"), py::arg("executable"))
       .def(
           "execute_function",
           [](PyRuntimeSession &self, std::string name,
              std::vector<PyRuntimeValue *> inArgs,
              std::optional<std::vector<PyMemRefValue *>> outArgs,
-             std::optional<MTRT_Stream> stream,
-             PyRuntimeClient *client = nullptr) {
+             std::optional<MTRT_Stream> stream) {
             MTRT_StringView nameRef{name.data(), name.size()};
 
             int64_t numResults;
@@ -1186,17 +1187,11 @@ PYBIND11_MODULE(_api, m) {
             s = mtrtRuntimeSessionExecuteFunction(
                 self, nameRef, inArgsGeneric.data(), inArgsGeneric.size(),
                 outArgsGeneric.data(), outArgsGeneric.size(),
-                resultsGeneric.data(), stream ? *stream : mtrtStreamGetNull(),
-                client ? MTRT_RuntimeClient(*client)
-                       : mtrtRuntimeClientGetNull());
+                resultsGeneric.data(), stream ? *stream : mtrtStreamGetNull());
             THROW_IF_MTRT_ERROR(s);
 
             std::vector<std::unique_ptr<PyRuntimeValue>> resultPyObject;
             if (numResults > 0) {
-              if (!client)
-                throw std::invalid_argument(
-                    "client must be provided when there are returned results");
-
               for (const MTRT_RuntimeValue &arg : resultsGeneric)
                 if (mtrtRuntimeValueIsMemRef(arg))
                   resultPyObject.push_back(std::unique_ptr<PyRuntimeValue>(
@@ -1206,20 +1201,10 @@ PYBIND11_MODULE(_api, m) {
                       new PyScalarValue(mtrtRuntimeValueDynCastToScalar(arg))));
             }
 
-            if (client) {
-              std::shared_ptr<PyRuntimeSession> sessionRef =
-                  self.shared_from_this();
-              if (client->getSessionsSet().count(sessionRef) == 0)
-                client->getSessionsSet().insert(sessionRef);
-            }
-
             return resultPyObject;
           },
           py::arg("name"), py::arg("in_args"), py::arg("out_args") = py::none(),
-          py::arg("stream") = py::none(), py::arg("client") = nullptr,
-          "Execute a function given input and optional output arguments. "
-          "Return optional results as a Python object if output arguments are "
-          "not present.");
+          py::arg("stream") = py::none());
 
   py::class_<PyGlobalDebugFlag>(m, "GlobalDebug", py::module_local())
       .def_property_static("flag", &PyGlobalDebugFlag::get,

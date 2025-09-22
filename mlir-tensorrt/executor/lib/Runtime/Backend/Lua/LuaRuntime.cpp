@@ -234,9 +234,11 @@ static Status loadDataSegment(sol::state_view &lua,
       mtrt::flat::EnumNamePointerType(segment.getAddressSpace()));
 }
 
-LuaRuntimeSession::LuaRuntimeSession(RuntimeSessionOptions options,
+LuaRuntimeSession::LuaRuntimeSession(Ref<RuntimeClient> client,
+                                     RuntimeSessionOptions options,
                                      ExecutableView executable)
-    : RuntimeSession(std::move(options), std::move(executable)),
+    : RuntimeSession(std::move(options), std::move(executable),
+                     std::move(client)),
       impl(std::unique_ptr<Impl>(new Impl())) {}
 
 LuaRuntimeSession::~LuaRuntimeSession() = default;
@@ -244,13 +246,14 @@ LuaRuntimeSession::~LuaRuntimeSession() = default;
 lua_State *LuaRuntimeSession::getLuaState() { return impl->getLuaState(); }
 
 StatusOr<std::unique_ptr<LuaRuntimeSession>>
-LuaRuntimeSession::create(RuntimeSessionOptions options,
+LuaRuntimeSession::create(Ref<RuntimeClient> client_,
+                          RuntimeSessionOptions options,
                           ExecutableView executable,
                           LuaModuleRegistrationFunc registerExtraLuaFuncs) {
   MTRT_RETURN_IF_ERROR(maybeCheckForValidNcclUuid(options));
 
-  auto session = std::unique_ptr<LuaRuntimeSession>(
-      new LuaRuntimeSession(std::move(options), executable));
+  auto session = std::unique_ptr<LuaRuntimeSession>(new LuaRuntimeSession(
+      std::move(client_), std::move(options), std::move(executable)));
   sol::state_view lua = session->getLuaState();
   lua.open_libraries(sol::lib::base, sol::lib::string, sol::lib::coroutine);
 
@@ -327,14 +330,12 @@ StatusOr<int64_t> mtrt::runExecutorLuaScript(
     LuaRuntimeSession::LuaModuleRegistrationFunc registerExtraLuaFuncs) {
   ADD_RUNTIME_MODULE_RANGE("runtime_runExecutorLuaScript");
 
-  StatusOr<Ref<RuntimeClient>> client = RuntimeClient::create();
-  if (!client.isOk())
-    return client.getStatus();
+  MTRT_ASSIGN_OR_RETURN(Ref<RuntimeClient> client, RuntimeClient::create());
 
-  MTRT_ASSIGN_OR_RETURN(
-      std::unique_ptr<LuaRuntimeSession> session,
-      LuaRuntimeSession::create(std::move(options), ExecutableView(nullptr),
-                                std::move(registerExtraLuaFuncs)));
+  MTRT_ASSIGN_OR_RETURN(std::unique_ptr<LuaRuntimeSession> session,
+                        LuaRuntimeSession::create(
+                            client, std::move(options), ExecutableView(nullptr),
+                            std::move(registerExtraLuaFuncs)));
 
   sol::state_view lua = session->getLuaState();
   sol::protected_function_result result = lua.safe_script(luaScript);
@@ -373,14 +374,12 @@ StatusOr<int64_t> mtrt::runExecutorExecutable(
     RuntimeSessionOptions options, std::unique_ptr<Executable> executable,
     LuaRuntimeSession::LuaModuleRegistrationFunc registerExtraLuaFuncs) {
 
-  StatusOr<Ref<RuntimeClient>> client = RuntimeClient::create();
-  if (!client.isOk())
-    return client.getStatus();
+  MTRT_ASSIGN_OR_RETURN(Ref<RuntimeClient> client, RuntimeClient::create());
 
-  MTRT_ASSIGN_OR_RETURN(
-      std::unique_ptr<LuaRuntimeSession> session,
-      LuaRuntimeSession::create(std::move(options), executable->getView(),
-                                std::move(registerExtraLuaFuncs)));
+  MTRT_ASSIGN_OR_RETURN(std::unique_ptr<LuaRuntimeSession> session,
+                        LuaRuntimeSession::create(
+                            client, std::move(options), executable->getView(),
+                            std::move(registerExtraLuaFuncs)));
 
   // Call the main function, if present.
   sol::state_view lua = session->getLuaState();
@@ -657,8 +656,8 @@ getScalarValue(const sol::protected_function_result &pfr, int index,
 /// return types.
 static StatusOr<llvm::SmallVector<std::unique_ptr<RuntimeValue>>>
 parseResults(const sol::protected_function_result &pfr,
-             const FunctionSignatureView &sig, LuaRuntimeSession &session,
-             RuntimeClient &client) {
+             const FunctionSignatureView &sig, LuaRuntimeSession &session) {
+  RuntimeClient &client = *session.getClient();
   llvm::SmallVector<std::unique_ptr<RuntimeValue>> results;
   results.reserve(sig.getNumResults());
 
@@ -733,13 +732,11 @@ parseResults(const sol::protected_function_result &pfr,
   return results;
 }
 
-StatusOr<llvm::SmallVector<std::unique_ptr<RuntimeValue>>>
-mtrt::executeFunctionWithLuaBackend(LuaRuntimeSession &session,
-                                    std::string_view name,
-                                    llvm::ArrayRef<RuntimeValue *> inputArgs,
-                                    llvm::ArrayRef<RuntimeValue *> outputArgs,
-                                    std::optional<Ref<Stream>> stream,
-                                    std::optional<RuntimeClient *> client) {
+static StatusOr<llvm::SmallVector<std::unique_ptr<RuntimeValue>>>
+executeFunctionWithLuaBackend(LuaRuntimeSession &session, std::string_view name,
+                              llvm::ArrayRef<RuntimeValue *> inputArgs,
+                              llvm::ArrayRef<RuntimeValue *> outputArgs,
+                              Ref<Stream> stream) {
 
   StatusOr<FunctionView> func = session.getExecutable().getFunction(name);
   if (func.isError())
@@ -824,7 +821,7 @@ mtrt::executeFunctionWithLuaBackend(LuaRuntimeSession &session,
 
     // Set stream if provided.
     if (stream)
-      RETURN_STATUS_IF_ERROR(session.setCudaStream(*stream));
+      RETURN_STATUS_IF_ERROR(session.setCudaStream(stream));
   }
 #endif // MLIR_TRT_ENABLE_CUDA
 
@@ -868,9 +865,16 @@ mtrt::executeFunctionWithLuaBackend(LuaRuntimeSession &session,
   if (sig.getNumResults() == 0)
     return llvm::SmallVector<std::unique_ptr<RuntimeValue>>();
 
-  if (!client)
-    return getInvalidArgStatus(
-        "runtime client cannot be nullptr if results are returned");
+  return parseResults(pfr, sig, session);
+}
 
-  return parseResults(pfr, sig, session, **client);
+StatusOr<llvm::SmallVector<std::unique_ptr<RuntimeValue>>>
+LuaRuntimeSession::executeFunction(llvm::StringRef name,
+                                   llvm::ArrayRef<RuntimeValue *> inputs,
+                                   llvm::ArrayRef<RuntimeValue *> outArgs,
+                                   Ref<Stream> stream) {
+  MTRT_ASSIGN_OR_RETURN(
+      llvm::SmallVector<std::unique_ptr<RuntimeValue>> resultValues,
+      executeFunctionWithLuaBackend(*this, name, inputs, outArgs, stream));
+  return resultValues;
 }

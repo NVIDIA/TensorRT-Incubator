@@ -52,7 +52,7 @@ def test_memref_create_in_loop():
     stream = devices[0].stream
 
     session_options = runtime.RuntimeSessionOptions(num_devices=1, device_id=0)
-    session = runtime.RuntimeSession(session_options, exe)
+    session = runtime.RuntimeSession(client, session_options, exe)
 
     arg0 = client.create_memref(
         np.ones(shape=(256, 1024, 1024), dtype=np.float32).data,
@@ -66,15 +66,13 @@ def test_memref_create_in_loop():
         gc.collect()
 
         print(f"exec {i}/20 step 0")
-        out = session.execute_function(
-            "main", in_args=[arg0], stream=stream, client=client
-        )
+        out = session.execute_function("main", in_args=[arg0], stream=stream)
         out = cp.from_dlpack(out[0])
 
         print(f"exec {i}/20 step 1")
 
         out2 = session.execute_function(
-            "main", in_args=[client.from_dlpack(out)], stream=stream, client=client
+            "main", in_args=[client.from_dlpack(out)], stream=stream
         )
         out = cp.from_dlpack(out2[0])
 

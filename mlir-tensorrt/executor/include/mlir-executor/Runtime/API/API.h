@@ -1311,8 +1311,11 @@ private:
 /// TODO: methods for accessing/setting default stream should be moved here.
 class RuntimeSession {
 public:
-  RuntimeSession(RuntimeSessionOptions options, ExecutableView executable);
+  RuntimeSession(RuntimeSessionOptions options, ExecutableView executable,
+                 Ref<RuntimeClient> client);
   virtual ~RuntimeSession() {}
+
+  Ref<RuntimeClient> getClient() const { return client; }
 
   ExecutableView getExecutable() const { return executable; }
 
@@ -1327,11 +1330,16 @@ public:
   /// Returns the options used to construct the session.
   const RuntimeSessionOptions &getOptions() { return options; }
 
+  /// Execute the session function using the given arguments.
+  virtual StatusOr<llvm::SmallVector<std::unique_ptr<RuntimeValue>>>
+  executeFunction(llvm::StringRef name, llvm::ArrayRef<RuntimeValue *> inputs,
+                  llvm::ArrayRef<RuntimeValue *> outArgs,
+                  Ref<Stream> stream) = 0;
+
 protected:
+  Ref<RuntimeClient> client;
   RuntimeSessionOptions options;
-
   ExecutableView executable;
-
   std::unique_ptr<PinnedMemoryAllocator> pinnedMemoryAllocator;
   std::unique_ptr<AllocTracker> allocTracker;
   std::unique_ptr<ResourceTracker> resourceTracker;
@@ -1447,6 +1455,24 @@ public:
   /// Return the current stream of the current CUDA device.
   StatusOr<Ref<Stream>> getCurrentDeviceStream() const;
 
+  //===----------------------------------------------------------------------===//
+  // Session Management
+  //===----------------------------------------------------------------------===//
+
+  using RuntimeSessionFactory =
+      std::function<StatusOr<std::unique_ptr<RuntimeSession>>(
+          Ref<RuntimeClient> client, RuntimeSessionOptions options,
+          ExecutableView executable)>;
+
+  /// Construct a new RuntimeSession of the given kind.
+  StatusOr<std::unique_ptr<RuntimeSession>>
+  createSession(llvm::StringRef kind, RuntimeSessionOptions options,
+                ExecutableView executable);
+
+  /// Register a new RuntimeSession factory.
+  void registerSessionFactory(llvm::StringRef kind,
+                              RuntimeSessionFactory factory);
+
 private:
   void setAllocator(std::unique_ptr<RuntimeClientAllocator> allocator) {
     this->allocator = std::move(allocator);
@@ -1459,6 +1485,10 @@ private:
   PinnedMemoryAllocator pinnedMemoryAllocator;
   ResourceTracker resourceTracker;
   std::unique_ptr<RuntimeClientAllocator> allocator;
+
+  /// Session factory registry.
+
+  llvm::StringMap<RuntimeSessionFactory> sessionFactories;
 };
 
 //===----------------------------------------------------------------------===//
