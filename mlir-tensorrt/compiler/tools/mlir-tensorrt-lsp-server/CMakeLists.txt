@@ -15,7 +15,7 @@ llvm_update_compile_flags(mlir-tensorrt-lsp-server)
 mlir_check_link_libraries(mlir-tensorrt-lsp-server)
 
 set(should_exclude_from_all TRUE)
-if(NOT PROJECT_IS_TOP_LEVEL)
+if(PROJECT_IS_TOP_LEVEL)
   set(should_exclude_from_all FALSE)
 endif()
 set_target_properties(mlir-tensorrt-lsp-server PROPERTIES EXCLUDE_FROM_ALL ${should_exclude_from_all})
