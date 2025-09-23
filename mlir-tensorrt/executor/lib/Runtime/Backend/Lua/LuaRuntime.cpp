@@ -26,8 +26,6 @@
 #include "lua.h"
 #include "mlir-executor/Runtime/API/API.h"
 #include "mlir-executor/Runtime/API/ExecutableFlatbuffer.h"
-#include "mlir-executor/Runtime/Backend/Common/CUDACommon.h"
-#include "mlir-executor/Runtime/Backend/Common/CommonRuntime.h"
 #include "mlir-executor/Runtime/Backend/Common/DataTypes.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaExtensionRegistry.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaExtensions.h"
@@ -37,9 +35,7 @@
 #include "mlir-executor/Support/Allocators.h"
 #include "mlir-tensorrt-common/Support/Status.h"
 #include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/StringMap.h"
 #include "llvm/Support/Alignment.h"
-#include "llvm/Support/ManagedStatic.h"
 #include <memory>
 
 #ifdef MLIR_TRT_ENABLE_CUDA
@@ -489,7 +485,12 @@ static Status pushScalarArgument(sol::state_view &lua,
   case ScalarTypeCode::i64:
     obj = sol::make_object(lua, value.get<int64_t>());
     break;
-  default:
+  case ScalarTypeCode::f4e2m1fn:
+    obj = sol::make_object(lua, value.get<uint8_t>());
+    break;
+  case ScalarTypeCode::unknown:
+  case ScalarTypeCode::complex32:
+  case ScalarTypeCode::complex64:
     return getInvalidArgStatus(
         "function input argument with scalar type {0} is unsupported",
         mtrt::flat::EnumNameScalarTypeCode(type.getCode()));
@@ -646,10 +647,13 @@ getScalarValue(const sol::protected_function_result &pfr, int index,
     return std::make_unique<ScalarValue>(
         static_cast<double>(static_cast<sol::table>(pfr[index])[1]),
         static_cast<double>(static_cast<sol::table>(pfr[index])[2]), code);
-  default:
+  case ScalarTypeCode::f4e2m1fn:
+    return std::make_unique<ScalarValue>(pfr[index].get<uint8_t>(), code);
+  case mtrt::ScalarTypeCode::unknown:
     return getInvalidArgStatus("Unsupported scalar type code: {0}",
                                mtrt::flat::EnumNameScalarTypeCode(code));
   }
+  llvm_unreachable("unknown scalar type code");
 }
 
 /// Parses the results of a function call, handling both scalar and MemRef
@@ -809,21 +813,14 @@ executeFunctionWithLuaBackend(LuaRuntimeSession &session, std::string_view name,
                                idx + 1, name);
   }
 
-#ifdef MLIR_TRT_ENABLE_CUDA
-  int32_t requiredDevice = 0, callerDevice = 0;
-  if (session.getOptions().isFeatureEnabled("cuda")) {
-    // TODO: This is a temporary hack to ensure that the current device
-    // context is set correctly.
-    RETURN_ERROR_IF_CUDART_ERROR(cudaGetDevice(&callerDevice));
-    requiredDevice = session.getOptions().getDeviceId();
-    if (requiredDevice != callerDevice)
-      RETURN_ERROR_IF_CUDART_ERROR(cudaSetDevice(requiredDevice));
-
-    // Set stream if provided.
-    if (stream)
-      RETURN_STATUS_IF_ERROR(session.setCudaStream(stream));
+  std::unique_ptr<DeviceGuard> deviceGuard;
+  // Set stream if provided and create a device guard.
+  if (stream) {
+    RETURN_STATUS_IF_ERROR(session.setCudaStream(stream));
+    if (Device *device = stream->getDevice()) {
+      MTRT_ASSIGN_OR_RETURN(deviceGuard, device->createDeviceGuard());
+    }
   }
-#endif // MLIR_TRT_ENABLE_CUDA
 
   // Call the function, passing the arguments either as a table or unpacked as
   // determined by the calling convention.
@@ -854,13 +851,6 @@ executeFunctionWithLuaBackend(LuaRuntimeSession &session, std::string_view name,
         session.getAllocTracker().erase(it);
     }
   }
-
-#ifdef MLIR_TRT_ENABLE_CUDA
-  if (session.getOptions().isFeatureEnabled("cuda")) {
-    if (requiredDevice != callerDevice)
-      RETURN_ERROR_IF_CUDART_ERROR(cudaSetDevice(callerDevice));
-  }
-#endif // MLIR_TRT_ENABLE_CUDA
 
   if (sig.getNumResults() == 0)
     return llvm::SmallVector<std::unique_ptr<RuntimeValue>>();
