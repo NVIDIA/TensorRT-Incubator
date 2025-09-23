@@ -491,9 +491,9 @@ static void convertArgAndResultAttrs(OpBuilder &b, func::FuncOp op) {
       mlir::tensorrt::TensorRTDialect::getShapeTensorValueBoundsArgAttrName();
 
   StringRef planShapeBoundsAttrName =
-      mlir::plan::PlanDialect::getShapeBoundsAttrName();
+      mlir::plan::PlanDialect::kShapeBoundsAttrName;
   StringRef planValueBoundsAttrName =
-      mlir::plan::PlanDialect::getValueBoundsAttrName();
+      mlir::plan::PlanDialect::kValueBoundsAttrName;
 
   for (unsigned idx = 0; idx < op.getNumArguments(); idx++) {
     Type type = op.getArgumentTypes()[idx];

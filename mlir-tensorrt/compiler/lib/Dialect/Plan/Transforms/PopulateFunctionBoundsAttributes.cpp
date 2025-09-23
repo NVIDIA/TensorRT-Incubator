@@ -88,12 +88,12 @@ public:
 
     // Skip all functions without shape profile information.
     if (!func.getArgAttrs() ||
-        llvm::none_of(
-            func.getArgAttrs()->getAsRange<DictionaryAttr>(),
-            [&](DictionaryAttr dict) {
-              return dict.getNamed(PlanDialect::getShapeBoundsAttrName()) ||
-                     dict.getNamed(PlanDialect::getValueBoundsAttrName());
-            }))
+        llvm::none_of(func.getArgAttrs()->getAsRange<DictionaryAttr>(),
+                      [&](DictionaryAttr dict) {
+                        return dict.getNamed(
+                                   PlanDialect::kShapeBoundsAttrName) ||
+                               dict.getNamed(PlanDialect::kValueBoundsAttrName);
+                      }))
       return;
 
     DataFlowConfig config;
@@ -135,7 +135,7 @@ public:
               << "failed to compute lower/upper shape bounds attribute";
           return signalPassFailure();
         }
-        func.setResultAttr(idx, plan::PlanDialect::getShapeBoundsAttrName(),
+        func.setResultAttr(idx, plan::PlanDialect::kShapeBoundsAttrName,
                            boundsAttr);
         continue;
       }
@@ -164,7 +164,7 @@ public:
         return signalPassFailure();
       }
 
-      func.setResultAttr(idx, plan::PlanDialect::getValueBoundsAttrName(),
+      func.setResultAttr(idx, plan::PlanDialect::kValueBoundsAttrName,
                          boundsAttr);
     }
   }

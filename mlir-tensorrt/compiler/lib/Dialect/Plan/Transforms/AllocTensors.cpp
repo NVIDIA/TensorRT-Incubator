@@ -78,13 +78,13 @@ updateFunctionWithNewDpsArg(func::FuncOp func, Location loc, Type argType,
   func.insertArgument(func.getNumArguments(), argType, argAttrs, loc);
 
   if (auto boundsAttr = func.getResultAttr(
-          tiedResult, plan::PlanDialect::getShapeBoundsAttrName()))
+          tiedResult, plan::PlanDialect::kShapeBoundsAttrName))
     func.setArgAttr(func.getNumArguments() - 1,
-                    plan::PlanDialect::getShapeBoundsAttrName(), boundsAttr);
+                    plan::PlanDialect::kShapeBoundsAttrName, boundsAttr);
   if (auto boundsAttr = func.getResultAttr(
-          tiedResult, plan::PlanDialect::getValueBoundsAttrName()))
+          tiedResult, plan::PlanDialect::kValueBoundsAttrName))
     func.setArgAttr(func.getNumArguments() - 1,
-                    plan::PlanDialect::getValueBoundsAttrName(), boundsAttr);
+                    plan::PlanDialect::kValueBoundsAttrName, boundsAttr);
 
   return func.getArguments().back();
 }

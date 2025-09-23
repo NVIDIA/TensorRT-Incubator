@@ -37,7 +37,7 @@ func.func @test_simple_static(%arg0: tensor<10xf32>, %arg1: tensor<10xf32>) -> t
 
 #profile0 = #plan.bounds<shape, [1, 10], [40, 10]>
 
-func.func @test_simple_shape_bound(%arg0: tensor<?x10xf32> {plan.shape_profile=#profile0}) -> tensor<?x10xf32> {
+func.func @test_simple_shape_bound(%arg0: tensor<?x10xf32> {plan.shape_bounds=#profile0}) -> tensor<?x10xf32> {
   %c10 = arith.constant 10 : index
   %c0 = arith.constant 0 : index
   %dim = tensor.dim %arg0, %c0 : tensor<?x10xf32>
@@ -96,7 +96,7 @@ func.func @test_simple_shape_bound(%arg0: tensor<?x10xf32> {plan.shape_profile=#
 #profile0 = #plan.bounds<shape, [1], [40]>
 #profile1 = #plan.bounds<value, dense<[1, 1]> : tensor<2xi32>, dense<[40, 40]> : tensor<2xi32>>
 
-func.func @test_dynamic_reshape(%arg0: tensor<?xf32> {plan.shape_profile = #profile0},
+func.func @test_dynamic_reshape(%arg0: tensor<?xf32> {plan.shape_bounds = #profile0},
                                 %arg1: tensor<2xi32> {plan.value_bounds = #profile1}) -> tensor<?x?xf32> {
   %c1 = arith.constant 1 : index
   %c0 = arith.constant 0 : index
@@ -174,7 +174,7 @@ func.func @test_dynamic_reshape(%arg0: tensor<?xf32> {plan.shape_profile = #prof
 #profile0 = #plan.bounds<shape, [1, 1], [40, 40]>
 #profile1 = #plan.bounds<shape, [1, 1], [60, 100]>
 
-func.func @test_get_dim_size_max(%arg0: tensor<?x?xf32> {plan.shape_profile=#profile0}, %arg1: tensor<?x?xf32> {plan.shape_profile=#profile1}) -> tensor<?x?xf32> {
+func.func @test_get_dim_size_max(%arg0: tensor<?x?xf32> {plan.shape_bounds=#profile0}, %arg1: tensor<?x?xf32> {plan.shape_bounds=#profile1}) -> tensor<?x?xf32> {
   %c1 = arith.constant 1 : index
   %c0 = arith.constant 0 : index
   %0 = stablehlo.constant dense<0.000000e+00> : tensor<1x1xf32>
@@ -245,7 +245,7 @@ func.func @test_get_dim_size_max(%arg0: tensor<?x?xf32> {plan.shape_profile=#pro
 #profile1 = #plan.bounds<value, dense<[1]> : tensor<1xindex>, dense<[100]> : tensor<1xindex>>
 #profile2 = #plan.bounds<value, dense<[1]> : tensor<1xindex>, dense<[2]> : tensor<1xindex>>
 
-func.func @real_dynamic_slice(%arg0: tensor<?xf32> {plan.shape_profile = #profile0},
+func.func @real_dynamic_slice(%arg0: tensor<?xf32> {plan.shape_bounds = #profile0},
                               %arg1: tensor<1xindex> {plan.value_bounds = #profile1},
                               %arg2: tensor<1xindex> {plan.value_bounds = #profile1},
                               %arg3: tensor<1xindex> {plan.value_bounds = #profile2}) -> tensor<?xf32> {
@@ -305,8 +305,8 @@ func.func @real_dynamic_slice(%arg0: tensor<?xf32> {plan.shape_profile = #profil
 #profile0 = #plan.bounds<shape, [1, 128, 128], [4, 512, 512]>
 #profile1 = #plan.bounds<shape, [1, 128, 128], [4, 512, 512]>
 
-func.func @dot_general_c12(%arg0: tensor<?x?x?xf32> {plan.shape_profile = #profile0},
-                           %arg1: tensor<?x?x?xf32> {plan.shape_profile = #profile1})
+func.func @dot_general_c12(%arg0: tensor<?x?x?xf32> {plan.shape_bounds = #profile0},
+                           %arg1: tensor<?x?x?xf32> {plan.shape_bounds = #profile1})
                           -> tensor<?x?x?xf32> {
   %c2 = arith.constant 2 : index
   %c0 = arith.constant 0 : index
@@ -352,7 +352,7 @@ func.func @dot_general_c12(%arg0: tensor<?x?x?xf32> {plan.shape_profile = #profi
 #profile0 = #plan.bounds<shape, [1], [100]>
 #profile1 = #plan.bounds<value, dense<1> : tensor<1xindex>, dense<2> : tensor<1xindex>>
 
-func.func @dynamic_pad(%arg0: tensor<?xf32> {plan.shape_profile = #profile0},
+func.func @dynamic_pad(%arg0: tensor<?xf32> {plan.shape_bounds = #profile0},
                        %arg1: tensor<f32>,
                        %arg2: tensor<1xindex> {plan.value_bounds = #profile1},
                        %arg3: tensor<1xindex> {plan.value_bounds = #profile1},
@@ -420,7 +420,7 @@ func.func @dynamic_pad(%arg0: tensor<?xf32> {plan.shape_profile = #profile0},
 
 #profile0 = #plan.bounds<shape, [1], [6]>
 
-func.func @broadcast(%arg0: tensor<?xi32> {plan.shape_profile = #profile0}) -> tensor<1x2x?xi32> {
+func.func @broadcast(%arg0: tensor<?xi32> {plan.shape_bounds = #profile0}) -> tensor<1x2x?xi32> {
   %c0 = arith.constant 0 : index
   %c2 = arith.constant 2 : index
   %c1 = arith.constant 1 : index
@@ -437,7 +437,7 @@ func.func @broadcast(%arg0: tensor<?xi32> {plan.shape_profile = #profile0}) -> t
 
 #profile0 = #plan.bounds<shape, [1, 2, 3, 4], [4, 8, 12, 16]>
 
-func.func @transpose(%arg0: tensor<?x?x?x?xi32> {plan.shape_profile = #profile0}) -> tensor<?x?x?x?xi32> {
+func.func @transpose(%arg0: tensor<?x?x?x?xi32> {plan.shape_bounds = #profile0}) -> tensor<?x?x?x?xi32> {
   %c2 = arith.constant 2 : index
   %c3 = arith.constant 3 : index
   %c0 = arith.constant 0 : index
@@ -529,8 +529,8 @@ func.func @dynamic_iota(%arg0: tensor<1xindex> {plan.value_bounds = #profile0}) 
 #profile2 = #plan.bounds<shape, [2, 1, 4], [2, 6, 4]>
 
 func.func @add_dynamic(%arg0: tensor<i64> {plan.value_bounds = #profile0},
-                       %arg1: tensor<?x4xf32> {plan.shape_profile = #profile1},
-                       %arg2: tensor<2x?x4xf32> {plan.shape_profile = #profile2}) -> tensor<2x?x4xf32> {
+                       %arg1: tensor<?x4xf32> {plan.shape_bounds = #profile1},
+                       %arg2: tensor<2x?x4xf32> {plan.shape_bounds = #profile2}) -> tensor<2x?x4xf32> {
   %c2 = arith.constant 2 : index
   %c4 = arith.constant 4 : index
   %c1 = arith.constant 1 : index
@@ -600,7 +600,7 @@ func.func @add_dynamic(%arg0: tensor<i64> {plan.value_bounds = #profile0},
 func.func @collapse_dynamic(%arg0: tensor<i64> {plan.value_bounds = #profile0},
                             %arg1: tensor<i64> {plan.value_bounds = #profile0},
                             %arg2: tensor<i64> {plan.value_bounds = #profile0},
-                            %arg3: tensor<?x?x5x?x7xf32> {plan.shape_profile = #profile1}) -> tensor<?x?x7xf32> {
+                            %arg3: tensor<?x?x5x?x7xf32> {plan.shape_bounds = #profile1}) -> tensor<?x?x7xf32> {
   %c7 = arith.constant 7 : index
   %c5 = arith.constant 5 : index
   %0 = stablehlo.constant dense<7> : tensor<1xi32>
@@ -693,7 +693,7 @@ func.func @collapse_dynamic(%arg0: tensor<i64> {plan.value_bounds = #profile0},
 #profile0 = #plan.bounds<shape, [1], [10]>
 #profile1 = #plan.bounds<value, dense<2> : tensor<index>, dense<6> : tensor<index>>
 
-func.func @test_separated(%arg0: tensor<?xf32> {plan.shape_profile = #profile0},
+func.func @test_separated(%arg0: tensor<?xf32> {plan.shape_bounds = #profile0},
                           %arg1: index {plan.value_bounds  = #profile1})
     -> tensor<?xf32> {
   %c0 = arith.constant 0 : index
@@ -755,7 +755,7 @@ func.func @test_separated(%arg0: tensor<?xf32> {plan.shape_profile = #profile0},
 
 #profile0 = #plan.bounds<shape, [1], [1]>
 
-func.func @test_unneeded_dynamism(%arg0: tensor<?xf32> {plan.shape_profile = #profile0}) -> tensor<?xf32> {
+func.func @test_unneeded_dynamism(%arg0: tensor<?xf32> {plan.shape_bounds = #profile0}) -> tensor<?xf32> {
   %0 = stablehlo.constant dense<[1]> : tensor<1xi32>
   %c1 = arith.constant 1 : index
   %1 = plan.inline_group target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>) -> tensor<?xf32> {
@@ -797,8 +797,8 @@ func.func @test_unneeded_dynamism(%arg0: tensor<?xf32> {plan.shape_profile = #pr
 // Connected regions verifies that the bounds analysis result is correctly updated
 // as we rewrite the IR.
 
-func.func @test_connected_regions(%arg0: tensor<?xf32> {plan.shape_profile = #profile0},
-                                  %arg1: tensor<?xf32> {plan.shape_profile = #profile1})
+func.func @test_connected_regions(%arg0: tensor<?xf32> {plan.shape_bounds = #profile0},
+                                  %arg1: tensor<?xf32> {plan.shape_bounds = #profile1})
     -> tensor<?xf32> {
   %c0 = arith.constant 0 : index
   %dim = tensor.dim %arg0, %c0 : tensor<?xf32>
@@ -892,7 +892,7 @@ func.func @test_connected_regions_host_values(
 // -----
 
 
-func.func @shape_calc(%arg0: tensor<?xf32> {plan.shape_profile = #plan.bounds<shape,
+func.func @shape_calc(%arg0: tensor<?xf32> {plan.shape_bounds = #plan.bounds<shape,
 [1], [4]>},
                       %arg1: tensor<2xi32> {plan.value_bounds = #plan.bounds<value, dense<[1, 1]> : tensor<2xi32>, dense<[2, 2]> : tensor<2xi32>>},
                       %arg2: tensor<2xi32> {plan.value_bounds = #plan.bounds<value, dense<[1, 1]> : tensor<2xi32>, dense<[2, 2]> : tensor<2xi32>>})

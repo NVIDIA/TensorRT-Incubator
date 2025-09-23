@@ -4,7 +4,7 @@
 
 #profile0 = #plan.bounds<shape, [1, 10], [40, 10]>
 
-func.func @test_outline_closed_alloc_group(%arg0: tensor<?x10xf32> {plan.shape_profile=#profile0}) -> tensor<?x10xf32> {
+func.func @test_outline_closed_alloc_group(%arg0: tensor<?x10xf32> {plan.shape_bounds=#profile0}) -> tensor<?x10xf32> {
   %0 = plan.inline_closed_alloc_group
         target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>)
         inputs(%arg0 : tensor<?x10xf32>)
@@ -21,7 +21,7 @@ func.func @test_outline_closed_alloc_group(%arg0: tensor<?x10xf32> {plan.shape_p
 }
 
 // CHECK-LABEL: func.func @test_outline_closed_alloc_group
-//  CHECK-SAME: (%[[arg0:.+]]: tensor<?x10xf32> {plan.shape_profile = #plan.bounds<shape, [1, 10], [40, 10]>}) -> tensor<?x10xf32>
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<?x10xf32> {plan.shape_bounds = #plan.bounds<shape, [1, 10], [40, 10]>}) -> tensor<?x10xf32>
 //  CHECK-NEXT:   %[[v0:.+]] = tensorrt.call_alloc @trt_engines::@tensorrt_cluster(%[[arg0]] : tensor<?x10xf32>) -> tensor<?x10xf32>
 //  CHECK-NEXT:   return %[[v0]] : tensor<?x10xf32>
 //       CHECK: tensorrt.module @trt_engines

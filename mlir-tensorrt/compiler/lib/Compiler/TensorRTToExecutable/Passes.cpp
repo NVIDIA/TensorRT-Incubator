@@ -185,7 +185,7 @@ outlineOp(RewriterBase &rewriter, tensorrt::TensorRTModuleOp trtModule,
       mlir::tensorrt::TensorRTDialect::getShapeTensorValueBoundsArgAttrName();
   StringRef hostTensorAttrName = mlir::getHostTensorArgAttrName();
   StringRef memorySpaceAttrName =
-      plan::PlanDialect::getMemorySpaceConstraintAttrName();
+      plan::PlanDialect::kMemorySpaceConstraintAttrName;
 
   for (Value v : inputs) {
     auto rtt = dyn_cast<RankedTensorType>(v.getType());

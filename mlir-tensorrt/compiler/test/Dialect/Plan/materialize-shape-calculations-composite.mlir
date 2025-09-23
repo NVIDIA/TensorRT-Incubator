@@ -80,7 +80,7 @@ func.func private @pt_q(%arg0: tensor<?x3x?x?xf32>) -> tensor<?x3x?x?xi8> attrib
 //  SHAPE-SAME: (%[[arg0:.+]]: index {plan.shape_func_arg = {argument = 0 : index, dimension = 0 : index}},
 //  SHAPE-SAME:  %[[arg1:.+]]: index {plan.shape_func_arg = {argument = 0 : index, dimension = 2 : index}},
 //  SHAPE-SAME:  %[[arg2:.+]]: index {plan.shape_func_arg = {argument = 0 : index, dimension = 3 : index}})
-//  SHAPE-SAME:  -> (index, index, index, index) attributes {plan.shapes_func_marker = "plan.shapes_func_marker"} {
+//  SHAPE-SAME:  -> (index, index, index, index) attributes {plan.shapes_func_marker} {
 //       SHAPE:     %[[c3:.+]] = arith.constant 3 : index
 //       SHAPE:     return %[[arg0]], %[[c3]], %[[arg1]], %[[arg2]] : index, index, index, index
 //       SHAPE:   }

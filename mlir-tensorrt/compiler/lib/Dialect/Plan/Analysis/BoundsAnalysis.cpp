@@ -138,7 +138,7 @@ void ShapeBoundsForwardAnalysis::setToEntryState(ShapeBoundsLattice *lattice) {
 
   std::optional<BoundsAttrInterface> shapeProfile =
       maybeGetFunctionArgBound<BoundsAttrInterface>(
-          lattice->getAnchor(), plan::PlanDialect::getShapeBoundsAttrName());
+          lattice->getAnchor(), plan::PlanDialect::kShapeBoundsAttrName);
 
   if (!shapeProfile)
     return propagateIfChanged(lattice, lattice->join(BoundsArray()));
@@ -324,7 +324,7 @@ maybeGetValueBounds(Value value, ArrayRef<uint64_t> coordinate = {}) {
   assert(elType.isSignlessIntOrIndex() && "expected integer or index type");
   std::optional<BoundsAttrInterface> bound =
       maybeGetFunctionArgBound<BoundsAttrInterface>(
-          value, plan::PlanDialect::getValueBoundsAttrName());
+          value, plan::PlanDialect::kValueBoundsAttrName);
   if (!bound)
     return {};
 
@@ -432,7 +432,7 @@ static void inferResultRanges(tensor::DimOp dimOp,
   // bounds.
   std::optional<BoundsAttrInterface> shapeProfile =
       maybeGetFunctionArgBound<BoundsAttrInterface>(
-          dimOp.getSource(), plan::PlanDialect::getShapeBoundsAttrName());
+          dimOp.getSource(), plan::PlanDialect::kShapeBoundsAttrName);
   if (!shapeProfile)
     return setResultRanges(dimOp.getResult(), getMaxDimRange());
 
@@ -498,7 +498,7 @@ void ShapeIntegerRangeAnalysis::setToEntryState(
 
   std::optional<BoundsAttrInterface> shapeProfile =
       maybeGetFunctionArgBound<BoundsAttrInterface>(
-          lattice->getAnchor(), plan::PlanDialect::getValueBoundsAttrName());
+          lattice->getAnchor(), plan::PlanDialect::kValueBoundsAttrName);
   std::optional<ConstantIntRanges> intRange =
       shapeProfile ? shapeProfile->getIntegerValueRange() : std::nullopt;
   if (!intRange) {
@@ -603,7 +603,7 @@ void TensorValueBoundsAnalysis::setToEntryState(
 
   std::optional<BoundsAttrInterface> shapeProfile =
       maybeGetFunctionArgBound<BoundsAttrInterface>(
-          point, plan::PlanDialect::getValueBoundsAttrName());
+          point, plan::PlanDialect::kValueBoundsAttrName);
   if (!shapeProfile)
     return propagateIfChanged(lattice, lattice->join(BoundsArray()));
 

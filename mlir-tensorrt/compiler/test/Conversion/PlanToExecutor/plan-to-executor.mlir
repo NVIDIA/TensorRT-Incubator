@@ -82,9 +82,9 @@ func.func @convert_extract(%arg0: tensor<2xf32, #plan.memory_space<host>>) -> f3
 
 // -----
 
-func.func @bounds_attr_conversion(%arg0: tensor<?x?xf32> {plan.shape_profile = #plan.bounds<shape, [10, 10], [30, 30]>},
+func.func @bounds_attr_conversion(%arg0: tensor<?x?xf32> {plan.shape_bounds = #plan.bounds<shape, [10, 10], [30, 30]>},
                         %arg1: tensor<2xi32> {plan.value_bounds = #plan.bounds<value, dense<[2, 2]>:tensor<2xi32>,dense<[10, 10]>:tensor<2xi32>>})
-                        -> (tensor<?x?xf32> {plan.shape_profile = #plan.bounds<shape, [10, 10], [30, 30]>},
+                        -> (tensor<?x?xf32> {plan.shape_bounds = #plan.bounds<shape, [10, 10], [30, 30]>},
                             tensor<2xi32> {plan.value_bounds = #plan.bounds<value, dense<2> : tensor<1xi32>, dense<10> : tensor<1xi32>>}) {
   return %arg0, %arg1 : tensor<?x?xf32>, tensor<2xi32>
 }

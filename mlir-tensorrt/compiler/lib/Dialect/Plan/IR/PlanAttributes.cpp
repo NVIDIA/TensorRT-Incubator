@@ -520,41 +520,85 @@ static LogicalResult verifyBoundsAttribute(Operation *op, unsigned argIndex,
       [&]() -> InFlightDiagnostic { return op->emitOpError(); });
 }
 
+LogicalResult PlanDialect::verifyOperationAttribute(Operation *op,
+                                                    NamedAttribute attribute) {
+  if (attribute.getName() == PlanDialect::kBackendsAttrName) {
+    auto backendsAttr = dyn_cast<ArrayAttr>(attribute.getValue());
+    if (!backendsAttr)
+      return op->emitError()
+             << PlanDialect::kBackendsAttrName << " must be an array attribute";
+    if (!isa<ModuleOp>(op))
+      return op->emitError() << PlanDialect::kBackendsAttrName
+                             << " must be attached to a module";
+    return success();
+  }
+  if (attribute.getName() == PlanDialect::kShapeFuncAttrName) {
+    auto funcOp = dyn_cast<FunctionOpInterface>(op);
+    if (!funcOp)
+      return op->emitError() << PlanDialect::kShapeFuncAttrName
+                             << " must be attached to a function";
+    if (!isa<FlatSymbolRefAttr>(attribute.getValue()))
+      return op->emitError() << PlanDialect::kShapeFuncAttrName
+                             << " must be a FlatSymbolRefAttr";
+    return success();
+  }
+  if (attribute.getName() == PlanDialect::kShapeFuncMarkerAttrName) {
+    auto funcOp = dyn_cast<FunctionOpInterface>(op);
+    if (!funcOp)
+      return op->emitError() << PlanDialect::kShapeFuncMarkerAttrName
+                             << " must be attached to a function";
+    if (!isa<UnitAttr>(attribute.getValue()))
+      return op->emitError()
+             << PlanDialect::kShapeFuncMarkerAttrName << " must be a UnitAttr";
+    return success();
+  }
+  return success();
+}
+
 LogicalResult PlanDialect::verifyRegionArgAttribute(Operation *op,
                                                     unsigned regionIndex,
                                                     unsigned argIndex,
                                                     NamedAttribute attribute) {
-  if (attribute.getName() == getValueBoundsAttrName()) {
+  if (attribute.getName() == PlanDialect::kValueBoundsAttrName) {
     auto boundsAttr = dyn_cast<BoundsAttr>(attribute.getValue());
     if (!boundsAttr || !boundsAttr.isValueBound())
       return op->emitError()
-             << "expected named attribute \"" << getValueBoundsAttrName()
+             << "expected named attribute \""
+             << PlanDialect::kValueBoundsAttrName
              << "\" to be a \"#plan.bounds\" attribute containing value bounds";
 
     return verifyBoundsAttribute(op, argIndex, boundsAttr, attribute.getName());
   }
 
-  if (attribute.getName() == getShapeBoundsAttrName()) {
+  if (attribute.getName() == PlanDialect::kFuncTargetKind) {
+    auto funcOp = dyn_cast<FunctionOpInterface>(op);
+    if (!funcOp)
+      return op->emitError() << PlanDialect::kFuncTargetKind
+                             << " must decorate a function argument";
+    return success();
+  }
+
+  if (attribute.getName() == PlanDialect::kShapeBoundsAttrName) {
     auto boundsAttr = dyn_cast<BoundsAttr>(attribute.getValue());
     if (!boundsAttr || !boundsAttr.isShapeBound())
       return op->emitError()
-             << "expected named attribute \"" << getShapeBoundsAttrName()
+             << "expected named attribute \""
+             << PlanDialect::kShapeBoundsAttrName
              << "\" to be a \"#plan.bounds\" attribute containing shape bounds";
     return verifyBoundsAttribute(op, argIndex, boundsAttr, attribute.getName());
   }
 
-  if (attribute.getName() == getDonationAttrName()) {
+  if (attribute.getName() == PlanDialect::kDonationArgAttrName) {
     auto funcOp = dyn_cast<FunctionOpInterface>(op);
     if (!funcOp)
-      return op->emitError()
-             << getDonationAttrName() << " must decorate a function argument";
+      return op->emitError() << PlanDialect::kDonationArgAttrName
+                             << " must decorate a function argument";
     // Check attribute has i32 value
     auto resultIdx =
         funcOp.getArgAttrOfType<IntegerAttr>(argIndex, attribute.getName());
     if (!resultIdx || !resultIdx.getType().isInteger(32))
-      return op->emitError() << "expected" << getDonationAttrName()
-                             << " `plan.aliasing_output` attribute "
-                                "to have i32 value";
+      return op->emitError() << "expected " << PlanDialect::kDonationArgAttrName
+                             << " attribute to have i32 value";
   }
 
   return success();

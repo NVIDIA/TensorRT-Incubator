@@ -18,6 +18,7 @@ def Plan_Dialect : Dialect {
   let cppNamespace = "::mlir::plan";
 
   let hasRegionArgAttrVerify = 1;
+  let hasOperationAttrVerify = 1;
 
   let extraClassDeclaration = [{
 
@@ -39,8 +40,8 @@ def Plan_Dialect : Dialect {
     static constexpr llvm::StringLiteral kBackendsAttrName = "plan.backends";
 
     /// The name of the function argument attribute that indicates an argument
-    /// is tied with a result. Arguments tagged in this manner are associated
-    /// with results based on the order in the argument list.
+    /// is tied with a result. The value should be an integer indicating
+    /// the original result index.
     static constexpr StringRef kResultArgAttrName = "plan.result_arg";
 
     /// The name of the function argument attribute that hints donated argument.
@@ -81,28 +82,16 @@ def Plan_Dialect : Dialect {
 
     /// Return the name of the function arg/result attributes that encode
     /// host tensor value bounds. It should have a type `plan::BoundsAttr`.
-    static StringRef getValueBoundsAttrName() {
-      return "plan.value_bounds";
-    }
+    static constexpr StringRef kValueBoundsAttrName = "plan.value_bounds";
 
     /// Return the name of the function arg/result attributes that encode
     /// the shape bounds. It should have a type `plan::BoundsAttr`.
-    static StringRef getShapeBoundsAttrName() {
-      return "plan.shape_profile";
-    }
+    static constexpr StringRef kShapeBoundsAttrName = "plan.shape_bounds";
 
     /// Return the name of the attribute used to encode memory space
     /// constraints. It should appear in function attributes or in
     /// function arg/result attribute dictionaries.
-    static StringRef getMemorySpaceConstraintAttrName() {
-      return "plan.memory_space";
-    }
-
-    /// Return the name of attribute used to encode donation information.
-    static StringRef getDonationAttrName() {
-      return "plan.aliasing_output";
-    }
-
+    static constexpr StringRef kMemorySpaceConstraintAttrName = "plan.memory_space";
 
   private:
     ::llvm::StringMap<AttrParsingHook> attrParsingHooks;

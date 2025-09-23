@@ -44,8 +44,8 @@ func.func @test_forward_backward(%arg0: tensor<?xf32>, %arg1: index {plan.value_
 #profile0 = #plan.bounds<shape, [1, 128, 128], [4, 512, 512]>
 #profile1 = #plan.bounds<shape, [1, 128, 128], [4, 512, 512]>
 
-func.func @dot_general_c12(%arg0: tensor<?x?x?xf32> {plan.shape_profile = #profile0},
-                           %arg1: tensor<?x?x?xf32> {plan.shape_profile = #profile1})
+func.func @dot_general_c12(%arg0: tensor<?x?x?xf32> {plan.shape_bounds = #profile0},
+                           %arg1: tensor<?x?x?xf32> {plan.shape_bounds = #profile1})
                           -> tensor<?x?x?xf32> {
   %c2 = arith.constant 2 : index
   %c0 = arith.constant 0 : index
@@ -79,7 +79,7 @@ func.func @dot_general_c12(%arg0: tensor<?x?x?xf32> {plan.shape_profile = #profi
 
 #profile0 = #plan.bounds<shape, [1], [1]>
 
-func.func @test_unneeded_dynamism(%arg0: tensor<?xf32> {plan.shape_profile = #profile0}) -> tensor<?xf32> {
+func.func @test_unneeded_dynamism(%arg0: tensor<?xf32> {plan.shape_bounds = #profile0}) -> tensor<?xf32> {
   %0 = stablehlo.constant dense<[1]> : tensor<1xi32>
   %c1 = arith.constant 1 : index
   %1 = plan.inline_group target(#plan.tensorrt_backend<benefit=1, disallow_shape_tensor_calculations=false>) -> tensor<?xf32> {
@@ -108,7 +108,7 @@ func.func @test_loop_concat(
     %arg1: tensor<1xi32>
       {plan.value_bounds = #plan.bounds<value, dense<[1]> : tensor<1xi32>, dense<[4]> : tensor<1xi32>>},
     %arg2: tensor<?xf32>
-      {plan.shape_profile = #plan.bounds<shape, [2], [6]>})
+      {plan.shape_bounds = #plan.bounds<shape, [2], [6]>})
     -> tensor<?xf32> {
   %c0 = arith.constant 0 : index
   %c1 = arith.constant 1 : index
@@ -151,7 +151,7 @@ func.func @test_loop_concat(
 #profile0 = #plan.bounds<shape, [1], [10]>
 #profile1 = #plan.bounds<value, dense<2> : tensor<index>, dense<6> : tensor<index>>
 
-func.func @test_separated(%arg0: tensor<?xf32> {plan.shape_profile = #profile0},
+func.func @test_separated(%arg0: tensor<?xf32> {plan.shape_bounds = #profile0},
                           %arg1: index {plan.value_bounds  = #profile1})
     -> tensor<?xf32> {
   %c0 = arith.constant 0 : index
@@ -192,7 +192,7 @@ func.func @test_separated(%arg0: tensor<?xf32> {plan.shape_profile = #profile0},
 #profile0 = #plan.bounds<shape, [1], [40]>
 #profile1 = #plan.bounds<value, dense<[1, 1]> : tensor<2xi32>, dense<[40, 40]> : tensor<2xi32>>
 
-func.func @test_reshape(%arg0: tensor<?xf32> {plan.shape_profile = #profile0},
+func.func @test_reshape(%arg0: tensor<?xf32> {plan.shape_bounds = #profile0},
                         %arg1: tensor<2xi32> {plan.value_bounds = #profile1}) -> tensor<?x?xf32> {
   %c1 = arith.constant 1 : index
   %c0 = arith.constant 0 : index

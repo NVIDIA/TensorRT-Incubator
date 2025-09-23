@@ -164,9 +164,9 @@ static void convertArgAndResultAttrs(OpBuilder &b, func::FuncOp op) {
       mlir::executor::ExecutorDialect::getValueBoundsAttrName();
 
   StringRef planShapeBoundsAttrName =
-      mlir::plan::PlanDialect::getShapeBoundsAttrName();
+      mlir::plan::PlanDialect::kShapeBoundsAttrName;
   StringRef planValueBoundsAttrName =
-      mlir::plan::PlanDialect::getValueBoundsAttrName();
+      mlir::plan::PlanDialect::kValueBoundsAttrName;
 
   for (unsigned idx = 0; idx < op.getNumArguments(); idx++) {
     if (auto attr = op.getArgAttr(idx, planShapeBoundsAttrName)) {

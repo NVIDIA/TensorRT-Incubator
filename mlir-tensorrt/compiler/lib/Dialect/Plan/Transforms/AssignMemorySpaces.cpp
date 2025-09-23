@@ -223,8 +223,8 @@ private:
   Type convertFuncSignatureElement(Type type, DictionaryAttr dict) const {
     if (auto rtt = dyn_cast<RankedTensorType>(type)) {
       if (auto constraint =
-              dict ? dyn_cast_if_present<plan::MemorySpaceAttr>(dict.get(
-                         PlanDialect::getMemorySpaceConstraintAttrName()))
+              dict ? dyn_cast_if_present<plan::MemorySpaceAttr>(
+                         dict.get(PlanDialect::kMemorySpaceConstraintAttrName))
                    : nullptr)
         return rtt.cloneWithEncoding(constraint);
       if (auto existing =
@@ -380,14 +380,14 @@ static plan::MemorySpace getFuncitonDefaultEncoding(func::FuncOp func) {
   // The `plan.memory_space` attribute takes precedence over the cluster kind
   // default memory space.
   if (auto constraintOverride = func->getAttrOfType<plan::MemorySpaceAttr>(
-          plan::PlanDialect::getMemorySpaceConstraintAttrName()))
+          plan::PlanDialect::kMemorySpaceConstraintAttrName))
     return constraintOverride.getValue();
   if (auto clusterKindAttr = func->getAttrOfType<CompilerBackendAttrInterface>(
           plan::PlanDialect::kFuncTargetKind))
     return clusterKindAttr.getDefaultMemorySpace();
   if (auto parentModule = func->getParentWithTrait<OpTrait::SymbolTable>())
     if (auto constraint = parentModule->getAttrOfType<plan::MemorySpaceAttr>(
-            plan::PlanDialect::getMemorySpaceConstraintAttrName()))
+            plan::PlanDialect::kMemorySpaceConstraintAttrName))
       return constraint.getValue();
   return plan::MemorySpace::device;
 }

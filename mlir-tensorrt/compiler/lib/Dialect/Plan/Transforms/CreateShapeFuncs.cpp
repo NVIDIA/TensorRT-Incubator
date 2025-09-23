@@ -528,7 +528,7 @@ static FailureOr<func::FuncOp> createAggregateShapeFunc(
 
   // Mark the function as having default memory space of 'host'
   aggregateShapeFunc->setAttr(
-      PlanDialect::getMemorySpaceConstraintAttrName(),
+      PlanDialect::kMemorySpaceConstraintAttrName,
       plan::MemorySpaceAttr::get(rewriter.getContext(), MemorySpace::host));
 
   return aggregateShapeFunc;
@@ -601,11 +601,8 @@ public:
             rewriter, withOp.getLoc(), shapeClusterMap[withOp], withOp,
             shapeFuncName);
 
-        mlir::Attribute shapeFuncMarker = mlir::StringAttr::get(
-            rewriter.getContext(), PlanDialect::kShapeFuncMarkerAttrName);
-
         shapeFunc->setAttr(PlanDialect::kShapeFuncMarkerAttrName,
-                           shapeFuncMarker);
+                           UnitAttr::get(rewriter.getContext()));
 
         symbolTable.insert(shapeFunc, op.end());
         funcs.push_back(shapeFunc);
@@ -635,11 +632,9 @@ public:
       if (failed(aggShapeFunc))
         continue;
 
-      mlir::Attribute shapeFuncMarker = mlir::StringAttr::get(
-          rewriter.getContext(), PlanDialect::kShapeFuncMarkerAttrName);
-
       (*aggShapeFunc)
-          ->setAttr(PlanDialect::kShapeFuncMarkerAttrName, shapeFuncMarker);
+          ->setAttr(PlanDialect::kShapeFuncMarkerAttrName,
+                    UnitAttr::get(rewriter.getContext()));
       if (failed(aggShapeFunc))
         continue;
 

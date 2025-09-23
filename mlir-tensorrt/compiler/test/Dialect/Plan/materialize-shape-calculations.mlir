@@ -110,7 +110,7 @@ func.func @test_get_dim_size_max(%arg0: tensor<?x?xf32>, %arg1: tensor<?x?xf32>)
 //   CHECK-DAG:     return %[[v15]] : tensor<?x?xf32>
 
 // SHAPE-LABEL: func.func private @shape_test_get_dim_size_max_result_0
-//  SHAPE-SAME: (%[[arg0:.+]]: index {plan.shape_func_arg = {argument = 0 : index, dimension = 0 : index}}, %[[arg1:.+]]: index {plan.shape_func_arg = {argument = 0 : index, dimension = 1 : index}}, %[[arg2:.+]]: index {plan.shape_func_arg = {argument = 1 : index, dimension = 0 : index}}, %[[arg3:.+]]: index {plan.shape_func_arg = {argument = 1 : index, dimension = 1 : index}}) -> (i32, i32) attributes {plan.shapes_func_marker = "plan.shapes_func_marker"} {
+//  SHAPE-SAME: (%[[arg0:.+]]: index {plan.shape_func_arg = {argument = 0 : index, dimension = 0 : index}}, %[[arg1:.+]]: index {plan.shape_func_arg = {argument = 0 : index, dimension = 1 : index}}, %[[arg2:.+]]: index {plan.shape_func_arg = {argument = 1 : index, dimension = 0 : index}}, %[[arg3:.+]]: index {plan.shape_func_arg = {argument = 1 : index, dimension = 1 : index}}) -> (i32, i32) attributes {plan.shapes_func_marker} {
 //   SHAPE-DAG:     %[[v0:.+]] = arith.index_cast %[[arg0]] : index to i32
 //   SHAPE-DAG:     %[[v1:.+]] = arith.index_cast %[[arg1]] : index to i32
 //   SHAPE-DAG:     %[[v2:.+]] = arith.index_cast %[[arg2]] : index to i32
@@ -793,7 +793,7 @@ func.func @zero_slice_slice(%arg4: tensor<1xi32>,
 //  CHECK-SAME:  %[[arg1:[a-zA-Z0-9]+]]: tensor<1xi32> {plan.value_bounds = #plan.bounds<value, dense<1> : tensor<1xi32>, dense<1> : tensor<1xi32>>},
 //  CHECK-SAME:  %[[arg2:[a-zA-Z0-9]+]]: tensor<1xi32> {plan.value_bounds = #plan.bounds<value, dense<1> : tensor<1xi32>, dense<1> : tensor<1xi32>>},
 //  CHECK-SAME:  %[[arg3:[a-zA-Z0-9]+]]: tensor<1xi32> {plan.value_bounds = #plan.bounds<value, dense<1> : tensor<1xi32>, dense<1> : tensor<1xi32>>},
-//  CHECK-SAME:  %[[arg4:[a-zA-Z0-9]+]]: tensor<1xi32> {plan.shape_profile = #plan.bounds<shape, [1], [1]>})
+//  CHECK-SAME:  %[[arg4:[a-zA-Z0-9]+]]: tensor<1xi32> {plan.shape_bounds = #plan.bounds<shape, [1], [1]>})
 //       CHECK-DAG:     %[[c1:.+]] = arith.constant 1 : index
 //       CHECK-DAG:     %[[c1_i32:.+]] = arith.constant 1 : i32
 //       CHECK-DAG:     %[[c0:.+]] = arith.constant 0 : index
@@ -1049,7 +1049,7 @@ func.func @dynamic_gather_simplify(%arg0: tensor<?x?xf16>, %arg1: tensor<?xi32>,
 }
 
 // CHECK-LABEL: func.func @dynamic_gather_simplify
-//  CHECK-SAME: (%[[arg0:.+]]: tensor<?x?xf16>, %[[arg1:.+]]: tensor<?xi32>, %[[arg2:.+]]: tensor<?x?xf16> {plan.shape_profile = #plan.bounds<shape, [1, 3], [1, 3]>})
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<?x?xf16>, %[[arg1:.+]]: tensor<?xi32>, %[[arg2:.+]]: tensor<?x?xf16> {plan.shape_bounds = #plan.bounds<shape, [1, 3], [1, 3]>})
 //   CHECK-DAG:     %[[c3_i32:.+]] = arith.constant 3 : i32
 //   CHECK-DAG:     %[[c1:.+]] = arith.constant 1 : index
 //   CHECK-DAG:     %[[c0:.+]] = arith.constant 0 : index
