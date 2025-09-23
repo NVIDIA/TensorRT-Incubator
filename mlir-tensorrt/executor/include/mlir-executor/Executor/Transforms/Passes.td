@@ -8,6 +8,45 @@ class ModuleLikePass<string passArg>
   : PassBase<passArg, "::mlir::ModuleLikePass">;
 
 //===----------------------------------------------------------------------===//
+// ExecutorLowerAggregatesAtFunctionBoundariesPass
+//===----------------------------------------------------------------------===//
+
+def ExecutorLowerAggregatesAtFunctionBoundariesPass :
+      ModuleLikePass<"executor-lower-aggregates-at-function-boundaries"> {
+  let summary = "lowers aggregates at function boundaries";
+
+  let description = [{
+    This pass lowers aggregates at function boundaries.
+
+    There are three possible lowering modes:
+
+    1. `direct`: Lower aggregates at function boundaries by passing
+        aggregates by-value. If this option is specified, the pass
+        has no effect; the IR is left unchanged.
+
+    2. `indirect`: Lower aggregates at function boundaries by passing
+        aggregates through indirect buffers. At call sites, we use
+        stack-allocated buffers (alloca) to hold the aggregate.
+        Aggregate results are promoted to destination pointer
+        operands and the caller must allocate that memory.
+
+    3. `unpacked`: Lower aggregates at function boundaries by passing
+       them as a flat list of scalars. This expands all aggregates into
+       many scalar arguments or results.
+
+    If `indirect` or `unpacked` mode is specified, then the pass
+    also inserts `executor.result` arguments to specify the original
+    result index of the function prior to modification.
+  }];
+
+  let options = [
+    Option<"mode", "mode", "std::string", "\"indirect\"",
+      "the mode in which to lower aggregates at function boundaries">
+  ];
+}
+
+
+//===----------------------------------------------------------------------===//
 // ExecutorPopulateFunctionMetadataPass
 //===----------------------------------------------------------------------===//
 

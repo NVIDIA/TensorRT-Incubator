@@ -2,10 +2,11 @@ add_mlir_executor_library(MLIRTensorRTExecutorTransforms
   AllocsToGlobals.cpp
   DecomposeAggregateLoadsAndStores.cpp
   ExpandOps.cpp
+  LowerAggregatesAtFunctionBoundaries.cpp
   LowerGlobals.cpp
   LowerToRuntimeBuiltins.cpp
-  Passes.cpp
   PackArguments.cpp
+  Passes.cpp
   PopulateFunctionMetadata.cpp
   EmulateUnsupportedFloats.cpp
 
@@ -27,6 +28,7 @@ add_mlir_executor_library(MLIRTensorRTExecutorTransforms
   MLIRTensorRTConvertToExecutorCommon
   MLIRTensorRTExecutorDialect
   MLIRTensorRTExecutorUtils
+  MLIRTensorRTRuntimeExecutableInterface
   MLIRTensorRTStdToExecutor
   MLIRTensorTransforms
   )
