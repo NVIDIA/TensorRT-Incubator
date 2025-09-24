@@ -104,7 +104,7 @@ static TypedValue<TableType> createTableTypeFromValues(OpBuilder &builder,
   struct FrameInfo {
     TableType structType;
     ValueRange values;
-    TypeRange types;
+    ArrayRef<Type> types;
     SmallVector<Value> operands;
   };
 
@@ -113,9 +113,9 @@ static TypedValue<TableType> createTableTypeFromValues(OpBuilder &builder,
       FrameInfo{structType, values, structType.getBody(), {}}};
 
   while (!frames.empty()) {
-    FrameInfo &frame = frames.back();
     // Try to parse individual elements from the value list.
-    while (!frame.types.empty()) {
+    while (!frames.back().types.empty()) {
+      FrameInfo &frame = frames.back();
       Type t = frame.types.front();
       assert(!frame.values.empty() && "expected values");
       assert(!frame.types.empty() && "expected types");
@@ -135,22 +135,23 @@ static TypedValue<TableType> createTableTypeFromValues(OpBuilder &builder,
       break;
     }
     // If the current frame is done, pop it and create the `CreateTableOp`.
-    if (frame.types.empty()) {
+    if (frames.back().types.empty()) {
+      FrameInfo frame = frames.back();
+      frames.pop_back();
       assert(frame.operands.size() == frame.structType.getBody().size() &&
              "expected same number of operands and types");
       auto tableOp = builder.create<executor::CreateTableOp>(
           loc, frame.structType, frame.operands);
-      if (frames.size() > 1) {
+      if (!frames.empty()) {
         // Forward the result to the parent frame.
-        FrameInfo &parentFrame = frames[frames.size() - 2];
+        FrameInfo &parentFrame = frames.back();
         parentFrame.operands.push_back(tableOp.getResult());
         parentFrame.values = frame.values;
         parentFrame.types = parentFrame.types.drop_front();
-      } else if (frames.size() == 1) {
+      } else {
         // This is the root frame, return the result.
         return cast<TypedValue<TableType>>(tableOp.getResult());
       }
-      frames.pop_back();
     }
   }
   llvm_unreachable("expected to return a table type");
