@@ -53,6 +53,20 @@
 using namespace mtrt;
 
 //===----------------------------------------------------------------------===//
+// Device
+//===----------------------------------------------------------------------===//
+
+llvm::StringRef mtrt::getDeviceKindString(DeviceKind kind) {
+  switch (kind) {
+  case DeviceKind::GPU:
+    return "GPU";
+  case DeviceKind::GreenContext:
+    return "GreenContext";
+  }
+  llvm_unreachable("unhandled DeviceKind");
+}
+
+//===----------------------------------------------------------------------===//
 // RuntimeSessionOptions
 //===----------------------------------------------------------------------===//
 RuntimeSessionOptions::RuntimeSessionOptions(int32_t numDevices,
@@ -345,6 +359,36 @@ void ResourceTracker::track(uintptr_t ptr, Deleter deleter) {
 void ResourceTracker::untrack(uintptr_t ptr) { tracker.erase(ptr); }
 
 //===----------------------------------------------------------------------===//
+// GPUDeviceDescription
+//===----------------------------------------------------------------------===//
+
+GPUDeviceDescription::GPUDeviceDescription(HostId hostId,
+                                           HardwareId deviceNumber)
+    : DeviceDescription(DeviceKind::GPU, hostId), deviceNumber(deviceNumber) {}
+
+StatusOr<std::unique_ptr<GPUDeviceDescription>>
+GPUDeviceDescription::createFromLocal(HostId hostId, HardwareId deviceNumber) {
+  // Currently only single host is supported.
+  if (hostId != 0)
+    return getInternalErrorStatus("only single host is supported");
+
+  auto result = std::unique_ptr<GPUDeviceDescription>(
+      new GPUDeviceDescription(hostId, deviceNumber));
+  MTRT_ASSIGN_OR_RETURN(std::string name,
+                        mtrt::getCUDADeviceName(deviceNumber));
+  result->description =
+      llvm::formatv("cuda<id={0},host={1}>", deviceNumber, hostId).str();
+  result->debugString = llvm::formatv("cuda<id={0},host={1},name={2}>",
+                                      deviceNumber, hostId, name)
+                            .str();
+  return result;
+}
+
+llvm::StringRef GPUDeviceDescription::getString(bool verbose) const {
+  return verbose ? debugString : description;
+}
+
+//===----------------------------------------------------------------------===//
 // Device
 //===----------------------------------------------------------------------===//
 
@@ -415,64 +459,31 @@ private:
   /// objects.
   Device *device;
 };
-
-/// CUDA device implementation of the Device abstract class.
-class CUDADevice final : public Device {
-public:
-  ~CUDADevice() = default;
-  llvm::StringRef getDeviceKind() const final { return "cuda"; }
-  HardwareId getDeviceNumber() const final { return deviceNumber; }
-  StatusOr<std::unique_ptr<DeviceGuard>> createDeviceGuard() const final {
-    MTRT_ASSIGN_OR_RETURN(std::unique_ptr<DeviceGuard> deviceGuard,
-                          CUDAGPUDeviceGuard::create(deviceNumber));
-    return deviceGuard;
-  }
-  llvm::StringRef getDeviceName() const final { return deviceName; }
-
-  Ref<Stream> getStream() const final {
-    assert(stream && "expected valid stream");
-    return stream;
-  }
-
-  llvm::ThreadPoolInterface &getThreadPool() final {
-    assert(stream && "expected valid stream");
-    return threadPool;
-  }
-
-  static StatusOr<std::unique_ptr<Device>> create(HardwareId deviceNumber) {
-    auto result =
-        std::unique_ptr<CUDADevice>(new CUDADevice(deviceNumber, nullptr));
-    MTRT_ASSIGN_OR_RETURN(Ref<CUDAStream> stream,
-                          CUDAStream::create(result.get()));
-    result->stream = std::move(stream);
-    // Convert the pointer type to Device.
-    return StatusOr<std::unique_ptr<Device>>(std::move(result));
-  }
-
-protected:
-  CUDADevice(HardwareId deviceNumber, Ref<CUDAStream> stream)
-      : deviceNumber(deviceNumber), stream(std::move(stream)), threadPool() {
-    deviceName = llvm::formatv("cuda:{0}", deviceNumber).str();
-  }
-
-  const HardwareId deviceNumber;
-  std::string deviceName;
-
-  /// Reference the the stream associated with this device, and streams take a
-  /// back reference-by-pointer to the owning device. This is the initial
-  /// stream reference, but as the program runs references will also be taken by
-  /// potentially long-lived objects such as MemRefStorage.
-  /// RuntimeClient must always outlive all other objects, so the lifetime
-  /// of the Device should outlive any child stream associated with it.
-  Ref<CUDAStream> stream;
-
-  llvm::StdThreadPool threadPool;
-};
 } // namespace
 
+//===----------------------------------------------------------------------===//
+// CUDADevice
+//===----------------------------------------------------------------------===//
+
+StatusOr<std::unique_ptr<DeviceGuard>> CUDADevice::createDeviceGuard() const {
+  MTRT_ASSIGN_OR_RETURN(
+      std::unique_ptr<DeviceGuard> deviceGuard,
+      CUDAGPUDeviceGuard::create(description->getDeviceNumber()));
+  return deviceGuard;
+}
+
 StatusOr<std::unique_ptr<Device>>
-mtrt::createCUDADevice(HardwareId deviceNumber) {
-  return CUDADevice::create(deviceNumber);
+CUDADevice::createFromLocal(HostId hostId, HardwareId deviceNumber) {
+  MTRT_ASSIGN_OR_RETURN(
+      std::unique_ptr<GPUDeviceDescription> description,
+      GPUDeviceDescription::createFromLocal(hostId, deviceNumber));
+  auto result = std::unique_ptr<CUDADevice>(
+      new CUDADevice(std::move(description), nullptr));
+  MTRT_ASSIGN_OR_RETURN(Ref<CUDAStream> stream,
+                        CUDAStream::create(result.get()));
+  result->stream = std::move(stream);
+  // Convert the pointer type to Device.
+  return StatusOr<std::unique_ptr<Device>>(std::move(result));
 }
 
 //===----------------------------------------------------------------------===//
@@ -1240,8 +1251,9 @@ populateDevices(llvm::SmallVectorImpl<std::unique_ptr<Device>> &devices) {
     return getOkStatus();
   devices.reserve(*deviceCount);
   for (int32_t i = 0; i < *deviceCount; ++i) {
-    MTRT_ASSIGN_OR_RETURN(std::unique_ptr<Device> device,
-                          CUDADevice::create(HardwareId(i)));
+    MTRT_ASSIGN_OR_RETURN(
+        std::unique_ptr<Device> device,
+        CUDADevice::createFromLocal(HostId(0), HardwareId(i)));
     devices.push_back(std::move(device));
   }
   return getOkStatus();

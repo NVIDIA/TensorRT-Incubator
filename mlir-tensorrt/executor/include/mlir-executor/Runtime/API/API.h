@@ -39,6 +39,7 @@
 #include <complex>
 #include <memory>
 #include <mutex>
+#include <variant>
 
 namespace mtrt {
 
@@ -49,25 +50,6 @@ using RefCounted = llvm::ThreadSafeRefCountedBase<T>;
 
 template <typename T>
 using Ref = llvm::IntrusiveRefCntPtr<T>;
-
-///===---------------------------------------------------------------------===//
-// Device
-//===----------------------------------------------------------------------===//
-
-/// DeviceGuard is an abstract RAII handle that scopes a temporary activation
-/// of device-specific state (for example, making a device current). Concrete
-/// backends create instances via `Device::createDeviceGuard()`. When a guard
-/// is destroyed, the backend must restore the previous device/context.
-class DeviceGuard {
-public:
-  DeviceGuard() = default;
-  virtual ~DeviceGuard() = default;
-
-  DeviceGuard(DeviceGuard &&) = delete;
-  DeviceGuard(const DeviceGuard &) = delete;
-  DeviceGuard &operator=(DeviceGuard &&) = delete;
-  DeviceGuard &operator=(const DeviceGuard &) = delete;
-};
 
 /// CRTP template for creating integer ID type wrappers.
 template <typename Derived>
@@ -91,7 +73,110 @@ struct HardwareId : public StrongTypeWrapper<HardwareId> {
   using StrongTypeWrapper::StrongTypeWrapper;
 };
 
+/// Strong type wrapper to represent a host id. This identifies each host in a
+/// multi-host execution environment.
+struct HostId : public StrongTypeWrapper<HostId> {
+  using StrongTypeWrapper::StrongTypeWrapper;
+};
+
+///===---------------------------------------------------------------------===//
+// Device
+//===----------------------------------------------------------------------===//
+
+/// DeviceGuard is an abstract RAII handle that scopes a temporary activation
+/// of device-specific state (for example, making a device current). Concrete
+/// backends create instances via `Device::createDeviceGuard()`. When a guard
+/// is destroyed, the backend must restore the previous device/context.
+class DeviceGuard {
+public:
+  DeviceGuard() = default;
+  virtual ~DeviceGuard() = default;
+
+  DeviceGuard(DeviceGuard &&) = delete;
+  DeviceGuard(const DeviceGuard &) = delete;
+  DeviceGuard &operator=(DeviceGuard &&) = delete;
+  DeviceGuard &operator=(const DeviceGuard &) = delete;
+};
+
 class Stream;
+
+/// Specifies kinds of devices.
+enum class DeviceKind { GPU, GreenContext };
+
+/// Return the string representation of the device kind.
+llvm::StringRef getDeviceKindString(DeviceKind kind);
+
+/// A device description holds metadata information about a device. Each
+/// device has a globally unique integer ID within each device kind type class
+/// (e.g. GPU, DLA, etc). For CUDA GPU devices on a single host system, this is
+/// just the CUDA device ordinal exposed via the CUDA Runtime API. IDs must be
+/// contiguous so that they completely fill the range `[0, NumDevices)`.
+class DeviceDescription {
+protected:
+  DeviceDescription(DeviceKind kind, HostId hostId)
+      : kind(kind), hostId(hostId) {}
+
+public:
+  virtual ~DeviceDescription() = default;
+  virtual int32_t getUniqueID() const = 0;
+
+  /// Return the kind of the device.
+  DeviceKind getKind() const { return kind; }
+
+  /// Return a human-readable description of the device. If verbose is true,
+  /// return a verbose description with as much information as possible (e.g.
+  /// for debugging purposes).
+  virtual llvm::StringRef getString(bool verbose = false) const = 0;
+
+  /// Return the ID of the host that this device is attached to.
+  HostId getHostID() const { return hostId; }
+
+  using AttributeValue =
+      std::variant<std::string, bool, int32_t, std::vector<int32_t>, float>;
+
+  /// Return the attribute dictionary.
+  const llvm::StringMap<AttributeValue> &getAttributes() const {
+    return attributes;
+  }
+  /// Return the mutable attribute dictionary.
+  llvm::StringMap<AttributeValue> &getAttributes() { return attributes; }
+
+protected:
+  DeviceKind kind;
+  HostId hostId;
+
+  /// Contains attributes of the device.
+  using AttributeMap = llvm::StringMap<AttributeValue>;
+  AttributeMap attributes;
+};
+
+/// Device description for a CUDA GPU device.
+class GPUDeviceDescription final : public DeviceDescription {
+private:
+  GPUDeviceDescription(HostId hostId, HardwareId deviceNumber);
+
+public:
+  ~GPUDeviceDescription() = default;
+
+  /// Create a CUDA device description for a given host and device number.
+  /// Note that this assumes the `HostId` refers to the current process'
+  /// host ID; the information about the device is going to be populated
+  /// from the CUDA runtime API.
+  /// TODO: currently only a single host (hostId = 0) is supported. To expand
+  /// support for multiple hosts, we need to have a way to create the unique ID
+  /// (e.g need to know number of devices per host).
+  static StatusOr<std::unique_ptr<GPUDeviceDescription>>
+  createFromLocal(HostId hostId, HardwareId deviceNumber);
+
+  llvm::StringRef getString(bool verbose = false) const final;
+  int32_t getUniqueID() const final { return deviceNumber; }
+  HardwareId getDeviceNumber() const { return deviceNumber; }
+
+protected:
+  HardwareId deviceNumber;
+  std::string description;
+  std::string debugString;
+};
 
 /// Device is an abstract handle describing a compute device visible to the
 /// runtime (e.g., a CUDA GPU). It exposes a stable numeric identifier, a
@@ -102,8 +187,6 @@ class Stream;
 /// that takes a reference to a Device.
 class Device {
 public:
-  Device() = default;
-
   virtual ~Device() = default;
 
   /// Return a backend-specific, zero-based device ordinal that uniquely
@@ -115,28 +198,42 @@ public:
   /// guard destruction.
   virtual StatusOr<std::unique_ptr<DeviceGuard>> createDeviceGuard() const = 0;
 
-  /// Return a short, lower-case backend identifier for this device (e.g.
-  /// "cuda").
-  virtual llvm::StringRef getDeviceKind() const = 0;
-
-  /// Return a backend-specific, human-readable name for this device (e.g.
-  /// "cuda:0").
-  virtual llvm::StringRef getDeviceName() const = 0;
-
+  /// Return the stream associated with the device.
   virtual Ref<Stream> getStream() const = 0;
 
+  /// Return the thread pool associated with the device.
   virtual llvm::ThreadPoolInterface &getThreadPool() = 0;
 
-  bool operator==(const Device &other) const {
-    return getDeviceNumber() == other.getDeviceNumber() &&
-           getDeviceKind() == other.getDeviceKind();
-  }
-
-  bool operator!=(const Device &other) const { return !(*this == other); }
+  /// Return the device description.
+  virtual const DeviceDescription &getDescription() const = 0;
 };
 
-/// Create a CUDA device given the CUDA device ordinal.
-StatusOr<std::unique_ptr<Device>> createCUDADevice(HardwareId deviceNumber);
+/// A CUDADevice represents a CUDA GPU.
+class CUDADevice final : public Device {
+protected:
+  CUDADevice(std::unique_ptr<GPUDeviceDescription> description,
+             Ref<Stream> stream)
+      : description(std::move(description)), stream(std::move(stream)),
+        threadPool() {}
+
+public:
+  /// Create a CUDA device from the local host and device number.
+  static StatusOr<std::unique_ptr<Device>>
+  createFromLocal(HostId hostId, HardwareId deviceNumber);
+
+  Ref<Stream> getStream() const final { return stream; }
+  llvm::ThreadPoolInterface &getThreadPool() final { return threadPool; }
+  StatusOr<std::unique_ptr<DeviceGuard>> createDeviceGuard() const final;
+  HardwareId getDeviceNumber() const final {
+    return description->getDeviceNumber();
+  }
+  const DeviceDescription &getDescription() const final { return *description; }
+
+private:
+  std::unique_ptr<GPUDeviceDescription> description;
+  Ref<Stream> stream;
+  llvm::StdThreadPool threadPool;
+};
 
 //===----------------------------------------------------------------------===//
 // Stream
