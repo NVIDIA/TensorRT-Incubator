@@ -43,6 +43,7 @@ auto I8 = [](Type t) { return isTensorRTInt8Type(t); };
 auto I32 = [](Type t) { return t.isSignlessInteger(32); };
 auto I64 = [](Type t) { return t.isSignlessInteger(64); };
 auto F8 = [](Type t) { return isa<Float8E4M3FNType>(t); };
+auto F4 = [](Type t) { return isa<Float4E2M1FNType>(t); };
 auto F16 = [](Type t) { return t.isF16(); };
 auto F32 = [](Type t) { return t.isF32(); };
 auto BF16 = [](Type t) { return t.isBF16(); };
@@ -765,7 +766,7 @@ bool tensorrt::DequantizeOp::isValidForTensorRTVersion(
     return isType(inputElementType, I8) && isType(resultElementType, F16, F32);
   case 9:
   case 10:
-    return isType(inputElementType, I4, I8, F8) &&
+    return isType(inputElementType, I4, I8, F8, F4) &&
            isType(resultElementType, F16, BF16, F32);
   default:
     return false;

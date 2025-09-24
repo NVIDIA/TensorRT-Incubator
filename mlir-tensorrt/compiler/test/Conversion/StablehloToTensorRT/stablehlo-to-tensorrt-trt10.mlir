@@ -394,3 +394,93 @@ func.func @expm1_bf16(%arg0: tensor<3xbf16>) -> tensor<3xbf16> {
 //   CHECK-DAG:     %[[v15:.+]] = tensorrt.identity %[[v14]] : tensor<3xf32> to tensor<3xbf16>
 //   CHECK-DAG:     return %[[v15]] : tensor<3xbf16>
 
+// -----
+
+func.func public @quantize_per_tensor(%arg0: tensor<32x20xf32>) -> (tensor<32x20xf8E4M3FN> {jax.result_info = "result"}) {
+    %scale = stablehlo.constant dense<1.0> : tensor<f32>
+    %0 = stablehlo.custom_call @tensorrt.quantize(%arg0, %scale) {api_version = 2 : i32, mode = "tensorrt.pt_q", operand_layouts = [dense<[1, 0]> : tensor<2xindex>, dense<> : tensor<0xindex>], result_layouts = [dense<[1, 0]> : tensor<2xindex>]} : (tensor<32x20xf32>, tensor<f32>) -> tensor<32x20xf8E4M3FN>
+    return %0 : tensor<32x20xf8E4M3FN>
+}
+// CHECK-LABEL: func.func public @quantize_per_tensor
+// CHECK-SAME: (%[[ARG0:.*]]: tensor<32x20xf32>)
+// CHECK: %[[CST:.*]] = tensorrt.constant dense<1.000000e+00> : tensor<f32>
+// CHECK: %[[Q:.*]] = tensorrt.quantize in(%[[ARG0]] : tensor<32x20xf32>) scale(%[[CST]] : tensor<f32>) -> tensor<32x20xf8E4M3FN>
+// CHECK: return %[[Q]] : tensor<32x20xf8E4M3FN>
+
+// -----
+
+func.func public @quantize_per_channel(%arg0: tensor<32x20xf32>) -> (tensor<32x20xf8E4M3FN> {jax.result_info = "result"}) {
+    %scale = stablehlo.constant dense<1.0> : tensor<32xf32>
+    %0 = stablehlo.custom_call @tensorrt.quantize(%arg0, %scale) {api_version = 2 : i32, axis = 0 : i32, mode = "tensorrt.pc_q", operand_layouts = [dense<[1, 0]> : tensor<2xindex>, dense<0> : tensor<1xindex>], result_layouts = [dense<[1, 0]> : tensor<2xindex>]} : (tensor<32x20xf32>, tensor<32xf32>) -> tensor<32x20xf8E4M3FN>
+    return %0 : tensor<32x20xf8E4M3FN>
+}
+// CHECK-LABEL: func.func public @quantize_per_channel
+// CHECK-SAME: (%[[ARG0:.*]]: tensor<32x20xf32>)
+// CHECK: %[[CST:.*]] = tensorrt.constant dense<1.000000e+00> : tensor<32xf32>
+// CHECK: %[[Q:.*]] = tensorrt.quantize {axis = 0 : i32} in(%[[ARG0]] : tensor<32x20xf32>) scale(%[[CST]] : tensor<32xf32>) -> tensor<32x20xf8E4M3FN>
+// CHECK: return %[[Q]] : tensor<32x20xf8E4M3FN>
+
+// -----
+
+func.func public @quantize_block(%arg0: tensor<32x20xf32>) -> (tensor<32x20xf8E4M3FN> {jax.result_info = "result"}) {
+    %scale = stablehlo.constant dense<1.0> : tensor<2x20xf32>
+    %0 = stablehlo.custom_call @tensorrt.quantize(%arg0, %scale) {api_version = 2 : i32, mode = "tensorrt.block_q", operand_layouts = [dense<[1, 0]> : tensor<2xindex>, dense<[1, 0]> : tensor<2xindex>], result_layouts = [dense<[1, 0]> : tensor<2xindex>]} : (tensor<32x20xf32>, tensor<2x20xf32>) -> tensor<32x20xf8E4M3FN>
+    return %0 : tensor<32x20xf8E4M3FN>
+}
+// CHECK-LABEL: func.func public @quantize_block
+// CHECK-SAME: (%[[ARG0:.*]]: tensor<32x20xf32>)
+// CHECK: %[[CST:.*]] = tensorrt.constant dense<1.000000e+00> : tensor<2x20xf32>
+// CHECK: %[[Q:.*]] = tensorrt.quantize in(%[[ARG0]] : tensor<32x20xf32>) scale(%[[CST]] : tensor<2x20xf32>) -> tensor<32x20xf8E4M3FN>
+// CHECK: return %[[Q]] : tensor<32x20xf8E4M3FN>
+
+// -----
+
+func.func public @dequantize_per_tensor(%arg0: tensor<32x20xi8>) -> (tensor<32x20xf32> {jax.result_info = "result"}) {
+    %scale = stablehlo.constant dense<1.0> : tensor<f32>
+    %0 = stablehlo.custom_call @tensorrt.dequantize(%arg0, %scale) {api_version = 2 : i32, mode = "tensorrt.pt_dq", operand_layouts = [dense<[1, 0]> : tensor<2xindex>, dense<> : tensor<0xindex>], result_layouts = [dense<[1, 0]> : tensor<2xindex>]} : (tensor<32x20xi8>, tensor<f32>) -> tensor<32x20xf32>
+    return %0 : tensor<32x20xf32>
+}
+// CHECK-LABEL: func.func public @dequantize_per_tensor
+// CHECK-SAME: (%[[ARG0:.*]]: tensor<32x20xi8>)
+// CHECK: %[[CST:.*]] = tensorrt.constant dense<1.000000e+00> : tensor<f32>
+// CHECK: %[[DQ:.*]] = tensorrt.dequantize in(%[[ARG0]] : tensor<32x20xi8>) scale(%[[CST]] : tensor<f32>) -> tensor<32x20xf32>
+// CHECK: return %[[DQ]] : tensor<32x20xf32>
+
+// -----
+
+func.func public @dequantize_per_channel(%arg0: tensor<32x20xi8>) -> (tensor<32x20xf32> {jax.result_info = "result"}) {
+    %scale = stablehlo.constant dense<1.0> : tensor<32xf32>
+    %0 = stablehlo.custom_call @tensorrt.dequantize(%arg0, %scale) {api_version = 2 : i32, axis = 0 : i32, mode = "tensorrt.pc_dq", operand_layouts = [dense<[1, 0]> : tensor<2xindex>, dense<0> : tensor<1xindex>], result_layouts = [dense<[1, 0]> : tensor<2xindex>]} : (tensor<32x20xi8>, tensor<32xf32>) -> tensor<32x20xf32>
+    return %0 : tensor<32x20xf32>
+}
+// CHECK-LABEL: func.func public @dequantize_per_channel
+// CHECK-SAME: (%[[ARG0:.*]]: tensor<32x20xi8>)
+// CHECK: %[[CST:.*]] = tensorrt.constant dense<1.000000e+00> : tensor<32xf32>
+// CHECK: %[[DQ:.*]] = tensorrt.dequantize {axis = 0 : i32} in(%[[ARG0]] : tensor<32x20xi8>) scale(%[[CST]] : tensor<32xf32>) -> tensor<32x20xf32>
+// CHECK: return %[[DQ]] : tensor<32x20xf32>
+
+// -----
+
+func.func public @dequantize_block(%arg0: tensor<32x20xf8E4M3FN>) -> (tensor<32x20xf32> {jax.result_info = "result"}) {
+    %scale = stablehlo.constant dense<1.0> : tensor<2x20xf32>
+    %0 = stablehlo.custom_call @tensorrt.dequantize(%arg0, %scale) {api_version = 2 : i32, mode = "tensorrt.block_dq", operand_layouts = [dense<[1, 0]> : tensor<2xindex>, dense<[1, 0]> : tensor<2xindex>], result_layouts = [dense<[1, 0]> : tensor<2xindex>]} : (tensor<32x20xf8E4M3FN>, tensor<2x20xf32>) -> tensor<32x20xf32>
+    return %0 : tensor<32x20xf32>
+}
+// CHECK-LABEL: func.func public @dequantize_block
+// CHECK-SAME: (%[[ARG0:.*]]: tensor<32x20xf8E4M3FN>)
+// CHECK: %[[CST:.*]] = tensorrt.constant dense<1.000000e+00> : tensor<2x20xf32>
+// CHECK: %[[DQ:.*]] = tensorrt.dequantize in(%[[ARG0]] : tensor<32x20xf8E4M3FN>) scale(%[[CST]] : tensor<2x20xf32>) -> tensor<32x20xf32>
+// CHECK: return %[[DQ]] : tensor<32x20xf32>
+
+// -----
+
+func.func public @dynamic_quantize(%arg0: tensor<32x20xf32>) -> (tensor<32x20xf4E2M1FN> {jax.result_info = "result[0]"}, tensor<2x20xf8E4M3FN> {jax.result_info = "result[1]"}) {
+    %scale = stablehlo.constant dense<1.0> : tensor<f32>
+    %0:2 = stablehlo.custom_call @tensorrt.dynamic_quantize(%arg0, %scale) {api_version = 2 : i32, axis = 0 : i32, block_size = 16 : i32, operand_layouts = [dense<[1, 0]> : tensor<2xindex>, dense<> : tensor<0xindex>], result_layouts = [dense<[1, 0]> : tensor<2xindex>, dense<[1, 0]> : tensor<2xindex>]} : (tensor<32x20xf32>, tensor<f32>) -> (tensor<32x20xf4E2M1FN>, tensor<2x20xf8E4M3FN>)
+    return %0#0, %0#1 : tensor<32x20xf4E2M1FN>, tensor<2x20xf8E4M3FN>
+}
+// CHECK-LABEL: func.func public @dynamic_quantize
+// CHECK-SAME: (%[[ARG0:.*]]: tensor<32x20xf32>)
+// CHECK: %[[CST:.*]] = tensorrt.constant dense<1.000000e+00> : tensor<f32>
+// CHECK: %[[RESULT:.*]], %[[SCALES:.*]] = tensorrt.dynamic_quantize {axis = 0 : i32} in(%[[ARG0]] : tensor<32x20xf32>) double_quant_scale(%[[CST]] : tensor<f32>) -> tensor<32x20xf4E2M1FN>, tensor<2x20xf8E4M3FN>
+// CHECK: return %[[RESULT]], %[[SCALES]] : tensor<32x20xf4E2M1FN>, tensor<2x20xf8E4M3FN>

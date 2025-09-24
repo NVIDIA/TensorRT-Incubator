@@ -3726,8 +3726,97 @@ struct ConvertHLOSoftmax : public OpRewritePattern<stablehlo::DivOp> {
   }
 };
 
+/// Convert `stablehlo.custom_call` op with `mhlo.topk` target to
+/// `tensorrt.topk` op.
+static FailureOr<ValueRange>
+getTensorRTTopKOperation(TensorRTConversionPatternRewriter &rewriter,
+                         stablehlo::CustomCallOp op, ValueRange inputs) {
+  DictionaryAttr customCallAttrs = op->getAttrDictionary();
+  // `mhlo.attributes` gives us information about sorting order and value of
+  // `k`.
+  if (!customCallAttrs.contains("mhlo.attributes"))
+    return failure();
+  auto topKAttrs =
+      dyn_cast<DictionaryAttr>(customCallAttrs.get("mhlo.attributes"));
+  if (!topKAttrs || topKAttrs.empty())
+    return failure();
+  int64_t k = cast<IntegerAttr>(topKAttrs.get("k")).getValue().getSExtValue();
+  // TensorRT doesn't support k greater than `tensorrt::TopKOp::kMaxK`.
+  if (k > tensorrt::TopKOp::kMaxK)
+    return failure();
+  RankedTensorType resultType =
+      cast<RankedTensorType>(op->getResultTypes().front());
+  // MHLO top k is always applied along last dimension.
+  int64_t axis = resultType.getRank() - 1;
+  auto largest =
+      cast<IntegerAttr>(topKAttrs.get("largest")).getValue().getBoolValue();
+  auto trtTopKOperation =
+      largest ? tensorrt::TopKOperation::kMAX : tensorrt::TopKOperation::kMIN;
+
+  auto trtTopKOp = rewriter.checkAndCreate<tensorrt::TopKOp>(
+      op->getLoc(), inputs.front(), k, axis, trtTopKOperation);
+  if (!trtTopKOp)
+    return failure();
+  return ValueRange{trtTopKOp.getValues(), trtTopKOp.getIndices()};
+}
+
+/// Convert `stablehlo.custom_call` op with `tensorrt.quantize` or
+/// `tensorrt.dequantize` target to `tensorrt.quantize` or
+/// `tensorrt.dequantize` op respectively.
+template <typename OpTy>
+static FailureOr<ValueRange>
+getTensorRTQOrDQOperation(TensorRTConversionPatternRewriter &rewriter,
+                          stablehlo::CustomCallOp op, ValueRange inputs,
+                          Type resultType) {
+  if (inputs.size() != 2)
+    return failure();
+  DictionaryAttr customCallAttrs = op->getAttrDictionary();
+  if (!customCallAttrs.contains("mode"))
+    return failure();
+  auto qdqMode = cast<StringAttr>(customCallAttrs.get("mode"));
+  // For per-channel quantization/dequantization, axis is required.
+  if ((qdqMode ==
+           tensorrt::TensorRTDialect::kTensorRTPerChannelQuantizationMarker ||
+       qdqMode == tensorrt::TensorRTDialect::
+                      kTensorRTPerChannelDequantizationMarker) &&
+      !customCallAttrs.contains("axis")) {
+    return failure();
+  }
+  auto qOrDqOp = rewriter.checkAndCreate<OpTy>(
+      op->getLoc(), resultType, inputs[0], inputs[1],
+      customCallAttrs.contains("axis")
+          ? cast<IntegerAttr>(customCallAttrs.get("axis"))
+          : nullptr);
+  if (!qOrDqOp)
+    return failure();
+  return ValueRange{qOrDqOp.getResult()};
+}
+
+/// Convert `stablehlo.custom_call` op with `tensorrt.dynamic_quantize` target
+/// to `tensorrt.dynamic_quantize` op.
+static FailureOr<ValueRange> getTensorRTDynamicQuantizeOperation(
+    TensorRTConversionPatternRewriter &rewriter, stablehlo::CustomCallOp op,
+    ValueRange inputs, Type resultType, Type scaleType) {
+  if (inputs.size() != 2)
+    return failure();
+  DictionaryAttr customCallAttrs = op->getAttrDictionary();
+  if (!customCallAttrs.contains("axis") ||
+      !customCallAttrs.contains("block_size")) {
+    return failure();
+  }
+  auto axis = cast<IntegerAttr>(customCallAttrs.get("axis"));
+  auto blockSize = cast<IntegerAttr>(customCallAttrs.get("block_size"));
+  auto dynamicQuantizeOp = rewriter.checkAndCreate<tensorrt::DynamicQuantizeOp>(
+      op->getLoc(), resultType, scaleType, inputs[0], inputs[1], axis,
+      blockSize);
+  if (!dynamicQuantizeOp)
+    return failure();
+  return dynamicQuantizeOp->getResults();
+}
+
 /// Tries to convert `stablehlo.custom_call` to TensorRT, if call target
-/// conversion is possible. Currently handled call targets are {mhlo.topk}.
+/// conversion is possible. Currently handled call targets are {mhlo.topk,
+/// tensorrt.dynamic_quantize, tensorrt.quantize, tensorrt.dequantize}.
 /// To be safe, if call target has some side effect, conversion does not
 /// happen.
 struct ConvertStablehloCustomCall
@@ -3741,35 +3830,43 @@ struct ConvertStablehloCustomCall
     TensorRTConversionPatternRewriter trtRewriter(rewriter,
                                                   targetTrtMajorVersion);
     if (op.getCallTargetName() == "mhlo.topk") {
-      auto customCallAttrs = op->getAttrDictionary();
-      // `mhlo.attributes` gives us information about sorting order and value of
-      // `k`.
-      if (!customCallAttrs.contains("mhlo.attributes")) {
+      auto trtTopKOperation =
+          getTensorRTTopKOperation(trtRewriter, op, adaptor.getOperands());
+      if (failed(trtTopKOperation))
         return failure();
-      }
-      auto topKAttrs =
-          dyn_cast<DictionaryAttr>(customCallAttrs.get("mhlo.attributes"));
-      if (!topKAttrs || topKAttrs.empty())
+      rewriter.replaceOp(op, *trtTopKOperation);
+      return success();
+    }
+    if (op.getCallTargetName() == "tensorrt.quantize") {
+      auto trtQuantizeOperation =
+          getTensorRTQOrDQOperation<tensorrt::QuantizeOp>(
+              trtRewriter, op, adaptor.getOperands(),
+              op->getResultTypes().front());
+      if (failed(trtQuantizeOperation))
         return failure();
-      int64_t k =
-          cast<IntegerAttr>(topKAttrs.get("k")).getValue().getSExtValue();
-      // TensorRT doesn't support k greater than 3840.
-      if (k > 3840)
+      rewriter.replaceOp(op, *trtQuantizeOperation);
+      return success();
+    }
+    if (op.getCallTargetName() == "tensorrt.dequantize") {
+      auto trtDequantizeOperation =
+          getTensorRTQOrDQOperation<tensorrt::DequantizeOp>(
+              trtRewriter, op, adaptor.getOperands(),
+              op->getResultTypes().front());
+      if (failed(trtDequantizeOperation))
         return failure();
-      RankedTensorType resultType =
-          cast<RankedTensorType>(op->getResultTypes().front());
-      // MHLO top k is always applied along last dimension.
-      int64_t axis = resultType.getRank() - 1;
-      auto largest =
-          cast<IntegerAttr>(topKAttrs.get("largest")).getValue().getBoolValue();
-      auto trtTopKOperation = largest ? tensorrt::TopKOperation::kMAX
-                                      : tensorrt::TopKOperation::kMIN;
-
-      auto trtTopKOp = trtRewriter.checkAndCreate<tensorrt::TopKOp>(
-          op->getLoc(), adaptor.getInputs().front(), k, axis, trtTopKOperation);
-      if (!trtTopKOp)
+      rewriter.replaceOp(op, *trtDequantizeOperation);
+      return success();
+    }
+    if (op.getCallTargetName() == "tensorrt.dynamic_quantize") {
+      auto resultTypes = op->getResultTypes();
+      if (resultTypes.size() != 2)
         return failure();
-      rewriter.replaceOp(op, trtTopKOp);
+      auto trtDynamicQuantizeOperation = getTensorRTDynamicQuantizeOperation(
+          trtRewriter, op, adaptor.getOperands(), resultTypes[0],
+          resultTypes[1]);
+      if (failed(trtDynamicQuantizeOperation))
+        return failure();
+      rewriter.replaceOp(op, *trtDynamicQuantizeOperation);
       return success();
     }
     return failure();
@@ -3929,7 +4026,10 @@ struct DynamicUpdateSliceToConcatConverter
 static FailureOr<Value>
 getScaleConstant(TensorRTConversionPatternRewriter &rewriter, Location loc,
                  DictionaryAttr attr, StringRef qdqMode) {
-  if (qdqMode != "tensorrt.pt_q" && qdqMode != "tensorrt.pt_dq") {
+  if (qdqMode !=
+          tensorrt::TensorRTDialect::kTensorRTPerTensorQuantizationMarker &&
+      qdqMode !=
+          tensorrt::TensorRTDialect::kTensorRTPerTensorDequantizationMarker) {
     auto scaleAttr = dyn_cast<ElementsAttr>(attr.get("scale"));
     if (!scaleAttr)
       return failure();
@@ -4054,8 +4154,9 @@ public:
       TensorRTTypeConverter typeConverter(ctx, loweringOptions);
       TensorRTConversionTarget target(*ctx, typeConverter);
 
-      // Conversion of `stablehlo.composite` should not fail.
+      // Conversion of `stablehlo.composite/custom_call` should not fail.
       target.addIllegalOp<stablehlo::CompositeOp>();
+      target.addIllegalOp<stablehlo::CustomCallOp>();
 
       // Private functions with `tensorrt.qdq` attributes are associated with
       // composite ops. Once composite op is successfully converted to TensorRT,

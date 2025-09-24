@@ -1230,12 +1230,13 @@ LogicalResult tensorrt::QuantizeOp::verify() {
       return emitOpError("Scale has same rank as that of input, thus this is "
                          "block quantization. Axis is not valid in this case.");
 
-    // Check 3A: Block quantization is supported only for f4 and i4 type.
+    // Check 3A: Block quantization is supported only for f4, i4 and f8 type.
     auto resultQuantizedElementType = getResult().getType().getElementType();
-    if (!resultQuantizedElementType.isIntOrFloat() ||
-        resultQuantizedElementType.getIntOrFloatBitWidth() >= 8)
-      return emitOpError(
-          "Block quantization is supported only for f4 or i4 output types.");
+    if (!(resultQuantizedElementType.isInteger(4) ||
+          isa<Float4E2M1FNType>(resultQuantizedElementType) ||
+          isa<Float8E4M3FNType>(resultQuantizedElementType)))
+      return emitOpError("Block quantization is supported only for int4, fp4 "
+                         "or fp8 output types.");
 
     // Check 3B: Blocking dimension should be last or second last.
     int32_t mayBeBlockingDim = getQDQBlockingDim(inputType, scale);
@@ -1346,12 +1347,13 @@ LogicalResult tensorrt::DequantizeOp::verify() {
           "Scale has same rank as that of input, thus this is "
           "block dequantization. Axis is not valid in this case.");
 
-    // Check 3A: Block dequantization is supported only for f4 and i4 type.
+    // Check 3A: Block dequantization is supported only for f4, i4 and f8 type.
     auto inputQuantizedElementType = getInput().getType().getElementType();
-    if (!inputQuantizedElementType.isIntOrFloat() ||
-        inputQuantizedElementType.getIntOrFloatBitWidth() >= 8)
-      return emitOpError(
-          "Block dequantization is supported only for f4 or i4 input types.");
+    if (!(inputQuantizedElementType.isInteger(4) ||
+          isa<Float4E2M1FNType>(inputQuantizedElementType) ||
+          isa<Float8E4M3FNType>(inputQuantizedElementType)))
+      return emitOpError("Block dequantization is supported only for int4, fp4 "
+                         "or fp8 input types.");
 
     // Check 3B: Blocking dimension should be last or second last.
     int32_t mayBeBlockingDim = getQDQBlockingDim(inputType, scale);
