@@ -10,14 +10,14 @@ func.func @aggregate_arg(%arg0: !executor.table<!executor.ptr<host>, i32> {execu
 
 // IND-LABEL: func.func @aggregate_arg
 //  IND-SAME:  (%[[arg0:.+]]: !executor.ptr<host> {executor.slot = 0 : i64})
-//  IND-SAME:  -> (i32 {executor.result = 0 : i64, executor.slot = 1 : i64})
+//  IND-SAME:  -> (i32 {executor.result_slot = 0 : i32, executor.slot = 1 : i64})
 //       IND: %[[v0:.+]] = executor.load %[[arg0]]
 //       IND: %[[v1:.+]] = executor.table.get %[[v0]][1]
 //       IND: return %[[v1]]
 
 // UNP-LABEL: func.func @aggregate_arg
 //  UNP-SAME:  (%[[arg0:.+]]: !executor.ptr<host> {executor.slot = 0 : i64}, %[[arg1:.+]]: i32)
-//  UNP-SAME:  -> (i32 {executor.result = 0 : i64, executor.slot = 1 : i64})
+//  UNP-SAME:  -> (i32 {executor.result_slot = 0 : i32, executor.slot = 1 : i64})
 //       UNP: %[[v0:.+]] = executor.table.create(%[[arg0]], %[[arg1]] :
 //       UNP: %[[v1:.+]] = executor.table.get %[[v0]][1]
 //       UNP: return %[[v1]]
@@ -40,7 +40,7 @@ func.func @aggregate_result(%arg0: !executor.ptr<host> {executor.slot = 0},
 // IND-LABEL: func.func @aggregate_result
 //  IND-SAME:  (%[[arg0:.+]]: !executor.ptr<host> {executor.slot = 0 : i64},
 //  IND-SAME:   %[[arg1:.+]]: i32 {executor.slot = 1 : i64},
-//  IND-SAME:   %[[arg2:.+]]: !executor.ptr<host> {executor.result = 0 : i64, executor.slot = 2 : i64}) {
+//  IND-SAME:   %[[arg2:.+]]: !executor.ptr<host> {executor.result_slot = 0 : i32, executor.slot = 2 : i64}) {
 //       IND: %[[v0:.+]] = executor.table.create(%[[arg0]], %[[arg1]] :
 //       IND: executor.store %[[v0]] to %[[arg2]]
 //       IND: return
@@ -48,7 +48,7 @@ func.func @aggregate_result(%arg0: !executor.ptr<host> {executor.slot = 0},
 // UNP-LABEL: func.func @aggregate_result
 //  UNP-SAME:  (%[[arg0:.+]]: !executor.ptr<host> {executor.slot = 0 : i64},
 //  UNP-SAME:   %[[arg1:.+]]: i32 {executor.slot = 1 : i64})
-//  UNP-SAME:  -> (!executor.ptr<host> {executor.result = 0 : i64, executor.slot = 2 : i64}, i32) {
+//  UNP-SAME:  -> (!executor.ptr<host> {executor.result_slot = 0 : i32, executor.slot = 2 : i64}, i32) {
 //       UNP: %[[v0:.+]] = executor.table.create(%[[arg0]], %[[arg1]] :
 //       UNP: %[[v1:.+]] = executor.table.get %[[v0]][0]
 //       UNP: %[[v2:.+]] = executor.table.get %[[v0]][1]
@@ -61,7 +61,7 @@ func.func @aggregate_result(%arg0: !executor.ptr<host> {executor.slot = 0},
 
 
 // IND-LABEL: func.func @return_table(
-//  IND-SAME:  %[[arg0:.+]]: !executor.ptr<host>, %[[arg1:.+]]: i32, %[[arg2:.+]]: !executor.ptr<host> {executor.result = 0 : i64}) -> (i32 {executor.result = 1 : i64})
+//  IND-SAME:  %[[arg0:.+]]: !executor.ptr<host>, %[[arg1:.+]]: i32, %[[arg2:.+]]: !executor.ptr<host> {executor.result_slot = 0 : i32}) -> (i32 {executor.result_slot = 1 : i32})
 func.func @return_table(%arg0: !executor.ptr<host>, %arg1: i32) -> (!executor.table<!executor.ptr<host>, i32>, i32) {
   %0 = executor.table.create (%arg0, %arg1 : !executor.ptr<host>, i32) : !executor.table<!executor.ptr<host>, i32>
   // IND: %[[v0:.+]] = executor.table.create
@@ -75,8 +75,8 @@ func.func @return_table(%arg0: !executor.ptr<host>, %arg1: i32) -> (!executor.ta
 // IND-LABEL: func.func @caller(
 //  IND-SAME:  %[[arg0:.+]]: !executor.ptr<host> {executor.slot = 0 : i64},
 //  IND-SAME:  %[[arg1:.+]]: i32 {executor.slot = 1 : i64},
-//  IND-SAME:  %[[arg2:.+]]: !executor.ptr<host> {executor.result = 1 : i64, executor.slot = 3 : i64})
-//  IND-SAME:  -> (i32 {executor.result = 0 : i64, executor.slot = 2 : i64})
+//  IND-SAME:  %[[arg2:.+]]: !executor.ptr<host> {executor.result_slot = 1 : i32, executor.slot = 3 : i64})
+//  IND-SAME:  -> (i32 {executor.result_slot = 0 : i32, executor.slot = 2 : i64})
 func.func @caller(
     %arg0: !executor.ptr<host> {executor.slot = 0},
     %arg1: i32 {executor.slot = 1})
@@ -102,7 +102,7 @@ func.func @nested_aggregate_arg(%arg0: !executor.table<!executor.table<i32, f32>
 }
 
 // IND-LABEL: func.func @nested_aggregate_arg
-//  IND-SAME:  (%[[arg0:.+]]: !executor.ptr<host>, %[[arg1:.+]]: !executor.ptr<host> {executor.result = 0 : i64}) {
+//  IND-SAME:  (%[[arg0:.+]]: !executor.ptr<host>, %[[arg1:.+]]: !executor.ptr<host> {executor.result_slot = 0 : i32}) {
 //       IND: %[[v0:.+]] = executor.load %[[arg0]]
 //       IND: %[[v1:.+]] = executor.table.get %[[v0]][0]
 //       IND: executor.store %[[v1]] to %[[arg1]]
@@ -110,7 +110,7 @@ func.func @nested_aggregate_arg(%arg0: !executor.table<!executor.table<i32, f32>
 
 // UNP-LABEL: func.func @nested_aggregate_arg
 //  UNP-SAME:  (%[[arg0:.+]]: i32, %[[arg1:.+]]: f32, %[[arg2:.+]]: !executor.ptr<host>)
-//  UNP-SAME:  -> (i32 {executor.result = 0 : i64}, f32)
+//  UNP-SAME:  -> (i32 {executor.result_slot = 0 : i32}, f32)
 //       UNP: %[[v0:.+]] = executor.table.create(%[[arg0]], %[[arg1]] :
 //       UNP: %[[v1:.+]] = executor.table.create(%[[v0]], %[[arg2]] :
 //       UNP: %[[v2:.+]] = executor.table.get %[[v1]][0]
@@ -130,7 +130,7 @@ func.func @multiple_aggregates(
 }
 
 // IND-LABEL: func.func @multiple_aggregates
-//  IND-SAME:  (%[[arg0:.+]]: !executor.ptr<host>, %[[arg1:.+]]: !executor.ptr<host>, %[[arg2:.+]]: i32, %[[arg3:.+]]: !executor.ptr<host> {executor.result = 0 : i64}, %[[arg4:.+]]: !executor.ptr<host> {executor.result = 1 : i64}) -> (i32 {executor.result = 2 : i64}) {
+//  IND-SAME:  (%[[arg0:.+]]: !executor.ptr<host>, %[[arg1:.+]]: !executor.ptr<host>, %[[arg2:.+]]: i32, %[[arg3:.+]]: !executor.ptr<host> {executor.result_slot = 0 : i32}, %[[arg4:.+]]: !executor.ptr<host> {executor.result_slot = 1 : i32}) -> (i32 {executor.result_slot = 2 : i32}) {
 //       IND: %[[v0:.+]] = executor.load %[[arg1]]
 //       IND: %[[v1:.+]] = executor.load %[[arg0]]
 //       IND: executor.store %[[v1]] to %[[arg3]]
@@ -141,7 +141,7 @@ func.func @multiple_aggregates(
 //  UNP-SAME:  (%[[arg0:.+]]: i32, %[[arg1:.+]]: i64,
 //  UNP-SAME:   %[[arg2:.+]]: f32, %[[arg3:.+]]: f64,
 //  UNP-SAME:   %[[arg4:.+]]: i32)
-//  UNP-SAME:  -> (i32 {executor.result = 0 : i64}, i64, f32 {executor.result = 1 : i64}, f64, i32 {executor.result = 2 : i64})
+//  UNP-SAME:  -> (i32 {executor.result_slot = 0 : i32}, i64, f32 {executor.result_slot = 1 : i32}, f64, i32 {executor.result_slot = 2 : i32})
 //       UNP: return %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %[[arg4]]
 
 // -----
@@ -158,7 +158,7 @@ func.func @branch_with_aggregate(%cond: i1, %arg0: !executor.table<i32, f32>) ->
 }
 
 // IND-LABEL: func.func @branch_with_aggregate
-//  IND-SAME:  (%[[arg0:.+]]: i1, %[[arg1:.+]]: !executor.ptr<host>, %[[arg2:.+]]: !executor.ptr<host> {executor.result = 0 : i64}) {
+//  IND-SAME:  (%[[arg0:.+]]: i1, %[[arg1:.+]]: !executor.ptr<host>, %[[arg2:.+]]: !executor.ptr<host> {executor.result_slot = 0 : i32}) {
 //       IND: %[[v0:.+]] = executor.load %[[arg1]]
 //       IND: cf.cond_br %[[arg0]], ^bb1(%[[v0]] : !executor.table<i32, f32>), ^bb2(%[[v0]] : !executor.table<i32, f32>)
 //       IND: ^bb3(%[[result:.+]]: !executor.table<i32, f32>):
@@ -166,7 +166,7 @@ func.func @branch_with_aggregate(%cond: i1, %arg0: !executor.table<i32, f32>) ->
 
 // UNP-LABEL: func.func @branch_with_aggregate
 //  UNP-SAME:  (%[[cond:.+]]: i1, %[[arg0:.+]]: i32, %[[arg1:.+]]: f32)
-//  UNP-SAME:  -> (i32 {executor.result = 0 : i64}, f32)
+//  UNP-SAME:  -> (i32 {executor.result_slot = 0 : i32}, f32)
 //       UNP: %[[v0:.+]] = executor.table.create(%[[arg0]], %[[arg1]] : i32, f32)
 //       UNP: cf.cond_br %[[cond]], ^bb1(%[[v0]] : !executor.table<i32, f32>), ^bb2(%[[v0]] : !executor.table<i32, f32>)
 //       UNP: ^bb3(%[[result:.+]]: !executor.table<i32, f32>):
@@ -184,12 +184,12 @@ func.func @large_aggregate(%arg0: !executor.table<i32, i64, f32, f64, i1, i8, i1
 
 // IND-LABEL: func.func @large_aggregate
 //  IND-SAME:  (%[[arg0:.+]]: !executor.ptr<host>,
-//  IND-SAME:   %[[arg1:.+]]: !executor.ptr<host> {executor.result = 0 : i64})
+//  IND-SAME:   %[[arg1:.+]]: !executor.ptr<host> {executor.result_slot = 0 : i32})
 
 // UNP-LABEL: func.func @large_aggregate
 //  UNP-SAME:  (%[[arg0:.+]]: i32, %[[arg1:.+]]: i64, %[[arg2:.+]]: f32, %[[arg3:.+]]: f64,
 //  UNP-SAME:   %[[arg4:.+]]: i1, %[[arg5:.+]]: i8, %[[arg6:.+]]: i16, %[[arg7:.+]]: !executor.ptr<host>)
-//  UNP-SAME:  -> (i32 {executor.result = 0 : i64}, i64, f32, f64, i1, i8, i16, !executor.ptr<host>)
+//  UNP-SAME:  -> (i32 {executor.result_slot = 0 : i32}, i64, f32, f64, i1, i8, i16, !executor.ptr<host>)
 
 // -----
 
@@ -206,16 +206,16 @@ func.func @mixed_results(%arg0: i32) -> (i32, !executor.table<i64, f32>, f64, !e
 
 // IND-LABEL: func.func @mixed_results
 //  IND-SAME:  (%[[arg0:.+]]: i32,
-//  IND-SAME:   %[[arg1:.+]]: !executor.ptr<host> {executor.result = 1 : i64},
-//  IND-SAME:   %[[arg2:.+]]: !executor.ptr<host> {executor.result = 3 : i64})
-//  IND-SAME:  -> (i32 {executor.result = 0 : i64}, f64 {executor.result = 2 : i64})
+//  IND-SAME:   %[[arg1:.+]]: !executor.ptr<host> {executor.result_slot = 1 : i32},
+//  IND-SAME:   %[[arg2:.+]]: !executor.ptr<host> {executor.result_slot = 3 : i32})
+//  IND-SAME:  -> (i32 {executor.result_slot = 0 : i32}, f64 {executor.result_slot = 2 : i32})
 //       IND: executor.store %{{.*}} to %[[arg1]]
 //       IND: executor.store %{{.*}} to %[[arg2]]
 //       IND: return %[[arg0]], %{{.*}} : i32, f64
 
 // UNP-LABEL: func.func @mixed_results
 //  UNP-SAME:  (%[[arg0:.+]]: i32)
-//  UNP-SAME:  -> (i32 {executor.result = 0 : i64}, i64 {executor.result = 1 : i64}, f32, f64 {executor.result = 2 : i64}, i8 {executor.result = 3 : i64})
+//  UNP-SAME:  -> (i32 {executor.result_slot = 0 : i32}, i64 {executor.result_slot = 1 : i32}, f32, f64 {executor.result_slot = 2 : i32}, i8 {executor.result_slot = 3 : i32})
 
 // -----
 
@@ -228,7 +228,7 @@ func.func @nested_call_test(%arg0: !executor.table<!executor.table<i32>, f32>) -
 }
 
 // IND-LABEL: func.func @nested_call_test
-//  IND-SAME:  (%[[arg0:.+]]: !executor.ptr<host>, %[[arg1:.+]]: !executor.ptr<host> {executor.result = 0 : i64}) {
+//  IND-SAME:  (%[[arg0:.+]]: !executor.ptr<host>, %[[arg1:.+]]: !executor.ptr<host> {executor.result_slot = 0 : i32}) {
 //       IND: %[[alloca:.+]] = executor.alloca
 //       IND: call @nested_callee(%[[arg0]], %[[alloca]])
 //       IND: %[[v1:.+]] = executor.load %[[alloca]]
@@ -237,7 +237,7 @@ func.func @nested_call_test(%arg0: !executor.table<!executor.table<i32>, f32>) -
 
 // UNP-LABEL: func.func @nested_call_test
 //  UNP-SAME:  (%[[arg0:.+]]: i32, %[[arg1:.+]]: f32)
-//  UNP-SAME:  -> (i32 {executor.result = 0 : i64}, f32)
+//  UNP-SAME:  -> (i32 {executor.result_slot = 0 : i32}, f32)
 //       UNP: %[[v0:.+]]:2 = call @nested_callee(%[[arg0]], %[[arg1]])
 //       UNP: return %{{.*}}, %{{.*}}
 
@@ -259,7 +259,7 @@ func.func @switch_with_aggregate(%idx: i32, %arg0: !executor.table<i64, f64>) ->
 }
 
 // IND-LABEL: func.func @switch_with_aggregate
-//  IND-SAME:  (%[[arg0:.+]]: i32, %[[arg1:.+]]: !executor.ptr<host>, %[[arg2:.+]]: !executor.ptr<host> {executor.result = 0 : i64}) {
+//  IND-SAME:  (%[[arg0:.+]]: i32, %[[arg1:.+]]: !executor.ptr<host>, %[[arg2:.+]]: !executor.ptr<host> {executor.result_slot = 0 : i32}) {
 //       IND: %[[v0:.+]] = executor.load %[[arg1]]
 //       IND: cf.switch %[[arg0]] : i32, [
 //       IND:   default: ^bb1(%[[v0]] : !executor.table<i64, f64>),
@@ -270,7 +270,7 @@ func.func @switch_with_aggregate(%idx: i32, %arg0: !executor.table<i64, f64>) ->
 
 // UNP-LABEL: func.func @switch_with_aggregate
 //  UNP-SAME:  (%[[idx:.+]]: i32, %[[arg0:.+]]: i64, %[[arg1:.+]]: f64)
-//  UNP-SAME:  -> (i64 {executor.result = 0 : i64}, f64)
+//  UNP-SAME:  -> (i64 {executor.result_slot = 0 : i32}, f64)
 //       UNP: %[[v0:.+]] = executor.table.create(%[[arg0]], %[[arg1]] : i64, f64)
 //       UNP: cf.switch %[[idx]] : i32, [
 //       UNP:   default: ^bb1(%[[v0]] : !executor.table<i64, f64>),
@@ -289,14 +289,14 @@ func.func @no_args_aggregate_results() -> (!executor.table<i32, i64>, f32) {
 }
 
 // IND-LABEL: func.func @no_args_aggregate_results
-//  IND-SAME:  (%[[arg0:.+]]: !executor.ptr<host> {executor.result = 0 : i64})
-//  IND-SAME:  -> (f32 {executor.result = 1 : i64})
+//  IND-SAME:  (%[[arg0:.+]]: !executor.ptr<host> {executor.result_slot = 0 : i32})
+//  IND-SAME:  -> (f32 {executor.result_slot = 1 : i32})
 //       IND: %[[t:.+]] = executor.table.create
 //       IND: executor.store %[[t]] to %[[arg0]]
 //       IND: return %{{.*}} : f32
 
 // UNP-LABEL: func.func @no_args_aggregate_results
-//  UNP-SAME:  () -> (i32 {executor.result = 0 : i64}, i64, f32 {executor.result = 1 : i64})
+//  UNP-SAME:  () -> (i32 {executor.result_slot = 0 : i32}, i64, f32 {executor.result_slot = 1 : i32})
 //       UNP: %[[t:.+]] = executor.table.create
 //       UNP: %[[v0:.+]] = executor.table.get %[[t]][0]
 //       UNP: %[[v1:.+]] = executor.table.get %[[t]][1]
@@ -312,8 +312,8 @@ func.func @deeply_nested(%arg0: !executor.table<!executor.table<!executor.table<
 
 // IND-LABEL: func.func @deeply_nested
 //  IND-SAME:  (%[[arg0:.+]]: !executor.ptr<host>,
-//  IND-SAME:   %[[arg1:.+]]: !executor.ptr<host> {executor.result = 0 : i64})
+//  IND-SAME:   %[[arg1:.+]]: !executor.ptr<host> {executor.result_slot = 0 : i32})
 
 // UNP-LABEL: func.func @deeply_nested
 //  UNP-SAME:  (%[[arg0:.+]]: i32)
-//  UNP-SAME:  -> (i32 {executor.result = 0 : i64})
+//  UNP-SAME:  -> (i32 {executor.result_slot = 0 : i32})

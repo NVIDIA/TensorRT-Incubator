@@ -45,10 +45,21 @@ static LogicalResult createFunctionMetadata(func::FuncOp funcOp) {
   SmallVector<Type> argTypes;
   SmallVector<mlir::Attribute> argAttr;
   int64_t numOutputArgs = 0;
+  llvm::SmallSetVector<uint32_t, 4> seenArgs;
   for (BlockArgument arg : funcOp.getArguments()) {
-    if (funcOp.getArgAttr(arg.getArgNumber(),
-                          ExecutorDialect::kResultArgAttrName))
+    if (auto resultSlot = funcOp.getArgAttrOfType<IntegerAttr>(
+            arg.getArgNumber(), ExecutorDialect::kResultArgAttrName)) {
+      if (seenArgs.contains(resultSlot.getInt())) {
+        return funcOp.emitError()
+               << "result slot " << resultSlot.getInt() << " is already used";
+      }
+      if (!seenArgs.getArrayRef().empty() &&
+          seenArgs.getArrayRef().back() >= resultSlot.getInt()) {
+        return funcOp.emitError() << "malformed result slot attributes";
+      }
+      seenArgs.insert(resultSlot.getInt());
       numOutputArgs++;
+    }
     argTypes.push_back(arg.getType());
     argAttr.push_back(executor::getFuncArgsBounds(funcOp, arg.getArgNumber()));
   }

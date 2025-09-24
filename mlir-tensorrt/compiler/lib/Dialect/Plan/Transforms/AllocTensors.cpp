@@ -65,26 +65,27 @@ using bufferization::func_ext::FuncOpAnalysisState;
 
 /// Creates a DPS argument of type `argType` in the first block of `func` by
 /// appending to the end of current arguments. It then updates the function
-/// type, adds a `executor.result_arg` argument attribute to the new arg, and
-/// returns the new block argument.
+/// type.
 static FailureOr<BlockArgument>
 updateFunctionWithNewDpsArg(func::FuncOp func, Location loc, Type argType,
                             unsigned tiedResult) {
   MLIRContext *ctx = func->getContext();
-  auto argAttrs = DictionaryAttr::get(
-      ctx,
-      {NamedAttribute(StringAttr::get(ctx, PlanDialect::kResultArgAttrName),
-                      UnitAttr::get(ctx))});
-  func.insertArgument(func.getNumArguments(), argType, argAttrs, loc);
-
+  SmallVector<NamedAttribute> argAttrs;
+  if (auto resultAttr =
+          func.getResultAttr(tiedResult, plan::PlanDialect::kResultArgAttrName))
+    argAttrs.push_back(
+        NamedAttribute(plan::PlanDialect::kResultArgAttrName, resultAttr));
   if (auto boundsAttr = func.getResultAttr(
           tiedResult, plan::PlanDialect::kShapeBoundsAttrName))
-    func.setArgAttr(func.getNumArguments() - 1,
-                    plan::PlanDialect::kShapeBoundsAttrName, boundsAttr);
+    argAttrs.push_back(
+        NamedAttribute(plan::PlanDialect::kShapeBoundsAttrName, boundsAttr));
   if (auto boundsAttr = func.getResultAttr(
           tiedResult, plan::PlanDialect::kValueBoundsAttrName))
-    func.setArgAttr(func.getNumArguments() - 1,
-                    plan::PlanDialect::kValueBoundsAttrName, boundsAttr);
+    argAttrs.push_back(
+        NamedAttribute(plan::PlanDialect::kValueBoundsAttrName, boundsAttr));
+
+  func.insertArgument(func.getNumArguments(), argType,
+                      DictionaryAttr::get(ctx, argAttrs), loc);
 
   return func.getArguments().back();
 }
@@ -375,7 +376,7 @@ maybeReshapeOrCast(RewriterBase &rewriter, Location loc,
 
 /// Return true if the given function argument is considered "writable". It is
 /// writable if it has attribute 'bufferization.writable' set to true or has
-/// unit attribute 'plan.result_arg' set.
+/// unit attribute 'plan.result_slot' set.
 static bool isArgumentWritable(func::FuncOp func, int64_t idx) {
   if (func.getArgAttr(idx, PlanDialect::kResultArgAttrName))
     return true;

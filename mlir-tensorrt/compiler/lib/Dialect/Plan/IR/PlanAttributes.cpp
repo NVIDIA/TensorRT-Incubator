@@ -533,8 +533,7 @@ LogicalResult PlanDialect::verifyOperationAttribute(Operation *op,
     return success();
   }
   if (attribute.getName() == PlanDialect::kShapeFuncAttrName) {
-    auto funcOp = dyn_cast<FunctionOpInterface>(op);
-    if (!funcOp)
+    if (!isa<FunctionOpInterface>(op))
       return op->emitError() << PlanDialect::kShapeFuncAttrName
                              << " must be attached to a function";
     if (!isa<FlatSymbolRefAttr>(attribute.getValue()))
@@ -543,8 +542,7 @@ LogicalResult PlanDialect::verifyOperationAttribute(Operation *op,
     return success();
   }
   if (attribute.getName() == PlanDialect::kShapeFuncMarkerAttrName) {
-    auto funcOp = dyn_cast<FunctionOpInterface>(op);
-    if (!funcOp)
+    if (!isa<FunctionOpInterface>(op))
       return op->emitError() << PlanDialect::kShapeFuncMarkerAttrName
                              << " must be attached to a function";
     if (!isa<UnitAttr>(attribute.getValue()))
@@ -571,8 +569,7 @@ LogicalResult PlanDialect::verifyRegionArgAttribute(Operation *op,
   }
 
   if (attribute.getName() == PlanDialect::kFuncTargetKind) {
-    auto funcOp = dyn_cast<FunctionOpInterface>(op);
-    if (!funcOp)
+    if (!isa<FunctionOpInterface>(op))
       return op->emitError() << PlanDialect::kFuncTargetKind
                              << " must decorate a function argument";
     return success();
@@ -588,14 +585,24 @@ LogicalResult PlanDialect::verifyRegionArgAttribute(Operation *op,
     return verifyBoundsAttribute(op, argIndex, boundsAttr, attribute.getName());
   }
 
+  if (attribute.getName() == PlanDialect::kResultArgAttrName) {
+    if (!isa<FunctionOpInterface>(op))
+      return op->emitError() << PlanDialect::kResultArgAttrName
+                             << " must be attached to a function";
+    // Check attribute has i32 value
+    auto resultIdx = dyn_cast<IntegerAttr>(attribute.getValue());
+    if (!resultIdx || !resultIdx.getType().isInteger(32))
+      return op->emitError() << "expected " << PlanDialect::kResultArgAttrName
+                             << " attribute to have i32 value";
+    return success();
+  }
+
   if (attribute.getName() == PlanDialect::kDonationArgAttrName) {
-    auto funcOp = dyn_cast<FunctionOpInterface>(op);
-    if (!funcOp)
+    if (!isa<FunctionOpInterface>(op))
       return op->emitError() << PlanDialect::kDonationArgAttrName
                              << " must decorate a function argument";
     // Check attribute has i32 value
-    auto resultIdx =
-        funcOp.getArgAttrOfType<IntegerAttr>(argIndex, attribute.getName());
+    auto resultIdx = dyn_cast<IntegerAttr>(attribute.getValue());
     if (!resultIdx || !resultIdx.getType().isInteger(32))
       return op->emitError() << "expected " << PlanDialect::kDonationArgAttrName
                              << " attribute to have i32 value";
@@ -613,4 +620,18 @@ void PlanDialect::registerAttributes() {
   // We don't use the generated attribute printer/parser.
   (void)&generatedAttributePrinter;
   (void)&generatedAttributeParser;
+}
+
+//===----------------------------------------------------------------------===//
+// Compiler-Runtime Interface Functions
+//===----------------------------------------------------------------------===//
+
+void plan::assignInitialSlotNumbers(OpBuilder &builder,
+                                    FunctionOpInterface func) {
+  ArrayRef<Type> resultTypes = func.getResultTypes();
+  unsigned slotIndex = 0;
+  for (unsigned i = 0, e = resultTypes.size(); i < e; ++i) {
+    func.setResultAttr(i, plan::PlanDialect::kResultArgAttrName,
+                       builder.getI32IntegerAttr(slotIndex++));
+  }
 }

@@ -23,6 +23,7 @@ add_mlir_tensorrt_library(MLIRTensorRTPlanTransforms
   PostClusteringValidation.cpp
   PromoteHostTensorsToHostPinned.cpp
   RefineTypes.cpp
+  VerifyInputAndAssignSlots.cpp
 
   DEPENDS
   MLIRTensorRTPlanTransformsPassIncGen

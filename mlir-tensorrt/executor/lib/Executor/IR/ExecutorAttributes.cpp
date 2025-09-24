@@ -336,6 +336,12 @@ Attribute executor::getFuncResultBounds(func::FuncOp func, int64_t argIdx) {
 }
 
 LogicalResult
+ExecutorDialect::verifyOperationAttribute(Operation *op,
+                                          NamedAttribute attribute) {
+  return success();
+}
+
+LogicalResult
 ExecutorDialect::verifyRegionArgAttribute(Operation *op, unsigned regionIndex,
                                           unsigned argIndex,
                                           NamedAttribute attribute) {
@@ -348,6 +354,15 @@ ExecutorDialect::verifyRegionArgAttribute(Operation *op, unsigned regionIndex,
                 "value bounds";
     return verifyValueBoundsAttribute(op, argIndex, boundsAttr,
                                       attribute.getName());
+  }
+
+  if (attribute.getName() == ExecutorDialect::kResultArgAttrName) {
+    auto resultIdx = dyn_cast<IntegerAttr>(attribute.getValue());
+    if (!resultIdx || !resultIdx.getType().isInteger(32))
+      return op->emitError()
+             << "expected " << ExecutorDialect::kResultArgAttrName
+             << " attribute to have i32 value";
+    return success();
   }
 
   return success();

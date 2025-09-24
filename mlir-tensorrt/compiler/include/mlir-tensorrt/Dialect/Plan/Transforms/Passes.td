@@ -28,6 +28,22 @@ defvar InputKindOption = Option<"inputKind", "input-kind", "::mlir::plan::InputK
       "::mlir::plan::detail::createInputKindClOptions()">;
 
 //===----------------------------------------------------------------------===//
+// VerifyInputAndAssignSlotsPass
+//===----------------------------------------------------------------------===//      
+
+def VerifyInputAndAssignSlotsPass : Pass<"plan-verify-input-and-assign-slots",
+                                         "::mlir::ModuleOp"> {
+  let description = [{
+    This pass verifies input IR pre-conditions and assigns slot numbers to
+    the arguments and results.
+  }];
+
+  let dependentDialects = [
+    "::mlir::plan::PlanDialect"
+  ];  
+}
+
+//===----------------------------------------------------------------------===//
 // MaterializeShapeCalculationsPass
 //===----------------------------------------------------------------------===//
 

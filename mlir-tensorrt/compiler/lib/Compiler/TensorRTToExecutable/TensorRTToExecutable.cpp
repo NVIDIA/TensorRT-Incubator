@@ -61,6 +61,7 @@ void TensorRTToExecutableTask::populatePassManager() {
   PassManager &pm = *this;
   const TensorRTToExecutableOptions &options = getOptions();
 
+  pm.addPass(plan::createVerifyInputAndAssignSlotsPass());
   pm.addPass(createOutlineTensorRTOpPass());
 
   // Simplify and translate functions nested in `tensorrt.module` ops.

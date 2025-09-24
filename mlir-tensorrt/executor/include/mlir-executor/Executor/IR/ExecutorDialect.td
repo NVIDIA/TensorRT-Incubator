@@ -59,6 +59,7 @@ def Executor_Dialect : Dialect {
   let useDefaultAttributePrinterParser = 1;
 
   let hasRegionArgAttrVerify = 1;
+  let hasOperationAttrVerify = 1;
 
   let extraClassDeclaration = [{
     Operation *materializeConstant(::mlir::OpBuilder &builder,
@@ -78,7 +79,7 @@ def Executor_Dialect : Dialect {
     /// The name of the function argument attribute that indicates an argument
     /// is tied with a result. Arguments tagged in this manner are associated
     /// with results based on the order in the argument list.
-    static constexpr StringRef kResultArgAttrName = "executor.result_arg";
+    static constexpr StringRef kResultArgAttrName = "executor.result_slot";
 
     /// The name of the function argument attribute that indicates an argument
     /// donated for result. Arguments tagged in this manner are associated

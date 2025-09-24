@@ -42,7 +42,7 @@ def Plan_Dialect : Dialect {
     /// The name of the function argument attribute that indicates an argument
     /// is tied with a result. The value should be an integer indicating
     /// the original result index.
-    static constexpr StringRef kResultArgAttrName = "plan.result_arg";
+    static constexpr StringRef kResultArgAttrName = "plan.result_slot";
 
     /// The name of the function argument attribute that hints donated argument.
     static constexpr StringRef kDonationArgAttrName = "plan.aliasing_output";

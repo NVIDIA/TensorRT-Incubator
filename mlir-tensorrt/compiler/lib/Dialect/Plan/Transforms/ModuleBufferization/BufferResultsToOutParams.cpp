@@ -315,11 +315,6 @@ updateFuncOp(RewriterBase &rewriter, func::FuncOp func,
     if (plan.returnsExistingBlockArg[erasedResultIdx])
       continue;
     func.setArgAttrs(newArgIdx, func.getResultAttrs(erasedResultIdx));
-    // Set the marker to indicate we promoted this argument from a result.
-    func.setArgAttr(newArgIdx,
-                    StringAttr::get(func.getContext(),
-                                    plan::PlanDialect::kResultArgAttrName),
-                    UnitAttr::get(func.getContext()));
     newArgIdx++;
   }
 

@@ -423,15 +423,16 @@ LogicalResult AggregateTypeConverter::getFuncTypeRemapping(
     FunctionType funcType, ArrayAttr argAttrDicts, ArrayAttr resultAttrDicts,
     FuncTypeRemapInfo &funcTypeRemapInfo) const {
   const auto emptyDictAttr = DictionaryAttr::get(ctx, {});
-  const IntegerType indexType = IntegerType::get(ctx, 64);
+  const IntegerType indexType = IntegerType::get(ctx, 32);
   auto updateAttrDicts = [&](ArrayAttr attrDicts, unsigned originalIndex,
                              unsigned convertedTypesSize,
                              SmallVectorImpl<DictionaryAttr> &attributes,
                              std::optional<int64_t> resultIndex) {
     llvm::SmallVector<NamedAttribute, 1> updates;
     if (resultIndex)
-      updates.push_back(NamedAttribute(
-          "executor.result", IntegerAttr::get(indexType, *resultIndex)));
+      updates.push_back(
+          NamedAttribute(ExecutorDialect::kResultArgAttrName,
+                         IntegerAttr::get(indexType, *resultIndex)));
     if (!attrDicts) {
       auto firstArgDict = updateIfMissing(emptyDictAttr, updates);
       attributes.push_back(firstArgDict);

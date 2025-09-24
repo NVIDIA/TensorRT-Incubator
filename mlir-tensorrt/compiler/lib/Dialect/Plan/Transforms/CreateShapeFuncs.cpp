@@ -27,7 +27,6 @@
 #include "mlir/Analysis/DataFlow/ConstantPropagationAnalysis.h"
 #include "mlir/Analysis/DataFlow/DeadCodeAnalysis.h"
 #include "mlir/Analysis/DataFlowFramework.h"
-#include "mlir/Analysis/Presburger/IntegerRelation.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -40,7 +39,6 @@
 #include "mlir/IR/SymbolTable.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallVectorExtras.h"
-#include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FormatVariadic.h"
 
@@ -642,6 +640,9 @@ public:
       symbolTable.insert(*aggShapeFunc);
       func->setAttr(PlanDialect::kShapeFuncAttrName,
                     SymbolRefAttr::get(*aggShapeFunc));
+
+      // Assign slot numbers to the function.
+      plan::assignInitialSlotNumbers(rewriter, *aggShapeFunc);
     }
   }
 };

@@ -12,7 +12,7 @@ func.func @from_elements_staging_buffer(%arg0: f32, %arg1: f32) -> tensor<2xf32>
 }
 
 // CHECK-LABEL: func.func @from_elements_staging_buffer
-//  CHECK-SAME: (%[[arg0:.+]]: f32, %[[arg1:.+]]: f32, %[[arg2:.+]]: memref<2xf32, #plan.memory_space<device>> {plan.result_arg}) {
+//  CHECK-SAME: (%[[arg0:.+]]: f32, %[[arg1:.+]]: f32, %[[arg2:.+]]: memref<2xf32, #plan.memory_space<device>>) {
 //   CHECK-DAG:     %[[c1:.+]] = arith.constant 1 : index
 //   CHECK-DAG:     %[[c0:.+]] = arith.constant 0 : index
 //   CHECK-DAG:     %[[alloc:.+]] = memref.alloc() {alignment = 16 : i64} : memref<2xf32, #plan.memory_space<host_pinned>>
@@ -34,7 +34,7 @@ func.func @small_host_tensor_constant(%arg0: tensor<?x?xf32>) -> (tensor<?x?x?x?
 }
 
 // CHECK-LABEL: func.func @small_host_tensor_constant
-//  CHECK-SAME: (%[[arg0:.+]]: memref<?x?xf32, #plan.memory_space<device>>, %[[arg1:.+]]: memref<?x?x?x?xf32, #plan.memory_space<device>> {plan.result_arg}) {
+//  CHECK-SAME: (%[[arg0:.+]]: memref<?x?xf32, #plan.memory_space<device>>, %[[arg1:.+]]: memref<?x?x?x?xf32, #plan.memory_space<device>>) {
 //       CHECK:     %[[global:.+]] = memref.get_global {{.*}} : memref<4xindex, #plan.memory_space<host>>
 //       CHECK:     %[[reshape:.+]] = memref.reshape %[[arg0]](%[[global]])
 //       CHECK:     memref.copy %[[reshape]], %[[arg1]]
@@ -65,7 +65,7 @@ func.func @small_host_and_device_tensor_constant(%arg0: tensor<?x?xf32>) -> (ten
 }
 
 // CHECK-LABEL: func.func @small_host_and_device_tensor_constant
-//  CHECK-SAME: (%[[arg0:.+]]: memref<?x?xf32, #plan.memory_space<device>>, %[[arg1:.+]]: memref<?x?x?x?xf32, #plan.memory_space<device>> {plan.result_arg}, %[[arg2:.+]]: memref<4xindex, #plan.memory_space<device>> {plan.result_arg})
+//  CHECK-SAME: (%[[arg0:.+]]: memref<?x?xf32, #plan.memory_space<device>>, %[[arg1:.+]]: memref<?x?x?x?xf32, #plan.memory_space<device>>, %[[arg2:.+]]: memref<4xindex, #plan.memory_space<device>>)
 //   CHECK-DAG:     %[[global_device:.+]] = memref.get_global {{.*}} #plan.memory_space<device>>
 //   CHECK-DAG:     %[[global_host:.+]] = memref.get_global {{.*}} #plan.memory_space<host>>
 //       CHECK:     %[[reshape:.+]] = memref.reshape %[[arg0]](%[[global_host]])
@@ -215,7 +215,7 @@ func.func @shape_func_with_constraints(
 }
 
 // CHECK-LABEL: func.func @shape_func_with_constraints
-//  CHECK-SAME: (%[[arg0:.+]]: memref<2xindex, #plan.memory_space<host>>, %[[arg1:.+]]: memref<2xindex, #plan.memory_space<host>>, %[[arg2:.+]]: memref<2xindex, #plan.memory_space<host>> {plan.result_arg}) attributes {plan.memory_space = #plan.memory_space<host>} {
+//  CHECK-SAME: (%[[arg0:.+]]: memref<2xindex, #plan.memory_space<host>>, %[[arg1:.+]]: memref<2xindex, #plan.memory_space<host>>, %[[arg2:.+]]: memref<2xindex, #plan.memory_space<host>>) attributes {plan.memory_space = #plan.memory_space<host>} {
 //    CHECK-DAG:     %[[c1:.+]] = arith.constant 1 : index
 //    CHECK-DAG:     %[[c2:.+]] = arith.constant 2 : index
 //    CHECK-DAG:     %[[c0:.+]] = arith.constant 0 : index
@@ -251,7 +251,7 @@ func.func @test_alloc_tensor_copy_to_space(%arg0: tensor<2xindex, #plan.memory_s
 
 // CHECK-LABEL: func.func @test_alloc_tensor_copy_to_space
 //  CHECK-SAME: (%[[arg0:.+]]: memref<2xindex, #plan.memory_space<device>>,
-//  CHECK-SAME:  %[[arg1:.+]]: memref<2xindex, #plan.memory_space<host>> {plan.result_arg})
+//  CHECK-SAME:  %[[arg1:.+]]: memref<2xindex, #plan.memory_space<host>>)
 //       CHECK:     memref.copy %[[arg0]], %[[arg1]]
 //  CHECK-NEXT:     return
 
@@ -314,7 +314,7 @@ func.func @fill_buffers_using_for_loops() -> (tensor<2x128xf32>, tensor<128xf32>
 }
 
 // CHECK-LABEL: func.func @fill_buffers_using_for_loops
-//  CHECK-SAME: (%[[arg0:.+]]: memref<2x128xf32, #plan.memory_space<device>> {plan.result_arg}, %[[arg1:.+]]: memref<128xf32, #plan.memory_space<device>> {plan.result_arg})
+//  CHECK-SAME: (%[[arg0:.+]]: memref<2x128xf32, #plan.memory_space<device>>, %[[arg1:.+]]: memref<128xf32, #plan.memory_space<device>>)
 //   CHECK-DAG:     %[[alloc:.+]] = memref.alloc() {{.*}} #plan.memory_space<host>>
 //       CHECK:     scf.for %[[arg2:.+]] =
 //   CHECK-DAG:       %[[v0]]:2 = affine.delinearize_index %[[arg2]] into (2, 128) : index, index
@@ -388,7 +388,7 @@ module @calls_no_inline {
 
   // CHECK-LABEL: func.func private @compute
   // CHECK-SAME: (%[[arg0:.+]]: memref<5xi8, #plan.memory_space<host>>, %[[arg1:.+]]: memref<5xi8, #plan.memory_space<host>>,
-  // CHECK-SAME:  %[[arg2:.+]]: memref<5xi8, #plan.memory_space<host>> {plan.result_arg})
+  // CHECK-SAME:  %[[arg2:.+]]: memref<5xi8, #plan.memory_space<host>>)
   func.func private @compute(%arg0: tensor<5xi8>, %arg1: tensor<5xi8>) -> tensor<5xi8>
      attributes {no_inline, plan.memory_space = #plan.memory_space<host>} {
     %c1 = arith.constant 1 : index
@@ -452,7 +452,7 @@ func.func @test_loop_region_dps_rewrite_while(%arg0: tensor<10xf32>) -> tensor<1
 
 // CHECK-LABEL: func.func @test_loop_region_dps_rewrite_while
 //  CHECK-SAME: (%[[arg0:.+]]: memref<10xf32, #plan.memory_space<device>>,
-//  CHECK-SAME:  %[[arg1:.+]]: memref<10xf32, #plan.memory_space<device>> {plan.result_arg})
+//  CHECK-SAME:  %[[arg1:.+]]: memref<10xf32, #plan.memory_space<device>>)
 //   CHECK-DAG:     %[[cst:.+]] = arith.constant 0.0
 //   CHECK-DAG:     %[[c0:.+]] = arith.constant 0 : index
 //   CHECK-DAG:     %[[alloc:.+]] = memref.alloc() {{.*}} : memref<10xf32, #plan.memory_space<host_pinned>>
@@ -479,8 +479,8 @@ func.func @alloc_tensors_from_elements(%arg0: i32) -> (
 }
 
 // CHECK-LABEL: func.func @alloc_tensors_from_elements
-//  CHECK-SAME: (%[[arg0:.+]]: i32, %[[arg1:.+]]: memref<1xi32, #plan.memory_space<host>> {plan.result_arg},
-//  CHECK-SAME:  %[[arg2:.+]]: memref<1xi32, #plan.memory_space<device>> {plan.result_arg}) {
+//  CHECK-SAME: (%[[arg0:.+]]: i32, %[[arg1:.+]]: memref<1xi32, #plan.memory_space<host>>,
+//  CHECK-SAME:  %[[arg2:.+]]: memref<1xi32, #plan.memory_space<device>>) {
 //       CHECK:     %[[c0:.+]] = arith.constant 0 : index
 //       CHECK:     %[[alloc:.+]] = memref.alloc() {{.*}} : memref<1xi32, #plan.memory_space<host>>
 //       CHECK:     memref.store %[[arg0]], %[[alloc]][%[[c0]]]
@@ -615,7 +615,7 @@ func.func @test_optimization_barrier(%arg0: tensor<1x1xf32>, %arg1: tensor<i8>) 
 }
 
 // CHECK-LABEL: func.func @test_optimization_barrier
-//  CHECK-SAME: (%[[arg0:.+]]: memref{{.*}}, %[[arg1:.+]]: memref{{.*}}, %[[arg2:.+]]: memref{{.*}} {plan.result_arg}, %[[arg3:.+]]: memref{{.*}} {plan.result_arg})
+//  CHECK-SAME: (%[[arg0:.+]]: memref{{.*}}, %[[arg1:.+]]: memref{{.*}}, %[[arg2:.+]]: memref{{.*}}, %[[arg3:.+]]: memref{{.*}})
 //       CHECK:     memref.copy %[[arg0]], %[[arg2]]
 //       CHECK:     memref.copy %[[arg1]], %[[arg3]]
 //       CHECK:     return

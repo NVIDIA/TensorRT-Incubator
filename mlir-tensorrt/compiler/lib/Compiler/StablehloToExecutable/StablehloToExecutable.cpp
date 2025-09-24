@@ -102,6 +102,7 @@ void StablehloToExecutableTask::populatePassManager() {
           /*defaultBackends=*/SmallVector<std::string>(
               options.defaultBackends.begin(),
               options.defaultBackends.end())}));
+  pm.addPass(plan::createVerifyInputAndAssignSlotsPass());
 
   // StableHLO Preprocessing
   mtrt::compiler::StableHloInputOptions opts{};

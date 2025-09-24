@@ -52,7 +52,7 @@ func.func @test_dynamic_reshape(%arg0: tensor<4xf32>, %arg1: tensor<2xi32>) -> t
 //  SHAPE-SAME:  %[[arg1:.+]]: i32 {plan.shape_func_arg = {argument = 1 : index, indices = array<i64: 1>}})
 //       SHAPE:     return %[[arg0]], %[[arg1]] : i32, i32
 // SHAPE-LABEL: @test_dynamic_reshape_get_shapes
-//  SHAPE-SAME: (%[[arg0:.+]]: tensor<1xindex, #plan.memory_space<host>>, %[[arg1:.+]]: tensor<2xi32>) -> tensor<2xindex, #plan.memory_space<host>>
+//  SHAPE-SAME: (%[[arg0:.+]]: tensor<1xindex, #plan.memory_space<host>>, %[[arg1:.+]]: tensor<2xi32>)
 //       SHAPE:     %[[c0:.+]] = arith.constant 0 : index
 //       SHAPE:     %[[extracted:.+]] = tensor.extract %[[arg1]][%[[c0]]] : tensor<2xi32>
 //       SHAPE:     %[[c1:.+]] = arith.constant 1 : index
@@ -120,7 +120,7 @@ func.func @test_get_dim_size_max(%arg0: tensor<?x?xf32>, %arg1: tensor<?x?xf32>)
 //       SHAPE:     return %[[v4]], %[[v5]] : i32, i32
 
 // SHAPE-LABEL: func.func @test_get_dim_size_max_get_shapes
-//  SHAPE-SAME: (%[[arg0:.+]]: tensor<2xindex, #plan.memory_space<host>>, %[[arg1:.+]]: tensor<2xindex, #plan.memory_space<host>>) -> tensor<2xindex, #plan.memory_space<host>>
+//  SHAPE-SAME: (%[[arg0:.+]]: tensor<2xindex, #plan.memory_space<host>>, %[[arg1:.+]]: tensor<2xindex, #plan.memory_space<host>>)
 //   SHAPE-DAG:     %[[c0:.+]] = arith.constant 0 : index
 //   SHAPE-DAG:     %[[extracted:.+]] = tensor.extract %[[arg0]][%[[c0]]] : tensor<2xindex, #plan.memory_space<host>>
 //   SHAPE-DAG:     %[[c1:.+]] = arith.constant 1 : index
@@ -372,7 +372,7 @@ func.func @add_dynamic_derive_shape(
 //   SHAPE-DAG:     return %[[v3]] : i32
 
 // SHAPE-LABEL: func.func @add_dynamic_derive_shape_get_shapes
-//  SHAPE-SAME: (%[[arg0:.+]]: tensor<1xindex, #plan.memory_space<host>>, %[[arg1:.+]]: tensor<1xindex, #plan.memory_space<host>>) -> tensor<1xindex, #plan.memory_space<host>>
+//  SHAPE-SAME: (%[[arg0:.+]]: tensor<1xindex, #plan.memory_space<host>>, %[[arg1:.+]]: tensor<1xindex, #plan.memory_space<host>>)
 //       SHAPE:     %[[c0:.+]] = arith.constant 0 : index
 //       SHAPE:     %[[extracted:.+]] = tensor.extract %[[arg0]][%[[c0]]] : tensor<1xindex, #plan.memory_space<host>>
 //       SHAPE:     %[[c0_0:.+]] = arith.constant 0 : index
@@ -745,7 +745,7 @@ func.func @bufferization_aloc_tensor(%arg0: tensor<1xindex>) -> tensor<?xf32> {
 //  SHAPE-NEXT:     return %[[arg0]] :
 
 // SHAPE-LABEL: @bufferization_aloc_tensor_get_shapes
-//  SHAPE-SAME: (%[[arg0:.+]]: tensor<1xindex>) -> tensor<1xindex, #plan.memory_space<host>>
+//  SHAPE-SAME: (%[[arg0:.+]]: tensor<1xindex>)
 //       SHAPE:     %[[c0:.+]] = arith.constant 0 : index
 //       SHAPE:     %[[extracted:.+]] = tensor.extract %[[arg0]][%[[c0]]] : tensor<1xindex>
 //       SHAPE:     %[[v0:.+]] = call @shape_bufferization_aloc_tensor_result_0(%[[extracted]]) :
@@ -886,7 +886,7 @@ func.func @slice_with_repetetive_max(%arg0: tensor<2xi32>, %arg1: tensor<1xf32>)
 //   SHAPE-DAG:     %[[v0:.+]] = arith.maxsi %[[arg0]], %[[arg1]] : i32
 //   SHAPE-DAG:     return %[[v0]] : i32
 // SHAPE-LABEL: func.func @slice_with_repetetive_max_get_shapes
-//  SHAPE-SAME: (%[[arg0:.+]]: tensor<2xi32>, %[[arg1:.+]]: tensor<1xindex, #plan.memory_space<host>>) -> tensor<1xindex, #plan.memory_space<host>>
+//  SHAPE-SAME: (%[[arg0:.+]]: tensor<2xi32>, %[[arg1:.+]]: tensor<1xindex, #plan.memory_space<host>>)
 //   SHAPE-DAG:     %[[c0:.+]] = arith.constant 0 : index
 //   SHAPE-DAG:     %[[extracted:.+]] = tensor.extract %[[arg0]][%[[c0]]] : tensor<2xi32>
 //   SHAPE-DAG:     %[[c1:.+]] = arith.constant 1 : index

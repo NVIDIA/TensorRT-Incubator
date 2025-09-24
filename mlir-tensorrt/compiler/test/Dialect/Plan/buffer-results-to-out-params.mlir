@@ -22,7 +22,7 @@ func.func @caller() -> (memref<5xf32>, index, memref<?xf32>, memref<5xf32>) {
 }
 
 // CHECK-LABEL: func.func private @callee(
-//  CHECK-SAME: %[[arg0:.+]]: index, %[[arg1:.+]]: memref<5xf32> {plan.result_arg, plan.tag = "foo"}) -> (index, memref<?xf32> {plan.tag = "bar"})
+//  CHECK-SAME: %[[arg0:.+]]: index, %[[arg1:.+]]: memref<5xf32> {plan.tag = "foo"}) -> (index, memref<?xf32> {plan.tag = "bar"})
 //       CHECK:     %[[alloc:.+]] = memref.alloc
 //       CHECK:     %[[add:.+]] = arith.addi
 //   CHECK-NOT:     memref.copy
@@ -105,7 +105,7 @@ func.func @caller(%arg0: i1, %arg1: memref<5xf32>, %arg2: memref<5xf32>) -> (mem
 }
 
 // CHECK-LABEL: func.func private @multiple_blocks
-//  CHECK-SAME: (%[[arg0:.+]]: i1, %[[arg1:.+]]: memref<5xf32>, %[[arg2:.+]]: memref<5xf32>, %[[arg3:.+]]: memref<5xf32> {plan.result_arg})
+//  CHECK-SAME: (%[[arg0:.+]]: i1, %[[arg1:.+]]: memref<5xf32>, %[[arg2:.+]]: memref<5xf32>, %[[arg3:.+]]: memref<5xf32>)
 //       CHECK:     memref.copy %[[arg1]], %[[arg3]]
 //       CHECK:     return
 //       CHECK:     memref.copy %[[arg2]], %[[arg3]]
@@ -157,7 +157,7 @@ func.func @caller(%arg0: index, %arg1: index, %arg2: index, %arg3: index, %arg4:
 
 // CHECK-LABEL: func.func private @callee_returns_complicated
 //  CHECK-SAME: (%[[arg0:.+]]: index, %[[arg1:.+]]: index, %[[arg2:.+]]: index, %[[arg3:.+]]: index, %[[arg4:.+]]: index,
-//  CHECK-SAME:  %[[arg5:.+]]: memref<?xf32> {plan.result_arg}, %[[arg6:.+]]: memref<?xf32, strided<[?], offset: ?>> {plan.result_arg}) {
+//  CHECK-SAME:  %[[arg5:.+]]: memref<?xf32>, %[[arg6:.+]]: memref<?xf32, strided<[?], offset: ?>>) {
 //   CHECK-DAG:     %[[c0:.+]] = arith.constant 0 : index
 //   CHECK-DAG:     %[[cst:.+]] = arith.constant 1.000000e+00 : f32
 //   CHECK-DAG:     memref.store %[[cst]], %[[arg5]][%[[c0]]] : memref<?xf32>

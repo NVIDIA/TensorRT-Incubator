@@ -172,4 +172,18 @@ class PlanDialectOp
 #define GET_OP_CLASSES
 #include "mlir-tensorrt/Dialect/Plan/IR/PlanOps.h.inc"
 
+//===----------------------------------------------------------------------===//
+// Compiler-Runtime Interface Functions
+//===----------------------------------------------------------------------===//
+
+namespace mlir::plan {
+
+/// Assign initial slot numbers to the results of the function.
+///
+/// The slot numbers are assigned to results as result attributes
+/// `plan.result_slot` start from 0 to the number of results.
+void assignInitialSlotNumbers(OpBuilder &builder, FunctionOpInterface func);
+
+} // namespace mlir::plan
+
 #endif // MLIR_TENSORRT_DIALECT_PLAN_IR_PLAN_H
