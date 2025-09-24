@@ -3757,7 +3757,7 @@ getTensorRTTopKOperation(TensorRTConversionPatternRewriter &rewriter,
       op->getLoc(), inputs.front(), k, axis, trtTopKOperation);
   if (!trtTopKOp)
     return failure();
-  return ValueRange{trtTopKOp.getValues(), trtTopKOp.getIndices()};
+  return trtTopKOp->getResults();
 }
 
 /// Convert `stablehlo.custom_call` op with `tensorrt.quantize` or
@@ -3789,7 +3789,7 @@ getTensorRTQOrDQOperation(TensorRTConversionPatternRewriter &rewriter,
           : nullptr);
   if (!qOrDqOp)
     return failure();
-  return ValueRange{qOrDqOp.getResult()};
+  return qOrDqOp->getResults();
 }
 
 /// Convert `stablehlo.custom_call` op with `tensorrt.dynamic_quantize` target
