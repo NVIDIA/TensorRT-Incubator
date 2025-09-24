@@ -26,13 +26,14 @@
 #include "cuda_runtime_api.h"
 #include "mlir-executor/Runtime/API/API.h"
 #include "mlir-executor/Runtime/Backend/Common/CUDACommon.h"
-#include "mlir-executor/Runtime/Backend/Common/CommonRuntime.h"
 #include "mlir-executor/Runtime/Backend/Common/NvPtxCompilerUtils.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaErrorHandling.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaExtensionRegistry.h"
 #include "mlir-executor/Runtime/Backend/Lua/Modules/Utils/MemRefUtils.h"
 #include "mlir-executor/Runtime/Backend/Lua/SolAdaptor.h"
 #include "mlir-executor/Runtime/Backend/Utils/NvtxUtils.h"
+#include "mlir-executor/Runtime/Support/StridedCopy.h"
+#include "mlir-executor/Runtime/Support/Support.h"
 #include "mlir-executor/Support/Allocators.h"
 #include "llvm/Support/Alignment.h"
 #include <memory>
@@ -199,13 +200,13 @@ registerCudaMemoryManagementOps(sol::state_view &lua,
       std::vector<int64_t> dstStrides(dstShapeAndStridesPtr + rank,
                                       dstShapeAndStridesPtr + 2 * rank);
 
-      executeStridedCopy(elemSize, srcPointer, srcOffset, srcShape, srcStrides,
-                         dstPointer, dstOffset, dstShape, dstStrides,
-                         [&](void *dst, void *src, size_t size) {
-                           cudaMemcpyAsync(
-                               dst, src, size, kind,
-                               reinterpret_cast<cudaStream_t>(stream));
-                         });
+      mtrt::executeStridedCopy(
+          elemSize, srcPointer, srcOffset, srcShape, srcStrides, dstPointer,
+          dstOffset, dstShape, dstStrides,
+          [&](void *dst, void *src, size_t size) {
+            cudaMemcpyAsync(dst, src, size, kind,
+                            reinterpret_cast<cudaStream_t>(stream));
+          });
     };
   };
 

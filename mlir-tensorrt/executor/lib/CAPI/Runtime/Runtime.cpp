@@ -275,12 +275,13 @@ MTRT_Status mtrtMemRefCreate(MTRT_RuntimeClient client,
   Ref<Stream> streamRef = {nullptr};
   if (!mtrtStreamIsNull(stream))
     streamRef = unwrap(stream)->ref;
+  BufferType bufferType = BufferType::createWithElementStrides(
+      unwrap(scalarType), llvm::ArrayRef(shape, shape + rank),
+      llvm::ArrayRef(strides, strides + rank), unwrap(pointerKind),
+      /*offset=*/0);
   StatusOr<std::unique_ptr<MemRefValue>> bufferImpl =
-      unwrap(client)->ref->allocateMemRef(
-          unwrap(pointerKind), unwrap(scalarType),
-          llvm::ArrayRef(shape, shape + rank),
-          llvm::ArrayRef(strides, strides + rank), unwrap(device), streamRef,
-          assertCanonicalStrides);
+      unwrap(client)->ref->allocateMemRef(bufferType, unwrap(device), streamRef,
+                                          assertCanonicalStrides);
 
   if (bufferImpl.isError())
     return wrap(bufferImpl.getStatus());
@@ -309,12 +310,13 @@ MTRT_Status mtrtMemRefCreateExternal(
     const int64_t *shape, const int64_t *strides, MTRT_Device device,
     MTRT_MemRefValue *result, bool assertCanonicalStrides,
     MTRT_MemRefDestroyCallback destroyCallback) {
+  BufferType bufferType = BufferType::createWithElementStrides(
+      unwrap(scalarType), llvm::ArrayRef(shape, shape + rank),
+      llvm::ArrayRef(strides, strides + rank), unwrap(pointerKind),
+      /*offset=*/0);
   StatusOr<std::unique_ptr<MemRefValue>> bufferImpl =
       unwrap(client)->ref->createExternalMemRef(
-          unwrap(pointerKind), unwrap(scalarType), ptr, offset,
-          llvm::ArrayRef(shape, shape + rank),
-          llvm::ArrayRef(strides, strides + rank), unwrap(device),
-          assertCanonicalStrides,
+          bufferType, ptr, unwrap(device), assertCanonicalStrides,
           unwrapDestroyCallback(std::move(destroyCallback)));
 
   if (bufferImpl.isError())
@@ -554,7 +556,9 @@ MTRT_Status mtrtCopyFromHostToDevice(MTRT_MemRefValue hostBuffer,
   StatusOr<std::unique_ptr<MemRefValue>> deviceBufferImpl =
       unwrap(hostBuffer)
           ->getClient()
-          ->copyToDevice(*unwrap(hostBuffer), *unwrap(device), streamRef);
+          ->copyToDevice(*unwrap(hostBuffer), *unwrap(device),
+                         streamRef, /*doneWithHostBuffer=*/
+                         nullptr);
   if (!deviceBufferImpl.isOk())
     return wrap(deviceBufferImpl.getStatus());
 

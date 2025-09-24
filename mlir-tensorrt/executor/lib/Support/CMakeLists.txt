@@ -19,3 +19,11 @@ add_mlir_executor_library(MLIRTensorRTSupportDeviceInfo
   ${deps_}
   MLIRExecutorIncludes
 )
+
+add_mlir_executor_library(MLIRTensorRTSupportStridedCopy
+  PARTIAL_SOURCES_INTENDED
+  StridedCopy.cpp
+
+  LINK_LIBS PUBLIC
+  MLIRExecutorIncludes
+)

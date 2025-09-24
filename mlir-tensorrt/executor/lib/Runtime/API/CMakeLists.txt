@@ -27,6 +27,7 @@ add_mlir_executor_runtime_library(MLIRTensorRTExecutorRuntimeAPI
   MLIRTensorRTRuntimeSupport
   MLIRTensorRTSupportAllocators
   MLIRTensorRTSupportStatus
+  MLIRTensorRTSupportStridedCopy
   sol2::sol2
   lua::core
   ${optional_dependencies}

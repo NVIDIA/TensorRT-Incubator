@@ -23,13 +23,14 @@
 //===----------------------------------------------------------------------===//
 #include "../../../C/CoreModule.h"
 #include "mlir-executor/Runtime/API/API.h"
-#include "mlir-executor/Runtime/Backend/Common/CommonRuntime.h"
 #include "mlir-executor/Runtime/Backend/Common/DataTypes.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaErrorHandling.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaExtensionRegistry.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaRuntime.h"
 #include "mlir-executor/Runtime/Backend/Lua/Modules/Utils/MemRefUtils.h"
 #include "mlir-executor/Runtime/Backend/Utils/NvtxUtils.h"
+#include "mlir-executor/Runtime/Support/StridedCopy.h"
+#include "mlir-executor/Runtime/Support/Support.h"
 #include "mlir-executor/Support/Allocators.h"
 #include "llvm/Support/FormatVariadic.h"
 #include <algorithm>
@@ -1015,7 +1016,7 @@ static void registerExecutorCoreModuleLuaRuntimeMethods(
     if (!dstData)
       return;
 
-    executeStridedCopy(
+    mtrt::executeStridedCopy(
         elemSize, srcData, srcOffset, srcShape, srcStrides, dstData, dstOffset,
         dstShape, dstStrides,
         [](void *dst, void *src, size_t size) { std::memcpy(dst, src, size); });

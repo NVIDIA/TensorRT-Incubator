@@ -511,13 +511,13 @@ static Status validateArgsTypesAgainstFuncArgs(const RuntimeValue *runArg,
     if (view.getElementType() != value->getScalarType())
       return getInvalidArgStatus(
           "function expects a memref type with element type {0} but "
-          "receieved {1}",
+          "received {1}",
           view.getElementType().getStrRef(),
           value->getScalarType().getStrRef());
 
     if (view.getRank() != value->getRank())
       return getInvalidArgStatus(
-          "function expects a memref type with rank {0} but receieved {1}",
+          "function expects a memref type with rank {0} but received {1}",
           view.getRank(), value->getRank());
 
     if (view.getShape() != value->getShape()) {
@@ -527,7 +527,7 @@ static Status validateArgsTypesAgainstFuncArgs(const RuntimeValue *runArg,
               "all shape dimensions extents must be "
               "non-negative but received shape [{0:$[, ]}]",
               value->getShape());
-        if (view.getShape()[i] >= 0 &&
+        if (view.getShape()[i] != kDynamicSize &&
             view.getShape()[i] != value->getShape()[i])
           return getInvalidArgStatus(
               "Runtime shape mismatch. Expected [{0:$[, ]}] "
@@ -537,30 +537,34 @@ static Status validateArgsTypesAgainstFuncArgs(const RuntimeValue *runArg,
     }
 
     if (view.getStrides() != value->getStrides()) {
-      bool isEmpty = llvm::is_contained(view.getShape(), 0);
+      bool isEmpty = llvm::is_contained(view.getShape(), 0) ||
+                     llvm::is_contained(value->getShape(), 0);
       if (!isEmpty) { // Allow any non-canonical stride for empty tensor
         for (unsigned i = 0; i < view.getStrides().size(); ++i) {
           if (value->getStrides()[i] < 0)
             return getInvalidArgStatus("all strides must be non-negative but "
-                                       "received shape [{0:$[, ]}]",
+                                       "received strides [{0:$[, ]}]",
                                        value->getStrides());
-          if (view.getStrides()[i] >= 0 &&
-              view.getStrides()[i] != value->getStrides()[i])
+          if (view.getStrides()[i] != kDynamicSize &&
+              view.getStrides()[i] != value->getStrides()[i]) {
             // Allow the special case of non-canonical stride for unit
             // dimensions See https://github.com/pytorch/pytorch/issues/99803
-            // for more detail
-            if (value->getShape()[i] != 1 || value->getStrides()[i] != 1)
-              return getInvalidArgStatus(
-                  "Runtime stride mismatch. Expected [{0:$[, ]}] "
-                  "but received [{1:$[, ]}]",
-                  view.getStrides(), value->getStrides());
+            // for more detail.
+            if ((value->getShape()[i] == 1 && value->getStrides()[i] == 1))
+              continue;
+
+            return getInvalidArgStatus(
+                "Runtime stride mismatch. Expected [{0}] "
+                "but received [{1}]",
+                view.getStrides(), value->getStrides());
+          }
         }
       }
     }
 
     if (view.getAddressSpace() != value->getAddressSpace())
       return getInvalidArgStatus("function expects a memref type with "
-                                 "address space {0} but receieved {1}",
+                                 "address space {0} but received {1}",
                                  EnumNamePointerType(view.getAddressSpace()),
                                  EnumNamePointerType(value->getAddressSpace()));
 
@@ -575,7 +579,7 @@ static Status validateArgsTypesAgainstFuncArgs(const RuntimeValue *runArg,
     if (view != value->getType().getCode())
       return getInvalidArgStatus(
           "function expects a scalar type with element type {0} but "
-          "receieved {1}",
+          "received {1}",
           mtrt::flat::EnumNameScalarTypeCode(view),
           mtrt::flat::EnumNameScalarTypeCode(value->getType().getCode()));
   }

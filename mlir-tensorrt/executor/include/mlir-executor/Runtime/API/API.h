@@ -942,6 +942,11 @@ public:
   llvm::ArrayRef<int64_t> getStrides() const { return strides; }
   int64_t getOffset() const { return offset; }
 
+  /// Create a canonical row major layout.
+  /// We follow the PyTorch convention that unit dimensions have unit stride.
+  static BufferStridedLayout
+  createCanonicalRowMajor(llvm::ArrayRef<int64_t> shape);
+
   /// Return whether the layout is equal to another layout.
   bool operator==(const BufferStridedLayout &other) const {
     return strides == other.strides && offset == other.offset;
@@ -975,6 +980,10 @@ public:
              mtrt::PointerType addressSpace, int64_t offset)
       : elementType(elementType), shape(shape), layout(strides, offset),
         addressSpace(addressSpace) {}
+  BufferType(ScalarType elementType, const std::vector<int64_t> &shape,
+             BufferStridedLayout layout, mtrt::PointerType addressSpace)
+      : elementType(elementType), shape(shape), layout(layout),
+        addressSpace(addressSpace) {}
 
   static BufferType
   createWithByteStrides(ScalarType elementType,
@@ -990,8 +999,7 @@ public:
 
   static BufferType createWithCanonicalLayout(ScalarType elementType,
                                               const std::vector<int64_t> &shape,
-                                              mtrt::PointerType addressSpace,
-                                              int64_t offset);
+                                              mtrt::PointerType addressSpace);
 
   /// Creates a BufferType the flatbuffers' MemRefTypeView.
   static BufferType getFromSerializedType(const MemRefTypeView &type);
@@ -1398,16 +1406,14 @@ public:
 
   llvm::ArrayRef<std::unique_ptr<Device>> getDevices() const;
 
+  // Allocates a new MemRefValue with the buffer type and layout.
   StatusOr<std::unique_ptr<MemRefValue>>
-  allocateMemRef(PointerType addressSpace, ScalarTypeCode elementType,
-                 llvm::ArrayRef<int64_t> shape, llvm::ArrayRef<int64_t> strides,
-                 Device *device = nullptr, Ref<Stream> stream = nullptr,
+  allocateMemRef(const BufferType &type, Device *device = nullptr,
+                 Ref<Stream> stream = nullptr,
                  bool assertCanonicalStrides = false);
 
   StatusOr<std::unique_ptr<MemRefValue>> createExternalMemRef(
-      PointerType addressSpace, ScalarTypeCode elementType, uintptr_t ptr,
-      int64_t offset, llvm::ArrayRef<int64_t> shape,
-      llvm::ArrayRef<int64_t> strides, Device *device = nullptr,
+      const BufferType &type, uintptr_t ptr, Device *device = nullptr,
       bool assertCanonicalStrides = false, std::function<void()> = nullptr);
 
   // Allocates a new host buffer and fills it with data present in the
@@ -1420,7 +1426,7 @@ public:
   /// the given stream.
   StatusOr<std::unique_ptr<MemRefValue>>
   copyToDevice(const MemRefValue &hostBuffer, Device &device,
-               Ref<Stream> stream);
+               Ref<Stream> stream, std::unique_ptr<Event> *doneWithHostBuffer);
 
   /// Allocates a new host buffer and fills it with data present on the device
   /// in the specified buffer. The allocation and copy are performed on the

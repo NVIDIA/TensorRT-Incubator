@@ -22,15 +22,11 @@
 /// runtime).
 ///
 //===----------------------------------------------------------------------===//
-#ifndef MLIR_TENSORRT_RUNTIME_COMMON_COMMONRUNTIME_H
-#define MLIR_TENSORRT_RUNTIME_COMMON_COMMONRUNTIME_H
+#ifndef MLIR_EXECUTOR_RUNTIME_SUPPORT_STRIDEDCOPY
+#define MLIR_EXECUTOR_RUNTIME_SUPPORT_STRIDEDCOPY
 
-#include "mlir-executor/Runtime/API/API.h"
-#include "mlir-executor/Runtime/Support/Support.h"
-#include "mlir-tensorrt-common/Support/Status.h"
-#include "llvm/ADT/StringRef.h"
-#include <cassert>
-#include <iostream>
+#include "llvm/ADT/ArrayRef.h"
+#include <vector>
 
 namespace mtrt {
 
@@ -55,4 +51,4 @@ void executeStridedByteCopy(
 
 } // namespace mtrt
 
-#endif // MLIR_TENSORRT_RUNTIME_COMMON_COMMONRUNTIME_H
+#endif // MLIR_EXECUTOR_RUNTIME_SUPPORT_STRIDEDCOPY

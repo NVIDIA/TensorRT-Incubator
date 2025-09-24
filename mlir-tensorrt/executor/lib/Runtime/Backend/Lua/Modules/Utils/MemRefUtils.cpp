@@ -18,11 +18,7 @@
 //
 //===----------------------------------------------------------------------===//
 #include "mlir-executor/Runtime/Backend/Lua/Modules/Utils/MemRefUtils.h"
-#include "mlir-executor/Runtime/Backend/Common/CommonRuntime.h"
-#include "mlir-executor/Runtime/Backend/Lua/LuaErrorHandling.h"
 #include "mlir-executor/Runtime/Backend/Lua/SolAdaptor.h"
-#include "mlir-tensorrt-common/Support/Status.h"
-#include "llvm/Support/raw_ostream.h"
 
 namespace mrt = mtrt;
 using namespace mtrt;

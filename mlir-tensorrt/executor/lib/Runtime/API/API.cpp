@@ -21,12 +21,12 @@
 #include "mlir-executor/Runtime/API/Executable.h"
 #include "mlir-executor/Runtime/API/ExecutableFlatbuffer.h"
 #include "mlir-executor/Runtime/Support/CUDAHelpers.h"
+#include "mlir-executor/Runtime/Support/StridedCopy.h"
 #include "mlir-executor/Runtime/Support/Support.h"
 #include "mlir-executor/Support/Allocators.h"
 #include "mlir-tensorrt-common/Support/Status.h"
 #include "llvm/ADT/IntrusiveRefCntPtr.h"
 #include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/Sequence.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FormatVariadic.h"
@@ -1010,30 +1010,13 @@ BufferType BufferType::createWithElementStrides(
   return result;
 }
 
-static std::vector<int64_t>
-getCanonicalRowMajorByteStrides(const mtrt::ScalarType &elType,
-                                const std::vector<int64_t> &shape) {
-  if (shape.empty())
-    return {};
-  if (llvm::any_of(shape, [](int64_t v) { return v == 0; }))
-    return std::vector<int64_t>(shape.size(), 0);
-  // Compute reverse suffix product for strides.
-  size_t sizeBytes = llvm::divideCeil(elType.getBitWidth(), 8);
-  std::vector<int64_t> strides(shape.size());
-  int64_t stride = sizeBytes;
-  for (int64_t i = static_cast<int64_t>(shape.size()) - 1; i >= 0; --i) {
-    strides[i] = stride;
-    stride *= shape[i];
-  }
-  return strides;
-}
-
-BufferType BufferType::createWithCanonicalLayout(
-    mtrt::ScalarType elementType, const std::vector<int64_t> &shape,
-    mtrt::PointerType addressSpace, int64_t offset) {
-  return BufferType::createWithByteStrides(
-      elementType, shape, getCanonicalRowMajorByteStrides(elementType, shape),
-      addressSpace, offset);
+BufferType
+BufferType::createWithCanonicalLayout(mtrt::ScalarType elementType,
+                                      const std::vector<int64_t> &shape,
+                                      mtrt::PointerType addressSpace) {
+  return BufferType(elementType, shape,
+                    BufferStridedLayout::createCanonicalRowMajor(shape),
+                    addressSpace);
 }
 
 bool BufferType::hasStaticShape() const {
@@ -1041,6 +1024,7 @@ bool BufferType::hasStaticShape() const {
 }
 
 int64_t BufferType::getNumElements() const {
+  assert(hasStaticShape() && "expected known shape");
   return std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
 }
 
@@ -1055,14 +1039,16 @@ BufferType BufferType::getFromSerializedType(const mtrt::MemRefTypeView &type) {
 bool BufferType::isCanonicalRowMajor() const {
   if (llvm::any_of(shape, [](int64_t v) { return v == 0; }))
     return true;
-  const std::vector<int64_t> byteStrides = getByteStrides();
-  if (byteStrides.size() > 0) {
-    int64_t stride =
-        llvm::divideCeil(mtrt::ScalarType(elementType).getBitWidth(), 8);
-    assert(stride > 0 && "expected stride >= 1");
+  llvm::ArrayRef<int64_t> strides = getLayout().getStrides();
+  assert(strides.size() == shape.size() &&
+         "expected equal rank shape and strides");
+  if (!strides.empty()) {
+    int64_t stride = 1;
     for (int64_t i = layout.strides.size() - 1; i >= 0; --i) {
-      if (byteStrides[i] != stride)
-        return false;
+      if (strides[i] != stride) {
+        if (shape[i] > 1 || (shape[i] == 1 && strides[i] != 1))
+          return false;
+      }
       stride *= shape[i];
     }
   }
@@ -1072,14 +1058,16 @@ bool BufferType::isCanonicalRowMajor() const {
 bool BufferType::isCanonicalColMajor() const {
   if (llvm::any_of(getShape(), [](int64_t v) { return v == 0; }))
     return true;
-  const std::vector<int64_t> byteStrides = getByteStrides();
   if (getRank() > 0) {
-    int64_t stride =
-        llvm::divideCeil(mtrt::ScalarType(elementType).getBitWidth(), 8);
-    assert(stride > 0 && "expected stride >= 1");
-    for (unsigned i = 0; i < byteStrides.size(); i++) {
-      if (byteStrides[i] != stride)
-        return false;
+    int64_t stride = 1;
+    llvm::ArrayRef<int64_t> strides = getLayout().getStrides();
+    assert(shape.size() == strides.size() &&
+           "expected equal rank shape and strides");
+    for (unsigned i = 0; i < strides.size(); i++) {
+      if (strides[i] != stride) {
+        if (shape[i] > 1 || (shape[i] == 1 && strides[i] != 1))
+          return false;
+      }
       stride *= getShape()[i];
     }
   }
@@ -1123,7 +1111,7 @@ static StatusOr<int64_t> getFootprintInBytes(llvm::ArrayRef<int64_t> shape,
 
 size_t BufferType::getFootprintSizeInBytes() const {
   auto shape = getShape();
-  assert(hasStaticShape() && "expected static shape");
+  assert(hasStaticShape() && "expected known shape");
   StatusOr<int64_t> sizeBytes = getFootprintInBytes(
       shape, layout.strides, mtrt::ScalarType(elementType).getBitWidth());
   assert(sizeBytes.isOk() && "expected valid size bytes");
@@ -1137,6 +1125,29 @@ std::string BufferStridedLayout::toString() const {
   llvm::interleaveComma(strides, ss);
   ss << "]>";
   return str;
+}
+
+/// Compute canonical row major strides. Here we use the PyTorch convention that
+/// unit dimensions have unit stride.
+static std::vector<int64_t>
+getCanonicalRowMajorStrides(llvm::ArrayRef<int64_t> shape) {
+  if (shape.empty())
+    return {};
+  if (llvm::any_of(shape, [](int64_t v) { return v == 0; }))
+    return std::vector<int64_t>(shape.size(), 0);
+  // Compute reverse suffix product for strides.
+  std::vector<int64_t> strides(shape.size());
+  int64_t stride = 1;
+  for (int64_t i = static_cast<int64_t>(shape.size()) - 1; i >= 0; --i) {
+    strides[i] = shape[i] == 1 ? 1 : stride;
+    stride *= shape[i];
+  }
+  return strides;
+}
+
+BufferStridedLayout
+BufferStridedLayout::createCanonicalRowMajor(llvm::ArrayRef<int64_t> shape) {
+  return BufferStridedLayout(getCanonicalRowMajorStrides(shape), 0);
 }
 
 std::ostream &mtrt::operator<<(std::ostream &os, const BufferType &t) {
@@ -1524,55 +1535,56 @@ llvm::ArrayRef<std::unique_ptr<Device>> RuntimeClient::getDevices() const {
   return devices;
 }
 
-StatusOr<std::unique_ptr<MemRefValue>> RuntimeClient::allocateMemRef(
-    PointerType addressSpace, ScalarTypeCode elementType,
-    llvm::ArrayRef<int64_t> shape, llvm::ArrayRef<int64_t> strides,
-    Device *device, Ref<Stream> stream, bool assertCanonicalStrides) {
-  if (addressSpace == PointerType::device ||
-      addressSpace == PointerType::unified) {
+StatusOr<std::unique_ptr<MemRefValue>>
+RuntimeClient::allocateMemRef(const BufferType &type, Device *device,
+                              Ref<Stream> stream, bool assertCanonicalStrides) {
+  if (type.getAddressSpace() == PointerType::device ||
+      type.getAddressSpace() == PointerType::unified) {
     if (!device)
       return getInvalidArgStatus("a specific device must be specified when "
                                  "creating a device buffer");
   }
 
-  int64_t bitsPerElement = ScalarType(elementType).getBitWidth();
+  int64_t bitsPerElement = type.getElementType().getBitWidth();
 
   // Allocate required memory.
-  StatusOr<int64_t> allocationSizeBytes =
-      getFootprintInBytes(shape, strides, bitsPerElement);
+  StatusOr<int64_t> allocationSizeBytes = getFootprintInBytes(
+      type.getShape(), type.getLayout().getStrides(), bitsPerElement);
   if (!allocationSizeBytes.isOk())
     return allocationSizeBytes.getStatus();
 
-  StatusOr<Ref<MemRefStorage>> storage = allocator->allocate(
-      addressSpace, *allocationSizeBytes, /*alignment=*/16, device, stream);
+  StatusOr<Ref<MemRefStorage>> storage =
+      allocator->allocate(type.getAddressSpace(), *allocationSizeBytes,
+                          /*alignment=*/16, device, stream);
   if (!storage.isOk())
     return storage.getStatus();
 
   // Create the descriptor.
   StatusOr<std::unique_ptr<MemRefValue>> bufferImpl = MemRefValue::create(
-      addressSpace, elementType, std::move(*storage), /*offset=*/0, shape,
-      strides, device, assertCanonicalStrides);
+      type.getAddressSpace(), type.getElementType(), std::move(*storage),
+      type.getLayout().getOffset(), type.getShape(),
+      type.getLayout().getStrides(), device, assertCanonicalStrides);
   if (bufferImpl.isError())
     return bufferImpl.getStatus();
 
   return std::move(*bufferImpl);
 }
 
-StatusOr<std::unique_ptr<MemRefValue>> RuntimeClient::createExternalMemRef(
-    PointerType addressSpace, ScalarTypeCode elementType, uintptr_t ptr,
-    int64_t offset, llvm::ArrayRef<int64_t> shape,
-    llvm::ArrayRef<int64_t> strides, Device *device,
-    bool assertCanonicalStrides, std::function<void()> destroyCallback) {
+StatusOr<std::unique_ptr<MemRefValue>>
+RuntimeClient::createExternalMemRef(const BufferType &type, uintptr_t ptr,
+                                    Device *device, bool assertCanonicalStrides,
+                                    std::function<void()> destroyCallback) {
   StatusOr<Ref<MemRefStorage>> storage = getViewMemRefStorage(
-      ptr, addressSpace, nullptr, std::move(destroyCallback),
+      ptr, type.getAddressSpace(), nullptr, std::move(destroyCallback),
       Ref<RuntimeClient>(this));
   if (!storage.isOk())
     return storage.getStatus();
 
   // Create the descriptor.
   StatusOr<std::unique_ptr<MemRefValue>> memref = MemRefValue::create(
-      addressSpace, elementType, std::move(*storage), offset, shape, strides,
-      device, assertCanonicalStrides);
+      type.getAddressSpace(), type.getElementType(), std::move(*storage),
+      type.getLayout().getOffset(), type.getShape(),
+      type.getLayout().getStrides(), device, assertCanonicalStrides);
   if (!memref.isOk())
     return memref.getStatus();
 
@@ -1589,10 +1601,9 @@ RuntimeClient::copyHostToHost(const MemRefValue &hostBuffer) {
   int64_t totalBufferSize = hostBuffer.getTotalFootprintInBytes();
 
   // Allocate a new host MemRef
-  StatusOr<std::unique_ptr<MemRefValue>> hostMemRef = allocateMemRef(
-      PointerType::host, hostBuffer.getScalarType(), hostBuffer.getShape(),
-      /*strides=*/hostBuffer.getStrides(), /*device=*/nullptr,
-      /*stream=*/nullptr);
+  StatusOr<std::unique_ptr<MemRefValue>> hostMemRef =
+      allocateMemRef(hostBuffer.getType(), /*device=*/nullptr,
+                     /*stream=*/nullptr);
   if (!hostMemRef.isOk())
     return hostMemRef.getStatus();
 
@@ -1602,9 +1613,43 @@ RuntimeClient::copyHostToHost(const MemRefValue &hostBuffer) {
   return std::move(*hostMemRef);
 }
 
+/// Copy the `sourceBuffer` (on host) to the `stagingBuffer` (on host). If the
+/// buffers types are equal and are one of the canonical packed layouts, then
+/// we use a single memcpy. Otherwise, we execute a generic strided copy. The
+/// strided copy is not efficient at all, but it is also very uncommon.
+static void copyHostBufferToStagingBuffer(const MemRefValue &sourceBuffer,
+                                          PinnedMemoryBlock &stagingBuffer) {
+  uint64_t totalBufferSize = sourceBuffer.getTotalFootprintInBytes();
+  if (totalBufferSize == 0)
+    return;
+
+  BufferType stagingBufferType = BufferType::createWithCanonicalLayout(
+      sourceBuffer.getScalarType(), sourceBuffer.getShape(),
+      mtrt::PointerType::pinned_host);
+
+  if (sourceBuffer.getType().getLayout() == stagingBufferType.getLayout()) {
+    std::memcpy(reinterpret_cast<void *>(stagingBuffer.ptr),
+                sourceBuffer.getVoidPtr(), totalBufferSize);
+    return;
+  }
+
+  MTRT_DBG("executing strided copy from {0} to {1:x}",
+           sourceBuffer.getVoidPtr(), stagingBuffer.ptr);
+
+  mtrt::executeStridedByteCopy(
+      reinterpret_cast<uintptr_t>(sourceBuffer.getVoidPtr()), 0,
+      sourceBuffer.getType().getShape(),
+      sourceBuffer.getType().getByteStrides(),
+      reinterpret_cast<uintptr_t>(stagingBuffer.ptr), 0,
+      stagingBufferType.getShape(), stagingBufferType.getByteStrides(),
+      llvm::divideCeil(sourceBuffer.getScalarType().getBitWidth(), 8),
+      [](void *dst, void *src, size_t size) { std::memcpy(dst, src, size); });
+}
+
 StatusOr<std::unique_ptr<MemRefValue>>
 RuntimeClient::copyToDevice(const MemRefValue &hostBufferImpl, Device &device,
-                            Ref<Stream> cudaStream) {
+                            Ref<Stream> cudaStream,
+                            std::unique_ptr<Event> *doneWithHostBuffer) {
   if (!isHostVisible(hostBufferImpl.getAddressSpace()))
     return getInvalidArgStatus("to copy a MemRef to a device its data must "
                                "reside in an address space "
@@ -1614,17 +1659,17 @@ RuntimeClient::copyToDevice(const MemRefValue &hostBufferImpl, Device &device,
   int64_t totalBufferSize = hostBufferImpl.getTotalFootprintInBytes();
 
   // Set the CUDA device.
-  // TODO: This device should be implicit based on the stream. The stream's
-  // device implies the device. Having both stream and device is redundant
-  // or possibly incorrect. Remove once the stream is non-optional.
   MTRT_ASSIGN_OR_RETURN(std::unique_ptr<DeviceGuard> deviceGuard,
                         device.createDeviceGuard());
 
-  // Allocate device memory
+  // Allocate device memory. If the source host buffer has a "packed" layout,
+  // then use that same layout for the device buffer. But if it has a strided
+  // layout that has padding, use a canonical layout for the device buffer.
+  BufferType deviceBufferType = BufferType::createWithCanonicalLayout(
+      hostBufferImpl.getScalarType(), hostBufferImpl.getShape(),
+      mtrt::PointerType::device);
   StatusOr<std::unique_ptr<MemRefValue>> deviceMemRef =
-      allocateMemRef(PointerType::device, hostBufferImpl.getScalarType(),
-                     hostBufferImpl.getShape(), hostBufferImpl.getStrides(),
-                     &device, cudaStream);
+      allocateMemRef(deviceBufferType, &device, cudaStream);
   if (!deviceMemRef.isOk())
     return deviceMemRef.getStatus();
 
@@ -1636,28 +1681,25 @@ RuntimeClient::copyToDevice(const MemRefValue &hostBufferImpl, Device &device,
   }
 
   // Allocate a staging buffer and copy host memory to the staging buffer.
-  // TODO: Currently, this implementation supports only row major packed
-  // canonical layout (no padding).
-  StatusOr<PinnedMemoryBlock> pinnedMemory =
-      this->getPinnedMemoryAllocator().allocate(totalBufferSize);
-  if (!pinnedMemory.isOk())
-    return pinnedMemory.getStatus();
-
-  void *stagingHostMemPtr = reinterpret_cast<void *>(pinnedMemory->ptr);
-  std::memcpy(stagingHostMemPtr, hostBufferImpl.getVoidPtr(), totalBufferSize);
+  MTRT_ASSIGN_OR_RETURN(
+      PinnedMemoryBlock pinnedMemory,
+      this->getPinnedMemoryAllocator().allocate(totalBufferSize));
+  copyHostBufferToStagingBuffer(hostBufferImpl, pinnedMemory);
+  if (doneWithHostBuffer)
+    *doneWithHostBuffer = Event::createReadyEvent();
 
   MTRT_DBG("copying {0} to {1} size={2} bytes asynchronously via pinned "
-           "staging buffer at {3}",
+           "staging buffer at {3:x}",
            hostBufferImpl.getVoidPtr(), (*deviceMemRef)->getVoidPtr(),
-           totalBufferSize, stagingHostMemPtr);
+           totalBufferSize, pinnedMemory.ptr);
 
   MTRT_RETURN_IF_ERROR(copyCUDAHostToDeviceAsync(
-      (*deviceMemRef)->getVoidPtr(), stagingHostMemPtr, totalBufferSize,
-      reinterpret_cast<uintptr_t>(cudaStream->getCUDAHandle())));
+      (*deviceMemRef)->getVoidPtr(), reinterpret_cast<void *>(pinnedMemory.ptr),
+      totalBufferSize, cudaStream->getCUDAHandle()));
 
   // Free pinned host memory asynchronously.
   mtrt::logUnhandledErrors(getPinnedMemoryAllocator().freeAsync(
-                               pinnedMemory->ptr, cudaStream->getCUDAHandle()),
+                               pinnedMemory.ptr, cudaStream->getCUDAHandle()),
                            llvm::errs());
 
   return std::move(*deviceMemRef);

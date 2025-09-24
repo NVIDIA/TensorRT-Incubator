@@ -17,13 +17,11 @@
 // limitations under the License.
 //
 //===----------------------------------------------------------------------===//
-#include "mlir-executor/Runtime/Backend/Common/CommonRuntime.h"
+#include "mlir-executor/Runtime/Support/StridedCopy.h"
 
 using namespace mtrt;
-namespace mrt = mtrt;
-using namespace mrt;
 
-void mrt::executeStridedCopy(
+void mtrt::executeStridedCopy(
     int64_t elemSize, uintptr_t src, int64_t srcOffset,
     const std::vector<int64_t> &srcShape, std::vector<int64_t> &srcStrides,
     uintptr_t dst, int64_t dstOffset, const std::vector<int64_t> &dstShape,
@@ -73,7 +71,7 @@ void mrt::executeStridedCopy(
   }
 }
 
-void mrt::executeStridedByteCopy(
+void mtrt::executeStridedByteCopy(
     uintptr_t src, int64_t srcOffsetBytes, const std::vector<int64_t> &srcShape,
     const std::vector<int64_t> &srcByteStrides, uintptr_t dst,
     int64_t dstOffsetBytes, const std::vector<int64_t> &dstShape,

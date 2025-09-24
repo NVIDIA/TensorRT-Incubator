@@ -1,5 +1,4 @@
 add_mlir_executor_runtime_library(MLIRTensorRTExecutorRuntimeCommon
-  CommonRuntime.cpp
   DataTypes.cpp
   PARTIAL_SOURCES_INTENDED
 

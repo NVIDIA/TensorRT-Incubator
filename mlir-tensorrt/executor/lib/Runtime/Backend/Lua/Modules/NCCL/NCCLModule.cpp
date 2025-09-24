@@ -23,10 +23,10 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-executor/Runtime/API/API.h"
 #include "mlir-executor/Runtime/Backend/Common/CUDACommon.h"
-#include "mlir-executor/Runtime/Backend/Common/CommonRuntime.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaErrorHandling.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaExtensionRegistry.h"
 #include "mlir-executor/Runtime/Backend/Lua/SolAdaptor.h"
+#include "mlir-executor/Runtime/Support/Support.h"
 #include <chrono>
 
 #define OMPI_SKIP_MPICXX
