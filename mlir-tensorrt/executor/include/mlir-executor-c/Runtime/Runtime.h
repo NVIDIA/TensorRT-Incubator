@@ -25,7 +25,6 @@
 #ifndef MLIR_EXECUTOR_C_RUNTIME_RUNTIME
 #define MLIR_EXECUTOR_C_RUNTIME_RUNTIME
 
-#include "dlpack/dlpack.h"
 #include "mlir-c/Support.h"
 #include "mlir-executor-c/Common/Common.h"
 #include "mlir-tensorrt-common-c/Support/Status.h"
@@ -149,14 +148,6 @@ typedef struct MTRT_MemRefValue {
   void *ptr;
 } MTRT_MemRefValue;
 
-typedef struct MTRT_DLPackManagedTensor {
-  void *ptr;
-} MTRT_DLPackManagedTensor;
-
-typedef struct MTRT_DLPackDevice {
-  void *ptr;
-} MTRT_DLPackDevice;
-
 /// Returns whether the memref is null.
 static inline bool mtrtMemRefValueIsNull(MTRT_MemRefValue memref) {
   return !memref.ptr;
@@ -242,11 +233,6 @@ typedef struct MTRT_MemRefValueInfo {
 MLIR_CAPI_EXPORTED MTRT_Status
 mtrtMemRefValueGetInfo(MTRT_MemRefValue memref, MTRT_MemRefValueInfo *info);
 
-/// Retrieve DL Device from MemRefValue.
-MLIR_CAPI_EXPORTED MTRT_Status
-mtrtMemRefValueGetDLPackDevice(MTRT_MemRefValue memrefValue,
-                               DLDeviceType *device_type, int32_t *device_id);
-
 /// Return the reference count of the underlying storage.
 MLIR_CAPI_EXPORTED uint32_t mtrtMemRefReferenceCount(MTRT_MemRefValue memref);
 
@@ -262,6 +248,14 @@ MLIR_CAPI_EXPORTED MTRT_Status mtrtMemRefValueGetStream(MTRT_MemRefValue memref,
 /// memrefvalue, then it will incur a CUDA stream synchronization.
 MLIR_CAPI_EXPORTED MTRT_Status
 mtrtMemRefValueWaitForReady(MTRT_MemRefValue value);
+
+/// Return the Device associated with the memref. If the MemRef is not
+/// associated with a device, then the null device is returned.
+MLIR_CAPI_EXPORTED MTRT_Device
+mtrtMemRefValueGetDevice(MTRT_MemRefValue memref);
+
+MLIR_CAPI_EXPORTED MTRT_PointerType
+mtrtMemRefValueGetAddressSpace(MTRT_MemRefValue memref);
 
 //===----------------------------------------------------------------------===//
 // MTRT_RuntimeClient
@@ -493,20 +487,6 @@ MLIR_CAPI_EXPORTED MTRT_Status mtrtRuntimeSessionExecuteFunction(
 /// to an exported function in the executable.
 MLIR_CAPI_EXPORTED MTRT_Status mtrtRuntimeSessionGetNumResults(
     MTRT_RuntimeSession session, MTRT_StringView name, int64_t *numResults);
-
-//===----------------------------------------------------------------------===//
-// DLPack
-//===----------------------------------------------------------------------===//
-
-/// Converts a DLDeviceType to MTRT_PointerType. This function will throw a
-/// runtime error if the device type is invalid.
-MLIR_CAPI_EXPORTED MTRT_Status mtrtGetPointerTypeFromDLDeviceType(
-    DLDeviceType device, MTRT_PointerType *result);
-
-/// Converts a DLDataType to MTRT_ScalarTypeCode. This function will throw a
-/// runtime error if the data type is invalid.
-MLIR_CAPI_EXPORTED MTRT_Status mtrtGetScalarTypeCodeFromDLDataType(
-    DLDataType dtype, MTRT_ScalarTypeCode *result);
 
 #ifdef __cplusplus
 }

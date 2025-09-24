@@ -2,7 +2,7 @@
 // RUN:  executor-opt %s -split-input-file -convert-executor-to-executor | \
 // RUN:  executor-translate -mlir-to-runtime-executable | executor-runner -dump-function-signature -input-type=rtexe | FileCheck %s
 
-//      CHECK: Function<value_bounds, Signature<args=[MemRef<1xi64,1,unknown>, MemRef<1xi64,1,unknown>], results=[MemRef<1xi64,1,unknown>], num_output_args=1, arg_bounds=[value_bounds<min = [1], max = [6]>, value_bounds<min = [2], max = [4]>], result_bounds=[value_bounds<min = [1], max = [6]>], cconv=unpacked>>
+//      CHECK: Function<value_bounds, Signature<args=[MemRef<1xi64, strides=[1], unknown>, MemRef<1xi64, strides=[1], unknown>], results=[MemRef<1xi64, strides=[1], unknown>], num_output_args=1, arg_bounds=[value_bounds<min = [1], max = [6]>, value_bounds<min = [2], max = [4]>], result_bounds=[value_bounds<min = [1], max = [6]>], cconv=unpacked>>
 func.func @value_bounds() attributes {
   executor.function_metadata = #executor.func_meta<
     [memref<1xi64> {#executor.value_bounds<min = dense<1> : vector<1xi64>, max = dense<6> : vector<1xi64>>},
@@ -12,7 +12,7 @@ func.func @value_bounds() attributes {
   return
 }
 
-// CHECK-NEXT: Function<dim_bounds, Signature<args=[MemRef<?xf32,1,unknown>], results=[MemRef<?xf32,1,unknown>, MemRef<?xf32,1,unknown>], num_output_args=1, arg_bounds=[dim_bounds<min = [1], max = [6]>], result_bounds=[dim_bounds<min = [2], max = [8]>, dim_bounds<min = [3], max = [5]>], cconv=unpacked>>
+// CHECK-NEXT: Function<dim_bounds, Signature<args=[MemRef<?xf32, strides=[1], unknown>], results=[MemRef<?xf32, strides=[1], unknown>, MemRef<?xf32, strides=[1], unknown>], num_output_args=1, arg_bounds=[dim_bounds<min = [1], max = [6]>], result_bounds=[dim_bounds<min = [2], max = [8]>, dim_bounds<min = [3], max = [5]>], cconv=unpacked>>
 func.func @dim_bounds() attributes {
   executor.function_metadata = #executor.func_meta<
     [memref<?xf32> {#executor.dim_bounds<min = [1], max = [6]>}],
@@ -22,7 +22,7 @@ func.func @dim_bounds() attributes {
   return
 }
 
-// CHECK-LABEL: Function<unit_attr, Signature<args=[MemRef<1xi64,1,unknown>], results=[], num_output_args=0, arg_bounds=[UNK], result_bounds=[], cconv=unpacked>>
+// CHECK-LABEL: Function<unit_attr, Signature<args=[MemRef<1xi64, strides=[1], unknown>], results=[], num_output_args=0, arg_bounds=[UNK], result_bounds=[], cconv=unpacked>>
 func.func @unit_attr() attributes {
   executor.function_metadata = #executor.func_meta<[memref<1xi64> {unit}], [], num_output_args = 0>
 } {
@@ -38,7 +38,7 @@ func.func @scalar_value_bounds() attributes {
   return
 }
 
-// CHECK-LABEL: Function<mixed_bounds, Signature<args=[i64, MemRef<1xi64,1,unknown>, MemRef<1xi64,1,unknown>], results=[MemRef<?xf32,1,unknown>, MemRef<1xf32,1,unknown>], num_output_args=1, arg_bounds=[value_bounds<min = [1], max = [6]>, UNK, value_bounds<min = [1], max = [6]>], result_bounds=[dim_bounds<min = [2], max = [8]>, dim_bounds<min = [3], max = [5]>], cconv=packed>>
+// CHECK-LABEL: Function<mixed_bounds, Signature<args=[i64, MemRef<1xi64, strides=[1], unknown>, MemRef<1xi64, strides=[1], unknown>], results=[MemRef<?xf32, strides=[1], unknown>, MemRef<1xf32, strides=[1], unknown>], num_output_args=1, arg_bounds=[value_bounds<min = [1], max = [6]>, UNK, value_bounds<min = [1], max = [6]>], result_bounds=[dim_bounds<min = [2], max = [8]>, dim_bounds<min = [3], max = [5]>], cconv=packed>>
 func.func @mixed_bounds() attributes {
   executor.function_metadata = #executor.func_meta<
     [i64 {#executor.value_bounds<min = dense<1> : vector<1xi64>, max = dense<6> : vector<1xi64>>},

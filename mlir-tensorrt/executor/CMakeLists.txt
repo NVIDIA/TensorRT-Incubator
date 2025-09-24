@@ -3,7 +3,6 @@ include(cmake/ExecutorFunctions.cmake)
 find_package(NVTX REQUIRED)
 find_package(Lua REQUIRED)
 find_package(Sol2 REQUIRED)
-find_package(DLPack REQUIRED)
 find_package(Flatbuffers REQUIRED)
 
 if(MLIR_TRT_ENABLE_CUDA)

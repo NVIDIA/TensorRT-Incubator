@@ -1,14 +1,14 @@
-set(optional_dependencies)
-if(MLIR_TRT_ENABLE_CUDA)
-  list(APPEND optional_dependencies CUDA::cudart)
-endif()
+add_mlir_executor_runtime_library(MLIRTensorRTRuntimeExecutableInterface
+  Executable.cpp
 
-add_library(MLIRTensorRTRuntimeExecutableInterface INTERFACE)
-target_link_libraries(MLIRTensorRTRuntimeExecutableInterface INTERFACE
+  PARTIAL_SOURCES_INTENDED
+
+  LINK_LIBS PUBLIC
   flatbuffers
   MLIRExecutorIncludes
-  )
-add_dependencies(MLIRTensorRTRuntimeExecutableInterface
+  MLIRTensorRTSupportStatus
+
+  DEPENDS
   MLIRTensorRTRuntimeExecutableFlatbufferGen
   )
 
@@ -22,6 +22,8 @@ add_dependencies(MLIRTensorRTRuntimeExecutableInterface
 add_mlir_executor_runtime_library(MLIRTensorRTExecutorRuntimeAPI
   API.cpp
 
+  PARTIAL_SOURCES_INTENDED
+
   LINK_LIBS PUBLIC
   MLIRTensorRTRuntimeExecutableInterface
   MLIRTensorRTRuntimeSupport
@@ -30,14 +32,13 @@ add_mlir_executor_runtime_library(MLIRTensorRTExecutorRuntimeAPI
   MLIRTensorRTSupportStridedCopy
   sol2::sol2
   lua::core
-  ${optional_dependencies}
 
   PRIVATE
   $<$<BOOL:${MLIR_TRT_ENABLE_NCCL}>:MPI::MPI_C>
   $<$<BOOL:${MLIR_TRT_ENABLE_NCCL}>:NCCL>
+  $<$<BOOL:${MLIR_TRT_ENABLE_CUDA}>:${MLIR_TRT_CUDA_TARGET}>
 
 
   DEPENDS
   MLIRTensorRTRuntimeExecutableFlatbufferGen
   )
-target_link_libraries(MLIRTensorRTExecutorRuntimeAPI PUBLIC DLPack::Headers)

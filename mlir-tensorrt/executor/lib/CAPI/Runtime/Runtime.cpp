@@ -22,7 +22,6 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-executor-c/Runtime/Runtime.h"
-#include "dlpack/dlpack.h"
 #include "mlir-executor-c/Common/Common.h"
 #include "mlir-executor/Runtime/API/API.h"
 #include "mlir-executor/Runtime/API/ExecutableFlatbuffer.h"
@@ -76,8 +75,6 @@ DEFINE_C_API_PTR_METHODS(MTRT_ScalarValue, ::mtrt::ScalarValue)
 DEFINE_C_API_PTR_METHODS(MTRT_RuntimeClient, RuntimeClientRef)
 DEFINE_C_API_PTR_METHODS(MTRT_MemRefValue, ::mtrt::MemRefValue)
 DEFINE_C_API_PTR_METHODS(MTRT_Device, ::mtrt::Device)
-DEFINE_C_API_PTR_METHODS(MTRT_DLPackManagedTensor, DLManagedTensor)
-DEFINE_C_API_PTR_METHODS(MTRT_DLPackDevice, DLDevice)
 #if defined(__GNUC__) || defined(__clang__)
 #pragma GCC diagnostic pop
 #endif
@@ -378,111 +375,6 @@ MTRT_RuntimeClient mtrtMemRefGetClient(MTRT_MemRefValue memref) {
   return wrap(new RuntimeClientRef{unwrap(memref)->getClient()});
 }
 
-static StatusOr<DLDeviceType> toDLPackDeviceType(PointerType address) {
-  switch (address) {
-  case PointerType::device:
-    return DLDeviceType::kDLCUDA;
-  case PointerType::host:
-    return DLDeviceType::kDLCPU;
-  case PointerType::pinned_host:
-    return DLDeviceType::kDLCUDAHost;
-  case PointerType::unified:
-    return DLDeviceType::kDLCUDAManaged;
-  default:
-    return getStatusWithMsg(
-        StatusCode::InvalidArgument, "Address space [",
-        stringifyPointerType(address),
-        "] conversion to DLPackDeviceType is not supported.");
-  }
-  return DLDeviceType::kDLCPU;
-}
-
-MTRT_Status mtrtGetPointerTypeFromDLDeviceType(DLDeviceType device,
-                                               MTRT_PointerType *result) {
-#define RETURN_OK(v)                                                           \
-  *result = v;                                                                 \
-  return mtrtStatusGetOk();
-  switch (device) {
-  case DLDeviceType::kDLCUDA:
-    RETURN_OK(MTRT_PointerType_device)
-  case DLDeviceType::kDLCPU:
-    RETURN_OK(MTRT_PointerType_host)
-  case DLDeviceType::kDLCUDAHost:
-    RETURN_OK(MTRT_PointerType_host)
-  case DLDeviceType::kDLCUDAManaged:
-    RETURN_OK(MTRT_PointerType_unified)
-  default:
-    return wrap(
-        getStatusWithMsg(StatusCode::InvalidArgument, "DLDeviceType [",
-                         // device,
-                         "] conversion to MTRT_PointerType is not supported."));
-  }
-#undef RETURN_OK
-}
-
-MTRT_Status mtrtGetScalarTypeCodeFromDLDataType(DLDataType dtype,
-                                                MTRT_ScalarTypeCode *result) {
-#define RETURN_OK(v)                                                           \
-  *result = v;                                                                 \
-  return mtrtStatusGetOk();
-  switch (dtype.code) {
-  case kDLBool:
-    RETURN_OK(MTRT_ScalarTypeCode_i1)
-  case kDLInt:
-    switch (dtype.bits) {
-    case 8:
-      RETURN_OK(MTRT_ScalarTypeCode_i8)
-    case 16:
-      RETURN_OK(MTRT_ScalarTypeCode_i16)
-    case 32:
-      RETURN_OK(MTRT_ScalarTypeCode_i32)
-    case 64:
-      RETURN_OK(MTRT_ScalarTypeCode_i64)
-    }
-  case kDLUInt:
-    switch (dtype.bits) {
-    case 8:
-      RETURN_OK(MTRT_ScalarTypeCode_ui8);
-    }
-  case kDLFloat:
-    switch (dtype.bits) {
-    case 8:
-      RETURN_OK(MTRT_ScalarTypeCode_f8e4m3fn)
-    case 16:
-      RETURN_OK(MTRT_ScalarTypeCode_f16)
-    case 32:
-      RETURN_OK(MTRT_ScalarTypeCode_f32)
-    case 64:
-      RETURN_OK(MTRT_ScalarTypeCode_f64)
-    }
-  case kDLBfloat:
-    RETURN_OK(MTRT_ScalarTypeCode_bf16)
-  case kDLComplex:
-  case kDLOpaqueHandle:
-  default:
-    return wrap(getStatusWithMsg(
-        StatusCode::InvalidArgument,
-        "DLDataType conversion to MTRT_ScalarTypeCode is not supported."));
-  }
-#undef RETURN_OK
-}
-
-MLIR_CAPI_EXPORTED MTRT_Status
-mtrtMemRefValueGetDLPackDevice(MTRT_MemRefValue memrefValue,
-                               DLDeviceType *device_type, int32_t *device_id) {
-  MemRefValue memref = *unwrap(memrefValue);
-  int device{0};
-  if (Device *dev = memref.getDevice())
-    device = dev->getDeviceNumber();
-  StatusOr<DLDeviceType> deviceType =
-      toDLPackDeviceType(memref.getAddressSpace());
-  if (!deviceType.isOk())
-    return wrap(deviceType.getStatus());
-  *device_type = *deviceType;
-  *device_id = device;
-  return mtrtStatusGetOk();
-}
-
 uint32_t mtrtMemRefReferenceCount(MTRT_MemRefValue memref) {
   unsigned refCount = unwrap(memref)->getStorageRefCount();
   MTRT_DBGF("mtrtMemRefReferenceCount[%p]: ref_count = %d",
@@ -539,6 +431,17 @@ MTRT_Status mtrtExternalStreamWaitOnMTRTStream(uintptr_t externalWaitingStream,
   mtrt::Event::releaseWhenReady(std::move(*event));
 
   return mtrtStatusGetOk();
+}
+
+MTRT_Device mtrtMemRefValueGetDevice(MTRT_MemRefValue memref) {
+  Device *device = unwrap(memref)->getDevice();
+  if (!device)
+    return mtrtDeviceGetNull();
+  return wrap(device);
+}
+
+MTRT_PointerType mtrtMemRefValueGetAddressSpace(MTRT_MemRefValue memref) {
+  return wrap(unwrap(memref)->getAddressSpace());
 }
 
 //===----------------------------------------------------------------------===//

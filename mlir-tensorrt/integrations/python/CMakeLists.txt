@@ -2,6 +2,8 @@ if(MLIR_TRT_ENABLE_PYTHON)
   declare_mlir_python_sources(MLIRTensorRTPythonCompiler)
   declare_mlir_python_sources(MLIRTensorRTPythonCompiler.Dialects
     ADD_TO_PARENT MLIRTensorRTPythonCompiler)
+
+  find_package(DLPack REQUIRED)
 endif()
 
 # Specifies that all MLIR packages are co-located under the `mlir_tensorrt.compiler`
@@ -66,6 +68,7 @@ if(MLIR_TRT_ENABLE_PYTHON)
     PRIVATE_LINK_LIBS
       MLIRTensorRTCAPIRuntime
       LLVMSupport
+      DLPack::Headers
     )
 
   add_mlir_python_modules(MLIRTensorRTPythonRuntimeModules

@@ -500,6 +500,124 @@ struct ExecutorRuntimeGlobalSetup {
 // DLPack Utilities
 //===----------------------------------------------------------------------===//
 
+static DLDeviceType toDLPackDeviceType(MTRT_PointerType address) {
+  switch (address) {
+  case MTRT_PointerType_device:
+    return DLDeviceType::kDLCUDA;
+  case MTRT_PointerType_host:
+    return DLDeviceType::kDLCPU;
+  case MTRT_PointerType_pinned_host:
+    return DLDeviceType::kDLCUDAHost;
+  case MTRT_PointerType_unified:
+    return DLDeviceType::kDLCUDAManaged;
+  case MTRT_PointerType_unknown:
+    throw std::invalid_argument("Address space [unknown] conversion to "
+                                "DLPackDeviceType is not supported.");
+  }
+  llvm_unreachable("invalid MTRT_PointerType");
+}
+
+static MTRT_PointerType getPointerTypeFromDLDeviceType(DLDeviceType device) {
+  switch (device) {
+  case DLDeviceType::kDLCUDA:
+    return MTRT_PointerType_device;
+  case DLDeviceType::kDLCPU:
+    return MTRT_PointerType_host;
+  case DLDeviceType::kDLCUDAHost:
+    return MTRT_PointerType_pinned_host;
+  case DLDeviceType::kDLCUDAManaged:
+    return MTRT_PointerType_unified;
+  case DLDeviceType::kDLExtDev:
+  case DLDeviceType::kDLHexagon:
+  case DLDeviceType::kDLMAIA:
+  case DLDeviceType::kDLMetal:
+  case DLDeviceType::kDLOneAPI:
+  case DLDeviceType::kDLOpenCL:
+  case DLDeviceType::kDLROCM:
+  case DLDeviceType::kDLROCMHost:
+  case DLDeviceType::kDLVPI:
+  case DLDeviceType::kDLVulkan:
+  case DLDeviceType::kDLWebGPU:
+    throw std::invalid_argument(
+        "DLDeviceType conversion to MTRT_PointerType is not supported.");
+  }
+  llvm_unreachable("invalid DLDeviceType");
+}
+
+/// Return the MTRT scalar type code associated with the DLDataType.
+MTRT_ScalarTypeCode mtrtGetScalarTypeCodeFromDLDataType(DLDataType dtype) {
+  switch (dtype.code) {
+  case kDLBool:
+    return MTRT_ScalarTypeCode_i1;
+  case kDLInt:
+    switch (dtype.bits) {
+    case 8:
+      return MTRT_ScalarTypeCode_i8;
+    case 16:
+      return MTRT_ScalarTypeCode_i16;
+    case 32:
+      return MTRT_ScalarTypeCode_i32;
+    case 64:
+      return MTRT_ScalarTypeCode_i64;
+    default:
+      throw std::invalid_argument(
+          "DLDataType::kDLInt conversion with bit width " +
+          std::to_string(dtype.bits) +
+          " to MTRT_ScalarTypeCode is not supported.");
+    }
+  case kDLUInt:
+    switch (dtype.bits) {
+    case 8:
+      return MTRT_ScalarTypeCode_ui8;
+    default:
+      throw std::invalid_argument(
+          "DLDataType::kDLUInt conversion with bit width " +
+          std::to_string(dtype.bits) +
+          " to MTRT_ScalarTypeCode is not supported.");
+    }
+  case kDLFloat:
+    switch (dtype.bits) {
+    case 8:
+      return MTRT_ScalarTypeCode_f8e4m3fn;
+    case 16:
+      return MTRT_ScalarTypeCode_f16;
+    case 32:
+      return MTRT_ScalarTypeCode_f32;
+    case 64:
+      return MTRT_ScalarTypeCode_f64;
+    default:
+      throw std::invalid_argument(
+          "DLDataType::kDLFloat conversion with bit width " +
+          std::to_string(dtype.bits) +
+          " to MTRT_ScalarTypeCode is not supported.");
+    }
+  case kDLBfloat:
+    return MTRT_ScalarTypeCode_bf16;
+  case kDLComplex:
+    throw std::invalid_argument(
+        "DLDataType::kDLComplex conversion to MTRT_ScalarTypeCode is not "
+        "supported.");
+  case kDLOpaqueHandle:
+    throw std::invalid_argument(
+        "DLDataType::kDLOpaqueHandle conversion to MTRT_ScalarTypeCode is not "
+        "supported.");
+  }
+  llvm_unreachable("invalid DLDataTypeCode");
+}
+
+/// Return the DLDeviceType and device id associated with the memref value.
+static std::pair<DLDeviceType, int32_t>
+mtrtMemRefValueGetDLPackDevice(MTRT_MemRefValue memrefValue) {
+  MTRT_Device device = mtrtMemRefValueGetDevice(memrefValue);
+  if (mtrtDeviceIsNull(device))
+    return std::make_pair(DLDeviceType::kDLCPU, 0);
+  MTRT_PointerType addressSpace = mtrtMemRefValueGetAddressSpace(memrefValue);
+  DLDeviceType deviceType = toDLPackDeviceType(addressSpace);
+  int deviceId{0};
+  THROW_IF_MTRT_ERROR(mtrtDeviceGetIndex(device, &deviceId));
+  return std::make_pair(deviceType, deviceId);
+}
+
 /// Wrapper around a DLManagedTensor object. A pointer to the allocated memory
 /// for this object is placed into `tensor->manager_ctx`, enabling destruction
 /// from the capsule deleter.
@@ -618,13 +736,11 @@ createMemRefViewFromDLPack(PyRuntimeClient &client, py::capsule capsule,
   DLDeviceType device_type = managedTensor->dl_tensor.device.device_type;
   int device_id = managedTensor->dl_tensor.device.device_id;
 
-  MTRT_ScalarTypeCode elementType;
-  MTRT_Status s;
-  s = mtrtGetScalarTypeCodeFromDLDataType(dtype, &elementType);
-  THROW_IF_MTRT_ERROR(s);
+  MTRT_ScalarTypeCode elementType = mtrtGetScalarTypeCodeFromDLDataType(dtype);
 
   int64_t bitsPerElementExpected;
-  s = mtrtScalarTypeCodeBitsPerElement(elementType, &bitsPerElementExpected);
+  MTRT_Status s =
+      mtrtScalarTypeCodeBitsPerElement(elementType, &bitsPerElementExpected);
   THROW_IF_MTRT_ERROR(s);
   if (dtype.bits != bitsPerElementExpected) {
     throw std::invalid_argument("DLPack tensor has unexpected bit width: " +
@@ -638,9 +754,7 @@ createMemRefViewFromDLPack(PyRuntimeClient &client, py::capsule capsule,
         std::to_string(dtype.lanes) + "; only lanes = 1 is supported");
   }
 
-  MTRT_PointerType addressSpace;
-  s = mtrtGetPointerTypeFromDLDeviceType(device_type, &addressSpace);
-  THROW_IF_MTRT_ERROR(s);
+  MTRT_PointerType addressSpace = getPointerTypeFromDLDeviceType(device_type);
 
   MTRT_Device device{nullptr};
   if (addressSpace == MTRT_PointerType_device) {
@@ -682,11 +796,8 @@ static py::capsule pyMemRefValueToDLPackCapsule(py::handle obj,
   MTRT_MemRefValue ref = mtrtMemRefCreateRef(buffer);
 
   // Get the current device.
-  DLDeviceType currentDeviceType;
-  int32_t currentDeviceId;
-  MTRT_Status s = mtrtMemRefValueGetDLPackDevice(buffer, &currentDeviceType,
-                                                 &currentDeviceId);
-  THROW_IF_MTRT_ERROR(s);
+  auto [currentDeviceType, currentDeviceId] =
+      mtrtMemRefValueGetDLPackDevice(buffer);
 
   // Check if the dl_device is provided. If not, we assume the requested device
   // is the current device.
@@ -708,7 +819,7 @@ static py::capsule pyMemRefValueToDLPackCapsule(py::handle obj,
                                 "the buffer's current device");
 
   MTRT_Stream currentStream{nullptr};
-  s = mtrtMemRefValueGetStream(buffer, &currentStream);
+  MTRT_Status s = mtrtMemRefValueGetStream(buffer, &currentStream);
   THROW_IF_MTRT_ERROR(s);
 
   // If a stream is provided, we need to wait on it before creating the DLPack
@@ -886,12 +997,8 @@ PYBIND11_MODULE(_api, m) {
            py::arg("copy") = false)
       .def("__dlpack_device__",
            [](PyMemRefValue &self) {
-             DLDeviceType device_type;
-
-             int32_t device_id;
-             MTRT_Status s =
-                 mtrtMemRefValueGetDLPackDevice(self, &device_type, &device_id);
-             THROW_IF_MTRT_ERROR(s);
+             auto [device_type, device_id] =
+                 mtrtMemRefValueGetDLPackDevice(self);
              return py::make_tuple(static_cast<int>(device_type), device_id);
            })
       .def_buffer([](PyMemRefValue &self) {
