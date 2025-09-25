@@ -64,6 +64,8 @@ static TransposeOp getLowestTransposeCost(ElementWiseOp consumer,
   int64_t cost1 = memoryCost(consumer.getType()) + memoryCost(op2.getType());
   int64_t cost2 = memoryCost(consumer.getType()) + memoryCost(op1.getType());
   LLVM_DEBUG(DBGS() << "cost1=" << cost1 << ", cost2=" << cost2 << "\n");
+  if (cost1 == 0 && cost2 == 0)
+    return {};
   return cost1 <= cost2 ? op1 : op2;
 }
 
@@ -71,6 +73,10 @@ static std::pair<TransposeOp, TransposeOp>
 getTransposeProducers(ElementWiseOp op) {
   auto producer1 = op.getInput1().getDefiningOp<TransposeOp>();
   auto producer2 = op.getInput2().getDefiningOp<TransposeOp>();
+  if (producer1 && producer1.getInput().getDefiningOp<ConstantOp>())
+    producer1 = {};
+  if (producer2 && producer2.getInput().getDefiningOp<ConstantOp>())
+    producer2 = {};
   return std::make_pair(producer1, producer2);
 }
 
@@ -760,6 +766,7 @@ public:
     if (newEinsumRhs == equation.rhs)
       return failure(); // no change
 
+    equation.rhs = newEinsumRhs;
     std::string newEinsumEquation = equation.generateEquation();
 
     auto newEinsum = rewriter.create<tensorrt::EinsumOp>(
@@ -771,6 +778,7 @@ public:
         AffineMap::getPermutationMap(outputPerm, op.getLoc().getContext()));
 
     rewriter.replaceOp(op, newTranspose.getResult());
+
     return success();
   }
 };

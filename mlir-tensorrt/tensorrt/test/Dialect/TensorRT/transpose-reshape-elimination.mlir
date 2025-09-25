@@ -177,6 +177,9 @@ func.func @reshape_with_one(%arg0: tensor<2x3x4x5xf32>) -> tensor<2x3x4x6xf32> {
 
 // -----
 
+// CHECK: matmul_eliminate_reshape_lhs_2(%[[arg0:.+]]: tensor<1x2x3x4x5x6xf16>, %[[arg1:.+]]: tensor<1x2x6x8xf16>)
+// CHECK: %[[v0:.+]] = tensorrt.einsum {equation = [[equation:.+]]} ins(%[[arg0]], %[[arg1]] : tensor<1x2x3x4x5x6xf16>, tensor<1x2x6x8xf16>) -> tensor<1x2x3x4x5x8xf16>
+// CHECK: return %[[v0]]
 func.func @matmul_eliminate_reshape_lhs_2(%arg0: tensor<1x2x3x4x5x6xf16>, %arg1: tensor<1x2x6x8xf16>) -> tensor<1x2x3x4x5x8xf16>{
     %0 = tensorrt.reshape %arg0 : tensor<1x2x3x4x5x6xf16> to tensor<1x2x60x6xf16>
     %1 = tensorrt.matrix_multiply {op0 = #tensorrt.matrix_operation<kNONE>, op1 = #tensorrt.matrix_operation<kNONE>}

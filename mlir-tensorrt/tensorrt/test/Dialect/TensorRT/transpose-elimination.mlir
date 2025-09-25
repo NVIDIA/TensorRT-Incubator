@@ -454,3 +454,34 @@ func.func @push_up_transpose_elementwise_reshape_transpose_neg(%arg0: tensor<10x
 //  CHECK-NEXT: %[[v2:.+]] = tensorrt.element_wise <kDIV>(%[[v1]], %[[v0]] : {{.*}})
 //  CHECK-NEXT: %[[v3:.+]] = tensorrt.transpose {permutation = #[[$map1]]} %[[v2]]
 //  CHECK-NEXT: return %[[v3]]
+
+// -----
+
+#map = affine_map<(d0, d1, d2) -> (d1, d0, d2)>
+func.func @transpose_rearrange_loop(%arg0: tensor<512x7x24xf32>, %arg1: tensor<512x7x7xf32>) -> tensor<7x512x24xf32> {
+  %0 = tensorrt.matrix_multiply {op0 = #tensorrt.matrix_operation<kNONE>, op1 = #tensorrt.matrix_operation<kNONE>} ins(%arg1, %arg0 : tensor<512x7x7xf32>, tensor<512x7x24xf32>) -> tensor<512x7x24xf32>
+  %1 = tensorrt.transpose {permutation = #map} %0 : tensor<512x7x24xf32> to tensor<7x512x24xf32>
+  return %1 : tensor<7x512x24xf32>
+}
+
+// CHECK: @transpose_rearrange_loop(%[[arg0:.+]]: tensor<512x7x24xf32>, %[[arg1:.+]]: tensor<512x7x7xf32>)
+// CHECK: %[[v0:.+]] =  tensorrt.einsum {equation = [[equation:.+]]} ins(%[[arg1]], %[[arg0]] : tensor<512x7x7xf32>, tensor<512x7x24xf32>)
+// CHECK: return %[[v0]]
+
+// -----
+
+#map = affine_map<(d0, d1, d2, d3, d4) -> (d0, d1, d3, d4, d2)>
+func.func @element_wise_with_two_constants() -> tensor<1x8x20x35x192xf32> {
+  %cst_f32 = tensorrt.constant dense_resource<__elided__> : tensor<1x8x192x20x35xf32>
+  %cst_f32_0 = tensorrt.constant dense_resource<__elided__> : tensor<1x8x20x35x192xf32>
+  %1 = tensorrt.transpose {permutation = #map} %cst_f32 : tensor<1x8x192x20x35xf32> to tensor<1x8x20x35x192xf32>
+  %2 = tensorrt.element_wise <kSUM>(%1, %cst_f32_0 : tensor<1x8x20x35x192xf32>, tensor<1x8x20x35x192xf32>) -> tensor<1x8x20x35x192xf32>
+  return %2 : tensor<1x8x20x35x192xf32>
+}
+
+// CHECK: @element_wise_with_two_constants()
+// CHECK: %[[const0:.+]] = tensorrt.constant dense_resource<__elided__> : tensor<1x8x192x20x35xf32>
+// CHECK: %[[const1:.+]] = tensorrt.constant dense_resource<__elided__> : tensor<1x8x20x35x192xf32>
+// CHECK: %[[v0:.+]] = tensorrt.transpose {permutation = #map} %[[const0]]
+// CHECK: %[[v1:.+]] = tensorrt.element_wise <kSUM>(%[[v0]], %[[const1]]
+// CHECK: return %[[v1]]
