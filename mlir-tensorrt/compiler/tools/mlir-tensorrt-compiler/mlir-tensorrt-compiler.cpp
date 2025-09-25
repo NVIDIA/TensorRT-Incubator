@@ -156,11 +156,6 @@ int main(int argc, char **argv) {
   mlir::registerDefaultTimingManagerCLOptions();
   mlir::tracing::DebugCounter::registerCLOptions();
 
-  std::string taskName = llvm::StringSwitch<std::string>(inputKind)
-                             .CaseLower("tensorrt", "tensorrt-to-executable")
-                             .CaseLower("stablehlo", "stablehlo-to-executable")
-                             .Default("stablehlo-to-executable");
-
   // Build the list of dialects as a header for the --help message.
   std::string helpHeader =
       "MLIR-TensorRT Compiler\nAvailable compilation tasks: ";
@@ -173,6 +168,11 @@ int main(int argc, char **argv) {
   }
 
   cl::ParseCommandLineOptions(argc, argv, helpHeader);
+
+  std::string taskName = llvm::StringSwitch<std::string>(inputKind)
+                             .CaseLower("tensorrt", "tensorrt-to-executable")
+                             .CaseLower("stablehlo", "stablehlo-to-executable")
+                             .Default("stablehlo-to-executable");
 
   mlir::MLIRContext context;
   mlir::DialectRegistry registry;
