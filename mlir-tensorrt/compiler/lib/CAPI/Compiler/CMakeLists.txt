@@ -1,6 +1,6 @@
 add_subdirectory(Registration)
 
-add_mlir_tensorrt_public_c_api_library(MLIRTensorRTCAPICompiler
+mtrt_add_capi_library(MLIRTensorRTCAPICompiler
   Compiler.cpp
 
   ADDITIONAL_HEADER_DIRS

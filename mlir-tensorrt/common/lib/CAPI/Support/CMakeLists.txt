@@ -1,4 +1,4 @@
-add_mlir_public_c_api_library(MLIRTensorRTCAPISupportStatus
+mtrt_add_capi_library(MLIRTensorRTCAPISupportStatus
   Status.cpp
 
   LINK_LIBS PUBLIC

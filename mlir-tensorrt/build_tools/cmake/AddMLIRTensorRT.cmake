@@ -25,30 +25,6 @@ function(add_mlir_tensorrt_library target)
 endfunction()
 
 #-------------------------------------------------------------------------------------
-# Creates a MLIR-TensorRT public C API library with global registration
-#
-# Parameters:
-#   target - Target name (required)
-#   All other arguments are passed to add_mlir_public_c_api_library
-#
-# Usage:
-#   add_mlir_tensorrt_public_c_api_library(MyAPI SOURCES api.cpp)
-#-------------------------------------------------------------------------------------
-function(add_mlir_tensorrt_public_c_api_library target)
-  # Validate required arguments
-  if(NOT target)
-    message(FATAL_ERROR "add_mlir_tensorrt_public_c_api_library: target parameter is required")
-  endif()
-
-  add_mlir_public_c_api_library(${target}
-    ${ARGN}
-  )
-  mtrt_add_project_targets(MLIRTensorRT TARGETS
-    ${target}
-  )
-endfunction()
-
-#-------------------------------------------------------------------------------------
 # Creates a MLIR-TensorRT dialect library with global registration
 #
 # Parameters:

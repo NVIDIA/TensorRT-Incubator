@@ -1,4 +1,4 @@
-add_mlir_public_c_api_library(MLIRExecutorCAPIRuntimeCore
+mtrt_add_capi_library(MLIRExecutorCAPIRuntimeCore
   CoreModule.cpp
 
   PARTIAL_SOURCES_INTENDED
@@ -12,7 +12,7 @@ add_mlir_public_c_api_library(MLIRExecutorCAPIRuntimeCore
 set(built_modules MLIRExecutorCAPIRuntimeCore)
 
 if(MLIR_TRT_ENABLE_CUDA)
-  add_mlir_public_c_api_library(MLIRExecutorCAPIRuntimeCUDA
+  mtrt_add_capi_library(MLIRExecutorCAPIRuntimeCUDA
     CUDAModule.cpp
     PARTIAL_SOURCES_INTENDED
 
@@ -29,7 +29,7 @@ if(MLIR_TRT_ENABLE_CUDA)
 endif()
 
 if(MLIR_TRT_TARGET_TENSORRT)
-  add_mlir_public_c_api_library(MLIRExecutorCAPIRuntimeTensorRT
+  mtrt_add_capi_library(MLIRExecutorCAPIRuntimeTensorRT
     TensorRTModule.cpp
     PARTIAL_SOURCES_INTENDED
 

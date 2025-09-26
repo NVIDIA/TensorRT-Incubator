@@ -96,9 +96,9 @@ function(mtrt_add_project_library name)
   endif()
   set_property(GLOBAL APPEND PROPERTY MLIR_${ARG_PROJECT_NAME}_${ARG_LIBRARY_TYPE} ${name})
   if(ARG_LIBRARY_TYPE STREQUAL "dialect" OR ARG_LIBRARY_TYPE STREQUAL "DIALECT")
-    add_mlir_dialect_library(${name} DISABLE_INSTALL ${ARG_UNPARSED_ARGUMENTS})
+    add_mlir_dialect_library(${name} OBJECT DISABLE_INSTALL EXCLUDE_FROM_LIBMLIR ${ARG_UNPARSED_ARGUMENTS})
   else()
-    add_mlir_library(${name} DISABLE_INSTALL ${ARG_UNPARSED_ARGUMENTS})
+    add_mlir_library(${name} OBJECT DISABLE_INSTALL EXCLUDE_FROM_LIBMLIR ${ARG_UNPARSED_ARGUMENTS})
   endif()
   if(ARG_MLIR_LIBS)
     list(POP_FRONT ARG_MLIR_LIBS VISIBILITY)
@@ -119,6 +119,35 @@ function(mtrt_add_project_library name)
       )
     endif()
   endif()
+endfunction()
+
+#-------------------------------------------------------------------------------------
+# Creates a C API library. Wraps `mtrt_add_project_library` with the appropriate
+# arguments.
+#
+# Usage:
+#   mtrt_add_capi_library(MyCAPI
+#     MyAPI.cpp
+#     ...
+#   )
+#-------------------------------------------------------------------------------------
+function(mtrt_add_capi_library name)
+  mtrt_add_project_library(${name}
+    PROJECT_NAME MLIRTensorRT
+    LIBRARY_TYPE CAPI
+    OBJECT
+    # TODO: Once we have a MTRT dylib target, exclude all C API libraries
+    # from being linked into it.
+    # EXCLUDE_FROM_LIBMTRT
+    ENABLE_AGGREGATION
+    ${ARGN}
+  )
+  set_target_properties(${name} PROPERTIES
+    CXX_VISIBILITY_PRESET hidden
+  )
+  target_compile_definitions(obj.${name} PRIVATE
+    -DMLIR_CAPI_BUILDING_LIBRARY=1
+  )
 endfunction()
 
 #-------------------------------------------------------------------------------------

@@ -1,6 +1,6 @@
 mtrt_get_project_targets(MLIRTensorRT OUT_VAR MLIR_TENSORRT_LIBS)
 
-add_mlir_tensorrt_public_c_api_library(MLIRTensorRTCAPIRegisterAllDialects
+mtrt_add_capi_library(MLIRTensorRTCAPIRegisterAllDialects
   RegisterAllDialects.cpp
 
   PARTIAL_SOURCES_INTENDED

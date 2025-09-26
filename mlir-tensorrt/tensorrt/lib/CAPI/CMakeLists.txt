@@ -1,4 +1,4 @@
-add_mlir_public_c_api_library(MLIRTensorRTCAPITensorRTDialect
+mtrt_add_capi_library(MLIRTensorRTCAPITensorRTDialect
   TensorRTAttributes.cpp
   TensorRTDialect.cpp
 

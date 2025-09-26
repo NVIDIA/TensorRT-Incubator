@@ -1,4 +1,4 @@
-add_mlir_public_c_api_library(MLIRTensorRTCAPICommon
+mtrt_add_capi_library(MLIRTensorRTCAPICommon
   Common.cpp
 
   ADDITIONAL_HEADER_DIRS
