@@ -17,16 +17,16 @@ add_mtrtd_library(MLIRTensorRTTargetTensorRT
   TranslateToTensorRT.cpp
 
   LINK_LIBS PUBLIC
-  MLIRDialect
-  MLIRIR
-  MLIRPass
-  MLIRTensorRTCommandLineExtras
-  MLIRTensorRTTensorRTDialect
-  MLIRTensorRTTensorRTUtils
-  MLIRTransformUtils
-  MLIRTranslateLib
-  ${translation_deps}
-
+    MLIRTensorRTCommandLineExtras
+    MLIRTensorRTTensorRTDialect
+    MLIRTensorRTTensorRTUtils
+    ${translation_deps}
+  MLIR_LIBS PUBLIC
+    MLIRDialect
+    MLIRIR
+    MLIRPass
+    MLIRTransformUtils
+    MLIRTranslateLib
   DEPENDS
   MLIRTensorRTTranslationPassIncGen
 )

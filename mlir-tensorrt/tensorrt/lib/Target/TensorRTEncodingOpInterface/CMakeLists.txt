@@ -3,11 +3,11 @@ add_mtrtd_library(MLIRTensorRTTensorRTEncodingOpInterface
   TensorRTEncodingOpInterface.cpp
 
   LINK_LIBS PUBLIC
-  MLIRIR
-  TensorRTHeaderOnly
-  CUDA::cudart
-  MLIRTensorRTTensorRTUtils
-
+    TensorRTHeaderOnly
+    CUDA::cudart
+    MLIRTensorRTTensorRTUtils
+  MLIR_LIBS PUBLIC
+    MLIRIR
   DEPENDS
   MLIRTensorRTEnumConverterGen
   MLIRTensorRTEncodingOpInterfaceIncGen

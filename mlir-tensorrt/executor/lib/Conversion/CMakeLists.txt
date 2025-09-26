@@ -5,15 +5,16 @@ add_mlir_executor_library(MLIRTensorRTConvertToExecutorCommon
   ConvertToExecutorCommon.cpp
 
   LINK_LIBS PUBLIC
-  MLIRFuncDialect
-  MLIRMemRefDialect
-  MLIRRewrite
-  MLIRTransforms
-  MLIRTransformUtils
-  MLIRDLTIDialect
-  MLIRTensorRTExecutorDialect
-  MLIRTensorRTExecutorUtils
-  MLIRExecutorIncludes
+    MLIRTensorRTExecutorDialect
+    MLIRTensorRTExecutorUtils
+    MLIRExecutorIncludes
+  MLIR_LIBS PUBLIC
+    MLIRFuncDialect
+    MLIRMemRefDialect
+    MLIRRewrite
+    MLIRTransforms
+    MLIRTransformUtils
+    MLIRDLTIDialect
   )
 
 add_mlir_pdll_library(MLIRExecutorStdToExectutorPatternsIncGen
@@ -33,17 +34,18 @@ add_mlir_executor_library(MLIRTensorRTStdToExecutor
   MLIRExecutorStdToExectutorPatternsIncGen
 
   LINK_LIBS PUBLIC
-  MLIRArithDialect
-  MLIRControlFlowDialect
-  MLIRFuncDialect
-  MLIRIR
-  MLIRLinalgDialect
-  MLIRMathDialect
-  MLIRMemRefDialect
-  MLIRParser
-  MLIRRewrite
-  MLIRTensorRTConvertToExecutorCommon
-  MLIRTransforms
-  MLIRTransformUtils
-  MLIRExecutorIncludes
+    MLIRTensorRTConvertToExecutorCommon
+    MLIRExecutorIncludes
+  MLIR_LIBS PUBLIC
+    MLIRArithDialect
+    MLIRControlFlowDialect
+    MLIRFuncDialect
+    MLIRIR
+    MLIRLinalgDialect
+    MLIRMathDialect
+    MLIRMemRefDialect
+    MLIRParser
+    MLIRRewrite
+    MLIRTransforms
+    MLIRTransformUtils
 )

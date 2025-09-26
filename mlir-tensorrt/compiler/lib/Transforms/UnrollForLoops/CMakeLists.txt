@@ -5,9 +5,9 @@ add_mlir_tensorrt_library(MLIRTensorRTTransformsUnrollForLoops
   MLIRTensorRTGenericTransformPassIncGen
 
 
-  LINK_LIBS PUBLIC
-  MLIRPass
-  MLIRSCFDialect
-  MLIRSCFTransforms
-  MLIRSCFUtils
+  MLIR_LIBS PUBLIC
+    MLIRPass
+    MLIRSCFDialect
+    MLIRSCFTransforms
+    MLIRSCFUtils
   )

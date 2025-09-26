@@ -4,13 +4,14 @@ add_mlir_tensorrt_library(MLIRTensorRTStableHloExtIR
   StablehloTensorKindOpInterfaceImpl.cpp
 
   LINK_LIBS PUBLIC
-  MLIRAffineDialect
-  MLIRAffineUtils
-  MLIRArithDialect
-  MLIRDialectUtils
-  MLIRIR
-  MLIRTensorDialect
-  MLIRTensorRTInferTensorValueRangeInterface
-  MLIRTensorRTCommonTensorKindInterface
-  StablehloOps
+    MLIRTensorRTInferTensorValueRangeInterface
+    MLIRTensorRTCommonTensorKindInterface
+    StablehloOps
+  MLIR_LIBS PUBLIC
+    MLIRAffineDialect
+    MLIRAffineUtils
+    MLIRArithDialect
+    MLIRDialectUtils
+    MLIRIR
+    MLIRTensorDialect
 )

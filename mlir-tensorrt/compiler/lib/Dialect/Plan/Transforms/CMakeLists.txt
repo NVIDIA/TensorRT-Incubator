@@ -29,32 +29,32 @@ add_mlir_tensorrt_library(MLIRTensorRTPlanTransforms
   MLIRTensorRTPlanTransformsPassIncGen
 
   LINK_LIBS PUBLIC
-
-  MLIRBufferizationDialect
-  MLIRBufferizationPipelines
-  MLIRBufferizationToMemRef
-  MLIRBufferizationTransforms
-  MLIRExecutorGenericClustering
-  MLIRFuncTransforms
-  MLIRIR
-  MLIRLinalgDialect
-  MLIRPass
-  MLIRSCFDialect
-  MLIRTensorDialect
-  MLIRTensorRTAnalysis
-  MLIRTensorRTBufferizationScopeInterface
-  MLIRTensorRTCUDADialect
-  MLIRTensorRTTensorRTDialect
-  MLIRTensorRTDuplicateFunctionElimination
-  MLIRTensorRTExecutorDialect
-  MLIRTensorRTLowerLinalgCopies
-  MLIRTensorRTMemRefCastElimination
-  MLIRTensorRTPlanAnalysis
-  MLIRTensorRTPlanDialect
-  MLIRTensorRTRegionUtils
-  MLIRTensorRTStableHloExtTransforms
-  MLIRTensorRTStablehloToTensorRT
-  MLIRTensorRTTensorRTRuntimeDialect
-  MLIRTransforms
-  StablehloOps
+    MLIRExecutorGenericClustering
+    MLIRTensorRTAnalysis
+    MLIRTensorRTBufferizationScopeInterface
+    MLIRTensorRTCUDADialect
+    MLIRTensorRTTensorRTDialect
+    MLIRTensorRTDuplicateFunctionElimination
+    MLIRTensorRTExecutorDialect
+    MLIRTensorRTLowerLinalgCopies
+    MLIRTensorRTMemRefCastElimination
+    MLIRTensorRTPlanAnalysis
+    MLIRTensorRTPlanDialect
+    MLIRTensorRTRegionUtils
+    MLIRTensorRTStableHloExtTransforms
+    MLIRTensorRTStablehloToTensorRT
+    MLIRTensorRTTensorRTRuntimeDialect
+    StablehloOps
+  MLIR_LIBS PUBLIC
+    MLIRBufferizationDialect
+    MLIRBufferizationPipelines
+    MLIRBufferizationToMemRef
+    MLIRBufferizationTransforms
+    MLIRFuncTransforms
+    MLIRIR
+    MLIRLinalgDialect
+    MLIRPass
+    MLIRSCFDialect
+    MLIRTensorDialect
+    MLIRTransforms
 )

@@ -77,11 +77,17 @@ function(mtrt_add_project_library name)
   cmake_parse_arguments(ARG
     "DISABLE_INSTALL"
     "PROJECT_NAME;LIBRARY_TYPE;COMPONENT_PREFIX"
-    ""
+    "LINK_LIBS;MLIR_LIBS;DEPENDS"
     ${ARGN})
 
   if(NOT ARG_PROJECT_NAME)
     message(FATAL_ERROR "mtrt_add_project_library: PROJECT_NAME parameter is required")
+  endif()
+  if(ARG_LINK_LIBS)
+    list(APPEND ARG_UNPARSED_ARGUMENTS LINK_LIBS ${ARG_LINK_LIBS})
+  endif()
+  if(ARG_DEPENDS)
+    list(APPEND ARG_UNPARSED_ARGUMENTS DEPENDS ${ARG_DEPENDS})
   endif()
 
   # Append to appropriate global property based on library type
@@ -93,6 +99,10 @@ function(mtrt_add_project_library name)
     add_mlir_dialect_library(${name} DISABLE_INSTALL ${ARG_UNPARSED_ARGUMENTS})
   else()
     add_mlir_library(${name} DISABLE_INSTALL ${ARG_UNPARSED_ARGUMENTS})
+  endif()
+  if(ARG_MLIR_LIBS)
+    list(POP_FRONT ARG_MLIR_LIBS VISIBILITY)
+    mlir_target_link_libraries(${name} ${VISIBILITY} ${ARG_MLIR_LIBS})
   endif()
 
   # Add to installation unless disabled

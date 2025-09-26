@@ -4,13 +4,14 @@ if(MLIR_TRT_TARGET_TENSORRT)
     PARTIAL_SOURCES_INTENDED
 
     LINK_LIBS PUBLIC
-    CUDA::cudart
-    MLIRArithDialect
-    MLIRIR
-    MLIRTensorRTCommonIncludes
-    MLIRTensorRTTensorRTDialectBase
-    MLIRTRTTensorRTDynamicLoader
-    TensorRTHeaderOnly
+      CUDA::cudart
+      MLIRTensorRTCommonIncludes
+      MLIRTensorRTTensorRTDialectBase
+      TensorRTHeaderOnly
+    MLIR_LIBS PUBLIC
+      MLIRArithDialect
+      MLIRIR
+      MLIRTRTTensorRTDynamicLoader
   )
 endif()
 
@@ -20,9 +21,10 @@ add_mtrtd_library(MLIRTensorRTConstantFoldingUtils
   StaticValueUtils.cpp
 
   LINK_LIBS PUBLIC
-  MLIRDialectUtils
-  MLIRIR
-  MLIRTensorRTDialectIncludes
+    MLIRTensorRTDialectIncludes
+  MLIR_LIBS PUBLIC
+    MLIRDialectUtils
+    MLIRIR
 )
 
 add_mtrtd_library(MLIRTensorRTShapeUtils
@@ -30,7 +32,8 @@ add_mtrtd_library(MLIRTensorRTShapeUtils
   PARTIAL_SOURCES_INTENDED
 
   LINK_LIBS PUBLIC
-  MLIRIR
-  MLIRDialectUtils
-  MLIRTensorRTDialectIncludes
+    MLIRTensorRTDialectIncludes
+  MLIR_LIBS PUBLIC
+    MLIRIR
+    MLIRDialectUtils
   )

@@ -5,14 +5,15 @@ add_mlir_tensorrt_library(MLIRTensorRTHostToEmitC
   MLIRTensorRTConversionPassIncGen
 
   LINK_LIBS PUBLIC
-  MLIRArithToEmitC
-  MLIREmitCDialect
-  MLIRSCFToEmitC
-  MLIRTensorRTTensorRTToEmitC
-  MLIRTensorRTExecutorDialect
-  MLIRFuncToEmitC
-  MLIRFuncTransforms
-  MLIRTensorRTCUDADialect
-  MLIRTensorRTTensorRTRuntimeDialect
-  MLIRTensorRTLLVMConversionUtils
+    MLIRTensorRTTensorRTToEmitC
+    MLIRTensorRTExecutorDialect
+    MLIRTensorRTCUDADialect
+    MLIRTensorRTTensorRTRuntimeDialect
+    MLIRTensorRTLLVMConversionUtils
+  MLIR_LIBS PUBLIC
+    MLIRArithToEmitC
+    MLIREmitCDialect
+    MLIRSCFToEmitC
+    MLIRFuncToEmitC
+    MLIRFuncTransforms
   )

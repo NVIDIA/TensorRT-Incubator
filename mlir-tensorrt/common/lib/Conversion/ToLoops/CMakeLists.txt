@@ -5,11 +5,12 @@ add_mlir_tensorrt_library(MLIRTensorRTCommonConvertToLoops
   MLIRTensorRTCommonConversionPassesIncGen
 
   LINK_LIBS PUBLIC
-  MLIRIR
-  MLIRLinalgDialect
-  MLIRSCFDialect
-  MLIRTensorDialect
-  MLIRTensorRTCommonIncludes
-  MLIRTensorRTCommonLinalgExtTransforms
-  MLIRTensorRTCommonToLoopsOpInterface
+    MLIRTensorRTCommonIncludes
+    MLIRTensorRTCommonLinalgExtTransforms
+    MLIRTensorRTCommonToLoopsOpInterface
+  MLIR_LIBS PUBLIC
+    MLIRIR
+    MLIRLinalgDialect
+    MLIRSCFDialect
+    MLIRTensorDialect
   )

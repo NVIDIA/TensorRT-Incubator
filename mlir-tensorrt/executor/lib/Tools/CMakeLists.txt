@@ -2,9 +2,10 @@ add_mlir_executor_library(MLIRExecutorRunnerLib
   ExecutorRunnerMain.cpp
 
   LINK_LIBS PUBLIC
-  MLIRSupport
-  MLIRTensorRTExecutorRuntimeAPI
-  MLIRTensorRTExecutionEngineLuaRuntime
-  MLIRIR
-  MLIRExecutorRuntimeCapabilities
+    MLIRTensorRTExecutorRuntimeAPI
+    MLIRTensorRTExecutionEngineLuaRuntime
+    MLIRExecutorRuntimeCapabilities
+  MLIR_LIBS PUBLIC
+    MLIRSupport
+    MLIRIR
   )

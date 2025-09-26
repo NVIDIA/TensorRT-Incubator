@@ -5,13 +5,14 @@ add_mlir_tensorrt_library(MLIRTensorRTTensorRTToEmitC
   MLIRTensorRTConversionPassIncGen
 
   LINK_LIBS PUBLIC
-  MLIREmitCDialect
-  MLIRFuncDialect
-  MLIRPass
-  MLIRRewrite
-  MLIRTensorRTCommonIncludes
-  MLIRTensorRTTensorRTDialect
-  MLIRTensorRTTensorRTUtils
-  MLIRTransforms
-  MLIRTransformUtils
+    MLIRTensorRTCommonIncludes
+    MLIRTensorRTTensorRTDialect
+    MLIRTensorRTTensorRTUtils
+  MLIR_LIBS PUBLIC
+    MLIREmitCDialect
+    MLIRFuncDialect
+    MLIRPass
+    MLIRRewrite
+    MLIRTransforms
+    MLIRTransformUtils
 )

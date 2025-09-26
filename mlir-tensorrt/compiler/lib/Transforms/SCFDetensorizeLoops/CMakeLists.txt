@@ -5,10 +5,11 @@ add_mlir_tensorrt_library(MLIRTensorRTSCFDetensorizeLoops
   MLIRTensorRTGenericTransformPassIncGen
 
   LINK_LIBS PUBLIC
-  MLIRIR
-  MLIRPass
-  MLIRSCFDialect
-  MLIRTensorDialect
-  MLIRTensorRTAnalysis
-  MLIRTransformUtils
+    MLIRTensorRTAnalysis
+  MLIR_LIBS PUBLIC
+    MLIRIR
+    MLIRPass
+    MLIRSCFDialect
+    MLIRTensorDialect
+    MLIRTransformUtils
 )

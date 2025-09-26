@@ -4,8 +4,8 @@ add_mlir_tensorrt_library(MLIRTensorRTDropNestedModules
   DEPENDS
   MLIRTensorRTGenericTransformPassIncGen
 
-  LINK_LIBS PUBLIC
-  MLIRIR
-  MLIRPass
-  MLIRRewrite
+  MLIR_LIBS PUBLIC
+    MLIRIR
+    MLIRPass
+    MLIRRewrite
 )

@@ -14,21 +14,22 @@ add_mlir_executor_library(MLIRTensorRTExecutorTransforms
   MLIRTensorRTExecutorTransformsPassIncGen
 
   LINK_LIBS PUBLIC
-  MLIRAffineToStandard
-  MLIRBufferizationDialect
-  MLIRBufferizationTransforms
-  MLIRComplexToStandard
-  MLIRFuncDialect
-  MLIRIR
-  MLIRMemRefTransforms
-  MLIRPass
-  MLIRReconcileUnrealizedCasts
-  MLIRSCFToControlFlow
-  MLIRSCFTransforms
-  MLIRTensorRTConvertToExecutorCommon
-  MLIRTensorRTExecutorDialect
-  MLIRTensorRTExecutorUtils
-  MLIRTensorRTRuntimeExecutableInterface
-  MLIRTensorRTStdToExecutor
-  MLIRTensorTransforms
+    MLIRTensorRTConvertToExecutorCommon
+    MLIRTensorRTExecutorDialect
+    MLIRTensorRTExecutorUtils
+    MLIRTensorRTRuntimeExecutableInterface
+    MLIRTensorRTStdToExecutor
+  MLIR_LIBS PUBLIC
+    MLIRAffineToStandard
+    MLIRBufferizationDialect
+    MLIRBufferizationTransforms
+    MLIRComplexToStandard
+    MLIRFuncDialect
+    MLIRIR
+    MLIRMemRefTransforms
+    MLIRPass
+    MLIRReconcileUnrealizedCasts
+    MLIRSCFToControlFlow
+    MLIRSCFTransforms
+    MLIRTensorTransforms
   )

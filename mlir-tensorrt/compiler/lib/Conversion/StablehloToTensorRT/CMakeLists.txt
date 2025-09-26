@@ -9,18 +9,19 @@ add_mlir_tensorrt_library(MLIRTensorRTStablehloToTensorRT
   MLIRTensorRTEnumConverterGen
 
   LINK_LIBS PUBLIC
-  ChloOps
-  MLIRArithDialect
-  MLIRFuncTransforms
-  MLIRQuantDialect
-  MLIRRewrite
-  MLIRTensorRTConvertToTensorRTCommon
-  MLIRTensorRTTensorRTDialect
-  MLIRTensorRTStableHloExtUtils
-  MLIRTensorRTStablehloMatchers
-  MLIRTensorRTTensorRTUtils
-  MLIRTensorRTUtilsShapeInfo
-  MLIRTransforms
-  MLIRTransformUtils
-  StablehloOps
+    ChloOps
+    MLIRTensorRTConvertToTensorRTCommon
+    MLIRTensorRTTensorRTDialect
+    MLIRTensorRTStableHloExtUtils
+    MLIRTensorRTStablehloMatchers
+    MLIRTensorRTTensorRTUtils
+    MLIRTensorRTUtilsShapeInfo
+    StablehloOps
+  MLIR_LIBS PUBLIC
+    MLIRArithDialect
+    MLIRFuncTransforms
+    MLIRQuantDialect
+    MLIRRewrite
+    MLIRTransforms
+    MLIRTransformUtils
 )

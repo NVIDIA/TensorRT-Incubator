@@ -4,8 +4,8 @@ add_mlir_tensorrt_library(MLIRTensorRTDuplicateFunctionElimination
     DEPENDS
     MLIRTensorRTGenericTransformPassIncGen
 
-    LINK_LIBS PUBLIC
-    MLIRPass
-    MLIRFuncTransforms
+    MLIR_LIBS PUBLIC
+      MLIRPass
+      MLIRFuncTransforms
 )
 

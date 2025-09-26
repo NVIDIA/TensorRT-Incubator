@@ -44,9 +44,9 @@ add_mlir_tensorrt_interface_library(MLIRTensorRTBufferizationScopeInterface
   OP
     "mlir-tensorrt/Interfaces/BufferizationScopeInterface"
 
-  LINK_LIBS PUBLIC
-  MLIRBufferizationDialect
-  MLIRBufferizationTransforms
+  MLIR_LIBS PUBLIC
+    MLIRBufferizationDialect
+    MLIRBufferizationTransforms
   )
 
 add_mlir_tensorrt_interface_library(MLIRTensorRTInferTensorValueRangeInterface

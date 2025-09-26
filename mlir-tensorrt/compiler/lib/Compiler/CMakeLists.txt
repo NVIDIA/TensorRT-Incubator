@@ -5,13 +5,14 @@ add_mlir_tensorrt_library(MLIRTensorRTCompilerClient
     PARTIAL_SOURCES_INTENDED
 
     LINK_LIBS PUBLIC
-    MLIRDebug
-    MLIRIR
-    MLIRPass
-    MLIRTargetCpp
-    MLIRTensorRTCompilerIncludes
-    MLIRTensorRTSupportDeviceInfo
-    MLIRTensorRTTargetLua
+      MLIRTensorRTCompilerIncludes
+      MLIRTensorRTSupportDeviceInfo
+      MLIRTensorRTTargetLua
+    MLIR_LIBS PUBLIC
+      MLIRDebug
+      MLIRIR
+      MLIRPass
+      MLIRTargetCpp
 )
 
 add_subdirectory(StablehloToExecutable)
@@ -28,10 +29,10 @@ add_mlir_tensorrt_library(MLIRTensorRTInitAllDialects
   PARTIAL_SOURCES_INTENDED
 
   LINK_LIBS PUBLIC
-  MLIRTensorRTCompilerIncludes
-  ${MLIR_TENSORRT_DIALECT_LIBS}
-  ${MLIR_TENSORRT_LIBS}
-  ${MTRTD_LIBS}
+    MLIRTensorRTCompilerIncludes
+    ${MLIR_TENSORRT_DIALECT_LIBS}
+    ${MLIR_TENSORRT_LIBS}
+    ${MTRTD_LIBS}
   )
 
 # Separate the pass registration from dialect registration.
@@ -42,8 +43,8 @@ add_mlir_tensorrt_library(MLIRTensorRTInitAllPasses
   PARTIAL_SOURCES_INTENDED
 
   LINK_LIBS PUBLIC
-  MLIRTensorRTCompilerIncludes
-  ${MLIR_TENSORRT_DIALECT_LIBS}
-  ${MLIR_TENSORRT_LIBS}
-  ${MTRTD_LIBS}
+    MLIRTensorRTCompilerIncludes
+    ${MLIR_TENSORRT_DIALECT_LIBS}
+    ${MLIR_TENSORRT_LIBS}
+    ${MTRTD_LIBS}
   )

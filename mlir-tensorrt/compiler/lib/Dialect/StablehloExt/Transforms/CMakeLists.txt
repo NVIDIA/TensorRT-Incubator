@@ -13,17 +13,17 @@ add_mlir_tensorrt_library(MLIRTensorRTStableHloExtTransforms
     TargetSpecificOptimizations.cpp
 
     LINK_LIBS PUBLIC
-    ChloOps
-    MLIRRewrite
-    MLIRTensorDialect
-    MLIRExecutorCommonUtils
-    MLIRTensorRTConstantFoldingUtils
-    MLIRTensorRTShapeUtils
-    MLIRTensorRTStableHloExtUtils
-    StablehloOps
-    StablehloPasses
-    StablehloOptimizationPasses
-
+      ChloOps
+      MLIRExecutorCommonUtils
+      MLIRTensorRTConstantFoldingUtils
+      MLIRTensorRTShapeUtils
+      MLIRTensorRTStableHloExtUtils
+      StablehloOps
+      StablehloPasses
+      StablehloOptimizationPasses
+    MLIR_LIBS PUBLIC
+      MLIRRewrite
+      MLIRTensorDialect
     DEPENDS
     MLIRTensorRTStableHloExtTransformsPassIncGen
 )
