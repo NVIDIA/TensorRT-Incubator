@@ -159,7 +159,6 @@ function(add_tensorrt_encoding_def_gen targetName inputFileName outputFileName )
   add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${outputFileName}"
   COMMAND mlir-tensorrt-tblgen --gen-tensorrt-layer-add-defs
     "${inputFileName}"
-    -I "${MLIR_TENSORRT_ROOT_DIR}/include"
     -I "${MLIR_TENSORRT_ROOT_DIR}/tensorrt/include"
     ${_mlir_includes}
     -o "${CMAKE_CURRENT_BINARY_DIR}/${outputFileName}"

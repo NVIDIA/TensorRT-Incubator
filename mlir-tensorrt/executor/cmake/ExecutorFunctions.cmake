@@ -33,7 +33,6 @@ function(add_mlir_executor_enum_gen targetName inputFileName outputFileName)
   add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${outputFileName}"
     COMMAND executor-tblgen ${command}
       "${CMAKE_CURRENT_LIST_DIR}/${inputFileName}"
-      -I "${MLIR_TENSORRT_ROOT_DIR}/include"
       ${_mlir_includes}
       -o "${CMAKE_CURRENT_BINARY_DIR}/${outputFileName}"
     DEPENDS "${inputFileName}" executor-tblgen
