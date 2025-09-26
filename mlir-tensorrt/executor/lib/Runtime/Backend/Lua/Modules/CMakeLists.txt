@@ -24,4 +24,4 @@ if(MLIR_TRT_ENABLE_CUBLAS)
     add_subdirectory(CuBLAS)
 endif()
 
-add_mlir_library_install(MLIRExecutorRuntimeCapabilities)
+mtrt_add_install(MLIRExecutorRuntimeCapabilities)
