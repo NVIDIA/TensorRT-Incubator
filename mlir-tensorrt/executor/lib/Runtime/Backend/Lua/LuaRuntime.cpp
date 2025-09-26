@@ -23,13 +23,13 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-executor/Runtime/Backend/Lua/LuaRuntime.h"
-#include "lua.h"
 #include "mlir-executor/Runtime/API/API.h"
 #include "mlir-executor/Runtime/API/ExecutableFlatbuffer.h"
 #include "mlir-executor/Runtime/Backend/Common/DataTypes.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaExtensionRegistry.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaExtensions.h"
 #include "mlir-executor/Runtime/Backend/Lua/Modules/Utils/MemRefUtils.h"
+#include "mlir-executor/Runtime/Backend/Lua/SolAdaptor.h"
 #include "mlir-executor/Runtime/Backend/Utils/NvtxUtils.h"
 #include "mlir-executor/Runtime/Support/Support.h"
 #include "mlir-executor/Support/Allocators.h"
@@ -408,9 +408,8 @@ StatusOr<int64_t> mtrt::runExecutorExecutable(
 /// passed across the function I/O
 /// We also need to inform the RuntimeSession's `tracker` about metadata
 /// for the input memref, including that it is managed outside the session.
-static Status pushMemRefTableArg(sol::state_view &lua, AllocTracker &tracker,
-                                 llvm::SmallVector<sol::object> &args,
-                                 const MemRefValue &value) {
+static StatusOr<sol::object> createMemRefDescriptorAggregateValue(
+    sol::state_view &lua, AllocTracker &tracker, const MemRefValue &value) {
   uintptr_t ptr = value.getMemory();
   assert(ptr != 0 && "expected non-null pointer");
   MTRT_DBG("pushing memref argument ptr={0} shape=({1:$[,]}) "
@@ -433,14 +432,11 @@ static Status pushMemRefTableArg(sol::state_view &lua, AllocTracker &tracker,
   for (int64_t dim : value.getStrides())
     memrefTable.push_back(sol::make_object(lua, dim));
 
-  args.emplace_back(sol::make_object(lua, std::move(memrefTable)));
-
   PointerInfo pointerInfo = value.getPointerInfo(PointerOwner::external);
-
   // Track the pointer in the current AllocTracker
   tracker.track(pointerInfo);
 
-  return getOkStatus();
+  return sol::make_object(lua, std::move(memrefTable));
 }
 
 static Status pushScalarArgument(sol::state_view &lua,
@@ -794,7 +790,10 @@ executeFunctionWithLuaBackend(LuaRuntimeSession &session, std::string_view name,
   args.reserve(inputArgs.size() + outputArgs.size());
   for (auto [idx, rv] : llvm::enumerate(inputArgs)) {
     if (MemRefValue *memref = llvm::dyn_cast<MemRefValue>(rv)) {
-      MTRT_RETURN_IF_ERROR(pushMemRefTableArg(lua, tracker, args, *memref));
+      MTRT_ASSIGN_OR_RETURN(
+          sol::object arg,
+          createMemRefDescriptorAggregateValue(lua, tracker, *memref));
+      args.emplace_back(std::move(arg));
       continue;
     }
     if (ScalarValue *scalar = llvm::dyn_cast<ScalarValue>(rv)) {
@@ -808,7 +807,10 @@ executeFunctionWithLuaBackend(LuaRuntimeSession &session, std::string_view name,
   }
   for (auto [idx, rv] : llvm::enumerate(outputArgs)) {
     if (MemRefValue *memref = llvm::dyn_cast<MemRefValue>(rv)) {
-      MTRT_RETURN_IF_ERROR(pushMemRefTableArg(lua, tracker, args, *memref));
+      MTRT_ASSIGN_OR_RETURN(
+          sol::object arg,
+          createMemRefDescriptorAggregateValue(lua, tracker, *memref));
+      args.emplace_back(std::move(arg));
       continue;
     }
     return getInvalidArgStatus("output (destination) argument #{0} to function "
@@ -871,4 +873,25 @@ LuaRuntimeSession::executeFunction(llvm::StringRef name,
       llvm::SmallVector<std::unique_ptr<RuntimeValue>> resultValues,
       executeFunctionWithLuaBackend(*this, name, inputs, outArgs, stream));
   return resultValues;
+}
+
+Status LuaRuntimeSession::executeFunction(llvm::StringRef name,
+                                          llvm::ArrayRef<MemRefValue *> inputs,
+                                          llvm::ArrayRef<MemRefValue *> outArgs,
+                                          Ref<Stream> stream) {
+  std::vector<RuntimeValue *> inputArgsValues(inputs.size());
+  std::vector<RuntimeValue *> outputArgsValues(outArgs.size());
+  for (auto [idx, arg] : llvm::enumerate(inputs))
+    inputArgsValues[idx] = arg;
+  for (auto [idx, arg] : llvm::enumerate(outArgs))
+    outputArgsValues[idx] = arg;
+  MTRT_ASSIGN_OR_RETURN(
+      llvm::SmallVector<std::unique_ptr<RuntimeValue>> resultValues,
+      executeFunctionWithLuaBackend(*this, name, inputArgsValues,
+                                    outputArgsValues, stream));
+  if (!resultValues.empty())
+    return getInvalidArgStatus(
+        "function {0} returned {1} results, but expected 0", name,
+        resultValues.size());
+  return getOkStatus();
 }

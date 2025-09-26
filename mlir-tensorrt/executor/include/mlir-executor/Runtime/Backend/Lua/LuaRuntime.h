@@ -21,11 +21,10 @@
 /// Declarations for routines that enable Lua code execution.
 ///
 //===----------------------------------------------------------------------===//
-#ifndef MLIR_TENSORRT_RUNTIME_BACKEND_LUA_LUARUNTIME_H
-#define MLIR_TENSORRT_RUNTIME_BACKEND_LUA_LUARUNTIME_H
+#ifndef MLIR_EXECUTOR_RUNTIME_BACKEND_LUA_LUARUNTIME
+#define MLIR_EXECUTOR_RUNTIME_BACKEND_LUA_LUARUNTIME
 
 #include "mlir-executor/Runtime/API/API.h"
-#include "mlir-executor/Runtime/Backend/Lua/SolAdaptor.h"
 #include "mlir-tensorrt-common/Support/Status.h"
 #include <functional>
 #include <string_view>
@@ -75,6 +74,12 @@ public:
                   llvm::ArrayRef<RuntimeValue *> outArgs,
                   Ref<Stream> stream) final;
 
+  /// Execute the session function using the given arguments.
+  Status executeFunction(llvm::StringRef name,
+                         llvm::ArrayRef<MemRefValue *> inputs,
+                         llvm::ArrayRef<MemRefValue *> outArgs,
+                         Ref<Stream> stream) final;
+
 private:
   LuaRuntimeSession(Ref<RuntimeClient> client, RuntimeSessionOptions options,
                     ExecutableView executable);
@@ -108,4 +113,4 @@ StatusOr<int64_t> runExecutorExecutable(
 
 } // namespace mtrt
 
-#endif // MLIR_TENSORRT_RUNTIME_BACKEND_LUA_LUARUNTIME_H
+#endif // MLIR_EXECUTOR_RUNTIME_BACKEND_LUA_LUARUNTIME
