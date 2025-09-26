@@ -23,6 +23,7 @@ dependencies = [
     "matplotlib>=3.10.6",
     "cupy-cuda12x>=13.6.0",
     "nvtx>=0.2.13",
+    "tqdm>=4.67.1",
 ]
 
 [tool.uv.sources]
