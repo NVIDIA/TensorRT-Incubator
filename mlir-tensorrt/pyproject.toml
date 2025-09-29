@@ -25,6 +25,11 @@ dependencies = [
     "nvtx>=0.2.13",
     "tqdm>=4.67.1",
     "openpyxl>=3.1.5",
+    "datasets==2.14.5",
+    "pyarrow<21.0.0",
+    "transformers>=4.56.2",
+    "librosa>=0.11.0",
+    "soundfile>=0.13.1",
 ]
 
 [tool.uv.sources]
