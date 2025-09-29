@@ -1635,7 +1635,8 @@ public:
     SmallVector<int64_t> groupReshapeOut;
     size_t inputNumElems = 1;
     size_t outputNumElems = 1;
-    for (int i = 0, j = 0; i < reshapeInputType.getRank(); i++) {
+    int j = 0;
+    for (int i = 0; i < reshapeInputType.getRank(); i++) {
       inputNumElems *= reshapeInputType.getDimSize(i);
       if (!transposeInAxes.empty() &&
           transposeInAxes.back() + 1 != transposePerm[i]) {
@@ -1740,7 +1741,8 @@ public:
     SmallVector<int64_t> groupReshapeOut;
     size_t inputNumElems = 1;
     size_t outputNumElems = 1;
-    for (int i = 0, j = 0; i < reshapeInputType.getRank(); i++) {
+    int j = 0;
+    for (int i = 0; i < reshapeInputType.getRank(); i++) {
       inputNumElems *= reshapeInputType.getDimSize(i);
       inputAxes.push_back(i);
       while (j < reshapeOutputType.getRank() &&
@@ -1764,6 +1766,21 @@ public:
         groupReshapeOut.clear();
       }
     }
+    while (j < reshapeOutputType.getRank()) {
+      outputNumElems *= reshapeOutputType.getDimSize(j);
+      groupReshapeOut.push_back(reshapeOutputType.getDimSize(j));
+      outputAxes.push_back(transposePerm[j++]);
+    }
+
+    assert(inputNumElems == outputNumElems);
+    assert(inputAxes.empty());
+    if (!outputAxes.empty() || !groupReshapeOut.empty()) {
+      reshapeGroups.push_back(ReshapeGroup{
+          .inputAxes = inputAxes,
+          .outputAxes = outputAxes,
+          .reshapeOut = groupReshapeOut,
+      });
+    }
 
     SmallVector<int64_t> newTranspose;
     SmallVector<int64_t> newReshape;
@@ -1774,6 +1791,38 @@ public:
       if (b.outputAxes.empty())
         return true;
       return a.outputAxes[0] < b.outputAxes[0];
+    });
+
+    // Debug print of reshapeGroups
+    LLVM_DEBUG({
+      std::stringstream out;
+      out << "reshapeGroups:\n";
+      for (size_t idx = 0; idx < reshapeGroups.size(); ++idx) {
+        const auto &group = reshapeGroups[idx];
+        out << "  Group " << idx << ":\n";
+        out << "    inputAxes: [";
+        for (size_t i = 0; i < group.inputAxes.size(); ++i) {
+          out << group.inputAxes[i];
+          if (i + 1 < group.inputAxes.size())
+            out << ", ";
+        }
+        out << "]\n";
+        out << "    outputAxes: [";
+        for (size_t i = 0; i < group.outputAxes.size(); ++i) {
+          out << group.outputAxes[i];
+          if (i + 1 < group.outputAxes.size())
+            DBGS() << ", ";
+        }
+        out << "]\n";
+        out << "    reshapeOut: [";
+        for (size_t i = 0; i < group.reshapeOut.size(); ++i) {
+          out << group.reshapeOut[i];
+          if (i + 1 < group.reshapeOut.size())
+            DBGS() << ", ";
+        }
+        out << "]\n";
+      }
+      DBGS() << out.str();
     });
 
     for (auto &group : reshapeGroups) {
@@ -1788,6 +1837,8 @@ public:
         AffineMap::getPermutationMap(newTranspose, op.getContext()));
     Value newReshapeOp = rewriter.createOrFold<tensorrt::ReshapeOp>(
         op.getLoc(), reshapeInputType.clone(newReshape), newTransposeOp);
+
+    assert(op.getType() == newReshapeOp.getType());
 
     rewriter.replaceOp(op, newReshapeOp);
     return success();
@@ -2244,15 +2295,15 @@ public:
           return std::make_tuple(arg, operation);
         bool swapsLastTwo = true;
         for (int64_t i = 0; i < rank - 2; ++i) {
-          auto expr = permVec[i].dyn_cast<AffineDimExpr>();
+          auto expr = dyn_cast<AffineDimExpr>(permVec[i]);
           if (!expr || expr.getPosition() != i) {
             swapsLastTwo = false;
             break;
           }
         }
         if (swapsLastTwo) {
-          auto expr1 = permVec[rank - 2].dyn_cast<AffineDimExpr>();
-          auto expr2 = permVec[rank - 1].dyn_cast<AffineDimExpr>();
+          auto expr1 = dyn_cast<AffineDimExpr>(permVec[rank - 2]);
+          auto expr2 = dyn_cast<AffineDimExpr>(permVec[rank - 1]);
           if (!(expr1 && expr2 && expr1.getPosition() == rank - 1 &&
                 expr2.getPosition() == rank - 2)) {
             swapsLastTwo = false;

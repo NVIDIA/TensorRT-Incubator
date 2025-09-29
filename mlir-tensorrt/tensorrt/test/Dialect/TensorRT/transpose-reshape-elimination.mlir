@@ -187,3 +187,18 @@ func.func @matmul_eliminate_reshape_lhs_2(%arg0: tensor<1x2x3x4x5x6xf16>, %arg1:
     %2 = tensorrt.reshape %1 : tensor<1x2x60x8xf16> to tensor<1x2x3x4x5x8xf16>
     return %2: tensor<1x2x3x4x5x8xf16>
 }
+
+// -----
+
+// CHECK: @elementwise_reshape(%[[arg0:.+]]: tensor<12x3x3xf32>, %[[arg1:.+]]: tensor<12xf32>)
+// CHECK: %[[v0:.+]] = tensorrt.expand_rank %[[arg1]] : tensor<12xf32> to tensor<12x1x1xf32>
+// CHECK: %[[v1:.+]] = tensorrt.element_wise <kDIV>(%[[arg0]], %[[v0]] : tensor<12x3x3xf32>, tensor<12x1x1xf32>) -> tensor<12x3x3xf32>
+// CHECK: %[[v2:.+]] = tensorrt.transpose {permutation = #map} %[[v1]] : tensor<12x3x3xf32> to tensor<12x3x3xf32>
+// CHECK: return %[[v2]]
+#map = affine_map<(d0, d1, d2) -> (d0, d2, d1)>
+func.func @elementwise_reshape(%arg0: tensor<12x3x3xf32>, %arg1: tensor<12xf32>) -> tensor<12x3x3xf32> {
+  %0 = tensorrt.transpose {permutation = #map} %arg0 : tensor<12x3x3xf32> to tensor<12x3x3xf32>
+  %1 = tensorrt.expand_rank %arg1 : tensor<12xf32> to tensor<12x1x1xf32>
+  %2 = tensorrt.element_wise <kDIV>(%0, %1 : tensor<12x3x3xf32>, tensor<12x1x1xf32>) -> tensor<12x3x3xf32>
+  return %2 : tensor<12x3x3xf32>
+}
