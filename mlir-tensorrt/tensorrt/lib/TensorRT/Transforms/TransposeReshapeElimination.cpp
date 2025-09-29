@@ -2043,6 +2043,8 @@ public:
     char multipliedAxis = 0;
     std::string batchAxes = "";
 
+    Value inputs[2] = {op.getInputs()[0], op.getInputs()[1]};
+
     for (size_t i = 0; i < equation.rhs.size(); i++) {
       char c = equation.rhs[i];
       size_t lhsPos = equation.lhsParts[0].find(c);
@@ -2085,6 +2087,15 @@ public:
       return failure(/* no multiplied axis */);
     }
 
+    if (matrixAxis[0] != 0 && matrixAxis[1] != 0 &&
+        equation.rhs.find(matrixAxis[0]) > equation.rhs.find(matrixAxis[1])) {
+      // the order of the arguments need to get swapped as the order for a
+      // matrix multiply requires the first matrix axis appears first
+      std::swap(equation.lhsParts[0], equation.lhsParts[1]);
+      std::swap(matrixAxis[0], matrixAxis[1]);
+      std::swap(inputs[0], inputs[1]);
+    }
+
     MatrixOperation opType[2];
     for (int i = 0; i < 2; i++) {
       std::string e = batchAxes;
@@ -2121,8 +2132,8 @@ public:
     }
 
     rewriter.replaceOpWithNewOp<tensorrt::MatrixMultiplyOp>(
-        op, op.getResult().getType(), op.getInputs()[0], op.getInputs()[1],
-        opType[0], opType[1]);
+        op, op.getResult().getType(), inputs[0], inputs[1], opType[0],
+        opType[1]);
 
     return success();
   }

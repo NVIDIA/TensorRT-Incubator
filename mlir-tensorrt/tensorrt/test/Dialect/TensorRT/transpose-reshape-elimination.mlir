@@ -202,3 +202,22 @@ func.func @elementwise_reshape(%arg0: tensor<12x3x3xf32>, %arg1: tensor<12xf32>)
   %2 = tensorrt.element_wise <kDIV>(%0, %1 : tensor<12x3x3xf32>, tensor<12x1x1xf32>) -> tensor<12x3x3xf32>
   return %2 : tensor<12x3x3xf32>
 }
+
+// -----
+
+// CHECK: @matmul_argument_swap(%[[arg0:.+]]: tensor<1x2x4x3x561xf32>, %[[arg1:.+]]: tensor<1x2x4x3x3xf32>) -> tensor<1x2x4x561x3xf32>
+// CHECK-DAG: %[[v0:.+]]= tensorrt.collapse_rank %[[arg1]] : tensor<1x2x4x3x3xf32> to tensor<2x4x3x3xf32>
+// CHECK-DAG: %[[v1:.+]] = tensorrt.transpose {permutation = #map} %[[arg0]] : tensor<1x2x4x3x561xf32> to tensor<2x4x561x3x1xf32>
+// CHECK-DAG: %[[v2:.+]] = tensorrt.collapse_rank %[[v1]] : tensor<2x4x561x3x1xf32> to tensor<2x4x561x3xf32>
+// CHECK: %[[v3:.+]] = tensorrt.matrix_multiply {op0 = #tensorrt.matrix_operation<kNONE>, op1 = #tensorrt.matrix_operation<kTRANSPOSE>} ins(%2, %0 : tensor<2x4x561x3xf32>, tensor<2x4x3x3xf32>) -> tensor<2x4x561x3xf32>
+// CHECK: %[[v4:.+]] = tensorrt.expand_rank %[[v3]] : tensor<2x4x561x3xf32> to tensor<1x2x4x561x3xf32>
+// CHECK: return %[[v4]]
+#map = affine_map<(d0, d1, d2, d3, d4) -> (d0, d1, d2, d4, d3)>
+func.func @matmul_argument_swap(%arg0: tensor<1x2x4x3x561xf32>, %arg1: tensor<1x2x4x3x3xf32>) -> tensor<1x2x4x561x3xf32> {
+  %0 = tensorrt.reshape %arg1 : tensor<1x2x4x3x3xf32> to tensor<8x3x3xf32>
+  %1 = tensorrt.reshape %arg0 : tensor<1x2x4x3x561xf32> to tensor<8x3x561xf32>
+  %2 = tensorrt.matrix_multiply {op0 = #tensorrt.matrix_operation<kNONE>, op1 = #tensorrt.matrix_operation<kNONE>} ins(%0, %1 : tensor<8x3x3xf32>, tensor<8x3x561xf32>) -> tensor<8x3x561xf32>
+  %3 = tensorrt.reshape %2 : tensor<8x3x561xf32> to tensor<1x2x4x3x561xf32>
+  %4 = tensorrt.transpose {permutation = #map} %3 : tensor<1x2x4x3x561xf32> to tensor<1x2x4x561x3xf32>
+  return %4 : tensor<1x2x4x561x3xf32>
+}
