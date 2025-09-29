@@ -1726,8 +1726,8 @@ public:
     for (int i = 0; i < reshapeOutputType.getRank(); i++) {
       transposePerm.push_back(i);
     }
-    transposePerm = op.getPermutation().compose(
-        transposePerm); // TODO: check if this is correct
+    transposePerm =
+        inversePermutation(op.getPermutation()).compose(transposePerm);
 
     struct ReshapeGroup {
       SmallVector<int64_t> inputAxes;

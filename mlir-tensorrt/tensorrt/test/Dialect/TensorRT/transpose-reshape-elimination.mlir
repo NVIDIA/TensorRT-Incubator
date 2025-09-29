@@ -221,3 +221,28 @@ func.func @matmul_argument_swap(%arg0: tensor<1x2x4x3x561xf32>, %arg1: tensor<1x
   %4 = tensorrt.transpose {permutation = #map} %3 : tensor<1x2x4x3x561xf32> to tensor<1x2x4x561x3xf32>
   return %4 : tensor<1x2x4x561x3xf32>
 }
+
+// -----
+
+#map = affine_map<(d0, d1, d2, d3, d4) -> (d0, d1, d2, d4, d3)>
+func.func @olympus_v0_2(%arg0: tensor<1x2x6x3x3xf32>, %arg1: tensor<1x2x6x3x2048xf32>) -> tensor<1x2x6x2048x3xf32> {
+  %0 = tensorrt.reshape %arg0 : tensor<1x2x6x3x3xf32> to tensor<12x3x3xf32>
+  %1 = tensorrt.reshape %arg1 : tensor<1x2x6x3x2048xf32> to tensor<12x3x2048xf32>
+  %2 = tensorrt.matrix_multiply {op0 = #tensorrt.matrix_operation<kNONE>, op1 = #tensorrt.matrix_operation<kNONE>} ins(%0, %1 : tensor<12x3x3xf32>, tensor<12x3x2048xf32>) -> tensor<12x3x2048xf32>
+  %3 = tensorrt.reshape %2 : tensor<12x3x2048xf32> to tensor<1x2x6x3x2048xf32>
+  %4 = tensorrt.transpose {permutation = #map} %3 : tensor<1x2x6x3x2048xf32> to tensor<1x2x6x2048x3xf32>
+  return %4 : tensor<1x2x6x2048x3xf32>
+}
+
+// -----
+
+// CHECK: @transpose_reshape_reorder(%[[arg0:.+]]: tensor<12x256x8x8x16x8xf32>)
+// CHECK: %[[v0:.+]] = tensorrt.transpose {permutation = #map} %[[arg0]] : tensor<12x256x8x8x16x8xf32> to tensor<12x8x8x16x8x256xf32>
+// CHECK: %[[v1:.+]] = tensorrt.reshape %0 : tensor<12x8x8x16x8x256xf32> to tensor<12x64x128x256xf32>
+// CHECK: return %[[v1]]
+#map = affine_map<(d0, d1, d2, d3) -> (d0, d2, d3, d1)>
+func.func @transpose_reshape_reorder(%arg0: tensor<12x256x8x8x16x8xf32>) -> tensor<12x64x128x256xf32> {
+  %0 = tensorrt.reshape %arg0 : tensor<12x256x8x8x16x8xf32> to tensor<12x256x64x128xf32>
+  %1 = tensorrt.transpose {permutation = #map} %0 : tensor<12x256x64x128xf32> to tensor<12x64x128x256xf32>
+  return %1 : tensor<12x64x128x256xf32>
+}
