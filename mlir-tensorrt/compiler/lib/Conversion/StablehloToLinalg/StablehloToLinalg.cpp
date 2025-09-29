@@ -108,32 +108,54 @@ static LogicalResult stripDotGeneralAlgorithm(stablehlo::DotGeneralOp op) {
 /// Match indexing map '-DN + const' and return the dimension in 'dim'.
 static bool matchReverseIndexingExpr(AffineExpr expr, unsigned &dim,
                                      int64_t &offset) {
-  auto addExpr = dyn_cast<AffineBinaryOpExpr>(expr);
-  if (!addExpr || addExpr.getKind() != mlir::AffineExprKind::Add)
-    return false;
+  // First try to match: (-1 * dim) + offset
+  if (auto addExpr = dyn_cast<AffineBinaryOpExpr>(expr)) {
+    if (addExpr.getKind() == mlir::AffineExprKind::Add) {
+      auto mulExpr = dyn_cast<AffineBinaryOpExpr>(addExpr.getLHS());
+      if (!mulExpr || mulExpr.getKind() != mlir::AffineExprKind::Mul)
+        return false;
 
-  auto mulExpr = dyn_cast<AffineBinaryOpExpr>(addExpr.getLHS());
-  if (!mulExpr || mulExpr.getKind() != mlir::AffineExprKind::Mul)
-    return false;
+      // Match the negative one.
+      auto constExpr = dyn_cast<AffineConstantExpr>(mulExpr.getRHS());
+      if (!constExpr || constExpr.getValue() != -1)
+        return false;
 
-  // Match the negative one.
-  auto constExpr = dyn_cast<AffineConstantExpr>(mulExpr.getRHS());
-  if (!constExpr || constExpr.getValue() != -1)
-    return false;
+      // Match dimension expr
+      auto dimExpr = dyn_cast<AffineDimExpr>(mulExpr.getLHS());
+      if (!dimExpr)
+        return false;
 
-  // Match dimension mexpr
-  auto dimExpr = dyn_cast<AffineDimExpr>(mulExpr.getLHS());
-  if (!dimExpr)
-    return false;
+      // Match the constant of the add.
+      auto constOffset = dyn_cast<AffineConstantExpr>(addExpr.getRHS());
+      if (!constOffset)
+        return false;
 
-  // Match the constant of the add.
-  auto constOffset = dyn_cast<AffineConstantExpr>(addExpr.getRHS());
-  if (!constOffset)
-    return false;
+      dim = dimExpr.getPosition();
+      offset = constOffset.getValue();
+      return true;
+    }
+  }
 
-  dim = dimExpr.getPosition();
-  offset = constOffset.getValue();
-  return true;
+  // Also try to match just: (-1 * dim) with implicit offset 0
+  if (auto mulExpr = dyn_cast<AffineBinaryOpExpr>(expr)) {
+    if (mulExpr.getKind() == mlir::AffineExprKind::Mul) {
+      // Match the negative one.
+      auto constExpr = dyn_cast<AffineConstantExpr>(mulExpr.getRHS());
+      if (!constExpr || constExpr.getValue() != -1)
+        return false;
+
+      // Match dimension expr
+      auto dimExpr = dyn_cast<AffineDimExpr>(mulExpr.getLHS());
+      if (!dimExpr)
+        return false;
+
+      dim = dimExpr.getPosition();
+      offset = 0; // Implicit offset is 0 for plain -d0
+      return true;
+    }
+  }
+
+  return false;
 }
 
 /// Matching indexing map where each result is either a dimension iterator or a
