@@ -30,6 +30,8 @@ dependencies = [
     "transformers>=4.56.2",
     "librosa>=0.11.0",
     "soundfile>=0.13.1",
+    "pytest>=8.4.2",
+    "pytest-xdist>=3.8.0",
 ]
 
 [tool.uv.sources]
