@@ -19,7 +19,7 @@ function(mlir_tensorrt_common_interface interface)
   cmake_path(RELATIVE_PATH OUTPUT_DIR BASE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}")
   mlir_tablegen("${OUTPUT_DIR}/${interface}.h.inc" -gen-${ARG_KIND}-interface-decls ${td_flags})
   mlir_tablegen("${OUTPUT_DIR}/${interface}.cpp.inc" -gen-${ARG_KIND}-interface-defs ${td_flags})
-  add_public_tablegen_target(MLIRTensorRTCommon${interface}IncGen)
+  mtrt_add_public_tablegen_target(MLIRTensorRTCommon${interface}IncGen)
 endfunction()
 
 function(add_mlir_tensorrt_common_interface_library target)

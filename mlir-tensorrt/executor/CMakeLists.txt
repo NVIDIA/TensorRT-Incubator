@@ -38,6 +38,7 @@ target_include_directories(MLIRExecutorIncludes INTERFACE
   "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
   "$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>"
 )
+mtrt_add_install(MLIRExecutorIncludes)
 
 set(MLIR_EXECUTOR_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 set(MLIR_EXECUTOR_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR})
@@ -53,5 +54,13 @@ mtrt_get_project_targets(MLIRExecutor OUT_VAR MLIR_EXECUTOR_LIBS)
 add_library(MLIRTensorRTExecutorLibraries INTERFACE)
 target_link_libraries(MLIRTensorRTExecutorLibraries INTERFACE
   ${MLIR_EXECUTOR_LIBS})
-add_library(MLIRTensorRT::Executor ALIAS MLIRTensorRTExecutorLibraries)
 mtrt_add_install(MLIRTensorRTExecutorLibraries)
+add_library(MLIRTensorRT::Executor ALIAS MLIRTensorRTExecutorLibraries)
+
+mtrt_add_header_installation_components(mtrt-headers
+  DIRECTORIES
+   "include/mlir-executor"
+   "include/mlir-executor-c"
+   "${MLIR_EXECUTOR_BINARY_DIR}/include/mlir-executor"
+   "${MLIR_EXECUTOR_BINARY_DIR}/include/mlir-executor-c"
+  )

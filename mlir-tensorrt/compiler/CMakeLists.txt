@@ -55,3 +55,18 @@ add_subdirectory(test)
 
 # Tools must be sequenced after tests.
 add_subdirectory(tools)
+
+# Add header installation components
+set(MTRT_COMPILER_HEADER_DIRS
+  "include/mlir-tensorrt"
+  "include/mlir-tensorrt-c"
+  "${CMAKE_CURRENT_BINARY_DIR}/include/mlir-tensorrt"
+  "${CMAKE_CURRENT_BINARY_DIR}/include/mlir-tensorrt-c"
+  # For the Features.h header.
+  "${PROJECT_BINARY_DIR}/include/mlir-tensorrt"
+)
+
+mtrt_add_header_installation_components(mtrt-headers
+  DIRECTORIES
+   ${MTRT_COMPILER_HEADER_DIRS}
+  )

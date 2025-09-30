@@ -27,7 +27,7 @@ function(add_mlir_tensorrt_interface_library target)
     mlir_tablegen("${ARG_OP}.cpp.inc" -gen-op-interface-defs)
   endif()
 
-  add_public_tablegen_target(${target}IncGen)
+  mtrt_add_public_tablegen_target(${target}IncGen)
 
   add_mlir_tensorrt_library(${target}
     PARTIAL_SOURCES_INTENDED

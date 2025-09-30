@@ -309,3 +309,36 @@ load_common_config()
     ${CMAKE_CURRENT_SOURCE_DIR}/lit.cfg.py
   )
 endfunction()
+
+#-------------------------------------------------------------------------------------
+# Add header installation components for a particular project.
+#
+# Arguments:
+#   component - installation component name (required)
+#
+# Keyword Parameters:
+#   DIRECTORIES - List of directories to install (required)
+#
+#-------------------------------------------------------------------------------------
+function(mtrt_add_header_installation_components component)
+  if(NOT component)
+    message(FATAL_ERROR "mtrt_add_header_installation_components: component argument is required")
+  endif()
+  cmake_parse_arguments(ARG "" "" "DIRECTORIES" ${ARGN})
+  if(NOT ARG_DIRECTORIES)
+    message(FATAL_ERROR "mtrt_add_header_installation_components: DIRECTORIES argument is required")
+  endif()
+  install(DIRECTORY ${ARG_DIRECTORIES}
+    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+    COMPONENT ${component}
+    FILES_MATCHING
+      PATTERN "*.def"
+      PATTERN "*.h"
+      PATTERN "*.gen"
+      PATTERN "*.inc"
+      PATTERN "*.td"
+      PATTERN "LICENSE.TXT"
+      PATTERN "CMakeFiles" EXCLUDE
+      PATTERN "config.h" EXCLUDE
+    )
+endfunction()
