@@ -261,3 +261,30 @@ func.func @transpose_softmax(%arg0: tensor<2x3x4x5xf32>) -> tensor<2x5x3x4xf32> 
   %2 = tensorrt.transpose {permutation = #map} %1 : tensor<2x4x5x3xf32> to tensor<2x5x3x4xf32>
   return %2 : tensor<2x5x3x4xf32>
 }
+
+// -----
+
+// CHECK: @reshape_softmax(%[[arg0:.+]]: tensor<24x5x6xf32>)
+// CHECK: %[[v0:.+]] = tensorrt.softmax {axis = 1 : i64} %[[arg0]] : tensor<24x5x6xf32>
+// CHECK: return %[[v0]]
+func.func @reshape_softmax(%arg0: tensor<24x5x6xf32>) -> tensor<24x5x6xf32> {
+  %0 = tensorrt.reshape %arg0 : tensor<24x5x6xf32> to tensor<2x3x4x5x6xf32>
+  %1 = tensorrt.softmax{axis = 3 : i64} %0 : tensor<2x3x4x5x6xf32>
+  %2 = tensorrt.reshape %1 : tensor<2x3x4x5x6xf32> to tensor<24x5x6xf32>
+  return %2 : tensor<24x5x6xf32>
+}
+
+// -----
+
+// CHECK: @reshape_softmax_cant_push(%[[arg0:.+]]: tensor<2x3x4x5x6xf32>)
+// CHECK: %[[v0:.+]] = tensorrt.reshape %[[arg0]] : tensor<2x3x4x5x6xf32> to tensor<24x10x3xf32>
+// CHECK: %[[v1:.+]] = tensorrt.softmax {axis = 1 : i64} %[[v0]] : tensor<24x10x3xf32>
+// CHECK: %[[v2:.+]] = tensorrt.reshape %[[v1]] : tensor<24x10x3xf32> to tensor<2x3x4x5x6xf32>
+// CHECK: return %[[v2]]
+func.func @reshape_softmax_cant_push(%arg0: tensor<2x3x4x5x6xf32>) -> tensor<2x3x4x5x6xf32> {
+  %0 = tensorrt.reshape %arg0 : tensor<2x3x4x5x6xf32> to tensor<24x10x3xf32>
+  %1 = tensorrt.softmax {axis = 1 : i64} %0 : tensor<24x10x3xf32>
+  %2 = tensorrt.reshape %1 : tensor<24x10x3xf32> to tensor<2x3x4x5x6xf32>
+  return %2 : tensor<2x3x4x5x6xf32>
+}
+

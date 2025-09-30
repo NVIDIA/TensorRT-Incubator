@@ -2347,69 +2347,143 @@ public:
 };
 } // namespace
 
-
 namespace {
-  // push up transpose through softmax
-  // softmax(transpose(x)) -> transpose(softmax(x))
-  class PushUpTransposeSoftmax : public OpRewritePattern<tensorrt::TransposeOp> {
-  public:
-    using OpRewritePattern<tensorrt::TransposeOp>::OpRewritePattern;
-    LogicalResult matchAndRewrite(tensorrt::TransposeOp op,
-                                  PatternRewriter &rewriter) const override {
-      auto softmax = op.getInput().getDefiningOp<tensorrt::SoftMaxOp>();
-      if (!softmax)
-        return failure();
-      unsigned axis = softmax.getAxis();
-      unsigned newAxis = inversePermutation(op.getPermutation()).getDimPosition(axis);
-      auto newTranspose = rewriter.create<tensorrt::TransposeOp>(
-          op.getLoc(), softmax.getInput(), op.getPermutation());
-      auto newSoftmax = rewriter.create<tensorrt::SoftMaxOp>(softmax.getLoc(), newTranspose, newAxis);
-      rewriter.replaceOp(op, newSoftmax.getResult());
-      return success();
-    }
-  };
-}
-
-namespace {
-  class PushDownTransposeSoftmax : public OpRewritePattern<tensorrt::SoftMaxOp> {
-  public:
-    using OpRewritePattern<tensorrt::SoftMaxOp>::OpRewritePattern;
-    LogicalResult matchAndRewrite(tensorrt::SoftMaxOp op,
-                                  PatternRewriter &rewriter) const override {
-      auto transpose = op.getInput().getDefiningOp<tensorrt::TransposeOp>();
-      if (!transpose)
-        return failure();
-      unsigned axis = op.getAxis();
-      unsigned newAxis = transpose.getPermutation().getDimPosition(axis);
-      auto newSoftmax = rewriter.create<tensorrt::SoftMaxOp>(op.getLoc(), transpose.getInput(), newAxis);
-      auto newTranspose = rewriter.create<tensorrt::TransposeOp>(transpose.getLoc(), newSoftmax, transpose.getPermutation());
-      rewriter.replaceOp(op, newTranspose.getResult());
-      return success();
-    }
-  };
-}
-
-namespace {
-  class PushUpReshapeSoftmax : public OpRewritePattern<tensorrt::ReshapeOp> {
-  public:
-    using OpRewritePattern<tensorrt::ReshapeOp>::OpRewritePattern;
-    LogicalResult matchAndRewrite(tensorrt::ReshapeOp op,
-                                  PatternRewriter &rewriter) const override {
+// push up transpose through softmax
+// softmax(transpose(x)) -> transpose(softmax(x))
+class PushUpTransposeSoftmax : public OpRewritePattern<tensorrt::TransposeOp> {
+public:
+  using OpRewritePattern<tensorrt::TransposeOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(tensorrt::TransposeOp op,
+                                PatternRewriter &rewriter) const override {
+    auto softmax = op.getInput().getDefiningOp<tensorrt::SoftMaxOp>();
+    if (!softmax)
       return failure();
-    }
-  };
-}
+    unsigned axis = softmax.getAxis();
+    unsigned newAxis =
+        inversePermutation(op.getPermutation()).getDimPosition(axis);
+    auto newTranspose = rewriter.create<tensorrt::TransposeOp>(
+        op.getLoc(), softmax.getInput(), op.getPermutation());
+    auto newSoftmax = rewriter.create<tensorrt::SoftMaxOp>(
+        softmax.getLoc(), newTranspose, newAxis);
+    rewriter.replaceOp(op, newSoftmax.getResult());
+    return success();
+  }
+};
+} // namespace
 
 namespace {
-  class PushDownReshapeSoftmax : public OpRewritePattern<tensorrt::ReshapeOp> {
-  public:
-    using OpRewritePattern<tensorrt::ReshapeOp>::OpRewritePattern;
-    LogicalResult matchAndRewrite(tensorrt::ReshapeOp op,
-                                  PatternRewriter &rewriter) const override {
+// push down transpose through softmax
+// transpose(softmax(x)) -> softmax(transpose(x))
+class PushDownTransposeSoftmax : public OpRewritePattern<tensorrt::SoftMaxOp> {
+public:
+  using OpRewritePattern<tensorrt::SoftMaxOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(tensorrt::SoftMaxOp op,
+                                PatternRewriter &rewriter) const override {
+    auto transpose = op.getInput().getDefiningOp<tensorrt::TransposeOp>();
+    if (!transpose)
       return failure();
+    unsigned axis = op.getAxis();
+    unsigned newAxis = transpose.getPermutation().getDimPosition(axis);
+    auto newSoftmax = rewriter.create<tensorrt::SoftMaxOp>(
+        op.getLoc(), transpose.getInput(), newAxis);
+    auto newTranspose = rewriter.create<tensorrt::TransposeOp>(
+        transpose.getLoc(), newSoftmax, transpose.getPermutation());
+    rewriter.replaceOp(op, newTranspose.getResult());
+    return success();
+  }
+};
+} // namespace
+
+namespace {
+// push up reshape through softmax
+// softmax(reshape(x)) -> reshape(softmax(x))
+class PushUpReshapeSoftmax : public OpRewritePattern<tensorrt::ReshapeOp> {
+public:
+  using OpRewritePattern<tensorrt::ReshapeOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(tensorrt::ReshapeOp op,
+                                PatternRewriter &rewriter) const override {
+    if (!op.getType().hasStaticShape() ||
+        !op.getInput().getType().hasStaticShape())
+      return failure();
+    auto softmax = op.getInput().getDefiningOp<tensorrt::SoftMaxOp>();
+    if (!softmax)
+      return failure();
+    int axis = softmax.getAxis();
+    int newAxis = -1;
+    size_t numInputElements = 1;
+    size_t numOutputElements = 1;
+    auto inputType = op.getInput().getType();
+    auto outputType = op.getType();
+    for (int i = 0, j = 0; i < inputType.getRank(); i++) {
+      numInputElements *= inputType.getDimSize(i);
+      while (numOutputElements < numInputElements && j < outputType.getRank()) {
+        numOutputElements *= outputType.getDimSize(j++);
+      }
+      if (i == axis) {
+        if (numInputElements != numOutputElements ||
+            inputType.getDimSize(i) != outputType.getDimSize(j - 1)) {
+          return failure(/* the reshape impacts the elements that are getting softmaxed */);
+        } else {
+          newAxis = j - 1;
+          break;
+        }
+      }
     }
-  };
-}
+    if (newAxis == -1)
+      return failure();
+    auto newReshape = rewriter.create<tensorrt::ReshapeOp>(
+        op.getLoc(), outputType, softmax.getInput());
+    auto newSoftmax = rewriter.create<tensorrt::SoftMaxOp>(
+        softmax.getLoc(), newReshape.getResult(), newAxis);
+    rewriter.replaceOp(op, newSoftmax.getResult());
+    return success();
+  }
+};
+} // namespace
+
+namespace {
+// push down reshape through softmax
+// reshape(softmax(x)) -> softmax(reshape(x))
+class PushDownReshapeSoftmax : public OpRewritePattern<tensorrt::SoftMaxOp> {
+public:
+  using OpRewritePattern<tensorrt::SoftMaxOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(tensorrt::SoftMaxOp op,
+                                PatternRewriter &rewriter) const override {
+    auto reshapeOp = op.getInput().getDefiningOp<tensorrt::ReshapeOp>();
+    if (!reshapeOp)
+      return failure();
+    int axis = op.getAxis();
+    int newAxis = -1;
+    size_t numInputElements = 1;
+    size_t numOutputElements = 1;
+    auto inputType = reshapeOp.getInput().getType();
+    auto outputType = reshapeOp.getType();
+    for (int i = 0, j = 0; i < outputType.getRank(); i++) {
+      numOutputElements *= outputType.getDimSize(i);
+      while (numInputElements < numOutputElements && j < inputType.getRank()) {
+        numInputElements *= inputType.getDimSize(j++);
+      }
+      if (i == axis) {
+        if (numInputElements != numOutputElements ||
+            inputType.getDimSize(j - 1) != outputType.getDimSize(i)) {
+          return failure();
+        } else {
+          newAxis = j - 1;
+          break;
+        }
+      }
+    }
+    if (newAxis == -1)
+      return failure();
+    auto newSoftmax = rewriter.create<tensorrt::SoftMaxOp>(
+        op.getLoc(), reshapeOp.getInput(), newAxis);
+    auto newReshape = rewriter.create<tensorrt::ReshapeOp>(
+        reshapeOp.getLoc(), outputType, newSoftmax.getResult());
+    rewriter.replaceOp(op, newReshape.getResult());
+    return success();
+  }
+};
+} // namespace
 
 namespace {
 class TransposeReshapeEliminationPass
@@ -2466,9 +2540,8 @@ public:
           PushDownOpQuantizeDequantize<tensorrt::TransposeOp>,
           PushDownOpQuantizeDequantize<tensorrt::ReshapeOp>,
           EinsumPushDownTranspose, PushReshapeDownThroughEinsum,
-          PushDownReshapeElementwise,
-          PushDownTransposeSoftmax
-          >(ctx);
+          PushDownReshapeElementwise, PushDownTransposeSoftmax,
+          PushDownReshapeSoftmax>(ctx);
       TransposeOp::getCanonicalizationPatterns(patterns, ctx);
       ExpandRankOp::getCanonicalizationPatterns(patterns, ctx);
       ReshapeOp::getCanonicalizationPatternsSameOp(patterns, ctx);
@@ -2493,9 +2566,8 @@ public:
           PushUpOpQuantizeDequantize<tensorrt::TransposeOp>,
           PushUpOpQuantizeDequantize<tensorrt::ReshapeOp>,
           EinsumPushUpTranspose, PushReshapeUpThroughEinsum,
-          PushUpReshapeElementwise,
-          PushUpTransposeSoftmax
-          >(ctx);
+          PushUpReshapeElementwise, PushUpTransposeSoftmax,
+          PushUpReshapeSoftmax>(ctx);
       TransposeOp::getCanonicalizationPatterns(patterns, ctx);
       ExpandRankOp::getCanonicalizationPatterns(patterns, ctx);
       ReshapeOp::getCanonicalizationPatternsSameOp(patterns, ctx);
