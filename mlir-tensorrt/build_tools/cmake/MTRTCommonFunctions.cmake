@@ -7,6 +7,15 @@
 
 include(CMakeParseArguments)
 
+# ------------------------------------------------------------------------------
+# A wrapper around 'add_public_tablegen_target' that adds a dependency on
+# 'mtrt-headers'.
+# ------------------------------------------------------------------------------
+function(mtrt_add_public_tablegen_target target)
+  add_public_tablegen_target(${target})
+  add_dependencies(mtrt-headers ${target})
+endfunction()
+
 #-------------------------------------------------------------------------------------
 # Adds a target to the installation set with customizable component names
 #

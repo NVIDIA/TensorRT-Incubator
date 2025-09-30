@@ -18,10 +18,10 @@ add_mlir_interface(ExecutorInterfaces)
 set(LLVM_TARGET_DEFINITIONS ExecutorEnums.td)
 mlir_tablegen(ExecutorEnums.h.inc -gen-enum-decls)
 mlir_tablegen(ExecutorEnums.cpp.inc -gen-enum-defs)
-add_public_tablegen_target(MLIRTensorRTExecutorDialectEnumsIncGen)
+mtrt_add_public_tablegen_target(MLIRTensorRTExecutorDialectEnumsIncGen)
 
 
 set(LLVM_TARGET_DEFINITIONS ExecutorAttributes.td)
 mlir_tablegen(ExecutorAttributes.h.inc -gen-attrdef-decls)
 mlir_tablegen(ExecutorAttributes.cpp.inc -gen-attrdef-defs)
-add_public_tablegen_target(MLIRTensorRTExecutorDialectAttributesIncGen)
+mtrt_add_public_tablegen_target(MLIRTensorRTExecutorDialectAttributesIncGen)

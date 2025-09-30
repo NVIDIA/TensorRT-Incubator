@@ -175,6 +175,14 @@ endif()
 # Target Directories
 # -------------------------------------------------
 
+# Add a custom target for header generation. Since this target is used for
+# forcing generation of all generated headers prior to generation of
+# a distribution, also make it depend on mlir-headers.
+add_custom_target(mtrt-headers)
+if(TARGET mlir-headers)
+  add_dependencies(mtrt-headers mlir-headers)
+endif()
+
 set(MLIR_TRT_DEFINITIONS)
 foreach(feature_flag IN LISTS MLIR_TRT_FEATURE_FLAGS)
   if(${feature_flag})

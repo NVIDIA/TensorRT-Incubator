@@ -40,6 +40,7 @@ function(add_mlir_executor_enum_gen targetName inputFileName outputFileName)
   )
   add_custom_target(${targetName} DEPENDS
     "${CMAKE_CURRENT_BINARY_DIR}/${outputFileName}")
+  add_dependencies(mtrt-headers ${targetName})
 endfunction()
 
 #-------------------------------------------------------------------------------------
@@ -80,6 +81,7 @@ function(add_mlir_executor_flatbuffer_schema target)
   add_custom_target(${target}
     DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/${generatedFileName}"
   )
+  add_dependencies(mtrt-headers ${target})
 endfunction()
 
 

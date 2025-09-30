@@ -67,7 +67,7 @@ function(add_mlir_tensorrt_op_interface name)
   set(LLVM_TARGET_DEFINITIONS "${name}.td")
   mlir_tablegen(${name}.h.inc -gen-op-interface-decls)
   mlir_tablegen(${name}.cpp.inc -gen-op-interface-defs)
-  add_public_tablegen_target(MLIRTensorRT${name}IncGen)
+  mtrt_add_public_tablegen_target("MLIRTensorRT${name}IncGen")
 endfunction()
 
 #-------------------------------------------------------------------------------------
@@ -94,7 +94,7 @@ function(add_mlir_tensorrt_attr_interface src)
   set(LLVM_TARGET_DEFINITIONS "${src}.td")
   mlir_tablegen("${ARG_OUTPUT_NAME}.h.inc" -gen-attr-interface-decls)
   mlir_tablegen("${ARG_OUTPUT_NAME}.cpp.inc" -gen-attr-interface-defs)
-  add_public_tablegen_target("MLIRTensorRT${ARG_OUTPUT_NAME}IncGen")
+  mtrt_add_public_tablegen_target("MLIRTensorRT${ARG_OUTPUT_NAME}IncGen")
 endfunction()
 
 #-------------------------------------------------------------------------------------
@@ -223,7 +223,7 @@ function(add_mlir_tensorrt_backend_library target)
   mlir_tablegen("${h_inc_file}" -gen-attrdef-decls)
   mlir_tablegen("${cpp_inc_file}" -gen-attrdef-defs)
 
-  add_public_tablegen_target(${target}IncGen)
+  mtrt_add_public_tablegen_target("${target}IncGen")
 
   add_mlir_tensorrt_library(${target}
     PARTIAL_SOURCES_INTENDED

@@ -8,5 +8,4 @@ if(MLIR_TRT_ENABLE_HLO)
 endif()
 
 mlir_tablegen(Passes.h.inc ${_TABLEGEN_ARGS})
-add_public_tablegen_target(MLIRTensorRTGenericTransformPassIncGen)
-
+mtrt_add_public_tablegen_target(MLIRTensorRTGenericTransformPassIncGen)

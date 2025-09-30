@@ -6,6 +6,6 @@ set(OUTPUT_DIR
 cmake_path(SET OUTPUT_DIR NORMALIZE "${OUTPUT_DIR}")
 cmake_path(RELATIVE_PATH OUTPUT_DIR BASE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}")
 mlir_tablegen("${OUTPUT_DIR}/Passes.h.inc" -gen-pass-decls -name MLIRTensorRTCommonConversion)
-add_public_tablegen_target(MLIRTensorRTCommonConversionPassesIncGen)
+mtrt_add_public_tablegen_target(MLIRTensorRTCommonConversionPassesIncGen)
 
 add_subdirectory(ToLoops)
