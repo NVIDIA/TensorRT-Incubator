@@ -7,11 +7,11 @@ if(MLIR_TRT_TARGET_TENSORRT)
       ${MLIR_TRT_CUDA_TARGET}
       MLIRTensorRTCommonIncludes
       MLIRTensorRTTensorRTDialectBase
+      MLIRTRTTensorRTDynamicLoader
       TensorRTHeaderOnly
     MLIR_LIBS PUBLIC
       MLIRArithDialect
       MLIRIR
-      MLIRTRTTensorRTDynamicLoader
   )
 endif()
 
