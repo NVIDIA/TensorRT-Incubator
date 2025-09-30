@@ -246,3 +246,18 @@ func.func @transpose_reshape_reorder(%arg0: tensor<12x256x8x8x16x8xf32>) -> tens
   %1 = tensorrt.transpose {permutation = #map} %0 : tensor<12x256x64x128xf32> to tensor<12x64x128x256xf32>
   return %1 : tensor<12x64x128x256xf32>
 }
+
+// -----
+
+// CHECK: affine_map<(d0, d1, d2, d3) -> (d0, d3, d1, d2)>
+// CHECK: @transpose_softmax(%[[arg0:.+]]: tensor<2x3x4x5xf32>)
+// CHECK: %[[v0:.+]] = tensorrt.transpose {permutation = #map} %[[arg0]] : tensor<2x3x4x5xf32> to tensor<2x5x3x4xf32>
+// CHECK: %[[v1:.+]] = tensorrt.softmax {axis = 2 : i64} %[[v0]] : tensor<2x5x3x4xf32>
+// CHECK: return %[[v1]]
+#map = affine_map<(d0, d1, d2, d3) -> (d0, d2, d3, d1)>
+func.func @transpose_softmax(%arg0: tensor<2x3x4x5xf32>) -> tensor<2x5x3x4xf32> {
+  %0 = tensorrt.transpose {permutation = #map} %arg0 : tensor<2x3x4x5xf32> to tensor<2x4x5x3xf32>
+  %1 = tensorrt.softmax {axis = 3 : i64} %0 : tensor<2x4x5x3xf32>
+  %2 = tensorrt.transpose {permutation = #map} %1 : tensor<2x4x5x3xf32> to tensor<2x5x3x4xf32>
+  return %2 : tensor<2x5x3x4xf32>
+}
