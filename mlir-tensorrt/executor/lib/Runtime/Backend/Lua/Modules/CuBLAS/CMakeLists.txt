@@ -12,7 +12,7 @@ add_mlir_executor_runtime_capability_library(MLIRTensorRTExecutorRuntimeCuBLASMo
   sol2::sol2
   lua::core
   nvtx3-cpp
-  CUDA::cudart
+  ${MLIR_TRT_CUDA_TARGET}
   # TODO: link against static lib or shared stub library instead of linking cuBLAS shared lib directly
   # in order to be compatible with manylinux standard
   # for distiribution as pip package, see https://github.com/pypa/manylinux

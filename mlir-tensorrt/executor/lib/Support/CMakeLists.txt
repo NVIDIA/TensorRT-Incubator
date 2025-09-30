@@ -1,14 +1,11 @@
-set(deps_ MLIRTensorRTSupportStatus)
-if(MLIR_TRT_ENABLE_CUDA)
-  find_package(CUDAToolkit REQUIRED)
-  list(APPEND deps_ CUDA::cudart)
-endif()
-
 add_mlir_executor_library(MLIRTensorRTSupportAllocators
   PARTIAL_SOURCES_INTENDED
   Allocators.cpp
 
-  LINK_LIBS PUBLIC ${deps_}
+  LINK_LIBS PUBLIC
+  ${MLIR_TRT_CUDA_TARGET}
+  MLIRExecutorIncludes
+  MLIRTensorRTSupportStatus
 )
 
 add_mlir_executor_library(MLIRTensorRTSupportDeviceInfo
@@ -16,8 +13,9 @@ add_mlir_executor_library(MLIRTensorRTSupportDeviceInfo
   DeviceInfo.cpp
 
   LINK_LIBS PUBLIC
-  ${deps_}
+  ${MLIR_TRT_CUDA_TARGET}
   MLIRExecutorIncludes
+  MLIRTensorRTSupportStatus
 )
 
 add_mlir_executor_library(MLIRTensorRTSupportStridedCopy
@@ -26,4 +24,5 @@ add_mlir_executor_library(MLIRTensorRTSupportStridedCopy
 
   LINK_LIBS PUBLIC
   MLIRExecutorIncludes
+  MLIRTensorRTSupportStatus
 )

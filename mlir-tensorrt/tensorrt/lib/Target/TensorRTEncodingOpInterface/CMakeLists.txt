@@ -4,7 +4,7 @@ add_mtrtd_library(MLIRTensorRTTensorRTEncodingOpInterface
 
   LINK_LIBS PUBLIC
     TensorRTHeaderOnly
-    CUDA::cudart
+    ${MLIR_TRT_CUDA_TARGET}
     MLIRTensorRTTensorRTUtils
   MLIR_LIBS PUBLIC
     MLIRIR

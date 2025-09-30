@@ -10,7 +10,7 @@ add_mlir_executor_runtime_capability_library(MLIRTensorRTExecutorRuntimeNCCLModu
   PRIVATE
   sol2::sol2
   lua::core
-  CUDA::cudart
+  ${MLIR_TRT_CUDA_TARGET}
   CUDA::cuda_driver
   $<$<BOOL:${MLIR_TRT_ENABLE_NCCL}>:MPI::MPI_C>
   $<$<BOOL:${MLIR_TRT_ENABLE_NCCL}>:NCCL>

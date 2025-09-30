@@ -9,7 +9,7 @@ add_mlir_executor_runtime_capability_library(MLIRTensorRTExecutorRuntimeCUDAModu
 
   PRIVATE
   CUDA::cuda_driver
-  CUDA::cudart
+  ${MLIR_TRT_CUDA_TARGET}
   lua::core
   MLIRTensorRTExecutorRuntimeCommon
   MLIRTensorRTLuaExtensionRegistry

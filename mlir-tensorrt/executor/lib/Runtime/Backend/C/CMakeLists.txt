@@ -21,7 +21,7 @@ if(MLIR_TRT_ENABLE_CUDA)
 
     LINK_LIBS PRIVATE
     MLIRTensorRTCAPISupportStatus
-    CUDA::cudart
+    ${MLIR_TRT_CUDA_TARGET}
     MLIRTensorRTExecutorPtxCompilerUtils
     MLIRTensorRTExecutorRuntimeCommon
     )
@@ -38,7 +38,7 @@ if(MLIR_TRT_TARGET_TENSORRT)
 
     LINK_LIBS PRIVATE
     MLIRTensorRTCAPISupportStatus
-    CUDA::cudart
+    ${MLIR_TRT_CUDA_TARGET}
     MLIRTensorRTExecutorRuntimeCommon
     MLIRTRTTensorRTDynamicLoader
     TensorRTHeaderOnly

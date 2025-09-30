@@ -4,7 +4,7 @@ if(MLIR_TRT_TARGET_TENSORRT)
     PARTIAL_SOURCES_INTENDED
 
     LINK_LIBS PUBLIC
-      CUDA::cudart
+      ${MLIR_TRT_CUDA_TARGET}
       MLIRTensorRTCommonIncludes
       MLIRTensorRTTensorRTDialectBase
       TensorRTHeaderOnly
