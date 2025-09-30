@@ -29,7 +29,7 @@ include_directories(${common_include_dirs} ${executor_include_dirs})
 # manually enumerate some dependencies here, mainly for providing the functions
 # registering interface external models.
 mtrt_add_project_targets(MLIRTensorRT
-  LIBRARY_TYPE LIBS
+  LIBRARY_TYPE MLIR_LIBS
   TARGETS
   MLIRArithTransforms
   MLIRArithValueBoundsOpInterfaceImpl

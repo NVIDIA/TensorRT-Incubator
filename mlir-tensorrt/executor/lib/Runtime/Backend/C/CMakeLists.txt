@@ -6,7 +6,7 @@ mtrt_add_capi_library(MLIRExecutorCAPIRuntimeCore
   ${CMAKE_CURRENT_LIST_DIR}
 
   LINK_LIBS PUBLIC
-  MLIRTensorRTCAPISupportStatus
+    MLIRTensorRTCAPISupportStatus
   )
 
 set(built_modules MLIRExecutorCAPIRuntimeCore)
@@ -20,10 +20,10 @@ if(MLIR_TRT_ENABLE_CUDA)
     ${CMAKE_CURRENT_LIST_DIR}
 
     LINK_LIBS PRIVATE
-    MLIRTensorRTCAPISupportStatus
-    ${MLIR_TRT_CUDA_TARGET}
-    MLIRTensorRTExecutorPtxCompilerUtils
-    MLIRTensorRTExecutorRuntimeCommon
+      ${MLIR_TRT_CUDA_TARGET}
+      MLIRTensorRTCAPISupportStatus
+      MLIRTensorRTExecutorPtxCompilerUtils
+      MLIRTensorRTExecutorRuntimeCommon
     )
   list(APPEND built_modules MLIRExecutorCAPIRuntimeCUDA)
 endif()
@@ -37,11 +37,11 @@ if(MLIR_TRT_TARGET_TENSORRT)
     ${CMAKE_CURRENT_LIST_DIR}
 
     LINK_LIBS PRIVATE
-    MLIRTensorRTCAPISupportStatus
-    ${MLIR_TRT_CUDA_TARGET}
-    MLIRTensorRTExecutorRuntimeCommon
-    MLIRTRTTensorRTDynamicLoader
-    TensorRTHeaderOnly
+      ${MLIR_TRT_CUDA_TARGET}
+      MLIRTensorRTCAPISupportStatus
+      MLIRTensorRTExecutorRuntimeCommon
+      MLIRTRTTensorRTDynamicLoader
+      TensorRTHeaderOnly
     )
   list(APPEND built_modules MLIRExecutorCAPIRuntimeTensorRT)
 endif()

@@ -51,6 +51,31 @@ function(mtrt_add_install target)
   )
 endfunction()
 
+#-------------------------------------------------------------------------------------#
+# This function should be used instead of target_link_libraries() when linking
+# MLIR libraries that are part of the MLIR dylib. For libraries that are not
+# part of the dylib (like test libraries), target_link_libraries() should be
+# used.
+#
+# When MLIR_LINK_MLIR_DYLIB is enabled, this will link against the MLIR dylib
+# instead of the static libraries.
+#
+# Normally this doesn't need to be called direclty, it is called when
+# mtrt_add_project_library is called.
+#-------------------------------------------------------------------------------------
+function(mtrt_target_link_mlir_libraries target type)
+  if (TARGET obj.${target})
+    target_link_libraries(obj.${target} ${type} ${ARGN})
+    add_dependencies(obj.${target} ${ARGN})
+    message("Linked obj.${target} ${type} ${ARGN}")
+  endif()
+  if (MLIR_LINK_MLIR_DYLIB)
+    target_link_libraries(${target} ${type} MLIR)
+  else()
+    target_link_libraries(${target} ${type} ${ARGN})
+  endif()
+endfunction()
+
 #-------------------------------------------------------------------------------------
 # Creates a library with consistent setup across all MLIR-TensorRT projects
 #
@@ -83,9 +108,7 @@ function(mtrt_add_project_library name)
   if(NOT ARG_PROJECT_NAME)
     message(FATAL_ERROR "mtrt_add_project_library: PROJECT_NAME parameter is required")
   endif()
-  if(ARG_LINK_LIBS)
-    list(APPEND ARG_UNPARSED_ARGUMENTS LINK_LIBS ${ARG_LINK_LIBS})
-  endif()
+
   if(ARG_DEPENDS)
     list(APPEND ARG_UNPARSED_ARGUMENTS DEPENDS ${ARG_DEPENDS})
   endif()
@@ -94,15 +117,30 @@ function(mtrt_add_project_library name)
   if(NOT ARG_LIBRARY_TYPE)
     set(ARG_LIBRARY_TYPE "LIBS")
   endif()
+
+  # For CAPI libraries, we link MLIR statically. So we can combine the MLIR_LIBS and LINK_LIBS
+  # arguments into one.
+  if(ARG_MLIR_LIBS AND ARG_LIBRARY_TYPE STREQUAL "CAPI")
+    list(POP_FRONT ARG_MLIR_LIBS VISIBILITY)
+    list(APPEND ARG_LINK_LIBS ${ARG_MLIR_LIBS})
+    set(ARG_MLIR_LIBS "")
+  endif()
+
+  # Append LINK_LIBS to the unparsed arguments
+  if(ARG_LINK_LIBS)
+    list(APPEND ARG_UNPARSED_ARGUMENTS LINK_LIBS ${ARG_LINK_LIBS})
+  endif()
+
   set_property(GLOBAL APPEND PROPERTY MLIR_${ARG_PROJECT_NAME}_${ARG_LIBRARY_TYPE} ${name})
   if(ARG_LIBRARY_TYPE STREQUAL "dialect" OR ARG_LIBRARY_TYPE STREQUAL "DIALECT")
     add_mlir_dialect_library(${name} OBJECT DISABLE_INSTALL EXCLUDE_FROM_LIBMLIR ${ARG_UNPARSED_ARGUMENTS})
   else()
     add_mlir_library(${name} OBJECT DISABLE_INSTALL EXCLUDE_FROM_LIBMLIR ${ARG_UNPARSED_ARGUMENTS})
   endif()
+
   if(ARG_MLIR_LIBS)
     list(POP_FRONT ARG_MLIR_LIBS VISIBILITY)
-    mlir_target_link_libraries(${name} ${VISIBILITY} ${ARG_MLIR_LIBS})
+    mtrt_target_link_mlir_libraries(${name} ${VISIBILITY} ${ARG_MLIR_LIBS})
   endif()
 
   # Add to installation unless disabled
@@ -263,4 +301,3 @@ load_common_config()
     ${CMAKE_CURRENT_SOURCE_DIR}/lit.cfg.py
   )
 endfunction()
-
