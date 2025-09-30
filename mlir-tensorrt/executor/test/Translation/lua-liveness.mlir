@@ -1,3 +1,4 @@
+// REQUIRES: debug-print
 // RUN: executor-translate %s -split-input-file -mlir-to-lua -debug-only=lua-allocation 2>&1 >/dev/null | FileCheck %s
 
 func.func @single_block(%arg0: i32) -> i32 {

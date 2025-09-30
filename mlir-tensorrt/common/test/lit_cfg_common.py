@@ -91,3 +91,9 @@ except Exception as e:
         f"In {__file__}, 'config.target_tensorrt' is true, but an error was "
         f"encountered when detecting the TensorRT version: {e}"
     )
+
+if config.enable_assertions:
+    config.available_features.add("asserts")
+    config.available_features.add("debug-print")
+else:
+    config.available_features.add("noasserts")

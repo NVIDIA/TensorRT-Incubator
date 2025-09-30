@@ -271,8 +271,13 @@ function(mtrt_configure_lit_test_site_config template_file)
     endif()
   endforeach()
   set(MLIR_TRT_LIT_COMMON "${MLIR_TENSORRT_ROOT_DIR}/common/test/lit_cfg_common.py")
+  set(ENABLE_ASSERTIONS "False")
+  if(LLVM_ENABLE_ASSERTIONS)
+    set(ENABLE_ASSERTIONS "True")
+  endif()
   list(APPEND lit_config_lines "
 config.mlir_tensorrt_compile_time_version = '${MLIR_TRT_TENSORRT_VERSION}'
+config.enable_assertions = ${ENABLE_ASSERTIONS}
 
 # Execute the config script to initialize the object.
 def load_common_config():

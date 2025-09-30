@@ -208,11 +208,3 @@ if lit.util.pythonize_bool(lit_config.params.get("enable_functional_suite", None
     config.available_features.add("enable_functional_suite")
 if not config.enable_asan:
     config.available_features.add("no-asan")
-
-
-# Some of our tests utilize checks against debug output in order to verify
-# that flags were correctly propagated from e.g. Python all the way to the TensorRT
-# translation pass. This is a bit brittle, but until we replace with a better
-# solution, we can only run those tests when debug printing is available.
-if config.enable_assertions:
-    config.available_features.add("debug-print")

@@ -13,7 +13,6 @@ config.enable_asan = @ENABLE_ASAN@
 config.enable_cublas = @MLIR_TRT_ENABLE_CUBLAS@
 config.enable_nccl = @MLIR_TRT_ENABLE_NCCL@
 config.enable_mpi = @MLIR_TRT_ENABLE_MPI@
-config.enable_assertions = @LLVM_ENABLE_ASSERTIONS@
 
 # Let the main config do the real work.
 lit_config.load_config(config, "@MLIR_EXECUTOR_SOURCE_DIR@/test/Unit/lit.cfg.py")
