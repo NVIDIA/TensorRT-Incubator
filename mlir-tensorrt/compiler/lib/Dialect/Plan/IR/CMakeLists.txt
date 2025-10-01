@@ -11,18 +11,19 @@ add_mlir_tensorrt_dialect_library(MLIRTensorRTPlanDialect
   MLIRTensorRTPlanDialectAttrInterfacesIncGen
 
   LINK_LIBS PUBLIC
-  MLIRBufferizationDialect
-  MLIRControlFlowInterfaces
-  MLIRDialect
-  MLIRExecutorGenericClustering
-  MLIRFuncDialect
-  MLIRInferTypeOpInterface
-  MLIRIR
-  MLIRSupport
-  MLIRTensorDialect
-  MLIRTensorRTCommonBoundsAttrInterface
-  MLIRTensorRTInferTensorValueRangeInterface
-  MLIRTensorRTCommonTensorKindInterface
-  MLIRTensorRTSupportStatus
-  MLIRTensorRTUtilsShapeInfo
+    MLIRExecutorGenericClustering
+    MLIRTensorRTCommonBoundsAttrInterface
+    MLIRTensorRTInferTensorValueRangeInterface
+    MLIRTensorRTCommonTensorKindInterface
+    MLIRTensorRTSupportStatus
+    MLIRTensorRTUtilsShapeInfo
+  MLIR_LIBS PUBLIC
+    MLIRBufferizationDialect
+    MLIRControlFlowInterfaces
+    MLIRDialect
+    MLIRFuncDialect
+    MLIRInferTypeOpInterface
+    MLIRIR
+    MLIRSupport
+    MLIRTensorDialect
   )
