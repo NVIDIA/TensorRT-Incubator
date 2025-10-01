@@ -164,8 +164,8 @@ struct PushDownTransposeActivationRewriter
     auto activationOp = rewriter.create<ActivationOp>(
         op.getLoc(), producer.getInput(), op.getActivationType(),
         op.getAlphaAttr(), op.getBetaAttr());
-    rewriter.replaceOpWithNewOp<TransposeOp>(op, activationOp.getResult(),
-                                             permutation);
+    auto newTranspose = rewriter.create<TransposeOp>(producer.getLoc(), activationOp.getResult(), permutation);
+    rewriter.replaceOp(op, newTranspose.getResult());
     return success();
   }
 };
@@ -181,8 +181,8 @@ struct PushDownTransposeUnary : OpRewritePattern<UnaryOp> {
     AffineMap permutation = producer.getPermutation();
     auto unary = rewriter.create<UnaryOp>(op.getLoc(), producer.getInput(),
                                           op.getUnaryOperationAttr());
-    rewriter.replaceOpWithNewOp<TransposeOp>(op, op.getType(),
-                                             unary.getResult(), permutation);
+    auto newTranspose = rewriter.create<TransposeOp>(producer.getLoc(), unary.getResult(), permutation);
+    rewriter.replaceOp(op, newTranspose.getResult());
     return success();
   }
 };
@@ -1654,6 +1654,7 @@ public:
             .transposeInAxes = transposeInAxes,
             .transposeOutAxes = transposeOutAxes,
             .reshapeOut = groupReshapeOut,
+            .startOutputIdx = -1, // set later
         });
         transposeInAxes.clear();
         transposeOutAxes.clear();
@@ -1661,11 +1662,30 @@ public:
       }
     }
     assert(inputNumElems == outputNumElems);
+    while(j < reshapeOutputType.getRank()) {
+      outputNumElems *= reshapeOutputType.getDimSize(j);
+      groupReshapeOut.push_back(reshapeOutputType.getDimSize(j));
+      transposeOutAxes.push_back(j++);
+    }
+    assert(inputNumElems == outputNumElems);
+    assert(transposeInAxes.empty());
+    if(!transposeOutAxes.empty() || !groupReshapeOut.empty()) {
+      reshapeGroups.push_back(ReshapeGroup{
+          .transposeInAxes = transposeInAxes,
+          .transposeOutAxes = transposeOutAxes,
+          .reshapeOut = groupReshapeOut,
+          .startOutputIdx = -1, // set later
+        });
+    }
 
     SmallVector<int64_t> newTranspose;
     SmallVector<int64_t> newReshape;
 
     std::sort(reshapeGroups.begin(), reshapeGroups.end(), [](auto &a, auto &b) {
+      if(a.transposeInAxes.empty())
+        return false;
+      if(b.transposeInAxes.empty())
+        return true;
       return a.transposeInAxes[0] < b.transposeInAxes[0];
     });
 
@@ -1683,6 +1703,38 @@ public:
       return a.transposeOutAxes[0] < b.transposeOutAxes[0];
     });
 
+    // INSERT_YOUR_CODE
+    LLVM_DEBUG({
+      std::stringstream out;
+      out << "Reshape Groups:\n";
+      for (size_t idx = 0; idx < reshapeGroups.size(); ++idx) {
+        const auto &group = reshapeGroups[idx];
+        out << "  Group " << idx << ":\n";
+        out << "    transposeInAxes: [";
+        for (size_t i = 0; i < group.transposeInAxes.size(); ++i) {
+          out << group.transposeInAxes[i];
+          if (i + 1 < group.transposeInAxes.size()) out << ", ";
+        }
+        out << "]\n";
+        out << "    transposeOutAxes: [";
+        for (size_t i = 0; i < group.transposeOutAxes.size(); ++i) {
+          out << group.transposeOutAxes[i];
+          if (i + 1 < group.transposeOutAxes.size()) out << ", ";
+        }
+        out << "]\n";
+        out << "    reshapeOut: [";
+        for (size_t i = 0; i < group.reshapeOut.size(); ++i) {
+          out << group.reshapeOut[i];
+          if (i + 1 < group.reshapeOut.size()) out << ", ";
+        }
+        out << "]\n";
+        out << "    startOutputIdx: " << group.startOutputIdx << "\n";
+      }
+      DBGS() << out.str();
+    });
+
+
+
     for (auto &group : reshapeGroups) {
       for (size_t i = 0; i < group.reshapeOut.size(); i++)
         newTranspose.push_back(group.startOutputIdx + i);
@@ -1691,9 +1743,10 @@ public:
     Value newReshapeOp = rewriter.createOrFold<tensorrt::ReshapeOp>(
         op.getLoc(), reshapeInputType.clone(newReshape), transpose.getInput());
     Value newTransposeOp = rewriter.createOrFold<tensorrt::TransposeOp>(
-        op.getLoc(), newReshapeOp,
+        transpose.getLoc(), newReshapeOp,
         AffineMap::getPermutationMap(newTranspose, op.getContext()));
 
+    assert(op.getType() == newTransposeOp.getType());
     rewriter.replaceOp(op, newTransposeOp);
 
     return success();
@@ -1766,6 +1819,7 @@ public:
         groupReshapeOut.clear();
       }
     }
+    assert(inputNumElems == outputNumElems);
     while (j < reshapeOutputType.getRank()) {
       outputNumElems *= reshapeOutputType.getDimSize(j);
       groupReshapeOut.push_back(reshapeOutputType.getDimSize(j));
@@ -1811,14 +1865,14 @@ public:
         for (size_t i = 0; i < group.outputAxes.size(); ++i) {
           out << group.outputAxes[i];
           if (i + 1 < group.outputAxes.size())
-            DBGS() << ", ";
+            out << ", ";
         }
         out << "]\n";
         out << "    reshapeOut: [";
         for (size_t i = 0; i < group.reshapeOut.size(); ++i) {
           out << group.reshapeOut[i];
           if (i + 1 < group.reshapeOut.size())
-            DBGS() << ", ";
+            out << ", ";
         }
         out << "]\n";
       }
@@ -2272,7 +2326,7 @@ public:
         op.getLoc(), newRhsType, elementwiseOp.getInput2());
 
     auto newElementwiseOp = rewriter.create<tensorrt::ElementWiseOp>(
-        op.getLoc(), op.getResult().getType(), newLhs, newRhs,
+        elementwiseOp.getLoc(), op.getResult().getType(), newLhs, newRhs,
         elementwiseOp.getElementwiseOperation());
     rewriter.replaceOp(op, newElementwiseOp.getResult());
 

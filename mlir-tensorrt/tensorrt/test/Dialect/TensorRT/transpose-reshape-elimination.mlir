@@ -224,18 +224,6 @@ func.func @matmul_argument_swap(%arg0: tensor<1x2x4x3x561xf32>, %arg1: tensor<1x
 
 // -----
 
-#map = affine_map<(d0, d1, d2, d3, d4) -> (d0, d1, d2, d4, d3)>
-func.func @olympus_v0_2(%arg0: tensor<1x2x6x3x3xf32>, %arg1: tensor<1x2x6x3x2048xf32>) -> tensor<1x2x6x2048x3xf32> {
-  %0 = tensorrt.reshape %arg0 : tensor<1x2x6x3x3xf32> to tensor<12x3x3xf32>
-  %1 = tensorrt.reshape %arg1 : tensor<1x2x6x3x2048xf32> to tensor<12x3x2048xf32>
-  %2 = tensorrt.matrix_multiply {op0 = #tensorrt.matrix_operation<kNONE>, op1 = #tensorrt.matrix_operation<kNONE>} ins(%0, %1 : tensor<12x3x3xf32>, tensor<12x3x2048xf32>) -> tensor<12x3x2048xf32>
-  %3 = tensorrt.reshape %2 : tensor<12x3x2048xf32> to tensor<1x2x6x3x2048xf32>
-  %4 = tensorrt.transpose {permutation = #map} %3 : tensor<1x2x6x3x2048xf32> to tensor<1x2x6x2048x3xf32>
-  return %4 : tensor<1x2x6x2048x3xf32>
-}
-
-// -----
-
 // CHECK: @transpose_reshape_reorder(%[[arg0:.+]]: tensor<12x256x8x8x16x8xf32>)
 // CHECK: %[[v0:.+]] = tensorrt.transpose {permutation = #map} %[[arg0]] : tensor<12x256x8x8x16x8xf32> to tensor<12x8x8x16x8x256xf32>
 // CHECK: %[[v1:.+]] = tensorrt.reshape %0 : tensor<12x8x8x16x8x256xf32> to tensor<12x64x128x256xf32>
@@ -288,3 +276,15 @@ func.func @reshape_softmax_cant_push(%arg0: tensor<2x3x4x5x6xf32>) -> tensor<2x3
   return %2 : tensor<2x3x4x5x6xf32>
 }
 
+// -----
+
+// CHECK: @reshape_transpose_reorder_ones_dim(%[[arg0:.+]]: tensor<2x1x1x1x1xf32>, %[[arg1:.+]]: tensor<1x2x3x3xf32>)
+// CHECK: %[[v0:.+]] = tensorrt.collapse_rank %[[arg0]] : tensor<2x1x1x1x1xf32> to tensor<2x1x1x1xf32>
+// CHECK: %[[v1:.+]] = tensorrt.deconvolution [[parmas:.+]] in(%[[arg1]] : tensor<1x2x3x3xf32>) kernelWeights(%[[v0]] : tensor<2x1x1x1xf32>) -> tensor<1x2x3x5xf32>
+// CHECK: return %[[v1]]
+func.func @reshape_transpose_reorder_ones_dim(%arg0: tensor<2x1x1x1x1xf32>, %arg1: tensor<1x2x3x3xf32>) -> tensor<1x2x3x5xf32> {
+    %2 = tensorrt.transpose {permutation = affine_map<(d0, d1, d2, d3, d4) -> (d0, d2, d1, d3, d4)>} %arg0 : tensor<2x1x1x1x1xf32> to tensor<2x1x1x1x1xf32>
+    %3 = tensorrt.reshape %2 : tensor<2x1x1x1x1xf32> to tensor<2x1x1x1xf32>
+    %4 = tensorrt.deconvolution {dilation = array<i64: 1, 1>, num_groups = 2 : ui32, post_padding = array<i64: 0, 0>, pre_padding = array<i64: 0, 0>, stride = array<i64: 1, 2>} in(%arg1 : tensor<1x2x3x3xf32>) kernelWeights(%3 : tensor<2x1x1x1xf32>) -> tensor<1x2x3x5xf32>
+    return %4 : tensor<1x2x3x5xf32>
+}
