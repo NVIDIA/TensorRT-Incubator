@@ -288,3 +288,27 @@ func.func @reshape_transpose_reorder_ones_dim(%arg0: tensor<2x1x1x1x1xf32>, %arg
     %4 = tensorrt.deconvolution {dilation = array<i64: 1, 1>, num_groups = 2 : ui32, post_padding = array<i64: 0, 0>, pre_padding = array<i64: 0, 0>, stride = array<i64: 1, 2>} in(%arg1 : tensor<1x2x3x3xf32>) kernelWeights(%3 : tensor<2x1x1x1xf32>) -> tensor<1x2x3x5xf32>
     return %4 : tensor<1x2x3x5xf32>
 }
+
+// -----
+
+
+// CHECK: @push_down_transpose_einsum(%[[arg0:.+]]: tensor<1x6x1500x64xf32>, %[[arg1:.+]]: tensor<1x6x1500x1500xf32>) -> tensor<1x1500x384xf32>
+// CHECK-DAG: %[[const0:.+]] = tensorrt.constant dense<1.000000e+00> : tensor<384x6x64xf32>
+// CHECK-DAG: %[[v0:.+]] = tensorrt.collapse_rank %[[arg0]] : tensor<1x6x1500x64xf32> to tensor<6x1500x64xf32>
+// CHECK-DAG: %[[v1:.+]] = tensorrt.collapse_rank %[[arg1]] : tensor<1x6x1500x1500xf32> to tensor<6x1500x1500xf32>
+// CHECK: %[[v2:.+]] = tensorrt.matrix_multiply [[params:.+]] ins(%[[v0]], %[[v1]] : tensor<6x1500x64xf32>, tensor<6x1500x1500xf32>) -> tensor<6x64x1500xf32>
+// CHECK: %[[v3:.+]] = tensorrt.einsum [[params2:.+]] ins(%[[v2]], %[[const0]] : tensor<6x64x1500xf32>, tensor<384x6x64xf32>) -> tensor<1500x384xf32>
+// CHECK: %[[v4:.+]] = tensorrt.expand_rank %[[v3:.+]] : tensor<1500x384xf32> to tensor<1x1500x384xf32>
+// CHECK: return %[[v4]]
+func.func @push_down_transpose_einsum(%arg0: tensor<1x6x1500x64xf32>, %arg1: tensor<1x6x1500x1500xf32>) -> tensor<1x1500x384xf32> {
+  %cst_f32 = tensorrt.constant dense<1.000000e+00> : tensor<384x384xf32>
+  %0 = tensorrt.reshape %arg0 : tensor<1x6x1500x64xf32> to tensor<6x1500x64xf32>
+  %1 = tensorrt.reshape %arg1 : tensor<1x6x1500x1500xf32> to tensor<6x1500x1500xf32>
+  %2 = tensorrt.einsum {equation = "bcd,bec->ebd"} ins(%0, %1 : tensor<6x1500x64xf32>, tensor<6x1500x1500xf32>) -> tensor<1500x6x64xf32>
+  %3 = tensorrt.reshape %2 : tensor<1500x6x64xf32> to tensor<1x1500x6x64xf32>
+  %4 = tensorrt.reshape %2 : tensor<1500x6x64xf32> to tensor<1500x384xf32>
+  %cst_f32_0 = tensorrt.constant dense<1.000000e+00> : tensor<384x6x64xf32>
+  %5 = tensorrt.einsum {equation = "bde,cde->bc"} ins(%2, %cst_f32_0 : tensor<1500x6x64xf32>, tensor<384x6x64xf32>) -> tensor<1500x384xf32>
+  %6 = tensorrt.reshape %5 : tensor<1500x384xf32> to tensor<1x1500x384xf32>
+  return %6 : tensor<1x1500x384xf32>
+}
