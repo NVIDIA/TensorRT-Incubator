@@ -17,46 +17,116 @@ function(mtrt_add_public_tablegen_target target)
 endfunction()
 
 #-------------------------------------------------------------------------------------
-# Adds a target to the installation set with customizable component names
+# Add installation targets. These targets are used to install a particular CMake
+# component. We also add the correct dependencies so that `ninja -C build
+# install-[target name]` will force building the `[target name]` target and all
+# its dependencies followed by its installation. We can then compose these
+# targets to create full custom installation targets comprised of a fixed number
+# of components into a specific installation prefix.
+#
+# Positional Arguments:
+#   target - Target name (required, should be prefixed with 'install-')
+#
+# Keyword Parameters:
+#   COMPONENT - Installation component name (required)
+#   PREFIX    - Installation prefix (optional, defaults to ${CMAKE_INSTALL_PREFIX})
+#   BINARY_DIR - Binary directory (optional, defaults to ${PROJECT_BINARY_DIR})
+#   DEPENDS   - List of dependencies (optional)
+#-------------------------------------------------------------------------------------
+function(mtrt_add_install_target target)
+  cmake_parse_arguments(ARG "" "COMPONENT;PREFIX;BINARY_DIR" "DEPENDS" ${ARGN})
+  if(NOT target MATCHES "^install-")
+    message(FATAL_ERROR "mtrt_add_install_target: target argument should be prefixed with 'install-'")
+  endif()
+  if(NOT ARG_COMPONENT)
+    message(FATAL_ERROR "mtrt_add_install_target: COMPONENT argument is required")
+  endif()
+  if(NOT ARG_PREFIX)
+    set(ARG_PREFIX "${CMAKE_INSTALL_PREFIX}")
+  endif()
+  if(NOT ARG_BINARY_DIR)
+    set(ARG_BINARY_DIR "${PROJECT_BINARY_DIR}")
+  endif()
+  set(cmd_args "--install" "${ARG_BINARY_DIR}" "--component" "${ARG_COMPONENT}"
+               "--prefix" "${ARG_PREFIX}")
+  # Separate dependencies into file and target dependencies.
+  # "add_custom_target" can only handle file dependencies; target dependencies
+  # are handled by "add_dependencies".
+  if(NOT ARG_DEPENDS AND TARGET ${ARG_COMPONENT})
+    list(APPEND ARG_DEPENDS ${ARG_COMPONENT})
+  endif()
+  set(file_dependencies)
+  set(target_dependencies)
+  foreach(dependency ${ARG_DEPENDS})
+    if(TARGET ${dependency})
+      list(APPEND target_dependencies ${dependency})
+    else()
+      list(APPEND file_dependencies ${dependency})
+    endif()
+  endforeach()
+  # Add install targets with and without stripping.
+  add_custom_target(${target}
+    DEPENDS ${file_dependencies}
+    COMMAND "${CMAKE_COMMAND}" ${cmd_args}
+    USES_TERMINAL
+  )
+  add_custom_target(${target}-stripped
+    DEPENDS ${file_dependencies}
+    COMMAND "${CMAKE_COMMAND}" ${cmd_args} --strip
+    USES_TERMINAL
+  )
+  if(target_dependencies)
+    add_dependencies(${target} ${target_dependencies})
+    add_dependencies(${target}-stripped ${target_dependencies})
+  endif()
+endfunction()
+
+#-------------------------------------------------------------------------------------
+# Adds a target to the installation.
+# If the installation component name is not specified, it is the same as the
+# target name.
+#
+# If the EXPORT argument is specified, the target will be exported to the
+# MTRTTargets export set.
 #
 # Parameters:
 #   target - Target name (required)
-#   RUNTIME_COMPONENT - Runtime component name (optional, defaults to MTRT_Runtime)
-#   DEVELOPMENT_COMPONENT - Development component name (optional, defaults to MTRT_Development)
-#
+#   EXPORT - Export set name (optional, defaults to "MTRTTargets")
+#   COMPONENT - Installation component name (optional, defaults to the target name)
 # Usage:
 #   mtrt_add_install(MyTarget)
-#   mtrt_add_install(MyTarget RUNTIME_COMPONENT MTRT_Special_Runtime)
 #-------------------------------------------------------------------------------------
 function(mtrt_add_install target)
+  cmake_parse_arguments(ARG "" "EXPORT;COMPONENT" "" ${ARGN})
   # Validate required arguments
   if(NOT target)
     message(FATAL_ERROR "mtrt_add_install: target parameter is required")
   endif()
 
-  cmake_parse_arguments(ARG "" "RUNTIME_COMPONENT;DEVELOPMENT_COMPONENT" "" ${ARGN})
-
-  # Set default component names if not provided
-  if(NOT ARG_RUNTIME_COMPONENT)
-    set(ARG_RUNTIME_COMPONENT "MTRT_Runtime")
+  if(NOT ARG_EXPORT)
+    set(ARG_EXPORT "MTRTTargets")
   endif()
-  if(NOT ARG_DEVELOPMENT_COMPONENT)
-    set(ARG_DEVELOPMENT_COMPONENT "MTRT_Development")
+  if(NOT ARG_COMPONENT)
+    set(ARG_COMPONENT ${target})
   endif()
 
   install(TARGETS ${target}
+    COMPONENT ${ARG_COMPONENT}
+    EXPORT ${ARG_EXPORT}
     LIBRARY
       DESTINATION lib${LLVM_LIBDIR_SUFFIX}
-      COMPONENT ${ARG_RUNTIME_COMPONENT}
     ARCHIVE
       DESTINATION lib${LLVM_LIBDIR_SUFFIX}
-      COMPONENT ${ARG_DEVELOPMENT_COMPONENT}
     RUNTIME
       DESTINATION "${CMAKE_INSTALL_BINDIR}"
-      COMPONENT ${ARG_RUNTIME_COMPONENT}
     OBJECTS
       DESTINATION lib${LLVM_LIBDIR_SUFFIX}
-      COMPONENT ${ARG_DEVELOPMENT_COMPONENT}
+  )
+  mtrt_add_install_target(install-${target}
+    COMPONENT ${ARG_COMPONENT}
+    PREFIX "${CMAKE_INSTALL_PREFIX}"
+    DEPENDS ${target}
+    BINARY_DIR "${PROJECT_BINARY_DIR}"
   )
 endfunction()
 
@@ -92,7 +162,6 @@ endfunction()
 #   PROJECT_NAME - Project name for global property (required)
 #   LIBRARY_TYPE - Type of library (optional, defaults to "")
 #   DISABLE_INSTALL - Skip installation (optional)
-#   COMPONENT_PREFIX - Component prefix for installation (optional)
 #   All other arguments are passed to add_mlir_library
 #
 # Usage:
@@ -109,7 +178,7 @@ function(mtrt_add_project_library name)
 
   cmake_parse_arguments(ARG
     "DISABLE_INSTALL"
-    "PROJECT_NAME;LIBRARY_TYPE;COMPONENT_PREFIX"
+    "PROJECT_NAME;LIBRARY_TYPE"
     "LINK_LIBS;MLIR_LIBS;DEPENDS"
     ${ARGN})
 
@@ -153,17 +222,7 @@ function(mtrt_add_project_library name)
 
   # Add to installation unless disabled
   if(NOT ARG_DISABLE_INSTALL)
-    if(ARG_COMPONENT_PREFIX)
-      mtrt_add_install(${name}
-        RUNTIME_COMPONENT ${ARG_COMPONENT_PREFIX}_Runtime
-        DEVELOPMENT_COMPONENT ${ARG_COMPONENT_PREFIX}_Development
-      )
-    else()
-      mtrt_add_install(${name}
-        RUNTIME_COMPONENT MTRT_${ARG_PROJECT_NAME}_Runtime
-        DEVELOPMENT_COMPONENT MTRT_${ARG_PROJECT_NAME}_Development
-      )
-    endif()
+    mtrt_add_install(${name})
   endif()
 endfunction()
 
@@ -194,6 +253,23 @@ function(mtrt_add_capi_library name)
   target_compile_definitions(obj.${name} PRIVATE
     -DMLIR_CAPI_BUILDING_LIBRARY=1
   )
+endfunction()
+
+#-------------------------------------------------------------------------------------
+# Creates a MLIR-TensorRT tool with proper installation and global registration.
+#
+# Parameters:
+#   target - Target name (required)
+#   All other arguments are passed to add_llvm_executable
+#
+# Usage:
+#   add_mlir_tensorrt_tool(MyTool SOURCES file1.cpp file2.cpp)
+#-------------------------------------------------------------------------------------
+function(mtrt_add_tool target)
+  add_llvm_executable(${target}
+    ${ARGN}
+  )
+  mtrt_add_install(${target})
 endfunction()
 
 #-------------------------------------------------------------------------------------
