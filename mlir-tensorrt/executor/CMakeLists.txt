@@ -11,12 +11,8 @@ endif()
 
 # Check that the MLIRTensorRTCommon project provided the required targets
 # when TensorRT is enabled.
-if(MLIR_TRT_TARGET_TENSORRT AND NOT TARGET MLIRTRTTensorRTDynamicLoader)
-  message(FATAL_ERROR "MLIR_TRT_TARGET_TENSORRT=ON but the MLIRTRTTensorRTDynamicLoader library was not found")
-endif()
-
-if(MLIR_TRT_ENABLE_MPI)
-  find_package(MPI COMPONENTS C)
+if(MLIR_TRT_TARGET_TENSORRT AND NOT TARGET TensorRTDynamicLoader)
+  message(FATAL_ERROR "MLIR_TRT_TARGET_TENSORRT=ON but the TensorRTDynamicLoader library was not found")
 endif()
 
 if(MLIR_TRT_ENABLE_NCCL)

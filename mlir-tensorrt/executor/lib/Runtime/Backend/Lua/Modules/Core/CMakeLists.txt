@@ -2,11 +2,9 @@ add_mlir_executor_runtime_capability_library(MLIRTensorRTExecutorRuntimeCoreModu
   CoreModule.cpp
 
   LINK_LIBS PUBLIC
-  MLIRTensorRTExecutorRuntimeAPI
-
-  LINK_LIBS PRIVATE
   lua::core
-  MLIRExecutorCAPIRuntimeCore
+  MLIRExecutorCRuntimeCore
+  MLIRTensorRTExecutorRuntimeAPI
   MLIRTensorRTExecutorRuntimeCommon
   MLIRTensorRTExecutorRuntimeModuleUtils
   MLIRTensorRTLuaExtensionRegistry

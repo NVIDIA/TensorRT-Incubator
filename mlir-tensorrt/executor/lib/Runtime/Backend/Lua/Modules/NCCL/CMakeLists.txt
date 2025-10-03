@@ -1,19 +1,15 @@
 add_mlir_executor_runtime_capability_library(MLIRTensorRTExecutorRuntimeNCCLModule
   NCCLModule.cpp
 
-  LINK_LIBS
-
-  PUBLIC
-  MLIRTensorRTExecutorRuntimeAPI
-  MLIRTensorRTExecutorCUDAUtils
-
-  PRIVATE
-  sol2::sol2
-  lua::core
+  LINK_LIBS PUBLIC
   ${MLIR_TRT_CUDA_TARGET}
+  ${MLIR_TRT_MPI_TARGET}
+  ${MLIR_TRT_NCCL_TARGET}
   CUDA::cuda_driver
-  $<$<BOOL:${MLIR_TRT_ENABLE_NCCL}>:MPI::MPI_C>
-  $<$<BOOL:${MLIR_TRT_ENABLE_NCCL}>:NCCL>
+  lua::core
+  MLIRTensorRTExecutorCUDAUtils
+  MLIRTensorRTExecutorRuntimeAPI
   MLIRTensorRTExecutorRuntimeCommon
   MLIRTensorRTLuaExtensionRegistry
-)
+  sol2::sol2
+  )

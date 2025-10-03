@@ -6,6 +6,7 @@
 #-------------------------------------------------------------------------------------
 
 include(CMakeParseArguments)
+include(MTRTInterfaceClosure)
 
 # ------------------------------------------------------------------------------
 # A wrapper around 'add_public_tablegen_target' that adds a dependency on
@@ -130,13 +131,13 @@ function(mtrt_add_install target)
   )
 endfunction()
 
-#-------------------------------------------------------------------------------------#
+#-------------------------------------------------------------------------------------
 # This function should be used instead of target_link_libraries() when linking
 # MLIR libraries that are part of the MLIR dylib. For libraries that are not
 # part of the dylib (like test libraries), target_link_libraries() should be
 # used.
 #
-# When MLIR_LINK_MLIR_DYLIB is enabled, this will link against the MLIR dylib
+# When MTRT_LINK_MLIR_DYLIB is enabled, this will link against the MLIR dylib
 # instead of the static libraries.
 #
 # Normally this doesn't need to be called direclty, it is called when
@@ -147,11 +148,81 @@ function(mtrt_target_link_mlir_libraries target type)
     target_link_libraries(obj.${target} ${type} ${ARGN})
     add_dependencies(obj.${target} ${ARGN})
   endif()
-  if (MLIR_LINK_MLIR_DYLIB)
+  if (MTRT_LINK_MLIR_DYLIB)
     target_link_libraries(${target} ${type} MLIR)
   else()
     target_link_libraries(${target} ${type} ${ARGN})
   endif()
+endfunction()
+
+#-------------------------------------------------------------------------------------
+# This function should be used instead of target_link_libraries() when linking
+# MLIR-TensorRT libraries into a tool executable or into a library that is
+# excluded from libMTRT.
+#-------------------------------------------------------------------------------------
+function(mtrt_target_link_mtrt_libraries target type)
+  if (TARGET obj.${target})
+    target_link_libraries(obj.${target} ${type} ${ARGN})
+    add_dependencies(obj.${target} ${ARGN})
+  endif()
+  if (MTRT_LINK_MTRT_DYLIB)
+    target_link_libraries(${target} ${type} MTRT)
+  else()
+    target_link_libraries(${target} ${type} ${ARGN})
+  endif()
+endfunction()
+
+
+#-------------------------------------------------------------------------------------
+# Verify that the target does not transitively link both the MLIR dylib and
+# individual libraries bundled into the MLIR dylib or the LLVM dylib and
+# individual libraries bundled into the LLVM dylib. If NO_MTRT is specified,
+# this will check that MTRT is NOT linked.
+#
+# Note that this is just a sanity check since without evaluating generator
+# expressions, we cannot determine the full set of linked libraries.
+#
+# Returns a fatal error if such a situation is detected.
+#-------------------------------------------------------------------------------------
+function(mtrt_check_incorrect_dylib_usage name)
+  cmake_parse_arguments(ARG "NO_MTRT" "" "" ${ARGN})
+  if(NOT TARGET MLIR AND NOT TARGET LLVM)
+    # Nothing to do because MLIR and LLVM targets are not built.
+    return()
+  endif()
+
+  mtrt_collect_interface_link_closure(libs_closure includes_closure ${name})
+  set(links_mlir_dylib OFF)
+  set(links_llvm_dylib OFF)
+  if("MLIR" IN_LIST libs_closure)
+    set(links_mlir_dylib ON)
+  endif()
+  if("LLVM" IN_LIST libs_closure)
+    set(links_llvm_dylib ON)
+  endif()
+  if(ARG_NO_MTRT AND "MTRT" IN_LIST libs_closure)
+    message(FATAL_ERROR
+     "ERROR: ${name} links libMTRT, which is forbidden. This indicates a linkage configuration issue.")
+  endif()
+
+  if(NOT links_mlir_dylib AND NOT links_llvm_dylib)
+    # Nothing to do because the target does not link the MLIR dylib or the
+    # LLVM dylib.
+    return()
+  endif()
+
+  foreach(lib ${libs_closure})
+    # This sequence of matches should determine that the target is an upstream MLIR library.
+    if(links_mlir_dylib AND
+       (${lib} MATCHES "^(MLIR[a-zA-Z]+)") AND
+       (NOT (${lib} MATCHES "^(MLIRCAPI|MLIRTensorRT|MLIRExecutor|MLIRTRT|MLIRKernel)")))
+      message(FATAL_ERROR "ERROR: ${name} links MLIR and ${lib}!")
+    endif()
+    if(links_llvm_dylib AND
+       (${lib} MATCHES "^(LLVM[a-zA-Z]+)"))
+      message(FATAL_ERROR "ERROR: ${name} links LLVM and ${lib}!")
+    endif()
+  endforeach()
 endfunction()
 
 #-------------------------------------------------------------------------------------
@@ -177,7 +248,7 @@ function(mtrt_add_project_library name)
   endif()
 
   cmake_parse_arguments(ARG
-    "DISABLE_INSTALL"
+    "DISABLE_INSTALL;EXCLUDE_FROM_LIBMTRT;SHARED"
     "PROJECT_NAME;LIBRARY_TYPE"
     "LINK_LIBS;MLIR_LIBS;DEPENDS"
     ${ARGN})
@@ -195,24 +266,45 @@ function(mtrt_add_project_library name)
     set(ARG_LIBRARY_TYPE "LIBS")
   endif()
 
-  # For CAPI libraries, we link MLIR statically. So we can combine the MLIR_LIBS and LINK_LIBS
-  # arguments into one.
-  if(ARG_MLIR_LIBS AND ARG_LIBRARY_TYPE STREQUAL "CAPI")
-    list(POP_FRONT ARG_MLIR_LIBS VISIBILITY)
-    list(APPEND ARG_LINK_LIBS ${ARG_MLIR_LIBS})
-    set(ARG_MLIR_LIBS "")
+  # Do a sanity check on naming and categorization of CAPI libraries.
+  if((ARG_LIBRARY_TYPE STREQUAL "CAPI") AND (NOT (${name} MATCHES ".*CAPI.*")))
+    message(FATAL_ERROR "mtrt_add_project_library: ${name} is a CAPI library but does not have 'CAPI' in the name")
+  elseif((NOT ARG_LIBRARY_TYPE STREQUAL "CAPI") AND (${name} MATCHES ".*CAPI.*"))
+    message(FATAL_ERROR "mtrt_add_project_library: ${name} is not a CAPI library but has 'CAPI' in the name")
   endif()
 
-  # Append LINK_LIBS to the unparsed arguments
+  # Check that TEST_LIBS are excluded from libMTRT.
+  if(ARG_LIBRARY_TYPE STREQUAL "TEST_LIBS" AND NOT ARG_EXCLUDE_FROM_LIBMTRT)
+    message(FATAL_ERROR "mtrt_add_project_library: ${name} is a test library but is not excluded from libMTRT")
+  endif()
+
   if(ARG_LINK_LIBS)
+    # Append LINK_LIBS to the unparsed arguments so it can be processed as normal.
+    # However, if an artifact is meant to be excluded from LIBMTRT since it is a test library,
+    # then we should filter out all internal project libraries and link against
+    # libMTRT if MLIR_TRT_LINK_MTRT_DYLIB is enabled. This is because tools will
+    # link against libMTRT and the test libraries, so we don't want test libraries
+    # to statically link libraries that are meant to be excluded from libMTRT.
+    if(MLIR_TRT_LINK_MTRT_DYLIB
+       AND ${ARG_LIBRARY_TYPE} STREQUAL "TEST_LIBS")
+      list(FILTER ARG_LINK_LIBS EXCLUDE REGEX "MLIR")
+      list(APPEND ARG_LINK_LIBS MTRT)
+    endif()
     list(APPEND ARG_UNPARSED_ARGUMENTS LINK_LIBS ${ARG_LINK_LIBS})
+  endif()
+
+  set(lib_type_args)
+  if(ARG_SHARED)
+    list(APPEND lib_type_args SHARED)
+  else()
+    list(APPEND lib_type_args OBJECT)
   endif()
 
   set_property(GLOBAL APPEND PROPERTY MLIR_${ARG_PROJECT_NAME}_${ARG_LIBRARY_TYPE} ${name})
   if(ARG_LIBRARY_TYPE STREQUAL "dialect" OR ARG_LIBRARY_TYPE STREQUAL "DIALECT")
-    add_mlir_dialect_library(${name} OBJECT DISABLE_INSTALL EXCLUDE_FROM_LIBMLIR ${ARG_UNPARSED_ARGUMENTS})
+    add_mlir_dialect_library(${name} ${lib_type_args} DISABLE_INSTALL EXCLUDE_FROM_LIBMLIR ${ARG_UNPARSED_ARGUMENTS})
   else()
-    add_mlir_library(${name} OBJECT DISABLE_INSTALL EXCLUDE_FROM_LIBMLIR ${ARG_UNPARSED_ARGUMENTS})
+    add_mlir_library(${name} ${lib_type_args} DISABLE_INSTALL EXCLUDE_FROM_LIBMLIR ${ARG_UNPARSED_ARGUMENTS})
   endif()
 
   if(ARG_MLIR_LIBS)
@@ -220,10 +312,17 @@ function(mtrt_add_project_library name)
     mtrt_target_link_mlir_libraries(${name} ${VISIBILITY} ${ARG_MLIR_LIBS})
   endif()
 
+  if((NOT ARG_DISABLE_INSTALL) AND
+     (NOT ARG_EXCLUDE_FROM_LIBMTRT))
+    set_property(GLOBAL APPEND PROPERTY MTRT_STATIC_LIBS ${name})
+  endif()
+
   # Add to installation unless disabled
   if(NOT ARG_DISABLE_INSTALL)
     mtrt_add_install(${name})
   endif()
+
+  mtrt_check_incorrect_dylib_usage(${name})
 endfunction()
 
 #-------------------------------------------------------------------------------------
@@ -237,13 +336,15 @@ endfunction()
 #   )
 #-------------------------------------------------------------------------------------
 function(mtrt_add_capi_library name)
+  cmake_parse_arguments(ARG "" "PROJECT_NAME" "" ${ARGN})
+  if(NOT ARG_PROJECT_NAME)
+    set(ARG_PROJECT_NAME MLIRTensorRT)
+  endif()
   mtrt_add_project_library(${name}
-    PROJECT_NAME MLIRTensorRT
+    PROJECT_NAME ${ARG_PROJECT_NAME}
     LIBRARY_TYPE CAPI
     OBJECT
-    # TODO: Once we have a MTRT dylib target, exclude all C API libraries
-    # from being linked into it.
-    # EXCLUDE_FROM_LIBMTRT
+    EXCLUDE_FROM_LIBMTRT
     ENABLE_AGGREGATION
     ${ARGN}
   )
@@ -253,6 +354,171 @@ function(mtrt_add_capi_library name)
   target_compile_definitions(obj.${name} PRIVATE
     -DMLIR_CAPI_BUILDING_LIBRARY=1
   )
+endfunction()
+
+#-------------------------------------------------------------------------------------
+# A wrapper around `mtrt_add_project_library` that adds a test library
+# (e.g. for an MLIR test pass) which should be excluded from build artifacts that
+# are meant to be distributed.
+#-------------------------------------------------------------------------------------
+function(mtrt_add_test_library name)
+  cmake_parse_arguments(ARG "IGNORE_LINK_MTRT" "PROJECT_NAME" "LINK_LIBS;MLIR_LIBS" ${ARGN})
+  if(NOT ARG_PROJECT_NAME)
+    set(ARG_PROJECT_NAME MLIRTensorRT)
+  endif()
+  mtrt_add_project_library(${name}
+    PROJECT_NAME ${ARG_PROJECT_NAME}
+    LIBRARY_TYPE TEST_LIBS
+    EXCLUDE_FROM_LIBMTRT
+    DISABLE_INSTALL
+    PARTIAL_SOURCES_INTENDED
+    ${ARG_UNPARSED_ARGUMENTS}
+    MLIR_LIBS ${ARG_MLIR_LIBS}
+  )
+  if(ARG_LINK_LIBS)
+    list(POP_FRONT ARG_LINK_LIBS VISIBILITY)
+    if(NOT ARG_IGNORE_LINK_MTRT)
+      # We may be link against libMTRT instead of directly to LINK_LIBS.
+      mtrt_target_link_mtrt_libraries(${name} ${VISIBILITY} ${ARG_LINK_LIBS})
+      # If we do link against libMTRT, we do not need to link against MLIR
+      # libraries directly.
+      if(MLIR_TRT_LINK_MTRT_DYLIB)
+        unset(ARG_MLIR_LIBS)
+      endif()
+    else()
+      # We will not be linking libMTRT, so link all the required
+      # libs directly.
+      target_link_libraries(${name} ${VISIBILITY} ${ARG_LINK_LIBS})
+    endif()
+  endif()
+  if(ARG_MLIR_LIBS)
+    # If we still have a list of MLIR libraries, link against them directly
+    # or through libMLIR using the helper function.
+    list(POP_FRONT ARG_MLIR_LIBS VISIBILITY)
+    mtrt_target_link_mlir_libraries(${name} ${VISIBILITY} ${ARG_MLIR_LIBS})
+  endif()
+
+  set(mtrt_check_args "${name}")
+  if(ARG_IGNORE_LINK_MTRT)
+    list(APPEND mtrt_check_args "NO_MTRT")
+  endif()
+  mtrt_check_incorrect_dylib_usage(${mtrt_check_args})
+endfunction()
+
+#-------------------------------------------------------------------------------------
+# Ensures that a target has all its symbols defined if it is a shared library.
+# This option is only applied when sanitizers are not enabled.
+#-------------------------------------------------------------------------------------
+function(mtrt_require_defined_symbols target)
+  if(ENABLE_ASAN OR ENABLE_TSAN OR ENABLE_UBSAN OR ENABLE_MSAN OR
+     CMAKE_CXX_FLAGS MATCHES "-fsanitize" OR CMAKE_SHARED_LINKER_FLAGS MATCHES "-fsanitize")
+    return()
+  endif()
+  if(UNIX AND NOT APPLE)
+    target_link_options(${target} PRIVATE
+      $<$<STREQUAL:$<TARGET_PROPERTY:TYPE>,SHARED_LIBRARY>:LINKER:-z LINKER:defs>
+      $<$<STREQUAL:$<TARGET_PROPERTY:TYPE>,MODULE_LIBRARY>:LINKER:-z LINKER:defs>
+    )
+  elseif(APPLE)
+    target_link_options(${target} PRIVATE
+      $<$<STREQUAL:$<TARGET_PROPERTY:TYPE>,SHARED_LIBRARY>:LINKER:-undefined LINKER:error>
+      $<$<STREQUAL:$<TARGET_PROPERTY:TYPE>,MODULE_LIBRARY>:LINKER:-undefined LINKER:error>
+    )
+  elseif(WIN32 AND MSVC)
+    # MSVC link.exe already errors on unresolved symbols by default
+  endif()
+endfunction()
+
+#-------------------------------------------------------------------------------------
+# Creates a shared or static library wrapper around a set of libraries. The libraries
+# are used to find underlying OBJECT libraries to bundle. The library will be shared
+# unless 'STATIC' is explicitly specified.
+#-------------------------------------------------------------------------------------
+function(mtrt_add_aggregate_library target)
+  cmake_parse_arguments(ARG "EXCLUDE_FROM_ALL;STATIC;DISABLE_INSTALL"
+    "" "" ${ARGN})
+  set(bundled_libs ${ARG_UNPARSED_ARGUMENTS})
+  set(obj_libs)
+  set(link_deps)
+  set(interface_include_dirs)
+  foreach(lib ${bundled_libs})
+    if(TARGET obj.${lib})
+      list(APPEND obj_libs obj.${lib})
+      list(APPEND link_deps "$<TARGET_GENEX_EVAL:${lib},$<TARGET_PROPERTY:${lib},LINK_LIBRARIES>>")
+      list(APPEND interface_include_dirs "$<TARGET_PROPERTY:${lib},INTERFACE_INCLUDE_DIRECTORIES>")
+    endif()
+  endforeach()
+
+  # We want to filter `${link_deps}` to exclude all the libraries we are
+  # bundling. However, `${link_deps}` is a generator expression and doesn't
+  # account for direct link dependencies populated transitively.
+  #
+  # To work around this, we use a niche CMake feature
+  # INTERFACE_LINK_LIBRARIES_DIRECT_EXCLUDE. See documentation:
+  # https://cmake.org/cmake/help/latest/prop_tgt/INTERFACE_LINK_LIBRARIES_DIRECT_EXCLUDE.html.
+  #
+  # The CMake property "INTERFACE_LINK_LIBRARIES_DIRECT_EXCLUDE" allows us to
+  # enforce a filter on the "direct link dependencies" of any target which
+  # transitively depends on "${target}.filter". This allows us to exlude the
+  # non-object counter parts (e.g. the "${lib}" for each "obj.${lib}" library in
+  # the set we are bundling) from being linked into the final `${target}`
+  # library that we create below. This is only necessary to prevent redundant
+  # linking of `${lib}` in the final `${target}` library when `${lib}` is a
+  # SHARED library. This is the case if `${lib}` was explicitly declared SHARED
+  # or when the global BUILD_SHARED_LIBS is ON.
+  #
+  # We use this feature by first creating an INTERFACE library that is just used
+  # to carry the INTERFACE_LINK_LIBRARIES_DIRECT_EXCLUDE information.
+  #
+  # There is a very important caveat to this approach:
+  # INTERFACE_LINK_LIBRARIES_DIRECT_EXCLUDE cannot guaruntee that a library
+  # listed will NOT be linked by the final shared library. This mechanism will
+  # be defeated if we transitively depend on any STATIC/SHARED/INTERFACE library
+  # that has one of `${bundled_libs}` in its INTERFACE_LINK_LIBRARIES list.
+  #
+  # For this reason, we must be cautions about creating any INTERFACE library
+  # which is in a cyclic link relationship with the set of libraries in
+  # `bundled_libs`. e.g. `[bundled_libs...]` <-> `interface_lib`. This will
+  # cause some libraries in `bundled_libs` to be linked redundantly into
+  # `${target}` and will cause symptoms like crashes and ASAN ODR violation
+  # errors.
+  add_library(
+    ${target}.filter
+    INTERFACE
+  )
+  set_target_properties(${target}.filter PROPERTIES
+    INTERFACE_LINK_LIBRARIES_DIRECT_EXCLUDE "${bundled_libs}"
+    )
+
+  if(ARG_EXCLUDE_FROM_ALL)
+    set(exclude_from_all EXCLUDE_FROM_ALL)
+  else()
+    unset(exclude_from_all)
+  endif()
+
+  set(lib_type SHARED)
+  if(ARG_STATIC)
+    set(lib_type STATIC)
+  endif()
+
+  add_library(
+    ${target}
+    ${exclude_from_all}
+    ${lib_type}
+  )
+  set_target_properties(${target} PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY "${LLVM_LIBRARY_OUTPUT_INTDIR}"
+    LINKER_LANGUAGE CXX
+  )
+  mtrt_require_defined_symbols(${target})
+  # Link the `${target}.filter`, which will populate the exclusion filter
+  # that will apply to the final resolved direct link dependencies.
+  target_link_libraries(${target} PRIVATE ${target}.filter ${obj_libs} ${link_deps})
+  target_include_directories(${target} PUBLIC ${interface_include_dirs})
+  if(NOT ARG_DISABLE_INSTALL)
+    mtrt_add_install(${target})
+  endif()
+  mtrt_check_incorrect_dylib_usage(${target})
 endfunction()
 
 #-------------------------------------------------------------------------------------
@@ -266,10 +532,34 @@ endfunction()
 #   add_mlir_tensorrt_tool(MyTool SOURCES file1.cpp file2.cpp)
 #-------------------------------------------------------------------------------------
 function(mtrt_add_tool target)
+  cmake_parse_arguments(ARG "IGNORE_LINK_MTRT" "" "LINK_LIBS;MLIR_LIBS" ${ARGN})
   add_llvm_executable(${target}
-    ${ARGN}
+    ${ARG_UNPARSED_ARGUMENTS}
   )
+  llvm_update_compile_flags(${target})
+  if(ARG_LINK_LIBS)
+    if(NOT ARG_IGNORE_LINK_MTRT)
+      list(POP_FRONT ARG_LINK_LIBS VISIBILITY)
+      mtrt_target_link_mtrt_libraries(${target} ${VISIBILITY} ${ARG_LINK_LIBS})
+      if(MLIR_TRT_LINK_MTRT_DYLIB)
+        unset(ARG_MLIR_LIBS)
+      endif()
+    else()
+      list(POP_FRONT ARG_LINK_LIBS VISIBILITY)
+      target_link_libraries(${target} ${VISIBILITY} ${ARG_LINK_LIBS})
+    endif()
+  endif()
+  if(ARG_MLIR_LIBS)
+    list(POP_FRONT ARG_MLIR_LIBS VISIBILITY)
+    mtrt_target_link_mlir_libraries(${target} ${VISIBILITY} ${ARG_MLIR_LIBS})
+  endif()
+
   mtrt_add_install(${target})
+  set(mtrt_check_args "${target}")
+  if(ARG_IGNORE_LINK_MTRT)
+    list(APPEND mtrt_check_args "NO_MTRT")
+  endif()
+  mtrt_check_incorrect_dylib_usage(${mtrt_check_args})
 endfunction()
 
 #-------------------------------------------------------------------------------------

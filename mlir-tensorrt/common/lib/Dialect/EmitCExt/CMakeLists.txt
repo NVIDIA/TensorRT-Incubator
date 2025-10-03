@@ -1,5 +1,5 @@
 add_mlir_tensorrt_library(
-  MLIREmitCExtDataLayoutImpl
+  MLIRTensorRTEmitCExtDataLayoutImpl
   DataLayoutImpl.cpp
 
   LINK_LIBS PUBLIC

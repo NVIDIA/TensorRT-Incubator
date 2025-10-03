@@ -94,7 +94,7 @@ set(COMPILER_OPTIONAL_EMBED_CAPI_LINK_LIBS)
 set(COMPILER_OPTIONAL_PRIVATE_LINK_LIBS)
 if(MLIR_TRT_TARGET_TENSORRT)
   list(APPEND COMPILER_OPTIONAL_EMBED_CAPI_LINK_LIBS
-    MLIRTRTTensorRTDynamicLoader
+    TensorRTDynamicLoader
     )
   list(APPEND COMPILER_OPTIONAL_PRIVATE_LINK_LIBS
     ${MLIR_TRT_CUDA_TARGET}
@@ -122,11 +122,10 @@ declare_mlir_python_extension(MLIRTensorRTPythonCompiler.CompilerAPI.PyBind
     ${COMPILER_OPTIONAL_PRIVATE_LINK_LIBS}
   )
 
+
 ################################################################################
-# Common CAPI dependency DSO.
-# All python extensions must link through one DSO which exports the CAPI, and
-# this must have a globally unique name amongst all embeddors of the python
-# library since it will effectively have global scope.
+# The fully assembled package of modules.
+# This must come last (except for wheel target)
 ################################################################################
 
 set(source_groups
@@ -147,22 +146,10 @@ if(MLIR_TRT_ENABLE_TORCH)
   )
 endif()
 
-add_mlir_python_common_capi_library("MLIRTensorRTPythonCompilerCLibrary"
-  INSTALL_COMPONENT "MLIRTensorRTPythonCompilerModules"
-  INSTALL_DESTINATION python_packages/mlir_tensorrt_compiler/mlir_tensorrt/compiler/_mlir_libs
-  OUTPUT_DIRECTORY "${OUT_DIR}/mlir_tensorrt/compiler/_mlir_libs"
-  DECLARED_SOURCES ${source_groups}
-  )
-
-################################################################################
-# The fully assembled package of modules.
-# This must come last (except for wheel target)
-################################################################################
-
 add_mlir_python_modules("MLIRTensorRTPythonCompilerModules"
   ROOT_PREFIX "${OUT_DIR}/mlir_tensorrt/compiler"
   INSTALL_PREFIX "python_packages/mlir_tensorrt_compiler/mlir_tensorrt/compiler"
   DECLARED_SOURCES ${source_groups}
   COMMON_CAPI_LINK_LIBS
-    "MLIRTensorRTPythonCompilerCLibrary"
+    MTRT
   )

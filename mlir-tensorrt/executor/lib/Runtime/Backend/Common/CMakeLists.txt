@@ -2,26 +2,19 @@ add_mlir_executor_runtime_library(MLIRTensorRTExecutorRuntimeCommon
   DataTypes.cpp
   PARTIAL_SOURCES_INTENDED
 
-  LINK_LIBS
-
-  PUBLIC
-  MLIRTensorRTExecutorRuntimeAPI
+  LINK_LIBS PUBLIC
+  MLIRTensorRTSupportStatus
 )
 
 if(MLIR_TRT_ENABLE_CUDA)
-
   add_mlir_executor_runtime_library(MLIRTensorRTExecutorPtxCompilerUtils
     NvPtxCompilerUtils.cpp
     PARTIAL_SOURCES_INTENDED
 
-    LINK_LIBS
-
-    PUBLIC
-    MLIRTensorRTExecutorRuntimeAPI
+    LINK_LIBS PUBLIC
     CUDA::cuda_driver
-
-    PRIVATE
     CUDANVPTXCompilerLibraryPatched
+    MLIRTensorRTSupportStatus
   )
 
   add_mlir_executor_runtime_library(MLIRTensorRTExecutorCUDAUtils
@@ -29,7 +22,8 @@ if(MLIR_TRT_ENABLE_CUDA)
     PARTIAL_SOURCES_INTENDED
 
     LINK_LIBS PUBLIC
-    MLIRTensorRTExecutorRuntimeAPI
+    MLIRTensorRTSupportStatus
     MLIRTensorRTExecutorPtxCompilerUtils
+    MLIRTensorRTExecutorRuntimeAPI
   )
 endif()

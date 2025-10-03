@@ -57,6 +57,6 @@ add_mlir_tensorrt_interface_library(MLIRTensorRTInferTensorValueRangeInterface
   OP
     "mlir-tensorrt/Interfaces/InferTensorValueRangeInterface"
 
-  LINK_LIBS PUBLIC
+  MLIR_LIBS PUBLIC
   MLIRInferIntRangeInterface
   )

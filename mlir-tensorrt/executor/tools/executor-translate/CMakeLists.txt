@@ -2,18 +2,14 @@ set(LLVM_LINK_COMPONENTS
   Support
   )
 
-add_llvm_executable(executor-translate
-  executor-translate.cpp
-  )
-llvm_update_compile_flags(executor-translate)
-target_link_libraries(executor-translate
-  PRIVATE
-  MLIRIR
-  MLIRParser
-  MLIRPass
-  MLIRTranslateLib
-  MLIRSupport
-  MLIRTensorRTTargetLua
-  )
+add_mlir_executor_tool(executor-translate executor-translate.cpp
+ MLIR_LIBS PRIVATE
+ MLIRIR
+ MLIRParser
+ MLIRPass
+ MLIRTranslateLib
+ MLIRSupport
 
-mlir_check_link_libraries(executor-translate)
+ LINK_LIBS PRIVATE
+ MLIRTensorRTTargetLua
+ )

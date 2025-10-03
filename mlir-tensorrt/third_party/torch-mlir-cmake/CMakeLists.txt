@@ -144,7 +144,8 @@ if(TORCH_MLIR_ENABLE_STABLEHLO)
   )
 endif()
 
-add_mlir_tensorrt_library(MLIRTensorRTTorchMLIR
+mtrt_add_project_library(MLIRTensorRTTorchMLIR
+  PROJECT_NAME MLIRTensorRT
   ${torch_mlir_core_source_files}
 
   PARTIAL_SOURCES_INTENDED
@@ -162,6 +163,8 @@ add_mlir_tensorrt_library(MLIRTensorRTTorchMLIR
 
   LINK_LIBS PUBLIC
   ${torch_mlir_optional_deps}
+
+  MLIR_LIBS PUBLIC
   MLIRArithDialect
   MLIRFuncInlinerExtension
   MLIRFuncTransforms
@@ -190,7 +193,7 @@ target_include_directories(
 )
 
 
-add_mlir_public_c_api_library(TorchMLIRCAPI
+mtrt_add_capi_library(TorchMLIRCAPI
   ${torch_mlir_SOURCE_DIR}/lib/CAPI/Dialects.cpp
   ${torch_mlir_SOURCE_DIR}/lib/CAPI/TorchOps.cpp
   ${torch_mlir_SOURCE_DIR}/lib/CAPI/TorchTypes.cpp
@@ -204,10 +207,12 @@ add_mlir_public_c_api_library(TorchMLIRCAPI
   ENABLE_AGGREGATION
 
   LINK_LIBS PUBLIC
+  MLIRTensorRTTorchMLIR
+
+  MLIR_LIBS PUBLIC
   MLIRCAPIIR
   MLIRIR
   MLIRSupport
-  MLIRTensorRTTorchMLIR
 )
 
 declare_mlir_python_sources(TorchMLIRPythonSources)

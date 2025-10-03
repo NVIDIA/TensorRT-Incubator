@@ -1,22 +1,18 @@
 add_mlir_executor_runtime_capability_library(MLIRTensorRTExecutorRuntimeCuBLASModule
   CuBLASModule.cpp
 
-  LINK_LIBS
-
-  PUBLIC
-  MLIRTensorRTExecutorRuntimeAPI
-  MLIRTensorRTExecutorCUDAUtils
-
-  PRIVATE
-  MLIRTensorRTExecutorRuntimeCommon
-  sol2::sol2
-  lua::core
-  nvtx3-cpp
-  ${MLIR_TRT_CUDA_TARGET}
-  # TODO: link against static lib or shared stub library instead of linking cuBLAS shared lib directly
-  # in order to be compatible with manylinux standard
-  # for distiribution as pip package, see https://github.com/pypa/manylinux
-  CUDA::cublasLt
-  CUDA::cublas
-  MLIRTensorRTLuaExtensionRegistry
+  LINK_LIBS PUBLIC
+    MLIRTensorRTExecutorRuntimeAPI
+    MLIRTensorRTExecutorCUDAUtils
+    MLIRTensorRTExecutorRuntimeCommon
+    sol2::sol2
+    lua::core
+    nvtx3-cpp
+    ${MLIR_TRT_CUDA_TARGET}
+    # TODO: link against static lib or shared stub library instead of linking cuBLAS shared lib directly
+    # in order to be compatible with manylinux standard
+    # for distiribution as pip package, see https://github.com/pypa/manylinux
+    CUDA::cublasLt
+    CUDA::cublas
+    MLIRTensorRTLuaExtensionRegistry
 )

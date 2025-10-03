@@ -137,6 +137,8 @@ include(HandleLLVMOptions)
 # Dependencies
 # -------------------------------------------------
 
+find_package(NVTX REQUIRED)
+
 if(MLIR_TRT_REQUIRES_CUDA)
   find_package(CUDAToolkit REQUIRED)
 endif()
@@ -157,6 +159,10 @@ endif()
 
 if(MLIR_TRT_ENABLE_PYTHON)
   mlir_tensorrt_find_dlpack()
+endif()
+
+if(MLIR_TRT_ENABLE_MPI)
+  find_package(MPI COMPONENTS C)
 endif()
 
 #--------------------------------------------------

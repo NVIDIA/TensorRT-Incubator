@@ -1,8 +1,11 @@
-add_llvm_executable(mlir-tensorrt-runner
-  PARTIAL_SOURCES_INTENDED
-  mlir-tensorrt-runner.cpp
-  )
+mtrt_add_tool(mlir-tensorrt-runner mlir-tensorrt-runner.cpp)
+
+if(MLIR_TRT_LINK_MTRT_DYLIB)
+  set(link_deps MTRT)
+else()
+  set(link_deps MLIRExecutorRunnerLib)
+endif()
+
 target_link_libraries(mlir-tensorrt-runner PRIVATE
-  MLIRExecutorRunnerLib
+  ${link_deps}
   )
-mlir_check_link_libraries(mlir-tensorrt-runner)

@@ -8,10 +8,3 @@ mtrt_add_capi_library(MLIRTensorRTCAPISupportStatus
   DEPENDS
   MLIRTensorRTStatusEnumIncGen
   )
-
-if(TARGET obj.MLIRTensorRTCAPISupportStatus)
-  target_link_libraries(obj.MLIRTensorRTCAPISupportStatus
-    PUBLIC
-    MLIRTensorRTCommonIncludes
-  )
-endif()

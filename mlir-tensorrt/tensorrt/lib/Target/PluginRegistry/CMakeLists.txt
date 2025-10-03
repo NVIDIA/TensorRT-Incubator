@@ -5,5 +5,5 @@ add_mtrtd_library(MLIRTensorRTTensorRTPluginRegistry
     ${MLIR_TRT_CUDA_TARGET}
     TensorRTHeaderOnly
   MLIR_LIBS PUBLIC
-    MLIRTRTTensorRTDynamicLoader
+    TensorRTDynamicLoader
 )

@@ -1,22 +1,18 @@
-add_mlir_tool(mlir-tensorrt-opt
-  mlir-tensorrt-opt.cpp
-  PARTIAL_SOURCES_INTENDED
 
-  DEPENDS
-  MLIRTensorRTConversionPassIncGen
-  MLIROptLib
-  ${MLIR_TENSORRT_LIBS}
-  ${MLIR_TENSORRT_TEST_LIBS}
+set(link_deps ${MLIR_TENSORRT_LIBS})
+mtrt_add_tool(mlir-tensorrt-opt
+   mlir-tensorrt-opt.cpp
+   PARTIAL_SOURCES_INTENDED
 
-  SUPPORT_PLUGINS
+   DEPENDS
+   ${link_deps}
+
+   SUPPORT_PLUGINS
+
+   LINK_LIBS PRIVATE
+   ${link_deps}
+   MLIR_LIBS PRIVATE
+   MLIROptLib
 )
 
-target_link_libraries(mlir-tensorrt-opt PRIVATE
-  MLIROptLib
-  ${MLIR_TENSORRT_LIBS}
-  ${MLIR_TENSORRT_TEST_LIBS}
-  )
-
-llvm_update_compile_flags(mlir-tensorrt-opt)
-mlir_check_link_libraries(mlir-tensorrt-opt)
 export_executable_symbols_for_plugins(mlir-tensorrt-opt)

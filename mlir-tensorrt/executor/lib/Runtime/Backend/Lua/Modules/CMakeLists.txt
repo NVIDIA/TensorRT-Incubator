@@ -1,7 +1,7 @@
-add_library(MLIRExecutorRuntimeCapabilities INTERFACE)
+set_property(GLOBAL PROPERTY MLIRExecutorRuntimeCapabilities "")
 macro(add_mlir_executor_runtime_capability_library name)
     add_mlir_executor_runtime_library(${name} ${ARGN})
-    target_link_libraries(MLIRExecutorRuntimeCapabilities INTERFACE ${name})
+    set_property(GLOBAL APPEND PROPERTY MLIRExecutorRuntimeCapabilities ${name})
 endmacro()
 
 add_subdirectory(Utils)
@@ -23,5 +23,3 @@ endif()
 if(MLIR_TRT_ENABLE_CUBLAS)
     add_subdirectory(CuBLAS)
 endif()
-
-mtrt_add_install(MLIRExecutorRuntimeCapabilities)

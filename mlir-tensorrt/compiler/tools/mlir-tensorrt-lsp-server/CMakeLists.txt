@@ -1,18 +1,16 @@
-add_mlir_tool(mlir-tensorrt-lsp-server
-  mlir-tensorrt-lsp-server.cpp
-  PARTIAL_SOURCES_INTENDED
+set(link_deps)
+if(MLIR_TRT_LINK_MTRT_DYLIB)
+  list(APPEND link_deps MTRT)
+else()
+  list(APPEND link_deps MLIRTensorRTInitAllDialects)
+endif()
 
-  DEPENDS
-  MLIRTensorRTInitAllDialects
+mtrt_add_tool(mlir-tensorrt-lsp-server mlir-tensorrt-lsp-server.cpp
+  LINK_LIBS PRIVATE
+  ${link_deps}
+  MLIR_LIBS PRIVATE
   MLIRLspServerLib
 )
-
-target_link_libraries(mlir-tensorrt-lsp-server PRIVATE
-  MLIRTensorRTInitAllDialects
-  MLIRLspServerLib
-)
-llvm_update_compile_flags(mlir-tensorrt-lsp-server)
-mlir_check_link_libraries(mlir-tensorrt-lsp-server)
 
 set(should_exclude_from_all TRUE)
 if(PROJECT_IS_TOP_LEVEL)

@@ -150,7 +150,7 @@ function(mlir_executor_find_and_patch_libnvptxcompiler target_name)
   )
 
   # Create the imported target.
-  add_library(${target_name} UNKNOWN IMPORTED)
+  add_library(${target_name} UNKNOWN IMPORTED GLOBAL)
   target_link_libraries(${target_name} INTERFACE CUDA::cuda_driver Threads::Threads)
   set_property(TARGET ${target_name} PROPERTY IMPORTED_LOCATION "${dstPath}")
   target_include_directories(${target_name} SYSTEM INTERFACE

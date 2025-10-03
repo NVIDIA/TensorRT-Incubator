@@ -6,28 +6,24 @@ add_mlir_executor_runtime_library(MLIRTensorRTLuaExtensionRegistry
   PARTIAL_SOURCES_INTENDED
 
   LINK_LIBS PUBLIC
-  MLIRTensorRTExecutorRuntimeAPI
-
-  LINK_LIBS PRIVATE
-  sol2::sol2
   lua::core
+  MLIRTensorRTExecutorRuntimeAPI
+  sol2::sol2
   )
 
 
+get_property(runtime_capabilities GLOBAL PROPERTY MLIRExecutorRuntimeCapabilities)
 add_mlir_executor_runtime_library(MLIRTensorRTExecutionEngineLuaRuntime
   LuaRuntime.cpp
 
   PARTIAL_SOURCES_INTENDED
 
   LINK_LIBS PUBLIC
-  MLIRTensorRTExecutorRuntimeAPI
-  MLIRTensorRTLuaExtensionRegistry
-  MLIRExecutorRuntimeCapabilities
-
-  LINK_LIBS PRIVATE
-  sol2::sol2
   lua::core
-  nvtx3-cpp
+  ${runtime_capabilities}
+  MLIRTensorRTExecutorRuntimeAPI
   MLIRTensorRTExecutorRuntimeCommon
+  MLIRTensorRTLuaExtensionRegistry
+  nvtx3-cpp
+  sol2::sol2
 )
-

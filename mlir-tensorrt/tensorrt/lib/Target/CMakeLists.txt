@@ -7,7 +7,7 @@ if(MLIR_TRT_TARGET_TENSORRT)
     MLIRTensorRTTensorRTEncodingImpl
     MLIRTensorRTTensorRTEncodingOpInterface
     TensorRTHeaderOnly
-    MLIRTRTTensorRTDynamicLoader
+    TensorRTDynamicLoader
     MLIRTensorRTTensorRTPluginRegistry
     )
 endif()
