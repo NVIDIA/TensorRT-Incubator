@@ -5,7 +5,7 @@ set(LLVM_LINK_COMPONENTS
 
 add_tablegen(mtrt-tblgen MTRT
   DESTINATION "${CMAKE_INSTALL_BINDIR}"
-  EXPORT MTRT
+  EXPORT MTRTTargets
   mtrt-tblgen.cpp
   )
 
@@ -15,4 +15,3 @@ target_link_libraries(mtrt-tblgen PRIVATE
   )
 
 mlir_check_all_link_libraries(mtrt-tblgen)
-
