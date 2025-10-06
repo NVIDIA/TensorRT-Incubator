@@ -135,24 +135,31 @@ endfunction()
 # and do the section re-naming unconditionally.
 # -----------------------------------------------------------------------------
 function(mlir_executor_find_and_patch_libnvptxcompiler target_name)
+  if(TARGET ${target_name})
+    return()
+  endif()
+
   find_library(NvPtxCompilerLibPath NAMES nvptxcompiler_static
     HINTS ${CUDAToolkit_LIBRARY_DIR}
     PATHS ${CUDAToolkit_LIBRARY_DIR}
     REQUIRED
   )
 
-  # Run the patch step.
-  file(COPY "${NvPtxCompilerLibPath}" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}")
-  set(dstPath "${CMAKE_CURRENT_BINARY_DIR}/libnvptxcompiler_static.a")
-  execute_process(
-    COMMAND objcopy --rename-section .ctors=.init_array --rename-section .dtors=.fini_array "${dstPath}"
-    COMMAND_ERROR_IS_FATAL ANY
+  set(DEST_PATH "${CMAKE_CURRENT_BINARY_DIR}/libnvptxcompiler_static.a")
+  find_program(OBJCOPY_EXE NAMES objcopy llvm-objcopy REQUIRED)
+  add_custom_command(
+    OUTPUT "${DEST_PATH}"
+    COMMAND "${OBJCOPY_EXE}" --rename-section .ctors=.init_array --rename-section .dtors=.fini_array "${NvPtxCompilerLibPath}" "${DEST_PATH}"
+    DEPENDS "${NvPtxCompilerLibPath}"
+    COMMENT "Patching ${NvPtxCompilerLibPath} → ${DEST_PATH}"
   )
 
   # Create the imported target.
+  add_custom_target(mtrt_nvptxcompiler_patch DEPENDS "${DEST_PATH}")
   add_library(${target_name} UNKNOWN IMPORTED GLOBAL)
   target_link_libraries(${target_name} INTERFACE CUDA::cuda_driver Threads::Threads)
-  set_property(TARGET ${target_name} PROPERTY IMPORTED_LOCATION "${dstPath}")
+  set_property(TARGET ${target_name} PROPERTY IMPORTED_LOCATION "${DEST_PATH}")
   target_include_directories(${target_name} SYSTEM INTERFACE
     "${CUDAToolkit_INCLUDE_DIRS}")
+  add_dependencies(${target_name} mtrt_nvptxcompiler_patch)
 endfunction()
