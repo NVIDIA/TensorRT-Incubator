@@ -2556,6 +2556,95 @@ public:
 } // namespace
 
 namespace {
+
+static bool isConstant(Value v) {
+  while(true) {
+    if(auto constantOp = v.getDefiningOp<ConstantOp>()) {
+      return true;
+    } else {
+      auto op = v.getDefiningOp();
+      if(!op || op->getNumOperands() != 1) return false;
+      v = op->getOperand(0);
+    }
+  }
+  return false;
+}
+
+// Clean up the multihead attention pattern so that TensorRT will fuse the operations
+// this will insert additional reshapes and transposes to make the pattern for MHA match
+//
+// The desired pattern is: softmax(Q * K^T / scale + mask) * V
+// where: Q is query embedding
+//        K is key embedding
+//        V is value embeddings
+//
+// The shape of Q is [B, N, S_q, H], and the shapes of K and V are [B, N, S_kv, H], where:
+// B is batch size
+// N is the number of attention heads
+// H is the head/hidden size
+// S_q and S_kv are the sequence lengths of the query and key/value, respectively.
+//
+// The apttern does
+class CleanupMultiheadAttentionPattern : public OpRewritePattern<tensorrt::SoftMaxOp> {
+public:
+  using OpRewritePattern<tensorrt::SoftMaxOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(tensorrt::SoftMaxOp op,
+                                PatternRewriter &rewriter) const override {
+    Value scale, mask;
+    Value input = op.getInput();
+    if(auto elementwise = input.getDefiningOp<tensorrt::ElementWiseOp>()) {
+      if(elementwise.getElementwiseOperation() == tensorrt::ElementWiseOperation::kSUM) {
+        if(isConstant(elementwise.getInput1())) {
+          mask = elementwise.getInput1();
+          input = elementwise.getInput2();
+        } else if(isConstant(elementwise.getInput2())) {
+          mask = elementwise.getInput2();
+          input = elementwise.getInput1();
+        } else {
+          return failure(/* fail to match */);
+        }
+      }
+    }
+    if(auto elementwise = input.getDefiningOp<tensorrt::ElementWiseOp>()) {
+      if(elementwise.getElementwiseOperation() == tensorrt::ElementWiseOperation::kPROD) {
+        if(isConstant(elementwise.getInput1())) {
+          scale = elementwise.getInput1();
+          input = elementwise.getInput2();
+        } else if(isConstant(elementwise.getInput2())) {
+          scale = elementwise.getInput2();
+          input = elementwise.getInput1();
+        } else {
+          return failure(/* fail to match */);
+        }
+      }
+    }
+    EinsumPushUpTranspose einsumPushUpTranspose(getContext());
+    EinsumPushDownTranspose einsumPushDownTranspose(getContext());
+
+    bool didSomething = false;
+    if(auto einsumInput = input.getDefiningOp<EinsumOp>()) {
+      rewriter.setInsertionPoint(einsumInput);
+      if(succeeded(einsumPushUpTranspose.matchAndRewrite(einsumInput, rewriter)))
+        didSomething = true;
+    }
+
+    for(auto user : op->getUsers()) {
+      if(auto einsumUser = dyn_cast<EinsumOp>(user)) {
+        rewriter.setInsertionPoint(einsumUser);
+        if(succeeded(einsumPushDownTranspose.matchAndRewrite(einsumUser, rewriter)))
+          didSomething = true;
+      }
+    }
+
+    if(didSomething)
+    llvm::errs() << "mha cleanup did something\n";
+
+    return success(didSomething);
+  }
+};
+}
+
+namespace {
 class TransposeReshapeEliminationPass
     : public tensorrt::impl::TransposeReshapeEliminationPassBase<
           TransposeReshapeEliminationPass> {
@@ -2662,7 +2751,7 @@ public:
               ctx);
       if (failed(applyPatternsGreedily(op, std::move(patterns)))) {
         emitError(op->getLoc())
-            << "failed to apply pushup patterns in " << getArgument();
+            << "failed to apply convert back to matrix multiply pattern " << getArgument();
         return signalPassFailure();
       }
     }
@@ -2681,7 +2770,23 @@ public:
                       MatrixMultiplyTransposedArguments>(ctx);
       if (failed(applyPatternsGreedily(op, std::move(patterns)))) {
         emitError(op->getLoc())
-            << "failed to apply pushup patterns in " << getArgument();
+            << "failed to apply merge stragler transposes to einsum " << getArgument();
+        return signalPassFailure();
+      }
+    }
+
+    // 4.2) The Multihead attention pattern implemented in TensorRT requires that matrix multiplications are
+    // used in a particular pattern.  Restore that pattern if transpose elimination was not successful
+    {
+      RewritePatternSet patterns(ctx);
+      TransposeOp::getCanonicalizationPatterns(patterns, ctx);
+      ExpandRankOp::getCanonicalizationPatterns(patterns, ctx);
+      ReshapeOp::getCanonicalizationPatterns(
+          patterns, ctx); // convert back to expand rank and collapse rank ops
+      patterns.insert<EinsumToMatrixMultiply, MatrixMultiplyTransposedArguments, CleanupMultiheadAttentionPattern>(ctx);
+      if (failed(applyPatternsGreedily(op, std::move(patterns)))) {
+        emitError(op->getLoc())
+            << "failed to apply clean up multihead attention " << getArgument();
         return signalPassFailure();
       }
     }

@@ -312,3 +312,22 @@ func.func @push_down_transpose_einsum(%arg0: tensor<1x6x1500x64xf32>, %arg1: ten
   %6 = tensorrt.reshape %5 : tensor<1500x384xf32> to tensor<1x1500x384xf32>
   return %6 : tensor<1x1500x384xf32>
 }
+
+// -----
+
+#map3 = affine_map<(d0, d1, d2) -> (d1, d0, d2)>
+#map5 = affine_map<(d0, d1, d2) -> (d1, d2, d0)>
+func.func @multihead_attention(%arg0: tensor<566x48x64xf32>, %arg1: tensor<566x48x64xf32>, %arg2: tensor<566x48x64xf32>) -> tensor<566x48x64xf32> {
+  %cst_f32_683 = tensorrt.constant dense<1.000000e+00> : tensor<1x1x1xf32>
+  %cst_f32_704 = tensorrt.constant dense<0.000000e+00> : tensor<1x1x1xf32>
+  %312 = tensorrt.transpose {permutation = #map3} %arg2 : tensor<566x48x64xf32> to tensor<48x566x64xf32>
+  %314 = tensorrt.transpose {permutation = #map3} %arg0 : tensor<566x48x64xf32> to tensor<48x566x64xf32>
+  %315 = tensorrt.transpose {permutation = #map5} %arg1 : tensor<566x48x64xf32> to tensor<48x64x566xf32>
+  %316 = tensorrt.matrix_multiply {op0 = #tensorrt.matrix_operation<kNONE>, op1 = #tensorrt.matrix_operation<kNONE>} ins(%314, %315 : tensor<48x566x64xf32>, tensor<48x64x566xf32>) -> tensor<48x566x566xf32>
+  %317 = tensorrt.element_wise <kPROD>(%316, %cst_f32_683 : tensor<48x566x566xf32>, tensor<1x1x1xf32>) -> tensor<48x566x566xf32>
+  %318 = tensorrt.element_wise <kSUM>(%317, %cst_f32_704 : tensor<48x566x566xf32>, tensor<1x1x1xf32>) -> tensor<48x566x566xf32>
+  %319 = tensorrt.softmax {axis = 2 : i64} %318 : tensor<48x566x566xf32>
+  %320 = tensorrt.matrix_multiply {op0 = #tensorrt.matrix_operation<kNONE>, op1 = #tensorrt.matrix_operation<kNONE>} ins(%319, %312 : tensor<48x566x566xf32>, tensor<48x566x64xf32>) -> tensor<48x566x64xf32>
+  %321 = tensorrt.transpose {permutation = #map3} %320 : tensor<48x566x64xf32> to tensor<566x48x64xf32>
+  return %321 : tensor<566x48x64xf32>
+}
