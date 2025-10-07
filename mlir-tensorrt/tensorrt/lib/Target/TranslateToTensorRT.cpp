@@ -775,6 +775,17 @@ public:
 
   LogicalResult initialize(MLIRContext *context) final {
 
+    // Check if CUDA device is available.
+    int deviceCount;
+    cudaError_t cudaStatus = cudaGetDeviceCount(&deviceCount);
+    if (cudaStatus != cudaSuccess) {
+      return emitError(UnknownLoc::get(context))
+             << "cudaGetDeviceCount failed: " << cudaGetErrorString(cudaStatus);
+    }
+    if (deviceCount == 0) {
+      return emitError(UnknownLoc::get(context)) << "No CUDA devices found.";
+    }
+
     if (!translationOptions)
       this->translationOptions = TensorRTTranslationOptions::fromCLFlags();
 
