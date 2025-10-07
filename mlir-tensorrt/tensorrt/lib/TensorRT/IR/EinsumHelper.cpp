@@ -145,7 +145,7 @@ static LogicalResult validateInputsSubscript(const IOSubscripts &subscripts,
       // tensor<4x6xf32>, b = tensor<5x6xf32>
       // Einsum also supports broadcasting
       if (allLabelDims.count(label) == 0 || allLabelDims[label] == 1) {
-        allLabelDims.insert(std::pair<char, int64_t>(label, dimension));
+        allLabelDims[label] = dimension;
       } else {
         if (allLabelDims[label] != dimension && dimension != 1)
           return emitErrorFn(loc, Twine("label `") + Twine(label) +
@@ -204,8 +204,8 @@ static LogicalResult inferOutputShapeImpl(const IOSubscripts &ioSubscripts,
        llvm::zip((ioSubscripts).inputs, inputOperands)) {
     for (const auto &[label, dims] :
          llvm::zip(subscript, cast<RankedTensorType>(operand).getShape()))
-      if (inputLabelsDims.count(label) == 0)
-        inputLabelsDims.insert(std::pair<char, int64_t>(label, dims));
+      if (inputLabelsDims.count(label) == 0 || inputLabelsDims[label] == 1)
+        inputLabelsDims[label] = dims;
   }
 
   for (const auto &label : (ioSubscripts).outputs) {
