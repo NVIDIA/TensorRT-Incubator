@@ -2128,9 +2128,14 @@ public:
         newReshape.push_back(i);
     }
 
-    Value newTransposeOp = rewriter.createOrFold<tensorrt::TransposeOp>(
+    Value newTransposeOp;
+    if(newTranspose.empty()) {
+      newTransposeOp = reshape.getInput();  // this can happen in the case of a scalar tensor<f32> type
+    } else {
+      newTransposeOp = rewriter.createOrFold<tensorrt::TransposeOp>(
         op.getLoc(), reshape.getInput(),
         AffineMap::getPermutationMap(newTranspose, op.getContext()));
+    }
     Value newReshapeOp = rewriter.createOrFold<tensorrt::ReshapeOp>(
         op.getLoc(), reshapeInputType.clone(newReshape), newTransposeOp);
 

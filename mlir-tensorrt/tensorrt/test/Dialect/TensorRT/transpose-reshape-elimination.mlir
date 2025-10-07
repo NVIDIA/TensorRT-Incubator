@@ -331,3 +331,24 @@ func.func @multihead_attention(%arg0: tensor<566x48x64xf32>, %arg1: tensor<566x4
   %321 = tensorrt.transpose {permutation = #map3} %320 : tensor<48x566x64xf32> to tensor<566x48x64xf32>
   return %321 : tensor<566x48x64xf32>
 }
+
+// -----
+
+
+#map = affine_map<(d0, d1, d2) -> (d1, d0, d2)>
+func.func @transpose_on_scalar(%arg0: tensor<4488x4x48xf32>, %arg1: tensor<f32>) -> tensor<4x4488x48xf32> {
+    %cst_f32 = tensorrt.constant dense<9.99999997E-7> : tensor<1x1x1xf32>
+    %cst_f32_0 = tensorrt.constant dense_resource<__elided__> : tensor<1x1x48xf32>
+    %cst_f32_1 = tensorrt.constant dense<2.000000e+00> : tensor<1x1x1xf32>
+    %0 = tensorrt.transpose {permutation = #map} %arg0 : tensor<4488x4x48xf32> to tensor<4x4488x48xf32>
+    %1 = tensorrt.element_wise <kPOW>(%0, %cst_f32_1 : tensor<4x4488x48xf32>, tensor<1x1x1xf32>) -> tensor<4x4488x48xf32>
+    %2 = tensorrt.reduce <kAVG> %1 {keepDimensions = true, reduceAxes = array<i64: 2>} : tensor<4x4488x48xf32> -> tensor<4x4488x1xf32>
+    %3 = tensorrt.element_wise <kSUM>(%2, %cst_f32 : tensor<4x4488x1xf32>, tensor<1x1x1xf32>) -> tensor<4x4488x1xf32>
+    %4 = tensorrt.unary {unaryOperation = #tensorrt.unary_operation<kRECIP>} %3 : tensor<4x4488x1xf32>
+    %5 = tensorrt.unary {unaryOperation = #tensorrt.unary_operation<kSQRT>} %4 : tensor<4x4488x1xf32>
+    %6 = tensorrt.element_wise <kPROD>(%0, %5 : tensor<4x4488x48xf32>, tensor<4x4488x1xf32>) -> tensor<4x4488x48xf32>
+    %7 = tensorrt.element_wise <kPROD>(%6, %cst_f32_0 : tensor<4x4488x48xf32>, tensor<1x1x48xf32>) -> tensor<4x4488x48xf32>
+    %8 = tensorrt.expand_rank %arg1 : tensor<f32> to tensor<1x1x1xf32>
+    %9 = tensorrt.element_wise <kDIV>(%7, %8 : tensor<4x4488x48xf32>, tensor<1x1x1xf32>) -> tensor<4x4488x48xf32>
+    return %9 : tensor<4x4488x48xf32>
+}
