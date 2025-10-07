@@ -145,10 +145,10 @@ endfunction()
 #-------------------------------------------------------------------------------------
 function(mtrt_target_link_mlir_libraries target type)
   if (TARGET obj.${target})
-    target_link_libraries(obj.${target} ${type} ${ARGN})
+    target_link_libraries(obj.${target} PRIVATE ${ARGN})
     add_dependencies(obj.${target} ${ARGN})
   endif()
-  if (MTRT_LINK_MLIR_DYLIB)
+  if (MLIR_TRT_LINK_MLIR_DYLIB)
     target_link_libraries(${target} ${type} MLIR)
   else()
     target_link_libraries(${target} ${type} ${ARGN})
@@ -162,10 +162,10 @@ endfunction()
 #-------------------------------------------------------------------------------------
 function(mtrt_target_link_mtrt_libraries target type)
   if (TARGET obj.${target})
-    target_link_libraries(obj.${target} ${type} ${ARGN})
+    target_link_libraries(obj.${target} PRIVATE ${ARGN})
     add_dependencies(obj.${target} ${ARGN})
   endif()
-  if (MTRT_LINK_MTRT_DYLIB)
+  if (MLIR_TRT_LINK_MTRT_DYLIB)
     target_link_libraries(${target} ${type} MTRT)
   else()
     target_link_libraries(${target} ${type} ${ARGN})
@@ -285,11 +285,6 @@ function(mtrt_add_project_library name)
     # libMTRT if MLIR_TRT_LINK_MTRT_DYLIB is enabled. This is because tools will
     # link against libMTRT and the test libraries, so we don't want test libraries
     # to statically link libraries that are meant to be excluded from libMTRT.
-    if(MLIR_TRT_LINK_MTRT_DYLIB
-       AND ${ARG_LIBRARY_TYPE} STREQUAL "TEST_LIBS")
-      list(FILTER ARG_LINK_LIBS EXCLUDE REGEX "MLIR")
-      list(APPEND ARG_LINK_LIBS MTRT)
-    endif()
     list(APPEND ARG_UNPARSED_ARGUMENTS LINK_LIBS ${ARG_LINK_LIBS})
   endif()
 
@@ -443,7 +438,7 @@ function(mtrt_add_aggregate_library target)
   set(interface_include_dirs)
   foreach(lib ${bundled_libs})
     if(TARGET obj.${lib})
-      list(APPEND obj_libs obj.${lib})
+      list(APPEND obj_libs $<TARGET_OBJECTS:obj.${lib}>)
       list(APPEND link_deps "$<TARGET_GENEX_EVAL:${lib},$<TARGET_PROPERTY:${lib},LINK_LIBRARIES>>")
       list(APPEND interface_include_dirs "$<TARGET_PROPERTY:${lib},INTERFACE_INCLUDE_DIRECTORIES>")
     endif()
@@ -712,4 +707,61 @@ function(mtrt_add_header_installation_components component)
       PATTERN "CMakeFiles" EXCLUDE
       PATTERN "config.h" EXCLUDE
     )
+endfunction()
+
+#-------------------------------------------------------------------------------------
+# Adds a pybind11 extension library.
+#
+# Arguments:
+#   target - Target name (required)
+# Keyword Parameters:
+#   ROOT_DIR - Binary directory where Python packages are installed into.
+#   OUTPUT_DIR - Relative path from the ROOT_DIR to where the library should be
+#      created.
+#   EXTENSION_NAME - Extension name (required)
+#   PRIVATE_LINK_LIBS - Private link libraries (required)
+#-------------------------------------------------------------------------------------
+function(mtrt_add_python_extension target)
+  cmake_parse_arguments(ARG "DISABLE_INSTALL"
+    "ROOT_DIR;OUTPUT_DIR;EXTENSION_NAME" "PRIVATE_LINK_LIBS" ${ARGN})
+  if(NOT ARG_EXTENSION_NAME)
+    message(FATAL_ERROR "mtrt_add_python_extension: EXTENSION_NAME argument is required")
+  endif()
+  if(NOT ARG_ROOT_DIR)
+    message(FATAL_ERROR "mtrt_add_python_extension: ROOT_DIR argument is required")
+  endif()
+  if(NOT ARG_OUTPUT_DIR)
+    message(FATAL_ERROR "mtrt_add_python_extension: OUTPUT_DIR argument is required")
+  endif()
+  pybind11_add_module(${target}
+    ${ARG_UNPARSED_ARGUMENTS}
+  )
+  set_target_properties(
+    ${target}
+    PROPERTIES
+      LIBRARY_OUTPUT_DIRECTORY "${ARG_ROOT_DIR}/${ARG_OUTPUT_DIR}"
+      OUTPUT_NAME ${ARG_EXTENSION_NAME}
+      NO_SONAME ON
+    )
+  target_link_libraries(
+    ${target}
+    PRIVATE
+    ${ARG_PRIVATE_LINK_LIBS}
+    )
+  if(APPLE OR UNIX)
+    set(_origin_prefix "\$ORIGIN")
+    if(APPLE)
+      set(_origin_prefix "@loader_path")
+    endif()
+    set_target_properties(${target} PROPERTIES
+      BUILD_WITH_INSTALL_RPATH OFF
+      INSTALL_RPATH "${_origin_prefix}"
+    )
+  endif()
+  if(NOT ARG_DISABLE_INSTALL)
+    install(TARGETS ${target}
+      COMPONENT ${target}
+      DESTINATION "python_packages/${ARG_OUTPUT_DIR}"
+      )
+  endif()
 endfunction()

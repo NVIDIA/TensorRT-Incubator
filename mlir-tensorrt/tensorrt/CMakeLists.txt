@@ -29,10 +29,6 @@ add_subdirectory(lib)
 add_subdirectory(test)
 add_subdirectory(tools)
 
-if(MLIR_ENABLE_BINDINGS_PYTHON)
-  add_subdirectory(python)
-endif()
-
 mtrt_add_header_installation_components(mtrt-headers
   DIRECTORIES
    "include/mlir-tensorrt-dialect"

@@ -1,3 +1,5 @@
+set(PYTHON_PACKAGES_BINARY_DIR "${MLIR_TENSORRT_ROOT_BINARY_DIR}/python_packages")
+
 if(MLIR_TRT_ENABLE_PYTHON)
   declare_mlir_python_sources(MLIRTensorRTPythonCompiler)
   declare_mlir_python_sources(MLIRTensorRTPythonCompiler.Dialects
@@ -16,16 +18,26 @@ add_compile_definitions("MLIR_PYTHON_PACKAGE_PREFIX=mlir_tensorrt.compiler.")
 include_directories(
   ${MLIR_INCLUDE_DIRS}
   ${MLIR_TENSORRT_ROOT_DIR}/compiler/include
-  ${MLIR_TENSORRT_ROOT_DIR}/kernel/include
   ${MLIR_TENSORRT_ROOT_DIR}/executor/include
+  ${MLIR_TENSORRT_ROOT_DIR}/tensorrt/include
   ${MLIR_TENSORRT_ROOT_BINARY_DIR}/compiler/include
   ${MLIR_TENSORRT_ROOT_BINARY_DIR}/executor/include
-  ${MLIR_TENSORRT_ROOT_BINARY_DIR}/kernel/include
-  # Upstream stablehlo python extension modules doesn't properly declare include
-  # requirements.
-  "$<$<BOOL:${MLIR_TRT_ENABLE_HLO}>:${stablehlo_SOURCE_DIR}>"
-  "$<$<BOOL:${MLIR_TRT_ENABLE_TORCH}>:${torch_mlir_SOURCE_DIR}/include>"
+  ${MLIR_TENSORRT_ROOT_BINARY_DIR}/tensorrt/include
   )
+
+if(MLIR_TRT_ENABLE_HLO)
+  include_directories(${Stablehlo_SOURCE_DIR})
+  if(NOT EXISTS "${Stablehlo_SOURCE_DIR}")
+    message(FATAL_ERROR "Stablehlo_SOURCE_DIR is incorrect")
+  endif()
+endif()
+
+if(MLIR_TRT_ENABLE_TORCH)
+  if(NOT EXISTS "${torch_mlir_SOURCE_DIR}/include")
+    message(FATAL_ERROR "torch_mlir_SOURCE_DIR is incorrect")
+  endif()
+  include_directories(${torch_mlir_SOURCE_DIR}/include)
+endif()
 
 if(MLIR_TRT_ENABLE_PYTHON)
   # This is the directory under `llvm-project/mlir/python`.
@@ -44,7 +56,7 @@ if(MLIR_TRT_ENABLE_PYTHON)
   # -------------------------------------------------
   configure_file(
     mlir_tensorrt_runtime/setup.py
-    ${MLIR_TENSORRT_ROOT_BINARY_DIR}/python_packages/mlir_tensorrt_runtime/setup.py
+    ${PYTHON_PACKAGES_BINARY_DIR}/mlir_tensorrt_runtime/setup.py
     @ONLY
     )
 
@@ -57,34 +69,34 @@ if(MLIR_TRT_ENABLE_PYTHON)
       api.py
     )
 
-  declare_mlir_python_extension(MLIRTensorRTPythonRuntimeSources.Runtime.PyBind
-    MODULE_NAME _api
-    ADD_TO_PARENT MLIRTensorRTPythonRuntimeSources
-    SOURCES
-      bindings/Runtime/RuntimePyBind.cpp
-    EMBED_CAPI_LINK_LIBS
+  mtrt_add_python_extension(MLIRTensorRTRuntimePythonExtension
+    bindings/Runtime/RuntimePyBind.cpp
+    ROOT_DIR "${PYTHON_PACKAGES_BINARY_DIR}"
+    OUTPUT_DIR
+      "mlir_tensorrt_runtime/mlir_tensorrt/runtime/_mlir_libs"
+    EXTENSION_NAME _api
+    PRIVATE_LINK_LIBS
       MLIRTensorRTCAPISupportStatus
       MLIRTensorRTCAPICommon
-    PRIVATE_LINK_LIBS
       MLIRTensorRTCAPIRuntime
       LLVMSupport
       DLPack::Headers
     )
 
   add_mlir_python_modules(MLIRTensorRTPythonRuntimeModules
-    ROOT_PREFIX "${MLIR_TENSORRT_ROOT_BINARY_DIR}/python_packages/mlir_tensorrt_runtime/mlir_tensorrt/runtime"
+    ROOT_PREFIX "${PYTHON_PACKAGES_BINARY_DIR}/mlir_tensorrt_runtime/mlir_tensorrt/runtime"
     INSTALL_PREFIX "python_packages/mlir_tensorrt_runtime/mlir_tensorrt/runtime"
     DECLARED_SOURCES
       MLIRTensorRTPythonRuntimeSources
-    COMMON_CAPI_LINK_LIBS
     )
+  add_dependencies(MLIRTensorRTPythonRuntimeModules MLIRTensorRTRuntimePythonExtension)
 
   # -------------------------------------------------
   # mlir_tensorrt_tools package
   # -------------------------------------------------
   configure_file(
     mlir_tensorrt_tools/setup.py
-    ${MLIR_TENSORRT_ROOT_BINARY_DIR}/python_packages/mlir_tensorrt_tools/setup.py
+    ${PYTHON_PACKAGES_BINARY_DIR}/mlir_tensorrt_tools/setup.py
     @ONLY
     )
 
@@ -98,7 +110,7 @@ if(MLIR_TRT_ENABLE_PYTHON)
   )
 
   add_mlir_python_modules(MLIRTensorRTPythonToolsModules
-    ROOT_PREFIX "${MLIR_TENSORRT_ROOT_BINARY_DIR}/python_packages/mlir_tensorrt_tools"
+    ROOT_PREFIX "${PYTHON_PACKAGES_BINARY_DIR}/mlir_tensorrt_tools"
     INSTALL_PREFIX "python_packages/mlir_tensorrt_tools"
     DECLARED_SOURCES
       MLIRTensorRTPythonToolsSources
