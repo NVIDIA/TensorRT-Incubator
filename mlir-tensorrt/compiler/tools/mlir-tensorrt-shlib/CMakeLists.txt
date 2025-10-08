@@ -36,3 +36,13 @@ if(NOT BUILD_SHARED_LIBS)
 endif()
 
 mtrt_add_aggregate_library(MTRT ${mtrt_libs})
+
+# This is only required for supporting test plugins like TensorRTTestPlugins that
+# require LLVMSupport. If we are linking tools against MTRT and BUILD_SHARED_LIBS
+# is OFF, then the plugin can't link LLVMSupport directly without ODR violations.
+# Otherwise, we shouldn't need this.
+if(MLIR_TRT_LINK_MTRT_DYLIB AND NOT BUILD_SHARED_LIBS)
+  target_link_libraries(MTRT PRIVATE
+    $<LINK_LIBRARY:WHOLE_ARCHIVE,LLVMSupport>
+  )
+endif()

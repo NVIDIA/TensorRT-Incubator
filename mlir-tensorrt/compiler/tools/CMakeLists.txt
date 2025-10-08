@@ -32,6 +32,9 @@ list(REMOVE_DUPLICATES MLIR_TENSORRT_LIBS)
 set(LLVM_LINK_COMPONENTS
   Support
   )
+if(MLIR_TRT_LINK_MTRT_DYLIB)
+  set(LLVM_LINK_COMPONENTS )
+endif()
 
 add_subdirectory(mlir-tensorrt-shlib)
 add_subdirectory(mlir-tensorrt-opt)

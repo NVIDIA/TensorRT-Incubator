@@ -22,11 +22,8 @@ mtrt_add_tool(mlir-tensorrt-opt
 # Link against all compiler test libraries.
 mtrt_get_project_targets(MLIRTensorRT LIBRARY_TYPE TEST_LIBS OUT_VAR test_libs)
 mtrt_get_project_targets(TensorRTDialect LIBRARY_TYPE TEST_LIBS OUT_VAR mtrtd_test_libs)
-# For `tensorrt` test libs, we link against the object target.
-foreach(lib ${mtrtd_test_libs})
-  list(APPEND test_libs obj.${lib})
-endforeach()
-target_link_libraries(mlir-tensorrt-opt PRIVATE ${test_libs})
+target_link_libraries(mlir-tensorrt-opt PRIVATE ${test_libs} ${mtrtd_test_libs})
+
 
 
 export_executable_symbols_for_plugins(mlir-tensorrt-opt)

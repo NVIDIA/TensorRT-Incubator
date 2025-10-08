@@ -1,7 +1,6 @@
 function(add_mlir_tensorrt_dialect_test_library target)
   mtrt_add_test_library(${target}
     PROJECT_NAME TensorRTDialect
-    IGNORE_LINK_MTRT
     ${ARGN}
   )
 endfunction()

@@ -4,22 +4,31 @@ include_directories(
     ${CMAKE_CURRENT_BINARY_DIR}
 )
 
-set(LLVM_LINK_COMPONENTS Support)
+add_library(TensorRTTestPlugins MODULE
+    TestPlugins.cpp TestV2Plugins.cpp)
+set_target_properties(TensorRTTestPlugins PROPERTIES
+    CXX_VISIBILITY_PRESET hidden
+    OUTPUT_NAME TensorRTTestPlugins
+    LIBRARY_OUTPUT_DIRECTORY ${LLVM_LIBRARY_OUTPUT_INTDIR}
+    RUNTIME_OUTPUT_DIRECTORY ${LLVM_LIBRARY_OUTPUT_INTDIR}
+    PREFIX ""
+)
+llvm_update_compile_flags(TensorRTTestPlugins)
 
-add_llvm_library(TensorRTTestPlugins
-    TestPlugins.cpp TestV2Plugins.cpp
-
-    MODULE
-
-    BUILDTREE_ONLY
-
-    TestPlugins.cpp TestV2Plugins.cpp
-    LINK_LIBS PRIVATE
+target_link_libraries(TensorRTTestPlugins PRIVATE
     ${MLIR_TRT_CUDA_TARGET}
     MLIRTensorRTCommonIncludes
-    TensorRTDynamicLoader
     TensorRTHeaderOnly
     )
-
 include(GenerateExportHeader)
 generate_export_header(TensorRTTestPlugins)
+
+if(MLIR_TRT_LINK_MTRT_DYLIB)
+  target_link_libraries(TensorRTTestPlugins PRIVATE MTRT)
+endif()
+
+if(NOT MLIR_TRT_LINK_MTRT_DYLIB OR BUILD_SHARED_LIBS)
+  target_link_libraries(TensorRTTestPlugins PRIVATE
+    TensorRTDynamicLoader
+    LLVMSupport)
+endif()
