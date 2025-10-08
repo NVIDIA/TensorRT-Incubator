@@ -1,6 +1,6 @@
 //===- TranslateToTensorRT.cpp --------------------------------------------===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -774,7 +774,10 @@ public:
   }
 
   LogicalResult initialize(MLIRContext *context) final {
+    if (!translationOptions)
+      this->translationOptions = TensorRTTranslationOptions::fromCLFlags();
 
+#ifdef MLIR_TRT_TARGET_TENSORRT
     // Check if CUDA device is available.
     int deviceCount;
     cudaError_t cudaStatus = cudaGetDeviceCount(&deviceCount);
@@ -786,10 +789,6 @@ public:
       return emitError(UnknownLoc::get(context)) << "No CUDA devices found.";
     }
 
-    if (!translationOptions)
-      this->translationOptions = TensorRTTranslationOptions::fromCLFlags();
-
-#ifdef MLIR_TRT_TARGET_TENSORRT
     if (!this->builderContext) {
       FailureOr<std::shared_ptr<TensorRTBuilderContext>> builderResult =
           TensorRTBuilderContext::create(
