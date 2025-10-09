@@ -30,7 +30,7 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "llvm/Support/Debug.h"
 #include <numeric>
-#include <unordered_set>
+#include <unordered_map>
 
 namespace mlir {
 namespace tensorrt {
@@ -46,7 +46,7 @@ using namespace mlir;
 using namespace mlir::tensorrt;
 
 // Set the max size of tensors which can be constant-folded to 131072 (0.5 MB
-// for f32 constants).
+// for f32 constants).g
 constexpr int64_t kFoldOpEltLimit = 1 << 17;
 
 static int64_t memoryCost(RankedTensorType type) {
@@ -597,6 +597,10 @@ struct EinsumEquation {
     std::string currentPart;
     while (std::getline(lhsStream, currentPart, ',')) {
       lhsParts.push_back(currentPart);
+      for(char c : currentPart) {
+        if(!(c >= 'a' && c <= 'z'))
+          return failure();
+      }
     }
     return success();
   }
@@ -814,8 +818,8 @@ public:
     if (failed(equation.parse(op.getEquation())))
       return failure();
 
-    std::unordered_set<char> multipliedAxes;
-    std::unordered_set<char> uniqueAxes;
+    llvm::SmallSetVector<char, 16> multipliedAxes;
+    llvm::SmallSetVector<char, 16> uniqueAxes;
     for(size_t i = 0; i < equation.lhsParts.size(); i++) {
       for(size_t j = 0; j < equation.lhsParts[i].size(); j++) {
         if(equation.rhs.find(equation.lhsParts[i][j]) == std::string::npos) {
@@ -1366,9 +1370,7 @@ public:
 
     bool has1OutputShape = false;
     bool hasNonTrivalReshape = false;
-    std::unordered_map<std::string,
-                       std::pair<std::string, SmallVector<int64_t>>>
-        inputToReshapedMap;
+    std::unordered_map<std::string, std::pair<std::string, SmallVector<int64_t>>> inputToReshapedMap;
     size_t inputNumElems = 1;
     size_t outputNumElems = 1;
     std::string inAxes = "";
@@ -1407,7 +1409,7 @@ public:
     if (!hasNonTrivalReshape)
       return failure(/* reshape is only expanding rank */);
 
-    std::unordered_map<char, std::string> charToGroup;
+    llvm::SmallMapVector<char, std::string, 16> charToGroup;
     for (auto &[k, v] : inputToReshapedMap)
       for (auto c : k)
         charToGroup[c] = k;
@@ -1501,6 +1503,84 @@ public:
   }
 };
 } // namespace
+
+namespace {
+
+  // if there are mutliple axes that are getting multiplied together in an einsum, push up a reshape so that there is
+  // only a single axis.  This will help with the conversion from einsum to matrix multiply.
+  // For example,
+  //    %0 = tensorrt.einsum {equation = "acd,bcd->ab"} ins(%arg0, %arg1)
+  // will become
+  //    %0 = tensorrt.reshape %arg0
+  //    %1 = tensorrt.reshape %arg1
+  //    %2 = tensorrt.einsum {equation = "ac,bc->ab"} ins(%0, %1)
+class EinsumPushUpMultipleMulitipliedAxes : public OpRewritePattern<tensorrt::EinsumOp> {
+public:
+  using OpRewritePattern<tensorrt::EinsumOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(tensorrt::EinsumOp op,
+                                PatternRewriter &rewriter) const override {
+    EinsumEquation equation;
+    if (failed(equation.parse(op.getEquation())))
+      return failure();
+
+    std::string multipliedAxes = "";
+    for(char c : equation.lhsParts[0]) {
+      if(equation.rhs.find(c) == std::string::npos) {
+        multipliedAxes += c;
+      }
+    }
+    if(multipliedAxes.size() <= 1)
+      return failure(/* pattern does not match */);
+    for(size_t i = 0; i < equation.lhsParts.size(); i++) {
+      if(equation.lhsParts[i].find(multipliedAxes) == std::string::npos)
+        return failure(/* pattern does not match */);
+      if(!cast<RankedTensorType>(op.getInputs()[i].getType()).hasStaticShape())
+        return failure();
+    }
+    char nextChar = 'a';
+    while(nextChar <= 'z') {
+      if(equation.equation.find(nextChar) == std::string::npos)
+        break;
+      nextChar++;
+    }
+    if(nextChar > 'z')
+      return failure(/* No more characters available */);
+
+    SmallVector<Value> newInputs;
+    EinsumEquation newEquation = equation;
+    for(size_t i = 0; i < equation.lhsParts.size(); i++) {
+      auto inputType = cast<RankedTensorType>(op.getInputs()[i].getType());
+      SmallVector<int64_t> newInputShape;
+      std::string newInputEquation = "";
+      size_t j = 0;
+      while(j < equation.lhsParts[i].size() && multipliedAxes.find(equation.lhsParts[i][j]) == std::string::npos) {
+        newInputShape.push_back(inputType.getDimSize(j));
+        newInputEquation += equation.lhsParts[i][j];
+        j++;
+    }
+
+    int64_t combinedInputShape = 1;
+    while(j < equation.lhsParts[i].size() && multipliedAxes.find(equation.lhsParts[i][j]) != std::string::npos) {
+      combinedInputShape *= inputType.getDimSize(j++);
+    }
+    newInputShape.push_back(combinedInputShape);
+    newInputEquation += nextChar;
+    while(j < equation.lhsParts[i].size()) {
+      newInputShape.push_back(inputType.getDimSize(j));
+      newInputEquation += equation.lhsParts[i][j];
+      j++;
+    }
+
+    newEquation.lhsParts[i] = newInputEquation;
+    auto reshape = rewriter.createOrFold<tensorrt::ReshapeOp>(op.getLoc(), inputType.clone(newInputShape), op.getInputs()[i]);
+    newInputs.push_back(reshape);
+  }
+
+  rewriter.replaceOpWithNewOp<tensorrt::EinsumOp>(op, op.getType(), newInputs, newEquation.generateEquation());
+  return success();
+}
+};
+}
 
 namespace {
 static uint64_t estimateShuffleCost(Value input) {
@@ -1656,7 +1736,7 @@ public:
       }
     }
 
-    std::unordered_map<char, std::string> charToGroup;
+    llvm::SmallMapVector<char, std::string, 16> charToGroup;
     for (auto &[k, v] : inputToReshapedMap) {
       for (char c : k) {
         auto it = charToGroup.find(c);
@@ -2976,7 +3056,7 @@ public:
           PushUpOpQuantizeDequantize<tensorrt::ReshapeOp>,
           EinsumPushUpTranspose, PushReshapeUpThroughEinsum,
           PushUpReshapeElementwise, PushUpTransposeSoftmax,
-          PushUpReshapeSoftmax>(ctx);
+          PushUpReshapeSoftmax, EinsumPushUp1AxisReshape, EinsumPushUpMultipleMulitipliedAxes>(ctx);
       TransposeOp::getCanonicalizationPatterns(patterns, ctx);
       ExpandRankOp::getCanonicalizationPatterns(patterns, ctx);
       ReshapeOp::getCanonicalizationPatternsSameOp(patterns, ctx);
@@ -2997,7 +3077,7 @@ public:
       ReshapeOp::getCanonicalizationPatterns(
           patterns, ctx); // convert back to expand rank and collapse rank ops
       patterns
-          .insert<EinsumToMatrixMultiply, MatrixMultiplyTransposedArguments>(
+          .insert<EinsumToMatrixMultiply, MatrixMultiplyTransposedArguments, EinsumPushUp1AxisReshape, EinsumPushUpMultipleMulitipliedAxes>(
               ctx);
       if (failed(applyPatternsGreedily(op, std::move(patterns)))) {
         emitError(op->getLoc())
@@ -3027,7 +3107,7 @@ public:
 
     // 4.2) The Multihead attention pattern implemented in TensorRT requires that matrix multiplications are
     // used in a particular pattern.  Restore that pattern if transpose elimination was not successful
-    {
+    if(0) {
       RewritePatternSet patterns(ctx);
       TransposeOp::getCanonicalizationPatterns(patterns, ctx);
       ExpandRankOp::getCanonicalizationPatterns(patterns, ctx);

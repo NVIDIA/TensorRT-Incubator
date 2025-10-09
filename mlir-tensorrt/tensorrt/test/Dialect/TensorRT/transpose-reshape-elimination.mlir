@@ -352,3 +352,15 @@ func.func @transpose_on_scalar(%arg0: tensor<4488x4x48xf32>, %arg1: tensor<f32>)
     %9 = tensorrt.element_wise <kDIV>(%7, %8 : tensor<4x4488x48xf32>, tensor<1x1x1xf32>) -> tensor<4x4488x48xf32>
     return %9 : tensor<4x4488x48xf32>
 }
+
+// -----
+
+// CHECK: @einsum_multiply_two_axis(%[[arg0:.+]]: tensor<10x11x12xf32>, %[[arg1:.]]: tensor<13x11x12xf32>)
+// CHECK: %[[v0:.+]] = tensorrt.reshape %[[arg0]] : tensor<10x11x12xf32> to tensor<10x132xf32>
+// CHECK: %[[v1:.+]] = tensorrt.reshape %[[arg1]] : tensor<13x11x12xf32> to tensor<13x132xf32>
+// CHECK: %[[v2:.+]] = tensorrt.matrix_multiply {op0 = #tensorrt.matrix_operation<kNONE>, op1 = #tensorrt.matrix_operation<kTRANSPOSE>} ins(%[[v0]], %[[v1]] : tensor<10x132xf32>, tensor<13x132xf32>) -> tensor<10x13xf32>
+// CHECK: return %[[v2]]
+func.func @einsum_multiply_two_axis(%arg0: tensor<10x11x12xf32>, %arg1: tensor<13x11x12xf32>) -> tensor<10x13xf32> {
+  %0 = tensorrt.einsum {equation = "acd,bcd->ab"} ins(%arg0, %arg1: tensor<10x11x12xf32>, tensor<13x11x12xf32>) -> tensor<10x13xf32>
+  return %0 : tensor<10x13xf32>
+}
