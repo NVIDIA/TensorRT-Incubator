@@ -195,20 +195,61 @@ class Executable:
                 ],
             )
 
+        # Recursively extract inputs from containers to get individual tensors for validation and execution
+        def extract_inputs(tensors, input_info_names):
+            def extract_recursive(tensor, name_prefix):
+                if isinstance(tensor, dict):
+                    result = []
+                    for key in sorted(tensor.keys()):
+                        nested_name = f"{name_prefix}.{key}"
+                        if nested_name in input_info_names:
+                            result.append(tensor[key])
+                        else:
+                            result.extend(extract_recursive(tensor[key], nested_name))
+                    return result
+                elif isinstance(tensor, (list, tuple)):
+                    result = []
+                    for idx, value in enumerate(tensor):
+                        nested_name = f"{name_prefix}[{idx}]"
+                        if nested_name in input_info_names:
+                            result.append(value)
+                        else:
+                            result.extend(extract_recursive(value, nested_name))
+                    return result
+                else:  # Regular tensor
+                    if name_prefix in input_info_names:
+                        return [tensor]
+                    else:
+                        return []
+
+            flattened = []
+            for name_idx, tensor in enumerate(tensors):
+                arg_name = self._arg_names[name_idx]
+                flattened.extend(extract_recursive(tensor, arg_name))
+            return flattened
+
+        flattened_tensors = extract_inputs(input_tensors, set(self.input_infos.keys()))
         expected_devices = ["gpu" if isinstance(info, InputInfo) else "cpu" for info in self.input_infos.values()]
-        for tensor, expected_device, arg_name in zip(input_tensors, expected_devices, self._arg_names):
+
+        # Validate flattened tensors against input_infos
+        if len(flattened_tensors) != len(expected_devices):
+            raise_error(
+                f"Mismatch between number of flattened tensors ({len(flattened_tensors)}) and expected inputs ({len(expected_devices)})."
+            )
+
+        for tensor, expected_device, info_name in zip(flattened_tensors, expected_devices, self.input_infos.keys()):
             producer = tensor.trace_tensor.producer
             if not isinstance(producer, Constant):
-                raise_error(f"Tensor `{arg_name}` is not evaluated.", ["Hint: Try calling `.eval()` on the tensor."])
+                raise_error(f"Tensor `{info_name}` is not evaluated.", ["Hint: Try calling `.eval()` on the tensor."])
             if tensor.device.kind != expected_device:
                 raise_error(
                     "Unexpected tensor device.",
                     [
-                        f"For tensor: `{arg_name}`, expected to be on device: {expected_device} but got: {tensor.device.kind}.\n",
+                        f"For tensor: `{info_name}`, expected to be on device: {expected_device} but got: {tensor.device.kind}.\n",
                     ],
                 )
 
-        input_memrefs = [inp.trace_tensor.producer.data for inp in input_tensors]
+        input_memrefs = [inp.trace_tensor.producer.data for inp in flattened_tensors]
         try:
             output_memrefs = self._session.execute_function(
                 "main", in_args=input_memrefs, stream=self.stream._active_cuda_stream, client=self._runtime_client
