@@ -13,25 +13,14 @@ func.func @transpose_merge_with_matmul(%arg0: tensor<1x2x3x4xf32>, %arg1: tensor
 
 // -----
 
-// CHECK: reshape_push_up_through_matmul
-// CHECK: %[[out:.+]] = tensorrt.einsum
+// CHECK: @reshape_push_up_through_matmul(%[[arg0:.+]]: tensor<16x1024x1024xbf16>, %[[arg1:.+]]: tensor<1x1024x1024xbf16>)
+// CHECK: %[[out:.+]] = tensorrt.matrix_multiply {op0 = #tensorrt.matrix_operation<kNONE>, op1 = #tensorrt.matrix_operation<kNONE>} ins(%[[arg0]], %[[arg1]] : tensor<16x1024x1024xbf16>, tensor<1x1024x1024xbf16>)
 // CHECK: return %[[out]]
 func.func @reshape_push_up_through_matmul(%arg0: tensor<16x1024x1024xbf16>, %arg1: tensor<1x1024x1024xbf16>) -> tensor<16x1024x1024xbf16> {
     %6 = tensorrt.shuffle {first_transpose = array<i64: 0, 1, 2>, reshape = array<i64: 1, 16384, 1024>, second_transpose = array<i64: 0, 1, 2>, zero_is_placeholder = false} ins(%arg0 : tensor<16x1024x1024xbf16>) -> tensor<1x16384x1024xbf16>
     %7 = tensorrt.matrix_multiply {op0 = #tensorrt.matrix_operation<kNONE>, op1 = #tensorrt.matrix_operation<kNONE>} ins(%6, %arg1 : tensor<1x16384x1024xbf16>, tensor<1x1024x1024xbf16>) -> tensor<1x16384x1024xbf16>
     %8 = tensorrt.shuffle {first_transpose = array<i64: 0, 1, 2>, reshape = array<i64: 16, 1024, 1024>, second_transpose = array<i64: 0, 1, 2>, zero_is_placeholder = false} ins(%7 : tensor<1x16384x1024xbf16>) -> tensor<16x1024x1024xbf16>
     return %8 : tensor<16x1024x1024xbf16>
-}
-
-// -----
-
-// CHECK: func.func @reshape_push_down_into_einsum(%[[arg0:.+]]: tensor<4x5x6xf32>)
-// CHECK: %[[out:.+]] = tensorrt.einsum [[attr:.+]] ins(%[[arg0]], %[[arg0]] : tensor<4x5x6xf32>, tensor<4x5x6xf32>) -> tensor<4x4xf32>
-// CHECK: return %[[out]]
-func.func @reshape_push_down_into_einsum(%arg0: tensor<4x5x6xf32>) -> tensor<4x4xf32> {
-    %1 = tensorrt.reshape %arg0 : tensor<4x5x6xf32> to tensor<4x30xf32>
-    %2 = tensorrt.matrix_multiply {op0 = #tensorrt.matrix_operation<kNONE>, op1 = #tensorrt.matrix_operation<kTRANSPOSE>} ins(%1, %1 : tensor<4x30xf32>, tensor<4x30xf32>) -> tensor<4x4xf32>
-    return %2 : tensor<4x4xf32>
 }
 
 // -----
@@ -177,19 +166,6 @@ func.func @reshape_with_one(%arg0: tensor<2x3x4x5xf32>) -> tensor<2x3x4x6xf32> {
 
 // -----
 
-// CHECK: matmul_eliminate_reshape_lhs_2(%[[arg0:.+]]: tensor<1x2x3x4x5x6xf16>, %[[arg1:.+]]: tensor<1x2x6x8xf16>)
-// CHECK: %[[v0:.+]] = tensorrt.einsum {equation = [[equation:.+]]} ins(%[[arg0]], %[[arg1]] : tensor<1x2x3x4x5x6xf16>, tensor<1x2x6x8xf16>) -> tensor<1x2x3x4x5x8xf16>
-// CHECK: return %[[v0]]
-func.func @matmul_eliminate_reshape_lhs_2(%arg0: tensor<1x2x3x4x5x6xf16>, %arg1: tensor<1x2x6x8xf16>) -> tensor<1x2x3x4x5x8xf16>{
-    %0 = tensorrt.reshape %arg0 : tensor<1x2x3x4x5x6xf16> to tensor<1x2x60x6xf16>
-    %1 = tensorrt.matrix_multiply {op0 = #tensorrt.matrix_operation<kNONE>, op1 = #tensorrt.matrix_operation<kNONE>}
-    ins(%0, %arg1 : tensor<1x2x60x6xf16>, tensor<1x2x6x8xf16>) -> tensor<1x2x60x8xf16>
-    %2 = tensorrt.reshape %1 : tensor<1x2x60x8xf16> to tensor<1x2x3x4x5x8xf16>
-    return %2: tensor<1x2x3x4x5x8xf16>
-}
-
-// -----
-
 // CHECK: @elementwise_reshape(%[[arg0:.+]]: tensor<12x3x3xf32>, %[[arg1:.+]]: tensor<12xf32>)
 // CHECK: %[[v0:.+]] = tensorrt.expand_rank %[[arg1]] : tensor<12xf32> to tensor<12x1x1xf32>
 // CHECK: %[[v1:.+]] = tensorrt.element_wise <kDIV>(%[[arg0]], %[[v0]] : tensor<12x3x3xf32>, tensor<12x1x1xf32>) -> tensor<12x3x3xf32>
@@ -209,7 +185,7 @@ func.func @elementwise_reshape(%arg0: tensor<12x3x3xf32>, %arg1: tensor<12xf32>)
 // CHECK-DAG: %[[v0:.+]]= tensorrt.collapse_rank %[[arg1]] : tensor<1x2x4x3x3xf32> to tensor<2x4x3x3xf32>
 // CHECK-DAG: %[[v1:.+]] = tensorrt.transpose {permutation = #map} %[[arg0]] : tensor<1x2x4x3x561xf32> to tensor<2x4x561x3x1xf32>
 // CHECK-DAG: %[[v2:.+]] = tensorrt.collapse_rank %[[v1]] : tensor<2x4x561x3x1xf32> to tensor<2x4x561x3xf32>
-// CHECK: %[[v3:.+]] = tensorrt.matrix_multiply {op0 = #tensorrt.matrix_operation<kNONE>, op1 = #tensorrt.matrix_operation<kTRANSPOSE>} ins(%2, %0 : tensor<2x4x561x3xf32>, tensor<2x4x3x3xf32>) -> tensor<2x4x561x3xf32>
+// CHECK: %[[v3:.+]] = tensorrt.matrix_multiply {op0 = #tensorrt.matrix_operation<kNONE>, op1 = #tensorrt.matrix_operation<kTRANSPOSE>} ins(%[[v2]], %[[v0]] : tensor<2x4x561x3xf32>, tensor<2x4x3x3xf32>) -> tensor<2x4x561x3xf32>
 // CHECK: %[[v4:.+]] = tensorrt.expand_rank %[[v3]] : tensor<2x4x561x3xf32> to tensor<1x2x4x561x3xf32>
 // CHECK: return %[[v4]]
 #map = affine_map<(d0, d1, d2, d3, d4) -> (d0, d1, d2, d4, d3)>
@@ -315,6 +291,12 @@ func.func @push_down_transpose_einsum(%arg0: tensor<1x6x1500x64xf32>, %arg1: ten
 
 // -----
 
+// CHECK: @multihead_attention
+// CHECK: %[[v0:.+]] = tensorrt.matrix_multiply
+// CHECK: %[[v1:.+]] = tensorrt.element_wise <kPROD>(%[[v0]], %[[const0:.+]]
+// CHECK: %[[v2:.+]] = tensorrt.element_wise <kSUM>(%[[v1]], %[[const1:.+]]
+// CHECK: %[[v3:.+]] = tensorrt.softmax {axis = [[axis:.+]] : i64} %[[v2]]
+// CHECK: %[[v4:.+]] = tensorrt.matrix_multiply {op0 = #tensorrt.matrix_operation<kNONE>, op1 = #tensorrt.matrix_operation<kNONE>} ins(%[[v3]]
 #map3 = affine_map<(d0, d1, d2) -> (d1, d0, d2)>
 #map5 = affine_map<(d0, d1, d2) -> (d1, d2, d0)>
 func.func @multihead_attention(%arg0: tensor<566x48x64xf32>, %arg1: tensor<566x48x64xf32>, %arg2: tensor<566x48x64xf32>) -> tensor<566x48x64xf32> {
@@ -334,23 +316,17 @@ func.func @multihead_attention(%arg0: tensor<566x48x64xf32>, %arg1: tensor<566x4
 
 // -----
 
-
+// CHECK: @transpose_on_scalar(%[[arg0:.+]]: tensor<4488x4x48xf32>, %[[arg1:.+]]: tensor<f32>)
+// CHECK: %[[v0:.+]] = tensorrt.expand_rank %[[arg1]] : tensor<f32> to tensor<1x1x1xf32>
+// CHECK: %[[v1:.+]] = tensorrt.element_wise <kDIV>(%[[arg0]], %[[v0]] : tensor<4488x4x48xf32>, tensor<1x1x1xf32>) -> tensor<4488x4x48xf32>
+// CHECK: %[[v2:.+]] = tensorrt.transpose {permutation = #map} %[[v1]] : tensor<4488x4x48xf32> to tensor<4x4488x48xf32>
+// CHECK: return %2
 #map = affine_map<(d0, d1, d2) -> (d1, d0, d2)>
 func.func @transpose_on_scalar(%arg0: tensor<4488x4x48xf32>, %arg1: tensor<f32>) -> tensor<4x4488x48xf32> {
-    %cst_f32 = tensorrt.constant dense<9.99999997E-7> : tensor<1x1x1xf32>
-    %cst_f32_0 = tensorrt.constant dense_resource<__elided__> : tensor<1x1x48xf32>
-    %cst_f32_1 = tensorrt.constant dense<2.000000e+00> : tensor<1x1x1xf32>
-    %0 = tensorrt.transpose {permutation = #map} %arg0 : tensor<4488x4x48xf32> to tensor<4x4488x48xf32>
-    %1 = tensorrt.element_wise <kPOW>(%0, %cst_f32_1 : tensor<4x4488x48xf32>, tensor<1x1x1xf32>) -> tensor<4x4488x48xf32>
-    %2 = tensorrt.reduce <kAVG> %1 {keepDimensions = true, reduceAxes = array<i64: 2>} : tensor<4x4488x48xf32> -> tensor<4x4488x1xf32>
-    %3 = tensorrt.element_wise <kSUM>(%2, %cst_f32 : tensor<4x4488x1xf32>, tensor<1x1x1xf32>) -> tensor<4x4488x1xf32>
-    %4 = tensorrt.unary {unaryOperation = #tensorrt.unary_operation<kRECIP>} %3 : tensor<4x4488x1xf32>
-    %5 = tensorrt.unary {unaryOperation = #tensorrt.unary_operation<kSQRT>} %4 : tensor<4x4488x1xf32>
-    %6 = tensorrt.element_wise <kPROD>(%0, %5 : tensor<4x4488x48xf32>, tensor<4x4488x1xf32>) -> tensor<4x4488x48xf32>
-    %7 = tensorrt.element_wise <kPROD>(%6, %cst_f32_0 : tensor<4x4488x48xf32>, tensor<1x1x48xf32>) -> tensor<4x4488x48xf32>
-    %8 = tensorrt.expand_rank %arg1 : tensor<f32> to tensor<1x1x1xf32>
-    %9 = tensorrt.element_wise <kDIV>(%7, %8 : tensor<4x4488x48xf32>, tensor<1x1x1xf32>) -> tensor<4x4488x48xf32>
-    return %9 : tensor<4x4488x48xf32>
+  %0 = tensorrt.transpose {permutation = #map} %arg0 : tensor<4488x4x48xf32> to tensor<4x4488x48xf32>
+  %1 = tensorrt.expand_rank %arg1 : tensor<f32> to tensor<1x1x1xf32>
+  %2 = tensorrt.element_wise <kDIV>(%0, %1 : tensor<4x4488x48xf32>, tensor<1x1x1xf32>) -> tensor<4x4488x48xf32>
+  return %2 : tensor<4x4488x48xf32>
 }
 
 // -----

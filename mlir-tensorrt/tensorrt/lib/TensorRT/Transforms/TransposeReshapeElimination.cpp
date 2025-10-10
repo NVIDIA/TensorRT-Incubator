@@ -1199,8 +1199,6 @@ public:
     if(!inputType[0].hasStaticShape() || !inputType[1].hasStaticShape())
       return failure();
 
-    llvm::errs() << "attempting to push up reshape " << multipliedAxis << " " << matrixAxes[0] << " " << matrixAxes[1] << "\n";
-
     SmallVector<int64_t> newInputShapes[2] = {SmallVector<int64_t>{inputType[0].getShape()}, SmallVector<int64_t>{inputType[1].getShape()}};
     EinsumEquation newEquation = equation;
 
@@ -1246,11 +1244,9 @@ public:
           }
           if (valid) break;
         }
-        llvm::errs() << "inserting " << c << " prev " << newEquation.generateEquation() << " after ";
         target.insert(target.begin() + insertIdx, c);
         newInputShapes[1-i].insert(newInputShapes[1-i].begin() + insertIdx, 1);
         assert(target.size() == newInputShapes[1-i].size());
-        llvm::errs() << newEquation.generateEquation() << "\n";
         }
       }
     }
@@ -1314,9 +1310,6 @@ public:
     SmallVector<Value> reshapes{
       rewriter.createOrFold<ReshapeOp>(op.getLoc(), newInputTypes[0], op.getInputs()[0]),
       rewriter.createOrFold<ReshapeOp>(op.getLoc(), newInputTypes[1], op.getInputs()[1])};
-
-    llvm::errs() << "generated equation " << newEquation.generateEquation() << "   prev " << equation.generateEquation() << "\n";
-    llvm::errs() << reshapes[0].getType() << " " << reshapes[1].getType() << "\n";
 
     rewriter.replaceOpWithNewOp<EinsumOp>(op, op.getType(), reshapes, newEquation.generateEquation());
 
@@ -2965,9 +2958,6 @@ public:
           didSomething = true;
       }
     }
-
-    if(didSomething)
-    llvm::errs() << "mha cleanup did something\n";
 
     return success(didSomething);
   }
