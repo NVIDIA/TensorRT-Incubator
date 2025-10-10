@@ -620,15 +620,15 @@ class TripyHSTUDenseModel(TripySequentialEncoderWithLearnedSimilarityModule):
         attention_mask_size = self._attn_mask.shape[-1]
         current_size = user_embeddings.shape[1]
 
-        if current_size < attention_mask_size:
-            # Pad to match attention mask size, just like jagged_to_padded_dense does
-            padding_size = attention_mask_size - current_size
-            user_embeddings = tp.pad(
-                user_embeddings, [(0, 0), (0, padding_size), (0, 0)], value=0.0
-            )  # Pad sequence dimension with zeros
-            if self._verbose:
-                print(f"    Padded to attention mask size: {user_embeddings.shape}")
-                print(f"    Padded sample [0,0,:5]: {user_embeddings[0,0,:5]}")
+        # Use conditional padding to avoid tensor evaluation during compilation
+        padding_size = tp.maximum(attention_mask_size - current_size, 0)
+        # Always pad, but padding_size will be 0 if no padding is needed
+        user_embeddings = tp.pad(
+            user_embeddings, [(0, 0), (0, padding_size), (0, 0)], value=0.0
+        )  # Pad sequence dimension with zeros (no-op if padding_size is 0)
+        if self._verbose:
+            print(f"    Conditionally padded to attention mask size: {user_embeddings.shape}")
+            print(f"    Padded sample [0,0,:5]: {user_embeddings[0,0,:5]}")
 
         user_embeddings, cached_states = self._hstu(
             x=user_embeddings,
@@ -643,30 +643,21 @@ class TripyHSTUDenseModel(TripySequentialEncoderWithLearnedSimilarityModule):
             print(f"    HSTU output sample [0,0,:5]: {user_embeddings[0,0,:5]}")
 
         # Zero out positions beyond actual sequence lengths to match jagged behavior
-        # The jagged implementation naturally excludes these positions from computation
-        for i in range(B):
-            length = past_lengths[i]
-            seq_len = user_embeddings.shape[1]
-            if self._verbose:
-                print(f"    Tripy: Batch {i} length={length}, seq_len={seq_len}")
-            if length < seq_len.cast(tp.int64):
-                if self._verbose:
-                    print(f"    Tripy: Zeroing batch {i} positions {length}:{seq_len} (length={length})")
-                # Create a mask for positions beyond the sequence length
-                mask = tp.arange(seq_len).cast(tp.int64) >= length
-                mask_expanded = tp.unsqueeze(mask, -1)  # [N, 1]
-                # Apply mask only to the current batch
-                batch_embeddings = user_embeddings[i]  # [N, D]
-                batch_embeddings = tp.where(mask_expanded, 0.0, batch_embeddings)
-                # Update the tensor (Tripy doesn't support item assignment, so we reconstruct)
-                if i == 0:
-                    user_embeddings = tp.concatenate([tp.unsqueeze(batch_embeddings, 0), user_embeddings[1:]], dim=0)
-                elif i == B - 1:
-                    user_embeddings = tp.concatenate([user_embeddings[:i], tp.unsqueeze(batch_embeddings, 0)], dim=0)
-                else:
-                    user_embeddings = tp.concatenate(
-                        [user_embeddings[:i], tp.unsqueeze(batch_embeddings, 0), user_embeddings[i + 1 :]], dim=0
-                    )
+        # Use vectorized operations instead of Python loop to avoid compilation issues
+        seq_len = user_embeddings.shape[1]
+
+        # Create position indices for all sequences: [B, seq_len]
+        positions = tp.expand(tp.arange(seq_len, dtype=tp.int64).unsqueeze(0), [B, seq_len])
+
+        # Create mask where positions >= past_lengths: [B, seq_len]
+        lengths_expanded = tp.expand(past_lengths.unsqueeze(1), [B, seq_len]).cast(tp.int64)
+        mask = positions >= lengths_expanded  # True for positions to zero out
+
+        # Expand mask to match embedding dimensions: [B, seq_len, D]
+        mask = tp.expand(mask.unsqueeze(-1), user_embeddings.shape)
+
+        # Zero out positions beyond sequence lengths
+        user_embeddings = tp.where(mask, tp.zeros_like(user_embeddings), user_embeddings)
 
         if self._verbose:
             print(f"    After zeroing padded positions: {user_embeddings.shape}")

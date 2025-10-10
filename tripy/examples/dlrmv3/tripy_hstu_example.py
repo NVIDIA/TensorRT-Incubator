@@ -414,18 +414,17 @@ def main():
 
     # Compile Tripy model
     print(f"\nCompiling Tripy model...")
-    # compiled_tripy_model = compile_tripy_model(tripy_model, test_inputs, args.engine_dir, args.verbose)
+    compiled_tripy_model = compile_tripy_model(tripy_model, test_inputs, args.engine_dir, args.verbose)
 
     # Test compiled Tripy model with debug
     print(f"\nTesting compiled Tripy model...")
-    tripy_model._verbose = False  # Enable verbose mode for debugging
     tripy_inputs = [
         tp.Tensor(past_lengths.numpy()),
         tp.Tensor(past_ids.numpy()),
         tp.Tensor(past_embeddings.numpy()),
         {k: tp.Tensor(v.numpy()) for k, v in past_payloads.items()},
     ]
-    tripy_output = tripy_model(*tripy_inputs)
+    tripy_output = compiled_tripy_model(*tripy_inputs)
     print(f"Tripy output shape: {tripy_output.shape}")
 
     # Compare outputs
