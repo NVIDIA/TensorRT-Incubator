@@ -28,7 +28,6 @@ from nvtripy.frontend.module import Module
 from nvtripy.utils.types import obj_name_or_type_name
 
 
-# TODO (#230): Support collections of tensors in args/kwargs
 @export.public_api(document_under="compiling_code/compile.rst")
 def compile(
     func: Callable, optimization_level: int = 3, *, args: Sequence[Any] = [], kwargs: Dict[str, Any] = {}
@@ -163,7 +162,8 @@ def compile(
         for name, weight in func.state_dict().items():
             weight.name = name
 
-    def process_arg(name, arg):
+    def process_arg_input_info(name, arg):
+        """Process InputInfo or DimensionInputInfo objects and create corresponding tensors."""
         if isinstance(arg, InputInfo):
             # Make new tensors for tracing.
             from nvtripy.common.datatype import floating, integer
@@ -201,6 +201,31 @@ def compile(
             input_names.add(name)
 
             return tensor
+
+        return arg
+
+    def process_arg(name, arg):
+        # Handle individual InputInfo or DimensionInputInfo objects
+        if isinstance(arg, (InputInfo, DimensionInputInfo)):
+            return process_arg_input_info(name, arg)
+
+        # Handle containers of InputInfo objects
+        if isinstance(arg, dict):
+            if any(isinstance(v, (InputInfo, DimensionInputInfo)) for v in arg.values()):
+                input_names.add(name)
+                result = {}
+                for key, value in arg.items():
+                    nested_name = f"{name}.{key}"
+                    result[key] = process_arg(nested_name, value)
+                return result
+        elif isinstance(arg, (list, tuple)):
+            if any(isinstance(v, (InputInfo, DimensionInputInfo)) for v in arg):
+                input_names.add(name)
+                result = []
+                for idx, value in enumerate(arg):
+                    nested_name = f"{name}[{idx}]"
+                    result.append(process_arg(nested_name, value))
+                return type(arg)(result)
 
         return arg
 
@@ -259,7 +284,24 @@ def compile(
             )
 
     # Order of trace inputs also needs to match that of the compiled_arg_names
-    trace_inputs = [trace_input_map[name].trace_tensor for name in compiled_arg_names]
+    # For containers, we need to collect all individual trace tensors
+    def collect_trace_tensors(name):
+        """Collect trace tensors for a name, flattening containers."""
+        if name in trace_input_map:
+            # Regular InputInfo or DimensionInputInfo
+            return [trace_input_map[name].trace_tensor]
+        else:
+            # Collect all nested trace tensors inside the container
+            nested_tensors = []
+            for nested_name in sorted(trace_input_map.keys()):
+                if nested_name.startswith(f"{name}.") or nested_name.startswith(f"{name}["):
+                    nested_tensors.append(trace_input_map[nested_name].trace_tensor)
+            return nested_tensors
+
+    # Flatten all trace tensors from containers and individual inputs
+    trace_inputs = []
+    for name in compiled_arg_names:
+        trace_inputs.extend(collect_trace_tensors(name))
     trace = Trace(
         [tensor.trace_tensor for tensor in trace_outputs],
         trace_inputs,
