@@ -10,6 +10,7 @@ target_include_directories(MLIRTensorRTCompilerIncludes INTERFACE
     "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
     "$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>"
   )
+mtrt_add_install(MLIRTensorRTCompilerIncludes UMBRELLA mtrt-headers)
 
 include_directories("${CMAKE_CURRENT_BINARY_DIR}/include"
                     "${CMAKE_CURRENT_SOURCE_DIR}/include")

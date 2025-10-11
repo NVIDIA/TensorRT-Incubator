@@ -17,6 +17,30 @@ function(mtrt_add_public_tablegen_target target)
   add_dependencies(mtrt-headers ${target})
 endfunction()
 
+# ------------------------------------------------------------------------------
+# Get the export set for a target. A target is exported to MTRTTargets
+# if one of the following conditions is met:
+# 1. The component (usually the target name) is in the
+#   MLIR_TRT_DISTRIBUTION_COMPONENTS list.
+# 2. The UMBRELLA argument is specified and the umbrella target is in the
+#    MLIR_TRT_DISTRIBUTION_COMPONENTS list.
+# 3. No MTRT_DISTRIBUTION_COMPONENTS is set.
+# ------------------------------------------------------------------------------
+function(mtrt_get_export_set out_var component umbrella)
+  cmake_parse_arguments(ARG "" "UMBRELLA" "" ${ARGN})
+  # If distribution exports not set, just export by default.
+  if(NOT MLIR_TRT_DISTRIBUTION_COMPONENTS)
+    set(${out_var} MTRTTargets PARENT_SCOPE)
+    return()
+  endif()
+  if(${component} IN_LIST MLIR_TRT_DISTRIBUTION_COMPONENTS OR
+     (umbrella AND umbrella IN_LIST MLIR_TRT_DISTRIBUTION_COMPONENTS))
+    set(${out_var} MTRTTargets PARENT_SCOPE)
+    return()
+  endif()
+  set(${out_var} "" PARENT_SCOPE)
+endfunction()
+
 #-------------------------------------------------------------------------------------
 # Add installation targets. These targets are used to install a particular CMake
 # component. We also add the correct dependencies so that `ninja -C build
@@ -98,22 +122,28 @@ endfunction()
 #   mtrt_add_install(MyTarget)
 #-------------------------------------------------------------------------------------
 function(mtrt_add_install target)
-  cmake_parse_arguments(ARG "" "EXPORT;COMPONENT" "" ${ARGN})
-  # Validate required arguments
-  if(NOT target)
-    message(FATAL_ERROR "mtrt_add_install: target parameter is required")
+  cmake_parse_arguments(ARG "" "EXPORT;COMPONENT;UMBRELLA" "" ${ARGN})
+
+  set(export_args)
+  if(ARG_EXPORT)
+    list(APPEND export_args EXPORT ${ARG_EXPORT})
+  else()
+    if(ARG_UMBRELLA)
+      set_property(GLOBAL APPEND PROPERTY ${ARG_UMBRELLA}-TARGETS ${target})
+    endif()
+    mtrt_get_export_set(export_set ${target} ${ARG_UMBRELLA})
+    if(export_set)
+      list(APPEND export_args EXPORT ${export_set})
+    endif()
   endif()
 
-  if(NOT ARG_EXPORT)
-    set(ARG_EXPORT "MTRTTargets")
-  endif()
   if(NOT ARG_COMPONENT)
     set(ARG_COMPONENT ${target})
   endif()
 
   install(TARGETS ${target}
+    ${export_args}
     COMPONENT ${ARG_COMPONENT}
-    EXPORT ${ARG_EXPORT}
     LIBRARY
       DESTINATION lib${LLVM_LIBDIR_SUFFIX}
     ARCHIVE
@@ -314,7 +344,11 @@ function(mtrt_add_project_library name)
 
   # Add to installation unless disabled
   if(NOT ARG_DISABLE_INSTALL)
-    mtrt_add_install(${name})
+    set(umbrella mtrt-libraries)
+    if(ARG_LIBRARY_TYPE STREQUAL "CAPI")
+      set(umbrella mtrt-capi-libraries)
+    endif()
+    mtrt_add_install(${name} UMBRELLA ${umbrella} COMPONENT ${ARG_COMPONENT})
   endif()
 
   mtrt_check_incorrect_dylib_usage(${name})
@@ -430,7 +464,7 @@ endfunction()
 #-------------------------------------------------------------------------------------
 function(mtrt_add_aggregate_library target)
   cmake_parse_arguments(ARG "EXCLUDE_FROM_ALL;STATIC;DISABLE_INSTALL"
-    "" "" ${ARGN})
+    "EXPORT" "" ${ARGN})
   set(bundled_libs ${ARG_UNPARSED_ARGUMENTS})
   set(obj_libs)
   set(link_deps)
@@ -508,9 +542,12 @@ function(mtrt_add_aggregate_library target)
   # Link the `${target}.filter`, which will populate the exclusion filter
   # that will apply to the final resolved direct link dependencies.
   target_link_libraries(${target} PRIVATE ${target}.filter ${obj_libs} ${link_deps})
-  target_include_directories(${target} PUBLIC ${interface_include_dirs})
+  target_include_directories(${target} INTERFACE
+    $<BUILD_INTERFACE:${interface_include_dirs}>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
   if(NOT ARG_DISABLE_INSTALL)
-    mtrt_add_install(${target})
+    set(umbrella mtrt-aggregates)
+    mtrt_add_install(${target} UMBRELLA ${umbrella})
   endif()
   mtrt_check_incorrect_dylib_usage(${target})
 endfunction()
@@ -526,7 +563,7 @@ endfunction()
 #   add_mlir_tensorrt_tool(MyTool SOURCES file1.cpp file2.cpp)
 #-------------------------------------------------------------------------------------
 function(mtrt_add_tool target)
-  cmake_parse_arguments(ARG "IGNORE_LINK_MTRT" "" "LINK_LIBS;MLIR_LIBS" ${ARGN})
+  cmake_parse_arguments(ARG "IGNORE_LINK_MTRT;DISABLE_INSTALL" "EXPORT" "LINK_LIBS;MLIR_LIBS" ${ARGN})
   add_llvm_executable(${target}
     ${ARG_UNPARSED_ARGUMENTS}
   )
@@ -548,7 +585,10 @@ function(mtrt_add_tool target)
     mtrt_target_link_mlir_libraries(${target} ${VISIBILITY} ${ARG_MLIR_LIBS})
   endif()
 
-  mtrt_add_install(${target})
+  if(NOT ARG_DISABLE_INSTALL)
+    set(umbrella mtrt-tools)
+    mtrt_add_install(${target} UMBRELLA ${umbrella})
+  endif()
   set(mtrt_check_args "${target}")
   if(ARG_IGNORE_LINK_MTRT)
     list(APPEND mtrt_check_args "NO_MTRT")

@@ -11,5 +11,4 @@ add_mlir_executor_runtime_capability_library(MLIRTensorRTExecutorRuntimeNCCLModu
   MLIRTensorRTExecutorRuntimeAPI
   MLIRTensorRTExecutorRuntimeCommon
   MLIRTensorRTLuaExtensionRegistry
-  sol2::sol2
   )

@@ -15,7 +15,7 @@ target_include_directories(MLIRTensorRTDialectIncludes INTERFACE
   "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
   "$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>"
 )
-mtrt_add_install(MLIRTensorRTDialectIncludes)
+mtrt_add_install(MLIRTensorRTDialectIncludes UMBRELLA mtrt-headers)
 
 get_target_property(common_include_dirs
                     MLIRTensorRTCommonIncludes INTERFACE_INCLUDE_DIRECTORIES)

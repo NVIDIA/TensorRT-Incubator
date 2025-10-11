@@ -3,13 +3,16 @@
 get_property(mtrt_libs GLOBAL PROPERTY MTRT_STATIC_LIBS)
 get_property(mlir_libs GLOBAL PROPERTY MLIR_STATIC_LIBS)
 mtrt_get_project_targets(MLIRTensorRT LIBRARY_TYPE CAPI OUT_VAR capi_libs)
+mtrt_get_project_targets(MLIRTensorRT LIBRARY_TYPE MLIR_LIBS OUT_VAR mtrt_required_mlir_libs)
 
 # Additional libraries for tools.
 list(APPEND mlir_libs
   MLIRLspServerLib
   MLIROptLib
   MLIRTranslateLib
+  ${mtrt_required_mlir_libs}
 )
+list(REMOVE_DUPLICATES mlir_libs)
 
 list(APPEND mtrt_libs
   ${capi_libs}

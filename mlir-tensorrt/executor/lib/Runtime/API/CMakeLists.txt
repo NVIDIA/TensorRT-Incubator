@@ -34,7 +34,6 @@ add_mlir_executor_runtime_library(MLIRTensorRTExecutorRuntimeAPI
   MLIRTensorRTSupportAllocators
   MLIRTensorRTSupportStatus
   MLIRTensorRTSupportStridedCopy
-  sol2::sol2
   ${MLIR_TRT_MPI_TARGET}
   ${MLIR_TRT_NCCL_TARGET}
   ${MLIR_TRT_CUDA_TARGET}

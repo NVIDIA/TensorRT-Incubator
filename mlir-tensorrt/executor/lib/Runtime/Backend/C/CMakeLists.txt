@@ -58,6 +58,8 @@ endif()
 add_mlir_aggregate(mtrt_runtime
   MTRTRuntime.cpp
 
+  DISABLE_INSTALL
+
   SHARED
   EMBED_LIBS
     ${built_modules}

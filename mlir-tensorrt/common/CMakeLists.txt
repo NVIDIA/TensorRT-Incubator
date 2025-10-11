@@ -8,7 +8,7 @@ target_include_directories(MLIRTensorRTCommonIncludes INTERFACE
   "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
   "$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>"
 )
-mtrt_add_install(MLIRTensorRTCommonIncludes)
+mtrt_add_install(MLIRTensorRTCommonIncludes UMBRELLA mtrt-headers)
 
 add_subdirectory(tools/mtrt-tblgen)
 add_subdirectory(include/mlir-tensorrt-common)

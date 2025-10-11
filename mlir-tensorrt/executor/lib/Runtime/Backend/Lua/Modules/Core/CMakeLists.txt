@@ -11,7 +11,6 @@ add_mlir_executor_runtime_capability_library(MLIRTensorRTExecutorRuntimeCoreModu
   MLIRTensorRTSupportAllocators
   MLIRTensorRTSupportStridedCopy
   nvtx3-cpp
-  sol2::sol2
 )
 
 target_compile_options(obj.MLIRTensorRTExecutorRuntimeCoreModule

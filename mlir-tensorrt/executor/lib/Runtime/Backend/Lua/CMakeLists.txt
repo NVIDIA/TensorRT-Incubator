@@ -1,3 +1,6 @@
+set(sol2_includes "$<TARGET_PROPERTY:sol2::sol2,INTERFACE_INCLUDE_DIRECTORIES>")
+include_directories(${sol2_includes})
+
 add_subdirectory(Modules)
 
 add_mlir_executor_runtime_library(MLIRTensorRTLuaExtensionRegistry
@@ -8,7 +11,6 @@ add_mlir_executor_runtime_library(MLIRTensorRTLuaExtensionRegistry
   LINK_LIBS PUBLIC
   lua::core
   MLIRTensorRTExecutorRuntimeAPI
-  sol2::sol2
   )
 
 
@@ -25,5 +27,4 @@ add_mlir_executor_runtime_library(MLIRTensorRTExecutionEngineLuaRuntime
   MLIRTensorRTExecutorRuntimeCommon
   MLIRTensorRTLuaExtensionRegistry
   nvtx3-cpp
-  sol2::sol2
 )

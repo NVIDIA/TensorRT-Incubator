@@ -15,7 +15,6 @@ add_mlir_executor_runtime_capability_library(MLIRTensorRTExecutorRuntimeCUDAModu
   MLIRTensorRTLuaExtensionRegistry
   MLIRTensorRTSupportStridedCopy
   nvtx3-cpp
-  sol2::sol2
 )
 
 target_compile_options(MLIRTensorRTExecutorRuntimeCUDAModule

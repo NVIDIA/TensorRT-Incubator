@@ -116,7 +116,7 @@ nv_register_package(
   EXCLUDE_FROM_ALL TRUE
   OPTIONS
     "FLATBUFFERS_BUILD_TESTS OFF"
-    "FLATBUFFERS_INSTALL ON"
+    "FLATBUFFERS_INSTALL OFF"
     "CMAKE_CXX_FLAGS -Wno-suggest-override"
 )
 
@@ -198,6 +198,7 @@ nv_register_package(
     add_library(lua-core EXCLUDE_FROM_ALL ${lua_sources})
     lua_set_target_copts(lua-core)
     target_link_libraries(lua-core PUBLIC dl m)
+    mtrt_add_install(lua-core UMBRELLA mtrt-dependencies)
     # Other libs should link `lua::core`.
     add_library(lua::core ALIAS lua-core)
     # Allow building main lua interpreter for whatever reason.

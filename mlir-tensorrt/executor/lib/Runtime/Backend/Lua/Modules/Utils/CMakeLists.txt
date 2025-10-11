@@ -7,7 +7,6 @@ add_mlir_executor_runtime_capability_library(MLIRTensorRTExecutorRuntimeModuleUt
   MLIRTensorRTExecutorRuntimeAPI
 
   PRIVATE
-  sol2::sol2
   lua::core
   MLIRTensorRTExecutorRuntimeCommon
 )

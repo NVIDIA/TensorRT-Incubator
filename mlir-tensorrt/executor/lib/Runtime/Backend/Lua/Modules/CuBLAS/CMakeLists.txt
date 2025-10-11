@@ -5,7 +5,6 @@ add_mlir_executor_runtime_capability_library(MLIRTensorRTExecutorRuntimeCuBLASMo
     MLIRTensorRTExecutorRuntimeAPI
     MLIRTensorRTExecutorCUDAUtils
     MLIRTensorRTExecutorRuntimeCommon
-    sol2::sol2
     lua::core
     nvtx3-cpp
     ${MLIR_TRT_CUDA_TARGET}
