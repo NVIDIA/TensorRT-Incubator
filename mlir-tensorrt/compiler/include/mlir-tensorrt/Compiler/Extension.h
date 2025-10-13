@@ -100,7 +100,7 @@ public:
       : TaskExtensionBase(TaskType::getName(), ExtensionType::getName(),
                           options) {}
 
-  using OptionsType = TaskType::OptionsType;
+  using OptionsType = typename TaskType::OptionsType;
 
   const OptionsType &getOptions() const {
     return static_cast<const OptionsType &>(this->ctx);
