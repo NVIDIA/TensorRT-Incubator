@@ -74,7 +74,11 @@ static LogicalResult serializeDenseResourceElementsAttr(
     uint64_t align) {
   uint64_t sizeBytes = dataLayout.getTypeSize(resourceAttr.getElementType());
   DenseResourceElementsHandle handle = resourceAttr.getRawHandle();
-  ArrayRef<char> data = handle.getResource()->getBlob()->getData();
+  if (!handle.getBlob())
+    return emitError(loc, "resource blob does not exist for key: " +
+                              handle.getKey());
+
+  ArrayRef<char> data = handle.getBlob()->getData();
   if (data.size() != resourceAttr.getNumElements() * sizeBytes)
     return emitError(loc, "unexpected serialization size ")
            << data.size() << ", expected serialization size is "
