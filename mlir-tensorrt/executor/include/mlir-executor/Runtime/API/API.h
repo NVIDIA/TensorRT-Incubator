@@ -419,6 +419,8 @@ struct PointerInfo {
 
 class RuntimeValue {
 public:
+  virtual ~RuntimeValue() = default;
+
   enum class Kind { Scalar, MemRef };
   RuntimeValue(Kind kind) : kind(kind) {}
   Kind getKind() const { return kind; }
