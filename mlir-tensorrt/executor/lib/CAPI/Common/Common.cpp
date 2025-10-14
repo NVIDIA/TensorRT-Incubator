@@ -295,13 +295,12 @@ MTRT_Status mtrtBoundsGetSize(MTRT_Bounds bounds,
     boundValues->size = d->min.size();
     return mtrtStatusGetOk();
   }
-  if (b->AsNoneBounds()) {
+  if (b->type == mtrt::flat::Bounds::NONE) {
     boundValues->size = 0;
     return mtrtStatusGetOk();
   }
-  assert(b->type == mtrt::flat::Bounds::NONE);
-  boundValues->size = 0;
-  return mtrtStatusGetOk();
+  return mtrtStatusCreate(MTRT_StatusCode::MTRT_StatusCode_InvalidArgument,
+                          "Unknown bounds type");
 }
 
 MTRT_Status mtrtBoundsGetMin(MTRT_Bounds bounds, MTRT_ArrayRefI64 *minBounds) {
@@ -317,7 +316,7 @@ MTRT_Status mtrtBoundsGetMin(MTRT_Bounds bounds, MTRT_ArrayRefI64 *minBounds) {
       minBounds->ptr[i] = d->min[i];
     return mtrtStatusGetOk();
   }
-  if (b->AsNoneBounds()) {
+  if (b->type == mtrt::flat::Bounds::NONE) {
     return mtrtStatusGetOk();
   }
   return mtrtStatusCreate(
@@ -338,7 +337,7 @@ MTRT_Status mtrtBoundsGetMax(MTRT_Bounds bounds, MTRT_ArrayRefI64 *maxBounds) {
       maxBounds->ptr[i] = d->max[i];
     return mtrtStatusGetOk();
   }
-  if (b->AsNoneBounds()) {
+  if (b->type == mtrt::flat::Bounds::NONE) {
     return mtrtStatusGetOk();
   }
   return mtrtStatusCreate(
@@ -441,7 +440,7 @@ MTRT_Status
 mtrtFunctionSignatureGetNumArgBounds(MTRT_FunctionSignature signature,
                                      int64_t *numArgBounds) {
   const mtrt::flat::FunctionSignature *sig = unwrap(signature);
-  *numArgBounds = FunctionSignatureView(sig).getNumArgBounds();
+  *numArgBounds = FunctionSignatureView(sig).getNumArgs();
   return mtrtStatusGetOk();
 }
 
@@ -449,7 +448,7 @@ MTRT_Status
 mtrtFunctionSignatureGetNumResBounds(MTRT_FunctionSignature signature,
                                      int64_t *numResBounds) {
   const mtrt::flat::FunctionSignature *sig = unwrap(signature);
-  *numResBounds = FunctionSignatureView(sig).getNumResBounds();
+  *numResBounds = FunctionSignatureView(sig).getNumResults();
   return mtrtStatusGetOk();
 }
 

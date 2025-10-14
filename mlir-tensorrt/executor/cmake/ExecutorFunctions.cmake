@@ -73,7 +73,7 @@ function(add_mlir_executor_flatbuffer_schema target)
     OUTPUT "${generatedFileName}"
     COMMAND flatc --cpp --cpp-std c++17 -o ${CMAKE_CURRENT_BINARY_DIR}
             --filename-suffix Flatbuffer "${ARG_SRC}"
-            --gen-object-api
+            --gen-object-api --force-empty-vectors
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
     DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/${ARG_SRC}" flatc
     COMMENT "Generating FlatBuffer schema ${generatedFileName} from ${ARG_SRC}"

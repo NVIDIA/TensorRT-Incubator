@@ -243,11 +243,25 @@ static FailureOr<mtrt::ScalarTypeCode> translateScalarType(Type t) {
   return failure();
 }
 
-/// Serialize the given attribute into the flatbuffer as a Union object. This
-/// returns two offsets (one for Bounds enum code, another for the actual
-/// concrete bounds object)
-static FailureOr<UnionOffset<mtrt::flat::Bounds>>
-translateAttribute(FBBuilder &fb, Attribute attr) {
+/// Helper to createninj a BoundsUnion from DimensionBoundsT.
+static mtrt::flat::BoundsUnion
+createBoundsUnion(mtrt::flat::DimensionBoundsT &&bounds) {
+  mtrt::flat::BoundsUnion boundsUnion;
+  boundsUnion.Set(std::move(bounds));
+  return boundsUnion;
+}
+
+/// Helper to create a BoundsUnion from ValueBoundsT.
+static mtrt::flat::BoundsUnion
+createBoundsUnion(mtrt::flat::ValueBoundsT &&bounds) {
+  mtrt::flat::BoundsUnion boundsUnion;
+  boundsUnion.Set(std::move(bounds));
+  return boundsUnion;
+}
+
+/// Translate the given attribute into a native Object API BoundsUnion.
+/// Returns a BoundsUnion with type NONE for UnitAttr.
+static FailureOr<mtrt::flat::BoundsUnion> translateAttribute(Attribute attr) {
   if (!isa<executor::DimensionBoundsAttr, executor::ValueBoundsAttr, UnitAttr>(
           attr))
     return emitError(UnknownLoc::get(attr.getContext()))
@@ -255,26 +269,27 @@ translateAttribute(FBBuilder &fb, Attribute attr) {
            << ") in Executor function metadata";
 
   if (auto dims = llvm::dyn_cast<executor::DimensionBoundsAttr>(attr)) {
-    auto min = fb.serialize<int64_t>(dims.getMin());
-    auto max = fb.serialize<int64_t>(dims.getMax());
-    return std::make_pair(
-        mtrt::flat::Bounds::DimensionBounds,
-        mtrt::flat::CreateDimensionBounds(fb, min, max).Union());
+    mtrt::flat::DimensionBoundsT dimensionBounds;
+    dimensionBounds.min = {dims.getMin().asArrayRef().begin(),
+                           dims.getMin().asArrayRef().end()};
+    dimensionBounds.max = {dims.getMax().asArrayRef().begin(),
+                           dims.getMax().asArrayRef().end()};
+    return createBoundsUnion(std::move(dimensionBounds));
   }
 
   if (auto vals = llvm::dyn_cast<executor::ValueBoundsAttr>(attr)) {
     auto toI64 = [](const llvm::APInt &v) { return v.getSExtValue(); };
-    auto min = fb.serialize<int64_t>(
-        llvm::map_to_vector(vals.getMin().getValues<APInt>(), toI64));
-    auto max = fb.serialize<int64_t>(
-        llvm::map_to_vector(vals.getMax().getValues<APInt>(), toI64));
-    return std::make_pair(mtrt::flat::Bounds::ValueBounds,
-                          mtrt::flat::CreateValueBounds(fb, min, max).Union());
+    mtrt::flat::ValueBoundsT valueBounds;
+    auto minVec = llvm::map_to_vector(vals.getMin().getValues<APInt>(), toI64);
+    auto maxVec = llvm::map_to_vector(vals.getMax().getValues<APInt>(), toI64);
+    valueBounds.min = {minVec.begin(), minVec.end()};
+    valueBounds.max = {maxVec.begin(), maxVec.end()};
+    return createBoundsUnion(std::move(valueBounds));
   }
 
   assert(isa<UnitAttr>(attr) && "Must be a unit attribute");
-  return std::make_pair(mtrt::flat::Bounds::NoneBounds,
-                        mtrt::flat::CreateNoneBounds(fb).Union());
+  // Return a BoundsUnion with NONE type for UnitAttr
+  return mtrt::flat::BoundsUnion();
 }
 
 /// Translate the memory type into the equivalent flatbuffer API object.
@@ -294,11 +309,24 @@ translateMemoryType(executor::MemoryType t) {
   }
 }
 
-/// Serialize the given type into the flatbuffer as a Union object. This returns
-/// two offsets (one for Type enum code, another for the actual concrete type
-/// object.)
-static FailureOr<UnionOffset<mtrt::flat::Type>>
-translateTypeVariant(FBBuilder &fbBuilder, Type t) {
+/// Helper to create a TypeUnion from ScalarTypeT.
+static mtrt::flat::TypeUnion
+createTypeUnion(mtrt::flat::ScalarTypeT &&scalarType) {
+  mtrt::flat::TypeUnion typeUnion;
+  typeUnion.Set(std::move(scalarType));
+  return typeUnion;
+}
+
+/// Helper to create a TypeUnion from MemRefTypeT.
+static mtrt::flat::TypeUnion
+createTypeUnion(mtrt::flat::MemRefTypeT &&memrefType) {
+  mtrt::flat::TypeUnion typeUnion;
+  typeUnion.Set(std::move(memrefType));
+  return typeUnion;
+}
+
+/// Translate the given type into a native Object API TypeUnion.
+static FailureOr<mtrt::flat::TypeUnion> translateTypeVariant(Type t) {
   auto emitTranslateFailure = [&](Type t) {
     return emitError(UnknownLoc::get(t.getContext()))
            << "unhandled type (" << t << ") in Executor function metadata";
@@ -314,9 +342,8 @@ translateTypeVariant(FBBuilder &fbBuilder, Type t) {
         translateScalarType(memrefType.getElementType());
     if (failed(code))
       return emitTranslateFailure(memrefType.getElementType());
-    auto shape = fbBuilder.serialize<int64_t>(memrefType.getShape());
+
     auto [strides, offset] = memrefType.getStridesAndOffset();
-    auto stridesOffset = fbBuilder.serialize<int64_t>(strides);
 
     auto addressSpace = mtrt::PointerType::unknown;
     if (llvm::isa_and_nonnull<executor::MemoryTypeAttr>(
@@ -329,18 +356,23 @@ translateTypeVariant(FBBuilder &fbBuilder, Type t) {
               .getAddressSpace();
       addressSpace = *translateMemoryType(memoryType);
     }
-    return std::make_pair(mtrt::flat::Type::MemRefType,
-                          mtrt::flat::CreateMemRefType(fbBuilder, *code, shape,
-                                                       stridesOffset,
-                                                       addressSpace)
-                              .Union());
+
+    mtrt::flat::MemRefTypeT memref;
+    memref.element_type = *code;
+    memref.shape = {memrefType.getShape().begin(), memrefType.getShape().end()};
+    memref.strides = {strides.begin(), strides.end()};
+    memref.address_space = addressSpace;
+    return createTypeUnion(std::move(memref));
   }
+
   // Encode as a scalar type.
   FailureOr<mtrt::ScalarTypeCode> code = translateScalarType(t);
   if (failed(code))
     return emitTranslateFailure(t);
-  return std::make_pair(mtrt::flat::Type::ScalarType,
-                        mtrt::flat::CreateScalarType(fbBuilder, *code).Union());
+
+  mtrt::flat::ScalarTypeT scalar;
+  scalar.type = *code;
+  return createTypeUnion(std::move(scalar));
 }
 
 /// Translate the calling convention.
@@ -356,95 +388,77 @@ translateCallingConvention(executor::CallingConvention cconv) {
       "unknown MLIR Executor -> MTRT runtime calling convention translation");
 }
 
-/// Encode the FunctionSignature into the flatbuffer and return the offset of
-/// the serialized data.
-static FailureOr<Offset<mtrt::flat::FunctionSignature>>
-translateSignature(FBBuilder &fbBuilder,
-                   executor::FunctionMetadataAttr metadata) {
+/// Build a FunctionSignature using the Object API.
+static FailureOr<mtrt::flat::FunctionSignatureT>
+translateSignature(executor::FunctionMetadataAttr metadata) {
   assert(metadata && "expected valid FunctionMetadataAttr");
 
-  // Union type must be encoded as variant type + data.
-  SmallVector<mtrt::flat::Type> argVariantTypes, resultVariantTypes;
-  SmallVector<Offset<void>> argOffsets, resultOffsets;
-  argVariantTypes.reserve(metadata.getArgs().size());
-  argOffsets.reserve(metadata.getArgs().size());
-  resultVariantTypes.reserve(metadata.getResults().size());
-  resultOffsets.reserve(metadata.getResults().size());
+  mtrt::flat::FunctionSignatureT signature;
 
+  // Translate argument types
   for (Type t : metadata.getArgs()) {
-    auto arg = translateTypeVariant(fbBuilder, t);
-    if (failed(arg))
+    auto typeUnion = translateTypeVariant(t);
+    if (failed(typeUnion))
       return failure();
-    auto [argType, argOffset] = *arg;
-    argOffsets.push_back(argOffset);
-    argVariantTypes.push_back(argType);
+    signature.args.push_back(std::move(*typeUnion));
   }
 
+  // Translate result types
   for (Type t : metadata.getResults()) {
-    auto res = translateTypeVariant(fbBuilder, t);
-    if (failed(res))
+    auto typeUnion = translateTypeVariant(t);
+    if (failed(typeUnion))
       return failure();
-    auto [resultType, resultOffset] = *res;
-    resultVariantTypes.push_back(resultType);
-    resultOffsets.push_back(resultOffset);
+    signature.results.push_back(std::move(*typeUnion));
   }
 
-  SmallVector<mtrt::flat::Bounds> argBounds, resBounds;
-  SmallVector<Offset<void>> argBoundsOffsets, resBoundsOffsets;
+  // Translate bounds - collect non-NONE bounds and create index mappings
+  std::vector<mtrt::flat::BoundsUnion> boundsValues;
 
+  // Process argument bounds
   for (Attribute a : metadata.getArgBounds()) {
-    auto arg = translateAttribute(fbBuilder, a);
-    if (failed(arg))
+    auto boundsUnion = translateAttribute(a);
+    if (failed(boundsUnion))
       return failure();
-    auto [argAttr, argOffset] = *arg;
-    argBounds.push_back(argAttr);
-    argBoundsOffsets.push_back(argOffset);
+
+    if (boundsUnion->type != mtrt::flat::Bounds::NONE) {
+      signature.arg_bounds_indices.push_back(boundsValues.size());
+      boundsValues.push_back(std::move(*boundsUnion));
+    } else {
+      signature.arg_bounds_indices.push_back(-1);
+    }
   }
 
+  // Process result bounds
   for (Attribute a : metadata.getResultBounds()) {
-    auto res = translateAttribute(fbBuilder, a);
-    if (failed(res))
+    auto boundsUnion = translateAttribute(a);
+    if (failed(boundsUnion))
       return failure();
-    auto [resAttr, resOffset] = *res;
-    resBounds.push_back(resAttr);
-    resBoundsOffsets.push_back(resOffset);
+
+    if (boundsUnion->type != mtrt::flat::Bounds::NONE) {
+      signature.result_bounds_indices.push_back(boundsValues.size());
+      boundsValues.push_back(std::move(*boundsUnion));
+    } else {
+      signature.result_bounds_indices.push_back(-1);
+    }
   }
 
-  auto fbBounds = fbBuilder.serialize(argBounds);
-  auto fbBoundsOffsets = fbBuilder.serialize(argBoundsOffsets);
+  signature.bounds_values = std::move(boundsValues);
+  signature.num_output_args = metadata.getNumOutputArgs();
+  signature.shape_function_name =
+      metadata.getShapeFunc() ? metadata.getShapeFunc().getAttr().str() : "";
+  signature.calling_convention =
+      translateCallingConvention(metadata.getCconv());
 
-  auto shapeFuncSym =
-      metadata.getShapeFunc()
-          ? fbBuilder.CreateString(metadata.getShapeFunc().getAttr().str())
-          : fbBuilder.CreateString("");
-
-  return mtrt::flat::CreateFunctionSignature(
-      fbBuilder, fbBuilder.serialize(argVariantTypes),
-      fbBuilder.serialize(argOffsets), fbBuilder.serialize(resultVariantTypes),
-      fbBuilder.serialize(resultOffsets), metadata.getNumOutputArgs(), fbBounds,
-      fbBoundsOffsets, fbBuilder.serialize(resBounds),
-      fbBuilder.serialize(resBoundsOffsets), shapeFuncSym,
-      translateCallingConvention(metadata.getCconv()));
+  return signature;
 }
 
-/// Generate a function signature. This is used if there is no explicit
+/// Generate an empty function signature. This is used if there is no explicit
 /// 'executor.function_metadata' attached to the function.
-static FailureOr<Offset<mtrt::flat::FunctionSignature>>
-generateSignature(FBBuilder &fbBuilder, FunctionType metadata) {
-  // Union type must be encoded as variant type + data.
-  SmallVector<mtrt::flat::Type> argVariantTypes, resultVariantTypes;
-  SmallVector<Offset<void>> argOffsets, resultOffsets;
-  argVariantTypes.reserve(metadata.getNumInputs());
-  argOffsets.reserve(metadata.getNumInputs());
-  resultVariantTypes.reserve(metadata.getNumResults());
-  resultOffsets.reserve(metadata.getNumResults());
-  return mtrt::flat::CreateFunctionSignature(
-      fbBuilder, fbBuilder.serialize(argVariantTypes),
-      fbBuilder.serialize(argOffsets), fbBuilder.serialize(resultVariantTypes),
-      fbBuilder.serialize(resultOffsets), /*num_output_args=*/0,
-      /*arg_bounds_type=*/0, /*arg_bounds=*/0, /*result_bounds_type=*/0,
-      /*result_bounds=*/0, /*shape_function_name=*/0,
-      mtrt::CallingConvention::packed);
+static mtrt::flat::FunctionSignatureT generateSignature() {
+  mtrt::flat::FunctionSignatureT signature;
+  signature.num_output_args = 0;
+  signature.calling_convention = mtrt::CallingConvention::unpacked;
+  return signature;
 }
 
 /// Return a sanitized version of a symbol name by replacing special characters
@@ -585,21 +599,24 @@ mlir::translateToRuntimeExecutable(Operation *op) {
     if (func.isPrivate())
       continue;
 
-    FailureOr<Offset<mtrt::flat::FunctionSignature>> offt;
+    // Build Function using Object API
+    mtrt::flat::FunctionT function;
+    function.name = func.getName().str();
+
     if (auto metaAttr = func->getAttrOfType<executor::FunctionMetadataAttr>(
             executor::ExecutorDialect::kFunctionMetadataAttrName)) {
-      offt = translateSignature(fbBuilder, metaAttr);
+      auto sig = translateSignature(metaAttr);
+      if (failed(sig))
+        return failure();
+      function.signature =
+          std::make_unique<mtrt::flat::FunctionSignatureT>(std::move(*sig));
     } else {
-      offt = generateSignature(fbBuilder, func.getFunctionType());
+      function.signature =
+          std::make_unique<mtrt::flat::FunctionSignatureT>(generateSignature());
     }
-    if (failed(offt))
-      return failure();
 
-    Offset<fb::String> funcNameOffset =
-        fbBuilder.CreateString(func.getName().str());
-
-    funcOffsets.push_back(
-        mtrt::flat::CreateFunction(fbBuilder, funcNameOffset, *offt));
+    // Pack the Function object into the flatbuffer
+    funcOffsets.push_back(mtrt::flat::CreateFunction(fbBuilder, &function));
   }
 
   // Get the process grid by default we use a 2D process grid of shape (1, 1) if

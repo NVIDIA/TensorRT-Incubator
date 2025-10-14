@@ -71,10 +71,7 @@ table ValueBounds {
   max:[int64];
 }
 
-// Define an empty table to represent missing bounds.
-table NoneBounds {}
-
-union Bounds {DimensionBounds, ValueBounds, NoneBounds}
+union Bounds {DimensionBounds, ValueBounds}
 
 table FunctionSignature {
   args:[Type];
@@ -87,9 +84,12 @@ table FunctionSignature {
   num_output_args: uint32;
 
   // Store min/max bounds corresponding to args and results.
-  // arg_bounds and result_bounds size must be same as corresponding args and results size.
-  arg_bounds:[Bounds];
-  result_bounds:[Bounds];
+  // bounds_values contains the actual bounds objects (only non-None bounds).
+  // arg_bounds_indices and result_bounds_indices map from argument/result index
+  // to bounds_values index. A value of -1 indicates no bounds for that arg/result.
+  bounds_values:[Bounds];
+  arg_bounds_indices:[int32];
+  result_bounds_indices:[int32];
 
   // An optional shape function name for the given function.
   shape_function_name:string;

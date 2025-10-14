@@ -112,7 +112,7 @@ endif()
 nv_register_package(
   NAME Flatbuffers
   GIT_REPOSITORY https://github.com/google/flatbuffers.git
-  GIT_TAG v25.2.10
+  GIT_TAG v25.9.23
   EXCLUDE_FROM_ALL TRUE
   OPTIONS
     "FLATBUFFERS_BUILD_TESTS OFF"

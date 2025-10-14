@@ -279,12 +279,6 @@ public:
     return getNumArgs() - getNumOutputArgs();
   }
   uint32_t getNumOutputArgs() const { return view->num_output_args(); }
-  uint32_t getNumArgBounds() const {
-    return view->arg_bounds() ? view->arg_bounds()->size() : 0;
-  }
-  uint32_t getNumResBounds() const {
-    return view->result_bounds() ? view->result_bounds()->size() : 0;
-  }
 
   TypeUnionView getArg(int64_t idx) const {
     assert(idx < getNumArgs() && "expected valid argument index");
@@ -298,15 +292,21 @@ public:
   }
 
   BoundsUnionView getArgBound(int64_t idx) const {
-    assert(idx < getNumArgBounds() && "expected valid argument bounds index");
-    return BoundsUnionView{view->arg_bounds_type()->Get(idx),
-                           view->arg_bounds()->Get(idx)};
+    assert(idx < getNumArgs() && "expected valid argument index");
+    int32_t boundsIdx = view->arg_bounds_indices()->Get(idx);
+    if (boundsIdx < 0)
+      return BoundsUnionView{mtrt::flat::Bounds::NONE, nullptr};
+    return BoundsUnionView{view->bounds_values_type()->Get(boundsIdx),
+                           view->bounds_values()->Get(boundsIdx)};
   }
 
   BoundsUnionView getResultBound(int64_t idx) const {
-    assert(idx < getNumResBounds() && "expected valid result bounds index");
-    return BoundsUnionView{view->result_bounds_type()->Get(idx),
-                           view->result_bounds()->Get(idx)};
+    assert(idx < getNumResults() && "expected valid result index");
+    int32_t boundsIdx = view->result_bounds_indices()->Get(idx);
+    if (boundsIdx < 0)
+      return BoundsUnionView{mtrt::flat::Bounds::NONE, nullptr};
+    return BoundsUnionView{view->bounds_values_type()->Get(boundsIdx),
+                           view->bounds_values()->Get(boundsIdx)};
   }
 
   TypeUnionView getOutputArg(int64_t idx) const {
@@ -340,7 +340,7 @@ public:
 
   llvm::SmallVector<BoundsUnionView> getArgBounds() const {
     llvm::SmallVector<BoundsUnionView> args;
-    unsigned numArgs = getNumArgBounds();
+    unsigned numArgs = getNumArgs();
     args.reserve(numArgs);
     for (unsigned i = 0; i < numArgs; i++)
       args.push_back(getArgBound(i));
@@ -349,7 +349,7 @@ public:
 
   llvm::SmallVector<BoundsUnionView> getResultBounds() const {
     llvm::SmallVector<BoundsUnionView> args;
-    unsigned numArgs = getNumResBounds();
+    unsigned numArgs = getNumResults();
     args.reserve(numArgs);
     for (unsigned i = 0; i < numArgs; i++)
       args.push_back(getResultBound(i));
