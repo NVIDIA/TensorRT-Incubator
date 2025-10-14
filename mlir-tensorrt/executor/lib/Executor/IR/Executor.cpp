@@ -1307,6 +1307,76 @@ LogicalResult AllocateOp::verify() {
 }
 
 //===----------------------------------------------------------------------===//
+// ABIRecvOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult ABIRecvOp::verify() {
+  auto blockArg = dyn_cast<BlockArgument>(getPtr());
+  if (!blockArg)
+    return emitOpError() << "ptr operand must be a function argument";
+
+  auto func = dyn_cast<FunctionOpInterface>(blockArg.getOwner()->getParentOp());
+  if (!func)
+    return emitOpError() << "ptr operand must be a function argument";
+
+  auto abiAttr = func.getArgAttr(blockArg.getArgNumber(),
+                                  ExecutorDialect::kArgABIAttrName);
+  if (!abiAttr)
+    return emitOpError() << "argument must have "
+                         << ExecutorDialect::kArgABIAttrName << " attribute";
+
+  auto argABIAttr = dyn_cast<ArgumentABIAttr>(abiAttr);
+  if (!argABIAttr)
+    return emitOpError() << "expected " << ExecutorDialect::kArgABIAttrName
+                         << " to be #executor.arg<...>";
+
+  if (argABIAttr.getAbi() != ArgABIKind::byval)
+    return emitOpError() << "argument must have #executor.arg<byval, ...> ABI";
+
+  if (getResult().getType() != argABIAttr.getValueType())
+    return emitOpError() << "result type " << getResult().getType()
+                         << " must match ABI value type "
+                         << argABIAttr.getValueType();
+
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// ABISendOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult ABISendOp::verify() {
+  auto blockArg = dyn_cast<BlockArgument>(getPtr());
+  if (!blockArg)
+    return emitOpError() << "ptr operand must be a function argument";
+
+  auto func = dyn_cast<FunctionOpInterface>(blockArg.getOwner()->getParentOp());
+  if (!func)
+    return emitOpError() << "ptr operand must be a function argument";
+
+  auto abiAttr = func.getArgAttr(blockArg.getArgNumber(),
+                                  ExecutorDialect::kArgABIAttrName);
+  if (!abiAttr)
+    return emitOpError() << "argument must have "
+                         << ExecutorDialect::kArgABIAttrName << " attribute";
+
+  auto argABIAttr = dyn_cast<ArgumentABIAttr>(abiAttr);
+  if (!argABIAttr)
+    return emitOpError() << "expected " << ExecutorDialect::kArgABIAttrName
+                         << " to be #executor.arg<...>";
+
+  if (argABIAttr.getAbi() != ArgABIKind::byref)
+    return emitOpError() << "argument must have #executor.arg<byref, ...> ABI";
+
+  if (getValue().getType() != argABIAttr.getValueType())
+    return emitOpError() << "value type " << getValue().getType()
+                         << " must match ABI value type "
+                         << argABIAttr.getValueType();
+
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
 // ExecutorDialect Interfaces
 //===----------------------------------------------------------------------===//
 

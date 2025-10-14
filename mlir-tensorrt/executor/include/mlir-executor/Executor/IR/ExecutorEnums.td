@@ -98,4 +98,15 @@ def Executor_MemoryType : Executor_I32EnumAttr<
 def Executor_MemoryTypeAttr : Executor_EnumAttr<Executor_MemoryType, "memory_type">;
 
 
+def Executor_ArgABIKind : Executor_I32EnumAttr<
+  "ArgABIKind",
+  "the ABI of an argument of a function",
+  [
+    I32EnumAttrCase<"byval", 0>,
+    I32EnumAttrCase<"byref", 1>,
+  ]
+>;
+def Executor_ArgABIKindAttr : Executor_EnumAttr<Executor_ArgABIKind, "abi">;
+
+
 #endif // MLIR_TENSORRT_DIALECT_EXECUTOR_IR_EXECUTORENUMS_TD

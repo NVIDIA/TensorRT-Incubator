@@ -3,16 +3,17 @@
 
 include "mlir-executor/Executor/IR/ExecutorBase.td"
 
-include "mlir/Interfaces/MemorySlotInterfaces.td"
+include "mlir/Dialect/Bufferization/IR/BufferDeallocationOpInterface.td"
 include "mlir/Interfaces/CallInterfaces.td"
 include "mlir/Interfaces/FunctionInterfaces.td"
+include "mlir/Interfaces/InferTypeOpInterface.td"
+include "mlir/Interfaces/MemorySlotInterfaces.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 include "mlir/IR/BuiltinAttributeInterfaces.td"
 include "mlir/IR/BuiltinTypeInterfaces.td"
 include "mlir/IR/EnumAttr.td"
 include "mlir/IR/OpAsmInterface.td"
 include "mlir/IR/SymbolInterfaces.td"
-include "mlir/Interfaces/InferTypeOpInterface.td"
 
 //===----------------------------------------------------------------------===//
 // Traits
@@ -1369,6 +1370,46 @@ def Executor_PtrToIntOp : Executor_PointerCastOp<"ptrtoint"> {
 def Executor_IntToPtrOp : Executor_PointerCastOp<"inttoptr"> {
   let arguments = (ins Executor_Index:$arg);
   let results = (outs Executor_Ptr:$result);
+}
+
+
+//===----------------------------------------------------------------------===//
+// ABI Operations
+//===----------------------------------------------------------------------===//
+
+def Executor_ABIRecvOp : Executor_Op<"abi.recv", []> {
+  let summary = "receive an argument from the caller";
+  let description = [{
+    The `executor.abi.recv` operation represents loading an argument value
+    indirectly from a function input argument which has host pointer type.
+
+    The argument must be annotated with an `#executor.arg<byval, ...>` argument
+    ABI. Currently, only non-scalar value types are supported for passing
+    inputs via pointer arguments.
+
+    The result type of the operation must match the type of the argument's
+    `#executor.arg<byval, ...>` value type.
+  }];
+  let arguments = (ins Arg<Executor_HostPtr,"address where value is read", [MemRead]>:$ptr,
+       OptionalAttr<AnyAttr>:$memory_space);
+  let results = (outs AnyType:$result);
+  let assemblyFormat = "$ptr attr-dict `:` type($result)";
+  let hasVerifier = 1;
+}
+
+def Executor_ABISendOp : Executor_Op<"abi.send", []> {
+  let summary = "send an argument to the caller";
+  let description = [{
+    The `executor.abi.send` operation "stores" value to a function output argument
+    which has host poitner type and is annotated with `#executor.arg<byref, ...>`
+    argument ABI.
+
+    The value type of the argument's `#executor.arg<byref, ...>` must match the type
+    of `value`.
+  }];
+  let arguments = (ins AnyType:$value, Arg<Executor_HostPtr,"address where value is written", [MemWrite]>:$ptr);
+  let assemblyFormat = "$value `to` $ptr attr-dict `:` type($value)";
+  let hasVerifier = 1;
 }
 
 #endif // MLIR_TENSORRT_DIALECT_EXECUTOR_IR_EXECUTOROPS_TD

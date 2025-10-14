@@ -37,7 +37,8 @@ class Executor_PtrOf<Executor_MemoryTypeCase enumcase> : Type<
             "llvm::cast<mlir::executor::PointerType>($_self).getAddressSpace()"
             "== mlir::executor::MemoryType::"#enumcase.symbol>]>,
       "pointer of type " # enumcase.str>;
-def Executor_HostPtr : Executor_PtrOf<Executor_MemoryTypeHost>;
+def Executor_HostPtr : Executor_PtrOf<Executor_MemoryTypeHost>,
+   BuildableType<"$_builder.getType<mlir::executor::PointerType>(mlir::executor::MemoryType::host)">;
 def Executor_HostPinnedPtr : Executor_PtrOf<Executor_MemoryTypeHostPinned>;
 def Executor_HostVisiblePtr : AnyTypeOf<[
   Executor_PtrOf<Executor_MemoryTypeHostPinned>,

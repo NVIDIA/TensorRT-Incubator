@@ -68,6 +68,21 @@ def Executor_ValueBoundsAttr : Executor_Attr<"ValueBounds", "value_bounds"> {
   let genVerifyDecl = 1;
 }
 
+def Executor_ArgumentABIAttr : Executor_Attr<"ArgumentABI", "arg"> {
+  let description = [{
+    The `#executor.arg` attribute carries information about the ABI of an argument of a function.
+  }];
+
+  let parameters = (ins
+    EnumParameter<Executor_ArgABIKind>:$abi,
+    "::mlir::Type":$value_type
+  );
+
+  let assemblyFormat = [{
+    `<` $abi `,` $value_type `>`
+  }];
+}
+
 def Executor_FunctionMetadataAttr : Executor_Attr<"FunctionMetadata", "func_meta"> {
   let description = [{
     The `#executor.func_meta` attribute carries information about the

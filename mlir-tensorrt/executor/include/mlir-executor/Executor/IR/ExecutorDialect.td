@@ -44,8 +44,8 @@ def Executor_Dialect : Dialect {
     Toward these ends, the dialect provides a set of low-level instructions for
     basic arithmetic, but we allow for mixed-use of some ops in `func`, `scf`, and
     `cf` dialects. Our set of arithmetic is limited relative to `arith`. For
-    example, we exlcude operations equivalent to `arith.udiv` from our supported
-    set, although we could gradually widden the operator set as required.
+    example, we exclude operations equivalent to `arith.udiv` from our supported
+    set, although we could gradually widen the operator set as required.
 
     The Executor implicitly defines a notion of a "module" that can be loaded
     and executed. A module can contain a list of functions (which will be
@@ -101,6 +101,20 @@ def Executor_Dialect : Dialect {
     static StringRef getShapeBoundsAttrName() {
       return "executor.shape_profile";
     }
+
+
+    /// The name of the function argument attribute that indicates how the argument
+    /// will be lowered. It models the LLVM-style 'byref' and 'byval' modes of passing
+    /// input or output parameters through memory to a function.
+    /// Conceptually, if the attribute is 'byref' then the callee receives a pointer
+    /// to memory from the caller and it may write to it. In our system, we use this
+    /// for output arguments. If the ABI is 'byval' then the callee receives a notional
+    /// copy of the value in memory that is private to the callee, so this is used
+    /// for input arguments.
+    static constexpr StringRef kArgABIAttrName = "executor.abi";
+
+    /// Specifies the high-level function that the current function models.
+    static constexpr StringRef kFuncABIAttrName = "executor.func_abi";
 
   private:
     /// Register attributes for the Executor dialect.

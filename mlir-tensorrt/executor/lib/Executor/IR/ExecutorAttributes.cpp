@@ -338,7 +338,61 @@ Attribute executor::getFuncResultBounds(func::FuncOp func, int64_t argIdx) {
 LogicalResult
 ExecutorDialect::verifyOperationAttribute(Operation *op,
                                           NamedAttribute attribute) {
+
+  if (attribute.getName() == ExecutorDialect::kFuncABIAttrName) {
+    auto func = dyn_cast<FunctionOpInterface>(op);
+    if (!func)
+      return op->emitError() << "expected " << ExecutorDialect::kFuncABIAttrName
+                             << " attribute to be attached to a function";
+
+    auto typeAttr = dyn_cast<TypeAttr>(attribute.getValue());
+    if (!typeAttr)
+      return op->emitError()
+             << "expected " << ExecutorDialect::kFuncABIAttrName
+             << " to be a TypeAttr but got " << attribute.getValue();
+    auto abiFuncType = dyn_cast<FunctionType>(typeAttr.getValue());
+    if (!abiFuncType)
+      return op->emitError()
+             << "expected " << ExecutorDialect::kFuncABIAttrName
+             << " to be a FunctionType but got " << typeAttr.getValue();
+
+    if (func.getNumResults() != 0) {
+      return op->emitError()
+             << "function " << func.getName() << " is decorated with a "
+             << ExecutorDialect::kFuncABIAttrName << " attribute but it has "
+             << func.getNumResults()
+             << " results, but zero results are expected";
+    }
+
+    const unsigned numInputs = abiFuncType.getNumInputs();
+    const unsigned numOutputs = abiFuncType.getNumResults();
+    if (numInputs + numOutputs != func.getNumArguments()) {
+      return op->emitError()
+             << "function " << func.getName() << " has "
+             << func.getNumArguments()
+             << " arguments, but the ABI function type has function type "
+             << abiFuncType << ", which requires " << numInputs + numOutputs
+             << " parameters";
+    }
+
+    return success();
+  }
+
   return success();
+}
+
+static FailureOr<FunctionType> getABIFunctionType(FunctionOpInterface func) {
+  auto abiFuncTypeAttr =
+      func->getAttrOfType<TypeAttr>(ExecutorDialect::kFuncABIAttrName);
+  if (!abiFuncTypeAttr || !isa<FunctionType>(abiFuncTypeAttr.getValue()))
+    return func->emitError() << "expected " << ExecutorDialect::kFuncABIAttrName
+                             << " attribute to be TypeAttr with a FunctionType "
+                                "attached to the function "
+                                "containing arguments "
+                                "decorated with "
+                             << ExecutorDialect::kArgABIAttrName;
+
+  return cast<FunctionType>(abiFuncTypeAttr.getValue());
 }
 
 LogicalResult
@@ -362,6 +416,59 @@ ExecutorDialect::verifyRegionArgAttribute(Operation *op, unsigned regionIndex,
       return op->emitError()
              << "expected " << ExecutorDialect::kResultArgAttrName
              << " attribute to have i32 value";
+    return success();
+  }
+
+  if (attribute.getName() == ExecutorDialect::kArgABIAttrName) {
+    auto argABIAttr = dyn_cast<ArgumentABIAttr>(attribute.getValue());
+    if (!argABIAttr)
+      return op->emitError()
+             << "expected " << ExecutorDialect::kArgABIAttrName
+             << " attribute to be a #executor.arg<...> attribute";
+
+    auto func = dyn_cast<FunctionOpInterface>(op);
+    if (!func)
+      return op->emitError()
+             << "expected " << ExecutorDialect::kArgABIAttrName
+             << " attribute to be attached to a function argument";
+
+    FailureOr<FunctionType> abiFuncType = getABIFunctionType(func);
+    if (failed(abiFuncType))
+      return failure();
+
+    auto ptrType = dyn_cast<PointerType>(func.getArgument(argIndex).getType());
+    if (!ptrType || ptrType.getAddressSpace() != executor::MemoryType::host) {
+      return op->emitError() << "expected " << ExecutorDialect::kArgABIAttrName
+                             << " attribute to be attached to a host pointer "
+                                "type argument but got "
+                             << func.getArgument(argIndex).getType();
+    }
+
+    const unsigned numInputs = abiFuncType->getNumInputs();
+    const bool isInput = argIndex < numInputs;
+    Location loc = func.getArgument(argIndex).getLoc();
+    if (isInput) {
+      if (argABIAttr.getAbi() != executor::ArgABIKind::byval) {
+        return emitError(loc) << "expected " << ExecutorDialect::kArgABIAttrName
+                              << " attribute to be #executor.arg<byval, ...> "
+                                 "for input arguments";
+      }
+      if (isa<IntegerType, IndexType, FloatType, Float4E2M1FNType,
+              Float8E4M3FNType>(argABIAttr.getValueType())) {
+        return emitError(loc)
+               << "function " << func.getName() << " argument " << argIndex
+               << " has ABI " << argABIAttr
+               << " but input arguments passed by-val cannot have scalar value "
+                  "types";
+      }
+    }
+    if (!isInput && argABIAttr.getAbi() != executor::ArgABIKind::byref) {
+      return emitError(loc) << "expected " << ExecutorDialect::kArgABIAttrName
+                            << " attribute to be #executor.arg<byref, ...> "
+                               "for output arguments but got "
+                            << argABIAttr;
+    }
+
     return success();
   }
 
