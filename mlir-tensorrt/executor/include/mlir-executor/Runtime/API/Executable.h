@@ -148,25 +148,18 @@ class MemRefTypeView
     : public FlatbufferTypeObjectView<mtrt::flat::MemRefType,
                                       mtrt::flat::Type::MemRefType> {
 public:
-  MemRefTypeView(const mtrt::flat::MemRefType *view)
-      : FlatbufferTypeObjectView(view) {}
+  MemRefTypeView(const mtrt::flat::MemRefType *view);
 
-  int64_t getRank() const { return view->shape()->size(); }
+  int64_t getRank() const;
 
   /// Return the scalar type code of the memref.
-  ScalarType getElementType() const { return view->element_type(); }
+  ScalarType getElementType() const;
 
-  llvm::ArrayRef<int64_t> getShape() const {
-    return llvm::ArrayRef<int64_t>(view->shape()->data(),
-                                   view->shape()->size());
-  }
-  llvm::ArrayRef<int64_t> getStrides() const {
-    return llvm::ArrayRef<int64_t>(view->strides()->data(),
-                                   view->strides()->size());
-  }
-  PointerType getAddressSpace() const {
-    return PointerType(view->address_space());
-  }
+  llvm::ArrayRef<int64_t> getShape() const;
+
+  llvm::ArrayRef<int64_t> getStrides() const;
+
+  PointerType getAddressSpace() const;
 };
 
 /// A wrapper equivalent to the flatbuffer-generated TypeUnion object. The
@@ -202,30 +195,22 @@ class DimensionBoundsView
     : public FlatbufferBoundsObjectView<mtrt::flat::DimensionBounds,
                                         mtrt::flat::Bounds::DimensionBounds> {
 public:
-  DimensionBoundsView(const mtrt::flat::DimensionBounds *view)
-      : FlatbufferBoundsObjectView(view) {}
+  DimensionBoundsView(const mtrt::flat::DimensionBounds *view);
 
-  llvm::ArrayRef<int64_t> getMin() const {
-    return llvm::ArrayRef<int64_t>(view->min()->data(), view->min()->size());
-  }
-  llvm::ArrayRef<int64_t> getMax() const {
-    return llvm::ArrayRef<int64_t>(view->max()->data(), view->max()->size());
-  }
+  llvm::ArrayRef<int64_t> getMin() const;
+
+  llvm::ArrayRef<int64_t> getMax() const;
 };
 
 class ValueBoundsView
     : public FlatbufferBoundsObjectView<mtrt::flat::ValueBounds,
                                         mtrt::flat::Bounds::ValueBounds> {
 public:
-  ValueBoundsView(const mtrt::flat::ValueBounds *view)
-      : FlatbufferBoundsObjectView(view) {}
+  ValueBoundsView(const mtrt::flat::ValueBounds *view);
 
-  llvm::ArrayRef<int64_t> getMin() const {
-    return llvm::ArrayRef<int64_t>(view->min()->data(), view->min()->size());
-  }
-  llvm::ArrayRef<int64_t> getMax() const {
-    return llvm::ArrayRef<int64_t>(view->max()->data(), view->max()->size());
-  }
+  llvm::ArrayRef<int64_t> getMin() const;
+
+  llvm::ArrayRef<int64_t> getMax() const;
 };
 
 /// A wrapper equivalent to the flatbuffer-generated BoundsUnion object. The
@@ -262,109 +247,57 @@ llvm::raw_ostream &print(llvm::raw_ostream &os,
 /// provides a read-only view into the buffer.
 class FunctionSignatureView {
 public:
-  FunctionSignatureView(const mtrt::flat::FunctionSignature *view)
-      : view(view) {
-    assert(view != nullptr && "expected valid view");
-  }
+  /// Construct a FunctionSignatureView from a flatbuffer FunctionSignature
+  /// pointer.
+  FunctionSignatureView(const mtrt::flat::FunctionSignature *view);
 
-  uint32_t getNumArgs() const {
-    return view->args() ? view->args()->size() : 0;
-  }
-  uint32_t getNumResults() const {
-    return view->results() ? view->results()->size() : 0;
-  }
-  uint32_t getNumInputArgs() const {
-    assert(getNumArgs() >= getNumOutputArgs() &&
-           "invalid number of output arguments specified");
-    return getNumArgs() - getNumOutputArgs();
-  }
-  uint32_t getNumOutputArgs() const { return view->num_output_args(); }
+  /// Return the total number of arguments (input args + output args).
+  uint32_t getNumArgs() const;
 
-  TypeUnionView getArg(int64_t idx) const {
-    assert(idx < getNumArgs() && "expected valid argument index");
-    return TypeUnionView{view->args_type()->Get(idx), view->args()->Get(idx)};
-  }
+  /// Return the number of result values.
+  uint32_t getNumResults() const;
 
-  TypeUnionView getResult(int64_t idx) const {
-    assert(idx < getNumResults() && "expected valid result index");
-    return TypeUnionView{view->results_type()->Get(idx),
-                         view->results()->Get(idx)};
-  }
+  /// Return the number of input arguments (excludes output arguments).
+  uint32_t getNumInputArgs() const;
 
-  BoundsUnionView getArgBound(int64_t idx) const {
-    assert(idx < getNumArgs() && "expected valid argument index");
-    int32_t boundsIdx = view->arg_bounds_indices()->Get(idx);
-    if (boundsIdx < 0)
-      return BoundsUnionView{mtrt::flat::Bounds::NONE, nullptr};
-    return BoundsUnionView{view->bounds_values_type()->Get(boundsIdx),
-                           view->bounds_values()->Get(boundsIdx)};
-  }
+  /// Return the number of output arguments.
+  uint32_t getNumOutputArgs() const;
 
-  BoundsUnionView getResultBound(int64_t idx) const {
-    assert(idx < getNumResults() && "expected valid result index");
-    int32_t boundsIdx = view->result_bounds_indices()->Get(idx);
-    if (boundsIdx < 0)
-      return BoundsUnionView{mtrt::flat::Bounds::NONE, nullptr};
-    return BoundsUnionView{view->bounds_values_type()->Get(boundsIdx),
-                           view->bounds_values()->Get(boundsIdx)};
-  }
+  /// Return the type of the argument at index \p idx.
+  TypeUnionView getArg(int64_t idx) const;
 
-  TypeUnionView getOutputArg(int64_t idx) const {
-    assert(idx < getNumOutputArgs() && "expected valid output argument index");
-    unsigned offset = getNumInputArgs() + idx;
-    return TypeUnionView{view->args_type()->Get(offset),
-                         view->args()->Get(offset)};
-  }
-  int64_t isOutputArg(int64_t argIdx) const {
-    assert(argIdx < getNumArgs() && "expected valid argument index");
-    return argIdx >= (getNumArgs() - getNumOutputArgs());
-  }
+  /// Return the type of the result at index \p idx.
+  TypeUnionView getResult(int64_t idx) const;
 
-  llvm::SmallVector<TypeUnionView> getArgs() const {
-    llvm::SmallVector<TypeUnionView> args;
-    unsigned numArgs = getNumArgs();
-    args.reserve(numArgs);
-    for (unsigned i = 0; i < numArgs; i++)
-      args.push_back(getArg(i));
-    return args;
-  }
+  /// Return the bounds for the argument at index \p idx, if any.
+  BoundsUnionView getArgBound(int64_t idx) const;
 
-  llvm::SmallVector<TypeUnionView> getResults() const {
-    llvm::SmallVector<TypeUnionView> args;
-    unsigned numArgs = getNumResults();
-    args.reserve(numArgs);
-    for (unsigned i = 0; i < numArgs; i++)
-      args.push_back(getResult(i));
-    return args;
-  }
+  /// Return the bounds for the result at index \p idx, if any.
+  BoundsUnionView getResultBound(int64_t idx) const;
 
-  llvm::SmallVector<BoundsUnionView> getArgBounds() const {
-    llvm::SmallVector<BoundsUnionView> args;
-    unsigned numArgs = getNumArgs();
-    args.reserve(numArgs);
-    for (unsigned i = 0; i < numArgs; i++)
-      args.push_back(getArgBound(i));
-    return args;
-  }
+  /// Return the type of the output argument at index \p idx.
+  TypeUnionView getOutputArg(int64_t idx) const;
 
-  llvm::SmallVector<BoundsUnionView> getResultBounds() const {
-    llvm::SmallVector<BoundsUnionView> args;
-    unsigned numArgs = getNumResults();
-    args.reserve(numArgs);
-    for (unsigned i = 0; i < numArgs; i++)
-      args.push_back(getResultBound(i));
-    return args;
-  }
+  /// Return true if the argument at index \p argIdx is an output argument.
+  bool isOutputArg(int64_t argIdx) const;
 
-  std::optional<std::string_view> getShapeFunctionName() const {
-    const flatbuffers::String *name = view->shape_function_name();
-    if (!name || name->size() == 0)
-      return std::nullopt;
-    return view->shape_function_name()->string_view();
-  }
+  /// Return a vector containing all argument types.
+  llvm::SmallVector<TypeUnionView> getArgs() const;
+
+  /// Return a vector containing all result types.
+  llvm::SmallVector<TypeUnionView> getResults() const;
+
+  /// Return a vector containing bounds for all arguments.
+  llvm::SmallVector<BoundsUnionView> getArgBounds() const;
+
+  /// Return a vector containing bounds for all results.
+  llvm::SmallVector<BoundsUnionView> getResultBounds() const;
+
+  /// Return the name of the associated shape function, if any.
+  std::optional<std::string_view> getShapeFunctionName() const;
 
   /// Returns the calling convention associated with this function.
-  CallingConvention getCConv() const { return view->calling_convention(); }
+  CallingConvention getCConv() const;
 
   const mtrt::flat::FunctionSignature *view;
 };
@@ -373,20 +306,23 @@ public:
 /// does not own any memory; it only provides a read-only view into the buffer.
 class FunctionView {
 public:
-  FunctionView(const mtrt::flat::Function *view) : view(view) {
-    assert(view != nullptr);
-  }
-  FunctionView() : view(nullptr) {}
+  /// Construct a FunctionView from a flatbuffer Function pointer.
+  FunctionView(const mtrt::flat::Function *view);
 
-  FunctionSignatureView getSignature() const {
-    return FunctionSignatureView(view->signature());
-  }
+  /// Construct an empty FunctionView with null view pointer.
+  FunctionView();
 
-  std::string_view getName() const { return view->name()->string_view(); }
+  /// Return the signature of this function.
+  FunctionSignatureView getSignature() const;
 
-  operator bool() const { return view != nullptr; }
+  /// Return the name of this function.
+  std::string_view getName() const;
 
-  operator const mtrt::flat::Function *() const { return view; }
+  /// Allow contextual conversion to bool for checking validity.
+  operator bool() const;
+
+  /// Allow implicit conversion to the underlying flatbuffer Function pointer.
+  operator const mtrt::flat::Function *() const;
 
 private:
   const mtrt::flat::Function *view;
@@ -397,21 +333,23 @@ private:
 /// buffer.
 class DataSegmentInfo {
 public:
-  DataSegmentInfo(const mtrt::flat::DataSegment *view) : view(view) {}
+  DataSegmentInfo(const mtrt::flat::DataSegment *view);
 
-  std::string_view getName() const { return view->name()->string_view(); }
+  std::string_view getName() const;
 
-  const int8_t *data() const {
-    return view->data() ? view->data()->data() : nullptr;
-  }
-  size_t size() const {
-    return view->data() ? view->data()->size() : getUninitializedSize();
-  }
-  uint32_t getAlignment() const { return view->alignment(); }
-  bool isConstant() const { return view->constant(); }
-  bool isUninitialized() const { return view->uninitialized_size() > 0; }
-  uint64_t getUninitializedSize() const { return view->uninitialized_size(); }
-  PointerType getAddressSpace() const { return view->address_space(); }
+  const int8_t *data() const;
+
+  size_t size() const;
+
+  uint32_t getAlignment() const;
+
+  bool isConstant() const;
+
+  bool isUninitialized() const;
+
+  uint64_t getUninitializedSize() const;
+
+  PointerType getAddressSpace() const;
 
 private:
   const mtrt::flat::DataSegment *view;
@@ -425,42 +363,25 @@ private:
 /// API for accessing an Executable object serialized into a flatbuffer.
 class ExecutableView {
 public:
-  ExecutableView(const mtrt::flat::Executable *view) : view(view) {}
+  ExecutableView(const mtrt::flat::Executable *view);
 
-  std::string_view getCode() const { return view->source()->string_view(); }
+  std::string_view getCode() const;
 
-  size_t getNumFunctions() const { return view->functions()->size(); }
+  size_t getNumFunctions() const;
 
-  FunctionView getFunction(int64_t idx) const {
-    return FunctionView(view->functions()->Get(idx));
-  }
+  FunctionView getFunction(int64_t idx) const;
 
   /// Return a function by name. This asserts that the function with the given
   /// name exists.
   StatusOr<FunctionView> getFunction(std::string_view name) const;
 
-  size_t getNumDataSegments() const {
-    if (!view || !view->data_segments())
-      return 0;
-    return view->data_segments()->size();
-  }
+  size_t getNumDataSegments() const;
 
-  DataSegmentInfo getDataSegments(int64_t idx) const {
-    assert(view->data_segments() && "expected valid data segment pointer");
-    return view->data_segments()->Get(idx);
-  }
+  DataSegmentInfo getDataSegments(int64_t idx) const;
 
-  std::string_view getName() const {
-    if (!view->name())
-      return "unnamed-executable";
-    return view->name()->string_view();
-  }
+  std::string_view getName() const;
 
-  llvm::ArrayRef<uint32_t> getProcessorGridShape() const {
-    assert(view->process_grid_shape() && "expected valid process grid shape");
-    return llvm::ArrayRef<uint32_t>(view->process_grid_shape()->data(),
-                                    view->process_grid_shape()->size());
-  }
+  llvm::ArrayRef<uint32_t> getProcessorGridShape() const;
 
   /// Return a vector of DataSegmentInfos.
   llvm::SmallVector<DataSegmentInfo> getDataSegments() const;
@@ -469,7 +390,7 @@ public:
   llvm::SmallVector<FunctionView> getFunctions() const;
 
   /// Allow contextual conversion to bool for checking validity.
-  operator bool() const { return view != nullptr; }
+  operator bool() const;
 
 protected:
   const mtrt::flat::Executable *view;

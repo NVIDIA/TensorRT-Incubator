@@ -123,8 +123,255 @@ bool mtrt::isHostVisible(PointerType type) {
 }
 
 //===----------------------------------------------------------------------===//
+// DimensionBoundsView
+//===----------------------------------------------------------------------===//
+
+DimensionBoundsView::DimensionBoundsView(
+    const mtrt::flat::DimensionBounds *view)
+    : FlatbufferBoundsObjectView(view) {}
+
+llvm::ArrayRef<int64_t> DimensionBoundsView::getMin() const {
+  return llvm::ArrayRef<int64_t>(view->min()->data(), view->min()->size());
+}
+
+llvm::ArrayRef<int64_t> DimensionBoundsView::getMax() const {
+  return llvm::ArrayRef<int64_t>(view->max()->data(), view->max()->size());
+}
+
+//===----------------------------------------------------------------------===//
+// ValueBoundsView
+//===----------------------------------------------------------------------===//
+
+ValueBoundsView::ValueBoundsView(const mtrt::flat::ValueBounds *view)
+    : FlatbufferBoundsObjectView(view) {}
+
+llvm::ArrayRef<int64_t> ValueBoundsView::getMin() const {
+  return llvm::ArrayRef<int64_t>(view->min()->data(), view->min()->size());
+}
+
+llvm::ArrayRef<int64_t> ValueBoundsView::getMax() const {
+  return llvm::ArrayRef<int64_t>(view->max()->data(), view->max()->size());
+}
+
+//===----------------------------------------------------------------------===//
+// MemRefTypeView
+//===----------------------------------------------------------------------===//
+
+MemRefTypeView::MemRefTypeView(const mtrt::flat::MemRefType *view)
+    : FlatbufferTypeObjectView(view) {}
+
+int64_t MemRefTypeView::getRank() const { return view->shape()->size(); }
+
+ScalarType MemRefTypeView::getElementType() const {
+  return view->element_type();
+}
+
+llvm::ArrayRef<int64_t> MemRefTypeView::getShape() const {
+  return llvm::ArrayRef<int64_t>(view->shape()->data(), view->shape()->size());
+}
+
+llvm::ArrayRef<int64_t> MemRefTypeView::getStrides() const {
+  return llvm::ArrayRef<int64_t>(view->strides()->data(),
+                                 view->strides()->size());
+}
+
+PointerType MemRefTypeView::getAddressSpace() const {
+  return PointerType(view->address_space());
+}
+
+//===----------------------------------------------------------------------===//
+// FunctionSignatureView
+//===----------------------------------------------------------------------===//
+
+FunctionSignatureView::FunctionSignatureView(
+    const mtrt::flat::FunctionSignature *view)
+    : view(view) {
+  assert(view != nullptr && "expected valid view");
+}
+
+uint32_t FunctionSignatureView::getNumArgs() const {
+  return view->args() ? view->args()->size() : 0;
+}
+
+uint32_t FunctionSignatureView::getNumResults() const {
+  return view->results() ? view->results()->size() : 0;
+}
+
+uint32_t FunctionSignatureView::getNumInputArgs() const {
+  assert(getNumArgs() >= getNumOutputArgs() &&
+         "invalid number of output arguments specified");
+  return getNumArgs() - getNumOutputArgs();
+}
+
+uint32_t FunctionSignatureView::getNumOutputArgs() const {
+  return view->num_output_args();
+}
+
+TypeUnionView FunctionSignatureView::getArg(int64_t idx) const {
+  assert(idx < getNumArgs() && "expected valid argument index");
+  return TypeUnionView{view->args_type()->Get(idx), view->args()->Get(idx)};
+}
+
+TypeUnionView FunctionSignatureView::getResult(int64_t idx) const {
+  assert(idx < getNumResults() && "expected valid result index");
+  return TypeUnionView{view->results_type()->Get(idx),
+                       view->results()->Get(idx)};
+}
+
+BoundsUnionView FunctionSignatureView::getArgBound(int64_t idx) const {
+  assert(idx < getNumArgs() && "expected valid argument index");
+  int32_t boundsIdx = view->arg_bounds_indices()->Get(idx);
+  if (boundsIdx < 0)
+    return BoundsUnionView{mtrt::flat::Bounds::NONE, nullptr};
+  return BoundsUnionView{view->bounds_values_type()->Get(boundsIdx),
+                         view->bounds_values()->Get(boundsIdx)};
+}
+
+BoundsUnionView FunctionSignatureView::getResultBound(int64_t idx) const {
+  assert(idx < getNumResults() && "expected valid result index");
+  int32_t boundsIdx = view->result_bounds_indices()->Get(idx);
+  if (boundsIdx < 0)
+    return BoundsUnionView{mtrt::flat::Bounds::NONE, nullptr};
+  return BoundsUnionView{view->bounds_values_type()->Get(boundsIdx),
+                         view->bounds_values()->Get(boundsIdx)};
+}
+
+TypeUnionView FunctionSignatureView::getOutputArg(int64_t idx) const {
+  assert(idx < getNumOutputArgs() && "expected valid output argument index");
+  unsigned offset = getNumInputArgs() + idx;
+  return TypeUnionView{view->args_type()->Get(offset),
+                       view->args()->Get(offset)};
+}
+
+bool FunctionSignatureView::isOutputArg(int64_t argIdx) const {
+  assert(argIdx < getNumArgs() && "expected valid argument index");
+  return argIdx >= (getNumArgs() - getNumOutputArgs());
+}
+
+llvm::SmallVector<TypeUnionView> FunctionSignatureView::getArgs() const {
+  llvm::SmallVector<TypeUnionView> args;
+  unsigned numArgs = getNumArgs();
+  args.reserve(numArgs);
+  for (unsigned i = 0; i < numArgs; i++)
+    args.push_back(getArg(i));
+  return args;
+}
+
+llvm::SmallVector<TypeUnionView> FunctionSignatureView::getResults() const {
+  llvm::SmallVector<TypeUnionView> results;
+  unsigned numResults = getNumResults();
+  results.reserve(numResults);
+  for (unsigned i = 0; i < numResults; i++)
+    results.push_back(getResult(i));
+  return results;
+}
+
+llvm::SmallVector<BoundsUnionView> FunctionSignatureView::getArgBounds() const {
+  llvm::SmallVector<BoundsUnionView> bounds;
+  unsigned numArgs = getNumArgs();
+  bounds.reserve(numArgs);
+  for (unsigned i = 0; i < numArgs; i++)
+    bounds.push_back(getArgBound(i));
+  return bounds;
+}
+
+llvm::SmallVector<BoundsUnionView>
+FunctionSignatureView::getResultBounds() const {
+  llvm::SmallVector<BoundsUnionView> bounds;
+  unsigned numResults = getNumResults();
+  bounds.reserve(numResults);
+  for (unsigned i = 0; i < numResults; i++)
+    bounds.push_back(getResultBound(i));
+  return bounds;
+}
+
+std::optional<std::string_view>
+FunctionSignatureView::getShapeFunctionName() const {
+  const flatbuffers::String *name = view->shape_function_name();
+  if (!name || name->size() == 0)
+    return std::nullopt;
+  return view->shape_function_name()->string_view();
+}
+
+CallingConvention FunctionSignatureView::getCConv() const {
+  return view->calling_convention();
+}
+
+//===----------------------------------------------------------------------===//
+// FunctionView
+//===----------------------------------------------------------------------===//
+
+FunctionView::FunctionView(const mtrt::flat::Function *view) : view(view) {
+  assert(view != nullptr);
+}
+
+FunctionView::FunctionView() : view(nullptr) {}
+
+FunctionSignatureView FunctionView::getSignature() const {
+  return FunctionSignatureView(view->signature());
+}
+
+std::string_view FunctionView::getName() const {
+  return view->name()->string_view();
+}
+
+FunctionView::operator bool() const { return view != nullptr; }
+
+FunctionView::operator const mtrt::flat::Function *() const { return view; }
+
+//===----------------------------------------------------------------------===//
+// DataSegmentInfo
+//===----------------------------------------------------------------------===//
+
+DataSegmentInfo::DataSegmentInfo(const mtrt::flat::DataSegment *view)
+    : view(view) {}
+
+std::string_view DataSegmentInfo::getName() const {
+  return view->name()->string_view();
+}
+
+const int8_t *DataSegmentInfo::data() const {
+  return view->data() ? view->data()->data() : nullptr;
+}
+
+size_t DataSegmentInfo::size() const {
+  return view->data() ? view->data()->size() : getUninitializedSize();
+}
+
+uint32_t DataSegmentInfo::getAlignment() const { return view->alignment(); }
+
+bool DataSegmentInfo::isConstant() const { return view->constant(); }
+
+bool DataSegmentInfo::isUninitialized() const {
+  return view->uninitialized_size() > 0;
+}
+
+uint64_t DataSegmentInfo::getUninitializedSize() const {
+  return view->uninitialized_size();
+}
+
+PointerType DataSegmentInfo::getAddressSpace() const {
+  return view->address_space();
+}
+
+//===----------------------------------------------------------------------===//
 // ExecutableView
 //===----------------------------------------------------------------------===//
+
+ExecutableView::ExecutableView(const mtrt::flat::Executable *view)
+    : view(view) {}
+
+std::string_view ExecutableView::getCode() const {
+  return view->source()->string_view();
+}
+
+size_t ExecutableView::getNumFunctions() const {
+  return view->functions()->size();
+}
+
+FunctionView ExecutableView::getFunction(int64_t idx) const {
+  return FunctionView(view->functions()->Get(idx));
+}
 
 StatusOr<FunctionView>
 ExecutableView::getFunction(std::string_view name) const {
@@ -155,6 +402,31 @@ llvm::SmallVector<FunctionView> ExecutableView::getFunctions() const {
     views.push_back(view->functions()->Get(i));
   return views;
 }
+
+size_t ExecutableView::getNumDataSegments() const {
+  if (!view || !view->data_segments())
+    return 0;
+  return view->data_segments()->size();
+}
+
+DataSegmentInfo ExecutableView::getDataSegments(int64_t idx) const {
+  assert(view->data_segments() && "expected valid data segment pointer");
+  return view->data_segments()->Get(idx);
+}
+
+std::string_view ExecutableView::getName() const {
+  if (!view->name())
+    return "unnamed-executable";
+  return view->name()->string_view();
+}
+
+llvm::ArrayRef<uint32_t> ExecutableView::getProcessorGridShape() const {
+  assert(view->process_grid_shape() && "expected valid process grid shape");
+  return llvm::ArrayRef<uint32_t>(view->process_grid_shape()->data(),
+                                  view->process_grid_shape()->size());
+}
+
+ExecutableView::operator bool() const { return view != nullptr; }
 
 //===----------------------------------------------------------------------===//
 // ExecutableStorage (Implementations)
@@ -286,20 +558,24 @@ llvm::raw_ostream &mtrt::print(llvm::raw_ostream &os,
 }
 
 llvm::raw_ostream &mtrt::print(llvm::raw_ostream &os,
-                               const DimensionBoundsView &exe) {
+                               const DimensionBoundsView &dimBounds) {
   os << "dim_bounds<min = [";
-  llvm::interleave(exe.getMin(), os, [&](const auto &x) { os << x; }, ",");
+  llvm::interleave(
+      dimBounds.getMin(), os, [&](const auto &x) { os << x; }, ",");
   os << "], max = [";
-  llvm::interleave(exe.getMax(), os, [&](const auto &x) { os << x; }, ",");
+  llvm::interleave(
+      dimBounds.getMax(), os, [&](const auto &x) { os << x; }, ",");
   return os << "]>";
 }
 
 llvm::raw_ostream &mtrt::print(llvm::raw_ostream &os,
-                               const ValueBoundsView &exe) {
+                               const ValueBoundsView &valBounds) {
   os << "value_bounds<min = [";
-  llvm::interleave(exe.getMin(), os, [&](const auto &x) { os << x; }, ",");
+  llvm::interleave(
+      valBounds.getMin(), os, [&](const auto &x) { os << x; }, ",");
   os << "], max = [";
-  llvm::interleave(exe.getMax(), os, [&](const auto &x) { os << x; }, ",");
+  llvm::interleave(
+      valBounds.getMax(), os, [&](const auto &x) { os << x; }, ",");
   return os << "]>";
 }
 
