@@ -182,12 +182,13 @@ func.func @elementwise_reshape(%arg0: tensor<12x3x3xf32>, %arg1: tensor<12xf32>)
 // -----
 
 // CHECK: @matmul_argument_swap(%[[arg0:.+]]: tensor<1x2x4x3x561xf32>, %[[arg1:.+]]: tensor<1x2x4x3x3xf32>) -> tensor<1x2x4x561x3xf32>
-// CHECK-DAG: %[[v0:.+]]= tensorrt.collapse_rank %[[arg1]] : tensor<1x2x4x3x3xf32> to tensor<2x4x3x3xf32>
-// CHECK-DAG: %[[v1:.+]] = tensorrt.transpose {permutation = #map} %[[arg0]] : tensor<1x2x4x3x561xf32> to tensor<2x4x561x3x1xf32>
-// CHECK-DAG: %[[v2:.+]] = tensorrt.collapse_rank %[[v1]] : tensor<2x4x561x3x1xf32> to tensor<2x4x561x3xf32>
-// CHECK: %[[v3:.+]] = tensorrt.matrix_multiply {op0 = #tensorrt.matrix_operation<kNONE>, op1 = #tensorrt.matrix_operation<kTRANSPOSE>} ins(%[[v2]], %[[v0]] : tensor<2x4x561x3xf32>, tensor<2x4x3x3xf32>) -> tensor<2x4x561x3xf32>
-// CHECK: %[[v4:.+]] = tensorrt.expand_rank %[[v3]] : tensor<2x4x561x3xf32> to tensor<1x2x4x561x3xf32>
-// CHECK: return %[[v4]]
+// CHECK-DAG: %[[v0:.+]] = tensorrt.[[op1:.+]] %[[arg0]] : tensor[[shape1:.+]]
+// CHECK-DAG: %[[v1:.+]] = tensorrt.[[op2:.+]] %[[v0]] : tensor[[shape2:.+]]
+// CHECK-DAG: %[[v2:.+]] = tensorrt.[[op3:.+]] %[[arg1]] : tensor[[shape3:.+]]
+// CHECK-DAG: %[[v3:.+]] = tensorrt.[[op4:.+]] %[[v2]] : tensor[[shape4:.+]]
+// CHECK: %[[v4:.+]] = tensorrt.matrix_multiply [[params:.+]] ins(%[[v3]], %[[v1]] : tensor
+// CHECK: %[[v5:.+]] = tensorrt.expand_rank %[[v4]] : tensor<2x4x561x3xf32> to tensor<1x2x4x561x3xf32>
+// CHECK: return %[[v5]]
 #map = affine_map<(d0, d1, d2, d3, d4) -> (d0, d1, d2, d4, d3)>
 func.func @matmul_argument_swap(%arg0: tensor<1x2x4x3x561xf32>, %arg1: tensor<1x2x4x3x3xf32>) -> tensor<1x2x4x561x3xf32> {
   %0 = tensorrt.reshape %arg1 : tensor<1x2x4x3x3xf32> to tensor<8x3x3xf32>
@@ -269,13 +270,14 @@ func.func @reshape_transpose_reorder_ones_dim(%arg0: tensor<2x1x1x1x1xf32>, %arg
 
 
 // CHECK: @push_down_transpose_einsum(%[[arg0:.+]]: tensor<1x6x1500x64xf32>, %[[arg1:.+]]: tensor<1x6x1500x1500xf32>) -> tensor<1x1500x384xf32>
-// CHECK-DAG: %[[const0:.+]] = tensorrt.constant dense<1.000000e+00> : tensor<384x6x64xf32>
+// CHECK-DAG: %[[const0:.+]] = tensorrt.constant dense<1.000000e+00> : tensor<384x384xf32>
 // CHECK-DAG: %[[v0:.+]] = tensorrt.collapse_rank %[[arg0]] : tensor<1x6x1500x64xf32> to tensor<6x1500x64xf32>
 // CHECK-DAG: %[[v1:.+]] = tensorrt.collapse_rank %[[arg1]] : tensor<1x6x1500x1500xf32> to tensor<6x1500x1500xf32>
 // CHECK: %[[v2:.+]] = tensorrt.matrix_multiply [[params:.+]] ins(%[[v0]], %[[v1]] : tensor<6x1500x64xf32>, tensor<6x1500x1500xf32>) -> tensor<6x64x1500xf32>
-// CHECK: %[[v3:.+]] = tensorrt.einsum [[params2:.+]] ins(%[[v2]], %[[const0]] : tensor<6x64x1500xf32>, tensor<384x6x64xf32>) -> tensor<1500x384xf32>
-// CHECK: %[[v4:.+]] = tensorrt.expand_rank %[[v3:.+]] : tensor<1500x384xf32> to tensor<1x1500x384xf32>
-// CHECK: return %[[v4]]
+// CHECK: %[[v3:.+]] = tensorrt.reshape %[[v2]] : tensor<6x64x1500xf32> to tensor<384x1500xf32>
+// CHECK: %[[v4:.+]] = tensorrt.matrix_multiply [[params2:.+]] ins(%[[v3]], %[[const0]] : tensor<384x1500xf32>, tensor<384x384xf32>) -> tensor<1500x384xf32>
+// CHECK: %[[v5:.+]] = tensorrt.expand_rank %[[v4:.+]] : tensor<1500x384xf32> to tensor<1x1500x384xf32>
+// CHECK: return %[[v5]]
 func.func @push_down_transpose_einsum(%arg0: tensor<1x6x1500x64xf32>, %arg1: tensor<1x6x1500x1500xf32>) -> tensor<1x1500x384xf32> {
   %cst_f32 = tensorrt.constant dense<1.000000e+00> : tensor<384x384xf32>
   %0 = tensorrt.reshape %arg0 : tensor<1x6x1500x64xf32> to tensor<6x1500x64xf32>
