@@ -972,13 +972,6 @@ public:
                   llvm::ArrayRef<RuntimeValue *> outArgs,
                   Ref<Stream> stream) = 0;
 
-  /// Specialization for when all inputs are MemRefValues and all results are
-  /// passed via DPS arguments.
-  virtual Status executeFunction(llvm::StringRef name,
-                                 llvm::ArrayRef<MemRefValue *> inputs,
-                                 llvm::ArrayRef<MemRefValue *> outArgs,
-                                 Ref<Stream> stream) = 0;
-
 protected:
   Ref<RuntimeClient> client;
   RuntimeSessionOptions options;

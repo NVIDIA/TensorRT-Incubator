@@ -874,24 +874,3 @@ LuaRuntimeSession::executeFunction(llvm::StringRef name,
       executeFunctionWithLuaBackend(*this, name, inputs, outArgs, stream));
   return resultValues;
 }
-
-Status LuaRuntimeSession::executeFunction(llvm::StringRef name,
-                                          llvm::ArrayRef<MemRefValue *> inputs,
-                                          llvm::ArrayRef<MemRefValue *> outArgs,
-                                          Ref<Stream> stream) {
-  std::vector<RuntimeValue *> inputArgsValues(inputs.size());
-  std::vector<RuntimeValue *> outputArgsValues(outArgs.size());
-  for (auto [idx, arg] : llvm::enumerate(inputs))
-    inputArgsValues[idx] = arg;
-  for (auto [idx, arg] : llvm::enumerate(outArgs))
-    outputArgsValues[idx] = arg;
-  MTRT_ASSIGN_OR_RETURN(
-      llvm::SmallVector<std::unique_ptr<RuntimeValue>> resultValues,
-      executeFunctionWithLuaBackend(*this, name, inputArgsValues,
-                                    outputArgsValues, stream));
-  if (!resultValues.empty())
-    return getInvalidArgStatus(
-        "function {0} returned {1} results, but expected 0", name,
-        resultValues.size());
-  return getOkStatus();
-}

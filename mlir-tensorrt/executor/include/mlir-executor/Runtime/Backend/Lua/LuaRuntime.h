@@ -74,12 +74,6 @@ public:
                   llvm::ArrayRef<RuntimeValue *> outArgs,
                   Ref<Stream> stream) final;
 
-  /// Execute the session function using the given arguments.
-  Status executeFunction(llvm::StringRef name,
-                         llvm::ArrayRef<MemRefValue *> inputs,
-                         llvm::ArrayRef<MemRefValue *> outArgs,
-                         Ref<Stream> stream) final;
-
 private:
   LuaRuntimeSession(Ref<RuntimeClient> client, RuntimeSessionOptions options,
                     ExecutableView executable);

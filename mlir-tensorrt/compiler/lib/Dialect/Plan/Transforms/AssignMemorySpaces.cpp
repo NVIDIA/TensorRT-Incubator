@@ -21,6 +21,7 @@
 ///  Implementation of the `plan-assign-memory-spaces` pass.
 ///
 //===----------------------------------------------------------------------===//
+#include "mlir-executor/Executor/IR/Executor.h"
 #include "mlir-tensorrt-dialect/Analysis/TensorKindAnalysis.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/PlanInterfaces.h"
@@ -63,7 +64,8 @@ public:
   LogicalResult
   matchAndRewrite(Operation *op, ArrayRef<Value> operands,
                   ConversionPatternRewriter &rewriter) const final {
-    if (isa<arith::ConstantOp, bufferization::AllocTensorOp>(op))
+    if (isa<arith::ConstantOp, bufferization::AllocTensorOp,
+            executor::ABIRecvOp, executor::ABISendOp>(op))
       return failure();
 
     SmallVector<Type> resultTypes;
@@ -217,6 +219,8 @@ public:
     return FunctionType::get(func.getContext(), newInputs, newResults);
   }
 
+  plan::MemorySpaceAttr requiredMemorySpace;
+
 private:
   /// Convert a single element (arg or result type) of a function signature. The
   /// `dict` should contain the arg/result attributes or nullptr if not present.
@@ -233,8 +237,6 @@ private:
     }
     return convertType(type);
   }
-
-  plan::MemorySpaceAttr requiredMemorySpace;
 };
 } // namespace
 
@@ -376,7 +378,7 @@ convertFuncOpTypes(func::FuncOp funcOp,
 }
 
 /// Get the default memory space for a particular function.
-static plan::MemorySpace getFuncitonDefaultEncoding(func::FuncOp func) {
+static plan::MemorySpace getFunctionDefaultEncoding(func::FuncOp func) {
   // The `plan.memory_space` attribute takes precedence over the cluster kind
   // default memory space.
   if (auto constraintOverride = func->getAttrOfType<plan::MemorySpaceAttr>(
@@ -392,6 +394,105 @@ static plan::MemorySpace getFuncitonDefaultEncoding(func::FuncOp func) {
   return plan::MemorySpace::device;
 }
 
+/// Process an ABIRecvOp by validating and updating its memory space.
+/// Returns failure if there's a conflicting memory space constraint.
+static LogicalResult processABIRecvOp(executor::ABIRecvOp op,
+                                       func::FuncOp func,
+                                       IRRewriter &rewriter) {
+  auto result = dyn_cast<TypedValue<RankedTensorType>>(op.getResult());
+  if (!result)
+    return success();
+
+  Attribute memorySpace = op.getMemorySpaceAttr();
+  if (!isa_and_present<plan::MemorySpaceAttr>(memorySpace))
+    return success();
+
+  // Get the function argument corresponding to this ABIRecvOp
+  auto blockArg = dyn_cast<BlockArgument>(op.getPtr());
+  if (!blockArg)
+    return success();
+
+  // Check if there's a plan.memory_space constraint on the argument
+  auto argMemorySpaceConstraint =
+      func.getArgAttrOfType<plan::MemorySpaceAttr>(
+          blockArg.getArgNumber(),
+          plan::PlanDialect::kMemorySpaceConstraintAttrName);
+
+  // Validate that the operation's memory_space doesn't conflict with the
+  // argument's constraint
+  if (argMemorySpaceConstraint && argMemorySpaceConstraint != memorySpace) {
+    return op.emitError() << "memory_space attribute " << memorySpace
+                          << " conflicts with plan.memory_space constraint "
+                          << argMemorySpaceConstraint << " on argument "
+                          << blockArg.getArgNumber();
+  }
+
+  // Update the executor.abi attribute on the function argument
+  auto abiAttr = func.getArgAttrOfType<executor::ArgumentABIAttr>(
+      blockArg.getArgNumber(), executor::ExecutorDialect::kArgABIAttrName);
+
+  Type newValueType = result.getType().cloneWithEncoding(memorySpace);
+  auto newArgABIAttr = executor::ArgumentABIAttr::get(
+      func.getContext(), abiAttr.getAbi(), newValueType);
+  func.setArgAttr(blockArg.getArgNumber(),
+                  executor::ExecutorDialect::kArgABIAttrName, newArgABIAttr);
+
+  rewriter.setInsertionPointAfter(op);
+  Type originalType = result.getType();
+  rewriter.modifyOpInPlace(op, [&]() {
+    op.getResult().setType(result.getType().cloneWithEncoding(memorySpace));
+  });
+  auto transferOp =
+      rewriter.create<TransferOp>(op.getLoc(), originalType, op.getResult());
+  rewriter.replaceAllUsesExcept(op.getResult(), transferOp, transferOp);
+
+  return success();
+}
+
+/// Process an ABISendOp by determining and applying its target memory space.
+static void processABISendOp(executor::ABISendOp op, func::FuncOp func,
+                              plan::MemorySpaceAttr defaultMemorySpace,
+                              IRRewriter &rewriter) {
+  auto value = dyn_cast<TypedValue<RankedTensorType>>(op.getValue());
+  if (!value)
+    return;
+
+  // Get the function argument corresponding to this ABISendOp
+  auto blockArg = cast<BlockArgument>(op.getPtr());
+
+  // Determine the target memory space from the argument's attributes
+  auto memorySpace = func.getArgAttrOfType<plan::MemorySpaceAttr>(
+      blockArg.getArgNumber(),
+      plan::PlanDialect::kMemorySpaceConstraintAttrName);
+
+  // If no explicit constraint, use the default encoding for this function
+  if (!memorySpace)
+    memorySpace = defaultMemorySpace;
+
+  assert(memorySpace && "expected valid memory space");
+
+  // Update the executor.abi attribute on the function argument
+  auto argABIAttr = func.getArgAttrOfType<executor::ArgumentABIAttr>(
+      blockArg.getArgNumber(), executor::ExecutorDialect::kArgABIAttrName);
+  assert(argABIAttr && "expected valid argument ABI attribute");
+
+  Type newValueType = value.getType().cloneWithEncoding(memorySpace);
+  auto newArgABIAttr = executor::ArgumentABIAttr::get(
+      func.getContext(), argABIAttr.getAbi(), newValueType);
+  func.setArgAttr(blockArg.getArgNumber(),
+                  executor::ExecutorDialect::kArgABIAttrName, newArgABIAttr);
+
+  // Insert a transfer operation before the send if the value type
+  // doesn't match
+  rewriter.setInsertionPoint(op);
+  if (value.getType() != newValueType) {
+    auto transferOp =
+        rewriter.create<TransferOp>(op.getLoc(), newValueType, value);
+    rewriter.modifyOpInPlace(
+        op, [&]() { op.getValueMutable().assign(transferOp.getResult()); });
+  }
+}
+
 /// Convert the signatures of functions and their callers by adding the
 /// appropriate memory space attribute to all tensor types.
 static LogicalResult
@@ -399,9 +500,23 @@ assignMemorySpacesToFunctionBoundaries(IRRewriter &rewriter, ModuleOp module) {
   SymbolTableCollection symbolTables;
   SymbolUserMap symbolUserMap(symbolTables, module);
   for (auto func : module.getOps<func::FuncOp>()) {
-    plan::MemorySpace defaultEncoding = getFuncitonDefaultEncoding(func);
+    plan::MemorySpace defaultEncoding = getFunctionDefaultEncoding(func);
     TensorEncodingConverter converter(*func.getContext(), defaultEncoding);
     if (failed(convertFuncOpTypes(func, converter, rewriter, symbolUserMap)))
+      return failure();
+
+    // Walk the function once to handle both ABI input and output operations
+    WalkResult walkResult = func.walk([&](Operation *op) {
+      if (auto recvOp = dyn_cast<executor::ABIRecvOp>(op)) {
+        if (failed(processABIRecvOp(recvOp, func, rewriter)))
+          return WalkResult::interrupt();
+      } else if (auto sendOp = dyn_cast<executor::ABISendOp>(op)) {
+        processABISendOp(sendOp, func, converter.requiredMemorySpace, rewriter);
+      }
+      return WalkResult::advance();
+    });
+
+    if (walkResult.wasInterrupted())
       return failure();
   }
   return success();
@@ -417,7 +532,7 @@ static bool hasMemorySpaceEncoding(Type type) {
 
 static LogicalResult applyConversionToFunction(func::FuncOp func) {
   MLIRContext *context = func.getContext();
-  plan::MemorySpace defaultEncoding = getFuncitonDefaultEncoding(func);
+  plan::MemorySpace defaultEncoding = getFunctionDefaultEncoding(func);
   TensorEncodingConverter converter(*context, defaultEncoding);
 
   // Ops are legal if they are in a nested module or if their operand and
@@ -450,6 +565,14 @@ static LogicalResult applyConversionToFunction(func::FuncOp func) {
         if (op.getCopy())
           return false;
         return hasMemorySpaceEncoding(op.getType());
+      });
+  target.addDynamicallyLegalOp<executor::ABIRecvOp>(
+      [&](executor::ABIRecvOp op) {
+        return hasMemorySpaceEncoding(op.getType());
+      });
+  target.addDynamicallyLegalOp<executor::ABISendOp>(
+      [&](executor::ABISendOp op) {
+        return hasMemorySpaceEncoding(op.getValue().getType());
       });
   target.addLegalDialect<func::FuncDialect>();
 
