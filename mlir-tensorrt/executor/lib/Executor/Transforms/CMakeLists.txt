@@ -1,6 +1,8 @@
 add_mlir_executor_library(MLIRTensorRTExecutorTransforms
   AllocsToGlobals.cpp
+  BufferizationInterfacesImpl.cpp
   DecomposeAggregateLoadsAndStores.cpp
+  EmulateUnsupportedFloats.cpp
   ExpandOps.cpp
   LowerAggregatesAtFunctionBoundaries.cpp
   LowerGlobals.cpp
@@ -8,7 +10,6 @@ add_mlir_executor_library(MLIRTensorRTExecutorTransforms
   PackArguments.cpp
   Passes.cpp
   PopulateFunctionMetadata.cpp
-  EmulateUnsupportedFloats.cpp
 
   DEPENDS
   MLIRTensorRTExecutorTransformsPassIncGen
@@ -24,6 +25,7 @@ add_mlir_executor_library(MLIRTensorRTExecutorTransforms
     MLIRBufferizationDialect
     MLIRBufferizationTransforms
     MLIRComplexToStandard
+    MLIRControlFlowTransforms
     MLIRFuncDialect
     MLIRIR
     MLIRMemRefTransforms

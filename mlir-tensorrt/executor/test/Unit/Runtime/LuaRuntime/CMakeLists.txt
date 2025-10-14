@@ -7,4 +7,5 @@ target_link_libraries(LuaRuntimeTests
   PRIVATE
   MLIRTensorRTTargetLua
   MLIRTensorRTExecutionEngineLuaRuntime
+  MLIRTensorRTExecutorTransforms
 )

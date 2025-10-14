@@ -25,6 +25,7 @@
 #include "mlir/Dialect/Arith/Transforms/BufferViewFlowOpInterfaceImpl.h"
 #include "mlir/Dialect/Arith/Transforms/BufferizableOpInterfaceImpl.h"
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
+#include "mlir/Dialect/Bufferization/Pipelines/Passes.h"
 #include "mlir/Dialect/Bufferization/Transforms/FuncBufferizableOpInterfaceImpl.h"
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
 #include "mlir/Dialect/Complex/IR/Complex.h"
@@ -53,6 +54,7 @@ int main(int argc, char **argv) {
   mlir::executor::registerTestClusteringTransformPass();
 
   mlir::bufferization::registerBufferizationPasses();
+  mlir::bufferization::registerBufferizationPipelines();
   mlir::memref::registerMemRefPasses();
 
   // Bufferization-related dialects/interfaces only required for tests.

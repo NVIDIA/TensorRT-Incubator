@@ -14,6 +14,7 @@ add_mlir_executor_tool(executor-opt executor-opt.cpp
   MLIRSCFDialect
   MLIRSCFToControlFlow
   MLIRTransforms
+  MLIRControlFlowTransforms
 
   LINK_LIBS PRIVATE
   ${MLIR_EXECUTOR_LIBS}

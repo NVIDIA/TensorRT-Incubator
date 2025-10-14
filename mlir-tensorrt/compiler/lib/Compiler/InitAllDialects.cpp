@@ -24,6 +24,7 @@
 #include "mlir-tensorrt/Compiler/InitAllDialects.h"
 
 #include "mlir-executor/Executor/IR/Executor.h"
+#include "mlir-executor/Executor/Transforms/BufferizationOpInterfaceImpls.h"
 #include "mlir-tensorrt-common/Dialect/EmitCExt/IR/DataLayoutImpl.h"
 #include "mlir-tensorrt-common/Dialect/LinalgExt/Transforms/ToLoopsOpInterfaceImpl.h"
 #include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
@@ -174,6 +175,7 @@ void mtrt::compiler::registerAllDialects(mlir::DialectRegistry &registry) {
   mlir::cf::registerBufferizableOpInterfaceExternalModels(registry);
   mlir::cuda::registerBufferizableOpInterfaceExternalModels(registry);
   mlir::emitc_ext::registerDataLayoutInterfaceExternalModels(registry);
+  mlir::executor::registerBufferizationOpInterfaceExternalModels(registry);
   mlir::linalg::registerBufferizableOpInterfaceExternalModels(registry);
   mlir::linalg::registerRuntimeVerifiableOpInterfaceExternalModels(registry);
   mlir::linalg::registerSubsetOpInterfaceExternalModels(registry);
