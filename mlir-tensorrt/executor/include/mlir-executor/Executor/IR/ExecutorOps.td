@@ -19,10 +19,6 @@ include "mlir/IR/SymbolInterfaces.td"
 // Traits
 //===----------------------------------------------------------------------===//
 
-def Executor_LowerToFuncCallTrait : NativeOpTrait<"LowerToFuncCallTrait"> {
-  let cppNamespace = "::mlir::executor";
-}
-
 class IntOrFloatElementBitWidth<string name> :
     StrFunc<"$" # name # ".getType().getIntOrFloatBitWidth()">;
 
@@ -1183,7 +1179,7 @@ def Executor_AllocaOp : Executor_Op<"alloca", [
   }];
 }
 
-def Executor_AllocateOp : Executor_Op<"alloc", [Executor_LowerToFuncCallTrait]> {
+def Executor_AllocateOp : Executor_Op<"alloc", []> {
   let description = [{
     `executor.alloc` performs an allocation of `num_bytes` using the given
     allocation. It returns an opaque pointer representing the allocation.
@@ -1194,27 +1190,17 @@ def Executor_AllocateOp : Executor_Op<"alloc", [Executor_LowerToFuncCallTrait]> 
     be a power of two.
   }];
   let arguments = (ins Executor_Index:$num_bytes, Executor_Index:$alignment);
-  let results = (outs Executor_Ptr:$result);
+  let results = (outs Executor_HostPtr:$result);
   let assemblyFormat = [{
     attr-dict $num_bytes `bytes` `align` `(` $alignment `)` `:` functional-type(operands, results)
   }];
   let hasVerifier = 1;
 }
 
-def Executor_DeallocateOp : Executor_Op<"dealloc", [
-  DeclareOpInterfaceMethods<RuntimeBuiltinInterface, ["getRuntimeBuiltinFunctionType"]>
-]> {
-  let arguments = (ins Executor_Ptr:$ptr);
+def Executor_DeallocateOp : Executor_Op<"dealloc", []> {
+  let arguments = (ins Executor_HostPtr:$ptr);
   let assemblyFormat = [{
     attr-dict $ptr `:` type($ptr)
-  }];
-   let extraClassDefinition = [{
-    ExecutorFunctionType $cppClass::getRuntimeBuiltinFunctionType(TypeRange results,
-                TypeRange operands) {
-      auto *ctx = (*this)->getContext();
-      return ExecutorFunctionType::get(
-            ctx, {}, {}, UnitAttr::get(ctx));
-    }
   }];
 }
 

@@ -753,6 +753,23 @@ static LogicalResult printOperation(LuaEmitter &emitter,
   return success();
 }
 
+/// Translate `executor.alloc`.
+static LogicalResult printOperation(LuaEmitter &emitter,
+                                    executor::AllocateOp op) {
+  if (failed(emitter.emitAssignPrefix(op)))
+    return failure();
+  emitter << "executor_alloc(" << emitter.getVariableName(op.getNumBytes())
+          << ", " << emitter.getVariableName(op.getAlignment()) << ");\n";
+  return success();
+}
+
+/// Translate `executor.dealloc`.
+static LogicalResult printOperation(LuaEmitter &emitter,
+                                    executor::DeallocateOp op) {
+  emitter << "_dealloc(" << emitter.getVariableName(op.getPtr()) << ");\n";
+  return success();
+}
+
 /// Translate `executor.func`. Currently we only allow these for variadic
 /// function declarations.
 static LogicalResult printOperation(LuaEmitter &emitter, executor::FuncOp op) {
@@ -998,6 +1015,8 @@ LogicalResult LuaEmitter::emitOperation(Operation &op) {
 
   if (isa<executor::ExecutorDialect>(op.getDialect())) {
     return llvm::TypeSwitch<Operation *, LogicalResult>(&op)
+        .Case<executor::AllocateOp, executor::DeallocateOp>(
+            [&](auto op) { return printOperation(*this, op); })
         .Case<executor::FuncOp, executor::CallOp, executor::ConstantOp>(
             [&](auto op) { return printOperation(*this, op); })
         .Case<executor::AbsFOp>([&](auto op) {

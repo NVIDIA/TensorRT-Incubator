@@ -33,8 +33,8 @@ func.func @test_memref_of_memref_load_store_1d() {
 //       CHECK:     executor.store %[[v3]] to %[[v1]] + %[[v4]] : !executor.table<!executor.ptr<host>, !executor.ptr<host>, i64, i64, i64>, !executor.ptr<host>, i64
 //       CHECK:     %[[v5:.+]] = executor.load %[[v1]] + %[[v4]] : (!executor.ptr<host>, i64) -> !executor.table<!executor.ptr<host>, !executor.ptr<host>, i64, i64, i64>
 //       CHECK:     %[[v6:.+]] = executor.table.get %[[v5]][0] : <!executor.ptr<host>, !executor.ptr<host>, i64, i64, i64>
-//       CHECK:     executor.dealloc %[[v6]] : <host>
-//       CHECK:     executor.dealloc %[[v1]] : <host>
+//       CHECK:     executor.dealloc %[[v6]] : !executor.ptr<host>
+//       CHECK:     executor.dealloc %[[v1]] : !executor.ptr<host>
 
 // -----
 
@@ -76,8 +76,8 @@ func.func @test_2d_memref_of_1d_memref_load_store() {
 //       CHECK:     executor.store %[[v4]] to %[[v2]] + %[[v7]] : !executor.table<!executor.ptr<host>, !executor.ptr<host>, i64, i64, i64>, !executor.ptr<host>, i64
 //       CHECK:     %[[v8:.+]] = executor.load %[[v2]] + %[[v7]] : (!executor.ptr<host>, i64) -> !executor.table<!executor.ptr<host>, !executor.ptr<host>, i64, i64, i64>
 //       CHECK:     %[[v9:.+]] = executor.table.get %[[v8]][0] : <!executor.ptr<host>, !executor.ptr<host>, i64, i64, i64>
-//       CHECK:     executor.dealloc %[[v9]] : <host>
-//       CHECK:     executor.dealloc %[[v2]] : <host>
+//       CHECK:     executor.dealloc %[[v9]] : !executor.ptr<host>
+//       CHECK:     executor.dealloc %[[v2]] : !executor.ptr<host>
 
 // -----
 
@@ -114,5 +114,5 @@ func.func @test_dynamic_memref_of_0d_memref_load_store(%arg0: index) {
 //       CHECK:     executor.store %[[v5]] to %[[v3]] + %[[v6]] : !executor.table<!executor.ptr<host>, !executor.ptr<host>, i64>, !executor.ptr<host>, i64
 //       CHECK:     %[[v7:.+]] = executor.load %[[v3]] + %[[v6]] : (!executor.ptr<host>, i64) -> !executor.table<!executor.ptr<host>, !executor.ptr<host>, i64>
 //       CHECK:     %[[v8:.+]] = executor.table.get %[[v7]][0] : <!executor.ptr<host>, !executor.ptr<host>, i64>
-//       CHECK:     executor.dealloc %[[v8]] : <host>
-//       CHECK:     executor.dealloc %[[v3]] : <host>
+//       CHECK:     executor.dealloc %[[v8]] : !executor.ptr<host>
+//       CHECK:     executor.dealloc %[[v3]] : !executor.ptr<host>

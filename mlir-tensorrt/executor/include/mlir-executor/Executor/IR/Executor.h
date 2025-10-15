@@ -78,20 +78,6 @@ lowerToCallDefaultImpl(Operation *op, ArrayRef<Value> operands, ModuleOp module,
 #include "mlir-executor/Executor/IR/ExecutorInterfaces.h.inc"
 
 //===----------------------------------------------------------------------===//
-// Executor Traits
-//===----------------------------------------------------------------------===//
-
-namespace mlir::executor {
-
-/// A trait that simply indicates an Executor operation should be lowered to
-/// a external procedure call.
-template <typename ConcreteType>
-class LowerToFuncCallTrait
-    : public mlir::TypeTrait::TraitBase<ConcreteType, LowerToFuncCallTrait> {};
-
-} // namespace mlir::executor
-
-//===----------------------------------------------------------------------===//
 // Executor Ops
 //===----------------------------------------------------------------------===//
 #define GET_OP_CLASSES
