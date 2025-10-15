@@ -1201,30 +1201,6 @@ def Executor_AllocateOp : Executor_Op<"alloc", [Executor_LowerToFuncCallTrait]> 
   let hasVerifier = 1;
 }
 
-def Executor_AllocateHostPinnedOp : Executor_Op<"alloc_host_pinned", [
-      DeclareOpInterfaceMethods<RuntimeBuiltinInterface, ["getTypesForNameSuffix"]>
-]> {
-  let description = [{
-    The `executor.alloc_host_pinned` op performs a synchronous allocation of
-    `num_bytes` of host-pinned memory. The actual allocation size may be larger;
-    this is decided by the underlying runtime allocator object.
-  }];
-
-  let arguments = (ins Executor_Index:$num_bytes);
-
-  let results = (outs Executor_HostPinnedPtr:$result);
-
-  let assemblyFormat = [{
-    attr-dict $num_bytes `bytes` `:` functional-type(operands, results)
-  }];
-
-  let extraClassDefinition = [{
-    SmallVector<Type> $cppClass::getTypesForNameSuffix(){
-      return {};
-    }
-  }];
-}
-
 def Executor_DeallocateOp : Executor_Op<"dealloc", [
   DeclareOpInterfaceMethods<RuntimeBuiltinInterface, ["getRuntimeBuiltinFunctionType"]>
 ]> {
