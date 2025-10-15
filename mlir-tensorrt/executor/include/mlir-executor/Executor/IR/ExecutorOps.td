@@ -1286,29 +1286,17 @@ def Executor_MemcpyOp : Executor_Op<"memcpy", [
   }];
 }
 
-def Executor_StridedMemrefCopyOp : Executor_Op<"strided_memref_copy", [
-  DeclareOpInterfaceMethods<RuntimeBuiltinInterface, ["getRuntimeBuiltinFunctionType"]>
-]> {
+def Executor_StridedMemrefCopyOp : Executor_Op<"strided_memref_copy", []> {
   let description = [{
     Executes a copy from `src` to `dest` where `src` and `dest` may be
     strided memrefs (with potentially different strides, but of the same shape).
   }];
   let arguments = (ins Executor_Index:$rank, Executor_Index:$elem_size,
-                       Variadic<Executor_AnyType>:$memrefs);
+                       Executor_HostPtr:$src_descriptor,
+                       Executor_HostPtr:$dest_descriptor);
   let assemblyFormat = [{
     attr-dict `(` operands `)`
      `:` type(operands)
-  }];
-
-  let extraClassDefinition = [{
-    ExecutorFunctionType $cppClass::getRuntimeBuiltinFunctionType(TypeRange results,
-                TypeRange operands) {
-      auto *ctx = (*this)->getContext();
-      return ExecutorFunctionType::get(
-            ctx,
-            llvm::to_vector(operands.take_front(2)),
-            {}, UnitAttr::get(ctx));
-    }
   }];
 }
 

@@ -23,11 +23,11 @@
 //===----------------------------------------------------------------------===//
 #include "../../../C/CoreModule.h"
 #include "mlir-executor/Runtime/API/API.h"
+#include "mlir-executor/Runtime/API/MemRefABI.h"
 #include "mlir-executor/Runtime/Backend/Common/DataTypes.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaErrorHandling.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaExtensionRegistry.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaRuntime.h"
-#include "mlir-executor/Runtime/Backend/Lua/Modules/Utils/MemRefUtils.h"
 #include "mlir-executor/Runtime/Backend/Lua/SolAdaptor.h"
 #include "mlir-executor/Runtime/Backend/Utils/NvtxUtils.h"
 #include "mlir-executor/Runtime/Support/StridedCopy.h"
@@ -222,6 +222,32 @@ ResType uitofp(InpType input) {
     return static_cast<ResType>(
         *reinterpret_cast<const std::make_unsigned_t<InpType> *>(&input));
   }
+}
+
+/// Implementation of the strided memref copy operation.
+/// The `srcDescriptor` and `dstDescriptor` are pointers to caller-allocated
+/// ranked memref descriptors provided for callee use (e.g. 'byval' arguments).
+static Status stridedMemRefCopyImpl(int64_t rank, int64_t elemSize,
+                                    uintptr_t srcDescriptor,
+                                    uintptr_t dstDescriptor) {
+  MTRT_ASSIGN_OR_RETURN(
+      MemRefDescriptorView srcInfo,
+      getMemRefDescriptorInfo(UnrankedMemRefDescriptor{rank, srcDescriptor}));
+  MTRT_ASSIGN_OR_RETURN(
+      MemRefDescriptorView dstInfo,
+      getMemRefDescriptorInfo(UnrankedMemRefDescriptor{rank, dstDescriptor}));
+
+  MTRT_DBG("strided memcpy\n - src: {0}\n - dst: {1}", srcInfo, dstInfo);
+
+  mtrt::executeStridedCopy(
+      elemSize, srcInfo.data, srcInfo.offset,
+      llvm::ArrayRef<int64_t>(srcInfo.shape, srcInfo.rank),
+      llvm::ArrayRef<int64_t>(srcInfo.strides, srcInfo.rank), dstInfo.data,
+      dstInfo.offset, llvm::ArrayRef<int64_t>(dstInfo.shape, dstInfo.rank),
+      llvm::ArrayRef<int64_t>(dstInfo.strides, dstInfo.rank),
+      [](void *dst, void *src, size_t size) { std::memcpy(dst, src, size); });
+
+  return getOkStatus();
 }
 
 //===----------------------------------------------------------------------===//
@@ -994,33 +1020,12 @@ static void registerExecutorCoreModuleLuaRuntimeMethods(
   ///  dstPtr, dstPtrAligned, dstOfft, ...[dstShape], ...[dstStrides])
   /// clang-format on
   lua["_strided_memref_copy"] = [](sol::this_state state, int32_t rank,
-                                   int32_t elemSize,
-                                   sol::variadic_args varArgs) {
+                                   int32_t elemSize, uintptr_t srcDescriptor,
+                                   uintptr_t dstDescriptor) {
     ADD_CORE_MODULE_RANGE("core_strided_memref_copy");
-    if (varArgs.size() != 2 * getNumArgsPerMemRef(rank)) {
-      luaL_error(state, "unexpected variadic argument pack size in for "
-                        "strided memref copy");
-      return;
-    }
-
-    int64_t srcOffset = 0;
-    std::vector<int64_t> srcShape, srcStrides;
-    uintptr_t srcData =
-        getMemRefInfo(state, varArgs, rank, 0, srcOffset, srcShape, srcStrides);
-    if (!srcData)
-      return;
-
-    int64_t dstOffset = 0;
-    std::vector<int64_t> dstShape, dstStrides;
-    uintptr_t dstData =
-        getMemRefInfo(state, varArgs, rank, 1, dstOffset, dstShape, dstStrides);
-    if (!dstData)
-      return;
-
-    mtrt::executeStridedCopy(
-        elemSize, srcData, srcOffset, srcShape, srcStrides, dstData, dstOffset,
-        dstShape, dstStrides,
-        [](void *dst, void *src, size_t size) { std::memcpy(dst, src, size); });
+    Status status =
+        stridedMemRefCopyImpl(rank, elemSize, srcDescriptor, dstDescriptor);
+    SET_LUA_ERROR_AND_RETURN_IF_ERROR(status, state, );
   };
 
   //===----------------------------------------------------------------------===//

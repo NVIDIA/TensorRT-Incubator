@@ -770,6 +770,17 @@ static LogicalResult printOperation(LuaEmitter &emitter,
   return success();
 }
 
+/// Translate `executor.strided_memref_copy`.
+static LogicalResult printOperation(LuaEmitter &emitter,
+                                    executor::StridedMemrefCopyOp op) {
+  emitter << "_strided_memref_copy(";
+  llvm::interleaveComma(op.getOperands(), emitter.getStream(), [&](Value v) {
+    emitter << emitter.getVariableName(v);
+  });
+  emitter << ");\n";
+  return success();
+}
+
 /// Translate `executor.func`. Currently we only allow these for variadic
 /// function declarations.
 static LogicalResult printOperation(LuaEmitter &emitter, executor::FuncOp op) {
@@ -1015,7 +1026,8 @@ LogicalResult LuaEmitter::emitOperation(Operation &op) {
 
   if (isa<executor::ExecutorDialect>(op.getDialect())) {
     return llvm::TypeSwitch<Operation *, LogicalResult>(&op)
-        .Case<executor::AllocateOp, executor::DeallocateOp>(
+        .Case<executor::AllocateOp, executor::DeallocateOp,
+              executor::StridedMemrefCopyOp>(
             [&](auto op) { return printOperation(*this, op); })
         .Case<executor::FuncOp, executor::CallOp, executor::ConstantOp>(
             [&](auto op) { return printOperation(*this, op); })

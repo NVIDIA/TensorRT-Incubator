@@ -7,7 +7,6 @@ add_mlir_executor_runtime_capability_library(MLIRTensorRTExecutorRuntimeTensorRT
   MLIRTensorRTExecutorCUDAUtils
   MLIRTensorRTExecutorRuntimeAPI
   MLIRTensorRTExecutorRuntimeCommon
-  MLIRTensorRTExecutorRuntimeModuleUtils
   MLIRTensorRTLuaExtensionRegistry
   MLIRTensorRTSupportAllocators
   TensorRTDynamicLoader

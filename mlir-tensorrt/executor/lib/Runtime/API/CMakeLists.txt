@@ -21,6 +21,7 @@ add_mlir_executor_runtime_library(MLIRTensorRTRuntimeExecutableInterface
 # belong here.
 add_mlir_executor_runtime_library(MLIRTensorRTExecutorRuntimeAPI
   API.cpp
+  MemRefABI.cpp
 
   PARTIAL_SOURCES_INTENDED
 

@@ -6,7 +6,6 @@ add_mlir_executor_runtime_capability_library(MLIRTensorRTExecutorRuntimeCoreModu
   MLIRExecutorCRuntimeCore
   MLIRTensorRTExecutorRuntimeAPI
   MLIRTensorRTExecutorRuntimeCommon
-  MLIRTensorRTExecutorRuntimeModuleUtils
   MLIRTensorRTLuaExtensionRegistry
   MLIRTensorRTSupportAllocators
   MLIRTensorRTSupportStridedCopy

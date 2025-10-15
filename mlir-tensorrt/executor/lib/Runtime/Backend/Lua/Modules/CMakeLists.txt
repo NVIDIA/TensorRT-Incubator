@@ -4,8 +4,6 @@ macro(add_mlir_executor_runtime_capability_library name)
     set_property(GLOBAL APPEND PROPERTY MLIRExecutorRuntimeCapabilities ${name})
 endmacro()
 
-add_subdirectory(Utils)
-
 add_subdirectory(Core)
 
 if(MLIR_TRT_ENABLE_CUDA)

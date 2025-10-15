@@ -23,11 +23,13 @@ using namespace mtrt;
 
 void mtrt::executeStridedCopy(
     int64_t elemSize, uintptr_t src, int64_t srcOffset,
-    const std::vector<int64_t> &srcShape, std::vector<int64_t> &srcStrides,
-    uintptr_t dst, int64_t dstOffset, const std::vector<int64_t> &dstShape,
-    std::vector<int64_t> &dstStrides,
+    llvm::ArrayRef<int64_t> srcShape, llvm::ArrayRef<int64_t> srcStrides_,
+    uintptr_t dst, int64_t dstOffset, llvm::ArrayRef<int64_t> dstShape,
+    llvm::ArrayRef<int64_t> dstStrides_,
     std::function<void(void *dst, void *src, size_t size)> memcpyFunc) {
   const int64_t rank = srcShape.size();
+  auto srcStrides = llvm::to_vector(srcStrides_);
+  auto dstStrides = llvm::to_vector(dstStrides_);
   // Handle edge case of empty source tensor.
   if (rank > 0 && llvm::find(srcShape, 0) != srcShape.end())
     return;
@@ -72,12 +74,14 @@ void mtrt::executeStridedCopy(
 }
 
 void mtrt::executeStridedByteCopy(
-    uintptr_t src, int64_t srcOffsetBytes, const std::vector<int64_t> &srcShape,
-    const std::vector<int64_t> &srcByteStrides, uintptr_t dst,
-    int64_t dstOffsetBytes, const std::vector<int64_t> &dstShape,
-    const std::vector<int64_t> &dstByteStrides, size_t elemSizeBytes,
+    uintptr_t src, int64_t srcOffsetBytes, llvm::ArrayRef<int64_t> srcShape,
+    llvm::ArrayRef<int64_t> srcByteStrides_, uintptr_t dst,
+    int64_t dstOffsetBytes, llvm::ArrayRef<int64_t> dstShape,
+    llvm::ArrayRef<int64_t> dstByteStrides_, size_t elemSizeBytes,
     std::function<void(void *dst, void *src, size_t size)> memcpyFunc) {
   const int64_t rank = srcShape.size();
+  auto srcByteStrides = llvm::to_vector(srcByteStrides_);
+  auto dstByteStrides = llvm::to_vector(dstByteStrides_);
 
   // Handle edge case of empty source tensor.
   if (rank > 0 && llvm::find(srcShape, 0) != srcShape.end())

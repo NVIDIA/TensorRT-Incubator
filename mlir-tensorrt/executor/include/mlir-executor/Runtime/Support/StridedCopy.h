@@ -26,7 +26,6 @@
 #define MLIR_EXECUTOR_RUNTIME_SUPPORT_STRIDEDCOPY
 
 #include "llvm/ADT/ArrayRef.h"
-#include <vector>
 
 namespace mtrt {
 
@@ -36,17 +35,17 @@ namespace mtrt {
 
 void executeStridedCopy(
     int64_t elemSize, uintptr_t src, int64_t srcOffset,
-    const std::vector<int64_t> &srcShape, std::vector<int64_t> &srcStrides,
-    uintptr_t dst, int64_t dstOffset, const std::vector<int64_t> &dstShape,
-    std::vector<int64_t> &dstStrides,
+    llvm::ArrayRef<int64_t> srcShape, llvm::ArrayRef<int64_t> srcStrides,
+    uintptr_t dst, int64_t dstOffset, llvm::ArrayRef<int64_t> dstShape,
+    llvm::ArrayRef<int64_t> dstStrides,
     std::function<void(void *dst, void *src, size_t size)> memcpyFunc);
 
 /// Execute a strided copy where the strides and offsets are given in bytes.
 void executeStridedByteCopy(
-    uintptr_t src, int64_t srcOffsetBytes, const std::vector<int64_t> &srcShape,
-    const std::vector<int64_t> &srcByteStrides, uintptr_t dst,
-    int64_t dstOffsetBytes, const std::vector<int64_t> &dstShape,
-    const std::vector<int64_t> &dstByteStrides, size_t elemSizeBytes,
+    uintptr_t src, int64_t srcOffsetBytes, llvm::ArrayRef<int64_t> srcShape,
+    llvm::ArrayRef<int64_t> srcByteStrides, uintptr_t dst,
+    int64_t dstOffsetBytes, llvm::ArrayRef<int64_t> dstShape,
+    llvm::ArrayRef<int64_t> dstByteStrides, size_t elemSizeBytes,
     std::function<void(void *dst, void *src, size_t size)> memcpyFunc);
 
 } // namespace mtrt
