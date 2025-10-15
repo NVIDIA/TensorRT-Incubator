@@ -8,6 +8,27 @@ class ModuleLikePass<string passArg>
   : PassBase<passArg, "::mlir::ModuleLikePass">;
 
 //===----------------------------------------------------------------------===//
+// ExecutorGenerateABIWrappersPass
+//===----------------------------------------------------------------------===//
+
+def ExecutorGenerateABIWrappersPass :
+      ModuleLikePass<"executor-generate-abi-wrappers"> {
+  let summary = "generates ABI wrappers for public functions";
+
+  let description = [{
+    This pass generates wrapper functions that are compatible with the
+    Executor ABI for all public functions.
+
+    The existing public functions are made private and only the new wrapper
+    functions are public after the pass.
+  }];
+
+  let dependentDialects = [
+    "::mlir::executor::ExecutorDialect"
+  ];
+}
+
+//===----------------------------------------------------------------------===//
 // ExecutorLowerAggregatesAtFunctionBoundariesPass
 //===----------------------------------------------------------------------===//
 
@@ -45,7 +66,6 @@ def ExecutorLowerAggregatesAtFunctionBoundariesPass :
   ];
 }
 
-
 //===----------------------------------------------------------------------===//
 // ExecutorPopulateFunctionMetadataPass
 //===----------------------------------------------------------------------===//
@@ -56,13 +76,12 @@ def ExecutorPopulateFunctionMetadataPass
 
   let description = [{
     This pass create a FunctionMetadataAttr for each public function and attaches
-    it to the fucntion under the `executor.function_metadata` name.
+    it to the function under the `executor.function_metadata` name.
 
     This pass must be run on bufferized IR, and it must be run prior to running
     any lowering or conversion of the bufferized IR to Executor or LLVM IR.
   }];
 }
-
 
 //===----------------------------------------------------------------------===//
 // ExecutorExpandOpsPass

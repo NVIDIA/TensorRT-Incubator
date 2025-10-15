@@ -396,16 +396,14 @@ static plan::MemorySpace getFunctionDefaultEncoding(func::FuncOp func) {
 
 /// Process an ABIRecvOp by validating and updating its memory space.
 /// Returns failure if there's a conflicting memory space constraint.
-static LogicalResult processABIRecvOp(executor::ABIRecvOp op,
-                                       func::FuncOp func,
-                                       IRRewriter &rewriter) {
+static LogicalResult processABIRecvOp(executor::ABIRecvOp op, func::FuncOp func,
+                                      IRRewriter &rewriter,
+                                      Attribute defaultMemorySpace) {
   auto result = dyn_cast<TypedValue<RankedTensorType>>(op.getResult());
   if (!result)
     return success();
 
   Attribute memorySpace = op.getMemorySpaceAttr();
-  if (!isa_and_present<plan::MemorySpaceAttr>(memorySpace))
-    return success();
 
   // Get the function argument corresponding to this ABIRecvOp
   auto blockArg = dyn_cast<BlockArgument>(op.getPtr());
@@ -413,19 +411,23 @@ static LogicalResult processABIRecvOp(executor::ABIRecvOp op,
     return success();
 
   // Check if there's a plan.memory_space constraint on the argument
-  auto argMemorySpaceConstraint =
-      func.getArgAttrOfType<plan::MemorySpaceAttr>(
-          blockArg.getArgNumber(),
-          plan::PlanDialect::kMemorySpaceConstraintAttrName);
+  auto argMemorySpaceConstraint = func.getArgAttrOfType<plan::MemorySpaceAttr>(
+      blockArg.getArgNumber(),
+      plan::PlanDialect::kMemorySpaceConstraintAttrName);
 
   // Validate that the operation's memory_space doesn't conflict with the
   // argument's constraint
-  if (argMemorySpaceConstraint && argMemorySpaceConstraint != memorySpace) {
+  if (argMemorySpaceConstraint && memorySpace &&
+      argMemorySpaceConstraint != memorySpace) {
     return op.emitError() << "memory_space attribute " << memorySpace
                           << " conflicts with plan.memory_space constraint "
                           << argMemorySpaceConstraint << " on argument "
                           << blockArg.getArgNumber();
   }
+
+  if (!memorySpace)
+    memorySpace = argMemorySpaceConstraint ? argMemorySpaceConstraint
+                                           : defaultMemorySpace;
 
   // Update the executor.abi attribute on the function argument
   auto abiAttr = func.getArgAttrOfType<executor::ArgumentABIAttr>(
@@ -451,8 +453,8 @@ static LogicalResult processABIRecvOp(executor::ABIRecvOp op,
 
 /// Process an ABISendOp by determining and applying its target memory space.
 static void processABISendOp(executor::ABISendOp op, func::FuncOp func,
-                              plan::MemorySpaceAttr defaultMemorySpace,
-                              IRRewriter &rewriter) {
+                             plan::MemorySpaceAttr defaultMemorySpace,
+                             IRRewriter &rewriter) {
   auto value = dyn_cast<TypedValue<RankedTensorType>>(op.getValue());
   if (!value)
     return;
@@ -508,7 +510,9 @@ assignMemorySpacesToFunctionBoundaries(IRRewriter &rewriter, ModuleOp module) {
     // Walk the function once to handle both ABI input and output operations
     WalkResult walkResult = func.walk([&](Operation *op) {
       if (auto recvOp = dyn_cast<executor::ABIRecvOp>(op)) {
-        if (failed(processABIRecvOp(recvOp, func, rewriter)))
+        if (failed(processABIRecvOp(recvOp, func, rewriter,
+                                    plan::MemorySpaceAttr::get(
+                                        func->getContext(), defaultEncoding))))
           return WalkResult::interrupt();
       } else if (auto sendOp = dyn_cast<executor::ABISendOp>(op)) {
         processABISendOp(sendOp, func, converter.requiredMemorySpace, rewriter);

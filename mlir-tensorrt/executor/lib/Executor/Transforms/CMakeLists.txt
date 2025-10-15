@@ -4,6 +4,7 @@ add_mlir_executor_library(MLIRTensorRTExecutorTransforms
   DecomposeAggregateLoadsAndStores.cpp
   EmulateUnsupportedFloats.cpp
   ExpandOps.cpp
+  GenerateABIWrappers.cpp
   LowerAggregatesAtFunctionBoundaries.cpp
   LowerGlobals.cpp
   LowerToRuntimeBuiltins.cpp

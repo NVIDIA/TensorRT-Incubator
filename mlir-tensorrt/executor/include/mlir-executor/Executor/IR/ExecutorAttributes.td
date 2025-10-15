@@ -81,6 +81,14 @@ def Executor_ArgumentABIAttr : Executor_Attr<"ArgumentABI", "arg"> {
   let assemblyFormat = [{
     `<` $abi `,` $value_type `>`
   }];
+
+  let builders = [
+    AttrBuilderWithInferredContext<(ins
+      "::mlir::executor::ArgABIKind":$abi,
+      "::mlir::Type":$value_type), [{
+      return Base::get(value_type.getContext(), abi, value_type);
+    }]>
+  ];
 }
 
 def Executor_FunctionMetadataAttr : Executor_Attr<"FunctionMetadata", "func_meta"> {
