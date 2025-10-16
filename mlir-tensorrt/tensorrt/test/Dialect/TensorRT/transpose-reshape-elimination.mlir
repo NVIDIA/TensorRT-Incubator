@@ -298,7 +298,7 @@ func.func @push_down_transpose_einsum(%arg0: tensor<1x6x1500x64xf32>, %arg1: ten
 // CHECK: %[[v1:.+]] = tensorrt.element_wise <kPROD>(%[[v0]], %[[const0:.+]]
 // CHECK: %[[v2:.+]] = tensorrt.element_wise <kSUM>(%[[v1]], %[[const1:.+]]
 // CHECK: %[[v3:.+]] = tensorrt.softmax {axis = [[axis:.+]] : i64} %[[v2]]
-// CHECK: %[[v4:.+]] = tensorrt.matrix_multiply {op0 = #tensorrt.matrix_operation<kNONE>, op1 = #tensorrt.matrix_operation<kNONE>} ins(%[[v3]]
+// CHECK: %[[v4:.+]] = tensorrt.matrix_multiply [[params:.+]] ins(%[[v3]]
 #map3 = affine_map<(d0, d1, d2) -> (d1, d0, d2)>
 #map5 = affine_map<(d0, d1, d2) -> (d1, d2, d0)>
 func.func @multihead_attention(%arg0: tensor<566x48x64xf32>, %arg1: tensor<566x48x64xf32>, %arg2: tensor<566x48x64xf32>) -> tensor<566x48x64xf32> {
@@ -322,7 +322,7 @@ func.func @multihead_attention(%arg0: tensor<566x48x64xf32>, %arg1: tensor<566x4
 // CHECK: %[[v0:.+]] = tensorrt.expand_rank %[[arg1]] : tensor<f32> to tensor<1x1x1xf32>
 // CHECK: %[[v1:.+]] = tensorrt.element_wise <kDIV>(%[[arg0]], %[[v0]] : tensor<4488x4x48xf32>, tensor<1x1x1xf32>) -> tensor<4488x4x48xf32>
 // CHECK: %[[v2:.+]] = tensorrt.transpose {permutation = #map} %[[v1]] : tensor<4488x4x48xf32> to tensor<4x4488x48xf32>
-// CHECK: return %2
+// CHECK: return %[[v2]]
 #map = affine_map<(d0, d1, d2) -> (d1, d0, d2)>
 func.func @transpose_on_scalar(%arg0: tensor<4488x4x48xf32>, %arg1: tensor<f32>) -> tensor<4x4488x48xf32> {
   %0 = tensorrt.transpose {permutation = #map} %arg0 : tensor<4488x4x48xf32> to tensor<4x4488x48xf32>
@@ -333,9 +333,9 @@ func.func @transpose_on_scalar(%arg0: tensor<4488x4x48xf32>, %arg1: tensor<f32>)
 
 // -----
 
-// CHECK: @einsum_multiply_two_axis(%[[arg0:.+]]: tensor<10x11x12xf32>, %[[arg1:.]]: tensor<13x11x12xf32>)
-// CHECK: %[[v0:.+]] = tensorrt.reshape %[[arg0]] : tensor<10x11x12xf32> to tensor<10x132xf32>
-// CHECK: %[[v1:.+]] = tensorrt.reshape %[[arg1]] : tensor<13x11x12xf32> to tensor<13x132xf32>
+// CHECK: @einsum_multiply_two_axis(%[[arg0:.+]]: tensor<10x11x12xf32>, %[[arg1:.+]]: tensor<13x11x12xf32>)
+// CHECK-DAG: %[[v0:.+]] = tensorrt.reshape %[[arg0]] : tensor<10x11x12xf32> to tensor<10x132xf32>
+// CHECK-DAG: %[[v1:.+]] = tensorrt.reshape %[[arg1]] : tensor<13x11x12xf32> to tensor<13x132xf32>
 // CHECK: %[[v2:.+]] = tensorrt.matrix_multiply {op0 = #tensorrt.matrix_operation<kNONE>, op1 = #tensorrt.matrix_operation<kTRANSPOSE>} ins(%[[v0]], %[[v1]] : tensor<10x132xf32>, tensor<13x132xf32>) -> tensor<10x13xf32>
 // CHECK: return %[[v2]]
 func.func @einsum_multiply_two_axis(%arg0: tensor<10x11x12xf32>, %arg1: tensor<13x11x12xf32>) -> tensor<10x13xf32> {

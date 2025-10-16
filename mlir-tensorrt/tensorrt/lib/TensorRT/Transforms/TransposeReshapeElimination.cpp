@@ -1138,6 +1138,7 @@ public:
       }
     }
 
+    // an axis can hvae 1 and non-1 shapes associated in the case that the axis is broadcast.  In which case, it is not a 1 shaped axis on the output.
     oneAxisChars.remove_if([&](char c) {
       return nonOneAxisChars.contains(c);
     });
@@ -1256,52 +1257,6 @@ public:
         }
       }
     }
-
-
-    // int idx[2] = {0,0};
-    // while(idx[0] < inputType[0].getRank() && idx[1] < inputType[1].getRank()) {
-    //   if(equation.lhsParts[0][idx[0]] == equation.lhsParts[1][idx[1]]) {
-    //     // both match
-    //     for(int i = 0; i < 2; i++) {
-    //       newInputShapes[0].push_back(inputType[i].getDimSize(idx[i]));
-    //       newEquation.lhsParts[i].push_back(equation.lhsParts[i][idx[i]]);
-    //       idx[i]++;
-    //     }
-    //   } else if(equation.lhsParts[0][idx[0]] == matrixAxes[0] || equation.lhsParts[0][idx[0]] == multipliedAxis) {
-    //     newInputShapes[0].push_back(inputType[0].getDimSize(idx[0]));
-    //     newEquation.lhsParts[0].push_back(equation.lhsParts[0][idx[0]]);
-    //     idx[0]++;
-    //   } else if(equation.lhsParts[1][idx[1]] == matrixAxes[1] || equation.lhsParts[1][idx[1]] == multipliedAxis) {
-    //     newInputShapes[1].push_back(inputType[1].getDimSize(idx[1]));
-    //     newEquation.lhsParts[1].push_back(equation.lhsParts[1][idx[1]]);
-    //     idx[1]++;
-    //   } else if(equation.lhsParts[1].find(equation.lhsParts[0][idx[0]]) == std::string::npos && equation.rhs.find(equation.lhsParts[0][idx[0]]) != std::string::npos) {
-    //     // the letter is not contained in the second equation
-    //     newInputShapes[1].push_back(1);
-    //     newEquation.lhsParts[1].push_back(equation.lhsParts[0][idx[0]]);
-    //     // do not increase idx[0] as we have not consumed its input
-    //     newInputShapes[0].push_back(inputType[0].getDimSize(idx[0]));
-    //     newEquation.lhsParts[0].push_back(equation.lhsParts[1][idx[0]]);
-    //     idx[0]++;
-    //   } else if(equation.lhsParts[0].find(equation.lhsParts[1][idx[1]]) == std::string::npos && equation.rhs.find(equation.lhsParts[1][idx[1]]) != std::string::npos) {
-    //     // the letter is not contained in the first equation
-    //     newInputShapes[0].push_back(1);
-    //     newEquation.lhsParts[0].push_back(equation.lhsParts[1][idx[1]]);
-    //     // do not increase idx[1] as we have not consumed its input
-    //     newInputShapes[1].push_back(inputType[1].getDimSize(idx[1]));
-    //     newEquation.lhsParts[1].push_back(equation.lhsParts[1][idx[1]]);
-    //     idx[1]++;
-    //   } else {
-    //     return failure(/* unexpected */);
-    //   }
-    // }
-    // for(int i = 0; i < 2; i++) {
-    //   while(idx[i] < inputType[i].getRank()) {
-    //     newInputShapes[i].push_back(inputType[i].getDimSize(idx[i]));
-    //     newEquation.lhsParts[i].push_back(equation.lhsParts[i][idx[i]]);
-    //     idx[i]++;
-    //   }
-    // }
 
     RankedTensorType newInputTypes[2] = {
       inputType[0].clone(newInputShapes[0]),
@@ -2023,7 +1978,6 @@ public:
       return a.transposeOutAxes[0] < b.transposeOutAxes[0];
     });
 
-    // INSERT_YOUR_CODE
     LLVM_DEBUG({
       std::stringstream out;
       out << "Reshape Groups:\n";
@@ -2414,7 +2368,6 @@ public:
                                 PatternRewriter &rewriter) const override {
     if (op.getInputs().size() != 2)
       return failure();
-    return failure();
 
     EinsumEquation equation;
     if (failed(equation.parse(op.getEquation())))
@@ -2426,47 +2379,41 @@ public:
 
     Value inputs[2] = {op.getInputs()[0], op.getInputs()[1]};
 
-    for (size_t i = 0; i < equation.rhs.size(); i++) {
-      char c = equation.rhs[i];
-      size_t lhsPos = equation.lhsParts[0].find(c);
-      size_t rhsPos = equation.lhsParts[1].find(c);
-      if (lhsPos != std::string::npos && lhsPos == rhsPos && lhsPos == i) {
-        if (matrixAxis[0] != 0 || matrixAxis[1] != 0) {
+    for(char c : equation.lhsParts[0]) {
+      if(equation.lhsParts[1].find(c) == std::string::npos) {
+        if(matrixAxis[0] != 0)
           return failure(/* einsum does not match matrix multiply format */);
-        }
-        batchAxes += c;
-      } else if (lhsPos != std::string::npos && rhsPos == std::string::npos) {
-        if (matrixAxis[0] == 0) {
-          matrixAxis[0] = c;
-        } else {
-          return failure(/* multiple matrix lhs axes */);
-        }
-      } else if (lhsPos == std::string::npos && rhsPos != std::string::npos) {
-        if (matrixAxis[1] == 0) {
-          matrixAxis[1] = c;
-        } else {
-          return failure(/* multiple matrix rhs axes */);
-        }
-      } else {
-        return failure(/* einsum does not match matrix multiply format */);
+        matrixAxis[0] = c;
+      }
+      if(equation.rhs.find(c) == std::string::npos) {
+        if(multipliedAxis != 0)
+          return failure(/* einsum does not match matrix multipliy format */);
+        multipliedAxis = c;
       }
     }
-    for (int i = 0; i < 2; i++) {
-      for (char c : equation.lhsParts[i]) {
-        if (!(c == matrixAxis[0] || c == matrixAxis[1] ||
-              batchAxes.find(c) != std::string::npos)) {
-          if (multipliedAxis == 0 || multipliedAxis == c) {
-            multipliedAxis = c;
-          } else {
-            return failure(/* multiple multiplied axes */);
-          }
-        }
+    for(char c : equation.lhsParts[1]) {
+      if(equation.lhsParts[0].find(c) == std::string::npos) {
+        if(matrixAxis[1] != 0)
+          return failure(/* einsum does not match matrix multiply format */);
+        matrixAxis[1] = c;
+      }
+      if(equation.rhs.find(c) == std::string::npos) {
+        if(multipliedAxis != 0 && multipliedAxis != c)
+          return failure(/* einsum does not match matrix multiply format */);
+        multipliedAxis = c;
       }
     }
 
-    if (multipliedAxis == 0) {
-      return failure(/* no multiplied axis */);
+    for(size_t i = 0; i < equation.rhs.size(); i++) {
+      if(equation.lhsParts[0][i] == equation.rhs[i] && equation.lhsParts[1][i] == equation.rhs[i]) {
+        batchAxes += equation.rhs[i];
+      } else {
+        break;
+      }
     }
+
+    if(multipliedAxis == 0)
+      return failure();
 
     if (matrixAxis[0] != 0 && matrixAxis[1] != 0 &&
         equation.rhs.find(matrixAxis[0]) > equation.rhs.find(matrixAxis[1])) {
@@ -2478,30 +2425,22 @@ public:
     }
 
     MatrixOperation opType[2];
-    for (int i = 0; i < 2; i++) {
-      std::string e = batchAxes;
-      if (matrixAxis[i] == 0) {
-        e += multipliedAxis;
-        if (e == equation.lhsParts[i])
+    for(int i = 0; i < 2; i++) {
+      if(matrixAxis[i] == 0) {
+        if(equation.lhsParts[i] == batchAxes + multipliedAxis)
           opType[i] = MatrixOperation::kVECTOR;
         else
           return failure(/* einsum does not match matrix multiply format */);
       } else {
-        e += matrixAxis[i];
-        e += multipliedAxis;
-        if (e == equation.lhsParts[i]) {
+        if(equation.lhsParts[i] == (batchAxes + matrixAxis[i]) + multipliedAxis)
           opType[i] = MatrixOperation::kNONE;
-        } else {
-          e = batchAxes;
-          e += multipliedAxis;
-          e += matrixAxis[i];
-          if (e == equation.lhsParts[i])
-            opType[i] = MatrixOperation::kTRANSPOSE;
-          else
-            return failure(/* einsum does not match matrix multiply format */);
-        }
+        else if(equation.lhsParts[i] == (batchAxes + multipliedAxis) + matrixAxis[i])
+          opType[i] = MatrixOperation::kTRANSPOSE;
+        else
+          return failure(/* einsum does not match matrix multiply format */);
       }
     }
+
     switch (opType[1]) {
     case MatrixOperation::kTRANSPOSE:
       opType[1] = MatrixOperation::kNONE;
