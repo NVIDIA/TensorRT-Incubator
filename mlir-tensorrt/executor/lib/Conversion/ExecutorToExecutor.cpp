@@ -26,6 +26,7 @@
 #include "mlir-executor/Conversion/Passes.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/ImplicitLocOpBuilder.h"
+#include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/TypeUtilities.h"
 #include "mlir/Interfaces/DataLayoutInterfaces.h"
@@ -183,6 +184,112 @@ struct ConstantResourceConversionPattern
     return success();
   }
 };
+/// Lower `executor.abi.recv` to `executor.load`.
+struct LowerABIRecvOp : public ConvertOpToExecutorPattern<executor::ABIRecvOp> {
+  using ConvertOpToExecutorPattern::ConvertOpToExecutorPattern;
+
+  LogicalResult
+  matchAndRewrite(executor::ABIRecvOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    Type resultType = typeConverter->convertType(op.getType());
+    if (!resultType)
+      return failure();
+
+    auto ptr = cast<BlockArgument>(op.getPtr());
+    auto func = op->getParentOfType<FunctionOpInterface>();
+    assert(func && "must be inside a function");
+    auto abiAttr = executor::abi::getArgumentABIAttr(func, ptr);
+    assert(abiAttr && "must have an abi attribute");
+    if (abiAttr.getUndef())
+      return failure();
+
+    // Create offset = 0 for the load operation
+    Value offset = rewriter.create<executor::ConstantOp>(
+        op.getLoc(),
+        rewriter.getIntegerAttr(getTypeConverter()->getIndexType(), 0));
+
+    // Replace abi.recv with load ptr + 0
+    rewriter.replaceOpWithNewOp<executor::LoadOp>(op, resultType,
+                                                  adaptor.getPtr(), offset);
+    return success();
+  }
+};
+
+/// Lower `executor.abi.send` to `executor.store`.
+struct LowerABISendOp : public ConvertOpToExecutorPattern<executor::ABISendOp> {
+  using ConvertOpToExecutorPattern::ConvertOpToExecutorPattern;
+
+  LogicalResult
+  matchAndRewrite(executor::ABISendOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    Type valueType = op.getValue().getType();
+
+    // Check if value is a scalar type (FloatType, IndexType, IntegerType) or
+    // ComplexType
+    bool isScalar =
+        isa<FloatType, IndexType, IntegerType, ComplexType>(valueType);
+
+    if (isScalar) {
+      // Scalar types can always be lowered to store
+      Value offset = rewriter.create<executor::ConstantOp>(
+          op.getLoc(),
+          rewriter.getIntegerAttr(getTypeConverter()->getIndexType(), 0));
+
+      rewriter.replaceOpWithNewOp<executor::StoreOp>(
+          op, adaptor.getPtr(), offset, adaptor.getValue());
+      return success();
+    }
+
+    // Check if value is a MemRef type
+    if (auto memrefType = dyn_cast<MemRefType>(valueType)) {
+      // For MemRef types, check additional conditions:
+      // 1. The ABIArgumentAttr must be marked as undef
+      // 2. The ownership value must be statically known to be true
+
+      // Get the function containing this operation
+      auto func = op->getParentOfType<FunctionOpInterface>();
+      if (!func)
+        return failure();
+
+      // Get the block argument for the ptr operand
+      auto blockArg = dyn_cast<BlockArgument>(op.getPtr());
+      if (!blockArg)
+        return failure();
+
+      // Get the ABI attribute for this argument
+      executor::ArgumentABIAttr abiAttr =
+          executor::abi::getArgumentABIAttr(func, blockArg);
+      if (!abiAttr)
+        return failure();
+
+      // Check if the argument has 'undef' parameter set
+      if (!abiAttr.getUndef())
+        return failure();
+
+      // Check if ownership is statically known to be true
+      Value ownership = op.getOwnership();
+      if (!ownership)
+        return failure();
+
+      // Use matchPattern to check if ownership is statically true
+      if (!mlir::matchPattern(ownership, mlir::m_One()))
+        return failure();
+
+      // All conditions met, lower to store
+      Value offset = rewriter.create<executor::ConstantOp>(
+          op.getLoc(),
+          rewriter.getIntegerAttr(getTypeConverter()->getIndexType(), 0));
+
+      rewriter.replaceOpWithNewOp<executor::StoreOp>(
+          op, adaptor.getPtr(), offset, adaptor.getValue());
+      return success();
+    }
+
+    // For other types, return failure
+    return failure();
+  }
+};
+
 } // namespace
 
 void executor::populateExecutorDialectLegality(
@@ -191,6 +298,9 @@ void executor::populateExecutorDialectLegality(
 void executor::populateExecutorStructuralConversionPatternsAndLegality(
     RewritePatternSet &patterns, ExecutorTypeConverter &typeConverter,
     ConversionTarget &target) {
+  // Mark ABIRecvOp as always illegal so it gets lowered
+  target.addIllegalOp<executor::ABIRecvOp, executor::ABISendOp>();
+
   target.addDynamicallyLegalDialect<executor::ExecutorDialect>(
       [&](Operation *op) {
         if (auto funcOp = dyn_cast<executor::FuncOp>(op)) {
@@ -210,10 +320,11 @@ void executor::populateExecutorStructuralConversionPatternsAndLegality(
       });
 
   // TODO: move more func lowerings from `executor-expand-ops` to here.
-  patterns.add<RewriteExecutorConst, LegalizeExecutorOperands,
-               ConvertExecutorGlobalOp, ConvertExecutorFunc,
-               ConvertExecutorCall, ConstantResourceConversionPattern>(
-      typeConverter, patterns.getContext());
+  patterns
+      .add<RewriteExecutorConst, LegalizeExecutorOperands,
+           ConvertExecutorGlobalOp, ConvertExecutorFunc, ConvertExecutorCall,
+           ConstantResourceConversionPattern, LowerABIRecvOp, LowerABISendOp>(
+          typeConverter, patterns.getContext());
 }
 
 static LogicalResult convertExecutorFunctionMetadataAttrs(
@@ -264,6 +375,7 @@ static LogicalResult convertExecutorFunctionMetadataAttrs(
 }
 
 namespace {
+
 /// Pass to convert `executor` to `executor` dialect operations.
 class ConvertExecutorToExecutorPass
     : public mlir::executor::impl::ConvertExecutorToExecutorPassBase<
