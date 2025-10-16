@@ -187,6 +187,14 @@ FunctionSignatureView::FunctionSignatureView(
     const mtrt::flat::FunctionSignature *view)
     : view(view) {
   assert(view != nullptr && "expected valid view");
+  if (view->abi_version() >= 1) {
+    assert(view->result_bounds_indices()->size() == view->results()->size() &&
+           "expected valid result bounds indices");
+    assert(view->arg_bounds_indices()->size() == view->args()->size() &&
+           "expected valid argument bounds indices");
+    assert(view->results()->size() == view->num_output_args() &&
+           "expected valid number of output arguments");
+  }
 }
 
 uint32_t FunctionSignatureView::getNumArgs() const {
@@ -229,23 +237,26 @@ BoundsUnionView FunctionSignatureView::getArgBound(int64_t idx) const {
 
 BoundsUnionView FunctionSignatureView::getResultBound(int64_t idx) const {
   assert(idx < getNumResults() && "expected valid result index");
+  assert(idx < view->result_bounds_indices()->size() &&
+         "expected valid result bounds index");
   int32_t boundsIdx = view->result_bounds_indices()->Get(idx);
   if (boundsIdx < 0)
     return BoundsUnionView{mtrt::flat::Bounds::NONE, nullptr};
+  assert(static_cast<unsigned>(boundsIdx) < view->bounds_values()->size() &&
+         "expected valid bounds value index");
   return BoundsUnionView{view->bounds_values_type()->Get(boundsIdx),
                          view->bounds_values()->Get(boundsIdx)};
 }
 
 TypeUnionView FunctionSignatureView::getOutputArg(int64_t idx) const {
   assert(idx < getNumOutputArgs() && "expected valid output argument index");
+  // Starting in ABI version 1, outputs are in the results array.
+  if (getAbiVersion() >= 1)
+    return getResult(idx);
+  // For ABI version 0, outputs are at the end of the args array
   unsigned offset = getNumInputArgs() + idx;
   return TypeUnionView{view->args_type()->Get(offset),
                        view->args()->Get(offset)};
-}
-
-bool FunctionSignatureView::isOutputArg(int64_t argIdx) const {
-  assert(argIdx < getNumArgs() && "expected valid argument index");
-  return argIdx >= (getNumArgs() - getNumOutputArgs());
 }
 
 llvm::SmallVector<TypeUnionView> FunctionSignatureView::getArgs() const {
@@ -297,6 +308,14 @@ CallingConvention FunctionSignatureView::getCConv() const {
   return view->calling_convention();
 }
 
+llvm::ArrayRef<uint8_t> FunctionSignatureView::getUndef() const {
+  return llvm::ArrayRef<uint8_t>(view->undef()->data(), view->undef()->size());
+}
+
+uint32_t FunctionSignatureView::getAbiVersion() const {
+  return view->abi_version();
+}
+
 //===----------------------------------------------------------------------===//
 // FunctionView
 //===----------------------------------------------------------------------===//
@@ -318,6 +337,10 @@ std::string_view FunctionView::getName() const {
 FunctionView::operator bool() const { return view != nullptr; }
 
 FunctionView::operator const mtrt::flat::Function *() const { return view; }
+
+uint32_t FunctionView::getAbiVersion() const {
+  return view ? view->abi_version() : 0;
+}
 
 //===----------------------------------------------------------------------===//
 // DataSegmentInfo
@@ -425,6 +448,8 @@ llvm::ArrayRef<uint32_t> ExecutableView::getProcessorGridShape() const {
   return llvm::ArrayRef<uint32_t>(view->process_grid_shape()->data(),
                                   view->process_grid_shape()->size());
 }
+
+uint32_t ExecutableView::getAbiVersion() const { return view->abi_version(); }
 
 ExecutableView::operator bool() const { return view != nullptr; }
 
@@ -608,26 +633,6 @@ llvm::raw_ostream &mtrt::print(llvm::raw_ostream &os,
   return os;
 }
 
-namespace {
-struct format_shape : public llvm::FormatAdapter<llvm::ArrayRef<int64_t>> {
-  format_shape(llvm::ArrayRef<int64_t> &&N)
-      : llvm::FormatAdapter<llvm::ArrayRef<int64_t>>(std::move(N)) {}
-
-  void format(llvm::raw_ostream &os, llvm::StringRef style) override {
-    llvm::interleave(
-        this->Item, os,
-        [&](int64_t x) {
-          if (x == kDynamicSize)
-            os << "?";
-          else
-            os << x;
-        },
-        style);
-  }
-};
-
-} // namespace
-
 llvm::raw_ostream &mtrt::print(llvm::raw_ostream &os,
                                const MemRefTypeView &memref) {
   os << llvm::formatv(
@@ -654,11 +659,12 @@ llvm::raw_ostream &mtrt::print(llvm::raw_ostream &os,
   os << llvm::formatv(
       "Signature<args=[{0}], results=[{1}], num_output_args={2}, "
       "arg_bounds=[{3}], "
-      "result_bounds=[{4}], cconv={5}>",
+      "result_bounds=[{4}], cconv={5}, undef=[{6}], abi_version={7}>",
       llvm::iterator_range(args), llvm::iterator_range(results),
       signature.getNumOutputArgs(), llvm::iterator_range(arg_bounds),
       llvm::iterator_range(result_bounds),
-      mtrt::flat::EnumNameCallingConvention(signature.getCConv()));
+      mtrt::flat::EnumNameCallingConvention(signature.getCConv()),
+      llvm::iterator_range(signature.getUndef()), signature.getAbiVersion());
   return os;
 }
 

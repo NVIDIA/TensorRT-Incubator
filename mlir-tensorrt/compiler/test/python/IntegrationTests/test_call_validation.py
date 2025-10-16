@@ -108,17 +108,17 @@ if __name__ == "__main__":
     t.execute(t.create_memref((5, 0, 4), np.float32))
 
 # CHECK-LABEL: TEST: runtime shape mismatch
-#       CHECK: MTRTException: InvalidArgument: InvalidArgument: Input argument 0 validation failed against corresponding function signature arg 0. Reason: InvalidArgument: Runtime shape mismatch. Expected [-9223372036854775808, 3, 4] but received [5, 4, 2]
+#       CHECK: MTRTException: InvalidArgument: InvalidArgument: Input argument 0 validation failed: InvalidArgument: Runtime shape mismatch. Expected [?, 3, 4] but received [5, 4, 2]
 # CHECK-LABEL: TEST: runtime rank mismatch
-#       CHECK: MTRTException: InvalidArgument: InvalidArgument: Input argument 0 validation failed against corresponding function signature arg 0. Reason: InvalidArgument: function expects a memref type with rank 3 but received 2
+#       CHECK: MTRTException: InvalidArgument: InvalidArgument: Input argument 0 validation failed: InvalidArgument: function expects a memref type with rank 3 but received 2
 # CHECK-LABEL: TEST: runtime memref element type mismatch
-#       CHECK: MTRTException: InvalidArgument: InvalidArgument: Input argument 0 validation failed against corresponding function signature arg 0. Reason: InvalidArgument: function expects a memref type with element type f32 but received i32
+#       CHECK: MTRTException: InvalidArgument: InvalidArgument: Input argument 0 validation failed: InvalidArgument: function expects a memref type with element type f32 but received i32
 # CHECK-LABEL: TEST: unit stride dimension
 #       CHECK: Memref stride: [1, 4, 1]
 #       CHECK: Test passed successfully
 # CHECK-LABEL: TEST: runtime memref address space mismatch
-#       CHECK: MTRTException: InvalidArgument: InvalidArgument: Input argument 0 validation failed against corresponding function signature arg 0. Reason: InvalidArgument: function expects a memref type with address space device but received host
+#       CHECK: MTRTException: InvalidArgument: InvalidArgument: Input argument 0 validation failed: InvalidArgument: function expects a memref type with address space device but received host
 # CHECK-LABEL: TEST: runtime type mismatch
-#       CHECK: MTRTException: InvalidArgument: InvalidArgument: Input argument 0 validation failed against corresponding function signature arg 0. Reason: InvalidArgument: function expects a scalar type with element type f32 but received i64
+#       CHECK: MTRTException: InvalidArgument: InvalidArgument: Input argument 0 validation failed: InvalidArgument: function expects a scalar type with element type f32 but received i64
 # CHECK-LABEL: TEST: empty tensor validation
 #       CHECK: Test passed successfully

@@ -1,6 +1,5 @@
 // Regression test for bug where FunctionSignature was serialized in wrong order.
 
-// REQUIRES: host-has-at-least-1-gpus
 // RUN: executor-translate -mlir-to-runtime-executable %s | \
 // RUN: executor-runner -dump-function-signature -input-type=rtexe | FileCheck %s
 executor.data_segment @__constant_4xf32 align 16
@@ -22,5 +21,5 @@ func.func @main() -> i32 attributes {
   return %0 : i32
 }
 
-// CHECK: Function<test_all_reduce, Signature<args=[MemRef<4xf32, strides=[1], device>], results=[], num_output_args=0, arg_bounds=[UNK], result_bounds=[], cconv=unpacked>>
-// CHECK: Function<main, Signature<args=[i32], results=[i32], num_output_args=0, arg_bounds=[UNK], result_bounds=[UNK], cconv=unpacked>>
+// CHECK: Function<test_all_reduce, Signature<args=[MemRef<4xf32, strides=[1], device>], results=[], num_output_args=0, arg_bounds=[UNK], result_bounds=[], cconv=unpacked, undef=[], abi_version=0>>
+// CHECK: Function<main, Signature<args=[i32], results=[i32], num_output_args=0, arg_bounds=[UNK], result_bounds=[UNK], cconv=unpacked, undef=[], abi_version=0>>

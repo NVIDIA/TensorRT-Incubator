@@ -17,6 +17,7 @@ add_mlir_executor_runtime_library(MLIRTensorRTLuaExtensionRegistry
 get_property(runtime_capabilities GLOBAL PROPERTY MLIRExecutorRuntimeCapabilities)
 add_mlir_executor_runtime_library(MLIRTensorRTExecutionEngineLuaRuntime
   LuaRuntime.cpp
+  LuaRuntimeCompat.cpp
 
   PARTIAL_SOURCES_INTENDED
 

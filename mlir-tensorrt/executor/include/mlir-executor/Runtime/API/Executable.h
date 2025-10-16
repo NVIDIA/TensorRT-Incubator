@@ -26,6 +26,7 @@
 #define MLIR_EXECUTOR_RUNTIME_API_EXECUTABLE
 
 #include "mlir-tensorrt-common/Support/Status.h"
+#include "llvm/Support/FormatAdapters.h"
 #include "llvm/Support/MemoryBuffer.h"
 
 #if defined(__clang__)
@@ -278,9 +279,6 @@ public:
   /// Return the type of the output argument at index \p idx.
   TypeUnionView getOutputArg(int64_t idx) const;
 
-  /// Return true if the argument at index \p argIdx is an output argument.
-  bool isOutputArg(int64_t argIdx) const;
-
   /// Return a vector containing all argument types.
   llvm::SmallVector<TypeUnionView> getArgs() const;
 
@@ -298,6 +296,13 @@ public:
 
   /// Returns the calling convention associated with this function.
   CallingConvention getCConv() const;
+
+  /// Returns an array of indicators, one for each result, indicating whether
+  /// the result may be undefined. Only valid for ABI version >= 1.
+  llvm::ArrayRef<uint8_t> getUndef() const;
+
+  /// Return the ABI version associated with this function.
+  uint32_t getAbiVersion() const;
 
   const mtrt::flat::FunctionSignature *view;
 };
@@ -323,6 +328,9 @@ public:
 
   /// Allow implicit conversion to the underlying flatbuffer Function pointer.
   operator const mtrt::flat::Function *() const;
+
+  /// Return the ABI version associated with this function.
+  uint32_t getAbiVersion() const;
 
 private:
   const mtrt::flat::Function *view;
@@ -388,6 +396,9 @@ public:
 
   /// Return a vector of FunctionViews.
   llvm::SmallVector<FunctionView> getFunctions() const;
+
+  /// Return the ABI version for this executable.
+  uint32_t getAbiVersion() const;
 
   /// Allow contextual conversion to bool for checking validity.
   operator bool() const;
@@ -495,6 +506,23 @@ inline llvm::raw_ostream &print(llvm::raw_ostream &os,
                                 const std::unique_ptr<T> &obj) {
   return print(os, *obj);
 }
+
+struct format_shape : public llvm::FormatAdapter<llvm::ArrayRef<int64_t>> {
+  format_shape(llvm::ArrayRef<int64_t> &&N)
+      : llvm::FormatAdapter<llvm::ArrayRef<int64_t>>(std::move(N)) {}
+
+  void format(llvm::raw_ostream &os, llvm::StringRef style) override {
+    llvm::interleave(
+        this->Item, os,
+        [&](int64_t x) {
+          if (x == kDynamicSize)
+            os << "?";
+          else
+            os << x;
+        },
+        style);
+  }
+};
 
 } // namespace mtrt
 

@@ -23,6 +23,7 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-executor/Target/Lua/TranslateToRuntimeExecutable.h"
 #include "mlir-executor/Executor/IR/Executor.h"
+#include "mlir-executor/Executor/IR/ExecutorAttributes.h"
 #include "mlir-executor/Runtime/API/Executable.h"
 #include "mlir-executor/Target/Lua/TranslateToLua.h"
 #include "mlir-executor/Utils/SerializationUtils.h"
@@ -261,7 +262,8 @@ createBoundsUnion(mtrt::flat::ValueBoundsT &&bounds) {
 
 /// Translate the given attribute into a native Object API BoundsUnion.
 /// Returns a BoundsUnion with type NONE for UnitAttr.
-static FailureOr<mtrt::flat::BoundsUnion> translateAttribute(Attribute attr) {
+static FailureOr<mtrt::flat::BoundsUnion>
+translateBoundsAttribute(Attribute attr) {
   if (!isa<executor::DimensionBoundsAttr, executor::ValueBoundsAttr, UnitAttr>(
           attr))
     return emitError(UnknownLoc::get(attr.getContext()))
@@ -416,7 +418,7 @@ translateSignature(executor::FunctionMetadataAttr metadata) {
 
   // Process argument bounds
   for (Attribute a : metadata.getArgBounds()) {
-    auto boundsUnion = translateAttribute(a);
+    auto boundsUnion = translateBoundsAttribute(a);
     if (failed(boundsUnion))
       return failure();
 
@@ -430,7 +432,7 @@ translateSignature(executor::FunctionMetadataAttr metadata) {
 
   // Process result bounds
   for (Attribute a : metadata.getResultBounds()) {
-    auto boundsUnion = translateAttribute(a);
+    auto boundsUnion = translateBoundsAttribute(a);
     if (failed(boundsUnion))
       return failure();
 
@@ -458,6 +460,98 @@ static mtrt::flat::FunctionSignatureT generateSignature() {
   mtrt::flat::FunctionSignatureT signature;
   signature.num_output_args = 0;
   signature.calling_convention = mtrt::CallingConvention::unpacked;
+  return signature;
+}
+
+LogicalResult
+translateBoundsIfPresent(func::FuncOp func, unsigned argIndex,
+                         mtrt::flat::FunctionSignatureT &signature,
+                         bool isInput) {
+  for (llvm::StringRef attrName :
+       {executor::ExecutorDialect::getShapeBoundsAttrName(),
+        executor::ExecutorDialect::getValueBoundsAttrName()}) {
+    if (Attribute bounds = func.getArgAttr(argIndex, attrName)) {
+      auto boundsUnion = translateBoundsAttribute(bounds);
+      if (failed(boundsUnion))
+        return failure();
+      unsigned boundsIdx = signature.bounds_values.size();
+      if (isInput) {
+        signature.arg_bounds_indices.push_back(boundsIdx);
+      } else {
+        signature.result_bounds_indices.push_back(boundsIdx);
+      }
+      signature.bounds_values.push_back(std::move(*boundsUnion));
+      return success();
+    }
+  }
+  if (isInput)
+    signature.arg_bounds_indices.push_back(-1);
+  else
+    signature.result_bounds_indices.push_back(-1);
+  return success();
+}
+
+/// Build a FunctionSignature for an ABI wrapper function by extracting
+/// information from the ArgumentABIAttr attributes on function arguments.
+static FailureOr<mtrt::flat::FunctionSignatureT>
+translateABIWrapperSignature(func::FuncOp func) {
+  mtrt::flat::FunctionSignatureT signature;
+
+  // ABI wrapper functions use unpacked calling convention
+  signature.calling_convention = mtrt::CallingConvention::unpacked;
+  signature.shape_function_name = "";
+
+  auto hostPointerType =
+      executor::PointerType::get(func.getContext(), executor::MemoryType::host);
+
+  // Process each argument
+  for (unsigned i = 0, e = func.getNumArguments(); i < e; ++i) {
+    BlockArgument arg = func.getArgument(i);
+
+    std::optional<unsigned> resultIdx =
+        executor::abi::isOutputArgument(func, arg);
+    const bool isInput = !resultIdx.has_value();
+    if (executor::abi::isScalarArgumentType(arg.getType())) {
+      assert(isInput && "scalar arguments cannot be output arguments");
+      auto typeUnion = translateTypeVariant(arg.getType());
+      if (failed(typeUnion))
+        return failure();
+      signature.args.push_back(std::move(*typeUnion));
+      signature.arg_bounds_indices.push_back(-1);
+      continue;
+    }
+
+    if (arg.getType() != hostPointerType)
+      return emitError(func.getLoc())
+             << "ABI wrapper function argument " << i
+             << " has an invalid type: " << arg.getType();
+
+    // Get the ArgumentABIAttr for this argument
+    executor::ArgumentABIAttr abiAttr =
+        executor::abi::getArgumentABIAttr(func, arg);
+    if (!abiAttr)
+      return emitError(func.getLoc()) << "ABI wrapper function missing "
+                                         "executor.abi attribute on argument "
+                                      << i;
+
+    if (failed(translateBoundsIfPresent(func, i, signature, isInput)))
+      return failure();
+
+    // Extract the value type from the ABI attribute
+    Type valueType = abiAttr.getValueType();
+    auto typeUnion = translateTypeVariant(valueType);
+    if (failed(typeUnion))
+      return failure();
+
+    if (isInput) {
+      signature.args.push_back(std::move(*typeUnion));
+    } else {
+      signature.results.push_back(std::move(*typeUnion));
+      signature.undef.push_back(abiAttr.getUndef());
+    }
+  }
+
+  signature.num_output_args = signature.results.size();
   return signature;
 }
 
@@ -592,9 +686,31 @@ mlir::translateToRuntimeExecutable(Operation *op) {
   }
   Offset<fb::String> sourceStrOffset = fbBuilder.CreateString(sourceString);
 
+  // First pass: Check that we don't have a mix of ABI wrapper and non-ABI
+  // wrapper functions. Validate that all public functions are either all ABI
+  // wrapper functions or all non-ABI wrapper functions.
+  bool hasABIWrapperFunctions = false;
+  bool hasNonABIWrapperFunctions = false;
+  for (auto func : op->getRegion(0).getOps<func::FuncOp>()) {
+    if (func.isPrivate())
+      continue;
+
+    if (executor::abi::isABIWrapperFunction(func))
+      hasABIWrapperFunctions = true;
+    else
+      hasNonABIWrapperFunctions = true;
+
+    if (hasABIWrapperFunctions && hasNonABIWrapperFunctions)
+      return emitError(op->getLoc())
+             << "module contains a mix of ABI wrapper functions and non-ABI "
+                "wrapper functions; all public functions must be either ABI "
+                "wrapper functions or non-ABI wrapper functions";
+  }
+
   // Loop over all functions and collect metadata (function names and
   // signatures) that we will embed in the executable.
   SmallVector<Offset<mtrt::flat::Function>> funcOffsets;
+  uint32_t abiVersion = hasABIWrapperFunctions ? 1 : 0;
   for (auto func : op->getRegion(0).getOps<func::FuncOp>()) {
     if (func.isPrivate())
       continue;
@@ -602,17 +718,31 @@ mlir::translateToRuntimeExecutable(Operation *op) {
     // Build Function using Object API
     mtrt::flat::FunctionT function;
     function.name = func.getName().str();
+    function.abi_version = abiVersion;
 
-    if (auto metaAttr = func->getAttrOfType<executor::FunctionMetadataAttr>(
-            executor::ExecutorDialect::kFunctionMetadataAttrName)) {
+    // Check if this is an ABI wrapper function
+    if (executor::abi::isABIWrapperFunction(func)) {
+      // For ABI wrapper functions, extract signature from argument attributes
+      auto sig = translateABIWrapperSignature(func);
+      if (failed(sig))
+        return failure();
+      sig->abi_version = abiVersion;
+      function.signature =
+          std::make_unique<mtrt::flat::FunctionSignatureT>(std::move(*sig));
+    } else if (auto metaAttr =
+                   func->getAttrOfType<executor::FunctionMetadataAttr>(
+                       executor::ExecutorDialect::kFunctionMetadataAttrName)) {
       auto sig = translateSignature(metaAttr);
       if (failed(sig))
         return failure();
+      sig->abi_version = abiVersion;
       function.signature =
           std::make_unique<mtrt::flat::FunctionSignatureT>(std::move(*sig));
     } else {
+      auto sig = generateSignature();
+      sig.abi_version = abiVersion;
       function.signature =
-          std::make_unique<mtrt::flat::FunctionSignatureT>(generateSignature());
+          std::make_unique<mtrt::flat::FunctionSignatureT>(std::move(sig));
     }
 
     // Pack the Function object into the flatbuffer
@@ -644,6 +774,8 @@ mlir::translateToRuntimeExecutable(Operation *op) {
   exeBuilder.add_data_segments(constVecOffsets);
   exeBuilder.add_source(sourceStrOffset);
   exeBuilder.add_name(nameOffset);
+  // Set ABI version to 1 if we have any ABI wrapper functions, otherwise 0
+  exeBuilder.add_abi_version(hasABIWrapperFunctions ? 1 : 0);
   fbBuilder.Finish(exeBuilder.Finish());
 
   flatbuffers::DetachedBuffer detached = fbBuilder.Release();

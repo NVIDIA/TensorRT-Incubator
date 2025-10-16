@@ -600,6 +600,10 @@ std::optional<unsigned> executor::abi::isInputArgument(FunctionOpInterface func,
   return std::nullopt;
 }
 
+bool executor::abi::isScalarArgumentType(Type type) {
+  return isa<IntegerType, IndexType, FloatType>(type);
+}
+
 ArgumentABIAttr executor::abi::getArgumentABIAttr(FunctionOpInterface func,
                                                   BlockArgument arg) {
   Block::BlockArgListType args = func.getArguments();

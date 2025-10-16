@@ -133,7 +133,8 @@ with Context() as context:
     # CHECK-LABEL: running compilation (2)
     # CHECK-NOT: {{.*}} generating a new TensorRT builder {{.*}}
     # CHECK-NOT: {{.*}} timing cache path was not specified {{.*}}
-    # CHECK: FunctionSignature(Signature<args=[MemRef<2x3x4xf32, strides=[12, 4, 1], device>, MemRef<2x3x4xf32, strides=[12, 4, 1], device>], results=[], num_output_args=1, arg_bounds=[UNK, UNK], result_bounds=[], cconv=unpacked>)
+    # CHECK: FunctionSignature(Signature<args=[MemRef<2x3x4xf32, strides=[12, 4, 1], device>, MemRef<2x3x4xf32, strides=[12, 4, 1], device>],
+    # CHECK-SAME: results=[], num_output_args=1, arg_bounds=[UNK, UNK], result_bounds=[], cconv=unpacked, undef=[], abi_version=0>)
     # CHECK: Num of args: 2
     # CHECK: Num of results: 0
     # CHECK: Num of input args: 1
@@ -178,6 +179,7 @@ with Context() as context:
 # CHECK: FunctionSignature(Signature<args=[MemRef<?x3x4xf32, strides=[12, 4, 1], device>, MemRef<?x3x4xf32, strides=[12, 4, 1], device>],
 # CHECK-SAME: results=[], num_output_args=1,
 # CHECK-SAME: arg_bounds=[dim_bounds<min = [1,3,4], max = [10,3,4]>, dim_bounds<min = [1,3,4], max = [10,3,4]>], result_bounds=[]
+# CHECK-SAME: cconv=unpacked, undef=[], abi_version=0>
 # CHECK: Num of args: 2
 # CHECK: Num of results: 0
 # CHECK: Num of input args: 1

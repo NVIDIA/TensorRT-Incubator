@@ -99,6 +99,11 @@ bool isABIWrapperFunction(FunctionOpInterface func);
 std::optional<unsigned> isInputArgument(FunctionOpInterface func,
                                         unsigned argIndex);
 
+/// Returns true if this is a valid scalar argument type that can be
+/// passed-by-value by an ABI wrapper function. If not, then it must be
+/// passed-by-pointer.
+bool isScalarArgumentType(Type type);
+
 /// For a given argument of an API wrapper function, return whether this
 /// argument is an "output argument". It is an output argument
 /// if it is one of of the last M arguments of the function where M is given

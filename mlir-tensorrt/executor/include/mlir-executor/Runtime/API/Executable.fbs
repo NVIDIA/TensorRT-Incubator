@@ -97,11 +97,23 @@ table FunctionSignature {
   // The calling convention of the function. If not given, then "unpacked"
   // convention is assumed.
   calling_convention:CallingConvention;
+
+  // For ABI wrapper functions, indicates which arguments may be undefined.
+  // Empty for non-ABI wrapper functions. For ABI wrapper functions, this has
+  // the same size as args, with true indicating the argument may be undefined.
+  undef:[bool];
+
+  // ABI version for this function, copied from the Executable abi_version.
+  abi_version:uint32 = 0;
 }
 
 table Function {
   name:string;
   signature:FunctionSignature;
+
+  // ABI version for this function, copied from the Executable abi_version.
+  // Redundantly stored here for quick access without traversing to Executable.
+  abi_version:uint32 = 0;
 }
 
 table DataSegment {
@@ -131,6 +143,10 @@ table Executable {
   // Contains shape about the process grid (interpretation
   // depends on backend).
   process_grid_shape:[uint32];
+
+  // ABI version for backward/forward compatibility of runtime value conversions.
+  // Version 0 represents the initial/current behavior.
+  abi_version:uint32 = 0;
 }
 
 root_type Executable;

@@ -142,66 +142,100 @@ struct ConstantOpConverter : public OpConversionPattern<arith::ConstantOp> {
 
 /// Convert 'plan' dialect or 'tensorrt' dialect bounds into 'executor' bounds
 /// attributes.
-static Attribute convertArgOrResultAttr(OpBuilder &b, Attribute attr) {
-  MLIRContext *ctx = attr.getContext();
-  if (auto planAttr = dyn_cast<plan::BoundsAttr>(attr)) {
-    if (planAttr.isShapeBound())
-      return executor::DimensionBoundsAttr::get(ctx, planAttr.getMinShape(),
-                                                planAttr.getMaxShape());
-    if (planAttr.isValueBound())
-      return executor::ValueBoundsAttr::get(ctx, planAttr.getMinValues(),
-                                            planAttr.getMaxValues());
-  }
-  return attr;
+static Attribute convertBoundsAttr(OpBuilder &b, plan::BoundsAttr planAttr) {
+  MLIRContext *ctx = planAttr.getContext();
+  if (planAttr.isShapeBound())
+    return executor::DimensionBoundsAttr::get(ctx, planAttr.getMinShape(),
+                                              planAttr.getMaxShape());
+  if (planAttr.isValueBound())
+    return executor::ValueBoundsAttr::get(ctx, planAttr.getMinValues(),
+                                          planAttr.getMaxValues());
+  return planAttr;
 }
 
-/// Convert 'plan' dialect arg|result attributes into 'executor' dialect
-/// attributes for all function arg attrs and res attrs.
-static void convertArgAndResultAttrs(OpBuilder &b, func::FuncOp op) {
-  StringRef executorShapeBoundsAttrName =
-      mlir::executor::ExecutorDialect::getShapeBoundsAttrName();
-  StringRef executorValueBoundsAttrName =
-      mlir::executor::ExecutorDialect::getValueBoundsAttrName();
-
-  StringRef planShapeBoundsAttrName =
-      mlir::plan::PlanDialect::kShapeBoundsAttrName;
-  StringRef planValueBoundsAttrName =
-      mlir::plan::PlanDialect::kValueBoundsAttrName;
-
-  for (unsigned idx = 0; idx < op.getNumArguments(); idx++) {
-    if (auto attr = op.getArgAttr(idx, planShapeBoundsAttrName)) {
-      op.removeArgAttr(idx, planShapeBoundsAttrName);
-      op.setArgAttr(idx, executorShapeBoundsAttrName,
-                    convertArgOrResultAttr(b, attr));
-    }
-    if (auto attr = op.getArgAttr(idx, planValueBoundsAttrName)) {
-      op.removeArgAttr(idx, planValueBoundsAttrName);
-      op.setArgAttr(idx, executorValueBoundsAttrName,
-                    convertArgOrResultAttr(b, attr));
-    }
-
-    if (auto attr = op.getArgAttr(idx, plan::PlanDialect::kResultArgAttrName)) {
-      op.removeArgAttr(idx, plan::PlanDialect::kResultArgAttrName);
-      op.setArgAttr(idx, executor::ExecutorDialect::kResultArgAttrName, attr);
-    }
-    if (auto attr =
-            op.getArgAttr(idx, plan::PlanDialect::kDonationArgAttrName)) {
-      op.setArgAttr(idx, executor::ExecutorDialect::kDonatedArgAttrName, attr);
-      op.removeArgAttr(idx, plan::PlanDialect::kDonationArgAttrName);
+/// Convert an argument or result dictionary attribute using the given
+/// converters.
+static DictionaryAttr convertDictAttr(
+    OpBuilder &b, DictionaryAttr attrs,
+    ArrayRef<std::function<std::optional<NamedAttribute>(StringRef, Attribute)>>
+        converters) {
+  if (!attrs)
+    return b.getDictionaryAttr({});
+  SmallVector<NamedAttribute> result;
+  for (NamedAttribute attr : attrs) {
+    for (const auto &converter : converters) {
+      if (std::optional<NamedAttribute> converted =
+              converter(attr.getName(), attr.getValue())) {
+        result.push_back(*converted);
+        break;
+      }
     }
   }
-  for (unsigned idx = 0; idx < op.getNumResults(); idx++) {
-    if (auto attr = op.getResultAttr(idx, planShapeBoundsAttrName)) {
-      op.removeResultAttr(idx, b.getStringAttr(planShapeBoundsAttrName));
-      op.setResultAttr(idx, executorShapeBoundsAttrName,
-                       convertArgOrResultAttr(b, attr));
-    }
-    if (auto attr = op.getResultAttr(idx, planValueBoundsAttrName)) {
-      op.removeResultAttr(idx, b.getStringAttr(planValueBoundsAttrName));
-      op.setResultAttr(idx, executorValueBoundsAttrName,
-                       convertArgOrResultAttr(b, attr));
-    }
+  return b.getDictionaryAttr(result);
+}
+
+static void convertFuncArgAndResultAttrs(OpBuilder &b, func::FuncOp op,
+                                         TypeConverter &typeConverter) {
+  SmallVector<DictionaryAttr> argAttrs;
+  SmallVector<DictionaryAttr> resAttrs;
+  SmallVector<
+      std::function<std::optional<NamedAttribute>(StringRef, Attribute)>>
+      converters;
+  converters.push_back([&](StringRef name,
+                           Attribute value) -> std::optional<NamedAttribute> {
+    auto planAttr = dyn_cast<plan::BoundsAttr>(value);
+    if (!planAttr)
+      return std::nullopt;
+    if (name == plan::PlanDialect::kShapeBoundsAttrName)
+      return b.getNamedAttr(executor::ExecutorDialect::getShapeBoundsAttrName(),
+                            convertBoundsAttr(b, planAttr));
+    if (name == plan::PlanDialect::kValueBoundsAttrName)
+      return b.getNamedAttr(executor::ExecutorDialect::getValueBoundsAttrName(),
+                            convertBoundsAttr(b, planAttr));
+    return std::nullopt;
+  });
+  converters.push_back(
+      [&](StringRef name, Attribute value) -> std::optional<NamedAttribute> {
+        if (name == plan::PlanDialect::kResultArgAttrName)
+          return b.getNamedAttr(executor::ExecutorDialect::kResultArgAttrName,
+                                value);
+        if (name == plan::PlanDialect::kDonationArgAttrName)
+          return b.getNamedAttr(executor::ExecutorDialect::kDonatedArgAttrName,
+                                value);
+        return std::nullopt;
+      });
+
+  converters.push_back(
+      [&](StringRef name, Attribute value) -> std::optional<NamedAttribute> {
+        if (name != executor::ExecutorDialect::kArgABIAttrName)
+          return std::nullopt;
+        auto abiAttr = cast<executor::ArgumentABIAttr>(value);
+        Type convertedType = typeConverter.convertType(abiAttr.getValueType());
+        if (!convertedType)
+          return std::nullopt;
+        return b.getNamedAttr(executor::ExecutorDialect::kArgABIAttrName,
+                              abiAttr.cloneWithValueType(convertedType));
+      });
+
+  // Fallback: Always pass through executor attributes.
+  converters.push_back(
+      [&](StringRef name, Attribute value) -> std::optional<NamedAttribute> {
+        if (!name.starts_with("executor."))
+          return std::nullopt;
+        return b.getNamedAttr(name, value);
+      });
+
+  for (unsigned argIdx = 0, e = op.getNumArguments(); argIdx < e; argIdx++) {
+    argAttrs.push_back(
+        convertDictAttr(b, op.getArgAttrDict(argIdx), converters));
   }
+  for (unsigned resIdx = 0, e = op.getNumResults(); resIdx < e; resIdx++) {
+    resAttrs.push_back(
+        convertDictAttr(b, op.getResultAttrDict(resIdx), converters));
+  }
+
+  op.setAllArgAttrs(argAttrs);
+  op.setAllResultAttrs(resAttrs);
 }
 
 /// Returns true if the given `op` is considered as legal for plan-to-executor
@@ -343,12 +377,10 @@ class PlanToExecutorPass
       return signalPassFailure();
     }
 
-    // Convert the result/argument function bounds attributes.
+    // Convert all the function attributes.
     OpBuilder builder(&getContext());
     for (func::FuncOp func : module.getOps<func::FuncOp>()) {
-      convertArgAndResultAttrs(builder, func);
-
-      // TODO: should we just create metadata here?
+      convertFuncArgAndResultAttrs(builder, func, typeConverter);
       // Update the shape function attribute to executor dialect attribute.
       if (auto shapeFuncSym = func->getAttrOfType<SymbolRefAttr>(
               plan::PlanDialect::kShapeFuncAttrName)) {
