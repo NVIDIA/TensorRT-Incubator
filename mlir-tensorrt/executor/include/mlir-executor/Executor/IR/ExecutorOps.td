@@ -1357,9 +1357,15 @@ def Executor_ABISendOp : Executor_Op<"abi.send", []> {
     The value type of the argument's `#executor.arg<byref, ...>` must match the type
     of `value`.
   }];
-  let arguments = (ins AnyType:$value, Arg<Executor_HostPtr,"address where value is written", [MemWrite]>:$ptr);
-  let assemblyFormat = "$value `to` $ptr attr-dict `:` type($value)";
+  let arguments = (ins AnyType:$value, Arg<Executor_HostPtr,"address where value is written", [MemWrite]>:$ptr, Optional<I1>:$ownership);
+  let assemblyFormat = "$value `to` $ptr ( `ownership` `(` $ownership^ `)`)? attr-dict `:` type($value)";
   let hasVerifier = 1;
+
+  let builders = [
+    OpBuilder<(ins "Value":$value, "Value":$ptr), [{
+      build($_builder, $_state, value, ptr, Value{});
+    }]>
+  ];
 }
 
 #endif // MLIR_TENSORRT_DIALECT_EXECUTOR_IR_EXECUTOROPS_TD

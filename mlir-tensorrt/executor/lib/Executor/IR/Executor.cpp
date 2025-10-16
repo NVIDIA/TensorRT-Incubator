@@ -1320,7 +1320,7 @@ LogicalResult ABIRecvOp::verify() {
     return emitOpError() << "ptr operand must be a function argument";
 
   auto abiAttr = func.getArgAttr(blockArg.getArgNumber(),
-                                  ExecutorDialect::kArgABIAttrName);
+                                 ExecutorDialect::kArgABIAttrName);
   if (!abiAttr)
     return emitOpError() << "argument must have "
                          << ExecutorDialect::kArgABIAttrName << " attribute";
@@ -1329,9 +1329,6 @@ LogicalResult ABIRecvOp::verify() {
   if (!argABIAttr)
     return emitOpError() << "expected " << ExecutorDialect::kArgABIAttrName
                          << " to be #executor.arg<...>";
-
-  if (argABIAttr.getAbi() != ArgABIKind::byval)
-    return emitOpError() << "argument must have #executor.arg<byval, ...> ABI";
 
   if (getResult().getType() != argABIAttr.getValueType())
     return emitOpError() << "result type " << getResult().getType()
@@ -1355,7 +1352,7 @@ LogicalResult ABISendOp::verify() {
     return emitOpError() << "ptr operand must be a function argument";
 
   auto abiAttr = func.getArgAttr(blockArg.getArgNumber(),
-                                  ExecutorDialect::kArgABIAttrName);
+                                 ExecutorDialect::kArgABIAttrName);
   if (!abiAttr)
     return emitOpError() << "argument must have "
                          << ExecutorDialect::kArgABIAttrName << " attribute";

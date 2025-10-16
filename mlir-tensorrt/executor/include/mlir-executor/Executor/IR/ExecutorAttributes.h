@@ -27,6 +27,10 @@
 #include "mlir/IR/OpImplementation.h"
 #include <optional>
 
+namespace mlir {
+class FunctionOpInterface;
+}
+
 namespace mlir::func {
 class FuncOp;
 }
@@ -73,6 +77,64 @@ LogicalResult setModuleProcessGridShape(Operation *op, ArrayRef<int64_t> shape);
 /// `executor.global` regions are lowered. This is the only function that is
 /// allowed to make `executor.set_global` calls to gloals marked constant.
 StringRef getExecutorGlobalInitializerFuncNameAttr();
+
+namespace abi {
+
+/// Get the ABI function type from the `executor.func_abi` attribute attached
+/// to the function. Returns failure if the attribute is not present or is not
+/// a valid FunctionType.
+FailureOr<FunctionType> getABIFunctionType(FunctionOpInterface func);
+
+/// Return true if this function is an Executor runtime compatible ABI wrapper
+/// function.
+bool isABIWrapperFunction(FunctionOpInterface func);
+
+/// For a given argument of an API wrapper function, return whether this
+/// argument is an "input argument" or an "output argument". It is an input
+/// argument if it is one of of the first N arguments of the function where N is
+/// given by the number of inputs of the ABI function type (attached to the
+/// function via the `executor.func_abi` attribute). If it is an input argument,
+/// return the index of the corresponding input of the ABI function type (which
+/// is really just the argument number).
+std::optional<unsigned> isInputArgument(FunctionOpInterface func,
+                                        unsigned argIndex);
+
+/// For a given argument of an API wrapper function, return whether this
+/// argument is an "output argument". It is an output argument
+/// if it is one of of the last M arguments of the function where M is given
+/// by the number of results of the ABI function type (attached to the function
+/// via the `executor.func_abi` attribute). If it is an output argument, return
+/// the index of the corresponding result of the ABI function type.
+std::optional<unsigned> isOutputArgument(FunctionOpInterface func,
+                                         unsigned argIndex);
+
+/// For the given argument of an API wrapper function, return whether this
+/// argument is an "output argument".
+std::optional<unsigned> isOutputArgument(FunctionOpInterface func,
+                                         BlockArgument arg);
+
+/// Return the ArgumentABIAttr for the given argument.
+ArgumentABIAttr getArgumentABIAttr(FunctionOpInterface func, BlockArgument arg);
+
+/// Return the ArgumentABIAttr for the given argument index.
+ArgumentABIAttr getArgumentABIAttr(FunctionOpInterface func, unsigned argIndex);
+
+/// Set the ArgumentABIAttr for the given argument.
+void setArgumentABIAttr(FunctionOpInterface func, BlockArgument arg,
+                        ArgumentABIAttr abiAttr);
+
+/// Get or create an ABIRecvOp for the given function argument.
+/// This function asserts that `func` is an ABI wrapper function.
+/// If an ABIRecvOp already exists for the argument at `argIndex`, it returns
+/// its result (and asserts the type matches `expectedType` if provided).
+/// Otherwise, it creates a new ABIRecvOp with the result type derived from
+/// the ABI function type (or `expectedType` if provided).
+Value getOrCreateABIRecv(OpBuilder &b, FunctionOpInterface func,
+                         BlockArgument arg, Type expectedType = nullptr);
+Value getOrCreateABIRecv(OpBuilder &b, FunctionOpInterface func,
+                         unsigned argIndex, Type expectedType = nullptr);
+
+} // namespace abi
 
 } // namespace mlir::executor
 

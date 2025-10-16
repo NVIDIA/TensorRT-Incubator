@@ -48,7 +48,8 @@ static bool isScalarType(Type type) {
 /// Construct the signature for the ABI wrapper function.
 static FailureOr<FunctionType>
 createABISignature(FunctionOpInterface func,
-                   SmallVectorImpl<Attribute> &argAttrs) {
+                   SmallVectorImpl<Attribute> &argAttrs,
+                   bool forceUndefOutputArgs) {
   OpBuilder builder(func.getContext());
   auto funcType = cast<FunctionType>(func.getFunctionType());
   SmallVector<Type> argTypes;
@@ -95,7 +96,8 @@ createABISignature(FunctionOpInterface func,
                        builder.getI32IntegerAttr(idx));
     attrs.emplace_back(
         executor::ExecutorDialect::kArgABIAttrName,
-        executor::ArgumentABIAttr::get(executor::ArgABIKind::byref, result));
+        executor::ArgumentABIAttr::get(executor::ArgABIKind::byref, result,
+                                       forceUndefOutputArgs));
     argAttrs.push_back(DictionaryAttr::get(func.getContext(), attrs));
   }
   return FunctionType::get(funcType.getContext(), argTypes, {});
@@ -147,7 +149,8 @@ class ExecutorGenerateABIWrappersPass
 
       FunctionType funcType = func.getFunctionType();
       SmallVector<Attribute> argAttrs;
-      FailureOr<FunctionType> abiFuncType = createABISignature(func, argAttrs);
+      FailureOr<FunctionType> abiFuncType =
+          createABISignature(func, argAttrs, forceUndefOutputArgs);
       if (failed(abiFuncType)) {
         emitError(func.getLoc())
             << "failed to create ABI signature for function " << func.getName();

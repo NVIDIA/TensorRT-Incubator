@@ -36,6 +36,7 @@ add_mlir_tensorrt_library(MLIRTensorRTPlanTransforms
     MLIRTensorRTTensorRTDialect
     MLIRTensorRTDuplicateFunctionElimination
     MLIRTensorRTExecutorDialect
+    MLIRTensorRTExecutorTransforms
     MLIRTensorRTLowerLinalgCopies
     MLIRTensorRTMemRefCastElimination
     MLIRTensorRTPlanAnalysis

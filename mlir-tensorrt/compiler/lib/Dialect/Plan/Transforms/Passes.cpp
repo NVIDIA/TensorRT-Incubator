@@ -22,6 +22,7 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
+#include "mlir-executor/Executor/Transforms/Passes.h"
 #include "mlir-tensorrt/Conversion/Passes.h"
 #include "mlir-tensorrt/Transforms/Passes.h"
 #include "mlir/Conversion/BufferizationToMemRef/BufferizationToMemRef.h"
@@ -132,6 +133,7 @@ static void buildPlanBufferDeallocationPipeline(
   pm.addPass(createCanonicalizerPass());
   pm.addPass(bufferization::createBufferDeallocationSimplificationPass());
   pm.addPass(bufferization::createLowerDeallocationsPass());
+  pm.addPass(executor::createExecutorLowerABIOpsPass());
   pm.addNestedPass<func::FuncOp>(
       mlir::createConvertBufferizationToMemRefPass());
   pm.addNestedPass<func::FuncOp>(createCSEPass());

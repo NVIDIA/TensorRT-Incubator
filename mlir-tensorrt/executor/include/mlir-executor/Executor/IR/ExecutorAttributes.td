@@ -75,20 +75,35 @@ def Executor_ArgumentABIAttr : Executor_Attr<"ArgumentABI", "arg"> {
 
   let parameters = (ins
     EnumParameter<Executor_ArgABIKind>:$abi,
-    "::mlir::Type":$value_type
+    "::mlir::Type":$value_type,
+    OptionalParameter<"bool">:$undef
   );
 
   let assemblyFormat = [{
-    `<` $abi `,` $value_type `>`
+    `<` $abi `,` $value_type ``
+        custom<ArgumentABIAttrFlags>($undef) `>`
   }];
 
   let builders = [
     AttrBuilderWithInferredContext<(ins
       "::mlir::executor::ArgABIKind":$abi,
-      "::mlir::Type":$value_type), [{
-      return Base::get(value_type.getContext(), abi, value_type);
+      "::mlir::Type":$value_type,
+      CArg<"bool", "false">:$undef), [{
+      return Base::get(value_type.getContext(), abi, value_type, undef);
     }]>
   ];
+
+  let extraClassDeclaration = [{
+    /// Clone the attribute, replacing only the value type.
+    ArgumentABIAttr cloneWithValueType(Type valueType) const {
+      return ArgumentABIAttr::get(getAbi(), valueType, getUndef());
+    }
+
+    /// Clone the attribute, replacing only the undef parameter.
+    ArgumentABIAttr cloneWithUndef(bool undef) const {
+      return ArgumentABIAttr::get(getAbi(), getValueType(), undef);
+    }
+  }];
 }
 
 def Executor_FunctionMetadataAttr : Executor_Attr<"FunctionMetadata", "func_meta"> {

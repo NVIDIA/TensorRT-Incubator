@@ -21,10 +21,66 @@ def ExecutorGenerateABIWrappersPass :
 
     The existing public functions are made private and only the new wrapper
     functions are public after the pass.
+
+    If `force-undef-output-args` is specified, the pass will assign the
+    `undef` ABI attribute to all output arguments. This means that the
+    code in the ABI wrapper should never read the value of the object
+    passed indirectly through the pointer argument. It can only write the
+    value; the caller just provides spaces to hold the object but does
+    not populate it. If the value type is a `tensor` or `memref` type,
+    then this will force the downstream pipeline to pass a new allocation
+    back to the caller. Otherwise, it is assumed that the caller provides
+    the output buffer.
+
+    It is legal for the compiler to automatically add the `undef` ABI
+    attribute to any output argument. This can occur in situations where,
+    for example, it is impossible for the caller to know the shape of a
+    (statically ranked) memref. In this case, the compiler will automatically
+    return an allocation and therefore `undef` is used to indicate that the
+    caller only needs to allocate space to hold the descriptor.
   }];
 
   let dependentDialects = [
     "::mlir::executor::ExecutorDialect"
+  ];
+
+  let options = [
+    Option<"forceUndefOutputArgs", "force-undef-output-args", "bool", "false",
+      "force undefined output arguments to be specified as undef">
+  ];
+}
+
+
+//===----------------------------------------------------------------------===//
+// LowerABIOpsPass
+//===----------------------------------------------------------------------===//
+
+def ExecutorLowerABIOpsPass : ModuleLikePass<"executor-lower-abi-ops"> {
+  let summary = "lowers executor.abi.recv and executor.abi.send operations";
+  let description = [{
+    This pass should be called after the bufferization deallocation pipeline
+    runs. It updates the `executor.abi.send` operations in order to enforce
+    required post-conditions:
+
+    - All ABISendOp operations with MemRef values must have a corresponding
+      ownership operand.
+    - If an output is marked `undef` and the ownership is not statically true,
+      then a conditional clone is inserted so that ownership can be transferred
+      to the caller.
+    - If an output is not marked `undef`, we insert IR to check whether the
+      value buffer aliases the output buffer (e.g. that DPS connectivity
+      was able to be established). If not, we insert a copy from the value
+      buffer to the output buffer.
+
+    ABISendOp operations that are not storing scalars or transferring ownership
+    of buffers are eliminated during this pass.
+  }];
+
+  let dependentDialects = [
+    "::mlir::scf::SCFDialect",
+    "::mlir::bufferization::BufferizationDialect",
+    "::mlir::arith::ArithDialect",
+    "::mlir::cf::ControlFlowDialect"
   ];
 }
 

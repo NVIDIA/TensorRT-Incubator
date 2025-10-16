@@ -53,7 +53,7 @@ func.func @arg_abi_input_byval_memref(
 
 // Test 5: Input argument with byref instead of byval - should fail
 func.func @arg_abi_input_byref(
-    // expected-error @below {{expected executor.abi attribute to be #executor.arg<byval, ...> for input arguments}}
+    // expected-error @below {{expected executor.abi input argument 0 to have 'byval' ABI kind but got #executor.arg<byref, memref<10xi32>>}}
     %arg0: !executor.ptr<host> {executor.abi = #executor.arg<byref, memref<10xi32>>},
     %arg1: !executor.ptr<host> {executor.abi = #executor.arg<byref, memref<10xi32>>})
       attributes {
@@ -67,20 +67,8 @@ func.func @arg_abi_input_byref(
 // Test 6: Output argument with byval instead of byref - should fail
 func.func @arg_abi_output_byval(
     %arg0: !executor.ptr<host> {executor.abi = #executor.arg<byval, memref<10xi32>>},
-    // expected-error @below {{expected executor.abi attribute to be #executor.arg<byref, ...> for output arguments but got #executor.arg<byval, memref<10xi32>>}}
+    // expected-error @below {{expected executor.abi output argument 0 to have 'byref' ABI kind but got #executor.arg<byval, memref<10xi32>>}}
     %arg1: !executor.ptr<host> {executor.abi = #executor.arg<byval, memref<10xi32>>})
-      attributes {
-        executor.func_abi = (memref<10xi32>) -> (memref<10xi32>)
-      } {
-  return
-}
-
-// -----
-
-// Test 7: Output argument with byref - should pass
-func.func @arg_abi_output_byref(
-    %arg0: !executor.ptr<host> {executor.abi = #executor.arg<byval, memref<10xi32>>},
-    %arg1: !executor.ptr<host> {executor.abi = #executor.arg<byref, memref<10xi32>>})
       attributes {
         executor.func_abi = (memref<10xi32>) -> (memref<10xi32>)
       } {
@@ -176,8 +164,6 @@ func.func @abi_recv_wrong_abi(
       attributes {
         executor.func_abi = (memref<10xi32>) -> (memref<10xi32>)
       } {
-  // expected-error @below {{argument must have #executor.arg<byval, ...> ABI}}
-  %0 = executor.abi.recv %arg1 : memref<10xi32>
   return
 }
 
@@ -255,14 +241,13 @@ func.func @abi_send_non_arg_ptr(
 
 // -----
 
-// Test 19: abi.recv without executor.abi attribute - should fail
 func.func @abi_recv_no_abi_attr(
+    // expected-error @below {{expected executor.abi argument ABI attribute for input argument 0}}
     %arg0: !executor.ptr<host>,
     %arg1: !executor.ptr<host> {executor.abi = #executor.arg<byref, memref<10xi32>>})
       attributes {
         executor.func_abi = (memref<10xi32>) -> (memref<10xi32>)
       } {
-  // expected-error @below {{argument must have executor.abi attribute}}
   %0 = executor.abi.recv %arg0 : memref<10xi32>
   return
 }
@@ -272,6 +257,7 @@ func.func @abi_recv_no_abi_attr(
 // Test 20: abi.send without executor.abi attribute - should fail
 func.func @abi_send_no_abi_attr(
     %arg0: !executor.ptr<host> {executor.abi = #executor.arg<byval, memref<10xi32>>},
+    // expected-error @below {{expected executor.abi argument ABI attribute for output argument 0}}
     %arg1: !executor.ptr<host>)
       attributes {
         executor.func_abi = (memref<10xi32>) -> (memref<10xi32>)
@@ -280,7 +266,17 @@ func.func @abi_send_no_abi_attr(
   %c10 = arith.constant 10 : index
   %alloc = memref.alloc(%c10) : memref<?xi32>
   %cast = memref.cast %alloc : memref<?xi32> to memref<10xi32>
-  // expected-error @below {{argument must have executor.abi attribute}}
   executor.abi.send %cast to %arg1 : memref<10xi32>
+  return
+}
+
+
+// -----
+
+func.func @abi_output_undef(
+    %arg1: !executor.ptr<host> {executor.abi = #executor.arg<byref, memref<10xi32>, undef>})
+      attributes {
+        executor.func_abi = () -> (memref<10xi32>)
+      } {
   return
 }

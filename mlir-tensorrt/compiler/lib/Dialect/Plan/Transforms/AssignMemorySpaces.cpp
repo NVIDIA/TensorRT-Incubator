@@ -434,8 +434,7 @@ static LogicalResult processABIRecvOp(executor::ABIRecvOp op, func::FuncOp func,
       blockArg.getArgNumber(), executor::ExecutorDialect::kArgABIAttrName);
 
   Type newValueType = result.getType().cloneWithEncoding(memorySpace);
-  auto newArgABIAttr = executor::ArgumentABIAttr::get(
-      func.getContext(), abiAttr.getAbi(), newValueType);
+  auto newArgABIAttr = abiAttr.cloneWithValueType(newValueType);
   func.setArgAttr(blockArg.getArgNumber(),
                   executor::ExecutorDialect::kArgABIAttrName, newArgABIAttr);
 
@@ -479,8 +478,7 @@ static void processABISendOp(executor::ABISendOp op, func::FuncOp func,
   assert(argABIAttr && "expected valid argument ABI attribute");
 
   Type newValueType = value.getType().cloneWithEncoding(memorySpace);
-  auto newArgABIAttr = executor::ArgumentABIAttr::get(
-      func.getContext(), argABIAttr.getAbi(), newValueType);
+  auto newArgABIAttr = argABIAttr.cloneWithValueType(newValueType);
   func.setArgAttr(blockArg.getArgNumber(),
                   executor::ExecutorDialect::kArgABIAttrName, newArgABIAttr);
 
@@ -572,11 +570,14 @@ static LogicalResult applyConversionToFunction(func::FuncOp func) {
       });
   target.addDynamicallyLegalOp<executor::ABIRecvOp>(
       [&](executor::ABIRecvOp op) {
-        return hasMemorySpaceEncoding(op.getType());
+        Type type = op.getType();
+        return !isa<RankedTensorType>(type) || hasMemorySpaceEncoding(type);
       });
   target.addDynamicallyLegalOp<executor::ABISendOp>(
       [&](executor::ABISendOp op) {
-        return hasMemorySpaceEncoding(op.getValue().getType());
+        Type valueType = op.getValue().getType();
+        return !isa<RankedTensorType>(valueType) ||
+               hasMemorySpaceEncoding(valueType);
       });
   target.addLegalDialect<func::FuncDialect>();
 

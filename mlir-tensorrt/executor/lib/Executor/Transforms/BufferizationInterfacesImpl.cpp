@@ -32,6 +32,8 @@
 #include "mlir-executor/Executor/Transforms/BufferizationOpInterfaceImpls.h"
 #include "mlir/Dialect/Bufferization/IR/BufferDeallocationOpInterface.h"
 #include "mlir/Dialect/Bufferization/IR/BufferizableOpInterface.h"
+#include "mlir/Dialect/Bufferization/IR/Bufferization.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/IR/Attributes.h"
 
 using namespace mlir;
@@ -46,12 +48,32 @@ struct BufferDeallocationABISend
   FailureOr<Operation *> process(Operation *op, DeallocationState &state,
                                  const DeallocationOptions &options) const {
     auto abiSendOp = cast<executor::ABISendOp>(op);
+    auto funcOp = cast<FunctionOpInterface>(abiSendOp->getParentOp());
+    auto ptr = cast<BlockArgument>(abiSendOp.getPtr());
     Value value = abiSendOp.getValue();
     if (!isa<MemRefType>(value.getType()))
       return op;
-    if (!state.getOwnership(value, abiSendOp->getBlock()).isUnique())
-      return op->emitOpError() << "ownership of value is not unique";
-    state.dropMemrefToDeallocate(value, abiSendOp->getBlock());
+
+    // Get the ABI attribute on the argument.
+    executor::ArgumentABIAttr abiAttr =
+        executor::abi::getArgumentABIAttr(funcOp, ptr);
+    assert(abiAttr && "expected ABI attribute");
+    const bool isUndef = abiAttr.getUndef();
+    IRRewriter rewriter(op);
+
+    // We need a unique ownership indicator for the value. This will insert a
+    // clone if the ownership is not yet unique, otherwise it does nothing.
+    auto [newMemRef, ownership] = state.getMemrefWithUniqueOwnership(
+        rewriter, value, abiSendOp->getBlock());
+    abiSendOp.getValueMutable().assign(newMemRef);
+    abiSendOp.getOwnershipMutable().assign(ownership);
+
+    // If the descriptor is marked 'undef', then we will pass ownership to
+    // the caller. Therefore, don't deallocate the value. If the descriptor is
+    // not marked 'undef', then we will still allocate any owned memref values.
+    if (isUndef) {
+      state.dropMemrefToDeallocate(newMemRef, abiSendOp->getBlock());
+    }
     return op;
   }
 };
@@ -59,16 +81,58 @@ struct BufferDeallocationABISend
 struct BufferizableOpInterfaceABIRecv
     : public BufferizableOpInterface::ExternalModel<
           BufferizableOpInterfaceABIRecv, executor::ABIRecvOp> {
-  bool bufferizesToMemoryWrite(Operation *op, OpOperand &opOperand,
-                               const AnalysisState &state) const {
-    return false;
+  bool bufferizesToAllocation(Operation *op, Value value) const {
+    // ABIRecvOp bufferizes to allocation if the argument is an output argument
+    // and the descriptor is marked 'undef'.
+    auto recvOp = cast<executor::ABIRecvOp>(op);
+    auto func = cast<FunctionOpInterface>(recvOp->getParentOp());
+    std::optional<unsigned> outputIdx = mlir::executor::abi::isOutputArgument(
+        func, cast<BlockArgument>(recvOp.getPtr()));
+    if (!outputIdx.has_value())
+      return false;
+    executor::ArgumentABIAttr abiAttr = mlir::executor::abi::getArgumentABIAttr(
+        func, cast<BlockArgument>(recvOp.getPtr()));
+    assert(abiAttr && "expected ABI attribute");
+    return abiAttr.getUndef();
   }
-  bool bufferizesToMemoryRead(Operation *op, OpOperand &opOperand,
-                              const AnalysisState &state) const {
-    return false;
-  }
+
   bool resultBufferizesToMemoryWrite(Operation *op, OpResult opResult,
                                      const AnalysisState &state) const {
+    auto recvOp = cast<executor::ABIRecvOp>(op);
+    assert(recvOp.getResult() == opResult && "expected result");
+    BlockArgument arg = cast<BlockArgument>(recvOp.getPtr());
+    auto func = recvOp->getParentOfType<FunctionOpInterface>();
+    assert(func && "expected function");
+
+    // Output operands are just storage unless they alias an input.
+    // Retrieving the buffer with ABIRecvOp does not correspond to a def-event.
+    // Its contents are undefined.
+    if (executor::abi::isOutputArgument(func, arg))
+      return false;
+
+    // Input buffers have defined contents, so this corresponds to a def-event.
+    return true;
+  }
+
+  bool isWritable(Operation *op, Value value,
+                  const AnalysisState &state) const {
+    auto recvOp = cast<executor::ABIRecvOp>(op);
+    BlockArgument arg = cast<BlockArgument>(recvOp.getPtr());
+    auto func = recvOp->getParentOfType<FunctionOpInterface>();
+    assert(func && "expected function");
+
+    // Output buffers are always writable, even if the descriptor is
+    // marked 'undef'. The reason is that if marked 'undef', then this op is
+    // lowered to allocation.
+    if (executor::abi::isOutputArgument(func, arg))
+      return true;
+
+    // TODO: Input operands are writable only if they alias a result.
+    return false;
+  }
+
+  bool bufferizesToMemoryRead(Operation *op, OpOperand &opOperand,
+                              const AnalysisState &state) const {
     return false;
   }
 
@@ -102,8 +166,7 @@ struct BufferizableOpInterfaceABIRecv
         if (auto abiAttr = funcOp.getArgAttrOfType<executor::ArgumentABIAttr>(
                 argIdx, executor::ExecutorDialect::kArgABIAttrName)) {
           // Create a new ABI attribute with the memref type
-          auto newAbiAttr = executor::ArgumentABIAttr::get(
-              recvOp.getContext(), abiAttr.getAbi(), memrefType);
+          auto newAbiAttr = abiAttr.cloneWithValueType(memrefType);
           funcOp.setArgAttr(argIdx, executor::ExecutorDialect::kArgABIAttrName,
                             newAbiAttr);
         }
@@ -163,8 +226,7 @@ struct BufferizableOpInterfaceABISend
         if (auto abiAttr = funcOp.getArgAttrOfType<executor::ArgumentABIAttr>(
                 argIdx, executor::ExecutorDialect::kArgABIAttrName)) {
           // Create a new ABI attribute with the memref type
-          auto newAbiAttr = executor::ArgumentABIAttr::get(
-              sendOp.getContext(), abiAttr.getAbi(), memrefType);
+          auto newAbiAttr = abiAttr.cloneWithValueType(memrefType);
           funcOp.setArgAttr(argIdx, executor::ExecutorDialect::kArgABIAttrName,
                             newAbiAttr);
         }

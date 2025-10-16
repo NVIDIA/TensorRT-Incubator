@@ -335,6 +335,19 @@ Attribute executor::getFuncResultBounds(func::FuncOp func, int64_t argIdx) {
       });
 }
 
+static bool isScalarType(Type type) {
+  return isa<IntegerType, IndexType, FloatType>(type);
+}
+
+static LogicalResult verifyABIFuncArgType(Location loc, Type type) {
+  if (isScalarType(type) || isa<PointerType>(type))
+    return success();
+  return emitError(loc)
+         << "arguments to ABI wrapper functions must be IntegerType, "
+            "FloatType, IndexType, or host pointer type but got "
+         << type;
+}
+
 LogicalResult
 ExecutorDialect::verifyOperationAttribute(Operation *op,
                                           NamedAttribute attribute) {
@@ -375,24 +388,54 @@ ExecutorDialect::verifyOperationAttribute(Operation *op,
              << " parameters";
     }
 
+    for (unsigned i = 0; i < numInputs; ++i) {
+      Type argType = func.getArgument(i).getType();
+      if (failed(verifyABIFuncArgType(func.getArgument(i).getLoc(), argType)))
+        return failure();
+
+      if (isScalarType(argType))
+        continue;
+
+      Location loc = func.getArgument(i).getLoc();
+
+      auto argABIAttr = func.getArgAttrOfType<executor::ArgumentABIAttr>(
+          i, ExecutorDialect::kArgABIAttrName);
+      if (!argABIAttr)
+        return emitError(loc)
+               << "expected " << ExecutorDialect::kArgABIAttrName
+               << " argument ABI attribute for input argument " << i;
+      if (argABIAttr.getAbi() != executor::ArgABIKind::byval)
+        return emitError(loc)
+               << "expected " << ExecutorDialect::kArgABIAttrName
+               << " input argument " << i
+               << " to have 'byval' ABI kind but got " << argABIAttr;
+    }
+
+    for (unsigned i = 0; i < numOutputs; ++i) {
+      Location loc = func.getArgument(i + numInputs).getLoc();
+      Type argType = func.getArgument(i + numInputs).getType();
+      if (failed(verifyABIFuncArgType(loc, argType)))
+        return failure();
+      if (isScalarType(argType))
+        continue;
+
+      auto argABIAttr = func.getArgAttrOfType<executor::ArgumentABIAttr>(
+          i + numInputs, ExecutorDialect::kArgABIAttrName);
+      if (!argABIAttr)
+        return emitError(loc)
+               << "expected " << ExecutorDialect::kArgABIAttrName
+               << " argument ABI attribute for output argument " << i;
+      if (argABIAttr.getAbi() != executor::ArgABIKind::byref)
+        return emitError(loc)
+               << "expected " << ExecutorDialect::kArgABIAttrName
+               << " output argument " << i
+               << " to have 'byref' ABI kind but got " << argABIAttr;
+    }
+
     return success();
   }
 
   return success();
-}
-
-static FailureOr<FunctionType> getABIFunctionType(FunctionOpInterface func) {
-  auto abiFuncTypeAttr =
-      func->getAttrOfType<TypeAttr>(ExecutorDialect::kFuncABIAttrName);
-  if (!abiFuncTypeAttr || !isa<FunctionType>(abiFuncTypeAttr.getValue()))
-    return func->emitError() << "expected " << ExecutorDialect::kFuncABIAttrName
-                             << " attribute to be TypeAttr with a FunctionType "
-                                "attached to the function "
-                                "containing arguments "
-                                "decorated with "
-                             << ExecutorDialect::kArgABIAttrName;
-
-  return cast<FunctionType>(abiFuncTypeAttr.getValue());
 }
 
 LogicalResult
@@ -432,7 +475,7 @@ ExecutorDialect::verifyRegionArgAttribute(Operation *op, unsigned regionIndex,
              << "expected " << ExecutorDialect::kArgABIAttrName
              << " attribute to be attached to a function argument";
 
-    FailureOr<FunctionType> abiFuncType = getABIFunctionType(func);
+    FailureOr<FunctionType> abiFuncType = abi::getABIFunctionType(func);
     if (failed(abiFuncType))
       return failure();
 
@@ -501,6 +544,153 @@ LogicalResult executor::setModuleProcessGridShape(Operation *op,
     return success();
   }
   return success(shape == *existingShape);
+}
+
+//===----------------------------------------------------------------------===//
+// ArgumentABIAttr
+//===----------------------------------------------------------------------===//
+
+static void printArgumentABIAttrFlags(AsmPrinter &printer, bool undef) {
+  if (undef)
+    printer << ", undef";
+}
+
+static ParseResult parseArgumentABIAttrFlags(AsmParser &parser, bool &undef) {
+  undef = false;
+  if (parser.parseOptionalComma() || parser.parseOptionalKeyword("undef"))
+    return success();
+  undef = true;
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// ABI Utilities
+//===----------------------------------------------------------------------===//
+
+FailureOr<FunctionType>
+executor::abi::getABIFunctionType(FunctionOpInterface func) {
+  auto abiFuncTypeAttr =
+      func->getAttrOfType<TypeAttr>(ExecutorDialect::kFuncABIAttrName);
+  if (!abiFuncTypeAttr || !isa<FunctionType>(abiFuncTypeAttr.getValue()))
+    return func->emitError() << "expected " << ExecutorDialect::kFuncABIAttrName
+                             << " attribute to be TypeAttr with a FunctionType "
+                                "attached to the function "
+                                "containing arguments "
+                                "decorated with "
+                             << ExecutorDialect::kArgABIAttrName;
+  return cast<FunctionType>(abiFuncTypeAttr.getValue());
+}
+
+bool executor::abi::isABIWrapperFunction(FunctionOpInterface func) {
+  auto abiFuncTypeAttr =
+      func->getAttrOfType<TypeAttr>(ExecutorDialect::kFuncABIAttrName);
+  return abiFuncTypeAttr != nullptr;
+}
+
+std::optional<unsigned> executor::abi::isInputArgument(FunctionOpInterface func,
+                                                       unsigned argIndex) {
+  FailureOr<FunctionType> abiFuncType = getABIFunctionType(func);
+  if (failed(abiFuncType))
+    return std::nullopt;
+
+  const unsigned numInputs = abiFuncType->getNumInputs();
+  if (argIndex < numInputs)
+    return argIndex;
+
+  return std::nullopt;
+}
+
+ArgumentABIAttr executor::abi::getArgumentABIAttr(FunctionOpInterface func,
+                                                  BlockArgument arg) {
+  Block::BlockArgListType args = func.getArguments();
+  auto it = llvm::find(args, arg);
+  assert(it != args.end() && "expected argument of func");
+  unsigned argIndex = std::distance(args.begin(), it);
+  return getArgumentABIAttr(func, argIndex);
+}
+
+ArgumentABIAttr executor::abi::getArgumentABIAttr(FunctionOpInterface func,
+                                                  unsigned argIndex) {
+  return func.getArgAttrOfType<executor::ArgumentABIAttr>(
+      argIndex, ExecutorDialect::kArgABIAttrName);
+}
+
+void executor::abi::setArgumentABIAttr(FunctionOpInterface func,
+                                       BlockArgument arg,
+                                       ArgumentABIAttr abiAttr) {
+  Block::BlockArgListType args = func.getArguments();
+  auto it = llvm::find(args, arg);
+  assert(it != args.end() && "expected argument of func");
+  unsigned argIndex = std::distance(args.begin(), it);
+  func.setArgAttr(argIndex, ExecutorDialect::kArgABIAttrName, abiAttr);
+}
+
+std::optional<unsigned>
+executor::abi::isOutputArgument(FunctionOpInterface func, unsigned argIndex) {
+  FailureOr<FunctionType> abiFuncType = getABIFunctionType(func);
+  if (failed(abiFuncType))
+    return std::nullopt;
+
+  const unsigned numInputs = abiFuncType->getNumInputs();
+  if (argIndex >= numInputs)
+    return argIndex - numInputs;
+
+  return std::nullopt;
+}
+
+std::optional<unsigned>
+executor::abi::isOutputArgument(FunctionOpInterface func, BlockArgument arg) {
+  // Function arguments may not correspond directly to all block argument,
+  // for example see `gpu.func`.
+  Block::BlockArgListType args = func.getArguments();
+  auto it = llvm::find(args, arg);
+  assert(it != args.end() && "expected argument of func");
+  unsigned argIndex = std::distance(args.begin(), it);
+  return isOutputArgument(func, argIndex);
+}
+
+Value executor::abi::getOrCreateABIRecv(OpBuilder &b, FunctionOpInterface func,
+                                        BlockArgument arg, Type expectedType) {
+  auto it = llvm::find(func.getArguments(), arg);
+  assert(it != func.getArguments().end() && "expected argument of func");
+  unsigned argIndex = std::distance(func.getArguments().begin(), it);
+  return getOrCreateABIRecv(b, func, argIndex, expectedType);
+}
+
+Value executor::abi::getOrCreateABIRecv(OpBuilder &b, FunctionOpInterface func,
+                                        unsigned argIndex, Type expectedType) {
+  assert(isABIWrapperFunction(func) && "func must be an ABI wrapper function");
+  // Look for an existing ABIRecvOp that uses this argument
+  for (Operation *user : func.getArgument(argIndex).getUsers()) {
+    if (auto recvOp = dyn_cast<executor::ABIRecvOp>(user)) {
+      if (recvOp.getPtr() == func.getArgument(argIndex)) {
+        Value result = recvOp.getResult();
+        if (expectedType) {
+          assert(result.getType() == expectedType &&
+                 "existing ABIRecvOp result type does not match expectedType");
+        }
+        return result;
+      }
+    }
+  }
+
+  // No existing ABIRecvOp found, create a new one
+  Type resultType = expectedType;
+  if (!resultType) {
+    // If the argument has an ArgumentABIAttr, use its value_type
+    auto argABIAttr = func.getArgAttrOfType<executor::ArgumentABIAttr>(
+        argIndex, ExecutorDialect::kArgABIAttrName);
+    assert(argABIAttr && "expected ArgumentABIAttr");
+    resultType = argABIAttr.getValueType();
+  }
+
+  // Create the ABIRecvOp at the beginning of the function body
+  OpBuilder::InsertionGuard guard(b);
+  Block *entryBlock = &func.getFunctionBody().front();
+  b.setInsertionPointToStart(entryBlock);
+  BlockArgument arg = func.getArgument(argIndex);
+  return b.create<executor::ABIRecvOp>(arg.getLoc(), resultType, arg)
+      .getResult();
 }
 
 //===----------------------------------------------------------------------===//
