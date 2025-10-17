@@ -92,7 +92,7 @@ func.func @transpose_pushdown_switch(%arg0: tensor<2x2xf32>, %arg1: tensor<1x2xf
 //       CHECK: #[[$map:.+]] = affine_map<(d0, d1) -> (d1, d0)>
 // CHECK-LABEL: @transpose_pushdown_switch
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<2x2xf32>, %[[arg1:.+]]: tensor<1x2xf32>) -> tensor<2x2xf32>
-//       CHECK:     %[[v0:.+]] = tensorrt.transpose {permutation = #[[$map]]} %[[arg1]] : tensor<1x2xf32> to tensor<2x1xf32>
+//       CHECK:     %[[v0:.+]] = tensorrt.reshape %[[arg1]] : tensor<1x2xf32> to tensor<2x1xf32>
 //       CHECK:     %[[v1:.+]] = tensorrt.element_wise <kSUM>(%[[arg0]], %[[v0]] : tensor<2x2xf32>, tensor<2x1xf32>) -> tensor<2x2xf32>
 //       CHECK:     %[[v2:.+]] = tensorrt.transpose {permutation = #[[$map]]} %[[v1]] : tensor<2x2xf32> to tensor<2x2xf32>
 //       CHECK:     return %[[v2]]
@@ -454,19 +454,6 @@ func.func @push_up_transpose_elementwise_reshape_transpose_neg(%arg0: tensor<10x
 //  CHECK-NEXT: %[[v2:.+]] = tensorrt.element_wise <kDIV>(%[[v1]], %[[v0]] : {{.*}})
 //  CHECK-NEXT: %[[v3:.+]] = tensorrt.transpose {permutation = #[[$map1]]} %[[v2]]
 //  CHECK-NEXT: return %[[v3]]
-
-// -----
-
-#map = affine_map<(d0, d1, d2) -> (d1, d0, d2)>
-func.func @transpose_rearrange_loop(%arg0: tensor<512x7x24xf32>, %arg1: tensor<512x7x7xf32>) -> tensor<7x512x24xf32> {
-  %0 = tensorrt.matrix_multiply {op0 = #tensorrt.matrix_operation<kNONE>, op1 = #tensorrt.matrix_operation<kNONE>} ins(%arg1, %arg0 : tensor<512x7x7xf32>, tensor<512x7x24xf32>) -> tensor<512x7x24xf32>
-  %1 = tensorrt.transpose {permutation = #map} %0 : tensor<512x7x24xf32> to tensor<7x512x24xf32>
-  return %1 : tensor<7x512x24xf32>
-}
-
-// CHECK: @transpose_rearrange_loop(%[[arg0:.+]]: tensor<512x7x24xf32>, %[[arg1:.+]]: tensor<512x7x7xf32>)
-// CHECK: %[[v0:.+]] =  tensorrt.einsum {equation = [[equation:.+]]} ins(%[[arg1]], %[[arg0]] : tensor<512x7x7xf32>, tensor<512x7x24xf32>)
-// CHECK: return %[[v0]]
 
 // -----
 

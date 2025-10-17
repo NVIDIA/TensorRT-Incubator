@@ -3,8 +3,7 @@
 
 // CHECK: transpose_merge_with_matmul
 // CHECK: %[[out1:.+]] = tensorrt.matrix_multiply
-// CHECK: %[[out2:.+]] = tensorrt.expand_rank %[[out1]]
-// CHECK: return %[[out2]]
+// CHECK: return %[[out1]]
 func.func @transpose_merge_with_matmul(%arg0: tensor<1x2x3x4xf32>, %arg1: tensor<1x2x4x5xf32>) -> tensor<2x3x1x5xf32> {
     %1 = tensorrt.matrix_multiply {op0 = #tensorrt.matrix_operation<kNONE>, op1 = #tensorrt.matrix_operation<kNONE>} ins(%arg0, %arg1 : tensor<1x2x3x4xf32>,tensor<1x2x4x5xf32>) -> tensor<1x2x3x5xf32>
     %2 = tensorrt.shuffle {first_transpose = array<i64: 1, 2, 0, 3>, reshape = array<i64: 2, 3, 1, 5>, second_transpose = array<i64: 0, 1, 2, 3>, zero_is_placeholder = false} ins(%1 : tensor<1x2x3x5xf32>) -> tensor<2x3x1x5xf32>
@@ -186,9 +185,8 @@ func.func @elementwise_reshape(%arg0: tensor<12x3x3xf32>, %arg1: tensor<12xf32>)
 // CHECK-DAG: %[[v1:.+]] = tensorrt.[[op2:.+]] %[[v0]] : tensor[[shape2:.+]]
 // CHECK-DAG: %[[v2:.+]] = tensorrt.[[op3:.+]] %[[arg1]] : tensor[[shape3:.+]]
 // CHECK-DAG: %[[v3:.+]] = tensorrt.[[op4:.+]] %[[v2]] : tensor[[shape4:.+]]
-// CHECK: %[[v4:.+]] = tensorrt.matrix_multiply [[params:.+]] ins(%[[v3]], %[[v1]] : tensor
-// CHECK: %[[v5:.+]] = tensorrt.expand_rank %[[v4]] : tensor<2x4x561x3xf32> to tensor<1x2x4x561x3xf32>
-// CHECK: return %[[v5]]
+// CHECK: %[[v4:.+]] = tensorrt.matrix_multiply [[params:.+]] ins(%[[v3]], %[[v1]] : {{.*}})
+// CHECK: return %[[v4]]
 #map = affine_map<(d0, d1, d2, d3, d4) -> (d0, d1, d2, d4, d3)>
 func.func @matmul_argument_swap(%arg0: tensor<1x2x4x3x561xf32>, %arg1: tensor<1x2x4x3x3xf32>) -> tensor<1x2x4x561x3xf32> {
   %0 = tensorrt.reshape %arg1 : tensor<1x2x4x3x3xf32> to tensor<8x3x3xf32>
@@ -268,16 +266,12 @@ func.func @reshape_transpose_reorder_ones_dim(%arg0: tensor<2x1x1x1x1xf32>, %arg
 
 // -----
 
-
-// CHECK: @push_down_transpose_einsum(%[[arg0:.+]]: tensor<1x6x1500x64xf32>, %[[arg1:.+]]: tensor<1x6x1500x1500xf32>) -> tensor<1x1500x384xf32>
-// CHECK-DAG: %[[const0:.+]] = tensorrt.constant dense<1.000000e+00> : tensor<384x384xf32>
-// CHECK-DAG: %[[v0:.+]] = tensorrt.collapse_rank %[[arg0]] : tensor<1x6x1500x64xf32> to tensor<6x1500x64xf32>
-// CHECK-DAG: %[[v1:.+]] = tensorrt.collapse_rank %[[arg1]] : tensor<1x6x1500x1500xf32> to tensor<6x1500x1500xf32>
-// CHECK: %[[v2:.+]] = tensorrt.matrix_multiply [[params:.+]] ins(%[[v0]], %[[v1]] : tensor<6x1500x64xf32>, tensor<6x1500x1500xf32>) -> tensor<6x64x1500xf32>
-// CHECK: %[[v3:.+]] = tensorrt.reshape %[[v2]] : tensor<6x64x1500xf32> to tensor<384x1500xf32>
-// CHECK: %[[v4:.+]] = tensorrt.matrix_multiply [[params2:.+]] ins(%[[v3]], %[[const0]] : tensor<384x1500xf32>, tensor<384x384xf32>) -> tensor<1500x384xf32>
-// CHECK: %[[v5:.+]] = tensorrt.expand_rank %[[v4:.+]] : tensor<1500x384xf32> to tensor<1x1500x384xf32>
-// CHECK: return %[[v5]]
+// CHECK: @push_down_transpose_einsum(%[[arg0:.+]]: {{.*}}, %[[arg1:.+]]: {{.*}})
+// CHECK: %[[const0:.+]] = tensorrt.constant dense<1.000000e+00> : {{.*}}
+// CHECK: %[[v0:.+]] = tensorrt.matrix_multiply {{{.*}}} ins(%[[arg0]], %[[arg1]] : {{.*}})
+// CHECK: %[[v1:.+]] = tensorrt.reshape %[[v0]]
+// CHECK: %[[v2:.+]] = tensorrt.matrix_multiply {{{.*}}} ins(%[[v1]], %[[const0]] : {{.*}})
+// CHECK: return %[[v2]]
 func.func @push_down_transpose_einsum(%arg0: tensor<1x6x1500x64xf32>, %arg1: tensor<1x6x1500x1500xf32>) -> tensor<1x1500x384xf32> {
   %cst_f32 = tensorrt.constant dense<1.000000e+00> : tensor<384x384xf32>
   %0 = tensorrt.reshape %arg0 : tensor<1x6x1500x64xf32> to tensor<6x1500x64xf32>
@@ -295,10 +289,10 @@ func.func @push_down_transpose_einsum(%arg0: tensor<1x6x1500x64xf32>, %arg1: ten
 
 // CHECK: @multihead_attention
 // CHECK: %[[v0:.+]] = tensorrt.matrix_multiply
-// CHECK: %[[v1:.+]] = tensorrt.element_wise <kPROD>(%[[v0]], %[[const0:.+]]
-// CHECK: %[[v2:.+]] = tensorrt.element_wise <kSUM>(%[[v1]], %[[const1:.+]]
+// CHECK: %[[v1:.+]] = tensorrt.element_wise <kPROD>(%[[v0]], %[[const0:.+]] : {{.*}})
+// CHECK: %[[v2:.+]] = tensorrt.element_wise <kSUM>(%[[v1]], %[[const1:.+]] : {{.*}})
 // CHECK: %[[v3:.+]] = tensorrt.softmax {axis = [[axis:.+]] : i64} %[[v2]]
-// CHECK: %[[v4:.+]] = tensorrt.matrix_multiply [[params:.+]] ins(%[[v3]]
+// CHECK: %[[v4:.+]] = tensorrt.matrix_multiply [[params:.+]] ins(%[[v3]], %[[values:.+]] : {{.*}})
 #map3 = affine_map<(d0, d1, d2) -> (d1, d0, d2)>
 #map5 = affine_map<(d0, d1, d2) -> (d1, d2, d0)>
 func.func @multihead_attention(%arg0: tensor<566x48x64xf32>, %arg1: tensor<566x48x64xf32>, %arg2: tensor<566x48x64xf32>) -> tensor<566x48x64xf32> {

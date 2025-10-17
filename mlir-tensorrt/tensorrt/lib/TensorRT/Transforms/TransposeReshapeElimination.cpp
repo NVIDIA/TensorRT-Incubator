@@ -1322,21 +1322,17 @@ public:
     auto reshapeInShape = op.getInput().getType().getShape();
     auto reshapeOutShape = op.getResult().getType().getShape();
 
-    bool has1OutputShape = false;
     bool hasNonTrivalReshape = false;
     std::unordered_map<std::string, std::pair<std::string, SmallVector<int64_t>>> inputToReshapedMap;
     size_t inputNumElems = 1;
     size_t outputNumElems = 1;
     std::string inAxes = "";
     std::string outAxes = "";
+    std::string prevInAxes = "";
     SmallVector<int64_t> outShape;
     for (size_t i = 0, j = 0; i < reshapeOutShape.size(); i++) {
       if (reshapeOutShape[i] == 0) {
         return failure(/* 0-shape not supported */);
-      }
-      if (reshapeOutShape[i] == 1) {
-        has1OutputShape = true;
-        continue;
       }
       outputNumElems *= reshapeOutShape[i];
       outShape.push_back(reshapeOutShape[i]);
@@ -1349,11 +1345,23 @@ public:
         inAxes += equation.rhs[j++];
       }
       if (inputNumElems == outputNumElems) {
-        if (inAxes.size() != outAxes.size()) {
-          hasNonTrivalReshape = true;
+        if(reshapeOutShape[i] == 1 && outAxes.size() == 1 && inAxes.size() == 0) {
+          if(!prevInAxes.empty()) {
+            auto &p = inputToReshapedMap[prevInAxes];
+            p.first.push_back(c);
+            p.second.push_back(1);
+            if(prevInAxes.size() != p.first.size())
+              hasNonTrivalReshape = true;
+            outAxes = "";
+            outShape.clear();
+          }
+          continue;
         }
+        if (inAxes.size() != outAxes.size())
+          hasNonTrivalReshape = true;
         inputToReshapedMap[inAxes] = {outAxes, outShape};
         outShape.clear();
+        prevInAxes = inAxes;
         inAxes = "";
         outAxes = "";
       }
@@ -1436,22 +1444,9 @@ public:
 
     std::string newEquationStr = newEquation.generateEquation();
 
-    if (has1OutputShape) {
-      SmallVector<int64_t> newShape;
-      for (int64_t i : reshapeOutShape) {
-        if (i > 1)
-          newShape.push_back(i);
-      }
-      auto newEinsum = rewriter.create<tensorrt::EinsumOp>(
-          op.getLoc(), op.getType().clone(newShape), newInputs, newEquationStr);
-      auto expandRank = rewriter.create<tensorrt::ReshapeOp>(
-          op.getLoc(), op.getType(), newEinsum.getResult());
-      rewriter.replaceOp(op, expandRank.getResult());
-    } else {
-      auto newEinsum = rewriter.create<tensorrt::EinsumOp>(
-          op.getLoc(), op.getType(), newInputs, newEquationStr);
-      rewriter.replaceOp(op, newEinsum.getResult());
-    }
+    auto newEinsum = rewriter.create<tensorrt::EinsumOp>(
+        op.getLoc(), op.getType(), newInputs, newEquationStr);
+    rewriter.replaceOp(op, newEinsum.getResult());
 
     return success();
   }
@@ -2926,7 +2921,7 @@ public:
           PushUpReshapeElementwise, PushUpTransposeSoftmax,
           PushUpReshapeSoftmax, SimpleTransposeToReshape>(ctx, PatternBenefit(2));
       patterns.insert<EinsumPushUpTranspose>(ctx, PatternBenefit(1));
-      patterns.insert<EinsumPushUp1AxisReshape, EinsumPushUpMultipleMulitipliedAxes>(ctx, PatternBenefit(0));
+      patterns.insert<EinsumPushUp1AxisReshape>(ctx, PatternBenefit(0));
       TransposeOp::getCanonicalizationPatterns(patterns, ctx);
       ExpandRankOp::getCanonicalizationPatterns(patterns, ctx);
       ReshapeOp::getCanonicalizationPatternsSameOp(patterns, ctx);
