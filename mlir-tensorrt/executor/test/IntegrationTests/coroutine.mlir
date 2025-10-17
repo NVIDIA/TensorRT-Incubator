@@ -1,6 +1,6 @@
-// RUN: executor-opt %s -split-input-file -executor-lowering-pipeline | \
-// RUN: executor-translate -mlir-to-lua -split-input-file --output-split-marker="-- -----" \
-// RUN:   | executor-runner -features=core -input-type=lua -split-input-file="-- -----" | FileCheck %s
+// RUN: executor-opt %s -executor-generate-abi-wrappers -executor-lowering-pipeline | \
+// RUN: executor-translate -mlir-to-runtime-executable \
+// RUN:   | executor-runner -features=core -input-type=rtexe | FileCheck %s
 
 func.func @coro(%arg0: i32, %arg1: i32) -> (i32, i32) {
   %start = arith.index_cast %arg0 : i32 to index

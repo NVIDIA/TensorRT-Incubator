@@ -89,6 +89,34 @@ mtrt::ScalarType::getIntegerTypeWithBitWidth(int64_t bitWidth) {
                              bitWidth);
 }
 
+bool ScalarType::operator==(const ScalarType &other) const {
+  return code == other.code;
+}
+
+bool ScalarType::operator!=(const ScalarType &other) const {
+  return !(*this == other);
+}
+
+bool ScalarType::operator==(const ScalarTypeCode &other) const {
+  return code == other;
+}
+
+bool ScalarType::operator!=(const ScalarTypeCode &other) const {
+  return !(*this == other);
+}
+
+ScalarTypeView::operator mtrt::ScalarTypeCode() const {
+  return view ? ScalarTypeCode(view->type()) : ScalarTypeCode::unknown;
+}
+
+bool ScalarTypeView::operator==(const ScalarTypeCode &other) const {
+  return view && view->type() == other;
+}
+
+bool ScalarTypeView::operator!=(const ScalarTypeCode &other) const {
+  return !(*this == other);
+}
+
 //===----------------------------------------------------------------------===//
 // PointerType
 //===----------------------------------------------------------------------===//
@@ -206,9 +234,18 @@ uint32_t FunctionSignatureView::getNumResults() const {
 }
 
 uint32_t FunctionSignatureView::getNumInputArgs() const {
-  assert(getNumArgs() >= getNumOutputArgs() &&
-         "invalid number of output arguments specified");
-  return getNumArgs() - getNumOutputArgs();
+  // In ABI version 0, the number of input arguments is the number of arguments
+  // minus the number of trailing output arguments. This was because we encoded
+  // results distinct from "output args".
+  if (getAbiVersion() == 0) {
+    assert(getNumArgs() >= getNumOutputArgs() &&
+           "invalid number of output arguments specified");
+    return getNumArgs() - getNumOutputArgs();
+  }
+  // Starting in ABI version 1, the number of input arguments is the number of
+  // arguments. Results and "output arguments" refer to the same thing since now
+  // all outputs are passed by-ref.
+  return getNumArgs();
 }
 
 uint32_t FunctionSignatureView::getNumOutputArgs() const {

@@ -48,8 +48,6 @@ public:
   /// build settings is immediately registered).
   /// This will setup a Lua environment and invoke
   /// global initialization.
-  /// TODO: add capabilities options to 'options' so that only modules
-  /// specifically required are registered.
   static StatusOr<std::unique_ptr<LuaRuntimeSession>>
   create(Ref<RuntimeClient> client, RuntimeSessionOptions options,
          ExecutableView executable,
@@ -60,27 +58,23 @@ public:
   /// https://sol2.readthedocs.io/en/latest/threading.html.
   lua_State *getLuaState();
 
-  /// Set the primary stream for the loaded executable to use.
-  Status setCudaStream(Ref<Stream> stream);
-
-  /// Get the primary stream for the loaded executable to use.
-  Ref<Stream> getCudaStream();
-
   /// Execute a named function in the session with the specified input args and
   /// output (destination args). Returns optional results supporting both DPS
   /// and non-DPS style calling convention.
   StatusOr<llvm::SmallVector<std::unique_ptr<RuntimeValue>>>
   executeFunction(llvm::StringRef name, llvm::ArrayRef<RuntimeValue *> inputs,
-                  llvm::ArrayRef<RuntimeValue *> outArgs,
-                  Ref<Stream> stream) final;
+                  llvm::ArrayRef<RuntimeValue *> outArgs) final;
 
 private:
   LuaRuntimeSession(Ref<RuntimeClient> client, RuntimeSessionOptions options,
                     ExecutableView executable);
 
+  /// Handle stream change by updating the internal Lua global variable if
+  /// applicable.
+  Status onStreamChanged(Ref<Stream> oldStream, Ref<Stream> newStream) final;
+
   class Impl;
   std::unique_ptr<Impl> impl;
-  Ref<Stream> cudaStream;
 };
 
 /// Convenience method that loads the given Lua script and then executes the

@@ -1,6 +1,6 @@
-// RUN: executor-opt %s -executor-lowering-pipeline \
-// RUN:   | executor-translate -mlir-to-lua \
-// RUN:   | not executor-runner -input-type=lua -features=core 2>&1 | FileCheck %s
+// RUN: executor-opt %s --executor-generate-abi-wrappers -executor-lowering-pipeline \
+// RUN:   | executor-translate -mlir-to-runtime-executable \
+// RUN:   | not executor-runner -input-type=rtexe --features=core 2>&1 | FileCheck %s
 
 func.func @main() -> i32 {
   %c0 = executor.constant 0 : i32
@@ -11,5 +11,5 @@ func.func @main() -> i32 {
   return %c0 : i32
 }
 
-// CHECK: error: InternalError: {{.*}}: false assertion message
+// CHECK: false assertion message
 // CHECK: stack traceback:

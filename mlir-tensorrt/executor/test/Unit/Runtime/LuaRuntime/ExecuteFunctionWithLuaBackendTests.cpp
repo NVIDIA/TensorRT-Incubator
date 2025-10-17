@@ -115,8 +115,7 @@ TEST_F(TestRuntime, TestRuntimeExecution) {
   llvm::SmallVector<RuntimeValue *> inputArgs = {&scalarValues[1],
                                                  &scalarValues[1]};
 
-  auto results = (*session)->executeFunction("main", inputArgs, {},
-                                             /*stream=*/nullptr);
+  auto results = (*session)->executeFunction("main", inputArgs, {});
   ASSERT_TRUE(results.isOk()) << results.getStatus().getString();
 
   ASSERT_EQ(results->size(), reference.size()) << "Vector sizes don't match";

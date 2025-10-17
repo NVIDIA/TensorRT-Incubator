@@ -25,13 +25,77 @@
 #include "LuaRuntimeCompat.h"
 #include "mlir-executor/Runtime/API/API.h"
 #include "mlir-executor/Runtime/API/Executable.h"
+#include "mlir-executor/Runtime/API/MemRefABI.h"
 #include "mlir-executor/Runtime/Backend/Common/DataTypes.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaRuntime.h"
 #include "mlir-executor/Runtime/Support/Support.h"
 #include "mlir-tensorrt-common/Support/Status.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/Support/Allocator.h"
+#include "llvm/Support/Casting.h"
 
 using namespace mtrt;
+
+namespace {
+
+/// A wrapper around a bump pointer allocator that allocates storage for
+/// MLIR-ABI compatible MemRef descriptors.
+class DescriptorAllocator {
+public:
+  DescriptorAllocator(uint64_t capacity) {
+    descriptorPointers.reserve(capacity);
+    ranks.reserve(capacity);
+  }
+
+  /// Return the number of descriptors created.
+  uint64_t size() const { return descriptorPointers.size(); }
+
+  /// Return the UnrankedMemRefDescriptor for the given index.
+  UnrankedMemRefDescriptor getDescriptorAsUnranked(unsigned index) const;
+
+  /// Push a new descriptor with the given rank.
+  UnrankedMemRefDescriptor pushDescriptor(int64_t rank);
+
+private:
+  llvm::SmallVector<uintptr_t> descriptorPointers;
+  llvm::SmallVector<int64_t> ranks;
+  llvm::BumpPtrAllocator allocator;
+};
+
+} // namespace
+
+UnrankedMemRefDescriptor
+DescriptorAllocator::getDescriptorAsUnranked(unsigned index) const {
+  assert(index < size() && "index out of bounds");
+  return UnrankedMemRefDescriptor{ranks[index], descriptorPointers[index]};
+}
+
+template <int64_t Rank>
+uintptr_t allocateDescriptorAndZeroInit(llvm::BumpPtrAllocator &allocator) {
+  auto *ptr = allocator.Allocate<MemRefDescriptor<Rank>>(1);
+  memset(ptr, 0, sizeof(MemRefDescriptor<Rank>));
+  return reinterpret_cast<uintptr_t>(ptr);
+}
+
+template <int64_t... Ranks>
+uintptr_t dispatchAllocateDescriptorAndZeroInit(
+    llvm::BumpPtrAllocator &allocator, int64_t rank,
+    std::integer_sequence<int64_t, Ranks...>) {
+  uintptr_t result = 0;
+  (void)((rank == Ranks
+              ? (result = allocateDescriptorAndZeroInit<Ranks>(allocator), true)
+              : false) ||
+         ...);
+  return result;
+}
+
+UnrankedMemRefDescriptor DescriptorAllocator::pushDescriptor(int64_t rank) {
+  uintptr_t ptr = dispatchAllocateDescriptorAndZeroInit(
+      allocator, rank, std::make_integer_sequence<int64_t, 17>());
+  descriptorPointers.push_back(ptr);
+  ranks.push_back(rank);
+  return UnrankedMemRefDescriptor{rank, ptr};
+}
 
 //===----------------------------------------------------------------------===//
 // ABI Version 0 Implementation
@@ -215,9 +279,10 @@ unboxMemRefFromLua(const sol::object &obj, const MemRefTypeView &memRefView,
             reinterpret_cast<void *>(allocPtr));
 
   // Create a memref so that client now tracks it.
+  Ref<Stream> stream = session.getStream();
   StatusOr<Ref<MemRefStorage>> storage = client.getAllocator().takeOwnership(
       allocPtr, memRefView.getAddressSpace(),
-      session.getCudaStream()->getDevice(), session.getCudaStream());
+      stream ? stream->getDevice() : nullptr, stream);
   if (!storage.isOk())
     return storage.getStatus();
 
@@ -229,6 +294,36 @@ unboxMemRefFromLua(const sol::object &obj, const MemRefTypeView &memRefView,
     return memref.getStatus();
 
   return std::unique_ptr<RuntimeValue>(std::move(*memref));
+}
+
+static StatusOr<sol::object> mtrtBoxValueToLua(RuntimeValue *value,
+                                               sol::state_view &lua) {
+  if (!value)
+    return getInvalidArgStatus("value cannot be null");
+  if (MemRefValue *memref = llvm::dyn_cast<MemRefValue>(value))
+    return abi_v0::boxMemRefToLua(*memref, lua);
+  if (ScalarValue *scalar = llvm::dyn_cast<ScalarValue>(value))
+    return abi_v0::boxScalarToLua(*scalar, lua);
+  return getInvalidArgStatus(
+      "value must be either MemRef or Scalar for boxing to Lua");
+}
+
+static StatusOr<std::unique_ptr<RuntimeValue>>
+luaUnboxToMTRT(const sol::object &obj, const TypeUnionView &type,
+               LuaRuntimeSession &session) {
+  if (type.isa<ScalarTypeView>()) {
+    ScalarTypeCode code = type.get<ScalarTypeView>();
+    MTRT_ASSIGN_OR_RETURN(std::unique_ptr<ScalarValue> scalar,
+                          abi_v0::unboxScalarFromLua(obj, code));
+    return std::unique_ptr<RuntimeValue>(std::move(scalar));
+  }
+  if (type.isa<MemRefTypeView>()) {
+    const auto &memRefView = type.get<MemRefTypeView>();
+    return abi_v0::unboxMemRefFromLua(obj, memRefView, session);
+  }
+  return getInvalidArgStatus(
+      "type must be either ScalarTypeView or MemRefTypeView for unboxing "
+      "from Lua");
 }
 
 namespace {
@@ -258,11 +353,11 @@ LuaInvocation::invoke(llvm::ArrayRef<RuntimeValue *> inputArgs,
                       llvm::ArrayRef<RuntimeValue *> outputArgs) {
   sol::state_view lua = session.getLuaState();
   AllocTracker &tracker = session.getAllocTracker();
-  Ref<Stream> stream = session.getCudaStream();
+  Ref<Stream> stream = session.getStream();
   FunctionSignatureView sig = func.getSignature();
 
   for (auto [idx, rv] : llvm::enumerate(inputArgs)) {
-    MTRT_ASSIGN_OR_RETURN(sol::object arg, mtrtBoxValueToLua(rv, lua, 0));
+    MTRT_ASSIGN_OR_RETURN(sol::object arg, abi_v0::mtrtBoxValueToLua(rv, lua));
     args.emplace_back(std::move(arg));
 
     // Track MemRef pointers as external (managed outside the session)
@@ -291,7 +386,7 @@ LuaInvocation::invoke(llvm::ArrayRef<RuntimeValue *> inputArgs,
   std::unique_ptr<DeviceGuard> deviceGuard;
   // Set stream if provided and create a device guard.
   if (stream) {
-    RETURN_STATUS_IF_ERROR(session.setCudaStream(stream));
+    RETURN_STATUS_IF_ERROR(session.setStream(stream));
     if (Device *device = stream->getDevice()) {
       MTRT_ASSIGN_OR_RETURN(deviceGuard, device->createDeviceGuard());
     }
@@ -321,9 +416,8 @@ LuaInvocation::invoke(llvm::ArrayRef<RuntimeValue *> inputArgs,
   for (unsigned i = 0; i < sig.getNumResults(); ++i) {
     const auto &resultType = sig.getResult(i);
     sol::object obj = pfr[i];
-    MTRT_ASSIGN_OR_RETURN(
-        std::unique_ptr<RuntimeValue> result,
-        luaUnboxToMTRT(obj, resultType, session, /*abiVersion=*/0));
+    MTRT_ASSIGN_OR_RETURN(std::unique_ptr<RuntimeValue> result,
+                          abi_v0::luaUnboxToMTRT(obj, resultType, session));
 
     // For MemRef results, transfer ownership from session to client by
     // untracking from the session's AllocTracker. Checking existence is
@@ -434,60 +528,324 @@ static Status validateArgTypeAgainstSpec(const RuntimeValue *runArg,
 } // namespace mtrt::abi_v0
 
 //===----------------------------------------------------------------------===//
-// Public API Implementation
+// ABI v1 Implementation
 //===----------------------------------------------------------------------===//
 
-StatusOr<sol::object> mtrt::mtrtBoxValueToLua(RuntimeValue *value,
-                                              sol::state_view &lua,
-                                              uint32_t abiVersion) {
-  if (!value)
-    return getInvalidArgStatus("value cannot be null");
+namespace mtrt::abi_v1 {
 
-  switch (abiVersion) {
-  case 0: {
-    if (MemRefValue *memref = llvm::dyn_cast<MemRefValue>(value))
-      return abi_v0::boxMemRefToLua(*memref, lua);
-
-    if (ScalarValue *scalar = llvm::dyn_cast<ScalarValue>(value))
-      return abi_v0::boxScalarToLua(*scalar, lua);
-
-    return getInvalidArgStatus(
-        "value must be either MemRef or Scalar for boxing to Lua");
-  }
-  default:
-    return getInvalidArgStatus("Unsupported ABI version: {0}", abiVersion);
-  }
+/// Box a MemRefValue to a Lua object for a function input. This just allocates
+/// a descriptor, populates it with the MemRefValue's information, and puts the
+/// pointer to the ranked descriptor in the Lua object.
+/// NOTE: the descriptor storage is owned by the DescriptorAllocator and will be
+/// deallocated when the DescriptorAllocator is destroyed. DescriptorAllocator
+/// must outlive all uses.
+static StatusOr<sol::object> boxMemRefToLua(const MemRefValue &value,
+                                            sol::state_view &lua,
+                                            DescriptorAllocator &allocator) {
+  UnrankedMemRefDescriptor desc = allocator.pushDescriptor(value.getRank());
+  MTRT_RETURN_IF_ERROR(populateMemRefDescriptor(desc, value));
+  return sol::make_object(lua, desc.rankedDescriptorPtr);
+}
+static StatusOr<sol::object> boxMemRefToLua(uintptr_t data,
+                                            const BufferType &bufferType,
+                                            sol::state_view &lua,
+                                            DescriptorAllocator &allocator) {
+  UnrankedMemRefDescriptor desc =
+      allocator.pushDescriptor(bufferType.getRank());
+  MTRT_RETURN_IF_ERROR(populateMemRefDescriptor(
+      desc, data, data, bufferType.getLayout().getOffset(),
+      bufferType.getShape(), bufferType.getLayout().getStrides()));
+  return sol::make_object(lua, desc.rankedDescriptorPtr);
 }
 
-StatusOr<std::unique_ptr<RuntimeValue>>
-mtrt::luaUnboxToMTRT(const sol::object &obj, const TypeUnionView &type,
-                     LuaRuntimeSession &session, uint32_t abiVersion) {
-  switch (abiVersion) {
-  case 0: {
-    if (type.isa<ScalarTypeView>()) {
-      ScalarTypeCode code = type.get<ScalarTypeView>();
-      MTRT_ASSIGN_OR_RETURN(std::unique_ptr<ScalarValue> scalar,
-                            abi_v0::unboxScalarFromLua(obj, code));
-      return std::unique_ptr<RuntimeValue>(std::move(scalar));
-    }
-
-    if (type.isa<MemRefTypeView>()) {
-      const auto &memRefView = type.get<MemRefTypeView>();
-      return abi_v0::unboxMemRefFromLua(obj, memRefView, session);
-    }
-
-    return getInvalidArgStatus(
-        "type must be either ScalarTypeView or MemRefTypeView for unboxing "
-        "from Lua");
-  }
-  default:
-    return getInvalidArgStatus("Unsupported ABI version: {0}", abiVersion);
-  }
+/// Box a MemRefValue to a Lua object for a function output argument that is
+/// marked 'undef', meaning that a new memref allocation will be returned and
+/// the caller must take ownership. This just allocates a descriptor, zero
+/// initializes it, and puts the pointer to the ranked descriptor in the Lua
+/// object.
+/// NOTE: the descriptor storage is owned by the DescriptorAllocator and will be
+/// deallocated when the DescriptorAllocator is destroyed. DescriptorAllocator
+/// must outlive all uses.
+static StatusOr<sol::object>
+boxUndefMemRefToLua(int64_t rank, sol::state_view &lua,
+                    DescriptorAllocator &allocator) {
+  UnrankedMemRefDescriptor desc = allocator.pushDescriptor(rank);
+  return sol::make_object(lua, desc.rankedDescriptorPtr);
 }
 
-static Status validateArgsAgainstSignature(
-    const FunctionSignatureView &sig, llvm::ArrayRef<RuntimeValue *> args,
-    llvm::ArrayRef<RuntimeValue *> outArgs, uint32_t abiVersion) {
+/// Unbox a MemRefValue from a Lua object that is returned via an output
+/// argument. The `isUndef` flag indicates that the output argument is marked
+/// 'undef' in the signature and the caller must take ownership of the memref.
+/// Otherwise, we just return a reference to the existing storage, which is
+/// provided in `existingStorageRef`.
+///
+/// NOTE: The `existingStorageRef` is only non-null when `isUndef` is false.
+///
+/// NOTE: technically, based on what `abi_v1` currently supports, we could just
+/// forward the RuntimeValue in the invocation function when `undef=false` and
+/// not call this method at all. However, returning a new RuntimeValue here with
+/// a reference to the storage allows for the possibility that we could use
+/// `realloc` in the future internal to the function and resize the output
+/// buffer. In that case, the executed function code would also populate new
+/// shape/strides on the descriptor, which would require this copy to occur.
+static StatusOr<std::unique_ptr<MemRefValue>>
+unboxMemRefFromLua(const sol::object &obj, const MemRefTypeView &memRefView,
+                   bool isUndef, Ref<MemRefStorage> existingStorageRef,
+                   RuntimeSession &session) {
+  uintptr_t rankedDescriptorPtr = obj.as<uintptr_t>();
+  MTRT_ASSIGN_OR_RETURN(MemRefDescriptorView desc,
+                        getMemRefDescriptorInfo(UnrankedMemRefDescriptor{
+                            memRefView.getRank(), rankedDescriptorPtr}));
+
+  RuntimeClient &client = *session.getClient();
+  Ref<Stream> stream = session.getStream();
+
+  // If this is a new allocation (undef-marked output argument), take ownership.
+  if (isUndef) {
+    MTRT_ASSIGN_OR_RETURN(Ref<MemRefStorage> storage,
+                          client.getAllocator().takeOwnership(
+                              desc.basePtr, memRefView.getAddressSpace(),
+                              stream ? stream->getDevice() : nullptr, stream));
+    MTRT_ASSIGN_OR_RETURN(
+        auto memref,
+        MemRefValue::create(memRefView.getAddressSpace(),
+                            memRefView.getElementType(), std::move(storage),
+                            desc.offset,
+                            llvm::ArrayRef<int64_t>(desc.shape, desc.rank),
+                            llvm::ArrayRef<int64_t>(desc.strides, desc.rank),
+                            stream ? stream->getDevice() : nullptr));
+    return memref;
+  }
+
+  // Otherwise, return a reference to the existing storage.
+  assert(existingStorageRef && "expected existing storage ref");
+  MTRT_ASSIGN_OR_RETURN(
+      auto memref,
+      MemRefValue::create(memRefView.getAddressSpace(),
+                          memRefView.getElementType(), existingStorageRef,
+                          desc.offset,
+                          llvm::ArrayRef<int64_t>(desc.shape, desc.rank),
+                          llvm::ArrayRef<int64_t>(desc.strides, desc.rank),
+                          stream ? stream->getDevice() : nullptr));
+  return memref;
+}
+
+static StatusOr<sol::object>
+mtrtBoxInputValueToLua(RuntimeValue *value, sol::state_view &lua,
+                       DescriptorAllocator &allocator) {
+  if (MemRefValue *memref = llvm::dyn_cast<MemRefValue>(value))
+    return abi_v1::boxMemRefToLua(*memref, lua, allocator);
+  if (ScalarValue *scalar = llvm::dyn_cast<ScalarValue>(value)) {
+    /// Scalar value boxing is the same for V0.
+    return abi_v0::boxScalarToLua(*scalar, lua);
+  }
+  return getInvalidArgStatus(
+      "value must be either MemRef or Scalar for boxing to Lua");
+}
+
+static StatusOr<sol::object> mtrtBoxOutputMemRefArgToLua(
+    MemRefValue *value, bool isUndef, MemRefTypeView type, sol::state_view &lua,
+    DescriptorAllocator &descAllocator, RuntimeClient &client,
+    Ref<Stream> stream, AllocTracker &tracker, Ref<MemRefStorage> &storageRef) {
+  assert(storageRef == nullptr && "expected storage ref to be nullptr");
+  if (!isUndef) {
+    if (value != nullptr) {
+      PointerInfo pointerInfo = value->getPointerInfo(PointerOwner::external);
+      tracker.track(pointerInfo);
+      storageRef = value->getStorageRef();
+      return abi_v1::boxMemRefToLua(*value, lua, descAllocator);
+    }
+
+    // We need to allocate the memref ourselves.
+    BufferType bufferType = BufferType::getFromSerializedType(type);
+    if (!bufferType.hasStaticShape()) {
+      // TODO: actually, they are supported as long as we specify in the ABI the
+      // protocol for the shape function.
+      return getInvalidArgStatus("dynamic shape memrefs are not supported when "
+                                 "automatically allocating output buffers");
+    }
+
+    MTRT_ASSIGN_OR_RETURN(Ref<MemRefStorage> storage,
+                          client.getAllocator().allocate(
+                              bufferType.getAddressSpace(),
+                              bufferType.getFootprintSizeInBytes(),
+                              /*alignment=*/std::nullopt,
+                              stream ? stream->getDevice() : nullptr, stream));
+    return abi_v1::boxMemRefToLua(storage->getPtr(), bufferType, lua,
+                                  descAllocator);
+  }
+
+  if (value != nullptr)
+    return getInvalidArgStatus("output argument value must be nullptr for "
+                               "undef-marked output argument");
+  return abi_v1::boxUndefMemRefToLua(type.getRank(), lua, descAllocator);
+}
+
+static StatusOr<std::pair<sol::object, std::unique_ptr<ScalarValue>>>
+mtrtBoxOutputScalarArgToLua(ScalarType type, sol::state_view &lua) {
+  std::unique_ptr<ScalarValue> scalar = ScalarValue::createUndef(type);
+  sol::object obj =
+      sol::make_object(lua, reinterpret_cast<uintptr_t>(scalar->getRaw()));
+  return std::make_pair(std::move(obj), std::move(scalar));
+}
+
+namespace {
+class LuaInvocation {
+public:
+  LuaInvocation() = delete;
+  LuaInvocation(LuaRuntimeSession &session, FunctionView func);
+  ~LuaInvocation() = default;
+
+  StatusOr<llvm::SmallVector<std::unique_ptr<RuntimeValue>>>
+  invoke(llvm::ArrayRef<RuntimeValue *> inputArgs,
+         llvm::ArrayRef<RuntimeValue *> outputArgs);
+
+private:
+  LuaRuntimeSession &session;
+  FunctionView func;
+  DescriptorAllocator allocator;
+  llvm::SmallVector<sol::object> args;
+  llvm::SmallVector<Ref<MemRefStorage>> outputArgStorageRefs;
+  llvm::SmallVector<std::unique_ptr<ScalarValue>> scalarResultStorage;
+};
+} // namespace
+
+LuaInvocation::LuaInvocation(LuaRuntimeSession &session, FunctionView func)
+    : session(session), func(std::move(func)),
+      allocator(this->func.getSignature().getNumResults() +
+                this->func.getSignature().getNumOutputArgs()),
+      outputArgStorageRefs(this->func.getSignature().getNumOutputArgs(),
+                           nullptr),
+      scalarResultStorage(this->func.getSignature().getNumOutputArgs()) {
+  FunctionSignatureView sig = func.getSignature();
+  args.reserve(sig.getNumInputArgs() + sig.getNumOutputArgs());
+}
+
+StatusOr<llvm::SmallVector<std::unique_ptr<RuntimeValue>>>
+LuaInvocation::invoke(llvm::ArrayRef<RuntimeValue *> inputArgs,
+                      llvm::ArrayRef<RuntimeValue *> outputArgs) {
+  sol::state_view lua = session.getLuaState();
+  AllocTracker &tracker = session.getAllocTracker();
+  Ref<Stream> stream = session.getStream();
+  FunctionSignatureView sig = func.getSignature();
+
+  // In ABIv1, if the user passes an empty `outputArgs` array, all required
+  // storage will be automatically allocated for the caller. Otherwise, the size
+  // of the output args needs to match the number of results in the signature.
+  if (outputArgs.size() != sig.getNumResults() && !outputArgs.empty()) {
+    return getInvalidArgStatus("function expects {0} output args "
+                               "but received {1}",
+                               sig.getNumResults(), outputArgs.size());
+  }
+
+  // To handle the empty output args case, define this lambda.
+  auto getCallerOutputArg = [&](unsigned idx) -> RuntimeValue * {
+    assert(idx < sig.getNumResults() && "index out of bounds");
+    if (outputArgs.empty())
+      return nullptr;
+    return outputArgs[idx];
+  };
+
+  for (auto [idx, rv] : llvm::enumerate(inputArgs)) {
+    MTRT_ASSIGN_OR_RETURN(sol::object arg,
+                          abi_v1::mtrtBoxInputValueToLua(rv, lua, allocator));
+    args.emplace_back(std::move(arg));
+
+    // Track MemRef pointers as external (managed outside the session)
+    if (MemRefValue *memref = llvm::dyn_cast<MemRefValue>(rv)) {
+      PointerInfo pointerInfo = memref->getPointerInfo(PointerOwner::external);
+      tracker.track(pointerInfo);
+    }
+  }
+  for (unsigned i = 0, numResults = sig.getNumResults(); i < numResults; ++i) {
+    if (sig.getOutputArg(i).isa<MemRefTypeView>()) {
+      auto memRefType = sig.getOutputArg(i).get<MemRefTypeView>();
+      bool isUndef = sig.getUndef()[i];
+      MTRT_ASSIGN_OR_RETURN(
+          sol::object arg,
+          abi_v1::mtrtBoxOutputMemRefArgToLua(
+              llvm::dyn_cast_if_present<MemRefValue>(getCallerOutputArg(i)),
+              isUndef, memRefType, lua, allocator, *session.getClient(), stream,
+              tracker, outputArgStorageRefs[i]));
+      args.emplace_back(std::move(arg));
+      continue;
+    }
+
+    auto scalarType = sig.getOutputArg(i).get<ScalarTypeView>();
+    using ScalarBoxingResult =
+        std::pair<sol::object, std::unique_ptr<ScalarValue>>;
+    MTRT_ASSIGN_OR_RETURN(
+        ScalarBoxingResult result,
+        abi_v1::mtrtBoxOutputScalarArgToLua(scalarType.view->type(), lua));
+    args.emplace_back(std::move(result.first));
+    scalarResultStorage[i] = std::move(result.second);
+    continue;
+  }
+
+  std::unique_ptr<DeviceGuard> deviceGuard;
+  // Set stream if provided and create a device guard.
+  if (stream) {
+    RETURN_STATUS_IF_ERROR(session.setStream(stream));
+    if (Device *device = stream->getDevice()) {
+      MTRT_ASSIGN_OR_RETURN(deviceGuard, device->createDeviceGuard());
+    }
+  }
+
+  // Call the function, passing the arguments either as a table or unpacked as
+  // determined by the calling convention.
+  sol::protected_function funcObj = lua[func.getName()];
+  if (!funcObj.valid() || !funcObj.is<sol::function>())
+    return getStatusWithMsg(StatusCode::InternalError, "no function named \"",
+                            std::string(func.getName()), "\" found");
+
+  sol::protected_function_result pfr =
+      sig.getCConv() == CallingConvention::unpacked
+          ? funcObj(sol::as_args(args))
+          : funcObj(args);
+
+  if (!pfr.valid()) {
+    sol::error err(pfr);
+    return getInternalErrorStatus("failed to run function \"{0}\": {1}",
+                                  func.getName(), err.what());
+  }
+
+  llvm::SmallVector<std::unique_ptr<RuntimeValue>> results;
+  results.reserve(sig.getNumResults());
+  const unsigned numInputArgs = sig.getNumInputArgs();
+  for (unsigned i = 0, numResults = sig.getNumResults(); i < numResults; ++i) {
+    const auto &resultType = sig.getResult(i);
+    const bool isUndef = sig.getUndef()[i];
+    sol::object obj = args[i + numInputArgs];
+    if (resultType.isa<MemRefTypeView>()) {
+      auto memrefType = resultType.get<MemRefTypeView>();
+      Ref<MemRefStorage> storageRef = outputArgStorageRefs[i];
+      MTRT_ASSIGN_OR_RETURN(std::unique_ptr<MemRefValue> result,
+                            abi_v1::unboxMemRefFromLua(obj, memrefType, isUndef,
+                                                       storageRef, session));
+      uintptr_t memory = result->getMemory();
+      if (session.getAllocTracker().contains(memory)) {
+        session.getAllocTracker().untrack(memory);
+        session.getPinnedMemoryAllocator().untrack(memory);
+      }
+      results.emplace_back(std::move(result));
+    } else {
+      assert(scalarResultStorage[i] && "expected scalar result storage");
+      results.emplace_back(std::move(scalarResultStorage[i]));
+    }
+  }
+  return results;
+}
+
+} // namespace mtrt::abi_v1
+
+//===----------------------------------------------------------------------===//
+// Invocation API
+//===----------------------------------------------------------------------===//
+
+static Status
+validateArgsAgainstSignature(const FunctionSignatureView &sig,
+                             llvm::ArrayRef<RuntimeValue *> args,
+                             llvm::ArrayRef<RuntimeValue *> outArgs) {
 
   if (sig.getNumInputArgs() != args.size())
     return getInvalidArgStatus("function expects {0} input args "
@@ -495,9 +853,11 @@ static Status validateArgsAgainstSignature(
                                sig.getNumInputArgs(), args.size());
 
   if (sig.getNumOutputArgs() != outArgs.size()) {
-    return getInvalidArgStatus("function expects {0} output args "
-                               "(destination args) but received {1}",
-                               sig.getNumOutputArgs(), outArgs.size());
+    // Starting in ABIv1, we allow having empty output arguments.
+    if (sig.getAbiVersion() < 1 || !outArgs.empty())
+      return getInvalidArgStatus("function expects {0} output args "
+                                 "(destination args) but received {1}",
+                                 sig.getNumOutputArgs(), outArgs.size());
   }
 
   // Validate the inferred Lua function type here against the signature.
@@ -507,7 +867,7 @@ static Status validateArgsAgainstSignature(
       return getInvalidArgStatus("Input argument {0} validation failed: {1}", i,
                                  status.getString());
   }
-  for (unsigned i = 0, e = sig.getNumOutputArgs(); i < e; ++i) {
+  for (unsigned i = 0, e = outArgs.size(); i < e; ++i) {
     // TODO: In ABI v0, we must provide all output arguments, but in ABI v1 we
     // allow having 'nullptr' for output arguments which indicates that we
     // should automatically allocate for the caller.
@@ -530,8 +890,7 @@ mtrt::invokeLuaFunction(LuaRuntimeSession &session, FunctionView func,
   AllocTracker &tracker = session.getAllocTracker();
   FunctionSignatureView sig = func.getSignature();
 
-  MTRT_RETURN_IF_ERROR(
-      validateArgsAgainstSignature(sig, args, outArgs, abiVersion));
+  MTRT_RETURN_IF_ERROR(validateArgsAgainstSignature(sig, args, outArgs));
 
   // Track the pointers for internal debugging.
   for (auto *rv : args) {
@@ -541,7 +900,7 @@ mtrt::invokeLuaFunction(LuaRuntimeSession &session, FunctionView func,
     }
   }
   for (auto *rv : outArgs) {
-    if (MemRefValue *memref = llvm::dyn_cast<MemRefValue>(rv)) {
+    if (MemRefValue *memref = llvm::dyn_cast_if_present<MemRefValue>(rv)) {
       PointerInfo pointerInfo = memref->getPointerInfo(PointerOwner::external);
       tracker.track(pointerInfo);
     }
@@ -550,6 +909,9 @@ mtrt::invokeLuaFunction(LuaRuntimeSession &session, FunctionView func,
   llvm::SmallVector<std::unique_ptr<RuntimeValue>> results;
   if (abiVersion == 0) {
     abi_v0::LuaInvocation invocation(session, func);
+    MTRT_ASSIGN_OR_RETURN(results, invocation.invoke(args, outArgs));
+  } else if (abiVersion == 1) {
+    abi_v1::LuaInvocation invocation(session, func);
     MTRT_ASSIGN_OR_RETURN(results, invocation.invoke(args, outArgs));
   } else {
     return getInvalidArgStatus("Unsupported ABI version: {0}", abiVersion);
@@ -564,7 +926,7 @@ mtrt::invokeLuaFunction(LuaRuntimeSession &session, FunctionView func,
     }
   }
   for (auto *rv : outArgs) {
-    if (MemRefValue *memref = llvm::dyn_cast<MemRefValue>(rv)) {
+    if (MemRefValue *memref = llvm::dyn_cast_if_present<MemRefValue>(rv)) {
       auto it = session.getAllocTracker().find(memref->getMemory());
       if (it != session.getAllocTracker().end())
         session.getAllocTracker().erase(it);

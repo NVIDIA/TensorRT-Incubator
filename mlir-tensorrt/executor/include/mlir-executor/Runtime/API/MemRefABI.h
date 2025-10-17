@@ -85,13 +85,14 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &os,
 /// information. This version assumes that the aligned data pointer is the same
 /// as the base pointer.
 template <unsigned Rank>
-void populateMemRefDescriptor(MemRefDescriptor<Rank> *desc, uintptr_t data,
-                              int64_t offset, llvm::ArrayRef<int64_t> shape,
+void populateMemRefDescriptor(MemRefDescriptor<Rank> *desc, uintptr_t allocPtr,
+                              uintptr_t alignedPtr, int64_t offset,
+                              llvm::ArrayRef<int64_t> shape,
                               llvm::ArrayRef<int64_t> strides) {
   assert(shape.size() == Rank && "rank mismatch");
   assert(strides.size() == Rank && "rank mismatch");
-  desc->ptr = data;
-  desc->aligned = data;
+  desc->ptr = allocPtr;
+  desc->aligned = alignedPtr;
   desc->offset = offset;
   if constexpr (Rank > 0) {
     for (unsigned i = 0; i < Rank; ++i) {
@@ -106,7 +107,7 @@ void populateMemRefDescriptor(MemRefDescriptor<Rank> *desc, uintptr_t data,
 template <unsigned Rank>
 void populateMemRefDescriptor(MemRefDescriptor<Rank> *desc,
                               const MemRefValue &memref) {
-  populateMemRefDescriptor(desc, memref.getMemory(),
+  populateMemRefDescriptor(desc, memref.getMemory(), memref.getMemory(),
                            memref.getLayout().getOffset(), memref.getShape(),
                            memref.getStrides());
 }
@@ -115,6 +116,13 @@ void populateMemRefDescriptor(MemRefDescriptor<Rank> *desc,
 /// from `memref`.
 Status populateMemRefDescriptor(UnrankedMemRefDescriptor desc,
                                 const MemRefValue &memref);
+
+/// Populate the memref descriptor referred to by `desc` with the information
+/// from `allocPtr`, `alignedPtr`, `offset`, `shape`, and `strides`.
+Status populateMemRefDescriptor(UnrankedMemRefDescriptor desc,
+                                uintptr_t allocPtr, uintptr_t alignedPtr,
+                                int64_t offset, llvm::ArrayRef<int64_t> shape,
+                                llvm::ArrayRef<int64_t> strides);
 
 /// Get the memref descriptor info referred to by `desc`.
 StatusOr<MemRefDescriptorView>

@@ -30,8 +30,6 @@
 #include "mlir-executor/Executor/Transforms/Passes.h"
 #include "mlir/Analysis/DataLayoutAnalysis.h"
 #include "mlir/IR/BuiltinAttributes.h"
-#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
-#include "llvm/Support/LogicalResult.h"
 
 namespace mlir::executor {
 #define GEN_PASS_DEF_EXECUTORGENERATEABIWRAPPERSPASS
@@ -63,12 +61,11 @@ createABISignature(FunctionOpInterface func,
       argAttrs.push_back(DictionaryAttr::get(func.getContext(), attrs));
       continue;
     }
-    if (!isa<MemRefType, RankedTensorType, TableType>(arg.getType()))
+    if (!isa<MemRefType, RankedTensorType, ComplexType>(arg.getType()))
       return emitError(arg.getLoc())
              << "type not supported by the Executor runtime ABI: "
              << arg.getType();
     argTypes.push_back(hostPtrType);
-
     if (func.getArgAttr(arg.getArgNumber(),
                         executor::ExecutorDialect::kArgABIAttrName))
       return emitError(arg.getLoc())
@@ -84,8 +81,7 @@ createABISignature(FunctionOpInterface func,
   }
   // Append the results arguments.
   for (auto [idx, result] : llvm::enumerate(funcType.getResults())) {
-    if (!isScalarType(result) &&
-        !isa<MemRefType, RankedTensorType, TableType>(result))
+    if (!isScalarType(result) && !isa<MemRefType, RankedTensorType>(result))
       return emitError(func.getLoc())
              << "result type not supported by the Executor runtime ABI: "
              << result;
@@ -121,12 +117,6 @@ class ExecutorGenerateABIWrappersPass
     for (auto func : module->getRegion(0).getOps<func::FuncOp>()) {
       if (!func.isPublic() || func.isDeclaration())
         continue;
-      if (!func.getBody().hasOneBlock()) {
-        emitError(func.getLoc()) << "the input public function "
-                                 << func.getName() << " has multiple blocks, "
-                                 << "which is not supported";
-        return signalPassFailure();
-      }
       funcs.push_back(func);
     }
 
@@ -169,8 +159,7 @@ class ExecutorGenerateABIWrappersPass
       SmallVector<Location> argLocs;
       for (auto arg : func.getArguments())
         argLocs.push_back(arg.getLoc());
-      for (Value result : func.getBody().front().getTerminator()->getOperands())
-        argLocs.push_back(result.getLoc());
+      argLocs.append(funcType.getNumResults(), func.getLoc());
 
       assert(argLocs.size() == abiFuncType->getNumInputs());
       Block *newBlock =

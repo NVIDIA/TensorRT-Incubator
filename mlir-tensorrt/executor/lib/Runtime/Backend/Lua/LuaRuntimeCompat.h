@@ -36,28 +36,6 @@ namespace mtrt {
 class RuntimeValue;
 class LuaRuntimeSession;
 
-/// Convert a RuntimeValue (MemRef or Scalar) to a Lua object based on ABI
-/// version.
-///
-/// @param value The RuntimeValue to convert (must be MemRef or Scalar)
-/// @param lua The Lua state view
-/// @param abiVersion The ABI version to use for conversion (default: 0)
-/// @return A sol::object representing the value, or an error Status
-StatusOr<sol::object> mtrtBoxValueToLua(RuntimeValue *value,
-                                        sol::state_view &lua,
-                                        uint32_t abiVersion = 0);
-
-/// Convert a Lua object back to a RuntimeValue based on ABI version.
-///
-/// @param obj The Lua object to convert
-/// @param type The expected type of the result
-/// @param session The runtime session (for accessing client, allocator, etc.)
-/// @param abiVersion The ABI version to use for conversion (default: 0)
-/// @return A unique_ptr to RuntimeValue, or an error Status
-StatusOr<std::unique_ptr<RuntimeValue>>
-luaUnboxToMTRT(const sol::object &obj, const TypeUnionView &type,
-               LuaRuntimeSession &session, uint32_t abiVersion = 0);
-
 /// Invoke a Lua function and return the results.
 StatusOr<llvm::SmallVector<std::unique_ptr<RuntimeValue>>>
 invokeLuaFunction(LuaRuntimeSession &session, FunctionView func,

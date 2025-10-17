@@ -169,7 +169,42 @@ RuntimeSession::RuntimeSession(RuntimeSessionOptions options,
     : client(std::move(client)), options(std::move(options)), executable(exe),
       pinnedMemoryAllocator(std::make_unique<PinnedMemoryAllocator>()),
       allocTracker(std::make_unique<AllocTracker>()),
-      resourceTracker(std::make_unique<ResourceTracker>()) {}
+      resourceTracker(std::make_unique<ResourceTracker>()) {
+  if (this->options.isFeatureEnabled("cuda")) {
+    int32_t deviceId = this->options.getDeviceId();
+    Ref<Stream> stream = this->client->getDevices()[deviceId]->getStream();
+    assert(stream && "expected valid stream");
+    mtrt::cantFail(this->setStream(stream));
+  }
+}
+
+Ref<Stream> RuntimeSession::getStream() const { return stream; }
+
+Status RuntimeSession::setStream(Ref<Stream> s) {
+  // Check nullptr condition.
+  if (!s && this->options.isFeatureEnabled("cuda")) {
+    return getInvalidArgStatus(
+        "stream cannot be nullptr if CUDA feature is enabled");
+  }
+
+  // If CUDA is not enabled, it's still fine to set the stream, it just
+  // currently doesn't have any effect. In the future, we could use this to
+  // sequence work between different kinds of sessions.
+  if (s && this->stream && s->getDevice() != this->stream->getDevice()) {
+    return getInvalidArgStatus(
+        "stream is associated with device {0} but the current session "
+        "is associated with device {1}",
+        s->getDevice()->getDeviceNumber(),
+        this->stream->getDevice()->getDeviceNumber());
+  }
+  std::swap(this->stream, s);
+  return this->onStreamChanged(std::move(s), this->stream);
+}
+
+Status RuntimeSession::onStreamChanged(Ref<Stream> oldStream,
+                                       Ref<Stream> newStream) {
+  return Status::getOk();
+}
 
 //===----------------------------------------------------------------------===//
 // AllocTracker
@@ -706,6 +741,15 @@ ScalarValue &ScalarValue::operator=(ScalarValue &&other) noexcept {
 }
 
 ScalarValue::~ScalarValue() { cleanup(); }
+
+std::unique_ptr<ScalarValue> ScalarValue::createUndef(ScalarType type) {
+  if (type.getCode() == ScalarTypeCode::complex32)
+    return std::unique_ptr<ScalarValue>(new ScalarValue(0.0f, 0.0f, type));
+  if (type.getCode() == ScalarTypeCode::complex64)
+    return std::unique_ptr<ScalarValue>(new ScalarValue(0.0, 0.0, type));
+  return std::unique_ptr<ScalarValue>(
+      new ScalarValue(ScalarType(type.getCode()), Storage{.real = 0}));
+}
 
 void ScalarValue::cleanup() {
   if (isComplex()) {

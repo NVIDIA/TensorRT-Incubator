@@ -82,12 +82,10 @@ public:
   /// of bits.
   static StatusOr<ScalarTypeCode> getIntegerTypeWithBitWidth(int64_t bitWidth);
 
-  bool operator==(const ScalarType &other) const {
-    return other.code == this->code;
-  }
-  bool operator!=(const ScalarType &other) const {
-    return other.code != this->code;
-  }
+  bool operator==(const ScalarType &other) const;
+  bool operator!=(const ScalarType &other) const;
+  bool operator==(const ScalarTypeCode &other) const;
+  bool operator!=(const ScalarTypeCode &other) const;
 
 private:
   ScalarTypeCode code;
@@ -135,7 +133,9 @@ class ScalarTypeView
                                       mtrt::flat::Type::ScalarType> {
 public:
   using FlatbufferTypeObjectView::FlatbufferTypeObjectView;
-  operator mtrt::ScalarTypeCode() const { return view->type(); }
+  operator mtrt::ScalarTypeCode() const;
+  bool operator==(const ScalarTypeCode &other) const;
+  bool operator!=(const ScalarTypeCode &other) const;
 };
 
 /// A constant representing a dynamic size. This mirrors the same value as MLIR

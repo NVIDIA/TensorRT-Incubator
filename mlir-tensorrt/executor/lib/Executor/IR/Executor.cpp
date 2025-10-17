@@ -1342,6 +1342,28 @@ LogicalResult ABIRecvOp::verify() {
 // ABISendOp
 //===----------------------------------------------------------------------===//
 
+static bool areTypesABICompatible(Type sendType, Type abiType) {
+  if (isa<FloatType>(abiType)) {
+    if (isa<FloatType>(sendType))
+      return sendType == abiType;
+    if (abiType.getIntOrFloatBitWidth() % 8 == 0)
+      return false;
+    auto sendIntegerType = dyn_cast<IntegerType>(sendType);
+    if (!sendIntegerType)
+      return false;
+    return sendIntegerType.getIntOrFloatBitWidth() ==
+           llvm::divideCeil(abiType.getIntOrFloatBitWidth(), 8) * 8;
+  }
+  if (isa<IntegerType>(sendType)) {
+    // We allow having signful abiType as long as sendType is signless.
+    if (sendType.isSignlessInteger())
+      return sendType.getIntOrFloatBitWidth() ==
+             abiType.getIntOrFloatBitWidth();
+    return sendType == abiType;
+  }
+  return sendType == abiType;
+}
+
 LogicalResult ABISendOp::verify() {
   auto blockArg = dyn_cast<BlockArgument>(getPtr());
   if (!blockArg)
@@ -1365,7 +1387,7 @@ LogicalResult ABISendOp::verify() {
   if (argABIAttr.getAbi() != ArgABIKind::byref)
     return emitOpError() << "argument must have #executor.arg<byref, ...> ABI";
 
-  if (getValue().getType() != argABIAttr.getValueType())
+  if (!areTypesABICompatible(getValue().getType(), argABIAttr.getValueType()))
     return emitOpError() << "value type " << getValue().getType()
                          << " must match ABI value type "
                          << argABIAttr.getValueType();

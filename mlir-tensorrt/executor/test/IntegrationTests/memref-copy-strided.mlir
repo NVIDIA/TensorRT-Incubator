@@ -1,4 +1,4 @@
-// RUN: executor-opt %s -executor-lowering-pipeline \
+// RUN: executor-opt %s --executor-generate-abi-wrappers -executor-lowering-pipeline \
 // RUN:   | executor-translate -mlir-to-runtime-executable \
 // RUN:   | executor-runner -input-type=rtexe -features=core | FileCheck %s
 

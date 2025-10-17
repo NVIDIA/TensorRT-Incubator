@@ -298,21 +298,12 @@ LuaRuntimeSession::create(Ref<RuntimeClient> client_,
   return session;
 }
 
-/// Get the primary stream for the loaded executable to use.
-Ref<Stream> LuaRuntimeSession::getCudaStream() { return this->cudaStream; }
-
 /// Set the primary stream for the loaded executable to use.
-Status LuaRuntimeSession::setCudaStream(Ref<Stream> stream) {
-  if (!stream)
-    return getInvalidArgStatus("stream cannot be null");
-  this->cudaStream = stream;
-#ifdef MLIR_TRT_ENABLE_CUDA
+Status LuaRuntimeSession::onStreamChanged(Ref<Stream> oldStream,
+                                          Ref<Stream> newStream) {
   sol::state_view lua = getLuaState();
-  lua["stream0"] = stream->getCUDAHandle();
+  lua["stream0"] = newStream->getCUDAHandle();
   return getOkStatus();
-#else
-  return getInternalErrorStatus("runtime not compiled with CUDA support");
-#endif
 }
 
 //===----------------------------------------------------------------------===//
@@ -364,6 +355,25 @@ StatusOr<int64_t> mtrt::runExecutorLuaScript(
   return result[0].get<int64_t>();
 }
 
+static Status validateMainFunctionSignature(FunctionView mainFunc) {
+  auto returnErr = [&]() -> Status {
+    return getInvalidArgStatus("unsupported function signature {0}", mainFunc);
+  };
+  if (mainFunc.getSignature().getNumResults() > 1 ||
+      mainFunc.getSignature().getNumInputArgs() != 0)
+    return returnErr();
+  if (mainFunc.getSignature().getNumResults() == 1) {
+    if (!mainFunc.getSignature().getResult(0).isa<ScalarTypeView>())
+      return returnErr();
+    auto resultType =
+        mainFunc.getSignature().getResult(0).get<ScalarTypeView>();
+    if (resultType != ScalarTypeCode::i64 && resultType != ScalarTypeCode::i32)
+      return returnErr();
+    return getOkStatus();
+  }
+  return getOkStatus();
+}
+
 StatusOr<int64_t> mtrt::runExecutorExecutable(
     RuntimeSessionOptions options, std::unique_ptr<Executable> executable,
     LuaRuntimeSession::LuaModuleRegistrationFunc registerExtraLuaFuncs) {
@@ -375,40 +385,30 @@ StatusOr<int64_t> mtrt::runExecutorExecutable(
                             client, std::move(options), executable->getView(),
                             std::move(registerExtraLuaFuncs)));
 
-  // Call the main function, if present.
-  sol::state_view lua = session->getLuaState();
-  sol::protected_function mainObj = lua["main"];
-  if (mainObj.get_type() != sol::type::function)
-    return getStatusWithMsg(StatusCode::InternalError,
-                            std::string("no main function present"));
-  if (!mainObj.is<std::function<int()>>())
-    return getStatusWithMsg(
-        StatusCode::InternalError,
-        "main function should have signature function<int()>");
+  MTRT_ASSIGN_OR_RETURN(FunctionView mainFunc, executable->getFunction("main"));
 
-  sol::protected_function_result result = mainObj();
-  if (!result.valid()) {
-    sol::error err(result);
-    return getStatusWithMsg(StatusCode::InternalError,
-                            "failed to run main function: ", err.what());
-  }
+  MTRT_RETURN_IF_ERROR(validateMainFunctionSignature(mainFunc));
 
-  if (result.return_count() != 1 || result.get_type(0) != sol::type::number)
-    return getStatusWithMsg(
-        StatusCode::InternalError,
-        "main function did not return an integer return code");
+  MTRT_ASSIGN_OR_RETURN(
+      llvm::SmallVector<std::unique_ptr<RuntimeValue>> resultValues,
+      session->executeFunction(mainFunc.getName(), {}, {}));
 
-  return result[0].get<int64_t>();
+  if (resultValues.empty())
+    return 0;
+
+  ScalarValue *scalar = llvm::cast<ScalarValue>(resultValues.front().get());
+  if (scalar->getType() == ScalarTypeCode::i64)
+    return scalar->get<int64_t>();
+  if (scalar->getType() == ScalarTypeCode::i32)
+    return scalar->get<int32_t>();
+  // Conditions on the return type are checked in validateMainFunctionSignature.
+  llvm_unreachable("unsupported return type");
 }
 
 StatusOr<llvm::SmallVector<std::unique_ptr<RuntimeValue>>>
 LuaRuntimeSession::executeFunction(llvm::StringRef name,
                                    llvm::ArrayRef<RuntimeValue *> inputs,
-                                   llvm::ArrayRef<RuntimeValue *> outArgs,
-                                   Ref<Stream> stream) {
-  if (stream) {
-    MTRT_RETURN_IF_ERROR(this->setCudaStream(stream));
-  }
+                                   llvm::ArrayRef<RuntimeValue *> outArgs) {
   MTRT_ASSIGN_OR_RETURN(FunctionView func,
                         this->getExecutable().getFunction(name));
   uint32_t abiVersion = func.getAbiVersion();

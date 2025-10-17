@@ -26,6 +26,7 @@
 #include "mlir/Dialect/Func/Transforms/FuncConversions.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/Support/LLVM.h"
+#include "mlir/Transforms/DialectConversion.h"
 
 namespace mlir {
 namespace executor {
@@ -85,17 +86,14 @@ public:
   matchAndRewrite(Operation *op, ArrayRef<Value> operands,
                   ConversionPatternRewriter &rewriter) const final {
     if (!isa_and_present<executor::ExecutorDialect>(op->getDialect()))
-      return success();
-
-    if (typeConverter->isLegal(op))
-      return success();
+      return failure();
 
     // Ops with attribute needs to be handled specially. As of now, only
     // `executor.constant` is handled. In future, remaining ops from the list
     // below needs to be handled.
     if (isa<executor::ConstantOp, executor::DataSegmentOp, executor::GlobalOp,
             executor::FuncOp, executor::CallOp, executor::GetOffsetOp,
-            executor::AllocaOp>(op))
+            executor::AllocaOp, executor::ABISendOp, executor::ABIRecvOp>(op))
       return failure();
 
     // Region ops are not handled
@@ -111,6 +109,32 @@ public:
         op->getPropertiesStorage(), op->getSuccessors(), op->getRegions());
     rewriter.insert(newOp);
     rewriter.replaceOp(op, newOp->getResults());
+    return success();
+  }
+};
+
+struct ConvertABISendOp : public OpConversionPattern<executor::ABISendOp> {
+  using OpConversionPattern::OpConversionPattern;
+
+  LogicalResult
+  matchAndRewrite(executor::ABISendOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    Type originalType = op.getValue().getType();
+    unsigned originalWidth = originalType.getIntOrFloatBitWidth();
+    Type integerType = rewriter.getIntegerType(originalWidth);
+    Value sourceVal = getTypeConverter()->materializeSourceConversion(
+        rewriter, op.getLoc(), originalType, adaptor.getValue());
+
+    Value intValue = rewriter.create<executor::BitcastOp>(
+        op.getLoc(), integerType, sourceVal);
+    if (originalWidth % 8 != 0) {
+      Type paddedIntegerType =
+          rewriter.getIntegerType(llvm::divideCeil(originalWidth, 8) * 8);
+      intValue = rewriter.create<executor::ZExtOp>(op.getLoc(),
+                                                   paddedIntegerType, intValue);
+    }
+    rewriter.modifyOpInPlace(op,
+                             [&]() { op.getValueMutable().assign(intValue); });
     return success();
   }
 };
@@ -172,26 +196,20 @@ public:
     target.markUnknownOpDynamicallyLegal([](Operation *op) { return true; });
     target.addDynamicallyLegalDialect<executor::ExecutorDialect>(
         [&](Operation *op) -> std::optional<bool> {
-          // executor.extf f4E2M1FN -> f16 is legal
-          if (auto extf = dyn_cast_or_null<executor::ExtfOp>(op)) {
-            return isa<Float4E2M1FNType>(extf.getOperand().getType()) &&
-                   extf.getResult().getType().isF16();
-          }
-          // executor.truncf f16 -> f4E2M1FN is legal
-          if (auto extf = dyn_cast_or_null<executor::TruncfOp>(op)) {
-            return isa<Float4E2M1FNType>(extf.getResult().getType()) &&
-                   extf.getOperand().getType().isF16();
-          }
+          if (isa<executor::ExtfOp, executor::TruncfOp, executor::BitcastOp>(
+                  op))
+            return true;
           return typeConverter.isLegal(op);
         });
 
     RewritePatternSet patterns(&getContext());
-    patterns.add<GenericEmulationConversion, ExecutorConstantConverter>(
-        typeConverter, &getContext());
-    if (failed(
-            applyFullConversion(getOperation(), target, std::move(patterns)))) {
+    patterns.add<GenericEmulationConversion, ExecutorConstantConverter,
+                 ConvertABISendOp>(typeConverter, &getContext());
+    if (failed(applyPartialConversion(getOperation(), target,
+                                      std::move(patterns)))) {
       emitError(getOperation()->getLoc(),
-                "Failed to emulate unsupported types by the executor dialect.");
+                "failed to apply conversion patterns in ")
+          << getArgument();
       return signalPassFailure();
     }
   }

@@ -4,7 +4,8 @@
 // RUN: executor-translate -mlir-to-lua  %t.mlir \
 // RUN:   | executor-runner -input-type=lua -features=core | FileCheck %s
 
-// RUN: executor-translate -mlir-to-runtime-executable %t.mlir \
+// RUN: executor-opt %s -executor-generate-abi-wrappers -executor-lowering-pipeline \
+// RUN:   | executor-translate -mlir-to-runtime-executable \
 // RUN:   | executor-runner -input-type=rtexe -features=core | FileCheck %s
 
 func.func @test_addi(%arg0: i64, %arg1: i64) {

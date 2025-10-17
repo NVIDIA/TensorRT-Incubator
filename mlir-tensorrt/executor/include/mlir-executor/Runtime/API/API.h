@@ -462,6 +462,9 @@ public:
     data.complex = std::make_unique<std::complex<T>>(real_, imag_).release();
   }
 
+  /// Create a new scalar value where the storage is zero-initialized.
+  static std::unique_ptr<ScalarValue> createUndef(ScalarType type);
+
   // Delete copy constructors.
   ScalarValue(const ScalarValue &other) = delete;
   ScalarValue &operator=(const ScalarValue &other) = delete;
@@ -515,6 +518,9 @@ public:
   }
 
 private:
+  ScalarValue(ScalarType type, Storage data)
+      : RuntimeValue(Kind::Scalar), data(std::move(data)), type(type) {}
+
   void cleanup();
   Storage data;
   ScalarType type;
@@ -760,6 +766,9 @@ public:
                         type.getLayout().getStrides(), device));
   }
 
+  /// Return a reference to the underlying storage.
+  Ref<MemRefStorage> getStorageRef() const { return storage; }
+
   /// Return the type of the buffer.
   const BufferType &getType() const { return type; }
 
@@ -969,16 +978,31 @@ public:
   /// Execute the session function using the given arguments.
   virtual StatusOr<llvm::SmallVector<std::unique_ptr<RuntimeValue>>>
   executeFunction(llvm::StringRef name, llvm::ArrayRef<RuntimeValue *> inputs,
-                  llvm::ArrayRef<RuntimeValue *> outArgs,
-                  Ref<Stream> stream) = 0;
+                  llvm::ArrayRef<RuntimeValue *> outArgs) = 0;
+
+  /// Return the stream on which work for this session will be launched.
+  Ref<Stream> getStream() const;
+
+  /// Set the stream on which work for this session will be launched.
+  /// Note that the device for this session is set when it is created.
+  /// Therefore, the stream must be associated with the same device, otherwise
+  /// an error will be returned.
+  ///
+  /// It is only valid to pass `nullptr` here if the session was created
+  /// without a device and therefore does not have the CUDA feature enabled.
+  virtual Status setStream(Ref<Stream> stream);
 
 protected:
+  /// Called when the stream for this session is changed.
+  virtual Status onStreamChanged(Ref<Stream> oldStream, Ref<Stream> newStream);
+
   Ref<RuntimeClient> client;
   RuntimeSessionOptions options;
   ExecutableView executable;
   std::unique_ptr<PinnedMemoryAllocator> pinnedMemoryAllocator;
   std::unique_ptr<AllocTracker> allocTracker;
   std::unique_ptr<ResourceTracker> resourceTracker;
+  Ref<Stream> stream;
 };
 
 //===----------------------------------------------------------------------===//

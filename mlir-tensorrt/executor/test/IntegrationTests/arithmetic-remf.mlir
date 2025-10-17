@@ -1,6 +1,6 @@
-// RUN: executor-opt -executor-lower-to-runtime-builtins %s | \
-// RUN: executor-translate -mlir-to-lua | \
-// RUN: executor-runner -input-type=lua
+// RUN: executor-opt %s --executor-generate-abi-wrappers -executor-lowering-pipeline | \
+// RUN: executor-translate -mlir-to-runtime-executable | \
+// RUN: executor-runner -input-type=rtexe --features=core
 
 //===----------------------------------------------------------------------===//
 //  Auto-generated tests for arith.remf

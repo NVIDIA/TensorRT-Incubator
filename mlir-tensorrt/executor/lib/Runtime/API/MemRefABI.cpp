@@ -124,3 +124,37 @@ mtrt::getMemRefDescriptorInfo(UnrankedMemRefDescriptor desc) {
   return dispatchGetMemRefDescriptorInfo(
       desc, std::make_integer_sequence<unsigned, 17>());
 }
+
+template <unsigned... Ranks>
+Status
+dispatchPopulateMemRefDescriptor(UnrankedMemRefDescriptor desc,
+                                 uintptr_t allocPtr, uintptr_t alignedPtr,
+                                 int64_t offset, llvm::ArrayRef<int64_t> shape,
+                                 llvm::ArrayRef<int64_t> strides,
+                                 std::integer_sequence<unsigned, Ranks...>) {
+  bool success = false;
+  ((desc.rank == Ranks ? (populateMemRefDescriptor<Ranks>(
+                              reinterpret_cast<MemRefDescriptor<Ranks> *>(
+                                  desc.rankedDescriptorPtr),
+                              allocPtr, alignedPtr, offset, shape, strides),
+                          success = true)
+                       : false) ||
+   ...);
+  return success
+             ? getOkStatus()
+             : getInvalidArgStatus("unsupported memref rank {0}", desc.rank);
+}
+
+Status mtrt::populateMemRefDescriptor(UnrankedMemRefDescriptor desc,
+                                      uintptr_t allocPtr, uintptr_t alignedPtr,
+                                      int64_t offset,
+                                      llvm::ArrayRef<int64_t> shape,
+                                      llvm::ArrayRef<int64_t> strides) {
+  if (desc.rank != static_cast<int64_t>(shape.size()) ||
+      desc.rank != static_cast<int64_t>(strides.size()))
+    return getInvalidArgStatus(
+        "rank mismatch between descriptor and shape/strides");
+  return dispatchPopulateMemRefDescriptor(
+      desc, allocPtr, alignedPtr, offset, shape, strides,
+      std::make_integer_sequence<unsigned, 17>());
+}

@@ -653,11 +653,15 @@ MTRT_Status mtrtRuntimeSessionExecuteFunction(
       llvm::map_to_vector(llvm::ArrayRef(outArgs, numOutArgs),
                           [](MTRT_RuntimeValue arg) { return unwrap(arg); });
   Ref<Stream> streamRef = {nullptr};
-  if (!mtrtStreamIsNull(stream))
+  if (!mtrtStreamIsNull(stream)) {
     streamRef = unwrap(stream)->ref;
+    Status s = cppSession->setStream(streamRef);
+    if (!s.isOk())
+      return wrap(s);
+  }
   StatusOr<llvm::SmallVector<std::unique_ptr<RuntimeValue>>> resultValues =
       cppSession->executeFunction(std::string_view(name.data, name.length),
-                                  inArgValues, outArgValues, streamRef);
+                                  inArgValues, outArgValues);
   if (!resultValues.isOk())
     return wrap(resultValues.getStatus());
 

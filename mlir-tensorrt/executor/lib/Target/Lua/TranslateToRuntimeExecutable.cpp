@@ -210,7 +210,17 @@ FBBuilder::serialize64(Location loc, const DataLayout &dataLayout,
 }
 
 /// Translate the scalar type into the equivalent flatbuffer API object.
-static FailureOr<mtrt::ScalarTypeCode> translateScalarType(Type t) {
+static FailureOr<mtrt::ScalarTypeCode>
+translateScalarType(Type t, const mlir::DataLayout &dataLayout) {
+  if (isa<IndexType>(t)) {
+    uint64_t indexBitwidth = dataLayout.getTypeSizeInBits(t);
+    if (indexBitwidth == 32)
+      return mtrt::ScalarTypeCode::i32;
+    if (indexBitwidth == 64)
+      return mtrt::ScalarTypeCode::i64;
+    return failure();
+  }
+
   if (t.isInteger(32))
     return mtrt::ScalarTypeCode::i32;
   if (t.isInteger(16))
@@ -328,20 +338,21 @@ createTypeUnion(mtrt::flat::MemRefTypeT &&memrefType) {
 }
 
 /// Translate the given type into a native Object API TypeUnion.
-static FailureOr<mtrt::flat::TypeUnion> translateTypeVariant(Type t) {
+static FailureOr<mtrt::flat::TypeUnion>
+translateTypeVariant(Type t, const mlir::DataLayout &dataLayout) {
   auto emitTranslateFailure = [&](Type t) {
     return emitError(UnknownLoc::get(t.getContext()))
            << "unhandled type (" << t << ") in Executor function metadata";
   };
 
   if (!isa<MemRefType, IntegerType, FloatType, Float8E4M3FNType,
-           Float4E2M1FNType, ComplexType>(t))
+           Float4E2M1FNType, ComplexType, IndexType>(t))
     return emitTranslateFailure(t);
 
   // Encode as a memref.
   if (auto memrefType = llvm::dyn_cast<MemRefType>(t)) {
     FailureOr<mtrt::ScalarTypeCode> code =
-        translateScalarType(memrefType.getElementType());
+        translateScalarType(memrefType.getElementType(), dataLayout);
     if (failed(code))
       return emitTranslateFailure(memrefType.getElementType());
 
@@ -368,7 +379,7 @@ static FailureOr<mtrt::flat::TypeUnion> translateTypeVariant(Type t) {
   }
 
   // Encode as a scalar type.
-  FailureOr<mtrt::ScalarTypeCode> code = translateScalarType(t);
+  FailureOr<mtrt::ScalarTypeCode> code = translateScalarType(t, dataLayout);
   if (failed(code))
     return emitTranslateFailure(t);
 
@@ -392,14 +403,15 @@ translateCallingConvention(executor::CallingConvention cconv) {
 
 /// Build a FunctionSignature using the Object API.
 static FailureOr<mtrt::flat::FunctionSignatureT>
-translateSignature(executor::FunctionMetadataAttr metadata) {
+translateSignature(executor::FunctionMetadataAttr metadata,
+                   const mlir::DataLayout &dataLayout) {
   assert(metadata && "expected valid FunctionMetadataAttr");
 
   mtrt::flat::FunctionSignatureT signature;
 
   // Translate argument types
   for (Type t : metadata.getArgs()) {
-    auto typeUnion = translateTypeVariant(t);
+    auto typeUnion = translateTypeVariant(t, dataLayout);
     if (failed(typeUnion))
       return failure();
     signature.args.push_back(std::move(*typeUnion));
@@ -407,7 +419,7 @@ translateSignature(executor::FunctionMetadataAttr metadata) {
 
   // Translate result types
   for (Type t : metadata.getResults()) {
-    auto typeUnion = translateTypeVariant(t);
+    auto typeUnion = translateTypeVariant(t, dataLayout);
     if (failed(typeUnion))
       return failure();
     signature.results.push_back(std::move(*typeUnion));
@@ -494,7 +506,8 @@ translateBoundsIfPresent(func::FuncOp func, unsigned argIndex,
 /// Build a FunctionSignature for an ABI wrapper function by extracting
 /// information from the ArgumentABIAttr attributes on function arguments.
 static FailureOr<mtrt::flat::FunctionSignatureT>
-translateABIWrapperSignature(func::FuncOp func) {
+translateABIWrapperSignature(func::FuncOp func,
+                             const mlir::DataLayout &dataLayout) {
   mtrt::flat::FunctionSignatureT signature;
 
   // ABI wrapper functions use unpacked calling convention
@@ -513,7 +526,7 @@ translateABIWrapperSignature(func::FuncOp func) {
     const bool isInput = !resultIdx.has_value();
     if (executor::abi::isScalarArgumentType(arg.getType())) {
       assert(isInput && "scalar arguments cannot be output arguments");
-      auto typeUnion = translateTypeVariant(arg.getType());
+      auto typeUnion = translateTypeVariant(arg.getType(), dataLayout);
       if (failed(typeUnion))
         return failure();
       signature.args.push_back(std::move(*typeUnion));
@@ -539,7 +552,7 @@ translateABIWrapperSignature(func::FuncOp func) {
 
     // Extract the value type from the ABI attribute
     Type valueType = abiAttr.getValueType();
-    auto typeUnion = translateTypeVariant(valueType);
+    auto typeUnion = translateTypeVariant(valueType, dataLayout);
     if (failed(typeUnion))
       return failure();
 
@@ -723,7 +736,7 @@ mlir::translateToRuntimeExecutable(Operation *op) {
     // Check if this is an ABI wrapper function
     if (executor::abi::isABIWrapperFunction(func)) {
       // For ABI wrapper functions, extract signature from argument attributes
-      auto sig = translateABIWrapperSignature(func);
+      auto sig = translateABIWrapperSignature(func, dataLayout);
       if (failed(sig))
         return failure();
       sig->abi_version = abiVersion;
@@ -732,7 +745,7 @@ mlir::translateToRuntimeExecutable(Operation *op) {
     } else if (auto metaAttr =
                    func->getAttrOfType<executor::FunctionMetadataAttr>(
                        executor::ExecutorDialect::kFunctionMetadataAttrName)) {
-      auto sig = translateSignature(metaAttr);
+      auto sig = translateSignature(metaAttr, dataLayout);
       if (failed(sig))
         return failure();
       sig->abi_version = abiVersion;
