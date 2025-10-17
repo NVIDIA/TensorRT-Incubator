@@ -597,8 +597,8 @@ struct EinsumEquation {
     std::string currentPart;
     while (std::getline(lhsStream, currentPart, ',')) {
       lhsParts.push_back(currentPart);
-      for(char c : currentPart) {
-        if(!(c >= 'a' && c <= 'z'))
+      for (char c : currentPart) {
+        if (!(c >= 'a' && c <= 'z'))
           return failure();
       }
     }
@@ -820,44 +820,31 @@ public:
 
     llvm::SmallSetVector<char, 16> multipliedAxes;
     llvm::SmallSetVector<char, 16> uniqueAxes;
-    for(size_t i = 0; i < equation.lhsParts.size(); i++) {
-      for(size_t j = 0; j < equation.lhsParts[i].size(); j++) {
-        if(equation.rhs.find(equation.lhsParts[i][j]) == std::string::npos) {
+    for (size_t i = 0; i < equation.lhsParts.size(); i++) {
+      for (size_t j = 0; j < equation.lhsParts[i].size(); j++) {
+        if (equation.rhs.find(equation.lhsParts[i][j]) == std::string::npos) {
           multipliedAxes.insert(equation.lhsParts[i][j]);
         } else {
           // contained in rhs
           bool found = false;
-          for(size_t k = 0; k < equation.lhsParts.size(); k++) {
-            if(k != i) {
-              if(equation.lhsParts[k].find(equation.lhsParts[i][j]) != std::string::npos) {
+          for (size_t k = 0; k < equation.lhsParts.size(); k++) {
+            if (k != i) {
+              if (equation.lhsParts[k].find(equation.lhsParts[i][j]) !=
+                  std::string::npos) {
                 found = true;
                 break;
               }
             }
           }
-          if(!found) {
-            // contained in the i-th lhs, contained in the rhs and not contained in any other lhs
-            // this is not a batch axis of the multiplication.  E.g in "abc,acd->abd" this would be "bd"
+          if (!found) {
+            // contained in the i-th lhs, contained in the rhs and not contained
+            // in any other lhs this is not a batch axis of the multiplication.
+            // E.g in "abc,acd->abd" this would be "bd"
             uniqueAxes.insert(equation.lhsParts[i][j]);
           }
         }
       }
     }
-
-    // the order should be "[batch shares] [unique axes 1] [multiplied axes], [batch shares] [unique axes 2] [multiplied axes] -> [batch shared] [unique axes 1] [unique axes 2]"
-    auto getOrdering = [&](char c) -> size_t {
-      if(multipliedAxes.count(c))
-        return equation.lhsParts.size() + 1; // multiplied axes
-      if(uniqueAxes.count(c)) {
-        for(size_t i = 0; i < equation.lhsParts.size(); i++) {
-          if(equation.lhsParts[i].find(c) != std::string::npos) {
-            return i + 1; // unique axes group
-          }
-        }
-      }
-      return 0; // batch shared
-    };
-
 
     bool didChange = false;
     SmallVector<Value> newInputs;
@@ -871,14 +858,6 @@ public:
       std::sort(inputAxes.begin(), inputAxes.end(),
                 [&](const std::pair<char, int64_t> &a,
                     const std::pair<char, int64_t> &b) {
-
-                  // size_t orderA = getOrdering(a.first);
-                  // size_t orderB = getOrdering(b.first);
-                  // if(orderA != orderB) {
-                  //   return orderA < orderB;
-                  // }
-                  // return a.second < b.second; // preserve ordering
-
                   size_t posA = equation.rhs.find(a.first);
                   size_t posB = equation.rhs.find(b.first);
                   if (posA != std::string::npos && posB != std::string::npos) {
@@ -940,11 +919,13 @@ public:
 namespace {
 // When one of the input axes are 1, then we can push that up as a reshape.
 // For example,
-//    %3 = tensorrt.einsum("abc,cd->abd", %1: tensor<1x2x3xf32>, %2: tensor<3x4xf32>) -> tensor<1x2x4xf32>
+//    %3 = tensorrt.einsum("abc,cd->abd", %1: tensor<1x2x3xf32>, %2:
+//    tensor<3x4xf32>) -> tensor<1x2x4xf32>
 // will become
-//    %r1 = tensorrt.reshape %1 : tensor<1x2x3xf32> to tensor<2x3xf32>    reshape the input to remove the 1 dim
-//    %e1 = tensorrt.einsum("bc,cd->bd", %r1, %2) -> tensor<2x4xf32>
-//    %3 = tensorrt.reshape %e1 : tensor<2x4xf32> to tensor<1x2x4xf32>    reshape the output to add the 1 dim back
+//    %r1 = tensorrt.reshape %1 : tensor<1x2x3xf32> to tensor<2x3xf32> reshape
+//    the input to remove the 1 dim %e1 = tensorrt.einsum("bc,cd->bd", %r1, %2)
+//    -> tensor<2x4xf32> %3 = tensorrt.reshape %e1 : tensor<2x4xf32> to
+//    tensor<1x2x4xf32>    reshape the output to add the 1 dim back
 class EinsumEliminate1Axis : public OpRewritePattern<tensorrt::EinsumOp> {
 public:
   using OpRewritePattern<tensorrt::EinsumOp>::OpRewritePattern;
@@ -1028,13 +1009,12 @@ public:
 
 namespace {
 
-  // When one of the input axes has a 1 shaped input and there is a reshape on the input, then the reshape
-  // can be merged with the einsum.
-  // E.g.
-  //    %1 = tensorrt.reshape %0 : tensor<1x2x3xf32> to tensor<2x3xf32>
-  //    %2 = tensorrt.einsum("bc,cd->bd", %1, %2) -> tensor<2x4xf32>
-  // will become
-  //    %2 = tensorrt.einsum("abc,cd->bd", %0, %2) -> tensor<2x4xf32>
+// When one of the input axes has a 1 shaped input and there is a reshape on the
+// input, then the reshape can be merged with the einsum. E.g.
+//    %1 = tensorrt.reshape %0 : tensor<1x2x3xf32> to tensor<2x3xf32>
+//    %2 = tensorrt.einsum("bc,cd->bd", %1, %2) -> tensor<2x4xf32>
+// will become
+//    %2 = tensorrt.einsum("abc,cd->bd", %0, %2) -> tensor<2x4xf32>
 class EinsumMergeDown1Axis : public OpRewritePattern<tensorrt::EinsumOp> {
 public:
   using OpRewritePattern<tensorrt::EinsumOp>::OpRewritePattern;
@@ -1099,11 +1079,12 @@ public:
 
 namespace {
 
-// In the case that the output of an einsum has a 1 shaped output, then the reshape can be merged with the einsum
-// if there is an input that is also one shaped.
-// E.g.
-//    %1 = tensorrt.einsum("abc,cd->bd", %0 : tensor<1x2x3xf32>, %1) -> tensor<2x4xf32>
-//    %2 = tensorrt.reshape %1 : tensor<2x4xf32> to tensor<1x2x4xf32>
+// In the case that the output of an einsum has a 1 shaped output, then the
+// reshape can be merged with the einsum if there is an input that is also one
+// shaped. E.g.
+//    %1 = tensorrt.einsum("abc,cd->bd", %0 : tensor<1x2x3xf32>, %1) ->
+//    tensor<2x4xf32> %2 = tensorrt.reshape %1 : tensor<2x4xf32> to
+//    tensor<1x2x4xf32>
 // will become
 //    %2 = tensorrt.einsum("abc,cd->abd", %0, %1) -> tensor<1x2x4xf32>
 class EinsumMergeUp1Axis : public OpRewritePattern<tensorrt::ExpandRankOp> {
@@ -1138,10 +1119,9 @@ public:
       }
     }
 
-    // an axis can hvae 1 and non-1 shapes associated in the case that the axis is broadcast.  In which case, it is not a 1 shaped axis on the output.
-    oneAxisChars.remove_if([&](char c) {
-      return nonOneAxisChars.contains(c);
-    });
+    // an axis can hvae 1 and non-1 shapes associated in the case that the axis
+    // is broadcast.  In which case, it is not a 1 shaped axis on the output.
+    oneAxisChars.remove_if([&](char c) { return nonOneAxisChars.contains(c); });
     if (oneAxisChars.empty())
       return failure(/* no one axis inputs found */);
 
@@ -1172,8 +1152,8 @@ public:
 } // namespace
 
 namespace {
-  // In the case of an einsum that is performing a broadcast, increase the rank of its inputs so that
-  // it can better match the matrix multiply pattern.
+// In the case of an einsum that is performing a broadcast, increase the rank of
+// its inputs so that it can better match the matrix multiply pattern.
 class EinsumPushUp1AxisReshape : public OpRewritePattern<tensorrt::EinsumOp> {
 public:
   using OpRewritePattern<tensorrt::EinsumOp>::OpRewritePattern;
@@ -1182,102 +1162,116 @@ public:
     EinsumEquation equation;
     if (failed(equation.parse(op.getEquation())))
       return failure();
-    if(op->getNumOperands() != 2)
+    if (op->getNumOperands() != 2)
       return failure();
 
-    char matrixAxes[2] = {0,0};
+    char matrixAxes[2] = {0, 0};
     char multipliedAxis = 0;
 
-    for(size_t i = 0; i < 2; i++) {
-      for(int j = equation.lhsParts[i].size() - 1; j >= 0; j--) {
+    for (size_t i = 0; i < 2; i++) {
+      for (int j = equation.lhsParts[i].size() - 1; j >= 0; j--) {
         char c = equation.lhsParts[i][j];
-        if(multipliedAxis == 0 && equation.lhsParts[1-i].find(c) != std::string::npos && equation.rhs.find(c) == std::string::npos) {
+        if (multipliedAxis == 0 &&
+            equation.lhsParts[1 - i].find(c) != std::string::npos &&
+            equation.rhs.find(c) == std::string::npos) {
           multipliedAxis = c;
         }
-        if(matrixAxes[i] == 0 && equation.lhsParts[1-i].find(c) == std::string::npos && equation.rhs[equation.rhs.size() - 2 + i] == c) {
+        if (matrixAxes[i] == 0 &&
+            equation.lhsParts[1 - i].find(c) == std::string::npos &&
+            equation.rhs[equation.rhs.size() - 2 + i] == c) {
           matrixAxes[i] = c;
         }
       }
     }
 
     RankedTensorType inputType[2] = {
-      cast<RankedTensorType>(op.getInputs()[0].getType()),
-      cast<RankedTensorType>(op.getInputs()[1].getType())};
-    if(!inputType[0].hasStaticShape() || !inputType[1].hasStaticShape())
+        cast<RankedTensorType>(op.getInputs()[0].getType()),
+        cast<RankedTensorType>(op.getInputs()[1].getType())};
+    if (!inputType[0].hasStaticShape() || !inputType[1].hasStaticShape())
       return failure();
 
-    SmallVector<int64_t> newInputShapes[2] = {SmallVector<int64_t>{inputType[0].getShape()}, SmallVector<int64_t>{inputType[1].getShape()}};
+    SmallVector<int64_t> newInputShapes[2] = {
+        SmallVector<int64_t>{inputType[0].getShape()},
+        SmallVector<int64_t>{inputType[1].getShape()}};
     EinsumEquation newEquation = equation;
 
-    for(int i = 0; i < 2; i++) {
-      for(char c : equation.lhsParts[i]) {
-        if(c == multipliedAxis || c == matrixAxes[i] || equation.rhs.find(c) == std::string::npos)
+    for (int i = 0; i < 2; i++) {
+      for (char c : equation.lhsParts[i]) {
+        if (c == multipliedAxis || c == matrixAxes[i] ||
+            equation.rhs.find(c) == std::string::npos)
           continue;
-        if(newEquation.lhsParts[1-i].find(c) == std::string::npos) {
+        if (newEquation.lhsParts[1 - i].find(c) == std::string::npos) {
           // figure out the best place to insert "c"
-        // Find the best index to insert 'c' into newEquation.lhsParts[1-i]
-        // so that all letters to the left of 'c' in equation.lhsParts[i] are to the left of 'c'
-        // and all letters to the right of 'c' in equation.lhsParts[i] are to the right of 'c'
-        size_t insertIdx = 0;
-        // Find the leftmost position such that all letters in equation.lhsParts[i] before 'c'
-        // are to the left of 'c' in newEquation.lhsParts[1-i]
-        // and all letters after 'c' are to the right
-        // We do this by finding the first position in newEquation.lhsParts[1-i]
-        // where a letter that comes after 'c' in equation.lhsParts[i] appears.
-        // If none, insert at the end.
-        std::string &target = newEquation.lhsParts[1-i];
-        const std::string &src = newEquation.lhsParts[i];
-        size_t cPos = src.find(c);
-        for (insertIdx = 0; insertIdx <= target.size(); ++insertIdx) {
-          bool valid = true;
-          // Check all letters before c in src
-          for (size_t l = 0; l < cPos; ++l) {
-            char leftChar = src[l];
-            size_t posInTarget = target.find(leftChar);
-            if (posInTarget != std::string::npos && posInTarget >= insertIdx) {
-              valid = false;
-              break;
+          // Find the best index to insert 'c' into newEquation.lhsParts[1-i]
+          // so that all letters to the left of 'c' in equation.lhsParts[i] are
+          // to the left of 'c' and all letters to the right of 'c' in
+          // equation.lhsParts[i] are to the right of 'c'
+          size_t insertIdx = 0;
+          // Find the leftmost position such that all letters in
+          // equation.lhsParts[i] before 'c' are to the left of 'c' in
+          // newEquation.lhsParts[1-i] and all letters after 'c' are to the
+          // right We do this by finding the first position in
+          // newEquation.lhsParts[1-i] where a letter that comes after 'c' in
+          // equation.lhsParts[i] appears. If none, insert at the end.
+          std::string &target = newEquation.lhsParts[1 - i];
+          const std::string &src = newEquation.lhsParts[i];
+          size_t cPos = src.find(c);
+          for (insertIdx = 0; insertIdx <= target.size(); ++insertIdx) {
+            bool valid = true;
+            // Check all letters before c in src
+            for (size_t l = 0; l < cPos; ++l) {
+              char leftChar = src[l];
+              size_t posInTarget = target.find(leftChar);
+              if (posInTarget != std::string::npos &&
+                  posInTarget >= insertIdx) {
+                valid = false;
+                break;
+              }
             }
-          }
-          if (!valid) continue;
-          // Check all letters after c in src
-          for (size_t r = cPos + 1; r < src.size(); ++r) {
-            char rightChar = src[r];
-            size_t posInTarget = target.find(rightChar);
-            if (posInTarget != std::string::npos && posInTarget < insertIdx) {
-              valid = false;
-              break;
+            if (!valid)
+              continue;
+            // Check all letters after c in src
+            for (size_t r = cPos + 1; r < src.size(); ++r) {
+              char rightChar = src[r];
+              size_t posInTarget = target.find(rightChar);
+              if (posInTarget != std::string::npos && posInTarget < insertIdx) {
+                valid = false;
+                break;
+              }
             }
+            if (valid)
+              break;
           }
-          if (valid) break;
-        }
-        target.insert(target.begin() + insertIdx, c);
-        newInputShapes[1-i].insert(newInputShapes[1-i].begin() + insertIdx, 1);
-        assert(target.size() == newInputShapes[1-i].size());
+          target.insert(target.begin() + insertIdx, c);
+          newInputShapes[1 - i].insert(
+              newInputShapes[1 - i].begin() + insertIdx, 1);
+          assert(target.size() == newInputShapes[1 - i].size());
         }
       }
     }
 
-    RankedTensorType newInputTypes[2] = {
-      inputType[0].clone(newInputShapes[0]),
-      inputType[1].clone(newInputShapes[1])
-    };
+    RankedTensorType newInputTypes[2] = {inputType[0].clone(newInputShapes[0]),
+                                         inputType[1].clone(newInputShapes[1])};
 
-    if(newInputTypes[0] == inputType[0] && newInputTypes[1] == inputType[1])
+    if (newInputTypes[0] == inputType[0] && newInputTypes[1] == inputType[1])
       return failure(/* nothing changed */);
 
-    assert(newInputShapes[0].size() == newEquation.lhsParts[0].size() && newInputShapes[1].size() == newEquation.lhsParts[1].size());
+    assert(newInputShapes[0].size() == newEquation.lhsParts[0].size() &&
+           newInputShapes[1].size() == newEquation.lhsParts[1].size());
 
     SmallVector<Value> reshapes{
-      rewriter.createOrFold<ReshapeOp>(op.getLoc(), newInputTypes[0], op.getInputs()[0]),
-      rewriter.createOrFold<ReshapeOp>(op.getLoc(), newInputTypes[1], op.getInputs()[1])};
+        rewriter.createOrFold<ReshapeOp>(op.getLoc(), newInputTypes[0],
+                                         op.getInputs()[0]),
+        rewriter.createOrFold<ReshapeOp>(op.getLoc(), newInputTypes[1],
+                                         op.getInputs()[1])};
 
-    rewriter.replaceOpWithNewOp<EinsumOp>(op, op.getType(), reshapes, newEquation.generateEquation());
+    rewriter.replaceOpWithNewOp<EinsumOp>(op, op.getType(), reshapes,
+                                          newEquation.generateEquation());
 
     return success();
   }
 };
-}
+} // namespace
 
 namespace {
 // Push up a reshape through an einum to its inputs
@@ -1323,7 +1317,9 @@ public:
     auto reshapeOutShape = op.getResult().getType().getShape();
 
     bool hasNonTrivalReshape = false;
-    std::unordered_map<std::string, std::pair<std::string, SmallVector<int64_t>>> inputToReshapedMap;
+    std::unordered_map<std::string,
+                       std::pair<std::string, SmallVector<int64_t>>>
+        inputToReshapedMap;
     size_t inputNumElems = 1;
     size_t outputNumElems = 1;
     std::string inAxes = "";
@@ -1345,12 +1341,13 @@ public:
         inAxes += equation.rhs[j++];
       }
       if (inputNumElems == outputNumElems) {
-        if(reshapeOutShape[i] == 1 && outAxes.size() == 1 && inAxes.size() == 0) {
-          if(!prevInAxes.empty()) {
+        if (reshapeOutShape[i] == 1 && outAxes.size() == 1 &&
+            inAxes.size() == 0) {
+          if (!prevInAxes.empty()) {
             auto &p = inputToReshapedMap[prevInAxes];
             p.first.push_back(c);
             p.second.push_back(1);
-            if(prevInAxes.size() != p.first.size())
+            if (prevInAxes.size() != p.first.size())
               hasNonTrivalReshape = true;
             outAxes = "";
             outShape.clear();
@@ -1455,15 +1452,16 @@ public:
 
 namespace {
 
-  // if there are mutliple axes that are getting multiplied together in an einsum, push up a reshape so that there is
-  // only a single axis.  This will help with the conversion from einsum to matrix multiply.
-  // For example,
-  //    %0 = tensorrt.einsum {equation = "acd,bcd->ab"} ins(%arg0, %arg1)
-  // will become
-  //    %0 = tensorrt.reshape %arg0
-  //    %1 = tensorrt.reshape %arg1
-  //    %2 = tensorrt.einsum {equation = "ac,bc->ab"} ins(%0, %1)
-class EinsumPushUpMultipleMulitipliedAxes : public OpRewritePattern<tensorrt::EinsumOp> {
+// if there are mutliple axes that are getting multiplied together in an einsum,
+// push up a reshape so that there is only a single axis.  This will help with
+// the conversion from einsum to matrix multiply. For example,
+//    %0 = tensorrt.einsum {equation = "acd,bcd->ab"} ins(%arg0, %arg1)
+// will become
+//    %0 = tensorrt.reshape %arg0
+//    %1 = tensorrt.reshape %arg1
+//    %2 = tensorrt.einsum {equation = "ac,bc->ab"} ins(%0, %1)
+class EinsumPushUpMultipleMulitipliedAxes
+    : public OpRewritePattern<tensorrt::EinsumOp> {
 public:
   using OpRewritePattern<tensorrt::EinsumOp>::OpRewritePattern;
   LogicalResult matchAndRewrite(tensorrt::EinsumOp op,
@@ -1473,63 +1471,69 @@ public:
       return failure();
 
     std::string multipliedAxes = "";
-    for(char c : equation.lhsParts[0]) {
-      if(equation.rhs.find(c) == std::string::npos) {
+    for (char c : equation.lhsParts[0]) {
+      if (equation.rhs.find(c) == std::string::npos) {
         multipliedAxes += c;
       }
     }
-    if(multipliedAxes.size() <= 1)
+    if (multipliedAxes.size() <= 1)
       return failure(/* pattern does not match */);
-    for(size_t i = 0; i < equation.lhsParts.size(); i++) {
-      if(equation.lhsParts[i].find(multipliedAxes) == std::string::npos)
+    for (size_t i = 0; i < equation.lhsParts.size(); i++) {
+      if (equation.lhsParts[i].find(multipliedAxes) == std::string::npos)
         return failure(/* pattern does not match */);
-      if(!cast<RankedTensorType>(op.getInputs()[i].getType()).hasStaticShape())
+      if (!cast<RankedTensorType>(op.getInputs()[i].getType()).hasStaticShape())
         return failure();
     }
     char nextChar = 'a';
-    while(nextChar <= 'z') {
-      if(equation.equation.find(nextChar) == std::string::npos)
+    while (nextChar <= 'z') {
+      if (equation.equation.find(nextChar) == std::string::npos)
         break;
       nextChar++;
     }
-    if(nextChar > 'z')
+    if (nextChar > 'z')
       return failure(/* No more characters available */);
 
     SmallVector<Value> newInputs;
     EinsumEquation newEquation = equation;
-    for(size_t i = 0; i < equation.lhsParts.size(); i++) {
+    for (size_t i = 0; i < equation.lhsParts.size(); i++) {
       auto inputType = cast<RankedTensorType>(op.getInputs()[i].getType());
       SmallVector<int64_t> newInputShape;
       std::string newInputEquation = "";
       size_t j = 0;
-      while(j < equation.lhsParts[i].size() && multipliedAxes.find(equation.lhsParts[i][j]) == std::string::npos) {
+      while (j < equation.lhsParts[i].size() &&
+             multipliedAxes.find(equation.lhsParts[i][j]) ==
+                 std::string::npos) {
         newInputShape.push_back(inputType.getDimSize(j));
         newInputEquation += equation.lhsParts[i][j];
         j++;
+      }
+
+      int64_t combinedInputShape = 1;
+      while (j < equation.lhsParts[i].size() &&
+             multipliedAxes.find(equation.lhsParts[i][j]) !=
+                 std::string::npos) {
+        combinedInputShape *= inputType.getDimSize(j++);
+      }
+      newInputShape.push_back(combinedInputShape);
+      newInputEquation += nextChar;
+      while (j < equation.lhsParts[i].size()) {
+        newInputShape.push_back(inputType.getDimSize(j));
+        newInputEquation += equation.lhsParts[i][j];
+        j++;
+      }
+
+      newEquation.lhsParts[i] = newInputEquation;
+      auto reshape = rewriter.createOrFold<tensorrt::ReshapeOp>(
+          op.getLoc(), inputType.clone(newInputShape), op.getInputs()[i]);
+      newInputs.push_back(reshape);
     }
 
-    int64_t combinedInputShape = 1;
-    while(j < equation.lhsParts[i].size() && multipliedAxes.find(equation.lhsParts[i][j]) != std::string::npos) {
-      combinedInputShape *= inputType.getDimSize(j++);
-    }
-    newInputShape.push_back(combinedInputShape);
-    newInputEquation += nextChar;
-    while(j < equation.lhsParts[i].size()) {
-      newInputShape.push_back(inputType.getDimSize(j));
-      newInputEquation += equation.lhsParts[i][j];
-      j++;
-    }
-
-    newEquation.lhsParts[i] = newInputEquation;
-    auto reshape = rewriter.createOrFold<tensorrt::ReshapeOp>(op.getLoc(), inputType.clone(newInputShape), op.getInputs()[i]);
-    newInputs.push_back(reshape);
+    rewriter.replaceOpWithNewOp<tensorrt::EinsumOp>(
+        op, op.getType(), newInputs, newEquation.generateEquation());
+    return success();
   }
-
-  rewriter.replaceOpWithNewOp<tensorrt::EinsumOp>(op, op.getType(), newInputs, newEquation.generateEquation());
-  return success();
-}
 };
-}
+} // namespace
 
 namespace {
 static uint64_t estimateShuffleCost(Value input) {
@@ -2157,12 +2161,13 @@ public:
     }
 
     Value newTransposeOp;
-    if(newTranspose.empty()) {
-      newTransposeOp = reshape.getInput();  // this can happen in the case of a scalar tensor<f32> type
+    if (newTranspose.empty()) {
+      newTransposeOp = reshape.getInput(); // this can happen in the case of a
+                                           // scalar tensor<f32> type
     } else {
       newTransposeOp = rewriter.createOrFold<tensorrt::TransposeOp>(
-        op.getLoc(), reshape.getInput(),
-        AffineMap::getPermutationMap(newTranspose, op.getContext()));
+          op.getLoc(), reshape.getInput(),
+          AffineMap::getPermutationMap(newTranspose, op.getContext()));
     }
     Value newReshapeOp = rewriter.createOrFold<tensorrt::ReshapeOp>(
         op.getLoc(), reshapeInputType.clone(newReshape), newTransposeOp);
@@ -2356,6 +2361,9 @@ public:
 } // namespace
 
 namespace {
+// Convert einsum("bij,bjk->bik", %0, %1) -> matrix_multiply(%0, %1)
+// by matching different einsum patterns that are supported by the
+// matrix_multiply op
 class EinsumToMatrixMultiply : public OpRewritePattern<tensorrt::EinsumOp> {
 public:
   using OpRewritePattern<tensorrt::EinsumOp>::OpRewritePattern;
@@ -2374,40 +2382,41 @@ public:
 
     Value inputs[2] = {op.getInputs()[0], op.getInputs()[1]};
 
-    for(char c : equation.lhsParts[0]) {
-      if(equation.lhsParts[1].find(c) == std::string::npos) {
-        if(matrixAxis[0] != 0)
+    for (char c : equation.lhsParts[0]) {
+      if (equation.lhsParts[1].find(c) == std::string::npos) {
+        if (matrixAxis[0] != 0)
           return failure(/* einsum does not match matrix multiply format */);
         matrixAxis[0] = c;
       }
-      if(equation.rhs.find(c) == std::string::npos) {
-        if(multipliedAxis != 0)
+      if (equation.rhs.find(c) == std::string::npos) {
+        if (multipliedAxis != 0)
           return failure(/* einsum does not match matrix multipliy format */);
         multipliedAxis = c;
       }
     }
-    for(char c : equation.lhsParts[1]) {
-      if(equation.lhsParts[0].find(c) == std::string::npos) {
-        if(matrixAxis[1] != 0)
+    for (char c : equation.lhsParts[1]) {
+      if (equation.lhsParts[0].find(c) == std::string::npos) {
+        if (matrixAxis[1] != 0)
           return failure(/* einsum does not match matrix multiply format */);
         matrixAxis[1] = c;
       }
-      if(equation.rhs.find(c) == std::string::npos) {
-        if(multipliedAxis != 0 && multipliedAxis != c)
+      if (equation.rhs.find(c) == std::string::npos) {
+        if (multipliedAxis != 0 && multipliedAxis != c)
           return failure(/* einsum does not match matrix multiply format */);
         multipliedAxis = c;
       }
     }
 
-    for(size_t i = 0; i < equation.rhs.size(); i++) {
-      if(equation.lhsParts[0][i] == equation.rhs[i] && equation.lhsParts[1][i] == equation.rhs[i]) {
+    for (size_t i = 0; i < equation.rhs.size(); i++) {
+      if (equation.lhsParts[0][i] == equation.rhs[i] &&
+          equation.lhsParts[1][i] == equation.rhs[i]) {
         batchAxes += equation.rhs[i];
       } else {
         break;
       }
     }
 
-    if(multipliedAxis == 0)
+    if (multipliedAxis == 0)
       return failure();
 
     if (matrixAxis[0] != 0 && matrixAxis[1] != 0 &&
@@ -2420,16 +2429,18 @@ public:
     }
 
     MatrixOperation opType[2];
-    for(int i = 0; i < 2; i++) {
-      if(matrixAxis[i] == 0) {
-        if(equation.lhsParts[i] == batchAxes + multipliedAxis)
+    for (int i = 0; i < 2; i++) {
+      if (matrixAxis[i] == 0) {
+        if (equation.lhsParts[i] == batchAxes + multipliedAxis)
           opType[i] = MatrixOperation::kVECTOR;
         else
           return failure(/* einsum does not match matrix multiply format */);
       } else {
-        if(equation.lhsParts[i] == (batchAxes + matrixAxis[i]) + multipliedAxis)
+        if (equation.lhsParts[i] ==
+            (batchAxes + matrixAxis[i]) + multipliedAxis)
           opType[i] = MatrixOperation::kNONE;
-        else if(equation.lhsParts[i] == (batchAxes + multipliedAxis) + matrixAxis[i])
+        else if (equation.lhsParts[i] ==
+                 (batchAxes + multipliedAxis) + matrixAxis[i])
           opType[i] = MatrixOperation::kTRANSPOSE;
         else
           return failure(/* einsum does not match matrix multiply format */);
@@ -2597,6 +2608,11 @@ public:
 } // namespace
 
 namespace {
+// This pattern matches matrix multiply operations whose arguments are produced
+// by a transpose that swaps only the last two dimensions. In such cases, it
+// absorbs the transpose into the matrix multiply operator by toggling the
+// internal transpose flag on the corresponding input, eliminating unnecessary
+// explicit transpose operations.
 class MatrixMultiplyTransposedArguments
     : public OpRewritePattern<tensorrt::MatrixMultiplyOp> {
 public:
@@ -2802,39 +2818,42 @@ public:
 
 namespace {
 
-// If there is a transpose that is shuffling an axis that is a 1, then that transpose could instead ba a reshape
-// A reshape is preferred over a transpose as it should not correspond with rearranging the tensor's memory
-class SimpleTransposeToReshape : public OpRewritePattern<tensorrt::TransposeOp> {
+// If there is a transpose that is shuffling an axis that is a 1, then that
+// transpose could instead ba a reshape A reshape is preferred over a transpose
+// as it should not correspond with rearranging the tensor's memory
+class SimpleTransposeToReshape
+    : public OpRewritePattern<tensorrt::TransposeOp> {
 public:
   using OpRewritePattern<tensorrt::TransposeOp>::OpRewritePattern;
   LogicalResult matchAndRewrite(tensorrt::TransposeOp op,
                                 PatternRewriter &rewriter) const override {
-    if(!op.getInput().getType().hasStaticShape())
+    if (!op.getInput().getType().hasStaticShape())
       return failure();
     auto transposeInputType = op.getInput().getType();
     SmallVector<int64_t> transposePerm;
     int nonOneCount = 0;
     for (int i = 0; i < transposeInputType.getRank(); i++) {
       transposePerm.push_back(nonOneCount);
-      if(transposeInputType.getDimSize(i) != 1) nonOneCount++;
+      if (transposeInputType.getDimSize(i) != 1)
+        nonOneCount++;
     }
     if (!op.getPermutation().isPermutation()) {
       return failure(/* Transpose is not a permutation */);
     }
 
     transposePerm = op.getPermutation().compose(transposePerm);
-    for(int i = 1; i < transposePerm.size(); i++) {
-      if(transposePerm[i-1] > transposePerm[i])
+    for (int i = 1; i < transposePerm.size(); i++) {
+      if (transposePerm[i - 1] > transposePerm[i])
         return failure(/* Pattern failed to match*/);
     }
 
-    rewriter.replaceOpWithNewOp<tensorrt::ReshapeOp>(op, op.getType(), op.getInput());
+    rewriter.replaceOpWithNewOp<tensorrt::ReshapeOp>(op, op.getType(),
+                                                     op.getInput());
     return success();
   }
 };
 
 } // namespace
-
 
 namespace {
 class TransposeReshapeEliminationPass
@@ -2890,9 +2909,9 @@ public:
           PushDownReshapeUnaryRewriter, PushDownReshapeIdentityRewriter,
           PushDownOpQuantizeDequantize<tensorrt::TransposeOp>,
           PushDownOpQuantizeDequantize<tensorrt::ReshapeOp>,
-          PushReshapeDownThroughEinsum,
-          PushDownReshapeElementwise, PushDownTransposeSoftmax,
-          PushDownReshapeSoftmax, SimpleTransposeToReshape>(ctx, PatternBenefit(1));
+          PushReshapeDownThroughEinsum, PushDownReshapeElementwise,
+          PushDownTransposeSoftmax, PushDownReshapeSoftmax,
+          SimpleTransposeToReshape>(ctx, PatternBenefit(1));
       patterns.insert<EinsumPushDownTranspose>(ctx, PatternBenefit(0));
       TransposeOp::getCanonicalizationPatterns(patterns, ctx);
       ExpandRankOp::getCanonicalizationPatterns(patterns, ctx);
@@ -2917,9 +2936,9 @@ public:
           PushUpReshapeUnary<UnaryOp>, PushUpReshapeUnary<ActivationOp>,
           PushUpOpQuantizeDequantize<tensorrt::TransposeOp>,
           PushUpOpQuantizeDequantize<tensorrt::ReshapeOp>,
-          PushReshapeUpThroughEinsum,
-          PushUpReshapeElementwise, PushUpTransposeSoftmax,
-          PushUpReshapeSoftmax, SimpleTransposeToReshape>(ctx, PatternBenefit(2));
+          PushReshapeUpThroughEinsum, PushUpReshapeElementwise,
+          PushUpTransposeSoftmax, PushUpReshapeSoftmax,
+          SimpleTransposeToReshape>(ctx, PatternBenefit(2));
       patterns.insert<EinsumPushUpTranspose>(ctx, PatternBenefit(1));
       patterns.insert<EinsumPushUp1AxisReshape>(ctx, PatternBenefit(0));
       TransposeOp::getCanonicalizationPatterns(patterns, ctx);
@@ -2942,12 +2961,13 @@ public:
       ReshapeOp::getCanonicalizationPatterns(
           patterns, ctx); // convert back to expand rank and collapse rank ops
       patterns.insert<EinsumToMatrixMultiply>(ctx, PatternBenefit(1));
-      patterns
-          .insert<MatrixMultiplyTransposedArguments, EinsumPushUp1AxisReshape, EinsumPushUpMultipleMulitipliedAxes, SimpleTransposeToReshape>(
-              ctx);
+      patterns.insert<
+          MatrixMultiplyTransposedArguments, EinsumPushUp1AxisReshape,
+          EinsumPushUpMultipleMulitipliedAxes, SimpleTransposeToReshape>(ctx);
       if (failed(applyPatternsGreedily(op, std::move(patterns)))) {
         emitError(op->getLoc())
-            << "failed to apply convert back to matrix multiply pattern " << getArgument();
+            << "failed to apply convert back to matrix multiply pattern "
+            << getArgument();
         return signalPassFailure();
       }
     }
@@ -2961,16 +2981,18 @@ public:
       ReshapeOp::getCanonicalizationPatterns(
           patterns, ctx); // convert back to expand rank and collapse rank ops
       patterns.insert<EinsumToMatrixMultiply>(ctx, PatternBenefit(1));
-      patterns.insert<PushDownTransposeToEinsum, PushUpTransposeToEinsum,
-                      EinsumMergeDown1Axis, EinsumMergeUp1Axis,
-                      MatrixMultiplyTransposedArguments, SimpleTransposeToReshape>(ctx);
+      patterns
+          .insert<PushDownTransposeToEinsum, PushUpTransposeToEinsum,
+                  EinsumMergeDown1Axis, EinsumMergeUp1Axis,
+                  MatrixMultiplyTransposedArguments, SimpleTransposeToReshape>(
+              ctx);
       if (failed(applyPatternsGreedily(op, std::move(patterns)))) {
         emitError(op->getLoc())
-            << "failed to apply merge stragler transposes to einsum " << getArgument();
+            << "failed to apply merge stragler transposes to einsum "
+            << getArgument();
         return signalPassFailure();
       }
     }
-
   }
 };
 } // namespace
