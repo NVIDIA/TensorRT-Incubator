@@ -46,7 +46,7 @@ using namespace mlir;
 using namespace mlir::tensorrt;
 
 // Set the max size of tensors which can be constant-folded to 131072 (0.5 MB
-// for f32 constants).g
+// for f32 constants).
 constexpr int64_t kFoldOpEltLimit = 1 << 17;
 
 static int64_t memoryCost(RankedTensorType type) {
@@ -667,7 +667,7 @@ public:
       return failure();
 
     std::string newEinsumEquation = einsumEquation.generateEquation();
-
+    assert(einsumEquation.rhs.size() == op.getType().getShape().size());
     rewriter.replaceOpWithNewOp<tensorrt::EinsumOp>(op, op.getType(), newInputs,
                                                     newEinsumEquation);
     return success();
@@ -713,6 +713,7 @@ public:
 
     auto newEinsum = rewriter.create<tensorrt::EinsumOp>(
         op.getLoc(), op.getType(), einsum.getInputs(), newEinsumEquation);
+    assert(einsumEquation.rhs.size() == newEinsum.getType().getShape().size());
     rewriter.replaceOp(op, newEinsum.getResult());
     return success();
   }
@@ -789,6 +790,7 @@ public:
     auto newEinsum = rewriter.create<tensorrt::EinsumOp>(
         op.getLoc(), op.getType().clone(newEinsumShape), op.getInputs(),
         newEinsumEquation);
+    assert(equation.rhs.size() == newEinsum.getType().getShape().size());
 
     auto forwardMap =
         AffineMap::getPermutationMap(forwardPerm, op.getLoc().getContext());
@@ -909,6 +911,7 @@ public:
       return failure();
 
     std::string newEquation = equation.generateEquation();
+    assert(equation.rhs.size() == op.getType().getShape().size());
     rewriter.replaceOpWithNewOp<tensorrt::EinsumOp>(op, op.getType(), newInputs,
                                                     newEquation);
     return success();
@@ -991,14 +994,18 @@ public:
       auto newEinsum = rewriter.create<tensorrt::EinsumOp>(
           op.getLoc(), outputType.clone(newOutputShape), newInputs,
           newEquation);
+      assert(newEinsumEquation.rhs.size() ==
+             newEinsum.getType().getShape().size());
       auto outReshape =
           rewriter
               .create<tensorrt::ReshapeOp>(op.getLoc(), op.getType(),
                                            newEinsum.getResult())
               .getResult();
+      assert(op.getType() == outReshape.getType());
       rewriter.replaceOp(op, outReshape);
       return success();
     } else {
+      assert(newEinsumEquation.rhs.size() == op.getType().getShape().size());
       rewriter.replaceOpWithNewOp<tensorrt::EinsumOp>(op, op.getType(),
                                                       newInputs, newEquation);
       return success();
@@ -1069,7 +1076,7 @@ public:
       return failure();
 
     std::string newEquation = equation.generateEquation();
-
+    assert(equation.rhs.size() == op.getType().getShape().size());
     rewriter.replaceOpWithNewOp<tensorrt::EinsumOp>(op, op.getType(), newInputs,
                                                     newEquation);
     return success();
@@ -1144,6 +1151,7 @@ public:
     }
 
     std::string newEquation = equation.lhs + "->" + newRhs;
+    assert(newRhs.size() == op.getType().getShape().size());
     rewriter.replaceOpWithNewOp<tensorrt::EinsumOp>(
         op, op.getType(), einsum.getInputs(), newEquation);
     return success();
@@ -1164,6 +1172,8 @@ public:
       return failure();
     if (op->getNumOperands() != 2)
       return failure();
+
+    assert(equation.rhs.size() == op.getType().getShape().size());
 
     char matrixAxes[2] = {0, 0};
     char multipliedAxis = 0;
@@ -1265,6 +1275,7 @@ public:
         rewriter.createOrFold<ReshapeOp>(op.getLoc(), newInputTypes[1],
                                          op.getInputs()[1])};
 
+    assert(newEquation.rhs.size() == op.getType().getShape().size());
     rewriter.replaceOpWithNewOp<EinsumOp>(op, op.getType(), reshapes,
                                           newEquation.generateEquation());
 
@@ -1341,9 +1352,9 @@ public:
         inAxes += equation.rhs[j++];
       }
       if (inputNumElems == outputNumElems) {
-        if (reshapeOutShape[i] == 1 && outAxes.size() == 1 &&
-            inAxes.size() == 0) {
-          if (!prevInAxes.empty()) {
+        if (inAxes.empty()) {
+          if (!prevInAxes.empty() && reshapeOutShape[i] == 1 &&
+              outAxes.size() == 1) {
             auto &p = inputToReshapedMap[prevInAxes];
             p.first.push_back(c);
             p.second.push_back(1);
@@ -1363,7 +1374,7 @@ public:
         outAxes = "";
       }
     }
-    if (inputNumElems != outputNumElems)
+    if (inputNumElems != outputNumElems || !inAxes.empty() || !outAxes.empty())
       return failure(/* should not happen, unexpected reshape */);
     if (!hasNonTrivalReshape)
       return failure(/* reshape is only expanding rank */);
@@ -1443,6 +1454,8 @@ public:
 
     auto newEinsum = rewriter.create<tensorrt::EinsumOp>(
         op.getLoc(), op.getType(), newInputs, newEquationStr);
+    assert(newEquation.rhs.size() == newEinsum.getType().getShape().size());
+    assert(op.getType() == newEinsum.getType());
     rewriter.replaceOp(op, newEinsum.getResult());
 
     return success();
@@ -1528,6 +1541,7 @@ public:
       newInputs.push_back(reshape);
     }
 
+    assert(newEquation.rhs.size() == op.getType().getShape().size());
     rewriter.replaceOpWithNewOp<tensorrt::EinsumOp>(
         op, op.getType(), newInputs, newEquation.generateEquation());
     return success();
@@ -1848,6 +1862,7 @@ public:
     auto newEinsum = rewriter.create<tensorrt::EinsumOp>(
         op.getLoc(), outputType.clone(einsumOutputShape), newInputs,
         newEinsumEquation);
+    assert(newEquation.rhs.size() == newEinsum.getType().getShape().size());
 
     auto newReshape = rewriter.createOrFold<tensorrt::ReshapeOp>(
         op.getLoc(), outputType.clone(afterEinsumReshape),
@@ -1857,6 +1872,7 @@ public:
         op.getLoc(), newReshape,
         AffineMap::getPermutationMap(afterReshapeTranspose, op.getContext()));
 
+    assert(op.getType() == newOut.getType());
     rewriter.replaceOp(op, newOut);
 
     return success();
@@ -2173,7 +2189,6 @@ public:
         op.getLoc(), reshapeInputType.clone(newReshape), newTransposeOp);
 
     assert(op.getType() == newReshapeOp.getType());
-
     rewriter.replaceOp(op, newReshapeOp);
     return success();
   }
@@ -2308,6 +2323,7 @@ public:
     auto newDequantizeOp = rewriter.create<tensorrt::DequantizeOp>(
         dequantizeOp.getLoc(), op.getResult().getType(),
         newQuantizeOp.getResult(), scale, dequantizeOp.getAxisAttr());
+    assert(op.getType() == newDequantizeOp.getType());
     rewriter.replaceOp(op, newDequantizeOp.getResult());
     return success();
   }
@@ -2354,6 +2370,7 @@ public:
     auto newOp =
         rewriter.create<OpType>(op.getLoc(), dequantizeOp.getResult().getType(),
                                 newDequantizeOp.getResult(), op->getAttrs());
+    assert(dequantizeOp.getType() == newOp.getType());
     rewriter.replaceOp(dequantizeOp, newOp.getResult());
     return success();
   }
@@ -2600,6 +2617,7 @@ public:
     auto newElementwiseOp = rewriter.create<tensorrt::ElementWiseOp>(
         elementwiseOp.getLoc(), op.getResult().getType(), newLhs, newRhs,
         elementwiseOp.getElementwiseOperation());
+    assert(op.getType() == newElementwiseOp.getType());
     rewriter.replaceOp(op, newElementwiseOp.getResult());
 
     return success();
@@ -2696,6 +2714,7 @@ public:
         op.getLoc(), softmax.getInput(), op.getPermutation());
     auto newSoftmax = rewriter.create<tensorrt::SoftMaxOp>(
         softmax.getLoc(), newTranspose, newAxis);
+    assert(op.getType() == newSoftmax.getType());
     rewriter.replaceOp(op, newSoftmax.getResult());
     return success();
   }
@@ -2719,6 +2738,7 @@ public:
         op.getLoc(), transpose.getInput(), newAxis);
     auto newTranspose = rewriter.create<tensorrt::TransposeOp>(
         transpose.getLoc(), newSoftmax, transpose.getPermutation());
+    assert(op.getType() == newTranspose.getType());
     rewriter.replaceOp(op, newTranspose.getResult());
     return success();
   }
@@ -2766,6 +2786,7 @@ public:
         op.getLoc(), outputType, softmax.getInput());
     auto newSoftmax = rewriter.create<tensorrt::SoftMaxOp>(
         softmax.getLoc(), newReshape.getResult(), newAxis);
+    assert(op.getType() == newSoftmax.getType());
     rewriter.replaceOp(op, newSoftmax.getResult());
     return success();
   }
@@ -2810,6 +2831,7 @@ public:
         op.getLoc(), reshapeOp.getInput(), newAxis);
     auto newReshape = rewriter.create<tensorrt::ReshapeOp>(
         reshapeOp.getLoc(), outputType, newSoftmax.getResult());
+    assert(op.getType() == newReshape.getType());
     rewriter.replaceOp(op, newReshape.getResult());
     return success();
   }
