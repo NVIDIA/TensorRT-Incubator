@@ -3792,7 +3792,7 @@ def TensorRT_ReshapeOp : TensorRT_Op<"reshape",
     bool isValidForTensorRTVersion(int64_t trtMajorVersion);
 
     /// Get canonicalization patterns which rewrite as ReshapeOp and
-    /// do NOT include rewrites which not get to a different kind of Op
+    /// do NOT include rewrites which do not get to a different kind of Op
     /// (e.g. ExpandRankOp, CollapseRankOp).
     static void getCanonicalizationPatternsSameOp(RewritePatternSet &results, MLIRContext *context);
   }] # baseClassDeclaration;

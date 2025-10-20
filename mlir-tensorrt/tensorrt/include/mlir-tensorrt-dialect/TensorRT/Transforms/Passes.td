@@ -198,7 +198,7 @@ def TransposeReshapeEliminationPass : Pass<"tensorrt-transpose-reshape-eliminati
     can be eliminated from the program.  To accomplish this, this pass uses several
     rewrite rules that push transposes and reshapes from the output of an Operation
     to the operation's input, and vice-versa.  The rewrites currently included in this
-    pass handle common cases, though currently does not every possible scenario---one
+    pass handle common cases, though currently does not handle every possible scenario---one
     may wish to extend this pass in the future as needed.
 
     The process is as follows:
@@ -249,7 +249,7 @@ def TransposeReshapeEliminationPass : Pass<"tensorrt-transpose-reshape-eliminati
        - einsum("ij,jk->ik", x, y) -> matrix_multiply(x, y) if einsum matches a matrix multiply pattern
        - matrix_multiply(transpose(x), y) -> matrix_multiply(x, y) merge transpose if possible
        - transpose(einsum(...)) -> einsum(...)
-       - einsum(tranpose(x), ...) -> einsum(...)
+       - einsum(transpose(x), ...) -> einsum(...)
        - einsum(collapse_rank(x), ...) -> einsum(...)
        - expand_rank(einsum(...)) -> einsum(...)
 
