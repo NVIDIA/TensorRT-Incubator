@@ -1453,7 +1453,7 @@ public:
     std::string newEquationStr = newEquation.generateEquation();
 
     auto newEinsum = rewriter.create<tensorrt::EinsumOp>(
-        op.getLoc(), op.getType(), newInputs, newEquationStr);
+        einsum.getLoc(), op.getType(), newInputs, newEquationStr);
     assert(newEquation.rhs.size() == newEinsum.getType().getShape().size());
     assert(op.getType() == newEinsum.getType());
     rewriter.replaceOp(op, newEinsum.getResult());
@@ -1601,6 +1601,7 @@ public:
     // get pushed down as reshapes might need to get added to other inputs to
     // make the shapes work
     bool hasReshapeInput = false;
+    Location reshapeLoc = op.getLoc();
     for (auto input : op.getInputs()) {
       if (!cast<RankedTensorType>(input.getType()).hasStaticShape()) {
         return failure(/* dynamic input not supported */);
@@ -1609,6 +1610,7 @@ public:
         if (!reshape.getInput().getType().hasStaticShape())
           return failure(/* dynamic reshape input not supported */);
         hasReshapeInput = true;
+        reshapeLoc = reshape.getLoc();
       }
     }
     if (!hasReshapeInput)
@@ -1865,11 +1867,11 @@ public:
     assert(newEquation.rhs.size() == newEinsum.getType().getShape().size());
 
     auto newReshape = rewriter.createOrFold<tensorrt::ReshapeOp>(
-        op.getLoc(), outputType.clone(afterEinsumReshape),
+        reshapeLoc, outputType.clone(afterEinsumReshape),
         newEinsum.getResult());
 
     Value newOut = rewriter.createOrFold<tensorrt::TransposeOp>(
-        op.getLoc(), newReshape,
+        reshapeLoc, newReshape,
         AffineMap::getPermutationMap(afterReshapeTranspose, op.getContext()));
 
     assert(op.getType() == newOut.getType());
@@ -2186,7 +2188,7 @@ public:
           AffineMap::getPermutationMap(newTranspose, op.getContext()));
     }
     Value newReshapeOp = rewriter.createOrFold<tensorrt::ReshapeOp>(
-        op.getLoc(), reshapeInputType.clone(newReshape), newTransposeOp);
+        reshape.getLoc(), reshapeInputType.clone(newReshape), newTransposeOp);
 
     assert(op.getType() == newReshapeOp.getType());
     rewriter.replaceOp(op, newReshapeOp);
@@ -2210,8 +2212,11 @@ public:
     auto activationOp = rewriter.create<tensorrt::ActivationOp>(
         op.getLoc(), producer.getInput(), op.getActivationType(),
         op.getAlphaAttr(), op.getBetaAttr());
-    rewriter.replaceOpWithNewOp<tensorrt::ReshapeOp>(
-        op, op.getType(), activationOp.getResult(), producer.getShape());
+    auto reshapeOp = rewriter.createOrFold<tensorrt::ReshapeOp>(
+        producer.getLoc(), op.getType(), activationOp.getResult(),
+        producer.getShape());
+    assert(op.getType() == reshapeOp.getType());
+    rewriter.replaceOp(op, reshapeOp);
     return success();
   }
 };
@@ -2231,8 +2236,11 @@ public:
 
     auto unaryOp = rewriter.create<tensorrt::UnaryOp>(
         op.getLoc(), producer.getInput(), op.getUnaryOperationAttr());
-    rewriter.replaceOpWithNewOp<tensorrt::ReshapeOp>(
-        op, op.getType(), unaryOp.getResult(), producer.getShape());
+    auto reshapeOp = rewriter.createOrFold<tensorrt::ReshapeOp>(
+        producer.getLoc(), op.getType(), unaryOp.getResult(),
+        producer.getShape());
+    assert(op.getType() == reshapeOp.getType());
+    rewriter.replaceOp(op, reshapeOp);
     return success();
   }
 };
@@ -2252,12 +2260,13 @@ public:
 
     RankedTensorType newIdentityType =
         producer.getInput().getType().clone(op.getType().getElementType());
-
     Value newIdentityResult = rewriter.create<IdentityOp>(
         op.getLoc(), newIdentityType, producer.getInput());
-
-    rewriter.replaceOpWithNewOp<tensorrt::ReshapeOp>(
-        op, op.getType(), newIdentityResult, producer.getShape());
+    auto reshapeOp = rewriter.createOrFold<tensorrt::ReshapeOp>(
+        producer.getLoc(), op.getType(), newIdentityResult,
+        producer.getShape());
+    assert(op.getType() == reshapeOp.getType());
+    rewriter.replaceOp(op, reshapeOp);
     return success();
   }
 };
@@ -2280,8 +2289,11 @@ public:
 
     Value newReshapeResult = rewriter.create<tensorrt::ReshapeOp>(
         op.getLoc(), reshapeType, producer.getInput(), op.getShape());
-    rewriter.replaceOpWithNewOp<OpType>(op, op.getType(), newReshapeResult,
-                                        producer->getAttrs());
+    auto newOp =
+        rewriter.createOrFold<OpType>(producer.getLoc(), op.getType(),
+                                      newReshapeResult, producer->getAttrs());
+    assert(op.getType() == newOp.getType());
+    rewriter.replaceOp(op, newOp);
     return success();
   }
 };
@@ -2495,6 +2507,7 @@ public:
                                 PatternRewriter &rewriter) const override {
     bool hasReshapeInput = false;
     uint64_t currentEstimatedCost = 0;
+    Location reshapeLoc = op.getLoc();
     for (Value input : op.getOperands()) {
       if (!cast<RankedTensorType>(input.getType()).hasStaticShape()) {
         return failure();
@@ -2504,6 +2517,7 @@ public:
           return failure();
         }
         hasReshapeInput = true;
+        reshapeLoc = reshape.getLoc();
         currentEstimatedCost += estimateShuffleCost(input);
       }
     }
@@ -2565,8 +2579,10 @@ public:
     auto newElementwiseOp = rewriter.create<tensorrt::ElementWiseOp>(
         op.getLoc(), elementwiseType, newLhs, newRhs,
         op.getElementwiseOperation());
-    rewriter.replaceOpWithNewOp<tensorrt::ReshapeOp>(
-        op, op.getType(), newElementwiseOp.getResult());
+    auto newReshapeOp = rewriter.createOrFold<tensorrt::ReshapeOp>(
+        reshapeLoc, op.getType(), newElementwiseOp.getResult());
+    assert(op.getType() == newReshapeOp.getType());
+    rewriter.replaceOp(op, newReshapeOp);
     return success();
   }
 };
