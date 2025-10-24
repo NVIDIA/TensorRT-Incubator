@@ -21,7 +21,11 @@ from nvtripy import export
 from nvtripy.common.exception import raise_error
 from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.trace.ops.concatenate import Concatenate
-from nvtripy.utils import wrappers
+from nvtripy.frontend import wrappers
+
+
+# constraints = OneOf(GetInput("tensors").dtype, [tp.float32, tp.float16, tp.bfloat16, tp.float8, tp.int4, tp.int8, tp.int32, tp.int64, tp.bool])
+# output_guarantees = GetReturn(0).dtype == GetInput("tensors").dtype
 
 
 @export.public_api(document_under="operations/functions")

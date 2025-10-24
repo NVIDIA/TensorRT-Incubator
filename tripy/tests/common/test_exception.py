@@ -122,7 +122,7 @@ class TestRaiseError:
         )
 
     def test_wrappers_is_excluded(self):
-        from nvtripy.utils import wrappers
+        from nvtripy.frontend import wrappers
 
         tensor = tp.ones((2, 3))
 

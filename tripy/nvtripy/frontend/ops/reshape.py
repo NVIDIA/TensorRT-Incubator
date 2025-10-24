@@ -23,7 +23,7 @@ from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.frontend.ops._registry import register_tensor_method
 from nvtripy.trace.ops.reshape import Reshape
 from nvtripy.types import ShapeLike
-from nvtripy.utils import wrappers
+from nvtripy.frontend import wrappers
 
 
 def infer_dimensions(input: "nvtripy.Tensor", shape: ShapeLike) -> ShapeLike:

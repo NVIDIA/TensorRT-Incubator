@@ -22,8 +22,8 @@ from typing import List
 import nvtripy as tp
 import pytest
 from nvtripy.export import PUBLIC_APIS
-from nvtripy.utils import wrappers
-from nvtripy.utils.wrappers import DATA_TYPE_CONSTRAINTS
+from nvtripy.frontend import wrappers
+from nvtripy.frontend.wrappers import DATA_TYPE_CONSTRAINTS
 from tests import helper
 
 # Get all functions/methods which have tensors in the type signature
