@@ -195,40 +195,44 @@ class Executable:
                 ],
             )
 
-        # Recursively extract inputs from containers to get individual tensors for validation and execution
+        # Recursively build a name->tensor map
         def extract_inputs(tensors, input_info_names):
-            def extract_recursive(tensor, name_prefix):
-                if isinstance(tensor, dict):
-                    result = []
-                    for key in sorted(tensor.keys()):
-                        nested_name = f"{name_prefix}.{key}"
-                        if nested_name in input_info_names:
-                            result.append(tensor[key])
-                        else:
-                            result.extend(extract_recursive(tensor[key], nested_name))
-                    return result
-                elif isinstance(tensor, (list, tuple)):
-                    result = []
-                    for idx, value in enumerate(tensor):
-                        nested_name = f"{name_prefix}[{idx}]"
-                        if nested_name in input_info_names:
-                            result.append(value)
-                        else:
-                            result.extend(extract_recursive(value, nested_name))
-                    return result
-                else:  # Regular tensor
-                    if name_prefix in input_info_names:
-                        return [tensor]
-                    else:
-                        return []
+            name_to_tensor = {}
 
-            flattened = []
+            def extract_recursive(value, name_prefix):
+                if name_prefix in input_info_names:
+                    name_to_tensor[name_prefix] = value
+                    return
+                if isinstance(value, dict):
+                    for key, item in value.items():
+                        nested_name = f"{name_prefix}.{key}"
+                        extract_recursive(item, nested_name)
+                elif isinstance(value, (list, tuple)):
+                    for idx, item in enumerate(value):
+                        nested_name = f"{name_prefix}[{idx}]"
+                        extract_recursive(item, nested_name)
+                else:
+                    print(f"Leaf tensor: {name_prefix}: {value}")
+                    return
+
             for name_idx, tensor in enumerate(tensors):
                 arg_name = self._arg_names[name_idx]
-                flattened.extend(extract_recursive(tensor, arg_name))
-            return flattened
+                extract_recursive(tensor, arg_name)
 
-        flattened_tensors = extract_inputs(input_tensors, set(self.input_infos.keys()))
+            return name_to_tensor
+
+        input_info_names = list(self.input_infos.keys())
+        name_to_tensor = extract_inputs(input_tensors, set(input_info_names))
+        try:
+            flattened_tensors = [name_to_tensor[name] for name in input_info_names]
+        except KeyError as missing:
+            raise_error(
+                f"Missing runtime tensor for input `{missing.args[0]}`.",
+                [
+                    "Ensure your provided containers include tensors for all compiled inputs.",
+                    f"Expected inputs: {input_info_names}",
+                ],
+            )
         expected_devices = ["gpu" if isinstance(info, InputInfo) else "cpu" for info in self.input_infos.values()]
 
         # Validate flattened tensors against input_infos

@@ -242,44 +242,55 @@ class TestCompile:
             expected = (inp_cp + inp_cp).reshape((-1, reshape_dim))
             assert cp.array_equal(cp.from_dlpack(out), expected)
 
-    def test_compile_dict_input_info(self):
-        """Test compilation with dictionary of InputInfo objects."""
-
+    def test_compile_nested_dict_input_info(self):
         def func(data_dict):
-            return data_dict["a"] + data_dict["b"]
+            return data_dict["a"]["inner"] + data_dict["b"]["list"][0] + data_dict["b"]["list"][1]
 
         dict_input = {
-            "a": tp.InputInfo(shape=(2, 3), dtype=tp.float32),
-            "b": tp.InputInfo(shape=(2, 3), dtype=tp.float32),
+            "a": {
+                "inner": tp.InputInfo(shape=(2, 3), dtype=tp.float32),
+            },
+            "b": {
+                "list": [
+                    tp.InputInfo(shape=(2, 3), dtype=tp.float32),
+                    tp.InputInfo(shape=(2, 3), dtype=tp.float32),
+                ],
+            },
         }
         compiled_func = tp.compile(func, args=[dict_input])
 
-        test_dict = {"a": tp.ones((2, 3), dtype=tp.float32).eval(), "b": (tp.ones((2, 3), dtype=tp.float32) * 2).eval()}
+        test_dict = {
+            "a": {"inner": tp.ones((2, 3), dtype=tp.float32).eval()},
+            "b": {
+                "list": [
+                    (tp.ones((2, 3), dtype=tp.float32) * 2).eval(),
+                    (tp.ones((2, 3), dtype=tp.float32) * 3).eval(),
+                ]
+            },
+        }
         result = compiled_func(test_dict)
-        expected = test_dict["a"] + test_dict["b"]
+        expected = test_dict["a"]["inner"] + test_dict["b"]["list"][0] + test_dict["b"]["list"][1]
         assert cp.array_equal(cp.from_dlpack(result), cp.from_dlpack(expected))
 
-    def test_compile_nested_list_input_info(self):
-        """Test compilation with nested list containers."""
-
+    def test_compile_nested_sequence_input_info(self):
         def func(data_list):
             return data_list[0] + data_list[1][0] + data_list[1][1]
 
         list_input = [
             tp.InputInfo(shape=(2, 3), dtype=tp.float32),
-            [  # Nested list
+            [
                 tp.InputInfo(shape=(2, 3), dtype=tp.float32),
-                tp.ones((2, 3), dtype=tp.float32) * 2,  # Constant in nested list
+                tp.ones((2, 3), dtype=tp.float32) * 2,
             ],
         ]
         compiled_func = tp.compile(func, args=[list_input])
 
         test_list = [
             tp.ones((2, 3), dtype=tp.float32).eval(),
-            [  # Nested list in test data
+            (
                 (tp.ones((2, 3), dtype=tp.float32) * 3).eval(),
-                tp.ones((2, 3), dtype=tp.float32) * 2,  # Should match baked constant
-            ],
+                tp.ones((2, 3), dtype=tp.float32) * 2,
+            ),
         ]
         result = compiled_func(test_list)
         expected = test_list[0] + test_list[1][0] + test_list[1][1]
@@ -288,18 +299,27 @@ class TestCompile:
     def test_compile_mixed_containers_and_constants(self):
         """Test compilation with comprehensive mix: regular InputInfo, dict container, list container, and standalone constant."""
 
-        def func(regular_input, data_dict, data_list, constant_value):
-            return regular_input + data_dict["x"] + data_dict["y"] + data_list[0] + data_list[1] + constant_value
+        def func(regular_input, data_dict, data_list, const_in_dict, const):
+            return (
+                regular_input
+                + data_dict["x"]
+                + data_dict["y"]
+                + data_list[0]
+                + data_list[1]
+                + const_in_dict["z"]
+                + const
+            )
 
         regular_input = tp.InputInfo(shape=(2, 3), dtype=tp.float32)
         dict_input = {
             "x": tp.InputInfo(shape=(2, 3), dtype=tp.float32),
-            "y": tp.zeros((2, 3), dtype=tp.float32),  # Constant in dict
+            "y": tp.zeros((2, 3), dtype=tp.float32),
         }
         list_input = [tp.InputInfo(shape=(2, 3), dtype=tp.float32), tp.ones((2, 3), dtype=tp.float32) * 3]
-        constant_value = tp.ones((2, 3), dtype=tp.float32) * 5
+        const_in_dict = {"z": tp.ones((2, 3), dtype=tp.float32) * 5}
+        const = tp.ones((2, 3), dtype=tp.float32) * 6
 
-        compiled_func = tp.compile(func, args=[regular_input, dict_input, list_input, constant_value])
+        compiled_func = tp.compile(func, args=[regular_input, dict_input, list_input, const_in_dict, const])
 
         # Only InputInfo arguments should be in function signature
         test_regular = tp.ones((2, 3), dtype=tp.float32).eval()
@@ -307,5 +327,7 @@ class TestCompile:
         test_list = [(tp.ones((2, 3), dtype=tp.float32) * 4).eval(), tp.ones((2, 3), dtype=tp.float32) * 3]
 
         result = compiled_func(test_regular, test_dict, test_list)
-        expected = test_regular + test_dict["x"] + test_dict["y"] + test_list[0] + test_list[1] + constant_value
+        expected = (
+            test_regular + test_dict["x"] + test_dict["y"] + test_list[0] + test_list[1] + const_in_dict["z"] + const
+        )
         assert cp.array_equal(cp.from_dlpack(result), cp.from_dlpack(expected))
