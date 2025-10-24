@@ -129,7 +129,7 @@ from typing import Tuple
 
 from nvtripy import export
 from nvtripy.trace.ops.topn import TopN
-from nvtripy.utils import wrappers
+from nvtripy.frontend import wrappers
 from nvtripy.frontend.ops import utils as op_utils
 
 @export.public_api(document_under="operations/functions")

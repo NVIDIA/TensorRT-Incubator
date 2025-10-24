@@ -15,7 +15,7 @@
 from nvtripy.frontend.ops._registry import register_tensor_method
 from nvtripy.frontend.ops.binary.create import create_binary_op
 from nvtripy.trace.ops.binary import LogicalOr
-from nvtripy.utils import wrappers
+from nvtripy.frontend import wrappers
 
 
 @register_tensor_method("__or__")

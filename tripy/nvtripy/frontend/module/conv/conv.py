@@ -26,7 +26,7 @@ from nvtripy.frontend.module.conv.utils import conv_deconv_helper
 from nvtripy.frontend.module.parameter import DefaultParameter
 from nvtripy.frontend.tensor import Tensor
 from nvtripy.trace.ops.convolution import Convolution
-from nvtripy.utils import wrappers
+from nvtripy.frontend import wrappers
 
 
 # This function is added so that we can do dtype checking.

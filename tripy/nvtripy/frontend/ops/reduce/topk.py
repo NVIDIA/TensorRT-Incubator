@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,7 +17,11 @@ from typing import Tuple
 from nvtripy import export
 from nvtripy.frontend.ops.reduce.utils import topk_impl
 from nvtripy.trace.ops.topk import TopKMax
-from nvtripy.utils import wrappers
+from nvtripy.frontend import wrappers
+
+
+# constraints = OneOf(GetInput("input").dtype, [tp.float32, tp.float16, tp.bfloat16, tp.int32, tp.int64])
+# output_guarantees = (GetReturn(0).dtype == GetInput("input").dtype) & (GetReturn(1).dtype == tp.int32))
 
 
 @export.public_api(document_under="operations/functions")

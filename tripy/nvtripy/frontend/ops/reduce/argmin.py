@@ -17,7 +17,7 @@ from typing import Optional
 from nvtripy import export
 from nvtripy.frontend.ops.reduce.utils import arg_min_max_impl
 from nvtripy.trace.ops.topk import TopKMin
-from nvtripy.utils import wrappers
+from nvtripy.frontend import wrappers
 
 
 @export.public_api(document_under="operations/functions")
