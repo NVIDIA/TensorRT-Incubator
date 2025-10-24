@@ -24,7 +24,23 @@ from nvtripy.frontend.ops._registry import register_tensor_method
 from nvtripy.frontend.ops.dequantize import dequantize
 from nvtripy.frontend.ops.quantize import quantize
 from nvtripy.trace.ops.cast import Cast
-from nvtripy.utils import wrappers
+from nvtripy.frontend import wrappers
+
+
+# constraints = (
+#     OneOf(
+#         GetInput("input").dtype,
+#         [tp.float32, tp.float16, tp.bfloat16, tp.float8, tp.int4, tp.int8, tp.int32, tp.int64, tp.bool],
+#     )
+#     & OneOf(
+#         GetInput("dtype"),
+#         [tp.float32, tp.float16, tp.bfloat16, tp.float8, tp.int4, tp.int8, tp.int32, tp.int64, tp.bool],
+#     )
+#     & ~(GetInput("input").dtype == tp.float8 & OneOf(GetInput("dtype"), [tp.int4, tp.int8]))
+#     & ~(GetInput("input").dtype == tp.int8 & GetInput("dtype") == tp.float8)
+#     & ~(GetInput("input").dtype == tp.int4 & OneOf(GetInput("dtype"), [tp.float8, tp.int8, tp.int64]))
+# )
+# output_guarantees = GetReturn(0).dtype == GetInput("dtype")
 
 
 @register_tensor_method("cast")

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,7 +18,7 @@ from nvtripy.frontend.ops.full import full_like
 from nvtripy.frontend.ops.iota import iota_like
 from nvtripy.frontend.ops.where import where
 from nvtripy.frontend.ops.zeros import zeros_like
-from nvtripy.utils import wrappers
+from nvtripy.frontend import wrappers
 
 
 @export.public_api(document_under="operations/initializers")

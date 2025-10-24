@@ -17,7 +17,7 @@
 from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.frontend.ops._registry import register_tensor_method
 from nvtripy.trace.ops.unary import Neg
-from nvtripy.utils import wrappers
+from nvtripy.frontend import wrappers
 
 
 @register_tensor_method("__neg__")

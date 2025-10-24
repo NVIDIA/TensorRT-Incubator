@@ -21,7 +21,7 @@ from nvtripy import export
 from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.frontend.ops.pooling import utils as pooling_utils
 from nvtripy.trace.ops.pooling import MaxPooling
-from nvtripy.utils import wrappers
+from nvtripy.frontend import wrappers
 
 
 @export.public_api(document_under="operations/functions")

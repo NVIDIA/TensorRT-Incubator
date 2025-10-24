@@ -22,7 +22,7 @@ from nvtripy.common import datatype
 from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.trace.ops.linspace import Linspace
 from nvtripy.types import ShapeLike
-from nvtripy.utils import wrappers
+from nvtripy.frontend import wrappers
 
 
 def iota_impl(shape: "nvtripy.Tensor", dim: int, dtype: datatype.dtype) -> "nvtripy.Tensor":

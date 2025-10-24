@@ -76,7 +76,7 @@ and various operations, e.g. {class}`nvtripy.resize`.
 :::{admonition} Info
 Most operations are decorated with:
 1. [`@export.public_api`](source:/nvtripy/export.py): Enables documentation, type checking, and overloading.
-2. [`@wrappers.interface`](source:/nvtripy/utils/wrappers.py): Enforces (and generates tests for) data type constraints.
+2. [`@wrappers.interface`](source:/nvtripy/frontend/wrappers.py): Enforces (and generates tests for) data type constraints.
 :::
 
 Operations are **lazily evaluated**.

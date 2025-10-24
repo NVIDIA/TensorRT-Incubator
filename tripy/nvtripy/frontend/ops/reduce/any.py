@@ -15,7 +15,7 @@
 from typing import Optional, Sequence, Union
 
 from nvtripy import export
-from nvtripy.utils import wrappers
+from nvtripy.frontend import wrappers
 from nvtripy.common import datatype
 
 

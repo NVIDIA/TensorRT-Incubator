@@ -22,11 +22,12 @@ from nvtripy.common import datatype
 from nvtripy.frontend.module.module import Module
 from nvtripy.frontend.module.parameter import DefaultParameter
 from nvtripy.frontend.tensor import Tensor
+from nvtripy.frontend.wrappers import constant_fields
 
 
 @export.public_api(document_under="operations/modules")
 @dataclass
-@utils.wrappers.constant_fields(["num_features"])
+@constant_fields(["num_features"])
 class BatchNorm(Module):
     r"""
     Applies batch normalization over an N-dimensional input tensor using precomputed statistics:
@@ -105,8 +106,8 @@ class BatchNorm(Module):
         Returns:
             A tensor of the same shape as the input.
         """
-        from nvtripy.frontend.ops.unary.rsqrt import rsqrt
         from nvtripy.frontend.ops.reshape import reshape
+        from nvtripy.frontend.ops.unary.rsqrt import rsqrt
 
         x_shape = (1, self.num_features, *([1] * (x.rank - 2)))
 
