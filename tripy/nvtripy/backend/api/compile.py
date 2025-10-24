@@ -156,6 +156,7 @@ def compile(
     trace_input_map = {}
     input_names = set()
     input_infos = {}
+    trace_inputs = []  # flattened list of trace input tensors in argument order
 
     # Set up names for the weights in the module to make the trace easier to read.
     if isinstance(func, Module):
@@ -184,6 +185,7 @@ def compile(
 
             trace_input_map[name] = tensor
             input_names.add(name)
+            trace_inputs.append(tensor.trace_tensor)
 
             return tensor
 
@@ -199,35 +201,44 @@ def compile(
 
             trace_input_map[name] = tensor
             input_names.add(name)
+            trace_inputs.append(tensor.trace_tensor)
 
             return tensor
 
         return arg
 
-    def process_arg(name, arg):
+    def process_arg_and_flag(name, arg):
         # Handle individual InputInfo or DimensionInputInfo objects
         if isinstance(arg, (InputInfo, DimensionInputInfo)):
-            return process_arg_input_info(name, arg)
+            return process_arg_input_info(name, arg), True
 
         # Handle containers of InputInfo objects
         if isinstance(arg, dict):
-            if any(isinstance(v, (InputInfo, DimensionInputInfo)) for v in arg.values()):
-                input_names.add(name)
-                result = {}
-                for key, value in arg.items():
-                    nested_name = f"{name}.{key}"
-                    result[key] = process_arg(nested_name, value)
-                return result
+            result = {}
+            has_input = False
+            for key, value in arg.items():
+                nested_name = f"{name}.{key}"
+                processed_child, child_has_input = process_arg_and_flag(nested_name, value)
+                result[key] = processed_child
+                has_input = has_input or child_has_input
+            return result, has_input
         elif isinstance(arg, (list, tuple)):
-            if any(isinstance(v, (InputInfo, DimensionInputInfo)) for v in arg):
-                input_names.add(name)
-                result = []
-                for idx, value in enumerate(arg):
-                    nested_name = f"{name}[{idx}]"
-                    result.append(process_arg(nested_name, value))
-                return type(arg)(result)
+            result_list = []
+            has_input = False
+            for idx, value in enumerate(arg):
+                nested_name = f"{name}[{idx}]"
+                processed_child, child_has_input = process_arg_and_flag(nested_name, value)
+                result_list.append(processed_child)
+                has_input = has_input or child_has_input
+            return type(arg)(result_list), has_input  # preserve sequence type
 
-        return arg
+        return arg, False
+
+    def process_arg(name, arg):
+        processed, has_input = process_arg_and_flag(name, arg)
+        if has_input:
+            input_names.add(name)
+        return processed
 
     compiled_arg_names = []
 
@@ -283,25 +294,7 @@ def compile(
                 [f"Return value {index} was not a tensor: {repr(trace_out)}"],
             )
 
-    # Order of trace inputs also needs to match that of the compiled_arg_names
-    # For containers, we need to collect all individual trace tensors
-    def collect_trace_tensors(name):
-        """Collect trace tensors for a name, flattening containers."""
-        if name in trace_input_map:
-            # Regular InputInfo or DimensionInputInfo
-            return [trace_input_map[name].trace_tensor]
-        else:
-            # Collect all nested trace tensors inside the container
-            nested_tensors = []
-            for nested_name in sorted(trace_input_map.keys()):
-                if nested_name.startswith(f"{name}.") or nested_name.startswith(f"{name}["):
-                    nested_tensors.append(trace_input_map[nested_name].trace_tensor)
-            return nested_tensors
-
-    # Flatten all trace tensors from containers and individual inputs
-    trace_inputs = []
-    for name in compiled_arg_names:
-        trace_inputs.extend(collect_trace_tensors(name))
+    # We collected flattened trace inputs during traversal
     trace = Trace(
         [tensor.trace_tensor for tensor in trace_outputs],
         trace_inputs,
