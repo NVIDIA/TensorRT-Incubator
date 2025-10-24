@@ -20,6 +20,7 @@ from collections import defaultdict
 import nvtripy as tp
 import pytest
 from nvtripy import utils
+from nvtripy.frontend.wrappers import constant_fields
 from tests import helper
 
 
@@ -46,7 +47,7 @@ class TestMd5:
 
 
 def make_with_constant_field():
-    @utils.wrappers.constant_fields("field")
+    @constant_fields("field")
     class WithConstField:
         def __init__(self):
             self.custom_setter_called_count = defaultdict(int)
