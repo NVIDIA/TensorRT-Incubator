@@ -17,7 +17,7 @@ from typing import Optional
 from nvtripy import export
 from nvtripy.common import datatype
 from nvtripy.frontend.ops.full import full, full_like
-from nvtripy.utils import wrappers
+from nvtripy.frontend import wrappers
 
 
 @export.public_api(document_under="operations/initializers")
