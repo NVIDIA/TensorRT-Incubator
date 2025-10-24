@@ -50,7 +50,14 @@ enable_dtype_checking: bool = export.public_api(
     module=sys.modules[__name__],
     symbol="enable_dtype_checking",
 )(True)
-"""Whether to enable data type checking in API functions."""
+"""[DEPRECATED - use enable_input_validation] Whether to enable data type checking in API functions."""
+
+enable_input_validation: bool = export.public_api(
+    document_under="config.rst",
+    module=sys.modules[__name__],
+    symbol="enable_input_validation",
+)(True)
+"""Whether to enable input validation in API functions."""
 
 extra_error_information: List[str] = export.public_api(
     document_under="config.rst",

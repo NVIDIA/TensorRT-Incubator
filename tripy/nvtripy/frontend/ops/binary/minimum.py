@@ -16,7 +16,7 @@ from nvtripy import export
 from nvtripy.frontend.ops.binary.create import create_binary_op
 from nvtripy.trace.ops.binary import Min
 from nvtripy.types import TensorLike
-from nvtripy.utils import wrappers
+from nvtripy.frontend import wrappers
 
 
 @export.public_api(document_under="operations/functions")

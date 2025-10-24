@@ -12,6 +12,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+# TODO (pranavm): Move into integration tests
+
 import contextlib
 import inspect
 import itertools
@@ -22,10 +25,10 @@ import numpy as np
 import nvtripy as tp
 import pytest
 from nvtripy.common.datatype import DATA_TYPES
-from nvtripy.utils import wrappers
+from nvtripy.frontend import wrappers
 from nvtripy.utils.types import str_from_type_annotation
 from nvtripy.utils.utils import make_list
-from nvtripy.utils.wrappers import DATA_TYPE_CONSTRAINTS
+from nvtripy.frontend.wrappers import DATA_TYPE_CONSTRAINTS
 from tests import helper
 from tests.conftest import skip_if_older_than_sm89
 

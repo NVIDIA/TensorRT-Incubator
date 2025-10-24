@@ -23,7 +23,7 @@ from nvtripy.common.exception import raise_error
 from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.trace.ops.resize import ResizeCubic, ResizeLinear, ResizeNearest
 from nvtripy.types import ShapeLike
-from nvtripy.utils import wrappers
+from nvtripy.frontend import wrappers
 
 
 SUPPORTED_MODES = ("cubic", "linear", "nearest")

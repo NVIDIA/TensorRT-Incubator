@@ -22,7 +22,7 @@ from nvtripy import export
 from nvtripy.common import datatype
 from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.trace.ops.dequantize import Dequantize
-from nvtripy.utils import wrappers
+from nvtripy.frontend import wrappers
 
 
 @export.public_api(document_under="operations/quantization")

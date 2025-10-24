@@ -15,17 +15,19 @@
 # limitations under the License.
 #
 
+# TODO (pranavm): Move into frontend - only used there.
+
 import functools
 import inspect
-import types
 from dataclasses import dataclass
 from textwrap import indent
 from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple, Union
 
 from nvtripy import config, utils
-from nvtripy.common.exception import raise_error
-from nvtripy.utils import result
 from nvtripy.common.datatype import DATA_TYPES
+from nvtripy.common.exception import raise_error
+from nvtripy.frontend.constraints import Constraints
+from nvtripy.utils import result
 
 
 @dataclass
@@ -295,6 +297,9 @@ def _update_docstring(func, dtype_constraints, dtype_variables, dtype_exceptions
 
 
 def interface(
+    # TODO (pranavm): These should be required arguments eventually.
+    input_requirements: Constraints = None,
+    output_guarantees: Constraints = None,
     dtype_constraints: Dict[str, str] = {},
     dtype_variables: Dict[str, List[str]] = {},
     dtype_exceptions: List[Dict[str, str]] = [],
@@ -385,6 +390,15 @@ def interface(
                     dtype_constraints,
                     shape_likes,
                 )
+
+            if config.enable_input_validation:
+                if input_requirements is not None:
+                    result = input_requirements(func, merged_args)
+                    if not result:
+                        raise_error(
+                            f"Input requirements not met for function: '{func.__qualname__}'.",
+                            result.error_details,
+                        )
 
             if config.enable_dtype_checking:
                 from nvtripy.common.datatype import dtype

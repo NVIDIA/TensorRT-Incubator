@@ -25,11 +25,12 @@ from nvtripy.frontend.module.instancenorm import InstanceNorm
 from nvtripy.frontend.module.module import Module
 from nvtripy.frontend.module.parameter import DefaultParameter
 from nvtripy.frontend.tensor import Tensor
+from nvtripy.frontend.wrappers import constant_fields
 
 
 @export.public_api(document_under="operations/modules")
 @dataclass
-@utils.wrappers.constant_fields(["num_groups", "num_channels", "dtype"])
+@constant_fields(["num_groups", "num_channels", "dtype"])
 class GroupNorm(Module):
     r"""
     Applies group normalization over the input tensor:

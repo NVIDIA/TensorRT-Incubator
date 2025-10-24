@@ -22,7 +22,7 @@ from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.frontend.ops.cast import cast
 from nvtripy.frontend.ops.reshape import reshape
 from nvtripy.trace.ops.linspace import Linspace
-from nvtripy.utils import wrappers
+from nvtripy.frontend import wrappers
 
 
 @export.public_api(document_under="operations/initializers")
