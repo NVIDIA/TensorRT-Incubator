@@ -393,11 +393,13 @@ def interface(
 
             if config.enable_input_validation:
                 if input_requirements is not None:
-                    result = input_requirements(func, merged_args)
+                    result = input_requirements(merged_args)
                     if not result:
                         raise_error(
-                            f"Input requirements not met for function: '{func.__qualname__}'.",
-                            result.error_details,
+                            f"Invalid inputs for function: '{func.__qualname__}'.",
+                            ["Expected: "]
+                            + result.error_details
+                            + [f"\n\nNote: Requirements are:\n    {input_requirements}."],
                         )
 
             if config.enable_dtype_checking:

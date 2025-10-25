@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from nvtripy.frontend.constraints import And, Equal, GetInput, Not, NotEqual, OneOf
+from nvtripy.frontend.constraints import And, Equal, GetInput, Not, NotEqual, OneOf, Or
 
 
 class TestLogic:
@@ -33,6 +33,22 @@ class TestLogic:
         assert isinstance(combined, And)
         assert len(combined.constraints) == 3
         assert combined([("param1", 2), ("param2", "b"), ("param3", True)])
+
+    def test_operator_or_basic(self):
+        constraint1 = OneOf(GetInput("param1"), [1, 2, 3])
+        constraint2 = OneOf(GetInput("param2"), ["a", "b", "c"])
+        combined = constraint1 | constraint2
+        assert isinstance(combined, Or)
+        assert combined([("param1", 5), ("param2", "b")])
+
+    def test_operator_or_chaining(self):
+        constraint1 = OneOf(GetInput("param1"), [1, 2, 3])
+        constraint2 = OneOf(GetInput("param2"), ["a", "b", "c"])
+        constraint3 = OneOf(GetInput("param3"), [True, False])
+        combined = constraint1 | constraint2 | constraint3
+        assert isinstance(combined, Or)
+        assert len(combined.constraints) == 3
+        assert combined([("param1", 5), ("param2", "z"), ("param3", True)])
 
     def test_operator_not_basic(self):
         constraint = OneOf(GetInput("param"), [1, 2, 3])
@@ -84,6 +100,42 @@ class TestAnd:
         assert str(and_constraint) == "param1 is one of [1, 2, 3] and param2 is one of ['a', 'b']"
 
 
+class TestOr:
+    def test_call_first_passes(self):
+        or_constraint = Or(OneOf(GetInput("param1"), [1, 2, 3]), OneOf(GetInput("param2"), ["a", "b", "c"]))
+        assert or_constraint([("param1", 2), ("param2", "z")])
+
+    def test_call_second_passes(self):
+        or_constraint = Or(OneOf(GetInput("param1"), [1, 2, 3]), OneOf(GetInput("param2"), ["a", "b", "c"]))
+        assert or_constraint([("param1", 5), ("param2", "b")])
+
+    def test_call_all_pass(self):
+        or_constraint = Or(OneOf(GetInput("param1"), [1, 2, 3]), OneOf(GetInput("param2"), ["a", "b", "c"]))
+        assert or_constraint([("param1", 2), ("param2", "b")])
+
+    def test_call_all_fail(self):
+        or_constraint = Or(OneOf(GetInput("param1"), [1, 2, 3]), OneOf(GetInput("param2"), ["a", "b", "c"]))
+        result = or_constraint([("param1", 5), ("param2", "z")])
+        assert not result
+        errors = result.error_details
+        assert len(errors) == 2
+        assert any("Expected param1 to be one of [1, 2, 3], but got 5" in err for err in errors)
+        assert any("Expected param2 to be one of ['a', 'b', 'c'], but got z" in err for err in errors)
+
+    def test_str(self):
+        or_constraint = Or(OneOf(GetInput("param1"), [1, 2, 3]), OneOf(GetInput("param2"), ["a", "b"]))
+        assert str(or_constraint) == "param1 is one of [1, 2, 3] or param2 is one of ['a', 'b']"
+
+    def test_call_multiple_constraints(self):
+        or_constraint = Or(
+            OneOf(GetInput("param1"), [1, 2, 3]),
+            OneOf(GetInput("param2"), ["a", "b", "c"]),
+            OneOf(GetInput("param3"), [True, False]),
+        )
+        assert or_constraint([("param1", 5), ("param2", "z"), ("param3", True)])
+        assert not or_constraint([("param1", 5), ("param2", "z"), ("param3", None)])
+
+
 class TestEqual:
     def test_call_success(self):
         constraint = Equal(GetInput("param1"), GetInput("param2"))
@@ -102,6 +154,20 @@ class TestEqual:
     def test_operator_on_fetcher(self):
         constraint = GetInput("param1") == GetInput("param2")
         assert isinstance(constraint, Equal)
+
+    def test_call_success_with_constant(self):
+        constraint = Equal(GetInput("param1"), 5)
+        assert constraint([("param1", 5)])
+
+    def test_call_failure_with_constant(self):
+        constraint = Equal(GetInput("param1"), 5)
+        result = constraint([("param1", 10)])
+        assert not result
+        assert "Expected param1 to be equal to 5, but got 10 and 5." in result.error_details
+
+    def test_str_with_constant(self):
+        constraint = Equal(GetInput("param1"), 5)
+        assert str(constraint) == "param1 == 5"
 
 
 class TestNotEqual:
@@ -122,6 +188,20 @@ class TestNotEqual:
     def test_operator_on_fetcher(self):
         constraint = GetInput("param1") != GetInput("param2")
         assert isinstance(constraint, NotEqual)
+
+    def test_call_success_with_constant(self):
+        constraint = NotEqual(GetInput("param1"), 5)
+        assert constraint([("param1", 10)])
+
+    def test_call_failure_with_constant(self):
+        constraint = NotEqual(GetInput("param1"), 5)
+        result = constraint([("param1", 5)])
+        assert not result
+        assert "Expected param1 to be not equal to 5, but both were 5." in result.error_details
+
+    def test_str_with_constant(self):
+        constraint = NotEqual(GetInput("param1"), 5)
+        assert str(constraint) == "param1 != 5"
 
 
 class TestNot:
