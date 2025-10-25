@@ -17,35 +17,26 @@
 
 
 from nvtripy import export
-from nvtripy.common.datatype import bool as tp_bool
-from nvtripy.common.datatype import float32, int8
+from nvtripy.common import datatype as dt
+from nvtripy.frontend import wrappers
+from nvtripy.frontend.constraints import GetInput, GetReturn, OneOf
 from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.frontend.ops._registry import register_tensor_method
 from nvtripy.frontend.ops.dequantize import dequantize
 from nvtripy.frontend.ops.quantize import quantize
 from nvtripy.trace.ops.cast import Cast
-from nvtripy.frontend import wrappers
-
-
-# constraints = (
-#     OneOf(
-#         GetInput("input").dtype,
-#         [tp.float32, tp.float16, tp.bfloat16, tp.float8, tp.int4, tp.int8, tp.int32, tp.int64, tp.bool],
-#     )
-#     & OneOf(
-#         GetInput("dtype"),
-#         [tp.float32, tp.float16, tp.bfloat16, tp.float8, tp.int4, tp.int8, tp.int32, tp.int64, tp.bool],
-#     )
-#     & ~(GetInput("input").dtype == tp.float8 & OneOf(GetInput("dtype"), [tp.int4, tp.int8]))
-#     & ~(GetInput("input").dtype == tp.int8 & GetInput("dtype") == tp.float8)
-#     & ~(GetInput("input").dtype == tp.int4 & OneOf(GetInput("dtype"), [tp.float8, tp.int8, tp.int64]))
-# )
-# output_guarantees = GetReturn(0).dtype == GetInput("dtype")
 
 
 @register_tensor_method("cast")
 @export.public_api(document_under="operations/functions")
 @wrappers.interface(
+    input_requirements=(
+        ~((GetInput("input").dtype == dt.float8) & OneOf(GetInput("dtype"), [dt.int4, dt.int8]))
+        & ~((GetInput("input").dtype == dt.int8) & (GetInput("dtype") == dt.float8))
+        & ~((GetInput("input").dtype == dt.int4) & OneOf(GetInput("dtype"), [dt.float8, dt.int8, dt.int64]))
+    ),
+    output_guarantees=GetReturn(0).dtype == GetInput("dtype"),
+    # TODO (pranavm): Remove old dtype constraints system:
     dtype_constraints={"input": "T1", "dtype": "T2", wrappers.RETURN_VALUE: "T2"},
     dtype_variables={
         "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
@@ -95,14 +86,14 @@ def cast(input: "nvtripy.Tensor", dtype: "nvtripy.dtype") -> "nvtripy.Tensor":
 
     # If given a quantized input, dequantize before converting. If bool is the target dtype,
     # we do still need to quantize int8s because it compiles into an MLIR-TRT *comparison* op
-    if op_utils.is_quantized_dtype(input.dtype) and (input.dtype != int8 or dtype == tp_bool):
-        dequant_dtype = float32
+    if op_utils.is_quantized_dtype(input.dtype) and (input.dtype != dt.int8 or dtype == dt.bool):
+        dequant_dtype = dt.float32
         input = dequantize(input, 1.0, dequant_dtype)
         if dtype == dequant_dtype:
             return input
 
-    if op_utils.is_quantized_dtype(dtype) and dtype != int8:
-        if input.dtype != float32:
-            input = op_utils.create_op(Cast, [input], float32)
+    if op_utils.is_quantized_dtype(dtype) and dtype != dt.int8:
+        if input.dtype != dt.float32:
+            input = op_utils.create_op(Cast, [input], dt.float32)
         return quantize(input, 1.0, dtype)
     return op_utils.create_op(Cast, [input], dtype)
