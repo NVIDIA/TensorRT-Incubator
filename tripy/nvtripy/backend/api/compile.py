@@ -316,9 +316,22 @@ def compile(
     assert isinstance(func_out, Tensor) or isinstance(
         func_out, Sequence
     ), "This function is only implemented for Tensors or sequences of Tensors"
+
+    # Group leaf input names by top-level argument for efficient runtime extraction
+    leaf_names_by_arg = {}
+    leaf_names = list(input_infos.keys())
+    for arg_name in compiled_arg_names:
+        matching = [
+            leaf
+            for leaf in leaf_names
+            if leaf == arg_name or leaf.startswith(f"{arg_name}.") or leaf.startswith(f"{arg_name}[")
+        ]
+        leaf_names_by_arg[arg_name] = matching
+
     return Executable(
         executable,
         compiled_arg_names,
         return_single_tensor_as_sequence=isinstance(func_out, Sequence),
         input_infos=input_infos,
+        leaf_names_by_arg=leaf_names_by_arg,
     )
