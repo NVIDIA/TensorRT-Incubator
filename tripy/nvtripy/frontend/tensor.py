@@ -237,6 +237,7 @@ class Tensor(metaclass=TensorMeta):
                 name: InputInfo(list(map(int, inp.trace_tensor.shape)), inp.dtype)
                 for name, inp in zip(arg_names, inputs)
             },
+            leaf_names_by_arg={name: [name] for name in arg_names},  # every argument is a direct input
         )
         data = executable(*inputs).trace_tensor.producer.data
 

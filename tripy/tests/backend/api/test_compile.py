@@ -270,7 +270,7 @@ class TestCompile:
         }
         result = compiled_func(test_dict)
         expected = test_dict["a"]["inner"] + test_dict["b"]["list"][0] + test_dict["b"]["list"][1]
-        assert cp.array_equal(cp.from_dlpack(result), cp.from_dlpack(expected))
+        assert tp.equal(result, expected)
 
     def test_compile_nested_sequence_input_info(self):
         def func(data_list):
@@ -294,11 +294,9 @@ class TestCompile:
         ]
         result = compiled_func(test_list)
         expected = test_list[0] + test_list[1][0] + test_list[1][1]
-        assert cp.array_equal(cp.from_dlpack(result), cp.from_dlpack(expected))
+        assert tp.equal(result, expected)
 
     def test_compile_mixed_containers_and_constants(self):
-        """Test compilation with comprehensive mix: regular InputInfo, dict container, list container, and standalone constant."""
-
         def func(regular_input, data_dict, data_list, const_in_dict, const):
             return (
                 regular_input
@@ -315,7 +313,7 @@ class TestCompile:
             "x": tp.InputInfo(shape=(2, 3), dtype=tp.float32),
             "y": tp.zeros((2, 3), dtype=tp.float32),
         }
-        list_input = [tp.InputInfo(shape=(2, 3), dtype=tp.float32), tp.ones((2, 3), dtype=tp.float32) * 3]
+        list_input = [tp.ones((2, 3), dtype=tp.float32) * 3, tp.InputInfo(shape=(2, 3), dtype=tp.float32)]
         const_in_dict = {"z": tp.ones((2, 3), dtype=tp.float32) * 5}
         const = tp.ones((2, 3), dtype=tp.float32) * 6
 
@@ -323,11 +321,51 @@ class TestCompile:
 
         # Only InputInfo arguments should be in function signature
         test_regular = tp.ones((2, 3), dtype=tp.float32).eval()
-        test_dict = {"x": (tp.ones((2, 3), dtype=tp.float32) * 2).eval(), "y": tp.zeros((2, 3), dtype=tp.float32)}
-        test_list = [(tp.ones((2, 3), dtype=tp.float32) * 4).eval(), tp.ones((2, 3), dtype=tp.float32) * 3]
+        test_dict = {"x": (tp.ones((2, 3), dtype=tp.float32) * 2).eval()}
+        test_list = [None, (tp.ones((2, 3), dtype=tp.float32) * 4).eval()]
 
         result = compiled_func(test_regular, test_dict, test_list)
         expected = (
-            test_regular + test_dict["x"] + test_dict["y"] + test_list[0] + test_list[1] + const_in_dict["z"] + const
+            test_regular + test_dict["x"] + dict_input["y"] + test_list[1] + list_input[0] + const_in_dict["z"] + const
         )
-        assert cp.array_equal(cp.from_dlpack(result), cp.from_dlpack(expected))
+        assert tp.equal(result, expected)
+
+    def test_compile_missing_nested_input_fails(self):
+        def func(data_dict):
+            return data_dict["a"]["inner"] + data_dict["b"]["list"][1]
+
+        dict_input = {
+            "a": {"inner": tp.InputInfo(shape=(2, 3), dtype=tp.float32)},
+            "b": {"list": [tp.zeros((2, 3), dtype=tp.float32), tp.InputInfo(shape=(2, 3), dtype=tp.float32)]},
+        }
+
+        compiled_func = tp.compile(func, args=[dict_input])
+
+        # Missing b.list[1]
+        bad_dict = {
+            "a": {"inner": tp.ones((2, 3), dtype=tp.float32).eval()},
+            "b": {"list": [tp.ones((2, 3), dtype=tp.float32).eval()]},
+        }
+        with helper.raises(tp.TripyException, match="Missing runtime tensor for input `data_dict\.b\.list\[1\]`."):
+            compiled_func(bad_dict)
+
+        # Wrong shape for b.list[1] should trigger a shape/device validation error
+        wrong_shape = {
+            "a": {"inner": tp.ones((2, 3), dtype=tp.float32).eval()},
+            "b": {"list": [tp.zeros((2, 3), dtype=tp.float32), tp.ones((2, 2), dtype=tp.float32).eval()]},
+        }
+        with helper.raises(tp.TripyException, match="Unexpected tensor shape."):
+            compiled_func(wrong_shape)
+
+    def test_compile_container_mismatch_fails(self):
+        def func(data_list):
+            return data_list[0] + data_list[1][0]
+
+        list_input = [tp.InputInfo(shape=(2, 3), dtype=tp.float32), [tp.InputInfo(shape=(2, 3), dtype=tp.float32)]]
+
+        compiled_func = tp.compile(func, args=[list_input])
+
+        bad_list = [tp.ones((2, 3), dtype=tp.float32).eval(), {"not": tp.ones((2, 3), dtype=tp.float32).eval()}]
+
+        with helper.raises(tp.TripyException, match="Missing runtime tensor for input `data_list\[1\]\[0\]`."):
+            compiled_func(bad_list)

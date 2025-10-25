@@ -46,6 +46,7 @@ class Executable:
         arg_names,
         return_single_tensor_as_sequence: bool,
         input_infos: Dict[str, Union[InputInfo, DimensionInputInfo]],
+        leaf_names_by_arg: Dict[str, Sequence[str]],
     ):
         self._executable = executable
 
@@ -77,6 +78,8 @@ class Executable:
         """
         Stores metadata, like shapes and data types, for each input to the executable.
         """
+
+        self._leaf_names_by_arg = leaf_names_by_arg
 
     def __str__(self) -> str:
         params = [
@@ -195,34 +198,36 @@ class Executable:
                 ],
             )
 
-        # Recursively build a name->tensor map
-        def extract_inputs(tensors, input_info_names):
-            name_to_tensor = {}
-
-            def extract_recursive(value, name_prefix):
-                if name_prefix in input_info_names:
-                    name_to_tensor[name_prefix] = value
-                    return
-                if isinstance(value, dict):
-                    for key, item in value.items():
-                        nested_name = f"{name_prefix}.{key}"
-                        extract_recursive(item, nested_name)
-                elif isinstance(value, (list, tuple)):
-                    for idx, item in enumerate(value):
-                        nested_name = f"{name_prefix}[{idx}]"
-                        extract_recursive(item, nested_name)
-                else:
-                    print(f"Leaf tensor: {name_prefix}: {value}")
-                    return
-
-            for name_idx, tensor in enumerate(tensors):
-                arg_name = self._arg_names[name_idx]
-                extract_recursive(tensor, arg_name)
-
-            return name_to_tensor
-
+        # Build a name->tensor map using precomputed leaf names to avoid unnecessary recursion
         input_info_names = list(self.input_infos.keys())
-        name_to_tensor = extract_inputs(input_tensors, set(input_info_names))
+        name_to_tensor: Dict[str, Tensor] = {}
+
+        def extract_recursive(value, name_prefix, allowed_names):
+            if name_prefix in allowed_names:
+                name_to_tensor[name_prefix] = value
+                return
+            if isinstance(value, dict):
+                for key, item in value.items():
+                    nested_name = f"{name_prefix}.{key}"
+                    extract_recursive(item, nested_name, allowed_names)
+            elif isinstance(value, (list, tuple)):
+                for idx, item in enumerate(value):
+                    nested_name = f"{name_prefix}[{idx}]"
+                    extract_recursive(item, nested_name, allowed_names)
+            else:
+                return
+
+        for name_idx, tensor in enumerate(input_tensors):
+            arg_name = self._arg_names[name_idx]
+            # Fast path: direct leaf input
+            if arg_name in self.input_infos:
+                name_to_tensor[arg_name] = tensor
+                continue
+            # If this arg has no compiled leaves beneath it, skip any recursion
+            allowed = self._leaf_names_by_arg.get(arg_name)
+            if not allowed:
+                continue
+            extract_recursive(tensor, arg_name, set(allowed))
         try:
             flattened_tensors = [name_to_tensor[name] for name in input_info_names]
         except KeyError as missing:
@@ -267,7 +272,7 @@ class Executable:
                 expected_input_dtypes = [
                     info.dtype if isinstance(info, InputInfo) else int32 for info in self.input_infos.values()
                 ]
-                for tensor, dtype, arg_name in zip(input_tensors, expected_input_dtypes, self._arg_names):
+                for tensor, dtype, arg_name in zip(flattened_tensors, expected_input_dtypes, self.input_infos.keys()):
                     if tensor.dtype != dtype:
                         raise_error(
                             f"Unexpected tensor data type.",
@@ -282,7 +287,9 @@ class Executable:
                 expected_input_shapes = [
                     info.shape_bounds if isinstance(info, InputInfo) else tuple() for info in self.input_infos.values()
                 ]
-                for tensor, expected_bounds, arg_name in zip(input_tensors, expected_input_shapes, self._arg_names):
+                for tensor, expected_bounds, arg_name in zip(
+                    flattened_tensors, expected_input_shapes, self.input_infos.keys()
+                ):
                     shape = tensor.shape
 
                     if len(shape) != len(expected_bounds.min):
@@ -290,8 +297,7 @@ class Executable:
                             f"Unexpected tensor rank.",
                             [
                                 f"For tensor: `{arg_name}`, expected a rank of: {len(expected_bounds.min)} but got: {len(shape)}.\n"
-                                f"Note: The provided argument was: ",
-                                tensor,
+                                f"Note: The provided argument was a tensor with shape: {shape}",
                             ],
                         )
 
@@ -302,8 +308,7 @@ class Executable:
                                 [
                                     f"For tensor: `{arg_name}`, expected a shape within the bounds: min={expected_bounds.min}, max={expected_bounds.max}, but got: {shape}.\n"
                                     f"Dimension {i} has a shape of {shape[i]}, which is not within the expected bounds of [{expected_bounds.min[i]}, {expected_bounds.max[i]}].\n"
-                                    f"Note: The provided argument was: ",
-                                    tensor,
+                                    f"Note: The provided argument was a tensor with shape: {shape}",
                                 ],
                             )
             raise_error(str(err))
