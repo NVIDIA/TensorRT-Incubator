@@ -233,9 +233,28 @@ static std::string getUniqueName(NvInferNetworkEncoder::NamesSet &names,
 /// an open system of location attributes, there may be some location types that
 /// we cannot handle. We do not use the location's builtin printer because it
 /// could be extremely verbose.
+static void getCallSiteLocs(Location loc, SmallVector<Location> &locs) {
+  if (auto callLoc = dyn_cast<CallSiteLoc>(loc)) {
+    getCallSiteLocs(callLoc.getCaller(), locs);
+    getCallSiteLocs(callLoc.getCallee(), locs);
+  } else {
+    locs.push_back(loc);
+  }
+}
+
 static void translateLocation(Location loc, llvm::raw_ostream &os) {
   if (auto callLoc = dyn_cast<CallSiteLoc>(loc)) {
-    translateLocation(callLoc.getCaller(), os);
+    SmallVector<Location> locs;
+    getCallSiteLocs(callLoc, locs);
+    // only include the last 3 locations in the names as this should be
+    // sufficient to identify the call site for an op
+    for (size_t i = locs.size() > 3 ? locs.size() - 3 : 0; i < locs.size();
+         i++) {
+      translateLocation(locs[i], os);
+      if (i < locs.size() - 1) {
+        os << " -> ";
+      }
+    }
     return;
   }
   if (auto fileLoc = dyn_cast<FileLineColLoc>(loc)) {
@@ -274,7 +293,8 @@ static std::string createName(NvInferNetworkEncoder::NamesSet &names,
     ss.flush();
   }
   // Truncate to TRT limit.
-  static constexpr size_t kLayerNameSizeLimit = 2048;
+  static constexpr size_t kLayerNameSizeLimit =
+      2048 - 6; // -6 to give some space for UniqueName
   if (name.size() > kLayerNameSizeLimit)
     name = name.substr(0, kLayerNameSizeLimit);
 
