@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from nvtripy.frontend.constraints import And, Equal, GetInput, Not, NotEqual, OneOf, Or
+from nvtripy.frontend.constraints import And, Equal, GetInput, NotEqual, NotOneOf, OneOf, Or
 
 
 class TestLogic:
@@ -53,26 +53,47 @@ class TestLogic:
     def test_operator_not_basic(self):
         constraint = OneOf(GetInput("param"), [1, 2, 3])
         negated = ~constraint
-        assert isinstance(negated, Not)
+        assert isinstance(negated, NotOneOf)
         assert negated([("param", 5)])
         assert not negated([("param", 2)])
 
 
 class TestOneOf:
-    def test_call_success(self):
+    def test_call(self):
         constraint = OneOf(GetInput("param"), [1, 2, 3])
-        result = constraint([("param", 2)])
-        assert result
-
-    def test_call_failure(self):
-        constraint = OneOf(GetInput("param"), [1, 2, 3])
+        assert constraint([("param", 2)])
         result = constraint([("param", 5)])
         assert not result
         assert "'param' to be one of [1, 2, 3] (but it was '5')" in result.error_details
 
     def test_str(self):
+        assert str(OneOf(GetInput("param"), [1, 2, 3])) == "param is one of [1, 2, 3]"
+
+    def test_inverse(self):
         constraint = OneOf(GetInput("param"), [1, 2, 3])
-        assert str(constraint) == "param is one of [1, 2, 3]"
+        inverse = constraint.inverse()
+        assert isinstance(inverse, NotOneOf)
+        assert inverse([("param", 5)])
+        assert not inverse([("param", 2)])
+
+
+class TestNotOneOf:
+    def test_call(self):
+        constraint = NotOneOf(GetInput("param"), [1, 2, 3])
+        assert constraint([("param", 5)])
+        result = constraint([("param", 2)])
+        assert not result
+        assert "'param' to not be one of [1, 2, 3] (but it was '2')" in result.error_details
+
+    def test_str(self):
+        assert str(NotOneOf(GetInput("param"), [1, 2, 3])) == "param is not one of [1, 2, 3]"
+
+    def test_inverse(self):
+        constraint = NotOneOf(GetInput("param"), [1, 2, 3])
+        inverse = constraint.inverse()
+        assert isinstance(inverse, OneOf)
+        assert inverse([("param", 2)])
+        assert not inverse([("param", 5)])
 
 
 class TestAnd:
@@ -98,6 +119,13 @@ class TestAnd:
     def test_str(self):
         and_constraint = And(OneOf(GetInput("param1"), [1, 2, 3]), OneOf(GetInput("param2"), ["a", "b"]))
         assert str(and_constraint) == "(param1 is one of [1, 2, 3] and param2 is one of ['a', 'b'])"
+
+    def test_inverse(self):
+        # De Morgan's law: not (A and B) = (not A) or (not B)
+        and_constraint = And(OneOf(GetInput("param1"), [1, 2, 3]), OneOf(GetInput("param2"), ["a", "b"]))
+        inverse = and_constraint.inverse()
+        assert isinstance(inverse, Or)
+        assert str(inverse) == "(param1 is not one of [1, 2, 3] or param2 is not one of ['a', 'b'])"
 
 
 class TestOr:
@@ -135,91 +163,57 @@ class TestOr:
         assert or_constraint([("param1", 5), ("param2", "z"), ("param3", True)])
         assert not or_constraint([("param1", 5), ("param2", "z"), ("param3", None)])
 
+    def test_inverse(self):
+        # De Morgan's law: not (A or B) = (not A) and (not B)
+        or_constraint = Or(OneOf(GetInput("param1"), [1, 2, 3]), OneOf(GetInput("param2"), ["a", "b"]))
+        inverse = or_constraint.inverse()
+        assert isinstance(inverse, And)
+        assert str(inverse) == "(param1 is not one of [1, 2, 3] and param2 is not one of ['a', 'b'])"
+
 
 class TestEqual:
-    def test_call_success(self):
+    def test_call(self):
         constraint = Equal(GetInput("param1"), GetInput("param2"))
         assert constraint([("param1", 5), ("param2", 5)])
-
-    def test_call_failure(self):
-        constraint = Equal(GetInput("param1"), GetInput("param2"))
         result = constraint([("param1", 5), ("param2", 10)])
         assert not result
         assert "'param1' to be equal to 'param2' (but it was '5')" in result.error_details
 
     def test_str(self):
-        constraint = Equal(GetInput("param1"), GetInput("param2"))
-        assert str(constraint) == "param1 == param2"
+        assert str(Equal(GetInput("param1"), GetInput("param2"))) == "param1 == param2"
+        assert str(Equal(GetInput("param1"), 5)) == "param1 == 5"
 
     def test_operator_on_fetcher(self):
         constraint = GetInput("param1") == GetInput("param2")
         assert isinstance(constraint, Equal)
 
-    def test_call_success_with_constant(self):
+    def test_inverse(self):
         constraint = Equal(GetInput("param1"), 5)
-        assert constraint([("param1", 5)])
-
-    def test_call_failure_with_constant(self):
-        constraint = Equal(GetInput("param1"), 5)
-        result = constraint([("param1", 10)])
-        assert not result
-        assert "'param1' to be equal to '5' (but it was '10')" in result.error_details
-
-    def test_str_with_constant(self):
-        constraint = Equal(GetInput("param1"), 5)
-        assert str(constraint) == "param1 == 5"
+        inverse = constraint.inverse()
+        assert isinstance(inverse, NotEqual)
+        assert inverse([("param1", 10)])
+        assert not inverse([("param1", 5)])
 
 
 class TestNotEqual:
-    def test_call_success(self):
-        constraint = GetInput("param1") != GetInput("param2")
+    def test_call(self):
+        constraint = NotEqual(GetInput("param1"), GetInput("param2"))
         assert constraint([("param1", 5), ("param2", 10)])
-
-    def test_call_failure(self):
-        constraint = GetInput("param1") != GetInput("param2")
         result = constraint([("param1", 5), ("param2", 5)])
         assert not result
         assert "'param1' to be not equal to 'param2' (but it was '5')" in result.error_details
 
     def test_str(self):
-        constraint = GetInput("param1") != GetInput("param2")
-        assert str(constraint) == "param1 != param2"
+        assert str(NotEqual(GetInput("param1"), GetInput("param2"))) == "param1 != param2"
+        assert str(NotEqual(GetInput("param1"), 5)) == "param1 != 5"
 
     def test_operator_on_fetcher(self):
         constraint = GetInput("param1") != GetInput("param2")
         assert isinstance(constraint, NotEqual)
 
-    def test_call_success_with_constant(self):
+    def test_inverse(self):
         constraint = NotEqual(GetInput("param1"), 5)
-        assert constraint([("param1", 10)])
-
-    def test_call_failure_with_constant(self):
-        constraint = NotEqual(GetInput("param1"), 5)
-        result = constraint([("param1", 5)])
-        assert not result
-        assert "'param1' to be not equal to '5' (but it was '5')" in result.error_details
-
-    def test_str_with_constant(self):
-        constraint = NotEqual(GetInput("param1"), 5)
-        assert str(constraint) == "param1 != 5"
-
-
-class TestNot:
-    def test_call_success(self):
-        constraint = Not(OneOf(GetInput("param"), [1, 2, 3]))
-        assert constraint([("param", 5)])
-
-    def test_call_failure(self):
-        constraint = Not(OneOf(GetInput("param"), [1, 2, 3]))
-        result = constraint([("param", 2)])
-        assert not result
-        assert "not param is one of [1, 2, 3]" == result.error_details[0]
-
-    def test_str(self):
-        constraint = Not(OneOf(GetInput("param"), [1, 2, 3]))
-        assert str(constraint) == "not param is one of [1, 2, 3]"
-
-    def test_double_negation(self):
-        constraint = Not(Not(OneOf(GetInput("param"), [1, 2, 3])))
-        assert constraint([("param", 2)])
-        assert not constraint([("param", 5)])
+        inverse = constraint.inverse()
+        assert isinstance(inverse, Equal)
+        assert inverse([("param1", 5)])
+        assert not inverse([("param1", 10)])
