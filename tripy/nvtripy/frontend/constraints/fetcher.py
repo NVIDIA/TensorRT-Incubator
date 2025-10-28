@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 from abc import abstractmethod
-from typing import Any, List, Sequence, Tuple
+from typing import Any, List, Optional, Sequence, Tuple
 
 from nvtripy.common.datatype import dtype as tp_dtype
 from nvtripy.common.exception import raise_error
@@ -28,7 +28,7 @@ class Fetcher(Constraints):
     """
 
     @abstractmethod
-    def __call__(self, args: List[Tuple[str, Any]]) -> Any: ...
+    def __call__(self, args: List[Tuple[str, Any]], returns: Optional[Tuple[Any]] = None) -> Any: ...
 
     def __eq__(self, other: "Fetcher") -> "Equal":
         from nvtripy.frontend.constraints.logic import Equal
@@ -51,7 +51,7 @@ class GetInput(ValueFetcher):
     def __init__(self, name: str):
         self.name = name
 
-    def __call__(self, args: List[Tuple[str, Any]]) -> Any:
+    def __call__(self, args: List[Tuple[str, Any]], returns: Optional[Tuple[Any]] = None) -> Any:
         for name, value in args:
             if name == self.name:
                 return value
@@ -65,10 +65,9 @@ class GetReturn(ValueFetcher):
     def __init__(self, index: int):
         self.index = index
 
-    def __call__(self, args: List[Tuple[str, Any]]) -> Any:
-        raise NotImplementedError(
-            "GetReturn is only used to describe output guarantees and must not be called for input validation purposes."
-        )
+    def __call__(self, args: List[Tuple[str, Any]], returns: Optional[Tuple[Any]] = None) -> Any:
+        assert returns is not None, "No return values available."
+        return returns[self.index]
 
     def __str__(self):
         return f"return[{self.index}]"
@@ -78,7 +77,7 @@ class GetDataType(Fetcher):
     def __init__(self, value_fetcher: ValueFetcher):
         self.value_fetcher = value_fetcher
 
-    def __call__(self, args: List[Tuple[str, Any]]) -> Any:
+    def __call__(self, args: List[Tuple[str, Any]], returns: Optional[Tuple[Any]] = None) -> Any:
         from nvtripy.frontend.tensor import Tensor
 
         def get_arg_dtype(arg: Any) -> tp_dtype:
@@ -104,7 +103,7 @@ class GetDataType(Fetcher):
                 )
             return arg_dtype
 
-        tensor = self.value_fetcher(args)
+        tensor = self.value_fetcher(args, returns)
         return get_arg_dtype(tensor)
 
     def __str__(self):
