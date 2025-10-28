@@ -26,16 +26,16 @@ class TestFetcher:
         fetcher2 = GetInput("param2")
         constraint = fetcher1 == fetcher2
         assert isinstance(constraint, Equal)
-        assert constraint.fetcher1 == fetcher1
-        assert constraint.fetcher2 == fetcher2
+        assert constraint.fetcher == fetcher1
+        assert constraint.fetcher_or_value == fetcher2
 
     def test_ne_operator_returns_not_equal(self):
         fetcher1 = GetInput("param1")
         fetcher2 = GetInput("param2")
         constraint = fetcher1 != fetcher2
         assert isinstance(constraint, NotEqual)
-        assert constraint.fetcher1 == fetcher1
-        assert constraint.fetcher2 == fetcher2
+        assert constraint.fetcher == fetcher1
+        assert constraint.fetcher_or_value == fetcher2
 
 
 class TestValueFetcher:
@@ -62,11 +62,13 @@ class TestGetReturn:
         fetcher = GetReturn(0)
         assert fetcher.index == 0
 
-    def test_call_raises_not_implemented(self):
+    def test_call(self):
         fetcher = GetReturn(0)
-        args = [("input", 42)]
-        with helper.raises(NotImplementedError, match="GetReturn is only used to describe output guarantees"):
-            fetcher(args)
+        returns = (42, "hello", 3.14)
+        assert fetcher([], returns) == 42
+
+        fetcher2 = GetReturn(2)
+        assert fetcher2([], returns) == 3.14
 
     def test_str(self):
         fetcher = GetReturn(0)

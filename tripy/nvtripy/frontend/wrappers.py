@@ -15,7 +15,6 @@
 # limitations under the License.
 #
 
-# TODO (pranavm): Move into frontend - only used there.
 
 import functools
 import inspect

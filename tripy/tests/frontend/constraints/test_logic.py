@@ -68,7 +68,7 @@ class TestOneOf:
         constraint = OneOf(GetInput("param"), [1, 2, 3])
         result = constraint([("param", 5)])
         assert not result
-        assert "Expected param to be one of [1, 2, 3], but got 5." in result.error_details
+        assert "'param' to be one of [1, 2, 3] (but it was '5')" in result.error_details
 
     def test_str(self):
         constraint = OneOf(GetInput("param"), [1, 2, 3])
@@ -84,20 +84,20 @@ class TestAnd:
         and_constraint = And(OneOf(GetInput("param1"), [1, 2, 3]), OneOf(GetInput("param2"), ["a", "b", "c"]))
         result = and_constraint([("param1", 5), ("param2", "b")])
         assert not result
-        assert "Expected param1 to be one of [1, 2, 3], but got 5." in result.error_details
+        assert "'param1' to be one of [1, 2, 3] (but it was '5')" in result.error_details
 
     def test_call_all_fail(self):
         and_constraint = And(OneOf(GetInput("param1"), [1, 2, 3]), OneOf(GetInput("param2"), ["a", "b", "c"]))
         result = and_constraint([("param1", 5), ("param2", "z")])
         assert not result
-        errors = result.error_details
-        assert len(errors) == 2
-        assert any("Expected param1 to be one of [1, 2, 3], but got 5" in err for err in errors)
-        assert any("Expected param2 to be one of ['a', 'b', 'c'], but got z" in err for err in errors)
+        assert (
+            "".join(result.error_details)
+            == "'param1' to be one of [1, 2, 3] (but it was '5') and 'param2' to be one of ['a', 'b', 'c'] (but it was 'z')"
+        )
 
     def test_str(self):
         and_constraint = And(OneOf(GetInput("param1"), [1, 2, 3]), OneOf(GetInput("param2"), ["a", "b"]))
-        assert str(and_constraint) == "param1 is one of [1, 2, 3] and param2 is one of ['a', 'b']"
+        assert str(and_constraint) == "(param1 is one of [1, 2, 3] and param2 is one of ['a', 'b'])"
 
 
 class TestOr:
@@ -117,14 +117,14 @@ class TestOr:
         or_constraint = Or(OneOf(GetInput("param1"), [1, 2, 3]), OneOf(GetInput("param2"), ["a", "b", "c"]))
         result = or_constraint([("param1", 5), ("param2", "z")])
         assert not result
-        errors = result.error_details
-        assert len(errors) == 2
-        assert any("Expected param1 to be one of [1, 2, 3], but got 5" in err for err in errors)
-        assert any("Expected param2 to be one of ['a', 'b', 'c'], but got z" in err for err in errors)
+        assert (
+            "".join(result.error_details)
+            == "'param1' to be one of [1, 2, 3] (but it was '5') or 'param2' to be one of ['a', 'b', 'c'] (but it was 'z')"
+        )
 
     def test_str(self):
         or_constraint = Or(OneOf(GetInput("param1"), [1, 2, 3]), OneOf(GetInput("param2"), ["a", "b"]))
-        assert str(or_constraint) == "param1 is one of [1, 2, 3] or param2 is one of ['a', 'b']"
+        assert str(or_constraint) == "(param1 is one of [1, 2, 3] or param2 is one of ['a', 'b'])"
 
     def test_call_multiple_constraints(self):
         or_constraint = Or(
@@ -145,7 +145,7 @@ class TestEqual:
         constraint = Equal(GetInput("param1"), GetInput("param2"))
         result = constraint([("param1", 5), ("param2", 10)])
         assert not result
-        assert "Expected param1 to be equal to param2, but got 5 and 10." in result.error_details
+        assert "'param1' to be equal to 'param2' (but it was '5')" in result.error_details
 
     def test_str(self):
         constraint = Equal(GetInput("param1"), GetInput("param2"))
@@ -163,7 +163,7 @@ class TestEqual:
         constraint = Equal(GetInput("param1"), 5)
         result = constraint([("param1", 10)])
         assert not result
-        assert "Expected param1 to be equal to 5, but got 10 and 5." in result.error_details
+        assert "'param1' to be equal to '5' (but it was '10')" in result.error_details
 
     def test_str_with_constant(self):
         constraint = Equal(GetInput("param1"), 5)
@@ -179,7 +179,7 @@ class TestNotEqual:
         constraint = GetInput("param1") != GetInput("param2")
         result = constraint([("param1", 5), ("param2", 5)])
         assert not result
-        assert "Expected param1 to be not equal to param2, but both were 5." in result.error_details
+        assert "'param1' to be not equal to 'param2' (but it was '5')" in result.error_details
 
     def test_str(self):
         constraint = GetInput("param1") != GetInput("param2")
@@ -197,7 +197,7 @@ class TestNotEqual:
         constraint = NotEqual(GetInput("param1"), 5)
         result = constraint([("param1", 5)])
         assert not result
-        assert "Expected param1 to be not equal to 5, but both were 5." in result.error_details
+        assert "'param1' to be not equal to '5' (but it was '5')" in result.error_details
 
     def test_str_with_constant(self):
         constraint = NotEqual(GetInput("param1"), 5)
@@ -213,11 +213,11 @@ class TestNot:
         constraint = Not(OneOf(GetInput("param"), [1, 2, 3]))
         result = constraint([("param", 2)])
         assert not result
-        assert "Expected NOT param is one of [1, 2, 3], but it was satisfied." in result.error_details
+        assert "not param is one of [1, 2, 3]" == result.error_details[0]
 
     def test_str(self):
         constraint = Not(OneOf(GetInput("param"), [1, 2, 3]))
-        assert str(constraint) == "NOT (param is one of [1, 2, 3])"
+        assert str(constraint) == "not param is one of [1, 2, 3]"
 
     def test_double_negation(self):
         constraint = Not(Not(OneOf(GetInput("param"), [1, 2, 3])))
