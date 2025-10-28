@@ -31,9 +31,9 @@ from nvtripy.trace.ops.cast import Cast
 @export.public_api(document_under="operations/functions")
 @wrappers.interface(
     input_requirements=(
-        ~((GetInput("input").dtype == dt.float8) & OneOf(GetInput("dtype"), [dt.int4, dt.int8]))
-        & ~((GetInput("input").dtype == dt.int8) & (GetInput("dtype") == dt.float8))
-        & ~((GetInput("input").dtype == dt.int4) & OneOf(GetInput("dtype"), [dt.float8, dt.int8, dt.int64]))
+        ((GetInput("input").dtype != dt.float8) | ~OneOf(GetInput("dtype"), [dt.int4, dt.int8]))
+        & ((GetInput("input").dtype != dt.int8) | (GetInput("dtype") != dt.float8))
+        & ((GetInput("input").dtype != dt.int4) | ~OneOf(GetInput("dtype"), [dt.float8, dt.int8, dt.int64]))
     ),
     output_guarantees=GetReturn(0).dtype == GetInput("dtype"),
     # TODO (pranavm): Remove old dtype constraints system:

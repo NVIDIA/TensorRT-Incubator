@@ -16,4 +16,4 @@
 #
 from nvtripy.frontend.constraints.base import Constraints
 from nvtripy.frontend.constraints.fetcher import Fetcher, GetDataType, GetInput, GetReturn, ValueFetcher
-from nvtripy.frontend.constraints.logic import And, Equal, Logic, Not, NotEqual, OneOf, Or
+from nvtripy.frontend.constraints.logic import And, Equal, Logic, NotEqual, NotOneOf, OneOf, Or

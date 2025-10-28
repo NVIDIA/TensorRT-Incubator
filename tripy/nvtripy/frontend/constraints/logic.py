@@ -30,6 +30,13 @@ class Logic(Constraints):
     @abstractmethod
     def __call__(self, args: List[Tuple[str, Any]], returns: Optional[Tuple[Any]] = None) -> Result: ...
 
+    @abstractmethod
+    def inverse(self) -> "Logic":
+        """
+        Returns the logical inverse of this constraint.
+        """
+        ...
+
     def __and__(self, other: "Logic") -> "Logic":
         if isinstance(self, And):
             return And(*self.constraints, other)
@@ -45,9 +52,7 @@ class Logic(Constraints):
         return Or(self, other)
 
     def __invert__(self) -> "Logic":
-        if isinstance(self, Equal):
-            return NotEqual(self.fetcher, self.fetcher_or_value)
-        return Not(self)
+        return self.inverse()
 
 
 class OneOf(Logic):
@@ -65,6 +70,28 @@ class OneOf(Logic):
 
     def __str__(self):
         return f"{self.fetcher} is one of {self.options}"
+
+    def inverse(self) -> "Logic":
+        return NotOneOf(self.fetcher, self.options)
+
+
+class NotOneOf(Logic):
+    def __init__(self, fetcher: Fetcher, options: Sequence[Any]):
+        self.fetcher = fetcher
+        self.options = list(options)
+
+    def __call__(self, args: List[Tuple[str, Any]], returns: Optional[Tuple[Any]] = None) -> Result:
+        value = self.fetcher(args, returns)
+        if value not in self.options:
+            return Result.ok()
+
+        return Result.err([f"'{self.fetcher}' to not be one of {self.options} (but it was '{value}')"])
+
+    def __str__(self):
+        return f"{self.fetcher} is not one of {self.options}"
+
+    def inverse(self) -> "Logic":
+        return OneOf(self.fetcher, self.options)
 
 
 def get_val_or_call_fetcher(
@@ -91,6 +118,9 @@ class Equal(Logic):
     def __str__(self):
         return f"{self.fetcher} == {self.fetcher_or_value}"
 
+    def inverse(self) -> "Logic":
+        return NotEqual(self.fetcher, self.fetcher_or_value)
+
 
 class NotEqual(Logic):
     def __init__(self, fetcher: Fetcher, fetcher_or_value: Fetcher):
@@ -107,6 +137,9 @@ class NotEqual(Logic):
 
     def __str__(self):
         return f"{self.fetcher} != {self.fetcher_or_value}"
+
+    def inverse(self) -> "Logic":
+        return Equal(self.fetcher, self.fetcher_or_value)
 
 
 class And(Logic):
@@ -126,6 +159,10 @@ class And(Logic):
     def __str__(self):
         return "(" + " and ".join(str(constraint) for constraint in self.constraints) + ")"
 
+    def inverse(self) -> "Logic":
+        # Apply De Morgan's law: not (A and B) = (not A) or (not B)
+        return Or(*(constraint.inverse() for constraint in self.constraints))
+
 
 class Or(Logic):
     def __init__(self, *constraints: Logic):
@@ -143,16 +180,6 @@ class Or(Logic):
     def __str__(self):
         return "(" + " or ".join(str(constraint) for constraint in self.constraints) + ")"
 
-
-class Not(Logic):
-    def __init__(self, constraint: Logic):
-        self.constraint = constraint
-
-    def __call__(self, args: List[Tuple[str, Any]], returns: Optional[Tuple[Any]] = None) -> Result:
-        result = self.constraint(args, returns)
-        if result:
-            return Result.err([str(self)])
-        return Result.ok()
-
-    def __str__(self):
-        return f"not {self.constraint}"
+    def inverse(self) -> "Logic":
+        # Apply De Morgan's law: not (A or B) = (not A) and (not B)
+        return And(*(constraint.inverse() for constraint in self.constraints))
