@@ -398,7 +398,7 @@ def interface(
                             f"Invalid inputs for function: '{func.__qualname__}'.",
                             ["Expected: "]
                             + result.error_details
-                            + [f"\n\nNote: Requirements are:\n    {input_requirements}."],
+                            + [f".\n\nNote: Requirements are:\n    {input_requirements}."],
                         )
 
             if config.enable_dtype_checking:
