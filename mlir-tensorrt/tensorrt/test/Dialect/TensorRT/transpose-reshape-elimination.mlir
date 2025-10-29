@@ -336,3 +336,15 @@ func.func @einsum_multiply_two_axis(%arg0: tensor<10x11x12xf32>, %arg1: tensor<1
   %0 = tensorrt.einsum {equation = "acd,bcd->ab"} ins(%arg0, %arg1: tensor<10x11x12xf32>, tensor<13x11x12xf32>) -> tensor<10x13xf32>
   return %0 : tensor<10x13xf32>
 }
+
+// -----
+
+// CHECK: @can_not_push_reshape_through_einsum(%[[arg0:.+]]: tensor<2x20x12x64xf32>, %[[arg1:.+]]: tensor<2x12x20x1xf32>)
+// CHECK: %[[v0:.+]] = tensorrt.einsum {{{.*}}} ins(%[[arg0]], %[[arg1]] : {{.*}})
+// CHECK: %[[v1:.+]] = tensorrt.reshape %[[v0]] : tensor<2x12x64xf32> to tensor<2x1x768xf32>
+// CHECK: return %[[v1]]
+func.func @can_not_push_reshape_through_einsum(%arg0: tensor<2x20x12x64xf32>, %arg1: tensor<2x12x20x1xf32>) -> tensor<2x1x768xf32>{
+  %0 = tensorrt.einsum {equation = "acbd,abcd->abd"} ins(%arg0, %arg1 : tensor<2x20x12x64xf32>, tensor<2x12x20x1xf32>) -> tensor<2x12x64xf32>
+  %1 = tensorrt.reshape %0 : tensor<2x12x64xf32> to tensor<2x1x768xf32>
+  return %1 : tensor<2x1x768xf32>
+}

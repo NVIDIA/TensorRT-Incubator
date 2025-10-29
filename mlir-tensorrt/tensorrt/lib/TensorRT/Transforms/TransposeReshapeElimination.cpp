@@ -1327,16 +1327,21 @@ public:
     auto reshapeInShape = op.getInput().getType().getShape();
     auto reshapeOutShape = op.getResult().getType().getShape();
 
+    struct ReshapeInfo {
+      std::string newAxes;
+      SmallVector<int64_t> newShape;
+      SmallVector<int64_t> oldShape;
+    };
+
     bool hasNonTrivalReshape = false;
-    std::unordered_map<std::string,
-                       std::pair<std::string, SmallVector<int64_t>>>
-        inputToReshapedMap;
+    std::unordered_map<std::string, ReshapeInfo> inputToReshapedMap;
     size_t inputNumElems = 1;
     size_t outputNumElems = 1;
     std::string inAxes = "";
     std::string outAxes = "";
     std::string prevInAxes = "";
     SmallVector<int64_t> outShape;
+    SmallVector<int64_t> inShape;
     for (size_t i = 0, j = 0; i < reshapeOutShape.size(); i++) {
       if (reshapeOutShape[i] == 0) {
         return failure(/* 0-shape not supported */);
@@ -1349,6 +1354,7 @@ public:
       outAxes += c;
       while (j < reshapeInShape.size() && inputNumElems < outputNumElems) {
         inputNumElems *= reshapeInShape[j];
+        inShape.push_back(reshapeInShape[j]);
         inAxes += equation.rhs[j++];
       }
       if (inputNumElems == outputNumElems) {
@@ -1356,19 +1362,22 @@ public:
           if (!prevInAxes.empty() && reshapeOutShape[i] == 1 &&
               outAxes.size() == 1) {
             auto &p = inputToReshapedMap[prevInAxes];
-            p.first.push_back(c);
-            p.second.push_back(1);
-            if (prevInAxes.size() != p.first.size())
+            p.newAxes.push_back(c);
+            p.newShape.push_back(1);
+            if (prevInAxes.size() != p.newAxes.size())
               hasNonTrivalReshape = true;
             outAxes = "";
             outShape.clear();
+            inShape.clear();
           }
           continue;
         }
         if (inAxes.size() != outAxes.size())
           hasNonTrivalReshape = true;
-        inputToReshapedMap[inAxes] = {outAxes, outShape};
+        inputToReshapedMap[inAxes] = ReshapeInfo{
+            .newAxes = outAxes, .newShape = outShape, .oldShape = inShape};
         outShape.clear();
+        inShape.clear();
         prevInAxes = inAxes;
         inAxes = "";
         outAxes = "";
@@ -1405,12 +1414,60 @@ public:
     for (char c : equation.rhs) {
       assert(charToGroup.count(c));
       if (charToGroup[c][0] == c)
-        newEquation.rhs += inputToReshapedMap[charToGroup[c]].first;
+        newEquation.rhs += inputToReshapedMap[charToGroup[c]].newAxes;
     }
 
     // generate a `x` -> `reshape(transpose(x))` if necessary
     SmallVector<Value> newInputs;
     newEquation.lhsParts.clear();
+
+    LLVM_DEBUG({
+      std::stringstream out;
+      out << "==== Einsum Reshape/Transpose Pushdown Debug ====\n";
+      for (const auto &entry : charToGroup) {
+        out << "  charToGroup[" << entry.first << "] = " << entry.second
+            << "\n";
+      }
+      for (const auto &entry : inputToReshapedMap) {
+        out << "  inputToReshapedMap[" << entry.first
+            << "]: axes = " << entry.second.newAxes << ", shape = [";
+        for (size_t si = 0; si < entry.second.newShape.size(); ++si) {
+          out << entry.second.newShape[si];
+          if (si + 1 < entry.second.newShape.size())
+            out << ", ";
+        }
+        out << "], old shape = [";
+        for (size_t si = 0; si < entry.second.oldShape.size(); ++si) {
+          out << entry.second.oldShape[si];
+          if (si + 1 < entry.second.oldShape.size())
+            out << ", ";
+        }
+        out << "]";
+        out << "\n";
+      }
+      DBGS() << out.str();
+    });
+
+    // check that the input shape for all of the inputs match (that there are no
+    // broadcasts happening on some inputs)
+    for (auto &[inputAxes, reshapeInfo] : inputToReshapedMap) {
+      // this is a single axis, so broadcasting is allowed in this case, hence
+      // do not check
+      if (inputAxes.size() == 1 && reshapeInfo.newAxes.size() == 1)
+        continue;
+
+      for (size_t i = 0; i < einsum.getInputs().size(); i++) {
+        auto inputShape =
+            cast<RankedTensorType>(einsum.getInputs()[i].getType()).getShape();
+        for (size_t j = 0; j < inputAxes.size(); j++) {
+          size_t pos = equation.lhsParts[i].find(inputAxes[j]);
+          if (pos != std::string::npos &&
+              inputShape[pos] != reshapeInfo.oldShape[j])
+            return failure(/* input shape does not match output shape*/);
+        }
+      }
+    }
+
     for (size_t i = 0; i < einsum.getInputs().size(); i++) {
       Value input = einsum.getInputs()[i];
       auto inputType = cast<RankedTensorType>(input.getType());
@@ -1434,11 +1491,34 @@ public:
           // group
           for (char c : group->second)
             newInputTranspose.push_back(equation.lhsParts[i].find(c));
-          newInputEquation += inputToReshapedMap[group->second].first;
-          for (int64_t v : inputToReshapedMap[group->second].second)
+          newInputEquation += inputToReshapedMap[group->second].newAxes;
+          for (int64_t v : inputToReshapedMap[group->second].newShape)
             newInputShape.push_back(v);
         }
       }
+
+      // Debug print for this input's result
+      LLVM_DEBUG({
+        std::stringstream out;
+        out << "Input #" << i << "  orig eq: " << equation.lhsParts[i]
+            << "  new eq: " << newInputEquation << "\n";
+        out << "  newInputTranspose: [";
+        for (size_t ti = 0; ti < newInputTranspose.size(); ++ti) {
+          out << newInputTranspose[ti];
+          if (ti + 1 < newInputTranspose.size())
+            out << ", ";
+        }
+        out << "]\n";
+        out << "  newInputShape: [";
+        for (size_t si = 0; si < newInputShape.size(); ++si) {
+          out << newInputShape[si];
+          if (si + 1 < newInputShape.size())
+            out << ", ";
+        }
+        out << "]\n";
+        DBGS() << out.str() << "\n";
+      });
+
       auto newTranspose = rewriter.createOrFold<tensorrt::TransposeOp>(
           op.getLoc(), input,
           AffineMap::getPermutationMap(newInputTranspose,
@@ -1449,6 +1529,8 @@ public:
       newInputs.push_back(newReshape);
       newEquation.lhsParts.push_back(newInputEquation);
     }
+    LLVM_DEBUG(
+        { DBGS() << "===============================================\n"; });
 
     std::string newEquationStr = newEquation.generateEquation();
 
