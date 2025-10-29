@@ -23,7 +23,9 @@ import nvtripy as tp
 import pytest
 from nvtripy.export import PUBLIC_APIS
 from nvtripy.frontend import wrappers
-from nvtripy.frontend.wrappers import DATA_TYPE_CONSTRAINTS
+from nvtripy.frontend.constraints.fetcher import GetDataType, GetInput, GetReturn
+from nvtripy.frontend.constraints.logic import And, Equal, NotEqual, NotOneOf, OneOf, Or
+from nvtripy.frontend.wrappers import DATA_TYPE_CONSTRAINTS, _doc_str
 from tests import helper
 
 # Get all functions/methods which have tensors in the type signature
@@ -57,6 +59,73 @@ def test_all_public_apis_verified(api):
 @wrappers.interface(dtype_constraints={"tensors": "T1"}, dtype_variables={"T1": ["float32"]})
 def sequence_func(tensors: List[tp.Tensor]):
     return
+
+
+class TestDocStr:
+    def test_basic_types(self):
+        assert _doc_str(tp.float32) == ":class:`float32`"
+        assert _doc_str(GetInput("x")) == "``x``"
+        assert _doc_str(GetReturn(0)) == "``return[0]``"
+
+    def test_get_datatype(self):
+        assert _doc_str(GetDataType(GetInput("x"))) == "``x.dtype``"
+        assert _doc_str(GetDataType(GetReturn(0))) == "``return[0].dtype``"
+
+    def test_one_of_and_not_one_of(self):
+        input_x = GetInput("x")
+
+        assert (
+            _doc_str(OneOf(input_x, [tp.float32, tp.float16])) == "``x`` is one of [:class:`float32`, :class:`float16`]"
+        )
+        assert _doc_str(NotOneOf(input_x, [tp.int8, tp.int32])) == "``x`` is not one of [:class:`int8`, :class:`int32`]"
+
+    def test_equal_and_not_equal(self):
+        input_a = GetInput("a")
+        input_b = GetInput("b")
+
+        assert _doc_str(Equal(input_a, input_b)) == "``a`` == ``b``"
+        assert _doc_str(Equal(input_a, tp.float32)) == "``a`` == :class:`float32`"
+        assert _doc_str(NotEqual(input_a, input_b)) == "``a`` != ``b``"
+
+    def test_and_constraint(self):
+        constraint1 = OneOf(GetInput("a"), [tp.float32])
+        constraint2 = OneOf(GetInput("b"), [tp.int32])
+
+        assert (
+            _doc_str(And(constraint1, constraint2))
+            == "- ``a`` is one of [:class:`float32`]\n- ``b`` is one of [:class:`int32`]"
+        )
+
+    def test_or_constraint(self):
+        input_a = GetInput("a")
+        or_constraint = Or(Equal(input_a, tp.float32), Equal(input_a, tp.float16))
+
+        assert _doc_str(or_constraint) == "(``a`` == :class:`float32` or ``a`` == :class:`float16`)"
+
+    def test_nested_constraints(self):
+        input_a = GetInput("a")
+        input_b = GetInput("b")
+
+        or_part = Or(Equal(input_a, tp.float32), Equal(input_a, tp.float16))
+        and_constraint = And(or_part, OneOf(input_b, [tp.int32]))
+
+        assert (
+            _doc_str(and_constraint)
+            == "- (``a`` == :class:`float32` or ``a`` == :class:`float16`)\n- ``b`` is one of [:class:`int32`]"
+        )
+
+    def test_complex_real_world_constraint(self):
+        input_a = GetInput("input")
+        input_b = GetInput("other")
+        dtype_a = GetDataType(input_a)
+        dtype_b = GetDataType(input_b)
+
+        and_constraint = And(Equal(dtype_a, dtype_b), OneOf(dtype_a, [tp.float32, tp.float16]))
+
+        assert (
+            _doc_str(and_constraint)
+            == "- ``input.dtype`` == ``other.dtype``\n- ``input.dtype`` is one of [:class:`float32`, :class:`float16`]"
+        )
 
 
 class TestDtypes:
