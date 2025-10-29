@@ -45,6 +45,7 @@
 
 using namespace mlir;
 using namespace mlir::executor;
+static constexpr uint64_t kBitsInByte = 8;
 
 //===----------------------------------------------------------------------===//
 // RuntimeBuiltinInterface
@@ -218,7 +219,6 @@ static void printFuncResults(AsmPrinter &p, ArrayRef<Type> params) {
 
 static constexpr uint64_t kDefaultPointerSizeBits = 64;
 static constexpr uint64_t kDefaultPointerAlignment = 8;
-static constexpr uint64_t kBitsInByte = 8;
 
 llvm::TypeSize
 PointerType::getTypeSizeInBits(const DataLayout &dataLayout,
@@ -1310,6 +1310,90 @@ LogicalResult AllocateOp::verify() {
 // ABIRecvOp
 //===----------------------------------------------------------------------===//
 
+/// Returns true if the given type is a sub-byte type, i.e. an integer or float
+/// type with bitwidth less than 8.
+static bool isSubByteType(Type type) {
+  if (!isa<IntegerType, FloatType>(type))
+    return false;
+  return type.getIntOrFloatBitWidth() < kBitsInByte;
+}
+
+/// Returns true if the given element types for memref/tensor types are
+/// compatible for the ABI boundary. See below `areTypesABICompatible` for more
+/// details.
+static bool elementTypesABICompatible(Type valueType, Type abiType) {
+  // If the ABI type is a sub-byte type, then allow the value type to be an
+  // integer representing the storage where the storage type is rounded up to
+  // a whole byte.
+  if (isSubByteType(abiType) && isa<IntegerType>(valueType))
+    return valueType.getIntOrFloatBitWidth() ==
+           llvm::divideCeil(abiType.getIntOrFloatBitWidth(), kBitsInByte) *
+               kBitsInByte;
+  return valueType == abiType;
+}
+
+/// Checks whether the given `valueType` and the `abiType` are compatible. The
+/// `valueType` is the type of the SSA value produced by `executor.abi.recv` or
+/// consumed by `executor.abi.send` while the `abiType` is the corresponding
+/// input or result type referenced in the "ABI function type".
+///
+/// In general, these types should match, but in certain situations we allow
+/// them to differ:
+///
+/// - The "ABI function type" may contain integer type with explicit signedness
+/// semnatics (signed or unsigned) while the `valueType` should always be
+/// signless. Therefore, we say they are compatible if the bitwidths are the
+/// same.
+///
+/// - The "ABI function type" may contain float types like F4E3M1FN which are
+/// passed at the function boundary as integers rounded up to the nearest byte
+/// boundary.
+static bool areTypesABICompatible(Type valueType, Type abiType) {
+  if (valueType == abiType)
+    return true;
+
+  if (isSubByteType(abiType) && isa<IntegerType>(valueType))
+    return elementTypesABICompatible(valueType, abiType);
+
+  if (isa<IntegerType>(abiType)) {
+    if (!isa<IntegerType>(valueType))
+      return false;
+    return valueType.getIntOrFloatBitWidth() == abiType.getIntOrFloatBitWidth();
+  }
+
+  if (isa<IndexType>(abiType)) {
+    // We may not have data layout information attached when this module runs,
+    // so allow either 32bit or 64 bit. Any discrepencies with the data layout
+    // will be caught at translation time.
+    if (!isa<IntegerType>(valueType))
+      return false;
+    const unsigned int valueBitWidth = valueType.getIntOrFloatBitWidth();
+    return valueBitWidth == 32 || valueBitWidth == 64;
+  }
+
+  if (auto memrefABIType = dyn_cast<MemRefType>(abiType)) {
+    auto memrefType = dyn_cast<MemRefType>(valueType);
+    if (!memrefType)
+      return false;
+    return elementTypesABICompatible(memrefType.getElementType(),
+                                     memrefABIType.getElementType()) &&
+           memrefType.getShape() == memrefABIType.getShape() &&
+           memrefType.getLayout() == memrefABIType.getLayout();
+  }
+
+  if (auto tensorABIType = dyn_cast<RankedTensorType>(abiType)) {
+    auto tensorType = dyn_cast<RankedTensorType>(valueType);
+    if (!tensorType)
+      return false;
+    return elementTypesABICompatible(tensorType.getElementType(),
+                                     tensorABIType.getElementType()) &&
+           tensorType.getShape() == tensorABIType.getShape() &&
+           tensorType.getEncoding() == tensorABIType.getEncoding();
+  }
+
+  return false;
+}
+
 LogicalResult ABIRecvOp::verify() {
   auto blockArg = dyn_cast<BlockArgument>(getPtr());
   if (!blockArg)
@@ -1330,9 +1414,9 @@ LogicalResult ABIRecvOp::verify() {
     return emitOpError() << "expected " << ExecutorDialect::kArgABIAttrName
                          << " to be #executor.arg<...>";
 
-  if (getResult().getType() != argABIAttr.getValueType())
+  if (!areTypesABICompatible(getResult().getType(), argABIAttr.getValueType()))
     return emitOpError() << "result type " << getResult().getType()
-                         << " must match ABI value type "
+                         << " is incompatible with ABI value type "
                          << argABIAttr.getValueType();
 
   return success();
@@ -1341,28 +1425,6 @@ LogicalResult ABIRecvOp::verify() {
 //===----------------------------------------------------------------------===//
 // ABISendOp
 //===----------------------------------------------------------------------===//
-
-static bool areTypesABICompatible(Type sendType, Type abiType) {
-  if (isa<FloatType>(abiType)) {
-    if (isa<FloatType>(sendType))
-      return sendType == abiType;
-    if (abiType.getIntOrFloatBitWidth() % 8 == 0)
-      return false;
-    auto sendIntegerType = dyn_cast<IntegerType>(sendType);
-    if (!sendIntegerType)
-      return false;
-    return sendIntegerType.getIntOrFloatBitWidth() ==
-           llvm::divideCeil(abiType.getIntOrFloatBitWidth(), 8) * 8;
-  }
-  if (isa<IntegerType>(sendType)) {
-    // We allow having signful abiType as long as sendType is signless.
-    if (sendType.isSignlessInteger())
-      return sendType.getIntOrFloatBitWidth() ==
-             abiType.getIntOrFloatBitWidth();
-    return sendType == abiType;
-  }
-  return sendType == abiType;
-}
 
 LogicalResult ABISendOp::verify() {
   auto blockArg = dyn_cast<BlockArgument>(getPtr());
@@ -1389,7 +1451,7 @@ LogicalResult ABISendOp::verify() {
 
   if (!areTypesABICompatible(getValue().getType(), argABIAttr.getValueType()))
     return emitOpError() << "value type " << getValue().getType()
-                         << " must match ABI value type "
+                         << " is incompatible with ABI value type "
                          << argABIAttr.getValueType();
 
   return success();
