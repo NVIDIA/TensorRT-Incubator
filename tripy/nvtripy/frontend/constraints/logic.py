@@ -27,6 +27,7 @@ class Logic(Constraints):
     Represents logical operations on constraints.
     """
 
+    # When the constraint is not met, the error details should complete the sentence: "Expected ..."
     @abstractmethod
     def __call__(self, args: List[Tuple[str, Any]], returns: Optional[Tuple[Any]] = None) -> Result: ...
 
@@ -113,6 +114,7 @@ class Equal(Logic):
         if value1 == value2:
             return Result.ok()
 
+        # TODO (pranavm): If fetcher_or_value is a Fetcher, include its value in the error message.
         return Result.err([f"'{self.fetcher}' to be equal to '{self.fetcher_or_value}' (but it was '{value1}')"])
 
     def __str__(self):
@@ -160,7 +162,7 @@ class And(Logic):
         return "(" + " and ".join(str(constraint) for constraint in self.constraints) + ")"
 
     def inverse(self) -> "Logic":
-        # Apply De Morgan's law: not (A and B) = (not A) or (not B)
+        # De Morgan's law: not (A and B) = (not A) or (not B)
         return Or(*(constraint.inverse() for constraint in self.constraints))
 
 
@@ -181,5 +183,5 @@ class Or(Logic):
         return "(" + " or ".join(str(constraint) for constraint in self.constraints) + ")"
 
     def inverse(self) -> "Logic":
-        # Apply De Morgan's law: not (A or B) = (not A) and (not B)
+        # De Morgan's law: not (A or B) = (not A) and (not B)
         return And(*(constraint.inverse() for constraint in self.constraints))
