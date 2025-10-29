@@ -139,6 +139,6 @@ def get_module_names_to_exclude_from_stack_info():
     or trying to retrieve column information from code.
     """
     import nvtripy.utils.function_registry as function_registry
-    import nvtripy.utils.wrappers as wrappers
+    import nvtripy.frontend.wrappers as wrappers
 
     return {mod.__name__ for mod in [function_registry, wrappers]}
