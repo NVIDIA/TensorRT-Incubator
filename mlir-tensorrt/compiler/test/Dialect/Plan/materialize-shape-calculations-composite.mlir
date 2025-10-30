@@ -1,4 +1,4 @@
-// RUN: mlir-tensorrt-opt %s -split-input-file -plan-materialize-shape-calculations -plan-create-shape-funcs | FileCheck %s --check-prefix=SHAPE
+// RUN: mlir-tensorrt-opt %s -split-input-file -plan-materialize-shape-calculations -plan-create-shape-funcs=abi-version=0 | FileCheck %s --check-prefix=SHAPE
 // RUN: mlir-tensorrt-opt %s -split-input-file -plan-materialize-shape-calculations | FileCheck %s
 
 

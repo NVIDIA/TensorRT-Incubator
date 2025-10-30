@@ -1,4 +1,4 @@
-//===- BufferizationOpInterfaceImpls.h -------------------------------------===//
+//===- BufferizationOpInterfaceImpls.h -----------------------------------===//
 //
 // SPDX-FileCopyrightText: Copyright 2025 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
@@ -20,8 +20,17 @@
 #ifndef MLIR_EXECUTOR_TRANSFORMS_BUFFERIZATIONOPINTERFACEIMPLS
 #define MLIR_EXECUTOR_TRANSFORMS_BUFFERIZATIONOPINTERFACEIMPLS
 
+namespace llvm {
+struct LogicalResult;
+}
+
 namespace mlir {
 class DialectRegistry;
+class FunctionOpInterface;
+
+namespace bufferization {
+struct BufferizationOptions;
+}
 
 namespace executor {
 
@@ -29,8 +38,13 @@ namespace executor {
 /// dialect operations.
 void registerBufferizationOpInterfaceExternalModels(DialectRegistry &registry);
 
+/// Bufferize the ABI wrapper function type. This should be called on all
+/// Executor ABI wrapper functions as a post-bufferization action.
+llvm::LogicalResult bufferizeABIWrapperFunctionType(
+    FunctionOpInterface abiFuncOp,
+    const bufferization::BufferizationOptions &options);
+
 } // namespace executor
 } // namespace mlir
-
 
 #endif // MLIR_EXECUTOR_TRANSFORMS_BUFFERIZATIONOPINTERFACEIMPLS

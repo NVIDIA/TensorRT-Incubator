@@ -56,7 +56,8 @@ struct ClusterTargetOption;
 /// Creates the segmentation pipeline for StableHLO input. This pass pipeline
 /// performs shape materialization, clustering, and outlining.
 void buildPlanSegmentationPipeline(OpPassManager &pm,
-                                   const plan::ClusteringPassOptions &opts);
+                                   const plan::ClusteringPassOptions &opts,
+                                   int abiVersion);
 
 struct PlanBufferizationOptions {
   /// Force entrypoint functions to return allocations rather than trying to use

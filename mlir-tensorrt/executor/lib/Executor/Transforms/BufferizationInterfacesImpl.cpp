@@ -162,14 +162,37 @@ struct BufferizableOpInterfaceABIRecv
     if (auto blockArg = dyn_cast<BlockArgument>(recvOp.getPtr())) {
       if (auto funcOp = dyn_cast<FunctionOpInterface>(
               blockArg.getOwner()->getParentOp())) {
-        unsigned argIdx = blockArg.getArgNumber();
-        if (auto abiAttr = funcOp.getArgAttrOfType<executor::ArgumentABIAttr>(
-                argIdx, executor::ExecutorDialect::kArgABIAttrName)) {
-          // Create a new ABI attribute with the memref type
+        FailureOr<FunctionType> abiFuncType =
+            executor::abi::getABIFunctionType(funcOp);
+        if (failed(abiFuncType))
+          return failure();
+
+        auto blockArgIt = llvm::find(funcOp.getArguments(), blockArg);
+        assert(blockArgIt != funcOp.getArguments().end() &&
+               "expected block argument to be found in argument list");
+        unsigned argIdx =
+            std::distance(funcOp.getArguments().begin(), blockArgIt);
+
+        if (auto abiAttr = executor::abi::getArgumentABIAttr(funcOp, argIdx)) {
           auto newAbiAttr = abiAttr.cloneWithValueType(memrefType);
-          funcOp.setArgAttr(argIdx, executor::ExecutorDialect::kArgABIAttrName,
-                            newAbiAttr);
+          executor::abi::setArgumentABIAttr(funcOp, blockArg, newAbiAttr);
         }
+
+        // Update the ABI wrapper function type.
+        SmallVector<Type> newArgTypes(abiFuncType->getInputs());
+        SmallVector<Type> newResultTypes(abiFuncType->getResults());
+        if (argIdx < abiFuncType->getNumInputs()) {
+          newArgTypes[argIdx] = memrefType;
+        } else {
+          assert(argIdx - abiFuncType->getNumInputs() <
+                     abiFuncType->getNumResults() &&
+                 "expected output argument");
+          newResultTypes[argIdx - abiFuncType->getNumInputs()] = memrefType;
+        }
+        auto newFuncType =
+            FunctionType::get(funcOp.getContext(), newArgTypes, newResultTypes);
+        funcOp->setAttr(executor::ExecutorDialect::kFuncABIAttrName,
+                        TypeAttr::get(newFuncType));
       }
     }
 
@@ -222,14 +245,30 @@ struct BufferizableOpInterfaceABISend
     if (auto blockArg = dyn_cast<BlockArgument>(sendOp.getPtr())) {
       if (auto funcOp = dyn_cast<FunctionOpInterface>(
               blockArg.getOwner()->getParentOp())) {
-        unsigned argIdx = blockArg.getArgNumber();
-        if (auto abiAttr = funcOp.getArgAttrOfType<executor::ArgumentABIAttr>(
-                argIdx, executor::ExecutorDialect::kArgABIAttrName)) {
-          // Create a new ABI attribute with the memref type
+        FailureOr<FunctionType> abiFuncType =
+            executor::abi::getABIFunctionType(funcOp);
+        if (failed(abiFuncType))
+          return failure();
+
+        std::optional<unsigned> resultIdx =
+            executor::abi::isOutputArgument(funcOp, blockArg);
+        if (!resultIdx.has_value())
+          return failure();
+
+        // Create a new ABI attribute with the memref type
+        if (auto abiAttr =
+                executor::abi::getArgumentABIAttr(funcOp, blockArg)) {
           auto newAbiAttr = abiAttr.cloneWithValueType(memrefType);
-          funcOp.setArgAttr(argIdx, executor::ExecutorDialect::kArgABIAttrName,
-                            newAbiAttr);
+          executor::abi::setArgumentABIAttr(funcOp, blockArg, newAbiAttr);
         }
+
+        // Update the ABI wrapper function type.
+        SmallVector<Type> newResultTypes(abiFuncType->getResults());
+        newResultTypes[resultIdx.value()] = memrefType;
+        auto newFuncType = FunctionType::get(
+            funcOp.getContext(), abiFuncType->getInputs(), newResultTypes);
+        funcOp->setAttr(executor::ExecutorDialect::kFuncABIAttrName,
+                        TypeAttr::get(newFuncType));
       }
     }
 
@@ -243,6 +282,63 @@ struct BufferizableOpInterfaceABISend
 } // namespace
 
 namespace mlir::executor {
+
+LogicalResult
+bufferizeABIWrapperFunctionType(FunctionOpInterface abiFuncOp,
+                                const BufferizationOptions &options) {
+  FailureOr<FunctionType> abiFuncType =
+      executor::abi::getABIFunctionType(abiFuncOp);
+  if (failed(abiFuncType))
+    return failure();
+
+  SmallVector<Type> newArgTypes(abiFuncType->getInputs());
+  SmallVector<Type> newResultTypes(abiFuncType->getResults());
+  for (auto [idx, arg] : llvm::enumerate(abiFuncOp.getArguments())) {
+    const bool isInput = idx < abiFuncType->getNumInputs();
+    assert((isInput && idx < newArgTypes.size()) ||
+           (!isInput &&
+            idx - abiFuncType->getNumInputs() < newResultTypes.size()) &&
+               "function is not compatible with ABI function type attribute");
+    Type abiValueType = isInput
+                            ? newArgTypes[idx]
+                            : newResultTypes[idx - abiFuncType->getNumInputs()];
+
+    if (executor::ArgumentABIAttr abiAttr =
+            executor::abi::getArgumentABIAttr(abiFuncOp, idx)) {
+
+      // It's possible that if the argument is unused (e.g. no
+      // `executor.abi.recv|send` ops), then the ABI attribute will still have a
+      // `tensor` type. Fix that here.
+      if (auto tensorType =
+              dyn_cast<RankedTensorType>(abiAttr.getValueType())) {
+        std::optional<Attribute> memorySpace =
+            options.defaultMemorySpaceFn(tensorType);
+        if (!memorySpace)
+          return emitError(arg.getLoc())
+                 << "unable to determine the memory space for unused argument";
+        BaseMemRefType memrefType =
+            bufferization::getMemRefTypeWithStaticIdentityLayout(tensorType,
+                                                                 *memorySpace);
+        abiAttr = abiAttr.cloneWithValueType(memrefType);
+        executor::abi::setArgumentABIAttr(abiFuncOp, arg, abiAttr);
+      }
+
+      abiValueType = abiAttr.getValueType();
+    } else {
+      abiValueType = arg.getType();
+    }
+    if (isInput) {
+      newArgTypes[idx] = abiValueType;
+    } else {
+      newResultTypes[idx - abiFuncType->getNumInputs()] = abiValueType;
+    }
+  }
+  abiFuncOp->setAttr(executor::ExecutorDialect::kFuncABIAttrName,
+                     TypeAttr::get(FunctionType::get(
+                         abiFuncOp.getContext(), newArgTypes, newResultTypes)));
+  return success();
+}
+
 void registerBufferizationOpInterfaceExternalModels(DialectRegistry &registry) {
   registry.addExtension(+[](MLIRContext *ctx,
                             executor::ExecutorDialect *dialect) {

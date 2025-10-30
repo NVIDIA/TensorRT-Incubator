@@ -256,7 +256,15 @@ def PlanCreateShapeFuncsPass : Pass<"plan-create-shape-funcs",
   }];
 
   let dependentDialects = [
-    "::mlir::plan::PlanDialect"
+    "::mlir::plan::PlanDialect",
+    "::mlir::executor::ExecutorDialect"
+  ];
+
+  let options = [
+    Option<"forceUndefOutputArgs", "force-undef-output-args", "bool", "false",
+      "force undef ABI attribute to all output arguments">,
+    Option<"abiVersion", "abi-version", "int", "1",
+      "the version of the ABI to use">,
   ];
 }
 

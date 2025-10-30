@@ -29,7 +29,7 @@ func.func @from_elements_staging_buffer(%arg0: f32, %arg1: f32) -> tensor<2xf32>
 
 // ABI-LABEL: func.func public @from_elements_staging_buffer
 //  ABI-SAME: (%[[arg0:.+]]: f32, %[[arg1:.+]]: f32, %[[arg2:.+]]: !executor.ptr<host> {executor.abi = #executor.arg<byref, memref<2xf32, #plan.memory_space<device>>>, executor.result_slot = 0 : i32})
-//  ABI-SAME: attributes {executor.func_abi = (f32, f32) -> tensor<2xf32>}
+//  ABI-SAME: attributes {executor.func_abi = (f32, f32) -> memref<2xf32, #plan.memory_space<device>>}
 //   ABI-DAG:     %[[c1:.+]] = arith.constant 1 : index
 //   ABI-DAG:     %[[c0:.+]] = arith.constant 0 : index
 //   ABI-DAG:     %[[v0:.+]] = executor.abi.recv %[[arg2]] : memref<2xf32, #plan.memory_space<device>>
@@ -75,7 +75,7 @@ func.func @small_host_tensor_constant(%arg0: tensor<?x?xf32>) -> (tensor<?x?x?x?
 // ABI-LABEL: func.func public @small_host_tensor_constant
 //  ABI-SAME: (%[[arg0:.+]]: !executor.ptr<host> {executor.abi = #executor.arg<byval, memref<?x?xf32, #plan.memory_space<device>>>},
 //  ABI-SAME:  %[[arg1:.+]]: !executor.ptr<host> {executor.abi = #executor.arg<byref, memref<?x?x?x?xf32, #plan.memory_space<device>>>, executor.result_slot = 0 : i32})
-//  ABI-SAME: attributes {executor.func_abi = (tensor<?x?xf32>) -> tensor<?x?x?x?xf32>}
+//  ABI-SAME: attributes {executor.func_abi = (memref<?x?xf32, #plan.memory_space<device>>) -> memref<?x?x?x?xf32, #plan.memory_space<device>>}
 //       ABI:     %[[v0:.+]] = executor.abi.recv %[[arg1]] : memref<?x?x?x?xf32, #plan.memory_space<device>>
 //       ABI:     %[[global:.+]] = memref.get_global {{.*}} : memref<4xindex, #plan.memory_space<host>>
 //       ABI:     %[[v2:.+]] = executor.abi.recv %[[arg0]] : memref<?x?xf32, #plan.memory_space<device>>
@@ -271,7 +271,7 @@ func.func @while_loop_device_tensor_from_elements(%arg0: f32) -> tensor<1xf32> {
 
 // ABI-LABEL: func.func public @while_loop_device_tensor_from_elements
 //  ABI-SAME: (%[[arg0:.+]]: f32, %[[arg1:.+]]: !executor.ptr<host> {executor.abi = #executor.arg<byref, memref<1xf32, #plan.memory_space<device>>>, executor.result_slot = 0 : i32})
-//  ABI-SAME: attributes {executor.func_abi = (f32) -> tensor<1xf32>}
+//  ABI-SAME: attributes {executor.func_abi = (f32) -> memref<1xf32, #plan.memory_space<device>>}
 //       ABI:     %[[c0:.+]] = arith.constant 0 : index
 //       ABI:     %[[v0:.+]] = executor.abi.recv %[[arg1]] : memref<1xf32, #plan.memory_space<device>>
 //       ABI:     %[[alloc:.+]] = memref.alloc() {{.*}} : memref<1xf32, #plan.memory_space<host_pinned>>

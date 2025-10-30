@@ -26,6 +26,7 @@
 /// functions are public after the pass.
 ///
 //===----------------------------------------------------------------------===//
+#include "mlir-executor/Executor/Transforms/GenerateABIWrappers.h"
 #include "mlir-executor/Executor/IR/Executor.h"
 #include "mlir-executor/Executor/Transforms/Passes.h"
 #include "mlir/Analysis/DataLayoutAnalysis.h"
@@ -99,6 +100,92 @@ createABISignature(FunctionOpInterface func,
   return FunctionType::get(funcType.getContext(), argTypes, {});
 }
 
+FailureOr<func::FuncOp>
+executor::createABIWrapperFunction(RewriterBase &rewriter, func::FuncOp func,
+                                   SymbolTable &topLevelSymbolTable,
+                                   bool forceUndefOutputArgs) {
+  OpBuilder::InsertionGuard g(rewriter);
+  std::string originalFuncName = func.getName().str();
+  if (failed(
+          topLevelSymbolTable.rename(func, func.getName().str() + "_impl"))) {
+    return emitError(func.getLoc())
+           << "failed to rename function " << func.getName() << " to "
+           << func.getName().str() + "_impl";
+  }
+
+  func.setPrivate();
+  func.setNoInline(false);
+
+  FunctionType funcType = func.getFunctionType();
+  SmallVector<Attribute> argAttrs;
+  FailureOr<FunctionType> abiFuncType =
+      createABISignature(func, argAttrs, forceUndefOutputArgs);
+  if (failed(abiFuncType))
+    return emitError(func.getLoc())
+           << "failed to create ABI signature for function " << func.getName();
+
+  rewriter.setInsertionPointAfter(func);
+  func::FuncOp newFunc = rewriter.create<func::FuncOp>(
+      func.getLoc(), originalFuncName, *abiFuncType,
+      rewriter.getStringAttr("public"), rewriter.getArrayAttr(argAttrs),
+      ArrayAttr{},
+      /*no_inline=*/false);
+
+  newFunc->setAttr(ExecutorDialect::kFuncABIAttrName, TypeAttr::get(funcType));
+
+  SmallVector<Location> argLocs;
+  for (auto arg : func.getArguments())
+    argLocs.push_back(arg.getLoc());
+  argLocs.append(funcType.getNumResults(), func.getLoc());
+
+  assert(argLocs.size() == abiFuncType->getNumInputs());
+  Block *newBlock =
+      rewriter.createBlock(&newFunc.getBody(), newFunc.getBody().end(),
+                           abiFuncType->getInputs(), argLocs);
+  rewriter.setInsertionPointToStart(newBlock);
+
+  SmallVector<Value> callArgs;
+  TypeRange originalArgTypes = funcType.getInputs();
+  for (auto [arg, originalType] : llvm::zip_equal(
+           newFunc.getArguments().take_front(funcType.getNumInputs()),
+           originalArgTypes)) {
+
+    if (arg.getType() == originalType) {
+      callArgs.push_back(arg);
+      continue;
+    }
+    Type valueType = originalType;
+    if (!isa<ComplexType, MemRefType, RankedTensorType, TableType>(
+            originalType)) {
+      return emitError(arg.getLoc()) << "type not supported: " << originalType;
+    }
+    assert(isa<executor::PointerType>(arg.getType()) &&
+           "expected pointer type");
+
+    auto recvOp =
+        rewriter.create<executor::ABIRecvOp>(arg.getLoc(), valueType, arg);
+
+    Value callArg = recvOp.getResult();
+    if (callArg.getType() != originalType)
+      callArg = rewriter
+                    .create<UnrealizedConversionCastOp>(arg.getLoc(),
+                                                        originalType, callArg)
+                    .getResult(0);
+    callArgs.push_back(callArg);
+  }
+
+  auto callOp = rewriter.create<func::CallOp>(func.getLoc(), func, callArgs);
+
+  for (auto [result, outArg] : llvm::zip_equal(
+           callOp.getResults(),
+           newFunc.getArguments().take_back(funcType.getNumResults()))) {
+    assert(isa<executor::PointerType>(outArg.getType()));
+    rewriter.create<executor::ABISendOp>(result.getLoc(), result, outArg);
+  }
+  rewriter.create<func::ReturnOp>(func.getLoc());
+  return newFunc;
+}
+
 namespace {
 class ExecutorGenerateABIWrappersPass
     : public executor::impl::ExecutorGenerateABIWrappersPassBase<
@@ -120,94 +207,14 @@ class ExecutorGenerateABIWrappersPass
       funcs.push_back(func);
     }
 
-    SmallVector<std::string> originalFuncNames;
     for (auto func : funcs) {
-      originalFuncNames.push_back(func.getName().str());
-      if (failed(topLevelSymbolTable.rename(func,
-                                            func.getName().str() + "_impl"))) {
+      if (failed(createABIWrapperFunction(rewriter, func, topLevelSymbolTable,
+                                          forceUndefOutputArgs))) {
         emitError(func.getLoc())
-            << "failed to rename function " << func.getName() << " to "
-            << func.getName().str() + "_impl";
+            << "failed to create ABI wrapper function for function "
+            << func.getName();
         return signalPassFailure();
       }
-    }
-
-    for (auto [func, originalFuncName] :
-         llvm::zip_equal(funcs, originalFuncNames)) {
-      func.setPrivate();
-      func.setNoInline(false);
-
-      FunctionType funcType = func.getFunctionType();
-      SmallVector<Attribute> argAttrs;
-      FailureOr<FunctionType> abiFuncType =
-          createABISignature(func, argAttrs, forceUndefOutputArgs);
-      if (failed(abiFuncType)) {
-        emitError(func.getLoc())
-            << "failed to create ABI signature for function " << func.getName();
-        return signalPassFailure();
-      }
-      rewriter.setInsertionPointAfter(func);
-      func::FuncOp newFunc = rewriter.create<func::FuncOp>(
-          func.getLoc(), originalFuncName, *abiFuncType,
-          rewriter.getStringAttr("public"), rewriter.getArrayAttr(argAttrs),
-          ArrayAttr{},
-          /*no_inline=*/false);
-
-      newFunc->setAttr(ExecutorDialect::kFuncABIAttrName,
-                       TypeAttr::get(funcType));
-
-      SmallVector<Location> argLocs;
-      for (auto arg : func.getArguments())
-        argLocs.push_back(arg.getLoc());
-      argLocs.append(funcType.getNumResults(), func.getLoc());
-
-      assert(argLocs.size() == abiFuncType->getNumInputs());
-      Block *newBlock =
-          rewriter.createBlock(&newFunc.getBody(), newFunc.getBody().end(),
-                               abiFuncType->getInputs(), argLocs);
-      rewriter.setInsertionPointToStart(newBlock);
-
-      SmallVector<Value> callArgs;
-      TypeRange originalArgTypes = funcType.getInputs();
-      for (auto [arg, originalType] : llvm::zip_equal(
-               newFunc.getArguments().take_front(funcType.getNumInputs()),
-               originalArgTypes)) {
-
-        if (arg.getType() == originalType) {
-          callArgs.push_back(arg);
-          continue;
-        }
-        Type valueType = originalType;
-        if (!isa<ComplexType, MemRefType, RankedTensorType, TableType>(
-                originalType)) {
-          emitError(arg.getLoc()) << "type not supported: " << originalType;
-          return signalPassFailure();
-        }
-        assert(isa<executor::PointerType>(arg.getType()) &&
-               "expected pointer type");
-
-        auto recvOp =
-            rewriter.create<executor::ABIRecvOp>(arg.getLoc(), valueType, arg);
-
-        Value callArg = recvOp.getResult();
-        if (callArg.getType() != originalType)
-          callArg = rewriter
-                        .create<UnrealizedConversionCastOp>(
-                            arg.getLoc(), originalType, callArg)
-                        .getResult(0);
-        callArgs.push_back(callArg);
-      }
-
-      auto callOp =
-          rewriter.create<func::CallOp>(func.getLoc(), func, callArgs);
-
-      for (auto [result, outArg] : llvm::zip_equal(
-               callOp.getResults(),
-               newFunc.getArguments().take_back(funcType.getNumResults()))) {
-        assert(isa<executor::PointerType>(outArg.getType()));
-        rewriter.create<executor::ABISendOp>(result.getLoc(), result, outArg);
-      }
-      rewriter.create<func::ReturnOp>(func.getLoc());
     }
   }
 };

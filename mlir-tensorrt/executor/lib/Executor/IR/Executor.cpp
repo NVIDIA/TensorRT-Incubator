@@ -1321,15 +1321,24 @@ static bool isSubByteType(Type type) {
 /// Returns true if the given element types for memref/tensor types are
 /// compatible for the ABI boundary. See below `areTypesABICompatible` for more
 /// details.
-static bool elementTypesABICompatible(Type valueType, Type abiType) {
-  // If the ABI type is a sub-byte type, then allow the value type to be an
-  // integer representing the storage where the storage type is rounded up to
-  // a whole byte.
+static bool areScalarTypesABICompatible(Type valueType, Type abiType) {
+  if (valueType == abiType)
+    return true;
   if (isSubByteType(abiType) && isa<IntegerType>(valueType))
     return valueType.getIntOrFloatBitWidth() ==
            llvm::divideCeil(abiType.getIntOrFloatBitWidth(), kBitsInByte) *
                kBitsInByte;
-  return valueType == abiType;
+  if (isa<IntegerType>(abiType) && isa<IntegerType>(valueType))
+    return valueType.getIntOrFloatBitWidth() == abiType.getIntOrFloatBitWidth();
+
+  if (isa<IndexType>(abiType)) {
+    if (!isa<IntegerType>(valueType))
+      return false;
+    return valueType.getIntOrFloatBitWidth() == 32 ||
+           valueType.getIntOrFloatBitWidth() == 64;
+  }
+
+  return false;
 }
 
 /// Checks whether the given `valueType` and the `abiType` are compatible. The
@@ -1352,31 +1361,19 @@ static bool areTypesABICompatible(Type valueType, Type abiType) {
   if (valueType == abiType)
     return true;
 
-  if (isSubByteType(abiType) && isa<IntegerType>(valueType))
-    return elementTypesABICompatible(valueType, abiType);
+  auto isScalarType = [](Type type) {
+    return isa<IntegerType, FloatType, IndexType, ComplexType>(type);
+  };
 
-  if (isa<IntegerType>(abiType)) {
-    if (!isa<IntegerType>(valueType))
-      return false;
-    return valueType.getIntOrFloatBitWidth() == abiType.getIntOrFloatBitWidth();
-  }
-
-  if (isa<IndexType>(abiType)) {
-    // We may not have data layout information attached when this module runs,
-    // so allow either 32bit or 64 bit. Any discrepencies with the data layout
-    // will be caught at translation time.
-    if (!isa<IntegerType>(valueType))
-      return false;
-    const unsigned int valueBitWidth = valueType.getIntOrFloatBitWidth();
-    return valueBitWidth == 32 || valueBitWidth == 64;
-  }
+  if (isScalarType(abiType) && isScalarType(valueType))
+    return areScalarTypesABICompatible(valueType, abiType);
 
   if (auto memrefABIType = dyn_cast<MemRefType>(abiType)) {
     auto memrefType = dyn_cast<MemRefType>(valueType);
     if (!memrefType)
       return false;
-    return elementTypesABICompatible(memrefType.getElementType(),
-                                     memrefABIType.getElementType()) &&
+    return areScalarTypesABICompatible(memrefType.getElementType(),
+                                       memrefABIType.getElementType()) &&
            memrefType.getShape() == memrefABIType.getShape() &&
            memrefType.getLayout() == memrefABIType.getLayout();
   }
@@ -1385,8 +1382,8 @@ static bool areTypesABICompatible(Type valueType, Type abiType) {
     auto tensorType = dyn_cast<RankedTensorType>(valueType);
     if (!tensorType)
       return false;
-    return elementTypesABICompatible(tensorType.getElementType(),
-                                     tensorABIType.getElementType()) &&
+    return areScalarTypesABICompatible(tensorType.getElementType(),
+                                       tensorABIType.getElementType()) &&
            tensorType.getShape() == tensorABIType.getShape() &&
            tensorType.getEncoding() == tensorABIType.getEncoding();
   }

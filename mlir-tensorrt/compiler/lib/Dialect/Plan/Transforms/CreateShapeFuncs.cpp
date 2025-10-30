@@ -1,6 +1,6 @@
 //===- CreateShapeFuncs.cpp -----------------------------------------------===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -21,6 +21,9 @@
 /// Implementation of the `plan-create-shape-funcs` pass.
 ///
 //===----------------------------------------------------------------------===//
+#include "mlir-executor/Executor/IR/Executor.h"
+#include "mlir-executor/Executor/IR/ExecutorAttributes.h"
+#include "mlir-executor/Executor/Transforms/GenerateABIWrappers.h"
 #include "mlir-tensorrt-dialect/Analysis/TensorKindAnalysis.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
@@ -142,6 +145,13 @@ static bool needsShapeFunc(func::FuncOp func) {
       return true;
     return false;
   };
+
+  if (executor::abi::isABIWrapperFunction(func)) {
+    FailureOr<FunctionType> abiFuncType =
+        mlir::executor::abi::getABIFunctionType(func);
+    assert(succeeded(abiFuncType) && "expected ABI function type");
+    return llvm::any_of(abiFuncType->getResults(), isDynamic);
+  }
 
   return llvm::any_of(func.getFunctionType().getResults(), isDynamic);
 }
@@ -269,13 +279,23 @@ createFuncFromCluster(RewriterBase &b, Location loc,
   for (auto [inp, arg] : llvm::zip(clusterIO.inputs, fnOp.getArguments())) {
     bvm.map(inp, arg);
 
+    auto maybeGetFuncArg = [&](Value v) {
+      if (BlockArgument blockArg = dyn_cast<BlockArgument>(v)) {
+        if (isa<func::FuncOp>(blockArg.getOwner()->getParentOp()))
+          return blockArg;
+        return BlockArgument();
+      }
+      if (auto recvOp = v.getDefiningOp<executor::ABIRecvOp>())
+        return cast<BlockArgument>(recvOp.getPtr());
+      return BlockArgument();
+    };
+
     // If the function argument mapped to a scalar input or dimension of an
     // argument of the original func, then append that metadata as to the arg
     // attributes.
     if (auto dimOp = inp.getDefiningOp<tensor::DimOp>()) {
       std::optional<int64_t> dim = getConstantIntValue(dimOp.getDimension());
-      auto blockArg = dyn_cast<BlockArgument>(dimOp.getSource());
-      if (blockArg && isa<func::FuncOp>(blockArg.getOwner()->getParentOp())) {
+      if (BlockArgument blockArg = maybeGetFuncArg(dimOp.getSource())) {
         fnOp.setArgAttr(
             arg.getArgNumber(), kShapeFuncArgAttrName,
             b.getDictionaryAttr(
@@ -299,8 +319,7 @@ createFuncFromCluster(RewriterBase &b, Location loc,
         indices.push_back(ShapedType::kDynamic);
       }
 
-      auto blockArg = dyn_cast<BlockArgument>(extractOp.getTensor());
-      if (blockArg && isa<func::FuncOp>(blockArg.getOwner()->getParentOp())) {
+      if (BlockArgument blockArg = maybeGetFuncArg(extractOp.getTensor())) {
         fnOp.setArgAttr(
             arg.getArgNumber(), kShapeFuncArgAttrName,
             b.getDictionaryAttr(
@@ -310,13 +329,11 @@ createFuncFromCluster(RewriterBase &b, Location loc,
       }
     }
 
-    if (auto blockArg = dyn_cast<BlockArgument>(inp)) {
-      if (isa<func::FuncOp>(blockArg.getOwner()->getParentOp())) {
-        fnOp.setArgAttr(
-            arg.getArgNumber(), kShapeFuncArgAttrName,
-            b.getDictionaryAttr({b.getNamedAttr(
-                "argument", b.getIndexAttr(blockArg.getArgNumber()))}));
-      }
+    if (BlockArgument blockArg = maybeGetFuncArg(inp)) {
+      fnOp.setArgAttr(
+          arg.getArgNumber(), kShapeFuncArgAttrName,
+          b.getDictionaryAttr({b.getNamedAttr(
+              "argument", b.getIndexAttr(blockArg.getArgNumber()))}));
     }
   }
 
@@ -331,10 +348,48 @@ createFuncFromCluster(RewriterBase &b, Location loc,
   return std::make_pair(fnOp, clusterIO.inputs);
 }
 
-static func::ReturnOp getUniqueReturn(func::FuncOp op) {
-  assert(op.getBody().getBlocks().size() == 1 &&
-         "expected single-block function body region");
-  return cast<func::ReturnOp>(op.getFunctionBody().front().getTerminator());
+static FailureOr<SmallVector<Value>> getReturnedValues(func::FuncOp func) {
+  if (executor::abi::isABIWrapperFunction(func)) {
+    FailureOr<FunctionType> abiFuncType =
+        mlir::executor::abi::getABIFunctionType(func);
+    assert(succeeded(abiFuncType) && "expected ABI function type");
+    SmallVector<Value> returnedValues(abiFuncType->getNumResults(), nullptr);
+    for (BlockArgument arg :
+         func.getArguments().drop_front(abiFuncType->getNumInputs())) {
+      std::optional<unsigned> outputIdx =
+          mlir::executor::abi::isOutputArgument(func, arg);
+      assert(outputIdx.has_value() && "expected output index");
+      assert(*outputIdx < returnedValues.size() &&
+             "expected valid output index");
+
+      executor::ABISendOp sendOp{};
+      for (Operation *user : arg.getUsers()) {
+        if (auto abiOp = dyn_cast<executor::ABISendOp>(user)) {
+          // Multiple send ops are not supported. This can only happen if the
+          // entrypoint has multiple returns (e.g. it has unstructured control
+          // flow from the start).
+          if (sendOp)
+            return failure();
+          sendOp = abiOp;
+        }
+      }
+      // An argument may not be used. This is not an error if the value is not a
+      // tensor type.
+      if (!sendOp) {
+        if (auto tensorType = dyn_cast<RankedTensorType>(
+                abiFuncType->getResult(*outputIdx))) {
+          if (!tensorType.hasStaticShape())
+            return failure();
+        }
+        continue;
+      }
+      returnedValues[*outputIdx] = sendOp.getValue();
+    }
+    return returnedValues;
+  }
+  func::ReturnOp returnOp =
+      cast<func::ReturnOp>(func.getBlocks().front().getTerminator());
+  return llvm::SmallVector<Value>(returnOp->getOperands());
 }
 
 static MemorySpaceAttr getHostSpace(RewriterBase &rewriter) {
@@ -369,7 +424,7 @@ static SmallVector<Value> createConstantIndices(RewriterBase &rewriter,
 static FailureOr<func::CallOp> createCallForShape(RewriterBase &rewriter,
                                                   Location loc,
                                                   func::FuncOp shapeFunc,
-                                                  func::FuncOp currFunc) {
+                                                  ValueRange currFuncArgs) {
   // Create the arguments.
   SmallVector<Value> callArgs;
   for (unsigned i = 0; i < shapeFunc.getNumArguments(); i++) {
@@ -389,7 +444,7 @@ static FailureOr<func::CallOp> createCallForShape(RewriterBase &rewriter,
               .getInt();
 
       callArgs.push_back(rewriter.create<tensor::ExtractOp>(
-          loc, currFunc.getArgument(argIdx),
+          loc, currFuncArgs[argIdx],
           createConstantIndices(rewriter, loc, dimension)));
 
       continue;
@@ -403,7 +458,7 @@ static FailureOr<func::CallOp> createCallForShape(RewriterBase &rewriter,
           cast<IntegerAttr>(argMetadata.getNamed("argument")->getValue())
               .getInt();
       callArgs.push_back(rewriter.create<tensor::ExtractOp>(
-          loc, currFunc.getArgument(argIdx),
+          loc, currFuncArgs[argIdx],
           createConstantIndices(rewriter, loc, indices)));
       continue;
     }
@@ -412,7 +467,7 @@ static FailureOr<func::CallOp> createCallForShape(RewriterBase &rewriter,
       int64_t argIdx =
           cast<IntegerAttr>(argMetadata.getNamed("argument")->getValue())
               .getInt();
-      callArgs.push_back(currFunc.getArgument(argIdx));
+      callArgs.push_back(currFuncArgs[argIdx]);
       continue;
     }
 
@@ -427,6 +482,27 @@ static RankedTensorType getShapeTensorType(RankedTensorType sourceType) {
       {std::max<int64_t>(1, sourceType.getRank())},
       IndexType::get(sourceType.getContext()),
       MemorySpaceAttr::get(sourceType.getContext(), MemorySpace::host));
+}
+
+static SmallVector<Value> getArguments(RewriterBase &rewriter,
+                                       func::FuncOp func) {
+  if (executor::abi::isABIWrapperFunction(func)) {
+    FailureOr<FunctionType> abiFuncType =
+        mlir::executor::abi::getABIFunctionType(func);
+    assert(succeeded(abiFuncType) && "expected ABI function type");
+    SmallVector<Value> arguments;
+    for (auto arg :
+         func.getArguments().take_front(abiFuncType->getNumInputs())) {
+      if (executor::abi::isScalarArgumentType(arg.getType())) {
+        arguments.push_back(arg);
+        continue;
+      }
+      auto recvValue = executor::abi::getOrCreateABIRecv(rewriter, func, arg);
+      arguments.push_back(recvValue);
+    }
+    return arguments;
+  }
+  return llvm::SmallVector<Value>(func.getArguments());
 }
 
 /// Creates an function called `[func_name]_get_shape` for the specified
@@ -445,13 +521,15 @@ static FailureOr<func::FuncOp> createAggregateShapeFunc(
     ArrayRef<std::optional<func::FuncOp>> shapeComputationFuncs,
     const DataFlowSolver &solver) {
 
+  SmallVector<Value> argValues = getArguments(rewriter, func);
   SmallVector<Type> argTypes;
-  for (auto [idx, t] : llvm::enumerate(func.getArgumentTypes())) {
+  for (auto [idx, argValue] : llvm::enumerate(argValues)) {
+    Type t = argValue.getType();
     auto rtt = dyn_cast<RankedTensorType>(t);
     if (!rtt)
       argTypes.push_back(t);
     const TensorKindLattice *lattice =
-        solver.lookupState<TensorKindLattice>(func.getArgument(idx));
+        solver.lookupState<TensorKindLattice>(argValue);
     if (!lattice || lattice->getValue().isUninitialized())
       return failure();
     if (lattice->getValue().isHostVisible()) {
@@ -461,10 +539,17 @@ static FailureOr<func::FuncOp> createAggregateShapeFunc(
     argTypes.push_back(getShapeTensorType(rtt));
   }
 
+  FailureOr<SmallVector<Value>> returnedValues = getReturnedValues(func);
+  if (failed(returnedValues))
+    return failure();
+
   SmallVector<Type> resultTypes;
   SmallVector<unsigned> funcTensorResultIndices;
-  resultTypes.reserve(func.getNumResults());
-  for (auto [idx, t] : llvm::enumerate(func.getResultTypes())) {
+  resultTypes.reserve(returnedValues->size());
+  for (auto [idx, retValue] : llvm::enumerate(*returnedValues)) {
+    if (!retValue)
+      continue;
+    Type t = retValue.getType();
     auto rtt = dyn_cast<RankedTensorType>(t);
     if (!rtt)
       continue;
@@ -472,20 +557,18 @@ static FailureOr<func::FuncOp> createAggregateShapeFunc(
     resultTypes.push_back(getShapeTensorType(rtt));
   }
 
-  assert(shapeComputationFuncs.size() == func.getNumResults() &&
+  assert(shapeComputationFuncs.size() == returnedValues->size() &&
          "expected one optional shape computation function per func result");
 
   func::FuncOp aggregateShapeFunc = func::FuncOp::create(
       func.getLoc(), llvm::formatv("{0}_get_shapes", func.getName()).str(),
       FunctionType::get(func->getContext(), argTypes, resultTypes));
-  aggregateShapeFunc.setPublic();
   Block *block = aggregateShapeFunc.addEntryBlock();
   rewriter.setInsertionPoint(block, block->end());
 
-  func::ReturnOp term = getUniqueReturn(func);
   SmallVector<Value> shapeFuncReturns;
   for (unsigned retIdx : funcTensorResultIndices) {
-    Value retValue = term->getOperand(retIdx);
+    Value retValue = (*returnedValues)[retIdx];
     auto rtt = cast<RankedTensorType>(retValue.getType());
     if (rtt.hasStaticShape()) {
       shapeFuncReturns.push_back(
@@ -497,8 +580,9 @@ static FailureOr<func::FuncOp> createAggregateShapeFunc(
     if (!shapeFunc)
       return failure();
 
-    FailureOr<func::CallOp> call = createCallForShape(
-        rewriter, retValue.getLoc(), *shapeFunc, aggregateShapeFunc);
+    FailureOr<func::CallOp> call =
+        createCallForShape(rewriter, retValue.getLoc(), *shapeFunc,
+                           aggregateShapeFunc.getArguments());
     if (failed(call))
       return failure();
 
@@ -563,22 +647,21 @@ public:
     // Before we start creating new functions, get a list of the existing
     // public functions.
     SmallVector<func::FuncOp> publicFuncs = llvm::to_vector(
-        llvm::make_filter_range(op.getOps<func::FuncOp>(),
-                                [](func::FuncOp op) { return op.isPublic(); }));
+        llvm::make_filter_range(op.getOps<func::FuncOp>(), [](func::FuncOp op) {
+          return op.isPublic() && needsShapeFunc(op);
+        }));
 
     for (auto func : publicFuncs) {
 
-      // Skip all functions with static shape args/results.
-      if (!needsShapeFunc(func))
+      FailureOr<SmallVector<Value>> returnedValues = getReturnedValues(func);
+      if (failed(returnedValues))
         continue;
 
-      func::ReturnOp term = getUniqueReturn(func);
-
       SmallVector<std::optional<func::FuncOp>> funcs;
-      funcs.reserve(term->getNumOperands());
+      funcs.reserve(returnedValues->size());
 
-      for (OpOperand &operand : term->getOpOperands()) {
-        auto withOp = operand.get().getDefiningOp<WithShapeOp>();
+      for (auto [idx, retValue] : llvm::enumerate(*returnedValues)) {
+        auto withOp = retValue.getDefiningOp<WithShapeOp>();
         if (!withOp) {
           funcs.push_back(std::nullopt);
           continue;
@@ -592,8 +675,8 @@ public:
           continue;
         }
 
-        std::string shapeFuncName = llvm::formatv(
-            "shape_{0}_result_{1}", func.getName(), operand.getOperandNumber());
+        std::string shapeFuncName =
+            llvm::formatv("shape_{0}_result_{1}", func.getName(), idx);
 
         auto [shapeFunc, inputs] = createFuncFromCluster(
             rewriter, withOp.getLoc(), shapeClusterMap[withOp], withOp,
@@ -619,10 +702,6 @@ public:
 
     for (auto func : publicFuncs) {
 
-      // Skip all functions with static shape args/results.
-      if (!needsShapeFunc(func))
-        continue;
-
       FailureOr<func::FuncOp> aggShapeFunc = createAggregateShapeFunc(
           rewriter, func, shapeComputationMap[func], solver);
 
@@ -643,6 +722,23 @@ public:
 
       // Assign slot numbers to the function.
       plan::assignInitialSlotNumbers(rewriter, *aggShapeFunc);
+
+      if (abiVersion >= 1) {
+        FailureOr<func::FuncOp> abiWrapperFunc =
+            executor::createABIWrapperFunction(
+                rewriter, *aggShapeFunc, symbolTable, forceUndefOutputArgs);
+        if (failed(abiWrapperFunc))
+          return signalPassFailure();
+        func->setAttr(PlanDialect::kShapeFuncAttrName,
+                      SymbolRefAttr::get(*abiWrapperFunc));
+        (*abiWrapperFunc)
+            ->setAttr(PlanDialect::kShapeFuncMarkerAttrName,
+                      UnitAttr::get(rewriter.getContext()));
+        (*abiWrapperFunc)
+            ->setAttr(PlanDialect::kMemorySpaceConstraintAttrName,
+                      plan::MemorySpaceAttr::get(rewriter.getContext(),
+                                                 MemorySpace::host));
+      }
     }
   }
 };

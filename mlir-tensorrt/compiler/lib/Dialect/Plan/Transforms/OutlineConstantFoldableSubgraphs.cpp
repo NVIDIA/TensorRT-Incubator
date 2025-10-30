@@ -500,15 +500,19 @@ static bool shouldClusterOp(Operation *op, const DataFlowSolver &solver) {
   if (isPureAndNonFuncRegionOp(op->getParentOp()))
     return false;
 
-  bool areAllResultsConstantFoldable = true;
   for (Value result : op->getResults()) {
     const ConstantFoldabilityLattice *lattice =
         solver.lookupState<ConstantFoldabilityLattice>(result);
     if (!lattice || lattice->getValue().isUninitialized())
       return false;
-    areAllResultsConstantFoldable &= lattice->getValue().getKnownState();
+    if (!lattice->getValue().getKnownState())
+      return false;
+    if (auto tensorType = dyn_cast<RankedTensorType>(result.getType())) {
+      if (!tensorType.hasStaticShape())
+        return false;
+    }
   }
-  return areAllResultsConstantFoldable;
+  return true;
 }
 
 /// Returns clustering options for constant foldable clusters generation.

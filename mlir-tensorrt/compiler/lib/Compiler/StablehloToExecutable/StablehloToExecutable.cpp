@@ -105,6 +105,13 @@ void StablehloToExecutableTask::populatePassManager() {
   pm.addPass(plan::createVerifyInputAndAssignSlotsPass());
   pm.addPass(plan::createLegalizeIOBoundsAttributesPass());
 
+  if (options.runtimeABIVersion >= 1)
+    pm.addPass(executor::createExecutorGenerateABIWrappersPass(
+        executor::ExecutorGenerateABIWrappersPassOptions{
+            /*forceUndefOutputArgs=*/options.get<BufferizationOptions>()
+                .forceEntrypointsReturnAllocs,
+        }));
+
   // StableHLO Preprocessing
   mtrt::compiler::StableHloInputOptions opts{};
   opts.legalizeControlFlowToSCF = true;
@@ -140,7 +147,8 @@ void StablehloToExecutableTask::populatePassManager() {
   plan::ClusteringPassOptions clusteringOpts{};
   clusteringOpts.entrypoint = options.entrypoint;
   clusteringOpts.inputKind = plan::InputKind::Stablehlo;
-  plan::buildPlanSegmentationPipeline(pm, clusteringOpts);
+  plan::buildPlanSegmentationPipeline(pm, clusteringOpts,
+                                      options.runtimeABIVersion);
 
   // Compile outlined scalarizable host clusters.
   pm.addNestedPass<func::FuncOp>(createProcessStablehloHostClustersPass());
@@ -172,8 +180,11 @@ void StablehloToExecutableTask::populatePassManager() {
 
   if (hostTarget == HostTarget::Executor) {
     pm.addPass(createConvertPlanToExecutorPass());
-    pm.addNestedPass<func::FuncOp>(
-        executor::createExecutorPopulateFunctionMetadataPass());
+
+    if (options.runtimeABIVersion < 1) {
+      pm.addNestedPass<func::FuncOp>(
+          executor::createExecutorPopulateFunctionMetadataPass());
+    }
   }
 
   populateExtensionPasses(pm, options, Phase::ExecutorLowering, extensions);

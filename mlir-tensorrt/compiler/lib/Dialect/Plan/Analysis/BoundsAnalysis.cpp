@@ -1,6 +1,6 @@
 //===- BoundsAnalysis.cpp -------------------------------------------------===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -22,6 +22,7 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt/Dialect/Plan/Analysis/BoundsAnalysis.h"
+#include "mlir-executor/Executor/IR/Executor.h"
 #include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/PlanInterfaces.h"
@@ -47,6 +48,9 @@ using namespace mtrt::compiler;
 
 template <typename T>
 std::optional<T> maybeGetFunctionArgBound(Value value, StringRef attrName) {
+  if (auto recvOp = value.getDefiningOp<executor::ABIRecvOp>())
+    return maybeGetFunctionArgBound<T>(recvOp.getPtr(), attrName);
+
   BlockArgument source = dyn_cast<BlockArgument>(value);
   if (!source)
     return {};
@@ -202,6 +206,23 @@ LogicalResult ShapeBoundsForwardAnalysis::visitOperation(
           getProgramPointAfter(op), v));
     return result;
   };
+
+  if (auto recvOp = dyn_cast<executor::ABIRecvOp>(op)) {
+    if (auto tensorType =
+            dyn_cast<RankedTensorType>(recvOp.getResult().getType())) {
+      std::optional<BoundsAttrInterface> shapeProfile =
+          maybeGetFunctionArgBound<BoundsAttrInterface>(
+              recvOp.getPtr(), plan::PlanDialect::kShapeBoundsAttrName);
+      if (!shapeProfile)
+        return success();
+      SmallVector<int64_t> minBound, maxBound;
+      if (failed(shapeProfile->getShapeRange(minBound, maxBound)))
+        return success();
+      joinCallback(recvOp.getResult(),
+                   BoundsArray::fromShapeBounds(minBound, maxBound).getValue());
+    }
+    return success();
+  }
 
   if (auto withOp = dyn_cast<plan::WithShapeOp>(op)) {
     FailureOr<SmallVector<ConstantIntRanges>> ranges =

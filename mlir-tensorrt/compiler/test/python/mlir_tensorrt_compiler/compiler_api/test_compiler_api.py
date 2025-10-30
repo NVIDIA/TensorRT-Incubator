@@ -57,11 +57,11 @@ def _test_func_signature(sig: api.PyFunctionSignature):
     print(f"Num of res bounds: {sig.get_num_res_bounds()}")
     for i in range(sig.get_num_res_bounds()):
         print(
-            f"Arg {i} Bound: min({sig.get_res_bound(i).min()}), max({sig.get_res_bound(i).max()})"
+            f"Result {i} Bound: min({sig.get_res_bound(i).min()}), max({sig.get_res_bound(i).max()})"
         )
     print(f"Shape function name: {sig.get_shape_func_name()}")
     _test_memref(sig.get_arg(0))
-    _test_memref(sig.get_arg(1))
+    _test_memref(sig.get_result(0))
 
 
 def flush():
@@ -133,16 +133,16 @@ with Context() as context:
     # CHECK-LABEL: running compilation (2)
     # CHECK-NOT: {{.*}} generating a new TensorRT builder {{.*}}
     # CHECK-NOT: {{.*}} timing cache path was not specified {{.*}}
-    # CHECK: FunctionSignature(Signature<args=[MemRef<2x3x4xf32, strides=[12, 4, 1], device>, MemRef<2x3x4xf32, strides=[12, 4, 1], device>],
-    # CHECK-SAME: results=[], num_output_args=1, arg_bounds=[UNK, UNK], result_bounds=[], cconv=unpacked, undef=[], abi_version=0>)
-    # CHECK: Num of args: 2
-    # CHECK: Num of results: 0
+    # CHECK: FunctionSignature(Signature<args=[MemRef<2x3x4xf32, strides=[12, 4, 1], device>],
+    # CHECK-SAME: results=[MemRef<2x3x4xf32, strides=[12, 4, 1], device>], num_output_args=1, arg_bounds=[UNK], result_bounds=[UNK], cconv=unpacked, undef=[0], abi_version=1>)
+    # CHECK: Num of args: 1
+    # CHECK: Num of results: 1
     # CHECK: Num of input args: 1
     # CHECK: Num of output args: 1
-    # CHECK: Num of arg bounds: 2
+    # CHECK: Num of arg bounds: 1
     # CHECK: Arg 0 Bound: min([]), max([])
-    # CHECK: Arg 1 Bound: min([]), max([])
-    # CHECK: Num of res bounds: 0
+    # CHECK: Num of res bounds: 1
+    # CHECK: Result 0 Bound: min([]), max([])
     # CHECK: Shape function name: None
     # CHECK: type: <class 'mlir_tensorrt.compiler._mlir_libs._api.MemRefType'>
     # CHECK: shape: [2, 3, 4]
@@ -176,18 +176,17 @@ with Context() as context:
 # CHECK: running compilation (2)
 # CHECK-NOT: {{.*}} generating a new TensorRT builder {{.*}}
 # CHECK-NOT: {{.*}} timing cache path was not specified {{.*}}
-# CHECK: FunctionSignature(Signature<args=[MemRef<?x3x4xf32, strides=[12, 4, 1], device>, MemRef<?x3x4xf32, strides=[12, 4, 1], device>],
-# CHECK-SAME: results=[], num_output_args=1,
-# CHECK-SAME: arg_bounds=[dim_bounds<min = [1,3,4], max = [10,3,4]>, dim_bounds<min = [1,3,4], max = [10,3,4]>], result_bounds=[]
-# CHECK-SAME: cconv=unpacked, undef=[], abi_version=0>
-# CHECK: Num of args: 2
-# CHECK: Num of results: 0
+# CHECK: FunctionSignature(Signature<args=[MemRef<?x3x4xf32, strides=[12, 4, 1], device>],
+# CHECK-SAME: results=[MemRef<?x3x4xf32, strides=[12, 4, 1], device>], num_output_args=1, arg_bounds=[dim_bounds<min = [1,3,4], max = [10,3,4]>],
+# CHECK-SAME: result_bounds=[dim_bounds<min = [1,3,4], max = [10,3,4]>], cconv=unpacked, undef=[0], abi_version=1>)
+# CHECK: Num of args: 1
+# CHECK: Num of results: 1
 # CHECK: Num of input args: 1
 # CHECK: Num of output args: 1
-# CHECK: Num of arg bounds: 2
+# CHECK: Num of arg bounds: 1
 # CHECK: Arg 0 Bound: min([1, 3, 4]), max([10, 3, 4])
-# CHECK: Arg 1 Bound: min([1, 3, 4]), max([10, 3, 4])
-# CHECK: Num of res bounds: 0
+# CHECK: Num of res bounds: 1
+# CHECK: Result 0 Bound: min([1, 3, 4]), max([10, 3, 4])
 # CHECK: Shape function name: main_get_shapes
 # CHECK: type: <class 'mlir_tensorrt.compiler._mlir_libs._api.MemRefType'>
 # CHECK: shape: [?, 3, 4]

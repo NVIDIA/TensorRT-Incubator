@@ -513,6 +513,9 @@ translateABIWrapperSignature(func::FuncOp func,
   // ABI wrapper functions use unpacked calling convention
   signature.calling_convention = mtrt::CallingConvention::unpacked;
   signature.shape_function_name = "";
+  if (auto shapeFunc = func->getAttrOfType<SymbolRefAttr>(
+          executor::ExecutorDialect::kShapeFuncAttrName))
+    signature.shape_function_name = shapeFunc.getLeafReference().str();
 
   auto hostPointerType =
       executor::PointerType::get(func.getContext(), executor::MemoryType::host);

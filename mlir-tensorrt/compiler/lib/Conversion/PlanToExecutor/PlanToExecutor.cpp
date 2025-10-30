@@ -166,7 +166,15 @@ static DictionaryAttr convertDictAttr(
     for (const auto &converter : converters) {
       if (std::optional<NamedAttribute> converted =
               converter(attr.getName(), attr.getValue())) {
-        result.push_back(*converted);
+        auto it = std::find_if(result.begin(), result.end(),
+                               [&](const NamedAttribute &attr) {
+                                 return attr.getName() == converted->getName();
+                               });
+        assert(
+            (it == result.end() || it->getValue() == converted->getValue()) &&
+            "expected unique attribute name");
+        if (it == result.end())
+          result.push_back(*converted);
         break;
       }
     }

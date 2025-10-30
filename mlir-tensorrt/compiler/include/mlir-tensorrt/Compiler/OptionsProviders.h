@@ -314,6 +314,10 @@ public:
           clEnumValN(HostTarget::LLVM, "llvm", "compile host code to LLVM IR"),
           clEnumValN(HostTarget::EmitC, "emitc", "compile host code to C++"))};
 
+  Option<uint32_t> runtimeABIVersion{
+      *this, "abi-version", llvm::cl::init(1),
+      llvm::cl::desc("specifies the Executor ABI version")};
+
   Option<std::string> artifactsDirectory{
       *this, "artifacts-dir", llvm::cl::init(""),
       llvm::cl::desc("Specifies where large artifacts can be offloaded as "

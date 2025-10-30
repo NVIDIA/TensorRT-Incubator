@@ -459,3 +459,43 @@ func.func @f4_memref_incompat(
   executor.abi.send %0 to %arg1 : memref<10xi4>
   return
 }
+
+// -----
+
+func.func @compat_integer_memref_unsigned(
+  %arg0: !executor.ptr<host> {executor.abi = #executor.arg<byval, memref<10xui32>>},
+  %arg1: !executor.ptr<host> {executor.abi = #executor.arg<byref, memref<10xui32>>})
+    attributes {
+      executor.func_abi = (memref<10xui32>) -> (memref<10xui32>)
+    } {
+  %0 = executor.abi.recv %arg0 : memref<10xi32>
+  executor.abi.send %0 to %arg1 : memref<10xi32>
+  return
+}
+
+// -----
+
+func.func @compat_index_memref(
+  %arg0: !executor.ptr<host> {executor.abi = #executor.arg<byval, memref<10xindex>>},
+  %arg1: !executor.ptr<host> {executor.abi = #executor.arg<byref, memref<10xindex>>})
+    attributes {
+      executor.func_abi = (memref<10xindex>) -> (memref<10xui32>)
+    } {
+  %0 = executor.abi.recv %arg0 : memref<10xi32>
+  executor.abi.send %0 to %arg1 : memref<10xi32>
+  return
+}
+
+// -----
+
+func.func @not_compat_index_memref(
+  %arg0: !executor.ptr<host> {executor.abi = #executor.arg<byval, memref<10xindex>>},
+  %arg1: !executor.ptr<host> {executor.abi = #executor.arg<byref, memref<10xindex>>})
+    attributes {
+      executor.func_abi = (memref<10xindex>) -> (memref<10xui32>)
+    } {
+  // expected-error @below {{'executor.abi.recv' op result type 'memref<10xi8>' is incompatible with ABI value type 'memref<10xindex>'}}
+  %0 = executor.abi.recv %arg0 : memref<10xi8>
+  executor.abi.send %0 to %arg1 : memref<10xi8>
+  return
+}

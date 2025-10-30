@@ -38,14 +38,19 @@ using namespace mlir;
 using namespace mlir::plan;
 
 void plan::buildPlanSegmentationPipeline(
-    OpPassManager &pm, const plan::ClusteringPassOptions &opts) {
+    OpPassManager &pm, const plan::ClusteringPassOptions &opts,
+    int abiVersion) {
   pm.addNestedPass<func::FuncOp>(
       plan::createMaterializeShapeCalculationsPass({opts.inputKind}));
   pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
   pm.addPass(plan::createPlanRefineTypesPass({opts.inputKind}));
   pm.addPass(createCanonicalizerPass());
   if (!opts.disableCreateShapeFuncPass)
-    pm.addPass(createPlanCreateShapeFuncsPass());
+    pm.addPass(
+        createPlanCreateShapeFuncsPass(plan::PlanCreateShapeFuncsPassOptions{
+            /*forceUndefOutputArgs=*/opts.forceEntrypointsReturnAllocs,
+            /*abiVersion=*/abiVersion,
+        }));
   pm.addNestedPass<func::FuncOp>(
       plan::createPlanPopulateFunctionBoundsAttributesPass());
   pm.addPass(plan::createClusteringPass(opts));
@@ -205,6 +210,6 @@ void plan::registerPlanDialectPipelines() {
         clusterOpts.entrypoint = opts.entrypoint;
         clusterOpts.disableCreateShapeFuncPass =
             opts.forceEntrypointsReturnAllocs;
-        buildPlanSegmentationPipeline(pm, clusterOpts);
+        buildPlanSegmentationPipeline(pm, clusterOpts, 1);
       });
 }

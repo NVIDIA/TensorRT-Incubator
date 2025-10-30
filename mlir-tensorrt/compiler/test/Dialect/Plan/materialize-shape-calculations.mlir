@@ -1,4 +1,4 @@
-// RUN: mlir-tensorrt-opt %s -split-input-file -plan-legalize-io-bounds-attributes -plan-materialize-shape-calculations -plan-create-shape-funcs | FileCheck %s --check-prefix=SHAPE
+// RUN: mlir-tensorrt-opt %s -split-input-file -plan-legalize-io-bounds-attributes -plan-materialize-shape-calculations -plan-create-shape-funcs=abi-version=0 | FileCheck %s --check-prefix=SHAPE
 // RUN: mlir-tensorrt-opt %s -split-input-file -plan-legalize-io-bounds-attributes -plan-materialize-shape-calculations | FileCheck %s
 
 func.func @test_simple(%arg0: tensor<?x10xf32>) -> tensor<?x10xf32> {
