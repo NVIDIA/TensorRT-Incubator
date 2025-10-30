@@ -189,11 +189,7 @@ if config.tensorrt_lib_dir:
     # installation path given to the cmake configuration command here.
     extra_ld_lib_path.append(config.tensorrt_lib_dir)
 
-llvm_config.with_environment(
-    "LD_LIBRARY_PATH",
-    extra_ld_lib_path,
-    append_path=True,
-)
+llvm_config.with_environment("LD_LIBRARY_PATH", os.pathsep.join(extra_ld_lib_path))
 
 
 # Add configuration features that depend on the host or flags defined with the
