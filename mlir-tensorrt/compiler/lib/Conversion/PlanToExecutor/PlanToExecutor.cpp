@@ -357,7 +357,10 @@ class PlanToExecutorPass
              mlir::isLegalForReturnOpTypeConversionPattern(op, typeConverter);
     });
     target.markOpRecursivelyLegal<gpu::GPUModuleOp>();
-    target.addLegalOp<UnrealizedConversionCastOp>();
+    target.addDynamicallyLegalOp<UnrealizedConversionCastOp>(
+        [&](UnrealizedConversionCastOp op) {
+          return typeConverter.isLegal(op);
+        });
 
     RewritePatternSet patterns(&getContext());
     patterns.add<GenericStructuralConverter, ConstantOpConverter,

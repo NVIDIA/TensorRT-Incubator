@@ -291,9 +291,9 @@ ExecutorFunctionType ExecutorTypeConverter::convertExecutorFunctionSignature(
 FailureOr<SmallVector<Type>> ExecutorTypeConverter::getMemRefDescriptorFields(
     MemRefType type, std::optional<MemoryType> space) const {
   if (type.getMemorySpace() && !isa<MemoryTypeAttr>(type.getMemorySpace()))
-    return emitError(UnknownLoc::get(type.getContext()))
-           << "the 'memref-to-executor' type converter does not allow memory "
-              "space attributes that are not of #executor.memory_space type";
+    llvm::report_fatal_error(
+        "the 'memref-to-executor' type converter does not allow memory "
+        "space attributes that are not of #executor.memory_space type");
   MemoryTypeAttr spaceAttr =
       dyn_cast_or_null<MemoryTypeAttr>(type.getMemorySpace());
   MemoryType memorySpace =
