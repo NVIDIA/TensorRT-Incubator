@@ -1,4 +1,4 @@
-// RUN: tensorrt-opt %s -split-input-file  -tensorrt-reshape-elimination | FileCheck %s
+// RUN: tensorrt-opt %s -split-input-file  -tensorrt-transpose-reshape-elimination | FileCheck %s
 
 func.func @matmul_eliminate_reshape_lhs(%arg0: tensor<1x2x3x4xf16>, %arg1: tensor<4x2xf16>) -> tensor<1x2x3x2xf16>{
     %0 = tensorrt.reshape %arg0 : tensor<1x2x3x4xf16> to tensor<6x4xf16>
@@ -10,7 +10,7 @@ func.func @matmul_eliminate_reshape_lhs(%arg0: tensor<1x2x3x4xf16>, %arg1: tenso
 
 // CHECK-LABEL: @matmul_eliminate_reshape_lhs
 //  CHECK-SAME: (%[[arg0:.+]]: {{.*}}, %[[arg1:.+]]: {{.*}})
-//       CHECK: %[[v0:.+]] = tensorrt.expand_rank %[[arg1]]
+//  CHECK-NEXT: %[[v0:.+]] = tensorrt.expand_rank %[[arg1]] : tensor<4x2xf16> to tensor<1x1x4x2xf16>
 //  CHECK-NEXT: %[[v1:.+]] = tensorrt.matrix_multiply {{{.*}}} ins(%[[arg0]], %[[v0]] : {{.*}})
 //  CHECK-NEXT: return %[[v1]]
 
@@ -26,7 +26,7 @@ func.func @matmul_eliminate_reshape_lhs_2(%arg0: tensor<1x2x3x4x5x6xf16>, %arg1:
 
 // CHECK-LABEL: @matmul_eliminate_reshape_lhs_2
 //  CHECK-SAME: (%[[arg0:.+]]: {{.*}}, %[[arg1:.+]]: {{.*}})
-//       CHECK: %[[v0:.+]] = tensorrt.expand_rank %[[arg1]]
+//  CHECK-NEXT: %[[v0:.+]] = tensorrt.expand_rank %[[arg1]] : tensor<1x2x6x8xf16> to tensor<1x2x1x1x6x8xf16>
 //  CHECK-NEXT: %[[v1:.+]] = tensorrt.matrix_multiply {{{.*}}} ins(%[[arg0]], %[[v0]] : {{.*}})
 //  CHECK-NEXT: return %[[v1]]
 
@@ -42,12 +42,12 @@ func.func @matmul_eliminate_reshape_lhs_3(%arg0: tensor<2x2x3x4xf16>, %arg1: ten
 
 // CHECK-LABEL: @matmul_eliminate_reshape_lhs_3
 //  CHECK-SAME: (%[[arg0:.+]]: {{.*}}, %[[arg1:.+]]: {{.*}})
-//       CHECK: %[[v0:.+]] = tensorrt.expand_rank %[[arg1]]
+//  CHECK-NEXT: %[[v0:.+]] = tensorrt.expand_rank %arg1 : tensor<2x4x5xf16> to tensor<2x1x4x5xf16>
 //  CHECK-NEXT: %[[v1:.+]] = tensorrt.matrix_multiply {{{.*}}} ins(%[[arg0]], %[[v0]] : {{.*}})
 //  CHECK-NEXT: return %[[v1]]
 // -----
 
-func.func @matmul_eliminate_reshape_lhs_negative(%arg0: tensor<10x20x30x40x50xf16>, %arg1: tensor<10x600x50x30xf16>) -> tensor<10x20x30x40x30xf16>{
+func.func @matmul_eliminate_reshape_lhs_4(%arg0: tensor<10x20x30x40x50xf16>, %arg1: tensor<10x600x50x30xf16>) -> tensor<10x20x30x40x30xf16>{
     %0 = tensorrt.reshape %arg0 : tensor<10x20x30x40x50xf16> to tensor<10x600x40x50xf16>
     %1 = tensorrt.matrix_multiply {op0 = #tensorrt.matrix_operation<kNONE>, op1 = #tensorrt.matrix_operation<kNONE>}
     ins(%0, %arg1 : tensor<10x600x40x50xf16>, tensor<10x600x50x30xf16>) -> tensor<10x600x40x30xf16>
@@ -55,16 +55,14 @@ func.func @matmul_eliminate_reshape_lhs_negative(%arg0: tensor<10x20x30x40x50xf1
     return %2: tensor<10x20x30x40x30xf16>
 }
 
-// CHECK-LABEL: @matmul_eliminate_reshape_lhs_negative
+// CHECK-LABEL: @matmul_eliminate_reshape_lhs_4
 //  CHECK-SAME: (%[[arg0:.+]]: {{.*}}, %[[arg1:.+]]: {{.*}})
-//       CHECK: %[[v0:.+]] = tensorrt.reshape %[[arg0]]
-//  CHECK-NEXT: %[[v1:.+]] = tensorrt.matrix_multiply {{{.*}}} ins(%[[v0]], %[[arg1]] : {{.*}})
-//  CHECK-NEXT: %[[v2:.+]] = tensorrt.reshape %[[v1]]
-//  CHECK-NEXT: return %[[v2]]
-
+//       CHECK: %[[v0:.+]] = tensorrt.reshape %[[arg1]]
+//  CHECK-NEXT: %[[v1:.+]] = tensorrt.matrix_multiply {{{.*}}} ins(%[[arg0]], %[[v0]] : {{.*}})
+//  CHECK-NEXT: return %[[v1]]
 // -----
 
-func.func @matmul_eliminate_reshape_lhs_negative_dynamic(%arg0: tensor<10x?x30x40x50xf16>, %arg1: tensor<10x600x50x30xf16>) -> tensor<10x20x30x40x30xf16>{
+func.func @matmul_eliminate_reshape_lhs_5_dynamic(%arg0: tensor<10x?x30x40x50xf16>, %arg1: tensor<10x600x50x30xf16>) -> tensor<10x20x30x40x30xf16>{
     %0 = tensorrt.reshape %arg0 : tensor<10x?x30x40x50xf16> to tensor<10x600x40x50xf16>
     %1 = tensorrt.matrix_multiply {op0 = #tensorrt.matrix_operation<kNONE>, op1 = #tensorrt.matrix_operation<kNONE>}
     ins(%0, %arg1 : tensor<10x600x40x50xf16>, tensor<10x600x50x30xf16>) -> tensor<10x600x40x30xf16>
@@ -72,16 +70,16 @@ func.func @matmul_eliminate_reshape_lhs_negative_dynamic(%arg0: tensor<10x?x30x4
     return %2: tensor<10x20x30x40x30xf16>
 }
 
-// CHECK-LABEL: @matmul_eliminate_reshape_lhs_negative_dynamic
+// CHECK-LABEL: @matmul_eliminate_reshape_lhs_5_dynamic
 //  CHECK-SAME: (%[[arg0:.+]]: {{.*}}, %[[arg1:.+]]: {{.*}})
 //       CHECK: %[[v0:.+]] = tensorrt.reshape %[[arg0]]
-//  CHECK-NEXT: %[[v1:.+]] = tensorrt.matrix_multiply {{{.*}}} ins(%[[v0]], %[[arg1]] : {{.*}})
-//  CHECK-NEXT: %[[v2:.+]] = tensorrt.reshape %[[v1]]
+//       CHECK: %[[v1:.+]] = tensorrt.reshape %[[arg1]]
+//  CHECK-NEXT: %[[v2:.+]] = tensorrt.matrix_multiply {{{.*}}} ins(%[[v0]], %[[v1]] : {{.*}})
 //  CHECK-NEXT: return %[[v2]]
 
 // -----
 
-func.func @matmul_eliminate_reshape_lhs_negative_2(%arg0: tensor<1x2x3x4xf16>, %arg1: tensor<4x6xf16>) -> tensor<6x2x3xf16>{
+func.func @matmul_push_reshape_lhs_6(%arg0: tensor<1x2x3x4xf16>, %arg1: tensor<4x6xf16>) -> tensor<6x2x3xf16>{
     %0 = tensorrt.reshape %arg0 : tensor<1x2x3x4xf16> to tensor<6x4xf16>
     %1 = tensorrt.matrix_multiply {op0 = #tensorrt.matrix_operation<kNONE>, op1 = #tensorrt.matrix_operation<kNONE>}
     ins(%0, %arg1 : tensor<6x4xf16>, tensor<4x6xf16>) -> tensor<6x6xf16>
@@ -89,12 +87,14 @@ func.func @matmul_eliminate_reshape_lhs_negative_2(%arg0: tensor<1x2x3x4xf16>, %
     return %2: tensor<6x2x3xf16>
 }
 
-// CHECK-LABEL: @matmul_eliminate_reshape_lhs_negative_2
+// CHECK-LABEL: @matmul_push_reshape_lhs_6
 //  CHECK-SAME: (%[[arg0:.+]]: {{.*}}, %[[arg1:.+]]: {{.*}})
-//       CHECK: %[[v0:.+]] = tensorrt.reshape %[[arg0]]
-//  CHECK-NEXT: %[[v1:.+]] = tensorrt.matrix_multiply {{{.*}}} ins(%[[v0]], %[[arg1]] : {{.*}})
-//  CHECK-NEXT: %[[v2:.+]] = tensorrt.reshape %[[v1]]
-//  CHECK-NEXT: return %[[v2]]
+//   CHECK-DAG: %[[v0:.+]] = tensorrt.reshape %[[arg1]]
+//   CHECK-DAG: %[[v1:.+]] = tensorrt.transpose {{{.*}}} %[[v0]]
+//   CHECK-DAG: %[[v2:.+]] = tensorrt.reshape %[[arg0]]
+//   CHECK-DAG: %[[v3:.+]] = tensorrt.expand_rank %[[v1]]
+//  CHECK-NEXT: %[[v4:.+]] = tensorrt.matrix_multiply {{{.*}}} ins(%[[v2]], %[[v3]] : {{.*}})
+//  CHECK-NEXT: return %[[v4]]
 // -----
 
 func.func @matmul_simplify_reshape_rhs(%arg0: tensor<10x20x30x40xf16>, %arg1: tensor<200x60x30xf16>) -> tensor<10x20x60x40xf16>{
@@ -124,11 +124,11 @@ func.func @matmul_simplify_reshape_rhs_2(%arg0: tensor<1x2x3x4x5x6xf16>, %arg1: 
 // CHECK-LABEL: @matmul_simplify_reshape_rhs_2
 //  CHECK-SAME: (%[[arg0:.+]]: {{.*}}, %[[arg1:.+]]: {{.*}})
 //       CHECK: %[[v0:.+]] = tensorrt.reshape %[[arg1]]
-//  CHECK-NEXT: %[[v1:.+]] = tensorrt.matrix_multiply {{{.*}}} ins(%[[v0]], %[[arg0]] : {{.*}})
-//  CHECK-NEXT: return %[[v1]]
+//  CHECK-NEXT: %[[v2:.+]] = tensorrt.matrix_multiply {{{.*}}} ins(%[[v0]], %[[arg0]] : {{.*}})
+//  CHECK-NEXT: return %[[v2]]
 // -----
 
-func.func @matmul_simplify_reshape_rhs_negative(%arg0: tensor<1x2x3x4xf16>, %arg1: tensor<6x6xf16>) -> tensor<1x2x3x4xf16>{
+func.func @matmul_simplify_reshape_rhs_3(%arg0: tensor<1x2x3x4xf16>, %arg1: tensor<6x6xf16>) -> tensor<1x2x3x4xf16>{
     %0 = tensorrt.reshape %arg0 : tensor<1x2x3x4xf16> to tensor<6x4xf16>
     %1 = tensorrt.matrix_multiply {op0 = #tensorrt.matrix_operation<kNONE>, op1 = #tensorrt.matrix_operation<kNONE>}
     ins(%arg1, %0 : tensor<6x6xf16>, tensor<6x4xf16>) -> tensor<6x4xf16>
@@ -136,16 +136,16 @@ func.func @matmul_simplify_reshape_rhs_negative(%arg0: tensor<1x2x3x4xf16>, %arg
     return %2: tensor<1x2x3x4xf16>
 }
 
-// CHECK-LABEL: @matmul_simplify_reshape_rhs_negative
+// CHECK: @matmul_simplify_reshape_rhs_3
 //  CHECK-SAME: (%[[arg0:.+]]: {{.*}}, %[[arg1:.+]]: {{.*}})
-//       CHECK: %[[v0:.+]] = tensorrt.reshape %[[arg0]]
-//  CHECK-NEXT: %[[v1:.+]] = tensorrt.matrix_multiply {{{.*}}} ins(%[[arg1]], %[[v0]] : {{.*}})
-//  CHECK-NEXT: %[[v2:.+]] = tensorrt.reshape %[[v1]]
+//   CHECK-DAG: %[[v0:.+]] = tensorrt.reshape %[[arg0]]
+//   CHECK-DAG: %[[v1:.+]] = tensorrt.reshape %[[arg1]]
+//  CHECK-NEXT: %[[v2:.+]] = tensorrt.matrix_multiply {{{.*}}} ins(%[[v1]], %[[v0]] : {{.*}})
 //  CHECK-NEXT: return %[[v2]]
 
 // -----
 
-func.func @matmul_simplify_reshape_rhs_negative_dynamic(%arg0: tensor<?x?x?x4x5x6xf16>, %arg1: tensor<1x2x12x6x5xf16>) -> tensor<1x2x3x4x6x6xf16>{
+func.func @matmul_simplify_reshape_rhs_4_dynamic(%arg0: tensor<?x?x?x4x5x6xf16>, %arg1: tensor<1x2x12x6x5xf16>) -> tensor<1x2x3x4x6x6xf16>{
     %0 = tensorrt.reshape %arg0 : tensor<?x?x?x4x5x6xf16> to tensor<1x2x12x5x6xf16>
     %1 = tensorrt.matrix_multiply {op0 = #tensorrt.matrix_operation<kNONE>, op1 = #tensorrt.matrix_operation<kNONE>}
     ins(%arg1, %0 : tensor<1x2x12x6x5xf16>, tensor<1x2x12x5x6xf16>) -> tensor<1x2x12x6x6xf16>
@@ -153,11 +153,11 @@ func.func @matmul_simplify_reshape_rhs_negative_dynamic(%arg0: tensor<?x?x?x4x5x
     return %2: tensor<1x2x3x4x6x6xf16>
 }
 
-// CHECK-LABEL: @matmul_simplify_reshape_rhs_negative_dynamic
+// CHECK-LABEL: @matmul_simplify_reshape_rhs_4_dynamic
 //  CHECK-SAME: (%[[arg0:.+]]: {{.*}}, %[[arg1:.+]]: {{.*}})
-//       CHECK: %[[v0:.+]] = tensorrt.reshape %[[arg0]]
-//  CHECK-NEXT: %[[v1:.+]] = tensorrt.matrix_multiply {{{.*}}} ins(%[[arg1]], %[[v0]] : {{.*}})
-//  CHECK-NEXT: %[[v2:.+]] = tensorrt.reshape %[[v1]]
+//   CHECK-DAG: %[[v0:.+]] = tensorrt.reshape %[[arg0]]
+//   CHECK-DAG: %[[v1:.+]] = tensorrt.reshape %[[arg1]]
+//  CHECK-NEXT: %[[v2:.+]] = tensorrt.matrix_multiply {{{.*}}} ins(%[[v1]], %[[v0]] : {{.*}})
 //  CHECK-NEXT: return %[[v2]]
 
 // -----

@@ -143,10 +143,11 @@ static LogicalResult validateInputsSubscript(const IOSubscripts &subscripts,
       // match. for example, ('ij,jk->ik', a, b) is valid for a =
       // tensor<4x5xf32>, b = tensor<5x6xf32> but invalid for a =
       // tensor<4x6xf32>, b = tensor<5x6xf32>
-      if (allLabelDims.count(label) == 0) {
-        allLabelDims.insert(std::pair<char, int64_t>(label, dimension));
+      // Einsum also supports broadcasting
+      if (allLabelDims.count(label) == 0 || allLabelDims[label] == 1) {
+        allLabelDims[label] = dimension;
       } else {
-        if (allLabelDims[label] != dimension)
+        if (allLabelDims[label] != dimension && dimension != 1)
           return emitErrorFn(loc, Twine("label `") + Twine(label) +
                                       Twine("` is repeated between inputs but "
                                             "dimensions are not same"));
@@ -203,8 +204,8 @@ static LogicalResult inferOutputShapeImpl(const IOSubscripts &ioSubscripts,
        llvm::zip((ioSubscripts).inputs, inputOperands)) {
     for (const auto &[label, dims] :
          llvm::zip(subscript, cast<RankedTensorType>(operand).getShape()))
-      if (inputLabelsDims.count(label) == 0)
-        inputLabelsDims.insert(std::pair<char, int64_t>(label, dims));
+      if (inputLabelsDims.count(label) == 0 || inputLabelsDims[label] == 1)
+        inputLabelsDims[label] = dims;
   }
 
   for (const auto &label : (ioSubscripts).outputs) {
