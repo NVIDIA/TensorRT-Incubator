@@ -7,6 +7,7 @@ add_mlir_tensorrt_library(MLIRTensorRTPlanTransforms
   CreateClosedRegions.cpp
   CreateShapeFuncs.cpp
   EliminateShapeOps.cpp
+  LegalizeIOBoundsAttributes.cpp
   MaterializeExplicitTransfers.cpp
   MaterializeShapeCalculations.cpp
   MaterializeShapeCalculationsStablehlo.cpp

@@ -21,6 +21,7 @@
 /// Definitions of Plan dialect attributes.
 ///
 //===----------------------------------------------------------------------===//
+#include "mlir-executor/Executor/IR/ExecutorAttributes.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir/Dialect/Utils/IndexingUtils.h"
 #include "mlir/IR/DialectImplementation.h"
@@ -514,9 +515,29 @@ static LogicalResult verifyBoundsAttribute(Operation *op, unsigned argIndex,
   if (!func)
     return success();
 
-  Type argType = func.getArgument(argIndex).getType();
+  Type valueType = func.getArgument(argIndex).getType();
+
+  // If the function is an ABI wrapper function, we need to get the value type
+  // from the ABI function type since the type of the argument may be something
+  // like `!executor.ptr<host>`.
+  if (executor::abi::isABIWrapperFunction(func)) {
+    FailureOr<FunctionType> abiFuncType =
+        executor::abi::getABIFunctionType(func);
+    if (failed(abiFuncType))
+      return failure();
+    if (std::optional<unsigned> inputIndex =
+            executor::abi::isInputArgument(func, argIndex)) {
+      valueType = abiFuncType->getInput(*inputIndex);
+    } else {
+      std::optional<unsigned> outputIndex =
+          executor::abi::isOutputArgument(func, argIndex);
+      assert(outputIndex.has_value() && "expected output index");
+      valueType = abiFuncType->getResult(*outputIndex);
+    }
+  }
+
   return plan::detail::verifyBoundsAttr(
-      "arg", argIndex, argType, attr,
+      "arg", argIndex, valueType, attr,
       [&]() -> InFlightDiagnostic { return op->emitOpError(); });
 }
 

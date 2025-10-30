@@ -103,6 +103,7 @@ void StablehloToExecutableTask::populatePassManager() {
               options.defaultBackends.begin(),
               options.defaultBackends.end())}));
   pm.addPass(plan::createVerifyInputAndAssignSlotsPass());
+  pm.addPass(plan::createLegalizeIOBoundsAttributesPass());
 
   // StableHLO Preprocessing
   mtrt::compiler::StableHloInputOptions opts{};

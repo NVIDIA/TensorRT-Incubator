@@ -29,7 +29,7 @@ defvar InputKindOption = Option<"inputKind", "input-kind", "::mlir::plan::InputK
 
 //===----------------------------------------------------------------------===//
 // VerifyInputAndAssignSlotsPass
-//===----------------------------------------------------------------------===//      
+//===----------------------------------------------------------------------===//
 
 def VerifyInputAndAssignSlotsPass : Pass<"plan-verify-input-and-assign-slots",
                                          "::mlir::ModuleOp"> {
@@ -40,7 +40,27 @@ def VerifyInputAndAssignSlotsPass : Pass<"plan-verify-input-and-assign-slots",
 
   let dependentDialects = [
     "::mlir::plan::PlanDialect"
-  ];  
+  ];
+}
+
+//===----------------------------------------------------------------------===//
+// LegalizeIOBoundsAttributesPass
+//===----------------------------------------------------------------------===//
+
+def LegalizeIOBoundsAttributesPass : Pass<"plan-legalize-io-bounds-attributes",
+                                         "::mlir::ModuleOp"> {
+  let description = [{
+    This pass legalizes argument and result attributes that denote
+    shape and value bounds.
+
+    Some frontends use `tensorrt` dialect attributes for specifying the
+    shape/value bounds of arguments. For compatibility, this pass supports
+    converting them to `plan` dialect attributes.
+  }];
+
+  let dependentDialects = [
+    "::mlir::plan::PlanDialect"
+  ];
 }
 
 //===----------------------------------------------------------------------===//

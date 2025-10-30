@@ -13,8 +13,9 @@ add_mlir_tensorrt_dialect_library(MLIRTensorRTPlanDialect
   LINK_LIBS PUBLIC
     MLIRExecutorGenericClustering
     MLIRTensorRTCommonBoundsAttrInterface
-    MLIRTensorRTInferTensorValueRangeInterface
     MLIRTensorRTCommonTensorKindInterface
+    MLIRTensorRTExecutorDialect
+    MLIRTensorRTInferTensorValueRangeInterface
     MLIRTensorRTSupportStatus
     MLIRTensorRTUtilsShapeInfo
   MLIR_LIBS PUBLIC
