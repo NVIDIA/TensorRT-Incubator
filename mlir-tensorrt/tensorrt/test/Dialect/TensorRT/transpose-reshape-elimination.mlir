@@ -348,3 +348,21 @@ func.func @can_not_push_reshape_through_einsum(%arg0: tensor<2x20x12x64xf32>, %a
   %1 = tensorrt.reshape %0 : tensor<2x12x64xf32> to tensor<2x1x768xf32>
   return %1 : tensor<2x1x768xf32>
 }
+
+// -----
+
+// CHECK: @push_reshape_broadcast(%[[arg0:.+]]: tensor<6x64x448xf32>, %[[arg1:.+]]: tensor<6x1x448xf32>)
+// CHECK: %[[const:.+]] = tensorrt.constant dense_resource<__elided__> : tensor<1x1x384x384xf32>
+// CHECK-DAG: %[[v0:.+]] = tensorrt.expand_rank %[[arg0]] : tensor<6x64x448xf32> to tensor<1x1x6x64x448xf32>
+// CHECK-DAG: %[[v1:.+]] = tensorrt.expand_rank %[[arg1]] : tensor<6x1x448xf32> to tensor<1x1x6x1x448xf32>
+// CHECK: %[[v2:.+]] = tensorrt.matrix_multiply {{{.*}}} ins(%[[v0]], %[[v1]] : {{.*}})
+// CHECK: %[[v3:.+]] = tensorrt.reshape %[[v2]] : tensor<1x1x6x64xf32> to tensor<1x1x384xf32>
+// CHECK: %[[v4:.+]] = tensorrt.matrix_multiply {{{.*}}} ins(%[[v3]], %[[const]] : {{.*}}) -> tensor<1x1x384xf32>
+// CHECK: return %[[v4]]
+func.func @push_reshape_broadcast(%arg0: tensor<6x64x448xf32>, %arg1: tensor<6x1x448xf32>) -> tensor<1x1x384xf32> {
+    %const = tensorrt.constant dense_resource<__elided__> : tensor<384x6x64xf32>
+    %1 = tensorrt.einsum {equation = "bdc,bdc->bd"} ins(%arg0, %arg1 : tensor<6x64x448xf32>, tensor<6x1x448xf32>) -> tensor<6x64xf32>
+    %2 = tensorrt.einsum {equation = "bd,ebd->e"} ins(%1, %const : tensor<6x64xf32>, tensor<384x6x64xf32>) -> tensor<384xf32>
+    %3 = tensorrt.reshape %2 : tensor<384xf32> to tensor<1x1x384xf32>
+    return %3 :  tensor<1x1x384xf32>
+}

@@ -1423,7 +1423,7 @@ public:
 
     LLVM_DEBUG({
       std::stringstream out;
-      out << "==== Einsum Reshape/Transpose Pushdown Debug ====\n";
+      out << "==== Einsum Reshape/Transpose Pushup Debug ====\n";
       for (const auto &entry : charToGroup) {
         out << "  charToGroup[" << entry.first << "] = " << entry.second
             << "\n";
@@ -1492,8 +1492,16 @@ public:
           for (char c : group->second)
             newInputTranspose.push_back(equation.lhsParts[i].find(c));
           newInputEquation += inputToReshapedMap[group->second].newAxes;
-          for (int64_t v : inputToReshapedMap[group->second].newShape)
-            newInputShape.push_back(v);
+          for (int64_t v : inputToReshapedMap[group->second].newShape) {
+            if (v != 1 && group->second.size() == 1 &&
+                inputType.getDimSize(j) == 1) {
+              // if the group is of size 1, then it can have different sizes for
+              // each input due to broadcasting
+              newInputShape.push_back(1);
+            } else {
+              newInputShape.push_back(v);
+            }
+          }
         }
       }
 
@@ -1516,6 +1524,13 @@ public:
             out << ", ";
         }
         out << "]\n";
+        out << "  oldShape: [";
+        for (size_t si = 0; si < inputType.getShape().size(); ++si) {
+          out << inputType.getShape()[si];
+          if (si + 1 < inputType.getShape().size())
+            out << ", ";
+        }
+        out << "]\n";
         DBGS() << out.str() << "\n";
       });
 
@@ -1529,10 +1544,12 @@ public:
       newInputs.push_back(newReshape);
       newEquation.lhsParts.push_back(newInputEquation);
     }
-    LLVM_DEBUG(
-        { DBGS() << "===============================================\n"; });
-
     std::string newEquationStr = newEquation.generateEquation();
+
+    LLVM_DEBUG({
+      DBGS() << newEquationStr << "\n"
+             << "===============================================\n";
+    });
 
     auto newEinsum = rewriter.create<tensorrt::EinsumOp>(
         einsum.getLoc(), op.getType(), newInputs, newEquationStr);
