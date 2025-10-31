@@ -1466,3 +1466,59 @@ static LogicalResult verifyAllowedDataTypes(UnaryOp op) {
 LogicalResult tensorrt::UnaryOp::verify() {
   return verifyAllowedDataTypes(*this);
 }
+
+//===----------------------------------------------------------------------===//
+// AttentionOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult tensorrt::AttentionOp::verify() {
+  // Check 1: Cannot use both mask input and causal=true simultaneously
+  if (getMask() && getCausal())
+    return emitOpError(
+        "cannot use both mask input and causal=true simultaneously");
+
+  // Check 2: If normalization_quantize_to_type is specified, it must be kFP8
+  // or kINT8 and normalization_quantize_scale must be provided
+  std::optional<DataType> quantizeType = getNormalizationQuantizeToType();
+  if (quantizeType.has_value()) {
+    if (*quantizeType != DataType::kFP8 && *quantizeType != DataType::kINT8)
+      return emitOpError("normalization_quantize_to_type must be kFP8 or "
+                         "kINT8, but got ")
+             << stringifyDataType(*quantizeType);
+
+    if (!getNormalizationQuantizeScale())
+      return emitOpError(
+          "normalization_quantize_scale input must be provided when "
+          "normalization_quantize_to_type is specified");
+  }
+
+  // Check 3: If normalization_quantize_scale is provided,
+  // normalization_quantize_to_type must be specified
+  if (getNormalizationQuantizeScale() && !quantizeType.has_value())
+    return emitOpError(
+        "normalization_quantize_to_type must be specified when "
+        "normalization_quantize_scale input is provided");
+
+  // Check 4: If normalization_quantize_scale is provided, validate its type
+  if (getNormalizationQuantizeScale()) {
+    RankedTensorType scaleType = getNormalizationQuantizeScale().getType();
+    Type scaleElemType = scaleType.getElementType();
+
+    // Check that element type is f32, f16, or bf16
+    if (!scaleElemType.isF32() && !scaleElemType.isF16() &&
+        !scaleElemType.isBF16())
+      return emitOpError(
+                 "normalization_quantize_scale element type must be f32, f16, "
+                 "or bf16, but got ")
+             << scaleElemType;
+
+    // Check that scale is rank 0 or 1
+    if (scaleType.getRank() != 0 && scaleType.getRank() != 1)
+      return emitOpError(
+                 "normalization_quantize_scale must be rank 0 or 1, but got "
+                 "rank ")
+             << scaleType.getRank();
+  }
+
+  return success();
+}

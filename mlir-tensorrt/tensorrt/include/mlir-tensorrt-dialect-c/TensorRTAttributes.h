@@ -188,6 +188,22 @@ DECLARE_ATTR_GETTER_FROM_STRING(ScatterMode)
 DECLARE_IS_ATTR(ScatterMode)
 DECLARE_STRING_GETTER_FROM_ATTR(ScatterMode)
 
+//===----------------------------------------------------------------------===//
+// AttentionNormalizationOp
+//===----------------------------------------------------------------------===//
+
+DECLARE_ATTR_GETTER_FROM_STRING(AttentionNormalizationOp)
+DECLARE_IS_ATTR(AttentionNormalizationOp)
+DECLARE_STRING_GETTER_FROM_ATTR(AttentionNormalizationOp)
+
+//===----------------------------------------------------------------------===//
+// DataType
+//===----------------------------------------------------------------------===//
+
+DECLARE_ATTR_GETTER_FROM_STRING(DataType)
+DECLARE_IS_ATTR(DataType)
+DECLARE_STRING_GETTER_FROM_ATTR(DataType)
+
 #ifdef __cplusplus
 }
 #endif

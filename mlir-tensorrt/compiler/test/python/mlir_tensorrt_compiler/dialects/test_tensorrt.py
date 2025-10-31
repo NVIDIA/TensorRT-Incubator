@@ -49,6 +49,8 @@ def test_attributes():
             tensorrt.TripLimitAttr.get("kWHILE"),
             tensorrt.FillOperationAttr.get("kRANDOM_UNIFORM"),
             tensorrt.ScatterModeAttr.get("kELEMENT"),
+            tensorrt.AttentionNormalizationOpAttr.get("kSOFTMAX"),
+            tensorrt.DataTypeAttr.get("kFLOAT"),
         ]:
             print(attr)
 
@@ -74,3 +76,5 @@ if __name__ == "__main__":
 # CHECK-NEXT: #tensorrt.trip_limit<kWHILE>
 # CHECK-NEXT: #tensorrt.fill_operation<kRANDOM_UNIFORM>
 # CHECK-NEXT: #tensorrt.scatter_mode<kELEMENT>
+# CHECK-NEXT: #tensorrt.attention_normalization_op<kSOFTMAX>
+# CHECK-NEXT: #tensorrt.data_type<kFLOAT>
