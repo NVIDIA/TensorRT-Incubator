@@ -21,7 +21,7 @@ from nvtripy import export
 from nvtripy.common.exception import raise_error
 from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.types import IntLike
-from nvtripy.utils import wrappers
+from nvtripy.frontend import wrappers
 
 
 @export.public_api(document_under="operations/functions")

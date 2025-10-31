@@ -15,7 +15,7 @@
 import numbers
 
 from nvtripy import export
-from nvtripy.utils import wrappers
+from nvtripy.frontend import wrappers
 
 
 @export.public_api(document_under="operations/functions")

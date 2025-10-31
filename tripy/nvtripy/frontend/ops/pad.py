@@ -23,7 +23,7 @@ from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.trace.ops.shape import Shape
 from nvtripy.trace.ops.slice import SliceFill, SliceReflect
 from nvtripy.types import IntLike
-from nvtripy.utils import wrappers
+from nvtripy.frontend import wrappers
 
 
 @export.public_api(document_under="operations/functions")
