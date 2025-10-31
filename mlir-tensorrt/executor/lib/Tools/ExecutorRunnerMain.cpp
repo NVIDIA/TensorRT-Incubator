@@ -184,7 +184,7 @@ LogicalResult executor::ExecutorRunnerMain(
     if (llvm::is_contained(options.features, "nccl")) {
       Status mpiStatus = maybeInitializeMpi();
       if (!mpiStatus.isOk()) {
-        llvm::errs() << "failed to initialize MPI: " << mpiStatus.getString()
+        llvm::errs() << "failed to initialize MPI: " << mpiStatus.getMessage()
                      << "\n";
         return failure();
       }
@@ -242,7 +242,7 @@ LogicalResult executor::ExecutorRunnerMain(
   if (!sessionOptions.isOk())
     return emitError(UnknownLoc::get(&context))
            << "failed to get runtime session options: "
-           << sessionOptions.getStatus().getString();
+           << sessionOptions.getStatus().getMessage();
 
   // Read the buffer as a Lua script and execute.
   auto processBuffer = [&](std::unique_ptr<llvm::MemoryBuffer> input,
@@ -253,7 +253,8 @@ LogicalResult executor::ExecutorRunnerMain(
       mtrt::StatusOr<int64_t> result = mtrt::runExecutorLuaScript(
           *sessionOptions, input->getBuffer(), registerExtraLuaFuncs);
       if (!result.isOk())
-        return emitError(UnknownLoc::get(&context)) << result.getString();
+        return emitError(UnknownLoc::get(&context))
+               << result.getStatus().getMessage();
       return success(*result == 0);
     }
 
@@ -265,7 +266,7 @@ LogicalResult executor::ExecutorRunnerMain(
     if (!executable.isOk())
       return emitError(UnknownLoc::get(&context))
              << "failed to load executable from buffer: "
-             << executable.getString();
+             << executable.getStatus().getMessage();
 
     if (options.dumpFunctionSignature) {
       for (unsigned i = 0; i < executable->get()->getNumFunctions(); ++i) {
@@ -300,7 +301,7 @@ LogicalResult executor::ExecutorRunnerMain(
     if (!executionResult.isOk())
       return emitError(UnknownLoc::get(&context))
              << "failed to load and run executable: "
-             << executionResult.getString();
+             << executionResult.getStatus().getMessage();
 
     return success();
   };

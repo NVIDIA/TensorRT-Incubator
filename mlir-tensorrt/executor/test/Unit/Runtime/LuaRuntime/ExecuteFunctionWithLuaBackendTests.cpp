@@ -98,10 +98,10 @@ TEST_F(TestRuntime, TestRuntimeExecution) {
   auto executable = std::make_unique<mtrt::Executable>(std::move(*exeStorage));
 
   auto client = createRuntimeClient();
-  ASSERT_TRUE(client.isOk()) << client.getString();
+  ASSERT_TRUE(client.isOk()) << client.getStatus();
 
   auto session = createLuaRuntimeSession(*client, executable);
-  ASSERT_TRUE(session.isOk()) << session.getString();
+  ASSERT_TRUE(session.isOk()) << session.getStatus();
 
   std::vector<ScalarValue> scalarValues;
   scalarValues.reserve(4);
@@ -116,7 +116,7 @@ TEST_F(TestRuntime, TestRuntimeExecution) {
                                                  &scalarValues[1]};
 
   auto results = (*session)->executeFunction("main", inputArgs, {});
-  ASSERT_TRUE(results.isOk()) << results.getStatus().getString();
+  ASSERT_TRUE(results.isOk()) << results.getStatus().getMessage();
 
   ASSERT_EQ(results->size(), reference.size()) << "Vector sizes don't match";
 

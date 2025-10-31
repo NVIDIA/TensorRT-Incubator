@@ -111,9 +111,8 @@ DeviceOptions::DeviceOptions(mlir::detail::PassOptions *ctx)
     if (!value)
       return;
     StatusOr<DeviceInfo> deviceInfo = getDeviceInformationFromHost(0);
-    if (!deviceInfo.isOk()) {
-      llvm::report_fatal_error(deviceInfo.getString().c_str());
-    }
+    mtrt::cantFail(deviceInfo);
+
     computeCapability = deviceInfo->computeCapability;
     maxRegistersPerBlock = deviceInfo->maxRegistersPerBlock;
     maxSharedMemoryPerBlockKb = deviceInfo->maxSharedMemoryPerBlockKb;

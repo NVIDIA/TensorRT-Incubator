@@ -57,7 +57,7 @@ llvm::raw_ostream &mtrt::operator<<(llvm::raw_ostream &os,
   if (info.isOk()) {
     os << ", view = " << *info;
   } else {
-    os << llvm::formatv(", error = \"{0}\"", info.getStatus().getString());
+    os << llvm::formatv(", error = \"{0}\"", info.getStatus().getMessage());
   }
 
   os << " }";

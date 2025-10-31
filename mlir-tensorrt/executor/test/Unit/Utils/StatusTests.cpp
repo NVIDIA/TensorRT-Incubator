@@ -22,6 +22,7 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt-common/Support/Status.h"
+#include "llvm/Support/Debug.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
@@ -39,7 +40,50 @@ TEST(TestStatus, TestStatusMacros) {
   ASSERT_TRUE(result.isError());
   ASSERT_EQ(result.getCode(), StatusCode::InternalError);
   EXPECT_THAT(
-      result.getString(),
+      result.getMessage(),
       testing::MatchesRegex(
-          R"~(InternalError: (.*)/StatusTests\.cpp:([0-9]+) InternalError: some error - some explanation)~"));
+          R"~((.*)/StatusTests\.cpp:([0-9]+) some error - some explanation)~"));
+}
+
+TEST(TestStatusOr, StatusOr) {
+  StatusOr<int> s(123);
+  EXPECT_TRUE(s.isOk());
+  EXPECT_FALSE(s.isError());
+  EXPECT_EQ(*s, 123);
+
+  StatusOr<int> e = getInternalErrorStatus("some error");
+  EXPECT_FALSE(e.isOk());
+  EXPECT_TRUE(e.isError());
+  EXPECT_EQ(e.getStatus().getCode(), StatusCode::InternalError);
+  EXPECT_EQ(e.checkStatus().getMessage(), "some error");
+}
+
+struct CopyMoveCounter {
+  static inline int copy_count = 0;
+  static inline int move_count = 0;
+
+  static void reset() {
+    copy_count = 0;
+    move_count = 0;
+  }
+
+  int value;
+  CopyMoveCounter(int v) : value(v) {}
+  CopyMoveCounter(const CopyMoveCounter &o) : value(o.value) { ++copy_count; }
+  CopyMoveCounter(CopyMoveCounter &&o) : value(o.value) { ++move_count; }
+};
+
+TEST(TestStatusOr, RvalueOverloadReducesCopies) {
+  CopyMoveCounter::reset();
+
+  auto makeExpected = []() -> StatusOr<CopyMoveCounter> {
+    return CopyMoveCounter(42);
+  };
+
+  // Extract from rvalue - should prefer moves
+  CopyMoveCounter result = std::move(makeExpected()).getValue();
+
+  // Should have moves, not copies (exact count depends on optimization)
+  EXPECT_GT(CopyMoveCounter::move_count, 0);
+  EXPECT_EQ(CopyMoveCounter::copy_count, 0); // No copies with &&!
 }

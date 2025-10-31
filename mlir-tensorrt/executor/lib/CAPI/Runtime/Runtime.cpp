@@ -154,7 +154,7 @@ static MTRT_Status wrap(const Status &status) {
     return mtrtStatusGetOk();
   return mtrtStatusCreate(
       getMTRTStatusCodeFromRuntimeStatusCode(status.getCode()),
-      status.getString().c_str());
+      status.getMessage().c_str());
 }
 
 //===----------------------------------------------------------------------===//

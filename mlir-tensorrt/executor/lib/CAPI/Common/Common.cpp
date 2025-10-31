@@ -107,7 +107,7 @@ MTRT_Status mtrtExecutableCreate(MTRT_StringView buffer,
   if (!executable.isOk()) {
     auto status = executable.getStatus();
     return mtrtStatusCreate(static_cast<MTRT_StatusCode>(status.getCode()),
-                            status.getString().c_str());
+                            status.getMessage().c_str());
   }
 
   *result = MTRT_Executable{executable->release()};

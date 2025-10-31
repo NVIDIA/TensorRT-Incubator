@@ -151,7 +151,7 @@ test_memref_strides()
 
 # CHECK-LABEL: Test memref strides
 # CHECK-NEXT: Testing non-canonical stride: assert_canonical_strides = True
-# CHECK-NEXT: Received error message: InvalidArgument: InvalidArgument:
+# CHECK-NEXT: Received error message:
 # CHECK-SAME: Given strides [1, 4] do not match canonical strides [3, 1] for shape [4, 3]
 # CHECK-NEXT: Testing non-canonical stride: assert_canonical_strides = False
 # CHECK-NEXT: Testing canonical stride: assert_canonical_strides = True

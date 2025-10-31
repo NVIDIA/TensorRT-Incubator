@@ -180,8 +180,8 @@ public:
         stream ? std::optional<CudaStream>(reinterpret_cast<CudaStream>(stream))
                : std::nullopt);
     if (!alloc.isOk()) {
-      MTRT_ERRF("failed to allocate TensorRT output buffer of size %lu: %s",
-                size, alloc.getString().c_str());
+      MTRT_ERRV("failed to allocate TensorRT output buffer of size {0}: {1}",
+                size, alloc.getStatus());
       return nullptr;
     }
     allocInfo = std::move(*alloc);
@@ -431,10 +431,9 @@ public:
           sizeof(int32_t) *
           std::max<int32_t>(getShapeTensorAllocationSize(dims, dataType), 16));
       if (!hostBuffer.isOk())
-        return getStatusWithMsg(
-            StatusCode::InternalError,
-            "failed to allocate host buffer for TRT engine IO shape tensor: ",
-            hostBuffer.getString());
+        return getInternalErrorStatus("failed to allocate host buffer for TRT "
+                                      "engine IO shape tensor: {0}",
+                                      hostBuffer.getStatus());
       hostIOBuffers.push_back(*hostBuffer);
       assert(hostIOBuffers.back().ptr != 0 && hostIOBuffers.back().ptr > 0);
     }
@@ -610,8 +609,8 @@ static Status enqueueV3Wrapper(AllocTracker &tracker,
   StatusOr<std::vector<std::tuple<std::string, uintptr_t, nvinfer1::Dims>>>
       buffers = prepareBuffers(tracker, context, stream, va);
   if (!buffers.isOk())
-    return getStatusWithMsg(StatusCode::InternalError,
-                            "failed to prepare buffers: ", buffers.getString());
+    return getInternalErrorStatus("failed to prepare buffers: {0}",
+                                  buffers.getStatus());
   MTRT_RETURN_IF_ERROR(setTensorAddressesOrReport(context, *buffers));
   // Create an event that we can wait on for releasing any host-pinned staging
   // allocations we made.
@@ -645,8 +644,8 @@ static Status enqueueAllocV3Wrapper(AllocTracker &tracker,
       buffers =
           prepareBuffers(tracker, context, stream, va, /*outputAsArg=*/false);
   if (!buffers.isOk())
-    return getStatusWithMsg(StatusCode::InternalError,
-                            "failed to prepare buffers: ", buffers.getString());
+    return getInternalErrorStatus("failed to prepare buffers: {0}",
+                                  buffers.getStatus());
 
   MTRT_RETURN_IF_ERROR(setTensorAddressesOrReport(context, *buffers));
 

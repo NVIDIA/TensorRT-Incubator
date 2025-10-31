@@ -276,12 +276,10 @@ void compiler::printCompilationTaskHelpInfo(mlir::MLIRContext *ctx,
                                             llvm::StringRef mnemonic) {
   StatusOr<std::unique_ptr<CompilerClient>> client =
       compiler::CompilerClient::create(ctx);
-  if (!client.isOk())
-    llvm::report_fatal_error(client.getString().c_str());
+  mtrt::cantFail(client);
   StatusOr<CompilationTaskBase *> task =
       (*client)->getCompilationTask(mnemonic, {});
-  if (!task.isOk())
-    llvm::report_fatal_error(task.getString().c_str());
+  mtrt::cantFail(task);
   assert(*task != nullptr && "expected a valid task");
   (*task)->getTaskOptions().printHelp(0, 70);
 }

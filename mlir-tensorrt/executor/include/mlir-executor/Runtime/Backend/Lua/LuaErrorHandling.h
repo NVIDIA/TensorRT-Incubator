@@ -90,21 +90,29 @@
     }                                                                          \
   } while (false)
 
-#define SET_LUA_ERROR_IF_ERROR(x, lstate)                                      \
+#define SET_LUA_ERROR_IF_ERROR_(tmpName, x, lstate)                            \
   do {                                                                         \
-    if (!x.isOk()) {                                                           \
+    auto tmpName = (x).checkStatus();                                          \
+    if (!tmpName.isOk()) {                                                     \
       lua_State *L = lstate;                                                   \
-      luaL_error(L, std::string(x.getString()).c_str());                       \
+      luaL_error(L, tmpName.getMessage().c_str());                             \
+    }                                                                          \
+  } while (false)
+#define SET_LUA_ERROR_IF_ERROR(x, lstate)                                      \
+  SET_LUA_ERROR_IF_ERROR_(MTRT_CONCAT(_tmpStatus, __COUNTER__), x, lstate)
+
+#define SET_LUA_ERROR_AND_RETURN_IF_ERROR_(tmpName, x, lstate, ...)            \
+  do {                                                                         \
+    auto tmpName = (x).checkStatus();                                          \
+    if (!tmpName.isOk()) {                                                     \
+      lua_State *L = lstate;                                                   \
+      luaL_error(L, tmpName.getMessage().c_str());                             \
+      return __VA_ARGS__;                                                      \
     }                                                                          \
   } while (false)
 
 #define SET_LUA_ERROR_AND_RETURN_IF_ERROR(x, lstate, ...)                      \
-  do {                                                                         \
-    if (!x.isOk()) {                                                           \
-      lua_State *L = lstate;                                                   \
-      luaL_error(L, std::string(x.getString()).c_str());                       \
-      return __VA_ARGS__;                                                      \
-    }                                                                          \
-  } while (false)
+  SET_LUA_ERROR_AND_RETURN_IF_ERROR_(MTRT_CONCAT(_tmpStatus, __COUNTER__), x,  \
+                                     lstate, __VA_ARGS__)
 
 #endif // MLIR_TENSORRT_RUNTIME_BACKEND_LUA_LUAERRORHANDLING_H

@@ -865,7 +865,7 @@ validateArgsAgainstSignature(const FunctionSignatureView &sig,
     auto status = abi_v0::validateArgTypeAgainstSpec(args[i], sig.getArg(i));
     if (!status.isOk())
       return getInvalidArgStatus("Input argument {0} validation failed: {1}", i,
-                                 status.getString());
+                                 status.getMessage());
   }
   for (unsigned i = 0, e = outArgs.size(); i < e; ++i) {
     // TODO: In ABI v0, we must provide all output arguments, but in ABI v1 we
@@ -877,7 +877,7 @@ validateArgsAgainstSignature(const FunctionSignatureView &sig,
       return getInvalidArgStatus(
           "Output argument {0} validation failed against "
           "corresponding function signature arg {1}. Reason: {2}",
-          i, i + args.size(), status.getString());
+          i, i + args.size(), status.getMessage());
   }
   return getOkStatus();
 }

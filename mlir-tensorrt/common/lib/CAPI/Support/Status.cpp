@@ -31,7 +31,7 @@
 struct MTRT_StatusImpl {
 public:
   MTRT_StatusImpl(mtrt::StatusCode code, const char *msg)
-      : s(code, msg), msgStorage(s.getString()) {}
+      : s(code, msg), msgStorage(s.getMessage()) {}
   const char *getMessage() { return msgStorage.c_str(); }
 
 private:

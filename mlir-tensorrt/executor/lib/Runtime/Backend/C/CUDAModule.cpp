@@ -19,6 +19,7 @@
 #include <cstdint>
 #include <cuda_runtime_api.h>
 #include <fstream>
+#include <iostream>
 #include <string>
 #include <vector>
 
@@ -135,16 +136,13 @@ CUmodule mtrt_cuda_module_load_from_ptx(const char *ptxData, size_t ptxLen) {
   int32_t device{0};
   HANDLE_CUDART_ERROR(cudaGetDevice(&device), nullptr);
   StatusOr<std::string> arch = getDeviceArch(device);
-  if (!arch.isOk()) {
-    llvm::report_fatal_error(arch.getString().c_str());
-    return nullptr;
-  }
+  mtrt::cantFail(arch);
 
   StatusOr<std::unique_ptr<mtrt::CuBinWrapper>> cubinWrapper =
       mtrt::compilePtxToCuBin(reinterpret_cast<const char *>(ptxData), ptxLen,
                               *arch);
   if (!cubinWrapper.isOk()) {
-    llvm::errs() << cubinWrapper.getString() << "\n";
+    mtrt::cantFail(cubinWrapper);
     return nullptr;
   }
 
@@ -187,10 +185,7 @@ CUmodule mtrt_cuda_module_load_from_ptx_file(const char *filename,
   int32_t device{0};
   HANDLE_CUDART_ERROR(cudaGetDevice(&device), nullptr);
   StatusOr<std::string> arch = getDeviceArch(device);
-  if (!arch.isOk()) {
-    llvm::report_fatal_error(arch.getString().c_str());
-    return nullptr;
-  }
+  mtrt::cantFail(arch);
 
   std::fstream fs(filename, std::fstream::in | std::fstream::binary);
 
@@ -200,10 +195,7 @@ CUmodule mtrt_cuda_module_load_from_ptx_file(const char *filename,
 
   StatusOr<std::unique_ptr<mtrt::CuBinWrapper>> cubinWrapper =
       mtrt::compilePtxToCuBin(buffer.data(), buffer.size(), *arch);
-  if (!cubinWrapper.isOk()) {
-    llvm::errs() << cubinWrapper.getString() << "\n";
-    return nullptr;
-  }
+  mtrt::cantFail(cubinWrapper);
 
   CUmodule module{nullptr};
   CUresult result = cuModuleLoadDataEx(

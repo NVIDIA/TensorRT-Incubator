@@ -229,7 +229,7 @@ AllocTracker::~AllocTracker() {
     totalSize += ptr.size;
     if (!s.isOk())
       MTRT_DBGF("error while deallocating dangling memory: %s",
-                s.getString().c_str());
+                s.getMessage().c_str());
   }
 
   if (totalSize > 0)
@@ -453,7 +453,8 @@ struct CUDAGPUDeviceGuard final : public DeviceGuard {
              originalDeviceNumber);
     Status setDeviceStatus = setCurrentCUDADevice(originalDeviceNumber);
     if (!setDeviceStatus.isOk())
-      llvm::report_fatal_error(setDeviceStatus.getStatus().getString().c_str());
+      llvm::report_fatal_error(
+          setDeviceStatus.getStatus().getMessage().c_str());
   }
 
 private:
@@ -565,15 +566,14 @@ void cuda_event_host_callback(void *userData) {
     // Create device guard
     StatusOr<std::unique_ptr<DeviceGuard>> deviceGuard =
         token->device->createDeviceGuard();
-    mtrt::cantFail(deviceGuard.getStatus());
+    mtrt::cantFail(deviceGuard);
     mtrt::StatusOr<bool> eventStatus =
         mtrt::queryCUDAEvent(token->event->getCudaHandle());
     if (!eventStatus.isOk())
-      s = std::move(eventStatus.getStatus());
+      s = eventStatus.getStatus();
     else if (!*eventStatus)
       s = mtrt::getInternalErrorStatus(
           "event is not ready, but host callback was invoked");
-
     // May invoke callbacks.
     token->event->setReady(std::move(s));
   });
@@ -628,7 +628,7 @@ void Event::releaseWhenReady(std::unique_ptr<Event> event) {
 
 Event::~Event() {
   MTRT_DBG("destroying mtrt::Event {0} ready={1} status={2}", this, ready,
-           status.isOk() ? "ok" : status.getString());
+           status.isOk() ? "ok" : status.getMessage());
   if (cudaEventHandle) {
     mtrt::logUnhandledErrors(mtrt::destroyCUDAEvent(cudaEventHandle),
                              llvm::errs());
@@ -1646,7 +1646,7 @@ RuntimeClient::copyDeviceBufferToOtherDevice(
       destStream->getCUDAHandle(), sourceReadyEvent->getCudaHandle());
   if (!waitStatus.isOk())
     return mtrt::getInternalErrorStatus("failed to wait on CUDA event: {0}",
-                                        waitStatus.getString());
+                                        waitStatus.getMessage());
   Status copyStatus = mtrt::copyCUDAPeerAsync(
       dstBuffer->getVoidPtr(), dstDevice.getDeviceNumber(),
       sourceBuffer.getVoidPtr(), sourceBuffer.getDevice()->getDeviceNumber(),
@@ -1654,7 +1654,7 @@ RuntimeClient::copyDeviceBufferToOtherDevice(
       destStream->getCUDAHandle());
   if (!copyStatus.isOk())
     return mtrt::getInternalErrorStatus(
-        "failed to copy CUDA device-to-device: {0}", copyStatus.getString());
+        "failed to copy CUDA device-to-device: {0}", copyStatus.getMessage());
 
   MTRT_ASSIGN_OR_RETURN(copyDoneEvent, Event::create(destStream));
 

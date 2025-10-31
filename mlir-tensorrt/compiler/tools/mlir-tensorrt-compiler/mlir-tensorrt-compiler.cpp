@@ -124,7 +124,7 @@ static LogicalResult runCompilation(CompilerClient &client, StringRef taskName,
   StatusOr<CompilationTaskBase *> task = client.getCompilationTask(
       taskName, {pipelineOptions}, artifactsDirectoryOverride);
   if (!task.isOk()) {
-    llvm::errs() << task.getString() << "\n";
+    llvm::errs() << task.getStatus() << "\n";
     return failure();
   }
 
@@ -196,7 +196,7 @@ int main(int argc, char **argv) {
       mtrt::compiler::CompilerClient::create(&context);
   if (!client.isOk()) {
     llvm::errs() << "[error] failed to create compiler client: "
-                 << client.getString() << "\n";
+                 << client.getStatus() << "\n";
     return 1;
   }
 
