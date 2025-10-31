@@ -4432,4 +4432,172 @@ def TensorRT_ScatterElementsOp : TensorRT_Op<"scatter_elements",
   }];
 }
 
+//===----------------------------------------------------------------------===//
+// AttentionOp
+//===----------------------------------------------------------------------===//
+
+def TensorRT_AttentionOp : TensorRT_Op<"attention",
+      [Pure, AttrSizedOperandSegments, TensorRTInferTensorResultTypes,
+       AllElementTypesMatch<["query", "key", "value"]>,
+       AllRanksMatch<["query", "key", "value"]>]>{
+  let summary = "TensorRT attention (IAttention) operation";
+  let description = [{
+    The `tensorrt.attention` operation implements a fused attention mechanism
+    that consumes query, key, and value tensors. The operation implicitly includes
+    two matrix multiplication layers (BMM1 and BMM2) and a normalization operation
+    (typically softmax).
+
+    By default, TensorRT will try to use a single fused kernel for better efficiency.
+    The operation can optionally be decomposed into multiple kernels if no fused
+    kernel is available by setting `decomposable` to true.
+
+    #### Architecture:
+
+    ```
+    Query       Key       Value      Mask (optional)      NormalizationQuantizeScale (optional)
+      |          |          |          |                    |
+      |       Transpose     |          |                    |
+      |          |          |          |                    |
+      ----BMM1----          |          |                    |
+            |               |          |                    |
+            *---------------------------                    |
+            |               |                               |
+      Normalization         |                               |
+            |               |                               |
+            *------------------------------------------------
+            |               |
+            -------BMM2------
+                    |
+                  Output
+    ```
+
+    #### Inputs:
+
+    - Query: tensor of type f32, f16, or bf16 with shape
+      [batchSize, numHeadsQuery, sequenceLengthQuery, dimHead]
+    - Key: tensor of type f32, f16, or bf16 with shape
+      [batchSize, numHeadsKeyValue, sequenceLengthKeyValue, dimHead]
+    - Value: tensor of type f32, f16, or bf16 with shape
+      [batchSize, numHeadsKeyValue, sequenceLengthKeyValue, dimHead]
+    - Mask (optional): tensor of type i1 or same type as BMM1 output with shape
+      [batchSize, numHeadsQuery, sequenceLengthQuery, sequenceLengthKeyValue]
+      where batchSize and numHeadsQuery are broadcastable. For i1 mask, true
+      indicates the position is allowed to attend. For other types, mask values
+      are added to BMM1 output.
+    - NormalizationQuantizeScale (optional): tensor of type f32, f16, or bf16
+      with rank 0 or 1, used for quantizing the normalization output.
+
+    #### Attributes:
+
+    - normalization_operation: The normalization operation to use (default: kSOFTMAX)
+    - causal: Whether to use causal masking (default: false). Cannot be used with mask input.
+    - decomposable: Whether the operation can be decomposed (default: false)
+    - normalization_quantize_to_type: Optional output type for quantized normalization.
+      When specified, must be one of kFP8 or kINT8. Requires normalization_quantize_scale input to be provided.
+
+    #### Constraints:
+
+    - All query, key, and value tensors must be rank 4 with shape [batchSize, numHeads, sequenceLength, dimHead]
+    - Query, key, and value must have the same element type (f32, f16, or bf16)
+    - If normalization_quantize_to_type is specified:
+      * It must be kFP8 or kINT8
+      * normalization_quantize_scale input must be provided
+    - Cannot use both mask input and causal=true simultaneously
+
+    #### Examples:
+
+    Basic attention:
+    ```mlir
+    %output = tensorrt.attention ins(%query, %key, %value : 
+        tensor<2x8x128x64xf16>, tensor<2x8x128x64xf16>, tensor<2x8x128x64xf16>)
+        -> tensor<2x8x128x64xf16>
+    ```
+
+    Causal attention:
+    ```mlir
+    %output_causal = tensorrt.attention {causal = true} ins(%query, %key, %value : 
+        tensor<2x8x128x64xf16>, tensor<2x8x128x64xf16>, tensor<2x8x128x64xf16>)
+        -> tensor<2x8x128x64xf16>
+    ```
+
+    Attention with quantization:
+    ```mlir
+    %scale = tensorrt.constant dense<1.0> : tensor<f32>
+    %output_quant = tensorrt.attention {
+        normalization_quantize_to_type = #tensorrt.data_type<kFP8>
+      } ins(%query, %key, %value, 
+            normalization_quantize_scale = %scale :
+            tensor<2x8x128x64xf16>, tensor<2x8x128x64xf16>, 
+            tensor<2x8x128x64xf16>, tensor<f32>)
+        -> tensor<2x8x128x64xf16>
+    ```
+  }];
+
+  let arguments = (ins
+    TensorRT_RankedTensorOf<[F16, BF16, F32]>:$query,
+    TensorRT_RankedTensorOf<[F16, BF16, F32]>:$key,
+    TensorRT_RankedTensorOf<[F16, BF16, F32]>:$value,
+    Optional<TensorRT_Tensor>:$mask,
+    Optional<TensorRT_RankedTensorOf<[F16, BF16, F32]>>:$normalization_quantize_scale,
+    OptionalAttr<TensorRT_AttentionNormalizationOpAttr>:$normalization_operation,
+    DefaultValuedAttr<BoolAttr, "false">:$causal,
+    DefaultValuedAttr<BoolAttr, "false">:$decomposable,
+    OptionalAttr<TensorRT_DataTypeAttr>:$normalization_quantize_to_type
+  );
+  
+  let results = (outs TensorRT_RankedTensorOf<[F16, BF16, F32]>:$result);
+  
+  let assemblyFormat = [{
+    attr-dict `ins` `(` $query `,` $key `,` $value 
+    (`,` `mask` `=` $mask^)?
+    (`,` `normalization_quantize_scale` `=` $normalization_quantize_scale^)?
+    `:` type($query) `,` type($key) `,` type($value)
+    (`,` type($mask)^)?
+    (`,` type($normalization_quantize_scale)^)?
+    `)` `->` type($result)
+  }];
+  
+  let hasVerifier = 1;
+  
+  let extraClassDeclaration = [{
+    /// Returns true if created op is valid for TensorRT major version.
+    bool isValidForTensorRTVersion(int64_t trtMajorVersion);
+  }] # baseClassDeclaration;
+  
+  let trtLayerAdd = [{
+    // Get normalization operation, default to kSOFTMAX
+    nvinfer1::AttentionNormalizationOp normOp = $normalization_operation 
+      ? *$normalization_operation 
+      : nvinfer1::AttentionNormalizationOp::kSOFTMAX;
+    
+    nvinfer1::IAttention *layer = $net->addAttention(*$query, *$key, *$value, normOp, $causal);
+    if (!layer)
+      return failure();
+    
+    if ($mask)
+      layer->setMask(*$mask);
+    
+    layer->setDecomposable($decomposable);
+    
+    if ($normalization_quantize_scale) {
+      layer->setNormalizationQuantizeScale(*$normalization_quantize_scale);
+    }
+    
+    if ($normalization_quantize_to_type) {
+      layer->setNormalizationQuantizeToType(*$normalization_quantize_to_type);
+    }
+    
+    if (!$e.isStronglyTyped()){
+      FailureOr<nvinfer1::DataType> outputTrtType = getNvInferDataType($op.getLoc(),
+                                                          $op.getType().getElementType());
+      if (failed(outputTrtType))
+        return failure();
+      layer->setOutputType(0, *outputTrtType);
+    }
+    
+    $results.push_back(layer->getOutput(0));
+    $e.setMetadata(layer, $op);
+  }];
+}
+
 #endif // MLIR_TENSORRT_DIALECT_TENSORRT_IR_TENSORRTOPS_TD
