@@ -396,6 +396,7 @@ def encode_executable(executable):
         "executable": base64.b64encode(executable._executable.serialize()).decode(),
         "_return_single_tensor_as_sequence": executable._return_single_tensor_as_sequence,
         "input_infos": executable.input_infos,
+        "leaf_names_by_arg": executable._leaf_names_by_arg,
     }
 
 
@@ -407,4 +408,5 @@ def decode_executable(executable_dict):
         executable_dict["arg_names"],
         return_single_tensor_as_sequence=executable_dict["_return_single_tensor_as_sequence"],
         input_infos=executable_dict["input_infos"],
+        leaf_names_by_arg=executable_dict.get("leaf_names_by_arg"),
     )
