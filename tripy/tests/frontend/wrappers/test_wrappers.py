@@ -25,7 +25,7 @@ from nvtripy.export import PUBLIC_APIS
 from nvtripy.frontend import wrappers
 from nvtripy.frontend.constraints.fetcher import GetDataType, GetInput, GetReturn
 from nvtripy.frontend.constraints.logic import And, Equal, NotEqual, NotOneOf, OneOf, Or
-from nvtripy.frontend.wrappers import DATA_TYPE_CONSTRAINTS, _doc_str
+from nvtripy.frontend.wrappers import DATA_TYPE_CONSTRAINTS, _doc_str, _find_known_datatypes
 from tests import helper
 
 # Get all functions/methods which have tensors in the type signature
@@ -93,14 +93,14 @@ class TestDocStr:
 
         assert (
             _doc_str(And(constraint1, constraint2))
-            == "- ``a`` is one of [:class:`float32`]\n- ``b`` is one of [:class:`int32`]"
+            == "- ``a`` is one of [:class:`float32`], **and**\n- ``b`` is one of [:class:`int32`]"
         )
 
     def test_or_constraint(self):
         input_a = GetInput("a")
         or_constraint = Or(Equal(input_a, tp.float32), Equal(input_a, tp.float16))
 
-        assert _doc_str(or_constraint) == "(``a`` == :class:`float32` or ``a`` == :class:`float16`)"
+        assert _doc_str(or_constraint) == "(``a`` == :class:`float32` *or* ``a`` == :class:`float16`)"
 
     def test_nested_constraints(self):
         input_a = GetInput("a")
@@ -111,7 +111,7 @@ class TestDocStr:
 
         assert (
             _doc_str(and_constraint)
-            == "- (``a`` == :class:`float32` or ``a`` == :class:`float16`)\n- ``b`` is one of [:class:`int32`]"
+            == "- (``a`` == :class:`float32` *or* ``a`` == :class:`float16`), **and**\n- ``b`` is one of [:class:`int32`]"
         )
 
     def test_complex_real_world_constraint(self):
@@ -124,8 +124,85 @@ class TestDocStr:
 
         assert (
             _doc_str(and_constraint)
-            == "- ``input.dtype`` == ``other.dtype``\n- ``input.dtype`` is one of [:class:`float32`, :class:`float16`]"
+            == "- ``input.dtype`` == ``other.dtype``, **and**\n- ``input.dtype`` is one of [:class:`float32`, :class:`float16`]"
         )
+
+
+class TestFindKnownDatatypes:
+    def test_equal_dtypes_propagation(self):
+        tensor_a = tp.Tensor([1.0, 2.0])
+        merged_args = [("a", tensor_a), ("b", 1.0)]
+
+        input_requirements = And(Equal(GetDataType(GetInput("a")), GetDataType(GetInput("b"))))
+
+        result = _find_known_datatypes(merged_args, input_requirements)
+        assert result["a"] == tp.float32
+        assert result["b"] == tp.float32
+
+    def test_multiple_equal_dtypes_chain(self):
+        tensor_c = tp.Tensor([1.0, 2.0])
+        merged_args = [("a", 0.0), ("b", 1.0), ("c", tensor_c)]
+
+        input_requirements = And(
+            Equal(GetDataType(GetInput("a")), GetDataType(GetInput("b"))),
+            Equal(GetDataType(GetInput("b")), GetDataType(GetInput("c"))),
+        )
+
+        result = _find_known_datatypes(merged_args, input_requirements)
+        assert result["a"] == tp.float32
+        assert result["b"] == tp.float32
+        assert result["c"] == tp.float32
+
+    def test_chain_with_disjoint_sets(self):
+        # Make sure implementation applies transitive equality correctly when the constraints are such
+        # that it could form disjoint sets (in an incorrect implementation).
+        tensor_a = tp.Tensor([1.0, 2.0])
+        merged_args = [("a", tensor_a), ("b", 1.0), ("c", 1), ("d", 1)]
+
+        input_requirements = And(
+            Equal(GetDataType(GetInput("a")), GetDataType(GetInput("c"))),
+            Equal(GetDataType(GetInput("b")), GetDataType(GetInput("d"))),
+            Equal(GetDataType(GetInput("b")), GetDataType(GetInput("a"))),
+        )
+
+        result = _find_known_datatypes(merged_args, input_requirements)
+        assert result["a"] is tp.float32
+        assert result["b"] is tp.float32
+        assert result["c"] is tp.float32
+        assert result["d"] is tp.float32
+
+    def test_equal_to_constant_dtype(self):
+        merged_args = [("a", 1.0)]
+
+        input_requirements = And(Equal(GetDataType(GetInput("a")), tp.float16))
+
+        result = _find_known_datatypes(merged_args, input_requirements)
+        assert result["a"] == tp.float16
+
+    def test_multiple_separate_dtype_groups(self):
+        tensor_a = tp.Tensor([1.0, 2.0])
+        tensor_c = tp.Tensor([1, 2])
+        merged_args = [("a", tensor_a), ("b", 1.0), ("c", tensor_c), ("d", 1)]
+
+        input_requirements = And(
+            Equal(GetDataType(GetInput("a")), GetDataType(GetInput("b"))),
+            Equal(GetDataType(GetInput("c")), GetDataType(GetInput("d"))),
+        )
+
+        result = _find_known_datatypes(merged_args, input_requirements)
+        assert result["a"] == tp.float32
+        assert result["b"] == tp.float32
+        assert result["c"] == tp.int32
+        assert result["d"] == tp.int32
+
+    def test_unknown_dtypes(self):
+        merged_args = [("a", 1.0), ("b", 2.0)]
+
+        input_requirements = And(Equal(GetDataType(GetInput("a")), GetDataType(GetInput("b"))))
+
+        result = _find_known_datatypes(merged_args, input_requirements)
+        assert result["a"] is None
+        assert result["b"] is None
 
 
 class TestDtypes:

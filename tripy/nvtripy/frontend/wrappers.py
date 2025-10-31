@@ -25,7 +25,7 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple, Un
 from nvtripy import config, utils
 from nvtripy.common.datatype import DATA_TYPES
 from nvtripy.common.exception import raise_error
-from nvtripy.frontend.constraints import Constraints
+from nvtripy.frontend.constraints import Constraints, Equal, GetInput, GetDataType, Fetcher
 from nvtripy.utils import result
 
 
@@ -137,17 +137,87 @@ def get_arg_dtype(arg, func_name, arg_name) -> result.Result["nvtripy.dtype"]:
     return result.Result.ok(arg_dtype)
 
 
+def _find_known_datatypes(
+    merged_args: List[Tuple[str, Any]], input_requirements: Constraints
+) -> Dict[str, "nvtripy.dtype"]:
+
+    # We perform this operation in two steps:
+    # 1. Identify all arguments that are expected to have equal data types.
+    # 2. Propagate known data types to all arguments in each equality set.
+    expected_equal_dtype: List[Set[str]] = []
+
+    def insert_pair(name1, name2):
+        for pair_set in expected_equal_dtype:
+            if name1 in pair_set or name2 in pair_set:
+                pair_set.update({name1, name2})
+                return
+        expected_equal_dtype.append({name1, name2})
+
+    known_dtypes: Dict[str, Optional["nvtripy.dtype"]] = {}
+    for name, _ in merged_args:
+
+        # If this argument already has a known dtype, populate it:
+        try:
+            known_dtypes[name] = GetDataType(GetInput(name))(merged_args)
+        except Exception:
+            pass
+
+        def process_dtype_equality(matched_constraints, input_is_lhs):
+            for constraint in matched_constraints:
+                expected = constraint.fetcher_or_value if input_is_lhs else constraint.fetcher
+                if isinstance(expected, GetDataType):
+                    # This might be too restrictive, in which case the assertion can be lifted and the logic here updated.
+                    # However, it should generally be the case that input requirements are in terms of the inputs.
+                    assert isinstance(
+                        expected.value_fetcher, GetInput
+                    ), f"Input requirements should only look at inputs"
+                    other_name = expected.value_fetcher.name
+
+                    insert_pair(name, other_name)
+
+                    try:
+                        known_dtypes[other_name] = expected(merged_args)
+                    except Exception:
+                        # dtype is not yet known (i.e. might be comparing two inputs with unknown dtypes)
+                        pass
+
+                else:
+                    known_dtypes[name] = expected(merged_args) if isinstance(expected, Fetcher) else expected
+
+        # NOTE: Because we check for the input on both sides of the equality, we do not need to do another pass over
+        # expected_equal_dtype to merge disjoint sets - if we have a transitive equality like:
+        #  `a == c and b == d and b == a`, then `a`, `c`, `b` will be immediately added to the same set, which `d` will
+        # join when we process `b`.
+        process_dtype_equality(input_requirements.find(Equal(GetDataType(GetInput(name)), None)), input_is_lhs=True)
+        process_dtype_equality(input_requirements.find(Equal(None, GetDataType(GetInput(name)))), input_is_lhs=False)
+
+    # We do not need to perform validation, as that will happen during constraints checking.
+    for dtype_set in expected_equal_dtype:
+        known_dtype_in_set = None
+        for name in dtype_set:
+            if name in known_dtypes:
+                known_dtype_in_set = known_dtypes[name]
+                break
+
+        # dtype might be unknown if the arguments are all non-tensor types.
+        for name in dtype_set:
+            known_dtypes[name] = known_dtype_in_set
+
+    return known_dtypes
+
+
 # Performs type conversions if needed. Returns updated values of args, kwargs, and merged args
 def convert_input_types(
     func,
     args,
     kwargs,
-    merged_args,
+    merged_args: List[Tuple[str, Any]],
     var_arg_info,
     conversion_targets,
     conversion_preprocess_func,
     dtype_constraints,
     shape_likes,
+    input_requirements: Constraints,
 ):
     from nvtripy.common.datatype import bool as tp_bool
     from nvtripy.common.datatype import floating, integer
@@ -168,13 +238,16 @@ def convert_input_types(
                 else:
                     merged_args[index] = (name, new_args[name])
 
-    # Materialize type variables from tensors.
-    type_vars = {}
-    for name, arg in merged_args:
-        if name in dtype_constraints:
-            dtype_result = get_arg_dtype(arg, func.__qualname__, name)
-            if dtype_result:
-                type_vars[dtype_constraints[name]] = dtype_result.value
+    if input_requirements is not None:
+        known_datatypes = _find_known_datatypes(merged_args, input_requirements)
+    else:
+        # Materialize type variables from tensors.
+        type_vars = {}
+        for name, arg in merged_args:
+            if name in dtype_constraints:
+                dtype_result = get_arg_dtype(arg, func.__qualname__, name)
+                if dtype_result:
+                    type_vars[dtype_constraints[name]] = dtype_result.value
 
     new_args = []
     new_kwargs = {}
@@ -207,7 +280,10 @@ def convert_input_types(
             )
 
             dtype = None
-            if name in dtype_constraints and dtype_constraints[name] in type_vars:
+            if input_requirements is not None:
+                dtype = known_datatypes.get(name)
+            elif name in dtype_constraints and dtype_constraints[name] in type_vars:
+                # TODO (pranavm): Remove this deprecated path.
                 dtype = type_vars[dtype_constraints[name]]
 
             if dtype is not None:
@@ -446,6 +522,7 @@ def interface(
                     conversion_preprocess_func,
                     dtype_constraints,
                     shape_likes,
+                    input_requirements,
                 )
 
             if config.enable_input_validation:
