@@ -297,7 +297,8 @@ class Executable:
                             f"Unexpected tensor rank.",
                             [
                                 f"For tensor: `{arg_name}`, expected a rank of: {len(expected_bounds.min)} but got: {len(shape)}.\n"
-                                f"Note: The provided argument was a tensor with shape: {shape}",
+                                f"Note: The provided argument was: ",
+                                tensor,
                             ],
                         )
 
@@ -308,7 +309,8 @@ class Executable:
                                 [
                                     f"For tensor: `{arg_name}`, expected a shape within the bounds: min={expected_bounds.min}, max={expected_bounds.max}, but got: {shape}.\n"
                                     f"Dimension {i} has a shape of {shape[i]}, which is not within the expected bounds of [{expected_bounds.min[i]}, {expected_bounds.max[i]}].\n"
-                                    f"Note: The provided argument was a tensor with shape: {shape}",
+                                    f"Note: The provided argument was: ",
+                                    tensor,
                                 ],
                             )
             raise_error(str(err))
