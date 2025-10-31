@@ -28,7 +28,6 @@ from nvtripy.frontend.module import Module
 from nvtripy.utils.types import obj_name_or_type_name
 
 
-# TODO (#230): Support collections of tensors in args/kwargs
 @export.public_api(document_under="compiling_code/compile.rst")
 def compile(
     func: Callable, optimization_level: int = 3, *, args: Sequence[Any] = [], kwargs: Dict[str, Any] = {}
@@ -157,13 +156,15 @@ def compile(
     trace_input_map = {}
     input_names = set()
     input_infos = {}
+    trace_inputs = []  # flattened list of trace input tensors in argument order
 
     # Set up names for the weights in the module to make the trace easier to read.
     if isinstance(func, Module):
         for name, weight in func.state_dict().items():
             weight.name = name
 
-    def process_arg(name, arg):
+    def process_arg_input_info(name, arg):
+        """Process InputInfo or DimensionInputInfo objects and create corresponding tensors."""
         if isinstance(arg, InputInfo):
             # Make new tensors for tracing.
             from nvtripy.common.datatype import floating, integer
@@ -184,6 +185,7 @@ def compile(
 
             trace_input_map[name] = tensor
             input_names.add(name)
+            trace_inputs.append(tensor.trace_tensor)
 
             return tensor
 
@@ -199,10 +201,44 @@ def compile(
 
             trace_input_map[name] = tensor
             input_names.add(name)
+            trace_inputs.append(tensor.trace_tensor)
 
             return tensor
 
         return arg
+
+    def process_arg_and_flag(name, arg):
+        # Handle individual InputInfo or DimensionInputInfo objects
+        if isinstance(arg, (InputInfo, DimensionInputInfo)):
+            return process_arg_input_info(name, arg), True
+
+        # Handle containers of InputInfo objects
+        if isinstance(arg, dict):
+            result = {}
+            has_input = False
+            for key, value in arg.items():
+                nested_name = f"{name}.{key}"
+                processed_child, child_has_input = process_arg_and_flag(nested_name, value)
+                result[key] = processed_child
+                has_input = has_input or child_has_input
+            return result, has_input
+        elif isinstance(arg, (list, tuple)):
+            result_list = []
+            has_input = False
+            for idx, value in enumerate(arg):
+                nested_name = f"{name}[{idx}]"
+                processed_child, child_has_input = process_arg_and_flag(nested_name, value)
+                result_list.append(processed_child)
+                has_input = has_input or child_has_input
+            return type(arg)(result_list), has_input  # preserve sequence type
+
+        return arg, False
+
+    def process_arg(name, arg):
+        processed, has_input = process_arg_and_flag(name, arg)
+        if has_input:
+            input_names.add(name)
+        return processed
 
     compiled_arg_names = []
 
@@ -258,8 +294,7 @@ def compile(
                 [f"Return value {index} was not a tensor: {repr(trace_out)}"],
             )
 
-    # Order of trace inputs also needs to match that of the compiled_arg_names
-    trace_inputs = [trace_input_map[name].trace_tensor for name in compiled_arg_names]
+    # We collected flattened trace inputs during traversal
     trace = Trace(
         [tensor.trace_tensor for tensor in trace_outputs],
         trace_inputs,
@@ -281,9 +316,22 @@ def compile(
     assert isinstance(func_out, Tensor) or isinstance(
         func_out, Sequence
     ), "This function is only implemented for Tensors or sequences of Tensors"
+
+    # Group leaf input names by top-level argument for efficient runtime extraction
+    leaf_names_by_arg = {}
+    leaf_names = list(input_infos.keys())
+    for arg_name in compiled_arg_names:
+        matching = [
+            leaf
+            for leaf in leaf_names
+            if leaf == arg_name or leaf.startswith(f"{arg_name}.") or leaf.startswith(f"{arg_name}[")
+        ]
+        leaf_names_by_arg[arg_name] = matching
+
     return Executable(
         executable,
         compiled_arg_names,
         return_single_tensor_as_sequence=isinstance(func_out, Sequence),
         input_infos=input_infos,
+        leaf_names_by_arg=leaf_names_by_arg,
     )

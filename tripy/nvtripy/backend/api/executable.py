@@ -46,6 +46,7 @@ class Executable:
         arg_names,
         return_single_tensor_as_sequence: bool,
         input_infos: Dict[str, Union[InputInfo, DimensionInputInfo]],
+        leaf_names_by_arg: Dict[str, Sequence[str]],
     ):
         self._executable = executable
 
@@ -77,6 +78,8 @@ class Executable:
         """
         Stores metadata, like shapes and data types, for each input to the executable.
         """
+
+        self._leaf_names_by_arg = leaf_names_by_arg
 
     def __str__(self) -> str:
         params = [
@@ -195,20 +198,67 @@ class Executable:
                 ],
             )
 
+        # Build a name->tensor map using precomputed leaf names to avoid unnecessary recursion
+        input_info_names = list(self.input_infos.keys())
+        name_to_tensor: Dict[str, Tensor] = {}
+
+        def extract_recursive(value, name_prefix, allowed_names):
+            if name_prefix in allowed_names:
+                name_to_tensor[name_prefix] = value
+                return
+            if isinstance(value, dict):
+                for key, item in value.items():
+                    nested_name = f"{name_prefix}.{key}"
+                    extract_recursive(item, nested_name, allowed_names)
+            elif isinstance(value, (list, tuple)):
+                for idx, item in enumerate(value):
+                    nested_name = f"{name_prefix}[{idx}]"
+                    extract_recursive(item, nested_name, allowed_names)
+            else:
+                return
+
+        for name_idx, tensor in enumerate(input_tensors):
+            arg_name = self._arg_names[name_idx]
+            # Fast path: direct leaf input
+            if arg_name in self.input_infos:
+                name_to_tensor[arg_name] = tensor
+                continue
+            # If this arg has no compiled leaves beneath it, skip any recursion
+            allowed = self._leaf_names_by_arg.get(arg_name)
+            if not allowed:
+                continue
+            extract_recursive(tensor, arg_name, set(allowed))
+        try:
+            flattened_tensors = [name_to_tensor[name] for name in input_info_names]
+        except KeyError as missing:
+            raise_error(
+                f"Missing runtime tensor for input `{missing.args[0]}`.",
+                [
+                    "Ensure your provided containers include tensors for all compiled inputs.",
+                    f"Expected inputs: {input_info_names}",
+                ],
+            )
         expected_devices = ["gpu" if isinstance(info, InputInfo) else "cpu" for info in self.input_infos.values()]
-        for tensor, expected_device, arg_name in zip(input_tensors, expected_devices, self._arg_names):
+
+        # Validate flattened tensors against input_infos
+        if len(flattened_tensors) != len(expected_devices):
+            raise_error(
+                f"Mismatch between number of flattened tensors ({len(flattened_tensors)}) and expected inputs ({len(expected_devices)})."
+            )
+
+        for tensor, expected_device, info_name in zip(flattened_tensors, expected_devices, self.input_infos.keys()):
             producer = tensor.trace_tensor.producer
             if not isinstance(producer, Constant):
-                raise_error(f"Tensor `{arg_name}` is not evaluated.", ["Hint: Try calling `.eval()` on the tensor."])
+                raise_error(f"Tensor `{info_name}` is not evaluated.", ["Hint: Try calling `.eval()` on the tensor."])
             if tensor.device.kind != expected_device:
                 raise_error(
                     "Unexpected tensor device.",
                     [
-                        f"For tensor: `{arg_name}`, expected to be on device: {expected_device} but got: {tensor.device.kind}.\n",
+                        f"For tensor: `{info_name}`, expected to be on device: {expected_device} but got: {tensor.device.kind}.\n",
                     ],
                 )
 
-        input_memrefs = [inp.trace_tensor.producer.data for inp in input_tensors]
+        input_memrefs = [inp.trace_tensor.producer.data for inp in flattened_tensors]
         try:
             output_memrefs = self._session.execute_function(
                 "main", in_args=input_memrefs, stream=self.stream._active_cuda_stream, client=self._runtime_client
@@ -222,7 +272,7 @@ class Executable:
                 expected_input_dtypes = [
                     info.dtype if isinstance(info, InputInfo) else int32 for info in self.input_infos.values()
                 ]
-                for tensor, dtype, arg_name in zip(input_tensors, expected_input_dtypes, self._arg_names):
+                for tensor, dtype, arg_name in zip(flattened_tensors, expected_input_dtypes, self.input_infos.keys()):
                     if tensor.dtype != dtype:
                         raise_error(
                             f"Unexpected tensor data type.",
@@ -237,7 +287,9 @@ class Executable:
                 expected_input_shapes = [
                     info.shape_bounds if isinstance(info, InputInfo) else tuple() for info in self.input_infos.values()
                 ]
-                for tensor, expected_bounds, arg_name in zip(input_tensors, expected_input_shapes, self._arg_names):
+                for tensor, expected_bounds, arg_name in zip(
+                    flattened_tensors, expected_input_shapes, self.input_infos.keys()
+                ):
                     shape = tensor.shape
 
                     if len(shape) != len(expected_bounds.min):
@@ -346,6 +398,7 @@ def encode_executable(executable):
         "executable": base64.b64encode(executable._executable.serialize()).decode(),
         "_return_single_tensor_as_sequence": executable._return_single_tensor_as_sequence,
         "input_infos": executable.input_infos,
+        "leaf_names_by_arg": executable._leaf_names_by_arg,
     }
 
 
@@ -357,4 +410,5 @@ def decode_executable(executable_dict):
         executable_dict["arg_names"],
         return_single_tensor_as_sequence=executable_dict["_return_single_tensor_as_sequence"],
         input_infos=executable_dict["input_infos"],
+        leaf_names_by_arg=executable_dict.get("leaf_names_by_arg"),
     )
