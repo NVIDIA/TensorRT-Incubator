@@ -5,13 +5,10 @@ config.test_exec_root = "@CMAKE_CURRENT_BINARY_DIR@"
 
 config.llvm_tools_dir = lit_config.substitute("@LLVM_TOOLS_DIR@")
 config.mlir_obj_dir = "@MLIR_BINARY_DIR@"
-config.enable_python = @MLIR_ENABLE_BINDINGS_PYTHON@
 config.executor_obj_root = "@MLIR_EXECUTOR_BINARY_DIR@"
 config.executor_tools_dir = "@LLVM_RUNTIME_OUTPUT_INTDIR@"
 config.executor_libs_dir = "@LLVM_LIBRARY_OUTPUT_INTDIR@"
 config.llvm_shlib_ext = "@SHLIBEXT@"
-config.enable_asan = @ENABLE_ASAN@
-config.enable_mpi = @MLIR_TRT_ENABLE_MPI@
 
 @MLIR_TRT_COMMON_LIT_CONFIG@
 

@@ -37,7 +37,7 @@ llvm_config.use_default_substitutions()
 # directories.
 config.excludes = ["Inputs", "Examples", "CMakeLists.txt", "README.txt", "LICENSE.txt"]
 config.substitutions.append(("%executor_libs", config.executor_libs_dir))
-if config.enable_asan:
+if config.with_asan:
     config.environment["ASAN_OPTIONS"] = "protect_shadow_gap=0,detect_leaks=0"
 
 # Tweak the PATH to include the tools dir.
