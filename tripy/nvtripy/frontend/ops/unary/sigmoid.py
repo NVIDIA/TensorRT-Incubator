@@ -16,7 +16,7 @@
 #
 
 from nvtripy import export
-from nvtripy.utils import wrappers
+from nvtripy.frontend import wrappers
 from nvtripy.trace.ops.unary import Sigmoid
 from nvtripy.frontend.ops import utils as op_utils
 
