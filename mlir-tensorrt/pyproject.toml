@@ -3,11 +3,11 @@ name = "mtrt"
 version = "0.1.0"
 requires-python = ">=3.10"
 dependencies = [
+    "apache-tvm-ffi>=0.1.0",
     "click>=8.3.0",
     "einops>=0.8.1",
     "pandas>=2.3.2",
     "sh>=2.2.2",
-    "jax[cuda12_local]==0.5.3",
     "flax",
     "torch==2.9.0.dev20250909",
     "torchvision==0.24.0.dev20250909",
@@ -21,7 +21,6 @@ dependencies = [
     "psutil>=7.1.0",
     "nvidia-ml-py>=13.580.82",
     "matplotlib>=3.10.6",
-    "cupy-cuda12x>=13.6.0",
     "nvtx>=0.2.13",
     "tqdm>=4.67.1",
     "openpyxl>=3.1.5",
@@ -34,15 +33,6 @@ dependencies = [
     "pytest-xdist>=3.8.0",
 ]
 
-[tool.uv.sources]
-torch = {index = "pytorch-cpu"}
-torchvision = {index = "pytorch-cpu"}
-
-[[tool.uv.index]]
-name = "pytorch-cpu"
-url = "https://download.pytorch.org/whl/nightly/cpu"
-explicit = true
-
 [project.optional-dependencies]
 docs = [
     "furo>=2025.9.25",
@@ -50,3 +40,48 @@ docs = [
     "sphinx>=8.1.3",
     "sphinx-copybutton>=0.5.2",
 ]
+cu12 = [
+    "jax[cuda12_local]==0.5.3",
+    "cupy-cuda12x>=13.6.0",
+    "flashinfer-jit-cache==0.5.0rc3",
+    "cuda-python<13.0",
+]
+cu13 = [
+    "jax==0.5.3",
+    "cupy-cuda13x>=13.6.0",
+    "flashinfer-jit-cache==0.5.0rc3",
+    "cuda-python>=13.0",
+]
+cpu = [
+    "jax==0.5.3",
+]
+
+[tool.uv]
+conflicts = [
+  [
+    { extra = "cpu" },
+    { extra = "cu12" },
+    { extra = "cu13" },
+  ],
+]
+
+[tool.uv.sources]
+torch = {index = "pytorch-cpu"}
+torchvision = {index = "pytorch-cpu"}
+flashinfer-jit-cache = [
+ {index = "flashinfer-cu129", extra = "cu12"},
+ {index = "flashinfer-cu130", extra = "cu13"}
+]
+
+[[tool.uv.index]]
+name = "flashinfer-cu129"
+url = "https://flashinfer.ai/whl/cu129"
+
+[[tool.uv.index]]
+name = "flashinfer-cu130"
+url = "https://flashinfer.ai/whl/cu130"
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/nightly/cpu"
+explicit = true
