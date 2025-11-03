@@ -474,8 +474,10 @@ struct RaisePerTensorAndPerChannelDequantize
               scaleMatchResult->axisForPerChannelMode);
       if (failed(compositeOp))
         return failure();
-      rewriter.replaceOp(convertOp, *compositeOp);
-      rewriter.replaceAllOpUsesWith(op, *compositeOp);
+      // Replace only the MulOp with the composite op. The composite op takes
+      // the same input as the ConvertOp and produces the same output as the
+      // MulOp.
+      rewriter.replaceOp(op, *compositeOp);
       return success();
     }
     // For per-channel dequantization, `axisForPerChannelMode` returned by
@@ -490,8 +492,10 @@ struct RaisePerTensorAndPerChannelDequantize
             scaleMatchResult->axisForPerChannelMode);
     if (failed(compositeOp))
       return failure();
-    rewriter.replaceOp(convertOp, *compositeOp);
-    rewriter.replaceAllOpUsesWith(op, *compositeOp);
+    // Replace only the MulOp with the composite op. The composite op takes
+    // the same input as the ConvertOp and produces the same output as the
+    // MulOp.
+    rewriter.replaceOp(op, *compositeOp);
     return success();
   }
 };
@@ -553,8 +557,10 @@ struct RaiseBlockDequantize : public OpRewritePattern<stablehlo::MulOp> {
             op.getResult(), scaleAttr, mapToFuncArgument, qdqTypeName, -1);
     if (failed(compositeOp))
       return failure();
-    rewriter.replaceOp(convertOp, *compositeOp);
-    rewriter.replaceAllOpUsesWith(op, *compositeOp);
+    // Replace only the MulOp with the composite op. The composite op takes
+    // the same input as the ConvertOp and produces the same output as the
+    // MulOp.
+    rewriter.replaceOp(op, *compositeOp);
     return success();
   }
 };

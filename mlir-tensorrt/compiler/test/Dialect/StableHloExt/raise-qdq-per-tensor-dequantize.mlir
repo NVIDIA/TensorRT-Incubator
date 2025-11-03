@@ -66,3 +66,31 @@ func.func @dequantize_to_f32_eager() -> tensor<258x256xf32> {
 // CHECK-LABEL: private @pt_dq
 //  CHECK-SAME: attributes {plan.decomposition}
 
+// -----
+
+func.func @test_dequantize_with_multiple_uses(%arg0: tensor<1x1024x256xf8E4M3FN>) -> (tensor<1x1024x256xf32>, tensor<1x1024x256xf32>) {
+  %cst = stablehlo.constant dense<1.375000e+00> : tensor<f32>
+  %0 = stablehlo.convert %arg0 : (tensor<1x1024x256xf8E4M3FN>) -> tensor<1x1024x256xf32>
+  %1 = stablehlo.broadcast_in_dim %cst, dims = [] : (tensor<f32>) -> tensor<1x1024x256xf32>
+  %2 = stablehlo.multiply %0, %1 : tensor<1x1024x256xf32>
+  %3 = stablehlo.negate %0 : tensor<1x1024x256xf32>
+  return %2, %3 : tensor<1x1024x256xf32>, tensor<1x1024x256xf32>
+}
+
+// CHECK-LABEL: func.func @test_dequantize_with_multiple_uses
+// CHECK-SAME: (%[[ARG0:.+]]: tensor<1x1024x256xf8E4M3FN>)
+// When ConvertOp has multiple uses, it should be kept and only MulOp is replaced
+// CHECK: %[[CONVERT:.+]] = stablehlo.convert %[[ARG0]] : (tensor<1x1024x256xf8E4M3FN>) -> tensor<1x1024x256xf32>
+// CHECK: %[[COMPOSITE:.+]] = stablehlo.composite "tensorrt.pt_dq" %[[ARG0]]
+// CHECK-SAME: {composite_attributes = {axis = -1 : i32, scale = dense<1.375000e+00> : tensor<f32>}, decomposition = @pt_dq}
+// CHECK: %[[NEGATE:.+]] = stablehlo.negate %[[CONVERT]]
+// CHECK: return %[[COMPOSITE]], %[[NEGATE]]
+
+// CHECK-LABEL: func.func private @pt_dq
+// CHECK-SAME: (%[[ARG:.+]]: tensor<1x1024x256xf8E4M3FN>) -> tensor<1x1024x256xf32>
+// CHECK-SAME: attributes {plan.decomposition}
+// CHECK: %[[CST:.+]] = stablehlo.constant dense<1.375000e+00> : tensor<f32>
+// CHECK: %[[BROADCAST:.+]] = stablehlo.broadcast_in_dim %[[CST]], dims = []
+// CHECK: %[[CONVERT_INPUT:.+]] = stablehlo.convert %[[ARG]]
+// CHECK: %[[MUL:.+]] = stablehlo.multiply %[[CONVERT_INPUT]], %[[BROADCAST]]
+// CHECK: return %[[MUL]]
