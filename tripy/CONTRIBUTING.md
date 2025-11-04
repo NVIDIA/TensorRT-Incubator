@@ -37,6 +37,8 @@ Thanks for your interest in contributing to Tripy!
         docker run --gpus all -it --cap-add=SYS_PTRACE -p 8080:8080 -v $(pwd):/tripy/ --rm tripy:latest
         ```
 
+    - If you are using Visual Studio Code, you can alternatively use the included `.devcontainer` configuration.
+
 3. **[Optional]** Run a sanity check in the container:
 
     ```bash
