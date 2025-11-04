@@ -23,7 +23,7 @@ from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.frontend.ops._registry import register_tensor_method
 from nvtripy.trace.ops.slice import Slice
 from nvtripy.types import IntLike
-from nvtripy.utils import wrappers
+from nvtripy.frontend import wrappers
 from nvtripy.utils.types import type_str_from_arg
 from nvtripy.utils.utils import make_list
 
