@@ -97,13 +97,11 @@ void mtrt::registerLuaRuntimeExtensions() {
   // device rank/num rank functions which just map to the one enabled device .
   registerLuaRuntimeExtension(
       "single-device",
-      LuaRuntimeExtension{
-          [](const RuntimeSessionOptions &options, lua_State *state,
-             PinnedMemoryAllocator *pinnedMemoryAllocator,
-             AllocTracker *allocTracker, ResourceTracker *resourceTracker) {
-            registerDefaultDeviceDependentMethods(
-                state, options.getNumDevices(), options.getDeviceId());
-          }});
+      LuaRuntimeExtension{[](const LuaRuntimeExtensionInitArgs &args) {
+        registerDefaultDeviceDependentMethods(args.state,
+                                              args.options.getNumDevices(),
+                                              args.options.getDeviceId());
+      }});
 }
 
 /// If the program was compiled with NCCL enabled, then check for the
@@ -252,10 +250,11 @@ LuaRuntimeSession::create(Ref<RuntimeClient> client_,
   lua.open_libraries(sol::lib::base, sol::lib::string, sol::lib::coroutine);
 
   // Register builtin methods.
-  MTRT_RETURN_IF_ERROR(populateRuntimeExtensions(
+  MTRT_RETURN_IF_ERROR(populateRuntimeExtensions(LuaRuntimeExtensionInitArgs{
       session->getOptions(), lua.lua_state(),
       &session->getPinnedMemoryAllocator(), &session->getAllocTracker(),
-      &session->getResourceTracker()));
+      &session->getResourceTracker(),
+      session->getClient()->getPluginRegistry()}));
 
   // Register user-provided methods.
   if (registerExtraLuaFuncs)

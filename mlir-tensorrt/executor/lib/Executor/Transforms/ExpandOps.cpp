@@ -87,9 +87,11 @@ static FailureOr<Value> lowerGetOffset(RewriterBase &rewriter,
       layout.getTypeSizeInBits(rewriter.getIndexType()));
 
   if (computeType != op.getType())
-    return op.emitOpError() << "result type (" << op.getType()
-                            << ") does not match the width of the IndexType ("
-                            << computeType << ") specified by the DataLayout";
+    return rewriter.notifyMatchFailure(
+        op, llvm::formatv("result type ({0}) does not match the width of the "
+                          "IndexType ({1}) specified by the DataLayout",
+                          op.getType(), computeType)
+                .str());
 
   auto getIndexConst = [&](int64_t value) -> Value {
     return rewriter.create<ConstantOp>(
@@ -99,11 +101,12 @@ static FailureOr<Value> lowerGetOffset(RewriterBase &rewriter,
   FailureOr<Value> indexValue =
       getOrCreateAndCheckIndexValue(rewriter, op, computeType, indices[0]);
   if (failed(indexValue))
-    return op.emitOpError()
-           << llvm::formatv("index #0 ({0}) cannot be converted losslessly to "
-                            "the width of the "
-                            "IndexType ({1}) specified by the data layout",
-                            indices[0], computeType);
+    return rewriter.notifyMatchFailure(
+        op,
+        llvm::formatv(
+            "index #0 ({0}) cannot be converted losslessly to IndexType ({1})",
+            indices[0], computeType)
+            .str());
 
   Value offset = rewriter.create<MulIOp>(
       loc, *indexValue, getIndexConst(layout.getTypeSize(op.getElemType())));

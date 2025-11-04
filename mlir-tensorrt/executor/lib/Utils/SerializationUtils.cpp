@@ -107,15 +107,22 @@ LogicalResult mlir::serializeElementsAttr(Location loc, ElementsAttr attr,
   return emitError(loc) << "unsupported elements attribute type: " << attr;
 }
 
-FailureOr<uint64_t> mlir::getSerializedSize(Location loc, ElementsAttr attr,
+FailureOr<uint64_t> mlir::getSerializedSize(Location loc, Attribute attr_,
                                             const DataLayout &dataLayout,
                                             std::optional<uint64_t> alignment) {
-  uint64_t sizeBytes = dataLayout.getTypeSize(attr.getElementType());
-  uint64_t unalignedSize = sizeBytes * attr.getNumElements();
-  uint64_t align = dataLayout.getTypeABIAlignment(attr.getElementType());
-  if (alignment) {
-    assert(llvm::isPowerOf2_64(*alignment) && "Alignment must be a power of 2");
-    align = std::max<uint64_t>(align, *alignment);
+  if (auto attr = dyn_cast<ElementsAttr>(attr_)) {
+    uint64_t sizeBytes = dataLayout.getTypeSize(attr.getElementType());
+    uint64_t unalignedSize = sizeBytes * attr.getNumElements();
+    uint64_t align = dataLayout.getTypeABIAlignment(attr.getElementType());
+    if (alignment) {
+      assert(llvm::isPowerOf2_64(*alignment) &&
+             "Alignment must be a power of 2");
+      align = std::max<uint64_t>(align, *alignment);
+    }
+    return llvm::alignTo(unalignedSize, align);
   }
-  return llvm::alignTo(unalignedSize, align);
+  if (auto strAttr = dyn_cast<StringAttr>(attr_)) {
+    return strAttr.strref().size();
+  }
+  return emitError(loc) << "unsupported attribute type: " << attr_;
 }

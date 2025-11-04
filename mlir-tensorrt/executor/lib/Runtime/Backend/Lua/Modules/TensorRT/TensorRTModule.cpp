@@ -796,12 +796,10 @@ namespace mtrt {
 void registerLuaTensorRTRuntimeExtension() {
   registerLuaRuntimeExtension(
       "tensorrt",
-      LuaRuntimeExtension{
-          [](const RuntimeSessionOptions &options, lua_State *state,
-             PinnedMemoryAllocator *pinnedMemoryAllocator,
-             AllocTracker *allocTracker, ResourceTracker *resourceTracker) {
-            registerExecutorTensorRTModuleLuaRuntimeMethods(
-                state, pinnedMemoryAllocator, allocTracker, resourceTracker);
-          }});
+      LuaRuntimeExtension{[](const LuaRuntimeExtensionInitArgs &args) {
+        registerExecutorTensorRTModuleLuaRuntimeMethods(
+            args.state, args.pinnedMemoryAllocator, args.allocTracker,
+            args.resourceTracker);
+      }});
 }
 } // namespace mtrt

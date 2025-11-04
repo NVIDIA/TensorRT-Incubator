@@ -28,6 +28,7 @@ add_mlir_executor_library(MLIRTensorRTStdToExecutor
   MemRefToExecutor.cpp
   StdToExecutor.cpp
   LinalgToExecutor.cpp
+  TVMFFIUtils.cpp
 
   DEPENDS
   MLIRExecutorConversionPassIncGen
@@ -36,6 +37,9 @@ add_mlir_executor_library(MLIRTensorRTStdToExecutor
   LINK_LIBS PUBLIC
     MLIRTensorRTConvertToExecutorCommon
     MLIRExecutorIncludes
+    MLIRTensorRTRuntimeExecutableInterface
+    DLPack::Headers
+    tvm_ffi_header
   MLIR_LIBS PUBLIC
     MLIRArithDialect
     MLIRControlFlowDialect

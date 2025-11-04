@@ -31,6 +31,7 @@ add_mlir_executor_runtime_library(MLIRTensorRTExecutorRuntimeAPI
   LINK_LIBS PUBLIC
   lua::core
   MLIRTensorRTRuntimeExecutableInterface
+  MLIRTensorRTRuntimeFFIAPI
   MLIRTensorRTRuntimeSupport
   MLIRTensorRTSupportAllocators
   MLIRTensorRTSupportStatus

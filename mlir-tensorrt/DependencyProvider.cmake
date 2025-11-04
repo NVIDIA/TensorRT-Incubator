@@ -19,10 +19,10 @@ set(MTRT_TOP_LEVEL_DIR "${CMAKE_CURRENT_LIST_DIR}")
 
 nv_register_package(
   NAME DLPack
-  VERSION 1.0rc
-  URL https://github.com/dmlc/dlpack/archive/refs/tags/v1.0rc.tar.gz
-  EXCLUDE_FROM_ALL TRUE
+  GIT_REPOSITORY https://github.com/dmlc/dlpack.git
+  GIT_TAG 93c8f2a3c774b84af6f652b1992c48164fae60fc
   DOWNLOAD_ONLY TRUE
+  GIT_SHALLOW TRUE
   POST_ADD_HOOK [[
     if(NOT TARGET DLPackHeaderOnly)
       add_library(DLPackHeaderOnly INTERFACE IMPORTED)
@@ -32,6 +32,41 @@ nv_register_package(
     endif()
   ]]
 )
+
+#-------------------------------------------------------------------------------------
+# TVM-FFI
+#-------------------------------------------------------------------------------------
+
+function(mtrt_find_tvm_ffi)
+  execute_process(
+    COMMAND ${Python_EXECUTABLE} -c "import tvm_ffi.libinfo as l; print(';'.join([l.find_include_path(),l.find_libtvm_ffi()]))"
+    OUTPUT_VARIABLE TVM_FFI_PATHS
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    RESULT_VARIABLE TVM_FFI_RESULT
+    ERROR_VARIABLE TVM_FFI_ERROR
+  )
+
+  if(NOT TVM_FFI_RESULT EQUAL 0)
+    message(FATAL_ERROR "Failed to find TVM-FFI. Ensure TVM-FFI is installed in your Python environment (try running 'uv sync')"
+     "Logs: ${TVM_FFI_ERROR} ${TVM_FFI_PATHS}")
+
+  endif()
+
+  list(GET TVM_FFI_PATHS 0 TVM_FFI_INCLUDE_PATH)
+  list(GET TVM_FFI_PATHS 1 TVM_FFI_LIBRARY_PATH)
+
+  # Create imported interface target for headers
+  add_library(tvm_ffi_header INTERFACE IMPORTED)
+  target_include_directories(tvm_ffi_header INTERFACE
+   "$<BUILD_INTERFACE:${TVM_FFI_INCLUDE_PATH}>")
+
+  # Create imported library for libtvm_ffi.so
+  add_library(tvm_ffi_shared SHARED IMPORTED)
+  set_target_properties(tvm_ffi_shared PROPERTIES
+    IMPORTED_LOCATION "${TVM_FFI_LIBRARY_PATH}"
+    INTERFACE_INCLUDE_DIRECTORIES "${TVM_FFI_INCLUDE_PATH}"
+  )
+endfunction()
 
 #-------------------------------------------------------------------------------------
 # Declare the LLVM dependency.
@@ -307,6 +342,11 @@ macro(mtrt_provide_dependency method dep_name)
   if("${dep_name}" MATCHES
      "^(Flatbuffers)$")
     nv_add_package("${dep_name}")
+    set("${dep_name}_FOUND" TRUE)
+  endif()
+
+  if("${dep_name}" STREQUAL "TVMFFI")
+    mtrt_find_tvm_ffi()
     set("${dep_name}_FOUND" TRUE)
   endif()
 

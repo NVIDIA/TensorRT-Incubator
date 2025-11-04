@@ -21,10 +21,10 @@
 /// Implementation of bufferization-related operation interfaces for Executor
 /// dialect operations.
 ///
-/// Currently the only operations that are bufferizable in the Executor
-/// dialect are ABISendOp and ABIRecvOp since these are used at the
-/// very start of the compilation pipeline to establish the final function
-/// signature.
+/// Currently the operations that are bufferizable in the Executor dialect are:
+/// - ABISendOp and ABIRecvOp (used at the start of the compilation pipeline
+///   to establish the final function signature)
+/// - CallPluginOp (for FFI plugin calls)
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-executor/Executor/IR/Executor.h"
@@ -34,7 +34,9 @@
 #include "mlir/Dialect/Bufferization/IR/BufferizableOpInterface.h"
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
+#include "mlir/Dialect/Utils/IndexingUtils.h"
 #include "mlir/IR/Attributes.h"
+#include "llvm/ADT/SetVector.h"
 
 using namespace mlir;
 using namespace mlir::bufferization;
@@ -278,6 +280,164 @@ struct BufferizableOpInterfaceABISend
     return success();
   }
 };
+} // namespace
+
+/// Creates a copy of the given buffer with the specified memory space.
+/// Allocates a new buffer and copies the contents from the source buffer.
+static FailureOr<Value> getBufferCopy(Operation *op, RewriterBase &rewriter,
+                                      MLIRContext *ctx, Location loc,
+                                      MemRefType memRefType, Value buffer,
+                                      const BufferizationOptions &options,
+                                      Attribute memSpace) {
+  FailureOr<Value> alloc = options.createAlloc(
+      rewriter, op->getLoc(),
+      MemRefType::get(memRefType.getShape(), memRefType.getElementType(),
+                      MemRefLayoutAttrInterface(), memSpace),
+      ValueRange{});
+  if (failed(alloc))
+    return failure();
+  if (failed(options.createMemCpy(rewriter, loc, buffer, *alloc)))
+    return failure();
+  return alloc;
+}
+
+/// Returns `true` if the memref has canonical (row-major) strides.
+/// A memref has canonical strides if it has an identity layout or if its
+/// strides match the suffix product of its shape (row-major ordering).
+static bool hasCanonicalStrides(MemRefType memRefType) {
+  if (memRefType.getLayout().isIdentity())
+    return true;
+
+  if (memRefType.hasStaticShape()) {
+    auto shape = memRefType.getShape();
+    auto [strides, offset] = memRefType.getStridesAndOffset();
+    if (llvm::equal(strides, mlir::computeSuffixProduct(shape)))
+      return true;
+  }
+  return false;
+}
+
+namespace {
+struct BufferizeCallPluginInterface
+    : public BufferizableOpInterface::ExternalModel<
+          BufferizeCallPluginInterface, executor::CallPluginOp> {
+
+  /// The `executor.call_plugin` operation is always in destination style.
+  /// Currently we require outputs to be statically shaped.
+  bool bufferizesToAllocation(Operation *op, Value value) const {
+    return false;
+  }
+  bool bufferizesToMemoryWrite(Operation *op, OpOperand &opOperand,
+                               const AnalysisState &state) const {
+    auto callOp = cast<executor::CallPluginOp>(op);
+    return llvm::is_contained(callOp.getOutputs(), opOperand.get());
+  }
+  bool bufferizesToMemoryRead(Operation *op, OpOperand &opOperand,
+                              const AnalysisState &state) const {
+    auto callOp = cast<executor::CallPluginOp>(op);
+    return llvm::is_contained(callOp.getArgs(), opOperand.get());
+  }
+
+  /// Returning `true` here tells the bufferization analysis that tensor both
+  /// read and written by this operation can bufferize to the same buffer.
+  /// Since we explicitly repeat operands in the `args` and `outputs` list when
+  /// I/O aliasing is involved, return true for that case.
+  bool bufferizesToElementwiseAccess(Operation *op, const AnalysisState &state,
+                                     ArrayRef<OpOperand *> opOperands) const {
+    return true;
+  }
+
+  /// Returns `false` to allow bufferization to create copies when needed.
+  /// I/O aliasing is handled explicitly through the operands list.
+  bool mustBufferizeInPlace(Operation *op, OpOperand &opOperand,
+                            const AnalysisState &state) const {
+    return false;
+  }
+
+  bufferization::AliasingValueList
+  getAliasingValues(Operation *op, OpOperand &operand,
+                    const bufferization::AnalysisState &state) const {
+    auto callOp = cast<executor::CallPluginOp>(op);
+    auto it = llvm::find(callOp.getOutputs(), operand.get());
+    if (it == callOp.getOutputs().end())
+      return {};
+    auto outIdx = std::distance(callOp.getOutputs().begin(), it);
+    return {{callOp->getResult(outIdx),
+             bufferization::BufferRelation::Equivalent, /*isDefinite=*/true}};
+  }
+
+  FailureOr<BaseMemRefType>
+  getBufferType(Operation *op, Value value, const BufferizationOptions &options,
+                SmallVector<Value> &invocationStack) const {
+    auto tensorType = dyn_cast<RankedTensorType>(value.getType());
+    if (!tensorType)
+      return failure();
+    std::optional<Attribute> memorySpace =
+        options.defaultMemorySpaceFn(tensorType);
+    if (!memorySpace)
+      return failure();
+    return bufferization::getMemRefTypeWithStaticIdentityLayout(tensorType,
+                                                                *memorySpace);
+  }
+
+  LogicalResult bufferize(Operation *op, RewriterBase &rewriter,
+                          const BufferizationOptions &options) const {
+    auto callOp = cast<executor::CallPluginOp>(op);
+    MLIRContext *ctx = op->getContext();
+
+    // There may be duplicate arguments in inputs/outputs. Since we may insert
+    // alloc+copy to enforce layout or memory space requirements, make sure we
+    // only do that once per value, otherwise the result is not correct.
+    llvm::SmallDenseMap<Value, Value, 8> argsTobufferize;
+    for (Value v : op->getOperands()) {
+      if (!isa<TensorType>(v.getType()))
+        continue;
+      if (argsTobufferize.contains(v))
+        continue;
+      FailureOr<Value> buffer = bufferization::getBuffer(rewriter, v, options);
+      if (failed(buffer))
+        return failure();
+
+      // Check type.
+      if (auto bufferType = cast<MemRefType>(buffer->getType());
+          !hasCanonicalStrides(bufferType)) {
+        FailureOr<Value> bufferCopy =
+            getBufferCopy(callOp, rewriter, ctx, callOp.getLoc(),
+                          cast<MemRefType>(buffer->getType()), *buffer, options,
+                          bufferType.getMemorySpace());
+        if (failed(bufferCopy))
+          return failure();
+        buffer = bufferCopy;
+      }
+      argsTobufferize.insert(std::make_pair(v, *buffer));
+    }
+
+    SmallVector<Value> bufferizedArgs;
+    for (Value arg : callOp.getArgs()) {
+      bufferizedArgs.push_back(argsTobufferize.lookup(arg));
+      assert(bufferizedArgs.back() && "expected bufferized argument");
+    }
+
+    for (Value arg : callOp.getOutputs()) {
+      bufferizedArgs.push_back(argsTobufferize.lookup(arg));
+      assert(bufferizedArgs.back() && "expected bufferized output");
+    }
+
+    rewriter.create<executor::CallPluginOp>(
+        callOp.getLoc(), callOp.getCallee(), callOp.getStream(),
+        ArrayRef(bufferizedArgs).take_front(callOp.getArgs().size()),
+        ArrayRef(bufferizedArgs).drop_front(callOp.getArgs().size()),
+        callOp.getImmediateArgsAttr(), callOp.getArgSpecAttr(),
+        callOp.getIoAliasingAttr(), callOp.getArgAttrsAttr(),
+        callOp.getResAttrsAttr());
+
+    replaceOpWithBufferizedValues(
+        rewriter, op,
+        ArrayRef(bufferizedArgs).drop_front(callOp.getArgs().size()));
+
+    return success();
+  }
+};
 
 } // namespace
 
@@ -345,6 +505,7 @@ void registerBufferizationOpInterfaceExternalModels(DialectRegistry &registry) {
     executor::ABISendOp::attachInterface<BufferDeallocationABISend>(*ctx);
     executor::ABIRecvOp::attachInterface<BufferizableOpInterfaceABIRecv>(*ctx);
     executor::ABISendOp::attachInterface<BufferizableOpInterfaceABISend>(*ctx);
+    executor::CallPluginOp::attachInterface<BufferizeCallPluginInterface>(*ctx);
   });
 }
 } // namespace mlir::executor

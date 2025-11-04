@@ -10,6 +10,7 @@ add_mlir_executor_runtime_capability_library(MLIRTensorRTExecutorRuntimeCoreModu
   MLIRTensorRTSupportAllocators
   MLIRTensorRTSupportStridedCopy
   nvtx3-cpp
+  DLPack::Headers
 )
 
 target_compile_options(obj.MLIRTensorRTExecutorRuntimeCoreModule

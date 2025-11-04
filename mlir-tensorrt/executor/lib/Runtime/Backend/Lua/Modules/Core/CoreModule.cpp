@@ -30,12 +30,14 @@
 #include "mlir-executor/Runtime/Backend/Lua/LuaRuntime.h"
 #include "mlir-executor/Runtime/Backend/Lua/SolAdaptor.h"
 #include "mlir-executor/Runtime/Backend/Utils/NvtxUtils.h"
+#include "mlir-executor/Runtime/FFI/FFI.h"
 #include "mlir-executor/Runtime/Support/StridedCopy.h"
 #include "mlir-executor/Runtime/Support/Support.h"
 #include "mlir-executor/Support/Allocators.h"
 #include "llvm/Support/FormatVariadic.h"
 #include <algorithm>
 #include <climits>
+#include <cstdint>
 #include <type_traits>
 
 using namespace mtrt;
@@ -255,7 +257,7 @@ static Status stridedMemRefCopyImpl(int64_t rank, int64_t elemSize,
 //===----------------------------------------------------------------------===//
 static void registerExecutorCoreModuleLuaRuntimeMethods(
     lua_State *luaState, PinnedMemoryAllocator *pinnedMemoryAllocator,
-    AllocTracker *allocTracker) {
+    AllocTracker *allocTracker, mtrt::PluginRegistry &pluginRegistry) {
   sol::state_view lua(luaState);
 
   lua["__check_for_function"] = [](sol::this_state state,
@@ -1112,21 +1114,42 @@ static void registerExecutorCoreModuleLuaRuntimeMethods(
   DEFINE_FLOAT_BINARY_OP(atan2, std::atan2);
   DEFINE_FLOAT_BINARY_OP(copysign, std::copysign);
   DEFINE_FLOAT_BINARY_OP(powf, std::pow);
-}
-
 #undef DEFINE_BINARY_OP_
 #undef DEFINE_UNARY_OP_
+
+  //===----------------------------------------------------------------------===//
+  // TVMFFI Plugin Handlers
+  //===----------------------------------------------------------------------===//
+
+  lua["_create_plugin_callable_tvm_ffi"] =
+      [pluginRegistry = &pluginRegistry](sol::this_state state,
+                                         uintptr_t libName,
+                                         uintptr_t funcName) -> uintptr_t {
+    StatusOr<TVMFFICallableHandle *> callable =
+        pluginRegistry->createTVMFFICallable(
+            reinterpret_cast<const char *>(libName),
+            reinterpret_cast<const char *>(funcName));
+    SET_LUA_ERROR_AND_RETURN_IF_ERROR(callable, state, 0);
+    return reinterpret_cast<uintptr_t>(*callable);
+  };
+
+  lua["_call_plugin_tvm_ffi"] = [](sol::this_state state, uintptr_t callablePtr,
+                                   uintptr_t stream, uintptr_t argsArrayPtr,
+                                   int32_t num_args) {
+    Status status = invokeTVMFFICallable(
+        reinterpret_cast<TVMFFICallableHandle *>(callablePtr), stream,
+        argsArrayPtr, num_args);
+    SET_LUA_ERROR_AND_RETURN_IF_ERROR(status, state, );
+  };
+}
 
 namespace mtrt {
 void registerLuaCoreRuntimeExtension() {
   registerLuaRuntimeExtension(
-      "core",
-      LuaRuntimeExtension{
-          [](const RuntimeSessionOptions &options, lua_State *state,
-             PinnedMemoryAllocator *pinnedMemoryAllocator,
-             AllocTracker *allocTracker, ResourceTracker *resourceTracker) {
-            registerExecutorCoreModuleLuaRuntimeMethods(
-                state, pinnedMemoryAllocator, allocTracker);
-          }});
+      "core", LuaRuntimeExtension{[](const LuaRuntimeExtensionInitArgs &args) {
+        registerExecutorCoreModuleLuaRuntimeMethods(
+            args.state, args.pinnedMemoryAllocator, args.allocTracker,
+            args.pluginRegistry);
+      }});
 }
 } // namespace mtrt

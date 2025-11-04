@@ -1320,8 +1320,15 @@ StatusOr<Ref<RuntimeClient>> RuntimeClient::create() {
   return client;
 }
 
+RuntimeClient::RuntimeClient(llvm::SmallVector<std::unique_ptr<Device>> devices)
+    : devices(std::move(devices)), allocator(nullptr) {}
+
 llvm::ArrayRef<std::unique_ptr<Device>> RuntimeClient::getDevices() const {
   return devices;
+}
+
+mtrt::PluginRegistry &RuntimeClient::getPluginRegistry() {
+  return pluginRegistry;
 }
 
 StatusOr<std::unique_ptr<MemRefValue>>

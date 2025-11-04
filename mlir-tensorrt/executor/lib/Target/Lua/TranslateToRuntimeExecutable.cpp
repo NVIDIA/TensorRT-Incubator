@@ -641,14 +641,31 @@ mlir::translateToRuntimeExecutable(Operation *op) {
 
   for (auto resourceOp : globalOps) {
     if (!resourceOp.getUninitialized()) {
-      FailureOr<Offset64<fb::Vector64<int8_t>>> serializedAttr =
-          fbBuilder.serialize64<int8_t>(resourceOp.getLoc(), dataLayout,
-                                        resourceOp.getValueAttr());
-      if (failed(serializedAttr))
-        return resourceOp->emitOpError("failed to encode constant value " +
-                                       Twine(resourceOp.getSymName()) +
-                                       " as a SerializedConstant");
-      constData.push_back(*serializedAttr);
+      if (auto elementsAttr =
+              llvm::dyn_cast<ElementsAttr>(resourceOp.getValueAttr())) {
+        FailureOr<Offset64<fb::Vector64<int8_t>>> serializedAttr =
+            fbBuilder.serialize64<int8_t>(resourceOp.getLoc(), dataLayout,
+                                          elementsAttr);
+        if (failed(serializedAttr))
+          return resourceOp->emitOpError("failed to encode constant value " +
+                                         Twine(resourceOp.getSymName()) +
+                                         " as a SerializedConstant");
+        constData.push_back(*serializedAttr);
+      } else if (auto stringAttr =
+                     llvm::dyn_cast<StringAttr>(resourceOp.getValueAttr())) {
+        llvm::StringRef strref = stringAttr.strref();
+        FailureOr<Offset64<fb::Vector64<int8_t>>> serializedAttr =
+            fbBuilder.serialize64<int8_t>(llvm::ArrayRef<int8_t>(
+                reinterpret_cast<const int8_t *>(strref.data()),
+                strref.size()));
+        if (failed(serializedAttr))
+          return resourceOp->emitOpError("failed to encode constant value " +
+                                         Twine(resourceOp.getSymName()) +
+                                         " as a SerializedConstant");
+        constData.push_back(*serializedAttr);
+      } else {
+        llvm_unreachable("expected elements or string attribute");
+      }
     } else {
       constData.push_back(0);
     }
@@ -681,8 +698,7 @@ mlir::translateToRuntimeExecutable(Operation *op) {
       return emitError(globalOp.getLoc())
              << "failed to translate address space for global "
              << globalOp.getSymName();
-    uint64_t align = dataLayout.getTypeABIAlignment(
-        globalOp.getValueAttr().getElementType());
+    uint64_t align = dataLayout.getTypeABIAlignment(globalOp.getElementType());
     if (std::optional<uint64_t> alignment = globalOp.getAlignment())
       align = std::max<uint64_t>(align, *alignment);
     constantOffsets.push_back(

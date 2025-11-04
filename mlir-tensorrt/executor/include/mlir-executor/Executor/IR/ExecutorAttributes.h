@@ -26,6 +26,7 @@
 
 #include "mlir/IR/OpImplementation.h"
 #include <optional>
+#include <variant>
 
 namespace mlir {
 class FunctionOpInterface;
@@ -138,6 +139,53 @@ Value getOrCreateABIRecv(OpBuilder &b, FunctionOpInterface func,
                          BlockArgument arg, Type expectedType = nullptr);
 Value getOrCreateABIRecv(OpBuilder &b, FunctionOpInterface func,
                          unsigned argIndex, Type expectedType = nullptr);
+
+namespace plugin {
+struct DecodeArg {
+  unsigned index;
+};
+struct DecodeRet {
+  unsigned index;
+};
+struct DecodeAttr {
+  llvm::StringRef name;
+};
+struct OptionalNoneTag {};
+struct DecodeItem {
+  std::variant<DecodeArg, DecodeRet, DecodeAttr, OptionalNoneTag> kind;
+  size_t index{0};
+  llvm::StringRef spec;
+};
+struct DecodeSpec {
+  std::vector<DecodeItem> items;
+};
+struct TVMFFIPluginConfig {
+  llvm::StringRef pluginName;
+  llvm::StringRef functionName;
+  llvm::SmallVector<llvm::StringRef> argSpec;
+  llvm::SmallVector<int32_t> ioAliasing;
+  FunctionType functionType;
+  DictionaryAttr immediateArgs;
+};
+
+/// Parse an argument specification string into a `abi::plugin::DecodeSpec`.
+/// `config` is the dictionary where we can lookup attributes used as immediate
+/// arguments. These immediate arguments are placed into `immediateArgs`.
+FailureOr<DecodeSpec>
+ParseArgSpec(Operation *op, unsigned numInputArgs, unsigned numOutputArgs,
+             llvm::StringRef argSpecString, DictionaryAttr config,
+             llvm::SmallVectorImpl<llvm::StringRef> &argSpec,
+             llvm::SmallVectorImpl<NamedAttribute> &immediateArgs);
+/// Parse an argument specification string into a `abi::plugin::DecodeSpec`.
+/// `config` is the dictionary where we can lookup attributes used as immediate
+/// arguments. These immediate arguments are placed into `immediateArgs`.
+FailureOr<DecodeSpec>
+ParseArgSpec(Operation *op, unsigned numInputArgs, unsigned numOutputArgs,
+             llvm::ArrayRef<llvm::StringRef> argSpecString,
+             DictionaryAttr config,
+             llvm::SmallVectorImpl<NamedAttribute> &immediateArgs);
+
+} // namespace plugin
 
 } // namespace abi
 

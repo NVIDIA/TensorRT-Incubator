@@ -533,16 +533,12 @@ registerCudaMemoryManagementOps(sol::state_view &lua,
 namespace mtrt {
 void registerLuaCudaRuntimeExtension() {
   registerLuaRuntimeExtension(
-      "cuda",
-      LuaRuntimeExtension{
-          [](const RuntimeSessionOptions &options, lua_State *state,
-             PinnedMemoryAllocator *pinnedMemoryAllocator,
-             AllocTracker *allocTracker, ResourceTracker *resourceTracker) {
-            sol::state_view lua(state);
-            registerCudaOps(lua, allocTracker, pinnedMemoryAllocator,
-                            resourceTracker);
-            registerCudaMemoryManagementOps(lua, allocTracker,
-                                            pinnedMemoryAllocator);
-          }});
+      "cuda", LuaRuntimeExtension{[](const LuaRuntimeExtensionInitArgs &args) {
+        sol::state_view lua(args.state);
+        registerCudaOps(lua, args.allocTracker, args.pinnedMemoryAllocator,
+                        args.resourceTracker);
+        registerCudaMemoryManagementOps(lua, args.allocTracker,
+                                        args.pinnedMemoryAllocator);
+      }});
 }
 } // namespace mtrt

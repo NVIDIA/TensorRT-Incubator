@@ -152,7 +152,7 @@ def Executor_DataSegmentOp : Executor_Op<"data_segment", [Symbol]> {
   }];
 
   let arguments = (ins SymbolNameAttr:$sym_name,
-                       ElementsAttr:$value,
+                       AnyAttrOf<[ElementsAttr, StrAttr]>:$value,
                        UnitAttr:$constant,
                        UnitAttr:$uninitialized,
                        OptionalAttr<I64Attr>:$alignment,
@@ -170,10 +170,18 @@ def Executor_DataSegmentOp : Executor_Op<"data_segment", [Symbol]> {
   let extraClassDeclaration = [{
     /// Construct the op from the location context.
     static DataSegmentOp create(Location loc, StringRef name,
-                                ElementsAttr value,
+                                Attribute value,
                                 bool constant,
                                 bool uninitialized,
                                 IntegerAttr alignment = {});
+
+    /// Get the element type of the initial value.
+    Type getElementType() {
+      if (auto elementsAttr = ::llvm::dyn_cast<ElementsAttr>(getValue()))
+        return elementsAttr.getElementType();
+      assert(::llvm::isa<StringAttr>(getValue()) && "expected string attribute");
+      return IntegerType::get(getContext(), 8);
+    }
   }];
   let hasVerifier = 1;
 }
@@ -269,7 +277,7 @@ def Executor_GlobalOp : Executor_Op<"global", [Symbol, IsolatedFromAbove]> {
     OpBuilder<(ins "StringRef":$name, "DenseI8ResourceElementsAttr":$initial_value,
       CArg<"bool", "true">:$constant)>,
     OpBuilder<(ins "StringRef":$name, "Type":$type,
-      "std::function<void(OpBuilder&,Location)>":$initBuilder,
+      CArg<"std::function<void(OpBuilder&,Location)>", "{}">:$initBuilder,
       CArg<"bool", "false">:$constant)>
   ];
 
@@ -1367,5 +1375,186 @@ def Executor_ABISendOp : Executor_Op<"abi.send", []> {
     }]>
   ];
 }
+
+//===----------------------------------------------------------------------===//
+// Runtime Plugin Operations
+//===----------------------------------------------------------------------===//
+
+def Executor_PluginOp : Executor_Op<"plugin", [Symbol]> {
+  let summary = "declare a plugin handle";
+  let description = [{
+    The `executor.plugin` operation defines a new global symbol representing
+    a handle to a plugin instance that can be invoked with
+    `executor.call_plugin`.
+
+    For TVM FFI backend (`ffi_backend = #executor.ffi_backend<tvm_ffi>`):
+    This operation declares a callable handle to a TVM FFI function. The
+    `plugin_name` identifies the TVM FFI library (e.g., a shared library path),
+    and `function_name` identifies the function symbol within that library.
+
+    During lowering, this operation is converted to a global variable that
+    holds an opaque callable handle. The handle is initialized at module load
+    time by calling the runtime function `_create_plugin_callable_tvm_ffi`,
+    which:
+    - Loads the TVM FFI library from `plugin_name` (caching loaded libraries)
+    - Resolves the function symbol `function_name` from the library
+    - Returns an opaque handle wrapping the `tvm::ffi::Function` object
+
+    The `function_type` attribute specifies the MLIR function signature
+    (arguments and results), which is used to validate `executor.call_plugin`
+    calls. The `config` dictionary may contain additional backend-specific
+    configuration attributes, but for the TVM FFI backend, it is currently
+    unused.
+
+    Example:
+
+    ```mlir
+    executor.plugin @my_plugin {
+      plugin_name = "libflashinfer.so",
+      function_name = "single_prefill_with_kv_cache",
+      ffi_backend = #executor.ffi_backend<tvm_ffi>,
+      function_type = (tensor<*xf32>, tensor<*xf32>) -> (),
+      config = {}
+    }
+    ```
+  }];
+  let arguments = (ins SymbolNameAttr:$sym_name,
+                       StrAttr:$plugin_name,
+                       StrAttr:$function_name,
+                       Executor_FFIBackendAttr:$ffi_backend,
+                       OptionalAttr<TypeAttrOf<FunctionType>>:$function_type,
+                       OptionalAttr<DictionaryAttr>:$config
+                       );
+  let results = (outs );
+  let assemblyFormat = "$sym_name attr-dict `:` $function_type";
+
+  let builders = [
+    OpBuilder<(ins
+      "llvm::StringRef":$symName,
+      "llvm::StringRef":$pluginName, "llvm::StringRef":$functionName,
+      "executor::FFIBackend":$ffiBackend,
+      "FunctionType":$functionType,
+      CArg<"DictionaryAttr", "{}">:$config)>
+  ];
+
+  let skipDefaultBuilders = 1;
+}
+
+def Executor_CallPluginOp : Executor_Op<"call_plugin", [
+   AttrSizedOperandSegments,
+   DeclareOpInterfaceMethods<MemoryEffectsOpInterface>,
+   DeclareOpInterfaceMethods<SymbolUserOpInterface>]> {
+  let summary = "call a plugin callable";
+  let description = [{
+    The `executor.call_plugin` operation calls an instance of a plugin
+    callable.
+
+    For TVM FFI backend (`ffi_backend = #executor.ffi_backend<tvm_ffi>`):
+    This operation invokes a TVM FFI function following the TVM FFI ABI calling
+    convention. All arguments and outputs are converted to `TVMFFIAny` structures
+    and arranged according to the `arg_spec` attribute.
+
+    Argument Specification (`arg_spec`):
+    The `arg_spec` is a list of strings that encodes how to arrange arguments
+    for the TVM FFI call. Each string can be:
+    - `"args.N"`: Use the N-th input argument from `args`
+    - `"rets.N"`: Use the N-th output argument from `outputs`
+    - `"attrs.name"`: Use the attribute named `name` from `immediate_args`
+    - `"none"`: Insert an optional None value
+
+    Argument Conversion:
+    - POD values (integers, floats): Stored directly in the 16-byte `TVMFFIAny`
+      union structure without heap allocation
+    - Tensor values: Converted to DLPack-compatible `DLTensor` structures and
+      stored as pointers (`kTVMFFIDLTensorPtr`). The DLTensor contains:
+      - Data pointer and device information (CUDA, CPU, etc.)
+      - Rank, shape, and strides arrays (promoted to host memory)
+      - Data type information (DLDataType)
+      - Byte offset for non-contiguous views
+    - Attributes: Converted to appropriate `TVMFFIAny` values (POD or string literals)
+
+    Output Handling:
+    TVM FFI functions do not return values through a result parameter. All
+    outputs must be provided as input arguments with I/O aliasing specified
+    via the `io_aliasing` attribute. This attribute maps each input index to
+    an output index (-1 if not aliased), allowing in-place operations.
+
+    Stream Handling:
+    The optional `stream` operand specifies a CUDA stream for async operations.
+    If not provided, NULL will be passed as the stream argument to the
+    TVM FFI call.
+
+    Memory Management:
+    - DLTensor structures are allocated on the stack (via alloca) and contain
+      pointers to the actual tensor data
+    - Shape and strides arrays are promoted to host-allocated memory for runtime
+      access
+    - The `TVMFFIAny` argument array is allocated on the host stack for passing
+      to the FFI runtime
+
+    During lowering, this operation is converted to a call to the runtime
+    function `_call_plugin_tvm_ffi`, which:
+    1. Sets CUDA streams for DLTensor arguments (if applicable)
+    2. Invokes the TVM FFI function using the `TVMFFISafeCallType` signature:
+       `int (*TVMFFISafeCallType)(void* handle, const TVMFFIAny* args,
+                                  int32_t num_args, TVMFFIAny* result)`
+    3. Handles errors and propagates them appropriately
+
+    Example:
+
+    ```mlir
+    %result = executor.call_plugin @my_plugin
+      ins(%arg0 : tensor<*xf32>, %arg1 : tensor<*xf32>)
+      outs(%output : tensor<*xf32>)
+      {
+        arg_spec = ["args.0", "args.1", "rets.0", "attrs.backend"],
+        io_aliasing = [-1, -1, 0],
+        immediate_args = {backend = "paged"}
+      } : (tensor<*xf32>, tensor<*xf32>, tensor<*xf32>) -> ()
+    ```
+
+    In this example:
+    - `args.0` and `args.1` are the input tensors
+    - `rets.0` is the output tensor (aliased with input 0 via `io_aliasing`)
+    - `attrs.backend` is an immediate string attribute
+  }];
+  let arguments = (ins FlatSymbolRefAttr:$callee,
+                       Optional<Executor_HostPtr>:$stream,
+                       Variadic<AnyType>:$args,
+                       Variadic<AnyType>:$outputs,
+                       OptionalAttr<DictionaryAttr>:$immediate_args,
+                       StrArrayAttr:$arg_spec,
+                       OptionalAttr<DenseI32ArrayAttr>:$io_aliasing,
+                       OptionalAttr<DictArrayAttr>:$arg_attrs,
+                       OptionalAttr<DictArrayAttr>:$res_attrs);
+  let results = (outs Variadic<AnyType>:$results);
+  let assemblyFormat = [{
+    $callee
+    (`stream` `(` $stream^ `)`)?
+    `ins` `(` $args `:` type($args) `)`
+    `outs` `(` $outputs `:` type($outputs) `)`
+    attr-dict (`:` type($results)^)?
+  }];
+
+  let builders = [
+    OpBuilder<(ins "::mlir::executor::PluginOp":$callee,
+      "Value":$stream, "ValueRange":$args, "ValueRange":$outputs,
+      "DictionaryAttr":$immediate_args,
+      "::llvm::ArrayRef<llvm::StringRef>":$arg_spec,
+      "::llvm::ArrayRef<int32_t>":$io_aliasing,
+      CArg<"ArrayAttr", "{}">:$arg_attrs,
+      CArg<"ArrayAttr", "{}">:$res_attrs)>,
+    OpBuilder<(ins "::llvm::StringRef":$callee,
+      "Value":$stream, "ValueRange":$args, "ValueRange":$outputs,
+      "DictionaryAttr":$immediate_args,
+      "ArrayAttr":$arg_spec,
+      "DenseI32ArrayAttr":$io_aliasing,
+      CArg<"ArrayAttr", "{}">:$arg_attrs,
+      CArg<"ArrayAttr", "{}">:$res_attrs)>
+  ];
+
+  let skipDefaultBuilders = 1;
+}
+
 
 #endif // MLIR_TENSORRT_DIALECT_EXECUTOR_IR_EXECUTOROPS_TD

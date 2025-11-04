@@ -698,6 +698,71 @@ Value executor::abi::getOrCreateABIRecv(OpBuilder &b, FunctionOpInterface func,
 }
 
 //===----------------------------------------------------------------------===//
+// Plugin ABI Decode Spec
+//===----------------------------------------------------------------------===//
+
+FailureOr<abi::plugin::DecodeSpec> executor::abi::plugin::ParseArgSpec(
+    Operation *op, unsigned numInputArgs, unsigned numOutputArgs,
+    llvm::ArrayRef<llvm::StringRef> argSpec, DictionaryAttr config,
+    llvm::SmallVectorImpl<NamedAttribute> &immediateArgs) {
+
+  std::vector<DecodeItem> items;
+  items.reserve(argSpec.size());
+
+  static constexpr llvm::StringRef kAttrsPrefix = "attrs.";
+  static constexpr llvm::StringRef kArgs = "args.";
+  static constexpr llvm::StringRef kRets = "rets.";
+  static constexpr llvm::StringRef kNoneAttrName = "none";
+
+  for (size_t i = 0; i < static_cast<size_t>(argSpec.size()); ++i) {
+    llvm::StringRef specItem = argSpec[i];
+    if (specItem.starts_with(kArgs)) {
+      unsigned argIndex;
+      if (specItem.drop_front(kArgs.size()).getAsInteger(10, argIndex))
+        return op->emitError("expected \"attrs.[integer]\", but got \"")
+               << specItem << "\"";
+      if (argIndex >= numInputArgs)
+        return op->emitError("argument index out of bounds: ") << argIndex;
+      items.push_back(DecodeItem{DecodeArg{argIndex}, i, specItem});
+    } else if (specItem.starts_with(kRets)) {
+      unsigned retIndex;
+      if (specItem.drop_front(kRets.size()).getAsInteger(10, retIndex))
+        return op->emitError("expected \"rets.[integer]\", but got \"")
+               << specItem << "\"";
+      if (retIndex >= numOutputArgs)
+        return op->emitError("result index out of bounds: ") << retIndex;
+      items.push_back(DecodeItem{DecodeRet{retIndex}, i, specItem});
+
+    } else if (specItem.starts_with(kAttrsPrefix)) {
+      llvm::StringRef attrKey = specItem.drop_front(kAttrsPrefix.size());
+      items.push_back(DecodeItem{DecodeAttr{attrKey}, i, specItem});
+      if (!config || !config.contains(attrKey))
+        return op->emitError("attribute key \"")
+               << attrKey
+               << "\" was specified in the argument specification but was not "
+                  "found in the stablehlo.custom_call backend config";
+      immediateArgs.push_back(NamedAttribute(attrKey, config.get(attrKey)));
+    } else if (specItem == kNoneAttrName) {
+      items.push_back(DecodeItem{OptionalNoneTag{}, i, specItem});
+    } else {
+      return op->emitError("unknown argument specification item: ") << specItem;
+    }
+  }
+
+  return DecodeSpec{items};
+}
+
+FailureOr<abi::plugin::DecodeSpec> executor::abi::plugin::ParseArgSpec(
+    Operation *op, unsigned numInputArgs, unsigned numOutputArgs,
+    llvm::StringRef argSpecString, DictionaryAttr config,
+    llvm::SmallVectorImpl<llvm::StringRef> &argSpecComponents,
+    llvm::SmallVectorImpl<NamedAttribute> &immediateArg) {
+  llvm::SplitString(argSpecString, argSpecComponents, ";");
+  return executor::abi::plugin::ParseArgSpec(
+      op, numInputArgs, numOutputArgs, argSpecComponents, config, immediateArg);
+}
+
+//===----------------------------------------------------------------------===//
 // TableGen'd enum definition.
 //===----------------------------------------------------------------------===//
 #include "mlir-executor/Executor/IR/ExecutorEnums.cpp.inc"

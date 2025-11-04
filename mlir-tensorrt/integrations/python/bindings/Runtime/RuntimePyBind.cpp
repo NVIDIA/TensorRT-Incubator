@@ -538,6 +538,7 @@ static MTRT_PointerType getPointerTypeFromDLDeviceType(DLDeviceType device) {
   case DLDeviceType::kDLVPI:
   case DLDeviceType::kDLVulkan:
   case DLDeviceType::kDLWebGPU:
+  case DLDeviceType::kDLTrn:
     throw std::invalid_argument(
         "DLDeviceType conversion to MTRT_PointerType is not supported.");
   }

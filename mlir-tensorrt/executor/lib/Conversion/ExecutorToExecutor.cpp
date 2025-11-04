@@ -24,6 +24,10 @@
 #include "mlir-executor/Executor/IR/Executor.h"
 #include "mlir-executor/Conversion/ConvertToExecutorCommon.h"
 #include "mlir-executor/Conversion/Passes.h"
+#include "mlir-executor/Conversion/TVMFFIUtils.h"
+#include "mlir-executor/Executor/IR/ExecutorAttributes.h"
+#include "mlir-executor/Executor/Utils/Utils.h"
+#include "mlir-executor/Runtime/API/Executable.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/ImplicitLocOpBuilder.h"
 #include "mlir/IR/Matchers.h"
@@ -144,7 +148,8 @@ struct LegalizeExecutorOperands : public ConversionPattern {
   matchAndRewrite(Operation *op, ArrayRef<Value> operands,
                   ConversionPatternRewriter &rewriter) const override {
     if (!llvm::isa<ExecutorDialect>(op->getDialect()) ||
-        isa<executor::ConstantOp, executor::FuncOp, executor::CallOp>(op) ||
+        isa<executor::ConstantOp, executor::FuncOp, executor::CallOp,
+            executor::CallPluginOp, executor::PluginOp>(op) ||
         op->getNumRegions() > 0 ||
         (op->getNumResults() == 0 && op->getNumOperands() == 0))
       return failure();
@@ -290,6 +295,225 @@ struct LowerABISendOp : public ConvertOpToExecutorPattern<executor::ABISendOp> {
   }
 };
 
+/// Lowers `executor.plugin` operations to runtime callable handles.
+///
+/// For TVM FFI backend, this conversion:
+/// 1. Creates a global variable to hold the plugin callable handle
+/// 2. Encodes the plugin name and function name as constant string resources
+/// 3. Calls the runtime function `_create_plugin_callable_tvm_ffi` which:
+///    - Loads the TVM FFI library (if not already loaded)
+///    - Resolves the function symbol from the library
+///    - Returns an opaque callable handle
+///
+/// The callable handle is stored in a global variable and can be retrieved
+/// later when lowering `executor.call_plugin` operations. This handle wraps
+/// a `tvm::ffi::Function` object that implements the `TVMFFISafeCallType`
+/// calling convention.
+struct ConvertPluginOp : public ConvertOpToExecutorPattern<executor::PluginOp> {
+  using ConvertOpToExecutorPattern::ConvertOpToExecutorPattern;
+
+  /// Encodes a string as a constant resource in the module and returns a
+  /// pointer to it. The string is stored in a data segment and can be
+  /// accessed at runtime by the TVM FFI runtime.
+  Value encodeString(OpBuilder &builder, Location loc, ModuleOp module,
+                     StringRef data) const {
+    DataSegmentOp resourceOp =
+        getOrCreateStringConstant(builder, loc, module, "str_literal", data);
+    return builder.create<executor::ConstantResourceLoadOp>(
+        loc, hostPointerType, resourceOp.getSymNameAttr());
+  }
+
+  LogicalResult
+  matchAndRewrite(executor::PluginOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    ModuleOp module = op->getParentOfType<ModuleOp>();
+    executor::FFIBackend ffiBackend = op.getFfiBackend();
+    Location loc = op.getLoc();
+
+    if (ffiBackend == executor::FFIBackend::tvm_ffi) {
+      // Create a global variable to hold the plugin callable handle. This
+      // handle is initialized at module load time and can be reused across
+      // multiple calls.
+      OpBuilder::InsertionGuard g(rewriter);
+      rewriter.setInsertionPointToStart(module.getBody());
+      auto globalOp = rewriter.create<executor::GlobalOp>(loc, op.getName(),
+                                                          hostPointerType);
+      Block &body = globalOp.getBodyRegion().emplaceBlock();
+      rewriter.setInsertionPointToStart(&body);
+      // Encode plugin and function names as constant string resources.
+      // These strings are used by the runtime to locate and load the FFI
+      // library and resolve the function symbol.
+      Value pluginName =
+          encodeString(rewriter, loc, module, op.getPluginName());
+      Value functionName =
+          encodeString(rewriter, loc, module, op.getFunctionName());
+      // Call the runtime function to create the callable handle. This will:
+      // - Load the TVM FFI library from the plugin name (if not already loaded)
+      // - Resolve the function symbol from the library
+      // - Return an opaque handle wrapping the TVM FFI function
+      auto callOp =
+          createTVMFFIPluginCallableBuilder.create(rewriter, loc, module,
+                                                   {
+                                                       pluginName,
+                                                       functionName,
+                                                   });
+      // Store the callable handle in the global variable's initializer.
+      rewriter.create<executor::ReturnOp>(loc, callOp->getResult(0));
+      rewriter.eraseOp(op);
+      return success();
+    }
+
+    return failure();
+  }
+
+private:
+  Type hostPointerType = executor::PointerType::get(this->getContext(),
+                                                    executor::MemoryType::host);
+  Type i64Type = IntegerType::get(this->getContext(), 64);
+  /// Runtime function builder for `_create_plugin_callable_tvm_ffi` with
+  /// signature: void* _create_plugin_callable_tvm_ffi(lib_name, function_name)
+  ///
+  /// This runtime function:
+  /// - Loads the TVM FFI library from `lib_name` (caching loaded libraries)
+  /// - Resolves the function symbol `function_name` from the library
+  /// - Returns an opaque callable handle wrapping the `tvm::ffi::Function`
+  ExecutorCallBuilder createTVMFFIPluginCallableBuilder = {
+      this->getContext(),
+      "_create_plugin_callable_tvm_ffi",
+      {hostPointerType},
+      {/*lib_name*/ hostPointerType,
+       /*function_name*/ hostPointerType}};
+};
+
+/// Lowers `executor.call_plugin` operations to TVM FFI runtime calls.
+///
+/// This conversion implements the TVM FFI calling convention by:
+/// 1. Parsing the argument specification (`arg_spec`) to determine how to
+///    arrange arguments according to the decode spec
+/// 2. Converting MLIR values to `TVMFFIAny` structures:
+///    - POD values (integers, floats) are stored directly in the 16-byte
+///      `TVMFFIAny` union
+///    - Tensor values are converted to DLPack `DLTensor` structures and
+///      stored as pointers (`kTVMFFIDLTensorPtr`)
+///    - Attributes are converted to appropriate `TVMFFIAny` values
+/// 3. Packing all `TVMFFIAny` values into a contiguous array according to
+///    the decode spec ordering (args, rets, attrs, optional None values)
+/// 4. Promoting the array to host-allocated memory so it's accessible to
+///    the TVM FFI runtime
+/// 5. Calling the runtime function `_call_plugin_tvm_ffi` which:
+///    - Sets CUDA streams for DLTensor arguments (if applicable)
+///    - Invokes the TVM FFI function using `TVMFFISafeCallType` signature:
+///      `int (*TVMFFISafeCallType)(void* handle, const TVMFFIAny* args,
+///                                 int32_t num_args, TVMFFIAny* result)`
+///
+/// Memory management:
+/// - DLTensor structures are allocated on the stack (via alloca) and contain
+///   pointers to the actual tensor data, shape, and strides arrays
+/// - Shape and strides arrays are promoted to host memory for runtime access
+/// - The `TVMFFIAny` array is allocated on the host stack for passing to FFI
+///
+/// Stream handling:
+/// - CUDA streams are set per-tensor based on device information in DLTensor
+/// - This allows proper synchronization for multi-stream CUDA operations
+struct CallPluginConversionPattern
+    : public ConvertOpToExecutorPattern<executor::CallPluginOp> {
+
+  Type hostPointerType = this->getHostPointerType();
+  Type i32Type = IntegerType::get(this->getContext(), 32);
+  /// Runtime function builder for `_call_plugin_tvm_ffi` with signature:
+  /// void _call_plugin_tvm_ffi(callable_handle, stream, args_array_ptr,
+  /// num_args)
+  ExecutorCallBuilder tvmffiCallBuilder = {this->getContext(),
+                                           "_call_plugin_tvm_ffi",
+                                           {},
+                                           {/*callee*/ hostPointerType,
+                                            /*stream*/ hostPointerType,
+                                            /*args*/ hostPointerType,
+                                            /*args_count*/ i32Type}};
+
+  using ConvertOpToExecutorPattern::ConvertOpToExecutorPattern;
+  LogicalResult
+  matchAndRewrite(executor::CallPluginOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    // TVM FFI functions currently do not return values through the result
+    // parameter. All outputs must be provided as input arguments with I/O
+    // aliasing.
+    if (op->getNumResults() > 0)
+      return failure();
+
+    // Get the CUDA device ID for DLTensor construction. This identifies which
+    // GPU device the tensors reside on.
+    Value deviceId = this->getCUDADeviceId(rewriter, op->getLoc(),
+                                           op->getParentOfType<ModuleOp>());
+    // Get or create a CUDA stream for async operations. If not provided,
+    // use the default stream (index 0).
+    Value stream = adaptor.getStream();
+    if (!stream) {
+      stream = this->getGlobalCudaStream(rewriter, op->getLoc(),
+                                         op->getParentOfType<ModuleOp>(), 0);
+    }
+
+    // Parse the argument specification string to determine how to arrange
+    // arguments. The spec string encodes the calling convention (e.g.,
+    // "args.0,rets.0,attrs.my_attr").
+    auto decodeSpecStrs =
+        llvm::to_vector(op.getArgSpec().getAsValueRange<StringAttr>());
+    auto immediateArgsDict = op.getImmediateArgsAttr();
+    if (!immediateArgsDict)
+      immediateArgsDict = DictionaryAttr::get(op.getContext(), {});
+
+    llvm::SmallVector<NamedAttribute> immediateArgs;
+    // Parse the arg spec into a structured DecodeSpec that tells us:
+    // - Which input arguments to use (DecodeArg)
+    // - Which output arguments to use (DecodeRet)
+    // - Which attributes to use (DecodeAttr)
+    // - Where to insert optional None values (OptionalNoneTag)
+    FailureOr<abi::plugin::DecodeSpec> decodeSpec =
+        executor::abi::plugin::ParseArgSpec(
+            op, op.getArgs().size(), op.getOutputs().size(), decodeSpecStrs,
+            immediateArgsDict, immediateArgs);
+    if (failed(decodeSpec))
+      return rewriter.notifyMatchFailure(op, "failed to parse arg spec");
+
+    // Create a helper to build TVMFFIAny structures and DLTensor conversions.
+    executor::TVMFFIArgsCallHelper callHelper(
+        rewriter, this->getTypeConverter()->getIndexType());
+
+    // Convert all arguments/outputs to TVMFFIAny values and arrange them
+    // according to the decode spec. This creates a table containing the
+    // packed TVMFFIAny structures ready for the FFI call.
+    mtrt::StatusOr<Value> argsArray =
+        callHelper.createTVMFFIAnyArrayForPluginCall(
+            op->getLoc(), *decodeSpec, op.getArgs(), adaptor.getArgs(),
+            op.getOutputs(), adaptor.getOutputs(), immediateArgsDict, deviceId);
+    if (!argsArray.isOk())
+      return rewriter.notifyMatchFailure(
+          op, "failed to create TVMFFIAny array: " +
+                  argsArray.getStatus().getMessage());
+
+    // Promote the TVMFFIAny array to host-allocated memory so the runtime
+    // can access it. The array contains pointers to DLTensor structures and
+    // POD values embedded directly.
+    Value argsArrayPtr = callHelper.promoteToAlloca(op->getLoc(), *argsArray);
+
+    // Load the callable handle from the global variable created by
+    // ConvertPluginOp. This handle wraps the TVM FFI function.
+    Value callee = rewriter.create<executor::GetGlobalOp>(
+        op->getLoc(), hostPointerType, op.getCallee());
+    // Pass the number of arguments in the array (determined by decode spec).
+    Value numArgs = rewriter.create<executor::ConstantOp>(
+        op->getLoc(), rewriter.getI32IntegerAttr(decodeSpec->items.size()));
+    // Call the runtime function which will:
+    // 1. Set CUDA streams for DLTensor arguments
+    // 2. Invoke the TVM FFI function using the safe call signature
+    // 3. Handle errors and propagate them appropriately
+    this->tvmffiCallBuilder.create(rewriter, op->getLoc(),
+                                   op->getParentOfType<ModuleOp>(),
+                                   {callee, stream, argsArrayPtr, numArgs});
+    rewriter.eraseOp(op);
+    return success();
+  }
+};
 } // namespace
 
 void executor::populateExecutorDialectLegality(
@@ -299,7 +523,8 @@ void executor::populateExecutorStructuralConversionPatternsAndLegality(
     RewritePatternSet &patterns, ExecutorTypeConverter &typeConverter,
     ConversionTarget &target) {
   // Mark ABIRecvOp as always illegal so it gets lowered
-  target.addIllegalOp<executor::ABIRecvOp, executor::ABISendOp>();
+  target.addIllegalOp<executor::ABIRecvOp, executor::ABISendOp,
+                      executor::PluginOp, executor::CallPluginOp>();
 
   target.addDynamicallyLegalDialect<executor::ExecutorDialect>(
       [&](Operation *op) {
@@ -312,7 +537,7 @@ void executor::populateExecutorStructuralConversionPatternsAndLegality(
           return typeConverter.isLegal(globalOp.getType());
 
         if (auto dataSegmentOp = dyn_cast<DataSegmentOp>(op))
-          return dataSegmentOp.getValueAttr().getElementType() !=
+          return dataSegmentOp.getElementType() !=
                  IndexType::get(op->getContext());
 
         return typeConverter.isLegal(op->getOperandTypes()) &&
@@ -323,8 +548,9 @@ void executor::populateExecutorStructuralConversionPatternsAndLegality(
   patterns
       .add<RewriteExecutorConst, LegalizeExecutorOperands,
            ConvertExecutorGlobalOp, ConvertExecutorFunc, ConvertExecutorCall,
-           ConstantResourceConversionPattern, LowerABIRecvOp, LowerABISendOp>(
-          typeConverter, patterns.getContext());
+           ConstantResourceConversionPattern, LowerABIRecvOp, LowerABISendOp,
+           ConvertPluginOp, CallPluginConversionPattern>(typeConverter,
+                                                         patterns.getContext());
 }
 
 static LogicalResult convertExecutorFunctionMetadataAttrs(

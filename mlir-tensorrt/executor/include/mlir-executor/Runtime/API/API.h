@@ -26,6 +26,7 @@
 #define MLIR_EXECUTOR_RUNTIME_API_API
 
 #include "mlir-executor/Runtime/API/Executable.h"
+#include "mlir-executor/Runtime/FFI/FFI.h"
 #include "mlir-executor/Support/Allocators.h"
 #include "mlir-tensorrt-common/Support/Status.h"
 #include "llvm/ADT/ArrayRef.h"
@@ -1131,13 +1132,14 @@ public:
   void registerSessionFactory(llvm::StringRef kind,
                               RuntimeSessionFactory factory);
 
+  mtrt::PluginRegistry &getPluginRegistry();
+
 private:
   void setAllocator(std::unique_ptr<RuntimeClientAllocator> allocator) {
     this->allocator = std::move(allocator);
   }
 
-  RuntimeClient(llvm::SmallVector<std::unique_ptr<Device>> devices)
-      : devices(std::move(devices)), allocator(nullptr) {}
+  RuntimeClient(llvm::SmallVector<std::unique_ptr<Device>> devices);
 
   llvm::SmallVector<std::unique_ptr<Device>> devices;
   PinnedMemoryAllocator pinnedMemoryAllocator;
@@ -1145,8 +1147,9 @@ private:
   std::unique_ptr<RuntimeClientAllocator> allocator;
 
   /// Session factory registry.
-
   llvm::StringMap<RuntimeSessionFactory> sessionFactories;
+
+  mtrt::PluginRegistry pluginRegistry;
 };
 
 //===----------------------------------------------------------------------===//

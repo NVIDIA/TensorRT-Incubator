@@ -39,22 +39,19 @@ void mtrt::registerLuaRuntimeExtension(llvm::StringRef name,
   (*extensionRegistry)[name] = std::move(extensionInfo);
 }
 
-Status mtrt::populateRuntimeExtensions(
-    const RuntimeSessionOptions &options, lua_State *state,
-    PinnedMemoryAllocator *pinnedMemoryAllocator, AllocTracker *allocTracker,
-    ResourceTracker *resourceTracker) {
+Status
+mtrt::populateRuntimeExtensions(const LuaRuntimeExtensionInitArgs &args) {
   for (const auto &[key, ext] : *extensionRegistry) {
-    if (options.isFeatureEnabled(key)) {
+    if (args.options.isFeatureEnabled(key)) {
       MTRT_DBG("Enabling Lua runtime module: {0}", key);
-      ext.populateLuaState(options, state, pinnedMemoryAllocator, allocTracker,
-                           resourceTracker);
+      ext.populateLuaState(args);
       continue;
     }
     MTRT_DBG("Disabling Lua runtime module: {0}", key);
   }
 
   // Check for features that are enabled but not supported by the runtime.
-  for (const auto &feature : options.getEnabledFeatures()) {
+  for (const auto &feature : args.options.getEnabledFeatures()) {
     if (!extensionRegistry->contains(feature.getKey())) {
       return getInvalidArgStatus(
           "feature {0} is enabled but not supported by the runtime",

@@ -66,7 +66,7 @@ LogicalResult serializeElementsAttr(Location loc, ElementsAttr attr,
 /// Get the serialized size of an ElementsAttr.
 /// An optional alignment can be provided to override the default alignment
 /// for the element type.
-FailureOr<uint64_t> getSerializedSize(Location loc, ElementsAttr attr,
+FailureOr<uint64_t> getSerializedSize(Location loc, Attribute attr,
                                       const DataLayout &dataLayout,
                                       std::optional<uint64_t> alignment = {});
 

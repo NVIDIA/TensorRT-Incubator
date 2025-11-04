@@ -582,13 +582,10 @@ namespace mtrt {
 void registerLuaCublasRuntimeExtension() {
   registerLuaRuntimeExtension(
       "cublas",
-      LuaRuntimeExtension{
-          [](const RuntimeSessionOptions &options, lua_State *state,
-             PinnedMemoryAllocator *pinnedMemoryAllocator,
-             AllocTracker *allocTracker, ResourceTracker *resourceTracker) {
-            registerExecutorCuBLASModuleLuaRuntimeMethods(state, allocTracker,
-                                                          resourceTracker);
-          }});
+      LuaRuntimeExtension{[](const LuaRuntimeExtensionInitArgs &args) {
+        registerExecutorCuBLASModuleLuaRuntimeMethods(
+            args.state, args.allocTracker, args.resourceTracker);
+      }});
 }
 
 } // namespace mtrt

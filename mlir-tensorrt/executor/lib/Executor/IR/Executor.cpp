@@ -391,10 +391,12 @@ void GlobalOp::build(OpBuilder &builder, OperationState &state, StringRef name,
     state.addAttribute(GlobalOp::getConstantAttrName(state.name),
                        builder.getUnitAttr());
   Region *region = state.addRegion();
-  Block &body = region->emplaceBlock();
-  OpBuilder::InsertionGuard g(builder);
-  builder.setInsertionPointToStart(&body);
-  initBuilder(builder, state.location);
+  if (initBuilder) {
+    Block &body = region->emplaceBlock();
+    OpBuilder::InsertionGuard g(builder);
+    builder.setInsertionPointToStart(&body);
+    initBuilder(builder, state.location);
+  }
 }
 
 //===----------------------------------------------------------------------===//
@@ -402,7 +404,7 @@ void GlobalOp::build(OpBuilder &builder, OperationState &state, StringRef name,
 //===----------------------------------------------------------------------===//
 
 DataSegmentOp DataSegmentOp::create(Location loc, StringRef name,
-                                    ElementsAttr value, bool constant,
+                                    Attribute value, bool constant,
                                     bool uninitialized, IntegerAttr alignment) {
   OpBuilder b(loc.getContext());
   return b.create<DataSegmentOp>(loc, name, value, constant, uninitialized,
@@ -410,22 +412,30 @@ DataSegmentOp DataSegmentOp::create(Location loc, StringRef name,
 }
 
 LogicalResult DataSegmentOp::verify() {
-  ShapedType type = getValue().getShapedType();
+  auto elementsValue = llvm::dyn_cast<ElementsAttr>(getValue());
+  auto stringValue = llvm::dyn_cast<StringAttr>(getValue());
+  ShapedType type =
+      elementsValue
+          ? elementsValue.getShapedType()
+          : RankedTensorType::get({static_cast<int64_t>(stringValue.size())},
+                                  IntegerType::get(getContext(), 8));
   if (!type.getElementType().isSignlessIntOrIndexOrFloat() &&
       !isa<ComplexType>(type.getElementType()))
     return emitOpError() << "initializer value can only be signless integer or "
                             "float or complex element type";
 
   if (getUninitialized()) {
-    ElementsAttr value = getValue();
+    if (!elementsValue)
+      return emitOpError()
+             << "expected value to be anElementsAttr when uninitialized";
     if (std::optional<ElementsAttr::iterator<llvm::APInt>> splatVal =
-            value.try_value_begin<llvm::APInt>()) {
+            elementsValue.try_value_begin<llvm::APInt>()) {
       if (!(**splatVal).isZero())
         return emitOpError()
                << "expected splat-zero ElementsAttr when uninitialized";
     }
     if (std::optional<ElementsAttr::iterator<llvm::APFloat>> splatVal =
-            value.try_value_begin<llvm::APFloat>()) {
+            elementsValue.try_value_begin<llvm::APFloat>()) {
       if (!(**splatVal).bitcastToAPInt().isZero())
         return emitOpError()
                << "expected splat-zero ElementsAttr when uninitialized";
@@ -438,8 +448,8 @@ LogicalResult DataSegmentOp::verify() {
 // ConstantResourceLoadOp
 //===----------------------------------------------------------------------===//
 
-LogicalResult ConstantResourceLoadOp::verifySymbolUses(
-    ::mlir::SymbolTableCollection &symbolTable) {
+LogicalResult
+ConstantResourceLoadOp::verifySymbolUses(SymbolTableCollection &symbolTable) {
   auto module = (*this)->getParentOfType<ModuleOp>();
   auto globalOp = dyn_cast_or_null<DataSegmentOp>(
       symbolTable.lookupSymbolIn(module, getNameAttr()));
@@ -839,7 +849,7 @@ GlobalOp GetGlobalOp::getGlobal(SymbolTableCollection &symbolTable) {
 }
 
 LogicalResult
-GetGlobalOp::verifySymbolUses(::mlir::SymbolTableCollection &symbolTable) {
+GetGlobalOp::verifySymbolUses(SymbolTableCollection &symbolTable) {
   GlobalOp globalOp = getGlobal(symbolTable);
   if (!globalOp)
     return emitOpError() << "global op with name " << getNameAttr()
@@ -856,7 +866,7 @@ GetGlobalOp::verifySymbolUses(::mlir::SymbolTableCollection &symbolTable) {
 //===----------------------------------------------------------------------===//
 
 LogicalResult
-SetGlobalOp::verifySymbolUses(::mlir::SymbolTableCollection &symbolTable) {
+SetGlobalOp::verifySymbolUses(SymbolTableCollection &symbolTable) {
   auto module = (*this)->getParentOfType<ModuleOp>();
   auto globalOp = dyn_cast_or_null<GlobalOp>(
       symbolTable.lookupSymbolIn(module, getNameAttr()));
@@ -978,8 +988,7 @@ void FuncOp::build(OpBuilder &builder, OperationState &state, StringRef name,
 
 LogicalResult CallOp::verify() { return success(); }
 
-LogicalResult
-CallOp::verifySymbolUses(::mlir::SymbolTableCollection &symbolTable) {
+LogicalResult CallOp::verifySymbolUses(SymbolTableCollection &symbolTable) {
   auto callee = dyn_cast_or_null<executor::FuncOp>(
       symbolTable.lookupNearestSymbolFrom(*this, getCalleeAttr()));
   if (!callee)
@@ -1452,6 +1461,111 @@ LogicalResult ABISendOp::verify() {
                          << argABIAttr.getValueType();
 
   return success();
+}
+
+//===----------------------------------------------------------------------===//
+// PluginOp
+//===----------------------------------------------------------------------===//
+
+void PluginOp::build(OpBuilder &odsBuilder, OperationState &odsState,
+                     llvm::StringRef sym_name, llvm::StringRef plugin_name,
+                     llvm::StringRef function_name,
+                     executor::FFIBackend ffi_backend,
+                     FunctionType function_type,
+                     /*optional*/ DictionaryAttr config) {
+  auto &properties = odsState.getOrAddProperties<Properties>();
+  properties.sym_name = odsBuilder.getStringAttr(sym_name);
+  properties.plugin_name = odsBuilder.getStringAttr(plugin_name);
+  properties.function_name = odsBuilder.getStringAttr(function_name);
+  properties.ffi_backend =
+      executor::FFIBackendAttr::get(odsBuilder.getContext(), ffi_backend);
+  if (function_type) {
+    properties.function_type = TypeAttr::get(function_type);
+  }
+  if (config)
+    properties.config = config;
+}
+
+//===----------------------------------------------------------------------===//
+// CallPluginOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult
+CallPluginOp::verifySymbolUses(SymbolTableCollection &symbolTable) {
+  auto callee = dyn_cast_or_null<executor::PluginOp>(
+      symbolTable.lookupNearestSymbolFrom(*this, getCalleeAttr()));
+  if (!callee)
+    return emitOpError() << "could not find executor.plugin op with name "
+                         << getCallee();
+
+  return success();
+}
+
+void CallPluginOp::build(OpBuilder &odsBuilder, OperationState &odsState,
+                         llvm::StringRef callee, Value stream, ValueRange args,
+                         ValueRange outputs,
+                         /*optional*/ DictionaryAttr immediate_args,
+                         /*optional*/ ArrayAttr arg_spec,
+                         /*optional*/ DenseI32ArrayAttr io_aliasing,
+                         /*optional*/ ArrayAttr arg_attrs,
+                         /*optional*/ ArrayAttr res_attrs) {
+  if (stream)
+    odsState.addOperands(stream);
+  odsState.addOperands(args);
+  odsState.addOperands(outputs);
+  auto &properties = odsState.getOrAddProperties<Properties>();
+  llvm::copy(llvm::ArrayRef<int32_t>({(stream ? 1 : 0),
+                                      static_cast<int32_t>(args.size()),
+                                      static_cast<int32_t>(outputs.size())}),
+             properties.operandSegmentSizes.begin());
+  MLIRContext *context = odsBuilder.getContext();
+  properties.callee = SymbolRefAttr::get(context, callee);
+  if (immediate_args)
+    properties.immediate_args = immediate_args;
+  if (arg_spec)
+    properties.arg_spec = arg_spec;
+  if (arg_attrs)
+    properties.arg_attrs = arg_attrs;
+  if (res_attrs)
+    properties.res_attrs = res_attrs;
+  if (io_aliasing)
+    properties.io_aliasing = io_aliasing;
+  SmallVector<Type> resultTypes;
+  resultTypes.reserve(outputs.size());
+  for (Value output : outputs)
+    if (isa<RankedTensorType>(output.getType()))
+      resultTypes.push_back(output.getType());
+  odsState.addTypes(resultTypes);
+}
+
+void CallPluginOp::build(OpBuilder &odsBuilder, OperationState &odsState,
+                         executor::PluginOp callee, Value stream,
+                         ValueRange args, ValueRange outputs,
+                         /*optional*/ DictionaryAttr immediate_args,
+                         /*optional*/ llvm::ArrayRef<llvm::StringRef> arg_spec,
+                         /*optional*/ llvm::ArrayRef<int32_t> io_aliasing,
+                         /*optional*/ ArrayAttr arg_attrs,
+                         /*optional*/ ArrayAttr res_attrs) {
+  build(odsBuilder, odsState, callee.getSymName(), stream, args, outputs,
+        immediate_args,
+        !arg_spec.empty() ? odsBuilder.getStrArrayAttr(arg_spec) : nullptr,
+        !io_aliasing.empty() ? odsBuilder.getDenseI32ArrayAttr(io_aliasing)
+                             : nullptr,
+        arg_attrs, res_attrs);
+}
+
+void CallPluginOp::getEffects(
+    SmallVectorImpl<MemoryEffects::EffectInstance> &effects) {
+  for (OpOperand &input : getArgsMutable()) {
+    if (auto memRefType = dyn_cast<MemRefType>(input.get().getType()))
+      effects.emplace_back(MemoryEffects::Read::get(), &input,
+                           SideEffects::DefaultResource::get());
+  }
+  for (OpOperand &output : getOutputsMutable()) {
+    if (auto memRefType = dyn_cast<MemRefType>(output.get().getType()))
+      effects.emplace_back(MemoryEffects::Write::get(), &output,
+                           SideEffects::DefaultResource::get());
+  }
 }
 
 //===----------------------------------------------------------------------===//

@@ -138,6 +138,7 @@ include(HandleLLVMOptions)
 # -------------------------------------------------
 
 find_package(NVTX REQUIRED)
+find_package(DLPack REQUIRED)
 
 if(MLIR_TRT_REQUIRES_CUDA)
   find_package(CUDAToolkit REQUIRED)
@@ -157,13 +158,15 @@ if(MLIR_TRT_TARGET_TENSORRT)
   find_package(TensorRT REQUIRED)
 endif()
 
-if(MLIR_TRT_ENABLE_PYTHON)
-  mlir_tensorrt_find_dlpack()
-endif()
-
 if(MLIR_TRT_ENABLE_MPI)
   find_package(MPI COMPONENTS C)
 endif()
+
+include(AddMLIRPython)
+include(MLIRDetectPythonEnv)
+mlir_configure_python_dev_packages()
+
+find_package(TVMFFI REQUIRED)
 
 #--------------------------------------------------
 # Diagnostics
@@ -180,6 +183,7 @@ endif()
 # -------------------------------------------------
 # Target Directories
 # -------------------------------------------------
+
 
 # Add a custom target for header generation. Since this target is used for
 # forcing generation of all generated headers prior to generation of
@@ -205,10 +209,6 @@ mtrt_write_feature_flags_header()
 include_directories("${CMAKE_CURRENT_BINARY_DIR}/include")
 
 add_compile_options(-Wno-deprecated-declarations)
-
-include(AddMLIRPython)
-include(MLIRDetectPythonEnv)
-mlir_configure_python_dev_packages()
 
 # Add a meta target for all documentation generation targets. You can generate
 # all documentation under `${buildDir}/docs` by building this target.

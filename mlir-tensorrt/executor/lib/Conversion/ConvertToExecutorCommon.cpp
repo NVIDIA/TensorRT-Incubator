@@ -549,17 +549,18 @@ Value ConvertToExecutorPattern::getGlobalCudaStream(RewriterBase &rewriter,
   std::string name = llvm::formatv("stream{0}", index);
   MLIRContext *ctx = rewriter.getContext();
   auto hostPointerType = PointerType::get(ctx, MemoryType::host);
+  Type i32Type = IntegerType::get(ctx, 32);
   GlobalOp global = executor::getOrCreateGlobalOp(
       rewriter, module.getLoc(), module, name, hostPointerType, true,
       [&](OpBuilder &b, Location loc) {
-        SymbolRefAttr symbolRef = executor::getOrInsertFuncDeclaration(
-            rewriter, loc, module, "__cuda_stream_create",
-            executor::ExecutorFunctionType::get(rewriter.getContext(), {},
-                                                {hostPointerType}, UnitAttr{}));
-        Value stream = b.create<executor::CallOp>(loc, hostPointerType,
-                                                  symbolRef.getLeafReference(),
-                                                  ValueRange{})
-                           .getResult(0);
+        ExecutorCallBuilder getActiveDeviceBuilder = {
+            ctx, "__cuda_get_active_device", {i32Type}, {}};
+        ExecutorCallBuilder streamCreateBuilder = {
+            ctx, "__cuda_stream_create", {hostPointerType}, {i32Type}};
+        Value device =
+            getActiveDeviceBuilder.create(b, loc, module, {}).getResult(0);
+        Value stream =
+            streamCreateBuilder.create(b, loc, module, {device}).getResult(0);
         b.create<executor::ReturnOp>(loc, stream);
       });
   return rewriter.create<executor::GetGlobalOp>(loc, global);

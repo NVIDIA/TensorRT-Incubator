@@ -85,7 +85,6 @@ builtin.module attributes {
   >
 } {
   func.func @lower_gep() -> i64 {
-    // expected-error @below {{'executor.getoffset' op result type ('i64') does not match the width of the IndexType ('i32') specified by the DataLayout}}
     %0 = executor.getoffset[0, 1, 1] : () -> i64, !el_type
     return %0 : i64
   }
@@ -120,7 +119,6 @@ builtin.module attributes {
   >
 } {
   func.func @lower_gep() -> i32 {
-    // expected-error @below {{'executor.getoffset' op index #0 (8589934591 : i64) cannot be converted losslessly to the width of the IndexType (i32) specified by the data layout}}
     %0 = executor.getoffset[0x1FFFFFFFF, 1, 1] : () -> i32, !el_type
     return %0 : i32
   }

@@ -39,6 +39,14 @@ DataSegmentOp getOrCreateConstantResourceDeclaration(OpBuilder &b, Location loc,
                                                      StringRef name,
                                                      ElementsAttr data);
 
+/// Construct a new DataSegmentOp with the given name, data, and insert it into
+/// the top of the module.
+DataSegmentOp createConstantResourceDeclaration(OpBuilder &b, Location loc,
+                                                ModuleOp module, StringRef name,
+                                                ElementsAttr data,
+                                                bool constant = true,
+                                                bool uninitialized = false);
+
 /// Within the given `module`, check if GlobalOp with the given name exists. If
 /// it does, return that GlobalOp. Otherwise, insert it into the module and
 /// return it.
@@ -53,6 +61,12 @@ GlobalOp getOrCreateGlobalOp(
 GlobalOp createUniqueGlobalOp(
     Location loc, ModuleOp module, StringRef name, Type type, bool constant,
     std::function<void(OpBuilder &, Location)> initRegionBuidler);
+
+SmallString<16> getUniqueSymbolName(ModuleOp moduleOp, StringRef prefix);
+
+DataSegmentOp getOrCreateStringConstant(OpBuilder &b, Location loc,
+                                        ModuleOp moduleOp, StringRef namePrefix,
+                                        StringRef str, uint64_t alignment = 4);
 
 } // namespace executor
 } // namespace mlir

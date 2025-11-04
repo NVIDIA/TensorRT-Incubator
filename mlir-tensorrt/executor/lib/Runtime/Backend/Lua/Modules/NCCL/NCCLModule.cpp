@@ -413,15 +413,12 @@ static void registerDeviceDependentNCCLMethods(lua_State *state,
 namespace mtrt {
 void registerLuaNcclRuntimeExtension() {
   registerLuaRuntimeExtension(
-      "nccl",
-      LuaRuntimeExtension{
-          [](const RuntimeSessionOptions &options, lua_State *state,
-             PinnedMemoryAllocator *pinnedMemoryAllocator,
-             AllocTracker *allocTracker, ResourceTracker *resourceTracker) {
-            registerExecutorNCCLModuleLuaRuntimeMethods(state, resourceTracker);
-            registerDeviceDependentNCCLMethods(state, options.getNumDevices(),
-                                               options.getDeviceId(),
-                                               options.getNcclUuid());
-          }});
+      "nccl", LuaRuntimeExtension{[](const LuaRuntimeExtensionInitArgs &args) {
+        registerExecutorNCCLModuleLuaRuntimeMethods(args.state,
+                                                    args.resourceTracker);
+        registerDeviceDependentNCCLMethods(
+            args.state, args.options.getNumDevices(),
+            args.options.getDeviceId(), args.options.getNcclUuid());
+      }});
 }
 } // namespace mtrt
