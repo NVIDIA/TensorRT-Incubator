@@ -25,7 +25,7 @@ from nvtripy.export import PUBLIC_APIS
 from nvtripy.frontend import wrappers
 from nvtripy.frontend.constraints.fetcher import GetDataType, GetInput, GetReturn
 from nvtripy.frontend.constraints.logic import And, Equal, NotEqual, NotOneOf, OneOf, Or
-from nvtripy.frontend.wrappers import DATA_TYPE_CONSTRAINTS, _doc_str, _find_known_datatypes
+from nvtripy.frontend.wrappers import DATA_TYPE_CONSTRAINTS, _doc_str, _find_known_datatypes, OPERATOR_CONSTRAINTS
 from tests import helper
 
 # Get all functions/methods which have tensors in the type signature
@@ -48,12 +48,21 @@ for api in PUBLIC_APIS:
                 api.qualname + f".{func.__name__}" if func.__name__ not in api.qualname else ""
             )
 
+# TODO (pranavm): Remove old dtype constraints system:
 DATA_TYPE_CONSTRAINTS_FUNC_NAMES = {dtc.func.__qualname__ for dtc in DATA_TYPE_CONSTRAINTS}
 
 
 @pytest.mark.parametrize("api", PUBLIC_API_TENSOR_FUNCTIONS, ids=PUBLIC_API_TENSOR_FUNCTION_NAMES)
 def test_all_public_apis_verified(api):
     assert api.__qualname__ in DATA_TYPE_CONSTRAINTS_FUNC_NAMES, f"Missing datatype constraints for: {api.__qualname__}"
+
+
+OPERATOR_CONSTRAINTS_FUNC_NAMES = {oc.func.__qualname__ for oc in OPERATOR_CONSTRAINTS}
+
+
+@pytest.mark.parametrize("api", PUBLIC_API_TENSOR_FUNCTIONS, ids=PUBLIC_API_TENSOR_FUNCTION_NAMES)
+def test_all_public_apis_verified(api):
+    assert api.__qualname__ in OPERATOR_CONSTRAINTS_FUNC_NAMES, f"Missing operator constraints for: {api.__qualname__}"
 
 
 @wrappers.interface(dtype_constraints={"tensors": "T1"}, dtype_variables={"T1": ["float32"]})

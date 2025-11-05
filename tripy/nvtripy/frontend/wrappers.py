@@ -41,6 +41,17 @@ DATA_TYPE_CONSTRAINTS = []
 RETURN_VALUE = "__RETURN_VALUE"
 
 
+@dataclass
+class OperatorConstraints:
+    func: Callable
+    input_requirements: Constraints
+    output_guarantees: Constraints
+
+
+# A list of tuples of (input_requirements, output_guarantees) for operators.
+OPERATOR_CONSTRAINTS: List[OperatorConstraints] = []
+
+
 # Try to include correct column offsets for non-tensor arguments.
 def _add_column_info(arg, arg_index, is_kwarg, num_positional, func_name):
     from nvtripy.frontend.tensor import Tensor
@@ -320,6 +331,7 @@ def _doc_str(obj: Any) -> str:
     if isinstance(obj, tp_dtype):
         return f":class:`{obj.name}`"
 
+    # TODO (pranavm): Move these into their respective classes, make doc_str an export of the constraints module.
     if isinstance(obj, GetInput):
         return f"``{obj.name}``"
     elif isinstance(obj, GetReturn):
@@ -428,6 +440,7 @@ def _update_docstring_legacy(func, dtype_constraints, dtype_variables, dtype_exc
 
 def interface(
     # TODO (pranavm): These should be required arguments eventually.
+    # TODO (pranavm): Document requirements/guarantees.
     input_requirements: Constraints = None,
     output_guarantees: Constraints = None,
     dtype_constraints: Dict[str, str] = {},
@@ -496,15 +509,17 @@ def interface(
         )
         shape_likes = {name for name, param in signature.parameters.items() if param.annotation is ShapeLike}
 
-        # if no dtype constraints have been specified at all, do not add to the table so we don't generate invalid tests
-        if dtype_constraints or dtype_variables or dtype_exceptions:
+        # TODO (pranavm): Constraints should never be None eventually.
+        if input_requirements is not None:
+            OPERATOR_CONSTRAINTS.append(OperatorConstraints(func, input_requirements, output_guarantees))
+
+            _update_docstring(func, input_requirements, output_guarantees)
+        elif dtype_constraints or dtype_variables or dtype_exceptions:
+            # if no dtype constraints have been specified at all, do not add to the table so we don't generate invalid tests
             DATA_TYPE_CONSTRAINTS.append(
                 DataTypeConstraints(func, dtype_constraints, dtype_variables, dtype_exceptions)
             )
 
-        if input_requirements is not None:
-            _update_docstring(func, input_requirements, output_guarantees)
-        elif dtype_constraints or dtype_variables or dtype_exceptions:
             _update_docstring_legacy(func, dtype_constraints, dtype_variables, dtype_exceptions)
 
         @functools.wraps(func)
