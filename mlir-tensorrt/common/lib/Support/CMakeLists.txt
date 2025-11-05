@@ -3,6 +3,7 @@ target_link_libraries(MLIRTensorRTSupportStatus INTERFACE
   MLIRTensorRTCommonIncludes
 )
 add_dependencies(MLIRTensorRTSupportStatus MLIRTensorRTStatusEnumIncGen)
+mtrt_add_install(MLIRTensorRTSupportStatus UMBRELLA mtrt-libraries)
 
 add_mlir_tensorrt_library(MLIRTensorRTCommandLineExtras
   PARTIAL_SOURCES_INTENDED
