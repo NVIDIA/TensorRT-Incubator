@@ -14,7 +14,7 @@
 # limitations under the License.
 from nvtripy import export
 from nvtripy.common.datatype import DATA_TYPES
-from nvtripy.utils import wrappers
+from nvtripy.frontend import wrappers
 
 
 @export.public_api(document_under="operations/functions")

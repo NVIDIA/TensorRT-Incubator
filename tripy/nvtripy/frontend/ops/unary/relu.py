@@ -18,7 +18,7 @@
 from nvtripy import export
 from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.trace.ops.unary import Relu
-from nvtripy.utils import wrappers
+from nvtripy.frontend import wrappers
 from nvtripy.common import datatype
 
 

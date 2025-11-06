@@ -19,7 +19,7 @@ from nvtripy.common.exception import raise_error
 from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.frontend.ops._registry import register_tensor_method
 from nvtripy.trace.ops.matmul import MatrixMultiply
-from nvtripy.utils import wrappers
+from nvtripy.frontend import wrappers
 
 
 @register_tensor_method("__matmul__")

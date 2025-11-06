@@ -22,11 +22,12 @@ from nvtripy.common import datatype
 from nvtripy.frontend.module.module import Module
 from nvtripy.frontend.module.parameter import DefaultParameter
 from nvtripy.frontend.tensor import Tensor
+from nvtripy.frontend.wrappers import constant_fields
 
 
 @export.public_api(document_under="operations/modules")
 @dataclass
-@utils.wrappers.constant_fields(["dtype"])
+@constant_fields(["dtype"])
 class Embedding(Module):
     """
     A lookup table for embedding vectors of a fixed size.
