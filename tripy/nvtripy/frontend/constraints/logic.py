@@ -15,9 +15,11 @@
 # limitations under the License.
 #
 from abc import abstractmethod
+from textwrap import indent
 from typing import Any, List, Optional, Sequence, Tuple
 
 from nvtripy.frontend.constraints.base import Constraints
+from nvtripy.frontend.constraints.doc_str import doc_str
 from nvtripy.frontend.constraints.fetcher import Fetcher
 from nvtripy.utils.result import Result
 
@@ -58,6 +60,7 @@ class Logic(Constraints):
 
 class OneOf(Logic):
     def __init__(self, fetcher: Fetcher, options: Sequence[Any]):
+        super().__init__()
         self.fetcher = fetcher
         # Need to convert generator expressions so we can use them more than once
         self.options = list(options)
@@ -72,12 +75,16 @@ class OneOf(Logic):
     def __str__(self):
         return f"{self.fetcher} is one of {self.options}"
 
+    def doc_str(self) -> str:
+        return f"{doc_str(self.fetcher)} is one of [{', '.join(f'{doc_str(opt)}' for opt in self.options)}]"
+
     def inverse(self) -> "Logic":
         return NotOneOf(self.fetcher, self.options)
 
 
 class NotOneOf(Logic):
     def __init__(self, fetcher: Fetcher, options: Sequence[Any]):
+        super().__init__()
         self.fetcher = fetcher
         self.options = list(options)
 
@@ -90,6 +97,9 @@ class NotOneOf(Logic):
 
     def __str__(self):
         return f"{self.fetcher} is not one of {self.options}"
+
+    def doc_str(self) -> str:
+        return f"{doc_str(self.fetcher)} is not one of [{', '.join(f'{doc_str(opt)}' for opt in self.options)}]"
 
     def inverse(self) -> "Logic":
         return OneOf(self.fetcher, self.options)
@@ -105,6 +115,7 @@ def get_val_or_call_fetcher(
 
 class Equal(Logic):
     def __init__(self, fetcher: Fetcher, fetcher_or_value: Any):
+        super().__init__()
         self.fetcher = fetcher
         self.fetcher_or_value = fetcher_or_value
 
@@ -120,12 +131,16 @@ class Equal(Logic):
     def __str__(self):
         return f"{self.fetcher} == {self.fetcher_or_value}"
 
+    def doc_str(self) -> str:
+        return f"{doc_str(self.fetcher)} == {doc_str(self.fetcher_or_value)}"
+
     def inverse(self) -> "Logic":
         return NotEqual(self.fetcher, self.fetcher_or_value)
 
 
 class NotEqual(Logic):
     def __init__(self, fetcher: Fetcher, fetcher_or_value: Fetcher):
+        super().__init__()
         self.fetcher = fetcher
         self.fetcher_or_value = fetcher_or_value
 
@@ -140,12 +155,16 @@ class NotEqual(Logic):
     def __str__(self):
         return f"{self.fetcher} != {self.fetcher_or_value}"
 
+    def doc_str(self) -> str:
+        return f"{doc_str(self.fetcher)} != {doc_str(self.fetcher_or_value)}"
+
     def inverse(self) -> "Logic":
         return Equal(self.fetcher, self.fetcher_or_value)
 
 
 class And(Logic):
     def __init__(self, *constraints: Logic):
+        super().__init__()
         self.constraints = constraints
 
     def __call__(self, args: List[Tuple[str, Any]], returns: Optional[Tuple[Any]] = None) -> Result:
@@ -161,6 +180,9 @@ class And(Logic):
     def __str__(self):
         return "(" + " and ".join(str(constraint) for constraint in self.constraints) + ")"
 
+    def doc_str(self) -> str:
+        return ", **and**\n".join("- " + indent(doc_str(constraint), "  ").lstrip() for constraint in self.constraints)
+
     def inverse(self) -> "Logic":
         # De Morgan's law: not (A and B) = (not A) or (not B)
         return Or(*(constraint.inverse() for constraint in self.constraints))
@@ -168,6 +190,7 @@ class And(Logic):
 
 class Or(Logic):
     def __init__(self, *constraints: Logic):
+        super().__init__()
         self.constraints = constraints
 
     def __call__(self, args: List[Tuple[str, Any]], returns: Optional[Tuple[Any]] = None) -> Result:
@@ -181,6 +204,9 @@ class Or(Logic):
 
     def __str__(self):
         return "(" + " or ".join(str(constraint) for constraint in self.constraints) + ")"
+
+    def doc_str(self) -> str:
+        return "(" + " *or* ".join(doc_str(constraint) for constraint in self.constraints) + ")"
 
     def inverse(self) -> "Logic":
         # De Morgan's law: not (A or B) = (not A) and (not B)

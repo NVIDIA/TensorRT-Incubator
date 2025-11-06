@@ -45,14 +45,24 @@ matches = constraint.find(Equal(GetDataType(GetInput), None))
 ```
 """
 
-from abc import ABC
-from typing import List
+from abc import ABC, abstractmethod
+from typing import List, Optional
 
 
 class Constraints(ABC):
     """
     Base class for the entire constraints system.
     """
+
+    def __init__(self):
+        self._info: Optional[str] = None
+
+    @abstractmethod
+    def doc_str(self) -> str:
+        """
+        Returns a string representation for use in documentation.
+        """
+        ...
 
     def get_children(self) -> List["Constraints"]:
         children = []
@@ -128,3 +138,11 @@ class Constraints(ABC):
             matches.extend(child.find(pattern))
 
         return matches
+
+    def info(self, message: str) -> "Constraints":
+        """
+        Sets additional information about this constraint.
+        For example, this might express the constraint in natural language or explain why it exists.
+        """
+        self._info = message
+        return self
