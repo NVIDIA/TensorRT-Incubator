@@ -114,3 +114,12 @@ class TestConstraints:
         matches = constraint.find(pattern)
         assert len(matches) == 6
         assert constraint in matches
+
+    def test_info_method(self):
+        constraint = Equal(GetInput("a"), GetInput("b"))
+        assert constraint._info is None
+
+        result = constraint.info("This checks that a equals b")
+
+        assert constraint._info == "This checks that a equals b"
+        assert result is constraint  # Test method chaining

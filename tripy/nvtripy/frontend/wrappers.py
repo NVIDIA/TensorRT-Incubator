@@ -25,7 +25,7 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple, Un
 from nvtripy import config, utils
 from nvtripy.common.datatype import DATA_TYPES
 from nvtripy.common.exception import raise_error
-from nvtripy.frontend.constraints import Constraints, Equal, GetInput, GetDataType, Fetcher
+from nvtripy.frontend.constraints import Constraints, Equal, GetInput, GetDataType, Fetcher, doc_str
 from nvtripy.utils import result
 
 
@@ -320,41 +320,6 @@ def convert_input_types(
     return new_args, new_kwargs, new_merged_args
 
 
-def _doc_str(obj: Any) -> str:
-    """
-    Returns a string representation of an object for use in the public documentation.
-    """
-    from nvtripy.common.datatype import dtype as tp_dtype
-    from nvtripy.frontend.constraints.logic import And, Equal, NotEqual, NotOneOf, OneOf, Or
-    from nvtripy.frontend.constraints.fetcher import GetDataType, GetInput, GetReturn
-
-    if isinstance(obj, tp_dtype):
-        return f":class:`{obj.name}`"
-
-    # TODO (pranavm): Move these into their respective classes, make doc_str an export of the constraints module.
-    if isinstance(obj, GetInput):
-        return f"``{obj.name}``"
-    elif isinstance(obj, GetReturn):
-        return f"``return[{obj.index}]``"
-    elif isinstance(obj, GetDataType):
-        # Intentionally do not use _doc_str() on the value_fetcher so we can wrap it in backticks correctly.
-        return f"``{obj.value_fetcher}.dtype``"
-    elif isinstance(obj, OneOf):
-        return f"{_doc_str(obj.fetcher)} is one of [{', '.join(f'{_doc_str(opt)}' for opt in obj.options)}]"
-    elif isinstance(obj, NotOneOf):
-        return f"{_doc_str(obj.fetcher)} is not one of [{', '.join(f'{_doc_str(opt)}' for opt in obj.options)}]"
-    elif isinstance(obj, Equal):
-        return f"{_doc_str(obj.fetcher)} == {_doc_str(obj.fetcher_or_value)}"
-    elif isinstance(obj, NotEqual):
-        return f"{_doc_str(obj.fetcher)} != {_doc_str(obj.fetcher_or_value)}"
-    elif isinstance(obj, And):
-        return ", **and**\n".join("- " + indent(_doc_str(constraint), "  ").lstrip() for constraint in obj.constraints)
-    elif isinstance(obj, Or):
-        return "(" + " *or* ".join(_doc_str(constraint) for constraint in obj.constraints) + ")"
-
-    assert False, f"Unsupported object type for doc string generation: {type(obj)}. Please add handling here!"
-
-
 # Modify the docstring to include constraints
 def _update_docstring(func, input_requirements, output_guarantees):
     if not func.__doc__:
@@ -364,8 +329,8 @@ def _update_docstring(func, input_requirements, output_guarantees):
     code_block_index = func.__doc__.find(".. code-block:: python")
     assert code_block_index != -1, f"No code example in docstring for {func.__name__}"
 
-    input_requirements_str = f"\nINPUT REQUIREMENTS:\n{indent(_doc_str(input_requirements), indentation)}\n"
-    output_guarantees_str = f"\nOUTPUT GUARANTEES:\n{indent(_doc_str(output_guarantees), indentation)}\n"
+    input_requirements_str = f"\nINPUT REQUIREMENTS:\n{indent(doc_str(input_requirements), indentation)}\n"
+    output_guarantees_str = f"\nOUTPUT GUARANTEES:\n{indent(doc_str(output_guarantees), indentation)}\n"
 
     func.__doc__ = (
         func.__doc__[:code_block_index]

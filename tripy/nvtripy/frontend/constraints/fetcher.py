@@ -49,6 +49,7 @@ class ValueFetcher(Fetcher):
 
 class GetInput(ValueFetcher):
     def __init__(self, name: str):
+        super().__init__()
         self.name = name
 
     def __call__(self, args: List[Tuple[str, Any]], returns: Optional[Tuple[Any]] = None) -> Any:
@@ -60,9 +61,13 @@ class GetInput(ValueFetcher):
     def __str__(self):
         return self.name
 
+    def doc_str(self) -> str:
+        return f"``{self.name}``"
+
 
 class GetReturn(ValueFetcher):
     def __init__(self, index: int):
+        super().__init__()
         self.index = index
 
     def __call__(self, args: List[Tuple[str, Any]], returns: Optional[Tuple[Any]] = None) -> Any:
@@ -72,9 +77,13 @@ class GetReturn(ValueFetcher):
     def __str__(self):
         return f"return[{self.index}]"
 
+    def doc_str(self) -> str:
+        return f"``return[{self.index}]``"
+
 
 class GetDataType(Fetcher):
     def __init__(self, value_fetcher: ValueFetcher):
+        super().__init__()
         self.value_fetcher = value_fetcher
 
     def __call__(self, args: List[Tuple[str, Any]], returns: Optional[Tuple[Any]] = None) -> Any:
@@ -108,3 +117,7 @@ class GetDataType(Fetcher):
 
     def __str__(self):
         return f"{self.value_fetcher}.dtype"
+
+    def doc_str(self) -> str:
+        # Intentionally do not use doc_str() on the value_fetcher so we can wrap it in backticks correctly.
+        return f"``{self.value_fetcher}.dtype``"
