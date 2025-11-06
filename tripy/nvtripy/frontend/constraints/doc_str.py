@@ -14,7 +14,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+
+from typing import Any
+
 from nvtripy.frontend.constraints.base import Constraints
-from nvtripy.frontend.constraints.doc_str import doc_str
-from nvtripy.frontend.constraints.fetcher import Fetcher, GetDataType, GetInput, GetReturn, ValueFetcher
-from nvtripy.frontend.constraints.logic import And, Equal, Logic, NotEqual, NotOneOf, OneOf, Or
+
+
+def doc_str(obj: Any) -> str:
+    """
+    Returns a string representation of an object for use in the public documentation.
+    """
+    from nvtripy.common.datatype import dtype as tp_dtype
+
+    if isinstance(obj, tp_dtype):
+        return f":class:`{obj.name}`"
+
+    if isinstance(obj, Constraints):
+        return obj.doc_str()
+
+    assert False, f"Unsupported object type for doc string generation: {type(obj)}. Please add handling here!"
