@@ -1850,6 +1850,13 @@ void tensorrt::ReshapeOp::getCanonicalizationPatterns(
                  SimplifyReshapeToRankExpandCollapse>(context);
 }
 
+void tensorrt::ReshapeOp::getCanonicalizationPatternsSameOp(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<ConstFoldReshapePattern<ReshapeOp>, SimplifyReshapeReshape
+                 // NOT INCLUDED: SimplifyReshapeToRankExpandCollapse
+                 >(context);
+}
+
 void tensorrt::ReshapeOp::build(OpBuilder &builder, OperationState &state,
                                 Type result, Value input) {
   ReshapeOp::build(builder, state, result, input, Value());
