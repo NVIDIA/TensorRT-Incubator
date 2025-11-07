@@ -17,6 +17,7 @@ def CUDA_Dialect : Dialect {
   let cppNamespace = "::mlir::cuda";
 
   let useDefaultTypePrinterParser = 1;
+  let useDefaultAttributePrinterParser = 1;
 }
 
 #endif // MLIR_TENSORRT_DIALECT_CUDA_IR_CUDADIALECT_TD

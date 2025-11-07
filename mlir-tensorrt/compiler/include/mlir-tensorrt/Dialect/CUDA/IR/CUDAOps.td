@@ -8,6 +8,7 @@ include "mlir/Interfaces/InferTypeOpInterface.td"
 include "mlir/Interfaces/DestinationStyleOpInterface.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 include "mlir/IR/SymbolInterfaces.td"
+include "mlir-tensorrt/Dialect/CUDA/IR/CUDAEnums.td"
 
 //===----------------------------------------------------------------------===//
 // Shorthand declarations
@@ -132,7 +133,9 @@ def CUDA_CompiledModuleOp : CUDA_Op<"compiled_module", [Symbol]> {
     which can be either PTX or compiled cuBin.
   }];
 
-  let arguments = (ins SymbolNameAttr:$sym_name, ElementsAttr:$value);
+  let arguments = (ins SymbolNameAttr:$sym_name,
+                        ElementsAttr:$value,
+                        DefaultValuedAttr<CUDA_CompiledModuleKindAttr, "CompiledModuleKind::PTX">:$kind);
   let assemblyFormat = "attr-dict $sym_name $value";
 
   let builders = [

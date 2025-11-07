@@ -8,6 +8,8 @@ add_mlir_tensorrt_dialect_library(MLIRTensorRTCUDADialect
 
   DEPENDS
   MLIRCUDAOpsIncGen
+  MLIRCUDAEnumsIncGen
+  MLIRCUDAAttributesIncGen
 
   LINK_LIBS PUBLIC
     MLIRTensorRTPlanDialect

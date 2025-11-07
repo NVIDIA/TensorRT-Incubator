@@ -31,6 +31,14 @@
 #include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/MathExtras.h"
 
+// Link generated CUDA attribute definitions.
+#define GET_ATTRDEF_CLASSES
+#include "mlir-tensorrt/Dialect/CUDA/IR/CUDAAttributes.cpp.inc"
+#undef GET_ATTRDEF_CLASSES
+
+// Link generated CUDA enum definitions.
+#include "mlir-tensorrt/Dialect/CUDA/IR/CUDAEnums.cpp.inc"
+
 using namespace mlir;
 using namespace mlir::cuda;
 
@@ -346,6 +354,11 @@ void CUDADialect::initialize() {
   addTypes<
 #define GET_TYPEDEF_LIST
 #include "mlir-tensorrt/Dialect/CUDA/IR/CUDAOpsTypes.cpp.inc"
+      >();
+
+  addAttributes<
+#define GET_ATTRDEF_LIST
+#include "mlir-tensorrt/Dialect/CUDA/IR/CUDAAttributes.cpp.inc"
       >();
 
   addInterfaces<CUDAInlinerInterface>();
