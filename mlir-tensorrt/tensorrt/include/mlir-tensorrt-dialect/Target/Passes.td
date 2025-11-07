@@ -27,10 +27,38 @@ include "mlir/Pass/PassBase.td"
 //===----------------------------------------------------------------------===//
 
 def TranslateToTensorRTEnginePass : Pass<"translate-tensorrt-to-engine"> {
-  let summary = "Translate TensorRT IR in a `func::FuncOp` to TensorRT engine";
+  let summary = "Translate MLIR to TensorRT within a module";
   let description = [{
-    This pass takes a `func.func` and attempts to translate it into a single
-    TensorRT engine.
+    This pass processes all function operations in the module and translates
+    each one into a TensorRT engine. The pass supports two modes of operation:
+
+    1. **Engine Building Mode**: Builds new TensorRT engines from the MLIR
+       representation. The pass creates a TensorRT network from the function,
+       configures builder options (precision flags, optimization level, timing
+       cache, etc.), and serializes the resulting engine.
+
+    2. **Engine Loading Mode**: Loads pre-built engines from a directory
+       (specified via `--load-tensorrt-engines`). This is primarily used for
+       debugging and testing.
+
+    In both modes, the serialized engine is attached to each function as a
+    `tensorrt.engine` attribute (a dense elements attribute of i8 values).
+
+    The pass supports various TensorRT builder options including:
+    - Precision modes: FP16, INT8, FP8, BF16 (depending on TensorRT version)
+    - Strongly typed networks (TensorRT 10.0+)
+    - Builder optimization levels (0-5)
+    - Timing cache for faster subsequent builds
+    - Workspace memory pool limits
+    - Plugin serialization
+
+    Optional debugging features:
+    - Save engines to disk (`--save-tensorrt-engines`)
+    - Save layer information JSON (`--save-tensorrt-layer-info`)
+
+    The pass requires CUDA devices to be available and will fail if no devices
+    are found. It also manages timing cache serialization/deserialization to
+    speed up repeated builds.
   }];
   let dependentDialects = ["::mlir::tensorrt::TensorRTDialect"];
 }
