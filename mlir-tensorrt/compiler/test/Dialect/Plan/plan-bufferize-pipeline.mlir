@@ -1,13 +1,14 @@
 // This set of tests is meant to capture the effects of our end-to-end host module bufferization,
 // buffer optimization, and deallocation pipeline.
 
+// RUN: mlir-tensorrt-opt %s -split-input-file -executor-generate-abi-wrappers -plan-bufferize-pipeline \
+// RUN: | FileCheck %s --check-prefix=ABI
+
 // RUN: mlir-tensorrt-opt %s -split-input-file -plan-bufferize-pipeline | FileCheck %s
 
 // RUN: mlir-tensorrt-opt %s -split-input-file -plan-bufferize-pipeline="force-entrypoints-return-allocs=true" \
 // RUN: | FileCheck %s --check-prefix=ALLOC
 
-// RUN: mlir-tensorrt-opt %s -split-input-file -executor-generate-abi-wrappers -plan-bufferize-pipeline \
-// RUN: | FileCheck %s --check-prefix=ABI
 
 func.func @from_elements_staging_buffer(%arg0: f32, %arg1: f32) -> tensor<2xf32> {
   %0 = tensor.from_elements %arg0, %arg1 : tensor<2xf32>
@@ -348,26 +349,21 @@ func.func @shape_func_with_constraints(
 //        CHECK:     return
 
 // ABI-LABEL: func.func public @shape_func_with_constraints
-//  ABI-SAME: (%[[arg0:.+]]: !executor.ptr<host>{{.*}}, %[[arg1:.+]]: !executor.ptr<host>{{.*}}, %[[arg2:.+]]: !executor.ptr<host>{{.*}})
+//  ABI-SAME: (%[[arg0:[a-z0-9]+]]: !executor.ptr<host>
+//  ABI-SAME:  %[[arg1:[a-z0-9]+]]: !executor.ptr<host>
+//  ABI-SAME:  %[[arg2:[a-z0-9]+]]: !executor.ptr<host>
 //   ABI-DAG:     %[[c1:.+]] = arith.constant 1 : index
 //   ABI-DAG:     %[[c2:.+]] = arith.constant 2 : index
 //   ABI-DAG:     %[[c0:.+]] = arith.constant 0 : index
-//   ABI-DAG:     %[[v0:.+]] = executor.abi.recv %[[arg2]] : memref<2xindex, #plan.memory_space<device>>
-//   ABI-DAG:     %[[v1:.+]] = executor.abi.recv %[[arg0]] : memref<2xindex, #plan.memory_space<device>>
-//   ABI-DAG:     %[[alloc:.+]] = memref.alloc() {{.*}} : memref<2xindex, #plan.memory_space<host>>
-//   ABI-DAG:     memref.copy %[[v1]], %[[alloc]]
-//   ABI-DAG:     %[[v2:.+]] = executor.abi.recv %[[arg1]] : memref<2xindex, #plan.memory_space<device>>
-//   ABI-DAG:     %[[alloc_0:.+]] = memref.alloc() {{.*}} : memref<2xindex, #plan.memory_space<host>>
-//   ABI-DAG:     memref.copy %[[v2]], %[[alloc_0]]
-//       ABI:     %[[v3:.+]] = memref.load %[[alloc]][%[[c0]]]
-//       ABI:     %[[v4:.+]] = memref.load %[[alloc_0]][%[[c0]]]
-//       ABI:     %[[alloc_1:.+]] = memref.alloc() {{.*}} : memref<2xindex, #plan.memory_space<host>>
-//       ABI:     memref.store {{.*}}, %[[alloc_1]][%[[c0]]]
-//       ABI:     memref.store %[[c2]], %[[alloc_1]][%[[c1]]]
-//       ABI:     memref.copy %[[alloc_1]], %[[v0]]
-//   ABI-DAG:     memref.dealloc %[[alloc]]
-//   ABI-DAG:     memref.dealloc %[[alloc_0]]
-//   ABI-DAG:     memref.dealloc %[[alloc_1]]
+//   ABI-DAG:     %[[v0:.+]] = executor.abi.recv %[[arg2]] : memref<2xindex, #plan.memory_space<host>>
+//   ABI-DAG:     %[[v1:.+]] = executor.abi.recv %[[arg0]] : memref<2xindex, #plan.memory_space<host>>
+//   ABI-DAG:     %[[v2:.+]] = executor.abi.recv %[[arg1]] : memref<2xindex, #plan.memory_space<host>>
+//       ABI:     memref.load %[[v1]]
+//       ABI:     memref.load %[[v2]]
+//       ABI:     %[[alloc:.+]] = memref.alloc
+// ABI-COUNT-2:   memref.store
+//       ABI:     memref.copy %[[alloc]], %[[v0]]
+//       ABI:     memref.dealloc %[[alloc]]
 //       ABI:     return
 
 // -----
@@ -395,13 +391,10 @@ func.func @test_alloc_tensor_copy_to_space(%arg0: tensor<2xindex, #plan.memory_s
 
 // ABI-LABEL: func.func public @test_alloc_tensor_copy_to_space
 //  ABI-SAME: (%[[arg0:.+]]: !executor.ptr<host> {executor.abi = #executor.arg<byval, memref<2xindex, #plan.memory_space<device>>>},
-//  ABI-SAME:  %[[arg1:.+]]: !executor.ptr<host> {executor.abi = #executor.arg<byref, memref<2xindex, #plan.memory_space<device>>>, executor.result_slot = 0 : i32})
-//       ABI:     %[[v0:.+]] = executor.abi.recv %[[arg1]] : memref<2xindex, #plan.memory_space<device>>
+//  ABI-SAME:  %[[arg1:.+]]: !executor.ptr<host> {executor.abi = #executor.arg<byref, memref<2xindex, #plan.memory_space<host>>>
+//       ABI:     %[[v0:.+]] = executor.abi.recv %[[arg1]] : memref<2xindex, #plan.memory_space<host>>
 //       ABI:     %[[v1:.+]] = executor.abi.recv %[[arg0]] : memref<2xindex, #plan.memory_space<device>>
-//       ABI:     %[[alloc:.+]] = memref.alloc() {{.*}} : memref<2xindex, #plan.memory_space<host>>
-//       ABI:     memref.copy %[[v1]], %[[alloc]]
-//       ABI:     memref.copy %[[alloc]], %[[v0]]
-//       ABI:     memref.dealloc %[[alloc]]
+//       ABI:     memref.copy %[[v1]], %[[v0]]
 //       ABI:     return
 
 // -----
@@ -638,7 +631,7 @@ module @calls_no_inline {
   }
 
   // ABI-LABEL: func.func public @main
-  //  ABI-SAME: attributes {executor.func_abi = () -> ()}
+  //  ABI-SAME:       executor.func_abi = () -> ()
   //       ABI:     %[[v0:.+]] = memref.get_global {{.*}} : memref<5xi8, #plan.memory_space<host>>
   //       ABI:     %[[v1:.+]] = memref.get_global {{.*}} : memref<5xi8, #plan.memory_space<host>>
   //       ABI:     %[[v2:.+]] = memref.get_global {{.*}} : memref<5xi8, #plan.memory_space<host>>
@@ -714,12 +707,16 @@ func.func @test_loop_region_dps_rewrite_while(%arg0: tensor<10xf32>) -> tensor<1
 
 // -----
 
+module @alloc_tensors_from_elements {
+
 func.func @alloc_tensors_from_elements(%arg0: i32) -> (
     tensor<1xi32> {plan.memory_space = #plan.memory_space<host>},
     tensor<1xi32>) {
   %0 = tensor.from_elements %arg0 : tensor<1xi32>
   %1 = tensor.from_elements %arg0 : tensor<1xi32>
   return %0, %1 : tensor<1xi32>, tensor<1xi32>
+}
+
 }
 
 // CHECK-LABEL: func.func @alloc_tensors_from_elements

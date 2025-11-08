@@ -44,6 +44,48 @@ static bool isScalarType(Type type) {
   return isa<FloatType, IndexType, IntegerType>(type);
 }
 
+static Type getABIStorageType(Type type) {
+  if (auto floatType = dyn_cast<FloatType>(type)) {
+    const unsigned originalWidth = floatType.getIntOrFloatBitWidth();
+    if (originalWidth < 16)
+      return IntegerType::get(floatType.getContext(),
+                              llvm::divideCeil(originalWidth, 8) * 8);
+  }
+  if (auto integerType = dyn_cast<IntegerType>(type)) {
+    const unsigned originalWidth = integerType.getWidth();
+    if (originalWidth != 1 && originalWidth < 8)
+      return IntegerType::get(integerType.getContext(), 8);
+  }
+  return type;
+}
+
+/// Construct bitcast + zext for floating point types that must be represented
+/// as integers for compatability with the ABI.
+static Value convertToABIStorageType(RewriterBase &rewriter, Value value) {
+  if (auto originalType = dyn_cast<FloatType>(value.getType())) {
+    const unsigned originalWidth = originalType.getIntOrFloatBitWidth();
+    if (originalWidth < 16) {
+      Type integerType = rewriter.getIntegerType(originalWidth);
+      Value intValue = rewriter.create<executor::BitcastOp>(value.getLoc(),
+                                                            integerType, value);
+      Type paddedIntegerType = getABIStorageType(integerType);
+      if (paddedIntegerType != integerType) {
+        intValue = rewriter.create<executor::ZExtOp>(
+            value.getLoc(), paddedIntegerType, intValue);
+      }
+      return intValue;
+    }
+  }
+  if (auto integerType = dyn_cast<IntegerType>(value.getType())) {
+    Type storageType = getABIStorageType(integerType);
+    if (storageType != integerType) {
+      return rewriter.create<executor::ZExtOp>(
+          value.getLoc(), getABIStorageType(integerType), value);
+    }
+  }
+  return value;
+}
+
 /// Construct the signature for the ABI wrapper function.
 static FailureOr<FunctionType>
 createABISignature(FunctionOpInterface func,
@@ -81,6 +123,7 @@ createABISignature(FunctionOpInterface func,
     argAttrs.push_back(DictionaryAttr::get(func.getContext(), attrs));
   }
   // Append the results arguments.
+  SmallVector<Type> resultTypes;
   for (auto [idx, result] : llvm::enumerate(funcType.getResults())) {
     if (!isScalarType(result) && !isa<MemRefType, RankedTensorType>(result))
       return emitError(func.getLoc())
@@ -96,8 +139,9 @@ createABISignature(FunctionOpInterface func,
         executor::ArgumentABIAttr::get(executor::ArgABIKind::byref, result,
                                        forceUndefOutputArgs));
     argAttrs.push_back(DictionaryAttr::get(func.getContext(), attrs));
+    resultTypes.push_back(getABIStorageType(result));
   }
-  return FunctionType::get(funcType.getContext(), argTypes, {});
+  return FunctionType::get(funcType.getContext(), argTypes, resultTypes);
 }
 
 FailureOr<func::FuncOp>
@@ -128,10 +172,13 @@ executor::createABIWrapperFunction(RewriterBase &rewriter, func::FuncOp func,
   func::FuncOp newFunc = rewriter.create<func::FuncOp>(
       func.getLoc(), originalFuncName, *abiFuncType,
       rewriter.getStringAttr("public"), rewriter.getArrayAttr(argAttrs),
-      ArrayAttr{},
+      func.getAllResultAttrs(),
       /*no_inline=*/false);
 
   newFunc->setAttr(ExecutorDialect::kFuncABIAttrName, TypeAttr::get(funcType));
+
+  if (auto memorySpace = func->getAttr("plan.memory_space"))
+    newFunc->setAttr("plan.memory_space", memorySpace);
 
   SmallVector<Location> argLocs;
   for (auto arg : func.getArguments())
@@ -175,14 +222,16 @@ executor::createABIWrapperFunction(RewriterBase &rewriter, func::FuncOp func,
   }
 
   auto callOp = rewriter.create<func::CallOp>(func.getLoc(), func, callArgs);
-
+  SmallVector<Value> returns;
   for (auto [result, outArg] : llvm::zip_equal(
            callOp.getResults(),
            newFunc.getArguments().take_back(funcType.getNumResults()))) {
     assert(isa<executor::PointerType>(outArg.getType()));
-    rewriter.create<executor::ABISendOp>(result.getLoc(), result, outArg);
+    Value valueToStore = convertToABIStorageType(rewriter, result);
+    returns.emplace_back(rewriter.create<executor::ABISendOp>(
+        result.getLoc(), valueToStore, outArg));
   }
-  rewriter.create<func::ReturnOp>(func.getLoc());
+  rewriter.create<func::ReturnOp>(func.getLoc(), returns);
   return newFunc;
 }
 

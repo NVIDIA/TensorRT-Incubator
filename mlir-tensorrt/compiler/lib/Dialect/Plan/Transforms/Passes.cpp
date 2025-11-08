@@ -139,10 +139,11 @@ static void buildPlanBufferDeallocationPipeline(
   pm.addPass(bufferization::createBufferDeallocationSimplificationPass());
   pm.addPass(bufferization::createLowerDeallocationsPass());
   pm.addPass(executor::createExecutorLowerABIOpsPass());
+  pm.addNestedPass<func::FuncOp>(mlir::createCanonicalizerPass());
   pm.addNestedPass<func::FuncOp>(
       mlir::createConvertBufferizationToMemRefPass());
-  pm.addNestedPass<func::FuncOp>(createCSEPass());
-  pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
+  pm.addNestedPass<func::FuncOp>(mlir::createCSEPass());
+  pm.addNestedPass<func::FuncOp>(mlir::createCanonicalizerPass());
 }
 
 namespace {

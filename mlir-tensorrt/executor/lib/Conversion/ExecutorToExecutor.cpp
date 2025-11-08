@@ -240,8 +240,9 @@ struct LowerABISendOp : public ConvertOpToExecutorPattern<executor::ABISendOp> {
           op.getLoc(),
           rewriter.getIntegerAttr(getTypeConverter()->getIndexType(), 0));
 
-      rewriter.replaceOpWithNewOp<executor::StoreOp>(
-          op, adaptor.getPtr(), offset, adaptor.getValue());
+      rewriter.create<executor::StoreOp>(op.getLoc(), adaptor.getPtr(), offset,
+                                         adaptor.getValue());
+      rewriter.replaceOp(op, adaptor.getValue());
       return success();
     }
 
@@ -285,8 +286,9 @@ struct LowerABISendOp : public ConvertOpToExecutorPattern<executor::ABISendOp> {
           op.getLoc(),
           rewriter.getIntegerAttr(getTypeConverter()->getIndexType(), 0));
 
-      rewriter.replaceOpWithNewOp<executor::StoreOp>(
-          op, adaptor.getPtr(), offset, adaptor.getValue());
+      rewriter.create<executor::StoreOp>(op.getLoc(), adaptor.getPtr(), offset,
+                                         adaptor.getValue());
+      rewriter.replaceOp(op, adaptor.getValue());
       return success();
     }
 

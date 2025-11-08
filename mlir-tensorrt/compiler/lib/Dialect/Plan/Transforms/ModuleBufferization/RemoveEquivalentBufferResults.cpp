@@ -9,12 +9,15 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 //===----------------------------------------------------------------------===//
+#include "mlir-executor/Executor/IR/Executor.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
 #include "mlir-tensorrt/Utils/ModuleUtils.h"
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
+#include "mlir/IR/SymbolTable.h"
+#include "mlir/Interfaces/ViewLikeInterface.h"
 #include "llvm/ADT/STLExtras.h"
 
 namespace mlir::plan {
@@ -24,6 +27,27 @@ namespace mlir::plan {
 
 using namespace mlir;
 using namespace mlir::plan;
+
+/// Given a memref value, look back through all view-like operations. This may
+/// return an `!executor.ptr` value or another memref value.
+static Value lookBackThroughView(Value val) {
+  while (true) {
+    if (auto viewOp = val.getDefiningOp<ViewLikeOpInterface>()) {
+      val = viewOp.getViewSource();
+      continue;
+    }
+    if (auto sendOp = val.getDefiningOp<executor::ABISendOp>()) {
+      val = sendOp.getValue();
+      continue;
+    }
+    if (auto recvOp = val.getDefiningOp<executor::ABIRecvOp>()) {
+      val = recvOp.getPtr();
+      continue;
+    }
+    break;
+  }
+  return val;
+}
 
 /// Drop function buffer results that are equivalent to block arguments.
 /// TODO: this function logic is borrowed from upstream because the upstream
@@ -42,37 +66,29 @@ dropEquivalentFuncBufferResults(RewriterBase &rewriter, func::FuncOp funcOp,
   SmallVector<Value> newReturnValues;
   BitVector erasedResultIndices(funcOp.getFunctionType().getNumResults());
   DenseMap<int64_t, int64_t> resultToArgs;
-  for (const auto &it : llvm::enumerate(returnOp.getOperands())) {
+  for (auto [idx, returnedValue] : llvm::enumerate(returnOp.getOperands())) {
+
     bool erased = false;
-    for (BlockArgument bbArg : funcOp.getArguments()) {
-      Value val = it.value();
-      // Look through all view-changing operations (cast, reshape, expand,
-      // collapse).
-      while (true) {
-        bool viewChange = false;
-        if (auto castOp = val.getDefiningOp<memref::CastOp>()) {
-          val = castOp.getSource();
-          viewChange = true;
-        } else if (auto reshapeOp = val.getDefiningOp<memref::ReshapeOp>()) {
-          val = reshapeOp.getSource();
-          viewChange = true;
-        } else if (auto expandOp = val.getDefiningOp<memref::ExpandShapeOp>()) {
-          val = expandOp.getSrc();
-          viewChange = true;
-        } else if (auto collapseOp =
-                       val.getDefiningOp<memref::CollapseShapeOp>()) {
-          val = collapseOp.getSrc();
-          viewChange = true;
-        }
-        if (!viewChange)
-          break;
+    if (auto sendOp = returnedValue.getDefiningOp<executor::ABISendOp>()) {
+      Value val = lookBackThroughView(sendOp.getValue());
+      if (val == sendOp.getPtr()) {
+        resultToArgs[idx] = cast<BlockArgument>(sendOp.getPtr()).getArgNumber();
+        erasedResultIndices.set(idx);
+        continue;
       }
+      newReturnValues.push_back(sendOp.getValue());
+      continue;
+    }
+
+    for (BlockArgument bbArg : funcOp.getArguments()) {
+      Value val = lookBackThroughView(returnedValue);
 
       if (val == bbArg) {
-        // Only remove the result if the types are cast-compatible.
-        if (memref::CastOp::areCastCompatible(it.value().getType(),
-                                              bbArg.getType())) {
-          resultToArgs[it.index()] = bbArg.getArgNumber();
+        if ((isa<MemRefType>(val.getType()) &&
+             isa<MemRefType>(bbArg.getType()) &&
+             memref::CastOp::areCastCompatible(returnedValue.getType(),
+                                               bbArg.getType()))) {
+          resultToArgs[idx] = bbArg.getArgNumber();
           erased = true;
           break;
         }
@@ -80,9 +96,9 @@ dropEquivalentFuncBufferResults(RewriterBase &rewriter, func::FuncOp funcOp,
     }
 
     if (erased) {
-      erasedResultIndices.set(it.index());
+      erasedResultIndices.set(idx);
     } else {
-      newReturnValues.push_back(it.value());
+      newReturnValues.push_back(returnedValue);
     }
   }
 
@@ -128,9 +144,10 @@ dropEquivalentFuncBufferResults(RewriterBase &rewriter, func::FuncOp funcOp,
 static LogicalResult
 dropEquivalentFuncBufferResults(RewriterBase &rewriter, ModuleLikeOp module,
                                 const SymbolUserMap &symbolUseMap) {
-  for (auto funcOp : module.getOps<func::FuncOp>())
+  for (auto funcOp : module.getOps<func::FuncOp>()) {
     if (failed(dropEquivalentFuncBufferResults(rewriter, funcOp, symbolUseMap)))
       return failure();
+  }
 
   return success();
 }
@@ -140,6 +157,10 @@ struct PlanRemoveEquivalentBufferResultsPass
     : public plan::impl::PlanRemoveEquivalentBufferResultsPassBase<
           PlanRemoveEquivalentBufferResultsPass> {
   using Base::Base;
+
+  bool canScheduleOn(RegisteredOperationName opName) const override {
+    return opName.hasTrait<OpTrait::SymbolTable>();
+  }
 
   void runOnOperation() override {
     Operation *op = getOperation();

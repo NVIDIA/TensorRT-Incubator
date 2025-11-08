@@ -133,8 +133,8 @@ struct ConvertABISendOp : public OpConversionPattern<executor::ABISendOp> {
       intValue = rewriter.create<executor::ZExtOp>(op.getLoc(),
                                                    paddedIntegerType, intValue);
     }
-    rewriter.modifyOpInPlace(op,
-                             [&]() { op.getValueMutable().assign(intValue); });
+    rewriter.replaceOpWithNewOp<executor::ABISendOp>(op, intValue, op.getPtr(),
+                                                     op.getOwnership());
     return success();
   }
 };
@@ -178,14 +178,14 @@ public:
     });
     typeConverter.addTargetMaterialization(
         [](OpBuilder &b, Type target, ValueRange inputs, Location loc) {
-          if (inputs.size() != 1)
+          if (inputs.size() != 1 || !isa<FloatType>(inputs.front().getType()))
             return Value();
           return b.create<executor::ExtfOp>(loc, target, inputs.front())
               .getResult();
         });
     typeConverter.addSourceMaterialization(
         [](OpBuilder &b, Type source, ValueRange inputs, Location loc) {
-          if (inputs.size() != 1)
+          if (inputs.size() != 1 || !isa<FloatType>(inputs.front().getType()))
             return Value();
           return b.create<executor::TruncfOp>(loc, source, inputs.front())
               .getResult();

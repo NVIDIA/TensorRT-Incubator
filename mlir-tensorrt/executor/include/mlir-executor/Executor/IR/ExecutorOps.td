@@ -1355,7 +1355,9 @@ def Executor_ABIRecvOp : Executor_Op<"abi.recv", []> {
   let hasVerifier = 1;
 }
 
-def Executor_ABISendOp : Executor_Op<"abi.send", []> {
+def Executor_ABISendOp : Executor_Op<"abi.send", [
+  AllTypesMatch<["value", "result"]>
+]> {
   let summary = "send an argument to the caller";
   let description = [{
     The `executor.abi.send` operation "stores" value to a function output argument
@@ -1366,12 +1368,13 @@ def Executor_ABISendOp : Executor_Op<"abi.send", []> {
     of `value`.
   }];
   let arguments = (ins AnyType:$value, Arg<Executor_HostPtr,"address where value is written", [MemWrite]>:$ptr, Optional<I1>:$ownership);
+  let results = (outs AnyType:$result);
   let assemblyFormat = "$value `to` $ptr ( `ownership` `(` $ownership^ `)`)? attr-dict `:` type($value)";
   let hasVerifier = 1;
 
   let builders = [
     OpBuilder<(ins "Value":$value, "Value":$ptr), [{
-      build($_builder, $_state, value, ptr, Value{});
+      build($_builder, $_state, value.getType(), value, ptr, Value{});
     }]>
   ];
 }

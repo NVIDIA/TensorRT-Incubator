@@ -214,7 +214,7 @@ struct BufferizableOpInterfaceABISend
   }
   bool bufferizesToMemoryRead(Operation *op, OpOperand &opOperand,
                               const AnalysisState &state) const {
-    return false;
+    return true;
   }
   bool resultBufferizesToMemoryWrite(Operation *op, OpResult opResult,
                                      const AnalysisState &state) const {
@@ -223,7 +223,8 @@ struct BufferizableOpInterfaceABISend
   bufferization::AliasingValueList
   getAliasingValues(Operation *op, OpOperand &opOperand,
                     const bufferization::AnalysisState &state) const {
-    return {};
+    return {{op->getResult(0), bufferization::BufferRelation::Equivalent,
+             /*isDefinite=*/true}};
   }
 
   LogicalResult bufferize(Operation *op, RewriterBase &rewriter,
@@ -258,11 +259,11 @@ struct BufferizableOpInterfaceABISend
           return failure();
 
         // Create a new ABI attribute with the memref type
-        if (auto abiAttr =
-                executor::abi::getArgumentABIAttr(funcOp, blockArg)) {
-          auto newAbiAttr = abiAttr.cloneWithValueType(memrefType);
-          executor::abi::setArgumentABIAttr(funcOp, blockArg, newAbiAttr);
-        }
+        auto abiAttr = executor::abi::getArgumentABIAttr(funcOp, blockArg);
+        if (!abiAttr)
+          return failure();
+        auto newAbiAttr = abiAttr.cloneWithValueType(memrefType);
+        executor::abi::setArgumentABIAttr(funcOp, blockArg, newAbiAttr);
 
         // Update the ABI wrapper function type.
         SmallVector<Type> newResultTypes(abiFuncType->getResults());
@@ -271,13 +272,17 @@ struct BufferizableOpInterfaceABISend
             funcOp.getContext(), abiFuncType->getInputs(), newResultTypes);
         funcOp->setAttr(executor::ExecutorDialect::kFuncABIAttrName,
                         TypeAttr::get(newFuncType));
+
+        auto newSendOp = rewriter.create<executor::ABISendOp>(
+            sendOp.getLoc(), *buffer, sendOp.getPtr(), sendOp.getOwnership());
+
+        bufferization::replaceOpWithBufferizedValues(rewriter, op,
+                                                     {newSendOp.getResult()});
+        return success();
       }
     }
 
-    rewriter.modifyOpInPlace(
-        sendOp, [&]() { sendOp.getValueMutable().assign(*buffer); });
-
-    return success();
+    return failure();
   }
 };
 } // namespace

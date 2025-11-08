@@ -43,6 +43,7 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 #define DEBUG_TYPE "plan-assign-memory-spaces"
+#define DBGS() llvm::dbgs() << "[" DEBUG_TYPE "] "
 
 namespace mlir::plan {
 #define GEN_PASS_DEF_PLANASSIGNMEMORYSPACESPASS
@@ -352,7 +353,7 @@ convertFuncOpTypes(func::FuncOp funcOp,
     return failure();
   rewriter.modifyOpInPlace(funcOp, [&] { funcOp.setType(newType); });
 
-  if (!funcOp.isDeclaration()) {
+  if (!executor::abi::isABIWrapperFunction(funcOp)) {
     funcOp.walk([&](func::ReturnOp op) {
       rewriter.setInsertionPoint(op);
       SmallVector<Value> newTermOperands;
@@ -452,7 +453,7 @@ static LogicalResult processABIRecvOp(executor::ABIRecvOp op, func::FuncOp func,
 
 /// Process an ABISendOp by determining and applying its target memory space.
 static void processABISendOp(executor::ABISendOp op, func::FuncOp func,
-                             plan::MemorySpaceAttr defaultMemorySpace,
+                             plan::MemorySpaceAttr targetMemorySpace,
                              IRRewriter &rewriter) {
   auto value = dyn_cast<TypedValue<RankedTensorType>>(op.getValue());
   if (!value)
@@ -461,23 +462,12 @@ static void processABISendOp(executor::ABISendOp op, func::FuncOp func,
   // Get the function argument corresponding to this ABISendOp
   auto blockArg = cast<BlockArgument>(op.getPtr());
 
-  // Determine the target memory space from the argument's attributes
-  auto memorySpace = func.getArgAttrOfType<plan::MemorySpaceAttr>(
-      blockArg.getArgNumber(),
-      plan::PlanDialect::kMemorySpaceConstraintAttrName);
-
-  // If no explicit constraint, use the default encoding for this function
-  if (!memorySpace)
-    memorySpace = defaultMemorySpace;
-
-  assert(memorySpace && "expected valid memory space");
-
   // Update the executor.abi attribute on the function argument
   auto argABIAttr = func.getArgAttrOfType<executor::ArgumentABIAttr>(
       blockArg.getArgNumber(), executor::ExecutorDialect::kArgABIAttrName);
   assert(argABIAttr && "expected valid argument ABI attribute");
 
-  Type newValueType = value.getType().cloneWithEncoding(memorySpace);
+  Type newValueType = value.getType().cloneWithEncoding(targetMemorySpace);
   auto newArgABIAttr = argABIAttr.cloneWithValueType(newValueType);
   func.setArgAttr(blockArg.getArgNumber(),
                   executor::ExecutorDialect::kArgABIAttrName, newArgABIAttr);
@@ -485,12 +475,11 @@ static void processABISendOp(executor::ABISendOp op, func::FuncOp func,
   // Insert a transfer operation before the send if the value type
   // doesn't match
   rewriter.setInsertionPoint(op);
-  if (value.getType() != newValueType) {
-    auto transferOp =
-        rewriter.create<TransferOp>(op.getLoc(), newValueType, value);
-    rewriter.modifyOpInPlace(
-        op, [&]() { op.getValueMutable().assign(transferOp.getResult()); });
-  }
+  Value newValue = value;
+  if (newValue.getType() != newValueType)
+    newValue = rewriter.create<TransferOp>(op.getLoc(), newValueType, value);
+  rewriter.replaceOpWithNewOp<executor::ABISendOp>(op, newValue, op.getPtr(),
+                                                   op.getOwnership());
 }
 
 /// Convert the signatures of functions and their callers by adding the
@@ -513,7 +502,17 @@ assignMemorySpacesToFunctionBoundaries(IRRewriter &rewriter, ModuleOp module) {
                                         func->getContext(), defaultEncoding))))
           return WalkResult::interrupt();
       } else if (auto sendOp = dyn_cast<executor::ABISendOp>(op)) {
-        processABISendOp(sendOp, func, converter.requiredMemorySpace, rewriter);
+        if (isa<RankedTensorType>(sendOp.getValue().getType())) {
+          LLVM_DEBUG(DBGS() << "Processing ABISendOp: " << sendOp << "\n");
+          std::optional<unsigned> resultIdx = executor::abi::isOutputArgument(
+              func, cast<BlockArgument>(sendOp.getPtr()));
+          assert(resultIdx.has_value() && "expected output argument");
+          auto desiredType = cast<RankedTensorType>(
+              func.getFunctionType().getResult(resultIdx.value()));
+          processABISendOp(
+              sendOp, func,
+              cast<plan::MemorySpaceAttr>(desiredType.getEncoding()), rewriter);
+        }
       }
       return WalkResult::advance();
     });
@@ -577,7 +576,8 @@ static LogicalResult applyConversionToFunction(func::FuncOp func) {
       [&](executor::ABISendOp op) {
         Type valueType = op.getValue().getType();
         return !isa<RankedTensorType>(valueType) ||
-               hasMemorySpaceEncoding(valueType);
+               (hasMemorySpaceEncoding(valueType) &&
+                hasMemorySpaceEncoding(op.getResult().getType()));
       });
   target.addLegalDialect<func::FuncDialect>();
 
@@ -606,6 +606,9 @@ struct AssignMemorySpacesPass
     if (failed(
             assignMemorySpacesToFunctionBoundaries(rewriter, getOperation())))
       return signalPassFailure();
+
+    LLVM_DEBUG(DBGS() << "After assignMemorySpacesToFunctionBoundaries:\n"
+                      << getOperation() << "\n");
 
     for (auto func :
          llvm::make_early_inc_range(getOperation().getOps<func::FuncOp>())) {

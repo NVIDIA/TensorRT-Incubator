@@ -27,6 +27,8 @@
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/DialectImplementation.h"
+#include "mlir/IR/SymbolTable.h"
+#include "llvm/ADT/SmallVectorExtras.h"
 #include "llvm/ADT/TypeSwitch.h"
 
 using namespace mlir;
@@ -369,12 +371,14 @@ ExecutorDialect::verifyOperationAttribute(Operation *op,
              << "expected " << ExecutorDialect::kFuncABIAttrName
              << " to be a FunctionType but got " << typeAttr.getValue();
 
-    if (func.getNumResults() != 0) {
+    if (!func->getResultTypes().empty() &&
+        func.getNumResults() != func.getResultTypes().size()) {
       return op->emitError()
              << "function " << func.getName() << " is decorated with a "
-             << ExecutorDialect::kFuncABIAttrName << " attribute but it has "
-             << func.getNumResults()
-             << " results, but zero results are expected";
+             << ExecutorDialect::kFuncABIAttrName
+             << " attribute but it returns " << func.getNumResults()
+             << " results while the ABI function type has "
+             << abiFuncType.getNumResults() << " results";
     }
 
     const unsigned numInputs = abiFuncType.getNumInputs();
@@ -695,6 +699,27 @@ Value executor::abi::getOrCreateABIRecv(OpBuilder &b, FunctionOpInterface func,
   BlockArgument arg = func.getArgument(argIndex);
   return b.create<executor::ABIRecvOp>(arg.getLoc(), resultType, arg)
       .getResult();
+}
+
+FailureOr<SmallVector<FunctionOpInterface>>
+executor::abi::collectAndValidateABIFuncs(Operation *module) {
+  SymbolTableCollection symbolTables;
+  SymbolUserMap symbolUserMap(symbolTables, module);
+  SmallVector<FunctionOpInterface> abiFuncs;
+  for (auto func : module->getRegion(0).getOps<FunctionOpInterface>()) {
+    if (!func.isPublic() || func.isDeclaration() ||
+        !executor::abi::isABIWrapperFunction(func))
+      continue;
+    abiFuncs.push_back(func);
+    for (auto user : symbolUserMap.getUsers(func)) {
+      if (isa<CallOpInterface>(user)) {
+        return func->emitError(
+            "ABI function " + func.getName().str() +
+            " is called by a non-ABI operation, which is not allowed");
+      }
+    }
+  }
+  return abiFuncs;
 }
 
 //===----------------------------------------------------------------------===//

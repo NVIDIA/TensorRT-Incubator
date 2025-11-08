@@ -25,12 +25,9 @@
 #define MLIR_EXECUTOR_EXECUTOR_IR_EXECUTORATTRIBUTES
 
 #include "mlir/IR/OpImplementation.h"
+#include "mlir/Interfaces/FunctionInterfaces.h"
 #include <optional>
 #include <variant>
-
-namespace mlir {
-class FunctionOpInterface;
-}
 
 namespace mlir::func {
 class FuncOp;
@@ -139,6 +136,12 @@ Value getOrCreateABIRecv(OpBuilder &b, FunctionOpInterface func,
                          BlockArgument arg, Type expectedType = nullptr);
 Value getOrCreateABIRecv(OpBuilder &b, FunctionOpInterface func,
                          unsigned argIndex, Type expectedType = nullptr);
+
+/// Verify public exported ABI functions have no callers.
+/// This is has a dedicated function which should be invoked at critical points
+/// since checking it in the verifier is expensive.
+FailureOr<SmallVector<FunctionOpInterface>>
+collectAndValidateABIFuncs(Operation *module);
 
 namespace plugin {
 struct DecodeArg {
