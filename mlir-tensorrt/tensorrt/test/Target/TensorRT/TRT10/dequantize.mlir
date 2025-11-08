@@ -38,3 +38,14 @@ func.func @int4_quantize_dequantize() -> tensor<4x8xf32>{
 
 // CHECK-LABEL: @int4_quantize_dequantize
 //  CHECK-SAME: tensorrt.engine
+
+// -----
+
+func.func @fp4_dequantize(%arg0: tensor<10x80xf4E2M1FN>) -> tensor<10x80xf32>{
+    %scale = tensorrt.constant dense<1.0> : tensor<10x5xf32>
+    %dequantize_fp4 = tensorrt.dequantize in(%arg0 : tensor<10x80xf4E2M1FN>) scale(%scale : tensor<10x5xf32>) -> tensor<10x80xf32>
+    return %dequantize_fp4 : tensor<10x80xf32>
+}
+
+// CHECK-LABEL: @fp4_dequantize
+//  CHECK-SAME: tensorrt.engine
