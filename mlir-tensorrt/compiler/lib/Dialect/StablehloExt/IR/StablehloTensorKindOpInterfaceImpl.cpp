@@ -39,7 +39,7 @@ constexpr std::pair<int64_t, int64_t> OpToHostParametersOffsetAndSize() {
   // Simple macro for creating the appearance of a table.
 #define CASE(OpType, start, size)                                              \
   if constexpr (std::is_same_v<T, OpType>)                                     \
-  return {start, size}
+    return { start, size }
 
   CASE(stablehlo::DynamicIotaOp, 0, 1);
   // Note that `stablehlo.dynamic_slice` and `stablehlo.dynamic_update_slice`
