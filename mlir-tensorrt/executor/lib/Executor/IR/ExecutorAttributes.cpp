@@ -28,6 +28,7 @@
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/DialectImplementation.h"
 #include "mlir/IR/SymbolTable.h"
+#include "mlir/Interfaces/FunctionInterfaces.h"
 #include "llvm/ADT/SmallVectorExtras.h"
 #include "llvm/ADT/TypeSwitch.h"
 
@@ -301,9 +302,10 @@ static LogicalResult verifyValueBoundsAttribute(Operation *op,
   return success();
 }
 
-static Attribute getFuncBounds(
-    func::FuncOp func, int64_t idx,
-    std::function<Attribute(func::FuncOp, unsigned, StringRef)> getAttrFunc) {
+static Attribute
+getFuncBounds(FunctionOpInterface func, int64_t idx,
+              std::function<Attribute(FunctionOpInterface, unsigned, StringRef)>
+                  getAttrFunc) {
   if (Attribute shapeBounds =
           getAttrFunc(func, idx, ExecutorDialect::getShapeBoundsAttrName())) {
     assert(isa<executor::DimensionBoundsAttr>(shapeBounds) &&
@@ -321,18 +323,20 @@ static Attribute getFuncBounds(
 }
 
 // Usage for argument attributes
-Attribute executor::getFuncArgsBounds(func::FuncOp func, int64_t argIdx) {
-  return getFuncBounds(func, argIdx,
-                       [](func::FuncOp op, unsigned index, StringRef name) {
-                         return op.getArgAttr(index, name);
-                       });
+Attribute executor::getFuncArgsBounds(FunctionOpInterface func,
+                                      int64_t argIdx) {
+  return getFuncBounds(
+      func, argIdx, [](FunctionOpInterface op, unsigned index, StringRef name) {
+        return op.getArgAttr(index, name);
+      });
 }
 
 // Usage for result attributes
-Attribute executor::getFuncResultBounds(func::FuncOp func, int64_t argIdx) {
+Attribute executor::getFuncResultBounds(FunctionOpInterface func,
+                                        int64_t argIdx) {
   return getFuncBounds(
       func, argIdx,
-      [](func::FuncOp op, unsigned index, StringRef name) -> Attribute {
+      [](FunctionOpInterface op, unsigned index, StringRef name) -> Attribute {
         return op.getResultAttr(index, name);
       });
 }

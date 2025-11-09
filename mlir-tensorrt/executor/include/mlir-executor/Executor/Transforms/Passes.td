@@ -127,7 +127,7 @@ def ExecutorLowerAggregatesAtFunctionBoundariesPass :
 //===----------------------------------------------------------------------===//
 
 def ExecutorPopulateFunctionMetadataPass
-            : Pass<"executor-populate-func-metadata", "::mlir::func::FuncOp"> {
+            : InterfacePass<"executor-populate-func-metadata", "FunctionOpInterface"> {
   let summary = "Populate function metadata on functions";
 
   let description = [{

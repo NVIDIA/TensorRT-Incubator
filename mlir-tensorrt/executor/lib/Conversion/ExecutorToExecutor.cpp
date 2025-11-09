@@ -34,6 +34,7 @@
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/TypeUtilities.h"
 #include "mlir/Interfaces/DataLayoutInterfaces.h"
+#include "mlir/Interfaces/FunctionInterfaces.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "llvm/ADT/STLExtras.h"
@@ -559,8 +560,8 @@ static LogicalResult convertExecutorFunctionMetadataAttrs(
     Operation *module, const ExecutorTypeConverter &typeConverter) {
   // Convert any `executor.function_metadata` attributes on the function
   // types.
-  SmallVector<func::FuncOp> funcs;
-  module->walk([&](func::FuncOp func) {
+  SmallVector<FunctionOpInterface> funcs;
+  module->walk([&](FunctionOpInterface func) {
     if (!func->hasAttr(ExecutorDialect::kFunctionMetadataAttrName))
       return;
     funcs.push_back(func);
@@ -582,7 +583,7 @@ static LogicalResult convertExecutorFunctionMetadataAttrs(
     return t;
   };
 
-  for (func::FuncOp func : funcs) {
+  for (FunctionOpInterface func : funcs) {
     auto metadata = func->getAttrOfType<FunctionMetadataAttr>(
         ExecutorDialect::kFunctionMetadataAttrName);
     SmallVector<Type> argTypes =

@@ -25,6 +25,7 @@
 #include "mlir-executor/Executor/Transforms/Passes.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/StorageUniquerSupport.h"
+#include "mlir/Interfaces/FunctionInterfaces.h"
 
 namespace mlir::executor {
 #define GEN_PASS_DEF_EXECUTORPOPULATEFUNCTIONMETADATAPASS
@@ -41,7 +42,7 @@ using namespace mlir::executor;
 /// result value. Only functions that are not explicitly private are assigned
 /// metadata, since this is used to generate the executable metadata for
 /// public-facing functions.
-static LogicalResult createFunctionMetadata(func::FuncOp funcOp) {
+static LogicalResult createFunctionMetadata(FunctionOpInterface funcOp) {
   SmallVector<Type> argTypes;
   SmallVector<mlir::Attribute> argAttr;
   int64_t numOutputArgs = 0;
@@ -66,8 +67,8 @@ static LogicalResult createFunctionMetadata(func::FuncOp funcOp) {
 
   SmallVector<Type> resultTypes;
   SmallVector<mlir::Attribute> resAttr;
-  for (auto [idx, type] :
-       llvm::enumerate(funcOp.getFunctionType().getResults())) {
+  FunctionType funcType = cast<FunctionType>(funcOp.getFunctionType());
+  for (auto [idx, type] : llvm::enumerate(funcType.getResults())) {
     resultTypes.push_back(type);
     resAttr.push_back(executor::getFuncResultBounds(funcOp, idx));
   }
@@ -83,8 +84,7 @@ static LogicalResult createFunctionMetadata(func::FuncOp funcOp) {
   if (!metadataAttr)
     return funcOp.emitError()
            << "the #executor.function_metadata attribute (" << metadataAttr
-           << ") is not compatible with the function type ("
-           << funcOp.getFunctionType() << ")";
+           << ") is not compatible with the function type (" << funcType << ")";
 
   funcOp->setAttr(ExecutorDialect::kFunctionMetadataAttrName, metadataAttr);
 
@@ -97,8 +97,8 @@ class ExecutorPopulateFunctionMetadataPass
           ExecutorPopulateFunctionMetadataPass> {
   using Base::Base;
   void runOnOperation() override {
-    func::FuncOp funcOp = getOperation();
-    if (funcOp.isPrivate())
+    FunctionOpInterface funcOp = getOperation();
+    if (funcOp.isPrivate() || !isa<FunctionType>(funcOp.getFunctionType()))
       return;
 
     if (failed(createFunctionMetadata(funcOp))) {

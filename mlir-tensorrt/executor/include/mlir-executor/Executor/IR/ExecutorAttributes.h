@@ -53,11 +53,11 @@ namespace mlir::executor {
 /// Extract func argument attribute at an index. Attribute should have a
 /// concrete type of `executor::ValueBoundsAttr` or
 /// `executor::DimensionBoundsAttr`.
-Attribute getFuncArgsBounds(func::FuncOp func, int64_t argIdx);
+Attribute getFuncArgsBounds(FunctionOpInterface func, int64_t argIdx);
 
 // Extract func result attribute at an index. Attribute should have a concrete
 /// type of `executor::ValueBoundsAttr` or `executor::DimensionBoundsAttr`.
-Attribute getFuncResultBounds(func::FuncOp func, int64_t resultIdx);
+Attribute getFuncResultBounds(FunctionOpInterface func, int64_t resultIdx);
 
 //===----------------------------------------------------------------------===//
 // Module Attributes Utilities

@@ -33,6 +33,7 @@
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/DialectResourceBlobManager.h"
+#include "mlir/Interfaces/FunctionInterfaces.h"
 #include "mlir/Tools/mlir-translate/Translation.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/Support/ErrorHandling.h"
@@ -476,7 +477,7 @@ static mtrt::flat::FunctionSignatureT generateSignature() {
 }
 
 LogicalResult
-translateBoundsIfPresent(func::FuncOp func, unsigned argIndex,
+translateBoundsIfPresent(FunctionOpInterface func, unsigned argIndex,
                          mtrt::flat::FunctionSignatureT &signature,
                          bool isInput) {
   for (llvm::StringRef attrName :
@@ -506,7 +507,7 @@ translateBoundsIfPresent(func::FuncOp func, unsigned argIndex,
 /// Build a FunctionSignature for an ABI wrapper function by extracting
 /// information from the ArgumentABIAttr attributes on function arguments.
 static FailureOr<mtrt::flat::FunctionSignatureT>
-translateABIWrapperSignature(func::FuncOp func,
+translateABIWrapperSignature(FunctionOpInterface func,
                              const mlir::DataLayout &dataLayout) {
   mtrt::flat::FunctionSignatureT signature;
 
@@ -723,7 +724,7 @@ mlir::translateToRuntimeExecutable(Operation *op) {
   // wrapper functions or all non-ABI wrapper functions.
   bool hasABIWrapperFunctions = false;
   bool hasNonABIWrapperFunctions = false;
-  for (auto func : op->getRegion(0).getOps<func::FuncOp>()) {
+  for (auto func : op->getRegion(0).getOps<FunctionOpInterface>()) {
     if (func.isPrivate())
       continue;
 
@@ -743,7 +744,7 @@ mlir::translateToRuntimeExecutable(Operation *op) {
   // signatures) that we will embed in the executable.
   SmallVector<Offset<mtrt::flat::Function>> funcOffsets;
   uint32_t abiVersion = hasABIWrapperFunctions ? 1 : 0;
-  for (auto func : op->getRegion(0).getOps<func::FuncOp>()) {
+  for (auto func : op->getRegion(0).getOps<FunctionOpInterface>()) {
     if (func.isPrivate())
       continue;
 
