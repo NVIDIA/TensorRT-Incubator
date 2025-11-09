@@ -273,7 +273,7 @@ def PlanCreateShapeFuncsPass : Pass<"plan-create-shape-funcs",
 //===----------------------------------------------------------------------===//
 
 def PlanPopulateFunctionBoundsAttributesPass
-      : Pass<"plan-populate-func-bounds-attrs", "func::FuncOp"> {
+      : InterfacePass<"plan-populate-func-bounds-attrs", "FunctionOpInterface"> {
 
   let description = [{
     This pass populates function result attributes containing shape/value bounds
@@ -497,8 +497,8 @@ def PlanAssignMemorySpacesPass : Pass<"plan-assign-memory-spaces",
 // PlanOptimizeMemorySpacesPass
 //===----------------------------------------------------------------------===//
 
-def PlanOptimizeMemorySpacesPass : Pass<"plan-optimize-memory-spaces",
-                                    "::mlir::func::FuncOp"> {
+def PlanOptimizeMemorySpacesPass : InterfacePass<"plan-optimize-memory-spaces",
+                                    "::mlir::FunctionOpInterface"> {
   let summary = "optimizes memory spaces encodings to tensor types";
 
   let description = [{
@@ -528,7 +528,8 @@ def PlanOptimizeMemorySpacesPass : Pass<"plan-optimize-memory-spaces",
 //===----------------------------------------------------------------------===//
 
 def PlanPromoteHostTensorsToHostPinnedPass
-        : Pass<"plan-promote-host-tensors-to-host-pinned", "::mlir::func::FuncOp"> {
+        : InterfacePass<"plan-promote-host-tensors-to-host-pinned",
+                        "::mlir::FunctionOpInterface"> {
   let summary = "promotes host tensors to host pinned tensors";
 
   let description = [{

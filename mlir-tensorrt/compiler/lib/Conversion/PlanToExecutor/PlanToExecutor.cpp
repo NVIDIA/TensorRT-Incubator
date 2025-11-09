@@ -182,7 +182,7 @@ static DictionaryAttr convertDictAttr(
   return b.getDictionaryAttr(result);
 }
 
-static void convertFuncArgAndResultAttrs(OpBuilder &b, func::FuncOp op,
+static void convertFuncArgAndResultAttrs(OpBuilder &b, FunctionOpInterface op,
                                          TypeConverter &typeConverter) {
   SmallVector<DictionaryAttr> argAttrs;
   SmallVector<DictionaryAttr> resAttrs;
@@ -390,7 +390,7 @@ class PlanToExecutorPass
 
     // Convert all the function attributes.
     OpBuilder builder(&getContext());
-    for (func::FuncOp func : module.getOps<func::FuncOp>()) {
+    for (FunctionOpInterface func : module.getOps<FunctionOpInterface>()) {
       convertFuncArgAndResultAttrs(builder, func, typeConverter);
       // Update the shape function attribute to executor dialect attribute.
       if (auto shapeFuncSym = func->getAttrOfType<SymbolRefAttr>(

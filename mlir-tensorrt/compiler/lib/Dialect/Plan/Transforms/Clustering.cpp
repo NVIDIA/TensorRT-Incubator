@@ -122,7 +122,7 @@ static bool isOpInClusterRegion(Operation *op) {
 
 /// Apply cluster-and-outline using the given options to the `func`.
 static LogicalResult
-applyClusteringToFunc(RewriterBase &rewriter, func::FuncOp func,
+applyClusteringToFunc(RewriterBase &rewriter, FunctionOpInterface func,
                       DataFlowSolver &solver,
                       ArrayRef<CompilerBackendAttrInterface> clusters,
                       const ClusteringPassOptions &opts) {
@@ -163,17 +163,18 @@ public:
     ModuleOp module = getOperation();
     /// If an entrypoint is specified, we only run clustering on the
     /// entrypoint. Otherwise, run on all functions.
-    SmallVector<func::FuncOp> funcs;
+    SmallVector<FunctionOpInterface> funcs;
     if (entrypoint.empty()) {
       llvm::append_range(
           funcs, llvm::make_filter_range(
-                     module.getOps<func::FuncOp>(), [](func::FuncOp func) {
+                     module.getOps<FunctionOpInterface>(),
+                     [](FunctionOpInterface func) {
                        return !func.isDeclaration() && !func.isExternal() &&
                               !(func.isPrivate() &&
                                 func->hasAttr("plan.decomposition"));
                      }));
     } else {
-      auto mainFunc = dyn_cast_or_null<func::FuncOp>(
+      auto mainFunc = dyn_cast_or_null<FunctionOpInterface>(
           SymbolTable(module).lookup(entrypoint));
       if (!mainFunc) {
         emitError(module.getLoc())
@@ -219,7 +220,7 @@ public:
              rhs.getClusterBenefit(inputKind);
     });
 
-    for (func::FuncOp func : funcs) {
+    for (FunctionOpInterface func : funcs) {
       if (failed(applyClusteringToFunc(
               rewriter, func, solver, schedule,
               ClusteringPassOptions{entrypoint, forceEntrypointsReturnAllocs,

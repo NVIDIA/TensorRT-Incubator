@@ -63,12 +63,13 @@ public:
 
   virtual ~ClusteringRewriter() {}
 
-  FailureOr<SmallVector<Cluster>> findClusters(func::FuncOp mainFunc) {
+  FailureOr<SmallVector<Cluster>> findClusters(FunctionOpInterface mainFunc) {
     return analyzeAndClusterOperations(mainFunc, opts);
   }
 
   FailureOr<SmallVector<Operation *>>
-  findClusterAndCreateRegionOp(func::FuncOp mainFunc, RewriterBase &rewriter);
+  findClusterAndCreateRegionOp(FunctionOpInterface mainFunc,
+                               RewriterBase &rewriter);
 
   const PatternBenefit &getBenefit() const { return benefit; }
 
@@ -116,7 +117,7 @@ private:
 /// Apply a set of clustering patterns to the function. Patterns are sorted and
 /// applied in decreasing order by benefit.
 LogicalResult
-applyClusteringPatterns(func::FuncOp mainFunc,
+applyClusteringPatterns(FunctionOpInterface mainFunc,
                         ClusteringPatternSet<ClusteringRewriter> &patterns);
 
 /// A type of a function that can filter cluster region operations.
@@ -143,7 +144,7 @@ public:
   /// Operation* in the graph and it will try to merge them into 1
   /// single Operation* and rewrite it into the graph with a new
   /// clustering target
-  void run(func::FuncOp mainFunc, RewriterBase &rewriter);
+  void run(FunctionOpInterface mainFunc, RewriterBase &rewriter);
 
 private:
   /// A list of filter functions that identify scf.execute_region operations of
@@ -163,7 +164,7 @@ FailureOr<Attribute> getClusterTarget(Operation *regionOp);
 
 /// Apply a set of region-op rewriter patterns to the function.
 LogicalResult applyRegionOpRewritePatterns(
-    func::FuncOp mainFunc,
+    FunctionOpInterface mainFunc,
     ClusteringPatternSet<RegionOpFusionRewriter> &patterns);
 
 } // namespace mlir

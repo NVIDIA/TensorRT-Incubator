@@ -119,14 +119,15 @@ public:
     ModuleOp module = getOperation();
     SymbolTable moduleSymbolTable(module);
 
-    SmallVector<func::FuncOp> funcs = llvm::to_vector(llvm::make_filter_range(
-        module.getOps<func::FuncOp>(), [](func::FuncOp func) {
-          return !func.isDeclaration() && !func.isExternal() &&
-                 !(func.isPrivate() && func->hasAttr("plan.decomposition"));
-        }));
+    SmallVector<FunctionOpInterface> funcs =
+        llvm::to_vector(llvm::make_filter_range(
+            module.getOps<FunctionOpInterface>(), [](FunctionOpInterface func) {
+              return !func.isDeclaration() && !func.isExternal() &&
+                     !(func.isPrivate() && func->hasAttr("plan.decomposition"));
+            }));
 
     IRRewriter rewriter(module->getContext());
-    for (func::FuncOp func : funcs) {
+    for (FunctionOpInterface func : funcs) {
       SmallVector<plan::InlineGroupOp> clusters;
       func->walk([&](plan::InlineGroupOp clusterOp) {
         if (!isa<CompilerBackendAttrInterface>(clusterOp.getTarget()))

@@ -100,7 +100,13 @@ using GetOrCreateBlockArgFunc = llvm::function_ref<FailureOr<BlockArgument>(
 
 /// Return the state (phase) of analysis of the FuncOp.
 static FuncOpAnalysisState
-getFuncOpAnalysisState(const OneShotAnalysisState &state, func::FuncOp funcOp) {
+getFuncOpAnalysisState(const OneShotAnalysisState &state,
+                       FunctionOpInterface op) {
+  // The FuncAnalysisState only supports `func::FuncOp`. Other kinds of function
+  // operations do not have their boundaries analyzed.
+  auto funcOp = dyn_cast<func::FuncOp>(*op);
+  if (!funcOp)
+    return FuncOpAnalysisState::NotAnalyzed;
   if (!isa<OneShotAnalysisState>(state))
     return FuncOpAnalysisState::NotAnalyzed;
   auto *funcState = static_cast<const OneShotAnalysisState &>(state)
@@ -729,11 +735,12 @@ static LogicalResult enforceFunctionCallingStylePolicy(
     return failure();
 
   // Locate entrypoint functions.
-  SmallVector<func::FuncOp> orderedFuncOps, remainingFuncOps;
+  SmallVector<FunctionOpInterface> orderedFuncOps, remainingFuncOps;
   if (failed(mlir::getFuncOpsOrderedByCalls(
           mlir::ModuleLikeOp(op), orderedFuncOps, remainingFuncOps,
-          [&](func::FuncOp func) -> bool {
-            return func.isPublic() && !func.isDeclaration() &&
+          [&](FunctionOpInterface func) -> bool {
+            return isa<func::FuncOp>(func.getOperation()) && func.isPublic() &&
+                   !func.isDeclaration() &&
                    func->getParentWithTrait<OpTrait::SymbolTable>() == op &&
                    llvm::none_of(userMap.getUsers(func),
                                  llvm::IsaPred<CallOpInterface>) &&
@@ -745,7 +752,7 @@ static LogicalResult enforceFunctionCallingStylePolicy(
           })))
     return failure();
 
-  for (func::FuncOp func : orderedFuncOps) {
+  for (FunctionOpInterface func : orderedFuncOps) {
     LLVM_DEBUG(DBGS() << "encountered func " << func.getName() << "\n");
     if (func.isDeclaration())
       continue;
@@ -760,11 +767,14 @@ static LogicalResult enforceFunctionCallingStylePolicy(
     // When using ABI wrapper functions, we don't use the
     // 'forceEntrypointsReturnAllocs' option.
     if (!forceEntrypointsReturnAllocs || isAbiWrapperFunction) {
-      if (failed(rewriteFuncToDestinationPassingStyle(rewriter, func, userMap,
-                                                      state)))
+      if (failed(rewriteFuncToDestinationPassingStyle(
+              rewriter, cast<func::FuncOp>(func.getOperation()), userMap,
+              state)))
         return failure(!isAbiWrapperFunction);
     } else {
-      if (failed(enforceResultAllocationPolicy(rewriter, func, userMap, state)))
+      if (failed(enforceResultAllocationPolicy(
+              rewriter, cast<func::FuncOp>(func.getOperation()), userMap,
+              state)))
         return failure();
     }
   }

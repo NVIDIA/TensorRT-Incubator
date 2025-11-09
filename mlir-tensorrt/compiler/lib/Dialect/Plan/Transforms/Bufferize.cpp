@@ -58,13 +58,12 @@ struct PlanOwnershipBasedBufferDeallocationPass
   void runOnOperation() override {
     bufferization::DeallocationOptions options;
     options.privateFuncDynamicOwnership = privateFuncDynamicOwnership;
-    SmallVector<func::FuncOp> hostFuncs =
-        llvm::to_vector(getOperation().getOps<func::FuncOp>());
+    SmallVector<FunctionOpInterface> hostFuncs =
+        llvm::to_vector(getOperation().getOps<FunctionOpInterface>());
 
     for (auto func : hostFuncs) {
       if (func.isExternal())
         continue;
-
       if (failed(bufferization::deallocateBuffersOwnershipBased(func, options)))
         return signalPassFailure();
     }

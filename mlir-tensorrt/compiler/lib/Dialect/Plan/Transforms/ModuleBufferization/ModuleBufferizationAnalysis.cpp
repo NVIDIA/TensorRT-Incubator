@@ -280,42 +280,47 @@ LogicalResult plan::analyzeOneModuleOp(ModuleLikeOp moduleOp,
 
   // A list of non-circular functions in the order in which they are analyzed
   // and bufferized.
-  SmallVector<func::FuncOp> orderedFuncOps;
+  SmallVector<FunctionOpInterface> orderedFuncOps;
   // A list of all other functions. I.e., functions that call each other
   // recursively. For these, we analyze the function body but not the function
   // boundary.
-  SmallVector<func::FuncOp> remainingFuncOps;
+  SmallVector<FunctionOpInterface> remainingFuncOps;
 
   if (failed(getFuncOpsOrderedByCalls(
-          moduleOp, orderedFuncOps, remainingFuncOps, [&](func::FuncOp func) {
+          moduleOp, orderedFuncOps, remainingFuncOps,
+          [&](FunctionOpInterface func) {
             return func->getParentWithTrait<OpTrait::SymbolTable>() == moduleOp;
           })))
     return failure();
 
   // Analyze functions in order. Starting with functions that are not calling
   // any other functions.
-  for (func::FuncOp funcOp : orderedFuncOps) {
+  for (FunctionOpInterface funcOp : orderedFuncOps) {
     if (!state.getOptions().isOpAllowed(funcOp))
       continue;
 
-    // Now analyzing function.
-    funcState.startFunctionAnalysis(funcOp);
+    // FuncAnalysisState only supports `func::FuncOp`. This is OK since we only
+    // call FuncOp operations. Other kinds of functions are only used to
+    // represent declarations or entrypoints which cannot be called.
+    if (auto funcFunc = dyn_cast<func::FuncOp>(*funcOp))
+      funcState.startFunctionAnalysis(funcFunc);
 
     // Analyze funcOp.
     if (failed(analyzeOp(funcOp, state, statistics)))
       return failure();
 
-    // Run some extra function analyses.
-    if (failed(aliasingFuncOpBBArgsAnalysis(funcOp, state, funcState)) ||
-        failed(funcOpBbArgReadWriteAnalysis(funcOp, state, funcState)))
-      return failure();
-
-    // Mark op as fully analyzed.
-    funcState.analyzedFuncOps[funcOp] = func_ext::FuncOpAnalysisState::Analyzed;
+    // Analysis required for callables if this is a `func.func`.
+    if (auto funcFunc = dyn_cast<func::FuncOp>(*funcOp)) {
+      if (failed(aliasingFuncOpBBArgsAnalysis(funcFunc, state, funcState)) ||
+          failed(funcOpBbArgReadWriteAnalysis(funcFunc, state, funcState)))
+        return failure();
+      funcState.analyzedFuncOps[funcFunc] =
+          func_ext::FuncOpAnalysisState::Analyzed;
+    }
   }
 
   // Analyze all other functions. All function boundary analyses are skipped.
-  for (func::FuncOp funcOp : remainingFuncOps) {
+  for (FunctionOpInterface funcOp : remainingFuncOps) {
     if (!state.getOptions().isOpAllowed(funcOp))
       continue;
 

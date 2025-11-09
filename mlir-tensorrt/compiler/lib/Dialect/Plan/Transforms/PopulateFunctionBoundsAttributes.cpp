@@ -69,7 +69,8 @@ getBounds(Value v, DataFlowSolver &solver) {
   return std::make_pair(bound(/*isUB=*/false), bound(/*isUB=*/true));
 }
 
-static FailureOr<SmallVector<Value>> getReturnedValues(func::FuncOp func) {
+static FailureOr<SmallVector<Value>>
+getReturnedValues(FunctionOpInterface func) {
   if (executor::abi::isABIWrapperFunction(func)) {
     FailureOr<FunctionType> abiFuncType =
         mlir::executor::abi::getABIFunctionType(func);
@@ -101,12 +102,14 @@ static FailureOr<SmallVector<Value>> getReturnedValues(func::FuncOp func) {
     }
     return returnedValues;
   }
-  func::ReturnOp returnOp =
-      cast<func::ReturnOp>(func.getBlocks().front().getTerminator());
+  Operation *returnOp = func.getBlocks().front().getTerminator();
+  assert(returnOp->hasTrait<OpTrait::ReturnLike>() &&
+         "expected return like op");
   return llvm::SmallVector<Value>(returnOp->getOperands());
 }
 
-static void updateFunctionBoundsAttribute(func::FuncOp func, StringRef attrName,
+static void updateFunctionBoundsAttribute(FunctionOpInterface func,
+                                          StringRef attrName,
                                           plan::BoundsAttr boundsAttr,
                                           unsigned resultIndex) {
   if (executor::abi::isABIWrapperFunction(func)) {
@@ -129,7 +132,7 @@ public:
   using Base::Base;
 
   void runOnOperation() override {
-    func::FuncOp func = getOperation();
+    FunctionOpInterface func = getOperation();
     if (func.isExternal() || func.isDeclaration())
       return;
 
@@ -141,8 +144,8 @@ public:
     }
 
     // Skip all functions without shape profile information.
-    if (!func.getArgAttrs() ||
-        llvm::none_of(func.getArgAttrs()->getAsRange<DictionaryAttr>(),
+    if (!func.getAllArgAttrs() ||
+        llvm::none_of(func.getAllArgAttrs().getAsRange<DictionaryAttr>(),
                       [&](DictionaryAttr dict) {
                         return dict.getNamed(
                                    PlanDialect::kShapeBoundsAttrName) ||

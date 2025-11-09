@@ -21,7 +21,8 @@
 /// Declarations for Lua variable allocation.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir/Dialect/Func/IR/FuncOps.h"
+
+#include "mlir/Interfaces/FunctionInterfaces.h"
 
 namespace mlir {
 
@@ -36,9 +37,13 @@ enum class LuaAllocationType {
   Spill,
 };
 
+class FunctionOpInterface;
+
 class LuaAllocation {
 public:
-  LuaAllocation(func::FuncOp funcOp) : funcOp(funcOp) { allocate(funcOp); }
+  LuaAllocation(FunctionOpInterface funcOp) : funcOp(funcOp) {
+    allocate(funcOp);
+  }
 
   struct AllocationResult {
     AllocationResult(LuaAllocationType type, unsigned id)
@@ -61,10 +66,10 @@ public:
 
 private:
   /// Allocate Lua variables for the given function.
-  void allocate(func::FuncOp funcOp);
+  void allocate(FunctionOpInterface funcOp);
 
 private:
-  func::FuncOp funcOp;
+  FunctionOpInterface funcOp;
   DenseMap<Value, AllocationResult> allocationResults;
   bool spill{false};
 };

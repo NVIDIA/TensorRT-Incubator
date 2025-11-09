@@ -3,8 +3,8 @@
 // RUN:  executor-translate -mlir-to-runtime-executable | executor-runner -dump-function-signature -input-type=rtexe | FileCheck %s
 
 // CHECK: Function<value_bounds,
-// CHECK-SAME: Signature<args=[MemRef<1xi64, strides=[1], unknown>, MemRef<1xi64, strides=[1], unknown>],
-// CHECK-SAME: results=[MemRef<1xi64, strides=[1], unknown>],
+// CHECK-SAME: Signature<args=[MemRef<1xi64, strides=[1], host>, MemRef<1xi64, strides=[1], host>],
+// CHECK-SAME: results=[MemRef<1xi64, strides=[1], host>],
 // CHECK-SAME: num_output_args=1,
 // CHECK-SAME: arg_bounds=[value_bounds<min = [1], max = [6]>, value_bounds<min = [2], max = [4]>],
 // CHECK-SAME: result_bounds=[value_bounds<min = [1], max = [6]>],
@@ -21,8 +21,8 @@ func.func @value_bounds() attributes {
 }
 
 // CHECK-NEXT: Function<dim_bounds,
-// CHECK-SAME: Signature<args=[MemRef<?xf32, strides=[1], unknown>],
-// CHECK-SAME: results=[MemRef<?xf32, strides=[1], unknown>, MemRef<?xf32, strides=[1], unknown>],
+// CHECK-SAME: Signature<args=[MemRef<?xf32, strides=[1], host>],
+// CHECK-SAME: results=[MemRef<?xf32, strides=[1], host>, MemRef<?xf32, strides=[1], host>],
 // CHECK-SAME: num_output_args=1,
 // CHECK-SAME: arg_bounds=[dim_bounds<min = [1], max = [6]>],
 // CHECK-SAME: result_bounds=[dim_bounds<min = [2], max = [8]>, dim_bounds<min = [3], max = [5]>],
@@ -39,7 +39,7 @@ func.func @dim_bounds() attributes {
 }
 
 // CHECK-LABEL: Function<unit_attr,
-// CHECK-SAME: Signature<args=[MemRef<1xi64, strides=[1], unknown>],
+// CHECK-SAME: Signature<args=[MemRef<1xi64, strides=[1], host>],
 // CHECK-SAME: results=[],
 // CHECK-SAME: num_output_args=0,
 // CHECK-SAME: arg_bounds=[UNK],
@@ -71,8 +71,8 @@ func.func @scalar_value_bounds() attributes {
 }
 
 // CHECK-LABEL: Function<mixed_bounds,
-// CHECK-SAME: Signature<args=[i64, MemRef<1xi64, strides=[1], unknown>, MemRef<1xi64, strides=[1], unknown>],
-// CHECK-SAME: results=[MemRef<?xf32, strides=[1], unknown>, MemRef<1xf32, strides=[1], unknown>],
+// CHECK-SAME: Signature<args=[i64, MemRef<1xi64, strides=[1], host>, MemRef<1xi64, strides=[1], host>],
+// CHECK-SAME: results=[MemRef<?xf32, strides=[1], host>, MemRef<1xf32, strides=[1], host>],
 // CHECK-SAME: num_output_args=1,
 // CHECK-SAME: arg_bounds=[value_bounds<min = [1], max = [6]>, UNK, value_bounds<min = [1], max = [6]>],
 // CHECK-SAME: result_bounds=[dim_bounds<min = [2], max = [8]>, dim_bounds<min = [3], max = [5]>],

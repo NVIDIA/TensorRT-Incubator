@@ -31,6 +31,7 @@
 #include "mlir-executor/Target/Lua/LuaAllocation.h"
 #include "mlir/Analysis/Liveness.h"
 #include "mlir/Analysis/TopologicalSortUtils.h"
+#include "mlir/Interfaces/ControlFlowInterfaces.h"
 #include "llvm/ADT/IntervalMap.h"
 #include "llvm/Support/Debug.h"
 
@@ -138,7 +139,7 @@ struct LiveRange {
 
 void LuaAllocation::print(llvm::raw_ostream &os) const {
   os << "\n\n==========LuaAllocation Results: @"
-     << const_cast<func::FuncOp &>(funcOp).getName() << "\n";
+     << const_cast<FunctionOpInterface &>(funcOp).getName() << "\n";
   for (auto &[value, allocationResult] : allocationResults) {
     os << "  ";
     if (auto blockArg = dyn_cast<BlockArgument>(value)) {
@@ -182,12 +183,12 @@ generateOperationNumbering(FunctionOpInterface function) {
 }
 
 static void
-dumpLiveRanges(func::FuncOp funcOp,
+dumpLiveRanges(FunctionOpInterface funcOp,
                const DenseMap<Operation *, unsigned> &operationToIndexMap,
                const llvm::MapVector<Value, LiveRange> &liveRanges) {
-  auto function = const_cast<func::FuncOp &>(funcOp);
+  auto function = const_cast<FunctionOpInterface &>(funcOp);
   LLVM_DEBUG(llvm::dbgs() << "\n\n==========LuaAllocation Live Ranges: @"
-                          << const_cast<func::FuncOp &>(funcOp).getName()
+                          << const_cast<FunctionOpInterface &>(funcOp).getName()
                           << "\n");
   for (auto [blockIdx, block] : llvm::enumerate(function.getBlocks())) {
     LLVM_DEBUG(llvm::dbgs() << "^bb" << blockIdx << ":\n");
@@ -215,7 +216,7 @@ dumpLiveRanges(func::FuncOp funcOp,
   LLVM_DEBUG(llvm::dbgs() << "==========\n\n");
 }
 
-void LuaAllocation::allocate(func::FuncOp funcOp) {
+void LuaAllocation::allocate(FunctionOpInterface funcOp) {
   // Number operations within the function.
   DenseMap<Operation *, unsigned> operationToIndexMap =
       generateOperationNumbering(funcOp);

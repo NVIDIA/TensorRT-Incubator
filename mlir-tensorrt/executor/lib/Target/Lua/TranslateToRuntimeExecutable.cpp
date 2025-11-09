@@ -359,7 +359,7 @@ translateTypeVariant(Type t, const mlir::DataLayout &dataLayout) {
 
     auto [strides, offset] = memrefType.getStridesAndOffset();
 
-    auto addressSpace = mtrt::PointerType::unknown;
+    FailureOr<mtrt::PointerType> addressSpace = mtrt::PointerType::host;
     if (llvm::isa_and_nonnull<executor::MemoryTypeAttr>(
             memrefType.getMemorySpace())) {
       auto memoryType =
@@ -368,14 +368,17 @@ translateTypeVariant(Type t, const mlir::DataLayout &dataLayout) {
                                          memrefType.getMemorySpace())
                                          .getValue())
               .getAddressSpace();
-      addressSpace = *translateMemoryType(memoryType);
+      addressSpace = translateMemoryType(memoryType);
     }
+
+    if (failed(addressSpace))
+      return emitTranslateFailure(memrefType);
 
     mtrt::flat::MemRefTypeT memref;
     memref.element_type = *code;
     memref.shape = {memrefType.getShape().begin(), memrefType.getShape().end()};
     memref.strides = {strides.begin(), strides.end()};
-    memref.address_space = addressSpace;
+    memref.address_space = *addressSpace;
     return createTypeUnion(std::move(memref));
   }
 

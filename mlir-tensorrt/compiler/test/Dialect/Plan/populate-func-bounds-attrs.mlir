@@ -1,4 +1,4 @@
-// RUN: mlir-tensorrt-opt %s -split-input-file -plan-populate-func-bounds-attrs | FileCheck %s
+// RUN: mlir-tensorrt-opt %s -split-input-file -pass-pipeline="builtin.module(func.func(plan-populate-func-bounds-attrs))" | FileCheck %s
 
 func.func public @single_return(%arg0: tensor<?xi32> {plan.shape_bounds = #plan.bounds<shape, [1], [3]>},
                                 %arg1: tensor<?xi32> {plan.shape_bounds = #plan.bounds<shape, [1], [3]>}) -> tensor<?xi32> {
