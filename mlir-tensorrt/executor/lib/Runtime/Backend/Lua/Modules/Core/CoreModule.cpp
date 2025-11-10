@@ -492,6 +492,8 @@ static void registerExecutorCoreModuleLuaRuntimeMethods(
   DEFINE_BITCAST_METHOD(f64, i64, double, int64_t);
   DEFINE_BITCAST_METHOD(f32, i32, float, int32_t);
   DEFINE_BITCAST_METHOD(f16, i16, Float16, int16_t);
+  DEFINE_BITCAST_METHOD(f8E4M3FN, i8, F8E4M3FN, int8_t);
+  DEFINE_BITCAST_METHOD(i8, f8E4M3FN, int8_t, F8E4M3FN);
 #undef DEFINE_BITCAST_METHOD
 
   //===----------------------------------------------------------------------===//

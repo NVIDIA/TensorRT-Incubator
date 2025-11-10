@@ -22,6 +22,7 @@
 #include "mlir/Dialect/CommonFolders.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/GPU/IR/GPUDialect.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/UB/IR/UBOps.h"
 #include "mlir/Dialect/Utils/StaticValueUtils.h"
 #include "mlir/IR/Builders.h"
@@ -1086,31 +1087,11 @@ OpFoldResult BitcastOp::fold(FoldAdaptor adaptor) {
   return {};
 }
 
-auto isBitcastSupported = [](Type inputType, Type resultType) -> bool {
-  if (inputType.isInteger(4) || isa<Float4E2M1FNType>(inputType))
-    return isa<Float4E2M1FNType>(resultType) || resultType.isInteger(4);
-  if (inputType.isInteger(16) || inputType.isF16())
-    return resultType.isF16() || resultType.isInteger(16);
-  if (inputType.isInteger(32) || inputType.isF32())
-    return resultType.isF32() || resultType.isInteger(32);
-  if (inputType.isInteger(64) || inputType.isF64())
-    return resultType.isF64() || resultType.isInteger(64);
-  return false;
-};
-
 LogicalResult BitcastOp::verify() {
   Type inputType = getInput().getType();
   Type resultType = getResult().getType();
-  // Supported casts
-  // i4 | F4E2M1FN <-> i4 | F4E2M1FN
-  // i16 | F16 <-> i16 | F16
-  // i32 | F32 <-> i32 | F32
-  // i64 | F64 <-> i64 | F64
-  if (!isBitcastSupported(inputType, resultType))
-    return emitOpError() << "Bitcast between input type " << inputType
-                         << "and result type " << resultType
-                         << "is not supported";
-  return success();
+  return success(inputType.getIntOrFloatBitWidth() ==
+                 resultType.getIntOrFloatBitWidth());
 }
 
 //===----------------------------------------------------------------------===//
@@ -1337,6 +1318,8 @@ static bool areScalarTypesABICompatible(Type valueType, Type abiType) {
     return valueType.getIntOrFloatBitWidth() ==
            llvm::divideCeil(abiType.getIntOrFloatBitWidth(), kBitsInByte) *
                kBitsInByte;
+  if (isa<Float8E4M3FNType>(abiType) && valueType.isInteger(8))
+    return true;
   if (isa<IntegerType>(abiType) && isa<IntegerType>(valueType))
     return valueType.getIntOrFloatBitWidth() == abiType.getIntOrFloatBitWidth();
 
@@ -1346,7 +1329,6 @@ static bool areScalarTypesABICompatible(Type valueType, Type abiType) {
     return valueType.getIntOrFloatBitWidth() == 32 ||
            valueType.getIntOrFloatBitWidth() == 64;
   }
-
   return false;
 }
 
