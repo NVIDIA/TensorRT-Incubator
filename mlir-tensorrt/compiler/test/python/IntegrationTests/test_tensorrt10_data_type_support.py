@@ -1,6 +1,7 @@
 # RUN: %pick-one-gpu %PYTHON %s | FileCheck %s
 # REQUIRES: all-gpus-support-fp8
 # REQUIRES: tensorrt-version-ge-10.0
+# REQUIRES: long_tests
 from dataclasses import dataclass
 from typing import List, Optional
 
