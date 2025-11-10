@@ -595,6 +595,100 @@ bool executor::abi::isABIWrapperFunction(FunctionOpInterface func) {
   return abiFuncTypeAttr != nullptr;
 }
 
+unsigned executor::abi::getNumInputArguments(FunctionOpInterface func) {
+  FailureOr<FunctionType> abiFuncType = abi::getABIFunctionType(func);
+  assert(succeeded(abiFuncType) && "expected ABI function type");
+  return abiFuncType->getNumInputs();
+}
+
+unsigned executor::abi::getNumOutputArguments(FunctionOpInterface func) {
+  FailureOr<FunctionType> abiFuncType = abi::getABIFunctionType(func);
+  assert(succeeded(abiFuncType) && "expected ABI function type");
+  return abiFuncType->getNumResults();
+}
+
+unsigned executor::abi::getOutputArgumentIndex(FunctionOpInterface func,
+                                               BlockArgument arg) {
+  assert(isOutputArgument(func, arg).has_value() && "expected output argument");
+  auto argIt = llvm::find(func.getArguments(), arg);
+  assert(argIt != func.getArguments().end() && "expected argument of func");
+  unsigned argIndex = std::distance(func.getArguments().begin(), argIt);
+  assert(argIndex >= getNumInputArguments(func) && "expected output argument");
+  return argIndex - getNumInputArguments(func);
+}
+
+unsigned executor::abi::getInputArgumentIndex(FunctionOpInterface func,
+                                              BlockArgument arg) {
+  auto argIt = llvm::find(func.getArguments(), arg);
+  assert(argIt != func.getArguments().end() && "expected argument of func");
+  unsigned argIndex = std::distance(func.getArguments().begin(), argIt);
+  assert(argIndex < getNumInputArguments(func) && "expected input argument");
+  return argIndex;
+}
+
+BlockArgument executor::abi::getInputArgument(FunctionOpInterface func,
+                                              unsigned index) {
+  assert(index < getNumInputArguments(func) &&
+         "expected input argument index to be within range");
+  return func.getArgument(index);
+}
+
+BlockArgument executor::abi::getOutputArgument(FunctionOpInterface func,
+                                               unsigned index) {
+  assert(index < getNumOutputArguments(func) &&
+         "expected output argument index to be within range");
+  return func.getArgument(index + getNumInputArguments(func));
+}
+
+void executor::abi::setABIFunctionType(FunctionOpInterface func,
+                                       TypeRange inputTypes,
+                                       TypeRange resultTypes) {
+  func->setAttr(ExecutorDialect::kFuncABIAttrName,
+                TypeAttr::get(FunctionType::get(func.getContext(), inputTypes,
+                                                resultTypes)));
+}
+
+void executor::abi::updateABIInputArgumentValueType(FunctionOpInterface func,
+                                                    unsigned inputIdx,
+                                                    Type valueType) {
+  assert(inputIdx < getNumInputArguments(func) &&
+         "expected input argument index to be within range");
+  BlockArgument arg = getInputArgument(func, inputIdx);
+  if (auto argABIAttr = getArgumentABIAttr(func, arg);
+      argABIAttr && argABIAttr.getValueType() != valueType) {
+    argABIAttr = argABIAttr.cloneWithValueType(valueType);
+    abi::setArgumentABIAttr(func, arg, argABIAttr);
+  }
+
+  FailureOr<FunctionType> abiFuncType = getABIFunctionType(func);
+  assert(succeeded(abiFuncType) && "expected ABI function type");
+  if (abiFuncType->getInput(inputIdx) != valueType) {
+    SmallVector<Type> newInputTypes(abiFuncType->getInputs());
+    newInputTypes[inputIdx] = valueType;
+    setABIFunctionType(func, newInputTypes, abiFuncType->getResults());
+  }
+}
+
+void executor::abi::updateABIOutputArgumentValueType(FunctionOpInterface func,
+                                                     unsigned outputIdx,
+                                                     Type valueType) {
+  assert(outputIdx < getNumOutputArguments(func) &&
+         "expected output argument index to be within range");
+  BlockArgument arg = getOutputArgument(func, outputIdx);
+  if (auto argABIAttr = getArgumentABIAttr(func, arg);
+      argABIAttr && argABIAttr.getValueType() != valueType) {
+    argABIAttr = argABIAttr.cloneWithValueType(valueType);
+    abi::setArgumentABIAttr(func, arg, argABIAttr);
+  }
+  FailureOr<FunctionType> abiFuncType = getABIFunctionType(func);
+  assert(succeeded(abiFuncType) && "expected ABI function type");
+  if (abiFuncType->getResult(outputIdx) != valueType) {
+    SmallVector<Type> newResultTypes(abiFuncType->getResults());
+    newResultTypes[outputIdx] = valueType;
+    setABIFunctionType(func, abiFuncType->getInputs(), newResultTypes);
+  }
+}
+
 std::optional<unsigned> executor::abi::isInputArgument(FunctionOpInterface func,
                                                        unsigned argIndex) {
   FailureOr<FunctionType> abiFuncType = getABIFunctionType(func);
@@ -676,12 +770,8 @@ Value executor::abi::getOrCreateABIRecv(OpBuilder &b, FunctionOpInterface func,
   for (Operation *user : func.getArgument(argIndex).getUsers()) {
     if (auto recvOp = dyn_cast<executor::ABIRecvOp>(user)) {
       if (recvOp.getPtr() == func.getArgument(argIndex)) {
-        Value result = recvOp.getResult();
-        if (expectedType) {
-          assert(result.getType() == expectedType &&
-                 "existing ABIRecvOp result type does not match expectedType");
-        }
-        return result;
+        if (!expectedType || expectedType == recvOp.getResult().getType())
+          return recvOp.getResult();
       }
     }
   }

@@ -14,6 +14,7 @@
 /// Implementation of the Plan buffer results to out params pass.
 ///
 //===----------------------------------------------------------------------===//
+#include "mlir-executor/Executor/IR/ExecutorAttributes.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
 #include "mlir/Analysis/SliceAnalysis.h"
@@ -468,6 +469,8 @@ struct PlanBufferResultsToOutParamsPass
     };
     options.filterFn = [&](func::FuncOp *op) {
       if (ignorePublicFunctions && op->isPublic())
+        return false;
+      if (executor::abi::isABIWrapperFunction(*op))
         return false;
       return !op->isDeclaration();
     };

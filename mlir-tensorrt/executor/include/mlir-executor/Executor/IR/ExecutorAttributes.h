@@ -78,14 +78,40 @@ StringRef getExecutorGlobalInitializerFuncNameAttr();
 
 namespace abi {
 
+/// Return true if this function is an Executor runtime compatible ABI wrapper
+/// function.
+bool isABIWrapperFunction(FunctionOpInterface func);
+
 /// Get the ABI function type from the `executor.func_abi` attribute attached
 /// to the function. Returns failure if the attribute is not present or is not
 /// a valid FunctionType.
 FailureOr<FunctionType> getABIFunctionType(FunctionOpInterface func);
 
-/// Return true if this function is an Executor runtime compatible ABI wrapper
-/// function.
-bool isABIWrapperFunction(FunctionOpInterface func);
+/// Return the number of input arguments of the ABI function type.
+unsigned getNumInputArguments(FunctionOpInterface func);
+
+/// Return the number of output arguments of the ABI function type.
+unsigned getNumOutputArguments(FunctionOpInterface func);
+
+/// Return the index of the corresponding result for the given output argument.
+unsigned getOutputArgumentIndex(FunctionOpInterface func, BlockArgument arg);
+
+/// Return the index of the corresponding input for the given input argument.
+unsigned getInputArgumentIndex(FunctionOpInterface func, BlockArgument arg);
+
+/// Set the ABI function type on the function.
+void setABIFunctionType(FunctionOpInterface func, TypeRange inputTypes,
+                        TypeRange resultTypes);
+
+/// Update the value type of an input argument of the ABI function.
+/// Updates all required function attributes and argument attributes.
+void updateABIInputArgumentValueType(FunctionOpInterface func,
+                                     unsigned inputIdx, Type valueType);
+
+/// Update the value type of an output argument of the ABI function.
+/// Updates all required function attributes and result attributes.
+void updateABIOutputArgumentValueType(FunctionOpInterface func,
+                                      unsigned outputIdx, Type valueType);
 
 /// For a given argument of an API wrapper function, return whether this
 /// argument is an "input argument" or an "output argument". It is an input
@@ -96,6 +122,13 @@ bool isABIWrapperFunction(FunctionOpInterface func);
 /// is really just the argument number).
 std::optional<unsigned> isInputArgument(FunctionOpInterface func,
                                         unsigned argIndex);
+
+/// Get the index-th entry block argument of the ABI function.
+BlockArgument getInputArgument(FunctionOpInterface func, unsigned index);
+
+/// Get the index-th entry block argument representing an output of the ABI
+/// function (the block argument at position `num_block_args - index - 1`).
+BlockArgument getOutputArgument(FunctionOpInterface func, unsigned index);
 
 /// Returns true if this is a valid scalar argument type that can be
 /// passed-by-value by an ABI wrapper function. If not, then it must be
@@ -125,6 +158,14 @@ ArgumentABIAttr getArgumentABIAttr(FunctionOpInterface func, unsigned argIndex);
 /// Set the ArgumentABIAttr for the given argument.
 void setArgumentABIAttr(FunctionOpInterface func, BlockArgument arg,
                         ArgumentABIAttr abiAttr);
+
+/// Set the ArgumentABIAttr for the given input argument index.
+void setInputArgumentABIAttr(FunctionOpInterface func, unsigned inputIdx,
+                             ArgumentABIAttr abiAttr);
+
+/// Set the ArgumentABIAttr for the given output argument index.
+void setOutputArgumentABIAttr(FunctionOpInterface func, unsigned outputIdx,
+                              ArgumentABIAttr abiAttr);
 
 /// Get or create an ABIRecvOp for the given function argument.
 /// This function asserts that `func` is an ABI wrapper function.

@@ -23,28 +23,13 @@ func.func @test_complex_passthrough(%arg0: !executor.ptr<host> {executor.abi = #
 
 // -----
 
-// CHECK-LABEL: @test_memref_recv_send_same_ptr
-func.func @test_memref_recv_send_same_ptr(
-      %arg0: !executor.ptr<host> {executor.abi = #executor.arg<byval, memref<10xf32>>},
-      %arg1: !executor.ptr<host> {executor.abi = #executor.arg<byref, memref<10xf32>>}) -> memref<10xf32>
-    attributes {executor.func_abi = (memref<10xf32>) -> (memref<10xf32>)} {
-  %0 = executor.abi.recv %arg1 : memref<10xf32>
-  %false = arith.constant false
-  %1 = executor.abi.send %0 to %arg1 ownership(%false) : memref<10xf32>
-  // CHECK-NOT: executor.abi.send
-  // CHECK: return
-  return %1 : memref<10xf32>
-}
-
-// -----
-
 // Test error case: unsupported type (neither scalar, complex, nor memref)
 func.func @test_unsupported_type(%arg0: !executor.ptr<host> {executor.abi = #executor.arg<byval, !executor.table<i32>>},
                                   %arg1: !executor.ptr<host> {executor.abi = #executor.arg<byref, !executor.table<i32>>}) -> !executor.table<i32>
     attributes {executor.func_abi = (!executor.table<i32>) -> (!executor.table<i32>)} {
   %0 = executor.abi.recv %arg0 : !executor.table<i32>
-  // expected-error@+1 {{value type must be scalar, complex, or memref type}}
   %1 = executor.abi.send %0 to %arg1 : !executor.table<i32>
+  // expected-error@+1 {{value type must be scalar, complex, or memref type}}
   return %1 : !executor.table<i32>
 }
 // -----
@@ -52,42 +37,12 @@ func.func @test_unsupported_type(%arg0: !executor.ptr<host> {executor.abi = #exe
 func.func private @get_memref() -> (memref<10xf32>, i1)
 
 // CHECK-LABEL: @test_send_undef
+// CHECK-SAME: (%[[arg0:.+]]:
 func.func @test_send_undef(
    %arg0: !executor.ptr<host> {executor.abi = #executor.arg<byref, memref<10xf32>, undef>}) -> memref<10xf32>
     attributes {executor.func_abi = () -> (memref<10xf32>)} {
-  // CHECK-DAG: %[[ownership:.+]] = arith.constant true
-  // CHECK-DAG: %[[V0:.+]]:2 = call @get_memref()
+  // CHECK: %[[v0:.+]]:2 = call @get_memref()
   %0, %1 = call @get_memref() : () -> (memref<10xf32>, i1)
-  // CHECK: %[[V1:.+]] = scf.if %[[V0]]#1
-  // CHECK:   scf.yield %[[V0]]#0 :
-  // CHECK: } else {
-  // CHECK:   %[[cloned:.+]] = bufferization.clone %[[V0]]#0
-  // CHECK:   scf.yield %[[cloned]] :
-  // CHECK: }
-  // CHECK: executor.abi.send %[[V1]] to %arg0 ownership(%[[ownership]]) :
-  %2 = executor.abi.send %0 to %arg0 ownership(%1) : memref<10xf32>
-  return %2 : memref<10xf32>
-}
-
-
-// -----
-
-func.func private @get_memref() -> (memref<10xf32>, i1)
-
-// CHECK-LABEL: @test_send_no_undef
-func.func @test_send_no_undef(
-   %arg0: !executor.ptr<host> {executor.abi = #executor.arg<byref, memref<10xf32>>}) -> memref<10xf32>
-    attributes {executor.func_abi = () -> (memref<10xf32>)} {
-  // %[[V0:.+]] = call @get_memref()
-  %0, %1 = call @get_memref() : () -> (memref<10xf32>, i1)
-  // CHECK-COUNT-2: memref.extract_aligned_pointer
-  // CHECK: arith.cmpi eq
-  // CHECK: scf.if
-  // CHECK:  cf.assert
-  // CHECK: else
-  // CHECK:  memref.copy
-  %2 = executor.abi.send %0 to %arg0 ownership(%1) : memref<10xf32>
-  // CHECK-NOT: executor.abi.send
-  return %2 : memref<10xf32>
-  // CHECK: return
+  // CHECK: executor.abi.send %[[v0]]#0 to %[[arg0]]
+  return %0 : memref<10xf32>
 }

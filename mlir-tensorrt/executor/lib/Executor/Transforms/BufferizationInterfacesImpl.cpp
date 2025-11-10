@@ -33,7 +33,9 @@
 #include "mlir/Dialect/Bufferization/IR/BufferDeallocationOpInterface.h"
 #include "mlir/Dialect/Bufferization/IR/BufferizableOpInterface.h"
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
+#include "mlir/Dialect/UB/IR/UBOps.h"
 #include "mlir/Dialect/Utils/IndexingUtils.h"
 #include "mlir/IR/Attributes.h"
 #include "llvm/ADT/SetVector.h"
@@ -135,67 +137,53 @@ struct BufferizableOpInterfaceABIRecv
 
   bool bufferizesToMemoryRead(Operation *op, OpOperand &opOperand,
                               const AnalysisState &state) const {
-    return false;
+    return true;
   }
 
-  LogicalResult bufferize(Operation *op, RewriterBase &rewriter,
-                          const BufferizationOptions &options) const {
+  FailureOr<BaseMemRefType>
+  getBufferType(Operation *op, Value value, const BufferizationOptions &options,
+                SmallVector<Value> &invocationStack) const {
     auto recvOp = cast<executor::ABIRecvOp>(op);
-    auto value = recvOp.getResult();
-
-    auto tensorType = dyn_cast<RankedTensorType>(value.getType());
-    if (!tensorType)
-      return success();
+    if (auto memrefType = dyn_cast<BaseMemRefType>(value.getType()))
+      return memrefType;
+    auto tensorType = cast<RankedTensorType>(recvOp.getResult().getType());
     auto memorySpace = recvOp.getMemorySpaceAttr();
     if (!memorySpace) {
       if (std::optional<Attribute> defaultSpace =
               options.defaultMemorySpaceFn(tensorType))
         memorySpace = *defaultSpace;
     }
+    return bufferization::getMemRefTypeWithStaticIdentityLayout(tensorType,
+                                                                memorySpace);
+  }
 
-    BaseMemRefType memrefType =
-        bufferization::getMemRefTypeWithStaticIdentityLayout(tensorType,
-                                                             memorySpace);
+  LogicalResult bufferize(Operation *op, RewriterBase &rewriter,
+                          const BufferizationOptions &options) const {
+    auto recvOp = cast<executor::ABIRecvOp>(op);
+    auto value = recvOp.getResult();
+    auto func = recvOp->getParentOfType<FunctionOpInterface>();
+    assert(func && "expected function");
+    BlockArgument ptrArg = cast<BlockArgument>(recvOp.getPtr());
+
+    SmallVector<Value> invocationStack;
+    auto memrefType = this->getBufferType(op, value, options, invocationStack);
+    if (failed(memrefType))
+      return failure();
 
     auto replacementOp = rewriter.create<executor::ABIRecvOp>(
-        recvOp.getLoc(), memrefType, recvOp.getPtr());
+        recvOp.getLoc(), *memrefType, recvOp.getPtr());
 
-    // Update the executor.abi attribute on the function argument
-    if (auto blockArg = dyn_cast<BlockArgument>(recvOp.getPtr())) {
-      if (auto funcOp = dyn_cast<FunctionOpInterface>(
-              blockArg.getOwner()->getParentOp())) {
-        FailureOr<FunctionType> abiFuncType =
-            executor::abi::getABIFunctionType(funcOp);
-        if (failed(abiFuncType))
-          return failure();
-
-        auto blockArgIt = llvm::find(funcOp.getArguments(), blockArg);
-        assert(blockArgIt != funcOp.getArguments().end() &&
-               "expected block argument to be found in argument list");
-        unsigned argIdx =
-            std::distance(funcOp.getArguments().begin(), blockArgIt);
-
-        if (auto abiAttr = executor::abi::getArgumentABIAttr(funcOp, argIdx)) {
-          auto newAbiAttr = abiAttr.cloneWithValueType(memrefType);
-          executor::abi::setArgumentABIAttr(funcOp, blockArg, newAbiAttr);
-        }
-
-        // Update the ABI wrapper function type.
-        SmallVector<Type> newArgTypes(abiFuncType->getInputs());
-        SmallVector<Type> newResultTypes(abiFuncType->getResults());
-        if (argIdx < abiFuncType->getNumInputs()) {
-          newArgTypes[argIdx] = memrefType;
-        } else {
-          assert(argIdx - abiFuncType->getNumInputs() <
-                     abiFuncType->getNumResults() &&
-                 "expected output argument");
-          newResultTypes[argIdx - abiFuncType->getNumInputs()] = memrefType;
-        }
-        auto newFuncType =
-            FunctionType::get(funcOp.getContext(), newArgTypes, newResultTypes);
-        funcOp->setAttr(executor::ExecutorDialect::kFuncABIAttrName,
-                        TypeAttr::get(newFuncType));
-      }
+    if (std::optional<unsigned> inputIdx =
+            executor::abi::isInputArgument(func, ptrArg.getArgNumber())) {
+      executor::abi::updateABIInputArgumentValueType(func, *inputIdx,
+                                                     *memrefType);
+    } else if (std::optional<unsigned> outputIdx =
+                   executor::abi::isOutputArgument(func,
+                                                   ptrArg.getArgNumber())) {
+      executor::abi::updateABIOutputArgumentValueType(func, *outputIdx,
+                                                      *memrefType);
+    } else {
+      llvm_unreachable("expected input or output argument");
     }
 
     bufferization::replaceOpWithBufferizedValues(rewriter, op,
@@ -227,62 +215,79 @@ struct BufferizableOpInterfaceABISend
              /*isDefinite=*/true}};
   }
 
+  FailureOr<BaseMemRefType>
+  getBufferType(Operation *op, Value value, const BufferizationOptions &options,
+                SmallVector<Value> &invocationStack) const {
+    auto sendOp = cast<executor::ABISendOp>(op);
+    if (auto memrefType = dyn_cast<BaseMemRefType>(value.getType()))
+      return memrefType;
+    auto tensorType = cast<RankedTensorType>(sendOp.getValue().getType());
+    Attribute memorySpace;
+    if (std::optional<Attribute> defaultSpace =
+            options.defaultMemorySpaceFn(tensorType))
+      memorySpace = *defaultSpace;
+    return bufferization::getMemRefTypeWithStaticIdentityLayout(tensorType,
+                                                                memorySpace);
+  }
+
   LogicalResult bufferize(Operation *op, RewriterBase &rewriter,
                           const BufferizationOptions &options) const {
     auto sendOp = cast<executor::ABISendOp>(op);
     auto value = sendOp.getValue();
-
-    auto tensorType = dyn_cast<RankedTensorType>(value.getType());
-    if (!tensorType)
-      return success();
+    auto funcOp = op->getParentOfType<FunctionOpInterface>();
 
     FailureOr<Value> buffer =
         bufferization::getBuffer(rewriter, value, options);
     if (failed(buffer))
       return failure();
 
-    // Get the memref type from the buffer
-    auto memrefType = cast<BaseMemRefType>(buffer->getType());
+    // Get the expected memref type from the buffer
+    SmallVector<Value> invocationStack;
+    auto memrefType = this->getBufferType(op, value, options, invocationStack);
+    if (failed(memrefType))
+      return failure();
 
     // Update the executor.abi attribute on the function argument
-    if (auto blockArg = dyn_cast<BlockArgument>(sendOp.getPtr())) {
-      if (auto funcOp = dyn_cast<FunctionOpInterface>(
-              blockArg.getOwner()->getParentOp())) {
-        FailureOr<FunctionType> abiFuncType =
-            executor::abi::getABIFunctionType(funcOp);
-        if (failed(abiFuncType))
-          return failure();
+    assert(funcOp && "expected function parent");
+    auto blockArg = cast<BlockArgument>(sendOp.getPtr());
+    unsigned outputIdx =
+        executor::abi::getOutputArgumentIndex(funcOp, blockArg);
+    executor::abi::updateABIOutputArgumentValueType(funcOp, outputIdx,
+                                                    *memrefType);
+    executor::ArgumentABIAttr abiAttr =
+        executor::abi::getArgumentABIAttr(funcOp, blockArg);
 
-        std::optional<unsigned> resultIdx =
-            executor::abi::isOutputArgument(funcOp, blockArg);
-        if (!resultIdx.has_value())
-          return failure();
+    const bool isUndef = abiAttr.getUndef();
+    if (!isUndef) {
+      auto recvOp = executor::abi::getOrCreateABIRecv(rewriter, funcOp,
+                                                      blockArg, *memrefType);
+      if (failed(
+              options.createMemCpy(rewriter, sendOp.getLoc(), *buffer, recvOp)))
+        return failure();
 
-        // Create a new ABI attribute with the memref type
-        auto abiAttr = executor::abi::getArgumentABIAttr(funcOp, blockArg);
-        if (!abiAttr)
-          return failure();
-        auto newAbiAttr = abiAttr.cloneWithValueType(memrefType);
-        executor::abi::setArgumentABIAttr(funcOp, blockArg, newAbiAttr);
-
-        // Update the ABI wrapper function type.
-        SmallVector<Type> newResultTypes(abiFuncType->getResults());
-        newResultTypes[resultIdx.value()] = memrefType;
-        auto newFuncType = FunctionType::get(
-            funcOp.getContext(), abiFuncType->getInputs(), newResultTypes);
-        funcOp->setAttr(executor::ExecutorDialect::kFuncABIAttrName,
-                        TypeAttr::get(newFuncType));
-
-        auto newSendOp = rewriter.create<executor::ABISendOp>(
-            sendOp.getLoc(), *buffer, sendOp.getPtr(), sendOp.getOwnership());
-
-        bufferization::replaceOpWithBufferizedValues(rewriter, op,
-                                                     {newSendOp.getResult()});
-        return success();
-      }
+      // Output buffers that are not 'undef' are not live-out since they are
+      // views into storage that is owned by the caller. Do not return any
+      // allocation. To retain the same type structure of the function, we
+      // insert a poison op.
+      auto poison =
+          rewriter.create<mlir::ub::PoisonOp>(sendOp.getLoc(), *memrefType);
+      bufferization::replaceOpWithBufferizedValues(rewriter, op,
+                                                   {poison.getResult()});
+      return success();
+    } else if (*memrefType != buffer->getType()) {
+      // Make sure the buffer has the required layout specified by the ABI.
+      FailureOr<Value> castOrCopy = bufferization::castOrReallocMemRefValue(
+          rewriter, *buffer, cast<MemRefType>(*memrefType), options);
+      if (failed(castOrCopy))
+        return failure();
+      buffer = *castOrCopy;
     }
 
-    return failure();
+    // Output arguments that are 'undef' are live-out since they are
+    // callee-allocated storage. Therefore, return the buffer. Later we will
+    // lower the return into storing the descriptor to the output argument.
+    bufferization::replaceOpWithBufferizedValues(rewriter, op, {*buffer});
+    return success();
   }
 };
 } // namespace
@@ -456,51 +461,20 @@ bufferizeABIWrapperFunctionType(FunctionOpInterface abiFuncOp,
   if (failed(abiFuncType))
     return failure();
 
-  SmallVector<Type> newArgTypes(abiFuncType->getInputs());
-  SmallVector<Type> newResultTypes(abiFuncType->getResults());
-  for (auto [idx, arg] : llvm::enumerate(abiFuncOp.getArguments())) {
-    const bool isInput = idx < abiFuncType->getNumInputs();
-    assert((isInput && idx < newArgTypes.size()) ||
-           (!isInput &&
-            idx - abiFuncType->getNumInputs() < newResultTypes.size()) &&
-               "function is not compatible with ABI function type attribute");
-    Type abiValueType = isInput
-                            ? newArgTypes[idx]
-                            : newResultTypes[idx - abiFuncType->getNumInputs()];
-
-    if (executor::ArgumentABIAttr abiAttr =
-            executor::abi::getArgumentABIAttr(abiFuncOp, idx)) {
-
-      // It's possible that if the argument is unused (e.g. no
-      // `executor.abi.recv|send` ops), then the ABI attribute will still have a
-      // `tensor` type. Fix that here.
-      if (auto tensorType =
-              dyn_cast<RankedTensorType>(abiAttr.getValueType())) {
-        std::optional<Attribute> memorySpace =
-            options.defaultMemorySpaceFn(tensorType);
-        if (!memorySpace)
-          return emitError(arg.getLoc())
-                 << "unable to determine the memory space for unused argument";
-        BaseMemRefType memrefType =
-            bufferization::getMemRefTypeWithStaticIdentityLayout(tensorType,
-                                                                 *memorySpace);
-        abiAttr = abiAttr.cloneWithValueType(memrefType);
-        executor::abi::setArgumentABIAttr(abiFuncOp, arg, abiAttr);
-      }
-
-      abiValueType = abiAttr.getValueType();
-    } else {
-      abiValueType = arg.getType();
-    }
-    if (isInput) {
-      newArgTypes[idx] = abiValueType;
-    } else {
-      newResultTypes[idx - abiFuncType->getNumInputs()] = abiValueType;
+  for (auto [i, argType] : enumerate(abiFuncType->getInputs())) {
+    if (auto tensorType = dyn_cast<RankedTensorType>(argType)) {
+      auto newType = bufferization::getMemRefTypeWithStaticIdentityLayout(
+          tensorType, *options.defaultMemorySpaceFn(tensorType));
+      abi::updateABIInputArgumentValueType(abiFuncOp, i, newType);
     }
   }
-  abiFuncOp->setAttr(executor::ExecutorDialect::kFuncABIAttrName,
-                     TypeAttr::get(FunctionType::get(
-                         abiFuncOp.getContext(), newArgTypes, newResultTypes)));
+  for (auto [i, resultType] : enumerate(abiFuncType->getResults())) {
+    if (auto tensorType = dyn_cast<RankedTensorType>(resultType)) {
+      auto newType = bufferization::getMemRefTypeWithStaticIdentityLayout(
+          tensorType, *options.defaultMemorySpaceFn(tensorType));
+      executor::abi::updateABIOutputArgumentValueType(abiFuncOp, i, newType);
+    }
+  }
   return success();
 }
 
