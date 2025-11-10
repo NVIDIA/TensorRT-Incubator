@@ -69,14 +69,15 @@ dropEquivalentFuncBufferResults(RewriterBase &rewriter, func::FuncOp funcOp,
   for (auto [idx, returnedValue] : llvm::enumerate(returnOp.getOperands())) {
 
     bool erased = false;
-    if (auto sendOp = returnedValue.getDefiningOp<executor::ABISendOp>()) {
+    if (auto sendOp = returnedValue.getDefiningOp<executor::ABISendOp>();
+        sendOp && isa<MemRefType>(sendOp.getValue().getType())) {
       Value val = lookBackThroughView(sendOp.getValue());
       if (val == sendOp.getPtr()) {
         resultToArgs[idx] = cast<BlockArgument>(sendOp.getPtr()).getArgNumber();
         erasedResultIndices.set(idx);
         continue;
       }
-      newReturnValues.push_back(sendOp.getValue());
+      newReturnValues.push_back(sendOp.getResult());
       continue;
     }
 

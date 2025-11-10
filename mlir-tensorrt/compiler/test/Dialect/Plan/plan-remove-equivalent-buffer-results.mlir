@@ -154,3 +154,19 @@ func.func @return_partial_dynamic(%arg0: memref<10x?xf32>)
 // CHECK: %[[CAST:.*]] = memref.cast
 // CHECK: return
 // CHECK-NOT: %[[CAST]]
+
+// -----
+
+func.func public @complex_returns(
+  %arg0: !executor.ptr<host> {executor.abi = #executor.arg<byval, complex<f32>>},
+  %arg1: !executor.ptr<host> {executor.abi = #executor.arg<byval, complex<f32>>},
+  %arg2: !executor.ptr<host> {executor.abi = #executor.arg<byref, complex<f32>>})
+   -> complex<f32> attributes {
+    executor.func_abi = (complex<f32>, complex<f32>) -> complex<f32>
+} {
+  %0 = executor.abi.recv %arg0 : complex<f32>
+  %1 = executor.abi.recv %arg1 : complex<f32>
+  %2 = complex.add %0, %1 : complex<f32>
+  %3 = executor.abi.send %2 to %arg2 : complex<f32>
+  return %3 : complex<f32>
+}
