@@ -167,3 +167,19 @@ func.func @func_b(%arg0: i32) -> i32 {
 // CHECK-SAME:    (memref<10xi32>) -> memref<5xf32>
 // CHECK-NOT:     executor.abi
 func.func private @external_func(memref<10xi32>) -> memref<5xf32>
+
+// -----
+
+// CHECK-LABEL: @complex_returns(
+// CHECK-SAME: %[[arg0:[a-z0-9]+]]: !executor.ptr<host> {executor.abi = #executor.arg<byval, complex<f32>>
+// CHECK-SAME: %[[arg1:[a-z0-9]+]]: !executor.ptr<host> {executor.abi = #executor.arg<byval, complex<f32>>
+// CHECK-SAME: %[[arg2:[a-z0-9]+]]: !executor.ptr<host> {executor.abi = #executor.arg<byref, complex<f32>>
+func.func @complex_returns(%arg0: complex<f32>, %arg1: complex<f32>) -> complex<f32> {
+  // CHECK:     %[[v0:.+]] = executor.abi.recv %[[arg0]] : complex<f32>
+  // CHECK:     %[[v1:.+]] = executor.abi.recv %[[arg1]] : complex<f32>
+  // CHECK:     %[[v2:.+]] = call @complex_returns_impl(%[[v0]], %[[v1]])
+  %0 = complex.add %arg0, %arg1 : complex<f32>
+  // CHECK:     %[[v3:.+]] = executor.abi.send %[[v2]] to %[[arg2]] : complex<f32>
+  // CHECK:     return %[[v3]] : complex<f32>
+  return %0 : complex<f32>
+}

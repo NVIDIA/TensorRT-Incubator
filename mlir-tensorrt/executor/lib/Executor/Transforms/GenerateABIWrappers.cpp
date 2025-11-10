@@ -125,7 +125,8 @@ createABISignature(FunctionOpInterface func,
   // Append the results arguments.
   SmallVector<Type> resultTypes;
   for (auto [idx, result] : llvm::enumerate(funcType.getResults())) {
-    if (!isScalarType(result) && !isa<MemRefType, RankedTensorType>(result))
+    if (!isScalarType(result) &&
+        !isa<MemRefType, RankedTensorType, ComplexType>(result))
       return emitError(func.getLoc())
              << "result type not supported by the Executor runtime ABI: "
              << result;
