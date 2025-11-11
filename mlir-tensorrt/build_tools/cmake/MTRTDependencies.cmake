@@ -57,8 +57,8 @@ macro(configure_tensorrt_python_plugin_header)
     find_file(
       trt_python_plugin_header
       NAMES NvInferPythonPlugin.h plugin.h
-      HINTS ${ARG_INSTALL_DIR} ${ARG_INSTALL_DIR}/python/include/impl
-      PATHS ${ARG_INSTALL_DIR} ${ARG_INSTALL_DIR}/python/include/impl
+      HINTS ${ARG_INSTALL_DIR} ${ARG_INSTALL_DIR}/python/include/impl ${ARG_INSTALL_DIR}/include/impl
+      PATHS ${ARG_INSTALL_DIR} ${ARG_INSTALL_DIR}/python/include/impl ${ARG_INSTALL_DIR}/include/impl
       REQUIRED
       NO_CMAKE_PATH NO_DEFAULT_PATH
       NO_CACHE

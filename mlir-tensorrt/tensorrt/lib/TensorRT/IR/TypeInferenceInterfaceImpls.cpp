@@ -1633,3 +1633,21 @@ LogicalResult tensorrt::DequantizeOp::inferReturnTypeComponents(
                                     /*elementType=*/nullptr);
   return success();
 }
+
+//===----------------------------------------------------------------------===//
+// AttentionOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult tensorrt::AttentionOp::inferReturnTypeComponents(
+    MLIRContext *ctx, std::optional<Location> loc, ValueShapeRange operands,
+    DictionaryAttr attributes, OpaqueProperties properties, RegionRange regions,
+    SmallVectorImpl<ShapedTypeComponents> &inferredReturnShapes) {
+  AttentionOp::Adaptor adaptor(operands, attributes, properties, regions);
+  auto queryType = dyn_cast<RankedTensorType>(adaptor.getQuery().getType());
+  if (!queryType)
+    return emitOptionalError(loc, "expected query to be a ranked tensor");
+  inferredReturnShapes.emplace_back(
+      /*vec=*/queryType.getShape(),
+      /*elementType=*/queryType.getElementType());
+  return success();
+}

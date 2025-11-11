@@ -100,6 +100,20 @@
         "MLIR_TRT_ENABLE_NCCL": "OFF",
         "MLIR_TRT_DOWNLOAD_TENSORRT_VERSION": "$env{DOWNLOAD_TENSORRT_VERSION}"
       }
+    },
+    {
+      "name": "python-wheel-build",
+      "displayName": "Configuration for building the compiler/runtime Python package wheels",
+      "generator": "Ninja",
+      "binaryDir": "build",
+      "inherits": "ninja-llvm",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "LLVM_ENABLE_ASSERTIONS": "OFF",
+        "CMAKE_PLATFORM_NO_VERSIONED_SONAME": "ON",
+        "MLIR_TRT_ENABLE_NCCL": "OFF",
+        "MLIR_TRT_DOWNLOAD_TENSORRT_VERSION": "$env{DOWNLOAD_TENSORRT_VERSION}"
+      }
     }
   ]
 }
