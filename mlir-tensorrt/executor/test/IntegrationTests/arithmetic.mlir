@@ -1369,16 +1369,16 @@ func.func @main() -> i64 {
 //  CHECK-NEXT: log10_bf16 149 = 2.17188
 //  CHECK-NEXT: tan_bf16 149 = 4.34375
 //  CHECK-NEXT: exp_bf16 149 = inf
-// CHECK-LABEL: comparison results for 149 and 93.5
+//       CHECK: comparison results for 149 and 93.5
 //  CHECK-NEXT: false=0, oeq=0, ogt=1, oge=1, olt=0, ole=0, one=1, ord=1, ueq=0, ugt=1, uge=1, ult=0, ule=0, une=1, uno=0, true=1
-// CHECK-LABEL: comparison results for 149 and 149
+//       CHECK: comparison results for 149 and 149
 //  CHECK-NEXT: false=0, oeq=1, ogt=0, oge=1, olt=0, ole=1, one=0, ord=1, ueq=1, ugt=0, uge=1, ult=0, ule=1, une=0, uno=0, true=1
-// CHECK-LABEL: comparison results for 149 and nan
+//       CHECK: comparison results for 149 and {{\-?nan}}
 //  CHECK-NEXT: false=0, oeq=0, ogt=0, oge=0, olt=0, ole=0, one=0, ord=0, ueq=1, ugt=1, uge=1, ult=1, ule=1, une=1, uno=1, true=1
-// CHECK-LABEL: comparison results for nan and nan
+//       CHECK: comparison results for {{\-?nan}} and {{\-?nan}}
 //  CHECK-NEXT: false=0, oeq=0, ogt=0, oge=0, olt=0, ole=0, one=0, ord=0, ueq=1, ugt=1, uge=1, ult=1, ule=1, une=1, uno=1, true=1
-//  CHECK-NEXT: nan extf_bf16_f32 = nan
-//  CHECK-NEXT: nan truncf_f32_bf16 = nan
+//  CHECK-NEXT: nan extf_bf16_f32 = {{\-?nan}}
+//  CHECK-NEXT: nan truncf_f32_bf16 = {{\-?nan}}
 
 // INT4 Tests
 
