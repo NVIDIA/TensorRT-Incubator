@@ -90,12 +90,6 @@ void mtrt::compiler::buildStablehloPreProcessingPipeline(
   // - Convert `stablehlo.optimization_barrier` to `plan.optimization_barrier`.
   pm.addPass(createConvertStablehloToPlanPass());
 
-  // `stablehlo-ext-raise-qdq`:
-  // - Some match-and-raise patterns for Q/DQ that
-  //   should be performed before canonicalization
-  //   since the pattern is based on specific frontend patterns (e.g. JAX).
-  pm.addNestedPass<func::FuncOp>(stablehlo_ext::createStablehloRaiseQDQPass());
-
   // `convert-stablehlo-to-scf`:
   if (opts.legalizeControlFlowToSCF) {
     pm.addNestedPass<func::FuncOp>(mlir::createConvertStablehloToScfPass());

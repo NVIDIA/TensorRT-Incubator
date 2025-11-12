@@ -13,7 +13,7 @@ import setuptools
 import subprocess
 import atexit
 
-TENSORRT_VERSION = os.getenv("MLIR_TRT_DOWNLOAD_TENSORRT_VERSION", "10.12")
+TENSORRT_VERSION = os.getenv("MTRT_TENSORRT_VERSION", "10.12")
 
 
 def log(*args):
@@ -104,7 +104,7 @@ def run_cmake_build(python_package_name: str, python_wheel_staging_dir: Path):
     project_root = Path(__file__).parent.parent.parent.resolve()
 
     # Environment variable overrides
-    cmake_preset = os.environ.get("MLIR_TRT_CMAKE_PRESET", "python-wheel-build")
+    cmake_preset = os.environ.get("MLIR_TRT_CMAKE_PRESET", "distribution-wheels")
     install_prefix = os.environ.get("MLIR_TRT_INSTALL_DIR", None)
     build_dir = os.environ.get("MLIR_TRT_BUILD_DIR", None)
     parallel_jobs = os.environ.get("MLIR_TRT_PARALLEL_JOBS", str(os.cpu_count() or 1))
@@ -127,9 +127,6 @@ def run_cmake_build(python_package_name: str, python_wheel_staging_dir: Path):
         cmake_options.append(
             f'-DMLIR_TRT_ENABLE_CUBLAS={os.environ["MLIR_TRT_ENABLE_CUBLAS"]}'
         )
-
-    # Override TensorRT version if specified
-    cmake_options.append(f"-DMLIR_TRT_DOWNLOAD_TENSORRT_VERSION={TENSORRT_VERSION}")
 
     # Create temporary directories for build and install
     cleanup_install = True
