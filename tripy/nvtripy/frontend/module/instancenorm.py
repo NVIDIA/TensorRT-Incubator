@@ -17,15 +17,15 @@
 
 from dataclasses import dataclass
 
-from nvtripy import constants, export, utils
+from nvtripy import constants, export
 from nvtripy.common import datatype
 from nvtripy.common.exception import raise_error
+from nvtripy.frontend import wrappers
 from nvtripy.frontend.module.module import Module
 from nvtripy.frontend.module.parameter import DefaultParameter
-from nvtripy.frontend.tensor import Tensor
-
 from nvtripy.frontend.ops import utils as op_utils
-from nvtripy.utils import wrappers
+from nvtripy.frontend.tensor import Tensor
+from nvtripy.frontend.wrappers import constant_fields
 from nvtripy.trace.ops.instancenorm import InstanceNorm as InstanceNormOp
 
 
@@ -81,7 +81,7 @@ def instancenorm(
 
 @export.public_api(document_under="operations/modules")
 @dataclass
-@utils.wrappers.constant_fields(["num_channels", "dtype", "eps"])
+@constant_fields(["num_channels", "dtype", "eps"])
 class InstanceNorm(Module):
     r"""
     Applies Instance Normalization over a mini-batch of inputs:

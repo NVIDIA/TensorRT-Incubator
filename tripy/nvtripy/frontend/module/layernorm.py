@@ -21,12 +21,12 @@ from typing import Sequence, Union
 from nvtripy import export, utils
 from nvtripy.common import datatype
 from nvtripy.common.exception import raise_error
+from nvtripy.frontend import wrappers
 from nvtripy.frontend.module.module import Module
 from nvtripy.frontend.module.parameter import DefaultParameter
-from nvtripy.frontend.tensor import Tensor
-
 from nvtripy.frontend.ops import utils as op_utils
-from nvtripy.utils import wrappers
+from nvtripy.frontend.tensor import Tensor
+from nvtripy.frontend.wrappers import constant_fields
 from nvtripy.trace.ops.layernorm import LayerNorm as LayerNormOp
 
 
@@ -70,7 +70,7 @@ def layernorm(
 
 @export.public_api(document_under="operations/modules")
 @dataclass
-@utils.wrappers.constant_fields(["dtype", "normalized_shape"])
+@constant_fields(["dtype", "normalized_shape"])
 class LayerNorm(Module):
     r"""
     Applies layer normalization over the input tensor:
