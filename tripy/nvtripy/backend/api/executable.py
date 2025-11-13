@@ -46,7 +46,7 @@ class Executable:
         arg_names,
         return_single_tensor_as_sequence: bool,
         input_infos: Dict[str, Union[InputInfo, DimensionInputInfo]],
-        leaf_names_by_arg: Dict[str, Sequence[str]],
+        access_plan_by_name: Dict[str, Tuple[str, Tuple[Union[str, int], ...]]],
     ):
         self._executable = executable
 
@@ -79,7 +79,23 @@ class Executable:
         Stores metadata, like shapes and data types, for each input to the executable.
         """
 
-        self._leaf_names_by_arg = leaf_names_by_arg
+        # Build accessor map from compile-time access plans
+        self._accessor_map: Dict[str, callable] = {}
+        name_to_index = {name: idx for idx, name in enumerate(self._arg_names)}
+
+        def make_accessor(arg_index: int, steps: Tuple[Union[str, int], ...]):
+            def accessor(inputs, idx=arg_index, stps=steps):
+                v = inputs[idx]
+                for s in stps:
+                    v = v[s]
+                return v
+
+            return accessor
+
+        self._access_plan_by_name = access_plan_by_name
+        for leaf_name, (arg_name, steps) in self._access_plan_by_name.items():
+            idx = name_to_index[arg_name]
+            self._accessor_map[leaf_name] = make_accessor(idx, steps)
 
     def __str__(self) -> str:
         params = [
@@ -198,46 +214,20 @@ class Executable:
                 ],
             )
 
-        # Build a name->tensor map using precomputed leaf names to avoid unnecessary recursion
+        # Fetch flattened tensors directly via accessors
         input_info_names = list(self.input_infos.keys())
-        name_to_tensor: Dict[str, Tensor] = {}
-
-        def extract_recursive(value, name_prefix, allowed_names):
-            if name_prefix in allowed_names:
-                name_to_tensor[name_prefix] = value
-                return
-            if isinstance(value, dict):
-                for key, item in value.items():
-                    nested_name = f"{name_prefix}.{key}"
-                    extract_recursive(item, nested_name, allowed_names)
-            elif isinstance(value, (list, tuple)):
-                for idx, item in enumerate(value):
-                    nested_name = f"{name_prefix}[{idx}]"
-                    extract_recursive(item, nested_name, allowed_names)
-            else:
-                return
-
-        for name_idx, tensor in enumerate(input_tensors):
-            arg_name = self._arg_names[name_idx]
-            # Fast path: direct leaf input
-            if arg_name in self.input_infos:
-                name_to_tensor[arg_name] = tensor
-                continue
-            # If this arg has no compiled leaves beneath it, skip any recursion
-            allowed = self._leaf_names_by_arg.get(arg_name)
-            if not allowed:
-                continue
-            extract_recursive(tensor, arg_name, set(allowed))
-        try:
-            flattened_tensors = [name_to_tensor[name] for name in input_info_names]
-        except KeyError as missing:
-            raise_error(
-                f"Missing runtime tensor for input `{missing.args[0]}`.",
-                [
-                    "Ensure your provided containers include tensors for all compiled inputs.",
-                    f"Expected inputs: {input_info_names}",
-                ],
-            )
+        flattened_tensors = []
+        for name in input_info_names:
+            try:
+                flattened_tensors.append(self._accessor_map[name](input_tensors))
+            except Exception:
+                raise_error(
+                    f"Missing runtime tensor for input `{name}`.",
+                    [
+                        "Ensure your provided collections include tensors for all compiled inputs.",
+                        f"Expected inputs: {input_info_names}",
+                    ],
+                )
         expected_devices = ["gpu" if isinstance(info, InputInfo) else "cpu" for info in self.input_infos.values()]
 
         # Validate flattened tensors against input_infos
@@ -398,7 +388,7 @@ def encode_executable(executable):
         "executable": base64.b64encode(executable._executable.serialize()).decode(),
         "_return_single_tensor_as_sequence": executable._return_single_tensor_as_sequence,
         "input_infos": executable.input_infos,
-        "leaf_names_by_arg": executable._leaf_names_by_arg,
+        "access_plan_by_name": executable._access_plan_by_name,
     }
 
 
@@ -410,5 +400,5 @@ def decode_executable(executable_dict):
         executable_dict["arg_names"],
         return_single_tensor_as_sequence=executable_dict["_return_single_tensor_as_sequence"],
         input_infos=executable_dict["input_infos"],
-        leaf_names_by_arg=executable_dict.get("leaf_names_by_arg"),
+        access_plan_by_name=executable_dict["access_plan_by_name"],
     )

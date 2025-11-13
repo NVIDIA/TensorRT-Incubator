@@ -157,6 +157,7 @@ def compile(
     input_names = set()
     input_infos = {}
     trace_inputs = []  # flattened list of trace input tensors in argument order
+    access_plan_by_name: Dict[str, tuple] = {}
 
     # Set up names for the weights in the module to make the trace easier to read.
     if isinstance(func, Module):
@@ -207,10 +208,12 @@ def compile(
 
         return arg
 
-    def process_arg_and_flag(name, arg):
+    def process_arg_and_flag(top_arg_name, name, arg, steps):
         # Handle individual InputInfo or DimensionInputInfo objects
         if isinstance(arg, (InputInfo, DimensionInputInfo)):
-            return process_arg_input_info(name, arg), True
+            tensor_or_dim = process_arg_input_info(name, arg)
+            access_plan_by_name[name] = (top_arg_name, tuple(steps))
+            return tensor_or_dim, True
 
         # Handle containers of InputInfo objects
         if isinstance(arg, dict):
@@ -218,7 +221,9 @@ def compile(
             has_input = False
             for key, value in arg.items():
                 nested_name = f"{name}.{key}"
-                processed_child, child_has_input = process_arg_and_flag(nested_name, value)
+                processed_child, child_has_input = process_arg_and_flag(
+                    top_arg_name, nested_name, value, (*steps, str(key))
+                )
                 result[key] = processed_child
                 has_input = has_input or child_has_input
             return result, has_input
@@ -227,7 +232,7 @@ def compile(
             has_input = False
             for idx, value in enumerate(arg):
                 nested_name = f"{name}[{idx}]"
-                processed_child, child_has_input = process_arg_and_flag(nested_name, value)
+                processed_child, child_has_input = process_arg_and_flag(top_arg_name, nested_name, value, (*steps, idx))
                 result_list.append(processed_child)
                 has_input = has_input or child_has_input
             return type(arg)(result_list), has_input  # preserve sequence type
@@ -235,7 +240,7 @@ def compile(
         return arg, False
 
     def process_arg(name, arg):
-        processed, has_input = process_arg_and_flag(name, arg)
+        processed, has_input = process_arg_and_flag(name, name, arg, ())
         if has_input:
             input_names.add(name)
         return processed
@@ -317,21 +322,10 @@ def compile(
         func_out, Sequence
     ), "This function is only implemented for Tensors or sequences of Tensors"
 
-    # Group leaf input names by top-level argument for efficient runtime extraction
-    leaf_names_by_arg = {}
-    leaf_names = list(input_infos.keys())
-    for arg_name in compiled_arg_names:
-        matching = [
-            leaf
-            for leaf in leaf_names
-            if leaf == arg_name or leaf.startswith(f"{arg_name}.") or leaf.startswith(f"{arg_name}[")
-        ]
-        leaf_names_by_arg[arg_name] = matching
-
     return Executable(
         executable,
         compiled_arg_names,
         return_single_tensor_as_sequence=isinstance(func_out, Sequence),
         input_infos=input_infos,
-        leaf_names_by_arg=leaf_names_by_arg,
+        access_plan_by_name=access_plan_by_name,
     )
