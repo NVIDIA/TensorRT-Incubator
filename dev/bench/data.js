@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1761872402666,
+  "lastUpdate": 1763011148618,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -15447,6 +15447,61 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000002112924745626823",
             "extra": "mean: 56.07668788242552 usec\nrounds: 18508"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "0af235961117c3b1f1ef38935241a821c2d26bf8",
+          "message": "#343: Support collections of tensors in args/kwargs for compile",
+          "timestamp": "2025-11-07T22:29:50Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/701/commits/0af235961117c3b1f1ef38935241a821c2d26bf8"
+        },
+        "date": 1763011147888,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 7340.879547183601,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000026612277727955192",
+            "extra": "mean: 136.22345845242202 usec\nrounds: 7709"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 7793.708788117726,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00002536966905743666",
+            "extra": "mean: 128.30861752553523 usec\nrounds: 8340"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[sdpa-float32]",
+            "value": 1114.0029317097353,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0006271477639149813",
+            "extra": "mean: 897.6637058443217 usec\nrounds: 1249"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[sdpa-float16]",
+            "value": 3360.963738145152,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00012085642413927204",
+            "extra": "mean: 297.5337069693824 usec\nrounds: 3546"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_tripy_param_update",
+            "value": 18175.220001887043,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000024750190331064516",
+            "extra": "mean: 55.01996674021965 usec\nrounds: 18923"
           }
         ]
       }
