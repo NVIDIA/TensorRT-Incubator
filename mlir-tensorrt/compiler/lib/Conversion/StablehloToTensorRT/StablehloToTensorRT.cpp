@@ -4181,6 +4181,15 @@ public:
                                         std::move(patterns))))
         return signalPassFailure();
     }
+
+    // Clean up unused decomposition functions that were referenced by
+    // stablehlo.composite ops but are no longer needed after conversion.
+    getOperation()->walk([](func::FuncOp funcOp) {
+      if (funcOp.isPrivate() && funcOp->hasAttr("plan.decomposition") &&
+          funcOp.use_empty()) {
+        funcOp.erase();
+      }
+    });
   }
 };
 } // namespace
