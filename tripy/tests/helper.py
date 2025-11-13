@@ -275,6 +275,7 @@ AVAILABLE_MARKERS = {
     # Marks an entire block as being expected to fail.
     "test: xfail": Marker.from_name("TEST: XFAIL"),
     # Marks that a block contains the expected output from the immediate previous block.
+    # Used by example tests to verify correctness.
     "test: expected_stdout": Marker.from_name("TEST: EXPECTED_STDOUT"),
     # Marks that a block should be run under pytest.
     "test: use_pytest": Marker.from_name("TEST: USE_PYTEST"),
@@ -282,7 +283,9 @@ AVAILABLE_MARKERS = {
     "example: if_fp8": Marker.from_name("EXAMPLE: IF_FP8"),
     # Indicates that a block should be omitted from the rendered documentation. Such blocks may still be evaluated.
     "doc: omit": Marker.from_name("DOC: OMIT"),
-    # Indicates that a block should not be evaluated for the documentation.
+    # Indicates that a block of Python code should not be evaluated OR formatted for the documentation.
+    # If you would like to format but not evaluate, add a `# doc: no-eval` tag to the code block instead.
+    # For non-Python code, formatting is not performed anyway, so you should always use this marker instead of `# doc: no-eval`.
     "doc: no_eval_or_format": Marker.from_name("DOC: NO_EVAL_OR_FORMAT"),
     # Indicates that local variables should not be displayed for a code block in the documentation.
     # Useful when the raw code block is also publicly visible and we don't want inline markers (e.g. in the main README.md).
