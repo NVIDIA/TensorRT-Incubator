@@ -22,7 +22,9 @@
 	],
 	"remoteEnv": {
 		"SHELL": "${localEnv:SHELL:/bin/bash}",
-		"ZSH": "/home/${localEnv:USER}/.oh-my-zsh"
+		"ZSH": "/home/${localEnv:USER}/.oh-my-zsh",
+		"PYTHONPATH": "/workspaces/TensorRT-Incubator/tripy:${localEnv:PYTHONPATH}",
+		"PATH": "/usr/local/bin/:${localEnv:PATH}"
 	},
 	"remoteUser": "${localEnv:USER}",
 	"forwardPorts": [
