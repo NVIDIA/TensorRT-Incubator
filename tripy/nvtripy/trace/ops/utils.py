@@ -70,3 +70,34 @@ def get_broadcast_in_dim(input_rank: int, output_rank: int) -> List[int]:
 
     assert len(broadcast_dimensions) == input_rank
     return broadcast_dimensions
+
+
+##
+## Datatype conversion
+##
+
+
+def get_trt_dtype_enum_str(dtype: "nvtripy.dtype") -> str:
+    """
+    Converts a tripy datatype to its corresponding TensorRT DataType enum string.
+
+    Args:
+        dtype: A tripy datatype
+
+    Returns:
+        The TensorRT DataType enum string (e.g., "kFP8", "kINT8")
+    """
+    from nvtripy.common import datatype
+
+    TRIPY_DTYPE_TO_TRT_ENUM = {
+        datatype.float32: "kFLOAT",
+        datatype.float16: "kHALF",
+        datatype.int8: "kINT8",
+        datatype.int32: "kINT32",
+        datatype.bool: "kBOOL",
+        datatype.float8: "kFP8",
+        datatype.bfloat16: "kBF16",
+        datatype.int64: "kINT64",
+        datatype.int4: "kINT4",
+    }
+    return TRIPY_DTYPE_TO_TRT_ENUM[dtype]
