@@ -84,9 +84,9 @@ class Executable:
         name_to_index = {name: idx for idx, name in enumerate(self._arg_names)}
 
         def make_accessor(arg_index: int, steps: Tuple[Union[str, int], ...]):
-            def accessor(inputs, idx=arg_index, stps=steps):
-                v = inputs[idx]
-                for s in stps:
+            def accessor(inputs):
+                v = inputs[arg_index]
+                for s in steps:
                     v = v[s]
                 return v
 
@@ -220,12 +220,13 @@ class Executable:
         for name in input_info_names:
             try:
                 flattened_tensors.append(self._accessor_map[name](input_tensors))
-            except Exception:
+            except Exception as exc:
                 raise_error(
                     f"Missing runtime tensor for input `{name}`.",
                     [
                         "Ensure your provided collections include tensors for all compiled inputs.",
                         f"Expected inputs: {input_info_names}",
+                        f"Note: Error was:\n{exc}",
                     ],
                 )
         expected_devices = ["gpu" if isinstance(info, InputInfo) else "cpu" for info in self.input_infos.values()]

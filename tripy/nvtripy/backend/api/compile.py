@@ -240,7 +240,7 @@ def compile(
         return arg, False
 
     def process_arg(name, arg):
-        processed, has_input = process_arg_and_flag(name, name, arg, ())
+        processed, has_input = process_arg_and_flag(name, name, arg, tuple())
         if has_input:
             input_names.add(name)
         return processed
