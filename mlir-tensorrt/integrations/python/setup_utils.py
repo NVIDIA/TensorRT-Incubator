@@ -13,7 +13,7 @@ import setuptools
 import subprocess
 import atexit
 
-TENSORRT_VERSION = os.getenv("MLIR_TRT_DOWNLOAD_TENSORRT_VERSION", "10.12")
+TENSORRT_VERSION = os.getenv("MLIR_TRT_DOWNLOAD_TENSORRT_VERSION", "10.14")
 
 
 def log(*args):
@@ -105,8 +105,8 @@ def run_cmake_build(python_package_name: str, python_wheel_staging_dir: Path):
 
     # Environment variable overrides
     cmake_preset = os.environ.get("MLIR_TRT_CMAKE_PRESET", "python-wheel-build")
-    install_prefix = os.environ.get("MLIR_TRT_INSTALL_DIR", None)
-    build_dir = os.environ.get("MLIR_TRT_BUILD_DIR", None)
+    install_prefix = os.environ.get("MLIR_TRT_INSTALL_DIR", "./install")
+    build_dir = os.environ.get("MLIR_TRT_BUILD_DIR", "./build")
     parallel_jobs = os.environ.get("MLIR_TRT_PARALLEL_JOBS", str(os.cpu_count() or 1))
 
     # Additional CMake options from environment
