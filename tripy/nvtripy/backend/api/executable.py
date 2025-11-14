@@ -46,6 +46,7 @@ class Executable:
         arg_names,
         return_single_tensor_as_sequence: bool,
         input_infos: Dict[str, Union[InputInfo, DimensionInputInfo]],
+        access_plan_by_name: Dict[str, Tuple[str, Tuple[Union[str, int], ...]]],
     ):
         self._executable = executable
 
@@ -77,6 +78,24 @@ class Executable:
         """
         Stores metadata, like shapes and data types, for each input to the executable.
         """
+
+        # Build accessor map from compile-time access plans
+        self._accessor_map: Dict[str, callable] = {}
+        name_to_index = {name: idx for idx, name in enumerate(self._arg_names)}
+
+        def make_accessor(arg_index: int, steps: Tuple[Union[str, int], ...]):
+            def accessor(inputs):
+                v = inputs[arg_index]
+                for s in steps:
+                    v = v[s]
+                return v
+
+            return accessor
+
+        self._access_plan_by_name = access_plan_by_name
+        for leaf_name, (arg_name, steps) in self._access_plan_by_name.items():
+            idx = name_to_index[arg_name]
+            self._accessor_map[leaf_name] = make_accessor(idx, steps)
 
     def __str__(self) -> str:
         params = [
@@ -195,20 +214,42 @@ class Executable:
                 ],
             )
 
+        # Fetch flattened tensors directly via accessors
+        input_info_names = list(self.input_infos.keys())
+        flattened_tensors = []
+        for name in input_info_names:
+            try:
+                flattened_tensors.append(self._accessor_map[name](input_tensors))
+            except Exception as exc:
+                raise_error(
+                    f"Missing runtime tensor for input `{name}`.",
+                    [
+                        "Ensure your provided collections include tensors for all compiled inputs.",
+                        f"Expected inputs: {input_info_names}",
+                        f"Note: Error was:\n{exc}",
+                    ],
+                )
         expected_devices = ["gpu" if isinstance(info, InputInfo) else "cpu" for info in self.input_infos.values()]
-        for tensor, expected_device, arg_name in zip(input_tensors, expected_devices, self._arg_names):
+
+        # Validate flattened tensors against input_infos
+        if len(flattened_tensors) != len(expected_devices):
+            raise_error(
+                f"Mismatch between number of flattened tensors ({len(flattened_tensors)}) and expected inputs ({len(expected_devices)})."
+            )
+
+        for tensor, expected_device, info_name in zip(flattened_tensors, expected_devices, self.input_infos.keys()):
             producer = tensor.trace_tensor.producer
             if not isinstance(producer, Constant):
-                raise_error(f"Tensor `{arg_name}` is not evaluated.", ["Hint: Try calling `.eval()` on the tensor."])
+                raise_error(f"Tensor `{info_name}` is not evaluated.", ["Hint: Try calling `.eval()` on the tensor."])
             if tensor.device.kind != expected_device:
                 raise_error(
                     "Unexpected tensor device.",
                     [
-                        f"For tensor: `{arg_name}`, expected to be on device: {expected_device} but got: {tensor.device.kind}.\n",
+                        f"For tensor: `{info_name}`, expected to be on device: {expected_device} but got: {tensor.device.kind}.\n",
                     ],
                 )
 
-        input_memrefs = [inp.trace_tensor.producer.data for inp in input_tensors]
+        input_memrefs = [inp.trace_tensor.producer.data for inp in flattened_tensors]
         try:
             output_memrefs = self._session.execute_function(
                 "main", in_args=input_memrefs, stream=self.stream._active_cuda_stream, client=self._runtime_client
@@ -222,7 +263,7 @@ class Executable:
                 expected_input_dtypes = [
                     info.dtype if isinstance(info, InputInfo) else int32 for info in self.input_infos.values()
                 ]
-                for tensor, dtype, arg_name in zip(input_tensors, expected_input_dtypes, self._arg_names):
+                for tensor, dtype, arg_name in zip(flattened_tensors, expected_input_dtypes, self.input_infos.keys()):
                     if tensor.dtype != dtype:
                         raise_error(
                             f"Unexpected tensor data type.",
@@ -237,7 +278,9 @@ class Executable:
                 expected_input_shapes = [
                     info.shape_bounds if isinstance(info, InputInfo) else tuple() for info in self.input_infos.values()
                 ]
-                for tensor, expected_bounds, arg_name in zip(input_tensors, expected_input_shapes, self._arg_names):
+                for tensor, expected_bounds, arg_name in zip(
+                    flattened_tensors, expected_input_shapes, self.input_infos.keys()
+                ):
                     shape = tensor.shape
 
                     if len(shape) != len(expected_bounds.min):
@@ -346,6 +389,7 @@ def encode_executable(executable):
         "executable": base64.b64encode(executable._executable.serialize()).decode(),
         "_return_single_tensor_as_sequence": executable._return_single_tensor_as_sequence,
         "input_infos": executable.input_infos,
+        "access_plan_by_name": executable._access_plan_by_name,
     }
 
 
@@ -357,4 +401,5 @@ def decode_executable(executable_dict):
         executable_dict["arg_names"],
         return_single_tensor_as_sequence=executable_dict["_return_single_tensor_as_sequence"],
         input_infos=executable_dict["input_infos"],
+        access_plan_by_name=executable_dict["access_plan_by_name"],
     )
