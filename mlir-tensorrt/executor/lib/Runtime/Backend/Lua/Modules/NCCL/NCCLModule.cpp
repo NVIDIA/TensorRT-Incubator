@@ -118,7 +118,7 @@ static void destroyNcclCommunicator(uintptr_t ptr) {
     if (!waitStatus.isOk()) {
       llvm::errs() << "Error while waiting for NCCL communicator to be ready "
                       "prior to finalizing: "
-                   << waitStatus.getString() << "\n";
+                   << waitStatus.getStatus().getMessage() << "\n";
     }
     ncclResult_t ncclErr;
     ncclErr = ncclCommDestroy(obj->comm);

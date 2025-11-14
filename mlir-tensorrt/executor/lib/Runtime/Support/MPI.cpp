@@ -71,7 +71,7 @@ MPIManager::~MPIManager() {
   int status = MPI_Finalize();
   if (status != MPI_SUCCESS) {
     Status result = getMPIErrorStatus("MPI_Finalize failed", status);
-    llvm::errs() << result.getString() << "\n";
+    llvm::errs() << result.getStatus().getMessage() << "\n";
   }
 }
 
