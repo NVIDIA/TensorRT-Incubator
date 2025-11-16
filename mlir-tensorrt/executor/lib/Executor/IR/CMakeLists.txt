@@ -11,15 +11,16 @@ add_mlir_executor_library(MLIRTensorRTExecutorDialect
   MLIRTensorRTExecutorDialectAttributesIncGen
 
   MLIR_LIBS PUBLIC
-    MLIRIR
+    MLIRCastInterfaces
+    MLIRControlFlowInterfaces
     MLIRDialect
-    MLIRSupport
+    MLIRDialectUtils
+    MLIRDLTIDialect
     MLIRFuncDialect
     MLIRInferTypeOpInterface
-    MLIRControlFlowInterfaces
+    MLIRIR
     MLIRMemorySlotInterfaces
-    MLIRUBDialect
-    MLIRDLTIDialect
+    MLIRSupport
     MLIRTransformUtils
-    MLIRDialectUtils
+    MLIRUBDialect
 )

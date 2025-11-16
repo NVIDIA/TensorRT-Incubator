@@ -20,6 +20,7 @@
 #include "mlir-executor/Executor/IR/Executor.h"
 #include "mlir-executor/Executor/IR/ExecutorAttributes.h"
 #include "mlir/Dialect/CommonFolders.h"
+#include "mlir/Dialect/Complex/IR/Complex.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/GPU/IR/GPUDialect.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
@@ -31,6 +32,7 @@
 #include "mlir/IR/OperationSupport.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/SymbolTable.h"
+#include "mlir/Interfaces/CastInterfaces.h"
 #include "mlir/Interfaces/DataLayoutInterfaces.h"
 #include "mlir/Interfaces/FunctionImplementation.h"
 #include "mlir/Interfaces/FunctionInterfaces.h"
@@ -1548,6 +1550,105 @@ void CallPluginOp::getEffects(
       effects.emplace_back(MemoryEffects::Write::get(), &output,
                            SideEffects::DefaultResource::get());
   }
+}
+
+//===----------------------------------------------------------------------===//
+// BufferBitcastOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult BufferBitcastOp::verify() {
+  Type inputType = getSource().getType();
+  Type outputType = getResult().getType();
+  if (!areCastCompatible({inputType}, {outputType}))
+    return emitOpError() << "source and result types are not compatible: "
+                         << inputType << " vs " << outputType;
+  return success();
+}
+
+Value BufferBitcastOp::getViewSource() { return getSource(); }
+
+OpFoldResult BufferBitcastOp::fold(FoldAdaptor adaptor) {
+  // Fold identity casts (same input and output type)
+  if (getSource().getType() == getResult().getType())
+    return getSource();
+  if (auto producer = getSource().getDefiningOp<BufferBitcastOp>();
+      producer && producer.getSource().getType() == getResult().getType())
+    return producer.getSource();
+  return {};
+}
+
+namespace {
+struct CombineSequentialBitcastPattern
+    : public OpRewritePattern<BufferBitcastOp> {
+  using OpRewritePattern::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(BufferBitcastOp op,
+                                PatternRewriter &rewriter) const override {
+    auto producer = op.getSource().getDefiningOp<BufferBitcastOp>();
+    if (!producer)
+      return failure();
+    rewriter.replaceOpWithNewOp<BufferBitcastOp>(op, op.getResult().getType(),
+                                                 producer.getSource());
+    return success();
+  }
+};
+} // namespace
+
+void BufferBitcastOp::getCanonicalizationPatterns(RewritePatternSet &results,
+                                                  MLIRContext *context) {
+  results.add<CombineSequentialBitcastPattern>(context);
+}
+
+bool BufferBitcastOp::areCastCompatible(TypeRange inputs, TypeRange outputs) {
+  if (inputs.size() != 1 || outputs.size() != 1)
+    return false;
+
+  Type inputType = inputs.front();
+  Type outputType = outputs.front();
+
+  // Both must be shaped types (tensor or memref)
+  auto inputShapedType = dyn_cast<ShapedType>(inputType);
+  auto outputShapedType = dyn_cast<ShapedType>(outputType);
+  if (!inputShapedType || !outputShapedType)
+    return false;
+
+  if (inputShapedType == outputShapedType)
+    return true;
+
+  Type inputElemType = inputShapedType.getElementType();
+  Type outputElemType = outputShapedType.getElementType();
+
+  // Handle complex<f32> <-> f32 casting with shape adjustment
+  auto inputComplexType = dyn_cast<ComplexType>(inputElemType);
+  auto outputComplexType = dyn_cast<ComplexType>(outputElemType);
+
+  // Check if we have a complex-to-float or float-to-complex conversion
+  // (exactly one must be complex)
+  if ((inputComplexType != nullptr) != (outputComplexType != nullptr)) {
+    ComplexType complexType =
+        inputComplexType ? inputComplexType : outputComplexType;
+    Type floatType = inputComplexType ? outputElemType : inputElemType;
+
+    // Verify the complex element type matches the float type
+    if (!llvm::isa<FloatType>(complexType.getElementType()) ||
+        !llvm::isa<IntegerType>(floatType) ||
+        complexType.getElementType().getIntOrFloatBitWidth() * 2 !=
+            floatType.getIntOrFloatBitWidth())
+      return false;
+  } else if (isa<IntegerType, FloatType>(inputElemType) &&
+             isa<IntegerType, FloatType>(outputElemType)) {
+    if (inputShapedType.getElementTypeBitWidth() !=
+        outputShapedType.getElementTypeBitWidth())
+      return false;
+  } else {
+    return false;
+  }
+
+  // Compare the concrete types by cloning the result with the source element
+  // type and shape. This checks that things like layout, tensor encoding, etc
+  // have not changed.
+  return inputShapedType ==
+         outputShapedType.clone(inputShapedType.getElementType());
 }
 
 //===----------------------------------------------------------------------===//

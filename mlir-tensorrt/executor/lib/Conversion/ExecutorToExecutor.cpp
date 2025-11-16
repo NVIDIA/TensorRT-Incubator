@@ -1,6 +1,6 @@
 //===- ExecutorToExecutor.cpp ---------------------------------------------===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -150,7 +150,8 @@ struct LegalizeExecutorOperands : public ConversionPattern {
                   ConversionPatternRewriter &rewriter) const override {
     if (!llvm::isa<ExecutorDialect>(op->getDialect()) ||
         isa<executor::ConstantOp, executor::FuncOp, executor::CallOp,
-            executor::CallPluginOp, executor::PluginOp>(op) ||
+            executor::CallPluginOp, executor::PluginOp,
+            executor::BufferBitcastOp>(op) ||
         op->getNumRegions() > 0 ||
         (op->getNumResults() == 0 && op->getNumOperands() == 0))
       return failure();
@@ -190,6 +191,19 @@ struct ConstantResourceConversionPattern
     return success();
   }
 };
+
+struct LowerBufferBitcastOp
+    : public ConvertOpToExecutorPattern<executor::BufferBitcastOp> {
+  using ConvertOpToExecutorPattern::ConvertOpToExecutorPattern;
+
+  LogicalResult
+  matchAndRewrite(executor::BufferBitcastOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    rewriter.replaceOp(op, adaptor.getSource());
+    return success();
+  }
+};
+
 /// Lower `executor.abi.recv` to `executor.load`.
 struct LowerABIRecvOp : public ConvertOpToExecutorPattern<executor::ABIRecvOp> {
   using ConvertOpToExecutorPattern::ConvertOpToExecutorPattern;
@@ -552,8 +566,8 @@ void executor::populateExecutorStructuralConversionPatternsAndLegality(
       .add<RewriteExecutorConst, LegalizeExecutorOperands,
            ConvertExecutorGlobalOp, ConvertExecutorFunc, ConvertExecutorCall,
            ConstantResourceConversionPattern, LowerABIRecvOp, LowerABISendOp,
-           ConvertPluginOp, CallPluginConversionPattern>(typeConverter,
-                                                         patterns.getContext());
+           ConvertPluginOp, CallPluginConversionPattern, LowerBufferBitcastOp>(
+          typeConverter, patterns.getContext());
 }
 
 static LogicalResult convertExecutorFunctionMetadataAttrs(

@@ -1,14 +1,16 @@
 #ifndef MLIR_TENSORRT_DIALECT_EXECUTOR_IR_EXECUTOROPS_TD
 #define MLIR_TENSORRT_DIALECT_EXECUTOR_IR_EXECUTOROPS_TD
 
-include "mlir-executor/Executor/IR/ExecutorBase.td"
 
+include "mlir-executor/Executor/IR/ExecutorBase.td"
 include "mlir/Dialect/Bufferization/IR/BufferDeallocationOpInterface.td"
 include "mlir/Interfaces/CallInterfaces.td"
+include "mlir/Interfaces/CastInterfaces.td"
 include "mlir/Interfaces/FunctionInterfaces.td"
 include "mlir/Interfaces/InferTypeOpInterface.td"
 include "mlir/Interfaces/MemorySlotInterfaces.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
+include "mlir/Interfaces/ViewLikeInterface.td"
 include "mlir/IR/BuiltinAttributeInterfaces.td"
 include "mlir/IR/BuiltinTypeInterfaces.td"
 include "mlir/IR/EnumAttr.td"
@@ -1557,6 +1559,29 @@ def Executor_CallPluginOp : Executor_Op<"call_plugin", [
   ];
 
   let skipDefaultBuilders = 1;
+}
+
+//===----------------------------------------------------------------------===//
+// BufferBitcastOp
+//===----------------------------------------------------------------------===//
+
+def Executor_BufferBitcastOp : Executor_Op<"buffer_bitcast", [
+      Pure,
+      DeclareOpInterfaceMethods<ViewLikeOpInterface>,
+      DeclareOpInterfaceMethods<CastOpInterface, ["areCastCompatible"]>]> {
+  let description = [{
+    `executor.buffer_bitcast` op performs a bitcast from one tensor or
+    memref type to another tensor or memref type.
+
+    The result element type must have the same bit width as the source
+    element type.
+  }];
+  let arguments = (ins AnyShaped:$source);
+  let results = (outs AnyShaped:$result);
+  let assemblyFormat = "attr-dict $source `:` type($source) `to` type($result)";
+  let hasVerifier = 1;
+  let hasFolder = 1;
+  let hasCanonicalizer = 1;
 }
 
 

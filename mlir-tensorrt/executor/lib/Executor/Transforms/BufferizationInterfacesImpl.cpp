@@ -449,6 +449,90 @@ struct BufferizeCallPluginInterface
   }
 };
 
+struct BufferizableOpInterfaceBufferBitcast
+    : public BufferizableOpInterface::ExternalModel<
+          BufferizableOpInterfaceBufferBitcast, executor::BufferBitcastOp> {
+  bool bufferizesToMemoryRead(Operation *op, OpOperand &opOperand,
+                              const AnalysisState &state) const {
+    // BufferBitcastOp is a view-like operation, it doesn't read memory.
+    return false;
+  }
+
+  bool bufferizesToMemoryWrite(Operation *op, OpOperand &opOperand,
+                               const AnalysisState &state) const {
+    // BufferBitcastOp is a view-like operation, it doesn't write memory.
+    return false;
+  }
+
+  bufferization::AliasingValueList
+  getAliasingValues(Operation *op, OpOperand &opOperand,
+                    const bufferization::AnalysisState &state) const {
+    // The result aliases with the source with equivalent relation.
+    return {{op->getResult(0), bufferization::BufferRelation::Equivalent,
+             /*isDefinite=*/true}};
+  }
+
+  FailureOr<BaseMemRefType>
+  getBufferType(Operation *op, Value value, const BufferizationOptions &options,
+                SmallVector<Value> &invocationStack) const {
+    auto bitcastOp = cast<executor::BufferBitcastOp>(op);
+    auto resultType = bitcastOp.getResult().getType();
+
+    // If the result is already a memref, return it directly.
+    if (auto memrefType = dyn_cast<BaseMemRefType>(resultType))
+      return memrefType;
+
+    // If the result is a tensor, compute the buffer type.
+    auto tensorType = dyn_cast<RankedTensorType>(resultType);
+    if (!tensorType)
+      return failure();
+
+    // Get the memory space from the source buffer type if available.
+    Attribute memorySpace;
+    if (auto sourceMemRefType =
+            dyn_cast<BaseMemRefType>(bitcastOp.getSource().getType())) {
+      memorySpace = sourceMemRefType.getMemorySpace();
+    } else {
+      // Get memory space from options.
+      std::optional<Attribute> defaultSpace =
+          options.defaultMemorySpaceFn(tensorType);
+      if (!defaultSpace)
+        return failure();
+      memorySpace = *defaultSpace;
+    }
+
+    return bufferization::getMemRefTypeWithStaticIdentityLayout(tensorType,
+                                                                memorySpace);
+  }
+
+  LogicalResult bufferize(Operation *op, RewriterBase &rewriter,
+                          const BufferizationOptions &options) const {
+    auto bitcastOp = cast<executor::BufferBitcastOp>(op);
+    auto source = bitcastOp.getSource();
+
+    FailureOr<Value> sourceBuffer =
+        bufferization::getBuffer(rewriter, source, options);
+    if (failed(sourceBuffer))
+      return failure();
+    auto sourceType = cast<BaseMemRefType>(sourceBuffer->getType());
+    auto targetType =
+        sourceType.clone(bitcastOp.getResult().getType().getElementType());
+
+    // If types match, just replace with the source buffer.
+    if (sourceType == targetType) {
+      bufferization::replaceOpWithBufferizedValues(rewriter, op, *sourceBuffer);
+      return success();
+    }
+
+    auto newOp = rewriter.create<executor::BufferBitcastOp>(
+        bitcastOp.getLoc(), targetType, *sourceBuffer);
+    bufferization::replaceOpWithBufferizedValues(rewriter, op,
+                                                 newOp.getResult());
+
+    return success();
+  }
+};
+
 } // namespace
 
 namespace mlir::executor {
@@ -485,6 +569,8 @@ void registerBufferizationOpInterfaceExternalModels(DialectRegistry &registry) {
     executor::ABIRecvOp::attachInterface<BufferizableOpInterfaceABIRecv>(*ctx);
     executor::ABISendOp::attachInterface<BufferizableOpInterfaceABISend>(*ctx);
     executor::CallPluginOp::attachInterface<BufferizeCallPluginInterface>(*ctx);
+    executor::BufferBitcastOp::attachInterface<
+        BufferizableOpInterfaceBufferBitcast>(*ctx);
   });
 }
 } // namespace mlir::executor
