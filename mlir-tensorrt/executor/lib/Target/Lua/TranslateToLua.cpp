@@ -23,7 +23,7 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-executor/Target/Lua/TranslateToLua.h"
 #include "mlir-executor/Executor/IR/Executor.h"
-#include "mlir-executor/Target/Lua/LuaAllocation.h"
+#include "mlir-executor/Target/SlotAssignment/SlotAssignment.h"
 #include "mlir/Dialect/ControlFlow/IR/ControlFlowOps.h"
 #include "mlir/Dialect/DLTI/DLTI.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -35,10 +35,33 @@
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/FormatVariadic.h"
+#include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/MathExtras.h"
 #include <stack>
 
 using namespace mlir;
+
+namespace {
+struct LuaTranslationCLOpts {
+  llvm::cl::opt<bool> coalesceLiveRanges{
+      "lua-translation-block-arg-coalescing",
+      llvm::cl::desc("Enable block argument coalescing for Lua translation"),
+      llvm::cl::init(true)};
+  llvm::cl::opt<bool> enablePureOpCoalescing{
+      "lua-translation-op-coalescing",
+      llvm::cl::desc("Enable pure op coalescing for Lua translation"),
+      llvm::cl::init(true)};
+  llvm::cl::opt<unsigned> maxLocalSlots{
+      "lua-translation-max-local-slots",
+      llvm::cl::desc(
+          "The maximum number of local slots to use for Lua translation"),
+      llvm::cl::init(199)};
+};
+} // namespace
+
+static llvm::ManagedStatic<LuaTranslationCLOpts> luaTranslationCLOpts;
+
+static void registerLuaTranslationCLOpts() { (void)*luaTranslationCLOpts; }
 
 namespace {
 
@@ -50,7 +73,8 @@ constexpr llvm::StringLiteral kLocalTableVarialbeName = "locals";
 class LuaEmitter {
 public:
   explicit LuaEmitter(MLIRContext *ctx, raw_ostream &os,
-                      const DataLayout &dataLayout);
+                      const DataLayout &dataLayout,
+                      SlotAssignmentManager::Options options);
 
   /// Emit Lua ofr a "module-like" operation. This creates a new scope for all
   /// resources. It is expected that this is only used as the top-level
@@ -109,6 +133,9 @@ public:
   /// Generate a new variable name consisting of `v+[number]`. The number will
   /// always be monotonic within a single scope, regardless of which prefix is
   /// used.
+  std::pair<StringRef, bool> createLocalVariableName(
+      Value val, const SlotAssignmentManager::SlotAssignment &assignment,
+      StringRef prefix = "l");
   std::pair<StringRef, bool> createLocalVariableName(Value val,
                                                      StringRef prefix = "l");
 
@@ -127,12 +154,14 @@ public:
     return *this;
   }
 
-  LuaAllocation *getLuaAllocation() const { return allocation.get(); }
-  void setLuaAllocation(std::unique_ptr<LuaAllocation> allocation) {
+  SlotAssignmentManager *getLuaAllocation() const { return allocation.get(); }
+  void setLuaAllocation(std::unique_ptr<SlotAssignmentManager> allocation) {
     this->allocation = std::move(allocation);
   }
 
 protected:
+  SlotAssignmentManager::Options options;
+
   /// Map from value to name of lua variable that contain the name.
   ValueMapper localMapper;
 
@@ -151,7 +180,7 @@ protected:
   mlir::DataLayout moduleDataLayout;
 
   /// The allocation of the current function.
-  std::unique_ptr<LuaAllocation> allocation;
+  std::unique_ptr<SlotAssignmentManager> allocation;
 };
 } // namespace
 
@@ -251,15 +280,23 @@ static LogicalResult emitAttribute(raw_ostream &os, Location loc,
 // `cf` dialect ops
 //===----------------------------------------------------------------------===//
 
+static void emitSlotSwaps(LuaEmitter &emitter, ValueRange sourceSlots,
+                          ValueRange targetSlots) {
+  SmallVector<StringRef> sourceSlotNames;
+  SmallVector<StringRef> targetSlotNames;
+  for (auto [sourceSlot, targetSlot] : llvm::zip(sourceSlots, targetSlots)) {
+    sourceSlotNames.push_back(emitter.getVariableName(sourceSlot));
+    targetSlotNames.push_back(emitter.getVariableName(targetSlot));
+  }
+  mlir::emitSlotSwap(sourceSlotNames, targetSlotNames, "tempSlot",
+                     [&](StringRef sourceSlot, StringRef targetSlot) {
+                       emitter << targetSlot << " = " << sourceSlot << ";\n";
+                     });
+}
+
 static LogicalResult printControlFlowOp(LuaEmitter &emitter, cf::BranchOp op) {
   Block *destBlock = op.getDest();
-  // Declare non-local args to hold block arguments.
-  for (auto [operand, blockArg] :
-       llvm::zip(op.getDestOperands(), destBlock->getArguments())) {
-    // If we are branching from a entry block, we can can use a local.
-    emitter << emitter.getVariableName(blockArg);
-    emitter << " = " << emitter.getVariableName(operand) << ";\n";
-  }
+  emitSlotSwaps(emitter, op.getDestOperands(), destBlock->getArguments());
   emitter << "goto " << emitter.getOrCreateLabel(*op.getDest()) << ";\n";
   return success();
 }
@@ -267,24 +304,14 @@ static LogicalResult printControlFlowOp(LuaEmitter &emitter, cf::BranchOp op) {
 /// Emit a branch to a destination block.
 static void emitBranch(LuaEmitter &emitter, Block *destBlock,
                        ValueRange operands) {
-  // Assign variables for the destination Block's BlockArguments.
-  auto emitBlockArgs = [&](Block *destBlock, ValueRange operands) {
-    for (auto [operand, blockArg] :
-         llvm::zip(operands, destBlock->getArguments())) {
-      emitter << emitter.getVariableName(blockArg);
-      emitter << " = " << emitter.getVariableName(operand) << ";\n";
-    }
-  };
-
   emitter.getStream().indent();
-  emitBlockArgs(destBlock, operands);
+  emitSlotSwaps(emitter, operands, destBlock->getArguments());
   emitter << "goto " << emitter.getOrCreateLabel(*destBlock) << ";\n";
   emitter.getStream().unindent();
 }
 
 static LogicalResult printControlFlowOp(LuaEmitter &emitter,
                                         cf::CondBranchOp op) {
-
   auto condName = emitter.getVariableName(op.getCondition());
   emitter << "if (" << condName << " == 1) or (" << condName << " == true)"
           << " then\n";
@@ -331,7 +358,9 @@ static LogicalResult printOperation(LuaEmitter &emitter, func::ReturnOp op) {
   return success();
 }
 
-static LogicalResult printOperation(LuaEmitter &emitter, func::FuncOp op) {
+static LogicalResult
+printOperation(LuaEmitter &emitter, func::FuncOp op,
+               const SlotAssignmentManager::Options &options) {
   // We don't actually need to translate pure declarations for external C
   // functions.
   if (op.isDeclaration()) {
@@ -344,7 +373,14 @@ static LogicalResult printOperation(LuaEmitter &emitter, func::FuncOp op) {
   LuaEmitter::LocalVariableScope localScope(emitter);
 
   // Create a new allocation for the function.
-  emitter.setLuaAllocation(std::make_unique<LuaAllocation>(op));
+  const bool requiresTempSlot = !op.getBody().hasOneBlock();
+
+  SlotAssignmentManager::Options slotAssignmentOptions = options;
+  if (requiresTempSlot)
+    slotAssignmentOptions.maxLocalSlots--;
+
+  emitter.setLuaAllocation(
+      std::make_unique<SlotAssignmentManager>(op, slotAssignmentOptions));
 
   emitter << "(";
   llvm::interleaveComma(op.getArguments(), emitter.getStream(),
@@ -542,9 +578,10 @@ static LogicalResult printOperation(LuaEmitter &emitter,
                                     executor::InsertTableValueOp op) {
   if (failed(emitter.emitAssignPrefix(op)))
     return failure();
-  // We have to do a copy of the source table since otherwise lua's semantic is
-  // to do a reference modification. Our canonicalization patterns should limit
-  // the number of copies. Note: this actually may have bugs for nested tables.
+  // We have to do a copy of the source table since otherwise lua's semantic
+  // is to do a reference modification. Our canonicalization patterns should
+  // limit the number of copies. Note: this actually may have bugs for nested
+  // tables.
   emitter << "{};\n";
   emitter << "for j,x in ipairs(" << emitter.getVariableName(op.getTable())
           << ") do " << emitter.getVariableName(op.getResult())
@@ -700,7 +737,6 @@ static LogicalResult printOperation(LuaEmitter &emitter,
 
 /// Translate `executor.call`.
 static LogicalResult printOperation(LuaEmitter &emitter, executor::CallOp op) {
-
   if (op->getNumResults() > 0) {
     if (failed(emitter.emitAssignPrefix(op.getOperation())))
       return failure();
@@ -823,8 +859,10 @@ static LogicalResult printMinMaxOp(LuaEmitter &emitter, OpTy op) {
 //===----------------------------------------------------------------------===//
 
 LuaEmitter::LuaEmitter(MLIRContext *ctx, raw_ostream &os,
-                       const DataLayout &dataLayout)
-    : ctx(ctx), os(os), moduleDataLayout(dataLayout) {
+                       const DataLayout &dataLayout,
+                       SlotAssignmentManager::Options options)
+    : options(std::move(options)), ctx(ctx), os(os),
+      moduleDataLayout(dataLayout) {
   labelInScopeCount.push(0);
 }
 
@@ -857,11 +895,10 @@ std::pair<StringRef, bool>
 LuaEmitter::createLocalVariableName(Value val, StringRef prefix) {
   assert(!isValueInScope(val) && "expected value not to be in scope");
   auto allocationResult = allocation->getAllocationResult(val);
-  assert(allocationResult.type != LuaAllocationType::Global &&
-         "expected val to be allocated as a local variable");
   std::string valueName =
       llvm::formatv("{0}{1}",
-                    allocationResult.type == LuaAllocationType::Spill
+                    allocationResult.type ==
+                            SlotAssignmentManager::SlotType::Spill
                         ? kLocalTableVarialbeName + "." + prefix
                         : prefix,
                     allocationResult.id)
@@ -887,7 +924,7 @@ LogicalResult LuaEmitter::emitAssignPrefix(Operation *op) {
       continue;
     auto [valueName, reuse] = createLocalVariableName(result);
     if (allocation->getAllocationResult(result).type ==
-            LuaAllocationType::Local &&
+            SlotAssignmentManager::SlotType::Local &&
         !reuse)
       os << "local " << valueName << ";\n";
   }
@@ -953,7 +990,8 @@ LogicalResult LuaEmitter::emitBlock(Block &block, bool isEntryBlock) {
     auto [valueName, reuse] = createLocalVariableName(val);
     if (reuse)
       return;
-    if (allocation->getAllocationResult(val).type == LuaAllocationType::Local)
+    if (allocation->getAllocationResult(val).type ==
+        SlotAssignmentManager::SlotType::Local)
       os << "local ";
     os << valueName << " = nil;\n";
   };
@@ -962,6 +1000,11 @@ LogicalResult LuaEmitter::emitBlock(Block &block, bool isEntryBlock) {
     os << "::" << getOrCreateLabel(block) << ":: do\n";
     os.indent();
   } else {
+    // Emit name for the temporary slot used during swaps. We only need this if
+    // there are branching instructions, otherwise no swaps are needed.
+    if (!block.getParent()->hasOneBlock())
+      getStream() << "local tempSlot = nil;\n";
+
     // Declare a table to store the locals if we will exceed the max locals
     // limit.
     if (isa<func::FuncOp>(block.getParentOp())) {
@@ -969,14 +1012,15 @@ LogicalResult LuaEmitter::emitBlock(Block &block, bool isEntryBlock) {
         getStream() << "local " << kLocalTableVarialbeName << " = {};\n";
     }
 
-    // In the entry block, declare all of the block arguments needed throughout
-    // the region as local variables. Initialize them all to nil. This avoids
-    // having to use ad-hoc globals at the branch points. These locals act as
-    // upvalues and are hence visible to all blocks in the region.
+    // In the entry block, declare all of the block arguments needed
+    // throughout the region as local variables. Initialize them all to nil.
+    // This avoids having to use ad-hoc globals at the branch points. These
+    // locals act as upvalues and are hence visible to all blocks in the
+    // region.
     Region *region = block.getParent();
     for (auto [idx, otherBlock] : llvm::enumerate(region->getBlocks())) {
-      // We don't need to declare block arguments for the entry block; those are
-      // e.g. function arguments and are handled by the parent op.
+      // We don't need to declare block arguments for the entry block; those
+      // are e.g. function arguments and are handled by the parent op.
       if (idx == 0)
         continue;
       for (BlockArgument arg : otherBlock.getArguments())
@@ -1023,6 +1067,10 @@ LogicalResult LuaEmitter::emitOperation(Operation &op) {
   // Global/const resource declarations don't need to get emitted.
   if (isa<executor::DataSegmentOp, executor::GlobalOp>(op))
     return success();
+
+  if (auto funcOp = dyn_cast<func::FuncOp>(op)) {
+    return printOperation(*this, funcOp, options);
+  }
 
   if (isa<executor::ExecutorDialect>(op.getDialect())) {
     return llvm::TypeSwitch<Operation *, LogicalResult>(&op)
@@ -1097,7 +1145,7 @@ LogicalResult LuaEmitter::emitOperation(Operation &op) {
       // Builtin ops.
       .Case<ModuleOp>([&](ModuleOp op) { return emitModule(*op); })
       // Func ops.
-      .Case<func::CallOp, func::FuncOp, func::ReturnOp, func::CallIndirectOp>(
+      .Case<func::CallOp, func::ReturnOp, func::CallIndirectOp>(
           [&](auto op) { return printOperation(*this, op); })
       // CF ops
       .Case<cf::BranchOp, cf::CondBranchOp, cf::SwitchOp>(
@@ -1107,8 +1155,10 @@ LogicalResult LuaEmitter::emitOperation(Operation &op) {
       });
 }
 
-LogicalResult mlir::translateToLua(Operation *op, raw_ostream &os) {
-  LuaEmitter luaEmitter(op->getContext(), os, DataLayout::closest(op));
+LogicalResult mlir::translateToLua(Operation *op, raw_ostream &os,
+                                   SlotAssignmentManager::Options options) {
+  LuaEmitter luaEmitter(op->getContext(), os, DataLayout::closest(op),
+                        std::move(options));
   if (isa<FunctionOpInterface>(op))
     return luaEmitter.emitOperation(*op);
   if (isModuleLike(*op))
@@ -1119,10 +1169,18 @@ LogicalResult mlir::translateToLua(Operation *op, raw_ostream &os) {
 }
 
 void mlir::registerToLuaTranslation() {
+  registerLuaTranslationCLOpts();
   TranslateFromMLIRRegistration registration(
       "mlir-to-lua", "translate from MLIR to Lua",
       [](Operation *op, llvm::raw_ostream &output) {
-        return mlir::translateToLua(op, output);
+        SlotAssignmentManager::Options slotAssignmentOptions = {
+            /*enablePureOpCoalescing=*/
+            luaTranslationCLOpts->enablePureOpCoalescing.getValue(),
+            /*enableBlockArgumentCoalescing=*/
+            luaTranslationCLOpts->coalesceLiveRanges.getValue(),
+            /*maxLocalSlots=*/luaTranslationCLOpts->maxLocalSlots.getValue()};
+        return mlir::translateToLua(op, output,
+                                    std::move(slotAssignmentOptions));
       },
       [](DialectRegistry &registry) {
         // clang-format off

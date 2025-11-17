@@ -10,11 +10,10 @@ func.func @exec_addi(%arg0: i64, %arg1: i64) -> i64
   return %0 : i64
 }
 
-// CHECK-LABEL: exec_addi
+// CHECK-LABEL: function exec_addi
 //  CHECK-SAME: ([[l0:.+]], [[l1:.+]])
-//  CHECK-NEXT:     local [[l2:.+]];
-//  CHECK-NEXT:     [[l2]] = [[l0]] + [[l1]];
-//  CHECK-NEXT:     return [[l2]];
+//  CHECK-NEXT:     [[l0]] = [[l0]] + [[l1]];
+//  CHECK-NEXT:     return [[l0]];
 
 // -----
 
@@ -24,11 +23,10 @@ func.func @exec_addf(%arg0: f64, %arg1: f64) -> f64
   return %0 : f64
 }
 
-// CHECK-LABEL: exec_addf
+// CHECK-LABEL: function exec_addf
 //  CHECK-SAME: ([[l0:.+]], [[l1:.+]])
-//  CHECK-NEXT:     local [[l2:.+]];
-//  CHECK-NEXT:     [[l2]] = [[l0]] + [[l1]];
-//  CHECK-NEXT:     return [[l2]];
+//  CHECK-NEXT:     [[l0]] = [[l0]] + [[l1]];
+//  CHECK-NEXT:     return [[l0]];
 
 // -----
 
@@ -47,15 +45,14 @@ func.func @exec_remf(
   return %0, %1, %2, %3, %4 : f64, f32, f16, f8E4M3FN, bf16
 }
 
-// CHECK-LABEL: exec_remf
+// CHECK-LABEL: function exec_remf
 //  CHECK-SAME: ([[l0:.+]], [[l1:.+]], [[l2:.+]], [[l3:.+]], [[l4:.+]], [[l5:.+]], [[l6:.+]], [[l7:.+]], [[l8:.+]], [[l9:.+]])
-//  CHECK-NEXT:     local [[l10:.+]];
-//  CHECK-NEXT:     [[l10]] = _remf_f64([[l0]], [[l1]]);
-//  CHECK-NEXT:     [[l0]] = _remf_f32([[l2]], [[l3]]);
-//  CHECK-NEXT:     [[l1]] = _remf_f16([[l4]], [[l5]]);
-//  CHECK-NEXT:     [[l2]] = _remf_f8E4M3FN([[l6]], [[l7]]);
-//  CHECK-NEXT:     [[l3]] = _remf_bf16([[l8]], [[l9]]);
-//  CHECK-NEXT:     return [[l10]], [[l0]], [[l1]], [[l2]], [[l3]];
+//  CHECK-NEXT:     [[l0]] = _remf_f64([[l0]], [[l1]]);
+//  CHECK-NEXT:     [[l1]] = _remf_f32([[l2]], [[l3]]);
+//  CHECK-NEXT:     [[l2]] = _remf_f16([[l4]], [[l5]]);
+//  CHECK-NEXT:     [[l3]] = _remf_f8E4M3FN([[l6]], [[l7]]);
+//  CHECK-NEXT:     [[l4]] = _remf_bf16([[l8]], [[l9]]);
+//  CHECK-NEXT:     return [[l0]], [[l1]], [[l2]], [[l3]], [[l4]];
 //  CHECK-NEXT: end
 
 // -----
@@ -66,11 +63,10 @@ func.func @exec_subi(%arg0: i64, %arg1: i64) -> i64
   return %0 : i64
 }
 
-// CHECK-LABEL: exec_subi
+// CHECK-LABEL: function exec_subi
 //  CHECK-SAME: ([[l0:.+]], [[l1:.+]])
-//  CHECK-NEXT:     local [[l2:.+]];
-//  CHECK-NEXT:     [[l2]] = [[l0]] - [[l1]];
-//  CHECK-NEXT:     return [[l2]];
+//  CHECK-NEXT:     [[l0]] = [[l0]] - [[l1]];
+//  CHECK-NEXT:     return [[l0]];
 //  CHECK-NEXT: end
 
 // -----
@@ -81,11 +77,10 @@ func.func @exec_subf(%arg0: f64, %arg1: f64) -> f64
   return %0 : f64
 }
 
-// CHECK-LABEL: exec_subf
+// CHECK-LABEL: function exec_subf
 //  CHECK-SAME: ([[l0:.+]], [[l1:.+]])
-//  CHECK-NEXT:     local [[l2:.+]];
-//  CHECK-NEXT:     [[l2]] = [[l0]] - [[l1]];
-//  CHECK-NEXT:     return [[l2]];
+//  CHECK-NEXT:     [[l0]] = [[l0]] - [[l1]];
+//  CHECK-NEXT:     return [[l0]];
 //  CHECK-NEXT: end
 
 // -----
@@ -96,11 +91,10 @@ func.func @exec_sdivi(%arg0: i64, %arg1: i64) -> i64
   return %0 : i64
 }
 
-// CHECK-LABEL: exec_sdivi
+// CHECK-LABEL: function exec_sdivi
 //  CHECK-SAME: ([[l0:.+]], [[l1:.+]])
-//  CHECK-NEXT:     local [[l2:.+]];
-//  CHECK-NEXT:     [[l2]] = _sdivi_i64([[l0]], [[l1]]);
-//  CHECK-NEXT:     return [[l2]];
+//  CHECK-NEXT:     [[l0]] = _sdivi_i64([[l0]], [[l1]]);
+//  CHECK-NEXT:     return [[l0]];
 //  CHECK-NEXT: end
 
 // -----
@@ -111,11 +105,10 @@ func.func @exec_divf(%arg0: f64, %arg1: f64) -> f64
   return %0 : f64
 }
 
-// CHECK-LABEL: exec_divf
+// CHECK-LABEL: function exec_divf
 //  CHECK-SAME: ([[l0:.+]], [[l1:.+]])
-//  CHECK-NEXT:     local [[l2:.+]];
-//  CHECK-NEXT:     [[l2]] = _divf_f64([[l0]], [[l1]]);
-//  CHECK-NEXT:     return [[l2]];
+//  CHECK-NEXT:     [[l0]] = _divf_f64([[l0]], [[l1]]);
+//  CHECK-NEXT:     return [[l0]];
 //  CHECK-NEXT: end
 // -----
 
@@ -125,11 +118,10 @@ func.func @exec_muli(%arg0: i64, %arg1: i64) -> i64
   return %0 : i64
 }
 
-// CHECK-LABEL: exec_muli
+// CHECK-LABEL: function exec_muli
 //  CHECK-SAME: ([[l0:.+]], [[l1:.+]])
-//  CHECK-NEXT:     local [[l2:.+]];
-//  CHECK-NEXT:     [[l2]] = [[l0]] * [[l1]];
-//  CHECK-NEXT:     return [[l2]];
+//  CHECK-NEXT:     [[l0]] = [[l0]] * [[l1]];
+//  CHECK-NEXT:     return [[l0]];
 //  CHECK-NEXT: end
 
 // -----
@@ -140,11 +132,10 @@ func.func @exec_mulf(%arg0: f32, %arg1: f32) -> f32
   return %0 : f32
 }
 
-// CHECK-LABEL: exec_mulf
+// CHECK-LABEL: function exec_mulf
 //  CHECK-SAME: ([[l0:.+]], [[l1:.+]])
-//  CHECK-NEXT:     local [[l2:.+]];
-//  CHECK-NEXT:     [[l2]] = [[l0]] * [[l1]];
-//  CHECK-NEXT:     return [[l2]];
+//  CHECK-NEXT:     [[l0]] = [[l0]] * [[l1]];
+//  CHECK-NEXT:     return [[l0]];
 //  CHECK-NEXT: end
 // -----
 
@@ -154,11 +145,10 @@ func.func @exec_srem(%arg0: i64, %arg1: i64) -> i64
   return %0 : i64
 }
 
-// CHECK-LABEL: exec_srem
+// CHECK-LABEL: function exec_srem
 //  CHECK-SAME: ([[l0:.+]], [[l1:.+]])
-//  CHECK-NEXT:     local [[l2:.+]];
-//  CHECK-NEXT:     [[l2]] = [[l0]] % [[l1]];
-//  CHECK-NEXT:     return [[l2]];
+//  CHECK-NEXT:     [[l0]] = [[l0]] % [[l1]];
+//  CHECK-NEXT:     return [[l0]];
 //  CHECK-NEXT: end
 
 // -----
@@ -168,11 +158,10 @@ func.func @exec_bitwise_and(%arg0: i64, %arg1: i64) -> i64
   %0 = executor.bitwise_andi %arg0, %arg1 : i64
   return %0 : i64
 }
-// CHECK-LABEL: exec_bitwise_and
+// CHECK-LABEL: function exec_bitwise_and
 //  CHECK-SAME: ([[l0:.+]], [[l1:.+]])
-//  CHECK-NEXT:     local [[l2:.+]];
-//  CHECK-NEXT:     [[l2]] = _bitwise_andi_i64([[l0]], [[l1]]);
-//  CHECK-NEXT:     return [[l2]];
+//  CHECK-NEXT:     [[l0]] = _bitwise_andi_i64([[l0]], [[l1]]);
+//  CHECK-NEXT:     return [[l0]];
 //  CHECK-NEXT: end
 
 // -----
@@ -182,11 +171,10 @@ func.func @exec_bitwise_and(%arg0: i32, %arg1: i32) -> i32
   %0 = executor.bitwise_andi %arg0, %arg1 : i32
   return %0 : i32
 }
-// CHECK-LABEL: exec_bitwise_and
+// CHECK-LABEL: function exec_bitwise_and
 //  CHECK-SAME: ([[l0:.+]], [[l1:.+]])
-//  CHECK-NEXT:     local [[l2:.+]];
-//  CHECK-NEXT:     [[l2]] = _bitwise_andi_i32([[l0]], [[l1]]);
-//  CHECK-NEXT:     return [[l2]];
+//  CHECK-NEXT:     [[l0]] = _bitwise_andi_i32([[l0]], [[l1]]);
+//  CHECK-NEXT:     return [[l0]];
 //  CHECK-NEXT: end
 
 // -----
@@ -196,11 +184,10 @@ func.func @exec_bitwise_and(%arg0: i1, %arg1: i1) -> i1
   %0 = executor.bitwise_andi %arg0, %arg1 : i1
   return %0 : i1
 }
-// CHECK-LABEL: exec_bitwise_and
+// CHECK-LABEL: function exec_bitwise_and
 //  CHECK-SAME: ([[l0:.+]], [[l1:.+]])
-//  CHECK-NEXT:     local [[l2:.+]];
-//  CHECK-NEXT:     [[l2]] = _bitwise_andi_i1([[l0]], [[l1]]);
-//  CHECK-NEXT:     return [[l2]];
+//  CHECK-NEXT:     [[l0]] = _bitwise_andi_i1([[l0]], [[l1]]);
+//  CHECK-NEXT:     return [[l0]];
 //  CHECK-NEXT: end
 
 // -----
@@ -210,11 +197,10 @@ func.func @exec_bitwise_or(%arg0: i64, %arg1: i64) -> i64
   %0 = executor.bitwise_ori %arg0, %arg1 : i64
   return %0 : i64
 }
-// CHECK-LABEL: exec_bitwise_or
+// CHECK-LABEL: function exec_bitwise_or
 //  CHECK-SAME: ([[l0:.+]], [[l1:.+]])
-//  CHECK-NEXT:     local [[l2:.+]];
-//  CHECK-NEXT:     [[l2]] = _bitwise_ori_i64([[l0]], [[l1]]);
-//  CHECK-NEXT:     return [[l2]];
+//  CHECK-NEXT:     [[l0]] = _bitwise_ori_i64([[l0]], [[l1]]);
+//  CHECK-NEXT:     return [[l0]];
 //  CHECK-NEXT: end
 
 // -----
@@ -224,11 +210,10 @@ func.func @exec_bitwise_or(%arg0: i32, %arg1: i32) -> i32
   %0 = executor.bitwise_ori %arg0, %arg1 : i32
   return %0 : i32
 }
-// CHECK-LABEL: exec_bitwise_or
+// CHECK-LABEL: function exec_bitwise_or
 //  CHECK-SAME: ([[l0:.+]], [[l1:.+]])
-//  CHECK-NEXT:     local [[l2:.+]];
-//  CHECK-NEXT:     [[l2]] = _bitwise_ori_i32([[l0]], [[l1]]);
-//  CHECK-NEXT:     return [[l2]];
+//  CHECK-NEXT:     [[l0]] = _bitwise_ori_i32([[l0]], [[l1]]);
+//  CHECK-NEXT:     return [[l0]];
 //  CHECK-NEXT: end
 
 // -----
@@ -238,11 +223,10 @@ func.func @exec_bitwise_or(%arg0: i1, %arg1: i1) -> i1
   %0 = executor.bitwise_ori %arg0, %arg1 : i1
   return %0 : i1
 }
-// CHECK-LABEL: exec_bitwise_or
+// CHECK-LABEL: function exec_bitwise_or
 //  CHECK-SAME: ([[l0:.+]], [[l1:.+]])
-//  CHECK-NEXT:     local [[l2:.+]];
-//  CHECK-NEXT:     [[l2]] = _bitwise_ori_i1([[l0]], [[l1]]);
-//  CHECK-NEXT:     return [[l2]];
+//  CHECK-NEXT:     [[l0]] = _bitwise_ori_i1([[l0]], [[l1]]);
+//  CHECK-NEXT:     return [[l0]];
 //  CHECK-NEXT: end
 
 // -----
@@ -252,11 +236,10 @@ func.func @exec_bitwise_xor(%arg0: i64, %arg1: i64) -> i64
   %0 = executor.bitwise_xori %arg0, %arg1 : i64
   return %0 : i64
 }
-// CHECK-LABEL: exec_bitwise_xor
+// CHECK-LABEL: function exec_bitwise_xor
 //  CHECK-SAME: ([[l0:.+]], [[l1:.+]])
-//  CHECK-NEXT:     local [[l2:.+]];
-//  CHECK-NEXT:     [[l2]] = _bitwise_xori_i64([[l0]], [[l1]]);
-//  CHECK-NEXT:     return [[l2]];
+//  CHECK-NEXT:     [[l0]] = _bitwise_xori_i64([[l0]], [[l1]]);
+//  CHECK-NEXT:     return [[l0]];
 //  CHECK-NEXT: end
 
 // -----
@@ -266,11 +249,10 @@ func.func @exec_bitwise_xor(%arg0: i32, %arg1: i32) -> i32
   %0 = executor.bitwise_xori %arg0, %arg1 : i32
   return %0 : i32
 }
-// CHECK-LABEL: exec_bitwise_xor
+// CHECK-LABEL: function exec_bitwise_xor
 //  CHECK-SAME: ([[l0:.+]], [[l1:.+]])
-//  CHECK-NEXT:     local [[l2:.+]];
-//  CHECK-NEXT:     [[l2]] = _bitwise_xori_i32([[l0]], [[l1]]);
-//  CHECK-NEXT:     return [[l2]];
+//  CHECK-NEXT:     [[l0]] = _bitwise_xori_i32([[l0]], [[l1]]);
+//  CHECK-NEXT:     return [[l0]];
 //  CHECK-NEXT: end
 
 // -----
@@ -280,11 +262,10 @@ func.func @exec_bitwise_xor(%arg0: i1, %arg1: i1) -> i1
   %0 = executor.bitwise_xori %arg0, %arg1 : i1
   return %0 : i1
 }
-// CHECK-LABEL: exec_bitwise_xor
+// CHECK-LABEL: function exec_bitwise_xor
 //  CHECK-SAME: ([[l0:.+]], [[l1:.+]])
-//  CHECK-NEXT:     local [[l2:.+]];
-//  CHECK-NEXT:     [[l2]] = _bitwise_xori_i1([[l0]], [[l1]]);
-//  CHECK-NEXT:     return [[l2]];
+//  CHECK-NEXT:     [[l0]] = _bitwise_xori_i1([[l0]], [[l1]]);
+//  CHECK-NEXT:     return [[l0]];
 //  CHECK-NEXT: end
 
 // -----
@@ -294,11 +275,10 @@ func.func @exec_bitcast_i32_f32(%arg0: i32) -> f32
   %0 = executor.bitcast %arg0 : i32 to f32
   return %0 : f32
 }
-// CHECK-LABEL: exec_bitcast_i32_f32
+// CHECK-LABEL: function exec_bitcast_i32_f32
 //  CHECK-SAME: ([[l0:.+]])
-//  CHECK-NEXT:     local [[l1:.+]];
-//  CHECK-NEXT:     [[l1]] = _bitcast_i32_f32([[l0]]);
-//  CHECK-NEXT:     return [[l1]];
+//  CHECK-NEXT:     [[l0]] = _bitcast_i32_f32([[l0]]);
+//  CHECK-NEXT:     return [[l0]];
 //  CHECK-NEXT: end
 
 // -----
@@ -308,11 +288,10 @@ func.func @exec_bitcast_i64_f64(%arg0: i64) -> f64
   %0 = executor.bitcast %arg0 : i64 to f64
   return %0 : f64
 }
-// CHECK-LABEL: exec_bitcast_i64_f64
+// CHECK-LABEL: function exec_bitcast_i64_f64
 //  CHECK-SAME: ([[l0:.+]])
-//  CHECK-NEXT:     local [[l1:.+]];
-//  CHECK-NEXT:     [[l1]] = _bitcast_i64_f64([[l0]]);
-//  CHECK-NEXT:     return [[l1]];
+//  CHECK-NEXT:     [[l0]] = _bitcast_i64_f64([[l0]]);
+//  CHECK-NEXT:     return [[l0]];
 //  CHECK-NEXT: end
 
 // -----
@@ -322,11 +301,10 @@ func.func @exec_bitcast_f32_i32(%arg0: f32) -> i32
   %0 = executor.bitcast %arg0 : f32 to i32
   return %0 : i32
 }
-// CHECK-LABEL: exec_bitcast_f32_i32
+// CHECK-LABEL: function exec_bitcast_f32_i32
 //  CHECK-SAME: ([[l0:.+]])
-//  CHECK-NEXT:     local [[l1:.+]];
-//  CHECK-NEXT:     [[l1]] = _bitcast_f32_i32([[l0]]);
-//  CHECK-NEXT:     return [[l1]];
+//  CHECK-NEXT:     [[l0]] = _bitcast_f32_i32([[l0]]);
+//  CHECK-NEXT:     return [[l0]];
 //  CHECK-NEXT: end
 
 // -----
@@ -336,11 +314,10 @@ func.func @exec_bitcast_f64_i64(%arg0: f64) -> i64
   %0 = executor.bitcast %arg0 : f64 to i64
   return %0 : i64
 }
-// CHECK-LABEL: exec_bitcast_f64_i64
+// CHECK-LABEL: function exec_bitcast_f64_i64
 //  CHECK-SAME: ([[l0:.+]])
-//  CHECK-NEXT:     local [[l1:.+]];
-//  CHECK-NEXT:     [[l1]] = _bitcast_f64_i64([[l0]]);
-//  CHECK-NEXT:     return [[l1]];
+//  CHECK-NEXT:     [[l0]] = _bitcast_f64_i64([[l0]]);
+//  CHECK-NEXT:     return [[l0]];
 //  CHECK-NEXT: end
 
 // -----
@@ -350,11 +327,10 @@ func.func @exec_bitcast_f16_i16(%arg0: f16) -> i16
   %0 = executor.bitcast %arg0 : f16 to i16
   return %0 : i16
 }
-// CHECK-LABEL: exec_bitcast_f16_i16
+// CHECK-LABEL: function exec_bitcast_f16_i16
 //  CHECK-SAME: ([[l0:.+]])
-//  CHECK-NEXT:     local [[l1:.+]];
-//  CHECK-NEXT:     [[l1]] = _bitcast_f16_i16([[l0]]);
-//  CHECK-NEXT:     return [[l1]];
+//  CHECK-NEXT:     [[l0]] = _bitcast_f16_i16([[l0]]);
+//  CHECK-NEXT:     return [[l0]];
 //  CHECK-NEXT: end
 
 // -----
@@ -364,11 +340,10 @@ func.func @umin_i32(%arg0: i32, %arg1: i32) -> i32 {
   return %0 : i32
 }
 
-// CHECK-LABEL: umin_i32
+// CHECK-LABEL: function umin_i32
 //  CHECK-SAME: ([[l0:.+]], [[l1:.+]])
-//  CHECK-NEXT:     local [[l2:.+]];
-//  CHECK-NEXT:     [[l2]] = _umin_i32([[l0]], [[l1]]);
-//  CHECK-NEXT:     return [[l2]];
+//  CHECK-NEXT:     [[l0]] = _umin_i32([[l0]], [[l1]]);
+//  CHECK-NEXT:     return [[l0]];
 //  CHECK-NEXT: end
 
 // -----
@@ -378,11 +353,10 @@ func.func @umax_i32(%arg0: i32, %arg1: i32) -> i32 {
   return %0 : i32
 }
 
-// CHECK-LABEL: umax_i32
+// CHECK-LABEL: function umax_i32
 //  CHECK-SAME: ([[l0:.+]], [[l1:.+]])
-//  CHECK-NEXT:     local [[l2:.+]];
-//  CHECK-NEXT:     [[l2]] = _umax_i32([[l0]], [[l1]]);
-//  CHECK-NEXT:     return [[l2]];
+//  CHECK-NEXT:     [[l0]] = _umax_i32([[l0]], [[l1]]);
+//  CHECK-NEXT:     return [[l0]];
 //  CHECK-NEXT: end
 
 // -----
@@ -392,11 +366,10 @@ func.func @smax_i32(%arg0: i32, %arg1: i32) -> i32
   %0 = executor.smax %arg0, %arg1 : i32
   return %0 : i32
 }
-// CHECK-LABEL: smax_i32
+// CHECK-LABEL: function smax_i32
 //  CHECK-SAME: ([[l0:.+]], [[l1:.+]])
-//  CHECK-NEXT:     local [[l2:.+]];
-//  CHECK-NEXT:     [[l2]] = _smax_i32([[l0]], [[l1]]);
-//  CHECK-NEXT:     return [[l2]];
+//  CHECK-NEXT:     [[l0]] = _smax_i32([[l0]], [[l1]]);
+//  CHECK-NEXT:     return [[l0]];
 //  CHECK-NEXT: end
 
 // -----
@@ -406,11 +379,10 @@ func.func @smax_i64(%arg0: i64, %arg1: i64) -> i64
   %0 = executor.smax %arg0, %arg1 : i64
   return %0 : i64
 }
-// CHECK-LABEL: smax_i64
+// CHECK-LABEL: function smax_i64
 //  CHECK-SAME: ([[l0:.+]], [[l1:.+]])
-//  CHECK-NEXT:     local [[l2:.+]];
-//  CHECK-NEXT:     [[l2]] = _smax_i64([[l0]], [[l1]]);
-//  CHECK-NEXT:     return [[l2]];
+//  CHECK-NEXT:     [[l0]] = _smax_i64([[l0]], [[l1]]);
+//  CHECK-NEXT:     return [[l0]];
 //  CHECK-NEXT: end
 
 // -----
@@ -420,11 +392,10 @@ func.func @max_f32(%arg0: f32, %arg1: f32) -> f32
   %0 = executor.fmax %arg0, %arg1 : f32
   return %0 : f32
 }
-// CHECK-LABEL: max_f32
+// CHECK-LABEL: function max_f32
 //  CHECK-SAME: ([[l0:.+]], [[l1:.+]])
-//  CHECK-NEXT:     local [[l2:.+]];
-//  CHECK-NEXT:     [[l2]] = _fmax_f32([[l0]], [[l1]]);
-//  CHECK-NEXT:     return [[l2]];
+//  CHECK-NEXT:     [[l0]] = _fmax_f32([[l0]], [[l1]]);
+//  CHECK-NEXT:     return [[l0]];
 //  CHECK-NEXT: end
 
 // -----
@@ -435,11 +406,10 @@ func.func @max_f64(%arg0: f64, %arg1: f64) -> f64
   return %0 : f64
 }
 
-// CHECK-LABEL: max_f64
+// CHECK-LABEL: function max_f64
 //  CHECK-SAME: ([[l0:.+]], [[l1:.+]])
-//  CHECK-NEXT:     local [[l2:.+]];
-//  CHECK-NEXT:     [[l2]] = _fmax_f64([[l0]], [[l1]]);
-//  CHECK-NEXT:     return [[l2]];
+//  CHECK-NEXT:     [[l0]] = _fmax_f64([[l0]], [[l1]]);
+//  CHECK-NEXT:     return [[l0]];
 //  CHECK-NEXT: end
 
 // -----
@@ -449,11 +419,10 @@ func.func @exec_sdiv_i64(%arg0: i64, %arg1: i64) -> i64
   %0 = executor.sdivi %arg0, %arg1 : i64
   return %0 : i64
 }
-// CHECK-LABEL: exec_sdiv_i64
+// CHECK-LABEL: function exec_sdiv_i64
 //  CHECK-SAME: ([[l0:.+]], [[l1:.+]])
-//  CHECK-NEXT:     local [[l2:.+]];
-//  CHECK-NEXT:     [[l2]] = _sdivi_i64([[l0]], [[l1]]);
-//  CHECK-NEXT:     return [[l2]];
+//  CHECK-NEXT:     [[l0]] = _sdivi_i64([[l0]], [[l1]]);
+//  CHECK-NEXT:     return [[l0]];
 //  CHECK-NEXT: end
 
 // -----
@@ -464,11 +433,10 @@ func.func @exec_sdiv_i32(%arg0: i32, %arg1: i32) -> i32
   return %0 : i32
 }
 
-// CHECK-LABEL: exec_sdiv_i32
+// CHECK-LABEL: function exec_sdiv_i32
 //  CHECK-SAME: ([[l0:.+]], [[l1:.+]])
-//  CHECK-NEXT:     local [[l2:.+]];
-//  CHECK-NEXT:     [[l2]] = _sdivi_i32([[l0]], [[l1]]);
-//  CHECK-NEXT:     return [[l2]];
+//  CHECK-NEXT:     [[l0]] = _sdivi_i32([[l0]], [[l1]]);
+//  CHECK-NEXT:     return [[l0]];
 //  CHECK-NEXT: end
 
 // -----
@@ -479,11 +447,10 @@ func.func @exec_sdiv_f32(%arg0: f32, %arg1: f32) -> f32
   return %0 : f32
 }
 
-// CHECK-LABEL: exec_sdiv_f32
+// CHECK-LABEL: function exec_sdiv_f32
 //  CHECK-SAME: ([[l0:.+]], [[l1:.+]])
-//  CHECK-NEXT:     local [[l2:.+]];
-//  CHECK-NEXT:     [[l2]] = _divf_f32([[l0]], [[l1]]);
-//  CHECK-NEXT:     return [[l2]];
+//  CHECK-NEXT:     [[l0]] = _divf_f32([[l0]], [[l1]]);
+//  CHECK-NEXT:     return [[l0]];
 //  CHECK-NEXT: end
 
 // -----
@@ -494,13 +461,11 @@ func.func @exec_sdiv_f64(%arg0: f64, %arg1: f64) -> f64
   return %0 : f64
 }
 
-// CHECK-LABEL: exec_sdiv_f64
+// CHECK-LABEL: function exec_sdiv_f64
 //  CHECK-SAME: ([[l0:.+]], [[l1:.+]])
-//  CHECK-NEXT:     local [[l2:.+]];
-//  CHECK-NEXT:     [[l2]] = _divf_f64([[l0]], [[l1]]);
-//  CHECK-NEXT:     return [[l2]];
-//  CHECK-NEXT:   end
-//  CHECK
+//  CHECK-NEXT:     [[l0]] = _divf_f64([[l0]], [[l1]]);
+//  CHECK-NEXT:     return [[l0]];
+//  CHECK-NEXT: end
 
 // -----
 
@@ -510,11 +475,10 @@ func.func @shift_left_i64(%arg0: i64, %arg1: i64) -> i64
   return %0 : i64
 }
 
-// CHECK-LABEL: shift_left_i64
+// CHECK-LABEL: function shift_left_i64
 //  CHECK-SAME: ([[l0:.+]], [[l1:.+]])
-//  CHECK-NEXT:     local [[l2:.+]];
-//  CHECK-NEXT:     [[l2]] = _shift_lefti_i64([[l0]], [[l1]]);
-//  CHECK-NEXT:     return [[l2]];
+//  CHECK-NEXT:     [[l0]] = _shift_lefti_i64([[l0]], [[l1]]);
+//  CHECK-NEXT:     return [[l0]];
 //  CHECK-NEXT: end
 
 // -----
@@ -525,11 +489,10 @@ func.func @shift_left_i32(%arg0: i32, %arg1: i32) -> i32
   return %0 : i32
 }
 
-// CHECK-LABEL: shift_left_i32
+// CHECK-LABEL: function shift_left_i32
 //  CHECK-SAME: ([[l0:.+]], [[l1:.+]])
-//  CHECK-NEXT:     local [[l2:.+]];
-//  CHECK-NEXT:     [[l2]] = _shift_lefti_i32([[l0]], [[l1]]);
-//  CHECK-NEXT:     return [[l2]];
+//  CHECK-NEXT:     [[l0]] = _shift_lefti_i32([[l0]], [[l1]]);
+//  CHECK-NEXT:     return [[l0]];
 //  CHECK-NEXT: end
 
 // -----
@@ -540,11 +503,10 @@ func.func @shift_right_logical_i32(%arg0: i32, %arg1: i32) -> i32
   return %0 : i32
 }
 
-// CHECK-LABEL: shift_right_logical_i32
+// CHECK-LABEL: function shift_right_logical_i32
 //  CHECK-SAME: ([[l0:.+]], [[l1:.+]])
-//  CHECK-NEXT:     local [[l2:.+]];
-//  CHECK-NEXT:     [[l2]] = _shift_right_logicali_i32([[l0]], [[l1]]);
-//  CHECK-NEXT:     return [[l2]];
+//  CHECK-NEXT:     [[l0]] = _shift_right_logicali_i32([[l0]], [[l1]]);
+//  CHECK-NEXT:     return [[l0]];
 //  CHECK-NEXT: end
 
 // -----
@@ -555,11 +517,10 @@ func.func @shift_right_logical_i64(%arg0: i64, %arg1: i64) -> i64
   return %0 : i64
 }
 
-// CHECK-LABEL: shift_right_logical_i64
+// CHECK-LABEL: function shift_right_logical_i64
 //  CHECK-SAME: ([[l0:.+]], [[l1:.+]])
-//  CHECK-NEXT:   local [[l2:.+]];
-//  CHECK-NEXT:   [[l2]] = _shift_right_logicali_i64([[l0]], [[l1]]);
-//  CHECK-NEXT:   return [[l2]];
+//  CHECK-NEXT:     [[l0]] = _shift_right_logicali_i64([[l0]], [[l1]]);
+//  CHECK-NEXT:     return [[l0]];
 //  CHECK-NEXT: end
 
 // -----
@@ -570,11 +531,10 @@ func.func @shift_right_arithmetic_i64(%arg0: i64, %arg1: i64) -> i64
   return %0 : i64
 }
 
-// CHECK-LABEL: shift_right_arithmetic_i64
+// CHECK-LABEL: function shift_right_arithmetic_i64
 //  CHECK-SAME: ([[l0:.+]], [[l1:.+]])
-//  CHECK-NEXT:     local [[l2:.+]];
-//  CHECK-NEXT:     [[l2]] = _shift_right_arithmetici_i64([[l0]], [[l1]]);
-//  CHECK-NEXT:     return [[l2]];
+//  CHECK-NEXT:     [[l0]] = _shift_right_arithmetici_i64([[l0]], [[l1]]);
+//  CHECK-NEXT:     return [[l0]];
 //  CHECK-NEXT: end
 
 // -----
@@ -585,11 +545,10 @@ func.func @shift_right_arithmetic_i32(%arg0: i32, %arg1: i32) -> i32
   return %0 : i32
 }
 
-// CHECK-LABEL: shift_right_arithmetic_i32
+// CHECK-LABEL: function shift_right_arithmetic_i32
 //  CHECK-SAME: ([[l0:.+]], [[l1:.+]])
-//  CHECK-NEXT:     local [[l2:.+]];
-//  CHECK-NEXT:     [[l2]] = _shift_right_arithmetici_i32([[l0]], [[l1]]);
-//  CHECK-NEXT:     return [[l2]];
+//  CHECK-NEXT:     [[l0]] = _shift_right_arithmetici_i32([[l0]], [[l1]]);
+//  CHECK-NEXT:     return [[l0]];
 //  CHECK-NEXT: end
 
 // -----
@@ -600,11 +559,10 @@ func.func @exec_sfloor_div(%arg0: i64, %arg1: i64) -> i64
   return %0 : i64
 }
 
-// CHECK-LABEL: exec_sfloor_div
+// CHECK-LABEL: function exec_sfloor_div
 //  CHECK-SAME: ([[l0:.+]], [[l1:.+]])
-//  CHECK-NEXT:     local [[l2:.+]];
-//  CHECK-NEXT:     [[l2]] = [[l0]] // [[l1]];
-//  CHECK-NEXT:     return [[l2]];
+//  CHECK-NEXT:     [[l0]] = [[l0]] // [[l1]];
+//  CHECK-NEXT:     return [[l0]];
 //  CHECK-NEXT: end
 
 // -----
@@ -614,11 +572,10 @@ func.func @select(%arg0: i1, %arg1: i64, %arg2: i64) -> i64
   %0 = executor.select %arg0, %arg1, %arg2 : i64
   return %0 : i64
 }
-// CHECK-LABEL: select
+// CHECK-LABEL: function select
 //  CHECK-SAME: ([[l0:.+]], [[l1:.+]], [[l2:.+]])
-//  CHECK-NEXT:    local [[l3:.+]];
-//  CHECK-NEXT:    [[l3]] = _select([[l0]],[[l1]],[[l2]]);
-//  CHECK-NEXT:    return [[l3]];
+//  CHECK-NEXT:     [[l0]] = _select([[l0]],[[l1]],[[l2]]);
+//  CHECK-NEXT:     return [[l0]];
 //  CHECK-NEXT: end
 
 // -----
@@ -628,12 +585,10 @@ func.func @sqrt_f32(%arg0 : f32) -> f32
   %0 = executor.sqrt %arg0 : f32
   return %0: f32
 }
-// CHECK-LABEL: __check_for_function("_sqrt_f32");
-// CHECK-LABEL: sqrt_f32
+// CHECK-LABEL: function sqrt_f32
 //  CHECK-SAME: ([[l0:.+]])
-//  CHECK-NEXT:    local [[l1:.+]];
-//  CHECK-NEXT:    [[l1]] = _sqrt_f32([[l0]]);
-//  CHECK-NEXT:    return [[l1]];
+//  CHECK-NEXT:     [[l0]] = _sqrt_f32([[l0]]);
+//  CHECK-NEXT:     return [[l0]];
 //  CHECK-NEXT: end
 
 // -----
@@ -643,11 +598,10 @@ func.func @abs_f32(%arg0 : f32) -> f32
   %0 = executor.absf %arg0 : f32
   return %0: f32
 }
-// CHECK-LABEL: abs_f32
+// CHECK-LABEL: function abs_f32
 //  CHECK-SAME: ([[l0:.+]])
-//  CHECK-NEXT:    local [[l1:.+]];
-//  CHECK-NEXT:    [[l1]] = _absf_f32([[l0]]);
-//  CHECK-NEXT:    return [[l1]];
+//  CHECK-NEXT:     [[l0]] = _absf_f32([[l0]]);
+//  CHECK-NEXT:     return [[l0]];
 //  CHECK-NEXT: end
 
 // -----
@@ -657,11 +611,10 @@ func.func @abs_i32(%arg0 : i32) -> i32
   %0 = executor.absi %arg0 : i32
   return %0: i32
 }
-// CHECK-LABEL: abs_i32
+// CHECK-LABEL: function abs_i32
 //  CHECK-SAME: ([[l0:.+]])
-//  CHECK-NEXT:    local [[l1:.+]];
-//  CHECK-NEXT:    [[l1]] = _absi_i32([[l0]]);
-//  CHECK-NEXT:    return [[l1]];
+//  CHECK-NEXT:     [[l0]] = _absi_i32([[l0]]);
+//  CHECK-NEXT:     return [[l0]];
 //  CHECK-NEXT: end
 
 // -----
@@ -672,12 +625,10 @@ func.func @log1p_f32(%arg0 : f32) -> f32
   return %0: f32
 }
 
-// CHECK-LABEL: __check_for_function("_log1p_f32");
-// CHECK-LABEL: log1p_f32
+// CHECK-LABEL: function log1p_f32
 //  CHECK-SAME: ([[l0:.+]])
-//  CHECK-NEXT:    local [[l1:.+]];
-//  CHECK-NEXT:    [[l1]] = _log1p_f32([[l0]]);
-//  CHECK-NEXT:    return [[l1]];
+//  CHECK-NEXT:     [[l0]] = _log1p_f32([[l0]]);
+//  CHECK-NEXT:     return [[l0]];
 //  CHECK-NEXT: end
 
 // -----
@@ -687,11 +638,10 @@ func.func @neg_f32(%arg0 : f32) -> f32
   %0 = executor.negf %arg0 : f32
   return %0: f32
 }
-// CHECK-LABEL: neg_f32
+// CHECK-LABEL: function neg_f32
 //  CHECK-SAME: ([[l0:.+]])
-//  CHECK-NEXT:    local [[l1:.+]];
-//  CHECK-NEXT:    [[l1]] = _negf_f32([[l0]]);
-//  CHECK-NEXT:    return [[l1]];
+//  CHECK-NEXT:     [[l0]] = _negf_f32([[l0]]);
+//  CHECK-NEXT:     return [[l0]];
 //  CHECK-NEXT: end
 
 // -----
@@ -701,11 +651,10 @@ func.func @exec_sitofp_i32_f16(%arg0: i32) -> f16
   %0 = executor.sitofp %arg0 : i32 to f16
   return %0 : f16
 }
-// CHECK-LABEL: exec_sitofp_i32_f16
+// CHECK-LABEL: function exec_sitofp_i32_f16
 //  CHECK-SAME: ([[l0:.+]])
-//  CHECK-NEXT:     local [[l1:.+]];
-//  CHECK-NEXT:     [[l1]] = _sitofp_i32_f16([[l0]]);
-//  CHECK-NEXT:     return [[l1]];
+//  CHECK-NEXT:     [[l0]] = _sitofp_i32_f16([[l0]]);
+//  CHECK-NEXT:     return [[l0]];
 //  CHECK-NEXT: end
 
 // -----
@@ -715,11 +664,10 @@ func.func @exec_sitofp_i32_f64(%arg0: i32) -> f64
   %0 = executor.sitofp %arg0 : i32 to f64
   return %0 : f64
 }
-// CHECK-LABEL: exec_sitofp_i32_f64
+// CHECK-LABEL: function exec_sitofp_i32_f64
 //  CHECK-SAME: ([[l0:.+]])
-//  CHECK-NEXT:     local [[l1:.+]];
-//  CHECK-NEXT:     [[l1]] = _sitofp_i32_f64([[l0]]);
-//  CHECK-NEXT:     return [[l1]];
+//  CHECK-NEXT:     [[l0]] = _sitofp_i32_f64([[l0]]);
+//  CHECK-NEXT:     return [[l0]];
 //  CHECK-NEXT: end
 
 // -----
@@ -728,11 +676,10 @@ func.func @exec_uitofp_i32_f64(%arg0: i32) -> f64 {
   %0 = executor.uitofp %arg0 : i32 to f64
   return %0 : f64
 }
-// CHECK-LABEL: exec_uitofp_i32_f64
+// CHECK-LABEL: function exec_uitofp_i32_f64
 //  CHECK-SAME: ([[l0:.+]])
-//  CHECK-NEXT:     local [[l1:.+]];
-//  CHECK-NEXT:     [[l1]] = _uitofp_i32_f64([[l0]]);
-//  CHECK-NEXT:     return [[l1]];
+//  CHECK-NEXT:     [[l0]] = _uitofp_i32_f64([[l0]]);
+//  CHECK-NEXT:     return [[l0]];
 //  CHECK-NEXT: end
 
 // -----
@@ -742,11 +689,10 @@ func.func @exec_fptosi_f32_i64(%arg0: f32) -> i64
   %0 = executor.fptosi %arg0 : f32 to i64
   return %0 : i64
 }
-// CHECK-LABEL: exec_fptosi_f32_i64
+// CHECK-LABEL: function exec_fptosi_f32_i64
 //  CHECK-SAME: ([[l0:.+]])
-//  CHECK-NEXT:     local [[l1:.+]];
-//  CHECK-NEXT:     [[l1]] = _fptosi_f32_i64([[l0]]);
-//  CHECK-NEXT:     return [[l1]];
+//  CHECK-NEXT:     [[l0]] = _fptosi_f32_i64([[l0]]);
+//  CHECK-NEXT:     return [[l0]];
 //  CHECK-NEXT: end
 
 // -----
@@ -756,11 +702,10 @@ func.func @exec_fptosi_f16_i8(%arg0: f16) -> i8
   %0 = executor.fptosi %arg0 : f16 to i8
   return %0 : i8
 }
-// CHECK-LABEL: exec_fptosi_f16_i8
+// CHECK-LABEL: function exec_fptosi_f16_i8
 //  CHECK-SAME: ([[l0:.+]])
-//  CHECK-NEXT:     local [[l1:.+]];
-//  CHECK-NEXT:     [[l1]] = _fptosi_f16_i8([[l0]]);
-//  CHECK-NEXT:     return [[l1]];
+//  CHECK-NEXT:     [[l0]] = _fptosi_f16_i8([[l0]]);
+//  CHECK-NEXT:     return [[l0]];
 //  CHECK-NEXT: end
 
 // -----
@@ -779,9 +724,10 @@ func.func @cf_if_op(%arg0: i64, %arg1: i64) -> i64 attributes {executor.function
     return %4 : i64
 }
 
-// CHECK-LABEL: cf_if_op
+// CHECK-LABEL: function cf_if_op
 //  CHECK-SAME: ([[l0:.+]], [[l1:.+]])
-//  CHECK-NEXT:   local [[l2:.+]] = nil;
+//  CHECK-NEXT:   local tempSlot = nil;
+//  CHECK-NEXT:   local [[l2:.+]];
 //  CHECK-NEXT:   [[l2]] = _icmp_eq_i64([[l0]], [[l1]]);
 //  CHECK-NEXT:   if ([[l2]] == 1) or ([[l2]] == true) then
 //  CHECK-NEXT:     goto label1;
@@ -789,20 +735,18 @@ func.func @cf_if_op(%arg0: i64, %arg1: i64) -> i64 attributes {executor.function
 //  CHECK-NEXT:     goto label2;
 //  CHECK-NEXT:   end
 //  CHECK-NEXT:   ::label1:: do
-//  CHECK-NEXT:     local [[l3:.+]];
-//  CHECK-NEXT:     [[l3]] = [[l0]] + [[l1]];
-//  CHECK-NEXT:     [[l2]] = [[l3]];
+//  CHECK-NEXT:     [[l0]] = [[l0]] + [[l1]];
+//  CHECK-NEXT:     [[l0]] = [[l0]];
 //  CHECK-NEXT:     goto label3;
 //  CHECK-NEXT:   end
 //  CHECK-NEXT:   ::label2:: do
-//  CHECK-NEXT:     [[l2]] = [[l0]] - [[l1]];
-//  CHECK-NEXT:     local [[l3:.+]];
-//  CHECK-NEXT:     [[l3]] = [[l0]] * [[l2]];
-//  CHECK-NEXT:     [[l2]] = [[l3]];
+//  CHECK-NEXT:     [[l1]] = [[l0]] - [[l1]];
+//  CHECK-NEXT:     [[l0]] = [[l0]] * [[l1]];
+//  CHECK-NEXT:     [[l0]] = [[l0]];
 //  CHECK-NEXT:     goto label3;
 //  CHECK-NEXT:   end
 //  CHECK-NEXT:   ::label3:: do
-//  CHECK-NEXT:     return [[l2]];
+//  CHECK-NEXT:     return [[l0]];
 //  CHECK-NEXT: end
 
 // -----
@@ -822,33 +766,32 @@ func.func @cf_cond_br_forward_entry(%arg0: i64, %arg1: i64) -> i64 attributes {e
 }
 
 // CHECK-LABEL: function cf_cond_br_forward_entry
-// CHECK-SAME: ([[l0:.+]], [[l1:.+]])
-// CHECK-NEXT:   local [[l4:.+]] = nil;
-// CHECK-NEXT:   local [[l5:.+]] = nil;
-// CHECK-NEXT:   local [[l2:.+]];
-// CHECK-NEXT:   [[l2]] = _icmp_eq_i64([[l0]], [[l1]]);
-// CHECK-NEXT:   local [[l3:.+]];
-// CHECK-NEXT:   [[l3]] = 1;
-// CHECK-NEXT:   if ([[l2]] == 1) or ([[l2]] == true) then
-// CHECK-NEXT:     [[l4]] = [[l0]];
-// CHECK-NEXT:     goto label1;
-// CHECK-NEXT:   else
-// CHECK-NEXT:     [[l5]] = [[l1]];
-// CHECK-NEXT:     goto label2;
-// CHECK-NEXT:   end
-// CHECK-NEXT:   ::label1:: do
-// CHECK-NEXT:     [[l0]] = [[l3]] + [[l4]];
-// CHECK-NEXT:     [[l1]] = [[l0]];
-// CHECK-NEXT:     goto label3;
-// CHECK-NEXT:   end
-// CHECK-NEXT:   ::label2:: do
-// CHECK-NEXT:     [[l0]] = [[l3]] - [[l5]];
-// CHECK-NEXT:     [[l1]] = [[l0]];
-// CHECK-NEXT:     goto label3;
-// CHECK-NEXT:   end
-// CHECK-NEXT:   ::label3:: do
-// CHECK-NEXT:     return [[l1]];
-// CHECK-NEXT: end
+//  CHECK-SAME: ([[l0:.+]], [[l1:.+]])
+//  CHECK-NEXT:   local tempSlot = nil;
+//  CHECK-NEXT:   local [[l2:.+]];
+//  CHECK-NEXT:   [[l2]] = _icmp_eq_i64([[l0]], [[l1]]);
+//  CHECK-NEXT:   local [[l3:.+]];
+//  CHECK-NEXT:   [[l3]] = 1;
+//  CHECK-NEXT:   if ([[l2]] == 1) or ([[l2]] == true) then
+//  CHECK-NEXT:     [[l0]] = [[l0]];
+//  CHECK-NEXT:     goto label1;
+//  CHECK-NEXT:   else
+//  CHECK-NEXT:     [[l1]] = [[l1]];
+//  CHECK-NEXT:     goto label2;
+//  CHECK-NEXT:   end
+//  CHECK-NEXT:   ::label1:: do
+//  CHECK-NEXT:     [[l0]] = [[l3]] + [[l0]];
+//  CHECK-NEXT:     [[l0]] = [[l0]];
+//  CHECK-NEXT:     goto label3;
+//  CHECK-NEXT:   end
+//  CHECK-NEXT:   ::label2:: do
+//  CHECK-NEXT:     [[l0]] = [[l3]] - [[l1]];
+//  CHECK-NEXT:     [[l0]] = [[l0]];
+//  CHECK-NEXT:     goto label3;
+//  CHECK-NEXT:   end
+//  CHECK-NEXT:   ::label3:: do
+//  CHECK-NEXT:     return [[l0]];
+//  CHECK-NEXT: end
 
 // -----
 
@@ -871,11 +814,9 @@ func.func @cf_switch_op(%arg0: i64) -> i64 {
     return %arg3 : i64
 }
 
-// CHECK-LABEL: cf_switch_op
+// CHECK-LABEL: function cf_switch_op
 //  CHECK-SAME: ([[l0:.+]])
-//  CHECK-NEXT:   local [[l4:.+]] = nil;
-//  CHECK-NEXT:   local [[l5:.+]] = nil;
-//  CHECK-NEXT:   local [[l6:.+]] = nil;
+//  CHECK-NEXT:   local tempSlot = nil;
 //  CHECK-NEXT:   local [[l1:.+]];
 //  CHECK-NEXT:   [[l1]] = 0;
 //  CHECK-NEXT:   local [[l2:.+]];
@@ -883,27 +824,27 @@ func.func @cf_switch_op(%arg0: i64) -> i64 {
 //  CHECK-NEXT:   local [[l3:.+]];
 //  CHECK-NEXT:   [[l3]] = 2;
 //  CHECK-NEXT:   if ([[l0]] == 1) then
-//  CHECK-NEXT:     [[l5]] = [[l2]];
+//  CHECK-NEXT:     [[l0]] = [[l2]];
 //  CHECK-NEXT:     goto label1;
 //  CHECK-NEXT:   elseif ([[l0]] == 2) then
-//  CHECK-NEXT:     [[l6]] = [[l3]];
+//  CHECK-NEXT:     [[l0]] = [[l3]];
 //  CHECK-NEXT:     goto label2;
 //  CHECK-NEXT:   else
-//  CHECK-NEXT:     [[l4]] = [[l1]];
+//  CHECK-NEXT:     [[l0]] = [[l1]];
 //  CHECK-NEXT:     goto label3;
 //  CHECK-NEXT:   end
 //  CHECK-NEXT:   ::label3:: do
-//  CHECK-NEXT:     [[l0]] = [[l4]] + [[l2]];
-//  CHECK-NEXT:     [[l6]] = [[l0]];
+//  CHECK-NEXT:     [[l0]] = [[l0]] + [[l2]];
+//  CHECK-NEXT:     [[l0]] = [[l0]];
 //  CHECK-NEXT:     goto label2;
 //  CHECK-NEXT:   end
 //  CHECK-NEXT:   ::label1:: do
-//  CHECK-NEXT:     [[l0]] = [[l5]] + [[l3]];
-//  CHECK-NEXT:     [[l6]] = [[l0]];
+//  CHECK-NEXT:     [[l0]] = [[l0]] + [[l3]];
+//  CHECK-NEXT:     [[l0]] = [[l0]];
 //  CHECK-NEXT:     goto label2;
 //  CHECK-NEXT:   end
 //  CHECK-NEXT:   ::label2:: do
-//  CHECK-NEXT:     return [[l6]];
+//  CHECK-NEXT:     return [[l0]];
 //  CHECK-NEXT:   end
 //  CHECK-NEXT: end
 
@@ -939,44 +880,43 @@ func.func @block_arg_handling(%arg0: i64, %arg1: i64) {
 
 // CHECK-LABEL: function block_arg_handling
 //  CHECK-SAME:  ([[l0:.+]], [[l1:.+]])
+//  CHECK-NEXT:   local tempSlot = nil;
 //  CHECK-NEXT:   local [[l4:.+]] = nil;
-//  CHECK-NEXT:   local [[l2:.+]] = nil;
 //  CHECK-NEXT:   local [[l5:.+]] = nil;
-//  CHECK-NEXT:   [[l2]] = [[l0]] + [[l1]];
-//  CHECK-NEXT:   [[l0]] = 0;
-//  CHECK-NEXT:   [[l1]] = 1;
+//  CHECK-NEXT:   [[l0]] = [[l0]] + [[l1]];
+//  CHECK-NEXT:   [[l1]] = 0;
+//  CHECK-NEXT:   local [[l2:.+]];
+//  CHECK-NEXT:   [[l2]] = 1;
 //  CHECK-NEXT:   local [[l3:.+]];
 //  CHECK-NEXT:   [[l3]] = 5;
-//  CHECK-NEXT:   [[l4]] = [[l2]];
+//  CHECK-NEXT:   [[l0]] = [[l0]];
 //  CHECK-NEXT:   goto label1;
 //  CHECK-NEXT:   ::label1:: do
-//  CHECK-NEXT:     [[l2]] = _icmp_slt_i64([[l4]], [[l3]]);
-//  CHECK-NEXT:     if ([[l2]] == 1) or ([[l2]] == true) then
+//  CHECK-NEXT:     [[l4]] = _icmp_slt_i64([[l0]], [[l3]]);
+//  CHECK-NEXT:     if ([[l4]] == 1) or ([[l4]] == true) then
 //  CHECK-NEXT:       goto label2;
 //  CHECK-NEXT:     else
 //  CHECK-NEXT:       goto label3;
 //  CHECK-NEXT:     end
 //  CHECK-NEXT:   end
 //  CHECK-NEXT:   ::label2:: do
-//  CHECK-NEXT:     [[l2]] = [[l4]] + [[l1]];
-//  CHECK-NEXT:     [[l5]] = [[l0]];
+//  CHECK-NEXT:     [[l4]] = [[l0]] + [[l2]];
+//  CHECK-NEXT:     [[l5]] = [[l1]];
 //  CHECK-NEXT:     goto label4;
 //  CHECK-NEXT:   end
 //  CHECK-NEXT:   ::label4:: do
-//  CHECK-NEXT:     local [[l6:.+]];
-//  CHECK-NEXT:     [[l6]] = _icmp_sle_i64([[l5]], [[l4]]);
-//  CHECK-NEXT:     if ([[l6]] == 1) or ([[l6]] == true) then
+//  CHECK-NEXT:     [[l5]] = _icmp_sle_i64([[l5]], [[l0]]);
+//  CHECK-NEXT:     if ([[l5]] == 1) or ([[l5]] == true) then
 //  CHECK-NEXT:       goto label5;
 //  CHECK-NEXT:     else
-//  CHECK-NEXT:       [[l4]] = [[l2]];
+//  CHECK-NEXT:       [[l0]] = [[l4]];
 //  CHECK-NEXT:       goto label1;
 //  CHECK-NEXT:     end
 //  CHECK-NEXT:   end
 //  CHECK-NEXT:   ::label5:: do
-//  CHECK-NEXT:     print(string.format("%arg2 = %d", [[l4]]));
-//  CHECK-NEXT:     local [[l6:.+]];
-//  CHECK-NEXT:     [[l6]] = [[l4]] + [[l1]];
-//  CHECK-NEXT:     [[l5]] = [[l6]];
+//  CHECK-NEXT:     print(string.format("%arg2 = %d", [[l0]]));
+//  CHECK-NEXT:     [[l5]] = [[l0]] + [[l2]];
+//  CHECK-NEXT:     [[l5]] = [[l5]];
 //  CHECK-NEXT:     goto label4;
 //  CHECK-NEXT:   end
 //  CHECK-NEXT:   ::label3:: do
@@ -995,16 +935,15 @@ func.func @executor_ops(%arg0: i64, %arg1: i64) -> i64 attributes {executor.func
   return %2 : i64
 }
 
-// CHECK-LABEL: executor_ops
+// CHECK-LABEL: function executor_ops
 //  CHECK-SAME: ([[l0:.+]], [[l1:.+]])
 //  CHECK-NEXT:   local [[l2:.+]];
 //  CHECK-NEXT:   [[l2]] = 0;
 //  CHECK-NEXT:   [[l2]] = 1;
-//  CHECK-NEXT:   local [[l3:.+]];
-//  CHECK-NEXT:   [[l3]] = [[l0]] + [[l1]];
-//  CHECK-NEXT:   [[l0]] = [[l3]] - [[l2]];
-//  CHECK-NEXT:   [[l1]] = [[l3]] * [[l0]];
-//  CHECK-NEXT:   return [[l1]];
+//  CHECK-NEXT:   [[l0]] = [[l0]] + [[l1]];
+//  CHECK-NEXT:   [[l1]] = [[l0]] - [[l2]];
+//  CHECK-NEXT:   [[l0]] = [[l0]] * [[l1]];
+//  CHECK-NEXT:   return [[l0]];
 //  CHECK-NEXT: end
 
 // -----
@@ -1023,32 +962,32 @@ func.func @cf_for_op(%arg0: i64, %arg1: i64, %arg2: i64) -> i64 attributes {exec
   return %1 : i64
 }
 
-// CHECK-LABEL: cf_for_op
+// CHECK-LABEL: function cf_for_op
 //  CHECK-SAME: ([[l0:.+]], [[l1:.+]], [[l2:.+]])
-//  CHECK-NEXT:   local [[l4:.+]] = nil;
-//  CHECK-NEXT:   local [[l5:.+]] = nil;
-//  CHECK-NEXT:   local [[l3:.+]];
+//  CHECK-NEXT:   local tempSlot = nil;
+//  CHECK-NEXT:   local [[l3:.+]] = nil;
 //  CHECK-NEXT:   [[l3]] = 0;
-//  CHECK-NEXT:   [[l4]] = [[l0]];
-//  CHECK-NEXT:   [[l5]] = [[l3]];
+//  CHECK-NEXT:   [[l0]] = [[l0]];
+//  CHECK-NEXT:   [[l3]] = [[l3]];
 //  CHECK-NEXT:   goto label1;
 //  CHECK-NEXT:   ::label1:: do
-//  CHECK-NEXT:     [[l0]] = _icmp_slt_i64([[l4]], [[l1]]);
-//  CHECK-NEXT:     if ([[l0]] == 1) or ([[l0]] == true) then
+//  CHECK-NEXT:     local [[l4:.+]];
+//  CHECK-NEXT:     [[l4]] = _icmp_slt_i64([[l0]], [[l1]]);
+//  CHECK-NEXT:     if ([[l4]] == 1) or ([[l4]] == true) then
 //  CHECK-NEXT:       goto label2;
 //  CHECK-NEXT:     else
 //  CHECK-NEXT:       goto label3;
 //  CHECK-NEXT:     end
 //  CHECK-NEXT:   end
 //  CHECK-NEXT:   ::label2:: do
-//  CHECK-NEXT:     [[l0]] = [[l5]] + [[l4]];
-//  CHECK-NEXT:     [[l3]] = [[l4]] + [[l2]];
-//  CHECK-NEXT:     [[l4]] = [[l3]];
-//  CHECK-NEXT:     [[l5]] = [[l0]];
+//  CHECK-NEXT:     [[l3]] = [[l3]] + [[l0]];
+//  CHECK-NEXT:     [[l0]] = [[l0]] + [[l2]];
+//  CHECK-NEXT:     [[l0]] = [[l0]];
+//  CHECK-NEXT:     [[l3]] = [[l3]];
 //  CHECK-NEXT:     goto label1;
 //  CHECK-NEXT:   end
 //  CHECK-NEXT:   ::label3:: do
-//  CHECK-NEXT:     return [[l5]];
+//  CHECK-NEXT:     return [[l3]];
 //  CHECK-NEXT:   end
 //  CHECK-NEXT: end
 
@@ -1061,7 +1000,7 @@ func.func @executor_print_op(%arg0: i64, %arg1: f32) attributes {executor.functi
   return
 }
 
-// CHECK-LABEL: executor_print_op
+// CHECK-LABEL: function executor_print_op
 //  CHECK-SAME: ([[l0:.+]], [[l1:.+]])
 //  CHECK-NEXT:     print([[l0]], [[l1]]);
 //  CHECK-NEXT:     print(string.format("hello %d, %f", [[l0]], [[l1]]));
@@ -1088,18 +1027,17 @@ func.func @executor_aggregates(%arg0: i64, %arg1: i32, %arg2: i32, %arg3: i32, %
   return %0, %1, %2, %3 : !descriptor2d, !descriptor2d, i32, !descriptor2d
 }
 
-// CHECK-LABEL: executor_aggregates
+// CHECK-LABEL: function executor_aggregates
 //  CHECK-SAME: ([[l0:.+]], [[l1:.+]], [[l2:.+]], [[l3:.+]], [[l4:.+]], [[l5:.+]])
 //  CHECK-NEXT:   local [[l6:.+]];
 //  CHECK-NEXT:   [[l6]] = {};
-//  CHECK-NEXT:   local [[l7:.+]];
-//  CHECK-NEXT:   [[l7]] = {[[l0]], [[l0]], [[l1]], [[l2]], [[l3]], [[l4]], [[l5]]};
-//  CHECK-NEXT:   [[l0]] = [[l7]][3];
-//  CHECK-NEXT:   [[l1]] = 0;
+//  CHECK-NEXT:   [[l0]] = {[[l0]], [[l0]], [[l1]], [[l2]], [[l3]], [[l4]], [[l5]]};
+//  CHECK-NEXT:   [[l1]] = [[l0]][3];
+//  CHECK-NEXT:   [[l2]] = 0;
 //  CHECK-NEXT:   [[l2]] = {};
-//  CHECK-NEXT:   for j,x in ipairs([[l7]]) do [[l2]][j] = x end;
-//  CHECK-NEXT:   [[l2]][3] = [[l1]];
-//  CHECK-NEXT:   return [[l6]], [[l7]], [[l0]], [[l2]];
+//  CHECK-NEXT:   for j,x in ipairs([[l0]]) do [[l2]][j] = x end;
+//  CHECK-NEXT:   [[l2]][3] = [[l2]];
+//  CHECK-NEXT:   return [[l6]], [[l0]], [[l1]], [[l2]];
 //  CHECK-NEXT: end
 
 // -----
@@ -1113,12 +1051,11 @@ func.func @executor_dynamic_extract(%arg0: i64, %arg1: i64, %arg2: i64, %arg3: i
   return %0, %1 : !descriptor2d, i64
 }
 
-// CHECK-LABEL: executor_dynamic_extract
+// CHECK-LABEL: function executor_dynamic_extract
 //  CHECK-SAME: ([[l0:.+]], [[l1:.+]], [[l2:.+]], [[l3:.+]], [[l4:.+]])
-//  CHECK-NEXT:   local [[l5:.+]];
-//  CHECK-NEXT:   [[l5]] = {[[l0]], [[l1]], [[l2]], [[l3]]};
-//  CHECK-NEXT:   [[l0]] = [[l5]][[[l4]] + 1];
-//  CHECK-NEXT:   return [[l5]], [[l0]];
+//  CHECK-NEXT:   [[l0]] = {[[l0]], [[l1]], [[l2]], [[l3]]};
+//  CHECK-NEXT:   [[l1]] = [[l0]][[[l4]] + 1];
+//  CHECK-NEXT:   return [[l0]], [[l1]];
 //  CHECK-NEXT: end
 
 // -----
@@ -1184,10 +1121,10 @@ func.func @other_func(%arg0: i32) -> i32 {
 }
 
 // CHECK-LABEL: function max_local_allocation_test
-//  CHECK-SAME:  ([[arg0:l[0-9]+]],
-//  CHECK-NEXT:      local [[locals:.+]] = {};
-//  CHECK-NEXT:      [[locals]].[[t0:.+]], [[locals]].[[t1:.+]] = return_two_vals([[arg0]], [[arg0]]);
-//  CHECK-NEXT:      [[l0:l[0-9]+]], [[l1:l[0-9]+]] = return_two_vals([[locals]].[[t0]], [[locals]].[[t1]]);
+//  CHECK-SAME:  ([[l0:[a-z0-9]+]], [[l1:[a-z0-9]+]], [[l2:[a-z0-9]+]], [[l3:[a-z0-9]+]], [[l4:[a-z0-9]+]], [[l5:[a-z0-9]+]], [[l6:[a-z0-9]+]], [[l7:[a-z0-9]+]], [[l8:[a-z0-9]+]], [[l9:[a-z0-9]+]], [[l10:[a-z0-9]+]], [[l11:[a-z0-9]+]], [[l12:[a-z0-9]+]], [[l13:[a-z0-9]+]], [[l14:[a-z0-9]+]], [[l15:[a-z0-9]+]], [[l16:[a-z0-9]+]], [[l17:[a-z0-9]+]], [[l18:[a-z0-9]+]], [[l19:[a-z0-9]+]], [[l20:[a-z0-9]+]], [[l21:[a-z0-9]+]], [[l22:[a-z0-9]+]], [[l23:[a-z0-9]+]], [[l24:[a-z0-9]+]], [[l25:[a-z0-9]+]], [[l26:[a-z0-9]+]], [[l27:[a-z0-9]+]], [[l28:[a-z0-9]+]], [[l29:[a-z0-9]+]], [[l30:[a-z0-9]+]], [[l31:[a-z0-9]+]], [[l32:[a-z0-9]+]], [[l33:[a-z0-9]+]], [[l34:[a-z0-9]+]], [[l35:[a-z0-9]+]], [[l36:[a-z0-9]+]], [[l37:[a-z0-9]+]], [[l38:[a-z0-9]+]], [[l39:[a-z0-9]+]], [[l40:[a-z0-9]+]], [[l41:[a-z0-9]+]], [[l42:[a-z0-9]+]], [[l43:[a-z0-9]+]], [[l44:[a-z0-9]+]], [[l45:[a-z0-9]+]], [[l46:[a-z0-9]+]], [[l47:[a-z0-9]+]], [[l48:[a-z0-9]+]], [[l49:[a-z0-9]+]], [[l50:[a-z0-9]+]], [[l51:[a-z0-9]+]], [[l52:[a-z0-9]+]], [[l53:[a-z0-9]+]], [[l54:[a-z0-9]+]], [[l55:[a-z0-9]+]], [[l56:[a-z0-9]+]], [[l57:[a-z0-9]+]], [[l58:[a-z0-9]+]], [[l59:[a-z0-9]+]], [[l60:[a-z0-9]+]], [[l61:[a-z0-9]+]], [[l62:[a-z0-9]+]], [[l63:[a-z0-9]+]], [[l64:[a-z0-9]+]], [[l65:[a-z0-9]+]], [[l66:[a-z0-9]+]], [[l67:[a-z0-9]+]], [[l68:[a-z0-9]+]], [[l69:[a-z0-9]+]], [[l70:[a-z0-9]+]], [[l71:[a-z0-9]+]], [[l72:[a-z0-9]+]], [[l73:[a-z0-9]+]], [[l74:[a-z0-9]+]], [[l75:[a-z0-9]+]], [[l76:[a-z0-9]+]], [[l77:[a-z0-9]+]], [[l78:[a-z0-9]+]], [[l79:[a-z0-9]+]], [[l80:[a-z0-9]+]], [[l81:[a-z0-9]+]], [[l82:[a-z0-9]+]], [[l83:[a-z0-9]+]], [[l84:[a-z0-9]+]], [[l85:[a-z0-9]+]], [[l86:[a-z0-9]+]], [[l87:[a-z0-9]+]], [[l88:[a-z0-9]+]], [[l89:[a-z0-9]+]], [[l90:[a-z0-9]+]], [[l91:[a-z0-9]+]], [[l92:[a-z0-9]+]], [[l93:[a-z0-9]+]], [[l94:[a-z0-9]+]], [[l95:[a-z0-9]+]], [[l96:[a-z0-9]+]], [[l97:[a-z0-9]+]], [[l98:[a-z0-9]+]], [[l99:[a-z0-9]+]],
+// CHECK-SAME: [[l100:[a-z0-9]+]], [[l101:[a-z0-9]+]], [[l102:[a-z0-9]+]], [[l103:[a-z0-9]+]], [[l104:[a-z0-9]+]], [[l105:[a-z0-9]+]], [[l106:[a-z0-9]+]], [[l107:[a-z0-9]+]], [[l108:[a-z0-9]+]], [[l109:[a-z0-9]+]], [[l110:[a-z0-9]+]], [[l111:[a-z0-9]+]], [[l112:[a-z0-9]+]], [[l113:[a-z0-9]+]], [[l114:[a-z0-9]+]], [[l115:[a-z0-9]+]], [[l116:[a-z0-9]+]], [[l117:[a-z0-9]+]], [[l118:[a-z0-9]+]], [[l119:[a-z0-9]+]], [[l120:[a-z0-9]+]], [[l121:[a-z0-9]+]], [[l122:[a-z0-9]+]], [[l123:[a-z0-9]+]], [[l124:[a-z0-9]+]], [[l125:[a-z0-9]+]], [[l126:[a-z0-9]+]], [[l127:[a-z0-9]+]], [[l128:[a-z0-9]+]], [[l129:[a-z0-9]+]], [[l130:[a-z0-9]+]], [[l131:[a-z0-9]+]], [[l132:[a-z0-9]+]], [[l133:[a-z0-9]+]], [[l134:[a-z0-9]+]], [[l135:[a-z0-9]+]], [[l136:[a-z0-9]+]], [[l137:[a-z0-9]+]], [[l138:[a-z0-9]+]], [[l139:[a-z0-9]+]], [[l140:[a-z0-9]+]], [[l141:[a-z0-9]+]], [[l142:[a-z0-9]+]], [[l143:[a-z0-9]+]], [[l144:[a-z0-9]+]], [[l145:[a-z0-9]+]], [[l146:[a-z0-9]+]], [[l147:[a-z0-9]+]], [[l148:[a-z0-9]+]], [[l149:[a-z0-9]+]], [[l150:[a-z0-9]+]], [[l151:[a-z0-9]+]], [[l152:[a-z0-9]+]], [[l153:[a-z0-9]+]], [[l154:[a-z0-9]+]], [[l155:[a-z0-9]+]], [[l156:[a-z0-9]+]], [[l157:[a-z0-9]+]], [[l158:[a-z0-9]+]], [[l159:[a-z0-9]+]], [[l160:[a-z0-9]+]], [[l161:[a-z0-9]+]], [[l162:[a-z0-9]+]], [[l163:[a-z0-9]+]], [[l164:[a-z0-9]+]], [[l165:[a-z0-9]+]], [[l166:[a-z0-9]+]], [[l167:[a-z0-9]+]], [[l168:[a-z0-9]+]], [[l169:[a-z0-9]+]], [[l170:[a-z0-9]+]], [[l171:[a-z0-9]+]], [[l172:[a-z0-9]+]], [[l173:[a-z0-9]+]], [[l174:[a-z0-9]+]], [[l175:[a-z0-9]+]], [[l176:[a-z0-9]+]], [[l177:[a-z0-9]+]], [[l178:[a-z0-9]+]], [[l179:[a-z0-9]+]], [[l180:[a-z0-9]+]], [[l181:[a-z0-9]+]], [[l182:[a-z0-9]+]], [[l183:[a-z0-9]+]], [[l184:[a-z0-9]+]], [[l185:[a-z0-9]+]], [[l186:[a-z0-9]+]], [[l187:[a-z0-9]+]], [[l188:[a-z0-9]+]], [[l189:[a-z0-9]+]], [[l190:[a-z0-9]+]], [[l191:[a-z0-9]+]], [[l192:[a-z0-9]+]], [[l193:[a-z0-9]+]], [[l194:[a-z0-9]+]], [[l195:[a-z0-9]+]], [[l196:[a-z0-9]+]], [[l197:[a-z0-9]+]], [[l198:[a-z0-9]+]])
+//  CHECK-NEXT:      [[l0]], [[l1]] = return_two_vals([[l0]], [[l0]]);
+//  CHECK-NEXT:      [[l0]], [[l1]] = return_two_vals([[l0]], [[l1]]);
 //  CHECK-NEXT:      return [[l0]];
 //  CHECK-NEXT: end
 
@@ -1199,10 +1136,10 @@ func.func @cmpi_ugt(%arg0: i32, %arg1: i32) -> i1
   return %0 : i1
 }
 
-// CHECK-LABEL: function cmpi_ugt ({{.+}}, {{.+}})
-//  CHECK-NEXT:   local [[l2:.+]];
-//  CHECK-NEXT:   [[l2]] = _icmp_ugt_i32({{.+}}, {{.+}});
-//  CHECK-NEXT:   return [[l2]];
+// CHECK-LABEL: function cmpi_ugt
+//  CHECK-SAME: ([[l0:.+]], [[l1:.+]])
+//  CHECK-NEXT:   [[l0]] = _icmp_ugt_i32([[l0]], [[l1]]);
+//  CHECK-NEXT:   return [[l0]];
 //  CHECK-NEXT: end
 
 // -----
@@ -1213,10 +1150,10 @@ func.func @cmpi_ult(%arg0: i32, %arg1: i32) -> i1
   return %0 : i1
 }
 
-// CHECK-LABEL: function cmpi_ult ({{.+}}, {{.+}})
-//  CHECK-NEXT:   local [[l2:.+]];
-//  CHECK-NEXT:   [[l2]] = _icmp_ult_i32({{.+}}, {{.+}});
-//  CHECK-NEXT:   return [[l2]];
+// CHECK-LABEL: function cmpi_ult
+//  CHECK-SAME: ([[l0:.+]], [[l1:.+]])
+//  CHECK-NEXT:   [[l0]] = _icmp_ult_i32([[l0]], [[l1]]);
+//  CHECK-NEXT:   return [[l0]];
 //  CHECK-NEXT: end
 
 // -----
@@ -1234,42 +1171,41 @@ func.func @test_assert(%arg0: i1) {
 
 // -----
 
-func.func @coro(%arg0: i32) -> i32 {
+func.func @coro_1(%arg0: i32) -> i32 {
   executor.coro_yield %arg0 : i32
   return %arg0 : i32
 }
 
-func.func @coro_await() -> (i32) {
+func.func @coro_await_1() -> (i32) {
   %c0 = executor.constant 0 : i32
-  %coro = executor.coro_create @coro : (i32) -> i32
+  %coro = executor.coro_create @coro_1 : (i32) -> i32
   %0:2 = executor.coro_await %coro (%c0 :  i32) : (i32) -> i32
   %1:2 = executor.coro_await %coro () : (i32) -> i32
   return %1#1 : i32
 }
 
-//  CHECK-LABEL: function coro
+// CHECK-LABEL: function coro_1
 //   CHECK-SAME:  ([[l0:.+]])
 //   CHECK-NEXT:   coroutine.yield([[l0]]);
 //   CHECK-NEXT:   return [[l0]];
 //   CHECK-NEXT: end
-// CHECK-LABEL: function coro_await ()
+// CHECK-LABEL: function coro_await_1
 //   CHECK-NEXT:  local [[l0:.+]];
 //   CHECK-NEXT:  [[l0]] = 0;
 //   CHECK-NEXT:  local [[l1:.+]];
-//   CHECK-NEXT:  [[l1]] = coroutine.create(coro);
+//        CHECK:  coroutine.create(coro_1)
 //   CHECK-NEXT:  local [[l2:.+]];
-//   CHECK-NEXT:  local [[l3:.+]];
-//   CHECK-NEXT:  [[l2]], [[l3]] = coroutine.resume([[l1]], [[l0]]);
-//   CHECK-NEXT:  [[l0]], [[l2]] = coroutine.resume([[l1]]);
-//   CHECK-NEXT:  return [[l2]];
-//   CHECK-NEXT: end
+//        CHECK:  [[l0]], [[l2]] = coroutine.resume([[l1]], [[l0]]);
+//        CHECK:  [[l0]], [[l1]] = coroutine.resume([[l1]]);
+//        CHECK:  return [[l1]];
+//        CHECK: end
 
 // -----
 
 // This test ensures that an operation with both local and outer-scope results
 // can be emitted correctly.
 
-func.func @coro(%arg0: i32) -> i32 {
+func.func @coro_2(%arg0: i32) -> i32 {
   executor.coro_yield %arg0 : i32
   return %arg0 : i32
 }
@@ -1278,7 +1214,7 @@ func.func @test_mixed_scoped_results() -> (i32) {
   %c0 = executor.constant 0 : i32
   cf.br ^bb0
 ^bb0:
-  %coro = executor.coro_create @coro : (i32) -> i32
+  %coro = executor.coro_create @coro_2 : (i32) -> i32
   %0:2 = executor.coro_await %coro () : (i32) -> i32
   cf.br ^bb1
 ^bb1:
@@ -1286,21 +1222,21 @@ func.func @test_mixed_scoped_results() -> (i32) {
 }
 
 
-// CHECK-LABEL: function coro
-// CHECK-LABEL: function test_mixed_scoped_results ()
-//  CHECK-NEXT:   local [[l2:.+]] = nil;
+// CHECK-LABEL: function coro_2
+// CHECK-LABEL: function test_mixed_scoped_results
+//  CHECK-NEXT:   local tempSlot = nil;
+//  CHECK-NEXT:   local [[l1:.+]] = nil;
 //  CHECK-NEXT:   local [[l0:.+]];
 //  CHECK-NEXT:   [[l0]] = 0;
 //  CHECK-NEXT:   goto label1;
 //  CHECK-NEXT:   ::label1:: do
-//  CHECK-NEXT:     [[l0]] = coroutine.create(coro);
-//  CHECK-NEXT:     local [[l1:.+]];
-//  CHECK-NEXT:     [[l1]], [[l2]] = coroutine.resume([[l0]]);
+//  CHECK-NEXT:     [[l0]] = coroutine.create(coro_2);
+//  CHECK-NEXT:     [[l0]], [[l1]] = coroutine.resume([[l0]]);
 //  CHECK-NEXT:     goto label2;
 //  CHECK-NEXT:   end
-//  CHECK-NEXT:    ::label2:: do
-//  CHECK-NEXT:      return [[l2]];
-//  CHECK-NEXT:    end
+//  CHECK-NEXT:   ::label2:: do
+//  CHECK-NEXT:     return [[l1]];
+//  CHECK-NEXT:   end
 //  CHECK-NEXT: end
 
 // -----
@@ -1319,18 +1255,18 @@ func.func @test_values_with_external_use(%arg0: i32) -> i32 {
 
 //  CHECK-LABEL: function test_values_with_external_use
 //   CHECK-SAME:  ([[l0:.+]])
+//   CHECK-NEXT:   local tempSlot = nil;
 //   CHECK-NEXT:   local [[l2:.+]] = nil;
-//   CHECK-NEXT:   local [[l3:.+]] = nil;
 //   CHECK-NEXT:   local [[l1:.+]];
 //   CHECK-NEXT:   [[l1]] = 1;
 //   CHECK-NEXT:   goto label1;
 //   CHECK-NEXT:   ::label1:: do
 //   CHECK-NEXT:     [[l2]] = [[l0]] + [[l1]];
-//   CHECK-NEXT:     [[l3]] = [[l0]] - [[l1]];
+//   CHECK-NEXT:     [[l0]] = [[l0]] - [[l1]];
 //   CHECK-NEXT:     goto label2;
 //   CHECK-NEXT:   end
 //   CHECK-NEXT:   ::label2:: do
-//   CHECK-NEXT:     [[l0]] = [[l2]] + [[l3]];
+//   CHECK-NEXT:     [[l0]] = [[l2]] + [[l0]];
 //   CHECK-NEXT:     return [[l0]];
 //   CHECK-NEXT:   end
 //   CHECK-NEXT: end
