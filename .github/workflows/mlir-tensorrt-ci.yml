@@ -1,11 +1,11 @@
 name: MLIR-TensorRT CI
 
 on:
-  pull_request:
-    branches:
-      - main
-    types: [synchronize, opened, reopened, ready_for_review]
-    paths: ["mlir-tensorrt/**"]
+  #pull_request:
+  #  branches:
+  #    - main
+  #  types: [synchronize, opened, reopened, ready_for_review]
+  #  paths: ["mlir-tensorrt/**"]
   push:
     branches:
       - main
