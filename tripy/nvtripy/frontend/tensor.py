@@ -237,6 +237,7 @@ class Tensor(metaclass=TensorMeta):
                 name: InputInfo(list(map(int, inp.trace_tensor.shape)), inp.dtype)
                 for name, inp in zip(arg_names, inputs)
             },
+            access_plan_by_name={name: (name, tuple()) for name in arg_names},
         )
         data = executable(*inputs).trace_tensor.producer.data
 
