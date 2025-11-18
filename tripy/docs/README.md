@@ -171,7 +171,7 @@ Code blocks in docstrings/guides are **preprocessed**:
 
 ## Documentation Philosophy: Write Less Documentation
 
-> “I didn’t have time to write a short letter, so I wrote a long one instead.” - Mark Twain
+> "I didn’t have time to write a short letter, so I wrote a long one instead." - Mark Twain
 
 How much documentation do you want to read? The answer is **none**!
 
