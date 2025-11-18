@@ -1,0 +1,114 @@
+name: MLIR-TensorRT Build and Test
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches: 
+     - main
+     - nightly
+     - release/*
+    paths: ["mlir-tensorrt/**"]
+  tags:
+    # release tag example: v0.4.2
+    # release candidate tag example: v0.4.2-rc1
+    - v[0-9]+.[0-9]+.[0-9]+-rc[0-9]+
+
+jobs:
+  generate-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.generate.outputs.matrix }}
+    steps:
+      - name: checkout TensorRT-Incubator
+        uses: actions/checkout@v4
+      - name: python format and clang check
+        run: |
+          set -eou pipefail
+          set -x
+          python3 -m black --check --extend-exclude='.*\.pyi' mlir-tensorrt/compiler/
+          python3 -m black --check --extend-exclude='.*\.pyi' mlir-tensorrt/integrations/python/
+          git clang-format HEAD~1 --diff
+          if [ $? -ne 0 ]; then
+            echo "Python format and clang check failed"
+            exit 1
+          fi
+          echo "Python format and clang check passed"
+      - name: Generate matrix
+        id: generate
+        run: |
+          set -eou pipefail
+          set -x
+          MATRIX_BLOB="$(python3 .github/scripts/generate-matrix.py --channel test)"
+          echo "${MATRIX_BLOB}"
+          echo "matrix=${MATRIX_BLOB}" >> "${GITHUB_OUTPUT}"
+
+  mlir-tensorrt-build-test:
+    needs: generate-matrix
+    strategy:
+      matrix:
+        ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
+    runs-on: [linux-amd64-gpu-h100-latest-1]
+    container: 
+      image: ${{ matrix.docker_image }}
+      options: '--gpus all'
+    steps:
+      - name: checkout TensorRT-Incubator
+        uses: actions/checkout@v4
+      - name: create cache folder
+        run: |
+          set -eou pipefail
+          set -x
+          mkdir -p ${{ github.workspace }}/ccache
+          mkdir -p ${{ github.workspace }}/.cache.cpm
+      - name: restore cache
+        uses: actions/cache/restore@v4
+        with:
+          key: ${{ runner.os }}-mlir-tensorrt-cache-${{ hashFiles('mlir-tensorrt/**/*.cpp', 'mlir-tensorrt/**/*.h', 'mlir-tensorrt/build_tools/**/*') }}
+          restore-keys: |
+            ${{ runner.os }}-mlir-tensorrt-cache-
+          path: |
+            ${{ github.workspace }}/ccache
+            ${{ github.workspace }}/.cache.cpm/*
+            !${{ github.workspace }}/.cache.cpm/tensorrt
+      - name: build_${{ matrix.cuda }}_trt${{ matrix.trt }}
+        run: |
+          set -eou pipefail
+          set -x
+          cd mlir-tensorrt
+          # build and testings
+          DOWNLOAD_TENSORRT_VERSION=${{ matrix.trt }} ./build_tools/scripts/cicd_build.sh --build_only
+      - name: save cache
+        uses: actions/cache/save@v4
+        with:
+          key: ${{ runner.os }}-mlir-tensorrt-cache-${{ hashFiles('mlir-tensorrt/**/*.cpp', 'mlir-tensorrt/**/*.h', 'mlir-tensorrt/build_tools/**/*') }}
+          path: |
+            ${{ github.workspace }}/ccache
+            ${{ github.workspace }}/.cache.cpm/*
+            !${{ github.workspace }}/.cache.cpm/tensorrt
+      - name: test_${{ matrix.cuda }}_trt${{ matrix.trt }}
+        run: |
+          set -eou pipefail
+          set -x
+          cd mlir-tensorrt
+          DOWNLOAD_TENSORRT_VERSION=${{ matrix.trt }} ./build_tools/scripts/cicd_build.sh
+      - name: ASAN_test_${{ matrix.cuda }}_trt${{ matrix.trt }}
+        run: |
+          set -eou pipefail
+          set -x
+          cd mlir-tensorrt
+          DOWNLOAD_TENSORRT_VERSION=${{ matrix.trt }} ENABLE_ASAN=ON ./build_tools/scripts/cicd_build.sh
+      - name: build_wheel_${{ matrix.cuda }}_trt${{ matrix.trt }}
+        run: |
+          set -eou pipefail
+          set -x
+          cd mlir-tensorrt
+          DOWNLOAD_TENSORRT_VERSION=${{ matrix.trt }} ./build_tools/scripts/cicd_build_wheels.sh --build_wheels
+      - name: smoke_test_wheel_${{ matrix.cuda }}_trt${{ matrix.trt }}
+        run: |
+          set -eou pipefail
+          set -x
+          cd mlir-tensorrt
+          python3 -m pip install .private.wheels/mlir_tensorrt-*.whl
+          # TODO: add smoke test for the wheel
+          

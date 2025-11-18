@@ -21,3 +21,5 @@ rm -rf ${BUILD_DIR} || true
 
 cmake -B ${BUILD_DIR} --preset python-wheel-build 
 
+ninja -C ${BUILD_DIR} mlir-tensorrt-all-wheels
+rsync -za build/wheels/ .private.wheels/
