@@ -62,7 +62,7 @@ def main(args: list[str]) -> None:
                     "docker_image": docker_images[cuda_version],
                 }
             )
-    print(json.dumps(matrix_dict, indent=4))
+    print(json.dumps(matrix_dict))
 
 
 if __name__ == "__main__":
