@@ -5,14 +5,10 @@ on:
   pull_request:
   push:
     branches: 
-     - main
-     - nightly
-     - release/*
+      - main
+      - nightly
+      - release/*
     paths: ["mlir-tensorrt/**"]
-  tags:
-    # release tag example: v0.4.2
-    # release candidate tag example: v0.4.2-rc1
-    - v[0-9]+.[0-9]+.[0-9]+-rc[0-9]+
 
 jobs:
   generate-matrix:
