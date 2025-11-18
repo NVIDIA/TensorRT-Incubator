@@ -1,13 +1,9 @@
 name: MLIR-TensorRT Build and Test
 
 on:
-  workflow_dispatch:
-  pull_request:
   push:
     branches:
-      - main
-      - nightly
-      - release/*
+      - "pull-request/[0-9]+"
     paths: ["mlir-tensorrt/**"]
 
 jobs:
