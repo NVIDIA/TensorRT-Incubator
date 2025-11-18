@@ -74,6 +74,12 @@ public:
     localsInUse.set(localId);
   }
 
+  /// Returns true if the local ID is marked active (in use).
+  bool isLocalIdInUse(unsigned localId) const {
+    assert(localId < maxLocalSlots && "Invalid local ID");
+    return localsInUse.test(localId);
+  }
+
   unsigned acquireSpillId() { return spillId++; }
 
   unsigned getMaxLocalSlots() const { return maxLocalSlots; }
@@ -425,10 +431,14 @@ allocateSlotsToLiveRanges(ArrayRef<LiveRange *> liveRangesSortedByStartPoint,
     SmallVector<LiveRange *> overlappingInactiveRanges;
     for (LiveRange *inactiveRange : inactiveRanges) {
       if (inactiveRange->overlaps(*nextRange)) {
-        // We need to reserve the slot IDs of overlapping inactive ranges to
-        // prevent two (overlapping) live ranges from getting the same slot ID.
-        slotAllocator.acquireLocalId(*inactiveRange->getLocalId());
-        overlappingInactiveRanges.push_back(inactiveRange);
+        if (*inactiveRange->getLocalId() < slotAllocator.getMaxLocalSlots() &&
+            !slotAllocator.isLocalIdInUse(*inactiveRange->getLocalId())) {
+          // We need to reserve the slot IDs of overlapping inactive ranges to
+          // prevent two (overlapping) live ranges from getting the same slot
+          // ID.
+          slotAllocator.acquireLocalId(*inactiveRange->getLocalId());
+          overlappingInactiveRanges.push_back(inactiveRange);
+        }
       }
     }
 
@@ -460,12 +470,12 @@ allocateSlotsToLiveRanges(ArrayRef<LiveRange *> liveRangesSortedByStartPoint,
     }
 
     // 5. Insert the live range into the active ranges.
-    if (nextRange->getLocalId() <= slotAllocator.getMaxLocalSlots())
+    if (nextRange->getLocalId() < slotAllocator.getMaxLocalSlots())
       activeRanges.insert(nextRange);
 
     // 6. Release slots reserved for inactive live ranges (in step 3).
     for (LiveRange *range : overlappingInactiveRanges) {
-      if (*range->getLocalId() <= slotAllocator.getMaxLocalSlots())
+      if (*range->getLocalId() < slotAllocator.getMaxLocalSlots())
         slotAllocator.releaseLocalId(*range->getLocalId());
     }
   }
