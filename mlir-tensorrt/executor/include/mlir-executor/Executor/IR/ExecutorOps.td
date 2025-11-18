@@ -1215,10 +1215,7 @@ def Executor_DeallocateOp : Executor_Op<"dealloc", []> {
 }
 
 def Executor_LoadOp : Executor_Op<"load", [
-  DeclareOpInterfaceMethods<PromotableMemOpInterface>,
-  DeclareOpInterfaceMethods<RuntimeBuiltinInterface, [
-    "getRuntimeBuiltinFunctionType", "lowerToCall"]>
-]> {
+  DeclareOpInterfaceMethods<PromotableMemOpInterface>]> {
   let description = [{
     `executor.load` loads `result` from the memory location given by `ptr +
     offset`. The offset is in terms of bytes.
@@ -1229,24 +1226,10 @@ def Executor_LoadOp : Executor_Op<"load", [
   let assemblyFormat = [{
     attr-dict $ptr `+` $offset `:` functional-type(operands, results)
   }];
-
-  let extraClassDefinition = [{
-    /// Specify the function type. Different pointer types can be used, so treat as variadic.
-    /// TODO: fix this when we have `!executor.any_ptr`.
-    ExecutorFunctionType
-    $cppClass::getRuntimeBuiltinFunctionType(TypeRange results, TypeRange operands) {
-      auto *ctx = (*this)->getContext();
-      return ExecutorFunctionType::get(
-            ctx, {}, llvm::to_vector(results), UnitAttr::get(ctx));
-    }
-  }];
 }
 
 def Executor_StoreOp : Executor_Op<"store", [
-  DeclareOpInterfaceMethods<PromotableMemOpInterface>,
-  DeclareOpInterfaceMethods<RuntimeBuiltinInterface, [
-    "getRuntimeBuiltinFunctionType", "getTypesForNameSuffix"]>
-]> {
+  DeclareOpInterfaceMethods<PromotableMemOpInterface>]> {
   let description = [{
     `executor.store` stores `value` to the memory location given by `ptr +
     offset`. The offset is in terms of bytes.
@@ -1259,22 +1242,6 @@ def Executor_StoreOp : Executor_Op<"store", [
   let assemblyFormat = [{
     attr-dict $value `to` $ptr `+` $offset
      `:` type($value) `,` qualified(type($ptr)) `,` type($offset)
-  }];
-
-  let extraClassDefinition = [{
-    /// Specify the function type. Different pointer types can be used, so treat as variadic.
-    /// TODO: fix this when we have `!executor.any_ptr`.
-    ExecutorFunctionType
-    $cppClass::getRuntimeBuiltinFunctionType(TypeRange results, TypeRange operands) {
-      auto *ctx = (*this)->getContext();
-      return ExecutorFunctionType::get(
-            ctx, {}, llvm::to_vector(results), UnitAttr::get(ctx));
-    }
-
-    SmallVector<Type>
-    $cppClass::getTypesForNameSuffix() {
-      return {getValue().getType()};
-    }
   }];
 }
 

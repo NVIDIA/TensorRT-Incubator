@@ -141,6 +141,9 @@ public:
 
   StringRef getVariableName(Value val);
 
+  /// Emit a comma-separated list of variable names.
+  void emitCommaSeparatedVariableNames(ValueRange values);
+
   /// Returns true if the type is supported for operands/results.
   bool isSupportedFloatingPointType(Type type) const;
 
@@ -854,6 +857,43 @@ static LogicalResult printMinMaxOp(LuaEmitter &emitter, OpTy op) {
   return success();
 }
 
+static LogicalResult emitLoadStoreSuffix(LuaEmitter &emitter, Location loc,
+                                         Type type) {
+  if (type.isIntOrIndexOrFloat()) {
+    emitter << type;
+    return success();
+  }
+  if (auto ptr = dyn_cast<executor::PointerType>(type)) {
+    emitter << "ptr_" << executor::stringifyMemoryType(ptr.getAddressSpace());
+    return success();
+  }
+  return emitError(loc, "unsupported type for load/store: ") << type;
+}
+
+static LogicalResult printOperation(LuaEmitter &emitter, executor::StoreOp op) {
+  emitter << "_store_";
+  if (failed(
+          emitLoadStoreSuffix(emitter, op.getLoc(), op.getValue().getType())))
+    return failure();
+  emitter << "(";
+  emitter.emitCommaSeparatedVariableNames(
+      {op.getPtr(), op.getOffset(), op.getValue()});
+  emitter << ");\n";
+  return success();
+}
+
+static LogicalResult printOperation(LuaEmitter &emitter, executor::LoadOp op) {
+  if (failed(emitter.emitAssignPrefix(op)))
+    return failure();
+  emitter << "_load_";
+  if (failed(emitLoadStoreSuffix(emitter, op.getLoc(), op.getType())))
+    return failure();
+  emitter << "(";
+  emitter.emitCommaSeparatedVariableNames({op.getPtr(), op.getOffset()});
+  emitter << ");\n";
+  return success();
+}
+
 //===----------------------------------------------------------------------===//
 // LuaEmitter implementation
 //===----------------------------------------------------------------------===//
@@ -915,6 +955,10 @@ StringRef LuaEmitter::getVariableName(Value val) {
   if (itLocal != localMapper.end())
     return *itLocal;
   llvm::report_fatal_error("value is not in scope");
+}
+
+void LuaEmitter::emitCommaSeparatedVariableNames(ValueRange values) {
+  llvm::interleaveComma(values, os, [&](Value v) { os << getVariableName(v); });
 }
 
 LogicalResult LuaEmitter::emitAssignPrefix(Operation *op) {
@@ -1076,6 +1120,8 @@ LogicalResult LuaEmitter::emitOperation(Operation &op) {
     return llvm::TypeSwitch<Operation *, LogicalResult>(&op)
         .Case<executor::AllocateOp, executor::DeallocateOp,
               executor::StridedMemrefCopyOp>(
+            [&](auto op) { return printOperation(*this, op); })
+        .Case<executor::LoadOp, executor::StoreOp>(
             [&](auto op) { return printOperation(*this, op); })
         .Case<executor::FuncOp, executor::CallOp, executor::ConstantOp>(
             [&](auto op) { return printOperation(*this, op); })

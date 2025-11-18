@@ -775,16 +775,6 @@ AllocaOp::handlePromotionComplete(const MemorySlot &slot, Value defaultValue,
 // LoadOp
 //===----------------------------------------------------------------------===//
 
-FailureOr<CallOpInterface>
-LoadOp::lowerToCall(ArrayRef<Value> operands, RewriterBase &rewriter,
-                    ModuleOp moduleOp, const TypeConverter &typeConverter,
-                    const DataLayout &dataLayout) {
-  if (isa<TableType>(getType()))
-    return failure();
-  return detail::lowerToCallDefaultImpl(getOperation(), operands, moduleOp,
-                                        rewriter, typeConverter, dataLayout);
-}
-
 bool LoadOp::storesTo(const MemorySlot &slot) { return false; }
 bool LoadOp::loadsFrom(const MemorySlot &slot) { return slot.ptr == getPtr(); }
 Value LoadOp::getStored(const MemorySlot &slot, OpBuilder &, Value reachingDef,
