@@ -22,6 +22,7 @@ jobs:
         run: |
           set -eou pipefail
           set -x
+          python3 -m pip install black
           python3 -m black --check --extend-exclude='.*\.pyi' mlir-tensorrt/compiler/
           python3 -m black --check --extend-exclude='.*\.pyi' mlir-tensorrt/integrations/python/
           git clang-format HEAD~1 --diff
