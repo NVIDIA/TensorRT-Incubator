@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   pull_request:
   push:
-    branches: 
+    branches:
       - main
       - nightly
       - release/*
@@ -18,19 +18,6 @@ jobs:
     steps:
       - name: checkout TensorRT-Incubator
         uses: actions/checkout@v4
-      - name: python format and clang check
-        run: |
-          set -eou pipefail
-          set -x
-          python3 -m pip install black
-          python3 -m black --check --extend-exclude='.*\.pyi' mlir-tensorrt/compiler/
-          python3 -m black --check --extend-exclude='.*\.pyi' mlir-tensorrt/integrations/python/
-          git clang-format HEAD~1 --diff
-          if [ $? -ne 0 ]; then
-            echo "Python format and clang check failed"
-            exit 1
-          fi
-          echo "Python format and clang check passed"
       - name: Generate matrix
         id: generate
         run: |
@@ -46,12 +33,32 @@ jobs:
       matrix:
         ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
     runs-on: [linux-amd64-gpu-h100-latest-1]
-    container: 
+    container:
       image: ${{ matrix.docker_image }}
       options: '--gpus all'
     steps:
+      - name: clean workspace
+        run: |
+          set -eou pipefail
+          set -x
+          echo "cleaning up ${GITHUB_WORKSPACE}"
+          rm -rf ${GITHUB_WORKSPACE}
+          mkdir -p ${GITHUB_WORKSPACE}
       - name: checkout TensorRT-Incubator
         uses: actions/checkout@v4
+      - name: python format and clang check
+        run: |
+          set -eou pipefail
+          set -x
+          python3 -m pip install black
+          python3 -m black --check --extend-exclude='.*\.pyi' mlir-tensorrt/compiler/
+          python3 -m black --check --extend-exclude='.*\.pyi' mlir-tensorrt/integrations/python/
+          git clang-format HEAD~1 --diff
+          if [ $? -ne 0 ]; then
+            echo "Python format and clang check failed"
+            exit 1
+          fi
+          echo "Python format and clang check passed"
       - name: create cache folder
         run: |
           set -eou pipefail
@@ -108,4 +115,7 @@ jobs:
           cd mlir-tensorrt
           python3 -m pip install .private.wheels/mlir_tensorrt-*.whl
           # TODO: add smoke test for the wheel
-          
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}-tensorrt-${{ inputs.repository }}-${{ github.event_name == 'workflow_dispatch' }}-${{ inputs.job-name }}
+  cancel-in-progress: true
