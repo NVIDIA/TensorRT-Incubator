@@ -1,12 +1,8 @@
 #!/usr/bin/env python3
 
 import argparse
-import copy
 import json
 import sys
-
-
-import requests  # type: ignore[import-untyped]
 
 # please update the cuda version/python version/tensorRT version you want to test
 # TODO: add cu130 support
@@ -35,6 +31,7 @@ DOCKER_IMAGE_DICT = {
     },
 }
 
+
 def main(args: list[str]) -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -45,8 +42,10 @@ def main(args: list[str]) -> None:
     )
 
     options = parser.parse_args(args)
-    if not options.channel in ("nightly", "test", "release"):
-        raise Exception("--channel is invalid, please provide nightly, test or release")
+    if options.channel not in ("nightly", "test", "release"):
+        raise Exception(
+            "--channel is invalid, please choose from nightly, test or release"
+        )
     channel = options.channel
 
     cuda_versions = CUDA_VERSIONS_DICT[channel]
@@ -56,11 +55,13 @@ def main(args: list[str]) -> None:
     matrix_dict = {"include": []}
     for cuda_version in cuda_versions:
         for trt_version in trt_versions:
-            matrix_dict["include"].append({
-                "cuda": cuda_version,
-                "trt": trt_version,
-                "docker_image": docker_images[channel][cuda_version],
-            })
+            matrix_dict["include"].append(
+                {
+                    "cuda": cuda_version,
+                    "trt": trt_version,
+                    "docker_image": docker_images[cuda_version],
+                }
+            )
     print(json.dumps(matrix_dict, indent=4))
 
 
