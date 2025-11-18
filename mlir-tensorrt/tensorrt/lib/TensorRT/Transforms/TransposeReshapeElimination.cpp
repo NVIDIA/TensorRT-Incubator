@@ -2938,7 +2938,7 @@ public:
       return failure(/* Transpose is not a permutation */);
 
     transposePerm = op.getPermutation().compose(transposePerm);
-    for (int i = 1; i < transposePerm.size(); i++)
+    for (unsigned i = 1; i < transposePerm.size(); i++)
       if (transposePerm[i - 1] > transposePerm[i])
         return failure(/* Pattern failed to match*/);
 
