@@ -109,3 +109,35 @@ class TestUniqueNameGen:
     def test_uniqueness(self):
         uids = [utils.utils.UniqueNameGen.gen_uid() for _ in range(100)]
         assert len(set(uids)) == 100
+
+
+class TestMergeFunctionArguments:
+    def test_defaults_filled_in_with_mixed_args(self):
+        # Tests that defaults are filled in and positioned correctly before kwargs
+        def func(a, b=2, c=3, d=4):
+            pass
+
+        all_args, omitted_args, var_arg_info = utils.utils.merge_function_arguments(func, 1, d=99)
+        assert all_args == [("a", 1), ("d", 99)]
+        assert omitted_args == [("b", 2), ("c", 3)]
+        assert var_arg_info is None
+
+    def test_variadic_positional_args(self):
+        # Tests variadic args tracking and defaults after variadic args
+        def func(a, *args, b=10):
+            pass
+
+        all_args, omitted_args, var_arg_info = utils.utils.merge_function_arguments(func, 1, 2, 3)
+        assert all_args == [("a", 1), ("args", 2), ("args", 3)]
+        assert omitted_args == [("b", 10)]
+        assert var_arg_info == ("args", 1)
+
+    def test_no_variadic_args_provided(self):
+        # Tests that var_arg_info is None when no variadic args are provided
+        def func(a, *args, b=10):
+            pass
+
+        all_args, omitted_args, var_arg_info = utils.utils.merge_function_arguments(func, 1)
+        assert all_args == [("a", 1)]
+        assert omitted_args == [("b", 10)]
+        assert var_arg_info is None
