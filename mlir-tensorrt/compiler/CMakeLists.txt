@@ -37,6 +37,7 @@ mtrt_add_project_targets(MLIRTensorRT
   MLIRBufferizationTransforms
   MLIRControlFlowTransforms
   MLIREmitCExtDataLayoutImpl
+  MLIRFuncInlinerExtension
   MLIRNVVMTarget
   MLIRPtrDialect
   MLIRTargetLLVM
