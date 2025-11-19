@@ -46,7 +46,7 @@ void StablehloToExecutableTensorRTExtension::populatePasses(
 
   const StablehloToExecutableOptions &options = this->getOptions();
 
-  if (this->disabled)
+  if (this->disabled || options.disableAllExtensions)
     return;
 
   if (phase == Phase::PreClustering) {

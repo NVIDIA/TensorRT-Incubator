@@ -1,3 +1,9 @@
+if(MLIR_TRT_ENABLE_PYTHON)
+  declare_mlir_python_sources(MLIRTensorRTPythonCompiler)
+  declare_mlir_python_sources(MLIRTensorRTPythonCompiler.Dialects
+    ADD_TO_PARENT MLIRTensorRTPythonCompiler)
+endif()
+
 # Specifies that all MLIR packages are co-located under the `mlir_tensorrt.compiler`
 # top level package. This definition is used in the MLIR Python binding headers for
 # generating lookup paths when the MLIR pybind modules are loaded at runtime.

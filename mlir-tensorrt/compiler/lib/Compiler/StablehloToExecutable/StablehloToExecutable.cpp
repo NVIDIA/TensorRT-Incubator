@@ -214,7 +214,7 @@ void StablehloToExecutableTask::populatePassManager() {
     addCleanupPasses(pm);
 
     if (hostTarget == HostTarget::LLVM) {
-      pm.addPass(LLVM::createRequestCWrappersPass());
+      pm.addNestedPass<func::FuncOp>(LLVM::createRequestCWrappersPass());
       ConvertCUDAToLLVMPassOptions cudaToLLVMOpts;
       cudaToLLVMOpts.artifactsDirectory = options.artifactsDirectory;
       pm.addPass(createConvertCUDAToLLVMPass(std::move(cudaToLLVMOpts)));

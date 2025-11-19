@@ -44,9 +44,13 @@ mtrt_add_project_targets(MLIRTensorRT
   MLIRTensorTransformOps
   MLIRTargetCpp
   MLIRDebug
+  MLIRTransformDialectTransforms
   )
+
 
 add_subdirectory(include)
 add_subdirectory(lib)
 add_subdirectory(test)
+
+# Tools must be sequenced after tests.
 add_subdirectory(tools)

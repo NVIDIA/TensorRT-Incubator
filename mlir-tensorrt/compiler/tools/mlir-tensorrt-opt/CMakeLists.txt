@@ -6,6 +6,7 @@ add_mlir_tool(mlir-tensorrt-opt
   MLIRTensorRTConversionPassIncGen
   MLIROptLib
   ${MLIR_TENSORRT_LIBS}
+  ${MLIR_TENSORRT_TEST_LIBS}
 
   SUPPORT_PLUGINS
 )
@@ -13,6 +14,7 @@ add_mlir_tool(mlir-tensorrt-opt
 target_link_libraries(mlir-tensorrt-opt PRIVATE
   MLIROptLib
   ${MLIR_TENSORRT_LIBS}
+  ${MLIR_TENSORRT_TEST_LIBS}
   )
 
 llvm_update_compile_flags(mlir-tensorrt-opt)

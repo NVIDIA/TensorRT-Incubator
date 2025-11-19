@@ -1,6 +1,6 @@
 //===- Registration.cpp  --------------------------------------------------===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -28,7 +28,6 @@
 #include "mlir-tensorrt/Compiler/StablehloToExecutable/StablehloToExecutable.h"
 #include "mlir-tensorrt/Compiler/TensorRTToExecutable/TensorRTToExecutable.h"
 #include "mlir-tensorrt/Features.h"
-
 #include "mlir/CAPI/IR.h"
 
 void mtrtCompilerRegisterDialects(MlirDialectRegistry registry) {
@@ -37,8 +36,3 @@ void mtrtCompilerRegisterDialects(MlirDialectRegistry registry) {
 }
 
 void mtrtCompilerRegisterPasses() { mlirtrt::compiler::registerAllPasses(); }
-
-void mtrtCompilerRegisterTasks() {
-  mlirtrt::compiler::registerStableHloToExecutableTask();
-  mlirtrt::compiler::registerTensorRTToExecutableTask();
-}

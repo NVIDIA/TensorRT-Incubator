@@ -1,6 +1,6 @@
-//===- MlirTensorRtOpt.cpp  -----------------------------------------------===//
+//===- mlir-tensorrt-opt.cpp ---------------------------------------------===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -21,11 +21,11 @@
 /// Entry point for the `mlir-tensorrt-opt` tool
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt-dialect/Target/Passes.h"
-#include "mlir-tensorrt-dialect/Target/TranslateToTensorRT.h"
 #include "mlir-tensorrt/Compiler/InitAllDialects.h"
 #include "mlir-tensorrt/Compiler/InitAllPasses.h"
+#include "mlir-tensorrt/Features.h"
 #include "mlir/Tools/mlir-opt/MlirOptMain.h"
+
 
 using namespace mlir;
 using namespace llvm;
@@ -33,17 +33,17 @@ using namespace llvm;
 #ifdef MLIR_TRT_ENABLE_TESTING
 namespace mlir {
 void registerTestTensorKindAnalysisPass();
+void registerTestTensorRTShapeInferencePass();
+
 #ifdef MLIR_TRT_ENABLE_HLO
 void registerTestBoundsAnalysisPass();
 #endif // MLIR_TRT_ENABLE_HLO
-void registerTestTensorRTShapeInferencePass();
 } // namespace mlir
 
 static void registerTestPasses() {
-  ::mlir::registerTestTensorKindAnalysisPass();
-#ifdef MLIR_TRT_ENABLE_HLO
-  ::mlir::registerTestBoundsAnalysisPass();
-#endif // MLIR_TRT_ENABLE_HLO
+  mlir::registerTestTensorKindAnalysisPass();
+  mlir::registerTestTensorRTShapeInferencePass();
+  IF_MLIR_TRT_ENABLE_HLO({ mlir::registerTestBoundsAnalysisPass(); });
 }
 #endif // MLIR_TRT_ENABLE_TESTING
 
@@ -51,16 +51,9 @@ int main(int argc, char **argv) {
   mlir::DialectRegistry registry;
   mlirtrt::compiler::registerAllDialects(registry);
   mlirtrt::compiler::registerAllExtensions(registry);
-
-  mlir::registerTestTensorRTShapeInferencePass();
-#ifdef MLIR_TRT_TARGET_TENSORRT
-  mlir::tensorrt::registerTensorRTTranslationCLOpts();
-  mlir::tensorrt::registerTensorRTTranslationPasses();
-#endif
   mlirtrt::compiler::registerAllPasses();
-#ifdef MLIR_TRT_ENABLE_TESTING
-  registerTestPasses();
-#endif
+
+  IF_MLIR_TRT_ENABLE_TESTING({ registerTestPasses(); });
 
   return mlir::asMainReturnCode(
       MlirOptMain(argc, argv, "MLIR-TensorRT Optimizer", registry));

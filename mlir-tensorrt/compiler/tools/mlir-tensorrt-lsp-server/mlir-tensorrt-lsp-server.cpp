@@ -1,6 +1,6 @@
 //===- MlirTensorRtLspServer.cpp ------------------------------------------===//
 //
-// Copyright (c) 2023, NVIDIA CORPORATION. All rights reserved.
+// Copyright (c) 2023-2025, NVIDIA CORPORATION. All rights reserved.
 // SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
@@ -24,12 +24,13 @@
 /// diagnostics support to compatible IDEs (i.e. VSCode with MLIR extension).
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Registration/RegisterMlirTensorRtDialects.h"
+#include "mlir-tensorrt/Compiler/InitAllDialects.h"
 #include "mlir/IR/DialectRegistry.h"
 #include "mlir/Tools/mlir-lsp-server/MlirLspServerMain.h"
 
 int main(int argc, char **argv) {
   mlir::DialectRegistry registry;
-  mlir::registerAllMlirTensorRtDialects(registry);
+  mlirtrt::compiler::registerAllDialects(registry);
+  mlirtrt::compiler::registerAllExtensions(registry);
   return mlir::failed(mlir::MlirLspServerMain(argc, argv, registry));
 }

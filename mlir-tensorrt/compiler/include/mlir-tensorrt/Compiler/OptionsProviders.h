@@ -322,6 +322,10 @@ public:
   Option<std::string> entrypoint{*this, "entrypoint", llvm::cl::init("main"),
                                  llvm::cl::desc("entrypoint function name")};
 
+  Option<bool> disableAllExtensions{*this, "disable-all-extensions",
+                                    llvm::cl::init(false),
+                                    llvm::cl::desc("disable all extensions")};
+
 protected:
   std::unique_ptr<DebugOptions> debugOptions{nullptr};
 };

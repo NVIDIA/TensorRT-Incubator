@@ -13,12 +13,13 @@ builtin.module @end_to_end_binary attributes {
 } {
 
   func.func private @add(%arg0: tensor<?xf32> {tensorrt.shape_profile = #profile},
-                %arg1: tensor<?xf32> {tensorrt.shape_profile = #profile}) -> tensor<?xf32> {
+                %arg1: tensor<?xf32> {tensorrt.shape_profile = #profile}) -> tensor<?xf32>
+                                            attributes {no_inline} {
       %2 = stablehlo.add %arg0, %arg1 : tensor<?xf32>
       return %2 : tensor<?xf32>
   }
 
-  func.func @print_tensor(%data: tensor<?xf32>) -> () {
+  func.func @print_tensor(%data: tensor<?xf32>) -> () attributes {no_inline} {
     executor.print "\\n"()
     %c0 = arith.constant 0 : index
     %step = arith.constant 1 : index
@@ -32,7 +33,7 @@ builtin.module @end_to_end_binary attributes {
     return
   }
 
-  func.func private @test_add() -> () {
+  func.func private @test_add() -> () attributes {no_inline} {
     %opt = arith.constant dense<[1.0, 1.0, 1.0, 1.0]> : tensor<4xf32>
     %c4 = arith.constant 4 : index
     %opt_d = tensor.cast %opt : tensor<4xf32> to tensor<?xf32>

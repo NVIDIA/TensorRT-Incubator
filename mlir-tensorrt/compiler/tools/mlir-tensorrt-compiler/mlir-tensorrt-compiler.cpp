@@ -21,20 +21,12 @@
 /// Entrypoint for the 'mlir-tensorrt-compiler' tool.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-executor/Target/Lua/TranslateToRuntimeExecutable.h"
-#include "mlir-tensorrt-dialect/Target/Passes.h"
 #include "mlir-tensorrt/Compiler/Client.h"
 #include "mlir-tensorrt/Compiler/InitAllDialects.h"
-#include "mlir-tensorrt/Compiler/OptionsProviders.h"
-#include "mlir-tensorrt/Compiler/StablehloToExecutable/StablehloToExecutable.h"
-#include "mlir-tensorrt/Compiler/StablehloToExecutable/TensorRTExtension.h"
-#include "mlir-tensorrt/Compiler/TensorRTToExecutable/TensorRTToExecutable.h"
-#include "mlir-tensorrt/Features.h"
 #include "mlir/Debug/Counter.h"
 #include "mlir/IR/AsmState.h"
 #include "mlir/Parser/Parser.h"
 #include "mlir/Support/FileUtilities.h"
-#include "mlir/Target/Cpp/CppEmitter.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
@@ -123,9 +115,9 @@ static bool outputIsFile(StringRef path) {
 static LogicalResult runCompilation(CompilerClient &client, StringRef taskName,
                                     mlir::ModuleOp module,
                                     llvm::StringRef pipelineOptions) {
-  std::optional<llvm::StringRef> artifactsDirectoryOverride =
-      !outputIsFile(outputPath) ? std::optional<llvm::StringRef>(outputPath)
-                                : std::nullopt;
+  llvm::StringRef artifactsDirectoryOverride =
+      !outputIsFile(outputPath) ? llvm::StringRef(outputPath)
+                                : llvm::sys::path::parent_path(outputPath);
   std::optional<llvm::StringRef> outputExtensionOverride =
       outputMLIR ? std::optional<llvm::StringRef>(".mlir") : std::nullopt;
 
@@ -164,6 +156,11 @@ int main(int argc, char **argv) {
   mlir::registerDefaultTimingManagerCLOptions();
   mlir::tracing::DebugCounter::registerCLOptions();
 
+  std::string taskName = llvm::StringSwitch<std::string>(inputKind)
+                             .CaseLower("tensorrt", "tensorrt-to-executable")
+                             .CaseLower("stablehlo", "stablehlo-to-executable")
+                             .Default("stablehlo-to-executable");
+
   // Build the list of dialects as a header for the --help message.
   std::string helpHeader =
       "MLIR-TensorRT Compiler\nAvailable compilation tasks: ";
@@ -177,22 +174,15 @@ int main(int argc, char **argv) {
 
   cl::ParseCommandLineOptions(argc, argv, helpHeader);
 
-  mlirtrt::compiler::registerStableHloToExecutableTask();
-  mlirtrt::compiler::registerTensorRTToExecutableTask();
-
   mlir::MLIRContext context;
   mlir::DialectRegistry registry;
   mlirtrt::compiler::registerAllDialects(registry);
   mlirtrt::compiler::registerAllExtensions(registry);
-  mlirtrt::compiler::registerTensorRTExtension(registry);
 
   context.appendDialectRegistry(registry);
 
-  IF_MLIR_TRT_TARGET_TENSORRT(
-      { mlir::tensorrt::registerTensorRTTranslationPasses(); });
-
   if (pipelineHelp) {
-    printCompilationTaskHelpInfo(&context, "stablehlo-to-executable");
+    printCompilationTaskHelpInfo(&context, taskName);
     exit(0);
   }
 
@@ -210,10 +200,6 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  std::string taskName = llvm::StringSwitch<std::string>(inputKind)
-                             .CaseLower("tensorrt", "tensorrt-to-executable")
-                             .CaseLower("stablehlo", "stablehlo-to-executable")
-                             .Default("stablehlo-to-executable");
   return succeeded(runCompilation(**client, taskName, *module, pipelineOptions))
              ? EXIT_SUCCESS
              : EXIT_FAILURE;

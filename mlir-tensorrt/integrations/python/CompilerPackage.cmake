@@ -114,6 +114,7 @@ declare_mlir_python_extension(MLIRTensorRTPythonCompiler.CompilerAPI.PyBind
     MLIRTensorRTCAPICompiler
     MLIRTensorRTCAPIExecutorTranslations
     MLIRTensorRTCAPISupportStatus
+    MLIRCAPITransforms
     ${COMPILER_OPTIONAL_EMBED_CAPI_LINK_LIBS}
   PRIVATE_LINK_LIBS
     LLVMSupport

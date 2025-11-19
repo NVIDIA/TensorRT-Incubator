@@ -15,14 +15,15 @@ builtin.module @end_to_end_unary attributes {
   // This function computes `out[i] = e^(e^(arg0[i]))` for `0 <= i < arg1`. It returns a tensor
   // contining the first `%arg1` number of elements.
   func.func @test_separated_data_dependent(%arg0: tensor<?xf32> {tensorrt.shape_profile = #profile0},
-                                                  %arg1: index {tensorrt.value_bounds = #profile1}) -> tensor<?xf32> {
+                                                  %arg1: index {tensorrt.value_bounds = #profile1}) -> tensor<?xf32>
+                                            attributes {no_inline} {
     %0 = stablehlo.exponential %arg0 : tensor<?xf32>
     %2 = tensor.extract_slice %0[0][%arg1][1] : tensor<?xf32> to tensor<?xf32>
     %3 = stablehlo.exponential %2 : tensor<?xf32>
     return %3 : tensor<?xf32>
   }
 
-  func.func @print_tensor(%data: tensor<?xf32>) -> () {
+  func.func @print_tensor(%data: tensor<?xf32>) -> () attributes {no_inline} {
     executor.print "\\n"()
     %c0 = arith.constant 0 : index
     %step = arith.constant 1 : index

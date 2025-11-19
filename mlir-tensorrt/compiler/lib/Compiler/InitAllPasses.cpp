@@ -25,6 +25,7 @@
 
 #include "mlir-executor/InitAllPasses.h"
 #include "mlir-tensorrt-common/Conversion/Passes.h"
+#include "mlir-tensorrt-dialect/Target/Passes.h"
 #include "mlir-tensorrt-dialect/TensorRT/Transforms/Passes.h"
 #include "mlir-tensorrt/Compiler/TensorRTToExecutable/Passes.h"
 #include "mlir-tensorrt/Conversion/Passes.h"
@@ -81,4 +82,7 @@ void mlirtrt::compiler::registerAllPasses() {
     mlir::torch::registerConversionPasses();
     mlir::torch::TMTensor::registerPasses();
   });
+
+  IF_MLIR_TRT_TARGET_TENSORRT(
+      { mlir::tensorrt::registerTensorRTTranslationPasses(); });
 }

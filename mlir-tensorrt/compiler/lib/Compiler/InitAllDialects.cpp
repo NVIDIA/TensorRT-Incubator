@@ -31,6 +31,7 @@
 #include "mlir-tensorrt/Backends/Host/HostBackend.h"
 #include "mlir-tensorrt/Backends/TensorRT/TensorRTBackend.h"
 #include "mlir-tensorrt/Compiler/StablehloToExecutable/TensorRTExtension.h"
+#include "mlir-tensorrt/Compiler/TensorRTToExecutable/TensorRTToExecutable.h"
 #include "mlir-tensorrt/Conversion/CUDAToLLVM/CUDAToLLVM.h"
 #include "mlir-tensorrt/Conversion/PlanToLLVM/PlanToLLVM.h"
 #include "mlir-tensorrt/Conversion/TensorRTRuntimeToLLVM/TensorRTRuntimeToLLVM.h"
@@ -214,7 +215,9 @@ void mlirtrt::compiler::registerAllDialects(mlir::DialectRegistry &registry) {
     mlir::stablehlo::registerTypeInferenceExternalModels(registry);
   });
 
-  mlirtrt::compiler::registerTensorRTExtension(registry);
+  // Register CompilerTasks.
+  mlirtrt::compiler::registerStableHloToExecutableTask();
+  mlirtrt::compiler::registerTensorRTToExecutableTask();
 }
 
 void mlirtrt::compiler::registerAllExtensions(mlir::DialectRegistry &registry) {
@@ -239,4 +242,7 @@ void mlirtrt::compiler::registerAllExtensions(mlir::DialectRegistry &registry) {
   // Plan Extensions.
   mlir::plan::registerHostBackend(registry);
   mlir::plan::registerTensorRTBackend(registry);
+
+  // Compiler task extensions.
+  mlirtrt::compiler::registerTensorRTExtension(registry);
 }

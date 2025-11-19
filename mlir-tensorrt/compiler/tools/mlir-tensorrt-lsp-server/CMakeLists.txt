@@ -3,14 +3,19 @@ add_mlir_tool(mlir-tensorrt-lsp-server
   PARTIAL_SOURCES_INTENDED
 
   DEPENDS
-  ${MLIR_TENSORRT_LIBS}
+  MLIRTensorRTInitAllDialects
   MLIRLspServerLib
 )
 
 target_link_libraries(mlir-tensorrt-lsp-server PRIVATE
-  ${MLIR_TENSORRT_LIBS}
+  MLIRTensorRTInitAllDialects
   MLIRLspServerLib
 )
 llvm_update_compile_flags(mlir-tensorrt-lsp-server)
 mlir_check_link_libraries(mlir-tensorrt-lsp-server)
-set_target_properties(mlir-tensorrt-lsp-server PROPERTIES EXCLUDE_FROM_ALL TRUE)
+
+set(should_exclude_from_all TRUE)
+if(NOT PROJECT_IS_TOP_LEVEL)
+  set(should_exclude_from_all FALSE)
+endif()
+set_target_properties(mlir-tensorrt-lsp-server PROPERTIES EXCLUDE_FROM_ALL ${should_exclude_from_all})
