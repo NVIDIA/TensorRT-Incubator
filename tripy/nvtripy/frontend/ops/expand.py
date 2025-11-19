@@ -17,11 +17,13 @@
 
 
 from nvtripy import export
+from nvtripy.common import datatype as dt
 from nvtripy.common.exception import raise_error
 from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.trace.ops.broadcast import Broadcast
 from nvtripy.types import ShapeLike
 from nvtripy.frontend import wrappers
+from nvtripy.frontend.constraints import GetInput, GetReturn, OneOf
 
 
 def process_sizes(input: "nvtripy.Tensor", sizes: ShapeLike):
@@ -53,10 +55,10 @@ def process_sizes(input: "nvtripy.Tensor", sizes: ShapeLike):
 
 @export.public_api(document_under="operations/functions")
 @wrappers.interface(
-    dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
-    dtype_variables={
-        "T1": ["float32", "float16", "bfloat16", "int32", "int64", "bool"],
-    },
+    input_requirements=OneOf(
+        GetInput("input").dtype, [dt.float32, dt.float16, dt.bfloat16, dt.int32, dt.int64, dt.bool]
+    ),
+    output_guarantees=GetReturn(0).dtype == GetInput("input").dtype,
     convert_to_tensors=True,
     conversion_preprocess_func=process_sizes,
 )
