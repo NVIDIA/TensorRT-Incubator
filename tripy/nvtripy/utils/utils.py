@@ -333,7 +333,7 @@ class UniqueNameGen:
 ##
 ## Functions
 ##
-def get_positional_arg_names(func, *args) -> Tuple[List[Tuple[str, Any]], Optional[Tuple[str, int]]]:
+def get_positional_args_with_names(func, *args) -> Tuple[List[Tuple[str, Any]], Optional[Tuple[str, int]]]:
     # Returns the names of positional arguments by inspecting the function signature.
     # In the case of variadic positional arguments, we cannot determine names, so we use
     # None instead. To assist in further processing, this function also returns the name
@@ -357,9 +357,24 @@ def get_positional_arg_names(func, *args) -> Tuple[List[Tuple[str, Any]], Option
     return list(zip(arg_names, args)), (varargs_name, variadic_start_idx) if num_variadic_args > 0 else None
 
 
-def merge_function_arguments(func, *args, **kwargs) -> Tuple[List[Tuple[str, Any]], Optional[Tuple[str, int]]]:
-    # Merge positional and keyword arguments, trying to determine names where possible.
-    # Also returns a pair containing the variadic arg name and start index if present (None otherwise).
-    all_args, var_arg_info = get_positional_arg_names(func, *args)
+def merge_function_arguments(
+    func, *args, **kwargs
+) -> Tuple[List[Tuple[str, Any]], Tuple[str, Any], Optional[Tuple[str, int]]]:
+    # Returns 3 things:
+    # 1. A list of all arguments (positional and keyword) as (name, value) pairs.
+    # 2. A list of omitted arguments with default values filled in.
+    # 3. A pair containing the variadic arg name and start index if present (None otherwise).
+    all_args, var_arg_info = get_positional_args_with_names(func, *args)
     all_args.extend(kwargs.items())
-    return all_args, var_arg_info
+
+    signature = inspect.signature(func)
+    provided_arg_names = {name for name, _ in all_args}
+
+    omitted_args = []
+    for name, param in signature.parameters.items():
+        if name in provided_arg_names:
+            continue
+        if param.default is not inspect.Parameter.empty:
+            omitted_args.append((name, param.default))
+
+    return all_args, omitted_args, var_arg_info

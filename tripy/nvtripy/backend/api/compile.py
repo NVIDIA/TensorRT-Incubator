@@ -207,7 +207,7 @@ def compile(
     compiled_arg_names = []
 
     new_args = []
-    positional_arg_info, variadic_info = utils.utils.get_positional_arg_names(func, *args)
+    positional_arg_info, variadic_info = utils.utils.get_positional_args_with_names(func, *args)
 
     varargs_name = None
     varargs_index = None
