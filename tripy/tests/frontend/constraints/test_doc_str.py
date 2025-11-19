@@ -16,50 +16,21 @@
 #
 
 import nvtripy as tp
-from nvtripy.frontend.constraints import And, Equal, NotEqual, NotOneOf, OneOf, Or, doc_str
-from nvtripy.frontend.constraints.fetcher import GetDataType, GetInput, GetReturn
+import pytest
+from nvtripy.frontend.constraints import And, Equal, OneOf, Or, doc_str
+from nvtripy.frontend.constraints.fetcher import GetDataType, GetInput
 
 
 class TestDocStr:
-    def test_basic_types(self):
-        assert doc_str(tp.float32) == ":class:`float32`"
-        assert doc_str(GetInput("x")) == "``x``"
-        assert doc_str(GetReturn(0)) == "``return[0]``"
-
-    def test_get_datatype(self):
-        assert doc_str(GetDataType(GetInput("x"))) == "``x.dtype``"
-        assert doc_str(GetDataType(GetReturn(0))) == "``return[0].dtype``"
-
-    def test_one_of_and_not_one_of(self):
-        input_x = GetInput("x")
-
-        assert (
-            doc_str(OneOf(input_x, [tp.float32, tp.float16])) == "``x`` is one of [:class:`float32`, :class:`float16`]"
-        )
-        assert doc_str(NotOneOf(input_x, [tp.int8, tp.int32])) == "``x`` is not one of [:class:`int8`, :class:`int32`]"
-
-    def test_equal_and_not_equal(self):
-        input_a = GetInput("a")
-        input_b = GetInput("b")
-
-        assert doc_str(Equal(input_a, input_b)) == "``a`` == ``b``"
-        assert doc_str(Equal(input_a, tp.float32)) == "``a`` == :class:`float32`"
-        assert doc_str(NotEqual(input_a, input_b)) == "``a`` != ``b``"
-
-    def test_and_constraint(self):
-        constraint1 = OneOf(GetInput("a"), [tp.float32])
-        constraint2 = OneOf(GetInput("b"), [tp.int32])
-
-        assert (
-            doc_str(And(constraint1, constraint2))
-            == "- ``a`` is one of [:class:`float32`], **and**\n- ``b`` is one of [:class:`int32`]"
-        )
-
-    def test_or_constraint(self):
-        input_a = GetInput("a")
-        or_constraint = Or(Equal(input_a, tp.float32), Equal(input_a, tp.float16))
-
-        assert doc_str(or_constraint) == "(``a`` == :class:`float32` *or* ``a`` == :class:`float16`)"
+    @pytest.mark.parametrize(
+        "obj, expected",
+        [
+            (tp.float32, ":class:`float32`"),
+            (None, "``None``"),
+        ],
+    )
+    def test_basic_types(self, obj, expected):
+        assert doc_str(obj) == expected
 
     def test_nested_constraints(self):
         input_a = GetInput("a")

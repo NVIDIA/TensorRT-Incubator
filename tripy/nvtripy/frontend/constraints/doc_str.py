@@ -26,6 +26,9 @@ def doc_str(obj: Any) -> str:
     """
     from nvtripy.common.datatype import dtype as tp_dtype
 
+    if obj is None:
+        return "``None``"
+
     if isinstance(obj, tp_dtype):
         return f":class:`{obj.name}`"
 
