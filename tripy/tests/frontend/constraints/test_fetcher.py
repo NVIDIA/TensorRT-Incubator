@@ -16,7 +16,7 @@
 #
 import nvtripy as tp
 from nvtripy.common.exception import TripyException
-from nvtripy.frontend.constraints import Equal, GetDataType, GetInput, GetReturn, NotEqual
+from nvtripy.frontend.constraints import Equal, GetDataType, GetInput, GetReturn, NotEqual, doc_str
 from tests import helper
 
 
@@ -56,6 +56,9 @@ class TestGetInput:
         fetcher = GetInput("data")
         assert str(fetcher) == "data"
 
+    def test_doc_str(self):
+        assert doc_str(GetInput("x")) == "``x``"
+
 
 class TestGetReturn:
     def test_init(self):
@@ -76,6 +79,9 @@ class TestGetReturn:
 
         fetcher2 = GetReturn(2)
         assert str(fetcher2) == "return[2]"
+
+    def test_doc_str(self):
+        assert doc_str(GetReturn(0)) == "``return[0]``"
 
 
 class TestGetDataType:
@@ -104,3 +110,7 @@ class TestGetDataType:
         fetcher = GetDataType(GetInput("input_data"))
         with helper.raises(TripyException, match="Could not determine data type"):
             fetcher([("input_data", [tp.ones((2, 3), dtype=tp.float32), [42]])])
+
+    def test_doc_str(self):
+        assert doc_str(GetDataType(GetInput("x"))) == "``x.dtype``"
+        assert doc_str(GetDataType(GetReturn(0))) == "``return[0].dtype``"

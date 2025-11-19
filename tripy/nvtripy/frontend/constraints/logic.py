@@ -132,7 +132,7 @@ class Equal(Logic):
         return f"{self.fetcher} == {self.fetcher_or_value}"
 
     def doc_str(self) -> str:
-        return f"{doc_str(self.fetcher)} == {doc_str(self.fetcher_or_value)}"
+        return f"{doc_str(self.fetcher)} is {doc_str(self.fetcher_or_value)}"
 
     def inverse(self) -> "Logic":
         return NotEqual(self.fetcher, self.fetcher_or_value)
@@ -156,7 +156,7 @@ class NotEqual(Logic):
         return f"{self.fetcher} != {self.fetcher_or_value}"
 
     def doc_str(self) -> str:
-        return f"{doc_str(self.fetcher)} != {doc_str(self.fetcher_or_value)}"
+        return f"{doc_str(self.fetcher)} is not {doc_str(self.fetcher_or_value)}"
 
     def inverse(self) -> "Logic":
         return Equal(self.fetcher, self.fetcher_or_value)
@@ -211,3 +211,31 @@ class Or(Logic):
     def inverse(self) -> "Logic":
         # De Morgan's law: not (A or B) = (not A) and (not B)
         return And(*(constraint.inverse() for constraint in self.constraints))
+
+
+class If(Logic):
+    def __init__(self, condition: Logic, then_branch: Logic, else_branch: Optional[Logic] = None):
+        super().__init__()
+        self.condition = condition
+        self.then_branch = then_branch
+        self.else_branch = else_branch
+
+    def __call__(self, args: List[Tuple[str, Any]], returns: Optional[Tuple[Any]] = None) -> Result:
+        condition_result = self.condition(args, returns)
+        if condition_result:
+            return self.then_branch(args, returns)
+        else:
+            return self.else_branch(args, returns) if self.else_branch else Result.ok()
+
+    def __str__(self):
+        if self.else_branch:
+            return f"if ({self.condition}) then ({self.then_branch}) else ({self.else_branch})"
+        return f"if ({self.condition}) then ({self.then_branch})"
+
+    def doc_str(self) -> str:
+        if self.else_branch:
+            return f"{doc_str(self.then_branch)} **if** {doc_str(self.condition)}, **otherwise** {doc_str(self.else_branch)}"
+        return f"if {doc_str(self.condition)}, then {doc_str(self.then_branch)}"
+
+    def inverse(self) -> "Logic":
+        return If(self.condition, self.then_branch.inverse(), self.else_branch.inverse() if self.else_branch else None)
