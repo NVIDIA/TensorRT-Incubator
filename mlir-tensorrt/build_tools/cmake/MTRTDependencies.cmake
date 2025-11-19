@@ -165,7 +165,7 @@ function(find_tensorrt)
   set(MLIR_TRT_TENSORRT_LIB_DIR "${_tensorrt_lib_dir}" PARENT_SCOPE)
   set(MLIR_TRT_TENSORRT_VERSION "${TRT_VERSION}" PARENT_SCOPE)
 
-  add_library(TensorRTHeaderOnly INTERFACE IMPORTED)
+  add_library(TensorRTHeaderOnly INTERFACE IMPORTED GLOBAL)
   target_include_directories(TensorRTHeaderOnly INTERFACE
     $<BUILD_INTERFACE:${_tensorrt_include_dir}>
     )
