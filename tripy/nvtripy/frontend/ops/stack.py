@@ -16,16 +16,18 @@
 from typing import Sequence
 
 from nvtripy import export
+from nvtripy.common import datatype as dt
 from nvtripy.common.exception import raise_error
 from nvtripy.frontend import wrappers
+from nvtripy.frontend.constraints import GetInput, GetReturn, OneOf
 
 
 @export.public_api(document_under="operations/functions")
 @wrappers.interface(
-    dtype_constraints={"tensors": "T1", wrappers.RETURN_VALUE: "T1"},
-    dtype_variables={
-        "T1": ["float32", "float16", "bfloat16", "int4", "int8", "int32", "int64", "bool"],
-    },
+    input_requirements=OneOf(
+        GetInput("tensors").dtype, [dt.float32, dt.float16, dt.bfloat16, dt.int4, dt.int8, dt.int32, dt.int64, dt.bool]
+    ),
+    output_guarantees=GetReturn(0).dtype == GetInput("tensors").dtype,
 )
 def stack(tensors: Sequence["nvtripy.Tensor"], dim: int = 0) -> "nvtripy.Tensor":
     """
