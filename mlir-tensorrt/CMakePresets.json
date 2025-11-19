@@ -27,6 +27,23 @@
       }
     },
     {
+      "name": "python-wheel-build",
+      "displayName": "Configuration for building the compiler/runtime Python package wheels",
+      "generator": "Ninja",
+      "binaryDir": "build",
+      "inherits": "ninja-llvm",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "LLVM_ENABLE_ASSERTIONS": "OFF",
+        "BUILD_SHARED_LIBS": "OFF",
+        "CMAKE_PLATFORM_NO_VERSIONED_SONAME": "ON",
+        "CPM_SOURCE_CACHE": "$env{CPM_SOURCE_CACHE}",
+        "CCACHE_DIR": "$env{CCACHE_DIR}",
+        "MLIR_TRT_ENABLE_NCCL": "OFF",
+        "MLIR_TRT_DOWNLOAD_TENSORRT_VERSION": "$env{DOWNLOAD_TENSORRT_VERSION}"
+      }
+    },
+    {
       "name": "github-cicd",
       "displayName": "GitHub CICD configuration",
       "generator": "Ninja",
