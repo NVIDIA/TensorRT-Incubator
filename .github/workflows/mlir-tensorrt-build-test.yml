@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - "pull-request/[0-9]+"
-    paths: ["mlir-tensorrt/**"]
 
 jobs:
   generate-matrix:
