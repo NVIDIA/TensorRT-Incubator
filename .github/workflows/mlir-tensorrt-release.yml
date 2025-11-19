@@ -1,0 +1,60 @@
+name: MLIR-TensorRT Release
+
+on:
+  workflow_call:
+    inputs:
+      build-matrix:
+        description: 'Build matrix to utilize'
+        default: ""
+        type: string
+      channel:
+        description: 'Channel to build and test, defaults to "test"'
+        default: "release"
+        type: string
+
+jobs:
+  mlir-tensorrt-release:
+    name: release-${{ matrix.arch }}-${{ matrix.cuda }}-trt${{ matrix.trt }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(inputs.build-matrix) }}
+    env:
+      # eg. CUDA_VERSION: 12.9.1 or 13.0.0
+      CUDA_VERSION: ${{ matrix.cuda }}
+      # eg. TENSORRT_VERSION: 10.12 or 10.13
+      TENSORRT_VERSION: ${{ matrix.trt }}
+      # eg. ARCH: x86_64 or aarch64
+      ARCH: ${{ matrix.arch }}
+      # eg. CHANNEL: nightly, test or release
+      CHANNEL: ${{ inputs.channel }}
+    runs-on: ${{ matrix.runner }}
+    container:
+      image: ${{ matrix.docker_image }}
+      options: '--gpus all'
+    steps:
+      # Checkout the repository
+      - name: checkout TensorRT-Incubator
+        uses: actions/checkout@v4
+
+      # Build wheels
+      - name: build-wheel-${{ matrix.arch }}-cu${{ matrix.cuda }}-trt${{ matrix.trt }}
+        if: ${{ always() }}
+        run: |
+          set -euo pipefail
+          set -x
+          cd mlir-tensorrt
+          DOWNLOAD_TENSORRT_VERSION=${{ matrix.trt }} ./build_tools/scripts/cicd_build_wheels.sh
+
+      # Smoke test the wheels built
+      - name: smoke-test-wheel-${{ matrix.cuda }}-trt${{ matrix.trt }}
+        if: ${{ always() }}
+        run: |
+          set -euo pipefail
+          set -x
+          cd mlir-tensorrt
+          python3 -m pip install .wheels/mlir_tensorrt-*.whl
+          # TODO: add smoke test for the wheel
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}-mlir-tensorrt-release
+  cancel-in-progress: true
