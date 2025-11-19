@@ -235,4 +235,4 @@ Make the **one key point** stand out so skimmers can spot it:
 
 > **Best Practice:** Use **eager mode** only for **debugging**; compile for deployment.
 >
-> **Why:** Eager mode internally compiles the graph (slow\!) since TensorRT doesn’t have eager execution.
+> **Why:** Eager mode internally compiles the graph (slow!) since TensorRT doesn’t have eager execution.
