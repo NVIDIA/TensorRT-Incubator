@@ -14,7 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from nvtripy.frontend.constraints import And, Equal, GetInput, NotEqual, NotOneOf, OneOf, Or
+import nvtripy as tp
+from nvtripy.frontend.constraints import And, Equal, GetInput, If, NotEqual, NotOneOf, OneOf, Or, doc_str
+from nvtripy.frontend.constraints.fetcher import GetDataType
 
 
 class TestLogic:
@@ -76,6 +78,10 @@ class TestOneOf:
         assert inverse([("param", 5)])
         assert not inverse([("param", 2)])
 
+    def test_doc_str(self):
+        constraint = OneOf(GetInput("x"), [tp.float32, tp.float16])
+        assert doc_str(constraint) == "``x`` is one of [:class:`float32`, :class:`float16`]"
+
 
 class TestNotOneOf:
     def test_call(self):
@@ -94,6 +100,10 @@ class TestNotOneOf:
         assert isinstance(inverse, OneOf)
         assert inverse([("param", 2)])
         assert not inverse([("param", 5)])
+
+    def test_doc_str(self):
+        constraint = NotOneOf(GetInput("x"), [tp.int8, tp.int32])
+        assert doc_str(constraint) == "``x`` is not one of [:class:`int8`, :class:`int32`]"
 
 
 class TestAnd:
@@ -126,6 +136,13 @@ class TestAnd:
         inverse = and_constraint.inverse()
         assert isinstance(inverse, Or)
         assert str(inverse) == "(param1 is not one of [1, 2, 3] or param2 is not one of ['a', 'b'])"
+
+    def test_doc_str(self):
+        and_constraint = And(OneOf(GetInput("a"), [tp.float32]), OneOf(GetInput("b"), [tp.int32]))
+        assert (
+            doc_str(and_constraint)
+            == "- ``a`` is one of [:class:`float32`], **and**\n- ``b`` is one of [:class:`int32`]"
+        )
 
 
 class TestOr:
@@ -170,6 +187,10 @@ class TestOr:
         assert isinstance(inverse, And)
         assert str(inverse) == "(param1 is not one of [1, 2, 3] and param2 is not one of ['a', 'b'])"
 
+    def test_doc_str(self):
+        or_constraint = Or(Equal(GetInput("a"), tp.float32), Equal(GetInput("a"), tp.float16))
+        assert doc_str(or_constraint) == "(``a`` is :class:`float32` *or* ``a`` is :class:`float16`)"
+
 
 class TestEqual:
     def test_call(self):
@@ -194,6 +215,10 @@ class TestEqual:
         assert inverse([("param1", 10)])
         assert not inverse([("param1", 5)])
 
+    def test_doc_str(self):
+        assert doc_str(Equal(GetInput("a"), GetInput("b"))) == "``a`` is ``b``"
+        assert doc_str(Equal(GetInput("a"), tp.float32)) == "``a`` is :class:`float32`"
+
 
 class TestNotEqual:
     def test_call(self):
@@ -217,3 +242,96 @@ class TestNotEqual:
         assert isinstance(inverse, Equal)
         assert inverse([("param1", 5)])
         assert not inverse([("param1", 10)])
+
+    def test_doc_str(self):
+        assert doc_str(NotEqual(GetInput("a"), GetInput("b"))) == "``a`` is not ``b``"
+
+
+class TestIf:
+    def test_call(self):
+        if_constraint = If(
+            Equal(GetInput("param1"), 5),
+            OneOf(GetInput("param2"), [1, 2, 3]),
+            OneOf(GetInput("param2"), [10, 20, 30]),
+        )
+        # Condition true, then branch passes
+        assert if_constraint([("param1", 5), ("param2", 2)])
+        # Condition true, then branch fails
+        result = if_constraint([("param1", 5), ("param2", 10)])
+        assert not result
+        assert "'param2' to be one of [1, 2, 3] (but it was '10')" in result.error_details
+        # Condition false, else branch passes
+        assert if_constraint([("param1", 10), ("param2", 20)])
+        # Condition false, else branch fails
+        result = if_constraint([("param1", 10), ("param2", 100)])
+        assert not result
+        assert "'param2' to be one of [10, 20, 30] (but it was '100')" in result.error_details
+
+    def test_str(self):
+        if_constraint = If(
+            Equal(GetInput("param1"), 5),
+            OneOf(GetInput("param2"), [1, 2, 3]),
+            OneOf(GetInput("param2"), [10, 20]),
+        )
+        assert (
+            str(if_constraint) == "if (param1 == 5) then (param2 is one of [1, 2, 3]) else (param2 is one of [10, 20])"
+        )
+
+    def test_inverse(self):
+        if_constraint = If(
+            Equal(GetInput("param1"), 5),
+            OneOf(GetInput("param2"), [1, 2, 3]),
+            OneOf(GetInput("param2"), [10, 20]),
+        )
+        inverse = ~if_constraint
+        assert isinstance(inverse.then_branch, NotOneOf)
+        assert isinstance(inverse.else_branch, NotOneOf)
+        # When param1 == 5, param2 should NOT be in [1, 2, 3]
+        assert inverse([("param1", 5), ("param2", 10)])
+        assert not inverse([("param1", 5), ("param2", 2)])
+
+    def test_doc_str(self):
+        if_constraint = If(
+            Equal(GetDataType(GetInput("a")), tp.float32),
+            OneOf(GetInput("b"), [tp.float32, tp.float16]),
+            OneOf(GetInput("b"), [tp.int32, tp.int64]),
+        )
+        assert (
+            doc_str(if_constraint)
+            == "``b`` is one of [:class:`float32`, :class:`float16`] **if** ``a.dtype`` is :class:`float32`, **otherwise** ``b`` is one of [:class:`int32`, :class:`int64`]"
+        )
+
+    def test_call_without_else_branch(self):
+        if_constraint = If(Equal(GetInput("param1"), 5), OneOf(GetInput("param2"), [1, 2, 3]))
+        # Condition true, then branch passes
+        assert if_constraint([("param1", 5), ("param2", 2)])
+        # Condition true, then branch fails
+        result = if_constraint([("param1", 5), ("param2", 10)])
+        assert not result
+        assert "'param2' to be one of [1, 2, 3] (but it was '10')" in result.error_details
+        # Condition false, no else branch - should always pass
+        assert if_constraint([("param1", 10), ("param2", 999)])
+
+    def test_str_without_else_branch(self):
+        if_constraint = If(Equal(GetInput("param1"), 5), OneOf(GetInput("param2"), [1, 2, 3]))
+        assert str(if_constraint) == "if (param1 == 5) then (param2 is one of [1, 2, 3])"
+
+    def test_doc_str_without_else_branch(self):
+        if_constraint = If(
+            Equal(GetDataType(GetInput("a")), tp.float32), OneOf(GetInput("b"), [tp.float32, tp.float16])
+        )
+        assert (
+            doc_str(if_constraint)
+            == "if ``a.dtype`` is :class:`float32`, then ``b`` is one of [:class:`float32`, :class:`float16`]"
+        )
+
+    def test_inverse_without_else_branch(self):
+        if_constraint = If(Equal(GetInput("param1"), 5), OneOf(GetInput("param2"), [1, 2, 3]))
+        inverse = ~if_constraint
+        assert isinstance(inverse.then_branch, NotOneOf)
+        assert inverse.else_branch is None
+        # When param1 == 5, param2 should NOT be in [1, 2, 3]
+        assert inverse([("param1", 5), ("param2", 10)])
+        assert not inverse([("param1", 5), ("param2", 2)])
+        # When param1 != 5, should always pass
+        assert inverse([("param1", 10), ("param2", 2)])
