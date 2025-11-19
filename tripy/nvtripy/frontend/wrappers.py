@@ -116,6 +116,7 @@ def _add_column_info(arg, arg_index, is_kwarg, num_positional, func_name):
         source_info.column_range = candidates[0]
 
 
+# TODO (pranavm): Remove this:
 def get_arg_dtype(arg, func_name, arg_name) -> result.Result["nvtripy.dtype"]:
     from nvtripy.common.datatype import dtype
     from nvtripy.frontend.tensor import Tensor
@@ -489,7 +490,9 @@ def interface(
 
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
-            merged_args, var_arg_info = utils.utils.merge_function_arguments(func, *args, **kwargs)
+            merged_args, omitted_default_args, var_arg_info = utils.utils.merge_function_arguments(
+                func, *args, **kwargs
+            )
 
             if convert_to_tensors:
                 args, kwargs, merged_args = convert_input_types(
@@ -507,7 +510,8 @@ def interface(
 
             if config.enable_input_validation:
                 if input_requirements is not None:
-                    result = input_requirements(merged_args)
+                    # Input validation needs to know values for arguments that were not provided but have default values:
+                    result = input_requirements(merged_args + omitted_default_args)
                     if not result:
                         raise_error(
                             f"Invalid inputs for function: '{func.__qualname__}'.",
