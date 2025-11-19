@@ -359,7 +359,7 @@ def get_positional_args_with_names(func, *args) -> Tuple[List[Tuple[str, Any]], 
 
 def merge_function_arguments(
     func, *args, **kwargs
-) -> Tuple[List[Tuple[str, Any]], Tuple[str, Any], Optional[Tuple[str, int]]]:
+) -> Tuple[List[Tuple[str, Any]], List[Tuple[str, Any]], Optional[Tuple[str, int]]]:
     # Returns 3 things:
     # 1. A list of all arguments (positional and keyword) as (name, value) pairs.
     # 2. A list of omitted arguments with default values filled in.
