@@ -156,6 +156,26 @@ getHoistableOperations(Value value, func::FuncOp func) {
   if (slice.empty() || !hasAllocation)
     return failure();
 
+  // Now check that we can replace all uses outside the set with a single block
+  // argument (the value currently being returned).
+  auto isInCluster = [&](Operation *op) {
+    if (slice.contains(op))
+      return true;
+    while (Operation *parent = op->getParentOp()) {
+      if (parent == func)
+        return false;
+      if (slice.contains(parent))
+        return true;
+    }
+    return false;
+  };
+  for (Operation *op : slice) {
+    for (OpOperand &use : op->getUses()) {
+      if (use.get() != value && !isInCluster(use.getOwner()))
+        return failure();
+    }
+  }
+
   return slice;
 }
 

@@ -1,4 +1,6 @@
 set(MLIR_TENSORRT_COMPILER_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
+set(MLIR_COMPILER_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR})
+set(MLIR_COMPILER_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
 set(MLIR_TENSORRT_COMPILER_INCLUDE_DIRS
   "${CMAKE_CURRENT_BINARY_DIR}/include"
@@ -53,6 +55,7 @@ add_subdirectory(include)
 add_subdirectory(lib)
 add_subdirectory(test)
 
+
 # Tools must be sequenced after tests.
 add_subdirectory(tools)
 
@@ -65,6 +68,7 @@ set(MTRT_COMPILER_HEADER_DIRS
   # For the Features.h header.
   "${PROJECT_BINARY_DIR}/include/mlir-tensorrt"
 )
+
 
 mtrt_add_header_installation_components(mtrt-headers
   DIRECTORIES

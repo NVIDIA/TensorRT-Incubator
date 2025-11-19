@@ -45,3 +45,4 @@ add_mlir_tensorrt_library(MLIRTensorRTCompilerStableHloToExecutable
       MLIRIR
       MLIRLLVMIRTransforms
     )
+

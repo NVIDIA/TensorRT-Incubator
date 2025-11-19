@@ -1163,6 +1163,10 @@ public:
 
     assert(equation.rhs.size() == op.getType().getShape().size());
 
+    // This pattern assumes the output has at least rank 2
+    if (equation.rhs.size() < 2)
+      return failure();
+
     char matrixAxes[2] = {0, 0};
     char multipliedAxis = 0;
 
@@ -1885,9 +1889,14 @@ public:
         }
       }
 
-      Value reshapeIn = rewriter.createOrFold<tensorrt::TransposeOp>(
-          op.getLoc(), input,
-          AffineMap::getPermutationMap(newInputTranspose, op.getContext()));
+      Value reshapeIn = input;
+      // Only apply transpose if there are dimensions to permute (non-scalar
+      // input)
+      if (!newInputTranspose.empty()) {
+        reshapeIn = rewriter.createOrFold<tensorrt::TransposeOp>(
+            op.getLoc(), input,
+            AffineMap::getPermutationMap(newInputTranspose, op.getContext()));
+      }
       while (auto definingOp = reshapeIn.getDefiningOp<tensorrt::ReshapeOp>()) {
         // two sequential reshapes just results in the shape of the last
         // reshape.  There are canonicalization patterns that do this as well
@@ -1946,9 +1955,14 @@ public:
         reshapeLoc, outputType.clone(afterEinsumReshape),
         newEinsum.getResult());
 
-    Value newOut = rewriter.createOrFold<tensorrt::TransposeOp>(
-        reshapeLoc, newReshape,
-        AffineMap::getPermutationMap(afterReshapeTranspose, op.getContext()));
+    Value newOut = newReshape;
+    // Only apply transpose if there are dimensions to permute (non-scalar
+    // output)
+    if (!afterReshapeTranspose.empty()) {
+      newOut = rewriter.createOrFold<tensorrt::TransposeOp>(
+          reshapeLoc, newReshape,
+          AffineMap::getPermutationMap(afterReshapeTranspose, op.getContext()));
+    }
 
     assert(op.getType() == newOut.getType());
     rewriter.replaceOp(op, newOut);
@@ -2938,7 +2952,7 @@ public:
       return failure(/* Transpose is not a permutation */);
 
     transposePerm = op.getPermutation().compose(transposePerm);
-    for (int i = 1; i < transposePerm.size(); i++)
+    for (unsigned i = 1; i < transposePerm.size(); i++)
       if (transposePerm[i - 1] > transposePerm[i])
         return failure(/* Pattern failed to match*/);
 

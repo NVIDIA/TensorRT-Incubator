@@ -8,6 +8,7 @@ if(MLIR_TRT_ENABLE_PYTHON)
   find_package(DLPack REQUIRED)
 endif()
 
+
 # Specifies that all MLIR packages are co-located under the `mlir_tensorrt.compiler`
 # top level package. This definition is used in the MLIR Python binding headers for
 # generating lookup paths when the MLIR pybind modules are loaded at runtime.
@@ -18,12 +19,13 @@ add_compile_definitions("MLIR_PYTHON_PACKAGE_PREFIX=mlir_tensorrt.compiler.")
 include_directories(
   ${MLIR_INCLUDE_DIRS}
   ${MLIR_TENSORRT_ROOT_DIR}/compiler/include
+  ${MLIR_TENSORRT_ROOT_DIR}/kernel/include
   ${MLIR_TENSORRT_ROOT_DIR}/executor/include
   ${MLIR_TENSORRT_ROOT_DIR}/tensorrt/include
   ${MLIR_TENSORRT_ROOT_BINARY_DIR}/compiler/include
   ${MLIR_TENSORRT_ROOT_BINARY_DIR}/executor/include
-  ${MLIR_TENSORRT_ROOT_BINARY_DIR}/tensorrt/include
-  )
+  ${MLIR_TENSORRT_ROOT_BINARY_DIR}/kernel/include
+  ${MLIR_TENSORRT_ROOT_BINARY_DIR}/tensorrt/include)
 
 if(MLIR_TRT_ENABLE_HLO)
   include_directories(${Stablehlo_SOURCE_DIR})

@@ -51,6 +51,10 @@
 #include "torch-mlir/Dialect/TorchConversion/Transforms/Passes.h"
 #endif // MLIR_TRT_ENABLE_TORCH
 
+#ifdef MLIR_TRT_ENABLE_SHARDY
+#include "shardy/dialect/sdy/transforms/passes.h"
+#endif // MLIR_TRT_ENABLE_SHARDY
+
 /// Register passes declared within this repo.
 void mtrt::compiler::registerAllPasses() {
   mlir::bufferization::registerBufferizationPasses();
@@ -85,4 +89,5 @@ void mtrt::compiler::registerAllPasses() {
 
   IF_MLIR_TRT_TARGET_TENSORRT(
       { mlir::tensorrt::registerTensorRTTranslationPasses(); });
+  IF_MLIR_TRT_ENABLE_SHARDY({ mlir::sdy::registerAllSdyPassesAndPipelines(); });
 }

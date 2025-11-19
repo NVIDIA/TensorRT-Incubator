@@ -9,6 +9,7 @@ mtrt_option(MLIR_TRT_ENABLE_NCCL "Enable the NCCL runtime module" OFF)
 mtrt_option(MLIR_TRT_ENABLE_CUBLAS "Enable CUBLAS in the executor" ON)
 mtrt_option(MLIR_TRT_ENABLE_CUDA "Enable the use of CUDA runtime" ON)
 mtrt_option(MLIR_TRT_ENABLE_MPI "Enable use of MPI in the runtime" ${MLIR_TRT_ENABLE_NCCL})
+mtrt_option(MLIR_TRT_ENABLE_SHARDY "Enable use of Shardy" OFF)
 
 mtrt_option(MLIR_TRT_LINK_MTRT_DYLIB "Link all tools against libMTRT dylib" OFF)
 mtrt_option(MLIR_TRT_LINK_MLIR_DYLIB "Use the libMLIR dylib to provide MLIR-TensorRT's MLIR dependencies" OFF)

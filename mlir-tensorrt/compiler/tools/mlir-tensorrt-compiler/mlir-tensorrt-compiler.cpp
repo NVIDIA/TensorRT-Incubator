@@ -161,10 +161,9 @@ int main(int argc, char **argv) {
       "MLIR-TensorRT Compiler\nAvailable compilation tasks: ";
   {
     llvm::raw_string_ostream os(helpHeader);
-    llvm::interleaveComma(
-        llvm::ArrayRef<llvm::StringRef>{"stablehlo-to-executable",
-                                        "tensorrt-to-executable"},
-        os);
+    llvm::SmallVector<llvm::StringRef> tasks = {"stablehlo-to-executable",
+                                                "tensorrt-to-executable"};
+    llvm::interleaveComma(tasks, os);
   }
 
   cl::ParseCommandLineOptions(argc, argv, helpHeader);

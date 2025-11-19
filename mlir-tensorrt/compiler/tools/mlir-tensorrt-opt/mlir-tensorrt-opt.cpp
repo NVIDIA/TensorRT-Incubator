@@ -26,7 +26,6 @@
 #include "mlir-tensorrt/Features.h"
 #include "mlir/Tools/mlir-opt/MlirOptMain.h"
 
-
 using namespace mlir;
 using namespace llvm;
 

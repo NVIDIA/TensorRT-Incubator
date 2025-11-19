@@ -177,3 +177,27 @@ func.func @caller(%arg0: index, %arg1: index, %arg2: index, %arg3: index, %arg4:
 //       CHECK:       scf.yield %[[subview]]
 //       CHECK:     call @callee_returns_complicated(%[[arg0]], %[[arg1]], %[[arg2]], %[[arg3]], %[[arg4]], %[[alloc]], %[[v1]])
 //       CHECK:     return %[[alloc]], %[[v1]]
+
+// -----
+
+func.func private @callee_cannot_hoist(%arg0: index) -> (memref<?xf32>)  attributes {no_inline} {
+  %0 = memref.alloc() : memref<32xf32>
+  %1 = memref.subview %0[0][%arg0][1] : memref<32xf32> to memref<?xf32, strided<[1]>>
+  call @unknown_user(%1) : (memref<?xf32, strided<[1]>>) -> ()
+  %2 = memref.cast %1 : memref<?xf32, strided<[1]>> to memref<?xf32>
+  return %2 : memref<?xf32>
+}
+
+func.func private @unknown_user(%arg0: memref<?xf32, strided<[1]>>)
+
+func.func @caller(%arg0: index) -> (memref<?xf32>) {
+  %0 = func.call @callee_cannot_hoist(%arg0) : (index) -> (memref<?xf32>)
+  return %0 : memref<?xf32>
+}
+
+// CHECK-LABEL: func.func private @callee_cannot_hoist
+//       CHECK:     %[[cast:.+]] = memref.cast
+//       CHECK:     return %[[cast]]
+
+// CHECK-LABEL: func.func @caller
+//  CHECK-NEXT:  call @callee_cannot_hoist
