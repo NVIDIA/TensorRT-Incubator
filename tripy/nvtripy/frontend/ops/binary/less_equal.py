@@ -12,6 +12,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from nvtripy.common import datatype as dt
+from nvtripy.frontend.constraints import GetInput, GetReturn, OneOf
 from nvtripy.frontend.ops._registry import register_tensor_method
 from nvtripy.types import TensorLike
 from nvtripy.frontend import wrappers
@@ -19,11 +21,11 @@ from nvtripy.frontend import wrappers
 
 @register_tensor_method("__le__")
 @wrappers.interface(
-    dtype_constraints={"self": "T1", "other": "T1", wrappers.RETURN_VALUE: "T2"},
-    dtype_variables={
-        "T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64", "bool"],
-        "T2": ["bool"],
-    },
+    input_requirements=OneOf(
+        GetInput("self").dtype, [dt.float32, dt.float16, dt.bfloat16, dt.int8, dt.int32, dt.int64, dt.bool]
+    )
+    & (GetInput("other").dtype == GetInput("self").dtype),
+    output_guarantees=GetReturn(0).dtype == dt.bool,
     convert_to_tensors=True,
 )
 def __le__(self: "nvtripy.Tensor", other: TensorLike) -> "nvtripy.Tensor":
