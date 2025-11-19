@@ -12,16 +12,18 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from nvtripy.common import datatype as dt
 from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.frontend.ops._registry import register_tensor_method
 from nvtripy.trace.ops.unary import Not
 from nvtripy.frontend import wrappers
+from nvtripy.frontend.constraints import GetInput, GetReturn, OneOf
 
 
 @register_tensor_method("__invert__")
 @wrappers.interface(
-    dtype_constraints={"self": "T1", wrappers.RETURN_VALUE: "T1"},
-    dtype_variables={"T1": ["bool"]},
+    input_requirements=OneOf(GetInput("self").dtype, [dt.bool]),
+    output_guarantees=GetReturn(0).dtype == GetInput("self").dtype,
 )
 def __invert__(self: "nvtripy.Tensor") -> "nvtripy.Tensor":
     """

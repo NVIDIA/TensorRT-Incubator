@@ -16,16 +16,20 @@
 #
 
 
+from nvtripy.common import datatype as dt
 from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.frontend.ops._registry import register_tensor_method
 from nvtripy.trace.ops.unary import Abs
 from nvtripy.frontend import wrappers
+from nvtripy.frontend.constraints import GetInput, GetReturn, OneOf
 
 
 @register_tensor_method("__abs__")
 @wrappers.interface(
-    dtype_constraints={"self": "T1", wrappers.RETURN_VALUE: "T1"},
-    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64"]},
+    input_requirements=OneOf(
+        GetInput("self").dtype, [dt.float32, dt.float16, dt.bfloat16, dt.int8, dt.int32, dt.int64]
+    ),
+    output_guarantees=GetReturn(0).dtype == GetInput("self").dtype,
 )
 def __abs__(self: "nvtripy.Tensor") -> "nvtripy.Tensor":
     r"""
