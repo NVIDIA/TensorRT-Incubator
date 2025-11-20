@@ -4,12 +4,18 @@ on:
   push:
     branches:
       - "pull-request/[0-9]+"
+  tags:
+      - v[0-9]+.[0-9]+.[0-9]+-rc[0-9]+
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * *'  # Runs at 00:00 UTC every day (minute hour day-of-month month-of-year day-of-week)
 
 jobs:
   generate-matrix:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.generate.outputs.matrix }}
+      channel: ${{ steps.generate.outputs.channel }}
     steps:
       - name: checkout TensorRT-Incubator
         uses: actions/checkout@v4
@@ -18,22 +24,24 @@ jobs:
         run: |
           set -euo pipefail
           set -x
-          MATRIX_BLOB="$(python3 ./.github/workflows/mlir-tensorrt/generate-matrix.py --channel test)"
+          CHANNEL="test"
+          if [ "${GITHUB_EVENT_NAME:-}" = "schedule" ]; then
+            CHANNEL="nightly"
+          elif [ "${GITHUB_REF_TYPE:-}" = "tag" ]; then
+            CHANNEL="release"
+          fi
+          MATRIX_BLOB="$(python3 ./.github/workflows/mlir-tensorrt/generate-matrix.py --channel "${CHANNEL}")"
           echo "${MATRIX_BLOB}"
           echo "matrix=${MATRIX_BLOB}" >> "${GITHUB_OUTPUT}"
+          echo "channel=${CHANNEL}" >> "${GITHUB_OUTPUT}"
 
   mlir-tensorrt-build-test:
     name: mlir-tensorrt-build-test
     needs: generate-matrix
-    strategy:
-      fail-fast: false
-      matrix: 
-        include:
-          - channel: test
     uses: ./.github/workflows/build-test.yml
     with:
       build-matrix: ${{ needs.generate-matrix.outputs.matrix }}
-      channel: test
+      channel: ${{ needs.generate-matrix.outputs.channel }}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}-mlir-tensorrt
