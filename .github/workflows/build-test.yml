@@ -35,9 +35,12 @@ jobs:
         run: |
           #set -euo pipefail
           set -x
+          pwd
+          echo "github.workspace: ${{ github.workspace }}"
           python3 -m pip install black
-          python3 -m black --check --extend-exclude='.*\.pyi' mlir-tensorrt/compiler/
-          python3 -m black --check --extend-exclude='.*\.pyi' mlir-tensorrt/integrations/python/
+          python3 -m black --check --extend-exclude='.*\.pyi' ${{ github.workspace }}/TensorRT-Incubator/mlir-tensorrt/compiler/
+          python3 -m black --check --extend-exclude='.*\.pyi' ${{ github.workspace }}/TensorRT-Incubator/mlir-tensorrt/integrations/python/
+          git config --global --add safe.directory ${{ github.workspace }}/TensorRT-Incubator
           git clang-format HEAD~1 --diff
           if [ $? -ne 0 ]; then
             echo "Python format and clang check failed"
