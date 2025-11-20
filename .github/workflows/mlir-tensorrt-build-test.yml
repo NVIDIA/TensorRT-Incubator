@@ -30,7 +30,7 @@ jobs:
       matrix: 
         include:
           - channel: test
-    uses: ./.github/workflows/mlir-tensorrt/build-test.yml
+    uses: ./.github/workflows/build-test.yml
     with:
       build-matrix: ${{ needs.generate-matrix.outputs.matrix }}
       channel: test
