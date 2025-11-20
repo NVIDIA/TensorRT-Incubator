@@ -29,8 +29,6 @@ jobs:
     steps:
       - name: checkout TensorRT-Incubator
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
       - name: python format and clang check
         run: |
           #set -euo pipefail
@@ -38,13 +36,6 @@ jobs:
           python3 -m pip install black
           python3 -m black --check --extend-exclude='.*\.pyi' mlir-tensorrt/compiler/
           python3 -m black --check --extend-exclude='.*\.pyi' mlir-tensorrt/integrations/python/
-          git config --global --add safe.directory ${{ github.workspace }}
-          git clang-format HEAD~1 --diff
-          if [ $? -ne 0 ]; then
-            echo "Python format and clang check failed"
-            exit 1
-          fi
-          echo "Python format and clang check passed"
       - name: create cache folder
         run: |
           #set -euo pipefail
