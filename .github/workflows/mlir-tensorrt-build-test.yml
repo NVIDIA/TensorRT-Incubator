@@ -26,8 +26,8 @@ jobs:
     name: build-test-${{ matrix.arch }}-${{ matrix.cuda }}-trt${{ matrix.trt }}
     needs: generate-matrix
     strategy:
-      matrix:
-        ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
+      fail-fast: false
+      matrix: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
     runs-on: [${{ matrix.runner }}]
     container:
       image: ${{ matrix.docker_image }}
