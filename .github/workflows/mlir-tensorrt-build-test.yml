@@ -16,29 +16,25 @@ jobs:
       - name: Generate matrix
         id: generate
         run: |
-          set -eou pipefail
+          set -euo pipefail
           set -x
-          MATRIX_BLOB="$(python3 mlir-tensorrt/build_tools/scripts/generate-matrix.py --channel test)"
+          MATRIX_BLOB="$(python3 ./.github/workflows/mlir-tensorrt/generate-matrix.py --channel test)"
           echo "${MATRIX_BLOB}"
           echo "matrix=${MATRIX_BLOB}" >> "${GITHUB_OUTPUT}"
 
   mlir-tensorrt-build-test:
-    name: build-test-${{ matrix.arch }}-${{ matrix.cuda }}-trt${{ matrix.trt }}
+    name: mlir-tensorrt-build-test
     needs: generate-matrix
     strategy:
       fail-fast: false
       matrix: 
         include:
-          - repository: NVIDIA/TensorRT-Incubator
-    runs-on: ${{ matrix.runner }}
-    container:
-      image: ${{ matrix.docker_image }}
-      options: '--gpus all'
-    uses: ./github/workflows/mlir-tensorrt/build-test.yml
+          - channel: test
+    uses: ./.github/workflows/mlir-tensorrt/build-test.yml
     with:
       build-matrix: ${{ needs.generate-matrix.outputs.matrix }}
-      repository: ${{ matrix.repository }}
+      channel: test
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}-tensorrt-${{ inputs.repository }}-${{ github.event_name == 'workflow_dispatch' }}-${{ inputs.job-name }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}-mlir-tensorrt
   cancel-in-progress: true
