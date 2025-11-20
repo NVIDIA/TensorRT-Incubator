@@ -67,6 +67,7 @@ def main(args: list[str]) -> None:
                         "docker_image": docker_images[cuda_version],
                         "arch": arch,
                         "runner": gpu_runner,
+                        "channel": channel,
                     }
                 )
     print(json.dumps(matrix_dict))

@@ -1,4 +1,4 @@
-name: MLIR-TensorRT Build and Test
+name: MLIR-TensorRT CI
 
 on:
   push:
@@ -27,90 +27,17 @@ jobs:
     needs: generate-matrix
     strategy:
       fail-fast: false
-      matrix: ${{ fromJson(needs['generate-matrix'].outputs.matrix) }}
-    runs-on: [${{ matrix.runner }}]
+      matrix: 
+        include:
+          - repository: NVIDIA/TensorRT-Incubator
+    runs-on: ${{ matrix.runner }}
     container:
       image: ${{ matrix.docker_image }}
       options: '--gpus all'
-    steps:
-      - name: clean workspace
-        run: |
-          set -eou pipefail
-          set -x
-          echo "cleaning up ${GITHUB_WORKSPACE}"
-          rm -rf ${GITHUB_WORKSPACE}
-          mkdir -p ${GITHUB_WORKSPACE}
-      - name: checkout TensorRT-Incubator
-        uses: actions/checkout@v4
-      - name: python format and clang check
-        run: |
-          set -eou pipefail
-          set -x
-          python3 -m pip install black
-          python3 -m black --check --extend-exclude='.*\.pyi' mlir-tensorrt/compiler/
-          python3 -m black --check --extend-exclude='.*\.pyi' mlir-tensorrt/integrations/python/
-          git clang-format HEAD~1 --diff
-          if [ $? -ne 0 ]; then
-            echo "Python format and clang check failed"
-            exit 1
-          fi
-          echo "Python format and clang check passed"
-      - name: create cache folder
-        run: |
-          set -eou pipefail
-          set -x
-          mkdir -p ${{ github.workspace }}/ccache
-          mkdir -p ${{ github.workspace }}/.cache.cpm
-      - name: restore cache
-        uses: actions/cache/restore@v4
-        with:
-          key: ${{ runner.os }}-mlir-tensorrt-cache-${{ hashFiles('mlir-tensorrt/**/*.cpp', 'mlir-tensorrt/**/*.h', 'mlir-tensorrt/build_tools/**/*') }}
-          restore-keys: |
-            ${{ runner.os }}-mlir-tensorrt-cache-
-          path: |
-            ${{ github.workspace }}/ccache
-            ${{ github.workspace }}/.cache.cpm/*
-            !${{ github.workspace }}/.cache.cpm/tensorrt
-      - name: build_${{ matrix.cuda }}_trt${{ matrix.trt }}
-        run: |
-          set -eou pipefail
-          set -x
-          cd mlir-tensorrt
-          # build and testings
-          DOWNLOAD_TENSORRT_VERSION=${{ matrix.trt }} ./build_tools/scripts/cicd_build.sh --build_only
-      - name: save cache
-        uses: actions/cache/save@v4
-        with:
-          key: ${{ runner.os }}-mlir-tensorrt-cache-${{ hashFiles('mlir-tensorrt/**/*.cpp', 'mlir-tensorrt/**/*.h', 'mlir-tensorrt/build_tools/**/*') }}
-          path: |
-            ${{ github.workspace }}/ccache
-            ${{ github.workspace }}/.cache.cpm/*
-            !${{ github.workspace }}/.cache.cpm/tensorrt
-      - name: test_${{ matrix.cuda }}_trt${{ matrix.trt }}
-        run: |
-          set -eou pipefail
-          set -x
-          cd mlir-tensorrt
-          DOWNLOAD_TENSORRT_VERSION=${{ matrix.trt }} ./build_tools/scripts/cicd_build.sh
-      - name: ASAN_test_${{ matrix.cuda }}_trt${{ matrix.trt }}
-        run: |
-          set -eou pipefail
-          set -x
-          cd mlir-tensorrt
-          DOWNLOAD_TENSORRT_VERSION=${{ matrix.trt }} ENABLE_ASAN=ON ./build_tools/scripts/cicd_build.sh
-      - name: build_wheel_${{ matrix.cuda }}_trt${{ matrix.trt }}
-        run: |
-          set -eou pipefail
-          set -x
-          cd mlir-tensorrt
-          DOWNLOAD_TENSORRT_VERSION=${{ matrix.trt }} ./build_tools/scripts/cicd_build_wheels.sh --build_wheels
-      - name: smoke_test_wheel_${{ matrix.cuda }}_trt${{ matrix.trt }}
-        run: |
-          set -eou pipefail
-          set -x
-          cd mlir-tensorrt
-          python3 -m pip install .private.wheels/mlir_tensorrt-*.whl
-          # TODO: add smoke test for the wheel
+    uses: ./github/workflows/mlir-tensorrt/build-test.yml
+    with:
+      build-matrix: ${{ needs.generate-matrix.outputs.matrix }}
+      repository: ${{ matrix.repository }}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}-tensorrt-${{ inputs.repository }}-${{ github.event_name == 'workflow_dispatch' }}-${{ inputs.job-name }}
