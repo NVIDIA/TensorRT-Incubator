@@ -27,7 +27,7 @@ jobs:
     needs: generate-matrix
     strategy:
       fail-fast: false
-      matrix: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
+      matrix: ${{ fromJson(needs['generate-matrix'].outputs.matrix) }}
     runs-on: [${{ matrix.runner }}]
     container:
       image: ${{ matrix.docker_image }}
