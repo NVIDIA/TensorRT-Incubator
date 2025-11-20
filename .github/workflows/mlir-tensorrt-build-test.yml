@@ -18,16 +18,17 @@ jobs:
         run: |
           set -eou pipefail
           set -x
-          MATRIX_BLOB="$(python3 .github/scripts/generate-matrix.py --channel test)"
+          MATRIX_BLOB="$(python3 mlir-tensorrt/build_tools/scripts/generate-matrix.py --channel test)"
           echo "${MATRIX_BLOB}"
           echo "matrix=${MATRIX_BLOB}" >> "${GITHUB_OUTPUT}"
 
   mlir-tensorrt-build-test:
+    name: build-test-${{ matrix.arch }}-${{ matrix.cuda }}-trt${{ matrix.trt }}
     needs: generate-matrix
     strategy:
       matrix:
         ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
-    runs-on: [linux-amd64-gpu-h100-latest-1]
+    runs-on: [${{ matrix.runner }}]
     container:
       image: ${{ matrix.docker_image }}
       options: '--gpus all'

@@ -35,7 +35,7 @@ case "${LINUX_DISTRO}" in
     dnf install -y \
       which wget gcc zlib-devel bzip2 bzip2-devel readline-devel sqlite \
       sqlite-devel xz xz-devel libffi-devel curl git ncurses-devel \
-      openssh-clients libcudnn8-devel zip jq \
+      openssh-clients zip jq \
       protobuf-compiler autoconf automake libtool dnf-plugins-core cmake
     dnf config-manager --set-enabled powertools
     dnf -y install gcc-toolset-11-gcc gcc-toolset-11-gcc-c++

@@ -27,10 +27,14 @@ DOCKER_IMAGE_DICT = {
         "cu129": "ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda12.9-ubuntu-llvm17",
     },
     "release": {
-        "cu129": "ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda12.9-ubuntu-llvm17",
+        "cu129": "ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda12.9-rocky-gcc11",
     },
 }
 
+GPU_RUNNER_DICT = {
+    "aarch64": "linux-arm64-gpu-l4-latest-1",
+    "x86_64": "linux-amd64-gpu-h100-latest-1",
+}
 
 def main(args: list[str]) -> None:
     parser = argparse.ArgumentParser()
@@ -55,13 +59,16 @@ def main(args: list[str]) -> None:
     matrix_dict = {"include": []}
     for cuda_version in cuda_versions:
         for trt_version in trt_versions:
-            matrix_dict["include"].append(
-                {
-                    "cuda": cuda_version,
-                    "trt": trt_version,
-                    "docker_image": docker_images[cuda_version],
-                }
-            )
+            for arch, gpu_runner in GPU_RUNNER_DICT.items():
+                matrix_dict["include"].append(
+                    {
+                        "cuda": cuda_version,
+                        "trt": trt_version,
+                        "docker_image": docker_images[cuda_version],
+                        "arch": arch,
+                        "runner": gpu_runner,
+                    }
+                )
     print(json.dumps(matrix_dict))
 
 
