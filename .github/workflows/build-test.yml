@@ -36,8 +36,8 @@ jobs:
           #set -euo pipefail
           set -x
           python3 -m pip install black
-          python3 -m black --check --extend-exclude='.*\.pyi' ${{ github.workspace }}/mlir-tensorrt/compiler/
-          python3 -m black --check --extend-exclude='.*\.pyi' ${{ github.workspace }}/mlir-tensorrt/integrations/python/
+          python3 -m black --check --extend-exclude='.*\.pyi' mlir-tensorrt/compiler/
+          python3 -m black --check --extend-exclude='.*\.pyi' mlir-tensorrt/integrations/python/
           git config --global --add safe.directory ${{ github.workspace }}
           git clang-format HEAD~1 --diff
           if [ $? -ne 0 ]; then
