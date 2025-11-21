@@ -2,16 +2,17 @@
 Utility functions used in the setup.py files for the Python packages.
 """
 
+import atexit
 import datetime
 import os
 import re
 import shutil
-import sys
-from pathlib import Path
-import tempfile
-import setuptools
 import subprocess
-import atexit
+import sys
+import tempfile
+from pathlib import Path
+
+import setuptools
 
 TENSORRT_VERSION = os.getenv("MLIR_TRT_DOWNLOAD_TENSORRT_VERSION", "10.12")
 
@@ -28,7 +29,8 @@ def get_cuda_version() -> str:
         log(f"CUDA_VERSION: {cuda_version_environment_variable}")
         log(f"CUDA_MAJOR_VERSION: {cuda_major_version}")
         return cuda_major_version
-    except:
+    except Exception as e:
+        log(f"Error getting CUDA version: {e}")
         log("CUDA_VERSION not set, using default of 12")
         return "12"
 
@@ -58,10 +60,25 @@ def append_version_feature_flags(version: str) -> str:
     return version
 
 
+def get_release_version() -> str:
+    # For release builds, we don't append the date to the version.
+    # e.g. 0.1.43+cuda12.trt1012
+    return append_version_feature_flags(f"{get_base_version()}")
+
+
 def get_nightly_version() -> str:
     # For development builds, we append the date to the version.
+    # e.g. 0.1.43.dev20251126+cuda12.trt1012
     datestring = datetime.date.today().strftime("%Y%m%d")
     return append_version_feature_flags(f"{get_base_version()}.dev{datestring}")
+
+
+def get_wheel_version() -> str:
+    # in CI release build, we use the release version
+    if os.environ.get("CHANNEL", "") == "release":
+        return get_release_version()
+    else:
+        return get_nightly_version()
 
 
 def cleanup_dir(dir: Path, should_cleanup: bool, comment: str = ""):
@@ -157,7 +174,7 @@ def run_cmake_build(python_package_name: str, python_wheel_staging_dir: Path):
     log(f"Building MLIR-TensorRT in {build_dir}")
     log(f"Installing to {install_dir}")
 
-    # Retrieve the path to the isolated Python site where the wheel build is occuring.
+    # Retrieve the path to the isolated Python site where the wheel build is occurring.
     # That is where the Python build dependencies (the packages listed in
     # 'build-requires' in the pyproject.toml) are available. The actual CMake build
     # may invoke the Python interpreter (in order to e.g. generate custom MLIR files
@@ -174,9 +191,9 @@ def run_cmake_build(python_package_name: str, python_wheel_staging_dir: Path):
         f"-DCMAKE_INSTALL_PREFIX={install_dir}",
         # Force use of the current Python interpreter.
         f"-DPython3_EXECUTABLE={sys.executable}",
-        f"-B",
+        "-B",
         str(build_dir),
-        f"-S",
+        "-S",
         str(project_root),
     ]
     configure_cmd.extend(cmake_options)

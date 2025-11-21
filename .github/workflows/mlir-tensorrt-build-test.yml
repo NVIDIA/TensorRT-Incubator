@@ -1,0 +1,155 @@
+name: MLIR-TensorRT Build and Test
+
+on:
+  workflow_call:
+    inputs:
+      channel:
+        description: 'Channel, valid values are "nightly", "test", or "release"'
+        default: "test"
+        type: string
+      build-matrix:
+        description: 'Build matrix to utilize'
+        default: ""
+        type: string
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  mlir-tensorrt-build-test:
+    name: build-test-${{ matrix.arch }}-cu${{ matrix.cuda }}-trt${{ matrix.trt }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(inputs.build-matrix) }}
+    env:
+      # eg. CUDA_VERSION: 12.9.1 or 13.0.0
+      CUDA_VERSION: ${{ matrix.cuda }}
+      # eg. TENSORRT_VERSION: 10.12 or 10.13
+      TENSORRT_VERSION: ${{ matrix.trt }}
+      # align caches with restored paths
+      CCACHE_DIR: ${{ github.workspace }}/tensorrt-incubator/mlir-tensorrt/ccache
+      CPM_SOURCE_CACHE: ${{ github.workspace }}/tensorrt-incubator/mlir-tensorrt/.cache.cpm
+      # eg. CHANNEL: nightly, test or release
+      CHANNEL: ${{ inputs.channel }}
+    runs-on: ${{ matrix.runner }}
+    container:
+      image: ${{ matrix.docker_image }}
+      options: '--gpus all'
+    steps:
+      # Checkout the repository
+      - name: Checkout TensorRT-Incubator
+        uses: actions/checkout@v4
+        with:
+          path: ${{ github.workspace }}/tensorrt-incubator
+
+      # Create cache folders
+      - name: Create Cache Folders
+        run: |
+          set -euo pipefail
+          set -x
+          mkdir -p ${{ github.workspace }}/tensorrt-incubator/mlir-tensorrt/ccache
+          mkdir -p ${{ github.workspace }}/tensorrt-incubator/mlir-tensorrt/.cache.cpm
+
+      # Restore cache, if exists.
+      - name: Restore Cache
+        uses: actions/cache/restore@v4
+        with:
+          key: ${{ runner.os }}-mlir-tensorrt-cache-${{ hashFiles('mlir-tensorrt/**/*.cpp', 'mlir-tensorrt/**/*.h', 'mlir-tensorrt/build_tools/**/*') }}
+          restore-keys: |
+            ${{ runner.os }}-mlir-tensorrt-cache-
+          path: |
+            ${{ github.workspace }}/tensorrt-incubator/mlir-tensorrt/ccache
+            ${{ github.workspace }}/tensorrt-incubator/mlir-tensorrt/.cache.cpm/*
+            !${{ github.workspace }}/tensorrt-incubator/mlir-tensorrt/.cache.cpm/tensorrt
+
+      # Build the project
+      - name: Build With CUDA:${{ matrix.cuda }} + TensorRT:${{ matrix.trt }}
+        run: |
+          set -euo pipefail
+          set -x
+          cd ${{ github.workspace }}/tensorrt-incubator/mlir-tensorrt
+          # Build only, skip tests
+          SKIP_TESTS=1 \
+          ./build_tools/scripts/cicd_build_test.sh
+
+      # Save cache
+      - name: Save cache
+        uses: actions/cache/save@v4
+        with:
+          key: ${{ runner.os }}-mlir-tensorrt-cache-${{ hashFiles('mlir-tensorrt/**/*.cpp', 'mlir-tensorrt/**/*.h', 'mlir-tensorrt/build_tools/**/*') }}
+          path: |
+            ${{ github.workspace }}/tensorrt-incubator/mlir-tensorrt/ccache
+            ${{ github.workspace }}/tensorrt-incubator/mlir-tensorrt/.cache.cpm/*
+            !${{ github.workspace }}/tensorrt-incubator/mlir-tensorrt/.cache.cpm/tensorrt
+
+      # Run tests
+      - name: Run Basic Tests
+        id: basic-tests
+        run: |
+          set -euo pipefail
+          set -x
+          cd ${{ github.workspace }}/tensorrt-incubator/mlir-tensorrt
+          # run tests
+          ./build_tools/scripts/cicd_build_test.sh
+
+      # Run ASAN tests
+      - name: Run ASAN Tests
+        id: asan-tests
+        if: ${{ always() && (inputs.channel == 'nightly' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'ASAN_TEST'))) }}
+        run: |
+          set -euo pipefail
+          set -x
+          cd ${{ github.workspace }}/tensorrt-incubator/mlir-tensorrt
+          CMAKE_PRESET=github-cicd-with-asan \
+          ./build_tools/scripts/cicd_build_test.sh
+
+      # Run Long tests
+      - name: Run Long Tests
+        id: long-tests
+        if: ${{ always() && (inputs.channel == 'nightly' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'LONG_TEST'))) }}
+        run: |
+          set -euo pipefail
+          set -x
+          cd ${{ github.workspace }}/tensorrt-incubator/mlir-tensorrt
+          CMAKE_PRESET=github-cicd-with-long-tests \
+          ./build_tools/scripts/cicd_build_test.sh
+
+      # Run NCCL Long tests
+      - name: Run NCCL Long Tests
+        id: nccl-long-tests
+        if: ${{ always() && (inputs.channel == 'nightly' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'NCCL_LONG_TEST'))) }}
+        run: |
+          set -euo pipefail
+          set -x
+          cd ${{ github.workspace }}/tensorrt-incubator/mlir-tensorrt
+          CMAKE_PRESET=github-cicd-with-nccl-long-tests \
+          ./build_tools/scripts/cicd_build_test.sh
+
+      # Build wheels
+      - name: Build Wheels
+        id: build-wheels
+        if: ${{ always() && inputs.channel == 'nightly' }}
+        run: |
+          set -euo pipefail
+          set -x
+          cd ${{ github.workspace }}/tensorrt-incubator/mlir-tensorrt
+          ./build_tools/scripts/cicd_build_wheels.sh
+
+      # Smoke test the wheels built
+      - name: Smoke Test Wheels
+        id: smoke-test-wheels
+        if: ${{ inputs.channel == 'nightly' }}
+        run: |
+          set -euo pipefail
+          set -x
+          cd ${{ github.workspace }}/tensorrt-incubator/mlir-tensorrt
+          for whl in .wheels/*.whl; do
+            uv pip install "$whl"
+          done
+          # TODO: add smoke test for the wheel
+
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}-mlir-tensorrt-${{ inputs.channel }}
+  cancel-in-progress: true

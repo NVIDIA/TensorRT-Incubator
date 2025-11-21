@@ -1,4 +1,4 @@
-ARG BASE_IMAGE
+ARG BASE_IMAGE=nvcr.io/nvidia/cuda:12.9.1-cudnn-devel-ubuntu22.04
 FROM ${BASE_IMAGE}
 
 # Should be set to either 'ubuntu' or 'rockylinux'
@@ -10,18 +10,47 @@ ARG LINUX_DISTRO=notset
 #############################
 
 ARG DEBIAN_FRONTEND=noninteractive
+ENV DEBIAN_FRONTEND=${DEBIAN_FRONTEND}
+ARG TZ=America/Los_Angeles
+ENV TZ=${TZ}
 
 RUN <<EOF
-set -e
+set -ex
 case "${LINUX_DISTRO}" in
   "ubuntu"*)
-    apt-get update
-    apt-get install -y \
+
+    ubuntu_version=$(. /etc/os-release; echo "$VERSION_ID")
+    # CUDA_VERSION is like 13.0.0, 12.9.1, etc.
+    # cuda_major_minor_version is like 13.0, 12.9, etc.
+    cuda_major_minor_version=${CUDA_VERSION%.*}
+    # cuda_major_version is like 13, 12, etc.
+    cuda_major_version=${cuda_major_minor_version%.*}
+    # cuda_minor_version is like 0, 9, etc.
+    cuda_minor_version=${cuda_major_minor_version#*.}
+
+    if [ "${cuda_major_version}" = "13" ]; then
+        # For CUDA 13.0, the nsight package name is like cuda-nsight-systems-13-0
+        nsight_pkg_name="cuda-nsight-systems-${cuda_major_version}-${cuda_minor_version}"
+    else
+        # For CUDA 12.9, the nsight package name is like cuda-nsight-systems-12.9
+        nsight_pkg_name="cuda-nsight-systems-${cuda_major_version}.${cuda_minor_version}"
+    fi
+
+    if [ "${ubuntu_version}" = "24.04" ]; then
+        apt-get update && \
+        apt-get install -y --no-install-recommends tzdata software-properties-common && \
+        ln -fs /usr/share/zoneinfo/$TZ /etc/localtime && \
+        dpkg-reconfigure -f noninteractive tzdata && \
+        apt-get install -y python3.12 python3.12-dev python3.12-venv python3-pip
+    else
+        apt-get update && apt-get install -y \
+        python3.10 python3.10-distutils python3.10-dev python3.10-venv python3-pip
+    fi
+    apt-get update && apt-get install -y \
         wget gnupg apt-utils curl \
         default-jdk-headless default-jre-headless \
-        git python3.10 python3.10-distutils python3.10-dev python3.10-venv \
-        python3-pip libprotobuf-dev protobuf-compiler libsndfile1 libcudnn8 \
-        cuda-nsight-systems-${CUDA_VERSION%.*} \
+        git libprotobuf-dev protobuf-compiler libsndfile1 \
+        ${nsight_pkg_name} clang-format \
         openmpi-bin openmpi-common libopenmpi-dev
     apt-get clean -y
     rm -rf /var/lib/apt/lists/*
@@ -35,11 +64,11 @@ case "${LINUX_DISTRO}" in
     dnf install -y \
       which wget gcc zlib-devel bzip2 bzip2-devel readline-devel sqlite \
       sqlite-devel xz xz-devel libffi-devel curl git ncurses-devel \
-      openssh-clients libcudnn8-devel zip jq \
+      openssh-clients zip jq \
       protobuf-compiler autoconf automake libtool dnf-plugins-core cmake
     dnf config-manager --set-enabled powertools
     dnf -y install gcc-toolset-11-gcc gcc-toolset-11-gcc-c++
-    dnf -y install ninja-build ccache
+    dnf -y install ninja-build ccache patch lld clang clang-tools-extra python3.12 python3.12-devel python3.12-pip
     dnf clean all
     # Enable GCC11 toolset as default.
     echo -e ' \
@@ -67,35 +96,13 @@ EOF
 
 #------------------------------------------------------------------------------
 # Python setup
-# We install pyenv only for rockylinux, but we don't preload dependencies.
-# For ubuntu, preload the required python dependencies in the default python
-# environment.
 #------------------------------------------------------------------------------
-ARG PYTHON_VERSION=3.10
-ENV PYENV_ROOT="/pyenv"
-ENV PATH="/pyenv/bin:/pyenv/shims:$PATH"
-COPY integrations/python/requirements-dev.txt /tmp/requirements-dev.txt
-COPY integrations/python/requirements.txt /tmp/requirements.txt
+
 RUN <<EOF
-set -e
-case "${LINUX_DISTRO}" in
-  "ubuntu"*)
-    python3 -m pip install -r /tmp/requirements-dev.txt
-    ;;
-  "rockylinux"*)
-    curl https://pyenv.run | bash
-    pyenv update
-    CPPFLAGS="-I/usr/include/openssl" LDFLAGS="-L/usr/lib" pyenv install --verbose 3.9 3.10 3.11 3.12
-    pyenv global ${PYTHON_VERSION}
-    chmod -R 0755 /pyenv
-    ;;
-  *)
-    echo "Unsupported LINUX_DISTRO: ${LINUX_DISTRO}"
-    exit 1
-    ;;
-esac
-# Cleanup dependencies file.
-rm /tmp/requirements-dev.txt /tmp/requirements.txt
+set -ex
+curl -fsSL https://astral.sh/uv/install.sh | sh
+ln -sf /root/.local/bin/uv /usr/local/bin/uv
+uv python install 3.10 3.11 3.12 3.13
 EOF
 
 #------------------------------------------------------------------------------

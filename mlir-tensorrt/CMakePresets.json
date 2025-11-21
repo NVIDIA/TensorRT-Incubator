@@ -27,6 +27,45 @@
       }
     },
     {
+      "name": "distribution",
+      "displayName": "Distribution MLIR-TensorRT",
+      "inherits": "ninja-llvm",
+      "cacheVariables": {
+        "BUILD_SHARED_LIBS": "OFF",
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/$env{INSTALL_DIR}",
+        "LLVM_DISTRIBUTION_COMPONENTS": "llvm-headers;llvm-libraries;llvm-config;cmake-exports;mlir-headers;mlir-libraries;mlir-cmake-exports",
+        "LLVM_ENABLE_ASSERTIONS": "ON",
+        "LLVM_INSTALL_TOOLCHAIN_ONLY": "OFF",
+        "LLVM_LINK_LLVM_DYLIB": "OFF",
+        "MLIR_TRT_DOWNLOAD_TENSORRT_VERSION": "$env{DOWNLOAD_TENSORRT_VERSION}",
+        "MLIR_TRT_ENABLE_DISTRIBUTION": "ON",
+        "MLIR_TRT_ENABLE_MPI": "OFF",
+        "MLIR_TRT_ENABLE_NCCL": "OFF",
+        "MLIR_TRT_ENABLE_SHARDY": "OFF",
+        "MLIR_TRT_ENABLE_TORCH": "OFF",
+        "MLIR_TRT_LINK_MTRT_DYLIB": "ON",
+        "MLIR_TRT_DISTRIBUTION_COMPONENTS": "mtrt-headers;mtrt-cmake-exports;mtrt-libraries;mtrt-tools;mtrt-capi-libraries;mtrt-aggregates;mtrt-dependencies"
+      }
+    },
+    {
+      "name": "python-wheel-build",
+      "displayName": "Configuration for building the compiler/runtime Python package wheels",
+      "generator": "Ninja",
+      "binaryDir": "build",
+      "inherits": "ninja-llvm",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "LLVM_ENABLE_ASSERTIONS": "OFF",
+        "BUILD_SHARED_LIBS": "OFF",
+        "CMAKE_PLATFORM_NO_VERSIONED_SONAME": "ON",
+        "CPM_SOURCE_CACHE": "$env{CPM_SOURCE_CACHE}",
+        "CCACHE_DIR": "$env{CCACHE_DIR}",
+        "MLIR_TRT_ENABLE_NCCL": "OFF",
+        "MLIR_TRT_DOWNLOAD_TENSORRT_VERSION": "$env{DOWNLOAD_TENSORRT_VERSION}"
+      }
+    },
+    {
       "name": "github-cicd",
       "displayName": "GitHub CICD configuration",
       "generator": "Ninja",
@@ -37,11 +76,34 @@
         "CMAKE_CXX_COMPILER": "clang++",
         "LLVM_USE_LINKER": "lld",
         "MLIR_TRT_ENABLE_TORCH": "ON",
-        "MLIR_EXECUTOR_ENABLE_GPU_INTEGRATION_TESTS": "OFF",
         "CPM_SOURCE_CACHE": "$env{CPM_SOURCE_CACHE}",
         "ENABLE_ASAN": "$env{ENABLE_ASAN}",
         "LLVM_LIT_ARGS": "$env{LLVM_LIT_ARGS}",
         "MLIR_TRT_DOWNLOAD_TENSORRT_VERSION": "$env{DOWNLOAD_TENSORRT_VERSION}"
+      }
+    },
+    {
+      "name": "github-cicd-with-asan",
+      "inherits": "github-cicd",
+      "cacheVariables": {
+        "ENABLE_ASAN": "ON"
+      }
+    },
+    {
+      "name": "github-cicd-with-long-tests",
+      "inherits": "github-cicd",
+      "environment": {
+        "LONG_TESTS": "True"
+      }
+    },
+    {
+      "name": "github-cicd-with-nccl-long-tests",
+      "inherits": "github-cicd",
+      "environment": {
+        "LONG_TESTS": "True"
+      },
+      "cacheVariables": {
+        "MLIR_TRT_ENABLE_NCCL": "ON"
       }
     },
     {

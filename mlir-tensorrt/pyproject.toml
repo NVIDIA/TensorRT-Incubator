@@ -1,0 +1,87 @@
+[project]
+name = "mtrt"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = [
+    "apache-tvm-ffi>=0.1.0",
+    "click>=8.3.0",
+    "einops>=0.8.1",
+    "pandas>=2.3.2",
+    "sh>=2.2.2",
+    "flax",
+    "torch==2.10.0.dev20251110",
+    "torchvision==0.25.0.dev20251111",
+    "nanobind>=2.4, <3.0",
+    "numpy>=1.19.5, <=2.1.2",
+    "pybind11>=2.10.0, <=2.13.6",
+    "PyYAML>=5.4.0, <=6.0.1",
+    "ml_dtypes>=0.1.0; python_version < '3.13'",
+    "ml_dtypes>=0.5.0; python_version >= '3.13'",
+    "black>=25.9.0",
+    "psutil>=7.1.0",
+    "nvidia-ml-py>=13.580.82",
+    "matplotlib>=3.10.6",
+    "nvtx>=0.2.13",
+    "tqdm>=4.67.1",
+    "openpyxl>=3.1.5",
+    "datasets==2.14.5",
+    "pyarrow<21.0.0",
+    "transformers>=4.56.2",
+    "librosa>=0.11.0",
+    "soundfile>=0.13.1",
+    "pytest>=8.4.2",
+    "pytest-xdist>=3.8.0",
+]
+
+[project.optional-dependencies]
+docs = [
+    "furo>=2025.9.25",
+    "myst-parser>=4.0.1",
+    "sphinx>=8.1.3",
+    "sphinx-copybutton>=0.5.2",
+]
+cu12 = [
+    "jax[cuda12_local]==0.5.3",
+    "cupy-cuda12x>=13.6.0",
+    "flashinfer-jit-cache==0.5.0rc3",
+    "cuda-python<13.0",
+]
+cu13 = [
+    "jax==0.5.3",
+    "cupy-cuda13x>=13.6.0",
+    "flashinfer-jit-cache==0.5.0rc3",
+    "cuda-python>=13.0",
+]
+cpu = [
+    "jax==0.5.3",
+]
+
+[tool.uv]
+conflicts = [
+  [
+    { extra = "cpu" },
+    { extra = "cu12" },
+    { extra = "cu13" },
+  ],
+]
+
+[tool.uv.sources]
+torch = {index = "pytorch-cpu"}
+torchvision = {index = "pytorch-cpu"}
+flashinfer-jit-cache = [
+ {index = "flashinfer-cu129", extra = "cu12"},
+ {index = "flashinfer-cu130", extra = "cu13"}
+]
+
+[[tool.uv.index]]
+name = "flashinfer-cu129"
+url = "https://flashinfer.ai/whl/cu129"
+
+[[tool.uv.index]]
+name = "flashinfer-cu130"
+url = "https://flashinfer.ai/whl/cu130"
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/nightly/cpu"
+explicit = true

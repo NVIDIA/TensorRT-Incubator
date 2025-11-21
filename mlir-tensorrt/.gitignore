@@ -1,5 +1,6 @@
 # Build artifacts
 **/build/**
+**/install/**
 *.log
 **/llvm-project/**
 **/llvm-project/
@@ -20,6 +21,7 @@ __pycache__
 # IDE & Clangd
 **/.vscode/**
 **/.cache/**
+**/ccache/**
 **/.cache.cpm/**
 compile_commands.json
 **/.env*

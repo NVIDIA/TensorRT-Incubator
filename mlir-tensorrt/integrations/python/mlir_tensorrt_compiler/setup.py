@@ -29,7 +29,7 @@ class BinaryDistribution(Distribution):
         return True
 
 
-PKG_VERSION = setup_utils.get_nightly_version()
+PKG_VERSION = setup_utils.get_wheel_version()
 
 
 class CMakeBuild(build_py):

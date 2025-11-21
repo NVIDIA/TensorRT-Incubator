@@ -1,13 +1,24 @@
-import requests
+import importlib
+import os
+from pathlib import Path
+
 from setuptools import setup
 from setuptools.dist import Distribution
 
-# PKG_VERSION will be supplied by CMake configuration when this file is populated
-# into the build directory. However, to make sure this file is still usable in
-# the source directory, the logic below populates a default version number.
-VERSION = "@PKG_VERSION@"
-if "@" in VERSION:
-    VERSION = "0.0.1"
+
+def load_setup_utils():
+    spec = importlib.util.spec_from_file_location(
+        "setup_utils",
+        Path(os.path.dirname(__file__)).parent / "setup_utils.py",
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+setup_utils = load_setup_utils()
+
+VERSION = setup_utils.get_wheel_version()
 
 
 class BinaryDistribution(Distribution):

@@ -1,17 +1,18 @@
 # Torch is required by `optimum`. This will let PIP select the CPU version.
 # The GPU version installs `nvidia-` pip packages which confuse JAX.
 -r requirements.txt
---extra-index-url https://download.pytorch.org/whl/cpu
+--extra-index-url https://download.pytorch.org/whl/cpu/torch/
 click
 matplotlib
 pandas
 sh
 nvtx>=0.2.7
-cupy-cuda12x # Required for test_create_memref.py
+cupy-cuda12x # Required for test_create_memref.py # cupy-cuda13x for cuda13
 ml_dtypes>=0.1.0, <=0.6.0; python_version<"3.13"
 ml_dtypes>=0.5.0, <=0.6.0; python_version>="3.13"
 nvidia-ml-py
 black
 build
 psutil
-torch==2.2.0+cpu
+torch==2.9.0
+apache-tvm-ffi>=0.1.0
