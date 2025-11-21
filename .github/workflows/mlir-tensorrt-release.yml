@@ -19,13 +19,13 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJSON(inputs.build-matrix) }}
     env:
-      # eg. CUDA_VERSION: 12.9
+      # eg. CUDA_VERSION: 12.9.1 or 13.0.0
       CUDA_VERSION: ${{ matrix.cuda }}
-      # eg. TENSORRT_VERSION: 10.12
+      # eg. TENSORRT_VERSION: 10.12 or 10.13
       TENSORRT_VERSION: ${{ matrix.trt }}
       # eg. ARCH: x86_64 or aarch64
       ARCH: ${{ matrix.arch }}
-      # eg. CHANNEL: test or release
+      # eg. CHANNEL: nightly, test or release
       CHANNEL: ${{ inputs.channel }}
     runs-on: ${{ matrix.runner }}
     container:
@@ -40,17 +40,16 @@ jobs:
       - name: build-wheel-${{ matrix.arch }}-cu${{ matrix.cuda }}-trt${{ matrix.trt }}
         if: ${{ always() }}
         run: |
-          #set -euo pipefail
+          set -euo pipefail
           set -x
           cd mlir-tensorrt
-
           DOWNLOAD_TENSORRT_VERSION=${{ matrix.trt }} ./build_tools/scripts/cicd_build_wheels.sh
 
       # Smoke test the wheels built
       - name: smoke-test-wheel-${{ matrix.cuda }}-trt${{ matrix.trt }}
         if: ${{ always() }}
         run: |
-          #set -euo pipefail
+          set -euo pipefail
           set -x
           cd mlir-tensorrt
           python3 -m pip install .wheels/mlir_tensorrt-*.whl

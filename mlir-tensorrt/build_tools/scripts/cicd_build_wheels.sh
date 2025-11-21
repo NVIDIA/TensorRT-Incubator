@@ -21,7 +21,11 @@ CHANNEL="${CHANNEL:-test}"
 TENSORRT_VERSION="${TENSORRT_VERSION:-10.12}"
 # Defaults computed after ARCH is known
 DEFAULT_BUILD_DIR="${REPO_ROOT}/build"
-DEFAULT_INSTALL_DIR="${REPO_ROOT}/install/mlir-tensorrt-${ARCH}-linux-cuda${CUDA_VERSION}-tensorrt${TENSORRT_VERSION}/mlir-tensorrt"
+# CUDA_VERSION is like 13.0.0, 12.9.1, etc.
+# cuda_major_minor_version is like 13.0, 12.9, etc.
+cuda_major_minor_version=${CUDA_VERSION%.*}
+DEFAULT_INSTALL_DIR="${REPO_ROOT}/install/mlir-tensorrt-${ARCH}-linux-cuda${cuda_major_minor_version=${CUDA_VERSION%.*}
+}-tensorrt${TENSORRT_VERSION}/mlir-tensorrt"
 WHEELS_DIR="${REPO_ROOT}/.wheels"
 
 export DOWNLOAD_TENSORRT_VERSION=${TENSORRT_VERSION}
