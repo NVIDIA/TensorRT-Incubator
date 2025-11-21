@@ -8,9 +8,9 @@ import sys
 # TODO: add cu130 support
 # # build and upload the ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda13.0-ubuntu-llvm17
 CUDA_VERSIONS_DICT = {
-    "nightly": ["cu129"],
-    "test": ["cu129"],
-    "release": ["cu129"],
+    "nightly": ["12.9"],
+    "test": ["12.9"],
+    "release": ["12.9"],
 }
 
 TRT_VERSIONS_DICT = {
@@ -21,13 +21,13 @@ TRT_VERSIONS_DICT = {
 
 DOCKER_IMAGE_DICT = {
     "nightly": {
-        "cu129": "ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda12.9-ubuntu-llvm17",
+        "12.9": "ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda12.9-ubuntu-llvm17",
     },
     "test": {
-        "cu129": "ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda12.9-ubuntu-llvm17",
+        "12.9": "ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda12.9-ubuntu-llvm17",
     },
     "release": {
-        "cu129": "ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda12.9-rocky-gcc11",
+        "12.9": "ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda12.9-rocky-gcc11",
     },
 }
 
@@ -35,6 +35,7 @@ GPU_RUNNER_DICT = {
     "aarch64": "linux-arm64-gpu-l4-latest-1",
     "x86_64": "linux-amd64-gpu-h100-latest-1",
 }
+
 
 def main(args: list[str]) -> None:
     parser = argparse.ArgumentParser()

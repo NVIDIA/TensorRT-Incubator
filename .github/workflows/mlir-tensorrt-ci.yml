@@ -1,123 +1,60 @@
 name: MLIR-TensorRT CI
 
 on:
-  #pull_request:
-  #  branches:
-  #    - main
-  #  types: [synchronize, opened, reopened, ready_for_review]
-  #  paths: ["mlir-tensorrt/**"]
   push:
     branches:
-      - main
-    paths: ["mlir-tensorrt/**"]
-
-env:
-  DEFAULT_IMAGE: ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda12.5-ubuntu-llvm17
-  REGISTRY: ghcr.io
+      - "pull-request/[0-9]+"
+    tags:
+      # release tag example: v0.4.2
+      # release candidate tag example: v0.4.2-rc1
+      - v[0-9]+.[0-9]+.[0-9]+-rc[0-9]+
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * *'  # Runs at 00:00 UTC every day (minute hour day-of-month month-of-year day-of-week)
 
 jobs:
-  mlir-tensorrt-test-pr:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
-    runs-on: tripy-self-hosted
-
+  generate-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.generate.outputs.matrix }}
+      channel: ${{ steps.generate.outputs.channel }}
     steps:
-      # Value of `github.workspace` is /home/runner/work/{repo_name}/{repo-name}
-      # i.e. /home/runner/work/TensorRT-Incubator/TensorRT-Incubator in our case.
-      # After this action, repo is cloned inside above path.
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 5
-
-      # Run initial format check
-      - name: Run python format and clang check
-        uses: addnab/docker-run-action@v3
-        if: ${{ github.event_name == 'pull_request' }}
-        with:
-          image: ${{ env.DEFAULT_IMAGE }}
-          options: -v ${{ github.workspace }}:/tensorrt-incubator
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-          # This step does two things
-          # 1. Check if Python files follow black format
-          # 2. Check if C++ files follow clang format
-          # NOTE: We are placed at the root directory ('/') inside the container.
-          run: |
-            cd tensorrt-incubator
-            git config --global --add safe.directory /tensorrt-incubator
-            cat > run_format_check.sh <<EOF
-            #!/bin/bash
-            set -e
-            python3 -m black --check --extend-exclude='.*\.pyi' mlir-tensorrt/compiler/
-            python3 -m black --check --extend-exclude='.*\.pyi' mlir-tensorrt/integrations/python/
-            git clang-format HEAD~1 --diff
-            EOF
-
-            bash run_format_check.sh
-
-      # Create cache folders
-      - name: Create cache folder
+      - name: checkout TensorRT-Incubator
+        uses: actions/checkout@v4
+      - name: Generate matrix
+        id: generate
         run: |
-          mkdir -p ${{ github.workspace }}/ccache
-          mkdir -p ${{ github.workspace }}/.cache.cpm
+          set -euo pipefail
+          set -x
+          CHANNEL="test"
+          if [ "${GITHUB_EVENT_NAME:-}" = "schedule" ]; then
+            CHANNEL="nightly"
+          elif [ "${GITHUB_REF_TYPE:-}" = "tag" ]; then
+            CHANNEL="release"
+          fi
+          MATRIX_BLOB="$(python3 ./.github/workflows/mlir-tensorrt/generate-matrix.py --channel "${CHANNEL}")"
+          echo "${MATRIX_BLOB}"
+          echo "matrix=${MATRIX_BLOB}" >> "${GITHUB_OUTPUT}"
+          echo "channel=${CHANNEL}" >> "${GITHUB_OUTPUT}"
 
-      # Restore cache, if exists.
-      - name: Restore cache
-        id: restore-cache
-        uses: actions/cache/restore@v4
-        with:
-          key: ${{ runner.os }}-mlir-tensorrt-cache-${{ hashFiles('mlir-tensorrt/**/*.cpp', 'mlir-tensorrt/**/*.h', 'mlir-tensorrt/build_tools/**/*') }}
-          restore-keys: |
-            ${{ runner.os }}-mlir-tensorrt-cache-
-          path: |
-            ${{ github.workspace }}/ccache
-            ${{ github.workspace }}/.cache.cpm/*
-            !${{ github.workspace }}/.cache.cpm/tensorrt
+  mlir-tensorrt-build-test:
+    name: mlir-tensorrt-build-test
+    needs: generate-matrix
+    if: ${{ needs.generate-matrix.outputs.channel != 'release' }}
+    uses: ./.github/workflows/mlir-tensorrt-build-test.yml
+    with:
+      build-matrix: ${{ needs.generate-matrix.outputs.matrix }}
+      channel: ${{ needs.generate-matrix.outputs.channel }}
 
-      # TensorRT 10 tests
-      - name: TensorRT 10 build
-        uses: addnab/docker-run-action@v3
-        with:
-          image: ${{ env.DEFAULT_IMAGE }}
-          options: -v ${{ github.workspace }}/mlir-tensorrt:/mlir-tensorrt -v ${{ github.workspace }}/ccache:/ccache -v ${{ github.workspace }}/.cache.cpm:/.cache.cpm --gpus all
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-          run: |
-            cd mlir-tensorrt
-            ./build_tools/scripts/cicd_build.sh --build_only
+  mlir-tensorrt-release:
+    name: mlir-tensorrt-release
+    needs: generate-matrix
+    if: ${{ needs.generate-matrix.outputs.channel == 'release' }}
+    uses: ./.github/workflows/mlir-tensorrt-release.yml
+    with:
+      build-matrix: ${{ needs.generate-matrix.outputs.matrix }}
+      channel: release
 
-      - name: Save cache
-        id: save-cache
-        uses: actions/cache/save@v4
-        with:
-          key: ${{ runner.os }}-mlir-tensorrt-cache-${{ hashFiles('mlir-tensorrt/**/*.cpp', 'mlir-tensorrt/**/*.h', 'mlir-tensorrt/build_tools/**/*') }}
-          path: |
-            ${{ github.workspace }}/ccache
-            ${{ github.workspace }}/.cache.cpm/*
-            !${{ github.workspace }}/.cache.cpm/tensorrt
-
-      - name: TensorRT 10 test
-        uses: addnab/docker-run-action@v3
-        with:
-          image: ${{ env.DEFAULT_IMAGE }}
-          options: -v ${{ github.workspace }}/mlir-tensorrt:/mlir-tensorrt -v ${{ github.workspace }}/ccache:/ccache -v ${{ github.workspace }}/.cache.cpm:/.cache.cpm --gpus all
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-          run: |
-            cd mlir-tensorrt
-            ./build_tools/scripts/cicd_build.sh
-
-      # TensorRT 10 & ASAN
-      - name: TensorRT 10 ASAN test
-        uses: addnab/docker-run-action@v3
-        with:
-          image: ${{ env.DEFAULT_IMAGE }}
-          options: -v ${{ github.workspace }}/mlir-tensorrt:/mlir-tensorrt -v ${{ github.workspace }}/ccache:/ccache -v ${{ github.workspace }}/.cache.cpm:/.cache.cpm --gpus all
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-          run: |
-            cd mlir-tensorrt
-            ENABLE_ASAN=ON ./build_tools/scripts/cicd_build.sh
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}-mlir-tensorrt
+  cancel-in-progress: true

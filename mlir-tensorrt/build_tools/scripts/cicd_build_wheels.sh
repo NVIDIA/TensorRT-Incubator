@@ -1,25 +1,47 @@
 #!/usr/bin/env bash
 # e.g.
-# DOWNLOAD_TENSORRT_VERSION=10.12 release_wheels.sh
-set -e
+# cicd_build_wheels.sh
+set -euo pipefail
 set -x
 
-REPO_ROOT=$(pwd)
-BUILD_DIR="${REPO_ROOT}/build"
-export CPM_SOURCE_CACHE=${CPM_SOURCE_CACHE:-/.cache.cpm}
-export CCACHE_DIR=${CCACHE_DIR:-/ccache}
-# either DOWNLOAD_TENSORRT_VERSION or MLIR_TRT_TENSORRT_DIR must be set
-# MLIR_TRT_TENSORRT_DIR must be a valid path to a local TensorRT installation
-# DOWNLOAD_TENSORRT_VERSION will attempt todownload a specified version of TensorRT if cannot find in the cache
-export DOWNLOAD_TENSORRT_VERSION=${DOWNLOAD_TENSORRT_VERSION:-10.9}
+PY_CMD=${PY_CMD:-python3}
 
-mkdir -p .private.wheels
+if [ -f /etc/os-release ] && grep -qi 'rocky' /etc/os-release; then
+  yum install -y epel-release
+  yum install -y python3.12 python3.12-pip python3.12-devel clang lld git ccache patch
 
-python3 -m pip install -r integrations/python/requirements-dev.txt --use-pep517
-# ccache --zero-stats || true
-rm -rf ${BUILD_DIR} || true
+fi
 
-cmake -B ${BUILD_DIR} --preset python-wheel-build
 
-ninja -C ${BUILD_DIR} mlir-tensorrt-all-wheels
-rsync -za build/wheels/ .private.wheels/
+$PY_CMD -m pip install -U pip uv build || true
+
+REPO_ROOT="$(pwd)"
+ARCH="${ARCH:-$(uname -m)}"
+CHANNEL="${CHANNEL:-test}"
+TENSORRT_VERSION="${TENSORRT_VERSION:-10.12}"
+# Defaults computed after ARCH is known
+DEFAULT_BUILD_DIR="${REPO_ROOT}/build"
+DEFAULT_INSTALL_DIR="${REPO_ROOT}/install/mlir-tensorrt-${ARCH}-linux-cuda${CUDA_VERSION}-tensorrt${TENSORRT_VERSION}/mlir-tensorrt"
+WHEELS_DIR="${REPO_ROOT}/.wheels"
+
+export DOWNLOAD_TENSORRT_VERSION=${TENSORRT_VERSION}
+
+export MLIR_TRT_BUILD_DIR=${MLIR_TRT_BUILD_DIR:-${DEFAULT_BUILD_DIR}}
+mkdir -p ${MLIR_TRT_BUILD_DIR}
+export MLIR_TRT_INSTALL_DIR=${MLIR_TRT_INSTALL_DIR:-${DEFAULT_INSTALL_DIR}}
+mkdir -p ${MLIR_TRT_INSTALL_DIR}
+export MTRT_SKIP_TESTS=${MTRT_SKIP_TESTS:-1}
+
+if [ "${CHANNEL}" == "release" ]; then
+  PY_VERSIONS=("3.10" "3.11" "3.12" "3.13")
+else
+  PY_VERSIONS=("3.10")
+fi
+
+PACKAGES=("mlir_tensorrt_tools" "mlir_tensorrt_compiler" "mlir_tensorrt_runtime")
+
+for pkg in "${PACKAGES[@]}"; do
+  for pyver in "${PY_VERSIONS[@]}"; do
+    ${PY_CMD} -m uv build --wheel --out-dir="${WHEELS_DIR}" --python="${pyver}" "integrations/python/${pkg}"
+  done
+done
