@@ -12,6 +12,10 @@ on:
         default: ""
         type: string
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   mlir-tensorrt-build-test:
     name: build-test-${{ matrix.arch }}-cu${{ matrix.cuda }}-trt${{ matrix.trt }}
