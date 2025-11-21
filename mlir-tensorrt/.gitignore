@@ -1,5 +1,6 @@
 # Build artifacts
 **/build/**
+**/install/**
 *.log
 **/llvm-project/**
 **/llvm-project/

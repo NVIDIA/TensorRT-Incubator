@@ -1,0 +1,137 @@
+name: MLIR-TensorRT Build and Test
+
+on:
+  workflow_call:
+    inputs:
+      channel:
+        description: 'Channel to build and test, defaults to "test"'
+        default: "test"
+        type: string
+      build-matrix:
+        description: 'Build matrix to utilize'
+        default: ""
+        type: string
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  mlir-tensorrt-build-test:
+    name: build-test-${{ matrix.arch }}-cu${{ matrix.cuda }}-trt${{ matrix.trt }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(inputs.build-matrix) }}
+    env:
+      # eg. CUDA_VERSION: 12.9.1 or 13.0.0
+      CUDA_VERSION: ${{ matrix.cuda }}
+      # eg. TENSORRT_VERSION: 10.12 or 10.13
+      TENSORRT_VERSION: ${{ matrix.trt }}
+      # align caches with restored paths
+      CCACHE_DIR: ${{ github.workspace }}/ccache
+      CPM_SOURCE_CACHE: ${{ github.workspace }}/.cache.cpm
+      # eg. CHANNEL: nightly, test or release
+      CHANNEL: ${{ inputs.channel }}
+    runs-on: ${{ matrix.runner }}
+    container:
+      image: ${{ matrix.docker_image }}
+      options: '--gpus all'
+    steps:
+      # Checkout the repository
+      - name: checkout TensorRT-Incubator
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 5
+
+      # Run initial format check
+      - name: Run python format
+        run: |
+          set -euo pipefail
+          set -x
+          python3 -m pip install -U black
+          python3 -m black --check --extend-exclude='.*\.pyi' mlir-tensorrt/compiler/
+          python3 -m black --check --extend-exclude='.*\.pyi' mlir-tensorrt/integrations/python/
+
+      # Create cache folders
+      - name: create cache folder
+        run: |
+          set -euo pipefail
+          set -x
+          mkdir -p ${{ github.workspace }}/ccache
+          mkdir -p ${{ github.workspace }}/.cache.cpm
+
+      # Restore cache, if exists.
+      - name: Restore cache
+        uses: actions/cache/restore@v4
+        with:
+          key: ${{ runner.os }}-mlir-tensorrt-cache-${{ hashFiles('mlir-tensorrt/**/*.cpp', 'mlir-tensorrt/**/*.h', 'mlir-tensorrt/build_tools/**/*') }}
+          restore-keys: |
+            ${{ runner.os }}-mlir-tensorrt-cache-
+          path: |
+            ${{ github.workspace }}/ccache
+            ${{ github.workspace }}/.cache.cpm/*
+            !${{ github.workspace }}/.cache.cpm/tensorrt
+
+      # Build the project
+      - name: build_${{ matrix.cuda }}_trt${{ matrix.trt }}
+        run: |
+          set -euo pipefail
+          set -x
+          cd mlir-tensorrt
+          DOWNLOAD_TENSORRT_VERSION=${{ matrix.trt }} ./build_tools/scripts/cicd_build.sh --build_only
+
+      # Save cache
+      - name: Save cache
+        uses: actions/cache/save@v4
+        with:
+          key: ${{ runner.os }}-mlir-tensorrt-cache-${{ hashFiles('mlir-tensorrt/**/*.cpp', 'mlir-tensorrt/**/*.h', 'mlir-tensorrt/build_tools/**/*') }}
+          path: |
+            ${{ github.workspace }}/ccache
+            ${{ github.workspace }}/.cache.cpm/*
+            !${{ github.workspace }}/.cache.cpm/tensorrt
+
+      # Run tests
+      - name: test-${{ matrix.arch }}-cu${{ matrix.cuda }}-trt${{ matrix.trt }}
+        # TODO: for testing purpose, will remove this after testing
+        if: ${{ always() }}
+        run: |
+          set -euo pipefail
+          set -x
+          cd mlir-tensorrt
+          DOWNLOAD_TENSORRT_VERSION=${{ matrix.trt }} ./build_tools/scripts/cicd_build.sh
+
+      # Run ASAN tests
+      - name: ASAN-test-${{ matrix.arch }}-cu${{ matrix.cuda }}-trt${{ matrix.trt }}
+        # TODO: for testing purpose, will remove this after testing
+        if: ${{ always() }}
+        run: |
+          set -euo pipefail
+          set -x
+          cd mlir-tensorrt
+          DOWNLOAD_TENSORRT_VERSION=${{ matrix.trt }} ENABLE_ASAN=ON ./build_tools/scripts/cicd_build.sh
+
+      # Build wheels
+      - name: build-wheel-${{ matrix.arch }}-cu${{ matrix.cuda }}-trt${{ matrix.trt }}
+        # TODO: for testing purpose, will remove this after testing
+        if: ${{ always() }}
+        run: |
+          set -euo pipefail
+          set -x
+          cd mlir-tensorrt
+          ./build_tools/scripts/cicd_build_wheels.sh
+
+      # Smoke test the wheels built
+      - name: smoke_test_wheel_${{ matrix.cuda }}_trt${{ matrix.trt }}
+        if: ${{ always() }}
+        run: |
+          set -euo pipefail
+          set -x
+          cd mlir-tensorrt
+          for whl in .wheels/*.whl; do
+            python3 -m pip install "$whl"
+          done
+          # TODO: add smoke test for the wheel
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}-mlir-tensorrt-${{ inputs.channel }}
+  cancel-in-progress: true
