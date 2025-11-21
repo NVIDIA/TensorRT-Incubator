@@ -23,14 +23,14 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJSON(inputs.build-matrix) }}
     env:
-      # eg. CUDA_VERSION: 12.9
+      # eg. CUDA_VERSION: 12.9.1 or 13.0.0
       CUDA_VERSION: ${{ matrix.cuda }}
-      # eg. TENSORRT_VERSION: 10.12
+      # eg. TENSORRT_VERSION: 10.12 or 10.13
       TENSORRT_VERSION: ${{ matrix.trt }}
       # align caches with restored paths
       CCACHE_DIR: ${{ github.workspace }}/ccache
       CPM_SOURCE_CACHE: ${{ github.workspace }}/.cache.cpm
-      # eg. CHANNEL: test
+      # eg. CHANNEL: nightly, test or release
       CHANNEL: ${{ inputs.channel }}
     runs-on: ${{ matrix.runner }}
     container:
@@ -55,7 +55,7 @@ jobs:
       # Create cache folders
       - name: create cache folder
         run: |
-          #set -euo pipefail
+          set -euo pipefail
           set -x
           mkdir -p ${{ github.workspace }}/ccache
           mkdir -p ${{ github.workspace }}/.cache.cpm
@@ -75,10 +75,9 @@ jobs:
       # Build the project
       - name: build_${{ matrix.cuda }}_trt${{ matrix.trt }}
         run: |
-          #set -euo pipefail
+          set -euo pipefail
           set -x
           cd mlir-tensorrt
-          # build and testings
           DOWNLOAD_TENSORRT_VERSION=${{ matrix.trt }} ./build_tools/scripts/cicd_build.sh --build_only
 
       # Save cache
@@ -96,7 +95,7 @@ jobs:
         # TODO: for testing purpose, will remove this after testing
         if: ${{ always() }}
         run: |
-          #set -euo pipefail
+          set -euo pipefail
           set -x
           cd mlir-tensorrt
           DOWNLOAD_TENSORRT_VERSION=${{ matrix.trt }} ./build_tools/scripts/cicd_build.sh
@@ -106,7 +105,7 @@ jobs:
         # TODO: for testing purpose, will remove this after testing
         if: ${{ always() }}
         run: |
-          #set -euo pipefail
+          set -euo pipefail
           set -x
           cd mlir-tensorrt
           DOWNLOAD_TENSORRT_VERSION=${{ matrix.trt }} ENABLE_ASAN=ON ./build_tools/scripts/cicd_build.sh
@@ -116,7 +115,7 @@ jobs:
         # TODO: for testing purpose, will remove this after testing
         if: ${{ always() }}
         run: |
-          #set -euo pipefail
+          set -euo pipefail
           set -x
           cd mlir-tensorrt
           ./build_tools/scripts/cicd_build_wheels.sh
@@ -125,10 +124,12 @@ jobs:
       - name: smoke_test_wheel_${{ matrix.cuda }}_trt${{ matrix.trt }}
         if: ${{ always() }}
         run: |
-          #set -euo pipefail
+          set -euo pipefail
           set -x
           cd mlir-tensorrt
-          python3 -m pip install .wheels/mlir_tensorrt-*.whl
+          for whl in .wheels/*.whl; do
+            python3 -m pip install "$whl"
+          done
           # TODO: add smoke test for the wheel
 
 concurrency:

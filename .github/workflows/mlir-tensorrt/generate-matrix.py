@@ -5,9 +5,9 @@ import json
 import sys
 
 CUDA_VERSIONS_DICT = {
-    "nightly": ["12.9"],
-    "test": ["12.9"],
-    "release": ["12.9"],
+    "nightly": ["12.9.1", "13.0.0"],
+    "test": ["12.9.1"],
+    "release": ["12.9.1", "13.0.0"],
 }
 
 TRT_VERSIONS_DICT = {
@@ -18,15 +18,16 @@ TRT_VERSIONS_DICT = {
 
 DOCKER_IMAGE_DICT = {
     "nightly": {
-        "12.9": "ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda12.9-ubuntu-llvm17",
-        "13.0": "ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda13.0-ubuntu",
+        "12.9.1": "ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda12.9-ubuntu-llvm17",
+        "13.0.0": "ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda13.0-ubuntu",
     },
     "test": {
-        "12.9": "ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda12.9-ubuntu-llvm17",
+        "12.9.1": "ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda12.9-ubuntu-llvm17",
+        "13.0.0": "ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda13.0-ubuntu",
     },
     "release": {
-        "12.9": "ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda12.9-rocky-gcc11",
-        "13.0": "ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda13.0-rocky",
+        "12.9.1": "ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda12.9-rocky-gcc11",
+        "13.0.0": "ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda13.0-rocky",
     },
 }
 
