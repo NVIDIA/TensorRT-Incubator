@@ -34,11 +34,12 @@ jobs:
           fi
           MATRIX_BLOB="$(python3 ./.github/workflows/mlir-tensorrt/generate-matrix.py --channel "${CHANNEL}")"
           echo "${MATRIX_BLOB}"
+          echo "${CHANNEL}"
           echo "matrix=${MATRIX_BLOB}" >> "${GITHUB_OUTPUT}"
           echo "channel=${CHANNEL}" >> "${GITHUB_OUTPUT}"
 
   mlir-tensorrt-build-test:
-    name: mlir-tensorrt-build-test
+    name: mlir-tensorrt-${{ needs.generate-matrix.outputs.channel }}
     needs: generate-matrix
     if: ${{ needs.generate-matrix.outputs.channel != 'release' }}
     uses: ./.github/workflows/mlir-tensorrt-build-test.yml

@@ -4,9 +4,6 @@ import argparse
 import json
 import sys
 
-# please update the cuda version/python version/tensorRT version you want to test
-# TODO: add cu130 support
-# # build and upload the ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda13.0-ubuntu-llvm17
 CUDA_VERSIONS_DICT = {
     "nightly": ["12.9"],
     "test": ["12.9"],
@@ -22,12 +19,14 @@ TRT_VERSIONS_DICT = {
 DOCKER_IMAGE_DICT = {
     "nightly": {
         "12.9": "ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda12.9-ubuntu-llvm17",
+        "13.0": "ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda13.0-ubuntu",
     },
     "test": {
         "12.9": "ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda12.9-ubuntu-llvm17",
     },
     "release": {
         "12.9": "ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda12.9-rocky-gcc11",
+        "13.0": "ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda13.0-rocky",
     },
 }
 

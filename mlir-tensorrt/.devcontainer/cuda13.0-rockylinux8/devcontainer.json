@@ -1,18 +1,17 @@
 {
-	"name": "cuda12.9-ubuntu-llvm17",
 	"build": {
 		"context": "${localWorkspaceFolder}",
 		"dockerfile": "${localWorkspaceFolder}/build_tools/docker/Dockerfile",
 		"args": {
-			"BASE_IMAGE": "nvcr.io/nvidia/cuda:12.9.1-cudnn-devel-ubuntu22.04",
+			"BASE_IMAGE": "nvcr.io/nvidia/cuda:13.0.0-cudnn-devel-rockylinux8",
 			"USERNAME": "nvidia",
-			"LINUX_DISTRO": "ubuntu",
+			"LINUX_DISTRO": "rockylinux",
 			"LLVM_VERSION": 19
 		}
 	},
 	"runArgs": [
 		"--name",
-		"${localEnv:USER:anon}-mlir-tensorrt-incubator-${localWorkspaceFolderBasename}-cuda12.9-ubuntu-llvm17",
+		"${localEnv:USER:anon}-mlir-tensorrt-incubator-${localWorkspaceFolderBasename}-cuda13.0-rockylinux8",
 		"--cap-add=SYS_PTRACE",
 		"--security-opt",
 		"seccomp=unconfined",
@@ -68,16 +67,10 @@
 	"features": {
 		"ghcr.io/devcontainers/features/common-utils:2.4.4": {
 			"username": "nvidia",
-			"uid": "automatic",
-			"gid": "automatic",
 			"installZsh": true,
 			"installOhMyZsh": true,
 			"configureZshAsDefaultShell": false,
 			"upgradePackages": false
-		},
-		"ghcr.io/devcontainers/features/git:1": {
-			"version": "latest"
-		},
-		"ghcr.io/devcontainers/features/github-cli:1": {}
+		}
 	}
 }
