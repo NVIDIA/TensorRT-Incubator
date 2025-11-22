@@ -7,11 +7,9 @@ add_mlir_executor_runtime_capability_library(MLIRTensorRTExecutorRuntimeTensorRT
   MLIRTensorRTExecutorCUDAUtils
   MLIRTensorRTExecutorRuntimeAPI
   MLIRTensorRTExecutorRuntimeCommon
-  MLIRTensorRTExecutorRuntimeModuleUtils
   MLIRTensorRTLuaExtensionRegistry
   MLIRTensorRTSupportAllocators
-  MLIRTRTTensorRTDynamicLoader
+  TensorRTDynamicLoader
   nvtx3-cpp
-  sol2::sol2
   TensorRTHeaderOnly
 )

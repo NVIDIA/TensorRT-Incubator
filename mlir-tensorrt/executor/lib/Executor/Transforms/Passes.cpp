@@ -57,12 +57,13 @@ void executor::buildExecutorLoweringPipeline(
   addCleanupPasses(pm);
   pm.addPass(createConvertStdToExecutorPass(stdToExecutorOpts,
                                             populateAdditionalTypeConversions));
+  pm.addPass(createExecutorEmulateUnsupportedFloatsPass());
   pm.addPass(createCSEPass());
   pm.addPass(createCanonicalizerPass());
-  pm.addPass(createExecutorLowerGlobalsPass());
   pm.addPass(createConvertExecutorToExecutorPass(
       ConvertExecutorToExecutorPassOptions{stdToExecutorOpts.indexBitwidth},
       populateAdditionalTypeConversions));
+  pm.addPass(createExecutorLowerGlobalsPass());
   pm.addPass(createReconcileUnrealizedCastsPass());
   pm.addPass(createExecutorDecomposeAggregateLoadsAndStoresPass());
   pm.addPass(createExecutorExpandOpsPass());

@@ -4,9 +4,10 @@ add_mtrtd_library(MLIRTensorRTTensorRTDialectBase
   PARTIAL_SOURCES_INTENDED
 
   LINK_LIBS PUBLIC
-  MLIRIR
-  MLIRQuantDialect
-  MLIRTensorRTCommonIncludes
+    MLIRTensorRTCommonIncludes
+  MLIR_LIBS PUBLIC
+    MLIRIR
+    MLIRQuantDialect
   )
 
 set(optional_deps)
@@ -34,21 +35,22 @@ add_mtrtd_library(MLIRTensorRTTensorRTDialect
   MLIRTensorRTDialectAttrInterfacesIncGen
 
   LINK_LIBS PUBLIC
-  MLIRArithDialect
-  MLIRControlFlowInterfaces
-  MLIRDestinationStyleOpInterface
-  MLIRDialect
-  MLIRFuncDialect
-  MLIRInferTypeOpInterface
-  MLIRIR
-  MLIRQuantDialect
-  MLIRSupport
-  MLIRTensorDialect
-  MLIRTensorRTCommonIncludes
-  MLIRTensorRTCommonTensorKindInterface
-  MLIRTensorRTConstantFoldingUtils
-  MLIRTensorRTDialectIncludes
-  MLIRTensorRTShapeUtils
-  MLIRTensorRTTensorRTDialectBase
-  ${optional_deps}
+    MLIRTensorRTCommonIncludes
+    MLIRTensorRTCommonTensorKindInterface
+    MLIRTensorRTConstantFoldingUtils
+    MLIRTensorRTDialectIncludes
+    MLIRTensorRTShapeUtils
+    MLIRTensorRTTensorRTDialectBase
+    ${optional_deps}
+  MLIR_LIBS PUBLIC
+    MLIRArithDialect
+    MLIRControlFlowInterfaces
+    MLIRDestinationStyleOpInterface
+    MLIRDialect
+    MLIRFuncDialect
+    MLIRInferTypeOpInterface
+    MLIRIR
+    MLIRQuantDialect
+    MLIRSupport
+    MLIRTensorDialect
   )

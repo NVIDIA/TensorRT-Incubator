@@ -27,7 +27,7 @@
 #include "mlir-tensorrt-common/Support/Status.h"
 #include <memory>
 
-namespace mlirtrt {
+namespace mtrt {
 
 using CudaStream = uintptr_t;
 using CudaEvent = uintptr_t;
@@ -138,6 +138,6 @@ private:
   std::unique_ptr<BlockEventQueue> pendingBlockEvents;
 };
 
-} // namespace mlirtrt
+} // namespace mtrt
 
 #endif // MLIR_TENSORRT_SUPPORT_ALLOCATORS_H

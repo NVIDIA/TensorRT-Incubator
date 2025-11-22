@@ -27,12 +27,13 @@ add_mtrtd_library(MLIRTensorRTTransforms
   MLIRTensorRTTransformsPassIncGen
 
   LINK_LIBS PUBLIC
-  MLIRParser
-  MLIRPass
-  MLIRTensorRTAnalysis
-  MLIRTensorRTCommonIncludes
-  MLIRTensorRTConstantFoldingUtils
-  MLIRTensorRTTensorRTDialect
-  MLIRTensorRTTensorRTUtils
-  MLIRTransforms
+    MLIRTensorRTAnalysis
+    MLIRTensorRTCommonIncludes
+    MLIRTensorRTConstantFoldingUtils
+    MLIRTensorRTTensorRTDialect
+    MLIRTensorRTTensorRTUtils
+  MLIR_LIBS PUBLIC
+    MLIRParser
+    MLIRPass
+    MLIRTransforms
   )

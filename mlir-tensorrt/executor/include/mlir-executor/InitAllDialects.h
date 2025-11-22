@@ -21,8 +21,10 @@
 #define MLIR_EXECUTOR_INITALLDIALECTS
 
 #include "mlir-executor/Executor/IR/Executor.h"
+#include "mlir-executor/Executor/Transforms/BufferizationOpInterfaceImpls.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/ControlFlow/IR/ControlFlow.h"
+#include "mlir/Dialect/ControlFlow/Transforms/BufferDeallocationOpInterfaceImpl.h"
 #include "mlir/Dialect/DLTI/DLTI.h"
 #include "mlir/Dialect/Func/Extensions/InlinerExtension.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
@@ -49,6 +51,8 @@ inline void registerAllRequiredDialects(mlir::DialectRegistry &registry) {
   // clang-format on
 
   mlir::func::registerInlinerExtension(registry);
+  mlir::cf::registerBufferDeallocationOpInterfaceExternalModels(registry);
+  mlir::executor::registerBufferizationOpInterfaceExternalModels(registry);
 }
 
 } // namespace mlir::executor

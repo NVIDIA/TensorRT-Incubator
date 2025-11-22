@@ -23,10 +23,10 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-executor/Runtime/API/API.h"
 #include "mlir-executor/Runtime/Backend/Common/CUDACommon.h"
-#include "mlir-executor/Runtime/Backend/Common/CommonRuntime.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaErrorHandling.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaExtensionRegistry.h"
 #include "mlir-executor/Runtime/Backend/Lua/SolAdaptor.h"
+#include "mlir-executor/Runtime/Support/Support.h"
 #include <chrono>
 
 #define OMPI_SKIP_MPICXX
@@ -40,8 +40,8 @@
 #pragma GCC diagnostic pop
 #endif
 
-using namespace mlirtrt;
-using namespace mlirtrt::runtime;
+using namespace mtrt;
+using namespace mtrt;
 
 using ExecPtr = uintptr_t;
 
@@ -118,7 +118,7 @@ static void destroyNcclCommunicator(uintptr_t ptr) {
     if (!waitStatus.isOk()) {
       llvm::errs() << "Error while waiting for NCCL communicator to be ready "
                       "prior to finalizing: "
-                   << waitStatus.getString() << "\n";
+                   << waitStatus.getStatus().getMessage() << "\n";
     }
     ncclResult_t ncclErr;
     ncclErr = ncclCommDestroy(obj->comm);
@@ -410,18 +410,15 @@ static void registerDeviceDependentNCCLMethods(lua_State *state,
   };
 }
 
-namespace mlirtrt::runtime {
+namespace mtrt {
 void registerLuaNcclRuntimeExtension() {
   registerLuaRuntimeExtension(
-      "nccl",
-      LuaRuntimeExtension{
-          [](const RuntimeSessionOptions &options, lua_State *state,
-             PinnedMemoryAllocator *pinnedMemoryAllocator,
-             AllocTracker *allocTracker, ResourceTracker *resourceTracker) {
-            registerExecutorNCCLModuleLuaRuntimeMethods(state, resourceTracker);
-            registerDeviceDependentNCCLMethods(state, options.getNumDevices(),
-                                               options.getDeviceId(),
-                                               options.getNcclUuid());
-          }});
+      "nccl", LuaRuntimeExtension{[](const LuaRuntimeExtensionInitArgs &args) {
+        registerExecutorNCCLModuleLuaRuntimeMethods(args.state,
+                                                    args.resourceTracker);
+        registerDeviceDependentNCCLMethods(
+            args.state, args.options.getNumDevices(),
+            args.options.getDeviceId(), args.options.getNcclUuid());
+      }});
 }
-} // namespace mlirtrt::runtime
+} // namespace mtrt

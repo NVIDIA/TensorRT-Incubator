@@ -1990,16 +1990,6 @@ func.func public @top_k_custom_call_kmax_3d(%arg0: tensor<4x5x7xf16>) -> (tensor
 
 // -----
 
-func.func public @top_k_custom_call_kmax_unsupported(%arg0: tensor<5678xf16>) -> (tensor<5000xf16> {jax.result_info = "[0]"}, tensor<5000xi32> {jax.result_info = "[1]"}) {
-    %0:2 = stablehlo.custom_call @mhlo.topk(%arg0) {mhlo.attributes = {k = 5000 : i64, largest = true}, mhlo.version = 1 : i64} : (tensor<5678xf16>) -> (tensor<5000xf16>, tensor<5000xi32>)
-    return %0#0, %0#1 : tensor<5000xf16>, tensor<5000xi32>
-}
-
-// CHECK-LABEL: @top_k_custom_call_kmax_unsupported
-//  CHECK-NEXT: stablehlo.custom_call
-
-// -----
-
 func.func public @reduce_window_4d(%arg0: tensor<7x3x4x5xf32>) -> (tensor<7x3x4x5xf32> {jax.result_info = ""}) {
     %cst = stablehlo.constant dense<0.000000e+00> : tensor<f32>
     %0 = "stablehlo.reduce_window"(%arg0, %cst) <{padding = dense<[[0, 0], [0, 0], [0, 0], [4, 0]]> : tensor<4x2xi64>, window_dimensions = array<i64: 1, 1, 1, 5>}> ({

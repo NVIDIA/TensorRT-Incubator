@@ -22,6 +22,7 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-executor/Transforms/Clustering/Patterns.h"
+#include "mlir-executor/Executor/IR/ExecutorAttributes.h"
 #include "mlir-executor/Transforms/Clustering/Clustering.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/IR/Dominance.h"
@@ -66,7 +67,7 @@ ClusteringRewriter::ClusteringRewriter(
       clusterFilter(getDefaultClusterFilter(1)), benefit(benefit) {}
 
 FailureOr<SmallVector<Operation *>>
-ClusteringRewriter::findClusterAndCreateRegionOp(func::FuncOp mainFunc,
+ClusteringRewriter::findClusterAndCreateRegionOp(FunctionOpInterface mainFunc,
                                                  RewriterBase &rewriter) {
   std::function<bool(Operation *)> isClusterableOp =
       std::move(opts.isClusterableOp);
@@ -275,7 +276,7 @@ RegionOpFilterFn mlir::getRegionOpFilter(Attribute target,
   };
 }
 
-void RegionOpFusionRewriter::run(func::FuncOp mainFunc,
+void RegionOpFusionRewriter::run(FunctionOpInterface mainFunc,
                                  RewriterBase &rewriter) {
   /// walk on the graph and find any pieces of nodes in the graph which
   /// matches to the matcher
@@ -368,7 +369,8 @@ void RegionOpFusionRewriter::run(func::FuncOp mainFunc,
 
 /// Apply a set of clustering patterns to the function.
 LogicalResult mlir::applyClusteringPatterns(
-    func::FuncOp mainFunc, ClusteringPatternSet<ClusteringRewriter> &patterns) {
+    FunctionOpInterface mainFunc,
+    ClusteringPatternSet<ClusteringRewriter> &patterns) {
   llvm::sort(patterns, [](const std::unique_ptr<ClusteringRewriter> &lhs,
                           const std::unique_ptr<ClusteringRewriter> &rhs) {
     return lhs->getBenefit() > rhs->getBenefit();
@@ -396,7 +398,7 @@ LogicalResult mlir::applyClusteringPatterns(
 }
 
 LogicalResult mlir::applyRegionOpRewritePatterns(
-    func::FuncOp mainFunc,
+    FunctionOpInterface mainFunc,
     ClusteringPatternSet<RegionOpFusionRewriter> &patterns) {
   IRRewriter rewriter(mainFunc->getContext());
 

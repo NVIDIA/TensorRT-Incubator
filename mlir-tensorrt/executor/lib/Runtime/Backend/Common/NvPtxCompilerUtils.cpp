@@ -33,7 +33,7 @@
 #include <cstdio>
 #include <cstdlib>
 
-namespace rt = mlirtrt::runtime;
+using namespace mtrt;
 
 #define NVPTXCOMPILER_SAFE_CALL(x)                                             \
   do {                                                                         \
@@ -44,8 +44,9 @@ namespace rt = mlirtrt::runtime;
     }                                                                          \
   } while (0)
 
-mlirtrt::StatusOr<std::unique_ptr<rt::CuBinWrapper>>
-rt::compilePtxToCuBin(const char *ptxData, size_t len, std::string_view arch) {
+mtrt::StatusOr<std::unique_ptr<mtrt::CuBinWrapper>>
+mtrt::compilePtxToCuBin(const char *ptxData, size_t len,
+                        std::string_view arch) {
   nvPTXCompilerHandle compiler = nullptr;
   auto releaseCompiler =
       llvm::make_scope_exit([&]() { nvPTXCompilerDestroy(&compiler); });

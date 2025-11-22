@@ -1,4 +1,4 @@
-namespace mlirtrt.runtime.impl;
+namespace mtrt.flat;
 
 enum ScalarTypeCode : byte {
   unknown = 0,
@@ -16,7 +16,7 @@ enum ScalarTypeCode : byte {
   i4 = 12,
   complex32 = 13,
   complex64 = 14,
-  f4e2m1fn = 15,
+  f4e2m1fn = 15
 }
 
 enum PointerType : byte {
@@ -71,10 +71,7 @@ table ValueBounds {
   max:[int64];
 }
 
-// Define an empty table to represent missing bounds.
-table NoneBounds {}
-
-union Bounds {DimensionBounds, ValueBounds, NoneBounds}
+union Bounds {DimensionBounds, ValueBounds}
 
 table FunctionSignature {
   args:[Type];
@@ -87,9 +84,12 @@ table FunctionSignature {
   num_output_args: uint32;
 
   // Store min/max bounds corresponding to args and results.
-  // arg_bounds and result_bounds size must be same as corresponding args and results size.
-  arg_bounds:[Bounds];
-  result_bounds:[Bounds];
+  // bounds_values contains the actual bounds objects (only non-None bounds).
+  // arg_bounds_indices and result_bounds_indices map from argument/result index
+  // to bounds_values index. A value of -1 indicates no bounds for that arg/result.
+  bounds_values:[Bounds];
+  arg_bounds_indices:[int32];
+  result_bounds_indices:[int32];
 
   // An optional shape function name for the given function.
   shape_function_name:string;
@@ -97,11 +97,23 @@ table FunctionSignature {
   // The calling convention of the function. If not given, then "unpacked"
   // convention is assumed.
   calling_convention:CallingConvention;
+
+  // For ABI wrapper functions, indicates which arguments may be undefined.
+  // Empty for non-ABI wrapper functions. For ABI wrapper functions, this has
+  // the same size as args, with true indicating the argument may be undefined.
+  undef:[bool];
+
+  // ABI version for this function, copied from the Executable abi_version.
+  abi_version:uint32 = 0;
 }
 
 table Function {
   name:string;
   signature:FunctionSignature;
+
+  // ABI version for this function, copied from the Executable abi_version.
+  // Redundantly stored here for quick access without traversing to Executable.
+  abi_version:uint32 = 0;
 }
 
 table DataSegment {
@@ -131,6 +143,10 @@ table Executable {
   // Contains shape about the process grid (interpretation
   // depends on backend).
   process_grid_shape:[uint32];
+
+  // ABI version for backward/forward compatibility of runtime value conversions.
+  // Version 0 represents the initial/current behavior.
+  abi_version:uint32 = 0;
 }
 
 root_type Executable;

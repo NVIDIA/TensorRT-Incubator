@@ -14,8 +14,6 @@
 #include <numeric>
 #include <utility>
 
-static constexpr int64_t kBitsPerByte = 8;
-
 TEST(RuntimeCAPI, ScalarTypeCodeSize) {
   std::vector<std::pair<MTRT_ScalarTypeCode, int64_t>> testData = {
       std::make_pair(MTRT_ScalarTypeCode_f8e4m3fn, 8),
@@ -47,19 +45,6 @@ TEST(RuntimeCAPI, TestStatusCreate) {
   mtrtStatusDestroy(status);
 }
 
-TEST(RuntimeCAPI, TestStreamCreate) {
-  MTRT_Stream stream{nullptr};
-  MTRT_Status streamStatus = mtrtStreamCreate(&stream);
-#ifdef MLIR_TRT_ENABLE_CUDA
-  ASSERT_TRUE(mtrtStatusIsOk(streamStatus));
-  ASSERT_TRUE(!mtrtStreamIsNull(stream));
-  mtrtStreamDestroy(stream);
-#else
-  ASSERT_FALSE(mtrtStatusIsOk(streamStatus));
-  ASSERT_TRUE(mtrtStreamIsNull(stream));
-#endif
-}
-
 TEST(RuntimeCAPI, TestClientCreate) {
   MTRT_RuntimeClient client;
   mtrtRuntimeClientCreate(&client);
@@ -85,6 +70,13 @@ TEST(RuntimeCAPI, TestClientGetDevices) {
   status = mtrtRuntimeClientGetDevice(client, 0, &device);
   ASSERT_TRUE(mtrtStatusIsOk(status));
 
+  // get the stream.
+  MTRT_Stream stream;
+  status = mtrtDeviceGetStream(device, &stream);
+  ASSERT_TRUE(mtrtStatusIsOk(status));
+  ASSERT_TRUE(!mtrtStreamIsNull(stream));
+  ASSERT_TRUE(mtrtStatusIsOk(mtrtStreamDestroy(stream)));
+
   status = mtrtRuntimeClientDestroy(client);
   ASSERT_TRUE(mtrtStatusIsOk(status));
 }
@@ -106,10 +98,9 @@ TEST(RuntimeCAPI, TestHostBufferCreateExternalAndTracking) {
   MTRT_MemRefValue buffer{nullptr};
   MTRT_PointerType addressSpace{MTRT_PointerType::MTRT_PointerType_host};
   status = mtrtMemRefCreateExternal(
-      client, addressSpace, sizeof(float) * kBitsPerByte,
+      client, addressSpace, MTRT_ScalarTypeCode_f32,
       reinterpret_cast<uintptr_t>(data.data()), /*offsetInElements=*/0,
-      shape.size(), shape.data(), strides.data(), mtrtDeviceGetNull(),
-      MTRT_ScalarTypeCode_unknown, &buffer);
+      shape.size(), shape.data(), strides.data(), mtrtDeviceGetNull(), &buffer);
   ASSERT_TRUE(mtrtStatusIsOk(status));
   ASSERT_FALSE(mtrtMemRefValueIsNull(buffer));
 
@@ -141,10 +132,10 @@ TEST(RuntimeCAPI, TestHostToHostCopy) {
   std::vector<int64_t> strides{2, 1};
   MTRT_MemRefValue hostBuffer;
   status = mtrtMemRefCreateExternal(
-      client, MTRT_PointerType::MTRT_PointerType_host,
-      sizeof(float) * kBitsPerByte, reinterpret_cast<uintptr_t>(data.data()),
+      client, MTRT_PointerType::MTRT_PointerType_host, MTRT_ScalarTypeCode_f32,
+      reinterpret_cast<uintptr_t>(data.data()),
       /*offset=*/0, shape.size(), shape.data(), strides.data(),
-      mtrtDeviceGetNull(), MTRT_ScalarTypeCode_unknown, &hostBuffer);
+      mtrtDeviceGetNull(), &hostBuffer);
 
   ASSERT_TRUE(mtrtStatusIsOk(status));
   ASSERT_FALSE(mtrtMemRefValueIsNull(hostBuffer));
@@ -172,33 +163,34 @@ TEST(RuntimeCAPI, TestHostToDeviceAndBackCopy) {
   ASSERT_TRUE(mtrtStatusIsOk(status));
   ASSERT_TRUE(!mtrtRuntimeClientIsNull(client));
 
-  MTRT_Stream stream;
-  status = mtrtStreamCreate(&stream);
-  ASSERT_TRUE(mtrtStatusIsOk(status));
-
-  int numDevices{0};
+  int32_t numDevices{0};
   status = mtrtRuntimeClientGetNumDevices(client, &numDevices);
   ASSERT_TRUE(mtrtStatusIsOk(status));
+
   if (numDevices < 1) {
-    mtrtStreamDestroy(stream);
     mtrtRuntimeClientDestroy(client);
     return;
   }
-
   MTRT_Device device;
   status = mtrtRuntimeClientGetDevice(client, 0, &device);
   ASSERT_TRUE(mtrtStatusIsOk(status));
   ASSERT_TRUE(!mtrtDeviceIsNull(device));
+
+  MTRT_Stream stream;
+  status = mtrtDeviceGetStream(device, &stream);
+  ASSERT_TRUE(mtrtStatusIsOk(status));
 
   std::vector<float> data{1, 2, 3, 4};
   std::vector<int64_t> shape{2, 2};
   std::vector<int64_t> strides{2, 1};
   MTRT_MemRefValue hostBuffer;
   status = mtrtMemRefCreateExternal(
-      client, MTRT_PointerType::MTRT_PointerType_host,
-      sizeof(float) * kBitsPerByte, reinterpret_cast<uintptr_t>(data.data()),
+      client, MTRT_PointerType::MTRT_PointerType_host, MTRT_ScalarTypeCode_f32,
+      reinterpret_cast<uintptr_t>(data.data()),
       /*offset=*/0, shape.size(), shape.data(), strides.data(),
-      mtrtDeviceGetNull(), MTRT_ScalarTypeCode_unknown, &hostBuffer);
+      mtrtDeviceGetNull(), &hostBuffer);
+
+  ASSERT_TRUE(mtrtStatusIsOk(status));
 
   MTRT_MemRefValue deviceBuffer{nullptr};
   status = mtrtCopyFromHostToDevice(hostBuffer, device, mtrtStreamGetNull(),

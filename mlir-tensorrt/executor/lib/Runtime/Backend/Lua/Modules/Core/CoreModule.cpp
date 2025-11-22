@@ -23,21 +23,25 @@
 //===----------------------------------------------------------------------===//
 #include "../../../C/CoreModule.h"
 #include "mlir-executor/Runtime/API/API.h"
-#include "mlir-executor/Runtime/Backend/Common/CommonRuntime.h"
+#include "mlir-executor/Runtime/API/MemRefABI.h"
 #include "mlir-executor/Runtime/Backend/Common/DataTypes.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaErrorHandling.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaExtensionRegistry.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaRuntime.h"
-#include "mlir-executor/Runtime/Backend/Lua/Modules/Utils/MemRefUtils.h"
+#include "mlir-executor/Runtime/Backend/Lua/SolAdaptor.h"
 #include "mlir-executor/Runtime/Backend/Utils/NvtxUtils.h"
+#include "mlir-executor/Runtime/FFI/FFI.h"
+#include "mlir-executor/Runtime/Support/StridedCopy.h"
+#include "mlir-executor/Runtime/Support/Support.h"
 #include "mlir-executor/Support/Allocators.h"
 #include "llvm/Support/FormatVariadic.h"
 #include <algorithm>
 #include <climits>
+#include <cstdint>
 #include <type_traits>
 
-using namespace mlirtrt;
-using namespace mlirtrt::runtime;
+using namespace mtrt;
+using namespace mtrt;
 
 //===----------------------------------------------------------------------===//
 // Templated helpers
@@ -222,12 +226,38 @@ ResType uitofp(InpType input) {
   }
 }
 
+/// Implementation of the strided memref copy operation.
+/// The `srcDescriptor` and `dstDescriptor` are pointers to caller-allocated
+/// ranked memref descriptors provided for callee use (e.g. 'byval' arguments).
+static Status stridedMemRefCopyImpl(int64_t rank, int64_t elemSize,
+                                    uintptr_t srcDescriptor,
+                                    uintptr_t dstDescriptor) {
+  MTRT_ASSIGN_OR_RETURN(
+      MemRefDescriptorView srcInfo,
+      getMemRefDescriptorInfo(UnrankedMemRefDescriptor{rank, srcDescriptor}));
+  MTRT_ASSIGN_OR_RETURN(
+      MemRefDescriptorView dstInfo,
+      getMemRefDescriptorInfo(UnrankedMemRefDescriptor{rank, dstDescriptor}));
+
+  MTRT_DBG("strided memcpy\n - src: {0}\n - dst: {1}", srcInfo, dstInfo);
+
+  mtrt::executeStridedCopy(
+      elemSize, srcInfo.data, srcInfo.offset,
+      llvm::ArrayRef<int64_t>(srcInfo.shape, srcInfo.rank),
+      llvm::ArrayRef<int64_t>(srcInfo.strides, srcInfo.rank), dstInfo.data,
+      dstInfo.offset, llvm::ArrayRef<int64_t>(dstInfo.shape, dstInfo.rank),
+      llvm::ArrayRef<int64_t>(dstInfo.strides, dstInfo.rank),
+      [](void *dst, void *src, size_t size) { std::memcpy(dst, src, size); });
+
+  return getOkStatus();
+}
+
 //===----------------------------------------------------------------------===//
 // Executor - Core operations
 //===----------------------------------------------------------------------===//
 static void registerExecutorCoreModuleLuaRuntimeMethods(
     lua_State *luaState, PinnedMemoryAllocator *pinnedMemoryAllocator,
-    AllocTracker *allocTracker) {
+    AllocTracker *allocTracker, mtrt::PluginRegistry &pluginRegistry) {
   sol::state_view lua(luaState);
 
   lua["__check_for_function"] = [](sol::this_state state,
@@ -462,6 +492,8 @@ static void registerExecutorCoreModuleLuaRuntimeMethods(
   DEFINE_BITCAST_METHOD(f64, i64, double, int64_t);
   DEFINE_BITCAST_METHOD(f32, i32, float, int32_t);
   DEFINE_BITCAST_METHOD(f16, i16, Float16, int16_t);
+  DEFINE_BITCAST_METHOD(f8E4M3FN, i8, F8E4M3FN, int8_t);
+  DEFINE_BITCAST_METHOD(i8, f8E4M3FN, int8_t, F8E4M3FN);
 #undef DEFINE_BITCAST_METHOD
 
   //===----------------------------------------------------------------------===//
@@ -992,33 +1024,12 @@ static void registerExecutorCoreModuleLuaRuntimeMethods(
   ///  dstPtr, dstPtrAligned, dstOfft, ...[dstShape], ...[dstStrides])
   /// clang-format on
   lua["_strided_memref_copy"] = [](sol::this_state state, int32_t rank,
-                                   int32_t elemSize,
-                                   sol::variadic_args varArgs) {
+                                   int32_t elemSize, uintptr_t srcDescriptor,
+                                   uintptr_t dstDescriptor) {
     ADD_CORE_MODULE_RANGE("core_strided_memref_copy");
-    if (varArgs.size() != 2 * getNumArgsPerMemRef(rank)) {
-      luaL_error(state, "unexpected variadic argument pack size in for "
-                        "strided memref copy");
-      return;
-    }
-
-    int64_t srcOffset = 0;
-    std::vector<int64_t> srcShape, srcStrides;
-    uintptr_t srcData =
-        getMemRefInfo(state, varArgs, rank, 0, srcOffset, srcShape, srcStrides);
-    if (!srcData)
-      return;
-
-    int64_t dstOffset = 0;
-    std::vector<int64_t> dstShape, dstStrides;
-    uintptr_t dstData =
-        getMemRefInfo(state, varArgs, rank, 1, dstOffset, dstShape, dstStrides);
-    if (!dstData)
-      return;
-
-    executeStridedCopy(
-        elemSize, srcData, srcOffset, srcShape, srcStrides, dstData, dstOffset,
-        dstShape, dstStrides,
-        [](void *dst, void *src, size_t size) { std::memcpy(dst, src, size); });
+    Status status =
+        stridedMemRefCopyImpl(rank, elemSize, srcDescriptor, dstDescriptor);
+    SET_LUA_ERROR_AND_RETURN_IF_ERROR(status, state, );
   };
 
   //===----------------------------------------------------------------------===//
@@ -1105,21 +1116,42 @@ static void registerExecutorCoreModuleLuaRuntimeMethods(
   DEFINE_FLOAT_BINARY_OP(atan2, std::atan2);
   DEFINE_FLOAT_BINARY_OP(copysign, std::copysign);
   DEFINE_FLOAT_BINARY_OP(powf, std::pow);
-}
-
 #undef DEFINE_BINARY_OP_
 #undef DEFINE_UNARY_OP_
 
-namespace mlirtrt::runtime {
+  //===----------------------------------------------------------------------===//
+  // TVMFFI Plugin Handlers
+  //===----------------------------------------------------------------------===//
+
+  lua["_create_plugin_callable_tvm_ffi"] =
+      [pluginRegistry = &pluginRegistry](sol::this_state state,
+                                         uintptr_t libName,
+                                         uintptr_t funcName) -> uintptr_t {
+    StatusOr<TVMFFICallableHandle *> callable =
+        pluginRegistry->createTVMFFICallable(
+            reinterpret_cast<const char *>(libName),
+            reinterpret_cast<const char *>(funcName));
+    SET_LUA_ERROR_AND_RETURN_IF_ERROR(callable, state, 0);
+    return reinterpret_cast<uintptr_t>(*callable);
+  };
+
+  lua["_call_plugin_tvm_ffi"] = [](sol::this_state state, uintptr_t callablePtr,
+                                   uintptr_t stream, uintptr_t argsArrayPtr,
+                                   int32_t num_args) {
+    Status status = invokeTVMFFICallable(
+        reinterpret_cast<TVMFFICallableHandle *>(callablePtr), stream,
+        argsArrayPtr, num_args);
+    SET_LUA_ERROR_AND_RETURN_IF_ERROR(status, state, );
+  };
+}
+
+namespace mtrt {
 void registerLuaCoreRuntimeExtension() {
   registerLuaRuntimeExtension(
-      "core",
-      LuaRuntimeExtension{
-          [](const RuntimeSessionOptions &options, lua_State *state,
-             PinnedMemoryAllocator *pinnedMemoryAllocator,
-             AllocTracker *allocTracker, ResourceTracker *resourceTracker) {
-            registerExecutorCoreModuleLuaRuntimeMethods(
-                state, pinnedMemoryAllocator, allocTracker);
-          }});
+      "core", LuaRuntimeExtension{[](const LuaRuntimeExtensionInitArgs &args) {
+        registerExecutorCoreModuleLuaRuntimeMethods(
+            args.state, args.pinnedMemoryAllocator, args.allocTracker,
+            args.pluginRegistry);
+      }});
 }
-} // namespace mlirtrt::runtime
+} // namespace mtrt

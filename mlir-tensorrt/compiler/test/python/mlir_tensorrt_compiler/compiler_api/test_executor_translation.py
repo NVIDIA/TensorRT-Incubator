@@ -18,4 +18,5 @@ with ir.Context() as ctx:
 
     sig = exe.get_signature("main")
     print(sig)
-    # CHECK: FunctionSignature(Signature<args=[i32, i32], results=[i32], num_output_args=0, arg_bounds=[UNK, UNK], result_bounds=[UNK], cconv=unpacked>
+    # CHECK: FunctionSignature(Signature<args=[i32, i32], results=[i32], num_output_args=0, arg_bounds=[UNK, UNK],
+    # CHECK-SAME: result_bounds=[UNK], cconv=unpacked, undef=[], abi_version=0>

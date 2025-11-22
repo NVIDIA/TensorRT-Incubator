@@ -24,7 +24,7 @@
 #include "mlir-tensorrt-dialect/Target/TranslateToTensorRT.h"
 #include "mlir-tensorrt/Compiler/Client.h"
 
-namespace mlirtrt::compiler {
+namespace mtrt::compiler {
 
 //===----------------------------------------------------------------------===//
 // TensorRTToExecutableOptions
@@ -108,6 +108,6 @@ public:
 /// Register the task/options with the client's registry.
 void registerTensorRTToExecutableTask();
 
-} // namespace mlirtrt::compiler
+} // namespace mtrt::compiler
 
 #endif // MLIR_TENSORRT_COMPILER_TENSORRTTOEXECUTABLE

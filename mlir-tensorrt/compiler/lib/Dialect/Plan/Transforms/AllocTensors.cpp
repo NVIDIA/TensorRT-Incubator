@@ -21,6 +21,8 @@
 ///  Implementation of the `plan-alloc-tensors` pass.
 ///
 //===----------------------------------------------------------------------===//
+#include "mlir-executor/Executor/IR/Executor.h"
+#include "mlir-executor/Executor/IR/ExecutorAttributes.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/ModuleBufferization/ModuleBufferization.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
@@ -65,26 +67,27 @@ using bufferization::func_ext::FuncOpAnalysisState;
 
 /// Creates a DPS argument of type `argType` in the first block of `func` by
 /// appending to the end of current arguments. It then updates the function
-/// type, adds a `executor.result_arg` argument attribute to the new arg, and
-/// returns the new block argument.
+/// type.
 static FailureOr<BlockArgument>
 updateFunctionWithNewDpsArg(func::FuncOp func, Location loc, Type argType,
                             unsigned tiedResult) {
   MLIRContext *ctx = func->getContext();
-  auto argAttrs = DictionaryAttr::get(
-      ctx,
-      {NamedAttribute(StringAttr::get(ctx, PlanDialect::kResultArgAttrName),
-                      UnitAttr::get(ctx))});
-  func.insertArgument(func.getNumArguments(), argType, argAttrs, loc);
+  SmallVector<NamedAttribute> argAttrs;
+  if (auto resultAttr =
+          func.getResultAttr(tiedResult, plan::PlanDialect::kResultArgAttrName))
+    argAttrs.push_back(
+        NamedAttribute(plan::PlanDialect::kResultArgAttrName, resultAttr));
+  if (auto boundsAttr = func.getResultAttr(
+          tiedResult, plan::PlanDialect::kShapeBoundsAttrName))
+    argAttrs.push_back(
+        NamedAttribute(plan::PlanDialect::kShapeBoundsAttrName, boundsAttr));
+  if (auto boundsAttr = func.getResultAttr(
+          tiedResult, plan::PlanDialect::kValueBoundsAttrName))
+    argAttrs.push_back(
+        NamedAttribute(plan::PlanDialect::kValueBoundsAttrName, boundsAttr));
 
-  if (auto boundsAttr = func.getResultAttr(
-          tiedResult, plan::PlanDialect::getShapeBoundsAttrName()))
-    func.setArgAttr(func.getNumArguments() - 1,
-                    plan::PlanDialect::getShapeBoundsAttrName(), boundsAttr);
-  if (auto boundsAttr = func.getResultAttr(
-          tiedResult, plan::PlanDialect::getValueBoundsAttrName()))
-    func.setArgAttr(func.getNumArguments() - 1,
-                    plan::PlanDialect::getValueBoundsAttrName(), boundsAttr);
+  func.insertArgument(func.getNumArguments(), argType,
+                      DictionaryAttr::get(ctx, argAttrs), loc);
 
   return func.getArguments().back();
 }
@@ -97,7 +100,13 @@ using GetOrCreateBlockArgFunc = llvm::function_ref<FailureOr<BlockArgument>(
 
 /// Return the state (phase) of analysis of the FuncOp.
 static FuncOpAnalysisState
-getFuncOpAnalysisState(const OneShotAnalysisState &state, func::FuncOp funcOp) {
+getFuncOpAnalysisState(const OneShotAnalysisState &state,
+                       FunctionOpInterface op) {
+  // The FuncAnalysisState only supports `func::FuncOp`. Other kinds of function
+  // operations do not have their boundaries analyzed.
+  auto funcOp = dyn_cast<func::FuncOp>(*op);
+  if (!funcOp)
+    return FuncOpAnalysisState::NotAnalyzed;
   if (!isa<OneShotAnalysisState>(state))
     return FuncOpAnalysisState::NotAnalyzed;
   auto *funcState = static_cast<const OneShotAnalysisState &>(state)
@@ -375,7 +384,7 @@ maybeReshapeOrCast(RewriterBase &rewriter, Location loc,
 
 /// Return true if the given function argument is considered "writable". It is
 /// writable if it has attribute 'bufferization.writable' set to true or has
-/// unit attribute 'plan.result_arg' set.
+/// unit attribute 'plan.result_slot' set.
 static bool isArgumentWritable(func::FuncOp func, int64_t idx) {
   if (func.getArgAttr(idx, PlanDialect::kResultArgAttrName))
     return true;
@@ -407,7 +416,7 @@ static bool isArgumentWritable(func::FuncOp func, int64_t idx) {
 /// `termOperand`.
 static LogicalResult accommodateDestinationStyleArgument(
     RewriterBase &rewriter, TypedValue<RankedTensorType> argument,
-    func::ReturnOp term, OpOperand &termOperand,
+    OpOperand &termOperand, unsigned resultIdx,
     bufferization::OneShotAnalysisState &state) {
 
   // Find equivalent values.
@@ -421,7 +430,7 @@ static LogicalResult accommodateDestinationStyleArgument(
 
   LLVM_DEBUG({
     DBGS() << llvm::formatv("equivalent values for return value #{0}:\n",
-                            termOperand.getOperandNumber());
+                            resultIdx);
     llvm::interleave(equivalentValues, llvm::dbgs(), "\n - ");
     llvm::dbgs() << "\n";
   });
@@ -435,14 +444,13 @@ static LogicalResult accommodateDestinationStyleArgument(
     // `bufferization.alloc_tensor` operation that we can replace, we
     // insert a `linalg::CopyOp` operation so that buffer associated with
     // `termOperand` is copied into `argument`.
-    rewriter.setInsertionPoint(term);
+    rewriter.setInsertionPoint(termOperand.getOwner());
 
     RankedTensorType targetType =
         cast<RankedTensorType>(termOperand.get().getType());
     auto copyOp = rewriter.create<linalg::CopyOp>(
         termOperand.get().getLoc(), targetType, termOperand.get(), argument);
-    term.getOperandsMutable()[termOperand.getOperandNumber()].assign(
-        copyOp.getResult(0));
+    termOperand.set(copyOp.getResult(0));
     return success();
   }
 
@@ -499,6 +507,64 @@ static LogicalResult accommodateDestinationStyleArgument(
   llvm_unreachable("unexpected leaf operation kind");
 }
 
+static FailureOr<llvm::DenseMap<unsigned, unsigned>>
+getInputOutputAliasingMap(FunctionOpInterface func) {
+  llvm::DenseMap<unsigned, unsigned> donatedArgMap;
+
+  if (!executor::abi::isABIWrapperFunction(func)) {
+    for (unsigned i = 0; i < func.getNumArguments(); ++i) {
+      if (auto donationAttr = func.getArgAttrOfType<IntegerAttr>(
+              i, plan::PlanDialect::kDonationArgAttrName)) {
+        // Check result index donated by donation arguments are within bound.
+        assert(donationAttr.getInt() < func.getNumResults() &&
+               "donation argument index out of bounds");
+        donatedArgMap[donationAttr.getInt()] = i;
+      }
+    }
+    return donatedArgMap;
+  }
+
+  FailureOr<FunctionType> abiFuncType =
+      mlir::executor::abi::getABIFunctionType(func);
+  if (failed(abiFuncType))
+    return failure();
+
+  for (unsigned i = 0, e = abiFuncType->getNumInputs(); i < e; ++i) {
+    if (auto donationAttr = func.getArgAttrOfType<IntegerAttr>(
+            i, plan::PlanDialect::kDonationArgAttrName)) {
+      assert(donationAttr.getInt() < abiFuncType->getNumResults() &&
+             "donation result index out of bounds");
+      donatedArgMap[donationAttr.getInt()] = i;
+    }
+  }
+  return donatedArgMap;
+}
+
+static SmallVector<OpOperand *> findReturnedValues(FunctionOpInterface func) {
+  if (!executor::abi::isABIWrapperFunction(func)) {
+    assert(func.getFunctionBody().hasOneBlock() &&
+           "expected single block function body");
+    Operation *term = func.getFunctionBody().front().getTerminator();
+    return llvm::map_to_vector(term->getOpOperands(),
+                               [](OpOperand &operand) { return &operand; });
+  }
+
+  FailureOr<FunctionType> abiFuncType =
+      mlir::executor::abi::getABIFunctionType(func);
+  assert(succeeded(abiFuncType) && "expected ABI function type");
+  SmallVector<OpOperand *> returnedValues(abiFuncType->getNumResults(),
+                                          nullptr);
+  func->walk([&](executor::ABISendOp sendOp) {
+    auto ptr = cast<BlockArgument>(sendOp.getPtr());
+    std::optional<unsigned> outputIdx =
+        mlir::executor::abi::isOutputArgument(func, ptr.getArgNumber());
+    assert(outputIdx.has_value() && "expected output index");
+    assert(returnedValues[*outputIdx] == nullptr && "duplicate SendOp found");
+    returnedValues[*outputIdx] = &sendOp.getValueMutable();
+  });
+  return returnedValues;
+}
+
 /// Rewrite a single function to destination passing style. Update callers
 /// appropriately.
 static LogicalResult rewriteFuncToDestinationPassingStyle(
@@ -519,64 +585,87 @@ static LogicalResult rewriteFuncToDestinationPassingStyle(
     return failure();
   }
 
-  auto term = cast<func::ReturnOp>(func.getBody().front().getTerminator());
   const FuncAnalysisState &funcState = getFuncAnalysisState(state);
 
   // Build a map of result index -> argument index for donated arguments.
-  llvm::DenseMap<int64_t, unsigned> donatedArgMap;
-  for (unsigned i = 0; i < func.getNumArguments(); ++i) {
-    if (auto donationAttr = func.getArgAttrOfType<IntegerAttr>(
-            i, plan::PlanDialect::kDonationArgAttrName)) {
-      // Check result index donated by donation arguments are within bound.
-      if (donationAttr.getInt() >= func.getFunctionType().getNumResults())
-        return failure();
-      donatedArgMap[donationAttr.getInt()] = i;
-    }
-  }
+  FailureOr<llvm::DenseMap<unsigned, unsigned>> donatedArgMap =
+      getInputOutputAliasingMap(func);
+  if (failed(donatedArgMap))
+    return failure();
 
-  for (auto [idx, v] : llvm::enumerate(term->getOpOperands())) {
-    if (!isa<RankedTensorType>(v.get().getType()))
+  SmallVector<OpOperand *> returnedValues = findReturnedValues(func);
+  const bool isABIWrapperFunction = executor::abi::isABIWrapperFunction(func);
+
+  for (auto [idx, v] : llvm::enumerate(returnedValues)) {
+    if (!isa<RankedTensorType>(v->get().getType()))
       continue;
+
+    LLVM_DEBUG(DBGS() << "analyzing value #" << idx << ": " << v->get()
+                      << "\n");
 
     // Check if there is already an equivalent function argument.
-    if (std::optional<int64_t> equivalent =
-            getEquivalentFuncArgIdx(func, funcState, idx);
-        equivalent && isArgumentWritable(func, *equivalent)) {
-      LLVM_DEBUG(
-          DBGS() << llvm::formatv("for return value #{0} found existing "
-                                  "equivalent result arg -- argument #{1}\n",
-                                  idx, *equivalent));
-      continue;
+    if (!isABIWrapperFunction) {
+      if (std::optional<int64_t> equivalent =
+              getEquivalentFuncArgIdx(func, funcState, idx);
+          equivalent && isArgumentWritable(func, *equivalent)) {
+        LLVM_DEBUG(
+            DBGS() << llvm::formatv("for return value #{0} found existing "
+                                    "equivalent result arg -- argument #{1}\n",
+                                    idx, *equivalent));
+        continue;
+      }
     }
 
     // Check if some argument is donated for this result value. Shape and
     // element type of donated argument must match with result.
-    auto donatedIt = donatedArgMap.find(idx);
-    if (donatedIt != donatedArgMap.end()) {
+    auto donatedIt = donatedArgMap->find(idx);
+    if (donatedIt != donatedArgMap->end()) {
       auto donatedArg = cast<TypedValue<RankedTensorType>>(
           func.getArgument(donatedIt->second));
-      if (donatedArg.getType() != v.get().getType()) {
+      if (donatedArg.getType() != v->get().getType()) {
         return func.emitError("donation argument is found but its type (")
                << donatedArg.getType()
                << ") doesn't match with corresponding result type ("
-               << v.get().getType() << ")";
+               << v->get().getType() << ")";
       }
-      if (failed(accommodateDestinationStyleArgument(rewriter, donatedArg, term,
-                                                     v, state)))
+      if (failed(accommodateDestinationStyleArgument(rewriter, donatedArg, *v,
+                                                     idx, state)))
         return failure();
       continue;
     }
 
     // There is no existing equivalent or valid donation function argument, so
-    // we must create a new one.
-    if (failed(updateFunctionWithNewDpsArg(func, v.get().getLoc(),
-                                           v.get().getType(), idx)))
-      return failure();
-    auto replacement =
-        cast<TypedValue<RankedTensorType>>(func.getArguments().back());
+    // we must link the DPS chain to a DPS output argument.
+    TypedValue<RankedTensorType> replacement;
+    // If this is not an ABI wrapper function, insert a new DPS output argument
+    // for this result.
+    if (!isABIWrapperFunction) {
+      if (failed(updateFunctionWithNewDpsArg(func, v->get().getLoc(),
+                                             v->get().getType(), idx)))
+        return failure();
+      replacement =
+          cast<TypedValue<RankedTensorType>>(func.getArguments().back());
+    }
+    // If this is an ABI wrapper function, find the pre-created ABI output
+    // argument.
+    else {
+      FailureOr<FunctionType> abiFuncType =
+          mlir::executor::abi::getABIFunctionType(func);
+      assert(succeeded(abiFuncType) && "expected ABI function type");
+      replacement =
+          cast<TypedValue<RankedTensorType>>(executor::abi::getOrCreateABIRecv(
+              rewriter, func, idx + abiFuncType->getNumInputs(),
+              v->get().getType()));
+      // If it is marked 'undef', then it cannot be used as a destination
+      // without allocation.
+      executor::ArgumentABIAttr abiAttr = executor::abi::getArgumentABIAttr(
+          func, idx + abiFuncType->getNumInputs());
+      if (abiAttr.getUndef())
+        return failure();
+    }
 
-    if (failed(accommodateDestinationStyleArgument(rewriter, replacement, term,
-                                                   v, state)))
+    if (failed(accommodateDestinationStyleArgument(rewriter, replacement, *v,
+                                                   idx, state)))
       return failure();
   }
   return success();
@@ -646,22 +735,24 @@ static LogicalResult enforceFunctionCallingStylePolicy(
     return failure();
 
   // Locate entrypoint functions.
-  SmallVector<func::FuncOp> orderedFuncOps, remainingFuncOps;
+  SmallVector<FunctionOpInterface> orderedFuncOps, remainingFuncOps;
   if (failed(mlir::getFuncOpsOrderedByCalls(
           mlir::ModuleLikeOp(op), orderedFuncOps, remainingFuncOps,
-          [&](func::FuncOp func) -> bool {
-            return func.isPublic() && !func.isDeclaration() &&
+          [&](FunctionOpInterface func) -> bool {
+            return isa<func::FuncOp>(func.getOperation()) && func.isPublic() &&
+                   !func.isDeclaration() &&
                    func->getParentWithTrait<OpTrait::SymbolTable>() == op &&
                    llvm::none_of(userMap.getUsers(func),
                                  llvm::IsaPred<CallOpInterface>) &&
-                   (llvm::any_of(func.getArgumentTypes(),
+                   (executor::abi::isABIWrapperFunction(func) ||
+                    llvm::any_of(func.getArgumentTypes(),
                                  llvm::IsaPred<TensorType>) ||
                     llvm::any_of(func.getResultTypes(),
                                  llvm::IsaPred<TensorType>));
           })))
     return failure();
 
-  for (func::FuncOp func : orderedFuncOps) {
+  for (FunctionOpInterface func : orderedFuncOps) {
     LLVM_DEBUG(DBGS() << "encountered func " << func.getName() << "\n");
     if (func.isDeclaration())
       continue;
@@ -670,15 +761,22 @@ static LogicalResult enforceFunctionCallingStylePolicy(
     if (func.getBlocks().size() != 1)
       return failure();
 
-    LLVM_DEBUG(DBGS() << "considering func " << func.getName() << "\n");
-    if (!forceEntrypointsReturnAllocs &&
-        failed(rewriteFuncToDestinationPassingStyle(rewriter, func, userMap,
-                                                    state)))
-      return failure();
+    const bool isAbiWrapperFunction = executor::abi::isABIWrapperFunction(func);
 
-    if (forceEntrypointsReturnAllocs &&
-        failed(enforceResultAllocationPolicy(rewriter, func, userMap, state)))
-      return failure();
+    LLVM_DEBUG(DBGS() << "considering func " << func.getName() << "\n");
+    // When using ABI wrapper functions, we don't use the
+    // 'forceEntrypointsReturnAllocs' option.
+    if (!forceEntrypointsReturnAllocs || isAbiWrapperFunction) {
+      if (failed(rewriteFuncToDestinationPassingStyle(
+              rewriter, cast<func::FuncOp>(func.getOperation()), userMap,
+              state)))
+        return failure(!isAbiWrapperFunction);
+    } else {
+      if (failed(enforceResultAllocationPolicy(
+              rewriter, cast<func::FuncOp>(func.getOperation()), userMap,
+              state)))
+        return failure();
+    }
   }
   return success();
 }

@@ -3,12 +3,13 @@ add_mlir_executor_library(MLIRExecutorCommonUtils
   RegionUtils.cpp
 
   LINK_LIBS PUBLIC
-  MLIRDialectUtils
-  MLIRIR
-  MLIRTransformUtils
-  MLIRPass
-  MLIRSupport
-  MLIRExecutorIncludes
+    MLIRExecutorIncludes
+  MLIR_LIBS PUBLIC
+    MLIRDialectUtils
+    MLIRIR
+    MLIRTransformUtils
+    MLIRPass
+    MLIRSupport
   )
 
 add_mlir_executor_library(MLIRExecutorSerializationUtils
@@ -16,7 +17,8 @@ add_mlir_executor_library(MLIRExecutorSerializationUtils
   SerializationUtils.cpp
 
   LINK_LIBS PUBLIC
-  MLIRIR
-  MLIRDataLayoutInterfaces
-  MLIRExecutorIncludes
+    MLIRExecutorIncludes
+  MLIR_LIBS PUBLIC
+    MLIRIR
+    MLIRDataLayoutInterfaces
   )

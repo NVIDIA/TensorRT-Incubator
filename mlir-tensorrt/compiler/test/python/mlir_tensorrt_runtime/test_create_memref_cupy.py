@@ -2,15 +2,18 @@
 # REQUIRES: host-has-at-least-1-gpus
 # REQUIRES: cuda-toolkit-major-version-lte-12
 import array
-import gc
+import sys
 
 import mlir_tensorrt.runtime.api as runtime
 import numpy as np
 import cupy as cp
 
 client = runtime.RuntimeClient()
-stream = client.create_stream()
 devices = client.get_devices()
+if len(devices) == 0:
+    sys.exit(0)
+
+stream = devices[0].stream
 
 
 def create_memref_from_array_gpu(arr, explicit_dtype=None):
@@ -148,7 +151,7 @@ test_memref_strides()
 
 # CHECK-LABEL: Test memref strides
 # CHECK-NEXT: Testing non-canonical stride: assert_canonical_strides = True
-# CHECK-NEXT: Received error message: InvalidArgument: InvalidArgument:
+# CHECK-NEXT: Received error message:
 # CHECK-SAME: Given strides [1, 4] do not match canonical strides [3, 1] for shape [4, 3]
 # CHECK-NEXT: Testing non-canonical stride: assert_canonical_strides = False
 # CHECK-NEXT: Testing canonical stride: assert_canonical_strides = True

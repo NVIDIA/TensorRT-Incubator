@@ -262,15 +262,28 @@ struct ConvertMemRefCopyStrided2D
     MemRefDescriptor src(adaptor.getSource(), srcType);
     MemRefDescriptor dst(adaptor.getTarget(), dstType);
 
-    SmallVector<Value> operands = {
-        createIndexConstant(b, srcType.getRank()),
-        createIndexConstant(
-            b, getTypeConverter()->getMemRefElementTypeByteSize(srcType))};
-    operands.append(src.unpack(b));
-    operands.append(dst.unpack(b));
+    Value rank = createIndexConstant(b, srcType.getRank());
+    Value byteSize = createIndexConstant(
+        b, getTypeConverter()->getMemRefElementTypeByteSize(srcType));
 
-    rewriter.replaceOpWithNewOp<executor::StridedMemrefCopyOp>(
-        op, TypeRange{}, ValueRange(operands));
+    Location loc = op.getLoc();
+    Value one = this->createIndexConstant(b, 1);
+    Value zero = this->createIndexConstant(b, 0);
+    auto allocaSrc = rewriter.create<executor::AllocaOp>(
+        loc, getHostPointerType(), one, IntegerAttr{},
+        adaptor.getSource().getType());
+    auto allocaDst = rewriter.create<executor::AllocaOp>(
+        loc, getHostPointerType(), one, IntegerAttr{},
+        adaptor.getTarget().getType());
+    rewriter.create<executor::StoreOp>(loc, allocaSrc, zero,
+                                       adaptor.getSource());
+    rewriter.create<executor::StoreOp>(loc, allocaDst, zero,
+                                       adaptor.getTarget());
+
+    rewriter.create<executor::StridedMemrefCopyOp>(op.getLoc(), rank, byteSize,
+                                                   allocaSrc, allocaDst);
+    rewriter.eraseOp(op);
+
     return success();
   }
 };

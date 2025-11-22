@@ -1,15 +1,15 @@
-set(optional_dependencies)
-if(MLIR_TRT_ENABLE_CUDA)
-  list(APPEND optional_dependencies CUDA::cudart)
-endif()
+add_mlir_executor_runtime_library(MLIRTensorRTRuntimeExecutableInterface
+  Executable.cpp
 
-add_library(MLIRTensorRTRuntimeExecutableInterface INTERFACE)
-target_link_libraries(MLIRTensorRTRuntimeExecutableInterface INTERFACE
+  PARTIAL_SOURCES_INTENDED
+
+  DEPENDS
+  MLIRTensorRTRuntimeExecutableFlatbufferGen
+
+  LINK_LIBS PUBLIC
   flatbuffers
   MLIRExecutorIncludes
-  )
-add_dependencies(MLIRTensorRTRuntimeExecutableInterface
-  MLIRTensorRTRuntimeExecutableFlatbufferGen
+  MLIRTensorRTSupportStatus
   )
 
 # The API library includes enum definitions, flatbuffer schema generated files,
@@ -21,22 +21,22 @@ add_dependencies(MLIRTensorRTRuntimeExecutableInterface
 # belong here.
 add_mlir_executor_runtime_library(MLIRTensorRTExecutorRuntimeAPI
   API.cpp
+  MemRefABI.cpp
 
-  LINK_LIBS PUBLIC
-  MLIRTensorRTRuntimeExecutableInterface
-  MLIRTensorRTRuntimeSupport
-  MLIRTensorRTSupportAllocators
-  MLIRTensorRTSupportStatus
-  sol2::sol2
-  lua::core
-  ${optional_dependencies}
-
-  PRIVATE
-  $<$<BOOL:${MLIR_TRT_ENABLE_NCCL}>:MPI::MPI_C>
-  $<$<BOOL:${MLIR_TRT_ENABLE_NCCL}>:NCCL>
-
+  PARTIAL_SOURCES_INTENDED
 
   DEPENDS
   MLIRTensorRTRuntimeExecutableFlatbufferGen
+
+  LINK_LIBS PUBLIC
+  lua::core
+  MLIRTensorRTRuntimeExecutableInterface
+  MLIRTensorRTRuntimeFFIAPI
+  MLIRTensorRTRuntimeSupport
+  MLIRTensorRTSupportAllocators
+  MLIRTensorRTSupportStatus
+  MLIRTensorRTSupportStridedCopy
+  ${MLIR_TRT_MPI_TARGET}
+  ${MLIR_TRT_NCCL_TARGET}
+  ${MLIR_TRT_CUDA_TARGET}
   )
-target_link_libraries(MLIRTensorRTExecutorRuntimeAPI PUBLIC DLPack::Headers)

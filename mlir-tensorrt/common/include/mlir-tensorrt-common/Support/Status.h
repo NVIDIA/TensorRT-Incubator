@@ -28,55 +28,56 @@
 
 #include "mlir-tensorrt-common/Support/ADTExtras.h"
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/Support/Error.h"
 #include "llvm/Support/FormatVariadic.h"
 #include <cassert>
-#include <iostream>
-#include <memory>
-#include <optional>
 #include <string_view>
-#include <type_traits>
+#include <variant>
 
-namespace mlirtrt {
+namespace mtrt {
 
 #define GEN_ENUM_DECLS
 #include "mlir-tensorrt-common/Support/StatusEnums.h.inc"
 
-class Status {
+class [[nodiscard]] Status {
 public:
-  Status() = delete;
-  Status(const Status &);
-  Status &operator=(const Status &) = default;
-  Status(Status &&) = default;
-  Status &operator=(Status &&) = default;
-  Status(StatusCode code, std::string_view additionalMsg = "");
-  Status(StatusCode code, const llvm::formatv_object_base &);
+  Status() = default;
+  Status(StatusCode code, std::string_view msg = {})
+      : code(code),
+        message(msg.empty() ? llvm::formatv("{0}", stringifyStatusCode(code))
+                            : std::string(msg)) {}
+  Status(StatusCode code, const llvm::formatv_object_base &fmtv)
+      : code(code), message(fmtv.str()) {}
 
   /// Return an OK status.
-  static Status getOk();
+  static Status getOk() { return Status(); }
   /// Returns true if the status does not indicate an error.
-  bool isOk() const;
+  bool isOk() const { return code == StatusCode::Success; }
   /// Returns true if the status indicates an error.
-  bool isError() const;
+  bool isError() const { return code != StatusCode::Success; }
 
   /// Returns the code enum.
-  StatusCode getCode() const;
+  StatusCode getCode() const { return code; }
 
-  /// Returns the string representation of the code.
-  std::string getString() const;
+  /// Returns the string representation of the error.
+  const std::string &getMessage() const { return message; }
 
+  // For compatability with various macros.
   const Status &getStatus() const { return *this; }
-
-  /// Returns the additional payload message, if it exists.
-  std::string_view getAdditionalMsg() const {
-    return additionalMsg ? std::string_view(*additionalMsg) : "";
-  }
+  const Status &checkStatus() const { return *this; }
 
 private:
-  StatusCode code;
-  std::optional<std::string> additionalMsg{};
+  StatusCode code{StatusCode::Success};
+  std::string message;
 };
 
-std::ostream &operator<<(std::ostream &os, const Status &x);
+inline static std::ostream &operator<<(std::ostream &os, const Status &x) {
+  return os << x.getMessage();
+}
+inline static llvm::raw_ostream &operator<<(llvm::raw_ostream &os,
+                                            const Status &x) {
+  return os << x.getMessage();
+}
 
 //===----------------------------------------------------------------------===//
 // Convenience Builders for Status objects
@@ -96,81 +97,85 @@ Status getInternalErrorStatus(const char *format, Args &&...args) {
 }
 
 template <typename... Args>
+Status getUnimplementedStatus(const char *format, Args &&...args) {
+  return Status(StatusCode::Unimplemented,
+                llvm::formatv(format, std::forward<Args>(args)...));
+}
+
+template <typename... Args>
 inline Status getStatusWithMsg(StatusCode code, Args &&...strings) {
   return Status(code, llvm::join_items("", std::forward<Args>(strings)...));
 }
 
 template <typename T>
-class StatusOr {
+class [[nodiscard]] StatusOr {
 public:
   StatusOr() = delete;
-  StatusOr(T &&payload)
-      : status(Status::getOk()), payload(std::forward<T>(payload)) {}
-  StatusOr(const StatusOr<T> &) = delete;
-  StatusOr(StatusOr<T> &&) = default;
-  StatusOr(Status &&status)
-      : status(std::forward<Status>(status)), payload(std::nullopt) {
-    assert(this->status.isError() && "expected error status");
-  }
-  StatusOr(const Status &status) : status(status), payload(std::nullopt) {
-    assert(this->status.isError() && "expected error status");
-  }
-
-  StatusOr<T> &operator=(const Status &status) = delete;
-  StatusOr<T> &operator=(Status &&status) = delete;
-
-  template <typename S,
-            typename std::enable_if<std::is_base_of<
-                T, std::remove_reference_t<S>>::value>::type = nullptr>
-  StatusOr(S &&payload)
-      : status(Status::getOk()), payload(std::forward<S>(payload)) {}
-
-  template <typename S, typename std::enable_if_t<
-                            std::is_same_v<T, std::remove_reference_t<S>>,
-                            void *> = nullptr>
-  StatusOr(S &&payload)
-      : status(Status::getOk()), payload(std::forward<S>(payload)) {}
+  template <typename U>
+  StatusOr(U &&payload) : payload(std::forward<U>(payload)) {}
 
   /// Returns true if the status does not indicate an error.
-  bool isOk() const { return status.isOk() && payload; }
+  bool isOk() const { return std::holds_alternative<T>(payload); }
 
   /// Returns true if the status indicates an error.
-  bool isError() const { return !isOk() || !payload; }
+  bool isError() const { return std::holds_alternative<Status>(payload); }
 
-  /// Returns the status object.
-  const Status &getStatus() const { return status; }
+  // clang-format off
+  // &-ref qualified (variants called when StatusOr<T> is an lvalue).
+  T &getValue() & { return std::get<T>(payload); }
+  const T &getValue() const & { return std::get<T>(payload); }
+  const Status &getStatus() const & { return std::get<Status>(payload); }
+  const T &operator*() const& { return getValue(); }
+  T &operator*() &{ return getValue(); }
+  // &&-ref qualified (variants called when StatusOr<T> is an rvalue).
+  T &&getValue() && { return std::get<T>(std::move(payload)); }
+  const T &getValue() const && { return std::get<T>(std::move(payload)); }
+  const Status &getStatus() const && { return std::get<Status>(std::move(payload)); }
+  const T &operator*() const&& { return getValue(); }
+  T &operator*() && { return getValue(); }
+  // clang-format on
 
-  /// Returns the string representation of the status object.
-  std::string getString() const { return status.getString(); }
+  T *operator->() { return &getValue(); }
+  const T *operator->() const { return &getValue(); }
 
-  /// Returns underlying payload and asserts no error.
-  const T *operator->() const {
-    assert(isOk() && "expected valid payload and no error");
-    return &*payload;
-  }
-
-  /// Returns underlying payload and asserts no error.
-  T *operator->() {
-    assert(isOk() && "expected valid payload and no error");
-    return &*payload;
-  }
-
-  /// Returns underlying payload and asserts no error.
-  const T &operator*() const {
-    assert(isOk() && "expected valid payload and no error");
-    return *payload;
-  }
-
-  /// Returns underlying payload and asserts no error.
-  T &operator*() {
-    assert(isOk() && "expected valid payload and no error");
-    return *payload;
-  }
+  /// Returns the Status if error, otherwise an OK status. Since `getStatus()`
+  /// will assert when not an error, this is useful in certain macros.
+  Status checkStatus() const { return isOk() ? getOkStatus() : getStatus(); }
 
 private:
-  Status status;
-  std::optional<T> payload;
+  /// Holds a tagged union of the payload and the status.
+  /// Rationale: A Status object is ~40 bytes on most platforms assuming that
+  /// `std::string` is ~32 bytes. The variant size is `max(sizeof(T),
+  /// sizeof(Status))`, so considering that often `sizeof(T) > sizeof(Status)`,
+  /// it doesn't seem necessary to optimize. If `T` were often very small, then
+  /// it might make sense to replace `Status` with `unique_ptr<Status>` or
+  /// `shared_ptr<Status>`, but this also introduces a heap allocation in the
+  /// error path, which is failable.
+  std::variant<T, Status> payload;
 };
+
+/// Logs the unhandled errors to the given output stream. Used in cases where
+/// there is no reasonable way to handle the error and, besides logging it,
+/// ignoring the error and proceeding is the best option.
+inline static void logUnhandledErrors(Status status, llvm::raw_ostream &os) {
+  if (status.isOk())
+    return;
+  os << "error: " << status.getMessage() << "\n";
+}
+
+/// Handles the error via llvm::report_fatal_error. Used in cases where the
+/// error is fatal and the program should terminate.
+inline static void cantFail(const Status &status) {
+  if (!status.isOk())
+    llvm::report_fatal_error(llvm::createStringError(status.getMessage()));
+}
+
+/// Handles the error via llvm::report_fatal_error. Used in cases where the
+/// error is fatal and the program should terminate.
+template <typename T>
+void cantFail(const StatusOr<T> &statusOr) {
+  return cantFail(statusOr.checkStatus());
+}
 
 #define MTRT_CONCAT(x, y) _MTRT_CONCAT(x, y)
 #define _MTRT_CONCAT(x, y) x##y
@@ -184,8 +189,6 @@ private:
 #define MTRT_ASSIGN_OR_RETURN(lhs, rexpr)                                      \
   MTRT_ASSIGN_OR_RETURN_(MTRT_CONCAT(_status_or_value, __COUNTER__), lhs, rexpr)
 
-#define MTRT_RETURN_IF_ERROR(rexpr)                                            \
-  MTRT_RETURN_IF_ERROR_(MTRT_CONCAT(_tmpStatus, __COUNTER__), rexpr)
 #define MTRT_RETURN_IF_ERROR_(tmpName, rexpr)                                  \
   do {                                                                         \
     auto tmpName = (rexpr);                                                    \
@@ -193,13 +196,16 @@ private:
       return tmpName;                                                          \
   } while (false)
 
+#define MTRT_RETURN_IF_ERROR(rexpr)                                            \
+  MTRT_RETURN_IF_ERROR_(MTRT_CONCAT(_tmpStatus, __COUNTER__), rexpr)
+
 #define RETURN_ERROR_IF_CUDART_ERROR(x)                                        \
   do {                                                                         \
     cudaError_t err = (x);                                                     \
     if (err != cudaSuccess) {                                                  \
-      return ::mlirtrt::getInternalErrorStatus(                                \
-          "{0}:{1} ({2}) {3}", __FILE__, __LINE__, cudaGetErrorName(err),      \
-          cudaGetErrorString(err));                                            \
+      return ::mtrt::getInternalErrorStatus("{0}:{1} ({2}) {3}", __FILE__,     \
+                                            __LINE__, cudaGetErrorName(err),   \
+                                            cudaGetErrorString(err));          \
     }                                                                          \
   } while (false);
 
@@ -207,7 +213,7 @@ private:
   do {                                                                         \
     CUresult err = (x);                                                        \
     if (err != CUDA_SUCCESS) {                                                 \
-      return ::mlirtrt::getInternalErrorStatus("{0}:{1} {2}");                 \
+      return ::mtrt::getInternalErrorStatus("{0}:{1} {2}");                    \
     }                                                                          \
   } while (false);
 
@@ -219,7 +225,7 @@ private:
       cuGetErrorName(err, &errName);                                           \
       const char *errStr;                                                      \
       cuGetErrorString(err, &errStr);                                          \
-      return ::mlirtrt::getInternalErrorStatus(                                \
+      return ::mtrt::getInternalErrorStatus(                                   \
           "{0}:{1} {2} ({3}); {4}", __FILE__, __LINE__, msg,                   \
           errName ? errName : "", errStr ? errStr : "");                       \
     }                                                                          \
@@ -240,10 +246,10 @@ private:
 
 #define RETURN_STATUS_IF_ERROR(rexpr)                                          \
   do {                                                                         \
-    auto err = (rexpr);                                                        \
+    Status err = (rexpr);                                                      \
     if (!err.isOk()) {                                                         \
-      return ::mlirtrt::getInternalErrorStatus("{0}:{1} {2}", __FILE__,        \
-                                               __LINE__, err.getString());     \
+      return ::mtrt::getInternalErrorStatus("{0}:{1} {2}", __FILE__, __LINE__, \
+                                            err.getMessage());                 \
     }                                                                          \
   } while (false);
 
@@ -258,6 +264,6 @@ private:
 #define MTRT_CHECK(cond, msg)
 #endif
 
-} // namespace mlirtrt
+} // namespace mtrt
 
 #endif // MLIR_EXECUTOR_SUPPORT_STATUS

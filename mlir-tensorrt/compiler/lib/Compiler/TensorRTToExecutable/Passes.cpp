@@ -28,13 +28,13 @@
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Pass/PassOptions.h"
 
-namespace mlirtrt::compiler {
+namespace mtrt::compiler {
 #define GEN_PASS_DEF_OUTLINETENSORRTOPPASS
 #include "mlir-tensorrt/Compiler/TensorRTToExecutable/Passes.h.inc"
-} // namespace mlirtrt::compiler
+} // namespace mtrt::compiler
 
-using namespace mlirtrt;
-using namespace mlirtrt::compiler;
+using namespace mtrt;
+using namespace mtrt::compiler;
 using namespace mlir;
 
 /// ClusteringOpts that identifies groups of TensorRT operations and will be
@@ -185,7 +185,7 @@ outlineOp(RewriterBase &rewriter, tensorrt::TensorRTModuleOp trtModule,
       mlir::tensorrt::TensorRTDialect::getShapeTensorValueBoundsArgAttrName();
   StringRef hostTensorAttrName = mlir::getHostTensorArgAttrName();
   StringRef memorySpaceAttrName =
-      plan::PlanDialect::getMemorySpaceConstraintAttrName();
+      plan::PlanDialect::kMemorySpaceConstraintAttrName;
 
   for (Value v : inputs) {
     auto rtt = dyn_cast<RankedTensorType>(v.getType());

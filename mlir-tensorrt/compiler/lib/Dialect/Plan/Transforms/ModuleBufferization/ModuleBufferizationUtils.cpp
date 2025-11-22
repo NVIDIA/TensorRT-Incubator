@@ -23,6 +23,8 @@
 /// cannot call each other circularly and enumerate them in the order
 /// of 'fewer incoming call edges' to 'more incoming call edges'.
 //===----------------------------------------------------------------------===//
+#include "mlir-executor/Executor/IR/ExecutorAttributes.h"
+#include "mlir-executor/Executor/Transforms/BufferizationOpInterfaceImpls.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/ModuleBufferization/ModuleBufferization.h"
 #include "mlir-tensorrt/Utils/ModuleUtils.h"
@@ -44,6 +46,14 @@ LogicalResult plan::fixupHostModule(
   auto walkResult = module->walk<WalkOrder::PreOrder>([&](Operation *op) {
     if (ModuleLikeOp(op))
       return op == module ? WalkResult::advance() : WalkResult::skip();
+
+    if (auto funcOp = dyn_cast<func::FuncOp>(op)) {
+      if (executor::abi::isABIWrapperFunction(funcOp)) {
+        if (failed(executor::bufferizeABIWrapperFunctionType(funcOp, options)))
+          return WalkResult::interrupt();
+      }
+      return WalkResult::advance();
+    }
 
     if (auto loadOp = dyn_cast<memref::LoadOp>(op)) {
       MemRefType fromType = loadOp.getMemRefType();

@@ -19,12 +19,11 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-executor/Runtime/API/API.h"
 #include "mlir-executor/Runtime/Backend/Common/CUDACommon.h"
-#include "mlir-executor/Runtime/Backend/Common/CommonRuntime.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaErrorHandling.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaExtensionRegistry.h"
-#include "mlir-executor/Runtime/Backend/Lua/Modules/Utils/MemRefUtils.h"
 #include "mlir-executor/Runtime/Backend/Lua/SolAdaptor.h"
 #include "mlir-executor/Runtime/Backend/Utils/NvtxUtils.h"
+#include "mlir-executor/Runtime/Support/Support.h"
 #include "mlir-executor/Support/Allocators.h"
 #include "mlir-tensorrt-common/Support/Status.h"
 #include "mlir-tensorrt-common/Utils/TensorRTVersion.h"
@@ -39,8 +38,8 @@
 #pragma GCC diagnostic pop
 #endif
 
-using namespace mlirtrt;
-using namespace mlirtrt::runtime;
+using namespace mtrt;
+using namespace mtrt;
 
 static constexpr std::string_view kNvtxVerbosityEnvVariable =
     "MTRT_TENSORRT_NVTX";
@@ -176,13 +175,13 @@ public:
     size = std::max(size, static_cast<uint64_t>(1));
     size = roundUp(size, alignment);
 
-    StatusOr<PointerInfo> alloc = mlirtrt::runtime::allocate(
+    StatusOr<PointerInfo> alloc = mtrt::allocate(
         *mTracker, PointerType::device, size, alignment,
         stream ? std::optional<CudaStream>(reinterpret_cast<CudaStream>(stream))
                : std::nullopt);
     if (!alloc.isOk()) {
-      MTRT_ERRF("failed to allocate TensorRT output buffer of size %lu: %s",
-                size, alloc.getString().c_str());
+      MTRT_ERRV("failed to allocate TensorRT output buffer of size {0}: {1}",
+                size, alloc.getStatus());
       return nullptr;
     }
     allocInfo = std::move(*alloc);
@@ -432,10 +431,9 @@ public:
           sizeof(int32_t) *
           std::max<int32_t>(getShapeTensorAllocationSize(dims, dataType), 16));
       if (!hostBuffer.isOk())
-        return getStatusWithMsg(
-            StatusCode::InternalError,
-            "failed to allocate host buffer for TRT engine IO shape tensor: ",
-            hostBuffer.getString());
+        return getInternalErrorStatus("failed to allocate host buffer for TRT "
+                                      "engine IO shape tensor: {0}",
+                                      hostBuffer.getStatus());
       hostIOBuffers.push_back(*hostBuffer);
       assert(hostIOBuffers.back().ptr != 0 && hostIOBuffers.back().ptr > 0);
     }
@@ -503,7 +501,7 @@ static Status setTensorAddressesOrReport(
         return getInternalErrorStatus("failed to set input shape");
     }
 
-    MTRT_DBGF("Set tensor address [%d] = %lu", idx, ptr);
+    MTRT_DBG("Set tensor address [{0}] = {1}", idx, ptr);
     idx++;
   }
   return getOkStatus();
@@ -611,8 +609,8 @@ static Status enqueueV3Wrapper(AllocTracker &tracker,
   StatusOr<std::vector<std::tuple<std::string, uintptr_t, nvinfer1::Dims>>>
       buffers = prepareBuffers(tracker, context, stream, va);
   if (!buffers.isOk())
-    return getStatusWithMsg(StatusCode::InternalError,
-                            "failed to prepare buffers: ", buffers.getString());
+    return getInternalErrorStatus("failed to prepare buffers: {0}",
+                                  buffers.getStatus());
   MTRT_RETURN_IF_ERROR(setTensorAddressesOrReport(context, *buffers));
   // Create an event that we can wait on for releasing any host-pinned staging
   // allocations we made.
@@ -646,8 +644,8 @@ static Status enqueueAllocV3Wrapper(AllocTracker &tracker,
       buffers =
           prepareBuffers(tracker, context, stream, va, /*outputAsArg=*/false);
   if (!buffers.isOk())
-    return getStatusWithMsg(StatusCode::InternalError,
-                            "failed to prepare buffers: ", buffers.getString());
+    return getInternalErrorStatus("failed to prepare buffers: {0}",
+                                  buffers.getStatus());
 
   MTRT_RETURN_IF_ERROR(setTensorAddressesOrReport(context, *buffers));
 
@@ -794,16 +792,14 @@ static void registerExecutorTensorRTModuleLuaRuntimeMethods(
       };
 }
 
-namespace mlirtrt::runtime {
+namespace mtrt {
 void registerLuaTensorRTRuntimeExtension() {
   registerLuaRuntimeExtension(
       "tensorrt",
-      LuaRuntimeExtension{
-          [](const RuntimeSessionOptions &options, lua_State *state,
-             PinnedMemoryAllocator *pinnedMemoryAllocator,
-             AllocTracker *allocTracker, ResourceTracker *resourceTracker) {
-            registerExecutorTensorRTModuleLuaRuntimeMethods(
-                state, pinnedMemoryAllocator, allocTracker, resourceTracker);
-          }});
+      LuaRuntimeExtension{[](const LuaRuntimeExtensionInitArgs &args) {
+        registerExecutorTensorRTModuleLuaRuntimeMethods(
+            args.state, args.pinnedMemoryAllocator, args.allocTracker,
+            args.resourceTracker);
+      }});
 }
-} // namespace mlirtrt::runtime
+} // namespace mtrt

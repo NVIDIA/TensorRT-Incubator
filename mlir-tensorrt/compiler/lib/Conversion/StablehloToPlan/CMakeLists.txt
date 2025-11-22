@@ -5,9 +5,12 @@ add_mlir_tensorrt_library(MLIRTensorRTStablehloToPlan
   MLIRTensorRTConversionPassIncGen
 
   LINK_LIBS PUBLIC
-  MLIRPass
-  MLIRRewrite
-  MLIRTensorRTPlanDialect
-  MLIRTransformUtils
-  StablehloOps
+    MLIRTensorRTPlanDialect
+    StablehloOps
+    MLIRTensorRTExecutorDialect
+    MLIRTensorRTExecutorUtils
+  MLIR_LIBS PUBLIC
+    MLIRPass
+    MLIRRewrite
+    MLIRTransformUtils
 )

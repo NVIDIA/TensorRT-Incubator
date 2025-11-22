@@ -30,18 +30,17 @@
 
 struct MTRT_StatusImpl {
 public:
-  MTRT_StatusImpl(mlirtrt::StatusCode code, const char *msg)
-      : s(code, msg), msgStorage(s.getString()) {}
+  MTRT_StatusImpl(mtrt::StatusCode code, const char *msg)
+      : s(code, msg), msgStorage(s.getMessage()) {}
   const char *getMessage() { return msgStorage.c_str(); }
 
 private:
-  mlirtrt::Status s;
+  mtrt::Status s;
   std::string msgStorage;
 };
 
-static mlirtrt::StatusCode
-getStatusCodeFromMTRTStatusCode(MTRT_StatusCode code) {
-  return static_cast<mlirtrt::StatusCode>(code);
+static mtrt::StatusCode getStatusCodeFromMTRTStatusCode(MTRT_StatusCode code) {
+  return static_cast<mtrt::StatusCode>(code);
 }
 
 MTRT_Status mtrtStatusCreate(MTRT_StatusCode code, const char *msg) {

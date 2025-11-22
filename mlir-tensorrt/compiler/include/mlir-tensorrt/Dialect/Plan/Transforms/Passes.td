@@ -28,6 +28,42 @@ defvar InputKindOption = Option<"inputKind", "input-kind", "::mlir::plan::InputK
       "::mlir::plan::detail::createInputKindClOptions()">;
 
 //===----------------------------------------------------------------------===//
+// VerifyInputAndAssignSlotsPass
+//===----------------------------------------------------------------------===//
+
+def VerifyInputAndAssignSlotsPass : Pass<"plan-verify-input-and-assign-slots",
+                                         "::mlir::ModuleOp"> {
+  let description = [{
+    This pass verifies input IR pre-conditions and assigns slot numbers to
+    the arguments and results.
+  }];
+
+  let dependentDialects = [
+    "::mlir::plan::PlanDialect"
+  ];
+}
+
+//===----------------------------------------------------------------------===//
+// LegalizeIOBoundsAttributesPass
+//===----------------------------------------------------------------------===//
+
+def LegalizeIOBoundsAttributesPass : Pass<"plan-legalize-io-bounds-attributes",
+                                         "::mlir::ModuleOp"> {
+  let description = [{
+    This pass legalizes argument and result attributes that denote
+    shape and value bounds.
+
+    Some frontends use `tensorrt` dialect attributes for specifying the
+    shape/value bounds of arguments. For compatibility, this pass supports
+    converting them to `plan` dialect attributes.
+  }];
+
+  let dependentDialects = [
+    "::mlir::plan::PlanDialect"
+  ];
+}
+
+//===----------------------------------------------------------------------===//
 // MaterializeShapeCalculationsPass
 //===----------------------------------------------------------------------===//
 
@@ -220,7 +256,15 @@ def PlanCreateShapeFuncsPass : Pass<"plan-create-shape-funcs",
   }];
 
   let dependentDialects = [
-    "::mlir::plan::PlanDialect"
+    "::mlir::plan::PlanDialect",
+    "::mlir::executor::ExecutorDialect"
+  ];
+
+  let options = [
+    Option<"forceUndefOutputArgs", "force-undef-output-args", "bool", "false",
+      "force undef ABI attribute to all output arguments">,
+    Option<"abiVersion", "abi-version", "int", "1",
+      "the version of the ABI to use">,
   ];
 }
 
@@ -229,7 +273,7 @@ def PlanCreateShapeFuncsPass : Pass<"plan-create-shape-funcs",
 //===----------------------------------------------------------------------===//
 
 def PlanPopulateFunctionBoundsAttributesPass
-      : Pass<"plan-populate-func-bounds-attrs", "func::FuncOp"> {
+      : InterfacePass<"plan-populate-func-bounds-attrs", "FunctionOpInterface"> {
 
   let description = [{
     This pass populates function result attributes containing shape/value bounds
@@ -453,8 +497,8 @@ def PlanAssignMemorySpacesPass : Pass<"plan-assign-memory-spaces",
 // PlanOptimizeMemorySpacesPass
 //===----------------------------------------------------------------------===//
 
-def PlanOptimizeMemorySpacesPass : Pass<"plan-optimize-memory-spaces",
-                                    "::mlir::func::FuncOp"> {
+def PlanOptimizeMemorySpacesPass : InterfacePass<"plan-optimize-memory-spaces",
+                                    "::mlir::FunctionOpInterface"> {
   let summary = "optimizes memory spaces encodings to tensor types";
 
   let description = [{
@@ -484,7 +528,8 @@ def PlanOptimizeMemorySpacesPass : Pass<"plan-optimize-memory-spaces",
 //===----------------------------------------------------------------------===//
 
 def PlanPromoteHostTensorsToHostPinnedPass
-        : Pass<"plan-promote-host-tensors-to-host-pinned", "::mlir::func::FuncOp"> {
+        : InterfacePass<"plan-promote-host-tensors-to-host-pinned",
+                        "::mlir::FunctionOpInterface"> {
   let summary = "promotes host tensors to host pinned tensors";
 
   let description = [{

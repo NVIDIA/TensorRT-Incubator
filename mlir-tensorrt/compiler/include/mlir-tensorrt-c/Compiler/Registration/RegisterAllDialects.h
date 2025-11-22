@@ -37,9 +37,6 @@ mtrtCompilerRegisterDialects(MlirDialectRegistry registry);
 /// Register all the compiler passes used by MLIR-TensorRT.
 MLIR_CAPI_EXPORTED void mtrtCompilerRegisterPasses();
 
-/// Register all the compiler task types (pass manager types).
-MLIR_CAPI_EXPORTED void mtrtCompilerRegisterTasks();
-
 #ifdef __cplusplus
 }
 #endif

@@ -21,11 +21,20 @@
 /// Implementation of the `convert-stablehlo-to-plan` pass.
 ///
 //===----------------------------------------------------------------------===//
+#include "mlir-executor/Executor/IR/Executor.h"
+#include "mlir-executor/Executor/Utils/Utils.h"
 #include "mlir-tensorrt/Conversion/Passes.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Transforms/WalkPatternRewriteDriver.h"
 #include "stablehlo/dialect/StablehloOps.h"
+#include "llvm/ADT/StringExtras.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Support/FormatVariadic.h"
+
+#define DEBUG_TYPE "stablehlo-to-plan"
+#define DBGS() llvm::dbgs() << "[" DEBUG_TYPE "] "
 
 namespace mlir {
 #define GEN_PASS_DEF_CONVERTSTABLEHLOTOPLANPASS
@@ -43,7 +52,7 @@ static constexpr StringRef kStablehloDonationArgumentAttr =
 /// guaranteed.
 static LogicalResult checkAndUpdateFunction(func::FuncOp func) {
   FunctionType funcType = func.getFunctionType();
-  for (size_t i = 0; i < funcType.getNumInputs(); i++) {
+  for (unsigned i = 0; i < funcType.getNumInputs(); i++) {
     if (auto N = func.getArgAttrOfType<IntegerAttr>(
             i, kStablehloDonationArgumentAttr)) {
       if (N.getInt() >= funcType.getNumResults())
@@ -52,6 +61,144 @@ static LogicalResult checkAndUpdateFunction(func::FuncOp func) {
       func.removeArgAttr(i, kStablehloDonationArgumentAttr);
     }
   }
+  return success();
+}
+
+namespace {
+struct TVMFFIPluginConfig {
+  llvm::StringRef pluginName;
+  llvm::StringRef functionName;
+  llvm::SmallVector<llvm::StringRef> argSpec;
+  llvm::SmallVector<int32_t> ioAliasing;
+  FunctionType functionType;
+  DictionaryAttr immediateArgs;
+};
+} // namespace
+
+static std::optional<FailureOr<TVMFFIPluginConfig>>
+tryGetTVMFFICustomCallConfig(stablehlo::CustomCallOp op) {
+
+  static constexpr llvm::StringRef kMTRTFFIBackendAttrName = "mtrt_ffi_backend";
+  static constexpr llvm::StringRef kPluginAttrName = "plugin";
+  static constexpr llvm::StringRef kFuncAttrName = "func";
+  static constexpr llvm::StringRef kArgSpecAttrName = "arg_spec";
+  static constexpr llvm::StringRef kMhloBackendConfigAttrName =
+      "mhlo.backend_config";
+
+  auto config = op->getAttrOfType<DictionaryAttr>(kMhloBackendConfigAttrName);
+  if (!config) {
+    LLVM_DEBUG(DBGS() << "ignoring " << op << " because it has no "
+                      << kMhloBackendConfigAttrName << " attribute\n");
+    return std::nullopt;
+  }
+  auto ffiBackend = config.getAs<StringAttr>(kMTRTFFIBackendAttrName);
+  if (!ffiBackend) {
+    LLVM_DEBUG(DBGS() << "ignoring " << op << " because it has no attribute "
+                      << kMTRTFFIBackendAttrName << "\n");
+    return std::nullopt;
+  }
+
+  std::optional<executor::FFIBackend> ffiBackendEnum =
+      executor::symbolizeFFIBackend(ffiBackend.getValue());
+  if (!ffiBackendEnum || *ffiBackendEnum != executor::FFIBackend::tvm_ffi) {
+    return op->emitError("mtrt_ffi_backend attribute has an invalid value \"")
+           << ffiBackend.getValue() << "\"";
+  }
+
+  auto pluginName = config.getAs<StringAttr>(kPluginAttrName);
+  if (!pluginName)
+    return op->emitError("custom call config is missing ")
+           << kPluginAttrName << " attribute";
+  auto functionName = config.getAs<StringAttr>(kFuncAttrName);
+  if (!functionName)
+    return op->emitError("custom call config is missing ")
+           << kFuncAttrName << " attribute";
+  auto argSpec = config.getAs<StringAttr>(kArgSpecAttrName);
+  if (!argSpec)
+    return op->emitError("custom call config is missing ")
+           << kArgSpecAttrName << " attribute";
+
+  SmallVector<NamedAttribute> immediateArgs;
+  SmallVector<llvm::StringRef> argSpecComponents;
+  FailureOr<executor::abi::plugin::DecodeSpec> decodeSpec =
+      executor::abi::plugin::ParseArgSpec(
+          op, op->getNumOperands(), op->getNumResults(), argSpec.getValue(),
+          config, argSpecComponents, immediateArgs);
+  if (failed(decodeSpec))
+    return failure();
+
+  TVMFFIPluginConfig result;
+  result.pluginName = pluginName.getValue();
+  result.functionName = functionName.getValue();
+  result.argSpec = argSpecComponents;
+  result.immediateArgs = DictionaryAttr::get(op.getContext(), immediateArgs);
+
+  result.ioAliasing = llvm::SmallVector<int32_t>(op->getNumOperands(), -1);
+  if (auto aliasConfigArray = op.getOutputOperandAliases()) {
+    for (auto aliasConfig :
+         aliasConfigArray.getAsRange<stablehlo::OutputOperandAliasAttr>()) {
+      if (!aliasConfig.getOperandTupleIndices().empty())
+        return op->emitError("output operand alias with non-empty operand "
+                             "tuple indices is not supported");
+      if (aliasConfig.getOutputTupleIndices().size() != 1)
+        return op->emitError("output operand alias should contain a "
+                             "'output_tuple_indices' containing a single index "
+                             "into the results (tuple results are not "
+                             "supported currently for custom call operations)");
+      result.ioAliasing[aliasConfig.getOperandIndex()] =
+          aliasConfig.getOutputTupleIndices()[0];
+    }
+  }
+
+  return result;
+}
+
+/// Convert `stablehlo.custom_call` to `executor.call_plugin`.
+static LogicalResult replaceTVMFFICustomCall(RewriterBase &rewriter,
+                                             stablehlo::CustomCallOp op,
+                                             const TVMFFIPluginConfig &config) {
+  ModuleOp module = op->getParentOfType<ModuleOp>();
+  Location loc = op.getLoc();
+
+  FunctionType functionType = FunctionType::get(
+      op.getContext(), op->getOperandTypes(), op->getResultTypes());
+
+  std::string pluginName =
+      llvm::formatv("plugin_{0}", op.getCallTargetName()).str();
+  SmallString<16> uniquePluginName =
+      mlir::executor::getUniqueSymbolName(module, pluginName);
+
+  executor::PluginOp pluginOp = [&] {
+    OpBuilder::InsertionGuard g(rewriter);
+    rewriter.setInsertionPointToStart(module.getBody());
+    return rewriter.create<executor::PluginOp>(
+        loc, uniquePluginName, config.pluginName, config.functionName,
+        executor::FFIBackend::tvm_ffi, functionType, config.immediateArgs);
+  }();
+
+  SmallVector<Value> outputArguments(op->getResultTypes().size());
+  for (auto [inputIdx, outputIdx] : llvm::enumerate(config.ioAliasing)) {
+    if (outputIdx != -1)
+      outputArguments[outputIdx] = op.getInputs()[inputIdx];
+  }
+  for (auto [idx, resultType] : llvm::enumerate(op->getResultTypes())) {
+    if (outputArguments[idx])
+      continue;
+    auto tensorType = dyn_cast<RankedTensorType>(resultType);
+    if (!tensorType || !tensorType.hasStaticShape())
+      return op->emitError(
+                 "expected ranked tensor type with static shape for result ")
+             << idx << " but got " << resultType;
+    outputArguments[idx] =
+        rewriter.create<tensor::EmptyOp>(loc, tensorType, ValueRange{});
+  }
+
+  executor::CallPluginOp callOp = rewriter.create<executor::CallPluginOp>(
+      loc, pluginOp, /*stream=*/Value{}, op->getOperands(), outputArguments,
+      config.immediateArgs, config.argSpec, config.ioAliasing);
+
+  rewriter.replaceOp(op, callOp);
+
   return success();
 }
 
@@ -91,9 +238,26 @@ struct ConvertStablehloToPlanPass
   }
 
   void runOnOperation() override {
-    if (failed(checkAndUpdateFunction(getOperation())))
-      return signalPassFailure();
-    walkAndApplyPatterns(getOperation(), *patterns);
+    IRRewriter rewriter(getOperation()->getContext());
+    for (auto func : getOperation().getOps<func::FuncOp>()) {
+      if (failed(checkAndUpdateFunction(func)))
+        return signalPassFailure();
+      walkAndApplyPatterns(func, *patterns);
+
+      auto walkResult =
+          func.walk<WalkOrder::PostOrder>([&](stablehlo::CustomCallOp op) {
+            if (auto config = tryGetTVMFFICustomCallConfig(op)) {
+              if (failed(*config))
+                return WalkResult::interrupt();
+              rewriter.setInsertionPoint(op);
+              if (failed(replaceTVMFFICustomCall(rewriter, op, **config)))
+                return WalkResult::interrupt();
+            }
+            return WalkResult::advance();
+          });
+      if (walkResult.wasInterrupted())
+        return signalPassFailure();
+    }
   }
 };
 } // namespace

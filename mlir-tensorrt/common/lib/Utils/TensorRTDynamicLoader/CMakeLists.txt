@@ -1,8 +1,7 @@
-add_mlir_tensorrt_library(MLIRTRTTensorRTDynamicLoader
+add_mlir_tensorrt_library(TensorRTDynamicLoader
   TensorRTDynamicLoader.cpp
 
-  LINK_LIBS PRIVATE
-  CUDA::cudart
+  LINK_LIBS PUBLIC
   TensorRTHeaderOnly
-  MLIRSupport
-)
+  ${MLIR_TRT_CUDA_TARGET}
+  )

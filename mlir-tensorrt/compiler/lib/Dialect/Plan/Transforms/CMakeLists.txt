@@ -7,6 +7,7 @@ add_mlir_tensorrt_library(MLIRTensorRTPlanTransforms
   CreateClosedRegions.cpp
   CreateShapeFuncs.cpp
   EliminateShapeOps.cpp
+  LegalizeIOBoundsAttributes.cpp
   MaterializeExplicitTransfers.cpp
   MaterializeShapeCalculations.cpp
   MaterializeShapeCalculationsStablehlo.cpp
@@ -23,37 +24,39 @@ add_mlir_tensorrt_library(MLIRTensorRTPlanTransforms
   PostClusteringValidation.cpp
   PromoteHostTensorsToHostPinned.cpp
   RefineTypes.cpp
+  VerifyInputAndAssignSlots.cpp
 
   DEPENDS
   MLIRTensorRTPlanTransformsPassIncGen
 
   LINK_LIBS PUBLIC
-
-  MLIRBufferizationDialect
-  MLIRBufferizationPipelines
-  MLIRBufferizationToMemRef
-  MLIRBufferizationTransforms
-  MLIRExecutorGenericClustering
-  MLIRFuncTransforms
-  MLIRIR
-  MLIRLinalgDialect
-  MLIRPass
-  MLIRSCFDialect
-  MLIRTensorDialect
-  MLIRTensorRTAnalysis
-  MLIRTensorRTBufferizationScopeInterface
-  MLIRTensorRTCUDADialect
-  MLIRTensorRTTensorRTDialect
-  MLIRTensorRTDuplicateFunctionElimination
-  MLIRTensorRTExecutorDialect
-  MLIRTensorRTLowerLinalgCopies
-  MLIRTensorRTMemRefCastElimination
-  MLIRTensorRTPlanAnalysis
-  MLIRTensorRTPlanDialect
-  MLIRTensorRTRegionUtils
-  MLIRTensorRTStableHloExtTransforms
-  MLIRTensorRTStablehloToTensorRT
-  MLIRTensorRTTensorRTRuntimeDialect
-  MLIRTransforms
-  StablehloOps
+    MLIRExecutorGenericClustering
+    MLIRTensorRTAnalysis
+    MLIRTensorRTBufferizationScopeInterface
+    MLIRTensorRTCUDADialect
+    MLIRTensorRTTensorRTDialect
+    MLIRTensorRTDuplicateFunctionElimination
+    MLIRTensorRTExecutorDialect
+    MLIRTensorRTExecutorTransforms
+    MLIRTensorRTLowerLinalgCopies
+    MLIRTensorRTMemRefCastElimination
+    MLIRTensorRTPlanAnalysis
+    MLIRTensorRTPlanDialect
+    MLIRTensorRTRegionUtils
+    MLIRTensorRTStableHloExtTransforms
+    MLIRTensorRTStablehloToTensorRT
+    MLIRTensorRTTensorRTRuntimeDialect
+    StablehloOps
+  MLIR_LIBS PUBLIC
+    MLIRBufferizationDialect
+    MLIRBufferizationPipelines
+    MLIRBufferizationToMemRef
+    MLIRBufferizationTransforms
+    MLIRFuncTransforms
+    MLIRIR
+    MLIRLinalgDialect
+    MLIRPass
+    MLIRSCFDialect
+    MLIRTensorDialect
+    MLIRTransforms
 )

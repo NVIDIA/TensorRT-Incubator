@@ -1681,7 +1681,7 @@ func.func @trt_quantize_shape_mismatch(%arg0: tensor<10x10xf32>, %arg1: tensor<f
 // -----
 
 func.func @trt_quantize_i4(%arg0: tensor<10x10xf32>, %arg1: tensor<2x10xf32>) -> tensor<10x10xi8> {
-  // expected-error @below {{'tensorrt.quantize' op Block quantization is supported only for f4 or i4 output types.}}
+  // expected-error @below {{'tensorrt.quantize' op Block quantization is supported only for int4, fp4 or fp8 output types.}}
   %result = tensorrt.quantize in(%arg0 : tensor<10x10xf32>) scale(%arg1 : tensor<2x10xf32>) -> tensor<10x10xi8>
   return %result : tensor<10x10xi8>
 }

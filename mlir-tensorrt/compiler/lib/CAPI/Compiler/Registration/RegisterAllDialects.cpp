@@ -1,6 +1,6 @@
 //===- Registration.cpp  --------------------------------------------------===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -23,23 +23,16 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir-tensorrt-c/Compiler/Registration/RegisterAllDialects.h"
+#include "mlir-tensorrt/Compiler/InitAllDialects.h"
+#include "mlir-tensorrt/Compiler/InitAllPasses.h"
 #include "mlir-tensorrt/Compiler/StablehloToExecutable/StablehloToExecutable.h"
 #include "mlir-tensorrt/Compiler/TensorRTToExecutable/TensorRTToExecutable.h"
 #include "mlir-tensorrt/Features.h"
-#include "mlir-tensorrt/InitAllDialects.h"
-#include "mlir-tensorrt/InitAllExtensions.h"
-#include "mlir-tensorrt/InitAllPasses.h"
-
 #include "mlir/CAPI/IR.h"
 
 void mtrtCompilerRegisterDialects(MlirDialectRegistry registry) {
-  mlirtrt::compiler::registerAllDialects(*unwrap(registry));
-  mlirtrt::compiler::registerAllExtensions(*unwrap(registry));
+  mtrt::compiler::registerAllDialects(*unwrap(registry));
+  mtrt::compiler::registerAllExtensions(*unwrap(registry));
 }
 
-void mtrtCompilerRegisterPasses() { mlirtrt::compiler::registerAllPasses(); }
-
-void mtrtCompilerRegisterTasks() {
-  mlirtrt::compiler::registerStableHloToExecutableTask();
-  mlirtrt::compiler::registerTensorRTToExecutableTask();
-}
+void mtrtCompilerRegisterPasses() { mtrt::compiler::registerAllPasses(); }

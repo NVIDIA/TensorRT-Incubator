@@ -37,8 +37,8 @@
 #endif // defined(__clang__) || defined(__GNUC__)
 #endif // MLIR_TRT_ENABLE_MPI
 
-using namespace mlirtrt;
-using namespace mlirtrt::runtime;
+using namespace mtrt;
+using namespace mtrt;
 
 #ifdef MLIR_TRT_ENABLE_MPI
 
@@ -71,7 +71,7 @@ MPIManager::~MPIManager() {
   int status = MPI_Finalize();
   if (status != MPI_SUCCESS) {
     Status result = getMPIErrorStatus("MPI_Finalize failed", status);
-    llvm::errs() << result.getString() << "\n";
+    llvm::errs() << result.getStatus().getMessage() << "\n";
   }
 }
 

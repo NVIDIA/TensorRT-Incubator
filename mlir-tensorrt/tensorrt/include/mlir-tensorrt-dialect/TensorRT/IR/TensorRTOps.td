@@ -2159,6 +2159,9 @@ def TensorRT_TopKOp : TensorRT_Op<"top_k",
   let extraClassDeclaration = [{
     /// Returns true if created op is valid for TensorRT major version.
     bool isValidForTensorRTVersion(int64_t trtMajorVersion);
+
+    /// TensorRT supports topk with k <= 3840.
+    static constexpr int64_t kMaxK = 3840;
   }] # baseClassDeclaration;
   let trtLayerAdd = [{
     ::nvinfer1::ITopKLayer *layer = $net->addTopK(

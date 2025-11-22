@@ -21,21 +21,12 @@
 /// Entrypoint for the 'mlir-tensorrt-compiler' tool.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-executor/Target/Lua/TranslateToRuntimeExecutable.h"
-#include "mlir-tensorrt-dialect/Target/Passes.h"
 #include "mlir-tensorrt/Compiler/Client.h"
-#include "mlir-tensorrt/Compiler/OptionsProviders.h"
-#include "mlir-tensorrt/Compiler/StablehloToExecutable/StablehloToExecutable.h"
-#include "mlir-tensorrt/Compiler/StablehloToExecutable/TensorRTExtension.h"
-#include "mlir-tensorrt/Compiler/TensorRTToExecutable/TensorRTToExecutable.h"
-#include "mlir-tensorrt/Features.h"
-#include "mlir-tensorrt/InitAllDialects.h"
-#include "mlir-tensorrt/InitAllExtensions.h"
+#include "mlir-tensorrt/Compiler/InitAllDialects.h"
 #include "mlir/Debug/Counter.h"
 #include "mlir/IR/AsmState.h"
 #include "mlir/Parser/Parser.h"
 #include "mlir/Support/FileUtilities.h"
-#include "mlir/Target/Cpp/CppEmitter.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
@@ -50,8 +41,8 @@
 
 using namespace mlir;
 using namespace llvm;
-using namespace mlirtrt;
-using namespace mlirtrt::compiler;
+using namespace mtrt;
+using namespace mtrt::compiler;
 
 static cl::OptionCategory OptCat{"MLIR-TensorRT Options"};
 
@@ -124,16 +115,16 @@ static bool outputIsFile(StringRef path) {
 static LogicalResult runCompilation(CompilerClient &client, StringRef taskName,
                                     mlir::ModuleOp module,
                                     llvm::StringRef pipelineOptions) {
-  std::optional<llvm::StringRef> artifactsDirectoryOverride =
-      !outputIsFile(outputPath) ? std::optional<llvm::StringRef>(outputPath)
-                                : std::nullopt;
+  llvm::StringRef artifactsDirectoryOverride =
+      !outputIsFile(outputPath) ? llvm::StringRef(outputPath)
+                                : llvm::sys::path::parent_path(outputPath);
   std::optional<llvm::StringRef> outputExtensionOverride =
       outputMLIR ? std::optional<llvm::StringRef>(".mlir") : std::nullopt;
 
   StatusOr<CompilationTaskBase *> task = client.getCompilationTask(
       taskName, {pipelineOptions}, artifactsDirectoryOverride);
   if (!task.isOk()) {
-    llvm::errs() << task.getString() << "\n";
+    llvm::errs() << task.getStatus() << "\n";
     return failure();
   }
 
@@ -170,30 +161,27 @@ int main(int argc, char **argv) {
       "MLIR-TensorRT Compiler\nAvailable compilation tasks: ";
   {
     llvm::raw_string_ostream os(helpHeader);
-    llvm::interleaveComma(
-        llvm::ArrayRef<llvm::StringRef>{"stablehlo-to-executable",
-                                        "tensorrt-to-executable"},
-        os);
+    llvm::SmallVector<llvm::StringRef> tasks = {"stablehlo-to-executable",
+                                                "tensorrt-to-executable"};
+    llvm::interleaveComma(tasks, os);
   }
 
   cl::ParseCommandLineOptions(argc, argv, helpHeader);
 
-  mlirtrt::compiler::registerStableHloToExecutableTask();
-  mlirtrt::compiler::registerTensorRTToExecutableTask();
+  std::string taskName = llvm::StringSwitch<std::string>(inputKind)
+                             .CaseLower("tensorrt", "tensorrt-to-executable")
+                             .CaseLower("stablehlo", "stablehlo-to-executable")
+                             .Default("stablehlo-to-executable");
 
   mlir::MLIRContext context;
   mlir::DialectRegistry registry;
-  mlirtrt::compiler::registerAllDialects(registry);
-  mlirtrt::compiler::registerAllExtensions(registry);
-  mlirtrt::compiler::registerTensorRTExtension(registry);
+  mtrt::compiler::registerAllDialects(registry);
+  mtrt::compiler::registerAllExtensions(registry);
 
   context.appendDialectRegistry(registry);
 
-  IF_MLIR_TRT_TARGET_TENSORRT(
-      { mlir::tensorrt::registerTensorRTTranslationPasses(); });
-
   if (pipelineHelp) {
-    printCompilationTaskHelpInfo(&context, "stablehlo-to-executable");
+    printCompilationTaskHelpInfo(&context, taskName);
     exit(0);
   }
 
@@ -203,18 +191,14 @@ int main(int argc, char **argv) {
   mlir::SourceMgrDiagnosticHandler sourceMgrHandler(sourceMgr, &context);
   parseInputMLIR(sourceMgr, context, module);
 
-  StatusOr<std::unique_ptr<mlirtrt::compiler::CompilerClient>> client =
-      mlirtrt::compiler::CompilerClient::create(&context);
+  StatusOr<std::unique_ptr<mtrt::compiler::CompilerClient>> client =
+      mtrt::compiler::CompilerClient::create(&context);
   if (!client.isOk()) {
     llvm::errs() << "[error] failed to create compiler client: "
-                 << client.getString() << "\n";
+                 << client.getStatus() << "\n";
     return 1;
   }
 
-  std::string taskName = llvm::StringSwitch<std::string>(inputKind)
-                             .CaseLower("tensorrt", "tensorrt-to-executable")
-                             .CaseLower("stablehlo", "stablehlo-to-executable")
-                             .Default("stablehlo-to-executable");
   return succeeded(runCompilation(**client, taskName, *module, pipelineOptions))
              ? EXIT_SUCCESS
              : EXIT_FAILURE;

@@ -41,6 +41,18 @@
 #include "mlir-tensorrt/Dialect/CUDA/IR/CUDAOpsDialect.h.inc"
 
 //===----------------------------------------------------------------------===//
+// CUDA Dialect Enums
+//===----------------------------------------------------------------------===//
+#include "mlir-tensorrt/Dialect/CUDA/IR/CUDAEnums.h.inc"
+
+//===----------------------------------------------------------------------===//
+// CUDA Dialect Attributes
+//===----------------------------------------------------------------------===//
+#define GET_ATTRDEF_CLASSES
+#include "mlir-tensorrt/Dialect/CUDA/IR/CUDAAttributes.h.inc"
+#undef GET_ATTRDEF_CLASSES
+
+//===----------------------------------------------------------------------===//
 // CUDA Dialect Types
 //===----------------------------------------------------------------------===//
 #define GET_TYPEDEF_CLASSES

@@ -1,12 +1,6 @@
-add_mlir_tool(mlir-tensorrt-translate
-  mlir-tensorrt-translate.cpp
-  PARTIAL_SOURCES_INTENDED
-  )
-
-target_link_libraries(mlir-tensorrt-translate PRIVATE
-  MLIRTranslateLib
-  MLIRTargetCpp
+mtrt_add_tool(mlir-tensorrt-translate mlir-tensorrt-translate.cpp
+  LINK_LIBS PRIVATE
   ${MLIR_TENSORRT_LIBS}
+  MLIR_LIBS PRIVATE
+  MLIRTranslateLib
   )
-llvm_update_compile_flags(mlir-tensorrt-translate)
-mlir_check_link_libraries(mlir-tensorrt-translate)

@@ -39,7 +39,7 @@
 #include "llvm/Support/ToolOutputFile.h"
 #include <memory>
 
-namespace mlirtrt::compiler {
+namespace mtrt::compiler {
 
 //===----------------------------------------------------------------------===//
 // CompilationTask
@@ -310,6 +310,6 @@ void registerCompilationTaskWithNoExtensions(llvm::StringRef mnemonic) {
       });
 }
 
-} // namespace mlirtrt::compiler
+} // namespace mtrt::compiler
 
 #endif // MLIR_TENSORRT_COMPILER_CLIENT

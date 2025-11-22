@@ -43,7 +43,7 @@ class Test:
             self.exe = compiler.translate_mlir_to_executable(m.operation)
 
         self.client = runtime.RuntimeClient()
-        self.stream = self.client.create_stream()
+        self.stream = self.client.get_devices()[0].stream
         self.devices = self.client.get_devices()
         self.session_options = runtime.RuntimeSessionOptions(num_devices=1, device_id=0)
 
@@ -73,7 +73,7 @@ class Test:
         return self.client.create_scalar(value, runtime.ScalarTypeCode.i64)
 
     def execute(self, arg: runtime.RuntimeValue, no_out_args: bool = False):
-        session = runtime.RuntimeSession(self.session_options, self.exe)
+        session = runtime.RuntimeSession(self.client, self.session_options, self.exe)
         try:
             session.execute_function(
                 "main",
@@ -81,7 +81,7 @@ class Test:
                 out_args=[] if no_out_args else [arg],
                 stream=self.stream,
             )
-            print("Test passed succesfully")
+            print("Test passed successfully")
         except runtime.MTRTException as e:
             print(f"MTRTException: {e}")
 
@@ -108,17 +108,17 @@ if __name__ == "__main__":
     t.execute(t.create_memref((5, 0, 4), np.float32))
 
 # CHECK-LABEL: TEST: runtime shape mismatch
-#       CHECK: MTRTException: InvalidArgument: InvalidArgument: Input argument 0 validation failed against corresponding function signature arg 0. Reason: InvalidArgument: Runtime shape mismatch. Expected [-9223372036854775808, 3, 4] but received [5, 4, 2]
+#       CHECK: MTRTException: Input argument 0 validation failed: Runtime shape mismatch. Expected [?, 3, 4] but received [5, 4, 2]
 # CHECK-LABEL: TEST: runtime rank mismatch
-#       CHECK: MTRTException: InvalidArgument: InvalidArgument: Input argument 0 validation failed against corresponding function signature arg 0. Reason: InvalidArgument: function expects a memref type with rank 3 but receieved 2
+#       CHECK: MTRTException: Input argument 0 validation failed: function expects a memref type with rank 3 but received 2
 # CHECK-LABEL: TEST: runtime memref element type mismatch
-#       CHECK: MTRTException: InvalidArgument: InvalidArgument: Input argument 0 validation failed against corresponding function signature arg 0. Reason: InvalidArgument: function expects a memref type with element type f32 but receieved i32
+#       CHECK: MTRTException: Input argument 0 validation failed: function expects a memref type with element type f32 but received i32
 # CHECK-LABEL: TEST: unit stride dimension
 #       CHECK: Memref stride: [1, 4, 1]
-#       CHECK: Test passed succesfully
+#       CHECK: Test passed successfully
 # CHECK-LABEL: TEST: runtime memref address space mismatch
-#       CHECK: MTRTException: InvalidArgument: InvalidArgument: Input argument 0 validation failed against corresponding function signature arg 0. Reason: InvalidArgument: function expects a memref type with address space device but receieved host
+#       CHECK: MTRTException: Input argument 0 validation failed: function expects a memref type with address space device but received host
 # CHECK-LABEL: TEST: runtime type mismatch
-#       CHECK: MTRTException: InvalidArgument: InvalidArgument: Input argument 0 validation failed against corresponding function signature arg 0. Reason: InvalidArgument: function expects a scalar type with element type f32 but receieved i64
+#       CHECK: MTRTException: Input argument 0 validation failed: function expects a scalar type with element type f32 but received i64
 # CHECK-LABEL: TEST: empty tensor validation
-#       CHECK: Test passed succesfully
+#       CHECK: Test passed successfully

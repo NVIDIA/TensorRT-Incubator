@@ -24,6 +24,7 @@
 #ifndef MLIR_TENSORRT_TARGET_LUA_TRANSLATETOLUA_H
 #define MLIR_TENSORRT_TARGET_LUA_TRANSLATETOLUA_H
 
+#include "mlir-executor/Target/SlotAssignment/SlotAssignment.h"
 #include "mlir/IR/Operation.h"
 #include "mlir/Support/LLVM.h"
 #include "mlir/Support/LogicalResult.h"
@@ -31,7 +32,8 @@
 namespace mlir {
 
 /// Translate the given op to Lua script and print the script to `os`.
-LogicalResult translateToLua(Operation *op, raw_ostream &os);
+LogicalResult translateToLua(Operation *op, raw_ostream &os,
+                             SlotAssignmentManager::Options options = {});
 
 /// Register the `-mlir-to-lua` translation in MLIR translation registry.
 void registerToLuaTranslation();

@@ -83,11 +83,17 @@ try:
         if trt_version_major == 9:
             config.available_features.add("tensorrt-version-eq-9")
         if trt_version_major >= 10:
-            config.available_features.add("tensorrt-version-ge-10.0")
-        if trt_version_major >= 10 and trt_version_minor >= 9:
-            config.available_features.add("tensorrt-version-ge-10.9")
+            for minor in range(0, 16):
+                if trt_version_minor >= minor:
+                    config.available_features.add(f"tensorrt-version-ge-10.{minor}")
 except Exception as e:
     print(
         f"In {__file__}, 'config.target_tensorrt' is true, but an error was "
         f"encountered when detecting the TensorRT version: {e}"
     )
+
+if config.enable_assertions:
+    config.available_features.add("asserts")
+    config.available_features.add("debug-print")
+else:
+    config.available_features.add("noasserts")

@@ -23,12 +23,12 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-executor/Runtime/API/API.h"
 #include "mlir-executor/Runtime/Backend/Common/CUDACommon.h"
-#include "mlir-executor/Runtime/Backend/Common/CommonRuntime.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaErrorHandling.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaExtensionRegistry.h"
-#include "mlir-executor/Runtime/Backend/Lua/Modules/Utils/MemRefUtils.h"
 #include "mlir-executor/Runtime/Backend/Lua/SolAdaptor.h"
 #include "mlir-executor/Runtime/Backend/Utils/NvtxUtils.h"
+#include "mlir-executor/Runtime/Support/Support.h"
+#include "mlir-tensorrt-common/Support/Status.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/Support/ErrorHandling.h"
 
@@ -42,8 +42,8 @@
 #pragma GCC diagnostic pop
 #endif
 
-using namespace mlirtrt::runtime;
-using namespace mlirtrt;
+using namespace mtrt;
+using namespace mtrt;
 
 #define SET_LUA_ERROR_IF_CUBLAS_ERROR(x, lstate, msg)                          \
   do {                                                                         \
@@ -98,18 +98,18 @@ struct CublasLtHandle : public PointerWrapper<cublasLtHandle_t> {
 //===----------------------------------------------------------------------===//
 
 static std::tuple<cublasComputeType_t, cudaDataType_t>
-getCublasComputeAndDataType(impl::ScalarTypeCode scalarType) {
+getCublasComputeAndDataType(mtrt::ScalarTypeCode scalarType) {
   switch (scalarType) {
-  case (impl::ScalarTypeCode::f16):
+  case (mtrt::ScalarTypeCode::f16):
     return std::make_tuple(cublasComputeType_t::CUBLAS_COMPUTE_16F,
                            cudaDataType_t::CUDA_R_16F);
-  case (impl::ScalarTypeCode::f32):
+  case (mtrt::ScalarTypeCode::f32):
     return std::make_tuple(cublasComputeType_t::CUBLAS_COMPUTE_32F,
                            cudaDataType_t::CUDA_R_32F);
-  case (impl::ScalarTypeCode::f64):
+  case (mtrt::ScalarTypeCode::f64):
     return std::make_tuple(cublasComputeType_t::CUBLAS_COMPUTE_64F,
                            cudaDataType_t::CUDA_R_64F);
-  case (impl::ScalarTypeCode::i32):
+  case (mtrt::ScalarTypeCode::i32):
     return std::make_tuple(cublasComputeType_t::CUBLAS_COMPUTE_32I,
                            cudaDataType_t::CUDA_R_32I);
   default:
@@ -145,8 +145,8 @@ public:
   static StatusOr<std::unique_ptr<AlgoSelectResult>>
   get(CublasLtHandle handle, llvm::ArrayRef<int64_t> algoSelectorArgs) {
     auto r = std::make_unique<AlgoSelectResult>();
-    r->prepare(algoSelectorArgs);
-    r->selectAlgo(handle);
+    MTRT_RETURN_IF_ERROR(r->prepare(algoSelectorArgs));
+    MTRT_RETURN_IF_ERROR(r->selectAlgo(handle));
     return r;
   };
   cublasLtMatmulPreference_t &getMatmulPreference() { return preference; }
@@ -189,13 +189,13 @@ public:
   }
 
 private:
-  StatusOr<bool> prepare(llvm::ArrayRef<int64_t> algoSelectorArgs) {
+  Status prepare(llvm::ArrayRef<int64_t> algoSelectorArgs) {
     assert(algoSelectorArgs.size() == 19 &&
            "expected 19 arguments to cuBLAS algorithm selection");
     MTRT_DBGF("%s", "[cuBLAS] preparing for matmul and algorithm selection");
     // First element of the argument tells about data type
     std::tuple computeAndDataType = getCublasComputeAndDataType(
-        static_cast<impl::ScalarTypeCode>(algoSelectorArgs[0]));
+        static_cast<mtrt::ScalarTypeCode>(algoSelectorArgs[0]));
     MTRT_DBGF("cublas type: %d, cuda type: %d", std::get<0>(computeAndDataType),
               std::get<1>(computeAndDataType));
     int32_t batchSize = algoSelectorArgs[1];
@@ -313,14 +313,14 @@ private:
       targetTileSizes = std::make_unique<std::pair<int, int>>(
           std::make_pair<int, int>(algoSelectorArgs[17], algoSelectorArgs[18]));
 
-    return true;
+    return getOkStatus();
   }
 
   // MxN tile size parameter
   // change the requestedAlgoCount to get all possible values
   // go through the result to get the closest
-  StatusOr<bool> selectAlgo(CublasLtHandle handle,
-                            std::pair<int, int> targetTileSizes) {
+  Status selectAlgo(CublasLtHandle handle,
+                    std::pair<int, int> targetTileSizes) {
     int returnedResults = 0;
     const int requestedAlgoCount = 32;
     cublasLtMatmulHeuristicResult_t heuristicResult[requestedAlgoCount] = {};
@@ -394,10 +394,10 @@ private:
               closestAlgoId);
     algo = heuristicResult[closestAlgoId];
 
-    return true;
+    return getOkStatus();
   }
 
-  StatusOr<bool> selectAlgo(CublasLtHandle handle) {
+  Status selectAlgo(CublasLtHandle handle) {
     // use restricted tile sizes if possible
     if (targetTileSizes)
       return selectAlgo(handle, *targetTileSizes);
@@ -417,7 +417,7 @@ private:
     }
     MTRT_DBGF("[cuBLAS] selected %d matmul algorithm heuristically",
               returnedResults);
-    return true;
+    return getOkStatus();
   }
 
   cublasLtMatmulHeuristicResult_t algo;
@@ -578,17 +578,14 @@ static void registerExecutorCuBLASModuleLuaRuntimeMethods(
       };
 }
 
-namespace mlirtrt::runtime {
+namespace mtrt {
 void registerLuaCublasRuntimeExtension() {
   registerLuaRuntimeExtension(
       "cublas",
-      LuaRuntimeExtension{
-          [](const RuntimeSessionOptions &options, lua_State *state,
-             PinnedMemoryAllocator *pinnedMemoryAllocator,
-             AllocTracker *allocTracker, ResourceTracker *resourceTracker) {
-            registerExecutorCuBLASModuleLuaRuntimeMethods(state, allocTracker,
-                                                          resourceTracker);
-          }});
+      LuaRuntimeExtension{[](const LuaRuntimeExtensionInitArgs &args) {
+        registerExecutorCuBLASModuleLuaRuntimeMethods(
+            args.state, args.allocTracker, args.resourceTracker);
+      }});
 }
 
-} // namespace mlirtrt::runtime
+} // namespace mtrt

@@ -125,3 +125,28 @@ func.func @fill_device_f32_2d(%arg0: !memref_type, %arg1: !scalar_type) {
 //       CHECK:     %[[v6:.+]] = executor.bitcast %[[arg1]] : f32 to i32
 //       CHECK:     executor.call @__cuda_memset_32(%[[v1]], %[[c0_i64]], %[[v5]], %[[v6]])
 //       CHECK:     return
+
+// -----
+
+func.func @test_generic_fill_simple(%arg0: memref<f32, #executor.memory_type<device>>) {
+  %cst = arith.constant 3.0 : f32
+  linalg.generic {
+    indexing_maps = [affine_map<() -> ()>],
+    iterator_types = []
+  } outs(%arg0 : memref<f32, #executor.memory_type<device>>) {
+  ^bb0(%out: f32):
+    linalg.yield %cst : f32
+  }
+  return
+}
+
+// CHECK-LABEL: func.func @test_generic_fill_simple
+//  CHECK-SAME: (%[[arg0:.+]]: memref<f32, #executor.memory_type<device>>)
+//       CHECK:     %[[c0_i64:.+]] = executor.constant 0 : i64
+//       CHECK:     %[[cst:.+]] = arith.constant 3.000000e+00 : f32
+//       CHECK:     %[[v0:.+]] = builtin.unrealized_conversion_cast %[[arg0]]
+//       CHECK:     %[[v1:.+]] = executor.table.get %[[v0]][1]
+//       CHECK:     %[[v2:.+]] = executor.getoffset[1] : () -> i64, f32
+//       CHECK:     %[[v3:.+]] = executor.bitcast %[[cst]] : f32 to i32
+//       CHECK:     executor.call @__cuda_memset_32(%[[v1]], %[[c0_i64]], %[[v2]], %[[v3]])
+//       CHECK:     return

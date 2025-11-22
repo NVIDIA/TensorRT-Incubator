@@ -1,3 +1,18 @@
+[project]
+name = "mlir_tensorrt_compiler"
+description = "The MLIR-TensorRT compiler."
+readme = "README.md"
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: POSIX :: Linux",
+    "Private :: Do Not Upload",
+]
+dependencies = [
+    "apache-tvm-ffi>=0.1.0,<0.2.0"
+]
+dynamic = ["version"]
+
 [build-system]
 requires = [
     "setuptools>=61.0",
@@ -10,7 +25,8 @@ requires = [
     "pybind11>=2.8.0, <=2.13.6",
     "nanobind>=2.4, <3.0",
     "PyYAML>= 5.4.1, <=6.0.1",
-    "ml_dtypes<=0.6.0"
+    "ml_dtypes<=0.6.0",
+    "apache-tvm-ffi>=0.1.0,<0.2.0"
 ]
 build-backend = "setuptools.build_meta"
 
@@ -22,21 +38,3 @@ where = ["."]
 
 [tool.setuptools.package-data]
 "mlir_tensorrt.compiler._mlir_libs" = ["*.so"]
-
-[project]
-name = "mlir_tensorrt_compiler"
-description = "The MLIR-TensorRT compiler."
-readme = "README.md"
-requires-python = ">=3.9"
-classifiers = [
-    "Programming Language :: Python :: 3",
-    "Operating System :: POSIX :: Linux",
-    "Private :: Do Not Upload",
-]
-dependencies = [
-    "numpy>=1.25.0, <=1.26",
-    "pybind11>=2.8.0, <=2.10.3",
-    "PyYAML>= 5.3.1, <=6.0.1",
-    "dataclasses>=0.6, <=0.8",
-]
-dynamic = ["version"]

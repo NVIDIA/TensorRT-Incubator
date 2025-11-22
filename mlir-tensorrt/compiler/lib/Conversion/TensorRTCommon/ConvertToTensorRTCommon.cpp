@@ -98,8 +98,9 @@ bool TensorRTTypeConverter::isLegalTensorType(TensorType type) {
   if (isTensorRTInt8Type(elType))
     return true;
   return elType.isF16() || elType.isF32() || elType.isSignlessInteger(32) ||
-         elType.isSignlessInteger(1) || isa<Float8E4M3FNType>(elType) ||
-         elType.isBF16() || elType.isInteger(4) || elType.isSignlessInteger(64);
+         elType.isSignlessInteger(1) || elType.isBF16() ||
+         elType.isInteger(4) || elType.isSignlessInteger(64) ||
+         isa<Float8E4M3FNType>(elType) || isa<Float4E2M1FNType>(elType);
 }
 
 std::optional<Type> TensorRTTypeConverter::convertTensorType(TensorType type) {

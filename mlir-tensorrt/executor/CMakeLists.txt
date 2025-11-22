@@ -3,7 +3,6 @@ include(cmake/ExecutorFunctions.cmake)
 find_package(NVTX REQUIRED)
 find_package(Lua REQUIRED)
 find_package(Sol2 REQUIRED)
-find_package(DLPack REQUIRED)
 find_package(Flatbuffers REQUIRED)
 
 if(MLIR_TRT_ENABLE_CUDA)
@@ -12,12 +11,8 @@ endif()
 
 # Check that the MLIRTensorRTCommon project provided the required targets
 # when TensorRT is enabled.
-if(MLIR_TRT_TARGET_TENSORRT AND NOT TARGET MLIRTRTTensorRTDynamicLoader)
-  message(FATAL_ERROR "MLIR_TRT_TARGET_TENSORRT=ON but the MLIRTRTTensorRTDynamicLoader library was not found")
-endif()
-
-if(MLIR_TRT_ENABLE_MPI)
-  find_package(MPI COMPONENTS C)
+if(MLIR_TRT_TARGET_TENSORRT AND NOT TARGET TensorRTDynamicLoader)
+  message(FATAL_ERROR "MLIR_TRT_TARGET_TENSORRT=ON but the TensorRTDynamicLoader library was not found")
 endif()
 
 if(MLIR_TRT_ENABLE_NCCL)
@@ -39,6 +34,7 @@ target_include_directories(MLIRExecutorIncludes INTERFACE
   "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
   "$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>"
 )
+mtrt_add_install(MLIRExecutorIncludes UMBRELLA mtrt-headers)
 
 set(MLIR_EXECUTOR_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 set(MLIR_EXECUTOR_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR})
@@ -54,5 +50,13 @@ mtrt_get_project_targets(MLIRExecutor OUT_VAR MLIR_EXECUTOR_LIBS)
 add_library(MLIRTensorRTExecutorLibraries INTERFACE)
 target_link_libraries(MLIRTensorRTExecutorLibraries INTERFACE
   ${MLIR_EXECUTOR_LIBS})
+mtrt_add_install(MLIRTensorRTExecutorLibraries UMBRELLA mtrt-libraries)
 add_library(MLIRTensorRT::Executor ALIAS MLIRTensorRTExecutorLibraries)
-add_mlir_library_install(MLIRTensorRTExecutorLibraries)
+
+mtrt_add_header_installation_components(mtrt-headers
+  DIRECTORIES
+   "include/mlir-executor"
+   "include/mlir-executor-c"
+   "${MLIR_EXECUTOR_BINARY_DIR}/include/mlir-executor"
+   "${MLIR_EXECUTOR_BINARY_DIR}/include/mlir-executor-c"
+  )

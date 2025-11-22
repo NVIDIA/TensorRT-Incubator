@@ -14,6 +14,7 @@
 /// Implementation of the Plan buffer results to out params pass.
 ///
 //===----------------------------------------------------------------------===//
+#include "mlir-executor/Executor/IR/ExecutorAttributes.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
 #include "mlir/Analysis/SliceAnalysis.h"
@@ -154,6 +155,26 @@ getHoistableOperations(Value value, func::FuncOp func) {
 
   if (slice.empty() || !hasAllocation)
     return failure();
+
+  // Now check that we can replace all uses outside the set with a single block
+  // argument (the value currently being returned).
+  auto isInCluster = [&](Operation *op) {
+    if (slice.contains(op))
+      return true;
+    while (Operation *parent = op->getParentOp()) {
+      if (parent == func)
+        return false;
+      if (slice.contains(parent))
+        return true;
+    }
+    return false;
+  };
+  for (Operation *op : slice) {
+    for (OpOperand &use : op->getUses()) {
+      if (use.get() != value && !isInCluster(use.getOwner()))
+        return failure();
+    }
+  }
 
   return slice;
 }
@@ -315,11 +336,6 @@ updateFuncOp(RewriterBase &rewriter, func::FuncOp func,
     if (plan.returnsExistingBlockArg[erasedResultIdx])
       continue;
     func.setArgAttrs(newArgIdx, func.getResultAttrs(erasedResultIdx));
-    // Set the marker to indicate we promoted this argument from a result.
-    func.setArgAttr(newArgIdx,
-                    StringAttr::get(func.getContext(),
-                                    plan::PlanDialect::kResultArgAttrName),
-                    UnitAttr::get(func.getContext()));
     newArgIdx++;
   }
 
@@ -473,6 +489,8 @@ struct PlanBufferResultsToOutParamsPass
     };
     options.filterFn = [&](func::FuncOp *op) {
       if (ignorePublicFunctions && op->isPublic())
+        return false;
+      if (executor::abi::isABIWrapperFunction(*op))
         return false;
       return !op->isDeclaration();
     };

@@ -5,8 +5,9 @@ add_mlir_tensorrt_library(MLIRTensorRTStablehloToLinalg
   MLIRTensorRTConversionPassIncGen
 
   LINK_LIBS PUBLIC
-  MLIRLinalgDialect
-  MLIRLinalgTransforms
-  StablehloLinalgTransforms
-  StablehloOps
+    StablehloLinalgTransforms
+    StablehloOps
+  MLIR_LIBS PUBLIC
+    MLIRLinalgDialect
+    MLIRLinalgTransforms
   )

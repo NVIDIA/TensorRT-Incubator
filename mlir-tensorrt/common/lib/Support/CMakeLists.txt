@@ -1,13 +1,9 @@
-add_mlir_tensorrt_library(MLIRTensorRTSupportStatus
-  PARTIAL_SOURCES_INTENDED
-  Status.cpp
-
-  LINK_LIBS PUBLIC
+add_library(MLIRTensorRTSupportStatus INTERFACE)
+target_link_libraries(MLIRTensorRTSupportStatus INTERFACE
   MLIRTensorRTCommonIncludes
-
-  DEPENDS
-  MLIRTensorRTStatusEnumIncGen
-  )
+)
+add_dependencies(MLIRTensorRTSupportStatus MLIRTensorRTStatusEnumIncGen)
+mtrt_add_install(MLIRTensorRTSupportStatus UMBRELLA mtrt-libraries)
 
 add_mlir_tensorrt_library(MLIRTensorRTCommandLineExtras
   PARTIAL_SOURCES_INTENDED

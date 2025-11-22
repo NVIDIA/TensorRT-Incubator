@@ -204,13 +204,13 @@ struct CudaBlasRunGemmOpConverter
 // algorithm selection process at runtime.
 static int64_t convertTypeAttrToScalarType(Type t) {
   if (t.isF16())
-    return static_cast<int64_t>(mlirtrt::runtime::impl::ScalarTypeCode::f16);
+    return static_cast<int64_t>(mtrt::ScalarTypeCode::f16);
   if (t.isF32())
-    return static_cast<int64_t>(mlirtrt::runtime::impl::ScalarTypeCode::f32);
+    return static_cast<int64_t>(mtrt::ScalarTypeCode::f32);
   if (t.isF64())
-    return static_cast<int64_t>(mlirtrt::runtime::impl::ScalarTypeCode::f64);
+    return static_cast<int64_t>(mtrt::ScalarTypeCode::f64);
   if (t.isInteger(32))
-    return static_cast<int64_t>(mlirtrt::runtime::impl::ScalarTypeCode::i32);
+    return static_cast<int64_t>(mtrt::ScalarTypeCode::i32);
   llvm_unreachable("unhandled or invalid data type to convert to cuBLAS");
 }
 

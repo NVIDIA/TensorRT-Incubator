@@ -19,7 +19,7 @@ function(mlir_tensorrt_common_interface interface)
   cmake_path(RELATIVE_PATH OUTPUT_DIR BASE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}")
   mlir_tablegen("${OUTPUT_DIR}/${interface}.h.inc" -gen-${ARG_KIND}-interface-decls ${td_flags})
   mlir_tablegen("${OUTPUT_DIR}/${interface}.cpp.inc" -gen-${ARG_KIND}-interface-defs ${td_flags})
-  add_public_tablegen_target(MLIRTensorRTCommon${interface}IncGen)
+  mtrt_add_public_tablegen_target(MLIRTensorRTCommon${interface}IncGen)
 endfunction()
 
 function(add_mlir_tensorrt_common_interface_library target)
@@ -55,8 +55,9 @@ add_mlir_tensorrt_common_interface_library(
   MLIRTensorRTCommonToLoopsOpInterfaceIncGen
 
   LINK_LIBS PUBLIC
-  MLIRTensorRTCommonIncludes
-  MLIRIR
+    MLIRTensorRTCommonIncludes
+  MLIR_LIBS PUBLIC
+    MLIRIR
   )
 
 add_mlir_tensorrt_common_interface_library(
@@ -68,9 +69,10 @@ add_mlir_tensorrt_common_interface_library(
   MLIRTensorRTCommonBoundsAttrInterfaceIncGen
 
   LINK_LIBS PUBLIC
-  MLIRInferIntRangeInterface
-  MLIRIR
-  MLIRTensorRTCommonIncludes
+    MLIRTensorRTCommonIncludes
+  MLIR_LIBS PUBLIC
+    MLIRInferIntRangeInterface
+    MLIRIR
   )
 
 add_mlir_tensorrt_common_interface_library(
@@ -82,8 +84,9 @@ add_mlir_tensorrt_common_interface_library(
   MLIRTensorRTCommonTensorKindAttrInterfaceIncGen
 
   LINK_LIBS PUBLIC
-  MLIRIR
-  MLIRAnalysis
-  MLIRFuncDialect
-  MLIRTensorRTCommonIncludes
+    MLIRTensorRTCommonIncludes
+  MLIR_LIBS PUBLIC
+    MLIRIR
+    MLIRAnalysis
+    MLIRFuncDialect
 )

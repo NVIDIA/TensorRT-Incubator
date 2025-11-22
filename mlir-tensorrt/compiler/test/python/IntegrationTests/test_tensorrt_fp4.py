@@ -51,16 +51,15 @@ def test_fp4_quantization():
     # The RuntimeClient can and should persist across multiple Executables, RuntimeSessions, etc.
     # It is primarily an interface for creating and manipulating buffers.
     client = runtime.RuntimeClient()
-    stream = client.create_stream()
     devices = client.get_devices()
-
     if len(devices) == 0:
         return
+    stream = devices[0].stream
 
     session_options = runtime.RuntimeSessionOptions(num_devices=1, device_id=0)
-    session = runtime.RuntimeSession(session_options, exe)
+    session = runtime.RuntimeSession(client, session_options, exe)
 
-    results = session.execute_function("main", in_args=[], stream=stream, client=client)
+    results = session.execute_function("main", in_args=[], stream=stream)
 
     data = np.asarray(client.copy_to_host(results[0], stream=stream))
     stream.sync()

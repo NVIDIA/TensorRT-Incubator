@@ -2,17 +2,15 @@ add_mlir_executor_runtime_capability_library(MLIRTensorRTExecutorRuntimeCoreModu
   CoreModule.cpp
 
   LINK_LIBS PUBLIC
-  MLIRTensorRTExecutorRuntimeAPI
-
-  LINK_LIBS PRIVATE
-  sol2::sol2
   lua::core
-  nvtx3-cpp
+  MLIRExecutorCRuntimeCore
+  MLIRTensorRTExecutorRuntimeAPI
   MLIRTensorRTExecutorRuntimeCommon
-  MLIRTensorRTExecutorRuntimeModuleUtils
-  MLIRTensorRTSupportAllocators
-  MLIRExecutorCAPIRuntimeCore
   MLIRTensorRTLuaExtensionRegistry
+  MLIRTensorRTSupportAllocators
+  MLIRTensorRTSupportStridedCopy
+  nvtx3-cpp
+  DLPack::Headers
 )
 
 target_compile_options(obj.MLIRTensorRTExecutorRuntimeCoreModule

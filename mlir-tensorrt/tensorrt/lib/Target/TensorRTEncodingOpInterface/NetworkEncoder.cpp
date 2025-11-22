@@ -308,7 +308,8 @@ void NvInferNetworkEncoder::setMetadata(nvinfer1::ILayer *layer,
   std::string name = createName(namesSet, sourceOp);
   layer->setName(name.c_str());
   if (auto fusedLoc = dyn_cast<FusedLoc>(sourceOp->getLoc()))
-    if (auto metadataAttr = dyn_cast<StringAttr>(fusedLoc.getMetadata()))
+    if (auto metadataAttr =
+            dyn_cast_if_present<StringAttr>(fusedLoc.getMetadata()))
       layer->setMetadata(metadataAttr.getValue().str().c_str());
 }
 
@@ -783,7 +784,8 @@ static bool isValidTensorRTInputType(Type t) {
   return elType.isF32() || elType.isF16() || isTensorRTInt8Type(elType) ||
          elType.isInteger(32) || elType.isInteger(1) || elType.isInteger(4) ||
          elType.isUnsignedInteger(8) || isa<Float8E4M3FNType>(elType) ||
-         elType.isBF16() || elType.isInteger(64);
+         isa<Float4E2M1FNType>(elType) || elType.isBF16() ||
+         elType.isInteger(64);
 }
 
 /// Add the argument and shape information to the optimization profile.

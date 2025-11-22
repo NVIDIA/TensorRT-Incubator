@@ -26,602 +26,338 @@
 #define MLIR_EXECUTOR_RUNTIME_API_API
 
 #include "mlir-executor/Runtime/API/Executable.h"
+#include "mlir-executor/Runtime/FFI/FFI.h"
 #include "mlir-executor/Support/Allocators.h"
 #include "mlir-tensorrt-common/Support/Status.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/IntrusiveRefCntPtr.h"
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/StringSet.h"
-#include "llvm/Support/MemoryBuffer.h"
-#include <atomic>
+#include "llvm/Support/ThreadPool.h"
 #include <complex>
 #include <memory>
-#include <string_view>
+#include <mutex>
+#include <variant>
 
-namespace mlirtrt::runtime {
+namespace mtrt {
 
 class RuntimeClient;
 
-//===----------------------------------------------------------------------===//
-// Intrusive Reference Counting Classes
-//===----------------------------------------------------------------------===//
-
-/// Example usage:
-///
-/// ```cpp
-/// #include <iostream>
-/// class MyObject : public RefCounted<MyObject> {
-/// public:
-///     MyObject(int v) : value(v) {
-///         std::cout << "MyObject(" << value << ") constructed\n";
-///     }
-///     ~MyObject() {
-///         std::cout << "MyObject(" << value << ") destroyed\n";
-///     }
-///     void greet() const {
-///         std::cout << "Hello from " << value << "\n";
-///     }
-/// private:
-///     int value;
-/// };
-/// int main() {
-///     Ref<MyObject> a(new MyObject(42));
-///     {
-///         Ref<MyObject> b = a;
-///         b->greet(); // "Hello from 42"
-///     } // b goes out of scope
-///     a->greet();   // still alive
-/// } // a goes out of scope, MyObject destroyed
-/// ```
-
-template <typename Derived>
-class RefCounted {
-public:
-  void incRef() noexcept { ref_count_.fetch_add(1, std::memory_order_relaxed); }
-
-  void decRef() noexcept {
-    if (ref_count_.fetch_sub(1, std::memory_order_acq_rel) == 1) {
-      delete static_cast<Derived *>(this);
-    }
-  }
-
-  unsigned getRefCount() const {
-    return ref_count_.load(std::memory_order_relaxed);
-  }
-
-protected:
-  RefCounted() noexcept : ref_count_(0) {}
-  ~RefCounted() = default;
-
-private:
-  std::atomic<int> ref_count_;
-};
+template <typename T>
+using RefCounted = llvm::ThreadSafeRefCountedBase<T>;
 
 template <typename T>
-class Ref {
-public:
-  explicit Ref(T *ptr = nullptr) noexcept : ptr_(ptr) {
-    if (ptr_)
-      ptr_->incRef();
+using Ref = llvm::IntrusiveRefCntPtr<T>;
+
+/// CRTP template for creating integer ID type wrappers.
+template <typename Derived>
+struct StrongTypeWrapper {
+  explicit StrongTypeWrapper(int value) : value(value) {}
+  bool operator==(const StrongTypeWrapper &other) const {
+    return value == other.value;
   }
-
-  Ref(const Ref &other) noexcept : ptr_(other.ptr_) {
-    if (ptr_)
-      ptr_->incRef();
+  bool operator!=(const StrongTypeWrapper &other) const {
+    return value != other.value;
   }
-
-  Ref(Ref &&other) noexcept : ptr_(other.ptr_) { other.ptr_ = nullptr; }
-
-  Ref &operator=(const Ref &other) noexcept {
-    if (this != &other) {
-      if (ptr_)
-        ptr_->decRef();
-      ptr_ = other.ptr_;
-      if (ptr_)
-        ptr_->incRef();
-    }
-    return *this;
-  }
-
-  Ref &operator=(Ref &&other) noexcept {
-    if (this != &other) {
-      if (ptr_)
-        ptr_->decRef();
-      ptr_ = other.ptr_;
-      other.ptr_ = nullptr;
-    }
-    return *this;
-  }
-
-  ~Ref() {
-    if (ptr_)
-      ptr_->decRef();
-  }
-
-  T *get() const noexcept { return ptr_; }
-  T &operator*() const noexcept { return *ptr_; }
-  T *operator->() const noexcept { return ptr_; }
-  explicit operator bool() const noexcept { return ptr_ != nullptr; }
+  operator int() const { return value; }
 
 private:
-  T *ptr_;
+  int value;
 };
 
-//===----------------------------------------------------------------------===//
-// ScalarType
-//===----------------------------------------------------------------------===//
-
-/// Parse element type code from string.
-ScalarTypeCode parseElementType(std::string_view str);
-
-/// Return number of bits in the given element type.
-int64_t getBitsPerElement(ScalarTypeCode elType);
-
-/// ScalarTypeCode wrapper to make API easier to use.
-class ScalarType {
-public:
-  ScalarType(ScalarTypeCode code);
-  ScalarType() = delete;
-
-  /// Parse an element type from a string.
-  static StatusOr<ScalarType> fromString(std::string_view str);
-  /*implicit*/ operator ScalarTypeCode() { return code; }
-
-  /// Return the *storage* bit width of the type.
-  int64_t getBitWidth() const;
-
-  /// Return the underlying ScalarTypeCode enum value.
-  ScalarTypeCode getCode() const { return code; }
-
-  /// Get the human-readable string representation of this type.
-  llvm::StringRef getStrRef() const {
-    return impl::EnumNameScalarTypeCode(code);
-  }
-
-  bool operator==(const ScalarType &other) const {
-    return other.code == this->code;
-  }
-  bool operator!=(const ScalarType &other) const {
-    return other.code != this->code;
-  }
-
-private:
-  ScalarTypeCode code;
+/// Strong type wrapper to represent a hardware id. This is essentially the CUDA
+/// ordinal.
+struct HardwareId : public StrongTypeWrapper<HardwareId> {
+  using StrongTypeWrapper::StrongTypeWrapper;
 };
 
-//===----------------------------------------------------------------------===//
-// PointerType
-//===----------------------------------------------------------------------===//
-
-/// Parse pointer type from string.
-PointerType parsePointerType(std::string_view str);
-
-/// Print pointer type enum name to string.
-llvm::raw_ostream &operator<<(llvm::raw_ostream &os, PointerType ptrType);
-
-/// Return the string representation of `ptrType`.
-std::string_view stringifyPointerType(PointerType ptrType);
-
-//===----------------------------------------------------------------------===//
-// TypeView
-// This section includes classes that form the TypeUnion:
-// MemRefTypeView, ScalarTypeView
-//===----------------------------------------------------------------------===//
-
-/// Base class for all the below classes that provide flatbuffer-view wrappers
-/// for flatbuffer tables that comprise the `Type` union in the schema.
-template <typename T, impl::Type ObjType>
-struct FlatbufferTypeObjectView {
-  FlatbufferTypeObjectView(const T *view) : view(view) {}
-
-  static constexpr impl::Type type = ObjType;
-  const T *view;
-};
-
-/// A wrapper around the generated `impl::ScalarTypeView`.  It does not own any
-/// memory; it only provides a read-only view into the buffer.
-class ScalarTypeView : public FlatbufferTypeObjectView<impl::ScalarType,
-                                                       impl::Type::ScalarType> {
-public:
-  using FlatbufferTypeObjectView::FlatbufferTypeObjectView;
-  operator impl::ScalarTypeCode() const { return view->type(); }
-};
-
-/// A wrapper around `impl::MemRefTypeT` to provide additional convenience
-/// utilities.  It does not own any memory; it only
-// provides a read-only view into the buffer.
-class MemRefTypeView : public FlatbufferTypeObjectView<impl::MemRefType,
-                                                       impl::Type::MemRefType> {
-public:
-  MemRefTypeView(const impl::MemRefType *view)
-      : FlatbufferTypeObjectView(view) {}
-
-  int64_t getRank() const { return view->shape()->size(); }
-
-  /// Return the scalar type code of the memref.
-  ScalarType getElementType() const { return view->element_type(); }
-
-  llvm::ArrayRef<int64_t> getShape() const {
-    return llvm::ArrayRef<int64_t>(view->shape()->data(),
-                                   view->shape()->size());
-  }
-  llvm::ArrayRef<int64_t> getStrides() const {
-    return llvm::ArrayRef<int64_t>(view->strides()->data(),
-                                   view->strides()->size());
-  }
-  PointerType getAddressSpace() const {
-    return PointerType(view->address_space());
-  }
-};
-
-/// A wrapper equivalent to the flatbuffer-generated TypeUnion object. The
-/// `view` object may be a `impl::MemRef|impl::ScalarType` and
-/// `type` is the tag indicating the pointer type.
-struct TypeUnionView {
-  impl::Type type;
-  const void *view;
-
-  template <typename T>
-  bool isa() const {
-    return type == T::type;
-  }
-
-  template <typename T>
-  T get() const {
-    assert(isa<T>() && "invalid type");
-    return T(reinterpret_cast<decltype(T::view)>(view));
-  }
-};
-
-/// Base class for all the below classes that provide flatbuffer-view wrappers
-/// for flatbuffer tables that comprise the `Bounds` union in the schema.
-template <typename T, impl::Bounds ObjType>
-struct FlatbufferBoundsObjectView {
-  FlatbufferBoundsObjectView(const T *view) : view(view) {}
-
-  static constexpr impl::Bounds bound = ObjType;
-  const T *view;
-};
-
-class DimensionBoundsView
-    : public FlatbufferBoundsObjectView<impl::DimensionBounds,
-                                        impl::Bounds::DimensionBounds> {
-public:
-  DimensionBoundsView(const impl::DimensionBounds *view)
-      : FlatbufferBoundsObjectView(view) {}
-
-  llvm::ArrayRef<int64_t> getMin() const {
-    return llvm::ArrayRef<int64_t>(view->min()->data(), view->min()->size());
-  }
-  llvm::ArrayRef<int64_t> getMax() const {
-    return llvm::ArrayRef<int64_t>(view->max()->data(), view->max()->size());
-  }
-};
-
-class ValueBoundsView
-    : public FlatbufferBoundsObjectView<impl::ValueBounds,
-                                        impl::Bounds::ValueBounds> {
-public:
-  ValueBoundsView(const impl::ValueBounds *view)
-      : FlatbufferBoundsObjectView(view) {}
-
-  llvm::ArrayRef<int64_t> getMin() const {
-    return llvm::ArrayRef<int64_t>(view->min()->data(), view->min()->size());
-  }
-  llvm::ArrayRef<int64_t> getMax() const {
-    return llvm::ArrayRef<int64_t>(view->max()->data(), view->max()->size());
-  }
-};
-
-/// A wrapper equivalent to the flatbuffer-generated BoundsUnion object. The
-/// `view` object may be a `impl::DimensionBounds|impl::ValueBounds` and
-/// `bound` is the tag indicating the bound type.
-struct BoundsUnionView {
-  impl::Bounds bound;
-  const void *view;
-
-  template <typename T>
-  bool isa() const {
-    return bound == T::bound;
-  }
-
-  template <typename T>
-  T get() const {
-    assert(isa<T>() && "invalid bound attr");
-    return T(reinterpret_cast<decltype(T::view)>(view));
-  }
-};
-
-//===----------------------------------------------------------------------===//
-// FunctionSignatureView
-//===----------------------------------------------------------------------===//
-class FunctionSignatureView;
-
-/// Print a text summary of the signature to the stream.
-llvm::raw_ostream &print(llvm::raw_ostream &os,
-                         const FunctionSignatureView &sig);
-
-/// A wrapper around the flatbuffer-generated FunctionSignature to provide
-/// additional convenience utilities. It does not own any memory; it only
-/// provides a read-only view into the buffer.
-class FunctionSignatureView {
-public:
-  FunctionSignatureView(const impl::FunctionSignature *view) : view(view) {
-    assert(view != nullptr && "expected valid view");
-  }
-
-  uint32_t getNumArgs() const {
-    return view->args() ? view->args()->size() : 0;
-  }
-  uint32_t getNumResults() const {
-    return view->results() ? view->results()->size() : 0;
-  }
-  uint32_t getNumInputArgs() const {
-    assert(getNumArgs() >= getNumOutputArgs() &&
-           "invalid number of output arguments specified");
-    return getNumArgs() - getNumOutputArgs();
-  }
-  uint32_t getNumOutputArgs() const { return view->num_output_args(); }
-  uint32_t getNumArgBounds() const {
-    return view->arg_bounds() ? view->arg_bounds()->size() : 0;
-  }
-  uint32_t getNumResBounds() const {
-    return view->result_bounds() ? view->result_bounds()->size() : 0;
-  }
-
-  TypeUnionView getArg(int64_t idx) const {
-    assert(idx < getNumArgs() && "expected valid argument index");
-    return TypeUnionView{view->args_type()->Get(idx), view->args()->Get(idx)};
-  }
-
-  TypeUnionView getResult(int64_t idx) const {
-    assert(idx < getNumResults() && "expected valid result index");
-    return TypeUnionView{view->results_type()->Get(idx),
-                         view->results()->Get(idx)};
-  }
-
-  BoundsUnionView getArgBound(int64_t idx) const {
-    assert(idx < getNumArgBounds() && "expected valid argument bounds index");
-    return BoundsUnionView{view->arg_bounds_type()->Get(idx),
-                           view->arg_bounds()->Get(idx)};
-  }
-
-  BoundsUnionView getResultBound(int64_t idx) const {
-    assert(idx < getNumResBounds() && "expected valid result bounds index");
-    return BoundsUnionView{view->result_bounds_type()->Get(idx),
-                           view->result_bounds()->Get(idx)};
-  }
-
-  TypeUnionView getOutputArg(int64_t idx) const {
-    assert(idx < getNumOutputArgs() && "expected valid output argument index");
-    unsigned offset = getNumInputArgs() + idx;
-    return TypeUnionView{view->args_type()->Get(offset),
-                         view->args()->Get(offset)};
-  }
-  int64_t isOutputArg(int64_t argIdx) const {
-    assert(argIdx < getNumArgs() && "expected valid argument index");
-    return argIdx < (getNumArgs() - getNumOutputArgs());
-  }
-
-  llvm::SmallVector<TypeUnionView> getArgs() const {
-    llvm::SmallVector<TypeUnionView> args;
-    unsigned numArgs = getNumArgs();
-    args.reserve(numArgs);
-    for (unsigned i = 0; i < numArgs; i++)
-      args.push_back(getArg(i));
-    return args;
-  }
-
-  llvm::SmallVector<TypeUnionView> getResults() const {
-    llvm::SmallVector<TypeUnionView> args;
-    unsigned numArgs = getNumResults();
-    args.reserve(numArgs);
-    for (unsigned i = 0; i < numArgs; i++)
-      args.push_back(getResult(i));
-    return args;
-  }
-
-  llvm::SmallVector<BoundsUnionView> getArgBounds() const {
-    llvm::SmallVector<BoundsUnionView> args;
-    unsigned numArgs = getNumArgBounds();
-    args.reserve(numArgs);
-    for (unsigned i = 0; i < numArgs; i++)
-      args.push_back(getArgBound(i));
-    return args;
-  }
-
-  llvm::SmallVector<BoundsUnionView> getResultBounds() const {
-    llvm::SmallVector<BoundsUnionView> args;
-    unsigned numArgs = getNumResBounds();
-    args.reserve(numArgs);
-    for (unsigned i = 0; i < numArgs; i++)
-      args.push_back(getResultBound(i));
-    return args;
-  }
-
-  std::optional<std::string_view> getShapeFunctionName() const {
-    const flatbuffers::String *name = view->shape_function_name();
-    if (!name || name->size() == 0)
-      return std::nullopt;
-    return view->shape_function_name()->string_view();
-  }
-
-  /// Returns the calling convention associated with this function.
-  CallingConvention getCConv() const { return view->calling_convention(); }
-
-  const impl::FunctionSignature *view;
-};
-
-/// A FunctionView is a thin wrapper around a flatbuffer Function object. It
-/// does not own any memory; it only provides a read-only view into the buffer.
-class FunctionView {
-public:
-  FunctionView(const impl::Function *view) : view(view) {
-    assert(view != nullptr);
-  }
-  FunctionView() : view(nullptr) {}
-
-  FunctionSignatureView getSignature() const {
-    return FunctionSignatureView(view->signature());
-  }
-
-  std::string_view getName() const { return view->name()->string_view(); }
-
-  operator bool() const { return view != nullptr; }
-
-  operator const impl::Function *() const { return view; }
-
-private:
-  const impl::Function *view;
-};
-
-/// A DataSegmentInfo is a thin wrapper around a flatbuffer DataSegment object.
-/// It does not own any memory; it only provides a read-only view into the
-/// buffer.
-class DataSegmentInfo {
-public:
-  DataSegmentInfo(const impl::DataSegment *view) : view(view) {}
-
-  std::string_view getName() const { return view->name()->string_view(); }
-
-  const int8_t *data() const {
-    return view->data() ? view->data()->data() : nullptr;
-  }
-  size_t size() const {
-    return view->data() ? view->data()->size() : getUninitializedSize();
-  }
-  uint32_t getAlignment() const { return view->alignment(); }
-  bool isConstant() const { return view->constant(); }
-  bool isUninitialized() const { return view->uninitialized_size() > 0; }
-  uint64_t getUninitializedSize() const { return view->uninitialized_size(); }
-  PointerType getAddressSpace() const { return view->address_space(); }
-
-private:
-  const impl::DataSegment *view;
-};
-
-//===----------------------------------------------------------------------===//
-// Executable
-//===----------------------------------------------------------------------===//
-
-/// `ExecutableView` is simply a wrapper around the low-level Flatbuffer
-/// API for accessing an Executable object serialized into a flatbuffer.
-class ExecutableView {
-public:
-  ExecutableView(const impl::Executable *view) : view(view) {}
-
-  std::string_view getCode() const { return view->source()->string_view(); }
-
-  size_t getNumFunctions() const { return view->functions()->size(); }
-
-  FunctionView getFunction(int64_t idx) const {
-    return FunctionView(view->functions()->Get(idx));
-  }
-
-  /// Return a function by name. This asserts that the function with the given
-  /// name exists.
-  StatusOr<FunctionView> getFunction(std::string_view name) const;
-
-  size_t getNumDataSegments() const {
-    if (!view || !view->data_segments())
-      return 0;
-    return view->data_segments()->size();
-  }
-
-  DataSegmentInfo getDataSegments(int64_t idx) const {
-    assert(view->data_segments() && "expected valid data segment pointer");
-    return view->data_segments()->Get(idx);
-  }
-
-  std::string_view getName() const {
-    if (!view->name())
-      return "unnamed-executable";
-    return view->name()->string_view();
-  }
-
-  llvm::ArrayRef<uint32_t> getProcessorGridShape() const {
-    assert(view->process_grid_shape() && "expected valid process grid shape");
-    return llvm::ArrayRef<uint32_t>(view->process_grid_shape()->data(),
-                                    view->process_grid_shape()->size());
-  }
-
-  /// Return a vector of DataSegmentInfos.
-  llvm::SmallVector<DataSegmentInfo> getDataSegments() const;
-
-  /// Return a vector of FunctionViews.
-  llvm::SmallVector<FunctionView> getFunctions() const;
-
-  /// Allow contextual conversion to bool for checking validity.
-  operator bool() const { return view != nullptr; }
-
-protected:
-  const impl::Executable *view;
-};
-
-//===----------------------------------------------------------------------===//
-// Executable
-//===----------------------------------------------------------------------===//
-
-/// Class that wraps executable. It owns storage of the flatbuffer. Access is
-/// provided through flatbuffer view overlay.
-class Executable : public ExecutableView {
-public:
-  virtual ~Executable();
-
-  Executable(std::unique_ptr<ExecutableStorage> storage);
-  Executable(Executable &&other);
-
-  std::unique_ptr<Executable> getCopy() const;
-
-  ExecutableView getView() const { return ExecutableView(this->view); }
-
-  /// Read the binary data from the given file and return a deserialized
-  /// Executable.
-  static StatusOr<std::unique_ptr<Executable>>
-  loadFromFile(std::string_view path);
-
-  /// Load executable from file. The file may be mmap'd, decision is
-  /// made by `llvm::MemoryBuffer`.
-  static StatusOr<std::unique_ptr<Executable>>
-  loadFromBuffer(std::unique_ptr<llvm::MemoryBuffer> buffer);
-
-  /// Load from a stroage view. This allocates data to hold the buffer
-  /// and copies from `data`. This method should be used when it is
-  /// when it is not known that `data` has the proper alignment, otherwise
-  /// use create a llvm::MemoryBuffer view and use `loadFromBuffer`.
-  static StatusOr<std::unique_ptr<Executable>>
-  loadFromUnalignedRef(llvm::ArrayRef<char> data);
-
-  /// Return the underlying storage object.
-  const std::unique_ptr<ExecutableStorage> &getStorage() const {
-    return storage;
-  }
-
-  /// Verify the underlying Flatbuffer object.
-  Status verify() const;
-
-private:
-  std::unique_ptr<ExecutableStorage> storage;
+/// Strong type wrapper to represent a host id. This identifies each host in a
+/// multi-host execution environment.
+struct HostId : public StrongTypeWrapper<HostId> {
+  using StrongTypeWrapper::StrongTypeWrapper;
 };
 
 ///===---------------------------------------------------------------------===//
 // Device
 //===----------------------------------------------------------------------===//
 
+/// DeviceGuard is an abstract RAII handle that scopes a temporary activation
+/// of device-specific state (for example, making a device current). Concrete
+/// backends create instances via `Device::createDeviceGuard()`. When a guard
+/// is destroyed, the backend must restore the previous device/context.
+class DeviceGuard {
+public:
+  DeviceGuard() = default;
+  virtual ~DeviceGuard() = default;
+
+  DeviceGuard(DeviceGuard &&) = delete;
+  DeviceGuard(const DeviceGuard &) = delete;
+  DeviceGuard &operator=(DeviceGuard &&) = delete;
+  DeviceGuard &operator=(const DeviceGuard &) = delete;
+};
+
+class Stream;
+
+/// Specifies kinds of devices.
+enum class DeviceKind { GPU, GreenContext };
+
+/// Return the string representation of the device kind.
+llvm::StringRef getDeviceKindString(DeviceKind kind);
+
+/// A device description holds metadata information about a device. Each
+/// device has a globally unique integer ID within each device kind type class
+/// (e.g. GPU, DLA, etc). For CUDA GPU devices on a single host system, this is
+/// just the CUDA device ordinal exposed via the CUDA Runtime API. IDs must be
+/// contiguous so that they completely fill the range `[0, NumDevices)`.
+class DeviceDescription {
+protected:
+  DeviceDescription(DeviceKind kind, HostId hostId)
+      : kind(kind), hostId(hostId) {}
+
+public:
+  virtual ~DeviceDescription() = default;
+  virtual int32_t getUniqueID() const = 0;
+
+  /// Return the kind of the device.
+  DeviceKind getKind() const { return kind; }
+
+  /// Return a human-readable description of the device. If verbose is true,
+  /// return a verbose description with as much information as possible (e.g.
+  /// for debugging purposes).
+  virtual llvm::StringRef getString(bool verbose = false) const = 0;
+
+  /// Return the ID of the host that this device is attached to.
+  HostId getHostID() const { return hostId; }
+
+  using AttributeValue =
+      std::variant<std::string, bool, int32_t, std::vector<int32_t>, float>;
+
+  /// Return the attribute dictionary.
+  const llvm::StringMap<AttributeValue> &getAttributes() const {
+    return attributes;
+  }
+  /// Return the mutable attribute dictionary.
+  llvm::StringMap<AttributeValue> &getAttributes() { return attributes; }
+
+protected:
+  DeviceKind kind;
+  HostId hostId;
+
+  /// Contains attributes of the device.
+  using AttributeMap = llvm::StringMap<AttributeValue>;
+  AttributeMap attributes;
+};
+
+/// Device description for a CUDA GPU device.
+class GPUDeviceDescription final : public DeviceDescription {
+private:
+  GPUDeviceDescription(HostId hostId, HardwareId deviceNumber);
+
+public:
+  ~GPUDeviceDescription() = default;
+
+  /// Create a CUDA device description for a given host and device number.
+  /// Note that this assumes the `HostId` refers to the current process'
+  /// host ID; the information about the device is going to be populated
+  /// from the CUDA runtime API.
+  /// TODO: currently only a single host (hostId = 0) is supported. To expand
+  /// support for multiple hosts, we need to have a way to create the unique ID
+  /// (e.g need to know number of devices per host).
+  static StatusOr<std::unique_ptr<GPUDeviceDescription>>
+  createFromLocal(HostId hostId, HardwareId deviceNumber);
+
+  llvm::StringRef getString(bool verbose = false) const final;
+  int32_t getUniqueID() const final { return deviceNumber; }
+  HardwareId getDeviceNumber() const { return deviceNumber; }
+
+protected:
+  HardwareId deviceNumber;
+  std::string description;
+  std::string debugString;
+};
+
+/// Device is an abstract handle describing a compute device visible to the
+/// runtime (e.g., a CUDA GPU). It exposes a stable numeric identifier, a
+/// backend kind string, and a factory for acquiring a `DeviceGuard` that makes
+/// the device current for the guard's lifetime.
+/// Devices are always uniquely owned by the RuntimeClient, so the
+/// RuntimeClient's lifetime should always exceed the lifetime of any object
+/// that takes a reference to a Device.
 class Device {
 public:
-  /// Creates a new device. Verifies that the CUDA device ordinal is valid for
-  /// the current system.
-  static StatusOr<std::unique_ptr<Device>> create(int32_t deviceNumber);
+  virtual ~Device() = default;
 
-  int32_t getDeviceNumber() const { return deviceNumber; }
+  /// Return a backend-specific, zero-based device ordinal that uniquely
+  /// identifies this device within the process.
+  virtual HardwareId getDeviceNumber() const = 0;
+
+  /// Create an RAII guard that activates this device for the duration of the
+  /// guard's lifetime. Implementations must restore any prior device/context on
+  /// guard destruction.
+  virtual StatusOr<std::unique_ptr<DeviceGuard>> createDeviceGuard() const = 0;
+
+  /// Return the stream associated with the device.
+  virtual Ref<Stream> getStream() const = 0;
+
+  /// Return the thread pool associated with the device.
+  virtual llvm::ThreadPoolInterface &getThreadPool() = 0;
+
+  /// Return the device description.
+  virtual const DeviceDescription &getDescription() const = 0;
+};
+
+/// A CUDADevice represents a CUDA GPU.
+class CUDADevice final : public Device {
+protected:
+  CUDADevice(std::unique_ptr<GPUDeviceDescription> description,
+             Ref<Stream> stream)
+      : description(std::move(description)), stream(std::move(stream)),
+        threadPool() {}
+
+public:
+  /// Create a CUDA device from the local host and device number.
+  static StatusOr<std::unique_ptr<Device>>
+  createFromLocal(HostId hostId, HardwareId deviceNumber);
+
+  Ref<Stream> getStream() const final { return stream; }
+  llvm::ThreadPoolInterface &getThreadPool() final { return threadPool; }
+  StatusOr<std::unique_ptr<DeviceGuard>> createDeviceGuard() const final;
+  HardwareId getDeviceNumber() const final {
+    return description->getDeviceNumber();
+  }
+  const DeviceDescription &getDescription() const final { return *description; }
 
 private:
-  Device(int32_t deviceNumber) : deviceNumber(deviceNumber) {}
+  std::unique_ptr<GPUDeviceDescription> description;
+  Ref<Stream> stream;
+  llvm::StdThreadPool threadPool;
+};
 
-  int32_t deviceNumber;
+//===----------------------------------------------------------------------===//
+// Stream
+//===----------------------------------------------------------------------===//
+
+/// A stream is a sequence of operations that execute on GPU in the order in
+/// which they are issued by the host.
+class Stream : public llvm::ThreadSafeRefCountedBase<Stream> {
+public:
+  virtual ~Stream() = default;
+  /// Get the underlying CUDA stream handle.
+  virtual CudaStream getCUDAHandle() const = 0;
+  /// Get the device that this stream is associated with.
+  virtual Device *getDevice() const = 0;
+  /// Synchronize the stream with host.
+  virtual Status sync() = 0;
+};
+
+//===----------------------------------------------------------------------===//
+// Event
+//===----------------------------------------------------------------------===//
+
+/// A functional type representing a generic callback that should be invoked
+/// when an event is ready.
+using OnReadyCallback = std::function<void(Status status, void *userData)>;
+
+/// This class implements a future interface built on top of CUDA runtime. The
+/// event is created on the head of a Stream and becomes ready when the Stream's
+/// execution reaches that point.
+///
+/// ## Callbacks
+///
+/// Callbacks which are invoked when the Stream becomes ready can
+/// be added via `addReadyCallback`. It is safe to perform CUDA operations in
+/// the callbacks. Callbacks are invoked on the thread pool owned by the
+/// Stream's associated Device.
+///
+/// ## Lifecycle
+///
+/// Events are managed by unique_ptr. Ownership of an event can be relinquished
+/// by invoking `Stream::releaseWhenReady`, which transfers the ownership to an
+/// on-ready callback, ensuring that the Event and its resources (e.g. CUDA
+/// handle) outlive any other callbacks.
+///
+/// ## CUDA Interop
+///
+/// The Event class provides future-like interface. The underlying mechanism
+/// uses a CUDA stream and `cudaLaunchHostFunc` to signal the event
+/// ready state. Technically, a CUDA Event Handle is not needed to implement
+/// this mechanism, but it remains useful to expose a CUDA Event associated
+/// with the with the point on the stream timeline immediately prior to
+/// signaling the ready state. This allows for synchronization with other
+/// CUDA streams. However, care must be taken when using `Event::getCudaHandle`
+/// to ensure that the lifetime of the owning `unique_ptr<Event>` outlives
+/// any use of the raw CUDA handle.
+///
+/// TODO: consider renaming this "Future" and make "Event <=> cudaEvent_t"
+/// reference counted.
+class Event {
+public:
+  /// Create a new event associated with a CUDA event that is recorded onto the
+  /// given stream. Then event will become ready when the associated CUDA event
+  /// is ready.
+  static StatusOr<std::unique_ptr<Event>> create(Ref<Stream> stream);
+
+  /// Create a trivially ready event.
+  static std::unique_ptr<Event> createReadyEvent();
+
+  /// Destroys the event. Joins `thread` if possible to ensure the Event has
+  /// lapsed and callbacks are invoked.
+  ~Event();
+
+  /// Returns true if this event is ready.
+  bool checkIsReady();
+
+  /// Set the event to 'ready' and invoke all callbacks.
+  void setReady(Status s);
+
+  /// Add `callback` to the callback queue. If the event is ready, then
+  /// `callback` is invoked immediately on the current thread. Otherwise,
+  /// callbacks are invoked asynchronously on the Device thread pool
+  /// associated with the event's Stream.
+  void addReadyCallback(OnReadyCallback callback, void *userData);
+
+  /// Get the status of the event.
+  Status getStatus();
+
+  /// Wait for the event to be ready.
+  Status waitForReady(
+      std::chrono::microseconds timeout = std::chrono::microseconds::max());
+
+  /// Get the raw CUDA event handle associated with the timepoint immediately
+  /// prior to signaling the ready state.
+  CudaEvent getCudaHandle() const { return cudaEventHandle; }
+
+  /// Complete the lifecycle of an Event by appending an on-ready callback that
+  /// deletes the given `event`. Note that the event may be deleted immediately
+  /// on the current thread if the event is already ready, otherwise the
+  /// deletion will occur on whatever thread executes the callbacks.
+  static void releaseWhenReady(std::unique_ptr<Event> event);
+
+private:
+  Event(bool ready, Status status, CudaEvent cudaEventHandle);
+
+  /// Set the internal status.
+  void setStatus(Status status);
+
+  CudaEvent cudaEventHandle;
+
+  /// Lock to protect state.
+  std::mutex lock;
+
+  /// Tracks the events ready state.
+  bool ready;
+
+  /// The set of callbacks which will be called asynchronously by a work in
+  /// `threadPool` when the event becomes ready.
+  std::vector<std::pair<OnReadyCallback, void *>> callbacks;
+
+  /// An internal status code for the error. When the event completion callbacks
+  /// are invoked, the status will be passed to the callbacks so that they can
+  /// be notified of any errors.
+  Status status{Status::getOk()};
 };
 
 //===----------------------------------------------------------------------===//
@@ -684,6 +420,8 @@ struct PointerInfo {
 
 class RuntimeValue {
 public:
+  virtual ~RuntimeValue() = default;
+
   enum class Kind { Scalar, MemRef };
   RuntimeValue(Kind kind) : kind(kind) {}
   Kind getKind() const { return kind; }
@@ -724,6 +462,9 @@ public:
            "complex value constructor used for non-complex scalar type.");
     data.complex = std::make_unique<std::complex<T>>(real_, imag_).release();
   }
+
+  /// Create a new scalar value where the storage is zero-initialized.
+  static std::unique_ptr<ScalarValue> createUndef(ScalarType type);
 
   // Delete copy constructors.
   ScalarValue(const ScalarValue &other) = delete;
@@ -778,6 +519,9 @@ public:
   }
 
 private:
+  ScalarValue(ScalarType type, Storage data)
+      : RuntimeValue(Kind::Scalar), data(std::move(data)), type(type) {}
+
   void cleanup();
   Storage data;
   ScalarType type;
@@ -789,6 +533,10 @@ private:
 
 class RuntimeClientAllocator;
 
+/// MemRefStorage is an abstract base class that owns the underlying buffer
+/// associated with a MemRefValue. It is reference counted to enable shared
+/// ownership across the C++ runtime API and other external users (e.g. C API,
+/// Python API).
 class MemRefStorage : public RefCounted<MemRefStorage> {
 public:
   virtual ~MemRefStorage() {}
@@ -796,84 +544,251 @@ public:
   uintptr_t getPtr() const { return ptr; }
 
   virtual PointerType getMemorySpace() const = 0;
-  virtual std::optional<CudaStream> getStream() const { return {}; }
+  virtual Ref<Stream> getStream() const { return nullptr; }
+
+  Ref<RuntimeClient> getClient() const { return client; }
+
+  Device *getDevice() const { return device; }
 
 protected:
-  MemRefStorage(uintptr_t ptr) : ptr(ptr) {}
+  MemRefStorage(uintptr_t ptr, Device *device, Ref<RuntimeClient> client)
+      : ptr(ptr), device(device), client(std::move(client)) {}
 
   uintptr_t ptr;
+
+  Device *device;
+
+  /// Reference back to RuntimeClient. This provides concrete subclasses access
+  /// to the client's allocator object. It also ensures that the client is not
+  /// destroyed while any users of the storage are still alive.
+  Ref<RuntimeClient> client;
 };
 
+//===----------------------------------------------------------------------===//
+// BufferStridedLayout
+//===----------------------------------------------------------------------===//
+
+class BufferStridedLayout {
+public:
+  BufferStridedLayout() = default;
+  BufferStridedLayout(llvm::ArrayRef<int64_t> strides, int64_t offset)
+      : strides(strides), offset(offset) {}
+
+  llvm::ArrayRef<int64_t> getStrides() const { return strides; }
+  int64_t getOffset() const { return offset; }
+
+  /// Create a canonical row major layout.
+  /// We follow the PyTorch convention that unit dimensions have unit stride.
+  static BufferStridedLayout
+  createCanonicalRowMajor(llvm::ArrayRef<int64_t> shape);
+
+  /// Return whether the layout is equal to another layout.
+  bool operator==(const BufferStridedLayout &other) const {
+    return strides == other.strides && offset == other.offset;
+  }
+  bool operator!=(const BufferStridedLayout &other) const {
+    return !(*this == other);
+  }
+
+  /// Return debug string representation of the layout.
+  std::string toString() const;
+
+  friend class BufferType;
+
+private:
+  std::vector<int64_t> strides;
+  int64_t offset{0};
+};
+
+//===----------------------------------------------------------------------===//
+// BufferType
+//===----------------------------------------------------------------------===//
+
+/// Encapsulates the information about a runtime buffer (MemRefValue)'s logical
+/// type: scalar element type, shape, strides, offset, and address space.
+class BufferType {
+public:
+  BufferType() = default;
+
+  BufferType(ScalarType elementType, const std::vector<int64_t> &shape,
+             const std::vector<int64_t> &strides,
+             mtrt::PointerType addressSpace, int64_t offset)
+      : elementType(elementType), shape(shape), layout(strides, offset),
+        addressSpace(addressSpace) {}
+  BufferType(ScalarType elementType, const std::vector<int64_t> &shape,
+             BufferStridedLayout layout, mtrt::PointerType addressSpace)
+      : elementType(elementType), shape(shape), layout(layout),
+        addressSpace(addressSpace) {}
+
+  static BufferType
+  createWithByteStrides(ScalarType elementType,
+                        const std::vector<int64_t> &shape,
+                        const std::vector<int64_t> &byteStrides,
+                        mtrt::PointerType addressSpace, int64_t offset);
+
+  static BufferType
+  createWithElementStrides(ScalarType elementType,
+                           const std::vector<int64_t> &shape,
+                           const std::vector<int64_t> &elementStrides,
+                           mtrt::PointerType addressSpace, int64_t offset);
+
+  static BufferType createWithCanonicalLayout(ScalarType elementType,
+                                              const std::vector<int64_t> &shape,
+                                              mtrt::PointerType addressSpace);
+
+  /// Creates a BufferType the flatbuffers' MemRefTypeView.
+  static BufferType getFromSerializedType(const MemRefTypeView &type);
+
+  /// Return whether the shape is static.
+  bool hasStaticShape() const;
+
+  /// Return the number of elements in the buffer (volume of shape).
+  int64_t getNumElements() const;
+
+  /// Return the number of bytes occupied by this buffer type, taking into
+  /// account the strides, which may have padding.
+  size_t getFootprintSizeInBytes() const;
+
+  int64_t getRank() const { return static_cast<int64_t>(shape.size()); }
+
+  /// Return the shape of the buffer.
+  llvm::ArrayRef<int64_t> getShape() const {
+    return llvm::ArrayRef<int64_t>(shape.data(), shape.size());
+  }
+
+  ScalarType getElementType() const { return ScalarType(elementType); }
+
+  /// Return the strides of the buffer in terms of bytes.
+  std::vector<int64_t> getByteStrides() const;
+
+  /// Return the layout of the buffer.
+  const BufferStridedLayout &getLayout() const { return layout; }
+
+  /// Compare the type to another type.
+  bool operator==(const BufferType &other) const {
+    return other.elementType == elementType && other.shape == shape &&
+           other.layout == layout && other.addressSpace == addressSpace;
+  }
+  bool operator!=(const BufferType &other) const { return !(*this == other); }
+
+  /// Returns a string representation of the buffer type.
+  std::string toString() const;
+
+  /// Return the address space of the buffer.
+  PointerType getAddressSpace() const { return addressSpace; }
+
+  /// Returns true if the buffer layout has a canonical "row major" layout,
+  /// meaning that the dimensions are ordered major-to-minor in terms of strides
+  /// and the buffer is fully packed and contiguous (no padding).
+  bool isCanonicalPacked() const;
+
+  /// Returns true if the buffer layout (shape + strides) has the
+  /// canonical layout.
+  bool isCanonicalRowMajor() const;
+
+  /// Returns true if the buffer layout has a canonical "column major" layout,
+  /// meaning that the dimensions are ordered minor-to-major in terms of strides
+  /// and the buffer is fully packed and contiguous (no padding).
+  bool isCanonicalColMajor() const;
+
+private:
+  ScalarTypeCode elementType{ScalarTypeCode::unknown};
+  std::vector<int64_t> shape;
+  BufferStridedLayout layout;
+  mtrt::PointerType addressSpace{mtrt::PointerType::unknown};
+};
+
+std::ostream &operator<<(std::ostream &os, const BufferType &t);
+
+//===----------------------------------------------------------------------===//
+// MemRefValue
+//===----------------------------------------------------------------------===//
+
+/// A MemRefValue encapsulates a reference to MemRefStorage along with logical
+/// buffer type information (e.g. scalar value type, shape, strides, etc).
 class MemRefValue : public RuntimeValue {
 public:
   /// Create a new MemRef descriptor. All size quantities are in "units of
   /// elements" unless otherwise noted.
-  static mlirtrt::StatusOr<std::unique_ptr<MemRefValue>>
-  create(RuntimeClient *client, mlirtrt::runtime::PointerType addressSpace,
-         int64_t bitsPerElement, Ref<MemRefStorage> storage, int64_t offset,
+  static mtrt::StatusOr<std::unique_ptr<MemRefValue>>
+  create(mtrt::PointerType addressSpace, ScalarTypeCode elementType,
+         Ref<MemRefStorage> storage, int64_t offset,
          llvm::ArrayRef<int64_t> shape, llvm::ArrayRef<int64_t> strides,
-         std::optional<const Device *> device,
-         std::optional<ScalarType> scalarType,
-         std::optional<bool> assertCanonicalStrides = {});
+         Device *device = nullptr, bool assertCanonicalStrides = false);
 
-  mlirtrt::runtime::PointerType getBufferKind() { return addressSpace; }
-  int64_t getElementBitWidth() const { return bitsPerElement; }
-  int64_t getOffset() const { return offsetInBytes; }
-  llvm::ArrayRef<int64_t> getShape() const { return shape; }
-  llvm::ArrayRef<int64_t> getStrides() const { return strides; }
-  int64_t getRank() const { return shape.size(); }
+  static mtrt::StatusOr<std::unique_ptr<MemRefValue>>
+  create(mtrt::PointerType addressSpace, const BufferType &type,
+         Ref<MemRefStorage> storage, Device *device = nullptr,
+         bool assertCanonicalStrides = false) {
+    return create(addressSpace, type.getElementType(), std::move(storage),
+                  type.getLayout().getOffset(), type.getShape(),
+                  type.getLayout().getStrides(), device,
+                  assertCanonicalStrides);
+  }
+
+  mtrt::PointerType getBufferKind() { return type.getAddressSpace(); }
+  int64_t getElementBitWidth() const {
+    return type.getElementType().getBitWidth();
+  }
+  /// Return the layout of the buffer.
+  const BufferStridedLayout &getLayout() const { return type.getLayout(); }
+  llvm::ArrayRef<int64_t> getShape() const { return type.getShape(); }
+  llvm::ArrayRef<int64_t> getStrides() const {
+    return type.getLayout().getStrides();
+  }
+  int64_t getRank() const { return type.getRank(); }
   int64_t getTotalFootprintInBytes() const;
   uintptr_t getMemory() const { return storage->getPtr(); }
   void *getVoidPtr() const { return reinterpret_cast<void *>(getMemory()); }
-  std::optional<const Device *> getDevice() const { return device; }
-  mlirtrt::runtime::PointerInfo
-  getPointerInfo(mlirtrt::runtime::PointerOwner ownership) const {
-    return mlirtrt::runtime::PointerInfo(
-        getMemory(), getTotalFootprintInBytes(), addressSpace, ownership);
+  Device *getDevice() const { return device; }
+  PointerInfo getPointerInfo(PointerOwner ownership) const {
+    return PointerInfo(getMemory(), getTotalFootprintInBytes(),
+                       type.getAddressSpace(), ownership);
   }
-  PointerType getAddressSpace() const { return addressSpace; }
+  PointerType getAddressSpace() const { return type.getAddressSpace(); }
 
   static bool classof(const RuntimeValue *v) {
     return v->getKind() == Kind::MemRef;
   }
 
-  const std::optional<ScalarType> &getScalarType() const { return scalarType; }
+  ScalarType getScalarType() const { return type.getElementType(); }
 
-  RuntimeClient *getClient() const { return client; }
+  Ref<RuntimeClient> getClient() const { return storage->getClient(); }
 
   /// Return the reference count of the underlying storage.
-  unsigned getStorageRefCount() const { return storage->getRefCount(); }
+  unsigned getStorageRefCount() const { return storage->UseCount(); }
 
   /// Return a new MemRefValue that references the same storage as this one.
   /// The reference count of the storage is incremented.
   std::unique_ptr<MemRefValue> createRef() const {
     return std::unique_ptr<MemRefValue>(
-        new MemRefValue(client, addressSpace, bitsPerElement, storage,
-                        offsetInBytes, shape, strides, device, scalarType));
+        new MemRefValue(type.getAddressSpace(), type.getElementType(), storage,
+                        type.getLayout().getOffset(), type.getShape(),
+                        type.getLayout().getStrides(), device));
   }
 
-private:
-  MemRefValue(RuntimeClient *client, mlirtrt::runtime::PointerType addressSpace,
-              int64_t bitsPerElement, Ref<MemRefStorage> storage,
-              int64_t offset, llvm::ArrayRef<int64_t> shape,
-              llvm::ArrayRef<int64_t> strides,
-              std::optional<const Device *> device,
-              std::optional<ScalarType> scalarType);
+  /// Return a reference to the underlying storage.
+  Ref<MemRefStorage> getStorageRef() const { return storage; }
 
-  /// Non-owned reference back to RuntimeClient that tracks this MemRef.
-  RuntimeClient *client;
-  /// Address space for the pointer.
-  mlirtrt::runtime::PointerType addressSpace;
-  int64_t bitsPerElement;
+  /// Return the type of the buffer.
+  const BufferType &getType() const { return type; }
+
+private:
+  MemRefValue(mtrt::PointerType addressSpace, ScalarTypeCode elementType,
+              Ref<MemRefStorage> storage, int64_t offset,
+              llvm::ArrayRef<int64_t> shape, llvm::ArrayRef<int64_t> strides,
+              Device *device);
+
   /// Holds the underlying storage object.
   Ref<MemRefStorage> storage;
-  int64_t offsetInBytes;
-  llvm::SmallVector<int64_t> shape;
-  llvm::SmallVector<int64_t> strides;
+
+  /// The logical type of the buffer.
+  BufferType type;
+
   /// Non-owned view to the associated device if the address space is a device
-  /// address.
-  std::optional<const Device *> device;
-  std::optional<ScalarType> scalarType{};
+  /// address. This may be nullptr in the case of a host buffer or an externally
+  /// managed buffer.
+  Device *device;
 };
 
 //===----------------------------------------------------------------------===//
@@ -1042,8 +957,11 @@ private:
 /// TODO: methods for accessing/setting default stream should be moved here.
 class RuntimeSession {
 public:
-  RuntimeSession(RuntimeSessionOptions options, ExecutableView executable);
+  RuntimeSession(RuntimeSessionOptions options, ExecutableView executable,
+                 Ref<RuntimeClient> client);
   virtual ~RuntimeSession() {}
+
+  Ref<RuntimeClient> getClient() const { return client; }
 
   ExecutableView getExecutable() const { return executable; }
 
@@ -1058,14 +976,34 @@ public:
   /// Returns the options used to construct the session.
   const RuntimeSessionOptions &getOptions() { return options; }
 
+  /// Execute the session function using the given arguments.
+  virtual StatusOr<llvm::SmallVector<std::unique_ptr<RuntimeValue>>>
+  executeFunction(llvm::StringRef name, llvm::ArrayRef<RuntimeValue *> inputs,
+                  llvm::ArrayRef<RuntimeValue *> outArgs) = 0;
+
+  /// Return the stream on which work for this session will be launched.
+  Ref<Stream> getStream() const;
+
+  /// Set the stream on which work for this session will be launched.
+  /// Note that the device for this session is set when it is created.
+  /// Therefore, the stream must be associated with the same device, otherwise
+  /// an error will be returned.
+  ///
+  /// It is only valid to pass `nullptr` here if the session was created
+  /// without a device and therefore does not have the CUDA feature enabled.
+  virtual Status setStream(Ref<Stream> stream);
+
 protected:
+  /// Called when the stream for this session is changed.
+  virtual Status onStreamChanged(Ref<Stream> oldStream, Ref<Stream> newStream);
+
+  Ref<RuntimeClient> client;
   RuntimeSessionOptions options;
-
   ExecutableView executable;
-
   std::unique_ptr<PinnedMemoryAllocator> pinnedMemoryAllocator;
   std::unique_ptr<AllocTracker> allocTracker;
   std::unique_ptr<ResourceTracker> resourceTracker;
+  Ref<Stream> stream;
 };
 
 //===----------------------------------------------------------------------===//
@@ -1083,15 +1021,21 @@ public:
 
   virtual StatusOr<Ref<MemRefStorage>>
   allocate(PointerType pointerType, uint64_t size,
-           std::optional<uint32_t> alignemnt,
-           std::optional<CudaStream> stream) = 0;
+           std::optional<uint32_t> alignemnt, Device *device,
+           Ref<Stream> stream) = 0;
 
   /// Use the given pointer as the storage for the MemRefValue.
-  virtual StatusOr<Ref<MemRefStorage>>
-  takeOwnership(uintptr_t ptr, PointerType pointerType,
-                std::optional<CudaStream> stream) = 0;
+  virtual StatusOr<Ref<MemRefStorage>> takeOwnership(uintptr_t ptr,
+                                                     PointerType pointerType,
+                                                     Device *device,
+                                                     Ref<Stream> stream) = 0;
 
   virtual Status deallocate(MemRefStorage &storage) = 0;
+
+protected:
+  RuntimeClientAllocator(RuntimeClient &client) : client(client) {}
+
+  RuntimeClient &client;
 };
 
 /// The `RuntimeClient` provides a convenient way for users of the C++ API
@@ -1105,33 +1049,25 @@ public:
 /// or warn the user about the dangling resources when it is destructed.
 /// Therefore, any resource created by the RuntimeClient should outlive the
 /// RuntimeClient and be destroyed/deallocated through the appropriate method.
-class RuntimeClient {
+class RuntimeClient : public RefCounted<RuntimeClient> {
 public:
   ~RuntimeClient();
 
   /// Creates the client. Enumerates CUDA devices on the machine. Creates the
   /// internal allocators.
-  static StatusOr<std::unique_ptr<RuntimeClient>> create();
+  static StatusOr<Ref<RuntimeClient>> create();
 
   llvm::ArrayRef<std::unique_ptr<Device>> getDevices() const;
 
+  // Allocates a new MemRefValue with the buffer type and layout.
   StatusOr<std::unique_ptr<MemRefValue>>
-  allocateMemRef(PointerType addressSpace, int64_t bitsPerElement,
-                 llvm::ArrayRef<int64_t> shape, llvm::ArrayRef<int64_t> strides,
-                 std::optional<const Device *> device = {},
-                 std::optional<CudaStream> stream = {},
-                 std::optional<ScalarType> scalarType = {},
-                 std::optional<bool> assertCanonicalStrides = {});
+  allocateMemRef(const BufferType &type, Device *device = nullptr,
+                 Ref<Stream> stream = nullptr,
+                 bool assertCanonicalStrides = false);
 
-  StatusOr<std::unique_ptr<MemRefValue>>
-  createExternalMemRef(PointerType addressSpace, int64_t bitsPerElement,
-                       uintptr_t ptr, int64_t offset,
-                       llvm::ArrayRef<int64_t> shape,
-                       llvm::ArrayRef<int64_t> strides,
-                       std::optional<const Device *> device = {},
-                       std::optional<ScalarType> scalarType = {},
-                       std::optional<bool> assertCanonicalStrides = {},
-                       std::function<void()> = nullptr);
+  StatusOr<std::unique_ptr<MemRefValue>> createExternalMemRef(
+      const BufferType &type, uintptr_t ptr, Device *device = nullptr,
+      bool assertCanonicalStrides = false, std::function<void()> = nullptr);
 
   // Allocates a new host buffer and fills it with data present in the
   // `hostBuffer`.
@@ -1142,19 +1078,28 @@ public:
   /// host in the specified buffer. The allocation and copy are performed on
   /// the given stream.
   StatusOr<std::unique_ptr<MemRefValue>>
-  copyToDevice(const MemRefValue &hostBuffer, const Device &device,
-               std::optional<CudaStream> stream);
+  copyToDevice(const MemRefValue &hostBuffer, Device &device,
+               Ref<Stream> stream, std::unique_ptr<Event> *doneWithHostBuffer);
 
   /// Allocates a new host buffer and fills it with data present on the device
   /// in the specified buffer. The allocation and copy are performed on the
   /// given stream.
   StatusOr<std::unique_ptr<MemRefValue>>
-  copyToHost(const MemRefValue &deviceMemRef, std::optional<CudaStream> stream);
+  copyToHost(const MemRefValue &deviceMemRef, Ref<Stream> stream);
 
   /// Copy from the given device MemRefValue to an existing MemRefValue on the
   /// host.
   Status copyToHost(const MemRefValue &deviceMemRef, MemRefValue &hostMemRef,
-                    std::optional<CudaStream> stream);
+                    Ref<Stream> stream);
+
+  /// Copy the given device buffer to another device. The copy occurs
+  /// asynchronously on the destination Device's stream. The event associated
+  /// with copy completion (which currently also signals done with use of source
+  /// buffer), is returned in `copyDoneEvent`.
+  StatusOr<std::unique_ptr<MemRefValue>>
+  copyDeviceBufferToOtherDevice(const MemRefValue &sourceBuffer,
+                                Device &dstDevice,
+                                std::unique_ptr<Event> &copyDoneEvent);
 
   /// Returns the ResourceTracker.
   ResourceTracker &getResourceTracker() { return resourceTracker; }
@@ -1166,15 +1111,45 @@ public:
 
   RuntimeClientAllocator &getAllocator() { return *allocator; }
 
+  /// Return the current stream of the current CUDA device.
+  StatusOr<Ref<Stream>> getCurrentDeviceStream() const;
+
+  //===----------------------------------------------------------------------===//
+  // Session Management
+  //===----------------------------------------------------------------------===//
+
+  using RuntimeSessionFactory =
+      std::function<StatusOr<std::unique_ptr<RuntimeSession>>(
+          Ref<RuntimeClient> client, RuntimeSessionOptions options,
+          ExecutableView executable)>;
+
+  /// Construct a new RuntimeSession of the given kind.
+  StatusOr<std::unique_ptr<RuntimeSession>>
+  createSession(llvm::StringRef kind, RuntimeSessionOptions options,
+                ExecutableView executable);
+
+  /// Register a new RuntimeSession factory.
+  void registerSessionFactory(llvm::StringRef kind,
+                              RuntimeSessionFactory factory);
+
+  mtrt::PluginRegistry &getPluginRegistry();
+
 private:
-  RuntimeClient(llvm::SmallVector<std::unique_ptr<Device>> devices,
-                std::unique_ptr<RuntimeClientAllocator> allocator)
-      : devices(std::move(devices)), allocator(std::move(allocator)) {}
+  void setAllocator(std::unique_ptr<RuntimeClientAllocator> allocator) {
+    this->allocator = std::move(allocator);
+  }
+
+  RuntimeClient(llvm::SmallVector<std::unique_ptr<Device>> devices);
 
   llvm::SmallVector<std::unique_ptr<Device>> devices;
   PinnedMemoryAllocator pinnedMemoryAllocator;
   ResourceTracker resourceTracker;
   std::unique_ptr<RuntimeClientAllocator> allocator;
+
+  /// Session factory registry.
+  llvm::StringMap<RuntimeSessionFactory> sessionFactories;
+
+  mtrt::PluginRegistry pluginRegistry;
 };
 
 //===----------------------------------------------------------------------===//
@@ -1186,40 +1161,6 @@ private:
 /// enabled, then returns an empty string.
 StatusOr<std::string> getCommunicatorUniqueId();
 
-//===----------------------------------------------------------------------===//
-// Debug Print Utilities
-//===----------------------------------------------------------------------===//
-
-/// Print a text summary of the executable to the stream.
-llvm::raw_ostream &print(llvm::raw_ostream &os, const Executable &exe);
-/// Print a text summary of the constant to the stream.
-llvm::raw_ostream &print(llvm::raw_ostream &os,
-                         const DataSegmentInfo &constant);
-/// Print a text summary of the type to the stream.
-llvm::raw_ostream &print(llvm::raw_ostream &os, const MemRefTypeView &type);
-/// Print a text summary of the type to the stream.
-llvm::raw_ostream &print(llvm::raw_ostream &os, const ScalarTypeView &type);
-/// Print a text summary of the signature to the stream.
-llvm::raw_ostream &print(llvm::raw_ostream &os,
-                         const FunctionSignatureView &sig);
-/// Print a text summary of the argument to the stream.
-llvm::raw_ostream &print(llvm::raw_ostream &os, const TypeUnionView &arg);
-/// Print a text summary of the function to the stream.
-llvm::raw_ostream &print(llvm::raw_ostream &os, const FunctionView &func);
-/// Print a text summary of the bounds to the stream.
-llvm::raw_ostream &print(llvm::raw_ostream &os, const BoundsUnionView &bounds);
-/// Print a text summary of the dim bounds to the stream.
-llvm::raw_ostream &print(llvm::raw_ostream &os, const DimensionBoundsView &dim);
-/// Print a text summary of the value bounds to the stream.
-llvm::raw_ostream &print(llvm::raw_ostream &os, const ValueBoundsView &val);
-
-/// Print a text summary of the unique ptr's underlying object to the stream.
-template <typename T>
-inline llvm::raw_ostream &print(llvm::raw_ostream &os,
-                                const std::unique_ptr<T> &obj) {
-  return print(os, *obj);
-}
-
-} // namespace mlirtrt::runtime
+} // namespace mtrt
 
 #endif // MLIR_EXECUTOR_RUNTIME_API_API

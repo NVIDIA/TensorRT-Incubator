@@ -35,6 +35,17 @@ DataSegmentOp executor::getOrCreateConstantResourceDeclaration(
   return resourceOp;
 }
 
+DataSegmentOp executor::createConstantResourceDeclaration(
+    OpBuilder &b, Location loc, ModuleOp module, StringRef name,
+    ElementsAttr data, bool constant, bool uninitialized) {
+  OpBuilder::InsertionGuard g(b);
+  b.setInsertionPointToStart(module.getBody());
+  auto resourceOp = executor::DataSegmentOp::create(
+      loc, name, data, constant, uninitialized, IntegerAttr{});
+  b.insert(resourceOp);
+  return resourceOp;
+}
+
 GlobalOp executor::getOrCreateGlobalOp(
     OpBuilder &b, Location loc, ModuleOp module, StringRef name, Type type,
     bool constant,
@@ -65,4 +76,41 @@ GlobalOp executor::createUniqueGlobalOp(
     insertPt = Block::iterator(globalOp);
   symbolTable.insert(globalOp, insertPt);
   return globalOp;
+}
+
+SmallString<16> executor::getUniqueSymbolName(ModuleOp moduleOp,
+                                              StringRef prefix) {
+  // Get a unique global name.
+  unsigned stringNumber = 0;
+  SmallString<16> stringConstName;
+  do {
+    stringConstName.clear();
+    (prefix + Twine(stringNumber++)).toStringRef(stringConstName);
+  } while (moduleOp.lookupSymbol(stringConstName));
+  return stringConstName;
+}
+
+DataSegmentOp executor::getOrCreateStringConstant(OpBuilder &b, Location loc,
+                                                  ModuleOp moduleOp,
+                                                  StringRef symbolName,
+                                                  StringRef str,
+                                                  uint64_t alignment) {
+  llvm::SmallString<20> nullTermStr(str);
+  nullTermStr.push_back('\0'); // Null terminate for C
+  StringAttr attr = b.getStringAttr(nullTermStr);
+  // Try to find existing global.
+  for (auto globalOp : moduleOp.getOps<DataSegmentOp>())
+    if (globalOp.getAddressSpace() == executor::MemoryType::host &&
+        globalOp.getConstant() && globalOp.getValueAttr() == attr &&
+        globalOp.getAlignment().value_or(0) == alignment)
+      return globalOp;
+  // Not found: create new global.
+  OpBuilder::InsertionGuard g(b);
+  b.setInsertionPointToStart(moduleOp.getBody());
+  SmallString<16> name = getUniqueSymbolName(moduleOp, symbolName);
+  auto resourceOp = executor::DataSegmentOp::create(
+      loc, name, attr, /*constant=*/true, /*uninitialized=*/false,
+      /*alignment=*/b.getI64IntegerAttr(alignment));
+  b.insert(resourceOp);
+  return resourceOp;
 }

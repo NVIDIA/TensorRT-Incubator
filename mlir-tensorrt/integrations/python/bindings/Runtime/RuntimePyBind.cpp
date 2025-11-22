@@ -1,6 +1,20 @@
 //===- Client.cpp  --------------------------------------------------------===//
 //
-// Copyright (c) 2024, NVIDIA CORPORATION. All rights reserved.
+// SPDX-FileCopyrightText: Copyright 2024-2025 NVIDIA CORPORATION & AFFILIATES.
+// All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 //
 //===----------------------------------------------------------------------===//
 ///
@@ -14,24 +28,19 @@
 #include "mlir-tensorrt-common-c/Support/Status.h"
 #include "pybind11/numpy.h"
 #include "pybind11/pybind11.h"
-#include "pybind11/stl.h"
 #include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/ScopeExit.h"
 #include "llvm/ADT/SmallVectorExtras.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/Twine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/MathExtras.h"
-#include "llvm/Support/raw_ostream.h"
-#include <exception>
 #include <memory>
 #include <stdexcept>
 #include <string_view>
 
 namespace py = pybind11;
-using namespace mlirtrt;
+using namespace mtrt;
 
 //===----------------------------------------------------------------------===//
 // MTRT_* <-> PyCapsule utilities.
@@ -110,9 +119,7 @@ public:
 /// Python object of wrapper for `MTRT_RuntimeValue`.
 class PyRuntimeValue {
 public:
-  PyRuntimeValue(std::shared_ptr<PyRuntimeClient> client,
-                 MTRT_RuntimeValue value)
-      : client(client), value(value) {}
+  PyRuntimeValue(MTRT_RuntimeValue value) : value(value) {}
 
   PyRuntimeValue(const PyRuntimeValue &other) = delete;
 
@@ -123,28 +130,22 @@ public:
 
   MTRT_RuntimeValue getRuntimeValue() { return value; }
 
-  std::shared_ptr<PyRuntimeClient> getClient() { return client; }
-
 protected:
-  std::shared_ptr<PyRuntimeClient> client;
   MTRT_RuntimeValue value;
 };
 
 /// Python wrapper around MTRT_ScalarValue.
 class PyScalarValue : public PyRuntimeValue {
 public:
-  PyScalarValue(std::shared_ptr<PyRuntimeClient> client,
-                MTRT_RuntimeValue value)
-      : PyRuntimeValue(std::move(client), value) {
+  PyScalarValue(MTRT_RuntimeValue value) : PyRuntimeValue(value) {
     if (!mtrtRuntimeValueIsScalar(value))
       throw std::invalid_argument("value is not a scalar value");
   }
 
   PyScalarValue(const PyScalarValue &other) = delete;
 
-  PyScalarValue(std::shared_ptr<PyRuntimeClient> client, MTRT_ScalarValue value)
-      : PyRuntimeValue(std::move(client),
-                       mtrtScalarValueCastToRuntimeValue(value)) {}
+  PyScalarValue(MTRT_ScalarValue value)
+      : PyRuntimeValue(mtrtScalarValueCastToRuntimeValue(value)) {}
 
   operator MTRT_ScalarValue() { return mtrtRuntimeValueDynCastToScalar(value); }
 };
@@ -152,15 +153,12 @@ public:
 /// Python wrapper around MTRT_MemRefValue.
 class PyMemRefValue : public PyRuntimeValue {
 public:
-  PyMemRefValue(std::shared_ptr<PyRuntimeClient> client,
-                MTRT_RuntimeValue value)
-      : PyRuntimeValue(std::move(client), value) {
+  PyMemRefValue(MTRT_RuntimeValue value) : PyRuntimeValue(value) {
     if (!mtrtRuntimeValueIsMemRef(value))
       throw std::invalid_argument("value is not a memref value");
   }
-  PyMemRefValue(std::shared_ptr<PyRuntimeClient> client, MTRT_MemRefValue value)
-      : PyRuntimeValue(std::move(client), mtrtMemRefCastToRuntimeValue(value)) {
-  }
+  PyMemRefValue(MTRT_MemRefValue value)
+      : PyRuntimeValue(mtrtMemRefCastToRuntimeValue(value)) {}
 
   PyMemRefValue(const PyMemRefValue &other) = delete;
   PyMemRefValue &operator=(const PyMemRefValue &other) = delete;
@@ -190,12 +188,12 @@ public:
   using Base::Base;
   DECLARE_WRAPPER_CONSTRUCTORS(PyRuntimeSession)
 
-  static constexpr auto kMethodTable = mlirtrt::CAPITable<MTRT_RuntimeSession>{
+  static constexpr auto kMethodTable = mtrt::CAPITable<MTRT_RuntimeSession>{
       mtrtRuntimeSessionIsNull, mtrtRuntimeSessionDestroy};
 };
 
 /// Python wrapper around MTRT_RuntimeClient.
-class PyRuntimeClient : public std::enable_shared_from_this<PyRuntimeClient> {
+class PyRuntimeClient {
 public:
   PyRuntimeClient(MTRT_RuntimeClient client) : client(client) {}
   ~PyRuntimeClient() {
@@ -211,7 +209,6 @@ public:
 
 private:
   MTRT_RuntimeClient client;
-
   std::unordered_set<std::shared_ptr<PyRuntimeSession>> sessions;
 };
 
@@ -276,6 +273,10 @@ getScalarTypeCodeFromPyBufferProtocolFormat(llvm::StringRef format,
       // i16
       elementType = MTRT_ScalarTypeCode::MTRT_ScalarTypeCode_i16;
     }
+  } else if (format == "Zf") {
+    elementType = MTRT_ScalarTypeCode::MTRT_ScalarTypeCode_complex32;
+  } else if (format == "Zd") {
+    elementType = MTRT_ScalarTypeCode::MTRT_ScalarTypeCode_complex64;
   }
   if (elementType == MTRT_ScalarTypeCode::MTRT_ScalarTypeCode_unknown)
     throw std::invalid_argument(
@@ -291,22 +292,17 @@ static std::unique_ptr<PyMemRefValue> createMemRef(
     std::optional<MTRT_Stream> stream,
     MTRT_PointerType addressSpace = MTRT_PointerType::MTRT_PointerType_device) {
   llvm::SmallVector<int64_t> strides;
-  int64_t bitSize{0};
-  MTRT_Status s = mtrtScalarTypeCodeBitsPerElement(dtype, &bitSize);
-  THROW_IF_MTRT_ERROR(s);
-  int64_t bytesPerElement = llvm::divideCeil(bitSize, 8);
-
   strides.resize(shape.size(), 1);
   for (int64_t idx = shape.size() - 2; idx >= 0; idx--)
     strides[idx] = strides[idx + 1] * shape[idx + 1];
 
   MTRT_MemRefValue result{nullptr};
-  s = mtrtMemRefCreate(client, addressSpace, bytesPerElement * 8, shape.size(),
-                       shape.data(), strides.data(),
-                       device ? *device : mtrtDeviceGetNull(),
-                       stream ? *stream : mtrtStreamGetNull(), dtype, &result);
+  MTRT_Status s =
+      mtrtMemRefCreate(client, addressSpace, dtype, shape.size(), shape.data(),
+                       strides.data(), device ? *device : mtrtDeviceGetNull(),
+                       stream ? *stream : mtrtStreamGetNull(), &result);
   THROW_IF_MTRT_ERROR(s);
-  return std::make_unique<PyMemRefValue>(client.shared_from_this(), result);
+  return std::make_unique<PyMemRefValue>(result);
 }
 
 static std::unique_ptr<PyMemRefValue> getMemRefFromHostBufferProtocol(
@@ -365,9 +361,9 @@ static std::unique_ptr<PyMemRefValue> getMemRefFromHostBufferProtocol(
 
   MTRT_MemRefValue hostView{nullptr};
   MTRT_Status s = mtrtMemRefCreateExternal(
-      client, MTRT_PointerType_host, bytesPerElement * 8,
+      client, MTRT_PointerType_host, elementType,
       reinterpret_cast<uintptr_t>(view.buf), 0, shape.size(), shape.data(),
-      strides.data(), mtrtDeviceGetNull(), elementType, &hostView);
+      strides.data(), mtrtDeviceGetNull(), &hostView);
   THROW_IF_MTRT_ERROR(s);
   auto cleanupView = llvm::make_scope_exit([&]() {
     MTRT_Status s = mtrtMemRefValueDestroy(hostView);
@@ -378,21 +374,20 @@ static std::unique_ptr<PyMemRefValue> getMemRefFromHostBufferProtocol(
     MTRT_MemRefValue result{nullptr};
     s = mtrtCopyFromHostToHost(hostView, &result);
     THROW_IF_MTRT_ERROR(s);
-    return std::make_unique<PyMemRefValue>(client.shared_from_this(), result);
+    return std::make_unique<PyMemRefValue>(result);
   }
 
   MTRT_MemRefValue result{nullptr};
   s = mtrtCopyFromHostToDevice(hostView, device ? *device : mtrtDeviceGetNull(),
-                               !stream ? mtrtStreamGetNull() : *stream,
-                               &result);
+                               stream ? *stream : mtrtStreamGetNull(), &result);
   THROW_IF_MTRT_ERROR(s);
 
   if (stream) {
-    s = mtrtStreamSynchronize(stream ? *stream : mtrtStreamGetNull());
+    s = mtrtStreamSynchronize(*stream);
     THROW_IF_MTRT_ERROR(s);
   }
 
-  return std::make_unique<PyMemRefValue>(client.shared_from_this(), result);
+  return std::make_unique<PyMemRefValue>(result);
 }
 
 static std::unique_ptr<PyMemRefValue> getMemRefViewWithCContiguousLayout(
@@ -408,18 +403,13 @@ static std::unique_ptr<PyMemRefValue> getMemRefViewWithCContiguousLayout(
       strides[idx] = strides[idx + 1] * shape[idx + 1];
   }
 
-  int64_t bitWidth{0};
-  MTRT_Status s = mtrtScalarTypeCodeBitsPerElement(scalarType, &bitWidth);
-  THROW_IF_MTRT_ERROR(s);
-
   MTRT_MemRefValue view{nullptr};
-  s = mtrtMemRefCreateExternal(client, addressSpace, bitWidth, ptr, 0,
-                               shape.size(), shape.data(), strides.data(),
-                               device ? *device : mtrtDeviceGetNull(),
-                               scalarType, &view);
+  MTRT_Status s = mtrtMemRefCreateExternal(
+      client, addressSpace, scalarType, ptr, 0, shape.size(), shape.data(),
+      strides.data(), device ? *device : mtrtDeviceGetNull(), &view);
   THROW_IF_MTRT_ERROR(s);
 
-  return std::make_unique<PyMemRefValue>(client.shared_from_this(), view);
+  return std::make_unique<PyMemRefValue>(view);
 }
 
 template <typename Type>
@@ -510,6 +500,125 @@ struct ExecutorRuntimeGlobalSetup {
 // DLPack Utilities
 //===----------------------------------------------------------------------===//
 
+static DLDeviceType toDLPackDeviceType(MTRT_PointerType address) {
+  switch (address) {
+  case MTRT_PointerType_device:
+    return DLDeviceType::kDLCUDA;
+  case MTRT_PointerType_host:
+    return DLDeviceType::kDLCPU;
+  case MTRT_PointerType_pinned_host:
+    return DLDeviceType::kDLCUDAHost;
+  case MTRT_PointerType_unified:
+    return DLDeviceType::kDLCUDAManaged;
+  case MTRT_PointerType_unknown:
+    throw std::invalid_argument("Address space [unknown] conversion to "
+                                "DLPackDeviceType is not supported.");
+  }
+  llvm_unreachable("invalid MTRT_PointerType");
+}
+
+static MTRT_PointerType getPointerTypeFromDLDeviceType(DLDeviceType device) {
+  switch (device) {
+  case DLDeviceType::kDLCUDA:
+    return MTRT_PointerType_device;
+  case DLDeviceType::kDLCPU:
+    return MTRT_PointerType_host;
+  case DLDeviceType::kDLCUDAHost:
+    return MTRT_PointerType_pinned_host;
+  case DLDeviceType::kDLCUDAManaged:
+    return MTRT_PointerType_unified;
+  case DLDeviceType::kDLExtDev:
+  case DLDeviceType::kDLHexagon:
+  case DLDeviceType::kDLMAIA:
+  case DLDeviceType::kDLMetal:
+  case DLDeviceType::kDLOneAPI:
+  case DLDeviceType::kDLOpenCL:
+  case DLDeviceType::kDLROCM:
+  case DLDeviceType::kDLROCMHost:
+  case DLDeviceType::kDLVPI:
+  case DLDeviceType::kDLVulkan:
+  case DLDeviceType::kDLWebGPU:
+  case DLDeviceType::kDLTrn:
+    throw std::invalid_argument(
+        "DLDeviceType conversion to MTRT_PointerType is not supported.");
+  }
+  llvm_unreachable("invalid DLDeviceType");
+}
+
+/// Return the MTRT scalar type code associated with the DLDataType.
+MTRT_ScalarTypeCode mtrtGetScalarTypeCodeFromDLDataType(DLDataType dtype) {
+  switch (dtype.code) {
+  case kDLBool:
+    return MTRT_ScalarTypeCode_i1;
+  case kDLInt:
+    switch (dtype.bits) {
+    case 8:
+      return MTRT_ScalarTypeCode_i8;
+    case 16:
+      return MTRT_ScalarTypeCode_i16;
+    case 32:
+      return MTRT_ScalarTypeCode_i32;
+    case 64:
+      return MTRT_ScalarTypeCode_i64;
+    default:
+      throw std::invalid_argument(
+          "DLDataType::kDLInt conversion with bit width " +
+          std::to_string(dtype.bits) +
+          " to MTRT_ScalarTypeCode is not supported.");
+    }
+  case kDLUInt:
+    switch (dtype.bits) {
+    case 8:
+      return MTRT_ScalarTypeCode_ui8;
+    default:
+      throw std::invalid_argument(
+          "DLDataType::kDLUInt conversion with bit width " +
+          std::to_string(dtype.bits) +
+          " to MTRT_ScalarTypeCode is not supported.");
+    }
+  case kDLFloat:
+    switch (dtype.bits) {
+    case 8:
+      return MTRT_ScalarTypeCode_f8e4m3fn;
+    case 16:
+      return MTRT_ScalarTypeCode_f16;
+    case 32:
+      return MTRT_ScalarTypeCode_f32;
+    case 64:
+      return MTRT_ScalarTypeCode_f64;
+    default:
+      throw std::invalid_argument(
+          "DLDataType::kDLFloat conversion with bit width " +
+          std::to_string(dtype.bits) +
+          " to MTRT_ScalarTypeCode is not supported.");
+    }
+  case kDLBfloat:
+    return MTRT_ScalarTypeCode_bf16;
+  case kDLComplex:
+    throw std::invalid_argument(
+        "DLDataType::kDLComplex conversion to MTRT_ScalarTypeCode is not "
+        "supported.");
+  case kDLOpaqueHandle:
+    throw std::invalid_argument(
+        "DLDataType::kDLOpaqueHandle conversion to MTRT_ScalarTypeCode is not "
+        "supported.");
+  }
+  llvm_unreachable("invalid DLDataTypeCode");
+}
+
+/// Return the DLDeviceType and device id associated with the memref value.
+static std::pair<DLDeviceType, int32_t>
+mtrtMemRefValueGetDLPackDevice(MTRT_MemRefValue memrefValue) {
+  MTRT_Device device = mtrtMemRefValueGetDevice(memrefValue);
+  if (mtrtDeviceIsNull(device))
+    return std::make_pair(DLDeviceType::kDLCPU, 0);
+  MTRT_PointerType addressSpace = mtrtMemRefValueGetAddressSpace(memrefValue);
+  DLDeviceType deviceType = toDLPackDeviceType(addressSpace);
+  int deviceId{0};
+  THROW_IF_MTRT_ERROR(mtrtDeviceGetIndex(device, &deviceId));
+  return std::make_pair(deviceType, deviceId);
+}
+
 /// Wrapper around a DLManagedTensor object. A pointer to the allocated memory
 /// for this object is placed into `tensor->manager_ctx`, enabling destruction
 /// from the capsule deleter.
@@ -571,6 +680,9 @@ static DLDataTypeCode toDLPackDataTypeCode(MTRT_ScalarTypeCode type) {
     return DLDataTypeCode::kDLFloat;
   case MTRT_ScalarTypeCode_bf16:
     return DLDataTypeCode::kDLBfloat;
+  case MTRT_ScalarTypeCode_complex32:
+  case MTRT_ScalarTypeCode_complex64:
+    return DLDataTypeCode::kDLComplex;
   default:
     throw std::invalid_argument(
         "Scalar type code conversion to DLPackDataTypeCode is not supported.");
@@ -625,16 +737,25 @@ createMemRefViewFromDLPack(PyRuntimeClient &client, py::capsule capsule,
   DLDeviceType device_type = managedTensor->dl_tensor.device.device_type;
   int device_id = managedTensor->dl_tensor.device.device_id;
 
-  MTRT_ScalarTypeCode elementType;
-  MTRT_Status s;
-  s = mtrtGetScalarTypeCodeFromDLDataType(dtype, &elementType);
-  THROW_IF_MTRT_ERROR(s);
+  MTRT_ScalarTypeCode elementType = mtrtGetScalarTypeCodeFromDLDataType(dtype);
 
-  int64_t bytesPerElement = llvm::divideCeil(dtype.bits, 8);
-
-  MTRT_PointerType addressSpace;
-  s = mtrtGetPointerTypeFromDLDeviceType(device_type, &addressSpace);
+  int64_t bitsPerElementExpected;
+  MTRT_Status s =
+      mtrtScalarTypeCodeBitsPerElement(elementType, &bitsPerElementExpected);
   THROW_IF_MTRT_ERROR(s);
+  if (dtype.bits != bitsPerElementExpected) {
+    throw std::invalid_argument("DLPack tensor has unexpected bit width: " +
+                                std::to_string(dtype.bits) + " expected: " +
+                                std::to_string(bitsPerElementExpected));
+  }
+
+  if (dtype.lanes != 1) {
+    throw std::invalid_argument(
+        "DLPack tensor has unsupported number of lanes: " +
+        std::to_string(dtype.lanes) + "; only lanes = 1 is supported");
+  }
+
+  MTRT_PointerType addressSpace = getPointerTypeFromDLDeviceType(device_type);
 
   MTRT_Device device{nullptr};
   if (addressSpace == MTRT_PointerType_device) {
@@ -649,42 +770,80 @@ createMemRefViewFromDLPack(PyRuntimeClient &client, py::capsule capsule,
 
   if (data) {
     s = mtrtMemRefCreateExternal(
-        client, addressSpace, bytesPerElement * 8,
-        reinterpret_cast<uintptr_t>(data), offset, rank, shape, strides, device,
-        elementType, &result,
+        client, addressSpace, elementType, reinterpret_cast<uintptr_t>(data),
+        offset, rank, shape, strides, device, &result,
         assertCanonicalStrides ? *assertCanonicalStrides : false,
         /*destroyCallback=*/
         MTRT_MemRefDestroyCallback{reinterpret_cast<void *>(managedTensor),
                                    memrefViewDLPackDestructionCallback});
   } else {
-    s = mtrtMemRefCreate(
-        client, addressSpace, bytesPerElement * 8, rank, shape, strides, device,
-        mtrtStreamGetNull(), elementType, &result,
-        assertCanonicalStrides ? *assertCanonicalStrides : false);
+    s = mtrtMemRefCreate(client, addressSpace, elementType, rank, shape,
+                         strides, device, mtrtStreamGetNull(), &result,
+                         assertCanonicalStrides ? *assertCanonicalStrides
+                                                : false);
   }
 
   THROW_IF_MTRT_ERROR(s);
-  return std::make_unique<PyMemRefValue>(client.shared_from_this(), result);
+  return std::make_unique<PyMemRefValue>(result);
 }
 
 static py::capsule pyMemRefValueToDLPackCapsule(py::handle obj,
-                                                int32_t /*stream*/) {
+                                                py::object providedStream,
+                                                py::object dlDevice,
+                                                bool copy) {
   // This cast should always succeed since this is a member function
   // of PyMemRefValue.
   PyMemRefValue &buffer = py::cast<PyMemRefValue &>(obj);
-
   MTRT_MemRefValue ref = mtrtMemRefCreateRef(buffer);
 
+  // Get the current device.
+  auto [currentDeviceType, currentDeviceId] =
+      mtrtMemRefValueGetDLPackDevice(buffer);
+
+  // Check if the dl_device is provided. If not, we assume the requested device
+  // is the current device.
+  DLDeviceType requestedDeviceType = currentDeviceType;
+  int32_t requestedDeviceId = currentDeviceId;
+  if (dlDevice != py::none()) {
+    py::tuple dlDeviceTuple = py::cast<py::tuple>(dlDevice);
+    requestedDeviceType =
+        static_cast<DLDeviceType>(py::cast<int32_t>(dlDeviceTuple[0]));
+    requestedDeviceId = py::cast<int32_t>(dlDeviceTuple[1]);
+  }
+
+  if (copy)
+    throw std::invalid_argument("copy=True is not supported");
+
+  if (requestedDeviceType != currentDeviceType ||
+      requestedDeviceId != currentDeviceId)
+    throw std::invalid_argument("unsupported: different device requested than "
+                                "the buffer's current device");
+
+  MTRT_Stream currentStream{nullptr};
+  MTRT_Status s = mtrtMemRefValueGetStream(buffer, &currentStream);
+  THROW_IF_MTRT_ERROR(s);
+
+  // If a stream is provided, we need to wait on it before creating the DLPack
+  // tensor.
+  if (providedStream != py::none()) {
+    uintptr_t providedStreamHandle = py::cast<uintptr_t>(providedStream);
+    uintptr_t currentStreamHandle{0};
+    THROW_IF_MTRT_ERROR(
+        mtrtStreamGetPointer(currentStream, &currentStreamHandle));
+    if (providedStreamHandle != currentStreamHandle) {
+      MTRT_Status s = mtrtExternalStreamWaitOnMTRTStream(providedStreamHandle,
+                                                         currentStream);
+      THROW_IF_MTRT_ERROR(s);
+    }
+  } else /* providedStream == py::none() */ {
+    MTRT_Status s = mtrtMemRefValueWaitForReady(buffer);
+    THROW_IF_MTRT_ERROR(s);
+  }
+
   auto pack = std::make_unique<DLPackManagerContext>();
-  pack->memref = std::make_unique<PyMemRefValue>(buffer.getClient(), ref);
+  pack->memref = std::make_unique<PyMemRefValue>(ref);
   pack->tensor.manager_ctx = pack.get();
   pack->tensor.deleter = DLPackTensorDeleter;
-
-  DLDeviceType device_type;
-  int32_t device_id;
-  MTRT_Status s =
-      mtrtMemRefValueGetDLPackDevice(buffer, &device_type, &device_id);
-  THROW_IF_MTRT_ERROR(s);
 
   MTRT_MemRefValueInfo info;
   s = mtrtMemRefValueGetInfo(buffer, &info);
@@ -698,8 +857,8 @@ static py::capsule pyMemRefValueToDLPackCapsule(py::handle obj,
 
   DLTensor &dt = pack->tensor.dl_tensor;
   dt.data = reinterpret_cast<void *>(info.ptr);
-  dt.device.device_type = device_type;
-  dt.device.device_id = device_id;
+  dt.device.device_type = requestedDeviceType;
+  dt.device.device_id = requestedDeviceId;
   dt.ndim = info.rank;
 
   DLDataType dtype;
@@ -751,12 +910,19 @@ PYBIND11_MODULE(_api, m) {
 
   py::class_<PyDevice>(m, "Device", py::module_local())
       .def_property_readonly(MTRT_PYTHON_CAPI_PTR_ATTR, &PyDevice::getCapsule)
-      .def("get_name", [](PyDevice &self) -> py::str {
-        int32_t index;
-        MTRT_Status s = mtrtDeviceGetIndex(self, &index);
+      .def("get_name",
+           [](PyDevice &self) -> py::str {
+             int32_t index;
+             MTRT_Status s = mtrtDeviceGetIndex(self, &index);
+             THROW_IF_MTRT_ERROR(s);
+             std::string deviceName = "cuda:" + std::to_string(index);
+             return py::str(deviceName.c_str());
+           })
+      .def_property_readonly("stream", [](PyDevice &self) {
+        MTRT_Stream stream{nullptr};
+        MTRT_Status s = mtrtDeviceGetStream(self, &stream);
         THROW_IF_MTRT_ERROR(s);
-        std::string deviceName = "cuda:" + std::to_string(index);
-        return py::str(deviceName.c_str());
+        return PyStream(stream);
       });
 
   py::class_<PyRuntimeValue>(m, "RuntimeValue", py::module_local())
@@ -765,7 +931,7 @@ PYBIND11_MODULE(_api, m) {
              MTRT_Status s = mtrtRuntimeValueScalarCreate(
                  scalar, MTRT_ScalarTypeCode_i64, &value);
              THROW_IF_MTRT_ERROR(s);
-             return new PyRuntimeValue(client->shared_from_this(), value);
+             return new PyRuntimeValue(value);
            }),
            py::arg("client"), py::arg("scalar_int"));
 
@@ -827,14 +993,13 @@ PYBIND11_MODULE(_api, m) {
                                THROW_IF_MTRT_ERROR(s);
                                return info.addressSpace;
                              })
-      .def("__dlpack__", pyMemRefValueToDLPackCapsule, py::arg("stream") = 0)
+      .def("__dlpack__", pyMemRefValueToDLPackCapsule,
+           py::arg("stream") = py::none(), py::arg("dl_device") = py::none(),
+           py::arg("copy") = false)
       .def("__dlpack_device__",
            [](PyMemRefValue &self) {
-             DLDeviceType device_type;
-             int32_t device_id;
-             MTRT_Status s =
-                 mtrtMemRefValueGetDLPackDevice(self, &device_type, &device_id);
-             THROW_IF_MTRT_ERROR(s);
+             auto [device_type, device_id] =
+                 mtrtMemRefValueGetDLPackDevice(self);
              return py::make_tuple(static_cast<int>(device_type), device_id);
            })
       .def_buffer([](PyMemRefValue &self) {
@@ -945,8 +1110,7 @@ PYBIND11_MODULE(_api, m) {
               THROW_IF_MTRT_ERROR(s);
 
               // Cast from RuntimeValue to ScalarValue and return PyScalarValue.
-              return new PyScalarValue(self.shared_from_this(),
-                                       mtrtRuntimeValueDynCastToScalar(value));
+              return new PyScalarValue(mtrtRuntimeValueDynCastToScalar(value));
             }
 
             // Other path when user provides a Python int object but no type
@@ -959,8 +1123,7 @@ PYBIND11_MODULE(_api, m) {
                   idata, MTRT_ScalarTypeCode_i64, &value);
               THROW_IF_MTRT_ERROR(s);
               // Cast from RuntimeValue to ScalarValue and return PyScalarValue.
-              return new PyScalarValue(self.shared_from_this(),
-                                       mtrtRuntimeValueDynCastToScalar(value));
+              return new PyScalarValue(mtrtRuntimeValueDynCastToScalar(value));
             }
 
             throw std::runtime_error("Unsupported scalar type!");
@@ -1069,15 +1232,6 @@ PYBIND11_MODULE(_api, m) {
           py::arg("ptr"), py::arg("shape"), py::arg("dtype") = py::none(),
           py::keep_alive<0, 1>())
       .def(
-          "create_stream",
-          [](PyRuntimeClient &self) {
-            MTRT_Stream stream{nullptr};
-            MTRT_Status s = mtrtStreamCreate(&stream);
-            THROW_IF_MTRT_ERROR(s);
-            return PyStream(stream);
-          },
-          py::keep_alive<0, 1>())
-      .def(
           "copy_to_device",
           [](PyRuntimeClient &self, PyMemRefValue &hostMemRef, PyDevice &device,
              std::optional<MTRT_Stream> stream) {
@@ -1086,7 +1240,7 @@ PYBIND11_MODULE(_api, m) {
                 hostMemRef, device, stream ? *stream : mtrtStreamGetNull(),
                 &deviceMemRef);
             THROW_IF_MTRT_ERROR(s);
-            return new PyMemRefValue(self.shared_from_this(), deviceMemRef);
+            return new PyMemRefValue(deviceMemRef);
           },
           py::arg("host_memref"), py::arg("device"),
           py::arg("stream") = py::none(), py::keep_alive<0, 1>())
@@ -1099,7 +1253,7 @@ PYBIND11_MODULE(_api, m) {
                 deviceMemRef, stream ? *stream : mtrtStreamGetNull(),
                 &hostMemRef);
             THROW_IF_MTRT_ERROR(s);
-            return new PyMemRefValue(self.shared_from_this(), hostMemRef);
+            return new PyMemRefValue(hostMemRef);
           },
           py::arg("device_memref"), py::arg("stream") = py::none(),
           py::keep_alive<0, 1>())
@@ -1147,21 +1301,22 @@ PYBIND11_MODULE(_api, m) {
 
   py::class_<PyRuntimeSession, std::shared_ptr<PyRuntimeSession>>(
       m, "RuntimeSession", py::module_local())
-      .def(py::init<>([](PyRuntimeSessionOptions &options, PyExecutable &exe) {
+      .def(py::init<>([](PyRuntimeClient &client,
+                         PyRuntimeSessionOptions &options, PyExecutable &exe) {
              MTRT_RuntimeSession session;
-             MTRT_Status s = mtrtRuntimeSessionCreate(options, exe, &session);
+             MTRT_Status s =
+                 mtrtRuntimeSessionCreate(client, options, exe, &session);
              THROW_IF_MTRT_ERROR(s);
 
              return std::make_shared<PyRuntimeSession>(session);
            }),
-           py::arg("options"), py::arg("executable"))
+           py::arg("client"), py::arg("options"), py::arg("executable"))
       .def(
           "execute_function",
           [](PyRuntimeSession &self, std::string name,
              std::vector<PyRuntimeValue *> inArgs,
              std::optional<std::vector<PyMemRefValue *>> outArgs,
-             std::optional<MTRT_Stream> stream,
-             PyRuntimeClient *client = nullptr) {
+             std::optional<MTRT_Stream> stream) {
             MTRT_StringView nameRef{name.data(), name.size()};
 
             int64_t numResults;
@@ -1186,42 +1341,24 @@ PYBIND11_MODULE(_api, m) {
             s = mtrtRuntimeSessionExecuteFunction(
                 self, nameRef, inArgsGeneric.data(), inArgsGeneric.size(),
                 outArgsGeneric.data(), outArgsGeneric.size(),
-                resultsGeneric.data(), stream ? *stream : mtrtStreamGetNull(),
-                client ? MTRT_RuntimeClient(*client)
-                       : mtrtRuntimeClientGetNull());
+                resultsGeneric.data(), stream ? *stream : mtrtStreamGetNull());
             THROW_IF_MTRT_ERROR(s);
 
             std::vector<std::unique_ptr<PyRuntimeValue>> resultPyObject;
             if (numResults > 0) {
-              if (!client)
-                throw std::invalid_argument(
-                    "client must be provided when there are returned results");
-
               for (const MTRT_RuntimeValue &arg : resultsGeneric)
                 if (mtrtRuntimeValueIsMemRef(arg))
                   resultPyObject.push_back(std::unique_ptr<PyRuntimeValue>(
-                      new PyMemRefValue(client->shared_from_this(),
-                                        mtrtRuntimeValueDynCastToMemRef(arg))));
+                      new PyMemRefValue(mtrtRuntimeValueDynCastToMemRef(arg))));
                 else
                   resultPyObject.push_back(std::unique_ptr<PyRuntimeValue>(
-                      new PyScalarValue(client->shared_from_this(),
-                                        mtrtRuntimeValueDynCastToScalar(arg))));
-            }
-
-            if (client) {
-              std::shared_ptr<PyRuntimeSession> sessionRef =
-                  self.shared_from_this();
-              if (client->getSessionsSet().count(sessionRef) == 0)
-                client->getSessionsSet().insert(sessionRef);
+                      new PyScalarValue(mtrtRuntimeValueDynCastToScalar(arg))));
             }
 
             return resultPyObject;
           },
           py::arg("name"), py::arg("in_args"), py::arg("out_args") = py::none(),
-          py::arg("stream") = py::none(), py::arg("client") = nullptr,
-          "Execute a function given input and optional output arguments. "
-          "Return optional results as a Python object if output arguments are "
-          "not present.");
+          py::arg("stream") = py::none());
 
   py::class_<PyGlobalDebugFlag>(m, "GlobalDebug", py::module_local())
       .def_property_static("flag", &PyGlobalDebugFlag::get,

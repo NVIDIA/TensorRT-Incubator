@@ -1,6 +1,6 @@
-// RUN: executor-opt %s -executor-lowering-pipeline \
-// RUN:   | executor-translate -mlir-to-lua \
-// RUN:   | executor-runner -input-type=lua -features=core | FileCheck %s
+// RUN: executor-opt %s -executor-generate-abi-wrappers -executor-lowering-pipeline \
+// RUN:   | executor-translate -mlir-to-runtime-executable \
+// RUN:   | executor-runner -input-type=rtexe -features=core | FileCheck %s
 
 func.func @test_for(%lb: index, %ub: index, %step: index) {
   %c0 = executor.constant 0 : index

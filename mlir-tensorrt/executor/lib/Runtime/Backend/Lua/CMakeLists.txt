@@ -1,3 +1,6 @@
+set(sol2_includes "$<TARGET_PROPERTY:sol2::sol2,INTERFACE_INCLUDE_DIRECTORIES>")
+include_directories(${sol2_includes})
+
 add_subdirectory(Modules)
 
 add_mlir_executor_runtime_library(MLIRTensorRTLuaExtensionRegistry
@@ -6,28 +9,23 @@ add_mlir_executor_runtime_library(MLIRTensorRTLuaExtensionRegistry
   PARTIAL_SOURCES_INTENDED
 
   LINK_LIBS PUBLIC
-  MLIRTensorRTExecutorRuntimeAPI
-
-  LINK_LIBS PRIVATE
-  sol2::sol2
   lua::core
+  MLIRTensorRTExecutorRuntimeAPI
   )
 
 
+get_property(runtime_capabilities GLOBAL PROPERTY MLIRExecutorRuntimeCapabilities)
 add_mlir_executor_runtime_library(MLIRTensorRTExecutionEngineLuaRuntime
   LuaRuntime.cpp
+  LuaRuntimeCompat.cpp
 
   PARTIAL_SOURCES_INTENDED
 
   LINK_LIBS PUBLIC
-  MLIRTensorRTExecutorRuntimeAPI
-  MLIRTensorRTLuaExtensionRegistry
-  MLIRExecutorRuntimeCapabilities
-
-  LINK_LIBS PRIVATE
-  sol2::sol2
   lua::core
-  nvtx3-cpp
+  ${runtime_capabilities}
+  MLIRTensorRTExecutorRuntimeAPI
   MLIRTensorRTExecutorRuntimeCommon
+  MLIRTensorRTLuaExtensionRegistry
+  nvtx3-cpp
 )
-

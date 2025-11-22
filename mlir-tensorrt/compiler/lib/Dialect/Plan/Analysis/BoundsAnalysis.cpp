@@ -1,6 +1,6 @@
 //===- BoundsAnalysis.cpp -------------------------------------------------===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -22,6 +22,7 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt/Dialect/Plan/Analysis/BoundsAnalysis.h"
+#include "mlir-executor/Executor/IR/Executor.h"
 #include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/PlanInterfaces.h"
@@ -40,13 +41,16 @@
 using namespace mlir;
 using namespace mlir::dataflow;
 using namespace mlir::plan;
-using namespace mlirtrt::compiler;
+using namespace mtrt::compiler;
 
 #define DEBUG_TYPE "plan-bounds-analysis"
 #define DBGS(x) llvm::dbgs() << " [" DEBUG_TYPE "][" x "] "
 
 template <typename T>
 std::optional<T> maybeGetFunctionArgBound(Value value, StringRef attrName) {
+  if (auto recvOp = value.getDefiningOp<executor::ABIRecvOp>())
+    return maybeGetFunctionArgBound<T>(recvOp.getPtr(), attrName);
+
   BlockArgument source = dyn_cast<BlockArgument>(value);
   if (!source)
     return {};
@@ -138,7 +142,7 @@ void ShapeBoundsForwardAnalysis::setToEntryState(ShapeBoundsLattice *lattice) {
 
   std::optional<BoundsAttrInterface> shapeProfile =
       maybeGetFunctionArgBound<BoundsAttrInterface>(
-          lattice->getAnchor(), plan::PlanDialect::getShapeBoundsAttrName());
+          lattice->getAnchor(), plan::PlanDialect::kShapeBoundsAttrName);
 
   if (!shapeProfile)
     return propagateIfChanged(lattice, lattice->join(BoundsArray()));
@@ -202,6 +206,23 @@ LogicalResult ShapeBoundsForwardAnalysis::visitOperation(
           getProgramPointAfter(op), v));
     return result;
   };
+
+  if (auto recvOp = dyn_cast<executor::ABIRecvOp>(op)) {
+    if (auto tensorType =
+            dyn_cast<RankedTensorType>(recvOp.getResult().getType())) {
+      std::optional<BoundsAttrInterface> shapeProfile =
+          maybeGetFunctionArgBound<BoundsAttrInterface>(
+              recvOp.getPtr(), plan::PlanDialect::kShapeBoundsAttrName);
+      if (!shapeProfile)
+        return success();
+      SmallVector<int64_t> minBound, maxBound;
+      if (failed(shapeProfile->getShapeRange(minBound, maxBound)))
+        return success();
+      joinCallback(recvOp.getResult(),
+                   BoundsArray::fromShapeBounds(minBound, maxBound).getValue());
+    }
+    return success();
+  }
 
   if (auto withOp = dyn_cast<plan::WithShapeOp>(op)) {
     FailureOr<SmallVector<ConstantIntRanges>> ranges =
@@ -324,7 +345,7 @@ maybeGetValueBounds(Value value, ArrayRef<uint64_t> coordinate = {}) {
   assert(elType.isSignlessIntOrIndex() && "expected integer or index type");
   std::optional<BoundsAttrInterface> bound =
       maybeGetFunctionArgBound<BoundsAttrInterface>(
-          value, plan::PlanDialect::getValueBoundsAttrName());
+          value, plan::PlanDialect::kValueBoundsAttrName);
   if (!bound)
     return {};
 
@@ -432,7 +453,7 @@ static void inferResultRanges(tensor::DimOp dimOp,
   // bounds.
   std::optional<BoundsAttrInterface> shapeProfile =
       maybeGetFunctionArgBound<BoundsAttrInterface>(
-          dimOp.getSource(), plan::PlanDialect::getShapeBoundsAttrName());
+          dimOp.getSource(), plan::PlanDialect::kShapeBoundsAttrName);
   if (!shapeProfile)
     return setResultRanges(dimOp.getResult(), getMaxDimRange());
 
@@ -498,7 +519,7 @@ void ShapeIntegerRangeAnalysis::setToEntryState(
 
   std::optional<BoundsAttrInterface> shapeProfile =
       maybeGetFunctionArgBound<BoundsAttrInterface>(
-          lattice->getAnchor(), plan::PlanDialect::getValueBoundsAttrName());
+          lattice->getAnchor(), plan::PlanDialect::kValueBoundsAttrName);
   std::optional<ConstantIntRanges> intRange =
       shapeProfile ? shapeProfile->getIntegerValueRange() : std::nullopt;
   if (!intRange) {
@@ -603,7 +624,7 @@ void TensorValueBoundsAnalysis::setToEntryState(
 
   std::optional<BoundsAttrInterface> shapeProfile =
       maybeGetFunctionArgBound<BoundsAttrInterface>(
-          point, plan::PlanDialect::getValueBoundsAttrName());
+          point, plan::PlanDialect::kValueBoundsAttrName);
   if (!shapeProfile)
     return propagateIfChanged(lattice, lattice->join(BoundsArray()));
 

@@ -8,8 +8,8 @@ add_mlir_tensorrt_library(MLIRTensorRTOwningModuleRef
 
   PARTIAL_SOURCES_INTENDED
 
-  LINK_LIBS PUBLIC
-  MLIRIR
+  MLIR_LIBS PUBLIC
+    MLIRIR
   )
 
 add_mlir_tensorrt_library(MLIRTensorRTRegionUtils
@@ -17,8 +17,8 @@ add_mlir_tensorrt_library(MLIRTensorRTRegionUtils
 
   PARTIAL_SOURCES_INTENDED
 
-  LINK_LIBS PUBLIC
-  MLIRAnalysis
-  MLIRIR
-  MLIRTransformUtils
+  MLIR_LIBS PUBLIC
+    MLIRAnalysis
+    MLIRIR
+    MLIRTransformUtils
   )

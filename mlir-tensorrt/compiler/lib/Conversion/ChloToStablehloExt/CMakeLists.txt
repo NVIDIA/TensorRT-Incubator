@@ -5,13 +5,14 @@ add_mlir_tensorrt_library(MLIRTensorRTChloToStablehloExt
   MLIRTensorRTConversionPassIncGen
 
   LINK_LIBS PUBLIC
-  ChloOps
-  MLIRDialectUtils
-  MLIRIR
-  MLIRPass
-  MLIRRewrite
-  MLIRTensorRTTensorRTDialect
-  MLIRTransformUtils
-  StablehloOps
-  StablehloPasses
+    ChloOps
+    MLIRTensorRTTensorRTDialect
+    StablehloOps
+    StablehloPasses
+  MLIR_LIBS PUBLIC
+    MLIRDialectUtils
+    MLIRIR
+    MLIRPass
+    MLIRRewrite
+    MLIRTransformUtils
   )

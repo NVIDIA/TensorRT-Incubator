@@ -21,18 +21,17 @@
 /// Declarations for routines that enable Lua code execution.
 ///
 //===----------------------------------------------------------------------===//
-#ifndef MLIR_TENSORRT_RUNTIME_BACKEND_LUA_LUARUNTIME_H
-#define MLIR_TENSORRT_RUNTIME_BACKEND_LUA_LUARUNTIME_H
+#ifndef MLIR_EXECUTOR_RUNTIME_BACKEND_LUA_LUARUNTIME
+#define MLIR_EXECUTOR_RUNTIME_BACKEND_LUA_LUARUNTIME
 
 #include "mlir-executor/Runtime/API/API.h"
-#include "mlir-executor/Runtime/Backend/Lua/SolAdaptor.h"
 #include "mlir-tensorrt-common/Support/Status.h"
 #include <functional>
 #include <string_view>
 
 struct lua_State;
 
-namespace mlirtrt::runtime {
+namespace mtrt {
 
 /// Implementation of the LuaRuntimeSession.
 class LuaRuntimeSession : public RuntimeSession {
@@ -49,10 +48,9 @@ public:
   /// build settings is immediately registered).
   /// This will setup a Lua environment and invoke
   /// global initialization.
-  /// TODO: add capabilities options to 'options' so that only modules
-  /// specifically required are registered.
   static StatusOr<std::unique_ptr<LuaRuntimeSession>>
-  create(RuntimeSessionOptions options, ExecutableView executable,
+  create(Ref<RuntimeClient> client, RuntimeSessionOptions options,
+         ExecutableView executable,
          LuaModuleRegistrationFunc registerExtraLuaFunctions = {});
 
   /// Return a reference to the Lua state. Note that `sol::state` or any other
@@ -60,14 +58,20 @@ public:
   /// https://sol2.readthedocs.io/en/latest/threading.html.
   lua_State *getLuaState();
 
-  /// Set the primary stream for the loaded executable to use.
-  Status setCudaStream(CudaStream stream);
-
-  /// Get the primary stream for the loaded executable to use.
-  CudaStream getCudaStream();
+  /// Execute a named function in the session with the specified input args and
+  /// output (destination args). Returns optional results supporting both DPS
+  /// and non-DPS style calling convention.
+  StatusOr<llvm::SmallVector<std::unique_ptr<RuntimeValue>>>
+  executeFunction(llvm::StringRef name, llvm::ArrayRef<RuntimeValue *> inputs,
+                  llvm::ArrayRef<RuntimeValue *> outArgs) final;
 
 private:
-  LuaRuntimeSession(RuntimeSessionOptions options, ExecutableView executable);
+  LuaRuntimeSession(Ref<RuntimeClient> client, RuntimeSessionOptions options,
+                    ExecutableView executable);
+
+  /// Handle stream change by updating the internal Lua global variable if
+  /// applicable.
+  Status onStreamChanged(Ref<Stream> oldStream, Ref<Stream> newStream) final;
 
   class Impl;
   std::unique_ptr<Impl> impl;
@@ -95,18 +99,6 @@ StatusOr<int64_t> runExecutorExecutable(
     RuntimeSessionOptions options, std::unique_ptr<Executable> executable,
     LuaRuntimeSession::LuaModuleRegistrationFunc registerExtraLuaFuncs = {});
 
-/// Execute a named function in the session with the specified input args and
-/// output (destination args). Returns optional results supporting both DPS and
-/// non-DPS style calling convention.
-/// `client` argument is required in case the function return atleast one memref
-/// value.
-StatusOr<llvm::SmallVector<std::unique_ptr<RuntimeValue>>>
-executeFunctionWithLuaBackend(LuaRuntimeSession &session, std::string_view name,
-                              llvm::ArrayRef<RuntimeValue *> inputArgs,
-                              llvm::ArrayRef<RuntimeValue *> outputArgs,
-                              std::optional<CudaStream> stream = {},
-                              std::optional<RuntimeClient *> client = {});
+} // namespace mtrt
 
-} // namespace mlirtrt::runtime
-
-#endif // MLIR_TENSORRT_RUNTIME_BACKEND_LUA_LUARUNTIME_H
+#endif // MLIR_EXECUTOR_RUNTIME_BACKEND_LUA_LUARUNTIME

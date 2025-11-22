@@ -20,8 +20,10 @@
 #include "mlir-executor/Executor/IR/Executor.h"
 #include "mlir-executor/Executor/IR/ExecutorAttributes.h"
 #include "mlir/Dialect/CommonFolders.h"
+#include "mlir/Dialect/Complex/IR/Complex.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/GPU/IR/GPUDialect.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/UB/IR/UBOps.h"
 #include "mlir/Dialect/Utils/StaticValueUtils.h"
 #include "mlir/IR/Builders.h"
@@ -30,6 +32,7 @@
 #include "mlir/IR/OperationSupport.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/SymbolTable.h"
+#include "mlir/Interfaces/CastInterfaces.h"
 #include "mlir/Interfaces/DataLayoutInterfaces.h"
 #include "mlir/Interfaces/FunctionImplementation.h"
 #include "mlir/Interfaces/FunctionInterfaces.h"
@@ -45,6 +48,7 @@
 
 using namespace mlir;
 using namespace mlir::executor;
+static constexpr uint64_t kBitsInByte = 8;
 
 //===----------------------------------------------------------------------===//
 // RuntimeBuiltinInterface
@@ -218,7 +222,6 @@ static void printFuncResults(AsmPrinter &p, ArrayRef<Type> params) {
 
 static constexpr uint64_t kDefaultPointerSizeBits = 64;
 static constexpr uint64_t kDefaultPointerAlignment = 8;
-static constexpr uint64_t kBitsInByte = 8;
 
 llvm::TypeSize
 PointerType::getTypeSizeInBits(const DataLayout &dataLayout,
@@ -391,10 +394,12 @@ void GlobalOp::build(OpBuilder &builder, OperationState &state, StringRef name,
     state.addAttribute(GlobalOp::getConstantAttrName(state.name),
                        builder.getUnitAttr());
   Region *region = state.addRegion();
-  Block &body = region->emplaceBlock();
-  OpBuilder::InsertionGuard g(builder);
-  builder.setInsertionPointToStart(&body);
-  initBuilder(builder, state.location);
+  if (initBuilder) {
+    Block &body = region->emplaceBlock();
+    OpBuilder::InsertionGuard g(builder);
+    builder.setInsertionPointToStart(&body);
+    initBuilder(builder, state.location);
+  }
 }
 
 //===----------------------------------------------------------------------===//
@@ -402,7 +407,7 @@ void GlobalOp::build(OpBuilder &builder, OperationState &state, StringRef name,
 //===----------------------------------------------------------------------===//
 
 DataSegmentOp DataSegmentOp::create(Location loc, StringRef name,
-                                    ElementsAttr value, bool constant,
+                                    Attribute value, bool constant,
                                     bool uninitialized, IntegerAttr alignment) {
   OpBuilder b(loc.getContext());
   return b.create<DataSegmentOp>(loc, name, value, constant, uninitialized,
@@ -410,22 +415,30 @@ DataSegmentOp DataSegmentOp::create(Location loc, StringRef name,
 }
 
 LogicalResult DataSegmentOp::verify() {
-  ShapedType type = getValue().getShapedType();
+  auto elementsValue = llvm::dyn_cast<ElementsAttr>(getValue());
+  auto stringValue = llvm::dyn_cast<StringAttr>(getValue());
+  ShapedType type =
+      elementsValue
+          ? elementsValue.getShapedType()
+          : RankedTensorType::get({static_cast<int64_t>(stringValue.size())},
+                                  IntegerType::get(getContext(), 8));
   if (!type.getElementType().isSignlessIntOrIndexOrFloat() &&
       !isa<ComplexType>(type.getElementType()))
     return emitOpError() << "initializer value can only be signless integer or "
                             "float or complex element type";
 
   if (getUninitialized()) {
-    ElementsAttr value = getValue();
+    if (!elementsValue)
+      return emitOpError()
+             << "expected value to be anElementsAttr when uninitialized";
     if (std::optional<ElementsAttr::iterator<llvm::APInt>> splatVal =
-            value.try_value_begin<llvm::APInt>()) {
+            elementsValue.try_value_begin<llvm::APInt>()) {
       if (!(**splatVal).isZero())
         return emitOpError()
                << "expected splat-zero ElementsAttr when uninitialized";
     }
     if (std::optional<ElementsAttr::iterator<llvm::APFloat>> splatVal =
-            value.try_value_begin<llvm::APFloat>()) {
+            elementsValue.try_value_begin<llvm::APFloat>()) {
       if (!(**splatVal).bitcastToAPInt().isZero())
         return emitOpError()
                << "expected splat-zero ElementsAttr when uninitialized";
@@ -438,8 +451,8 @@ LogicalResult DataSegmentOp::verify() {
 // ConstantResourceLoadOp
 //===----------------------------------------------------------------------===//
 
-LogicalResult ConstantResourceLoadOp::verifySymbolUses(
-    ::mlir::SymbolTableCollection &symbolTable) {
+LogicalResult
+ConstantResourceLoadOp::verifySymbolUses(SymbolTableCollection &symbolTable) {
   auto module = (*this)->getParentOfType<ModuleOp>();
   auto globalOp = dyn_cast_or_null<DataSegmentOp>(
       symbolTable.lookupSymbolIn(module, getNameAttr()));
@@ -762,16 +775,6 @@ AllocaOp::handlePromotionComplete(const MemorySlot &slot, Value defaultValue,
 // LoadOp
 //===----------------------------------------------------------------------===//
 
-FailureOr<CallOpInterface>
-LoadOp::lowerToCall(ArrayRef<Value> operands, RewriterBase &rewriter,
-                    ModuleOp moduleOp, const TypeConverter &typeConverter,
-                    const DataLayout &dataLayout) {
-  if (isa<TableType>(getType()))
-    return failure();
-  return detail::lowerToCallDefaultImpl(getOperation(), operands, moduleOp,
-                                        rewriter, typeConverter, dataLayout);
-}
-
 bool LoadOp::storesTo(const MemorySlot &slot) { return false; }
 bool LoadOp::loadsFrom(const MemorySlot &slot) { return slot.ptr == getPtr(); }
 Value LoadOp::getStored(const MemorySlot &slot, OpBuilder &, Value reachingDef,
@@ -839,7 +842,7 @@ GlobalOp GetGlobalOp::getGlobal(SymbolTableCollection &symbolTable) {
 }
 
 LogicalResult
-GetGlobalOp::verifySymbolUses(::mlir::SymbolTableCollection &symbolTable) {
+GetGlobalOp::verifySymbolUses(SymbolTableCollection &symbolTable) {
   GlobalOp globalOp = getGlobal(symbolTable);
   if (!globalOp)
     return emitOpError() << "global op with name " << getNameAttr()
@@ -856,7 +859,7 @@ GetGlobalOp::verifySymbolUses(::mlir::SymbolTableCollection &symbolTable) {
 //===----------------------------------------------------------------------===//
 
 LogicalResult
-SetGlobalOp::verifySymbolUses(::mlir::SymbolTableCollection &symbolTable) {
+SetGlobalOp::verifySymbolUses(SymbolTableCollection &symbolTable) {
   auto module = (*this)->getParentOfType<ModuleOp>();
   auto globalOp = dyn_cast_or_null<GlobalOp>(
       symbolTable.lookupSymbolIn(module, getNameAttr()));
@@ -978,8 +981,7 @@ void FuncOp::build(OpBuilder &builder, OperationState &state, StringRef name,
 
 LogicalResult CallOp::verify() { return success(); }
 
-LogicalResult
-CallOp::verifySymbolUses(::mlir::SymbolTableCollection &symbolTable) {
+LogicalResult CallOp::verifySymbolUses(SymbolTableCollection &symbolTable) {
   auto callee = dyn_cast_or_null<executor::FuncOp>(
       symbolTable.lookupNearestSymbolFrom(*this, getCalleeAttr()));
   if (!callee)
@@ -1077,28 +1079,11 @@ OpFoldResult BitcastOp::fold(FoldAdaptor adaptor) {
   return {};
 }
 
-auto isBitcastSupported = [](Type inputType, Type resultType) -> bool {
-  if (inputType.isInteger(16) || inputType.isF16())
-    return resultType.isF16() || resultType.isInteger(16);
-  if (inputType.isInteger(32) || inputType.isF32())
-    return resultType.isF32() || resultType.isInteger(32);
-  if (inputType.isInteger(64) || inputType.isF64())
-    return resultType.isF64() || resultType.isInteger(64);
-  return false;
-};
-
 LogicalResult BitcastOp::verify() {
   Type inputType = getInput().getType();
   Type resultType = getResult().getType();
-  // Supported casts
-  // i16 | F16 <-> i16 | F16
-  // i32 | F32 <-> i32 | F32
-  // i64 | F64 <-> i64 | F64
-  if (!isBitcastSupported(inputType, resultType))
-    return emitOpError() << "Bitcast between input type " << inputType
-                         << "and result type " << resultType
-                         << "is not supported";
-  return success();
+  return success(inputType.getIntOrFloatBitWidth() ==
+                 resultType.getIntOrFloatBitWidth());
 }
 
 //===----------------------------------------------------------------------===//
@@ -1301,6 +1286,359 @@ LogicalResult AllocateOp::verify() {
                            << alignConst.getSExtValue();
   }
   return success();
+}
+
+//===----------------------------------------------------------------------===//
+// ABIRecvOp
+//===----------------------------------------------------------------------===//
+
+/// Returns true if the given type is a sub-byte type, i.e. an integer or float
+/// type with bitwidth less than 8.
+static bool isSubByteType(Type type) {
+  if (!isa<IntegerType, FloatType>(type))
+    return false;
+  return type.getIntOrFloatBitWidth() < kBitsInByte;
+}
+
+/// Returns true if the given element types for memref/tensor types are
+/// compatible for the ABI boundary. See below `areTypesABICompatible` for more
+/// details.
+static bool areScalarTypesABICompatible(Type valueType, Type abiType) {
+  if (valueType == abiType)
+    return true;
+  if (isSubByteType(abiType) && isa<IntegerType>(valueType))
+    return valueType.getIntOrFloatBitWidth() ==
+           llvm::divideCeil(abiType.getIntOrFloatBitWidth(), kBitsInByte) *
+               kBitsInByte;
+  if (isa<Float8E4M3FNType>(abiType) && valueType.isInteger(8))
+    return true;
+  if (isa<IntegerType>(abiType) && isa<IntegerType>(valueType))
+    return valueType.getIntOrFloatBitWidth() == abiType.getIntOrFloatBitWidth();
+
+  if (isa<IndexType>(abiType)) {
+    if (!isa<IntegerType>(valueType))
+      return false;
+    return valueType.getIntOrFloatBitWidth() == 32 ||
+           valueType.getIntOrFloatBitWidth() == 64;
+  }
+  return false;
+}
+
+/// Checks whether the given `valueType` and the `abiType` are compatible. The
+/// `valueType` is the type of the SSA value produced by `executor.abi.recv` or
+/// consumed by `executor.abi.send` while the `abiType` is the corresponding
+/// input or result type referenced in the "ABI function type".
+///
+/// In general, these types should match, but in certain situations we allow
+/// them to differ:
+///
+/// - The "ABI function type" may contain integer type with explicit signedness
+/// semnatics (signed or unsigned) while the `valueType` should always be
+/// signless. Therefore, we say they are compatible if the bitwidths are the
+/// same.
+///
+/// - The "ABI function type" may contain float types like F4E3M1FN which are
+/// passed at the function boundary as integers rounded up to the nearest byte
+/// boundary.
+static bool areTypesABICompatible(Type valueType, Type abiType) {
+  if (valueType == abiType)
+    return true;
+
+  auto isScalarType = [](Type type) {
+    return isa<IntegerType, FloatType, IndexType, ComplexType>(type);
+  };
+
+  if (isScalarType(abiType) && isScalarType(valueType))
+    return areScalarTypesABICompatible(valueType, abiType);
+
+  if (auto memrefABIType = dyn_cast<MemRefType>(abiType)) {
+    auto memrefType = dyn_cast<MemRefType>(valueType);
+    if (!memrefType)
+      return false;
+    return areScalarTypesABICompatible(memrefType.getElementType(),
+                                       memrefABIType.getElementType()) &&
+           memrefType.getShape() == memrefABIType.getShape() &&
+           memrefType.getLayout() == memrefABIType.getLayout();
+  }
+
+  if (auto tensorABIType = dyn_cast<RankedTensorType>(abiType)) {
+    auto tensorType = dyn_cast<RankedTensorType>(valueType);
+    if (!tensorType)
+      return false;
+    return areScalarTypesABICompatible(tensorType.getElementType(),
+                                       tensorABIType.getElementType()) &&
+           tensorType.getShape() == tensorABIType.getShape() &&
+           tensorType.getEncoding() == tensorABIType.getEncoding();
+  }
+
+  return false;
+}
+
+LogicalResult ABIRecvOp::verify() {
+  auto blockArg = dyn_cast<BlockArgument>(getPtr());
+  if (!blockArg)
+    return emitOpError() << "ptr operand must be a function argument";
+
+  auto func = dyn_cast<FunctionOpInterface>(blockArg.getOwner()->getParentOp());
+  if (!func)
+    return emitOpError() << "ptr operand must be a function argument";
+
+  auto abiAttr = func.getArgAttr(blockArg.getArgNumber(),
+                                 ExecutorDialect::kArgABIAttrName);
+  if (!abiAttr)
+    return emitOpError() << "argument must have "
+                         << ExecutorDialect::kArgABIAttrName << " attribute";
+
+  auto argABIAttr = dyn_cast<ArgumentABIAttr>(abiAttr);
+  if (!argABIAttr)
+    return emitOpError() << "expected " << ExecutorDialect::kArgABIAttrName
+                         << " to be #executor.arg<...>";
+
+  if (!areTypesABICompatible(getResult().getType(), argABIAttr.getValueType()))
+    return emitOpError() << "result type " << getResult().getType()
+                         << " is incompatible with ABI value type "
+                         << argABIAttr.getValueType();
+
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// ABISendOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult ABISendOp::verify() {
+  auto blockArg = dyn_cast<BlockArgument>(getPtr());
+  if (!blockArg)
+    return emitOpError() << "ptr operand must be a function argument";
+
+  auto func = dyn_cast<FunctionOpInterface>(blockArg.getOwner()->getParentOp());
+  if (!func)
+    return emitOpError() << "ptr operand must be a function argument";
+
+  auto abiAttr = func.getArgAttr(blockArg.getArgNumber(),
+                                 ExecutorDialect::kArgABIAttrName);
+  if (!abiAttr)
+    return emitOpError() << "argument must have "
+                         << ExecutorDialect::kArgABIAttrName << " attribute";
+
+  auto argABIAttr = dyn_cast<ArgumentABIAttr>(abiAttr);
+  if (!argABIAttr)
+    return emitOpError() << "expected " << ExecutorDialect::kArgABIAttrName
+                         << " to be #executor.arg<...>";
+
+  if (argABIAttr.getAbi() != ArgABIKind::byref)
+    return emitOpError() << "argument must have #executor.arg<byref, ...> ABI";
+
+  if (!areTypesABICompatible(getValue().getType(), argABIAttr.getValueType()))
+    return emitOpError() << "value type " << getValue().getType()
+                         << " is incompatible with ABI value type "
+                         << argABIAttr.getValueType();
+
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// PluginOp
+//===----------------------------------------------------------------------===//
+
+void PluginOp::build(OpBuilder &odsBuilder, OperationState &odsState,
+                     llvm::StringRef sym_name, llvm::StringRef plugin_name,
+                     llvm::StringRef function_name,
+                     executor::FFIBackend ffi_backend,
+                     FunctionType function_type,
+                     /*optional*/ DictionaryAttr config) {
+  auto &properties = odsState.getOrAddProperties<Properties>();
+  properties.sym_name = odsBuilder.getStringAttr(sym_name);
+  properties.plugin_name = odsBuilder.getStringAttr(plugin_name);
+  properties.function_name = odsBuilder.getStringAttr(function_name);
+  properties.ffi_backend =
+      executor::FFIBackendAttr::get(odsBuilder.getContext(), ffi_backend);
+  if (function_type) {
+    properties.function_type = TypeAttr::get(function_type);
+  }
+  if (config)
+    properties.config = config;
+}
+
+//===----------------------------------------------------------------------===//
+// CallPluginOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult
+CallPluginOp::verifySymbolUses(SymbolTableCollection &symbolTable) {
+  auto callee = dyn_cast_or_null<executor::PluginOp>(
+      symbolTable.lookupNearestSymbolFrom(*this, getCalleeAttr()));
+  if (!callee)
+    return emitOpError() << "could not find executor.plugin op with name "
+                         << getCallee();
+
+  return success();
+}
+
+void CallPluginOp::build(OpBuilder &odsBuilder, OperationState &odsState,
+                         llvm::StringRef callee, Value stream, ValueRange args,
+                         ValueRange outputs,
+                         /*optional*/ DictionaryAttr immediate_args,
+                         /*optional*/ ArrayAttr arg_spec,
+                         /*optional*/ DenseI32ArrayAttr io_aliasing,
+                         /*optional*/ ArrayAttr arg_attrs,
+                         /*optional*/ ArrayAttr res_attrs) {
+  if (stream)
+    odsState.addOperands(stream);
+  odsState.addOperands(args);
+  odsState.addOperands(outputs);
+  auto &properties = odsState.getOrAddProperties<Properties>();
+  llvm::copy(llvm::ArrayRef<int32_t>({(stream ? 1 : 0),
+                                      static_cast<int32_t>(args.size()),
+                                      static_cast<int32_t>(outputs.size())}),
+             properties.operandSegmentSizes.begin());
+  MLIRContext *context = odsBuilder.getContext();
+  properties.callee = SymbolRefAttr::get(context, callee);
+  if (immediate_args)
+    properties.immediate_args = immediate_args;
+  if (arg_spec)
+    properties.arg_spec = arg_spec;
+  if (arg_attrs)
+    properties.arg_attrs = arg_attrs;
+  if (res_attrs)
+    properties.res_attrs = res_attrs;
+  if (io_aliasing)
+    properties.io_aliasing = io_aliasing;
+  SmallVector<Type> resultTypes;
+  resultTypes.reserve(outputs.size());
+  for (Value output : outputs)
+    if (isa<RankedTensorType>(output.getType()))
+      resultTypes.push_back(output.getType());
+  odsState.addTypes(resultTypes);
+}
+
+void CallPluginOp::build(OpBuilder &odsBuilder, OperationState &odsState,
+                         executor::PluginOp callee, Value stream,
+                         ValueRange args, ValueRange outputs,
+                         /*optional*/ DictionaryAttr immediate_args,
+                         /*optional*/ llvm::ArrayRef<llvm::StringRef> arg_spec,
+                         /*optional*/ llvm::ArrayRef<int32_t> io_aliasing,
+                         /*optional*/ ArrayAttr arg_attrs,
+                         /*optional*/ ArrayAttr res_attrs) {
+  build(odsBuilder, odsState, callee.getSymName(), stream, args, outputs,
+        immediate_args,
+        !arg_spec.empty() ? odsBuilder.getStrArrayAttr(arg_spec) : nullptr,
+        !io_aliasing.empty() ? odsBuilder.getDenseI32ArrayAttr(io_aliasing)
+                             : nullptr,
+        arg_attrs, res_attrs);
+}
+
+void CallPluginOp::getEffects(
+    SmallVectorImpl<MemoryEffects::EffectInstance> &effects) {
+  for (OpOperand &input : getArgsMutable()) {
+    if (auto memRefType = dyn_cast<MemRefType>(input.get().getType()))
+      effects.emplace_back(MemoryEffects::Read::get(), &input,
+                           SideEffects::DefaultResource::get());
+  }
+  for (OpOperand &output : getOutputsMutable()) {
+    if (auto memRefType = dyn_cast<MemRefType>(output.get().getType()))
+      effects.emplace_back(MemoryEffects::Write::get(), &output,
+                           SideEffects::DefaultResource::get());
+  }
+}
+
+//===----------------------------------------------------------------------===//
+// BufferBitcastOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult BufferBitcastOp::verify() {
+  Type inputType = getSource().getType();
+  Type outputType = getResult().getType();
+  if (!areCastCompatible({inputType}, {outputType}))
+    return emitOpError() << "source and result types are not compatible: "
+                         << inputType << " vs " << outputType;
+  return success();
+}
+
+Value BufferBitcastOp::getViewSource() { return getSource(); }
+
+OpFoldResult BufferBitcastOp::fold(FoldAdaptor adaptor) {
+  // Fold identity casts (same input and output type)
+  if (getSource().getType() == getResult().getType())
+    return getSource();
+  if (auto producer = getSource().getDefiningOp<BufferBitcastOp>();
+      producer && producer.getSource().getType() == getResult().getType())
+    return producer.getSource();
+  return {};
+}
+
+namespace {
+struct CombineSequentialBitcastPattern
+    : public OpRewritePattern<BufferBitcastOp> {
+  using OpRewritePattern::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(BufferBitcastOp op,
+                                PatternRewriter &rewriter) const override {
+    auto producer = op.getSource().getDefiningOp<BufferBitcastOp>();
+    if (!producer)
+      return failure();
+    rewriter.replaceOpWithNewOp<BufferBitcastOp>(op, op.getResult().getType(),
+                                                 producer.getSource());
+    return success();
+  }
+};
+} // namespace
+
+void BufferBitcastOp::getCanonicalizationPatterns(RewritePatternSet &results,
+                                                  MLIRContext *context) {
+  results.add<CombineSequentialBitcastPattern>(context);
+}
+
+bool BufferBitcastOp::areCastCompatible(TypeRange inputs, TypeRange outputs) {
+  if (inputs.size() != 1 || outputs.size() != 1)
+    return false;
+
+  Type inputType = inputs.front();
+  Type outputType = outputs.front();
+
+  // Both must be shaped types (tensor or memref)
+  auto inputShapedType = dyn_cast<ShapedType>(inputType);
+  auto outputShapedType = dyn_cast<ShapedType>(outputType);
+  if (!inputShapedType || !outputShapedType)
+    return false;
+
+  if (inputShapedType == outputShapedType)
+    return true;
+
+  Type inputElemType = inputShapedType.getElementType();
+  Type outputElemType = outputShapedType.getElementType();
+
+  // Handle complex<f32> <-> f32 casting with shape adjustment
+  auto inputComplexType = dyn_cast<ComplexType>(inputElemType);
+  auto outputComplexType = dyn_cast<ComplexType>(outputElemType);
+
+  // Check if we have a complex-to-float or float-to-complex conversion
+  // (exactly one must be complex)
+  if ((inputComplexType != nullptr) != (outputComplexType != nullptr)) {
+    ComplexType complexType =
+        inputComplexType ? inputComplexType : outputComplexType;
+    Type floatType = inputComplexType ? outputElemType : inputElemType;
+
+    // Verify the complex element type matches the float type
+    if (!llvm::isa<FloatType>(complexType.getElementType()) ||
+        !llvm::isa<IntegerType>(floatType) ||
+        complexType.getElementType().getIntOrFloatBitWidth() * 2 !=
+            floatType.getIntOrFloatBitWidth())
+      return false;
+  } else if (isa<IntegerType, FloatType>(inputElemType) &&
+             isa<IntegerType, FloatType>(outputElemType)) {
+    if (inputShapedType.getElementTypeBitWidth() !=
+        outputShapedType.getElementTypeBitWidth())
+      return false;
+  } else {
+    return false;
+  }
+
+  // Compare the concrete types by cloning the result with the source element
+  // type and shape. This checks that things like layout, tensor encoding, etc
+  // have not changed.
+  return inputShapedType ==
+         outputShapedType.clone(inputShapedType.getElementType());
 }
 
 //===----------------------------------------------------------------------===//

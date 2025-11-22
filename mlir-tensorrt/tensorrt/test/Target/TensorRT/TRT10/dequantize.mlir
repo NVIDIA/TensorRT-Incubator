@@ -1,7 +1,5 @@
 // RUN: %pick-one-gpu tensorrt-opt -split-input-file -pass-pipeline="builtin.module(translate-tensorrt-to-engine)" \
 // RUN:  -mlir-elide-elementsattrs-if-larger=32 -tensorrt-builder-opt-level=0 -tensorrt-strongly-typed %s | FileCheck %s
-// RUN: %pick-one-gpu tensorrt-opt -split-input-file -pass-pipeline="builtin.module(translate-tensorrt-to-engine)" \
-// RUN:  -mlir-elide-elementsattrs-if-larger=32 -tensorrt-builder-opt-level=0 %s | FileCheck %s
 
 func.func @dequantize_fp8(%arg0: tensor<10xf8E4M3FN>) -> tensor<10xf16>{
   %scale = tensorrt.constant dense<1.000000e+00> : tensor<f32>
@@ -41,16 +39,13 @@ func.func @int4_quantize_dequantize() -> tensor<4x8xf32>{
 // CHECK-LABEL: @int4_quantize_dequantize
 //  CHECK-SAME: tensorrt.engine
 
-func.func @trt_subbyte_dequantize_even_final_dim(%arg0: tensor<3x5xf16>) -> tensor<4x5xf16> {
-  %k = tensorrt.constant dense<2> : tensor<4x3xi4>
-  %scale = tensorrt.constant dense<1.0> : tensor<2x3xf16>
-  %dq_k = tensorrt.dequantize in (%k: tensor<4x3xi4>) scale (%scale: tensor<2x3xf16>) -> tensor<4x3xf16>
-  %r = tensorrt.matrix_multiply {
-                op0 = #tensorrt.matrix_operation<kNONE>,
-                op1 = #tensorrt.matrix_operation<kNONE>
-                } ins(%dq_k, %arg0 : tensor<4x3xf16>, tensor<3x5xf16>) -> tensor<4x5xf16>
-  return %r : tensor<4x5xf16>
+// -----
+
+func.func @fp4_dequantize(%arg0: tensor<10x80xf4E2M1FN>) -> tensor<10x80xf32>{
+    %scale = tensorrt.constant dense<1.0> : tensor<10x5xf32>
+    %dequantize_fp4 = tensorrt.dequantize in(%arg0 : tensor<10x80xf4E2M1FN>) scale(%scale : tensor<10x5xf32>) -> tensor<10x80xf32>
+    return %dequantize_fp4 : tensor<10x80xf32>
 }
 
-// CHECK-LABEL: @trt_subbyte_dequantize_even_final_dim
+// CHECK-LABEL: @fp4_dequantize
 //  CHECK-SAME: tensorrt.engine

@@ -1,4 +1,4 @@
-add_mlir_public_c_api_library(MLIRTensorRTCAPIExecutorTranslations
+mtrt_add_capi_library(MLIRTensorRTCAPIExecutorTranslations
   ExecutorTranslations.cpp
 
   LINK_LIBS PUBLIC

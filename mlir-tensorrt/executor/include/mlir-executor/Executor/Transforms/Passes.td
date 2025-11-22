@@ -8,22 +8,136 @@ class ModuleLikePass<string passArg>
   : PassBase<passArg, "::mlir::ModuleLikePass">;
 
 //===----------------------------------------------------------------------===//
+// ExecutorGenerateABIWrappersPass
+//===----------------------------------------------------------------------===//
+
+def ExecutorGenerateABIWrappersPass :
+      ModuleLikePass<"executor-generate-abi-wrappers"> {
+  let summary = "generates ABI wrappers for public functions";
+
+  let description = [{
+    This pass generates wrapper functions that are compatible with the
+    Executor ABI for all public functions.
+
+    The existing public functions are made private and only the new wrapper
+    functions are public after the pass.
+
+    If `force-undef-output-args` is specified, the pass will assign the
+    `undef` ABI attribute to all output arguments. This means that the
+    code in the ABI wrapper should never read the value of the object
+    passed indirectly through the pointer argument. It can only write the
+    value; the caller just provides spaces to hold the object but does
+    not populate it. If the value type is a `tensor` or `memref` type,
+    then this will force the downstream pipeline to pass a new allocation
+    back to the caller. Otherwise, it is assumed that the caller provides
+    the output buffer.
+
+    It is legal for the compiler to automatically add the `undef` ABI
+    attribute to any output argument. This can occur in situations where,
+    for example, it is impossible for the caller to know the shape of a
+    (statically ranked) memref. In this case, the compiler will automatically
+    return an allocation and therefore `undef` is used to indicate that the
+    caller only needs to allocate space to hold the descriptor.
+  }];
+
+  let dependentDialects = [
+    "::mlir::executor::ExecutorDialect"
+  ];
+
+  let options = [
+    Option<"forceUndefOutputArgs", "force-undef-output-args", "bool", "false",
+      "force undefined output arguments to be specified as undef">
+  ];
+}
+
+
+//===----------------------------------------------------------------------===//
+// LowerABIOpsPass
+//===----------------------------------------------------------------------===//
+
+def ExecutorLowerABIOpsPass : ModuleLikePass<"executor-lower-abi-ops"> {
+  let summary = "lowers executor.abi.recv and executor.abi.send operations";
+  let description = [{
+    This pass should be called after the bufferization deallocation pipeline
+    runs. It updates the `executor.abi.send` operations in order to enforce
+    required post-conditions:
+
+    - All ABISendOp operations with MemRef values must have a corresponding
+      ownership operand.
+    - If an output is marked `undef` and the ownership is not statically true,
+      then a conditional clone is inserted so that ownership can be transferred
+      to the caller.
+    - If an output is not marked `undef`, we insert IR to check whether the
+      value buffer aliases the output buffer (e.g. that DPS connectivity
+      was able to be established). If not, we insert a copy from the value
+      buffer to the output buffer.
+
+    ABISendOp operations that are not storing scalars or transferring ownership
+    of buffers are eliminated during this pass.
+  }];
+
+  let dependentDialects = [
+    "::mlir::scf::SCFDialect",
+    "::mlir::bufferization::BufferizationDialect",
+    "::mlir::arith::ArithDialect",
+    "::mlir::cf::ControlFlowDialect"
+  ];
+}
+
+//===----------------------------------------------------------------------===//
+// ExecutorLowerAggregatesAtFunctionBoundariesPass
+//===----------------------------------------------------------------------===//
+
+def ExecutorLowerAggregatesAtFunctionBoundariesPass :
+      ModuleLikePass<"executor-lower-aggregates-at-function-boundaries"> {
+  let summary = "lowers aggregates at function boundaries";
+
+  let description = [{
+    This pass lowers aggregates at function boundaries.
+
+    There are three possible lowering modes:
+
+    1. `direct`: Lower aggregates at function boundaries by passing
+        aggregates by-value. If this option is specified, the pass
+        has no effect; the IR is left unchanged.
+
+    2. `indirect`: Lower aggregates at function boundaries by passing
+        aggregates through indirect buffers. At call sites, we use
+        stack-allocated buffers (alloca) to hold the aggregate.
+        Aggregate results are promoted to destination pointer
+        operands and the caller must allocate that memory.
+
+    3. `unpacked`: Lower aggregates at function boundaries by passing
+       them as a flat list of scalars. This expands all aggregates into
+       many scalar arguments or results.
+
+    If `indirect` or `unpacked` mode is specified, then the pass
+    also inserts `executor.result` arguments to specify the original
+    result index of the function prior to modification.
+  }];
+
+  let options = [
+    Option<"mode", "mode", "std::string", "\"indirect\"",
+      "the mode in which to lower aggregates at function boundaries">
+  ];
+}
+
+//===----------------------------------------------------------------------===//
 // ExecutorPopulateFunctionMetadataPass
 //===----------------------------------------------------------------------===//
 
 def ExecutorPopulateFunctionMetadataPass
-            : Pass<"executor-populate-func-metadata", "::mlir::func::FuncOp"> {
+            : InterfacePass<"executor-populate-func-metadata", "FunctionOpInterface"> {
   let summary = "Populate function metadata on functions";
 
   let description = [{
     This pass create a FunctionMetadataAttr for each public function and attaches
-    it to the fucntion under the `executor.function_metadata` name.
+    it to the function under the `executor.function_metadata` name.
 
     This pass must be run on bufferized IR, and it must be run prior to running
     any lowering or conversion of the bufferized IR to Executor or LLVM IR.
   }];
 }
-
 
 //===----------------------------------------------------------------------===//
 // ExecutorExpandOpsPass
@@ -129,7 +243,7 @@ def ExecutorLowerToRuntimeBuiltinsPass :
     Option<"target", "target", "std::string", "\"lua\"",
       "a target which helps identify which ops must be lowered to calls">,
     Option<"indexBitwidth", "index-bitwidth", "int64_t", "64",
-      "all index types will be converted to signless integers of this bitwidth">    
+      "all index types will be converted to signless integers of this bitwidth">
   ];
 }
 
@@ -170,6 +284,38 @@ def ExecutorAllocsToGlobalsPass : ModuleLikePass<"executor-allocs-to-globals"> {
     allocation and deallocation of the temporary buffers out of the function
     execution codepath.
   }];
+
+  let dependentDialects = [
+    "::mlir::executor::ExecutorDialect"
+  ];
+}
+
+//===----------------------------------------------------------------------===//
+// ExecutorEmulateUnsupportedFloatsPass
+//===----------------------------------------------------------------------===//
+def ExecutorEmulateUnsupportedFloatsPass :
+        ModuleLikePass<"executor-emulate-unsupported-floats"> {
+  let summary = "Emulate executor dialect operations for unsupported floats";
+  let description = [{
+    The Executor dialect doesn't provide runtime implementation of its operations
+    for low-precision quantized float types such as `f4E2M1FN`. This pass emulates
+    computations on the `f4E2M1FN` type using `f16`. Function boundaries maintain
+    the `f4E2M1FN` type, while materialization between `f4E2M1FN` ↔ `f16` occurs
+    via the executor's `extf` and `truncf` ops.
+
+    Constant-like ops of type `f4E2M1FN` are converted to `f16` ops.
+
+    The emulation target type is fixed as half-precision (f16). The option
+    `unsupportedSourceTypes` can be used to specify unsupported executor runtime
+    types. If no option is provided, `f4E2M1FN` is added by default, as it
+    is not supported by the executor runtime.
+
+  }];
+
+  let options = [
+    ListOption<"unsupportedSourceTypes", "unsupported-source-types", "std::string",
+    "MLIR types without executor runtime support">,
+  ];
 
   let dependentDialects = [
     "::mlir::executor::ExecutorDialect"

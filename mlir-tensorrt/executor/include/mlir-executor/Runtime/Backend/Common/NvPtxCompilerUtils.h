@@ -30,7 +30,7 @@
 #include <string_view>
 #include <vector>
 
-namespace mlirtrt::runtime {
+namespace mtrt {
 
 /// A `CuBinWrapper` is just a serialized cubin object.
 struct CuBinWrapper {
@@ -39,9 +39,9 @@ struct CuBinWrapper {
 };
 
 /// Compile PTX data to a cubin object.
-mlirtrt::StatusOr<std::unique_ptr<CuBinWrapper>>
+mtrt::StatusOr<std::unique_ptr<CuBinWrapper>>
 compilePtxToCuBin(const char *ptxData, size_t len, std::string_view arch);
 
-} // namespace mlirtrt::runtime
+} // namespace mtrt
 
 #endif // RUNTIME_BACKEND_LUA_MODULES_CUDA_NVPTXCOMPILERUTILS_H

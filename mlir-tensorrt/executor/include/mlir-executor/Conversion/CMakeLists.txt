@@ -3,4 +3,4 @@ set(LLVM_TARGET_DEFINITIONS Passes.td)
 set(_TABLEGEN_ARGS )
 
 mlir_tablegen(Passes.h.inc -gen-pass-decls -name ExecutorConversion ${_TABLEGEN_ARGS})
-add_public_tablegen_target(MLIRExecutorConversionPassIncGen)
+mtrt_add_public_tablegen_target(MLIRExecutorConversionPassIncGen)

@@ -24,14 +24,19 @@
 
 struct lua_State;
 
-namespace mlirtrt::runtime {
+namespace mtrt {
+
+struct LuaRuntimeExtensionInitArgs {
+  const RuntimeSessionOptions &options;
+  lua_State *state;
+  PinnedMemoryAllocator *pinnedMemoryAllocator;
+  AllocTracker *allocTracker;
+  ResourceTracker *resourceTracker;
+  PluginRegistry &pluginRegistry;
+};
 
 struct LuaRuntimeExtension {
-  std::function<void(const RuntimeSessionOptions &options, lua_State *state,
-                     PinnedMemoryAllocator *pinnedMemoryAllocator,
-                     AllocTracker *allocTracker,
-                     ResourceTracker *resourceTracker)>
-      populateLuaState;
+  std::function<void(const LuaRuntimeExtensionInitArgs &args)> populateLuaState;
 };
 
 void registerLuaRuntimeExtension(llvm::StringRef name,
@@ -40,12 +45,8 @@ void registerLuaRuntimeExtension(llvm::StringRef name,
 /// Enable the Lua runtime extension modules that are specified in the features
 /// of 'options'. If an enabled feature is not present in the registry, then an
 /// error is returned.
-Status populateRuntimeExtensions(const RuntimeSessionOptions &options,
-                                 lua_State *state,
-                                 PinnedMemoryAllocator *pinnedMemoryAllocator,
-                                 AllocTracker *allocTracker,
-                                 ResourceTracker *resourceTracker);
+Status populateRuntimeExtensions(const LuaRuntimeExtensionInitArgs &args);
 
-} // namespace mlirtrt::runtime
+} // namespace mtrt
 
 #endif // MLIR_EXECUTOR_RUNTIME_BACKEND_LUA_LUAEXTENSIONREGISTRY

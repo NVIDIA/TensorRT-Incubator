@@ -29,7 +29,7 @@
 #include "mlir-tensorrt/Compiler/Extension.h"
 #include "mlir-tensorrt/Compiler/StablehloToExecutable/StablehloToExecutable.h"
 
-namespace mlirtrt::compiler {
+namespace mtrt::compiler {
 
 //===----------------------------------------------------------------------===//
 // TensorRT-specific compilation data
@@ -111,6 +111,6 @@ public:
 /// Register the TensorRT extension.
 void registerTensorRTExtension(mlir::DialectRegistry &registry);
 
-} // namespace mlirtrt::compiler
+} // namespace mtrt::compiler
 
 #endif // MLIR_TENSORRT_COMPILER_STABLEHLOTOEXECUTABLE_TENSORRTEXTENSION

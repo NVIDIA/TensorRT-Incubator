@@ -1,6 +1,6 @@
 //===- SiteInitializer.cpp  -----------------------------------------------===//
 //
-// Copyright (c) 2024, NVIDIA CORPORATION. All rights reserved.
+// Copyright (c) 2024-2025, NVIDIA CORPORATION. All rights reserved.
 //
 //===----------------------------------------------------------------------===//
 ///
@@ -24,5 +24,4 @@ PYBIND11_MODULE(_site_initialize_0, m) {
   });
 
   mtrtCompilerRegisterPasses();
-  mtrtCompilerRegisterTasks();
 }

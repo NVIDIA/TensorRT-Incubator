@@ -22,6 +22,7 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
+#include "mlir-executor/Executor/Transforms/Passes.h"
 #include "mlir-tensorrt/Conversion/Passes.h"
 #include "mlir-tensorrt/Transforms/Passes.h"
 #include "mlir/Conversion/BufferizationToMemRef/BufferizationToMemRef.h"
@@ -37,14 +38,19 @@ using namespace mlir;
 using namespace mlir::plan;
 
 void plan::buildPlanSegmentationPipeline(
-    OpPassManager &pm, const plan::ClusteringPassOptions &opts) {
+    OpPassManager &pm, const plan::ClusteringPassOptions &opts,
+    int abiVersion) {
   pm.addNestedPass<func::FuncOp>(
       plan::createMaterializeShapeCalculationsPass({opts.inputKind}));
   pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
   pm.addPass(plan::createPlanRefineTypesPass({opts.inputKind}));
   pm.addPass(createCanonicalizerPass());
   if (!opts.disableCreateShapeFuncPass)
-    pm.addPass(createPlanCreateShapeFuncsPass());
+    pm.addPass(
+        createPlanCreateShapeFuncsPass(plan::PlanCreateShapeFuncsPassOptions{
+            /*forceUndefOutputArgs=*/opts.forceEntrypointsReturnAllocs,
+            /*abiVersion=*/abiVersion,
+        }));
   pm.addNestedPass<func::FuncOp>(
       plan::createPlanPopulateFunctionBoundsAttributesPass());
   pm.addPass(plan::createClusteringPass(opts));
@@ -132,10 +138,12 @@ static void buildPlanBufferDeallocationPipeline(
   pm.addPass(createCanonicalizerPass());
   pm.addPass(bufferization::createBufferDeallocationSimplificationPass());
   pm.addPass(bufferization::createLowerDeallocationsPass());
+  pm.addPass(executor::createExecutorLowerABIOpsPass());
+  pm.addNestedPass<func::FuncOp>(mlir::createCanonicalizerPass());
   pm.addNestedPass<func::FuncOp>(
       mlir::createConvertBufferizationToMemRefPass());
-  pm.addNestedPass<func::FuncOp>(createCSEPass());
-  pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
+  pm.addNestedPass<func::FuncOp>(mlir::createCSEPass());
+  pm.addNestedPass<func::FuncOp>(mlir::createCanonicalizerPass());
 }
 
 namespace {
@@ -203,6 +211,6 @@ void plan::registerPlanDialectPipelines() {
         clusterOpts.entrypoint = opts.entrypoint;
         clusterOpts.disableCreateShapeFuncPass =
             opts.forceEntrypointsReturnAllocs;
-        buildPlanSegmentationPipeline(pm, clusterOpts);
+        buildPlanSegmentationPipeline(pm, clusterOpts, 1);
       });
 }

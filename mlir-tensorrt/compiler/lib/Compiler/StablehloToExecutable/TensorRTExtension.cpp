@@ -33,8 +33,8 @@
 #define DEBUG_TYPE "tensorrt-extension"
 #define DBGS() llvm::dbgs() << "[" DEBUG_TYPE << "] "
 
-using namespace mlirtrt::compiler;
-using namespace mlirtrt;
+using namespace mtrt::compiler;
+using namespace mtrt;
 using namespace mlir;
 
 //===----------------------------------------------------------------------===//
@@ -46,7 +46,7 @@ void StablehloToExecutableTensorRTExtension::populatePasses(
 
   const StablehloToExecutableOptions &options = this->getOptions();
 
-  if (this->disabled)
+  if (this->disabled || options.disableAllExtensions)
     return;
 
   if (phase == Phase::PreClustering) {
@@ -120,7 +120,7 @@ void StablehloToExecutableTensorRTExtension::populatePasses(
 // Extension Registration
 //===----------------------------------------------------------------------===//
 
-void mlirtrt::compiler::registerTensorRTExtension(DialectRegistry &registry) {
+void mtrt::compiler::registerTensorRTExtension(DialectRegistry &registry) {
   registerExtension(
       "stablehlo-to-executable", "tensorrt-extension",
       [](CompilationTaskOptionsBase &ctx)

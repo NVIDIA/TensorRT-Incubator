@@ -41,8 +41,8 @@
 
 using namespace mlir;
 using namespace mlir::executor;
-using namespace mlirtrt::runtime;
-using namespace mlirtrt;
+using namespace mtrt;
+using namespace mtrt;
 
 namespace cl = llvm::cl;
 
@@ -61,7 +61,7 @@ static Status maybeInitializeMpi() {
 
   return Status::getOk();
 #else
-  return mlirtrt::Status::getOk();
+  return mtrt::Status::getOk();
 #endif // MLIR_TRT_ENABLE_NCCL
 }
 
@@ -173,8 +173,7 @@ getRuntimeSessionOptions(const Options &options,
 
 LogicalResult executor::ExecutorRunnerMain(
     int argc, char **argv, std::function<void()> postInitCallback,
-    mlirtrt::runtime::LuaRuntimeSession::LuaModuleRegistrationFunc
-        registerExtraLuaFuncs) {
+    mtrt::LuaRuntimeSession::LuaModuleRegistrationFunc registerExtraLuaFuncs) {
   llvm::InitLLVM initLLVM(argc, argv);
 
   // Register and parse CLI args.
@@ -185,7 +184,7 @@ LogicalResult executor::ExecutorRunnerMain(
     if (llvm::is_contained(options.features, "nccl")) {
       Status mpiStatus = maybeInitializeMpi();
       if (!mpiStatus.isOk()) {
-        llvm::errs() << "failed to initialize MPI: " << mpiStatus.getString()
+        llvm::errs() << "failed to initialize MPI: " << mpiStatus.getMessage()
                      << "\n";
         return failure();
       }
@@ -243,7 +242,7 @@ LogicalResult executor::ExecutorRunnerMain(
   if (!sessionOptions.isOk())
     return emitError(UnknownLoc::get(&context))
            << "failed to get runtime session options: "
-           << sessionOptions.getStatus().getString();
+           << sessionOptions.getStatus().getMessage();
 
   // Read the buffer as a Lua script and execute.
   auto processBuffer = [&](std::unique_ptr<llvm::MemoryBuffer> input,
@@ -251,30 +250,29 @@ LogicalResult executor::ExecutorRunnerMain(
     if (options.inputType == Lua) {
       assert(!options.dumpFunctionSignature &&
              "Can not dump function signature for Lua input type.");
-      mlirtrt::StatusOr<int64_t> result =
-          mlirtrt::runtime::runExecutorLuaScript(
-              *sessionOptions, input->getBuffer(), registerExtraLuaFuncs);
+      mtrt::StatusOr<int64_t> result = mtrt::runExecutorLuaScript(
+          *sessionOptions, input->getBuffer(), registerExtraLuaFuncs);
       if (!result.isOk())
-        return emitError(UnknownLoc::get(&context)) << result.getString();
+        return emitError(UnknownLoc::get(&context))
+               << result.getStatus().getMessage();
       return success(*result == 0);
     }
 
     assert(options.inputType == ExecutorRuntimeExecutable &&
            "expected executor executable input type");
 
-    mlirtrt::StatusOr<std::unique_ptr<mlirtrt::runtime::Executable>>
-        executable =
-            mlirtrt::runtime::Executable::loadFromBuffer(std::move(input));
+    mtrt::StatusOr<std::unique_ptr<mtrt::Executable>> executable =
+        mtrt::Executable::loadFromBuffer(std::move(input));
     if (!executable.isOk())
       return emitError(UnknownLoc::get(&context))
              << "failed to load executable from buffer: "
-             << executable.getString();
+             << executable.getStatus().getMessage();
 
     if (options.dumpFunctionSignature) {
       for (unsigned i = 0; i < executable->get()->getNumFunctions(); ++i) {
         std::string str;
         llvm::raw_string_ostream ss(str);
-        mlirtrt::runtime::print(ss, executable->get()->getFunction(i));
+        mtrt::print(ss, executable->get()->getFunction(i));
         llvm::outs() << ss.str() << "\n";
       }
       return success();
@@ -283,7 +281,7 @@ LogicalResult executor::ExecutorRunnerMain(
     if (options.dumpDataSegments) {
       for (const DataSegmentInfo &dataSegment :
            executable->get()->getDataSegments()) {
-        mlirtrt::runtime::print(llvm::outs(), dataSegment);
+        mtrt::print(llvm::outs(), dataSegment);
         llvm::outs() << "\n";
         if (!dataSegment.isUninitialized()) {
           assert(dataSegment.data() && "data segment should be initialized");
@@ -297,14 +295,13 @@ LogicalResult executor::ExecutorRunnerMain(
       return success();
     }
 
-    mlirtrt::StatusOr<int64_t> executionResult =
-        mlirtrt::runtime::runExecutorExecutable(
-            *sessionOptions, std::move(*executable),
-            std::move(registerExtraLuaFuncs));
+    mtrt::StatusOr<int64_t> executionResult =
+        mtrt::runExecutorExecutable(*sessionOptions, std::move(*executable),
+                                    std::move(registerExtraLuaFuncs));
     if (!executionResult.isOk())
       return emitError(UnknownLoc::get(&context))
              << "failed to load and run executable: "
-             << executionResult.getString();
+             << executionResult.getStatus().getMessage();
 
     return success();
   };

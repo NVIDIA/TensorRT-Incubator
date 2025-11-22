@@ -98,4 +98,24 @@ def Executor_MemoryType : Executor_I32EnumAttr<
 def Executor_MemoryTypeAttr : Executor_EnumAttr<Executor_MemoryType, "memory_type">;
 
 
+def Executor_ArgABIKind : Executor_I32EnumAttr<
+  "ArgABIKind",
+  "the ABI of an argument of a function",
+  [
+    I32EnumAttrCase<"byval", 0>,
+    I32EnumAttrCase<"byref", 1>,
+  ]
+>;
+def Executor_ArgABIKindAttr : Executor_EnumAttr<Executor_ArgABIKind, "abi">;
+
+def Executor_FFIBackend : Executor_I32EnumAttr<
+  "FFIBackend",
+  "the backend used to call a FFI function",
+  [
+    I32EnumAttrCase<"tvm_ffi", 1>,
+  ]
+>;
+def Executor_FFIBackendAttr : Executor_EnumAttr<Executor_FFIBackend, "ffi_backend">;
+
+
 #endif // MLIR_TENSORRT_DIALECT_EXECUTOR_IR_EXECUTORENUMS_TD

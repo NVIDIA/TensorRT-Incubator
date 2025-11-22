@@ -26,7 +26,7 @@
 
 #include "mlir-tensorrt-common/Support/Status.h"
 
-namespace mlirtrt {
+namespace mtrt {
 
 /// Encapsulates information about a CUDA device.
 struct DeviceInfo {
@@ -43,6 +43,6 @@ StatusOr<DeviceInfo> getDeviceInformationFromHost(int32_t cudaDeviceOrdinal);
 /// Infer the device information from all visible CUDA devices.
 StatusOr<llvm::SmallVector<DeviceInfo>> getAllDeviceInformationFromHost();
 
-} // namespace mlirtrt
+} // namespace mtrt
 
 #endif // MLIR_TENSORRT_SUPPORT_DEVICEINFO

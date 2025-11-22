@@ -1,4 +1,4 @@
-// RUN: mlir-tensorrt-compiler %s -opts="disable-tensorrt-extension entrypoint=" -o - | \
+// RUN: mlir-tensorrt-compiler %s -opts="disable-all-extensions entrypoint=" -o - | \
 // RUN: mlir-tensorrt-runner -input-type=rtexe -features=core -split-input-file
 
 !tensor_type = tensor<2xcomplex<f64>>

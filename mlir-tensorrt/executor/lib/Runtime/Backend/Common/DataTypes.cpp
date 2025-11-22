@@ -26,7 +26,7 @@
 #include "mlir-executor/Runtime/Backend/Common/DataTypes.h"
 #include <cstring>
 
-using namespace mlirtrt::runtime;
+using namespace mtrt;
 
 namespace {
 // Union to enable type punning between float and uint32_t

@@ -27,7 +27,7 @@ function(add_mlir_tensorrt_interface_library target)
     mlir_tablegen("${ARG_OP}.cpp.inc" -gen-op-interface-defs)
   endif()
 
-  add_public_tablegen_target(${target}IncGen)
+  mtrt_add_public_tablegen_target(${target}IncGen)
 
   add_mlir_tensorrt_library(${target}
     PARTIAL_SOURCES_INTENDED
@@ -44,9 +44,9 @@ add_mlir_tensorrt_interface_library(MLIRTensorRTBufferizationScopeInterface
   OP
     "mlir-tensorrt/Interfaces/BufferizationScopeInterface"
 
-  LINK_LIBS PUBLIC
-  MLIRBufferizationDialect
-  MLIRBufferizationTransforms
+  MLIR_LIBS PUBLIC
+    MLIRBufferizationDialect
+    MLIRBufferizationTransforms
   )
 
 add_mlir_tensorrt_interface_library(MLIRTensorRTInferTensorValueRangeInterface
@@ -57,6 +57,7 @@ add_mlir_tensorrt_interface_library(MLIRTensorRTInferTensorValueRangeInterface
   OP
     "mlir-tensorrt/Interfaces/InferTensorValueRangeInterface"
 
-  LINK_LIBS PUBLIC
+  MLIR_LIBS PUBLIC
   MLIRInferIntRangeInterface
   )
+

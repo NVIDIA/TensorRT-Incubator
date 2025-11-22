@@ -44,13 +44,13 @@ StringRef ModuleLikeOp::getSymbolName() const {
 }
 
 LogicalResult mlir::getFuncOpsOrderedByCalls(
-    ModuleLikeOp moduleOp, SmallVectorImpl<func::FuncOp> &orderedFuncOps,
-    SmallVectorImpl<func::FuncOp> &remainingFuncOps,
-    const std::function<bool(func::FuncOp)> &filter) {
+    ModuleLikeOp moduleOp, SmallVectorImpl<FunctionOpInterface> &orderedFuncOps,
+    SmallVectorImpl<FunctionOpInterface> &remainingFuncOps,
+    const std::function<bool(FunctionOpInterface)> &filter) {
 
   // Call graph doesn't give information about external callables, so enqueue
   // all of those first.
-  for (auto func : moduleOp.getOps<func::FuncOp>()) {
+  for (auto func : moduleOp.getOps<FunctionOpInterface>()) {
     if (func.isDeclaration())
       orderedFuncOps.push_back(func);
   }
@@ -63,7 +63,7 @@ LogicalResult mlir::getFuncOpsOrderedByCalls(
 
         continue;
       }
-      auto func = dyn_cast<func::FuncOp>(
+      auto func = dyn_cast<FunctionOpInterface>(
           scc.front()->getCallableRegion()->getParentOp());
       if (!func || (filter && !filter(func)))
         continue;
@@ -74,7 +74,7 @@ LogicalResult mlir::getFuncOpsOrderedByCalls(
     for (auto &node : scc) {
       if (node->isExternal())
         continue;
-      auto func = dyn_cast<func::FuncOp>(
+      auto func = dyn_cast<FunctionOpInterface>(
           scc.front()->getCallableRegion()->getParentOp());
 
       // Exclude nested symbol tables.

@@ -42,7 +42,7 @@ func.func @test_one_donation_one_return(%arg0: !tensor_type {plan.aliasing_outpu
 }
 
 // CHECK-LABEL: @test_one_donation_one_return
-//  CHECK-SAME: (%[[arg0:.+]]: tensor<{{.*}}> {plan.aliasing_output = 1 : i32}, %[[arg1:.+]]: tensor<{{.*}}>, %[[arg2:.+]]: tensor<{{.*}}> {plan.result_arg}) -> (tensor<{{.*}}>, tensor<{{.*}}>)
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<{{.*}}> {plan.aliasing_output = 1 : i32}, %[[arg1:.+]]: tensor<{{.*}}>, %[[arg2:.+]]: tensor<{{.*}}>) -> (tensor<{{.*}}>, tensor<{{.*}}>)
 //   CHECK-NOT: bufferization.alloc_tensor()
 //       CHECK: %[[v0:.+]]:2 = linalg.generic {{.*}} ins(%[[arg0]], %[[arg1]] : {{.*}}) outs(%[[arg2]], %[[arg0]] : {{.*}})
 //       CHECK: return %[[v0]]#0, %[[v0]]#1 : tensor<{{.*}}>, tensor<{{.*}}>
@@ -110,7 +110,7 @@ func.func @test_one_donation_other_no_dps_return(%arg0: !tensor_type {plan.alias
 }
 
 //  CHECK-LABEL: @test_one_donation_other_no_dps_return
-//   CHECK-SAME: (%[[arg0:.+]]: tensor<{{.*}}> {plan.aliasing_output = 1 : i32}, %[[arg1:.+]]: tensor<{{.*}}> {plan.result_arg}) -> (tensor<{{.*}}>, tensor<{{.*}}>)
+//   CHECK-SAME: (%[[arg0:.+]]: tensor<{{.*}}> {plan.aliasing_output = 1 : i32}, %[[arg1:.+]]: tensor<{{.*}}>) -> (tensor<{{.*}}>, tensor<{{.*}}>)
 //    CHECK-NOT: bufferization.alloc_tensor()
 //        CHECK: %[[v0:.+]] = linalg.generic {{.*}} ins(%[[arg0]] : tensor<{{.*}}>) outs(%[[arg0]] : tensor<{{.*}}>)
 //        CHECK: %[[v1:.+]] = arith.addf %[[v0]], %[[arg0]] : tensor<{{.*}}>
@@ -145,7 +145,7 @@ func.func @test_repeat_returns_with_donation(%arg0: !tensor_type {plan.aliasing_
 }
 
 // CHECK-LABEL: @test_repeat_returns_with_donation
-//  CHECK-SAME: (%[[arg0:.+]]: tensor<{{.*}}> {plan.aliasing_output = 1 : i32}, %[[arg1:.+]]: tensor<{{.*}}>, %[[arg2:.+]]: tensor<{{.*}}> {plan.result_arg}, %[[arg3:.+]]: tensor<{{.*}}> {plan.result_arg}, %[[arg4:.+]]: tensor<{{.*}}> {plan.result_arg}, %[[arg5:.+]]: tensor<{{.*}}> {plan.result_arg})
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<{{.*}}> {plan.aliasing_output = 1 : i32}, %[[arg1:.+]]: tensor<{{.*}}>, %[[arg2:.+]]: tensor<{{.*}}>, %[[arg3:.+]]: tensor<{{.*}}>, %[[arg4:.+]]: tensor<{{.*}}>, %[[arg5:.+]]: tensor<{{.*}}>)
 //   CHECK-NOT: bufferization.alloc_tensor()
 //       CHECK: %[[v0:.+]]:2 = linalg.generic {{.*}} ins(%[[arg0]], %[[arg1]] : {{.*}}) outs(%[[arg2]], %[[arg0]] : {{.*}})
 //       CHECK: %[[v1:.+]] = arith.addf %[[v0]]#0, %[[arg0]] : tensor<{{.*}}>
@@ -189,7 +189,7 @@ func.func @test_dps_chain_repeat_with_donation(%arg0: !tensor_type {plan.aliasin
 }
 
 // CHECK-LABEL: @test_dps_chain_repeat_with_donation
-//  CHECK-SAME: (%[[arg0:.+]]: tensor<{{.*}}> {plan.aliasing_output = 0 : i32}, %[[arg1:.+]]: tensor<{{.*}}> {plan.result_arg}, %[[arg2:.+]]: tensor<{{.*}}> {plan.result_arg}) -> (tensor<{{.*}}>, tensor<{{.*}}>, tensor<{{.*}}>)
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<{{.*}}> {plan.aliasing_output = 0 : i32}, %[[arg1:.+]]: tensor<{{.*}}>, %[[arg2:.+]]: tensor<{{.*}}>) -> (tensor<{{.*}}>, tensor<{{.*}}>, tensor<{{.*}}>)
 //   CHECK-NOT: bufferization.alloc_tensor()
 //       CHECK: %[[v0:.+]] = linalg.generic {{.*}} ins(%[[arg0]] : tensor<{{.*}}>) outs(%[[arg1]] : tensor<{{.*}}>)
 //       CHECK: %[[v1:.+]] = linalg.generic {{.*}} ins(%[[arg0]] : tensor<{{.*}}>) outs(%[[v0]] : tensor<{{.*}}>)

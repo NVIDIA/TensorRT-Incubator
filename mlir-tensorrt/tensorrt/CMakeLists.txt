@@ -15,6 +15,7 @@ target_include_directories(MLIRTensorRTDialectIncludes INTERFACE
   "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
   "$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>"
 )
+mtrt_add_install(MLIRTensorRTDialectIncludes UMBRELLA mtrt-headers)
 
 get_target_property(common_include_dirs
                     MLIRTensorRTCommonIncludes INTERFACE_INCLUDE_DIRECTORIES)
@@ -28,6 +29,10 @@ add_subdirectory(lib)
 add_subdirectory(test)
 add_subdirectory(tools)
 
-if(MLIR_ENABLE_BINDINGS_PYTHON)
-  add_subdirectory(python)
-endif()
+mtrt_add_header_installation_components(mtrt-headers
+  DIRECTORIES
+   "include/mlir-tensorrt-dialect"
+   "include/mlir-tensorrt-dialect-c"
+   "${CMAKE_CURRENT_BINARY_DIR}/include/mlir-tensorrt-dialect"
+   "${CMAKE_CURRENT_BINARY_DIR}/include/mlir-tensorrt-dialect-c"
+  )

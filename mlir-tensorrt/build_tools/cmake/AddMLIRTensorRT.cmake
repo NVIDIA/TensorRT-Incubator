@@ -25,30 +25,6 @@ function(add_mlir_tensorrt_library target)
 endfunction()
 
 #-------------------------------------------------------------------------------------
-# Creates a MLIR-TensorRT public C API library with global registration
-#
-# Parameters:
-#   target - Target name (required)
-#   All other arguments are passed to add_mlir_public_c_api_library
-#
-# Usage:
-#   add_mlir_tensorrt_public_c_api_library(MyAPI SOURCES api.cpp)
-#-------------------------------------------------------------------------------------
-function(add_mlir_tensorrt_public_c_api_library target)
-  # Validate required arguments
-  if(NOT target)
-    message(FATAL_ERROR "add_mlir_tensorrt_public_c_api_library: target parameter is required")
-  endif()
-
-  add_mlir_public_c_api_library(${target}
-    ${ARGN}
-  )
-  mtrt_add_project_targets(MLIRTensorRT TARGETS
-    ${target}
-  )
-endfunction()
-
-#-------------------------------------------------------------------------------------
 # Creates a MLIR-TensorRT dialect library with global registration
 #
 # Parameters:
@@ -91,7 +67,7 @@ function(add_mlir_tensorrt_op_interface name)
   set(LLVM_TARGET_DEFINITIONS "${name}.td")
   mlir_tablegen(${name}.h.inc -gen-op-interface-decls)
   mlir_tablegen(${name}.cpp.inc -gen-op-interface-defs)
-  add_public_tablegen_target(MLIRTensorRT${name}IncGen)
+  mtrt_add_public_tablegen_target("MLIRTensorRT${name}IncGen")
 endfunction()
 
 #-------------------------------------------------------------------------------------
@@ -118,7 +94,7 @@ function(add_mlir_tensorrt_attr_interface src)
   set(LLVM_TARGET_DEFINITIONS "${src}.td")
   mlir_tablegen("${ARG_OUTPUT_NAME}.h.inc" -gen-attr-interface-decls)
   mlir_tablegen("${ARG_OUTPUT_NAME}.cpp.inc" -gen-attr-interface-defs)
-  add_public_tablegen_target("MLIRTensorRT${ARG_OUTPUT_NAME}IncGen")
+  mtrt_add_public_tablegen_target("MLIRTensorRT${ARG_OUTPUT_NAME}IncGen")
 endfunction()
 
 #-------------------------------------------------------------------------------------
@@ -183,7 +159,6 @@ function(add_tensorrt_encoding_def_gen targetName inputFileName outputFileName )
   add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${outputFileName}"
   COMMAND mlir-tensorrt-tblgen --gen-tensorrt-layer-add-defs
     "${inputFileName}"
-    -I "${MLIR_TENSORRT_ROOT_DIR}/include"
     -I "${MLIR_TENSORRT_ROOT_DIR}/tensorrt/include"
     ${_mlir_includes}
     -o "${CMAKE_CURRENT_BINARY_DIR}/${outputFileName}"
@@ -248,7 +223,7 @@ function(add_mlir_tensorrt_backend_library target)
   mlir_tablegen("${h_inc_file}" -gen-attrdef-decls)
   mlir_tablegen("${cpp_inc_file}" -gen-attrdef-defs)
 
-  add_public_tablegen_target(${target}IncGen)
+  mtrt_add_public_tablegen_target("${target}IncGen")
 
   add_mlir_tensorrt_library(${target}
     PARTIAL_SOURCES_INTENDED

@@ -50,14 +50,14 @@ func.func @value_bounds_shape_mismatch(%arg0: tensor<1x11xi32> {plan.value_bound
 #bounds = #plan.bounds<shape, [10], [20]>
 
 // expected-error @below {{'func.func' op arg #0 has type 'tensor<1x?xi32>', whose rank is not equal to the rank of the corresponding shape bounds #plan.bounds<shape, [10], [20]>}}
-func.func @value_bounds_shape_mismatch(%arg0: tensor<1x?xi32> {plan.shape_profile = #bounds}) {
+func.func @value_bounds_shape_mismatch(%arg0: tensor<1x?xi32> {plan.shape_bounds = #bounds}) {
   return
 }
 
 // -----
 
 #bounds = #plan.bounds<shape, [], []>
-func.func @value_bounds_shape_0d_match(%arg0: tensor<i32> {plan.shape_profile = #bounds}) {
+func.func @value_bounds_shape_0d_match(%arg0: tensor<i32> {plan.shape_bounds = #bounds}) {
   return
 }
 
@@ -65,7 +65,7 @@ func.func @value_bounds_shape_0d_match(%arg0: tensor<i32> {plan.shape_profile = 
 
 #bounds = #plan.bounds<shape, [10], [20]>
 // expected-error @below {{'func.func' op expected only value bounds or none bounds for scalar arg #0 of type 'i32', but got #plan.bounds<shape, [10], [20]>}}
-func.func @value_bounds_shape_mismatch(%arg0: i32 {plan.shape_profile = #bounds}) {
+func.func @value_bounds_shape_mismatch(%arg0: i32 {plan.shape_bounds = #bounds}) {
   return
 }
 

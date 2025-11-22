@@ -189,11 +189,7 @@ if config.tensorrt_lib_dir:
     # installation path given to the cmake configuration command here.
     extra_ld_lib_path.append(config.tensorrt_lib_dir)
 
-llvm_config.with_environment(
-    "LD_LIBRARY_PATH",
-    extra_ld_lib_path,
-    append_path=True,
-)
+llvm_config.with_environment("LD_LIBRARY_PATH", os.pathsep.join(extra_ld_lib_path))
 
 
 # Add configuration features that depend on the host or flags defined with the
@@ -208,11 +204,3 @@ if lit.util.pythonize_bool(lit_config.params.get("enable_functional_suite", None
     config.available_features.add("enable_functional_suite")
 if not config.enable_asan:
     config.available_features.add("no-asan")
-
-
-# Some of our tests utilize checks against debug output in order to verify
-# that flags were correctly propagated from e.g. Python all the way to the TensorRT
-# translation pass. This is a bit brittle, but until we replace with a better
-# solution, we can only run those tests when debug printing is available.
-if config.enable_assertions:
-    config.available_features.add("debug-print")

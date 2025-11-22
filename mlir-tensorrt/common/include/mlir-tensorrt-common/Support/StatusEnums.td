@@ -6,14 +6,15 @@ class EnumCase<string sym, int val> {
   int value = val;
 }
 
-class EnumSpec<string sym, string docString,
+class EnumSpec<string sym, string intType_, string docString,
                list<EnumCase> cases_> {
+  string intType = intType_;
   string symbol = sym;
   string documentationString = docString;
   list<EnumCase> cases = cases_;
 }
 
-def StatusCode : EnumSpec<"StatusCode",
+def StatusCode : EnumSpec<"StatusCode", "int8_t",
   [{A StatusCode is an enumerated type indicating either no error ("Success") or
     a specific error condition. The purpose of enumerating error conditions is
     to allow functions to communicate to the caller that a potentially recoverable

@@ -34,7 +34,7 @@
 #pragma GCC diagnostic pop
 #endif
 
-namespace mlirtrt::runtime {
+namespace mtrt {
 struct RuntimeNvtxDomain {
   static constexpr char const *name{"MLIR TensorRT Lua Runtime"};
 };
@@ -52,22 +52,18 @@ constexpr inline nvtx3::rgb CudaModuleColor() {
   return nvtx3::rgb{61, 65, 176};
 }
 } // namespace tracing
-} // namespace mlirtrt::runtime
+} // namespace mtrt
 
 #define ADD_RUNTIME_MODULE_RANGE(funcName)                                     \
-  mlirtrt::runtime::NvtxRange r(mlirtrt::runtime::tracing::RuntimeColor(),     \
-                                funcName)
+  mtrt::NvtxRange r(mtrt::tracing::RuntimeColor(), funcName)
 
 #define ADD_CORE_MODULE_RANGE(funcName)                                        \
-  mlirtrt::runtime::NvtxRange r(mlirtrt::runtime::tracing::CoreModuleColor(),  \
-                                funcName)
+  mtrt::NvtxRange r(mtrt::tracing::CoreModuleColor(), funcName)
 
 #define ADD_TENSORRT_MODULE_RANGE(funcName)                                    \
-  mlirtrt::runtime::NvtxRange r(                                               \
-      mlirtrt::runtime::tracing::TensorRTModuleColor(), funcName)
+  mtrt::NvtxRange r(mtrt::tracing::TensorRTModuleColor(), funcName)
 
 #define ADD_CUDA_MODULE_RANGE(funcName)                                        \
-  mlirtrt::runtime::NvtxRange r(mlirtrt::runtime::tracing::CudaModuleColor(),  \
-                                funcName)
+  mtrt::NvtxRange r(mtrt::tracing::CudaModuleColor(), funcName)
 
 #endif // MLIR_TENSORRT_RUNTIME_BACKEND_UTILS_NVTXUTILS_H

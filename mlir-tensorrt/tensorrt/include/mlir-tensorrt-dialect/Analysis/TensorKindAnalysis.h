@@ -1,6 +1,6 @@
 //===- TensorKindAnalysis.h -------------------------------------*- C++ -*-===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -30,13 +30,8 @@
 
 #include "mlir-tensorrt-common/Interfaces/TensorKindOpInterface.h"
 #include "mlir/Analysis/DataFlow/SparseAnalysis.h"
-#include "mlir/Analysis/DataFlowFramework.h"
 
 namespace mlir {
-
-namespace func {
-class FuncOp;
-}
 
 /// A data flow analysis that tries to determines whether a tensor is a `host`
 /// or `device` tensor (or both).

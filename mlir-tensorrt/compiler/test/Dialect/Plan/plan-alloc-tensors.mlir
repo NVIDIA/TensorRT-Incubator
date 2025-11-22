@@ -2,13 +2,13 @@
 // RUN: mlir-tensorrt-opt %s -split-input-file -plan-alloc-tensors | FileCheck %s
 
 
-func.func @tensor_empty() -> tensor<128xf32, #plan.memory_space<device>> {
+func.func @tensor_empty() -> (tensor<128xf32, #plan.memory_space<device>> {plan.result_slot = 0 : i32}) {
   %0 = tensor.empty() : tensor<128xf32, #plan.memory_space<device>>
   return %0 : tensor<128xf32, #plan.memory_space<device>>
 }
 
 // CHECK-LABEL: @tensor_empty
-//  CHECK-SAME: (%[[arg0:.+]]: tensor<{{.*}}> {plan.result_arg}) -> tensor<{{.*}}> {
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<{{.*}}> {plan.result_slot = 0 : i32})
 //       CHECK:     return %[[arg0]] : tensor<{{.*}}>
 
 // CHECK-ALLOC-LABEL: func.func @tensor_empty
@@ -37,7 +37,7 @@ func.func @empty_tensor_with_encoding() {
 !tensor_type = tensor<10xf32, #plan.memory_space<device>>
 
 #map = affine_map<(d0)->(d0)>
-func.func @test_simple_dps(%arg0: !tensor_type) -> !tensor_type {
+func.func @test_simple_dps(%arg0: !tensor_type) -> (!tensor_type {plan.result_slot = 0 : i32}) {
   %empty = tensor.empty () : !tensor_type
   %0 = linalg.generic {
     iterator_types = ["parallel"],
@@ -51,13 +51,13 @@ func.func @test_simple_dps(%arg0: !tensor_type) -> !tensor_type {
 }
 
 // CHECK-LABEL: @test_simple_dps
-//  CHECK-SAME: (%[[arg0:.+]]: tensor<{{.*}}>, %[[arg1:.+]]: tensor<{{.*}}> {plan.result_arg}) -> tensor<{{.*}}>
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<{{.*}}>, %[[arg1:.+]]: tensor<{{.*}}> {plan.result_slot = 0 : i32})
 //   CHECK-NOT: bufferization.alloc_tensor()
 //       CHECK: %[[v0:.+]] = linalg.generic {{.*}} ins(%[[arg0]] : tensor<{{.*}}>) outs(%[[arg1]] : tensor<{{.*}}>)
 //       CHECK: return %[[v0]] : tensor<{{.*}}>
 
 // CHECK-ALLOC-LABEL: @test_simple_dps
-//  CHECK-ALLOC-SAME: (%[[arg0:.+]]: tensor<10xf32, {{.*}}>) -> tensor<10xf32, {{.*}}>
+//  CHECK-ALLOC-SAME: (%[[arg0:.+]]: tensor<10xf32, {{.*}}>)
 //   CHECK-ALLOC: %[[v0:.+]] = tensor.empty() : tensor<10xf32, #plan.memory_space<device>>
 //       CHECK-ALLOC: %[[v1:.+]] = linalg.generic {{.*}} ins(%[[arg0]] : tensor<{{.*}}>) outs(%[[v0]] : tensor<{{.*}}>)
 //       CHECK-ALLOC: return %[[v1]] : tensor<{{.*}}>
@@ -67,7 +67,7 @@ func.func @test_simple_dps(%arg0: !tensor_type) -> !tensor_type {
 !tensor_type = tensor<10xf32, #plan.memory_space<device>>
 
 #map = affine_map<(d0)->(d0)>
-func.func @test_two_returns(%arg0: !tensor_type, %arg1: !tensor_type) -> (!tensor_type, !tensor_type) {
+func.func @test_two_returns(%arg0: !tensor_type, %arg1: !tensor_type) -> (!tensor_type {plan.result_slot = 0 : i32}, !tensor_type {plan.result_slot = 1 : i32}) {
   %empty = tensor.empty () : !tensor_type
   %0, %1 = linalg.generic {
     iterator_types = ["parallel"],
@@ -82,13 +82,13 @@ func.func @test_two_returns(%arg0: !tensor_type, %arg1: !tensor_type) -> (!tenso
 }
 
 // CHECK-LABEL: @test_two_returns
-//  CHECK-SAME: (%[[arg0:.+]]: tensor<{{.*}}>, %[[arg1:.+]]: tensor<{{.*}}>, %[[arg2:.+]]: tensor<{{.*}}> {plan.result_arg}, %[[arg3:.+]]: tensor<{{.*}}> {plan.result_arg}) -> (tensor<{{.*}}>, tensor<{{.*}}>)
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<{{.*}}>, %[[arg1:.+]]: tensor<{{.*}}>, %[[arg2:.+]]: tensor<{{.*}}> {plan.result_slot = 0 : i32}, %[[arg3:.+]]: tensor<{{.*}}> {plan.result_slot = 1 : i32})
 //   CHECK-NOT: bufferization.alloc_tensor()
 //       CHECK: %[[v0:.+]]:2 = linalg.generic {{.*}} ins(%[[arg0]], %[[arg1]] : {{.*}}) outs(%[[arg2]], %[[arg3]] : {{.*}})
 //       CHECK: return %[[v0]]#0, %[[v0]]#1 : tensor<{{.*}}>, tensor<{{.*}}>
 
 // CHECK-ALLOC-LABEL: @test_two_returns
-//  CHECK-ALLOC-SAME: (%[[arg0:.+]]: tensor<{{.*}}>, %[[arg1:.+]]: tensor<{{.*}}>) -> (tensor<{{.*}}>, tensor<{{.*}}>)
+//  CHECK-ALLOC-SAME: (%[[arg0:.+]]: tensor<{{.*}}>, %[[arg1:.+]]: tensor<{{.*}}>)
 //   CHECK-ALLOC-DAG: %[[out1:.+]] = tensor.empty() : tensor<10xf32, #plan.memory_space<device>>
 //   CHECK-ALLOC-DAG: %[[out2:.+]] = tensor.empty() : tensor<10xf32, #plan.memory_space<device>>
 //   CHECK-ALLOC-DAG: %[[v1:.+]]:2 = linalg.generic {{.*}} ins(%[[arg0]], %[[arg1]] : {{.*}}) outs(%[[out2]], %[[out1]] : {{.*}})
@@ -115,7 +115,7 @@ module @test_no_dps_return {
 }
 
 // CHECK-LABEL: @main
-//  CHECK-SAME: (%[[arg0:.+]]: tensor<10xf32, {{.*}}>, %[[arg1:.+]]: tensor<10xf32, {{.*}}>, %[[arg2:.+]]: tensor<10xf32, {{.*}}> {plan.result_arg})
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<10xf32, {{.*}}>, %[[arg1:.+]]: tensor<10xf32, {{.*}}>, %[[arg2:.+]]: tensor<10xf32, {{.*}}>)
 //  CHECK-DAG: %[[out0:.+]] = tensor.empty()
 //  CHECK-DAG: %[[out1:.+]] = tensor.empty()
 //  CHECK-NEXT: %[[v1:.+]]:2 = {{.*}} ins(%[[arg0]], %[[arg1]] : {{.*}}) outs(%[[out1]], %[[out0]] : {{.*}})
@@ -124,7 +124,7 @@ module @test_no_dps_return {
 //  CHECK-NEXT: return %[[v3]] : tensor<10xf32
 
 // CHECK-ALLOC-LABEL: @main
-//  CHECK-ALLOC-SAME: (%[[arg0:.+]]: tensor<10xf32, {{.*}}>, %[[arg1:.+]]: tensor<10xf32, {{.*}}>) -> tensor<10xf32, {{.*}}>
+//  CHECK-ALLOC-SAME: (%[[arg0:.+]]: tensor<10xf32, {{.*}}>, %[[arg1:.+]]: tensor<10xf32, {{.*}}>)
 //   CHECK-ALLOC-DAG: %[[out0:.+]] = tensor.empty
 //   CHECK-ALLOC-DAG: %[[out1:.+]] = tensor.empty
 //   CHECK-ALLOC-DAG: %[[v1:.+]]:2 = linalg.generic {{.*}} ins(%[[arg0]], %[[arg1]] : {{.*}}) outs(%[[out1]], %[[out0]] : {{.*}})
@@ -138,7 +138,7 @@ module @test_no_dps_return {
 
 #map = affine_map<(d0)->(d0)>
 module @test_one_dps_other_no_dps_return {
-  func.func @main(%arg0: !tensor_type) -> (!tensor_type, !tensor_type) {
+  func.func @main(%arg0: !tensor_type) -> (!tensor_type {plan.result_slot = 0 : i32}, !tensor_type {plan.result_slot = 1 : i32}) {
     %empty = tensor.empty () : !tensor_type
     %0 = linalg.generic {
       iterator_types = ["parallel"],
@@ -154,7 +154,7 @@ module @test_one_dps_other_no_dps_return {
 }
 
 //  CHECK-LABEL: @main
-//   CHECK-SAME: (%[[arg0:.+]]: tensor<{{.*}}>, %[[arg1:.+]]: tensor<{{.*}}> {plan.result_arg}, %[[arg2:.+]]: tensor<{{.*}}> {plan.result_arg}) -> (tensor<{{.*}}>, tensor<{{.*}}>)
+//   CHECK-SAME: (%[[arg0:.+]]: tensor<{{.*}}>, %[[arg1:.+]]: tensor<{{.*}}> {plan.result_slot = 0 : i32}, %[[arg2:.+]]: tensor<{{.*}}> {plan.result_slot = 1 : i32})
 //    CHECK-NOT: bufferization.alloc_tensor()
 //        CHECK: %[[v0:.+]] = linalg.generic {{.*}} ins(%[[arg0]] : tensor<{{.*}}>) outs(%[[arg2]] : tensor<{{.*}}>)
 //        CHECK: %[[v1:.+]] = arith.addf %[[v0]], %[[arg0]] : tensor<{{.*}}>
@@ -162,7 +162,7 @@ module @test_one_dps_other_no_dps_return {
 //   CHECK-NEXT: return %[[v2]], %[[v0]] : tensor<{{.*}}>, tensor<{{.*}}>
 
 //  CHECK-ALLOC-LABEL: @main
-//   CHECK-ALLOC-SAME: (%[[arg0:.+]]: tensor<{{.*}}>) -> (tensor<{{.*}}>, tensor<{{.*}}>)
+//   CHECK-ALLOC-SAME: (%[[arg0:.+]]: tensor<{{.*}}>)
 //        CHECK-ALLOC: %[[v0:.+]] = tensor.empty()
 //        CHECK-ALLOC: %[[v1:.+]] = linalg.generic {{.*}} ins(%[[arg0]] : tensor<{{.*}}>) outs(%[[v0]] : tensor<{{.*}}>)
 //        CHECK-ALLOC: %[[v2:.+]] = arith.addf %[[v1]], %[[arg0]] : tensor<{{.*}}>
@@ -195,7 +195,7 @@ func.func @test_dps_chain(%arg0: !tensor_type) -> !tensor_type {
 }
 
 // CHECK-LABEL: @test_dps_chain
-//  CHECK-SAME: (%[[arg0:.+]]: tensor<{{.*}}>, %[[arg1:.+]]: tensor<{{.*}}> {plan.result_arg}) -> tensor<{{.*}}>
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<{{.*}}>, %[[arg1:.+]]: tensor<{{.*}}>) -> tensor<{{.*}}>
 //   CHECK-NOT: bufferization.alloc_tensor()
 //       CHECK: %[[v0:.+]] = linalg.generic {{.*}} ins(%[[arg0]] : tensor<{{.*}}>) outs(%[[arg1]] : tensor<{{.*}}>)
 //       CHECK: %[[v1:.+]] = linalg.generic {{.*}} ins(%[[arg0]] : tensor<{{.*}}>) outs(%[[v0]] : tensor<{{.*}}>)
@@ -229,7 +229,7 @@ func.func @test_repeat_returns(%arg0: !tensor_type, %arg1: !tensor_type) -> (!te
 }
 
 // CHECK-LABEL: @test_repeat_returns
-//  CHECK-SAME: (%[[arg0:.+]]: tensor<{{.*}}>, %[[arg1:.+]]: tensor<{{.*}}>, %[[arg2:.+]]: tensor<{{.*}}> {plan.result_arg}, %[[arg3:.+]]: tensor<{{.*}}> {plan.result_arg}, %[[arg4:.+]]: tensor<{{.*}}> {plan.result_arg}, %[[arg5:.+]]: tensor<{{.*}}> {plan.result_arg}, %[[arg6:.+]]: tensor<{{.*}}> {plan.result_arg})
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<{{.*}}>, %[[arg1:.+]]: tensor<{{.*}}>, %[[arg2:.+]]: tensor<{{.*}}>, %[[arg3:.+]]: tensor<{{.*}}>, %[[arg4:.+]]: tensor<{{.*}}>, %[[arg5:.+]]: tensor<{{.*}}>, %[[arg6:.+]]: tensor<{{.*}}>)
 //   CHECK-NOT: bufferization.alloc_tensor()
 //       CHECK: %[[v0:.+]]:2 = linalg.generic {{.*}} ins(%[[arg0]], %[[arg1]] : {{.*}}) outs(%[[arg2]], %[[arg3]] : {{.*}})
 //       CHECK: %[[v1:.+]] = arith.addf %[[v0]]#0, %[[arg0]] : tensor<{{.*}}>
@@ -253,7 +253,7 @@ func.func @test_repeat_returns(%arg0: !tensor_type, %arg1: !tensor_type) -> (!te
 !tensor_type = tensor<10xf32, #plan.memory_space<device>>
 
 #map = affine_map<(d0)->(d0)>
-func.func @test_dps_chain_repeat(%arg0: !tensor_type) -> (!tensor_type, !tensor_type, !tensor_type) {
+func.func @test_dps_chain_repeat(%arg0: !tensor_type) -> (!tensor_type {plan.result_slot = 0 : i32}, !tensor_type {plan.result_slot = 1 : i32}, !tensor_type {plan.result_slot = 2 : i32}) {
   %empty = tensor.empty () : !tensor_type
   %0 = linalg.generic {
     iterator_types = ["parallel"],
@@ -275,7 +275,7 @@ func.func @test_dps_chain_repeat(%arg0: !tensor_type) -> (!tensor_type, !tensor_
 }
 
 // CHECK-LABEL: @test_dps_chain_repeat
-//  CHECK-SAME: (%[[arg0:.+]]: tensor<{{.*}}>, %[[arg1:.+]]: tensor<{{.*}}> {plan.result_arg}, %[[arg2:.+]]: tensor<{{.*}}> {plan.result_arg}, %[[arg3:.+]]: tensor<{{.*}}> {plan.result_arg}) -> (tensor<{{.*}}>, tensor<{{.*}}>, tensor<{{.*}}>)
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<{{.*}}>, %[[arg1:.+]]: tensor<{{.*}}> {plan.result_slot = 0 : i32}, %[[arg2:.+]]: tensor<{{.*}}> {plan.result_slot = 1 : i32}, %[[arg3:.+]]: tensor<{{.*}}> {plan.result_slot = 2 : i32})
 //   CHECK-NOT: bufferization.alloc_tensor()
 //       CHECK: %[[v0:.+]] = linalg.generic {{.*}} ins(%[[arg0]] : tensor<{{.*}}>) outs(%[[arg2]] : tensor<{{.*}}>)
 //       CHECK: %[[v1:.+]] = linalg.generic {{.*}} ins(%[[arg0]] : tensor<{{.*}}>) outs(%[[v0]] : tensor<{{.*}}>)
@@ -284,7 +284,7 @@ func.func @test_dps_chain_repeat(%arg0: !tensor_type) -> (!tensor_type, !tensor_
 //  CHECK-NEXT: return %[[v2]], %[[v0]], %[[v3]] :
 
 // CHECK-ALLOC-LABEL: @test_dps_chain_repeat
-//  CHECK-ALLOC-SAME: (%[[arg0:.+]]: tensor<{{.*}}>) -> (tensor<{{.*}}>, tensor<{{.*}}>, tensor<{{.*}}>)
+//  CHECK-ALLOC-SAME: (%[[arg0:.+]]: tensor<{{.*}}>)
 //       CHECK-ALLOC: %[[v0:.+]] = tensor.empty() : tensor<10xf32, #plan.memory_space<device>>
 //       CHECK-ALLOC: %[[v1:.+]] = linalg.generic {{.*}} ins(%[[arg0]] : tensor<{{.*}}>) outs(%[[v0]] : tensor<{{.*}}>)
 //       CHECK-ALLOC: %[[v2:.+]] = linalg.generic {{.*}} ins(%[[arg0]] : tensor<{{.*}}>) outs(%[[v1]] : tensor<{{.*}}>)
@@ -298,7 +298,7 @@ func.func @test_return_arg(%arg0: tensor<10xf32>) -> tensor<10xf32> {
 }
 
 // CHECK-LABEL: @test_return_arg
-//  CHECK-SAME: (%[[arg0:.+]]: tensor<10xf32>, %[[arg1:.+]]: tensor<10xf32> {plan.result_arg})
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<10xf32>, %[[arg1:.+]]: tensor<10xf32>)
 //       CHECK:     %[[v0:.+]] = linalg.copy  ins(%[[arg0]] : {{.*}}) outs(%[[arg1]] : {{.*}})
 //       CHECK:     return %[[v0]]
 
@@ -311,20 +311,20 @@ func.func @test_return_arg(%arg0: tensor<10xf32>) -> tensor<10xf32> {
 
 // -----
 
-func.func @test_already_dps(%arg0: tensor<10xf32>, %arg1: tensor<10xf32> {plan.result_arg}, %arg2: tensor<10xf32> {plan.result_arg}) -> (tensor<10xf32>, tensor<10xf32>) {
+func.func @test_already_dps(%arg0: tensor<10xf32>, %arg1: tensor<10xf32> {plan.result_slot = 0 : i32}, %arg2: tensor<10xf32> {plan.result_slot = 1 : i32}) -> (tensor<10xf32>, tensor<10xf32>) {
   %0 = bufferization.materialize_in_destination %arg0 in %arg1 : (tensor<10xf32>, tensor<10xf32>) -> tensor<10xf32>
   %1 = bufferization.materialize_in_destination %arg0 in %arg2 : (tensor<10xf32>, tensor<10xf32>) -> tensor<10xf32>
   return %0, %1 : tensor<10xf32>, tensor<10xf32>
 }
 
 // CHECK-LABEL: @test_already_dps
-//  CHECK-SAME: (%[[arg0:.+]]: tensor<10xf32>, %[[arg1:.+]]: tensor<10xf32> {plan.result_arg}, %[[arg2:.+]]: tensor<10xf32> {plan.result_arg})
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<10xf32>, %[[arg1:.+]]: tensor<10xf32> {plan.result_slot = 0 : i32}, %[[arg2:.+]]: tensor<10xf32> {plan.result_slot = 1 : i32})
 //       CHECK:     %[[v0:.+]] = bufferization.materialize_in_destination %[[arg0]] in %[[arg1]]
 //       CHECK:     %[[v1:.+]] = bufferization.materialize_in_destination %[[arg0]] in %[[arg2]]
 //       CHECK:     return %[[v0]], %[[v1]] : tensor<10xf32>, tensor<10xf32>
 
 // CHECK-ALLOC-LABEL: @test_already_dps
-//  CHECK-ALLOC-SAME: (%[[arg0:.+]]: tensor<10xf32>, %[[arg1:.+]]: tensor<10xf32> {plan.result_arg}, %[[arg2:.+]]: tensor<10xf32> {plan.result_arg})
+//  CHECK-ALLOC-SAME: (%[[arg0:.+]]: tensor<10xf32>, %[[arg1:.+]]: tensor<10xf32> {plan.result_slot = 0 : i32}, %[[arg2:.+]]: tensor<10xf32> {plan.result_slot = 1 : i32})
 //       CHECK-ALLOC:     %[[v0:.+]] = bufferization.materialize_in_destination %[[arg0]] in %[[arg1]]
 //       CHECK-ALLOC:     %[[v1:.+]] = bufferization.materialize_in_destination %[[arg0]] in %[[arg2]]
 //   CHECK-ALLOC-DAG:     %[[copy0:.+]] = bufferization.alloc_tensor() copy(%[[v0]])
@@ -366,7 +366,7 @@ func.func @test_loop_region_dps_rewrite_while_arg_mismatch(%arg0: tensor<10xf32,
 
 
 // CHECK-LABEL: func.func @test_loop_region_dps_rewrite_while_arg_mismatch
-//  CHECK-SAME: (%[[arg0:.+]]: tensor<10xf32, {{.*}}>, %[[arg1:.+]]: tensor<10xf32, {{.*}}> {plan.result_arg})
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<10xf32, {{.*}}>, %[[arg1:.+]]: tensor<10xf32, {{.*}}>)
 //   CHECK-DAG:     %[[false:.+]] = arith.constant false
 //   CHECK-DAG:     %[[c0:.+]] = arith.constant 0 : index
 //   CHECK-DAG:     %[[cst:.+]] = arith.constant 0.{{0.*}} : f32
@@ -401,7 +401,7 @@ func.func @test_loop_region_dps_rewrite_for(%arg0: tensor<10xf32>) -> tensor<10x
 }
 
 // CHECK-LABEL: @test_loop_region_dps_rewrite_for
-//  CHECK-SAME: (%[[arg0:.+]]: tensor<10xf32>, %[[arg1:.+]]: tensor<10xf32> {plan.result_arg})
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<10xf32>, %[[arg1:.+]]: tensor<10xf32>)
 //       CHECK:     %[[c0:.+]] = arith.constant 0 : index
 //       CHECK:     %[[c10:.+]] = arith.constant 10 : index
 //       CHECK:     %[[c1:.+]] = arith.constant 1 : index
@@ -425,7 +425,7 @@ func.func @test_loop_region_dps_rewrite_for(%arg0: tensor<10xf32>) -> tensor<10x
 // -----
 
 func.func @small_host_tensor_constant(%arg0: tensor<?x?xf32, #plan.memory_space<device>>)
-      -> tensor<?x?x?x?xf32, #plan.memory_space<device>> {
+      -> (tensor<?x?x?x?xf32, #plan.memory_space<device>> {plan.result_slot = 0 : i32}) {
   %cst = arith.constant dense<[1, 2, 3, 4]> : tensor<4xindex, #plan.memory_space<host>>
   %reshape = tensor.reshape %arg0(%cst) :
      (tensor<?x?xf32, #plan.memory_space<device>>, tensor<4xindex, #plan.memory_space<host>>)
@@ -435,7 +435,7 @@ func.func @small_host_tensor_constant(%arg0: tensor<?x?xf32, #plan.memory_space<
 
 // CHECK-LABEL: func.func @small_host_tensor_constant
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<?x?xf32, #plan.memory_space<device>>,
-//  CHECK-SAME:  %[[arg1:.+]]: tensor<?x?x?x?xf32, #plan.memory_space<device>> {plan.result_arg})
+//  CHECK-SAME:  %[[arg1:.+]]: tensor<?x?x?x?xf32, #plan.memory_space<device>> {plan.result_slot = 0 : i32})
 //       CHECK:     %[[cst:.+]] = arith.constant dense<[1, 2, 3, 4]> : tensor<4xindex, #plan.memory_space<host>>
 //       CHECK:     %[[reshape:.+]] = tensor.reshape %[[arg0]](%[[cst]]) :
 //       CHECK:     %[[v0:.+]] = linalg.copy  ins(%[[reshape]] : {{.*}}) outs(%[[arg1]] : {{.*}})
@@ -451,7 +451,7 @@ func.func @small_host_tensor_constant(%arg0: tensor<?x?xf32, #plan.memory_space<
 // -----
 
 func.func @small_host_and_device_tensor_constant(%arg0: tensor<?x?xf32, #plan.memory_space<device>>)
-    -> (tensor<?x?x?x?xf32, #plan.memory_space<device>>, tensor<4xindex, #plan.memory_space<device>>) {
+    -> (tensor<?x?x?x?xf32, #plan.memory_space<device>> {plan.result_slot = 0 : i32}, tensor<4xindex, #plan.memory_space<device>> {plan.result_slot = 1 : i32}) {
   %cst = arith.constant dense<[1, 2, 3, 4]> : tensor<4xindex, #plan.memory_space<device>>
   %cst_0 = arith.constant dense<[1, 2, 3, 4]> : tensor<4xindex, #plan.memory_space<host>>
   %reshape = tensor.reshape %arg0(%cst_0) :
@@ -462,8 +462,8 @@ func.func @small_host_and_device_tensor_constant(%arg0: tensor<?x?xf32, #plan.me
 
 // CHECK-LABEL: func.func @small_host_and_device_tensor_constant
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<?x?xf32, #plan.memory_space<device>>,
-//  CHECK-SAME:  %[[arg1:.+]]: tensor<?x?x?x?xf32, #plan.memory_space<device>> {plan.result_arg},
-//  CHECK-SAME:  %[[arg2:.+]]: tensor<4xindex, #plan.memory_space<device>> {plan.result_arg})
+//  CHECK-SAME:  %[[arg1:.+]]: tensor<?x?x?x?xf32, #plan.memory_space<device>> {plan.result_slot = 0 : i32},
+//  CHECK-SAME:  %[[arg2:.+]]: tensor<4xindex, #plan.memory_space<device>> {plan.result_slot = 1 : i32})
 //   CHECK-DAG:     %[[cst:.+]] = arith.constant dense<[1, 2, 3, 4]> : tensor<4xindex, #plan.memory_space<host>>
 //   CHECK-DAG:     %[[cst_0:.+]] = arith.constant dense<[1, 2, 3, 4]> : tensor<4xindex, #plan.memory_space<device>>
 //   CHECK-DAG:     %[[v0:.+]] = linalg.copy  ins(%[[cst_0]] : {{.*}}) outs(%[[arg2]] : {{.*}})
@@ -481,20 +481,20 @@ func.func @small_host_and_device_tensor_constant(%arg0: tensor<?x?xf32, #plan.me
 
 // -----
 
-func.func @big_host_tensor_constant() -> (tensor<1024xindex, #plan.memory_space<host>>) {
+func.func @big_host_tensor_constant() -> (tensor<1024xindex, #plan.memory_space<host>> {plan.result_slot = 0 : i32}) {
   %0 = arith.constant dense<1> : tensor<1024xindex, #plan.memory_space<host>>
   return %0 : tensor<1024xindex, #plan.memory_space<host>>
 }
 
 // CHECK-LABEL: func.func @big_host_tensor_constant
-//  CHECK-SAME: (%[[arg1:.+]]: tensor<1024xindex, #plan.memory_space<host>>
+//  CHECK-SAME: (%[[arg1:.+]]: tensor<1024xindex, #plan.memory_space<host>> {plan.result_slot = 0 : i32})
 //    CHECK-DAG:     %[[cst:.+]] = arith.constant dense<1> : tensor<1024xindex, #plan.memory_space<host>>
 //    CHECK-DAG:     %[[v0:.+]] = linalg.copy  ins(%[[cst]] : {{.*}}) outs(%[[arg1]] : {{.*}})
 //    CHECK-DAG:     return %[[v0]]
 
 
 // CHECK-ALLOC-LABEL: func.func @big_host_tensor_constant
-//  CHECK-ALLOC-SAME: () -> tensor<1024xindex, #plan.memory_space<host>>
+//  CHECK-ALLOC-SAME: () -> (tensor<1024xindex, #plan.memory_space<host>> {plan.result_slot = 0 : i32})
 //       CHECK-ALLOC:     %[[cst:.+]] = arith.constant dense<1> : tensor<1024xindex, #plan.memory_space<host>>
 //       CHECK-ALLOC:     return %[[cst]] : tensor<1024xindex, #plan.memory_space<host>>
 
@@ -553,7 +553,7 @@ func.func @test_dps_reshape_expand_equivalent(
 }
 
 // CHECK-LABEL: func.func @test_dps_reshape_expand_equivalent
-//  CHECK-SAME: (%[[arg0:.+]]: tensor<1xi32, #plan.memory_space<device>>, %[[arg1:.+]]: tensor<1xi32, #plan.memory_space<device>>, %[[arg2:.+]]: tensor<1x1xi32, #plan.memory_space<device>> {plan.result_arg})
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<1xi32, #plan.memory_space<device>>, %[[arg1:.+]]: tensor<1xi32, #plan.memory_space<device>>, %[[arg2:.+]]: tensor<1x1xi32, #plan.memory_space<device>>)
 //       CHECK:     %[[collapsed:.+]] = tensor.collapse_shape %[[arg2]] {{\[}}[0, 1]]
 //       CHECK:     %[[mapped:.+]] = linalg.map {{.*}} ins(%[[arg0]], %[[arg1]] : {{.*}}) outs(%[[collapsed]] : {{.*}})
 //       CHECK:     %[[expanded:.+]] = tensor.expand_shape %[[mapped]]
@@ -575,7 +575,7 @@ func.func @test_dps_dynamic_reshape_expand_equivalent(
 }
 
 // CHECK-LABEL: func.func @test_dps_dynamic_reshape_expand_equivalent
-//  CHECK-SAME: (%[[arg0:.+]]: tensor<?xi32, #plan.memory_space<device>>, %[[arg1:.+]]: tensor<?xi32, #plan.memory_space<device>>, %[[arg2:.+]]: index, %[[arg3:.+]]: index, %[[arg4:.+]]: tensor<?x?xi32, #plan.memory_space<device>> {plan.result_arg})
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<?xi32, #plan.memory_space<device>>, %[[arg1:.+]]: tensor<?xi32, #plan.memory_space<device>>, %[[arg2:.+]]: index, %[[arg3:.+]]: index, %[[arg4:.+]]: tensor<?x?xi32, #plan.memory_space<device>>)
 //       CHECK:     %[[collapsed:.+]] = tensor.collapse_shape %[[arg4]] {{\[}}[0, 1]] :
 //       CHECK:     %[[mapped:.+]] = linalg.map {{.*}} ins(%[[arg0]], %[[arg1]] : {{.*}}) outs(%[[collapsed]] : {{.*}})
 //       CHECK:     %[[expanded:.+]] = tensor.expand_shape %[[mapped]]
@@ -615,7 +615,7 @@ func.func @test_dps_complex_reshape_collapse_equivalent(
 }
 
 // CHECK-LABEL: func.func @test_dps_complex_reshape_collapse_equivalent
-//  CHECK-SAME: (%[[arg0:.+]]: tensor<2x3xcomplex<f32>, #plan.memory_space<device>>, %[[arg1:.+]]: tensor<2x3xcomplex<f32>, #plan.memory_space<device>>, %[[arg2:.+]]: tensor<6xcomplex<f32>, #plan.memory_space<device>> {plan.result_arg})
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<2x3xcomplex<f32>, #plan.memory_space<device>>, %[[arg1:.+]]: tensor<2x3xcomplex<f32>, #plan.memory_space<device>>, %[[arg2:.+]]: tensor<6xcomplex<f32>, #plan.memory_space<device>>)
 //   CHECK-DAG:     %[[expanded:.+]] = tensor.expand_shape %[[arg2]] {{\[}}[0, 1]] output_shape [2, 3] :
 //   CHECK-DAG:     %[[mapped:.+]] = linalg.map { complex.add } ins(%[[arg0]], %[[arg1]] :
 //   CHECK-DAG:     %[[collapsed:.+]] = tensor.collapse_shape %[[mapped]]
@@ -655,7 +655,7 @@ func.func @test_dps_dynamic_reshape_collapse_equivalent(
 !returned_type = tensor<?x1x1x?xi32, #plan.memory_space<device>>
 
 func.func @test_dps_dynamic_reshape_ambiguous(
-    %arg0: !type, %arg1: !type) -> !returned_type {
+    %arg0: !type, %arg1: !type) -> (!returned_type {plan.result_slot = 0 : i32}) {
   %c0 = arith.constant 0 : index
   %c1 = arith.constant 1 : index
   %dim0 = tensor.dim %arg0, %c0 : !type
@@ -668,7 +668,7 @@ func.func @test_dps_dynamic_reshape_ambiguous(
 }
 
 // CHECK-LABEL: func.func @test_dps_dynamic_reshape_ambiguous
-//  CHECK-SAME: (%[[arg0:.+]]: tensor<?x?xi32, #plan.memory_space<device>>, %[[arg1:.+]]: tensor<?x?xi32, #plan.memory_space<device>>, %[[arg2:.+]]: tensor<?x1x1x?xi32, #plan.memory_space<device>> {plan.result_arg})
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<?x?xi32, #plan.memory_space<device>>, %[[arg1:.+]]: tensor<?x?xi32, #plan.memory_space<device>>, %[[arg2:.+]]: tensor<?x1x1x?xi32, #plan.memory_space<device>> {plan.result_slot = 0 : i32})
 //   CHECK-DAG:     %[[c0:.+]] = arith.constant 0 : index
 //   CHECK-DAG:     %[[c1:.+]] = arith.constant 1 : index
 //   CHECK-DAG:     %[[dim:.+]] = tensor.dim %[[arg0]], %[[c0]]
@@ -688,7 +688,7 @@ func.func @test_dps_dynamic_reshape_ambiguous(
 // `tensor.bitcast`.
 
 func.func @test_dps_bitcast_not_equivalent(
-    %arg0: !type, %arg1: !type) -> !returned_type {
+    %arg0: !type, %arg1: !type) -> (!returned_type {plan.result_slot = 0 : i32}) {
   %0 = tensor.empty() : !type
   %1 = linalg.map {arith.addi} ins(%arg0, %arg1 : !type, !type) outs(%0 : !type)
   %2 = tensor.bitcast %1 : !type to !returned_type
@@ -696,7 +696,7 @@ func.func @test_dps_bitcast_not_equivalent(
 }
 
 // CHECK-LABEL: func.func @test_dps_bitcast_not_equivalent
-//  CHECK-SAME: (%[[arg0:.+]]: tensor<2xi32, #plan.memory_space<device>>, %[[arg1:.+]]: tensor<2xi32, #plan.memory_space<device>>, %[[arg2:.+]]: tensor<2xf32, #plan.memory_space<device>> {plan.result_arg})
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<2xi32, #plan.memory_space<device>>, %[[arg1:.+]]: tensor<2xi32, #plan.memory_space<device>>, %[[arg2:.+]]: tensor<2xf32, #plan.memory_space<device>> {plan.result_slot = 0 : i32})
 //   CHECK-DAG:     %[[v0:.+]] = tensor.empty()
 //   CHECK-DAG:     %[[mapped:.+]] = linalg.map {{.*}} ins(%[[arg0]], %[[arg1]] : {{.*}}) outs(%[[v0]] : {{.*}})
 //   CHECK-DAG:     %[[v1:.+]] = tensor.bitcast %[[mapped]]

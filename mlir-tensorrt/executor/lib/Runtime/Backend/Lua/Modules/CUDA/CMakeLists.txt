@@ -8,13 +8,13 @@ add_mlir_executor_runtime_capability_library(MLIRTensorRTExecutorRuntimeCUDAModu
   MLIRTensorRTExecutorCUDAUtils
 
   PRIVATE
-  MLIRTensorRTExecutorRuntimeCommon
-  sol2::sol2
-  lua::core
-  nvtx3-cpp
-  CUDA::cudart
   CUDA::cuda_driver
+  ${MLIR_TRT_CUDA_TARGET}
+  lua::core
+  MLIRTensorRTExecutorRuntimeCommon
   MLIRTensorRTLuaExtensionRegistry
+  MLIRTensorRTSupportStridedCopy
+  nvtx3-cpp
 )
 
 target_compile_options(MLIRTensorRTExecutorRuntimeCUDAModule

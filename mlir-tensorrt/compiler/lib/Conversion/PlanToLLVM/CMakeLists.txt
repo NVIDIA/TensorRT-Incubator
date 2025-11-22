@@ -5,7 +5,8 @@ add_mlir_tensorrt_library(MLIRTensorRTPlanToLLVM
   MLIRTensorRTConversionPassIncGen
 
   LINK_LIBS PUBLIC
-  MLIRLLVMCommonConversion
-  MLIRLLVMDialect
-  MLIRTensorRTPlanDialect
+    MLIRTensorRTPlanDialect
+  MLIR_LIBS PUBLIC
+    MLIRLLVMCommonConversion
+    MLIRLLVMDialect
   )

@@ -32,7 +32,7 @@
 #include "mlir/Transforms/Passes.h"
 
 using namespace mlir;
-using namespace mlirtrt::compiler;
+using namespace mtrt::compiler;
 
 static plan::PlanBufferizationOptions
 convertBufferizationOptions(const TensorRTToExecutableOptions &pipelineOpts) {
@@ -61,6 +61,7 @@ void TensorRTToExecutableTask::populatePassManager() {
   PassManager &pm = *this;
   const TensorRTToExecutableOptions &options = getOptions();
 
+  pm.addPass(plan::createVerifyInputAndAssignSlotsPass());
   pm.addPass(createOutlineTensorRTOpPass());
 
   // Simplify and translate functions nested in `tensorrt.module` ops.
@@ -124,7 +125,7 @@ void TensorRTToExecutableTask::populatePassManager() {
       });
 }
 
-void mlirtrt::compiler::registerTensorRTToExecutableTask() {
+void mtrt::compiler::registerTensorRTToExecutableTask() {
   registerCompilationTaskWithNoExtensions<TensorRTToExecutableTask,
                                           TensorRTToExecutableOptions>(
       "tensorrt-to-executable");

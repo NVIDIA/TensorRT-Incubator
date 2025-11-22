@@ -22,13 +22,13 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-executor-c/Runtime/Runtime.h"
-#include "dlpack/dlpack.h"
 #include "mlir-executor-c/Common/Common.h"
 #include "mlir-executor/Runtime/API/API.h"
 #include "mlir-executor/Runtime/API/ExecutableFlatbuffer.h"
 #include "mlir-executor/Runtime/Backend/Common/DataTypes.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaExtensions.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaRuntime.h"
+#include "mlir-executor/Runtime/Support/CUDAHelpers.h"
 #include "mlir-executor/Runtime/Support/Support.h"
 #include "mlir-tensorrt-common-c/Support/Status.h"
 #include "mlir-tensorrt-common/Support/Status.h"
@@ -45,7 +45,15 @@
 #include "cuda_runtime_api.h"
 #endif
 
-struct MTRT_StreamImpl;
+namespace {
+struct RuntimeClientRef {
+  mtrt::Ref<mtrt::RuntimeClient> ref;
+};
+
+struct StreamRef {
+  mtrt::Ref<mtrt::Stream> ref;
+};
+} // namespace
 
 #define DEFINE_C_API_PTR_METHODS(name, cpptype)                                \
   static inline name wrap(cpptype *cpp) { return name{cpp}; }                  \
@@ -57,28 +65,25 @@ struct MTRT_StreamImpl;
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
 #endif
-DEFINE_C_API_PTR_METHODS(MTRT_RuntimeSession,
-                         ::mlirtrt::runtime::RuntimeSession)
+DEFINE_C_API_PTR_METHODS(MTRT_RuntimeSession, ::mtrt::RuntimeSession)
 DEFINE_C_API_PTR_METHODS(MTRT_RuntimeSessionOptions,
-                         ::mlirtrt::runtime::RuntimeSessionOptions)
-DEFINE_C_API_PTR_METHODS(MTRT_Executable, ::mlirtrt::runtime::Executable)
-DEFINE_C_API_PTR_METHODS(MTRT_Stream, MTRT_StreamImpl)
-DEFINE_C_API_PTR_METHODS(MTRT_RuntimeValue, ::mlirtrt::runtime::RuntimeValue)
-DEFINE_C_API_PTR_METHODS(MTRT_ScalarValue, ::mlirtrt::runtime::ScalarValue)
-DEFINE_C_API_PTR_METHODS(MTRT_RuntimeClient, ::mlirtrt::runtime::RuntimeClient)
-DEFINE_C_API_PTR_METHODS(MTRT_MemRefValue, ::mlirtrt::runtime::MemRefValue)
-DEFINE_C_API_PTR_METHODS(MTRT_Device, ::mlirtrt::runtime::Device)
-DEFINE_C_API_PTR_METHODS(MTRT_DLPackManagedTensor, DLManagedTensor)
-DEFINE_C_API_PTR_METHODS(MTRT_DLPackDevice, DLDevice)
+                         ::mtrt::RuntimeSessionOptions)
+DEFINE_C_API_PTR_METHODS(MTRT_Executable, ::mtrt::Executable)
+DEFINE_C_API_PTR_METHODS(MTRT_Stream, ::StreamRef)
+DEFINE_C_API_PTR_METHODS(MTRT_RuntimeValue, ::mtrt::RuntimeValue)
+DEFINE_C_API_PTR_METHODS(MTRT_ScalarValue, ::mtrt::ScalarValue)
+DEFINE_C_API_PTR_METHODS(MTRT_RuntimeClient, RuntimeClientRef)
+DEFINE_C_API_PTR_METHODS(MTRT_MemRefValue, ::mtrt::MemRefValue)
+DEFINE_C_API_PTR_METHODS(MTRT_Device, ::mtrt::Device)
 #if defined(__GNUC__) || defined(__clang__)
 #pragma GCC diagnostic pop
 #endif
 
-using namespace mlirtrt;
-using namespace mlirtrt::runtime;
+using namespace mtrt;
+using namespace mtrt;
 
 /// Return the MTRT_StatusCode. These are auto-generated from the same schema as
-/// the `mlirtrt::StatusCode`.
+/// the `mtrt::StatusCode`.
 static MTRT_StatusCode getMTRTStatusCodeFromRuntimeStatusCode(StatusCode code) {
   return static_cast<MTRT_StatusCode>(code);
 }
@@ -120,6 +125,7 @@ static ScalarTypeCode unwrap(MTRT_ScalarTypeCode type) {
   ASSERT_ENUM_MATCH(ScalarTypeCode, i4);
   ASSERT_ENUM_MATCH(ScalarTypeCode, complex32);
   ASSERT_ENUM_MATCH(ScalarTypeCode, complex64);
+  ASSERT_ENUM_MATCH(ScalarTypeCode, f4e2m1fn);
   ASSERT_ENUM_MATCH(ScalarTypeCode, unknown);
   ASSERT_ENUM_MATCH(ScalarTypeCode, MIN);
   ASSERT_ENUM_MATCH(ScalarTypeCode, MAX);
@@ -148,7 +154,7 @@ static MTRT_Status wrap(const Status &status) {
     return mtrtStatusGetOk();
   return mtrtStatusCreate(
       getMTRTStatusCodeFromRuntimeStatusCode(status.getCode()),
-      status.getString().c_str());
+      status.getMessage().c_str());
 }
 
 //===----------------------------------------------------------------------===//
@@ -159,9 +165,7 @@ namespace {
 struct ExecutorRuntimeGlobalInit {
   static std::mutex m;
 
-  ExecutorRuntimeGlobalInit() {
-    mlirtrt::runtime::registerLuaRuntimeExtensions();
-  }
+  ExecutorRuntimeGlobalInit() { mtrt::registerLuaRuntimeExtensions(); }
 };
 } // namespace
 
@@ -222,94 +226,35 @@ MTRT_Status mtrtSetGlobalDebugTypes(const char **types, size_t n) {
 // MTRT_Stream
 //===----------------------------------------------------------------------===//
 
-struct MTRT_StreamImpl {
-public:
-  MTRT_StreamImpl() = delete;
-  MTRT_StreamImpl(const MTRT_StreamImpl &) = delete;
-  MTRT_StreamImpl &operator=(const MTRT_StreamImpl &) = delete;
-  MTRT_StreamImpl(MTRT_StreamImpl &&other) {
-    stream = other.stream;
-    other.stream = 0;
-  };
-  MTRT_StreamImpl &operator=(MTRT_StreamImpl &&other) {
-    if (this != &other) {
-      stream = other.stream;
-      other.stream = 0;
-    }
-    return *this;
-  };
-
-  static StatusOr<std::unique_ptr<MTRT_StreamImpl>> create();
-  ~MTRT_StreamImpl();
-  CudaStream getRawStream() { return stream; }
-  Status sync();
-
-private:
-  MTRT_StreamImpl(CudaStream s) : stream(s) {}
-  CudaStream stream{0};
-};
-
-StatusOr<std::unique_ptr<MTRT_StreamImpl>> MTRT_StreamImpl::create() {
-#ifdef MLIR_TRT_ENABLE_CUDA
-  CudaStream s;
-  RETURN_ERROR_IF_CUDART_ERROR(
-      cudaStreamCreate(reinterpret_cast<cudaStream_t *>(&s)));
-
-  return std::unique_ptr<MTRT_StreamImpl>(new MTRT_StreamImpl(std::move(s)));
-#else
-  return getInternalErrorStatus("runtime not compiled with CUDA enabled");
-#endif
+void mtrtStreamPrint(MTRT_Stream stream, MlirStringCallback append,
+                     void *userData) {
+  mlir::detail::CallbackOstream printStream(append, userData);
+  std::stringstream ss;
+  ss << std::hex
+     << reinterpret_cast<uintptr_t>(unwrap(stream)->ref->getCUDAHandle());
+  printStream << "CUDA Stream @ 0x" << ss.str();
 }
 
-MTRT_StreamImpl::~MTRT_StreamImpl() {
-#ifdef MLIR_TRT_ENABLE_CUDA
-  if (stream)
-    cudaStreamDestroy(reinterpret_cast<cudaStream_t>(stream));
-#endif
+MTRT_Status mtrtStreamGetPointer(MTRT_Stream stream, uintptr_t *ptr) {
+  *ptr = reinterpret_cast<uintptr_t>(unwrap(stream)->ref->getCUDAHandle());
+  return mtrtStatusGetOk();
 }
 
-Status MTRT_StreamImpl::sync() {
-#ifdef MLIR_TRT_ENABLE_CUDA
-  RETURN_ERROR_IF_CUDART_ERROR(
-      cudaStreamSynchronize(reinterpret_cast<cudaStream_t>(stream)));
-  return getOkStatus();
-#else
-  return getInternalErrorStatus("runtime not compiled with CUDA support");
-#endif
+MTRT_Status mtrtDeviceGetStream(MTRT_Device device, MTRT_Stream *stream) {
+  Ref<Stream> streamRef = unwrap(device)->getStream();
+  *stream = wrap(new StreamRef{std::move(streamRef)});
+  return mtrtStatusGetOk();
 }
 
-MTRT_Status mtrtStreamCreate(MTRT_Stream *stream) {
-  StatusOr<std::unique_ptr<MTRT_StreamImpl>> streamImpl =
-      MTRT_StreamImpl::create();
-  if (!streamImpl.isOk())
-    return wrap(streamImpl.getStatus());
-  *stream = MTRT_Stream{streamImpl->release()};
+MTRT_Status mtrtStreamDestroy(MTRT_Stream stream) {
+  delete unwrap(stream);
   return mtrtStatusGetOk();
 }
 
 MTRT_Status mtrtStreamSynchronize(MTRT_Stream stream) {
-  Status syncStatus = unwrap(stream)->sync();
+  Status syncStatus = unwrap(stream)->ref->sync();
   if (!syncStatus.isOk())
     return wrap(syncStatus.getStatus());
-  return mtrtStatusGetOk();
-}
-
-/// TODO: temporarily leak stream until we switch ownership to the client.
-/// We currently can't be sure that the stream ownership in Python will outlive
-/// references in C++.
-MTRT_Status mtrtStreamDestroy(MTRT_Stream stream) { return mtrtStatusGetOk(); }
-
-MLIR_CAPI_EXPORTED void
-mtrtStreamPrint(MTRT_Stream stream, MlirStringCallback append, void *userData) {
-  mlir::detail::CallbackOstream printStream(append, userData);
-  std::stringstream ss;
-  ss << std::hex << reinterpret_cast<uintptr_t>(unwrap(stream)->getRawStream());
-  printStream << "CUDA Stream @ 0x" << ss.str();
-}
-
-MLIR_CAPI_EXPORTED MTRT_Status mtrtStreamGetPointer(MTRT_Stream stream,
-                                                    uintptr_t *ptr) {
-  *ptr = reinterpret_cast<uintptr_t>(unwrap(stream)->getRawStream());
   return mtrtStatusGetOk();
 }
 
@@ -317,26 +262,23 @@ MLIR_CAPI_EXPORTED MTRT_Status mtrtStreamGetPointer(MTRT_Stream stream,
 // MTRT_MemRefValue
 //===----------------------------------------------------------------------===//
 
-MTRT_Status
-mtrtMemRefCreate(MTRT_RuntimeClient client, MTRT_PointerType pointerKind,
-                 int64_t bitsPerElement, int64_t rank, const int64_t *shape,
-                 const int64_t *strides, MTRT_Device device, MTRT_Stream stream,
-                 MTRT_ScalarTypeCode scalarType, MTRT_MemRefValue *result,
-                 bool assertCanonicalStrides) {
+MTRT_Status mtrtMemRefCreate(MTRT_RuntimeClient client,
+                             MTRT_PointerType pointerKind,
+                             MTRT_ScalarTypeCode scalarType, int64_t rank,
+                             const int64_t *shape, const int64_t *strides,
+                             MTRT_Device device, MTRT_Stream stream,
+                             MTRT_MemRefValue *result,
+                             bool assertCanonicalStrides) {
+  Ref<Stream> streamRef = {nullptr};
+  if (!mtrtStreamIsNull(stream))
+    streamRef = unwrap(stream)->ref;
+  BufferType bufferType = BufferType::createWithElementStrides(
+      unwrap(scalarType), llvm::ArrayRef(shape, shape + rank),
+      llvm::ArrayRef(strides, strides + rank), unwrap(pointerKind),
+      /*offset=*/0);
   StatusOr<std::unique_ptr<MemRefValue>> bufferImpl =
-      unwrap(client)->allocateMemRef(
-          unwrap(pointerKind), bitsPerElement,
-          llvm::ArrayRef(shape, shape + rank),
-          llvm::ArrayRef(strides, strides + rank),
-          mtrtDeviceIsNull(device) ? std::nullopt
-                                   : std::optional(unwrap(device)),
-          mtrtStreamIsNull(stream)
-              ? std::nullopt
-              : std::optional(unwrap(stream)->getRawStream()),
-          scalarType != MTRT_ScalarTypeCode::MTRT_ScalarTypeCode_unknown
-              ? std::optional(ScalarType(unwrap(scalarType)))
-              : std::nullopt,
-          std::optional(assertCanonicalStrides));
+      unwrap(client)->ref->allocateMemRef(bufferType, unwrap(device), streamRef,
+                                          assertCanonicalStrides);
 
   if (bufferImpl.isError())
     return wrap(bufferImpl.getStatus());
@@ -361,21 +303,17 @@ unwrapDestroyCallback(MTRT_MemRefDestroyCallback callback) {
 
 MTRT_Status mtrtMemRefCreateExternal(
     MTRT_RuntimeClient client, MTRT_PointerType pointerKind,
-    int64_t bitsPerElement, uintptr_t ptr, int64_t offset, int64_t rank,
+    MTRT_ScalarTypeCode scalarType, uintptr_t ptr, int64_t offset, int64_t rank,
     const int64_t *shape, const int64_t *strides, MTRT_Device device,
-    MTRT_ScalarTypeCode scalarType, MTRT_MemRefValue *result,
-    bool assertCanonicalStrides, MTRT_MemRefDestroyCallback destroyCallback) {
+    MTRT_MemRefValue *result, bool assertCanonicalStrides,
+    MTRT_MemRefDestroyCallback destroyCallback) {
+  BufferType bufferType = BufferType::createWithElementStrides(
+      unwrap(scalarType), llvm::ArrayRef(shape, shape + rank),
+      llvm::ArrayRef(strides, strides + rank), unwrap(pointerKind),
+      /*offset=*/0);
   StatusOr<std::unique_ptr<MemRefValue>> bufferImpl =
-      unwrap(client)->createExternalMemRef(
-          unwrap(pointerKind), bitsPerElement, ptr, offset,
-          llvm::ArrayRef(shape, shape + rank),
-          llvm::ArrayRef(strides, strides + rank),
-          mtrtDeviceIsNull(device) ? std::nullopt
-                                   : std::optional(unwrap(device)),
-          scalarType == MTRT_ScalarTypeCode_unknown
-              ? std::nullopt
-              : std::optional(ScalarType(unwrap(scalarType))),
-          std::optional(assertCanonicalStrides),
+      unwrap(client)->ref->createExternalMemRef(
+          bufferType, ptr, unwrap(device), assertCanonicalStrides,
           unwrapDestroyCallback(std::move(destroyCallback)));
 
   if (bufferImpl.isError())
@@ -417,7 +355,7 @@ MTRT_Status mtrtMemRefValueGetInfo(MTRT_MemRefValue memref,
   result.ptr = cppMemRef->getMemory();
   result.rank = cppMemRef->getRank();
   result.bitsPerElement = cppMemRef->getElementBitWidth();
-  result.offset = cppMemRef->getOffset();
+  result.offset = cppMemRef->getLayout().getOffset();
   result.shape = cppMemRef->getShape().data();
   result.strides = cppMemRef->getStrides().data();
   result.addressSpace = wrap(cppMemRef->getBufferKind());
@@ -434,113 +372,7 @@ MTRT_Status mtrtMemRefValueGetInfo(MTRT_MemRefValue memref,
 }
 
 MTRT_RuntimeClient mtrtMemRefGetClient(MTRT_MemRefValue memref) {
-  return wrap(unwrap(memref)->getClient());
-}
-
-static StatusOr<DLDeviceType> toDLPackDeviceType(PointerType address) {
-  switch (address) {
-  case PointerType::device:
-    return DLDeviceType::kDLCUDA;
-  case PointerType::host:
-    return DLDeviceType::kDLCPU;
-  case PointerType::pinned_host:
-    return DLDeviceType::kDLCUDAHost;
-  case PointerType::unified:
-    return DLDeviceType::kDLCUDAManaged;
-  default:
-    return getStatusWithMsg(
-        StatusCode::InvalidArgument, "Address space [",
-        stringifyPointerType(address),
-        "] conversion to DLPackDeviceType is not supported.");
-  }
-  return DLDeviceType::kDLCPU;
-}
-
-MTRT_Status mtrtGetPointerTypeFromDLDeviceType(DLDeviceType device,
-                                               MTRT_PointerType *result) {
-#define RETURN_OK(v)                                                           \
-  *result = v;                                                                 \
-  return mtrtStatusGetOk();
-  switch (device) {
-  case DLDeviceType::kDLCUDA:
-    RETURN_OK(MTRT_PointerType_device)
-  case DLDeviceType::kDLCPU:
-    RETURN_OK(MTRT_PointerType_host)
-  case DLDeviceType::kDLCUDAHost:
-    RETURN_OK(MTRT_PointerType_host)
-  case DLDeviceType::kDLCUDAManaged:
-    RETURN_OK(MTRT_PointerType_unified)
-  default:
-    return wrap(
-        getStatusWithMsg(StatusCode::InvalidArgument, "DLDeviceType [",
-                         // device,
-                         "] conversion to MTRT_PointerType is not supported."));
-  }
-#undef RETURN_OK
-}
-
-MTRT_Status mtrtGetScalarTypeCodeFromDLDataType(DLDataType dtype,
-                                                MTRT_ScalarTypeCode *result) {
-#define RETURN_OK(v)                                                           \
-  *result = v;                                                                 \
-  return mtrtStatusGetOk();
-  switch (dtype.code) {
-  case kDLBool:
-    RETURN_OK(MTRT_ScalarTypeCode_i1)
-  case kDLInt:
-    switch (dtype.bits) {
-    case 8:
-      RETURN_OK(MTRT_ScalarTypeCode_i8)
-    case 16:
-      RETURN_OK(MTRT_ScalarTypeCode_i16)
-    case 32:
-      RETURN_OK(MTRT_ScalarTypeCode_i32)
-    case 64:
-      RETURN_OK(MTRT_ScalarTypeCode_i64)
-    }
-  case kDLUInt:
-    switch (dtype.bits) {
-    case 8:
-      RETURN_OK(MTRT_ScalarTypeCode_ui8);
-    }
-  case kDLFloat:
-    switch (dtype.bits) {
-    case 8:
-      RETURN_OK(MTRT_ScalarTypeCode_f8e4m3fn)
-    case 16:
-      RETURN_OK(MTRT_ScalarTypeCode_f16)
-    case 32:
-      RETURN_OK(MTRT_ScalarTypeCode_f32)
-    case 64:
-      RETURN_OK(MTRT_ScalarTypeCode_f64)
-    }
-  case kDLBfloat:
-    RETURN_OK(MTRT_ScalarTypeCode_bf16)
-  case kDLComplex:
-  case kDLOpaqueHandle:
-  default:
-    return wrap(getStatusWithMsg(
-        StatusCode::InvalidArgument,
-        "DLDataType conversion to MTRT_ScalarTypeCode is not supported."));
-  }
-#undef RETURN_OK
-}
-
-MLIR_CAPI_EXPORTED MTRT_Status
-mtrtMemRefValueGetDLPackDevice(MTRT_MemRefValue memrefValue,
-                               DLDeviceType *device_type, int32_t *device_id) {
-  MemRefValue memref = *unwrap(memrefValue);
-  int device = memref.getDevice().has_value()
-                   ? memref.getDevice().value()->getDeviceNumber()
-                   : 0;
-
-  StatusOr<DLDeviceType> deviceType =
-      toDLPackDeviceType(memref.getAddressSpace());
-  if (!deviceType.isOk())
-    return wrap(deviceType.getStatus());
-  *device_type = *deviceType;
-  *device_id = device;
-  return mtrtStatusGetOk();
+  return wrap(new RuntimeClientRef{unwrap(memref)->getClient()});
 }
 
 uint32_t mtrtMemRefReferenceCount(MTRT_MemRefValue memref) {
@@ -554,6 +386,64 @@ MTRT_MemRefValue mtrtMemRefCreateRef(MTRT_MemRefValue memref) {
   return wrap(unwrap(memref)->createRef().release());
 }
 
+MTRT_Status mtrtMemRefValueGetStream(MTRT_MemRefValue memref,
+                                     MTRT_Stream *stream) {
+  Device *device = unwrap(memref)->getDevice();
+  if (!device) {
+    *stream = MTRT_Stream{nullptr};
+    return mtrtStatusGetOk();
+  }
+  *stream = wrap(new StreamRef{device->getStream()});
+  return mtrtStatusGetOk();
+}
+
+/// Wait for the current value to be "ready". If the value is a device
+/// memrefvalue, then it will incur a CUDA stream synchronization.
+MTRT_Status mtrtMemRefValueWaitForReady(MTRT_MemRefValue value) {
+  Device *device = unwrap(value)->getDevice();
+  if (!device)
+    return mtrtStatusGetOk();
+  Status s = device->getStream()->sync();
+  if (!s.isOk())
+    return wrap(s);
+  return mtrtStatusGetOk();
+}
+
+/// Add a wait on the `externalStream` for the `stream` to complete all
+/// outstanding operations as of now.
+MTRT_Status mtrtExternalStreamWaitOnMTRTStream(uintptr_t externalWaitingStream,
+                                               MTRT_Stream streamToWaitOn) {
+
+  mtrt::StatusOr<std::unique_ptr<mtrt::Event>> event =
+      mtrt::Event::create(unwrap(streamToWaitOn)->ref);
+  if (!event.isOk())
+    return wrap(event.getStatus());
+
+  /// Get the raw cuda event handle that will be ready when the streamToWaitOn
+  /// is ready.
+  uintptr_t cudaEventHandle = (*event)->getCudaHandle();
+  Status waitStatus =
+      mtrt::waitCUDAEventOnStream(externalWaitingStream, cudaEventHandle);
+  if (!waitStatus.isOk())
+    return wrap(waitStatus.getStatus());
+
+  // Release the event when the wait is complete
+  mtrt::Event::releaseWhenReady(std::move(*event));
+
+  return mtrtStatusGetOk();
+}
+
+MTRT_Device mtrtMemRefValueGetDevice(MTRT_MemRefValue memref) {
+  Device *device = unwrap(memref)->getDevice();
+  if (!device)
+    return mtrtDeviceGetNull();
+  return wrap(device);
+}
+
+MTRT_PointerType mtrtMemRefValueGetAddressSpace(MTRT_MemRefValue memref) {
+  return wrap(unwrap(memref)->getAddressSpace());
+}
+
 //===----------------------------------------------------------------------===//
 // Data Transfer
 //===----------------------------------------------------------------------===//
@@ -563,13 +453,15 @@ MTRT_MemRefValue mtrtMemRefCreateRef(MTRT_MemRefValue memref) {
 MTRT_Status mtrtCopyFromHostToDevice(MTRT_MemRefValue hostBuffer,
                                      MTRT_Device device, MTRT_Stream stream,
                                      MTRT_MemRefValue *deviceBuffer) {
+  Ref<Stream> streamRef = {nullptr};
+  if (!mtrtStreamIsNull(stream))
+    streamRef = unwrap(stream)->ref;
   StatusOr<std::unique_ptr<MemRefValue>> deviceBufferImpl =
       unwrap(hostBuffer)
           ->getClient()
           ->copyToDevice(*unwrap(hostBuffer), *unwrap(device),
-                         mtrtStreamIsNull(stream)
-                             ? std::nullopt
-                             : std::optional(unwrap(stream)->getRawStream()));
+                         streamRef, /*doneWithHostBuffer=*/
+                         nullptr);
   if (!deviceBufferImpl.isOk())
     return wrap(deviceBufferImpl.getStatus());
 
@@ -601,13 +493,13 @@ MTRT_Status mtrtCopyFromHostToHost(MTRT_MemRefValue hostBufferSource,
 MTRT_Status mtrtCopyFromDeviceToNewHostMemRef(MTRT_MemRefValue deviceBuffer,
                                               MTRT_Stream stream,
                                               MTRT_MemRefValue *result) {
+  Ref<Stream> streamRef = {nullptr};
+  if (!mtrtStreamIsNull(stream))
+    streamRef = unwrap(stream)->ref;
   StatusOr<std::unique_ptr<MemRefValue>> hostMemRef =
       unwrap(deviceBuffer)
           ->getClient()
-          ->copyToHost(*unwrap(deviceBuffer),
-                       mtrtStreamIsNull(stream)
-                           ? std::nullopt
-                           : std::optional(unwrap(stream)->getRawStream()));
+          ->copyToHost(*unwrap(deviceBuffer), streamRef);
   if (!hostMemRef.isOk())
     return wrap(hostMemRef.getStatus());
 
@@ -620,13 +512,13 @@ MTRT_Status
 mtrtCopyFromDeviceToExistingHostMemRef(MTRT_MemRefValue deviceBuffer,
                                        MTRT_MemRefValue hostBuffer,
                                        MTRT_Stream stream) {
+  Ref<Stream> streamRef = {nullptr};
+  if (!mtrtStreamIsNull(stream))
+    streamRef = unwrap(stream)->ref;
   Status s =
       unwrap(deviceBuffer)
           ->getClient()
-          ->copyToHost(*unwrap(deviceBuffer), *unwrap(hostBuffer),
-                       mtrtStreamIsNull(stream)
-                           ? std::nullopt
-                           : std::optional(unwrap(stream)->getRawStream()));
+          ->copyToHost(*unwrap(deviceBuffer), *unwrap(hostBuffer), streamRef);
   if (!s.isOk())
     return wrap(s);
 
@@ -725,13 +617,16 @@ void mtrtRuntimeSessionOptionsEnableFeature(MTRT_RuntimeSessionOptions options,
 // MTRT_RuntimeSession
 //===----------------------------------------------------------------------===//
 
-MTRT_Status mtrtRuntimeSessionCreate(MTRT_RuntimeSessionOptions options,
+MTRT_Status mtrtRuntimeSessionCreate(MTRT_RuntimeClient client,
+                                     MTRT_RuntimeSessionOptions options,
                                      MTRT_Executable executable,
                                      MTRT_RuntimeSession *result) {
+  Ref<RuntimeClient> cppClient = unwrap(client)->ref;
   RuntimeSessionOptions *cppOptions = unwrap(options);
   Executable *cppExecutable = unwrap(executable);
   StatusOr<std::unique_ptr<LuaRuntimeSession>> session =
-      LuaRuntimeSession::create(*cppOptions, cppExecutable->getView(), {});
+      LuaRuntimeSession::create(cppClient, *cppOptions,
+                                cppExecutable->getView(), {});
   if (session.isError())
     return wrap(session.getStatus());
   *result = wrap(session->release());
@@ -747,7 +642,7 @@ MTRT_Status mtrtRuntimeSessionExecuteFunction(
     MTRT_RuntimeSession session, MTRT_StringView name,
     const MTRT_RuntimeValue *inArgs, size_t numInArgs,
     const MTRT_RuntimeValue *outArgs, size_t numOutArgs,
-    MTRT_RuntimeValue *results, MTRT_Stream stream, MTRT_RuntimeClient client) {
+    MTRT_RuntimeValue *results, MTRT_Stream stream) {
   LuaRuntimeSession *cppSession =
       static_cast<LuaRuntimeSession *>(unwrap(session));
 
@@ -757,15 +652,16 @@ MTRT_Status mtrtRuntimeSessionExecuteFunction(
   llvm::SmallVector<RuntimeValue *> outArgValues =
       llvm::map_to_vector(llvm::ArrayRef(outArgs, numOutArgs),
                           [](MTRT_RuntimeValue arg) { return unwrap(arg); });
+  Ref<Stream> streamRef = {nullptr};
+  if (!mtrtStreamIsNull(stream)) {
+    streamRef = unwrap(stream)->ref;
+    Status s = cppSession->setStream(streamRef);
+    if (!s.isOk())
+      return wrap(s);
+  }
   StatusOr<llvm::SmallVector<std::unique_ptr<RuntimeValue>>> resultValues =
-      executeFunctionWithLuaBackend(
-          *cppSession, std::string_view(name.data, name.length), inArgValues,
-          outArgValues,
-          !mtrtStreamIsNull(stream)
-              ? std::optional(unwrap(stream)->getRawStream())
-              : std::nullopt,
-          !mtrtRuntimeClientIsNull(client) ? std::optional(unwrap(client))
-                                           : std::nullopt);
+      cppSession->executeFunction(std::string_view(name.data, name.length),
+                                  inArgValues, outArgValues);
   if (!resultValues.isOk())
     return wrap(resultValues.getStatus());
 
@@ -794,11 +690,11 @@ MTRT_Status mtrtRuntimeSessionGetNumResults(MTRT_RuntimeSession session,
 //===----------------------------------------------------------------------===//
 
 MTRT_Status mtrtRuntimeClientCreate(MTRT_RuntimeClient *client) {
-  StatusOr<std::unique_ptr<RuntimeClient>> cppClient = RuntimeClient::create();
+  StatusOr<Ref<RuntimeClient>> cppClient = RuntimeClient::create();
   if (!cppClient.isOk())
     return wrap(cppClient.getStatus());
 
-  *client = MTRT_RuntimeClient{cppClient->release()};
+  *client = MTRT_RuntimeClient{new RuntimeClientRef{std::move(*cppClient)}};
   return mtrtStatusGetOk();
 }
 
@@ -809,14 +705,14 @@ MTRT_Status mtrtRuntimeClientDestroy(MTRT_RuntimeClient client) {
 
 MTRT_Status mtrtRuntimeClientGetNumDevices(MTRT_RuntimeClient client,
                                            int32_t *numDevices) {
-  RuntimeClient *cppClient = unwrap(client);
+  RuntimeClient *cppClient = unwrap(client)->ref.get();
   *numDevices = cppClient->getDevices().size();
   return mtrtStatusGetOk();
 }
 
 MTRT_Status mtrtRuntimeClientGetDevice(MTRT_RuntimeClient client, int32_t index,
                                        MTRT_Device *device) {
-  RuntimeClient *cppClient = unwrap(client);
+  RuntimeClient *cppClient = unwrap(client)->ref.get();
   if (index >= static_cast<int64_t>(cppClient->getDevices().size()))
     return wrap(getInvalidArgStatus(
         "the provided index is greater than the number of devices"));
@@ -888,7 +784,7 @@ MTRT_Status mtrtScalarValueGet(MTRT_ScalarValue scalar, int64_t *data) {
   default:
     return wrap(getInvalidArgStatus(
         "function input argument with scalar type {0} is unsupported",
-        impl::EnumNameScalarTypeCode(code)));
+        mtrt::flat::EnumNameScalarTypeCode(code)));
   }
   return mtrtStatusGetOk();
 }

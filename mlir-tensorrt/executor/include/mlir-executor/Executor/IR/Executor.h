@@ -33,11 +33,13 @@
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/IR/Types.h"
 #include "mlir/Interfaces/CallInterfaces.h"
+#include "mlir/Interfaces/CastInterfaces.h"
 #include "mlir/Interfaces/DataLayoutInterfaces.h"
 #include "mlir/Interfaces/FunctionInterfaces.h"
 #include "mlir/Interfaces/InferTypeOpInterface.h"
 #include "mlir/Interfaces/MemorySlotInterfaces.h"
 #include "mlir/Interfaces/SideEffectInterfaces.h"
+#include "mlir/Interfaces/ViewLikeInterface.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "llvm/ADT/StringExtras.h"
 
@@ -76,20 +78,6 @@ lowerToCallDefaultImpl(Operation *op, ArrayRef<Value> operands, ModuleOp module,
 // Executor Op Interfaces
 //===----------------------------------------------------------------------===//
 #include "mlir-executor/Executor/IR/ExecutorInterfaces.h.inc"
-
-//===----------------------------------------------------------------------===//
-// Executor Traits
-//===----------------------------------------------------------------------===//
-
-namespace mlir::executor {
-
-/// A trait that simply indicates an Executor operation should be lowered to
-/// a external procedure call.
-template <typename ConcreteType>
-class LowerToFuncCallTrait
-    : public mlir::TypeTrait::TraitBase<ConcreteType, LowerToFuncCallTrait> {};
-
-} // namespace mlir::executor
 
 //===----------------------------------------------------------------------===//
 // Executor Ops

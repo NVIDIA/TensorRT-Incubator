@@ -19,7 +19,6 @@
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
 #include "mlir-tensorrt/Interfaces/BufferizationScopeInterface.h"
 #include "mlir-tensorrt/Utils/ModuleUtils.h"
-#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Bufferization/IR/BufferizableOpInterface.h"
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
 #include "mlir/Dialect/Bufferization/Transforms/Bufferize.h"
@@ -36,7 +35,6 @@
 #include "llvm/Support/FormatVariadic.h"
 
 #define DEBUG_TYPE "plan-module-bufferize"
-#define DBGS() (llvm::dbgs() << "[plan-module-bufferize] ")
 #define DBGF(fmt, ...)                                                         \
   LLVM_DEBUG(llvm::dbgs() << llvm::formatv(                                    \
                  stderr, "{0}:{1}:{2}(): ", "ModuleBufferization.cpp",         \
@@ -56,7 +54,7 @@ using BufferizationStatistics = bufferization::BufferizationStatistics;
 
 /// Return all func.return ops in the given function.
 static FailureOr<SmallVector<Operation *>>
-getReturnLikeOps(func::FuncOp funcOp) {
+getReturnLikeOps(FunctionOpInterface funcOp) {
   SmallVector<Operation *> result;
   for (Block &b : funcOp.getFunctionBody()) {
     Operation *term = b.getTerminator();
@@ -126,7 +124,7 @@ static SmallVector<Type> getReturnTypes(ArrayRef<Operation *> returnOps) {
 /// most generic layout map as function return types. After bufferizing the
 /// entire function body, a more concise memref type can potentially be used for
 /// the return type of the function.
-static void foldMemRefCasts(func::FuncOp funcOp) {
+static void foldMemRefCasts(FunctionOpInterface funcOp) {
   // There is nothing to do for bodiless ops.
   if (funcOp.isDeclaration())
     return;
@@ -176,11 +174,11 @@ static LogicalResult bufferizeOneModuleLikeOp(
 
   // A list of non-circular functions in the order in which they are analyzed
   // and bufferized.
-  SmallVector<func::FuncOp> orderedFuncOps;
+  SmallVector<FunctionOpInterface> orderedFuncOps;
   // A list of all other functions. I.e., functions that call each other
   // recursively. For these, we analyze the function body but not the function
   // boundary.
-  SmallVector<func::FuncOp> remainingFuncOps;
+  SmallVector<FunctionOpInterface> remainingFuncOps;
 
   // Try to bufferize functions in calling order. I.e., first bufferize
   // functions that do not call other functions. This allows us to infer
@@ -188,14 +186,15 @@ static LogicalResult bufferizeOneModuleLikeOp(
   // each other recursively are bufferized in an unspecified order at the end.
   // We may use unnecessarily "complex" (in terms of layout map) buffer types.
   if (failed(getFuncOpsOrderedByCalls(
-          moduleOp, orderedFuncOps, remainingFuncOps, [&](func::FuncOp func) {
+          moduleOp, orderedFuncOps, remainingFuncOps,
+          [&](FunctionOpInterface func) {
             return func->getParentWithTrait<OpTrait::SymbolTable>() == moduleOp;
           })))
     return failure();
   llvm::append_range(orderedFuncOps, remainingFuncOps);
 
   // Bufferize functions.
-  for (func::FuncOp funcOp : orderedFuncOps) {
+  for (FunctionOpInterface funcOp : orderedFuncOps) {
     // Note: It would be good to apply cleanups here but we cannot as aliasInfo
     // would be invalidated.
     DBGF("bufferizing func: {0}", funcOp.getName());

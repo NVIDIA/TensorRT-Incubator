@@ -31,6 +31,11 @@ namespace mlir {
 using namespace mlir;
 
 /// Strip algorithm attribute from dot_general when safe for Linalg conversion.
+// Remove algorithm attribute from DotGeneralOp if it represents a standard
+// configuration that doesn't require special handling. This includes:
+// 1. Standard precision matching actual types
+// 2. Reduced precision computations (bf16/tf32) on f32 inputs
+// 3. Mixed precision with valid accumulation types
 static LogicalResult stripDotGeneralAlgorithm(stablehlo::DotGeneralOp op) {
   auto algorithm = op.getAlgorithm();
   if (!algorithm)
@@ -41,30 +46,50 @@ static LogicalResult stripDotGeneralAlgorithm(stablehlo::DotGeneralOp op) {
   auto rhsElemType = op.getRhs().getType().getElementType();
   auto resultElemType = op.getType().getElementType();
 
-  // Verify algorithm can be safely removed
-  if (algorithm->getLhsPrecisionType() != lhsElemType ||
-      algorithm->getRhsPrecisionType() != rhsElemType)
-    return failure(); // Precision mismatch
-
+  // Get algorithm precision types
+  Type lhsPrecision = algorithm->getLhsPrecisionType();
+  Type rhsPrecision = algorithm->getRhsPrecisionType();
   Type accType = algorithm->getAccumulationType();
-  bool validAccumulator = false;
 
-  // Check if accumulator matches result type
-  if (accType == resultElemType)
-    validAccumulator = true;
-  else if (lhsElemType.isF16() && rhsElemType.isF16() && accType.isF32())
-    validAccumulator = true;
-  else if (lhsElemType.isBF16() && rhsElemType.isBF16() && accType.isF32())
-    validAccumulator = true;
-  else if (lhsElemType.isTF32() && rhsElemType.isTF32() && accType.isF32())
-    validAccumulator = true;
+  // Helper to check if types form a valid reduced precision pattern
+  auto isValidReducedPrecision = [](Type precision, Type accumulator) {
+    return (precision.isF16() || precision.isBF16() || precision.isTF32()) &&
+           accumulator.isF32();
+  };
 
-  if (!validAccumulator)
+  // Check for valid precision configurations:
+  // 1. Standard: precision matches input types, accumulator matches output
+  // 2. Reduced: f32 inputs computed at lower precision (f16/bf16/tf32)
+  // 3. Mixed: lower precision inputs accumulated to higher precision
+
+  bool validPrecisionConfig = false;
+
+  // Both sides must use the same precision
+  if (lhsPrecision == rhsPrecision) {
+    // Standard case: precision matches input types
+    if (lhsPrecision == lhsElemType && rhsPrecision == rhsElemType) {
+      validPrecisionConfig =
+          accType == resultElemType || // Accumulator matches result
+          isValidReducedPrecision(lhsPrecision,
+                                  accType); // Or valid reduced pattern
+    }
+    // Reduced precision on f32 inputs
+    else if (lhsElemType.isF32() && rhsElemType.isF32() &&
+             resultElemType.isF32()) {
+      validPrecisionConfig = isValidReducedPrecision(lhsPrecision, accType);
+    }
+    // Mixed precision: f16 inputs -> f32 result
+    else if (lhsElemType.isF16() && rhsElemType.isF16() &&
+             lhsPrecision.isF16() && resultElemType.isF32()) {
+      validPrecisionConfig = accType.isF32();
+    }
+  }
+
+  if (!validPrecisionConfig)
     return failure();
 
   if (algorithm->getLhsComponentCount() != 1 ||
-      algorithm->getRhsComponentCount() != 1 ||
-      algorithm->getNumPrimitiveOperations() != 1)
+      algorithm->getRhsComponentCount() != 1)
     return failure();
 
   // Create new op without algorithm attribute
@@ -83,32 +108,54 @@ static LogicalResult stripDotGeneralAlgorithm(stablehlo::DotGeneralOp op) {
 /// Match indexing map '-DN + const' and return the dimension in 'dim'.
 static bool matchReverseIndexingExpr(AffineExpr expr, unsigned &dim,
                                      int64_t &offset) {
-  auto addExpr = dyn_cast<AffineBinaryOpExpr>(expr);
-  if (!addExpr || addExpr.getKind() != mlir::AffineExprKind::Add)
-    return false;
+  // First try to match: (-1 * dim) + offset
+  if (auto addExpr = dyn_cast<AffineBinaryOpExpr>(expr)) {
+    if (addExpr.getKind() == mlir::AffineExprKind::Add) {
+      auto mulExpr = dyn_cast<AffineBinaryOpExpr>(addExpr.getLHS());
+      if (!mulExpr || mulExpr.getKind() != mlir::AffineExprKind::Mul)
+        return false;
 
-  auto mulExpr = dyn_cast<AffineBinaryOpExpr>(addExpr.getLHS());
-  if (!mulExpr || mulExpr.getKind() != mlir::AffineExprKind::Mul)
-    return false;
+      // Match the negative one.
+      auto constExpr = dyn_cast<AffineConstantExpr>(mulExpr.getRHS());
+      if (!constExpr || constExpr.getValue() != -1)
+        return false;
 
-  // Match the negative one.
-  auto constExpr = dyn_cast<AffineConstantExpr>(mulExpr.getRHS());
-  if (!constExpr || constExpr.getValue() != -1)
-    return false;
+      // Match dimension expr
+      auto dimExpr = dyn_cast<AffineDimExpr>(mulExpr.getLHS());
+      if (!dimExpr)
+        return false;
 
-  // Match dimension mexpr
-  auto dimExpr = dyn_cast<AffineDimExpr>(mulExpr.getLHS());
-  if (!dimExpr)
-    return false;
+      // Match the constant of the add.
+      auto constOffset = dyn_cast<AffineConstantExpr>(addExpr.getRHS());
+      if (!constOffset)
+        return false;
 
-  // Match the constant of the add.
-  auto constOffset = dyn_cast<AffineConstantExpr>(addExpr.getRHS());
-  if (!constOffset)
-    return false;
+      dim = dimExpr.getPosition();
+      offset = constOffset.getValue();
+      return true;
+    }
+  }
 
-  dim = dimExpr.getPosition();
-  offset = constOffset.getValue();
-  return true;
+  // Also try to match just: (-1 * dim) with implicit offset 0
+  if (auto mulExpr = dyn_cast<AffineBinaryOpExpr>(expr)) {
+    if (mulExpr.getKind() == mlir::AffineExprKind::Mul) {
+      // Match the negative one.
+      auto constExpr = dyn_cast<AffineConstantExpr>(mulExpr.getRHS());
+      if (!constExpr || constExpr.getValue() != -1)
+        return false;
+
+      // Match dimension expr
+      auto dimExpr = dyn_cast<AffineDimExpr>(mulExpr.getLHS());
+      if (!dimExpr)
+        return false;
+
+      dim = dimExpr.getPosition();
+      offset = 0; // Implicit offset is 0 for plain -d0
+      return true;
+    }
+  }
+
+  return false;
 }
 
 /// Matching indexing map where each result is either a dimension iterator or a
@@ -206,6 +253,9 @@ class StablehloToLinalgPass
     target->addDynamicallyLegalDialect<stablehlo::StablehloDialect>(
         [](Operation *op) -> std::optional<bool> {
           if (isa<stablehlo::ScatterOp>(op))
+            return std::nullopt;
+
+          if (isa<stablehlo::CustomCallOp>(op))
             return std::nullopt;
 
           // Check if parent is op like `stablehlo.reduce`.

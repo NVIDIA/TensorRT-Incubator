@@ -13,23 +13,24 @@ add_mlir_tensorrt_library(MLIRTensorRTCompilerTensorRTToExecutable
     MLIRTensorRTTensorRTToExecutableIncGen
 
     LINK_LIBS PUBLIC
-    MLIREmitCTransforms
-    MLIRIR
-    MLIRLLVMDialect
-    MLIRLLVMIRTransforms
-    MLIRTensorRTCompilerClient
-    MLIRTensorRTCUDAToExecutor
-    MLIRTensorRTDropNestedModules
-    MLIRTensorRTExecutorTransforms
-    MLIRTensorRTHostToLLVM
-    MLIRTensorRTMemRefToCUDA
-    MLIRTensorRTPlanToExecutor
-    MLIRTensorRTPlanTransforms
-    MLIRTensorRTRegionUtils
-    MLIRTensorRTRuntimeToExecutor
-    MLIRTensorRTSCFDetensorizeLoops
-    MLIRTensorRTTargetLua
-    MLIRTensorRTTensorRTToTensorRTRuntime
-    MLIRTensorRTTransforms
-    ${MTRTD_LIBS}
+      MLIRTensorRTCompilerClient
+      MLIRTensorRTCUDAToExecutor
+      MLIRTensorRTDropNestedModules
+      MLIRTensorRTExecutorTransforms
+      MLIRTensorRTHostToLLVM
+      MLIRTensorRTMemRefToCUDA
+      MLIRTensorRTPlanToExecutor
+      MLIRTensorRTPlanTransforms
+      MLIRTensorRTRegionUtils
+      MLIRTensorRTRuntimeToExecutor
+      MLIRTensorRTSCFDetensorizeLoops
+      MLIRTensorRTTargetLua
+      MLIRTensorRTTensorRTToTensorRTRuntime
+      MLIRTensorRTTransforms
+      ${MTRTD_LIBS}
+    MLIR_LIBS PUBLIC
+      MLIREmitCTransforms
+      MLIRIR
+      MLIRLLVMDialect
+      MLIRLLVMIRTransforms
     )

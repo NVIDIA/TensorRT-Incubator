@@ -27,6 +27,8 @@
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/Linalg/IR/LinalgInterfaces.h"
 #include "mlir/IR/MLIRContext.h"
+#include "mlir/Transforms/DialectConversion.h"
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 namespace mlir::executor {
 #define GEN_PASS_DEF_CONVERTLINALGTOEXECUTORPASS
@@ -205,6 +207,38 @@ struct LinalgFillToExecutorPattern
     return success();
   }
 };
+
+struct GenericToFillPattern : public OpRewritePattern<linalg::GenericOp> {
+  using OpRewritePattern::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(linalg::GenericOp generic,
+                                PatternRewriter &rewriter) const override {
+    // Must have no inputs, one output.
+    if (generic.getNumDpsInputs() != 0 || generic.getNumDpsInits() != 1)
+      return failure();
+
+    // Check body.
+    auto &block = generic.getRegion().front();
+    if (!llvm::hasSingleElement(block))
+      return failure();
+
+    auto yield = dyn_cast<linalg::YieldOp>(block.getTerminator());
+    if (!yield || yield.getValues().size() != 1)
+      return failure();
+
+    // The yielded value must not be defined inside the block (must be
+    // loop-invariant).
+    Value fillVal = yield.getValues().front();
+    if (fillVal.getParentBlock() == &block)
+      return failure();
+
+    // Replace with linalg.fill.
+    rewriter.replaceOpWithNewOp<linalg::FillOp>(
+        generic, fillVal, generic.getDpsInitOperand(0)->get());
+    return success();
+  }
+};
+
 } // namespace
 
 void executor::populateLinalgToExecutorPatterns(
@@ -220,12 +254,27 @@ class ConvertLinalgToExecutorPass
   using Base::Base;
   void runOnOperation() override {
     MLIRContext *ctx = &getContext();
+    Operation *op = getOperation();
+
+    // Step 1: Apply linalg.generic -> linalg.fill simplification as
+    // preprocessing
+    {
+      RewritePatternSet patterns(ctx);
+      patterns.add<GenericToFillPattern>(ctx);
+      if (failed(applyPatternsGreedily(op, std::move(patterns)))) {
+        emitError(op->getLoc())
+            << "failed to simplify linalg.generic to linalg.fill";
+        return signalPassFailure();
+      }
+    }
+
+    // Step 2: Convert linalg operations to executor
     executor::ExecutorConversionTarget target(*ctx);
     LowerToExecutorOptions opts;
     // We allow index type during memref lowering prior to lowering of certain
     // executor ops to func-calls.
     opts.indexType = IntegerType::get(ctx, indexBitwidth);
-    Operation *op = getOperation();
+
     FailureOr<DataLayout> dataLayout =
         executor::setDataLayoutSpec(op, indexBitwidth, 64);
     if (failed(dataLayout)) {
@@ -235,10 +284,13 @@ class ConvertLinalgToExecutorPass
       return signalPassFailure();
     }
     ExecutorTypeConverter typeConverter(ctx, opts, std::move(*dataLayout));
+
     // We create executor constants in this pass. Mark them as legal.
     target.addIllegalDialect<linalg::LinalgDialect>();
+
     RewritePatternSet patterns(ctx);
     executor::populateLinalgToExecutorPatterns(patterns, typeConverter);
+
     if (failed(applyPartialConversion(getOperation(), target,
                                       std::move(patterns)))) {
       emitError(op->getLoc())

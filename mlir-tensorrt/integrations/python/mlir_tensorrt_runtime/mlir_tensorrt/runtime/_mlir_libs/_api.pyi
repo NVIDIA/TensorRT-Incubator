@@ -44,6 +44,8 @@ __all__ = [
 class Device:
     @property
     def _CAPIPtr(self) -> typing.Any: ...
+    @property
+    def stream(self) -> Stream: ...
 
 class Executable:
     def __init__(self, buffer: bytes) -> None: ...
@@ -84,7 +86,12 @@ class MemRefType(Type):
     def strides(self) -> list[int]: ...
 
 class MemRefValue:
-    def __dlpack__(self, stream: int = 0) -> object: ...
+    def __dlpack__(
+        self,
+        stream: int | None = None,
+        dl_device: tuple | None = None,
+        copy: bool = False,
+    ) -> object: ...
     def __dlpack_device__(self) -> tuple: ...
     @property
     def _CAPIPtr(self) -> typing.Any: ...
@@ -209,12 +216,14 @@ class RuntimeClient:
         creates a runtime ScalarValue from the provided Python object; an explicit type may be provided, otherwise defaults to i64 for Python integers and f32 for Python floats
         """
 
-    def create_stream(self) -> Stream: ...
     def get_devices(self) -> list[Device]: ...
 
 class RuntimeSession:
     def __init__(
-        self, options: RuntimeSessionOptions, executable: Executable
+        self,
+        client: RuntimeClient,
+        options: RuntimeSessionOptions,
+        executable: Executable,
     ) -> None: ...
     def execute_function(
         self,
@@ -294,6 +303,8 @@ class ScalarTypeCode:
     i16: typing.ClassVar[ScalarTypeCode]  # value = <ScalarTypeCode.i16: 8>
     i32: typing.ClassVar[ScalarTypeCode]  # value = <ScalarTypeCode.i32: 9>
     i64: typing.ClassVar[ScalarTypeCode]  # value = <ScalarTypeCode.i64: 10>
+    complex32: typing.ClassVar[ScalarTypeCode]  # value = <ScalarTypeCode.complex32: 13>
+    complex64: typing.ClassVar[ScalarTypeCode]  # value = <ScalarTypeCode.complex64: 14>
     i8: typing.ClassVar[ScalarTypeCode]  # value = <ScalarTypeCode.i8: 6>
     ui8: typing.ClassVar[ScalarTypeCode]  # value = <ScalarTypeCode.ui8: 7>
     def __eq__(self, other: typing.Any) -> bool: ...
@@ -341,3 +352,5 @@ pinned_host: PointerType  # value = <PointerType.pinned_host: 1>
 ui8: ScalarTypeCode  # value = <ScalarTypeCode.ui8: 7>
 unified: PointerType  # value = <PointerType.unified: 3>
 unknown: PointerType  # value = <PointerType.unknown: 4>
+complex32: ScalarTypeCode  # value = <ScalarTypeCode.complex32: 13>
+complex64: ScalarTypeCode  # value = <ScalarTypeCode.complex64: 14>

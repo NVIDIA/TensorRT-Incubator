@@ -490,7 +490,7 @@ struct OptimizeMemorySpacesPass
     : public plan::impl::PlanOptimizeMemorySpacesPassBase<
           OptimizeMemorySpacesPass> {
   void runOnOperation() override {
-    func::FuncOp func = getOperation();
+    FunctionOpInterface func = getOperation();
 
     RewritePatternSet patterns(&getContext());
     tensor::CastOp::getCanonicalizationPatterns(patterns, &getContext());

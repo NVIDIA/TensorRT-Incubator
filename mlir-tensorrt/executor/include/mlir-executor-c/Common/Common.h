@@ -46,7 +46,7 @@ inline static MTRT_ArrayRefI64 mtrtArrayRefI64GetEmpty() {
 //===----------------------------------------------------------------------===//
 
 /// MTRT_ScalarTypeCode is the C API equivalent to
-/// runtime::impl::ScalarTypeCode.
+/// mtrt::ScalarTypeCode.
 /// TODO: Make some automation to update this enum.
 typedef enum MTRT_ScalarTypeCode {
   MTRT_ScalarTypeCode_unknown = 0,

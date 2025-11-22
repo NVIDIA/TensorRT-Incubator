@@ -27,11 +27,7 @@
 #include "mlir/IR/Operation.h"
 
 namespace mlir {
-
-namespace func {
-class FuncOp;
-}
-
+class FunctionOpInterface;
 /// A ModuleLikeOp is a simple adaptor around Operation* to check whether an
 /// operation has SymbolTable, IsolatedFromAbove, and OneRegion op traits. A
 /// small number of convenience methods added, otherwise access the underlying
@@ -59,9 +55,9 @@ private:
 };
 
 LogicalResult getFuncOpsOrderedByCalls(
-    ModuleLikeOp moduleOp, SmallVectorImpl<func::FuncOp> &orderedFuncOps,
-    SmallVectorImpl<func::FuncOp> &remainingFuncOps,
-    const std::function<bool(func::FuncOp)> &filter = nullptr);
+    ModuleLikeOp moduleOp, SmallVectorImpl<FunctionOpInterface> &orderedFuncOps,
+    SmallVectorImpl<FunctionOpInterface> &remainingFuncOps,
+    const std::function<bool(FunctionOpInterface)> &filter = nullptr);
 } // namespace mlir
 
 #endif // MLIR_TENSORRT_UTILS_MODULEUTILS

@@ -5,15 +5,16 @@ add_mlir_tensorrt_library(MLIRTensorRTRuntimeToExecutor
   MLIRTensorRTConversionPassIncGen
 
   LINK_LIBS PUBLIC
-  MLIRArithDialect
-  MLIRReconcileUnrealizedCasts
-  MLIRRewrite
-  MLIRTensorRTConvertToExecutorCommon
-  MLIRTensorRTCUDADialect
-  MLIRTensorRTTensorRTDialect
-  MLIRTensorRTExecutorDialect
-  MLIRTensorRTExecutorUtils
-  MLIRTensorRTTensorRTRuntimeDialect
-  MLIRTransforms
-  MLIRTransformUtils
+    MLIRTensorRTConvertToExecutorCommon
+    MLIRTensorRTCUDADialect
+    MLIRTensorRTTensorRTDialect
+    MLIRTensorRTExecutorDialect
+    MLIRTensorRTExecutorUtils
+    MLIRTensorRTTensorRTRuntimeDialect
+  MLIR_LIBS PUBLIC
+    MLIRArithDialect
+    MLIRReconcileUnrealizedCasts
+    MLIRRewrite
+    MLIRTransforms
+    MLIRTransformUtils
 )

@@ -31,7 +31,7 @@
 #include <cstdint>
 #include <iostream>
 
-namespace mlirtrt::runtime {
+namespace mtrt {
 
 /// Float8 - E4M3FN format (4 exponent bits, 3 mantissa bits, no infinity)
 /// Layout: [sign:1][exponent:4][mantissa:3]
@@ -829,6 +829,6 @@ inline std::ostream &operator<<(std::ostream &os, const UInt4 &value) {
   return os << int(value);
 }
 
-} // namespace mlirtrt::runtime
+} // namespace mtrt
 
 #endif // MLIR_EXECUTOR_RUNTIME_BACKEND_COMMON_DATATYPES_H

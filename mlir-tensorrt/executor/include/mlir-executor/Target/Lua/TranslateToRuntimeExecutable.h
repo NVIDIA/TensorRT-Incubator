@@ -36,7 +36,7 @@ LogicalResult translateToRuntimeExecutable(Operation *op, raw_ostream &os);
 
 /// Translate the given module to a Executor runtime executable, which is
 /// returned as a serialized flatbuffer.
-FailureOr<std::unique_ptr<mlirtrt::runtime::ExecutableStorage>>
+FailureOr<std::unique_ptr<mtrt::ExecutableStorage>>
 translateToRuntimeExecutable(Operation *op);
 
 /// Register the `-mlir-to-executable` translation in MLIR translation registry.

@@ -32,7 +32,7 @@
 #include "llvm/Support/ErrorHandling.h"
 #include <string>
 
-namespace mlirtrt::compiler {
+namespace mtrt::compiler {
 
 /// An OptionsProvider is a utility to attach options onto a different
 /// PassOptions/CompilationTaskOptions struct. The parent to attach to is given
@@ -314,6 +314,10 @@ public:
           clEnumValN(HostTarget::LLVM, "llvm", "compile host code to LLVM IR"),
           clEnumValN(HostTarget::EmitC, "emitc", "compile host code to C++"))};
 
+  Option<uint32_t> runtimeABIVersion{
+      *this, "abi-version", llvm::cl::init(1),
+      llvm::cl::desc("specifies the Executor ABI version")};
+
   Option<std::string> artifactsDirectory{
       *this, "artifacts-dir", llvm::cl::init(""),
       llvm::cl::desc("Specifies where large artifacts can be offloaded as "
@@ -321,6 +325,10 @@ public:
 
   Option<std::string> entrypoint{*this, "entrypoint", llvm::cl::init("main"),
                                  llvm::cl::desc("entrypoint function name")};
+
+  Option<bool> disableAllExtensions{*this, "disable-all-extensions",
+                                    llvm::cl::init(false),
+                                    llvm::cl::desc("disable all extensions")};
 
 protected:
   std::unique_ptr<DebugOptions> debugOptions{nullptr};
@@ -367,6 +375,6 @@ private:
   std::tuple<std::unique_ptr<Providers>...> optionProviders;
 };
 
-} // namespace mlirtrt::compiler
+} // namespace mtrt::compiler
 
 #endif // MLIR_TENSORRT_COMPILER_OPTIONSPROVIDERS

@@ -8,11 +8,10 @@ if(MLIR_TRT_ENABLE_HLO)
 endif()
 
 mlir_tablegen(Passes.h.inc -gen-pass-decls -name MLIRTensorRTConversion ${_TABLEGEN_ARGS})
-add_public_tablegen_target(MLIRTensorRTConversionPassIncGen)
+mtrt_add_public_tablegen_target(MLIRTensorRTConversionPassIncGen)
 
 add_mlir_tensorrt_doc(ConversionPasses
   SRC Passes.td
   OUTPUT_FILE docs/Passes/ConversionPasses.md
   COMMAND -gen-pass-doc ${_TABLEGEN_ARGS}
   )
-

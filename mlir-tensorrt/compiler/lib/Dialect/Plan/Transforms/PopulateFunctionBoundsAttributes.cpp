@@ -21,6 +21,8 @@
 /// Implementation of the `plan-create-result-arg-bounds` pass.
 ///
 //===----------------------------------------------------------------------===//
+#include "mlir-executor/Executor/IR/Executor.h"
+#include "mlir-executor/Executor/IR/ExecutorAttributes.h"
 #include "mlir-tensorrt-common/Support/Status.h"
 #include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
 #include "mlir-tensorrt/Dialect/Plan/Analysis/BoundsAnalysis.h"
@@ -67,6 +69,61 @@ getBounds(Value v, DataFlowSolver &solver) {
   return std::make_pair(bound(/*isUB=*/false), bound(/*isUB=*/true));
 }
 
+static FailureOr<SmallVector<Value>>
+getReturnedValues(FunctionOpInterface func) {
+  if (executor::abi::isABIWrapperFunction(func)) {
+    FailureOr<FunctionType> abiFuncType =
+        mlir::executor::abi::getABIFunctionType(func);
+    assert(succeeded(abiFuncType) && "expected ABI function type");
+    SmallVector<Value> returnedValues(abiFuncType->getNumResults(), nullptr);
+    for (BlockArgument arg :
+         func.getArguments().drop_front(abiFuncType->getNumInputs())) {
+      std::optional<unsigned> outputIdx =
+          mlir::executor::abi::isOutputArgument(func, arg);
+      assert(outputIdx.has_value() && "expected output index");
+      assert(*outputIdx < returnedValues.size() &&
+             "expected valid output index");
+
+      executor::ABISendOp sendOp{};
+      for (Operation *user : arg.getUsers()) {
+        if (auto abiOp = dyn_cast<executor::ABISendOp>(user)) {
+          // Multiple send ops are not supported. This can only happen if the
+          // entrypoint has multiple returns (e.g. it has unstructured control
+          // flow from the start).
+          if (sendOp)
+            return failure();
+          sendOp = abiOp;
+        }
+      }
+      // An argument may not be used. This is not an error.
+      if (!sendOp)
+        continue;
+      returnedValues[*outputIdx] = sendOp.getValue();
+    }
+    return returnedValues;
+  }
+  Operation *returnOp = func.getBlocks().front().getTerminator();
+  assert(returnOp->hasTrait<OpTrait::ReturnLike>() &&
+         "expected return like op");
+  return llvm::SmallVector<Value>(returnOp->getOperands());
+}
+
+static void updateFunctionBoundsAttribute(FunctionOpInterface func,
+                                          StringRef attrName,
+                                          plan::BoundsAttr boundsAttr,
+                                          unsigned resultIndex) {
+  if (executor::abi::isABIWrapperFunction(func)) {
+    FailureOr<FunctionType> abiFuncType =
+        mlir::executor::abi::getABIFunctionType(func);
+    assert(succeeded(abiFuncType) && "expected ABI function type");
+    func.setArgAttr(abiFuncType->getNumInputs() + resultIndex, attrName,
+                    boundsAttr);
+    return;
+  }
+
+  func.setResultAttr(resultIndex, attrName, boundsAttr);
+}
+
 namespace {
 class PlanPopulateFunctionBoundsAttributesPass
     : public plan::impl::PlanPopulateFunctionBoundsAttributesPassBase<
@@ -75,7 +132,7 @@ public:
   using Base::Base;
 
   void runOnOperation() override {
-    func::FuncOp func = getOperation();
+    FunctionOpInterface func = getOperation();
     if (func.isExternal() || func.isDeclaration())
       return;
 
@@ -87,13 +144,13 @@ public:
     }
 
     // Skip all functions without shape profile information.
-    if (!func.getArgAttrs() ||
-        llvm::none_of(
-            func.getArgAttrs()->getAsRange<DictionaryAttr>(),
-            [&](DictionaryAttr dict) {
-              return dict.getNamed(PlanDialect::getShapeBoundsAttrName()) ||
-                     dict.getNamed(PlanDialect::getValueBoundsAttrName());
-            }))
+    if (!func.getAllArgAttrs() ||
+        llvm::none_of(func.getAllArgAttrs().getAsRange<DictionaryAttr>(),
+                      [&](DictionaryAttr dict) {
+                        return dict.getNamed(
+                                   PlanDialect::kShapeBoundsAttrName) ||
+                               dict.getNamed(PlanDialect::kValueBoundsAttrName);
+                      }))
       return;
 
     DataFlowConfig config;
@@ -110,17 +167,17 @@ public:
       return signalPassFailure();
     }
 
-    func::ReturnOp returnOp =
-        cast<func::ReturnOp>(func.getBlocks().front().getTerminator());
-    for (const auto [idx, result] :
-         llvm::enumerate(returnOp->getOpOperands())) {
-      auto rtt = dyn_cast<RankedTensorType>(result.get().getType());
+    FailureOr<SmallVector<Value>> returnedValues = getReturnedValues(func);
+    if (failed(returnedValues))
+      return signalPassFailure();
+    for (const auto [idx, result] : llvm::enumerate(*returnedValues)) {
+      auto rtt = dyn_cast<RankedTensorType>(result.getType());
       if (!rtt)
         continue; // No bound information for a scalar result.
 
       if (!rtt.hasStaticShape()) {
         FailureOr<std::pair<SmallVector<int64_t>, SmallVector<int64_t>>>
-            bounds = getBounds<ShapeBoundsLattice>(result.get(), solver);
+            bounds = getBounds<ShapeBoundsLattice>(result, solver);
         if (failed(bounds)) {
           emitError(func.getLoc())
               << "failed to calculate shape bounds for return operand #" << idx;
@@ -135,19 +192,19 @@ public:
               << "failed to compute lower/upper shape bounds attribute";
           return signalPassFailure();
         }
-        func.setResultAttr(idx, plan::PlanDialect::getShapeBoundsAttrName(),
-                           boundsAttr);
+        updateFunctionBoundsAttribute(
+            func, plan::PlanDialect::kShapeBoundsAttrName, boundsAttr, idx);
         continue;
       }
 
       // At this point, we have a statically shaped tensor. Check to see if we
       // should have value information attached.
-      auto withValuesOp = result.get().getDefiningOp<plan::WithValuesOp>();
+      auto withValuesOp = result.getDefiningOp<plan::WithValuesOp>();
       if (!withValuesOp)
         continue;
 
       FailureOr<std::pair<SmallVector<int64_t>, SmallVector<int64_t>>> bounds =
-          getBounds<TensorValueBoundsLattice>(result.get(), solver);
+          getBounds<TensorValueBoundsLattice>(result, solver);
       if (failed(bounds)) {
         emitError(func.getLoc())
             << "failed to calculate shape bounds for return operand #" << idx;
@@ -164,8 +221,8 @@ public:
         return signalPassFailure();
       }
 
-      func.setResultAttr(idx, plan::PlanDialect::getValueBoundsAttrName(),
-                         boundsAttr);
+      updateFunctionBoundsAttribute(
+          func, plan::PlanDialect::kValueBoundsAttrName, boundsAttr, idx);
     }
   }
 };

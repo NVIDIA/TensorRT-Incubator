@@ -82,9 +82,9 @@ func.func @convert_extract(%arg0: tensor<2xf32, #plan.memory_space<host>>) -> f3
 
 // -----
 
-func.func @bounds_attr_conversion(%arg0: tensor<?x?xf32> {plan.shape_profile = #plan.bounds<shape, [10, 10], [30, 30]>},
+func.func @bounds_attr_conversion(%arg0: tensor<?x?xf32> {plan.shape_bounds = #plan.bounds<shape, [10, 10], [30, 30]>},
                         %arg1: tensor<2xi32> {plan.value_bounds = #plan.bounds<value, dense<[2, 2]>:tensor<2xi32>,dense<[10, 10]>:tensor<2xi32>>})
-                        -> (tensor<?x?xf32> {plan.shape_profile = #plan.bounds<shape, [10, 10], [30, 30]>},
+                        -> (tensor<?x?xf32> {plan.shape_bounds = #plan.bounds<shape, [10, 10], [30, 30]>},
                             tensor<2xi32> {plan.value_bounds = #plan.bounds<value, dense<2> : tensor<1xi32>, dense<10> : tensor<1xi32>>}) {
   return %arg0, %arg1 : tensor<?x?xf32>, tensor<2xi32>
 }
@@ -97,16 +97,16 @@ func.func @bounds_attr_conversion(%arg0: tensor<?x?xf32> {plan.shape_profile = #
 
 // -----
 
-func.func @func_metadata_conversion(%arg0: memref<?xi32> {plan.result_arg}) attributes {
+func.func @func_metadata_conversion(%arg0: memref<?xi32> {plan.result_slot = 0 : i32}) attributes {
   plan.shape_func = @shape_func
 } {
   return
 }
 
-func.func @shape_func(%arg0: memref<2xi32>, %arg1: memref<2xi32> {plan.result_arg}) {
+func.func @shape_func(%arg0: memref<2xi32>, %arg1: memref<2xi32> {plan.result_slot = 0 : i32}) {
   return
 }
 
 // CHECK-LABEL: func.func @func_metadata_conversion
-//  CHECK-SAME: (%{{.+}}: memref<?xi32> {executor.result_arg}) attributes {executor.shape_func = @shape_func}
-//       CHECK: func.func @shape_func(%{{.+}}: memref<2xi32>, %{{.+}}: memref<2xi32> {executor.result_arg})
+//  CHECK-SAME: (%{{.+}}: memref<?xi32> {executor.result_slot = 0 : i32}) attributes {executor.shape_func = @shape_func}
+//       CHECK: func.func @shape_func(%{{.+}}: memref<2xi32>, %{{.+}}: memref<2xi32> {executor.result_slot = 0 : i32})

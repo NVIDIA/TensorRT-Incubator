@@ -7,7 +7,7 @@ if(MLIR_TRT_TARGET_TENSORRT)
     MLIRTensorRTTensorRTEncodingImpl
     MLIRTensorRTTensorRTEncodingOpInterface
     TensorRTHeaderOnly
-    MLIRTRTTensorRTDynamicLoader
+    TensorRTDynamicLoader
     MLIRTensorRTTensorRTPluginRegistry
     )
 endif()
@@ -17,16 +17,16 @@ add_mtrtd_library(MLIRTensorRTTargetTensorRT
   TranslateToTensorRT.cpp
 
   LINK_LIBS PUBLIC
-  MLIRDialect
-  MLIRIR
-  MLIRPass
-  MLIRTensorRTCommandLineExtras
-  MLIRTensorRTTensorRTDialect
-  MLIRTensorRTTensorRTUtils
-  MLIRTransformUtils
-  MLIRTranslateLib
-  ${translation_deps}
-
+    MLIRTensorRTCommandLineExtras
+    MLIRTensorRTTensorRTDialect
+    MLIRTensorRTTensorRTUtils
+    ${translation_deps}
+  MLIR_LIBS PUBLIC
+    MLIRDialect
+    MLIRIR
+    MLIRPass
+    MLIRTransformUtils
+    MLIRTranslateLib
   DEPENDS
   MLIRTensorRTTranslationPassIncGen
 )

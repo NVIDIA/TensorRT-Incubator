@@ -1,26 +1,25 @@
 #ifndef MLIR_TENSORRT_DIALECT_EXECUTOR_IR_EXECUTOROPS_TD
 #define MLIR_TENSORRT_DIALECT_EXECUTOR_IR_EXECUTOROPS_TD
 
-include "mlir-executor/Executor/IR/ExecutorBase.td"
 
-include "mlir/Interfaces/MemorySlotInterfaces.td"
+include "mlir-executor/Executor/IR/ExecutorBase.td"
+include "mlir/Dialect/Bufferization/IR/BufferDeallocationOpInterface.td"
 include "mlir/Interfaces/CallInterfaces.td"
+include "mlir/Interfaces/CastInterfaces.td"
 include "mlir/Interfaces/FunctionInterfaces.td"
+include "mlir/Interfaces/InferTypeOpInterface.td"
+include "mlir/Interfaces/MemorySlotInterfaces.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
+include "mlir/Interfaces/ViewLikeInterface.td"
 include "mlir/IR/BuiltinAttributeInterfaces.td"
 include "mlir/IR/BuiltinTypeInterfaces.td"
 include "mlir/IR/EnumAttr.td"
 include "mlir/IR/OpAsmInterface.td"
 include "mlir/IR/SymbolInterfaces.td"
-include "mlir/Interfaces/InferTypeOpInterface.td"
 
 //===----------------------------------------------------------------------===//
 // Traits
 //===----------------------------------------------------------------------===//
-
-def Executor_LowerToFuncCallTrait : NativeOpTrait<"LowerToFuncCallTrait"> {
-  let cppNamespace = "::mlir::executor";
-}
 
 class IntOrFloatElementBitWidth<string name> :
     StrFunc<"$" # name # ".getType().getIntOrFloatBitWidth()">;
@@ -155,7 +154,7 @@ def Executor_DataSegmentOp : Executor_Op<"data_segment", [Symbol]> {
   }];
 
   let arguments = (ins SymbolNameAttr:$sym_name,
-                       ElementsAttr:$value,
+                       AnyAttrOf<[ElementsAttr, StrAttr]>:$value,
                        UnitAttr:$constant,
                        UnitAttr:$uninitialized,
                        OptionalAttr<I64Attr>:$alignment,
@@ -173,10 +172,18 @@ def Executor_DataSegmentOp : Executor_Op<"data_segment", [Symbol]> {
   let extraClassDeclaration = [{
     /// Construct the op from the location context.
     static DataSegmentOp create(Location loc, StringRef name,
-                                ElementsAttr value,
+                                Attribute value,
                                 bool constant,
                                 bool uninitialized,
                                 IntegerAttr alignment = {});
+
+    /// Get the element type of the initial value.
+    Type getElementType() {
+      if (auto elementsAttr = ::llvm::dyn_cast<ElementsAttr>(getValue()))
+        return elementsAttr.getElementType();
+      assert(::llvm::isa<StringAttr>(getValue()) && "expected string attribute");
+      return IntegerType::get(getContext(), 8);
+    }
   }];
   let hasVerifier = 1;
 }
@@ -272,7 +279,7 @@ def Executor_GlobalOp : Executor_Op<"global", [Symbol, IsolatedFromAbove]> {
     OpBuilder<(ins "StringRef":$name, "DenseI8ResourceElementsAttr":$initial_value,
       CArg<"bool", "true">:$constant)>,
     OpBuilder<(ins "StringRef":$name, "Type":$type,
-      "std::function<void(OpBuilder&,Location)>":$initBuilder,
+      CArg<"std::function<void(OpBuilder&,Location)>", "{}">:$initBuilder,
       CArg<"bool", "false">:$constant)>
   ];
 
@@ -779,8 +786,8 @@ def Executor_BitcastOp : Executor_Op<"bitcast",
   let description = [{
     `executor.bitcast` op performs a bitcast between values of equal bit width.
   }];
-  let arguments = (ins AnyTypeOf<[F64, F32, F16, I64, I32, I16]>:$input);
-  let results = (outs AnyTypeOf<[F64, F32, F16, I64, I32, I16]>:$result);
+  let arguments = (ins AnyTypeOf<[F4E2M1FN, F8E4M3FN, F64, F32, F16, I64, I32, I16, I8, I4]>:$input);
+  let results = (outs AnyTypeOf<[F4E2M1FN, F8E4M3FN, F64, F32, F16, I64, I32, I16, I8, I4]>:$result);
   let assemblyFormat = "attr-dict $input `:` type($input) `to` type($result)";
   let hasVerifier = 1;
   let hasFolder = 1;
@@ -1182,7 +1189,7 @@ def Executor_AllocaOp : Executor_Op<"alloca", [
   }];
 }
 
-def Executor_AllocateOp : Executor_Op<"alloc", [Executor_LowerToFuncCallTrait]> {
+def Executor_AllocateOp : Executor_Op<"alloc", []> {
   let description = [{
     `executor.alloc` performs an allocation of `num_bytes` using the given
     allocation. It returns an opaque pointer representing the allocation.
@@ -1193,59 +1200,22 @@ def Executor_AllocateOp : Executor_Op<"alloc", [Executor_LowerToFuncCallTrait]> 
     be a power of two.
   }];
   let arguments = (ins Executor_Index:$num_bytes, Executor_Index:$alignment);
-  let results = (outs Executor_Ptr:$result);
+  let results = (outs Executor_HostPtr:$result);
   let assemblyFormat = [{
     attr-dict $num_bytes `bytes` `align` `(` $alignment `)` `:` functional-type(operands, results)
   }];
   let hasVerifier = 1;
 }
 
-def Executor_AllocateHostPinnedOp : Executor_Op<"alloc_host_pinned", [
-      DeclareOpInterfaceMethods<RuntimeBuiltinInterface, ["getTypesForNameSuffix"]>
-]> {
-  let description = [{
-    The `executor.alloc_host_pinned` op performs a synchronous allocation of
-    `num_bytes` of host-pinned memory. The actual allocation size may be larger;
-    this is decided by the underlying runtime allocator object.
-  }];
-
-  let arguments = (ins Executor_Index:$num_bytes);
-
-  let results = (outs Executor_HostPinnedPtr:$result);
-
-  let assemblyFormat = [{
-    attr-dict $num_bytes `bytes` `:` functional-type(operands, results)
-  }];
-
-  let extraClassDefinition = [{
-    SmallVector<Type> $cppClass::getTypesForNameSuffix(){
-      return {};
-    }
-  }];
-}
-
-def Executor_DeallocateOp : Executor_Op<"dealloc", [
-  DeclareOpInterfaceMethods<RuntimeBuiltinInterface, ["getRuntimeBuiltinFunctionType"]>
-]> {
-  let arguments = (ins Executor_Ptr:$ptr);
+def Executor_DeallocateOp : Executor_Op<"dealloc", []> {
+  let arguments = (ins Executor_HostPtr:$ptr);
   let assemblyFormat = [{
     attr-dict $ptr `:` type($ptr)
-  }];
-   let extraClassDefinition = [{
-    ExecutorFunctionType $cppClass::getRuntimeBuiltinFunctionType(TypeRange results,
-                TypeRange operands) {
-      auto *ctx = (*this)->getContext();
-      return ExecutorFunctionType::get(
-            ctx, {}, {}, UnitAttr::get(ctx));
-    }
   }];
 }
 
 def Executor_LoadOp : Executor_Op<"load", [
-  DeclareOpInterfaceMethods<PromotableMemOpInterface>,
-  DeclareOpInterfaceMethods<RuntimeBuiltinInterface, [
-    "getRuntimeBuiltinFunctionType", "lowerToCall"]>
-]> {
+  DeclareOpInterfaceMethods<PromotableMemOpInterface>]> {
   let description = [{
     `executor.load` loads `result` from the memory location given by `ptr +
     offset`. The offset is in terms of bytes.
@@ -1256,24 +1226,10 @@ def Executor_LoadOp : Executor_Op<"load", [
   let assemblyFormat = [{
     attr-dict $ptr `+` $offset `:` functional-type(operands, results)
   }];
-
-  let extraClassDefinition = [{
-    /// Specify the function type. Different pointer types can be used, so treat as variadic.
-    /// TODO: fix this when we have `!executor.any_ptr`.
-    ExecutorFunctionType
-    $cppClass::getRuntimeBuiltinFunctionType(TypeRange results, TypeRange operands) {
-      auto *ctx = (*this)->getContext();
-      return ExecutorFunctionType::get(
-            ctx, {}, llvm::to_vector(results), UnitAttr::get(ctx));
-    }
-  }];
 }
 
 def Executor_StoreOp : Executor_Op<"store", [
-  DeclareOpInterfaceMethods<PromotableMemOpInterface>,
-  DeclareOpInterfaceMethods<RuntimeBuiltinInterface, [
-    "getRuntimeBuiltinFunctionType", "getTypesForNameSuffix"]>
-]> {
+  DeclareOpInterfaceMethods<PromotableMemOpInterface>]> {
   let description = [{
     `executor.store` stores `value` to the memory location given by `ptr +
     offset`. The offset is in terms of bytes.
@@ -1286,22 +1242,6 @@ def Executor_StoreOp : Executor_Op<"store", [
   let assemblyFormat = [{
     attr-dict $value `to` $ptr `+` $offset
      `:` type($value) `,` qualified(type($ptr)) `,` type($offset)
-  }];
-
-  let extraClassDefinition = [{
-    /// Specify the function type. Different pointer types can be used, so treat as variadic.
-    /// TODO: fix this when we have `!executor.any_ptr`.
-    ExecutorFunctionType
-    $cppClass::getRuntimeBuiltinFunctionType(TypeRange results, TypeRange operands) {
-      auto *ctx = (*this)->getContext();
-      return ExecutorFunctionType::get(
-            ctx, {}, llvm::to_vector(results), UnitAttr::get(ctx));
-    }
-
-    SmallVector<Type>
-    $cppClass::getTypesForNameSuffix() {
-      return {getValue().getType()};
-    }
   }];
 }
 
@@ -1323,29 +1263,17 @@ def Executor_MemcpyOp : Executor_Op<"memcpy", [
   }];
 }
 
-def Executor_StridedMemrefCopyOp : Executor_Op<"strided_memref_copy", [
-  DeclareOpInterfaceMethods<RuntimeBuiltinInterface, ["getRuntimeBuiltinFunctionType"]>
-]> {
+def Executor_StridedMemrefCopyOp : Executor_Op<"strided_memref_copy", []> {
   let description = [{
     Executes a copy from `src` to `dest` where `src` and `dest` may be
     strided memrefs (with potentially different strides, but of the same shape).
   }];
   let arguments = (ins Executor_Index:$rank, Executor_Index:$elem_size,
-                       Variadic<Executor_AnyType>:$memrefs);
+                       Executor_HostPtr:$src_descriptor,
+                       Executor_HostPtr:$dest_descriptor);
   let assemblyFormat = [{
     attr-dict `(` operands `)`
      `:` type(operands)
-  }];
-
-  let extraClassDefinition = [{
-    ExecutorFunctionType $cppClass::getRuntimeBuiltinFunctionType(TypeRange results,
-                TypeRange operands) {
-      auto *ctx = (*this)->getContext();
-      return ExecutorFunctionType::get(
-            ctx,
-            llvm::to_vector(operands.take_front(2)),
-            {}, UnitAttr::get(ctx));
-    }
   }];
 }
 
@@ -1370,5 +1298,258 @@ def Executor_IntToPtrOp : Executor_PointerCastOp<"inttoptr"> {
   let arguments = (ins Executor_Index:$arg);
   let results = (outs Executor_Ptr:$result);
 }
+
+
+//===----------------------------------------------------------------------===//
+// ABI Operations
+//===----------------------------------------------------------------------===//
+
+def Executor_ABIRecvOp : Executor_Op<"abi.recv", []> {
+  let summary = "receive an argument from the caller";
+  let description = [{
+    The `executor.abi.recv` operation represents loading an argument value
+    indirectly from a function input argument which has host pointer type.
+
+    The argument must be annotated with an `#executor.arg<byval, ...>` argument
+    ABI. Currently, only non-scalar value types are supported for passing
+    inputs via pointer arguments.
+
+    The result type of the operation must match the type of the argument's
+    `#executor.arg<byval, ...>` value type.
+  }];
+  let arguments = (ins Arg<Executor_HostPtr,"address where value is read", [MemRead]>:$ptr,
+       OptionalAttr<AnyAttr>:$memory_space);
+  let results = (outs AnyType:$result);
+  let assemblyFormat = "$ptr attr-dict `:` type($result)";
+  let hasVerifier = 1;
+}
+
+def Executor_ABISendOp : Executor_Op<"abi.send", [
+  AllTypesMatch<["value", "result"]>
+]> {
+  let summary = "send an argument to the caller";
+  let description = [{
+    The `executor.abi.send` operation "stores" value to a function output argument
+    which has host poitner type and is annotated with `#executor.arg<byref, ...>`
+    argument ABI.
+
+    The value type of the argument's `#executor.arg<byref, ...>` must match the type
+    of `value`.
+  }];
+  let arguments = (ins AnyType:$value, Arg<Executor_HostPtr,"address where value is written", [MemWrite]>:$ptr, Optional<I1>:$ownership);
+  let results = (outs AnyType:$result);
+  let assemblyFormat = "$value `to` $ptr ( `ownership` `(` $ownership^ `)`)? attr-dict `:` type($value)";
+  let hasVerifier = 1;
+
+  let builders = [
+    OpBuilder<(ins "Value":$value, "Value":$ptr), [{
+      build($_builder, $_state, value.getType(), value, ptr, Value{});
+    }]>
+  ];
+}
+
+//===----------------------------------------------------------------------===//
+// Runtime Plugin Operations
+//===----------------------------------------------------------------------===//
+
+def Executor_PluginOp : Executor_Op<"plugin", [Symbol]> {
+  let summary = "declare a plugin handle";
+  let description = [{
+    The `executor.plugin` operation defines a new global symbol representing
+    a handle to a plugin instance that can be invoked with
+    `executor.call_plugin`.
+
+    For TVM FFI backend (`ffi_backend = #executor.ffi_backend<tvm_ffi>`):
+    This operation declares a callable handle to a TVM FFI function. The
+    `plugin_name` identifies the TVM FFI library (e.g., a shared library path),
+    and `function_name` identifies the function symbol within that library.
+
+    During lowering, this operation is converted to a global variable that
+    holds an opaque callable handle. The handle is initialized at module load
+    time by calling the runtime function `_create_plugin_callable_tvm_ffi`,
+    which:
+    - Loads the TVM FFI library from `plugin_name` (caching loaded libraries)
+    - Resolves the function symbol `function_name` from the library
+    - Returns an opaque handle wrapping the `tvm::ffi::Function` object
+
+    The `function_type` attribute specifies the MLIR function signature
+    (arguments and results), which is used to validate `executor.call_plugin`
+    calls. The `config` dictionary may contain additional backend-specific
+    configuration attributes, but for the TVM FFI backend, it is currently
+    unused.
+
+    Example:
+
+    ```mlir
+    executor.plugin @my_plugin {
+      plugin_name = "libflashinfer.so",
+      function_name = "single_prefill_with_kv_cache",
+      ffi_backend = #executor.ffi_backend<tvm_ffi>,
+      function_type = (tensor<*xf32>, tensor<*xf32>) -> (),
+      config = {}
+    }
+    ```
+  }];
+  let arguments = (ins SymbolNameAttr:$sym_name,
+                       StrAttr:$plugin_name,
+                       StrAttr:$function_name,
+                       Executor_FFIBackendAttr:$ffi_backend,
+                       OptionalAttr<TypeAttrOf<FunctionType>>:$function_type,
+                       OptionalAttr<DictionaryAttr>:$config
+                       );
+  let results = (outs );
+  let assemblyFormat = "$sym_name attr-dict `:` $function_type";
+
+  let builders = [
+    OpBuilder<(ins
+      "llvm::StringRef":$symName,
+      "llvm::StringRef":$pluginName, "llvm::StringRef":$functionName,
+      "executor::FFIBackend":$ffiBackend,
+      "FunctionType":$functionType,
+      CArg<"DictionaryAttr", "{}">:$config)>
+  ];
+
+  let skipDefaultBuilders = 1;
+}
+
+def Executor_CallPluginOp : Executor_Op<"call_plugin", [
+   AttrSizedOperandSegments,
+   DeclareOpInterfaceMethods<MemoryEffectsOpInterface>,
+   DeclareOpInterfaceMethods<SymbolUserOpInterface>]> {
+  let summary = "call a plugin callable";
+  let description = [{
+    The `executor.call_plugin` operation calls an instance of a plugin
+    callable.
+
+    For TVM FFI backend (`ffi_backend = #executor.ffi_backend<tvm_ffi>`):
+    This operation invokes a TVM FFI function following the TVM FFI ABI calling
+    convention. All arguments and outputs are converted to `TVMFFIAny` structures
+    and arranged according to the `arg_spec` attribute.
+
+    Argument Specification (`arg_spec`):
+    The `arg_spec` is a list of strings that encodes how to arrange arguments
+    for the TVM FFI call. Each string can be:
+    - `"args.N"`: Use the N-th input argument from `args`
+    - `"rets.N"`: Use the N-th output argument from `outputs`
+    - `"attrs.name"`: Use the attribute named `name` from `immediate_args`
+    - `"none"`: Insert an optional None value
+
+    Argument Conversion:
+    - POD values (integers, floats): Stored directly in the 16-byte `TVMFFIAny`
+      union structure without heap allocation
+    - Tensor values: Converted to DLPack-compatible `DLTensor` structures and
+      stored as pointers (`kTVMFFIDLTensorPtr`). The DLTensor contains:
+      - Data pointer and device information (CUDA, CPU, etc.)
+      - Rank, shape, and strides arrays (promoted to host memory)
+      - Data type information (DLDataType)
+      - Byte offset for non-contiguous views
+    - Attributes: Converted to appropriate `TVMFFIAny` values (POD or string literals)
+
+    Output Handling:
+    TVM FFI functions do not return values through a result parameter. All
+    outputs must be provided as input arguments with I/O aliasing specified
+    via the `io_aliasing` attribute. This attribute maps each input index to
+    an output index (-1 if not aliased), allowing in-place operations.
+
+    Stream Handling:
+    The optional `stream` operand specifies a CUDA stream for async operations.
+    If not provided, NULL will be passed as the stream argument to the
+    TVM FFI call.
+
+    Memory Management:
+    - DLTensor structures are allocated on the stack (via alloca) and contain
+      pointers to the actual tensor data
+    - Shape and strides arrays are promoted to host-allocated memory for runtime
+      access
+    - The `TVMFFIAny` argument array is allocated on the host stack for passing
+      to the FFI runtime
+
+    During lowering, this operation is converted to a call to the runtime
+    function `_call_plugin_tvm_ffi`, which:
+    1. Sets CUDA streams for DLTensor arguments (if applicable)
+    2. Invokes the TVM FFI function using the `TVMFFISafeCallType` signature:
+       `int (*TVMFFISafeCallType)(void* handle, const TVMFFIAny* args,
+                                  int32_t num_args, TVMFFIAny* result)`
+    3. Handles errors and propagates them appropriately
+
+    Example:
+
+    ```mlir
+    %result = executor.call_plugin @my_plugin
+      ins(%arg0 : tensor<*xf32>, %arg1 : tensor<*xf32>)
+      outs(%output : tensor<*xf32>)
+      {
+        arg_spec = ["args.0", "args.1", "rets.0", "attrs.backend"],
+        io_aliasing = [-1, -1, 0],
+        immediate_args = {backend = "paged"}
+      } : (tensor<*xf32>, tensor<*xf32>, tensor<*xf32>) -> ()
+    ```
+
+    In this example:
+    - `args.0` and `args.1` are the input tensors
+    - `rets.0` is the output tensor (aliased with input 0 via `io_aliasing`)
+    - `attrs.backend` is an immediate string attribute
+  }];
+  let arguments = (ins FlatSymbolRefAttr:$callee,
+                       Optional<Executor_HostPtr>:$stream,
+                       Variadic<AnyType>:$args,
+                       Variadic<AnyType>:$outputs,
+                       OptionalAttr<DictionaryAttr>:$immediate_args,
+                       StrArrayAttr:$arg_spec,
+                       OptionalAttr<DenseI32ArrayAttr>:$io_aliasing,
+                       OptionalAttr<DictArrayAttr>:$arg_attrs,
+                       OptionalAttr<DictArrayAttr>:$res_attrs);
+  let results = (outs Variadic<AnyType>:$results);
+  let assemblyFormat = [{
+    $callee
+    (`stream` `(` $stream^ `)`)?
+    `ins` `(` $args `:` type($args) `)`
+    `outs` `(` $outputs `:` type($outputs) `)`
+    attr-dict (`:` type($results)^)?
+  }];
+
+  let builders = [
+    OpBuilder<(ins "::mlir::executor::PluginOp":$callee,
+      "Value":$stream, "ValueRange":$args, "ValueRange":$outputs,
+      "DictionaryAttr":$immediate_args,
+      "::llvm::ArrayRef<llvm::StringRef>":$arg_spec,
+      "::llvm::ArrayRef<int32_t>":$io_aliasing,
+      CArg<"ArrayAttr", "{}">:$arg_attrs,
+      CArg<"ArrayAttr", "{}">:$res_attrs)>,
+    OpBuilder<(ins "::llvm::StringRef":$callee,
+      "Value":$stream, "ValueRange":$args, "ValueRange":$outputs,
+      "DictionaryAttr":$immediate_args,
+      "ArrayAttr":$arg_spec,
+      "DenseI32ArrayAttr":$io_aliasing,
+      CArg<"ArrayAttr", "{}">:$arg_attrs,
+      CArg<"ArrayAttr", "{}">:$res_attrs)>
+  ];
+
+  let skipDefaultBuilders = 1;
+}
+
+//===----------------------------------------------------------------------===//
+// BufferBitcastOp
+//===----------------------------------------------------------------------===//
+
+def Executor_BufferBitcastOp : Executor_Op<"buffer_bitcast", [
+      Pure,
+      DeclareOpInterfaceMethods<ViewLikeOpInterface>,
+      DeclareOpInterfaceMethods<CastOpInterface, ["areCastCompatible"]>]> {
+  let description = [{
+    `executor.buffer_bitcast` op performs a bitcast from one tensor or
+    memref type to another tensor or memref type.
+
+    The result element type must have the same bit width as the source
+    element type.
+  }];
+  let arguments = (ins AnyShaped:$source);
+  let results = (outs AnyShaped:$result);
+  let assemblyFormat = "attr-dict $source `:` type($source) `to` type($result)";
+  let hasVerifier = 1;
+  let hasFolder = 1;
+  let hasCanonicalizer = 1;
+}
+
 
 #endif // MLIR_TENSORRT_DIALECT_EXECUTOR_IR_EXECUTOROPS_TD

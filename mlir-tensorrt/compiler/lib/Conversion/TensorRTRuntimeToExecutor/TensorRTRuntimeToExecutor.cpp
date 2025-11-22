@@ -99,7 +99,8 @@ static GlobalOp getOrCreateExecutionContextGlobal(
         // Use 'executor.getoffset' as a portable way of calculating the final
         // buffer size. The data type for TRT engines should always be 'i8', but
         // this is more fool-proof.
-        ShapedType dataType = resourceOp.getValue().getShapedType();
+        ShapedType dataType =
+            cast<ElementsAttr>(resourceOp.getValue()).getShapedType();
         Value dataSize = ib.create<GetOffsetOp>(
             callBuilder.indexType, dataType.getElementType(),
             ArrayRef<OpFoldResult>{

@@ -46,7 +46,7 @@
 
 using namespace mlir;
 using namespace mlir::plan;
-using namespace mlirtrt::compiler;
+using namespace mtrt::compiler;
 
 //===----------------------------------------------------------------------===//
 // InlineGroupOp

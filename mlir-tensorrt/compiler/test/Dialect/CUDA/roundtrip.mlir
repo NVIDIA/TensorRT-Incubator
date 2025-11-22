@@ -245,3 +245,9 @@ func.func @cuda_launch(
 //       CHECK:  block(%[[block_x]], %[[block_y]], %[[block_z]])
 //       CHECK:  smem(%[[c0_i32]]) stream(%[[stream]])
 //  CHECK-NEXT: return
+
+// -----
+
+// Test cuda.compiled_module with LLVMIR kind
+cuda.compiled_module {kind = #cuda.compiled_module_kind<LLVMIR>} @llvm_module dense<[72, 101, 108, 108, 111]> : vector<5xi8>
+// CHECK-LABEL: cuda.compiled_module {kind = #cuda.compiled_module_kind<LLVMIR>} @llvm_module

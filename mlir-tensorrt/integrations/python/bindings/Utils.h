@@ -51,7 +51,7 @@
 
 namespace py = pybind11;
 
-namespace mlirtrt {
+namespace mtrt {
 
 class MTRTException : public std::exception {
 public:
@@ -68,8 +68,8 @@ private:
   do {                                                                         \
     MTRT_Status err = (status);                                                \
     if (!mtrtStatusIsOk(err)) {                                                \
-      ::mlirtrt::PyMTRTCError e(err);                                          \
-      throw ::mlirtrt::MTRTException(e.getMessage());                          \
+      ::mtrt::PyMTRTCError e(err);                                             \
+      throw ::mtrt::MTRTException(e.getMessage());                             \
     }                                                                          \
   } while (false)
 
@@ -239,7 +239,7 @@ public:
 private:
   std::stringstream ss;
 };
-} // namespace mlirtrt
+} // namespace mtrt
 
 //===----------------------------------------------------------------------===//
 // Shared Bindings
@@ -248,7 +248,7 @@ MTRT_DEFINE_COMPILER_INLINE_PY_CAPSULE_CASTER_FUNCS(Executable)
 MTRT_DEFINE_COMPILER_INLINE_PY_CAPSULE_CASTER_FUNCS(Type)
 MTRT_DEFINE_COMPILER_INLINE_PY_CAPSULE_CASTER_FUNCS(Bounds)
 
-namespace mlirtrt {
+namespace mtrt {
 /// Python type wrapper for `MTRT_Executable`. This declaration is provided in
 /// the header here so that it can be repurposed accross multiple modules
 /// (compiler, runtime).
@@ -612,6 +612,9 @@ static inline void populateCommonBindingsInModule(py::module &m) {
       .value("i16", MTRT_ScalarTypeCode::MTRT_ScalarTypeCode_i16)
       .value("i32", MTRT_ScalarTypeCode::MTRT_ScalarTypeCode_i32)
       .value("i64", MTRT_ScalarTypeCode::MTRT_ScalarTypeCode_i64)
+      .value("complex32", MTRT_ScalarTypeCode::MTRT_ScalarTypeCode_complex32)
+      .value("complex64", MTRT_ScalarTypeCode::MTRT_ScalarTypeCode_complex64)
+      .value("f4e2m1fn", MTRT_ScalarTypeCode::MTRT_ScalarTypeCode_f4e2m1fn)
       .export_values();
 
   py::enum_<MTRT_PointerType>(m, "PointerType", py::module_local())
@@ -657,6 +660,6 @@ static inline void populateCommonBindingsInModule(py::module &m) {
   populateFunctionBindingInModule(m);
 }
 
-} // namespace mlirtrt
+} // namespace mtrt
 
 #endif // BINDINGS_UTILS

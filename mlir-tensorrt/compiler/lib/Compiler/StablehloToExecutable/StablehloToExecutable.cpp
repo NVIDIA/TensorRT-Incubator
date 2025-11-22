@@ -49,8 +49,8 @@
 #include "mlir/Transforms/Passes.h"
 #include <memory>
 
-using namespace mlirtrt;
-using namespace mlirtrt::compiler;
+using namespace mtrt;
+using namespace mtrt::compiler;
 using namespace mlir;
 
 #ifdef MLIR_TRT_ENABLE_HLO
@@ -102,9 +102,18 @@ void StablehloToExecutableTask::populatePassManager() {
           /*defaultBackends=*/SmallVector<std::string>(
               options.defaultBackends.begin(),
               options.defaultBackends.end())}));
+  pm.addPass(plan::createVerifyInputAndAssignSlotsPass());
+  pm.addPass(plan::createLegalizeIOBoundsAttributesPass());
+
+  if (options.runtimeABIVersion >= 1)
+    pm.addPass(executor::createExecutorGenerateABIWrappersPass(
+        executor::ExecutorGenerateABIWrappersPassOptions{
+            /*forceUndefOutputArgs=*/options.get<BufferizationOptions>()
+                .forceEntrypointsReturnAllocs,
+        }));
 
   // StableHLO Preprocessing
-  mlirtrt::compiler::StableHloInputOptions opts{};
+  mtrt::compiler::StableHloInputOptions opts{};
   opts.legalizeControlFlowToSCF = true;
   opts.preserveChloErf = true;
   opts.preserveChloTopK = true;
@@ -122,7 +131,7 @@ void StablehloToExecutableTask::populatePassManager() {
         options.stablehloInputRewriteConstantFoldVolumeLimit;
   }
 
-  mlirtrt::compiler::buildStablehloPreProcessingPipeline(
+  mtrt::compiler::buildStablehloPreProcessingPipeline(
       pm, opts,
       [&](mlir::OpPassManager &pm, const StableHloInputOptions &opts) {
         pm.addNestedPass<func::FuncOp>(stablehlo_ext::createConstantFoldingPass(
@@ -138,7 +147,8 @@ void StablehloToExecutableTask::populatePassManager() {
   plan::ClusteringPassOptions clusteringOpts{};
   clusteringOpts.entrypoint = options.entrypoint;
   clusteringOpts.inputKind = plan::InputKind::Stablehlo;
-  plan::buildPlanSegmentationPipeline(pm, clusteringOpts);
+  plan::buildPlanSegmentationPipeline(pm, clusteringOpts,
+                                      options.runtimeABIVersion);
 
   // Compile outlined scalarizable host clusters.
   pm.addNestedPass<func::FuncOp>(createProcessStablehloHostClustersPass());
@@ -170,8 +180,11 @@ void StablehloToExecutableTask::populatePassManager() {
 
   if (hostTarget == HostTarget::Executor) {
     pm.addPass(createConvertPlanToExecutorPass());
-    pm.addNestedPass<func::FuncOp>(
-        executor::createExecutorPopulateFunctionMetadataPass());
+
+    if (options.runtimeABIVersion < 1) {
+      pm.addNestedPass<func::FuncOp>(
+          executor::createExecutorPopulateFunctionMetadataPass());
+    }
   }
 
   populateExtensionPasses(pm, options, Phase::ExecutorLowering, extensions);
@@ -214,7 +227,7 @@ void StablehloToExecutableTask::populatePassManager() {
     addCleanupPasses(pm);
 
     if (hostTarget == HostTarget::LLVM) {
-      pm.addPass(LLVM::createRequestCWrappersPass());
+      pm.addNestedPass<func::FuncOp>(LLVM::createRequestCWrappersPass());
       ConvertCUDAToLLVMPassOptions cudaToLLVMOpts;
       cudaToLLVMOpts.artifactsDirectory = options.artifactsDirectory;
       pm.addPass(createConvertCUDAToLLVMPass(std::move(cudaToLLVMOpts)));
@@ -239,10 +252,10 @@ void StablehloToExecutableTask::populatePassManager() {
   }
 }
 
-void mlirtrt::compiler::registerStableHloToExecutableTask() {
+void mtrt::compiler::registerStableHloToExecutableTask() {
   registerCompilationTaskWithNoExtensions<StablehloToExecutableTask,
                                           StablehloToExecutableOptions>(
-      mlirtrt::compiler::StablehloToExecutableTask::getName());
+      mtrt::compiler::StablehloToExecutableTask::getName());
 }
 
 #endif // MLIR_TRT_ENABLE_HLO

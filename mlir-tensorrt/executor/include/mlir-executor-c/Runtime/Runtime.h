@@ -25,7 +25,6 @@
 #ifndef MLIR_EXECUTOR_C_RUNTIME_RUNTIME
 #define MLIR_EXECUTOR_C_RUNTIME_RUNTIME
 
-#include "dlpack/dlpack.h"
 #include "mlir-c/Support.h"
 #include "mlir-executor-c/Common/Common.h"
 #include "mlir-tensorrt-common-c/Support/Status.h"
@@ -114,6 +113,11 @@ mtrtStreamPrint(MTRT_Stream stream, MlirStringCallback append, void *userData);
 MLIR_CAPI_EXPORTED MTRT_Status mtrtStreamGetPointer(MTRT_Stream stream,
                                                     uintptr_t *ptr);
 
+/// Add a wait on the `externalStream` for the `stream` to complete all
+/// outstanding operations as of now.
+MLIR_CAPI_EXPORTED MTRT_Status mtrtExternalStreamWaitOnMTRTStream(
+    uintptr_t externalWaitingStream, MTRT_Stream streamToWaitOn);
+
 //===----------------------------------------------------------------------===//
 // MTRT_Device
 //===----------------------------------------------------------------------===//
@@ -133,6 +137,9 @@ static inline MTRT_Device mtrtDeviceGetNull() { return MTRT_Device{NULL}; }
 MLIR_CAPI_EXPORTED MTRT_Status mtrtDeviceGetIndex(MTRT_Device device,
                                                   int32_t *index);
 
+MLIR_CAPI_EXPORTED MTRT_Status mtrtDeviceGetStream(MTRT_Device device,
+                                                   MTRT_Stream *stream);
+
 //===----------------------------------------------------------------------===//
 // MTRT_MemRefValue
 //===----------------------------------------------------------------------===//
@@ -140,14 +147,6 @@ MLIR_CAPI_EXPORTED MTRT_Status mtrtDeviceGetIndex(MTRT_Device device,
 typedef struct MTRT_MemRefValue {
   void *ptr;
 } MTRT_MemRefValue;
-
-typedef struct MTRT_DLPackManagedTensor {
-  void *ptr;
-} MTRT_DLPackManagedTensor;
-
-typedef struct MTRT_DLPackDevice {
-  void *ptr;
-} MTRT_DLPackDevice;
 
 /// Returns whether the memref is null.
 static inline bool mtrtMemRefValueIsNull(MTRT_MemRefValue memref) {
@@ -166,12 +165,11 @@ static inline bool mtrtMemRefValueIsNull(MTRT_MemRefValue memref) {
 ///   - `stream` may optionally be provided in order to provide for asynchronous
 ///   allocation, otherwise
 ///      the result of `mtrtStreamGetNull()` should be passed.
-MLIR_CAPI_EXPORTED MTRT_Status
-mtrtMemRefCreate(MTRT_RuntimeClient client, MTRT_PointerType pointerKind,
-                 int64_t bitsPerElement, int64_t rank, const int64_t *shape,
-                 const int64_t *strides, MTRT_Device device, MTRT_Stream stream,
-                 MTRT_ScalarTypeCode scalarType, MTRT_MemRefValue *result,
-                 bool assertCanonicalStrides = false);
+MLIR_CAPI_EXPORTED MTRT_Status mtrtMemRefCreate(
+    MTRT_RuntimeClient client, MTRT_PointerType pointerKind,
+    MTRT_ScalarTypeCode scalarType, int64_t rank, const int64_t *shape,
+    const int64_t *strides, MTRT_Device device, MTRT_Stream stream,
+    MTRT_MemRefValue *result, bool assertCanonicalStrides = false);
 
 /// Encapsulates a callback that will be called when the correspdoning
 /// MemRefValue (with view storage) is destroyed. The callback is called with
@@ -203,10 +201,9 @@ mtrtMemRefDestroyCallbackIsNull(MTRT_MemRefDestroyCallback callback) {
 /// the caller to provide logic to clean up the underlying storage.
 MLIR_CAPI_EXPORTED MTRT_Status mtrtMemRefCreateExternal(
     MTRT_RuntimeClient client, MTRT_PointerType pointerKind,
-    int64_t bitsPerElement, uintptr_t ptr, int64_t offset, int64_t rank,
+    MTRT_ScalarTypeCode scalarType, uintptr_t ptr, int64_t offset, int64_t rank,
     const int64_t *shape, const int64_t *strides, MTRT_Device device,
-    MTRT_ScalarTypeCode scalarType, MTRT_MemRefValue *result,
-    bool assertCanonicalStrides = false,
+    MTRT_MemRefValue *result, bool assertCanonicalStrides = false,
     MTRT_MemRefDestroyCallback destroyCallback =
         mtrtMemRefDestroyCallbackCreateNull());
 
@@ -236,11 +233,6 @@ typedef struct MTRT_MemRefValueInfo {
 MLIR_CAPI_EXPORTED MTRT_Status
 mtrtMemRefValueGetInfo(MTRT_MemRefValue memref, MTRT_MemRefValueInfo *info);
 
-/// Retrieve DL Device from MemRefValue.
-MLIR_CAPI_EXPORTED MTRT_Status
-mtrtMemRefValueGetDLPackDevice(MTRT_MemRefValue memrefValue,
-                               DLDeviceType *device_type, int32_t *device_id);
-
 /// Return the reference count of the underlying storage.
 MLIR_CAPI_EXPORTED uint32_t mtrtMemRefReferenceCount(MTRT_MemRefValue memref);
 
@@ -248,6 +240,22 @@ MLIR_CAPI_EXPORTED uint32_t mtrtMemRefReferenceCount(MTRT_MemRefValue memref);
 /// MemRefValue.
 MLIR_CAPI_EXPORTED MTRT_MemRefValue
 mtrtMemRefCreateRef(MTRT_MemRefValue memref);
+
+/// Retrieve the stream associated with the memref.
+MLIR_CAPI_EXPORTED MTRT_Status mtrtMemRefValueGetStream(MTRT_MemRefValue memref,
+                                                        MTRT_Stream *stream);
+/// Wait for the current value to be "ready". If the value is a device
+/// memrefvalue, then it will incur a CUDA stream synchronization.
+MLIR_CAPI_EXPORTED MTRT_Status
+mtrtMemRefValueWaitForReady(MTRT_MemRefValue value);
+
+/// Return the Device associated with the memref. If the MemRef is not
+/// associated with a device, then the null device is returned.
+MLIR_CAPI_EXPORTED MTRT_Device
+mtrtMemRefValueGetDevice(MTRT_MemRefValue memref);
+
+MLIR_CAPI_EXPORTED MTRT_PointerType
+mtrtMemRefValueGetAddressSpace(MTRT_MemRefValue memref);
 
 //===----------------------------------------------------------------------===//
 // MTRT_RuntimeClient
@@ -445,8 +453,8 @@ typedef struct MTRT_RuntimeSession {
 /// that the session only has a read-only view in to the Executable for code and
 /// constant data. Therefore the Executable must outlive the RuntimeSession.
 MLIR_CAPI_EXPORTED MTRT_Status mtrtRuntimeSessionCreate(
-    MTRT_RuntimeSessionOptions options, MTRT_Executable executable,
-    MTRT_RuntimeSession *result);
+    MTRT_RuntimeClient client, MTRT_RuntimeSessionOptions options,
+    MTRT_Executable executable, MTRT_RuntimeSession *result);
 
 /// Destory the session. This does not destroy the associated Executable, which
 /// may be shared among many sessions.
@@ -473,26 +481,12 @@ MLIR_CAPI_EXPORTED MTRT_Status mtrtRuntimeSessionExecuteFunction(
     MTRT_RuntimeSession session, MTRT_StringView name,
     const MTRT_RuntimeValue *inArgs, size_t numInArgs,
     const MTRT_RuntimeValue *outArgs, size_t numOutArgs,
-    MTRT_RuntimeValue *results, MTRT_Stream stream, MTRT_RuntimeClient client);
+    MTRT_RuntimeValue *results, MTRT_Stream stream);
 
 /// Return number of results given a function name. Function name refers
 /// to an exported function in the executable.
 MLIR_CAPI_EXPORTED MTRT_Status mtrtRuntimeSessionGetNumResults(
     MTRT_RuntimeSession session, MTRT_StringView name, int64_t *numResults);
-
-//===----------------------------------------------------------------------===//
-// DLPack
-//===----------------------------------------------------------------------===//
-
-/// Converts a DLDeviceType to MTRT_PointerType. This function will throw a
-/// runtime error if the device type is invalid.
-MLIR_CAPI_EXPORTED MTRT_Status mtrtGetPointerTypeFromDLDeviceType(
-    DLDeviceType device, MTRT_PointerType *result);
-
-/// Converts a DLDataType to MTRT_ScalarTypeCode. This function will throw a
-/// runtime error if the data type is invalid.
-MLIR_CAPI_EXPORTED MTRT_Status mtrtGetScalarTypeCodeFromDLDataType(
-    DLDataType dtype, MTRT_ScalarTypeCode *result);
 
 #ifdef __cplusplus
 }

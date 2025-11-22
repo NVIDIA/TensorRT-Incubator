@@ -28,14 +28,13 @@ def test_serialize(ASM):
         exe = compiler.translate_mlir_to_executable(m.operation)
 
     client = runtime.RuntimeClient()
-    stream = client.create_stream()
     devices = client.get_devices()
-
     if len(devices) == 0:
         return
+    stream = devices[0].stream
 
     session_options = runtime.RuntimeSessionOptions(num_devices=1, device_id=0)
-    session0 = runtime.RuntimeSession(session_options, exe)
+    session0 = runtime.RuntimeSession(client, session_options, exe)
 
     arg0 = client.create_memref(
         np.arange(4, dtype=np.float32).reshape(2, 2).data,
@@ -56,7 +55,7 @@ def test_serialize(ASM):
     assert isinstance(serialized_exe, bytes)
     exe_reconstructed = compiler.Executable(serialized_exe)
 
-    session1 = runtime.RuntimeSession(session_options, exe_reconstructed)
+    session1 = runtime.RuntimeSession(client, session_options, exe_reconstructed)
     session1.execute_function("main", in_args=[arg0], out_args=[arg1], stream=stream)
     output1 = np.asarray(client.copy_to_host(arg1, stream=stream))
     stream.sync()

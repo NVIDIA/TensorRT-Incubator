@@ -29,16 +29,21 @@ include "mlir/Pass/PassBase.td"
 // StablehloToPlan
 //===----------------------------------------------------------------------===//
 
-def ConvertStablehloToPlanPass : Pass<"convert-stablehlo-to-plan", "func::FuncOp"> {
+def ConvertStablehloToPlanPass : Pass<"convert-stablehlo-to-plan", "::mlir::ModuleOp"> {
   let summary = "Convert certain StableHLO dialect ops to Plan dialect ops";
   let description = [{
     This pass converts supported Stable HLO dialect ops to Plan dialect ops.
     Currently the only conversions supported are:
     - `stablehlo.optimization_barrier` -> `plan.optimization_barrier`
     - convert `tf.aliasing_output` argument attributes to `plan.aliasing_output`
+    - convert `stablehlo.custom_call` to `executor.call_plugin` for
+      `stablehlo.custom_call` that are targeted towards MTRT-compatible FFI
+      calls.
   }];
   let dependentDialects = [
-    "::mlir::plan::PlanDialect"
+    "::mlir::plan::PlanDialect",
+    "::mlir::executor::ExecutorDialect",
+    "::mlir::tensor::TensorDialect"
   ];
 }
 
@@ -200,7 +205,7 @@ def ConvertPlanToExecutorPass : Pass<"convert-plan-to-executor",
 
 defvar ConvertToExecutorOptions = [
   Option<"indexBitwidth", "index-bitwidth", "int64_t", "64",
-  "all index types will be converted to signless integers of this bitwidth">  
+  "all index types will be converted to signless integers of this bitwidth">
 ];
 
 //===----------------------------------------------------------------------===//

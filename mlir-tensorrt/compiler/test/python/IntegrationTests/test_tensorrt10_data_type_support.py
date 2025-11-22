@@ -1,6 +1,7 @@
 # RUN: %pick-one-gpu %PYTHON %s | FileCheck %s
 # REQUIRES: all-gpus-support-fp8
 # REQUIRES: tensorrt-version-ge-10.0
+# REQUIRES: long_tests
 from dataclasses import dataclass
 from typing import List, Optional
 
@@ -39,7 +40,7 @@ def test_stablehlo_add(
             exe = compiler.translate_mlir_to_executable(m.operation)
 
             session_options = runtime.RuntimeSessionOptions(num_devices=1, device_id=0)
-            session = runtime.RuntimeSession(session_options, exe)
+            session = runtime.RuntimeSession(client, session_options, exe)
 
             session.execute_function(
                 "main", in_args=test.in_args, out_args=test.out_args, stream=stream
@@ -63,11 +64,11 @@ if __name__ == "__main__":
     # The RuntimeClient can and should persist across multiple Executables, RuntimeSessions, etc.
     # It is primarily an interface for creating and manipulating buffers.
     client = runtime.RuntimeClient()
-    stream = client.create_stream()
     devices = client.get_devices()
     if len(devices) == 0:
         print("No GPU device found!")
         exit()
+    stream = devices[0].stream
     numpy_f8 = np.asarray([[0.4, 4.24], [6.61, 8.81]], dtype=float8_e4m3fn)
     numpy_f8_reinterpret_ui8 = numpy_f8.view(np.uint8, np.ndarray)
     numpy_bf16 = np.asarray([[0.4, 4.24], [6.61, 8.81]], dtype=bfloat16)

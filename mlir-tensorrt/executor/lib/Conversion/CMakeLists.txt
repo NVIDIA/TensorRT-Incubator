@@ -5,15 +5,16 @@ add_mlir_executor_library(MLIRTensorRTConvertToExecutorCommon
   ConvertToExecutorCommon.cpp
 
   LINK_LIBS PUBLIC
-  MLIRFuncDialect
-  MLIRMemRefDialect
-  MLIRRewrite
-  MLIRTransforms
-  MLIRTransformUtils
-  MLIRDLTIDialect
-  MLIRTensorRTExecutorDialect
-  MLIRTensorRTExecutorUtils
-  MLIRExecutorIncludes
+    MLIRTensorRTExecutorDialect
+    MLIRTensorRTExecutorUtils
+    MLIRExecutorIncludes
+  MLIR_LIBS PUBLIC
+    MLIRFuncDialect
+    MLIRMemRefDialect
+    MLIRRewrite
+    MLIRTransforms
+    MLIRTransformUtils
+    MLIRDLTIDialect
   )
 
 add_mlir_pdll_library(MLIRExecutorStdToExectutorPatternsIncGen
@@ -27,23 +28,28 @@ add_mlir_executor_library(MLIRTensorRTStdToExecutor
   MemRefToExecutor.cpp
   StdToExecutor.cpp
   LinalgToExecutor.cpp
+  TVMFFIUtils.cpp
 
   DEPENDS
   MLIRExecutorConversionPassIncGen
   MLIRExecutorStdToExectutorPatternsIncGen
 
   LINK_LIBS PUBLIC
-  MLIRArithDialect
-  MLIRControlFlowDialect
-  MLIRFuncDialect
-  MLIRIR
-  MLIRLinalgDialect
-  MLIRMathDialect
-  MLIRMemRefDialect
-  MLIRParser
-  MLIRRewrite
-  MLIRTensorRTConvertToExecutorCommon
-  MLIRTransforms
-  MLIRTransformUtils
-  MLIRExecutorIncludes
+    MLIRTensorRTConvertToExecutorCommon
+    MLIRExecutorIncludes
+    MLIRTensorRTRuntimeExecutableInterface
+    DLPack::Headers
+    tvm_ffi_header
+  MLIR_LIBS PUBLIC
+    MLIRArithDialect
+    MLIRControlFlowDialect
+    MLIRFuncDialect
+    MLIRIR
+    MLIRLinalgDialect
+    MLIRMathDialect
+    MLIRMemRefDialect
+    MLIRParser
+    MLIRRewrite
+    MLIRTransforms
+    MLIRTransformUtils
 )

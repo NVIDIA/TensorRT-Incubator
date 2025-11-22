@@ -28,7 +28,7 @@
 #include "mlir/Interfaces/InferIntRangeInterface.h"
 #include <optional>
 
-namespace mlirtrt::compiler {
+namespace mtrt::compiler {
 
 //===----------------------------------------------------------------------===//
 // BoundsArray
@@ -147,7 +147,7 @@ class InferTensorValueRangeInterface;
 
 namespace detail {} // namespace detail
 
-} // namespace mlirtrt::compiler
+} // namespace mtrt::compiler
 
 #include "mlir-tensorrt/Interfaces/InferTensorValueRangeInterface.h.inc"
 

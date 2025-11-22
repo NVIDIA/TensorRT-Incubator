@@ -28,8 +28,8 @@
 #include "stablehlo/transforms/Passes.h"
 
 using namespace mlir;
-using namespace mlirtrt;
-using namespace mlirtrt::compiler;
+using namespace mtrt;
+using namespace mtrt::compiler;
 
 static void buildStableHloSimplificationPipeline(
     OpPassManager &pm,
@@ -61,7 +61,7 @@ static void buildStableHloSimplificationPipeline(
   pm.addPass(stablehlo_ext::createCanonicalizeShapesPass());
 }
 
-void mlirtrt::compiler::buildStablehloPreProcessingPipeline(
+void mtrt::compiler::buildStablehloPreProcessingPipeline(
     OpPassManager &pm, const StableHloInputOptions &opts,
     std::function<void(mlir::OpPassManager &pm,
                        const StableHloInputOptions &opts)>
@@ -88,13 +88,7 @@ void mlirtrt::compiler::buildStablehloPreProcessingPipeline(
 
   // `convert-stablehlo-to-plan`:
   // - Convert `stablehlo.optimization_barrier` to `plan.optimization_barrier`.
-  pm.addNestedPass<func::FuncOp>(createConvertStablehloToPlanPass());
-
-  // `stablehlo-ext-raise-qdq`:
-  // - Some match-and-raise patterns for Q/DQ that
-  //   should be performed before canonicalization
-  //   since the pattern is based on specific frontend patterns (e.g. JAX).
-  pm.addNestedPass<func::FuncOp>(stablehlo_ext::createStablehloRaiseQDQPass());
+  pm.addPass(createConvertStablehloToPlanPass());
 
   // `convert-stablehlo-to-scf`:
   if (opts.legalizeControlFlowToSCF) {
@@ -188,7 +182,7 @@ struct StableHloInputPipelineOptions
 };
 } // namespace
 
-void mlirtrt::compiler::registerStableHloInputPipelines() {
+void mtrt::compiler::registerStableHloInputPipelines() {
   PassPipelineRegistration<StableHloInputPipelineOptions>(
       "stablehlo-preprocessing-pipeline",
       "Apply StableHlo input processing pipeline to prepare for "

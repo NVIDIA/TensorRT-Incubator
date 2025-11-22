@@ -3,7 +3,7 @@ set(LLVM_TARGET_DEFINITIONS Passes.td)
 set(_TABLEGEN_ARGS -gen-pass-decls -name ExecutorTransforms)
 
 mlir_tablegen(Passes.h.inc ${_TABLEGEN_ARGS})
-add_public_tablegen_target(MLIRTensorRTExecutorTransformsPassIncGen)
+mtrt_add_public_tablegen_target(MLIRTensorRTExecutorTransformsPassIncGen)
 
 if(COMMAND add_mlir_tensorrt_doc)
   add_mlir_tensorrt_doc(ExecutorPassesDoc

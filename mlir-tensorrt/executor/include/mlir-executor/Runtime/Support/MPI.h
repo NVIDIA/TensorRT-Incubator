@@ -27,7 +27,7 @@
 #include "mlir-tensorrt-common/Support/Status.h"
 #include <memory>
 
-namespace mlirtrt::runtime {
+namespace mtrt {
 
 /// The MPIManager calls MPI_Init on creation and MPI_Finalize upon destruction.
 /// The downstream applications that are potentially executing executables using
@@ -46,6 +46,6 @@ private:
   MPIManager();
 };
 
-} // namespace mlirtrt::runtime
+} // namespace mtrt
 
 #endif // MLIR_EXECUTOR_RUNTIME_SUPPORT_MPI

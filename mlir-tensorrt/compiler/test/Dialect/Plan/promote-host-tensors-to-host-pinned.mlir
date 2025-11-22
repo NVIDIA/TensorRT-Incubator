@@ -1,4 +1,4 @@
-// RUN: mlir-tensorrt-opt %s -plan-promote-host-tensors-to-host-pinned -split-input-file | FileCheck %s
+// RUN: mlir-tensorrt-opt %s -pass-pipeline="builtin.module(func.func(plan-promote-host-tensors-to-host-pinned))" -split-input-file | FileCheck %s
 
 func.func @test(%arg0: tensor<10xf32, #plan.memory_space<device>>) -> f32 {
   %c0 = arith.constant 0 : index
