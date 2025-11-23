@@ -41,13 +41,15 @@ case "${LINUX_DISTRO}" in
         apt-get install -y --no-install-recommends tzdata software-properties-common && \
         ln -fs /usr/share/zoneinfo/$TZ /etc/localtime && \
         dpkg-reconfigure -f noninteractive tzdata && \
-        add-apt-repository -y ppa:deadsnakes/ppa
+        apt-get install -y python3.12 python3.12-dev python3.12-venv python3-pip
+    else
+        apt-get update && apt-get install -y \
+        python3.10 python3.10-distutils python3.10-dev python3.10-venv python3-pip
     fi
     apt-get update && apt-get install -y \
         wget gnupg apt-utils curl \
         default-jdk-headless default-jre-headless \
-        git python3.10 python3.10-distutils python3.10-dev python3.10-venv \
-        python3-pip libprotobuf-dev protobuf-compiler libsndfile1 \
+        git libprotobuf-dev protobuf-compiler libsndfile1 \
         ${nsight_pkg_name} \
         openmpi-bin openmpi-common libopenmpi-dev
     apt-get clean -y
@@ -101,13 +103,12 @@ EOF
 ARG PYTHON_VERSION=3.10
 ENV PYENV_ROOT="/pyenv"
 ENV PATH="/pyenv/bin:/pyenv/shims:$PATH"
-COPY integrations/python/requirements-dev.txt /tmp/requirements-dev.txt
-COPY integrations/python/requirements.txt /tmp/requirements.txt
 RUN <<EOF
 set -ex
 case "${LINUX_DISTRO}" in
   "ubuntu"*)
-    python3.10 -m pip install -r /tmp/requirements-dev.txt
+    curl -fsSL https://astral.sh/uv/install.sh | sh
+    ln -sf /root/.local/bin/uv /usr/local/bin/uv
     ;;
   "rockylinux"*)
     curl https://pyenv.run | bash
@@ -121,8 +122,7 @@ case "${LINUX_DISTRO}" in
     exit 1
     ;;
 esac
-# Cleanup dependencies file.
-rm /tmp/requirements-dev.txt /tmp/requirements.txt
+
 EOF
 
 #------------------------------------------------------------------------------

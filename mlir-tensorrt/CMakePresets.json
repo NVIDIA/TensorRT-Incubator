@@ -62,6 +62,30 @@
       }
     },
     {
+      "name": "github-cicd-with-asan",
+      "inherits": "github-cicd",
+      "cacheVariables": {
+        "ENABLE_ASAN": "ON"
+      }
+    },
+    {
+      "name": "github-cicd-with-long-tests",
+      "inherits": "github-cicd",
+      "environment": {
+        "LONG_TESTS": "True"
+      }
+    },
+    {
+      "name": "github-cicd-with-nccl-long-tests",
+      "inherits": "github-cicd",
+      "environment": {
+        "LONG_TESTS": "True"
+      },
+      "cacheVariables": {
+        "MLIR_TRT_ENABLE_NCCL": "ON"
+      }
+    },
+    {
       "name": "ninja-llvm-release",
       "inherits": "ninja-llvm",
       "displayName": "Ninja Release LLVM",

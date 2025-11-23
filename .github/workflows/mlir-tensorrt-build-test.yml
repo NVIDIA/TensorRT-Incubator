@@ -28,8 +28,8 @@ jobs:
       # eg. TENSORRT_VERSION: 10.12 or 10.13
       TENSORRT_VERSION: ${{ matrix.trt }}
       # align caches with restored paths
-      CCACHE_DIR: ${{ github.workspace }}/ccache
-      CPM_SOURCE_CACHE: ${{ github.workspace }}/.cache.cpm
+      CCACHE_DIR: ${{ github.workspace }}/mlir-tensorrt/ccache
+      CPM_SOURCE_CACHE: ${{ github.workspace }}/mlir-tensorrt/.cache.cpm
       # eg. CHANNEL: nightly, test or release
       CHANNEL: ${{ inputs.channel }}
     runs-on: ${{ matrix.runner }}
@@ -57,8 +57,8 @@ jobs:
         run: |
           set -euo pipefail
           set -x
-          mkdir -p ${{ github.workspace }}/ccache
-          mkdir -p ${{ github.workspace }}/.cache.cpm
+          mkdir -p ${{ github.workspace }}/mlir-tensorrt/ccache
+          mkdir -p ${{ github.workspace }}/mlir-tensorrt/.cache.cpm
 
       # Restore cache, if exists.
       - name: Restore cache
@@ -68,9 +68,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-mlir-tensorrt-cache-
           path: |
-            ${{ github.workspace }}/ccache
-            ${{ github.workspace }}/.cache.cpm/*
-            !${{ github.workspace }}/.cache.cpm/tensorrt
+            ${{ github.workspace }}/mlir-tensorrt/ccache
+            ${{ github.workspace }}/mlir-tensorrt/.cache.cpm/*
+            !${{ github.workspace }}/mlir-tensorrt/.cache.cpm/tensorrt
 
       # Build the project
       - name: build_${{ matrix.cuda }}_trt${{ matrix.trt }}
@@ -78,7 +78,10 @@ jobs:
           set -euo pipefail
           set -x
           cd mlir-tensorrt
-          DOWNLOAD_TENSORRT_VERSION=${{ matrix.trt }} ./build_tools/scripts/cicd_build.sh --build_only
+          # Build only, skip tests
+          DOWNLOAD_TENSORRT_VERSION=${{ matrix.trt }} \
+          SKIP_TESTS=1 \
+          ./build_tools/scripts/cicd_build_test.sh
 
       # Save cache
       - name: Save cache
@@ -98,7 +101,8 @@ jobs:
           set -euo pipefail
           set -x
           cd mlir-tensorrt
-          DOWNLOAD_TENSORRT_VERSION=${{ matrix.trt }} ./build_tools/scripts/cicd_build.sh
+          
+          DOWNLOAD_TENSORRT_VERSION=${{ matrix.trt }} ./build_tools/scripts/cicd_build_test.sh
 
       # Run ASAN tests
       - name: ASAN-test-${{ matrix.arch }}-cu${{ matrix.cuda }}-trt${{ matrix.trt }}
@@ -108,7 +112,33 @@ jobs:
           set -euo pipefail
           set -x
           cd mlir-tensorrt
-          DOWNLOAD_TENSORRT_VERSION=${{ matrix.trt }} ENABLE_ASAN=ON ./build_tools/scripts/cicd_build.sh
+          DOWNLOAD_TENSORRT_VERSION=${{ matrix.trt }} \
+          CMAKE_PRESET=github-cicd-with-asan \
+          ./build_tools/scripts/cicd_build_test.sh
+
+      # Run Long tests
+      - name: long-test-${{ matrix.arch }}-cu${{ matrix.cuda }}-trt${{ matrix.trt }}
+        # TODO: for testing purpose, will remove this after testing
+        if: ${{ always() }}
+        run: |
+          set -euo pipefail
+          set -x
+          cd mlir-tensorrt
+          DOWNLOAD_TENSORRT_VERSION=${{ matrix.trt }} \
+          CMAKE_PRESET=github-cicd-with-long-tests\
+          ./build_tools/scripts/cicd_build_test.sh
+
+      # Run NCCL Long tests
+      - name: nccl-long-test-${{ matrix.arch }}-cu${{ matrix.cuda }}-trt${{ matrix.trt }}
+        # TODO: for testing purpose, will remove this after testing
+        if: ${{ always() }}
+        run: |
+          set -euo pipefail
+          set -x
+          cd mlir-tensorrt
+          DOWNLOAD_TENSORRT_VERSION=${{ matrix.trt }} \
+          CMAKE_PRESET=github-cicd-with-nccl-long-tests\
+          ./build_tools/scripts/cicd_build_test.sh
 
       # Build wheels
       - name: build-wheel-${{ matrix.arch }}-cu${{ matrix.cuda }}-trt${{ matrix.trt }}
