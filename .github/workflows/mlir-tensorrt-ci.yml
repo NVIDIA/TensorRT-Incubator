@@ -24,32 +24,33 @@ jobs:
   format-check:
     name: Lint Check
     runs-on: ubuntu-latest
+    container:
+      image: ${{ env.DEFAULT_IMAGE }}
     steps:
       - name: checkout TensorRT-Incubator
         uses: actions/checkout@v4
         with:
           fetch-depth: 5
       - name: Run python format and clang check
-        uses: addnab/docker-run-action@v3
-        with:
-          image: ${{ env.DEFAULT_IMAGE }}
-          options: -v ${{ github.workspace }}:/tensorrt-incubator
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-          run: |
-            set -euo pipefail
-            set -x
-            cd /tensorrt-incubator
-            git config --global --add safe.directory /tensorrt-incubator
-            uvx -p 3.12 black --check --extend-exclude='.*\.pyi' \
-            mlir-tensorrt/compiler/ mlir-tensorrt/integrations/python/
-            git clang-format HEAD~1 --diff
+        shell: bash
+        run: |
+          set -euo pipefail
+          set -x
+
+          git config --global --add safe.directory ${{ github.workspace }}
+          echo "Running in workspace: ${{ github.workspace }}"
+          echo "pwd: $(pwd)"
+          uv venv .venv || { echo "Failed to create virtual environment"; exit 1; }
+          source .venv/bin/activate || { echo "Failed to activate virtual environment"; exit 1; }
+          uv pip install black
+          uv run black --check --extend-exclude='.*\.pyi' \
+          mlir-tensorrt/compiler/ mlir-tensorrt/integrations/python/
+          uv run git clang-format HEAD~1 --diff
 
   generate-matrix:
     name: Generate Build Matrix
     runs-on: ubuntu-latest
-    needs: format-check
+    #needs: format-check
     outputs:
       matrix: ${{ steps.generate.outputs.matrix }}
       channel: ${{ steps.generate.outputs.channel }}
