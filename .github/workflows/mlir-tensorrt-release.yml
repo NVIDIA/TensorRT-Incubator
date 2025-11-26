@@ -42,7 +42,7 @@ jobs:
       - name: Checkout TensorRT-Incubator
         uses: actions/checkout@v4
         with:
-          path: ${{ github.workspace }}/tensorrt-incubator
+          repository: NVIDIA/TensorRT-Incubator
 
       # Create cache folders
       - name: Create Cache Folders
@@ -95,8 +95,7 @@ jobs:
         run: |
           set -euo pipefail
           set -x
-          echo "pwd: $PWD"
-          cd ${{ github.workspace }}/tensorrt-incubator/mlir-tensorrt
+          cd mlir-tensorrt
           DOWNLOAD_TENSORRT_VERSION=${{ matrix.trt }} \
           WHEELS_DIR=${PWD}/.wheels \
           ./build_tools/scripts/cicd_build_wheels.sh

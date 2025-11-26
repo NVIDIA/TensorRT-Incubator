@@ -40,8 +40,6 @@ jobs:
       # Checkout the repository
       - name: Checkout TensorRT-Incubator
         uses: actions/checkout@v4
-        with:
-          path: ${{ github.workspace }}/tensorrt-incubator
 
       # Create cache folders
       - name: Create Cache Folders
@@ -70,7 +68,8 @@ jobs:
           set -x
           echo "pwd: $PWD"
           ls -lart
-          cd ${{ github.workspace }}/tensorrt-incubator/mlir-tensorrt
+          echo "github.workspace: ${{ github.workspace }}"
+          cd mlir-tensorrt
           ls -lart
           ls -lart build_tools/scripts
           # Build only, skip tests
