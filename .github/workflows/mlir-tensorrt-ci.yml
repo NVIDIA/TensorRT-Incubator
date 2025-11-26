@@ -37,14 +37,13 @@ jobs:
           set -euo pipefail
           set -x
 
-          git config --global --add safe.directory ${{ github.workspace }}
-          echo "Running in workspace: ${{ github.workspace }}"
-          echo "pwd: $(pwd)"
           uv venv .venv || { echo "Failed to create virtual environment"; exit 1; }
           source .venv/bin/activate || { echo "Failed to activate virtual environment"; exit 1; }
           uv pip install black
           uv run black --check --extend-exclude='.*\.pyi' \
           mlir-tensorrt/compiler/ mlir-tensorrt/integrations/python/
+
+          git config --global --add safe.directory $(pwd)
           uv run git clang-format HEAD~1 --diff
 
   generate-matrix:

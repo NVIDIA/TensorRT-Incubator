@@ -27,9 +27,6 @@ jobs:
       CUDA_VERSION: ${{ matrix.cuda }}
       # eg. TENSORRT_VERSION: 10.12 or 10.13
       TENSORRT_VERSION: ${{ matrix.trt }}
-      # align caches with restored paths
-      CCACHE_DIR: "${{ github.workspace }}/mlir-tensorrt/ccache"
-      CPM_SOURCE_CACHE: "${{ github.workspace }}/mlir-tensorrt/.cache.cpm"
       # eg. CHANNEL: nightly, test or release
       CHANNEL: ${{ inputs.channel }}
     runs-on: ${{ matrix.runner }}
@@ -46,8 +43,8 @@ jobs:
         run: |
           set -euo pipefail
           set -x
-          mkdir -p ${{ github.workspace }}/mlir-tensorrt/ccache
-          mkdir -p ${{ github.workspace }}/mlir-tensorrt/.cache.cpm
+          mkdir -p mlir-tensorrt/ccache
+          mkdir -p mlir-tensorrt/.cache.cpm
 
       # Restore cache, if exists.
       - name: Restore Cache
@@ -57,9 +54,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-mlir-tensorrt-cache-
           path: |
-            ${{ github.workspace }}/mlir-tensorrt/ccache
-            ${{ github.workspace }}/mlir-tensorrt/.cache.cpm/*
-            !${{ github.workspace }}/mlir-tensorrt/.cache.cpm/tensorrt
+            mlir-tensorrt/ccache
+            mlir-tensorrt/.cache.cpm/*
+            !mlir-tensorrt/.cache.cpm/tensorrt
 
       # Build the project
       - name: Build With CUDA:${{ matrix.cuda }} + TensorRT:${{ matrix.trt }}
@@ -77,9 +74,9 @@ jobs:
         with:
           key: ${{ runner.os }}-mlir-tensorrt-cache-${{ hashFiles('mlir-tensorrt/**/*.cpp', 'mlir-tensorrt/**/*.h', 'mlir-tensorrt/build_tools/**/*') }}
           path: |
-            ${{ github.workspace }}/mlir-tensorrt/ccache
-            ${{ github.workspace }}/mlir-tensorrt/.cache.cpm/*
-            !${{ github.workspace }}/mlir-tensorrt/.cache.cpm/tensorrt
+            mlir-tensorrt/ccache
+            mlir-tensorrt/.cache.cpm/*
+            !mlir-tensorrt/.cache.cpm/tensorrt
 
       # Run tests
       - name: Run Basic Tests With CUDA:${{ matrix.cuda }} + TensorRT:${{ matrix.trt }}

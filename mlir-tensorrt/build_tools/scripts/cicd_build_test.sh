@@ -155,10 +155,14 @@ install_python_dependencies() {
     return 1
   fi
   log_info "Installing Python dependencies..."
-  if [[ -d "${REPO_ROOT}/.venv" ]]; then
-    rm -rf "${REPO_ROOT}/.venv"
+  # Always recreate a clean venv for this script run.
+  if [[ -n "${VIRTUAL_ENV:-}" ]]; then
+    log_warn "Deactivating currently active virtual environment: ${VIRTUAL_ENV}"
+    deactivate >/dev/null 2>&1 || true
   fi
+  rm -rf "${REPO_ROOT}/.venv" || true
   uv venv "${REPO_ROOT}/.venv" || { log_error "uv venv failed under ${REPO_ROOT}"; return 1; }
+  # shellcheck disable=SC1091
   source "${REPO_ROOT}/.venv/bin/activate" || { log_error "failed to activate virtual environment"; return 1; }
   local frozen_flag=""
   if [[ -f "uv.lock" ]]; then
