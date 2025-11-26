@@ -16,6 +16,10 @@ env:
   DEFAULT_IMAGE: ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda12.9-ubuntu-llvm17
   REGISTRY: ghcr.io
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   format-check:
     name: Lint Check

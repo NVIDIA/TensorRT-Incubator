@@ -68,7 +68,11 @@ jobs:
         run: |
           set -euo pipefail
           set -x
+          echo "pwd: $PWD"
+          ls -lart
           cd ${{ github.workspace }}/tensorrt-incubator/mlir-tensorrt
+          ls -lart
+          ls -lart build_tools/scripts
           # Build only, skip tests
           SKIP_TESTS=1 \
           ./build_tools/scripts/cicd_build_test.sh
@@ -84,7 +88,7 @@ jobs:
             !${{ github.workspace }}/tensorrt-incubator/mlir-tensorrt/.cache.cpm/tensorrt
 
       # Run tests
-      - name: Run Basic Tests
+      - name: Run Basic Tests With CUDA:${{ matrix.cuda }} + TensorRT:${{ matrix.trt }}
         id: basic-tests
         run: |
           set -euo pipefail
@@ -94,7 +98,7 @@ jobs:
           ./build_tools/scripts/cicd_build_test.sh
 
       # Run ASAN tests
-      - name: Run ASAN Tests
+      - name: Run ASAN Tests With CUDA:${{ matrix.cuda }} + TensorRT:${{ matrix.trt }}
         id: asan-tests
         if: ${{ always() && (inputs.channel == 'nightly' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'ASAN_TEST'))) }}
         run: |
@@ -105,7 +109,7 @@ jobs:
           ./build_tools/scripts/cicd_build_test.sh
 
       # Run Long tests
-      - name: Run Long Tests
+      - name: Run Long Tests With CUDA:${{ matrix.cuda }} + TensorRT:${{ matrix.trt }}
         id: long-tests
         if: ${{ always() && (inputs.channel == 'nightly' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'LONG_TEST'))) }}
         run: |
@@ -116,7 +120,7 @@ jobs:
           ./build_tools/scripts/cicd_build_test.sh
 
       # Run NCCL Long tests
-      - name: Run NCCL Long Tests
+      - name: Run NCCL Long Tests With CUDA:${{ matrix.cuda }} + TensorRT:${{ matrix.trt }}
         id: nccl-long-tests
         if: ${{ always() && (inputs.channel == 'nightly' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'NCCL_LONG_TEST'))) }}
         run: |
@@ -127,7 +131,7 @@ jobs:
           ./build_tools/scripts/cicd_build_test.sh
 
       # Build wheels
-      - name: Build Wheels
+      - name: Build Wheels With CUDA:${{ matrix.cuda }} + TensorRT:${{ matrix.trt }}
         id: build-wheels
         if: ${{ always() && inputs.channel == 'nightly' }}
         run: |
@@ -149,6 +153,15 @@ jobs:
           done
           # TODO: add smoke test for the wheel
 
+      # Build distribution tar.gz with CUDA:${{ matrix.cuda }} + TensorRT:${{ matrix.trt }}
+      - name: Build Distribution Tar.gz With CUDA:${{ matrix.cuda }} + TensorRT:${{ matrix.trt }}
+        id: build-distribution
+        if: ${{ always() && inputs.channel == 'nightly' }}
+        run: |
+          set -euo pipefail
+          set -x
+          cd ${{ github.workspace }}/tensorrt-incubator/mlir-tensorrt
+          ./build_tools/scripts/cicd_build_distribution.sh
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}-mlir-tensorrt-${{ inputs.channel }}
