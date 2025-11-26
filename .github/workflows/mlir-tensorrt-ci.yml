@@ -49,14 +49,14 @@ jobs:
   generate-matrix:
     name: Generate Build Matrix
     runs-on: ubuntu-latest
+    needs: format-check
     outputs:
       matrix: ${{ steps.generate.outputs.matrix }}
       channel: ${{ steps.generate.outputs.channel }}
     steps:
       - name: Checkout TensorRT-Incubator
         uses: actions/checkout@v4
-        with:
-          path: ${{ github.workspace }}/tensorrt-incubator
+
       - name: Generate Build Matrix
         id: generate
         run: |
@@ -68,7 +68,7 @@ jobs:
           elif [ "${GITHUB_REF_TYPE:-}" = "tag" ]; then
             CHANNEL="release"
           fi
-          MATRIX_BLOB="$(python3 ${{ github.workspace }}/tensorrt-incubator/.github/workflows/mlir-tensorrt/generate-matrix.py --channel "${CHANNEL}")"
+          MATRIX_BLOB="$(python3 ./.github/workflows/mlir-tensorrt/generate-matrix.py --channel "${CHANNEL}")"
           echo "${MATRIX_BLOB}"
           echo "${CHANNEL}"
           echo "matrix=${MATRIX_BLOB}" >> "${GITHUB_OUTPUT}"

@@ -27,8 +27,8 @@ jobs:
       # eg. TENSORRT_VERSION: 10.12 or 10.13
       TENSORRT_VERSION: ${{ matrix.trt }}
       # align caches with restored paths
-      CCACHE_DIR: ${{ github.workspace }}/tensorrt-incubator/mlir-tensorrt/ccache
-      CPM_SOURCE_CACHE: ${{ github.workspace }}/tensorrt-incubator/mlir-tensorrt/.cache.cpm
+      CCACHE_DIR: ${{ github.workspace }}/mlir-tensorrt/ccache
+      CPM_SOURCE_CACHE: ${{ github.workspace }}/mlir-tensorrt/.cache.cpm
       # eg. ARCH: x86_64 or aarch64
       ARCH: ${{ matrix.arch }}
       # eg. CHANNEL: nightly, test or release
@@ -41,16 +41,14 @@ jobs:
       # Checkout the repository
       - name: Checkout TensorRT-Incubator
         uses: actions/checkout@v4
-        with:
-          repository: NVIDIA/TensorRT-Incubator
 
       # Create cache folders
       - name: Create Cache Folders
         run: |
           set -euo pipefail
           set -x
-          mkdir -p ${{ github.workspace }}/tensorrt-incubator/mlir-tensorrt/ccache
-          mkdir -p ${{ github.workspace }}/tensorrt-incubator/mlir-tensorrt/.cache.cpm
+          mkdir -p ${{ github.workspace }}/mlir-tensorrt/ccache
+          mkdir -p ${{ github.workspace }}/mlir-tensorrt/.cache.cpm
 
       # Restore cache, if exists.
       - name: Restore Cache
@@ -77,7 +75,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: mlir-tensorrt-${{ matrix.arch }}-linux-cuda${{ matrix.cuda }}-tensorrt${{ matrix.trt }}.tar.gz
-          path: ${{ github.workspace }}/tensorrt-incubator/mlir-tensorrt/install/
+          path: ${{ github.workspace }}/mlir-tensorrt/install/
 
       # Save cache
       - name: Save Cache
@@ -85,12 +83,12 @@ jobs:
         with:
           key: ${{ runner.os }}-mlir-tensorrt-cache-${{ hashFiles('mlir-tensorrt/**/*.cpp', 'mlir-tensorrt/**/*.h', 'mlir-tensorrt/build_tools/**/*') }}
           path: |
-            ${{ github.workspace }}/tensorrt-incubator/mlir-tensorrt/ccache
-            ${{ github.workspace }}/tensorrt-incubator/mlir-tensorrt/.cache.cpm/*
-            !${{ github.workspace }}/tensorrt-incubator/mlir-tensorrt/.cache.cpm/tensorrt
+            ${{ github.workspace }}/mlir-tensorrt/ccache
+            ${{ github.workspace }}/mlir-tensorrt/.cache.cpm/*
+            !${{ github.workspace }}/mlir-tensorrt/.cache.cpm/tensorrt
 
       # Build wheels
-      - name: Build Wheels
+      - name: Build Wheels With CUDA:${{ matrix.cuda }} + TensorRT:${{ matrix.trt }}
         id: build-wheels
         run: |
           set -euo pipefail
@@ -101,12 +99,15 @@ jobs:
           ./build_tools/scripts/cicd_build_wheels.sh
 
       # Smoke test the wheels built
-      - name: smoke-test-wheel-${{ matrix.cuda }}-trt${{ matrix.trt }}
+      - name: Smoke Test Wheels
+        id: smoke-test-wheels
         run: |
           set -euo pipefail
           set -x
-          cd ${{ github.workspace }}/tensorrt-incubator/mlir-tensorrt
-          python3 -m pip install .wheels/mlir_tensorrt-*.whl
+          cd mlir-tensorrt
+          for whl in .wheels/*.whl; do
+            uv pip install "$whl"
+          done
           # TODO: add smoke test for the wheel
 
       # Upload wheels to GitHub Actions artifact
@@ -114,7 +115,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: release-wheels-${{ matrix.arch }}-cu${{ matrix.cuda }}-trt${{ matrix.trt }}
-          path: ${{ github.workspace }}/tensorrt-incubator/mlir-tensorrt/.wheels/
+          path: ${{ github.workspace }} /mlir-tensorrt/.wheels/
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}-mlir-tensorrt-release

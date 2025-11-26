@@ -28,8 +28,8 @@ jobs:
       # eg. TENSORRT_VERSION: 10.12 or 10.13
       TENSORRT_VERSION: ${{ matrix.trt }}
       # align caches with restored paths
-      CCACHE_DIR: ${{ github.workspace }}/tensorrt-incubator/mlir-tensorrt/ccache
-      CPM_SOURCE_CACHE: ${{ github.workspace }}/tensorrt-incubator/mlir-tensorrt/.cache.cpm
+      CCACHE_DIR: "${{ github.workspace }}/mlir-tensorrt/ccache"
+      CPM_SOURCE_CACHE: "${{ github.workspace }}/mlir-tensorrt/.cache.cpm"
       # eg. CHANNEL: nightly, test or release
       CHANNEL: ${{ inputs.channel }}
     runs-on: ${{ matrix.runner }}
@@ -46,8 +46,8 @@ jobs:
         run: |
           set -euo pipefail
           set -x
-          mkdir -p ${{ github.workspace }}/tensorrt-incubator/mlir-tensorrt/ccache
-          mkdir -p ${{ github.workspace }}/tensorrt-incubator/mlir-tensorrt/.cache.cpm
+          mkdir -p ${{ github.workspace }}/mlir-tensorrt/ccache
+          mkdir -p ${{ github.workspace }}/mlir-tensorrt/.cache.cpm
 
       # Restore cache, if exists.
       - name: Restore Cache
@@ -57,21 +57,16 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-mlir-tensorrt-cache-
           path: |
-            ${{ github.workspace }}/tensorrt-incubator/mlir-tensorrt/ccache
-            ${{ github.workspace }}/tensorrt-incubator/mlir-tensorrt/.cache.cpm/*
-            !${{ github.workspace }}/tensorrt-incubator/mlir-tensorrt/.cache.cpm/tensorrt
+            ${{ github.workspace }}/mlir-tensorrt/ccache
+            ${{ github.workspace }}/mlir-tensorrt/.cache.cpm/*
+            !${{ github.workspace }}/mlir-tensorrt/.cache.cpm/tensorrt
 
       # Build the project
       - name: Build With CUDA:${{ matrix.cuda }} + TensorRT:${{ matrix.trt }}
         run: |
           set -euo pipefail
           set -x
-          echo "pwd: $PWD"
-          ls -lart
-          echo "github.workspace: ${{ github.workspace }}"
           cd mlir-tensorrt
-          ls -lart
-          ls -lart build_tools/scripts
           # Build only, skip tests
           SKIP_TESTS=1 \
           ./build_tools/scripts/cicd_build_test.sh
@@ -82,9 +77,9 @@ jobs:
         with:
           key: ${{ runner.os }}-mlir-tensorrt-cache-${{ hashFiles('mlir-tensorrt/**/*.cpp', 'mlir-tensorrt/**/*.h', 'mlir-tensorrt/build_tools/**/*') }}
           path: |
-            ${{ github.workspace }}/tensorrt-incubator/mlir-tensorrt/ccache
-            ${{ github.workspace }}/tensorrt-incubator/mlir-tensorrt/.cache.cpm/*
-            !${{ github.workspace }}/tensorrt-incubator/mlir-tensorrt/.cache.cpm/tensorrt
+            ${{ github.workspace }}/mlir-tensorrt/ccache
+            ${{ github.workspace }}/mlir-tensorrt/.cache.cpm/*
+            !${{ github.workspace }}/mlir-tensorrt/.cache.cpm/tensorrt
 
       # Run tests
       - name: Run Basic Tests With CUDA:${{ matrix.cuda }} + TensorRT:${{ matrix.trt }}
@@ -92,7 +87,7 @@ jobs:
         run: |
           set -euo pipefail
           set -x
-          cd ${{ github.workspace }}/tensorrt-incubator/mlir-tensorrt
+          cd mlir-tensorrt
           # run tests
           ./build_tools/scripts/cicd_build_test.sh
 
@@ -103,7 +98,7 @@ jobs:
         run: |
           set -euo pipefail
           set -x
-          cd ${{ github.workspace }}/tensorrt-incubator/mlir-tensorrt
+          cd mlir-tensorrt
           CMAKE_PRESET=github-cicd-with-asan \
           ./build_tools/scripts/cicd_build_test.sh
 
@@ -114,7 +109,7 @@ jobs:
         run: |
           set -euo pipefail
           set -x
-          cd ${{ github.workspace }}/tensorrt-incubator/mlir-tensorrt
+          cd mlir-tensorrt
           CMAKE_PRESET=github-cicd-with-long-tests \
           ./build_tools/scripts/cicd_build_test.sh
 
@@ -125,7 +120,7 @@ jobs:
         run: |
           set -euo pipefail
           set -x
-          cd ${{ github.workspace }}/tensorrt-incubator/mlir-tensorrt
+          cd mlir-tensorrt
           CMAKE_PRESET=github-cicd-with-nccl-long-tests \
           ./build_tools/scripts/cicd_build_test.sh
 
@@ -136,7 +131,7 @@ jobs:
         run: |
           set -euo pipefail
           set -x
-          cd ${{ github.workspace }}/tensorrt-incubator/mlir-tensorrt
+          cd mlir-tensorrt
           ./build_tools/scripts/cicd_build_wheels.sh
 
       # Smoke test the wheels built
@@ -146,7 +141,7 @@ jobs:
         run: |
           set -euo pipefail
           set -x
-          cd ${{ github.workspace }}/tensorrt-incubator/mlir-tensorrt
+          cd mlir-tensorrt
           for whl in .wheels/*.whl; do
             uv pip install "$whl"
           done
@@ -159,7 +154,7 @@ jobs:
         run: |
           set -euo pipefail
           set -x
-          cd ${{ github.workspace }}/tensorrt-incubator/mlir-tensorrt
+          cd mlir-tensorrt
           ./build_tools/scripts/cicd_build_distribution.sh
 
 concurrency:
