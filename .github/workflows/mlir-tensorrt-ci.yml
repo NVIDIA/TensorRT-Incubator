@@ -25,7 +25,7 @@ jobs:
     name: Lint Check
     runs-on: ubuntu-latest
     container:
-      image: ${{ env.DEFAULT_IMAGE }}
+      image: ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda12.9-ubuntu-llvm17
     steps:
       - name: checkout TensorRT-Incubator
         uses: actions/checkout@v4
