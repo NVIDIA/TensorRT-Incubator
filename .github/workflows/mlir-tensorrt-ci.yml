@@ -49,7 +49,7 @@ jobs:
   generate-matrix:
     name: Generate Build Matrix
     runs-on: ubuntu-latest
-    #needs: format-check
+    needs: format-check
     outputs:
       matrix: ${{ steps.generate.outputs.matrix }}
       channel: ${{ steps.generate.outputs.channel }}

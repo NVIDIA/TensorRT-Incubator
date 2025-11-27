@@ -64,6 +64,13 @@ jobs:
           set -euo pipefail
           set -x
           cd mlir-tensorrt
+          echo "github.event_name:${{github.event_name}}"
+          echo "github.event.pull_request.title:${{ github.event.pull_request.title }}"
+          echo "github.event.pull_request.number:${{ github.event.pull_request.number }}"
+          echo "${{ toJSON(github.event.pull_request.labels) }}"
+          echo "github.event.pull_request.labels:${{ toJSON(github.event.pull_request.labels) }}"
+          echo "github.event.pull_request.head.ref:${{ github.event.pull_request.head.ref}}"
+          echo "github.event.pull_request.base.ref:${{ github.event.pull_request.base.ref}}"
           # Build only, skip tests
           SKIP_TESTS=1 \
           ./build_tools/scripts/cicd_build_test.sh
