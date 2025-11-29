@@ -530,6 +530,11 @@ registerCudaMemoryManagementOps(sol::state_view &lua,
   };
 }
 
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmissing-prototypes"
+#endif
+
 namespace mtrt {
 void registerLuaCudaRuntimeExtension() {
   registerLuaRuntimeExtension(

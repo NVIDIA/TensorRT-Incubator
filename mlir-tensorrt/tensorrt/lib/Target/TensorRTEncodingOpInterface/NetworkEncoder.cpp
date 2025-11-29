@@ -376,7 +376,7 @@ nvinfer1::ILayer *NvInferNetworkEncoder::addDequantizeLayer(
 #endif
 }
 
-nvinfer1::IFillLayer *populateFillLayerParameters(
+static nvinfer1::IFillLayer *populateFillLayerParameters(
     nvinfer1::IFillLayer *layer, const nvinfer1::Dims &staticShape,
     nvinfer1::ITensor *dynamicShape, std::optional<double> alpha,
     std::optional<double> beta, nvinfer1::ITensor *dynamicAlpha,

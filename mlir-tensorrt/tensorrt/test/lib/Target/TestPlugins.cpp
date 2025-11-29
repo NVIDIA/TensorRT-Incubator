@@ -601,6 +601,11 @@ REGISTER_TENSORRT_PLUGIN(TestQuickPluginCreator);
 REGISTER_TENSORRT_PLUGIN(TestQuickShapePluginCreator);
 #endif // MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 9, 0)
 
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmissing-prototypes"
+#endif
+
 extern "C" {
 /// Provide an exported C-style function for creating the plugin creator.
 TENSORRTTESTPLUGINS_EXPORT nvinfer1::IPluginCreatorInterface *
