@@ -65,7 +65,7 @@ int32_t mtrt_cuda_set_active_device(int32_t device) {
   return device;
 }
 
-int32_t mtrt_get_device(int32_t device) { return device; }
+int32_t mtrt_cuda_get_device(int32_t device) { return device; }
 
 CUstream mtrt_cuda_stream_create() {
   CUstream stream;
@@ -106,12 +106,6 @@ void mtrt_cuda_free(CUstream stream, void *ptr, int8_t isHostPinned,
     return;
   }
   HANDLE_CUDART_ERROR(cudaFreeAsync(ptr, stream), );
-}
-
-CUfunction mtrt_cumodule_load_func(CUmodule module, const char *funcName) {
-  CUfunction func;
-  cuModuleGetFunction(&func, module, funcName);
-  return func;
 }
 
 static StatusOr<std::string> getDeviceArch(int32_t deviceNumber) {
