@@ -1,6 +1,6 @@
 //===- TestBoundsAnalysis.cpp ---------------------------------------------===//
 //
-// Copyright (c) 2024, NVIDIA CORPORATION. All rights reserved.
+// Copyright (c) 2024-2025, NVIDIA CORPORATION. All rights reserved.
 //
 //===----------------------------------------------------------------------===//
 ///
@@ -19,6 +19,10 @@
 
 using namespace mlir;
 using namespace mlir::dataflow;
+
+namespace mlir {
+void registerTestBoundsAnalysisPass();
+}
 
 /// Print out the lattice information for the given value `v`.
 template <typename T>
@@ -135,9 +139,7 @@ struct TestTensorValueBoundsAnalysisPass
 };
 } // namespace
 
-namespace mlir {
-void registerTestBoundsAnalysisPass() {
+void mlir::registerTestBoundsAnalysisPass() {
   PassRegistration<TestBoundsAnalysisPass>();
   PassRegistration<TestTensorValueBoundsAnalysisPass>();
 }
-} // namespace mlir

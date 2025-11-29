@@ -35,7 +35,7 @@ static Status makeCudaStringError(cudaError_t errCode,
 }
 #endif // MLIR_TRT_ENABLE_CUDA
 
-static StatusOr<DeviceInfo>
+[[maybe_unused]] static StatusOr<DeviceInfo>
 getDeviceInformationFromHostImpl(int cudaDeviceOridinal) {
 #ifdef MLIR_TRT_ENABLE_CUDA
   cudaDeviceProp properties;

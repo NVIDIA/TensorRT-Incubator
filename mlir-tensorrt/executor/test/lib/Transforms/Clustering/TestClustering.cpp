@@ -1,6 +1,6 @@
 //===- TestClustering.cpp  ------------------------------------------------===//
 //
-// Copyright (c) 2023, NVIDIA CORPORATION. All rights reserved.
+// Copyright (c) 2023-2025, NVIDIA CORPORATION. All rights reserved.
 //
 //===----------------------------------------------------------------------===//
 ///
@@ -23,8 +23,12 @@
 
 using namespace mlir;
 
-scf::ExecuteRegionOp createScfRegionOpFromCluster(const Cluster &cluster,
-                                                  RewriterBase &rewriter) {
+namespace mlir::executor {
+void registerTestClusteringTransformPass();
+}
+
+static scf::ExecuteRegionOp
+createScfRegionOpFromCluster(const Cluster &cluster, RewriterBase &rewriter) {
   return cast<scf::ExecuteRegionOp>(mlir::createRegionOpFromCluster(
       cluster, rewriter,
       [](OpBuilder &b, Location loc, TypeRange types, Attribute target) {
@@ -215,8 +219,6 @@ public:
 };
 } // namespace
 
-namespace mlir::executor {
-void registerTestClusteringTransformPass() {
+void executor::registerTestClusteringTransformPass() {
   PassRegistration<TestClusteringPass>();
 }
-} // namespace mlir::executor

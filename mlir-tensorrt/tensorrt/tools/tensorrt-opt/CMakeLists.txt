@@ -15,7 +15,4 @@ mtrt_add_tool(tensorrt-opt tensorrt-opt.cpp
 )
 target_link_libraries(tensorrt-opt PRIVATE
   ${MTRTD_TEST_LIBS}
-  # TODO: this library is actually in the `compiler/` sub-project;
-   # we need to refactor this library locaiton.
-  MLIRTensorRTTestTensorKindAnalysis
   )

@@ -1,6 +1,6 @@
 //===- Executable.cpp ------ ----------------------------------------------===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -549,7 +549,7 @@ struct CompletionToken
 // completes. userData is a heap-allocated pointer to
 // std::shared_ptr<CompletionToken<T>>. Implementation posts a small job to IO
 // thread pool and returns.
-void cuda_event_host_callback(void *userData) {
+static void cuda_event_host_callback(void *userData) {
   // // userData is pointer-to-heap-allocated Ref<CompletionToken>.
   Ref<CompletionToken> *tokenPtr =
       static_cast<Ref<CompletionToken> *>(userData);

@@ -2011,7 +2011,8 @@ void tensorrt::IfOp::build(
 /// https://docs.nvidia.com/deeplearning/tensorrt/operators/index.html#layers-flow-control-constructs
 /// However, it is missing some checks on convolution/activation/fill/unary ops
 /// and therefore may give false positives.
-bool isOperationSupportedInControlFlowBranchRegion(TensorRTOpInterface op) {
+static bool
+isOperationSupportedInControlFlowBranchRegion(TensorRTOpInterface op) {
   return !isa<PaddingOp, DeconvolutionOp, ParametricReLUOp, PoolingOp,
               RaggedSoftMaxOp, ResizeNearestOp, ResizeLinearOp, ResizeCubicOp>(
       op);
