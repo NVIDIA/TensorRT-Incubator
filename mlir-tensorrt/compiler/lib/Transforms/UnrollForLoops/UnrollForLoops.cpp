@@ -87,9 +87,9 @@ static std::string printWithoutRegions(Operation *op) {
 /// Unrolls `op` if its trip count is static and less than `unrollThreshold`.
 /// Returns `success()` if the loop is unrolled or ignored, `failure()` if the
 /// transformation fails.
-LogicalResult unrollForLoopWithStaticTripCount(IRRewriter &rewriter,
-                                               scf::ForOp op,
-                                               uint64_t unrollThreshold) {
+static LogicalResult
+unrollForLoopWithStaticTripCount(IRRewriter &rewriter, scf::ForOp op,
+                                 uint64_t unrollThreshold) {
   std::optional<int64_t> tripCount = getConstantTripCount(op);
   if (!tripCount)
     return success();

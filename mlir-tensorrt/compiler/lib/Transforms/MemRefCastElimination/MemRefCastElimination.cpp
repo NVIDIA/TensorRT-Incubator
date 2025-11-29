@@ -1,6 +1,6 @@
 //===- MemRefCastElimination.cpp ------------------------------------------===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -41,7 +41,7 @@ using namespace mlir;
 /// "then" and "else" terminator operands are produced by "compatible" cast
 /// operations that can be moved to act on the result of the if. The types of
 /// the new `scf.if` operation are returned as well.
-FailureOr<std::pair<SmallVector<int64_t>, SmallVector<Type>>>
+static FailureOr<std::pair<SmallVector<int64_t>, SmallVector<Type>>>
 isCastEliminationCandidate(scf::IfOp op) {
   SmallVector<int64_t> resultIndices;
   SmallVector<Type> newResultTypes;

@@ -7,14 +7,14 @@
 // https://github.com/openxla/xla/blob/main/LICENSE for the license
 // information.
 //
-// Changes are copyright (c) 2024, NVIDIA CORPORATION. All rights reserved.
+// Changes are copyright (c) 2024-2025, NVIDIA CORPORATION. All rights reserved.
 //
 //===----------------------------------------------------------------------===//
 ///
 /// Implementation of a pass to convert stablehlo control flow ops to scf ops.
 ///
 //===----------------------------------------------------------------------===//
-
+#include "mlir-tensorrt/Conversion/Passes.h"
 #include "mlir-tensorrt/Transforms/Transforms.h"
 #include "mlir/Analysis/SliceAnalysis.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"

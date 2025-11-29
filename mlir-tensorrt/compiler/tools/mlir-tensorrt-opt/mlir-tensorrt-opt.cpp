@@ -31,8 +31,10 @@ using namespace llvm;
 
 #ifdef MLIR_TRT_ENABLE_TESTING
 namespace mlir {
+namespace tensorrt {
 void registerTestTensorKindAnalysisPass();
 void registerTestTensorRTShapeInferencePass();
+} // namespace tensorrt
 
 #ifdef MLIR_TRT_ENABLE_HLO
 void registerTestBoundsAnalysisPass();
@@ -40,8 +42,8 @@ void registerTestBoundsAnalysisPass();
 } // namespace mlir
 
 static void registerTestPasses() {
-  mlir::registerTestTensorKindAnalysisPass();
-  mlir::registerTestTensorRTShapeInferencePass();
+  mlir::tensorrt::registerTestTensorKindAnalysisPass();
+  mlir::tensorrt::registerTestTensorRTShapeInferencePass();
   IF_MLIR_TRT_ENABLE_HLO({ mlir::registerTestBoundsAnalysisPass(); });
 }
 #endif // MLIR_TRT_ENABLE_TESTING

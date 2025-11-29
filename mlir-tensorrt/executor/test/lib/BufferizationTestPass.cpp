@@ -1,6 +1,6 @@
 //===- BufferizationTestPass.cpp ------------------------------------------===//
 //
-// Copyright (c) 2024, NVIDIA CORPORATION. All rights reserved.
+// Copyright (c) 2024-2025, NVIDIA CORPORATION. All rights reserved.
 //
 //===----------------------------------------------------------------------===//
 ///
@@ -21,6 +21,10 @@
 
 using namespace mlir;
 using namespace mlir::executor;
+
+namespace mlir::executor {
+void registerTestExecutorBufferizePass();
+}
 
 namespace {
 class ExecutorBufferizationTestPass
@@ -55,8 +59,7 @@ public:
 };
 } // namespace
 
-namespace mlir::executor {
-void registerTestExecutorBufferizePass() {
+void executor::registerTestExecutorBufferizePass() {
   PassRegistration<ExecutorBufferizationTestPass>();
 
   PassPipelineRegistration<> executorBufferizationPipeline(
@@ -71,4 +74,3 @@ void registerTestExecutorBufferizePass() {
         pm.addPass(createCanonicalizerPass());
       });
 }
-} // namespace mlir::executor

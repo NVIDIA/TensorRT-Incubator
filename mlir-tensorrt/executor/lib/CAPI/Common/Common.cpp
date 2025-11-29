@@ -1,6 +1,6 @@
-//===- Common.cpp -----0---------------------------------------------------===//
+//===- Common.cpp ---------------------------------------------------------===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -398,7 +398,7 @@ mtrtFunctionSignatureGetNumOutputArgs(MTRT_FunctionSignature signature,
   return mtrtStatusGetOk();
 }
 
-MTRT_Status getTypeHelper(TypeUnionView typeUnionView, MTRT_Type *type) {
+static MTRT_Status getTypeHelper(TypeUnionView typeUnionView, MTRT_Type *type) {
   // Allocate the TypeUnion object, populate it by moving in the
   // concrete object, and release it to be owned by the CAPI object.
   auto typeUnion = std::make_unique<mtrt::flat::TypeUnion>();
@@ -466,8 +466,8 @@ mtrtFunctionSignatureGetShapeFuncName(MTRT_FunctionSignature signature,
   return mtrtStatusGetOk();
 }
 
-MTRT_Status getBoundsHelper(BoundsUnionView boundsUnionView,
-                            MTRT_Bounds *bounds) {
+static MTRT_Status getBoundsHelper(BoundsUnionView boundsUnionView,
+                                   MTRT_Bounds *bounds) {
   // Allocate the BoundsUnion object, populate it by moving in the
   // concrete object, and release it to be owned by the CAPI object.
   auto boundsUnion = std::make_unique<mtrt::flat::BoundsUnion>();

@@ -297,7 +297,7 @@ convertFuncRegionTypes(RewriterBase &rewriter, FunctionOpInterface funcOp,
 /// change are RankedTensorTypes where the encoding has been updated. Therefore,
 /// we only insert `tensor.cast` operations to cast the values back to their
 /// original types.
-struct LogicalResult convertFuncUsers(RewriterBase &rewriter,
+static LogicalResult convertFuncUsers(RewriterBase &rewriter,
                                       FunctionOpInterface func,
                                       const SymbolUserMap &userMap) {
   OpBuilder::InsertionGuard g(rewriter);

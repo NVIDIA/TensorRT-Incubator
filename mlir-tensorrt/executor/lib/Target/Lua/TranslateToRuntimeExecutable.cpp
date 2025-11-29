@@ -1,6 +1,6 @@
 //===- TranslateToRuntimeExecutable.cpp -----------------------------------===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -479,7 +479,7 @@ static mtrt::flat::FunctionSignatureT generateSignature() {
   return signature;
 }
 
-LogicalResult
+static LogicalResult
 translateBoundsIfPresent(FunctionOpInterface func, unsigned argIndex,
                          mtrt::flat::FunctionSignatureT &signature,
                          bool isInput) {
