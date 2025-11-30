@@ -13,6 +13,57 @@ macro(mtrt_require_arch REQUIRED)
   endif()
 endmacro()
 
+# Get the CUDA version tag used when creating the TensorRT download URL.
+# Why have to rely on a hand-coded map from TRT version to CUDA version(s).
+# If multiple CUDA major versions are available (e.g. 12.9 and 13.0), we
+# check what version is used on the host CTK. Otherwise, if host CTK is
+# not found, use the lower version.
+function(mtrt_get_tensorrt_cuda_version trt_version out_var)
+  if(NOT CUDAToolkit_VERSION_MAJOR)
+    find_package(CUDAToolkit)
+  endif()
+
+  set(ctk_version "")
+  if(CUDAToolkit_FOUND)
+    set(ctk_version "${CUDAToolkit_VERSION_MAJOR}.${CUDAToolkit_VERSION_MINOR}")
+  endif()
+
+  set(trt_available_cuda_versions "")
+  if(trt_version VERSION_GREATER 10.2 AND
+     trt_version VERSION_LESS    10.4)
+    set(trt_available_cuda_versions "11.8;12.5")
+  elseif(trt_version VERSION_GREATER 10.4 AND
+         trt_version VERSION_LESS    10.8)
+    set(trt_available_cuda_versions "11.8;12.6")
+  elseif(trt_version VERSION_GREATER 10.7 AND
+         trt_version VERSION_LESS    10.10)
+    set(trt_available_cuda_versions "11.8;12.8")
+  elseif(trt_version VERSION_GREATER 10.10 AND
+         trt_version VERSION_LESS    10.13)
+    set(trt_available_cuda_versions "11.8;12.9")
+  elseif(trt_version VERSION_GREATER_EQUAL "10.13")
+    set(trt_available_cuda_versions "12.9;13.0")
+  else()
+    message(FATAL_ERROR "Could not determine available CUDA versions for TensorRT version ${trt_version}")
+  endif()
+
+  set(selected_cuda_version "")
+  if(ctk_version)
+    foreach(available_version IN_LISTS trt_available_cuda_versions)
+      if(ctk_version VERSION_LESS_EQUAL available_version)
+        set(selected_cuda_version "${available_version}")
+      endif()
+    endforeach()
+  endif()
+
+  if(NOT selected_cuda_version)
+    list(GET trt_available_cuda_versions 0 selected_cuda_version)
+  endif()
+
+  message(STATUS "Selected CUDA version tag for TensorRT ${trt_version} is ${selected_cuda_version}")
+  set("${out_var}" "${selected_cuda_version}" PARENT_SCOPE)
+endfunction()
+
 function(mtrt_get_tensorrt_download_url ARG_VERSION OS_NAME TARGET_ARCH ARG_OUT_VAR VERSION_OUT_VAR)
   if((NOT ARG_VERSION) OR (NOT ARG_OUT_VAR))
     message(FATAL_ERROR "Usage: get_tensorrt_download_url(version url_output_var)")
@@ -67,6 +118,9 @@ function(mtrt_get_tensorrt_download_url ARG_VERSION OS_NAME TARGET_ARCH ARG_OUT_
   if(ARG_VERSION VERSION_EQUAL "10.7")
     set(ARG_VERSION "10.7.0.23")
   endif()
+  if(ARG_VERSION VERSION_EQUAL "10.13")
+    set(ARG_VERSION "10.13.0.35")
+  endif()
 
   if(ARG_VERSION VERSION_EQUAL "10.8")
     set(ARG_VERSION "10.8.0.43")
@@ -111,8 +165,8 @@ function(mtrt_get_tensorrt_download_url ARG_VERSION OS_NAME TARGET_ARCH ARG_OUT_
 
   string(REGEX MATCH "[0-9]+\\.[0-9]+\\.[0-9]+" trt_short_version ${ARG_VERSION})
 
-  # Get the target arch name. On linux systems, this is equivalent to "uname -m".
-  # set(TARGET_ARCH "${CMAKE_SYSTEM_PROCESSOR}")
+  # Get the CUDA version tag.
+  mtrt_get_tensorrt_cuda_version("${ARG_VERSION}" TRT_CUDA_VERSION)
 
   # For aarch64, the published packages are only for
   # "Ubuntu-20.04". I believe this corresponds to NVIDIA supported ARM server
@@ -120,9 +174,9 @@ function(mtrt_get_tensorrt_download_url ARG_VERSION OS_NAME TARGET_ARCH ARG_OUT_
   # the TRT libraries will not contain the right pre-compiled kernels, making
   # compilation times very long since just loading TRT may require JIT-compiling
   # many PTX kernels.
-  if(TARGET_ARCH MATCHES "aarch64")
-    message(WARNING "Automatic TensorRT package download for aarch64 is for"
-    " aarch64 *server* systems, not embedded systems. If you are using NVIDIA Jetson, NVIDIA Drive, "
+  if(TARGET_ARCH MATCHES "aarch64" AND TRT_CUDA_VERSION VERSION_LESS 13.0)
+    message(WARNING "Automatic TensorRT package downloads for CUDA versions less than 13.0 for aarch64 are for"
+    " ARM SBSA systems, not embedded systems. If you are using NVIDIA Jetson, NVIDIA Drive, "
     " or another embedded system you should download TensorRT manually from the appropriate source:\n"
     "For Drive, see: https://docs.nvidia.com/drive/\n"
     "For Jetson, see: https://developer.nvidia.com/embedded/jetpack")
@@ -156,21 +210,6 @@ function(mtrt_get_tensorrt_download_url ARG_VERSION OS_NAME TARGET_ARCH ARG_OUT_
     endif()
   endif()
 
-  if(ARG_VERSION VERSION_GREATER 10.2 AND
-     ARG_VERSION VERSION_LESS 10.4)
-    set(TRT_CUDA_VERSION 12.5)
-  elseif(
-      ARG_VERSION VERSION_GREATER 10.4 AND
-      ARG_VERSION VERSION_LESS 10.8)
-    set(TRT_CUDA_VERSION 12.6)
-  elseif(ARG_VERSION VERSION_GREATER 10.7
-      AND ARG_VERSION VERSION_LESS 10.10)
-    set(TRT_CUDA_VERSION 12.8)
-  elseif(ARG_VERSION VERSION_GREATER 10.10
-      AND ARG_VERSION VERSION_LESS 10.13)
-    set(TRT_CUDA_VERSION 12.9)
-  endif()
-
   # Handle TRT 8 versions.
   if(ARG_VERSION VERSION_LESS 9.0.0 AND ARG_VERSION VERSION_GREATER 8.0.0)
     set(_url "https://developer.nvidia.com/downloads/compute/machine-learning/tensorrt/secure/${trt_short_version}/tars/TensorRT-${ARG_VERSION}.${OS_NAME_LOWER}.${TARGET_ARCH}-gnu.cuda-${TRT_CUDA_VERSION}.tar.gz")
@@ -188,33 +227,22 @@ function(mtrt_get_tensorrt_download_url ARG_VERSION OS_NAME TARGET_ARCH ARG_OUT_
     # TensorRT 10 EA
     if(ARG_VERSION VERSION_EQUAL 10.0.0.6)
       set(_url "https://developer.nvidia.com/downloads/compute/machine-learning/tensorrt/10.0.0/tensorrt-10.0.0.6.${OS_NAME_LOWER}.${TARGET_ARCH}-gnu.cuda-12.4.tar.gz")
-    endif()
-
     # TensorRT 10.0 GA
-    if(ARG_VERSION VERSION_EQUAL 10.0.1.6)
+    elseif(ARG_VERSION VERSION_EQUAL 10.0.1.6)
       set(_url "https://developer.nvidia.com/downloads/compute/machine-learning/tensorrt/${trt_short_version}/tars/TensorRT-${ARG_VERSION}.${OS_NAME}.${TARGET_ARCH}-gnu.cuda-12.4.tar.gz")
-    endif()
-
     # TensorRT 10.1 GA
-    if(ARG_VERSION VERSION_EQUAL 10.1.0.27)
+    elseif(ARG_VERSION VERSION_EQUAL 10.1.0.27)
       set(_url "https://developer.nvidia.com/downloads/compute/machine-learning/tensorrt/${trt_short_version}/tars/tensorrt-${ARG_VERSION}.${OS_NAME_LOWER}.${TARGET_ARCH}-gnu.cuda-12.4.tar.gz")
-    endif()
-
     # TensorRT 10.2 GA
-    if(ARG_VERSION VERSION_EQUAL 10.2.0.19)
+    elseif(ARG_VERSION VERSION_EQUAL 10.2.0.19)
       set(_url "https://developer.nvidia.com/downloads/compute/machine-learning/tensorrt/10.2.0/tars/TensorRT-10.2.0.19.${OS_NAME}.${TARGET_ARCH}-gnu.cuda-12.5.tar.gz")
-    endif()
-
     # TensorRT 10.3 GA
-    if(ARG_VERSION VERSION_EQUAL 10.3.0.26)
+    elseif(ARG_VERSION VERSION_EQUAL 10.3.0.26)
       set(_url "https://developer.nvidia.com/downloads/compute/machine-learning/tensorrt/10.3.0/tars/TensorRT-${ARG_VERSION}.${OS_NAME}.${TARGET_ARCH}-gnu.cuda-12.5.tar.gz")
-    endif()
-
     # Other TensorRT versions.
-    if(ARG_VERSION VERSION_GREATER 10.3.0.26)
+    else()
       set(_url "https://developer.nvidia.com/downloads/compute/machine-learning/tensorrt/${trt_short_version}/tars/TensorRT-${ARG_VERSION}.${OS_NAME}.${TARGET_ARCH}-gnu.cuda-${TRT_CUDA_VERSION}.tar.gz")
     endif()
-
   endif()
 
   if(NOT _url)

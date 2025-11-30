@@ -29,7 +29,7 @@ endif()
 set(MLIR_TRT_ENABLE_PROJECTS ${MLIR_TRT_ENABLE_PROJECTS_DEFAULT} CACHE STRING "Projects to enable")
 
 set(MLIR_TRT_TENSORRT_DIR "" CACHE STRING "Path to TensorRT install directory")
-set(MLIR_TRT_DOWNLOAD_TENSORRT_VERSION "10.12" CACHE STRING
+set(MLIR_TRT_DOWNLOAD_TENSORRT_VERSION "10.13" CACHE STRING
    "Version of TensorRT to download and use. It overrides MLIR_TRT_TENSORRT_DIR.")
 set(MLIR_TRT_PACKAGE_CACHE_DIR "" CACHE STRING "Directory where to cache downloaded C++ packages")
 # We need this option since CMAKE_CUDA_ARCHITECTURES=native has some issues.
