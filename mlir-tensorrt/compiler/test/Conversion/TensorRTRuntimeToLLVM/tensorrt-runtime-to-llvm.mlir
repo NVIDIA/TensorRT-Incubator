@@ -3,8 +3,8 @@
 // RUN: rm -rf %t.artifacts
 // RUN: mkdir -p %t.artifacts
 // RUN: mlir-tensorrt-opt -split-input-file -convert-tensorrt-runtime-to-llvm="artifacts-dir=%t.artifacts" %s | FileCheck %s --check-prefix=FILE
-// RUN: file %t.artifacts/foo.trt_plan.bin
-// RUN: file %t.artifacts/bar.trt_plan.bin
+// RUN: test -f %t.artifacts/foo.trt_plan.bin
+// RUN: test -f %t.artifacts/bar.trt_plan.bin
 
 func.func @test_enqueue() -> (!trtrt.context, !trtrt.context, !trtrt.context) {
   %1 = trtrt.get_function @foo : !trtrt.context

@@ -3,7 +3,7 @@
 // RUN: rm -rf %t.artifacts
 // RUN: mkdir -p %t.artifacts
 // RUN: mlir-tensorrt-opt -split-input-file -convert-cuda-to-llvm="artifacts-dir=%t.artifacts" %s | FileCheck %s --check-prefix=FILE
-// RUN: file %t.artifacts/kernels.ptx
+// RUN: test -f %t.artifacts/kernels.ptx
 
 cuda.compiled_module @kernels dense<[0xFF,0x00]> : vector<2xi8>
 

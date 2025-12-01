@@ -1,18 +1,11 @@
 # Utilities for declaring and downloading dependencies.
-#-------------------------------------------------------------------------------------
-# Calculate a gitlab source archive download URL from a project ID and commit ID.
-# The URL is stored in `urlVar` and the auth HTTP header in `headerVar`.
-#-------------------------------------------------------------------------------------
+
 function(nv_register_package)
   cmake_parse_arguments(ARG
     "" "NAME" "" ${ARGN})
   set(NV_PACKAGE_${ARG_NAME}_ARGS ${ARGV} PARENT_SCOPE)
 endfunction()
 
-#-------------------------------------------------------------------------------------
-# Calculate a gitlab source archive download URL from a project ID and commit ID.
-# The URL is stored in `urlVar` and the auth HTTP header in `headerVar`.
-#-------------------------------------------------------------------------------------
 macro(nv_add_package name)
   cmake_parse_arguments(_vap "" "POST_ADD_HOOK;PRE_ADD_HOOK;DOWNLOAD_NAME;NAME" "" ${NV_PACKAGE_${name}_ARGS})
   if(_vap_PRE_ADD_HOOK)

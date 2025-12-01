@@ -1,150 +1,92 @@
-# MLIR-TensorRT Bindings, StableHLO Conversions, and More
+# MLIR-TensorRT
 
-This code contains:
+**Goal: Provide inference acceleration for tensor programs which can be serialized as certain MLIR IRs (e.g. StableHLO) by offloading to TensorRT and other NVIDIA technologies. Generate kernels where needed to provide complete coverage of StableHLO, including support for bounded dynamism. The compiler is modular, enabling users with MLIR stacks to easily integrate individual components of the compiler.**
 
-- A [MLIR](https://mlir.llvm.org/) [dialect](https://mlir.llvm.org/docs/LangRef/#dialects)
-  that attempts  to precisely model the [TensorRT operator set](https://docs.nvidia.com/deeplearning/tensorrt/operators/docs/).
-  It provides an MLIR dialect, static verification and type inference, optimizations,
-  translations to TensorRT by invoking the TensorRT builder API (`nvinfer1::INetworkBuilder`),
-  and translations to C++ calls to the builder API.
-- Conversions from [stablehlo](https://github.com/openxla/stablehlo) to the TensorRT dialect.
-- An example compiler infrastructure for building a compiler and runtime that offloads complex
-  sub-programs to TensorRT, complete with support for (bounded) dynamic shapes and a
-  Python interface.
+# Quickstart
 
-Note that the TensorRT dialect is under the top-level 'tensorrt' folder and can be
-built as an independent project in case the other features are not needed for your
-use-case.
+You can download pre-compiled binaries and Python wheels on the [GitHub releases page](https://github.com/NVIDIA/TensorRT-Incubator/releases).
 
-# Building
+## Compiler
 
-We currently support only building on Linux x86 systems.
-
-We support building several different ways (only via CMake) depending on use-case.
-
-In each case, the LLVM-Project version that we are currently aligned to is
-given in `build_tools/cmake/LLVMCommit.txt`.
-
-Note that currently we provide an LLVM patch which essentially cherry-picks the
-bug fixes from [this open MLIR PR](https://github.com/llvm/llvm-project/pull/91524).
-
-1. Build as a Standalone Project with LLVM downloaded by CMake
-2. Build as a Standalone Project with LLVM provided by User
-3. Build as a sub-project of a larger build (e.g. `add_subdirectory`)
-4. Build via LLVM-External-Projects mechanism
-
-Here we only show how to do Option 1 and Option 2.
-
-## Option 1: Build as a Standalone Project with LLVM downloaded by CMake
-
-This is the simplest way to get started and incurs low download overhead
-since we download LLVM-Project as a zip archive directly from GitHub
-at our pinned commit.
-
-```sh
-# See CMakePresets.json for convenient CMake presets.
-# Preset 'ninja-llvm' uses the Ninja generator, clang, and
-# LLD, but GNU GCC toolchain is also supported (use preset
-# ninja-gcc).
-#
-# By default, the CMake build system will download a version
-# of TensorRT for you.
-cmake --preset ninja-llvm
-
-# Example build commands:
-
-# Build everything
-ninja -C build all
-
-# Build and run tests
-ninja -C build check-all-mlir-tensorrt
-
-# Build wheels (output in `build/wheels`)
-ninja -C build mlir-tensorrt-all-wheels
-```
-
-## Option 2: Build as a Standalone Project with LLVM provided by User
-
-This is more complex but lets you "bring your own LLVM-Project" source
-code or binary.
+The compiler tool `mlir-tensorrt-compiler` compiles StableHLO MLIR programs.
+The compiler will attempt to segment the StableHLO program and utilize different compilation backends such
+as TensorRT or our own fallback kernel generator.  Backends are currently prioritized in
+roughly that order. Each backend will produce an artifact which is either embedded directly in the
+compiler MLIR output or emitted as a separate file. A host program in one of three different formats
+is also emitted. See the table below for example commands:
 
 
-1. Build MLIR
+| Host Output Option      | Description                              | Current Testing/Functionality Level | Example Command Line                                                          |
+|----------------------|---------------------------------------------|-------------------------------------------------------------------------------|
+| `mtrt-interpreter` (default) | Generate host code for the MTRT interpreter | best  |  `mlir-tensorrt-compiler input.mlir --opts="host-target=executor" -o=output.rtexe --entrypoint=main` |
+| `cpp`/`emitc`        | Emit plain C++ host code                    | basic | `mlir-tensorrt-compiler input.mlir --opts="host-target=emitc" -o=output --entrypoint=main`           |
+| `llvm`               | Emit LLVM-IR for the host, runnable with `mlir-cpu-runner` + MLIR-TRT C support library | basic | `mlir-tensorrt-compiler input.mlir --opts="host-target=llvm" -o=output.llvm --entrypoint=main`       |
 
-```sh
-# Clone llvm-project
-git clone https://github.com/llvm/llvm-project.git llvm-project
+Choose the output format which best matches your integration or development needs. How to use the output
+will depend on the host output format. See the [Runtime](#runtime) section.
 
-# Checkout the right commit. Of course, you may try
-# a newer commit or your own modified LLVM-Project.
-cd llvm-project
-git checkout $(cat build_tools/cmake/LLVMCommit.cmake | grep -Po '(?<=").*(?=")')
+## Runtime
 
-# Apply patch from llvm-project PR 91524
-git apply ../build_tools/llvm-project.patch
+The runtime usage depends on the host output format selected during compilation:
 
-# Do the build
-cd ..
-./build_tools/scripts/build_mlir.sh llvm-project build/llvm-project
-```
+### Executor Format (`host-target=executor`)
 
-2. Build the project and run all tests
+The compiler generates an executor runtime executable (`.rtexe` file) that can be executed using the `mlir-tensorrt-runner` tool:
 
 ```bash
-cmake -B ./build/mlir-tensorrt -S . -G Ninja \
-    -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-    -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
-    -DMLIR_TRT_USE_LINKER=lld \
-    -DMLIR_TRT_PACKAGE_CACHE_DIR=${PWD}/.cache.cpm \
-    -DMLIR_DIR=build/llvm-project/lib/cmake/mlir \
-    -DCMAKE_PLATFORM_NO_VERSIONED_SONAME=ON
-ninja -C build/mlir-tensorrt all
-ninja -C build/mlir-tensorrt check-all-mlir-tensorrt
+mlir-tensorrt-runner output.rtexe --features=core,cuda,tensorrt
 ```
 
-3. Build Python binding wheels
+The executor runner supports various runtime features and can be configured with command-line options. See `mlir-tensorrt-runner --help` for details.
 
-This will produce wheels under `build/mlir-tensorrt/wheels`:
+### C++ Format (`host-target=emitc`)
 
+The compiler generates C++ source code along with TensorRT engine files and PTX modules. To use the generated code:
+
+1. Compile the generated C++ file along with the MLIR-TensorRT runtime headers (found in `mtrt-runtime/`)
+2. Link against TensorRT libraries (`libnvinfer.so`) and CUDA runtime
+3. Ensure TensorRT engine files (`.trtengine`) and PTX modules (`.ptx`) are accessible at runtime
+
+Example compilation:
+
+```bash
+g++ -I/path/to/mtrt-runtime output.cpp -lnvinfer -lcudart -o output_executable
 ```
-ninja -C build/mlir-tensorrt mlir-tensorrt-all-wheels
+
+The generated C++ code includes initialization functions (e.g., `*_initialize`) that must be called before inference, and cleanup functions (e.g., `*_destroy`) that should be called on shutdown.
+
+### LLVM Format (`host-target=llvm`)
+
+The compiler generates LLVM *MLIR* that can be JIT compiled and executed with standard MLIR
+tools like `mlir-runner`:
+
+```bash
+mlir-runner output.mlir -e main --entry-point-result=i64 --shared-libs=libmtrt_runtime.so
 ```
 
-## Configuring What TensorRT Version is Used
+# Components
 
-Our CMake-based build system will by default attempt to download a
-version of TensorRT to use during building and testing. This is controlled
-by the CMake cache variable [`MLIR_TRT_DOWNLOAD_TENSORRT_VERSION`](./CMakeLists.txt#L58).
+MLIR-TensorRT is organized into several sub-projects. The `common` folder is common code that
+is shared amongst all projects. The projects `executor`, `kernel`, and `tensorrt` are otherwise independent
+and their purpose is described below:
 
-To instead use a local TensorRT version, simply set the CMake
-cache variable [`MLIR_TRT_TENSORRT_DIR`](./CMakeLists.txt#L200) to the
-path to the TensorRT installation directory (containing directories `include`, `lib64`, and
-so on), and set `MLIR_TRT_DOWNLOAD_TENSORRT_VERSION` to the empty string.
+1. `tensorrt`: contains an MLIR dialect that precisely models the TensorRT input language
+   and provides optimization passes and translation from TensorRT MLIR to a TensorRT
+   `libnvinfer` engine. Some users use only this component in their own MLIR-based compilers.
 
-These variables are fed into the CMake function `find_tesnsorrt` which is invoked
-[here](./CMakeLists.txt#L199). Options `INSTALL_DIR` and `DOWNLOAD_VERSION` are
-mutually exclusive.
+2. `executor`: contains an MLIR dialect that is a simplified form of LLVM-IR. It provides
+   translations to MTRT Interpreter (Lua), LLVM-IR, and C++. Note that translation to Lua
+   is an implementation detail, executing the Lua code requires our Lua runtime. Translated
+   C++ requires a small C support library for compilation, as does LLVM IR output.
 
-All executables built by the project will link TensorRT dynamically and load it
-dynamically at runtime using the runtime environment's default dynamic library
-search mechanism. The LIT testing configurations used in the project set the
-dynamic library search path (e.g. the environment variable `LD_LIBRARY_PATH` on
-Linux systems) to ensure that the TensorRT version used during compilation is
-also used during testing.
+The remaining components utilize these previous three to build higher-level tools:
 
-When invoking an executable (e.g. `mlir-tensorrt-opt`) directly outside of the
-LIT test runner, one should set the appropriate environment variables (e.g.
-`LD_LIBRARY_PATH`) to point to the TensorRT library which should be loaded at runtime.
-In general, if the project is compiled with TensorRT `X.Y` but version
-`X.Z` is loaded at runtime, with `Z > Y`, the software is expected to work, but
-no guarantees are currently made.
+1. `compiler`: contains the top-level StableHLO compiler and consumes the other
+   three projects as dependencies. It contains an MLIR pipeline that performs input
+   preprocessing transformations, segmentation of the input program, dispatching segments
+   to different compiler backends, and lowering down to the `executor` IR.
+2. `integrations`: Contains Python bindings
 
+# Development Instructions
 
-
-
-
-
-
-
-
-
+See the [developer docs](./docs/Development.md).

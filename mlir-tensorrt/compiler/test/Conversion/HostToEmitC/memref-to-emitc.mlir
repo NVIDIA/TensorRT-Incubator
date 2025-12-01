@@ -4,7 +4,7 @@
 // RUN: mlir-tensorrt-opt -split-input-file -convert-host-to-emitc="artifacts-dir=%t" %s | \
 // RUN: tee %t/out.mlir | \
 // RUN: mlir-tensorrt-translate -split-input-file -mlir-to-cpp | FileCheck %s --check-prefix=CPP
-// RUN: file %t/gv3.constant.bin
+// RUN: test -f %t/gv3.constant.bin
 // RUN: FileCheck --check-prefix=CHECK %s < %t/out.mlir
 
 
