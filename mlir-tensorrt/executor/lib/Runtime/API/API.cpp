@@ -43,7 +43,9 @@
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wsuggest-override"
 #endif
+#ifdef MLIR_TRT_ENABLE_MPI
 #include "mpi.h"
+#endif // MLIR_TRT_ENABLE_MPI
 #include "nccl.h"
 #if defined(__clang__) || defined(__GNUC__)
 #pragma GCC diagnostic pop
@@ -106,7 +108,7 @@ bool RuntimeSessionOptions::isFeatureEnabled(llvm::StringRef feature) const {
 
 StatusOr<RuntimeSessionOptions>
 RuntimeSessionOptions::createUsingSingleHostMpi() {
-#ifdef MLIR_TRT_ENABLE_NCCL
+#if defined(MLIR_TRT_ENABLE_NCCL) && defined(MLIR_TRT_ENABLE_MPI)
   auto getErrStatus = [](llvm::StringRef msg, int32_t errCode) {
     llvm::SmallString<MPI_MAX_ERROR_STRING> str;
     str.resize(MPI_MAX_ERROR_STRING);
@@ -154,10 +156,10 @@ RuntimeSessionOptions::createUsingSingleHostMpi() {
     return getErrStatus("MPI_Comm_rank failed", errCode);
 
   return RuntimeSessionOptions(size, rank, uniqueIdStr);
-#else  // MLIR_TRT_ENABLE_NCCL
+#else  // !(MLIR_TRT_ENABLE_NCCL && MLIR_TRT_ENABLE_MPI)
   return getInternalErrorStatus(
       "MLIR-TensorRT was not configured and built with MPI and NCCL support");
-#endif // MLIR_TRT_ENABLE_NCCL
+#endif // MLIR_TRT_ENABLE_NCCL && MLIR_TRT_ENABLE_MPI
 }
 
 //===----------------------------------------------------------------------===//
