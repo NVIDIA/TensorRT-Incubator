@@ -78,6 +78,10 @@ Status copyCUDAPeerAsync(void *dstDevice, int32_t dstDeviceId,
 /// flags (timing enabled) so it can be used for elapsed time measurements.
 StatusOr<uintptr_t> createCUDAEvent();
 
+/// Wrapper around `cudaEventCreateWithFlags` to create an event for a specific
+/// device.
+StatusOr<uintptr_t> createCUDAEventForDevice(int32_t deviceNumber);
+
 /// Wrapper around `cudaEventDestroy`.
 Status destroyCUDAEvent(uintptr_t event);
 

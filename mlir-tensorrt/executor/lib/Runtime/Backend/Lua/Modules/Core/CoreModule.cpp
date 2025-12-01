@@ -31,9 +31,9 @@
 #include "mlir-executor/Runtime/Backend/Lua/SolAdaptor.h"
 #include "mlir-executor/Runtime/Backend/Utils/NvtxUtils.h"
 #include "mlir-executor/Runtime/FFI/FFI.h"
+#include "mlir-executor/Runtime/Support/Allocators.h"
 #include "mlir-executor/Runtime/Support/StridedCopy.h"
 #include "mlir-executor/Runtime/Support/Support.h"
-#include "mlir-executor/Support/Allocators.h"
 #include "llvm/Support/FormatVariadic.h"
 #include <algorithm>
 #include <climits>
@@ -260,8 +260,8 @@ static Status stridedMemRefCopyImpl(int64_t rank, int64_t elemSize,
 // Executor - Core operations
 //===----------------------------------------------------------------------===//
 static void registerExecutorCoreModuleLuaRuntimeMethods(
-    lua_State *luaState, PinnedMemoryAllocator *pinnedMemoryAllocator,
-    AllocTracker *allocTracker, mtrt::PluginRegistry &pluginRegistry) {
+    lua_State *luaState, AllocTracker *allocTracker,
+    mtrt::PluginRegistry &pluginRegistry) {
   sol::state_view lua(luaState);
 
   lua["__check_for_function"] = [](sol::this_state state,
@@ -1154,8 +1154,7 @@ void registerLuaCoreRuntimeExtension() {
   registerLuaRuntimeExtension(
       "core", LuaRuntimeExtension{[](const LuaRuntimeExtensionInitArgs &args) {
         registerExecutorCoreModuleLuaRuntimeMethods(
-            args.state, args.pinnedMemoryAllocator, args.allocTracker,
-            args.pluginRegistry);
+            args.state, args.allocTracker, args.pluginRegistry);
       }});
 }
 } // namespace mtrt

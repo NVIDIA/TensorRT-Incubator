@@ -20,10 +20,10 @@
 #include "mlir-executor/Runtime/API/API.h"
 #include "mlir-executor/Runtime/API/Executable.h"
 #include "mlir-executor/Runtime/API/ExecutableFlatbuffer.h"
+#include "mlir-executor/Runtime/Support/Allocators.h"
 #include "mlir-executor/Runtime/Support/CUDAHelpers.h"
 #include "mlir-executor/Runtime/Support/StridedCopy.h"
 #include "mlir-executor/Runtime/Support/Support.h"
-#include "mlir-executor/Support/Allocators.h"
 #include "mlir-tensorrt-common/Support/Status.h"
 #include "llvm/ADT/IntrusiveRefCntPtr.h"
 #include "llvm/ADT/STLExtras.h"
@@ -169,7 +169,7 @@ RuntimeSessionOptions::createUsingSingleHostMpi() {
 RuntimeSession::RuntimeSession(RuntimeSessionOptions options,
                                ExecutableView exe, Ref<RuntimeClient> client)
     : client(std::move(client)), options(std::move(options)), executable(exe),
-      pinnedMemoryAllocator(std::make_unique<PinnedMemoryAllocator>()),
+      pinnedMemoryAllocator(this->client->getPinnedMemoryAllocator()),
       allocTracker(std::make_unique<AllocTracker>()),
       resourceTracker(std::make_unique<ResourceTracker>()) {
   if (this->options.isFeatureEnabled("cuda")) {
@@ -1032,15 +1032,13 @@ getViewMemRefStorage(uintptr_t ptr, PointerType kind, Device *device,
 HostOwnedMemRefStorage::~HostOwnedMemRefStorage() {
   MTRT_DBGF("HostOwnedMemRefStorage::~HostOwnedMemRefStorage() ptr = %p",
             reinterpret_cast<void *>(ptr));
-  mtrt::logUnhandledErrors(client->getAllocator().deallocate(*this),
-                           llvm::errs());
+  mtrt::cantFail(client->getAllocator().deallocate(*this));
 }
 
 DeviceOwnedMemRefStorage::~DeviceOwnedMemRefStorage() {
   MTRT_DBGF("DeviceOwnedMemRefStorage::~DeviceOwnedMemRefStorage() ptr = %p",
             reinterpret_cast<void *>(ptr));
-  mtrt::logUnhandledErrors(client->getAllocator().deallocate(*this),
-                           llvm::errs());
+  mtrt::cantFail(client->getAllocator().deallocate(*this));
 }
 
 ViewMemRefStorage::~ViewMemRefStorage() {
@@ -1323,7 +1321,8 @@ StatusOr<Ref<RuntimeClient>> RuntimeClient::create() {
 }
 
 RuntimeClient::RuntimeClient(llvm::SmallVector<std::unique_ptr<Device>> devices)
-    : devices(std::move(devices)), allocator(nullptr) {}
+    : devices(std::move(devices)), pinnedMemoryAllocator(this->devices.size()),
+      allocator(nullptr) {}
 
 llvm::ArrayRef<std::unique_ptr<Device>> RuntimeClient::getDevices() const {
   return devices;
