@@ -421,6 +421,13 @@ static LogicalResult maybeSetStronglyTypedOption(
 #endif
 }
 
+// Ignore deprecated declarations warnings for TRT builder flags
+// in the `buildFunction` function.
+#if defined(__clang__) || defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
+
 FailureOr<TensorRTEngineResult>
 tensorrt::buildFunction(mlir::FunctionOpInterface op,
                         TensorRTBuilderContext &builderContext,
@@ -570,6 +577,10 @@ tensorrt::buildFunction(mlir::FunctionOpInterface op,
   return TensorRTEngineResult{std::unique_ptr<nvinfer1::IHostMemory>(hostMem),
                               *names};
 }
+
+#if defined(__clang__) || defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif
 
 /// Return the symbol names of parent symbol tables and ending with the symbol
 /// name of `op`.
