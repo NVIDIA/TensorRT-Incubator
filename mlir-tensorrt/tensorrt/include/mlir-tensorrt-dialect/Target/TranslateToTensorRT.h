@@ -17,8 +17,8 @@
 // limitations under the License.
 //
 //===----------------------------------------------------------------------===//
-#ifndef MLIR_TENSORRT_TARGET_TENSORRT_TRANSLATETOTENSORRT_H
-#define MLIR_TENSORRT_TARGET_TENSORRT_TRANSLATETOTENSORRT_H
+#ifndef MLIR_TENSORRT_DIALECT_TARGET_TRANSLATETOTENSORRT
+#define MLIR_TENSORRT_DIALECT_TARGET_TRANSLATETOTENSORRT
 
 #include "mlir-tensorrt-common/Utils/TensorRTVersion.h"
 #include "mlir/Support/LLVM.h"
@@ -203,4 +203,4 @@ void registerToTensorRTTranslation();
 
 } // namespace mlir
 
-#endif // MLIR_TENSORRT_TARGET_TENSORRT_TRANSLATETOTENSORRT_H
+#endif // MLIR_TENSORRT_DIALECT_TARGET_TRANSLATETOTENSORRT

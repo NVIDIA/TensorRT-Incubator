@@ -32,14 +32,22 @@
 #include "llvm/Support/MemoryBuffer.h"
 #include <limits>
 
+#if defined(__GNUC__) || defined(__clang__)
+// Ignore deprecated declarations in this file; we use a lot of them to support
+// older TRT versions.
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+// Ignore warnings about non-virtual-destructor in the `trt_plugin_python.h`
+// header file that is provided by TRT.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wnon-virtual-dtor"
+#endif
+
 #if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 9, 0)
 #include "nvinfer/trt_plugin_python.h"
 #endif // MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 9, 0)
 
 #if defined(__GNUC__) || defined(__clang__)
-// Ignore deprecated declarations in this file; we use a lot of them to support
-// older TRT versions.
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#pragma GCC diagnostic pop
 #endif
 
 using namespace mlir;

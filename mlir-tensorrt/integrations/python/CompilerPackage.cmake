@@ -167,3 +167,12 @@ install(
     TARGETS MTRT
     DESTINATION "${CMAKE_INSTALL_PREFIX}/python_packages/mlir_tensorrt_compiler/mlir_tensorrt/compiler/_mlir_libs"
 )
+
+################################################################################
+# Fixup nanobind compilation options.
+################################################################################
+foreach(nb_target nanobind-static nanobind-static-ft)
+  if(TARGET ${nb_target})
+    target_compile_options(${nb_target} PUBLIC -Wno-cast-qual -Wno-zero-length-array -Wno-nested-anon-types -Wno-c++98-compat-extra-semi -Wno-covered-switch-default)
+  endif()
+endforeach()
