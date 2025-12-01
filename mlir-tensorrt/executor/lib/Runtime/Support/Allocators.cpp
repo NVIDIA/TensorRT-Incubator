@@ -21,7 +21,8 @@
 /// Implementation of runtime resource allocators.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-executor/Support/Allocators.h"
+#include "mlir-executor/Runtime/Support/Allocators.h"
+#include "mlir-executor/Runtime/Support/CUDAHelpers.h"
 #include "mlir-tensorrt-common/Support/Status.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/Support/Debug.h"
@@ -29,10 +30,6 @@
 #include "llvm/Support/MathExtras.h"
 #include <deque>
 #include <set>
-
-#ifdef MLIR_TRT_ENABLE_CUDA
-#include "cuda_runtime_api.h"
-#endif
 
 using namespace mtrt;
 
@@ -48,13 +45,13 @@ StatusOr<std::unique_ptr<PoolTrackedCudaEvent>>
 PoolTrackedCudaEvent::get(EventPool *pool) {
 #ifdef MLIR_TRT_ENABLE_CUDA
   assert(pool != nullptr && "expected valid device event pool");
-  cudaEvent_t event;
-  RETURN_ERROR_IF_CUDART_ERROR(cudaEventCreate(&event));
+
+  MTRT_ASSIGN_OR_RETURN(uintptr_t event,
+                        mtrt::createCUDAEventForDevice(pool->getDeviceId()));
   ALLOC_DBGF("creating pool-tracked cuda event %lu on pool %lu",
              reinterpret_cast<uintptr_t>(event),
              reinterpret_cast<uintptr_t>(pool));
-  return std::make_unique<PoolTrackedCudaEvent>(
-      reinterpret_cast<uintptr_t>(event), pool);
+  return std::make_unique<PoolTrackedCudaEvent>(event, pool);
 #else
   return getInternalErrorStatus(
       "MLIR-Executor was not built with CUDA enabled");
@@ -77,6 +74,8 @@ void PoolTrackedCudaEvent::releaseBackToPool() {
 //===----------------------------------------------------------------------===//
 // EventPool
 //===----------------------------------------------------------------------===//
+
+EventPool::EventPool(int32_t deviceId) : deviceId(deviceId) {}
 
 void EventPool::push(PoolTrackedCudaEvent event) {
   pool.emplace_back(std::move(event));
@@ -171,14 +170,12 @@ Status PinnedMemoryAllocator::BlockEventQueue::checkForFreeBlocks(
 #ifdef MLIR_TRT_ENABLE_CUDA
   while (std::optional<BlockEvent> blockEvent = getNextOldestBlockEvent()) {
     auto &[eventPtr, block] = *blockEvent;
-    cudaError_t status =
-        cudaEventQuery(reinterpret_cast<cudaEvent_t>(eventPtr->getEvent()));
-    if (status == cudaErrorNotReady) {
-      (void)cudaGetLastError();
+    MTRT_ASSIGN_OR_RETURN(bool isReady,
+                          mtrt::queryCUDAEvent(eventPtr->getEvent()));
+    if (!isReady) {
       eventQueue.emplace_back(std::move(*blockEvent));
       return getOkStatus();
     }
-    RETURN_ERROR_IF_CUDART_ERROR(status);
 
     // Decrement use and push block if available.
     if (--block->pendingEvents == 0)
@@ -193,11 +190,10 @@ Status PinnedMemoryAllocator::BlockEventQueue::checkForFreeBlocks(
 
 static void cudaFreeHostWrapper(uintptr_t ptr) {
 #ifdef MLIR_TRT_ENABLE_CUDA
-  cudaError_t err = cudaFreeHost(reinterpret_cast<void *>(ptr));
-  if (err != cudaSuccess) {
+  Status status = mtrt::freeCUDAPinnedHost(ptr);
+  if (!status.isOk()) {
     llvm::errs() << llvm::formatv("'cudaFreeHost' error: ({0}) {1}\n",
-                                  cudaGetErrorName(err),
-                                  cudaGetErrorString(err));
+                                  status.getMessage());
     return;
   }
 #else
@@ -206,34 +202,29 @@ static void cudaFreeHostWrapper(uintptr_t ptr) {
 #endif
 }
 
-std::vector<uintptr_t> PinnedMemoryAllocator::clientManagedPtrs;
-
 struct PinnedMemoryAllocator::BlockTracker {
   std::set<Block *, BlockComparison> blocks;
   llvm::DenseMap<uintptr_t, Block *> pointerToBlock;
-
   ~BlockTracker() {
-
     ALLOC_DBGF(
         "[PinnedMemoryAllocator] Releasing block tracker that has %lu blocks",
         blocks.size());
     for (Block *block : blocks) {
-      if (std::find(clientManagedPtrs.begin(), clientManagedPtrs.end(),
-                    block->ptr) == clientManagedPtrs.end()) {
-        ALLOC_DBGF("[PinnedMemoryAllocator] releasing block %lu of size %lu",
-                   block->ptr, block->size);
-        cudaFreeHostWrapper(block->ptr);
-      }
-      // Blocks found in clientManagedPtrs are not freed here, as they are now
-      // managed by the client
+      ALLOC_DBGF("[PinnedMemoryAllocator] releasing block %lu of size %lu",
+                 block->ptr, block->size);
+      cudaFreeHostWrapper(block->ptr);
     }
   }
 };
 
-PinnedMemoryAllocator::PinnedMemoryAllocator()
+PinnedMemoryAllocator::PinnedMemoryAllocator(unsigned numDevices)
     : blockTracker(std::make_unique<BlockTracker>()),
       freeBlocks(std::make_unique<BlockSet>()),
-      pendingBlockEvents(std::make_unique<BlockEventQueue>()) {}
+      pendingBlockEvents(std::make_unique<BlockEventQueue>()) {
+  for (unsigned i = 0; i < numDevices; ++i) {
+    eventPools.emplace_back(static_cast<int32_t>(i));
+  }
+}
 
 PinnedMemoryAllocator::~PinnedMemoryAllocator() {}
 
@@ -260,11 +251,9 @@ StatusOr<PinnedMemoryBlock> PinnedMemoryAllocator::allocate(size_t size) {
   // to the nearest power of two since we want to create a nice distribution of
   // block-sizes for reuse.
   size_t allocatedSize = llvm::PowerOf2Ceil(size);
-  void *allocatedPtr{nullptr};
-  RETURN_ERROR_IF_CUDART_ERROR(
-      cudaHostAlloc(&allocatedPtr, allocatedSize, cudaHostAllocDefault));
-  Block *result =
-      new Block{allocatedSize, reinterpret_cast<uintptr_t>(allocatedPtr), 0};
+  MTRT_ASSIGN_OR_RETURN(uintptr_t allocatedPtr,
+                        mtrt::mallocCUDAPinnedHost(allocatedSize));
+  Block *result = new Block{allocatedSize, allocatedPtr, 0};
   ALLOC_DBGF("allocated new block %lu of size %lu (rounded up from %lu)",
              result->ptr, result->size, size);
   blockTracker->blocks.insert(result);
@@ -290,22 +279,26 @@ Status PinnedMemoryAllocator::freeAsync(uintptr_t ptr, CudaStream stream) {
   if (ptr == 0)
     return getOkStatus();
 
+  MTRT_ASSIGN_OR_RETURN(int32_t deviceId, getCurrentCUDADevice());
+  if (static_cast<unsigned>(deviceId) >= eventPools.size())
+    return getInvalidArgStatus(
+        "current device is {0} but number of device event pools is {1}",
+        deviceId, eventPools.size());
+  EventPool &eventPool = eventPools[deviceId];
   Block *block = blockTracker->pointerToBlock.lookup(ptr);
   assert(block && "expected valid block");
   // If this block is associated with a stream, then we create an event to track
   // the dependency. It won't be released until the dependency is met.
-  StatusOr<std::unique_ptr<PoolTrackedCudaEvent>> event =
-      eventPool.getCudaEvent();
-  RETURN_ERROR_IF_CUDART_ERROR(
-      cudaEventRecord(reinterpret_cast<cudaEvent_t>((*event)->getEvent()),
-                      reinterpret_cast<cudaStream_t>(stream)));
+  MTRT_ASSIGN_OR_RETURN(std::unique_ptr<PoolTrackedCudaEvent> event,
+                        eventPool.getCudaEvent());
+  MTRT_RETURN_IF_ERROR(mtrt::recordCUDAEvent(event->getEvent(), stream));
   block->pendingEvents++;
   // Add the event and block to processing list.
   ALLOC_DBGF("enqueing asynchronously free of block %lu on stream %lu using "
              "stream %lu",
              block->ptr, reinterpret_cast<uintptr_t>(stream),
-             reinterpret_cast<uintptr_t>((*event)->getEvent()));
-  pendingBlockEvents->eventQueue.emplace_front(std::move(*event), block);
+             reinterpret_cast<uintptr_t>(event->getEvent()));
+  pendingBlockEvents->eventQueue.emplace_front(std::move(event), block);
   return getOkStatus();
 #else
   return getInternalErrorStatus(

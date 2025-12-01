@@ -23,6 +23,45 @@
 #include <cuda_runtime_api.h>
 #endif
 
+using namespace mtrt;
+
+namespace {
+/// CUDADeviceGuard is an abstract RAII handle that scopes a temporary
+/// activation of a device, restoring the old active device on destruction.
+class CUDADeviceGuard {
+public:
+  CUDADeviceGuard(CUDADeviceGuard &&) = delete;
+  CUDADeviceGuard(const CUDADeviceGuard &) = delete;
+  CUDADeviceGuard &operator=(CUDADeviceGuard &&) = delete;
+  CUDADeviceGuard &operator=(const CUDADeviceGuard &) = delete;
+
+  static StatusOr<std::unique_ptr<CUDADeviceGuard>>
+  create(int32_t deviceNumber) {
+    MTRT_ASSIGN_OR_RETURN(int32_t originalDeviceNumber, getCurrentCUDADevice());
+
+    RETURN_STATUS_IF_ERROR(setCurrentCUDADevice(deviceNumber));
+    MTRT_DBG("CUDAGPUDeviceGuard: original={0} new={1}", originalDeviceNumber,
+             deviceNumber);
+    return std::unique_ptr<CUDADeviceGuard>(
+        new CUDADeviceGuard(originalDeviceNumber));
+  }
+
+  ~CUDADeviceGuard() {
+    if (originalDeviceNumber < 0)
+      return;
+    MTRT_DBG("CUDAGPUDeviceGuard: restoring original device {0}",
+             originalDeviceNumber);
+    mtrt::cantFail(setCurrentCUDADevice(originalDeviceNumber));
+  }
+
+private:
+  CUDADeviceGuard(int32_t originalDeviceNumber)
+      : originalDeviceNumber(originalDeviceNumber) {}
+
+  int32_t originalDeviceNumber;
+};
+} // namespace
+
 namespace mtrt {
 
 StatusOr<int32_t> getCurrentCUDADevice() {
@@ -197,6 +236,10 @@ Status copyCUDAPeerAsync(void *dstDevice, int32_t dstDeviceId,
 
 StatusOr<uintptr_t> createCUDAEvent() {
 #ifdef MLIR_TRT_ENABLE_CUDA
+#ifndef NDEBUG
+  MTRT_ASSIGN_OR_RETURN(int32_t device, getCurrentCUDADevice());
+  CUDA_DBGV("createCUDAEvent: current device = {0}", device);
+#endif
   cudaEvent_t event;
   RETURN_ERROR_IF_CUDART_ERROR(
       cudaEventCreateWithFlags(&event, cudaEventDefault));
@@ -207,6 +250,12 @@ StatusOr<uintptr_t> createCUDAEvent() {
 #else
   return getInternalErrorStatus("runtime not compiled with CUDA enabled");
 #endif
+}
+
+StatusOr<uintptr_t> createCUDAEventForDevice(int32_t deviceNumber) {
+  MTRT_ASSIGN_OR_RETURN(std::unique_ptr<CUDADeviceGuard> guard,
+                        CUDADeviceGuard::create(deviceNumber));
+  return createCUDAEvent();
 }
 
 Status destroyCUDAEvent(uintptr_t event) {
@@ -222,10 +271,10 @@ Status destroyCUDAEvent(uintptr_t event) {
 
 Status recordCUDAEvent(uintptr_t event, uintptr_t stream) {
 #ifdef MLIR_TRT_ENABLE_CUDA
+  CUDA_DBGV("recordCUDAEvent: event={0:x} stream={1:x}", event, stream);
   RETURN_ERROR_IF_CUDART_ERROR(
       cudaEventRecord(reinterpret_cast<cudaEvent_t>(event),
                       reinterpret_cast<cudaStream_t>(stream)));
-  CUDA_DBGV("recordCUDAEvent: event={0:x} stream={1:x}", event, stream);
   return getOkStatus();
 #else
   return getInternalErrorStatus("runtime not compiled with CUDA enabled");

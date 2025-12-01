@@ -27,7 +27,7 @@
 
 #include "mlir-executor/Runtime/API/Executable.h"
 #include "mlir-executor/Runtime/FFI/FFI.h"
-#include "mlir-executor/Support/Allocators.h"
+#include "mlir-executor/Runtime/Support/Allocators.h"
 #include "mlir-tensorrt-common/Support/Status.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
@@ -966,7 +966,7 @@ public:
   ExecutableView getExecutable() const { return executable; }
 
   PinnedMemoryAllocator &getPinnedMemoryAllocator() {
-    return *pinnedMemoryAllocator;
+    return pinnedMemoryAllocator;
   }
 
   AllocTracker &getAllocTracker() { return *allocTracker; }
@@ -1000,7 +1000,7 @@ protected:
   Ref<RuntimeClient> client;
   RuntimeSessionOptions options;
   ExecutableView executable;
-  std::unique_ptr<PinnedMemoryAllocator> pinnedMemoryAllocator;
+  PinnedMemoryAllocator &pinnedMemoryAllocator;
   std::unique_ptr<AllocTracker> allocTracker;
   std::unique_ptr<ResourceTracker> resourceTracker;
   Ref<Stream> stream;

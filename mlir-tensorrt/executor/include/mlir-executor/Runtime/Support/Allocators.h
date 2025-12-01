@@ -1,6 +1,6 @@
 //===- Allocators.h ----------------------------------------------*- C++-*-===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -21,8 +21,8 @@
 /// Declarations for common runtime resource allocators.
 ///
 //===----------------------------------------------------------------------===//
-#ifndef MLIR_TENSORRT_SUPPORT_ALLOCATORS_H
-#define MLIR_TENSORRT_SUPPORT_ALLOCATORS_H
+#ifndef MLIR_EXECUTOR_RUNTIME_SUPPORT_ALLOCATORS
+#define MLIR_EXECUTOR_RUNTIME_SUPPORT_ALLOCATORS
 
 #include "mlir-tensorrt-common/Support/Status.h"
 #include <memory>
@@ -32,7 +32,7 @@ namespace mtrt {
 using CudaStream = uintptr_t;
 using CudaEvent = uintptr_t;
 
-struct EventPool;
+class EventPool;
 
 //===----------------------------------------------------------------------===//
 // PoolTrackedCudaEvent
@@ -67,8 +67,9 @@ private:
 /// An event pool that is associated with a particular device. All events in the
 /// pool are considered free for use. When an event is being used, it is removed
 /// from the pool.
-struct EventPool {
-  std::vector<PoolTrackedCudaEvent> pool;
+class EventPool {
+public:
+  EventPool(int32_t deviceId);
 
   bool empty() const { return pool.empty(); }
 
@@ -80,6 +81,12 @@ struct EventPool {
 
   // Retrieve an event from the pool or create a new one.
   StatusOr<std::unique_ptr<PoolTrackedCudaEvent>> getCudaEvent();
+
+  int32_t getDeviceId() const { return deviceId; }
+
+private:
+  int32_t deviceId;
+  std::vector<PoolTrackedCudaEvent> pool;
 };
 
 //===----------------------------------------------------------------------===//
@@ -101,7 +108,8 @@ struct PinnedMemoryBlock {
 /// pool.
 class PinnedMemoryAllocator {
 public:
-  PinnedMemoryAllocator();
+  PinnedMemoryAllocator(unsigned numDevices);
+  PinnedMemoryAllocator() = delete;
   ~PinnedMemoryAllocator();
 
   /// Marks a pointer as client-managed, deferring its deallocation
@@ -119,10 +127,7 @@ public:
   Status freeAsync(uintptr_t ptr, CudaStream stream);
 
 private:
-  EventPool eventPool;
-
-  /// Stores pointers to memory blocks that are now managed by the client.
-  static std::vector<uintptr_t> clientManagedPtrs;
+  std::vector<EventPool> eventPools;
 
   /// Tracks all blocks allocated by the allocator.
   struct BlockTracker;
@@ -140,4 +145,4 @@ private:
 
 } // namespace mtrt
 
-#endif // MLIR_TENSORRT_SUPPORT_ALLOCATORS_H
+#endif // MLIR_EXECUTOR_RUNTIME_SUPPORT_ALLOCATORS
