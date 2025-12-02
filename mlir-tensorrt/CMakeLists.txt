@@ -53,20 +53,6 @@ endif()
 # Option validation
 # -------------------------------------------------
 
-# Some overly-complex logic for making `MLIR_TRT_USE_LINKER` alias `LLVM_USE_LINKER`.
-if((MLIR_TRT_USE_LINKER AND LLVM_USE_LINKER) AND NOT
-  (MLIR_TRT_USE_LINKER STREQUAL LLVM_USE_LINKER))
-  message(FATAL_ERROR "MLIR_TRT_USE_LINKER=${MLIR_TRT_USE_LINKER} but "
-                      "LLVM_USE_LINKER=${LLVM_USE_LINKER}. If both are set, they "
-                      "must be equal.")
-endif()
-if(LLVM_USE_LINKER AND NOT MLIR_TRT_USE_LINKER)
-  set(MLIR_TRT_USE_LINKER "${LLVM_USE_LINKER}" CACHE STRING "" FORCE)
-endif()
-if(MLIR_TRT_USE_LINKER AND NOT LLVM_USE_LINKER)
-  set(LLVM_USE_LINKER "${MLIR_TRT_USE_LINKER}" CACHE STRING "" FORCE)
-endif()
-
 # Setup use of ccache for C, CXX, and CUDA languages if we are the top-level
 # project.
 # Enables generation of compile_commands.json for clangd.
@@ -75,15 +61,6 @@ if(PROJECT_IS_TOP_LEVEL)
   mtrt_use_compiler_cache()
   set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
   set(CMAKE_BUILD_WITH_INSTALL_NAME_DIR ON)
-endif()
-
-# The CUDA headers will trigger excessive "C++20 extensions warning" with
-# clang19+ in macro usage.
-include(CheckCXXCompilerFlag)
-check_cxx_compiler_flag("-Wc++20-extensions"
-  CXX_SUPPORTS_C20_EXTENSIONS_FLAG)
-if(CXX_SUPPORTS_C20_EXTENSIONS_FLAG)
-  add_compile_options(-Wno-c++20-extensions)
 endif()
 
 # -------------------------------------------------
@@ -132,6 +109,10 @@ include(TableGen)
 include(AddLLVM)
 include(AddMLIR)
 include(HandleLLVMOptions)
+
+# Further modify global compilation flags. This should
+# appear after `HandleLLVMOptions`.
+include(MTRTCompilationOptions)
 
 # -------------------------------------------------
 # Dependencies

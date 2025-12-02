@@ -73,6 +73,11 @@ addRecurrenceLayersForBlockArgs(nvinfer1::ILoop *loop,
   return recurrenceLayers;
 }
 
+#if defined(__clang__) || defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
+
 // Add IReccurrenceLayers for each loop carry variable in the while loop
 // specification. The initial values in WhileOp are specified as operands to the
 // WhileOp. IIdentityLayers wrap around the recurrence layers to prevent issues
@@ -93,6 +98,10 @@ static void addRecurrenceLayersForWhileLoopCarries(
     identityLayers.push_back(identityLayer);
   }
 }
+
+#if defined(__clang__) || defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif
 
 //===----------------------------------------------------------------------===//
 // Tablegen'd op interface definitions

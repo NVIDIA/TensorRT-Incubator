@@ -410,6 +410,11 @@ static void registerDeviceDependentNCCLMethods(lua_State *state,
   };
 }
 
+#if defined(__clang__) || defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmissing-prototypes"
+#endif
+
 namespace mtrt {
 void registerLuaNcclRuntimeExtension() {
   registerLuaRuntimeExtension(
@@ -422,3 +427,7 @@ void registerLuaNcclRuntimeExtension() {
       }});
 }
 } // namespace mtrt
+
+#if defined(__clang__) || defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif

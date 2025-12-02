@@ -29,7 +29,25 @@ export ENABLE_ASAN=${ENABLE_ASAN:-OFF}
 export CPM_SOURCE_CACHE=${CPM_SOURCE_CACHE:-${REPO_ROOT}/.cache.cpm}
 export CCACHE_DIR=${CCACHE_DIR:-${REPO_ROOT}/ccache}
 
-uv sync --extra cu12
+# Choose uv extra based on CUDA_VERSION major (12 -> cu12, 13 -> cu13).
+# Fallback to probing nvcc if CUDA_VERSION is not set. Default to cu12.
+UV_EXTRA="cu12"
+if [[ -n "${CUDA_VERSION:-}" ]]; then
+  CUDA_MAJOR="${CUDA_VERSION%%.*}"
+  if [[ "${CUDA_MAJOR}" == "13" ]]; then
+      UV_EXTRA="cu13"
+  elif [[ "${CUDA_MAJOR}" == "12" ]]; then
+      UV_EXTRA="cu12"
+  else
+      echo "CUDA_VERSION: ${CUDA_VERSION} is not supported"
+      exit 1
+  fi
+else
+  echo "CUDA_VERSION is not set, using default of cu12"
+fi
+
+echo "🔨 Syncing with uv extra: ${UV_EXTRA}"
+uv sync --extra "${UV_EXTRA}"
 source .venv/bin/activate
 
 ccache --zero-stats || true
@@ -52,3 +70,9 @@ function build_with_preset() {
 build_with_preset ${CMAKE_PRESET}
 
 ccache --show-stats || true
+
+# print the size of the ccache and cpm source cache
+echo "🔨🧪 Printing the size of the ccache"
+du -h -x -d 1 ${CCACHE_DIR}
+echo "🔨🧪 Printing the size of the cpm source cache"
+du -h -x -d 1 ${CPM_SOURCE_CACHE}

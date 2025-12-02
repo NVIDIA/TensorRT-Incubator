@@ -31,9 +31,9 @@
 #include "mlir-executor/Runtime/Backend/Lua/LuaExtensionRegistry.h"
 #include "mlir-executor/Runtime/Backend/Lua/SolAdaptor.h"
 #include "mlir-executor/Runtime/Backend/Utils/NvtxUtils.h"
+#include "mlir-executor/Runtime/Support/Allocators.h"
 #include "mlir-executor/Runtime/Support/StridedCopy.h"
 #include "mlir-executor/Runtime/Support/Support.h"
-#include "mlir-executor/Support/Allocators.h"
 #include "llvm/Support/Alignment.h"
 #include <memory>
 #include <string>
@@ -78,7 +78,6 @@ static StatusOr<int32_t> getDevice(int32_t deviceNumber) {
 }
 
 static void registerCudaOps(sol::state_view &lua, AllocTracker *allocTracker,
-                            PinnedMemoryAllocator *pinnedMemoryAllocator,
                             ResourceTracker *resourceTracker) {
   //===----------------------------------------------------------------------===//
   // CUDA - Device Management Ops
@@ -540,8 +539,7 @@ void registerLuaCudaRuntimeExtension() {
   registerLuaRuntimeExtension(
       "cuda", LuaRuntimeExtension{[](const LuaRuntimeExtensionInitArgs &args) {
         sol::state_view lua(args.state);
-        registerCudaOps(lua, args.allocTracker, args.pinnedMemoryAllocator,
-                        args.resourceTracker);
+        registerCudaOps(lua, args.allocTracker, args.resourceTracker);
         registerCudaMemoryManagementOps(lua, args.allocTracker,
                                         args.pinnedMemoryAllocator);
       }});

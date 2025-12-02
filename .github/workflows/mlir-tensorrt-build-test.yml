@@ -1,0 +1,138 @@
+name: MLIR-TensorRT Build and Test
+
+on:
+  workflow_call:
+    inputs:
+      channel:
+        description: 'Channel, valid values are "nightly", "test", or "release"'
+        default: "test"
+        type: string
+      build-matrix:
+        description: 'Build matrix to utilize'
+        default: ""
+        type: string
+      arch:
+        description: 'Architecture, valid values are "x86_64" or "aarch64"'
+        default: "x86_64"
+        type: string
+      github_runner:
+        description: 'Runner, valid values are "linux-amd64-gpu-h100-latest-1" or "linux-arm64-gpu-l4-latest-1"'
+        default: "linux-amd64-gpu-h100-latest-1"
+        type: string
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  mlir-tensorrt-build-test:
+    name: ${{ inputs.arch }}-cu${{ matrix.cuda }}-trt${{ matrix.trt }}-build-test
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix: ${{ fromJSON(inputs.build-matrix) }}
+    env:
+      # eg. TENSORRT_VERSION: 10.12 or 10.13
+      DOWNLOAD_TENSORRT_VERSION: ${{ matrix.trt }}
+      # eg. CHANNEL: nightly, test or release
+      CHANNEL: ${{ inputs.channel }}
+      ARCH: ${{ inputs.arch }}
+      CMAKE_PRESET: ${{ matrix.cmake_preset }}
+      CCACHE_DIR: ${{ github.workspace }}/mlir-tensorrt/ccache
+      CPM_SOURCE_CACHE: ${{ github.workspace }}/mlir-tensorrt/.cache.cpm
+      # actions/cacheevaluate path globs relative to the workspace to be able to filter
+      CPM_SOURCE_CACHE_RELATIVE_PATH: mlir-tensorrt/.cache.cpm
+      CCACHE_KEY: mlir-tensorrt-ccache-v1-${{ inputs.arch }}-${{ matrix.cmake_preset }}
+      # if exact cache key is not matched, fallback to the restore key to restore the cache
+      CCACHE_RESTORE_KEY: mlir-tensorrt-ccache-v1-${{ inputs.arch }}-
+      CPM_KEY: mlir-tensorrt-cpm-v1
+      CPM_RESTORE_KEY: mlir-tensorrt-cpm-v1
+    runs-on: ${{ inputs.github_runner }}
+    container:
+      image: ${{ matrix.docker_image }}
+      options: >-
+        --gpus all
+        --shm-size=1g
+    steps:
+      # Checkout the repository
+      - name: Checkout TensorRT-Incubator
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 5
+
+      # Create cache folders
+      - name: Create Cache Folders
+        run: |
+          set -euo pipefail
+          set -x
+          mkdir -p ${{ env.CCACHE_DIR }}
+          mkdir -p ${{ env.CPM_SOURCE_CACHE }}
+
+      # Restore cache, if exists.
+      - name: Restore CCache
+        id: restore-ccache
+        uses: actions/cache/restore@v4
+        with:
+          key: ${{ env.CCACHE_KEY }}
+          restore-keys: |
+            ${{ env.CCACHE_RESTORE_KEY }}
+          path: |
+            ${{ env.CCACHE_DIR }}
+
+      - name: Restore CPM cache
+        id: restore-cpm
+        uses: actions/cache/restore@v4
+        with:
+          key: ${{ env.CPM_KEY }}
+          restore-keys: |
+            ${{ env.CPM_RESTORE_KEY }}
+          path: |
+            ${{ env.CPM_SOURCE_CACHE_RELATIVE_PATH }}/*
+            !${{ env.CPM_SOURCE_CACHE_RELATIVE_PATH }}/tensorrt
+            !${{ env.CPM_SOURCE_CACHE_RELATIVE_PATH }}/tensorrt/**
+
+      # Build the project
+      - name: Build With CUDA:${{ matrix.cuda }} + TensorRT:${{ matrix.trt }}
+        env:
+          ENABLE_ASAN: "OFF"
+        run: |
+          set -euo pipefail
+          set -x
+          cd mlir-tensorrt
+          # build only, skip tests
+          ./build_tools/scripts/cicd-build.sh --build_only
+
+      # Save ccache when cache is not hit or cache was a fallback(cache-matched is not the same as the cache key)
+      - name: Save CCache
+        uses: actions/cache/save@v4
+        with:
+          key: ${{ env.CCACHE_KEY }}
+          path: |
+            ${{ env.CCACHE_DIR }}
+
+      # Save cpm cache
+      - name: Save CPM Cache
+        if: ${{ inputs.arch == 'x86_64' }}
+        uses: actions/cache/save@v4
+        with:
+          key: ${{ env.CPM_KEY }}
+          path: |
+            ${{ env.CPM_SOURCE_CACHE_RELATIVE_PATH }}/*
+            !${{ env.CPM_SOURCE_CACHE_RELATIVE_PATH }}/tensorrt
+            !${{ env.CPM_SOURCE_CACHE_RELATIVE_PATH }}/tensorrt/**
+
+      # Run tests
+      - name: Run Basic Tests With CUDA:${{ matrix.cuda }} + TensorRT:${{ matrix.trt }}
+        id: basic-tests
+        env:
+          ENABLE_ASAN: "OFF"
+        run: |
+          set -euo pipefail
+          set -x
+          cd mlir-tensorrt
+          # run tests
+          ./build_tools/scripts/cicd-build.sh
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}-mlir-tensorrt-${{ inputs.channel }}-${{ inputs.arch }}
+  cancel-in-progress: true
