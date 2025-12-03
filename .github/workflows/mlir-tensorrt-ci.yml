@@ -168,6 +168,7 @@ jobs:
     needs:
       - changes
       - format-check
+      - mlir-tensorrt-build-test-x86_64
     if: ${{ needs.changes.outputs.has_changes == 'true' && needs.format-check.outputs.channel != 'release' }}
     uses: ./.github/workflows/mlir-tensorrt-build-test.yml
     with:

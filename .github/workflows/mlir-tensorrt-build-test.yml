@@ -102,6 +102,7 @@ jobs:
       # Save ccache when cache is not hit or cache was a fallback(cache-matched is not the same as the cache key)
       - name: Save CCache
         uses: actions/cache/save@v4
+        if: ${{ steps.restore-ccache.outputs.cache-hit != 'true' || steps.ccache_restore.outputs['cache-matched-key'] != env.CCACHE_KEY }}
         with:
           key: ${{ env.CCACHE_KEY }}
           path: |
@@ -109,13 +110,21 @@ jobs:
 
       # Save cpm cache
       - name: Save CPM Cache
-        if: ${{ inputs.arch == 'x86_64' }}
+        # cpm cache is shared across x86_64 and aarch64, we let only x86_64 to save cpm cache when in cache miss case
+        # this is to avoid both x86_64 and aarch64 to save cpm cache when in cache miss case
+        if: ${{ inputs.arch == 'x86_64' &&
+              (
+                steps.restore-ccache.outputs.cache-hit != 'true' ||
+                steps.ccache_restore.outputs['cache-matched-key'] != env.CPM_KEY
+              )
+            }}
         uses: actions/cache/save@v4
         with:
           key: ${{ env.CPM_KEY }}
           path: |
-            ${{ env.CPM_SOURCE_CACHE }}
-            !${{ env.CPM_SOURCE_CACHE }}/tensorrt
+            mlir-tensorrt/.cache.cpm/*
+            !mlir-tensorrt/.cache.cpm/tensorrt
+            !mlir-tensorrt/.cache.cpm/tensorrt/**
 
       # Run tests
       - name: Run Basic Tests With CUDA:${{ matrix.cuda }} + TensorRT:${{ matrix.trt }}
