@@ -93,8 +93,8 @@ void mtrt::compiler::buildStablehloPreProcessingPipeline(
   // `convert-stablehlo-to-scf`:
   if (opts.legalizeControlFlowToSCF) {
     pm.addNestedPass<func::FuncOp>(mlir::createConvertStablehloToScfPass());
-    pm.addNestedPass<func::FuncOp>(mlir::createUnrollForLoopsPass(
-        mlir::UnrollForLoopsPassOptions{opts.unrollThreshold}));
+    pm.addNestedPass<func::FuncOp>(createUnrollForLoopsPass(
+        mtrt::UnrollForLoopsPassOptions{opts.unrollThreshold}));
   }
 
   // `stablehlo-ext-constant-folding`:

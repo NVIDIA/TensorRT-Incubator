@@ -30,10 +30,10 @@
 #include "mlir/IR/SymbolTable.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
-namespace mlir {
+namespace mtrt {
 #define GEN_PASS_DEF_MEMREFCASTELIMINATIONPASS
 #include "mlir-tensorrt/Transforms/Passes.h.inc"
-} // namespace mlir
+} // namespace mtrt
 
 using namespace mlir;
 
@@ -122,7 +122,7 @@ struct SimplifyScfIf : public OpRewritePattern<scf::IfOp> {
 
 namespace {
 class MemRefCastEliminationPass
-    : public mlir::impl::MemRefCastEliminationPassBase<
+    : public mtrt::impl::MemRefCastEliminationPassBase<
           MemRefCastEliminationPass> {
 public:
   using Base::Base;

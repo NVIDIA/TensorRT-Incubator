@@ -13,7 +13,6 @@ add_mlir_tensorrt_library(MLIRTensorRTStablehloToTensorRT
     MLIRTensorRTConvertToTensorRTCommon
     MLIRTensorRTTensorRTDialect
     MLIRTensorRTStableHloExtUtils
-    MLIRTensorRTStablehloMatchers
     MLIRTensorRTTensorRTUtils
     MLIRTensorRTUtilsShapeInfo
     StablehloOps

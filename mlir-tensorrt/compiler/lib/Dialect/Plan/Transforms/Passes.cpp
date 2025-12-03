@@ -60,7 +60,7 @@ void plan::buildPlanSegmentationPipeline(
   closedRegionOptions.inputKind = opts.inputKind;
   pm.addPass(plan::createCreateClosedRegionsPass(closedRegionOptions));
   pm.addPass(plan::createOutlineClustersPass());
-  pm.addPass(mlir::createFuncExtDuplicateFunctionEliminationPass());
+  pm.addPass(mtrt::createFuncExtDuplicateFunctionEliminationPass());
   pm.addPass(plan::createEliminateShapeOpsPass());
 }
 
@@ -88,7 +88,7 @@ buildPlanOneShotBufferizePipeline(OpPassManager &pm,
   pm.addNestedPass<func::FuncOp>(plan::createPlanConfirmArgumentDonationPass(
       plan::PlanConfirmArgumentDonationPassOptions{
           opts.failOnDonationArgumentRejection}));
-  pm.addPass(mlir::createMemRefCastEliminationPass());
+  pm.addPass(mtrt::createMemRefCastEliminationPass());
 
   // We must canonicalize prior to `plan-remove-equivalent-buffer-results`. This
   // helps to eliminate operations such as casts which would otherwise prevent

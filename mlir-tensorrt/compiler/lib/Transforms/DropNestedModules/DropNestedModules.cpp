@@ -27,10 +27,10 @@
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/SymbolTable.h"
 
-namespace mlir {
+namespace mtrt {
 #define GEN_PASS_DEF_DROPNESTEDMODULESPASS
 #include "mlir-tensorrt/Transforms/Passes.h.inc"
-} // namespace mlir
+} // namespace mtrt
 
 using namespace mlir;
 
@@ -46,7 +46,7 @@ void mlir::dropNestedModules(RewriterBase &rewriter, ModuleOp op) {
 namespace {
 
 class DropNestedModulesPass
-    : public mlir::impl::DropNestedModulesPassBase<DropNestedModulesPass> {
+    : public mtrt::impl::DropNestedModulesPassBase<DropNestedModulesPass> {
   void runOnOperation() override {
     ModuleOp op = getOperation();
     IRRewriter rewriter(&getContext());

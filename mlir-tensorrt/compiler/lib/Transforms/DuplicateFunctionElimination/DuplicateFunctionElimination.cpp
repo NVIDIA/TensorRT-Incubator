@@ -23,10 +23,10 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseMapInfo.h"
 
-namespace mlir {
+namespace mtrt {
 #define GEN_PASS_DEF_FUNCEXTDUPLICATEFUNCTIONELIMINATIONPASS
 #include "mlir-tensorrt/Transforms/Passes.h.inc"
-} // namespace mlir
+} // namespace mtrt
 
 using namespace mlir;
 
@@ -92,7 +92,7 @@ struct DuplicateFuncOpEquivalenceInfo
 };
 
 class FuncExtDuplicateFuncEliminationPass
-    : public mlir::impl::FuncExtDuplicateFunctionEliminationPassBase<
+    : public mtrt::impl::FuncExtDuplicateFunctionEliminationPassBase<
           FuncExtDuplicateFuncEliminationPass> {
 public:
   using Base::Base;
