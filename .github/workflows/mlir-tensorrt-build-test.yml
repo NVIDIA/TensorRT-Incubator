@@ -40,8 +40,6 @@ jobs:
       CMAKE_PRESET: ${{ matrix.cmake_preset }}
       CCACHE_DIR: ${{ github.workspace }}/mlir-tensorrt/ccache
       CPM_SOURCE_CACHE: ${{ github.workspace }}/mlir-tensorrt/.cache.cpm
-      # actions/cacheevaluate path globs relative to the workspace to be able to filter
-      CPM_SOURCE_CACHE_RELATIVE_PATH: mlir-tensorrt/.cache.cpm
       CCACHE_KEY: mlir-tensorrt-ccache-v1-${{ inputs.arch }}-${{ matrix.cmake_preset }}
       # if exact cache key is not matched, fallback to the restore key to restore the cache
       CCACHE_RESTORE_KEY: mlir-tensorrt-ccache-v1-${{ inputs.arch }}-
@@ -87,9 +85,8 @@ jobs:
           restore-keys: |
             ${{ env.CPM_RESTORE_KEY }}
           path: |
-            ${{ env.CPM_SOURCE_CACHE_RELATIVE_PATH }}/*
-            !${{ env.CPM_SOURCE_CACHE_RELATIVE_PATH }}/tensorrt
-            !${{ env.CPM_SOURCE_CACHE_RELATIVE_PATH }}/tensorrt/**
+            ${{ env.CPM_SOURCE_CACHE }}
+            !${{ env.CPM_SOURCE_CACHE }}/tensorrt
 
       # Build the project
       - name: Build With CUDA:${{ matrix.cuda }} + TensorRT:${{ matrix.trt }}
@@ -117,9 +114,8 @@ jobs:
         with:
           key: ${{ env.CPM_KEY }}
           path: |
-            ${{ env.CPM_SOURCE_CACHE_RELATIVE_PATH }}/*
-            !${{ env.CPM_SOURCE_CACHE_RELATIVE_PATH }}/tensorrt
-            !${{ env.CPM_SOURCE_CACHE_RELATIVE_PATH }}/tensorrt/**
+            ${{ env.CPM_SOURCE_CACHE }}
+            !${{ env.CPM_SOURCE_CACHE }}/tensorrt
 
       # Run tests
       - name: Run Basic Tests With CUDA:${{ matrix.cuda }} + TensorRT:${{ matrix.trt }}
