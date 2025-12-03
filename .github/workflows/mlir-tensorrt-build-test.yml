@@ -43,8 +43,8 @@ jobs:
       CCACHE_KEY: mlir-tensorrt-ccache-v1-${{ inputs.arch }}-${{ matrix.cmake_preset }}
       # if exact cache key is not matched, fallback to the restore key to restore the cache
       CCACHE_RESTORE_KEY: mlir-tensorrt-ccache-v1-${{ inputs.arch }}-
-      CPM_KEY: mlir-tensorrt-cpm-v1
-      CPM_RESTORE_KEY: mlir-tensorrt-cpm-v1
+      # CPM_KEY: mlir-tensorrt-cpm-v1-${{ runner.os }}
+      # CPM_RESTORE_KEY: mlir-tensorrt-cpm-v1-
     runs-on: ${{ inputs.github_runner }}
     container:
       image: ${{ matrix.docker_image }}
@@ -81,9 +81,10 @@ jobs:
         id: restore-cpm
         uses: actions/cache/restore@v4
         with:
-          key: ${{ env.CPM_KEY }}
+          key: mlir-tensorrt-cpm-v1-${{ runner.os }}
+          enableCrossOsArchive: true
           restore-keys: |
-            ${{ env.CPM_RESTORE_KEY }}
+            mlir-tensorrt-cpm-v1-
           path: |
             mlir-tensorrt/.cache.cpm
 
@@ -119,7 +120,8 @@ jobs:
             }}
         uses: actions/cache/save@v4
         with:
-          key: ${{ env.CPM_KEY }}
+          key: mlir-tensorrt-cpm-v1-${{ runner.os }}
+          enableCrossOsArchive: true
           # exclude only works for the relative path pattern
           path: |
             mlir-tensorrt/.cache.cpm/*
