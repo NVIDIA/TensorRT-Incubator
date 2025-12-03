@@ -39,14 +39,14 @@ mtrt_add_project_targets(MLIRTensorRT
   MLIRAsyncDialect
   MLIRBufferizationTransforms
   MLIRControlFlowTransforms
+  MLIRDebug
   MLIRFuncInlinerExtension
   MLIRNVVMTarget
   MLIRPtrDialect
+  MLIRTargetCpp
   MLIRTargetLLVM
   MLIRTensorInferTypeOpInterfaceImpl
   MLIRTensorTransformOps
-  MLIRTargetCpp
-  MLIRDebug
   MLIRTransformDialectTransforms
   )
 

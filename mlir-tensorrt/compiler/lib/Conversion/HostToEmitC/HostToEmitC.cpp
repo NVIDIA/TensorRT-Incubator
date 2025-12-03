@@ -34,6 +34,7 @@
 #include "mlir/Dialect/EmitC/IR/EmitC.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Func/Transforms/OneToNFuncConversions.h"
+#include "mlir/Dialect/Math/IR/Math.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/Utils/IndexingUtils.h"
 #include "mlir/Interfaces/DataLayoutInterfaces.h"
@@ -1686,7 +1687,33 @@ public:
     return success();
   }
 };
+} // namespace
 
+//===----------------------------------------------------------------------===//
+// Math conversions missing from 'math-to-emitc' pass
+//===----------------------------------------------------------------------===//
+
+namespace {
+struct MathLogToEmitCPattern : public EmitCConversionPattern<math::LogOp> {
+  using EmitCConversionPattern::EmitCConversionPattern;
+
+  LogicalResult
+  matchAndRewrite(math::LogOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+
+    Value input = adaptor.getOperand();
+    Type inputType = input.getType();
+    if (!inputType.isF32() && !inputType.isF64())
+      return failure();
+    llvm::StringRef funcName = "log";
+    if (inputType.isF32())
+      funcName = "logf";
+    auto callOp =
+        createCallOpaque(rewriter, op.getLoc(), inputType, funcName, {input});
+    rewriter.replaceOp(op, callOp.getResult(0));
+    return success();
+  }
+};
 } // namespace
 
 //===----------------------------------------------------------------------===//
@@ -1762,6 +1789,7 @@ static void populateEmitCConversionPatternsAndLegality(
       CUDAStreamSyncConverter,
       ExecutorPrintConverter,
       ExtractStridedMetadataOpLowering,
+      MathLogToEmitCPattern,
       MemRefAllocOpLowering,
       MemrefCastOpLowering,
       MemRefDimOpLowering,
@@ -1858,6 +1886,7 @@ public:
     rewriter.create<emitc::IncludeOp>(moduleOp->getLoc(), "cstdio", true);
     rewriter.create<emitc::IncludeOp>(moduleOp->getLoc(), "cstdint", true);
     rewriter.create<emitc::IncludeOp>(moduleOp->getLoc(), "cstdlib", true);
+    rewriter.create<emitc::IncludeOp>(moduleOp->getLoc(), "cmath", true);
     rewriter.create<emitc::IncludeOp>(moduleOp->getLoc(), "MTRTRuntime.h",
                                       false);
 
