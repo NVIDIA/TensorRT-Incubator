@@ -19,9 +19,7 @@ TRT_VERSIONS_DICT = {
 CMAKE_PRESET_DICT = {
     "nightly": "github-cicd",
     "test": "github-cicd",
-    # release should use the release wheel build preset
-    # TODO: add the release wheel build preset
-    "release": "github-cicd",
+    "release": "distribution-wheels",
 }
 
 DOCKER_IMAGE_DICT = {

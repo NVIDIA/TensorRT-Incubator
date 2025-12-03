@@ -6,16 +6,16 @@ on:
     # it does not support path filtering
     branches:
       - "pull-request/[0-9]+"
-  # Disable the release and nightly CI for now, we will enable them later
-  #   # this is for release CI
-  #   tags:
-  #     # release tag example: v0.4.2
-  #     # release candidate tag example: v0.4.2-rc1
-  #     - v[0-9]+.[0-9]+.[0-9]+-rc[0-9]+
-  # workflow_dispatch:
-  # # this is for nightly CI, it will be automatically triggered by the schedule on main branch only
-  # schedule:
-  #   - cron: '0 0 * * *'  # Runs at 00:00 UTC every day (minute hour day-of-month month-of-year day-of-week)
+    # trigger release CI on tag pushes
+    tags:
+      # release tag example: v0.4.2
+      - v[0-9]+.[0-9]+.[0-9]+
+      # release candidate tag example: v0.4.2-rc1
+      - v[0-9]+.[0-9]+.[0-9]+-rc[0-9]+
+  workflow_dispatch:
+  # this is for nightly CI, it will be automatically triggered by the schedule on main branch only
+  schedule:
+    - cron: '0 0 * * *'  # Runs at 00:00 UTC every day (minute hour day-of-month month-of-year day-of-week)
 
 env:
   DEFAULT_IMAGE: ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda12.9-ubuntu24.04-0.1
@@ -29,6 +29,7 @@ jobs:
   changes:
     name: Detect Relevant Changes
     runs-on: ubuntu-latest
+
     outputs:
       has_changes: ${{ steps.diff.outputs.has_changes }}
     steps:
@@ -47,6 +48,11 @@ jobs:
           DEFAULT_BASE="${{ github.event.repository.default_branch || 'main' }}"
           RANGE=""
           if [ "${EVENT_NAME}" = "push" ]; then
+            if [ "${GITHUB_REF_TYPE:-}" = "tag" ]; then
+              # for release tag pushes, always run the CI
+              echo "has_changes=true" >> "${GITHUB_OUTPUT}"
+              exit 0
+            fi
             FROM="${{ github.event.before }}"
             TO="${{ github.sha }}"
             if [ -z "${FROM}" ] || [ "${FROM}" = "0000000000000000000000000000000000000000" ]; then
@@ -95,6 +101,7 @@ jobs:
         with:
           fetch-depth: 5
       - name: Run checks
+        if: ${{ github.ref_type != 'tag' }}
         run: |
           # Determine base for formatting diff (push-safe and PR-safe)
           cd "${GITHUB_WORKSPACE}"
@@ -155,7 +162,7 @@ jobs:
     needs:
       - changes
       - format-check
-    if: ${{ needs.changes.outputs.has_changes == 'true' && needs.format-check.outputs.channel != 'release' }}
+    if: ${{ github.ref_type != 'tag' && needs.changes.outputs.has_changes == 'true' && needs.format-check.outputs.channel != 'release' }}
     uses: ./.github/workflows/mlir-tensorrt-build-test.yml
     with:
       build-matrix: ${{ needs.format-check.outputs.matrix }}
@@ -168,11 +175,36 @@ jobs:
     needs:
       - changes
       - format-check
-    if: ${{ needs.changes.outputs.has_changes == 'true' && needs.format-check.outputs.channel != 'release' }}
+    if: ${{ github.ref_type != 'tag' && needs.changes.outputs.has_changes == 'true' && needs.format-check.outputs.channel != 'release' }}
     uses: ./.github/workflows/mlir-tensorrt-build-test.yml
     with:
       build-matrix: ${{ needs.format-check.outputs.matrix }}
       channel: ${{ needs.format-check.outputs.channel }}
+      arch: aarch64
+      github_runner: linux-arm64-gpu-l4-latest-1
+
+  # Release jobs (tag pushes)
+  mlir-tensorrt-release-x86_64:
+    name: Release Build on x86_64
+    needs:
+      - format-check-release
+    if: ${{ github.ref_type == 'tag' && needs.format-check-release.outputs.channel == 'release' }}
+    uses: ./.github/workflows/mlir-tensorrt-build-test.yml
+    with:
+      build-matrix: ${{ needs.format-check-release.outputs.matrix }}
+      channel: ${{ needs.format-check-release.outputs.channel }}
+      arch: x86_64
+      github_runner: linux-amd64-gpu-h100-latest-1
+
+  mlir-tensorrt-release-aarch64:
+    name: Release Build on aarch64
+    needs:
+      - format-check-release
+    if: ${{ github.ref_type == 'tag' && needs.format-check-release.outputs.channel == 'release' }}
+    uses: ./.github/workflows/mlir-tensorrt-build-test.yml
+    with:
+      build-matrix: ${{ needs.format-check-release.outputs.matrix }}
+      channel: ${{ needs.format-check-release.outputs.channel }}
       arch: aarch64
       github_runner: linux-arm64-gpu-l4-latest-1
 
