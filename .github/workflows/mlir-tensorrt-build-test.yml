@@ -86,7 +86,7 @@ jobs:
           restore-keys: |
             mlir-tensorrt-cpm-v1-
           path: |
-            mlir-tensorrt/.cache.cpm
+            ${{ env.CPM_SOURCE_CACHE }}
 
       # Build the project
       - name: Build With CUDA:${{ matrix.cuda }} + TensorRT:${{ matrix.trt }}
