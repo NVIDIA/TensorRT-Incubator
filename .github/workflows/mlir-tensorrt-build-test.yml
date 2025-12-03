@@ -86,7 +86,6 @@ jobs:
             ${{ env.CPM_RESTORE_KEY }}
           path: |
             ${{ env.CPM_SOURCE_CACHE }}
-            !${{ env.CPM_SOURCE_CACHE }}/tensorrt
 
       # Build the project
       - name: Build With CUDA:${{ matrix.cuda }} + TensorRT:${{ matrix.trt }}
@@ -102,7 +101,7 @@ jobs:
       # Save ccache when cache is not hit or cache was a fallback(cache-matched is not the same as the cache key)
       - name: Save CCache
         uses: actions/cache/save@v4
-        if: ${{ steps.restore-ccache.outputs.cache-hit != 'true' || steps.ccache_restore.outputs['cache-matched-key'] != env.CCACHE_KEY }}
+        if: ${{ steps.restore-ccache.outputs.cache-hit != 'true' || steps.restore-ccache.outputs['cache-matched-key'] != env.CCACHE_KEY }}
         with:
           key: ${{ env.CCACHE_KEY }}
           path: |
@@ -114,13 +113,14 @@ jobs:
         # this is to avoid both x86_64 and aarch64 to save cpm cache when in cache miss case
         if: ${{ inputs.arch == 'x86_64' &&
               (
-                steps.restore-ccache.outputs.cache-hit != 'true' ||
-                steps.ccache_restore.outputs['cache-matched-key'] != env.CPM_KEY
+                steps.restore-cpm.outputs.cache-hit != 'true' ||
+                steps.restore-cpm.outputs['cache-matched-key'] != env.CPM_KEY
               )
             }}
         uses: actions/cache/save@v4
         with:
           key: ${{ env.CPM_KEY }}
+          # exclude only works for the relative path pattern
           path: |
             mlir-tensorrt/.cache.cpm/*
             !mlir-tensorrt/.cache.cpm/tensorrt
