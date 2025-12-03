@@ -124,7 +124,7 @@ jobs:
           enableCrossOsArchive: true
           # exclude only works for the relative path pattern
           path: |
-            mlir-tensorrt/.cache.cpm/*
+            ${{ env.CPM_SOURCE_CACHE }}
             !mlir-tensorrt/.cache.cpm/tensorrt
             !mlir-tensorrt/.cache.cpm/tensorrt/**
 
