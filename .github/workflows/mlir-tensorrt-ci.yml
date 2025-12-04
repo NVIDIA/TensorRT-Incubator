@@ -7,16 +7,15 @@ on:
     branches:
       - "pull-request/[0-9]+"
       - "main"
-  # Disable the release and nightly CI for now, we will enable them later
-  #   # this is for release CI
-  #   tags:
-  #     # release tag example: v0.4.2
-  #     # release candidate tag example: v0.4.2-rc1
-  #     - v[0-9]+.[0-9]+.[0-9]+-rc[0-9]+
-  # workflow_dispatch:
-  # # this is for nightly CI, it will be automatically triggered by the schedule on main branch only
-  # schedule:
-  #   - cron: '0 0 * * *'  # Runs at 00:00 UTC every day (minute hour day-of-month month-of-year day-of-week)
+    # this is for release CI
+    tags:
+      # release tag example: v0.4.2
+      # release candidate tag example: v0.4.2-rc1
+      - v[0-9]+.[0-9]+.[0-9]+-rc[0-9]+
+  workflow_dispatch:
+  # this is for nightly CI, it will be automatically triggered by the schedule on main branch only
+  schedule:
+    - cron: '0 0 * * *'  # Runs at 00:00 UTC every day (minute hour day-of-month month-of-year day-of-week)
 
 env:
   DEFAULT_IMAGE: ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda12.9-ubuntu24.04-0.1
@@ -45,6 +44,12 @@ jobs:
           git config --global --add safe.directory "${GITHUB_WORKSPACE}"
 
           EVENT_NAME="${{ github.event_name }}"
+          REF_TYPE="${{ github.ref_type }}"
+          if [ "${EVENT_NAME}" = "schedule" || "${EVENT_NAME}" = "workflow_dispatch" || ${REF_TYPE} == 'tag' ]; then
+            echo "github.event_name: ${EVENT_NAME} or github.ref_type: ${REF_TYPE}"
+            echo "has_changes=true" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
           DEFAULT_BASE="${{ github.event.repository.default_branch || 'main' }}"
           RANGE=""
           if [ "${EVENT_NAME}" = "push" ]; then
@@ -85,7 +90,7 @@ jobs:
   format-check:
     name: Lint Check
     needs: changes
-    if: ${{ needs.changes.outputs.has_changes == 'true' }}
+    if: ${{ needs.changes.outputs.has_changes == 'true' || github.event_name == 'schedule' || github.ref_type == 'tag' }}
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda12.9-ubuntu24.04-0.1
@@ -170,12 +175,33 @@ jobs:
     needs:
       - changes
       - format-check
-      - mlir-tensorrt-build-test-x86_64
     if: ${{ needs.changes.outputs.has_changes == 'true' && needs.format-check.outputs.channel != 'release' }}
     uses: ./.github/workflows/mlir-tensorrt-build-test.yml
     with:
       build-matrix: ${{ needs.format-check.outputs.matrix }}
       channel: ${{ needs.format-check.outputs.channel }}
+      arch: aarch64
+      github_runner: linux-arm64-gpu-l4-latest-1
+
+  mlir-tensorrt-wheel-tarball-release-x86_64:
+    name: Release on x86_64
+    needs:
+      - format-check
+    if: ${{ needs.format-check.outputs.channel == 'release' }}
+    uses: ./.github/workflows/mlir-tensorrt-release.yml
+    with:
+      build-matrix: ${{ needs.format-check.outputs.matrix }}
+      arch: x86_64
+      github_runner: linux-amd64-gpu-h100-latest-1
+
+  mlir-tensorrt-wheel-tarball-release-aarch64:
+    name: Release on aarch64
+    needs:
+      - format-check
+    if: ${{ needs.format-check.outputs.channel == 'release' }}
+    uses: ./.github/workflows/mlir-tensorrt-release.yml
+    with:
+      build-matrix: ${{ needs.format-check.outputs.matrix }}
       arch: aarch64
       github_runner: linux-arm64-gpu-l4-latest-1
 
