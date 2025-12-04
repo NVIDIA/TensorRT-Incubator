@@ -192,7 +192,7 @@ private:
         createI64Array(loc, memrefType.getShape(), dynamicSizes, "shape_array");
     Value stridesPtr =
         createI64Array(loc, strides, dynamicStrides, "strides_array");
-    Value elementsOffset = [&] {
+    Value elementsOffset = [&, offset = offset] {
       if (!ShapedType::isDynamic(offset))
         return constI64(loc, offset);
       return desc.offset(builder, loc);

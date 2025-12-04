@@ -750,7 +750,7 @@ std::unique_ptr<ScalarValue> ScalarValue::createUndef(ScalarType type) {
   if (type.getCode() == ScalarTypeCode::complex64)
     return std::unique_ptr<ScalarValue>(new ScalarValue(0.0, 0.0, type));
   return std::unique_ptr<ScalarValue>(
-      new ScalarValue(ScalarType(type.getCode()), Storage{.real = 0}));
+      new ScalarValue(ScalarType(type.getCode()), Storage{/*real=*/0}));
 }
 
 void ScalarValue::cleanup() {
