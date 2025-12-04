@@ -35,6 +35,7 @@
 #include "mlir/Conversion/Passes.h"
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
 #include "mlir/Dialect/EmitC/Transforms/Passes.h"
+#include "mlir/Dialect/Linalg/Passes.h"
 #include "mlir/Transforms/Passes.h"
 
 #ifdef MLIR_TRT_ENABLE_HLO
@@ -90,4 +91,9 @@ void mtrt::compiler::registerAllPasses() {
   IF_MLIR_TRT_TARGET_TENSORRT(
       { mlir::tensorrt::registerTensorRTTranslationPasses(); });
   IF_MLIR_TRT_ENABLE_SHARDY({ mlir::sdy::registerAllSdyPassesAndPipelines(); });
+
+  mlir::registerLinalgElementwiseOpFusionPass();
+  mlir::registerLinalgFoldUnitExtentDimsPass();
+  mlir::registerLinalgGeneralizeNamedOpsPass();
+  mlir::registerLinalgSpecializeGenericOpsPass();
 }
