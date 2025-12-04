@@ -1364,7 +1364,7 @@ public:
         if (inAxes.size() != outAxes.size())
           hasNonTrivalReshape = true;
         inputToReshapedMap[inAxes] = ReshapeInfo{
-            .newAxes = outAxes, .newShape = outShape, .oldShape = inShape};
+            /*newAxes=*/outAxes, /*newShape=*/outShape, /*oldShape=*/inShape};
         outShape.clear();
         inShape.clear();
         prevInAxes = inAxes;
@@ -1767,9 +1767,9 @@ public:
                 }
                 assert(outputEinsumStr.size() == outputShape.size());
                 inputToReshapedMap[outputEinsumStr] =
-                    ReshapeInfo{.inputShape = inputShape,
-                                .outputShape = outputShape,
-                                .newEinsumStr = newEinsumStr};
+                    ReshapeInfo{/*inputShape=*/inputShape,
+                                /*outputShape=*/outputShape,
+                                /*newEinsumStr=*/newEinsumStr};
               } else {
                 // do not register this as there is no change in the shape
                 // so if something else requires a change, then it will get
@@ -2030,10 +2030,10 @@ public:
       }
       if (inputNumElems == outputNumElems) {
         reshapeGroups.push_back(ReshapeGroup{
-            .transposeInAxes = transposeInAxes,
-            .transposeOutAxes = transposeOutAxes,
-            .reshapeOut = groupReshapeOut,
-            .startOutputIdx = -1, // set later
+            /*transposeInAxes=*/transposeInAxes,
+            /*transposeOutAxes=*/transposeOutAxes,
+            /*reshapeOut=*/groupReshapeOut,
+            /*startOutputIdx=*/-1, // set later
         });
         transposeInAxes.clear();
         transposeOutAxes.clear();
@@ -2050,10 +2050,10 @@ public:
     assert(transposeInAxes.empty());
     if (!transposeOutAxes.empty() || !groupReshapeOut.empty())
       reshapeGroups.push_back(ReshapeGroup{
-          .transposeInAxes = transposeInAxes,
-          .transposeOutAxes = transposeOutAxes,
-          .reshapeOut = groupReshapeOut,
-          .startOutputIdx = -1, // set later
+          /*transposeInAxes=*/transposeInAxes,
+          /*transposeOutAxes=*/transposeOutAxes,
+          /*reshapeOut=*/groupReshapeOut,
+          /*startOutputIdx=*/-1, // set later
       });
 
     SmallVector<int64_t> newTranspose;
@@ -2186,9 +2186,9 @@ public:
       }
       if (inputNumElems == outputNumElems) {
         reshapeGroups.push_back(ReshapeGroup{
-            .inputAxes = inputAxes,
-            .outputAxes = outputAxes,
-            .reshapeOut = groupReshapeOut,
+            /*inputAxes=*/inputAxes,
+            /*outputAxes=*/outputAxes,
+            /*reshapeOut=*/groupReshapeOut,
         });
         inputAxes.clear();
         outputAxes.clear();
@@ -2206,9 +2206,9 @@ public:
     assert(inputAxes.empty());
     if (!outputAxes.empty() || !groupReshapeOut.empty())
       reshapeGroups.push_back(ReshapeGroup{
-          .inputAxes = inputAxes,
-          .outputAxes = outputAxes,
-          .reshapeOut = groupReshapeOut,
+          /*inputAxes=*/inputAxes,
+          /*outputAxes=*/outputAxes,
+          /*reshapeOut=*/groupReshapeOut,
       });
 
     SmallVector<int64_t> newTranspose;

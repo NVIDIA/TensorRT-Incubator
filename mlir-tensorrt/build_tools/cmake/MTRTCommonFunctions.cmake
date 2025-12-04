@@ -332,6 +332,8 @@ function(mtrt_add_project_library name)
     add_mlir_library(${name} ${lib_type_args} DISABLE_INSTALL EXCLUDE_FROM_LIBMLIR ${ARG_UNPARSED_ARGUMENTS})
   endif()
 
+  mtrt_apply_extra_check_options("${name}")
+
   if(ARG_MLIR_LIBS)
     list(POP_FRONT ARG_MLIR_LIBS VISIBILITY)
     mtrt_target_link_mlir_libraries(${name} ${VISIBILITY} ${ARG_MLIR_LIBS})

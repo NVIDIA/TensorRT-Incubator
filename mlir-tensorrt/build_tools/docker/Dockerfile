@@ -26,7 +26,7 @@ case "${LINUX_DISTRO}" in
     dnf install -yq python3-dnf-plugin-versionlock
     dnf versionlock add '*cuda*'
     dnf versionlock add '*cudnn*'
-    dnf install -yq wget curl
+    dnf install -yq wget curl patch
     ;;
   *)
     echo "Unsupported linux distro: ${LINUX_DISTRO}"

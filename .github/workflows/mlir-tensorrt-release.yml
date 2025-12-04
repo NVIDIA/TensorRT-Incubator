@@ -1,12 +1,8 @@
-name: MLIR-TensorRT Build and Test
+name: MLIR-TensorRT Release Wheel and Tarball
 
 on:
   workflow_call:
     inputs:
-      channel:
-        description: 'Channel, valid values are "nightly", "test", or "release"'
-        default: "test"
-        type: string
       build-matrix:
         description: 'Build matrix to utilize'
         default: ""
@@ -25,33 +21,34 @@ defaults:
     shell: bash
 
 jobs:
-  mlir-tensorrt-build-test:
-    name: ${{ inputs.arch }}-cu${{ matrix.cuda }}-trt${{ matrix.trt }}-build-test
+  mlir-tensorrt-wheel-build:
+    name: ${{ inputs.arch }}-cu${{ matrix.cuda }}-trt${{ matrix.trt }}-wheel-build
     strategy:
       fail-fast: false
       max-parallel: 1
       matrix: ${{ fromJSON(inputs.build-matrix) }}
     env:
-      # eg. TENSORRT_VERSION: 10.12 or 10.13
+      # eg. 10.12 or 10.13
       DOWNLOAD_TENSORRT_VERSION: ${{ matrix.trt }}
-      # eg. CHANNEL: nightly, test or release
-      CHANNEL: ${{ inputs.channel }}
+      LATEST_CUDA_VERSION: ${{ matrix.latest_cuda }}
+      LATEST_TENSORRT_VERSION: ${{ matrix.latest_trt }}
       ARCH: ${{ inputs.arch }}
-      CMAKE_PRESET: ${{ matrix.cmake_preset }}
       CCACHE_DIR: ${{ github.workspace }}/mlir-tensorrt/ccache
       CPM_SOURCE_CACHE: ${{ github.workspace }}/mlir-tensorrt/.cache.cpm
-      CCACHE_KEY: mlir-tensorrt-ccache-v1-${{ inputs.arch }}-${{ matrix.cmake_preset }}
+      CMAKE_PRESET: distribution-wheels
+      CCACHE_KEY: mlir-tensorrt-ccache-v1-${{ inputs.arch }}-distribution-wheels
       # if exact cache key is not matched, fallback to the restore key to restore the cache
       CCACHE_RESTORE_KEY: mlir-tensorrt-ccache-v1-${{ inputs.arch }}-
       CPM_KEY: mlir-tensorrt-cpm-v1
       CPM_RESTORE_KEY: mlir-tensorrt-cpm-v1
+      WHEELS_DIR: ${{ github.workspace }}/mlir-tensorrt/.wheels/
     runs-on: ${{ inputs.github_runner }}
+    timeout-minutes: 120
     container:
       image: ${{ matrix.docker_image }}
       options: >-
         --gpus all
         --shm-size=1g
-    timeout-minutes: 120
     steps:
       # Checkout the repository
       - name: Checkout TensorRT-Incubator
@@ -93,16 +90,25 @@ jobs:
             !mlir-tensorrt/.cache.cpm/tensorrt
             !mlir-tensorrt/.cache.cpm/tensorrt/**
 
-      # Build the project
-      - name: Build With CUDA:${{ matrix.cuda }} + TensorRT:${{ matrix.trt }}
+      # Build wheels
+      - name: Build Wheels With CUDA:${{ matrix.cuda }} + TensorRT:${{ matrix.trt }}
         env:
           ENABLE_ASAN: "OFF"
         run: |
           set -euo pipefail
           set -x
           cd mlir-tensorrt
-          # build only, skip tests
-          ./build_tools/scripts/cicd-build.sh --build_only
+          export MTRT_TENSORRT_VERSION=${{ matrix.trt }}
+          # TODO: remove this, once patch is in our rockylinux prebuilt image
+          dnf install -yq patch
+          # mlir-tensorrt-tools is not cuda, trt dependent, so we only build it once
+          # mlir-tensorrt-compiler, mlir-tensorrt-runtime is built per cuda, trt version
+          if [[ "${{ matrix.cuda }}" == "${{ env.LATEST_CUDA_VERSION }}" && "${{ matrix.trt }}" == "${{env.LATEST_TENSORRT_VERSION }}" ]]; then
+            ./build_tools/scripts/cicd-build-wheels.sh
+          else
+            PACKAGES="mlir_tensorrt_compiler mlir_tensorrt_runtime" \
+            ./build_tools/scripts/cicd-build-wheels.sh
+          fi
 
       # Save ccache when cache is not hit or cache was a fallback(cache-matched is not the same as the cache key)
       - name: Save CCache
@@ -133,18 +139,14 @@ jobs:
             !mlir-tensorrt/.cache.cpm/tensorrt
             !mlir-tensorrt/.cache.cpm/tensorrt/**
 
-      # Run tests
-      - name: Run Basic Tests With CUDA:${{ matrix.cuda }} + TensorRT:${{ matrix.trt }}
-        id: basic-tests
-        env:
-          ENABLE_ASAN: "OFF"
-        run: |
-          set -euo pipefail
-          set -x
-          cd mlir-tensorrt
-          # run tests
-          ./build_tools/scripts/cicd-build.sh
+      # Upload wheels to GitHub Actions artifact
+      - name: Upload Wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-wheels-${{ inputs.arch }}-cu${{ matrix.cuda }}-trt${{ matrix.trt }}
+          path: ${{ env.WHEELS_DIR }}
+          if-no-files-found: error
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}-mlir-tensorrt-${{ inputs.channel }}-${{ inputs.arch }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}-mlir-tensorrt-release-${{ inputs.arch }}
   cancel-in-progress: true

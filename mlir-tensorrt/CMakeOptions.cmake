@@ -39,8 +39,10 @@ mtrt_option(MLIR_TRT_RELATIVE_DEBUG_PATHS
 # whereas the definition of the source groups belonging to those packages
 # are distributed across multiple sub-directories.
 set(MLIR_TRT_ENABLE_PROJECTS_DEFAULT
-  executor tensorrt compiler
+  executor tensorrt
 )
+
+list(APPEND MLIR_TRT_ENABLE_PROJECTS_DEFAULT "compiler")
 
 if(MLIR_TRT_ENABLE_PYTHON)
   list(APPEND MLIR_TRT_ENABLE_PROJECTS_DEFAULT "integrations/python")
@@ -74,3 +76,4 @@ if(MLIR_TRT_ENABLE_NCCL)
 else()
   set(MLIR_TRT_NCCL_TARGET "" CACHE INTERNAL "")
 endif()
+
