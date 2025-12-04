@@ -1,112 +1,185 @@
 name: MLIR-TensorRT CI
 
 on:
-  pull_request:
-    branches:
-      - main
-    types: [synchronize, opened, reopened, ready_for_review]
-    paths: ["mlir-tensorrt/**"]
   push:
+    # this is for PR CI, it will be triggered by PRs via copy-pr-bot
+    # it does not support path filtering
     branches:
-      - main
-    paths: ["mlir-tensorrt/**"]
+      - "pull-request/[0-9]+"
+      - "main"
+  # Disable the release and nightly CI for now, we will enable them later
+  #   # this is for release CI
+  #   tags:
+  #     # release tag example: v0.4.2
+  #     # release candidate tag example: v0.4.2-rc1
+  #     - v[0-9]+.[0-9]+.[0-9]+-rc[0-9]+
+  # workflow_dispatch:
+  # # this is for nightly CI, it will be automatically triggered by the schedule on main branch only
+  # schedule:
+  #   - cron: '0 0 * * *'  # Runs at 00:00 UTC every day (minute hour day-of-month month-of-year day-of-week)
 
 env:
   DEFAULT_IMAGE: ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda12.9-ubuntu24.04-0.1
   REGISTRY: ghcr.io
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
+  changes:
+    name: Detect Relevant Changes
+    runs-on: ubuntu-latest
+    outputs:
+      has_changes: ${{ steps.diff.outputs.has_changes }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 5
+      - name: Compute diff under mlir-tensorrt/**
+        id: diff
+        run: |
+          set -euo pipefail
+          set -x
+          cd "${GITHUB_WORKSPACE}"
+          git config --global --add safe.directory "${GITHUB_WORKSPACE}"
+
+          EVENT_NAME="${{ github.event_name }}"
+          DEFAULT_BASE="${{ github.event.repository.default_branch || 'main' }}"
+          RANGE=""
+          if [ "${EVENT_NAME}" = "push" ]; then
+            FROM="${{ github.event.before }}"
+            TO="${{ github.sha }}"
+            if [ -z "${FROM}" ] || [ "${FROM}" = "0000000000000000000000000000000000000000" ]; then
+              # First push or unknown before: compare against default branch
+              git fetch --no-tags --prune --depth=100 origin "${DEFAULT_BASE}"
+              RANGE="origin/${DEFAULT_BASE}..${TO}"
+            else
+              RANGE="${FROM}..${TO}"
+            fi
+          else
+            BASE_REF="${{ github.base_ref || github.event.repository.default_branch || 'main' }}"
+            git fetch --no-tags --prune --depth=100 origin "${BASE_REF}"
+            # Prefer triple-dot; fall back to double-dot if no merge base
+            if git merge-base "origin/${BASE_REF}" HEAD >/dev/null 2>&1; then
+              RANGE="origin/${BASE_REF}...HEAD"
+            else
+              RANGE="origin/${BASE_REF}..HEAD"
+            fi
+          fi
+
+          # Run git diff and capture status explicitly
+          set +e
+          DIFF_OUTPUT="$(git diff --name-only ${RANGE})"
+          DIFF_STATUS=$?
+          set -e
+          if [ ${DIFF_STATUS} -ne 0 ]; then
+            echo "git diff failed for RANGE='${RANGE}'" >&2
+            # when diff is failed, always think there is a code change, try to run the CI
+            echo "has_changes=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "${DIFF_OUTPUT}" | grep -E '^(mlir-tensorrt/|\.github/workflows/mlir-tensorrt[^/]*\.yml|\.github/workflows/mlir-tensorrt/)' || true
+            echo "has_changes=true" >> "${GITHUB_OUTPUT}"
+          fi
+
   format-check:
     name: Lint Check
+    needs: changes
+    if: ${{ needs.changes.outputs.has_changes == 'true' }}
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda12.9-ubuntu24.04-0.1
+    outputs:
+      matrix: ${{ steps.generate-matrix.outputs.matrix }}
+      channel: ${{ steps.generate-matrix.outputs.channel }}
     steps:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 5
       - name: Run checks
         run: |
-          # Fetch base branch for merge-base calculation
+          # Determine base for formatting diff (push-safe and PR-safe)
           cd "${GITHUB_WORKSPACE}"
           git config --global --add safe.directory "${GITHUB_WORKSPACE}"
-          BASE_REF="${{ github.base_ref || 'main' }}"
-          git fetch origin "${BASE_REF}"
-          BASE_COMMIT=$(git merge-base HEAD "origin/${BASE_REF}")
+          EVENT_NAME="${{ github.event_name }}"
+          DEFAULT_BASE="${{ github.event.repository.default_branch || 'main' }}"
+          RANGE=""
+          if [ "${EVENT_NAME}" = "push" ]; then
+            FROM="${{ github.event.before }}"
+            TO="${{ github.sha }}"
+            if [ -z "${FROM}" ] || [ "${FROM}" = "0000000000000000000000000000000000000000" ]; then
+              git fetch --no-tags --prune --depth=100 origin "${DEFAULT_BASE}"
+              RANGE="origin/${DEFAULT_BASE}..${TO}"
+            else
+              RANGE="${FROM}..${TO}"
+            fi
+          else
+            BASE_REF="${{ github.base_ref || github.event.repository.default_branch || 'main' }}"
+            git fetch --no-tags --prune --depth=100 origin "${BASE_REF}"
+            if git merge-base "origin/${BASE_REF}" HEAD >/dev/null 2>&1; then
+              RANGE="origin/${BASE_REF}...HEAD"
+            else
+              RANGE="origin/${BASE_REF}..HEAD"
+            fi
+          fi
 
           # Check Python formatting with black
           uv tool install black
           uvx black --check --extend-exclude='.*\.pyi' mlir-tensorrt/compiler/ mlir-tensorrt/integrations
 
           # Check C++ formatting with clang-format
-          CLANG_FORMAT_DIFF=$(git clang-format-20 "${BASE_COMMIT}" --diff -q)
+          # git clang-format accepts a commit range. Use RANGE computed above.
+          CLANG_FORMAT_DIFF=$(git clang-format-20 ${RANGE} --diff -q)
           if [ -n "${CLANG_FORMAT_DIFF}" ]; then
             echo "${CLANG_FORMAT_DIFF}"
             echo "Error: C++ files are not properly formatted. Run 'git clang-format ${BASE_COMMIT}' to fix."
             exit 1
           fi
-
-  mlir-tensorrt-test-pr:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
-    runs-on: tripy-self-hosted
-    container:
-      image: ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda12.9-ubuntu24.04-0.1
-      options: >-
-        --gpus all
-        --shm-size=1g
-    steps:
-      # Value of `github.workspace` is /home/runner/work/{repo_name}/{repo-name}
-      # i.e. /home/runner/work/TensorRT-Incubator/TensorRT-Incubator in our case.
-      # After this action, repo is cloned inside above path.
-      - uses: actions/checkout@v5
-        with:
-          fetch-depth: 5
-
-      # Create cache folders
-      - name: Create cache folder
+      - name: Generate Build Matrix
+        id: generate-matrix
         run: |
-          mkdir -p ${{ github.workspace }}/mlir-tensorrt/ccache
-          mkdir -p ${{ github.workspace }}/mlir-tensorrt/.cache.cpm
+          set -euo pipefail
+          set -x
+          CHANNEL="test"
+          if [ "${GITHUB_EVENT_NAME:-}" = "schedule" ]; then
+            CHANNEL="nightly"
+          elif [ "${GITHUB_REF_TYPE:-}" = "tag" ]; then
+            CHANNEL="release"
+          fi
+          MATRIX_BLOB="$(python3 ./.github/workflows/mlir-tensorrt/generate-matrix.py --channel "${CHANNEL}")"
+          echo "${MATRIX_BLOB}"
+          echo "${CHANNEL}"
+          echo "matrix=${MATRIX_BLOB}" >> "${GITHUB_OUTPUT}"
+          echo "channel=${CHANNEL}" >> "${GITHUB_OUTPUT}"
 
-      # Restore cache, if exists.
-      - name: Restore cache
-        id: restore-cache
-        uses: actions/cache/restore@v4
-        with:
-          key: ${{ runner.os }}-mlir-tensorrt-cache-${{ hashFiles('mlir-tensorrt/**/*.cpp', 'mlir-tensorrt/**/*.h') }}
-          restore-keys: |
-            ${{ runner.os }}-mlir-tensorrt-cache-
-          path: |
-            ${{ github.workspace }}/mlir-tensorrt/ccache
-            ${{ github.workspace }}/mlir-tensorrt/.cache.cpm/*
-            !${{ github.workspace }}/mlir-tensorrt/.cache.cpm/tensorrt
+  mlir-tensorrt-build-test-x86_64:
+    name: Build and Test on x86_64
+    needs:
+      - changes
+      - format-check
+    if: ${{ needs.changes.outputs.has_changes == 'true' && needs.format-check.outputs.channel != 'release' }}
+    uses: ./.github/workflows/mlir-tensorrt-build-test.yml
+    with:
+      build-matrix: ${{ needs.format-check.outputs.matrix }}
+      channel: ${{ needs.format-check.outputs.channel }}
+      arch: x86_64
+      github_runner: linux-amd64-gpu-h100-latest-1
 
-      - name: Build only
-        env:
-          CMAKE_PRESET: "github-cicd"
-          ENABLE_ASAN: "OFF"
-          CCACHE_DIR: ${{ github.workspace }}/mlir-tensorrt/ccache
-          CPM_SOURCE_CACHE: ${{ github.workspace }}/mlir-tensorrt/.cache.cpm
-        run: |
-          cd mlir-tensorrt
-          ./build_tools/scripts/cicd-build.sh --build_only
+  mlir-tensorrt-build-test-aarch64:
+    name: Build and Test on aarch64
+    needs:
+      - changes
+      - format-check
+      - mlir-tensorrt-build-test-x86_64
+    if: ${{ needs.changes.outputs.has_changes == 'true' && needs.format-check.outputs.channel != 'release' }}
+    uses: ./.github/workflows/mlir-tensorrt-build-test.yml
+    with:
+      build-matrix: ${{ needs.format-check.outputs.matrix }}
+      channel: ${{ needs.format-check.outputs.channel }}
+      arch: aarch64
+      github_runner: linux-arm64-gpu-l4-latest-1
 
-      - name: Save cache
-        id: save-cache
-        uses: actions/cache/save@v4
-        with:
-          key: ${{ runner.os }}-mlir-tensorrt-cache-${{ hashFiles('mlir-tensorrt/**/*.cpp', 'mlir-tensorrt/**/*.h') }}
-          path: |
-            ${{ github.workspace }}/mlir-tensorrt/ccache
-            ${{ github.workspace }}/mlir-tensorrt/.cache.cpm/*
-            !${{ github.workspace }}/mlir-tensorrt/.cache.cpm/tensorrt
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}-mlir-tensorrt
+  cancel-in-progress: true
 
-      - name: Build and test
-        env:
-          CMAKE_PRESET: "github-cicd"
-          ENABLE_ASAN: "OFF"
-          CCACHE_DIR: ${{ github.workspace }}/mlir-tensorrt/ccache
-          CPM_SOURCE_CACHE: ${{ github.workspace }}/mlir-tensorrt/.cache.cpm
-        run: |
-          cd mlir-tensorrt
-          ./build_tools/scripts/cicd-build.sh
