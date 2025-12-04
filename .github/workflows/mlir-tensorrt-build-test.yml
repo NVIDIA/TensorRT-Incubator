@@ -86,7 +86,9 @@ jobs:
           restore-keys: |
             mlir-tensorrt-cpm-v1-
           path: |
-            ${{ env.CPM_SOURCE_CACHE }}
+            mlir-tensorrt/.cache.cpm/*
+            !mlir-tensorrt/.cache.cpm/tensorrt
+            !mlir-tensorrt/.cache.cpm/tensorrt/**
 
       # Build the project
       - name: Build With CUDA:${{ matrix.cuda }} + TensorRT:${{ matrix.trt }}
@@ -124,7 +126,7 @@ jobs:
           enableCrossOsArchive: true
           # exclude only works for the relative path pattern
           path: |
-            ${{ env.CPM_SOURCE_CACHE }}
+            mlir-tensorrt/.cache.cpm/*
             !mlir-tensorrt/.cache.cpm/tensorrt
             !mlir-tensorrt/.cache.cpm/tensorrt/**
 
