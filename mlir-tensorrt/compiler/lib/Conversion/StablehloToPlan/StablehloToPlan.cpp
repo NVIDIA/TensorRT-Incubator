@@ -25,6 +25,7 @@
 #include "mlir-executor/Executor/Utils/Utils.h"
 #include "mlir-tensorrt/Conversion/Passes.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
+#include "mlir/Dialect/ControlFlow/IR/ControlFlowOps.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Transforms/WalkPatternRewriteDriver.h"
@@ -222,6 +223,72 @@ struct OptimizationBarrierPattern
   }
 };
 
+/// JAX emits `stablehlo.custom_call` for shape assertion statements like this:
+///
+/// ```
+/// stablehlo.custom_call @shape_assertion(%6, %2, %0, %1) {api_version = 2
+/// : i32, error_message = "Input shapes do not match the polymorphic shapes
+/// specification. Found inconsistency between dimension size args[1].shape[0]
+/// (= {0}) and the specification 'K' (= {1}). Using the following polymorphic
+/// shapes specifications: args[0].shape = (K, n),args[1].shape =
+/// (K,),args[2].shape = (n,). Obtained dimension variables: 'K' = {1} from
+/// specification 'K' for dimension args[0].shape[0] (= {1}), 'n' = {2} from
+/// specification 'n' for dimension args[0].shape[1] (= {2}), . Please see
+/// https://jax.readthedocs.io/en/latest/export/shape_poly.html#shape-assertion-errors
+/// for more details.", has_side_effect = true} : (tensor<i1>, tensor<i32>,
+/// tensor<i32>, tensor<i32>) -> ()
+/// ```
+///
+/// Lower this to `cf.assert`, but currently we can't support the substitutions
+/// in the print formatting string.
+///
+/// just lower like
+///
+/// ```
+/// %cond = tensor.extract %6[] : tensor<i1>
+/// cf.assert %cond, "...the original unchanged message..."
+/// ```
+struct ShapeAssertionPattern
+    : public OpRewritePattern<stablehlo::CustomCallOp> {
+  using OpRewritePattern::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(stablehlo::CustomCallOp op,
+                                PatternRewriter &rewriter) const override {
+    // Only match shape_assertion custom calls.
+    if (op.getCallTargetName() != "shape_assertion")
+      return failure();
+
+    // Verify the op has at least one operand (the condition).
+    if (op.getInputs().empty())
+      return rewriter.notifyMatchFailure(
+          op, "shape_assertion requires at least one operand");
+
+    // Verify the first operand is a tensor<i1>.
+    Value condTensor = op.getInputs()[0];
+    auto condType = dyn_cast<RankedTensorType>(condTensor.getType());
+    if (!condType || condType.getRank() != 0 ||
+        !condType.getElementType().isSignlessInteger(1))
+      return rewriter.notifyMatchFailure(
+          op, "shape_assertion condition must be a tensor<i1>");
+
+    // Get the error message attribute.
+    auto errorMessageAttr = op->getAttrOfType<StringAttr>("error_message");
+    StringRef errorMessage = errorMessageAttr ? errorMessageAttr.getValue()
+                                              : "shape assertion failed";
+
+    // Extract the scalar condition from the tensor.
+    Location loc = op.getLoc();
+    Value cond = rewriter.create<tensor::ExtractOp>(loc, condTensor);
+
+    // Create the cf.assert operation.
+    rewriter.create<cf::AssertOp>(loc, cond, errorMessage);
+
+    // Erase the original custom call (it has no results).
+    rewriter.eraseOp(op);
+    return success();
+  }
+};
+
 struct ConvertStablehloToPlanPass
     : public impl::ConvertStablehloToPlanPassBase<ConvertStablehloToPlanPass> {
   using Base::Base;
@@ -231,7 +298,7 @@ struct ConvertStablehloToPlanPass
   LogicalResult initialize(MLIRContext *context) override {
     patterns = std::make_shared<FrozenRewritePatternSet>([&] {
       RewritePatternSet patterns_(context);
-      patterns_.add<OptimizationBarrierPattern>(context);
+      patterns_.add<OptimizationBarrierPattern, ShapeAssertionPattern>(context);
       return patterns_;
     }());
     return success();
