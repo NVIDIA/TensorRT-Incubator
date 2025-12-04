@@ -6,6 +6,7 @@ on:
     # it does not support path filtering
     branches:
       - "pull-request/[0-9]+"
+      - "main"
   # Disable the release and nightly CI for now, we will enable them later
   #   # this is for release CI
   #   tags:
@@ -80,6 +81,7 @@ jobs:
             echo "${DIFF_OUTPUT}" | grep -E '^(mlir-tensorrt/|\.github/workflows/mlir-tensorrt[^/]*\.yml|\.github/workflows/mlir-tensorrt/)' || true
             echo "has_changes=true" >> "${GITHUB_OUTPUT}"
           fi
+
   format-check:
     name: Lint Check
     needs: changes
@@ -168,7 +170,6 @@ jobs:
     needs:
       - changes
       - format-check
-      - mlir-tensorrt-build-test-x86_64
     if: ${{ needs.changes.outputs.has_changes == 'true' && needs.format-check.outputs.channel != 'release' }}
     uses: ./.github/workflows/mlir-tensorrt-build-test.yml
     with:
