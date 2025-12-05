@@ -5,7 +5,6 @@ get_property(mlir_libs GLOBAL PROPERTY MLIR_STATIC_LIBS)
 mtrt_get_project_targets(MLIRTensorRT LIBRARY_TYPE CAPI OUT_VAR capi_libs)
 mtrt_get_project_targets(MLIRTensorRT LIBRARY_TYPE MLIR_LIBS OUT_VAR mtrt_required_mlir_libs)
 
-
 # Additional libraries for tools.
 list(APPEND mlir_libs
   MLIRLspServerLib

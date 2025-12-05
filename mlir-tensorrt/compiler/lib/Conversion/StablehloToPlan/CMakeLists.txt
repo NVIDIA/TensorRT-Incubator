@@ -10,6 +10,7 @@ add_mlir_tensorrt_library(MLIRTensorRTStablehloToPlan
     MLIRTensorRTExecutorDialect
     MLIRTensorRTExecutorUtils
   MLIR_LIBS PUBLIC
+    MLIRControlFlowDialect
     MLIRPass
     MLIRRewrite
     MLIRTransformUtils

@@ -41,6 +41,7 @@ def ConvertStablehloToPlanPass : Pass<"convert-stablehlo-to-plan", "::mlir::Modu
       calls.
   }];
   let dependentDialects = [
+    "::mlir::cf::ControlFlowDialect",
     "::mlir::plan::PlanDialect",
     "::mlir::executor::ExecutorDialect",
     "::mlir::tensor::TensorDialect"

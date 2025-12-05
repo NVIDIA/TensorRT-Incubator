@@ -8,7 +8,6 @@ if(MLIR_TRT_ENABLE_PYTHON)
   find_package(DLPack REQUIRED)
 endif()
 
-
 # Specifies that all MLIR packages are co-located under the `mlir_tensorrt.compiler`
 # top level package. This definition is used in the MLIR Python binding headers for
 # generating lookup paths when the MLIR pybind modules are loaded at runtime.

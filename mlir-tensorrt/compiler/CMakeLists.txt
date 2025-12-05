@@ -50,11 +50,9 @@ mtrt_add_project_targets(MLIRTensorRT
   MLIRTransformDialectTransforms
   )
 
-
 add_subdirectory(include)
 add_subdirectory(lib)
 add_subdirectory(test)
-
 
 # Tools must be sequenced after tests.
 add_subdirectory(tools)
@@ -68,7 +66,6 @@ set(MTRT_COMPILER_HEADER_DIRS
   # For the Features.h header.
   "${PROJECT_BINARY_DIR}/include/mlir-tensorrt"
 )
-
 
 mtrt_add_header_installation_components(mtrt-headers
   DIRECTORIES

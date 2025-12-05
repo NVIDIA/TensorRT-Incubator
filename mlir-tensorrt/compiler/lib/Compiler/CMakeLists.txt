@@ -18,7 +18,6 @@ add_mlir_tensorrt_library(MLIRTensorRTCompilerClient
 add_subdirectory(StablehloToExecutable)
 add_subdirectory(TensorRTToExecutable)
 
-
 # ------- Tasks go above this point ---------------------
 
 mtrt_get_project_targets(MLIRTensorRT LIBRARY_TYPE DIALECT OUT_VAR MLIR_TENSORRT_DIALECT_LIBS)
