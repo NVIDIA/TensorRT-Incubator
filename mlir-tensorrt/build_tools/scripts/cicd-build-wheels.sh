@@ -10,7 +10,7 @@
 #     This script builds Python wheels for MLIR-TensorRT packages.
 #
 # Environment Variables (overridable; defaults provided):
-#     WHEELS_DIR - Directory to store built wheels (default: ${REPO_ROOT}/.wheels).
+#     WHEELS_DIR - Directory to store built wheels (default: ${REPO_ROOT}/dist).
 #                  It can be a relative or absolute path; relative paths are resolved against REPO_ROOT.
 #     PYTHON_VERSIONS / python_versions - Space or comma separated Python versions to build
 #                  (default: "3.10 3.11 3.12 3.13"; examples: "3.10", "3.10 3.11", "3.11,3.12")
@@ -53,7 +53,7 @@ export MLIR_TRT_BUILD_DIR="${MLIR_TRT_BUILD_DIR:-${REPO_ROOT}/build}"
 mkdir -p "${MLIR_TRT_BUILD_DIR}"
 export MLIR_TRT_INSTALL_DIR="${MLIR_TRT_INSTALL_DIR:-${REPO_ROOT}/install}"
 mkdir -p "${MLIR_TRT_INSTALL_DIR}"
-export WHEELS_DIR="${WHEELS_DIR:-${REPO_ROOT}/.wheels}"
+export WHEELS_DIR="${WHEELS_DIR:-${REPO_ROOT}/dist}"
 
 export MTRT_TENSORRT_VERSION="${MTRT_TENSORRT_VERSION:-10.13}"
 
@@ -86,4 +86,3 @@ echo "🔨🧪 Printing the size of the wheels directory"
 du -h -x -d 1 "${WHEELS_DIR}"
 
 ls -lart "${WHEELS_DIR}"
-ls -lart .wheels || true
