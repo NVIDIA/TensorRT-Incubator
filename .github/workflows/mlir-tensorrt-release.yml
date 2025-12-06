@@ -139,5 +139,5 @@ jobs:
           if-no-files-found: error
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}-mlir-tensorrt-release-${{ matrix.arch }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}-mlir-tensorrt-release
   cancel-in-progress: true
