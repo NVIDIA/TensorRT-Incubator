@@ -86,4 +86,4 @@ echo "🔨🧪 Printing the size of the wheels directory"
 du -h -x -d 1 "${WHEELS_DIR}"
 
 ls -lart "${WHEELS_DIR}"
-ls -lart mlir-tensorrt/.wheels
+ls -lart .wheels || true
