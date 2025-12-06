@@ -20,8 +20,19 @@ TRT_VERSIONS_DICT = {
 }
 
 TRT_VERSIONS_CUDA_MIN_MAX_DICT = {
-    "10.12": {"min_cuda_version": "12.9", "max_cuda_version": "12.9"},
-    "10.13": {"min_cuda_version": "12.9", "max_cuda_version": "13.0"},
+    "x86_64": {
+        "10.12": {"min_cuda_version": "12.9", "max_cuda_version": "12.9"},
+        "10.13": {"min_cuda_version": "12.9", "max_cuda_version": "13.0"},
+    },
+    "aarch64": {
+        "10.12": {"min_cuda_version": "12.9", "max_cuda_version": "12.9"},
+        "10.13": {"min_cuda_version": "13.0", "max_cuda_version": "13.0"},
+    },
+}
+
+GH_RUNNER_DICT = {
+    "x86_64": "linux-amd64-gpu-h100-latest-1",
+    "aarch64": "linux-arm64-gpu-l4-latest-1",
 }
 
 CMAKE_PRESET_DICT = {
@@ -66,43 +77,48 @@ def main(args: list[str]) -> None:
         raise Exception(
             "--channel is invalid, please choose from nightly, test or release"
         )
-    channel = options.channel
 
+    channel = options.channel
     cuda_versions = CUDA_VERSIONS_DICT[channel]
     trt_versions = TRT_VERSIONS_DICT[channel]
     docker_images = DOCKER_IMAGE_DICT[channel]
     cmake_preset = CMAKE_PRESET_DICT[channel]
 
     matrix_dict = {"include": []}
-    for cuda_version in cuda_versions:
-        for trt_version in trt_versions:
-            if trt_version not in TRT_VERSIONS_CUDA_MIN_MAX_DICT:
-                raise Exception(
-                    f"TRT version {trt_version} is not in TRT_VERSIONS_CUDA_MIN_MAX_DICT"
+    for arch in ("x86_64", "aarch64"):
+        gh_runner = GH_RUNNER_DICT[arch]
+        for cuda_version in cuda_versions:
+            for trt_version in trt_versions:
+                trt_to_cuda_min_max_map = TRT_VERSIONS_CUDA_MIN_MAX_DICT[arch]
+                if trt_version not in trt_to_cuda_min_max_map:
+                    raise Exception(
+                        f"TRT version {trt_version} is not in TRT_VERSIONS_CUDA_MIN_MAX_DICT for {arch}"
+                    )
+                min_cuda_version = trt_to_cuda_min_max_map[trt_version][
+                    "min_cuda_version"
+                ]
+                max_cuda_version = trt_to_cuda_min_max_map[trt_version][
+                    "max_cuda_version"
+                ]
+                if not (
+                    _version_tuple(min_cuda_version)
+                    <= _version_tuple(cuda_version)
+                    <= _version_tuple(max_cuda_version)
+                ):
+                    continue
+                matrix_dict["include"].append(
+                    {
+                        "cuda": cuda_version,
+                        "trt": trt_version,
+                        "docker_image": docker_images[cuda_version],
+                        "cmake_preset": cmake_preset,
+                        "latest_cuda": LATEST_CUDA_VERSION,
+                        "latest_trt": LATEST_TRT_VERSION,
+                        "arch": arch,
+                        "github_runner": gh_runner,
+                    }
                 )
-            min_cuda_version = TRT_VERSIONS_CUDA_MIN_MAX_DICT[trt_version][
-                "min_cuda_version"
-            ]
-            max_cuda_version = TRT_VERSIONS_CUDA_MIN_MAX_DICT[trt_version][
-                "max_cuda_version"
-            ]
-            if not (
-                _version_tuple(min_cuda_version)
-                <= _version_tuple(cuda_version)
-                <= _version_tuple(max_cuda_version)
-            ):
-                continue
-            matrix_dict["include"].append(
-                {
-                    "cuda": cuda_version,
-                    "trt": trt_version,
-                    "docker_image": docker_images[cuda_version],
-                    "cmake_preset": cmake_preset,
-                    "latest_cuda": LATEST_CUDA_VERSION,
-                    "latest_trt": LATEST_TRT_VERSION,
-                }
-            )
-    print(json.dumps(matrix_dict))
+        print(json.dumps(matrix_dict))
 
 
 if __name__ == "__main__":

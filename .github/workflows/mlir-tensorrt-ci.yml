@@ -157,8 +157,8 @@ jobs:
           echo "matrix=${MATRIX_BLOB}" >> "${GITHUB_OUTPUT}"
           echo "channel=${CHANNEL}" >> "${GITHUB_OUTPUT}"
 
-  mlir-tensorrt-build-test-x86_64:
-    name: Build and Test on x86_64
+  mlir-tensorrt-build-test:
+    name: Build and Test
     needs:
       - changes
       - format-check
@@ -167,23 +167,8 @@ jobs:
     with:
       build-matrix: ${{ needs.format-check.outputs.matrix }}
       channel: ${{ needs.format-check.outputs.channel }}
-      arch: x86_64
-      github_runner: linux-amd64-gpu-h100-latest-1
 
-  mlir-tensorrt-build-test-aarch64:
-    name: Build and Test on aarch64
-    needs:
-      - changes
-      - format-check
-    if: ${{ needs.changes.outputs.has_changes == 'true' && needs.format-check.outputs.channel != 'release' }}
-    uses: ./.github/workflows/mlir-tensorrt-build-test.yml
-    with:
-      build-matrix: ${{ needs.format-check.outputs.matrix }}
-      channel: ${{ needs.format-check.outputs.channel }}
-      arch: aarch64
-      github_runner: linux-arm64-gpu-l4-latest-1
-
-  mlir-tensorrt-wheel-tarball-release-x86_64:
+  mlir-tensorrt-wheel-tarball-release:
     name: Release on x86_64
     needs:
       - format-check
@@ -191,19 +176,7 @@ jobs:
     uses: ./.github/workflows/mlir-tensorrt-release.yml
     with:
       build-matrix: ${{ needs.format-check.outputs.matrix }}
-      arch: x86_64
-      github_runner: linux-amd64-gpu-h100-latest-1
 
-  mlir-tensorrt-wheel-tarball-release-aarch64:
-    name: Release on aarch64
-    needs:
-      - format-check
-    if: ${{ needs.format-check.outputs.channel == 'release' }}
-    uses: ./.github/workflows/mlir-tensorrt-release.yml
-    with:
-      build-matrix: ${{ needs.format-check.outputs.matrix }}
-      arch: aarch64
-      github_runner: linux-arm64-gpu-l4-latest-1
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}-mlir-tensorrt
