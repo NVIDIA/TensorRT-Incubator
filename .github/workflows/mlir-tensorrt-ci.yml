@@ -5,7 +5,7 @@ on:
     # this is for PR CI, it will be triggered by PRs via copy-pr-bot
     # it does not support path filtering
     branches:
-      - "pull-request/[0-9]+"
+      #- "pull-request/[0-9]+"
       - "main"
     # this is for release CI
     tags:
