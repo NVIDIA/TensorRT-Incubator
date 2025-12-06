@@ -41,7 +41,6 @@ jobs:
       CCACHE_RESTORE_KEY: mlir-tensorrt-ccache-v1-${{ inputs.arch }}-
       CPM_KEY: mlir-tensorrt-cpm-v1
       CPM_RESTORE_KEY: mlir-tensorrt-cpm-v1
-      WHEELS_DIR: ${{ github.workspace }}/mlir-tensorrt/dist/
     runs-on: ${{ inputs.github_runner }}
     timeout-minutes: 120
     container:
@@ -102,7 +101,6 @@ jobs:
           # TODO: remove this, once patch is in our rockylinux prebuilt image
           dnf install -yq patch
           PACKAGES="mlir_tensorrt_tools" PYTHON_VERSIONS="3.12" ./build_tools/scripts/cicd-build-wheels.sh
-          ls -lart ${{ env.WHEELS_DIR }}
           # # mlir-tensorrt-tools is not cuda, trt dependent, so we only build it once
           # # mlir-tensorrt-compiler, mlir-tensorrt-runtime is built per cuda, trt version
           # if [[ "${{ matrix.cuda }}" == "${{ env.LATEST_CUDA_VERSION }}" && "${{ matrix.trt }}" == "${{env.LATEST_TENSORRT_VERSION }}" ]]; then
@@ -142,11 +140,16 @@ jobs:
             !mlir-tensorrt/.cache.cpm/tensorrt/**
 
       # Upload wheels to GitHub Actions artifact
+      - name: List Wheels
+        run: |
+          set -euo pipefail
+          set -x
+          ls -lart mlir-tensorrt/dist
       - name: Upload Wheels
         uses: actions/upload-artifact@v4
         with:
           name: release-wheels-${{ inputs.arch }}-cu${{ matrix.cuda }}-trt${{ matrix.trt }}
-          path: ${{ env.WHEELS_DIR }}
+          path: mlir-tensorrt/dist
           if-no-files-found: error
 
 concurrency:
