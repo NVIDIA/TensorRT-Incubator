@@ -100,15 +100,14 @@ jobs:
           export MTRT_TENSORRT_VERSION=${{ matrix.trt }}
           # TODO: remove this, once patch is in our rockylinux prebuilt image
           dnf install -yq patch
-          PACKAGES="mlir_tensorrt_tools" PYTHON_VERSIONS="3.12" ./build_tools/scripts/cicd-build-wheels.sh
-          # # mlir-tensorrt-tools is not cuda, trt dependent, so we only build it once
-          # # mlir-tensorrt-compiler, mlir-tensorrt-runtime is built per cuda, trt version
-          # if [[ "${{ matrix.cuda }}" == "${{ env.LATEST_CUDA_VERSION }}" && "${{ matrix.trt }}" == "${{env.LATEST_TENSORRT_VERSION }}" ]]; then
-          #   ./build_tools/scripts/cicd-build-wheels.sh
-          # else
-          #   PACKAGES="mlir_tensorrt_compiler mlir_tensorrt_runtime" \
-          #   ./build_tools/scripts/cicd-build-wheels.sh
-          # fi
+          # mlir-tensorrt-tools is not cuda, trt dependent, so we only build it once
+          # mlir-tensorrt-compiler, mlir-tensorrt-runtime is built per cuda, trt version
+          if [[ "${{ matrix.cuda }}" == "${{ env.LATEST_CUDA_VERSION }}" && "${{ matrix.trt }}" == "${{env.LATEST_TENSORRT_VERSION }}" ]]; then
+            ./build_tools/scripts/cicd-build-wheels.sh
+          else
+            PACKAGES="mlir_tensorrt_compiler mlir_tensorrt_runtime" \
+            ./build_tools/scripts/cicd-build-wheels.sh
+          fi
 
       # Save ccache when cache is not hit or cache was a fallback(cache-matched is not the same as the cache key)
       - name: Save CCache
@@ -140,11 +139,6 @@ jobs:
             !mlir-tensorrt/.cache.cpm/tensorrt/**
 
       # Upload wheels to GitHub Actions artifact
-      - name: List Wheels
-        run: |
-          set -euo pipefail
-          set -x
-          ls -lart mlir-tensorrt/dist
       - name: Upload Wheels
         uses: actions/upload-artifact@v4
         with:
