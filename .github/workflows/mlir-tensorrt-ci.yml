@@ -169,7 +169,7 @@ jobs:
       channel: ${{ needs.format-check.outputs.channel }}
 
   mlir-tensorrt-wheel-tarball-release:
-    name: Release on x86_64
+    name: Release
     needs:
       - format-check
     if: ${{ needs.format-check.outputs.channel == 'release' }}

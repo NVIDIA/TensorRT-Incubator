@@ -118,7 +118,7 @@ def main(args: list[str]) -> None:
                         "github_runner": gh_runner,
                     }
                 )
-        print(json.dumps(matrix_dict))
+        sys.stdout.write(json.dumps(matrix_dict))
 
 
 if __name__ == "__main__":
