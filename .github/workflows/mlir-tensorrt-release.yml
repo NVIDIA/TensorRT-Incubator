@@ -7,14 +7,6 @@ on:
         description: 'Build matrix to utilize'
         default: ""
         type: string
-      arch:
-        description: 'Architecture, valid values are "x86_64" or "aarch64"'
-        default: "x86_64"
-        type: string
-      github_runner:
-        description: 'Runner, valid values are "linux-amd64-gpu-h100-latest-1" or "linux-arm64-gpu-l4-latest-1"'
-        default: "linux-amd64-gpu-h100-latest-1"
-        type: string
 
 defaults:
   run:
@@ -22,9 +14,9 @@ defaults:
 
 jobs:
   mlir-tensorrt-wheel-build:
-    name: ${{ inputs.arch }}-cu${{ matrix.cuda }}-trt${{ matrix.trt }}-wheel-build
+    name: ${{ matrix.arch }}-cu${{ matrix.cuda }}-trt${{ matrix.trt }}-wheel-build
     strategy:
-      fail-fast: true
+      fail-fast: false
       max-parallel: 1
       matrix: ${{ fromJSON(inputs.build-matrix) }}
     env:
@@ -32,16 +24,16 @@ jobs:
       DOWNLOAD_TENSORRT_VERSION: ${{ matrix.trt }}
       LATEST_CUDA_VERSION: ${{ matrix.latest_cuda }}
       LATEST_TENSORRT_VERSION: ${{ matrix.latest_trt }}
-      ARCH: ${{ inputs.arch }}
+      ARCH: ${{ matrix.arch }}
       CCACHE_DIR: ${{ github.workspace }}/mlir-tensorrt/ccache
       CPM_SOURCE_CACHE: ${{ github.workspace }}/mlir-tensorrt/.cache.cpm
       CMAKE_PRESET: distribution-wheels
-      CCACHE_KEY: mlir-tensorrt-ccache-v1-${{ inputs.arch }}-distribution-wheels
+      CCACHE_KEY: mlir-tensorrt-ccache-v1-${{ matrix.arch }}-distribution-wheels
       # if exact cache key is not matched, fallback to the restore key to restore the cache
-      CCACHE_RESTORE_KEY: mlir-tensorrt-ccache-v1-${{ inputs.arch }}-
+      CCACHE_RESTORE_KEY: mlir-tensorrt-ccache-v1-${{ matrix.arch }}-
       CPM_KEY: mlir-tensorrt-cpm-v1
       CPM_RESTORE_KEY: mlir-tensorrt-cpm-v1
-    runs-on: ${{ inputs.github_runner }}
+    runs-on: ${{ matrix.github_runner }}
     timeout-minutes: 120
     container:
       image: ${{ matrix.docker_image }}
@@ -100,11 +92,11 @@ jobs:
           export MTRT_TENSORRT_VERSION=${{ matrix.trt }}
           # TODO: remove this, once patch is in our rockylinux prebuilt image
           dnf install -yq patch
-          # mlir-tensorrt-tools is not cuda, trt dependent, so we only build it once
-          # mlir-tensorrt-compiler, mlir-tensorrt-runtime is built per cuda, trt version
+          # mlir-tensorrt-tools is not cuda, trt dependent, so we only build it once under the latest cuda, trt version
           if [[ "${{ matrix.cuda }}" == "${{ env.LATEST_CUDA_VERSION }}" && "${{ matrix.trt }}" == "${{env.LATEST_TENSORRT_VERSION }}" ]]; then
             ./build_tools/scripts/cicd-build-wheels.sh
           else
+            # mlir-tensorrt-compiler, mlir-tensorrt-runtime is built per cuda, trt version
             PACKAGES="mlir_tensorrt_compiler mlir_tensorrt_runtime" \
             ./build_tools/scripts/cicd-build-wheels.sh
           fi
@@ -122,7 +114,7 @@ jobs:
       - name: Save CPM Cache
         # cpm cache is shared across x86_64 and aarch64, we let only x86_64 to save cpm cache when in cache miss case
         # this is to avoid both x86_64 and aarch64 to save cpm cache when in cache miss case
-        if: ${{ inputs.arch == 'x86_64' &&
+        if: ${{ matrix.arch == 'x86_64' &&
               (
                 steps.restore-cpm.outputs.cache-hit != 'true' ||
                 steps.restore-cpm.outputs['cache-matched-key'] != env.CPM_KEY
@@ -142,10 +134,10 @@ jobs:
       - name: Upload Wheels
         uses: actions/upload-artifact@v4
         with:
-          name: release-wheels-${{ inputs.arch }}-cu${{ matrix.cuda }}-trt${{ matrix.trt }}
+          name: release-wheels-${{ matrix.arch }}-cu${{ matrix.cuda }}-trt${{ matrix.trt }}
           path: mlir-tensorrt/dist
           if-no-files-found: error
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}-mlir-tensorrt-release-${{ inputs.arch }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}-mlir-tensorrt-release-${{ matrix.arch }}
   cancel-in-progress: true
