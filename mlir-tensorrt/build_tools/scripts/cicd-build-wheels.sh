@@ -54,7 +54,6 @@ mkdir -p "${MLIR_TRT_BUILD_DIR}"
 export MLIR_TRT_INSTALL_DIR="${MLIR_TRT_INSTALL_DIR:-${REPO_ROOT}/install}"
 mkdir -p "${MLIR_TRT_INSTALL_DIR}"
 export WHEELS_DIR="${WHEELS_DIR:-${REPO_ROOT}/.wheels}"
-mkdir -p "${WHEELS_DIR}"
 
 export MTRT_TENSORRT_VERSION="${MTRT_TENSORRT_VERSION:-10.13}"
 
@@ -87,3 +86,4 @@ echo "🔨🧪 Printing the size of the wheels directory"
 du -h -x -d 1 "${WHEELS_DIR}"
 
 ls -lart "${WHEELS_DIR}"
+ls -lart mlir-tensorrt/.wheels

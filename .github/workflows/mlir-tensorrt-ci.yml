@@ -194,16 +194,16 @@ jobs:
       arch: x86_64
       github_runner: linux-amd64-gpu-h100-latest-1
 
-  mlir-tensorrt-wheel-tarball-release-aarch64:
-    name: Release on aarch64
-    needs:
-      - format-check
-    if: ${{ needs.format-check.outputs.channel == 'release' }}
-    uses: ./.github/workflows/mlir-tensorrt-release.yml
-    with:
-      build-matrix: ${{ needs.format-check.outputs.matrix }}
-      arch: aarch64
-      github_runner: linux-arm64-gpu-l4-latest-1
+  # mlir-tensorrt-wheel-tarball-release-aarch64:
+  #   name: Release on aarch64
+  #   needs:
+  #     - format-check
+  #   if: ${{ needs.format-check.outputs.channel == 'release' }}
+  #   uses: ./.github/workflows/mlir-tensorrt-release.yml
+  #   with:
+  #     build-matrix: ${{ needs.format-check.outputs.matrix }}
+  #     arch: aarch64
+  #     github_runner: linux-arm64-gpu-l4-latest-1
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}-mlir-tensorrt
