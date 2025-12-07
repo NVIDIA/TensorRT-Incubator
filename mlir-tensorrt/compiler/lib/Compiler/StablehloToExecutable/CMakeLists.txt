@@ -41,8 +41,10 @@ add_mlir_tensorrt_library(MLIRTensorRTCompilerStableHloToExecutable
       MLIRTensorRTTransformsUnrollForLoops
       StablehloLinalgTransforms
     MLIR_LIBS PUBLIC
+      MLIRArithTransforms
       MLIREmitCTransforms
       MLIRIR
       MLIRLLVMIRTransforms
+      MLIRMathToEmitC
     )
 

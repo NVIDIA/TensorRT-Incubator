@@ -37,8 +37,11 @@
 #include "mlir-tensorrt/Transforms/Passes.h"
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Conversion/ComplexToStandard/ComplexToStandard.h"
+#include "mlir/Conversion/MathToEmitC/MathToEmitC.h"
+#include "mlir/Conversion/MathToEmitC/MathToEmitCPass.h"
 #include "mlir/Conversion/SCFToControlFlow/SCFToControlFlow.h"
 #include "mlir/Dialect/Affine/Passes.h"
+#include "mlir/Dialect/Arith/Transforms/Passes.h"
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
 #include "mlir/Dialect/EmitC/Transforms/Passes.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -241,6 +244,10 @@ void StablehloToExecutableTask::populatePassManager() {
     // For EmitC, just run Host-to-EmitC followed
     // by cleanup and expression forming.
     if (hostTarget == HostTarget::EmitC) {
+      pm.addNestedPass<func::FuncOp>(mlir::createConvertMathToEmitC());
+      pm.addNestedPass<func::FuncOp>(arith::createArithExpandOpsPass());
+      pm.addNestedPass<func::FuncOp>(createCSEPass());
+      pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
       pm.addPass(createConvertHostToEmitCPass({options.artifactsDirectory}));
       addCleanupPasses(pm);
       // The EmitC "form-expressions" pass combines operations into
