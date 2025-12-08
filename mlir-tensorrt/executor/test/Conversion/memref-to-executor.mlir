@@ -155,15 +155,21 @@ func.func @memref_copy_h2h_strided(%arg0: !srcType,
 // CHECK-LABEL: func.func @memref_copy_h2h_strided
 //  CHECK-SAME: (%[[arg0:.+]]: memref<6xf32, strided<[2], offset: 2>, #executor.memory_type<host>>, %[[arg1:.+]]: memref<6xf32, strided<[2], offset: 4>, #executor.memory_type<host>>) {
 //   CHECK-DAG:     %[[c0_i32:.+]] = executor.constant 0 : i32
-//   CHECK-DAG:     %[[c4_i32:.+]] = executor.constant 4 : i32
 //   CHECK-DAG:     %[[c1_i32:.+]] = executor.constant 1 : i32
-//   CHECK-DAG:     %[[src_desc:.+]] = builtin.unrealized_conversion_cast %[[arg0]] : memref<6xf32, strided<[2], offset: 2>, #executor.memory_type<host>> to !executor.table<!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32>
-//   CHECK-DAG:     %[[dst_desc:.+]] = builtin.unrealized_conversion_cast %[[arg1]] : memref<6xf32, strided<[2], offset: 4>, #executor.memory_type<host>> to !executor.table<!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32>
-//   CHECK-DAG:     %[[v1:.+]] = executor.alloca %[[c1_i32]] x !executor.table<!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32> : (i32) -> !executor.ptr<host>
-//   CHECK-DAG:     %[[v2:.+]] = executor.alloca %[[c1_i32]] x !executor.table<!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32> : (i32) -> !executor.ptr<host>
-//       CHECK:     executor.store %[[src_desc]] to %[[v1]] + %[[c0_i32]] : !executor.table<!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32>, !executor.ptr<host>, i32
-//       CHECK:     executor.store %[[dst_desc]] to %[[v2]] + %[[c0_i32]] : !executor.table<!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32>, !executor.ptr<host>, i32
-//       CHECK:     executor.strided_memref_copy(%[[c1_i32]], %[[c4_i32]], %[[v1]], %[[v2]]) : i32, i32, !executor.ptr<host>, !executor.ptr<host>
+//   CHECK-DAG:     %[[c6_i32:.+]] = executor.constant 6 : i32
+//   CHECK-DAG:     %[[c2_i32:.+]] = executor.constant 2 : i32
+//   CHECK-DAG:     %[[c4_i32:.+]] = executor.constant 4 : i32
+//   CHECK-DAG:     %[[v0:.+]] = builtin.unrealized_conversion_cast %[[arg1]] : memref<6xf32, strided<[2], offset: 4>, #executor.memory_type<host>> to !executor.table<!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32>
+//   CHECK-DAG:     %[[v1:.+]] = builtin.unrealized_conversion_cast %[[arg0]] : memref<6xf32, strided<[2], offset: 2>, #executor.memory_type<host>> to !executor.table<!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32>
+//   CHECK-DAG:     %[[v2:.+]] = executor.alloca %[[c1_i32]] x i64 : (i32) -> !executor.ptr<host>
+//   CHECK-DAG:     %[[v3:.+]] = executor.alloca %[[c1_i32]] x i64 : (i32) -> !executor.ptr<host>
+//   CHECK-DAG:     %[[v4:.+]] = executor.alloca %[[c1_i32]] x i64 : (i32) -> !executor.ptr<host>
+//       CHECK:     executor.store %[[c6_i32]] to %[[v2]] + %[[c0_i32]] : i32, !executor.ptr<host>, i32
+//       CHECK:     executor.store %[[c2_i32]] to %[[v3]] + %[[c0_i32]] : i32, !executor.ptr<host>, i32
+//       CHECK:     executor.store %[[c2_i32]] to %[[v4]] + %[[c0_i32]] : i32, !executor.ptr<host>, i32
+//   CHECK-DAG:     %[[v5:.+]] = executor.table.get %[[v1]][1] : <!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32>
+//   CHECK-DAG:     %[[v6:.+]] = executor.table.get %[[v0]][1] : <!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32>
+//       CHECK:     executor.strided_memref_copy(%[[c1_i32]], %[[c4_i32]], %[[v2]], %[[v5]], %[[c2_i32]], %[[v3]], %[[v6]], %[[c4_i32]], %[[v4]]) : i32, i32, !executor.ptr<host>, !executor.ptr<host>, i32, !executor.ptr<host>, !executor.ptr<host>, i32, !executor.ptr<host>
 //       CHECK:     return
 
 // -----
