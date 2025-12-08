@@ -398,13 +398,17 @@ static MemorySpaceAttr getHostSpace(RewriterBase &rewriter) {
 
 static Value getHostConstantTensor(RewriterBase &rewriter, Location loc,
                                    ArrayRef<int64_t> values) {
-  auto rtt =
-      RankedTensorType::get({static_cast<int64_t>(values.size())},
-                            rewriter.getIndexType(), getHostSpace(rewriter));
+  auto rtt = RankedTensorType::get(
+      {std::max<int64_t>(1, static_cast<int64_t>(values.size()))},
+      rewriter.getIndexType(), getHostSpace(rewriter));
 
   // Create the DenseIntElementsAttr with host space
-  auto attr = DenseIntElementsAttr::get(rtt, values);
-  return rewriter.create<arith::ConstantOp>(loc, rtt, attr);
+  auto attrData = [&]() -> TypedAttr {
+    if (static_cast<int64_t>(values.size()) == rtt.getRank())
+      return DenseIntElementsAttr::get(rtt, values);
+    return rewriter.getZeroAttr(rtt);
+  }();
+  return rewriter.create<arith::ConstantOp>(loc, rtt, attrData);
 }
 
 static SmallVector<Value> createConstantIndices(RewriterBase &rewriter,
@@ -523,20 +527,29 @@ static FailureOr<func::FuncOp> createAggregateShapeFunc(
 
   SmallVector<Value> argValues = getArguments(rewriter, func);
   SmallVector<Type> argTypes;
+
   for (auto [idx, argValue] : llvm::enumerate(argValues)) {
     Type t = argValue.getType();
     auto rtt = dyn_cast<RankedTensorType>(t);
-    if (!rtt)
-      argTypes.push_back(t);
-    const TensorKindLattice *lattice =
-        solver.lookupState<TensorKindLattice>(argValue);
-    if (!lattice || lattice->getValue().isUninitialized())
-      return failure();
-    if (lattice->getValue().isHostVisible()) {
-      argTypes.push_back(t);
+
+    bool isHostTensorArg = [&, idx = idx, argValue = argValue]() {
+      if (!rtt)
+        return false;
+      if (func.getArgAttr(idx, plan::PlanDialect::kValueBoundsAttrName))
+        return true;
+      if (auto memSpace = func.getArgAttrOfType<plan::MemorySpaceAttr>(
+              idx, plan::PlanDialect::kMemorySpaceConstraintAttrName))
+        return memSpace.isHostVisible();
+      const TensorKindLattice *lattice =
+          solver.lookupState<TensorKindLattice>(argValue);
+      return lattice && !lattice->getValue().isUninitialized() &&
+             lattice->getValue().isHostVisible();
+    }();
+    if (!isHostTensorArg) {
+      argTypes.push_back(!rtt ? t : getShapeTensorType(rtt));
       continue;
     }
-    argTypes.push_back(getShapeTensorType(rtt));
+    argTypes.push_back(rtt);
   }
 
   FailureOr<SmallVector<Value>> returnedValues = getReturnedValues(func);
@@ -712,8 +725,6 @@ public:
       (*aggShapeFunc)
           ->setAttr(PlanDialect::kShapeFuncMarkerAttrName,
                     UnitAttr::get(rewriter.getContext()));
-      if (failed(aggShapeFunc))
-        continue;
 
       // Add the symbol to the original func.
       symbolTable.insert(*aggShapeFunc);
