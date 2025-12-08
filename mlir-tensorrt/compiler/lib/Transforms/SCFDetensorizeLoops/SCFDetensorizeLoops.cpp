@@ -35,10 +35,10 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Transforms/LoopInvariantCodeMotionUtils.h"
 
-namespace mlir {
+namespace mtrt {
 #define GEN_PASS_DEF_SCFDETENSORIZELOOPSPASS
 #include "mlir-tensorrt/Transforms/Passes.h.inc"
-} // namespace mlir
+} // namespace mtrt
 
 using namespace mlir;
 using namespace mlir::scf;
@@ -285,7 +285,7 @@ struct TensorInsertSubsetInsertionOpInterface
 };
 
 class SCFDetensorizeLoopsPass
-    : public impl::SCFDetensorizeLoopsPassBase<SCFDetensorizeLoopsPass> {
+    : public mtrt::impl::SCFDetensorizeLoopsPassBase<SCFDetensorizeLoopsPass> {
 public:
   using Base::Base;
   void runOnOperation() override {

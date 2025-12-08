@@ -31,7 +31,7 @@
 #include "mlir-tensorrt/Conversion/Patterns.h"
 #include "mlir-tensorrt/Conversion/TensorRTCommon/ConvertToTensorRTCommon.h"
 #include "mlir-tensorrt/Dialect/StablehloExt/Utils/GatherScatterUtils.h"
-#include "mlir-tensorrt/Transforms/StablehloMatchers/StablehloMatchers.h"
+#include "mlir-tensorrt/Dialect/StablehloExt/Utils/StablehloMatchers.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Func/Transforms/FuncConversions.h"
@@ -3713,7 +3713,7 @@ struct ConvertHLOSoftmax : public OpRewritePattern<stablehlo::DivOp> {
     mlir::Value softmaxInputOperand;
     int64_t deducedAxis = -1;
     if (!matchPattern(op.getOperation(),
-                      mlir::matchers::m_StableHLOSoftmaxMatcher(
+                      mlir::stablehlo::m_StableHLOSoftmaxMatcher(
                           softmaxInputOperand, deducedAxis)))
       return failure();
 

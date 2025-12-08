@@ -1,4 +1,4 @@
-// RUN: mlir-tensorrt-opt %s -test-stablehlo-matchers -split-input-file | FileCheck %s
+// RUN: mlir-tensorrt-opt %s -test-mtrt-stablehlo-matchers -split-input-file | FileCheck %s
 
 func.func public @test_raise_to_softmax(%arg0: tensor<16x20x80x40xf32>, %arg1: tensor<16x20x80x40xf32>) -> (tensor<16x80x20x20xf32>) {
   %0 = stablehlo.dot_general %arg0, %arg1, batching_dims = [0, 2] x [0, 2], contracting_dims = [3] x [3], precision = [DEFAULT, DEFAULT] : (tensor<16x20x80x40xf32>, tensor<16x20x80x40xf32>) -> tensor<16x80x20x20xf32>
@@ -26,7 +26,7 @@ func.func public @test_raise_to_softmax(%arg0: tensor<16x20x80x40xf32>, %arg1: t
 
 // CHECK-LABEL: @test_raise_to_softmax
 // CHECK: stablehlo.divide
-// CHECK-SAME: __matched__softmax__ 
+// CHECK-SAME: __matched__softmax__
 
 // -----
 func.func public @test_neg_incorrectReduceMaxDim(%arg0: tensor<16x20x80x40xf32>, %arg1: tensor<16x20x80x40xf32>) -> (tensor<16x80x20x20xf32>) {
@@ -55,7 +55,7 @@ func.func public @test_neg_incorrectReduceMaxDim(%arg0: tensor<16x20x80x40xf32>,
 
 // CHECK-LABEL: @test_neg_incorrectReduceMaxDim
 // CHECK: stablehlo.divide
-// CHECK-SAME: __not__softmax__ 
+// CHECK-SAME: __not__softmax__
 
 
 // -----
@@ -71,7 +71,7 @@ func.func public @test_neg_incorrectBroadcast(%arg0: tensor<16x20x80x40xf32>, %a
 
 // CHECK-LABEL: @test_neg_incorrectBroadcast
 // CHECK: stablehlo.divide
-// CHECK-SAME: __not__softmax__ 
+// CHECK-SAME: __not__softmax__
 
 
 // -----
@@ -101,5 +101,4 @@ func.func public @test_neg_incorrectReduceMaxBodyOp(%arg0: tensor<16x20x80x40xf3
 
 // CHECK-LABEL: @test_neg_incorrectReduceMaxBodyOp
 // CHECK: stablehlo.divide
-// CHECK-SAME: __not__softmax__ 
-
+// CHECK-SAME: __not__softmax__

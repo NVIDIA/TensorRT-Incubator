@@ -33,10 +33,10 @@
 #define DBGV(fmt, ...)                                                         \
   llvm::dbgs() << llvm::formatv("[" DEBUG_TYPE "] " fmt "\n", __VA_ARGS__)
 
-namespace mlir {
+namespace mtrt {
 #define GEN_PASS_DEF_UNROLLFORLOOPSPASS
 #include "mlir-tensorrt/Transforms/Passes.h.inc"
-} // namespace mlir
+} // namespace mtrt
 
 using namespace mlir;
 using namespace mlir::scf;
@@ -119,7 +119,7 @@ unrollForLoopWithStaticTripCount(IRRewriter &rewriter, scf::ForOp op,
 namespace {
 
 class UnrollForLoopsPass
-    : public impl::UnrollForLoopsPassBase<UnrollForLoopsPass> {
+    : public mtrt::impl::UnrollForLoopsPassBase<UnrollForLoopsPass> {
 public:
   using Base::Base;
 

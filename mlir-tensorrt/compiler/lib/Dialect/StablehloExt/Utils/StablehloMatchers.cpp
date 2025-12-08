@@ -21,10 +21,7 @@
 /// Matchers for StableHLO.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Transforms/StablehloMatchers/StablehloMatchers.h"
-#include "mlir-tensorrt/Transforms/Passes.h"
-#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
-#include "stablehlo/dialect/Base.h"
+#include "mlir-tensorrt/Dialect/StablehloExt/Utils/StablehloMatchers.h"
 #include "stablehlo/dialect/StablehloOps.h"
 #include "llvm/Support/Debug.h"
 
@@ -34,13 +31,11 @@
 #define DBGS() (llvm::dbgs() << "\n[" DEBUG_TYPE "]: ")
 #define TDBGS() (llvm::dbgs() << "\n[" TEST_DEBUG_TYPE "]: ")
 
-namespace mlir {
-#define GEN_PASS_DEF_TESTSTABLEHLOMATCHERSPASS
-#include "mlir-tensorrt/Transforms/Passes.h.inc"
-} // namespace mlir
-
 using namespace mlir;
 
+//===----------------------------------------------------------------------===//
+// Helpers
+//===----------------------------------------------------------------------===//
 // Return true if it is a sequence of 0,1, ..., rank-1
 template <typename Range>
 static bool isSeqOfRank(Range &&r, int64_t rank) {
@@ -72,25 +67,17 @@ static bool isBroadcastInFinalDim(InputOp op) {
   return isSeqOfRank(dimensions, inputType.getRank());
 }
 
-// clang-format off
-/// Match:
-/// %1 = stabehlo.broadcast_in_dim %input dims = [0, 1, 2] : tensor<AxBxC> to tensor<AxBxCx1>
-/// %2 = stabehlo.broadcast_in_dim %1 dims = [0, 1, 2, 3] : tensor<AxBxCx1> to tensor<AxBxCxD>
-// clang-format on
-template <typename InputMatcher, typename BcastInDimOp>
-bool matchers::detail::MatchExpandDimsAndBroadcastAlongFinalDim<
-    InputMatcher, BcastInDimOp>::match(Operation *root) {
-  // Match in reverse, starting from root (%2) and working up.
-  if (!matchPattern(root, m_Op<BcastInDimOp>(m_Op<BcastInDimOp>(inputMatcher))))
+/// Checks if the final dimension is the reduced dimension
+template <typename ReduceOp>
+static bool isReductionDimFinalDim(ReduceOp reduceOp, int64_t reductionDim) {
+  // check that the reduction dimension is the final dimension
+  TensorType inputType =
+      llvm::cast<TensorType>(reduceOp->getOperand(0).getType());
+  if (reductionDim != inputType.getRank() - 1) {
+    LLVM_DEBUG(DBGS() << "Reduction dim is not the final dimension");
     return false;
-
-  // Check conditions on "last dim is expanded and broadcasted".
-  auto bcastOp = cast<BcastInDimOp>(root);
-  auto expandOp = cast<BcastInDimOp>(bcastOp.getOperand().getDefiningOp());
-  // Reject "zero rank". You can't softmax on scalars.
-  if (expandOp.getOperand().getType().getRank() == 0)
-    return false;
-  return isRankExpansionByOne(expandOp) && isBroadcastInFinalDim(bcastOp);
+  }
+  return true;
 }
 
 /// Retrieves the dimension over which reduction is performed.
@@ -113,18 +100,78 @@ static FailureOr<int64_t> getReductionDim(ReduceOp reduceOp) {
   return dimensions[0];
 }
 
-/// Checks if the final dimension is the reduced dimension
-template <typename ReduceOp>
-static bool isReductionDimFinalDim(ReduceOp reduceOp, int64_t reductionDim) {
-  // check that the reduction dimension is the final dimension
-  TensorType inputType =
-      llvm::cast<TensorType>(reduceOp->getOperand(0).getType());
-  if (reductionDim != inputType.getRank() - 1) {
-    LLVM_DEBUG(DBGS() << "Reduction dim is not the final dimension");
+//===----------------------------------------------------------------------===//
+// Matchers
+//===----------------------------------------------------------------------===//
+
+// clang-format off
+/// Example Match with stablehlo:
+/// %1 = stabehlo.broadcast_in_dim %input dims = [0, 1, 2] : tensor<AxBxC> to tensor<AxBxCx1>
+/// %2 = stabehlo.broadcast_in_dim %1 dims = [0, 1, 2, 3] : tensor<AxBxCx1> to tensor<AxBxCxD>
+// clang-format on
+template <typename InputMatcher, typename BcastInDimOp>
+struct MatchExpandDimsAndBroadcastAlongFinalDim {
+  InputMatcher inputMatcher;
+  /// `finalShapeToMatch` is only used to match the type
+  MatchExpandDimsAndBroadcastAlongFinalDim(InputMatcher inputValue)
+      : inputMatcher(inputValue) {}
+  bool match(Operation *root);
+};
+
+// clang-format off
+/// Match:
+/// %1 = stabehlo.broadcast_in_dim %input dims = [0, 1, 2] : tensor<AxBxC> to tensor<AxBxCx1>
+/// %2 = stabehlo.broadcast_in_dim %1 dims = [0, 1, 2, 3] : tensor<AxBxCx1> to tensor<AxBxCxD>
+// clang-format on
+template <typename InputMatcher, typename BcastInDimOp>
+bool MatchExpandDimsAndBroadcastAlongFinalDim<
+    InputMatcher, BcastInDimOp>::match(Operation *root) {
+  // Match in reverse, starting from root (%2) and working up.
+  if (!matchPattern(root, m_Op<BcastInDimOp>(m_Op<BcastInDimOp>(inputMatcher))))
     return false;
-  }
-  return true;
+
+  // Check conditions on "last dim is expanded and broadcasted".
+  auto bcastOp = cast<BcastInDimOp>(root);
+  auto expandOp = cast<BcastInDimOp>(bcastOp.getOperand().getDefiningOp());
+  // Reject "zero rank". You can't softmax on scalars.
+  if (expandOp.getOperand().getType().getRank() == 0)
+    return false;
+  return isRankExpansionByOne(expandOp) && isBroadcastInFinalDim(bcastOp);
 }
+
+/// Match a double broadcast pattern that first expands the dims
+/// and then broadcasts the final dim.
+template <typename InputMatcher, typename BcastInDimOp>
+inline auto
+m_matchExpandDimsAndBroadcastAlongFinalDim(InputMatcher inputValue) {
+  return MatchExpandDimsAndBroadcastAlongFinalDim<InputMatcher, BcastInDimOp>(
+      inputValue);
+}
+
+/// Match ReduceOp with a max op in its body and
+/// reduces its final dimension
+// clang-format off
+/// Example match:
+///  //Initialized to -inf
+///  %1 = stablehlo.constant dense<0xFF800000> : tensor<f32>
+///  %2 = stablehlo.reduce(%0 init: %1) across dimensions = [3] :
+///            (tensor<16x80x20x20xf32>, tensor<f32>) -> tensor<16x80x20xf32>
+///   reducer(%arg2: tensor<f32>, %arg3: tensor<f32>)  {
+///    %12 = stablehlo.maximum %arg2, %arg3 : tensor<f32> //Body Op is maximum
+///    stablehlo.return %12 : tensor<f32>
+///  }
+// clang-format on
+template <typename InputMatcher, typename ReduceOp, typename MaxOp>
+struct MatchReduceMaxOverLastDim {
+  InputMatcher inputMatcher;
+  Value &deducedSoftmaxInput;
+  int64_t &redMaxDim;
+  MatchReduceMaxOverLastDim(InputMatcher inputValue, Value &deducedSoftmaxInput,
+                            int64_t &deducedRedMaxDim)
+      : inputMatcher(inputValue), deducedSoftmaxInput(deducedSoftmaxInput),
+        redMaxDim(deducedRedMaxDim) {}
+  bool match(Operation *root);
+};
 
 template <typename ReduceOp, typename BodyOp>
 static bool isCorrectBodyOp(ReduceOp reduceOp) {
@@ -140,8 +187,8 @@ static bool isCorrectBodyOp(ReduceOp reduceOp) {
 /// Match ReduceOp with a max op in its body across its final dimension
 /// The initial values are -inf
 template <typename InputMatcher, typename ReduceOp, typename MaxOp>
-bool matchers::detail::MatchReduceMaxOverLastDim<
-    InputMatcher, ReduceOp, MaxOp>::match(Operation *root) {
+bool MatchReduceMaxOverLastDim<InputMatcher, ReduceOp, MaxOp>::match(
+    Operation *root) {
   ReduceOp reduceOp = llvm::dyn_cast<ReduceOp>(root);
   // check that init matches -inf
   auto init = reduceOp->getOperand(1);
@@ -163,11 +210,42 @@ bool matchers::detail::MatchReduceMaxOverLastDim<
   return true;
 }
 
+/// Match ReduceOp with a Max op in its body and
+/// reduces its final dimension
+template <typename InputMatcher, typename ReduceOp, typename MaxOp>
+inline auto m_matchReduceMaxOverFinalDim(InputMatcher inputValue,
+                                         Value &deducedSoftmaxInput,
+                                         int64_t &deducedRedMaxDim) {
+  return MatchReduceMaxOverLastDim<InputMatcher, ReduceOp, MaxOp>(
+      inputValue, deducedSoftmaxInput, deducedRedMaxDim);
+}
+
+/// Match ReduceOp with a Sum op in its body and
+/// reduces its final dimension
+// clang-format off
+/// Example match:
+///  // initialized to zeros
+///  %7 = stablehlo.constant dense<0.000000e+00> : tensor<f32>
+///  %8 = stablehlo.reduce(%6 init: %7) across dimensions = [3] :
+///          (tensor<16x80x20x20xf32>, tensor<f32>) -> tensor<16x80x20xf32>
+///  reducer(%arg2: tensor<f32>, %arg3: tensor<f32>)  {
+///   %12 = stablehlo.add %arg2, %arg3 : tensor<f32>
+///   stablehlo.return %12 : tensor<f32>
+/// }
+// clang-format on
+template <typename InputMatcher, typename ReduceOp, typename AddOp>
+struct MatchReduceAddOverLastDim {
+  InputMatcher inputMatcher;
+  MatchReduceAddOverLastDim(InputMatcher inputValue)
+      : inputMatcher(inputValue) {}
+  bool match(Operation *root);
+};
+
 /// Match ReduceOp with an Add op in its body across its final dimension
 /// The initial values are zeros for Add.
 template <typename InputMatcher, typename ReduceOp, typename AddOp>
-bool matchers::detail::MatchReduceAddOverLastDim<
-    InputMatcher, ReduceOp, AddOp>::match(Operation *root) {
+bool MatchReduceAddOverLastDim<InputMatcher, ReduceOp, AddOp>::match(
+    Operation *root) {
   ReduceOp reduceOp = llvm::dyn_cast<ReduceOp>(root);
 
   // Since this is reduce-sum, the init constant should match constant zero
@@ -191,15 +269,22 @@ bool matchers::detail::MatchReduceAddOverLastDim<
   return true;
 }
 
+/// Match ReduceOp with a Sum op in its body and
+/// reduces its final dimension
+template <typename InputMatcher, typename ReduceOp, typename AddOp>
+inline auto m_matchReduceAddOverFinalDim(InputMatcher inputValue) {
+  return MatchReduceAddOverLastDim<InputMatcher, ReduceOp, AddOp>(inputValue);
+}
+
 /// Match the following pattern of operations, rooted at DivOp
 /// ReduceMax -> Broadcastx2 -> Subtract -> Exponential -> ReduceAdd
 /// -> Broadcast x 2 -> Divide
 template <typename BcastInDimOp, typename ReduceOp, typename SubOp,
           typename ExpnOp, typename DivideOp, typename MaxOp, typename AddOp>
-bool matchers::detail::HLOToSoftmaxMatcher<BcastInDimOp, ReduceOp, SubOp,
-                                           ExpnOp, DivideOp, MaxOp,
-                                           AddOp>::match(Operation *op) {
-  auto inputValue = m_Any();
+bool stablehlo::detail::HLOToSoftmaxMatcher<BcastInDimOp, ReduceOp, SubOp,
+                                            ExpnOp, DivideOp, MaxOp,
+                                            AddOp>::match(Operation *op) {
+  auto inputValue = mlir::matchers::m_Any();
   auto reduceMaxOp =
       m_matchReduceMaxOverFinalDim<decltype(inputValue), ReduceOp, MaxOp>(
           inputValue, softmaxInputOperand, softmaxAxis);
@@ -215,57 +300,7 @@ bool matchers::detail::HLOToSoftmaxMatcher<BcastInDimOp, ReduceOp, SubOp,
                                                  BcastInDimOp>(redSumOp);
   return matchPattern(op, m_Op<DivideOp>(expOp, broadcastedRedSumExp));
 }
-template bool matchers::detail::HLOToSoftmaxMatcher<
+template bool stablehlo::detail::HLOToSoftmaxMatcher<
     stablehlo::BroadcastInDimOp, stablehlo::ReduceOp, stablehlo::SubtractOp,
     stablehlo::ExpOp, stablehlo::DivOp, stablehlo::MaxOp,
     stablehlo::AddOp>::match(Operation *);
-
-namespace {
-struct TestRaiseToSoftmax : public OpRewritePattern<stablehlo::DivOp> {
-  using OpRewritePattern<stablehlo::DivOp>::OpRewritePattern;
-
-  LogicalResult matchAndRewrite(stablehlo::DivOp op,
-                                PatternRewriter &rewriter) const override {
-
-    if (op->hasAttr("__matched__softmax__")) {
-      LLVM_DEBUG(TDBGS() << "Softmax previously matched.");
-      return failure();
-    }
-    Value deducedSoftmaxInp;
-    int64_t softmaxAxis;
-    if (matchPattern(op.getOperation(), matchers::m_StableHLOSoftmaxMatcher(
-                                            deducedSoftmaxInp, softmaxAxis))) {
-      LLVM_DEBUG(TDBGS() << "Softmax matched at stablehlo::DivOp at "
-                         << op->getLoc());
-      op->setAttr("__matched__softmax__", UnitAttr::get(op->getContext()));
-      return success();
-    }
-    op->setAttr("__not__softmax__", UnitAttr::get(op->getContext()));
-    return failure();
-  }
-};
-
-/// This pass is used to raise the input IR to multiple recognized MHA patterns.
-/// Eg: for stablehlo: stablehlo.dot_general -> tensorrt.softmax ->
-/// stablehlo.dot_general
-///     for tensorrt: tensorrt.einsum -> tensorrt.softmax -> tensorrt.einsum
-/// In both of these cases, it is possible that tensorrt.softmax can be broken
-/// down to more basic ops like subtract, exponential and divide.
-class TestStablehloMatchersPass
-    : public impl::TestStablehloMatchersPassBase<TestStablehloMatchersPass> {
-  using Base::Base;
-
-public:
-  void runOnOperation() override {
-    Operation *op = getOperation();
-    MLIRContext *ctx = &getContext();
-    RewritePatternSet mhaPatterns(ctx);
-    mhaPatterns.add<TestRaiseToSoftmax>(mhaPatterns.getContext());
-    if (failed(applyPatternsGreedily(op, std::move(mhaPatterns)))) {
-      emitError(op->getLoc()) << "failed to convert patterns from "
-                                 "stablehlo to tensorrt. ";
-      return signalPassFailure();
-    }
-  }
-};
-} // namespace

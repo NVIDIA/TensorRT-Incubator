@@ -26,6 +26,7 @@ add_mlir_tensorrt_library(MLIRTensorRTCompilerStableHloToExecutable
       MLIRTensorRTHostBackend
       MLIRTensorRTHostToEmitC
       MLIRTensorRTHostToLLVM
+      MLIRTensorRTLinalgElementwiseFusion
       MLIRTensorRTMemRefToCUDA
       MLIRTensorRTPlanToExecutor
       MLIRTensorRTPlanTransforms
