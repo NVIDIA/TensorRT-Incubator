@@ -233,24 +233,18 @@ ResType uitofp(InpType input) {
 /// Implementation of the strided memref copy operation.
 /// The `srcDescriptor` and `dstDescriptor` are pointers to caller-allocated
 /// ranked memref descriptors provided for callee use (e.g. 'byval' arguments).
-static Status stridedMemRefCopyImpl(int64_t rank, int64_t elemSize,
-                                    uintptr_t srcDescriptor,
-                                    uintptr_t dstDescriptor) {
-  MTRT_ASSIGN_OR_RETURN(
-      MemRefDescriptorView srcInfo,
-      getMemRefDescriptorInfo(UnrankedMemRefDescriptor{rank, srcDescriptor}));
-  MTRT_ASSIGN_OR_RETURN(
-      MemRefDescriptorView dstInfo,
-      getMemRefDescriptorInfo(UnrankedMemRefDescriptor{rank, dstDescriptor}));
-
-  MTRT_DBG("strided memcpy\n - src: {0}\n - dst: {1}", srcInfo, dstInfo);
+static Status stridedMemRefCopyImpl(
+    int32_t rank, int64_t elemSize, const int64_t *shapeArray,
+    uintptr_t sourceAlignedPtr, int64_t sourceOffset,
+    const int64_t *sourceStridesArray, uintptr_t destinationAlignedPtr,
+    int64_t destinationOffset, const int64_t *destinationStridesArray) {
 
   mtrt::executeStridedCopy(
-      elemSize, srcInfo.data, srcInfo.offset,
-      llvm::ArrayRef<int64_t>(srcInfo.shape, srcInfo.rank),
-      llvm::ArrayRef<int64_t>(srcInfo.strides, srcInfo.rank), dstInfo.data,
-      dstInfo.offset, llvm::ArrayRef<int64_t>(dstInfo.shape, dstInfo.rank),
-      llvm::ArrayRef<int64_t>(dstInfo.strides, dstInfo.rank),
+      elemSize, sourceAlignedPtr, sourceOffset,
+      llvm::ArrayRef<int64_t>(shapeArray, rank),
+      llvm::ArrayRef<int64_t>(sourceStridesArray, rank), destinationAlignedPtr,
+      destinationOffset, llvm::ArrayRef<int64_t>(shapeArray, rank),
+      llvm::ArrayRef<int64_t>(destinationStridesArray, rank),
       [](void *dst, void *src, size_t size) { std::memcpy(dst, src, size); });
 
   return getOkStatus();
@@ -1027,14 +1021,20 @@ static void registerExecutorCoreModuleLuaRuntimeMethods(
   /// (srcPtr, srcPtrAligned, srcOfft, ...[srcShape], ...[srcStrides],
   ///  dstPtr, dstPtrAligned, dstOfft, ...[dstShape], ...[dstStrides])
   /// clang-format on
-  lua["_strided_memref_copy"] = [](sol::this_state state, int32_t rank,
-                                   int32_t elemSize, uintptr_t srcDescriptor,
-                                   uintptr_t dstDescriptor) {
-    ADD_CORE_MODULE_RANGE("core_strided_memref_copy");
-    Status status =
-        stridedMemRefCopyImpl(rank, elemSize, srcDescriptor, dstDescriptor);
-    SET_LUA_ERROR_AND_RETURN_IF_ERROR(status, state, );
-  };
+  lua["_strided_memref_copy"] =
+      [](sol::this_state state, int32_t rank, int64_t elemSize,
+         uintptr_t shapeArray, uintptr_t sourceAlignedPtr, int64_t sourceOffset,
+         uintptr_t sourceStridesArray, uintptr_t destinationAlignedPtr,
+         int64_t destinationOffset, uintptr_t destinationStridesArray) {
+        ADD_CORE_MODULE_RANGE("core_strided_memref_copy");
+        Status status = stridedMemRefCopyImpl(
+            rank, elemSize, reinterpret_cast<const int64_t *>(shapeArray),
+            sourceAlignedPtr, sourceOffset,
+            reinterpret_cast<const int64_t *>(sourceStridesArray),
+            destinationAlignedPtr, destinationOffset,
+            reinterpret_cast<const int64_t *>(destinationStridesArray));
+        SET_LUA_ERROR_AND_RETURN_IF_ERROR(status, state, );
+      };
 
   //===----------------------------------------------------------------------===//
   // Builtin Math Ops

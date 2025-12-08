@@ -746,6 +746,15 @@ void GetOffsetOp::build(OpBuilder &odsBuilder, OperationState &odsState,
         elementType);
 }
 
+void GetOffsetOp::build(OpBuilder &odsBuilder, OperationState &odsState,
+                        Type resultType, Type elementType,
+                        ArrayRef<int64_t> indices) {
+  SmallVector<Value> dynamicIndices;
+  SmallVector<int64_t> staticIndices(indices.begin(), indices.end());
+  build(odsBuilder, odsState, resultType, dynamicIndices, staticIndices,
+        elementType);
+}
+
 //===----------------------------------------------------------------------===//
 // AllocaOp
 //===----------------------------------------------------------------------===//

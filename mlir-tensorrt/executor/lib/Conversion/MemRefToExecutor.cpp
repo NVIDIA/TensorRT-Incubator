@@ -221,14 +221,14 @@ struct ConvertMemRefCopy : public ConvertOpToExecutorPattern<memref::CopyOp> {
         !isHostVisibleOnlyMemoryType(dstType))
       return failure();
 
+    if (isCopyStrided(srcType, dstType))
+      return failure();
+
     MemRefDescriptor src(adaptor.getSource(), srcType);
     MemRefDescriptor dest(adaptor.getTarget(), dstType);
     Value srcOffset = convertOffsetInElementsToBytes(b, src.offset(b), srcType);
     Value dstOffset =
         convertOffsetInElementsToBytes(b, dest.offset(b), dstType);
-
-    if (isCopyStrided(srcType, dstType))
-      return failure();
 
     // By definition, contiguous copies are not strided and thus the copy size
     // is equivalent to the shape volume (stride can be disregarded).
@@ -262,26 +262,38 @@ struct ConvertMemRefCopyStrided2D
     MemRefDescriptor src(adaptor.getSource(), srcType);
     MemRefDescriptor dst(adaptor.getTarget(), dstType);
 
-    Value rank = createIndexConstant(b, srcType.getRank());
     Value byteSize = createIndexConstant(
         b, getTypeConverter()->getMemRefElementTypeByteSize(srcType));
 
-    Location loc = op.getLoc();
-    Value one = this->createIndexConstant(b, 1);
-    Value zero = this->createIndexConstant(b, 0);
-    auto allocaSrc = rewriter.create<executor::AllocaOp>(
-        loc, getHostPointerType(), one, IntegerAttr{},
-        adaptor.getSource().getType());
-    auto allocaDst = rewriter.create<executor::AllocaOp>(
-        loc, getHostPointerType(), one, IntegerAttr{},
-        adaptor.getTarget().getType());
-    rewriter.create<executor::StoreOp>(loc, allocaSrc, zero,
-                                       adaptor.getSource());
-    rewriter.create<executor::StoreOp>(loc, allocaDst, zero,
-                                       adaptor.getTarget());
+    SmallVector<Value> srcStrides = src.strides(b);
+    SmallVector<Value> dstStrides = dst.strides(b);
+    SmallVector<Value> shape = src.sizes(b);
 
-    rewriter.create<executor::StridedMemrefCopyOp>(op.getLoc(), rank, byteSize,
-                                                   allocaSrc, allocaDst);
+    assert(srcType.getShape() == dstType.getShape() &&
+           "source and destination shapes must match");
+
+    Value rank = b.create<executor::ConstantOp>(
+        rewriter.getI32IntegerAttr(srcType.getRank()));
+    Type i64Type = rewriter.getIntegerType(64);
+    Type i32Type = rewriter.getIntegerType(32);
+
+    auto shapeArray = b.create<executor::AllocaOp>(getHostPointerType(), rank,
+                                                   IntegerAttr{}, i64Type);
+
+    auto srcStridesArray = b.create<executor::AllocaOp>(
+        getHostPointerType(), rank, IntegerAttr{}, i64Type);
+    auto dstStridesArray = b.create<executor::AllocaOp>(
+        getHostPointerType(), rank, IntegerAttr{}, i64Type);
+    for (int64_t i = 0; i < srcType.getRank(); i++) {
+      Value offset = b.create<executor::GetOffsetOp>(i32Type, i64Type, i);
+      b.create<executor::StoreOp>(shapeArray, offset, shape[i]);
+      b.create<executor::StoreOp>(srcStridesArray, offset, srcStrides[i]);
+      b.create<executor::StoreOp>(dstStridesArray, offset, dstStrides[i]);
+    }
+
+    b.create<executor::StridedMemrefCopyOp>(
+        rank, byteSize, shapeArray, src.alignedPtr(b), src.offset(b),
+        srcStridesArray, dst.alignedPtr(b), dst.offset(b), dstStridesArray);
     rewriter.eraseOp(op);
 
     return success();

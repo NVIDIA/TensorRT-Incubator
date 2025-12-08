@@ -43,6 +43,7 @@
 namespace mlir::executor {
 void registerTestExecutorBufferizePass();
 void registerTestClusteringTransformPass();
+void registerTestSideEffectsPass();
 } // namespace mlir::executor
 
 int main(int argc, char **argv) {
@@ -52,6 +53,7 @@ int main(int argc, char **argv) {
   mlir::executor::registerAllPasses();
   mlir::executor::registerTestExecutorBufferizePass();
   mlir::executor::registerTestClusteringTransformPass();
+  mlir::executor::registerTestSideEffectsPass();
 
   mlir::bufferization::registerBufferizationPasses();
   mlir::bufferization::registerBufferizationPipelines();

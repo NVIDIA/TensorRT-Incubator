@@ -17,4 +17,12 @@ add_mlir_executor_test_library(MLIRExecutorBufferizationTestPass
     MLIRBufferizationPipelines
     )
 
+add_mlir_executor_test_library(MLIRExecutorTestSideEffects
+  TestSideEffects.cpp
+
+  MLIR_LIBS PUBLIC
+    MLIRPass
+    MLIRIR
+    )
+
 add_subdirectory(Transforms)
