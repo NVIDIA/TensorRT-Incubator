@@ -685,35 +685,63 @@ LogicalResult HostToEmitCGlobalsConverter::convert(memref::GetGlobalOp op,
 }
 
 LogicalResult HostToEmitCGlobalsConverter::convert(memref::GlobalOp op) {
-  // TODO: support uninitialized memref.
   if (!op.getInitialValue())
     return emitError(op.getLoc(), "uninitialized global memref unsupported");
   std::optional<plan::MemorySpace> memSpace = getMemorySpace(op.getType());
   if (!memSpace)
     return emitError(op.getLoc(), "memref.global address space not specified");
   Type ptrType = builders.voidPtrType;
-  bool useFileExport = op.getType().getNumElements() > 128 ||
-                       memSpace != plan::MemorySpace::host;
-  Type bufferGlobalType =
-      !useFileExport ? emitc::ArrayType::get(op.getType().getShape(),
-                                             op.getType().getElementType())
-                     : ptrType;
+  const bool useFileExport = op.getType().getNumElements() > 128 ||
+                             memSpace != plan::MemorySpace::host;
   std::string filename = (op.getName() + ".constant.bin").str();
-  if (useFileExport && op.getInitialValueAttr()) {
-    // export data to file.
-    FailureOr<std::unique_ptr<llvm::ToolOutputFile>> outputFile =
-        serializeElementsAttrToFile(
-            op.getLoc(), cast<ElementsAttr>(op.getInitialValueAttr()),
-            artifactsDir, filename);
-    if (failed(outputFile))
-      return failure();
-    (*outputFile)->keep();
-  }
+
+  auto globalTypeAndInitialValue =
+      [&]() -> FailureOr<std::pair<Type, Attribute>> {
+    SmallVector<int64_t> arrayTypeShape(op.getType().getShape());
+
+    // We require "0 rank arrays" to be represented as "size-1 arrays" in EmitC.
+    const bool isZeroRank = arrayTypeShape.empty();
+    if (isZeroRank)
+      arrayTypeShape.push_back(1);
+    auto arrayType =
+        emitc::ArrayType::get(arrayTypeShape, op.getType().getElementType());
+
+    if (Attribute initialValue = op.getInitialValueAttr()) {
+      if (useFileExport) {
+        // export data to file.
+        FailureOr<std::unique_ptr<llvm::ToolOutputFile>> outputFile =
+            serializeElementsAttrToFile(op.getLoc(),
+                                        cast<ElementsAttr>(initialValue),
+                                        artifactsDir, filename);
+        if (failed(outputFile))
+          return failure();
+        (*outputFile)->keep();
+        return std::make_pair(ptrType, Attribute{});
+      }
+
+      // Reshape the initial value if required.
+      if (isZeroRank) {
+        if (auto elementsAttr = dyn_cast<DenseElementsAttr>(initialValue)) {
+          initialValue = elementsAttr.reshape(
+              elementsAttr.getType().clone(arrayTypeShape));
+        } else {
+          return emitError(op.getLoc(),
+                           "failed to reshape global initial value");
+        }
+      }
+      return std::make_pair(Type(arrayType), initialValue);
+    }
+
+    return std::make_pair(Type(arrayType), Attribute{});
+  }();
+
+  if (failed(globalTypeAndInitialValue))
+    return failure();
 
   emitc::GlobalOp globalOp = rewriter.create<emitc::GlobalOp>(
-      op.getLoc(), op.getSymName(), bufferGlobalType,
-      useFileExport ? Attribute{} : op.getInitialValueAttr(), false,
-      op.isPrivate(), false);
+      op.getLoc(), op.getSymName(), std::get<Type>(*globalTypeAndInitialValue),
+      std::get<Attribute>(*globalTypeAndInitialValue), false, op.isPrivate(),
+      false);
   if (useFileExport) {
     insertEmitCFunction(
         rewriter, op.getLoc(), module,
@@ -1697,6 +1725,55 @@ public:
     return success();
   }
 };
+
+/// Convert `memref.copy` to `std::memcpy` for host-visible contiguous memrefs.
+struct MemRefCopyOpLowering : public EmitCConversionPattern<memref::CopyOp> {
+  using EmitCConversionPattern::EmitCConversionPattern;
+
+  LogicalResult
+  matchAndRewrite(memref::CopyOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    auto srcType = dyn_cast<MemRefType>(op.getSource().getType());
+    auto dstType = dyn_cast<MemRefType>(op.getTarget().getType());
+    if (!srcType || !dstType)
+      return rewriter.notifyMatchFailure(op, "unranked memref not supported");
+
+    // Check both are contiguous (non-strided layouts).
+    if (!isContiguous(srcType) || !isContiguous(dstType))
+      return rewriter.notifyMatchFailure(
+          op, "source or destination is not contiguous");
+
+    // Check both are in host-visible memory space.
+    std::optional<plan::MemorySpace> srcSpace = getMemorySpace(srcType);
+    std::optional<plan::MemorySpace> dstSpace = getMemorySpace(dstType);
+
+    auto isHostVisible = [](std::optional<plan::MemorySpace> space) {
+      return space && (*space == plan::MemorySpace::host ||
+                       *space == plan::MemorySpace::host_pinned ||
+                       *space == plan::MemorySpace::unified);
+    };
+
+    if (!isHostVisible(srcSpace) || !isHostVisible(dstSpace))
+      return rewriter.notifyMatchFailure(
+          op, "source or destination is not in host-visible memory");
+
+    Location loc = op.getLoc();
+    EmitCMemRefDescriptor src(adaptor.getSource());
+    EmitCMemRefDescriptor dst(adaptor.getTarget());
+
+    Value srcPtr = src.getMemRefBufferStart(rewriter, loc, dataLayout,
+                                            srcType.getElementType());
+    Value dstPtr = dst.getMemRefBufferStart(rewriter, loc, dataLayout,
+                                            dstType.getElementType());
+    Value size = src.getSizeInBytes(rewriter, loc, dataLayout, srcType);
+
+    // Call std::memcpy(dst, src, size).
+    callOpaque(rewriter, loc, Type{}, "std::memcpy", {dstPtr, srcPtr, size});
+
+    rewriter.eraseOp(op);
+    return success();
+  }
+};
 } // namespace
 
 //===----------------------------------------------------------------------===//
@@ -1742,13 +1819,17 @@ struct CFAssertPattern : public EmitCConversionPattern<cf::AssertOp> {
     StringRef msg = op.getMsg();
 
     Value assertCondition = condition;
-    // Escape quotes and backslashes for C++ string literal
+    // Escape quotes, backslashes, and curly braces for C++ string literal.
+    // Curly braces must be escaped because EmitC uses `{}` for SSA value
+    // substitution.
     std::string escapedMsg;
     for (char c : msg) {
       if (c == '"')
         escapedMsg += "\\\"";
       else if (c == '\\')
         escapedMsg += "\\\\";
+      else if (c == '{')
+        escapedMsg += "{{";
       else
         escapedMsg += c;
     }
@@ -1977,6 +2058,7 @@ static void populateEmitCConversionPatternsAndLegality(
       MathLogToEmitCPattern,
       MemRefAllocOpLowering,
       MemrefCastOpLowering,
+      MemRefCopyOpLowering,
       MemRefDeallocLowering,
       MemRefDimOpLowering,
       MemRefExtractAlignedPointerAsIndexConverter,
@@ -2052,6 +2134,7 @@ public:
     rewriter.create<emitc::IncludeOp>(moduleOp->getLoc(), "cstdio", true);
     rewriter.create<emitc::IncludeOp>(moduleOp->getLoc(), "cstdint", true);
     rewriter.create<emitc::IncludeOp>(moduleOp->getLoc(), "cstdlib", true);
+    rewriter.create<emitc::IncludeOp>(moduleOp->getLoc(), "cstring", true);
     rewriter.create<emitc::IncludeOp>(moduleOp->getLoc(), "cmath", true);
     rewriter.create<emitc::IncludeOp>(moduleOp->getLoc(), "cassert", true);
     rewriter.create<emitc::IncludeOp>(moduleOp->getLoc(), "MTRTRuntime.h",
