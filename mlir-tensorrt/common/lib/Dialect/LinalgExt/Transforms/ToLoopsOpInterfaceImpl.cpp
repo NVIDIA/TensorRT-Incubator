@@ -224,7 +224,6 @@ struct ToLoopsOpInterfaceImpl
         linalg_ext::convertLinalgOpToLoops(rewriter, cast<OpTy>(op));
     if (failed(result))
       return failure();
-    rewriter.replaceOp(op, result->replacements);
     return result;
   }
 };

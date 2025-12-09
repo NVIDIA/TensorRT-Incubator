@@ -24,6 +24,7 @@
 #include "mlir-tensorrt/Backends/Host/HostBackend.h"
 #include "mlir-executor/Transforms/Clustering/Clustering.h"
 #include "mlir-executor/Transforms/Clustering/Patterns.h"
+#include "mlir-tensorrt-common/Interfaces/ToLoopsOpInterface.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir-tensorrt/Dialect/StablehloExt/Utils/Utils.h"
 #include "mlir/Analysis/DataFlowFramework.h"
@@ -192,6 +193,8 @@ HostBackendAttr::getClusterKindOptions(InputKind inputKind, Operation *op,
     if (llvm::isa<tensor::ExtractOp, tensor::InsertOp>(op)) {
       return true;
     }
+    if (llvm::isa<ToLoopsOpInterface>(op))
+      return true;
     return false;
   };
   return opts;
