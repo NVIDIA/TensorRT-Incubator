@@ -16,4 +16,5 @@ add_mlir_tensorrt_library(MLIRTensorRTHostToEmitC
     MLIRSCFToEmitC
     MLIRFuncToEmitC
     MLIRFuncTransforms
+    MLIRMathDialect
   )

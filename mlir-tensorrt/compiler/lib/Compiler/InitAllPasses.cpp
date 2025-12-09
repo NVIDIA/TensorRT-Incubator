@@ -67,7 +67,7 @@ void mtrt::compiler::registerAllPasses() {
   mlir::registerLowerAffinePass();
   mlir::registerMLIRTensorRTCommonConversionPasses();
   mlir::registerMLIRTensorRTConversionPasses();
-  mlir::registerMLIRTensorRTGenericTransformsPasses();
+  mtrt::registerMLIRTensorRTGenericTransformsPasses();
   mlir::registerTransformsPasses();
   mlir::tensorrt::registerTensorRTPasses();
   mtrt::compiler::registerTensorRTToExecutablePasses();

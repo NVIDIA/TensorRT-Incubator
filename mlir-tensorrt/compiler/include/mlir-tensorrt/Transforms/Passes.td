@@ -22,26 +22,31 @@
 
 include "mlir/Pass/PassBase.td"
 
-#ifdef MLIR_TENSORRT_ENABLE_HLO
-//===----------------------------------------------------------------------===//
-// TestStablehloMatchersPass to test different matchers for stablehlo
-//===----------------------------------------------------------------------===//
-def TestStablehloMatchersPass : Pass<"test-stablehlo-matchers"> {
-  let summary = "tests pattern matching utilities for StableHLO.";
-  let description =[{
-   StableHLOMatchers.h defines matchers to raise to different patterns for
-   dot-product attention, softmax, etc. This pass tests a matcher by looking
-   for the `__matched__` attribute added by a matcher.
-   }];
-}
-#endif // MLIR_TENSORRT_ENABLE_HLO
-
 //===----------------------------------------------------------------------===//
 // DropNestedModulesPass
 //===----------------------------------------------------------------------===//
 def DropNestedModulesPass : Pass<"drop-nested-modules", "::mlir::ModuleOp"> {
   let summary = "Drops any operation with the SymbolTable attribute directly"
     " nested within the top-level Module";
+}
+
+//===----------------------------------------------------------------------===//
+// LinalgElementwiseFusionPass
+//===----------------------------------------------------------------------===//
+
+def LinalgElementwiseFusionPass : Pass<"mtrt-linalg-elementwise-fusion"> {
+  let summary =
+    "Performs elementwise fusion on linalg operations specific to MLIR-TensorRT";
+
+  let description = [{
+    Runs linalg elementwise fusion with a control function that is specific
+    to MLIR-TensorRT.
+  }];
+
+  let dependentDialects = [
+    "::mlir::tensor::TensorDialect",
+    "::mlir::linalg::LinalgDialect"
+  ];
 }
 
 //===----------------------------------------------------------------------===//

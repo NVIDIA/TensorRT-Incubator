@@ -38,6 +38,9 @@ void registerTestTensorRTShapeInferencePass();
 
 #ifdef MLIR_TRT_ENABLE_HLO
 void registerTestBoundsAnalysisPass();
+namespace stablehlo_ext {
+void registerTestStablehloMatchersPass();
+} // namespace stablehlo_ext
 #endif // MLIR_TRT_ENABLE_HLO
 } // namespace mlir
 
@@ -45,6 +48,8 @@ static void registerTestPasses() {
   mlir::tensorrt::registerTestTensorKindAnalysisPass();
   mlir::tensorrt::registerTestTensorRTShapeInferencePass();
   IF_MLIR_TRT_ENABLE_HLO({ mlir::registerTestBoundsAnalysisPass(); });
+  IF_MLIR_TRT_ENABLE_HLO(
+      { mlir::stablehlo_ext::registerTestStablehloMatchersPass(); });
 }
 #endif // MLIR_TRT_ENABLE_TESTING
 

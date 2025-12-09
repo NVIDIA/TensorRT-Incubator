@@ -32,11 +32,12 @@ namespace mlir {
 namespace tensor {
 class TensorDialect;
 }
+} // namespace mlir
 
+namespace mtrt {
 #define GEN_PASS_DECL
 #define GEN_PASS_REGISTRATION
 #include "mlir-tensorrt/Transforms/Passes.h.inc"
-
-} // namespace mlir
+} // namespace mtrt
 
 #endif // MLIR_TENSORRT_TRANSFORMS_PASSES_H

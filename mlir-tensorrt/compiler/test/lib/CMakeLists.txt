@@ -3,3 +3,4 @@ function(add_mlir_tensorrt_test_library target)
 endfunction()
 
 add_subdirectory(Analysis)
+add_subdirectory(Dialect)
