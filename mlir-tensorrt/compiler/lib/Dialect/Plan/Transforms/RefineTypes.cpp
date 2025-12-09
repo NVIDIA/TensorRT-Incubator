@@ -23,6 +23,7 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
 #include "mlir-tensorrt-dialect/Utils/ShapeUtils.h"
+#include "mlir-tensorrt/Dialect/Plan/Analysis/DimAnalysis.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
 #include "mlir-tensorrt/Dialect/StablehloExt/Transforms/Patterns.h"
@@ -297,6 +298,70 @@ struct RefineTypeFromWithShapeGeneric : public OpRewritePattern<WithShapeOp> {
   }
 };
 
+/// Annotate non-expanding dimensions for dynamic_broadcast_in_dim
+/// operations using dimension analysis. We only annotate non-expanding
+/// dimensions since our analysis can only tell us either "values are equal" or
+/// "values may or may not be equal".
+static void
+annotateBroadcastDimensions(func::FuncOp func,
+                            DimensionRelationshipAnalysis &analysis) {
+  SmallVector<stablehlo::DynamicBroadcastInDimOp> broadcasts;
+
+  // Collect all dynamic_broadcast_in_dim operations
+  func.walk(
+      [&](stablehlo::DynamicBroadcastInDimOp op) { broadcasts.push_back(op); });
+
+  for (stablehlo::DynamicBroadcastInDimOp op : broadcasts) {
+    // Skip if already has expanding/non-expanding annotations
+    if (op.getKnownExpandingDimensions().has_value() ||
+        op.getKnownNonexpandingDimensions().has_value())
+      continue;
+
+    auto withValuesOp =
+        op.getOutputDimensions().getDefiningOp<plan::WithValuesOp>();
+    if (!withValuesOp)
+      continue;
+
+    Value operand = op.getOperand();
+    auto operandType = dyn_cast<RankedTensorType>(operand.getType());
+    if (!operandType)
+      continue;
+
+    ValueRange outputDims = withValuesOp.getElements();
+    ArrayRef<int64_t> broadcastDims = op.getBroadcastDimensions();
+    int64_t inputRank = operandType.getRank();
+
+    SmallVector<int64_t> nonExpandingDims;
+
+    // Check each input/operand dimension
+    // broadcast_dimensions[i] gives the output dimension index that input
+    // dimension i maps to
+    for (int64_t inputDim = 0; inputDim < inputRank; ++inputDim) {
+      if (inputDim >= static_cast<int64_t>(broadcastDims.size()))
+        continue;
+
+      int64_t outputDim = broadcastDims[inputDim];
+      if (outputDim < 0 || outputDim >= static_cast<int64_t>(outputDims.size()))
+        continue;
+
+      Value outputDimSize = outputDims[outputDim];
+
+      // Check if output and input dimension sizes are equal
+      if (analysis.areEqual(analysis.getExprFromValue(outputDimSize),
+                            analysis.getExprFromTensorDim(operand, inputDim))) {
+        nonExpandingDims.push_back(inputDim);
+      }
+    }
+
+    // Update the operation with the annotations if we found any
+    if (!nonExpandingDims.empty()) {
+      MLIRContext *opCtx = op.getContext();
+      op.setKnownNonexpandingDimensionsAttr(
+          DenseI64ArrayAttr::get(opCtx, nonExpandingDims));
+    }
+  }
+}
+
 class PlanRefineTypesPass
     : public plan::impl::PlanRefineTypesPassBase<PlanRefineTypesPass> {
   using Base::Base;
@@ -331,6 +396,13 @@ class PlanRefineTypesPass
       emitError(funcTarget.getLoc())
           << "failed to apply patterns in " << getArgument() << "\n";
       return signalPassFailure();
+    }
+
+    // Run dimension analysis and annotate broadcast dimensions
+    DimAnalysisOptions options{};
+    DimensionRelationshipAnalysis analysis(funcTarget, options);
+    if (succeeded(analysis.run())) {
+      annotateBroadcastDimensions(funcTarget, analysis);
     }
   }
 };
