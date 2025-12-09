@@ -36,3 +36,13 @@ func.func @test_assert_string_escaping(%arg0: i1) {
 
 // CPP-LABEL: void test_assert_string_escaping(bool v1) {
 // CPP: assert(v1 && "message with \"quotes\" and \\backslashes");
+
+// -----
+
+func.func @test_assert_curly_brace_escaping(%arg0: i1) {
+  cf.assert %arg0, "message with {curly} braces"
+  return
+}
+
+// CPP-LABEL: void test_assert_curly_brace_escaping(bool v1) {
+// CPP: assert(v1 && "message with {curly} braces");
