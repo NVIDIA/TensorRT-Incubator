@@ -1,4 +1,4 @@
-// RUN: mlir-tensorrt-opt %s -convert-to-loops -split-input-file -cse | FileCheck %s
+// RUN: mlir-tensorrt-opt %s -convert-to-loops -split-input-file -cse -canonicalize | FileCheck %s
 
 func.func @linalg_generic_to_loops(%arg0: tensor<4x4xf32>, %arg1: tensor<4x4xf32>, %arg2: tensor<4x4xf32>) -> tensor<4x4xf32> {
   %0 = linalg.generic {
@@ -125,13 +125,22 @@ func.func @linalg_map(%arg0: tensor<4x4xf32>, %arg1: tensor<4x4xf32>, %arg2: ten
 
 // -----
 
+// CHECK-LABEL: func.func @regression_dynamic_fill_and_reduce
+// CHECK-SAME: (%[[arg0:.+]]: tensor<?x?xf32>, %[[arg1:.+]]: tensor<?xf32>)
 func.func @regression_dynamic_fill_and_reduce(
               %arg0: tensor<?x?xf32>,
               %arg1: tensor<?xf32>) -> tensor<?xf32> {
+  // CHECK-DAG: %[[c0:.+]] = arith.constant 0 : index
+  // CHECK-DAG: %[[c1:.+]] = arith.constant 1 : index
+  // CHECK-DAG: %[[fill:.+]] = arith.constant 0.0{{.*}} : f32
   %c0 = arith.constant 0 : index
   %cst = arith.constant 0.000000e+00 : f32
+  // CHECK-DAG: %[[dim:.+]] = tensor.dim %[[arg0]], %[[c0]]
   %dim = tensor.dim %arg0, %c0 : tensor<?x?xf32>
+  // CHECK-DAG: %[[empty:.+]] = tensor.empty(%[[dim]])
   %0 = tensor.empty(%dim) : tensor<?xf32>
+  // CHECK: %[[v1:.+]] = scf.for %[[iter:.+]] = %[[c0]] to %[[dim]] step %[[c1]] iter_args(%[[carry:.+]] = %[[empty]])
+  // CHECK:   %[[inserted:.+]] = tensor.insert %[[fill]] into %[[carry]][%[[iter]]]
   %1 = linalg.generic {
     indexing_maps = [affine_map<(d0) -> (d0)>],
     iterator_types = ["parallel"]}
@@ -139,6 +148,12 @@ func.func @regression_dynamic_fill_and_reduce(
   ^bb0(%out: f32):
     linalg.yield %cst : f32
   } -> tensor<?xf32>
+  // CHECK: %[[dim_1:.+]] = tensor.dim %[[arg0]], %[[c1]]
+  // CHECK: %[[outer:.+]] = scf.for {{.*}} to %[[dim]] step %[[c1]] iter_args(%[[carry0:.+]] = %[[v1]])
+  // CHECK:  %[[inner:.+]] = scf.for {{.*}} to %[[dim_1]] step %[[c1]] iter_args(%[[carry1:.+]] = %[[carry0]])
+  // CHECK:  scf.yield %{{.*}}
+  // CHECK: scf.yield %[[inner]]
+  // CHECK: return %[[outer]]
   %2 = linalg.generic {
     indexing_maps = [affine_map<(d0, d1) -> (d0, d1)>, affine_map
     <(d0, d1) -> (d1)>,
