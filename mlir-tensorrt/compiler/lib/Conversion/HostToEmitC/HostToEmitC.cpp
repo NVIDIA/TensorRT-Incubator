@@ -21,7 +21,9 @@
 /// Implementation of the `convert-host-to-emitc` pass.
 ///
 //===----------------------------------------------------------------------===//
+#include "mlir-tensorrt/Conversion/HostToEmitC/HostToEmitC.h"
 #include "mlir-executor/Executor/IR/Executor.h"
+#include "mlir-executor/Executor/IR/ExecutorAttributes.h"
 #include "mlir-tensorrt/Conversion/LLVMCommon/LLVMCommon.h"
 #include "mlir-tensorrt/Conversion/Passes.h"
 #include "mlir-tensorrt/Dialect/CUDA/IR/CUDADialect.h"
@@ -30,17 +32,24 @@
 #include "mlir/Analysis/DataLayoutAnalysis.h"
 #include "mlir/Conversion/ArithToEmitC/ArithToEmitC.h"
 #include "mlir/Conversion/FuncToEmitC/FuncToEmitC.h"
+#include "mlir/Conversion/MathToEmitC/MathToEmitCPass.h"
+#include "mlir/Conversion/ReconcileUnrealizedCasts/ReconcileUnrealizedCasts.h"
 #include "mlir/Conversion/SCFToEmitC/SCFToEmitC.h"
+#include "mlir/Dialect/Arith/Transforms/Passes.h"
 #include "mlir/Dialect/ControlFlow/IR/ControlFlowOps.h"
 #include "mlir/Dialect/EmitC/IR/EmitC.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/Func/Transforms/FuncConversions.h"
 #include "mlir/Dialect/Func/Transforms/OneToNFuncConversions.h"
 #include "mlir/Dialect/Math/IR/Math.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/Utils/IndexingUtils.h"
+#include "mlir/IR/Matchers.h"
 #include "mlir/Interfaces/DataLayoutInterfaces.h"
+#include "mlir/Interfaces/FunctionInterfaces.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
+#include "mlir/Transforms/Passes.h"
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/FormatVariadic.h"
@@ -934,6 +943,10 @@ LogicalResult HostToEmitCGlobalsConverter::convert() {
 // EmitCConversionPattern
 //===----------------------------------------------------------------------===//
 
+static emitc::PointerType getPointerType(Type elementType) {
+  return emitc::PointerType::get(elementType);
+}
+
 namespace {
 /// EmitCConversionPattern is the base for all EmitC conversion patterns
 /// organized by dialect below.
@@ -953,10 +966,6 @@ struct EmitCConversionPattern : OpConversionPattern<OpType> {
   IntegerType i32Type{IntegerType::get(ctx, 32)};
   IntegerType i64Type{IntegerType::get(ctx, 64)};
   const mlir::DataLayout &dataLayout;
-
-  emitc::PointerType getPointerType(Type elementType) const {
-    return emitc::PointerType::get(elementType);
-  }
 
   emitc::OpaqueType getOpaqueType(StringRef str) const {
     return emitc::OpaqueType::get(ctx, str);
@@ -1753,8 +1762,132 @@ struct CFAssertPattern : public EmitCConversionPattern<cf::AssertOp> {
 } // namespace
 
 //===----------------------------------------------------------------------===//
+// Executor ABI Conversions
+//===----------------------------------------------------------------------===//
+
+namespace {
+struct ExecutorABIRecvPattern
+    : public EmitCConversionPattern<executor::ABIRecvOp> {
+  using EmitCConversionPattern::EmitCConversionPattern;
+
+  LogicalResult
+  matchAndRewrite(executor::ABIRecvOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    Type resultType = op.getType();
+    Type convertedResultType = typeConverter->convertType(resultType);
+    if (!convertedResultType)
+      return failure();
+
+    Type targetPtrType = getPointerType(convertedResultType);
+    Value ptr = adaptor.getPtr();
+    if (targetPtrType != ptr.getType()) {
+      ptr = createCast(rewriter, targetPtrType, ptr);
+    }
+
+    rewriter.replaceOpWithNewOp<emitc::ApplyOp>(op, convertedResultType, "*",
+                                                ptr);
+    return success();
+  }
+};
+
+struct ExecutorABISendPattern
+    : public EmitCConversionPattern<executor::ABISendOp> {
+  using EmitCConversionPattern::EmitCConversionPattern;
+
+  LogicalResult
+  matchAndRewrite(executor::ABISendOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    if (!op->use_empty())
+      return rewriter.notifyMatchFailure(
+          op, "ABISendOp must have no users before final lowering");
+    Type valueType = op.getValue().getType();
+    Type convertedValueType = typeConverter->convertType(valueType);
+    if (!convertedValueType)
+      return failure();
+
+    auto lowerToStore = [&]() {
+      Type targetPtrType = getPointerType(convertedValueType);
+      Value ptr = adaptor.getPtr();
+      if (targetPtrType != ptr.getType()) {
+        ptr = createCast(rewriter, targetPtrType, ptr);
+      }
+      Value zero = rewriter.create<emitc::ConstantOp>(
+          op.getLoc(), rewriter.getI32Type(), rewriter.getI32IntegerAttr(0));
+      Value dest = rewriter.create<emitc::SubscriptOp>(
+          op.getLoc(), getLValueType(convertedValueType), ptr, zero);
+      rewriter.create<emitc::AssignOp>(op.getLoc(), dest, adaptor.getValue());
+      rewriter.eraseOp(op);
+      return success();
+    };
+
+    // Check if value is a scalar type (FloatType, IndexType, IntegerType) or
+    // ComplexType
+    const bool isScalar =
+        isa<FloatType, IndexType, IntegerType, ComplexType>(valueType);
+
+    if (isScalar)
+      return lowerToStore();
+
+    // Check if value is a MemRef type
+    if (auto memrefType = dyn_cast<MemRefType>(valueType)) {
+      // For MemRef types, check additional conditions:
+      // 1. The ABIArgumentAttr must be marked as undef
+      // 2. The ownership value must be statically known to be true
+
+      // Get the function containing this operation
+      auto func = op->getParentOfType<FunctionOpInterface>();
+      if (!func)
+        return failure();
+
+      // Get the block argument for the ptr operand
+      auto blockArg = dyn_cast<BlockArgument>(op.getPtr());
+      if (!blockArg)
+        return failure();
+
+      // Get the ABI attribute for this argument
+      executor::ArgumentABIAttr abiAttr =
+          executor::abi::getArgumentABIAttr(func, blockArg.getArgNumber());
+      if (!abiAttr)
+        return failure();
+
+      // Check if the argument has 'undef' parameter set.
+      // If not, then this operation is a no-op: it is functionally pure since
+      // "abi.send" on a by-value argument has a copy-on-write semantic. we
+      // already verified that it has no users. Therefore, we can just erase the
+      // operation.
+      if (!abiAttr.getUndef()) {
+        rewriter.eraseOp(op);
+        return success();
+      }
+
+      // Check if ownership is statically known to be true
+      Value ownership = op.getOwnership();
+      if (!ownership || !mlir::matchPattern(ownership, mlir::m_One()))
+        return rewriter.notifyMatchFailure(
+            op, "ownership must be statically true for final lowering of "
+                "ABISendOp marked as `byref`");
+
+      return lowerToStore();
+    }
+
+    return rewriter.notifyMatchFailure(op,
+                                       "unhandled value type for ABISendOp");
+  }
+};
+} // namespace
+
+//===----------------------------------------------------------------------===//
 // HostToEmitC Pass/Patterns API
 //===----------------------------------------------------------------------===//
+
+static Value materializeConversion(OpBuilder &builder, Type resultType,
+                                   ValueRange inputs, Location loc) {
+  if (inputs.size() == 1 &&
+      emitc::CastOp::areCastCompatible(inputs.front().getType(), resultType))
+    return builder.create<emitc::CastOp>(loc, resultType, inputs[0]);
+  return builder.create<UnrealizedConversionCastOp>(loc, resultType, inputs)
+      .getResult(0);
+}
 
 /// Populate EmitC type conversions and op conversion patterns.
 static void populateEmitCConversionPatternsAndLegality(
@@ -1766,6 +1899,8 @@ static void populateEmitCConversionPatternsAndLegality(
   Type trtExecCtxType =
       emitc::OpaqueType::get(ctx, "nvinfer1::IExecutionContext");
   Type trtExecCtxPtrType = emitc::PointerType::get(trtExecCtxType);
+  Type voidPtrType{
+      emitc::PointerType::get(emitc::OpaqueType::get(ctx, "void"))};
   typeConverter.addConversion([](Type t) { return t; });
   typeConverter.addConversion(
       [&](BaseMemRefType memrefType) -> std::optional<Type> {
@@ -1774,6 +1909,9 @@ static void populateEmitCConversionPatternsAndLegality(
                                          memrefType.getRank());
         return {};
       });
+
+  typeConverter.addConversion(
+      [=](executor::PointerType pointerType) { return voidPtrType; });
 
   typeConverter.addConversion([=](Type t) -> std::optional<Type> {
     if (isa<trtrt::EngineType>(t))
@@ -1800,6 +1938,10 @@ static void populateEmitCConversionPatternsAndLegality(
     return emitc::OpaqueType::get(t.getContext(), name);
   });
 
+  // Setup conversion materialization functions.
+  typeConverter.addSourceMaterialization(materializeConversion);
+  typeConverter.addTargetMaterialization(materializeConversion);
+
   // Setup legality constraints.
   target.addLegalOp<UnrealizedConversionCastOp>();
   target.addLegalDialect<emitc::EmitCDialect>();
@@ -1812,6 +1954,10 @@ static void populateEmitCConversionPatternsAndLegality(
     return typeConverter.isLegal(op->getResultTypes()) &&
            typeConverter.isLegal(op->getOperandTypes());
   });
+  target.addDynamicallyLegalOp<func::ReturnOp>(
+      [&typeConverter](func::ReturnOp op) {
+        return mlir::isLegalForReturnOpTypeConversionPattern(op, typeConverter);
+      });
 
   // clang-format off
   patterns.add<
@@ -1820,17 +1966,19 @@ static void populateEmitCConversionPatternsAndLegality(
       CudaCopyConverter<cuda::CopyD2DOp>,
       CudaCopyConverter<cuda::CopyD2HOp>,
       CudaCopyConverter<cuda::CopyH2DOp>,
-      CUDAGetCurrentDeviceConverter,
       CudaDeallocConverter,
+      CUDAGetCurrentDeviceConverter,
       CUDALaunchConverter,
       CUDAStreamSyncConverter,
+      ExecutorABIRecvPattern,
+      ExecutorABISendPattern,
       ExecutorPrintConverter,
       ExtractStridedMetadataOpLowering,
       MathLogToEmitCPattern,
       MemRefAllocOpLowering,
       MemrefCastOpLowering,
-      MemRefDimOpLowering,
       MemRefDeallocLowering,
+      MemRefDimOpLowering,
       MemRefExtractAlignedPointerAsIndexConverter,
       MemRefLoadOpLowering,
       MemRefReinterpretCastOpLowering,
@@ -1840,9 +1988,11 @@ static void populateEmitCConversionPatternsAndLegality(
   // clang-format on
   mlir::populateSCFToEmitCConversionPatterns(patterns, typeConverter);
   mlir::populateArithToEmitCPatterns(typeConverter, patterns);
-  mlir::populateFuncTypeConversionPatterns(typeConverter, patterns);
   mlir::populateFunctionOpInterfaceTypeConversionPattern<func::FuncOp>(
       patterns, typeConverter);
+  mlir::populateReturnOpTypeConversionPattern(patterns, typeConverter);
+  mlir::populateBranchOpInterfaceTypeConversionPattern(patterns, typeConverter);
+  mlir::populateCallOpTypeConversionPattern(patterns, typeConverter);
 }
 
 namespace {
@@ -1894,27 +2044,6 @@ public:
     //===----------------------------------------------------------------------===//
     // Handle unrealized casts
     //===----------------------------------------------------------------------===//
-
-    SmallVector<UnrealizedConversionCastOp> unhandledCasts;
-    SmallVector<UnrealizedConversionCastOp> ops;
-    getOperation()->walk(
-        [&](UnrealizedConversionCastOp castOp) { ops.push_back(castOp); });
-    reconcileUnrealizedCasts(ops, &unhandledCasts);
-    for (UnrealizedConversionCastOp op : unhandledCasts) {
-      rewriter.setInsertionPoint(op);
-      auto typeIsSizeOrInt = [](Type t) {
-        return t.isIntOrIndex() || isa<emitc::SizeTType>(t);
-      };
-      if (op.getNumOperands() == 1 && op->getNumResults() == 1 &&
-          typeIsSizeOrInt(op->getOperand(0).getType()) &&
-          typeIsSizeOrInt(op->getResultTypes().front())) {
-        rewriter.replaceOpWithNewOp<emitc::CastOp>(
-            op, op.getResultTypes().front(), op.getInputs().front());
-        continue;
-      }
-      op->emitError() << "unhandled conversion cast";
-      return signalPassFailure();
-    }
 
     //===----------------------------------------------------------------------===//
     // Insert include ops
@@ -1969,7 +2098,62 @@ public:
           return failure();
         });
 
-    (void)mlir::applyPatternsGreedily(moduleOp, std::move(cleanupPatterns));
+    if (failed(mlir::applyPatternsGreedily(moduleOp,
+                                           std::move(cleanupPatterns)))) {
+      emitError(moduleOp->getLoc())
+          << "failed to apply cleanup patterns in " << getArgument();
+      return signalPassFailure();
+    }
+
+    // For functions, we convert `executor.ptr` arguments to void-pointers in
+    // the rewrite patterns. This is because the function argument value types
+    // are in function ABI attributes and can't be used as part of the type
+    // conversion. At this step, we look at all arguments which have ABI
+    // information. If there is a more refiend ABI value type available for
+    // poitner arguments, update the pointer type. This is always legal since
+    // users of `void*` values are always `emitc.cast` operations.
+    // In addition, remove any other attributes which are no longer
+    // relevant and will fail verification after this type conversion.
+    for (auto funcOp : getOperation().getOps<func::FuncOp>()) {
+      if (executor::abi::isABIWrapperFunction(funcOp))
+        funcOp->removeAttr(executor::ExecutorDialect::kFuncABIAttrName);
+
+      FunctionType funcType = funcOp.getFunctionType();
+      SmallVector<Type> updatedArgTypes(funcType.getInputs());
+      SmallVector<Type> updatedResultTypes(funcType.getResults());
+
+      for (unsigned i = 0; i < funcOp.getNumArguments(); i++) {
+        if (auto abiAttr = funcOp.getArgAttrOfType<executor::ArgumentABIAttr>(
+                i, executor::ExecutorDialect::kArgABIAttrName)) {
+          if (Type convertedType =
+                  typeConverter.convertType(abiAttr.getValueType())) {
+            Type newPointerType = getPointerType(convertedType);
+            updatedArgTypes[i] = newPointerType;
+            funcOp.getArgument(i).setType(newPointerType);
+          }
+          funcOp.removeArgAttr(i, executor::ExecutorDialect::kArgABIAttrName);
+        }
+        if (funcOp.getArgAttr(i, plan::PlanDialect::kShapeBoundsAttrName))
+          funcOp.removeArgAttr(i, plan::PlanDialect::kShapeBoundsAttrName);
+        if (funcOp.getArgAttr(i, plan::PlanDialect::kValueBoundsAttrName))
+          funcOp.removeArgAttr(i, plan::PlanDialect::kValueBoundsAttrName);
+      }
+
+      funcOp.setFunctionType(FunctionType::get(
+          funcOp.getContext(), updatedArgTypes, updatedResultTypes));
+    }
   }
 };
 } // namespace
+
+void mtrt::compiler::applyEmitCLoweringPipeline(
+    mlir::OpPassManager &pm, llvm::StringRef artifactsDirectory) {
+  pm.addNestedPass<mlir::func::FuncOp>(mlir::createConvertMathToEmitC());
+  pm.addNestedPass<mlir::func::FuncOp>(mlir::arith::createArithExpandOpsPass());
+  pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
+  pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
+  pm.addPass(
+      mlir::createConvertHostToEmitCPass(mlir::ConvertHostToEmitCPassOptions{
+          /*artifactsDirectory=*/artifactsDirectory.str()}));
+  pm.addPass(mlir::createReconcileUnrealizedCastsPass());
+}
