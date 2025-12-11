@@ -85,7 +85,7 @@ func.func @inline_closed_group(%arg0: tensor<?xf32>, %arg1: index, %arg2: tensor
 // -----
 
 func.func @inline_closed_alloc_group(%arg0: tensor<?xf32>, %arg1: index) -> tensor<?xf32> {
-  %2 = plan.inline_closed_alloc_group target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>)
+  %2 = plan.inline_closed_alloc_group target(#plan.host_backend<benefit=1>)
     inputs(%arg0, %arg1 : tensor<?xf32>, index)
     in_attrs [#plan.bounds<shape, [10], [20]>, #plan.bounds<none>] -> tensor<?xf32> {
   ^bb0(%in0: tensor<?xf32>, %in1: index):
@@ -97,7 +97,7 @@ func.func @inline_closed_alloc_group(%arg0: tensor<?xf32>, %arg1: index) -> tens
 }
 
 // CHECK-LABEL: func.func @inline_closed_alloc_group
-//       CHECK:  plan.inline_closed_alloc_group target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>)
+//       CHECK:  plan.inline_closed_alloc_group target(#plan.host_backend<benefit = 1>)
 //  CHECK-NEXT:   inputs(%{{.+}}, %{{.+}} : tensor<?xf32>, index)
 //  CHECK-NEXT:   in_attrs [#plan.bounds<shape, [10], [20]>, #plan.bounds<none>]
 //  CHECK-NEXT:   -> tensor<?xf32> {
@@ -105,6 +105,32 @@ func.func @inline_closed_alloc_group(%arg0: tensor<?xf32>, %arg1: index) -> tens
 //  CHECK-NEXT:    %{{.+}} = with_shape %in{{.*}}(%in{{.*}}) :
 //  CHECK-NEXT:    %{{.+}} = stablehlo.exponential %{{.+}} : tensor<?xf32>
 //  CHECK-NEXT:    yield %{{.+}} : tensor<?xf32>
+//  CHECK-NEXT:  }
+//  CHECK-NEXT:  return
+
+// -----
+
+func.func @inline_closed_alloc_group_any_type(%arg0: tensor<?xf32>, %arg1: index, %arg2: f32, %arg3: complex<f32>) -> (tensor<?xf32>, index, f32, complex<f32>) {
+  %0:4 = plan.inline_closed_alloc_group target(#plan.host_backend<benefit=1>)
+    inputs(%arg0, %arg1, %arg2, %arg3 : tensor<?xf32>, index, f32, complex<f32>)
+    in_attrs [#plan.bounds<shape, [10], [20]>, #plan.bounds<none>, #plan.bounds<none>, #plan.bounds<none>] -> tensor<?xf32>, index, f32, complex<f32> {
+  ^bb0(%in0: tensor<?xf32>, %in1: index, %in2: f32, %in3: complex<f32>):
+    %1 = plan.with_shape %in0 (%in1) : (tensor<?xf32>, index) -> tensor<?xf32>
+    %res = stablehlo.exponential %1 : tensor<?xf32>
+    yield %res, %in1, %in2, %in3 : tensor<?xf32>, index, f32, complex<f32>
+  }
+  return %0#0, %0#1, %0#2, %0#3 : tensor<?xf32>, index, f32, complex<f32>
+}
+
+// CHECK-LABEL: func.func @inline_closed_alloc_group_any_type
+//       CHECK:  plan.inline_closed_alloc_group
+//  CHECK-NEXT:   inputs(%{{.+}}, %{{.+}}, %{{.+}}, %{{.+}} : tensor<?xf32>, index, f32, complex<f32>)
+//  CHECK-NEXT:   in_attrs [#plan.bounds<shape, [10], [20]>, #plan.bounds<none>, #plan.bounds<none>, #plan.bounds<none>]
+//  CHECK-NEXT:   -> tensor<?xf32>, index, f32, complex<f32> {
+//  CHECK-NEXT:  ^bb0(%in{{.*}}: tensor<?xf32>, %in{{.*}}: index, %in{{.*}}: f32, %in{{.*}}: complex<f32>):
+//  CHECK-NEXT:    %{{.+}} = with_shape %in{{.*}}(%in{{.*}}) :
+//  CHECK-NEXT:    %{{.+}} = stablehlo.exponential %{{.+}} : tensor<?xf32>
+//  CHECK-NEXT:    yield %{{.+}}, %in{{.*}}, %in{{.*}}, %in{{.*}} : tensor<?xf32>, index, f32, complex<f32>
 //  CHECK-NEXT:  }
 //  CHECK-NEXT:  return
 
@@ -126,4 +152,3 @@ func.func @with_values1(%arg0: tensor<0xi32>) -> tensor<0xi32> {
   %4 = plan.with_values %arg0 () : tensor<0xi32>
   return %4 : tensor<0xi32>
 }
-

@@ -325,11 +325,11 @@ def Plan_InlineClosedAllocGroupOp : Plan_InlineClosedGroupBase<"inline_closed_al
   }
 
   }];
-  let arguments = (ins Variadic<AnyTypeOf<[AnyRankedTensor, AnySignlessIntegerOrIndex]>>:$inputs,
+  let arguments = (ins Variadic<AnyType>:$inputs,
                        BoundsAttrArray:$input_attrs,
                        AnyAttr:$target);
 
-  let results = (outs Variadic<AnyTypeOf<[AnyRankedTensor]>>:$results);
+  let results = (outs Variadic<AnyType>:$results);
 
   let assemblyFormat = [{
     `target` `(` $target `)` `\n`
