@@ -54,13 +54,14 @@ func.func @reduce(%arg0: tensor<4xi32>, %arg1: tensor<i32>) -> (tensor<i32>, ten
 //       CHECK: #[[$profile:.+]] = #tensorrt.shape_profile<min = [], opt = [], max = []>
 // CHECK-LABEL: func.func @reduce
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<4xi32>, %[[arg1:.+]]: tensor<i32>) -> (tensor<i32>, tensor<i1>) {
-//       CHECK:     %[[v0:.+]] = tensor.empty() : tensor<i1>
-//       CHECK:     %[[v1:.+]] = tensor.empty() : tensor<i32>
-//       CHECK:     %[[v2:.+]]:2 = tensorrt.call @trt_engines::@tensorrt_cluster(%[[arg1]], %[[arg0]] : tensor<i32>, tensor<4xi32>) outs(%[[v0]], %[[v1]] :
-//       CHECK:     return %[[v2]]#1, %[[v2]]#0 :
+//   CHECK-DAG:     %[[v0:.+]] = tensor.empty() : tensor<i32>
+//   CHECK-DAG:     %[[v1:.+]] = tensor.empty() : tensor<i1>
+//       CHECK:     %[[v2:.+]]:2 = tensorrt.call @trt_engines::@tensorrt_cluster(%[[arg0]], %[[arg1]] : tensor<4xi32>, tensor<i32>)
+//   CHECK-SAME:       outs(%[[v0]], %[[v1]] :
+//       CHECK:     return %[[v2]]#0, %[[v2]]#1 :
 //       CHECK: tensorrt.module @trt_engines
 // CHECK-LABEL: func.func @tensorrt_cluster
-//  CHECK-SAME: (%[[arg0:.+]]: tensor<i32>, %[[arg1:.+]]: tensor<4xi32>) -> (tensor<i1> {tensorrt.shape_profile = #[[$profile]]}, tensor<i32> {tensorrt.shape_profile = #[[$profile]]}) attributes {cluster.tensorrt}
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<4xi32>, %[[arg1:.+]]: tensor<i32>) -> (tensor<i32> {tensorrt.shape_profile = #[[$profile]]}, tensor<i1> {tensorrt.shape_profile = #[[$profile]]})
 //       CHECK:       stablehlo.constant
 //       CHECK:       stablehlo.compare
 //       CHECK:       stablehlo.reduce
@@ -92,14 +93,14 @@ func.func @small_reduce_host(%arg0: tensor<4xi32>, %arg1: tensor<i32>)
 
 // CHECK-LABEL: func.func @small_reduce_host
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<4xi32>, %[[arg1:.+]]: tensor<i32>)
-//       CHECK:     %[[v0]]:2 = call @host_backend(%[[arg1]], %[[arg0]])
-//       CHECK:     return %[[v0]]#1, %[[v0]]#0
+//       CHECK:     %[[v0:.+]]:2 = call @host_backend(%[[arg0]], %[[arg1]])
+//       CHECK:     return %[[v0]]#0, %[[v0]]#1 :
 // CHECK-LABEL: func.func private @host_backend
-//  CHECK-SAME: (%[[arg0:.+]]: tensor<i32>, %[[arg1:.+]]: tensor<4xi32>)
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<4xi32>, %[[arg1:.+]]: tensor<i32>)
 //       CHECK:     %[[c:.+]] = stablehlo.constant
-//       CHECK:     %[[v0:.+]] = stablehlo.compare  EQ, %[[c]], %[[arg0]]
-//       CHECK:     %[[v1:.+]] = stablehlo.reduce(%[[arg1]] init: %[[c]])
-//       CHECK:     return %[[v0]], %[[v1]]
+//       CHECK:     %[[v0:.+]] = stablehlo.compare  EQ, %[[c]], %[[arg1]]
+//       CHECK:     %[[v1:.+]] = stablehlo.reduce(%[[arg0]] init: %[[c]])
+//       CHECK:     return %[[v1]], %[[v0]] :
 
 // -----
 
@@ -197,17 +198,17 @@ builtin.module @simple_gather_dynamic attributes {
 //   CHECK-DAG:     %[[extracted_slice:.+]] = tensor.extract_slice %[[v2]][0] [%[[v3]]] [1] : tensor<65536xi32> to tensor<?xi32>
 //   CHECK-DAG:     %[[from_elements:.+]] = tensor.from_elements %[[dim]], %[[v1]], %[[c256]], %[[c256]] : tensor<4xindex>
 //   CHECK-DAG:     %[[reshape:.+]] = tensor.reshape %[[extracted_slice]](%[[from_elements]]) : (tensor<?xi32>, tensor<4xindex>) -> tensor<?x?x256x256xi32>
-//   CHECK-DAG:     %[[v4:.+]] = tensorrt.call @trt_engines::@tensorrt_cluster(%[[arg1]], %[[arg0]]
+//   CHECK-DAG:     %[[v4:.+]] = tensorrt.call @trt_engines::@tensorrt_cluster(%[[arg0]], %[[arg1]]
 //   CHECK-DAG:     return %[[v4]] : tensor<?x?x256x256xi32>
 
 // CHECK-LABEL: func.func @tensorrt_cluster
-//  CHECK-SAME: (%[[arg0:.+]]: tensor<?xi32>{{.*}}, %[[arg1:.+]]: tensor<?x?x256x256xi32>{{.*}})
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<?x?x256x256xi32>{{.*}}, %[[arg1:.+]]: tensor<?xi32>{{.*}})
 //   CHECK-DAG:       %[[c:.+]] = stablehlo.constant dense<1> : tensor<1xi32>
 //   CHECK-DAG:       %[[c_0:.+]] = stablehlo.constant dense<256> : tensor<1xi32>
-//   CHECK-DAG:       %[[v0:.+]] = stablehlo.get_dimension_size %[[arg1]], dim = 1
+//   CHECK-DAG:       %[[v0:.+]] = stablehlo.get_dimension_size %[[arg0]], dim = 1
 //   CHECK-DAG:       %[[v1:.+]] = stablehlo.reshape %[[v0]] : (tensor<i32>) -> tensor<1xi32>
 //   CHECK-DAG:       %[[v2:.+]] = stablehlo.concatenate %[[c]], %[[v1]], %[[c_0]], %[[c_0]]
-//   CHECK-DAG:       %[[v3:.+]] = "stablehlo.dynamic_gather"(%[[arg1]], %[[arg0]], %[[v2]])
+//   CHECK-DAG:       %[[v3:.+]] = "stablehlo.dynamic_gather"(%[[arg0]], %[[arg1]], %[[v2]])
 //   CHECK-DAG:       return %[[v3]] : tensor<?x?x256x256xi32>
 
 // -----

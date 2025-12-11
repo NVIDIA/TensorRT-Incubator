@@ -51,18 +51,51 @@ def CompilerBackendAttrInterface : AttrInterface<"CompilerBackendAttrInterface">
         >,
         InterfaceMethod<
           /*desc=*/[{
-            Return true if the cluster requires closure prior to
-            outlining. If false, then the the outlining step must accept
-            a `plan::InlineGroupOp`.
-
-            Generally, this can be set to return true if the backend
-            does not require value or dimension bounds information for the
-            cluster. Bounds for values and dynamic shapes are only analyzed
-            during the region closure step.
+            Returns true if the backend supports lowering this cluster
+            using a destination-passing-style (DPS) calling convention
+            where the results are pre-allocated.
           }],
-          /*retTy*/"bool", "requiresClosure",
-          (ins "::mlir::plan::InputKind":$input_kind),
-          ""
+          /*retTy*/"bool", "supportsDestinationStyleCallingConvention",
+          (ins "::mlir::Operation*":$inlineGroupOp),
+          "",
+          [{
+            return false;
+          }]
+        >,
+        InterfaceMethod<
+          /*desc=*/[{
+            Returns true if the backend recommends lowering this cluster
+            using a destination-passing-style (DPS) calling convention
+            where the results are pre-allocated.
+
+            This is only supported when the cluster results are all
+            `tensor` typed. If any of the tensor types have dynamic shape,
+            then shape analysis will occur at the region closure step
+            in order to derive the exact shape of the result tensors
+            that must be allocated prior to the region op and passed
+            as destination arguments. If this analysis fails, then the
+            compiler may ignore this recommendation and lower the cluster
+            using a non-DPS calling convention.
+          }],
+          /*retTy*/"bool", "preferDestinationStyleCallingConvention",
+          (ins "::mlir::Operation*":$inlineGroupOp),
+          "",
+          [{
+            return false;
+          }]
+        >,
+        InterfaceMethod<
+          /*desc=*/[{
+            Returns true if the producer should be cloned into the
+            region or passed by argument during the region closure step.
+          }],
+          /*retTy*/"bool", "shouldCloneProducer",
+          (ins "::mlir::Operation*":$inlineGroupOp, "::mlir::Operation*":$producer),
+          "",
+          [{
+            return ::mlir::plan::detail::shouldCloneProducerDefault(producer,
+              inlineGroupOp->getRegions().front());
+          }]
         >,
         InterfaceMethod<
           /*desc=*/"Return the region outlining options for the backend",

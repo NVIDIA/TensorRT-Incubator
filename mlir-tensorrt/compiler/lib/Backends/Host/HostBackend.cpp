@@ -203,39 +203,17 @@ HostBackendAttr::getClusterKindOptions(InputKind inputKind, Operation *op,
   return opts;
 }
 
-/// Determines whether a cluster being outlined should clone a constant or
-/// pass constant by value.
-static bool shouldCloneProducer(Value v, Region &cluster) {
-  Operation *producer = v.getDefiningOp();
-  if (!producer->hasTrait<OpTrait::ConstantLike>() ||
-      producer->getNumResults() != 1)
-    return false;
-  RankedTensorType type =
-      dyn_cast<RankedTensorType>(producer->getResultTypes().front());
-  if (!type || !type.hasStaticShape())
-    return false;
-
-  // A value should be cloned if all of its uses are in the cluster.
-  if (llvm::all_of(v.getUsers(), [&](Operation *user) {
-        return cluster.isAncestor(user->getParentRegion());
-      }))
-    return true;
-  return type.getNumElements() *
-             llvm::divideCeil(type.getElementTypeBitWidth(), 8) <
-         1024 * 1024;
-}
-
-/// Host regions do not require closre since we have no need for shape or value
-/// bounds information.
-bool HostBackendAttr::requiresClosure(InputKind) const { return false; }
-
 std::optional<OutlineRegionOptions> HostBackendAttr::getClusterOutliningOptions(
     InputKind inputKind, MLIRContext *ctx,
     SymbolTable &moduleSymbolTable) const {
   OpBuilder b(ctx);
   return OutlineRegionOptions{
       /*typeConverter=*/getIdentityTypeConverter(),
-      /*shouldCloneProducer=*/shouldCloneProducer,
+      /*shouldCloneProducer=*/
+      [this](Value v, Region &targetRegion) -> bool {
+        return this->shouldCloneProducer(targetRegion.getParentOp(),
+                                         v.getDefiningOp());
+      },
       /*createFunc=*/
       OutlineRegionOptions::getDefaultCreateFuncAndCallStubFunc(
           moduleSymbolTable, /*extraFuncAttrs=*/{}, "host_backend")};

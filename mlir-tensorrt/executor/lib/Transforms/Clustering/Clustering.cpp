@@ -19,6 +19,7 @@
 //
 //===----------------------------------------------------------------------===//
 #include "mlir-executor/Transforms/Clustering/Clustering.h"
+#include "mlir/Analysis/TopologicalSortUtils.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/Dominance.h"
 #include "mlir/IR/OpDefinition.h"
@@ -396,35 +397,43 @@ mlir::analyzeAndClusterOperations(Operation *op, const ClusteringOpts &opts) {
 
 Operation *
 mlir::createRegionOpFromCluster(const Cluster &cluster, RewriterBase &rewriter,
-                                ClusterRegionOpBuilderFunc createRegionOp,
-                                ReorderRegionOpYieldValues reorderYieldValues) {
+                                ClusterRegionOpBuilderFunc createRegionOp) {
   // insert the region to the last Op to because of dominance property
   Operation *insertionOp = cluster.getRoot();
 
-  // find all the values that are used outside of the cluster. These values
-  // will be yield from the created `scf.execute_region`
-  SetVector<Value> yieldValues;
-  SmallVector<Type> yieldTypes;
   DenseSet<Operation *> clusterOpSet;
   for (Operation *op : cluster)
     clusterOpSet.insert(op);
 
-  for (Operation *op : cluster) {
-    for (OpOperand &use : op->getUses()) {
-      // skip if the user is also in the cluster
-      if (clusterOpSet.contains(use.getOwner()))
-        continue;
-      // skip if the value is already in yield value set
-      if (yieldValues.contains(use.get()))
-        continue;
+  // Find all the values that are used outside of the cluster. These values
+  // will be yielded from the created region operation. However, we need to sort
+  // the yielded values deterministically. First find all the users outside the
+  // cluster and sort them topologically. The scan them and collect the unique
+  // values used by them that are defined by ops in the cluster.
+  SetVector<Operation *> usersOutsideCluster;
 
-      yieldValues.insert(use.get());
-      yieldTypes.emplace_back(use.get().getType());
+  for (Operation *op : cluster) {
+    for (Operation *user : op->getUsers()) {
+      // skip if the user is also in the cluster
+      if (clusterOpSet.contains(user))
+        continue;
+      usersOutsideCluster.insert(user);
     }
   }
 
-  if (reorderYieldValues)
-    reorderYieldValues(yieldValues, yieldTypes);
+  SetVector<Value> yieldValues;
+  SmallVector<Type> yieldTypes;
+  usersOutsideCluster = mlir::topologicalSort(usersOutsideCluster);
+  for (Operation *user : usersOutsideCluster) {
+    for (Value operand : user->getOperands()) {
+      if (Operation *defOp = operand.getDefiningOp()) {
+        if (!clusterOpSet.contains(defOp))
+          continue;
+        if (yieldValues.insert(operand))
+          yieldTypes.emplace_back(operand.getType());
+      }
+    }
+  }
 
   rewriter.setInsertionPoint(insertionOp);
   Operation *regionOp = createRegionOp(rewriter, insertionOp->getLoc(),
@@ -609,16 +618,44 @@ static LogicalResult getUsedValuesDefinedAboveOrClone(
 FailureOr<std::pair<FunctionOpInterface, SetVector<Value>>>
 mlir::outlineRegionOp(RewriterBase &rewriter, Operation *op,
                       OutlineRegionOptions &opts) {
+  if (op->getNumRegions() != 1)
+    return emitError(op->getLoc()) << "expected single-region operation";
 
   using SignatureConversion = TypeConverter::SignatureConversion;
   OpBuilder::InsertionGuard g(rewriter);
   Location loc = op->getLoc();
+  Region &body = op->getRegion(0);
+
+  const bool isClosed = op->hasTrait<OpTrait::IsIsolatedFromAbove>();
 
   SetVector<Value> operands;
-  Region &body = op->getRegion(0);
-  if (failed(getUsedValuesDefinedAboveOrClone(rewriter, body, operands,
-                                              opts.shouldCloneProducer)))
-    return failure();
+
+  if (!isClosed) {
+    if (body.getNumArguments() != 0)
+      return emitError(op->getLoc())
+             << "expected region op to have no block arguments when "
+                "outlining "
+                "region ops that are not isolated from above";
+
+    if (failed(getUsedValuesDefinedAboveOrClone(rewriter, body, operands,
+                                                opts.shouldCloneProducer)))
+      return failure();
+  } else {
+    // We must find the arguments of the block arguments.
+    auto regionBranchOp = dyn_cast<RegionBranchOpInterface>(op);
+    if (!regionBranchOp)
+      return emitError(op->getLoc())
+             << "expected region branch operation to outline region ops that "
+                "are isolated from above";
+    mlir::OperandRange entrySuccessorOperands =
+        regionBranchOp.getEntrySuccessorOperands(RegionBranchPoint(body));
+    if (entrySuccessorOperands.getTypes() != body.getArgumentTypes())
+      return emitError(op->getLoc())
+             << "expected entry successor operands to have the same types as "
+                "the body argument types";
+    for (Value arg : entrySuccessorOperands)
+      operands.insert(arg);
+  }
 
   // Create the signature conversion and the types of the results.
   SignatureConversion sigConverter(operands.size());
@@ -638,6 +675,7 @@ mlir::outlineRegionOp(RewriterBase &rewriter, Operation *op,
     return failure();
 
   // Call user callback to get func and call op.
+  assert(opts.createFunc && "createFunc is not set");
   FailureOr<std::pair<FunctionOpInterface, SmallVector<Value>>> callbackResult =
       opts.createFunc(rewriter, loc, op, *convertedOperands,
                       sigConverter.getConvertedTypes(), convertedResultTypes);
@@ -651,8 +689,13 @@ mlir::outlineRegionOp(RewriterBase &rewriter, Operation *op,
   assert(outlinedFuncBlock->getOperations().size() == 1 &&
          "expected function body block to contain empty terminator");
 
+  assert(operands.size() == outlinedFuncBlock->getArguments().size() &&
+         "expected number of operands to be the same as the number of "
+         "function arguments");
+
   // Populate the function entry block.
   {
+
     // Create remapped operands.
     rewriter.setInsertionPointToStart(outlinedFuncBlock);
     FailureOr<SmallVector<Value>> remappedArgs = convertTargetToSource(
@@ -660,13 +703,17 @@ mlir::outlineRegionOp(RewriterBase &rewriter, Operation *op,
         TypeRange(operands.getArrayRef()), sigConverter);
     if (failed(remappedArgs))
       return failure();
-    for (auto [orig, replacement] : llvm::zip(operands, *remappedArgs))
-      mlir::replaceAllUsesInRegionWith(orig, replacement, body);
+
+    if (!isClosed) {
+      for (auto [orig, replacement] : llvm::zip(operands, *remappedArgs))
+        mlir::replaceAllUsesInRegionWith(orig, replacement, body);
+    }
 
     // Move region op operations to the func body.
     Operation *regionYieldOp = body.front().getTerminator();
-    rewriter.inlineBlockBefore(&body.front(),
-                               outlinedFuncBlock->getTerminator());
+    rewriter.inlineBlockBefore(
+        &body.front(), outlinedFuncBlock->getTerminator(),
+        isClosed ? ValueRange(*remappedArgs) : std::nullopt);
 
     // Convert the yielded values to the required type and update terminator.
     rewriter.setInsertionPoint(regionYieldOp);

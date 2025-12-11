@@ -89,15 +89,6 @@ else()
     URL "https://github.com/llvm/llvm-project/archive/${MLIR_TRT_LLVM_COMMIT}.zip"
     EXCLUDE_FROM_ALL TRUE
     SOURCE_SUBDIR "llvm"
-    OPTIONS
-      "LLVM_ENABLE_PROJECTS mlir"
-      "MLIR_ENABLE_BINDINGS_PYTHON ON"
-      "LLVM_TARGETS_TO_BUILD host"
-      "LLVM_ENABLE_ASSERTIONS ON"
-      # Never append VCS revision information
-      "LLVM_APPEND_VC_REV OFF"
-      # Don't mixup LLVM targets with our project's installation/packaging.
-      "LLVM_INSTALL_TOOLCHAIN_ONLY ON"
     PATCHES
       "${mlir_patch_dir}/0005-mlir-memref-Fix-memref.global-overly-constrained-ver.patch"
       "${mlir_patch_dir}/0006-mlir-emitc-Fix-two-EmitC-bugs.patch"

@@ -46,6 +46,8 @@ SmallVector<Value> mlir::createClosedRegion(
   llvm::DenseSet<Operation *> visitedOps;
 
   llvm::SetVector<Value> finalCapturedValuesSet;
+  llvm::SetVector<Operation *> finalProducerOps;
+
   SmallVector<Operation *> clonedOperations;
   while (!worklist.empty()) {
     Value currValue = worklist.front();
@@ -57,6 +59,10 @@ SmallVector<Value> mlir::createClosedRegion(
     Operation *definingOp = currValue.getDefiningOp();
     if (!definingOp || visitedOps.count(definingOp)) {
       finalCapturedValuesSet.insert(currValue);
+      finalProducerOps.insert(
+          definingOp
+              ? definingOp
+              : cast<BlockArgument>(currValue).getOwner()->getParentOp());
       continue;
     }
     visitedOps.insert(definingOp);
@@ -65,6 +71,7 @@ SmallVector<Value> mlir::createClosedRegion(
       // Defining operation isnt cloned, so add the current value to final
       // captured values list.
       finalCapturedValuesSet.insert(currValue);
+      finalProducerOps.insert(definingOp);
       continue;
     }
 
@@ -78,11 +85,28 @@ SmallVector<Value> mlir::createClosedRegion(
     clonedOperations.push_back(definingOp);
   }
 
-  // Reorder the captured values if a function is provided.
-  SmallVector<Value> finalCapturedValues =
-      llvm::to_vector(finalCapturedValuesSet);
-  if (reorderCapturedValues)
-    reorderCapturedValues(finalCapturedValues);
+  finalProducerOps = mlir::topologicalSort(finalProducerOps);
+  SetVector<Value> finalCapturedValues = [&finalProducerOps,
+                                          &finalCapturedValuesSet]() {
+    llvm::SetVector<Value> finalCapturedValues;
+    for (Operation *op : finalProducerOps) {
+      for (Region &region : op->getRegions()) {
+        for (Block &block : region.getBlocks()) {
+          for (BlockArgument arg : block.getArguments()) {
+            if (finalCapturedValuesSet.contains(arg))
+              finalCapturedValues.insert(arg);
+          }
+        }
+      }
+      for (Value v : op->getResults()) {
+        if (finalCapturedValuesSet.contains(v))
+          finalCapturedValues.insert(v);
+      }
+    }
+    return finalCapturedValues;
+  }();
+  assert(finalCapturedValues.size() == finalCapturedValuesSet.size() &&
+         "final captured values size mismatch");
 
   // The operations to be cloned need to be ordered in topological order
   // so that they can be cloned into the region without violating use-def

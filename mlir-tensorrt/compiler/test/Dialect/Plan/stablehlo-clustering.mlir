@@ -88,8 +88,8 @@ func.func @test(%arg0: tensor<4xi32>, %arg1: tensor<i32>)
 //   CHECK-DAG:       %[[v2:.+]] = stablehlo.compare  EQ, %[[c]], %[[arg1]] :
 //   CHECK-DAG:       %[[v3:.+]] = with_values %[[v2]](%[[v0]]) : tensor<i1>
 //   CHECK-DAG:       %[[v4:.+]] = stablehlo.reduce(%[[arg0]] init: %[[c]])
-//   CHECK-DAG:       yield %[[v3]], %[[v4]] : tensor<i1>, tensor<i32>
-//   CHECK-DAG:     return %[[v1]]#1, %[[v1]]#0 : tensor<i32>, tensor<i1>
+//   CHECK-DAG:       yield %[[v4]], %[[v3]] : tensor<i32>, tensor<i1>
+//   CHECK-DAG:     return %[[v1]]#0, %[[v1]]#1 : tensor<i32>, tensor<i1>
 
 // -----
 

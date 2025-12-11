@@ -306,27 +306,6 @@ materializeDestinationOperand(RewriterBase &rewriter, Location loc,
   return result;
 }
 
-/// Determines whether a cluster being outlined should clone a constant or
-/// pass constant by value.
-static bool shouldCloneProducer(Operation *producer, Region &cluster) {
-  if (!producer->hasTrait<OpTrait::ConstantLike>() ||
-      producer->getNumResults() != 1)
-    return false;
-  RankedTensorType type =
-      dyn_cast<RankedTensorType>(producer->getResultTypes().front());
-  if (!type || !type.hasStaticShape())
-    return false;
-
-  // A value should be cloned if all of its uses are in the cluster.
-  if (llvm::all_of(producer->getUsers(), [&](Operation *user) {
-        return cluster.isAncestor(user->getParentRegion());
-      }))
-    return true;
-  return type.getNumElements() *
-             llvm::divideCeil(type.getElementTypeBitWidth(), 8) <
-         100 * 1024 * 1024;
-}
-
 /// Remap relevant analysis state of type T from `original` to `replacement`.
 template <typename T>
 static void remapLatticeState(DataFlowSolver &solver, Value original,
@@ -570,30 +549,38 @@ createInlineClosedAllocGroupOp(RewriterBase &rewriter, plan::InlineGroupOp op,
   return success();
 }
 
-static LogicalResult createClosedGroupOp(RewriterBase &rewriter,
-                                         plan::InlineGroupOp op,
-                                         DataFlowSolver &solver,
-                                         bool forceEntrypointsReturnAllocs) {
+static LogicalResult
+createClosedGroupOp(RewriterBase &rewriter, plan::InlineGroupOp op,
+                    DataFlowSolver &solver,
+                    bool disableDestinationStyleCallingConvention) {
   OpBuilder::InsertionGuard g(rewriter);
+
+  CompilerBackendAttrInterface backend = op.getTarget();
+  bool useDestinationStyleCallingConvention =
+      !disableDestinationStyleCallingConvention &&
+      backend.supportsDestinationStyleCallingConvention(op) &&
+      backend.preferDestinationStyleCallingConvention(op) &&
+      llvm::all_of(op->getResultTypes(), llvm::IsaPred<RankedTensorType>);
 
   // Materialize destination operands if not using non-DPS call convention.
   SmallVector<DestinationOperandMaterializationResult> destinationOperands;
-  if (!forceEntrypointsReturnAllocs)
-    if (failed(materializeDestinationOperands(rewriter, op, solver,
-                                              destinationOperands)))
-      return failure();
+  if (useDestinationStyleCallingConvention) {
+    useDestinationStyleCallingConvention &=
+        succeeded(materializeDestinationOperands(rewriter, op, solver,
+                                                 destinationOperands));
+  }
 
   // Make the region isolated from above. This captures the input operands.
   SmallVector<Value> inputs = mlir::createClosedRegion(
-      rewriter, op.getRegion(), [&](Operation *producer) {
-        return shouldCloneProducer(producer, op.getRegion());
+      rewriter, op.getRegion(), [&](Operation *producer) -> bool {
+        return backend.shouldCloneProducer(op, producer);
       });
 
   rewriter.setInsertionPoint(op);
 
   // Create and populate the appropriate closed group op based on call
   // convention.
-  if (!forceEntrypointsReturnAllocs)
+  if (useDestinationStyleCallingConvention)
     return createInlineClosedGroupOp(rewriter, op, solver, inputs,
                                      destinationOperands);
   return createInlineClosedAllocGroupOp(rewriter, op, solver, inputs);
@@ -609,10 +596,7 @@ public:
     SmallVector<plan::InlineGroupOp> groupOps;
     MLIRContext *ctx = op->getContext();
 
-    auto opFilterFn = [&](plan::InlineGroupOp groupOp) {
-      return cast<CompilerBackendAttrInterface>(groupOp.getTarget())
-          .requiresClosure(inputKind);
-    };
+    auto opFilterFn = [&](plan::InlineGroupOp groupOp) { return true; };
 
     // Filter by target for those that require DPS transform.
     if (testPreWalkOrder) {
@@ -642,7 +626,7 @@ public:
     IRRewriter rewriter(ctx);
     for (InlineGroupOp groupOp : llvm::make_early_inc_range(groupOps)) {
       if (failed(createClosedGroupOp(rewriter, groupOp, solver,
-                                     forceEntrypointsReturnAllocs)))
+                                     disableDestinationStyleCallingConvention)))
         return signalPassFailure();
     }
   }
