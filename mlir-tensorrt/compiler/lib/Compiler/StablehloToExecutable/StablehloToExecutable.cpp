@@ -25,10 +25,11 @@
 #include "mlir-executor/Conversion/Passes.h"
 #include "mlir-executor/Executor/Transforms/Passes.h"
 #include "mlir-tensorrt-common/Support/Status.h"
+#include "mlir-tensorrt/Backends/Host/Passes.h"
 #include "mlir-tensorrt/Compiler/Client.h"
 #include "mlir-tensorrt/Compiler/Extension.h"
 #include "mlir-tensorrt/Compiler/OptionsProviders.h"
-#include "mlir-tensorrt/Compiler/StablehloToExecutable/Passes.h"
+#include "mlir-tensorrt/Compiler/StablehloToExecutable/StablehloInputPipeline.h"
 #include "mlir-tensorrt/Compiler/StablehloToExecutable/TensorRTExtension.h"
 #include "mlir-tensorrt/Conversion/CUDAToExecutor/CUDAToExecutor.h"
 #include "mlir-tensorrt/Conversion/HostToEmitC/HostToEmitC.h"
@@ -101,8 +102,8 @@ void StablehloToExecutableTask::populatePassManager() {
 
   assert(pm.getPasses().empty() && "expected empty pass manager");
 
-  pm.addPass(createPopulateDefaultBackendMetadataPass(
-      PopulateDefaultBackendMetadataPassOptions{
+  pm.addPass(plan::createPopulateDefaultBackendMetadataPass(
+      plan::PopulateDefaultBackendMetadataPassOptions{
           /*defaultBackends=*/SmallVector<std::string>(
               options.defaultBackends.begin(),
               options.defaultBackends.end())}));
@@ -155,8 +156,9 @@ void StablehloToExecutableTask::populatePassManager() {
                                       options.runtimeABIVersion);
 
   // Compile outlined scalarizable host clusters.
-  pm.addNestedPass<func::FuncOp>(createProcessStablehloHostClustersPass());
-  pm.addNestedPass<func::FuncOp>(createConvertStablehloConstantsToArithPass());
+  pm.addNestedPass<func::FuncOp>(
+      mtrt::compiler::createProcessHostClustersPass());
+  pm.addNestedPass<func::FuncOp>(mlir::createConvertStablehloToArithPass());
 
   populateExtensionPasses(pm, options, Phase::PostClustering, extensions);
 

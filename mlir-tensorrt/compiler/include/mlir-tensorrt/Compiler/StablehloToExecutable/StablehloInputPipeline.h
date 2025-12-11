@@ -22,25 +22,16 @@
 /// related to "stablehlo-to-executable".
 ///
 //===----------------------------------------------------------------------===//
-#ifndef MLIR_TENSORRT_COMPILER_STABLEHLOTOEXECUTABLE_PASSES
-#define MLIR_TENSORRT_COMPILER_STABLEHLOTOEXECUTABLE_PASSES
+#ifndef MLIR_TENSORRT_COMPILER_STABLEHLOTOEXECUTABLE_STABLEHLOINPUTPIPELINE
+#define MLIR_TENSORRT_COMPILER_STABLEHLOTOEXECUTABLE_STABLEHLOINPUTPIPELINE
 
 #include "mlir-tensorrt/Dialect/StablehloExt/Transforms/Passes.h"
-#include "mlir/Pass/Pass.h"
-#include <memory>
 
 namespace mlir {
 class OpPassManager;
 }
 
 namespace mtrt::compiler {
-
-//===----------------------------------------------------------------------===//
-// Add Tablegen'd pass declarations and registration methods.
-//===----------------------------------------------------------------------===//
-#define GEN_PASS_DECL
-#define GEN_PASS_REGISTRATION
-#include "mlir-tensorrt/Compiler/StablehloToExecutable/Passes.h.inc"
 
 /// Options for processing StableHLO input IR.
 struct StableHloInputOptions {
@@ -87,4 +78,4 @@ void registerStableHloInputPipelines();
 
 } // namespace mtrt::compiler
 
-#endif // MLIR_TENSORRT_COMPILER_STABLEHLOTOEXECUTABLE_PASSES
+#endif // MLIR_TENSORRT_COMPILER_STABLEHLOTOEXECUTABLE_STABLEHLOINPUTPIPELINE

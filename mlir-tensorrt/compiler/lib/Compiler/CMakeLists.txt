@@ -51,7 +51,7 @@ add_mlir_tensorrt_library(MLIRTensorRTInitAllPasses
     ${MLIR_TENSORRT_DIALECT_LIBS}
     ${MLIR_TENSORRT_LIBS}
     ${MTRTD_LIBS}
-    
+
   MLIR_LIBS PUBLIC
     ${mlir_libs}
   )

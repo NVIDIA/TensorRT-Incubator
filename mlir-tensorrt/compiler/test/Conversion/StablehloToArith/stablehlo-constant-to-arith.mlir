@@ -1,4 +1,4 @@
-// RUN: mlir-tensorrt-opt %s -split-input-file -convert-stablehlo-constants-to-arith | FileCheck %s
+// RUN: mlir-tensorrt-opt %s -split-input-file -convert-stablehlo-to-arith | FileCheck %s
 
 func.func @test_stablehlo_constant_to_arith() -> tensor<10xui32> {
   %0 = stablehlo.constant dense<[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]> : tensor<10xui32>

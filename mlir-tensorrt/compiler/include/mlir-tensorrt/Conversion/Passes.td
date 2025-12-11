@@ -343,6 +343,19 @@ def ConvertTensorRTRuntimeToExecutorPass : Pass<"convert-tensorrt-runtime-to-exe
 
 #ifdef MLIR_TENSORRT_ENABLE_HLO
 //===----------------------------------------------------------------------===//
+// ConvertStablehloToArithPass
+//===----------------------------------------------------------------------===//
+
+def ConvertStablehloToArithPass :
+      Pass<"convert-stablehlo-to-arith", "::mlir::func::FuncOp"> {
+  let summary = "Convert any 'stablehlo.constant' into 'arith.constant'";
+
+  let dependentDialects = [
+    "::mlir::arith::ArithDialect"
+  ];
+}
+
+//===----------------------------------------------------------------------===//
 // ConvertStablehloToScfPass
 //===----------------------------------------------------------------------===//
 def ConvertStablehloToScfPass : Pass<"convert-stablehlo-to-scf"> {

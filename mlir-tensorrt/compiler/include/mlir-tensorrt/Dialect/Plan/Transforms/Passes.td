@@ -28,6 +28,34 @@ defvar InputKindOption = Option<"inputKind", "input-kind", "::mlir::plan::InputK
       "::mlir::plan::detail::createInputKindClOptions()">;
 
 //===----------------------------------------------------------------------===//
+// PopulateDefaultBackendMetadataPass
+//===----------------------------------------------------------------------===//
+
+def PopulateDefaultBackendMetadataPass : Pass<"plan-populate-default-backend-metadata",
+      "::mlir::ModuleOp"> {
+  let summary = "Populate Plan dialect backend metadata information if not "
+                "already present";
+
+  let description = [{
+    The compiler uses an attribute 'plan.backends' located on the module
+    in order to understand the relative priority of each backend. If the
+    attribute is not present, then this pass will populate it with a default
+    value.
+  }];
+
+  let dependentDialects = [
+    "::mlir::plan::PlanDialect"
+  ];
+
+  let options = [
+    ListOption<"backends", "backends", "std::string",
+    "A list of default backend attributes to use for compilation if no "
+    "'plan.backends' attribute is provided on the top-level module.",
+    "llvm::cl::list_init<std::string>({\"#plan.host_backend<benefit=1>\"})">
+  ];
+}
+
+//===----------------------------------------------------------------------===//
 // VerifyInputAndAssignSlotsPass
 //===----------------------------------------------------------------------===//
 
