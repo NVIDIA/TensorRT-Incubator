@@ -109,3 +109,21 @@ func.func @test_size1_reverse(%arg0: tensor<1xf32>) -> tensor<1xf32> {
 // CHECK:       linalg.yield %[[v6]] : f32
 // CHECK:   } -> tensor<1xf32>
 // CHECK:   return %[[v2]] : tensor<1xf32>
+
+// -----
+
+// CHECK-LABEL: func.func @get_dimension_size
+func.func @get_dimension_size(%arg0: tensor<?x?xf32>) -> (tensor<i32>, tensor<i32>) {
+  // CHECK-DAG: %[[c0:.+]] = arith.constant 0 : index
+  // CHECK-DAG: %[[c1:.+]] = arith.constant 1 : index
+  // CHECK-DAG: %[[dim:.+]] = tensor.dim %arg0, %[[c0]]
+  // CHECK-DAG: %[[dim1:.+]] = tensor.dim %arg0, %[[c1]]
+  // CHECK-DAG: %[[cast:.+]] = arith.index_castui %[[dim]]
+  // CHECK-DAG: %[[cast1:.+]] = arith.index_castui %[[dim1]]
+  // CHECK-DAG: %[[result:.+]] = tensor.from_elements %[[cast]]
+  // CHECK-DAG: %[[result1:.+]] = tensor.from_elements %[[cast1]]
+  // CHECK: return %[[result]], %[[result1]]
+  %0 = "stablehlo.get_dimension_size"(%arg0) {dimension = 0 : i64} : (tensor<?x?xf32>) -> tensor<i32>
+  %1 = "stablehlo.get_dimension_size"(%arg0) {dimension = 1 : i64} : (tensor<?x?xf32>) -> tensor<i32>
+  return %0, %1 : tensor<i32>, tensor<i32>
+}
