@@ -127,6 +127,12 @@ public:
     });
   }
 
+  template <typename... DialectTypes>
+  void declareGeneratedDialects() {
+    dialectLoaders.push_back(
+        [](MLIRContext *ctx) { (ctx->getOrLoadDialect<DialectTypes>(), ...); });
+  }
+
 protected:
   /// Callbacks performing extension initialization.
   SmallVector<Initializer> initializers;

@@ -581,6 +581,13 @@ public:
     (void)&generatedAttributeParser;
     (void)&generatedAttributePrinter;
     registerAttributes<plan::TensorRTBackendAttr>();
+
+    // clang-format off
+    declareGeneratedDialects<
+      mlir::func::FuncDialect,
+      mlir::tensorrt::TensorRTDialect
+    >();
+    // clang-format on
   }
 };
 } // namespace
