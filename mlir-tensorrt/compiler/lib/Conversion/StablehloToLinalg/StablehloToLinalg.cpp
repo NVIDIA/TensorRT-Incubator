@@ -239,6 +239,33 @@ struct FixupReverseLinalgGenericPattern
   }
 };
 
+struct ConvertStablehloGetDimSizePattern
+    : public OpConversionPattern<stablehlo::GetDimensionSizeOp> {
+  using OpConversionPattern::OpConversionPattern;
+  LogicalResult
+  matchAndRewrite(stablehlo::GetDimensionSizeOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    Value dim =
+        rewriter.create<arith::ConstantIndexOp>(op.getLoc(), op.getDimension());
+    Value dimSize =
+        rewriter.create<tensor::DimOp>(op.getLoc(), adaptor.getOperand(), dim);
+    // Cast to target element type.
+    Type targetElementType = op.getType().getElementType();
+    if (targetElementType != dimSize.getType()) {
+      if (targetElementType.isSignlessInteger())
+        dimSize = rewriter.create<arith::IndexCastUIOp>(
+            op.getLoc(), targetElementType, dimSize);
+      else
+        return rewriter.notifyMatchFailure(op,
+                                           "unsupported target element type");
+    }
+    auto fromElements = rewriter.create<tensor::FromElementsOp>(
+        op.getLoc(), op.getType(), dimSize);
+    rewriter.replaceOp(op, fromElements.getResult());
+    return success();
+  }
+};
+
 class StablehloToLinalgPass
     : public impl::StablehloToLinalgPassBase<StablehloToLinalgPass> {
   using Base::Base;
@@ -277,6 +304,7 @@ class StablehloToLinalgPass
                                                   &patterns_,
                                                   /*enablePrimitiveOps=*/false,
                                                   /*enableSparseOps=*/false);
+      patterns_.add<ConvertStablehloGetDimSizePattern>(context);
       return patterns_;
     }();
 
