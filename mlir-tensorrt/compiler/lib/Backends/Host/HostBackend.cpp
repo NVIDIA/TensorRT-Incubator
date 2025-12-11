@@ -28,8 +28,11 @@
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir-tensorrt/Dialect/StablehloExt/Utils/Utils.h"
 #include "mlir/Analysis/DataFlowFramework.h"
+#include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
+#include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/Math/IR/Math.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/DialectImplementation.h"
 #include "stablehlo/dialect/StablehloOps.h"
@@ -272,6 +275,17 @@ public:
     (void)&generatedAttributeParser;
     (void)&generatedAttributePrinter;
     registerAttributes<plan::HostBackendAttr>();
+
+    // clang-format off
+    declareGeneratedDialects<
+      mlir::affine::AffineDialect,
+      mlir::arith::ArithDialect,
+      mlir::linalg::LinalgDialect,
+      mlir::tensor::TensorDialect,
+      mlir::func::FuncDialect,
+      mlir::math::MathDialect,
+      mlir::scf::SCFDialect>();
+    // clang-format on
   }
 };
 } // namespace

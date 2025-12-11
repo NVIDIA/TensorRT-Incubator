@@ -307,12 +307,6 @@ def PlanPopulateFunctionBoundsAttributesPass
     This pass populates function result attributes containing shape/value bounds
     information for function results.
   }];
-
-  let options = [];
-
-  let dependentDialects = [
-    "::mlir::tensorrt::TensorRTDialect",
-  ];
 }
 
 //===----------------------------------------------------------------------===//
@@ -432,9 +426,9 @@ def CreateClosedRegionsPass : Pass<"plan-create-closed-regions", "::mlir::Module
   ];
 
   let dependentDialects = [
-    "::mlir::func::FuncDialect",
-    "::mlir::tensor::TensorDialect",
-    "::mlir::tensorrt::TensorRTDialect",
+    "::mlir::affine::AffineDialect",
+    "::mlir::arith::ArithDialect",
+    "::mlir::tensor::TensorDialect"
   ];
 }
 
@@ -460,12 +454,6 @@ def OutlineClustersPass : Pass<"plan-outline-clusters", "::mlir::ModuleOp"> {
 
   let options = [
     InputKindOption
-  ];
-
-  let dependentDialects = [
-    "::mlir::func::FuncDialect",
-    "::mlir::tensor::TensorDialect",
-    "::mlir::tensorrt::TensorRTDialect",
   ];
 }
 
