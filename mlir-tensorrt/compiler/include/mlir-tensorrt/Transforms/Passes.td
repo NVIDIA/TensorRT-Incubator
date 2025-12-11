@@ -120,6 +120,35 @@ def SCFUnrollPass : Pass<"mtrt-scf-unroll"> {
 }
 
 //===----------------------------------------------------------------------===//
+// SCFFloatStrengthReducePass
+//===----------------------------------------------------------------------===//
+
+def SCFFloatStrengthReducePass : Pass<"mtrt-scf-float-strength-reduce"> {
+  let summary = "Convert float loop-carried variables to integer counters";
+
+  let description = [{
+    Identifies `scf.while` loops with floating-point loop-carried variables that
+    are updated with constant additive steps (e.g., `arith.addf %iv, %const`).
+    Transforms these loops to use integer counters with appropriate scale
+    factors, and attempts to uplift to `scf.for` when possible.
+
+    For example, a loop counting down from 1.0 to 0.05 with step -0.1 can be
+    transformed to an integer loop counting from 10 to 1 with step -1, with
+    a scale factor of 0.1 applied when the float value is needed.
+
+    This transformation improves performance by:
+    1. Using faster integer arithmetic for loop control
+    2. Enabling further optimizations like loop unrolling
+    3. Making loop bounds statically analyzable
+  }];
+
+  let dependentDialects = [
+    "::mlir::scf::SCFDialect",
+    "::mlir::arith::ArithDialect"
+  ];
+}
+
+//===----------------------------------------------------------------------===//
 // FuncExtDuplicateFunctionEliminationPass
 //===----------------------------------------------------------------------===//
 
