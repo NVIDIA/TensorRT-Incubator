@@ -104,7 +104,7 @@ public:
     dynamicPM.addPass(mlir::createConvertToLoops());
     dynamicPM.addPass(mlir::createCSEPass());
     dynamicPM.addPass(mlir::createCanonicalizerPass());
-    dynamicPM.addPass(createSCFDetensorizeLoopsPass());
+    dynamicPM.addPass(mtrt::createSCFDetensorizePass());
   }
 
   void runOnOperation() override {

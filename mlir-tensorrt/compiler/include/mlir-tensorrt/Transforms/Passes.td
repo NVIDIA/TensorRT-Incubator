@@ -68,10 +68,10 @@ def MemRefCastEliminationPass : Pass<"memref-cast-elimination"> {
 }
 
 //===----------------------------------------------------------------------===//
-// SCFDetensorizeLoopsPass
+// SCFDetensorizePass
 //===----------------------------------------------------------------------===//
 
-def SCFDetensorizeLoopsPass : Pass<"scf-detensorize-loops"> {
+def SCFDetensorizePass : Pass<"mtrt-scf-detensorize"> {
   let summary = "try to replace loop-carried scalar tensors with scalar-typed values";
 
   let description = [{
@@ -96,10 +96,10 @@ def SCFDetensorizeLoopsPass : Pass<"scf-detensorize-loops"> {
 }
 
 //===----------------------------------------------------------------------===//
-// UnrollForLoopsPass
+// SCFUnrollPass
 //===----------------------------------------------------------------------===//
 
-def UnrollForLoopsPass : Pass<"scf-ext-unroll-for-loops"> {
+def SCFUnrollPass : Pass<"mtrt-scf-unroll"> {
    let summary = "Unroll for loops with static trip count";
 
    let description = [{
