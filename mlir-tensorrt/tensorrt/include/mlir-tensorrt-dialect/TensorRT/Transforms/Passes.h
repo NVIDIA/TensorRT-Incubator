@@ -67,16 +67,27 @@ namespace mlir::tensorrt {
 /// Buidls a standard pipeline `tensorrt-module-simplification-pipeline` for
 /// applying simplifications/optimizations to TensorRT functions or modules.
 /// These include things like broadcast and transpose elimination passes. This
-/// pipeline is safe to run multiple times.
-void buildTensorRTModuleSimplificationPipeline(OpPassManager &pm);
+/// pipeline is safe to run multiple times. If
+/// `useV2TransposeReshapeSimplification` is true, a single pass
+/// `TransposeReshapeEliminationPass` will be used instead of the default
+/// `TransposeEliminationPass` followed by `ReshapeEliminationPass`. V2 pass is
+/// more aggressive, applies more patterns but at the same time its complex and
+/// may cause issue in some cases.
+void buildTensorRTModuleSimplificationPipeline(
+    OpPassManager &pm, bool useV2TransposeReshapeSimplification = false);
 
 /// Build a standard pipeline `tensorrt-module-transformation-pipeline` for
 /// optimizing and lowering `tensorrt` functions or modules containing tensorrt
 /// functions. After this pipeline, functions can be translated to TensorRT
-/// engines.
+/// engines. If `useV2TransposeReshapeSimplification` is true, a single pass
+/// `TransposeReshapeEliminationPass` will be used instead of the default
+/// `TransposeEliminationPass` followed by `ReshapeEliminationPass`. V2 pass is
+/// more aggressive, applies more patterns but at the same time its complex and
+/// may cause issue in some cases.
 void buildTensorRTModuleTransformationPipeline(
     mlir::OpPassManager &pm,
-    const ApplyWorkaroundsPassOptions &bugWorkaroundOptions);
+    const ApplyWorkaroundsPassOptions &bugWorkaroundOptions,
+    bool useV2TransposeReshapeSimplification = false);
 } // namespace mlir::tensorrt
 
 #endif // MLIR_TENSORRT_DIALECT_TENSORRT_TRANSFORMS_PASSES
