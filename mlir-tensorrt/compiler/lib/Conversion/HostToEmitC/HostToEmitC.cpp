@@ -31,6 +31,7 @@
 #include "mlir/Conversion/ArithToEmitC/ArithToEmitC.h"
 #include "mlir/Conversion/FuncToEmitC/FuncToEmitC.h"
 #include "mlir/Conversion/SCFToEmitC/SCFToEmitC.h"
+#include "mlir/Dialect/ControlFlow/IR/ControlFlowOps.h"
 #include "mlir/Dialect/EmitC/IR/EmitC.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Func/Transforms/OneToNFuncConversions.h"
@@ -1717,6 +1718,41 @@ struct MathLogToEmitCPattern : public EmitCConversionPattern<math::LogOp> {
 } // namespace
 
 //===----------------------------------------------------------------------===//
+// CF Conversions
+//===----------------------------------------------------------------------===//
+
+namespace {
+struct CFAssertPattern : public EmitCConversionPattern<cf::AssertOp> {
+  using EmitCConversionPattern::EmitCConversionPattern;
+
+  LogicalResult
+  matchAndRewrite(cf::AssertOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    Location loc = op.getLoc();
+    Value condition = adaptor.getArg();
+    StringRef msg = op.getMsg();
+
+    Value assertCondition = condition;
+    // Escape quotes and backslashes for C++ string literal
+    std::string escapedMsg;
+    for (char c : msg) {
+      if (c == '"')
+        escapedMsg += "\\\"";
+      else if (c == '\\')
+        escapedMsg += "\\\\";
+      else
+        escapedMsg += c;
+    }
+    auto verbatimStr = "assert({} && \"" + escapedMsg + "\");";
+    rewriter.create<emitc::VerbatimOp>(loc, rewriter.getStringAttr(verbatimStr),
+                                       assertCondition);
+    rewriter.eraseOp(op);
+    return success();
+  }
+};
+} // namespace
+
+//===----------------------------------------------------------------------===//
 // HostToEmitC Pass/Patterns API
 //===----------------------------------------------------------------------===//
 
@@ -1779,6 +1815,7 @@ static void populateEmitCConversionPatternsAndLegality(
 
   // clang-format off
   patterns.add<
+      CFAssertPattern,
       CUDAAllocConverter,
       CudaCopyConverter<cuda::CopyD2DOp>,
       CudaCopyConverter<cuda::CopyD2HOp>,
@@ -1887,6 +1924,7 @@ public:
     rewriter.create<emitc::IncludeOp>(moduleOp->getLoc(), "cstdint", true);
     rewriter.create<emitc::IncludeOp>(moduleOp->getLoc(), "cstdlib", true);
     rewriter.create<emitc::IncludeOp>(moduleOp->getLoc(), "cmath", true);
+    rewriter.create<emitc::IncludeOp>(moduleOp->getLoc(), "cassert", true);
     rewriter.create<emitc::IncludeOp>(moduleOp->getLoc(), "MTRTRuntime.h",
                                       false);
 
