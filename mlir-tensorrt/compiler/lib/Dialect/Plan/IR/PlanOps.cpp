@@ -183,11 +183,8 @@ void InlineClosedGroupOp::build(OpBuilder &b, OperationState &state,
 
 LogicalResult InlineClosedAllocGroupOp::verify() {
   Operation *op = getOperation();
-  // Check for res_attrs
-  if (op->hasAttr("res_attrs"))
-    return op->emitOpError("must not contain 'res_attrs' attribute");
   return verifyBoundsAttrs(op, getInputs(), getInputAttrs(), "inputs",
-                           "input_attrs");
+                           this->getInputAttrsAttrName().strref());
 }
 
 void InlineClosedAllocGroupOp::getSuccessorRegions(
