@@ -152,7 +152,11 @@ nv_register_package(
   OPTIONS
     "FLATBUFFERS_BUILD_TESTS OFF"
     "FLATBUFFERS_INSTALL OFF"
-    "CMAKE_CXX_FLAGS -Wno-suggest-override"
+  PRE_ADD_HOOK [[
+    nv_pkg_append_cxx_flags(-Wno-suggest-override)
+    nv_pkg_append_cxx_flags(-Wno-covered-switch-default)
+    nv_pkg_append_cxx_flags(-Wno-c++98-compat-extra-semi)
+  ]]
 )
 
 #-------------------------------------------------------------------------------------
@@ -321,51 +325,36 @@ nv_register_package(
 macro(mtrt_provide_dependency method dep_name)
   cmake_parse_arguments(_pargs "" "" "COMPONENTS" ${ARGN})
 
+  get_property(NV_CPM_PACKAGES GLOBAL PROPERTY NV_CPM_PACKAGES)
+
   # We handle finding TensorrT as a special case since it has
   # dedicated find/download logic to allow locating a previously
   # installed version.
   if("${dep_name}" MATCHES "TensorRT")
+    list(APPEND mycomp_provider_args ${method} ${dep_name})
     find_tensorrt(
       INSTALL_DIR "${MLIR_TRT_TENSORRT_DIR}"
       DOWNLOAD_VERSION "${MLIR_TRT_DOWNLOAD_TENSORRT_VERSION}"
       MIN_VERSION ""
     )
+    list(POP_BACK mycomp_provider_args dep_name method)
     set("${dep_name}_FOUND" TRUE)
-  endif()
-
-  if("${dep_name}" MATCHES
-     "^(Stablehlo|torch_mlir|NVTX|Sol2|Lua|DLPack)$")
-    nv_add_package("${dep_name}")
-    set("${dep_name}_FOUND" TRUE)
-  endif()
-
-  if("${dep_name}" MATCHES
-     "^(Flatbuffers)$")
-    nv_add_package("${dep_name}")
-    set("${dep_name}_FOUND" TRUE)
-  endif()
-
-  if("${dep_name}" STREQUAL "TVMFFI")
+  elseif("${dep_name}" STREQUAL "TVMFFI")
     mtrt_find_tvm_ffi()
     set("${dep_name}_FOUND" TRUE)
-  endif()
-
-  # If we invoke 'find_package(MLIR)' prior to 'find_package(LLVM)',
-  # search for LLVM first, since the LLVM package actually provides
-  # the MLIR config when building from source.
-  if(MTRT_BUILD_LLVM_FROM_SOURCE)
-    if(("${dep_name}" MATCHES "MLIR") AND (NOT MLIR_FOUND))
-      nv_add_package(LLVM)
-      find_package(LLVM CONFIG REQUIRED BYPASS_PROVIDER)
-      find_package(MLIR ${ARGN} BYPASS_PROVIDER)
-    endif()
-
-    # Handle LLVM. We want to invoke find_package after
-    # adding it.
-    if("${dep_name}" MATCHES "^(LLVM)$")
-      nv_add_package(${dep_name})
-      find_package(LLVM ${ARGN} BYPASS_PROVIDER)
-    endif()
+  # Handle LLVM.
+  elseif(MTRT_BUILD_LLVM_FROM_SOURCE AND
+         "${dep_name}" MATCHES "^(LLVM)$")
+    list(APPEND mycomp_provider_args ${method} ${dep_name})
+    nv_add_package(${dep_name})
+    list(POP_BACK mycomp_provider_args dep_name method)
+    find_package(LLVM ${ARGN} BYPASS_PROVIDER)
+  # For all other packages, the logic is the same.
+  elseif("${dep_name}" IN_LIST NV_CPM_PACKAGES)
+    list(APPEND mycomp_provider_args ${method} ${dep_name})
+    nv_add_package("${dep_name}")
+    list(POP_BACK mycomp_provider_args dep_name method)
+    set("${dep_name}_FOUND" TRUE)
   endif()
 
 endmacro()

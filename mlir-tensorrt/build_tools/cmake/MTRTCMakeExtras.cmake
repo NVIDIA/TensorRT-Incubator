@@ -114,3 +114,44 @@ function(mtrt_append_compiler_flag_if_supported)
     endif()
   endif()
 endfunction()
+
+# Filter a space-separated flags variable in-place, removing any entries
+# that match the given regex.
+#
+#   filter_flags(VAR_NAME REGEX)
+#
+# Example:
+#   mtrt_filter_out_flags(CMAKE_C_FLAGS "^-Wno-unused-parameter$")
+#   mtrt_filter_out_flags(CMAKE_CXX_FLAGS "^-W(no-unused-parameter|no-sign-compare)$")
+function(mtrt_filter_out_flags var_name regex)
+    # If the variable is not defined or empty, nothing to do.
+    if(NOT DEFINED ${var_name})
+        return()
+    endif()
+
+    set(_flags_str "${${var_name}}")
+    if(_flags_str STREQUAL "")
+        return()
+    endif()
+
+    # Split the flags string into a list, respecting simple quoting.
+    # (Requires CMake 3.5+; NATIVE_COMMAND is usually safest for host shell.)
+    separate_arguments(_flags_list NATIVE_COMMAND "${_flags_str}")
+
+    set(_kept_flags)
+    foreach(_f IN LISTS _flags_list)
+        if(NOT _f MATCHES "${regex}")
+            list(APPEND _kept_flags "${_f}")
+        endif()
+    endforeach()
+
+    # Join back into a space-separated string and write it back to the variable.
+    if(_kept_flags)
+        string(JOIN " " _new_flags ${_kept_flags})
+    else()
+        set(_new_flags "")
+    endif()
+
+    # Update the original variable in the caller’s scope.
+    set(${var_name} "${_new_flags}" PARENT_SCOPE)
+endfunction()

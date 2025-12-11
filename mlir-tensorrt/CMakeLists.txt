@@ -73,7 +73,7 @@ find_package(Python3 REQUIRED
 if(PROJECT_IS_TOP_LEVEL)
   set(MLIR_TRT_EXTERNAL_PROJECT_BUILD OFF)
   message("Building MLIR-TensorRT as a standalone project.")
-
+  find_package(LLVM REQUIRED CONFIG)
   find_package(MLIR REQUIRED CONFIG)
   message(STATUS "Using MLIRConfig.cmake in: ${MLIR_DIR}")
   message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
