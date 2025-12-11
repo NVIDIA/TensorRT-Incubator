@@ -75,5 +75,6 @@ endif()
 # Normalization).
 # New in CMake 3.31: https://cmake.org/cmake/help/latest/policy/CMP0177.html
 if(POLICY CMP0177)
+  set(CMAKE_POLICY_DEFAULT_CMP0177 NEW)
   cmake_policy(SET CMP0177 NEW)
 endif()

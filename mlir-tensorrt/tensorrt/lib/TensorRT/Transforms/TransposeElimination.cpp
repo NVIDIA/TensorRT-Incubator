@@ -86,8 +86,8 @@ static TensorValue getOtherEwiseInput(ElementWiseOp op, Operation *producer) {
 // a set of conditions on which to move transpose to the other branch. We do
 // this if we know doing so will result in additional elimination patterns or a
 // smaller transpose cost.
-bool pushDownTransposePrecondition(ElementWiseOp op,
-                                   TransposeOp transposeToPushdown) {
+static bool pushDownTransposePrecondition(ElementWiseOp op,
+                                          TransposeOp transposeToPushdown) {
   TensorValue otherInput = getOtherEwiseInput(op, transposeToPushdown);
   Operation *otherProducer = otherInput.getDefiningOp();
   bool otherBranchHasSmallerCost =

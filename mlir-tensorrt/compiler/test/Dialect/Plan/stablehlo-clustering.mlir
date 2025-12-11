@@ -178,7 +178,5 @@ func.func @test_data_flow_state_update(
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<10xf32>, %[[arg1:.+]]: tensor<1xi32>, %[[arg2:.+]]:
 //   CHECK-DAG:     %[[c:.+]] = stablehlo.constant dense<1> : tensor<1xi32>
 //   CHECK-DAG:     %[[v0:.+]]:3 = plan.inline_group target(#plan.host_backend
-//   CHECK-DAG:     %[[v3:.+]] = plan.inline_group target(#plan.tensorrt_backend
-//   CHECK-DAG:       %[[v4:.+]] = stablehlo.dynamic_slice %[[arg0]], %[[v0]]#2
-//   CHECK-DAG:       yield %[[v4]] : tensor<1xf32>
-//   CHECK-DAG:     return %[[v0]]#0, %[[v0]]#1, %[[v3]] :
+//   CHECK-NOT:     plan.inline_group target(#plan.tensorrt_backend
+//   CHECK-DAG:     return %[[v0]]#0, %[[v0]]#1, %[[v0]]#2 :
