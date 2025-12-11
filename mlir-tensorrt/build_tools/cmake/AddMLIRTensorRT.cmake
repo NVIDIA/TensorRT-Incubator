@@ -216,6 +216,50 @@ function(add_mlir_tensorrt_backend_library target)
   cmake_path(RELATIVE_PATH BIN_TD
     BASE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 
+  # Check for Passes.td in the same directory as the backend TD file
+  cmake_path(GET SRC_TD PARENT_PATH backend_dir)
+  cmake_path(SET passes_td_path "${backend_dir}/Passes.td")
+
+  set(tablegen_depends "")
+
+  # Generate Passes.h.inc if Passes.td exists and target doesn't already exist
+  if(EXISTS "${passes_td_path}")
+    set(passes_tablegen_target "${target}PassesIncGen")
+
+    # Only create the target if it doesn't already exist (e.g., for internal backends)
+    if(NOT TARGET "${passes_tablegen_target}")
+      # Extract backend name from TD path (e.g., "Host" from "Backends/Host/HostBackend.td")
+      cmake_path(GET backend_dir FILENAME backend_name)
+
+      # Get the relative path from the include directory
+      # backend_dir is something like /workspaces/mlir-tensorrt/compiler/include/mlir-tensorrt/Backends/Host
+      # We need mlir-tensorrt/Backends/Host
+      cmake_path(SET include_dir
+        NORMALIZE
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../../include")
+      file(RELATIVE_PATH backend_dir_rel
+        "${include_dir}"
+        "${backend_dir}")
+
+      # Set up Passes.td tablegen - output should be relative to CMAKE_CURRENT_BINARY_DIR
+      cmake_path(SET BIN_PASSES_TD
+        NORMALIZE
+        "${CMAKE_CURRENT_BINARY_DIR}/../../../include/${backend_dir_rel}/Passes.td")
+      cmake_path(RELATIVE_PATH BIN_PASSES_TD
+        BASE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+
+      set(LLVM_TARGET_DEFINITIONS "${passes_td_path}")
+      string(REPLACE "Passes.td" "Passes.h.inc" passes_h_inc ${BIN_PASSES_TD})
+
+      mlir_tablegen("${passes_h_inc}" -gen-pass-decls -name ${backend_name}Backend)
+
+      mtrt_add_public_tablegen_target("${passes_tablegen_target}")
+    endif()
+
+    list(APPEND tablegen_depends "${passes_tablegen_target}")
+  endif()
+
+  # Generate backend attribute files
   set(LLVM_TARGET_DEFINITIONS "${SRC_TD}")
 
   string(REPLACE ".td" "Attrs.h.inc" h_inc_file ${BIN_TD})
@@ -224,11 +268,12 @@ function(add_mlir_tensorrt_backend_library target)
   mlir_tablegen("${cpp_inc_file}" -gen-attrdef-defs)
 
   mtrt_add_public_tablegen_target("${target}IncGen")
+  list(APPEND tablegen_depends "${target}IncGen")
 
   add_mlir_tensorrt_library(${target}
     PARTIAL_SOURCES_INTENDED
     ${ARG_UNPARSED_ARGUMENTS}
-    DEPENDS ${target}IncGen)
+    DEPENDS ${tablegen_depends})
 endfunction()
 
 # ------------------------------------------------------------------------------
