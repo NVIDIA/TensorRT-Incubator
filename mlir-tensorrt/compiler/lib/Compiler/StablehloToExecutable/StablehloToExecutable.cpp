@@ -163,7 +163,7 @@ void StablehloToExecutableTask::populatePassManager() {
 
   // We then perform some final simplification on the top-level func.func ops
   // (e.g. public entrypoint functions).
-  pm.addNestedPass<func::FuncOp>(createSCFDetensorizeLoopsPass());
+  pm.addNestedPass<func::FuncOp>(mtrt::createSCFDetensorizePass());
   pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
 
   populateExtensionPasses(pm, options, Phase::PreBufferization, extensions);

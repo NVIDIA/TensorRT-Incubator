@@ -1,4 +1,4 @@
-//===- SCFDetensorizeLoops.cpp --------------------------------------------===//
+//===- UnrollForLoops.cpp -------------------------------------------------===//
 //
 // SPDX-FileCopyrightText: Copyright 2025 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
@@ -18,7 +18,7 @@
 //
 //===----------------------------------------------------------------------===//
 ///
-/// Implementation of `scf-ext-unroll-for-loops` pass.
+/// Implementation of `mtrt-scf-unroll` pass.
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt/Transforms/Passes.h"
@@ -29,12 +29,12 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FormatVariadic.h"
 
-#define DEBUG_TYPE "scf-ext-unroll-for-loops"
+#define DEBUG_TYPE "mtrt-scf-unroll"
 #define DBGV(fmt, ...)                                                         \
   llvm::dbgs() << llvm::formatv("[" DEBUG_TYPE "] " fmt "\n", __VA_ARGS__)
 
 namespace mtrt {
-#define GEN_PASS_DEF_UNROLLFORLOOPSPASS
+#define GEN_PASS_DEF_SCFUNROLLPASS
 #include "mlir-tensorrt/Transforms/Passes.h.inc"
 } // namespace mtrt
 
@@ -118,8 +118,7 @@ unrollForLoopWithStaticTripCount(IRRewriter &rewriter, scf::ForOp op,
 
 namespace {
 
-class UnrollForLoopsPass
-    : public mtrt::impl::UnrollForLoopsPassBase<UnrollForLoopsPass> {
+class SCFUnrollPass : public mtrt::impl::SCFUnrollPassBase<SCFUnrollPass> {
 public:
   using Base::Base;
 

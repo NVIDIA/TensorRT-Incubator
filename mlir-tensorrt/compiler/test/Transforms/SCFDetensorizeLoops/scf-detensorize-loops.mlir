@@ -1,4 +1,4 @@
-// RUN: mlir-tensorrt-opt %s -split-input-file -scf-detensorize-loops -allow-unregistered-dialect | FileCheck %s
+// RUN: mlir-tensorrt-opt %s -split-input-file -mtrt-scf-detensorize -allow-unregistered-dialect | FileCheck %s
 
 func.func @detensorize_while(%arg0: tensor<i32>, %arg1: tensor<1xi32>)
     -> (tensor<i32> {tensorrt.host_tensor}, tensor<1xi32> {tensorrt.host_tensor}) {
@@ -192,4 +192,3 @@ func.func @subset_of_subset(%arg: tensor<?xf32>) -> tensor<?xf32> {
   // CHECK: return %[[insert1]]
   return %0 : tensor<?xf32>
 }
-

@@ -18,7 +18,7 @@
 //
 //===----------------------------------------------------------------------===//
 ///
-/// Implementation of `scf-detensorize-loops` pass.
+/// Implementation of `mtrt-scf-detensorize` pass.
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt-dialect/Analysis/TensorKindAnalysis.h"
@@ -36,7 +36,7 @@
 #include "mlir/Transforms/LoopInvariantCodeMotionUtils.h"
 
 namespace mtrt {
-#define GEN_PASS_DEF_SCFDETENSORIZELOOPSPASS
+#define GEN_PASS_DEF_SCFDETENSORIZEPASS
 #include "mlir-tensorrt/Transforms/Passes.h.inc"
 } // namespace mtrt
 
@@ -284,8 +284,8 @@ struct TensorInsertSubsetInsertionOpInterface
   }
 };
 
-class SCFDetensorizeLoopsPass
-    : public mtrt::impl::SCFDetensorizeLoopsPassBase<SCFDetensorizeLoopsPass> {
+class SCFDetensorizePass
+    : public mtrt::impl::SCFDetensorizePassBase<SCFDetensorizePass> {
 public:
   using Base::Base;
   void runOnOperation() override {
