@@ -82,21 +82,29 @@ static void addCleanupPasses(OpPassManager &pm) {
   pm.addPass(mlir::createCSEPass());
 }
 
-void tensorrt::buildTensorRTModuleSimplificationPipeline(OpPassManager &pm) {
+void tensorrt::buildTensorRTModuleSimplificationPipeline(
+    OpPassManager &pm, bool useV2TransposeReshapeSimplification) {
   // Try to eliminate as many `tensorrt.broadcast` ops as possible.
   pm.addPass(tensorrt::createBroadcastEliminationPass());
   addCleanupPasses(pm);
-  pm.addPass(tensorrt::createTransposeReshapeEliminationPass());
+  if (useV2TransposeReshapeSimplification) {
+    pm.addPass(tensorrt::createTransposeReshapeEliminationPass());
+  } else {
+    pm.addPass(tensorrt::createTransposeEliminationPass());
+    addCleanupPasses(pm);
+    pm.addPass(tensorrt::createReshapeEliminationPass());
+  }
   addCleanupPasses(pm);
   pm.addPass(tensorrt::createRaiseNormalizationsPass());
   addCleanupPasses(pm);
 }
 
 void tensorrt::buildTensorRTModuleTransformationPipeline(
-    OpPassManager &pm,
-    const ApplyWorkaroundsPassOptions &bugWorkaroundOptions) {
+    OpPassManager &pm, const ApplyWorkaroundsPassOptions &bugWorkaroundOptions,
+    bool useV2TransposeReshapeSimplification) {
   // Try to simplify the code and eliminate broadcast/transposes.
-  buildTensorRTModuleSimplificationPipeline(pm);
+  buildTensorRTModuleSimplificationPipeline(
+      pm, useV2TransposeReshapeSimplification);
 
   // Apply workarounds. This currently must be done before expanding ops because
   // WARs may use auxillary ops such as ExpandRank/CollapseRank ops.
