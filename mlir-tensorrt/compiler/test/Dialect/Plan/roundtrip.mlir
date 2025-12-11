@@ -23,12 +23,12 @@ func.func @plan_inline_group(%arg0: tensor<10xf32>, %arg1: tensor<10xf32>) -> te
     yield %1 : tensor<10xf32>
   }
 
-  %1 = plan.inline_group target("some-target") -> tensor<10xf32> {
+  %1 = plan.inline_group target(#plan.host_backend<benefit = 1>) -> tensor<10xf32> {
     %2 = stablehlo.add %0, %0 : tensor<10xf32>
     yield %2 : tensor<10xf32>
   }
 
-  plan.inline_group target("some-other-target") {
+  plan.inline_group target(#plan.host_backend<benefit = 1>) {
     %alloc = memref.alloc() : memref<10xf32>
     memref.dealloc %alloc : memref<10xf32>
   }
@@ -43,11 +43,11 @@ func.func @plan_inline_group(%arg0: tensor<10xf32>, %arg1: tensor<10xf32>) -> te
 //       CHECK-NEXT:       %[[v2:.+]] = stablehlo.add %[[arg0]], %[[arg1]] : tensor<10xf32>
 //       CHECK-NEXT:       yield %[[v2]] : tensor<10xf32>
 //       CHECK-NEXT:     }
-//       CHECK-NEXT:     %[[v1:.+]] = plan.inline_group target("some-target") -> tensor<10xf32> {
+//       CHECK-NEXT:     %[[v1:.+]] = plan.inline_group target(#plan.host_backend<benefit = 1>) -> tensor<10xf32> {
 //       CHECK-NEXT:       %[[v2:.+]] = stablehlo.add %[[v0]], %[[v0]] : tensor<10xf32>
 //       CHECK-NEXT:       yield %[[v2]] : tensor<10xf32>
 //       CHECK-NEXT:     }
-//       CHECK-NEXT:     plan.inline_group target("some-other-target") {
+//       CHECK-NEXT:     plan.inline_group target(#plan.host_backend<benefit = 1>) {
 //       CHECK-NEXT:       %[[alloc:.+]] = memref.alloc() : memref<10xf32>
 //       CHECK-NEXT:       memref.dealloc %[[alloc]] : memref<10xf32>
 //       CHECK-NEXT:     }

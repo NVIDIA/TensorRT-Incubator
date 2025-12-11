@@ -6,11 +6,15 @@ include "mlir-tensorrt/Dialect/Plan/IR/PlanInterfaces.td"
 
 def Plan_TensorRTBackendAttr : Plan_Attr<"TensorRTBackend", "tensorrt_backend",
       [DeclareAttrInterfaceMethods<CompilerBackendAttrInterface,
-        ["getClusterFilter", "outlineClosedCluster"]>]> {
+        ["getClusterFilter", "outlineClosedCluster",
+        "supportsDestinationStyleCallingConvention",
+        "preferDestinationStyleCallingConvention",
+        "shouldCloneProducer"]>]> {
   let parameters = (ins
     "bool":$disallow_shape_tensor_calculations,
     "int64_t":$benefit,
-    OptionalParameter<"std::optional<int64_t>">:$tensorrt_major_version);
+    OptionalParameter<"std::optional<int64_t>">:$tensorrt_major_version,
+    DefaultValuedParameter<"bool", "true">:$prefer_destination_style_calling_convention);
   let assemblyFormat = "`<` struct(params) `>`";
 }
 

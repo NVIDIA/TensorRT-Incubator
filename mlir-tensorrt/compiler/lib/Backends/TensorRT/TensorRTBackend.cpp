@@ -535,7 +535,15 @@ static LogicalResult outlineTensorRTRegion(RewriterBase &rewriter,
   return success();
 }
 
-bool TensorRTBackendAttr::requiresClosure(InputKind) const { return true; }
+bool TensorRTBackendAttr::supportsDestinationStyleCallingConvention(
+    Operation *op) const {
+  return true;
+}
+
+bool TensorRTBackendAttr::preferDestinationStyleCallingConvention(
+    Operation *op) const {
+  return getPreferDestinationStyleCallingConvention();
+}
 
 LogicalResult TensorRTBackendAttr::outlineClosedCluster(
     InputKind inputKind, RewriterBase &rewriter, Operation *op,
@@ -552,6 +560,12 @@ LogicalResult TensorRTBackendAttr::outlineClosedCluster(
     return success();
   }
   return failure();
+}
+
+bool TensorRTBackendAttr::shouldCloneProducer(Operation *op,
+                                              Operation *producer) const {
+  return mlir::plan::detail::shouldCloneProducerDefault(
+      producer, op->getRegions().front(), /*allowTensorValuesOnly=*/true);
 }
 
 bool TensorRTBackendAttr::supportsInputKind(InputKind inputKind) const {

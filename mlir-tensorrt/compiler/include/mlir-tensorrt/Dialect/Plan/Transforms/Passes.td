@@ -419,9 +419,9 @@ def CreateClosedRegionsPass : Pass<"plan-create-closed-regions", "::mlir::Module
       "(used only in testing) specifies to outline regions by walking in "
       " pre-order; used for verifying results are not sensitive "
       "to traversal order">,
-    Option<"forceEntrypointsReturnAllocs", "force-entrypoints-return-allocs", "bool",
+    Option<"disableDestinationStyleCallingConvention", "disable-destination-style-calling-convention", "bool",
            /*default=*/"false",
-           "Allow backend clusters to directly allocate outputs">,
+           "Disable destination-passing-style (DPS) calling convention lowering">,
     InputKindOption
   ];
 

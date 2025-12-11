@@ -25,6 +25,7 @@ add_mlir_tensorrt_library(MLIRTensorRTCompilerTensorRTToExecutable
       MLIRTensorRTRuntimeToExecutor
       MLIRTensorRTSCFDetensorizeLoops
       MLIRTensorRTTargetLua
+      MLIRTensorRTTensorRTBackend
       MLIRTensorRTTensorRTToTensorRTRuntime
       MLIRTensorRTTransforms
       ${MTRTD_LIBS}

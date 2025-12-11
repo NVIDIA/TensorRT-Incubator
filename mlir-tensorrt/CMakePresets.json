@@ -35,6 +35,7 @@
         "LLVM_INCLUDE_TOOLS": "ON",
         "LLVM_INSTALL_TOOLCHAIN_ONLY": "ON",
         "LLVM_INSTALL_UTILS": "ON",
+        "LLVM_APPEND_VC_REV": "OFF",
         "LLVM_LIT_ARGS": "-sv --time-tests",
         "LLVM_TARGETS_TO_BUILD": "NVPTX;Native",
         "MLIR_ENABLE_BINDINGS_PYTHON": "ON",
