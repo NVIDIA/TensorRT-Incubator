@@ -46,3 +46,4 @@ add_mlir_tensorrt_library(MLIRTensorRTCompilerStableHloToExecutable
       MLIRMathToEmitC
     )
 
+add_subdirectory(KernelGenExtension)

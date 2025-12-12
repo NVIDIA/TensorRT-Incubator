@@ -45,6 +45,10 @@ mlir_tensorrt_common_interface(TensorKindAttrInterface
   KIND attr
   INCLUDE_DEPENDS MLIRIR MLIRTensorRTCommonIncludes
 )
+mlir_tensorrt_common_interface(BufferizationScopeInterface
+  KIND op
+  INCLUDE_DEPENDS MLIRIR MLIRTensorRTCommonIncludes
+)
 
 add_mlir_tensorrt_common_interface_library(
   MLIRTensorRTCommonToLoopsOpInterface
@@ -89,4 +93,19 @@ add_mlir_tensorrt_common_interface_library(
     MLIRIR
     MLIRAnalysis
     MLIRFuncDialect
+)
+
+add_mlir_tensorrt_common_interface_library(
+  MLIRTensorRTCommonBufferizationScopeInterface
+
+  BufferizationScopeInterface.cpp
+
+  DEPENDS
+  MLIRTensorRTCommonBufferizationScopeInterfaceIncGen
+
+  LINK_LIBS PUBLIC
+    MLIRTensorRTCommonIncludes
+  MLIR_LIBS PUBLIC
+    MLIRBufferizationDialect
+    MLIRBufferizationTransforms
 )

@@ -606,6 +606,6 @@ public:
 };
 } // namespace
 
-void mlir::plan::registerTensorRTBackend(DialectRegistry &registry) {
+void mtrt::compiler::registerTensorRTBackend(mlir::DialectRegistry &registry) {
   registry.addExtensions<PlanDialectTensorRTBackend>();
 }

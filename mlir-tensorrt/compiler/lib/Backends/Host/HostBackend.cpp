@@ -62,8 +62,8 @@ static bool isScalarizableType(Type t) {
 /// that the operation can be converted to Executor IR. It derives this
 /// information based on the operation, the operands, and the TensorKindAnalysis
 /// information.
-bool plan::detail::shouldRunOnHost(Operation *op,
-                                   const DataFlowSolver &solver) {
+bool mtrt::compiler::detail::shouldRunOnHost(mlir::Operation *op,
+                                             const DataFlowSolver &solver) {
   // An operation can't be placed on the host if the types are too big.
   LLVM_DEBUG(DBGS() << "should run on host? " << *op << "\n");
   if (!llvm::all_of(op->getResultTypes(), isScalarizableType) ||
@@ -268,6 +268,6 @@ public:
 };
 } // namespace
 
-void mlir::plan::registerHostBackend(DialectRegistry &registry) {
+void mtrt::compiler::registerHostBackend(mlir::DialectRegistry &registry) {
   registry.addExtensions<PlanDialectHostBackend>();
 }

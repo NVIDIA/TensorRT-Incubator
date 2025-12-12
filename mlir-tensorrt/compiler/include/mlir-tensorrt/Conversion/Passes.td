@@ -161,6 +161,29 @@ def LowerLinalgCopiesPass : Pass<"lower-linalg-copies"> {
 }
 
 //===----------------------------------------------------------------------===//
+// ConvertKernelToCUDAPass
+//===----------------------------------------------------------------------===//
+def ConvertKernelToCUDAPass : Pass<"convert-kernel-to-cuda", "::mlir::ModuleOp"> {
+  let summary = "Convert Kernel dialect to CUDA dialect";
+  let description = [{
+    This pass converts supported Kernel dialect ops to the CUDA dialect.
+
+    In particular, any `kernel.call` operation is turned into a
+    `cuda.launch` call and the operations to materialize e.g. CUDA
+    streams and clean them up are automatically inserted.
+
+    For each kernel that is invoked by `kernel.call` operations, a constant
+    global for the PTX IR and globals for the CUmodule/CUfunc are materialized,
+    forcing compilation of the kernel when the program globals are initialized.
+  }];
+  let dependentDialects = [
+    "::mlir::cuda::CUDADialect",
+    "::mlir::memref::MemRefDialect",
+    "::mlir::arith::ArithDialect"
+  ];
+}
+
+//===----------------------------------------------------------------------===//
 // ConvertMemRefToCUDAPass
 //===----------------------------------------------------------------------===//
 
@@ -342,6 +365,24 @@ def ConvertTensorRTRuntimeToExecutorPass : Pass<"convert-tensorrt-runtime-to-exe
 }
 
 #ifdef MLIR_TENSORRT_ENABLE_HLO
+
+//===----------------------------------------------------------------------===//
+// StablehloToKernelPass
+//===----------------------------------------------------------------------===//
+
+def StablehloToKernelPass : Pass<"convert-stablehlo-to-kernel"> {
+  let summary = "Convert Stablehlo dialect to Kernel dialect";
+  let description = [{
+    This pass converts supported Stablehlo dialect ops to the Kernel dialect.
+  }];
+  let dependentDialects = [
+    "::mlir::arith::ArithDialect",
+    "::mlir::kernel::KernelDialect",
+    "::mlir::math::MathDialect",
+    "::mlir::tensor::TensorDialect"
+  ];
+}
+
 //===----------------------------------------------------------------------===//
 // ConvertStablehloToArithPass
 //===----------------------------------------------------------------------===//

@@ -65,10 +65,6 @@ config.mlir_tensorrt_tools_dir = os.path.join(config.mlir_tensorrt_obj_root, "bi
 config.substitutions.append(("%PATH%", config.environment["PATH"]))
 config.substitutions.append(("%test_src_root", config.test_source_root))
 config.substitutions.append(("%mtrt_src_dir", config.mlir_tensorrt_root))
-config.substitutions.append(
-    ("%trt_include_dir", os.path.join(config.tensorrt_lib_dir, "..", "include"))
-)
-config.substitutions.append(("%trt_lib_dir", config.tensorrt_lib_dir))
 config.substitutions.append(("%stablehlo_src_dir", config.stablehlo_source_root))
 config.substitutions.append(
     (
@@ -76,6 +72,10 @@ config.substitutions.append(
         config.cuda_toolkit_linux_cxx_flags,
     )
 )
+config.substitutions.append(
+    ("%nvinfer_include_dir", os.path.join(config.tensorrt_lib_dir, "..", "include"))
+)
+config.substitutions.append(("%nvinfer_lib_dir", config.tensorrt_lib_dir))
 
 
 # Setup the parallelism groups. Note that just instantiating the TRT builder

@@ -25,12 +25,16 @@
 
 #include "mlir-executor/Executor/IR/Executor.h"
 #include "mlir-executor/Executor/Transforms/BufferizationOpInterfaceImpls.h"
+#include "mlir-kernel/InitAllDialects.h"
+#include "mlir-kernel/Kernel/Transforms/Transforms.h"
 #include "mlir-tensorrt-common/Dialect/EmitCExt/IR/DataLayoutImpl.h"
 #include "mlir-tensorrt-common/Dialect/LinalgExt/Transforms/ToLoopsOpInterfaceImpl.h"
 #include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
 #include "mlir-tensorrt-dialect/TensorRT/Target/TensorRTEncodingImpl.h"
 #include "mlir-tensorrt/Backends/Host/HostBackend.h"
+#include "mlir-tensorrt/Backends/Kernel/KernelBackend.h"
 #include "mlir-tensorrt/Backends/TensorRT/TensorRTBackend.h"
+#include "mlir-tensorrt/Compiler/StablehloToExecutable/KernelGenExtension.h"
 #include "mlir-tensorrt/Compiler/StablehloToExecutable/TensorRTExtension.h"
 #include "mlir-tensorrt/Compiler/TensorRTToExecutable/TensorRTToExecutable.h"
 #include "mlir-tensorrt/Conversion/CUDAToLLVM/CUDAToLLVM.h"
@@ -162,6 +166,9 @@ void mtrt::compiler::registerAllDialects(mlir::DialectRegistry &registry) {
     registry.insert<mlir::vhlo::VhloDialect>();
   });
 
+  // Register all dialects for the Kernel project.
+  mlir::kernel::registerAllRequiredDialects(registry);
+
   // Register all external models.
   mlir::affine::registerValueBoundsOpInterfaceExternalModels(registry);
   mlir::arith::registerBufferDeallocationOpInterfaceExternalModels(registry);
@@ -176,6 +183,7 @@ void mtrt::compiler::registerAllDialects(mlir::DialectRegistry &registry) {
   mlir::cuda::registerBufferizableOpInterfaceExternalModels(registry);
   mlir::emitc_ext::registerDataLayoutInterfaceExternalModels(registry);
   mlir::executor::registerBufferizationOpInterfaceExternalModels(registry);
+  mlir::kernel::registerKernelBufferizationScopeOpInterfaceImpls(registry);
   mlir::linalg::registerBufferizableOpInterfaceExternalModels(registry);
   mlir::linalg::registerRuntimeVerifiableOpInterfaceExternalModels(registry);
   mlir::linalg::registerSubsetOpInterfaceExternalModels(registry);
@@ -245,9 +253,15 @@ void mtrt::compiler::registerAllExtensions(mlir::DialectRegistry &registry) {
   mlir::func::registerInlinerExtension(registry);
 
   // Plan Extensions.
-  mlir::plan::registerHostBackend(registry);
-  mlir::plan::registerTensorRTBackend(registry);
+  mtrt::compiler::registerHostBackend(registry);
+  mtrt::compiler::registerTensorRTBackend(registry);
+  mtrt::compiler::registerKernelBackend(registry);
 
   // Compiler task extensions.
   mtrt::compiler::registerTensorRTExtension(registry);
+
+  // Compiler task extensions.
+  IF_MLIR_TRT_ENABLE_HLO({
+    mtrt::compiler::registerStablehloToExecutableKernelGenExtension(registry);
+  });
 }

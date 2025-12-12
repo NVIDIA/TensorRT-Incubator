@@ -31,18 +31,18 @@
 #define GET_ATTRDEF_CLASSES
 #include "mlir-tensorrt/Backends/Host/HostBackendAttrs.h.inc"
 
-namespace mlir::plan {
+namespace mtrt::compiler {
 
 namespace detail {
 /// Helper function used by cluster backends that returns 'true' if the given
 /// clusterable operation should be executed on the host as determined by the
 /// TensorKind dataflow analysis and other information about the operation.
-bool shouldRunOnHost(Operation *op, const DataFlowSolver &solver);
+bool shouldRunOnHost(mlir::Operation *op, const mlir::DataFlowSolver &solver);
 } // namespace detail
 
 /// Register the Host backend extensions to the Plan dialect.
-void registerHostBackend(DialectRegistry &registry);
+void registerHostBackend(mlir::DialectRegistry &registry);
 
-} // namespace mlir::plan
+} // namespace mtrt::compiler
 
 #endif // MLIR_TENSORRT_BACKENDS_HOST_HOSTBACKEND
