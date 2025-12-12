@@ -1,0 +1,90 @@
+# REQUIRES: all-gpus-support-fp8
+# RUN: %pick-one-gpu %mlir-trt-jax-py %s
+
+"""Test for MLIR-TensorRT JAX quantize primitive.
+
+NOTE: This test file contains extra setup code for CI testing without pip installation.
+      With a properly installed mlir_tensorrt_jax package, users only need:
+
+      >>> import mlir_tensorrt_jax as mtrt
+      >>> output = mtrt.mtrt_quantize(input, scale, ...)
+"""
+
+# ====================================================================================
+# CI TEST HARNESS - Not needed for regular users with pip-installed package
+# ====================================================================================
+
+# Step 1: Add source directory to path (pip installation handles this automatically)
+from pathlib import Path
+import sys
+
+mtrt_ops_path = (
+    Path(__file__).parent.parent.parent.parent / "python" / "mlir_tensorrt_jax"
+)
+assert mtrt_ops_path.exists() and mtrt_ops_path.is_dir()
+sys.path.append(str(mtrt_ops_path))
+
+# Step 2: Force JAX plugin discovery (happens automatically with pip installation)
+from jax._src.xla_bridge import _discover_and_register_pjrt_plugins
+
+_discover_and_register_pjrt_plugins()
+
+# Step 3: Manual imports and registration (automatic when installed via pip)
+from mtrt_ops.quantize import mtrt_quantize, register_quantize_lowering
+
+register_quantize_lowering()
+
+# ====================================================================================
+# ACTUAL TEST CODE - This is what regular users write
+# ====================================================================================
+
+import jax
+import numpy as np
+import jax.numpy as jnp
+import pytest
+
+
+@jax.jit
+def jit_quantize_pt(x):
+    scale = np.array(1.0)
+    return mtrt_quantize(x, scale, mode="tensorrt.pt_q", output_dtype=jnp.int8)
+
+
+@jax.jit
+def jit_quantize_pc(x):
+    scale = np.array([2.0, 10.0])
+    return mtrt_quantize(x, scale, mode="tensorrt.pc_q", axis=0, output_dtype=jnp.int8)
+
+
+@jax.jit
+def jit_quantize_block(x):
+    scale = np.array([[1.0, 1.0, 1.0, 1.0]])
+    return mtrt_quantize(
+        x, scale, mode="tensorrt.block_q", output_dtype=jnp.float8_e4m3fn
+    )
+
+
+def test_quantize_pt():
+    """Test per-tensor quantization."""
+    x = np.array([[10.0, 20.0, 30.0, 40.0], [50.0, 60.0, 70.0, 80.0]])
+    expected = np.array([[10, 20, 30, 40], [50, 60, 70, 80]], dtype=np.int8)
+    np.testing.assert_array_equal(jit_quantize_pt(x), expected)
+
+
+def test_quantize_pc():
+    """Test per-channel quantization."""
+    x = np.array([[10.0, 20.0, 30.0, 40.0], [50.0, 60.0, 70.0, 80.0]])
+    expected = np.array([[5, 10, 15, 20], [5, 6, 7, 8]], dtype=np.int8)
+    np.testing.assert_array_equal(jit_quantize_pc(x), expected)
+
+
+@pytest.mark.requires_fp8
+def test_quantize_block():
+    """Test block-wise quantization."""
+    x = np.array([[10.0, 20.0, 30.0, 40.0], [50.0, 60.0, 70.0, 80.0]])
+    expected = np.array([[10, 20, 30, 40], [50, 60, 70, 80]], dtype=jnp.float8_e4m3fn)
+    np.testing.assert_allclose(jit_quantize_block(x), expected, rtol=1e-5, atol=1e-7)
+
+
+if __name__ == "__main__":
+    pytest.main(["-v", __file__])

@@ -12,6 +12,8 @@ mtrt_option(MLIR_TRT_ENABLE_MPI "Enable use of MPI in the runtime" ${MLIR_TRT_EN
 mtrt_option(MLIR_TRT_LINK_MTRT_DYLIB "Link all tools against libMTRT dylib" OFF)
 mtrt_option(MLIR_TRT_LINK_MLIR_DYLIB "Use the libMLIR dylib to provide MLIR-TensorRT's MLIR dependencies" OFF)
 
+mtrt_option(MLIR_TRT_ENABLE_PJRT_JAX "Enable PJRT and JAX integration, which requires building/install of JAX from source." ON)
+
 # Those options control how TensorRT is found or downloaded.
 set(MLIR_TRT_TENSORRT_DIR "" CACHE STRING "Path to TensorRT install directory")
 set(MLIR_TRT_DOWNLOAD_TENSORRT_VERSION "10.12" CACHE STRING
@@ -43,6 +45,10 @@ set(MLIR_TRT_ENABLE_PROJECTS_DEFAULT
 )
 
 list(APPEND MLIR_TRT_ENABLE_PROJECTS_DEFAULT "compiler")
+
+if(MLIR_TRT_ENABLE_PJRT_JAX)
+  list(APPEND MLIR_TRT_ENABLE_PROJECTS_DEFAULT "integrations/PJRT")
+endif()
 
 if(MLIR_TRT_ENABLE_PYTHON)
   list(APPEND MLIR_TRT_ENABLE_PROJECTS_DEFAULT "integrations/python")
