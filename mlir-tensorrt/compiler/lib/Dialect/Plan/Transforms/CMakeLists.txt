@@ -33,7 +33,7 @@ add_mlir_tensorrt_library(MLIRTensorRTPlanTransforms
   LINK_LIBS PUBLIC
     MLIRExecutorGenericClustering
     MLIRTensorRTAnalysis
-    MLIRTensorRTBufferizationScopeInterface
+    MLIRTensorRTCommonBufferizationScopeInterface
     MLIRTensorRTCUDADialect
     MLIRTensorRTTensorRTDialect
     MLIRTensorRTDuplicateFunctionElimination

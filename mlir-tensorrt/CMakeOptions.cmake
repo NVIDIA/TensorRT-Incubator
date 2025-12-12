@@ -39,7 +39,7 @@ mtrt_option(MLIR_TRT_RELATIVE_DEBUG_PATHS
 # whereas the definition of the source groups belonging to those packages
 # are distributed across multiple sub-directories.
 set(MLIR_TRT_ENABLE_PROJECTS_DEFAULT
-  executor tensorrt
+  executor tensorrt kernel
 )
 
 list(APPEND MLIR_TRT_ENABLE_PROJECTS_DEFAULT "compiler")

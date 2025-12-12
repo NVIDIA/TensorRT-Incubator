@@ -179,4 +179,74 @@ def FuncExtDuplicateFunctionEliminationPass : Pass<"func-ext-duplicate-function-
   }];
 }
 
+//===----------------------------------------------------------------------===//
+// TensorExtPadToInsertSlicePass
+//===----------------------------------------------------------------------===//
+
+def TensorExtPadToInsertSlicePass : Pass<"tensor-ext-pad-to-insert-slice"> {
+  let summary =
+    "Convert tensor.pad to linalg.fill + tensor.insert_slice";
+
+  let description = [{
+    This pass converts `tensor.pad` operations to `linalg.fill` and
+    `tensor.insert_slice` operations.
+  }];
+
+  let dependentDialects = [
+    "::mlir::linalg::LinalgDialect"
+  ];
+}
+
+//===----------------------------------------------------------------------===//
+// LinalgSimplifyExtractSlicePass
+//===----------------------------------------------------------------------===//
+
+def LinalgSimplifyExtractSlicePass : Pass<"linalg-simplify-extract-slice"> {
+  let summary =
+    "Runs auxillary patterns to eliminate `tensor.extract_slice` operations";
+
+  let description = [{
+    This pass tries to eliminate `tensor.extract_slice` operations in special
+    cases not covered by the existing `tensor.extract_slice` transforms upstream
+    (e.g. fusion and sequential tensor.extract_slice elimination). In
+    particular, it removes `tensor.extract_slice` by fusing with a
+    `TilingInterface` operation when both the slice op and the producer are in
+    the same block and the producer has one use.
+  }];
+
+  let dependentDialects = [
+    "::mlir::tensor::TensorDialect",
+    "::mlir::linalg::LinalgDialect"
+  ];
+}
+
+//===----------------------------------------------------------------------===//
+// PlanExecuteConstantFoldableSubgraphs
+//===----------------------------------------------------------------------===//
+
+def PlanExecuteConstantFoldableSubgraphsPass : Pass<
+      "plan-execute-constant-foldable-subgraphs",
+      "::mlir::ModuleOp"> {
+  let summary = "Compile and execute constant foldable subgraphs";
+
+  let description = [{
+    This pass compiles and executes e2e constant foldable subgraphs
+    outlined by `PlanOutlineConstantFoldableSubgraphsPass`. In first step, outlined
+    `func.func` is cloned into a separate `ModuleOp` and e2e execution happens.
+    In second step, operands of `func.return` in the original `func.func`
+    are replaced with the constants created from results of e2e execution.
+    Inlining pass running after this pass will eventually replace
+    `func.call` ops created in `PlanOutlineConstantFoldableSubgraphsPass`
+    with result of constant folding entire subgraph.
+  }];
+
+  let dependentDialects = [
+    "::mlir::plan::PlanDialect",
+    "::mlir::cuda::CUDADialect",
+    "::mlir::executor::ExecutorDialect",
+    "::mlir::pdl::PDLDialect",
+    "::mlir::pdl_interp::PDLInterpDialect",
+  ];
+}
+
 #endif // MLIR_TENSORRT_TRANSFORMS_PASSES_TD
