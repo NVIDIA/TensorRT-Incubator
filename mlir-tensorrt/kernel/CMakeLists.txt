@@ -21,7 +21,6 @@ mtrt_add_install(MLIRTensorRTKernelIncludes UMBRELLA mtrt-headers)
 
 add_subdirectory(include/mlir-kernel)
 add_subdirectory(lib)
-# add_subdirectory(python)
 add_subdirectory(test)
 add_subdirectory(tools)
 

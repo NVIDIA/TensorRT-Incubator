@@ -25,9 +25,6 @@ set(MLIR_KERNEL_TEST_DEPENDS
   kernel-translate
   MLIRKernelUnitTests
   )
-# if(MLIR_ENABLE_BINDINGS_PYTHON)
-#   list(APPEND MLIR_KERNEL_TEST_DEPENDS MLIRTensorRTPythonKernelCompilerModules)
-# endif()
 
 add_lit_testsuite(check-mlir-kernel "Running the mlir-kernel regression tests"
   ${CMAKE_CURRENT_BINARY_DIR}

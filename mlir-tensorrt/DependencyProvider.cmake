@@ -308,6 +308,65 @@ nv_register_package(
 )
 
 #-------------------------------------------------------------------------------------
+# Abseil-cpp
+#-------------------------------------------------------------------------------------
+
+nv_register_package(
+  NAME absl
+  GIT_REPOSITORY https://github.com/abseil/abseil-cpp.git
+  GIT_TAG fb3621f4f897824c0dbe0615fa94543df6192f30
+  EXCLUDE_FROM_ALL TRUE  
+  OPTIONS
+    "ABSL_USE_SYSTEM_INCLUDES ON"
+    "ABSL_PROPAGATE_CXX_STD ON"
+    "ABSL_ENABLE_INSTALL OFF"
+    "ABSL_BUILD_TESTING OFF"
+    "ABSL_BUILD_TEST_HELPERS OFF"
+  PRE_ADD_HOOK [[
+    # Several warnings are *impossible* to control with ABSL because it appends
+    # 'Wall' and 'Wextra' to each target unconditionally. So we can't suppress
+    # warnings in those groups here; therefore, just suppress all warnings.
+    nv_pkg_append_cxx_flags(-w)
+  ]]
+)
+
+#-------------------------------------------------------------------------------------
+# Protobuf
+#-------------------------------------------------------------------------------------
+
+set(Protobuf_TAG v25.0)
+nv_register_package(
+  NAME Protobuf
+  URL "https://github.com/protocolbuffers/protobuf/archive/refs/tags/${Protobuf_TAG}.zip"
+  EXCLUDE_FROM_ALL TRUE
+  SYSTEM TRUE
+  OPTIONS
+    "protobuf_BUILD_TESTS OFF"
+    "protobuf_INSTALL OFF"
+    "CMAKE_BUILD_WITH_INSTALL_RPATH OFF"
+  PRE_ADD_HOOK [[
+    nv_pkg_append_options(
+      "CMAKE_C_FLAGS ${CMAKE_C_FLAGS} -Wno-missing-field-initializers"
+    )
+
+    nv_pkg_append_cxx_flags(-w)
+  ]]
+)
+
+#-------------------------------------------------------------------------------------
+# XLA
+#-------------------------------------------------------------------------------------
+
+nv_register_package(
+  NAME XLA
+  GIT_REPOSITORY https://github.com/openxla/xla.git
+  GIT_TAG 3157b5be21ab3db0577c5f7e97030b789a02ea38
+  EXCLUDE_FROM_ALL TRUE
+  DOWNLOAD_ONLY TRUE
+
+)
+
+#-------------------------------------------------------------------------------------
 # Dependency Provider Main Logic
 #-------------------------------------------------------------------------------------
 
