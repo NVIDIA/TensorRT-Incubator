@@ -378,4 +378,42 @@ def TensorRT_ScatterMode : TensorRT_I32EnumAttr<
 def TensorRT_ScatterModeAttr : TensorRT_EnumAttr<TensorRT_ScatterMode, "scatter_mode">{
 }
 
+def TensorRT_AttentionNormalizationOp : TensorRT_I32EnumAttr<
+  "AttentionNormalizationOp", "",
+  [
+    I32EnumAttrCase<"kNONE", 0>,
+    I32EnumAttrCase<"kSOFTMAX", 1>
+  ]>
+{
+  let cppNamespace = "::mlir::tensorrt";
+  let genSpecializedAttr = 0;
+}
+
+def TensorRT_AttentionNormalizationOpAttr : TensorRT_EnumAttr<TensorRT_AttentionNormalizationOp, "attention_normalization_op">{
+}
+
+def TensorRT_DataType : TensorRT_I32EnumAttr<
+  "DataType", "",
+  [
+    I32EnumAttrCase<"kFLOAT", 0>,
+    I32EnumAttrCase<"kHALF", 1>,
+    I32EnumAttrCase<"kINT8", 2>,
+    I32EnumAttrCase<"kINT32", 3>,
+    I32EnumAttrCase<"kBOOL", 4>,
+    I32EnumAttrCase<"kUINT8", 5>,
+    I32EnumAttrCase<"kFP8", 6>,
+    I32EnumAttrCase<"kBF16", 7>,
+    I32EnumAttrCase<"kINT64", 8>,
+    I32EnumAttrCase<"kINT4", 9>,
+    I32EnumAttrCase<"kFP4", 10>,
+    I32EnumAttrCase<"kE8M0", 11>
+  ]>
+{
+  let cppNamespace = "::mlir::tensorrt";
+  let genSpecializedAttr = 0;
+}
+
+def TensorRT_DataTypeAttr : TensorRT_EnumAttr<TensorRT_DataType, "data_type">{
+}
+
 #endif // MLIR_TENSORRT_DIALECT_TENSORRT_IR_TENSORRTENUMS

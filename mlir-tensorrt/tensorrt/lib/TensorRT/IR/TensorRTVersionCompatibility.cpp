@@ -915,3 +915,16 @@ bool tensorrt::ScatterElementsOp::isValidForTensorRTVersion(
   return isValidForTensorRTVersionScatterOpImpl(
       trtMajorVersion, dataElementType, indicesElementType);
 }
+
+//===----------------------------------------------------------------------===//
+// AttentionOp
+//===----------------------------------------------------------------------===//
+
+bool tensorrt::AttentionOp::isValidForTensorRTVersion(
+  int64_t trtMajorVersion) {
+  // IAttention layer is only supported in TensorRT >= 10.14.0
+  if (trtMajorVersion < 10)
+    return false;
+
+  return true;
+}
