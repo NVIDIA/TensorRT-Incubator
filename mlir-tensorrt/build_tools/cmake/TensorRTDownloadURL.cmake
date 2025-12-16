@@ -27,7 +27,7 @@ function(mtrt_get_tensorrt_cuda_version trt_version out_var)
   if(CUDAToolkit_FOUND)
     set(ctk_version "${CUDAToolkit_VERSION_MAJOR}.${CUDAToolkit_VERSION_MINOR}")
   endif()
-  message(STATUS "got ctk_version: ${ctk_version}")
+
   set(trt_available_cuda_versions "")
   if(trt_version VERSION_GREATER 10.2 AND
      trt_version VERSION_LESS    10.4)
@@ -46,14 +46,16 @@ function(mtrt_get_tensorrt_cuda_version trt_version out_var)
   else()
     message(FATAL_ERROR "Could not determine available CUDA versions for TensorRT version ${trt_version}")
   endif()
-  message(STATUS "got trt_available_cuda_versions: ${trt_available_cuda_versions} ")
+
   set(selected_cuda_version "")
   if(ctk_version)
-    if(ctk_version IN_LIST trt_available_cuda_versions)
-      set(selected_cuda_version "${ctk_version}")
-    endif()
+    foreach(available_version IN LISTS trt_available_cuda_versions)
+      if(ctk_version VERSION_LESS_EQUAL available_version)
+        set(selected_cuda_version "${available_version}")
+      endif()
+    endforeach()
   endif()
-  message(STATUS "got selected_cuda_version: ${selected_cuda_version}")
+
   if(NOT selected_cuda_version)
     list(GET trt_available_cuda_versions 0 selected_cuda_version)
   endif()
@@ -117,7 +119,7 @@ function(mtrt_get_tensorrt_download_url ARG_VERSION OS_NAME TARGET_ARCH ARG_OUT_
     set(ARG_VERSION "10.7.0.23")
   endif()
   if(ARG_VERSION VERSION_EQUAL "10.13")
-    set(ARG_VERSION "10.13.3.9")
+    set(ARG_VERSION "10.13.0.35")
   endif()
 
   if(ARG_VERSION VERSION_EQUAL "10.8")
@@ -134,10 +136,6 @@ function(mtrt_get_tensorrt_download_url ARG_VERSION OS_NAME TARGET_ARCH ARG_OUT_
 
   if(ARG_VERSION VERSION_EQUAL "10.13.0.35")
     set(ARG_VERSION "10.13.0.35")
-  endif()
-
-  if(ARG_VERSION VERSION_EQUAL "10.13.3.9")
-    set(ARG_VERSION "10.13.3.9")
   endif()
 
   set(downloadable_versions
@@ -158,7 +156,6 @@ function(mtrt_get_tensorrt_download_url ARG_VERSION OS_NAME TARGET_ARCH ARG_OUT_
     "10.9.0.34"
     "10.12.0.36"
     "10.13.0.35"
-    "10.13.3.9"
   )
 
   if(NOT ARG_VERSION IN_LIST downloadable_versions)

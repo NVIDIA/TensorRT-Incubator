@@ -22,8 +22,6 @@ jobs:
     env:
       # eg. 10.12 or 10.13
       DOWNLOAD_TENSORRT_VERSION: ${{ matrix.trt }}
-      LATEST_CUDA_VERSION: ${{ matrix.latest_cuda }}
-      LATEST_TENSORRT_VERSION: ${{ matrix.latest_trt }}
       ARCH: ${{ matrix.arch }}
       CCACHE_DIR: ${{ github.workspace }}/mlir-tensorrt/ccache
       CPM_SOURCE_CACHE: ${{ github.workspace }}/mlir-tensorrt/.cache.cpm
@@ -92,14 +90,9 @@ jobs:
           export MTRT_TENSORRT_VERSION=${{ matrix.trt }}
           # TODO: remove this, once patch is in our rockylinux prebuilt image
           dnf install -yq patch
-          # mlir-tensorrt-tools is not cuda, trt dependent, so we only build it once under the latest cuda, trt version
-          if [[ "${{ matrix.cuda }}" == "${{ env.LATEST_CUDA_VERSION }}" && "${{ matrix.trt }}" == "${{env.LATEST_TENSORRT_VERSION }}" ]]; then
-            ./build_tools/scripts/cicd-build-wheels.sh
-          else
-            # mlir-tensorrt-compiler, mlir-tensorrt-runtime is built per cuda, trt version
-            PACKAGES="mlir_tensorrt_compiler mlir_tensorrt_runtime" \
-            ./build_tools/scripts/cicd-build-wheels.sh
-          fi
+          # build wheels for mlir-tensorrt-compiler, mlir-tensorrt-runtime
+          PACKAGES="mlir_tensorrt_compiler mlir_tensorrt_runtime" \
+          ./build_tools/scripts/cicd-build-wheels.sh
 
       # Save ccache when cache is not hit or cache was a fallback(cache-matched is not the same as the cache key)
       - name: Save CCache
@@ -137,6 +130,17 @@ jobs:
           name: release-wheels-${{ matrix.arch }}-cu${{ matrix.cuda }}-trt${{ matrix.trt }}
           path: mlir-tensorrt/dist
           if-no-files-found: error
+
+      - name: Upload Wheels to GitHub Tag Release
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: |
+            mlir-tensorrt/dist/*.whl
+          generate_release_notes: false
+          draft: true
+          prerelease: true
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}-mlir-tensorrt-release

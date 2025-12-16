@@ -32,7 +32,7 @@ jobs:
       CMAKE_PRESET: ${{ matrix.cmake_preset }}
       CCACHE_DIR: ${{ github.workspace }}/mlir-tensorrt/ccache
       CPM_SOURCE_CACHE: ${{ github.workspace }}/mlir-tensorrt/.cache.cpm
-      CCACHE_KEY: mlir-tensorrt-ccache-v1-${{ inputs.arch }}-${{ matrix.cmake_preset }}
+      CCACHE_KEY: mlir-tensorrt-ccache-v1-${{ matrix.arch }}-${{ matrix.cmake_preset }}
       # if exact cache key is not matched, fallback to the restore key to restore the cache
       CCACHE_RESTORE_KEY: mlir-tensorrt-ccache-v1-${{ matrix.arch }}-
       CPM_KEY: mlir-tensorrt-cpm-v1
@@ -152,6 +152,6 @@ jobs:
           ./build_tools/scripts/cicd-build.sh
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}-mlir-tensorrt-${{ inputs.channel }}-${{ inputs.arch }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}-mlir-tensorrt-${{ inputs.channel }}
   cancel-in-progress: true
 
