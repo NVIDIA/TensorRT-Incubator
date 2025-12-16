@@ -188,4 +188,48 @@ func.func @refine_tensorrt_resize_with_shape() -> tensor<?x?x?x?xf32> {
 // CHECK: %[[v0:.*]] = tensorrt.resize_linear {coordinateTransformation = #tensorrt.resize_coordinate_transformation<kALIGN_CORNERS>, selectorForSinglePixel = #tensorrt.resize_selector<kUPPER>} %cst, %c : (tensor<1x1x4x4xf32>, tensor<4xi32>) -> tensor<1x1x8x8xf32>
 // CHECK: return %[[v0]] : tensor<1x1x8x8xf32>
 
+// -----
 
+func.func @annotate_dynamic_broadcast_in_dim_nonexpanding_0(%arg0: tensor<?x?xf32>, %arg1: tensor<3xi32>, %arg2: i32) -> tensor<?x?x?xf32> {
+  %dim0_tensor = stablehlo.get_dimension_size %arg0, dim = 0 : (tensor<?x?xf32>) -> tensor<i32>
+  %dim1_tensor = stablehlo.get_dimension_size %arg0, dim = 1 : (tensor<?x?xf32>) -> tensor<i32>
+  %dim0 = tensor.extract %dim0_tensor[] : tensor<i32>
+  %dim1 = tensor.extract %dim1_tensor[] : tensor<i32>
+  %output_dims = plan.with_values %arg1 (%arg2, %dim0, %dim1) : tensor<3xi32>
+  %result = stablehlo.dynamic_broadcast_in_dim %arg0, %output_dims, dims = [1, 2] : (tensor<?x?xf32>, tensor<3xi32>) -> tensor<?x?x?xf32>
+  return %result : tensor<?x?x?xf32>
+}
+
+// CHECK-LABEL: func.func @annotate_dynamic_broadcast_in_dim_nonexpanding_0
+// CHECK: stablehlo.dynamic_broadcast_in_dim %{{.*}}, {{.*}}, dims = [1, 2] {known_nonexpanding_dimensions = array<i64: 0, 1>}
+
+
+// -----
+
+func.func @annotate_dynamic_broadcast_in_dim_nonexpanding_1(%arg0: tensor<?x?xf32>, %arg1: tensor<3xi32>, %arg2: i32, %arg3: i32) -> tensor<?x?x?xf32> {
+  %dim0_tensor = stablehlo.get_dimension_size %arg0, dim = 0 : (tensor<?x?xf32>) -> tensor<i32>
+  %dim1_tensor = stablehlo.get_dimension_size %arg0, dim = 1 : (tensor<?x?xf32>) -> tensor<i32>
+  %dim0 = tensor.extract %dim0_tensor[] : tensor<i32>
+  %dim1 = tensor.extract %dim1_tensor[] : tensor<i32>
+  %output_dims = plan.with_values %arg1 (%dim0, %arg3, %dim1) : tensor<3xi32>
+  %result = stablehlo.dynamic_broadcast_in_dim %arg0, %output_dims, dims = [0, 2] : (tensor<?x?xf32>, tensor<3xi32>) -> tensor<?x?x?xf32>
+  return %result : tensor<?x?x?xf32>
+}
+
+// CHECK-LABEL: func.func @annotate_dynamic_broadcast_in_dim_nonexpanding_1
+// CHECK: stablehlo.dynamic_broadcast_in_dim %{{.*}}, {{.*}}, dims = [0, 2] {known_nonexpanding_dimensions = array<i64: 0, 1>}
+
+// -----
+
+func.func @annotate_dynamic_broadcast_in_dim_nonexpanding_2(%arg0: tensor<?x?xf32>, %arg1: tensor<3xi32>, %arg2: i32, %arg3: i32) -> tensor<?x?x?xf32> {
+  %dim0_tensor = stablehlo.get_dimension_size %arg0, dim = 0 : (tensor<?x?xf32>) -> tensor<i32>
+  %dim1_tensor = stablehlo.get_dimension_size %arg0, dim = 1 : (tensor<?x?xf32>) -> tensor<i32>
+  %dim0 = tensor.extract %dim0_tensor[] : tensor<i32>
+  %dim1 = tensor.extract %dim1_tensor[] : tensor<i32>
+  %output_dims = plan.with_values %arg1 (%dim0, %arg3, %dim1) : tensor<3xi32>
+  %result = stablehlo.dynamic_broadcast_in_dim %arg0, %output_dims, dims = [0, 1] : (tensor<?x?xf32>, tensor<3xi32>) -> tensor<?x?x?xf32>
+  return %result : tensor<?x?x?xf32>
+}
+
+// CHECK-LABEL: func.func @annotate_dynamic_broadcast_in_dim_nonexpanding_2
+// CHECK: stablehlo.dynamic_broadcast_in_dim %{{.*}}, {{.*}}, dims = [0, 1] {known_nonexpanding_dimensions = array<i64: 0>}

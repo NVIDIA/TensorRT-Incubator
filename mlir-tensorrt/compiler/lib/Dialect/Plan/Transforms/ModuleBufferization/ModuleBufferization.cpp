@@ -15,9 +15,9 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt/Dialect/Plan/Transforms/ModuleBufferization/ModuleBufferization.h"
+#include "mlir-tensorrt-common/Interfaces/BufferizationScopeInterface.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
-#include "mlir-tensorrt/Interfaces/BufferizationScopeInterface.h"
 #include "mlir-tensorrt/Utils/ModuleUtils.h"
 #include "mlir/Dialect/Bufferization/IR/BufferizableOpInterface.h"
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
@@ -430,7 +430,7 @@ getDefaultHostProgramBufferizationOptions(MLIRContext *ctx) {
 static std::optional<OneShotBufferizationOptions>
 getBufferizationOptions(ModuleLikeOp op,
                         const OneShotBufferizationOptions &baseOptions) {
-  if (auto scopeOp = dyn_cast<mtc::BufferizationScopeOpInterface>(*op)) {
+  if (auto scopeOp = dyn_cast<BufferizationScopeOpInterface>(*op)) {
     std::optional<OneShotBufferizationOptions> options =
         scopeOp.getBufferizationOptions();
     if (!options)
@@ -488,8 +488,7 @@ runOneShotMultiModuleBufferize(ModuleLikeOp moduleOp,
                                   moduleFuncStateCache)))
       return nestedModule->emitError("failed to bufferize module");
 
-    if (auto scopeOp =
-            dyn_cast<mtc::BufferizationScopeOpInterface>(*nestedModule)) {
+    if (auto scopeOp = dyn_cast<BufferizationScopeOpInterface>(*nestedModule)) {
       if (!baseOptions.testAnalysisOnly &&
           failed(scopeOp.performPostBufferizationActions(rewriter)))
         return failure();

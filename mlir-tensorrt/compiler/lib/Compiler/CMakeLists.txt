@@ -24,6 +24,7 @@ mtrt_get_project_targets(MLIRTensorRT LIBRARY_TYPE DIALECT OUT_VAR MLIR_TENSORRT
 mtrt_get_project_targets(MLIRTensorRT LIBRARY_TYPE LIBS OUT_VAR MLIR_TENSORRT_LIBS)
 mtrt_get_project_targets(TensorRTDialect LIBRARY_TYPE LIBS OUT_VAR MTRTD_LIBS)
 mtrt_get_project_targets(MLIRTensorRT LIBRARY_TYPE MLIR_LIBS OUT_VAR mlir_libs)
+mtrt_get_project_targets(Kernel LIBRARY_TYPE LIBS OUT_VAR kernel_libs)
 
 add_mlir_tensorrt_library(MLIRTensorRTInitAllDialects
   InitAllDialects.cpp
@@ -34,6 +35,7 @@ add_mlir_tensorrt_library(MLIRTensorRTInitAllDialects
     ${MLIR_TENSORRT_DIALECT_LIBS}
     ${MLIR_TENSORRT_LIBS}
     ${MTRTD_LIBS}
+    ${kernel_libs}
 
   MLIR_LIBS PUBLIC
     ${mlir_libs}
@@ -51,7 +53,8 @@ add_mlir_tensorrt_library(MLIRTensorRTInitAllPasses
     ${MLIR_TENSORRT_DIALECT_LIBS}
     ${MLIR_TENSORRT_LIBS}
     ${MTRTD_LIBS}
-    
+    ${kernel_libs}
+
   MLIR_LIBS PUBLIC
     ${mlir_libs}
   )

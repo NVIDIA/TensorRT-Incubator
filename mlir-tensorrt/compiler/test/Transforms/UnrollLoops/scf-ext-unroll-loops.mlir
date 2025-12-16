@@ -1,7 +1,7 @@
-// RUN: mlir-tensorrt-opt %s -scf-ext-unroll-for-loops=unroll-threshold=99 -split-input-file \
+// RUN: mlir-tensorrt-opt %s -mtrt-scf-unroll=unroll-threshold=99 -split-input-file \
 // RUN: | FileCheck %s --check-prefix=T99
 
-// RUN: mlir-tensorrt-opt %s -scf-ext-unroll-for-loops=unroll-threshold=100 -split-input-file \
+// RUN: mlir-tensorrt-opt %s -mtrt-scf-unroll=unroll-threshold=100 -split-input-file \
 // RUN: | FileCheck %s --check-prefix=T100
 
 // The unrolling transformation is tested upstream. This test just checks that the options work

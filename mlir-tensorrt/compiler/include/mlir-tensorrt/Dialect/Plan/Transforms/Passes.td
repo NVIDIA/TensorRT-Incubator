@@ -28,6 +28,34 @@ defvar InputKindOption = Option<"inputKind", "input-kind", "::mlir::plan::InputK
       "::mlir::plan::detail::createInputKindClOptions()">;
 
 //===----------------------------------------------------------------------===//
+// PopulateDefaultBackendMetadataPass
+//===----------------------------------------------------------------------===//
+
+def PopulateDefaultBackendMetadataPass : Pass<"plan-populate-default-backend-metadata",
+      "::mlir::ModuleOp"> {
+  let summary = "Populate Plan dialect backend metadata information if not "
+                "already present";
+
+  let description = [{
+    The compiler uses an attribute 'plan.backends' located on the module
+    in order to understand the relative priority of each backend. If the
+    attribute is not present, then this pass will populate it with a default
+    value.
+  }];
+
+  let dependentDialects = [
+    "::mlir::plan::PlanDialect"
+  ];
+
+  let options = [
+    ListOption<"backends", "backends", "std::string",
+    "A list of default backend attributes to use for compilation if no "
+    "'plan.backends' attribute is provided on the top-level module.",
+    "llvm::cl::list_init<std::string>({\"#plan.host_backend<benefit=1>\"})">
+  ];
+}
+
+//===----------------------------------------------------------------------===//
 // VerifyInputAndAssignSlotsPass
 //===----------------------------------------------------------------------===//
 
@@ -279,12 +307,6 @@ def PlanPopulateFunctionBoundsAttributesPass
     This pass populates function result attributes containing shape/value bounds
     information for function results.
   }];
-
-  let options = [];
-
-  let dependentDialects = [
-    "::mlir::tensorrt::TensorRTDialect",
-  ];
 }
 
 //===----------------------------------------------------------------------===//
@@ -397,16 +419,16 @@ def CreateClosedRegionsPass : Pass<"plan-create-closed-regions", "::mlir::Module
       "(used only in testing) specifies to outline regions by walking in "
       " pre-order; used for verifying results are not sensitive "
       "to traversal order">,
-    Option<"forceEntrypointsReturnAllocs", "force-entrypoints-return-allocs", "bool",
+    Option<"disableDestinationStyleCallingConvention", "disable-destination-style-calling-convention", "bool",
            /*default=*/"false",
-           "Allow backend clusters to directly allocate outputs">,
+           "Disable destination-passing-style (DPS) calling convention lowering">,
     InputKindOption
   ];
 
   let dependentDialects = [
-    "::mlir::func::FuncDialect",
-    "::mlir::tensor::TensorDialect",
-    "::mlir::tensorrt::TensorRTDialect",
+    "::mlir::affine::AffineDialect",
+    "::mlir::arith::ArithDialect",
+    "::mlir::tensor::TensorDialect"
   ];
 }
 
@@ -432,12 +454,6 @@ def OutlineClustersPass : Pass<"plan-outline-clusters", "::mlir::ModuleOp"> {
 
   let options = [
     InputKindOption
-  ];
-
-  let dependentDialects = [
-    "::mlir::func::FuncDialect",
-    "::mlir::tensor::TensorDialect",
-    "::mlir::tensorrt::TensorRTDialect",
   ];
 }
 

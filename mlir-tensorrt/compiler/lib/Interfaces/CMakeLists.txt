@@ -36,19 +36,6 @@ function(add_mlir_tensorrt_interface_library target)
 endfunction()
 
 
-add_mlir_tensorrt_interface_library(MLIRTensorRTBufferizationScopeInterface
-  BufferizationScopeInterface.cpp
-
-  TD
-    "mlir-tensorrt/Interfaces/BufferizationScopeInterface.td"
-  OP
-    "mlir-tensorrt/Interfaces/BufferizationScopeInterface"
-
-  MLIR_LIBS PUBLIC
-    MLIRBufferizationDialect
-    MLIRBufferizationTransforms
-  )
-
 add_mlir_tensorrt_interface_library(MLIRTensorRTInferTensorValueRangeInterface
   InferTensorValueRangeInterface.cpp
 

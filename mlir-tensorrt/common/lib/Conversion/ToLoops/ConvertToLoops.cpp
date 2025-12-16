@@ -42,8 +42,10 @@ struct ConvertToLoopsPattern
   using OpInterfaceRewritePattern::OpInterfaceRewritePattern;
   LogicalResult matchAndRewrite(ToLoopsOpInterface op,
                                 PatternRewriter &rewriter) const override {
-    if (failed(op.lowerToLoops(rewriter)))
+    FailureOr<LowerToLoopsResult> result = op.lowerToLoops(rewriter);
+    if (failed(result))
       return failure();
+    rewriter.replaceOp(op, result->replacements);
     return success();
   }
 };

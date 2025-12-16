@@ -20,6 +20,7 @@ add_mlir_tensorrt_library(MLIRTensorRTPlanTransforms
   OutlineClusters.cpp
   OutlineConstantFoldableSubgraphs.cpp
   Passes.cpp
+  PopulateDefaultBackendMetadata.cpp
   PopulateFunctionBoundsAttributes.cpp
   PostClusteringValidation.cpp
   PromoteHostTensorsToHostPinned.cpp
@@ -32,7 +33,7 @@ add_mlir_tensorrt_library(MLIRTensorRTPlanTransforms
   LINK_LIBS PUBLIC
     MLIRExecutorGenericClustering
     MLIRTensorRTAnalysis
-    MLIRTensorRTBufferizationScopeInterface
+    MLIRTensorRTCommonBufferizationScopeInterface
     MLIRTensorRTCUDADialect
     MLIRTensorRTTensorRTDialect
     MLIRTensorRTDuplicateFunctionElimination

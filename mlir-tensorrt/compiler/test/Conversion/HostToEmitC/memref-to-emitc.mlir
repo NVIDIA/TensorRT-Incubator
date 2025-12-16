@@ -218,3 +218,44 @@ func.func @alloc_of_index() -> memref<42xindex> {
 // CPP-DAG: void* [[v7:.+]] = mtrt::host_aligned_alloc([[v6]], [[v2]]);
 // CPP-DAG: mtrt::RankedMemRef<1> [[v8:.+]] = mtrt::make_memref_descriptor<1>([[v7]], [[v7]], [[v1]], [[v3]], [[v4]]);
 // CPP-DAG: return [[v8]];
+
+// -----
+
+func.func @memref_copy(%src: memref<10x20xf32>, %dst: memref<10x20xf32>) {
+  memref.copy %src, %dst : memref<10x20xf32> to memref<10x20xf32>
+  return
+}
+
+// CPP-LABEL: void memref_copy(mtrt::RankedMemRef<2> v1, mtrt::RankedMemRef<2> v2)
+// CPP-DAG: void* [[srcAligned:.+]] = mtrt::memref_descriptor_get_aligned_ptr(v1);
+// CPP-DAG: int8_t* [[srcI8:.+]] = (int8_t*) [[srcAligned]];
+// CPP-DAG: int64_t [[srcOffset:.+]] = mtrt::memref_descriptor_get_offset(v1);
+// CPP-DAG: void* [[dstAligned:.+]] = mtrt::memref_descriptor_get_aligned_ptr(v2);
+// CPP-DAG: int8_t* [[dstI8:.+]] = (int8_t*) [[dstAligned]];
+// CPP-DAG: int64_t [[dstOffset:.+]] = mtrt::memref_descriptor_get_offset(v2);
+// CPP: std::memcpy(
+// CPP: return;
+
+// -----
+
+// Test that 0-rank memref.global is converted to a size-1 array in C++.
+
+memref.global @scalar_global : memref<f32> = dense<42.0>
+
+func.func @get_scalar_global() -> memref<f32> {
+  %0 = memref.get_global @scalar_global : memref<f32>
+  return %0 : memref<f32>
+}
+
+// CHECK: emitc.global @scalar_global : !emitc.array<1xf32> = dense<4.200000e+01>
+// CHECK-LABEL: func.func @get_scalar_global
+// CHECK:   %[[v0:.+]] = "emitc.constant"() <{value = 0 : i32}> : () -> i32
+// CHECK:   %[[v1:.+]] = emitc.get_global @scalar_global : !emitc.array<1xf32>
+// CHECK:   %[[v2:.+]] = emitc.call_opaque "mtrt::make_memref_descriptor"(%[[v1]], %[[v1]], %[[v0]])
+// CHECK:   return %[[v2]]
+
+// CPP: float scalar_global[1] = {4.2{{0*}}e+01f};
+// CPP-LABEL: mtrt::RankedMemRef<0> get_scalar_global()
+// CPP:   int32_t [[v0:.+]] = 0;
+// CPP:   mtrt::RankedMemRef<0> [[v1:.+]] = mtrt::make_memref_descriptor<0>(scalar_global, scalar_global, [[v0]]);
+// CPP:   return [[v1]];

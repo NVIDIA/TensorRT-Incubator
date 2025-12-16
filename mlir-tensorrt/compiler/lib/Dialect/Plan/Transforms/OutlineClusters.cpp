@@ -78,6 +78,7 @@ createFunctionsFromRegions(InputKind inputKind, RewriterBase &rewriter,
       return WalkResult::advance();
 
     CompilerBackendAttrInterface backend = getClusterTargetForRegionOp(op);
+    rewriter.setInsertionPoint(op);
 
     /// TODO: currently the interface has two different ways to specify
     /// outlining. We should reduce this to a single interface method.

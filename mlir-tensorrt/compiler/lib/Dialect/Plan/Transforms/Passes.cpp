@@ -55,7 +55,7 @@ void plan::buildPlanSegmentationPipeline(
       plan::createPlanPopulateFunctionBoundsAttributesPass());
   pm.addPass(plan::createClusteringPass(opts));
   plan::CreateClosedRegionsPassOptions closedRegionOptions{};
-  closedRegionOptions.forceEntrypointsReturnAllocs =
+  closedRegionOptions.disableDestinationStyleCallingConvention =
       opts.forceEntrypointsReturnAllocs;
   closedRegionOptions.inputKind = opts.inputKind;
   pm.addPass(plan::createCreateClosedRegionsPass(closedRegionOptions));

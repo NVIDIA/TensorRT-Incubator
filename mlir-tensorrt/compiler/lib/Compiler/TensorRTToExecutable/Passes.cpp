@@ -21,6 +21,7 @@
 #include "mlir-executor/Executor/Transforms/Passes.h"
 #include "mlir-tensorrt-common/Utils/RegionUtils.h"
 #include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
+#include "mlir-tensorrt/Backends/TensorRT/TensorRTBackend.h"
 #include "mlir-tensorrt/Compiler/TensorRTToExecutable/TensorRTToExecutable.h"
 #include "mlir-tensorrt/Conversion/Passes.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
@@ -119,52 +120,20 @@ outlineOp(RewriterBase &rewriter, tensorrt::TensorRTModuleOp trtModule,
           const Cluster &cluster) {
   auto parentFunc = cluster.getRoot()->getParentOfType<func::FuncOp>();
 
-  auto reorderYieldValues = [&](SetVector<Value> &yieldValues,
-                                SmallVectorImpl<Type> &yieldTypes) {
-    auto term = dyn_cast<func::ReturnOp>(
-        parentFunc.getFunctionBody().front().getTerminator());
-    if (!term)
-      return;
-    if (term->getNumOperands() != yieldValues.size())
-      return;
-
-    DenseMap<Value, unsigned> termValueOrder;
-    DenseMap<Type, unsigned> termTypeOrder;
-    for (const auto &it : llvm::enumerate(term.getOperands())) {
-      termValueOrder[it.value()] = it.index();
-      termTypeOrder[it.value().getType()] = it.index();
-    }
-
-    // Make sure each yielded value is terminator operand.
-    if (llvm::any_of(yieldValues,
-                     [&](Value v) { return !termValueOrder.contains(v); }))
-      return;
-
-    SmallVector<Value, 8> valuesVector(yieldValues.begin(), yieldValues.end());
-
-    // Sort both values and type.
-    llvm::stable_sort(valuesVector, [&](Value lhs, Value rhs) {
-      return termValueOrder[lhs] < termValueOrder[rhs];
-    });
-    llvm::stable_sort(yieldTypes, [&](Type lhs, Type rhs) {
-      return termTypeOrder[lhs] < termTypeOrder[rhs];
-    });
-
-    // Write sorted values back to set vector
-    yieldValues.clear();
-    yieldValues.insert(valuesVector.begin(), valuesVector.end());
-  };
-
   auto inlineGroupOp =
       cast<plan::InlineGroupOp>(mlir::createRegionOpFromCluster(
           cluster, rewriter,
           [](OpBuilder &b, Location loc, TypeRange types, Attribute target) {
-            auto regionOp = b.create<plan::InlineGroupOp>(loc, types, target);
+            auto regionOp = b.create<plan::InlineGroupOp>(
+                loc, types,
+                plan::TensorRTBackendAttr::get(
+                    b.getContext(),
+                    /*disallow_shape_tensor_calculations=*/false, 1, {},
+                    /*prefer_destination_style_calling_convention=*/false));
             b.setInsertionPointToStart(&regionOp.getRegion().emplaceBlock());
             b.create<plan::YieldOp>(loc);
             return regionOp;
-          },
-          reorderYieldValues));
+          }));
 
   // Make the region isolated from above. This captures the input operands.
   SmallVector<Value> inputs = mlir::createClosedRegion(

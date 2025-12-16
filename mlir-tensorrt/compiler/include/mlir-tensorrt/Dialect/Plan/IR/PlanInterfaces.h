@@ -31,11 +31,18 @@
 
 namespace mlir {
 class DataFlowSolver;
-}
 
-namespace mlir::plan {
-enum class InputKind : uint32_t;
-} // namespace mlir::plan
+namespace plan {
+namespace detail {
+
+/// Determines whether a producer should be cloned into the region or passed by
+/// argument during the region closure step.
+bool shouldCloneProducerDefault(Operation *producer, Region &targetRegion,
+                                bool allowTensorValuesOnly = false);
+
+} // namespace detail
+} // namespace plan
+} // namespace mlir
 
 #include "mlir-tensorrt/Dialect/Plan/IR/PlanAttrInterfaces.h.inc"
 

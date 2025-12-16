@@ -136,11 +136,6 @@ static bool isLikelyYieldedFromLoopAndBufferizeInPlace(Operation *op) {
   if (!llvm::any_of(op->getUsers(),
                     llvm::IsaPred<scf::YieldOp, scf::ConditionOp>))
     return false;
-  if (!llvm::any_of(op->getOperands(), llvm::IsaPred<BlockArgument>))
-    return false;
-  if (!op->hasTrait<OpTrait::Elementwise>() &&
-      !llvm::isa<stablehlo::DynamicUpdateSliceOp>(op))
-    return false;
   return true;
 }
 
@@ -178,6 +173,16 @@ checkForShapeTensorResults(Operation *op, const DataFlowSolver &solver) {
       shapeTensorsTypes.push_back(tensorType);
   });
   return shapeTensorsTypes;
+}
+
+/// Don't cluster operations which are slices of a block input input. These
+/// are unlikely to have good performance and often will materialize
+/// copies.
+static bool isSliceOfBlockArgument(Operation *op) {
+  if (!isa<stablehlo::SliceOp, stablehlo::DynamicSliceOp,
+           stablehlo::DynamicUpdateSliceOp, stablehlo::RealDynamicSliceOp>(op))
+    return false;
+  return isa<BlockArgument>(op->getOperand(0));
 }
 
 /// ClusteringOpts that identifies groups of TensorRT operations and will be
@@ -242,13 +247,11 @@ TensorRTBackendAttr::getClusterKindOptions(InputKind inputKind, Operation *op,
     if (parent && isStableHloOrChloOp(parent) && legalizedOps.contains(parent))
       return false;
 
-    // Don't cluster operations which are slices of a block input input. These
-    // are unlikely to have good performance and Myelin often will materialize
-    // copies.
-    if (auto sliceOp = llvm::dyn_cast<stablehlo::SliceOp>(op)) {
-      if (llvm::isa<BlockArgument>(sliceOp.getOperand()))
-        return false;
-    }
+    /// Don't cluster operations which are slices of a block input input. These
+    /// are unlikely to have good performance and often will materialize
+    /// copies.
+    if (isSliceOfBlockArgument(op))
+      return false;
 
     // Check for operations that would not benefit from TensorRT offloading due
     // to TensorRT's I/O aliasing constraints.
@@ -532,7 +535,15 @@ static LogicalResult outlineTensorRTRegion(RewriterBase &rewriter,
   return success();
 }
 
-bool TensorRTBackendAttr::requiresClosure(InputKind) const { return true; }
+bool TensorRTBackendAttr::supportsDestinationStyleCallingConvention(
+    Operation *op) const {
+  return true;
+}
+
+bool TensorRTBackendAttr::preferDestinationStyleCallingConvention(
+    Operation *op) const {
+  return getPreferDestinationStyleCallingConvention();
+}
 
 LogicalResult TensorRTBackendAttr::outlineClosedCluster(
     InputKind inputKind, RewriterBase &rewriter, Operation *op,
@@ -549,6 +560,12 @@ LogicalResult TensorRTBackendAttr::outlineClosedCluster(
     return success();
   }
   return failure();
+}
+
+bool TensorRTBackendAttr::shouldCloneProducer(Operation *op,
+                                              Operation *producer) const {
+  return mlir::plan::detail::shouldCloneProducerDefault(
+      producer, op->getRegions().front(), /*allowTensorValuesOnly=*/true);
 }
 
 bool TensorRTBackendAttr::supportsInputKind(InputKind inputKind) const {
@@ -578,10 +595,17 @@ public:
     (void)&generatedAttributeParser;
     (void)&generatedAttributePrinter;
     registerAttributes<plan::TensorRTBackendAttr>();
+
+    // clang-format off
+    declareGeneratedDialects<
+      mlir::func::FuncDialect,
+      mlir::tensorrt::TensorRTDialect
+    >();
+    // clang-format on
   }
 };
 } // namespace
 
-void mlir::plan::registerTensorRTBackend(DialectRegistry &registry) {
+void mtrt::compiler::registerTensorRTBackend(mlir::DialectRegistry &registry) {
   registry.addExtensions<PlanDialectTensorRTBackend>();
 }

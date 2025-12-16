@@ -89,15 +89,6 @@ else()
     URL "https://github.com/llvm/llvm-project/archive/${MLIR_TRT_LLVM_COMMIT}.zip"
     EXCLUDE_FROM_ALL TRUE
     SOURCE_SUBDIR "llvm"
-    OPTIONS
-      "LLVM_ENABLE_PROJECTS mlir"
-      "MLIR_ENABLE_BINDINGS_PYTHON ON"
-      "LLVM_TARGETS_TO_BUILD host"
-      "LLVM_ENABLE_ASSERTIONS ON"
-      # Never append VCS revision information
-      "LLVM_APPEND_VC_REV OFF"
-      # Don't mixup LLVM targets with our project's installation/packaging.
-      "LLVM_INSTALL_TOOLCHAIN_ONLY ON"
     PATCHES
       "${mlir_patch_dir}/0005-mlir-memref-Fix-memref.global-overly-constrained-ver.patch"
       "${mlir_patch_dir}/0006-mlir-emitc-Fix-two-EmitC-bugs.patch"
@@ -152,7 +143,11 @@ nv_register_package(
   OPTIONS
     "FLATBUFFERS_BUILD_TESTS OFF"
     "FLATBUFFERS_INSTALL OFF"
-    "CMAKE_CXX_FLAGS -Wno-suggest-override"
+  PRE_ADD_HOOK [[
+    nv_pkg_append_cxx_flags(-Wno-suggest-override)
+    nv_pkg_append_cxx_flags(-Wno-covered-switch-default)
+    nv_pkg_append_cxx_flags(-Wno-c++98-compat-extra-semi)
+  ]]
 )
 
 #-------------------------------------------------------------------------------------
@@ -313,6 +308,65 @@ nv_register_package(
 )
 
 #-------------------------------------------------------------------------------------
+# Abseil-cpp
+#-------------------------------------------------------------------------------------
+
+nv_register_package(
+  NAME absl
+  GIT_REPOSITORY https://github.com/abseil/abseil-cpp.git
+  GIT_TAG fb3621f4f897824c0dbe0615fa94543df6192f30
+  EXCLUDE_FROM_ALL TRUE  
+  OPTIONS
+    "ABSL_USE_SYSTEM_INCLUDES ON"
+    "ABSL_PROPAGATE_CXX_STD ON"
+    "ABSL_ENABLE_INSTALL OFF"
+    "ABSL_BUILD_TESTING OFF"
+    "ABSL_BUILD_TEST_HELPERS OFF"
+  PRE_ADD_HOOK [[
+    # Several warnings are *impossible* to control with ABSL because it appends
+    # 'Wall' and 'Wextra' to each target unconditionally. So we can't suppress
+    # warnings in those groups here; therefore, just suppress all warnings.
+    nv_pkg_append_cxx_flags(-w)
+  ]]
+)
+
+#-------------------------------------------------------------------------------------
+# Protobuf
+#-------------------------------------------------------------------------------------
+
+set(Protobuf_TAG v25.0)
+nv_register_package(
+  NAME Protobuf
+  URL "https://github.com/protocolbuffers/protobuf/archive/refs/tags/${Protobuf_TAG}.zip"
+  EXCLUDE_FROM_ALL TRUE
+  SYSTEM TRUE
+  OPTIONS
+    "protobuf_BUILD_TESTS OFF"
+    "protobuf_INSTALL OFF"
+    "CMAKE_BUILD_WITH_INSTALL_RPATH OFF"
+  PRE_ADD_HOOK [[
+    nv_pkg_append_options(
+      "CMAKE_C_FLAGS ${CMAKE_C_FLAGS} -Wno-missing-field-initializers"
+    )
+
+    nv_pkg_append_cxx_flags(-w)
+  ]]
+)
+
+#-------------------------------------------------------------------------------------
+# XLA
+#-------------------------------------------------------------------------------------
+
+nv_register_package(
+  NAME XLA
+  GIT_REPOSITORY https://github.com/openxla/xla.git
+  GIT_TAG 3157b5be21ab3db0577c5f7e97030b789a02ea38
+  EXCLUDE_FROM_ALL TRUE
+  DOWNLOAD_ONLY TRUE
+
+)
+
+#-------------------------------------------------------------------------------------
 # Dependency Provider Main Logic
 #-------------------------------------------------------------------------------------
 
@@ -321,51 +375,36 @@ nv_register_package(
 macro(mtrt_provide_dependency method dep_name)
   cmake_parse_arguments(_pargs "" "" "COMPONENTS" ${ARGN})
 
+  get_property(NV_CPM_PACKAGES GLOBAL PROPERTY NV_CPM_PACKAGES)
+
   # We handle finding TensorrT as a special case since it has
   # dedicated find/download logic to allow locating a previously
   # installed version.
   if("${dep_name}" MATCHES "TensorRT")
+    list(APPEND mycomp_provider_args ${method} ${dep_name})
     find_tensorrt(
       INSTALL_DIR "${MLIR_TRT_TENSORRT_DIR}"
       DOWNLOAD_VERSION "${MLIR_TRT_DOWNLOAD_TENSORRT_VERSION}"
       MIN_VERSION ""
     )
+    list(POP_BACK mycomp_provider_args dep_name method)
     set("${dep_name}_FOUND" TRUE)
-  endif()
-
-  if("${dep_name}" MATCHES
-     "^(Stablehlo|torch_mlir|NVTX|Sol2|Lua|DLPack)$")
-    nv_add_package("${dep_name}")
-    set("${dep_name}_FOUND" TRUE)
-  endif()
-
-  if("${dep_name}" MATCHES
-     "^(Flatbuffers)$")
-    nv_add_package("${dep_name}")
-    set("${dep_name}_FOUND" TRUE)
-  endif()
-
-  if("${dep_name}" STREQUAL "TVMFFI")
+  elseif("${dep_name}" STREQUAL "TVMFFI")
     mtrt_find_tvm_ffi()
     set("${dep_name}_FOUND" TRUE)
-  endif()
-
-  # If we invoke 'find_package(MLIR)' prior to 'find_package(LLVM)',
-  # search for LLVM first, since the LLVM package actually provides
-  # the MLIR config when building from source.
-  if(MTRT_BUILD_LLVM_FROM_SOURCE)
-    if(("${dep_name}" MATCHES "MLIR") AND (NOT MLIR_FOUND))
-      nv_add_package(LLVM)
-      find_package(LLVM CONFIG REQUIRED BYPASS_PROVIDER)
-      find_package(MLIR ${ARGN} BYPASS_PROVIDER)
-    endif()
-
-    # Handle LLVM. We want to invoke find_package after
-    # adding it.
-    if("${dep_name}" MATCHES "^(LLVM)$")
-      nv_add_package(${dep_name})
-      find_package(LLVM ${ARGN} BYPASS_PROVIDER)
-    endif()
+  # Handle LLVM.
+  elseif(MTRT_BUILD_LLVM_FROM_SOURCE AND
+         "${dep_name}" MATCHES "^(LLVM)$")
+    list(APPEND mycomp_provider_args ${method} ${dep_name})
+    nv_add_package(${dep_name})
+    list(POP_BACK mycomp_provider_args dep_name method)
+    find_package(LLVM ${ARGN} BYPASS_PROVIDER)
+  # For all other packages, the logic is the same.
+  elseif("${dep_name}" IN_LIST NV_CPM_PACKAGES)
+    list(APPEND mycomp_provider_args ${method} ${dep_name})
+    nv_add_package("${dep_name}")
+    list(POP_BACK mycomp_provider_args dep_name method)
+    set("${dep_name}_FOUND" TRUE)
   endif()
 
 endmacro()

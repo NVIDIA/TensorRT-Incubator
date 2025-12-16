@@ -32,7 +32,7 @@ jobs:
       CMAKE_PRESET: ${{ matrix.cmake_preset }}
       CCACHE_DIR: ${{ github.workspace }}/mlir-tensorrt/ccache
       CPM_SOURCE_CACHE: ${{ github.workspace }}/mlir-tensorrt/.cache.cpm
-      CCACHE_KEY: mlir-tensorrt-ccache-v1-${{ matrix.arch }}-${{ matrix.cmake_preset }}
+      CCACHE_KEY: mlir-tensorrt-ccache-v1-${{ inputs.arch }}-${{ matrix.cmake_preset }}
       # if exact cache key is not matched, fallback to the restore key to restore the cache
       CCACHE_RESTORE_KEY: mlir-tensorrt-ccache-v1-${{ matrix.arch }}-
       CPM_KEY: mlir-tensorrt-cpm-v1
@@ -59,12 +59,26 @@ jobs:
           mkdir -p ${{ env.CCACHE_DIR }}
           mkdir -p ${{ env.CPM_SOURCE_CACHE }}
 
+      # Compute ccache key after checkout
+      - name: Compute CCache Key
+        id: ccache-key
+        run: |
+          hash=$(find mlir-tensorrt/compiler \
+                      mlir-tensorrt/common \
+                      mlir-tensorrt/kernel \
+                      mlir-tensorrt/tensorrt \
+                      mlir-tensorrt/integrations \
+                      mlir-tensorrt/executor \
+                 -type f \( -name '*.cpp' -o -name '*.h' \) \
+                 -exec sha256sum {} \; | sort | sha256sum | cut -d' ' -f1)
+          echo "key=${{ env.CCACHE_RESTORE_KEY }}-${hash}" >> $GITHUB_OUTPUT
+
       # Restore cache, if exists.
       - name: Restore CCache
         id: restore-ccache
         uses: actions/cache/restore@v4
         with:
-          key: ${{ env.CCACHE_KEY }}
+          key: ${{ steps.ccache-key.outputs.key }}
           restore-keys: |
             ${{ env.CCACHE_RESTORE_KEY }}
           path: |
@@ -99,9 +113,9 @@ jobs:
       # Save ccache when cache is not hit or cache was a fallback(cache-matched is not the same as the cache key)
       - name: Save CCache
         uses: actions/cache/save@v4
-        if: ${{ steps.restore-ccache.outputs.cache-hit != 'true' || steps.restore-ccache.outputs['cache-matched-key'] != env.CCACHE_KEY }}
+        if: ${{ steps.restore-ccache.outputs.cache-hit != 'true' }}
         with:
-          key: ${{ env.CCACHE_KEY }}
+          key: ${{ steps.ccache-key.outputs.key }}
           path: |
             ${{ env.CCACHE_DIR }}
 
@@ -138,5 +152,6 @@ jobs:
           ./build_tools/scripts/cicd-build.sh
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}-mlir-tensorrt-${{ inputs.channel }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}-mlir-tensorrt-${{ inputs.channel }}-${{ inputs.arch }}
   cancel-in-progress: true
+

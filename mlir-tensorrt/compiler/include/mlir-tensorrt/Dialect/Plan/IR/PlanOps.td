@@ -3,6 +3,7 @@
 
 include "mlir-tensorrt/Dialect/Plan/IR/PlanDialect.td"
 include "mlir-tensorrt/Dialect/Plan/IR/PlanAttributes.td"
+include "mlir-tensorrt/Dialect/Plan/IR/PlanInterfaces.td"
 include "mlir-tensorrt-common/Interfaces/TensorKindOpInterface.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 include "mlir/Interfaces/ControlFlowInterfaces.td"
@@ -107,7 +108,7 @@ def Plan_InlineGroupOp : Plan_GroupOpBase<"inline_group", [
 
   }];
 
-  let arguments = (ins AnyAttr:$target);
+  let arguments = (ins CompilerBackendAttrInterface:$target);
 
   let results = (outs Variadic<AnyType>:$results);
 
@@ -118,7 +119,7 @@ def Plan_InlineGroupOp : Plan_GroupOpBase<"inline_group", [
   let hasVerifier = 1;
 
   let builders = [
-    OpBuilder<(ins "Attribute":$target,
+    OpBuilder<(ins "CompilerBackendAttrInterface":$target,
       "llvm::function_ref<SmallVector<Value>(OpBuilder&, Location)>":$bodyBuilder
       ), [{
         $_state.addAttribute(getTargetAttrName($_state.name), target);
@@ -325,11 +326,11 @@ def Plan_InlineClosedAllocGroupOp : Plan_InlineClosedGroupBase<"inline_closed_al
   }
 
   }];
-  let arguments = (ins Variadic<AnyTypeOf<[AnyRankedTensor, AnySignlessIntegerOrIndex]>>:$inputs,
+  let arguments = (ins Variadic<AnyType>:$inputs,
                        BoundsAttrArray:$input_attrs,
                        AnyAttr:$target);
 
-  let results = (outs Variadic<AnyTypeOf<[AnyRankedTensor]>>:$results);
+  let results = (outs Variadic<AnyType>:$results);
 
   let assemblyFormat = [{
     `target` `(` $target `)` `\n`

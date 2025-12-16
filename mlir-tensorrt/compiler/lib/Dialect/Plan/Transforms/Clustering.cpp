@@ -108,7 +108,8 @@ public:
 /// target.
 static Operation *createInlineGroupOp(OpBuilder &b, Location loc,
                                       TypeRange types, Attribute target) {
-  auto regionOp = b.create<plan::InlineGroupOp>(loc, types, target);
+  auto regionOp = b.create<plan::InlineGroupOp>(
+      loc, types, cast<CompilerBackendAttrInterface>(target));
   b.setInsertionPointToStart(&regionOp.getRegion().emplaceBlock());
   b.create<plan::YieldOp>(loc);
   return regionOp;

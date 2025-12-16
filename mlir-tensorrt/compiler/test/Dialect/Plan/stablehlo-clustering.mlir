@@ -88,8 +88,8 @@ func.func @test(%arg0: tensor<4xi32>, %arg1: tensor<i32>)
 //   CHECK-DAG:       %[[v2:.+]] = stablehlo.compare  EQ, %[[c]], %[[arg1]] :
 //   CHECK-DAG:       %[[v3:.+]] = with_values %[[v2]](%[[v0]]) : tensor<i1>
 //   CHECK-DAG:       %[[v4:.+]] = stablehlo.reduce(%[[arg0]] init: %[[c]])
-//   CHECK-DAG:       yield %[[v3]], %[[v4]] : tensor<i1>, tensor<i32>
-//   CHECK-DAG:     return %[[v1]]#1, %[[v1]]#0 : tensor<i32>, tensor<i1>
+//   CHECK-DAG:       yield %[[v4]], %[[v3]] : tensor<i32>, tensor<i1>
+//   CHECK-DAG:     return %[[v1]]#0, %[[v1]]#1 : tensor<i32>, tensor<i1>
 
 // -----
 
@@ -178,7 +178,5 @@ func.func @test_data_flow_state_update(
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<10xf32>, %[[arg1:.+]]: tensor<1xi32>, %[[arg2:.+]]:
 //   CHECK-DAG:     %[[c:.+]] = stablehlo.constant dense<1> : tensor<1xi32>
 //   CHECK-DAG:     %[[v0:.+]]:3 = plan.inline_group target(#plan.host_backend
-//   CHECK-DAG:     %[[v3:.+]] = plan.inline_group target(#plan.tensorrt_backend
-//   CHECK-DAG:       %[[v4:.+]] = stablehlo.dynamic_slice %[[arg0]], %[[v0]]#2
-//   CHECK-DAG:       yield %[[v4]] : tensor<1xf32>
-//   CHECK-DAG:     return %[[v0]]#0, %[[v0]]#1, %[[v3]] :
+//   CHECK-NOT:     plan.inline_group target(#plan.tensorrt_backend
+//   CHECK-DAG:     return %[[v0]]#0, %[[v0]]#1, %[[v0]]#2 :

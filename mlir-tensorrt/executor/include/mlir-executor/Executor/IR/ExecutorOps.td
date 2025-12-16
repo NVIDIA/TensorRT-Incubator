@@ -1027,7 +1027,7 @@ def Executor_DynamicExtractTableValueOp : Executor_Op<"table.dynamic_get", [
 //===----------------------------------------------------------------------===//
 
 def Executor_PrintOp : Executor_Op<"print", [
-    MemoryEffects<[MemWrite]>,]> {
+      MemoryEffects<[MemWrite]>]> {
   let description = [{
     The `executor.print` op prints a formatted string to "the output stream",
     the specifics of which depend on the runtime implementation.
@@ -1113,7 +1113,9 @@ def Executor_GetOffsetOp : Executor_Op<"getoffset", [Pure]> {
   let results = (outs Executor_Index:$result);
   let builders = [
     OpBuilder<(ins "Type":$resultType, "Type":$elementType,
-      "ArrayRef<OpFoldResult>":$indices)>
+      "ArrayRef<OpFoldResult>":$indices)>,
+    OpBuilder<(ins "Type":$resultType, "Type":$elementType,
+      "ArrayRef<int64_t>":$indices)>
   ];
 
   let assemblyFormat = [{
@@ -1200,7 +1202,7 @@ def Executor_AllocateOp : Executor_Op<"alloc", []> {
     be a power of two.
   }];
   let arguments = (ins Executor_Index:$num_bytes, Executor_Index:$alignment);
-  let results = (outs Executor_HostPtr:$result);
+  let results = (outs Arg<Executor_HostPtr, "pointer to the allocated memory", [MemAlloc]>:$result);
   let assemblyFormat = [{
     attr-dict $num_bytes `bytes` `align` `(` $alignment `)` `:` functional-type(operands, results)
   }];
@@ -1208,7 +1210,7 @@ def Executor_AllocateOp : Executor_Op<"alloc", []> {
 }
 
 def Executor_DeallocateOp : Executor_Op<"dealloc", []> {
-  let arguments = (ins Executor_HostPtr:$ptr);
+  let arguments = (ins Arg<Executor_HostPtr, "pointer to the memory to be deallocated", [MemFree]>:$ptr);
   let assemblyFormat = [{
     attr-dict $ptr `:` type($ptr)
   }];
@@ -1220,7 +1222,8 @@ def Executor_LoadOp : Executor_Op<"load", [
     `executor.load` loads `result` from the memory location given by `ptr +
     offset`. The offset is in terms of bytes.
   }];
-  let arguments = (ins Executor_Ptr:$ptr, Executor_Index:$offset);
+  let arguments = (ins Arg<Executor_Ptr,"pointer to load from", [MemRead]>:$ptr,
+                       Executor_Index:$offset);
   let results = (outs AnyTypeOf<[Executor_Integer, Executor_Float, Executor_Table, Executor_Ptr]>:$result);
 
   let assemblyFormat = [{
@@ -1235,7 +1238,7 @@ def Executor_StoreOp : Executor_Op<"store", [
     offset`. The offset is in terms of bytes.
   }];
   let arguments = (ins
-    Executor_Ptr:$ptr,
+    Arg<Executor_Ptr,"pointer to store to", [MemWrite]>:$ptr,
     Executor_Index:$offset,
     AnyTypeOf<[Executor_Ptr, Executor_Integer, Executor_Float, Executor_Table]>:$value);
 
@@ -1252,9 +1255,9 @@ def Executor_MemcpyOp : Executor_Op<"memcpy", [
     `executor.memcpy` copies `num_bytes` bytes from `source` to `dest`. Both
     buffers must be host memory buffers.
   }];
-  let arguments = (ins Executor_HostVisiblePtr:$src,
+  let arguments = (ins Arg<Executor_HostVisiblePtr,"source pointer", [MemReadAt<0, FullEffect>]>:$src,
                        Executor_Index:$src_offset,
-                       Executor_HostVisiblePtr:$dest,
+                       Arg<Executor_HostVisiblePtr,"destination pointer", [MemWriteAt<1, FullEffect>]>:$dest,
                        Executor_Index:$dest_offset,
                        Executor_Index:$num_bytes);
   let assemblyFormat = [{
@@ -1265,12 +1268,31 @@ def Executor_MemcpyOp : Executor_Op<"memcpy", [
 
 def Executor_StridedMemrefCopyOp : Executor_Op<"strided_memref_copy", []> {
   let description = [{
-    Executes a copy from `src` to `dest` where `src` and `dest` may be
-    strided memrefs (with potentially different strides, but of the same shape).
+    Executes a copy from a source buffer to a destination buffer where the
+    source and destination may be strided memrefs (with potentially different strides,
+    but of the same shape).
+
+    The `source_aligned_ptr` and `destination_aligned_ptr` are pointers to the aligned data
+    of the source and destination memrefs, respectively while `src_descriptor` and `dest_descriptor`
+    are pointers to the caller-allocated MLIR C-ABI compatible ranked memref
+    descriptors provided for callee use.
+
+    When this operation is lowered to the target, only the descriptor is passed. The
+    data pointers are present here in order to capture the full memory effects of the
+    operation.
   }];
-  let arguments = (ins Executor_Index:$rank, Executor_Index:$elem_size,
-                       Executor_HostPtr:$src_descriptor,
-                       Executor_HostPtr:$dest_descriptor);
+  let arguments = (ins Arg<I32, "rank of source and destination memrefs">:$rank,
+                       Arg<Executor_Index, "element size in bytes">:$elem_size,
+                       Arg<Executor_HostPtr, "pointer to array of i64 values representing the shape of the source and destination memrefs",
+                           [MemReadAt<0>]>:$shape,
+                       // Source descriptor args
+                       Arg<Executor_HostVisiblePtr,"source aligned data pointer", [MemReadAt<0>]>:$src_aligned_ptr,
+                       Arg<Executor_Index, "source offset in elements to start of buffer">:$src_offset,
+                       Arg<Executor_HostPtr,"source data strides in elements", [MemReadAt<0>]>:$src_strides,
+                       // Destination descriptor args
+                       Arg<Executor_HostVisiblePtr, "destination aligned data pointer", [MemWriteAt<1>]>:$dest_aligned_ptr,
+                       Arg<Executor_Index, "destination offset in elements to start of buffer">:$dest_offset,
+                       Arg<Executor_HostPtr, "destination data strides in elements", [MemReadAt<0>]>:$dest_strides);
   let assemblyFormat = [{
     attr-dict `(` operands `)`
      `:` type(operands)

@@ -12,9 +12,13 @@ add_mlir_tensorrt_library(MLIRTensorRTHostToEmitC
     MLIRTensorRTLLVMConversionUtils
   MLIR_LIBS PUBLIC
     MLIRArithToEmitC
+    MLIRArithTransforms
     MLIREmitCDialect
-    MLIRSCFToEmitC
     MLIRFuncToEmitC
     MLIRFuncTransforms
     MLIRMathDialect
+    MLIRReconcileUnrealizedCasts
+    MLIRSCFToEmitC
+    MLIRTransforms
+    MLIRMathToEmitC
   )

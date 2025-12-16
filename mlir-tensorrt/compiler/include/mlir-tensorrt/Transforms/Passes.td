@@ -68,10 +68,10 @@ def MemRefCastEliminationPass : Pass<"memref-cast-elimination"> {
 }
 
 //===----------------------------------------------------------------------===//
-// SCFDetensorizeLoopsPass
+// SCFDetensorizePass
 //===----------------------------------------------------------------------===//
 
-def SCFDetensorizeLoopsPass : Pass<"scf-detensorize-loops"> {
+def SCFDetensorizePass : Pass<"mtrt-scf-detensorize"> {
   let summary = "try to replace loop-carried scalar tensors with scalar-typed values";
 
   let description = [{
@@ -96,10 +96,10 @@ def SCFDetensorizeLoopsPass : Pass<"scf-detensorize-loops"> {
 }
 
 //===----------------------------------------------------------------------===//
-// UnrollForLoopsPass
+// SCFUnrollPass
 //===----------------------------------------------------------------------===//
 
-def UnrollForLoopsPass : Pass<"scf-ext-unroll-for-loops"> {
+def SCFUnrollPass : Pass<"mtrt-scf-unroll"> {
    let summary = "Unroll for loops with static trip count";
 
    let description = [{
@@ -117,6 +117,35 @@ def UnrollForLoopsPass : Pass<"scf-ext-unroll-for-loops"> {
     /*default=*/"100",
     "Unroll for loops if the cost is below this limit">
    ];
+}
+
+//===----------------------------------------------------------------------===//
+// SCFFloatStrengthReducePass
+//===----------------------------------------------------------------------===//
+
+def SCFFloatStrengthReducePass : Pass<"mtrt-scf-float-strength-reduce"> {
+  let summary = "Convert float loop-carried variables to integer counters";
+
+  let description = [{
+    Identifies `scf.while` loops with floating-point loop-carried variables that
+    are updated with constant additive steps (e.g., `arith.addf %iv, %const`).
+    Transforms these loops to use integer counters with appropriate scale
+    factors, and attempts to uplift to `scf.for` when possible.
+
+    For example, a loop counting down from 1.0 to 0.05 with step -0.1 can be
+    transformed to an integer loop counting from 10 to 1 with step -1, with
+    a scale factor of 0.1 applied when the float value is needed.
+
+    This transformation improves performance by:
+    1. Using faster integer arithmetic for loop control
+    2. Enabling further optimizations like loop unrolling
+    3. Making loop bounds statically analyzable
+  }];
+
+  let dependentDialects = [
+    "::mlir::scf::SCFDialect",
+    "::mlir::arith::ArithDialect"
+  ];
 }
 
 //===----------------------------------------------------------------------===//
@@ -148,6 +177,76 @@ def FuncExtDuplicateFunctionEliminationPass : Pass<"func-ext-duplicate-function-
     two func.func are identical except for argument attributes, then they will be
     considered separate functions.
   }];
+}
+
+//===----------------------------------------------------------------------===//
+// TensorExtPadToInsertSlicePass
+//===----------------------------------------------------------------------===//
+
+def TensorExtPadToInsertSlicePass : Pass<"tensor-ext-pad-to-insert-slice"> {
+  let summary =
+    "Convert tensor.pad to linalg.fill + tensor.insert_slice";
+
+  let description = [{
+    This pass converts `tensor.pad` operations to `linalg.fill` and
+    `tensor.insert_slice` operations.
+  }];
+
+  let dependentDialects = [
+    "::mlir::linalg::LinalgDialect"
+  ];
+}
+
+//===----------------------------------------------------------------------===//
+// LinalgSimplifyExtractSlicePass
+//===----------------------------------------------------------------------===//
+
+def LinalgSimplifyExtractSlicePass : Pass<"linalg-simplify-extract-slice"> {
+  let summary =
+    "Runs auxillary patterns to eliminate `tensor.extract_slice` operations";
+
+  let description = [{
+    This pass tries to eliminate `tensor.extract_slice` operations in special
+    cases not covered by the existing `tensor.extract_slice` transforms upstream
+    (e.g. fusion and sequential tensor.extract_slice elimination). In
+    particular, it removes `tensor.extract_slice` by fusing with a
+    `TilingInterface` operation when both the slice op and the producer are in
+    the same block and the producer has one use.
+  }];
+
+  let dependentDialects = [
+    "::mlir::tensor::TensorDialect",
+    "::mlir::linalg::LinalgDialect"
+  ];
+}
+
+//===----------------------------------------------------------------------===//
+// PlanExecuteConstantFoldableSubgraphs
+//===----------------------------------------------------------------------===//
+
+def PlanExecuteConstantFoldableSubgraphsPass : Pass<
+      "plan-execute-constant-foldable-subgraphs",
+      "::mlir::ModuleOp"> {
+  let summary = "Compile and execute constant foldable subgraphs";
+
+  let description = [{
+    This pass compiles and executes e2e constant foldable subgraphs
+    outlined by `PlanOutlineConstantFoldableSubgraphsPass`. In first step, outlined
+    `func.func` is cloned into a separate `ModuleOp` and e2e execution happens.
+    In second step, operands of `func.return` in the original `func.func`
+    are replaced with the constants created from results of e2e execution.
+    Inlining pass running after this pass will eventually replace
+    `func.call` ops created in `PlanOutlineConstantFoldableSubgraphsPass`
+    with result of constant folding entire subgraph.
+  }];
+
+  let dependentDialects = [
+    "::mlir::plan::PlanDialect",
+    "::mlir::cuda::CUDADialect",
+    "::mlir::executor::ExecutorDialect",
+    "::mlir::pdl::PDLDialect",
+    "::mlir::pdl_interp::PDLInterpDialect",
+  ];
 }
 
 #endif // MLIR_TENSORRT_TRANSFORMS_PASSES_TD

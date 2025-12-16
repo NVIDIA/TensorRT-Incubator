@@ -1,0 +1,55 @@
+
+[project]
+name = "mlir_tensorrt_jax"
+description = "The MLIR-TensorRT JAX plugin."
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: POSIX :: Linux",
+    "Private :: Do Not Upload",
+]
+dynamic = ["version"]
+dependencies = [
+    "apache-tvm-ffi>=0.1.0,<0.2.0",
+    "jax>=0.5.3,<=0.6.2",
+]
+
+[project.optional-dependencies]
+cu12 = [
+    "flashinfer-jit-cache==0.5.0rc3+cu129",
+    "cuda-python<13.0"
+]
+cu13 = [
+    "flashinfer-jit-cache==0.5.0rc3+cu130",
+    "cuda-python>=13.0"
+]
+
+[project.entry-points."jax_plugins"]
+mlir_tensorrt = "mlir_tensorrt_jax"
+
+[build-system]
+requires = [
+    "setuptools>=61.0",
+    "wheel",
+    "cmake>=3.25",
+    "ninja",
+    "click",
+    "packaging>=24.0",
+    "numpy>=1.19.5, <=2.1.2",
+    "pybind11>=2.8.0, <=2.13.6",
+    "nanobind>=2.4, <3.0",
+    "PyYAML>= 5.4.1, <=6.0.1",
+    "ml_dtypes<=0.6.0",
+    "apache-tvm-ffi>=0.1.0,<0.2.0"
+]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["mlir_tensorrt_jax*"]
+
+[tool.setuptools.package-data]
+"mlir_tensorrt_jax" = ["*.so"]
+"mlir_tensorrt_jax.mtrt_ops" = ["*.py"]

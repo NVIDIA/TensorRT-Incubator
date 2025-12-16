@@ -24,11 +24,15 @@
 #include "mlir-tensorrt/Backends/Host/HostBackend.h"
 #include "mlir-executor/Transforms/Clustering/Clustering.h"
 #include "mlir-executor/Transforms/Clustering/Patterns.h"
+#include "mlir-tensorrt-common/Interfaces/ToLoopsOpInterface.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir-tensorrt/Dialect/StablehloExt/Utils/Utils.h"
 #include "mlir/Analysis/DataFlowFramework.h"
+#include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
+#include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/Math/IR/Math.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/DialectImplementation.h"
 #include "stablehlo/dialect/StablehloOps.h"
@@ -58,8 +62,8 @@ static bool isScalarizableType(Type t) {
 /// that the operation can be converted to Executor IR. It derives this
 /// information based on the operation, the operands, and the TensorKindAnalysis
 /// information.
-bool plan::detail::shouldRunOnHost(Operation *op,
-                                   const DataFlowSolver &solver) {
+bool mtrt::compiler::detail::shouldRunOnHost(mlir::Operation *op,
+                                             const DataFlowSolver &solver) {
   // An operation can't be placed on the host if the types are too big.
   LLVM_DEBUG(DBGS() << "should run on host? " << *op << "\n");
   if (!llvm::all_of(op->getResultTypes(), isScalarizableType) ||
@@ -192,36 +196,12 @@ HostBackendAttr::getClusterKindOptions(InputKind inputKind, Operation *op,
     if (llvm::isa<tensor::ExtractOp, tensor::InsertOp>(op)) {
       return true;
     }
+    if (llvm::isa<ToLoopsOpInterface>(op))
+      return true;
     return false;
   };
   return opts;
 }
-
-/// Determines whether a cluster being outlined should clone a constant or
-/// pass constant by value.
-static bool shouldCloneProducer(Value v, Region &cluster) {
-  Operation *producer = v.getDefiningOp();
-  if (!producer->hasTrait<OpTrait::ConstantLike>() ||
-      producer->getNumResults() != 1)
-    return false;
-  RankedTensorType type =
-      dyn_cast<RankedTensorType>(producer->getResultTypes().front());
-  if (!type || !type.hasStaticShape())
-    return false;
-
-  // A value should be cloned if all of its uses are in the cluster.
-  if (llvm::all_of(v.getUsers(), [&](Operation *user) {
-        return cluster.isAncestor(user->getParentRegion());
-      }))
-    return true;
-  return type.getNumElements() *
-             llvm::divideCeil(type.getElementTypeBitWidth(), 8) <
-         1024 * 1024;
-}
-
-/// Host regions do not require closre since we have no need for shape or value
-/// bounds information.
-bool HostBackendAttr::requiresClosure(InputKind) const { return false; }
 
 std::optional<OutlineRegionOptions> HostBackendAttr::getClusterOutliningOptions(
     InputKind inputKind, MLIRContext *ctx,
@@ -229,7 +209,11 @@ std::optional<OutlineRegionOptions> HostBackendAttr::getClusterOutliningOptions(
   OpBuilder b(ctx);
   return OutlineRegionOptions{
       /*typeConverter=*/getIdentityTypeConverter(),
-      /*shouldCloneProducer=*/shouldCloneProducer,
+      /*shouldCloneProducer=*/
+      [this](Value v, Region &targetRegion) -> bool {
+        return this->shouldCloneProducer(targetRegion.getParentOp(),
+                                         v.getDefiningOp());
+      },
       /*createFunc=*/
       OutlineRegionOptions::getDefaultCreateFuncAndCallStubFunc(
           moduleSymbolTable, /*extraFuncAttrs=*/{}, "host_backend")};
@@ -269,10 +253,21 @@ public:
     (void)&generatedAttributeParser;
     (void)&generatedAttributePrinter;
     registerAttributes<plan::HostBackendAttr>();
+
+    // clang-format off
+    declareGeneratedDialects<
+      mlir::affine::AffineDialect,
+      mlir::arith::ArithDialect,
+      mlir::linalg::LinalgDialect,
+      mlir::tensor::TensorDialect,
+      mlir::func::FuncDialect,
+      mlir::math::MathDialect,
+      mlir::scf::SCFDialect>();
+    // clang-format on
   }
 };
 } // namespace
 
-void mlir::plan::registerHostBackend(DialectRegistry &registry) {
+void mtrt::compiler::registerHostBackend(mlir::DialectRegistry &registry) {
   registry.addExtensions<PlanDialectHostBackend>();
 }

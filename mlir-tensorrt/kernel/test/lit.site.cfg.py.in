@@ -1,0 +1,27 @@
+@LIT_SITE_CFG_IN_HEADER@
+
+# test_exec_root: The root path where tests should be run.
+config.test_exec_root = "@CMAKE_CURRENT_BINARY_DIR@"
+
+config.host_os = "@HOST_OS@"
+config.host_cc = "@HOST_CC@"
+config.host_cxx = "@HOST_CXX@"
+config.host_arch = "@HOST_ARCH@"
+
+config.llvm_tools_dir = lit_config.substitute("@LLVM_TOOLS_DIR@")
+config.mlir_obj_dir = "@MLIR_BINARY_DIR@"
+config.kernel_tools_dir = "@LLVM_RUNTIME_OUTPUT_INTDIR@"
+config.project_obj_dir = "@CMAKE_BINARY_DIR@"
+config.enable_python = @MLIR_ENABLE_BINDINGS_PYTHON@
+config.kernel_obj_root = "@MLIR_KERNEL_BINARY_DIR@"
+config.llvm_shlib_ext = "@SHLIBEXT@"
+config.enable_asan = @ENABLE_ASAN@
+config.python_executable = "@Python3_EXECUTABLE@"
+
+@MLIR_TRT_COMMON_LIT_CONFIG@
+
+import lit.llvm
+lit.llvm.initialize(lit_config, config)
+
+# Let the main config do the real work.
+lit_config.load_config(config, "@MLIR_KERNEL_SOURCE_DIR@/test/lit.cfg.py")

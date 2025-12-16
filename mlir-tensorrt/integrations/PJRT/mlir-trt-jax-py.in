@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -e
+export PJRT_NAMES_AND_LIBRARY_PATHS="mlir_tensorrt:@PJRT_PLUGIN_PATH@"
+export JAX_PLATFORMS="mlir_tensorrt,cpu"
+export LD_LIBRARY_PATH="@MLIR_TRT_TENSORRT_LIB_DIR@:$LD_LIBRARY_PATH"
+@PY_CMD@

@@ -261,24 +261,14 @@ analyzeAndClusterOperations(Operation *op, const ClusteringOpts &opts);
 using ClusterRegionOpBuilderFunc = std::function<Operation *(
     OpBuilder &, Location loc, TypeRange types, Attribute target)>;
 
-/// When region op is created from cluster, values yielded from region
-/// op are values from cluster that are used outside the cluster. Outside values
-/// are collected with  `op->getUses()` where returned use order is not
-/// deterministic. However, sometimes it is desired to get certain output order.
-/// `ReorderRegionOpYieldValues` is a handle to a function that reorders yielded
-/// values (and their types) in desired way.
-using ReorderRegionOpYieldValues = std::function<void(
-    SetVector<Value> &yieldValues, SmallVectorImpl<Type> &yieldTypes)>;
-
 /// Creates a "region op" from the given cluster. See above for the
 /// definition of "region op". When an operation located outside of the cluster
 /// uses an SSA value produced by an operation in the cluster, the use is
 /// replaced by the result of the region op. It is assumed that the root is
 /// located at the back of the cluster.
-Operation *createRegionOpFromCluster(
-    const Cluster &cluster, RewriterBase &rewriter,
-    ClusterRegionOpBuilderFunc createRegionOp,
-    ReorderRegionOpYieldValues reorderYieldValues = nullptr);
+Operation *createRegionOpFromCluster(const Cluster &cluster,
+                                     RewriterBase &rewriter,
+                                     ClusterRegionOpBuilderFunc createRegionOp);
 
 template <typename OpType, typename Terminator>
 OpType createRegionOpFromCluster(const Cluster &cluster,
@@ -331,7 +321,7 @@ struct OutlineRegionOptions {
 
   /// Creates and returns the outlined function (with an empty body region)
   /// using the specified name and operands.
-  CreateFuncAndCallStubsFunc createFunc;
+  CreateFuncAndCallStubsFunc createFunc{};
 };
 
 /// Outline the given `scf.execute_region` operation to a function-like

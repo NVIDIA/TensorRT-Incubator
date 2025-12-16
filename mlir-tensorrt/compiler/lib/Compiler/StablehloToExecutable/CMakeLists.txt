@@ -4,15 +4,11 @@ mtrt_get_project_targets(
 )
 
 add_mlir_tensorrt_library(MLIRTensorRTCompilerStableHloToExecutable
-    StableHloInputPipelines.cpp
+    StableHloInputPipeline.cpp
     StablehloToExecutable.cpp
     TensorRTExtension.cpp
-    Passes.cpp
 
     PARTIAL_SOURCES_INTENDED
-
-    DEPENDS
-    MLIRTensorRTStablehloToExecutableIncGen
 
     LINK_LIBS PUBLIC
       ${MTRTD_LIBS}
@@ -32,6 +28,7 @@ add_mlir_tensorrt_library(MLIRTensorRTCompilerStableHloToExecutable
       MLIRTensorRTPlanTransforms
       MLIRTensorRTRuntimeToExecutor
       MLIRTensorRTSCFDetensorizeLoops
+      MLIRTensorRTStablehloToArith
       MLIRTensorRTStablehloToLinalg
       MLIRTensorRTStablehloToPlan
       MLIRTensorRTStablehloToSCF
@@ -49,3 +46,4 @@ add_mlir_tensorrt_library(MLIRTensorRTCompilerStableHloToExecutable
       MLIRMathToEmitC
     )
 
+add_subdirectory(KernelGenExtension)

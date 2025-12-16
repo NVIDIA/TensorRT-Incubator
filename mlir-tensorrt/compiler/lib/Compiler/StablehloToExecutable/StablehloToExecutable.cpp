@@ -25,12 +25,14 @@
 #include "mlir-executor/Conversion/Passes.h"
 #include "mlir-executor/Executor/Transforms/Passes.h"
 #include "mlir-tensorrt-common/Support/Status.h"
+#include "mlir-tensorrt/Backends/Host/Passes.h"
 #include "mlir-tensorrt/Compiler/Client.h"
 #include "mlir-tensorrt/Compiler/Extension.h"
 #include "mlir-tensorrt/Compiler/OptionsProviders.h"
-#include "mlir-tensorrt/Compiler/StablehloToExecutable/Passes.h"
+#include "mlir-tensorrt/Compiler/StablehloToExecutable/StablehloInputPipeline.h"
 #include "mlir-tensorrt/Compiler/StablehloToExecutable/TensorRTExtension.h"
 #include "mlir-tensorrt/Conversion/CUDAToExecutor/CUDAToExecutor.h"
+#include "mlir-tensorrt/Conversion/HostToEmitC/HostToEmitC.h"
 #include "mlir-tensorrt/Conversion/Passes.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
 #include "mlir-tensorrt/Dialect/StablehloExt/Transforms/Passes.h"
@@ -100,8 +102,8 @@ void StablehloToExecutableTask::populatePassManager() {
 
   assert(pm.getPasses().empty() && "expected empty pass manager");
 
-  pm.addPass(createPopulateDefaultBackendMetadataPass(
-      PopulateDefaultBackendMetadataPassOptions{
+  pm.addPass(plan::createPopulateDefaultBackendMetadataPass(
+      plan::PopulateDefaultBackendMetadataPassOptions{
           /*defaultBackends=*/SmallVector<std::string>(
               options.defaultBackends.begin(),
               options.defaultBackends.end())}));
@@ -154,8 +156,9 @@ void StablehloToExecutableTask::populatePassManager() {
                                       options.runtimeABIVersion);
 
   // Compile outlined scalarizable host clusters.
-  pm.addNestedPass<func::FuncOp>(createProcessStablehloHostClustersPass());
-  pm.addNestedPass<func::FuncOp>(createConvertStablehloConstantsToArithPass());
+  pm.addNestedPass<func::FuncOp>(
+      mtrt::compiler::createProcessHostClustersPass());
+  pm.addNestedPass<func::FuncOp>(mlir::createConvertStablehloToArithPass());
 
   populateExtensionPasses(pm, options, Phase::PostClustering, extensions);
 
@@ -163,7 +166,7 @@ void StablehloToExecutableTask::populatePassManager() {
 
   // We then perform some final simplification on the top-level func.func ops
   // (e.g. public entrypoint functions).
-  pm.addNestedPass<func::FuncOp>(createSCFDetensorizeLoopsPass());
+  pm.addNestedPass<func::FuncOp>(mtrt::createSCFDetensorizePass());
   pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
 
   populateExtensionPasses(pm, options, Phase::PreBufferization, extensions);
@@ -244,12 +247,8 @@ void StablehloToExecutableTask::populatePassManager() {
     // For EmitC, just run Host-to-EmitC followed
     // by cleanup and expression forming.
     if (hostTarget == HostTarget::EmitC) {
-      pm.addNestedPass<func::FuncOp>(mlir::createConvertMathToEmitC());
-      pm.addNestedPass<func::FuncOp>(arith::createArithExpandOpsPass());
-      pm.addNestedPass<func::FuncOp>(createCSEPass());
-      pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
-      pm.addPass(createConvertHostToEmitCPass({options.artifactsDirectory}));
-      addCleanupPasses(pm);
+      mtrt::compiler::applyEmitCLoweringPipeline(pm,
+                                                 options.artifactsDirectory);
       // The EmitC "form-expressions" pass combines operations into
       // "expression regions" where possible, which allows the C++ translation
       // to be more concise.

@@ -30,11 +30,11 @@
 #define GET_ATTRDEF_CLASSES
 #include "mlir-tensorrt/Backends/TensorRT/TensorRTBackendAttrs.h.inc"
 
-namespace mlir::plan {
+namespace mtrt::compiler {
 
 /// Register the TensorRT backend extensions to the Plan dialect.
-void registerTensorRTBackend(DialectRegistry &registry);
+void registerTensorRTBackend(mlir::DialectRegistry &registry);
 
-} // namespace mlir::plan
+} // namespace mtrt::compiler
 
 #endif // MLIR_TENSORRT_BACKENDS_TENSORRT_TENSORRTBACKEND
