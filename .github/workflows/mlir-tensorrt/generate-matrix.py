@@ -67,10 +67,6 @@ DOCKER_IMAGE_DICT = {
 }
 
 
-def _version_tuple(version: str) -> tuple[int, ...]:
-    return tuple(int(part) for part in version.split("."))
-
-
 def main(args: list[str]) -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(

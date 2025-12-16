@@ -95,7 +95,7 @@ export PATH=${llvm_bin_path}:${mlir_trt_bin_path}:$PATH
 
 # It's useful to put the `libnvinfer.so` downloaded by CMake
 # on your LD_LIBRARY_PATH:
-DEFAULT_TRT_VERSION=10.13.3.9
+DEFAULT_TRT_VERSION=10.13.0.35
 trt_nvinfer_so_path=$SCRIPT_DIR/.cache.cpm/tensorrt/${DEFAULT_TRT_VERSION}-x86_64-Linux/lib
 export LD_LIBRARY_PATH=${trt_nvinfer_so_path}:${LD_LIBRARY_PATH}
 ```
