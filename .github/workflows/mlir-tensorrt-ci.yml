@@ -31,7 +31,7 @@ jobs:
     outputs:
       has_changes: ${{ steps.diff.outputs.has_changes }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 5
       - name: Compute diff under mlir-tensorrt/**
@@ -56,7 +56,7 @@ jobs:
       matrix: ${{ steps.generate-matrix.outputs.matrix }}
       channel: ${{ steps.generate-matrix.outputs.channel }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 5
       - name: Run lint checks
