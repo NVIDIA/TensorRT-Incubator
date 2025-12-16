@@ -1,12 +1,8 @@
-name: MLIR-TensorRT Build and Test
+name: MLIR-TensorRT Release Wheel and Tarball
 
 on:
   workflow_call:
     inputs:
-      channel:
-        description: 'Channel, valid values are "nightly", "test", or "release"'
-        default: "test"
-        type: string
       build-matrix:
         description: 'Build matrix to utilize'
         default: ""
@@ -17,31 +13,29 @@ defaults:
     shell: bash
 
 jobs:
-  mlir-tensorrt-build-test:
-    name: ${{ matrix.arch }}-cu${{ matrix.cuda }}-trt${{ matrix.trt }}-build-test
+  mlir-tensorrt-wheel-build:
+    name: ${{ matrix.arch }}-cu${{ matrix.cuda }}-trt${{ matrix.trt }}-wheel-build
     strategy:
       fail-fast: false
       max-parallel: 1
       matrix: ${{ fromJSON(inputs.build-matrix) }}
     env:
-      # eg. TENSORRT_VERSION: 10.12 or 10.13
+      # eg. 10.12 or 10.13
       DOWNLOAD_TENSORRT_VERSION: ${{ matrix.trt }}
-      # eg. CHANNEL: nightly, test or release
-      CHANNEL: ${{ inputs.channel }}
       ARCH: ${{ matrix.arch }}
-      CMAKE_PRESET: ${{ matrix.cmake_preset }}
       CCACHE_DIR: ${{ github.workspace }}/mlir-tensorrt/ccache
       CPM_SOURCE_CACHE: ${{ github.workspace }}/mlir-tensorrt/.cache.cpm
-      CCACHE_RESTORE_KEY: mlir-tensorrt-ccache-v1-${{ matrix.arch }}-${{ matrix.cmake_preset }}
+      CMAKE_PRESET: distribution-wheels
+      CCACHE_RESTORE_KEY: mlir-tensorrt-ccache-v1-${{ matrix.arch }}-distribution-wheels
       CPM_KEY: mlir-tensorrt-cpm-v1
       CPM_RESTORE_KEY: mlir-tensorrt-cpm-v1
     runs-on: ${{ matrix.github_runner }}
+    timeout-minutes: 120
     container:
       image: ${{ matrix.docker_image }}
       options: >-
         --gpus all
         --shm-size=1g
-    timeout-minutes: 120
     steps:
       # Checkout the repository
       - name: Checkout TensorRT-Incubator
@@ -97,21 +91,25 @@ jobs:
             !mlir-tensorrt/.cache.cpm/tensorrt
             !mlir-tensorrt/.cache.cpm/tensorrt/**
 
-      # Build the project
-      - name: Build With CUDA:${{ matrix.cuda }} + TensorRT:${{ matrix.trt }}
+      # Build wheels
+      - name: Build Wheels With CUDA:${{ matrix.cuda }} + TensorRT:${{ matrix.trt }}
         env:
           ENABLE_ASAN: "OFF"
         run: |
           set -euo pipefail
           set -x
           cd mlir-tensorrt
-          # build only, skip tests
-          ./build_tools/scripts/cicd-build.sh --build_only
+          export MTRT_TENSORRT_VERSION=${{ matrix.trt }}
+          # TODO: remove this, once patch is in our rockylinux prebuilt image
+          dnf install -yq patch
+          # build wheels for mlir-tensorrt-compiler, mlir-tensorrt-runtime
+          PACKAGES="mlir_tensorrt_compiler mlir_tensorrt_runtime" \
+          ./build_tools/scripts/cicd-build-wheels.sh
 
       # Save ccache when cache is not hit or cache was a fallback(cache-matched is not the same as the cache key)
       - name: Save CCache
         uses: actions/cache/save@v4
-        if: ${{ steps.restore-ccache.outputs.cache-hit != 'true' }}
+        if: ${{ steps.restore-ccache.outputs.cache-hit != 'true' || steps.restore-ccache.outputs['cache-matched-key'] != env.CCACHE_KEY }}
         with:
           key: ${{ steps.ccache-key.outputs.key }}
           path: |
@@ -137,19 +135,25 @@ jobs:
             !mlir-tensorrt/.cache.cpm/tensorrt
             !mlir-tensorrt/.cache.cpm/tensorrt/**
 
-      # Run tests
-      - name: Run Basic Tests With CUDA:${{ matrix.cuda }} + TensorRT:${{ matrix.trt }}
-        id: basic-tests
-        env:
-          ENABLE_ASAN: "OFF"
-        run: |
-          set -euo pipefail
-          set -x
-          cd mlir-tensorrt
-          # run tests
-          ./build_tools/scripts/cicd-build.sh
+      # Upload wheels to GitHub Actions artifact
+      - name: Upload Wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-wheels-${{ matrix.arch }}-cu${{ matrix.cuda }}-trt${{ matrix.trt }}
+          path: mlir-tensorrt/dist
+          if-no-files-found: error
+
+      - name: Upload Wheels to GitHub Tag Release
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: |
+            mlir-tensorrt/dist/*.whl
+          generate_release_notes: false
+          draft: true
+          prerelease: true
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}-mlir-tensorrt-${{ inputs.channel }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}-mlir-tensorrt-release
   cancel-in-progress: true
-
