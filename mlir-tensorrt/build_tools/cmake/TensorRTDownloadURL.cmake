@@ -141,7 +141,7 @@ function(mtrt_get_tensorrt_download_url ARG_VERSION OS_NAME TARGET_ARCH ARG_OUT_
     set(ARG_VERSION "10.12.0.36")
   endif()
 
-  if(ARG_VERSION VERSION_EQUAL "10.13.0")
+  if("${ARG_VERSION}" STREQUAL "10.13.0")
     set(ARG_VERSION "10.13.0.35")
   endif()
 
