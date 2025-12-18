@@ -18,14 +18,15 @@ endmacro()
 # If multiple CUDA major versions are available (e.g. 12.9 and 13.0), we
 # check what version is used on the host CTK. Otherwise, if host CTK is
 # not found, use the lower version.
-function(mtrt_get_tensorrt_cuda_version trt_version out_var)
-  if(NOT CUDAToolkit_VERSION_MAJOR)
-    find_package(CUDAToolkit)
-  endif()
-
+function(mtrt_get_tensorrt_cuda_version trt_version target_arch out_var)
   set(ctk_version "")
   if(CUDAToolkit_FOUND)
-    set(ctk_version "${CUDAToolkit_VERSION_MAJOR}.${CUDAToolkit_VERSION_MINOR}")
+    set(ctk_version "${CUDAToolkit_VERSION_MAJOR}.9999")
+  endif()
+
+  set(is_aarch64 FALSE)
+  if(target_arch MATCHES "aarch64")
+    set(is_aarch64 TRUE)
   endif()
 
   set(trt_available_cuda_versions "")
@@ -39,25 +40,34 @@ function(mtrt_get_tensorrt_cuda_version trt_version out_var)
          trt_version VERSION_LESS    10.10)
     set(trt_available_cuda_versions "11.8;12.8")
   elseif(trt_version VERSION_GREATER 10.10 AND
-         trt_version VERSION_LESS    10.13)
+         trt_version VERSION_LESS    10.13.2)
     set(trt_available_cuda_versions "11.8;12.9")
-  elseif(trt_version VERSION_GREATER_EQUAL "10.13")
-    set(trt_available_cuda_versions "12.9;13.0")
+  elseif(trt_version VERSION_GREATER_EQUAL "10.13.2")
+    if(is_aarch64)
+      set(trt_available_cuda_versions "13.0")
+    else()
+      set(trt_available_cuda_versions "12.9;13.0")
+    endif()
   else()
     message(FATAL_ERROR "Could not determine available CUDA versions for TensorRT version ${trt_version}")
   endif()
 
   set(selected_cuda_version "")
   if(ctk_version)
-    foreach(available_version IN_LISTS trt_available_cuda_versions)
-      if(ctk_version VERSION_LESS_EQUAL available_version)
+    foreach(available_version IN LISTS trt_available_cuda_versions)
+
+      if(available_version VERSION_LESS_EQUAL ctk_version)
         set(selected_cuda_version "${available_version}")
       endif()
     endforeach()
   endif()
 
   if(NOT selected_cuda_version)
-    list(GET trt_available_cuda_versions 0 selected_cuda_version)
+    # if(ctk_version)
+    list(GET trt_available_cuda_versions -1 selected_cuda_version)
+    # else()
+      # list(GET trt_available_cuda_versions 0 selected_cuda_version)
+    # endif()
   endif()
 
   message(STATUS "Selected CUDA version tag for TensorRT ${trt_version} is ${selected_cuda_version}")
@@ -118,9 +128,6 @@ function(mtrt_get_tensorrt_download_url ARG_VERSION OS_NAME TARGET_ARCH ARG_OUT_
   if(ARG_VERSION VERSION_EQUAL "10.7")
     set(ARG_VERSION "10.7.0.23")
   endif()
-  if(ARG_VERSION VERSION_EQUAL "10.13")
-    set(ARG_VERSION "10.13.0.35")
-  endif()
 
   if(ARG_VERSION VERSION_EQUAL "10.8")
     set(ARG_VERSION "10.8.0.43")
@@ -134,8 +141,20 @@ function(mtrt_get_tensorrt_download_url ARG_VERSION OS_NAME TARGET_ARCH ARG_OUT_
     set(ARG_VERSION "10.12.0.36")
   endif()
 
-  if(ARG_VERSION VERSION_EQUAL "10.13.0.35")
+  if("${ARG_VERSION}" STREQUAL "10.13.0")
     set(ARG_VERSION "10.13.0.35")
+  endif()
+
+  if(ARG_VERSION VERSION_EQUAL "10.13.2")
+    set(ARG_VERSION "10.13.2.6")
+  endif()
+
+  if(ARG_VERSION VERSION_EQUAL "10.13" OR ARG_VERSION VERSION_EQUAL "10.13.3")
+    set(ARG_VERSION "10.13.3.9")
+  endif()
+
+  if(ARG_VERSION VERSION_EQUAL "10.14")
+    set(ARG_VERSION "10.14.1.48")
   endif()
 
   set(downloadable_versions
@@ -156,6 +175,9 @@ function(mtrt_get_tensorrt_download_url ARG_VERSION OS_NAME TARGET_ARCH ARG_OUT_
     "10.9.0.34"
     "10.12.0.36"
     "10.13.0.35"
+    "10.13.2.6"
+    "10.13.3.9"
+    "10.14.1.48"
   )
 
   if(NOT ARG_VERSION IN_LIST downloadable_versions)
@@ -166,7 +188,7 @@ function(mtrt_get_tensorrt_download_url ARG_VERSION OS_NAME TARGET_ARCH ARG_OUT_
   string(REGEX MATCH "[0-9]+\\.[0-9]+\\.[0-9]+" trt_short_version ${ARG_VERSION})
 
   # Get the CUDA version tag.
-  mtrt_get_tensorrt_cuda_version("${ARG_VERSION}" TRT_CUDA_VERSION)
+  mtrt_get_tensorrt_cuda_version("${ARG_VERSION}" "${TARGET_ARCH}" TRT_CUDA_VERSION)
 
   # For aarch64, the published packages are only for
   # "Ubuntu-20.04". I believe this corresponds to NVIDIA supported ARM server
