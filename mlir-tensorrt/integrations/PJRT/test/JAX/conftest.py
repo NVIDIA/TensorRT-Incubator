@@ -197,7 +197,6 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "requires_trt_version: test requires specific TensorRT version"
     )
-
     config.addinivalue_line("markers", "long_test: test takes a long time to run")
     config.addinivalue_line(
         "markers",

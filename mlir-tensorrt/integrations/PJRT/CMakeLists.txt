@@ -1,8 +1,4 @@
-#-------------------------------------------------------------------------------
-# Options and settings
-#-------------------------------------------------------------------------------
-find_package(XLA REQUIRED)
-set(MLIR_TRT_XLA_SOURCE_DIR ${XLA_SOURCE_DIR} CACHE INTERNAL "")
+include(${CMAKE_CURRENT_LIST_DIR}/PJRTConfig.cmake)
 
 #-------------------------------------------------------------------------------
 # Project Setup

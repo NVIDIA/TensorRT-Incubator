@@ -83,7 +83,6 @@ set(mlir_patch_dir "${CMAKE_CURRENT_LIST_DIR}/build_tools/patches/mlir")
 if(NOT MTRT_BUILD_LLVM_FROM_SOURCE)
   message(WARNING "Using 'find_package' to locate pre-built LLVM. Please set MLIR_DIR to the directory containing MLIRConfig.cmake")
 else()
-
   nv_register_package(
     NAME LLVM
     URL "https://github.com/llvm/llvm-project/archive/${MLIR_TRT_LLVM_COMMIT}.zip"
@@ -94,6 +93,7 @@ else()
       "${mlir_patch_dir}/0006-mlir-emitc-Fix-two-EmitC-bugs.patch"
       "${mlir_patch_dir}/0009-mlir-Support-FileLineColRange-in-LLVM-debug-translat.patch"
       "${mlir_patch_dir}/0011-MLIR-Fix-bufferization-interface-for-tensor-reshape.patch"
+      "${mlir_patch_dir}/0001-NVPTX-Add-support-for-PTX-ISA-v8.8-136639.patch"
     # Set the CPM cache key to the Git hash for easy navigation.
     PRE_ADD_HOOK [[
       list(APPEND _vap_UNPARSED_ARGUMENTS
@@ -315,7 +315,7 @@ nv_register_package(
   NAME absl
   GIT_REPOSITORY https://github.com/abseil/abseil-cpp.git
   GIT_TAG fb3621f4f897824c0dbe0615fa94543df6192f30
-  EXCLUDE_FROM_ALL TRUE  
+  EXCLUDE_FROM_ALL TRUE
   OPTIONS
     "ABSL_USE_SYSTEM_INCLUDES ON"
     "ABSL_PROPAGATE_CXX_STD ON"

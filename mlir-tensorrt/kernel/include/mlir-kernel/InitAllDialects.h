@@ -133,6 +133,7 @@ inline void registerAllRequiredDialects(mlir::DialectRegistry &registry) {
                   mlir::ub::UBDialect,
                   mlir::vector::VectorDialect
                   >();
+  // clang-format on
 
   // Register all external models.
   // Register pointer-like type interfaces for external pointer types.
@@ -202,8 +203,6 @@ inline void registerAllRequiredDialects(mlir::DialectRegistry &registry) {
   registerConvertMemRefToLLVMInterface(registry);
   registerConvertComplexToLLVMInterface(registry);
   NVVM::registerConvertGpuToNVVMInterface(registry);
-
-  // clang-format on
 }
 } // namespace mlir::kernel
 
