@@ -61,14 +61,17 @@ jobs:
       - name: Compute CCache Key
         id: ccache-key
         run: |
-          hash=$(find mlir-tensorrt/compiler \
-                      mlir-tensorrt/common \
-                      mlir-tensorrt/kernel \
-                      mlir-tensorrt/tensorrt \
-                      mlir-tensorrt/integrations \
-                      mlir-tensorrt/executor \
-                 -type f \( -name '*.cpp' -o -name '*.h' \) \
-                 -exec sha256sum {} \; | sort | sha256sum | cut -d' ' -f1)
+          hash=$( (find mlir-tensorrt/compiler \
+                        mlir-tensorrt/common \
+                        mlir-tensorrt/kernel \
+                        mlir-tensorrt/tensorrt \
+                        mlir-tensorrt/integrations \
+                        mlir-tensorrt/executor \
+                   -type f \( -name '*.cpp' -o -name '*.h' \) \
+                   -exec sha256sum {} \; ; \
+                  sha256sum mlir-tensorrt/DependencyProvider.cmake \
+                            mlir-tensorrt/CMakeLists.txt) \
+                 | sort | sha256sum | cut -d' ' -f1)
           echo "key=${{ env.CCACHE_RESTORE_KEY }}-${hash}" >> $GITHUB_OUTPUT
 
       # Restore cache, if exists.
@@ -152,4 +155,3 @@ jobs:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}-mlir-tensorrt-${{ inputs.channel }}
   cancel-in-progress: true
-

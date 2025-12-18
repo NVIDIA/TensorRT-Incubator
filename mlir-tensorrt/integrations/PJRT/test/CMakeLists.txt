@@ -3,7 +3,7 @@
 llvm_canonicalize_cmake_booleans(
   LLVM_ENABLE_ASSERTIONS
   ENABLE_ASAN
-  ${MLIR_TRT_FEATURE_FLAGS}w
+  ${MLIR_TRT_FEATURE_FLAGS}
   )
 
 # ==== Add unit test subfolder ==============================================

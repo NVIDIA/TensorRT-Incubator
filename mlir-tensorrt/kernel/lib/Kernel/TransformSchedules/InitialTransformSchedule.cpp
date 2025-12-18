@@ -115,7 +115,8 @@ static FailureOr<TilingInterface> findRootOp(func::FuncOp funcOp) {
   return failure();
 }
 
-/// Decide the transform schedule parameters for different ops.
+/// Decide the transform schedule parameters for different ops (matmul /
+/// elementwise).
 static FailureOr<DetermineTransformScheduleResult>
 decideTransformScheduleParameters(const TransformScheduleSelector &selector,
                                   func::FuncOp funcOp, TilingInterface rootOp) {
