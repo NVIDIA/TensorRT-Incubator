@@ -7,14 +7,12 @@ on:
     branches:
       - "pull-request/[0-9]+"
       - "main"
-  # Disable the release and nightly CI for now, we will enable them later
-  #   # this is for release CI
-  #   tags:
-  #     # release tag example: v0.4.2
-  #     # release candidate tag example: v0.4.2-rc1
-  #     - v[0-9]+.[0-9]+.[0-9]+-rc[0-9]+
-  # workflow_dispatch:
-  # # this is for nightly CI, it will be automatically triggered by the schedule on main branch only
+    # this is for release CI
+    tags:
+      # release tag example: mlir-tensorrt-v0.4.3 or mlir-tensorrt-v0.4.3dev20251212
+      - 'mlir-tensorrt-v[0-9]*.[0-9]*.[0-9]*'
+  workflow_dispatch:
+  # this is for nightly CI, it will be automatically triggered by the schedule on main branch only
   # schedule:
   #   - cron: '0 0 * * *'  # Runs at 00:00 UTC every day (minute hour day-of-month month-of-year day-of-week)
 
@@ -41,51 +39,16 @@ jobs:
         run: |
           set -euo pipefail
           set -x
-          cd "${GITHUB_WORKSPACE}"
-          git config --global --add safe.directory "${GITHUB_WORKSPACE}"
-
-          EVENT_NAME="${{ github.event_name }}"
-          DEFAULT_BASE="${{ github.event.repository.default_branch || 'main' }}"
-          RANGE=""
-          if [ "${EVENT_NAME}" = "push" ]; then
-            FROM="${{ github.event.before }}"
-            TO="${{ github.sha }}"
-            if [ -z "${FROM}" ] || [ "${FROM}" = "0000000000000000000000000000000000000000" ]; then
-              # First push or unknown before: compare against default branch
-              git fetch --no-tags --prune --depth=100 origin "${DEFAULT_BASE}"
-              RANGE="origin/${DEFAULT_BASE}..${TO}"
-            else
-              RANGE="${FROM}..${TO}"
-            fi
-          else
-            BASE_REF="${{ github.base_ref || github.event.repository.default_branch || 'main' }}"
-            git fetch --no-tags --prune --depth=100 origin "${BASE_REF}"
-            # Prefer triple-dot; fall back to double-dot if no merge base
-            if git merge-base "origin/${BASE_REF}" HEAD >/dev/null 2>&1; then
-              RANGE="origin/${BASE_REF}...HEAD"
-            else
-              RANGE="origin/${BASE_REF}..HEAD"
-            fi
-          fi
-
-          # Run git diff and capture status explicitly
-          set +e
-          DIFF_OUTPUT="$(git diff --name-only ${RANGE})"
-          DIFF_STATUS=$?
-          set -e
-          if [ ${DIFF_STATUS} -ne 0 ]; then
-            echo "git diff failed for RANGE='${RANGE}'" >&2
-            # when diff is failed, always think there is a code change, try to run the CI
+          if bash ./.github/workflows/mlir-tensorrt/ci-utils.sh detect-code-change; then
             echo "has_changes=true" >> "${GITHUB_OUTPUT}"
           else
-            echo "${DIFF_OUTPUT}" | grep -E '^(mlir-tensorrt/|\.github/workflows/mlir-tensorrt[^/]*\.yml|\.github/workflows/mlir-tensorrt/)' || true
-            echo "has_changes=true" >> "${GITHUB_OUTPUT}"
+            echo "has_changes=false" >> "${GITHUB_OUTPUT}"
           fi
 
-  format-check:
-    name: Lint Check
-    needs: changes
+  pre-check:
+    name: Pre Check
     if: ${{ needs.changes.outputs.has_changes == 'true' }}
+    needs: changes
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda12.9-ubuntu24.04-0.1
@@ -96,45 +59,20 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 5
-      - name: Run checks
+      - name: Run lint checks
+        # lint check is only needed for PRs and push to main
+        if: ${{ github.ref_type != 'tag' && github.event_name != 'schedule' }}
         run: |
-          # Determine base for formatting diff (push-safe and PR-safe)
-          cd "${GITHUB_WORKSPACE}"
-          git config --global --add safe.directory "${GITHUB_WORKSPACE}"
-          EVENT_NAME="${{ github.event_name }}"
-          DEFAULT_BASE="${{ github.event.repository.default_branch || 'main' }}"
-          RANGE=""
-          if [ "${EVENT_NAME}" = "push" ]; then
-            FROM="${{ github.event.before }}"
-            TO="${{ github.sha }}"
-            if [ -z "${FROM}" ] || [ "${FROM}" = "0000000000000000000000000000000000000000" ]; then
-              git fetch --no-tags --prune --depth=100 origin "${DEFAULT_BASE}"
-              RANGE="origin/${DEFAULT_BASE}..${TO}"
-            else
-              RANGE="${FROM}..${TO}"
-            fi
-          else
-            BASE_REF="${{ github.base_ref || github.event.repository.default_branch || 'main' }}"
-            git fetch --no-tags --prune --depth=100 origin "${BASE_REF}"
-            if git merge-base "origin/${BASE_REF}" HEAD >/dev/null 2>&1; then
-              RANGE="origin/${BASE_REF}...HEAD"
-            else
-              RANGE="origin/${BASE_REF}..HEAD"
-            fi
-          fi
-
-          # Check Python formatting with black
-          uv tool install black
-          uvx black --check --extend-exclude='.*\.pyi' mlir-tensorrt/compiler/ mlir-tensorrt/integrations
-
-          # Check C++ formatting with clang-format
-          # git clang-format accepts a commit range. Use RANGE computed above.
-          CLANG_FORMAT_DIFF=$(git clang-format-20 ${RANGE} --diff -q)
-          if [ -n "${CLANG_FORMAT_DIFF}" ]; then
-            echo "${CLANG_FORMAT_DIFF}"
-            echo "Error: C++ files are not properly formatted. Run 'git clang-format ${BASE_COMMIT}' to fix."
-            exit 1
-          fi
+           set -euo pipefail
+           set -x
+           bash ./.github/workflows/mlir-tensorrt/ci-utils.sh lint-check
+      - name: Run release checks
+      # release check is only needed for release tags
+        if: ${{ github.ref_type == 'tag' }}
+        run: |
+          set -euo pipefail
+          set -x
+          bash ./.github/workflows/mlir-tensorrt/ci-utils.sh release-check
       - name: Generate Build Matrix
         id: generate-matrix
         run: |
@@ -152,32 +90,25 @@ jobs:
           echo "matrix=${MATRIX_BLOB}" >> "${GITHUB_OUTPUT}"
           echo "channel=${CHANNEL}" >> "${GITHUB_OUTPUT}"
 
-  mlir-tensorrt-build-test-x86_64:
-    name: Build and Test on x86_64
+  mlir-tensorrt-build-test:
+    name: Build and Test
     needs:
-      - changes
-      - format-check
-    if: ${{ needs.changes.outputs.has_changes == 'true' && needs.format-check.outputs.channel != 'release' }}
+      - pre-check
+    if: ${{ needs.pre-check.outputs.channel != 'release' }}
     uses: ./.github/workflows/mlir-tensorrt-build-test.yml
     with:
-      build-matrix: ${{ needs.format-check.outputs.matrix }}
-      channel: ${{ needs.format-check.outputs.channel }}
-      arch: x86_64
-      github_runner: linux-amd64-gpu-h100-latest-1
+      build-matrix: ${{ needs.pre-check.outputs.matrix }}
+      channel: ${{ needs.pre-check.outputs.channel }}
 
-  mlir-tensorrt-build-test-aarch64:
-    name: Build and Test on aarch64
+  mlir-tensorrt-wheel-tarball-release:
+    name: Release
     needs:
-      - changes
-      - format-check
-      - mlir-tensorrt-build-test-x86_64
-    if: ${{ needs.changes.outputs.has_changes == 'true' && needs.format-check.outputs.channel != 'release' }}
-    uses: ./.github/workflows/mlir-tensorrt-build-test.yml
+      - pre-check
+    if: ${{ needs.pre-check.outputs.channel == 'release' }}
+    uses: ./.github/workflows/mlir-tensorrt-release.yml
     with:
-      build-matrix: ${{ needs.format-check.outputs.matrix }}
-      channel: ${{ needs.format-check.outputs.channel }}
-      arch: aarch64
-      github_runner: linux-arm64-gpu-l4-latest-1
+      build-matrix: ${{ needs.pre-check.outputs.matrix }}
+
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}-mlir-tensorrt

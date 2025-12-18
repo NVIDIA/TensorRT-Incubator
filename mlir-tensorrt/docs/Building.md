@@ -65,7 +65,7 @@ Even if using the development container, you will need to install
 Python dependencies prior to building:
 
 ```shell
-uv sync --extra cu12 # or 'cu13' depending on CUDA version isntalled
+uv sync --extra cu12 # or 'cu13' depending on CUDA version installed
 source .venv/bin/activate
 ```
 

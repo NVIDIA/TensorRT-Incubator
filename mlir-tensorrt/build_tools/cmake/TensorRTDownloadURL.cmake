@@ -128,9 +128,6 @@ function(mtrt_get_tensorrt_download_url ARG_VERSION OS_NAME TARGET_ARCH ARG_OUT_
   if(ARG_VERSION VERSION_EQUAL "10.7")
     set(ARG_VERSION "10.7.0.23")
   endif()
-  if(ARG_VERSION VERSION_EQUAL "10.13")
-    set(ARG_VERSION "10.13.0.35")
-  endif()
 
   if(ARG_VERSION VERSION_EQUAL "10.8")
     set(ARG_VERSION "10.8.0.43")
@@ -144,7 +141,7 @@ function(mtrt_get_tensorrt_download_url ARG_VERSION OS_NAME TARGET_ARCH ARG_OUT_
     set(ARG_VERSION "10.12.0.36")
   endif()
 
-  if(ARG_VERSION VERSION_EQUAL "10.13.0")
+  if("${ARG_VERSION}" STREQUAL "10.13.0")
     set(ARG_VERSION "10.13.0.35")
   endif()
 
