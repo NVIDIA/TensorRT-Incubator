@@ -107,6 +107,7 @@ static void addInternalStablehloConstantFoldingPasses(mlir::OpPassManager &pm) {
           return false;
         return true;
       }));
+  pm.addPass(mtrt::createFuncExtDuplicateFunctionEliminationPass());
   pm.addPass(stablehlo::createStablehloConvertToSignlessPass());
   pm.addPass(mtrt::createPlanExecuteConstantFoldableSubgraphsPass());
   pm.addPass(createInlinerPass());
