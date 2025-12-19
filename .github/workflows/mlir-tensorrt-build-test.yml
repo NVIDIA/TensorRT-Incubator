@@ -25,7 +25,7 @@ jobs:
       matrix: ${{ fromJSON(inputs.build-matrix) }}
     env:
       # eg. TENSORRT_VERSION: 10.12 or 10.13
-      DOWNLOAD_TENSORRT_VERSION: ${{ matrix.trt }}
+      MLIR_TRT_DOWNLOAD_TENSORRT_VERSION: ${{ matrix.trt }}
       # eg. CHANNEL: nightly, test or release
       CHANNEL: ${{ inputs.channel }}
       ARCH: ${{ matrix.arch }}

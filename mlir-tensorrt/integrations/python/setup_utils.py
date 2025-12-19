@@ -13,7 +13,7 @@ import setuptools
 import subprocess
 import atexit
 
-TENSORRT_VERSION = os.getenv("MTRT_TENSORRT_VERSION", "10.12")
+TENSORRT_VERSION = os.getenv("MLIR_TRT_DOWNLOAD_TENSORRT_VERSION", "10.12")
 
 
 def log(*args):

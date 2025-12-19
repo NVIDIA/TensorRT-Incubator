@@ -17,7 +17,7 @@
 #     PACKAGES - Space or comma separated list of packages to build wheels for
 #                  (default: "mlir_tensorrt_tools mlir_tensorrt_compiler mlir_tensorrt_runtime")
 #                  (examples: "mlir_tensorrt_tools", "mlir_tensorrt_compiler,mlir_tensorrt_runtime")
-#     MTRT_TENSORRT_VERSION - The TensorRT version to build the wheels for (default: 10.13)
+#     MLIR_TRT_DOWNLOAD_TENSORRT_VERSION - The TensorRT version to build the wheels for (default: 10.13)
 #     MLIR_TRT_BUILD_DIR - The directory to build the project in (default: ${REPO_ROOT}/build)
 #     MLIR_TRT_INSTALL_DIR - The directory to install the project in (default: ${REPO_ROOT}/install)
 #     VERBOSE - Enable verbose output (default: 0, set to 1 for verbose)
@@ -55,7 +55,7 @@ export MLIR_TRT_INSTALL_DIR="${MLIR_TRT_INSTALL_DIR:-${REPO_ROOT}/install}"
 mkdir -p "${MLIR_TRT_INSTALL_DIR}"
 export WHEELS_DIR="${WHEELS_DIR:-${REPO_ROOT}/dist}"
 
-export MTRT_TENSORRT_VERSION="${MTRT_TENSORRT_VERSION:-10.13}"
+export MLIR_TRT_DOWNLOAD_TENSORRT_VERSION="${MLIR_TRT_DOWNLOAD_TENSORRT_VERSION:-10.13}"
 
 # Resolve Python versions
 _raw_py_versions="${PYTHON_VERSIONS:-${python_versions:-"3.10 3.11 3.12 3.13"}}"
@@ -63,18 +63,22 @@ _raw_py_versions="${_raw_py_versions//,/ }"
 read -r -a PY_VERSIONS <<< "${_raw_py_versions}"
 
 # Resolve packages
-_raw_packages="${PACKAGES:-"mlir_tensorrt_tools mlir_tensorrt_compiler mlir_tensorrt_runtime"}"
+_raw_packages="${PACKAGES:-"mlir_tensorrt_compiler mlir_tensorrt_runtime"}"
 _raw_packages="${_raw_packages//,/ }"
 read -r -a PACKAGES <<< "${_raw_packages}"
 
-cd "${REPO_ROOT}"
-for pkg in "${PACKAGES[@]}"; do
+function build_package() {
+  local pkg=$1
   for pyver in "${PY_VERSIONS[@]}"; do
     ccache --zero-stats || true
-    time -p uv build --wheel --out-dir="${WHEELS_DIR}" --python="${pyver}" "integrations/python/${pkg}"
+    time -p uv build --wheel --out-dir="${WHEELS_DIR}" --python="${pyver}" "${pkg}"
     ccache --show-stats || true
   done
-done
+}
+
+build_package "integrations/python/mlir_tensorrt_compiler"
+build_package "integrations/python/mlir_tensorrt_runtime"
+build_package "integrations/PJRT/python"
 
 # print the size of the ccache and cpm source cache
 echo "🔨🧪 Printing the size of the ccache"
