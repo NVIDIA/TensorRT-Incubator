@@ -650,7 +650,10 @@ class Executor_ArithUnaryIntOp<string mnemonic,
   let arguments = commonArgs;
 }
 
-def Executor_AddIOp : Executor_ArithBinaryOpIntWithFolder<"addi", [Commutative]>;
+def Executor_AddIOp
+    : Executor_ArithBinaryOpIntWithFolder<"addi", [Commutative]> {
+  let hasCanonicalizer = 1;
+}
 def Executor_SubIOp : Executor_ArithBinaryOpIntWithFolder<"subi">;
 def Executor_MulIOp : Executor_ArithBinaryOpIntWithFolder<"muli", [Commutative]>;
 // Round towards zero

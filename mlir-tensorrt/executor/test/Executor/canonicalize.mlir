@@ -131,6 +131,22 @@ func.func @mul_commutative(%arg0: i32) -> i32 {
 
 // -----
 
+func.func @add_addi_constants(%arg0: i32) -> i32 {
+  %c1 = arith.constant 1 : i32
+  %c2 = arith.constant 2 : i32
+  %0 = executor.addi %arg0, %c1 : i32
+  %1 = executor.addi %0, %c2 : i32
+  return %1 : i32
+}
+
+// CHECK-LABEL: @add_addi_constants
+//  CHECK-SAME: (%[[ARG0:.+]]: i32) -> i32
+//       CHECK:     %[[C3_I32:.+]] = executor.constant 3 : i32
+//       CHECK:     %[[V0:.+]] = executor.addi %[[ARG0]], %[[C3_I32]] : i32
+//       CHECK:     return %[[V0]] : i32
+
+// -----
+
 !table = !executor.table<i32, f32, i64>
 
 func.func @table_extract_create(%arg0: i32, %arg1: f32) -> (i32, i64) {

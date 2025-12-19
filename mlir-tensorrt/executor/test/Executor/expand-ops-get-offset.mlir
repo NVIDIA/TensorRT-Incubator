@@ -1,4 +1,4 @@
-// RUN: executor-opt %s -split-input-file -executor-expand-ops -verify-diagnostics | FileCheck %s
+// RUN: executor-opt %s -split-input-file -executor-expand-ops -canonicalize -verify-diagnostics | FileCheck %s
 
 func.func @lower_gep() -> i64 {
   %0 = executor.getoffset[1] : () -> i64, f32
@@ -33,12 +33,10 @@ func.func @lower_gep(%arg1: i64) -> i64 {
 
 // CHECK-LABEL: func.func @lower_gep
 //  CHECK-SAME: (%[[arg1:.+]]: i64) -> i64 {
-//   CHECK-DAG:     %[[c4_i64:.+]] = executor.constant 4 : i64
-//   CHECK-DAG:     %[[c8_i64:.+]] = executor.constant 8 : i64
 //   CHECK-DAG:     %[[c16_i64:.+]] = executor.constant 16 : i64
+//   CHECK-DAG:     %[[c12_i64:.+]] = executor.constant 12 : i64
 //   CHECK-DAG:     %[[v0:.+]] = executor.muli %[[arg1]], %[[c16_i64]] : i64
-//   CHECK-DAG:     %[[v2:.+]] = executor.addi %[[v0]], %[[c8_i64]] : i64
-//   CHECK-DAG:     %[[v3:.+]] = executor.addi %[[v2]], %[[c4_i64]] : i64
+//   CHECK-DAG:     %[[v3:.+]] = executor.addi %[[v0]], %[[c12_i64]] : i64
 //   CHECK-DAG:     return %[[v3]] : i64
 
 // -----
@@ -52,12 +50,10 @@ func.func @lower_gep(%arg1: i64) -> i64 {
 
 // CHECK-LABEL: func.func @lower_gep
 //  CHECK-SAME: (%[[arg0:.+]]: i64) -> i64 {
-//       CHECK:     %[[c8_i64:.+]] = executor.constant 8 : i64
-//   CHECK-DAG:     %[[c16_i64:.+]] = executor.constant 16 : i64
 //   CHECK-DAG:     %[[c32_i64:.+]] = executor.constant 32 : i64
+//   CHECK-DAG:     %[[c24_i64:.+]] = executor.constant 24 : i64
 //   CHECK-DAG:     %[[v0:.+]] = executor.muli %[[arg0]], %[[c32_i64]] : i64
-//   CHECK-DAG:     %[[v1:.+]] = executor.addi %[[v0]], %[[c16_i64]] : i64
-//   CHECK-DAG:     %[[v2:.+]] = executor.addi %[[v1]], %[[c8_i64]] : i64
+//   CHECK-DAG:     %[[v2:.+]] = executor.addi %[[v0]], %[[c24_i64]] : i64
 //   CHECK-DAG:     return %[[v2]] : i64
 
 // -----
@@ -75,8 +71,6 @@ func.func @lower_gep() -> i64 {
 
 // -----
 
-// test 32-bit index width
-
 !el_type = !executor.table<!executor.table<i32, f64>, !executor.table<i64, f32>>
 
 builtin.module attributes {
@@ -85,6 +79,7 @@ builtin.module attributes {
   >
 } {
   func.func @lower_gep() -> i64 {
+    // expected-error @+1 {{failed to legalize operation 'executor.getoffset' that was explicitly marked illegal}}
     %0 = executor.getoffset[0, 1, 1] : () -> i64, !el_type
     return %0 : i64
   }
@@ -119,6 +114,7 @@ builtin.module attributes {
   >
 } {
   func.func @lower_gep() -> i32 {
+    // expected-error @+1 {{failed to legalize operation 'executor.getoffset' that was explicitly marked illegal}}
     %0 = executor.getoffset[0x1FFFFFFFF, 1, 1] : () -> i32, !el_type
     return %0 : i32
   }
