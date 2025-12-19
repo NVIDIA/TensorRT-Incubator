@@ -357,91 +357,24 @@ struct ScalarizeWhileConditionProducers
 };
 } // namespace
 
-/// Check if the add op is a valid induction variable increment.
-static bool matchInductionVariableIncrement(stablehlo::AddOp op,
-                                            scf::WhileOp parentWhile) {
-  Value lhs = op.getLhs();
-  Value rhs = op.getRhs();
-  if (matchPattern(lhs, m_Constant()) || matchPattern(rhs, m_Constant()))
-    return true;
-  Region *whileRegion = parentWhile->getParentRegion();
-  return lhs.getParentRegion()->isAncestor(whileRegion) ||
-         rhs.getParentRegion()->isAncestor(whileRegion);
-}
-
 namespace {
 /// Scalarize any `stablehlo.add` operations in the 'after' region of
 /// a scf.while op.
-struct ScalarizeStablehloAddOp : public OpRewritePattern<stablehlo::AddOp> {
-  using OpRewritePattern<stablehlo::AddOp>::OpRewritePattern;
-  LogicalResult matchAndRewrite(stablehlo::AddOp op,
+struct ScalarizeStablehloAddOp : public OpRewritePattern<tensor::ExtractOp> {
+  using OpRewritePattern<tensor::ExtractOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(tensor::ExtractOp op,
                                 PatternRewriter &rewriter) const override {
-    if (!op->hasOneUse())
-      return rewriter.notifyMatchFailure(
-          op, "op has more than one use, cannot scalarize");
-    auto extractUser = dyn_cast<tensor::ExtractOp>(*op->user_begin());
-    if (!extractUser || !extractUser->hasOneUse() ||
-        !isa<scf::YieldOp>(*extractUser->user_begin()))
-      return rewriter.notifyMatchFailure(
-          op, "op result is not extracted and yielded from region");
-
-    auto scfWhile = extractUser->getParentOfType<scf::WhileOp>();
-    if (!scfWhile || scfWhile.getAfter() != op->getParentRegion())
-      return rewriter.notifyMatchFailure(
-          op, "op is not in the after region of a scf.while op");
-
-    // One operand must be a constant or defined above in order to be
-    // considered as the loop step.
-    if (!matchInductionVariableIncrement(op, scfWhile))
-      return rewriter.notifyMatchFailure(
-          op, "op is not a valid induction variable increment");
-
-    // Find a block argument that has been scalarized.
-    auto findBlockArgument = [](Value v) -> BlockArgument {
-      Value source{};
-      if (matchPattern(v,
-                       m_Op<tensor::FromElementsOp>(matchers::m_Any(&source))))
-        return dyn_cast<BlockArgument>(source);
-      return {};
-    };
-    BlockArgument arg = findBlockArgument(op.getLhs());
-    if (!arg)
-      arg = findBlockArgument(op.getRhs());
-    if (!arg || arg.getParentRegion() != scfWhile.getAfter())
-      return rewriter.notifyMatchFailure(
-          op, "could not find block argument in after region");
-
-    // Check that the corresponding block argument in the `before` region feeds
-    // into a comparison.
-    Region &before = scfWhile.getBefore();
-    if (arg.getArgNumber() >= before.getNumArguments() ||
-        before.getArgument(arg.getArgNumber()).getType() != arg.getType())
-      return rewriter.notifyMatchFailure(
-          op, "could not find block argument in before region");
-    auto beforeArg = before.getArgument(arg.getArgNumber());
-    if (!llvm::all_of(beforeArg.getUsers(),
-                      llvm::IsaPred<scf::ConditionOp, arith::CmpIOp>))
-      return rewriter.notifyMatchFailure(
-          op, "block argument is not consumed by a comparison op");
-
-    // Check that the before region has a block argument in the same position
-    // and is consumed by a comparison op.
-    RankedTensorType rtt = op.getType();
-    Type elementType = rtt.getElementType();
-    if (!rtt.hasStaticShape() || rtt.getNumElements() != 1 ||
-        !elementType.isSignlessIntOrIndex())
-      return rewriter.notifyMatchFailure(op, "op is not a scalar add op");
-
-    auto scalarOperands = llvm::map_to_vector(op.getOperands(), [&](Value v) {
-      return extractScalarFromTensorValue(rewriter, v);
-    });
-
-    auto scalarAdd =
-        stablehlo::StablehloOpToStdScalarOp::mapOp<stablehlo::AddOp>(
-            op, elementType, scalarOperands, &rewriter);
-    auto fromElements =
-        rewriter.create<tensor::FromElementsOp>(op.getLoc(), rtt, scalarAdd);
-    rewriter.replaceOp(op, fromElements);
+    auto addOp = op.getTensor().getDefiningOp<stablehlo::AddOp>();
+    if (!addOp || !addOp.getType().hasStaticShape() ||
+        addOp.getType().getNumElements() != 1)
+      return failure();
+    rewriter.setInsertionPoint(addOp);
+    SmallVector<Value> scalarOperands;
+    for (Value operand : addOp.getOperands())
+      scalarOperands.push_back(extractScalarFromTensorValue(rewriter, operand));
+    auto scalarAdd = stablehlo::StablehloOpToStdScalarOp::mapOp(
+        addOp, addOp.getType().getElementType(), scalarOperands, &rewriter);
+    rewriter.replaceOp(op, scalarAdd);
     return success();
   }
 };
@@ -453,9 +386,7 @@ struct ScalarizeStablehloAddOp : public OpRewritePattern<stablehlo::AddOp> {
 /// for loop. It will have a user like `stablehlo.compare` or `tensor.extract`.
 static bool shouldScalarizeWhileBeforeArg(BlockArgument arg, Value initOperand,
                                           Value yieldOperand) {
-  return cast<RankedTensorType>(arg.getType())
-             .getElementType()
-             .isSignlessIntOrIndex() &&
+  return cast<RankedTensorType>(arg.getType()).getElementType() &&
          llvm::count_if(arg.getUsers(),
                         llvm::IsaPred<stablehlo::CompareOp, arith::CmpIOp,
                                       tensor::ExtractOp>) >= 1;
@@ -473,8 +404,9 @@ static bool shouldScalarizeWhileAfterArg(BlockArgument arg, Value condOperand,
   if (before.getNumArguments() <= arg.getArgNumber() ||
       before.getArgument(arg.getArgNumber()).getType() !=
           rtt.getElementType() ||
-      !llvm::all_of(before.getArgument(arg.getArgNumber()).getUsers(),
-                    llvm::IsaPred<arith::CmpIOp, tensor::FromElementsOp>))
+      !llvm::all_of(
+          before.getArgument(arg.getArgNumber()).getUsers(),
+          llvm::IsaPred<arith::CmpIOp, arith::CmpFOp, tensor::FromElementsOp>))
     return false;
 
   auto condProducer = condOperand.getDefiningOp<tensor::FromElementsOp>();
@@ -482,8 +414,7 @@ static bool shouldScalarizeWhileAfterArg(BlockArgument arg, Value condOperand,
       !isa<BlockArgument>(condProducer.getElements().front()))
     return false;
 
-  return rtt.getElementType().isSignlessIntOrIndex() &&
-         llvm::count_if(arg.getUsers(),
+  return llvm::count_if(arg.getUsers(),
                         llvm::IsaPred<stablehlo::AddOp, arith::AddIOp,
                                       tensor::ExtractOp>) >= 1;
 }
