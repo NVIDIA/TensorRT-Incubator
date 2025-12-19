@@ -31,6 +31,8 @@ using namespace mlir::kernel;
 
 int32_t kernel::getHighestPTXVersion() {
 #ifdef MLIR_TRT_ENABLE_CUDA
+  if (MLIR_TRT_CUDA_VERSION_GTE(13, 0, 0))
+    return 90;
   if (MLIR_TRT_CUDA_VERSION_GTE(12, 9, 0))
     return 88;
   if (MLIR_TRT_CUDA_VERSION_GTE(12, 8, 0))

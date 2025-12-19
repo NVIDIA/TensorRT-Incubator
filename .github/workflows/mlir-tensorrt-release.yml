@@ -21,7 +21,7 @@ jobs:
       matrix: ${{ fromJSON(inputs.build-matrix) }}
     env:
       # eg. 10.12 or 10.13
-      DOWNLOAD_TENSORRT_VERSION: ${{ matrix.trt }}
+      MLIR_TRT_DOWNLOAD_TENSORRT_VERSION: ${{ matrix.trt }}
       ARCH: ${{ matrix.arch }}
       CCACHE_DIR: ${{ github.workspace }}/mlir-tensorrt/ccache
       CPM_SOURCE_CACHE: ${{ github.workspace }}/mlir-tensorrt/.cache.cpm
@@ -55,14 +55,17 @@ jobs:
       - name: Compute CCache Key
         id: ccache-key
         run: |
-          hash=$(find mlir-tensorrt/compiler \
-                      mlir-tensorrt/common \
-                      mlir-tensorrt/kernel \
-                      mlir-tensorrt/tensorrt \
-                      mlir-tensorrt/integrations \
-                      mlir-tensorrt/executor \
-                 -type f \( -name '*.cpp' -o -name '*.h' \) \
-                 -exec sha256sum {} \; | sort | sha256sum | cut -d' ' -f1)
+          hash=$( (find mlir-tensorrt/compiler \
+                        mlir-tensorrt/common \
+                        mlir-tensorrt/kernel \
+                        mlir-tensorrt/tensorrt \
+                        mlir-tensorrt/integrations \
+                        mlir-tensorrt/executor \
+                   -type f \( -name '*.cpp' -o -name '*.h' \) \
+                   -exec sha256sum {} \; ; \
+                  sha256sum mlir-tensorrt/DependencyProvider.cmake \
+                            mlir-tensorrt/CMakeLists.txt) \
+                 | sort | sha256sum | cut -d' ' -f1)
           echo "key=${{ env.CCACHE_RESTORE_KEY }}-${hash}" >> $GITHUB_OUTPUT
 
       # Restore cache, if exists.
@@ -99,7 +102,7 @@ jobs:
           set -euo pipefail
           set -x
           cd mlir-tensorrt
-          export MTRT_TENSORRT_VERSION=${{ matrix.trt }}
+          export MLIR_TRT_DOWNLOAD_TENSORRT_VERSION=${{ matrix.trt }}
           # TODO: remove this, once patch is in our rockylinux prebuilt image
           dnf install -yq patch
           # build wheels for mlir-tensorrt-compiler, mlir-tensorrt-runtime

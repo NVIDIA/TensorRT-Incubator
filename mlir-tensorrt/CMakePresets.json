@@ -81,14 +81,14 @@
       "cacheVariables": {
         "ENABLE_ASAN": "$env{ENABLE_ASAN}",
         "LLVM_LIT_ARGS": "$env{LLVM_LIT_ARGS}",
-        "MLIR_TRT_DOWNLOAD_TENSORRT_VERSION": "$env{DOWNLOAD_TENSORRT_VERSION}"
+        "MLIR_TRT_DOWNLOAD_TENSORRT_VERSION": "$env{MLIR_TRT_DOWNLOAD_TENSORRT_VERSION}"
       }
     },
     {
       "name": "distribution-wheels",
       "inherits": "release",
       "cacheVariables": {
-        "MLIR_TRT_DOWNLOAD_TENSORRT_VERSION": "$env{DOWNLOAD_TENSORRT_VERSION}",
+        "MLIR_TRT_DOWNLOAD_TENSORRT_VERSION": "$env{MLIR_TRT_DOWNLOAD_TENSORRT_VERSION}",
         "MLIR_TRT_ENABLE_MPI": "OFF",
         "MLIR_TRT_ENABLE_NCCL": "OFF",
         "MLIR_TRT_ENABLE_TORCH": "ON"
