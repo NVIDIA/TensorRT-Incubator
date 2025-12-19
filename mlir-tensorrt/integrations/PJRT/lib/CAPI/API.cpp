@@ -30,6 +30,8 @@
 #include "mlir-tensorrt-common/Support/Status.h"
 #include "mlir-tensorrt-pjrt/Client.h"
 #include "xla/pjrt/c/pjrt_c_api.h"
+#include "llvm/ADT/ArrayRef.h"
+#include <cstring>
 #include <sstream>
 
 using namespace mtrt;
@@ -121,6 +123,16 @@ struct PJRT_Error {
 private:
   Status status;
 };
+
+/// Backing storage for `PJRT_Executable_Serialize`.
+struct PJRT_SerializedExecutable {
+  std::vector<char> bytes;
+};
+
+static void
+PJRT_SerializedExecutable_Destroy(PJRT_SerializedExecutable *serialized) {
+  delete serialized;
+}
 
 PJRT_Error::PJRT_Error(Status &&status) : status(std::forward<Status>(status)) {
   assert(this->status.isError() && "expected status with an error");
@@ -697,7 +709,34 @@ PJRT_Executable_OptimizedProgram(PJRT_Executable_OptimizedProgram_Args *args) {
 
 PJRT_Error *PJRT_Executable_Serialize(PJRT_Executable_Serialize_Args *args) {
   PJRT_RETURN_IF_STRUCT_SIZE_ERROR(PJRT_Executable_Serialize_Args, args);
-  return PJRT_Error::allocateUnimplemented("Executable_Serialize");
+  const PJRTExecutable *exe = AsConstImpl<PJRTExecutable>(args->executable);
+  if (!exe)
+    return PJRT_Error::allocateInvalidArgumentError(
+        "expected non-null executable");
+
+  const auto &storage = exe->getStorage();
+  if (!storage)
+    return PJRT_Error::allocateInternalError(
+        "executable has no storage backing (unexpected)");
+
+  const void *data = storage->data();
+  const size_t size = storage->size();
+
+  auto *serialized = new PJRT_SerializedExecutable();
+  serialized->bytes.resize(size);
+  if (size != 0) {
+    assert(data && "expected non-null data when size != 0");
+    std::memcpy(serialized->bytes.data(), data, size);
+  }
+
+  args->serialized_executable = serialized;
+  args->serialized_executable_deleter = PJRT_SerializedExecutable_Destroy;
+  // PJRT contract: serialized_bytes live only as long as serialized_executable.
+  args->serialized_bytes =
+      serialized->bytes.empty() ? nullptr : serialized->bytes.data();
+  args->serialized_bytes_size = serialized->bytes.size();
+
+  return PJRT_Error::getOk();
 }
 
 PJRT_Error *PJRT_Executable_OutputElementTypes(
@@ -863,19 +902,66 @@ PJRT_Error *PJRT_Executable_DeserializeAndLoad(
     PJRT_Executable_DeserializeAndLoad_Args *args) {
   PJRT_RETURN_IF_STRUCT_SIZE_ERROR(PJRT_Executable_DeserializeAndLoad_Args,
                                    args);
-  return PJRT_Error::allocateUnimplemented("Executable_DeserializeAndLoad");
+  Client *client = AsImpl<Client>(args->client);
+  if (!client)
+    return PJRT_Error::allocateInvalidArgumentError("expected non-null client");
+
+  if (args->serialized_executable == nullptr &&
+      args->serialized_executable_size != 0)
+    return PJRT_Error::allocateInvalidArgumentError(
+        "serialized_executable is null but size is non-zero");
+
+  llvm::ArrayRef<char> bytes(args->serialized_executable,
+                             args->serialized_executable_size);
+
+  StatusOr<std::unique_ptr<mtrt::Executable>> exe =
+      mtrt::Executable::loadFromUnalignedRef(bytes);
+  if (!exe.isOk())
+    return PJRT_Error::allocateFromStatus(exe.getStatus());
+
+  // Verify flatbuffer integrity early to give a nice error.
+  Status verifyStatus = (*exe)->verify();
+  if (!verifyStatus.isOk())
+    return PJRT_Error::allocateFromStatus(verifyStatus);
+
+  auto pjrtExe = std::make_unique<PJRTExecutable>(std::move(*(*exe)));
+
+  // Select devices: by default, load on the first N devices where
+  // N = product(processor_grid_shape).
+  llvm::ArrayRef<uint32_t> processGrid = pjrtExe->getProcessorGridShape();
+  size_t requiredDevices = 1;
+  for (uint32_t d : processGrid)
+    requiredDevices *= static_cast<size_t>(d);
+
+  const auto &availableDevices = client->getDevices();
+  if (requiredDevices > availableDevices.size())
+    return PJRT_Error::allocateInvalidArgumentError(
+        "serialized executable requires more devices than are available");
+
+  std::vector<PjRtDevice *> devicesToUse;
+  devicesToUse.reserve(requiredDevices);
+  for (size_t i = 0; i < requiredDevices; ++i)
+    devicesToUse.push_back(availableDevices[i]);
+
+  StatusOr<std::unique_ptr<PJRTLoadedExecutable>> loaded =
+      PJRTLoadedExecutable::create(client, std::move(pjrtExe),
+                                   client->getThreadPool(), devicesToUse);
+  if (!loaded.isOk())
+    return PJRT_Error::allocateFromStatus(loaded.getStatus());
+
+  args->loaded_executable =
+      reinterpret_cast<PJRT_LoadedExecutable *>(loaded->release());
+  return PJRT_Error::getOk();
 }
 
 /// PJRT Doc:
-/// A unique fingerprint for `executable`. Two executables that were produced
-/// by compiling with identical inputs (same program, compile options,
-/// compiler version, etc.) should have the same fingerprint. May not be
-/// implemented by all platforms.
+/// Deprecated, use PJRT_Executable_Fingerprint instead.
 PJRT_Error *PJRT_LoadedExecutable_Fingerprint(
     PJRT_LoadedExecutable_Fingerprint_Args *args) {
   PJRT_RETURN_IF_STRUCT_SIZE_ERROR(PJRT_LoadedExecutable_Fingerprint_Args,
                                    args);
-  return PJRT_Error::allocateUnimplemented("LoadedExecutable_Fingerprint");
+  return PJRT_Error::allocateUnimplemented(
+      "PJRT_LoadedExecutable_Fingerprint is deprecated");
 }
 
 //===----------------------------------------------------------------------===//
