@@ -43,9 +43,16 @@ cmd_detect_code_change() {
     echo "github.event_name: ${event_name} or github.ref_type: ${ref_type}"
     return 0
   fi
-
   local range
-  range="$(compute_range)"
+  local ref_name="${GITHUB_REF_NAME:-}"
+  local default_base="${GITHUB_DEFAULT_BRANCH:-main}"
+
+  # For push to main branch, compare HEAD against HEAD~1
+  if [ "${event_name}" = "push" ] && [ "${ref_name}" = "${default_base}" ]; then
+    range="HEAD~1..HEAD"
+  else
+    range="$(compute_range)"
+  fi
 
   set +e
   local diff_output
@@ -132,5 +139,3 @@ main() {
 }
 
 main "$@"
-
-
