@@ -262,4 +262,7 @@ Building Python packages is best done using the `uv` tool.
 ```bash
 DOWNLOAD_TENSORRT_VERSION=10.13 uv build integrations/python/mlir_tensorrt_compiler --wheel --out-dir dist
 DOWNLOAD_TENSORRT_VERSION=10.13 uv build integrations/python/mlir_tensorrt_runtime --wheel --out-dir dist
+DOWNLOAD_TENSORRT_VERSION=10.13 uv build integrations/PJRT/python --wheel --out-dir dist
 ```
+
+You can also supply a specific Python version (e.g. `--python 3.12`) to the `uv` command.
