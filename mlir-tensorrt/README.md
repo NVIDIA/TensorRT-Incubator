@@ -16,11 +16,11 @@ compiler MLIR output or emitted as a separate file. A host program in one of thr
 is also emitted. See the table below for example commands:
 
 
-| Host Output Option      | Description                              | Current Testing/Functionality Level | Example Command Line                                                          |
-|----------------------|---------------------------------------------|-------------------------------------------------------------------------------|
-| `mtrt-interpreter` (default) | Generate host code for the MTRT interpreter | best  |  `mlir-tensorrt-compiler input.mlir --opts="host-target=executor" -o=output.rtexe --entrypoint=main` |
-| `cpp`/`emitc`        | Emit plain C++ host code                    | basic | `mlir-tensorrt-compiler input.mlir --opts="host-target=emitc" -o=output --entrypoint=main`           |
-| `llvm`               | Emit LLVM-IR for the host, runnable with `mlir-cpu-runner` + MLIR-TRT C support library | basic | `mlir-tensorrt-compiler input.mlir --opts="host-target=llvm" -o=output.llvm --entrypoint=main`       |
+| Host Output Option            | Description                                                                         | Current Testing/Functionality Level | Example Command Line                                                                                   |
+|------------------------------|-------------------------------------------------------------------------------------|-------------------------------------|--------------------------------------------------------------------------------------------------------|
+| `mtrt-interpreter` (default) | Generate host code for the MTRT interpreter                                         | best                                | `mlir-tensorrt-compiler input.mlir --opts="host-target=executor" -o=output.rtexe --entrypoint=main`    |
+| `cpp`/`emitc`                | Emit plain C++ host code                                                            | basic                               | `mlir-tensorrt-compiler input.mlir --opts="host-target=emitc" -o=output --entrypoint=main`             |
+| `llvm`                       | Emit LLVM-IR for the host, runnable with `mlir-cpu-runner` + MLIR-TRT C support library | basic                               | `mlir-tensorrt-compiler input.mlir --opts="host-target=llvm" -o=output.llvm --entrypoint=main`        |
 
 Choose the output format which best matches your integration or development needs. How to use the output
 will depend on the host output format. See the [Runtime](#runtime) section.
