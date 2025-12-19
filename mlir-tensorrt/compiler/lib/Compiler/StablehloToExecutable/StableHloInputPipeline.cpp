@@ -93,6 +93,7 @@ void mtrt::compiler::buildStablehloPreProcessingPipeline(
   // `convert-stablehlo-to-scf`:
   if (opts.legalizeControlFlowToSCF) {
     pm.addNestedPass<func::FuncOp>(mlir::createConvertStablehloToScfPass());
+    pm.addNestedPass<func::FuncOp>(mtrt::createSCFFloatStrengthReducePass());
     pm.addNestedPass<func::FuncOp>(mtrt::createSCFUnrollPass(
         mtrt::SCFUnrollPassOptions{opts.unrollThreshold}));
   }

@@ -36,6 +36,7 @@ add_mlir_tensorrt_library(MLIRTensorRTCompilerStableHloToExecutable
       MLIRTensorRTTargetLua
       MLIRTensorRTTensorRTBackend
       MLIRTensorRTTensorRTToTensorRTRuntime
+      MLIRTensorRTTransformsSCFFloatStrengthReduce
       MLIRTensorRTTransformsUnrollForLoops
       StablehloLinalgTransforms
     MLIR_LIBS PUBLIC

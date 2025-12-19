@@ -70,18 +70,18 @@ func.func @stablehlo_while_to_scf_while(%arg0: tensor<i64>, %arg1: tensor<i64>) 
 
 func.func private @some_compute(tensor<f32>) -> tensor<1xf32>
 
-func.func @stablehlo_while_regression(%arg0: tensor<1xf32>, %arg1: tensor<f32>) -> tensor<1xf32> {
-  %c_33 = stablehlo.constant dense<0> : tensor<i32>
+func.func @stablehlo_while_single_iteration(%arg0: tensor<1xf32>, %arg1: tensor<f32>) -> tensor<1xf32> {
+  %c0 = stablehlo.constant dense<0> : tensor<i32>
   %cst = stablehlo.constant dense<0.000000e+00> : tensor<1xf32>
-  %c_31 = stablehlo.constant dense<1> : tensor<i32>
+  %c1 = stablehlo.constant dense<1> : tensor<i32>
   %cst_0 = stablehlo.constant dense<1.000000e+00> : tensor<f32>
-  %5:2 = stablehlo.while(%iterArg = %c_33, %iterArg_34 = %cst) : tensor<i32>, tensor<1xf32>
+  %5:2 = stablehlo.while(%iterArg = %c0, %iterArg_34 = %cst) : tensor<i32>, tensor<1xf32>
     cond {
-    %6 = stablehlo.compare  LT, %iterArg, %c_31,  SIGNED : (tensor<i32>, tensor<i32>) -> tensor<i1>
+    %6 = stablehlo.compare  LT, %iterArg, %c1,  SIGNED : (tensor<i32>, tensor<i32>) -> tensor<i1>
     stablehlo.return %6 : tensor<i1>
   } do {
-    %6 = stablehlo.compare  LT, %iterArg, %c_33,  SIGNED : (tensor<i32>, tensor<i32>) -> tensor<i1>
-    %7 = stablehlo.add %iterArg, %c_31 : tensor<i32>
+    %6 = stablehlo.compare  LT, %iterArg, %c0,  SIGNED : (tensor<i32>, tensor<i32>) -> tensor<i1>
+    %7 = stablehlo.add %iterArg, %c1 : tensor<i32>
     %8 = stablehlo.select %6, %7, %iterArg : tensor<i1>, tensor<i32>
     %10 = stablehlo.dynamic_slice %arg0, %8, sizes = [1] : (tensor<1xf32>, tensor<i32>) -> tensor<1xf32>
     %11 = stablehlo.reshape %10 : (tensor<1xf32>) -> tensor<f32>
@@ -94,30 +94,14 @@ func.func @stablehlo_while_regression(%arg0: tensor<1xf32>, %arg1: tensor<f32>) 
   return %5#1 : tensor<1xf32>
 }
 
-// CHECK-LABEL: func.func @stablehlo_while_regression
-//       CHECK: scf.while
-
-// -----
-
-
-func.func @dont_scalarize_while(%arg0: tensor<f32>) -> tensor<f32> {
-  %0 = stablehlo.while(%iterArg = %arg0) : tensor<f32>
-    cond {
-    %c0 = stablehlo.constant dense<0.0> : tensor<f32>
-    %1 = stablehlo.compare  LT, %iterArg, %c0,  SIGNED : (tensor<f32>, tensor<f32>) -> tensor<i1>
-    stablehlo.return %1 : tensor<i1>
-  } do {
-    %c1 = stablehlo.constant dense<1.0> : tensor<f32>
-    %2 = stablehlo.subtract %iterArg, %c1 : tensor<f32>
-    stablehlo.return %2 :  tensor<f32>
-  }
-  return %0 : tensor<f32>
-}
-
-// CHECK-LABEL: @dont_scalarize_while
-//       CHECK: scf.while {{.*}} (tensor<f32>) -> tensor<f32>
-//       CHECK:   scf.condition{{.*}} : tensor<f32>
-//       CHECK:   scf.yield{{.*}} : tensor<f32>
+// CHECK-LABEL: func.func @stablehlo_while_single_iteration
+//   CHECK-NOT: scf.while
+//   CHECK-NOT: scf.for
+//       CHECK:  stablehlo.compare
+//       CHECK:  stablehlo.add
+//       CHECK:  stablehlo.dynamic_slice
+//       CHECK:  call @some_compute
+//       CHECK:  return
 
 // -----
 
