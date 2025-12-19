@@ -31,6 +31,15 @@
 
 static constexpr std::string_view kMlirFormat = "mlir";
 
+// Helper to reduce verbosity when setting up PJRT C API structs.
+// Most PJRT entrypoints require `.struct_size` and `.extension_start` to be
+// set. `T##_STRUCT_SIZE` is defined by the PJRT C API headers for each struct
+// `T`.
+#define MTRT_PJRT_INIT_STRUCT(T, var)                                          \
+  T var{};                                                                     \
+  var.struct_size = T##_STRUCT_SIZE;                                           \
+  var.extension_start = nullptr
+
 static constexpr std::string_view kStablehloAddOneProgram =
     R"(
 module @test_module {
@@ -42,16 +51,13 @@ module @test_module {
 })";
 
 static void destroyError(const PJRT_Api *api, PJRT_Error *err) {
-  PJRT_Error_Destroy_Args args;
-  args.struct_size = PJRT_Error_Destroy_Args_STRUCT_SIZE;
-  args.extension_start = 0;
+  MTRT_PJRT_INIT_STRUCT(PJRT_Error_Destroy_Args, args);
   args.error = err;
   api->PJRT_Error_Destroy(&args);
 }
 
 static std::string takeError(const PJRT_Api *api, PJRT_Error *err) {
-  PJRT_Error_Message_Args args;
-  args.struct_size = PJRT_Error_Message_Args_STRUCT_SIZE;
+  MTRT_PJRT_INIT_STRUCT(PJRT_Error_Message_Args, args);
   args.error = err;
   args.message_size = 0;
   args.message = nullptr;
@@ -61,12 +67,40 @@ static std::string takeError(const PJRT_Api *api, PJRT_Error *err) {
   return result;
 }
 
+static mtrt::StatusOr<PJRT_LoadedExecutable *>
+compileTestProgram(const PJRT_Api *api, PJRT_Client *client,
+                   std::string_view programText,
+                   std::string_view programFormat = kMlirFormat,
+                   std::string_view compileOptions = "") {
+  MTRT_PJRT_INIT_STRUCT(PJRT_Client_Compile_Args, args);
+  args.client = client;
+
+  std::string optionsStr(compileOptions);
+  args.compile_options = optionsStr.c_str();
+  args.compile_options_size = optionsStr.size();
+
+  std::string formatStr(programFormat);
+  std::string programCode(programText);
+
+  MTRT_PJRT_INIT_STRUCT(PJRT_Program, program);
+  program.code = programCode.data();
+  program.code_size = programCode.length();
+  program.format = formatStr.c_str();
+  program.format_size = formatStr.size();
+  args.program = &program;
+
+  PJRT_Error *error = api->PJRT_Client_Compile(&args);
+  if (error != nullptr)
+    return mtrt::getInternalErrorStatus("failed to compile program: {0}",
+                                        takeError(api, error));
+
+  return args.executable;
+}
+
 static mtrt::StatusOr<const PJRT_Api *> getApiImpl() {
   const PJRT_Api *api = GetPjrtApi();
 
-  PJRT_Plugin_Initialize_Args args;
-  args.struct_size = PJRT_Plugin_Initialize_Args_STRUCT_SIZE;
-  args.extension_start = nullptr;
+  MTRT_PJRT_INIT_STRUCT(PJRT_Plugin_Initialize_Args, args);
   PJRT_Error *e = api->PJRT_Plugin_Initialize(&args);
   if (e != nullptr)
     return mtrt::getInternalErrorStatus("failed to initialize plugin: {0}",
@@ -76,9 +110,7 @@ static mtrt::StatusOr<const PJRT_Api *> getApiImpl() {
 
 static mtrt::StatusOr<PJRT_Client *> getPJRTClient(const PJRT_Api *api) {
 
-  PJRT_Client_Create_Args create_arg;
-  create_arg.struct_size = PJRT_Client_Create_Args_STRUCT_SIZE;
-  create_arg.extension_start = nullptr;
+  MTRT_PJRT_INIT_STRUCT(PJRT_Client_Create_Args, create_arg);
   create_arg.client = nullptr;
   create_arg.create_options = nullptr;
   create_arg.num_options = 0;
@@ -92,9 +124,7 @@ static mtrt::StatusOr<PJRT_Client *> getPJRTClient(const PJRT_Api *api) {
 }
 
 static mtrt::Status destroyClient(const PJRT_Api *api, PJRT_Client *client) {
-  PJRT_Client_Destroy_Args args;
-  args.struct_size = PJRT_Client_Destroy_Args_STRUCT_SIZE;
-  args.extension_start = nullptr;
+  MTRT_PJRT_INIT_STRUCT(PJRT_Client_Destroy_Args, args);
   args.client = client;
 
   PJRT_Error *e = api->PJRT_Client_Destroy(&args);
@@ -105,9 +135,7 @@ static mtrt::Status destroyClient(const PJRT_Api *api, PJRT_Client *client) {
 }
 
 static mtrt::Status destroyBuffer(const PJRT_Api *api, PJRT_Buffer *buffer) {
-  PJRT_Buffer_Destroy_Args args;
-  args.struct_size = PJRT_Buffer_Destroy_Args_STRUCT_SIZE;
-  args.extension_start = nullptr;
+  MTRT_PJRT_INIT_STRUCT(PJRT_Buffer_Destroy_Args, args);
   args.buffer = buffer;
 
   PJRT_Error *e = api->PJRT_Buffer_Destroy(&args);
@@ -120,9 +148,7 @@ static mtrt::Status destroyBuffer(const PJRT_Api *api, PJRT_Buffer *buffer) {
 static mtrt::StatusOr<std::vector<PJRT_Device *>>
 getAddressableDevices(const PJRT_Api *api, PJRT_Client *client) {
 
-  PJRT_Client_AddressableDevices_Args args;
-  args.struct_size = PJRT_Client_AddressableMemories_Args_STRUCT_SIZE;
-  args.extension_start = 0;
+  MTRT_PJRT_INIT_STRUCT(PJRT_Client_AddressableDevices_Args, args);
   args.addressable_devices = nullptr;
   args.num_addressable_devices = 0;
   args.client = client;
@@ -139,9 +165,7 @@ getAddressableDevices(const PJRT_Api *api, PJRT_Client *client) {
 
 static mtrt::StatusOr<PJRT_Memory *> getDeviceMemory(const PJRT_Api *api,
                                                      PJRT_Device *device) {
-  PJRT_Device_DefaultMemory_Args args;
-  args.struct_size = PJRT_Device_DefaultMemory_Args_STRUCT_SIZE;
-  args.extension_start = nullptr;
+  MTRT_PJRT_INIT_STRUCT(PJRT_Device_DefaultMemory_Args, args);
   args.device = device;
   PJRT_Error *e = api->PJRT_Device_DefaultMemory(&args);
   if (e != nullptr)
@@ -153,9 +177,7 @@ static mtrt::StatusOr<PJRT_Memory *> getDeviceMemory(const PJRT_Api *api,
 static mtrt::StatusOr<PJRT_Buffer *> copyBufferToMemory(const PJRT_Api *api,
                                                         PJRT_Buffer *buffer,
                                                         PJRT_Memory *memory) {
-  PJRT_Buffer_CopyToMemory_Args args;
-  args.struct_size = PJRT_Buffer_CopyToMemory_Args_STRUCT_SIZE;
-  args.extension_start = nullptr;
+  MTRT_PJRT_INIT_STRUCT(PJRT_Buffer_CopyToMemory_Args, args);
   args.dst_memory = memory;
   args.buffer = buffer;
   PJRT_Error *e = api->PJRT_Buffer_CopyToMemory(&args);
@@ -167,9 +189,7 @@ static mtrt::StatusOr<PJRT_Buffer *> copyBufferToMemory(const PJRT_Api *api,
 
 static mtrt::Status eventOnReady(const PJRT_Api *api, PJRT_Event *event,
                                  std::atomic<bool> &ready) {
-  PJRT_Event_OnReady_Args args;
-  args.struct_size = PJRT_Event_OnReady_Args_STRUCT_SIZE;
-  args.extension_start = nullptr;
+  MTRT_PJRT_INIT_STRUCT(PJRT_Event_OnReady_Args, args);
   args.event = event;
   args.user_arg = new std::function<void(PJRT_Error *)>(
       [api, &ready](PJRT_Error *error) -> void {
@@ -200,16 +220,12 @@ static mtrt::StatusOr<PJRT_Buffer *> bufferFromHostBuffer(
     const std::vector<int64_t> &shape, PJRT_Buffer_Type elementType,
     const std::vector<int64_t> &byteStrides, PJRT_Memory *destMemory) {
 
-  PJRT_Client_BufferFromHostBuffer_Args args;
-  args.struct_size = PJRT_Client_BufferFromHostBuffer_Args_STRUCT_SIZE;
-  args.extension_start = nullptr;
+  MTRT_PJRT_INIT_STRUCT(PJRT_Client_BufferFromHostBuffer_Args, args);
   args.client = client;
   args.data = data;
   args.type = elementType;
 
-  PJRT_Buffer_MemoryLayout_Strides strides;
-  strides.struct_size = PJRT_Buffer_MemoryLayout_Strides_STRUCT_SIZE;
-  strides.extension_start = 0;
+  MTRT_PJRT_INIT_STRUCT(PJRT_Buffer_MemoryLayout_Strides, strides);
   strides.byte_strides = byteStrides.data();
   strides.num_byte_strides = byteStrides.size();
 
@@ -255,9 +271,7 @@ static mtrt::StatusOr<PJRT_Buffer *> bufferFromHostBuffer(
 
 static mtrt::StatusOr<PJRT_Buffer_Type>
 getBufferElementType(const PJRT_Api *api, PJRT_Buffer *buffer) {
-  PJRT_Buffer_ElementType_Args args;
-  args.struct_size = PJRT_Buffer_ElementType_Args_STRUCT_SIZE;
-  args.extension_start = nullptr;
+  MTRT_PJRT_INIT_STRUCT(PJRT_Buffer_ElementType_Args, args);
   args.buffer = buffer;
 
   PJRT_Error *e = api->PJRT_Buffer_ElementType(&args);
@@ -269,9 +283,7 @@ getBufferElementType(const PJRT_Api *api, PJRT_Buffer *buffer) {
 
 static mtrt::StatusOr<size_t>
 getBufferOnDeviceSizeInBytes(const PJRT_Api *api, PJRT_Buffer *buffer) {
-  PJRT_Buffer_OnDeviceSizeInBytes_Args args;
-  args.struct_size = PJRT_Buffer_OnDeviceSizeInBytes_Args_STRUCT_SIZE;
-  args.extension_start = nullptr;
+  MTRT_PJRT_INIT_STRUCT(PJRT_Buffer_OnDeviceSizeInBytes_Args, args);
   args.buffer = buffer;
 
   PJRT_Error *e = api->PJRT_Buffer_OnDeviceSizeInBytes(&args);
@@ -284,9 +296,7 @@ getBufferOnDeviceSizeInBytes(const PJRT_Api *api, PJRT_Buffer *buffer) {
 static mtrt::Status destroyLoadedExecutable(const PJRT_Api *api,
                                             PJRT_LoadedExecutable *executable) {
 
-  PJRT_LoadedExecutable_Destroy_Args args;
-  args.struct_size = PJRT_LoadedExecutable_Destroy_Args_STRUCT_SIZE;
-  args.extension_start = nullptr;
+  MTRT_PJRT_INIT_STRUCT(PJRT_LoadedExecutable_Destroy_Args, args);
   args.executable = executable;
   PJRT_Error *error = api->PJRT_LoadedExecutable_Destroy(&args);
   if (error != nullptr)
@@ -506,18 +516,14 @@ TEST(PJRTPluginCAPI, Buffer_IsDeleted) {
     ASSERT_TRUE(s.isOk()) << s.getStatus();
   });
 
-  PJRT_Buffer_IsDeleted_Args is_deleted_args;
-  is_deleted_args.struct_size = PJRT_Buffer_IsDeleted_Args_STRUCT_SIZE;
-  is_deleted_args.extension_start = nullptr;
+  MTRT_PJRT_INIT_STRUCT(PJRT_Buffer_IsDeleted_Args, is_deleted_args);
   is_deleted_args.buffer = *buffer;
   PJRT_Error *is_deleted_error =
       (*api)->PJRT_Buffer_IsDeleted(&is_deleted_args);
   ASSERT_EQ(is_deleted_error, nullptr);
   ASSERT_FALSE(is_deleted_args.is_deleted);
 
-  PJRT_Buffer_Delete_Args delete_args;
-  delete_args.struct_size = PJRT_Buffer_Delete_Args_STRUCT_SIZE;
-  delete_args.extension_start = nullptr;
+  MTRT_PJRT_INIT_STRUCT(PJRT_Buffer_Delete_Args, delete_args);
   delete_args.buffer = *buffer;
   PJRT_Error *delete_error = (*api)->PJRT_Buffer_Delete(&delete_args);
   ASSERT_EQ(delete_error, nullptr);
@@ -528,11 +534,6 @@ TEST(PJRTPluginCAPI, Buffer_IsDeleted) {
 }
 
 TEST_F(PJRTCApiTest, Client_Compile) {
-  PJRT_Client_Compile_Args args;
-  args.struct_size = PJRT_Client_Compile_Args_STRUCT_SIZE;
-  args.extension_start = nullptr;
-  args.client = getClient();
-
   // Since TensorRT may be required, we only test compilation if a GPU is
   // present.
   mtrt::StatusOr<std::vector<PJRT_Device *>> devices =
@@ -541,36 +542,19 @@ TEST_F(PJRTCApiTest, Client_Compile) {
   if (devices->size() < 1)
     GTEST_SKIP() << "requires >=1 GPUs";
 
-  std::string options_str = "";
-  args.compile_options = options_str.c_str();
-  args.compile_options_size = options_str.size();
-
-  std::string format(kMlirFormat);
-  std::string program_code{kStablehloAddOneProgram};
-  PJRT_Program program;
-  program.struct_size = PJRT_Program_STRUCT_SIZE;
-  program.extension_start = nullptr;
-  program.code = program_code.data();
-  program.code_size = program_code.length();
-  program.format = format.c_str();
-  program.format_size = format.size();
-  args.program = &program;
-
-  PJRT_Error *error = getApi()->PJRT_Client_Compile(&args);
-  ASSERT_EQ(error, nullptr)
-      << "failed to compile program: " << takeError(getApi(), error);
+  mtrt::StatusOr<PJRT_LoadedExecutable *> executable =
+      compileTestProgram(getApi(), getClient(), kStablehloAddOneProgram);
+  ASSERT_TRUE(executable.isOk()) << executable.getStatus();
 
   // Check `is_deleted` is false.
-  PJRT_LoadedExecutable_IsDeleted_Args isDeleted;
-  isDeleted.struct_size = PJRT_LoadedExecutable_IsDeleted_Args_STRUCT_SIZE;
-  isDeleted.extension_start = nullptr;
-  isDeleted.executable = args.executable;
+  MTRT_PJRT_INIT_STRUCT(PJRT_LoadedExecutable_IsDeleted_Args, isDeleted);
+  isDeleted.executable = *executable;
   PJRT_Error *isDeletedStatus =
       (*api)->PJRT_LoadedExecutable_IsDeleted(&isDeleted);
   ASSERT_EQ(isDeletedStatus, nullptr) << takeError(getApi(), isDeletedStatus);
   ASSERT_FALSE(isDeleted.is_deleted);
 
-  mtrt::Status s = destroyLoadedExecutable(getApi(), args.executable);
+  mtrt::Status s = destroyLoadedExecutable(getApi(), *executable);
   ASSERT_TRUE(s.isOk()) << s.getStatus();
 }
 
@@ -585,34 +569,15 @@ TEST_F(PJRTCApiTest, Client_Compile_concurrent) {
 
   std::atomic<uint32_t> numErrors = 0;
   auto doCompile = [&]() {
-    std::string options_str = "";
-    PJRT_Client_Compile_Args args;
-    args.struct_size = PJRT_Client_Compile_Args_STRUCT_SIZE;
-    args.extension_start = nullptr;
-    args.client = getClient();
-    args.compile_options = options_str.c_str();
-    args.compile_options_size = options_str.size();
-
-    std::string format(kMlirFormat);
-    std::string program_code{kStablehloAddOneProgram};
-    PJRT_Program program;
-    program.struct_size = PJRT_Program_STRUCT_SIZE;
-    program.extension_start = nullptr;
-    program.code = program_code.data();
-    program.code_size = program_code.length();
-    program.format = format.c_str();
-    program.format_size = format.size();
-    args.program = &program;
-
-    PJRT_Error *error = getApi()->PJRT_Client_Compile(&args);
-    if (error != nullptr) {
-      std::cerr << "failed to compile program: " << takeError(getApi(), error)
-                << std::endl;
+    mtrt::StatusOr<PJRT_LoadedExecutable *> executable =
+        compileTestProgram(getApi(), getClient(), kStablehloAddOneProgram);
+    if (!executable.isOk()) {
+      std::cerr << executable.getStatus() << std::endl;
       numErrors++;
       return;
     }
 
-    mtrt::Status s = destroyLoadedExecutable(getApi(), args.executable);
+    mtrt::Status s = destroyLoadedExecutable(getApi(), *executable);
     if (!s.isOk()) {
       std::cerr << "failed to destroy executable: " << s.getMessage()
                 << std::endl;
@@ -627,4 +592,174 @@ TEST_F(PJRTCApiTest, Client_Compile_concurrent) {
     thread.join();
 
   ASSERT_EQ(numErrors, 0U) << "expected no errors";
+}
+
+static mtrt::Status destroyExecutable(const PJRT_Api *api,
+                                      PJRT_Executable *executable) {
+  MTRT_PJRT_INIT_STRUCT(PJRT_Executable_Destroy_Args, args);
+  args.executable = executable;
+  PJRT_Error *error = api->PJRT_Executable_Destroy(&args);
+  if (error != nullptr)
+    return mtrt::getInternalErrorStatus("failed to destroy executable: {0}",
+                                        takeError(api, error));
+  return mtrt::getOkStatus();
+}
+
+// Test for PJRT_Executable_OutputElementTypes
+TEST_F(PJRTCApiTest, Executable_OutputElementTypes) {
+  mtrt::StatusOr<std::vector<PJRT_Device *>> devices =
+      getAddressableDevices(*api, *client);
+  ASSERT_TRUE(devices.isOk()) << devices.getStatus();
+  if (devices->size() < 1)
+    GTEST_SKIP() << "requires >=1 GPUs";
+
+  // Compile the program
+  mtrt::StatusOr<PJRT_LoadedExecutable *> loaded =
+      compileTestProgram(getApi(), getClient(), kStablehloAddOneProgram);
+  ASSERT_TRUE(loaded.isOk()) << loaded.getStatus();
+
+  auto cleanupLoaded = llvm::make_scope_exit([&]() {
+    mtrt::Status s = destroyLoadedExecutable(getApi(), *loaded);
+    EXPECT_TRUE(s.isOk()) << s.getStatus();
+  });
+
+  // Get the PJRT_Executable from the loaded executable
+  MTRT_PJRT_INIT_STRUCT(PJRT_LoadedExecutable_GetExecutable_Args, get_exe_args);
+  get_exe_args.loaded_executable = *loaded;
+  get_exe_args.executable = nullptr;
+
+  PJRT_Error *error =
+      getApi()->PJRT_LoadedExecutable_GetExecutable(&get_exe_args);
+  ASSERT_EQ(error, nullptr)
+      << "failed to get executable: " << takeError(getApi(), error);
+
+  auto cleanupExe = llvm::make_scope_exit([&]() {
+    mtrt::Status s = destroyExecutable(getApi(), get_exe_args.executable);
+    EXPECT_TRUE(s.isOk()) << s.getStatus();
+  });
+
+  // Test PJRT_Executable_OutputElementTypes
+  MTRT_PJRT_INIT_STRUCT(PJRT_Executable_OutputElementTypes_Args,
+                        output_types_args);
+  output_types_args.executable = get_exe_args.executable;
+
+  error = getApi()->PJRT_Executable_OutputElementTypes(&output_types_args);
+  ASSERT_EQ(error, nullptr)
+      << "failed to get output element types: " << takeError(getApi(), error);
+
+  // The program has 1 output of type f32
+  ASSERT_EQ(output_types_args.num_output_types, 1U);
+  ASSERT_NE(output_types_args.output_types, nullptr);
+  ASSERT_EQ(output_types_args.output_types[0], PJRT_Buffer_Type_F32);
+}
+
+// Test for PJRT_Executable_OutputDimensions
+TEST_F(PJRTCApiTest, Executable_OutputDimensions) {
+  mtrt::StatusOr<std::vector<PJRT_Device *>> devices =
+      getAddressableDevices(*api, *client);
+  ASSERT_TRUE(devices.isOk()) << devices.getStatus();
+  if (devices->size() < 1)
+    GTEST_SKIP() << "requires >=1 GPUs";
+
+  // Compile the program
+  mtrt::StatusOr<PJRT_LoadedExecutable *> loaded =
+      compileTestProgram(getApi(), getClient(), kStablehloAddOneProgram);
+  ASSERT_TRUE(loaded.isOk()) << loaded.getStatus();
+
+  auto cleanupLoaded = llvm::make_scope_exit([&]() {
+    mtrt::Status s = destroyLoadedExecutable(getApi(), *loaded);
+    EXPECT_TRUE(s.isOk()) << s.getStatus();
+  });
+
+  // Get the PJRT_Executable from the loaded executable
+  MTRT_PJRT_INIT_STRUCT(PJRT_LoadedExecutable_GetExecutable_Args, get_exe_args);
+  get_exe_args.loaded_executable = *loaded;
+  get_exe_args.executable = nullptr;
+
+  PJRT_Error *error =
+      getApi()->PJRT_LoadedExecutable_GetExecutable(&get_exe_args);
+  ASSERT_EQ(error, nullptr)
+      << "failed to get executable: " << takeError(getApi(), error);
+
+  auto cleanupExe = llvm::make_scope_exit([&]() {
+    mtrt::Status s = destroyExecutable(getApi(), get_exe_args.executable);
+    EXPECT_TRUE(s.isOk()) << s.getStatus();
+  });
+
+  // Test PJRT_Executable_OutputDimensions
+  MTRT_PJRT_INIT_STRUCT(PJRT_Executable_OutputDimensions_Args,
+                        output_dims_args);
+  output_dims_args.executable = get_exe_args.executable;
+
+  error = getApi()->PJRT_Executable_OutputDimensions(&output_dims_args);
+  ASSERT_EQ(error, nullptr)
+      << "failed to get output dimensions: " << takeError(getApi(), error);
+
+  // The program has 1 output of shape [] (scalar), so no dims
+  ASSERT_EQ(output_dims_args.num_outputs, 1U);
+  ASSERT_NE(output_dims_args.dim_sizes, nullptr);
+  ASSERT_EQ(output_dims_args.dim_sizes[0], 0U); // scalar has 0 dimensions
+}
+
+// Test for PJRT_Executable_Fingerprint
+TEST_F(PJRTCApiTest, Executable_Fingerprint) {
+  mtrt::StatusOr<std::vector<PJRT_Device *>> devices =
+      getAddressableDevices(*api, *client);
+  ASSERT_TRUE(devices.isOk()) << devices.getStatus();
+  if (devices->size() < 1)
+    GTEST_SKIP() << "requires >=1 GPUs";
+
+  // Compile the program
+  mtrt::StatusOr<PJRT_LoadedExecutable *> loaded =
+      compileTestProgram(getApi(), getClient(), kStablehloAddOneProgram);
+  ASSERT_TRUE(loaded.isOk()) << loaded.getStatus();
+
+  auto cleanupLoaded = llvm::make_scope_exit([&]() {
+    mtrt::Status s = destroyLoadedExecutable(getApi(), *loaded);
+    EXPECT_TRUE(s.isOk()) << s.getStatus();
+  });
+
+  // Get the PJRT_Executable from the loaded executable
+  MTRT_PJRT_INIT_STRUCT(PJRT_LoadedExecutable_GetExecutable_Args, get_exe_args);
+  get_exe_args.loaded_executable = *loaded;
+  get_exe_args.executable = nullptr;
+
+  PJRT_Error *error =
+      getApi()->PJRT_LoadedExecutable_GetExecutable(&get_exe_args);
+  ASSERT_EQ(error, nullptr)
+      << "failed to get executable: " << takeError(getApi(), error);
+
+  auto cleanupExe = llvm::make_scope_exit([&]() {
+    mtrt::Status s = destroyExecutable(getApi(), get_exe_args.executable);
+    EXPECT_TRUE(s.isOk()) << s.getStatus();
+  });
+
+  // Test PJRT_Executable_Fingerprint
+  MTRT_PJRT_INIT_STRUCT(PJRT_Executable_Fingerprint_Args, fingerprint_args);
+  fingerprint_args.executable = get_exe_args.executable;
+
+  error = getApi()->PJRT_Executable_Fingerprint(&fingerprint_args);
+  ASSERT_EQ(error, nullptr)
+      << "failed to get fingerprint: " << takeError(getApi(), error);
+
+  // The fingerprint should be a non-empty hex string
+  ASSERT_NE(fingerprint_args.executable_fingerprint, nullptr);
+  ASSERT_GT(fingerprint_args.executable_fingerprint_size, 0U);
+
+  std::string fingerprint(fingerprint_args.executable_fingerprint,
+                          fingerprint_args.executable_fingerprint_size);
+  // Check it's a valid hex string (at least has some characters)
+  ASSERT_FALSE(fingerprint.empty());
+
+  // Calling fingerprint again should return the same value (consistency check)
+  MTRT_PJRT_INIT_STRUCT(PJRT_Executable_Fingerprint_Args, fingerprint_args2);
+  fingerprint_args2.executable = get_exe_args.executable;
+
+  error = getApi()->PJRT_Executable_Fingerprint(&fingerprint_args2);
+  ASSERT_EQ(error, nullptr)
+      << "failed to get fingerprint (2nd call): " << takeError(getApi(), error);
+
+  std::string fingerprint2(fingerprint_args2.executable_fingerprint,
+                           fingerprint_args2.executable_fingerprint_size);
+  ASSERT_EQ(fingerprint, fingerprint2) << "fingerprint should be consistent";
 }

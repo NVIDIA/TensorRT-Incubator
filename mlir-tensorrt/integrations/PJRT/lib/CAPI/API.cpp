@@ -194,38 +194,6 @@ getElementTypeFromPJRTElementType(PJRT_Buffer_Type type) {
 #undef HANDLE_CASE
 }
 
-/// Given a MLIR-TensorRT element type, return a PJRT element type if possible.
-/// Otherwise, return error.
-static StatusOr<PJRT_Buffer_Type>
-getPjrtBufferTypeFromElementType(mtrt::ScalarType type) {
-#define HANDLE_CASE(x, y)                                                      \
-  case mtrt::ScalarTypeCode::x:                                                \
-    return PJRT_Buffer_Type::PJRT_Buffer_Type_##y;
-  switch (type.getCode()) {
-    HANDLE_CASE(i1, PRED)
-    HANDLE_CASE(i4, S4)
-    HANDLE_CASE(i8, S8)
-    HANDLE_CASE(ui8, U8)
-    HANDLE_CASE(i16, S16)
-    HANDLE_CASE(i32, S32)
-    HANDLE_CASE(i64, S64)
-    HANDLE_CASE(f32, F32)
-    HANDLE_CASE(f64, F64)
-    HANDLE_CASE(f16, F16)
-    HANDLE_CASE(bf16, BF16)
-    HANDLE_CASE(complex32, C64)
-    HANDLE_CASE(complex64, C128)
-    HANDLE_CASE(f8e4m3fn, F8E4M3FN)
-    HANDLE_CASE(f4e2m1fn, F4E2M1FN)
-  case mtrt::ScalarTypeCode::unknown:
-    return getStatusWithMsg(StatusCode::InternalError,
-                            "unimplemented conversion from MLIR-TRT "
-                            "ScalarDataType ({0}) to PJRT_Buffer_Type",
-                            mtrt::flat::EnumNameScalarTypeCode(type));
-  }
-#undef HANDLE_CASE
-}
-
 //===----------------------------------------------------------------------===//
 // Error Helpers
 //===----------------------------------------------------------------------===//
@@ -372,7 +340,7 @@ PJRT_Error *PJRT_Buffer_ElementType(PJRT_Buffer_ElementType_Args *args) {
   PJRT_RETURN_IF_STRUCT_SIZE_ERROR(PJRT_Buffer_ElementType_Args, args);
   const DeviceBufferDescriptor *buffer =
       AsImpl<DeviceBufferDescriptor>(args->buffer);
-  StatusOr<PJRT_Buffer_Type> elType = getPjrtBufferTypeFromElementType(
+  StatusOr<PJRT_Buffer_Type> elType = getPjrtBufferTypeFromScalarType(
       buffer->getType().getElementType().getCode());
   if (!elType.isOk())
     return PJRT_Error::allocateFromStatus(elType.getStatus());
@@ -736,19 +704,48 @@ PJRT_Error *PJRT_Executable_OutputElementTypes(
     PJRT_Executable_OutputElementTypes_Args *args) {
   PJRT_RETURN_IF_STRUCT_SIZE_ERROR(PJRT_Executable_OutputElementTypes_Args,
                                    args);
-  return PJRT_Error::allocateUnimplemented("Executable_OutputElementTypes");
+  PJRTExecutable *exe = AsImpl<PJRTExecutable>(args->executable);
+  assert(exe != nullptr && "expected valid executable");
+
+  StatusOr<const PJRTExecutableMetadata *> metadata = exe->getMetadata();
+  if (!metadata.isOk())
+    return PJRT_Error::allocateFromStatus(metadata.getStatus());
+
+  args->output_types =
+      const_cast<PJRT_Buffer_Type *>((*metadata)->outputElementTypes.data());
+  args->num_output_types = (*metadata)->outputElementTypes.size();
+  return PJRT_Error::getOk();
 }
 
 PJRT_Error *
 PJRT_Executable_OutputDimensions(PJRT_Executable_OutputDimensions_Args *args) {
   PJRT_RETURN_IF_STRUCT_SIZE_ERROR(PJRT_Executable_OutputDimensions_Args, args);
-  return PJRT_Error::allocateUnimplemented("Executable_OutputDimensions");
+  PJRTExecutable *exe = AsImpl<PJRTExecutable>(args->executable);
+  assert(exe != nullptr && "expected valid executable");
+
+  StatusOr<const PJRTExecutableMetadata *> metadata = exe->getMetadata();
+  if (!metadata.isOk())
+    return PJRT_Error::allocateFromStatus(metadata.getStatus());
+
+  args->dims = (*metadata)->outputDimensions.data();
+  args->dim_sizes = (*metadata)->outputDimensionCounts.data();
+  args->num_outputs = (*metadata)->outputDimensionCounts.size();
+  return PJRT_Error::getOk();
 }
 
 PJRT_Error *
 PJRT_Executable_Fingerprint(PJRT_Executable_Fingerprint_Args *args) {
   PJRT_RETURN_IF_STRUCT_SIZE_ERROR(PJRT_Executable_Fingerprint_Args, args);
-  return PJRT_Error::allocateUnimplemented("Executable_Fingerprint");
+  PJRTExecutable *exe = AsImpl<PJRTExecutable>(args->executable);
+  assert(exe != nullptr && "expected valid executable");
+
+  StatusOr<const PJRTExecutableMetadata *> metadata = exe->getMetadata();
+  if (!metadata.isOk())
+    return PJRT_Error::allocateFromStatus(metadata.getStatus());
+
+  args->executable_fingerprint = (*metadata)->fingerprint.data();
+  args->executable_fingerprint_size = (*metadata)->fingerprint.size();
+  return PJRT_Error::getOk();
 }
 
 PJRT_Error *PJRT_Executable_GetCompiledMemoryStats(

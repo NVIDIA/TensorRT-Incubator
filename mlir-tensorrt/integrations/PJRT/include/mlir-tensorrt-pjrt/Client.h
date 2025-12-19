@@ -23,6 +23,7 @@
 #include "mlir-executor/Runtime/API/API.h"
 #include "mlir-tensorrt/Compiler/Client.h"
 #include "llvm/Support/ThreadPool.h"
+#include <mutex>
 
 #if defined(__clang__) || defined(__GNUC__)
 #pragma GCC diagnostic push
@@ -52,6 +53,11 @@ namespace mtrt::pjrt {
 
 /// Register the usual MLIR options that can be parsed from MLIR_TRT_FLAGS.
 void registerPJRTCompilerCLOptions();
+
+/// Convert an mtrt::ScalarType to the corresponding PJRT_Buffer_Type.
+/// Returns an error status if the conversion is not supported.
+StatusOr<PJRT_Buffer_Type>
+getPjrtBufferTypeFromScalarType(mtrt::ScalarType type);
 
 class PJRTExecutable;
 
@@ -278,6 +284,21 @@ class Client;
 // Executable
 //===----------------------------------------------------------------------===//
 
+/// Cached metadata for a PJRTExecutable.
+struct PJRTExecutableMetadata {
+  /// Output element types.
+  std::vector<PJRT_Buffer_Type> outputElementTypes;
+
+  /// Flattened output dimensions.
+  std::vector<int64_t> outputDimensions;
+
+  /// Per-output dimension counts.
+  std::vector<size_t> outputDimensionCounts;
+
+  /// Fingerprint string (SHA256 hash of executable code).
+  std::string fingerprint;
+};
+
 /// An Executable encapsulates the result of compiling a StableHLO or ONNX
 /// module using mlir-tensorrt.
 class PJRTExecutable : public mtrt::Executable {
@@ -296,6 +317,15 @@ public:
   /// Return the signature of the function described by this executable.
   mtrt::FunctionSignatureView getEntrypointSignature() const;
   mtrt::FunctionView getEntrypointFunctionInfo() const;
+
+  /// Returns the cached metadata, computing it on first access.
+  StatusOr<const PJRTExecutableMetadata *> getMetadata() const;
+
+private:
+  /// Cached metadata (nullopt means not yet computed).
+  mutable std::optional<StatusOr<PJRTExecutableMetadata>> cachedMetadata;
+  /// Mutex to protect the cached metadata computation.
+  mutable std::mutex metadataMutex;
 };
 
 //===----------------------------------------------------------------------===//
