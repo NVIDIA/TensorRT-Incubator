@@ -19,6 +19,7 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt-pjrt/Client.h"
 #include "mlir-executor/Runtime/API/API.h"
+#include "mlir-executor/Runtime/API/ExecutableFlatbuffer.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaRuntime.h"
 #include "mlir-executor/Runtime/Support/CUDAHelpers.h"
 #include "mlir-tensorrt-common/Support/Status.h"
@@ -29,6 +30,7 @@
 #include "llvm/ADT/Sequence.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ManagedStatic.h"
+#include "llvm/Support/SHA256.h"
 #include "llvm/Support/ThreadPool.h"
 #include "llvm/Support/Threading.h"
 #include "llvm/Support/raw_ostream.h"
@@ -176,6 +178,106 @@ mtrt::FunctionSignatureView PJRTExecutable::getEntrypointSignature() const {
 
 mtrt::FunctionView PJRTExecutable::getEntrypointFunctionInfo() const {
   return getMainFunction(*this);
+}
+
+StatusOr<PJRT_Buffer_Type>
+mtrt::pjrt::getPjrtBufferTypeFromScalarType(mtrt::ScalarType type) {
+#define HANDLE_CASE(x, y)                                                      \
+  case mtrt::ScalarTypeCode::x:                                                \
+    return PJRT_Buffer_Type::PJRT_Buffer_Type_##y;
+  switch (type.getCode()) {
+    HANDLE_CASE(i1, PRED)
+    HANDLE_CASE(i4, S4)
+    HANDLE_CASE(i8, S8)
+    HANDLE_CASE(ui8, U8)
+    HANDLE_CASE(i16, S16)
+    HANDLE_CASE(i32, S32)
+    HANDLE_CASE(i64, S64)
+    HANDLE_CASE(f32, F32)
+    HANDLE_CASE(f64, F64)
+    HANDLE_CASE(f16, F16)
+    HANDLE_CASE(bf16, BF16)
+    HANDLE_CASE(complex32, C64)
+    HANDLE_CASE(complex64, C128)
+    HANDLE_CASE(f8e4m3fn, F8E4M3FN)
+    HANDLE_CASE(f4e2m1fn, F4E2M1FN)
+  case mtrt::ScalarTypeCode::unknown:
+    return getStatusWithMsg(StatusCode::InternalError,
+                            "unimplemented conversion from MLIR-TRT "
+                            "ScalarDataType ({0}) to PJRT_Buffer_Type",
+                            mtrt::flat::EnumNameScalarTypeCode(type));
+  }
+#undef HANDLE_CASE
+}
+
+/// Computes and returns the executable metadata.
+static StatusOr<PJRTExecutableMetadata>
+computeMetadata(const mtrt::Executable &exe) {
+  PJRTExecutableMetadata metadata;
+
+  // Get the main function signature.
+  llvm::SmallVector<mtrt::FunctionView> funcInfos = exe.getFunctions();
+  auto it = std::find_if(
+      funcInfos.begin(), funcInfos.end(),
+      [](mtrt::FunctionView func) { return func.getName() == "main"; });
+  if (it == funcInfos.end())
+    return getStatusWithMsg(StatusCode::InternalError,
+                            "executable does not contain a main function");
+
+  mtrt::FunctionSignatureView sig = it->getSignature();
+  size_t numOutputs = sig.getNumOutputArgs();
+
+  metadata.outputElementTypes.reserve(numOutputs);
+  metadata.outputDimensionCounts.reserve(numOutputs);
+
+  for (size_t i = 0; i < numOutputs; ++i) {
+    mtrt::TypeUnionView outputType = sig.getOutputArg(i);
+    if (!outputType.isa<mtrt::MemRefTypeView>()) {
+      return getStatusWithMsg(StatusCode::InternalError,
+                              "expected memref type for output argument");
+    }
+
+    mtrt::MemRefTypeView memrefType = outputType.get<mtrt::MemRefTypeView>();
+
+    // Get element type
+    StatusOr<PJRT_Buffer_Type> pjrtType =
+        getPjrtBufferTypeFromScalarType(memrefType.getElementType());
+    if (!pjrtType.isOk())
+      return pjrtType.getStatus();
+    metadata.outputElementTypes.push_back(*pjrtType);
+
+    // Get dimensions
+    llvm::ArrayRef<int64_t> shape = memrefType.getShape();
+    metadata.outputDimensionCounts.push_back(shape.size());
+    for (int64_t dim : shape)
+      metadata.outputDimensions.push_back(dim);
+  }
+
+  // Compute fingerprint as SHA256 hash of the executable code.
+  std::string_view code = exe.getCode();
+  llvm::ArrayRef<uint8_t> data(reinterpret_cast<const uint8_t *>(code.data()),
+                               code.size());
+  std::array<uint8_t, 32> hash = llvm::SHA256::hash(data);
+
+  // Format as hex string
+  llvm::raw_string_ostream ss(metadata.fingerprint);
+  for (uint8_t byte : hash)
+    ss << llvm::format_hex_no_prefix(byte, 2);
+  ss.flush();
+
+  return metadata;
+}
+
+StatusOr<const PJRTExecutableMetadata *> PJRTExecutable::getMetadata() const {
+  std::lock_guard<std::mutex> lock(metadataMutex);
+  if (!cachedMetadata.has_value())
+    cachedMetadata = computeMetadata(*this);
+
+  assert(cachedMetadata.has_value() && "expected metadata to be computed");
+  if (!cachedMetadata->isOk())
+    return cachedMetadata->getStatus();
+
+  return &(*cachedMetadata).getValue();
 }
 
 /// Allocate a set of buffers for the resutls of a givn runnable.
