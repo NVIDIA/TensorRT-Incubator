@@ -485,6 +485,13 @@ public:
 
   Ref<mtrt::RuntimeClient> getRuntimeClient() const { return runtimeClient; }
 
+  /// Thread pool owned by the client. Loaded executables store a reference to
+  /// this pool, so its lifetime must exceed any loaded executable.
+  llvm::ThreadPoolInterface &getThreadPool() const {
+    assert(threadPool && "expected client thread pool to be initialized");
+    return *threadPool;
+  }
+
 private:
   Client(Ref<mtrt::RuntimeClient> runtimeClient,
          std::unique_ptr<llvm::StdThreadPool> threadPool,

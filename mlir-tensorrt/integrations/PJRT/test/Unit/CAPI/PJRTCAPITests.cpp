@@ -605,6 +605,70 @@ static mtrt::Status destroyExecutable(const PJRT_Api *api,
   return mtrt::getOkStatus();
 }
 
+static mtrt::StatusOr<std::string>
+getExecutableFingerprint(const PJRT_Api *api, PJRT_Executable *e) {
+  MTRT_PJRT_INIT_STRUCT(PJRT_Executable_Fingerprint_Args, args);
+  args.executable = e;
+  PJRT_Error *error = api->PJRT_Executable_Fingerprint(&args);
+  if (error != nullptr)
+    return mtrt::getInternalErrorStatus("failed to get fingerprint: {0}",
+                                        takeError(api, error));
+  return std::string(args.executable_fingerprint,
+                     args.executable_fingerprint_size);
+}
+
+static mtrt::StatusOr<std::vector<PJRT_Buffer_Type>>
+getExecutableOutputElementTypes(const PJRT_Api *api, PJRT_Executable *e) {
+  MTRT_PJRT_INIT_STRUCT(PJRT_Executable_OutputElementTypes_Args, args);
+  args.executable = e;
+  PJRT_Error *error = api->PJRT_Executable_OutputElementTypes(&args);
+  if (error != nullptr)
+    return mtrt::getInternalErrorStatus(
+        "failed to get output element types: {0}", takeError(api, error));
+  return std::vector<PJRT_Buffer_Type>(
+      args.output_types, args.output_types + args.num_output_types);
+}
+
+static mtrt::StatusOr<std::vector<char>>
+serializeExecutable(const PJRT_Api *api, PJRT_Executable *e) {
+  MTRT_PJRT_INIT_STRUCT(PJRT_Executable_Serialize_Args, args);
+  args.executable = e;
+  PJRT_Error *error = api->PJRT_Executable_Serialize(&args);
+  if (error != nullptr)
+    return mtrt::getInternalErrorStatus("failed to serialize executable: {0}",
+                                        takeError(api, error));
+
+  auto cleanup = llvm::make_scope_exit([&]() {
+    if (args.serialized_executable_deleter && args.serialized_executable)
+      args.serialized_executable_deleter(args.serialized_executable);
+  });
+
+  if (args.serialized_bytes_size != 0 && args.serialized_bytes == nullptr)
+    return mtrt::getInternalErrorStatus(
+        "serialize returned non-zero size but null bytes");
+
+  std::vector<char> out;
+  out.assign(args.serialized_bytes,
+             args.serialized_bytes + args.serialized_bytes_size);
+  return out;
+}
+
+static mtrt::StatusOr<PJRT_LoadedExecutable *>
+deserializeAndLoadExecutable(const PJRT_Api *api, PJRT_Client *client,
+                             const std::vector<char> &bytes) {
+  MTRT_PJRT_INIT_STRUCT(PJRT_Executable_DeserializeAndLoad_Args, args);
+  args.client = client;
+  args.serialized_executable = bytes.data();
+  args.serialized_executable_size = bytes.size();
+  args.loaded_executable = nullptr;
+
+  PJRT_Error *error = api->PJRT_Executable_DeserializeAndLoad(&args);
+  if (error != nullptr)
+    return mtrt::getInternalErrorStatus("failed to deserialize and load: {0}",
+                                        takeError(api, error));
+  return args.loaded_executable;
+}
+
 // Test for PJRT_Executable_OutputElementTypes
 TEST_F(PJRTCApiTest, Executable_OutputElementTypes) {
   mtrt::StatusOr<std::vector<PJRT_Device *>> devices =
@@ -762,4 +826,81 @@ TEST_F(PJRTCApiTest, Executable_Fingerprint) {
   std::string fingerprint2(fingerprint_args2.executable_fingerprint,
                            fingerprint_args2.executable_fingerprint_size);
   ASSERT_EQ(fingerprint, fingerprint2) << "fingerprint should be consistent";
+}
+
+TEST_F(PJRTCApiTest, Executable_Serialize_DeserializeAndLoad_RoundTrip) {
+  mtrt::StatusOr<std::vector<PJRT_Device *>> devices =
+      getAddressableDevices(*api, *client);
+  ASSERT_TRUE(devices.isOk()) << devices.getStatus();
+  if (devices->size() < 1)
+    GTEST_SKIP() << "requires >=1 GPUs";
+
+  // Compile the program.
+  mtrt::StatusOr<PJRT_LoadedExecutable *> loaded =
+      compileTestProgram(getApi(), getClient(), kStablehloAddOneProgram);
+  ASSERT_TRUE(loaded.isOk()) << loaded.getStatus();
+
+  auto cleanupLoaded = llvm::make_scope_exit([&]() {
+    mtrt::Status s = destroyLoadedExecutable(getApi(), *loaded);
+    EXPECT_TRUE(s.isOk()) << s.getStatus();
+  });
+
+  // Get the PJRT_Executable from the loaded executable.
+  MTRT_PJRT_INIT_STRUCT(PJRT_LoadedExecutable_GetExecutable_Args, get_exe_args);
+  get_exe_args.loaded_executable = *loaded;
+  get_exe_args.executable = nullptr;
+  PJRT_Error *error =
+      getApi()->PJRT_LoadedExecutable_GetExecutable(&get_exe_args);
+  ASSERT_EQ(error, nullptr) << takeError(getApi(), error);
+
+  auto cleanupExe = llvm::make_scope_exit([&]() {
+    mtrt::Status s = destroyExecutable(getApi(), get_exe_args.executable);
+    EXPECT_TRUE(s.isOk()) << s.getStatus();
+  });
+
+  // Serialize.
+  mtrt::StatusOr<std::vector<char>> bytes =
+      serializeExecutable(getApi(), get_exe_args.executable);
+  ASSERT_TRUE(bytes.isOk()) << bytes.getStatus();
+  ASSERT_GT(bytes->size(), 0U);
+
+  // Deserialize and load.
+  mtrt::StatusOr<PJRT_LoadedExecutable *> loaded2 =
+      deserializeAndLoadExecutable(getApi(), getClient(), *bytes);
+  ASSERT_TRUE(loaded2.isOk()) << loaded2.getStatus();
+
+  auto cleanupLoaded2 = llvm::make_scope_exit([&]() {
+    mtrt::Status s = destroyLoadedExecutable(getApi(), *loaded2);
+    EXPECT_TRUE(s.isOk()) << s.getStatus();
+  });
+
+  // Get executable from loaded2.
+  MTRT_PJRT_INIT_STRUCT(PJRT_LoadedExecutable_GetExecutable_Args,
+                        get_exe_args2);
+  get_exe_args2.loaded_executable = *loaded2;
+  get_exe_args2.executable = nullptr;
+  error = getApi()->PJRT_LoadedExecutable_GetExecutable(&get_exe_args2);
+  ASSERT_EQ(error, nullptr) << takeError(getApi(), error);
+
+  auto cleanupExe2 = llvm::make_scope_exit([&]() {
+    mtrt::Status s = destroyExecutable(getApi(), get_exe_args2.executable);
+    EXPECT_TRUE(s.isOk()) << s.getStatus();
+  });
+
+  // Validate stable invariants.
+  mtrt::StatusOr<std::string> fp1 =
+      getExecutableFingerprint(getApi(), get_exe_args.executable);
+  mtrt::StatusOr<std::string> fp2 =
+      getExecutableFingerprint(getApi(), get_exe_args2.executable);
+  ASSERT_TRUE(fp1.isOk()) << fp1.getStatus();
+  ASSERT_TRUE(fp2.isOk()) << fp2.getStatus();
+  ASSERT_EQ(*fp1, *fp2);
+
+  mtrt::StatusOr<std::vector<PJRT_Buffer_Type>> tys1 =
+      getExecutableOutputElementTypes(getApi(), get_exe_args.executable);
+  mtrt::StatusOr<std::vector<PJRT_Buffer_Type>> tys2 =
+      getExecutableOutputElementTypes(getApi(), get_exe_args2.executable);
+  ASSERT_TRUE(tys1.isOk()) << tys1.getStatus();
+  ASSERT_TRUE(tys2.isOk()) << tys2.getStatus();
+  ASSERT_EQ(*tys1, *tys2);
 }
