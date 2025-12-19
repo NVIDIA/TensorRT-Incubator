@@ -136,7 +136,8 @@ static FailureOr<Value> lowerGetOffset(RewriterBase &rewriter,
 
     // This could also be an assertion. If this occurs then the the op should be
     // invalid.
-    return op->emitOpError("failed to lower invalid executor.getoffset op");
+    return rewriter.notifyMatchFailure(
+        op, "failed to lower invalid executor.getoffset op");
   }
   return offset;
 }
@@ -145,37 +146,36 @@ namespace {
 
 /// Lowers `executor.getoffset` by creating more primitive arithmetic
 /// operations. May also produce `executor.alignto`.
-struct LowerGetOffsetPattern : public OpRewritePattern<GetOffsetOp> {
-  using OpRewritePattern::OpRewritePattern;
+struct LowerGetOffsetPattern : public OpConversionPattern<GetOffsetOp> {
+  using OpConversionPattern::OpConversionPattern;
 
   LowerGetOffsetPattern(const DataLayout &dataLayout, MLIRContext *ctx,
                         PatternBenefit benefit = 1)
-      : OpRewritePattern(ctx, benefit), dataLayout(dataLayout) {}
+      : OpConversionPattern(ctx, benefit), dataLayout(dataLayout) {}
 
-  LogicalResult matchAndRewrite(GetOffsetOp op,
-                                PatternRewriter &rewriter) const override {
+  LogicalResult
+  matchAndRewrite(GetOffsetOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
     FailureOr<Value> offset = lowerGetOffset(rewriter, dataLayout, op);
-    if (failed(offset)) {
+    if (failed(offset))
       return failure();
-    }
-
     rewriter.replaceOp(op, *offset);
     return success();
   }
-
   const DataLayout &dataLayout;
 };
 
 /// Lowers `executor.alloca` by replacing with a normal allocation and adding a
 /// dealloc at the end of the block.
-struct LowerAllocaPattern : public OpRewritePattern<AllocaOp> {
+struct LowerAllocaPattern : public OpConversionPattern<AllocaOp> {
 
   LowerAllocaPattern(const DataLayout &dataLayout, MLIRContext *ctx,
                      PatternBenefit benefit = 1)
-      : OpRewritePattern(ctx, benefit), dataLayout(dataLayout) {}
+      : OpConversionPattern(ctx, benefit), dataLayout(dataLayout) {}
 
-  LogicalResult matchAndRewrite(AllocaOp op,
-                                PatternRewriter &rewriter) const override {
+  LogicalResult
+  matchAndRewrite(AllocaOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
     Location loc = op.getLoc();
     auto indexType = rewriter.getIntegerType(
         dataLayout.getTypeSizeInBits(rewriter.getIndexType()));
@@ -209,8 +209,8 @@ struct LowerAllocaPattern : public OpRewritePattern<AllocaOp> {
 /// where operations must be decomposed into sequences of integer operations
 /// since the runtime doesn't natively support 4-bit floating-point types.
 template <typename T>
-struct LowerUnsupportedTypeOpsPattern : public OpRewritePattern<T> {
-  using OpRewritePattern<T>::OpRewritePattern;
+struct LowerUnsupportedTypeOpsPattern : public OpConversionPattern<T> {
+  using OpConversionPattern<T>::OpConversionPattern;
 
   Value createIntegerConstant(RewriterBase &rewriter, Location loc,
                               uint64_t bitwidth, int64_t value) const {
@@ -324,8 +324,9 @@ struct LowerF4E2M1FNToF16Extension
   using LowerUnsupportedTypeOpsPattern<
       executor::ExtfOp>::LowerUnsupportedTypeOpsPattern;
 
-  LogicalResult matchAndRewrite(executor::ExtfOp op,
-                                PatternRewriter &rewriter) const override {
+  LogicalResult
+  matchAndRewrite(executor::ExtfOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
     if (!isa<Float4E2M1FNType>(op.getOperand().getType()) ||
         !isa<Float16Type>(op.getResult().getType()))
       return rewriter.notifyMatchFailure(
@@ -429,8 +430,9 @@ struct LowerF16ToF4E2M1FNTruncation
   using LowerUnsupportedTypeOpsPattern<
       executor::TruncfOp>::LowerUnsupportedTypeOpsPattern;
 
-  LogicalResult matchAndRewrite(executor::TruncfOp op,
-                                PatternRewriter &rewriter) const override {
+  LogicalResult
+  matchAndRewrite(executor::TruncfOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
     if (!isa<Float16Type>(op.getOperand().getType()) ||
         !isa<Float4E2M1FNType>(op.getResult().getType()))
       return rewriter.notifyMatchFailure(
@@ -683,10 +685,20 @@ public:
       patterns.add<LowerAllocaPattern>(dataLayout, ctx);
     }
 
+    target.addDynamicallyLegalOp<executor::ExtfOp>([](executor::ExtfOp op) {
+      return !(isa<Float4E2M1FNType>(op.getOperand().getType()) &&
+               isa<Float16Type>(op.getResult().getType()));
+    });
+    target.addDynamicallyLegalOp<executor::TruncfOp>([](executor::TruncfOp op) {
+      return !(isa<Float16Type>(op.getOperand().getType()) &&
+               isa<Float4E2M1FNType>(op.getResult().getType()));
+    });
+
     patterns.add<LowerF4E2M1FNToF16Extension, LowerF16ToF4E2M1FNTruncation>(
         ctx);
 
-    if (failed(applyPatternsGreedily(getOperation(), std::move(patterns))))
+    if (failed(applyPartialConversion(getOperation(), target,
+                                      std::move(patterns))))
       return signalPassFailure();
   }
 };

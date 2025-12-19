@@ -516,7 +516,7 @@ OpFoldResult AlignToOp::fold(FoldAdaptor adaptor) {
   // y = add(x, const)
   // z = alignTo(y, O)
   // ---
-  // In such cases, we can return `x` if `N` is a multiple of `O` and
+  // In such cases, we can replace `z` with `y` if `N` is a multiple of `O` and
   // `const` is a multiple of `O`.
   // TODO: remove this when we have better alignment analysis.
   if (auto addOp = getArg().getDefiningOp<AddIOp>()) {
@@ -1015,7 +1015,7 @@ LogicalResult CallOp::verifySymbolUses(SymbolTableCollection &symbolTable) {
 }
 
 //===----------------------------------------------------------------------===//
-// Binary Integer Arithmetic Folders
+// AddIOp
 //===----------------------------------------------------------------------===//
 
 OpFoldResult AddIOp::fold(FoldAdaptor adaptor) {
@@ -1027,6 +1027,41 @@ OpFoldResult AddIOp::fold(FoldAdaptor adaptor) {
       adaptor.getOperands(),
       [](const APInt &lhs, const APInt &rhs) { return lhs + rhs; });
 }
+
+namespace {
+/// Rewrite `add(add(x, const1), const2)` to `add(x, const1 + const2)`.
+struct SimplifyAddAddOp : public OpRewritePattern<AddIOp> {
+  using OpRewritePattern::OpRewritePattern;
+  LogicalResult matchAndRewrite(AddIOp op,
+                                PatternRewriter &rewriter) const override {
+    APInt const1;
+    if (!matchPattern(op.getRhs(), m_ConstantInt(&const1)))
+      return failure();
+    auto producer = op.getLhs().getDefiningOp<AddIOp>();
+    if (!producer)
+      return failure();
+    APInt const2;
+    if (!matchPattern(producer.getRhs(), m_ConstantInt(&const2)))
+      return failure();
+    rewriter.replaceOpWithNewOp<AddIOp>(
+        op, op.getResult().getType(), producer.getLhs(),
+        rewriter.create<ConstantOp>(
+            op.getLoc(), rewriter.getIntegerAttr(op.getResult().getType(),
+                                                 const1 + const2)));
+    return success();
+  }
+};
+} // namespace
+
+void AddIOp::getCanonicalizationPatterns(RewritePatternSet &results,
+                                         MLIRContext *context) {
+  results.add<SimplifyAddAddOp>(context);
+}
+
+//===----------------------------------------------------------------------===//
+// Other Binary Integer Arithmetic Folders
+//===----------------------------------------------------------------------===//
+
 OpFoldResult SubIOp::fold(FoldAdaptor adaptor) {
   // x - 0 = x
   if (matchPattern(getRhs(), m_Zero()))

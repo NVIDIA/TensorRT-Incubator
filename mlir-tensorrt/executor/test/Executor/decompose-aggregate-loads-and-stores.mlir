@@ -118,13 +118,13 @@ func.func @agg_store_complex(%arg0: !executor.ptr<host>, %arg1: i64, %arg2: !agg
 
 // DECOMP-LABEL: func.func @agg_store_complex
 //  DECOMP-SAME: (%[[arg0:.+]]: !executor.ptr<host>, %[[arg1:.+]]: i64, %[[arg2:.+]]: !executor.table<!executor.ptr<host>, i64, i32, f32, f64, i8, !executor.table<f32, f32>>) {
-//  DECOMP-DAG:     %[[c4_i64:.+]] = executor.constant 4 : i64
 //  DECOMP-DAG:     %[[c36_i64:.+]] = executor.constant 36 : i64
 //  DECOMP-DAG:     %[[c32_i64:.+]] = executor.constant 32 : i64
 //  DECOMP-DAG:     %[[c24_i64:.+]] = executor.constant 24 : i64
 //  DECOMP-DAG:     %[[c20_i64:.+]] = executor.constant 20 : i64
 //  DECOMP-DAG:     %[[c16_i64:.+]] = executor.constant 16 : i64
 //  DECOMP-DAG:     %[[c8_i64:.+]] = executor.constant 8 : i64
+//  DECOMP-DAG:     %[[c40_i64:.+]] = executor.constant 40 : i64
 //  DECOMP-DAG:     %[[v0:.+]] = executor.table.get %[[arg2]][0] : <!executor.ptr<host>, i64, i32, f32, f64, i8, !executor.table<f32, f32>>
 //  DECOMP-DAG:     executor.store %[[v0]] to %[[arg0]] + %[[arg1]] : !executor.ptr<host>, !executor.ptr<host>, i64
 //  DECOMP-DAG:     %[[v1:.+]] = executor.table.get %[[arg2]][1] : <!executor.ptr<host>, i64, i32, f32, f64, i8, !executor.table<f32, f32>>
@@ -147,6 +147,6 @@ func.func @agg_store_complex(%arg0: !executor.ptr<host>, %arg1: i64, %arg2: !agg
 //  DECOMP-DAG:     %[[v13:.+]] = executor.table.get %[[v11]][0] : <f32, f32>
 //  DECOMP-DAG:     executor.store %[[v13]] to %[[arg0]] + %[[v12]] : f32, !executor.ptr<host>, i64
 //  DECOMP-DAG:     %[[v14:.+]] = executor.table.get %[[v11]][1] : <f32, f32>
-//  DECOMP-DAG:     %[[v15:.+]] = executor.addi %[[v12]], %[[c4_i64]] : i64
+//  DECOMP-DAG:     %[[v15:.+]] = executor.addi %[[arg1]], %[[c40_i64]] : i64
 //  DECOMP-DAG:     executor.store %[[v14]] to %[[arg0]] + %[[v15]] : f32, !executor.ptr<host>, i64
 //  DECOMP-DAG:     return
