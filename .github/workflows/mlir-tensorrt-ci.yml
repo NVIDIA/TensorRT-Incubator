@@ -10,7 +10,7 @@ on:
     # this is for release CI
     tags:
       # release tag example: mlir-tensorrt-v0.4.3 or mlir-tensorrt-v0.4.3dev20251212
-      - 'mlir-tensorrt-v[0-9]*.[0-9]*.[0-9]*'
+      - 'mlir-tensorrt-v.*'
   workflow_dispatch:
   # this is for nightly CI, it will be automatically triggered by the schedule on main branch only
   # schedule:
@@ -113,4 +113,3 @@ jobs:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}-mlir-tensorrt
   cancel-in-progress: true
-
