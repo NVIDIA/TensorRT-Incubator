@@ -379,7 +379,8 @@ func.func @broadcast_dynamic_expand_shape_regression(%arg0: tensor<?x1xf16>,  %a
 
 // CHECK-LABEL: func.func @broadcast_dynamic_expand_shape_regression
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<?x1xf16>, %[[arg1:.+]]: tensor<4xi32>) -> tensor<?x?x256x256xf16> {
-//       CHECK:     %[[v0:.+]] = tensorrt.reshape %[[arg0]] : tensor<?x1xf16> to tensor<1x1x?x1xf16>
+//       CHECK:     %[[v0:.+]] = tensorrt.expand_rank
+//       CHECK:     %[[v1:.+]] = tensorrt.broadcast %[[v0]] broadcast_dims<0, 1, 2, 3>
 
 // -----
 

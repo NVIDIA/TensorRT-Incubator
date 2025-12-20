@@ -88,12 +88,15 @@ class RefineShapesPass
 public:
   using Base::Base;
 
+  stablehlo::StablehloAggressiveFolderPassOptions foldOptions{};
+
   LogicalResult initialize(MLIRContext *ctx) override {
 
     RewritePatternSet patterns_(ctx);
-    stablehlo::populateStablehloRefineShapesPatterns(&patterns_, ctx);
-    stablehlo::populateStablehloAggressiveFolderPatterns(&patterns_, ctx,
-                                                         /*foldFloat=*/false);
+    stablehlo::populateStablehloRefineShapesPatterns(ctx, &patterns_);
+    foldOptions.optimizeFloat = false;
+    stablehlo::populateStablehloAggressiveFolderPatterns(ctx, &patterns_,
+                                                         foldOptions);
     patterns_.add<AbsorbCastsIntoFuncReturnPattern>(ctx);
     patterns = std::move(patterns_);
     return success();
@@ -101,17 +104,18 @@ public:
 
   void runOnOperation() override {
     // We don't consider failure to converge here an error.
-    GreedyRewriteConfig config;
-    config.useTopDownTraversal = true;
-    config.enableRegionSimplification = GreedySimplifyRegionLevel::Aggressive;
-    config.maxIterations = 4;
-    config.maxNumRewrites = GreedyRewriteConfig::kNoLimit;
-    config.strictMode = GreedyRewriteStrictness::AnyOp;
+    auto config =
+        GreedyRewriteConfig()
+            .setUseTopDownTraversal(true)
+            .setRegionSimplificationLevel(GreedySimplifyRegionLevel::Aggressive)
+            .setMaxIterations(4)
+            .setMaxNumRewrites(GreedyRewriteConfig::kNoLimit)
+            .setStrictness(GreedyRewriteStrictness::AnyOp);
 
     Operation *root = getOperation();
     if (failed(applyPatternsGreedily(root, patterns, config)))
       emitWarning(root->getLoc()) << getArgument() << " failed to converge in "
-                                  << config.maxIterations << " iterations";
+                                  << config.getMaxIterations() << " iterations";
   }
 
 private:

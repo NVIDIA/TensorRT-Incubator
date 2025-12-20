@@ -15,9 +15,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
-#include "mlir/Dialect/Func/Transforms/OneToNFuncConversions.h"
+#include "mlir/Dialect/Func/Transforms/FuncConversions.h"
 #include "mlir/Pass/Pass.h"
-#include "mlir/Transforms/OneToNTypeConversion.h"
+#include "mlir/Transforms/DialectConversion.h"
 #include "stablehlo/dialect/StablehloOps.h"
 
 namespace mlir {
@@ -61,14 +61,6 @@ public:
           return success();
         });
 
-    typeConverter.addArgumentMaterialization([](OpBuilder &builder, Type type,
-                                                ValueRange inputs,
-                                                Location loc) -> Value {
-      if (!isa<TupleType>(type))
-        return Value();
-      return builder.create<stablehlo::TupleOp>(loc, type, inputs);
-    });
-
     typeConverter.addSourceMaterialization([](OpBuilder &builder, Type type,
                                               ValueRange inputs,
                                               Location loc) -> Value {
@@ -92,10 +84,22 @@ public:
         });
 
     RewritePatternSet patterns(&getContext());
-    mlir::populateFuncTypeConversionPatterns(typeConverter, patterns);
+    mlir::populateFunctionOpInterfaceTypeConversionPattern<func::FuncOp>(
+        patterns, typeConverter);
+    populateCallOpTypeConversionPattern(patterns, typeConverter);
+    populateReturnOpTypeConversionPattern(patterns, typeConverter);
+
+    ConversionTarget target(getContext());
+    target.addDynamicallyLegalOp<func::FuncOp>([&](func::FuncOp op) {
+      return typeConverter.isSignatureLegal(op.getFunctionType());
+    });
+    target.addDynamicallyLegalOp<func::CallOp, func::ReturnOp>(
+        [&](Operation *op) { return typeConverter.isLegal(op); });
+
+    target.markUnknownOpDynamicallyLegal([](Operation *op) { return true; });
     // Run conversion.
-    if (failed(applyPartialOneToNConversion(getOperation(), typeConverter,
-                                            std::move(patterns)))) {
+    if (failed(applyPartialConversion(getOperation(), target,
+                                      std::move(patterns)))) {
 
       emitError(getOperation()->getLoc())
           << "failed to apply patterns in " << getArgument();

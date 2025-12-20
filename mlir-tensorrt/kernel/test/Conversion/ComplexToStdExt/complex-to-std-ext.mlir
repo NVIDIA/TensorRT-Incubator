@@ -49,7 +49,7 @@ gpu.module @kernels {
     } -> tensor<64xf32>
 
 
-    %result_slice_memref = bufferization.to_memref %result_slice : tensor<64xf32> to memref<64xf32, strided<[1], offset: ?>>
+    %result_slice_memref = bufferization.to_buffer %result_slice : tensor<64xf32> to memref<64xf32, strided<[1], offset: ?>>
     %out_view = memref.subview %arg1[%offset] [64] [1] : memref<1024xf32> to memref<64xf32, strided<[1], offset: ?>>
     memref.copy %result_slice_memref, %out_view : memref<64xf32, strided<[1], offset: ?>> to memref<64xf32, strided<[1], offset: ?>>
     return
@@ -96,7 +96,7 @@ func.func @caller(%arg0: memref<1024xcomplex<f32>>, %arg1: memref<1024xf32>, %of
 //   CHECK-DAG:         %[[v19:.+]] = arith.cmpf uno, %[[v18]], %[[v18]] : f32
 //   CHECK-DAG:         %[[v20:.+]] = arith.select %[[v19]], %[[v13]], %[[v18]] : f32
 //       CHECK:         linalg.yield %[[v20]] : f32
-//   CHECK-DAG:       %[[v3:.+]] = bufferization.to_memref %[[v2]] : tensor<64xf32> to memref<64xf32, strided<[1], offset: ?>>
+//   CHECK-DAG:       %[[v3:.+]] = bufferization.to_buffer %[[v2]] : tensor<64xf32> to memref<64xf32, strided<[1], offset: ?>>
 //   CHECK-DAG:       %[[subview:.+]] = memref.subview %[[arg1]][%[[arg2]]] [64] [1] : memref<1024xf32> to memref<64xf32, strided<[1], offset: ?>>
 //   CHECK-DAG:       memref.copy %[[v3]], %[[subview]] : memref<64xf32, strided<[1], offset: ?>> to memref<64xf32, strided<[1], offset: ?>>
 //       CHECK:       return

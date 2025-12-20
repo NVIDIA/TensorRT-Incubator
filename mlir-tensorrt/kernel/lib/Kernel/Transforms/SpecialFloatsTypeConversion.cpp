@@ -87,13 +87,6 @@ public:
       return builder.create<arith::BitcastOp>(loc, resultType, inputs.front())
           .getOut();
     });
-    addArgumentMaterialization([&](OpBuilder &builder, Type resultType,
-                                   ValueRange inputs, Location loc) -> Value {
-      if (inputs.size() != 1)
-        return Value();
-      return builder.create<arith::BitcastOp>(loc, resultType, inputs.front())
-          .getOut();
-    });
     addTargetMaterialization([&](OpBuilder &builder, Type resultType,
                                  ValueRange inputs, Location loc) -> Value {
       if (inputs.size() != 1)

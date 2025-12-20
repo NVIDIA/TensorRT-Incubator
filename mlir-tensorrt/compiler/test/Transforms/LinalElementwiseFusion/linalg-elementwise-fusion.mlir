@@ -12,7 +12,12 @@ func.func @fuse_pure_transpose(%arg0 : tensor<100x100xf16>, %arg1 : tensor<100x1
   %2 = tensor.empty() : tensor<100x100xf16>
   %3 = linalg.transpose ins(%arg1 : tensor<100x100xf16>) outs(%2 : tensor<100x100xf16>) permutation = [1, 0]
   %5 = tensor.empty() : tensor<100x100xf16>
-  %4 = linalg.matmul_transpose_b
+  %4 = linalg.matmul
+    indexing_maps = [
+      affine_map<(d0, d1, d2) -> (d0, d2)>,
+      affine_map<(d0, d1, d2) -> (d1, d2)>,
+      affine_map<(d0, d1, d2) -> (d0, d1)>
+    ]
     ins(%1, %3 :tensor<100x100xf16>, tensor<100x100xf16>)
     outs(%5 : tensor<100x100xf16>) -> tensor<100x100xf16>
   return  %4 : tensor<100x100xf16>
@@ -54,7 +59,12 @@ func.func @dont_fuse_to_contract(%arg0 : tensor<100x100xf32>, %arg1 : tensor<100
   } -> tensor<100x100xf16>
 
   %5 = tensor.empty() : tensor<100x100xf16>
-  %4 = linalg.matmul_transpose_b
+  %4 = linalg.matmul
+    indexing_maps = [
+      affine_map<(d0, d1, d2) -> (d0, d2)>,
+      affine_map<(d0, d1, d2) -> (d1, d2)>,
+      affine_map<(d0, d1, d2) -> (d0, d1)>
+    ]
     ins(%1, %arg1 :tensor<100x100xf16>, tensor<100x100xf16>)
     outs(%5 : tensor<100x100xf16>) -> tensor<100x100xf16>
   return  %4 : tensor<100x100xf16>
@@ -241,8 +251,7 @@ func.func @fuse_through_extract_2(%arg0: tensor<1xi32>, %arg1: tensor<2xi32>) ->
 //  CHECK-NEXT: %[[c0:.+]] = arith.constant 0 : index
 //  CHECK-NEXT: %[[v0:.+]] = tensor.empty() : tensor<1xi32>
 //  CHECK-NEXT: %[[v1:.+]] = linalg.generic {indexing_maps = [#[[$map]]], iterator_types = ["parallel"]} outs(%[[v0]] : tensor<1xi32>)
-//       CHECK: %[[v2:.+]] = linalg.index 0 : index
-//       CHECK: %[[extracted:.+]] = tensor.extract %[[arg0]][%[[v2]]] : tensor<1xi32>
+//       CHECK: %[[extracted:.+]] = tensor.extract %[[arg0]][%[[c0]]] : tensor<1xi32>
 //       CHECK: %[[v3:.+]] = arith.index_cast %[[extracted]] : i32 to index
 //       CHECK: %[[v4:.+]] = arith.maxsi %[[v3]], %[[c0]] : index
 //       CHECK: %[[v5:.+]] = arith.minsi %[[v4]], %[[c1]] : index

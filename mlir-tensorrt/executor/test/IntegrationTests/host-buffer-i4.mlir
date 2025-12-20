@@ -39,9 +39,9 @@ func.func @main() -> i32 {
     scf.yield %updated0, %updated1 : tensor<4xi4>, tensor<4xi4>
   }
 
-  %memref = bufferization.to_memref %result#0 read_only : tensor<4xi4> to !memref_type
+  %memref = bufferization.to_buffer %result#0 read_only : tensor<4xi4> to !memref_type
   func.call @print_tensor(%memref) : (!memref_type) -> ()
-  %memref1 = bufferization.to_memref %result#1 read_only : tensor<4xi4> to !memref_type
+  %memref1 = bufferization.to_buffer %result#1 read_only : tensor<4xi4> to !memref_type
   func.call @print_tensor(%memref1) : (!memref_type) -> ()
 
   %c0_i32 = arith.constant 0 : i32

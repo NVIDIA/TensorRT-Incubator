@@ -71,12 +71,13 @@ static LogicalResult analyzeGpuModuleOp(gpu::GPUModuleOp moduleOp,
 static LogicalResult
 bufferizeGpuModuleOp(gpu::GPUModuleOp moduleOp, ArrayRef<func::FuncOp> funcs,
                      const OneShotBufferizationOptions &options,
+                     bufferization::BufferizationState &state,
                      BufferizationStatistics *statistics) {
   assert(options.bufferizeFunctionBoundaries &&
          "expected that function boundary bufferization is activated");
   IRRewriter rewriter(moduleOp.getContext());
   for (func::FuncOp funcOp : funcs) {
-    if (failed(bufferizeOp(funcOp, options, statistics)))
+    if (failed(bufferizeOp(funcOp, options, state, statistics)))
       return failure();
   }
   return success();
@@ -88,6 +89,7 @@ static LogicalResult
 runOneShotKernelModuleBufferize(gpu::GPUModuleOp moduleOp,
                                 const SymbolUserMap &useMap,
                                 const OneShotBufferizationOptions &options,
+                                bufferization::BufferizationState &state,
                                 BufferizationStatistics *statistics) {
 
   SmallVector<func::FuncOp> funcs;
@@ -99,14 +101,15 @@ runOneShotKernelModuleBufferize(gpu::GPUModuleOp moduleOp,
     funcs.push_back(func);
   }
 
-  OneShotAnalysisState state(moduleOp, options);
-  if (failed(analyzeGpuModuleOp(moduleOp, funcs, state, statistics)))
+  OneShotAnalysisState analysisState(moduleOp, options);
+  if (failed(analyzeGpuModuleOp(moduleOp, funcs, analysisState, statistics)))
     return failure();
-  if (failed(bufferization::insertTensorCopies(moduleOp.getOperation(), state)))
+  if (failed(bufferization::insertTensorCopies(moduleOp.getOperation(),
+                                               analysisState, state)))
     return failure();
   if (options.testAnalysisOnly)
     return success();
-  if (failed(bufferizeGpuModuleOp(moduleOp, funcs, options, statistics)))
+  if (failed(bufferizeGpuModuleOp(moduleOp, funcs, options, state, statistics)))
     return failure();
   return success();
 }
@@ -117,21 +120,24 @@ runOneShotKernelModuleBufferize(gpu::GPUModuleOp moduleOp,
 /// by adding memref.assume_alignment
 /// and remove the kernel.alignment attrivutes
 static LogicalResult
-materializeKernelArgAlignmentHints(FunctionOpInterface &funcOp,
-                                   mlir::OpBuilder &builder) {
+materializeKernelArgAlignmentHints(RewriterBase &rewriter,
+                                   FunctionOpInterface &funcOp) {
   if (funcOp.isDeclaration())
     return success();
-  builder.setInsertionPointToStart(&funcOp.getFunctionBody().front());
+  rewriter.setInsertionPointToStart(&funcOp.getFunctionBody().front());
   for (size_t arg_id = 0; arg_id < funcOp.getArguments().size(); ++arg_id) {
     mlir::IntegerAttr kernelAlignmentAttr =
         funcOp.getArgAttrOfType<IntegerAttr>(
             arg_id, mlir::kernel::KernelDialect::kKernelAlignmentArgAttrName);
     if (kernelAlignmentAttr) {
-      builder.create<mlir::memref::AssumeAlignmentOp>(
-          funcOp->getLoc(), funcOp.getArgument(arg_id),
-          builder.getI32IntegerAttr(kernelAlignmentAttr.getInt()));
+      auto alignOp = rewriter.create<mlir::memref::AssumeAlignmentOp>(
+          funcOp->getLoc(), funcOp.getArgument(arg_id).getType(),
+          funcOp.getArgument(arg_id),
+          rewriter.getI32IntegerAttr(kernelAlignmentAttr.getInt()));
       funcOp.removeArgAttr(
           arg_id, mlir::kernel::KernelDialect::kKernelAlignmentArgAttrName);
+      rewriter.replaceAllUsesExcept(funcOp.getArgument(arg_id), alignOp,
+                                    alignOp);
     }
   }
   return success();
@@ -176,7 +182,8 @@ dropEquivalentFuncBufferResults(RewriterBase &rewriter, func::FuncOp funcOp,
   }
 
   // Update function.
-  funcOp.eraseResults(erasedResultIndices);
+  if (failed(funcOp.eraseResults(erasedResultIndices)))
+    return failure();
   returnOp.getOperandsMutable().assign(newReturnValues);
 
   // Update function calls.
@@ -281,7 +288,7 @@ kernel::runKernelModulePostBufferizationActions(gpu::GPUModuleOp op,
   IRRewriter builder(op->getContext());
   for (mlir::Region &region : op->getRegions()) {
     for (auto funcOp : region.getOps<mlir::FunctionOpInterface>()) {
-      if (failed(materializeKernelArgAlignmentHints(funcOp, builder)))
+      if (failed(materializeKernelArgAlignmentHints(builder, funcOp)))
         return failure();
     }
   }
@@ -305,11 +312,13 @@ kernel::bufferizeKernelModule(gpu::GPUModuleOp op,
   OneShotBufferizationOptions options = getKernelModuleBufferizationOptions();
 
   SymbolTableCollection symbolTables;
+  bufferization::BufferizationState state;
   SymbolUserMap useMap(symbolTables, op);
 
   // Override the function boundary bufferization type.
   options.setFunctionBoundaryTypeConversion(functionBoundaryTypeConversion);
-  if (failed(runOneShotKernelModuleBufferize(op, useMap, options, nullptr)))
+  if (failed(
+          runOneShotKernelModuleBufferize(op, useMap, options, state, nullptr)))
     return failure();
 
   if (failed(runKernelModulePostBufferizationActions(op, useMap)))

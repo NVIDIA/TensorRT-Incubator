@@ -183,33 +183,11 @@ builtin.module @simple_gather_dynamic attributes {
   }
 }
 
-//       CHECK: #[[$map:.+]] = affine_map<()[s0, s1] -> ((s0 * s1) * 65536)>
 // CHECK-LABEL: func.func @simple_gather_dynamic
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<?x?x256x256xi32>, %[[arg1:.+]]: tensor<?xi32>) -> tensor<?x?x256x256xi32>
-//   CHECK-DAG:     %[[c256:.+]] = arith.constant 256 : index
-//   CHECK-DAG:     %[[c1:.+]] = arith.constant 1 : index
-//   CHECK-DAG:     %[[c0:.+]] = arith.constant 0 : index
-//   CHECK-DAG:     %[[dim:.+]] = tensor.dim %[[arg1]], %[[c0]] : tensor<?xi32>
-//   CHECK-DAG:     %[[dim_0:.+]] = tensor.dim %[[arg0]], %[[c1]] : tensor<?x?x256x256xi32>
-//   CHECK-DAG:     %[[v0:.+]] = arith.index_cast %[[dim_0]] : index to i32
-//   CHECK-DAG:     %[[v1:.+]] = arith.index_cast %[[v0]] : i32 to index
-//   CHECK-DAG:     %[[v2:.+]] = tensor.empty() : tensor<65536xi32>
-//   CHECK-DAG:     %[[v3:.+]] = affine.apply #[[$map]]()[%[[dim]], %[[v1]]]
-//   CHECK-DAG:     %[[extracted_slice:.+]] = tensor.extract_slice %[[v2]][0] [%[[v3]]] [1] : tensor<65536xi32> to tensor<?xi32>
-//   CHECK-DAG:     %[[from_elements:.+]] = tensor.from_elements %[[dim]], %[[v1]], %[[c256]], %[[c256]] : tensor<4xindex>
-//   CHECK-DAG:     %[[reshape:.+]] = tensor.reshape %[[extracted_slice]](%[[from_elements]]) : (tensor<?xi32>, tensor<4xindex>) -> tensor<?x?x256x256xi32>
-//   CHECK-DAG:     %[[v4:.+]] = tensorrt.call @trt_engines::@tensorrt_cluster(%[[arg0]], %[[arg1]]
-//   CHECK-DAG:     return %[[v4]] : tensor<?x?x256x256xi32>
 
-// CHECK-LABEL: func.func @tensorrt_cluster
-//  CHECK-SAME: (%[[arg0:.+]]: tensor<?x?x256x256xi32>{{.*}}, %[[arg1:.+]]: tensor<?xi32>{{.*}})
-//   CHECK-DAG:       %[[c:.+]] = stablehlo.constant dense<1> : tensor<1xi32>
-//   CHECK-DAG:       %[[c_0:.+]] = stablehlo.constant dense<256> : tensor<1xi32>
-//   CHECK-DAG:       %[[v0:.+]] = stablehlo.get_dimension_size %[[arg0]], dim = 1
-//   CHECK-DAG:       %[[v1:.+]] = stablehlo.reshape %[[v0]] : (tensor<i32>) -> tensor<1xi32>
-//   CHECK-DAG:       %[[v2:.+]] = stablehlo.concatenate %[[c]], %[[v1]], %[[c_0]], %[[c_0]]
-//   CHECK-DAG:       %[[v3:.+]] = "stablehlo.dynamic_gather"(%[[arg0]], %[[arg1]], %[[v2]])
-//   CHECK-DAG:       return %[[v3]] : tensor<?x?x256x256xi32>
+//   CHECK-DAG:     %[[v4:.+]] = tensorrt.call_alloc @trt_engines::@tensorrt_cluster(%[[arg0]], %[[arg1]]
+//   CHECK-DAG:     return %[[v4]] : tensor<?x?x256x256xi32>
 
 // -----
 

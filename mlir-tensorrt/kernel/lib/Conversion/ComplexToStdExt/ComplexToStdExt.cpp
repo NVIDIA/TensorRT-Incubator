@@ -301,7 +301,7 @@ public:
                  tensor::YieldOp>(op);
     if (isa_and_nonnull<bufferization::BufferizationDialect>(dialect))
       return isa<bufferization::AllocTensorOp, bufferization::DeallocTensorOp,
-                 bufferization::ToMemrefOp, bufferization::ToTensorOp>(op);
+                 bufferization::ToBufferOp, bufferization::ToTensorOp>(op);
     if (isa_and_nonnull<linalg::LinalgDialect>(dialect))
       return isa<linalg::LinalgOp, linalg::YieldOp>(op);
     if (isa_and_nonnull<arith::ArithDialect>(dialect))

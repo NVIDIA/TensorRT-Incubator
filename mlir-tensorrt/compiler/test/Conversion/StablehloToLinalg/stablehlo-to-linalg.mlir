@@ -98,14 +98,12 @@ func.func @test_size1_reverse(%arg0: tensor<1xf32>) -> tensor<1xf32> {
 }
 
 // CHECK: #map = affine_map<(d0) -> (d0)>
-// CHECK: #map1 = affine_map<()[s0] -> (-s0)>
 // CHECK-LABEL: func.func @test_size1_reverse(
-// CHECK:   %[[v1:.*]] = tensor.empty() : tensor<1xf32>
+// CHECK-DAG:   %[[v1:.*]] = tensor.empty() : tensor<1xf32>
+// CHECK-DAG: %[[c0:.+]] = arith.constant 0 : index
 // CHECK:   %[[v2:.*]] = linalg.generic {indexing_maps = [#map], iterator_types = ["parallel"]} outs(%[[v1]] : tensor<1xf32>) {
 // CHECK:     ^bb0(%[[v3:.*]]: f32):
-// CHECK:       %[[v4:.*]] = linalg.index 0 : index
-// CHECK:       %[[v5:.*]] = affine.apply #map1()[%[[v4]]]
-// CHECK:       %[[v6:.*]] = tensor.extract %arg0[%[[v5]]] : tensor<1xf32>
+// CHECK:       %[[v6:.*]] = tensor.extract %arg0[%[[c0]]] : tensor<1xf32>
 // CHECK:       linalg.yield %[[v6]] : f32
 // CHECK:   } -> tensor<1xf32>
 // CHECK:   return %[[v2]] : tensor<1xf32>

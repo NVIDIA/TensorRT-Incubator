@@ -126,7 +126,7 @@ private:
   DimExprFactory &factory;
 
   /// LLVM's EquivalenceClasses for DimVariable with custom comparator.
-  llvm::EquivalenceClasses<DimVariable, DimVariableComparator> equivalences;
+  llvm::EquivalenceClasses<DimVariable> equivalences;
 
   /// Map from variable to its expression (for returning DimExprRef).
   llvm::DenseMap<DimVariable, DimExprRef> variableToExpr;

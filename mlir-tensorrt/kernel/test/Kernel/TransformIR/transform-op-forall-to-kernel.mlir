@@ -51,9 +51,9 @@ module attributes {transform.with_named_sequence} {
 //       CHECK:       %[[extracted_slice_0:.+]] = tensor.extract_slice %[[arg1]][%[[c0]], %[[o2]]] [1024, 128] [1, 1] :
 //       CHECK:       %[[extracted_slice_1:.+]] = tensor.extract_slice %[[arg2]][%[[o1]], %[[o2]]] [128, 128] [1, 1] :
 //       CHECK:       %[[v5:.+]] = linalg.matmul ins(%[[extracted_slice]], %[[extracted_slice_0]] : {{.*}}) outs(%[[extracted_slice_1]] :
-//   CHECK-DAG:       %[[v8:.+]] = bufferization.to_memref %[[arg2]] :
+//   CHECK-DAG:       %[[v8:.+]] = bufferization.to_buffer %[[arg2]] :
 //   CHECK-DAG:       %[[subview:.+]] = memref.subview %[[v8]][%[[o1]], %[[o2]]] [128, 128] [1, 1] :
-//   CHECK-DAG:       %[[v9:.+]] = bufferization.to_memref %[[v5]] : tensor<128x128xf32> to memref<128x128xf32, {{.*}}>
+//   CHECK-DAG:       %[[v9:.+]] = bufferization.to_buffer %[[v5]] : tensor<128x128xf32> to memref<128x128xf32, {{.*}}>
 //   CHECK-DAG:       memref.copy %[[v9]], %[[subview]] : memref<128x128xf32, {{.*}}> to memref<128x128xf32, {{.*}}>
 //       CHECK:       return
 
@@ -82,13 +82,13 @@ func.func @test_rank_reduction(
     %b = tensor.extract_slice %arg1[%offset][128][1] : tensor<1024xf32> to tensor<128xf32>
     %b1 = tensor.expand_shape %b [[0, 1]] output_shape [128, 1] : tensor<128xf32> into tensor<128x1xf32>
     scf.forall.in_parallel {
-      // CHECK-DAG: %[[src:.+]] = bufferization.to_memref %[[out_tensor1]] :
-      // CHECK-DAG: %[[dest:.+]] = bufferization.to_memref %[[a_tile]] :
+      // CHECK-DAG: %[[src:.+]] = bufferization.to_buffer %[[out_tensor1]] :
+      // CHECK-DAG: %[[dest:.+]] = bufferization.to_buffer %[[a_tile]] :
       // CHECK-DAG: %[[subview:.+]] = memref.subview %[[src]][%[[offset]], 0] [128, 1] [1, 1] : memref<1024x1xf32, {{.*}}> to memref<128xf32, {{.*}}>
       //     CHECK: memref.copy %[[dest]], %[[subview]] : memref<128xf32, {{.*}}> to memref<128xf32, {{.*}}>
       tensor.parallel_insert_slice %a into %out1[%offset, 0][128, 1][1, 1] : tensor<128xf32> into tensor<1024x1xf32>
-      // CHECK-DAG: %[[dest:.+]] = bufferization.to_memref %[[out_tensor2]] :
-      // CHECK-DAG: %[[src:.+]] = bufferization.to_memref %[[b1_tile]] :
+      // CHECK-DAG: %[[dest:.+]] = bufferization.to_buffer %[[out_tensor2]] :
+      // CHECK-DAG: %[[src:.+]] = bufferization.to_buffer %[[b1_tile]] :
       // CHECK-DAG: %[[dest_sv:.+]] = memref.subview %[[dest]][%[[offset]], 0] [128, 1] [1, 1] : {{.*}} to memref<128x1xf32, {{.*}}>
       //     CHECK: memref.copy %[[src]], %[[dest_sv]] : memref<128x1xf32, {{.*}}> to memref<128x1xf32, {{.*}}>
       tensor.parallel_insert_slice %b1 into %out2[%offset, 0][128, 1][1, 1] : tensor<128x1xf32> into tensor<1024x1xf32>
@@ -176,9 +176,9 @@ module attributes {transform.with_named_sequence} {
 //   CHECK-DAG:       %[[extracted_slice_0:.+]] = tensor.extract_slice %[[arg1]][%[[c0]], %[[o2]]] [1024, 128] [1, 1] :
 //   CHECK-DAG:       %[[extracted_slice_1:.+]] = tensor.extract_slice %[[arg2]][%[[o1]], %[[o2]]] [128, 128] [1, 1] :
 //   CHECK-DAG:       %[[v5:.+]] = linalg.matmul ins(%[[extracted_slice]], %[[extracted_slice_0]] : tensor<128x1024xf32>, tensor<1024x128xf32>) outs(%[[extracted_slice_1]] : tensor<128x128xf32>) -> tensor<128x128xf32>
-//   CHECK-DAG:       %[[v8:.+]] = bufferization.to_memref %[[arg2]]
+//   CHECK-DAG:       %[[v8:.+]] = bufferization.to_buffer %[[arg2]]
 //   CHECK-DAG:       %[[subview:.+]] = memref.subview %[[v8]][%[[o1]], %[[o2]]] [128, 128] [1, 1] : memref<1024x1024xf32, {{.*}}
-//   CHECK-DAG:       %[[v9:.+]] = bufferization.to_memref %[[v5]] : tensor<128x128xf32> to memref<128x128xf32, {{.*}}>
+//   CHECK-DAG:       %[[v9:.+]] = bufferization.to_buffer %[[v5]] : tensor<128x128xf32> to memref<128x128xf32, {{.*}}>
 //       CHECK:       memref.copy %[[v9]], %[[subview]]
 
 
@@ -243,9 +243,9 @@ module attributes {transform.with_named_sequence} {
 //       CHECK:         %[[extracted_slice_0:.+]] = tensor.extract_slice %[[arg0]][%[[v3]]] [32] [1] : tensor<?xf32> to tensor<32xf32>
 //       CHECK:         scf.forall.in_parallel
 //       CHECK:           tensor.parallel_insert_slice %[[extracted_slice_0]] into %[[arg4]][%[[v4]]] [32] [1] : tensor<32xf32> into tensor<64xf32>
-//   CHECK-DAG:       %[[v4:.+]] = bufferization.to_memref %[[arg2]] : tensor<?xf32> to memref<?xf32, {{.*}}>
+//   CHECK-DAG:       %[[v4:.+]] = bufferization.to_buffer %[[arg2]] : tensor<?xf32> to memref<?xf32, {{.*}}>
 //   CHECK-DAG:       %[[subview:.+]] = memref.subview %[[v4]][%[[v1]]] [64] [1] : memref<?xf32, {{.*}}> to memref<64xf32, {{.*}}>
-//   CHECK-DAG:       %[[v5:.+]] = bufferization.to_memref %[[v2]] : tensor<64xf32> to memref<64xf32, {{.*}}>
+//   CHECK-DAG:       %[[v5:.+]] = bufferization.to_buffer %[[v2]] : tensor<64xf32> to memref<64xf32, {{.*}}>
 //       CHECK:       memref.copy %[[v5]], %[[subview]]
 
 

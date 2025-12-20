@@ -23,7 +23,7 @@
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/Dominance.h"
 #include "mlir/IR/OpDefinition.h"
-#include "mlir/Transforms/OneToNTypeConversion.h"
+#include "mlir/Transforms/DialectConversion.h"
 #include "llvm/ADT/EquivalenceClasses.h"
 
 #include <algorithm>
@@ -193,9 +193,9 @@ static SmallVector<Operation *> getSortedTrackedOperations(
   SmallVector<Operation *> ops;
   for (llvm::EquivalenceClasses<Operation *>::iterator it = ec.begin();
        it != ec.end(); ++it) {
-    if (rootOnly && !it->isLeader())
+    if (rootOnly && !(*it)->isLeader())
       continue;
-    ops.push_back(it->getData());
+    ops.push_back((*it)->getData());
   }
   llvm::sort(ops, [&](Operation *lhs, Operation *rhs) {
     bool lhsBefore = compareOps(lhs, rhs, state.domInfo);
@@ -332,7 +332,7 @@ mlir::analyzeAndClusterOperations(ClusteringState &clusterer) {
 
 // Get the module for debug printing.
 #ifndef NDEBUG
-  ModuleOp op = (*clusterer.ec.begin()).getData()->getParentOfType<ModuleOp>();
+  ModuleOp op = (*clusterer.ec.begin())->getData()->getParentOfType<ModuleOp>();
 #endif // NDEBUG
 
   LLVM_DEBUG({
@@ -713,7 +713,7 @@ mlir::outlineRegionOp(RewriterBase &rewriter, Operation *op,
     Operation *regionYieldOp = body.front().getTerminator();
     rewriter.inlineBlockBefore(
         &body.front(), outlinedFuncBlock->getTerminator(),
-        isClosed ? ValueRange(*remappedArgs) : std::nullopt);
+        isClosed ? ValueRange(*remappedArgs) : ValueRange{});
 
     // Convert the yielded values to the required type and update terminator.
     rewriter.setInsertionPoint(regionYieldOp);

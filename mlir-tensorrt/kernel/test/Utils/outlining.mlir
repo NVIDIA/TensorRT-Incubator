@@ -70,7 +70,7 @@ func.func @outline_using_linear_block_mapping(%x: !type, %y: !type, %z: !type, %
   return %r : !type
 }
 
-//       CHECK: #[[$map:.+]] = affine_map<()[s0, s1, s2, s3, s4] -> (s3 * s1 + s4 + s2 * (s1 * s0))>
+//       CHECK: #[[$map:.+]] = affine_map<()[s0, s1, s2, s3, s4] -> (s1 * s3 + s4 + s2 * (s0 * s1))>
 //       CHECK: module {
 // CHECK-LABEL: func.func @outline_using_linear_block_mapping
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<2x32xf32>, %[[arg1:.+]]: tensor<2x32xf32>, %[[arg2:.+]]: tensor<2x32xf32>, %[[arg3:.+]]: tensor<32xf32>, %[[arg4:.+]]: f32)

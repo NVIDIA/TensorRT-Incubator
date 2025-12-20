@@ -24,7 +24,7 @@ func.func @test_opaque_quick_plugin_field_creation_using_registry(%arg0: tensor<
 }
 
 // CHECK-LABEL: QuickPluginCreationRequest: kSTRICT_AOT
-// CHECK-NEXT: Created TestQuickPlugin with 11 fields:
+//      CHECK: Created TestQuickPlugin with 11 fields:
 // CHECK-NEXT: field[0] name=i64_param, type=kINT64, length=1, data=[33]
 // CHECK-NEXT: field[1] name=i32_param, type=kINT32, length=1, data=[10]
 // CHECK-NEXT: field[2] name=i16_param, type=kINT16, length=1, data=[20]

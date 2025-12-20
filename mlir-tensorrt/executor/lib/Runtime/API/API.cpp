@@ -1277,7 +1277,7 @@ static Status parseDebugFlags() {
   std::string error;
   llvm::raw_string_ostream ss(error);
   if (!llvm::cl::ParseCommandLineOptions(argv.size(), argv.data(),
-                                         "MLIR-TRT Runtime flags", &ss,
+                                         "MLIR-TRT Runtime flags", &ss, nullptr,
                                          "MTRT_FLAGS", false)) {
     ss.flush();
     return getInternalErrorStatus("Failed to parse MTRT_FLAGS options: {0}",

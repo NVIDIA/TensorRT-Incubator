@@ -61,7 +61,7 @@ resolveResultAliasing(RewriterBase &rewriter, FunctionOpInterface func,
   for (auto [idx, result] : llvm::enumerate(returnedValues)) {
     if (!isa<MemRefType>(result.get().getType()))
       continue;
-    if (aliasSets.findValue(&result) == aliasSets.end())
+    if (aliasSets.findLeader(&result) == aliasSets.member_end())
       aliasSets.insert(&result);
     for (auto [idx2, result2] : llvm::enumerate(returnedValues)) {
       if (idx == idx2 || !isa<MemRefType>(result2.get().getType()))
@@ -78,12 +78,14 @@ resolveResultAliasing(RewriterBase &rewriter, FunctionOpInterface func,
 
   // Within each equivalence class, choose the value *not* to clone.
   llvm::DenseMap<OpOperand *, OpOperand *> doNotClone;
-  for (auto leaderIt = aliasSets.begin(), end = aliasSets.end();
+  for (llvm::EquivalenceClasses<OpOperand *>::iterator
+           leaderIt = aliasSets.begin(),
+           end = aliasSets.end();
        leaderIt != end; ++leaderIt) {
-    if (!leaderIt->isLeader())
+    if (!(*leaderIt)->isLeader())
       continue;
     SmallVector<OpOperand *> ranked;
-    for (auto mit = aliasSets.member_begin(leaderIt),
+    for (auto mit = aliasSets.member_begin(**leaderIt),
               meit = aliasSets.member_end();
          mit != meit; ++mit) {
       ranked.push_back(*mit);
@@ -105,7 +107,7 @@ resolveResultAliasing(RewriterBase &rewriter, FunctionOpInterface func,
       return aScore < bScore;
     });
     if (ranked.size() >= 1)
-      doNotClone[leaderIt->getData()] = ranked[0];
+      doNotClone[(*leaderIt)->getData()] = ranked[0];
   }
 
   llvm::SmallBitVector requiresClone(returnedValues.size(), false);
@@ -200,7 +202,8 @@ static LogicalResult updateABIFunction(RewriterBase &rewriter,
   }
   llvm::BitVector resultIndices(
       cast<FunctionType>(func.getFunctionType()).getNumResults(), true);
-  func.eraseResults(resultIndices);
+  if (failed(func.eraseResults(resultIndices)))
+    return failure();
 
   return success();
 }

@@ -354,7 +354,7 @@ void plan::populateMaterializeShapeCalculationsStablehloPatterns(
     RewritePatternSet &patterns, SymbolTableCollection &symbolTable) {
   stablehlo_ext::populateStableHloAbsorbTensorCastPatterns(patterns);
   stablehlo::populateStablehloCanonicalizeDynamismPatterns(
-      &patterns, patterns.getContext());
+      patterns.getContext(), &patterns);
   patterns.add<SimplifyExtractOfConcat, SimplifyExtractOfDimSize,
                SimplifyExtractOfEwise, SimplifyExtractOfReshape,
                SimplifyExtractOfSlice>(patterns.getContext());

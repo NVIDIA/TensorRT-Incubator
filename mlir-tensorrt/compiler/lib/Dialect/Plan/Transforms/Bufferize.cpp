@@ -29,6 +29,7 @@
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
+#include "mlir/IR/SymbolTable.h"
 #include "llvm/ADT/STLExtras.h"
 
 namespace mlir {
@@ -60,11 +61,13 @@ struct PlanOwnershipBasedBufferDeallocationPass
     options.privateFuncDynamicOwnership = privateFuncDynamicOwnership;
     SmallVector<FunctionOpInterface> hostFuncs =
         llvm::to_vector(getOperation().getOps<FunctionOpInterface>());
+    SymbolTableCollection symbolTables;
 
     for (auto func : hostFuncs) {
       if (func.isExternal())
         continue;
-      if (failed(bufferization::deallocateBuffersOwnershipBased(func, options)))
+      if (failed(bufferization::deallocateBuffersOwnershipBased(func, options,
+                                                                symbolTables)))
         return signalPassFailure();
     }
   }

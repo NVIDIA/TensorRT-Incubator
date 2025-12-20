@@ -76,7 +76,7 @@ if("${MLIR_TRT_USE_LLVM}" STREQUAL "prebuilt")
   set(MTRT_BUILD_LLVM_FROM_SOURCE OFF)
 endif()
 
-set(MLIR_TRT_LLVM_COMMIT "f137c3d592e96330e450a8fd63ef7e8877fc1908")
+set(MLIR_TRT_LLVM_COMMIT "d6e2143b064e62458eb210394e623bc0abeb266b")
 
 set(mlir_patch_dir "${CMAKE_CURRENT_LIST_DIR}/build_tools/patches/mlir")
 
@@ -89,11 +89,12 @@ else()
     EXCLUDE_FROM_ALL TRUE
     SOURCE_SUBDIR "llvm"
     PATCHES
-      "${mlir_patch_dir}/0005-mlir-memref-Fix-memref.global-overly-constrained-ver.patch"
-      "${mlir_patch_dir}/0006-mlir-emitc-Fix-two-EmitC-bugs.patch"
-      "${mlir_patch_dir}/0009-mlir-Support-FileLineColRange-in-LLVM-debug-translat.patch"
-      "${mlir_patch_dir}/0011-MLIR-Fix-bufferization-interface-for-tensor-reshape.patch"
-      "${mlir_patch_dir}/0001-NVPTX-Add-support-for-PTX-ISA-v8.8-136639.patch"
+      "${mlir_patch_dir}/0001-mlir-linalg-don-t-rewrite-DPS-init-operands-in-linal.patch"
+      "${mlir_patch_dir}/0002-mlir-emitc-Fix-emitc.for-verification-crash-163754.patch"
+      "${mlir_patch_dir}/0003-mlir-emitc-Unify-API-for-deferred-emission-167532.patch"
+      "${mlir_patch_dir}/0004-mlir-emitc-Remove-dead-methods-from-emitter-167657.patch"
+      "${mlir_patch_dir}/0005-mlir-emitc-Fix-ineffective-tests-168197.patch"
+      "${mlir_patch_dir}/0006-mlir-emitc-Refactor-brackets-in-expressions-168267.patch"
     # Set the CPM cache key to the Git hash for easy navigation.
     PRE_ADD_HOOK [[
       list(APPEND _vap_UNPARSED_ARGUMENTS
@@ -154,8 +155,7 @@ nv_register_package(
 # Stablehlo
 #-------------------------------------------------------------------------------------
 set(stablehlo_patch_dir "${CMAKE_SOURCE_DIR}/build_tools/patches/stablehlo")
-set(MLIR_TRT_STABLEHLO_COMMIT "4bf77d23bd9150782a70d85fda9c12a2dec5328c")
-
+set(MLIR_TRT_STABLEHLO_COMMIT "4c0d4841519aed22e3689c30b72a0e4228051249")
 
 nv_register_package(
   NAME Stablehlo
@@ -166,12 +166,9 @@ nv_register_package(
     "STABLEHLO_BUILD_EMBEDDED ON"
   PATCHES
    "${stablehlo_patch_dir}/0001-cmake-Update-usage-of-HandleLLVMOptions-and-LLVM_DEF.patch"
-   "${stablehlo_patch_dir}/0002-Fix-ZeroExtent-condition-in-simplification-pattern.patch"
-   "${stablehlo_patch_dir}/0003-Remove-explicit-use-of-LLVMSupport.patch"
-   "${stablehlo_patch_dir}/0004-Fix-circular-dependence-between-StablehloPasses-and-.patch"
-   "${stablehlo_patch_dir}/0005-Modernize-the-stablehlo-convert-to-signless-pass.patch"
-   "${stablehlo_patch_dir}/0006-Add-additional-support-for-stablehlo-chlo-ops-to-lin.patch"
-   "${stablehlo_patch_dir}/0007-Fix-stablehlo-convert-to-signless-pass-to-handle-sta.patch"
+   "${stablehlo_patch_dir}/0002-Modernize-the-stablehlo-convert-to-signless-pass.patch"
+   "${stablehlo_patch_dir}/0003-Add-additional-support-for-stablehlo-chlo-ops-to-lin.patch"
+   "${stablehlo_patch_dir}/0004-Fix-stablehlo-convert-to-signless-pass-to-handle-sta.patch"
 
   POST_ADD_HOOK [[
     # Mimic what a StablehloConfig.cmake file would do.
@@ -288,7 +285,7 @@ nv_register_package(
 #-------------------------------------------------------------------------------------
 # Torch-MLIR
 #-------------------------------------------------------------------------------------
-set(MLIR_TRT_TORCH_MLIR_COMMIT "9f2ba5abaa85cefd95cc85579fafd0c53c1101e8")
+set(MLIR_TRT_TORCH_MLIR_COMMIT "d7e34845a7bbc717c5710769b721698d9cc37a9b")
 nv_register_package(
   NAME torch_mlir
   URL "https://github.com/llvm/torch-mlir/archive/${MLIR_TRT_TORCH_MLIR_COMMIT}.zip"

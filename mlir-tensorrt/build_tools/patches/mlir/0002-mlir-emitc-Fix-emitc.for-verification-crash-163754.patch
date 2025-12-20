@@ -1,0 +1,76 @@
+From ee9f5144b93538ed8045b314973d82ae2fded391 Mon Sep 17 00:00:00 2001
+From: Longsheng Mou <longshengmou@gmail.com>
+Date: Mon, 3 Nov 2025 09:47:34 +0800
+Subject: [PATCH 2/6] [mlir][emitc] Fix emitc.for verification crash  (#163754)
+
+This PR adds block arguments check to prevent a crash in `emitc.for`
+verifier. Fixes #159950.
+---
+ mlir/lib/Dialect/EmitC/IR/EmitC.cpp      |  4 +++
+ mlir/test/Dialect/EmitC/invalid_ops.mlir | 38 ++++++++++++++++++++++++
+ 2 files changed, 42 insertions(+)
+
+diff --git a/mlir/lib/Dialect/EmitC/IR/EmitC.cpp b/mlir/lib/Dialect/EmitC/IR/EmitC.cpp
+index 4754f0bfe895..e3cdc1e08d36 100644
+--- a/mlir/lib/Dialect/EmitC/IR/EmitC.cpp
++++ b/mlir/lib/Dialect/EmitC/IR/EmitC.cpp
+@@ -584,6 +584,10 @@ void ForOp::print(OpAsmPrinter &p) {
+ LogicalResult ForOp::verifyRegions() {
+   // Check that the body defines as single block argument for the induction
+   // variable.
++  if (getBody()->getNumArguments() != 1)
++    return emitOpError("expected body to have a single block argument for the "
++                       "induction variable");
++
+   if (getInductionVar().getType() != getLowerBound().getType())
+     return emitOpError(
+         "expected induction variable to be same type as bounds and step");
+diff --git a/mlir/test/Dialect/EmitC/invalid_ops.mlir b/mlir/test/Dialect/EmitC/invalid_ops.mlir
+index 5f594fb08c43..f285196d466c 100644
+--- a/mlir/test/Dialect/EmitC/invalid_ops.mlir
++++ b/mlir/test/Dialect/EmitC/invalid_ops.mlir
+@@ -876,3 +876,41 @@ func.func @test_do(%arg0 : !emitc.ptr<i32>) {
+ 
+   return
+ }
++
++// -----
++
++func.func @test_for_none_block_argument(%arg0: index) {
++  // expected-error@+1 {{expected body to have a single block argument for the induction variable}}
++  "emitc.for"(%arg0, %arg0, %arg0) (
++    {
++      emitc.yield
++    }
++  ) : (index, index, index) -> ()
++  return
++}
++
++// -----
++
++func.func @test_for_more_than_one_block_argument(%arg0: index) {
++  // expected-error@+1 {{expected body to have a single block argument for the induction variable}}
++  "emitc.for"(%arg0, %arg0, %arg0) (
++    {
++    ^bb0(%i0 : index, %i1 : index):
++      emitc.yield
++    }
++  ) : (index, index, index) -> ()
++  return
++}
++
++// -----
++
++func.func @test_for_unmatch_type(%arg0: index) {
++  // expected-error@+1 {{expected induction variable to be same type as bounds}}
++  "emitc.for"(%arg0, %arg0, %arg0) (
++    {
++    ^bb0(%i0 : f32):
++      emitc.yield
++    }
++  ) : (index, index, index) -> ()
++  return
++}
+-- 
+2.52.0
+

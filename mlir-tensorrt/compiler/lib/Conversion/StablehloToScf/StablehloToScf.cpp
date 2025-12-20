@@ -26,7 +26,6 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
-#include "mlir/Transforms/OneToNTypeConversion.h"
 #include "stablehlo/conversions/linalg/transforms/MapStablehloToScalarOp.h"
 #include "stablehlo/dialect/StablehloOps.h"
 #include "llvm/ADT/TypeSwitch.h"
@@ -331,7 +330,8 @@ struct ScalarizeWhileConditionProducers
     };
 
     SetVector<Operation *> producers;
-    getBackwardSlice(op.getCondition(), &producers, options);
+    if (failed(getBackwardSlice(op.getCondition(), &producers, options)))
+      return failure();
 
     bool changed = false;
     for (Operation *producer : producers) {

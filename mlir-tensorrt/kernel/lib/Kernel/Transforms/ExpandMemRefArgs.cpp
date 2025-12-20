@@ -30,7 +30,6 @@
 #include "mlir-kernel/Kernel/Transforms/Passes.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Func/Transforms/FuncConversions.h"
-#include "mlir/Dialect/Func/Transforms/OneToNFuncConversions.h"
 #include "mlir/Dialect/GPU/IR/GPUDialect.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Rewrite/FrozenRewritePatternSet.h"
@@ -87,18 +86,6 @@ struct MemRefTypeConverter : public TypeConverter {
 
     addSourceMaterialization([&](OpBuilder &builder, Type resultType,
                                  ValueRange inputs, Location loc) -> Value {
-      if (auto memrefType = dyn_cast<MemRefType>(resultType)) {
-        FailureOr<Value> result =
-            this->reconstructMemRef(builder, loc, inputs, memrefType);
-        if (failed(result))
-          return {};
-        return *result;
-      }
-      return {};
-    });
-
-    addArgumentMaterialization([&](OpBuilder &builder, Type resultType,
-                                   ValueRange inputs, Location loc) -> Value {
       if (auto memrefType = dyn_cast<MemRefType>(resultType)) {
         FailureOr<Value> result =
             this->reconstructMemRef(builder, loc, inputs, memrefType);

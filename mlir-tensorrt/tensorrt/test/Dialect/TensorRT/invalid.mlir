@@ -1759,7 +1759,8 @@ func.func @trt_gather(%arg0: tensor<1x1x5x4xf32>, %arg1: tensor<4x3xi32>) -> ten
 
 func.func @trt_for_loop(%lb: tensor<i32>, %ub: tensor<i32>, %step: tensor<i32>, %arg0: tensor<10xf16>, %arg1: tensor<10xf16>)
     -> (tensor<10xf16>, tensor<10xf16>) {
-  // expected-error @below {{'tensorrt.for' op  along control flow edge from Region #0 to Region #0: source type #1 'tensor<9xf16>' should match input type #1 'tensor<10xf16>'}}
+
+  // expected-error @below {{tensorrt.for' op along control flow edge from Region #0 to Region #0: source type #1 'tensor<9xf16>' should match input type #1 'tensor<10xf16>'}}
   %0, %1 = tensorrt.for %i = %lb to %ub step %step init(%iter0 = %arg0, %iter1 = %arg1) -> (tensor<10xf16>, tensor<10xf16>) {
     %cst = tensorrt.constant dense<0.0> : tensor<9xf16>
     tensorrt.yield %iter0, %cst : tensor<10xf16>, tensor<9xf16>

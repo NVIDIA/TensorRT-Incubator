@@ -158,9 +158,8 @@ transform::KernelVectorizeChildrenAndApplyPatternsOp::applyToOne(
   vector::populateVectorStepLoweringPatterns(patterns);
 
   TrackingListener listener(state, *this);
-  GreedyRewriteConfig config{};
-  config.listener = &listener;
-  config.maxIterations = 2;
+  auto config =
+      GreedyRewriteConfig().setListener(&listener).setMaxIterations(2);
 
   // We don't care about convergence failure here. Some upstream vectorization
   // patterns are not well-behaved in not creating new ops if returning failure.

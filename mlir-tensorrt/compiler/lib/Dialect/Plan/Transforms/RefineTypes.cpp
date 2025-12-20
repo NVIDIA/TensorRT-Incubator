@@ -373,8 +373,7 @@ class PlanRefineTypesPass
     if (!funcTarget)
       return;
 
-    GreedyRewriteConfig config{};
-    config.useTopDownTraversal = true;
+    auto config = GreedyRewriteConfig().setUseTopDownTraversal(true);
 
     // clang-format off
     patterns.add<
@@ -388,7 +387,7 @@ class PlanRefineTypesPass
     // clang-format on
     tensor::CastOp::getCanonicalizationPatterns(patterns, ctx);
     stablehlo_ext::populateStableHloAbsorbTensorCastPatterns(patterns);
-    stablehlo::populateStablehloRefineShapesPatterns(&patterns, ctx);
+    stablehlo::populateStablehloRefineShapesPatterns(ctx, &patterns);
     stablehlo::populateStablehloCanonicalizationPatterns(ctx, &patterns);
 
     if (failed(

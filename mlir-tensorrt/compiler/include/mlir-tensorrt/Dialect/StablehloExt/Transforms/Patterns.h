@@ -23,6 +23,7 @@
 //===----------------------------------------------------------------------===//
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Support/LLVM.h"
+#include "stablehlo/transforms/optimization/Passes.h"
 
 namespace mlir {
 class RewritePatternSet;
@@ -36,7 +37,9 @@ void populateStableHloAbsorbTensorCastPatterns(RewritePatternSet &patterns);
 /// The `sizeLimit` is the maximum tensor volume beyond which constant folding
 /// is not attempted.
 void populateTargetIndependentSimplificationPatterns(
-    RewritePatternSet &patterns, int64_t sizeLimit, PatternBenefit benefit = 1);
+    RewritePatternSet &patterns, int64_t sizeLimit,
+    const stablehlo::StablehloAggressiveFolderPassOptions &folderOptions,
+    PatternBenefit benefit = 1);
 
 /// Populate patterns to canonicalize `stablehlo.convolution`.
 void populateCanonicalizeStablehloConvolutionPatterns(

@@ -44,6 +44,7 @@
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/GPU/IR/GPUDialect.h"
 #include "mlir/Dialect/GPU/Transforms/Passes.h"
+#include "mlir/Dialect/LLVMIR/LLVMAttrs.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/LLVMIR/NVVMDialect.h"
 #include "mlir/Dialect/SCF/Transforms/Patterns.h"
@@ -86,9 +87,9 @@ static void configureNVVMTarget(ConversionTarget &target) {
 static unsigned gpuAddressSpaceToNVVMMemorySpace(gpu::AddressSpace space) {
   switch (space) {
   case gpu::AddressSpace::Global:
-    return static_cast<unsigned>(NVVM::NVVMMemorySpace::kGlobalMemorySpace);
+    return static_cast<unsigned>(NVVM::NVVMMemorySpace::Global);
   case gpu::AddressSpace::Workgroup:
-    return static_cast<unsigned>(NVVM::NVVMMemorySpace::kSharedMemorySpace);
+    return static_cast<unsigned>(NVVM::NVVMMemorySpace::Shared);
   case gpu::AddressSpace::Private:
     return 0;
   }
@@ -217,12 +218,12 @@ struct MTRTArithToLLVMConverter : public ConvertOpToLLVMPattern<T> {
                           Type resultType, StringRef constraints) const {
     auto asmDialectAttr = LLVM::AsmDialectAttr::get(rewriter.getContext(),
                                                     LLVM::AsmDialect::AD_ATT);
-    return rewriter
-        .create<LLVM::InlineAsmOp>(loc, resultType, inputs, ptxInstr,
-                                   constraints,
-                                   /*has_side_effects=*/false,
-                                   /*is_align_stack=*/false, asmDialectAttr,
-                                   /*operand_attrs=*/mlir::ArrayAttr())
+    return LLVM::InlineAsmOp::create(rewriter, loc, resultType, inputs,
+                                     ptxInstr, constraints,
+                                     /*has_side_effects=*/false,
+                                     /*is_align_stack=*/false,
+                                     LLVM::TailCallKind::None, asmDialectAttr,
+                                     /*operand_attrs=*/mlir::ArrayAttr())
         .getRes();
   }
 

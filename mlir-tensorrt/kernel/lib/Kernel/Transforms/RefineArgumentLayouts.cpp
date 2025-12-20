@@ -183,8 +183,8 @@ class KernelRefineArgumentLayoutsPassPass
             return false;
           // Allow updating in-place for a set of operations where we know that
           // is always valid.
-          return !isa<memref::AssumeAlignmentOp, memref::LoadOp,
-                      memref::StoreOp, memref::CastOp>(use.getOwner());
+          return !isa<memref::LoadOp, memref::StoreOp, memref::CastOp>(
+              use.getOwner());
         };
         rewriter.replaceUsesWithIf(arg, castOp, shouldReplaceWithCast);
       }

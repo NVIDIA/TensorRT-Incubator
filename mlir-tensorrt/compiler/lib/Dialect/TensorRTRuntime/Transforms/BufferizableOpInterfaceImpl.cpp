@@ -104,7 +104,8 @@ struct EnqueueOpInterface
 
   /// Bufferize the `trtrt.enqueue` operation.
   LogicalResult bufferize(Operation *op, RewriterBase &rewriter,
-                          const BufferizationOptions &options) const {
+                          const BufferizationOptions &options,
+                          bufferization::BufferizationState &state) const {
     EnqueueOp enqueueOp = cast<EnqueueOp>(op);
     MLIRContext *ctx = op->getContext();
     Location loc = op->getLoc();
@@ -122,7 +123,8 @@ struct EnqueueOpInterface
         newInputBuffers.push_back(opOperand->get());
         continue;
       }
-      FailureOr<Value> buffer = getBuffer(rewriter, opOperand->get(), options);
+      FailureOr<Value> buffer =
+          getBuffer(rewriter, opOperand->get(), options, state);
       if (failed(buffer))
         return failure();
 
@@ -164,7 +166,7 @@ struct EnqueueOpInterface
       OpOperand *opOperand =
           enqueueOp.getDpsInitOperand(opResult.getResultNumber());
       FailureOr<Value> resultBuffer =
-          getBuffer(rewriter, opOperand->get(), options);
+          getBuffer(rewriter, opOperand->get(), options, state);
       if (failed(resultBuffer))
         return failure();
       newOutputBuffers.push_back(*resultBuffer);
@@ -221,7 +223,8 @@ struct EnqueueAllocOpInterface
   }
 
   LogicalResult bufferize(Operation *op, RewriterBase &rewriter,
-                          const BufferizationOptions &options) const {
+                          const BufferizationOptions &options,
+                          bufferization::BufferizationState &state) const {
     auto enqueueAllocOp = cast<EnqueueAllocOp>(op);
     MLIRContext *ctx = op->getContext();
     Location loc = op->getLoc();
@@ -233,7 +236,8 @@ struct EnqueueAllocOpInterface
     for (OpOperand &opOperand : enqueueAllocOp->getOpOperands()) {
       if (!isa<RankedTensorType>(opOperand.get().getType()))
         continue;
-      FailureOr<Value> buffer = getBuffer(rewriter, opOperand.get(), options);
+      FailureOr<Value> buffer =
+          getBuffer(rewriter, opOperand.get(), options, state);
       if (failed(buffer))
         return failure();
 

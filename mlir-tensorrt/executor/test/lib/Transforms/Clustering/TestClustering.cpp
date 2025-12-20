@@ -17,7 +17,6 @@
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Support/LLVM.h"
-#include "mlir/Transforms/OneToNTypeConversion.h"
 #include "llvm/ADT/SmallBitVector.h"
 #include "llvm/Support/Casting.h"
 

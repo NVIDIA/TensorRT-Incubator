@@ -1,7 +1,7 @@
-From 001e90350acd87b8c0cb9282220d968768ee15c8 Mon Sep 17 00:00:00 2001
+From 9075bf1f1478d671f83ac4b01bfdd46f02abd2ea Mon Sep 17 00:00:00 2001
 From: Christopher Bate <cbate@nvidia.com>
 Date: Sat, 15 Feb 2025 22:02:17 +0000
-Subject: [PATCH 1/5] [cmake] Update usage of `HandleLLVMOptions` and
+Subject: [PATCH 1/4] [cmake] Update usage of `HandleLLVMOptions` and
  `LLVM_DEFINITIONS`
 
 This change attempts to resolve issues with use of `HandleLLVMOptions`
@@ -105,5 +105,5 @@ index bf5f0172..2a119e01 100644
  #-------------------------------------------------------------------------------
  # Sanitizer configuration
 -- 
-2.49.0
+2.52.0
 

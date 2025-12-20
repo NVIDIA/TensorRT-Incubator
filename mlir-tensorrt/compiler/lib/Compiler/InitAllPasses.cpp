@@ -41,6 +41,7 @@
 #include "mlir-tensorrt/Features.h"
 #include "mlir-tensorrt/Transforms/Passes.h"
 #include "mlir/Conversion/Passes.h"
+#include "mlir/Dialect/Arith/Transforms/Passes.h"
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
 #include "mlir/Dialect/EmitC/Transforms/Passes.h"
 #include "mlir/Dialect/Linalg/Passes.h"
@@ -65,6 +66,7 @@
 #endif // MLIR_TRT_ENABLE_SHARDY
 
 void mtrt::compiler::registerAllPasses() {
+  mlir::arith::registerArithPasses();
   mlir::bufferization::registerBufferizationPasses();
   mlir::emitc::registerEmitCPasses();
   mlir::executor::registerAllPasses();

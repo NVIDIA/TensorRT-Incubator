@@ -300,10 +300,11 @@ class StablehloToLinalgPass
 
     patterns = [&] {
       RewritePatternSet patterns_(context);
-      populateStablehloToLinalgConversionPatterns(context, converter,
-                                                  &patterns_,
-                                                  /*enablePrimitiveOps=*/false,
-                                                  /*enableSparseOps=*/false);
+      stablehlo::populateStablehloToLinalgConversionPatterns(
+          context, converter, &patterns_,
+          /*enablePrimitiveOps=*/false,
+          /*enableSparseOps=*/false,
+          /*captureScalarInputs=*/false);
       patterns_.add<ConvertStablehloGetDimSizePattern>(context);
       return patterns_;
     }();

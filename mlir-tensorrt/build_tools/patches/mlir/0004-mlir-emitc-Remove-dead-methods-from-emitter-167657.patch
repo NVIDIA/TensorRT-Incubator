@@ -1,0 +1,68 @@
+From 14e8cde523096db58cbebf22e3460bc5a1250593 Mon Sep 17 00:00:00 2001
+From: Gil Rapaport <gil.rapaport@mobileye.com>
+Date: Thu, 13 Nov 2025 20:25:35 +0200
+Subject: [PATCH 4/6] [mlir][emitc] Remove dead methods from emitter (#167657)
+
+This patch is a follow up on #167532, which refactored these method's
+code into the relevant `printOperation()` functions but did not remove
+them.
+---
+ mlir/lib/Target/Cpp/TranslateToCpp.cpp | 35 --------------------------
+ 1 file changed, 35 deletions(-)
+
+diff --git a/mlir/lib/Target/Cpp/TranslateToCpp.cpp b/mlir/lib/Target/Cpp/TranslateToCpp.cpp
+index ae209679ece6..6bd76bb1ffc4 100644
+--- a/mlir/lib/Target/Cpp/TranslateToCpp.cpp
++++ b/mlir/lib/Target/Cpp/TranslateToCpp.cpp
+@@ -189,15 +189,6 @@ struct CppEmitter {
+   /// emitc::ForOp.
+   StringRef getOrCreateInductionVarName(Value val);
+ 
+-  // Returns the textual representation of a subscript operation.
+-  std::string getSubscriptName(emitc::SubscriptOp op);
+-
+-  // Returns the textual representation of a member (of object) operation.
+-  std::string createMemberAccess(emitc::MemberOp op);
+-
+-  // Returns the textual representation of a member of pointer operation.
+-  std::string createMemberAccess(emitc::MemberOfPtrOp op);
+-
+   /// Return the existing or a new label of a Block.
+   StringRef getOrCreateName(Block &block);
+ 
+@@ -1387,32 +1378,6 @@ CppEmitter::CppEmitter(raw_ostream &os, bool declareVariablesAtTop,
+   labelInScopeCount.push(0);
+ }
+ 
+-std::string CppEmitter::getSubscriptName(emitc::SubscriptOp op) {
+-  std::string out;
+-  llvm::raw_string_ostream ss(out);
+-  ss << getOrCreateName(op.getValue());
+-  for (auto index : op.getIndices()) {
+-    ss << "[" << getOrCreateName(index) << "]";
+-  }
+-  return out;
+-}
+-
+-std::string CppEmitter::createMemberAccess(emitc::MemberOp op) {
+-  std::string out;
+-  llvm::raw_string_ostream ss(out);
+-  ss << getOrCreateName(op.getOperand());
+-  ss << "." << op.getMember();
+-  return out;
+-}
+-
+-std::string CppEmitter::createMemberAccess(emitc::MemberOfPtrOp op) {
+-  std::string out;
+-  llvm::raw_string_ostream ss(out);
+-  ss << getOrCreateName(op.getOperand());
+-  ss << "->" << op.getMember();
+-  return out;
+-}
+-
+ void CppEmitter::cacheDeferredOpResult(Value value, StringRef str) {
+   if (!valueMapper.count(value))
+     valueMapper.insert(value, str.str());
+-- 
+2.52.0
+
