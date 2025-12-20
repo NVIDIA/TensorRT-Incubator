@@ -31,7 +31,7 @@ func.func @main() -> i32 {
 
   %1 = func.call @fill_tensor(%fill_value, %0) : (!scalar_type, tensor<4x!scalar_type>) -> tensor<4x!scalar_type>
 
-  %memref = bufferization.to_memref %1 read_only :
+  %memref = bufferization.to_buffer %1 read_only :
      tensor<4x!scalar_type> to memref<4x!scalar_type, strided<[?], offset: ?>, #executor.memory_type<host>>
   func.call @print_tensor(%memref) :
      (memref<4x!scalar_type, strided<[?], offset: ?>, #executor.memory_type<host>>) -> ()

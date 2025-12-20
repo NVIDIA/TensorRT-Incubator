@@ -136,7 +136,8 @@ getHoistableOperations(Value value, func::FuncOp func) {
   sliceOptions.filter = [](Operation *op) {
     return isa<AllocationOpInterface>(op) || mlir::isPure(op);
   };
-  mlir::getBackwardSlice(value, &slice, sliceOptions);
+  if (failed(mlir::getBackwardSlice(value, &slice, sliceOptions)))
+    return failure();
 
   // Slice must be closed.
   bool hasAllocation = false;
@@ -340,8 +341,11 @@ updateFuncOp(RewriterBase &rewriter, func::FuncOp func,
   }
 
   // Erase the results. This takes care of updating the result attributes array.
-  rewriter.modifyOpInPlace(func,
-                           [&]() { func.eraseResults(plan.resultsToDrop); });
+  LogicalResult result = success();
+  rewriter.modifyOpInPlace(
+      func, [&]() { result = func.eraseResults(plan.resultsToDrop); });
+  if (failed(result))
+    return failure();
 
   // Add the new arguments to the entry block if the function is not external.
   if (func.isExternal())
@@ -424,8 +428,8 @@ updateCalls(RewriterBase &rewriter, func::FuncOp func,
         auto memrefType = cast<MemRefType>(result.getType());
         if (plan.promotableToCopyOut.test(idx) ||
             plan.simplyHoistableAllocations.test(idx)) {
-          FailureOr<Value> maybeOutParam =
-              options.allocationFn(rewriter, call.getLoc(), memrefType);
+          FailureOr<Value> maybeOutParam = options.allocationFn(
+              rewriter, call.getLoc(), memrefType, ValueRange{});
           if (failed(maybeOutParam))
             return call.emitError()
                    << "failed to create allocation when promoting "
@@ -477,9 +481,9 @@ struct PlanBufferResultsToOutParamsPass
   using Base::Base;
 
   LogicalResult initialize(MLIRContext *context) override {
-    options.allocationFn = [](OpBuilder &builder, Location loc,
-                              MemRefType type) -> FailureOr<Value> {
-      return builder.create<memref::AllocOp>(loc, type).getResult();
+    options.allocationFn = [](OpBuilder &builder, Location loc, MemRefType type,
+                              ValueRange dynShape) -> FailureOr<Value> {
+      return builder.create<memref::AllocOp>(loc, type, dynShape).getResult();
     };
 
     options.memCpyFn = [](OpBuilder &builder, Location loc, Value src,

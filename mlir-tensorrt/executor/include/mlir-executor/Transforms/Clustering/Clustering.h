@@ -26,7 +26,7 @@
 
 #include "mlir/IR/Dominance.h"
 #include "mlir/Interfaces/FunctionInterfaces.h"
-#include "mlir/Transforms/OneToNTypeConversion.h"
+#include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/RegionUtils.h"
 #include "llvm/ADT/EquivalenceClasses.h"
 
@@ -288,7 +288,7 @@ struct OutlineRegionOptions {
   /// cluster during the outlining in a many-to-one manner. For example,
   /// this can be used to implement scalarization of tensor arguments. If not
   /// needed, the caller should set this to the identity converter.
-  TypeConverter typeConverter;
+  mlir::TypeConverter typeConverter;
 
   /// Function that returns `true` if the given Value defined above and used
   /// within the region should be cloned into the region instead of passed as an

@@ -604,8 +604,9 @@ func.func @canonicalize_iota() -> tensor<18x12xi32>{
 }
 
 // CHECK-LABEL: canonicalize_iota
-//  CHECK-NEXT: %[[v0:.+]] = stablehlo.constant
-//  CHECK-NEXT: return %[[v0]]
+//  CHECK-NEXT: %[[v0:.+]] = stablehlo.iota
+//  CHECK-NEXT: %[[v1:.+]] = stablehlo.broadcast_in_dim
+//  CHECK-NEXT: return %[[v1]]
 
 // -----
 

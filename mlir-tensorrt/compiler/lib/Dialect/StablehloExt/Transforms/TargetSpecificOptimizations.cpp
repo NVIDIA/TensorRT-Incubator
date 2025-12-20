@@ -87,6 +87,12 @@ public:
       options = std::move(parsed);
     }
 
+    folderOptions =
+        std::make_shared<stablehlo::StablehloAggressiveFolderPassOptions>();
+    folderOptions->optimizeFloat = false;
+    folderOptions->foldOpElementLimit = constantFoldSizeLimit;
+    folderOptions->assumeNoUndeclaredSideEffects = false;
+
     if (options->enableConvolutionCanonicalization)
       stablehlo_ext::populateCanonicalizeStablehloConvolutionPatterns(
           patterns_);
@@ -100,7 +106,7 @@ public:
       stablehlo_ext::populateGatherToSlicePatterns(patterns_);
 
     stablehlo_ext::populateTargetIndependentSimplificationPatterns(
-        patterns_, constantFoldSizeLimit);
+        patterns_, constantFoldSizeLimit, *folderOptions);
 
     patterns = std::move(patterns_);
     return success();
@@ -117,6 +123,8 @@ public:
 
   std::optional<TargetSpecificCanonicalizationOptions> options{};
   FrozenRewritePatternSet patterns{nullptr};
+  std::shared_ptr<stablehlo::StablehloAggressiveFolderPassOptions>
+      folderOptions;
 };
 
 } // namespace

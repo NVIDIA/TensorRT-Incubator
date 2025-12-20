@@ -1,0 +1,40 @@
+From b01ef27862dc0b10119712d539e0ff513d3989fb Mon Sep 17 00:00:00 2001
+From: Christopher Bate <cbate@nvidia.com>
+Date: Mon, 10 Mar 2025 22:03:05 +0000
+Subject: [PATCH 1/6] [mlir][linalg] don't rewrite DPS init operands in
+ `linalg-fold-unit-extent-dims` if they are block arguments
+
+---
+ mlir/lib/Dialect/Linalg/Transforms/DropUnitDims.cpp | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/mlir/lib/Dialect/Linalg/Transforms/DropUnitDims.cpp b/mlir/lib/Dialect/Linalg/Transforms/DropUnitDims.cpp
+index 22690daa4f9e..05b09824605c 100644
+--- a/mlir/lib/Dialect/Linalg/Transforms/DropUnitDims.cpp
++++ b/mlir/lib/Dialect/Linalg/Transforms/DropUnitDims.cpp
+@@ -91,6 +91,8 @@ struct MoveInitOperandsToInput : public OpRewritePattern<GenericOp> {
+     for (OpOperand &op : outputOperands) {
+       if (genericOp.getMatchingBlockArgument(&op).use_empty())
+         continue;
++      if (isa<BlockArgument>(op.get()))
++        continue;
+       candidates.insert(&op);
+     }
+ 
+@@ -117,11 +119,10 @@ struct MoveInitOperandsToInput : public OpRewritePattern<GenericOp> {
+     for (OpOperand *op : candidates) {
+       OpBuilder::InsertionGuard guard(rewriter);
+       rewriter.setInsertionPointAfterValue(op->get());
+-      auto elemType = cast<ShapedType>(op->get().getType()).getElementType();
++      auto tensorType = cast<RankedTensorType>(op->get().getType());
+       auto empty = tensor::EmptyOp::create(
+           rewriter, loc, tensor::getMixedSizes(rewriter, loc, op->get()),
+-          elemType);
+-
++          tensorType.getElementType(), tensorType.getEncoding());
+       unsigned start = genericOp.getDpsInits().getBeginOperandIndex();
+       newOutputOperands[op->getOperandNumber() - start] = empty.getResult();
+     }
+-- 
+2.52.0
+

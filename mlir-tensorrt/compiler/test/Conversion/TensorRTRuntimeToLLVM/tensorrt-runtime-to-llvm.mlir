@@ -32,7 +32,7 @@ trtrt.compiled_func @bar dense<[0,1,2,3,4,5,6,7]> : vector<8xi8>
 //   CHECK-DAG:     %[[v0:.+]] = llvm.call @mtrt_tensorrt_runtime_create() : () -> !llvm.ptr
 //   CHECK-DAG:     %[[v1:.+]] = llvm.mlir.addressof @tensorrt_runtime : !llvm.ptr
 //   CHECK-DAG:     llvm.store %[[v0]], %[[v1]] : !llvm.ptr, !llvm.ptr
-//       CHECK: llvm.mlir.global_ctors {ctors = [@tensorrt_runtime_init], priorities = [10 : i32]}
+//       CHECK: llvm.mlir.global_ctors ctors = [@tensorrt_runtime_init], priorities = [10 : i32]
 
 // CHECK-LABEL: llvm.func @mtrt_tensorrt_runtime_create
 
@@ -40,7 +40,7 @@ trtrt.compiled_func @bar dense<[0,1,2,3,4,5,6,7]> : vector<8xi8>
 //   CHECK-DAG:     %[[v0:.+]] = llvm.mlir.addressof @tensorrt_runtime : !llvm.ptr
 //   CHECK-DAG:     %[[v1:.+]] = llvm.load %[[v0]] : !llvm.ptr -> !llvm.ptr
 //   CHECK-DAG:     llvm.call @mtrt_tensorrt_runtime_destroy(%[[v1]]) : (!llvm.ptr) -> ()
-//   CHECK-DAG:   llvm.mlir.global_dtors {dtors = [@tensorrt_runtime_deinit], priorities = [0 : i32]}
+//   CHECK-DAG:   llvm.mlir.global_dtors dtors = [@tensorrt_runtime_deinit], priorities = [0 : i32]
 
 // CHECK-LABEL: llvm.func @foo_context_init
 //   CHECK-DAG:     %[[v0:.+]] = llvm.mlir.addressof @tensorrt_runtime : !llvm.ptr
@@ -50,13 +50,13 @@ trtrt.compiled_func @bar dense<[0,1,2,3,4,5,6,7]> : vector<8xi8>
 //   CHECK-DAG:     %[[v4:.+]] = llvm.call @mtrt_load_tensorrt_engine(%[[v1]], %[[v2]], %[[v3]]) : (!llvm.ptr, !llvm.ptr, i64) -> !llvm.ptr
 //   CHECK-DAG:     %[[v5:.+]] = llvm.mlir.addressof @foo.context : !llvm.ptr
 //   CHECK-DAG:     llvm.store %[[v4]], %[[v5]] : !llvm.ptr, !llvm.ptr
-//   CHECK-DAG:   llvm.mlir.global_ctors {ctors = [@foo_context_init], priorities = [9 : i32]}
+//   CHECK-DAG:   llvm.mlir.global_ctors ctors = [@foo_context_init], priorities = [9 : i32]
 
 // CHECK-LABEL: llvm.func @foo_context_deinit
 //   CHECK-DAG:     %[[v0:.+]] = llvm.mlir.addressof @foo.context : !llvm.ptr
 //   CHECK-DAG:     %[[v1:.+]] = llvm.load %[[v0]] : !llvm.ptr -> !llvm.ptr
 //   CHECK-DAG:     llvm.call @mtrt_tensorrt_execution_context_destroy(%[[v1]]) : (!llvm.ptr) -> ()
-//   CHECK-DAG:   llvm.mlir.global_ctors {ctors = [@foo_context_deinit], priorities = [1 : i32]}
+//   CHECK-DAG:   llvm.mlir.global_ctors ctors = [@foo_context_deinit], priorities = [1 : i32]
 
 // CHECK-LABEL: llvm.func @bar_context_init
 //   CHECK-DAG:     %[[v0:.+]] = llvm.mlir.addressof @tensorrt_runtime : !llvm.ptr
@@ -66,14 +66,14 @@ trtrt.compiled_func @bar dense<[0,1,2,3,4,5,6,7]> : vector<8xi8>
 //   CHECK-DAG:     %[[v4:.+]] = llvm.call @mtrt_load_tensorrt_engine(%[[v1]], %[[v2]], %[[v3]]) : (!llvm.ptr, !llvm.ptr, i64) -> !llvm.ptr
 //   CHECK-DAG:     %[[v5:.+]] = llvm.mlir.addressof @bar.context : !llvm.ptr
 //   CHECK-DAG:     llvm.store %[[v4]], %[[v5]] : !llvm.ptr, !llvm.ptr
-//   CHECK-DAG:   llvm.mlir.global_ctors {ctors = [@bar_context_init], priorities = [9 : i32]}
+//   CHECK-DAG:   llvm.mlir.global_ctors ctors = [@bar_context_init], priorities = [9 : i32]
 
 // CHECK-LABEL: llvm.func @bar_context_deinit
 //   CHECK-DAG:     %[[v0:.+]] = llvm.mlir.addressof @bar.context : !llvm.ptr
 //   CHECK-DAG:     %[[v1:.+]] = llvm.load %[[v0]] : !llvm.ptr -> !llvm.ptr
 //   CHECK-DAG:     llvm.call @mtrt_tensorrt_execution_context_destroy(%[[v1]]) : (!llvm.ptr) -> ()
 //   CHECK-DAG:     llvm.return
-//   CHECK-DAG:   llvm.mlir.global_ctors {ctors = [@bar_context_deinit], priorities = [1 : i32]}
+//   CHECK-DAG:   llvm.mlir.global_ctors ctors = [@bar_context_deinit], priorities = [1 : i32]
 
 //  FILE-LABEL: func.func @test_enqueue
 //  FILE-LABEL: llvm.func @foo_context_init

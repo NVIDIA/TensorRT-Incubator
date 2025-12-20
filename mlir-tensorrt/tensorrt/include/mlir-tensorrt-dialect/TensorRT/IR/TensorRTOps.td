@@ -2436,8 +2436,6 @@ def TensorRT_ConditionOp : TensorRT_Op<"condition",
 
   let arguments = (ins 0DTensorOf<[I1]>:$condition, Variadic<AnyType>:$args);
 
-  let builders = [OpBuilder<(ins)>];
-
   let assemblyFormat = [{
     `(` $condition `:` type($condition) `)` attr-dict ($args^ `:` type($args))?
   }];

@@ -33,6 +33,7 @@
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/TableGen/CodeGenHelpers.h"
 #include "llvm/TableGen/Record.h"
 
 using namespace mlir;
@@ -78,7 +79,7 @@ static bool emitEnumConverters(const llvm::RecordKeeper &recordKeeper,
   llvm::raw_string_ostream enumDeclsStream(enumDeclsStr);
 
   {
-    tblgen::IfDefScope ifdefScope("GEN_TRT_ENUM_CONVERTER_DEFS", os);
+    llvm::IfDefEmitter ifdefScope(os, "GEN_TRT_ENUM_CONVERTER_DEFS");
     for (const Record *def : defs) {
       if (def->getValueAsBit("skipNvInferEnumConverterGeneration"))
         continue;
@@ -119,7 +120,7 @@ static bool emitEnumConverters(const llvm::RecordKeeper &recordKeeper,
   }
 
   {
-    tblgen::IfDefScope ifdefScope("GEN_TRT_ENUM_CONVERTER_DECLS", os);
+    llvm::IfDefEmitter ifdefScope(os, "GEN_TRT_ENUM_CONVERTER_DECLS");
     enumDeclsStream.flush();
     os << enumDeclsStr << "\n";
   }
@@ -338,7 +339,7 @@ static bool emitLayerAddDefinitions(const llvm::RecordKeeper &recordKeeper,
   llvm::raw_string_ostream attachInterfaceStream(attachInterfaceStr);
 
   {
-    tblgen::IfDefScope ifdefScope("GEN_TRT_ENCODE_OP_IMPL", os);
+    llvm::IfDefEmitter ifdefScope(os, "GEN_TRT_ENCODE_OP_IMPL");
     for (const Record *def : defs) {
       Operator op(def);
 
@@ -417,8 +418,8 @@ static bool emitLayerAddDefinitions(const llvm::RecordKeeper &recordKeeper,
 
   {
 
-    tblgen::IfDefScope ifdefScope("GEN_TRT_ENCODE_OP_IMPL_ATTACH_INTERFACE",
-                                  os);
+    llvm::IfDefEmitter ifdefScope(os,
+                                  "GEN_TRT_ENCODE_OP_IMPL_ATTACH_INTERFACE");
     attachInterfaceStream.flush();
     os << attachInterfaceStr;
   }
@@ -445,7 +446,7 @@ static bool emitEnumDefs(const llvm::RecordKeeper &recordKeeper,
       recordKeeper.getAllDerivedDefinitions("EnumSpec");
 
   {
-    tblgen::IfDefScope ifdefScope("GEN_ENUM_DECLS", os);
+    llvm::IfDefEmitter ifdefScope(os, "GEN_ENUM_DECLS");
 
     // Generate all the concrete class declarations.
     for (const Record *def : defs) {
@@ -506,7 +507,7 @@ static bool emitEnumDefs(const llvm::RecordKeeper &recordKeeper,
     return false;
 
   {
-    tblgen::IfDefScope ifdefScope("GEN_ENUM_DEFS", os);
+    llvm::IfDefEmitter ifdefScope(os, "GEN_ENUM_DEFS");
     // Generate all the concrete class declarations.
     for (const Record *def : defs) {
       StringRef className = def->getValueAsString("symbol");

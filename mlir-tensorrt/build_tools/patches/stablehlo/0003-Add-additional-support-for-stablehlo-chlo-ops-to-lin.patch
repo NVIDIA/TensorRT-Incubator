@@ -1,16 +1,16 @@
-From a7e575a87be0359d589ab3103fb8dda44d81a8eb Mon Sep 17 00:00:00 2001
+From b9c6d21073a89887ea61c200a91596e3c9d7ce79 Mon Sep 17 00:00:00 2001
 From: Christopher Bate <cbate@nvidia.com>
 Date: Wed, 23 Jul 2025 22:37:48 +0000
-Subject: [PATCH 6/7] Add additional support for stablehlo & chlo ops to linalg
+Subject: [PATCH 3/4] Add additional support for stablehlo & chlo ops to linalg
  pointwise conversion
 
 ---
- .../linalg/transforms/MapStablehloToScalarOp.h   | 16 +++++++++++++---
- .../transforms/StablehloToLinalgPointwise.cpp    |  9 ++++++++-
- 2 files changed, 21 insertions(+), 4 deletions(-)
+ .../linalg/transforms/MapStablehloToScalarOp.h    | 15 ++++++++++++++-
+ .../transforms/StablehloToLinalgPointwise.cpp     |  7 ++++++-
+ 2 files changed, 20 insertions(+), 2 deletions(-)
 
 diff --git a/stablehlo/conversions/linalg/transforms/MapStablehloToScalarOp.h b/stablehlo/conversions/linalg/transforms/MapStablehloToScalarOp.h
-index 19019002..54d40abd 100644
+index 01cfa237..2cf82769 100644
 --- a/stablehlo/conversions/linalg/transforms/MapStablehloToScalarOp.h
 +++ b/stablehlo/conversions/linalg/transforms/MapStablehloToScalarOp.h
 @@ -30,6 +30,7 @@ limitations under the License.
@@ -21,24 +21,27 @@ index 19019002..54d40abd 100644
  #include "stablehlo/dialect/StablehloOps.h"
  
  namespace mlir {
-@@ -153,14 +154,13 @@ struct StablehloToScalarOp<stablehlo::SineOp> {
+@@ -153,16 +154,18 @@ struct StablehloToScalarOp<stablehlo::SineOp> {
    using FOp = ::mlir::math::SinOp;
    using COp = ::mlir::complex::SinOp;
  };
--// FIXME(Jakub)
--/*
 +
  template <>
  struct StablehloToScalarOp<stablehlo::TanOp> {
    using FOp = ::mlir::math::TanOp;
    using COp = ::mlir::complex::TanOp;
  };
--*/
 +
  template <>
  struct StablehloToScalarOp<stablehlo::Atan2Op> {
-   using FOp = ::mlir::math::Atan2Op;
-@@ -177,6 +177,16 @@ struct StablehloToScalarOp<stablehlo::XorOp> {
+-  using FOp = ::mlir::math::Atan2Op;
+   using COp = ::mlir::complex::Atan2Op;
+ };
++
+ template <>
+ struct StablehloToScalarOp<stablehlo::TanhOp> {
+   using FOp = ::mlir::math::TanhOp;
+@@ -174,6 +177,16 @@ struct StablehloToScalarOp<stablehlo::XorOp> {
    using UOp = ::mlir::arith::XOrIOp;
  };
  
@@ -56,19 +59,19 @@ index 19019002..54d40abd 100644
  // type.
  template <typename StablehloOp>
 diff --git a/stablehlo/conversions/linalg/transforms/StablehloToLinalgPointwise.cpp b/stablehlo/conversions/linalg/transforms/StablehloToLinalgPointwise.cpp
-index 301dfdc2..24804b6e 100644
+index 4f689f79..4c1a9ace 100644
 --- a/stablehlo/conversions/linalg/transforms/StablehloToLinalgPointwise.cpp
 +++ b/stablehlo/conversions/linalg/transforms/StablehloToLinalgPointwise.cpp
-@@ -41,6 +41,7 @@ limitations under the License.
+@@ -42,6 +42,7 @@ limitations under the License.
  #include "stablehlo/conversions/linalg/transforms/LegalizeToLinalgUtils.h"
  #include "stablehlo/conversions/linalg/transforms/MapStablehloToScalarOp.h"
  #include "stablehlo/conversions/linalg/transforms/Rewriters.h"
 +#include "stablehlo/dialect/ChloOps.h"
  #include "stablehlo/dialect/StablehloOps.h"
  
- namespace mlir::stablehlo {
-@@ -257,6 +258,8 @@ void populatePointwiseStablehloToLinalgConversionPatterns(
-     RewritePatternSet *patterns, bool enablePrimitiveOps) {
+ #define DEBUG_TYPE "stablehlo-conversions"
+@@ -271,6 +272,8 @@ void populatePointwiseStablehloToLinalgConversionPatterns(
+     bool captureScalarInputs) {
    if (enablePrimitiveOps) {
      patterns->add<
 +        PointwiseToLinalgMapConverter<mlir::chlo::ErfOp>,
@@ -76,17 +79,9 @@ index 301dfdc2..24804b6e 100644
          PointwiseToLinalgMapConverter<mlir::stablehlo::AbsOp>,
          PointwiseToLinalgMapConverter<mlir::stablehlo::AddOp>,
          PointwiseToLinalgMapConverter<mlir::stablehlo::AndOp>,
-@@ -301,6 +304,7 @@ void populatePointwiseStablehloToLinalgConversionPatterns(
-         PointwiseToLinalgMapConverter<mlir::stablehlo::SineOp>,
-         PointwiseToLinalgMapConverter<mlir::stablehlo::SqrtOp>,
-         PointwiseToLinalgMapConverter<mlir::stablehlo::SubtractOp>,
-+        PointwiseToLinalgMapConverter<mlir::stablehlo::TanOp>,
-         PointwiseToLinalgMapConverter<mlir::stablehlo::TanhOp>,
-         PointwiseToLinalgMapConverter<mlir::stablehlo::XorOp>>(typeConverter,
-                                                                context);
-@@ -308,7 +312,9 @@ void populatePointwiseStablehloToLinalgConversionPatterns(
+@@ -322,7 +325,9 @@ void populatePointwiseStablehloToLinalgConversionPatterns(
+     return;
    }
- 
    patterns
 -      ->add<PointwiseToLinalgConverter<mlir::stablehlo::AbsOp>,
 +      ->add<PointwiseToLinalgConverter<mlir::chlo::ErfOp>,
@@ -95,14 +90,6 @@ index 301dfdc2..24804b6e 100644
              PointwiseToLinalgConverter<mlir::stablehlo::AddOp>,
              PointwiseToLinalgConverter<mlir::stablehlo::AndOp>,
              PointwiseToLinalgConverter<mlir::stablehlo::Atan2Op>,
-@@ -352,6 +358,7 @@ void populatePointwiseStablehloToLinalgConversionPatterns(
-             PointwiseToLinalgConverter<mlir::stablehlo::SineOp>,
-             PointwiseToLinalgConverter<mlir::stablehlo::SqrtOp>,
-             PointwiseToLinalgConverter<mlir::stablehlo::SubtractOp>,
-+            PointwiseToLinalgConverter<mlir::stablehlo::TanOp>,
-             PointwiseToLinalgConverter<mlir::stablehlo::TanhOp>,
-             PointwiseToLinalgConverter<mlir::stablehlo::XorOp>>(typeConverter,
-                                                                 context);
 -- 
-2.50.1
+2.52.0
 

@@ -33,7 +33,7 @@ using namespace mlir;
 LogicalResult kernel::replaceVectorTransferReadWithConstant(
     RewriterBase &rewriter, vector::TransferReadOp transferReadOp) {
   auto producer =
-      transferReadOp.getSource().getDefiningOp<vector::TransferWriteOp>();
+      transferReadOp.getBase().getDefiningOp<vector::TransferWriteOp>();
 
   SplatElementsAttr constAttr;
   if (!producer || !matchPattern(producer.getVector(), m_Constant(&constAttr)))
@@ -46,7 +46,7 @@ LogicalResult kernel::replaceVectorTransferReadWithConstant(
                     }) ||
       !llvm::all_of(producer.getIndices(),
                     [](Value v) { return matchPattern(v, m_Zero()); }) ||
-      producer.getVector().getType().getShape() !=
+      producer.getVectorType().getShape() !=
           cast<RankedTensorType>(producer->getResult(0).getType()).getShape())
     return failure();
 

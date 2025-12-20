@@ -669,13 +669,8 @@ func.func @test_dps_dynamic_reshape_ambiguous(
 
 // CHECK-LABEL: func.func @test_dps_dynamic_reshape_ambiguous
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<?x?xi32, #plan.memory_space<device>>, %[[arg1:.+]]: tensor<?x?xi32, #plan.memory_space<device>>, %[[arg2:.+]]: tensor<?x1x1x?xi32, #plan.memory_space<device>> {plan.result_slot = 0 : i32})
-//   CHECK-DAG:     %[[c0:.+]] = arith.constant 0 : index
-//   CHECK-DAG:     %[[c1:.+]] = arith.constant 1 : index
-//   CHECK-DAG:     %[[dim:.+]] = tensor.dim %[[arg0]], %[[c0]]
-//   CHECK-DAG:     %[[dim_0:.+]] = tensor.dim %[[arg0]], %[[c1]]
-//   CHECK-DAG:     %[[from_elements:.+]] = tensor.from_elements %[[dim]], %[[dim_0]] : tensor<2xindex, #plan.memory_space<host>>
-//   CHECK-DAG:     %[[reshape:.+]] = tensor.reshape %[[arg2]](%[[from_elements]]) :
-//   CHECK-DAG:     %[[mapped:.+]] = linalg.map {{.*}} ins(%[[arg0]], %[[arg1]] : {{.*}}) outs(%[[reshape]] :
+//   CHECK-DAG:     %[[collapsed:.+]] = tensor.collapse_shape %[[arg2]]
+//   CHECK-DAG:     %[[mapped:.+]] = linalg.map {{.*}} ins(%[[arg0]], %[[arg1]] : {{.*}}) outs(%[[collapsed]] :
 //   CHECK-DAG:     %[[expanded:.+]] = tensor.expand_shape %[[mapped]]
 //   CHECK-DAG:     return %[[expanded]]
 

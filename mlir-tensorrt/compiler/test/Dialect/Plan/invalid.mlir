@@ -118,7 +118,7 @@ func.func @plan_inline_group_mismatched_result_types(%arg0: tensor<10xf32>, %arg
 // -----
 
 func.func @inline_closed_group_wrong_num_block_args(%arg0: tensor<?xf32>, %arg1: index, %arg2: tensor<?xf32>) -> tensor<?xf32> {
-  // expected-error @below {{'plan.inline_closed_group' op  region control flow edge from parent operands to Region #0: source has 3 operands, but target successor needs 4}}
+  // expected-error @below {{'plan.inline_closed_group' op region control flow edge from parent operands to Region #0: source has 3 operands, but target successor needs 4}}
   %2 = plan.inline_closed_group target(#plan.tensorrt_backend<benefit=1, disallow_shape_tensor_calculations=false>)
     inputs(%arg0, %arg1 : tensor<?xf32>, index)
     outs(%arg2 : tensor<?xf32>)
@@ -135,7 +135,7 @@ func.func @inline_closed_group_wrong_num_block_args(%arg0: tensor<?xf32>, %arg1:
 // -----
 
 func.func @inline_closed_alloc_group_wrong_num_block_args(%arg0: tensor<?xf32>, %arg1: index, %arg2: tensor<?xf32>) -> tensor<?xf32> {
-  // expected-error @below {{'plan.inline_closed_alloc_group' op  region control flow edge from parent operands to Region #0: source has 2 operands, but target successor needs 3}}
+  // expected-error @below {{plan.inline_closed_alloc_group' op region control flow edge from parent operands to Region #0: source has 2 operands, but target successor needs 3}}
   %2 = plan.inline_closed_alloc_group target(#plan.tensorrt_backend<benefit=1, disallow_shape_tensor_calculations=false>)
     inputs(%arg0, %arg1 : tensor<?xf32>, index)
     in_attrs [#plan.bounds<shape, [10], [20]>, #plan.bounds<none>] -> tensor<?xf32> {

@@ -124,8 +124,8 @@ UnionFindConstraintSolver::getCanonicalRepresentative(DimExprRef expr) {
   const auto &var = cast<VariableExpr>(expr)->getVariable();
 
   // Get the leader value
-  auto it = equivalences.findValue(var);
-  if (it == equivalences.end())
+  auto it = equivalences.findLeader(var);
+  if (it == equivalences.member_end())
     return expr;
 
   const DimVariable &leader = equivalences.getLeaderValue(var);

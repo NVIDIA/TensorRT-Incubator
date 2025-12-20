@@ -27,11 +27,13 @@
 #include "mlir-kernel/Kernel/TransformSchedules/Passes.h"
 #include "mlir-kernel/Kernel/Transforms/Passes.h"
 #include "mlir/Conversion/Passes.h"
+#include "mlir/Dialect/Arith/Transforms/Passes.h"
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
 #include "mlir/Dialect/Func/Extensions/InlinerExtension.h"
 #include "mlir/Dialect/Linalg/Passes.h"
 #include "mlir/Dialect/Transform/Transforms/Passes.h"
 #include "mlir/Tools/mlir-opt/MlirOptMain.h"
+
 #include "mlir/Transforms/Passes.h"
 
 namespace mlir::kernel {
@@ -56,6 +58,7 @@ int main(int argc, char **argv) {
   mlir::transform::registerTransformPasses();
   mlir::registerReconcileUnrealizedCastsPass();
   mlir::registerLinalgPasses();
+  mlir::arith::registerArithPasses();
 
   return mlir::asMainReturnCode(mlir::MlirOptMain(
       argc, argv, "MLIR-Kernel optimizer driver\n", registry));

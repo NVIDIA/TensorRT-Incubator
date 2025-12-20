@@ -90,7 +90,13 @@ builtin.module @matmul_128x256x1024 {
                     %arg2: !result_type) -> !result_type {
     %cst = arith.constant 0.0 : f32
     %out = linalg.fill ins(%cst: f32) outs(%arg2: !result_type) -> !result_type
-    %1 = linalg.matmul_transpose_b ins(%arg0, %arg1: !lhs_type, !rhs_type) outs(%out: !result_type)
+    %1 = linalg.matmul
+      indexing_maps = [
+        affine_map<(d0, d1, d2) -> (d0, d2)>,
+        affine_map<(d0, d1, d2) -> (d1, d2)>,
+        affine_map<(d0, d1, d2) -> (d0, d1)>
+      ]
+      ins(%arg0, %arg1: !lhs_type, !rhs_type) outs(%out: !result_type)
       -> !result_type
     return %1 : !result_type
   }
@@ -98,8 +104,8 @@ builtin.module @matmul_128x256x1024 {
 
 // CHECK-LABEL: module @matmul_128x256x1024
 // CHECK-LABEL: func.func @kernel
-//       CHECK:  linalg.matmul_transpose_b
-//  CHECK-SAME:  {kernel.parameters = #kernel.fallback_parameters<#nvvm.target<chip = "sm_80">, [64, 64, 1024], [64, 64, 64], [4, 4, 64], [2, 4, 1], [16, 16, 1]>
+//       CHECK:  linalg.matmul
+//  CHECK-SAME:  kernel.parameters = #kernel.fallback_parameters<#nvvm.target<chip = "sm_80">, [64, 64, 1024], [64, 64, 64], [4, 4, 64], [2, 4, 1], [16, 16, 1]>
 
 // E2E-LABEL: @matmul_128x256x1024
 //       E2E: gpu.module.kernels.ptx_data

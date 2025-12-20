@@ -139,7 +139,7 @@ static Status parseDebugFlags() {
     std::string error;
     llvm::raw_string_ostream ss(error);
     if (!llvm::cl::ParseCommandLineOptions(argv.size(), argv.data(),
-                                           "MLIR-TRT flags", &ss,
+                                           "MLIR-TRT flags", &ss, nullptr,
                                            "MLIR_TRT_FLAGS", false)) {
       ss.flush();
       result = mtrt::getInternalErrorStatus(

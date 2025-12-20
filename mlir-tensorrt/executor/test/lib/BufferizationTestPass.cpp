@@ -41,6 +41,7 @@ public:
     ModuleOp module = getOperation();
     MLIRContext *ctx = &getContext();
     assert(ctx == module->getContext() && "MLIRContexts are not the same");
+    bufferization::BufferizationState state;
     bufferization::OneShotBufferizationOptions options;
     options.bufferizeFunctionBoundaries = true;
     options.allowReturnAllocsFromLoops = false;
@@ -51,7 +52,8 @@ public:
     options.setFunctionBoundaryTypeConversion(
         bufferization::LayoutMapOption::InferLayoutMap);
 
-    if (failed(bufferization::runOneShotModuleBufferize(module, options))) {
+    if (failed(bufferization::runOneShotModuleBufferize(module, options, state,
+                                                        nullptr))) {
       emitError(module.getLoc()) << "failed to bufferize module";
       return signalPassFailure();
     }

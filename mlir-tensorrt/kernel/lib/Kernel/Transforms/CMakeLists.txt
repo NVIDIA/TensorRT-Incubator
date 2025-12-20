@@ -45,6 +45,7 @@ add_mlir_kernel_library(MLIRTensorRTKernelTransforms
     MC
     NVPTXCodeGen
     Passes
+    BitReader
   MLIR_LIBS PUBLIC
     MLIRAffineDialect
     MLIRAffineToStandard

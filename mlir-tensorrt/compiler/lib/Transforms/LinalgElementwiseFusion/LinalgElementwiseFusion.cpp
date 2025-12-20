@@ -196,7 +196,7 @@ class LinalgElementwiseFusionPass
     // Set the rewrite config to apply patterns without limit.
     // It is possible to hit the limit when a function has 100s of linalg
     // generics.
-    rewriteConfig.maxIterations = GreedyRewriteConfig::kNoLimit;
+    rewriteConfig.setMaxIterations(GreedyRewriteConfig::kNoLimit);
 
     return success();
   }

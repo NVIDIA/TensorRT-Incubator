@@ -188,7 +188,7 @@ struct KernelCallConverter : public ConvertOpToLLVMPattern<kernel::CallOp> {
                                              argPtrsPtr};
 
     FailureOr<LLVM::LLVMFuncOp> launchFunc = LLVM::lookupOrCreateFn(
-        callOp->getParentOfType<ModuleOp>(), "cudaLaunchKernelExC",
+        rewriter, callOp->getParentOfType<ModuleOp>(), "cudaLaunchKernelExC",
         llvm::to_vector(TypeRange(launchCallOperands)), i32Type);
     if (failed(launchFunc))
       return failure();

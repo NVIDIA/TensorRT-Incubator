@@ -26,14 +26,14 @@ func.func @test_get_func() -> !cuda.function {
 //   CHECK-DAG:     %[[v3:.+]] = llvm.mlir.addressof @kernels_0 : !llvm.ptr
 //       CHECK:     llvm.store %[[v2]], %[[v3]] : !llvm.ptr, !llvm.ptr
 //       CHECK:     llvm.return
-//       CHECK:   llvm.mlir.global_ctors {ctors = [@kernels_init], priorities = [0 : i32]}
+//       CHECK:   llvm.mlir.global_ctors ctors = [@kernels_init], priorities = [0 : i32]
 
 // CHECK-LABEL: llvm.func @kernels_deinit
 //       CHECK:     %[[v0:.+]] = llvm.mlir.addressof @kernels_0 : !llvm.ptr
 //       CHECK:     %[[v1:.+]] = llvm.load %[[v0]] : !llvm.ptr -> !llvm.ptr
 //       CHECK:     llvm.call @mtrt_cuda_module_unload(%[[v1]]) : (!llvm.ptr) -> ()
 //       CHECK:     llvm.return
-//       CHECK:   llvm.mlir.global_dtors {dtors = [@kernels_deinit], priorities = [0 : i32]}
+//       CHECK:   llvm.mlir.global_dtors dtors = [@kernels_deinit], priorities = [0 : i32]
 
 // CHECK-LABEL: llvm.func @kernels_0_kernel_init
 //   CHECK-DAG:     %[[v0:.+]] = llvm.mlir.addressof @kernel_name : !llvm.ptr
@@ -44,7 +44,7 @@ func.func @test_get_func() -> !cuda.function {
 //   CHECK-DAG:     %[[v5:.+]] = llvm.mlir.addressof @kernels_0_kernel : !llvm.ptr
 //   CHECK-DAG:     llvm.store %[[v4]], %[[v5]] : !llvm.ptr, !llvm.ptr
 //   CHECK-DAG:     llvm.return
-//       CHECK:   llvm.mlir.global_ctors {ctors = [@kernels_0_kernel_init], priorities = [1 : i32]}
+//       CHECK:   llvm.mlir.global_ctors ctors = [@kernels_0_kernel_init], priorities = [1 : i32]
 
 // FILE-LABEL: @test_get_func
 // FILE-LABEL: llvm.func @kernels_init
@@ -135,14 +135,14 @@ func.func @cuda_global_stream() -> (!cuda.stream, !cuda.stream, !cuda.stream) {
 //       CHECK:     %[[v1:.+]] = llvm.mlir.addressof @stream_0 : !llvm.ptr
 //       CHECK:     llvm.store %[[v0]], %[[v1]] : !llvm.ptr, !llvm.ptr
 //       CHECK:     llvm.return
-//       CHECK:   llvm.mlir.global_ctors {ctors = [@stream_0_init], priorities = [0 : i32]}
+//       CHECK:   llvm.mlir.global_ctors ctors = [@stream_0_init], priorities = [0 : i32]
 
 // CHECK-LABEL: llvm.func @stream_0_deinit
 //       CHECK:     %[[v0:.+]] = llvm.mlir.addressof @stream_0 : !llvm.ptr
 //       CHECK:     %[[v1:.+]] = llvm.load %[[v0]] : !llvm.ptr -> !llvm.ptr
 //       CHECK:     llvm.call @mtrt_cuda_stream_destroy(%[[v1]]) : (!llvm.ptr) -> ()
 //       CHECK:     llvm.return
-//       CHECK:   llvm.mlir.global_dtors {dtors = [@stream_0_deinit], priorities = [0 : i32]}
+//       CHECK:   llvm.mlir.global_dtors dtors = [@stream_0_deinit], priorities = [0 : i32]
 
 // CHECK-LABEL: llvm.func @stream_1_init
 //       CHECK:     %[[device:.+]] = llvm.call @mtrt_cuda_get_active_device() : () -> i32
@@ -150,14 +150,14 @@ func.func @cuda_global_stream() -> (!cuda.stream, !cuda.stream, !cuda.stream) {
 //       CHECK:     %[[v1:.+]] = llvm.mlir.addressof @stream_1 : !llvm.ptr
 //       CHECK:     llvm.store %[[v0]], %[[v1]] : !llvm.ptr, !llvm.ptr
 //       CHECK:     llvm.return
-//       CHECK:   llvm.mlir.global_ctors {ctors = [@stream_1_init], priorities = [0 : i32]}
+//       CHECK:   llvm.mlir.global_ctors ctors = [@stream_1_init], priorities = [0 : i32]
 
 // CHECK-LABEL: llvm.func @stream_1_deinit
 //       CHECK:     %[[v0:.+]] = llvm.mlir.addressof @stream_1 : !llvm.ptr
 //       CHECK:     %[[v1:.+]] = llvm.load %[[v0]] : !llvm.ptr -> !llvm.ptr
 //       CHECK:     llvm.call @mtrt_cuda_stream_destroy(%[[v1]]) : (!llvm.ptr) -> ()
 //       CHECK:     llvm.return
-//       CHECK:   llvm.mlir.global_dtors {dtors = [@stream_1_deinit], priorities = [0 : i32]}
+//       CHECK:   llvm.mlir.global_dtors dtors = [@stream_1_deinit], priorities = [0 : i32]
 
 // -----
 

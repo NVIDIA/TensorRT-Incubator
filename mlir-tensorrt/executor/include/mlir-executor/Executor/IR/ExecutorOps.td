@@ -311,7 +311,7 @@ def Executor_ReturnOp : Executor_Op<"return", [Pure, Terminator]> {
   let arguments = (ins Variadic<AnyType>:$operands);
 
   let builders = [OpBuilder<(ins), [{
-    build($_builder, $_state, std::nullopt);
+    build($_builder, $_state, ValueRange{});
   }]>];
 
   let assemblyFormat = "attr-dict ($operands^ `:` type($operands))?";

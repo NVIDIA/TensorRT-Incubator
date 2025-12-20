@@ -47,6 +47,46 @@ def ConvertKernelToLLVM : Pass<"convert-kernel-to-llvm", "::mlir::ModuleOp"> {
   ];
 }
 
+//===----------------------------------------------------------------------===//
+// EliminateIndexTypes
+//===----------------------------------------------------------------------===//
+
+def EliminateIndexTypes : Pass<"kernel-eliminate-index-types"> {
+  let summary = "Eliminate index types from the device code";
+  let description = [{
+    This pass is meant to be run after the `lower-affine` pass. It eliminates
+    `index` types by replacing them with the specified bitwidth integer
+    type. The default replacement is `i32`.
+
+    This pass uses MLIR's dialect conversion infrastructure.
+
+    For sake of breviy, assume `index` is to be replaced with `i32`.
+    The type conversions are as follows:
+    - `index` -> `i32`
+    - `tensor<...xindex>` -> `tensor<...xi32>`
+    - `memref<...xindex>` -> `memref<...xi32>`
+
+    The conversion patterns handle the following cases:
+
+    - SCF and Func dialect structural type conversion patterns
+      are populated. Other types of function-like ops or region operations
+      are not handled.
+
+    - `arith.index_cast` and `arith.index_castui` are handled by either replacing with the input
+      (if adaptor value has same type as result) or using the appropriate
+      Arith dialect cast operation (e.g. `arith.extsi` or `arith.trunci`
+      or`arith.extui`).
+
+    - `arith.constant ... : index` is handled by converting the attribute to the appropriate
+      integer type.
+
+    The conversion is a "full" conversion -- any remaining index types are
+    considered an error.
+  }];
+
+  let options = [Option<"indexBitwidth", "index-bitwidth", "unsigned", "64",
+                        "Bitwidth of the index type">];
+}
 
 //===----------------------------------------------------------------------===//
 // ConvertComplexToStandardExt

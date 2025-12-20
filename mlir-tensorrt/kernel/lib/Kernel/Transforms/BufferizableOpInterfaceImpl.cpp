@@ -176,6 +176,7 @@ struct KernelCallOpInterface
   LogicalResult getBufferizedCallOperand(
       RewriterBase &rewriter, Value arg, Type funcArgType,
       const BufferizationOptions &options, SmallVectorImpl<Value> &result,
+      bufferization::BufferizationState &state,
       SmallVectorImpl<Value> *replacements = nullptr) const {
     auto funcMemRefType = dyn_cast<MemRefType>(funcArgType);
     if (!funcMemRefType) {
@@ -183,7 +184,7 @@ struct KernelCallOpInterface
       return success();
     }
 
-    FailureOr<Value> buffer = getBuffer(rewriter, arg, options);
+    FailureOr<Value> buffer = getBuffer(rewriter, arg, options, state);
     if (failed(buffer))
       return failure();
 
@@ -214,8 +215,9 @@ struct KernelCallOpInterface
       RewriterBase &rewriter, Value arg,
       kernel::KernelArgLayoutMapOption defaultLayout,
       const BufferizationOptions &options, SmallVectorImpl<Value> &result,
+      bufferization::BufferizationState &state,
       SmallVectorImpl<Value> *replacements = nullptr) const {
-    FailureOr<Value> buffer = getBuffer(rewriter, arg, options);
+    FailureOr<Value> buffer = getBuffer(rewriter, arg, options, state);
     if (failed(buffer))
       return failure();
     auto memRefType = cast<MemRefType>(buffer->getType());
@@ -258,7 +260,8 @@ struct KernelCallOpInterface
       RewriterBase &rewriter, CallOp callOp, ValueRange args,
       func::FuncOp callee, const BufferizationOptions &options,
       SmallVectorImpl<Value> &inputs, SmallVectorImpl<Value> &outs,
-      SmallVectorImpl<Value> &replacements) const {
+      SmallVectorImpl<Value> &replacements,
+      bufferization::BufferizationState &state) const {
 
     // Case 1: callee is available and bufferized. Get MemRef target types from
     // the callee.
@@ -268,14 +271,14 @@ struct KernelCallOpInterface
            llvm::zip(callee.getArgumentTypes().drop_back(numOuts),
                      args.drop_back(numOuts))) {
         if (failed(getBufferizedCallOperand(rewriter, arg, funcArgType, options,
-                                            inputs)))
+                                            inputs, state)))
           return failure();
       }
       for (auto [funcArgType, arg] :
            llvm::zip(callee.getArgumentTypes().take_back(numOuts),
                      args.take_back(numOuts))) {
         if (failed(getBufferizedCallOperand(rewriter, arg, funcArgType, options,
-                                            outs, &replacements)))
+                                            outs, state, &replacements)))
           return failure();
       }
       return success();
@@ -297,19 +300,20 @@ struct KernelCallOpInterface
     unsigned numOuts = callOp.getNumDpsInits();
     for (Value arg : args.drop_back(numOuts)) {
       if (failed(getBufferizedCallOperand(rewriter, arg, targetLayout, options,
-                                          inputs)))
+                                          inputs, state)))
         return failure();
     }
     for (Value arg : args.take_back(numOuts)) {
       if (failed(getBufferizedCallOperand(rewriter, arg, targetLayout, options,
-                                          outs, &replacements)))
+                                          outs, state, &replacements)))
         return failure();
     }
     return success();
   }
 
   LogicalResult bufferize(Operation *op, RewriterBase &rewriter,
-                          const BufferizationOptions &options) const {
+                          const BufferizationOptions &options,
+                          bufferization::BufferizationState &state) const {
     CallOp callOp = cast<CallOp>(op);
     FuncOp funcOp = getCalledFunction(callOp);
 
@@ -320,7 +324,7 @@ struct KernelCallOpInterface
             rewriter, callOp,
             callOp.getOperands().drop_front(
                 callOp.getNumNonForwardedArguments()),
-            funcOp, options, inputs, outs, replacements)))
+            funcOp, options, inputs, outs, replacements, state)))
       return failure();
 
     rewriter.create<CallOp>(op->getLoc(), TypeRange{}, callOp.getGridSize(),
@@ -382,7 +386,8 @@ struct KernelExtCallOpInterface
   }
 
   LogicalResult bufferize(Operation *op, RewriterBase &rewriter,
-                          const BufferizationOptions &options) const {
+                          const BufferizationOptions &options,
+                          bufferization::BufferizationState &state) const {
     kernel::ExtCallOp extCallOp = cast<kernel::ExtCallOp>(op);
     Location loc = extCallOp.getLoc();
 
@@ -406,13 +411,13 @@ struct KernelExtCallOpInterface
       }
 
       FailureOr<Value> bufferResult =
-          bufferization::getBuffer(rewriter, arg, options);
+          bufferization::getBuffer(rewriter, arg, options, state);
       if (failed(bufferResult))
         return failure();
 
       SmallVector<Value> invocationStack;
       FailureOr<BaseMemRefType> memrefType =
-          getBufferType(op, arg, options, invocationStack);
+          getBufferType(op, arg, options, state, invocationStack);
       if (failed(memrefType))
         return failure();
 
@@ -460,6 +465,7 @@ struct KernelExtCallOpInterface
 
   FailureOr<BaseMemRefType>
   getBufferType(Operation *op, Value value, const BufferizationOptions &options,
+                const bufferization::BufferizationState &state,
                 SmallVector<Value> &invocationStack) const {
     auto tensorType = dyn_cast<RankedTensorType>(value.getType());
     if (!tensorType)

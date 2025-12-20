@@ -36,6 +36,8 @@ add_subdirectory(
   "${CMAKE_CURRENT_BINARY_DIR}/include"
   )
 
+add_compile_options(-Wno-missing-prototypes)
+
 set(torch_mlir_core_source_files
   lib/Conversion/TorchToSCF/TorchToSCF.cpp
   lib/Conversion/TorchToTMTensor/TorchToTMTensor.cpp

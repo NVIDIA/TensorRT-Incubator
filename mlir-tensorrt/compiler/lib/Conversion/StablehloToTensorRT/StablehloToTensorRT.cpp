@@ -1292,8 +1292,19 @@ struct ConvertReduceWindow
     if (op->hasOneUse()) {
       if (auto maybeDivOp =
               dyn_cast<stablehlo::DivOp>(op->getUses().begin()->getOwner())) {
-        rewriter.replaceAllOpUsesWith(maybeDivOp, poolOp);
-        return replaceOp(poolOp.getResult());
+        if (!permMap.isIdentity()) {
+          auto transposeOp =
+              trtRewriter.checkAndReplaceOpWithNewOp<tensorrt::TransposeOp>(
+                  maybeDivOp, poolOp.getResult(),
+                  mlir::inversePermutation(permMap));
+          if (!transposeOp)
+            return failure();
+          rewriter.eraseOp(op);
+          return success();
+        }
+        trtRewriter.replaceOp(maybeDivOp, poolOp.getResult());
+        rewriter.eraseOp(op);
+        return success();
       }
     }
 

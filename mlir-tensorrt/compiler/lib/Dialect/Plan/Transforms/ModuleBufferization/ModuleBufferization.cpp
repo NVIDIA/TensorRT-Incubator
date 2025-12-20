@@ -167,6 +167,7 @@ static void foldMemRefCasts(FunctionOpInterface funcOp) {
 static LogicalResult bufferizeOneModuleLikeOp(
     ModuleLikeOp moduleOp,
     const bufferization::OneShotBufferizationOptions &options,
+    bufferization::BufferizationState &state,
     BufferizationStatistics *statistics) {
   assert(options.bufferizeFunctionBoundaries &&
          "expected that function boundary bufferization is activated");
@@ -205,11 +206,11 @@ static LogicalResult bufferizeOneModuleLikeOp(
       bufferization::OneShotBufferizationOptions updatedOptions = options;
       updatedOptions.copyBeforeWrite = true;
       if (failed(bufferization::bufferizeOp(funcOp.getOperation(),
-                                            updatedOptions, statistics)))
+                                            updatedOptions, state, statistics)))
         return failure();
     } else {
       if (failed(bufferization::bufferizeOp(funcOp.getOperation(), options,
-                                            statistics)))
+                                            state, statistics)))
         return failure();
     }
 
@@ -229,7 +230,7 @@ static LogicalResult bufferizeOneModuleLikeOp(
 
     DBGF("bufferizing op: {0}", op);
 
-    if (failed(bufferizeOp(&op, options, statistics)))
+    if (failed(bufferizeOp(&op, options, state, statistics)))
       return failure();
   }
 
@@ -282,9 +283,9 @@ static void checkConflicts(Operation *op,
   }
 }
 
-static LogicalResult
-insertTensorCopiesWithinModuleScope(ModuleLikeOp op,
-                                    const bufferization::AnalysisState &state) {
+static LogicalResult insertTensorCopiesWithinModuleScope(
+    ModuleLikeOp op, const bufferization::AnalysisState &analysisState,
+    bufferization::BufferizationState &state) {
   IRRewriter rewriter(op->getContext());
 
   // We must walk the IR in pre-order because we don't want to walk ops in
@@ -295,17 +296,18 @@ insertTensorCopiesWithinModuleScope(ModuleLikeOp op,
           return WalkResult::skip();
 
         auto bufferizableOp =
-            state.getOptions().dynCastBufferizableOp(nestedOp);
+            analysisState.getOptions().dynCastBufferizableOp(nestedOp);
         if (!bufferizableOp)
           return WalkResult::advance();
 
         // Find inplacability conflicts and resolve them. (Typically with
         // explicit tensor copies in the form of AllocTensorOps.)
         rewriter.setInsertionPoint(nestedOp);
-        if (failed(bufferizableOp.resolveConflicts(rewriter, state)))
+        if (failed(bufferizableOp.resolveConflicts(rewriter, analysisState,
+                                                   state)))
           return WalkResult::interrupt();
 
-        checkConflicts(nestedOp, state);
+        checkConflicts(nestedOp, analysisState);
 
         return WalkResult::advance();
       });
@@ -316,15 +318,16 @@ insertTensorCopiesWithinModuleScope(ModuleLikeOp op,
 static LogicalResult insertTensorCopiesInModule(
     ModuleLikeOp module,
     const bufferization::OneShotBufferizationOptions &options,
+    bufferization::BufferizationState &state,
     BufferizationStatistics *statistics,
-    bufferization::OneShotAnalysisState &state) {
-  if (failed(analyzeOneModuleOp(module, state, statistics)))
+    bufferization::OneShotAnalysisState &analysisState) {
+  if (failed(analyzeOneModuleOp(module, analysisState, statistics)))
     return failure();
 
   if (options.testAnalysisOnly)
     return success();
 
-  return insertTensorCopiesWithinModuleScope(module, state);
+  return insertTensorCopiesWithinModuleScope(module, analysisState, state);
 }
 
 /// The memref.global operation rejects encodings on the type of the
@@ -360,6 +363,7 @@ static void fixupMemrefGlobalInitialValueTypes(ModuleLikeOp moduleOp) {
 static LogicalResult
 bufferizeOneModule(ModuleLikeOp moduleOp,
                    const bufferization::OneShotBufferizationOptions &options,
+                   bufferization::BufferizationState &state,
                    BufferizationStatistics *statistics,
                    ModuleFuncAnalysisCache &moduleFuncStateCache) {
   assert(options.bufferizeFunctionBoundaries &&
@@ -368,12 +372,14 @@ bufferizeOneModule(ModuleLikeOp moduleOp,
          "invalid combination of bufferization flags");
   if (!options.copyBeforeWrite) {
     if (options.noAnalysisFuncFilter.empty()) {
-      bufferization::OneShotAnalysisState state(moduleOp, options);
-      plan::setupAnalysisStateForModule(moduleOp, moduleFuncStateCache, state);
-      if (failed(
-              insertTensorCopiesInModule(moduleOp, options, statistics, state)))
+      bufferization::OneShotAnalysisState analysisState(moduleOp, options);
+      plan::setupAnalysisStateForModule(moduleOp, moduleFuncStateCache,
+                                        analysisState);
+      if (failed(insertTensorCopiesInModule(moduleOp, options, state,
+                                            statistics, analysisState)))
         return failure();
-      appendAnalysisResultsToCache(moduleOp, moduleFuncStateCache, state);
+      appendAnalysisResultsToCache(moduleOp, moduleFuncStateCache,
+                                   analysisState);
     } else {
       // FuncOps whose names are specified in options.noAnalysisFuncFilter will
       // not be analyzed. Ops in these FuncOps will not be analyzed as well.
@@ -389,17 +395,20 @@ bufferizeOneModule(ModuleLikeOp moduleOp,
           };
       bufferization::OneShotBufferizationOptions updatedOptions(options);
       updatedOptions.opFilter.denyOperation(analysisFilterFn);
-      bufferization::OneShotAnalysisState state(moduleOp, updatedOptions);
-      plan::setupAnalysisStateForModule(moduleOp, moduleFuncStateCache, state);
-      if (failed(insertTensorCopiesInModule(moduleOp, updatedOptions,
-                                            statistics, state)))
+      bufferization::OneShotAnalysisState analysisState(moduleOp,
+                                                        updatedOptions);
+      plan::setupAnalysisStateForModule(moduleOp, moduleFuncStateCache,
+                                        analysisState);
+      if (failed(insertTensorCopiesInModule(moduleOp, updatedOptions, state,
+                                            statistics, analysisState)))
         return failure();
-      appendAnalysisResultsToCache(moduleOp, moduleFuncStateCache, state);
+      appendAnalysisResultsToCache(moduleOp, moduleFuncStateCache,
+                                   analysisState);
     }
   }
   if (options.testAnalysisOnly)
     return success();
-  if (failed(bufferizeOneModuleLikeOp(moduleOp, options, statistics)))
+  if (failed(bufferizeOneModuleLikeOp(moduleOp, options, state, statistics)))
     return failure();
 
   // Fixup any globals which have incorect encodings on the initial value type.
@@ -447,6 +456,7 @@ getBufferizationOptions(ModuleLikeOp op,
 static LogicalResult
 runOneShotMultiModuleBufferize(ModuleLikeOp moduleOp,
                                BufferizationStatistics *statistics,
+                               bufferization::BufferizationState &state,
                                const OneShotBufferizationOptions &baseOptions) {
   SmallVector<ModuleLikeOp> modulesToBufferize;
   SymbolTable::walkSymbolTables(moduleOp, true,
@@ -484,7 +494,7 @@ runOneShotMultiModuleBufferize(ModuleLikeOp moduleOp,
 
     DBGF("bufferizing module: {0}", nestedModule.getSymbolName());
 
-    if (failed(bufferizeOneModule(nestedModule, *options, statistics,
+    if (failed(bufferizeOneModule(nestedModule, *options, state, statistics,
                                   moduleFuncStateCache)))
       return nestedModule->emitError("failed to bufferize module");
 
@@ -524,8 +534,9 @@ public:
     options.allowReturnAllocsFromLoops = allowReturnAllocsFromLoops;
     options.copyBeforeWrite = copyBeforeWrite;
     options.checkParallelRegions = checkParallelRegions;
+    bufferization::BufferizationState state;
 
-    if (failed(runOneShotMultiModuleBufferize(module, nullptr, options)))
+    if (failed(runOneShotMultiModuleBufferize(module, nullptr, state, options)))
       return signalPassFailure();
 
     // Fix up actions on the host module.

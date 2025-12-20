@@ -27,6 +27,7 @@
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/TableGen/CodeGenHelpers.h"
 #include "llvm/TableGen/Record.h"
 
 using namespace mlir;
@@ -111,7 +112,7 @@ static bool emitEnumDefs(const llvm::RecordKeeper &recordKeeper,
       recordKeeper.getAllDerivedDefinitions("EnumSpec");
 
   {
-    tblgen::IfDefScope ifdefScope("GEN_ENUM_DECLS", os);
+    llvm::IfDefEmitter ifdefScope(os, "GEN_ENUM_DECLS");
 
     // Generate all the concrete class declarations.
     for (const Record *def : defs) {

@@ -55,7 +55,7 @@ struct LowerPrintOp : public ConvertOpToLLVMPattern<executor::PrintOp> {
       return failure();
     MLIRContext *ctx = op->getContext();
     FailureOr<LLVM::LLVMFuncOp> printFunc = LLVM::lookupOrCreateFn(
-        op->getParentOfType<ModuleOp>(), "printf",
+        rewriter, op->getParentOfType<ModuleOp>(), "printf",
         {LLVM::LLVMPointerType::get(ctx)}, rewriter.getI32Type(), true);
     if (failed(printFunc))
       return failure();

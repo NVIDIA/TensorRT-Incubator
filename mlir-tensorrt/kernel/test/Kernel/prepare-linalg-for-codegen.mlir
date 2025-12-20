@@ -279,15 +279,13 @@ func.func @simlify_transpose_gather(%arg0: tensor<4x4x4xi32>, %arg1: tensor<6x1x
 //       CHECK:     %[[v0:.+]] = linalg.generic {indexing_maps = [#[[$map]]], iterator_types = ["parallel", "parallel", "parallel", "parallel"]} outs(%[[arg2]] : tensor<6x1x4x4xi32>) {
 //       CHECK:     ^bb0(%[[out:.+]]: i32):
 //       CHECK:       %[[v1:.+]] = linalg.index 0 : index
-//       CHECK:       %[[v2:.+]] = linalg.index 1 : index
 //       CHECK:       %[[v3:.+]] = linalg.index 2 : index
 //       CHECK:       %[[v4:.+]] = linalg.index 3 : index
 //       CHECK:       %[[extracted:.+]] = tensor.extract %[[arg1]][%[[v1]], %[[c0]]] : tensor<6x1xi32>
 //       CHECK:       %[[v5:.+]] = arith.index_cast %[[extracted]] : i32 to index
 //       CHECK:       %[[v6:.+]] = arith.maxsi %[[v5]], %[[c0]] : index
 //       CHECK:       %[[v7:.+]] = arith.minsi %[[v6]], %[[c3]] : index
-//       CHECK:       %[[v8:.+]] = arith.addi %[[v7]], %[[v2]] : index
-//       CHECK:       %[[extracted_0:.+]] = tensor.extract %[[arg0]][%[[v3]], %[[v8]], %[[v4]]] : tensor<4x4x4xi32>
+//       CHECK:       %[[extracted_0:.+]] = tensor.extract %[[arg0]][%[[v3]], %[[v7]], %[[v4]]] : tensor<4x4x4xi32>
 //       CHECK:       linalg.yield %[[extracted_0]] : i32
 //       CHECK:     return %[[v0]] : tensor<6x1x4x4xi32>
 

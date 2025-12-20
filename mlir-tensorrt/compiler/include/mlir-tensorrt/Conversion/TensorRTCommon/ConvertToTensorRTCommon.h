@@ -228,17 +228,17 @@ public:
                            rewriter);
   }
 
+  /// Methods that operate on the SourceOp type. One of these must be
+  /// overridden by the derived pattern class.
   virtual LogicalResult
   matchAndRewrite(SourceOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const {
-    llvm_unreachable("must override matchAndRewrite");
+    llvm_unreachable("matchAndRewrite is not implemented");
   }
   virtual LogicalResult
   matchAndRewrite(SourceOp op, OneToNOpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const {
-    SmallVector<Value> oneToOneOperands =
-        getOneToOneAdaptorOperands(adaptor.getOperands());
-    return matchAndRewrite(op, OpAdaptor(oneToOneOperands, adaptor), rewriter);
+    return dispatchTo1To1(*this, op, adaptor, rewriter);
   }
 
 private:

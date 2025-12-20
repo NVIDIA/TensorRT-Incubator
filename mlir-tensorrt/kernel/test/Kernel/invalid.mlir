@@ -185,7 +185,7 @@ func.func @test_associative_pair_types(%arg0: f32, %arg1: i32, %arg2: f32, %arg3
 // -----
 
 func.func @test_associative_region_arg(%arg0: f32, %arg1: f32, %arg2: f32, %arg3: f32) -> (f32, f32) {
-  // expected-error @below {{'kernel.combiner' op  along control flow edge from parent operands to Region #0: source type #3 'f32' should match input type #3 'i32'}}
+  // expected-error @below {{'kernel.combiner' op along control flow edge from parent operands to Region #0: source type #3 'f32' should match input type #3 'i32'}}
   %0, %1 = kernel.combiner (%arg0, %arg1, %arg2, %arg3) : f32, f32, f32, f32 {
   ^bb0(%a: f32, %b: f32, %c: f32, %d: i32):
     kernel.yield %a, %b : f32, f32

@@ -142,6 +142,7 @@ struct BufferizableOpInterfaceABIRecv
 
   FailureOr<BaseMemRefType>
   getBufferType(Operation *op, Value value, const BufferizationOptions &options,
+                const bufferization::BufferizationState &state,
                 SmallVector<Value> &invocationStack) const {
     auto recvOp = cast<executor::ABIRecvOp>(op);
     if (auto memrefType = dyn_cast<BaseMemRefType>(value.getType()))
@@ -158,7 +159,8 @@ struct BufferizableOpInterfaceABIRecv
   }
 
   LogicalResult bufferize(Operation *op, RewriterBase &rewriter,
-                          const BufferizationOptions &options) const {
+                          const BufferizationOptions &options,
+                          bufferization::BufferizationState &state) const {
     auto recvOp = cast<executor::ABIRecvOp>(op);
     auto value = recvOp.getResult();
     auto func = recvOp->getParentOfType<FunctionOpInterface>();
@@ -166,7 +168,8 @@ struct BufferizableOpInterfaceABIRecv
     BlockArgument ptrArg = cast<BlockArgument>(recvOp.getPtr());
 
     SmallVector<Value> invocationStack;
-    auto memrefType = this->getBufferType(op, value, options, invocationStack);
+    auto memrefType =
+        this->getBufferType(op, value, options, state, invocationStack);
     if (failed(memrefType))
       return failure();
 
@@ -217,6 +220,7 @@ struct BufferizableOpInterfaceABISend
 
   FailureOr<BaseMemRefType>
   getBufferType(Operation *op, Value value, const BufferizationOptions &options,
+                const bufferization::BufferizationState &state,
                 SmallVector<Value> &invocationStack) const {
     auto sendOp = cast<executor::ABISendOp>(op);
     if (auto memrefType = dyn_cast<BaseMemRefType>(value.getType()))
@@ -231,19 +235,21 @@ struct BufferizableOpInterfaceABISend
   }
 
   LogicalResult bufferize(Operation *op, RewriterBase &rewriter,
-                          const BufferizationOptions &options) const {
+                          const BufferizationOptions &options,
+                          bufferization::BufferizationState &state) const {
     auto sendOp = cast<executor::ABISendOp>(op);
     auto value = sendOp.getValue();
     auto funcOp = op->getParentOfType<FunctionOpInterface>();
 
     FailureOr<Value> buffer =
-        bufferization::getBuffer(rewriter, value, options);
+        bufferization::getBuffer(rewriter, value, options, state);
     if (failed(buffer))
       return failure();
 
     // Get the expected memref type from the buffer
     SmallVector<Value> invocationStack;
-    auto memrefType = this->getBufferType(op, value, options, invocationStack);
+    auto memrefType =
+        this->getBufferType(op, value, options, state, invocationStack);
     if (failed(memrefType))
       return failure();
 
@@ -378,6 +384,7 @@ struct BufferizeCallPluginInterface
 
   FailureOr<BaseMemRefType>
   getBufferType(Operation *op, Value value, const BufferizationOptions &options,
+                const bufferization::BufferizationState &state,
                 SmallVector<Value> &invocationStack) const {
     auto tensorType = dyn_cast<RankedTensorType>(value.getType());
     if (!tensorType)
@@ -391,7 +398,8 @@ struct BufferizeCallPluginInterface
   }
 
   LogicalResult bufferize(Operation *op, RewriterBase &rewriter,
-                          const BufferizationOptions &options) const {
+                          const BufferizationOptions &options,
+                          bufferization::BufferizationState &state) const {
     auto callOp = cast<executor::CallPluginOp>(op);
     MLIRContext *ctx = op->getContext();
 
@@ -404,7 +412,8 @@ struct BufferizeCallPluginInterface
         continue;
       if (argsTobufferize.contains(v))
         continue;
-      FailureOr<Value> buffer = bufferization::getBuffer(rewriter, v, options);
+      FailureOr<Value> buffer =
+          bufferization::getBuffer(rewriter, v, options, state);
       if (failed(buffer))
         return failure();
 
@@ -474,6 +483,7 @@ struct BufferizableOpInterfaceBufferBitcast
 
   FailureOr<BaseMemRefType>
   getBufferType(Operation *op, Value value, const BufferizationOptions &options,
+                const bufferization::BufferizationState &state,
                 SmallVector<Value> &invocationStack) const {
     auto bitcastOp = cast<executor::BufferBitcastOp>(op);
     auto resultType = bitcastOp.getResult().getType();
@@ -506,12 +516,13 @@ struct BufferizableOpInterfaceBufferBitcast
   }
 
   LogicalResult bufferize(Operation *op, RewriterBase &rewriter,
-                          const BufferizationOptions &options) const {
+                          const BufferizationOptions &options,
+                          bufferization::BufferizationState &state) const {
     auto bitcastOp = cast<executor::BufferBitcastOp>(op);
     auto source = bitcastOp.getSource();
 
     FailureOr<Value> sourceBuffer =
-        bufferization::getBuffer(rewriter, source, options);
+        bufferization::getBuffer(rewriter, source, options, state);
     if (failed(sourceBuffer))
       return failure();
     auto sourceType = cast<BaseMemRefType>(sourceBuffer->getType());

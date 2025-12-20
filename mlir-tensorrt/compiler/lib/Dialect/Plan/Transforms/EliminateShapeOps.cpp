@@ -80,7 +80,8 @@ static LogicalResult removeUnusedArgs(IRRewriter &rewriter,
     return success();
 
   for (int64_t idx : llvm::reverse(unusedArgs))
-    funcOp.eraseArgument(idx);
+    if (failed(funcOp.eraseArgument(idx)))
+      return failure();
 
   // Update the call ops.
   for (Operation *callOp : userMap.getUsers(funcOp)) {

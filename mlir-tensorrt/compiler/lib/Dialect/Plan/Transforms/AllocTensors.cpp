@@ -86,8 +86,9 @@ updateFunctionWithNewDpsArg(func::FuncOp func, Location loc, Type argType,
     argAttrs.push_back(
         NamedAttribute(plan::PlanDialect::kValueBoundsAttrName, boundsAttr));
 
-  func.insertArgument(func.getNumArguments(), argType,
-                      DictionaryAttr::get(ctx, argAttrs), loc);
+  if (failed(func.insertArgument(func.getNumArguments(), argType,
+                                 DictionaryAttr::get(ctx, argAttrs), loc)))
+    return failure();
 
   return func.getArguments().back();
 }

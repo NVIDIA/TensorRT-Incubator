@@ -33,6 +33,7 @@
 #include "mlir/Dialect/Utils/IndexingUtils.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Transforms/RegionUtils.h"
+#include "llvm/Support/Casting.h"
 
 using namespace mlir;
 
@@ -71,10 +72,10 @@ static void inParallelToMemRefCopy(RewriterBase &rewriter,
 
     MemRefType destMemRefType =
         getDynamicMemRefType(rewriter, insertOp.getDest().getType());
-    auto destMemRef = rewriter.create<bufferization::ToMemrefOp>(
+    auto destMemRef = rewriter.create<bufferization::ToBufferOp>(
         insertOp.getLoc(), destMemRefType, insertOp.getDest(),
         /*read_only=*/false);
-    auto srcMemRef = rewriter.create<bufferization::ToMemrefOp>(
+    auto srcMemRef = rewriter.create<bufferization::ToBufferOp>(
         insertOp.getLoc(),
         getDynamicMemRefType(rewriter, insertOp.getSource().getType()),
         insertOp.getSource(), /*read_only=*/false);
@@ -87,10 +88,11 @@ static void inParallelToMemRefCopy(RewriterBase &rewriter,
     // if the `tensor.parallel_insert_slice` operation is rank-expanding the
     // source.
     MemRefType destSubViewType =
-        destMemRefType.getRank() != srcMemRef.getType().getRank()
+        destMemRefType.getRank() !=
+                cast<MemRefType>(srcMemRef.getType()).getRank()
             ? memref::SubViewOp::inferRankReducedResultType(
-                  srcMemRef.getType().getShape(), destMemRefType, offsets,
-                  sizes, strides)
+                  cast<MemRefType>(srcMemRef.getType()).getShape(),
+                  destMemRefType, offsets, sizes, strides)
             : memref::SubViewOp::inferResultType(destMemRefType, offsets, sizes,
                                                  strides);
     auto destSubView =
@@ -151,10 +153,10 @@ static SmallVector<Value> makeForallBodyIsolatedFromAbove(
   for (BlockArgument arg : body->getArguments()) {
     if (auto rtt = dyn_cast<RankedTensorType>(arg.getType())) {
       arg.setType(getDynamicMemRefType(rewriter, rtt));
-      auto toMemRefOp = rewriter.create<bufferization::ToTensorOp>(
+      auto ToBufferOp = rewriter.create<bufferization::ToTensorOp>(
           arg.getLoc(), rtt, arg, /*restrict=*/true,
           /*writable=*/arg.getArgNumber() >= numInputArgs);
-      rewriter.replaceAllUsesExcept(arg, toMemRefOp, toMemRefOp);
+      rewriter.replaceAllUsesExcept(arg, ToBufferOp, ToBufferOp);
     }
   }
 

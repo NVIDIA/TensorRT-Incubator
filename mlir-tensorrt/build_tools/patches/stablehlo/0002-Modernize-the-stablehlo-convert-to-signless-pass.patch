@@ -1,7 +1,7 @@
-From 71e198eeffaacb6fc8057d94d20d662aad3f305b Mon Sep 17 00:00:00 2001
+From 047d3dd46cfe6c1c16a726746353f305613029c1 Mon Sep 17 00:00:00 2001
 From: Christopher Bate <cbate@nvidia.com>
 Date: Fri, 4 Jul 2025 15:04:55 +0000
-Subject: [PATCH 5/5] Modernize the 'stablehlo-convert-to-signless' pass
+Subject: [PATCH 2/4] Modernize the 'stablehlo-convert-to-signless' pass
 
 - 'arith.constant' doesn't allow unsigned integers, so remove that
   conversion (which is also untested)
@@ -108,5 +108,5 @@ index 0d16756a..c1298009 100644
      RewritePatternSet patterns(&getContext());
      patterns.add<ConvertToSignless, ConvertConstantToSignless>(converter,
 -- 
-2.49.0
+2.52.0
 

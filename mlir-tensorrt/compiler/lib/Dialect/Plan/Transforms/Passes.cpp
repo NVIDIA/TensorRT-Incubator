@@ -129,7 +129,8 @@ static void buildPlanBufferOptimizationPipeline(
 
 static void buildPlanBufferDeallocationPipeline(
     OpPassManager &pm, const plan::PlanBufferizationOptions &options) {
-  pm.addPass(memref::createExpandReallocPass(/*emitDeallocs=*/false));
+  pm.addPass(memref::createExpandReallocPass(
+      memref::ExpandReallocPassOptions{/*emitDeallocs=*/false}));
   pm.addPass(createCanonicalizerPass());
 
   pm.addPass(plan::createPlanOwnershipBasedBufferDeallocationPass(

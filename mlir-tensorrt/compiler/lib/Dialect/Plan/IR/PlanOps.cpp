@@ -430,13 +430,13 @@ bufferization::AliasingValueList OptimizationBarrierOp::getAliasingValues(
 }
 
 LogicalResult OptimizationBarrierOp::bufferize(
-    RewriterBase &rewriter,
-    const bufferization::BufferizationOptions &options) {
+    RewriterBase &rewriter, const bufferization::BufferizationOptions &options,
+    bufferization::BufferizationState &state) {
   // Just forward input buffers as the  result buffers.
   SmallVector<Value> buffers;
   for (OpOperand &operand : getOperation()->getOpOperands()) {
     FailureOr<Value> buffer =
-        bufferization::getBuffer(rewriter, operand.get(), options);
+        bufferization::getBuffer(rewriter, operand.get(), options, state);
     if (failed(buffer))
       return failure();
     buffers.push_back(*buffer);

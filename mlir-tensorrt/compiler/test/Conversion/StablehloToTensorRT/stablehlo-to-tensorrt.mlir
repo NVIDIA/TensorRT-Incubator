@@ -1923,7 +1923,6 @@ func.func @stablehlo_reduce_window_consume_div_op(%arg0: tensor<1x1x8x8xi8>) -> 
 //  CHECK-NEXT: %[[cst_i8:.+]] = tensorrt.constant dense<4> : tensor<1x1x7x7xi8>
 //  CHECK-NEXT: %[[cst_i8_0:.+]] = tensorrt.constant dense<0> : tensor<i8>
 //  CHECK-NEXT: %[[v0:.+]] = tensorrt.pooling {averageCountExcludesPadding = false, poolingType = #tensorrt.pooling_type<kAVERAGE>, postPadding = array<i64: 0, 0>, prePadding = array<i64: 0, 0>, stride = array<i64: 1, 1>, windowSize = array<i64: 2, 2>} ins(%[[arg0]] : tensor<1x1x8x8xi8>) -> tensor<1x1x7x7xi8>
-//  CHECK-NEXT: %[[v1:.+]] = tensorrt.element_wise <kDIV>(%[[v0]], %[[cst_i8]] : tensor<1x1x7x7xi8>, tensor<1x1x7x7xi8>) -> tensor<1x1x7x7xi8>
 //  CHECK-NEXT: return %[[v0]] : tensor<1x1x7x7xi8>
 
 // -----

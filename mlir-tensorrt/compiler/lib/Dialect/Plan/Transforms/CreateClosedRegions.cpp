@@ -214,13 +214,7 @@ materializeDestinationOperand(RewriterBase &rewriter, Location loc,
   FailureOr<SmallVector<OpFoldResult>> exactShape =
       getShapeAndVerifyDefinedAbove(rewriter, op, withShapeOp);
   if (failed(exactShape))
-    return op->emitOpError()
-           << "expected the shape calculation to be materialized above the "
-              "cluster region but some dynamic dimension "
-              " extent value is defined within the cluster region; this "
-              "indicates that the result shape is in the so-called "
-              "'data-dependent dynamic shapes' regime, "
-              "which is currently not supported for TensorRT cluster regions";
+    return failure();
 
   DestinationOperandMaterializationResult result;
   result.destinationOperand = Value{};
@@ -258,11 +252,7 @@ materializeDestinationOperand(RewriterBase &rewriter, Location loc,
   // overflow from signed integer arithmetic.
   if (llvm::any_of(*maxShape, [](int64_t dim) { return dim < 0; }) ||
       shapeProduct < 0)
-    return op->emitOpError() << llvm::formatv(
-               "failed to calculate upper bound for cluster result #{0}; got "
-               "max shape {1:$[, ]} which has linear size {2}",
-               resultIdx, llvm::make_range(maxShape->begin(), maxShape->end()),
-               shapeProduct);
+    return failure();
 
   // We allocate a linearized buffer since the output of dynamic regions
   // will create a dynamic tensor with a packed layout.
@@ -434,9 +424,7 @@ static LogicalResult materializeDestinationOperands(
         materializeDestinationOperand(rewriter, res.getLoc(), op,
                                       res.getResultNumber(), solver);
     if (failed(destResult))
-      return emitError(res.getLoc())
-             << "failed to materialize destination operand of type "
-             << res.getType();
+      return failure();
     destinationOperands.push_back(*destResult);
   }
   return success();

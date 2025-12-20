@@ -58,34 +58,37 @@ struct BlasRunGemmOpInterface
 
   /// Bufferize the `cuda.blas.run_gemm` operation.
   LogicalResult bufferize(Operation *op, RewriterBase &rewriter,
-                          const BufferizationOptions &options) const {
+                          const BufferizationOptions &options,
+                          bufferization::BufferizationState &state) const {
     BlasRunGemmOp callOp = cast<BlasRunGemmOp>(op);
     rewriter.setInsertionPoint(callOp);
     bool hasAlpha = false;
     FailureOr<Value> bufferAlpha;
     if (callOp.getAlpha()) {
       hasAlpha = true;
-      bufferAlpha = getBuffer(rewriter, callOp.getAlpha(), options);
+      bufferAlpha = getBuffer(rewriter, callOp.getAlpha(), options, state);
       if (failed(bufferAlpha))
         return failure();
     }
-    FailureOr<Value> bufferA = getBuffer(rewriter, callOp.getMatA(), options);
+    FailureOr<Value> bufferA =
+        getBuffer(rewriter, callOp.getMatA(), options, state);
     if (failed(bufferA))
       return failure();
-    FailureOr<Value> bufferB = getBuffer(rewriter, callOp.getMatB(), options);
+    FailureOr<Value> bufferB =
+        getBuffer(rewriter, callOp.getMatB(), options, state);
     if (failed(bufferB))
       return failure();
     bool hasBeta = false;
     FailureOr<Value> bufferBeta;
     if (callOp.getBeta()) {
       hasBeta = true;
-      bufferBeta = getBuffer(rewriter, callOp.getBeta(), options);
+      bufferBeta = getBuffer(rewriter, callOp.getBeta(), options, state);
       if (failed(bufferBeta))
         return failure();
     }
 
     FailureOr<Value> resultBuffer =
-        getBuffer(rewriter, callOp.getMatC(), options);
+        getBuffer(rewriter, callOp.getMatC(), options, state);
     if (failed(resultBuffer))
       return failure();
     Value algo;

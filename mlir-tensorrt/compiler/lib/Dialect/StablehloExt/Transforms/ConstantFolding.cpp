@@ -1234,6 +1234,14 @@ struct EvalIotaOpPattern : public StablehloExtFoldOpPattern<IotaOp> {
       return success();
     }
 
+    // TODO: Support more iota folding, but doing so currently causes OOMs,
+    // so this pattern needs to be enabled more carefully.
+    if (outputSize != 1) {
+      return rewriter.notifyMatchFailure(
+          op, "expected output size to be 1, but got: " +
+                  std::to_string(outputSize));
+    }
+
     llvm::SmallVector<APInt> values;
     values.reserve(outputSize);
 
@@ -1311,7 +1319,9 @@ void stablehlo_ext::populateStableHloAbsorbTensorCastPatterns(
 }
 
 void stablehlo_ext::populateTargetIndependentSimplificationPatterns(
-    RewritePatternSet &patterns, int64_t sizeLimit, PatternBenefit benefit) {
+    RewritePatternSet &patterns, int64_t sizeLimit,
+    const stablehlo::StablehloAggressiveFolderPassOptions &folderOptions,
+    PatternBenefit benefit) {
   MLIRContext *ctx = patterns.getContext();
   // clang-format off
   patterns.insert<
@@ -1349,6 +1359,9 @@ void stablehlo_ext::populateTargetIndependentSimplificationPatterns(
   populateStableHloAbsorbTensorCastPatterns(patterns);
   stablehlo::populateStablehloCanonicalizationPatterns(
       ctx, &patterns, benefit.getBenefit() - 1);
+
+  stablehlo::populateStablehloAggressiveFolderPatterns(ctx, &patterns,
+                                                       folderOptions);
   tensor::EmptyOp::getCanonicalizationPatterns(patterns, ctx);
   tensor::CastOp::getCanonicalizationPatterns(patterns, ctx);
 }
@@ -1361,18 +1374,26 @@ public:
 
   std::shared_ptr<FrozenRewritePatternSet> patterns;
 
+  std::shared_ptr<stablehlo::StablehloAggressiveFolderPassOptions>
+      folderOptions;
+
   LogicalResult initialize(MLIRContext *ctx) override {
     RewritePatternSet patterns_(ctx);
+    folderOptions =
+        std::make_shared<stablehlo::StablehloAggressiveFolderPassOptions>();
+    folderOptions->optimizeFloat = false;
+    folderOptions->foldOpElementLimit = constantFoldSizeLimit;
+    folderOptions->assumeNoUndeclaredSideEffects = false;
     stablehlo_ext::populateTargetIndependentSimplificationPatterns(
-        patterns_, constantFoldSizeLimit);
+        patterns_, constantFoldSizeLimit, *folderOptions);
+
     patterns = std::make_shared<FrozenRewritePatternSet>(std::move(patterns_));
     return success();
   }
 
   void runOnOperation() override {
     Operation *op = getOperation();
-    GreedyRewriteConfig config{};
-    config.useTopDownTraversal = true;
+    auto config = GreedyRewriteConfig().setUseTopDownTraversal(true);
     if (failed(applyPatternsGreedily(op, *patterns, config))) {
       emitError(op->getLoc())
           << "failed to apply patterns in " << getArgument();

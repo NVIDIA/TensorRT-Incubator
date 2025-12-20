@@ -104,7 +104,8 @@ dropEquivalentFuncBufferResults(RewriterBase &rewriter, func::FuncOp funcOp,
   }
 
   // Update function.
-  funcOp.eraseResults(erasedResultIndices);
+  if (failed(funcOp.eraseResults(erasedResultIndices)))
+    return failure();
   returnOp.getOperandsMutable().assign(newReturnValues);
 
   // Update function calls.

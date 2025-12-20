@@ -263,7 +263,8 @@ LLVM::LLVMFuncOp mlir::insertLLVMCtorFunction(
   rewriter.setInsertionPointAfter(func);
   rewriter.create<LLVM::GlobalCtorsOp>(
       loc, rewriter.getArrayAttr({FlatSymbolRefAttr::get(ctx, name)}),
-      rewriter.getI32ArrayAttr({priority}));
+      rewriter.getI32ArrayAttr({priority}),
+      rewriter.getArrayAttr({LLVM::ZeroAttr::get(ctx)}));
   return func;
 }
 
@@ -294,7 +295,8 @@ LLVM::LLVMFuncOp mlir::insertLLVMDtorFunction(
   rewriter.setInsertionPointAfter(func);
   rewriter.create<LLVM::GlobalDtorsOp>(
       loc, rewriter.getArrayAttr({FlatSymbolRefAttr::get(ctx, name)}),
-      rewriter.getI32ArrayAttr({priority}));
+      rewriter.getI32ArrayAttr({priority}),
+      rewriter.getArrayAttr({LLVM::ZeroAttr::get(ctx)}));
   return func;
 }
 
