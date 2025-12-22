@@ -147,13 +147,14 @@ void InlineClosedGroupOp::getAsmBlockArgumentNames(
 }
 
 void InlineClosedGroupOp::build(OpBuilder &b, OperationState &state,
-                                Attribute target, ValueRange inputs,
-                                ValueRange outs,
+                                CompilerBackendAttrInterface target,
+                                ValueRange inputs, ValueRange outs,
                                 ArrayRef<BoundsAttr> input_attrs,
                                 ArrayRef<BoundsAttr> result_attrs) {
   state.addOperands(inputs);
   state.addOperands(outs);
-  state.getOrAddProperties<Properties>().target = target;
+  if (target)
+    state.getOrAddProperties<Properties>().target = target;
   state.getOrAddProperties<Properties>().setInputAttrs(b.getArrayAttr(
       SmallVector<Attribute>(input_attrs.begin(), input_attrs.end())));
   state.getOrAddProperties<Properties>().setResAttrs(b.getArrayAttr(
@@ -212,12 +213,14 @@ void InlineClosedAllocGroupOp::getAsmBlockArgumentNames(
 }
 
 void InlineClosedAllocGroupOp::build(OpBuilder &b, OperationState &state,
-                                     TypeRange resultTypes, Attribute target,
+                                     TypeRange resultTypes,
+                                     CompilerBackendAttrInterface target,
                                      ValueRange inputs,
                                      ArrayRef<BoundsAttr> input_attrs) {
   state.addTypes(resultTypes);
   state.addOperands(inputs);
-  state.getOrAddProperties<Properties>().target = target;
+  if (target)
+    state.getOrAddProperties<Properties>().target = target;
   state.getOrAddProperties<Properties>().setInputAttrs(b.getArrayAttr(
       SmallVector<Attribute>(input_attrs.begin(), input_attrs.end())));
   Region *body = state.addRegion();

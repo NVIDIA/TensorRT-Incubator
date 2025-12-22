@@ -105,15 +105,15 @@ def Plan_InlineGroupOp : Plan_GroupOpBase<"inline_group", [
     more specialized operation(s) and/or have the body outlined to a
     function-like operation such that the reuslts are replaced with a
     call-like operation.
-
   }];
 
-  let arguments = (ins CompilerBackendAttrInterface:$target);
+  let arguments = (ins OptionalAttr<CompilerBackendAttrInterface>:$target);
 
   let results = (outs Variadic<AnyType>:$results);
 
   let assemblyFormat = [{
-     `target` `(` $target `)` attr-dict-with-keyword (`->` type($results)^)? $body
+     ( `target` `(` $target^ `)` )?
+     attr-dict-with-keyword (`->` type($results)^)? $body
   }];
 
   let hasVerifier = 1;
@@ -236,16 +236,17 @@ def Plan_InlineClosedGroupOp : Plan_InlineClosedGroupBase<"inline_closed_group",
     ```
 
   }];
-  let arguments = (ins Variadic<AnyTypeOf<[AnyRankedTensor, AnySignlessIntegerOrIndex]>>:$inputs,
-                       Variadic<AnyRankedTensor>:$outs,
-                       BoundsAttrArray:$input_attrs,
-                       BoundsAttrArray:$res_attrs,
-                       AnyAttr:$target);
+  let arguments =
+      (ins Variadic<
+           AnyTypeOf<[AnyRankedTensor, AnySignlessIntegerOrIndex]>>:$inputs,
+          Variadic<AnyRankedTensor>:$outs, BoundsAttrArray:$input_attrs,
+          BoundsAttrArray:$res_attrs,
+          OptionalAttr<CompilerBackendAttrInterface>:$target);
 
   let results = (outs Variadic<AnyType>:$results);
 
   let assemblyFormat = [{
-    `target` `(` $target `)` `\n`
+    (`target` `(` $target^ `)` `\n`)?
     `inputs` `(` ( $inputs^ `:` type($inputs) `)` ) : ( `)` ) ?  `\n`
     `outs` `(` $outs `:` type($outs) `)` `\n`
     `in_attrs` $input_attrs `\n`
@@ -257,12 +258,10 @@ def Plan_InlineClosedGroupOp : Plan_InlineClosedGroupBase<"inline_closed_group",
 
   let skipDefaultBuilders = 1;
 
-  let builders = [
-    OpBuilder<(ins "Attribute":$target,
-                   "ValueRange":$inputs, "ValueRange":$outs,
-                   CArg<"ArrayRef<BoundsAttr>", "{}">:$input_attrs,
-                   CArg<"ArrayRef<BoundsAttr>", "{}">:$res_attrs)>
-  ];
+  let builders = [OpBuilder<(ins "CompilerBackendAttrInterface":$target,
+      "ValueRange":$inputs, "ValueRange":$outs,
+      CArg<"ArrayRef<BoundsAttr>", "{}">:$input_attrs,
+      CArg<"ArrayRef<BoundsAttr>", "{}">:$res_attrs)>];
 
   let extraClassDeclaration = baseInlineClosedExtraClassDeclaration # [{
 
@@ -326,14 +325,13 @@ def Plan_InlineClosedAllocGroupOp : Plan_InlineClosedGroupBase<"inline_closed_al
   }
 
   }];
-  let arguments = (ins Variadic<AnyType>:$inputs,
-                       BoundsAttrArray:$input_attrs,
-                       AnyAttr:$target);
+  let arguments = (ins Variadic<AnyType>:$inputs, BoundsAttrArray:$input_attrs,
+      OptionalAttr<CompilerBackendAttrInterface>:$target);
 
   let results = (outs Variadic<AnyType>:$results);
 
   let assemblyFormat = [{
-    `target` `(` $target `)` `\n`
+    (`target` `(` $target^ `)` `\n`)?
     `inputs` `(` ( $inputs^ `:` type($inputs) `)` ) : ( `)` ) ?  `\n`
     `in_attrs` $input_attrs `\n`
      attr-dict-with-keyword `->` type($results)
@@ -344,11 +342,10 @@ def Plan_InlineClosedAllocGroupOp : Plan_InlineClosedGroupBase<"inline_closed_al
 
   let skipDefaultBuilders = 1;
 
-  let builders = [
-    OpBuilder<(ins "TypeRange":$results,
-                   "Attribute":$target,
-                   "ValueRange":$inputs,
-                   CArg<"ArrayRef<BoundsAttr>", "{}">:$input_attrs)>,
+  let builders = [OpBuilder<(ins "TypeRange":$results,
+                      "CompilerBackendAttrInterface":$target,
+                      "ValueRange":$inputs,
+                      CArg<"ArrayRef<BoundsAttr>", "{}">:$input_attrs)>,
   ];
 
   let extraClassDeclaration = baseInlineClosedExtraClassDeclaration;

@@ -45,11 +45,11 @@ using namespace mlir::plan;
 
 static CompilerBackendAttrInterface getClusterTargetForRegionOp(Operation *op) {
   if (auto regionOp = dyn_cast<plan::InlineGroupOp>(op))
-    return cast<CompilerBackendAttrInterface>(regionOp.getTarget());
+    return regionOp.getTargetAttr();
   if (auto regionOp = dyn_cast<plan::InlineClosedGroupOp>(op))
-    return cast<CompilerBackendAttrInterface>(regionOp.getTarget());
+    return regionOp.getTargetAttr();
   if (auto regionOp = dyn_cast<plan::InlineClosedAllocGroupOp>(op))
-    return cast<CompilerBackendAttrInterface>(regionOp.getTarget());
+    return regionOp.getTargetAttr();
   llvm_unreachable("unknown cluster region op kind");
 }
 
@@ -58,6 +58,8 @@ static FailureOr<OutlineRegionOptions>
 getOutliningParam(InputKind inputKind, Operation *op,
                   SymbolTable &moduleSymbolTable) {
   CompilerBackendAttrInterface target = getClusterTargetForRegionOp(op);
+  if (!target)
+    return op->emitError("missing target attribute");
   std::optional<OutlineRegionOptions> opts = target.getClusterOutliningOptions(
       inputKind, op->getContext(), moduleSymbolTable);
   if (!opts)
@@ -131,7 +133,7 @@ public:
     for (FunctionOpInterface func : funcs) {
       SmallVector<plan::InlineGroupOp> clusters;
       func->walk([&](plan::InlineGroupOp clusterOp) {
-        if (!isa<CompilerBackendAttrInterface>(clusterOp.getTarget()))
+        if (!clusterOp.getTargetAttr())
           return WalkResult::advance();
         clusters.push_back(clusterOp);
         return WalkResult::skip();
