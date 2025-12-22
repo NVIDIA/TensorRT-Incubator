@@ -597,6 +597,7 @@ public:
       vector::populateVectorInsertExtractStridedSliceTransforms(patterns);
       vector::populateVectorStepLoweringPatterns(patterns);
       vector::populateVectorRankReducingFMAPattern(patterns);
+      vector::populateVectorFromElementsUnrollPatterns(patterns);
       mlir::populateGpuShufflePatterns(patterns);
       if (failed(applyPatternsGreedily(getOperation(), std::move(patterns))))
         return signalPassFailure();
