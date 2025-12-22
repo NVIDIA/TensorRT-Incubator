@@ -113,59 +113,6 @@ private:
   SmallVector<std::unique_ptr<RewriteType>> patterns;
 };
 
-/// Apply a set of clustering patterns to the function. Patterns are sorted and
-/// applied in decreasing order by benefit.
-LogicalResult
-applyClusteringPatterns(FunctionOpInterface mainFunc,
-                        ClusteringPatternSet<ClusteringRewriter> &patterns);
-
-/// A type of a function that can filter cluster region operations.
-using RegionOpFilterFn = std::function<bool(Operation *)>;
-
-/// Create a cluster region op filter using the specified parameters.
-RegionOpFilterFn getRegionOpFilter(
-    Attribute target,
-    unsigned operationCnt = std::numeric_limits<unsigned>::max(),
-    IsClusterableOpFn canOpCluster = [](Operation *op) { return true; });
-
-/// Given a `func.func` operation, this class describes a base
-/// pattern for doing a "scf::ExecuteRegion" based transformation
-class RegionOpFusionRewriter {
-public:
-  RegionOpFusionRewriter(const SmallVector<RegionOpFilterFn> &filters,
-                         Attribute newTarget,
-                         ClusterRegionOpBuilderFunc regionOpBuilderFunc)
-      : filters(filters), target(newTarget),
-        regionOpBuilderFunc(regionOpBuilderFunc) {}
-
-  /// This function walks on the mainFunc graph and  finds any matched
-  /// patterns according to filters. After it finds matched consecutive
-  /// Operation* in the graph and it will try to merge them into 1
-  /// single Operation* and rewrite it into the graph with a new
-  /// clustering target
-  void run(FunctionOpInterface mainFunc, RewriterBase &rewriter);
-
-private:
-  /// A list of filter functions that identify scf.execute_region operations of
-  /// interest
-  SmallVector<RegionOpFilterFn> filters;
-
-  /// the target of the merged region operation will be set to
-  Attribute target;
-
-  ClusterRegionOpBuilderFunc regionOpBuilderFunc;
-};
-
-/// Return the "target" of a particular cluster represented by the
-/// `scf.execute_region` operation. This currently returns the StringAttr
-/// named `__cluster_target__` if present, failure otherwise.
-FailureOr<Attribute> getClusterTarget(Operation *regionOp);
-
-/// Apply a set of region-op rewriter patterns to the function.
-LogicalResult applyRegionOpRewritePatterns(
-    FunctionOpInterface mainFunc,
-    ClusteringPatternSet<RegionOpFusionRewriter> &patterns);
-
 } // namespace mlir
 
 #endif // MLIR_TENSORRT_TRANSFORMS_CLUSTERING_PATTERNS_H

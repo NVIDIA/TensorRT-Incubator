@@ -330,26 +330,18 @@ def ClusteringPass : Pass<"plan-clustering", "::mlir::ModuleOp"> {
     [CompilerBackendAttrInterface](../IR/PlanInterfaces.td).
   }];
 
-  let options = [
-    Option<"entrypoint", "entrypoint", "std::string", "\"\"",
-      "the name of the entrypoint function; if empty then the clustering runs"
-      " on all functions">,
-    Option<"forceEntrypointsReturnAllocs",
-      "force-entrypoints-return-allocs", "bool", "false",
-      "allow backend clusters to directly allocate outputs">,
-    Option<"disableCreateShapeFuncPass", "disable-create-shape-func-pass", "bool", "false",
-      "don't apply create shape to func pass in TensorRT clusters">,
-    InputKindOption
-  ];
-
-  let dependentDialects = [
-    // TODO: TensorRT and Tensor dialects needed since the different
-    // backends may create these ops. Add a way for backends to declare
-    // dialect dependencies.
-    "::mlir::tensor::TensorDialect",
-    "::mlir::tensorrt::TensorRTDialect",
-    "::mlir::plan::PlanDialect"
-  ];
+  let options =
+      [Option<"entrypoint", "entrypoint", "std::string", "\"\"",
+              "the name of the entrypoint function; if empty then the "
+              "clustering runs"
+              " on all functions">,
+       Option<"forceEntrypointsReturnAllocs", "force-entrypoints-return-allocs",
+              "bool", "false",
+              "allow backend clusters to directly allocate outputs">,
+       Option<"disableCreateShapeFuncPass", "disable-create-shape-func-pass",
+              "bool", "false",
+              "don't apply create shape to func pass in TensorRT clusters">,
+       InputKindOption];
 }
 
 //===----------------------------------------------------------------------===//
