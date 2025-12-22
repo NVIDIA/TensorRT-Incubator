@@ -106,13 +106,13 @@ enum class DestinationOperandMaterializationStrategy {
   /// The destination operand was materialized with a static or dynamic shape
   /// that matches the shape of the output,
   /// A `tensor.empty` is used to create the destination tensor above the
-  /// `plan.inline_group` operation, and the result of the
-  /// `plan.inline_closed_group` can be used without slicing it.
+  /// `plan.cluster` operation, and the result of the
+  /// `plan.dps_cluster` can be used without slicing it.
   ExactShape,
   /// We materialized a tensor based on the upper bound derived from one of our
   /// analysese. The tensor could be static or dynamic based on where we
   /// computed the upper bound. This indicates to the algorithm below that we
-  /// need to slice the result of our `plan.inline_closed_group` operation to
+  /// need to slice the result of our `plan.dps_cluster` operation to
   /// cut
   /// the tensor  to the exact size.
   UpperBound
@@ -129,8 +129,7 @@ struct DestinationOperandMaterializationResult {
 } // namespace
 
 static FailureOr<SmallVector<OpFoldResult>>
-getShapeAndVerifyDefinedAbove(RewriterBase &rewriter,
-                              plan::InlineGroupOp regionOp,
+getShapeAndVerifyDefinedAbove(RewriterBase &rewriter, plan::ClusterOp regionOp,
                               plan::WithShapeOp op) {
   OpBuilder::InsertionGuard g(rewriter);
   SmallVector<OpFoldResult> result;
@@ -182,7 +181,7 @@ getShapeAndVerifyDefinedAbove(RewriterBase &rewriter,
 
 static FailureOr<DestinationOperandMaterializationResult>
 materializeDestinationOperand(RewriterBase &rewriter, Location loc,
-                              plan::InlineGroupOp op, unsigned resultIdx,
+                              plan::ClusterOp op, unsigned resultIdx,
                               DataFlowSolver &solver) {
   OpBuilder::InsertionGuard g(rewriter);
   rewriter.setInsertionPoint(op);
@@ -415,7 +414,7 @@ getInputAttributes(RewriterBase &rewriter, DataFlowSolver &solver, Location loc,
 }
 
 static LogicalResult materializeDestinationOperands(
-    RewriterBase &rewriter, plan::InlineGroupOp op, DataFlowSolver &solver,
+    RewriterBase &rewriter, plan::ClusterOp op, DataFlowSolver &solver,
     SmallVectorImpl<DestinationOperandMaterializationResult>
         &destinationOperands) {
   destinationOperands.reserve(op.getNumResults());
@@ -432,10 +431,10 @@ static LogicalResult materializeDestinationOperands(
 
 // Helper function to create DPS closed group op.
 static LogicalResult createInlineClosedGroupOp(
-    RewriterBase &rewriter, plan::InlineGroupOp op, DataFlowSolver &solver,
+    RewriterBase &rewriter, plan::ClusterOp op, DataFlowSolver &solver,
     const ValueRange &inputs,
     ArrayRef<DestinationOperandMaterializationResult> destinationOperands) {
-  InlineClosedGroupOp closedGroupOp = rewriter.create<InlineClosedGroupOp>(
+  DpsClusterOp closedGroupOp = rewriter.create<DpsClusterOp>(
       op.getLoc(), /*target=*/op.getTargetAttr(),
       /*inputs=*/inputs,
       /*outs=*/
@@ -502,15 +501,14 @@ static LogicalResult createInlineClosedGroupOp(
 
 // Helper function to create non-DPS closed group op.
 static LogicalResult
-createInlineClosedAllocGroupOp(RewriterBase &rewriter, plan::InlineGroupOp op,
+createInlineClosedAllocGroupOp(RewriterBase &rewriter, plan::ClusterOp op,
                                DataFlowSolver &solver,
                                const SmallVector<Value> &inputs) {
   // Create a new closed group op and move blocks into it.
-  InlineClosedAllocGroupOp closedGroupOp =
-      rewriter.create<InlineClosedAllocGroupOp>(
-          op.getLoc(), /*result type*/ op->getResultTypes(),
-          /*target=*/op.getTargetAttr(),
-          /*inputs=*/inputs);
+  AllocClusterOp closedGroupOp = rewriter.create<AllocClusterOp>(
+      op.getLoc(), /*result type*/ op->getResultTypes(),
+      /*target=*/op.getTargetAttr(),
+      /*inputs=*/inputs);
 
   rewriter.inlineBlockBefore(
       &op.getRegion().front(), &closedGroupOp.getRegion().front(),
@@ -538,7 +536,7 @@ createInlineClosedAllocGroupOp(RewriterBase &rewriter, plan::InlineGroupOp op,
 }
 
 static LogicalResult
-createClosedGroupOp(RewriterBase &rewriter, plan::InlineGroupOp op,
+createClosedGroupOp(RewriterBase &rewriter, plan::ClusterOp op,
                     DataFlowSolver &solver,
                     bool disableDestinationStyleCallingConvention) {
   OpBuilder::InsertionGuard g(rewriter);
@@ -584,19 +582,19 @@ public:
   using Base::Base;
   void runOnOperation() override {
     ModuleOp op = getOperation();
-    SmallVector<plan::InlineGroupOp> groupOps;
+    SmallVector<plan::ClusterOp> groupOps;
     MLIRContext *ctx = op->getContext();
 
-    auto opFilterFn = [&](plan::InlineGroupOp groupOp) { return true; };
+    auto opFilterFn = [&](plan::ClusterOp groupOp) { return true; };
 
     // Filter by target for those that require DPS transform.
     if (testPreWalkOrder) {
-      op->walk<WalkOrder::PreOrder>([&](plan::InlineGroupOp groupOp) {
+      op->walk<WalkOrder::PreOrder>([&](plan::ClusterOp groupOp) {
         if (opFilterFn(groupOp))
           groupOps.push_back(groupOp);
       });
     } else {
-      op->walk<WalkOrder::PostOrder>([&](plan::InlineGroupOp groupOp) {
+      op->walk<WalkOrder::PostOrder>([&](plan::ClusterOp groupOp) {
         if (opFilterFn(groupOp))
           groupOps.push_back(groupOp);
       });
@@ -615,7 +613,7 @@ public:
       return;
 
     IRRewriter rewriter(ctx);
-    for (InlineGroupOp groupOp : llvm::make_early_inc_range(groupOps)) {
+    for (ClusterOp groupOp : llvm::make_early_inc_range(groupOps)) {
       if (failed(createClosedGroupOp(rewriter, groupOp, solver,
                                      disableDestinationStyleCallingConvention)))
         return signalPassFailure();

@@ -140,11 +140,11 @@ static bool shouldCloneProducer(Value v, Region &cluster) {
          1024 * 1024;
 }
 
-/// Creates an empty `plan.inline_group` operation for a given type of cluster
+/// Creates an empty `plan.cluster` operation for a given type of cluster
 /// target.
 static Operation *createInlineGroupOp(OpBuilder &b, Location loc,
                                       TypeRange types, Attribute target) {
-  auto regionOp = b.create<plan::InlineGroupOp>(
+  auto regionOp = b.create<plan::ClusterOp>(
       loc, types, cast<CompilerBackendAttrInterface>(target));
   b.setInsertionPointToStart(&regionOp.getRegion().emplaceBlock());
   b.create<plan::YieldOp>(loc);
@@ -248,7 +248,7 @@ class KernelSegmentationPass
           getClusterOutliningOptions(ctx, symbolTable);
       for (const Cluster &cluster : *clusters) {
 
-        auto regionOp = cast<InlineGroupOp>(
+        auto regionOp = cast<ClusterOp>(
             createRegionOpFromCluster(cluster, rewriter, createInlineGroupOp));
         if (!regionOp) {
           func->emitError("failed to create region op from cluster");

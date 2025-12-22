@@ -18,17 +18,17 @@ func.func @plan_attrs() attributes {
 
 func.func @plan_inline_group(%arg0: tensor<10xf32>, %arg1: tensor<10xf32>) -> tensor<10xf32> {
 
-  %0 = plan.inline_group target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>) -> tensor<10xf32> {
+  %0 = plan.cluster target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>) -> tensor<10xf32> {
     %1 = stablehlo.add %arg0, %arg1 : tensor<10xf32>
     yield %1 : tensor<10xf32>
   }
 
-  %1 = plan.inline_group -> tensor<10xf32> {
+  %1 = plan.cluster -> tensor<10xf32> {
     %2 = stablehlo.add %0, %0 : tensor<10xf32>
     yield %2 : tensor<10xf32>
   }
 
-  plan.inline_group target(#plan.host_backend<benefit = 1>) {
+  plan.cluster target(#plan.host_backend<benefit = 1>) {
     %alloc = memref.alloc() : memref<10xf32>
     memref.dealloc %alloc : memref<10xf32>
   }
@@ -39,15 +39,15 @@ func.func @plan_inline_group(%arg0: tensor<10xf32>, %arg1: tensor<10xf32>) -> te
 
 // CHECK-LABEL: @plan_inline_group
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<10xf32>, %[[arg1:.+]]: tensor<10xf32>) -> tensor<10xf32> {
-//       CHECK-NEXT:     %[[v0:.+]] = plan.inline_group target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>) -> tensor<10xf32> {
+//       CHECK-NEXT:     %[[v0:.+]] = plan.cluster target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>) -> tensor<10xf32> {
 //       CHECK-NEXT:       %[[v2:.+]] = stablehlo.add %[[arg0]], %[[arg1]] : tensor<10xf32>
 //       CHECK-NEXT:       yield %[[v2]] : tensor<10xf32>
 //       CHECK-NEXT:     }
-//       CHECK-NEXT:     %[[v1:.+]] = plan.inline_group -> tensor<10xf32> {
+//       CHECK-NEXT:     %[[v1:.+]] = plan.cluster -> tensor<10xf32> {
 //       CHECK-NEXT:       %[[v2:.+]] = stablehlo.add %[[v0]], %[[v0]] : tensor<10xf32>
 //       CHECK-NEXT:       yield %[[v2]] : tensor<10xf32>
 //       CHECK-NEXT:     }
-//       CHECK-NEXT:     plan.inline_group target(#plan.host_backend<benefit = 1>) {
+//       CHECK-NEXT:     plan.cluster target(#plan.host_backend<benefit = 1>) {
 //       CHECK-NEXT:       %[[alloc:.+]] = memref.alloc() : memref<10xf32>
 //       CHECK-NEXT:       memref.dealloc %[[alloc]] : memref<10xf32>
 //       CHECK-NEXT:     }
@@ -57,7 +57,7 @@ func.func @plan_inline_group(%arg0: tensor<10xf32>, %arg1: tensor<10xf32>) -> te
 
 func.func @inline_closed_group(%arg0: tensor<?xf32>, %arg1: index, %arg2: tensor<?xf32>)
    -> (tensor<?xf32>, tensor<10xf32>) {
-  %2 = plan.inline_closed_group target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>)
+  %2 = plan.dps_cluster target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>)
     inputs(%arg0, %arg1 : tensor<?xf32>, index)
     outs(%arg2 : tensor<?xf32>)
     in_attrs [#plan.bounds<shape, [10], [20]>, #plan.bounds<none>]
@@ -69,7 +69,7 @@ func.func @inline_closed_group(%arg0: tensor<?xf32>, %arg1: index, %arg2: tensor
   }
 
   %empty = tensor.empty() : tensor<10xf32>
-  %3 = plan.inline_closed_group inputs()
+  %3 = plan.dps_cluster inputs()
     outs(%empty : tensor<10xf32>)
     in_attrs []
     res_attrs [#plan.bounds<none>] -> tensor<10xf32> {
@@ -80,7 +80,7 @@ func.func @inline_closed_group(%arg0: tensor<?xf32>, %arg1: index, %arg2: tensor
 }
 
 // CHECK-LABEL: func.func @inline_closed_group
-//       CHECK:  plan.inline_closed_group target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>)
+//       CHECK:  plan.dps_cluster target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>)
 //  CHECK-NEXT:   inputs(%{{.+}}, %{{.+}} : tensor<?xf32>, index)
 //  CHECK-NEXT:   outs(%{{.+}} : tensor<?xf32>)
 //  CHECK-NEXT:   in_attrs [#plan.bounds<shape, [10], [20]>, #plan.bounds<none>]
@@ -90,7 +90,7 @@ func.func @inline_closed_group(%arg0: tensor<?xf32>, %arg1: index, %arg2: tensor
 //  CHECK-NEXT:    %{{.+}} = stablehlo.exponential %{{.+}} : tensor<?xf32>
 //  CHECK-NEXT:    yield %{{.+}} : tensor<?xf32>
 //  CHECK-NEXT:  }
-//       CHECK:  plan.inline_closed_group inputs()
+//       CHECK:  plan.dps_cluster inputs()
 //  CHECK-NEXT:    outs(%{{.+}} : tensor<10xf32>)
 //  CHECK-NEXT:    in_attrs []
 //  CHECK-NEXT:    res_attrs [#plan.bounds<none>] -> tensor<10xf32> {
@@ -100,7 +100,7 @@ func.func @inline_closed_group(%arg0: tensor<?xf32>, %arg1: index, %arg2: tensor
 // -----
 
 func.func @inline_closed_alloc_group(%arg0: tensor<?xf32>, %arg1: index) -> (tensor<?xf32>, tensor<10xf32>) {
-  %2 = plan.inline_closed_alloc_group target(#plan.host_backend<benefit=1>)
+  %2 = plan.alloc_cluster target(#plan.host_backend<benefit=1>)
     inputs(%arg0, %arg1 : tensor<?xf32>, index)
     in_attrs [#plan.bounds<shape, [10], [20]>, #plan.bounds<none>] -> tensor<?xf32> {
   ^bb0(%in0: tensor<?xf32>, %in1: index):
@@ -108,7 +108,7 @@ func.func @inline_closed_alloc_group(%arg0: tensor<?xf32>, %arg1: index) -> (ten
     %res = stablehlo.exponential %2 : tensor<?xf32>
     yield %res : tensor<?xf32>
   }
-  %3 = plan.inline_closed_alloc_group inputs()
+  %3 = plan.alloc_cluster inputs()
     in_attrs [] -> tensor<10xf32> {
   ^bb0():
     %out = tensor.empty() : tensor<10xf32>
@@ -118,7 +118,7 @@ func.func @inline_closed_alloc_group(%arg0: tensor<?xf32>, %arg1: index) -> (ten
 }
 
 // CHECK-LABEL: func.func @inline_closed_alloc_group
-//       CHECK:  plan.inline_closed_alloc_group target(#plan.host_backend<benefit = 1>)
+//       CHECK:  plan.alloc_cluster target(#plan.host_backend<benefit = 1>)
 //  CHECK-NEXT:   inputs(%{{.+}}, %{{.+}} : tensor<?xf32>, index)
 //  CHECK-NEXT:   in_attrs [#plan.bounds<shape, [10], [20]>, #plan.bounds<none>]
 //  CHECK-NEXT:   -> tensor<?xf32> {
@@ -127,14 +127,14 @@ func.func @inline_closed_alloc_group(%arg0: tensor<?xf32>, %arg1: index) -> (ten
 //  CHECK-NEXT:    %{{.+}} = stablehlo.exponential %{{.+}} : tensor<?xf32>
 //  CHECK-NEXT:    yield %{{.+}} : tensor<?xf32>
 //  CHECK-NEXT:  }
-//       CHECK:  plan.inline_closed_alloc_group inputs()
+//       CHECK:  plan.alloc_cluster inputs()
 //  CHECK-NEXT:    in_attrs []
 //  CHECK-NEXT:    -> tensor<10xf32> {
 
 // -----
 
 func.func @inline_closed_alloc_group_any_type(%arg0: tensor<?xf32>, %arg1: index, %arg2: f32, %arg3: complex<f32>) -> (tensor<?xf32>, index, f32, complex<f32>) {
-  %0:4 = plan.inline_closed_alloc_group target(#plan.host_backend<benefit=1>)
+  %0:4 = plan.alloc_cluster target(#plan.host_backend<benefit=1>)
     inputs(%arg0, %arg1, %arg2, %arg3 : tensor<?xf32>, index, f32, complex<f32>)
     in_attrs [#plan.bounds<shape, [10], [20]>, #plan.bounds<none>, #plan.bounds<none>, #plan.bounds<none>] -> tensor<?xf32>, index, f32, complex<f32> {
   ^bb0(%in0: tensor<?xf32>, %in1: index, %in2: f32, %in3: complex<f32>):
@@ -146,7 +146,7 @@ func.func @inline_closed_alloc_group_any_type(%arg0: tensor<?xf32>, %arg1: index
 }
 
 // CHECK-LABEL: func.func @inline_closed_alloc_group_any_type
-//       CHECK:  plan.inline_closed_alloc_group
+//       CHECK:  plan.alloc_cluster
 //  CHECK-NEXT:   inputs(%{{.+}}, %{{.+}}, %{{.+}}, %{{.+}} : tensor<?xf32>, index, f32, complex<f32>)
 //  CHECK-NEXT:   in_attrs [#plan.bounds<shape, [10], [20]>, #plan.bounds<none>, #plan.bounds<none>, #plan.bounds<none>]
 //  CHECK-NEXT:   -> tensor<?xf32>, index, f32, complex<f32> {

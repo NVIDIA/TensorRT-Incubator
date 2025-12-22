@@ -33,7 +33,7 @@ func.func @small_reduce_host(%arg0: tensor<4xi32>, %arg1: tensor<i32>)
 //   CHECK-DAG:     %[[cst:.+]] = stablehlo.constant dense<0.000000e+00> : tensor<f32>
 //   CHECK-DAG:     %[[cst_0:.+]] = stablehlo.constant dense<1.000000e+00> : tensor<f32>
 //   CHECK-DAG:     %[[c:.+]] = stablehlo.constant dense<0> : tensor<i32>
-//   CHECK-DAG:     %[[v0:.+]]:2 = plan.inline_group target(#plan.host_backend<{{.*}}>) attributes {__cluster_target__ = #plan.host_backend<{{.*}}>}
+//   CHECK-DAG:     %[[v0:.+]]:2 = plan.cluster target(#plan.host_backend<{{.*}}>) attributes {__cluster_target__ = #plan.host_backend<{{.*}}>}
 //   CHECK-DAG:       %[[v1:.+]] = stablehlo.compare  EQ, %[[c]], %[[arg1]] : (tensor<i32>, tensor<i32>) -> tensor<i1>
 //   CHECK-DAG:       %[[v2:.+]] = stablehlo.reduce(%[[arg0]] init: %[[c]]) applies stablehlo.add across dimensions = [0] : (tensor<4xi32>, tensor<i32>) -> tensor<i32>
 //   CHECK-DAG:       yield %[[v2]], %[[v1]] : tensor<i32>, tensor<i1>
@@ -66,7 +66,7 @@ func.func @interior_padding_test(%arg0: tensor<1x2xi32>) -> tensor<1x2xi32> {
 // CHECK-LABEL: func.func @interior_padding_test
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<1x2xi32>) -> tensor<1x2xi32> {
 //       CHECK:     %[[c:.+]] = stablehlo.constant dense<0> : tensor<i32>
-//       CHECK:     %[[v0:.+]] = plan.inline_group target(#plan.kernel_backend<benefit = 1>) attributes {__cluster_target__ = #plan.kernel_backend<benefit = 1>} -> tensor<1x2xi32> {
+//       CHECK:     %[[v0:.+]] = plan.cluster target(#plan.kernel_backend<benefit = 1>) attributes {__cluster_target__ = #plan.kernel_backend<benefit = 1>} -> tensor<1x2xi32> {
 //       CHECK:       %[[v1:.+]] = stablehlo.slice %[[arg0]] [0:1, 0:1:2] : (tensor<1x2xi32>) -> tensor<1x1xi32>
 //       CHECK:       %[[v2:.+]] = stablehlo.slice %[[arg0]] [0:1, 1:2:2] : (tensor<1x2xi32>) -> tensor<1x1xi32>
 //       CHECK:       %[[v3:.+]] = stablehlo.add %[[v1]], %[[v2]] : tensor<1x1xi32>
@@ -97,7 +97,7 @@ func.func @concat_must_be_copy(%arg0: tensor<128xf32>, %arg1: tensor<128xf32>) -
 
 // CHECK-LABEL: func.func @concat_must_be_copy
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<128xf32>, %[[arg1:.+]]: tensor<128xf32>) -> tensor<128x4xf32> {
-//       CHECK:     %[[v0:.+]] = plan.inline_group target(#plan.kernel_backend<benefit = 1>) attributes {__cluster_target__ = #plan.kernel_backend<benefit = 1>} -> tensor<128x4xf32> {
+//       CHECK:     %[[v0:.+]] = plan.cluster target(#plan.kernel_backend<benefit = 1>) attributes {__cluster_target__ = #plan.kernel_backend<benefit = 1>} -> tensor<128x4xf32> {
 //       CHECK:       %[[v1:.+]] = stablehlo.broadcast_in_dim %[[arg0]], dims = [0] : (tensor<128xf32>) -> tensor<128x2xf32>
 //       CHECK:       %[[v2:.+]] = stablehlo.broadcast_in_dim %[[arg1]], dims = [0] : (tensor<128xf32>) -> tensor<128x2xf32>
 //       CHECK:       %[[v3:.+]] = stablehlo.concatenate %[[v1]], %[[v2]], dim = 1 : (tensor<128x2xf32>, tensor<128x2xf32>) -> tensor<128x4xf32>

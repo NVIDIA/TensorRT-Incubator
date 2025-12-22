@@ -35,7 +35,7 @@ func.func @simple_gather_dynamic(%arg0: tensor<?x?x256x256xi32>, %arg1: tensor<?
 }
 
 // CHECK-LABEL: func.func @simple_gather_dynamic(
-//       CHECK:     %[[v1:.+]] = plan.inline_group target(#plan.tensorrt_backend<
+//       CHECK:     %[[v1:.+]] = plan.cluster target(#plan.tensorrt_backend<
 //  CHECK-NEXT:       with_shape
 //  CHECK-NEXT:       with_values
 //  CHECK-NEXT:       stablehlo.dynamic_gather
@@ -84,7 +84,7 @@ func.func @test(%arg0: tensor<4xi32>, %arg1: tensor<i32>)
 //   CHECK-DAG:     %[[c0_i32:.+]] = arith.constant 0 : i32
 //   CHECK-DAG:     %[[extracted:.+]] = tensor.extract %[[arg1]][] : tensor<i32>
 //   CHECK-DAG:     %[[v0:.+]] = arith.cmpi eq
-//   CHECK-DAG:     %[[v1:.+]]:2 = plan.inline_group target(#plan.host_backend<benefit = 0>)
+//   CHECK-DAG:     %[[v1:.+]]:2 = plan.cluster target(#plan.host_backend<benefit = 0>)
 //   CHECK-DAG:       %[[v2:.+]] = stablehlo.compare  EQ, %[[c]], %[[arg1]] :
 //   CHECK-DAG:       %[[v3:.+]] = with_values %[[v2]](%[[v0]]) : tensor<i1>
 //   CHECK-DAG:       %[[v4:.+]] = stablehlo.reduce(%[[arg0]] init: %[[c]])
@@ -118,7 +118,7 @@ func.func @host_backend_filtering(%arg0: tensor<i32>, %arg1: i32)
 }
 
 // CHECK-LABEL: func.func @host_backend_filtering
-//   CHECK-NOT:  plan.inline_group
+//   CHECK-NOT:  plan.cluster
 
 // -----
 
@@ -138,7 +138,7 @@ func.func @tensorrt_cluster_filtering(%arg0: tensor<?xf32>, %arg1: i32, %arg2: t
 }
 
 // CHECK-LABEL: func.func @tensorrt_cluster_filtering
-//   CHECK-NOT:  plan.inline_group
+//   CHECK-NOT:  plan.cluster
 
 // -----
 
@@ -177,6 +177,6 @@ func.func @test_data_flow_state_update(
 // CHECK-LABEL: func.func @test_data_flow_state_update
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<10xf32>, %[[arg1:.+]]: tensor<1xi32>, %[[arg2:.+]]:
 //   CHECK-DAG:     %[[c:.+]] = stablehlo.constant dense<1> : tensor<1xi32>
-//   CHECK-DAG:     %[[v0:.+]]:3 = plan.inline_group target(#plan.host_backend
-//   CHECK-NOT:     plan.inline_group target(#plan.tensorrt_backend
+//   CHECK-DAG:     %[[v0:.+]]:3 = plan.cluster target(#plan.host_backend
+//   CHECK-NOT:     plan.cluster target(#plan.tensorrt_backend
 //   CHECK-DAG:     return %[[v0]]#0, %[[v0]]#1, %[[v0]]#2 :

@@ -79,29 +79,27 @@ class Plan_GroupOpBase<string mnemonic, list<Trait> traits = []>
   let extraClassDeclaration = baseExtraClassDeclaration;
 }
 
-
 //===----------------------------------------------------------------------===//
-// InlineGroupOp
+// ClusterOp
 //===----------------------------------------------------------------------===//
 
-def Plan_InlineGroupOp : Plan_GroupOpBase<"inline_group", [
-  NoRegionArguments,
-  OpAsmOpInterface,
-  SingleBlockImplicitTerminator<"plan::YieldOp">,
-  DeclareOpInterfaceMethods<RegionBranchOpInterface>
-]> {
+def Plan_ClusterOp
+    : Plan_GroupOpBase<
+          "cluster", [NoRegionArguments, OpAsmOpInterface,
+                      SingleBlockImplicitTerminator<"plan::YieldOp">,
+                      DeclareOpInterfaceMethods<RegionBranchOpInterface>]> {
   let description = [{
 
-    The `plan.inline_group` operation encapsulates a group of operations within
+    The `plan.cluster` operation encapsulates a group of operations within
     its single-block region. The purpose of this operation is materialize
     in the IR the result of a clustering analysis.
 
-    Each `plan.inline_group` operation must be assigned a `target` attribute
+    Each `plan.cluster` operation must be assigned a `target` attribute
     that indicates how the cluster should be compiled / what "backend" will
     be targeted. Examples of "backends" could include entire sub-compiler
     stacks like TensorRT or an external library like CUBlas or CUDNN.
 
-    The `plan.inline_group` operation is meant to be gradually lowered into a
+    The `plan.cluster` operation is meant to be gradually lowered into a
     more specialized operation(s) and/or have the body outlined to a
     function-like operation such that the reuslts are replaced with a
     call-like operation.
@@ -118,15 +116,15 @@ def Plan_InlineGroupOp : Plan_GroupOpBase<"inline_group", [
 
   let hasVerifier = 1;
 
-  let builders = [
-    OpBuilder<(ins "CompilerBackendAttrInterface":$target,
-      "llvm::function_ref<SmallVector<Value>(OpBuilder&, Location)>":$bodyBuilder
-      ), [{
+  let builders = [OpBuilder<(ins "CompilerBackendAttrInterface":$target,
+                                "llvm::function_ref<SmallVector<Value>("
+                                "OpBuilder&, Location)>":$bodyBuilder),
+                            [{
         $_state.addAttribute(getTargetAttrName($_state.name), target);
         Region *bodyRegion = $_state.addRegion();
         Block &body = bodyRegion->emplaceBlock();
         if(!bodyBuilder) {
-          InlineGroupOp::ensureTerminator(*bodyRegion, $_builder, $_state.location);
+          ClusterOp::ensureTerminator(*bodyRegion, $_builder, $_state.location);
         } else {
           OpBuilder::InsertionGuard g($_builder);
           $_builder.setInsertionPointToStart(&body);
@@ -134,8 +132,7 @@ def Plan_InlineGroupOp : Plan_GroupOpBase<"inline_group", [
           $_builder.create<plan::YieldOp>($_state.location, toYield);
           $_state.addTypes(TypeRange(toYield));
         }
-      }]>
-  ];
+      }]>];
 }
 
 //===----------------------------------------------------------------------===//
@@ -170,21 +167,21 @@ class Plan_InlineClosedGroupBase<string mnemonic, list<Trait> traits = []> :
 }
 
 //===----------------------------------------------------------------------===//
-// Plan_InlineClosedGroupOp
+// Plan_DpsClusterOp
 //===----------------------------------------------------------------------===//
 
-def Plan_InlineClosedGroupOp : Plan_InlineClosedGroupBase<"inline_closed_group", [
-  AttrSizedOperandSegments,
-  DestinationStyleOpInterface,
-  SingleBlockImplicitTerminator<"plan::YieldOp">,
-  DeclareOpInterfaceMethods<RegionBranchOpInterface,
-    ["getEntrySuccessorOperands"]>,
-  DeclareOpInterfaceMethods<OpAsmOpInterface,
-    ["getAsmBlockArgumentNames"]>
-]> {
+def Plan_DpsClusterOp
+    : Plan_InlineClosedGroupBase<
+          "dps_cluster",
+          [AttrSizedOperandSegments, DestinationStyleOpInterface,
+           SingleBlockImplicitTerminator<"plan::YieldOp">,
+           DeclareOpInterfaceMethods<
+               RegionBranchOpInterface, ["getEntrySuccessorOperands"]>,
+           DeclareOpInterfaceMethods<
+               OpAsmOpInterface, ["getAsmBlockArgumentNames"]>]> {
   let description = [{
 
-    The `plan.inline_closed_group` operation is similar to `dps.inline_group`
+    The `plan.dps_cluster` operation is similar to `plan.cluster`
     except that it is isolated from above and explicitly captures destination
     operands. The `in_attrs` and `res_attrs` hold bounds attribute information
     for the input and result operands. The abcense of bounds information
@@ -200,7 +197,7 @@ def Plan_InlineClosedGroupOp : Plan_InlineClosedGroupBase<"inline_closed_group",
     %0 = ... : tensor<?xf32> // A dynamically shaped operand
     %1 = .... : index        // A dynamic calculation of %0's extent
 
-    %2 = plan.inline_group target(#plan.cluster_target<tensorrt>) {
+    %2 = plan.cluster target(#plan.cluster_target<tensorrt>) {
       %2 = plan.with_shape %0 (%1) : (tensor<?xf32>, index) -> tensor<?xf32>
       %3 = stablehlo.exponential %2 : tensor<?xf32>
       yield %3 : tensor<?xf32>
@@ -222,7 +219,7 @@ def Plan_InlineClosedGroupOp : Plan_InlineClosedGroupBase<"inline_closed_group",
     //Slice %empty to actual linear size.
     %out = tensor.extract_slice %empty[0][%ub][1] :  tensor<128xf32> to tensor<?xf32>
 
-    %2 = plan.inline_closed_group target(#plan.cluster_target<tensorrt>)
+    %2 = plan.dps_cluster target(#plan.cluster_target<tensorrt>)
       inputs( %0, %1 : tensor<?xf32>, index)
       outs( %out : tensor<?xf32> )
       in_attrs [#plan.bounds<shape, [10], [20]>, #plan.bounds<none>]
@@ -284,20 +281,20 @@ def Plan_InlineClosedGroupOp : Plan_InlineClosedGroupBase<"inline_closed_group",
 }
 
 //===----------------------------------------------------------------------===//
-// InlineClosedAllocGroupOp
+// AllocClusterOp
 //===----------------------------------------------------------------------===//
 
-def Plan_InlineClosedAllocGroupOp : Plan_InlineClosedGroupBase<"inline_closed_alloc_group", [
-  IsolatedFromAbove,
-  SingleBlockImplicitTerminator<"plan::YieldOp">,
-  DeclareOpInterfaceMethods<RegionBranchOpInterface,
-    ["getEntrySuccessorOperands"]>,
-  DeclareOpInterfaceMethods<OpAsmOpInterface,
-    ["getAsmBlockArgumentNames"]>
-]> {
+def Plan_AllocClusterOp
+    : Plan_InlineClosedGroupBase<
+          "alloc_cluster",
+          [IsolatedFromAbove, SingleBlockImplicitTerminator<"plan::YieldOp">,
+           DeclareOpInterfaceMethods<
+               RegionBranchOpInterface, ["getEntrySuccessorOperands"]>,
+           DeclareOpInterfaceMethods<
+               OpAsmOpInterface, ["getAsmBlockArgumentNames"]>]> {
   let description = [{
-  The `plan.inline_closed_alloc_group` operation is a variant of the
-  `plan.inline_closed_group` operation that does not use destination-passing style
+  The `plan.alloc_cluster` operation is a variant of the
+  `plan.dps_cluster` operation that does not use destination-passing style
   (DPS). It is isolated from above and explicitly captures input operands, but unlike
   its DPS counterpart, it does not capture destination operands because its results must
   be lowered to allocation(s). The allocations may or may not be of a size that can only
@@ -316,7 +313,7 @@ def Plan_InlineClosedAllocGroupOp : Plan_InlineClosedGroupBase<"inline_closed_al
   %0 = ... : tensor<?xf32> // A dynamically shaped operand
   %1 = ... : index         // A dynamic calculation of %0's extent
 
-  %2 = plan.inline_closed_alloc_group target(#plan.cluster_target<tensorrt>)
+  %2 = plan.alloc_cluster target(#plan.cluster_target<tensorrt>)
     inputs(%0, %1 : tensor<?xf32>, index)
     in_attrs [#plan.bounds<shape, [10], [20]>, #plan.bounds<none>]-> tensor<?xf32> {
     %3 = plan.with_shape %0 (%1) : (tensor<?xf32>, index) -> tensor<?xf32>
@@ -355,12 +352,10 @@ def Plan_InlineClosedAllocGroupOp : Plan_InlineClosedGroupBase<"inline_closed_al
 // YieldOp
 //===----------------------------------------------------------------------===//
 
-def Plan_YieldOp : Plan_Op<"yield", [
-      Pure,
-      Terminator,
-      ReturnLike,
-      ParentOneOf<["plan::InlineGroupOp",
-                   "plan::InlineClosedGroupOp", "plan::InlineClosedAllocGroupOp"]>]> {
+def Plan_YieldOp
+    : Plan_Op<"yield", [Pure, Terminator, ReturnLike,
+                        ParentOneOf<["plan::ClusterOp", "plan::DpsClusterOp",
+                                     "plan::AllocClusterOp"]>]> {
 
   let arguments = (ins Variadic<AnyType>:$results);
 

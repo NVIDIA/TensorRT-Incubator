@@ -44,11 +44,11 @@ using namespace mlir;
 using namespace mlir::plan;
 
 static CompilerBackendAttrInterface getClusterTargetForRegionOp(Operation *op) {
-  if (auto regionOp = dyn_cast<plan::InlineGroupOp>(op))
+  if (auto regionOp = dyn_cast<plan::ClusterOp>(op))
     return regionOp.getTargetAttr();
-  if (auto regionOp = dyn_cast<plan::InlineClosedGroupOp>(op))
+  if (auto regionOp = dyn_cast<plan::DpsClusterOp>(op))
     return regionOp.getTargetAttr();
-  if (auto regionOp = dyn_cast<plan::InlineClosedAllocGroupOp>(op))
+  if (auto regionOp = dyn_cast<plan::AllocClusterOp>(op))
     return regionOp.getTargetAttr();
   llvm_unreachable("unknown cluster region op kind");
 }
@@ -75,8 +75,7 @@ createFunctionsFromRegions(InputKind inputKind, RewriterBase &rewriter,
   SmallVector<FunctionOpInterface> outlinedFuncs;
 
   WalkResult result = region.walk([&](Operation *op) {
-    if (!isa<plan::InlineGroupOp, plan::InlineClosedGroupOp,
-             plan::InlineClosedAllocGroupOp>(op))
+    if (!isa<plan::ClusterOp, plan::DpsClusterOp, plan::AllocClusterOp>(op))
       return WalkResult::advance();
 
     CompilerBackendAttrInterface backend = getClusterTargetForRegionOp(op);
@@ -131,8 +130,8 @@ public:
 
     IRRewriter rewriter(module->getContext());
     for (FunctionOpInterface func : funcs) {
-      SmallVector<plan::InlineGroupOp> clusters;
-      func->walk([&](plan::InlineGroupOp clusterOp) {
+      SmallVector<plan::ClusterOp> clusters;
+      func->walk([&](plan::ClusterOp clusterOp) {
         if (!clusterOp.getTargetAttr())
           return WalkResult::advance();
         clusters.push_back(clusterOp);

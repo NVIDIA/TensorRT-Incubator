@@ -369,7 +369,7 @@ static LogicalResult populateFunctionAttributes(RewriterBase &rewriter,
   }
 
   // Populate the function result attributes if the call was a DPS kind.
-  if constexpr (!std::is_same_v<RegionOpType, plan::InlineClosedAllocGroupOp>) {
+  if constexpr (!std::is_same_v<RegionOpType, plan::AllocClusterOp>) {
     for (unsigned i = 0; i < func.getNumResults(); i++) {
       BoundsAttr srcAttr = cast<BoundsAttr>(op.getResAttrs()[i]);
       if (srcAttr.isNone())
@@ -457,7 +457,7 @@ static tensorrt::TensorRTModuleOp getOrCreateTensorRTModuleOp(Operation *op) {
 /// operation (variant of call is specified using the template parameter). For
 /// DPS variants, we explicitly allocate the create the DPS result tensors prior
 /// to the call invocation.
-template <typename RegionOpType = plan::InlineClosedGroupOp>
+template <typename RegionOpType = plan::DpsClusterOp>
 static LogicalResult outlineTensorRTRegion(RewriterBase &rewriter,
                                            RegionOpType op) {
   tensorrt::TensorRTModuleOp trtModuleOp = getOrCreateTensorRTModuleOp(op);
@@ -476,7 +476,7 @@ static LogicalResult outlineTensorRTRegion(RewriterBase &rewriter,
   CallOpInterface callOp;
 
   constexpr bool isNonDPSVariant =
-      std::is_same_v<RegionOpType, plan::InlineClosedAllocGroupOp>;
+      std::is_same_v<RegionOpType, plan::AllocClusterOp>;
 
   if constexpr (!isNonDPSVariant)
     callOp = cast<CallOpInterface>(*rewriter.create<tensorrt::CallOp>(
@@ -548,14 +548,14 @@ bool TensorRTBackendAttr::preferDestinationStyleCallingConvention(
 LogicalResult TensorRTBackendAttr::outlineClosedCluster(
     InputKind inputKind, RewriterBase &rewriter, Operation *op,
     SymbolTable &moduleSymbolTable) const {
-  if (auto group = llvm::dyn_cast<plan::InlineClosedGroupOp>(op)) {
-    if (failed(outlineTensorRTRegion<InlineClosedGroupOp>(rewriter, group)))
+  if (auto group = llvm::dyn_cast<plan::DpsClusterOp>(op)) {
+    if (failed(outlineTensorRTRegion<plan::DpsClusterOp>(rewriter, group)))
       return failure();
     return success();
   }
-  if (auto allocGroup = llvm::dyn_cast<plan::InlineClosedAllocGroupOp>(op)) {
-    if (failed(outlineTensorRTRegion<InlineClosedAllocGroupOp>(rewriter,
-                                                               allocGroup)))
+  if (auto allocGroup = llvm::dyn_cast<plan::AllocClusterOp>(op)) {
+    if (failed(
+            outlineTensorRTRegion<plan::AllocClusterOp>(rewriter, allocGroup)))
       return failure();
     return success();
   }

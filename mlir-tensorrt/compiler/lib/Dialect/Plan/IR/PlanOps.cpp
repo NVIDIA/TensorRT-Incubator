@@ -49,10 +49,10 @@ using namespace mlir::plan;
 using namespace mtrt::compiler;
 
 //===----------------------------------------------------------------------===//
-// InlineGroupOp
+// ClusterOp
 //===----------------------------------------------------------------------===//
 
-LogicalResult InlineGroupOp::verify() {
+LogicalResult ClusterOp::verify() {
   YieldOp yield = getYield();
 
   if (yield->getNumOperands() != getNumResults())
@@ -68,9 +68,9 @@ LogicalResult InlineGroupOp::verify() {
   return success();
 }
 
-void InlineGroupOp::getSuccessorRegions(
-    RegionBranchPoint point, SmallVectorImpl<RegionSuccessor> &regions) {
-  // If the predecessor is the InlineGroupOp, branch into the body.
+void ClusterOp::getSuccessorRegions(RegionBranchPoint point,
+                                    SmallVectorImpl<RegionSuccessor> &regions) {
+  // If the predecessor is the ClusterOp, branch into the body.
   if (point.isParent()) {
     regions.assign({RegionSuccessor(&getRegion())});
     return;
@@ -81,7 +81,7 @@ void InlineGroupOp::getSuccessorRegions(
 }
 
 //===----------------------------------------------------------------------===//
-// InlineClosedGroupOp
+// DpsClusterOp
 //===----------------------------------------------------------------------===//
 
 static LogicalResult verifyBoundsAttrs(Operation *op, ValueRange operands,
@@ -105,7 +105,7 @@ static LogicalResult verifyBoundsAttrs(Operation *op, ValueRange operands,
   return success();
 }
 
-LogicalResult InlineClosedGroupOp::verify() {
+LogicalResult DpsClusterOp::verify() {
   if (failed(verifyBoundsAttrs(getOperation(), getInputs(), getInputAttrs(),
                                "inputs", "input_attrs")))
     return failure();
@@ -117,9 +117,9 @@ LogicalResult InlineClosedGroupOp::verify() {
   return success();
 }
 
-void InlineClosedGroupOp::getSuccessorRegions(
+void DpsClusterOp::getSuccessorRegions(
     RegionBranchPoint point, SmallVectorImpl<RegionSuccessor> &regions) {
-  // If the predecessor is the InlineClosedGroupOp, branch into the body.
+  // If the predecessor is the DpsClusterOp, branch into the body.
   if (point.isParent()) {
     regions.push_back(RegionSuccessor(&getBody(), getBody().getArguments()));
     return;
@@ -129,13 +129,12 @@ void InlineClosedGroupOp::getSuccessorRegions(
   regions.push_back(RegionSuccessor(getResults()));
 }
 
-OperandRange
-InlineClosedGroupOp::getEntrySuccessorOperands(RegionBranchPoint point) {
+OperandRange DpsClusterOp::getEntrySuccessorOperands(RegionBranchPoint point) {
   return getOperands();
 }
 
-void InlineClosedGroupOp::getAsmBlockArgumentNames(
-    Region &region, OpAsmSetValueNameFn setNameFn) {
+void DpsClusterOp::getAsmBlockArgumentNames(Region &region,
+                                            OpAsmSetValueNameFn setNameFn) {
   assert(region.front().getNumArguments() ==
              getInputs().size() + getOuts().size() &&
          "expected one block arg for each input and destination argument");
@@ -146,11 +145,10 @@ void InlineClosedGroupOp::getAsmBlockArgumentNames(
   }
 }
 
-void InlineClosedGroupOp::build(OpBuilder &b, OperationState &state,
-                                CompilerBackendAttrInterface target,
-                                ValueRange inputs, ValueRange outs,
-                                ArrayRef<BoundsAttr> input_attrs,
-                                ArrayRef<BoundsAttr> result_attrs) {
+void DpsClusterOp::build(OpBuilder &b, OperationState &state,
+                         CompilerBackendAttrInterface target, ValueRange inputs,
+                         ValueRange outs, ArrayRef<BoundsAttr> input_attrs,
+                         ArrayRef<BoundsAttr> result_attrs) {
   state.addOperands(inputs);
   state.addOperands(outs);
   if (target)
@@ -179,18 +177,18 @@ void InlineClosedGroupOp::build(OpBuilder &b, OperationState &state,
 }
 
 //===----------------------------------------------------------------------===//
-// InlineClosedAllocGroupOp
+// AllocClusterOp
 //===----------------------------------------------------------------------===//
 
-LogicalResult InlineClosedAllocGroupOp::verify() {
+LogicalResult AllocClusterOp::verify() {
   Operation *op = getOperation();
   return verifyBoundsAttrs(op, getInputs(), getInputAttrs(), "inputs",
                            this->getInputAttrsAttrName().strref());
 }
 
-void InlineClosedAllocGroupOp::getSuccessorRegions(
+void AllocClusterOp::getSuccessorRegions(
     RegionBranchPoint point, SmallVectorImpl<RegionSuccessor> &regions) {
-  // If the predecessor is the InlineClosedGroupOp, branch into the body.
+  // If the predecessor is the AllocClusterOp, branch into the body.
   if (point.isParent()) {
     regions.push_back(RegionSuccessor(&getBody(), getBody().getArguments()));
     return;
@@ -200,23 +198,23 @@ void InlineClosedAllocGroupOp::getSuccessorRegions(
 }
 
 OperandRange
-InlineClosedAllocGroupOp::getEntrySuccessorOperands(RegionBranchPoint point) {
+AllocClusterOp::getEntrySuccessorOperands(RegionBranchPoint point) {
   return getOperands();
 }
 
-void InlineClosedAllocGroupOp::getAsmBlockArgumentNames(
-    Region &region, OpAsmSetValueNameFn setNameFn) {
+void AllocClusterOp::getAsmBlockArgumentNames(Region &region,
+                                              OpAsmSetValueNameFn setNameFn) {
   assert(region.getNumArguments() == getInputs().size() &&
          "expected one block arg for each input argument");
   for (BlockArgument arg : region.getArguments())
     setNameFn(arg, "in");
 }
 
-void InlineClosedAllocGroupOp::build(OpBuilder &b, OperationState &state,
-                                     TypeRange resultTypes,
-                                     CompilerBackendAttrInterface target,
-                                     ValueRange inputs,
-                                     ArrayRef<BoundsAttr> input_attrs) {
+void AllocClusterOp::build(OpBuilder &b, OperationState &state,
+                           TypeRange resultTypes,
+                           CompilerBackendAttrInterface target,
+                           ValueRange inputs,
+                           ArrayRef<BoundsAttr> input_attrs) {
   state.addTypes(resultTypes);
   state.addOperands(inputs);
   if (target)
