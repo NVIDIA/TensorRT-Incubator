@@ -73,7 +73,7 @@ class Constraints(ABC):
                 children.extend(v for v in attr_value if isinstance(v, Constraints))
         return children
 
-    def find(self, pattern: "Constraints") -> List["Constraints"]:
+    def find(self, pattern: "Constraints", skip_within: Optional[type] = None) -> List["Constraints"]:
         """
         Find all constraints in the tree that match the given pattern.
 
@@ -84,6 +84,10 @@ class Constraints(ABC):
         Args:
             pattern: The pattern to search for (e.g., Equal(GetDataType, GetDataType)).
                     Use None as a wildcard to match anything.
+            skip_within: Optional constraint type. If provided, the search will not recurse
+                        into the children of constraints of this type. This allows skipping
+                        specific nested structures (e.g., skip_within=If to avoid searching
+                        inside If condition branches).
 
         Returns:
             A list of all matching constraints found in the tree.
@@ -91,6 +95,9 @@ class Constraints(ABC):
         Example:
             pattern = Equal(GetDataType(TensorFetcher), None)  # None matches any second argument
             matches = constraint_tree.find(pattern)
+
+            # Skip searching inside If constraints:
+            matches = constraint_tree.find(pattern, skip_within=If)
         """
 
         def matches_pattern(pattern: Constraints, constraint: Constraints) -> bool:
@@ -133,9 +140,13 @@ class Constraints(ABC):
         if matches_pattern(pattern, self):
             matches.append(self)
 
+        # Skip recursing into children if this constraint matches skip_within type
+        if skip_within is not None and isinstance(self, skip_within):
+            return matches
+
         # Recursively search children
         for child in self.get_children():
-            matches.extend(child.find(pattern))
+            matches.extend(child.find(pattern, skip_within=skip_within))
 
         return matches
 

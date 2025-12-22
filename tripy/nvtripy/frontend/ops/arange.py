@@ -16,8 +16,9 @@ import numbers
 from typing import Union
 
 from nvtripy import export
-from nvtripy.common import datatype
+from nvtripy.common import datatype as dt
 from nvtripy.common.exception import raise_error
+from nvtripy.frontend.constraints import GetInput, GetReturn, OneOf
 from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.frontend.ops.cast import cast
 from nvtripy.frontend.ops.reshape import reshape
@@ -27,16 +28,17 @@ from nvtripy.frontend import wrappers
 
 @export.public_api(document_under="operations/initializers")
 @wrappers.interface(
-    dtype_constraints={"dtype": "T1", wrappers.RETURN_VALUE: "T1"},
-    dtype_variables={
-        "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
-    },
+    input_requirements=OneOf(
+        GetInput("dtype"),
+        [dt.float32, dt.float16, dt.bfloat16, dt.float8, dt.int4, dt.int8, dt.int32, dt.int64, dt.bool],
+    ),
+    output_guarantees=GetReturn(0).dtype == GetInput("dtype"),
 )
 def arange(
     start: Union[numbers.Number, "nvtripy.DimensionSize"],
     stop: Union[numbers.Number, "nvtripy.DimensionSize"],
     step: Union[numbers.Number, "nvtripy.DimensionSize"] = 1,
-    dtype: "nvtripy.dtype" = datatype.float32,
+    dtype: "nvtripy.dtype" = dt.float32,
 ) -> "nvtripy.Tensor":
     r"""
     Returns a 1D tensor containing a sequence of numbers in the half-open interval
@@ -96,13 +98,14 @@ def arange(
 
 @export.public_api(document_under="operations/initializers")
 @wrappers.interface(
-    dtype_constraints={"dtype": "T1", wrappers.RETURN_VALUE: "T1"},
-    dtype_variables={
-        "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
-    },
+    input_requirements=OneOf(
+        GetInput("dtype"),
+        [dt.float32, dt.float16, dt.bfloat16, dt.float8, dt.int4, dt.int8, dt.int32, dt.int64, dt.bool],
+    ),
+    output_guarantees=GetReturn(0).dtype == GetInput("dtype"),
 )
 def arange(
-    stop: Union[numbers.Number, "nvtripy.DimensionSize"], dtype: "nvtripy.dtype" = datatype.float32
+    stop: Union[numbers.Number, "nvtripy.DimensionSize"], dtype: "nvtripy.dtype" = dt.float32
 ) -> "nvtripy.Tensor":
     r"""
     Returns a 1D tensor containing a sequence of numbers in the half-open interval
