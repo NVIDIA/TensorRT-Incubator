@@ -23,7 +23,7 @@ func.func @plan_inline_group(%arg0: tensor<10xf32>, %arg1: tensor<10xf32>) -> te
     yield %1 : tensor<10xf32>
   }
 
-  %1 = plan.inline_group target(#plan.host_backend<benefit = 1>) -> tensor<10xf32> {
+  %1 = plan.inline_group -> tensor<10xf32> {
     %2 = stablehlo.add %0, %0 : tensor<10xf32>
     yield %2 : tensor<10xf32>
   }
@@ -43,7 +43,7 @@ func.func @plan_inline_group(%arg0: tensor<10xf32>, %arg1: tensor<10xf32>) -> te
 //       CHECK-NEXT:       %[[v2:.+]] = stablehlo.add %[[arg0]], %[[arg1]] : tensor<10xf32>
 //       CHECK-NEXT:       yield %[[v2]] : tensor<10xf32>
 //       CHECK-NEXT:     }
-//       CHECK-NEXT:     %[[v1:.+]] = plan.inline_group target(#plan.host_backend<benefit = 1>) -> tensor<10xf32> {
+//       CHECK-NEXT:     %[[v1:.+]] = plan.inline_group -> tensor<10xf32> {
 //       CHECK-NEXT:       %[[v2:.+]] = stablehlo.add %[[v0]], %[[v0]] : tensor<10xf32>
 //       CHECK-NEXT:       yield %[[v2]] : tensor<10xf32>
 //       CHECK-NEXT:     }
@@ -55,7 +55,8 @@ func.func @plan_inline_group(%arg0: tensor<10xf32>, %arg1: tensor<10xf32>) -> te
 
 // -----
 
-func.func @inline_closed_group(%arg0: tensor<?xf32>, %arg1: index, %arg2: tensor<?xf32>) -> tensor<?xf32> {
+func.func @inline_closed_group(%arg0: tensor<?xf32>, %arg1: index, %arg2: tensor<?xf32>)
+   -> (tensor<?xf32>, tensor<10xf32>) {
   %2 = plan.inline_closed_group target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>)
     inputs(%arg0, %arg1 : tensor<?xf32>, index)
     outs(%arg2 : tensor<?xf32>)
@@ -66,7 +67,16 @@ func.func @inline_closed_group(%arg0: tensor<?xf32>, %arg1: index, %arg2: tensor
     %res = stablehlo.exponential %2 : tensor<?xf32>
     yield %res : tensor<?xf32>
   }
-  return %2 : tensor<?xf32>
+
+  %empty = tensor.empty() : tensor<10xf32>
+  %3 = plan.inline_closed_group inputs()
+    outs(%empty : tensor<10xf32>)
+    in_attrs []
+    res_attrs [#plan.bounds<none>] -> tensor<10xf32> {
+  ^bb0(%out: tensor<10xf32>):
+    yield %out : tensor<10xf32>
+  }
+  return %2, %3 : tensor<?xf32>, tensor<10xf32>
 }
 
 // CHECK-LABEL: func.func @inline_closed_group
@@ -80,11 +90,16 @@ func.func @inline_closed_group(%arg0: tensor<?xf32>, %arg1: index, %arg2: tensor
 //  CHECK-NEXT:    %{{.+}} = stablehlo.exponential %{{.+}} : tensor<?xf32>
 //  CHECK-NEXT:    yield %{{.+}} : tensor<?xf32>
 //  CHECK-NEXT:  }
-//  CHECK-NEXT:  return
+//       CHECK:  plan.inline_closed_group inputs()
+//  CHECK-NEXT:    outs(%{{.+}} : tensor<10xf32>)
+//  CHECK-NEXT:    in_attrs []
+//  CHECK-NEXT:    res_attrs [#plan.bounds<none>] -> tensor<10xf32> {
+//  CHECK-NEXT:  ^bb0(%out{{.*}}: tensor<10xf32>):
+//  CHECK-NEXT:    yield %out{{.*}} : tensor<10xf32>
 
 // -----
 
-func.func @inline_closed_alloc_group(%arg0: tensor<?xf32>, %arg1: index) -> tensor<?xf32> {
+func.func @inline_closed_alloc_group(%arg0: tensor<?xf32>, %arg1: index) -> (tensor<?xf32>, tensor<10xf32>) {
   %2 = plan.inline_closed_alloc_group target(#plan.host_backend<benefit=1>)
     inputs(%arg0, %arg1 : tensor<?xf32>, index)
     in_attrs [#plan.bounds<shape, [10], [20]>, #plan.bounds<none>] -> tensor<?xf32> {
@@ -93,7 +108,13 @@ func.func @inline_closed_alloc_group(%arg0: tensor<?xf32>, %arg1: index) -> tens
     %res = stablehlo.exponential %2 : tensor<?xf32>
     yield %res : tensor<?xf32>
   }
-  return %2 : tensor<?xf32>
+  %3 = plan.inline_closed_alloc_group inputs()
+    in_attrs [] -> tensor<10xf32> {
+  ^bb0():
+    %out = tensor.empty() : tensor<10xf32>
+    yield %out : tensor<10xf32>
+  }
+  return %2, %3 : tensor<?xf32>, tensor<10xf32>
 }
 
 // CHECK-LABEL: func.func @inline_closed_alloc_group
@@ -106,7 +127,9 @@ func.func @inline_closed_alloc_group(%arg0: tensor<?xf32>, %arg1: index) -> tens
 //  CHECK-NEXT:    %{{.+}} = stablehlo.exponential %{{.+}} : tensor<?xf32>
 //  CHECK-NEXT:    yield %{{.+}} : tensor<?xf32>
 //  CHECK-NEXT:  }
-//  CHECK-NEXT:  return
+//       CHECK:  plan.inline_closed_alloc_group inputs()
+//  CHECK-NEXT:    in_attrs []
+//  CHECK-NEXT:    -> tensor<10xf32> {
 
 // -----
 

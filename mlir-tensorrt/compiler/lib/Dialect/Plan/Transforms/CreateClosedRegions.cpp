@@ -436,7 +436,7 @@ static LogicalResult createInlineClosedGroupOp(
     const ValueRange &inputs,
     ArrayRef<DestinationOperandMaterializationResult> destinationOperands) {
   InlineClosedGroupOp closedGroupOp = rewriter.create<InlineClosedGroupOp>(
-      op.getLoc(), /*target=*/op.getTarget(),
+      op.getLoc(), /*target=*/op.getTargetAttr(),
       /*inputs=*/inputs,
       /*outs=*/
       llvm::map_to_vector(destinationOperands,
@@ -509,7 +509,7 @@ createInlineClosedAllocGroupOp(RewriterBase &rewriter, plan::InlineGroupOp op,
   InlineClosedAllocGroupOp closedGroupOp =
       rewriter.create<InlineClosedAllocGroupOp>(
           op.getLoc(), /*result type*/ op->getResultTypes(),
-          /*target=*/op.getTarget(),
+          /*target=*/op.getTargetAttr(),
           /*inputs=*/inputs);
 
   rewriter.inlineBlockBefore(
@@ -543,7 +543,10 @@ createClosedGroupOp(RewriterBase &rewriter, plan::InlineGroupOp op,
                     bool disableDestinationStyleCallingConvention) {
   OpBuilder::InsertionGuard g(rewriter);
 
-  CompilerBackendAttrInterface backend = op.getTarget();
+  CompilerBackendAttrInterface backend = op.getTargetAttr();
+  if (!backend)
+    return op.emitError("missing target attribute");
+
   bool useDestinationStyleCallingConvention =
       !disableDestinationStyleCallingConvention &&
       backend.supportsDestinationStyleCallingConvention(op) &&
