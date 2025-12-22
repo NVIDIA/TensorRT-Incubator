@@ -16,18 +16,15 @@ jobs:
   mlir-tensorrt-wheel-build:
     name: ${{ matrix.arch }}-cu${{ matrix.cuda }}-trt${{ matrix.trt }}-wheel-build
     strategy:
-      fail-fast: false
+      fail-fast: true
       max-parallel: 1
       matrix: ${{ fromJSON(inputs.build-matrix) }}
     env:
       # eg. 10.12 or 10.13
       MLIR_TRT_DOWNLOAD_TENSORRT_VERSION: ${{ matrix.trt }}
       ARCH: ${{ matrix.arch }}
-      CCACHE_DIR: ${{ github.workspace }}/mlir-tensorrt/ccache
-      CPM_SOURCE_CACHE: ${{ github.workspace }}/mlir-tensorrt/.cache.cpm
       CMAKE_PRESET: distribution-wheels
       CCACHE_RESTORE_KEY: mlir-tensorrt-ccache-v1-${{ matrix.arch }}-distribution-wheels
-      CPM_KEY: mlir-tensorrt-cpm-v1
       CPM_RESTORE_KEY: mlir-tensorrt-cpm-v1
     runs-on: ${{ matrix.github_runner }}
     timeout-minutes: 120
@@ -39,7 +36,7 @@ jobs:
     steps:
       # Checkout the repository
       - name: Checkout TensorRT-Incubator
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           fetch-depth: 5
 
@@ -48,8 +45,14 @@ jobs:
         run: |
           set -euo pipefail
           set -x
-          mkdir -p ${{ env.CCACHE_DIR }}
-          mkdir -p ${{ env.CPM_SOURCE_CACHE }}
+          export CPM_SOURCE_CACHE=${GITHUB_WORKSPACE}/mlir-tensorrt/.cache.cpm
+          export CCACHE_DIR=${GITHUB_WORKSPACE}/mlir-tensorrt/ccache
+
+          echo "CPM_SOURCE_CACHE=$CPM_SOURCE_CACHE" >> "$GITHUB_ENV"
+          echo "CCACHE_DIR=$CCACHE_DIR" >> "$GITHUB_ENV"
+
+          mkdir -p ${CCACHE_DIR}
+          mkdir -p ${CPM_SOURCE_CACHE}
 
       # Compute ccache key after checkout
       - name: Compute CCache Key
@@ -68,6 +71,13 @@ jobs:
                  | sort | sha256sum | cut -d' ' -f1)
           echo "key=${{ env.CCACHE_RESTORE_KEY }}-${hash}" >> $GITHUB_OUTPUT
 
+      # Compute cpm key after checkout
+      - name: Compute CPM Key
+        id: cpm-key
+        run: |
+          hash=$(sha256sum mlir-tensorrt/DependencyProvider.cmake | cut -d' ' -f1)
+          echo "key=${{ env.CPM_RESTORE_KEY }}-${hash}" >> $GITHUB_OUTPUT
+
       # Restore cache, if exists.
       - name: Restore CCache
         id: restore-ccache
@@ -83,7 +93,7 @@ jobs:
         id: restore-cpm
         uses: actions/cache/restore@v4
         with:
-          key: ${{ env.CPM_KEY }}
+          key: ${{ steps.cpm-key.outputs.key }}
           enableCrossOsArchive: true
           restore-keys: |
             ${{ env.CPM_RESTORE_KEY }}
@@ -96,23 +106,17 @@ jobs:
 
       # Build wheels
       - name: Build Wheels With CUDA:${{ matrix.cuda }} + TensorRT:${{ matrix.trt }}
-        env:
-          ENABLE_ASAN: "OFF"
         run: |
           set -euo pipefail
           set -x
           cd mlir-tensorrt
-          export MLIR_TRT_DOWNLOAD_TENSORRT_VERSION=${{ matrix.trt }}
-          # TODO: remove this, once patch is in our rockylinux prebuilt image
-          dnf install -yq patch
-          # build wheels for mlir-tensorrt-compiler, mlir-tensorrt-runtime
-          PACKAGES="mlir_tensorrt_compiler mlir_tensorrt_runtime" \
+          # build wheels for all available packages
           ./build_tools/scripts/cicd-build-wheels.sh
 
       # Save ccache when cache is not hit or cache was a fallback(cache-matched is not the same as the cache key)
       - name: Save CCache
         uses: actions/cache/save@v4
-        if: ${{ steps.restore-ccache.outputs.cache-hit != 'true' || steps.restore-ccache.outputs['cache-matched-key'] != env.CCACHE_KEY }}
+        if: ${{ steps.restore-ccache.outputs.cache-hit != 'true' }}
         with:
           key: ${{ steps.ccache-key.outputs.key }}
           path: |
@@ -122,21 +126,51 @@ jobs:
       - name: Save CPM Cache
         # cpm cache is shared across x86_64 and aarch64, we let only x86_64 to save cpm cache when in cache miss case
         # this is to avoid both x86_64 and aarch64 to save cpm cache when in cache miss case
-        if: ${{ matrix.arch == 'x86_64' &&
-              (
-                steps.restore-cpm.outputs.cache-hit != 'true' ||
-                steps.restore-cpm.outputs['cache-matched-key'] != env.CPM_KEY
-              )
-            }}
+        if: ${{ matrix.arch == 'x86_64' && steps.restore-cpm.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@v4
         with:
-          key: ${{ env.CPM_KEY }}
+          key: ${{ steps.cpm-key.outputs.key }}
           enableCrossOsArchive: true
           # exclude only works for the relative path pattern
           path: |
             mlir-tensorrt/.cache.cpm/*
             !mlir-tensorrt/.cache.cpm/tensorrt
             !mlir-tensorrt/.cache.cpm/tensorrt/**
+
+      - name: Smoke Test Wheels With CUDA:${{ matrix.cuda }} + TensorRT:${{ matrix.trt }}
+        run: |
+          set -euo pipefail
+          set -x
+          cd mlir-tensorrt
+          export JAX_PLATFORMS="mlir_tensorrt,cpu"
+
+          # Compute TensorRT library path from CPM cache by locating libnvinfer.so
+          SEARCH_PATH=${CPM_SOURCE_CACHE}/tensorrt
+          echo "SEARCH_PATH: ${SEARCH_PATH}"
+          TensorRT_LIB_PATH="$(find ${SEARCH_PATH} -type f -name 'libnvinfer.so.*' 2>/dev/null | head -n1 | xargs -r dirname)"
+          if [[ -z "${TensorRT_LIB_PATH}" ]]; then
+            echo "Error: Could not locate libnvinfer.so under ${CPM_TRT_DIR}" >&2
+            exit 1
+          fi
+          echo "TensorRT_LIB_PATH: ${TensorRT_LIB_PATH}"
+          export LD_LIBRARY_PATH="${TensorRT_LIB_PATH}:$LD_LIBRARY_PATH"
+
+          # Choose uv extra based on CUDA_VERSION major (12.9 -> cu12, 13.0 -> cu13).
+          matrix_cuda="${{ matrix.cuda }}"
+          CUDA_MAJOR="${matrix_cuda%%.*}"
+          if [[ "${CUDA_MAJOR}" == "12" ]]; then
+            UV_EXTRA="cu12"
+          elif [[ "${CUDA_MAJOR}" == "13" ]]; then
+            UV_EXTRA="cu13"
+          fi
+          echo "UV_EXTRA: ${UV_EXTRA}"
+
+          uv sync --python 3.10 --extra ${UV_EXTRA}
+          source .venv/bin/activate
+
+          uv pip install dist/mlir_tensorrt_jax-*-cp310-cp310*.whl
+          # smoke test wheels
+          python3 -m pytest integrations/PJRT/test/JAX/ -v
 
       # Upload wheels to GitHub Actions artifact
       - name: Upload Wheels

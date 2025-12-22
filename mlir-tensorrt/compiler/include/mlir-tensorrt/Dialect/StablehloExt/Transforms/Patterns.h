@@ -33,6 +33,16 @@ namespace stablehlo_ext {
 /// `tensor.cast` producers.
 void populateStableHloAbsorbTensorCastPatterns(RewritePatternSet &patterns);
 
+/// Populate patterns that perform simplifications.
+void populateStableHloExtSimplificationsPatterns(
+    RewritePatternSet &patterns,
+    const stablehlo::StablehloAggressiveSimplificationPassOptions &options,
+    PatternBenefit benefit = 1);
+
+/// Populate patterns that simplify `stablehlo.dot_general` to
+/// `stablehlo.multiply`.
+void populateStablehloDotGeneralToMultiplyPatterns(RewritePatternSet &patterns);
+
 /// Populate patterns that perform target-independent simplifications.
 /// The `sizeLimit` is the maximum tensor volume beyond which constant folding
 /// is not attempted.

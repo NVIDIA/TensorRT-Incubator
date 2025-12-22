@@ -9,3 +9,4 @@ endif()
 
 mlir_tablegen(Passes.h.inc ${_TABLEGEN_ARGS})
 mtrt_add_public_tablegen_target(MLIRTensorRTGenericTransformPassIncGen)
+

@@ -1,0 +1,134 @@
+name: build-cache-test
+inputs:
+  cpm_cache_restore_flag:
+    required: true
+    default: false
+  ccache_restore_flag:
+    required: true
+    default: false
+
+runs:
+  using: composite
+  steps:
+    # Checkout the repository
+    - name: Checkout TensorRT-Incubator
+      uses: actions/checkout@v6
+      with:
+        fetch-depth: 5
+
+    # Create cache folders
+    - name: Create Cache Folders
+      shell: bash
+      run: |
+        set -euo pipefail
+        set -x
+        export CPM_SOURCE_CACHE=${GITHUB_WORKSPACE}/mlir-tensorrt/.cache.cpm
+        export CCACHE_DIR=${GITHUB_WORKSPACE}/mlir-tensorrt/ccache
+
+        echo "CPM_SOURCE_CACHE=$CPM_SOURCE_CACHE" >> "$GITHUB_ENV"
+        echo "CCACHE_DIR=$CCACHE_DIR" >> "$GITHUB_ENV"
+
+        mkdir -p ${CCACHE_DIR}
+        mkdir -p ${CPM_SOURCE_CACHE}
+
+    # Compute cpm key after checkout
+    - name: Compute CPM Key
+      id: cpm-key
+      shell: bash
+      run: |
+        set -euo pipefail
+        set -x
+        hash=$(sha256sum mlir-tensorrt/DependencyProvider.cmake | cut -d' ' -f1)
+        echo "key=${{ env.CPM_RESTORE_KEY }}-${hash}" >> $GITHUB_OUTPUT
+
+    - name: Restore CPM cache
+      id: restore-cpm
+      uses: actions/cache/restore@v4
+      with:
+        key: ${{ steps.cpm-key.outputs.key }}
+        enableCrossOsArchive: true
+        restore-keys: |
+          ${{ env.CPM_RESTORE_KEY }}
+        # exclude only works for the relative path pattern
+        # restore must use the exactly same path defined in the save step, cannot ignore the exclude path
+        path: |
+          mlir-tensorrt/.cache.cpm/*
+          !mlir-tensorrt/.cache.cpm/tensorrt
+          !mlir-tensorrt/.cache.cpm/tensorrt/**
+
+    # Compute ccache key after checkout
+    - name: Compute CCache Key
+      id: ccache-key
+      shell: bash
+      run: |
+        set -euo pipefail
+        set -x
+        hash=$( (find mlir-tensorrt/compiler \
+                      mlir-tensorrt/common \
+                      mlir-tensorrt/kernel \
+                      mlir-tensorrt/tensorrt \
+                      mlir-tensorrt/integrations \
+                      mlir-tensorrt/executor \
+                  -type f \( -name '*.cpp' -o -name '*.h' \) \
+                  -exec sha256sum {} \; ; \
+                sha256sum mlir-tensorrt/DependencyProvider.cmake \
+                          mlir-tensorrt/CMakeLists.txt) \
+                | sort | sha256sum | cut -d' ' -f1)
+        echo "key=${{ env.CCACHE_RESTORE_KEY }}-${hash}" >> $GITHUB_OUTPUT
+
+    # Restore cache, if exists.
+    - name: Restore CCache
+      id: restore-ccache
+      uses: actions/cache/restore@v4
+      with:
+        key: ${{ steps.ccache-key.outputs.key }}
+        restore-keys: |
+          ${{ env.CCACHE_RESTORE_KEY }}
+        path: |
+          ${{ env.CCACHE_DIR }}
+
+    # Build the project
+    - name: Build With CUDA:${{ matrix.cuda }}+TensorRT:${{ matrix.trt }}
+      id: build
+      shell: bash
+      run: |
+        set -euo pipefail
+        set -x
+        cd mlir-tensorrt
+        # build only, skip tests
+        ./build_tools/scripts/cicd-build.sh --build_only
+
+    # save ccache if cache is not hit
+    - name: Save CCache
+      uses: actions/cache/save@v4
+      if: ${{ steps.restore-ccache.outputs.cache-hit != 'true' }}
+      with:
+        key: ${{ steps.ccache-key.outputs.key }}
+        path: |
+          ${{ env.CCACHE_DIR }}
+
+    # Save cpm cache
+    - name: Save CPM Cache
+      # cpm cache is shared across x86_64 and aarch64, we let only x86_64 to save cpm cache when in cache miss case
+      # this is to avoid both x86_64 and aarch64 to save cpm cache when in cache miss case
+      if: ${{ matrix.arch == 'x86_64' && steps.restore-cpm.outputs.cache-hit != 'true' && inputs.cpm_cache_restore_flag == true }}
+      uses: actions/cache/save@v4
+      with:
+        key: ${{ steps.cpm-key.outputs.key }}
+        enableCrossOsArchive: true
+        # exclude only works for the relative path pattern
+        path: |
+          mlir-tensorrt/.cache.cpm/*
+          !mlir-tensorrt/.cache.cpm/tensorrt
+          !mlir-tensorrt/.cache.cpm/tensorrt/**
+
+    # Run tests
+    - name: Test With CUDA:${{ matrix.cuda }}+TensorRT:${{ matrix.trt }}
+      id: test
+      shell: bash
+      run: |
+        set -euo pipefail
+        set -x
+        cd mlir-tensorrt
+        # run tests
+        ./build_tools/scripts/cicd-build.sh
