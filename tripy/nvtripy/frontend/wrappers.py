@@ -152,6 +152,19 @@ def get_arg_dtype(arg, func_name, arg_name) -> result.Result["nvtripy.dtype"]:
 def _find_known_datatypes(
     merged_args: List[Tuple[str, Any]], input_requirements: Constraints
 ) -> Dict[str, "nvtripy.dtype"]:
+    """
+    Identify known datatypes from input requirements to enable automatic type casting.
+
+    This function searches for Equal constraints in the input requirements to determine
+    which arguments should have matching datatypes. It skips Equal constraints that appear
+    inside If statement conditions, as those represent conditional checks rather than
+    type requirements.
+
+    Limitation: Automatic type casting will not work for arguments whose datatypes are
+    conditionally dependent on other values (i.e., when the datatype requirement appears
+    only in the then_branch or else_branch of an If constraint).
+    """
+    from nvtripy.frontend.constraints.logic import If
 
     # We perform this operation in two steps:
     # 1. Identify all arguments that are expected to have equal data types.
@@ -200,8 +213,13 @@ def _find_known_datatypes(
         # expected_equal_dtype to merge disjoint sets - if we have a transitive equality like:
         #  `a == c and b == d and b == a`, then `a`, `c`, `b` will be immediately added to the same set, which `d` will
         # join when we process `b`.
-        process_dtype_equality(input_requirements.find(Equal(GetDataType(GetInput(name)), None)), input_is_lhs=True)
-        process_dtype_equality(input_requirements.find(Equal(None, GetDataType(GetInput(name)))), input_is_lhs=False)
+        # Skip searching inside If constraints to avoid treating conditional checks as type requirements:
+        process_dtype_equality(
+            input_requirements.find(Equal(GetDataType(GetInput(name)), None), skip_within=If), input_is_lhs=True
+        )
+        process_dtype_equality(
+            input_requirements.find(Equal(None, GetDataType(GetInput(name))), skip_within=If), input_is_lhs=False
+        )
 
     # We do not need to perform validation, as that will happen during constraints checking.
     for dtype_set in expected_equal_dtype:
