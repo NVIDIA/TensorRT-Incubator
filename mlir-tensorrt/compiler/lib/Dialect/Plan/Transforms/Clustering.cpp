@@ -55,7 +55,7 @@ using SolverAwareListener =
                         dataflow::Executable>;
 
 /// A listener that is DataFlowSolver-aware, but it also is aware of inserting
-/// `plan::InlineGroupOp` operations. It sets the `plan::InlineGroupOp` lattice
+/// `plan::ClusterOp` operations. It sets the `plan::ClusterOp` lattice
 /// values to be equivalent to the values yielded by the `plan::YieldOp`
 /// operations in the body.
 class ClusteringListener
@@ -66,7 +66,7 @@ public:
   using SolverStateListener::SolverStateListener;
 
   void updateClusterResultStates(plan::YieldOp yieldOp) {
-    auto clusterOp = dyn_cast<plan::InlineGroupOp>(yieldOp->getParentOp());
+    auto clusterOp = dyn_cast<plan::ClusterOp>(yieldOp->getParentOp());
     if (!clusterOp || clusterOp->getNumResults() != yieldOp->getNumOperands())
       return;
     ValueRange yieldedValues = yieldOp->getOperands();
@@ -81,9 +81,9 @@ public:
     if (previous.isSet())
       return;
 
-    // Ensure that the `plan::InlineGroupOp` lattice values are updated to
+    // Ensure that the `plan::ClusterOp` lattice values are updated to
     // match the values yielded by the `plan::YieldOp` operations in the body.
-    if (auto clusterOp = dyn_cast<plan::InlineGroupOp>(op)) {
+    if (auto clusterOp = dyn_cast<plan::ClusterOp>(op)) {
       if (auto yieldOp = clusterOp.getYield())
         updateClusterResultStates(yieldOp);
       return;
@@ -100,11 +100,11 @@ public:
   }
 };
 
-/// Creates an empty `plan.inline_group` operation for a given type of cluster
+/// Creates an empty `plan.cluster` operation for a given type of cluster
 /// target.
-static Operation *createInlineGroupOp(OpBuilder &b, Location loc,
-                                      TypeRange types, Attribute target) {
-  auto regionOp = b.create<plan::InlineGroupOp>(
+static Operation *createClusterOp(OpBuilder &b, Location loc, TypeRange types,
+                                  Attribute target) {
+  auto regionOp = b.create<plan::ClusterOp>(
       loc, types, cast<CompilerBackendAttrInterface>(target));
   b.setInsertionPointToStart(&regionOp.getRegion().emplaceBlock());
   b.create<plan::YieldOp>(loc);
@@ -114,7 +114,7 @@ static Operation *createInlineGroupOp(OpBuilder &b, Location loc,
 /// Returns true if the op is already contained in a region op that is used to
 /// encapsulate clusters.
 static bool isOpInClusterRegion(Operation *op) {
-  return op->getParentOfType<plan::InlineGroupOp>();
+  return op->getParentOfType<plan::ClusterOp>();
 }
 
 /// Apply cluster-and-outline using the given options to the `func`.
@@ -129,7 +129,7 @@ applyClusteringToFunc(RewriterBase &rewriter, FunctionOpInterface func,
         target.getClusterKindOptions(opts.inputKind, func, solver);
     if (failed(clusteringOpts))
       return failure();
-    patterns.add(*clusteringOpts, createInlineGroupOp, isOpInClusterRegion,
+    patterns.add(*clusteringOpts, createClusterOp, isOpInClusterRegion,
                  target.getClusterFilter(opts.inputKind),
                  PatternBenefit(target.getClusterBenefit(opts.inputKind)));
   }

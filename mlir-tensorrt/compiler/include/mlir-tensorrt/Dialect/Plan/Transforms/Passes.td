@@ -351,7 +351,7 @@ def ClusteringPass : Pass<"plan-clustering", "::mlir::ModuleOp"> {
 def CreateClosedRegionsPass : Pass<"plan-create-closed-regions", "::mlir::ModuleOp"> {
 
   let description = [{
-    This pass performs an intermediate lowering step `dps.inline_group`
+    This pass performs an intermediate lowering step of `plan.cluster`
     operations prior to the `plan-outline-clusters` pass.
 
     Certain cluster regions such as those targeting TensorRT are required to
@@ -362,7 +362,7 @@ def CreateClosedRegionsPass : Pass<"plan-create-closed-regions", "::mlir::Module
     dynamically shaped, the logic for materializing the output buffers
     above the region can become complicated.
 
-    This pass replaces such cluster regions with `plan.inline_closed_group`
+    This pass replaces such cluster regions with `plan.dps_cluster`
     region operations and materializes the destination output tensors above
     the region. This step is isolated as a dedicated pass in order to
     encapsulate the strategies required for materializing destination operands
@@ -398,7 +398,7 @@ def CreateClosedRegionsPass : Pass<"plan-create-closed-regions", "::mlir::Module
     3. [Unimplemented] In the case where the backend supports outputs whose
        shape is dependent on SSA values internal to the cluster/region, we say
        that the region op outputs have "data dependent dynamic shapes". In this
-       case, we cannot materialize a `dps.inline_closed_group` operation and
+       case, we cannot materialize a `plan.dps_cluster` operation and
        instead the region must be lowered to a call-like operation that for the
        relevant backend which takes on an allocation-like semantic when
        bufferized. This is currently not supported for any MLIR-TRT backend,

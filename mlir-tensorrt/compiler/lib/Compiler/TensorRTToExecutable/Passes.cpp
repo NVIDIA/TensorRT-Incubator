@@ -120,20 +120,19 @@ outlineOp(RewriterBase &rewriter, tensorrt::TensorRTModuleOp trtModule,
           const Cluster &cluster) {
   auto parentFunc = cluster.getRoot()->getParentOfType<func::FuncOp>();
 
-  auto inlineGroupOp =
-      cast<plan::InlineGroupOp>(mlir::createRegionOpFromCluster(
-          cluster, rewriter,
-          [](OpBuilder &b, Location loc, TypeRange types, Attribute target) {
-            auto regionOp = b.create<plan::InlineGroupOp>(
-                loc, types,
-                plan::TensorRTBackendAttr::get(
-                    b.getContext(),
-                    /*disallow_shape_tensor_calculations=*/false, 1, {},
-                    /*prefer_destination_style_calling_convention=*/false));
-            b.setInsertionPointToStart(&regionOp.getRegion().emplaceBlock());
-            b.create<plan::YieldOp>(loc);
-            return regionOp;
-          }));
+  auto inlineGroupOp = cast<plan::ClusterOp>(mlir::createRegionOpFromCluster(
+      cluster, rewriter,
+      [](OpBuilder &b, Location loc, TypeRange types, Attribute target) {
+        auto regionOp = b.create<plan::ClusterOp>(
+            loc, types,
+            plan::TensorRTBackendAttr::get(
+                b.getContext(),
+                /*disallow_shape_tensor_calculations=*/false, 1, {},
+                /*prefer_destination_style_calling_convention=*/false));
+        b.setInsertionPointToStart(&regionOp.getRegion().emplaceBlock());
+        b.create<plan::YieldOp>(loc);
+        return regionOp;
+      }));
 
   // Make the region isolated from above. This captures the input operands.
   SmallVector<Value> inputs = mlir::createClosedRegion(
