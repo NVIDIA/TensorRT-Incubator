@@ -85,6 +85,27 @@
       }
     },
     {
+      "name": "github-cicd-asan",
+      "inherits": "github-cicd",
+      "environment": {
+        "ENABLE_ASAN": "ON"
+      }
+    },
+    {
+      "name": "github-cicd-long",
+      "inherits": "github-cicd",
+      "environment": {
+        "LONG_TESTS": "ON"
+      }
+    },
+    {
+      "name": "github-cicd-nccl-long",
+      "inherits": "github-cicd-long",
+      "cacheVariables": {
+        "MLIR_TRT_ENABLE_NCCL": "ON"
+      }
+    },
+    {
       "name": "distribution-wheels",
       "inherits": "release",
       "cacheVariables": {
