@@ -15,14 +15,15 @@
 from typing import Optional, Sequence, Union
 
 from nvtripy import export
+from nvtripy.common import datatype as dt
+from nvtripy.frontend.constraints import GetInput, GetReturn
 from nvtripy.frontend import wrappers
-from nvtripy.common import datatype
 
 
 @export.public_api(document_under="operations/functions")
 @wrappers.interface(
-    dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
-    dtype_variables={"T1": ["bool"]},
+    input_requirements=GetInput("input").dtype == dt.bool,
+    output_guarantees=GetReturn(0).dtype == dt.bool,
 )
 def any(
     input: "nvtripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = False
@@ -50,5 +51,19 @@ def any(
     """
     from nvtripy.frontend.ops.reduce.sum import sum
     from nvtripy.frontend.ops.cast import cast
+    from nvtripy.common.exception import raise_error
 
-    return cast(sum(cast(input, dtype=datatype.int32), dim, keepdim), dtype=datatype.bool)
+    # Validate that input is bool - constraint system has already checked this
+    # but we need to enforce it at runtime when validation is disabled
+    if input.dtype != dt.bool:
+        raise_error(
+            f"Input must have bool dtype for any(), but got {input.dtype}.",
+            [
+                "This function only accepts bool tensors. ",
+                "Note: If you need to check if any elements are non-zero, first compare with zero: ",
+                "tp.any(input != 0)",
+            ],
+        )
+
+    # Cast to int32 since sum doesn't accept bool, then cast back to bool
+    return cast(sum(cast(input, dtype=dt.int32), dim, keepdim), dtype=dt.bool)
