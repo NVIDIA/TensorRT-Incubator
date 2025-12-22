@@ -21,11 +21,9 @@
 /// Implementation of the `plan-clustering` pass.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-executor/Executor/IR/Executor.h"
 #include "mlir-executor/Transforms/Clustering/Patterns.h"
 #include "mlir-tensorrt-common/Interfaces/TensorKindOpInterface.h"
 #include "mlir-tensorrt-dialect/Analysis/TensorKindAnalysis.h"
-#include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/PlanInterfaces.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
@@ -33,8 +31,6 @@
 #include "mlir/Analysis/DataFlow/ConstantPropagationAnalysis.h"
 #include "mlir/Analysis/DataFlow/DeadCodeAnalysis.h"
 #include "mlir/Analysis/DataFlowFramework.h"
-#include "mlir/Dialect/Func/IR/FuncOps.h"
-#include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/RegionUtils.h"
@@ -149,13 +145,6 @@ applyClusteringToFunc(RewriterBase &rewriter, FunctionOpInterface func,
   return success();
 }
 
-static auto getIntegerAttrOrDefault(Operation *op, StringRef name,
-                                    int64_t defaultValue) {
-  if (auto attr = op->getAttrOfType<IntegerAttr>(name))
-    return attr.getInt();
-  return defaultValue;
-}
-
 namespace {
 class ClusteringPass : public plan::impl::ClusteringPassBase<ClusteringPass> {
 public:
@@ -227,22 +216,6 @@ public:
               ClusteringPassOptions{entrypoint, forceEntrypointsReturnAllocs,
                                     /*disableCreateShapeFuncPass=*/false})))
         return signalPassFailure();
-    }
-
-    // Check for StableHLO partitioning attributes and attach the executor
-    // grid shape attribute.
-    /// TODO: move this logic into a standalone pass that handles partitioning.
-    {
-      auto numReplicas =
-          getIntegerAttrOrDefault(module, "mhlo.num_replicas", 1);
-      auto numPartitions =
-          getIntegerAttrOrDefault(module, "mhlo.num_partitions", 1);
-      if (failed(executor::setModuleProcessGridShape(
-              module, {numReplicas, numPartitions}))) {
-        emitError(module->getLoc())
-            << "failed to set the Executor process grid shape attribute";
-        return signalPassFailure();
-      }
     }
 
     // Drop clustering attributes since they are no longer needed.

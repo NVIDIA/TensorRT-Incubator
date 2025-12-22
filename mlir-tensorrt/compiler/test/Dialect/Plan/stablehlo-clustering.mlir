@@ -75,7 +75,7 @@ func.func @test(%arg0: tensor<4xi32>, %arg1: tensor<i32>)
 
 }
 
-// CHECK-LABEL: module @host_backends_with_values attributes
+// CHECK-LABEL: module @host_backends_with_values
 // CHECK-LABEL: func.func @test
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<4xi32>, %[[arg1:.+]]: tensor<i32>)
 //   CHECK-DAG:     %[[cst:.+]] = stablehlo.constant dense<0.000000e+00> : tensor<f32>

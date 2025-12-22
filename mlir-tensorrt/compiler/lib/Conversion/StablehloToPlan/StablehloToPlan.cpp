@@ -288,6 +288,15 @@ struct ShapeAssertionPattern
     return success();
   }
 };
+} // namespace
+
+static auto getIntegerAttrOrDefault(Operation *op, StringRef name,
+                                    int64_t defaultValue) {
+  if (auto attr = op->getAttrOfType<IntegerAttr>(name))
+    return attr.getInt();
+  return defaultValue;
+}
+namespace {
 
 struct ConvertStablehloToPlanPass
     : public impl::ConvertStablehloToPlanPassBase<ConvertStablehloToPlanPass> {
@@ -324,6 +333,22 @@ struct ConvertStablehloToPlanPass
           });
       if (walkResult.wasInterrupted())
         return signalPassFailure();
+    }
+
+    // Check for StableHLO partitioning attributes and attach the executor
+    // grid shape attribute.
+    ModuleOp module = getOperation();
+    {
+      auto numReplicas =
+          getIntegerAttrOrDefault(module, "mhlo.num_replicas", 1);
+      auto numPartitions =
+          getIntegerAttrOrDefault(module, "mhlo.num_partitions", 1);
+      if (failed(executor::setModuleProcessGridShape(
+              module, {numReplicas, numPartitions}))) {
+        emitError(module->getLoc())
+            << "failed to set the Executor process grid shape attribute";
+        return signalPassFailure();
+      }
     }
   }
 };
