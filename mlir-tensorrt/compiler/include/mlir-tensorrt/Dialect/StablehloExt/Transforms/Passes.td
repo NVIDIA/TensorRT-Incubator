@@ -23,6 +23,30 @@
 include "mlir/Pass/PassBase.td"
 
 //===----------------------------------------------------------------------===//
+// StablehloExtSimplificationsPass
+//===----------------------------------------------------------------------===//
+
+def StablehloExtSimplificationsPass : Pass<"stablehlo-ext-simplifications"> {
+  let summary = "Applies Stablehlo device-agnostic simplifications along with additional patterns";
+  let description = [{
+    This pass runs the patterns defined by
+    `stablehlo-aggressive-simplification` along with additional custom
+    patterns not yet upstreamed.
+  }];
+
+  let dependentDialects = [
+    "::mlir::stablehlo::StablehloDialect",
+    "::mlir::arith::ArithDialect",
+    "::mlir::tensor::TensorDialect"
+  ];
+
+  let options = [
+    Option<"foldOpElementLimit", "fold-op-element-limit", "int64_t", "1024",
+      "The computation size limit for constant folding">
+  ];
+}
+
+//===----------------------------------------------------------------------===//
 // StablehloRaiseQDQPass
 //===----------------------------------------------------------------------===//
 

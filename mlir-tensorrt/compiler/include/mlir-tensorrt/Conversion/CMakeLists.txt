@@ -15,3 +15,4 @@ add_mlir_tensorrt_doc(ConversionPasses
   OUTPUT_FILE docs/Passes/ConversionPasses.md
   COMMAND -gen-pass-doc ${_TABLEGEN_ARGS}
   )
+

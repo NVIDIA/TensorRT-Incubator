@@ -48,6 +48,9 @@ add_mlir_tensorrt_library(MLIRTensorRTInitAllPasses
   InitAllPasses.cpp
   PARTIAL_SOURCES_INTENDED
 
+  DEPENDS
+    mtrt-headers
+
   LINK_LIBS PUBLIC
     MLIRTensorRTCompilerIncludes
     ${MLIR_TENSORRT_DIALECT_LIBS}
