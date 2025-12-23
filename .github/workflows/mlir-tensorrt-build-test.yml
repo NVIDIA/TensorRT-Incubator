@@ -40,6 +40,8 @@ jobs:
         --shm-size=1g
     timeout-minutes: 120
     steps:
+      - name: Checkout
+        uses: actions/checkout@v6
       # basic build and test
       - name: Basic Build and Test
         uses: ./.github/actions/mlir-tensorrt-build-test
@@ -70,6 +72,8 @@ jobs:
         --shm-size=1g
     timeout-minutes: 120
     steps:
+      - name: Checkout
+        uses: actions/checkout@v6
       # asan build and test
       - name: ASAN Build and Test
         uses: ./.github/actions/mlir-tensorrt-build-test
@@ -77,7 +81,7 @@ jobs:
           cpm_cache_restore_flag: false
 
   mlir-tensorrt-long-build-test:
-    name: ${{ matrix.arch }}-cu${{ matrix.cuda }}-trt${{ matrix.trt }}-build-test
+    name: ${{ matrix.arch }}-cu${{ matrix.cuda }}-trt${{ matrix.trt }}-long-build-test
     #if: ${{ inputs.channel == 'nightly' || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
     strategy:
       fail-fast: false
@@ -100,7 +104,9 @@ jobs:
         --shm-size=1g
     timeout-minutes: 120
     steps:
-      # basic build and test
+      - name: Checkout
+        uses: actions/checkout@v6
+      # long build and test
       - name: Basic Build and Test
         uses: ./.github/actions/mlir-tensorrt-build-test
         with:
@@ -130,6 +136,8 @@ jobs:
         --shm-size=1g
     timeout-minutes: 120
     steps:
+      - name: Checkout
+        uses: actions/checkout@v6
       # nccl long build and test
       - name: NCCL Long Build and Test
         uses: ./.github/actions/mlir-tensorrt-build-test
