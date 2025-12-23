@@ -157,8 +157,7 @@ def PrepareLinalgForCodegenPass :Pass<"kernel-prepare-linalg-for-codegen"> {
     This pass performs a number of rewrites on`linalg` and `tensor` operations.
     The purpose of the rewrites is to put the IR in a canonical before the
     codegen transform schedule is generated. Typically this pass would go
-    immediately after a conversion pass (e.g. mhlo-to-linalg or
-    tensorrt-to-linalg).
+    immediately after a conversion pass (e.g. stablehlo-to-linalg).
 
     In particular, the pass will:
     - Try put all linalg operations into the form of `linalg.generic`. This means

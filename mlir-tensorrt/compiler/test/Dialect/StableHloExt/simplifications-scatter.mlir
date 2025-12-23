@@ -1,4 +1,4 @@
-// RUN: mlir-tensorrt-opt %s -split-input-file -stablehlo-ext-constant-folding | FileCheck %s
+// RUN: mlir-tensorrt-opt %s -split-input-file -stablehlo-ext-simplifications | FileCheck %s
 
 !input_type = tensor<1x8xf32>
 !index_type = tensor<1x1xi32>

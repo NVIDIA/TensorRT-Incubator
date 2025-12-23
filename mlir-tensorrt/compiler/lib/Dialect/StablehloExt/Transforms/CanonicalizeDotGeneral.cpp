@@ -169,81 +169,6 @@ static Type getComputeElementType(const DataLayout &dataLayout,
   return computeETy;
 }
 
-namespace {
-/// Rewrite `stablehlo.dot_general` to a multiplication if it is not actually
-/// reducing anything and no outer product is occurring.
-struct DotGeneralToMulRewriter : public DotGeneralCanonicalizerBase {
-  using DotGeneralCanonicalizerBase::DotGeneralCanonicalizerBase;
-  LogicalResult matchAndRewrite(stablehlo::DotGeneralOp op,
-                                PatternRewriter &rewriter) const override {
-    stablehlo::DotDimensionNumbersAttr dimNums = op.getDotDimensionNumbers();
-    ArrayRef<int64_t> lhsContractDims = dimNums.getLhsContractingDimensions();
-    ArrayRef<int64_t> rhsContractDims = dimNums.getRhsContractingDimensions();
-
-    // This only applies if there are no contracting dims.
-    if (!lhsContractDims.empty() || !rhsContractDims.empty())
-      return failure();
-
-    auto lhsType = dyn_cast<RankedTensorType>(op.getLhs().getType());
-    auto rhsType = dyn_cast<RankedTensorType>(op.getRhs().getType());
-    auto resultType = dyn_cast<RankedTensorType>(op.getType());
-    if (!lhsType || !lhsType.hasStaticShape() || !rhsType ||
-        !rhsType.hasStaticShape())
-      return failure();
-
-    // Both batching dimensions are expected to be a stride-1 sequence starting
-    // from 0. Another pattern above handles putting it in this form.
-    if (!isSequence(dimNums.getRhsBatchingDimensions(), 0,
-                    dimNums.getRhsBatchingDimensions().size()) ||
-        !isSequence(dimNums.getLhsBatchingDimensions(), 0,
-                    dimNums.getLhsBatchingDimensions().size()))
-      return failure();
-
-    // The compute type is the type of the lhs, rhs, or result that has the
-    // largest bit width.
-    Type computeETy = getComputeElementType(DataLayout::closest(op), lhsType,
-                                            rhsType, resultType);
-
-    TypedValue<RankedTensorType> lhs = op.getLhs();
-    TypedValue<RankedTensorType> rhs = op.getRhs();
-
-    RankedTensorType intermediateType = resultType.clone(computeETy);
-    Location loc = op.getLoc();
-
-    int64_t numBatchDims = dimNums.getLhsBatchingDimensions().size();
-    SmallVector<int64_t> lhsBroadcastDims, rhsBroadcastDims;
-    lhsBroadcastDims.reserve(lhsType.getRank());
-    rhsBroadcastDims.reserve(rhsType.getRank());
-    for (int64_t i = 0, e = resultType.getRank(); i < e; i++) {
-      if (i < numBatchDims) {
-        lhsBroadcastDims.push_back(i);
-        rhsBroadcastDims.push_back(i);
-        continue;
-      }
-      if (i < lhsType.getRank()) {
-        lhsBroadcastDims.push_back(i);
-        continue;
-      }
-      rhsBroadcastDims.push_back(i);
-    }
-
-    // Creates a sequence "convert, reshape, broadcast_in_dim".
-    auto result = rewriter.create<stablehlo::MulOp>(
-        op.getLoc(), intermediateType,
-        createBroadcastAndConvert(rewriter, loc, intermediateType, lhs,
-                                  lhsBroadcastDims),
-        createBroadcastAndConvert(rewriter, loc, intermediateType, rhs,
-                                  rhsBroadcastDims));
-    if (result.getType() == resultType) {
-      rewriter.replaceOp(op, result);
-      return success();
-    }
-    rewriter.replaceOpWithNewOp<stablehlo::ConvertOp>(op, resultType, result);
-    return success();
-  }
-};
-} // namespace
-
 /// Collapses contracting and outer dimensions of the given `dotOpOperand` using
 /// a sequence of transpose and reshape. To keep the canonical form,
 /// irrespective of whether `dotOpOperand` is LHS or RHS, `leftSideIndices` are
@@ -394,8 +319,9 @@ struct DotGeneralCollapsingRewrite : public DotGeneralCanonicalizerBase {
 
 void stablehlo_ext::populateCanonicalizeStablehloDotGeneralPatterns(
     RewritePatternSet &patterns) {
-  patterns.add<DotGeneralToMulRewriter, RewriteDotGeneral,
-               DotGeneralCollapsingRewrite>(patterns.getContext());
+  patterns.add<RewriteDotGeneral, DotGeneralCollapsingRewrite>(
+      patterns.getContext());
+  stablehlo_ext::populateStablehloDotGeneralToMultiplyPatterns(patterns);
 }
 
 namespace {
