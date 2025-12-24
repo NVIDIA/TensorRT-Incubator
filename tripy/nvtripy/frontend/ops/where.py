@@ -22,9 +22,16 @@ from nvtripy.trace.ops.where import Where
 from nvtripy.types import TensorLike
 from nvtripy.frontend import wrappers
 
+from nvtripy.common import datatype as dt
+from nvtripy.frontend.constraints import GetInput, GetReturn, OneOf
+
 
 @export.public_api(document_under="operations/functions")
 @wrappers.interface(
+    input_requirements=(GetInput("condition").dtype == dt.bool)
+    & OneOf(GetInput("input").dtype, [dt.float32, dt.float16, dt.bfloat16, dt.int8, dt.int32, dt.int64])
+    & (GetInput("other").dtype == GetInput("input").dtype),
+    output_guarantees=GetReturn(0).dtype == GetInput("input").dtype,
     dtype_constraints={"condition": "T2", "input": "T1", "other": "T1", wrappers.RETURN_VALUE: "T1"},
     dtype_variables={
         "T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64"],

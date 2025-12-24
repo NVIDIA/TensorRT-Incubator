@@ -24,9 +24,16 @@ from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.trace.ops.dequantize import Dequantize
 from nvtripy.frontend import wrappers
 
+from nvtripy.common import datatype as dt
+from nvtripy.frontend.constraints import GetInput, GetReturn, OneOf
+
 
 @export.public_api(document_under="operations/quantization")
 @wrappers.interface(
+    input_requirements=OneOf(GetInput("input").dtype, [dt.int4, dt.int8, dt.float8])
+    & OneOf(GetInput("scale").dtype, [dt.float32, dt.float16, dt.bfloat16])
+    & (GetInput("dtype") == GetInput("scale").dtype),
+    output_guarantees=GetReturn(0).dtype == GetInput("dtype"),
     dtype_constraints={"input": "T1", "scale": "T2", "dtype": "T2", wrappers.RETURN_VALUE: "T2"},
     dtype_variables={"T1": ["int4", "int8", "float8"], "T2": ["float32", "float16", "bfloat16"]},
     convert_to_tensors={"scale"},

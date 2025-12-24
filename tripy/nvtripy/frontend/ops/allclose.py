@@ -18,10 +18,16 @@
 from nvtripy import export
 from nvtripy.frontend import wrappers
 
+from nvtripy.common import datatype as dt
+from nvtripy.frontend.constraints import GetInput, OneOf
+
 
 @export.public_api(document_under="operations/functions")
 @wrappers.interface(
-    dtype_constraints={"input": "T1", "other": "T1"}, dtype_variables={"T1": ["float32", "float16", "bfloat16"]}
+    input_requirements=OneOf(GetInput("input").dtype, [dt.float32, dt.float16, dt.bfloat16])
+    & (GetInput("other").dtype == GetInput("input").dtype),
+    dtype_constraints={"input": "T1", "other": "T1"},
+    dtype_variables={"T1": ["float32", "float16", "bfloat16"]},
 )
 def allclose(input: "nvtripy.Tensor", other: "nvtripy.Tensor", rtol: float = 1e-05, atol: float = 1e-08) -> bool:
     r"""
