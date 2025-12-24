@@ -140,9 +140,6 @@ jobs:
             !mlir-tensorrt/.cache.cpm/tensorrt/**
 
       - name: Smoke Test Wheels With CUDA:${{ matrix.cuda }} + TensorRT:${{ matrix.trt }}
-        env:
-          ENABLE_ASAN: "OFF"
-          ENABLE_NCCL: "OFF"
         run: |
           set -euo pipefail
           set -x

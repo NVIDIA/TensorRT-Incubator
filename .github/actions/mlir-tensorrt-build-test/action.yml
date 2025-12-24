@@ -15,6 +15,7 @@ runs:
 
     # Create cache folders
     - name: Create Cache Folders
+      shell: bash
       run: |
         set -euo pipefail
         set -x
@@ -30,7 +31,10 @@ runs:
     # Compute cpm key after checkout
     - name: Compute CPM Key
       id: cpm-key
+      shell: bash
       run: |
+        set -euo pipefail
+        set -x
         hash=$(sha256sum mlir-tensorrt/DependencyProvider.cmake | cut -d' ' -f1)
         echo "key=${{ env.CPM_RESTORE_KEY }}-${hash}" >> $GITHUB_OUTPUT
 
@@ -52,7 +56,10 @@ runs:
     # Compute ccache key after checkout
     - name: Compute CCache Key
       id: ccache-key
+      shell: bash
       run: |
+        set -euo pipefail
+        set -x
         hash=$( (find mlir-tensorrt/compiler \
                       mlir-tensorrt/common \
                       mlir-tensorrt/kernel \
@@ -80,6 +87,7 @@ runs:
     # Build the project
     - name: Build With CUDA:${{ matrix.cuda }}+TensorRT:${{ matrix.trt }}
       id: build
+      shell: bash
       run: |
         set -euo pipefail
         set -x
@@ -114,6 +122,7 @@ runs:
     # Run tests
     - name: Test With CUDA:${{ matrix.cuda }}+TensorRT:${{ matrix.trt }}
       id: test
+      shell: bash
       run: |
         set -euo pipefail
         set -x

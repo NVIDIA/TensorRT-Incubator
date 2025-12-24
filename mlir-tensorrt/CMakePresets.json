@@ -79,7 +79,7 @@
       "name": "github-cicd",
       "inherits": "base",
       "cacheVariables": {
-        "ENABLE_ASAN": "$env{ENABLE_ASAN}",
+        "ENABLE_ASAN": "OFF",
         "LLVM_LIT_ARGS": "$env{LLVM_LIT_ARGS}",
         "MLIR_TRT_DOWNLOAD_TENSORRT_VERSION": "$env{MLIR_TRT_DOWNLOAD_TENSORRT_VERSION}"
       }
@@ -87,20 +87,16 @@
     {
       "name": "github-cicd-asan",
       "inherits": "github-cicd",
-      "environment": {
+      "cacheVariables": {
         "ENABLE_ASAN": "ON"
       }
     },
     {
-      "name": "github-cicd-long",
+      "name": "github-cicd-nccl-long",
       "inherits": "github-cicd",
       "environment": {
-        "LONG_TESTS": "ON"
-      }
-    },
-    {
-      "name": "github-cicd-nccl-long",
-      "inherits": "github-cicd-long",
+        "LONG_TESTS": "True"
+      },
       "cacheVariables": {
         "MLIR_TRT_ENABLE_NCCL": "ON"
       }

@@ -47,6 +47,7 @@ jobs:
         uses: ./.github/actions/mlir-tensorrt-build-test
         with:
           cpm_cache_restore_flag: true
+          ccache_restore_flag: true
 
   mlir-tensorrt-asan-build-test:
     name: ${{ matrix.arch }}-cu${{ matrix.cuda }}-trt${{ matrix.trt }}-asan-build-test
@@ -79,6 +80,7 @@ jobs:
         uses: ./.github/actions/mlir-tensorrt-build-test
         with:
           cpm_cache_restore_flag: false
+          ccache_restore_flag: true
 
   mlir-tensorrt-long-build-test:
     name: ${{ matrix.arch }}-cu${{ matrix.cuda }}-trt${{ matrix.trt }}-long-build-test
@@ -93,9 +95,10 @@ jobs:
       # eg. CHANNEL: nightly, test or release
       CHANNEL: ${{ inputs.channel }}
       ARCH: ${{ matrix.arch }}
-      CMAKE_PRESET: ${{ matrix.cmake_preset }}-long
-      CCACHE_RESTORE_KEY: mlir-tensorrt-ccache-v1-${{ matrix.arch }}-${{ matrix.cmake_preset }}-long
+      CMAKE_PRESET: ${{ matrix.cmake_preset }}
+      CCACHE_RESTORE_KEY: mlir-tensorrt-ccache-v1-${{ matrix.arch }}-${{ matrix.cmake_preset }}
       CPM_RESTORE_KEY: mlir-tensorrt-cpm-v1
+      LONG_TESTS: True
     runs-on: ${{ matrix.github_runner }}
     container:
       image: ${{ matrix.docker_image }}
@@ -111,6 +114,7 @@ jobs:
         uses: ./.github/actions/mlir-tensorrt-build-test
         with:
           cpm_cache_restore_flag: false
+          ccache_restore_flag: false
 
   mlir-tensorrt-nccl-long-build-test:
     name: ${{ matrix.arch }}-cu${{ matrix.cuda }}-trt${{ matrix.trt }}-nccl-long-build-test
@@ -128,6 +132,7 @@ jobs:
       CMAKE_PRESET: ${{ matrix.cmake_preset }}-nccl-long
       CCACHE_RESTORE_KEY: mlir-tensorrt-ccache-v1-${{ matrix.arch }}-${{ matrix.cmake_preset }}-nccl-long
       CPM_RESTORE_KEY: mlir-tensorrt-cpm-v1
+      LONG_TESTS: True
     runs-on: ${{ matrix.github_runner }}
     container:
       image: ${{ matrix.docker_image }}
@@ -143,6 +148,7 @@ jobs:
         uses: ./.github/actions/mlir-tensorrt-build-test
         with:
           cpm_cache_restore_flag: false
+          ccache_restore_flag: true
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}-mlir-tensorrt-${{ inputs.channel }}
