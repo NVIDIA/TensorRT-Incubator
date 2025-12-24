@@ -27,10 +27,17 @@ from nvtripy.trace.ops.shape import GetDimensionSize, Shape
 from nvtripy.types import IntLike
 from nvtripy.frontend import wrappers
 
+from nvtripy.common import datatype as dt
+from nvtripy.frontend.constraints import GetInput, OneOf
+
 
 @register_tensor_method("shape")
 @property
-@wrappers.interface(dtype_constraints={"self": "T1"}, dtype_variables={"T1": list(DATA_TYPES.keys())})
+@wrappers.interface(
+    input_requirements=OneOf(GetInput("self").dtype, list(DATA_TYPES.values())),
+    dtype_constraints={"self": "T1"},
+    dtype_variables={"T1": list(DATA_TYPES.keys())},
+)
 def shape(self: "nvtripy.Tensor") -> Tuple[IntLike]:
     """
     Represents the shape of the tensor.
