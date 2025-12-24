@@ -51,7 +51,7 @@ jobs:
 
   mlir-tensorrt-asan-build-test:
     name: ${{ matrix.arch }}-cu${{ matrix.cuda }}-trt${{ matrix.trt }}-asan-build-test
-    #if: ${{ inputs.channel == 'nightly' || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
+    if: ${{ inputs.channel == 'nightly' || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
     strategy:
       fail-fast: false
       max-parallel: 1
@@ -84,7 +84,7 @@ jobs:
 
   mlir-tensorrt-long-build-test:
     name: ${{ matrix.arch }}-cu${{ matrix.cuda }}-trt${{ matrix.trt }}-long-build-test
-    #if: ${{ inputs.channel == 'nightly' || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
+    if: ${{ inputs.channel == 'nightly' || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
     strategy:
       fail-fast: false
       max-parallel: 1
@@ -118,7 +118,7 @@ jobs:
 
   mlir-tensorrt-nccl-long-build-test:
     name: ${{ matrix.arch }}-cu${{ matrix.cuda }}-trt${{ matrix.trt }}-nccl-long-build-test
-    #if: ${{ inputs.channel == 'nightly' || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
+    if: ${{ inputs.channel == 'nightly' || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
     strategy:
       fail-fast: false
       max-parallel: 1

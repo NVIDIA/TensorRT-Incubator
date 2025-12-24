@@ -3,6 +3,9 @@ inputs:
   cpm_cache_restore_flag:
     required: true
     default: false
+  ccache_restore_flag:
+    required: true
+    default: false
 
 runs:
   using: composite
