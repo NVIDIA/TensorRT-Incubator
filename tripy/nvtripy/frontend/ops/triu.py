@@ -21,12 +21,16 @@ from nvtripy.frontend.ops.zeros import zeros_like
 from nvtripy.frontend import wrappers
 
 
+from nvtripy.common import datatype as dt
+from nvtripy.frontend.constraints import GetInput, GetReturn, OneOf
+
+
 @export.public_api(document_under="operations/initializers")
 @wrappers.interface(
-    dtype_constraints={"tensor": "T1", wrappers.RETURN_VALUE: "T1"},
-    dtype_variables={
-        "T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64", "bool"],
-    },
+    input_requirements=OneOf(
+        GetInput("tensor").dtype, [dt.float32, dt.float16, dt.bfloat16, dt.int8, dt.int32, dt.int64]
+    ),
+    output_guarantees=GetReturn(0).dtype == GetInput("tensor").dtype,
 )
 def triu(tensor: "nvtripy.Tensor", diagonal: int = 0) -> "nvtripy.Tensor":
     r"""

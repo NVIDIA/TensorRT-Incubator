@@ -26,10 +26,14 @@ from nvtripy.types import IntLike
 from nvtripy.frontend import wrappers
 
 
+from nvtripy.common import datatype as dt
+from nvtripy.frontend.constraints import GetInput, GetReturn, OneOf
+
+
 @export.public_api(document_under="operations/functions")
 @wrappers.interface(
-    dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
-    dtype_variables={"T1": ["float32", "float16", "bool", "int32", "int64"]},
+    input_requirements=OneOf(GetInput("input").dtype, [dt.float32, dt.float16, dt.bool, dt.int32, dt.int64]),
+    output_guarantees=GetReturn(0).dtype == GetInput("input").dtype,
 )
 def pad(
     input: "nvtripy.Tensor",
