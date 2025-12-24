@@ -240,7 +240,7 @@ def test_operator_constraints(case: OperatorConstraintCase):
                     # certain operations.
                     out._eval_for_internal_methods()
 
-            if is_valid:
+            if is_valid and op_constraint.output_guarantees is not None:
                 output_result = op_constraint.output_guarantees(merged_args, tuple(outputs))
                 assert output_result, f"Output guarantees not met for {case.func.__name__}: " + " ".join(
                     output_result.error_details
