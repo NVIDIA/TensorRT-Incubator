@@ -18,9 +18,15 @@
 from nvtripy import export
 from nvtripy.frontend import wrappers
 
+from nvtripy.common import datatype as dt
+from nvtripy.frontend.constraints import GetInput, GetReturn, OneOf
+
 
 @export.public_api(document_under="operations/functions")
 @wrappers.interface(
+    input_requirements=OneOf(GetInput("vec1").dtype, [dt.float32, dt.float16, dt.bfloat16])
+    & (GetInput("vec2").dtype == GetInput("vec1").dtype),
+    output_guarantees=GetReturn(0).dtype == GetInput("vec1").dtype,
     dtype_constraints={"vec1": "T1", "vec2": "T1", wrappers.RETURN_VALUE: "T1"},
     dtype_variables={"T1": ["float32", "float16", "bfloat16"]},
 )
