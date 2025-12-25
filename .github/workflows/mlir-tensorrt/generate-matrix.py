@@ -17,10 +17,6 @@ CUDA_TRT_VERSIONS_DICT = {
     ],
     "test": [
         {
-            "cuda": "12.9",
-            "trt": "10.12",
-        },
-        {
             "cuda": "13.0",
             "trt": "10.13",
         },
@@ -37,6 +33,11 @@ CUDA_TRT_VERSIONS_DICT = {
     ],
 }
 
+ARCH_LIST_DICT = {
+    "test": ["x86_64"],
+    "release": ["x86_64", "aarch64"],
+    "nightly": ["x86_64", "aarch64"],
+}
 
 GH_RUNNER_DICT = {
     "x86_64": "linux-amd64-gpu-h100-latest-1",
@@ -86,9 +87,9 @@ def main(args: list[str]) -> None:
     cuda_trt_versions = CUDA_TRT_VERSIONS_DICT[channel]
     docker_images = DOCKER_IMAGE_DICT[channel]
     cmake_preset = CMAKE_PRESET_DICT[channel]
-
+    arch_list = ARCH_LIST_DICT[channel]
     matrix_dict = {"include": []}
-    for arch in ("x86_64", "aarch64"):
+    for arch in arch_list:
         gh_runner = GH_RUNNER_DICT[arch]
         for cuda_trt_version in cuda_trt_versions:
             cuda_version = cuda_trt_version["cuda"]

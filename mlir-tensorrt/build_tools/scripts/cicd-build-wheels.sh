@@ -62,8 +62,13 @@ _raw_py_versions="${PYTHON_VERSIONS:-${python_versions:-"3.10 3.11 3.12 3.13"}}"
 _raw_py_versions="${_raw_py_versions//,/ }"
 read -r -a PY_VERSIONS <<< "${_raw_py_versions}"
 
-# Resolve packages
-_raw_packages="${PACKAGES:-"mlir_tensorrt_compiler mlir_tensorrt_runtime"}"
+# Resolve packages: if PACKAGES is set, only build those; otherwise build all defaults
+if [[ -n "${PACKAGES:-}" ]]; then
+  _raw_packages="${PACKAGES}"
+else
+  # default: build all available packages
+  _raw_packages="mlir_tensorrt_compiler mlir_tensorrt_runtime pjrt"
+fi
 _raw_packages="${_raw_packages//,/ }"
 read -r -a PACKAGES <<< "${_raw_packages}"
 
@@ -76,9 +81,23 @@ function build_package() {
   done
 }
 
-build_package "integrations/python/mlir_tensorrt_compiler"
-build_package "integrations/python/mlir_tensorrt_runtime"
-build_package "integrations/PJRT/python"
+# Map package keys to paths and build
+for pkg_key in "${PACKAGES[@]}"; do
+  case "${pkg_key}" in
+    mlir_tensorrt_compiler)
+      build_package "integrations/python/mlir_tensorrt_compiler"
+      ;;
+    mlir_tensorrt_runtime)
+      build_package "integrations/python/mlir_tensorrt_runtime"
+      ;;
+    pjrt|PJRT)
+      build_package "integrations/PJRT/python"
+      ;;
+    *)
+      echo "WARNING: Unknown package key '${pkg_key}'. Supported: mlir_tensorrt_compiler, mlir_tensorrt_runtime, pjrt" >&2
+      ;;
+  esac
+done
 
 # print the size of the ccache and cpm source cache
 echo "🔨🧪 Printing the size of the ccache"
