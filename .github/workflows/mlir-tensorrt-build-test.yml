@@ -98,7 +98,7 @@ jobs:
       CMAKE_PRESET: ${{ matrix.cmake_preset }}
       CCACHE_RESTORE_KEY: mlir-tensorrt-ccache-v1-${{ matrix.arch }}-${{ matrix.cmake_preset }}
       CPM_RESTORE_KEY: mlir-tensorrt-cpm-v1
-      LONG_TESTS: True
+      LONG_TESTS: "True"
     runs-on: ${{ matrix.github_runner }}
     container:
       image: ${{ matrix.docker_image }}
@@ -132,7 +132,7 @@ jobs:
       CMAKE_PRESET: ${{ matrix.cmake_preset }}-nccl-long
       CCACHE_RESTORE_KEY: mlir-tensorrt-ccache-v1-${{ matrix.arch }}-${{ matrix.cmake_preset }}-nccl-long
       CPM_RESTORE_KEY: mlir-tensorrt-cpm-v1
-      LONG_TESTS: True
+      LONG_TESTS: "True"
     runs-on: ${{ matrix.github_runner }}
     container:
       image: ${{ matrix.docker_image }}

@@ -149,7 +149,7 @@ jobs:
           # Compute TensorRT library path from CPM cache by locating libnvinfer.so
           SEARCH_PATH=${CPM_SOURCE_CACHE}/tensorrt
           echo "SEARCH_PATH: ${SEARCH_PATH}"
-          TensorRT_LIB_PATH="$(find ${SEARCH_PATH} -type f -name 'libnvinfer.so*' 2>/dev/null | head -n1 | xargs -r dirname)"
+          TensorRT_LIB_PATH="$(find ${SEARCH_PATH} -type f -name 'libnvinfer.so.*' 2>/dev/null | head -n1 | xargs -r dirname)"
           if [[ -z "${TensorRT_LIB_PATH}" ]]; then
             echo "Error: Could not locate libnvinfer.so under ${CPM_TRT_DIR}" >&2
             exit 1
