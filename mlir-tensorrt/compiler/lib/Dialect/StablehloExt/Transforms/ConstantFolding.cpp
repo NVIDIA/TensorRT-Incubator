@@ -280,47 +280,6 @@ struct ConstFoldTranspose
   }
 };
 
-// Combine consecutive transpose.
-struct CombineConsecutiveTranspose
-    : StablehloExtFoldOpPattern<stablehlo::TransposeOp> {
-  using StablehloExtFoldOpPattern::StablehloExtFoldOpPattern;
-  LogicalResult matchAndRewrite(stablehlo::TransposeOp op,
-                                PatternRewriter &rewriter) const override {
-    auto parentTranspose = op.getOperand().getDefiningOp<TransposeOp>();
-    if (!parentTranspose || !parentTranspose->hasOneUse())
-      return failure();
-    // Combine two permutations
-    ArrayRef<int64_t> parentPermutation = parentTranspose.getPermutation();
-    ArrayRef<int64_t> opPermutation = op.getPermutation();
-    SmallVector<int64_t> newPermutation(parentPermutation.size());
-    for (unsigned i = 0; i < newPermutation.size(); i++)
-      newPermutation[i] = parentPermutation[opPermutation[i]];
-    rewriter.replaceOpWithNewOp<stablehlo::TransposeOp>(
-        op, op.getType(), parentTranspose.getOperand(), newPermutation);
-    return success();
-  }
-};
-
-//===----------------------------------------------------------------------===//
-// MinOp and MaxOp
-//===----------------------------------------------------------------------===//
-
-/// Simplify `MinOp` if the operands are identical.
-template <typename OpType>
-struct SimplifyTrivialMinOrTrivalMax : StablehloExtFoldOpPattern<OpType> {
-  using StablehloExtFoldOpPattern<OpType>::StablehloExtFoldOpPattern;
-
-  LogicalResult matchAndRewrite(OpType op,
-                                PatternRewriter &rewriter) const override {
-    static_assert(std::is_same_v<OpType, MinOp> ||
-                      std::is_same_v<OpType, MaxOp>,
-                  "expected stablehlo::MinOp or stablehlo::MaxOp");
-    if (op.getLhs() != op.getRhs())
-      return failure();
-    return maybeCastAndReplace(rewriter, op, op.getLhs());
-  }
-};
-
 //===----------------------------------------------------------------------===//
 // ReshapeOp
 //===----------------------------------------------------------------------===//
@@ -345,86 +304,6 @@ struct ConstFoldReshape
 };
 
 //===----------------------------------------------------------------------===//
-// ReshapeOp -> BroadcastInDimOp -> ReshapeOp
-//===----------------------------------------------------------------------===//
-
-/// Replace the sequence of stablehlo.reshape, stablehlo.broadcast_in_dim, and
-/// stablehlo.reshape with stablehlo.broadcast_in_dim.
-struct SimplifyReshapeBroadcastInDimReshape
-    : public StablehloExtFoldOpPattern<stablehlo::ReshapeOp> {
-  using StablehloExtFoldOpPattern::StablehloExtFoldOpPattern;
-  LogicalResult matchAndRewrite(stablehlo::ReshapeOp op,
-                                PatternRewriter &rewriter) const override {
-    auto outputType = op.getType();
-    if (!succeeded(tensorrt::isUnitDimRankReducing(op.getOperand().getType(),
-                                                   outputType)))
-      return failure();
-
-    auto broadcastInDimOp =
-        op.getOperand().getDefiningOp<stablehlo::BroadcastInDimOp>();
-    if (!broadcastInDimOp)
-      return failure();
-
-    auto reshapeOp =
-        broadcastInDimOp.getOperand().getDefiningOp<stablehlo::ReshapeOp>();
-    if (!reshapeOp)
-      return failure();
-    auto inputType = reshapeOp.getOperand().getType();
-    if (!succeeded(
-            tensorrt::isUnitDimRankExpanding(inputType, reshapeOp.getType())))
-      return failure();
-
-    int64_t inputRank = inputType.getRank();
-    int64_t outputRank = outputType.getRank();
-    if (inputRank < outputRank)
-      return failure();
-
-    // Drop input operand's front to match for outputRank if and only if
-    // dimSize=1
-    int64_t gap = inputRank - outputRank;
-    for (int64_t i = 0; i < gap; i++)
-      if (inputType.getDimSize(i) != 1)
-        return failure();
-
-    auto getTargetReshapeOp = [&](int64_t gap) {
-      if (gap == 0)
-        return reshapeOp;
-
-      // When gap > 0
-      auto reshapeOp1 = rewriter.create<stablehlo::ReshapeOp>(
-          reshapeOp.getLoc(),
-          inputType.clone(inputType.getShape().drop_front(gap)),
-          reshapeOp.getOperand());
-      auto reshapeOp2 = rewriter.create<stablehlo::ReshapeOp>(
-          reshapeOp.getLoc(), reshapeOp->getResultTypes(),
-          reshapeOp1->getResults());
-      rewriter.replaceOp(reshapeOp, reshapeOp2->getResults());
-      return reshapeOp2;
-    };
-
-    auto isIncreasing = [](ArrayRef<int64_t> seq) {
-      for (size_t i = 1; i < seq.size(); ++i)
-        if (seq[i] <= seq[i - 1])
-          return false;
-      return true;
-    };
-
-    stablehlo::ReshapeOp targetReshapeOp = getTargetReshapeOp(gap);
-    auto targetInputType = targetReshapeOp.getOperand().getType();
-
-    if (!isIncreasing(broadcastInDimOp.getBroadcastDimensions()) ||
-        !succeeded(tensorrt::checkLhsShapeBroadcastableToRhs(
-            targetInputType.getShape(), outputType.getShape())))
-      return failure();
-
-    rewriter.replaceOpWithNewOp<stablehlo::BroadcastInDimOp>(
-        op, outputType, targetReshapeOp.getOperand(),
-        llvm::to_vector(llvm::seq<int64_t>(0, targetInputType.getRank())));
-    return success();
-  }
-};
-
-//===----------------------------------------------------------------------===//
 // ConvertOp
 //===----------------------------------------------------------------------===//
 
@@ -445,42 +324,6 @@ struct ConstFoldConvert
       return failure();
     return replaceOpWithNewOpAndMaybeCast<stablehlo::ConstantOp>(rewriter, op,
                                                                  attr);
-  }
-};
-
-/// Rewrites two consecutive convert operations with a single, whenever
-/// possible. For replacement to happen, first conversion should happen to
-/// higher bit width data type.
-struct EliminateCascadedConverts
-    : public StablehloExtFoldOpPattern<stablehlo::ConvertOp> {
-  using StablehloExtFoldOpPattern::StablehloExtFoldOpPattern;
-  LogicalResult matchAndRewrite(stablehlo::ConvertOp op,
-                                PatternRewriter &rewriter) const override {
-    auto parentConvert = op.getOperand().getDefiningOp<ConvertOp>();
-    if (!parentConvert)
-      return failure();
-    auto firstType = parentConvert.getOperand().getType().getElementType();
-    auto secondType = op.getOperand().getType().getElementType();
-    auto thirdType = op.getType().getElementType();
-    // All types should be same and bit width should increase from the
-    // `firstType` -> `secondType`.
-    if (isa<FloatType>(firstType) && isa<FloatType>(secondType) &&
-        isa<FloatType>(thirdType) &&
-        secondType.getIntOrFloatBitWidth() >
-            firstType.getIntOrFloatBitWidth()) {
-      rewriter.replaceOpWithNewOp<ConvertOp>(op, op.getType(),
-                                             parentConvert.getOperand());
-      return success();
-    }
-    if (isa<IntegerType>(firstType) && isa<IntegerType>(secondType) &&
-        isa<IntegerType>(thirdType) &&
-        secondType.getIntOrFloatBitWidth() >
-            firstType.getIntOrFloatBitWidth()) {
-      rewriter.replaceOpWithNewOp<ConvertOp>(op, op.getType(),
-                                             parentConvert.getOperand());
-      return success();
-    }
-    return failure();
   }
 };
 
@@ -885,60 +728,6 @@ struct ConstFoldStablehloSlice
   }
 };
 
-/// Simplify trivial slices that represent an identity.
-struct SimplifyTrivialSlice
-    : public StablehloExtFoldOpPattern<stablehlo::SliceOp> {
-  using StablehloExtFoldOpPattern::StablehloExtFoldOpPattern;
-
-  LogicalResult matchAndRewrite(stablehlo::SliceOp op,
-                                PatternRewriter &rewriter) const override {
-
-    ArrayRef<int64_t> start = op.getStartIndices();
-    ArrayRef<int64_t> limit = op.getLimitIndices();
-    ArrayRef<int64_t> stride = op.getStrides();
-    RankedTensorType operandType = op.getOperand().getType();
-    if (!operandType.hasStaticShape() || operandType.getNumElements() == 0)
-      return rewriter.notifyMatchFailure(op,
-                                         "operand has dynamic or empty shape");
-
-    // Empty tensor is handled by a different pattern.
-    if (op.getType().hasStaticShape() && op.getType().getNumElements() == 0)
-      return rewriter.notifyMatchFailure(op, "result is empty tensor");
-
-    for (auto [startIdx, stopIdx, strideIdx, dimSize] :
-         llvm::zip_equal(start, limit, stride, operandType.getShape())) {
-      // Empty tensors replacement is handled by a different pattern.
-      if (startIdx == stopIdx)
-        return failure();
-      if (startIdx != 0 || strideIdx != 1 || stopIdx != dimSize)
-        return rewriter.notifyMatchFailure(op, "not a trivial slice");
-    }
-
-    return maybeCastAndReplace(rewriter, op, op.getOperand());
-  }
-};
-
-//===----------------------------------------------------------------------===//
-// ConcatenateOp
-// Note that the constant folding routine is upstream in StableHlo
-// simplification patterns.
-//===----------------------------------------------------------------------===//
-
-/// If there is only one operand, just replace with itself.
-/// TODO: This only differs from the equivalent upstream pattern in that it
-/// inserts a cast if the types differ.
-struct ConcatSingleSegment
-    : public StablehloExtFoldOpPattern<stablehlo::ConcatenateOp> {
-  using StablehloExtFoldOpPattern::StablehloExtFoldOpPattern;
-
-  LogicalResult matchAndRewrite(stablehlo::ConcatenateOp op,
-                                PatternRewriter &rewriter) const override {
-    if (op.getInputs().size() != 1)
-      return failure();
-    return maybeCastAndReplace(rewriter, op, op.getInputs().front());
-  }
-};
-
 //===----------------------------------------------------------------------===//
 // ConstFoldGatherOnSplat
 //===----------------------------------------------------------------------===//
@@ -996,186 +785,8 @@ struct RewriteTrivialLogicalRightShiftPattern
 };
 
 //===----------------------------------------------------------------------===//
-// ScatterOp
-//===----------------------------------------------------------------------===//
-
-/// This pattern checks if a scatter is a  "canonical scatter-nd"-like operation
-/// that completely overwrites the source tensor. In this case, all the
-/// input/source tensors can be replaced by the updates tensors.
-///
-/// Note that this pattern only detects when there is a single slice
-/// being inserted at the zero index, and the slice completely overwrites the
-/// source tensor. It does not yet detect when there are multiple slices that
-/// insert into 'iota' indices, which would also be valid for replacement
-/// by the updates tensors.
-struct SimplifyTrivialScatter
-    : public StablehloExtFoldOpPattern<stablehlo::ScatterOp> {
-  using StablehloExtFoldOpPattern::StablehloExtFoldOpPattern;
-  LogicalResult matchAndRewrite(stablehlo::ScatterOp op,
-                                PatternRewriter &rewriter) const override {
-    // Check whether the indices are uniformly zero.
-    if (SplatElementsAttr attr;
-        !matchPattern(op.getScatterIndices(), m_Constant(&attr)) ||
-        !attr.getSplatValue<APInt>().isZero())
-      return rewriter.notifyMatchFailure(op, "indices not splat zero");
-
-    if (!stablehlo_ext::isCanonicalScatterNd(op))
-      return rewriter.notifyMatchFailure(op, "not a canonical scatter nd op");
-
-    // Check whether there is a single slice update. This occurs if the shape of
-    // the inserted slice is the same as the input and the number of slices
-    // inserted is one.
-    stablehlo::ScatterDimensionNumbersAttr dimNums =
-        op.getScatterDimensionNumbersAttr();
-    RankedTensorType inputType =
-        cast<RankedTensorType>(op.getInputs().front().getType());
-    RankedTensorType updateType =
-        cast<RankedTensorType>(op.getUpdates().front().getType());
-
-    // Build the implicit inserted slice shape.
-    SmallVector<int64_t> implicitSliceShape(inputType.getRank(), 0);
-    for (int64_t i : dimNums.getInsertedWindowDims())
-      implicitSliceShape[i] = 1;
-
-    unsigned updateWindowDim = 0;
-    ArrayRef<int64_t> updateWindowDims = dimNums.getUpdateWindowDims();
-    for (int64_t i = 0;
-         i < inputType.getRank() && updateWindowDim < updateWindowDims.size();
-         ++i) {
-      if (implicitSliceShape[i] == 0)
-        implicitSliceShape[i] =
-            updateType.getDimSize(updateWindowDims[updateWindowDim++]);
-    }
-
-    if (implicitSliceShape != inputType.getShape())
-      return rewriter.notifyMatchFailure(
-          op, "implicit update slice not correct shape");
-
-    if (!llvm::all_of(updateType.getShape().drop_back(
-                          dimNums.getUpdateWindowDims().size()),
-                      [](int64_t x) { return x == 1; }))
-      return rewriter.notifyMatchFailure(op, "more than one update slice");
-
-    // Fast path for when no reshape is necessary.
-    if (updateType == inputType) {
-      rewriter.replaceOp(op, op.getUpdates());
-      return success();
-    }
-
-    if (!updateType.hasStaticShape() || !inputType.hasStaticShape())
-      return rewriter.notifyMatchFailure(op, "update|input have dynamic shape");
-
-    SmallVector<Value> replacements(op.getUpdates());
-    for (Value &update : replacements)
-      update = rewriter.create<stablehlo::ReshapeOp>(update.getLoc(), inputType,
-                                                     update);
-    rewriter.replaceOp(op, replacements);
-
-    return success();
-  }
-};
-
-//===----------------------------------------------------------------------===//
 // Misc Patterns
 //===----------------------------------------------------------------------===//
-
-/// This patterns inserts a tensor.cast between a returned Value if the Value's
-/// tensor shape does not match the corresponding function result type. This can
-/// happen if the upstream StableHlo aggressive simplification pass does not
-/// properly insert casts where it is supposed to. This is a relatively common
-/// mistake in the upstream pass which will result in a verification error at
-/// the end of the pass if left unhandled. Therefore, we insert this pattern to
-/// automatically insert required casts if possible until upstream figures out
-/// how to avoid this mistake from occurring.
-struct FixInvalidReturnWorkaround
-    : public StablehloExtFoldOpPattern<func::ReturnOp> {
-  using StablehloExtFoldOpPattern::StablehloExtFoldOpPattern;
-
-  LogicalResult matchAndRewrite(func::ReturnOp op,
-                                PatternRewriter &rewriter) const override {
-    FunctionType funcType =
-        op->getParentOfType<func::FuncOp>().getFunctionType();
-    bool changed = false;
-    SmallVector<Value> newOperands(op.getOperands());
-    for (auto [idx, value] : llvm::enumerate(op.getOperands())) {
-      if (funcType.getResult(idx) == value.getType())
-        continue;
-      // If it is not a tensor type, then something else has gone horribly
-      // wrong, we can't fix it.
-      auto tensorType = dyn_cast<RankedTensorType>(value.getType());
-      auto desiredType = dyn_cast<RankedTensorType>(funcType.getResult(idx));
-      if (!tensorType || !desiredType)
-        continue;
-
-      // Check for cast compatibility. If not cast compatible, then something
-      // else has gone horribly wrong, we can't fix it.
-      if (!tensor::CastOp::areCastCompatible(tensorType, desiredType))
-        continue;
-
-      auto castOp =
-          rewriter.create<tensor::CastOp>(value.getLoc(), desiredType, value);
-      newOperands[idx] = castOp;
-      changed = true;
-    }
-    if (!changed)
-      return failure();
-    rewriter.modifyOpInPlace(
-        op, [&]() { op.getOperandsMutable().assign(newOperands); });
-    return success(changed);
-  }
-};
-
-/// Fold `stablehlo.op(..., tensor.cast(x)... )` to `stablehlo.op(..., x, ...)`
-/// if the cast is a generalizing cast (it is removing some static dims of the
-/// type of  `x` and replacing them with dynamic dimensions).
-struct AbsorbTensorCastProducer : public RewritePattern {
-  AbsorbTensorCastProducer(MLIRContext *ctx, PatternBenefit benefit = 1)
-      : RewritePattern(MatchAnyOpTypeTag{}, benefit, ctx) {}
-
-  LogicalResult matchAndRewrite(Operation *op,
-                                PatternRewriter &rewriter) const override {
-    if (!isa_and_present<stablehlo::StablehloDialect>(op->getDialect()) ||
-        // Composite op types cannot be refined in-place.
-        isa<stablehlo::CompositeOp>(op))
-      return failure();
-
-    // For each operand, try to absorb the cast operation. For most StableHLO
-    // ops, this is legal, but for some operations that have additional
-    // constraints, the legality of this depends on which operand is being
-    // refined.
-    auto hasGeneralizingCast = [](OpOperand &operand) -> tensor::CastOp {
-      if (!canUpdateTypeWithoutCast(operand))
-        return nullptr;
-      Value value = operand.get();
-      // Not all stablehlo operands are tensors -- some can have types like
-      // 'tuple' or special quantized types.
-      auto rtt = dyn_cast<RankedTensorType>(value.getType());
-      if (!rtt)
-        return nullptr;
-      auto castOp = value.getDefiningOp<tensor::CastOp>();
-      if (!castOp)
-        return nullptr;
-      auto operandType =
-          dyn_cast<RankedTensorType>(castOp.getOperand().getType());
-      if (castOp && operandType &&
-          tensorrt::isTargetRefinementOfSource(rtt.getShape(),
-                                               operandType.getShape()))
-        return castOp;
-      return nullptr;
-    };
-    bool changed = false;
-    SmallVector<Value> newInputs;
-    for (OpOperand &v : op->getOpOperands()) {
-      auto castOp = hasGeneralizingCast(v);
-      changed |= castOp != nullptr;
-      newInputs.push_back(castOp ? castOp.getOperand() : v.get());
-    }
-    if (!changed)
-      return failure();
-    rewriter.modifyOpInPlace(op, [&]() { op->setOperands(newInputs); });
-    return success();
-  }
-};
 
 /// Pattern: broadcast_in_dim(splat, _) -> constant(splat)
 /// TODO: This pattern is reproduced from upstream because we have no way of
@@ -1313,11 +924,6 @@ struct FoldConcatenateOpPattern final
 // Public Functions and Pass Implementation
 //===----------------------------------------------------------------------===//
 
-void stablehlo_ext::populateStableHloAbsorbTensorCastPatterns(
-    RewritePatternSet &patterns) {
-  patterns.add<AbsorbTensorCastProducer>(patterns.getContext());
-}
-
 void stablehlo_ext::populateTargetIndependentSimplificationPatterns(
     RewritePatternSet &patterns, int64_t sizeLimit,
     const stablehlo::StablehloAggressiveFolderPassOptions &folderOptions,
@@ -1325,8 +931,6 @@ void stablehlo_ext::populateTargetIndependentSimplificationPatterns(
   MLIRContext *ctx = patterns.getContext();
   // clang-format off
   patterns.insert<
-      CombineConsecutiveTranspose,
-      ConcatSingleSegment,
       ConstFoldCompare,
       ConstFoldConvert,
       ConstFoldDiv,
@@ -1336,23 +940,16 @@ void stablehlo_ext::populateTargetIndependentSimplificationPatterns(
       ConstFoldStablehloSlice,
       ConstFoldSub,
       ConstFoldTranspose,
-      EliminateCascadedConverts,
       EvalBinaryOpPattern<stablehlo::AddOp, std::plus<>>,
       EvalBinaryOpPattern<stablehlo::MulOp, std::multiplies<>>,
       EvalBinaryOpPattern<stablehlo::SubtractOp, std::minus<>>,
       EvalIotaOpPattern,
-      FixInvalidReturnWorkaround,
       FoldAndOp,
       FoldBroadcastInDimSplatPattern,
       FoldConcatenateOpPattern,
       FoldOrOp,
       RewriteTrivialLogicalRightShiftPattern,
       RsqrtFolder,
-      SimplifyReshapeBroadcastInDimReshape,
-      SimplifyTrivialMinOrTrivalMax<MaxOp>,
-      SimplifyTrivialMinOrTrivalMax<MinOp>,
-      SimplifyTrivialScatter,
-      SimplifyTrivialSlice,
       SqrtOpFolder
     >(sizeLimit, ctx, benefit);
   // clang-format on
@@ -1364,6 +961,12 @@ void stablehlo_ext::populateTargetIndependentSimplificationPatterns(
                                                        folderOptions);
   tensor::EmptyOp::getCanonicalizationPatterns(patterns, ctx);
   tensor::CastOp::getCanonicalizationPatterns(patterns, ctx);
+
+  stablehlo::StablehloAggressiveSimplificationPassOptions simplificationOptions{
+      /*foldOpElementLimit=*/folderOptions.foldOpElementLimit,
+  };
+  stablehlo_ext::populateStableHloExtSimplificationsPatterns(
+      patterns, simplificationOptions, benefit);
 }
 
 namespace {

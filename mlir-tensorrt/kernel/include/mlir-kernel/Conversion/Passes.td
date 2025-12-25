@@ -37,9 +37,7 @@ def ConvertKernelToLLVM : Pass<"convert-kernel-to-llvm", "::mlir::ModuleOp"> {
     lowering them to calls to the externally defined `cudaLaunchKernelExtC`
     function. The necessary arguments here (including constructing the
     kernel argument pack and the `cudaLaunchConfig_t` struct) are constructed
-    on the stack using `llvm.alloca`. To maintain compatibility with the
-    raise-LLVM-to-EmitC infrastructure, this lowering only produces
-    `llvm.load|stores` for primitive types.
+    on the stack using `llvm.alloca`.
   }];
 
   let dependentDialects = [

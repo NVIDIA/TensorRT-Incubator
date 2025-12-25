@@ -43,7 +43,7 @@
 using namespace mtrt;
 using namespace mtrt;
 
-static constexpr uint64_t kMinConstantBufferByteAlignment = 8;
+[[maybe_unused]] static constexpr uint64_t kMinConstantBufferByteAlignment = 8;
 
 /// This function registers default implementations for the required SPMD
 /// functions, reflecting that the executable is expected to run against a

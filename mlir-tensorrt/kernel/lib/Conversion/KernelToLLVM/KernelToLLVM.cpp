@@ -48,10 +48,7 @@ using namespace mlir;
 namespace {
 
 /// Convert `kernel.call` into an LLVM IR call. We utilize the CUDA Runtime
-/// pre-C11-compatible function `cudaLaunchKernelExtC` to perform the launch. To
-/// maintain compatibility with the `llvm-to-emitc` conversion pass, we don't
-/// allow load/stores of aggregates (e.g. LLVM arrays or structs), since we
-/// wouldn't be able to convert those using EmitC.
+/// pre-C11-compatible function `cudaLaunchKernelExtC` to perform the launch.
 struct KernelCallConverter : public ConvertOpToLLVMPattern<kernel::CallOp> {
   using ConvertOpToLLVMPattern::ConvertOpToLLVMPattern;
 
