@@ -32,7 +32,7 @@
 #define MLIR_TENSORRT_COMPILER_EXTENSION
 
 #include "mlir-tensorrt-common/Support/Status.h"
-#include "mlir-tensorrt/Compiler/OptionsProviders.h"
+#include "mlir-tensorrt/Compiler/Options.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "llvm/Support/Mutex.h"
 
@@ -55,7 +55,7 @@ public:
   /// - ctx: The options context used by the task; extensions read their options
   ///   from this context.
   TaskExtensionBase(llvm::StringRef taskName, llvm::StringRef extensionName,
-                    CompilationTaskOptionsBase &ctx)
+                    PipelineOptionsBase &ctx)
       : taskName(taskName), extensionName(extensionName), ctx(ctx) {}
 
   /// Virtual destructor to allow proper cleanup via base pointer.
@@ -90,13 +90,13 @@ protected:
   /// Unique name of the extension type.
   llvm::StringRef extensionName;
   /// Reference to the options context driving this compilation task.
-  CompilationTaskOptionsBase &ctx;
+  PipelineOptionsBase &ctx;
 };
 
 template <typename ExtensionType, typename TaskType>
 class Extension : public TaskExtensionBase {
 public:
-  Extension(CompilationTaskOptionsBase &options)
+  Extension(PipelineOptionsBase &options)
       : TaskExtensionBase(TaskType::getName(), ExtensionType::getName(),
                           options) {}
 
@@ -116,8 +116,8 @@ class ExtensionList {
 public:
   /// Type of a factory function that constructs an extension given a task
   /// options context.
-  using ConstructorFunc = std::function<std::unique_ptr<TaskExtensionBase>(
-      CompilationTaskOptionsBase &)>;
+  using ConstructorFunc =
+      std::function<std::unique_ptr<TaskExtensionBase>(PipelineOptionsBase &)>;
   /// Mapping from extension name to constructed extension instance.
   using CompilerExtensionModules =
       llvm::StringMap<std::unique_ptr<TaskExtensionBase>>;
@@ -137,7 +137,7 @@ public:
   }
 
   /// Load all extensions that are not already loaded.
-  void loadExtensions(CompilationTaskOptionsBase &task);
+  void loadExtensions(PipelineOptionsBase &task);
 
 private:
   /// Storage for constructed extension instances.
@@ -146,9 +146,9 @@ private:
   ExtensionBuilders builders;
 };
 
-/// An ExtensionConstructorRegistry is a mapping from CompilationTask kind to
+/// An ExtensionConstructorRegistry is a mapping from Pipeline task kind to
 /// constructor functions for each known TaskExtension associated with that
-/// CompilationTask kind.
+/// Pipeline task kind.
 class ExtensionConstructorRegistry {
 public:
   using ConstructorFunc = ExtensionList::ConstructorFunc;
@@ -178,11 +178,11 @@ void registerExtension(llvm::StringRef taskName, llvm::StringRef extensionName,
 /// names with the global Extension registry.
 template <typename TaskType, typename ExtensionType>
 void registerExtension() {
-  registerExtension(TaskType::getName(), ExtensionType::getName(),
-                    [](CompilationTaskOptionsBase &ctx)
-                        -> std::unique_ptr<TaskExtensionBase> {
-                      return std::make_unique<ExtensionType>(ctx);
-                    });
+  registerExtension(
+      TaskType::getName(), ExtensionType::getName(),
+      [](PipelineOptionsBase &ctx) -> std::unique_ptr<TaskExtensionBase> {
+        return std::make_unique<ExtensionType>(ctx);
+      });
 }
 
 /// Return a new registry of constructors for all extensions associated with the

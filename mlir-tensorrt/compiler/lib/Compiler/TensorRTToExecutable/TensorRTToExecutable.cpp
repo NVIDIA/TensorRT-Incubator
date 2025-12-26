@@ -22,7 +22,7 @@
 #include "mlir-executor/Executor/Transforms/Passes.h"
 #include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
 #include "mlir-tensorrt-dialect/TensorRT/Transforms/Passes.h"
-#include "mlir-tensorrt/Compiler/OptionsProviders.h"
+#include "mlir-tensorrt/Compiler/Options.h"
 #include "mlir-tensorrt/Compiler/TensorRTToExecutable/Passes.h"
 #include "mlir-tensorrt/Conversion/CUDAToExecutor/CUDAToExecutor.h"
 #include "mlir-tensorrt/Conversion/Passes.h"
@@ -55,7 +55,7 @@ convertBufferizationOptions(const TensorRTToExecutableOptions &pipelineOpts) {
 
 TensorRTToExecutableTask::TensorRTToExecutableTask(
     MLIRContext *ctx, std::unique_ptr<TensorRTToExecutableOptions> options)
-    : CompilationTask(ctx, std::move(options)) {}
+    : Pipeline(ctx, std::move(options)) {}
 
 void TensorRTToExecutableTask::populatePassManager() {
   PassManager &pm = *this;
@@ -126,7 +126,7 @@ void TensorRTToExecutableTask::populatePassManager() {
 }
 
 void mtrt::compiler::registerTensorRTToExecutableTask() {
-  registerCompilationTaskWithNoExtensions<TensorRTToExecutableTask,
-                                          TensorRTToExecutableOptions>(
+  registerPipelineWithNoExtensions<TensorRTToExecutableTask,
+                                   TensorRTToExecutableOptions>(
       "tensorrt-to-executable");
 }

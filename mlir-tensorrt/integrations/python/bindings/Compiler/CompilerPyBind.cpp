@@ -267,7 +267,7 @@ PYBIND11_MODULE(_api, m) {
               refs[i] = mlirStringRefCreate(args[i].data(), args[i].size());
 
             MlirPassManager pm{nullptr};
-            MTRT_Status status = mtrtCompilerClientGetCompilationTask(
+            MTRT_Status status = mtrtCompilerClientGetPipeline(
                 self, mlirStringRefCreate(mnemonic.data(), mnemonic.size()),
                 refs.data(), refs.size(), &pm);
             THROW_IF_MTRT_ERROR(status);

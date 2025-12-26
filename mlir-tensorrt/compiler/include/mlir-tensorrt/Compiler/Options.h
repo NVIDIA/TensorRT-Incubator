@@ -1,4 +1,4 @@
-//===- OptionsProviders.h ---------------------------------------*- C++ -*-===//
+//===- Options.h ---------------------------------------*- C++ -*-===//
 //
 // SPDX-FileCopyrightText: Copyright 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
@@ -21,8 +21,8 @@
 /// Data structures and functions for manipulating compiler options.
 ///
 //===----------------------------------------------------------------------===//
-#ifndef MLIR_TENSORRT_COMPILER_OPTIONSPROVIDERS
-#define MLIR_TENSORRT_COMPILER_OPTIONSPROVIDERS
+#ifndef MLIR_TENSORRT_COMPILER_OPTIONS
+#define MLIR_TENSORRT_COMPILER_OPTIONS
 
 #include "mlir-executor/Support/DeviceInfo.h"
 #include "mlir/Pass/PassManager.h"
@@ -35,7 +35,7 @@
 namespace mtrt::compiler {
 
 /// An OptionsProvider is a utility to attach options onto a different
-/// PassOptions/CompilationTaskOptions struct. The parent to attach to is given
+/// PassOptions/PipelineOptions struct. The parent to attach to is given
 /// in the constructor, and therefore all member `Option|ListOption' can be
 /// attached to the parent by giving `this->ctx` as the first argument in their
 /// initializer lists.
@@ -264,26 +264,26 @@ enum class TensorRTTargetFormat {
 };
 
 //===----------------------------------------------------------------------===//
-// CompilationTaskOptions
+// PipelineOptions
 //===----------------------------------------------------------------------===//
 
-/// CompilationTaskOptionsBase provides the base class and common options for
-/// all task options. Options containers associated with a CompilationTask must
+/// PipelineOptionsBase provides the base class and common options for
+/// all pipeline options. Options containers associated with a Pipeline must
 /// inherit from this class.
-class CompilationTaskOptionsBase
-    : public mlir::PassPipelineOptions<CompilationTaskOptionsBase> {
+class PipelineOptionsBase
+    : public mlir::PassPipelineOptions<PipelineOptionsBase> {
 public:
   /// Construct the options, and if enableDebugOptions is true, then
   /// DebugOptions are attached to the instance and the values will be parsed
   /// along with the other options attached. Otherwise, it is expected that
   /// caller will populate pass manager instrumentation via some other
   /// mechanism (e.g. global CL options).
-  CompilationTaskOptionsBase(bool enableDebugOptions = false) {
+  PipelineOptionsBase(bool enableDebugOptions = false) {
     if (enableDebugOptions)
       debugOptions = std::make_unique<DebugOptions>(this);
   }
 
-  virtual ~CompilationTaskOptionsBase() = default;
+  virtual ~PipelineOptionsBase() = default;
 
   std::optional<llvm::hash_code> getHash() const;
 
@@ -334,47 +334,6 @@ protected:
   std::unique_ptr<DebugOptions> debugOptions{nullptr};
 };
 
-/// CompilationTaskOptions is just like CompilationTaskOptionsBase, but it
-/// allows specifying any of the handy "OptionsProviders" defined above
-/// inorder to automatically incorporate the options associated with each
-/// provider.
-template <typename... Providers>
-class CompilationTaskOptions : public CompilationTaskOptionsBase {
-public:
-  CompilationTaskOptions(bool enableDebugOptions = false)
-      : CompilationTaskOptionsBase(enableDebugOptions),
-        optionProviders(std::make_unique<Providers>(this)...) {}
-
-  /// Access provider value.
-  template <typename OptionsProviderT>
-  const OptionsProviderT &get() const {
-    if constexpr (std::is_same_v<OptionsProviderT, DebugOptions>) {
-      if (hasDebugOptions())
-        return *this->debugOptions;
-      llvm::report_fatal_error(
-          "debug options are not enabled on the task options instance");
-    } else {
-      return *std::get<std::unique_ptr<OptionsProviderT>>(optionProviders);
-    }
-  }
-
-  /// Access provider value.
-  template <typename OptionsProviderT>
-  OptionsProviderT &get() {
-    if constexpr (std::is_same_v<OptionsProviderT, DebugOptions>) {
-      if (hasDebugOptions())
-        return *debugOptions;
-      llvm::report_fatal_error(
-          "debug options are not enabled on the task options instance");
-    } else {
-      return *std::get<std::unique_ptr<OptionsProviderT>>(optionProviders);
-    }
-  }
-
-private:
-  std::tuple<std::unique_ptr<Providers>...> optionProviders;
-};
-
 } // namespace mtrt::compiler
 
-#endif // MLIR_TENSORRT_COMPILER_OPTIONSPROVIDERS
+#endif // MLIR_TENSORRT_COMPILER_OPTIONS

@@ -139,7 +139,7 @@ static StatusOr<mlir::OwningModuleRef> parseSource(mlir::MLIRContext *context,
 
 /// Returns the set of options which should be passed to the compilation task
 /// construction API.
-static llvm::SmallVector<llvm::StringRef> getCompilationTaskOptions() {
+static llvm::SmallVector<llvm::StringRef> getPipelineOptions() {
   llvm::SmallVector<llvm::StringRef> options;
   for (const auto &opt : clOptionsConfig->pipelineOptions)
     options.push_back(llvm::StringRef(opt));
@@ -156,9 +156,8 @@ static llvm::SmallVector<llvm::StringRef> getCompilationTaskOptions() {
 /// Return true if any of the `options` contains the given substring. Useful for
 /// detecting the precense of a flag regardless of whether it was prefixed with
 /// `--` or not.
-static bool
-compilationTasksOptionsContains(llvm::ArrayRef<llvm::StringRef> options,
-                                llvm::StringRef partialOptionText) {
+static bool pipelinesOptionsContains(llvm::ArrayRef<llvm::StringRef> options,
+                                     llvm::StringRef partialOptionText) {
   return llvm::any_of(options, [&](llvm::StringRef option) {
     return option.contains_insensitive(partialOptionText);
   });
@@ -185,12 +184,12 @@ Compiler::compileMlirModule(std::string_view mlirIR,
   mlir::MLIRContext *ctx = (*module)->getContext();
   int64_t codegenBenefit = clOptionsConfig->preferCodegen ? 99 : 2;
   llvm::SmallVector<mlir::Attribute> clusterKinds;
-  llvm::SmallVector<llvm::StringRef> options = getCompilationTaskOptions();
+  llvm::SmallVector<llvm::StringRef> options = getPipelineOptions();
 
   // We must load the Plan dialect in order to create backend attributes.
   ctx->loadDialect<mlir::plan::PlanDialect>();
 
-  if (!compilationTasksOptionsContains(options, "disable-tensorrt-extension"))
+  if (!pipelinesOptionsContains(options, "disable-tensorrt-extension"))
     clusterKinds.push_back(mlir::plan::TensorRTBackendAttr::get(
         ctx, clOptionsConfig->disallowHostTensorsInTensorRTClusters, 3,
         /*tensorrt_major_version=*/NV_TENSORRT_MAJOR,
@@ -203,10 +202,9 @@ Compiler::compileMlirModule(std::string_view mlirIR,
   (**module).getOperation()->setAttr(mlir::plan::PlanDialect::kBackendsAttrName,
                                      mlir::ArrayAttr::get(ctx, clusterKinds));
 
-  // Create the CompilationTask or get the cached one.
-  mtrt::StatusOr<mtrt::compiler::CompilationTaskBase *> pm =
-      client->getCompilationTask(
-          mtrt::compiler::StablehloToExecutableTask::getName(), options);
+  // Create the Pipeline or get the cached one.
+  mtrt::StatusOr<mtrt::compiler::PipelineBase *> pm = client->getPipeline(
+      mtrt::compiler::StablehloToExecutableTask::getName(), options);
   if (!pm.isOk())
     return pm.getStatus();
 
