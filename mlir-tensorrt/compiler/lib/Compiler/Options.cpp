@@ -21,7 +21,7 @@
 /// Data structures and functions for manipulating compiler options.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Compiler/OptionsProviders.h"
+#include "mlir-tensorrt/Compiler/Options.h"
 #include "mlir-executor/Support/DeviceInfo.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Support/Timing.h"
@@ -141,10 +141,10 @@ DeviceOptions::DeviceOptions(mlir::detail::PassOptions *ctx)
 }
 
 //===----------------------------------------------------------------------===//
-// CompilationTaskOptionsBase
+// PipelineOptionsBase
 //===----------------------------------------------------------------------===//
 
-std::optional<llvm::hash_code> CompilationTaskOptionsBase::getHash() const {
+std::optional<llvm::hash_code> PipelineOptionsBase::getHash() const {
   // We hash by just hashing the string representation.
   llvm::SmallString<128> str;
   {
@@ -155,8 +155,8 @@ std::optional<llvm::hash_code> CompilationTaskOptionsBase::getHash() const {
 }
 
 mlir::LogicalResult
-CompilationTaskOptionsBase::parse(llvm::ArrayRef<llvm::StringRef> args,
-                                  std::string &err) {
+PipelineOptionsBase::parse(llvm::ArrayRef<llvm::StringRef> args,
+                           std::string &err) {
   std::string result;
   for (unsigned i = 0; i < args.size(); ++i) {
     llvm::StringRef part = args[i];

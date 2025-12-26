@@ -28,7 +28,7 @@
 #include "mlir-tensorrt/Backends/Host/Passes.h"
 #include "mlir-tensorrt/Compiler/Client.h"
 #include "mlir-tensorrt/Compiler/Extension.h"
-#include "mlir-tensorrt/Compiler/OptionsProviders.h"
+#include "mlir-tensorrt/Compiler/Options.h"
 #include "mlir-tensorrt/Compiler/StablehloToExecutable/StablehloInputPipeline.h"
 #include "mlir-tensorrt/Compiler/StablehloToExecutable/TensorRTExtension.h"
 #include "mlir-tensorrt/Conversion/CUDAToExecutor/CUDAToExecutor.h"
@@ -81,7 +81,7 @@ convertBufferizationOptions(const StablehloToExecutableOptions &pipelineOpts) {
 
 StablehloToExecutableTask::StablehloToExecutableTask(
     MLIRContext *ctx, std::unique_ptr<StablehloToExecutableOptions> options)
-    : CompilationTask(ctx, std::move(options)) {}
+    : Pipeline(ctx, std::move(options)) {}
 
 static void populateExtensionPasses(mlir::OpPassManager &pm,
                                     const StablehloToExecutableOptions &options,
@@ -259,8 +259,8 @@ void StablehloToExecutableTask::populatePassManager() {
 }
 
 void mtrt::compiler::registerStableHloToExecutableTask() {
-  registerCompilationTaskWithNoExtensions<StablehloToExecutableTask,
-                                          StablehloToExecutableOptions>(
+  registerPipelineWithNoExtensions<StablehloToExecutableTask,
+                                   StablehloToExecutableOptions>(
       mtrt::compiler::StablehloToExecutableTask::getName());
 }
 

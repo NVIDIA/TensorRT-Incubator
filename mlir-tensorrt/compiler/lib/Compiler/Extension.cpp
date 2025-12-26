@@ -38,7 +38,7 @@ static llvm::ManagedStatic<ExtensionConstructorRegistry>
 
 TaskExtensionBase::~TaskExtensionBase() {}
 
-void ExtensionList::loadExtensions(CompilationTaskOptionsBase &task) {
+void ExtensionList::loadExtensions(PipelineOptionsBase &task) {
   for (auto &[extensionName, builder] : builders) {
     if (extensions.contains(extensionName))
       continue;

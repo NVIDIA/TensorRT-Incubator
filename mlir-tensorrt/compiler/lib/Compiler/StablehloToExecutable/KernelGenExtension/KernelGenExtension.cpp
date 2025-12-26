@@ -27,7 +27,7 @@
 #include "mlir-kernel/Kernel/Transforms/Passes.h"
 #include "mlir-tensorrt/Backends/Kernel/KernelBackend.h"
 #include "mlir-tensorrt/Backends/Kernel/Passes.h"
-#include "mlir-tensorrt/Compiler/OptionsProviders.h"
+#include "mlir-tensorrt/Compiler/Options.h"
 #include "mlir-tensorrt/Compiler/StablehloToExecutable/StablehloInputPipeline.h"
 #include "mlir-tensorrt/Compiler/StablehloToExecutable/StablehloToExecutable.h"
 #include "mlir-tensorrt/Conversion/Passes.h"
@@ -249,8 +249,7 @@ void mtrt::compiler::registerStablehloToExecutableKernelGenExtension(
     DialectRegistry &registry) {
   registerExtension(
       "stablehlo-to-executable", "kernelgen-extension",
-      [](CompilationTaskOptionsBase &ctx)
-          -> std::unique_ptr<TaskExtensionBase> {
+      [](PipelineOptionsBase &ctx) -> std::unique_ptr<TaskExtensionBase> {
         return std::make_unique<StablehloToExecutableKernelGenExtension>(ctx);
       });
 }

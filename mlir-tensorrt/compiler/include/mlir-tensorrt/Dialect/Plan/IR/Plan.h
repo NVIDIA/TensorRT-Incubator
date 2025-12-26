@@ -84,7 +84,7 @@ namespace mlir::plan {
 //===----------------------------------------------------------------------===//
 
 /// PlanDialectExtension is the bae class for DialectExtensions to add
-/// Attributes and CompilationTaskExtensions into the PlanDialect.
+/// Attributes and Pipeline TaskExtensions into the PlanDialect.
 template <typename DerivedTy, typename... ExtraDialects>
 class PlanDialectExtension
     : public DialectExtension<DerivedTy, PlanDialect, ExtraDialects...> {

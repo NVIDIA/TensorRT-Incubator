@@ -33,7 +33,8 @@
 #include "mlir-kernel/Kernel/Transforms/Passes.h"
 #include "mlir-tensorrt/Backends/Kernel/KernelBackend.h"
 #include "mlir-tensorrt/Backends/Kernel/Passes.h"
-#include "mlir-tensorrt/Compiler/OptionsProviders.h"
+#include "mlir-tensorrt/Compiler/Options.h"
+#include "mlir-tensorrt/Compiler/Pipeline.h"
 #include "mlir-tensorrt/Compiler/StablehloToExecutable/StablehloInputPipeline.h"
 #include "mlir-tensorrt/Conversion/Passes.h"
 #include "mlir-tensorrt/Dialect/CUDA/IR/CUDADialect.h"
@@ -347,9 +348,9 @@ static StatusOr<ModuleOp> outlineFuncToModule(IRRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 // Compilation Pipeline
 //===----------------------------------------------------------------------===//
-struct SubgraphCompilationTaskOptions
-    : public CompilationTaskOptions<ExecutorOptions, DeviceOptions> {
-  using CompilationTaskOptions::CompilationTaskOptions;
+struct SubgraphPipelineOptions
+    : public PipelineOptions<ExecutorOptions, DeviceOptions> {
+  using PipelineOptions::PipelineOptions;
   Option<std::string> dumpPtxDir{*this, "dump-ptx-dir"};
   ListOption<std::string> generatorBenefit{
       *this, "generator-benefit",
@@ -383,15 +384,14 @@ static void populateSubgraphCompilationPipeline(OpPassManager &pm) {
   //===----------------------------------------------------------------------===//
   // Kernel Generation
   //===----------------------------------------------------------------------===//
-  auto subgraphCompilationTaskOptions =
-      std::make_unique<SubgraphCompilationTaskOptions>();
-  const auto &deviceOpts = subgraphCompilationTaskOptions->get<DeviceOptions>();
+  auto subgraphPipelineOptions = std::make_unique<SubgraphPipelineOptions>();
+  const auto &deviceOpts = subgraphPipelineOptions->get<DeviceOptions>();
 
   kernel::buildTransformIRPipeline(
       pm, mtrt::compiler::getKernelGenClusterAttrName(),
       deviceOpts.computeCapability, deviceOpts.maxSharedMemoryPerBlockKb,
       deviceOpts.maxRegistersPerBlock,
-      subgraphCompilationTaskOptions->generatorBenefit);
+      subgraphPipelineOptions->generatorBenefit);
 
   // Lower kernel.sort operations to generated merge sort kernels
   pm.addPass(kernel::createLowerKernelSortPass());
@@ -443,7 +443,7 @@ static void populateSubgraphCompilationPipeline(OpPassManager &pm) {
       kernel::createDispatchGPUModuleCompilationPass(
           kernel::DispatchGPUModuleCompilationPassOptions{
               kernel::GPUModuleLoweringPhase::LowerToNVVM,
-              /*debug=*/subgraphCompilationTaskOptions->dumpPtxDir}));
+              /*debug=*/subgraphPipelineOptions->dumpPtxDir}));
 
   //===----------------------------------------------------------------------===//
   // Host Code Lowering
@@ -459,12 +459,12 @@ static void populateSubgraphCompilationPipeline(OpPassManager &pm) {
 
   ConvertCUDAToExecutorPassOptions cudaToExecutorOpts;
   cudaToExecutorOpts.indexBitwidth =
-      subgraphCompilationTaskOptions->get<ExecutorOptions>().indexBitwidth;
+      subgraphPipelineOptions->get<ExecutorOptions>().indexBitwidth;
   pm.addPass(createConvertCUDAToExecutorPass(cudaToExecutorOpts));
 
   mlir::executor::ConvertStdToExecutorPassOptions stdToExecOpts;
   stdToExecOpts.indexBitwidth =
-      subgraphCompilationTaskOptions->get<ExecutorOptions>().indexBitwidth;
+      subgraphPipelineOptions->get<ExecutorOptions>().indexBitwidth;
   mlir::executor::buildExecutorLoweringPipeline(pm, stdToExecOpts);
 }
 

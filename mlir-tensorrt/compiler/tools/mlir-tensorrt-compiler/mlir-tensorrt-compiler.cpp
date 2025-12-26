@@ -104,36 +104,25 @@ static void parseInputMLIR(llvm::SourceMgr &sourceMgr,
   }
 }
 
-/// Returns true if the output path likely refers to a file or stdout.
-static bool outputIsFile(StringRef path) {
-  return !llvm::sys::fs::is_directory(path) &&
-         (path == "-" || llvm::sys::fs::is_symlink_file(path) ||
-          llvm::sys::fs::is_regular_file(path) ||
-          !llvm::sys::path::extension(path).empty());
-}
-
 static LogicalResult runCompilation(CompilerClient &client, StringRef taskName,
                                     mlir::ModuleOp module,
                                     llvm::StringRef pipelineOptions) {
-  llvm::StringRef artifactsDirectoryOverride =
-      !outputIsFile(outputPath) ? llvm::StringRef(outputPath)
-                                : llvm::sys::path::parent_path(outputPath);
   std::optional<llvm::StringRef> outputExtensionOverride =
       outputMLIR ? std::optional<llvm::StringRef>(".mlir") : std::nullopt;
 
-  StatusOr<CompilationTaskBase *> task = client.getCompilationTask(
-      taskName, {pipelineOptions}, artifactsDirectoryOverride);
-  if (!task.isOk()) {
-    llvm::errs() << task.getStatus() << "\n";
+  StatusOr<PipelineBase *> pipeline =
+      client.getPipeline(taskName, {pipelineOptions});
+  if (!pipeline.isOk()) {
+    llvm::errs() << pipeline.getStatus() << "\n";
     return failure();
   }
 
-  if (failed((*task)->run(module)))
+  if (failed((*pipeline)->run(module)))
     return failure();
 
   std::string errorMessage;
-  auto output = (*task)->openOutputFile(outputPath, errorMessage,
-                                        outputExtensionOverride);
+  auto output = (*pipeline)->openOutputFile(outputPath, errorMessage,
+                                            outputExtensionOverride);
   if (!output) {
     llvm::errs() << "failed to open output file: " << errorMessage << "\n";
     return failure();
@@ -142,7 +131,7 @@ static LogicalResult runCompilation(CompilerClient &client, StringRef taskName,
   if (outputMLIR) {
     module->print(output->os());
   } else {
-    if (failed((*task)->translateToTargetFormat(module, output->os())))
+    if (failed((*pipeline)->translateToTargetFormat(module, output->os())))
       return failure();
   }
   output->keep();
@@ -181,7 +170,7 @@ int main(int argc, char **argv) {
   context.appendDialectRegistry(registry);
 
   if (pipelineHelp) {
-    printCompilationTaskHelpInfo(&context, taskName);
+    printPipelineHelp(&context, taskName);
     exit(0);
   }
 

@@ -78,19 +78,19 @@ MTRT_Status mtrtCompilerClientDestroy(MTRT_CompilerClient client) {
   return mtrtStatusGetOk();
 }
 
-MTRT_Status mtrtCompilerClientGetCompilationTask(MTRT_CompilerClient client,
-                                                 MlirStringRef taskMnemonic,
-                                                 const MlirStringRef *argv,
-                                                 unsigned argc,
-                                                 MlirPassManager *result) {
+MTRT_Status mtrtCompilerClientGetPipeline(MTRT_CompilerClient client,
+                                          MlirStringRef taskMnemonic,
+                                          const MlirStringRef *argv,
+                                          unsigned argc,
+                                          MlirPassManager *result) {
   std::vector<llvm::StringRef> argvStrRef(argc);
   for (unsigned i = 0; i < argc; i++)
     argvStrRef[i] = llvm::StringRef(argv[i].data, argv[i].length);
-  StatusOr<CompilationTaskBase *> task = unwrap(client)->getCompilationTask(
+  StatusOr<PipelineBase *> pipeline = unwrap(client)->getPipeline(
       StringRef(taskMnemonic.data, taskMnemonic.length), argvStrRef,
-      /*overrideArtifactsDir=*/std::nullopt, /*enableDebugOptions=*/true);
-  if (!task.isOk())
-    return wrap(task.getStatus());
-  *result = MlirPassManager{static_cast<mlir::PassManager *>(*task)};
+      /*enableDebugOptions=*/true);
+  if (!pipeline.isOk())
+    return wrap(pipeline.getStatus());
+  *result = MlirPassManager{static_cast<mlir::PassManager *>(*pipeline)};
   return mtrtStatusGetOk();
 }

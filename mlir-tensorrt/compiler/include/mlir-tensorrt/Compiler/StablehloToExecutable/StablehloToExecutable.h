@@ -33,7 +33,7 @@
 
 #include "mlir-tensorrt/Compiler/Client.h"
 #include "mlir-tensorrt/Compiler/Extension.h"
-#include "mlir-tensorrt/Compiler/OptionsProviders.h"
+#include "mlir-tensorrt/Compiler/Options.h"
 #include "mlir/Pass/PassManager.h"
 
 #ifdef MLIR_TRT_ENABLE_HLO
@@ -47,9 +47,9 @@ namespace mtrt::compiler {
 class StablehloToExecutableTask;
 
 struct StablehloToExecutableOptions
-    : public CompilationTaskOptions<ExecutorOptions, DeviceOptions,
-                                    BufferizationOptions> {
-  using CompilationTaskOptions::CompilationTaskOptions;
+    : public PipelineOptions<ExecutorOptions, DeviceOptions,
+                             BufferizationOptions> {
+  using PipelineOptions::PipelineOptions;
 
   //===----------------------------------------------------------------------===//
   // Options
@@ -106,12 +106,11 @@ struct StablehloToExecutableOptions
 // StableHloToExecutableTask
 //===----------------------------------------------------------------------===//
 
-/// A StableHloToExecutableTask is a concrete CompilationTask (PassManager) that
+/// A StableHloToExecutableTask is a concrete Pipeline (PassManager) that
 /// accepts StableHLO input IR and lowers it down to Executor IR which can be
 /// translated into a MLIR-TensorRT executable.
 class StablehloToExecutableTask
-    : public CompilationTask<StablehloToExecutableTask,
-                             StablehloToExecutableOptions> {
+    : public Pipeline<StablehloToExecutableTask, StablehloToExecutableOptions> {
 public:
   static llvm::StringRef getName() { return "stablehlo-to-executable"; }
 

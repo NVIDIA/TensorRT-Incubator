@@ -123,8 +123,7 @@ void StablehloToExecutableTensorRTExtension::populatePasses(
 void mtrt::compiler::registerTensorRTExtension(DialectRegistry &registry) {
   registerExtension(
       "stablehlo-to-executable", "tensorrt-extension",
-      [](CompilationTaskOptionsBase &ctx)
-          -> std::unique_ptr<TaskExtensionBase> {
+      [](PipelineOptionsBase &ctx) -> std::unique_ptr<TaskExtensionBase> {
         return std::make_unique<StablehloToExecutableTensorRTExtension>(ctx);
       });
 }

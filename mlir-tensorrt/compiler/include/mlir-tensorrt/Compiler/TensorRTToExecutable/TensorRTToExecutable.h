@@ -83,9 +83,9 @@ public:
 };
 
 struct TensorRTToExecutableOptions
-    : public CompilationTaskOptions<DeviceOptions, ExecutorOptions,
-                                    BufferizationOptions, TensorRTOptions> {
-  using CompilationTaskOptions::CompilationTaskOptions;
+    : public PipelineOptions<DeviceOptions, ExecutorOptions,
+                             BufferizationOptions, TensorRTOptions> {
+  using PipelineOptions::PipelineOptions;
 };
 
 //===----------------------------------------------------------------------===//
@@ -93,8 +93,7 @@ struct TensorRTToExecutableOptions
 //===----------------------------------------------------------------------===//
 
 class TensorRTToExecutableTask
-    : public CompilationTask<TensorRTToExecutableTask,
-                             TensorRTToExecutableOptions> {
+    : public Pipeline<TensorRTToExecutableTask, TensorRTToExecutableOptions> {
 public:
   TensorRTToExecutableTask(
       mlir::MLIRContext *ctx,
