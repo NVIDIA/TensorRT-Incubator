@@ -46,8 +46,7 @@ void populateCUDAToLLVMConversionPatterns(LLVMTypeConverter &typeConverter,
                                           RewritePatternSet &patterns);
 
 LogicalResult lowerCUDAGlobalsToLLVM(IRRewriter &rewriter, ModuleOp rootOp,
-                                     SymbolTableCollection &symbolTables,
-                                     llvm::StringRef artifactsDir = "");
+                                     SymbolTableCollection &symbolTables);
 
 } // namespace mlir
 

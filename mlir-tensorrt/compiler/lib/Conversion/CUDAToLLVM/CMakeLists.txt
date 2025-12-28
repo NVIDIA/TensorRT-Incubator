@@ -8,6 +8,8 @@ add_mlir_tensorrt_library(MLIRTensorRTCUDAToLLVM
     MLIRTensorRTCUDADialect
     MLIRTensorRTLLVMConversionUtils
     MLIRTensorRTPlanToLLVM
+    MLIRTensorRTSupportArtifactManager
+    MLIRTensorRTExecutorDialect
   MLIR_LIBS PUBLIC
     MLIRFuncDialect
     MLIRFuncTransforms

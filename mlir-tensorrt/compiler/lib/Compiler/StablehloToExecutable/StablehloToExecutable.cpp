@@ -234,9 +234,7 @@ void StablehloToExecutableTask::populatePassManager() {
 
     if (hostTarget == HostTarget::LLVM) {
       pm.addNestedPass<func::FuncOp>(LLVM::createLLVMRequestCWrappersPass());
-      ConvertCUDAToLLVMPassOptions cudaToLLVMOpts;
-      cudaToLLVMOpts.artifactsDirectory = options.artifactsDirectory;
-      pm.addPass(createConvertCUDAToLLVMPass(std::move(cudaToLLVMOpts)));
+      pm.addPass(createConvertCUDAToLLVMPass());
       pm.addPass(createConvertHostToLLVMPass());
 
       // Generally there is a lot of cleanup that can happen here after creation
@@ -247,13 +245,17 @@ void StablehloToExecutableTask::populatePassManager() {
     // For EmitC, just run Host-to-EmitC followed
     // by cleanup and expression forming.
     if (hostTarget == HostTarget::EmitC) {
-      mtrt::compiler::applyEmitCLoweringPipeline(pm,
-                                                 options.artifactsDirectory);
+      mtrt::compiler::applyEmitCLoweringPipeline(pm);
       // The EmitC "form-expressions" pass combines operations into
       // "expression regions" where possible, which allows the C++ translation
       // to be more concise.
       pm.addPass(emitc::createFormExpressionsPass());
     }
+    pm.addPass(mlir::executor::createExecutorSerializeArtifactsPass(
+        mlir::executor::ExecutorSerializeArtifactsPassOptions{
+            /*artifactsDirectory=*/options.artifactsDirectory,
+            /*createManifest=*/true,
+        }));
     return;
   }
 }

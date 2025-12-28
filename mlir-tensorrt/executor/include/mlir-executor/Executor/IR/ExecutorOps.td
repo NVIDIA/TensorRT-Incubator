@@ -1577,4 +1577,18 @@ def Executor_BufferBitcastOp : Executor_Op<"buffer_bitcast", [
 }
 
 
+//===----------------------------------------------------------------------===//
+// FileArtifactOp
+//===----------------------------------------------------------------------===//
+
+def Executor_FileArtifactOp : Executor_Op<"file_artifact", []> {
+  let description = [{
+    `executor.file_artifact` op declares a file artifact that will be
+    emitted to the artifacts directory.
+  }];
+  let arguments = (ins StrAttr:$path, ElementsAttr:$data);
+  let results = (outs );
+  let assemblyFormat = "$path `data` `(` $data `)` attr-dict";
+}
+
 #endif // MLIR_TENSORRT_DIALECT_EXECUTOR_IR_EXECUTOROPS_TD

@@ -24,6 +24,8 @@
 #include "mlir-tensorrt/Conversion/HostToEmitC/HostToEmitC.h"
 #include "mlir-executor/Executor/IR/Executor.h"
 #include "mlir-executor/Executor/IR/ExecutorAttributes.h"
+#include "mlir-executor/Executor/Transforms/Passes.h"
+#include "mlir-executor/Support/ArtifactManager.h"
 #include "mlir-tensorrt/Conversion/LLVMCommon/LLVMCommon.h"
 #include "mlir-tensorrt/Conversion/Passes.h"
 #include "mlir-tensorrt/Dialect/CUDA/IR/CUDADialect.h"
@@ -494,9 +496,8 @@ namespace {
 /// SymbolTable and be more efficient, this conversion step happens in a single
 /// linear walk prior to running pattern-based dialect conversion patterns.
 struct HostToEmitCGlobalsConverter {
-  HostToEmitCGlobalsConverter(ModuleOp module, std::string artifactsDir);
+  HostToEmitCGlobalsConverter(ModuleOp module);
   ModuleOp module;
-  std::string artifactsDir;
   MLIRContext *ctx{module.getContext()};
   SymbolTableCollection symbolTables;
   SymbolTable &symbolTable{symbolTables.getSymbolTable(module)};
@@ -535,9 +536,8 @@ private:
 };
 } // namespace
 
-HostToEmitCGlobalsConverter::HostToEmitCGlobalsConverter(
-    ModuleOp module, std::string artifactsDir)
-    : module(module), artifactsDir(artifactsDir) {}
+HostToEmitCGlobalsConverter::HostToEmitCGlobalsConverter(ModuleOp module)
+    : module(module) {}
 
 LogicalResult
 HostToEmitCGlobalsConverter::convert(trtrt::GetFunctionOp op,
@@ -559,13 +559,10 @@ LogicalResult HostToEmitCGlobalsConverter::convert(trtrt::CompiledFuncOp op) {
     return emitError(op.getLoc()) << "unhandled engine data attribute";
   MLIRContext *ctx = op->getContext();
 
-  std::string filename = (op.getName() + ".trtengine").str();
-  FailureOr<std::unique_ptr<llvm::ToolOutputFile>> outputFile =
-      serializeElementsAttrToFile(op.getLoc(), engineData, artifactsDir,
-                                  filename);
-  if (failed(outputFile))
-    return failure();
-  (*outputFile)->keep();
+  std::string relPath = mtrt::compiler::createCanonicalArtifactRelativePath(
+      op, mtrt::compiler::ArtifactKind::TRTEngine);
+  rewriter.setInsertionPoint(op);
+  rewriter.create<executor::FileArtifactOp>(op.getLoc(), relPath, engineData);
 
   rewriter.setInsertionPoint(op);
   Type cuEngineType = emitc::OpaqueType::get(ctx, "nvinfer1::ICudaEngine");
@@ -594,7 +591,7 @@ LogicalResult HostToEmitCGlobalsConverter::convert(trtrt::CompiledFuncOp op) {
         Value cuEngineL = b.create<emitc::GetGlobalOp>(
             loc, emitc::LValueType::get(cuEnginePtrType),
             cuEngineGlobal.getName());
-        Value filenameLiteral = builders.createStrLiteral(b, loc, filename);
+        Value filenameLiteral = builders.createStrLiteral(b, loc, relPath);
         Value cuEnginePtrVal = builders.createTensorRTEngine.create(
             b, loc, {args.front(), filenameLiteral});
         b.create<emitc::AssignOp>(loc, cuEngineL, cuEnginePtrVal);
@@ -693,7 +690,8 @@ LogicalResult HostToEmitCGlobalsConverter::convert(memref::GlobalOp op) {
   Type ptrType = builders.voidPtrType;
   const bool useFileExport = op.getType().getNumElements() > 128 ||
                              memSpace != plan::MemorySpace::host;
-  std::string filename = (op.getName() + ".constant.bin").str();
+  std::string relPath = mtrt::compiler::createCanonicalArtifactRelativePath(
+      op, mtrt::compiler::ArtifactKind::ConstantBlob);
 
   auto globalTypeAndInitialValue =
       [&]() -> FailureOr<std::pair<Type, Attribute>> {
@@ -708,14 +706,11 @@ LogicalResult HostToEmitCGlobalsConverter::convert(memref::GlobalOp op) {
 
     if (Attribute initialValue = op.getInitialValueAttr()) {
       if (useFileExport) {
+        OpBuilder::InsertionGuard g(rewriter);
         // export data to file.
-        FailureOr<std::unique_ptr<llvm::ToolOutputFile>> outputFile =
-            serializeElementsAttrToFile(op.getLoc(),
-                                        cast<ElementsAttr>(initialValue),
-                                        artifactsDir, filename);
-        if (failed(outputFile))
-          return failure();
-        (*outputFile)->keep();
+        rewriter.setInsertionPoint(op);
+        rewriter.create<executor::FileArtifactOp>(
+            op.getLoc(), relPath, cast<ElementsAttr>(initialValue));
         return std::make_pair(ptrType, Attribute{});
       }
 
@@ -752,7 +747,7 @@ LogicalResult HostToEmitCGlobalsConverter::convert(memref::GlobalOp op) {
               loc, globalLoadType, globalOp.getSymName());
           Value alignment =
               getI32Val(b, loc, op.getAlignment() ? *op.getAlignment() : 16);
-          Value filenameLiteral = builders.createStrLiteral(b, loc, filename);
+          Value filenameLiteral = builders.createStrLiteral(b, loc, relPath);
           Value memorySpaceVal =
               getI32Val(rewriter, loc, static_cast<int32_t>(*memSpace));
           Value buffer = builders.constantLoadFromFile.create(
@@ -839,65 +834,25 @@ LogicalResult HostToEmitCGlobalsConverter::convert(
 }
 
 LogicalResult HostToEmitCGlobalsConverter::convert(cuda::CompiledModuleOp op) {
-  std::string filename;
+  std::string relPath = mtrt::compiler::createCanonicalArtifactRelativePath(
+      op, mtrt::compiler::ArtifactKind::PTXModule);
   if (op.hasFileReference()) {
-    // If a file path is provided, prefer loading from a staged copy in
-    // `artifactsDir` to keep generated code relocatable.
-    llvm::SmallString<256> srcPath(op.getFilePath());
-    if (srcPath.empty())
-      return emitError(op.getLoc())
-             << "cuda.compiled_module 'file' attribute must not be empty";
-
-    // For absolute paths, stage to artifacts dir using only the basename.
-    // For relative paths, preserve the relative path under the artifacts dir.
-    llvm::SmallString<256> stagedRelPath;
-    if (llvm::sys::path::is_absolute(srcPath))
-      stagedRelPath = llvm::sys::path::filename(srcPath);
-    else
-      stagedRelPath = srcPath;
-
-    filename = stagedRelPath.str().str();
-
-    if (!artifactsDir.empty()) {
-      if (!llvm::sys::fs::is_directory(artifactsDir))
-        return module.emitError() << "artifacts-directory does not exist";
-
-      llvm::SmallString<256> stagedAbsPath(artifactsDir);
-      llvm::sys::path::append(stagedAbsPath, stagedRelPath);
-      llvm::sys::path::remove_dots(stagedAbsPath, /*remove_dot_dot=*/true);
-
-      // Ensure parent directories exist for relative paths.
-      if (std::error_code ec = llvm::sys::fs::create_directories(
-              llvm::sys::path::parent_path(stagedAbsPath)))
-        return emitError(op.getLoc())
-               << "failed to create directory for staged PTX file: "
-               << ec.message();
-
-      // If it's already staged, don't overwrite.
-      if (!llvm::sys::fs::exists(stagedAbsPath)) {
-        if (std::error_code ec =
-                llvm::sys::fs::copy_file(srcPath, stagedAbsPath))
-          return emitError(op.getLoc())
-                 << "failed to stage PTX file '" << srcPath << "' into '"
-                 << stagedAbsPath << "': " << ec.message();
-      }
-    } else {
-      // No artifacts dir: use the provided path directly at runtime.
-      filename = srcPath.str().str();
-    }
+    FailureOr<ElementsAttr> resourceAttr =
+        mtrt::compiler::createElementsAttrFromFile(
+            op.getLoc(), (op.getName() + "_data").str(), op.getFilePath());
+    if (failed(resourceAttr))
+      return failure();
+    rewriter.setInsertionPointAfter(op);
+    rewriter.create<executor::FileArtifactOp>(op.getLoc(), relPath,
+                                              *resourceAttr);
   } else if (auto cuModuleData =
                  dyn_cast_or_null<ElementsAttr>(op.getValueAttr())) {
     if (!cuModuleData.getElementType().isInteger(8))
       return emitError(op.getLoc())
              << "unhandled CUDA compiled module data attribute";
-
-    filename = (op.getName() + ".ptx").str();
-    FailureOr<std::unique_ptr<llvm::ToolOutputFile>> outputFile =
-        serializeElementsAttrToFile(op.getLoc(), cuModuleData, artifactsDir,
-                                    filename);
-    if (failed(outputFile))
-      return failure();
-    (*outputFile)->keep();
+    rewriter.setInsertionPointAfter(op);
+    rewriter.create<executor::FileArtifactOp>(op.getLoc(), relPath,
+                                              cuModuleData);
   } else {
     return emitError(op.getLoc())
            << "cuda.compiled_module must specify either 'value' or 'file'";
@@ -920,7 +875,7 @@ LogicalResult HostToEmitCGlobalsConverter::convert(cuda::CompiledModuleOp op) {
         Value cuModule = b.create<emitc::GetGlobalOp>(
             loc, emitc::LValueType::get(cuModuleType),
             cuModuleGlobal.getSymName());
-        Value filenameLiteral = builders.createStrLiteral(b, loc, filename);
+        Value filenameLiteral = builders.createStrLiteral(b, loc, relPath);
         cuModuleVal = builders.cudaModuleCreateFromPtxFile.create(
             b, loc, filenameLiteral);
         b.create<emitc::AssignOp>(loc, cuModule, cuModuleVal);
@@ -2114,6 +2069,7 @@ static void populateEmitCConversionPatternsAndLegality(
   typeConverter.addTargetMaterialization(materializeConversion);
 
   // Setup legality constraints.
+  target.addLegalOp<executor::FileArtifactOp>();
   target.addLegalOp<UnrealizedConversionCastOp>();
   target.addLegalDialect<emitc::EmitCDialect>();
   target.addIllegalDialect<trtrt::TensorRTRuntimeDialect, cuda::CUDADialect,
@@ -2189,24 +2145,13 @@ public:
       needsTensorRTRuntime |= isa<trtrt::TensorRTRuntimeDialect>(dialect);
     });
 
-    if (artifactsDirectory.empty()) {
-      moduleOp.emitError()
-          << "artifacts-dir must be provided for C++ generation";
-      return signalPassFailure();
-    }
-
-    if (!llvm::sys::fs::is_directory(artifactsDirectory)) {
-      moduleOp.emitError() << "artifacts directory does not exist";
-      return signalPassFailure();
-    }
-
     if (!moduleOp.getSymName())
       moduleOp.setSymName("unnamed_module");
 
     // Before running pattern-based conversion driver, handle ctor/dtor.
     IRRewriter rewriter(moduleOp->getContext());
 
-    HostToEmitCGlobalsConverter converter(moduleOp, artifactsDirectory);
+    HostToEmitCGlobalsConverter converter(moduleOp);
     if (failed(converter.convert()))
       return signalPassFailure();
 
@@ -2339,14 +2284,11 @@ public:
 };
 } // namespace
 
-void mtrt::compiler::applyEmitCLoweringPipeline(
-    mlir::OpPassManager &pm, llvm::StringRef artifactsDirectory) {
+void mtrt::compiler::applyEmitCLoweringPipeline(mlir::OpPassManager &pm) {
   pm.addNestedPass<mlir::func::FuncOp>(mlir::createConvertMathToEmitC());
   pm.addNestedPass<mlir::func::FuncOp>(mlir::arith::createArithExpandOpsPass());
   pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
   pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
-  pm.addPass(
-      mlir::createConvertHostToEmitCPass(mlir::ConvertHostToEmitCPassOptions{
-          /*artifactsDirectory=*/artifactsDirectory.str()}));
+  pm.addPass(mlir::createConvertHostToEmitCPass());
   pm.addPass(mlir::createReconcileUnrealizedCastsPass());
 }

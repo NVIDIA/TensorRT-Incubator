@@ -1,6 +1,6 @@
 // RUN: rm -rf %t || true
 // RUN: mkdir -p %t
-// RUN: mlir-tensorrt-opt -split-input-file -convert-host-to-emitc="artifacts-dir=%t" %s | \
+// RUN: mlir-tensorrt-opt -split-input-file -convert-host-to-emitc -executor-serialize-artifacts="artifacts-directory=%t create-manifest=true" %s | \
 // RUN: mlir-tensorrt-translate -split-input-file -mlir-to-cpp | FileCheck %s --check-prefix=CPP
 
 #host_pinned = #plan.memory_space<host_pinned>
@@ -224,7 +224,7 @@ func.func @test_launch(%arg0: memref<4xf32>, %arg1: index, %arg2: i32, %arg3: f3
 
 // CPP-LABEL: void unnamed_module_kernels_initialize() {
 // CPP: const char* {{.*}} = "kernel";
-// CPP: const char* {{.*}} = "kernels.ptx";
+// CPP: const char* {{.*}} = "unnamed_module/kernels.ptx";
 // CPP: mtrt::cuda_module_create_from_ptx_file
 // CPP: mtrt::cuda_module_get_func
 // CPP-LABEL: void unnamed_module_kernels_destroy() {

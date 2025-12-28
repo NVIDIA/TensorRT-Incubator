@@ -10,6 +10,7 @@ add_mlir_tensorrt_library(MLIRTensorRTHostToEmitC
     MLIRTensorRTCUDADialect
     MLIRTensorRTTensorRTRuntimeDialect
     MLIRTensorRTLLVMConversionUtils
+    MLIRTensorRTSupportArtifactManager
   MLIR_LIBS PUBLIC
     MLIRArithToEmitC
     MLIRArithTransforms

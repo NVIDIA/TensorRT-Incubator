@@ -21,6 +21,7 @@
 ///  Implementation of `convert-kernel-to-cuda` pass.
 ///
 //===----------------------------------------------------------------------===//
+#include "mlir-executor/Executor/IR/Executor.h"
 #include "mlir-kernel/Kernel/IR/Ops.h"
 #include "mlir-tensorrt/Conversion/Passes.h"
 #include "mlir-tensorrt/Dialect/CUDA/IR/CUDADialect.h"

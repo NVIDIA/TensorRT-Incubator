@@ -1,8 +1,8 @@
 install(
   FILES
-  MTRTRuntime.cpp
+  MTRTRuntimeCore.cpp
+  MTRTRuntimeCuda.cpp
   MTRTRuntimeTensorRT.cpp
-  MTRTRuntime.h
   MTRTRuntimeCore.h
   MTRTRuntimeCuda.h
   MTRTRuntimeTensorRT.h

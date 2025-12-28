@@ -9,6 +9,7 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "CUDAModule.h"
+#include "FileUtilities.h"
 #include "cuda.h"
 #include "mlir-executor/Runtime/Backend/Common/NvPtxCompilerUtils.h"
 #include "mlir-tensorrt-common/Support/Status.h"
@@ -148,32 +149,6 @@ CUmodule mtrt_cuda_module_load_from_ptx(const char *ptxData, size_t ptxLen) {
   return module;
 }
 
-static int readInputFile(const std::string &filename,
-                         std::vector<char> &buffer) {
-  // Open the binary file
-  std::ifstream file(filename, std::ios::binary | std::ios::ate);
-  if (!file) {
-    std::cerr << "Error opening file!" << std::endl;
-    return 1;
-  }
-
-  // Get the size of the file
-  std::streamsize size = file.tellg();
-
-  // Move back to the beginning of the file
-  file.seekg(0, std::ios::beg);
-
-  // Create a vector to hold the file contents
-  buffer.resize(size);
-
-  // Read the entire file into the vector
-  if (file.read(buffer.data(), size))
-    return 0;
-
-  std::cerr << "Error reading file!" << std::endl;
-  return 1;
-}
-
 CUmodule mtrt_cuda_module_load_from_ptx_file(const char *filename,
                                              size_t filenameLength) {
   int32_t device{0};
@@ -184,7 +159,7 @@ CUmodule mtrt_cuda_module_load_from_ptx_file(const char *filename,
   std::fstream fs(filename, std::fstream::in | std::fstream::binary);
 
   std::vector<char> buffer;
-  if (readInputFile(std::string(filename, filenameLength), buffer))
+  if (mtrtReadInputFile(std::string(filename, filenameLength), buffer))
     return nullptr;
 
   StatusOr<std::unique_ptr<mtrt::CuBinWrapper>> cubinWrapper =

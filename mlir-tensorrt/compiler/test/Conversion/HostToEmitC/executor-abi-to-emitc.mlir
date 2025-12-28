@@ -1,4 +1,4 @@
-// RUN: mlir-tensorrt-opt -split-input-file -convert-host-to-emitc="artifacts-dir=." -canonicalize -form-expressions  %s | \
+// RUN: mlir-tensorrt-opt -split-input-file -convert-host-to-emitc -canonicalize -form-expressions  %s | \
 // RUN: mlir-tensorrt-translate -split-input-file -mlir-to-cpp | FileCheck %s
 
 // Test Executor ABI recv/send conversion to EmitC
