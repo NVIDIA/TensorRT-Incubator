@@ -23,6 +23,8 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "MTRTRuntimeCore.h"
+#include "MTRTRuntimeStatus.h"
+#include <algorithm>
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
@@ -30,6 +32,9 @@
 #include <vector>
 
 using namespace mtrt;
+
+static std::vector<std::string>
+getSearchCandidates(const std::string &filename);
 
 #define MTRT_DBGF(fmt, ...)                                                    \
   do {                                                                         \
@@ -45,19 +50,61 @@ static const char *kArtifactsDirEnvironmentVariable = "MTRT_ARTIFACTS_DIR";
 [[maybe_unused]] static bool isDebugEnabled() {
   static bool isInitialized = false;
   static bool isEnabled = false;
-  if (!isInitialized)
+  if (!isInitialized) {
     isEnabled = getenv(kDebugEnvironmentVariable) != nullptr;
+    isInitialized = true;
+  }
   return isEnabled;
 }
+
+namespace {
+
+[[maybe_unused]] constexpr int32_t kPlanMemorySpaceUnknown = 0;
+[[maybe_unused]] constexpr int32_t kPlanMemorySpaceHost = 1;
+[[maybe_unused]] constexpr int32_t kPlanMemorySpaceHostPinned = 2;
+[[maybe_unused]] constexpr int32_t kPlanMemorySpaceDevice = 3;
+[[maybe_unused]] constexpr int32_t kPlanMemorySpaceUnified = 4;
+
+static inline bool isPowerOfTwo(uint32_t x) {
+  return x && ((x & (x - 1)) == 0);
+}
+
+static inline size_t roundUpTo(size_t value, size_t multiple) {
+  if (multiple == 0)
+    return value;
+  size_t rem = value % multiple;
+  if (rem == 0)
+    return value;
+  return value + (multiple - rem);
+}
+
+static Status reportFileOpenError(const std::string &filename) {
+  std::string msg;
+  msg += "Error opening file '";
+  msg += filename;
+  msg += "'.\nTried:\n";
+  for (const std::string &candidate : getSearchCandidates(filename)) {
+    msg += "  - ";
+    msg += candidate;
+    msg += "\n";
+  }
+  msg += "Hint: set ";
+  msg += kArtifactsDirEnvironmentVariable;
+  msg += " to the directory containing manifest.json\n";
+  mtrt::detail::set_last_error_message("%s", msg.c_str());
+  return mtrt::make_status(mtrt::ErrorCode::NotFound);
+}
+
+} // namespace
 
 //===----------------------------------------------------------------------===//
 // Helpers
 //===----------------------------------------------------------------------===//
 namespace mtrt::detail {
-int readInputFile(const std::string &filename, std::vector<char> &buffer);
-int readInputFile(const std::string &filename, char *buffer,
-                  size_t expectedSize);
-size_t getFileSize(const std::string &filename);
+Status readInputFile(const std::string &filename, std::vector<char> &buffer);
+Status readInputFile(const std::string &filename, char *buffer,
+                     size_t expectedSize);
+Status getFileSize(const std::string &filename, size_t *outSize);
 } // namespace mtrt::detail
 
 static bool isAbsolutePath(const std::string &path) {
@@ -98,42 +145,33 @@ getSearchCandidates(const std::string &filename) {
   return candidates;
 }
 
-size_t mtrt::detail::getFileSize(const std::string &filename) {
+Status mtrt::detail::getFileSize(const std::string &filename, size_t *outSize) {
+  if (!outSize)
+    MTRT_RETURN_ERROR(mtrt::ErrorCode::InvalidArgument,
+                      "outSize must not be null");
+  *outSize = 0;
   for (const std::string &candidate : getSearchCandidates(filename)) {
     std::ifstream file(candidate, std::ios::binary | std::ios::ate);
-    if (file)
-      return file.tellg();
+    if (file) {
+      *outSize = static_cast<size_t>(file.tellg());
+      return mtrt::ok();
+    }
   }
-  std::cerr << "Error opening file '" << filename << "'.\n";
-  std::cerr << "Tried:\n";
-  for (const std::string &candidate : getSearchCandidates(filename))
-    std::cerr << "  - " << candidate << "\n";
-  std::cerr << "Hint: set " << kArtifactsDirEnvironmentVariable
-            << " to the directory containing manifest.json\n";
-  return 0;
+  return reportFileOpenError(filename);
 }
 
-int mtrt::detail::readInputFile(const std::string &filename,
-                                std::vector<char> &buffer) {
+Status mtrt::detail::readInputFile(const std::string &filename,
+                                   std::vector<char> &buffer) {
   std::ifstream file;
-  std::string openedPath;
   for (const std::string &candidate : getSearchCandidates(filename)) {
     file.open(candidate, std::ios::binary | std::ios::ate);
     if (file) {
-      openedPath = candidate;
       break;
     }
     file.clear();
   }
-  if (!file) {
-    std::cerr << "Error opening file '" << filename << "'.\n";
-    std::cerr << "Tried:\n";
-    for (const std::string &candidate : getSearchCandidates(filename))
-      std::cerr << "  - " << candidate << "\n";
-    std::cerr << "Hint: set " << kArtifactsDirEnvironmentVariable
-              << " to the directory containing manifest.json\n";
-    return 1;
-  }
+  if (!file)
+    return reportFileOpenError(filename);
 
   // Get the size of the file
   std::streamsize size = file.tellg();
@@ -145,63 +183,153 @@ int mtrt::detail::readInputFile(const std::string &filename,
   buffer.resize(size);
 
   // Read the entire file into the vector
-  if (file.read(buffer.data(), size))
-    return 0;
-
-  std::cerr << "Error reading file!" << std::endl;
-  return 1;
+  if (!file.read(buffer.data(), size))
+    MTRT_RETURN_ERROR(mtrt::ErrorCode::IOError, "Error reading file '%s'",
+                      filename.c_str());
+  return mtrt::ok();
 }
 
-int mtrt::detail::readInputFile(const std::string &filename, char *buffer,
-                                size_t expectedSize) {
+Status mtrt::detail::readInputFile(const std::string &filename, char *buffer,
+                                   size_t expectedSize) {
+  if (!buffer && expectedSize != 0)
+    MTRT_RETURN_ERROR(mtrt::ErrorCode::InvalidArgument,
+                      "buffer must not be null when expectedSize != 0");
   std::ifstream file;
-  std::string openedPath;
   for (const std::string &candidate : getSearchCandidates(filename)) {
     file.open(candidate, std::ios::binary | std::ios::ate);
     if (file) {
-      openedPath = candidate;
       break;
     }
     file.clear();
   }
-  if (!file) {
-    std::cerr << "Error opening file '" << filename << "'.\n";
-    std::cerr << "Tried:\n";
-    for (const std::string &candidate : getSearchCandidates(filename))
-      std::cerr << "  - " << candidate << "\n";
-    std::cerr << "Hint: set " << kArtifactsDirEnvironmentVariable
-              << " to the directory containing manifest.json\n";
-    return 1;
-  }
+  if (!file)
+    return reportFileOpenError(filename);
 
   // Get the size of the file
   size_t size = file.tellg();
 
   if (size != expectedSize) {
-    std::cerr << "Error: file size mismatch: " << size << " != " << expectedSize
-              << std::endl;
-    return 1;
+    MTRT_RETURN_ERROR(mtrt::ErrorCode::IOError,
+                      "file size mismatch for '%s': %zu != %zu",
+                      filename.c_str(), size, expectedSize);
   }
 
   // Move back to the beginning of the file
   file.seekg(0, std::ios::beg);
 
   // Read the entire file into the vector
-  if (file.read(buffer, size))
-    return 0;
-
-  std::cerr << "Error reading file!" << std::endl;
-  return 1;
+  if (!file.read(buffer, size))
+    MTRT_RETURN_ERROR(mtrt::ErrorCode::IOError, "Error reading file '%s'",
+                      filename.c_str());
+  return mtrt::ok();
 }
 
 //===----------------------------------------------------------------------===//
 // Host Memory Management
 //===----------------------------------------------------------------------===//
 
-void *mtrt::host_alloc(int64_t size, int32_t alignment) {
-  if (size % alignment != 0)
-    size = ((size + alignment - 1) / alignment) * alignment;
-  return std::aligned_alloc(size, alignment);
+Status mtrt::host_aligned_alloc(int64_t sizeBytes, int32_t alignment,
+                                void **outPtr) {
+  if (!outPtr)
+    MTRT_RETURN_ERROR(mtrt::ErrorCode::InvalidArgument,
+                      "outPtr must not be null");
+  *outPtr = nullptr;
+  if (sizeBytes < 0)
+    MTRT_RETURN_ERROR(mtrt::ErrorCode::InvalidArgument,
+                      "sizeBytes must be >= 0");
+  if (alignment <= 0 || !isPowerOfTwo(static_cast<uint32_t>(alignment)))
+    MTRT_RETURN_ERROR(mtrt::ErrorCode::InvalidArgument,
+                      "alignment must be a power-of-two > 0 (got %d)",
+                      alignment);
+  if (sizeBytes == 0)
+    return mtrt::ok();
+
+  size_t roundedSize =
+      roundUpTo(static_cast<size_t>(sizeBytes), static_cast<size_t>(alignment));
+  void *ptr = std::aligned_alloc(static_cast<size_t>(alignment), roundedSize);
+  if (!ptr)
+    MTRT_RETURN_ERROR(mtrt::ErrorCode::InternalError,
+                      "aligned_alloc failed (size=%zu align=%d)", roundedSize,
+                      alignment);
+  *outPtr = ptr;
+  return mtrt::ok();
 }
 
 void mtrt::host_free(void *ptr) { ::free(ptr); }
+
+namespace mtrt::detail {
+// These hooks are provided by MTRTRuntimeCuda.cpp when linked.
+Status cuda_alloc_and_copy_constant(int32_t space, const void *src,
+                                    size_t bytes, void **outPtr)
+    __attribute__((weak));
+Status cuda_free_constant(int32_t space, void *ptr) __attribute__((weak));
+} // namespace mtrt::detail
+
+Status mtrt::constant_load_from_file(const char *filename, int32_t align,
+                                     int32_t space, void **outPtr) {
+  if (!outPtr)
+    MTRT_RETURN_ERROR(mtrt::ErrorCode::InvalidArgument,
+                      "outPtr must not be null");
+  *outPtr = nullptr;
+  if (!filename || filename[0] == '\0')
+    MTRT_RETURN_ERROR(mtrt::ErrorCode::InvalidArgument,
+                      "filename must not be empty");
+
+  size_t fileSize = 0;
+  Status st = detail::getFileSize(filename, &fileSize);
+  if (st != mtrt::ok())
+    return st;
+
+  // Host-visible paths: read directly into the destination buffer.
+  if (space == kPlanMemorySpaceUnknown || space == kPlanMemorySpaceHost) {
+    void *buf = nullptr;
+    st = host_aligned_alloc(static_cast<int64_t>(fileSize),
+                            std::max<int32_t>(align, 1), &buf);
+    if (st != mtrt::ok())
+      return st;
+    st = detail::readInputFile(filename, reinterpret_cast<char *>(buf),
+                               fileSize);
+    if (st != mtrt::ok()) {
+      host_free(buf);
+      return st;
+    }
+    *outPtr = buf;
+    return mtrt::ok();
+  }
+
+  // Non-host spaces: require CUDA runtime support to allocate/copy.
+  if (!detail::cuda_alloc_and_copy_constant) {
+    MTRT_RETURN_ERROR(
+        mtrt::ErrorCode::Unimplemented,
+        "constant_load_from_file requested memory space %d but CUDA runtime "
+        "support is not linked; include/compile MTRTRuntimeCuda.cpp",
+        space);
+  }
+
+  std::vector<char> tmp;
+  st = detail::readInputFile(filename, tmp);
+  if (st != mtrt::ok())
+    return st;
+
+  return detail::cuda_alloc_and_copy_constant(space, tmp.data(), tmp.size(),
+                                              outPtr);
+}
+
+void mtrt::constant_destroy(void *data, int32_t space) {
+  if (!data)
+    return;
+  if (space == kPlanMemorySpaceUnknown || space == kPlanMemorySpaceHost) {
+    host_free(data);
+    return;
+  }
+  if (detail::cuda_free_constant) {
+    (void)detail::cuda_free_constant(space, data);
+    return;
+  }
+  // Best-effort fallback: avoid crashing if the caller uses a non-host space
+  // without linking CUDA support.
+  mtrt::detail::set_last_error_message(
+      "constant_destroy: cannot free pointer for memory space %d without CUDA "
+      "runtime support; include/compile MTRTRuntimeCuda.cpp",
+      space);
+}

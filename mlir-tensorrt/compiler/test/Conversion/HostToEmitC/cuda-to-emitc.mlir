@@ -10,16 +10,12 @@ func.func @zero_d_alloc() -> memref<1xf32, #host_pinned> {
 }
 
 // CPP-LABEL: mtrt::RankedMemRef<1> zero_d_alloc() {
-// CPP-NEXT:   int32_t [[v1:.+]] = 0;
-// CPP-NEXT:   CUstream [[v2:.+]] = nullptr;
-// CPP-NEXT:   int8_t [[v3:.+]] = 0;
-// CPP-NEXT:   int8_t [[v4:.+]] = 1;
-// CPP-NEXT:   int64_t [[v5:.+]] = 1;
-// CPP-NEXT:   int32_t [[v6:.+]] = 4;
-// CPP-NEXT:   int64_t [[v7:.+]] = [[v6]] * [[v5]];
-// CPP-NEXT:   void* [[v8:.+]] = mtrt::cuda_alloc([[v2]], [[v7]], [[v4]], [[v3]]);
-// CPP-NEXT:   mtrt::RankedMemRef<1> [[v9:.+]] = mtrt::make_memref_descriptor<1>([[v8]], [[v8]], [[v1]], [[v5]], [[v5]]);
-// CPP-NEXT:   return [[v9]];
+// CPP:   void* [[ptr:.+]] = nullptr;
+// CPP:   void** [[ptrAddr:.+]] = &[[ptr]];
+// CPP:   int32_t [[st:.+]] = mtrt::cuda_alloc({{.*}}, {{.*}}, {{.*}}, {{.*}}, [[ptrAddr]]);
+// CPP:   mtrt::abort_on_error([[st]]);
+// CPP:   mtrt::RankedMemRef<1> [[desc:.+]] = mtrt::make_memref_descriptor<1>({{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}});
+// CPP:   return [[desc]];
 
 // -----
 
@@ -32,7 +28,8 @@ func.func @device_free(%arg0: !cuda.stream, %arg1: !memref_4xi8) {
 // CPP-LABEL: void device_free(CUstream v1, mtrt::RankedMemRef<3> v2)
 // CPP-NEXT:   int8_t v3 = 0;
 // CPP-NEXT:   void* v4 = mtrt::memref_descriptor_get_allocated_ptr(v2);
-// CPP-NEXT:   mtrt::cuda_free(v1, v4, v3, v3);
+// CPP:        int32_t {{.*}} = mtrt::cuda_free(v1, v4, v3, v3);
+// CPP:        mtrt::abort_on_error({{.*}});
 // CPP-NEXT:   return;
 
 // -----
@@ -47,7 +44,8 @@ func.func @free_host_pinned(%arg0: !cuda.stream, %arg1: !memref_4xi8) {
 // CPP-NEXT:   int8_t v3 = 1;
 // CPP-NEXT:   int8_t v4 = 0;
 // CPP-NEXT:   void* v5 = mtrt::memref_descriptor_get_allocated_ptr(v2);
-// CPP-NEXT:   mtrt::cuda_free(v1, v5, v3, v4);
+// CPP:        int32_t {{.*}} = mtrt::cuda_free(v1, v5, v3, v4);
+// CPP:        mtrt::abort_on_error({{.*}});
 
 // -----
 
@@ -61,7 +59,8 @@ func.func @free_unified(%arg0: !cuda.stream, %arg1: !memref_4xi8) {
 // CPP-NEXT: int8_t v3 = 0;
 // CPP-NEXT: int8_t v4 = 1;
 // CPP-NEXT: void* v5 = mtrt::memref_descriptor_get_allocated_ptr(v2);
-// CPP-NEXT: mtrt::cuda_free(v1, v5, v3, v4);
+// CPP:      int32_t {{.*}} = mtrt::cuda_free(v1, v5, v3, v4);
+// CPP:      mtrt::abort_on_error({{.*}});
 // CPP-NEXT: return;
 
 // -----
@@ -100,7 +99,8 @@ func.func @copy_d2d(%arg0: !src_memref_type, %arg1: !dst_memref_type, %stream: !
 // CPP-NEXT:   int64_t v24 = mtrt::memref_descriptor_get_dim_size(v1, v5);
 // CPP-NEXT:   int64_t v25 = v23 * v24;
 // CPP-NEXT:   int64_t v26 = v25 * v4;
-// CPP-NEXT:   mtrt::cuda_copy(v3, v14, v19, v26);
+// CPP:        int32_t {{.*}} = mtrt::cuda_copy(v3, v14, v19, v26);
+// CPP:        mtrt::abort_on_error({{.*}});
 // CPP-NEXT:   return;
 
 // -----
@@ -129,7 +129,8 @@ func.func @copy_d2h_offset(%arg0: memref<128x16xf32, strided<[16, 1], offset: 16
 // CPP-NEXT:   int64_t v15 = v14 * v6;
 // CPP-NEXT:   void* v16 = v13 + v15;
 // CPP-NEXT:   int64_t v17 = v5 * v4;
-// CPP-NEXT:   mtrt::cuda_copy(v3, v11, v16, v17);
+// CPP:        int32_t {{.*}} = mtrt::cuda_copy(v3, v11, v16, v17);
+// CPP:        mtrt::abort_on_error({{.*}});
 // CPP-NEXT:   return;
 
 // -----
@@ -187,7 +188,8 @@ func.func @memref_copy_contiguous_non_identity(%arg0: !srcType, %arg1: !dstType,
 // CPP-NEXT:   int64_t v15 = v14 * v6;
 // CPP-NEXT:   void* v16 = v13 + v15;
 // CPP-NEXT:   int64_t v17 = v5 * v4;
-// CPP-NEXT:   mtrt::cuda_copy(v3, v11, v16, v17);
+// CPP:        int32_t {{.*}} = mtrt::cuda_copy(v3, v11, v16, v17);
+// CPP:        mtrt::abort_on_error({{.*}});
 
 // -----
 
@@ -222,10 +224,11 @@ func.func @test_launch(%arg0: memref<4xf32>, %arg1: index, %arg2: i32, %arg3: f3
 // CPP: void* {{.*}}[4];
 // CPP: mtrt::cuda_launch_kernel(
 
-// CPP-LABEL: void unnamed_module_kernels_initialize() {
+// CPP-LABEL: int32_t unnamed_module_kernels_initialize() {
 // CPP: const char* {{.*}} = "kernel";
 // CPP: const char* {{.*}} = "unnamed_module/kernels.ptx";
 // CPP: mtrt::cuda_module_create_from_ptx_file
 // CPP: mtrt::cuda_module_get_func
 // CPP-LABEL: void unnamed_module_kernels_destroy() {
 // CPP: mtrt::cuda_module_destroy
+// CPP: mtrt::abort_on_error

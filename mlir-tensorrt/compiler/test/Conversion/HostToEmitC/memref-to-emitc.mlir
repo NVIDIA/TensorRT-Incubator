@@ -31,13 +31,8 @@ func.func @get_global() {
 //       CHECK:     return
 
 // CHECK-LABEL: emitc.func @global_test_gv3_initialize
-//       CHECK:     %[[c1:.+]] = "emitc.constant"() <{value = 1 : i32}> : () -> i32
-//       CHECK:     %[[v0:.+]] = "emitc.constant"() <{value = #emitc.opaque<"\22global_test/gv3.bin\22">}>
-//       CHECK:     %[[v1:.+]] = "emitc.constant"() <{value = 16 : i32}> : () -> i32
-//       CHECK:     %[[v2:.+]] = get_global @gv3 :
-//       CHECK:     %[[v3:.+]] = call_opaque "mtrt::constant_load_from_file"(%[[v0]], %[[v1]], %[[c1]])
-//       CHECK:     assign %[[v3]] : !emitc.ptr<!emitc.opaque<"void">> to %[[v2]]
-//       CHECK:     return
+// CHECK: call_opaque "mtrt::constant_load_from_file"
+// CHECK: return
 // CHECK-LABEL: emitc.func @global_test_gv3_destroy
 //       CHECK:     %[[space:.+]] = "emitc.constant"
 //       CHECK:     %[[v0:.+]] = get_global @gv3 :
@@ -53,13 +48,13 @@ func.func @get_global() {
 // CPP:   mtrt::RankedMemRef<1> v4 = mtrt::make_memref_descriptor<1>(v3, v3, v1, 256, 1);
 // CPP:   return;
 
-// CPP: void global_test_gv3_initialize() {
-// CPP:   int32_t v1 = 1;
-// CPP:   const char* v2 = "global_test/gv3.bin";
-// CPP:   int32_t v3 = 16;
-// CPP:   void* v4 = mtrt::constant_load_from_file(v2, v3, v1);
-// CPP:   gv3 = v4;
-// CPP:   return;
+// CPP: int32_t global_test_gv3_initialize() {
+// CPP:   const char* {{.*}} = "global_test/gv3.bin";
+// CPP:   void* {{.*}} = nullptr;
+// CPP:   int32_t {{.*}} = mtrt::constant_load_from_file({{.*}}, {{.*}}, {{.*}}, {{.*}});
+// CPP:   if ({{.*}} != 0) { return {{.*}}; }
+// CPP:   gv3 = {{.*}};
+// CPP:   return {{.*}};
 
 // CPP: void global_test_gv3_destroy() {
 // CPP:   int32_t v1 = 1;
@@ -116,14 +111,12 @@ func.func @zero_d_alloc() -> memref<f32> {
 }
 
 // CPP-LABEL: mtrt::RankedMemRef<0> zero_d_alloc() {
-// CPP-NEXT:   int32_t v1 = 0;
-// CPP-NEXT:   int32_t v2 = 16;
-// CPP-NEXT:   int64_t v3 = 1;
-// CPP-NEXT:   int32_t v4 = 4;
-// CPP-NEXT:   int64_t v5 = v4 * v3;
-// CPP-NEXT:   void* v6 = mtrt::host_aligned_alloc(v5, v2);
-// CPP-NEXT:   mtrt::RankedMemRef<0> v7 = mtrt::make_memref_descriptor<0>(v6, v6, v1);
-// CPP-NEXT:   return v7;
+// CPP:   void* [[ptr:.+]] = nullptr;
+// CPP:   void** [[ptrAddr:.+]] = &[[ptr]];
+// CPP:   int32_t [[st:.+]] = mtrt::host_aligned_alloc({{.*}}, {{.*}}, [[ptrAddr]]);
+// CPP:   mtrt::abort_on_error([[st]]);
+// CPP:   mtrt::RankedMemRef<0> [[desc:.+]] = mtrt::make_memref_descriptor<0>({{.*}}, {{.*}}, {{.*}});
+// CPP:   return [[desc]];
 
 // -----
 
@@ -215,8 +208,11 @@ func.func @alloc_of_index() -> memref<42xindex> {
 // CPP-DAG: int64_t [[v4:.+]] = 1;
 // CPP-DAG: int32_t [[v5:.+]] = 8;
 // CPP-DAG: int64_t [[v6:.+]] = [[v5]] * [[v3]];
-// CPP-DAG: void* [[v7:.+]] = mtrt::host_aligned_alloc([[v6]], [[v2]]);
-// CPP-DAG: mtrt::RankedMemRef<1> [[v8:.+]] = mtrt::make_memref_descriptor<1>([[v7]], [[v7]], [[v1]], [[v3]], [[v4]]);
+// CPP-DAG: void* [[v7:.+]] = nullptr;
+// CPP-DAG: void** [[v7addr:.+]] = &[[v7]];
+// CPP-DAG: int32_t [[st:.+]] = mtrt::host_aligned_alloc([[v6]], [[v2]], [[v7addr]]);
+// CPP-DAG: mtrt::abort_on_error([[st]]);
+// CPP-DAG: mtrt::RankedMemRef<1> [[v8:.+]] = mtrt::make_memref_descriptor<1>({{.*}}, {{.*}}, [[v1]], [[v3]], [[v4]]);
 // CPP-DAG: return [[v8]];
 
 // -----
