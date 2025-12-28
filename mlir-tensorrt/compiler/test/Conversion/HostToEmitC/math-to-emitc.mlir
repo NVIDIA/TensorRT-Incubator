@@ -1,6 +1,4 @@
-// RUN: rm -rf %t || true
-// RUN: mkdir -p %t
-// RUN: mlir-tensorrt-opt -split-input-file -convert-host-to-emitc="artifacts-dir=%t" %s | \
+// RUN: mlir-tensorrt-opt -split-input-file -convert-host-to-emitc %s | \
 // RUN: mlir-tensorrt-translate -split-input-file -mlir-to-cpp | FileCheck %s --check-prefix=CPP
 
 // Test Math Log conversion to EmitC
@@ -26,4 +24,3 @@ func.func @math_log_f64(%arg0: f64) -> f64 {
 // CPP-NEXT:   double v2 = log(v1);
 // CPP-NEXT:   return v2;
 // CPP-NEXT: }
-

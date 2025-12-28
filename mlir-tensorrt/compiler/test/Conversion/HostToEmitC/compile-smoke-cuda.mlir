@@ -3,7 +3,8 @@
 //
 // RUN: rm -rf %t || true
 // RUN: mkdir -p %t
-// RUN: mlir-tensorrt-opt %s -convert-host-to-emitc="artifacts-dir=%t" -canonicalize -form-expressions | \
+// RUN: mlir-tensorrt-opt %s -convert-host-to-emitc -executor-serialize-artifacts="artifacts-directory=%t create-manifest=true" \
+// RUN:   -canonicalize -form-expressions | \
 // RUN:   mlir-tensorrt-translate -mlir-to-cpp | tee %t/out.cpp | FileCheck %s
 // RUN: %host_cxx -fsyntax-only \
 // RUN:   -I%mtrt_src_dir/executor/lib/Runtime/StandaloneCPP \
@@ -23,5 +24,3 @@ module {
     return %c0 : i32
   }
 }
-
-

@@ -322,4 +322,22 @@ def ExecutorEmulateUnsupportedFloatsPass :
   ];
 }
 
+//===----------------------------------------------------------------------===//
+// ExecutorSerializeArtifactsPass
+//===----------------------------------------------------------------------===//
+
+def ExecutorSerializeArtifactsPass : ModuleLikePass<"executor-serialize-artifacts"> {
+  let summary = "Serializes artifacts to files";
+  let description = [{
+    This pass serializes artifacts to files.
+  }];
+
+  let options = [
+    Option<"artifactsDirectory", "artifacts-directory", "std::string", "\"\"",
+      "the directory to serialize artifacts to">,
+    Option<"createManifest", "create-manifest", "bool", "true",
+      "create a manifest file for the artifacts">,
+  ];
+}
+
 #endif // MLIR_TENSORRT_DIALECT_EXECUTOR_TRANSFORMS_PASSES_TD

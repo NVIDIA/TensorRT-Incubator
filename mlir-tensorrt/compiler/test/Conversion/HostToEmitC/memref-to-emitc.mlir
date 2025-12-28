@@ -1,13 +1,11 @@
-// RUN: rm -rf %t || true
-// RUN: mkdir -p %t
-
-// RUN: mlir-tensorrt-opt -split-input-file -convert-host-to-emitc="artifacts-dir=%t" %s | \
+// RUN: rm -rf %t && mkdir -p %t
+// RUN: mlir-tensorrt-opt -split-input-file -convert-host-to-emitc --executor-serialize-artifacts="artifacts-directory=%t" %s | \
 // RUN: tee %t/out.mlir | \
 // RUN: mlir-tensorrt-translate -split-input-file -mlir-to-cpp | FileCheck %s --check-prefix=CPP
-// RUN: test -f %t/gv3.constant.bin
+// RUN: test -f %t/global_test/gv3.bin
 // RUN: FileCheck --check-prefix=CHECK %s < %t/out.mlir
 
-
+module @global_test {
 
 memref.global @gv2 : memref<2x3xf32> = dense<[[0.0, 1.0, 2.0], [3.0, 4.0, 5.0]]>
 memref.global @gv3 : memref<256xf32> = dense<0.0>
@@ -17,6 +15,8 @@ func.func @get_global() {
   %2 = memref.get_global @gv2 : memref<2x3xf32>
   %3 = memref.get_global @gv3 : memref<256xf32>
   return
+}
+
 }
 
 //       CHECK:   emitc.global @gv2 : !emitc.array<2x3xf32> = dense<{{.*}}>
@@ -30,15 +30,15 @@ func.func @get_global() {
 //       CHECK:     %[[v5:.+]] = emitc.call_opaque "mtrt::make_memref_descriptor"
 //       CHECK:     return
 
-// CHECK-LABEL: emitc.func @unnamed_module_gv3_initialize
+// CHECK-LABEL: emitc.func @global_test_gv3_initialize
 //       CHECK:     %[[c1:.+]] = "emitc.constant"() <{value = 1 : i32}> : () -> i32
-//       CHECK:     %[[v0:.+]] = "emitc.constant"() <{value = #emitc.opaque<"\22gv3.constant.bin\22">}>
+//       CHECK:     %[[v0:.+]] = "emitc.constant"() <{value = #emitc.opaque<"\22global_test/gv3.bin\22">}>
 //       CHECK:     %[[v1:.+]] = "emitc.constant"() <{value = 16 : i32}> : () -> i32
 //       CHECK:     %[[v2:.+]] = get_global @gv3 :
 //       CHECK:     %[[v3:.+]] = call_opaque "mtrt::constant_load_from_file"(%[[v0]], %[[v1]], %[[c1]])
 //       CHECK:     assign %[[v3]] : !emitc.ptr<!emitc.opaque<"void">> to %[[v2]]
 //       CHECK:     return
-// CHECK-LABEL: emitc.func @unnamed_module_gv3_destroy
+// CHECK-LABEL: emitc.func @global_test_gv3_destroy
 //       CHECK:     %[[space:.+]] = "emitc.constant"
 //       CHECK:     %[[v0:.+]] = get_global @gv3 :
 //       CHECK:     %[[v1:.+]] = load %[[v0]] :
@@ -53,15 +53,15 @@ func.func @get_global() {
 // CPP:   mtrt::RankedMemRef<1> v4 = mtrt::make_memref_descriptor<1>(v3, v3, v1, 256, 1);
 // CPP:   return;
 
-// CPP: void unnamed_module_gv3_initialize() {
+// CPP: void global_test_gv3_initialize() {
 // CPP:   int32_t v1 = 1;
-// CPP:   const char* v2 = "gv3.constant.bin";
+// CPP:   const char* v2 = "global_test/gv3.bin";
 // CPP:   int32_t v3 = 16;
 // CPP:   void* v4 = mtrt::constant_load_from_file(v2, v3, v1);
 // CPP:   gv3 = v4;
 // CPP:   return;
 
-// CPP: void unnamed_module_gv3_destroy() {
+// CPP: void global_test_gv3_destroy() {
 // CPP:   int32_t v1 = 1;
 // CPP:   void* v2 = gv3;
 // CPP:   mtrt::constant_destroy(v2, v1);

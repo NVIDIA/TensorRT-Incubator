@@ -1,6 +1,6 @@
 // RUN: rm -rf %t || true
 // RUN: mkdir -p %t
-// RUN: mlir-tensorrt-opt -split-input-file -convert-host-to-emitc="artifacts-dir=%t" %s | \
+// RUN: mlir-tensorrt-opt -split-input-file -convert-host-to-emitc -executor-serialize-artifacts="artifacts-directory=%t create-manifest=true" %s | \
 // RUN: mlir-tensorrt-translate -split-input-file -mlir-to-cpp | FileCheck %s --check-prefix=CPP
 
 // Test ControlFlow Assert conversion to EmitC

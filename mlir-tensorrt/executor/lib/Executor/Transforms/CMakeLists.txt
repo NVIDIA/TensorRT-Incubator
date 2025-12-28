@@ -12,6 +12,7 @@ add_mlir_executor_library(MLIRTensorRTExecutorTransforms
   PackArguments.cpp
   Passes.cpp
   PopulateFunctionMetadata.cpp
+  SerializeArtifacts.cpp
 
   DEPENDS
   MLIRTensorRTExecutorTransformsPassIncGen
@@ -22,6 +23,7 @@ add_mlir_executor_library(MLIRTensorRTExecutorTransforms
     MLIRTensorRTExecutorUtils
     MLIRTensorRTRuntimeExecutableInterface
     MLIRTensorRTStdToExecutor
+    MLIRTensorRTSupportArtifactManager
   MLIR_LIBS PUBLIC
     MLIRAffineToStandard
     MLIRBufferizationDialect

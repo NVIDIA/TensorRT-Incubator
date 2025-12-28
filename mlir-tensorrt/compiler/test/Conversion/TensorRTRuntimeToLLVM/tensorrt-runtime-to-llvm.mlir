@@ -1,11 +1,5 @@
 // RUN: mlir-tensorrt-opt -split-input-file -convert-tensorrt-runtime-to-llvm %s | FileCheck %s
 
-// RUN: rm -rf %t.artifacts
-// RUN: mkdir -p %t.artifacts
-// RUN: mlir-tensorrt-opt -split-input-file -convert-tensorrt-runtime-to-llvm="artifacts-dir=%t.artifacts" %s | FileCheck %s --check-prefix=FILE
-// RUN: test -f %t.artifacts/foo.trt_plan.bin
-// RUN: test -f %t.artifacts/bar.trt_plan.bin
-
 func.func @test_enqueue() -> (!trtrt.context, !trtrt.context, !trtrt.context) {
   %1 = trtrt.get_function @foo : !trtrt.context
   %2 = trtrt.get_function @bar : !trtrt.context
@@ -45,9 +39,9 @@ trtrt.compiled_func @bar dense<[0,1,2,3,4,5,6,7]> : vector<8xi8>
 // CHECK-LABEL: llvm.func @foo_context_init
 //   CHECK-DAG:     %[[v0:.+]] = llvm.mlir.addressof @tensorrt_runtime : !llvm.ptr
 //   CHECK-DAG:     %[[v1:.+]] = llvm.load %[[v0]] : !llvm.ptr -> !llvm.ptr
-//   CHECK-DAG:     %[[v2:.+]] = llvm.mlir.addressof @foo.data : !llvm.ptr
-//   CHECK-DAG:     %[[v3:.+]] = llvm.mlir.constant(8 : i64) : i64
-//   CHECK-DAG:     %[[v4:.+]] = llvm.call @mtrt_load_tensorrt_engine(%[[v1]], %[[v2]], %[[v3]]) : (!llvm.ptr, !llvm.ptr, i64) -> !llvm.ptr
+//   CHECK-DAG:     %[[v2:.+]] = llvm.mlir.addressof @foo_filename : !llvm.ptr
+//   CHECK-DAG:     %[[v3:.+]] = llvm.mlir.constant(31 : i64) : i64
+//   CHECK-DAG:     %[[v4:.+]] = llvm.call @mtrt_load_tensorrt_engine_from_file(%[[v1]], %[[v2]], %[[v3]]) : (!llvm.ptr, !llvm.ptr, i64) -> !llvm.ptr
 //   CHECK-DAG:     %[[v5:.+]] = llvm.mlir.addressof @foo.context : !llvm.ptr
 //   CHECK-DAG:     llvm.store %[[v4]], %[[v5]] : !llvm.ptr, !llvm.ptr
 //   CHECK-DAG:   llvm.mlir.global_ctors ctors = [@foo_context_init], priorities = [9 : i32]
@@ -61,9 +55,9 @@ trtrt.compiled_func @bar dense<[0,1,2,3,4,5,6,7]> : vector<8xi8>
 // CHECK-LABEL: llvm.func @bar_context_init
 //   CHECK-DAG:     %[[v0:.+]] = llvm.mlir.addressof @tensorrt_runtime : !llvm.ptr
 //   CHECK-DAG:     %[[v1:.+]] = llvm.load %[[v0]] : !llvm.ptr -> !llvm.ptr
-//   CHECK-DAG:     %[[v2:.+]] = llvm.mlir.addressof @bar.data : !llvm.ptr
-//   CHECK-DAG:     %[[v3:.+]] = llvm.mlir.constant(8 : i64) : i64
-//   CHECK-DAG:     %[[v4:.+]] = llvm.call @mtrt_load_tensorrt_engine(%[[v1]], %[[v2]], %[[v3]]) : (!llvm.ptr, !llvm.ptr, i64) -> !llvm.ptr
+//   CHECK-DAG:     %[[v2:.+]] = llvm.mlir.addressof @bar_filename : !llvm.ptr
+//   CHECK-DAG:     %[[v3:.+]] = llvm.mlir.constant(31 : i64) : i64
+//   CHECK-DAG:     %[[v4:.+]] = llvm.call @mtrt_load_tensorrt_engine_from_file(%[[v1]], %[[v2]], %[[v3]]) : (!llvm.ptr, !llvm.ptr, i64) -> !llvm.ptr
 //   CHECK-DAG:     %[[v5:.+]] = llvm.mlir.addressof @bar.context : !llvm.ptr
 //   CHECK-DAG:     llvm.store %[[v4]], %[[v5]] : !llvm.ptr, !llvm.ptr
 //   CHECK-DAG:   llvm.mlir.global_ctors ctors = [@bar_context_init], priorities = [9 : i32]

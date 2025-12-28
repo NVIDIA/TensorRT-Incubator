@@ -22,6 +22,8 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt/Conversion/TensorRTRuntimeToLLVM/TensorRTRuntimeToLLVM.h"
+#include "mlir-executor/Executor/IR/Executor.h"
+#include "mlir-executor/Support/ArtifactManager.h"
 #include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
 #include "mlir-tensorrt/Conversion/CUDAToLLVM/CUDAToLLVM.h"
 #include "mlir-tensorrt/Conversion/LLVMCommon/LLVMCommon.h"
@@ -112,10 +114,8 @@ protected:
 
 namespace {
 struct TensorRTRuntimeToLLVMOneShotConverter {
-  TensorRTRuntimeToLLVMOneShotConverter(ModuleOp module,
-                                        StringRef artifactsDir);
+  TensorRTRuntimeToLLVMOneShotConverter(ModuleOp module);
   ModuleOp module;
-  std::string artifactsDir;
   MLIRContext *ctx{module.getContext()};
   SymbolTableCollection symbolTables;
   SymbolTable &symbolTable{symbolTables.getSymbolTable(module)};
@@ -135,8 +135,8 @@ struct TensorRTRuntimeToLLVMOneShotConverter {
 } // namespace
 
 TensorRTRuntimeToLLVMOneShotConverter::TensorRTRuntimeToLLVMOneShotConverter(
-    ModuleOp module, StringRef artifactsDir)
-    : module(module), artifactsDir(artifactsDir.str()) {}
+    ModuleOp module)
+    : module(module) {}
 
 LogicalResult TensorRTRuntimeToLLVMOneShotConverter::convert(
     trtrt::GetFunctionOp op, LLVM::GlobalOp executionContextGlobal) {
@@ -157,32 +157,13 @@ TensorRTRuntimeToLLVMOneShotConverter::convert(trtrt::CompiledFuncOp op) {
   if (!engineData || !engineData.getElementType().isInteger(8))
     return emitError(op.getLoc()) << "unhandled engine data attribute";
   StringRef engineName = op.getName();
-  MLIRContext *ctx = op->getContext();
-  ArrayRef<char> values = engineData.getRawData();
-  auto data = DenseI8ResourceElementsAttr::get(
-      VectorType::get({static_cast<int64_t>(engineData.size())},
-                      IntegerType::get(ctx, 8)),
-      engineName,
-      HeapAsmResourceBlob::allocateAndCopyWithAlign(values, alignof(char),
-                                                    /*dataIsMutable=*/true));
 
   Location loc = op.getLoc();
-  LLVM::GlobalOp dataGlobalOp;
-  if (artifactsDir.empty()) {
-    dataGlobalOp = insertLLVMGlobal(
-        rewriter, loc, (engineName + ".data").str(), /*constant=*/true,
-        LLVM::LLVMArrayType::get(rewriter.getI8Type(), data.size()),
-        LLVM::Linkage::Private, data, &symbolTable);
-  } else {
-    if (!llvm::sys::fs::is_directory(artifactsDir))
-      return module.emitError() << "artifacts-directory does not exist";
-    FailureOr<std::unique_ptr<llvm::ToolOutputFile>> outputFile =
-        serializeElementsAttrToFile(loc, op.getValueAttr(), artifactsDir,
-                                    (op.getName() + ".trt_plan.bin").str());
-    if (failed(outputFile))
-      return failure();
-    (*outputFile)->keep();
-  }
+  std::string relPath = mtrt::compiler::createCanonicalArtifactRelativePath(
+      op, mtrt::compiler::ArtifactKind::TRTEngine);
+  rewriter.setInsertionPoint(op);
+  rewriter.create<executor::FileArtifactOp>(op.getLoc(), relPath,
+                                            cast<ElementsAttr>(op.getValue()));
 
   LLVM::GlobalOp contextGlobalOp =
       insertLLVMGlobal(rewriter, loc, (engineName + ".context").str(),
@@ -201,28 +182,17 @@ TensorRTRuntimeToLLVMOneShotConverter::convert(trtrt::CompiledFuncOp op) {
                                           loc, tensorrtRuntimeGlobal))
                 .getResult();
         Value engineContext{};
-        if (dataGlobalOp) {
-          Value engineAddr =
-              nested.create<LLVM::AddressOfOp>(loc, dataGlobalOp);
-          Value sizeVal = nested.create<LLVM::ConstantOp>(
-              loc, nested.getI64IntegerAttr(engineData.size()));
-          engineContext =
-              builderUtils.loadEngineCallBuilder
-                  .create(loc, nested, {trtRuntime, engineAddr, sizeVal},
-                          &symbolTable)
-                  .getResult();
-        } else {
-          std::string filename = (op.getName() + ".trt_plan.bin").str();
-          Value filenamePtr = insertLLVMStringLiteral(
-              rewriter, loc, filename, (op.getName() + "_filename").str());
-          Value filenameSize = rewriter.create<LLVM::ConstantOp>(
-              loc, rewriter.getI64IntegerAttr(filename.size()));
-          engineContext =
-              builderUtils.loadEngineFromFileCallBuilder
-                  .create(loc, nested, {trtRuntime, filenamePtr, filenameSize},
-                          &symbolTable)
-                  .getResult();
-        }
+
+        Value filenamePtr = insertLLVMStringLiteral(
+            rewriter, loc, relPath, (op.getName() + "_filename").str());
+        Value filenameSize = rewriter.create<LLVM::ConstantOp>(
+            loc, rewriter.getI64IntegerAttr(relPath.size()));
+        engineContext =
+            builderUtils.loadEngineFromFileCallBuilder
+                .create(loc, nested, {trtRuntime, filenamePtr, filenameSize},
+                        &symbolTable)
+                .getResult();
+
         nested.create<LLVM::StoreOp>(
             loc, engineContext,
             nested.create<LLVM::AddressOfOp>(loc, contextGlobalOp));
@@ -509,7 +479,7 @@ public:
   using Base::Base;
   void runOnOperation() override {
     ModuleOp rootOp = getOperation();
-    TensorRTRuntimeToLLVMOneShotConverter converter(rootOp, artifactsDirectory);
+    TensorRTRuntimeToLLVMOneShotConverter converter(rootOp);
     if (failed(converter.convert())) {
       emitError(rootOp.getLoc())
           << "failed to convert engine symbols in " << getArgument();

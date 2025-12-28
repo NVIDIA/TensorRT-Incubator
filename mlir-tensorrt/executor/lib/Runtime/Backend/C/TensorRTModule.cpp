@@ -57,33 +57,8 @@ static bool isDebugEnabled() {
   return isEnabled;
 }
 
-static int readInputFile(const std::string &filename,
-                         std::vector<char> &buffer) {
-  // Open the binary file
-  std::ifstream file(filename, std::ios::binary | std::ios::ate);
-  if (!file) {
-    std::cerr << "Error opening file!" << std::endl;
-    return 1;
-  }
-
-  // Get the size of the file
-  std::streamsize size = file.tellg();
-
-  // Move back to the beginning of the file
-  file.seekg(0, std::ios::beg);
-
-  // Create a vector to hold the file contents
-  buffer.resize(size);
-
-  // Read the entire file into the vector
-  if (file.read(buffer.data(), size))
-    return 0;
-
-  std::cerr << "Error reading file!" << std::endl;
-  return 1;
-}
-
 namespace {
+#include "FileUtilities.h"
 /// Template class for tensor IO descriptors.
 template <uint32_t Rank>
 struct MemRefDescriptor {
@@ -130,7 +105,7 @@ public:
   createFromFile(nvinfer1::IRuntime *runtime, const char *filename,
                  size_t filenameSize) {
     std::vector<char> fileData;
-    if (readInputFile(std::string(filename, filenameSize), fileData))
+    if (mtrtReadInputFile(std::string(filename, filenameSize), fileData))
       return nullptr;
     return std::unique_ptr<NvInferEngineWrapper>(
         new NvInferEngineWrapper(runtime, fileData.data(), fileData.size()));
@@ -276,7 +251,7 @@ public:
   createFromFile(nvinfer1::IRuntime *runtime, const char *filename,
                  size_t filenameSize) {
     std::vector<char> fileData;
-    if (readInputFile(std::string(filename, filenameSize), fileData))
+    if (mtrtReadInputFile(std::string(filename, filenameSize), fileData))
       return nullptr;
     return create(runtime, fileData.data(), fileData.size());
   }

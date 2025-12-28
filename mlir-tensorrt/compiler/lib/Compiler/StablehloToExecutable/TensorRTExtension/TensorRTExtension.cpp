@@ -108,9 +108,7 @@ void StablehloToExecutableTensorRTExtension::populatePasses(
       return;
     }
     if (options.hostTarget == HostTarget::LLVM) {
-      ConvertTensorRTRuntimeToLLVMPassOptions toLLVMOpts;
-      toLLVMOpts.artifactsDirectory = options.artifactsDirectory;
-      pm.addPass(createConvertTensorRTRuntimeToLLVMPass(std::move(toLLVMOpts)));
+      pm.addPass(createConvertTensorRTRuntimeToLLVMPass());
       return;
     }
   }
