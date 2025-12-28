@@ -22,11 +22,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "MTRTRuntimeTensorRT.h"
-
+#include "MTRTRuntimeStatus.h"
 #include <cstdio>
-#include <fstream>
-#include <iostream>
-#include <sstream>
 #include <string>
 #include <vector>
 
@@ -50,21 +47,9 @@ static bool isDebugEnabled() {
                    __LINE__, __func__, __VA_ARGS__);                           \
   } while (0)
 
-static int readInputFile(const std::string &filename,
-                         std::vector<char> &buffer) {
-  std::ifstream file(filename, std::ios::binary | std::ios::ate);
-  if (!file) {
-    std::cerr << "Error opening file!" << std::endl;
-    return 1;
-  }
-  std::streamsize size = file.tellg();
-  file.seekg(0, std::ios::beg);
-  buffer.resize(size);
-  if (file.read(buffer.data(), size))
-    return 0;
-  std::cerr << "Error reading file!" << std::endl;
-  return 1;
-}
+namespace mtrt::detail {
+Status readInputFile(const std::string &filename, std::vector<char> &buffer);
+} // namespace mtrt::detail
 
 /// Given a ranked descriptor, populate the ioAddress and ioShape fields.
 template <uint32_t Rank>
@@ -82,9 +67,9 @@ static void populateArgumentPack(const PtrAndShape<Rank> &desc,
 
 /// Dynamically dispatch over the parsing of the ranked descriptor:
 /// desc = struct{ int64_t rank, void* rankedDescriptor }
-static int dispatchPopulateArgumentPack(const UnrankedMemRef &desc,
-                                        void *&ioAddress,
-                                        nvinfer1::Dims &ioShape) {
+static Status dispatchPopulateArgumentPack(const UnrankedMemRef &desc,
+                                           void *&ioAddress,
+                                           nvinfer1::Dims &ioShape) {
   int64_t rank = desc.rank;
 #define HANDLE_CASE(R)                                                         \
   case R: {                                                                    \
@@ -104,16 +89,24 @@ static int dispatchPopulateArgumentPack(const UnrankedMemRef &desc,
     HANDLE_CASE(7)
     HANDLE_CASE(8)
   default:
-    return 1;
+    MTRT_RETURN_ERROR(mtrt::ErrorCode::InvalidArgument,
+                      "unsupported TensorRT arg rank %lld",
+                      static_cast<long long>(rank));
   }
 #undef HANDLE_CASE
-  return 0;
+  return mtrt::ok();
 }
 
-void mtrt::tensorrt_enqueue(nvinfer1::IExecutionContext *context,
-                            CUstream stream, int32_t numInputArgs,
-                            UnrankedMemRef *inputs, int32_t numOutputArgs,
-                            UnrankedMemRef *outputs) {
+Status mtrt::tensorrt_enqueue(nvinfer1::IExecutionContext *context,
+                              CUstream stream, int32_t numInputArgs,
+                              UnrankedMemRef *inputs, int32_t numOutputArgs,
+                              UnrankedMemRef *outputs) {
+  if (!context)
+    MTRT_RETURN_ERROR(mtrt::ErrorCode::InvalidArgument,
+                      "context must not be null");
+  if (numInputArgs < 0 || numOutputArgs < 0)
+    MTRT_RETURN_ERROR(mtrt::ErrorCode::InvalidArgument,
+                      "numInputs/numOutputs must be >= 0");
   const int32_t numTotalArgs = numInputArgs + numOutputArgs;
   for (int32_t i = 0; i < numTotalArgs; ++i) {
     const UnrankedMemRef &desc =
@@ -122,10 +115,9 @@ void mtrt::tensorrt_enqueue(nvinfer1::IExecutionContext *context,
     // Extract shape and ptr from the descriptor.
     void *ioAddr{nullptr};
     nvinfer1::Dims ioShape{};
-    if (dispatchPopulateArgumentPack(desc, ioAddr, ioShape)) {
-      std::cerr << "failed to parse TensorRT enqueue parameter pack";
-      return;
-    }
+    Status st = dispatchPopulateArgumentPack(desc, ioAddr, ioShape);
+    if (st != mtrt::ok())
+      return st;
 
     // Unfortunately TensorRT likes to address arguments by name. We use the
     // following convention in the compiler to generate names so that we don't
@@ -135,53 +127,79 @@ void mtrt::tensorrt_enqueue(nvinfer1::IExecutionContext *context,
                              : "result" + std::to_string(i - numInputArgs);
     bool result = context->setTensorAddress(ioName.c_str(), ioAddr);
     if (!result) {
-      std::stringstream ss;
       const nvinfer1::ICudaEngine &engine = context->getEngine();
-      ss << "Failed to set tensor address for IO tensor: " << ioName
-         << " at position " << i << "; the IO tensors are:\n";
-      for (int64_t j = 0; j < engine.getNbIOTensors(); j++) {
-        const char *name = engine.getIOTensorName(j);
-        ss << "[" << j << "] " << name << " : ";
-        if (engine.getTensorIOMode(name) == nvinfer1::TensorIOMode::kINPUT)
-          ss << "input";
-        else
-          ss << "output";
-        ss << "\n";
-      }
-      std::cerr << ss.str();
-      return;
+      // Keep the message short but actionable (full IO listing can be printed
+      // by the caller if desired).
+      MTRT_RETURN_ERROR(mtrt::ErrorCode::TensorRTError,
+                        "TensorRT setTensorAddress failed for '%s' (index=%d, "
+                        "nbIOTensors=%d)",
+                        ioName.c_str(), i, engine.getNbIOTensors());
     }
 
     if (i < numInputArgs) {
       bool ok = context->setInputShape(ioName.c_str(), ioShape);
       if (!ok) {
-        std::cerr << "failed to set input tensor shape for input: " << ioName
-                  << "\n";
-        return;
+        MTRT_RETURN_ERROR(mtrt::ErrorCode::TensorRTError,
+                          "TensorRT setInputShape failed for '%s'",
+                          ioName.c_str());
       }
     }
 
     MTRT_DBGF("Set tensor address [%d] = %p", i, ioAddr);
   }
-  context->enqueueV3(stream);
+  if (!context->enqueueV3(stream))
+    MTRT_RETURN_ERROR(mtrt::ErrorCode::TensorRTError,
+                      "TensorRT enqueueV3 failed");
+  return mtrt::ok();
 }
 
-nvinfer1::ICudaEngine *
+Status
 mtrt::tensorrt_engine_create_from_file(nvinfer1::IRuntime *runtime,
-                                       const char *filename) {
+                                       const char *filename,
+                                       nvinfer1::ICudaEngine **outEngine) {
+  if (!outEngine)
+    MTRT_RETURN_ERROR(mtrt::ErrorCode::InvalidArgument,
+                      "outEngine must not be null");
+  *outEngine = nullptr;
+  if (!runtime)
+    MTRT_RETURN_ERROR(mtrt::ErrorCode::InvalidArgument,
+                      "runtime must not be null");
+  if (!filename || filename[0] == '\0')
+    MTRT_RETURN_ERROR(mtrt::ErrorCode::InvalidArgument,
+                      "filename must not be empty");
   std::vector<char> data;
-  if (readInputFile(filename, data))
-    return nullptr;
-  return runtime->deserializeCudaEngine(data.data(), data.size());
+  Status st = detail::readInputFile(filename, data);
+  if (st != mtrt::ok())
+    return st;
+  nvinfer1::ICudaEngine *engine =
+      runtime->deserializeCudaEngine(data.data(), data.size());
+  if (!engine)
+    MTRT_RETURN_ERROR(mtrt::ErrorCode::TensorRTError,
+                      "deserializeCudaEngine failed for '%s'", filename);
+  *outEngine = engine;
+  return mtrt::ok();
 }
 
 void mtrt::tensorrt_engine_destroy(nvinfer1::ICudaEngine *engine) {
   ::delete engine;
 }
 
-nvinfer1::IExecutionContext *
-mtrt::tensorrt_execution_context_create(nvinfer1::ICudaEngine *engine) {
-  return engine->createExecutionContext();
+Status
+mtrt::tensorrt_execution_context_create(nvinfer1::ICudaEngine *engine,
+                                        nvinfer1::IExecutionContext **outCtx) {
+  if (!outCtx)
+    MTRT_RETURN_ERROR(mtrt::ErrorCode::InvalidArgument,
+                      "outCtx must not be null");
+  *outCtx = nullptr;
+  if (!engine)
+    MTRT_RETURN_ERROR(mtrt::ErrorCode::InvalidArgument,
+                      "engine must not be null");
+  nvinfer1::IExecutionContext *ctx = engine->createExecutionContext();
+  if (!ctx)
+    MTRT_RETURN_ERROR(mtrt::ErrorCode::TensorRTError,
+                      "createExecutionContext failed");
+  *outCtx = ctx;
+  return mtrt::ok();
 }
 
 void mtrt::tensorrt_execution_context_destroy(

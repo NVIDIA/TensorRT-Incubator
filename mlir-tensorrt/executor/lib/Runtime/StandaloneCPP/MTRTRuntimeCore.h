@@ -35,6 +35,8 @@
 #include <array>
 #include <cstdint>
 
+#include "MTRTRuntimeStatus.h"
+
 namespace mtrt {
 
 //===----------------------------------------------------------------------===//
@@ -170,13 +172,18 @@ int64_t memref_descriptor_get_stride(const RankedMemRef<Rank> &memref,
 //===----------------------------------------------------------------------===//
 
 /// Return an aligned allocation.
-void *host_alloc(int64_t size, int32_t alignment);
+/// On success, writes the allocated pointer to `outPtr`.
+Status host_aligned_alloc(int64_t sizeBytes, int32_t alignment, void **outPtr);
 
-/// Free an allocation from `host_alloc`.
+/// Free an allocation from `host_aligned_alloc`.
 void host_free(void *ptr);
 
-void *constant_load_from_file(const char *filename, int32_t align,
-                              int32_t space);
+/// Load a constant blob from `filename` (searched relative to
+/// `MTRT_ARTIFACTS_DIR` and the current working directory), allocating into a
+/// memory space implied by `space`. On success, writes the loaded pointer to
+/// `outPtr`.
+Status constant_load_from_file(const char *filename, int32_t align,
+                               int32_t space, void **outPtr);
 
 void constant_destroy(void *data, int32_t space);
 

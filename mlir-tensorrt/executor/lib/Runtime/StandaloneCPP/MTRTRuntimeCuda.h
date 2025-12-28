@@ -34,24 +34,27 @@ namespace mtrt {
 //===----------------------------------------------------------------------===//
 
 /// Return the current CUDA device.
-int32_t cuda_get_current_device();
+Status cuda_get_current_device(int32_t *outDevice);
 
 /// Synchronize a CUDA stream.
-void cuda_stream_sync(CUstream stream);
+Status cuda_stream_sync(CUstream stream);
 
 /// Perform a CUDA allocation.
-void *cuda_alloc(CUstream stream, int64_t size, bool isPinned, bool isManaged);
+Status cuda_alloc(CUstream stream, int64_t sizeBytes, bool isPinned,
+                  bool isManaged, void **outPtr);
 
-void cuda_free(CUstream stream, void *ptr, int8_t isHostPinned,
-               int8_t isManaged);
+Status cuda_free(CUstream stream, void *ptr, int8_t isHostPinned,
+                 int8_t isManaged);
 
-void cuda_copy(CUstream stream, void *src, void *dest, int64_t sizeBytes);
+Status cuda_copy(CUstream stream, void *src, void *dest, int64_t sizeBytes);
 
-CUmodule cuda_module_create_from_ptx_file(const char *filename);
+Status cuda_module_create_from_ptx_file(const char *filename,
+                                        CUmodule *outModule);
 
-void cuda_module_destroy(CUmodule module);
+Status cuda_module_destroy(CUmodule module);
 
-CUfunction cuda_module_get_func(CUmodule module, const char *name);
+Status cuda_module_get_func(CUmodule module, const char *name,
+                            CUfunction *outFunc);
 
 /// Push arguments into the array of pointers-to-arguments that will be given to
 /// a CUDA kernel launch.
@@ -66,10 +69,10 @@ inline void **cuda_launch_args_push(void **array,
 }
 
 /// Launch a simple CUDA kernel.
-void cuda_launch_kernel(CUfunction func, int32_t gridX, int32_t gridY,
-                        int32_t gridZ, int32_t blockX, int32_t blockY,
-                        int32_t blockZ, int32_t dynamicSharedMemoryBytes,
-                        CUstream stream, void **arguments);
+Status cuda_launch_kernel(CUfunction func, int32_t gridX, int32_t gridY,
+                          int32_t gridZ, int32_t blockX, int32_t blockY,
+                          int32_t blockZ, int32_t dynamicSharedMemoryBytes,
+                          CUstream stream, void **arguments);
 
 /// Copy `src` to `dest` assuming that both can be copied using
 /// `cudaMemcpyAsync` (e.g. both are device|host_pinned|unified memory spaces)

@@ -111,7 +111,9 @@ struct EmitCCallBuilders {
   Type i32Type = IntegerType::get(ctx, 32);
   Type i64Type = IntegerType::get(ctx, 64);
   Type cuModuleType = emitc::OpaqueType::get(ctx, "CUmodule");
+  Type cuModulePtrType = emitc::PointerType::get(cuModuleType);
   Type cuFuncType = emitc::OpaqueType::get(ctx, "CUfunction");
+  Type cuFuncPtrType = emitc::PointerType::get(cuFuncType);
   Type cuStreamType = emitc::OpaqueType::get(ctx, "CUstream");
 
   //===----------------------------------------------------------------------===//
@@ -120,13 +122,14 @@ struct EmitCCallBuilders {
 
   EmitCCallBuilder createTensorRTEngine = {
       "mtrt::tensorrt_engine_create_from_file",
-      cuEnginePtrType,
-      {trtRuntimePtrType, strLiteralType}};
+      i32Type,
+      {trtRuntimePtrType, strLiteralType,
+       emitc::PointerType::get(cuEnginePtrType)}};
 
   EmitCCallBuilder createExecutionContext = {
       "mtrt::tensorrt_execution_context_create",
-      trtExecCtxPtrType,
-      {cuEnginePtrType}};
+      i32Type,
+      {cuEnginePtrType, emitc::PointerType::get(trtExecCtxPtrType)}};
 
   EmitCCallBuilder trtEngineDestroy = {
       "mtrt::tensorrt_engine_destroy", {}, {cuEnginePtrType}};
@@ -134,7 +137,7 @@ struct EmitCCallBuilders {
       "mtrt::tensorrt_execution_context_destroy", {}, {trtExecCtxPtrType}};
 
   EmitCCallBuilder trtEnqueue = {"mtrt::tensorrt_enqueue",
-                                 {},
+                                 i32Type,
                                  {trtExecCtxPtrType, cuStreamType, i32Type,
                                   voidPtrPtrType, i32Type, voidPtrPtrType}};
 
@@ -143,13 +146,14 @@ struct EmitCCallBuilders {
   //===----------------------------------------------------------------------===//
 
   EmitCCallBuilder hostAlloc = {
-      "mtrt::host_aligned_alloc", {voidPtrType}, {i64Type, i32Type}};
+      "mtrt::host_aligned_alloc", i32Type, {i64Type, i32Type, voidPtrPtrType}};
   EmitCCallBuilder hostFree = {"mtrt::host_free", {}, {voidPtrType}};
 
   EmitCCallBuilder constantLoadFromFile = {
       "mtrt::constant_load_from_file",
-      {voidPtrType},
-      {strLiteralType, /*alignment*/ i32Type, /*memorySpace*/ i32Type}};
+      i32Type,
+      {strLiteralType, /*alignment*/ i32Type, /*memorySpace*/ i32Type,
+       voidPtrPtrType}};
   EmitCCallBuilder destroyConstant = {
       "mtrt::constant_destroy",
       {},
@@ -161,17 +165,42 @@ struct EmitCCallBuilders {
 
   EmitCCallBuilder cudaModuleCreateFromPtxFile = {
       "mtrt::cuda_module_create_from_ptx_file",
-      {cuModuleType},
-      {/*filename*/ strLiteralType}};
-  EmitCCallBuilder cudaModuleGetFunc = {
-      "mtrt::cuda_module_get_func",
-      {cuFuncType},
-      {/*module*/ cuModuleType, /*name*/ strLiteralType}};
+      i32Type,
+      {/*filename*/ strLiteralType, /*outModule*/ cuModulePtrType}};
+  EmitCCallBuilder cudaModuleGetFunc = {"mtrt::cuda_module_get_func",
+                                        i32Type,
+                                        {/*module*/ cuModuleType,
+                                         /*name*/ strLiteralType,
+                                         /*outFunc*/ cuFuncPtrType}};
   EmitCCallBuilder cudaModuleDestroy = {
-      "mtrt::cuda_module_destroy", {}, {cuModuleType}};
+      "mtrt::cuda_module_destroy", i32Type, {cuModuleType}};
+
+  EmitCCallBuilder cudaGetCurrentDevice = {
+      "mtrt::cuda_get_current_device",
+      i32Type,
+      {/*outDevice*/ emitc::PointerType::get(i32Type)}};
+
+  EmitCCallBuilder cudaStreamSync = {
+      "mtrt::cuda_stream_sync", i32Type, {cuStreamType}};
+
+  EmitCCallBuilder cudaAlloc = {
+      "mtrt::cuda_alloc",
+      i32Type,
+      {cuStreamType, i64Type, i8Type, i8Type, voidPtrPtrType}};
+
+  EmitCCallBuilder cudaCopy = {
+      "mtrt::cuda_copy",
+      i32Type,
+      {cuStreamType, voidPtrType, voidPtrType, i64Type}};
+
+  EmitCCallBuilder cudaLaunchKernel = {"mtrt::cuda_launch_kernel",
+                                       i32Type,
+                                       {cuFuncType, i32Type, i32Type, i32Type,
+                                        i32Type, i32Type, i32Type, i32Type,
+                                        cuStreamType, voidPtrPtrType}};
 
   EmitCCallBuilder cudaFree = {"mtrt::cuda_free",
-                               {},
+                               i32Type,
                                {cuStreamType, voidPtrType,
                                 /*isHostPinned*/ i8Type, /*isManaged*/ i8Type}};
 
@@ -305,6 +334,43 @@ emitc::CallOpaqueOp createCallOpaque(OpBuilder &rewriter, Location loc,
   return rewriter.create<emitc::CallOpaqueOp>(
       loc, result ? result : TypeRange{}, name, args,
       rewriter.getArrayAttr(indices));
+}
+
+static Value getAddrOfLValue(OpBuilder &b, Location loc, Value lvalue) {
+  auto lv = cast<emitc::LValueType>(lvalue.getType());
+  return b.create<emitc::ApplyOp>(
+      loc, emitc::PointerType::get(lv.getValueType()), "&", lvalue);
+}
+
+static FunctionOpInterface getParentFunction(Operation *op) {
+  assert(op && "expected operation");
+  auto funcLike = dyn_cast<FunctionOpInterface>(op);
+  return funcLike ? funcLike : op->getParentOfType<FunctionOpInterface>();
+}
+
+/// Emit a C++-level status check after a runtime call that returned an `i32`
+/// status code (0 == success).
+///
+/// - If we're inside a function that returns `i32`, emit `return status;` on
+///   failure so callers can propagate the error code.
+/// - Otherwise, call `mtrt::abort_on_error(status)` (this preserves existing
+///   non-status function signatures while avoiding silent failures).
+static void emitStatusCheckOrAbort(OpBuilder &b, Location loc, Value status) {
+  Operation *parentOp = b.getInsertionBlock()->getParentOp();
+  assert(parentOp && "expected parent operation");
+  // Try to find the parent function.
+  if (auto funcLike = getParentFunction(parentOp)) {
+    auto type = dyn_cast<FunctionType>(funcLike.getFunctionType());
+    if (type && type.getNumResults() == 1 && type.getResult(0).isInteger(32)) {
+      b.create<emitc::VerbatimOp>(
+          loc, b.getStringAttr("if ({} != 0) {{ return {}; }"),
+          ValueRange{status, status});
+      return;
+    }
+  }
+
+  b.create<emitc::VerbatimOp>(loc, b.getStringAttr("mtrt::abort_on_error({});"),
+                              status);
 }
 
 static void getMemRefDescriptorSizes(
@@ -492,9 +558,10 @@ static Value getStridedElementPtr(OpBuilder &rewriter, Location loc,
 //===----------------------------------------------------------------------===//
 
 namespace {
-/// A utility for converting global symbols and all their users to EmitC. To use
-/// SymbolTable and be more efficient, this conversion step happens in a single
-/// linear walk prior to running pattern-based dialect conversion patterns.
+/// A utility for converting global symbols and all their users to EmitC. To
+/// use SymbolTable and be more efficient, this conversion step happens in a
+/// single linear walk prior to running pattern-based dialect conversion
+/// patterns.
 struct HostToEmitCGlobalsConverter {
   HostToEmitCGlobalsConverter(ModuleOp module);
   ModuleOp module;
@@ -507,6 +574,13 @@ struct HostToEmitCGlobalsConverter {
   EmitCCallBuilders builders{ctx};
 
   emitc::GlobalOp streamGlobal{};
+
+  /// Names of generated init/destroy helpers with signature:
+  ///   - init:   `i32 ()`
+  ///   - destroy:`void ()`
+  /// These are safe to call from an aggregated init/destroy entrypoint.
+  SmallVector<std::string> noArgInitFuncs;
+  SmallVector<std::string> noArgDestroyFuncs;
 
   LogicalResult convert(trtrt::GetFunctionOp op,
                         emitc::GlobalOp executionContextGlobal);
@@ -579,33 +653,47 @@ LogicalResult HostToEmitCGlobalsConverter::convert(trtrt::CompiledFuncOp op) {
       cuEnginePtrType, Attribute{}, false, true, false);
 
   // Creat initialization and destroy functions for the TensorRT 'ICudaEngine'
-  // and 'IExecutionContext'. We keep them as separate globals here in order to
-  // make it easier to potentially use multiple execution contexts in the
+  // and 'IExecutionContext'. We keep them as separate globals here in order
+  // to make it easier to potentially use multiple execution contexts in the
   // future.
 
-  insertEmitCFunction(
+  emitc::FuncOp initFunc = insertEmitCFunction(
       rewriter, op.getLoc(), module,
-      (*module.getName() + "_" + op.getName() + "_initialize").str(), {},
+      (*module.getName() + "_" + op.getName() + "_initialize").str(), i32Type,
       {builders.trtRuntimePtrType},
       [&](OpBuilder &b, Location loc, ValueRange args) -> Value {
         Value cuEngineL = b.create<emitc::GetGlobalOp>(
             loc, emitc::LValueType::get(cuEnginePtrType),
             cuEngineGlobal.getName());
         Value filenameLiteral = builders.createStrLiteral(b, loc, relPath);
-        Value cuEnginePtrVal = builders.createTensorRTEngine.create(
-            b, loc, {args.front(), filenameLiteral});
+        Value cuEngineTmp = b.create<emitc::VariableOp>(
+            loc, emitc::LValueType::get(cuEnginePtrType),
+            emitc::OpaqueAttr::get(ctx, "nullptr"));
+        Value cuEngineTmpAddr = getAddrOfLValue(b, loc, cuEngineTmp);
+        Value st0 = builders.createTensorRTEngine.create(
+            b, loc, {args.front(), filenameLiteral, cuEngineTmpAddr});
+        emitStatusCheckOrAbort(b, loc, st0);
+        Value cuEnginePtrVal =
+            b.create<emitc::LoadOp>(loc, cuEnginePtrType, cuEngineTmp);
         b.create<emitc::AssignOp>(loc, cuEngineL, cuEnginePtrVal);
 
         Value trtExecCtxL = b.create<emitc::GetGlobalOp>(
             loc, emitc::LValueType::get(trtExecCtxPtrType),
             trtExecCtxGlobal.getName());
+        Value trtExecCtxTmp = b.create<emitc::VariableOp>(
+            loc, emitc::LValueType::get(trtExecCtxPtrType),
+            emitc::OpaqueAttr::get(ctx, "nullptr"));
+        Value trtExecCtxTmpAddr = getAddrOfLValue(b, loc, trtExecCtxTmp);
+        Value st1 = builders.createExecutionContext.create(
+            b, loc, {cuEnginePtrVal, trtExecCtxTmpAddr});
+        emitStatusCheckOrAbort(b, loc, st1);
         Value trtExecCtxVal =
-            builders.createExecutionContext.create(b, loc, {cuEnginePtrVal});
+            b.create<emitc::LoadOp>(loc, trtExecCtxPtrType, trtExecCtxTmp);
         b.create<emitc::AssignOp>(loc, trtExecCtxL, trtExecCtxVal);
-        return {};
+        return getI32Val(b, loc, 0);
       });
 
-  insertEmitCFunction(
+  emitc::FuncOp destroyFunc = insertEmitCFunction(
       rewriter, op.getLoc(), module,
       (*module.getName() + "_" + op.getName() + "_destroy").str(), {}, {},
       [&](OpBuilder &b, Location loc, ValueRange) -> Value {
@@ -624,6 +712,11 @@ LogicalResult HostToEmitCGlobalsConverter::convert(trtrt::CompiledFuncOp op) {
         builders.trtEngineDestroy.create(b, loc, cuEngine);
         return {};
       });
+
+  // initFunc takes a runtime pointer argument, so it can't be called from a
+  // no-arg aggregated initializer. The destroy helper is safe to call.
+  (void)initFunc;
+  noArgDestroyFuncs.push_back(destroyFunc.getName().str());
 
   for (Operation *user : userMap.getUsers(op)) {
     OpBuilder::InsertionGuard g(rewriter);
@@ -697,7 +790,8 @@ LogicalResult HostToEmitCGlobalsConverter::convert(memref::GlobalOp op) {
       [&]() -> FailureOr<std::pair<Type, Attribute>> {
     SmallVector<int64_t> arrayTypeShape(op.getType().getShape());
 
-    // We require "0 rank arrays" to be represented as "size-1 arrays" in EmitC.
+    // We require "0 rank arrays" to be represented as "size-1 arrays" in
+    // EmitC.
     const bool isZeroRank = arrayTypeShape.empty();
     if (isZeroRank)
       arrayTypeShape.push_back(1);
@@ -738,10 +832,10 @@ LogicalResult HostToEmitCGlobalsConverter::convert(memref::GlobalOp op) {
       std::get<Attribute>(*globalTypeAndInitialValue), false, op.isPrivate(),
       false);
   if (useFileExport) {
-    insertEmitCFunction(
+    emitc::FuncOp initFunc = insertEmitCFunction(
         rewriter, op.getLoc(), module,
-        (*module.getName() + "_" + op.getName() + "_initialize").str(), {}, {},
-        [&](OpBuilder &b, Location loc, ValueRange) -> Value {
+        (*module.getName() + "_" + op.getName() + "_initialize").str(), i32Type,
+        {}, [&](OpBuilder &b, Location loc, ValueRange) -> Value {
           Type globalLoadType = emitc::LValueType::get(ptrType);
           Value bufferPtrLVal = b.create<emitc::GetGlobalOp>(
               loc, globalLoadType, globalOp.getSymName());
@@ -750,12 +844,18 @@ LogicalResult HostToEmitCGlobalsConverter::convert(memref::GlobalOp op) {
           Value filenameLiteral = builders.createStrLiteral(b, loc, relPath);
           Value memorySpaceVal =
               getI32Val(rewriter, loc, static_cast<int32_t>(*memSpace));
-          Value buffer = builders.constantLoadFromFile.create(
-              b, loc, {filenameLiteral, alignment, memorySpaceVal});
+          Value tmp = b.create<emitc::VariableOp>(
+              loc, emitc::LValueType::get(ptrType),
+              emitc::OpaqueAttr::get(ctx, "nullptr"));
+          Value tmpAddr = getAddrOfLValue(b, loc, tmp);
+          Value st = builders.constantLoadFromFile.create(
+              b, loc, {filenameLiteral, alignment, memorySpaceVal, tmpAddr});
+          emitStatusCheckOrAbort(b, loc, st);
+          Value buffer = b.create<emitc::LoadOp>(loc, ptrType, tmp);
           b.create<emitc::AssignOp>(loc, bufferPtrLVal, buffer);
-          return {};
+          return getI32Val(b, loc, 0);
         });
-    insertEmitCFunction(
+    emitc::FuncOp destroyFunc = insertEmitCFunction(
         rewriter, op.getLoc(), module,
         (*module.getName() + "_" + op.getName() + "_destroy").str(), {}, {},
         [&](OpBuilder &b, Location loc, ValueRange) -> Value {
@@ -768,6 +868,9 @@ LogicalResult HostToEmitCGlobalsConverter::convert(memref::GlobalOp op) {
           builders.destroyConstant.create(b, loc, {bufferPtr, memorySpaceVal});
           return {};
         });
+
+    noArgInitFuncs.push_back(initFunc.getName().str());
+    noArgDestroyFuncs.push_back(destroyFunc.getName().str());
   }
 
   for (Operation *user : userMap.getUsers(op)) {
@@ -824,8 +927,15 @@ LogicalResult HostToEmitCGlobalsConverter::convert(
         loc, cuFuncLValType, funcGlobal.getSymName());
     Value strLiteral =
         builders.createStrLiteral(rewriter, loc, op.getKernelName());
-    Value cuFunc = builders.cudaModuleGetFunc.create(rewriter, loc,
-                                                     {cuModule, strLiteral});
+    Value cuFuncTmp = rewriter.create<emitc::VariableOp>(
+        loc, emitc::LValueType::get(builders.cuFuncType),
+        emitc::OpaqueAttr::get(ctx, "nullptr"));
+    Value cuFuncTmpAddr = getAddrOfLValue(rewriter, loc, cuFuncTmp);
+    Value st = builders.cudaModuleGetFunc.create(
+        rewriter, loc, {cuModule, strLiteral, cuFuncTmpAddr});
+    emitStatusCheckOrAbort(rewriter, loc, st);
+    Value cuFunc =
+        rewriter.create<emitc::LoadOp>(loc, builders.cuFuncType, cuFuncTmp);
     rewriter.create<emitc::AssignOp>(loc, cuFuncLVal, cuFunc);
   }
 
@@ -870,20 +980,25 @@ LogicalResult HostToEmitCGlobalsConverter::convert(cuda::CompiledModuleOp op) {
   Value cuModuleVal{};
   emitc::FuncOp ctorFunc = insertEmitCFunction(
       rewriter, op.getLoc(), module,
-      (*module.getName() + "_" + op.getName() + "_initialize").str(), {}, {},
-      [&](OpBuilder &b, Location loc, ValueRange) -> Value {
+      (*module.getName() + "_" + op.getName() + "_initialize").str(), i32Type,
+      {}, [&](OpBuilder &b, Location loc, ValueRange) -> Value {
         Value cuModule = b.create<emitc::GetGlobalOp>(
             loc, emitc::LValueType::get(cuModuleType),
             cuModuleGlobal.getSymName());
         Value filenameLiteral = builders.createStrLiteral(b, loc, relPath);
-        cuModuleVal = builders.cudaModuleCreateFromPtxFile.create(
-            b, loc, filenameLiteral);
+        Value tmp = b.create<emitc::VariableOp>(
+            loc, emitc::LValueType::get(cuModuleType),
+            emitc::OpaqueAttr::get(ctx, "nullptr"));
+        Value tmpAddr = getAddrOfLValue(b, loc, tmp);
+        Value st = builders.cudaModuleCreateFromPtxFile.create(
+            b, loc, {filenameLiteral, tmpAddr});
+        emitStatusCheckOrAbort(b, loc, st);
+        cuModuleVal = b.create<emitc::LoadOp>(loc, cuModuleType, tmp);
         b.create<emitc::AssignOp>(loc, cuModule, cuModuleVal);
-
-        return {};
+        return getI32Val(b, loc, 0);
       });
 
-  insertEmitCFunction(
+  emitc::FuncOp dtorFunc = insertEmitCFunction(
       rewriter, op.getLoc(), module,
       (*module.getName() + "_" + op.getName() + "_destroy").str(), {}, {},
       [&](OpBuilder &b, Location loc, ValueRange) -> Value {
@@ -892,9 +1007,13 @@ LogicalResult HostToEmitCGlobalsConverter::convert(cuda::CompiledModuleOp op) {
             cuModuleGlobal.getSymName());
         Value cuModule =
             b.create<emitc::LoadOp>(loc, cuModuleType, cuModuleRef);
-        builders.cudaModuleDestroy.create(b, loc, cuModule);
+        Value st = builders.cudaModuleDestroy.create(b, loc, {cuModule});
+        emitStatusCheckOrAbort(b, loc, st);
         return {};
       });
+
+  noArgInitFuncs.push_back(ctorFunc.getName().str());
+  noArgDestroyFuncs.push_back(dtorFunc.getName().str());
 
   llvm::SmallDenseMap<StringAttr, emitc::GlobalOp> cuFuncCache;
   for (Operation *user : userMap.getUsers(op)) {
@@ -915,8 +1034,8 @@ LogicalResult HostToEmitCGlobalsConverter::convert(cuda::CompiledModuleOp op) {
 
 LogicalResult HostToEmitCGlobalsConverter::convert() {
   // Only materialize the CUDA stream global if the module actually uses CUDA
-  // stream ops. This prevents non-CUDA EmitC outputs from requiring CUDA types
-  // (e.g. `CUstream`) and headers at compile time.
+  // stream ops. This prevents non-CUDA EmitC outputs from requiring CUDA
+  // types (e.g. `CUstream`) and headers at compile time.
   SmallVector<Operation *> cudaStreamOps;
   module.walk([&](Operation *op) {
     if (isa<cuda::GetGlobalStreamOp>(op))
@@ -977,6 +1096,41 @@ LogicalResult HostToEmitCGlobalsConverter::convert() {
       if (failed(convert(cudaOp)))
         return failure();
     }
+  }
+
+  // Emit aggregated no-arg init/destroy helpers to simplify drivers.
+  // - init returns i32 Status (0 == success)
+  // - destroy is best-effort void
+  if (!noArgInitFuncs.empty() || !noArgDestroyFuncs.empty()) {
+    rewriter.setInsertionPointToEnd(module.getBody());
+
+    std::string modName =
+        (module.getSymName() ? *module.getSymName() : "unnamed_module").str();
+    std::string initAllName = modName + "_initialize_all";
+    std::string destroyAllName = modName + "_destroy_all";
+
+    // int32_t <module>_initialize_all()
+    insertEmitCFunction(
+        rewriter, module.getLoc(), module, initAllName, i32Type, {},
+        [&](OpBuilder &b, Location loc, ValueRange) -> Value {
+          for (const std::string &fn : noArgInitFuncs) {
+            Value st = createCallOpaque(b, loc, i32Type, fn, ValueRange{})
+                           .getResult(0);
+            emitStatusCheckOrAbort(b, loc, st);
+          }
+          return getI32Val(b, loc, 0);
+        });
+
+    // void <module>_destroy_all()
+    insertEmitCFunction(
+        rewriter, module.getLoc(), module, destroyAllName, {}, {},
+        [&](OpBuilder &b, Location loc, ValueRange) -> Value {
+          for (auto it = noArgDestroyFuncs.rbegin();
+               it != noArgDestroyFuncs.rend(); ++it) {
+            (void)createCallOpaque(b, loc, Type{}, *it, ValueRange{});
+          }
+          return {};
+        });
   }
 
   return success();
@@ -1121,10 +1275,11 @@ struct TRTEnqueueConverter : EmitCConversionPattern<trtrt::EnqueueOp> {
         op.getLoc(), rewriter.getI32Type(),
         rewriter.getI32IntegerAttr(adaptor.getOuts().size()));
 
-    builders.trtEnqueue.create(rewriter, loc,
-                               {adaptor.getExecutionContext(),
-                                adaptor.getStream(), numInputs, inputPtrs,
-                                numOutputs, outputPtrs});
+    Value st = builders.trtEnqueue.create(rewriter, loc,
+                                          {adaptor.getExecutionContext(),
+                                           adaptor.getStream(), numInputs,
+                                           inputPtrs, numOutputs, outputPtrs});
+    emitStatusCheckOrAbort(rewriter, loc, st);
 
     rewriter.eraseOp(op);
     return success();
@@ -1142,16 +1297,16 @@ struct CUDALaunchConverter : public EmitCConversionPattern<cuda::LaunchOp> {
   matchAndRewrite(cuda::LaunchOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
     Location loc = op->getLoc();
-    // The CUDA driver API expects a `void**` array where each element points to
-    // the storage for the corresponding by-value kernel parameter.
+    // The CUDA driver API expects a `void**` array where each element points
+    // to the storage for the corresponding by-value kernel parameter.
     //
     // For EmitC, we materialize a local variable for each argument, take its
     // address, cast to `void*`, and store into the argument pointer array.
     //
-    // NOTE: We intentionally do not attempt to \"expand\" memrefs into multiple
-    // kernel parameters here. The contract is that upstream lowering has
-    // already flattened kernel arguments into a low-level ABI (e.g. base buffer
-    // pointers + explicit offset/size/stride scalars as needed).
+    // NOTE: We intentionally do not attempt to \"expand\" memrefs into
+    // multiple kernel parameters here. The contract is that upstream lowering
+    // has already flattened kernel arguments into a low-level ABI (e.g. base
+    // buffer pointers + explicit offset/size/stride scalars as needed).
     const int64_t numArgs = adaptor.getArgs().size();
     auto argvType = getArrayType({numArgs}, voidPtrType);
     Value argv =
@@ -1209,16 +1364,13 @@ struct CUDALaunchConverter : public EmitCConversionPattern<cuda::LaunchOp> {
       rewriter.create<emitc::AssignOp>(loc, argvElem, addrVoid);
     }
 
-    auto args = llvm::map_to_vector(
-        llvm::seq<unsigned>(10),
-        [&](unsigned x) -> Attribute { return rewriter.getIndexAttr(x); });
-    rewriter.create<emitc::CallOpaqueOp>(
-        loc, TypeRange{}, "mtrt::cuda_launch_kernel",
+    Value st = builders.cudaLaunchKernel.create(
+        rewriter, loc,
         ValueRange{adaptor.getFunc(), adaptor.getGridX(), adaptor.getGridY(),
                    adaptor.getGridZ(), adaptor.getBlockX(), adaptor.getBlockY(),
                    adaptor.getBlockZ(), adaptor.getDynamicSharedMem(),
-                   adaptor.getStream(), argv},
-        rewriter.getArrayAttr(args));
+                   adaptor.getStream(), argv});
+    emitStatusCheckOrAbort(rewriter, loc, st);
     rewriter.eraseOp(op);
     return success();
   }
@@ -1232,10 +1384,13 @@ struct CUDAGetCurrentDeviceConverter
   matchAndRewrite(cuda::GetActiveDeviceOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
     Location loc = op.getLoc();
-    rewriter.replaceOp(op,
-                       callOpaque(rewriter, loc, i32Type,
-                                  "mtrt::cuda_get_current_device", ValueRange{})
-                           .getResult(0));
+    Value devVar = rewriter.create<emitc::VariableOp>(
+        loc, getLValueType(i32Type), rewriter.getI32IntegerAttr(0));
+    Value devAddr = getAddr(rewriter, loc, devVar);
+    Value st = builders.cudaGetCurrentDevice.create(rewriter, loc, {devAddr});
+    emitStatusCheckOrAbort(rewriter, loc, st);
+    Value dev = rewriter.create<emitc::LoadOp>(loc, i32Type, devVar);
+    rewriter.replaceOp(op, dev);
     return success();
   }
 };
@@ -1248,8 +1403,9 @@ struct CUDAStreamSyncConverter
   matchAndRewrite(cuda::StreamSyncOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
     Location loc = op.getLoc();
-    callOpaque(rewriter, loc, Type{}, "mtrt::cuda_stream_sync",
-               ValueRange{adaptor.getStream()});
+    Value st =
+        builders.cudaStreamSync.create(rewriter, loc, {adaptor.getStream()});
+    emitStatusCheckOrAbort(rewriter, loc, st);
     rewriter.eraseOp(op);
     return success();
   }
@@ -1258,10 +1414,10 @@ struct CUDAStreamSyncConverter
 
 /// Returns `true` if a memref with shape `shape` and `strides` represents a
 /// contiguous array of memory. This is equivalent to checking whether some
-/// subview is contiguous. The idea here is that the shape and laout should have
-/// a canonical row-major layout when removing the unit extents. For example,
-/// `memref<8x1x4, strided<[4, 32, 1], offset: ?>>` should be contiguous since
-/// we can ignore the middle unit extent dimension.
+/// subview is contiguous. The idea here is that the shape and laout should
+/// have a canonical row-major layout when removing the unit extents. For
+/// example, `memref<8x1x4, strided<[4, 32, 1], offset: ?>>` should be
+/// contiguous since we can ignore the middle unit extent dimension.
 static bool isContiguousImpl(ArrayRef<int64_t> strides,
                              ArrayRef<int64_t> shape) {
   unsigned e = strides.size();
@@ -1355,9 +1511,13 @@ struct CUDAAllocConverter : public EmitCConversionPattern<cuda::AllocOp> {
     Value stream = adaptor.getStream()
                        ? adaptor.getStream()
                        : getNullptr(rewriter, loc, builders.cuStreamType);
-    Value ptr = callOpaque(rewriter, loc, voidPtrType, "mtrt::cuda_alloc",
-                           ValueRange{stream, sizeBytes, isPinned, isManaged})
-                    .getResult(0);
+    Value ptrVar = rewriter.create<emitc::VariableOp>(
+        loc, getLValueType(voidPtrType), getOpaqueAttr("nullptr"));
+    Value ptrAddr = getAddr(rewriter, loc, ptrVar);
+    Value st = builders.cudaAlloc.create(
+        rewriter, loc, {stream, sizeBytes, isPinned, isManaged, ptrAddr});
+    emitStatusCheckOrAbort(rewriter, loc, st);
+    Value ptr = rewriter.create<emitc::LoadOp>(loc, voidPtrType, ptrVar);
 
     Value replacement = makeMemRefDescriptor(
         rewriter, loc, ptr, ptr, getI32Val(rewriter, loc, 0), shape, strides);
@@ -1392,8 +1552,9 @@ struct CudaDeallocConverter : public EmitCConversionPattern<cuda::DeallocOp> {
 
     EmitCMemRefDescriptor desc(adaptor.getMemref());
     Value ptr = desc.getMemRefAllocatedPtr(rewriter, loc);
-    builders.cudaFree.create(rewriter, loc,
-                             {adaptor.getStream(), ptr, isPinned, isManaged});
+    Value st = builders.cudaFree.create(
+        rewriter, loc, {adaptor.getStream(), ptr, isPinned, isManaged});
+    emitStatusCheckOrAbort(rewriter, loc, st);
     rewriter.eraseOp(op);
     return success();
   }
@@ -1424,8 +1585,9 @@ struct CudaCopyConverter : public EmitCConversionPattern<CpyOpType> {
     if (!isCopyStrided(srcType, dstType)) {
       Value totalSize =
           src.getSizeInBytes(rewriter, loc, this->dataLayout, srcType);
-      this->callOpaque(rewriter, loc, Type{}, "mtrt::cuda_copy",
-                       {adaptor.getStream(), srcStart, destStart, totalSize});
+      Value st = this->builders.cudaCopy.create(
+          rewriter, loc, {adaptor.getStream(), srcStart, destStart, totalSize});
+      emitStatusCheckOrAbort(rewriter, loc, st);
       rewriter.eraseOp(op);
       return success();
     }
@@ -1629,7 +1791,13 @@ struct MemRefAllocOpLowering : public EmitCConversionPattern<memref::AllocOp> {
 
     int32_t alignemnt = adaptor.getAlignment() ? *adaptor.getAlignment() : 16;
     Value alignVal = getI32Val(rewriter, loc, alignemnt);
-    Value alloc = builders.hostAlloc.create(rewriter, loc, {size, alignVal});
+    Value allocVar = rewriter.create<emitc::VariableOp>(
+        loc, getLValueType(voidPtrType), getOpaqueAttr("nullptr"));
+    Value allocAddr = getAddr(rewriter, loc, allocVar);
+    Value st =
+        builders.hostAlloc.create(rewriter, loc, {size, alignVal, allocAddr});
+    emitStatusCheckOrAbort(rewriter, loc, st);
+    Value alloc = rewriter.create<emitc::LoadOp>(loc, voidPtrType, allocVar);
     Value desc =
         makeMemRefDescriptor(rewriter, loc, alloc, alloc,
                              getI32Val(rewriter, loc, 0), sizes, strides);
@@ -1771,7 +1939,8 @@ public:
   }
 };
 
-/// Convert `memref.copy` to `std::memcpy` for host-visible contiguous memrefs.
+/// Convert `memref.copy` to `std::memcpy` for host-visible contiguous
+/// memrefs.
 struct MemRefCopyOpLowering : public EmitCConversionPattern<memref::CopyOp> {
   using EmitCConversionPattern::EmitCConversionPattern;
 
@@ -1979,8 +2148,8 @@ struct ExecutorABISendPattern
       // Check if the argument has 'undef' parameter set.
       // If not, then this operation is a no-op: it is functionally pure since
       // "abi.send" on a by-value argument has a copy-on-write semantic. we
-      // already verified that it has no users. Therefore, we can just erase the
-      // operation.
+      // already verified that it has no users. Therefore, we can just erase
+      // the operation.
       if (!abiAttr.getUndef()) {
         rewriter.eraseOp(op);
         return success();

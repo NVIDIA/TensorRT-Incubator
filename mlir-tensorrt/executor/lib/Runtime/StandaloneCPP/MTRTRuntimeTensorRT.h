@@ -54,21 +54,21 @@ namespace mtrt {
 /// a stream.
 /// All UnrankedMemRefs here contain pointers to descriptors of 'PtrAndShape'
 /// type.
-void tensorrt_enqueue(nvinfer1::IExecutionContext *context, CUstream stream,
-                      int32_t numInputs, UnrankedMemRef *inputs,
-                      int32_t numOutputs, UnrankedMemRef *outputs);
+Status tensorrt_enqueue(nvinfer1::IExecutionContext *context, CUstream stream,
+                        int32_t numInputs, UnrankedMemRef *inputs,
+                        int32_t numOutputs, UnrankedMemRef *outputs);
 
 /// Load a TensorRT engine from a serialized plan file.
-nvinfer1::ICudaEngine *
-tensorrt_engine_create_from_file(nvinfer1::IRuntime *runtime,
-                                 const char *filename);
+Status tensorrt_engine_create_from_file(nvinfer1::IRuntime *runtime,
+                                        const char *filename,
+                                        nvinfer1::ICudaEngine **outEngine);
 
 /// Destroy a TensorRT engine.
 void tensorrt_engine_destroy(nvinfer1::ICudaEngine *engine);
 
 /// Construct an execution context.
-nvinfer1::IExecutionContext *
-tensorrt_execution_context_create(nvinfer1::ICudaEngine *engine);
+Status tensorrt_execution_context_create(nvinfer1::ICudaEngine *engine,
+                                         nvinfer1::IExecutionContext **outCtx);
 
 /// Destroy an execution context.
 void tensorrt_execution_context_destroy(nvinfer1::IExecutionContext *engine);
