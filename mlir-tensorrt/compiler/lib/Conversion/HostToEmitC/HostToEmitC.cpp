@@ -52,6 +52,7 @@
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/FormatVariadic.h"
+#include "llvm/Support/Path.h"
 #include "llvm/Support/ToolOutputFile.h"
 
 namespace mlir {
@@ -838,18 +839,69 @@ LogicalResult HostToEmitCGlobalsConverter::convert(
 }
 
 LogicalResult HostToEmitCGlobalsConverter::convert(cuda::CompiledModuleOp op) {
-  auto cuModuleData = dyn_cast<ElementsAttr>(op.getValue());
-  if (!cuModuleData || !cuModuleData.getElementType().isInteger(8))
-    return emitError(op.getLoc())
-           << "unhandled CUDA compiled module data attribute";
+  std::string filename;
+  if (op.hasFileReference()) {
+    // If a file path is provided, prefer loading from a staged copy in
+    // `artifactsDir` to keep generated code relocatable.
+    llvm::SmallString<256> srcPath(op.getFilePath());
+    if (srcPath.empty())
+      return emitError(op.getLoc())
+             << "cuda.compiled_module 'file' attribute must not be empty";
 
-  std::string filename = (op.getName() + ".ptx").str();
-  FailureOr<std::unique_ptr<llvm::ToolOutputFile>> outputFile =
-      serializeElementsAttrToFile(op.getLoc(), cuModuleData, artifactsDir,
-                                  filename);
-  if (failed(outputFile))
-    return failure();
-  (*outputFile)->keep();
+    // For absolute paths, stage to artifacts dir using only the basename.
+    // For relative paths, preserve the relative path under the artifacts dir.
+    llvm::SmallString<256> stagedRelPath;
+    if (llvm::sys::path::is_absolute(srcPath))
+      stagedRelPath = llvm::sys::path::filename(srcPath);
+    else
+      stagedRelPath = srcPath;
+
+    filename = stagedRelPath.str().str();
+
+    if (!artifactsDir.empty()) {
+      if (!llvm::sys::fs::is_directory(artifactsDir))
+        return module.emitError() << "artifacts-directory does not exist";
+
+      llvm::SmallString<256> stagedAbsPath(artifactsDir);
+      llvm::sys::path::append(stagedAbsPath, stagedRelPath);
+      llvm::sys::path::remove_dots(stagedAbsPath, /*remove_dot_dot=*/true);
+
+      // Ensure parent directories exist for relative paths.
+      if (std::error_code ec = llvm::sys::fs::create_directories(
+              llvm::sys::path::parent_path(stagedAbsPath)))
+        return emitError(op.getLoc())
+               << "failed to create directory for staged PTX file: "
+               << ec.message();
+
+      // If it's already staged, don't overwrite.
+      if (!llvm::sys::fs::exists(stagedAbsPath)) {
+        if (std::error_code ec =
+                llvm::sys::fs::copy_file(srcPath, stagedAbsPath))
+          return emitError(op.getLoc())
+                 << "failed to stage PTX file '" << srcPath << "' into '"
+                 << stagedAbsPath << "': " << ec.message();
+      }
+    } else {
+      // No artifacts dir: use the provided path directly at runtime.
+      filename = srcPath.str().str();
+    }
+  } else if (auto cuModuleData =
+                 dyn_cast_or_null<ElementsAttr>(op.getValueAttr())) {
+    if (!cuModuleData.getElementType().isInteger(8))
+      return emitError(op.getLoc())
+             << "unhandled CUDA compiled module data attribute";
+
+    filename = (op.getName() + ".ptx").str();
+    FailureOr<std::unique_ptr<llvm::ToolOutputFile>> outputFile =
+        serializeElementsAttrToFile(op.getLoc(), cuModuleData, artifactsDir,
+                                    filename);
+    if (failed(outputFile))
+      return failure();
+    (*outputFile)->keep();
+  } else {
+    return emitError(op.getLoc())
+           << "cuda.compiled_module must specify either 'value' or 'file'";
+  }
 
   MLIRContext *ctx = op->getContext();
   rewriter.setInsertionPoint(op);
@@ -907,12 +959,23 @@ LogicalResult HostToEmitCGlobalsConverter::convert(cuda::CompiledModuleOp op) {
 }
 
 LogicalResult HostToEmitCGlobalsConverter::convert() {
-  rewriter.setInsertionPointToStart(module.getBody());
-  std::string name =
-      (module.getSymName() ? *module.getSymName() : "unamed_module").str();
-  streamGlobal = rewriter.create<emitc::GlobalOp>(
-      module.getLoc(), name + "_cuda_stream", builders.cuStreamType,
-      Attribute{}, false, false, false);
+  // Only materialize the CUDA stream global if the module actually uses CUDA
+  // stream ops. This prevents non-CUDA EmitC outputs from requiring CUDA types
+  // (e.g. `CUstream`) and headers at compile time.
+  SmallVector<Operation *> cudaStreamOps;
+  module.walk([&](Operation *op) {
+    if (isa<cuda::GetGlobalStreamOp>(op))
+      cudaStreamOps.push_back(op);
+  });
+
+  if (!cudaStreamOps.empty()) {
+    rewriter.setInsertionPointToStart(module.getBody());
+    std::string name =
+        (module.getSymName() ? *module.getSymName() : "unamed_module").str();
+    streamGlobal = rewriter.create<emitc::GlobalOp>(
+        module.getLoc(), name + "_cuda_stream", builders.cuStreamType,
+        Attribute{}, false, false, false);
+  }
 
   rewriter.setInsertionPointToEnd(module.getBody());
 
@@ -950,13 +1013,11 @@ LogicalResult HostToEmitCGlobalsConverter::convert() {
     }
   }
 
-  SmallVector<Operation *> toConvert;
-  module.walk([&](Operation *op) {
-    if (isa<cuda::GetGlobalStreamOp>(op))
-      toConvert.push_back(op);
-  });
-  for (Operation *op : toConvert) {
-    if (auto cudaOp = dyn_cast<cuda::GetGlobalStreamOp>(op)) {
+  if (!cudaStreamOps.empty()) {
+    for (Operation *op : cudaStreamOps) {
+      auto cudaOp = dyn_cast<cuda::GetGlobalStreamOp>(op);
+      if (!cudaOp)
+        continue;
       rewriter.setInsertionPoint(cudaOp);
       if (failed(convert(cudaOp)))
         return failure();
@@ -1126,41 +1187,71 @@ struct CUDALaunchConverter : public EmitCConversionPattern<cuda::LaunchOp> {
   matchAndRewrite(cuda::LaunchOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
     Location loc = op->getLoc();
+    // The CUDA driver API expects a `void**` array where each element points to
+    // the storage for the corresponding by-value kernel parameter.
+    //
+    // For EmitC, we materialize a local variable for each argument, take its
+    // address, cast to `void*`, and store into the argument pointer array.
+    //
+    // NOTE: We intentionally do not attempt to \"expand\" memrefs into multiple
+    // kernel parameters here. The contract is that upstream lowering has
+    // already flattened kernel arguments into a low-level ABI (e.g. base buffer
+    // pointers + explicit offset/size/stride scalars as needed).
+    const int64_t numArgs = adaptor.getArgs().size();
+    auto argvType = getArrayType({numArgs}, voidPtrType);
+    Value argv =
+        rewriter.create<emitc::VariableOp>(loc, argvType, getOpaqueAttr(""));
 
-    int64_t totalArgsSize = 0;
-    for (Type t : TypeRange(op.getArgs())) {
-      if (auto memRefType = dyn_cast<MemRefType>(t)) {
-        totalArgsSize += 2 * memRefType.getRank() + 3;
-        continue;
-      }
-      if (t.isSignlessIntOrIndexOrFloat()) {
-        totalArgsSize += 1;
-        continue;
-      }
-      return failure();
-    }
+    auto getZeroInitAttr = [&](Type t) -> Attribute {
+      if (isa<emitc::PointerType>(t))
+        return getOpaqueAttr("nullptr");
+      if (auto it = dyn_cast<IntegerType>(t))
+        return IntegerAttr::get(it, 0);
+      if (auto ft = dyn_cast<FloatType>(t))
+        return FloatAttr::get(ft, 0.0);
+      if (isa<IndexType>(t))
+        return rewriter.getIndexAttr(0);
+      return {};
+    };
 
-    // Create and populate the array-of-pointers that is required by the
-    // launch config.
-    auto operandPtrStorageType =
-        getArrayType({static_cast<int64_t>(totalArgsSize)}, voidPtrType);
-    auto argPtrsPtr = rewriter.create<emitc::VariableOp>(
-        loc, operandPtrStorageType, getOpaqueAttr(""));
-
-    Value zero = getI32Val(rewriter, loc, 0);
-    Value storeOffset = rewriter.create<emitc::SubscriptOp>(
-        loc, getLValueType(voidPtrType), argPtrsPtr, zero);
-    Value storeOffsetAddr = getAddr(rewriter, loc, storeOffset);
     for (auto [idx, value, originalType] :
          llvm::enumerate(adaptor.getArgs(), TypeRange(op.getArgs()))) {
-      storeOffsetAddr =
-          rewriter
-              .create<emitc::CallOpaqueOp>(
-                  loc, storeOffsetAddr.getType(), "mtrt::cuda_launch_args_push",
-                  ValueRange{storeOffsetAddr, value},
-                  rewriter.getArrayAttr(
-                      {rewriter.getIndexAttr(0), rewriter.getIndexAttr(1)}))
-              .getResult(0);
+      Value rhs = value;
+      Type storageType = value.getType();
+
+      // Memrefs are passed as their buffer-start pointer (aligned + offset).
+      if (auto memRefType = dyn_cast<MemRefType>(originalType)) {
+        EmitCMemRefDescriptor desc(value);
+        rhs = desc.getMemRefBufferStart(rewriter, loc, dataLayout,
+                                        memRefType.getElementType());
+        storageType = voidPtrType;
+      } else if (isa<IndexType>(originalType)) {
+        // Normalize `index` arguments to 64-bit integers for a stable kernel
+        // ABI.
+        rhs = createCast(rewriter, i64Type, value);
+        storageType = i64Type;
+      } else if (!originalType.isSignlessIntOrIndexOrFloat()) {
+        return rewriter.notifyMatchFailure(
+            op, "unsupported cuda.launch argument type; expected memref or "
+                "signless int/float/index");
+      }
+
+      Attribute initAttr = getZeroInitAttr(storageType);
+      if (!initAttr)
+        return rewriter.notifyMatchFailure(
+            op, "failed to form a suitable EmitC variable initializer for "
+                "cuda.launch argument");
+
+      Value local = rewriter.create<emitc::VariableOp>(
+          loc, getLValueType(storageType), initAttr);
+      rewriter.create<emitc::AssignOp>(loc, local, rhs);
+
+      // argv[idx] = (void*)&local;
+      Value addr = getAddr(rewriter, loc, local);
+      Value addrVoid = createCast(rewriter, voidPtrType, addr);
+      Value argvElem = rewriter.create<emitc::SubscriptOp>(
+          loc, getLValueType(voidPtrType), argv, getI32Val(rewriter, loc, idx));
+      rewriter.create<emitc::AssignOp>(loc, argvElem, addrVoid);
     }
 
     auto args = llvm::map_to_vector(
@@ -1171,7 +1262,7 @@ struct CUDALaunchConverter : public EmitCConversionPattern<cuda::LaunchOp> {
         ValueRange{adaptor.getFunc(), adaptor.getGridX(), adaptor.getGridY(),
                    adaptor.getGridZ(), adaptor.getBlockX(), adaptor.getBlockY(),
                    adaptor.getBlockZ(), adaptor.getDynamicSharedMem(),
-                   adaptor.getStream(), argPtrsPtr},
+                   adaptor.getStream(), argv},
         rewriter.getArrayAttr(args));
     rewriter.eraseOp(op);
     return success();
@@ -2085,6 +2176,19 @@ public:
   void runOnOperation() override {
     ModuleOp moduleOp = getOperation();
 
+    // Detect which runtime headers are required before conversion.
+    // We prefer to only include TensorRT / CUDA headers when actually used so
+    // that non-TRT EmitC outputs can compile in more environments.
+    bool needsCudaRuntime = false;
+    bool needsTensorRTRuntime = false;
+    moduleOp.walk([&](Operation *op) {
+      Dialect *dialect = op->getDialect();
+      if (!dialect)
+        return;
+      needsCudaRuntime |= isa<cuda::CUDADialect>(dialect);
+      needsTensorRTRuntime |= isa<trtrt::TensorRTRuntimeDialect>(dialect);
+    });
+
     if (artifactsDirectory.empty()) {
       moduleOp.emitError()
           << "artifacts-dir must be provided for C++ generation";
@@ -2132,12 +2236,19 @@ public:
     rewriter.setInsertionPointToStart(moduleOp.getBody());
     rewriter.create<emitc::IncludeOp>(moduleOp->getLoc(), "cstdio", true);
     rewriter.create<emitc::IncludeOp>(moduleOp->getLoc(), "cstdint", true);
+    rewriter.create<emitc::IncludeOp>(moduleOp->getLoc(), "cstddef", true);
     rewriter.create<emitc::IncludeOp>(moduleOp->getLoc(), "cstdlib", true);
     rewriter.create<emitc::IncludeOp>(moduleOp->getLoc(), "cstring", true);
     rewriter.create<emitc::IncludeOp>(moduleOp->getLoc(), "cmath", true);
     rewriter.create<emitc::IncludeOp>(moduleOp->getLoc(), "cassert", true);
-    rewriter.create<emitc::IncludeOp>(moduleOp->getLoc(), "MTRTRuntime.h",
+    rewriter.create<emitc::IncludeOp>(moduleOp->getLoc(), "MTRTRuntimeCore.h",
                                       false);
+    if (needsCudaRuntime)
+      rewriter.create<emitc::IncludeOp>(moduleOp->getLoc(), "MTRTRuntimeCuda.h",
+                                        false);
+    if (needsTensorRTRuntime)
+      rewriter.create<emitc::IncludeOp>(moduleOp->getLoc(),
+                                        "MTRTRuntimeTensorRT.h", false);
 
     //===----------------------------------------------------------------------===//
     // cleanup

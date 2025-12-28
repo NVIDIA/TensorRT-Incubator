@@ -129,21 +129,57 @@ def CUDA_CompiledModuleOp : CUDA_Op<"compiled_module", [Symbol]> {
 
   let description = [{
     The `cuda.compiled_module` is a global operation that represents
-    a compiled CUDA kernel. Its binary data is contained in `value`,
-    which can be either PTX or compiled cuBin.
+    a compiled CUDA kernel module.
+
+    The module contents can be provided in one of two ways:
+
+    - `value`: an in-IR byte buffer (1D i8 ElementsAttr) containing the module
+      data (e.g. PTX).
+    - `file`: a path to a file containing the module data (e.g. a `.ptx` file).
+
+    Exactly one of `value` or `file` must be specified.
   }];
 
   let arguments = (ins SymbolNameAttr:$sym_name,
-                        ElementsAttr:$value,
+                        OptionalAttr<ElementsAttr>:$value,
+                        OptionalAttr<StrAttr>:$file,
                         DefaultValuedAttr<CUDA_CompiledModuleKindAttr, "CompiledModuleKind::PTX">:$kind);
-  let assemblyFormat = "attr-dict $sym_name $value";
+  // Disambiguate between inline module data (`value`) and a file reference
+  // (`file`). The `file` case uses an explicit keyword to avoid being parsed as
+  // `$value`.
+  let assemblyFormat = "$sym_name ($value^)? (`file` $file^)? attr-dict";
 
   let builders = [
     OpBuilder<(ins "StringRef":$sym_name, "TypedAttr":$attr), [{
       assert(isa<ElementsAttr>(attr) && "expected an ElementsAttr");
-      build($_builder, $_state, sym_name, cast<ElementsAttr>(attr));
+      build($_builder, $_state, sym_name, cast<ElementsAttr>(attr),
+            /*file=*/nullptr, /*kind=*/CompiledModuleKind::PTX);
+    }]>,
+    OpBuilder<(ins "StringRef":$sym_name, "StringRef":$file), [{
+      build($_builder, $_state, sym_name, /*value=*/nullptr,
+            $_builder.getStringAttr(file), /*kind=*/CompiledModuleKind::PTX);
     }]>
   ];
+
+  let extraClassDeclaration = [{
+    /// Returns true if this op stores the module as inline bytes (`value`).
+    bool hasInlineData() { return static_cast<bool>(getValueAttr()); }
+
+    /// Returns true if this op references the module via an external file (`file`).
+    bool hasFileReference() { return static_cast<bool>(getFileAttr()); }
+
+    /// Returns the file path stored in `file`. Requires `hasFileReference()`.
+    ::llvm::StringRef getFilePath();
+
+    /// Returns the module bytes as a 1D i8 ElementsAttr.
+    ///
+    /// If `value` is present, returns it directly.
+    /// If `file` is present, reads the file and returns a DenseResourceElementsAttr
+    /// backed by the file contents (to avoid bloating IR).
+    ///
+    /// On failure, emits a diagnostic on this op and returns failure().
+    ::mlir::FailureOr<::mlir::ElementsAttr> getModuleData();
+  }];
 
   let hasVerifier = 1;
 }

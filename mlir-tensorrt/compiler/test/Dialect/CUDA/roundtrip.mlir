@@ -249,5 +249,11 @@ func.func @cuda_launch(
 // -----
 
 // Test cuda.compiled_module with LLVMIR kind
-cuda.compiled_module {kind = #cuda.compiled_module_kind<LLVMIR>} @llvm_module dense<[72, 101, 108, 108, 111]> : vector<5xi8>
-// CHECK-LABEL: cuda.compiled_module {kind = #cuda.compiled_module_kind<LLVMIR>} @llvm_module
+cuda.compiled_module @llvm_module dense<[72, 101, 108, 108, 111]> : vector<5xi8> {kind = #cuda.compiled_module_kind<LLVMIR>}
+// CHECK-LABEL: cuda.compiled_module @llvm_module dense<[72, 101, 108, 108, 111]> : vector<5xi8> {kind = #cuda.compiled_module_kind<LLVMIR>}
+
+// -----
+
+// Test cuda.compiled_module with file reference (PTX).
+cuda.compiled_module @ptx_module file "kernels.ptx"
+// CHECK-LABEL: cuda.compiled_module @ptx_module file "kernels.ptx"

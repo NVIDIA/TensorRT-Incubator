@@ -315,9 +315,21 @@ struct CudaBlasHeuristicAlgoSelectionOpConverter
 // CUDA Launch & Stream Conversions
 //===----------------------------------------------------------------------===//
 
-/// Convert `CudaLaunchKernelOp` to a variadic `executor.call` operation. The
-/// variadic function is declared `executor_cuda_launch_kernel` at the top of
-/// the module.
+/// Convert `CudaLaunchKernelOp` to an executor runtime builtin call.
+/// The runtime builtin accepts a pointer-to-pointer-to-void argument list.
+/// We promote the arguments to stack storage using alloca.
+/// Note: this lowering uses 'bare pointer calling convention', meaning each
+/// memref is passed as a bare pointer to the aligned data.
+/// This should always work because the kernel dialect lowerings uses
+/// the pass `kernel-expand-memref-args` to decompose ranked memrefs
+/// arguments into primitive components -- a 0-rank memref for the pointer
+/// plus a list of dynamic values for offset, shape, and strides as
+/// necessary.
+///
+/// Here we will raise an error if any memref cannot be converted using
+/// the bare pointer calling convention.
+/// TODO: consider raising an error for any non 0-rank memref, which is a
+/// stronger condition.
 struct LowerCudaLaunchKernelToCall
     : public CUDAOpToExecutorCallLowering<cuda::LaunchOp> {
   using CUDAOpToExecutorCallLowering::CUDAOpToExecutorCallLowering;
@@ -799,9 +811,12 @@ static LogicalResult lowerCompiledModuleOps(
   for (auto compiledModuleOp :
        llvm::make_early_inc_range(op.getOps<cuda::CompiledModuleOp>())) {
     rewriter.setInsertionPoint(compiledModuleOp);
-    executor::GlobalOp cuModuleGlobal = lowerCompiledModuleOp(
-        rewriter, compiledModuleOp.getLoc(), op, compiledModuleOp.getSymName(),
-        compiledModuleOp.getValue());
+    FailureOr<ElementsAttr> ptxData = compiledModuleOp.getModuleData();
+    if (failed(ptxData))
+      return failure();
+    executor::GlobalOp cuModuleGlobal =
+        lowerCompiledModuleOp(rewriter, compiledModuleOp.getLoc(), op,
+                              compiledModuleOp.getSymName(), *ptxData);
     map[compiledModuleOp.getSymNameAttr()] = cuModuleGlobal;
     rewriter.eraseOp(compiledModuleOp);
   }

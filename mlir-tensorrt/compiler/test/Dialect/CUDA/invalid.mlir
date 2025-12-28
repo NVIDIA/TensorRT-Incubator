@@ -83,3 +83,18 @@ func.func @cuda_alloc(%arg0: index, %arg1: !cuda.stream) -> memref<10xf32> {
   %0 = cuda.alloc(%arg0) stream(%arg1) : memref<10xf32>
   return %0 : memref<10xf32>
 }
+
+// -----
+
+// expected-error @below {{'cuda.compiled_module' op expected exactly one of 'value' or 'file' to be specified}}
+cuda.compiled_module @missing_payload
+
+// -----
+
+// expected-error @below {{'cuda.compiled_module' op expected exactly one of 'value' or 'file' to be specified}}
+cuda.compiled_module @both_payloads dense<[0]> : vector<1xi8> file "kernels.ptx"
+
+// -----
+
+// expected-error @below {{'cuda.compiled_module' op expected kind=ptx when using a 'file' reference}}
+cuda.compiled_module @llvm_from_file file "kernels.ll" {kind = #cuda.compiled_module_kind<LLVMIR>}
