@@ -197,3 +197,35 @@ func.func @test_get_func() -> !cuda.function {
   %func = cuda.get_function "kernel"from @kernels
   return %func: !cuda.function
 }
+
+// Verify cuda.compiled_module lowering creates a CUmodule global, initializes it
+// from a staged PTX file, and resolves CUfunction symbols.
+// CPP: static CUmodule unnamed_module_kernels_cumodule;
+// CPP: static CUfunction unnamed_module_kernels_cumodule_kernel;
+
+func.func @test_launch(%arg0: memref<4xf32>, %arg1: index, %arg2: i32, %arg3: f32) {
+  %device = arith.constant 0 : i32
+  %stream = cuda.get_global_stream device(%device)[0]
+  %func = cuda.get_function "kernel"from @kernels
+  %c1 = arith.constant 1 : i32
+  %c0 = arith.constant 0 : i32
+  cuda.launch %func(%arg0, %arg1, %arg2, %arg3 : memref<4xf32>, index, i32, f32) with
+    grid(%c1, %c1, %c1)
+    block(%c1, %c1, %c1)
+    smem(%c0) stream(%stream)
+  return
+}
+
+// Verify cuda.launch lowering uses argv packing (void* argv[]) and calls the
+// runtime wrapper.
+// CPP-LABEL: void test_launch(
+// CPP: void* {{.*}}[4];
+// CPP: mtrt::cuda_launch_kernel(
+
+// CPP-LABEL: void unnamed_module_kernels_initialize() {
+// CPP: const char* {{.*}} = "kernel";
+// CPP: const char* {{.*}} = "kernels.ptx";
+// CPP: mtrt::cuda_module_create_from_ptx_file
+// CPP: mtrt::cuda_module_get_func
+// CPP-LABEL: void unnamed_module_kernels_destroy() {
+// CPP: mtrt::cuda_module_destroy

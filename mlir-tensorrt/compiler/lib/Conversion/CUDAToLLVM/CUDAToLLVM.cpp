@@ -588,29 +588,77 @@ static LogicalResult lowerCuModuleOps(RewriterBase &rewriter, ModuleOp module,
                          /*constant=*/false, llvmPtrType,
                          LLVM::Linkage::Internal, Attribute{}, &symbolTable);
 
-    // Construct the PTX data global.
+    // Determine how the module will be loaded:
+    // - If a file is provided, always load from file at runtime (optionally
+    //   staging into `artifactsDir`).
+    // - Otherwise, use embedded bytes, optionally serializing to a file.
     LLVM::GlobalOp ptxGlobal{};
-    if (artifactsDir.empty()) {
-      ptxGlobal = lookupOrInsertGlobal(
-          rewriter, loc, (compiledModuleOp.getName() + "_ptx").str(),
-          /*constant=*/true,
-          /*type=*/
-          LLVM::LLVMArrayType::get(
-              rewriter.getI8Type(),
-              compiledModuleOp.getValue().getNumElements()),
-          LLVM::Linkage::Internal, compiledModuleOp.getValueAttr(),
-          &symbolTable);
-    } else {
-      if (!llvm::sys::fs::is_directory(artifactsDir))
-        return module.emitError() << "artifacts-directory does not exist";
+    std::string filename;
 
-      FailureOr<std::unique_ptr<llvm::ToolOutputFile>> outputFile =
-          serializeElementsAttrToFile(
-              loc, compiledModuleOp.getValueAttr(), artifactsDir,
-              (compiledModuleOp.getName() + ".ptx").str());
-      if (failed(outputFile))
-        return failure();
-      (*outputFile)->keep();
+    if (compiledModuleOp.hasFileReference()) {
+      llvm::SmallString<256> srcPath(compiledModuleOp.getFilePath());
+      if (srcPath.empty())
+        return compiledModuleOp.emitOpError()
+               << "cuda.compiled_module 'file' attribute must not be empty";
+
+      llvm::SmallString<256> stagedRelPath;
+      if (llvm::sys::path::is_absolute(srcPath))
+        stagedRelPath = llvm::sys::path::filename(srcPath);
+      else
+        stagedRelPath = srcPath;
+
+      filename = stagedRelPath.str().str();
+
+      if (!artifactsDir.empty()) {
+        if (!llvm::sys::fs::is_directory(artifactsDir))
+          return module.emitError() << "artifacts-directory does not exist";
+
+        llvm::SmallString<256> stagedAbsPath(artifactsDir);
+        llvm::sys::path::append(stagedAbsPath, stagedRelPath);
+        llvm::sys::path::remove_dots(stagedAbsPath, /*remove_dot_dot=*/true);
+
+        if (std::error_code ec = llvm::sys::fs::create_directories(
+                llvm::sys::path::parent_path(stagedAbsPath)))
+          return compiledModuleOp.emitOpError()
+                 << "failed to create directory for staged PTX file: "
+                 << ec.message();
+
+        if (!llvm::sys::fs::exists(stagedAbsPath)) {
+          if (std::error_code ec =
+                  llvm::sys::fs::copy_file(srcPath, stagedAbsPath))
+            return compiledModuleOp.emitOpError()
+                   << "failed to stage PTX file '" << srcPath << "' into '"
+                   << stagedAbsPath << "': " << ec.message();
+        }
+      } else {
+        // No artifacts dir: use provided path directly.
+        filename = srcPath.str().str();
+      }
+    } else if (auto ptxData = dyn_cast_or_null<ElementsAttr>(
+                   compiledModuleOp.getValueAttr())) {
+      if (artifactsDir.empty()) {
+        ptxGlobal = lookupOrInsertGlobal(
+            rewriter, loc, (compiledModuleOp.getName() + "_ptx").str(),
+            /*constant=*/true,
+            LLVM::LLVMArrayType::get(rewriter.getI8Type(),
+                                     ptxData.getNumElements()),
+            LLVM::Linkage::Internal, compiledModuleOp.getValueAttr(),
+            &symbolTable);
+      } else {
+        if (!llvm::sys::fs::is_directory(artifactsDir))
+          return module.emitError() << "artifacts-directory does not exist";
+
+        filename = (compiledModuleOp.getName() + ".ptx").str();
+        FailureOr<std::unique_ptr<llvm::ToolOutputFile>> outputFile =
+            serializeElementsAttrToFile(loc, compiledModuleOp.getValueAttr(),
+                                        artifactsDir, filename);
+        if (failed(outputFile))
+          return failure();
+        (*outputFile)->keep();
+      }
+    } else {
+      return compiledModuleOp.emitOpError()
+             << "cuda.compiled_module must specify either 'value' or 'file'";
     }
 
     // Insert initialization for the cumodule/cufunc into  the constructor
@@ -630,7 +678,6 @@ static LogicalResult lowerCuModuleOps(RewriterBase &rewriter, ModuleOp module,
                            .create(loc, rewriter, {ptxStr, ptxSize})
                            .getResult();
           } else {
-            std::string filename = (compiledModuleOp.getName() + ".ptx").str();
             Value nameStr = insertLLVMStringLiteral(
                 rewriter, loc, filename,
                 (compiledModuleOp.getName() + "_filename").str());

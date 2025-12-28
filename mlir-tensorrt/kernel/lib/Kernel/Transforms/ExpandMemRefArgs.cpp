@@ -17,11 +17,6 @@
 // limitations under the License.
 //
 //===----------------------------------------------------------------------===//
-///===- ExpandMemRefArgs.cpp ----------------------------------------------===//
-//
-// Copyright (c) 2025, NVIDIA CORPORATION. All rights reserved.
-//
-//===----------------------------------------------------------------------===//
 ///
 /// This file implements the KernelExpandMemRefArgsPass pass.
 ///

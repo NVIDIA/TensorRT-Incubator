@@ -18,11 +18,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "mlir-executor/Executor/IR/Executor.h"
+#include "mlir-executor/Executor/IR/ExecutorAttributes.h"
 #include "mlir-tensorrt/Dialect/CUDA/IR/CUDADialect.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir/Conversion/ConvertToLLVM/ToLLVMInterface.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
+#include "mlir/IR/AsmState.h"
 #include "mlir/IR/SymbolTable.h"
 #include "mlir/IR/TypeUtilities.h"
 #include "mlir/IR/Verifier.h"
@@ -30,6 +31,7 @@
 #include "mlir/Transforms/InliningUtils.h"
 #include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/MathExtras.h"
+#include "llvm/Support/MemoryBuffer.h"
 
 // Link generated CUDA attribute definitions.
 #define GET_ATTRDEF_CLASSES
@@ -47,12 +49,58 @@ using namespace mlir::cuda;
 //===----------------------------------------------------------------------===//
 
 LogicalResult CompiledModuleOp::verify() {
-  auto dataType = dyn_cast<ShapedType>(getValue().getType());
-  if (!dataType || !dataType.getElementType().isInteger(8) ||
-      dataType.getRank() != 1)
-    return emitOpError() << "expected data element type to be a 1D shaped type "
-                            "with i8 element type";
+  bool hasValue = static_cast<bool>(getValueAttr());
+  bool hasFile = static_cast<bool>(getFileAttr());
+  if (hasValue == hasFile)
+    return emitOpError() << "expected exactly one of 'value' or 'file' to be "
+                            "specified";
+
+  if (hasValue) {
+    auto dataType = dyn_cast<ShapedType>(getValueAttr().getType());
+    if (!dataType || !dataType.getElementType().isInteger(8) ||
+        dataType.getRank() != 1)
+      return emitOpError()
+             << "expected 'value' to be a 1D shaped type with i8 element type";
+  }
+
+  // File references are currently only supported for PTX modules.
+  if (hasFile && getKind() != CompiledModuleKind::PTX)
+    return emitOpError() << "expected kind=ptx when using a 'file' reference";
   return success();
+}
+
+llvm::StringRef CompiledModuleOp::getFilePath() {
+  auto fileAttr = getFileAttr();
+  assert(fileAttr && "expected 'file' attribute to be present");
+  return fileAttr.getValue();
+}
+
+FailureOr<ElementsAttr> CompiledModuleOp::getModuleData() {
+  if (auto valueAttr = getValueAttr())
+    return cast<ElementsAttr>(valueAttr);
+
+  auto fileAttr = getFileAttr();
+  if (!fileAttr)
+    return emitOpError() << "expected either 'value' or 'file' to be present";
+
+  auto bufferOrErr = llvm::MemoryBuffer::getFile(fileAttr.getValue());
+  if (!bufferOrErr) {
+    return emitOpError() << "failed to read PTX file '" << fileAttr.getValue()
+                         << "'";
+  }
+
+  StringRef bytes = (*bufferOrErr)->getBuffer();
+  auto tensorType = RankedTensorType::get({static_cast<int64_t>(bytes.size())},
+                                          IntegerType::get(getContext(), 8));
+
+  // Store file-backed module data as a DenseResourceElementsAttr to avoid
+  // materializing large blobs directly into the textual IR.
+  AsmResourceBlob blob = HeapAsmResourceBlob::allocateAndCopyWithAlign(
+      llvm::ArrayRef<char>(bytes.data(), bytes.size()), alignof(int8_t),
+      /*dataIsMutable=*/false);
+  DenseResourceElementsAttr attr = DenseResourceElementsAttr::get(
+      tensorType, (getName() + "_data").str(), std::move(blob));
+  return ElementsAttr(attr);
 }
 
 //===----------------------------------------------------------------------===//
