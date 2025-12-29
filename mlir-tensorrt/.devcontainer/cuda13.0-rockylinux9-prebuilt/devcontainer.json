@@ -1,11 +1,11 @@
 {
-  "name": "cuda12.9-rockylinux8-prebuilt",
-  "image": "ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda12.9-rockylinux8-0.1",
+  "name": "cuda13.0-rockylinux9-prebuilt",
+  "image": "ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda13.0-rockylinux9-0.1",
   "remoteUser": "nvidia",
   "updateRemoteUserUID": true,
   "runArgs": [
     "--name",
-    "cuda12.9-rockylinux8-prebuilt-${localEnv:USER:nvidia}-${devcontainerId}",
+    "cuda13.0-rockylinux9-prebuilt-${localEnv:USER:nvidia}-${devcontainerId}",
     "--cap-add=SYS_PTRACE",
     "--security-opt",
     "seccomp=unconfined",
