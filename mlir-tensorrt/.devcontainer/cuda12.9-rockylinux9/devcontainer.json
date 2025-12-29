@@ -1,11 +1,11 @@
 {
-  "name": "cuda12.9-rockylinux8",
+  "name": "cuda12.9-rockylinux9",
   "build": {
     "context": "${localWorkspaceFolder}/build_tools/docker",
     "dockerfile": "${localWorkspaceFolder}/build_tools/docker/Dockerfile",
     "args": {
-      "BASE_IMAGE": "nvcr.io/nvidia/cuda:12.9.1-devel-rockylinux8",
-      "LINUX_DISTRO": "rockylinux8",
+      "BASE_IMAGE": "nvcr.io/nvidia/cuda:12.9.1-devel-rockylinux9",
+      "LINUX_DISTRO": "rockylinux9",
       "LLVM_VERSION": 20
     }
   },
@@ -13,7 +13,7 @@
   "updateRemoteUserUID": true,
   "runArgs": [
     "--name",
-    "cuda12.9-rockylinux8-${localEnv:USER:nvidia}-${devcontainerId}",
+    "cuda12.9-rockylinux9-${localEnv:USER:nvidia}-${devcontainerId}",
     "--cap-add=SYS_PTRACE",
     "--security-opt",
     "seccomp=unconfined",

@@ -11,7 +11,7 @@ Python files are formatted using the [`black` formatter](https://black.readthedo
 
 ## Development Environment
 
-This project provides a pre-configured CUDA 12.5 development environment using [Dev Containers](https://containers.dev/). We offer configurations for both `ubuntu` and `rockylinux8`, located in the `.devcontainer` directory.
+This project provides a pre-configured CUDA 12.5 development environment using [Dev Containers](https://containers.dev/). We offer configurations for both `ubuntu` and `rockylinux9`, located in the `.devcontainer` directory.
 
 ### VS Code (Recommended)
 1. Install the [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers).

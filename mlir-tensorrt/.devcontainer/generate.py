@@ -1,6 +1,6 @@
 import json
-from pathlib import Path
 import sys
+from pathlib import Path
 
 # Bump the version when the Dockerfile or scripts under build_tools/docker/
 # change and a new tag is created and pushed to the registry.
@@ -134,7 +134,7 @@ def make_base_image(os: str, cuda_version: str):
         return f"nvcr.io/nvidia/cuda:{cuda_version}-devel-{os}"
 
     if "rockylinux" in os:
-        return f"nvcr.io/nvidia/cuda:{cuda_version}-devel-rockylinux8"
+        return f"nvcr.io/nvidia/cuda:{cuda_version}-devel-rockylinux9"
 
     raise Exception("failed to determine base image name")
 
@@ -154,7 +154,7 @@ def create_configs(os: str, cuda_version: str):
     customizations = make_customizations()
 
     # In newer Ubuntu NVIDIA base containers, there is already a non-root user named "ubuntu" added
-    # with the default UID of 1000. For Rockylinux8, there is no such user, so we use "nvidia" as the
+    # with the default UID of 1000. For Rockylinux9, there is no such user, so we use "nvidia" as the
     # remote user and it will get created by the devcontainer common-utils feature script.
     if "ubuntu" in os:
         remote_user = "ubuntu"
@@ -182,7 +182,7 @@ def create_configs(os: str, cuda_version: str):
 
 
 def enumerate_configs():
-    for os in ["ubuntu24.04", "rockylinux8"]:
+    for os in ["ubuntu24.04", "rockylinux9"]:
         for cuda_version in ["12.9.1", "13.0.2"]:
             yield create_configs(os, cuda_version)
 
