@@ -87,7 +87,7 @@ jobs:
           restore-keys: |
             ${{ env.CCACHE_RESTORE_KEY }}
           path: |
-            ${CCACHE_DIR}
+            ${{ env.CCACHE_DIR }}
 
       - name: Restore CPM cache
         id: restore-cpm
@@ -122,7 +122,7 @@ jobs:
         with:
           key: ${{ steps.ccache-key.outputs.key }}
           path: |
-            ${CCACHE_DIR}
+            ${{ env.CCACHE_DIR }}
 
       # Save cpm cache
       - name: Save CPM Cache
