@@ -26,7 +26,7 @@ case "${LINUX_DISTRO}" in
     dnf install -yq python3-dnf-plugin-versionlock
     dnf versionlock add '*cuda*'
     dnf versionlock add '*cudnn*'
-    dnf install -yq wget curl patch
+    dnf install -yq wget patch
     ;;
   *)
     echo "Unsupported linux distro: ${LINUX_DISTRO}"
@@ -40,5 +40,5 @@ EOF
 #------------------------------------------------------------------------------
 ARG LLVM_VERSION=20
 ENV LLVM_VERSION=$LLVM_VERSION
-COPY *.sh /tmp/scripts/
+COPY build_tools/docker/*.sh /tmp/scripts/
 RUN /tmp/scripts/install-toolchain.sh && rm -rf /tmp/scripts
