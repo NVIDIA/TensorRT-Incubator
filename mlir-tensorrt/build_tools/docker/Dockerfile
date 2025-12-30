@@ -40,5 +40,5 @@ EOF
 #------------------------------------------------------------------------------
 ARG LLVM_VERSION=20
 ENV LLVM_VERSION=$LLVM_VERSION
-COPY build_tools/docker/*.sh /tmp/scripts/
+COPY *.sh /tmp/scripts/
 RUN /tmp/scripts/install-toolchain.sh && rm -rf /tmp/scripts
