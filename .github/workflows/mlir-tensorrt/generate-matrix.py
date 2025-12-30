@@ -96,14 +96,15 @@ def main(args: list[str]) -> None:
     arch_list = ARCH_LIST_DICT[channel]
     matrix_dict = {"include": []}
     for arch in arch_list:
-        # release wheel build for aarch64 and x86_64 uses different docker images
-        if channel == "release":
-            docker_images = docker_images[arch]
         gh_runner = GH_RUNNER_DICT[arch]
         for cuda_trt_version in cuda_trt_versions:
             cuda_version = cuda_trt_version["cuda"]
             trt_version = cuda_trt_version["trt"]
-            docker_image = docker_images[cuda_version]
+            if channel == "release":
+                # release wheel build for aarch64 and x86_64 uses different docker images
+                docker_image = docker_images[arch][cuda_version]
+            else:
+                docker_image = docker_images[cuda_version]
             matrix_dict["include"].append(
                 {
                     "cuda": cuda_version,
