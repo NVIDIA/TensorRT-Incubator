@@ -62,8 +62,14 @@ DOCKER_IMAGE_DICT = {
         "13.0": "ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda13.0-ubuntu24.04-0.1",
     },
     "release": {
-        "12.9": "ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda12.9-rockylinux9-0.1",
-        "13.0": "ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda13.0-rockylinux9-0.1",
+        "aarch64": {
+            "12.9": "ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda12.9-ubuntu22.04-0.1",
+            "13.0": "ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda13.0-ubuntu22.04-0.1",
+        },
+        "x86_64": {
+            "12.9": "ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda12.9-rockylinux9-0.1",
+            "13.0": "ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda13.0-rockylinux9-0.1",
+        },
     },
 }
 
@@ -90,6 +96,9 @@ def main(args: list[str]) -> None:
     arch_list = ARCH_LIST_DICT[channel]
     matrix_dict = {"include": []}
     for arch in arch_list:
+        # release wheel build for aarch64 and x86_64 uses different docker images
+        if channel == "release":
+            docker_images = docker_images[arch]
         gh_runner = GH_RUNNER_DICT[arch]
         for cuda_trt_version in cuda_trt_versions:
             cuda_version = cuda_trt_version["cuda"]
