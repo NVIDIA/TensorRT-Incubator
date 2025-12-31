@@ -110,8 +110,6 @@ jobs:
           set -euo pipefail
           set -x
           cd mlir-tensorrt
-          # TODO: remove this, once patch is in our rockylinux prebuilt image
-          dnf install -yq patch
           # build wheels for all available packages
           ./build_tools/scripts/cicd-build-wheels.sh
 
