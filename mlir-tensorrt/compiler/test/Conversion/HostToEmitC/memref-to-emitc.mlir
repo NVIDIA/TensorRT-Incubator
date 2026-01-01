@@ -202,18 +202,17 @@ func.func @alloc_of_index() -> memref<42xindex> {
 
 
 // CPP-LABEL: mtrt::RankedMemRef<1> alloc_of_index()
-// CPP-DAG: int32_t [[v1:.+]] = 0;
-// CPP-DAG: int32_t [[v2:.+]] = 16;
-// CPP-DAG: int64_t [[v3:.+]] = 42;
-// CPP-DAG: int64_t [[v4:.+]] = 1;
-// CPP-DAG: int32_t [[v5:.+]] = 8;
-// CPP-DAG: int64_t [[v6:.+]] = [[v5]] * [[v3]];
-// CPP-DAG: void* [[v7:.+]] = nullptr;
-// CPP-DAG: void** [[v7addr:.+]] = &[[v7]];
-// CPP-DAG: int32_t [[st:.+]] = mtrt::host_aligned_alloc([[v6]], [[v2]], [[v7addr]]);
+// CPP-DAG: int32_t [[align:.+]] = 16;
+// CPP-DAG: int64_t [[nElems:.+]] = 42;
+// CPP-DAG: int64_t [[stride:.+]] = 1;
+// CPP-DAG: int32_t [[elemSize:.+]] = 8;
+// CPP-DAG: int64_t [[nBytes:.+]] = [[elemSize]] * [[nElems]];
+// CPP-DAG: void* [[ptr:.+]] = nullptr;
+// CPP-DAG: void** [[ptrAddr:.+]] = &[[ptr]];
+// CPP-DAG: int32_t [[st:.+]] = mtrt::host_aligned_alloc([[nBytes]], [[align]], [[ptrAddr]]);
 // CPP-DAG: mtrt::abort_on_error([[st]]);
-// CPP-DAG: mtrt::RankedMemRef<1> [[v8:.+]] = mtrt::make_memref_descriptor<1>({{.*}}, {{.*}}, [[v1]], [[v3]], [[v4]]);
-// CPP-DAG: return [[v8]];
+// CPP-DAG: mtrt::RankedMemRef<1> [[desc:.+]] = mtrt::make_memref_descriptor<1>({{.*}}, {{.*}}, 0, [[nElems]], [[stride]]);
+// CPP-DAG: return [[desc]];
 
 // -----
 
@@ -255,3 +254,39 @@ func.func @get_scalar_global() -> memref<f32> {
 // CPP:   int32_t [[v0:.+]] = 0;
 // CPP:   mtrt::RankedMemRef<0> [[v1:.+]] = mtrt::make_memref_descriptor<0>(scalar_global, scalar_global, [[v0]]);
 // CPP:   return [[v1]];
+
+// -----
+
+// Test dynamic memref.alloc lowering.
+
+func.func @dynamic_alloc(%size0: index, %size1: index) -> memref<?x?xf32> {
+  %0 = memref.alloc(%size0, %size1) : memref<?x?xf32>
+  return %0 : memref<?x?xf32>
+}
+
+// CPP-LABEL: mtrt::RankedMemRef<2> dynamic_alloc(size_t v1, size_t v2) {
+// CPP-DAG: int32_t [[align:.+]] = 16;
+// CPP-DAG: int32_t [[elemSize:.+]] = 4;
+// CPP-DAG: int64_t [[stride1:.+]] = 1;
+// CPP: int64_t [[numElems:.+]] = v2 * v1;
+// CPP: int64_t [[nBytes:.+]] = [[elemSize]] * [[numElems]];
+// CPP: void* [[ptr:.+]] = nullptr;
+// CPP: void** [[ptrAddr:.+]] = &[[ptr]];
+// CPP: int32_t [[st:.+]] = mtrt::host_aligned_alloc([[nBytes]], [[align]], [[ptrAddr]]);
+// CPP: mtrt::abort_on_error([[st]]);
+// CPP: mtrt::RankedMemRef<2> [[desc:.+]] = mtrt::make_memref_descriptor<2>({{.*}}, {{.*}}, 0, v1, v2, v2, [[stride1]]);
+// CPP: return [[desc]];
+
+// -----
+
+// Test memref.dim lowering with dynamic dimensions.
+
+func.func @memref_dim(%arg0: memref<?x?xf32>, %idx: index) -> index {
+  %0 = memref.dim %arg0, %idx : memref<?x?xf32>
+  return %0 : index
+}
+
+// CPP-LABEL: size_t memref_dim(mtrt::RankedMemRef<2> v1, size_t v2) {
+// CPP-NEXT:   int64_t [[dim:.+]] = mtrt::memref_descriptor_get_dim_size(v1, v2);
+// CPP-NEXT:   size_t [[result:.+]] = (size_t) [[dim]];
+// CPP-NEXT:   return [[result]];

@@ -145,21 +145,20 @@ func.func @copy_d2h_strided(%arg0: !srcType,
 }
 
 // CPP-LABEL: void copy_d2h_strided(mtrt::RankedMemRef<1> v1, mtrt::RankedMemRef<1> v2, CUstream v3)
-// CPP-NEXT:   int32_t v4 = 1;
-// CPP-NEXT:   int32_t v5 = 4;
-// CPP-NEXT:   void* v6 = mtrt::memref_descriptor_get_aligned_ptr(v1);
-// CPP-NEXT:   int8_t* v7 = (int8_t*) v6;
-// CPP-NEXT:   int64_t v8 = mtrt::memref_descriptor_get_offset(v1);
-// CPP-NEXT:   int64_t v9 = v8 * v5;
-// CPP-NEXT:   void* v10 = v7 + v9;
-// CPP-NEXT:   void* v11 = mtrt::memref_descriptor_get_aligned_ptr(v2);
-// CPP-NEXT:   int8_t* v12 = (int8_t*) v11;
-// CPP-NEXT:   int64_t v13 = mtrt::memref_descriptor_get_offset(v2);
-// CPP-NEXT:   int64_t v14 = v13 * v5;
-// CPP-NEXT:   void* v15 = v12 + v14;
-// CPP-NEXT:   mtrt::UnrankedMemRef v16 = mtrt::make_unranked_descriptor(v4, v1);
-// CPP-NEXT:   mtrt::UnrankedMemRef v17 = mtrt::make_unranked_descriptor(v4, v2);
-// CPP-NEXT:   mtrt::cuda_copy_strided(v3, v10, v16, v15, v17);
+// CPP-NEXT:   int32_t [[elemSize:.+]] = 4;
+// CPP-NEXT:   void* [[srcAligned:.+]] = mtrt::memref_descriptor_get_aligned_ptr(v1);
+// CPP-NEXT:   int8_t* [[srcI8:.+]] = (int8_t*) [[srcAligned]];
+// CPP-NEXT:   int64_t [[srcOffset:.+]] = mtrt::memref_descriptor_get_offset(v1);
+// CPP-NEXT:   int64_t [[srcByteOffset:.+]] = [[srcOffset]] * [[elemSize]];
+// CPP-NEXT:   void* [[srcPtr:.+]] = [[srcI8]] + [[srcByteOffset]];
+// CPP-NEXT:   void* [[dstAligned:.+]] = mtrt::memref_descriptor_get_aligned_ptr(v2);
+// CPP-NEXT:   int8_t* [[dstI8:.+]] = (int8_t*) [[dstAligned]];
+// CPP-NEXT:   int64_t [[dstOffset:.+]] = mtrt::memref_descriptor_get_offset(v2);
+// CPP-NEXT:   int64_t [[dstByteOffset:.+]] = [[dstOffset]] * [[elemSize]];
+// CPP-NEXT:   void* [[dstPtr:.+]] = [[dstI8]] + [[dstByteOffset]];
+// CPP-NEXT:   mtrt::UnrankedMemRef [[srcUnranked:.+]] = mtrt::make_unranked_descriptor(1, v1);
+// CPP-NEXT:   mtrt::UnrankedMemRef [[dstUnranked:.+]] = mtrt::make_unranked_descriptor(1, v2);
+// CPP-NEXT:   mtrt::cuda_copy_strided(v3, [[srcPtr]], [[srcUnranked]], [[dstPtr]], [[dstUnranked]]);
 // CPP-NEXT:   return;
 
 // -----

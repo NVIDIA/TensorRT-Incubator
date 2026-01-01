@@ -7,7 +7,6 @@ add_mlir_tensorrt_backend_library(MLIRTensorRTKernelBackend
 
   LINK_LIBS PUBLIC
   ChloOps
-  MLIRTensorRTCompilerClient
   MLIRTensorRTHostBackend
   MLIRTensorRTKernelDialect
   MLIRTensorRTPlanDialect

@@ -29,6 +29,8 @@
 #include "mlir-tensorrt/Compiler/Client.h"
 #include "mlir/CAPI/IR.h"
 #include "mlir/Pass/PassManager.h"
+#include "llvm/ADT/IntrusiveRefCntPtr.h"
+#include "llvm/ADT/StringExtras.h"
 
 using namespace mtrt;
 using namespace mtrt::compiler;
@@ -79,16 +81,27 @@ MTRT_Status mtrtCompilerClientDestroy(MTRT_CompilerClient client) {
 }
 
 MTRT_Status mtrtCompilerClientGetPipeline(MTRT_CompilerClient client,
-                                          MlirStringRef taskMnemonic,
                                           const MlirStringRef *argv,
                                           unsigned argc,
                                           MlirPassManager *result) {
-  std::vector<llvm::StringRef> argvStrRef(argc);
-  for (unsigned i = 0; i < argc; i++)
-    argvStrRef[i] = llvm::StringRef(argv[i].data, argv[i].length);
-  StatusOr<PipelineBase *> pipeline = unwrap(client)->getPipeline(
-      StringRef(taskMnemonic.data, taskMnemonic.length), argvStrRef,
-      /*enableDebugOptions=*/true);
+  std::string argsString;
+  {
+    llvm::raw_string_ostream os(argsString);
+    for (int i = 0; i < static_cast<int>(argc); i++) {
+      os << argv[i].data;
+      if (i < static_cast<int>(argc) - 1)
+        os << " ";
+    }
+    os.flush();
+  }
+
+  StatusOr<llvm::IntrusiveRefCntPtr<MainOptions>> options =
+      MainOptions::fromString(argsString, compiler::getAllExtensions());
+  if (!options.isOk())
+    return wrap(options.getStatus());
+
+  StatusOr<Pipeline *> pipeline =
+      unwrap(client)->getOrCreatePipeline(std::move(*options));
   if (!pipeline.isOk())
     return wrap(pipeline.getStatus());
   *result = MlirPassManager{static_cast<mlir::PassManager *>(*pipeline)};

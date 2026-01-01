@@ -237,6 +237,20 @@ MemorySpace HostBackendAttr::getDefaultMemorySpace() const {
   return MemorySpace::host;
 }
 
+bool HostBackendAttr::requiresInputBoundsForDynamicShapes(
+    bool useDestinationStyleCallingConvention) const {
+  // HostBackend does not require shape bounds for dynamically shaped input
+  // tensors.
+  return false;
+}
+
+bool HostBackendAttr::requiresOutputBoundsForDynamicShapes(
+    bool useDestinationStyleCallingConvention) const {
+  // HostBackend does not require shape bounds for dynamically shaped output
+  // tensors.
+  return false;
+}
+
 //===----------------------------------------------------------------------===//
 // Extension Registration
 //===----------------------------------------------------------------------===//

@@ -78,7 +78,8 @@ static bool isValidOpType(Operation *op) {
       return true;
     return t.isIndex() || t.isInteger(1) || t.isInteger(8) || t.isInteger(16) ||
            t.isInteger(32) || t.isInteger(64) || t.isF16() || t.isF32() ||
-           t.isBF16() || t.isInteger(4) || isa<Float8E4M3FNType>(t);
+           t.isF64() || t.isBF16() || t.isInteger(4) ||
+           isa<Float8E4M3FNType>(t) || isa<Float4E2M1FNType>(t);
   });
 }
 

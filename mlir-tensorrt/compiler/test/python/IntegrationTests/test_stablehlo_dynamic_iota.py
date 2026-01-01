@@ -45,8 +45,7 @@ def get_mlir_dtype(dtype):
 
 def build_exe(client, dtype, iota_dim):
     module = build_program(dtype=get_mlir_dtype(dtype), iota_dim=iota_dim)
-    task = client.get_compilation_task(
-        "stablehlo-to-executable",
+    task = client.get_pipeline(
         [
             "--tensorrt-builder-opt-level=0",
             "--tensorrt-strongly-typed=false",

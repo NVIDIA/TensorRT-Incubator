@@ -111,11 +111,13 @@ public:
       fileArtifactOps.push_back(fileOp);
     }
 
+    const bool hasArtifacts = !fileArtifactOps.empty();
+
     for (auto fileArtifactOp : fileArtifactOps)
       fileArtifactOp.erase();
 
     // Write the manifest if requested
-    if (createManifest) {
+    if (createManifest && hasArtifacts) {
       if (auto moduleOpBuiltin = dyn_cast<ModuleOp>(moduleOp)) {
         if (llvm::Error err = artifactManager->writeManifest(moduleOpBuiltin)) {
           emitError(moduleOp->getLoc()) << "failed to write artifact manifest: "

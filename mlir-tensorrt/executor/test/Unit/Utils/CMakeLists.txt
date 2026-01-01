@@ -25,3 +25,12 @@ target_link_libraries(MLIRExecutorSlotAssignmentTests
   PRIVATE
   MLIRTensorRTSlotAssignment
   )
+
+add_mlir_executor_unittest(MLIRExecutorOptionsTests
+  OptionsTests.cpp
+  PARTIAL_SOURCES_INTENDED
+  )
+target_link_libraries(MLIRExecutorOptionsTests
+  PRIVATE
+  MLIRTensorRTCommandLineExtras
+  )

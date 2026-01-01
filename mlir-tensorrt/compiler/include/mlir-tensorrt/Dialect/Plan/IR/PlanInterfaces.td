@@ -108,7 +108,33 @@ def CompilerBackendAttrInterface : AttrInterface<"CompilerBackendAttrInterface">
          InterfaceMethod<"Return a post-s filter function",
                          "std::function<bool(const Cluster &cluster)>",
                          "getClusterFilter",
-                         (ins "::mlir::plan::InputKind":$input_kind), "", "">];
+                         (ins "::mlir::plan::InputKind":$input_kind), "", "">,
+         InterfaceMethod<
+             /*desc=*/[{
+            Returns true if the backend requires shape bounds for dynamically
+            shaped input tensors. The `useDestinationStyleCallingConvention`
+            parameter indicates whether the cluster will be called using
+            destination-passing style (caller-allocated results) or alloc-style
+            (callee-allocated results).
+          }],
+             /*retTy*/ "bool", "requiresInputBoundsForDynamicShapes",
+             (ins "bool":$useDestinationStyleCallingConvention),
+             "", [{
+            return false;
+          }]>,
+         InterfaceMethod<
+             /*desc=*/[{
+            Returns true if the backend requires shape bounds for dynamically
+            shaped output tensors. The `useDestinationStyleCallingConvention`
+            parameter indicates whether the cluster will be called using
+            destination-passing style (caller-allocated results) or alloc-style
+            (callee-allocated results).
+          }],
+             /*retTy*/ "bool", "requiresOutputBoundsForDynamicShapes",
+             (ins "bool":$useDestinationStyleCallingConvention),
+             "", [{
+            return false;
+          }]>];
 }
 
 #endif // MLIR_TENSORRT_DIALECT_PLAN_IR_PLANINTERFACES

@@ -1,5 +1,11 @@
 add_mlir_tensorrt_library(MLIRTensorRTHostToEmitC
   HostToEmitC.cpp
+  HostToEmitCGlobals.cpp
+  HostToEmitCPatternsCuda.cpp
+  HostToEmitCPatternsExecutor.cpp
+  HostToEmitCPatternsMemRef.cpp
+  HostToEmitCPatternsTensorRT.cpp
+  WrapModuleInEmitCClass.cpp
 
   DEPENDS
   MLIRTensorRTConversionPassIncGen

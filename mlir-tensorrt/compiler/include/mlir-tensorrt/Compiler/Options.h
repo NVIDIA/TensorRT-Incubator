@@ -25,47 +25,33 @@
 #define MLIR_TENSORRT_COMPILER_OPTIONS
 
 #include "mlir-executor/Support/DeviceInfo.h"
+#include "mlir-tensorrt-common/Support/Options.h"
+#include "mlir-tensorrt-dialect/Target/TranslateToTensorRT.h"
+#include "mlir-tensorrt/Compiler/Extension.h"
+#include "mlir-tensorrt/Compiler/InputPipelines/LinalgInputPipeline.h"
+#include "mlir-tensorrt/Compiler/InputPipelines/StablehloInputPipeline.h"
+#include "mlir-tensorrt/Dialect/Plan/IR/PlanEnums.h"
+#include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
 #include "mlir/Pass/PassManager.h"
-#include "mlir/Pass/PassOptions.h"
 #include "mlir/Support/LLVM.h"
+#include "llvm/ADT/IntrusiveRefCntPtr.h"
+#include "llvm/ADT/SmallVectorExtras.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ErrorHandling.h"
 #include <string>
 
 namespace mtrt::compiler {
 
-/// An OptionsProvider is a utility to attach options onto a different
-/// PassOptions/PipelineOptions struct. The parent to attach to is given
-/// in the constructor, and therefore all member `Option|ListOption' can be
-/// attached to the parent by giving `this->ctx` as the first argument in their
-/// initializer lists.
-struct OptionsProvider {
-  explicit OptionsProvider(mlir::detail::PassOptions *ctx) : ctx(*ctx) {}
-  virtual ~OptionsProvider() = default;
-
-  /// We don't allow move construction since the actual ptrs/locations of
-  /// individual member elements of an OptionsProvider are captured into the
-  /// parent option. If the parent is populated upon construction,
-  /// moving can change the memory location of the owned values, which will
-  /// cause a crash later on. This is in particular can happen if you are
-  /// constructing a tuple of `OptionsProviders`. Since we are deleting the move
-  /// constructor, one must instead use a tuple of
-  /// `unique_ptr<OptionsProviders...>`.
-  OptionsProvider(OptionsProvider &&) = delete;
-
-  mlir::detail::PassOptions &ctx;
-
-  template <typename T, typename... Mods>
-  using Option = mlir::detail::PassOptions::Option<T, Mods...>;
-  template <typename T, typename... Mods>
-  using ListOption = mlir::detail::PassOptions::ListOption<T, Mods...>;
-};
-
 /// DebugOptions are options that are common to different compiler API
 /// interfaces.
-struct DebugOptions : public OptionsProvider {
-public:
-  using OptionsProvider::OptionsProvider;
+struct DebugOptions : public mlir::OptionsGroup {
+  static llvm::cl::OptionCategory category;
+
+  /// DebugOptions has an explicit constructor since it asserts in the
+  /// constructor that the OptionsSet has a local scope. These options mirror
+  /// the MLIR global CL options of the same spelling, so attempting to register
+  /// it against the global scope will cause a duplicate registration error.
+  DebugOptions(mlir::CLOptionScope &ctx);
 
   //===--------------------------------------------------------------------===//
   // Crash Reproducer Generator
@@ -73,12 +59,13 @@ public:
   Option<std::string> reproducerFile{
       this->ctx, "mlir-pass-pipeline-crash-reproducer",
       llvm::cl::desc("Generate a .mlir reproducer file at the given output path"
-                     " if the pass manager crashes or fails")};
+                     " if the pass manager crashes or fails"),
+      llvm::cl::cat(category)};
   Option<bool> localReproducer{
       this->ctx, "mlir-pass-pipeline-local-reproducer",
       llvm::cl::desc("When generating a crash reproducer, attempt to generated "
                      "a reproducer with the smallest pipeline."),
-      llvm::cl::init(false)};
+      llvm::cl::init(false), llvm::cl::cat(category)};
 
   //===--------------------------------------------------------------------===//
   // IR Printing
@@ -86,30 +73,31 @@ public:
 
   Option<bool> printBeforeAll{this->ctx, "mlir-print-ir-before-all",
                               llvm::cl::desc("Print IR before each pass"),
-                              llvm::cl::init(false)};
+                              llvm::cl::init(false), llvm::cl::cat(category)};
   Option<bool> printAfterAll{this->ctx, "mlir-print-ir-after-all",
                              llvm::cl::desc("Print IR after each pass"),
-                             llvm::cl::init(false)};
+                             llvm::cl::init(false), llvm::cl::cat(category)};
   Option<bool> printAfterChange{
       this->ctx, "mlir-print-ir-after-change",
       llvm::cl::desc(
           "When printing the IR after a pass, only print if the IR changed"),
-      llvm::cl::init(false)};
+      llvm::cl::init(false), llvm::cl::cat(category)};
   Option<bool> printAfterFailure{
       this->ctx, "mlir-print-ir-after-failure",
       llvm::cl::desc(
           "When printing the IR after a pass, only print if the pass failed"),
-      llvm::cl::init(false)};
+      llvm::cl::init(false), llvm::cl::cat(category)};
   Option<bool> printModuleScope{
       this->ctx, "mlir-print-ir-module-scope",
       llvm::cl::desc("When printing IR for print-ir-[before|after]{-all} "
                      "always print the top-level operation"),
-      llvm::cl::init(false)};
+      llvm::cl::init(false), llvm::cl::cat(category)};
   Option<std::string> printTreeDir{
       this->ctx, "mlir-print-ir-tree-dir",
       llvm::cl::desc("When printing the IR before/after a pass, print file "
                      "tree rooted at this directory. Use in conjunction with "
-                     "mlir-print-ir-* flags")};
+                     "mlir-print-ir-* flags"),
+      llvm::cl::cat(category)};
 
   //===----------------------------------------------------------------------===//
   // Printing Flags
@@ -118,12 +106,14 @@ public:
   Option<unsigned> elideElementsAttrIfLarger{
       this->ctx, "mlir-elide-elementsattrs-if-larger",
       llvm::cl::desc("Elide ElementsAttrs with \"...\" that have "
-                     "more elements than the given upper limit")};
+                     "more elements than the given upper limit"),
+      llvm::cl::cat(category)};
 
   Option<unsigned> elideResourceStringsIfLarger{
       this->ctx, "mlir-elide-resource-strings-if-larger",
       llvm::cl::desc(
-          "Elide printing value of resources if string is too long in chars.")};
+          "Elide printing value of resources if string is too long in chars."),
+      llvm::cl::cat(category)};
 
   //===--------------------------------------------------------------------===//
   // Pass Statistics
@@ -131,7 +121,7 @@ public:
   Option<bool> passStatistics{
       this->ctx, "mlir-pass-statistics",
       llvm::cl::desc("Display the statistics of each pass"),
-      llvm::cl::init(false)};
+      llvm::cl::init(false), llvm::cl::cat(category)};
 
   //===--------------------------------------------------------------------===//
   // Pass Timing
@@ -140,7 +130,7 @@ public:
       this->ctx, "mlir-timing",
       llvm::cl::desc(
           "Time each pass and print to stderr after the pipeline completes"),
-      llvm::cl::init(false)};
+      llvm::cl::init(false), llvm::cl::cat(category)};
 
   //===----------------------------------------------------------------------===//
   // Debug Printing
@@ -149,34 +139,56 @@ public:
   /// Whether the LLVM 'debug' flag that enables execution of code guarded by
   /// the `LLVM_DEBUG` macro should be set to 'on'. This results in very verbose
   /// output from the compiler dumped to stderr.
-  Option<bool> enableLLVMDebugFlag{this->ctx, "debug", llvm::cl::init(false)};
+  Option<bool> enableLLVMDebugFlag{this->ctx, "debug", llvm::cl::init(false),
+                                   llvm::cl::cat(category)};
 
   /// A set of names to be given to the LLVM 'debug types' option, akin to
   /// setting
   /// `-debug-types=...` from the command line.
-  ListOption<std::string> llvmDebugTypes{this->ctx, "debug-only",
-                                         llvm::cl::ZeroOrMore};
-
-  /// If set to `true`, we populate the pass manager instrumentation using
-  /// global MLIR CL options rather than the local options contained here.
-  Option<bool> useGlobalCLPrintingOptions{this->ctx, "use-global-cl-options",
-                                          llvm::cl::init(false)};
+  ListOption<std::string> llvmDebugTypes{
+      this->ctx, "debug-only", llvm::cl::ZeroOrMore, llvm::cl::cat(category)};
 
   /// Apply these options to the current pass manager.
   void applyToPassManager(mlir::PassManager &pm) const;
 };
 
-struct ExecutorOptions : public OptionsProvider {
-  using OptionsProvider::OptionsProvider;
+//===----------------------------------------------------------------------===//
+// ExecutorOptions
+//===----------------------------------------------------------------------===//
 
-  Option<int64_t> indexBitwidth{this->ctx, "executor-index-bitwidth",
-                                llvm::cl::init(64),
-                                llvm::cl::desc("executor index bitwidth")};
+struct ExecutorOptions : public mlir::OptionsGroup {
+  using OptionsGroup::OptionsGroup;
+
+  static llvm::cl::OptionCategory category;
+
+  Option<int64_t> indexBitwidth{
+      this->ctx, "executor-index-bitwidth", llvm::cl::init(64),
+      llvm::cl::desc("executor index bitwidth"), llvm::cl::cat(category)};
 };
 
-struct DeviceOptions : public OptionsProvider {
-public:
-  DeviceOptions(mlir::detail::PassOptions *ctx);
+//===----------------------------------------------------------------------===//
+// EmitCOptions
+//===----------------------------------------------------------------------===//
+
+struct EmitCOptions : public mlir::OptionsGroup {
+  using OptionsGroup::OptionsGroup;
+
+  static llvm::cl::OptionCategory category;
+
+  Option<bool> wrapModuleInEmitCClass{
+      this->ctx, "emitc-wrap-in-class", llvm::cl::init(false),
+      llvm::cl::desc("Wrap the module in an EmitC class"),
+      llvm::cl::cat(category)};
+};
+
+//===----------------------------------------------------------------------===//
+// DeviceOptions
+//===----------------------------------------------------------------------===//
+
+struct DeviceOptions : public mlir::OptionsGroup {
+  DeviceOptions(mlir::CLOptionScope &ctx);
+
+  static llvm::cl::OptionCategory category;
 
   /// Get results as DeviceInfo struct.
   DeviceInfo info() {
@@ -190,16 +202,20 @@ public:
   Option<bool> shouldInferFromHost{
       this->ctx, "device-infer-from-host", llvm::cl::init(true),
       llvm::cl::desc("whether to ignore `deviceX` options and instead infer "
-                     "them from the host GPU")};
+                     "them from the host GPU"),
+      llvm::cl::cat(category)};
 
   Option<int64_t> computeCapability{
       this->ctx, "device-compute-capability", llvm::cl::init(60),
       llvm::cl::desc("Sets the device compute capability. Only relevant "
-                     "if '--device-infer-from-host=false'")};
+                     "if '--device-infer-from-host=false'"),
+      llvm::cl::cat(category)};
   Option<int64_t> maxSharedMemoryPerBlockKb{
-      this->ctx, "device-max-shared-memory-per-block-kb", llvm::cl::init(48)};
+      this->ctx, "device-max-shared-memory-per-block-kb", llvm::cl::init(48),
+      llvm::cl::cat(category)};
   Option<uint64_t> maxRegistersPerBlock{
-      this->ctx, "device-max-registers-per-block", llvm::cl::init(65536)};
+      this->ctx, "device-max-registers-per-block", llvm::cl::init(65536),
+      llvm::cl::cat(category)};
 
 private:
   /// Stores host device info. This is populated by the callback of
@@ -208,17 +224,23 @@ private:
   std::optional<DeviceInfo> hostDeviceInfo{};
 };
 
+//===----------------------------------------------------------------------===//
+// BufferizationOptions
+//===----------------------------------------------------------------------===//
+
 /// Encapsulates options related to the bufferization pipeline.
-struct BufferizationOptions : public OptionsProvider {
-public:
-  using OptionsProvider::OptionsProvider;
+struct BufferizationOptions : public mlir::OptionsGroup {
+  using OptionsGroup::OptionsGroup;
+
+  static llvm::cl::OptionCategory category;
 
   Option<bool> forceEntrypointsReturnAllocs{
       this->ctx, "force-entrypoints-return-allocs", llvm::cl::init(false),
       llvm::cl::desc(
           "Require entrypoint functions to return allocations corresponding to "
           "the original tensor results, otherwise they are transformed into "
-          "destination arguments whenever possible.")};
+          "destination arguments whenever possible."),
+      llvm::cl::cat(category)};
 
   Option<bool> deallocationPrivateFuncDynamicOwnership{
       this->ctx, "deallocation-private-func-dynamic-ownership",
@@ -226,20 +248,23 @@ public:
       llvm::cl::desc(
           "Overrides the default private function ABI in the buffer "
           "deallocation pipeline to allow for dynamic ownership of memref "
-          "arguments and returned memrefs.")};
+          "arguments and returned memrefs."),
+      llvm::cl::cat(category)};
 
   Option<bool> enablePinnedMemoryPromotion{
       this->ctx, "enable-pinned-memory-promotion", llvm::cl::init(true),
       llvm::cl::desc("Enable promotion of host buffers to pinned memory using "
-                     "heuristics.")};
+                     "heuristics."),
+      llvm::cl::cat(category)};
 
   Option<bool> enableBufferLoopHoisting{
       this->ctx, "enable-buffer-loop-hoisting", llvm::cl::init(true),
-      llvm::cl::desc("Enable buffer hoisting out of loops.")};
+      llvm::cl::desc("Enable buffer hoisting out of loops."),
+      llvm::cl::cat(category)};
 
-  Option<bool> enableBufferHoisting{this->ctx, "enable-buffer-hoisting",
-                                    llvm::cl::init(true),
-                                    llvm::cl::desc("Enable buffer hoisting.")};
+  Option<bool> enableBufferHoisting{
+      this->ctx, "enable-buffer-hoisting", llvm::cl::init(true),
+      llvm::cl::desc("Enable buffer hoisting."), llvm::cl::cat(category)};
 };
 
 //===----------------------------------------------------------------------===//
@@ -264,74 +289,323 @@ enum class TensorRTTargetFormat {
 };
 
 //===----------------------------------------------------------------------===//
-// PipelineOptions
+// TensorRTOptions
 //===----------------------------------------------------------------------===//
 
-/// PipelineOptionsBase provides the base class and common options for
-/// all pipeline options. Options containers associated with a Pipeline must
-/// inherit from this class.
-class PipelineOptionsBase
-    : public mlir::PassPipelineOptions<PipelineOptionsBase> {
-public:
-  /// Construct the options, and if enableDebugOptions is true, then
-  /// DebugOptions are attached to the instance and the values will be parsed
-  /// along with the other options attached. Otherwise, it is expected that
-  /// caller will populate pass manager instrumentation via some other
-  /// mechanism (e.g. global CL options).
-  PipelineOptionsBase(bool enableDebugOptions = false) {
-    if (enableDebugOptions)
-      debugOptions = std::make_unique<DebugOptions>(this);
+/// TensorRT-related compilation options shared across all input kinds.
+struct TensorRTOptions : public mlir::OptionsGroup {
+  TensorRTOptions(mlir::CLOptionScope &ctx) : OptionsGroup(ctx) {
+    /// Translation options are only registered in local scopes.
+    if (!this->ctx.isGlobalScope())
+      translationOptions =
+          std::make_unique<mlir::tensorrt::TensorRTTranslationOptions>(
+              this->ctx);
   }
 
-  virtual ~PipelineOptionsBase() = default;
+  static llvm::cl::OptionCategory category;
 
-  std::optional<llvm::hash_code> getHash() const;
+  Option<bool> forceDefaultSliceInBounds{
+      this->ctx, "tensorrt-force-default-slice-in-bounds",
+      llvm::cl::init(false),
+      llvm::cl::desc("Constrain dynamic offset/sizes for default slice ops so "
+                     "that accesses will be in bounds"),
+      llvm::cl::cat(category)};
 
-  /// Populate the values of all associated options by parsing the given
-  /// arguments.
-  mlir::LogicalResult parse(llvm::ArrayRef<llvm::StringRef> args,
-                            std::string &err);
+  Option<bool> tensorrtPreferEinsum{
+      this->ctx, "tensorrt-prefer-einsum", llvm::cl::init(true),
+      llvm::cl::desc(
+          "Prefer 'tensorrt.einsum' over 'tensorrt.matrix_multiply'"),
+      llvm::cl::cat(category)};
 
-  /// Returns true if this owns a valid DebugOptions struct. If it returns
-  /// false, then default MLIR global CL options should be used to populate pass
-  /// instrumentation.
-  bool hasDebugOptions() const { return debugOptions != nullptr; }
+  /// Return the translation options.
+  const mlir::tensorrt::TensorRTTranslationOptions &
+  getTranslationOptions() const {
+    if (translationOptions)
+      return *translationOptions;
+    return mlir::tensorrt::TensorRTTranslationOptions::fromCLFlags();
+  }
 
-  /// Get the DebugOptions pointer, which may be null.
-  const DebugOptions *getDebugOptions() const { return debugOptions.get(); }
+private:
+  std::unique_ptr<mlir::tensorrt::TensorRTTranslationOptions>
+      translationOptions{nullptr};
+};
 
+//===----------------------------------------------------------------------===//
+// KernelGenOptions
+//===----------------------------------------------------------------------===//
+
+/// Kernel generation and device-code compilation options shared across input
+/// kinds.
+struct KernelGenOptions : public mlir::OptionsGroup {
+  using OptionsGroup::OptionsGroup;
+
+  static llvm::cl::OptionCategory category;
+
+  /// Directory where PTX data will be saved for debugging.
+  Option<std::string> dumpPtxDir{
+      this->ctx, "dump-ptx-dir", llvm::cl::init(""),
+      llvm::cl::desc("path to directory where PTX files will be dumped"),
+      llvm::cl::cat(category)};
+
+  ListOption<std::string> generatorBenefit{
+      this->ctx, "generator-benefit",
+      llvm::cl::desc("A list of 'name:benefit' pairs to adjust generator "
+                     "benefits for kernel generation."),
+      llvm::cl::cat(category)};
+};
+
+//===----------------------------------------------------------------------===//
+// OptimizationOptions
+//===----------------------------------------------------------------------===//
+
+struct OptimizationOptions : public mlir::OptionsGroup {
+  using OptionsGroup::OptionsGroup;
+
+  static llvm::cl::OptionCategory category;
+
+  Option<int64_t> unrollThreshold{
+      this->ctx, "scf-unroll-threshold", llvm::cl::init(100),
+      llvm::cl::desc("Cost threshold for loop unrolling."),
+      llvm::cl::cat(category)};
+
+  Option<bool> hoistAllocsToGlobals{
+      this->ctx, "hoist-allocs-to-globals", llvm::cl::init(true),
+      llvm::cl::desc("Hoist large local allocations to static globals when "
+                     "possible."),
+      llvm::cl::cat(category)};
+};
+
+//===----------------------------------------------------------------------===//
+// MainOptions (pipeline options)
+//===----------------------------------------------------------------------===//
+
+/// MainOptions is the option container for the unified compilation pipeline.
+/// It aggregates the common pipeline options plus additional option providers
+/// (e.g. `TensorRTOptions`, `KernelGenOptions`) and loads all registered
+/// compiler extensions into the options context.
+class MainOptions : public mlir::CLOptionScope,
+                    public llvm::ThreadSafeRefCountedBase<MainOptions> {
+protected:
+  ExtensionList extensions;
+
+  template <typename... Ts>
+  using SubGroupsTuple = std::tuple<std::unique_ptr<Ts>...>;
+
+  // clang-format off
+  /// Attach option subgroups to this scope.
+  using SubGroups = mlir::options_group_tuple<
+    BufferizationOptions,
+    DeviceOptions,
+    EmitCOptions,
+    ExecutorOptions,
+    KernelGenOptions,
+    LinalgInputOptions,
+    OptimizationOptions,
+    mlir::plan::PlanClusteringOptions,
+    StablehloInputOptions,
+    TensorRTOptions
+  >;
+  // clang-format on
+  SubGroups groups;
+
+  /// Treat DebugOptions separately since it is only constructed for
+  /// locally-scoped OptionSets.
+  std::unique_ptr<DebugOptions> debugOptions{nullptr};
+
+  static llvm::cl::OptionCategory category;
+
+  /// Whether the options have been finalized.
+  bool finalized{false};
+
+public:
   //===----------------------------------------------------------------------===//
   // Options common to all tasks
   //===----------------------------------------------------------------------===//
 
   Option<HostTarget> hostTarget{
-      *this, "host-target", llvm::cl::init(HostTarget::Executor),
+      *this,
+      "host-target",
+      llvm::cl::init(HostTarget::Executor),
       llvm::cl::desc(
           "specifies the target compilation format for host functions"),
       llvm::cl::values(
           clEnumValN(HostTarget::Executor, "executor",
                      "compile host code to MLIR-TRT interpretable executable"),
           clEnumValN(HostTarget::LLVM, "llvm", "compile host code to LLVM IR"),
-          clEnumValN(HostTarget::EmitC, "emitc", "compile host code to C++"))};
+          clEnumValN(HostTarget::EmitC, "emitc", "compile host code to C++")),
+      llvm::cl::cat(category)};
 
   Option<uint32_t> runtimeABIVersion{
       *this, "abi-version", llvm::cl::init(1),
-      llvm::cl::desc("specifies the Executor ABI version")};
+      llvm::cl::desc("specifies the Executor ABI version"),
+      llvm::cl::cat(category)};
 
   Option<std::string> artifactsDirectory{
       *this, "artifacts-dir", llvm::cl::init(""),
       llvm::cl::desc("Specifies where large artifacts can be offloaded as "
-                     "external files referenced by filename in the IR")};
+                     "external files referenced by filename in the IR"),
+      llvm::cl::cat(category)};
 
   Option<std::string> entrypoint{*this, "entrypoint", llvm::cl::init("main"),
-                                 llvm::cl::desc("entrypoint function name")};
+                                 llvm::cl::desc("entrypoint function name"),
+                                 llvm::cl::cat(category)};
 
-  Option<bool> disableAllExtensions{*this, "disable-all-extensions",
-                                    llvm::cl::init(false),
-                                    llvm::cl::desc("disable all extensions")};
+  ListOption<std::string> defaultBackends{
+      *this, "backends",
+      // clang-format off
+      llvm::cl::list_init<std::string>({
+      "#plan.tensorrt_backend<disallow_shape_tensor_calculations=false, benefit=3>",
+      "#plan.kernel_backend<benefit=2>",
+      "#plan.host_backend<benefit=1>"
+      }),
+      // clang-format on
+      llvm::cl::desc(
+          "Default list of plan backends if none specified on the module."),
+      llvm::cl::cat(category), llvm::cl::CommaSeparated};
 
-protected:
-  std::unique_ptr<DebugOptions> debugOptions{nullptr};
+  Option<std::string> defaultMemorySpace{
+      *this, "default-memory-space",
+      llvm::cl::init("#plan.memory_space<device>"),
+      llvm::cl::desc("Default bufferization memory space for the module"),
+      llvm::cl::cat(category)};
+
+  /// Filter the default backends to remove any backends that contain the given
+  /// substring.
+  void filterBackends(llvm::StringRef substring) {
+    auto filteredBackends = llvm::filter_to_vector(
+        defaultBackends, [substring](llvm::StringRef backend) {
+          return !backend.contains(substring);
+        });
+    defaultBackends.assign(filteredBackends);
+  }
+
+  Option<bool> disableAllExtensions{
+      *this,
+      "disable-all-extensions",
+      llvm::cl::init(false),
+      llvm::cl::desc("disable all extensions"),
+      llvm::cl::cat(category),
+      llvm::cl::callback([this](const bool &value) {
+        if (value) {
+          this->disableTensorRTExtension.setValue(true);
+          this->disableKernelGenExtension.setValue(true);
+          this->defaultBackends.assign({"#plan.host_backend<benefit=1>"});
+          this->defaultMemorySpace.setValue("#plan.memory_space<host>");
+        }
+      })};
+
+  Option<mlir::plan::InputKind> inputKind{
+      *this,
+      "input",
+      llvm::cl::desc("the kind of input IR to compile"),
+      llvm::cl::init(mlir::plan::InputKind::Stablehlo),
+      llvm::cl::values(mlir::plan::detail::createInputKindClOptions()),
+      llvm::cl::cat(category)};
+
+  Option<bool> enableV2constantFolding{
+      *this, "enable-v2-constant-folding", llvm::cl::init(true),
+      llvm::cl::desc(
+          "Enable v2 constant folding (requires KernelGen extension)"),
+      llvm::cl::cat(category)};
+
+  //===--------------------------------------------------------------------===//
+  // Extensions toggles
+  //===--------------------------------------------------------------------===//
+
+  Option<bool> disableTensorRTExtension{
+      *this,
+      "disable-tensorrt-extension",
+      llvm::cl::init(false),
+      llvm::cl::desc("Disable TensorRT integration extension passes (StableHLO "
+                     "path)."),
+      llvm::cl::cat(category),
+      llvm::cl::callback([this](const bool &value) {
+        if (value)
+          this->filterBackends("tensorrt_backend");
+      })};
+
+  Option<bool> disableKernelGenExtension{
+      *this,
+      "disable-kernel-gen-extension",
+      llvm::cl::init(false),
+      llvm::cl::desc("Disable KernelGen extension passes"),
+      llvm::cl::callback([this](const bool &value) {
+        // Force V2 constant folding to be disabled if the KernelGen extension
+        // is disabled.
+        if (value) {
+          this->enableV2constantFolding.setValue(false);
+          this->filterBackends("kernel_backend");
+        }
+      }),
+      llvm::cl::cat(category)};
+
+  ///===--------------------------------------------------------------------===//
+  // Methods
+  ///===--------------------------------------------------------------------===//
+
+  /// Parse the options from a string within a "local scope" and finalize them.
+  static StatusOr<llvm::IntrusiveRefCntPtr<MainOptions>>
+  fromString(llvm::StringRef optionString, ExtensionList extensions);
+
+  /// Default-construct the options, attaching them to the global CL scope.
+  /// DebugOptions are explicitly not constructed.
+  MainOptions(mlir::CLOptionScope::GlobalScope, ExtensionList extensions)
+      : mlir::CLOptionScope(GlobalScope{}), extensions(std::move(extensions)),
+        groups(mlir::make_options_group_tuple<SubGroups>(*this)) {
+    this->extensions.loadExtensions(*this);
+  }
+
+  /// Default-construct the options, attaching them to a local CL scope.
+  /// DebugOptions are constructed and attached to the instance.
+  MainOptions(mlir::CLOptionScope::LocalScope, ExtensionList extensions)
+      : mlir::CLOptionScope(LocalScope{}), extensions(std::move(extensions)),
+        groups(mlir::make_options_group_tuple<SubGroups>(*this)),
+        debugOptions(std::make_unique<DebugOptions>(*this)) {
+    this->extensions.loadExtensions(*this);
+  }
+
+  /// Validate the options. Does not mutate the values in any way.
+  Status validate() const;
+
+  /// Finalize the MainOptions. This should be called after invoking the parse
+  /// method or manually populating the option values. It may update some values
+  /// in-place to coerce them to valid states if defaults are incompatible with
+  /// user-specified options. Anytime this occurs, a remark will be emitted so
+  /// that it is clearly visible to the user. Finally, it will call validate()
+  /// again to ensure options are well-formed.
+  Status finalize();
+
+  /// Returns true if the options have been finalized.
+  bool isFinalized() const { return finalized; }
+
+  virtual ~MainOptions() = default;
+
+  std::optional<llvm::hash_code> getHash() const;
+
+  /// Get the Extensions associated with this pipeline.
+  const ExtensionList &getExtensions() const { return extensions; }
+
+  /// Access provider value.
+  template <typename OptionsGroupT>
+  const OptionsGroupT &get() const {
+    return *std::get<std::unique_ptr<OptionsGroupT>>(groups);
+  }
+
+  /// Access provider value.
+  template <typename OptionsGroupT>
+  OptionsGroupT &get() {
+    return *std::get<std::unique_ptr<OptionsGroupT>>(groups);
+  }
+
+  /// Get the debug options.
+  const DebugOptions &getDebugOptions() const {
+    assert(debugOptions &&
+           "debug options are not enabled on the pipeline options instance");
+    return *debugOptions;
+  }
+
+  /// Returns true if debug options are enabled.
+  bool hasDebugOptions() const { return debugOptions != nullptr; }
 };
 
 } // namespace mtrt::compiler

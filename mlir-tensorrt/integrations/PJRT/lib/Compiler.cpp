@@ -28,7 +28,7 @@
 #include "mlir-tensorrt/Backends/TensorRT/TensorRTBackend.h"
 #include "mlir-tensorrt/Compiler/InitAllDialects.h"
 #include "mlir-tensorrt/Compiler/InitAllPasses.h"
-#include "mlir-tensorrt/Compiler/StablehloToExecutable/StablehloToExecutable.h"
+#include "mlir-tensorrt/Compiler/Options.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir/IR/AsmState.h"
 #include "mlir/IR/BuiltinAttributes.h"
@@ -60,10 +60,9 @@ struct CompilerFlagOptions {
       "pjrt-disallow-host-tensors-in-tensorrt-clusters", llvm::cl::init(true),
       llvm::cl::desc("Disallow host tensor calculations in TensorRT clusters")};
 
-  cl::list<std::string> pipelineOptions{
-      "mlir-compile-opts",
-      llvm::cl::desc("the options to use for the MLIR compilation pipeline"),
-      llvm::cl::CommaSeparated};
+  llvm::IntrusiveRefCntPtr<compiler::MainOptions> pipelineOptions =
+      llvm::makeIntrusiveRefCnt<compiler::MainOptions>(
+          mlir::CLOptionScope::GlobalScope{}, compiler::getAllExtensions());
 
   cl::opt<unsigned> pjrtOptLevel{
       "mtrt-pjrt-opt-level", llvm::cl::init(0),
@@ -81,6 +80,7 @@ void mtrt::pjrt::registerPJRTCompilerCLOptions() {
   mlir::registerPassManagerCLOptions();
   mlir::registerDefaultTimingManagerCLOptions();
   mlir::tensorrt::registerTensorRTTranslationCLOpts();
+  mtrt::compiler::registerAllCompilerTaskExtensions();
 
   mtrt::registerLuaRuntimeExtensions();
   mtrt::compiler::registerAllPasses();
@@ -137,30 +137,23 @@ static StatusOr<mlir::OwningModuleRef> parseSource(mlir::MLIRContext *context,
   return mlir::OwningModuleRef(module.release());
 }
 
-/// Returns the set of options which should be passed to the compilation task
+/// Returns the set of options which should be passed to the pipeline
 /// construction API.
-static llvm::SmallVector<llvm::StringRef> getPipelineOptions() {
-  llvm::SmallVector<llvm::StringRef> options;
-  for (const auto &opt : clOptionsConfig->pipelineOptions)
-    options.push_back(llvm::StringRef(opt));
-  options.push_back("--device-infer-from-host");
-  options.push_back("--tensorrt-force-default-slice-in-bounds");
-  options.push_back("--use-global-tensorrt-translation-flags");
-  options.push_back("--abi-version=1");
-  // We use a large unroll factor for any optimization level > 0.
-  if (clOptionsConfig->pjrtOptLevel > 0)
-    options.push_back("--unroll-threshold=9223372036854775807");
+static StatusOr<llvm::IntrusiveRefCntPtr<compiler::MainOptions>>
+getPipelineOptions() {
+  llvm::IntrusiveRefCntPtr<compiler::MainOptions> options =
+      clOptionsConfig->pipelineOptions;
+  if (!options->isFinalized()) {
+    options->inputKind.setValue(mlir::plan::InputKind::Stablehlo);
+    options->get<compiler::DeviceOptions>().shouldInferFromHost.setValue(true);
+    options->get<compiler::TensorRTOptions>()
+        .forceDefaultSliceInBounds.setValue(true);
+    if (clOptionsConfig->pjrtOptLevel > 0)
+      options->get<compiler::OptimizationOptions>().unrollThreshold.setValue(
+          9223372036854775807);
+    MTRT_RETURN_IF_ERROR(options->finalize());
+  }
   return options;
-}
-
-/// Return true if any of the `options` contains the given substring. Useful for
-/// detecting the precense of a flag regardless of whether it was prefixed with
-/// `--` or not.
-static bool pipelinesOptionsContains(llvm::ArrayRef<llvm::StringRef> options,
-                                     llvm::StringRef partialOptionText) {
-  return llvm::any_of(options, [&](llvm::StringRef option) {
-    return option.contains_insensitive(partialOptionText);
-  });
 }
 
 StatusOr<std::unique_ptr<PJRTExecutable>>
@@ -184,12 +177,14 @@ Compiler::compileMlirModule(std::string_view mlirIR,
   mlir::MLIRContext *ctx = (*module)->getContext();
   int64_t codegenBenefit = clOptionsConfig->preferCodegen ? 99 : 2;
   llvm::SmallVector<mlir::Attribute> clusterKinds;
-  llvm::SmallVector<llvm::StringRef> options = getPipelineOptions();
+
+  MTRT_ASSIGN_OR_RETURN(llvm::IntrusiveRefCntPtr<compiler::MainOptions> options,
+                        getPipelineOptions());
 
   // We must load the Plan dialect in order to create backend attributes.
   ctx->loadDialect<mlir::plan::PlanDialect>();
 
-  if (!pipelinesOptionsContains(options, "disable-tensorrt-extension"))
+  if (!options->disableTensorRTExtension)
     clusterKinds.push_back(mlir::plan::TensorRTBackendAttr::get(
         ctx, clOptionsConfig->disallowHostTensorsInTensorRTClusters, 3,
         /*tensorrt_major_version=*/NV_TENSORRT_MAJOR,
@@ -203,8 +198,8 @@ Compiler::compileMlirModule(std::string_view mlirIR,
                                      mlir::ArrayAttr::get(ctx, clusterKinds));
 
   // Create the Pipeline or get the cached one.
-  mtrt::StatusOr<mtrt::compiler::PipelineBase *> pm = client->getPipeline(
-      mtrt::compiler::StablehloToExecutableTask::getName(), options);
+  mtrt::StatusOr<mtrt::compiler::Pipeline *> pm =
+      client->getOrCreatePipeline(options);
   if (!pm.isOk())
     return pm.getStatus();
 

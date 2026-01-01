@@ -25,8 +25,6 @@
 #include "mlir-tensorrt-c/Compiler/Registration/RegisterAllDialects.h"
 #include "mlir-tensorrt/Compiler/InitAllDialects.h"
 #include "mlir-tensorrt/Compiler/InitAllPasses.h"
-#include "mlir-tensorrt/Compiler/StablehloToExecutable/StablehloToExecutable.h"
-#include "mlir-tensorrt/Compiler/TensorRTToExecutable/TensorRTToExecutable.h"
 #include "mlir-tensorrt/Features.h"
 #include "mlir/CAPI/IR.h"
 

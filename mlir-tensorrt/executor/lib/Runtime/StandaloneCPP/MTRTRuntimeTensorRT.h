@@ -58,6 +58,18 @@ Status tensorrt_enqueue(nvinfer1::IExecutionContext *context, CUstream stream,
                         int32_t numInputs, UnrankedMemRef *inputs,
                         int32_t numOutputs, UnrankedMemRef *outputs);
 
+/// Enqueue TensorRT execution like `tensorrt_enqueue`, but allocate output
+/// buffers and populate the provided ranked memref descriptors before
+/// launching.
+///
+/// - `inputs`: array of unranked descriptors pointing to `PtrAndShape<Rank>`
+/// - `outputs`: array of unranked descriptors pointing to writable
+///   `RankedMemRef<Rank>` storage (caller provides the storage)
+Status tensorrt_enqueue_alloc(nvinfer1::IExecutionContext *context,
+                              CUstream stream, int32_t numInputs,
+                              UnrankedMemRef *inputs, int32_t numOutputs,
+                              UnrankedMemRefMut *outputs);
+
 /// Load a TensorRT engine from a serialized plan file.
 Status tensorrt_engine_create_from_file(nvinfer1::IRuntime *runtime,
                                         const char *filename,

@@ -11,8 +11,8 @@ mtrt_add_capi_library(MLIRTensorRTCAPIRegisterAllDialects
   PARTIAL_SOURCES_INTENDED
   LINK_LIBS PUBLIC
     ${mtrt_libs}
-    MLIRTensorRTCompilerStableHloToExecutable
-    MLIRTensorRTCompilerTensorRTToExecutable
+    MLIRTensorRTStablehloInputPipeline
+    MLIRTensorRTOutlineTensorROps
     MLIRTensorRTCUDAToLLVM
     MLIRTensorRTCUDATransforms
     MLIRTensorRTHostToEmitC

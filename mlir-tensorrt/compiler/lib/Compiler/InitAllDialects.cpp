@@ -22,6 +22,8 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt/Compiler/InitAllDialects.h"
+#include "mlir-tensorrt/Compiler/Extensions/KernelGenExtension.h"
+#include "mlir-tensorrt/Compiler/Extensions/TensorRTExtension.h"
 
 #include "mlir-executor/Executor/IR/Executor.h"
 #include "mlir-executor/Executor/Transforms/BufferizationOpInterfaceImpls.h"
@@ -34,9 +36,6 @@
 #include "mlir-tensorrt/Backends/Host/HostBackend.h"
 #include "mlir-tensorrt/Backends/Kernel/KernelBackend.h"
 #include "mlir-tensorrt/Backends/TensorRT/TensorRTBackend.h"
-#include "mlir-tensorrt/Compiler/StablehloToExecutable/KernelGenExtension.h"
-#include "mlir-tensorrt/Compiler/StablehloToExecutable/TensorRTExtension.h"
-#include "mlir-tensorrt/Compiler/TensorRTToExecutable/TensorRTToExecutable.h"
 #include "mlir-tensorrt/Conversion/CUDAToLLVM/CUDAToLLVM.h"
 #include "mlir-tensorrt/Conversion/PlanToLLVM/PlanToLLVM.h"
 #include "mlir-tensorrt/Conversion/TensorRTRuntimeToLLVM/TensorRTRuntimeToLLVM.h"
@@ -224,13 +223,6 @@ void mtrt::compiler::registerAllDialects(mlir::DialectRegistry &registry) {
     mlir::stablehlo::registerTensorKindOpInterfaceExternalModels(registry);
     mlir::stablehlo::registerTypeInferenceExternalModels(registry);
   });
-
-  // Register CompilerTasks.
-  static llvm::once_flag once;
-  llvm::call_once(once, []() {
-    mtrt::compiler::registerStableHloToExecutableTask();
-    mtrt::compiler::registerTensorRTToExecutableTask();
-  });
 }
 
 void mtrt::compiler::registerAllExtensions(mlir::DialectRegistry &registry) {
@@ -257,11 +249,13 @@ void mtrt::compiler::registerAllExtensions(mlir::DialectRegistry &registry) {
   mtrt::compiler::registerTensorRTBackend(registry);
   mtrt::compiler::registerKernelBackend(registry);
 
-  // Compiler task extensions.
-  mtrt::compiler::registerTensorRTExtension(registry);
+  registerAllCompilerTaskExtensions();
+}
 
-  // Compiler task extensions.
-  IF_MLIR_TRT_ENABLE_HLO({
-    mtrt::compiler::registerStablehloToExecutableKernelGenExtension(registry);
+void mtrt::compiler::registerAllCompilerTaskExtensions() {
+  static llvm::once_flag once;
+  llvm::call_once(once, []() {
+    mtrt::compiler::registerTensorRTExtension();
+    mtrt::compiler::registerKernelGenExtension();
   });
 }

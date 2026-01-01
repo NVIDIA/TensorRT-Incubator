@@ -36,6 +36,11 @@ void registerAllDialects(mlir::DialectRegistry &registry);
 /// Register all the Dialect extensions used by MLIR-TensorRT to the registry.
 void registerAllExtensions(mlir::DialectRegistry &registry);
 
+/// Register all global compiler pipeline extensions. This should be invoked
+/// before global LLVM command line options are parsed if a MainOptions object
+/// is also registered against the global CL scope.
+void registerAllCompilerTaskExtensions();
+
 } // namespace mtrt::compiler
 
 #endif // MLIR_TENSORRT_COMPILER_INITALLDIALECTS

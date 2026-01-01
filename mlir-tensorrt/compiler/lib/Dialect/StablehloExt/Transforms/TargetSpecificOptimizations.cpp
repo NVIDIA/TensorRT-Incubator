@@ -40,27 +40,29 @@ using namespace mlir::stablehlo_ext;
 FailureOr<TargetSpecificCanonicalizationOptions>
 TargetSpecificCanonicalizationOptions::parse(
     llvm::ArrayRef<std::string> disabled) {
-  SmallVector<llvm::StringRef> optimizations = {
-      "convolution", "gather", "scatter", "dot-general", "gather-to-slice",
-  };
-
   TargetSpecificCanonicalizationOptions o{};
-  for (StringRef arg : optimizations) {
-    bool enable = !llvm::is_contained(disabled, arg);
-    if (arg == "convolution")
-      o.enableConvolutionCanonicalization = enable;
-    else if (arg == "gather")
-      o.enableGatherCanonicalization = enable;
-    else if (arg == "scatter")
-      o.enableScatterCanonicalization = enable;
-    else if (arg == "dot-general")
-      o.enableDotGeneralCanonicalization = enable;
-    else if (arg == "gather-to-slice")
-      o.enableGatherToSlice = enable;
-    else
-      return failure();
+  for (llvm::StringRef arg : disabled) {
+    o.disable(arg);
   }
   return o;
+}
+
+void TargetSpecificCanonicalizationOptions::disable(
+    llvm::StringRef patternSetMnemonic) {
+  if (patternSetMnemonic == "convolution")
+    enableConvolutionCanonicalization = false;
+  else if (patternSetMnemonic == "gather")
+    enableGatherCanonicalization = false;
+  else if (patternSetMnemonic == "scatter")
+    enableScatterCanonicalization = false;
+  else if (patternSetMnemonic == "dot-general")
+    enableDotGeneralCanonicalization = false;
+  else if (patternSetMnemonic == "gather-to-slice")
+    enableGatherToSlice = false;
+  else
+    llvm::report_fatal_error("Invalid stablehlo target-specific optimization "
+                             "pattern set mnemonic: " +
+                             patternSetMnemonic);
 }
 
 namespace {

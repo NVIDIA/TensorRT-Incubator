@@ -20,6 +20,8 @@
 #ifndef MLIR_TENSORRT_DIALECT_TARGET_TRANSLATETOTENSORRT
 #define MLIR_TENSORRT_DIALECT_TARGET_TRANSLATETOTENSORRT
 
+#include "mlir-tensorrt-common/Support/CommandLineExtras.h"
+#include "mlir-tensorrt-common/Support/Options.h"
 #include "mlir-tensorrt-common/Utils/TensorRTVersion.h"
 #include "mlir/Support/LLVM.h"
 #include "mlir/Support/LogicalResult.h"
@@ -43,55 +45,93 @@ namespace tensorrt {
 /// TensorRTTranslationOptions wraps all available options for constructing
 /// TensorRT engine from MLIR. This should expose all TensorRT
 /// `nvinfer1::IBuilder` options that we currently support.
-struct TensorRTTranslationOptions {
+struct TensorRTTranslationOptions : public mlir::OptionsGroup {
+  using OptionsGroup::OptionsGroup;
+
+  static llvm::cl::OptionCategory optCategory;
+  static bool getStronglyTypedDefault();
+
   /// Creates default set of options that are initialized from `llvm::cl` flags.
-  static TensorRTTranslationOptions fromCLFlags();
-
-  /// The `nvinfer1::IBuilder` optimization level.
-  uint32_t tensorrtBuilderOptLevel = 0;
-
-  /// Whether to enable or disable use of timing cache.
-  bool enableTimingCache = true;
-
-  /// Where to persist the timing cache to storage.
-  std::string timingCachePath = "";
-
-  /// Force use of FP16 mode even if there are not FP16 tensors in the program.
-  bool forceEnableFP16 = false;
-
-  /// Set the nvinfer::IBuilder flag to obey precision constraints.
-  bool obeyPrecisionConstraints = false;
-
-  /// Set the nvinfer::NetworkDefinitionCreationFlag to use strongly typed mode.
-  bool enableStronglyTyped = false;
-
-  /// Maximum workspace/scratchspace (in bytes) allowed. The abcense of a value
-  /// indicates that the limit is the maximum device memory.
-  std::optional<uint64_t> workspaceMemoryPoolLimit = std::nullopt;
-
-  /// Enable TensorRT verbose logs
-  bool enableVerboseLogs = false;
-
-  /// Specifies a list of plugin `.so` library paths to serialize with the
-  /// engine.
-  SmallVector<std::string> pluginPathsToSerialize;
+  static const TensorRTTranslationOptions &fromCLFlags();
+  //===----------------------------------------------------------------------===//
+  // Builder optimization flags
+  //===----------------------------------------------------------------------===//
+  Option<uint32_t> builderOptLevel{
+      this->ctx, "tensorrt-builder-opt-level",
+      llvm::cl::desc(
+          "sets the optimization level (0-5) for the TensorRT engine builder"),
+      llvm::cl::init(0), llvm::cl::cat(optCategory)};
+  Option<bool> enableTimingCache{
+      this->ctx, "tensorrt-enable-timing-cache",
+      llvm::cl::desc(
+          "enables sharing timing cache between "
+          "TensorRT engines during the build process. May speed up the build."),
+      llvm::cl::init(true), llvm::cl::cat(optCategory)};
+  Option<std::string> timingCachePath{
+      this->ctx, "tensorrt-timing-cache-path",
+      llvm::cl::desc("filesystem path to serialized timing cache. will try to "
+                     "load and save the timing cache to this path"),
+      llvm::cl::init(""), llvm::cl::cat(optCategory)};
+  Option<bool> forceEnableFP16{
+      this->ctx, "tensorrt-fp16",
+      llvm::cl::desc(
+          "allows TensorRT builder to try fp16 kernels regardless of "
+          "the original model's precision."),
+      llvm::cl::init(false), llvm::cl::cat(optCategory)};
+  Option<bool> obeyPrecisionConstraints{
+      this->ctx, "tensorrt-obey-precision-constraints",
+      llvm::cl::desc("forces TensorRT builder to use the precision of the "
+                     "original model."),
+      llvm::cl::init(false), llvm::cl::cat(optCategory)};
+  Option<bool> stronglyTyped{
+      this->ctx, "tensorrt-strongly-typed",
+      llvm::cl::desc("forces TensorRT builder to build a strongly typed "
+                     "network."),
+      llvm::cl::init(getStronglyTypedDefault()), llvm::cl::cat(optCategory)};
+  Option<std::optional<uint64_t>, mlir::ByteSizeParser>
+      workspaceMemoryPoolLimit{
+          this->ctx, "tensorrt-workspace-memory-pool-limit",
+          llvm::cl::desc(
+              "TensorRT workspace memory pool limit "
+              "in bytes with optional size suffix like 'GiB' or 'KiB'"),
+          llvm::cl::init(std::nullopt), llvm::cl::cat(optCategory)};
 
   //===----------------------------------------------------------------------===//
-  // Debugging options
+  // TensorRT Builder Logging
   //===----------------------------------------------------------------------===//
+  Option<bool> verbose{this->ctx, "tensorrt-verbose",
+                       llvm::cl::desc("enable verbose logging from tensorrt"),
+                       llvm::cl::init(false), llvm::cl::cat(optCategory)};
 
-  /// Dump the layer info JSON file to the specified directory.
-  std::string saveTensorRTLayerInfoDirectory;
+  //===----------------------------------------------------------------------===//
+  // Plugin Handling
+  //===----------------------------------------------------------------------===//
+  ListOption<std::string> pluginPathsToSerialize{
+      this->ctx, "serialize-plugin-with-engine",
+      llvm::cl::desc(
+          "serializes specified plugin library into TensorRT engine."),
+      llvm::cl::value_desc("pluginPathToSerialize"),
+      llvm::cl::cat(optCategory)};
 
-  /// Save TensorRT engines, which are given a unique filename consisting of the
-  /// name of the function symbol plus the hash of the function, to the
-  /// specified directory.
-  std::string saveTensorRTEnginesToDirectory;
-
-  /// Load TensorRT engines from the specified directory. Note that this will
-  /// look for the name consisting of the function symbol name and the function
-  /// hash.
-  std::string loadTensorRTEnginesFromDirectory;
+  //===----------------------------------------------------------------------===//
+  // Engine Inspector and Debugging
+  //===----------------------------------------------------------------------===//
+  Option<std::string> saveTensorRTEngines{
+      this->ctx, "tensorrt-save-engines-dir",
+      llvm::cl::desc("Directory where to save TensorRT engines for debugging. "
+                     "Path must exist."),
+      llvm::cl::init(""), llvm::cl::cat(optCategory)};
+  Option<std::string> loadTensorRTEngines{
+      this->ctx, "tensorrt-load-engines-dir",
+      llvm::cl::desc("Directory where to load TensorRT engines. This path is "
+                     "primarily used for debugging and the path must exist."),
+      llvm::cl::init(""), llvm::cl::cat(optCategory)};
+  Option<std::string> saveTensorRTLayerInfo{
+      this->ctx, "tensorrt-layer-info-dir",
+      llvm::cl::desc(
+          "Directory where to save TensorRT LayerInformation JSON for "
+          "debugging. Path must exist."),
+      llvm::cl::init(""), llvm::cl::cat(optCategory)};
 };
 
 /// TensorRTBuilderContext encapsulates the TensorRT logger and builder objects.
@@ -186,7 +226,7 @@ buildFunction(mlir::FunctionOpInterface op,
 /// TensorRTBuilderContext.
 std::unique_ptr<mlir::Pass> createTranslateTensorRTPass(
     std::shared_ptr<tensorrt::TensorRTBuilderContext> context,
-    TensorRTTranslationOptions options =
+    const TensorRTTranslationOptions &options =
         TensorRTTranslationOptions::fromCLFlags());
 
 /// Register llvm::cl opts related to TensorRT translation. This should be

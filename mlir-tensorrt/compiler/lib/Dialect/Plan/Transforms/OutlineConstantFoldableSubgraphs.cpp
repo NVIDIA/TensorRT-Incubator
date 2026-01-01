@@ -28,6 +28,7 @@
 #include "mlir/Analysis/DataFlow/ConstantPropagationAnalysis.h"
 #include "mlir/Analysis/DataFlow/DeadCodeAnalysis.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/IR/IRMapping.h"
 
 namespace mlir::plan {
 #define GEN_PASS_DEF_PLANOUTLINECONSTANTFOLDABLESUBGRAPHSPASS

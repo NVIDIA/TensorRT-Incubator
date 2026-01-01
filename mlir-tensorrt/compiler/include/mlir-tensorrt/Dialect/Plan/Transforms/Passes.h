@@ -24,11 +24,9 @@
 #ifndef MLIR_TENSORRT_DIALECT_PLAN_TRANSFORMS_PASSES_H
 #define MLIR_TENSORRT_DIALECT_PLAN_TRANSFORMS_PASSES_H
 
-#include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
-#include "mlir/Dialect/Bufferization/IR/BufferDeallocationOpInterface.h"
-#include "mlir/Dialect/Bufferization/Transforms/Passes.h"
-#include <memory>
-#include <mlir/Pass/Pass.h>
+#include "mlir-tensorrt-common/Support/Options.h"
+#include "mlir-tensorrt/Dialect/Plan/IR/PlanEnums.h"
+#include "mlir/Pass/Pass.h"
 
 //===----------------------------------------------------------------------===//
 // Add Tablegen'd pass declarations and registration methods.
@@ -53,11 +51,40 @@ struct ClusterTargetOption;
 #define GEN_PASS_REGISTRATION
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h.inc"
 
+struct PlanClusteringOptions : public mlir::OptionsGroup {
+  using OptionsGroup::OptionsGroup;
+
+  static llvm::cl::OptionCategory category;
+
+  /// This option feeds into the `plan-create-closed-regions` pass to determine
+  /// whether to prefer use of `plan.alloc_cluster` over `plan.dps_cluster` (if
+  /// the backend supports it).
+  ///
+  /// Note that this *does not* affect the calling convention of entrypoints,
+  /// which is controlled by the `forceEntrypointsReturnAllocs` option.
+  Option<bool> preferAllocCallingConvention{
+      this->ctx, "clustering-prefer-alloc-cconv", llvm::cl::init(false),
+      llvm::cl::desc("Prefer using callee-allocating calling conventions"
+                     " (callee allocates buffer results) over DPS when "
+                     "outlining clusters."),
+      llvm::cl::cat(category)};
+
+  Option<bool> disableShapeFuncCreation{
+      this->ctx,
+      "clustering-disable-shape-func-creation",
+      llvm::cl::init(false),
+      llvm::cl::desc("Disable creation of shape functions when clustering."),
+      llvm::cl::cat(category),
+      llvm::cl::Hidden};
+};
+
 /// Creates the segmentation pipeline for StableHLO input. This pass pipeline
 /// performs shape materialization, clustering, and outlining.
-void buildPlanSegmentationPipeline(OpPassManager &pm,
-                                   const plan::ClusteringPassOptions &opts,
-                                   int abiVersion);
+void buildPlanSegmentationPipeline(OpPassManager &pm, int abiVersion,
+                                   plan::InputKind inputKind,
+                                   bool entrypointUsesAllocCConv,
+                                   llvm::StringRef entrypoint,
+                                   const plan::PlanClusteringOptions &opts);
 
 struct PlanBufferizationOptions {
   /// Force entrypoint functions to return allocations rather than trying to use

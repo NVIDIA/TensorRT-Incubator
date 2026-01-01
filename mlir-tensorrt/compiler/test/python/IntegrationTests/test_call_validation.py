@@ -35,8 +35,7 @@ class Test:
 
             # Use the compiler API to compile to executable.
             client = compiler.CompilerClient(context)
-            task = client.get_compilation_task(
-                "stablehlo-to-executable",
+            task = client.get_pipeline(
                 ["--tensorrt-builder-opt-level=0"],
             )
             task.run(m.operation)

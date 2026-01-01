@@ -122,16 +122,16 @@ static LogicalResult
 applyClusteringToFunc(RewriterBase &rewriter, FunctionOpInterface func,
                       DataFlowSolver &solver,
                       ArrayRef<CompilerBackendAttrInterface> clusters,
-                      const ClusteringPassOptions &opts) {
+                      plan::InputKind inputKind) {
   ClusteringPatternSet<ClusteringRewriter> patterns;
   for (const auto &[idx, target] : llvm::enumerate(clusters)) {
     FailureOr<ClusteringOpts> clusteringOpts =
-        target.getClusterKindOptions(opts.inputKind, func, solver);
+        target.getClusterKindOptions(inputKind, func, solver);
     if (failed(clusteringOpts))
       return failure();
     patterns.add(*clusteringOpts, createClusterOp, isOpInClusterRegion,
-                 target.getClusterFilter(opts.inputKind),
-                 PatternBenefit(target.getClusterBenefit(opts.inputKind)));
+                 target.getClusterFilter(inputKind),
+                 PatternBenefit(target.getClusterBenefit(inputKind)));
   }
 
   for (const std::unique_ptr<ClusteringRewriter> &rewrite : patterns) {
@@ -211,10 +211,8 @@ public:
     });
 
     for (FunctionOpInterface func : funcs) {
-      if (failed(applyClusteringToFunc(
-              rewriter, func, solver, schedule,
-              ClusteringPassOptions{entrypoint, forceEntrypointsReturnAllocs,
-                                    /*disableCreateShapeFuncPass=*/false})))
+      if (failed(applyClusteringToFunc(rewriter, func, solver, schedule,
+                                       inputKind)))
         return signalPassFailure();
     }
 

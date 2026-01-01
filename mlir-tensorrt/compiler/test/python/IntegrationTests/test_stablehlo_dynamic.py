@@ -87,8 +87,7 @@ def infer_output_shape(client, session, exe, input_shape):
 
 
 def compile(client, op):
-    task = client.get_compilation_task(
-        "stablehlo-to-executable",
+    task = client.get_pipeline(
         [
             "--tensorrt-builder-opt-level=0",
             "--tensorrt-strongly-typed=false",

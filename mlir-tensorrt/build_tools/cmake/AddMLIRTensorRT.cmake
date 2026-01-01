@@ -270,6 +270,9 @@ function(add_mlir_tensorrt_backend_library target)
   mtrt_add_public_tablegen_target("${target}IncGen")
   list(APPEND tablegen_depends "${target}IncGen")
 
+  add_dependencies("${target}IncGen"
+    MLIRTensorRTPlanDialectAttrInterfacesIncGen)
+
   add_mlir_tensorrt_library(${target}
     PARTIAL_SOURCES_INTENDED
     ${ARG_UNPARSED_ARGUMENTS}

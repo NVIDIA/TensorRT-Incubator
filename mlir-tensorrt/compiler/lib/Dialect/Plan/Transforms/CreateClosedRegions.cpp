@@ -320,7 +320,8 @@ static void remapAnalysisState(DataFlowSolver &solver, ValueRange originals,
 
 static FailureOr<SmallVector<BoundsAttr>>
 getInputAttributes(RewriterBase &rewriter, DataFlowSolver &solver, Location loc,
-                   ValueRange inputs) {
+                   ValueRange inputs, CompilerBackendAttrInterface backend,
+                   bool useDestinationStyleCallingConvention) {
   // Compute input tensor kinds.
   SmallVector<TensorKindInfo> inputTensorKinds;
   inputTensorKinds.reserve(inputs.size());
@@ -393,9 +394,16 @@ getInputAttributes(RewriterBase &rewriter, DataFlowSolver &solver, Location loc,
     // Get the upper bounds of the shape.
     FailureOr<SmallVector<int64_t>> ub =
         getShapeBoundsForValue(input, presburger::BoundType::UB, solver);
-    if (failed(ub))
+    if (failed(ub)) {
+      // If the backend doesn't require bounds, use 'none' bounds.
+      if (!backend.requiresInputBoundsForDynamicShapes(
+              useDestinationStyleCallingConvention)) {
+        inputAttrs.push_back(BoundsAttr::get(rewriter.getContext()));
+        continue;
+      }
       return emitError(input.getLoc())
              << "failed to derive upper bound for " << input;
+    }
 
     // Get the lower bound of the shape.
     FailureOr<SmallVector<int64_t>> lb =
@@ -434,8 +442,9 @@ static LogicalResult createInlineClosedGroupOp(
     RewriterBase &rewriter, plan::ClusterOp op, DataFlowSolver &solver,
     const ValueRange &inputs,
     ArrayRef<DestinationOperandMaterializationResult> destinationOperands) {
+  CompilerBackendAttrInterface backend = op.getTargetAttr();
   DpsClusterOp closedGroupOp = rewriter.create<DpsClusterOp>(
-      op.getLoc(), /*target=*/op.getTargetAttr(),
+      op.getLoc(), /*target=*/backend,
       /*inputs=*/inputs,
       /*outs=*/
       llvm::map_to_vector(destinationOperands,
@@ -486,9 +495,10 @@ static LogicalResult createInlineClosedGroupOp(
   }
   closedGroupOp.setResAttrsAttr(resultAttrs);
 
-  // Create the closed region input profilw attrs.
+  // Create the closed region input profile attrs.
   FailureOr<SmallVector<BoundsAttr>> inputAttr = getInputAttributes(
-      rewriter, solver, closedGroupOp->getLoc(), closedGroupOp.getInputs());
+      rewriter, solver, closedGroupOp->getLoc(), closedGroupOp.getInputs(),
+      backend, /*useDestinationStyleCallingConvention=*/true);
 
   if (failed(inputAttr))
     return emitError(closedGroupOp.getLoc())
@@ -522,9 +532,10 @@ createInlineClosedAllocGroupOp(RewriterBase &rewriter, plan::ClusterOp op,
   remapAnalysisState(solver, op->getResults(), closedGroupOp->getResults());
   rewriter.replaceOp(op, closedGroupOp->getResults());
 
-  // Create the closed region input profilw attrs.
+  // Create the closed region input profile attrs.
   FailureOr<SmallVector<BoundsAttr>> inputAttr = getInputAttributes(
-      rewriter, solver, closedGroupOp->getLoc(), closedGroupOp.getInputs());
+      rewriter, solver, closedGroupOp->getLoc(), closedGroupOp.getInputs(),
+      op.getTargetAttr(), /*useDestinationStyleCallingConvention=*/false);
 
   if (failed(inputAttr))
     return emitError(closedGroupOp.getLoc())
@@ -535,10 +546,10 @@ createInlineClosedAllocGroupOp(RewriterBase &rewriter, plan::ClusterOp op,
   return success();
 }
 
-static LogicalResult
-createClosedGroupOp(RewriterBase &rewriter, plan::ClusterOp op,
-                    DataFlowSolver &solver,
-                    bool disableDestinationStyleCallingConvention) {
+static LogicalResult createClosedGroupOp(RewriterBase &rewriter,
+                                         plan::ClusterOp op,
+                                         DataFlowSolver &solver,
+                                         bool preferAllocCallingConvention) {
   OpBuilder::InsertionGuard g(rewriter);
 
   CompilerBackendAttrInterface backend = op.getTargetAttr();
@@ -546,7 +557,7 @@ createClosedGroupOp(RewriterBase &rewriter, plan::ClusterOp op,
     return op.emitError("missing target attribute");
 
   bool useDestinationStyleCallingConvention =
-      !disableDestinationStyleCallingConvention &&
+      !preferAllocCallingConvention &&
       backend.supportsDestinationStyleCallingConvention(op) &&
       backend.preferDestinationStyleCallingConvention(op) &&
       llvm::all_of(op->getResultTypes(), llvm::IsaPred<RankedTensorType>);
@@ -615,7 +626,7 @@ public:
     IRRewriter rewriter(ctx);
     for (ClusterOp groupOp : llvm::make_early_inc_range(groupOps)) {
       if (failed(createClosedGroupOp(rewriter, groupOp, solver,
-                                     disableDestinationStyleCallingConvention)))
+                                     preferAllocCallingConvention)))
         return signalPassFailure();
     }
   }

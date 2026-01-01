@@ -58,12 +58,6 @@
 #define DEBUG_TYPE "translate-to-tensorrt"
 #define DBGS() llvm::dbgs() << "[" DEBUG_TYPE "] "
 
-#if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 12, 0)
-static constexpr bool kStronglyTypedDefault = true;
-#else
-static constexpr bool kStronglyTypedDefault = false;
-#endif
-
 namespace mlir {
 namespace tensorrt {
 #define GEN_PASS_DEF_TRANSLATETOTENSORRTENGINEPASS
@@ -126,141 +120,47 @@ void Logger::log(Severity severity, const char *msg) noexcept {
 }
 #endif // MLIR_TRT_TARGET_TENSORRT
 
+//===----------------------------------------------------------------------===//
+// TensorRTTranslationOptions
+//===----------------------------------------------------------------------===//
+
+llvm::cl::OptionCategory TensorRTTranslationOptions::optCategory{
+    "MLIR-to-TensorRT Translation Options", ""};
+
 namespace {
-struct TensorRTTranslationCLFlags {
-  llvm::cl::OptionCategory optCategory{"MLIR-to-TensorRT translation options"};
-
-  //===----------------------------------------------------------------------===//
-  // Builder optimization flags
-  //===----------------------------------------------------------------------===//
-  llvm::cl::opt<uint32_t> tensorrtBuilderOptLevel{
-      "tensorrt-builder-opt-level",
-      llvm::cl::desc(
-          "sets the optimization level (0-5) for the TensorRT engine builder"),
-      llvm::cl::init(0), llvm::cl::cat(optCategory)};
-  llvm::cl::opt<bool> tensorrtEnableTimingCache{
-      "tensorrt-enable-timing-cache",
-      llvm::cl::desc(
-          "enables sharing timing cache between "
-          "TensorRT engines during the build process. May speed up the build."),
-      llvm::cl::init(true), llvm::cl::cat(optCategory)};
-  llvm::cl::opt<std::string> timingCachePath{
-      "tensorrt-timing-cache-path",
-      llvm::cl::desc("filesystem path to serialized timing cache. will try to "
-                     "load and save the timing cache to this path"),
-      llvm::cl::init(""), llvm::cl::cat(optCategory)};
-  llvm::cl::opt<bool> enableTensorRTFp16{
-      "tensorrt-fp16",
-      llvm::cl::desc(
-          "allows TensorRT builder to try fp16 kernels regardless of "
-          "the original model's precision."),
-      llvm::cl::init(false), llvm::cl::cat(optCategory)};
-  llvm::cl::opt<bool> tensorrtObeyPrecisionConstraints{
-      "tensorrt-obey-precision-constraints",
-      llvm::cl::desc("forces TensorRT builder to use the precision of the "
-                     "original model."),
-      llvm::cl::init(false), llvm::cl::cat(optCategory)};
-  llvm::cl::opt<bool> tensorrtStronglyTyped{
-      "tensorrt-strongly-typed",
-      llvm::cl::desc("forces TensorRT builder to build a strongly typed "
-                     "network."),
-      llvm::cl::init(kStronglyTypedDefault), llvm::cl::cat(optCategory)};
-  llvm::cl::opt<std::optional<uint64_t>, /*ExternalStorage=*/false,
-                /*ParserClass=*/mlir::ByteSizeParser>
-      tensorrtWorkspaceMemoryPoolLimit{
-          "tensorrt-workspace-memory-pool-limit",
-          llvm::cl::desc(
-              "TensorRT workspace memory pool limit "
-              "in bytes with optional size suffix like 'GiB' or 'KiB'"),
-          llvm::cl::init(std::nullopt), llvm::cl::cat(optCategory)};
-
-  //===----------------------------------------------------------------------===//
-  // TensorRT Builder Logging
-  //===----------------------------------------------------------------------===//
-  llvm::cl::opt<bool> enableTensorRTVerboseLogging{
-      "tensorrt-verbose",
-      llvm::cl::desc("enable verbose logging from tensorrt"),
-      llvm::cl::init(false), llvm::cl::cat(optCategory)};
-
-  //===----------------------------------------------------------------------===//
-  // Plugin Handling
-  //===----------------------------------------------------------------------===//
-  llvm::cl::list<std::string> pluginPathsToSerialize{
-      "serialize-plugin-with-engine",
-      llvm::cl::desc(
-          "serializes specified plugin library into TensorRT engine."),
-      llvm::cl::value_desc("pluginPathToSerialize"),
-      llvm::cl::cat(optCategory)};
-
-  //===----------------------------------------------------------------------===//
-  // Engine Inspector and Debugging
-  //===----------------------------------------------------------------------===//
-  llvm::cl::opt<std::string> saveTensorRTEngines{
-      "save-tensorrt-engines",
-      llvm::cl::desc("Directory where to save TensorRT engines for debugging. "
-                     "Path must exist."),
-      llvm::cl::init(""), llvm::cl::cat(optCategory)};
-  llvm::cl::opt<std::string> loadTensorRTEngines{
-      "load-tensorrt-engines",
-      llvm::cl::desc("Directory where to load TensorRT engines. This path is "
-                     "primarily used for debugging and the path must exist."),
-      llvm::cl::init(""), llvm::cl::cat(optCategory)};
-  llvm::cl::opt<std::string> saveTensorRTLayerInfo{
-      "save-tensorrt-layer-info",
-      llvm::cl::desc(
-          "Directory where to save TensorRT LayerInformation JSON for "
-          "debugging. Path must exist."),
-      llvm::cl::init(""), llvm::cl::cat(optCategory)};
+struct TensorRTTranslationCLFlags : public mlir::CLOptionScope {
+  using CLOptionScope::CLOptionScope;
+  TensorRTTranslationOptions options{*this};
 };
 } // namespace
 
 /// Global for the translation options. To enable CLI options, call the
 /// `registerTensorRTTranslationCLOpts` function before parsing LLVM CL opts.
-static llvm::ManagedStatic<TensorRTTranslationCLFlags>
+static llvm::ManagedStatic<std::unique_ptr<TensorRTTranslationCLFlags>>
     clTensorRTTranslationOptions;
 
 void mlir::tensorrt::registerTensorRTTranslationCLOpts() {
   // Ensure that the managed static options are instantiated.
-  (void)*clTensorRTTranslationOptions;
+  *clTensorRTTranslationOptions = std::make_unique<TensorRTTranslationCLFlags>(
+      CLOptionScope::GlobalScope{});
 }
 
 const llvm::cl::OptionCategory &mlir::tensorrt::getTensorRTCLOptionCategory() {
-  return clTensorRTTranslationOptions->optCategory;
+  return (*clTensorRTTranslationOptions)->options.optCategory;
 }
 
-//===----------------------------------------------------------------------===//
-// TensorRTTranslationOptions
-//===----------------------------------------------------------------------===//
+const TensorRTTranslationOptions &TensorRTTranslationOptions::fromCLFlags() {
+  return (*clTensorRTTranslationOptions)->options;
+}
 
-TensorRTTranslationOptions TensorRTTranslationOptions::fromCLFlags() {
-  assert(clTensorRTTranslationOptions.isConstructed() &&
-         "TensorRT translation CL options are not constructed; did you forget "
-         "to call `registerTensorRTTranslationCLOpts`?");
-  TensorRTTranslationOptions options;
-  options.tensorrtBuilderOptLevel =
-      clTensorRTTranslationOptions->tensorrtBuilderOptLevel;
-  options.enableTimingCache =
-      clTensorRTTranslationOptions->tensorrtEnableTimingCache;
-  options.timingCachePath = clTensorRTTranslationOptions->timingCachePath;
-  options.forceEnableFP16 = clTensorRTTranslationOptions->enableTensorRTFp16;
-  options.obeyPrecisionConstraints =
-      clTensorRTTranslationOptions->tensorrtObeyPrecisionConstraints;
-  options.enableStronglyTyped =
-      clTensorRTTranslationOptions->tensorrtStronglyTyped;
-  options.enableVerboseLogs =
-      clTensorRTTranslationOptions->enableTensorRTVerboseLogging;
-  options.workspaceMemoryPoolLimit =
-      clTensorRTTranslationOptions->tensorrtWorkspaceMemoryPoolLimit;
-  options.pluginPathsToSerialize =
-      llvm::to_vector(clTensorRTTranslationOptions->pluginPathsToSerialize);
-  options.saveTensorRTLayerInfoDirectory =
-      clTensorRTTranslationOptions->saveTensorRTLayerInfo;
-  options.saveTensorRTEnginesToDirectory =
-      clTensorRTTranslationOptions->saveTensorRTEngines;
-  options.loadTensorRTEnginesFromDirectory =
-      clTensorRTTranslationOptions->loadTensorRTEngines;
+bool TensorRTTranslationOptions::getStronglyTypedDefault() {
+#if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 12, 0)
+  static constexpr bool kStronglyTypedDefault = true;
+#else
+  static constexpr bool kStronglyTypedDefault = false;
+#endif
 
-  return options;
+  return kStronglyTypedDefault;
 }
 
 //===----------------------------------------------------------------------===//
@@ -402,7 +302,7 @@ setBuilderOptimizationLevel(nvinfer1::IBuilderConfig *config, uint32_t optLevel,
 static LogicalResult maybeSetStronglyTypedOption(
     Location loc, const TensorRTBuilderContext &builderContext,
     const TensorRTTranslationOptions &opts, uint32_t &networkCreationFlags) {
-  if (!opts.enableStronglyTyped)
+  if (!opts.stronglyTyped)
     return success();
 
   LLVM_DEBUG(
@@ -455,7 +355,7 @@ tensorrt::buildFunction(mlir::FunctionOpInterface op,
 
   NvInferNetworkEncoder encoder(network.get(), optimProfile,
                                 builderContext.getTensorRTVersion(),
-                                opts.enableStronglyTyped);
+                                opts.stronglyTyped);
 
   // Currently we only support single-block functions with unique return
   // terminator ops.
@@ -535,7 +435,7 @@ tensorrt::buildFunction(mlir::FunctionOpInterface op,
   // (lower verbosity performs better generally).
   config->setProfilingVerbosity(nvinfer1::ProfilingVerbosity::kDETAILED);
 
-  setBuilderOptimizationLevel(config.get(), opts.tensorrtBuilderOptLevel,
+  setBuilderOptimizationLevel(config.get(), opts.builderOptLevel,
                               builderContext.getTensorRTVersion());
 
   if (opts.workspaceMemoryPoolLimit) {
@@ -776,17 +676,16 @@ class TranslateToTensorRTEnginePass
           TranslateToTensorRTEnginePass> {
 public:
   TranslateToTensorRTEnginePass()
-      : builderContext(nullptr), translationOptions(std::nullopt) {}
+      : builderContext(nullptr), translationOptions(nullptr) {}
 
   explicit TranslateToTensorRTEnginePass(
       std::shared_ptr<TensorRTBuilderContext> builderContext,
-      TensorRTTranslationOptions options)
-      : builderContext(builderContext), translationOptions(std::move(options)) {
-  }
+      const TensorRTTranslationOptions &options)
+      : builderContext(builderContext), translationOptions(&options) {}
 
   LogicalResult initialize(MLIRContext *context) final {
     if (!translationOptions)
-      this->translationOptions = TensorRTTranslationOptions::fromCLFlags();
+      this->translationOptions = &TensorRTTranslationOptions::fromCLFlags();
 
 #ifdef MLIR_TRT_TARGET_TENSORRT
     // Check if CUDA device is available.
@@ -802,8 +701,7 @@ public:
 
     if (!this->builderContext) {
       FailureOr<std::shared_ptr<TensorRTBuilderContext>> builderResult =
-          TensorRTBuilderContext::create(
-              clTensorRTTranslationOptions->enableTensorRTVerboseLogging);
+          TensorRTBuilderContext::create(translationOptions->verbose);
       if (failed(builderResult))
         return emitError(UnknownLoc::get(context))
                << "Failed to create TensorRT builder context";
@@ -845,9 +743,9 @@ public:
     }
 
     for (auto func : funcs) {
-      if (!translationOptions->loadTensorRTEnginesFromDirectory.empty()) {
-        llvm::SmallString<128> fileName = getEngineFileName(
-            func, translationOptions->loadTensorRTEnginesFromDirectory);
+      if (!translationOptions->loadTensorRTEngines.empty()) {
+        llvm::SmallString<128> fileName =
+            getEngineFileName(func, translationOptions->loadTensorRTEngines);
         std::string error;
         std::unique_ptr<llvm::MemoryBuffer> buffer =
             mlir::openInputFile(fileName, &error);
@@ -886,23 +784,22 @@ public:
       const std::unique_ptr<nvinfer1::IHostMemory> &serializedEngine =
           engineResult->serializedEngine;
 
-      if (!translationOptions->saveTensorRTEnginesToDirectory.empty() &&
+      if (!translationOptions->saveTensorRTEngines.empty() &&
           failed(saveTensorRTEngineToFile(
-              func, translationOptions->saveTensorRTEnginesToDirectory,
-              serializedEngine)))
+              func, translationOptions->saveTensorRTEngines, serializedEngine)))
         return signalPassFailure();
 
-      if (!translationOptions->saveTensorRTLayerInfoDirectory.empty()) {
+      if (!translationOptions->saveTensorRTLayerInfo.empty()) {
         std::unique_ptr<nvinfer1::IRuntime> runtime{
             nvinfer1::createInferRuntime(
-                Logger::getInstance(translationOptions->enableVerboseLogs))};
+                Logger::getInstance(translationOptions->verbose))};
         std::unique_ptr<nvinfer1::ICudaEngine> cudaEngine{
             runtime->deserializeCudaEngine(serializedEngine->data(),
                                            serializedEngine->size())};
         auto inspector = std::unique_ptr<nvinfer1::IEngineInspector>(
             cudaEngine->createEngineInspector());
         llvm::SmallString<128> fileName =
-            StringRef(translationOptions->saveTensorRTLayerInfoDirectory);
+            StringRef(translationOptions->saveTensorRTLayerInfo);
         llvm::sys::path::append(
             fileName, llvm::formatv("{0}.json", getFuncSignatureString(func)));
         std::string error;
@@ -955,12 +852,12 @@ private:
   std::shared_ptr<TensorRTSerializedTimingCache> timingCache{nullptr};
 
   /// Options affecting TensorRT translation.
-  std::optional<TensorRTTranslationOptions> translationOptions{std::nullopt};
+  const TensorRTTranslationOptions *translationOptions{nullptr};
 };
 } // namespace
 
 std::unique_ptr<mlir::Pass> tensorrt::createTranslateTensorRTPass(
     std::shared_ptr<tensorrt::TensorRTBuilderContext> context,
-    TensorRTTranslationOptions options) {
+    const TensorRTTranslationOptions &options) {
   return std::make_unique<TranslateToTensorRTEnginePass>(context, options);
 }
