@@ -33,9 +33,8 @@
 #include "mlir-kernel/Kernel/Transforms/Passes.h"
 #include "mlir-tensorrt/Backends/Kernel/KernelBackend.h"
 #include "mlir-tensorrt/Backends/Kernel/Passes.h"
+#include "mlir-tensorrt/Compiler/InputPipelines/StablehloInputPipeline.h"
 #include "mlir-tensorrt/Compiler/Options.h"
-#include "mlir-tensorrt/Compiler/Pipeline.h"
-#include "mlir-tensorrt/Compiler/StablehloToExecutable/StablehloInputPipeline.h"
 #include "mlir-tensorrt/Conversion/Passes.h"
 #include "mlir-tensorrt/Dialect/CUDA/IR/CUDADialect.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
@@ -348,14 +347,20 @@ static StatusOr<ModuleOp> outlineFuncToModule(IRRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 // Compilation Pipeline
 //===----------------------------------------------------------------------===//
-struct SubgraphPipelineOptions
-    : public PipelineOptions<ExecutorOptions, DeviceOptions> {
-  using PipelineOptions::PipelineOptions;
+struct SubgraphPipelineOptions : public CLOptionScope {
+  SubgraphPipelineOptions()
+      : CLOptionScope(CLOptionScope::LocalScope{}),
+        deviceOptions(std::make_unique<DeviceOptions>(*this)),
+        executorOptions(std::make_unique<ExecutorOptions>(*this)) {}
+
   Option<std::string> dumpPtxDir{*this, "dump-ptx-dir"};
   ListOption<std::string> generatorBenefit{
       *this, "generator-benefit",
       llvm::cl::desc("A list of 'name:benefit' pairs to adjust generator "
                      "benefits for kernel generation.")};
+
+  std::unique_ptr<DeviceOptions> deviceOptions;
+  std::unique_ptr<ExecutorOptions> executorOptions;
 };
 
 static void populateSubgraphCompilationPipeline(OpPassManager &pm) {
@@ -385,7 +390,7 @@ static void populateSubgraphCompilationPipeline(OpPassManager &pm) {
   // Kernel Generation
   //===----------------------------------------------------------------------===//
   auto subgraphPipelineOptions = std::make_unique<SubgraphPipelineOptions>();
-  const auto &deviceOpts = subgraphPipelineOptions->get<DeviceOptions>();
+  const auto &deviceOpts = *subgraphPipelineOptions->deviceOptions;
 
   kernel::buildTransformIRPipeline(
       pm, mtrt::compiler::getKernelGenClusterAttrName(),
@@ -459,12 +464,12 @@ static void populateSubgraphCompilationPipeline(OpPassManager &pm) {
 
   ConvertCUDAToExecutorPassOptions cudaToExecutorOpts;
   cudaToExecutorOpts.indexBitwidth =
-      subgraphPipelineOptions->get<ExecutorOptions>().indexBitwidth;
+      subgraphPipelineOptions->executorOptions->indexBitwidth;
   pm.addPass(createConvertCUDAToExecutorPass(cudaToExecutorOpts));
 
   mlir::executor::ConvertStdToExecutorPassOptions stdToExecOpts;
   stdToExecOpts.indexBitwidth =
-      subgraphPipelineOptions->get<ExecutorOptions>().indexBitwidth;
+      subgraphPipelineOptions->executorOptions->indexBitwidth;
   mlir::executor::buildExecutorLoweringPipeline(pm, stdToExecOpts);
 }
 

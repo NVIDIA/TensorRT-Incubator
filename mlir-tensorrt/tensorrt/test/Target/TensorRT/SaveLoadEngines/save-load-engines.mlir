@@ -3,10 +3,10 @@
 // RUN: mkdir %t
 // RUN: %pick-one-gpu tensorrt-opt %s -pass-pipeline="builtin.module(tensorrt.module(translate-tensorrt-to-engine))" \
 // RUN:  --mlir-elide-elementsattrs-if-larger=32 \
-// RUN:  --save-tensorrt-engines=%t
+// RUN:  --tensorrt-save-engines-dir=%t
 // RUN: %pick-one-gpu tensorrt-opt %s -pass-pipeline="builtin.module(trensorrt.module(translate-tensorrt-to-engine))" \
 // RUN:  --mlir-elide-elementsattrs-if-larger=32 \
-// RUN:  --load-tensorrt-engines=%t
+// RUN:  --tensorrt-load-engines-dir=%t
 
 
 tensorrt.module @sub_module {

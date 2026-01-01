@@ -161,6 +161,20 @@ bool plan::KernelBackendAttr::supportsInputKind(InputKind inputKind) const {
   return inputKind == InputKind::Stablehlo;
 }
 
+bool plan::KernelBackendAttr::requiresInputBoundsForDynamicShapes(
+    bool useDestinationStyleCallingConvention) const {
+  // KernelBackend does not require shape bounds for dynamically shaped input
+  // tensors.
+  return false;
+}
+
+bool plan::KernelBackendAttr::requiresOutputBoundsForDynamicShapes(
+    bool useDestinationStyleCallingConvention) const {
+  // KernelBackend does not require shape bounds for dynamically shaped output
+  // tensors.
+  return false;
+}
+
 //===----------------------------------------------------------------------===//
 // Extension Registration
 //===----------------------------------------------------------------------===//

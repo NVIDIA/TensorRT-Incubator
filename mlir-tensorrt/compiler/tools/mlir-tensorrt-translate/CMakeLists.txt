@@ -3,4 +3,5 @@ mtrt_add_tool(mlir-tensorrt-translate mlir-tensorrt-translate.cpp
   ${MLIR_TENSORRT_LIBS}
   MLIR_LIBS PRIVATE
   MLIRTranslateLib
+  MLIRToLLVMIRTranslationRegistration
   )

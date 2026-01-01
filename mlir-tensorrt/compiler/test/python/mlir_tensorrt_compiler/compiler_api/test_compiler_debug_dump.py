@@ -31,15 +31,14 @@ def compile_asm(ASM):
         mlir_tree_path = tempfile.TemporaryDirectory()
         trt_path = tempfile.TemporaryDirectory()
 
-        task = client.get_compilation_task(
-            "stablehlo-to-executable",
+        task = client.get_pipeline(
             [
                 "--tensorrt-builder-opt-level=0",
                 "--tensorrt-strongly-typed=false",
                 "--mlir-print-ir-after-all",
                 f"--mlir-print-ir-tree-dir={mlir_tree_path.name}",
                 f"--tensorrt-layer-info-dir={trt_path.name}",
-                f"--tensorrt-engines-dir={trt_path.name}",
+                f"--tensorrt-save-engines-dir={trt_path.name}",
                 "--mlir-elide-elementsattrs-if-larger=1024",
                 "--mlir-elide-resource-strings-if-larger=1024",
             ],

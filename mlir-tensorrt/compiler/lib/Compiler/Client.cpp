@@ -1,6 +1,6 @@
 //===- Client.cpp ---------------------------------------------------------===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -25,10 +25,7 @@
 #include "mlir-tensorrt-common/Support/Status.h"
 #include "mlir-tensorrt/Compiler/Options.h"
 #include "mlir-tensorrt/Compiler/Pipeline.h"
-#include "mlir/Support/FileUtilities.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/ManagedStatic.h"
 
 using namespace mtrt;
 using namespace mtrt::compiler;
@@ -36,8 +33,6 @@ using namespace mlir;
 
 #define DEBUG_TYPE "compiler-api"
 #define DBGS() (llvm::dbgs() << "[" DEBUG_TYPE "]")
-
-static llvm::ManagedStatic<llvm::StringMap<TaskRegistration>> taskRegistry{};
 
 //===----------------------------------------------------------------------===//
 // CompilerClient
@@ -50,65 +45,32 @@ CompilerClient::create(MLIRContext *context) {
 
 CompilerClient::CompilerClient(mlir::MLIRContext *context) : context(context) {}
 
-StatusOr<PipelineBase *>
-CompilerClient::getPipeline(llvm::StringRef mnemonic,
-                            llvm::ArrayRef<llvm::StringRef> options,
-                            bool enableDebugOptions) {
-  if (!taskRegistry.isConstructed())
-    return getInvalidArgStatus("no pipeline registered with name {0}",
-                               mnemonic);
-  auto it = taskRegistry->find(mnemonic);
-  if (it == taskRegistry->end())
-    return getInvalidArgStatus("no pipeline registered with name {0}",
-                               mnemonic);
-  return it->second.registryFunc(*this, options, enableDebugOptions);
+void CompilerClient::updateCachedPipeline(const llvm::hash_code &hashCode,
+                                          std::unique_ptr<Pipeline> task) {
+  cachedPassManagers[hashCode] = std::move(task);
 }
 
-void CompilerClient::updateCachedPipeline(llvm::StringRef taskName,
-                                          const llvm::hash_code &hash,
-                                          std::unique_ptr<PipelineBase> task) {
-  cachedPassManagers[taskName][hash] = std::move(task);
-}
-
-PipelineBase *
-CompilerClient::lookupCachedPipeline(llvm::StringRef taskName,
-                                     const llvm::hash_code &optionsHash) const {
-  auto it = cachedPassManagers.find(taskName);
+Pipeline *
+CompilerClient::lookupCachedPipeline(const llvm::hash_code &hashCode) const {
+  auto it = cachedPassManagers.find(hashCode);
   if (it == cachedPassManagers.end())
     return nullptr;
-  auto it2 = it->second.find(optionsHash);
-  if (it2 == it->second.end())
-    return nullptr;
-  return it2->second.get();
+  return it->second.get();
 }
 
-void compiler::detail::registerPipeline(llvm::StringRef taskName,
-                                        TaskRegistryFunction func) {
-  if (taskRegistry->contains(taskName))
-    llvm::report_fatal_error("detected double registration of pipeline \"" +
-                             taskName + "\"");
-
-  taskRegistry->insert({taskName, TaskRegistration{std::move(func)}});
-}
-
-//===----------------------------------------------------------------------===//
-// Task Lookup Utilities
-//===----------------------------------------------------------------------===//
-
-llvm::SmallVector<llvm::StringRef> compiler::getRegisteredPipelineNames() {
-  llvm::SmallVector<llvm::StringRef> result;
-  for (const auto &[name, registration] : *taskRegistry)
-    result.push_back(name);
-  return result;
-}
-
-void compiler::printPipelineHelp(mlir::MLIRContext *ctx,
-                                 llvm::StringRef mnemonic) {
-  StatusOr<std::unique_ptr<CompilerClient>> client =
-      compiler::CompilerClient::create(ctx);
-  mtrt::cantFail(client);
-  StatusOr<PipelineBase *> pipeline = (*client)->getPipeline(mnemonic, {});
-  mtrt::cantFail(pipeline);
-  assert(*pipeline != nullptr && "expected a valid pipeline");
-  (*pipeline)->getOptions().printHelp(0, 70);
+StatusOr<Pipeline *> CompilerClient::getOrCreatePipeline(
+    llvm::IntrusiveRefCntPtr<MainOptions> options) {
+  // Ensure options are in a consistent, validated state before hashing/caching.
+  MTRT_RETURN_IF_ERROR(options->finalize());
+  std::optional<llvm::hash_code> hashCode = options->getHash();
+  if (!hashCode)
+    return getInternalErrorStatus("failed to get hash code for options");
+  Pipeline *pipeline = lookupCachedPipeline(*hashCode);
+  if (pipeline)
+    return pipeline;
+  std::unique_ptr<Pipeline> newPipeline =
+      std::make_unique<Pipeline>(context, std::move(options));
+  pipeline = newPipeline.get();
+  updateCachedPipeline(*hashCode, std::move(newPipeline));
+  return pipeline;
 }

@@ -28,6 +28,7 @@
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -95,6 +96,49 @@ static Status reportFileOpenError(const std::string &filename) {
   return mtrt::make_status(mtrt::ErrorCode::NotFound);
 }
 
+/// Open the first readable candidate for `filename` and query its size.
+/// This provides an explicit "exists + sane size" check before any reads.
+static Status openExistingFileForRead(const std::string &filename,
+                                      std::ifstream &file, size_t &outSize) {
+  outSize = 0;
+  for (const std::string &candidate : getSearchCandidates(filename)) {
+    file.open(candidate, std::ios::binary | std::ios::ate);
+    if (!file) {
+      file.clear();
+      continue;
+    }
+
+    std::streampos pos = file.tellg();
+    if (pos < 0) {
+      file.close();
+      MTRT_RETURN_ERROR(mtrt::ErrorCode::IOError,
+                        "Error determining file size for '%s'",
+                        candidate.c_str());
+    }
+
+    size_t size = static_cast<size_t>(pos);
+    if (size >
+        static_cast<size_t>(std::numeric_limits<std::streamsize>::max())) {
+      file.close();
+      MTRT_RETURN_ERROR(mtrt::ErrorCode::IOError, "File '%s' is too large",
+                        candidate.c_str());
+    }
+
+    // Reset to the start so callers can read immediately.
+    file.seekg(0, std::ios::beg);
+    if (!file) {
+      file.close();
+      MTRT_RETURN_ERROR(mtrt::ErrorCode::IOError,
+                        "Error seeking to start of file '%s'",
+                        candidate.c_str());
+    }
+
+    outSize = size;
+    return mtrt::ok();
+  }
+  return reportFileOpenError(filename);
+}
+
 } // namespace
 
 //===----------------------------------------------------------------------===//
@@ -149,41 +193,30 @@ Status mtrt::detail::getFileSize(const std::string &filename, size_t *outSize) {
   if (!outSize)
     MTRT_RETURN_ERROR(mtrt::ErrorCode::InvalidArgument,
                       "outSize must not be null");
-  *outSize = 0;
-  for (const std::string &candidate : getSearchCandidates(filename)) {
-    std::ifstream file(candidate, std::ios::binary | std::ios::ate);
-    if (file) {
-      *outSize = static_cast<size_t>(file.tellg());
-      return mtrt::ok();
-    }
-  }
-  return reportFileOpenError(filename);
+  std::ifstream file;
+  size_t size = 0;
+  Status st = openExistingFileForRead(filename, file, size);
+  if (st != mtrt::ok())
+    return st;
+  *outSize = size;
+  return mtrt::ok();
 }
 
 Status mtrt::detail::readInputFile(const std::string &filename,
                                    std::vector<char> &buffer) {
   std::ifstream file;
-  for (const std::string &candidate : getSearchCandidates(filename)) {
-    file.open(candidate, std::ios::binary | std::ios::ate);
-    if (file) {
-      break;
-    }
-    file.clear();
-  }
-  if (!file)
-    return reportFileOpenError(filename);
+  size_t size = 0;
+  Status st = openExistingFileForRead(filename, file, size);
+  if (st != mtrt::ok())
+    return st;
 
-  // Get the size of the file
-  std::streamsize size = file.tellg();
-
-  // Move back to the beginning of the file
-  file.seekg(0, std::ios::beg);
-
-  // Create a vector to hold the file contents
+  // Create a vector to hold the file contents.
   buffer.resize(size);
+  if (size == 0)
+    return mtrt::ok();
 
-  // Read the entire file into the vector
-  if (!file.read(buffer.data(), size))
+  // Read the entire file into the vector.
+  if (!file.read(buffer.data(), static_cast<std::streamsize>(size)))
     MTRT_RETURN_ERROR(mtrt::ErrorCode::IOError, "Error reading file '%s'",
                       filename.c_str());
   return mtrt::ok();
@@ -195,18 +228,10 @@ Status mtrt::detail::readInputFile(const std::string &filename, char *buffer,
     MTRT_RETURN_ERROR(mtrt::ErrorCode::InvalidArgument,
                       "buffer must not be null when expectedSize != 0");
   std::ifstream file;
-  for (const std::string &candidate : getSearchCandidates(filename)) {
-    file.open(candidate, std::ios::binary | std::ios::ate);
-    if (file) {
-      break;
-    }
-    file.clear();
-  }
-  if (!file)
-    return reportFileOpenError(filename);
-
-  // Get the size of the file
-  size_t size = file.tellg();
+  size_t size = 0;
+  Status st = openExistingFileForRead(filename, file, size);
+  if (st != mtrt::ok())
+    return st;
 
   if (size != expectedSize) {
     MTRT_RETURN_ERROR(mtrt::ErrorCode::IOError,
@@ -214,11 +239,10 @@ Status mtrt::detail::readInputFile(const std::string &filename, char *buffer,
                       filename.c_str(), size, expectedSize);
   }
 
-  // Move back to the beginning of the file
-  file.seekg(0, std::ios::beg);
-
   // Read the entire file into the vector
-  if (!file.read(buffer, size))
+  if (size == 0)
+    return mtrt::ok();
+  if (!file.read(buffer, static_cast<std::streamsize>(size)))
     MTRT_RETURN_ERROR(mtrt::ErrorCode::IOError, "Error reading file '%s'",
                       filename.c_str());
   return mtrt::ok();

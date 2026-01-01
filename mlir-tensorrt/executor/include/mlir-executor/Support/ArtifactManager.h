@@ -155,7 +155,7 @@ std::string createCanonicalArtifactRelativePath(mlir::Operation *op,
 /// generated IR/code: treat `relPath` as the runtime reference and keep
 /// `sha256` for debugging/validation.
 struct FinalizedArtifactRef {
-  /// Relative path (relative to the compilation task artifacts directory).
+  /// Relative path (relative to the compilation artifacts directory).
   llvm::StringRef relPath;
 };
 

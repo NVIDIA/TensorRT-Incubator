@@ -9,7 +9,9 @@ def Plan_TensorRTBackendAttr : Plan_Attr<"TensorRTBackend", "tensorrt_backend",
         ["getClusterFilter", "outlineClosedCluster",
         "supportsDestinationStyleCallingConvention",
         "preferDestinationStyleCallingConvention",
-        "shouldCloneProducer"]>]> {
+        "shouldCloneProducer",
+        "requiresInputBoundsForDynamicShapes",
+        "requiresOutputBoundsForDynamicShapes"]>]> {
   let parameters = (ins
     "bool":$disallow_shape_tensor_calculations,
     "int64_t":$benefit,

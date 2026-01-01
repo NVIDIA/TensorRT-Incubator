@@ -28,12 +28,11 @@
 #define MLIR_TENSORRT_COMPILER_CLIENT
 
 #include "mlir-tensorrt-common/Support/Status.h"
+#include "mlir-tensorrt/Compiler/Options.h"
 #include "mlir-tensorrt/Compiler/Pipeline.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/Pass/PassManager.h"
-#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/Hashing.h"
-#include "llvm/ADT/StringMap.h"
 #include "llvm/Support/ErrorHandling.h"
 #include <memory>
 
@@ -51,10 +50,10 @@ namespace mtrt::compiler {
 /// The MLIRContext is only referenced, so the lifetime must outlive the Client
 /// object.
 ///
-/// The CompilerClient provides an API to construct Pipelines from
-/// the mnemonic and pass pipeline options. The CompilerClient assumes ownership
-/// of the pipeline and subsequent queries using the same options will return
-/// the same PipelineBase object.
+/// The CompilerClient provides an API to construct `Pipeline` instances from a
+/// populated `MainOptions` object. The CompilerClient assumes ownership of the
+/// pipeline and subsequent queries using the same options will return the same
+/// cached `Pipeline` object.
 ///
 /// TODO: We should remove the caching mechanism; that should be the
 /// responsibility of the downstream user.
@@ -65,28 +64,20 @@ public:
 
   ~CompilerClient() = default;
 
-  /// Create or retrieve from the cache a pipeline of the specified
-  /// type and options. If an existing pipeline is not in the cache,
-  /// then it is constructed using the registered construction function and
-  /// inserted into the cache.
-  StatusOr<PipelineBase *> getPipeline(llvm::StringRef taskName,
-                                       llvm::ArrayRef<llvm::StringRef> options,
-                                       bool enableDebugOptions = false);
+  /// Insert a pipeline with options hash `hash` into the cache.
+  void updateCachedPipeline(const llvm::hash_code &hash,
+                            std::unique_ptr<Pipeline> pipeline);
 
-  /// Insert a pipeline of type T with options hash `hash` into the
-  /// cache.
-  void updateCachedPipeline(llvm::StringRef taskName,
-                            const llvm::hash_code &hash,
-                            std::unique_ptr<PipelineBase> task);
-
-  /// Check whether a Pipeline with the specified task type and whose
-  /// options have the given hash is in the cache. If so, return it; otherwise
-  /// returns nullptr.
-  PipelineBase *lookupCachedPipeline(llvm::StringRef taskName,
-                                     const llvm::hash_code &optionsHash) const;
+  /// Check whether a Pipeline whose options have the given hash is in the
+  /// cache. If so, return it; otherwise returns nullptr.
+  Pipeline *lookupCachedPipeline(const llvm::hash_code &optionsHash) const;
 
   /// Return the MLIRContext associated with the client.
   mlir::MLIRContext *getContext() const { return context; }
+
+  /// Get or create a pipeline for the given options.
+  StatusOr<Pipeline *>
+  getOrCreatePipeline(llvm::IntrusiveRefCntPtr<MainOptions> options);
 
 protected:
   CompilerClient(mlir::MLIRContext *context);
@@ -94,91 +85,17 @@ protected:
   /// The MLIRContext in use by this client.
   mlir::MLIRContext *context;
 
-  /// A registry of pass managers for specific kinds of tasks. The map is
-  /// indexed by the task name and the hash of the options
-  /// used to create the PM.
-  llvm::StringMap<
-      llvm::DenseMap<llvm::hash_code, std::unique_ptr<PipelineBase>>>
-      cachedPassManagers;
-};
-
-/// A registry function that adds passes to the given pass manager. This should
-/// also parse options and return success() if parsing succeeded.
-/// `errorHandler` is a functor used to emit errors during parsing.
-/// parameter corresponds to the raw location within the pipeline string. This
-/// should always return failure.
-using TaskRegistryFunction = std::function<StatusOr<PipelineBase *>(
-    CompilerClient &client, llvm::ArrayRef<llvm::StringRef> options,
-    bool enableDebugOptions)>;
-
-struct TaskRegistration {
-  TaskRegistryFunction registryFunc;
+  /// A registry of cached pipelines keyed by an options hash.
+  llvm::DenseMap<llvm::hash_code, std::unique_ptr<Pipeline>> cachedPassManagers;
 };
 
 ///===----------------------------------------------------------------------===//
-// Task Lookup Utilities
+// Pipeline Utilities
 //===----------------------------------------------------------------------===//
 
-/// Returns a list of registered pipeline task names.
-llvm::SmallVector<llvm::StringRef> getRegisteredPipelineNames();
-
-/// For the given pipeline task, prints a CLI "--help"-type description to
-/// stdout that describes each option associated with the pipeline. If the
-/// pipeline is not registered, a fatal error is issued.
-void printPipelineHelp(mlir::MLIRContext *ctx, llvm::StringRef mnemonic);
-
-//===----------------------------------------------------------------------===//
-// Task Registration Utilities
-//===----------------------------------------------------------------------===//
-
-namespace detail {
-/// Register pipeline task given the mnemonic and the options registration
-/// function.
-void registerPipeline(llvm::StringRef mnemonic, TaskRegistryFunction func);
-} // namespace detail
-
-/// Register a pipeline task by providing an explicit registration function for
-/// the given options type.
-template <typename T>
-void registerPipeline(TaskRegistryFunction func) {
-  return detail::registerPipeline(T::getName(), std::move(func));
-}
-
-/// This helper provides a convenience registration wrapper for most pipeline
-/// tasks whose options can be constructed from a single boolean
-/// (`enableDebugOptions`) and do not have associated extensions.
-template <typename T, typename OptionsType>
-void registerPipelineWithNoExtensions(llvm::StringRef mnemonic) {
-  registerPipeline<T>([](CompilerClient &client,
-                         llvm::ArrayRef<llvm::StringRef> options,
-                         bool enableDebugOptions) -> StatusOr<PipelineBase *> {
-    // Hash the flags directly.
-    llvm::hash_code hashCode =
-        llvm::hash_combine_range(options.begin(), options.end());
-
-    // Check the cache.
-    PipelineBase *cached = client.lookupCachedPipeline(T::getName(), hashCode);
-    if (cached)
-      return cached;
-
-    /// Construct "uninitialized" options, which are just default options
-    /// prior to updating the value from the command line flags.
-    auto uninitOptions = std::make_unique<OptionsType>(enableDebugOptions);
-
-    // No cached pipeline, so construct a new pipeline.
-    auto newPM =
-        std::make_unique<T>(client.getContext(), std::move(uninitOptions));
-
-    // Invoke the initialization.
-    if (Status s = newPM->initialize(options); !s.isOk())
-      return s;
-
-    // Give ownership to the client.
-    auto ptr = newPM.get();
-    client.updateCachedPipeline(T::getName(), hashCode, std::move(newPM));
-    return ptr;
-  });
-}
+/// Prints a CLI "--help"-type description to stdout that describes each option
+/// associated with the pipeline.
+void printPipelineHelp(mlir::MLIRContext *ctx);
 
 } // namespace mtrt::compiler
 

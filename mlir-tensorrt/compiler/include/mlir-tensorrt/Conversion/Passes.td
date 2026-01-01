@@ -110,6 +110,26 @@ def ConvertHostToEmitCPass : Pass<"convert-host-to-emitc", "::mlir::ModuleOp"> {
     "::mlir::emitc::EmitCDialect",
     "::mlir::executor::ExecutorDialect"
   ];
+  let options = [
+    Option<"emitAggregateInitDestroy", "emit-aggregate-init-destroy", "bool", "true",
+      "Emit aggregate global `<module>_initialize_all` / `<module>_destroy_all` convenience helpers">,
+  ];
+}
+
+
+def WrapModuleInEmitCClassPass : Pass<"wrap-module-in-emitc-class", "::mlir::ModuleOp"> {
+  let summary = "Wrap an EmitC module in a single emitc.class (Program) state object";
+  let description = [{
+    This pass post-processes a module containing EmitC globals and functions by
+    migrating module-scope `emitc.global` into `emitc.field` members of a single
+    `emitc.class`, moving entrypoints into that class as methods, and
+    consolidating initialization/teardown into `initialize()` and `destroy()`.
+
+    It is intended to run after `convert-host-to-emitc`.
+  }];
+  let dependentDialects = [
+    "::mlir::emitc::EmitCDialect"
+  ];
 }
 
 //===----------------------------------------------------------------------===//

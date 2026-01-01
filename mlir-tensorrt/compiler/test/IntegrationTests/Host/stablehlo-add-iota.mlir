@@ -1,4 +1,4 @@
-// RUN: mlir-tensorrt-compiler %s -opts="disable-all-extensions entrypoint=" -o - | \
+// RUN: mlir-tensorrt-compiler %s --disable-all-extensions --entrypoint= -o - | \
 // RUN: mlir-tensorrt-runner -input-type=rtexe -features=core -split-input-file | FileCheck %s
 
 module @simple_add_iota attributes {plan.backends = [#plan.host_backend<benefit = 1>]} {

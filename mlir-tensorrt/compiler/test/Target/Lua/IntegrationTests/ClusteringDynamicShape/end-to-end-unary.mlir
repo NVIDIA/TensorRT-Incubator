@@ -1,4 +1,4 @@
-// RUN: mlir-tensorrt-compiler %s -opts="entrypoint=" -o - | \
+// RUN: mlir-tensorrt-compiler %s --entrypoint= -o - | \
 // RUN: %pick-one-gpu mlir-tensorrt-runner -input-type=rtexe -features=core,cuda,tensorrt -split-input-file | \
 // RUN: FileCheck %s
 

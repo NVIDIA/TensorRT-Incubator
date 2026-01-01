@@ -17,9 +17,9 @@ func.func @main(%arg0: tensor<2x3x4xf32>) -> tensor<2x3x4xf32> {
 
 
 def compile(client, op):
-    task = client.get_compilation_task(
-        "tensorrt-to-executable",
+    task = client.get_pipeline(
         [
+            "--input=tensorrt",
             "--tensorrt-builder-opt-level=0",
             "--tensorrt-strongly-typed=true",
             "--tensorrt-workspace-memory-pool-limit=1024kB",

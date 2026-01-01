@@ -26,6 +26,7 @@
 #include "mlir-tensorrt/Conversion/LLVMCommon/LLVMCommon.h"
 #include "mlir-tensorrt/Conversion/Passes.h"
 #include "mlir-tensorrt/Dialect/CUDA/IR/CUDADialect.h"
+#include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir-tensorrt/Dialect/TensorRTRuntime/IR/TensorRTRuntime.h"
 #include "mlir/Conversion/ConvertToLLVM/ToLLVMInterface.h"
 #include "mlir/Conversion/ConvertToLLVM/ToLLVMPass.h"
@@ -77,6 +78,20 @@ struct LowerPrintOp : public ConvertOpToLLVMPattern<executor::PrintOp> {
   }
 };
 } // namespace
+
+/// Cleanup attributes that are not used by the LLVM dialect.
+static void cleanupPlanDialectModuleAttributes(ModuleOp module) {
+  SmallVector<StringRef> attributesToRemove = {
+      mlir::plan::PlanDialect::kBackendsAttrName,
+      mlir::plan::PlanDialect::kMemorySpaceConstraintAttrName,
+  };
+
+  for (auto attr : module->getDiscardableAttrs()) {
+    if (llvm::is_contained(attributesToRemove, attr.getName())) {
+      module->removeAttr(attr.getName());
+    }
+  }
+}
 
 namespace {
 class HostToLLVMPass
@@ -136,6 +151,8 @@ public:
           << "failed to apply conversion in " << getArgument();
       return signalPassFailure();
     }
+
+    cleanupPlanDialectModuleAttributes(module);
   }
 
   std::shared_ptr<const FrozenRewritePatternSet> patterns;

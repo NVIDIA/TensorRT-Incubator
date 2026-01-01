@@ -568,6 +568,19 @@ bool TensorRTBackendAttr::shouldCloneProducer(Operation *op,
       producer, op->getRegions().front(), /*allowTensorValuesOnly=*/true);
 }
 
+bool TensorRTBackendAttr::requiresInputBoundsForDynamicShapes(
+    bool useDestinationStyleCallingConvention) const {
+  // TensorRT requires shape bounds for dynamically shaped input tensors.
+  return true;
+}
+
+bool TensorRTBackendAttr::requiresOutputBoundsForDynamicShapes(
+    bool useDestinationStyleCallingConvention) const {
+  // TensorRT requires shape bounds for dynamically shaped output tensors
+  // when using DPS calling convention (caller-allocated results).
+  return useDestinationStyleCallingConvention;
+}
+
 bool TensorRTBackendAttr::supportsInputKind(InputKind inputKind) const {
   if (inputKind == InputKind::Stablehlo) {
 #ifdef MLIR_TRT_ENABLE_HLO

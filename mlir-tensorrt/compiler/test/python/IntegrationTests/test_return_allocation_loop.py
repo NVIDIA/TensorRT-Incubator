@@ -21,8 +21,7 @@ func.func @main(%arg0: tensor<256x1024x1024xf32>) -> tensor<256x1024x1024xf32> {
 
 
 def compile(client, op):
-    task = client.get_compilation_task(
-        "tensorrt-to-executable",
+    task = client.get_pipeline(
         [
             "--tensorrt-builder-opt-level=0",
             "--force-entrypoints-return-allocs",

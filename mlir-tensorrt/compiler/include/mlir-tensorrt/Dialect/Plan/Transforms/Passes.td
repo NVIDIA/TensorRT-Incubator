@@ -22,7 +22,7 @@
 
 include "mlir/Pass/PassBase.td"
 
-defvar InputKindOption = Option<"inputKind", "input-kind", "::mlir::plan::InputKind",
+defvar InputKindOption = Option<"inputKind", "input", "::mlir::plan::InputKind",
       "::mlir::plan::InputKind::Stablehlo",
       "specifies the kind of input IR dialect",
       "::mlir::plan::detail::createInputKindClOptions()">;
@@ -49,9 +49,13 @@ def PopulateDefaultBackendMetadataPass : Pass<"plan-populate-default-backend-met
 
   let options = [
     ListOption<"backends", "backends", "std::string",
-    "A list of default backend attributes to use for compilation if no "
-    "'plan.backends' attribute is provided on the top-level module.",
-    "llvm::cl::list_init<std::string>({\"#plan.host_backend<benefit=1>\"})">
+     "A list of default backend attributes to use for compilation if no "
+     "'plan.backends' attribute is provided on the top-level module.",
+     "llvm::cl::list_init<std::string>({\"#plan.host_backend<benefit=1>\"})">,
+    Option<"defaultMemorySpaceString", "default-memory-space",
+     "std::string",
+     "\"#plan.memory_space<device>\"",
+     "Default bufferization memory space for the module">
   ];
 }
 
@@ -335,12 +339,6 @@ def ClusteringPass : Pass<"plan-clustering", "::mlir::ModuleOp"> {
               "the name of the entrypoint function; if empty then the "
               "clustering runs"
               " on all functions">,
-       Option<"forceEntrypointsReturnAllocs", "force-entrypoints-return-allocs",
-              "bool", "false",
-              "allow backend clusters to directly allocate outputs">,
-       Option<"disableCreateShapeFuncPass", "disable-create-shape-func-pass",
-              "bool", "false",
-              "don't apply create shape to func pass in TensorRT clusters">,
        InputKindOption];
 }
 
@@ -411,9 +409,9 @@ def CreateClosedRegionsPass : Pass<"plan-create-closed-regions", "::mlir::Module
       "(used only in testing) specifies to outline regions by walking in "
       " pre-order; used for verifying results are not sensitive "
       "to traversal order">,
-    Option<"disableDestinationStyleCallingConvention", "disable-destination-style-calling-convention", "bool",
-           /*default=*/"false",
-           "Disable destination-passing-style (DPS) calling convention lowering">,
+    Option<"preferAllocCallingConvention", "prefer-alloc-calling-convention", "bool", "false",
+      "prefer using callee-allocating calling conventions"
+      " (callee allocates buffer results) over DPS">,
     InputKindOption
   ];
 

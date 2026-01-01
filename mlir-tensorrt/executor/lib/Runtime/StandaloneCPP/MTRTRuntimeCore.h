@@ -34,6 +34,7 @@
 
 #include <array>
 #include <cstdint>
+#include <utility>
 
 #include "MTRTRuntimeStatus.h"
 
@@ -52,9 +53,11 @@ struct RankedMemRef {
   /// Offset from 'aligned' to start of buffer (in units of 'elements', not
   /// bytes).
   int64_t offset;
-  // The first 'Rank' elements are the shape, the last 'Rank' elements are the
-  // strides. All sizes are in units of 'elements', not bytes.
-  std::array<int64_t, Rank * 2> shapeAndStrides;
+  /// The logical shape. All sizes are in units of 'elements', not bytes.
+  std::array<int64_t, Rank> shape;
+  /// The per-dimension strides. All sizes are in units of 'elements', not
+  /// bytes.
+  std::array<int64_t, Rank> strides;
 };
 
 /// Explicit specialization for 0-rank memrefs.
@@ -92,6 +95,13 @@ struct UnrankedMemRef {
   const void *rankedDescriptor;
 };
 
+/// A mutable variant of `UnrankedMemRef` for APIs that need to populate ranked
+/// descriptors at runtime (e.g. `tensorrt_enqueue_alloc`).
+struct UnrankedMemRefMut {
+  int64_t rank;
+  void *rankedDescriptor;
+};
+
 /// Construct an unranked descriptor from a ranked descriptor.
 template <unsigned Rank>
 UnrankedMemRef
@@ -108,13 +118,28 @@ make_unranked_descriptor(int64_t rank,
   return UnrankedMemRef{rank, static_cast<const void *>(&rankedDescriptor)};
 }
 
+/// Construct a mutable unranked descriptor from a pointer to a ranked
+/// descriptor.
+inline UnrankedMemRefMut make_unranked_descriptor_mut_ptr(int64_t rank,
+                                                          void *rankedDesc) {
+  return UnrankedMemRefMut{rank, rankedDesc};
+}
+
 /// Construct a ranked memref descriptor.
 template <unsigned Rank, typename... Args>
 auto make_memref_descriptor(void *allocated, void *aligned, int64_t offset,
                             Args &&...args) {
-  return RankedMemRef<Rank>{
-      allocated, aligned, offset,
-      std::array<int64_t, Rank * 2>{std::forward<Args>(args)...}};
+  static_assert(sizeof...(Args) == Rank * 2,
+                "expected 2*Rank arguments: shape..., strides...");
+  std::array<int64_t, Rank * 2> shapeAndStrides{
+      static_cast<int64_t>(std::forward<Args>(args))...};
+  std::array<int64_t, Rank> shape{};
+  std::array<int64_t, Rank> strides{};
+  for (unsigned i = 0; i < Rank; ++i) {
+    shape[i] = shapeAndStrides[i];
+    strides[i] = shapeAndStrides[Rank + i];
+  }
+  return RankedMemRef<Rank>{allocated, aligned, offset, shape, strides};
 }
 
 /// Construct a ranked memref descriptor.
@@ -157,14 +182,14 @@ int64_t memref_descriptor_get_offset(const T &memref) {
 /// Access the shape field.
 template <typename T>
 int64_t memref_descriptor_get_dim_size(const T &memref, int32_t dim) {
-  return memref.shapeAndStrides[dim];
+  return memref.shape[dim];
 }
 
 /// Access the stride field.
 template <unsigned Rank>
 int64_t memref_descriptor_get_stride(const RankedMemRef<Rank> &memref,
                                      int32_t dim) {
-  return memref.shapeAndStrides[dim + Rank];
+  return memref.strides[dim];
 }
 
 //===----------------------------------------------------------------------===//

@@ -6,7 +6,7 @@ add_mlir_tensorrt_library(MLIRTensorRTExecuteConstantFoldableSubgraphs
 
     LINK_LIBS PUBLIC
       MLIRTensorRTCompilerClient
-      MLIRTensorRTCompilerStableHloToExecutable
+      MLIRTensorRTStablehloInputPipeline
       MLIRTensorRTKernelBackend
       MLIRTensorRTKernelDialect
       MLIRTensorRTKernelPipelines

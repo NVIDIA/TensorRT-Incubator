@@ -28,8 +28,7 @@ def compile():
             ctx, torch_input, torch_bridge.OutputType.STABLEHLO
         )
         client = compiler.CompilerClient(ctx)
-        task = client.get_compilation_task(
-            "stablehlo-to-executable",
+        task = client.get_pipeline(
             [
                 "--tensorrt-builder-opt-level=0",
                 "--tensorrt-strongly-typed=false",

@@ -55,6 +55,9 @@ struct TargetSpecificCanonicalizationOptions {
   /// Parse the given arguments into a `TargetSpecificCanonicalizationOptions`
   static FailureOr<TargetSpecificCanonicalizationOptions>
   parse(llvm::ArrayRef<std::string> disabled = {});
+
+  /// Disable a specific pattern set.
+  void disable(llvm::StringRef patternSetMnemonic);
 };
 
 /// Create a pass that applies the given target-specific patterns and has the
