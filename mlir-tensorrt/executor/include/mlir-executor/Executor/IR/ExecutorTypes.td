@@ -4,6 +4,7 @@
 include "mlir-executor/Executor/IR/ExecutorDialect.td"
 include "mlir-executor/Executor/IR/ExecutorEnums.td"
 include "mlir/Interfaces/DataLayoutInterfaces.td"
+include "mlir/Interfaces/MemorySlotInterfaces.td"
 
 include "mlir/IR/AttrTypeBase.td"
 include "mlir/IR/BuiltinTypeInterfaces.td"
@@ -61,7 +62,8 @@ def Executor_StrLiteral : TypeDef<Executor_Dialect, "StrLiteral", []> {
 // TableType
 //===----------------------------------------------------------------------===//
 def Executor_Table : TypeDef<Executor_Dialect, "Table", [
-  DeclareTypeInterfaceMethods<DataLayoutTypeInterface>
+  DeclareTypeInterfaceMethods<DataLayoutTypeInterface>,
+  DeclareTypeInterfaceMethods<DestructurableTypeInterface>
 ]>{
   let mnemonic = "table";
   let description = [{

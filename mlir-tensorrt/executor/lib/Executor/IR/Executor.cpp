@@ -283,6 +283,53 @@ uint64_t TableType::getABIAlignment(const DataLayout &dataLayout,
   return structAlignment;
 }
 
+std::optional<DenseMap<Attribute, Type>>
+TableType::getSubelementIndexMap() const {
+  DenseMap<Attribute, Type> result;
+  // Use simple field indices (0, 1, 2, ...) rather than byte offsets.
+  // The LoadOp/StoreOp canRewire/rewire methods will handle the mapping
+  // from byte offsets to field indices using the DataLayout available there.
+  for (auto [idx, elemType] : llvm::enumerate(getBody())) {
+    auto indexAttr = IntegerAttr::get(IntegerType::get(getContext(), 64), idx);
+    result[indexAttr] = elemType;
+  }
+  return result;
+}
+
+Type TableType::getTypeAtIndex(Attribute index) const {
+  auto intIndex = dyn_cast<IntegerAttr>(index);
+  if (!intIndex)
+    return {};
+
+  // The index is a simple field index (0, 1, 2, ...)
+  int64_t idx = intIndex.getValue().getSExtValue();
+  if (idx < 0 || static_cast<size_t>(idx) >= getBody().size())
+    return {};
+
+  return getBody()[idx];
+}
+
+//===----------------------------------------------------------------------===//
+// TableType SROA Helpers
+//===----------------------------------------------------------------------===//
+
+/// Find the field index corresponding to a byte offset in a TableType.
+static std::optional<unsigned>
+getFieldIndexFromByteOffset(TableType tableType, uint64_t targetOffset,
+                            const DataLayout &dataLayout) {
+  uint64_t offset = 0;
+  for (auto [idx, elemType] : llvm::enumerate(tableType.getBody())) {
+    uint64_t elemAlignment = dataLayout.getTypeABIAlignment(elemType);
+    offset = llvm::alignTo(offset, elemAlignment);
+
+    if (offset == targetOffset)
+      return idx;
+
+    offset += dataLayout.getTypeSize(elemType);
+  }
+  return std::nullopt;
+}
+
 //===----------------------------------------------------------------------===//
 // AssertOp
 //===----------------------------------------------------------------------===//
@@ -780,6 +827,57 @@ AllocaOp::handlePromotionComplete(const MemorySlot &slot, Value defaultValue,
   return std::nullopt;
 }
 
+SmallVector<DestructurableMemorySlot> AllocaOp::getDestructurableSlots() {
+  // SROA only works for single-element allocas of aggregate types
+  if (!matchPattern(getNumElements(), m_One()))
+    return {};
+
+  // Check if the element type is destructurable (e.g., executor.table)
+  auto destructurable = dyn_cast<DestructurableTypeInterface>(getElementType());
+  if (!destructurable)
+    return {};
+
+  std::optional<DenseMap<Attribute, Type>> subElements =
+      destructurable.getSubelementIndexMap();
+  if (!subElements)
+    return {};
+
+  return {DestructurableMemorySlot{{getResult(), getElementType()},
+                                   std::move(*subElements)}};
+}
+
+DenseMap<Attribute, MemorySlot> AllocaOp::destructure(
+    const DestructurableMemorySlot &slot,
+    const SmallPtrSetImpl<Attribute> &usedIndices, OpBuilder &builder,
+    SmallVectorImpl<DestructurableAllocationOpInterface> &newAllocators) {
+  // Create a single-element alloca for each used field
+  DenseMap<Attribute, MemorySlot> result;
+  Value one =
+      builder.create<ConstantOp>(getLoc(), builder.getI32IntegerAttr(1));
+
+  auto destructurableType = cast<DestructurableTypeInterface>(getElementType());
+  for (Attribute index : usedIndices) {
+    Type fieldType = destructurableType.getTypeAtIndex(index);
+    assert(fieldType && "used index must exist in table");
+
+    auto fieldTypeAttr = TypeAttr::get(fieldType);
+    auto newAlloca = builder.create<AllocaOp>(
+        getLoc(), getType(), one, getAlignmentAttr(), fieldTypeAttr);
+    newAllocators.push_back(newAlloca);
+    result[index] = MemorySlot{newAlloca.getResult(), fieldType};
+  }
+  return result;
+}
+
+std::optional<DestructurableAllocationOpInterface>
+AllocaOp::handleDestructuringComplete(const DestructurableMemorySlot &slot,
+                                      OpBuilder &builder) {
+  // Original alloca should now be unused, erase it
+  assert(slot.ptr == getResult() && "expected slot ptr to match alloca result");
+  erase();
+  return std::nullopt;
+}
+
 //===----------------------------------------------------------------------===//
 // LoadOp
 //===----------------------------------------------------------------------===//
@@ -810,6 +908,64 @@ LoadOp::removeBlockingUses(const MemorySlot &slot,
   return DeletionKind::Delete;
 }
 
+bool LoadOp::canRewire(const DestructurableMemorySlot &slot,
+                       SmallPtrSetImpl<Attribute> &usedIndices,
+                       SmallVectorImpl<MemorySlot> &mustBeSafelyUsed,
+                       const DataLayout &dataLayout) {
+  if (getPtr() != slot.ptr)
+    return false;
+
+  // Check that offset is a constant
+  APInt offsetValue;
+  if (!matchPattern(getOffset(), m_ConstantInt(&offsetValue)))
+    return false;
+
+  // Get the table type from the slot
+  auto tableType = dyn_cast<TableType>(slot.elemType);
+  if (!tableType)
+    return false;
+
+  // Find which field this byte offset corresponds to
+  auto fieldIndex = getFieldIndexFromByteOffset(
+      tableType, offsetValue.getZExtValue(), dataLayout);
+  if (!fieldIndex)
+    return false;
+
+  auto indexAttr =
+      IntegerAttr::get(IntegerType::get(getContext(), 64), *fieldIndex);
+  if (!slot.subelementTypes.contains(indexAttr))
+    return false;
+
+  usedIndices.insert(indexAttr);
+  return true;
+}
+
+DeletionKind LoadOp::rewire(const DestructurableMemorySlot &slot,
+                            DenseMap<Attribute, MemorySlot> &subslots,
+                            OpBuilder &builder, const DataLayout &dataLayout) {
+  APInt offsetValue;
+  matchPattern(getOffset(), m_ConstantInt(&offsetValue));
+
+  // Get the table type and find the field index from the byte offset
+  auto tableType = cast<TableType>(slot.elemType);
+  auto fieldIndex = getFieldIndexFromByteOffset(
+      tableType, offsetValue.getZExtValue(), dataLayout);
+  auto indexAttr =
+      IntegerAttr::get(IntegerType::get(getContext(), 64), *fieldIndex);
+
+  MemorySlot &subslot = subslots[indexAttr];
+
+  // Create the zero constant before this operation to avoid dominance issues
+  OpBuilder::InsertionGuard guard(builder);
+  builder.setInsertionPoint(*this);
+  Value zero =
+      builder.create<ConstantOp>(getLoc(), builder.getI64IntegerAttr(0));
+
+  getPtrMutable().assign(subslot.ptr);
+  getOffsetMutable().assign(zero);
+  return DeletionKind::Keep;
+}
+
 //===----------------------------------------------------------------------===//
 // StoreOp
 //===----------------------------------------------------------------------===//
@@ -837,6 +993,64 @@ StoreOp::removeBlockingUses(const MemorySlot &slot,
                             OpBuilder &rewriter, Value reachingDefinition,
                             const DataLayout &dataLayout) {
   return DeletionKind::Delete;
+}
+
+bool StoreOp::canRewire(const DestructurableMemorySlot &slot,
+                        SmallPtrSetImpl<Attribute> &usedIndices,
+                        SmallVectorImpl<MemorySlot> &mustBeSafelyUsed,
+                        const DataLayout &dataLayout) {
+  if (getPtr() != slot.ptr)
+    return false;
+
+  // Check that offset is a constant
+  APInt offsetValue;
+  if (!matchPattern(getOffset(), m_ConstantInt(&offsetValue)))
+    return false;
+
+  // Get the table type from the slot
+  auto tableType = dyn_cast<TableType>(slot.elemType);
+  if (!tableType)
+    return false;
+
+  // Find which field this byte offset corresponds to
+  auto fieldIndex = getFieldIndexFromByteOffset(
+      tableType, offsetValue.getZExtValue(), dataLayout);
+  if (!fieldIndex)
+    return false;
+
+  auto indexAttr =
+      IntegerAttr::get(IntegerType::get(getContext(), 64), *fieldIndex);
+  if (!slot.subelementTypes.contains(indexAttr))
+    return false;
+
+  usedIndices.insert(indexAttr);
+  return true;
+}
+
+DeletionKind StoreOp::rewire(const DestructurableMemorySlot &slot,
+                             DenseMap<Attribute, MemorySlot> &subslots,
+                             OpBuilder &builder, const DataLayout &dataLayout) {
+  APInt offsetValue;
+  matchPattern(getOffset(), m_ConstantInt(&offsetValue));
+
+  // Get the table type and find the field index from the byte offset
+  auto tableType = cast<TableType>(slot.elemType);
+  auto fieldIndex = getFieldIndexFromByteOffset(
+      tableType, offsetValue.getZExtValue(), dataLayout);
+  auto indexAttr =
+      IntegerAttr::get(IntegerType::get(getContext(), 64), *fieldIndex);
+
+  MemorySlot &subslot = subslots[indexAttr];
+
+  // Create the zero constant before this operation to avoid dominance issues
+  OpBuilder::InsertionGuard guard(builder);
+  builder.setInsertionPoint(*this);
+  Value zero =
+      builder.create<ConstantOp>(getLoc(), builder.getI64IntegerAttr(0));
+
+  getPtrMutable().assign(subslot.ptr);
+  getOffsetMutable().assign(zero);
+  return DeletionKind::Keep;
 }
 
 //===----------------------------------------------------------------------===//
