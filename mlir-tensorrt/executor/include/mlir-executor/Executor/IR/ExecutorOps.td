@@ -1164,6 +1164,7 @@ def Executor_UndefinedOp : Executor_Op<"undef", [Pure]> {
 
 def Executor_AllocaOp : Executor_Op<"alloca", [
       DeclareOpInterfaceMethods<PromotableAllocationOpInterface>,
+      DeclareOpInterfaceMethods<DestructurableAllocationOpInterface>,
 ]> {
   let summary = "block-scoped temporary allocation";
 
@@ -1220,7 +1221,8 @@ def Executor_DeallocateOp : Executor_Op<"dealloc", []> {
 }
 
 def Executor_LoadOp : Executor_Op<"load", [
-  DeclareOpInterfaceMethods<PromotableMemOpInterface>]> {
+  DeclareOpInterfaceMethods<PromotableMemOpInterface>,
+  DeclareOpInterfaceMethods<DestructurableAccessorOpInterface>]> {
   let description = [{
     `executor.load` loads `result` from the memory location given by `ptr +
     offset`. The offset is in terms of bytes.
@@ -1235,7 +1237,8 @@ def Executor_LoadOp : Executor_Op<"load", [
 }
 
 def Executor_StoreOp : Executor_Op<"store", [
-  DeclareOpInterfaceMethods<PromotableMemOpInterface>]> {
+  DeclareOpInterfaceMethods<PromotableMemOpInterface>,
+  DeclareOpInterfaceMethods<DestructurableAccessorOpInterface>]> {
   let description = [{
     `executor.store` stores `value` to the memory location given by `ptr +
     offset`. The offset is in terms of bytes.

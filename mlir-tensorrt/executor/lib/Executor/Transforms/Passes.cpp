@@ -66,6 +66,11 @@ void executor::buildExecutorLoweringPipeline(
   pm.addPass(createExecutorLowerGlobalsPass());
   pm.addPass(createReconcileUnrealizedCastsPass());
   pm.addPass(createExecutorDecomposeAggregateLoadsAndStoresPass());
+  // Optimize allocas BEFORE expanding: SROA splits table allocas, mem2reg
+  // promotes to SSA
+  pm.addPass(mlir::createSROA());
+  pm.addPass(mlir::createMem2Reg());
+  addCleanupPasses(pm);
   pm.addPass(createExecutorExpandOpsPass());
   addCleanupPasses(pm);
   pm.addPass(createExecutorLowerToRuntimeBuiltinsPass());
