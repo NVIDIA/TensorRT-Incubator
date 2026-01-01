@@ -72,7 +72,7 @@ source .venv/bin/activate
 ## Configuring the build
 
 ```bash
-cmake --preset ninja-llvm
+cmake --preset default
 ```
 
 See the [CMake options](../CMakeOptions.cmake) or [CMake Presets](../CMakePresets.json) to learn
@@ -169,7 +169,7 @@ Here's an example of what should go in `CMakeUserPresets.json`:
     {
       "name": "my-config",
       "displayName": "User build config",
-      "inherits": "ninja-llvm",
+      "inherits": "default",
       "cacheVariables": {
         "MY_FEATURE_VAR": "ON",
 		    "MY_OTHER_OPTION": "some-value"
@@ -209,7 +209,7 @@ to the new toolchain file. This is most easily done in a `CMakeUserPresets.json`
     {
       "name": "my-config",
       "displayName": "User build config",
-      "inherits": "ninja-llvm",
+      "inherits": "default",
       "cacheVariables": {
         "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/build_tools/cmake/toolchains/host-llvm-mold.cmake"
       }
@@ -254,6 +254,96 @@ project is built and tested with:
     [cmake script](../build_tools/cmake/TensorRTDownloadURL.cmake).
 2. One can configure the project to use any TensorRT version by setting the `MLIR_TRT_TENSORRT_DIR`
    variable to a particular TensorRT installation directory.
+
+### Using a local LLVM-Project clone for development
+
+By default, MLIR-TensorRT downloads LLVM as an HTTP archive via CMake CPM
+(see `DependencyProvider.cmake`). While convenient, this approach has drawbacks
+for developers who need to co-develop patches to upstream MLIR:
+
+- No Git history available in the downloaded archive
+- Difficult to create, test, and rebase patches against upstream MLIR
+- Large file trees can slow down IDE indexing and file search
+
+For active MLIR development, you can instead use a local Git clone of
+`llvm-project` with sparse checkout enabled.
+
+#### Automated setup (recommended)
+
+Run the provided setup script:
+
+```bash
+./build_tools/scripts/setup-llvm-dev.sh
+```
+
+This script will:
+1. Clone `llvm-project` to `third_party/llvm-project` using `--filter=blob:none` to minimize download size
+2. Enable sparse checkout with only the required directories (`cmake`, `llvm`, `mlir`, `third-party`, `utils`)
+3. Check out the commit specified by `MLIR_TRT_LLVM_COMMIT` in `DependencyProvider.cmake`
+4. Apply all patches from `build_tools/patches/mlir/`
+
+You can specify a different target directory:
+
+```bash
+./build_tools/scripts/setup-llvm-dev.sh --target-dir /path/to/llvm-project
+```
+
+#### Manual setup
+
+If you prefer to set this up manually:
+
+1. **Clone with sparse checkout:**
+
+   ```bash
+   # Clone with blob filtering to reduce download size significantly
+   git clone --filter=blob:none --no-checkout \
+     https://github.com/llvm/llvm-project.git \
+     third_party/llvm-project
+
+   cd third_party/llvm-project
+   git sparse-checkout init --cone
+   git sparse-checkout set cmake llvm mlir third-party utils
+   ```
+
+2. **Check out the required commit:**
+
+   Find the commit hash in `DependencyProvider.cmake` (look for `MLIR_TRT_LLVM_COMMIT`):
+
+   ```bash
+   git checkout <MLIR_TRT_LLVM_COMMIT>
+   ```
+
+3. **Apply patches:**
+
+   ```bash
+   git am ../../build_tools/patches/mlir/*.patch
+   ```
+
+#### Configure CMake to use local LLVM
+
+Add the `CPM_LLVM_SOURCE` variable to your `CMakeUserPresets.json`:
+
+```json
+{
+  "version": 6,
+  "configurePresets": [
+    {
+      "name": "my-config",
+      "displayName": "User build config with local LLVM",
+      "inherits": "default",
+      "cacheVariables": {
+        "CPM_LLVM_SOURCE": "${sourceDir}/third_party/llvm-project"
+      }
+    }
+  ]
+}
+```
+
+Then reconfigure:
+
+```bash
+cmake --preset my-config --fresh
+```
 
 ### Building Python packages
 

@@ -39,7 +39,7 @@ nv_register_package(
 
 function(mtrt_find_tvm_ffi)
   execute_process(
-    COMMAND ${Python_EXECUTABLE} -c "import tvm_ffi.libinfo as l; print(';'.join([l.find_include_path(),l.find_libtvm_ffi()]))"
+    COMMAND ${Python3_EXECUTABLE} -c "import tvm_ffi.libinfo as l; print(';'.join([l.find_include_path(),l.find_libtvm_ffi()]))"
     OUTPUT_VARIABLE TVM_FFI_PATHS
     OUTPUT_STRIP_TRAILING_WHITESPACE
     RESULT_VARIABLE TVM_FFI_RESULT
@@ -66,6 +66,9 @@ function(mtrt_find_tvm_ffi)
     IMPORTED_LOCATION "${TVM_FFI_LIBRARY_PATH}"
     INTERFACE_INCLUDE_DIRECTORIES "${TVM_FFI_INCLUDE_PATH}"
   )
+  cmake_path(GET TVM_FFI_LIBRARY_PATH PARENT_PATH MLIR_TRT_TVM_FFI_LIB_DIR)
+  set(MLIR_TRT_TVM_FFI_LIB_DIR "${MLIR_TRT_TVM_FFI_LIB_DIR}" 
+    CACHE INTERNAL "")
 endfunction()
 
 #-------------------------------------------------------------------------------------
@@ -79,6 +82,21 @@ endif()
 set(MLIR_TRT_LLVM_COMMIT "d6e2143b064e62458eb210394e623bc0abeb266b")
 
 set(mlir_patch_dir "${CMAKE_CURRENT_LIST_DIR}/build_tools/patches/mlir")
+set(MLIR_TRT_LLVM_PATCHES )
+
+# We only populate patches if the user is not using a custom local LLVM-Project
+# clone. Our build instructions say that user is responsible for patches when
+# using a local clone.
+if(NOT CPM_LLVM_SOURCE)
+  set(MLIR_TRT_LLVM_PATCHES
+    "${mlir_patch_dir}/0001-mlir-linalg-don-t-rewrite-DPS-init-operands-in-linal.patch"
+    "${mlir_patch_dir}/0002-mlir-emitc-Fix-emitc.for-verification-crash-163754.patch"
+    "${mlir_patch_dir}/0003-mlir-emitc-Unify-API-for-deferred-emission-167532.patch"
+    "${mlir_patch_dir}/0004-mlir-emitc-Remove-dead-methods-from-emitter-167657.patch"
+    "${mlir_patch_dir}/0005-mlir-emitc-Fix-ineffective-tests-168197.patch"
+    "${mlir_patch_dir}/0006-mlir-emitc-Refactor-brackets-in-expressions-168267.patch"
+    )
+endif()
 
 if(NOT MTRT_BUILD_LLVM_FROM_SOURCE)
   message(WARNING "Using 'find_package' to locate pre-built LLVM. Please set MLIR_DIR to the directory containing MLIRConfig.cmake")
@@ -88,18 +106,7 @@ else()
     URL "https://github.com/llvm/llvm-project/archive/${MLIR_TRT_LLVM_COMMIT}.zip"
     EXCLUDE_FROM_ALL TRUE
     SOURCE_SUBDIR "llvm"
-    PATCHES
-      "${mlir_patch_dir}/0001-mlir-linalg-don-t-rewrite-DPS-init-operands-in-linal.patch"
-      "${mlir_patch_dir}/0002-mlir-emitc-Fix-emitc.for-verification-crash-163754.patch"
-      "${mlir_patch_dir}/0003-mlir-emitc-Unify-API-for-deferred-emission-167532.patch"
-      "${mlir_patch_dir}/0004-mlir-emitc-Remove-dead-methods-from-emitter-167657.patch"
-      "${mlir_patch_dir}/0005-mlir-emitc-Fix-ineffective-tests-168197.patch"
-      "${mlir_patch_dir}/0006-mlir-emitc-Refactor-brackets-in-expressions-168267.patch"
-    # Set the CPM cache key to the Git hash for easy navigation.
-    PRE_ADD_HOOK [[
-      list(APPEND _vap_UNPARSED_ARGUMENTS
-        CUSTOM_CACHE_KEY "archive-${MLIR_TRT_LLVM_COMMIT}")
-    ]]
+    PATCHES ${MLIR_TRT_LLVM_PATCHES}
     POST_ADD_HOOK [[
       find_path(LLVM_DIR NAMES LLVMConfig.cmake REQUIRED
         HINTS "${LLVM_BINARY_DIR}/lib/cmake/llvm")
