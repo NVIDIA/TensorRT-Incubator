@@ -35,6 +35,7 @@
 #include "mlir-executor/Runtime/Support/StridedCopy.h"
 #include "mlir-executor/Runtime/Support/Support.h"
 #include "llvm/Support/FormatVariadic.h"
+#include "llvm/Support/MathExtras.h"
 #include <algorithm>
 #include <climits>
 #include <cstdint>
@@ -1079,6 +1080,18 @@ static void registerExecutorCoreModuleLuaRuntimeMethods(
   DEFINE_INT_UNARY_OP(absi, std::abs);
 
 #undef DEFINE_INT_UNARY_OP
+
+  // Population count (count set bits) - mirrors llvm.intr.ctpop.
+  // Only i32 and i64 are supported; smaller types should be zero-extended
+  // before calling ctpop during lowering from higher-level dialects.
+  lua["_ctpop_i64"] = [](int64_t inp) -> int64_t {
+    ADD_CORE_MODULE_RANGE("core_builtin_ctpop");
+    return llvm::popcount(static_cast<uint64_t>(inp));
+  };
+  lua["_ctpop_i32"] = [](int32_t inp) -> int32_t {
+    ADD_CORE_MODULE_RANGE("core_builtin_ctpop");
+    return llvm::popcount(static_cast<uint32_t>(inp));
+  };
 
 // Unary float ops
 #define DEFINE_FLOAT_UNARY_OP(name, op)                                        \
