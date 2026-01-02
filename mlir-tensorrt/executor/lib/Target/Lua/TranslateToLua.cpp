@@ -1128,6 +1128,9 @@ LogicalResult LuaEmitter::emitOperation(Operation &op) {
         .Case<executor::AbsFOp>([&](auto op) {
           return printRuntimeBuiltinUnaryOp(*this, op.getOperation(), "absf");
         })
+        .Case<executor::CtPopOp>([&](auto op) {
+          return printRuntimeBuiltinUnaryOp(*this, op.getOperation(), "ctpop");
+        })
         .Case<executor::CopysignOp>([&](auto op) {
           return printRuntimeBuiltinUnaryOp(*this, op.getOperation(),
                                             "copysign");

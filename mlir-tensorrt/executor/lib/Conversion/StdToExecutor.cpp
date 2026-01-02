@@ -148,6 +148,42 @@ struct ConvertArithIndexCastOp
   }
 };
 
+/// Convert `math.ctpop` to `executor.ctpop`. For types that are not exactly
+/// i32 or i64, we zero-extend to the smallest supported type (i32 or i64),
+/// perform ctpop, then truncate back.
+struct ConvertMathCtPop : public ConvertOpToExecutorPattern<math::CtPopOp> {
+  using ConvertOpToExecutorPattern::ConvertOpToExecutorPattern;
+  LogicalResult
+  matchAndRewrite(math::CtPopOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    Type inputType = adaptor.getOperand().getType();
+    unsigned bitWidth = inputType.getIntOrFloatBitWidth();
+    Location loc = op.getLoc();
+
+    // Fail for types larger than i64.
+    if (bitWidth > 64)
+      return rewriter.notifyMatchFailure(
+          op, "executor.ctpop does not support types larger than i64");
+
+    // executor.ctpop only supports i32 and i64.
+    if (bitWidth == 32 || bitWidth == 64) {
+      rewriter.replaceOpWithNewOp<executor::CtPopOp>(op, inputType,
+                                                     adaptor.getOperand());
+      return success();
+    }
+
+    // For other types, zero-extend to i32 or i64, perform ctpop, then truncate.
+    Type targetType =
+        bitWidth <= 32 ? rewriter.getI32Type() : rewriter.getI64Type();
+    Value extended = rewriter.create<executor::ZExtOp>(loc, targetType,
+                                                       adaptor.getOperand());
+    Value popcount =
+        rewriter.create<executor::CtPopOp>(loc, targetType, extended);
+    rewriter.replaceOpWithNewOp<executor::TruncOp>(op, inputType, popcount);
+    return success();
+  }
+};
+
 /// Rewrite `arith.select` to `executor.select` op
 struct ConvertArithSelect : public ConvertOpToExecutorPattern<arith::SelectOp> {
   using ConvertOpToExecutorPattern::ConvertOpToExecutorPattern;
@@ -514,7 +550,11 @@ public:
       executor::populateArithToExecutorPatterns(patterns, typeConverter);
       executor::populateControlFlowToExecutorPatterns(patterns, typeConverter);
 
-      // Add the math-to-executor patterns.
+      // Add the math-to-executor patterns (C++ patterns for ops needing
+      // special handling).
+      patterns.add<ConvertMathCtPop>(typeConverter, ctx);
+
+      // Add the math-to-executor patterns (PDLL patterns).
       registerConversionPDLFunctions(patterns);
       populateGeneratedPDLLPatterns(patterns,
                                     PDLConversionConfig(&typeConverter));

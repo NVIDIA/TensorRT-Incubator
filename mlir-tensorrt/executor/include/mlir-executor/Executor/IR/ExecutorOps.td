@@ -682,6 +682,19 @@ def Executor_BitwiseXOrIOp : Executor_ArithBinaryBitwiseIntOp<"bitwise_xori">;
 
 def Executor_AbsIOp : Executor_ArithUnaryIntOp<"absi", [RuntimeBuiltinInterface]>;
 
+def Executor_CtPopOp : Executor_Op<"ctpop", [Pure, SameOperandsAndResultType]> {
+  let summary = "count the number of set bits in an integer";
+  let description = [{
+    Returns the number of bits set to 1 in the input integer.
+    Only i32 and i64 types are supported. For smaller bit types,
+    user `executor.zext` to extend the width to 32 or 64.
+  }];
+
+  let arguments = (ins AnyTypeOf<[I32, I64]>:$operand);
+  let results = (outs AnyTypeOf<[I32, I64]>:$result);
+  let assemblyFormat = "$operand attr-dict `:` type($result)";
+}
+
 //===----------------------------------------------------------------------===//
 // Floating-point arithmetic ops
 //===----------------------------------------------------------------------===//
