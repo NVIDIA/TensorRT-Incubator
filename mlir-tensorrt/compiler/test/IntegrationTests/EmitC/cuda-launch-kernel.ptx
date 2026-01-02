@@ -1,0 +1,78 @@
+//===----------------------------------------------------------------------===//
+// This PTX is used by `compiler/test/IntegrationTests/EmitC/cuda-launch-argpack.mlir`
+// to exercise `cuda.launch` lowering to EmitC.
+//
+// The goal of the test is *not* PTX correctness per se, but to validate host-side
+// argument packing and kernel launch plumbing for a mix of argument types:
+// - device pointers (in_ptr/out_ptr)
+// - an index-like offset (offset, passed as u64)
+// - a scalar length (n, u32)
+// - a scalar float (scalar, f32)
+//
+// High-level kernel pseudocode:
+//
+//   // in_ptr/out_ptr: pointers to float arrays on device
+//   // offset: starting element offset (in elements, not bytes)
+//   // n: number of elements to process
+//   // scalar: value to add
+//   __global__ void add_kernel(float* in_ptr, float* out_ptr,
+//                              uint64_t offset, uint32_t n, float scalar) {
+//     uint32_t i = blockIdx.x * blockDim.x + threadIdx.x;
+//     if (i >= n) return;
+//     uint64_t idx = offset + (uint64_t)i;
+//     out_ptr[idx] = in_ptr[idx] + scalar;
+//   }
+//
+//===----------------------------------------------------------------------===//
+
+.version 7.0
+.target sm_70
+.address_size 64
+
+.visible .entry add_kernel(
+  .param .u64 in_ptr,
+  .param .u64 out_ptr,
+  .param .u64 offset,
+  .param .u32 n,
+  .param .f32 scalar
+)
+{
+  .reg .pred %p;
+  .reg .b32 %r<6>;
+  .reg .b64 %rd<10>;
+  .reg .f32 %f<4>;
+
+  // Load kernel parameters into registers.
+  ld.param.u64 %rd1, [in_ptr];
+  ld.param.u64 %rd2, [out_ptr];
+  ld.param.u64 %rd3, [offset];
+  ld.param.u32 %r1, [n];
+  ld.param.f32 %f1, [scalar];
+
+  // Compute linear thread index:
+  //   i = blockIdx.x * blockDim.x + threadIdx.x
+  mov.u32 %r2, %ctaid.x;
+  mov.u32 %r3, %ntid.x;
+  mov.u32 %r4, %tid.x;
+  mad.lo.s32 %r0, %r2, %r3, %r4;
+
+  // Bounds check: if (i >= n) return;
+  setp.ge.u32 %p, %r0, %r1;
+  @%p bra DONE;
+
+  // idx = offset + (uint64_t)i
+  // byteOffset = idx * sizeof(float)
+  cvt.u64.u32 %rd4, %r0;
+  add.u64 %rd5, %rd3, %rd4;
+  mul.lo.u64 %rd6, %rd5, 4;
+
+  // Load, add scalar, store.
+  add.u64 %rd7, %rd1, %rd6;
+  ld.global.f32 %f2, [%rd7];
+  add.f32 %f3, %f2, %f1;
+  add.u64 %rd8, %rd2, %rd6;
+  st.global.f32 [%rd8], %f3;
+
+DONE:
+  ret;
+}
