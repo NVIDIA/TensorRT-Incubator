@@ -21,12 +21,11 @@
 /// Implementation of the `plan-create-closed-regions` pass.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-executor/Transforms/Clustering/Patterns.h"
 #include "mlir-tensorrt-common/Utils/RegionUtils.h"
 #include "mlir-tensorrt-dialect/Analysis/TensorKindAnalysis.h"
 #include "mlir-tensorrt/Dialect/Plan/Analysis/BoundsAnalysis.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
-#include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
+#include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h" // IWYU pragma: keep
 #include "mlir/Analysis/DataFlow/ConstantPropagationAnalysis.h"
 #include "mlir/Analysis/DataFlow/DeadCodeAnalysis.h"
 #include "mlir/Analysis/DataFlowFramework.h"
@@ -535,7 +534,8 @@ createInlineClosedAllocGroupOp(RewriterBase &rewriter, plan::ClusterOp op,
   // Create the closed region input profile attrs.
   FailureOr<SmallVector<BoundsAttr>> inputAttr = getInputAttributes(
       rewriter, solver, closedGroupOp->getLoc(), closedGroupOp.getInputs(),
-      op.getTargetAttr(), /*useDestinationStyleCallingConvention=*/false);
+      closedGroupOp.getTargetAttr(),
+      /*useDestinationStyleCallingConvention=*/false);
 
   if (failed(inputAttr))
     return emitError(closedGroupOp.getLoc())
