@@ -34,11 +34,33 @@
 
 #include <array>
 #include <cstdint>
+#include <cstring>
+#include <memory>
+#include <type_traits>
 #include <utility>
 
 #include "MTRTRuntimeStatus.h"
 
 namespace mtrt {
+
+//===----------------------------------------------------------------------===//
+// Bit Cast (C++17-compatible std::bit_cast alternative)
+//===----------------------------------------------------------------------===//
+
+/// C++17-compatible implementation of std::bit_cast (available in C++20).
+/// Reinterprets the bits of `src` as type `To`.
+template <class To, class From>
+To bit_cast(From src) {
+  static_assert(sizeof(From) == sizeof(To), "Types must have matching sizes");
+  static_assert(std::is_trivially_copyable<From>::value,
+                "Source type must be trivially copyable");
+  static_assert(std::is_trivially_copyable<To>::value,
+                "Destination type must be trivially copyable");
+
+  To dst;
+  std::memcpy(std::addressof(dst), std::addressof(src), sizeof(To));
+  return dst;
+}
 
 //===----------------------------------------------------------------------===//
 // MemRef

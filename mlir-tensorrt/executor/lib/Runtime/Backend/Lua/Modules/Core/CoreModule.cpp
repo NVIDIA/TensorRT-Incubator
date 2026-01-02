@@ -652,6 +652,7 @@ static void registerExecutorCoreModuleLuaRuntimeMethods(
     return *reinterpret_cast<const resType *>(&tmp);                           \
   }
   DEFINE_IEXT_METHOD(i32, i64, int32_t, int64_t);
+  DEFINE_IEXT_METHOD(i16, i64, int16_t, int64_t);
   DEFINE_IEXT_METHOD(i8, i32, int8_t, int64_t);
   DEFINE_IEXT_METHOD(i8, i64, int8_t, int64_t);
   DEFINE_IEXT_METHOD(i1, i8, int8_t, int8_t);
@@ -767,6 +768,7 @@ static void registerExecutorCoreModuleLuaRuntimeMethods(
   DEFINE_FLOAT_CAST_METHODS(f8E4M3FN, f16, F8E4M3FN, Float16);
   DEFINE_FLOAT_CAST_METHODS(f8E4M3FN, f32, F8E4M3FN, float);
   DEFINE_FLOAT_CAST_METHODS(bf16, f32, BFloat16, float);
+  DEFINE_FLOAT_CAST_METHODS(f32, f64, float, double);
 
 #undef DEFINE_FLOAT_CAST_METHODS
 

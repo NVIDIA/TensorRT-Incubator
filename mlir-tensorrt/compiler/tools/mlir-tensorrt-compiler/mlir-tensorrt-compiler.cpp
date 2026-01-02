@@ -31,6 +31,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/Path.h"
 #include "llvm/Support/Process.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/ToolOutputFile.h"
@@ -69,6 +70,12 @@ static cl::opt<std::string>
                   cl::desc("equivalent to --mlir-print-ir-after-all "
                            "--mlir-print-ir-tree-dir=<dir>"),
                   cl::cat(OptCat), cl::init(""));
+
+static cl::opt<std::string> crashReproducerPath(
+    "crash-repro",
+    cl::desc("equivalent to --mlir-pass-pipeline-crash-reproducer=<file path> "
+             "--mlir-pass-pipeline-local-reproducer -mlir-disable-threading"),
+    cl::cat(OptCat), cl::init(""));
 
 /// Parse the input MLIR file using the provided MLIRContext. The result is
 /// returned in the `module`. Failure to parse results in a fatal error.
@@ -190,6 +197,22 @@ static LogicalResult parseCommandlineArguments(int argc, char **argv) {
     args.push_back("--mlir-print-ir-after-all");
     // All StringSaver::save() returned strings are null-terminated.
     args.push_back(extraArg.data());
+  }
+
+  if (!crashReproducerPath.empty()) {
+    if (llvm::sys::path::has_parent_path(crashReproducerPath)) {
+      if (std::error_code EC = llvm::sys::fs::create_directories(
+              llvm::sys::path::parent_path(crashReproducerPath))) {
+        llvm::errs() << "failed to create crash-reproducer directory: "
+                     << dumpDirectory << ": " << EC.message() << "\n";
+        return failure();
+      }
+    }
+    SmallVector<std::string> crashReproducerArgs = {
+        "--mlir-pass-pipeline-crash-reproducer=" + crashReproducerPath,
+        "--mlir-pass-pipeline-local-reproducer", "-mlir-disable-threading"};
+    for (const auto &newArgs : crashReproducerArgs)
+      args.push_back(saver.save(newArgs).data());
   }
 
   // Re-parse now that the options have been modified.

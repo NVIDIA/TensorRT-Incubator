@@ -73,6 +73,7 @@ void mtrt::compiler::buildStablehloInputPipeline(
   // `stablehlo-ext-lower-special-custom-calls`:
   // Lower `stablehlo.custom_call` that have special meanings.
   pm.addPass(stablehlo_ext::createLowerSpecialCustomCalls());
+  pm.addPass(stablehlo_ext::createStablehloLowerCheckCustomCallsPass());
 
   // `stabelhlo-legalize-composite-to-call`:
   // Substitute `stablehlo.composite` with its implementation where possible.

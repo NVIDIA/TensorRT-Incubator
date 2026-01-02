@@ -115,15 +115,17 @@ struct ConvertUnaryCastToExecute
   }
 };
 
-/// Convert `arith.index_cast` by forwarding the operand.
+/// Convert `arith.index_cast|arith.index_castui` by forwarding the operand
+/// or the truncated/extended operand.
+template <typename IndexCastOpTy>
 struct ConvertArithIndexCastOp
-    : public ConvertOpToExecutorPattern<arith::IndexCastOp> {
-  using ConvertOpToExecutorPattern::ConvertOpToExecutorPattern;
+    : public ConvertOpToExecutorPattern<IndexCastOpTy> {
+  using ConvertOpToExecutorPattern<IndexCastOpTy>::ConvertOpToExecutorPattern;
+  using OpAdaptor =
+      typename ConvertOpToExecutorPattern<IndexCastOpTy>::OpAdaptor;
   LogicalResult
-  matchAndRewrite(arith::IndexCastOp op, OpAdaptor adaptor,
+  matchAndRewrite(IndexCastOpTy op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
-    // Currently we only need to convert this for equal bit types. It can be
-    // expanded upon further use cases.
     Type resultType = op.getResult().getType();
     Type targetElementType = this->typeConverter->convertType(resultType);
     Type sourceElementType = adaptor.getIn().getType();
@@ -138,8 +140,13 @@ struct ConvertArithIndexCastOp
       return success();
     }
     if (targetBits > sourceBits) {
-      rewriter.replaceOpWithNewOp<executor::SIExtOp>(op, targetElementType,
-                                                     adaptor.getIn());
+      if constexpr (std::is_same_v<IndexCastOpTy, arith::IndexCastOp>) {
+        rewriter.replaceOpWithNewOp<executor::SIExtOp>(op, targetElementType,
+                                                       adaptor.getIn());
+      } else {
+        rewriter.replaceOpWithNewOp<executor::ZExtOp>(op, targetElementType,
+                                                      adaptor.getIn());
+      }
       return success();
     }
     rewriter.replaceOpWithNewOp<executor::TruncOp>(op, targetElementType,
@@ -450,8 +457,9 @@ void executor::populateArithToExecutorPatterns(
            ConvertUnaryCastToExecute<arith::BitcastOp, executor::BitcastOp>,
            ConvertUnaryCastToExecute<arith::SIToFPOp, executor::SIToFPOp>,
            ConvertUnaryCastToExecute<arith::FPToSIOp, executor::FPToSIOp>,
-           ConvertArithIndexCastOp, ConvertArithSelect, ConvertCmpI,
-           ConvertCmpF>(typeConverter, patterns.getContext());
+           ConvertArithIndexCastOp<arith::IndexCastOp>,
+           ConvertArithIndexCastOp<arith::IndexCastUIOp>, ConvertArithSelect,
+           ConvertCmpI, ConvertCmpF>(typeConverter, patterns.getContext());
 }
 
 namespace {

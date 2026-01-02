@@ -12,16 +12,13 @@
 /// TODO: move these fixes upstream
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Transforms/Passes.h"
+#include "mlir-tensorrt/Transforms/Passes.h" // IWYU pragma: keep
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/BuiltinAttributes.h"
-#include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/SymbolTable.h"
 #include "mlir/IR/Visitors.h"
-#include "mlir/Interfaces/CallInterfaces.h"
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/DenseMapInfo.h"
 
 namespace mtrt {
 #define GEN_PASS_DEF_FUNCEXTDUPLICATEFUNCTIONELIMINATIONPASS
@@ -70,6 +67,10 @@ struct DuplicateFuncOpEquivalenceInfo
     if (lhs == getTombstoneKey() || lhs == getEmptyKey() ||
         rhs == getTombstoneKey() || rhs == getEmptyKey())
       return false;
+
+    if (lhs.isDeclaration() || rhs.isDeclaration())
+      return false;
+
     // Check discardable attributes equivalence
     if (lhs->getDiscardableAttrDictionary() !=
         rhs->getDiscardableAttrDictionary())
@@ -101,29 +102,37 @@ public:
     SymbolTableCollection symbolTable;
     SymbolUserMap userMap(symbolTable, module);
     DenseSet<func::FuncOp> toBeErased;
+    // Map from duplicate function to its representative (the one to keep).
+    // We must defer replaceAllUsesWith until after all functions are processed
+    // because replacing uses modifies function bodies, which would invalidate
+    // hashes for functions still in the DenseSet.
+    DenseMap<func::FuncOp, StringAttr> duplicateToRepr;
 
     SymbolTable::walkSymbolTables(
         module, true,
-        [&userMap, &toBeErased](Operation *symbolTable,
-                                bool allSymUsesVisible) {
+        [&toBeErased, &duplicateToRepr](Operation *symbolTable,
+                                        bool allSymUsesVisible) {
           if (symbolTable->getNumRegions() != 1)
             return;
           llvm::DenseSet<func::FuncOp, DuplicateFuncOpEquivalenceInfo>
               uniqueFuncOps;
-          DenseMap<StringAttr, func::FuncOp> leaders;
           for (auto f : symbolTable->getRegion(0).getOps<func::FuncOp>()) {
             if (f.isDeclaration())
               continue;
             auto [repr, inserted] = uniqueFuncOps.insert(f);
-            leaders[f.getSymNameAttr()] = *repr;
             if (!inserted) {
               toBeErased.insert(f);
-              userMap.replaceAllUsesWith(f, repr->getSymNameAttr());
+              duplicateToRepr[f] = repr->getSymNameAttr();
             }
           }
         });
 
-    // Enumerate functions by enumerating the call functions.
+    // Now that all functions have been processed, replace uses of duplicates.
+    for (auto &[duplicate, reprName] : duplicateToRepr) {
+      userMap.replaceAllUsesWith(duplicate, reprName);
+    }
+
+    // Erase the duplicate functions.
     IRRewriter rewriter(&getContext());
     for (func::FuncOp it : toBeErased) {
       assert(SymbolTable::symbolKnownUseEmpty(it, getOperation()) &&
