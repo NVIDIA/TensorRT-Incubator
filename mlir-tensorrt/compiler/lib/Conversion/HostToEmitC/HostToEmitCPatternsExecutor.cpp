@@ -19,6 +19,7 @@
 
 #include "mlir-executor/Executor/IR/Executor.h"
 #include "mlir-executor/Executor/IR/ExecutorAttributes.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/ControlFlow/IR/ControlFlowOps.h"
 #include "mlir/Dialect/Math/IR/Math.h"
 #include "mlir/IR/Matchers.h"
@@ -45,6 +46,32 @@ struct ExecutorPrintConverter
     llvm::append_range(staticArgs, adaptor.getArguments());
     createCallOpaque(rewriter, loc, {}, "printf", staticArgs);
     rewriter.eraseOp(op);
+    return success();
+  }
+};
+
+//===----------------------------------------------------------------------===//
+// Arith conversions missing from 'arith-to-emitc' pass
+//===----------------------------------------------------------------------===//
+
+struct ArithBitcastToEmitCPattern
+    : public EmitCConversionPattern<arith::BitcastOp> {
+  using EmitCConversionPattern::EmitCConversionPattern;
+
+  LogicalResult
+  matchAndRewrite(arith::BitcastOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    // Intended C++: `mtrt::bit_cast<TargetType>(input)`
+    Type resultType = op.getType();
+    Type convertedResultType = typeConverter->convertType(resultType);
+    if (!convertedResultType)
+      return failure();
+
+    auto callOp = createCallOpaque(
+        rewriter, op.getLoc(), TypeRange{convertedResultType}, "mtrt::bit_cast",
+        ValueRange{adaptor.getIn()},
+        ArrayRef<Attribute>{TypeAttr::get(convertedResultType)});
+    rewriter.replaceOp(op, callOp.getResult(0));
     return success();
   }
 };
@@ -210,7 +237,8 @@ namespace mlir::host_to_emitc {
 void populateHostToEmitCExecutorPatterns(RewritePatternSet &patterns,
                                          TypeConverter &typeConverter,
                                          const DataLayout &dataLayout) {
-  patterns.add<CFAssertPattern, ExecutorABIRecvPattern, ExecutorABISendPattern,
+  patterns.add<ArithBitcastToEmitCPattern, CFAssertPattern,
+               ExecutorABIRecvPattern, ExecutorABISendPattern,
                ExecutorPrintConverter, MathLogToEmitCPattern>(
       typeConverter, dataLayout, patterns.getContext());
 }

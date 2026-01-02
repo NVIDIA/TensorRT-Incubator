@@ -8,6 +8,7 @@ add_mlir_tensorrt_library(MLIRTensorRTStableHloExtTransforms
   ConstantFolding.cpp
   ExpandTuples.cpp
   GatherToSlice.cpp
+  LowerCheckCustomCalls.cpp
   LowerSpecialCustomCalls.cpp
   MaterializeDenseResourceElementsAttr.cpp
   Simplifications.cpp
