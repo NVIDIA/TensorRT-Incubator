@@ -40,17 +40,22 @@ using namespace mlir;
 using namespace mlir::executor;
 
 /// Return the value for `ofr` or create a constant value if required. If `ofr`
-/// is a value, its type is checked against `intType`. If it is an attribute,
-/// then it is checked that it can be losslessly converted to `intType`.
+/// is a value, it is extended or truncated to match `intType`. If it is an
+/// attribute, then it is checked that it can be losslessly converted to
+/// `intType`.
 static FailureOr<Value> getOrCreateAndCheckIndexValue(RewriterBase &rewriter,
                                                       GetOffsetOp op,
                                                       IntegerType intType,
                                                       OpFoldResult ofr) {
   Location loc = op.getLoc();
   if (auto val = dyn_cast<Value>(ofr)) {
-    if (val.getType() != intType)
-      return failure();
-    return val;
+    auto valType = cast<IntegerType>(val.getType());
+    if (valType == intType)
+      return val;
+    // Extend or truncate the value to match the compute type.
+    if (valType.getWidth() < intType.getWidth())
+      return rewriter.create<ZExtOp>(loc, intType, val).getResult();
+    return rewriter.create<TruncOp>(loc, intType, val).getResult();
   }
 
   IntegerAttr srcAttr = cast<IntegerAttr>(cast<Attribute>(ofr));
@@ -76,22 +81,25 @@ static FailureOr<Value> getOrCreateAndCheckIndexValue(RewriterBase &rewriter,
 }
 
 /// Lower the `executor.getoffset` operation into more primitive ops.
+/// If `checkPrecisionLoss` is true and the result type differs from the
+/// DataLayout's index type, a runtime assertion is inserted to detect
+/// precision loss during truncation.
 static FailureOr<Value> lowerGetOffset(RewriterBase &rewriter,
-                                       const DataLayout &layout,
-                                       GetOffsetOp op) {
+                                       const DataLayout &layout, GetOffsetOp op,
+                                       bool checkPrecisionLoss) {
   SmallVector<OpFoldResult> indices = op.getIndices();
   Location loc = op.getLoc();
 
-  // The type we should use for index calculations.
-  IntegerType computeType = rewriter.getIntegerType(
+  // The type specified by the DataLayout for index calculations.
+  IntegerType dataLayoutIndexType = rewriter.getIntegerType(
       layout.getTypeSizeInBits(rewriter.getIndexType()));
+  IntegerType resultType = cast<IntegerType>(op.getType());
 
-  if (computeType != op.getType())
-    return rewriter.notifyMatchFailure(
-        op, llvm::formatv("result type ({0}) does not match the width of the "
-                          "IndexType ({1}) specified by the DataLayout",
-                          op.getType(), computeType)
-                .str());
+  // Use the wider type for intermediate computation to avoid overflow.
+  IntegerType computeType =
+      dataLayoutIndexType.getWidth() >= resultType.getWidth()
+          ? dataLayoutIndexType
+          : resultType;
 
   auto getIndexConst = [&](int64_t value) -> Value {
     return rewriter.create<ConstantOp>(
@@ -139,6 +147,31 @@ static FailureOr<Value> lowerGetOffset(RewriterBase &rewriter,
     return rewriter.notifyMatchFailure(
         op, "failed to lower invalid executor.getoffset op");
   }
+
+  // Convert the computed offset to the result type if they differ.
+  if (computeType != resultType) {
+    if (computeType.getWidth() > resultType.getWidth()) {
+      // Truncating: optionally insert runtime precision loss detection.
+      if (checkPrecisionLoss) {
+        Value truncated = rewriter.create<TruncOp>(loc, resultType, offset);
+        Value extendedBack =
+            rewriter.create<ZExtOp>(loc, computeType, truncated);
+        Value noPrecisionLoss =
+            rewriter.create<ICmpOp>(loc, offset, extendedBack, ICmpType::eq);
+        rewriter.create<AssertOp>(
+            loc, noPrecisionLoss,
+            rewriter.getStringAttr("getoffset result truncated: offset too "
+                                   "large for result type"));
+        offset = truncated;
+      } else {
+        offset = rewriter.create<TruncOp>(loc, resultType, offset);
+      }
+    } else {
+      // Extending: safe, no precision loss possible.
+      offset = rewriter.create<ZExtOp>(loc, resultType, offset);
+    }
+  }
+
   return offset;
 }
 
@@ -150,19 +183,22 @@ struct LowerGetOffsetPattern : public OpConversionPattern<GetOffsetOp> {
   using OpConversionPattern::OpConversionPattern;
 
   LowerGetOffsetPattern(const DataLayout &dataLayout, MLIRContext *ctx,
-                        PatternBenefit benefit = 1)
-      : OpConversionPattern(ctx, benefit), dataLayout(dataLayout) {}
+                        bool checkPrecisionLoss, PatternBenefit benefit = 1)
+      : OpConversionPattern(ctx, benefit), dataLayout(dataLayout),
+        checkPrecisionLoss(checkPrecisionLoss) {}
 
   LogicalResult
   matchAndRewrite(GetOffsetOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
-    FailureOr<Value> offset = lowerGetOffset(rewriter, dataLayout, op);
+    FailureOr<Value> offset =
+        lowerGetOffset(rewriter, dataLayout, op, checkPrecisionLoss);
     if (failed(offset))
       return failure();
     rewriter.replaceOp(op, *offset);
     return success();
   }
   const DataLayout &dataLayout;
+  bool checkPrecisionLoss;
 };
 
 /// Lowers `executor.alloca` by replacing with a normal allocation and adding a
@@ -678,7 +714,8 @@ public:
     target.addLegalDialect<executor::ExecutorDialect>();
     if (lowerGetOffset) {
       target.addIllegalOp<executor::GetOffsetOp>();
-      patterns.add<LowerGetOffsetPattern>(dataLayout, ctx);
+      patterns.add<LowerGetOffsetPattern>(dataLayout, ctx,
+                                          checkGetOffsetPrecisionLoss);
     }
     if (lowerAlloca) {
       target.addIllegalOp<executor::AllocaOp>();

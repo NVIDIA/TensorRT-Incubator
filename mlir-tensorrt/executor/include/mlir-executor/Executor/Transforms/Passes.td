@@ -167,7 +167,10 @@ def ExecutorExpandOpsPass : Pass<"executor-expand-ops"> {
     Option<"lowerAlloca", "lower-alloca", "bool", "true",
       "lower 'executor.alloca' into an alloc/dealloc pair within the block scope">,
     Option<"lowerGetOffset", "lower-getoffset", "bool", "true",
-      "lower 'executor.getoffset' into more primitive arithmetic operations">
+      "lower 'executor.getoffset' into more primitive arithmetic operations">,
+    Option<"checkGetOffsetPrecisionLoss", "check-getoffset-precision-loss", "bool", "true",
+      "insert runtime assertions to detect precision loss when getoffset result "
+      "type differs from the DataLayout index type">
   ];
 }
 
