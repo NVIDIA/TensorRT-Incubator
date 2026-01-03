@@ -1,4 +1,5 @@
 // RUN: executor-opt %s -split-input-file -executor-expand-ops -canonicalize -verify-diagnostics | FileCheck %s
+// RUN: executor-opt %s -split-input-file -executor-expand-ops="check-getoffset-precision-loss=false" -canonicalize -verify-diagnostics | FileCheck %s --check-prefix=CHECK-NO-ASSERT
 
 func.func @lower_gep() -> i64 {
   %0 = executor.getoffset[1] : () -> i64, f32
@@ -6,8 +7,11 @@ func.func @lower_gep() -> i64 {
 }
 
 // CHECK-LABEL: func.func @lower_gep
+// CHECK-NO-ASSERT-LABEL: func.func @lower_gep
 //   CHECK-DAG:     %[[c4_i64:.+]] = executor.constant 4 : i64
 //   CHECK-DAG:     return %[[c4_i64]] : i64
+//   CHECK-NO-ASSERT-DAG:     %[[c4_i64:.+]] = executor.constant 4 : i64
+//   CHECK-NO-ASSERT-DAG:     return %[[c4_i64]] : i64
 
 // -----
 
@@ -19,8 +23,11 @@ func.func @lower_gep() -> i64 {
 }
 
 // CHECK-LABEL: func.func @lower_gep
+// CHECK-NO-ASSERT-LABEL: func.func @lower_gep
 //   CHECK-DAG:     %[[c16_i64:.+]] = executor.constant 16 : i64
 //   CHECK-DAG:     return %[[c16_i64]] : i64
+//   CHECK-NO-ASSERT-DAG:     %[[c16_i64:.+]] = executor.constant 16 : i64
+//   CHECK-NO-ASSERT-DAG:     return %[[c16_i64]] : i64
 
 // -----
 
@@ -32,12 +39,19 @@ func.func @lower_gep(%arg1: i64) -> i64 {
 }
 
 // CHECK-LABEL: func.func @lower_gep
+// CHECK-NO-ASSERT-LABEL: func.func @lower_gep
 //  CHECK-SAME: (%[[arg1:.+]]: i64) -> i64 {
 //   CHECK-DAG:     %[[c16_i64:.+]] = executor.constant 16 : i64
 //   CHECK-DAG:     %[[c12_i64:.+]] = executor.constant 12 : i64
 //   CHECK-DAG:     %[[v0:.+]] = executor.muli %[[arg1]], %[[c16_i64]] : i64
 //   CHECK-DAG:     %[[v3:.+]] = executor.addi %[[v0]], %[[c12_i64]] : i64
 //   CHECK-DAG:     return %[[v3]] : i64
+//  CHECK-NO-ASSERT-SAME: (%[[arg1:.+]]: i64) -> i64 {
+//   CHECK-NO-ASSERT-DAG:     %[[c16_i64:.+]] = executor.constant 16 : i64
+//   CHECK-NO-ASSERT-DAG:     %[[c12_i64:.+]] = executor.constant 12 : i64
+//   CHECK-NO-ASSERT-DAG:     %[[v0:.+]] = executor.muli %[[arg1]], %[[c16_i64]] : i64
+//   CHECK-NO-ASSERT-DAG:     %[[v3:.+]] = executor.addi %[[v0]], %[[c12_i64]] : i64
+//   CHECK-NO-ASSERT-DAG:     return %[[v3]] : i64
 
 // -----
 
@@ -49,12 +63,19 @@ func.func @lower_gep(%arg1: i64) -> i64 {
 }
 
 // CHECK-LABEL: func.func @lower_gep
+// CHECK-NO-ASSERT-LABEL: func.func @lower_gep
 //  CHECK-SAME: (%[[arg0:.+]]: i64) -> i64 {
 //   CHECK-DAG:     %[[c32_i64:.+]] = executor.constant 32 : i64
 //   CHECK-DAG:     %[[c24_i64:.+]] = executor.constant 24 : i64
 //   CHECK-DAG:     %[[v0:.+]] = executor.muli %[[arg0]], %[[c32_i64]] : i64
 //   CHECK-DAG:     %[[v2:.+]] = executor.addi %[[v0]], %[[c24_i64]] : i64
 //   CHECK-DAG:     return %[[v2]] : i64
+//  CHECK-NO-ASSERT-SAME: (%[[arg0:.+]]: i64) -> i64 {
+//   CHECK-NO-ASSERT-DAG:     %[[c32_i64:.+]] = executor.constant 32 : i64
+//   CHECK-NO-ASSERT-DAG:     %[[c24_i64:.+]] = executor.constant 24 : i64
+//   CHECK-NO-ASSERT-DAG:     %[[v0:.+]] = executor.muli %[[arg0]], %[[c32_i64]] : i64
+//   CHECK-NO-ASSERT-DAG:     %[[v2:.+]] = executor.addi %[[v0]], %[[c24_i64]] : i64
+//   CHECK-NO-ASSERT-DAG:     return %[[v2]] : i64
 
 // -----
 
@@ -66,24 +87,35 @@ func.func @lower_gep() -> i64 {
 }
 
 // CHECK-LABEL: func.func @lower_gep
+// CHECK-NO-ASSERT-LABEL: func.func @lower_gep
 //   CHECK-DAG:     %[[c24_i64:.+]] = executor.constant 24 : i64
 //   CHECK-DAG:     return %[[c24_i64]] : i64
+//   CHECK-NO-ASSERT-DAG:     %[[c24_i64:.+]] = executor.constant 24 : i64
+//   CHECK-NO-ASSERT-DAG:     return %[[c24_i64]] : i64
 
 // -----
 
-!el_type = !executor.table<!executor.table<i32, f64>, !executor.table<i64, f32>>
+// Test: result type (i64) wider than DataLayout index type (i32).
+// The computation should happen in i64 (wider type), no conversion needed.
+!el_type_ext = !executor.table<!executor.table<i32, f64>, !executor.table<i64, f32>>
 
 builtin.module attributes {
   dlti.dl_spec = #dlti.dl_spec<
     #dlti.dl_entry<index, 32 : i64>
   >
 } {
-  func.func @lower_gep() -> i64 {
-    // expected-error @+1 {{failed to legalize operation 'executor.getoffset' that was explicitly marked illegal}}
-    %0 = executor.getoffset[0, 1, 1] : () -> i64, !el_type
+  func.func @lower_gep_result_wider_than_datalayout() -> i64 {
+    %0 = executor.getoffset[0, 1, 1] : () -> i64, !el_type_ext
     return %0 : i64
   }
 }
+
+// CHECK-LABEL: func.func @lower_gep_result_wider_than_datalayout
+// CHECK-NO-ASSERT-LABEL: func.func @lower_gep_result_wider_than_datalayout
+//   CHECK-DAG:     %[[c24:.+]] = executor.constant 24 : i64
+//   CHECK-DAG:     return %[[c24]] : i64
+//   CHECK-NO-ASSERT-DAG:     %[[c24:.+]] = executor.constant 24 : i64
+//   CHECK-NO-ASSERT-DAG:     return %[[c24]] : i64
 
 // -----
 
@@ -101,8 +133,11 @@ builtin.module attributes {
 }
 
 // CHECK-LABEL: func.func @lower_gep
+// CHECK-NO-ASSERT-LABEL: func.func @lower_gep
 //   CHECK-DAG:     %[[c24:.+]] = executor.constant 24 : i32
 //   CHECK-DAG:     return %[[c24]] : i32
+//   CHECK-NO-ASSERT-DAG:     %[[c24:.+]] = executor.constant 24 : i32
+//   CHECK-NO-ASSERT-DAG:     return %[[c24]] : i32
 
 // -----
 
@@ -136,9 +171,95 @@ builtin.module attributes {
 }
 
 // CHECK-LABEL: func.func @lower_gep_aggregate
+// CHECK-NO-ASSERT-LABEL: func.func @lower_gep_aggregate
 //  CHECK-SAME: () -> i64 {
+//  CHECK-NO-ASSERT-SAME: () -> i64 {
 //       CHECK:     %[[c4_i64:.+]] = executor.constant 4 : i64
 //       CHECK:     return %[[c4_i64]] : i64
+//       CHECK-NO-ASSERT:     %[[c4_i64:.+]] = executor.constant 4 : i64
+//       CHECK-NO-ASSERT:     return %[[c4_i64]] : i64
+
+// -----
+
+// Test: result type (i32) narrower than DataLayout index type (i64) with dynamic index.
+// Computation happens in i64, then truncated to i32 with precision loss check.
+!el_type_trunc = !executor.table<!executor.table<i32, f64>, !executor.table<i64, f32>>
+
+builtin.module attributes {
+  dlti.dl_spec = #dlti.dl_spec<
+    #dlti.dl_entry<index, 64 : i64>
+  >
+} {
+  func.func @lower_gep_result_narrower_than_datalayout(%arg0: i32) -> i32 {
+    %0 = executor.getoffset[%arg0, 1, 1] : (i32) -> i32, !el_type_trunc
+    return %0 : i32
+  }
+}
+
+// With precision check enabled (default): should have trunc, zext, icmp, and assert.
+// CHECK-LABEL: func.func @lower_gep_result_narrower_than_datalayout
+//  CHECK-SAME: (%[[ARG0:.+]]: i32) -> i32 {
+//   CHECK-DAG:     %[[c32:.+]] = executor.constant 32 : i64
+//   CHECK-DAG:     %[[c24:.+]] = executor.constant 24 : i64
+//       CHECK:     %[[ext:.+]] = executor.zext %[[ARG0]] : i32 to i64
+//       CHECK:     %[[mul:.+]] = executor.muli %[[ext]], %[[c32]] : i64
+//       CHECK:     %[[add:.+]] = executor.addi %[[mul]], %[[c24]] : i64
+//       CHECK:     %[[trunc:.+]] = executor.trunc %[[add]] : i64 to i32
+//       CHECK:     %[[ext_back:.+]] = executor.zext %[[trunc]] : i32 to i64
+//       CHECK:     %[[cmp:.+]] = executor.icmp <eq> %[[add]], %[[ext_back]] : i64
+//       CHECK:     executor.assert %[[cmp]], "getoffset result truncated: offset too large for result type"
+//       CHECK:     return %[[trunc]] : i32
+
+// With precision check disabled: should just have trunc, no assert.
+// CHECK-NO-ASSERT-LABEL: func.func @lower_gep_result_narrower_than_datalayout
+//  CHECK-NO-ASSERT-SAME: (%[[ARG0:.+]]: i32) -> i32 {
+//   CHECK-NO-ASSERT-DAG:     %[[c32:.+]] = executor.constant 32 : i64
+//   CHECK-NO-ASSERT-DAG:     %[[c24:.+]] = executor.constant 24 : i64
+//       CHECK-NO-ASSERT:     %[[ext:.+]] = executor.zext %[[ARG0]] : i32 to i64
+//       CHECK-NO-ASSERT:     %[[mul:.+]] = executor.muli %[[ext]], %[[c32]] : i64
+//       CHECK-NO-ASSERT:     %[[add:.+]] = executor.addi %[[mul]], %[[c24]] : i64
+//       CHECK-NO-ASSERT:     %[[trunc:.+]] = executor.trunc %[[add]] : i64 to i32
+//   CHECK-NO-ASSERT-NOT:     executor.assert
+//       CHECK-NO-ASSERT:     return %[[trunc]] : i32
+
+// -----
+
+// Test: result type (i32) narrower than DataLayout index type (i64) with dynamic i64 index.
+// The dynamic index is i64 which matches DataLayout, so computation happens in i64.
+!el_type_trunc2 = !executor.table<!executor.table<i32, f64>, !executor.table<i64, f32>>
+
+builtin.module attributes {
+  dlti.dl_spec = #dlti.dl_spec<
+    #dlti.dl_entry<index, 64 : i64>
+  >
+} {
+  func.func @lower_gep_i64_index_i32_result(%arg0: i64) -> i32 {
+    %0 = executor.getoffset[%arg0, 1, 1] : (i64) -> i32, !el_type_trunc2
+    return %0 : i32
+  }
+}
+
+// CHECK-LABEL: func.func @lower_gep_i64_index_i32_result
+//  CHECK-SAME: (%[[ARG0:.+]]: i64) -> i32 {
+//   CHECK-DAG:     %[[c32:.+]] = executor.constant 32 : i64
+//   CHECK-DAG:     %[[c24:.+]] = executor.constant 24 : i64
+//       CHECK:     %[[mul:.+]] = executor.muli %[[ARG0]], %[[c32]] : i64
+//       CHECK:     %[[add:.+]] = executor.addi %[[mul]], %[[c24]] : i64
+//       CHECK:     %[[trunc:.+]] = executor.trunc %[[add]] : i64 to i32
+//       CHECK:     %[[ext_back:.+]] = executor.zext %[[trunc]] : i32 to i64
+//       CHECK:     %[[cmp:.+]] = executor.icmp <eq> %[[add]], %[[ext_back]] : i64
+//       CHECK:     executor.assert %[[cmp]], "getoffset result truncated: offset too large for result type"
+//       CHECK:     return %[[trunc]] : i32
+
+// CHECK-NO-ASSERT-LABEL: func.func @lower_gep_i64_index_i32_result
+//  CHECK-NO-ASSERT-SAME: (%[[ARG0:.+]]: i64) -> i32 {
+//   CHECK-NO-ASSERT-DAG:     %[[c32:.+]] = executor.constant 32 : i64
+//   CHECK-NO-ASSERT-DAG:     %[[c24:.+]] = executor.constant 24 : i64
+//       CHECK-NO-ASSERT:     %[[mul:.+]] = executor.muli %[[ARG0]], %[[c32]] : i64
+//       CHECK-NO-ASSERT:     %[[add:.+]] = executor.addi %[[mul]], %[[c24]] : i64
+//       CHECK-NO-ASSERT:     %[[trunc:.+]] = executor.trunc %[[add]] : i64 to i32
+//   CHECK-NO-ASSERT-NOT:     executor.assert
+//       CHECK-NO-ASSERT:     return %[[trunc]] : i32
 
 // -----
 
@@ -148,6 +269,7 @@ func.func @fp4_to_f16(%arg0: f4E2M1FN) -> f16 {
 }
 
 // CHECK-LABEL: func.func @fp4_to_f16
+// CHECK-NO-ASSERT-LABEL: func.func @fp4_to_f16
 // CHECK-SAME: (%[[ARG0:.+]]: f4E2M1FN) -> f16
 // CHECK-DAG: %[[C0_I4:.+]] = executor.constant 0 : i4
 // CHECK-DAG: %[[C1_I4:.+]] = executor.constant 1 : i4
@@ -189,6 +311,7 @@ func.func @f16_to_fp4(%arg0: f16) -> f4E2M1FN {
 }
 
 // CHECK-LABEL: func.func @f16_to_fp4
+// CHECK-NO-ASSERT-LABEL: func.func @f16_to_fp4
 // CHECK-SAME: (%[[ARG0:.+]]: f16) -> f4E2M1FN
 // CHECK-DAG: %[[C8_I4:.+]] = executor.constant -8 : i4
 // CHECK-DAG: %[[FALSE:.+]] = executor.constant false
