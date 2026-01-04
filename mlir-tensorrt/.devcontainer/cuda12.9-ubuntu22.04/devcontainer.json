@@ -1,5 +1,5 @@
 {
-  "name": "cuda12.9-ubuntu24.04",
+  "name": "cuda12.9-ubuntu22.04",
   "build": {
     "context": "${localWorkspaceFolder}/build_tools/docker",
     "dockerfile": "${localWorkspaceFolder}/build_tools/docker/Dockerfile",
@@ -13,7 +13,7 @@
   "updateRemoteUserUID": true,
   "runArgs": [
     "--name",
-    "cuda12.9-ubuntu24.04-${localEnv:USER:ubuntu}-${devcontainerId}",
+    "cuda12.9-ubuntu22.04-${localEnv:USER:ubuntu}-${devcontainerId}",
     "--cap-add=SYS_PTRACE",
     "--security-opt",
     "seccomp=unconfined",

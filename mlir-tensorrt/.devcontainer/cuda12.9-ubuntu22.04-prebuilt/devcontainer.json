@@ -1,11 +1,11 @@
 {
-  "name": "cuda12.9-ubuntu24.04-prebuilt",
-  "image": "ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda12.9-ubuntu24.04-0.1",
+  "name": "cuda12.9-ubuntu22.04-prebuilt",
+  "image": "ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda12.9-ubuntu22.04-0.1",
   "remoteUser": "ubuntu",
   "updateRemoteUserUID": true,
   "runArgs": [
     "--name",
-    "cuda12.9-ubuntu24.04-prebuilt-${localEnv:USER:ubuntu}-${devcontainerId}",
+    "cuda12.9-ubuntu22.04-prebuilt-${localEnv:USER:ubuntu}-${devcontainerId}",
     "--cap-add=SYS_PTRACE",
     "--security-opt",
     "seccomp=unconfined",
