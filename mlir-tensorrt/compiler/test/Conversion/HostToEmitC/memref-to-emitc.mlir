@@ -1,13 +1,11 @@
-// RUN: rm -rf %t || true
-// RUN: mkdir -p %t
-
-// RUN: mlir-tensorrt-opt -split-input-file -convert-host-to-emitc="artifacts-dir=%t" %s | \
+// RUN: rm -rf %t && mkdir -p %t
+// RUN: mlir-tensorrt-opt -split-input-file -convert-host-to-emitc --executor-serialize-artifacts="artifacts-directory=%t" %s | \
 // RUN: tee %t/out.mlir | \
 // RUN: mlir-tensorrt-translate -split-input-file -mlir-to-cpp | FileCheck %s --check-prefix=CPP
-// RUN: test -f %t/gv3.constant.bin
+// RUN: test -f %t/global_test/gv3.bin
 // RUN: FileCheck --check-prefix=CHECK %s < %t/out.mlir
 
-
+module @global_test {
 
 memref.global @gv2 : memref<2x3xf32> = dense<[[0.0, 1.0, 2.0], [3.0, 4.0, 5.0]]>
 memref.global @gv3 : memref<256xf32> = dense<0.0>
@@ -17,6 +15,8 @@ func.func @get_global() {
   %2 = memref.get_global @gv2 : memref<2x3xf32>
   %3 = memref.get_global @gv3 : memref<256xf32>
   return
+}
+
 }
 
 //       CHECK:   emitc.global @gv2 : !emitc.array<2x3xf32> = dense<{{.*}}>
@@ -30,15 +30,10 @@ func.func @get_global() {
 //       CHECK:     %[[v5:.+]] = emitc.call_opaque "mtrt::make_memref_descriptor"
 //       CHECK:     return
 
-// CHECK-LABEL: emitc.func @unnamed_module_gv3_initialize
-//       CHECK:     %[[c1:.+]] = "emitc.constant"() <{value = 1 : i32}> : () -> i32
-//       CHECK:     %[[v0:.+]] = "emitc.constant"() <{value = #emitc.opaque<"\22gv3.constant.bin\22">}>
-//       CHECK:     %[[v1:.+]] = "emitc.constant"() <{value = 16 : i32}> : () -> i32
-//       CHECK:     %[[v2:.+]] = get_global @gv3 :
-//       CHECK:     %[[v3:.+]] = call_opaque "mtrt::constant_load_from_file"(%[[v0]], %[[v1]], %[[c1]])
-//       CHECK:     assign %[[v3]] : !emitc.ptr<!emitc.opaque<"void">> to %[[v2]]
-//       CHECK:     return
-// CHECK-LABEL: emitc.func @unnamed_module_gv3_destroy
+// CHECK-LABEL: emitc.func @global_test_gv3_initialize
+// CHECK: call_opaque "mtrt::constant_load_from_file"
+// CHECK: return
+// CHECK-LABEL: emitc.func @global_test_gv3_destroy
 //       CHECK:     %[[space:.+]] = "emitc.constant"
 //       CHECK:     %[[v0:.+]] = get_global @gv3 :
 //       CHECK:     %[[v1:.+]] = load %[[v0]] :
@@ -53,15 +48,15 @@ func.func @get_global() {
 // CPP:   mtrt::RankedMemRef<1> v4 = mtrt::make_memref_descriptor<1>(v3, v3, v1, 256, 1);
 // CPP:   return;
 
-// CPP: void unnamed_module_gv3_initialize() {
-// CPP:   int32_t v1 = 1;
-// CPP:   const char* v2 = "gv3.constant.bin";
-// CPP:   int32_t v3 = 16;
-// CPP:   void* v4 = mtrt::constant_load_from_file(v2, v3, v1);
-// CPP:   gv3 = v4;
-// CPP:   return;
+// CPP: int32_t global_test_gv3_initialize() {
+// CPP:   const char* {{.*}} = "global_test/gv3.bin";
+// CPP:   void* {{.*}} = nullptr;
+// CPP:   int32_t {{.*}} = mtrt::constant_load_from_file({{.*}}, {{.*}}, {{.*}}, {{.*}});
+// CPP:   if ({{.*}} != 0) { return {{.*}}; }
+// CPP:   gv3 = {{.*}};
+// CPP:   return {{.*}};
 
-// CPP: void unnamed_module_gv3_destroy() {
+// CPP: void global_test_gv3_destroy() {
 // CPP:   int32_t v1 = 1;
 // CPP:   void* v2 = gv3;
 // CPP:   mtrt::constant_destroy(v2, v1);
@@ -116,14 +111,12 @@ func.func @zero_d_alloc() -> memref<f32> {
 }
 
 // CPP-LABEL: mtrt::RankedMemRef<0> zero_d_alloc() {
-// CPP-NEXT:   int32_t v1 = 0;
-// CPP-NEXT:   int32_t v2 = 16;
-// CPP-NEXT:   int64_t v3 = 1;
-// CPP-NEXT:   int32_t v4 = 4;
-// CPP-NEXT:   int64_t v5 = v4 * v3;
-// CPP-NEXT:   void* v6 = mtrt::host_aligned_alloc(v5, v2);
-// CPP-NEXT:   mtrt::RankedMemRef<0> v7 = mtrt::make_memref_descriptor<0>(v6, v6, v1);
-// CPP-NEXT:   return v7;
+// CPP:   void* [[ptr:.+]] = nullptr;
+// CPP:   void** [[ptrAddr:.+]] = &[[ptr]];
+// CPP:   int32_t [[st:.+]] = mtrt::host_aligned_alloc({{.*}}, {{.*}}, [[ptrAddr]]);
+// CPP:   mtrt::abort_on_error([[st]]);
+// CPP:   mtrt::RankedMemRef<0> [[desc:.+]] = mtrt::make_memref_descriptor<0>({{.*}}, {{.*}}, {{.*}});
+// CPP:   return [[desc]];
 
 // -----
 
@@ -209,15 +202,17 @@ func.func @alloc_of_index() -> memref<42xindex> {
 
 
 // CPP-LABEL: mtrt::RankedMemRef<1> alloc_of_index()
-// CPP-DAG: int32_t [[v1:.+]] = 0;
-// CPP-DAG: int32_t [[v2:.+]] = 16;
-// CPP-DAG: int64_t [[v3:.+]] = 42;
-// CPP-DAG: int64_t [[v4:.+]] = 1;
-// CPP-DAG: int32_t [[v5:.+]] = 8;
-// CPP-DAG: int64_t [[v6:.+]] = [[v5]] * [[v3]];
-// CPP-DAG: void* [[v7:.+]] = mtrt::host_aligned_alloc([[v6]], [[v2]]);
-// CPP-DAG: mtrt::RankedMemRef<1> [[v8:.+]] = mtrt::make_memref_descriptor<1>([[v7]], [[v7]], [[v1]], [[v3]], [[v4]]);
-// CPP-DAG: return [[v8]];
+// CPP-DAG: int32_t [[align:.+]] = 16;
+// CPP-DAG: int64_t [[nElems:.+]] = 42;
+// CPP-DAG: int64_t [[stride:.+]] = 1;
+// CPP-DAG: int32_t [[elemSize:.+]] = 8;
+// CPP-DAG: int64_t [[nBytes:.+]] = [[elemSize]] * [[nElems]];
+// CPP-DAG: void* [[ptr:.+]] = nullptr;
+// CPP-DAG: void** [[ptrAddr:.+]] = &[[ptr]];
+// CPP-DAG: int32_t [[st:.+]] = mtrt::host_aligned_alloc([[nBytes]], [[align]], [[ptrAddr]]);
+// CPP-DAG: mtrt::abort_on_error([[st]]);
+// CPP-DAG: mtrt::RankedMemRef<1> [[desc:.+]] = mtrt::make_memref_descriptor<1>({{.*}}, {{.*}}, 0, [[nElems]], [[stride]]);
+// CPP-DAG: return [[desc]];
 
 // -----
 
@@ -259,3 +254,39 @@ func.func @get_scalar_global() -> memref<f32> {
 // CPP:   int32_t [[v0:.+]] = 0;
 // CPP:   mtrt::RankedMemRef<0> [[v1:.+]] = mtrt::make_memref_descriptor<0>(scalar_global, scalar_global, [[v0]]);
 // CPP:   return [[v1]];
+
+// -----
+
+// Test dynamic memref.alloc lowering.
+
+func.func @dynamic_alloc(%size0: index, %size1: index) -> memref<?x?xf32> {
+  %0 = memref.alloc(%size0, %size1) : memref<?x?xf32>
+  return %0 : memref<?x?xf32>
+}
+
+// CPP-LABEL: mtrt::RankedMemRef<2> dynamic_alloc(size_t v1, size_t v2) {
+// CPP-DAG: int32_t [[align:.+]] = 16;
+// CPP-DAG: int32_t [[elemSize:.+]] = 4;
+// CPP-DAG: int64_t [[stride1:.+]] = 1;
+// CPP: int64_t [[numElems:.+]] = v2 * v1;
+// CPP: int64_t [[nBytes:.+]] = [[elemSize]] * [[numElems]];
+// CPP: void* [[ptr:.+]] = nullptr;
+// CPP: void** [[ptrAddr:.+]] = &[[ptr]];
+// CPP: int32_t [[st:.+]] = mtrt::host_aligned_alloc([[nBytes]], [[align]], [[ptrAddr]]);
+// CPP: mtrt::abort_on_error([[st]]);
+// CPP: mtrt::RankedMemRef<2> [[desc:.+]] = mtrt::make_memref_descriptor<2>({{.*}}, {{.*}}, 0, v1, v2, v2, [[stride1]]);
+// CPP: return [[desc]];
+
+// -----
+
+// Test memref.dim lowering with dynamic dimensions.
+
+func.func @memref_dim(%arg0: memref<?x?xf32>, %idx: index) -> index {
+  %0 = memref.dim %arg0, %idx : memref<?x?xf32>
+  return %0 : index
+}
+
+// CPP-LABEL: size_t memref_dim(mtrt::RankedMemRef<2> v1, size_t v2) {
+// CPP-NEXT:   int64_t [[dim:.+]] = mtrt::memref_descriptor_get_dim_size(v1, v2);
+// CPP-NEXT:   size_t [[result:.+]] = (size_t) [[dim]];
+// CPP-NEXT:   return [[result]];

@@ -20,20 +20,19 @@
 ///
 /// Declarations for the compiler extension mechanism. An extension is best
 /// thought of as an "options extension". It should contains some data fields
-/// which are filled out by an OptionsContext associated with a particular
-/// extesible compilation task (e.g. 'StableHloToExecutableOptions'). The option
-/// data fields are filled out when the OptionsContext parses the command
-/// arguments. Besides the data fields, an extension provides hooks that
-/// populate the PasManager at specific points (e.g. pre|post-clustering,
-/// pre-post-bufferization, etc).
+/// which are filled out by an OptionsContext associated with a pipeline. The
+/// option data fields are filled out when the pipeline options parses the
+/// command arguments. Besides the data fields, an extension provides hooks that
+/// populate the PassManager at specific points (e.g. pre|post-clustering,
+/// pre|post-bufferization, etc).
 ///
 //===----------------------------------------------------------------------===//
 #ifndef MLIR_TENSORRT_COMPILER_EXTENSION
 #define MLIR_TENSORRT_COMPILER_EXTENSION
 
-#include "mlir-tensorrt-common/Support/Status.h"
-#include "mlir-tensorrt/Compiler/OptionsProviders.h"
+#include "mlir-tensorrt-common/Support/Options.h"
 #include "mlir/IR/BuiltinOps.h"
+#include "mlir/Pass/PassManager.h"
 #include "llvm/Support/Mutex.h"
 
 namespace mtrt::compiler {
@@ -41,86 +40,64 @@ namespace mtrt::compiler {
 enum class Phase;
 
 ///===---------------------------------------------------------------------===//
-// Task Extension
+// ExtensionBase
 //===----------------------------------------------------------------------===//
 
 /// Base class for all Compiler extensions.
-class TaskExtensionBase {
+class ExtensionBase {
 public:
-  /// Construct a new task extension instance.
+  /// Construct a new extension instance.
   ///
-  /// - taskName: The name of the compilation task this extension is
-  ///   attached to.
   /// - extensionName: The unique name of this extension type.
-  /// - ctx: The options context used by the task; extensions read their options
-  ///   from this context.
-  TaskExtensionBase(llvm::StringRef taskName, llvm::StringRef extensionName,
-                    CompilationTaskOptionsBase &ctx)
-      : taskName(taskName), extensionName(extensionName), ctx(ctx) {}
+  /// - ctx: The options context used by the pipeline; extensions read their
+  ///   options from this context.
+  ExtensionBase(llvm::StringRef extensionName, mlir::CLOptionScope &ctx)
+      : extensionName(extensionName), ctx(ctx) {}
 
   /// Virtual destructor to allow proper cleanup via base pointer.
-  virtual ~TaskExtensionBase();
-
-  /// Hook invoked when the options have been parsed/finalized. Extensions can
-  /// use this to perform changes to internal data based on the final options.
-  virtual void onOptionsParsed() {}
+  virtual ~ExtensionBase();
 
   virtual void populatePasses(mlir::OpPassManager &pm, Phase phase) const = 0;
 
-  /// Hook invoked immediately prior to running the MLIR compilation pipeline.
-  /// The hook is given the module to be compiled.
-  /// This should only be used to emit diagnostics and potentially abort
-  /// compilation if for some reason the extension believes compilation of the
-  /// module is not possible. Modifications to the module itself should be done
-  /// through passes.
-  virtual mlir::LogicalResult onBeforePipelineRun(mlir::ModuleOp module) const {
-    return mlir::success();
-  }
-
   /// Convenience alias to declare scalar options within extensions.
   template <typename T, typename... Mods>
-  using Option = mlir::detail::PassOptions::Option<T, Mods...>;
+  using Option = mlir::CLOptionScope::Option<T, Mods...>;
   /// Convenience alias to declare list options within extensions.
   template <typename T, typename... Mods>
-  using ListOption = mlir::detail::PassOptions::ListOption<T, Mods...>;
+  using ListOption = mlir::CLOptionScope::ListOption<T, Mods...>;
 
 protected:
-  /// Name of the compilation task this extension is associated with.
-  llvm::StringRef taskName;
   /// Unique name of the extension type.
   llvm::StringRef extensionName;
-  /// Reference to the options context driving this compilation task.
-  CompilationTaskOptionsBase &ctx;
+  /// Reference to the options context driving the compilation pipeline.
+  mlir::CLOptionScope &ctx;
 };
 
-template <typename ExtensionType, typename TaskType>
-class Extension : public TaskExtensionBase {
+template <typename ExtensionType, typename BaseOptionsType>
+class Extension : public ExtensionBase {
 public:
-  Extension(CompilationTaskOptionsBase &options)
-      : TaskExtensionBase(TaskType::getName(), ExtensionType::getName(),
-                          options) {}
+  Extension(mlir::CLOptionScope &options)
+      : ExtensionBase(ExtensionType::getName(), options) {}
 
-  using OptionsType = typename TaskType::OptionsType;
-
-  const OptionsType &getOptions() const {
-    return static_cast<const OptionsType &>(this->ctx);
+  const BaseOptionsType &getOptions() const {
+    return static_cast<const BaseOptionsType &>(this->ctx);
   }
 };
 
 /// An ExtensionList contains a set of extension constructor functions and a set
 /// of constructed extension instances. This object is constructed from an
 /// ExtensionRegistry and populated with constructors for all extensions
-/// registered against a particular task. The extensions are lazily constructed
+/// registered with the global registry. The extensions are lazily constructed
 /// using "loadExtensions".
 class ExtensionList {
 public:
   /// Type of a factory function that constructs an extension given a task
   /// options context.
-  using ConstructorFunc = std::function<std::unique_ptr<TaskExtensionBase>(
-      CompilationTaskOptionsBase &)>;
+  using ConstructorFunc =
+      std::function<std::unique_ptr<ExtensionBase>(mlir::CLOptionScope &)>;
   /// Mapping from extension name to constructed extension instance.
   using CompilerExtensionModules =
-      llvm::StringMap<std::unique_ptr<TaskExtensionBase>>;
+      llvm::StringMap<std::unique_ptr<ExtensionBase>>;
   /// Mapping from extension name to its constructor function.
   using ExtensionBuilders = llvm::StringMap<ConstructorFunc>;
 
@@ -137,7 +114,7 @@ public:
   }
 
   /// Load all extensions that are not already loaded.
-  void loadExtensions(CompilationTaskOptionsBase &task);
+  void loadExtensions(mlir::CLOptionScope &task);
 
 private:
   /// Storage for constructed extension instances.
@@ -146,48 +123,45 @@ private:
   ExtensionBuilders builders;
 };
 
-/// An ExtensionConstructorRegistry is a mapping from CompilationTask kind to
-/// constructor functions for each known TaskExtension associated with that
-/// CompilationTask kind.
+/// An ExtensionConstructorRegistry maps extension names to constructor
+/// functions for each known TaskExtension.
 class ExtensionConstructorRegistry {
 public:
   using ConstructorFunc = ExtensionList::ConstructorFunc;
 
-  /// Register a constructor for an extension identified by task and extension
-  /// names.
-  void addExtension(llvm::StringRef taskName, llvm::StringRef extensionName,
-                    ConstructorFunc constructor);
+  /// Register a constructor for an extension identified by extension name.
+  void addExtension(llvm::StringRef extensionName, ConstructorFunc constructor);
 
-  /// Retrieve the registry of extensions that apply to the given task name.
-  ExtensionList getExtensionsForTask(llvm::StringRef taskName) const;
+  /// Retrieve the registry of all registered extensions.
+  ExtensionList getAllExtensions() const;
 
 private:
-  /// Mapping: task name -> (extension name -> constructor function)
-  llvm::StringMap<ExtensionList::ExtensionBuilders> constructors;
+  /// Mapping: extension name -> constructor function.
+  ExtensionList::ExtensionBuilders constructors;
 
   /// Mutex to protect the registry from concurrent access.
   mutable llvm::sys::Mutex registryMutex;
 };
 
-/// Register an extension constructor for a given task and extension name with
-/// the global Extension registry.
-void registerExtension(llvm::StringRef taskName, llvm::StringRef extensionName,
+/// Register an extension constructor for an extension name with the global
+/// Extension registry.
+void registerExtension(llvm::StringRef extensionName,
                        ExtensionList::ConstructorFunc constructor);
 
-/// Register an extension type for a specific task type using their static
-/// names with the global Extension registry.
-template <typename TaskType, typename ExtensionType>
+/// Register an extension type using its static name with the global Extension
+/// registry.
+template <typename ExtensionType>
 void registerExtension() {
-  registerExtension(TaskType::getName(), ExtensionType::getName(),
-                    [](CompilationTaskOptionsBase &ctx)
-                        -> std::unique_ptr<TaskExtensionBase> {
-                      return std::make_unique<ExtensionType>(ctx);
-                    });
+  registerExtension(
+      ExtensionType::getName(),
+      [](mlir::CLOptionScope &ctx) -> std::unique_ptr<ExtensionBase> {
+        return std::make_unique<ExtensionType>(ctx);
+      });
 }
 
-/// Return a new registry of constructors for all extensions associated with the
-/// given task name in the global Extension registry.
-ExtensionList getExtensionsForTask(llvm::StringRef taskName);
+/// Return a new registry of constructors for all registered extensions in the
+/// global Extension registry.
+ExtensionList getAllExtensions();
 
 } // namespace mtrt::compiler
 

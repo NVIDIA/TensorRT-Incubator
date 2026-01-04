@@ -22,6 +22,8 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt/Conversion/CUDAToLLVM/CUDAToLLVM.h"
+#include "mlir-executor/Executor/IR/Executor.h"
+#include "mlir-executor/Support/ArtifactManager.h"
 #include "mlir-tensorrt/Conversion/LLVMCommon/LLVMCommon.h"
 #include "mlir-tensorrt/Conversion/Passes.h"
 #include "mlir-tensorrt/Conversion/PlanToLLVM/PlanToLLVM.h"
@@ -34,6 +36,9 @@
 #include "mlir/Dialect/LLVMIR/FunctionCallUtils.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/LLVMIR/LLVMTypes.h"
+#include "mlir/IR/AsmState.h"
+#include "mlir/IR/BuiltinAttributes.h"
+#include "mlir/IR/DialectResourceBlobManager.h"
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Support/FileUtilities.h"
@@ -42,6 +47,7 @@
 #include "llvm/ADT/SmallString.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/FormatVariadic.h"
+#include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/ToolOutputFile.h"
 
@@ -572,8 +578,7 @@ static LogicalResult convertCudaGetFunction(
 /// name strings to the addresses of the module data.
 static LogicalResult lowerCuModuleOps(RewriterBase &rewriter, ModuleOp module,
                                       SymbolTable &symbolTable,
-                                      SymbolUserMap &userMap,
-                                      StringRef artifactsDir) {
+                                      SymbolUserMap &userMap) {
   MLIRContext *ctx = rewriter.getContext();
   Type llvmPtrType = LLVM::LLVMPointerType::get(ctx);
   CUDAExternalCallBuilders cudaFuncs{ctx};
@@ -588,29 +593,31 @@ static LogicalResult lowerCuModuleOps(RewriterBase &rewriter, ModuleOp module,
                          /*constant=*/false, llvmPtrType,
                          LLVM::Linkage::Internal, Attribute{}, &symbolTable);
 
-    // Construct the PTX data global.
     LLVM::GlobalOp ptxGlobal{};
-    if (artifactsDir.empty()) {
-      ptxGlobal = lookupOrInsertGlobal(
-          rewriter, loc, (compiledModuleOp.getName() + "_ptx").str(),
-          /*constant=*/true,
-          /*type=*/
-          LLVM::LLVMArrayType::get(
-              rewriter.getI8Type(),
-              compiledModuleOp.getValue().getNumElements()),
-          LLVM::Linkage::Internal, compiledModuleOp.getValueAttr(),
-          &symbolTable);
-    } else {
-      if (!llvm::sys::fs::is_directory(artifactsDir))
-        return module.emitError() << "artifacts-directory does not exist";
 
-      FailureOr<std::unique_ptr<llvm::ToolOutputFile>> outputFile =
-          serializeElementsAttrToFile(
-              loc, compiledModuleOp.getValueAttr(), artifactsDir,
-              (compiledModuleOp.getName() + ".ptx").str());
-      if (failed(outputFile))
+    std::string relPath = mtrt::compiler::createCanonicalArtifactRelativePath(
+        compiledModuleOp, mtrt::compiler::ArtifactKind::PTXModule);
+
+    if (compiledModuleOp.hasFileReference()) {
+
+      FailureOr<ElementsAttr> resourceAttr =
+          mtrt::compiler::createElementsAttrFromFile(
+              loc, (compiledModuleOp.getName() + "_data").str(),
+              compiledModuleOp.getFilePath());
+      if (failed(resourceAttr))
         return failure();
-      (*outputFile)->keep();
+
+      rewriter.setInsertionPointAfter(compiledModuleOp);
+      rewriter.create<mlir::executor::FileArtifactOp>(loc, relPath,
+                                                      *resourceAttr);
+
+    } else if (auto ptxData = dyn_cast_or_null<ElementsAttr>(
+                   compiledModuleOp.getValueAttr())) {
+      rewriter.setInsertionPointAfter(compiledModuleOp);
+      rewriter.create<mlir::executor::FileArtifactOp>(loc, relPath, ptxData);
+    } else {
+      return compiledModuleOp.emitOpError()
+             << "cuda.compiled_module must specify either 'value' or 'file'";
     }
 
     // Insert initialization for the cumodule/cufunc into  the constructor
@@ -630,12 +637,11 @@ static LogicalResult lowerCuModuleOps(RewriterBase &rewriter, ModuleOp module,
                            .create(loc, rewriter, {ptxStr, ptxSize})
                            .getResult();
           } else {
-            std::string filename = (compiledModuleOp.getName() + ".ptx").str();
             Value nameStr = insertLLVMStringLiteral(
-                rewriter, loc, filename,
+                rewriter, loc, relPath,
                 (compiledModuleOp.getName() + "_filename").str());
             Value nameSize = rewriter.create<LLVM::ConstantOp>(
-                loc, rewriter.getI64IntegerAttr(filename.size()));
+                loc, rewriter.getI64IntegerAttr(relPath.size()));
             cuModule = cudaFuncs.cuModuleLoadFromPtxFileBuilder
                            .create(loc, rewriter, {nameStr, nameSize})
                            .getResult();
@@ -791,18 +797,16 @@ void mlir::populateCUDAToLLVMConversionPatterns(
   // clang-format on
 }
 
-LogicalResult mlir::lowerCUDAGlobalsToLLVM(IRRewriter &rewriter,
-                                           ModuleOp rootOp,
-                                           SymbolTableCollection &symbolTables,
-                                           StringRef artifactsDir) {
+LogicalResult
+mlir::lowerCUDAGlobalsToLLVM(IRRewriter &rewriter, ModuleOp rootOp,
+                             SymbolTableCollection &symbolTables) {
   SymbolUserMap userMap(symbolTables, rootOp);
   SymbolTable &symbolTable = symbolTables.getSymbolTable(rootOp);
 
   // Remove `cuda.compiled_module` operations, and create a lookup table
   // (param: map) from module name strings to the addresses of the module
   // data.
-  if (failed(lowerCuModuleOps(rewriter, rootOp, symbolTable, userMap,
-                              artifactsDir)))
+  if (failed(lowerCuModuleOps(rewriter, rootOp, symbolTable, userMap)))
     return emitError(rootOp.getLoc())
            << "failed to lower 'cuda.compiled_module' ops";
 
@@ -820,8 +824,7 @@ public:
     ModuleOp rootOp = getOperation();
     IRRewriter rewriter(IRRewriter::atBlockEnd(rootOp.getBody()));
     SymbolTableCollection symbolTables;
-    if (failed(lowerCUDAGlobalsToLLVM(rewriter, rootOp, symbolTables,
-                                      artifactsDirectory)))
+    if (failed(lowerCUDAGlobalsToLLVM(rewriter, rootOp, symbolTables)))
       return signalPassFailure();
 
     // Convert all cuda ops in the program to llvm.call ops to the

@@ -23,6 +23,7 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
 #include "mlir-executor/Executor/Transforms/Passes.h"
+#include "mlir-tensorrt-common/Support/Options.h"
 #include "mlir-tensorrt/Conversion/Passes.h"
 #include "mlir-tensorrt/Transforms/Passes.h"
 #include "mlir/Conversion/BufferizationToMemRef/BufferizationToMemRef.h"
@@ -37,28 +38,41 @@
 using namespace mlir;
 using namespace mlir::plan;
 
+llvm::cl::OptionCategory plan::PlanClusteringOptions::category = {
+    "MLIR-TensorRT Clustering Options", ""};
+
 void plan::buildPlanSegmentationPipeline(
-    OpPassManager &pm, const plan::ClusteringPassOptions &opts,
-    int abiVersion) {
-  pm.addNestedPass<func::FuncOp>(
-      plan::createMaterializeShapeCalculationsPass({opts.inputKind}));
-  pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
-  pm.addPass(plan::createPlanRefineTypesPass({opts.inputKind}));
+    OpPassManager &pm, int abiVersion, plan::InputKind inputKind,
+    bool entrypointUsesAllocCConv, llvm::StringRef entrypoint,
+    const plan::PlanClusteringOptions &opts) {
+
+  {
+    auto &funcPM = pm.nest<func::FuncOp>();
+    funcPM.addPass(plan::createMaterializeShapeCalculationsPass({inputKind}));
+    funcPM.addPass(createCanonicalizerPass());
+  }
+  pm.addPass(plan::createPlanRefineTypesPass({inputKind}));
   pm.addPass(createCanonicalizerPass());
-  if (!opts.disableCreateShapeFuncPass)
+  if (!opts.disableShapeFuncCreation)
     pm.addPass(
         createPlanCreateShapeFuncsPass(plan::PlanCreateShapeFuncsPassOptions{
-            /*forceUndefOutputArgs=*/opts.forceEntrypointsReturnAllocs,
+            /*forceUndefOutputArgs=*/entrypointUsesAllocCConv,
             /*abiVersion=*/abiVersion,
         }));
   pm.addNestedPass<func::FuncOp>(
       plan::createPlanPopulateFunctionBoundsAttributesPass());
-  pm.addPass(plan::createClusteringPass(opts));
+
+  plan::ClusteringPassOptions clusteringOpts{};
+  clusteringOpts.inputKind = inputKind;
+  clusteringOpts.entrypoint = entrypoint;
+  pm.addPass(plan::createClusteringPass(clusteringOpts));
+
   plan::CreateClosedRegionsPassOptions closedRegionOptions{};
-  closedRegionOptions.disableDestinationStyleCallingConvention =
-      opts.forceEntrypointsReturnAllocs;
-  closedRegionOptions.inputKind = opts.inputKind;
+  closedRegionOptions.preferAllocCallingConvention =
+      opts.preferAllocCallingConvention;
+  closedRegionOptions.inputKind = inputKind;
   pm.addPass(plan::createCreateClosedRegionsPass(closedRegionOptions));
+
   pm.addPass(plan::createOutlineClustersPass());
   pm.addPass(mtrt::createFuncExtDuplicateFunctionEliminationPass());
   pm.addPass(plan::createEliminateShapeOpsPass());
@@ -208,10 +222,10 @@ void plan::registerPlanDialectPipelines() {
       "plan-segmentation-pipeline",
       "apply the Plan Dialect segmentation pipeline",
       [](OpPassManager &pm, const ClusteringPipelineCliOpts &opts) {
-        ClusteringPassOptions clusterOpts{};
-        clusterOpts.entrypoint = opts.entrypoint;
-        clusterOpts.disableCreateShapeFuncPass =
-            opts.forceEntrypointsReturnAllocs;
-        buildPlanSegmentationPipeline(pm, clusterOpts, 1);
+        LocalScopedOptionsGroup<plan::PlanClusteringOptions> clusteringOpts;
+        buildPlanSegmentationPipeline(pm, /*abiVersion=*/1,
+                                      InputKind::Stablehlo,
+                                      opts.forceEntrypointsReturnAllocs,
+                                      opts.entrypoint, clusteringOpts.get());
       });
 }

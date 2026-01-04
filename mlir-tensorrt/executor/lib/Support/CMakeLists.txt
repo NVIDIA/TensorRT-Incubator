@@ -16,3 +16,14 @@ add_mlir_executor_library(MLIRTensorRTSupportStridedCopy
   MLIRExecutorIncludes
   MLIRTensorRTSupportStatus
 )
+
+add_mlir_executor_library(MLIRTensorRTSupportArtifactManager
+  PARTIAL_SOURCES_INTENDED
+  ArtifactManager.cpp
+
+  LINK_LIBS PUBLIC
+    MLIRExecutorSerializationUtils
+
+  MLIR_LIBS PUBLIC
+    MLIRIR
+  )

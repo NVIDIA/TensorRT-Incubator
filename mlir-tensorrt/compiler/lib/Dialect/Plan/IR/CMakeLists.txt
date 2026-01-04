@@ -9,7 +9,6 @@ add_mlir_tensorrt_dialect_library(MLIRTensorRTPlanDialect
   MLIRTensorRTPlanDialectEnumsIncGen
   MLIRTensorRTPlanDialectAttributesIncGen
   MLIRTensorRTPlanDialectAttrInterfacesIncGen
-
   LINK_LIBS PUBLIC
     MLIRExecutorGenericClustering
     MLIRTensorRTCommonBoundsAttrInterface

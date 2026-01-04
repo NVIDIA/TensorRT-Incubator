@@ -32,7 +32,7 @@ class OpPassManager;
 
 namespace mtrt::compiler {
 void applyEmitCLoweringPipeline(mlir::OpPassManager &pm,
-                                llvm::StringRef artifactsDirectory);
+                                bool wrapModuleInEmitCClass);
 } // namespace mtrt::compiler
 
 #endif // MLIR_TENSORRT_CONVERSION_HOSTTOEMITC_HOSTTOEMITC

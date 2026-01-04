@@ -4,7 +4,7 @@ mtrt_add_capi_library(MLIRTensorRTCAPICompiler
   Compiler.cpp
 
   LINK_LIBS PUBLIC
-    MLIRTensorRTCompilerStableHloToExecutable
+    MLIRTensorRTCompilerClient
     MLIRTensorRTCAPISupportStatus
     MLIRTensorRTCAPICommon
   MLIR_LIBS PUBLIC

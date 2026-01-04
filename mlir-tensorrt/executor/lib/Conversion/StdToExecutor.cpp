@@ -115,15 +115,17 @@ struct ConvertUnaryCastToExecute
   }
 };
 
-/// Convert `arith.index_cast` by forwarding the operand.
+/// Convert `arith.index_cast|arith.index_castui` by forwarding the operand
+/// or the truncated/extended operand.
+template <typename IndexCastOpTy>
 struct ConvertArithIndexCastOp
-    : public ConvertOpToExecutorPattern<arith::IndexCastOp> {
-  using ConvertOpToExecutorPattern::ConvertOpToExecutorPattern;
+    : public ConvertOpToExecutorPattern<IndexCastOpTy> {
+  using ConvertOpToExecutorPattern<IndexCastOpTy>::ConvertOpToExecutorPattern;
+  using OpAdaptor =
+      typename ConvertOpToExecutorPattern<IndexCastOpTy>::OpAdaptor;
   LogicalResult
-  matchAndRewrite(arith::IndexCastOp op, OpAdaptor adaptor,
+  matchAndRewrite(IndexCastOpTy op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
-    // Currently we only need to convert this for equal bit types. It can be
-    // expanded upon further use cases.
     Type resultType = op.getResult().getType();
     Type targetElementType = this->typeConverter->convertType(resultType);
     Type sourceElementType = adaptor.getIn().getType();
@@ -138,12 +140,53 @@ struct ConvertArithIndexCastOp
       return success();
     }
     if (targetBits > sourceBits) {
-      rewriter.replaceOpWithNewOp<executor::SIExtOp>(op, targetElementType,
-                                                     adaptor.getIn());
+      if constexpr (std::is_same_v<IndexCastOpTy, arith::IndexCastOp>) {
+        rewriter.replaceOpWithNewOp<executor::SIExtOp>(op, targetElementType,
+                                                       adaptor.getIn());
+      } else {
+        rewriter.replaceOpWithNewOp<executor::ZExtOp>(op, targetElementType,
+                                                      adaptor.getIn());
+      }
       return success();
     }
     rewriter.replaceOpWithNewOp<executor::TruncOp>(op, targetElementType,
                                                    adaptor.getIn());
+    return success();
+  }
+};
+
+/// Convert `math.ctpop` to `executor.ctpop`. For types that are not exactly
+/// i32 or i64, we zero-extend to the smallest supported type (i32 or i64),
+/// perform ctpop, then truncate back.
+struct ConvertMathCtPop : public ConvertOpToExecutorPattern<math::CtPopOp> {
+  using ConvertOpToExecutorPattern::ConvertOpToExecutorPattern;
+  LogicalResult
+  matchAndRewrite(math::CtPopOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    Type inputType = adaptor.getOperand().getType();
+    unsigned bitWidth = inputType.getIntOrFloatBitWidth();
+    Location loc = op.getLoc();
+
+    // Fail for types larger than i64.
+    if (bitWidth > 64)
+      return rewriter.notifyMatchFailure(
+          op, "executor.ctpop does not support types larger than i64");
+
+    // executor.ctpop only supports i32 and i64.
+    if (bitWidth == 32 || bitWidth == 64) {
+      rewriter.replaceOpWithNewOp<executor::CtPopOp>(op, inputType,
+                                                     adaptor.getOperand());
+      return success();
+    }
+
+    // For other types, zero-extend to i32 or i64, perform ctpop, then truncate.
+    Type targetType =
+        bitWidth <= 32 ? rewriter.getI32Type() : rewriter.getI64Type();
+    Value extended = rewriter.create<executor::ZExtOp>(loc, targetType,
+                                                       adaptor.getOperand());
+    Value popcount =
+        rewriter.create<executor::CtPopOp>(loc, targetType, extended);
+    rewriter.replaceOpWithNewOp<executor::TruncOp>(op, inputType, popcount);
     return success();
   }
 };
@@ -450,8 +493,9 @@ void executor::populateArithToExecutorPatterns(
            ConvertUnaryCastToExecute<arith::BitcastOp, executor::BitcastOp>,
            ConvertUnaryCastToExecute<arith::SIToFPOp, executor::SIToFPOp>,
            ConvertUnaryCastToExecute<arith::FPToSIOp, executor::FPToSIOp>,
-           ConvertArithIndexCastOp, ConvertArithSelect, ConvertCmpI,
-           ConvertCmpF>(typeConverter, patterns.getContext());
+           ConvertArithIndexCastOp<arith::IndexCastOp>,
+           ConvertArithIndexCastOp<arith::IndexCastUIOp>, ConvertArithSelect,
+           ConvertCmpI, ConvertCmpF>(typeConverter, patterns.getContext());
 }
 
 namespace {
@@ -514,7 +558,11 @@ public:
       executor::populateArithToExecutorPatterns(patterns, typeConverter);
       executor::populateControlFlowToExecutorPatterns(patterns, typeConverter);
 
-      // Add the math-to-executor patterns.
+      // Add the math-to-executor patterns (C++ patterns for ops needing
+      // special handling).
+      patterns.add<ConvertMathCtPop>(typeConverter, ctx);
+
+      // Add the math-to-executor patterns (PDLL patterns).
       registerConversionPDLFunctions(patterns);
       populateGeneratedPDLLPatterns(patterns,
                                     PDLConversionConfig(&typeConverter));

@@ -167,7 +167,10 @@ def ExecutorExpandOpsPass : Pass<"executor-expand-ops"> {
     Option<"lowerAlloca", "lower-alloca", "bool", "true",
       "lower 'executor.alloca' into an alloc/dealloc pair within the block scope">,
     Option<"lowerGetOffset", "lower-getoffset", "bool", "true",
-      "lower 'executor.getoffset' into more primitive arithmetic operations">
+      "lower 'executor.getoffset' into more primitive arithmetic operations">,
+    Option<"checkGetOffsetPrecisionLoss", "check-getoffset-precision-loss", "bool", "true",
+      "insert runtime assertions to detect precision loss when getoffset result "
+      "type differs from the DataLayout index type">
   ];
 }
 
@@ -319,6 +322,24 @@ def ExecutorEmulateUnsupportedFloatsPass :
 
   let dependentDialects = [
     "::mlir::executor::ExecutorDialect"
+  ];
+}
+
+//===----------------------------------------------------------------------===//
+// ExecutorSerializeArtifactsPass
+//===----------------------------------------------------------------------===//
+
+def ExecutorSerializeArtifactsPass : ModuleLikePass<"executor-serialize-artifacts"> {
+  let summary = "Serializes artifacts to files";
+  let description = [{
+    This pass serializes artifacts to files.
+  }];
+
+  let options = [
+    Option<"artifactsDirectory", "artifacts-directory", "std::string", "\"\"",
+      "the directory to serialize artifacts to">,
+    Option<"createManifest", "create-manifest", "bool", "true",
+      "create a manifest file for the artifacts">,
   ];
 }
 

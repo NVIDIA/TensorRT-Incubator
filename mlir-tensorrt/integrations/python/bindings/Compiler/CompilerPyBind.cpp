@@ -258,21 +258,19 @@ PYBIND11_MODULE(_api, m) {
         THROW_IF_MTRT_ERROR(s);
         return new PyCompilerClient(client);
       }))
-      .def(
-          "get_compilation_task",
-          [](PyCompilerClient &self, const std::string &mnemonic,
-             const std::vector<std::string> &args) -> PyPassManagerReference * {
-            std::vector<MlirStringRef> refs(args.size());
-            for (unsigned i = 0; i < args.size(); i++)
-              refs[i] = mlirStringRefCreate(args[i].data(), args[i].size());
+      .def("get_pipeline",
+           [](PyCompilerClient &self, const std::vector<std::string> &args)
+               -> PyPassManagerReference * {
+             std::vector<MlirStringRef> refs(args.size());
+             for (unsigned i = 0; i < args.size(); i++)
+               refs[i] = mlirStringRefCreate(args[i].data(), args[i].size());
 
-            MlirPassManager pm{nullptr};
-            MTRT_Status status = mtrtCompilerClientGetCompilationTask(
-                self, mlirStringRefCreate(mnemonic.data(), mnemonic.size()),
-                refs.data(), refs.size(), &pm);
-            THROW_IF_MTRT_ERROR(status);
-            return new PyPassManagerReference(pm);
-          });
+             MlirPassManager pm{nullptr};
+             MTRT_Status status = mtrtCompilerClientGetPipeline(
+                 self, refs.data(), refs.size(), &pm);
+             THROW_IF_MTRT_ERROR(status);
+             return new PyPassManagerReference(pm);
+           });
 
   py::class_<PyPassManagerReference>(m, "PassManagerReference",
                                      py::module_local())

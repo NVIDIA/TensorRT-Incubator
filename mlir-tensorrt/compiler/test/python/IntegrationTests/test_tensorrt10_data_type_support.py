@@ -32,9 +32,12 @@ def test_stablehlo_add(
         for test in tests:
             print(test.name)
             m = ir.Module.parse(test.ir)
-            task = compiler_client.get_compilation_task(
-                "stablehlo-to-executable",
-                ["--tensorrt-builder-opt-level=0", "--tensorrt-strongly-typed=false"],
+            task = compiler_client.get_pipeline(
+                [
+                    "--input=stablehlo",
+                    "--tensorrt-builder-opt-level=0",
+                    "--tensorrt-strongly-typed=false",
+                ],
             )
             task.run(m.operation)
             exe = compiler.translate_mlir_to_executable(m.operation)

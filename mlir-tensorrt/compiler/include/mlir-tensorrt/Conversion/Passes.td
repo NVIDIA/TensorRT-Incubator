@@ -107,11 +107,28 @@ def ConvertHostToEmitCPass : Pass<"convert-host-to-emitc", "::mlir::ModuleOp"> {
     This pass aggregates conversion patterns for EmitC conversions.
   }];
   let dependentDialects = [
-    "::mlir::emitc::EmitCDialect"
+    "::mlir::emitc::EmitCDialect",
+    "::mlir::executor::ExecutorDialect"
   ];
   let options = [
-    Option<"artifactsDirectory", "artifacts-dir", "std::string",
-      "\"\"", "">
+    Option<"emitAggregateInitDestroy", "emit-aggregate-init-destroy", "bool", "true",
+      "Emit aggregate global `<module>_initialize_all` / `<module>_destroy_all` convenience helpers">,
+  ];
+}
+
+
+def WrapModuleInEmitCClassPass : Pass<"wrap-module-in-emitc-class", "::mlir::ModuleOp"> {
+  let summary = "Wrap an EmitC module in a single emitc.class (Program) state object";
+  let description = [{
+    This pass post-processes a module containing EmitC globals and functions by
+    migrating module-scope `emitc.global` into `emitc.field` members of a single
+    `emitc.class`, moving entrypoints into that class as methods, and
+    consolidating initialization/teardown into `initialize()` and `destroy()`.
+
+    It is intended to run after `convert-host-to-emitc`.
+  }];
+  let dependentDialects = [
+    "::mlir::emitc::EmitCDialect"
   ];
 }
 
@@ -179,7 +196,8 @@ def ConvertKernelToCUDAPass : Pass<"convert-kernel-to-cuda", "::mlir::ModuleOp">
   let dependentDialects = [
     "::mlir::cuda::CUDADialect",
     "::mlir::memref::MemRefDialect",
-    "::mlir::arith::ArithDialect"
+    "::mlir::arith::ArithDialect",
+    "::mlir::executor::ExecutorDialect"
   ];
 }
 
@@ -274,10 +292,7 @@ def ConvertTensorRTRuntimeToLLVMPass : Pass<"convert-tensorrt-runtime-to-llvm",
   }];
   let dependentDialects = [
     "::mlir::LLVM::LLVMDialect",
-  ];
-  let options = [
-    Option<"artifactsDirectory", "artifacts-dir", "std::string",
-      "\"\"", "">
+    "::mlir::executor::ExecutorDialect"
   ];
 }
 
@@ -312,10 +327,7 @@ def ConvertCUDAToLLVMPass : Pass<"convert-cuda-to-llvm",
   }];
   let dependentDialects = [
     "::mlir::LLVM::LLVMDialect",
-  ];
-  let options = [
-    Option<"artifactsDirectory", "artifacts-dir", "std::string",
-      "\"\"", "">
+    "::mlir::executor::ExecutorDialect"
   ];
 }
 
@@ -330,7 +342,8 @@ def ConvertHostToLLVMPass : Pass<"convert-host-to-llvm", "::mlir::ModuleOp"> {
     program IR to LLVM in a single pass.
   }];
   let dependentDialects = [
-    "::mlir::LLVM::LLVMDialect"
+    "::mlir::LLVM::LLVMDialect",
+    "::mlir::executor::ExecutorDialect"
   ];
   let options = [
   ];

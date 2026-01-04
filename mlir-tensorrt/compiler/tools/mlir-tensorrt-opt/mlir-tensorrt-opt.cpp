@@ -61,6 +61,7 @@ int main(int argc, char **argv) {
   mlir::DialectRegistry registry;
   mtrt::compiler::registerAllDialects(registry);
   mtrt::compiler::registerAllExtensions(registry);
+  mtrt::compiler::registerAllCompilerTaskExtensions();
   mtrt::compiler::registerAllPasses();
 
   IF_MLIR_TRT_ENABLE_TESTING({ registerTestPasses(); });

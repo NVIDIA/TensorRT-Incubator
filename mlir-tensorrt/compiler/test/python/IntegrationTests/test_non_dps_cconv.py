@@ -131,7 +131,7 @@ def compile_executable(program, debug=False):
             "--entrypoint=main",
             "--force-entrypoints-return-allocs",
         ]
-        task = client.get_compilation_task("stablehlo-to-executable", c_opts)
+        task = client.get_pipeline(c_opts)
         task.run(m.operation)
         exe = compiler.translate_mlir_to_executable(m.operation)
         return exe

@@ -20,9 +20,11 @@ def test_serialize(ASM):
 
         # Use the compiler API to compile to executable.
         client = compiler.CompilerClient(context)
-        task = client.get_compilation_task(
-            "stablehlo-to-executable",
-            ["--tensorrt-builder-opt-level=0", "--tensorrt-strongly-typed=false"],
+        task = client.get_pipeline(
+            [
+                "--tensorrt-builder-opt-level=0",
+                "--tensorrt-strongly-typed=false",
+            ],
         )
         task.run(m.operation)
         exe = compiler.translate_mlir_to_executable(m.operation)

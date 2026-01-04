@@ -34,8 +34,7 @@
 #include "mlir-tensorrt/Backends/Host/Passes.h"
 #include "mlir-tensorrt/Backends/Kernel/Passes.h"
 #include "mlir-tensorrt/Backends/TensorRT/Passes.h"
-#include "mlir-tensorrt/Compiler/StablehloToExecutable/KernelGenExtension.h"
-#include "mlir-tensorrt/Compiler/TensorRTToExecutable/Passes.h"
+#include "mlir-tensorrt/Compiler/Extensions/KernelGenExtension.h"
 #include "mlir-tensorrt/Conversion/Passes.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
 #include "mlir-tensorrt/Features.h"
@@ -48,7 +47,7 @@
 #include "mlir/Transforms/Passes.h"
 
 #ifdef MLIR_TRT_ENABLE_HLO
-#include "mlir-tensorrt/Compiler/StablehloToExecutable/StablehloInputPipeline.h"
+#include "mlir-tensorrt/Compiler/InputPipelines/StablehloInputPipeline.h"
 #include "mlir-tensorrt/Dialect/StablehloExt/Transforms/Passes.h"
 #include "stablehlo/transforms/Passes.h"
 #include "stablehlo/transforms/optimization/Passes.h"
@@ -91,12 +90,11 @@ void mtrt::compiler::registerAllPasses() {
   mtrt::compiler::registerHostBackendPasses();
   mtrt::compiler::registerKernelBackendPasses();
   mtrt::compiler::registerTensorRTBackendPasses();
-  mtrt::compiler::registerTensorRTToExecutablePasses();
   mtrt::registerMLIRTensorRTGenericTransformsPasses();
 
   IF_MLIR_TRT_ENABLE_HLO({
     mtrt::compiler::registerStableHloInputPipelines();
-    mtrt::compiler::registerStablehloToExecutableKernelGenExtensionPipelines();
+    mtrt::compiler::registerKernelGenExtensionPipelines();
     mlir::stablehlo_ext::registerStableHloExtPasses();
     mlir::stablehlo::registerPasses();
     mlir::stablehlo::registerOptimizationPasses();

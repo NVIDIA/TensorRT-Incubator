@@ -992,3 +992,56 @@ func.func @arith_remsi(%arg0: i32, %arg1: i32) -> i32 {
 //  CHECK-SAME: (%[[arg0:.+]]: i32, %[[arg1:.+]]: i32) -> i32 {
 //       CHECK:     %[[v0:.+]] = executor.sremi %[[arg0]], %[[arg1]] : i32
 //       CHECK:     return %[[v0]] : i32
+
+// -----
+
+func.func @test_ctpop_i32(%arg0: i32) -> i32 {
+  %0 = math.ctpop %arg0 : i32
+  return %0 : i32
+}
+
+// CHECK-LABEL: @test_ctpop_i32
+//  CHECK-SAME: (%[[arg0:.+]]: i32) -> i32 {
+//       CHECK:     %[[v0:.+]] = executor.ctpop %[[arg0]] : i32
+//       CHECK:     return %[[v0]] : i32
+
+// -----
+
+func.func @test_ctpop_i64(%arg0: i64) -> i64 {
+  %0 = math.ctpop %arg0 : i64
+  return %0 : i64
+}
+
+// CHECK-LABEL: @test_ctpop_i64
+//  CHECK-SAME: (%[[arg0:.+]]: i64) -> i64 {
+//       CHECK:     %[[v0:.+]] = executor.ctpop %[[arg0]] : i64
+//       CHECK:     return %[[v0]] : i64
+
+// -----
+
+// For types smaller than i32, we zero-extend to i32, perform ctpop, then truncate.
+func.func @test_ctpop_i8(%arg0: i8) -> i8 {
+  %0 = math.ctpop %arg0 : i8
+  return %0 : i8
+}
+
+// CHECK-LABEL: @test_ctpop_i8
+//  CHECK-SAME: (%[[arg0:.+]]: i8) -> i8 {
+//       CHECK:     %[[ext:.+]] = executor.zext %[[arg0]] : i8 to i32
+//       CHECK:     %[[pop:.+]] = executor.ctpop %[[ext]] : i32
+//       CHECK:     %[[trunc:.+]] = executor.trunc %[[pop]] : i32 to i8
+//       CHECK:     return %[[trunc]] : i8
+
+// -----
+
+func.func @test_ctpop_i16(%arg0: i16) -> i16 {
+  %0 = math.ctpop %arg0 : i16
+  return %0 : i16
+}
+
+// CHECK-LABEL: @test_ctpop_i16
+//  CHECK-SAME: (%[[arg0:.+]]: i16) -> i16 {
+//       CHECK:     %[[ext:.+]] = executor.zext %[[arg0]] : i16 to i32
+//       CHECK:     %[[pop:.+]] = executor.ctpop %[[ext]] : i32
+//       CHECK:     %[[trunc:.+]] = executor.trunc %[[pop]] : i32 to i16
+//       CHECK:     return %[[trunc]] : i16

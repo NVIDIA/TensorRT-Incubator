@@ -23,9 +23,10 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
+#include "mlir-tensorrt/Dialect/Plan/IR/PlanInterfaces.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
 #include "mlir/AsmParser/AsmParser.h"
-#include "llvm/Support/FormatVariadic.h"
+#include "mlir/IR/Diagnostics.h"
 
 namespace mlir::plan {
 #define GEN_PASS_DEF_POPULATEDEFAULTBACKENDMETADATAPASS
@@ -41,22 +42,92 @@ class PopulateDefaultBackendMetadataPass
           PopulateDefaultBackendMetadataPass> {
 public:
   using Base::Base;
+
+  plan::MemorySpaceAttr defaultMemorySpace;
+  SmallVector<plan::CompilerBackendAttrInterface> parsedBackends;
+
+  LogicalResult parseBackends(MLIRContext *ctx) {
+    for (const std::string &backend : backends) {
+      Attribute parsed = mlir::parseAttribute(backend, ctx);
+      if (!parsed) {
+        return emitError(UnknownLoc::get(ctx))
+               << "pass " << getArgument() << " failed to parse "
+               << " backend attribute \"" << backend << "\"";
+      }
+      auto backendAttr = dyn_cast<plan::CompilerBackendAttrInterface>(parsed);
+      if (!backendAttr) {
+        return emitError(UnknownLoc::get(ctx))
+               << "pass " << getArgument() << " parsed "
+               << " backend attribute \"" << backend << "\" but it is not a "
+               << "CompilerBackendAttrInterface attribute";
+      }
+      parsedBackends.push_back(backendAttr);
+    }
+    return success();
+  }
+
+  LogicalResult initialize(MLIRContext *ctx) override {
+    if (!backends.empty() && failed(parseBackends(ctx)))
+      return failure();
+
+    if (defaultMemorySpaceString.empty())
+      return success();
+
+    // Try to parse it using the enum shorthand first.
+    if (std::optional<plan::MemorySpace> parsedMemorySpace =
+            plan::symbolizeMemorySpace(defaultMemorySpaceString)) {
+      defaultMemorySpace =
+          plan::MemorySpaceAttr::get(ctx, parsedMemorySpace.value());
+      return success();
+    }
+
+    Attribute parsed = mlir::parseAttribute(defaultMemorySpaceString, ctx);
+    if (!parsed) {
+      return emitError(UnknownLoc::get(ctx))
+             << "pass " << getArgument() << " failed to parse "
+             << " default-memory-space option \"" << defaultMemorySpaceString
+             << "\"";
+    }
+    defaultMemorySpace = dyn_cast<plan::MemorySpaceAttr>(parsed);
+    if (!defaultMemorySpace) {
+      return emitError(UnknownLoc::get(ctx))
+             << "pass " << getArgument()
+             << " parsed default-memory-space option \""
+             << defaultMemorySpaceString
+             << "\" but it is not a plan.memory_space attribute";
+    }
+
+    return success();
+  }
+
   void runOnOperation() override {
     ModuleOp module = getOperation();
     if (module->hasAttr(plan::PlanDialect::kBackendsAttrName))
       return;
 
-    std::string backendsStr =
-        llvm::formatv("[{0}]", llvm::iterator_range(backends));
-
-    Attribute configArrayAttr =
-        mlir::parseAttribute(backendsStr, module->getContext());
-    if (!configArrayAttr || !isa<ArrayAttr>(configArrayAttr)) {
-      emitError(module->getLoc(),
-                "failed to parse config as an array attribute: " + backendsStr);
-      return signalPassFailure();
+    auto existingMemorySpaceConstraint =
+        module->getAttrOfType<plan::MemorySpaceAttr>(
+            plan::PlanDialect::kMemorySpaceConstraintAttrName);
+    if (defaultMemorySpace) {
+      if (existingMemorySpaceConstraint &&
+          existingMemorySpaceConstraint != defaultMemorySpace) {
+        emitRemark(module->getLoc())
+            << "compiler received option default-memory-space=\""
+            << defaultMemorySpaceString
+            << "\", but the module has an existing constraint \""
+            << existingMemorySpaceConstraint << "\" which takes precedence";
+      } else if (!existingMemorySpaceConstraint) {
+        module->setAttr(plan::PlanDialect::kMemorySpaceConstraintAttrName,
+                        defaultMemorySpace);
+      }
     }
-    module->setAttr(plan::PlanDialect::kBackendsAttrName, configArrayAttr);
+
+    if (!parsedBackends.empty()) {
+      module->setAttr(
+          plan::PlanDialect::kBackendsAttrName,
+          ArrayAttr::get(module->getContext(),
+                         llvm::to_vector_of<Attribute>(parsedBackends)));
+    }
   }
 };
 } // namespace

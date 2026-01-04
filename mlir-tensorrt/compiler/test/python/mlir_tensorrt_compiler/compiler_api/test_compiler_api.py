@@ -77,8 +77,7 @@ with Context() as context:
     _GlobalDebug.set_types("translate-to-tensorrt")
 
     def compile(m, options: List[str]):
-        task = client.get_compilation_task(
-            "stablehlo-to-executable",
+        task = client.get_pipeline(
             options,
         )
         task.run(m)

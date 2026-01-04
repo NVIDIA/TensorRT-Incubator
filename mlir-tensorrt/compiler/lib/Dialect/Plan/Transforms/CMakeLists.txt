@@ -33,9 +33,9 @@ add_mlir_tensorrt_library(MLIRTensorRTPlanTransforms
   LINK_LIBS PUBLIC
     MLIRExecutorGenericClustering
     MLIRTensorRTAnalysis
+    MLIRTensorRTCommandLineExtras
     MLIRTensorRTCommonBufferizationScopeInterface
     MLIRTensorRTCUDADialect
-    MLIRTensorRTTensorRTDialect
     MLIRTensorRTDuplicateFunctionElimination
     MLIRTensorRTExecutorDialect
     MLIRTensorRTExecutorTransforms
@@ -46,6 +46,7 @@ add_mlir_tensorrt_library(MLIRTensorRTPlanTransforms
     MLIRTensorRTRegionUtils
     MLIRTensorRTStableHloExtTransforms
     MLIRTensorRTStablehloToTensorRT
+    MLIRTensorRTTensorRTDialect
     MLIRTensorRTTensorRTRuntimeDialect
     StablehloOps
   MLIR_LIBS PUBLIC

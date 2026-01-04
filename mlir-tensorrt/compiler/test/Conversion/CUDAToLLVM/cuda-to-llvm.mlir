@@ -1,10 +1,5 @@
 // RUN: mlir-tensorrt-opt %s -convert-cuda-to-llvm -split-input-file | FileCheck %s
 
-// RUN: rm -rf %t.artifacts
-// RUN: mkdir -p %t.artifacts
-// RUN: mlir-tensorrt-opt -split-input-file -convert-cuda-to-llvm="artifacts-dir=%t.artifacts" %s | FileCheck %s --check-prefix=FILE
-// RUN: test -f %t.artifacts/kernels.ptx
-
 cuda.compiled_module @kernels dense<[0xFF,0x00]> : vector<2xi8>
 
 func.func @test_get_func() -> !cuda.function {
@@ -20,9 +15,9 @@ func.func @test_get_func() -> !cuda.function {
 //   CHECK-DAG:     return %[[v2]] : !cuda.function
 
 // CHECK-LABEL: llvm.func @kernels_init
-//   CHECK-DAG:     %[[v0:.+]] = llvm.mlir.addressof @kernels_ptx : !llvm.ptr
-//   CHECK-DAG:     %[[v1:.+]] = llvm.mlir.constant(2 : i64) : i64
-//   CHECK-DAG:     %[[v2:.+]] = llvm.call @mtrt_cuda_module_load_from_ptx(%[[v0]], %[[v1]])
+//   CHECK-DAG:     %[[v0:.+]] = llvm.mlir.addressof @kernels_filename : !llvm.ptr
+//   CHECK-DAG:     %[[v1:.+]] = llvm.mlir.constant(26 : i64) : i64
+//   CHECK-DAG:     %[[v2:.+]] = llvm.call @mtrt_cuda_module_load_from_ptx_file(%[[v0]], %[[v1]])
 //   CHECK-DAG:     %[[v3:.+]] = llvm.mlir.addressof @kernels_0 : !llvm.ptr
 //       CHECK:     llvm.store %[[v2]], %[[v3]] : !llvm.ptr, !llvm.ptr
 //       CHECK:     llvm.return
@@ -46,13 +41,6 @@ func.func @test_get_func() -> !cuda.function {
 //   CHECK-DAG:     llvm.return
 //       CHECK:   llvm.mlir.global_ctors ctors = [@kernels_0_kernel_init], priorities = [1 : i32]
 
-// FILE-LABEL: @test_get_func
-// FILE-LABEL: llvm.func @kernels_init
-//       FILE:     %[[v0:.+]] = llvm.mlir.addressof @kernels_filename : !llvm.ptr
-//       FILE:     %[[v1:.+]] = llvm.mlir.constant(11 : i64) : i64
-//       FILE:     %[[v2:.+]] = llvm.call @mtrt_cuda_module_load_from_ptx_file(%[[v0]], %[[v1]]) :
-//       FILE:     %[[v3:.+]] = llvm.mlir.addressof @kernels_0 : !llvm.ptr
-//       FILE:     llvm.store %[[v2]], %[[v3]] : !llvm.ptr, !llvm.ptr
 // -----
 
 !memref_4xi80 = memref<4xf32>
@@ -74,8 +62,6 @@ func.func @test_cuda_launch(
       smem(%c0_i32) stream(%stream)    // --> llvm.call @cudaLaunchKernelExC
   return
 }
-
-// FILE-LABEL: @test_cuda_launch
 
 // CHECK-LABEL: func.func @test_cuda_launch
 //  CHECK-SAME: (%[[arg0:.+]]: !cuda.function, %[[arg1:.+]]: !cuda.stream, %[[arg2:.+]]: memref<4xf32>, %[[arg3:.+]]: memref<4xf32>, %[[arg4:.+]]: index, %[[arg5:.+]]: index)

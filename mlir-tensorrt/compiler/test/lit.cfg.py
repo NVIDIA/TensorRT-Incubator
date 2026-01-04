@@ -110,7 +110,12 @@ config.excludes = {
 
 
 # Tweak the PATH to include the tools dir.
-llvm_config.with_environment("PATH", config.mlir_tensorrt_tools_dir, append_path=True)
+tool_dirs = [
+    config.mlir_tensorrt_tools_dir,
+    config.llvm_tools_dir,
+]
+for dirs in tool_dirs:
+    llvm_config.with_environment("PATH", dirs, append_path=True)
 
 if config.enable_asan:
     config.environment["ASAN_OPTIONS"] = "protect_shadow_gap=0,detect_leaks=0"

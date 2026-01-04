@@ -137,6 +137,9 @@ struct DispatchGPUModuleCompilationPass
       registerNVVMDialectTranslation(registry);
       registerGPUDialectTranslation(registry);
     }
+
+    registry.insert<kernel::KernelDialect>();
+
   }
 };
 } // namespace

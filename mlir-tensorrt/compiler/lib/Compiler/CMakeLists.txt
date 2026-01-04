@@ -1,22 +1,69 @@
-add_mlir_tensorrt_library(MLIRTensorRTCompilerClient
-    Client.cpp
-    Extension.cpp
-    OptionsProviders.cpp
-    PARTIAL_SOURCES_INTENDED
+add_subdirectory(InputPipelines)
 
-    LINK_LIBS PUBLIC
-      MLIRTensorRTCompilerIncludes
-      MLIRTensorRTSupportDeviceInfo
-      MLIRTensorRTTargetLua
-    MLIR_LIBS PUBLIC
-      MLIRDebug
-      MLIRIR
-      MLIRPass
-      MLIRTargetCpp
+mtrt_get_project_targets(
+    TensorRTDialect
+    OUT_VAR MTRTD_LIBS
 )
 
-add_subdirectory(StablehloToExecutable)
-add_subdirectory(TensorRTToExecutable)
+add_mlir_tensorrt_library(MLIRTensorRTCompilerClient
+  Client.cpp
+  Extension.cpp
+  Options.cpp
+  Pipeline.cpp
+
+  PARTIAL_SOURCES_INTENDED
+
+  LINK_LIBS PUBLIC
+    ${MTRTD_LIBS}
+    MLIRTensorRTChloToStablehloExt
+    MLIRTensorRTCommonConvertToLoops
+    MLIRTensorRTCompilerIncludes
+    MLIRTensorRTCUDAToExecutor
+    MLIRTensorRTDropNestedModules
+    MLIRTensorRTExecutorTransforms
+    MLIRTensorRTHostBackend
+    MLIRTensorRTHostToEmitC
+    MLIRTensorRTHostToLLVM
+    MLIRTensorRTKernelBackend
+    MLIRTensorRTKernelPipelines
+    MLIRTensorRTKernelToCUDA
+    MLIRTensorRTLinalgElementwiseFusion
+    MLIRTensorRTLinalgSimplifyExtractSlice
+    MLIRTensorRTMemRefCastElimination
+    MLIRTensorRTMemRefToCUDA
+    MLIRTensorRTOutlineTensorROps
+    MLIRTensorRTPlanToExecutor
+    MLIRTensorRTPlanTransforms
+    MLIRTensorRTRegionUtils
+    MLIRTensorRTRuntimeToExecutor
+    MLIRTensorRTSCFDetensorizeLoops
+    MLIRTensorRTStablehloInputPipeline
+    MLIRTensorRTStablehloToArith
+    MLIRTensorRTStablehloToLinalg
+    MLIRTensorRTStablehloToPlan
+    MLIRTensorRTStablehloToSCF
+    MLIRTensorRTTargetLua
+    MLIRTensorRTTargetLua
+    MLIRTensorRTTensorExtPadToInsertSlice
+    MLIRTensorRTTensorRTBackend
+    MLIRTensorRTTensorRTToTensorRTRuntime
+    MLIRTensorRTTransforms
+    MLIRTensorRTTransformsSCFFloatStrengthReduce
+    MLIRTensorRTTransformsUnrollForLoops
+    StablehloLinalgTransforms
+
+  MLIR_LIBS PUBLIC
+    MLIRArithTransforms
+    MLIREmitCTransforms
+    MLIRIR
+    MLIRLLVMIRTransforms
+    MLIRLLVMDialect
+    MLIRMathToEmitC
+    MLIRTargetCpp
+)
+
+
+add_subdirectory(Extensions)
 
 # ------- Tasks go above this point ---------------------
 

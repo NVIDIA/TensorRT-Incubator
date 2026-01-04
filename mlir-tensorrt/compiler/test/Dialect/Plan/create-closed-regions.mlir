@@ -1,6 +1,6 @@
 // RUN: mlir-tensorrt-opt %s -plan-create-closed-regions -split-input-file | FileCheck %s
 // RUN: mlir-tensorrt-opt %s -plan-create-closed-regions=test-pre-walk-order=true -split-input-file | FileCheck %s
-// RUN: mlir-tensorrt-opt %s -plan-create-closed-regions=disable-destination-style-calling-convention=true -split-input-file | FileCheck %s --check-prefix=CHECK-ALLOC
+// RUN: mlir-tensorrt-opt %s -plan-create-closed-regions=prefer-alloc-calling-convention=true -split-input-file | FileCheck %s --check-prefix=CHECK-ALLOC
 
 func.func @test_simple_static(%arg0: tensor<10xf32>, %arg1: tensor<10xf32>) -> tensor<10xf32> {
   %0 = plan.cluster target(#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 1>) -> tensor<10xf32> {

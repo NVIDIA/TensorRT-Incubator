@@ -24,11 +24,12 @@ include "mlir-tensorrt/Dialect/Plan/IR/PlanDialect.td"
 include "mlir-tensorrt/Dialect/Plan/IR/PlanInterfaces.td"
 
 def Plan_KernelBackendAttr : Plan_Attr<"KernelBackend", "kernel_backend",
-        [DeclareAttrInterfaceMethods<CompilerBackendAttrInterface>]> {
+        [DeclareAttrInterfaceMethods<CompilerBackendAttrInterface,
+          ["requiresInputBoundsForDynamicShapes",
+          "requiresOutputBoundsForDynamicShapes"]>]> {
 
   let parameters = (ins "int64_t":$benefit);
   let assemblyFormat = "`<` struct(params) `>`";
 }
 
 #endif // MLIR_TENSORRT_BACKENDS_KERNEL_KERNELBACKEND
-

@@ -23,14 +23,13 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt/Compiler/Client.h"
 #include "mlir-tensorrt/Compiler/InitAllDialects.h"
+#include "mlir-tensorrt/Compiler/Pipeline.h"
 #include "mlir/Debug/Counter.h"
 #include "mlir/IR/AsmState.h"
 #include "mlir/Parser/Parser.h"
 #include "mlir/Support/FileUtilities.h"
-#include "llvm/ADT/StringSwitch.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/Process.h"
@@ -44,7 +43,7 @@ using namespace llvm;
 using namespace mtrt;
 using namespace mtrt::compiler;
 
-static cl::OptionCategory OptCat{"MLIR-TensorRT Options"};
+static cl::OptionCategory OptCat{"mlir-tensorrt-compiler Tool Options"};
 
 static cl::opt<std::string> inputFilename(cl::Positional,
                                           cl::desc("<input MLIR file>"),
@@ -56,24 +55,27 @@ static cl::opt<std::string>
                cl::value_desc("directory"), cl::cat(OptCat),
                cl::sub(cl::SubCommand::getAll()));
 
-static cl::opt<std::string>
-    pipelineOptions("opts",
-                    llvm::cl::desc("options for the compilation pipeline"),
-                    cl::cat(OptCat));
-
-static cl::opt<std::string>
-    inputKind("input", llvm::cl::desc("the kind of input to compile"),
-              cl::cat(OptCat), cl::init("stablehlo"));
-
-static cl::opt<bool> pipelineHelp(
-    "pipeline-help",
-    llvm::cl::desc("print the compilation pipeline options and exit"),
-    cl::cat(OptCat));
-
 static cl::opt<bool>
     outputMLIR("mlir",
                cl::desc("output the MLIR instead of performing translation"),
                cl::cat(OptCat), cl::init(false));
+
+static cl::opt<std::string>
+    printPipeline("print-pass-pipeline",
+                  cl::desc("print the pass pipeline and exit"),
+                  cl::cat(OptCat));
+
+static cl::opt<std::string>
+    dumpDirectory("dump-dir",
+                  cl::desc("equivalent to --mlir-print-ir-after-all "
+                           "--mlir-print-ir-tree-dir=<dir>"),
+                  cl::cat(OptCat), cl::init(""));
+
+static cl::opt<std::string> crashReproducerPath(
+    "crash-repro",
+    cl::desc("equivalent to --mlir-pass-pipeline-crash-reproducer=<file path> "
+             "--mlir-pass-pipeline-local-reproducer -mlir-disable-threading"),
+    cl::cat(OptCat), cl::init(""));
 
 /// Parse the input MLIR file using the provided MLIRContext. The result is
 /// returned in the `module`. Failure to parse results in a fatal error.
@@ -104,36 +106,35 @@ static void parseInputMLIR(llvm::SourceMgr &sourceMgr,
   }
 }
 
-/// Returns true if the output path likely refers to a file or stdout.
-static bool outputIsFile(StringRef path) {
-  return !llvm::sys::fs::is_directory(path) &&
-         (path == "-" || llvm::sys::fs::is_symlink_file(path) ||
-          llvm::sys::fs::is_regular_file(path) ||
-          !llvm::sys::path::extension(path).empty());
-}
-
-static LogicalResult runCompilation(CompilerClient &client, StringRef taskName,
-                                    mlir::ModuleOp module,
-                                    llvm::StringRef pipelineOptions) {
-  llvm::StringRef artifactsDirectoryOverride =
-      !outputIsFile(outputPath) ? llvm::StringRef(outputPath)
-                                : llvm::sys::path::parent_path(outputPath);
+static LogicalResult
+runCompilation(CompilerClient &client, mlir::ModuleOp module,
+               llvm::IntrusiveRefCntPtr<MainOptions> options) {
   std::optional<llvm::StringRef> outputExtensionOverride =
       outputMLIR ? std::optional<llvm::StringRef>(".mlir") : std::nullopt;
 
-  StatusOr<CompilationTaskBase *> task = client.getCompilationTask(
-      taskName, {pipelineOptions}, artifactsDirectoryOverride);
-  if (!task.isOk()) {
-    llvm::errs() << task.getStatus() << "\n";
-    return failure();
+  auto pipeline = std::make_unique<Pipeline>(client.getContext(), options);
+  if (printPipeline.getNumOccurrences() > 0) {
+    llvm::errs() << "Loaded Extensions:\n";
+    for (const auto &extension : pipeline->getOptions().getExtensions()) {
+      llvm::errs() << "  " << extension.getKey() << "\n";
+    }
+
+    llvm::errs() << "Pass Pipeline:\n";
+    // Prefer stable textual pipeline printing over PassManager::dump(), which
+    // is intended for debugging and can change format between MLIR versions.
+    pipeline->getPassManager().printAsTextualPipeline(
+        llvm::errs(),
+        /*pretty=*/printPipeline == "pretty");
+    llvm::errs() << "\n";
+    return success();
   }
 
-  if (failed((*task)->run(module)))
+  if (failed(pipeline->run(module)))
     return failure();
 
   std::string errorMessage;
-  auto output = (*task)->openOutputFile(outputPath, errorMessage,
-                                        outputExtensionOverride);
+  auto output = pipeline->openOutputFile(outputPath, errorMessage,
+                                         outputExtensionOverride);
   if (!output) {
     llvm::errs() << "failed to open output file: " << errorMessage << "\n";
     return failure();
@@ -142,10 +143,85 @@ static LogicalResult runCompilation(CompilerClient &client, StringRef taskName,
   if (outputMLIR) {
     module->print(output->os());
   } else {
-    if (failed((*task)->translateToTargetFormat(module, output->os())))
+    if (failed(pipeline->translateToTargetFormat(module, output->os())))
       return failure();
   }
   output->keep();
+  return success();
+}
+
+/// LLVM declares a large number of global CL options under the "General"
+/// category. This function hides most of them from '--help' output while
+/// keeping MLIR-TensorRT and MLIR core CL options visible.
+static void hideUnrelatedOptions() {
+  auto &top = llvm::cl::SubCommand::getTopLevel();
+  for (auto &I : top.OptionsMap) {
+    if ((I.second->Categories.empty() ||
+         llvm::is_contained(I.second->Categories,
+                            &llvm::cl::getGeneralCategory())) &&
+        I.second->hasArgStr() && !I.second->ArgStr.starts_with("mlir")) {
+      I.second->setHiddenFlag(llvm::cl::ReallyHidden);
+    }
+  }
+}
+
+/// Create the final list of command-line arguments. The LLVM CL infrastructure
+/// does not supporting adding aliases that reference multiple options, so we
+/// need to handle our `-dump-dir` alias option manually by modifying the
+/// argument list before parsing.
+static LogicalResult parseCommandlineArguments(int argc, char **argv) {
+  llvm::SmallVector<const char *, 8> args;
+  llvm::BumpPtrAllocator allocator;
+  llvm::StringSaver saver(allocator);
+  if (argc > 0)
+    args.assign(argv, argv + argc);
+
+  if (!llvm::cl::ParseCommandLineOptions(argc, argv,
+                                         "MLIR-TensorRT Compiler")) {
+    llvm::errs() << "failed to parse command line options";
+    return failure();
+  }
+
+  if (!dumpDirectory.empty()) {
+    // Create the directory. Upstream MLIR has an issue where
+    // `--mlir-print-ir-tree-dir` will create the directory only if the parent
+    // exists.
+    if (std::error_code EC = llvm::sys::fs::create_directories(dumpDirectory)) {
+      llvm::errs() << "failed to create dump directory: " << dumpDirectory
+                   << ": " << EC.message() << "\n";
+      return failure();
+    }
+
+    llvm::StringRef extraArg = saver.save(
+        llvm::formatv("--mlir-print-ir-tree-dir={0}", dumpDirectory).str());
+    args.push_back("--mlir-print-ir-after-all");
+    // All StringSaver::save() returned strings are null-terminated.
+    args.push_back(extraArg.data());
+  }
+
+  if (!crashReproducerPath.empty()) {
+    if (llvm::sys::path::has_parent_path(crashReproducerPath)) {
+      if (std::error_code EC = llvm::sys::fs::create_directories(
+              llvm::sys::path::parent_path(crashReproducerPath))) {
+        llvm::errs() << "failed to create crash-reproducer directory: "
+                     << dumpDirectory << ": " << EC.message() << "\n";
+        return failure();
+      }
+    }
+    SmallVector<std::string> crashReproducerArgs = {
+        "--mlir-pass-pipeline-crash-reproducer=" + crashReproducerPath,
+        "--mlir-pass-pipeline-local-reproducer", "-mlir-disable-threading"};
+    for (const auto &newArgs : crashReproducerArgs)
+      args.push_back(saver.save(newArgs).data());
+  }
+
+  // Re-parse now that the options have been modified.
+  llvm::cl::ResetAllOptionOccurrences();
+  if (!llvm::cl::ParseCommandLineOptions(args.size(), args.data(),
+                                         "MLIR-TensorRT Compiler")) {
+    llvm::errs() << "failed to parse command line options";
+    return failure();
+  }
   return success();
 }
 
@@ -155,23 +231,17 @@ int main(int argc, char **argv) {
   mlir::registerPassManagerCLOptions();
   mlir::registerDefaultTimingManagerCLOptions();
   mlir::tracing::DebugCounter::registerCLOptions();
+  mtrt::compiler::registerAllCompilerTaskExtensions();
+  mlir::tensorrt::registerTensorRTTranslationCLOpts();
 
-  // Build the list of dialects as a header for the --help message.
-  std::string helpHeader =
-      "MLIR-TensorRT Compiler\nAvailable compilation tasks: ";
-  {
-    llvm::raw_string_ostream os(helpHeader);
-    llvm::SmallVector<llvm::StringRef> tasks = {"stablehlo-to-executable",
-                                                "tensorrt-to-executable"};
-    llvm::interleaveComma(tasks, os);
-  }
+  ExtensionList extensions = compiler::getAllExtensions();
+  auto pipelineOptions = llvm::makeIntrusiveRefCnt<MainOptions>(
+      mlir::CLOptionScope::GlobalScope{}, std::move(extensions));
 
-  cl::ParseCommandLineOptions(argc, argv, helpHeader);
+  hideUnrelatedOptions();
 
-  std::string taskName = llvm::StringSwitch<std::string>(inputKind)
-                             .CaseLower("tensorrt", "tensorrt-to-executable")
-                             .CaseLower("stablehlo", "stablehlo-to-executable")
-                             .Default("stablehlo-to-executable");
+  if (failed(parseCommandlineArguments(argc, argv)))
+    return EXIT_FAILURE;
 
   mlir::MLIRContext context;
   mlir::DialectRegistry registry;
@@ -179,11 +249,6 @@ int main(int argc, char **argv) {
   mtrt::compiler::registerAllExtensions(registry);
 
   context.appendDialectRegistry(registry);
-
-  if (pipelineHelp) {
-    printCompilationTaskHelpInfo(&context, taskName);
-    exit(0);
-  }
 
   // Open and parse input.
   mlir::OwningOpRef<mlir::ModuleOp> module;
@@ -199,7 +264,7 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  return succeeded(runCompilation(**client, taskName, *module, pipelineOptions))
+  return succeeded(runCompilation(**client, *module, pipelineOptions))
              ? EXIT_SUCCESS
              : EXIT_FAILURE;
 }

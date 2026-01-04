@@ -184,8 +184,10 @@ HostBackendAttr::getClusterKindOptions(InputKind inputKind, Operation *op,
 
     if (llvm::isa<plan::WithValuesOp>(op))
       return true;
+
     if (llvm::isa_and_present<stablehlo::StablehloDialect>(op->getDialect())) {
-      return stablehlo::canConvertToLinalg(op);
+      return stablehlo::canConvertToLinalg(op) ||
+             isa<stablehlo::GetDimensionSizeOp>(op);
     }
     if (llvm::isa_and_present<arith::ArithDialect, math::MathDialect>(
             op->getDialect()) &&
@@ -235,6 +237,20 @@ bool HostBackendAttr::supportsInputKind(InputKind inputKind) const {
 
 MemorySpace HostBackendAttr::getDefaultMemorySpace() const {
   return MemorySpace::host;
+}
+
+bool HostBackendAttr::requiresInputBoundsForDynamicShapes(
+    bool useDestinationStyleCallingConvention) const {
+  // HostBackend does not require shape bounds for dynamically shaped input
+  // tensors.
+  return false;
+}
+
+bool HostBackendAttr::requiresOutputBoundsForDynamicShapes(
+    bool useDestinationStyleCallingConvention) const {
+  // HostBackend does not require shape bounds for dynamically shaped output
+  // tensors.
+  return false;
 }
 
 //===----------------------------------------------------------------------===//

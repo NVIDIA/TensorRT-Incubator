@@ -132,41 +132,9 @@ struct RewriteDotGeneral : public DotGeneralCanonicalizerBase {
 };
 } // namespace
 
-/// Create a sequence of 'broadcast->convert' to the intermediateType. The
-/// `broadcastDims` must provide the right sequence to broadcast the input to
-/// the type of intermediateType.
-static TypedValue<RankedTensorType> createBroadcastAndConvert(
-    RewriterBase &rewriter, Location loc, RankedTensorType intermediateType,
-    TypedValue<RankedTensorType> v, ArrayRef<int64_t> broadcastDims) {
-  if (v.getType().getShape() != intermediateType.getShape())
-    v = rewriter.create<stablehlo::BroadcastInDimOp>(
-        loc, v.getType().clone(intermediateType.getShape()), v, broadcastDims);
-  if (v.getType().getElementType() != intermediateType.getElementType())
-    v = rewriter.create<stablehlo::ConvertOp>(
-        loc, v.getType().clone(intermediateType.getElementType()), v);
-  return v;
-}
-
 /// Return true if the `seq` is a stride-1 sequence `[start, stop)`.
 static bool isSequence(ArrayRef<int64_t> seq, int64_t start, int64_t stop) {
   return llvm::equal(seq, llvm::seq<int64_t>(start, stop));
-}
-
-/// Return the element type with the largest size to use as the 'compute'
-/// element type in a rewritten dot operation.
-static Type getComputeElementType(const DataLayout &dataLayout,
-                                  RankedTensorType lhsType,
-                                  RankedTensorType rhsType,
-                                  RankedTensorType resultType) {
-  Type computeETy = lhsType.getElementType();
-  for (Type type : {rhsType.getElementType(), resultType.getElementType()}) {
-    if (computeETy == type)
-      continue;
-    if (dataLayout.getTypeSize(type) <= dataLayout.getTypeSize(computeETy))
-      continue;
-    computeETy = type;
-  }
-  return computeETy;
 }
 
 /// Collapses contracting and outer dimensions of the given `dotOpOperand` using

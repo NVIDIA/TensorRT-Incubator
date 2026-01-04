@@ -1,9 +1,9 @@
 // REQUIRES: cuda
 // REQUIRES: host-has-at-least-1-gpus
-// RUN: mlir-tensorrt-compiler -opts="hoist-allocs-to-globals=true disable-tensorrt-extension" %s -mlir -o - | \
+// RUN: mlir-tensorrt-compiler --hoist-allocs-to-globals=true --disable-tensorrt-extension %s -mlir -o - | \
 // RUN: FileCheck %s --check-prefix=HOIST
 
-// RUN: mlir-tensorrt-compiler -opts="hoist-allocs-to-globals=false disable-tensorrt-extension" %s -mlir -o - | \
+// RUN: mlir-tensorrt-compiler --hoist-allocs-to-globals=false --disable-tensorrt-extension %s -mlir -o - | \
 // RUN: FileCheck %s --check-prefix=NOHOIST
 
 builtin.module @test_hoist_allocs attributes {

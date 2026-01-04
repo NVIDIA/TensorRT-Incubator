@@ -682,6 +682,19 @@ def Executor_BitwiseXOrIOp : Executor_ArithBinaryBitwiseIntOp<"bitwise_xori">;
 
 def Executor_AbsIOp : Executor_ArithUnaryIntOp<"absi", [RuntimeBuiltinInterface]>;
 
+def Executor_CtPopOp : Executor_Op<"ctpop", [Pure, SameOperandsAndResultType]> {
+  let summary = "count the number of set bits in an integer";
+  let description = [{
+    Returns the number of bits set to 1 in the input integer.
+    Only i32 and i64 types are supported. For smaller bit types,
+    user `executor.zext` to extend the width to 32 or 64.
+  }];
+
+  let arguments = (ins AnyTypeOf<[I32, I64]>:$operand);
+  let results = (outs AnyTypeOf<[I32, I64]>:$result);
+  let assemblyFormat = "$operand attr-dict `:` type($result)";
+}
+
 //===----------------------------------------------------------------------===//
 // Floating-point arithmetic ops
 //===----------------------------------------------------------------------===//
@@ -1164,6 +1177,7 @@ def Executor_UndefinedOp : Executor_Op<"undef", [Pure]> {
 
 def Executor_AllocaOp : Executor_Op<"alloca", [
       DeclareOpInterfaceMethods<PromotableAllocationOpInterface>,
+      DeclareOpInterfaceMethods<DestructurableAllocationOpInterface>,
 ]> {
   let summary = "block-scoped temporary allocation";
 
@@ -1220,7 +1234,8 @@ def Executor_DeallocateOp : Executor_Op<"dealloc", []> {
 }
 
 def Executor_LoadOp : Executor_Op<"load", [
-  DeclareOpInterfaceMethods<PromotableMemOpInterface>]> {
+  DeclareOpInterfaceMethods<PromotableMemOpInterface>,
+  DeclareOpInterfaceMethods<DestructurableAccessorOpInterface>]> {
   let description = [{
     `executor.load` loads `result` from the memory location given by `ptr +
     offset`. The offset is in terms of bytes.
@@ -1235,7 +1250,8 @@ def Executor_LoadOp : Executor_Op<"load", [
 }
 
 def Executor_StoreOp : Executor_Op<"store", [
-  DeclareOpInterfaceMethods<PromotableMemOpInterface>]> {
+  DeclareOpInterfaceMethods<PromotableMemOpInterface>,
+  DeclareOpInterfaceMethods<DestructurableAccessorOpInterface>]> {
   let description = [{
     `executor.store` stores `value` to the memory location given by `ptr +
     offset`. The offset is in terms of bytes.
@@ -1576,5 +1592,19 @@ def Executor_BufferBitcastOp : Executor_Op<"buffer_bitcast", [
   let hasCanonicalizer = 1;
 }
 
+
+//===----------------------------------------------------------------------===//
+// FileArtifactOp
+//===----------------------------------------------------------------------===//
+
+def Executor_FileArtifactOp : Executor_Op<"file_artifact", []> {
+  let description = [{
+    `executor.file_artifact` op declares a file artifact that will be
+    emitted to the artifacts directory.
+  }];
+  let arguments = (ins StrAttr:$path, ElementsAttr:$data);
+  let results = (outs );
+  let assemblyFormat = "$path `data` `(` $data `)` attr-dict";
+}
 
 #endif // MLIR_TENSORRT_DIALECT_EXECUTOR_IR_EXECUTOROPS_TD

@@ -138,7 +138,7 @@ case "$DISTRO" in
   install_cmake
 
   DEV_TOOLS="git git-lfs ccache unzip mold sudo"
-  GCC_TOOLSET="gcc-toolset-11-gcc gcc-toolset-11-gcc-c++"
+  GCC_TOOLSET="gcc gcc-c++"
   DEV_LIBS="zlib-devel bzip2 bzip2-devel readline-devel libsndfile"
   # Note: No libc++ package available in EPEL.
   LLVM_PACKAGES_ROCKY="clang lld lldb clang-tools-extra git-clang-format"

@@ -1,5 +1,5 @@
 // REQUIRES: host-has-at-least-1-gpus
-// RUN: mlir-tensorrt-compiler %s -input=stablehlo -opts="disable-tensorrt-extension backends=#plan.kernel_backend<benefit=2>,#plan.host_backend<benefit=1>" -o - \
+// RUN: mlir-tensorrt-compiler %s -input=stablehlo --disable-tensorrt-extension --backends="#plan.kernel_backend<benefit=2>","#plan.host_backend<benefit=1>" -o - \
 // RUN: | mlir-tensorrt-runner -input-type=rtexe -features=core,cuda
 
 func.func private @sort_i32(%arg0: tensor<128xi32>) -> tensor<128xi32> attributes {no_inline} {

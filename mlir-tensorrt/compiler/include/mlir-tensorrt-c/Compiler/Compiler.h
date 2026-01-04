@@ -52,9 +52,12 @@ static inline bool mtrtCompilerClientIsNull(MTRT_CompilerClient options) {
   return !options.ptr;
 }
 
-MLIR_CAPI_EXPORTED MTRT_Status mtrtCompilerClientGetCompilationTask(
-    MTRT_CompilerClient client, MlirStringRef taskMnemonic,
-    const MlirStringRef *argv, unsigned argc, MlirPassManager *result);
+/// Get a pipeline from the compiler client with the given options.
+/// The returned pipeline is a PassManager that can be used to compile MLIR
+/// modules.
+MLIR_CAPI_EXPORTED MTRT_Status mtrtCompilerClientGetPipeline(
+    MTRT_CompilerClient client, const MlirStringRef *argv, unsigned argc,
+    MlirPassManager *result);
 
 //===----------------------------------------------------------------------===//
 // PassManagerReference APIs

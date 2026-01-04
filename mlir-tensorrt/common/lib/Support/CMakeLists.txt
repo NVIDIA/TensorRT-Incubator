@@ -8,6 +8,7 @@ mtrt_add_install(MLIRTensorRTSupportStatus UMBRELLA mtrt-libraries)
 add_mlir_tensorrt_library(MLIRTensorRTCommandLineExtras
   PARTIAL_SOURCES_INTENDED
   CommandLineExtras.cpp
+  Options.cpp
 
   LINK_LIBS PUBLIC
   MLIRTensorRTCommonIncludes
