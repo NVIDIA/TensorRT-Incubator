@@ -21,8 +21,8 @@
 /// Utilities associated with the MLIR dataflow framework.
 ///
 //===----------------------------------------------------------------------===//
-#ifndef MLIR_TENSORRT_UTILS_DATAFLOWUTILS
-#define MLIR_TENSORRT_UTILS_DATAFLOWUTILS
+#ifndef MLIR_TENSORRT_COMMON_UTILS_DATAFLOWUTILS
+#define MLIR_TENSORRT_COMMON_UTILS_DATAFLOWUTILS
 
 #include "mlir/Analysis/DataFlow/DeadCodeAnalysis.h"
 #include "mlir/Analysis/DataFlowFramework.h"
@@ -96,4 +96,4 @@ protected:
 
 } // namespace mlir
 
-#endif // MLIR_TENSORRT_UTILS_DATAFLOWUTILS
+#endif // MLIR_TENSORRT_COMMON_UTILS_DATAFLOWUTILS

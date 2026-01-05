@@ -10,9 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 #include "mlir-executor/Executor/IR/Executor.h"
+#include "mlir-tensorrt-common/Utils/ModuleUtils.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
-#include "mlir-tensorrt/Utils/ModuleUtils.h"
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"

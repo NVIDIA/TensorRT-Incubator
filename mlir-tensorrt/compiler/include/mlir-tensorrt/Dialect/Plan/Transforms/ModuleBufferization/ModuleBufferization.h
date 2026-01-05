@@ -21,7 +21,7 @@
 /// Declarations for the `plan-module-bufferize` pass.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Utils/ModuleUtils.h"
+#include "mlir-tensorrt-common/Utils/ModuleUtils.h"
 #include "mlir/Dialect/Bufferization/Transforms/Bufferize.h"
 #include "mlir/Dialect/Bufferization/Transforms/FuncBufferizableOpInterfaceImpl.h"
 #include "mlir/Dialect/Bufferization/Transforms/OneShotAnalysis.h"

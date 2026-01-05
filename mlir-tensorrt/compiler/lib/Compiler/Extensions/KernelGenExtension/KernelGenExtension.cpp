@@ -112,13 +112,13 @@ static void addInternalStablehloConstantFoldingPasses(mlir::OpPassManager &pm) {
 }
 
 void KernelGenExtension::populatePasses(mlir::OpPassManager &pm,
-                                        Phase phase) const {
+                                        ExtensionPoint point) const {
   const MainOptions &options = this->getOptions();
 
   if (options.disableKernelGenExtension || options.disableAllExtensions)
     return;
 
-  if (phase == Phase::ConstantFolding) {
+  if (point == ExtensionPoint::ConstantFolding) {
     // Currently V2 constant folding is only supported for Stablehlo input.
     if (options.enableV2constantFolding &&
         options.inputKind == plan::InputKind::Stablehlo)
@@ -126,11 +126,11 @@ void KernelGenExtension::populatePasses(mlir::OpPassManager &pm,
     return;
   }
 
-  if (phase == Phase::PreClustering) {
+  if (point == ExtensionPoint::PreClustering) {
     return;
   }
 
-  if (phase == Phase::PostClustering) {
+  if (point == ExtensionPoint::PostClustering) {
     // TODO: Verify whether this is still needed or whether it can be moved to
     // preprocessing stage.
     if (options.inputKind == plan::InputKind::Stablehlo)
@@ -178,7 +178,7 @@ void KernelGenExtension::populatePasses(mlir::OpPassManager &pm,
     return;
   }
 
-  if (phase == Phase::PostBufferization) {
+  if (point == ExtensionPoint::PostBufferization) {
     const auto &kernelGenOpts = options.get<KernelGenOptions>();
 
     // Apply complex type conversion to the entire module BEFORE GPU module
@@ -215,7 +215,7 @@ void KernelGenExtension::populatePasses(mlir::OpPassManager &pm,
     return;
   }
 
-  if (phase == Phase::ExecutorLowering) {
+  if (point == ExtensionPoint::ExecutorLowering) {
     return;
   }
 }

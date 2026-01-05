@@ -40,8 +40,10 @@ public:
 
   using Extension::Extension;
 
-  /// Hook invoked for populating passes associated with a particular phase.
-  void populatePasses(mlir::OpPassManager &pm, Phase phase) const final;
+  /// Hook invoked for populating passes associated with a particular extension
+  /// point.
+  void populatePasses(mlir::OpPassManager &pm,
+                      ExtensionPoint point) const final;
 };
 
 /// Register StableHLO input pipelines (so they can be invoked from the CLI for

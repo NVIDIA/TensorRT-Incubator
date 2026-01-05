@@ -42,6 +42,30 @@
 
 namespace mtrt::compiler {
 
+/// Phase describes the overall phases of the compilation pipeline. These
+/// phases can be used to control which parts of the pipeline are populated
+/// via the `--phase-start` and `--phase-end` options.
+enum class Phase {
+  Setup,         // populateSetupPipeline
+  Input,         // populateInputPipeline
+  Clustering,    // Input-kind specific clustering/segmentation
+  Bufferization, // Plan bufferization pipeline
+  Lowering       // Host target lowering (Executor/LLVM/EmitC)
+};
+
+namespace detail {
+/// Returns the llvm::cl::values for the Phase enum.
+inline auto createPhaseClOptions() {
+  return llvm::cl::values(
+      clEnumValN(Phase::Setup, "setup", "setup phase"),
+      clEnumValN(Phase::Input, "input", "input phase"),
+      clEnumValN(Phase::Clustering, "clustering",
+                 "clustering/segmentation phase"),
+      clEnumValN(Phase::Bufferization, "bufferization", "bufferization phase"),
+      clEnumValN(Phase::Lowering, "lowering", "host target lowering phase"));
+}
+} // namespace detail
+
 /// DebugOptions are options that are common to different compiler API
 /// interfaces.
 struct DebugOptions : public mlir::OptionsGroup {
@@ -506,6 +530,29 @@ public:
       *this, "enable-v2-constant-folding", llvm::cl::init(true),
       llvm::cl::desc(
           "Enable v2 constant folding (requires KernelGen extension)"),
+      llvm::cl::cat(category)};
+
+  //===--------------------------------------------------------------------===//
+  // Phase control
+  //===--------------------------------------------------------------------===//
+
+  /// Starting phase for pipeline population. All phases before this are
+  /// skipped.
+  Option<Phase> phaseStart{
+      *this,
+      "phase-start",
+      llvm::cl::init(Phase::Setup),
+      llvm::cl::desc("Start populating passes from this phase"),
+      detail::createPhaseClOptions(),
+      llvm::cl::cat(category)};
+
+  /// Ending phase for pipeline population. All phases after this are skipped.
+  Option<Phase> phaseEnd{
+      *this,
+      "phase-end",
+      llvm::cl::init(Phase::Lowering),
+      llvm::cl::desc("Stop populating passes after this phase"),
+      detail::createPhaseClOptions(),
       llvm::cl::cat(category)};
 
   //===--------------------------------------------------------------------===//

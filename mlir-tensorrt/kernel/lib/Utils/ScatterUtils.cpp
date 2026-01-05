@@ -34,8 +34,8 @@
 
 using namespace mlir;
 
-// Checks that `dim` vector is within range [0, `upperBound`) or
-//  [0, `upperBound`] if `upperBoundInclusive` is true.
+/// Checks that `dim` is within range [0, `upperBound`) or
+/// [0, `upperBound`] if `upperBoundInclusive` is true.
 static LogicalResult checkDimInBounds(std::optional<Location> loc, int64_t dim,
                                       int64_t upperBound, StringRef dimName,
                                       StringRef upperBoundName,
