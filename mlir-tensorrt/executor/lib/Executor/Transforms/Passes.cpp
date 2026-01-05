@@ -21,8 +21,8 @@
 #include "mlir-executor/Conversion/Passes.h"
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Conversion/ComplexToStandard/ComplexToStandard.h"
-#include "mlir/Conversion/Passes.h"
 #include "mlir/Conversion/ReconcileUnrealizedCasts/ReconcileUnrealizedCasts.h"
+#include "mlir/Conversion/SCFToControlFlow/SCFToControlFlow.h"
 #include "mlir/Dialect/Affine/Passes.h"
 #include "mlir/Dialect/MemRef/Transforms/Passes.h"
 #include "mlir/Pass/PassManager.h"
@@ -54,6 +54,11 @@ void executor::buildExecutorLoweringPipeline(
       ConvertLinalgToExecutorPassOptions{stdToExecutorOpts.indexBitwidth}));
   pm.addPass(createConvertMemRefToExecutorPass(
       ConvertMemRefToExecutorPassOptions{stdToExecutorOpts.indexBitwidth}));
+  addCleanupPasses(pm);
+  // Expand unsupported Math operations before converting to Executor dialect.
+  // This rewrites operations like sinh, cosh, powf, asin, acos, atan, etc.
+  // into compositions of operations that the Executor dialect supports.
+  pm.addPass(createExecutorExpandMathOpsPass());
   addCleanupPasses(pm);
   pm.addPass(createConvertStdToExecutorPass(stdToExecutorOpts,
                                             populateAdditionalTypeConversions));
