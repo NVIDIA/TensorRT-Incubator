@@ -3,24 +3,18 @@
 // REQUIRES: system-linux
 // REQUIRES: tensorrt
 
-// RUN: rm -rf %t/resnet50.cpp %t/resnet50_test || true
-// RUN: mkdir -p %t
+// RUN: rm -rf %t || true
+// RUN: mkdir -p %t %t/build
 // RUN: mlir-tensorrt-compiler %s \
 // RUN:  --entrypoint=resnet50_forward --host-target=emitc --abi-version=0 --artifacts-dir=%t \
-// RUN:  -o %t/resnet50.cpp
-// RUN: %host_cxx %t/resnet50.cpp \
-// RUN:   %mtrt_src_dir/executor/lib/Runtime/StandaloneCPP/MTRTRuntimeStatus.cpp \
-// RUN:   %mtrt_src_dir/executor/lib/Runtime/StandaloneCPP/MTRTRuntimeCore.cpp \
-// RUN:   %mtrt_src_dir/executor/lib/Runtime/StandaloneCPP/MTRTRuntimeCuda.cpp \
-// RUN:   %mtrt_src_dir/executor/lib/Runtime/StandaloneCPP/MTRTRuntimeTensorRT.cpp \
-// RUN:   %S/resnet50_driver.cpp \
-// RUN:  -I%mtrt_src_dir/executor/lib/Runtime/StandaloneCPP \
-// RUN:   %cuda_toolkit_linux_cxx_flags \
-// RUN:  -I%nvinfer_include_dir \
-// RUN:  -L%nvinfer_lib_dir \
-// RUN:  -lnvinfer \
-// RUN:  -o %t/resnet50_test
-// RUN: cd %t && ./resnet50_test
+// RUN:  -o %t/resnet50.cpp --emitc-emit-support-files --emitc-emit-cmake-file
+// RUN: echo '#include "resnet50.cpp"' > %t/emitc_support/emitc_test_driver.cpp
+// RUN: cat %S/resnet50_driver.cpp >> %t/emitc_support/emitc_test_driver.cpp
+// RUN: %cmake -S %t -B %t/build \
+// RUN:   -DCUDAToolkit_ROOT=%cuda_toolkit_root \
+// RUN:   -DTENSORRT_ROOT=%tensorrt_root
+// RUN: %cmake --build %t/build
+// RUN: cd %t && ./build/emitc_test
 
 module @"resnet50" attributes {
     mhlo.num_partitions = 1 : i32, mhlo.num_replicas = 1 : i32,

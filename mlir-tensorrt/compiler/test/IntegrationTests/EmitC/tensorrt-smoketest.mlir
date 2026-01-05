@@ -1,25 +1,18 @@
 // REQUIRES: host-has-at-least-1-gpus
 // REQUIRES: cuda
+// REQUIRES: tensorrt
 // REQUIRES: system-linux
 //
 // RUN: rm -rf %t || true
-// RUN: mkdir -p %t
+// RUN: mkdir -p %t %t/build
 // RUN: mlir-tensorrt-compiler %s -input=stablehlo -host-target=emitc -o %t/add.h -artifacts-dir=%t \
-// RUN:   -disable-kernel-gen-extension -emitc-wrap-in-class -entrypoint=
-// RUN: %host_cxx \
-// RUN:   %S/add_driver.cpp \
-// RUN:   %mtrt_src_dir/executor/lib/Runtime/StandaloneCPP/MTRTRuntimeStatus.cpp \
-// RUN:   %mtrt_src_dir/executor/lib/Runtime/StandaloneCPP/MTRTRuntimeCore.cpp \
-// RUN:   %mtrt_src_dir/executor/lib/Runtime/StandaloneCPP/MTRTRuntimeCuda.cpp \
-// RUN:   %mtrt_src_dir/executor/lib/Runtime/StandaloneCPP/MTRTRuntimeTensorRT.cpp \
-// RUN:  -I%mtrt_src_dir/executor/lib/Runtime/StandaloneCPP \
-// RUN:  -I%t \
-// RUN:  %cuda_toolkit_linux_cxx_flags \
-// RUN:  -I%nvinfer_include_dir \
-// RUN:  -L%nvinfer_lib_dir \
-// RUN:  -lnvinfer \
-// RUN:  -o add-test
-// RUN: env MTRT_ARTIFACTS_DIR=%t ./add-test
+// RUN:   -disable-kernel-gen-extension -emitc-wrap-in-class -entrypoint= \
+// RUN:   -emitc-emit-support-files -emitc-emit-cmake-file
+// RUN: %cmake -S %t -B %t/build \
+// RUN:   -DCUDAToolkit_ROOT=%cuda_toolkit_root \
+// RUN:   -DTENSORRT_ROOT=%tensorrt_root
+// RUN: %cmake --build %t/build
+// RUN: env MTRT_ARTIFACTS_DIR=%t %t/build/emitc_test
 
 !tensor_type = tensor<128xf32>
 
