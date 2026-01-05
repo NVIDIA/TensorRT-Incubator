@@ -67,7 +67,7 @@ function(mtrt_find_tvm_ffi)
     INTERFACE_INCLUDE_DIRECTORIES "${TVM_FFI_INCLUDE_PATH}"
   )
   cmake_path(GET TVM_FFI_LIBRARY_PATH PARENT_PATH MLIR_TRT_TVM_FFI_LIB_DIR)
-  set(MLIR_TRT_TVM_FFI_LIB_DIR "${MLIR_TRT_TVM_FFI_LIB_DIR}" 
+  set(MLIR_TRT_TVM_FFI_LIB_DIR "${MLIR_TRT_TVM_FFI_LIB_DIR}"
     CACHE INTERNAL "")
 endfunction()
 
@@ -163,6 +163,16 @@ nv_register_package(
 #-------------------------------------------------------------------------------------
 set(stablehlo_patch_dir "${CMAKE_SOURCE_DIR}/build_tools/patches/stablehlo")
 set(MLIR_TRT_STABLEHLO_COMMIT "4c0d4841519aed22e3689c30b72a0e4228051249")
+set(MLIR_TRT_STABLEHLO_PATCHES )
+if(NOT CPM_Stablehlo_SOURCE)
+  set(MLIR_TRT_STABLEHLO_PATCHES
+    "${stablehlo_patch_dir}/0001-cmake-Update-usage-of-HandleLLVMOptions-and-LLVM_DEF.patch"
+    "${stablehlo_patch_dir}/0002-Modernize-the-stablehlo-convert-to-signless-pass.patch"
+    "${stablehlo_patch_dir}/0003-Add-additional-support-for-stablehlo-chlo-ops-to-lin.patch"
+    "${stablehlo_patch_dir}/0004-Fix-stablehlo-convert-to-signless-pass-to-handle-sta.patch"
+    "${stablehlo_patch_dir}/0005-Solve-multiple-pass-bugs.patch"
+  )
+endif()
 
 nv_register_package(
   NAME Stablehlo
@@ -172,11 +182,7 @@ nv_register_package(
     "STABLEHLO_ENABLE_BINDINGS_PYTHON ON"
     "STABLEHLO_BUILD_EMBEDDED ON"
   PATCHES
-   "${stablehlo_patch_dir}/0001-cmake-Update-usage-of-HandleLLVMOptions-and-LLVM_DEF.patch"
-   "${stablehlo_patch_dir}/0002-Modernize-the-stablehlo-convert-to-signless-pass.patch"
-   "${stablehlo_patch_dir}/0003-Add-additional-support-for-stablehlo-chlo-ops-to-lin.patch"
-   "${stablehlo_patch_dir}/0004-Fix-stablehlo-convert-to-signless-pass-to-handle-sta.patch"
-
+    ${MLIR_TRT_STABLEHLO_PATCHES}
   POST_ADD_HOOK [[
     # Mimic what a StablehloConfig.cmake file would do.
     set(STABLEHLO_INCLUDE_DIRS

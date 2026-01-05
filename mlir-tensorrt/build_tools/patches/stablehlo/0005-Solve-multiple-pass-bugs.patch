@@ -1,0 +1,73 @@
+From c4d93d8def7a5b77ba3d8ee41e5bb8f4259f7b1c Mon Sep 17 00:00:00 2001
+From: Christopher Bate <cbate@nvidia.com>
+Date: Mon, 5 Jan 2026 23:34:56 +0000
+Subject: [PATCH 1/1] Solve multiple minor bugs in StablehloRefineShapes and
+ StablehloAggressiveFolder
+
+---
+ .../conversions/linalg/transforms/MapStablehloToScalarOp.h   | 5 +++++
+ stablehlo/transforms/StablehloRefineShapes.cpp               | 3 ++-
+ .../transforms/optimization/StablehloAggressiveFolder.cpp    | 3 ++-
+ 3 files changed, 9 insertions(+), 2 deletions(-)
+
+diff --git a/stablehlo/conversions/linalg/transforms/MapStablehloToScalarOp.h b/stablehlo/conversions/linalg/transforms/MapStablehloToScalarOp.h
+index 2cf82769..9634bbda 100644
+--- a/stablehlo/conversions/linalg/transforms/MapStablehloToScalarOp.h
++++ b/stablehlo/conversions/linalg/transforms/MapStablehloToScalarOp.h
+@@ -164,6 +164,7 @@ struct StablehloToScalarOp<stablehlo::TanOp> {
+ template <>
+ struct StablehloToScalarOp<stablehlo::Atan2Op> {
+   using COp = ::mlir::complex::Atan2Op;
++  using FOp = ::mlir::math::Atan2Op;
+ };
+
+ template <>
+@@ -831,6 +832,10 @@ inline Value mapStablehloOpToStdScalarOp<stablehlo::BitcastConvertOp>(
+   Type argType = getElementTypeOrSelf(argTypes.front());
+   Type resultType = getElementTypeOrSelf(resultTypes.front());
+
++  // arith::BitcastOp doesn't support complex types, so bail out if either type
++  // is complex.
++  if (!argType.isIntOrFloat() || !resultType.isIntOrFloat()) return nullptr;
++
+   if (resultType.getIntOrFloatBitWidth() != argType.getIntOrFloatBitWidth())
+     return nullptr;
+
+diff --git a/stablehlo/transforms/StablehloRefineShapes.cpp b/stablehlo/transforms/StablehloRefineShapes.cpp
+index 4b585b46..80fd237b 100644
+--- a/stablehlo/transforms/StablehloRefineShapes.cpp
++++ b/stablehlo/transforms/StablehloRefineShapes.cpp
+@@ -45,6 +45,7 @@ limitations under the License.
+ #include "mlir/IR/Value.h"
+ #include "mlir/IR/ValueRange.h"
+ #include "mlir/Interfaces/InferTypeOpInterface.h"
++#include "mlir/Interfaces/SideEffectInterfaces.h"
+ #include "mlir/Rewrite/FrozenRewritePatternSet.h"
+ #include "mlir/Support/LLVM.h"
+ #include "mlir/Support/LogicalResult.h"
+@@ -565,7 +566,7 @@ struct RefineCallOpPattern : public OpRewritePattern<func::CallOp> {
+     auto callee = refinementKey->getFunc();
+     std::optional<SmallVector<DenseIntElementsAttr>> constantAttrs =
+         isConstantFunction(callee);
+-    if (constantAttrs.has_value()) {
++    if (constantAttrs.has_value() && mlir::isMemoryEffectFree(callee)) {
+       SmallVector<Value> constants;
+       for (auto constAttr : constantAttrs.value()) {
+         constants.push_back(
+diff --git a/stablehlo/transforms/optimization/StablehloAggressiveFolder.cpp b/stablehlo/transforms/optimization/StablehloAggressiveFolder.cpp
+index 8dac8c97..c10f2ae7 100644
+--- a/stablehlo/transforms/optimization/StablehloAggressiveFolder.cpp
++++ b/stablehlo/transforms/optimization/StablehloAggressiveFolder.cpp
+@@ -625,7 +625,8 @@ struct FoldCompareOpPattern : public ShapeOpRewritePattern<CompareOp> {
+   LogicalResult matchAndRewrite(CompareOp op,
+                                 PatternRewriter& rewriter) const override {
+     auto resultType = op.getType();
+-    if (failed(validateShapeFoldDtype(rewriter, op, resultType)))
++    if (failed(validateStaticShapeResult(rewriter, op, resultType)) ||
++        failed(validateShapeFoldDtype(rewriter, op, resultType)))
+       return failure();
+
+     auto res = foldBinaryOpIntOrFloat<FoldCompare, IntegerAttr, IntegerAttr>(
+--
+2.52.0
+
