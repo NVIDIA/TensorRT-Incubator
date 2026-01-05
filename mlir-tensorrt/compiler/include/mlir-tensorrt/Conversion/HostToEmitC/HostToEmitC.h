@@ -31,8 +31,18 @@ class OpPassManager;
 }
 
 namespace mtrt::compiler {
+struct EmitCOptions;
+
+/// Populate the pass manager with the EmitC lowering pipeline.
+///
+/// The pipeline is parameterized by the EmitC options, and additionally takes
+/// the tool output path and entrypoint to enable optional emission of C++
+/// support files (StandaloneCPP runtime sources/headers, example CMake, and/or
+/// a test driver) as artifacts.
 void applyEmitCLoweringPipeline(mlir::OpPassManager &pm,
-                                bool wrapModuleInEmitCClass);
+                                const EmitCOptions &opts,
+                                llvm::StringRef outputPath,
+                                llvm::StringRef entrypoint);
 } // namespace mtrt::compiler
 
 #endif // MLIR_TENSORRT_CONVERSION_HOSTTOEMITC_HOSTTOEMITC

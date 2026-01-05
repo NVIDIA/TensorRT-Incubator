@@ -37,6 +37,7 @@
 #include "mlir-executor/Executor/IR/ExecutorAttributes.h"
 #include "mlir-executor/Executor/Transforms/Passes.h"
 #include "mlir-executor/Support/ArtifactManager.h"
+#include "mlir-tensorrt/Compiler/Options.h"
 #include "mlir-tensorrt/Conversion/Passes.h"
 #include "mlir-tensorrt/Dialect/CUDA/IR/CUDADialect.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
@@ -60,6 +61,8 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Transforms/Passes.h"
 #include "llvm/ADT/TypeSwitch.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Path.h"
 
 #include "HostToEmitCDetail.h"
 
@@ -345,8 +348,23 @@ public:
 };
 } // namespace
 
+static std::string createEmitCOutputFileName(llvm::StringRef initialName) {
+  initialName = initialName.trim();
+  if (!initialName.empty() &&
+      (initialName == "-" || !llvm::sys::fs::is_directory(initialName)))
+    return initialName.str();
+
+  llvm::SmallString<128> result = initialName;
+  llvm::sys::path::append(result, "output.cpp");
+  return result.str().str();
+}
+
 void mtrt::compiler::applyEmitCLoweringPipeline(mlir::OpPassManager &pm,
-                                                bool wrapModuleInEmitCClass) {
+                                                const EmitCOptions &opts,
+                                                llvm::StringRef outputPath,
+                                                llvm::StringRef entrypoint) {
+  const bool wrapModuleInEmitCClass = opts.wrapModuleInEmitCClass;
+
   pm.addNestedPass<mlir::func::FuncOp>(mlir::createConvertMathToEmitC());
   pm.addNestedPass<mlir::func::FuncOp>(mlir::arith::createArithExpandOpsPass());
   pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
@@ -366,4 +384,22 @@ void mtrt::compiler::applyEmitCLoweringPipeline(mlir::OpPassManager &pm,
   pm.addPass(mlir::createCSEPass());
   pm.addPass(mlir::createCanonicalizerPass());
   pm.addPass(emitc::createFormExpressionsPass());
+
+  // Optionally emit C++ support files (runtime, CMake, driver) as artifacts.
+  const bool emitRuntimeFiles = opts.emitSupportFiles || opts.emitRuntimeFiles;
+  const bool emitCMakeFile = opts.emitSupportFiles || opts.emitCMakeFile;
+  const bool emitTestDriver = opts.emitSupportFiles || opts.emitTestDriver;
+  if (emitRuntimeFiles || emitCMakeFile || emitTestDriver) {
+    mlir::EmitCppSupportFilesPassOptions supportOpts;
+    supportOpts.emitRuntimeFiles = emitRuntimeFiles;
+    supportOpts.emitCMakeFile = emitCMakeFile;
+    supportOpts.emitTestDriver = emitTestDriver;
+    // Pass the output file path relative to the artifacts directory so that
+    // emitted CMake files can use ${CMAKE_CURRENT_LIST_DIR} to reference it.
+    supportOpts.outputFile =
+        llvm::sys::path::filename(createEmitCOutputFileName(outputPath)).str();
+    supportOpts.entrypoint = entrypoint.str();
+    supportOpts.supportSubdir = "emitc_support";
+    pm.addPass(createEmitCppSupportFilesPass(supportOpts));
+  }
 }

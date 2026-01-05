@@ -2,20 +2,15 @@
 // REQUIRES: system-linux
 // REQUIRES: tensorrt
 
-// RUN: rm -rf %t/random_normal_matmul.cpp %t/random_normal_matmul_test || true
-// RUN: mkdir -p %t
+// This test verifies that the generated C++ code compiles successfully.
+// RUN: rm -rf %t || true
+// RUN: mkdir -p %t %t/build
 // RUN: mlir-tensorrt-compiler %s --host-target=emitc --artifacts-dir=%t --entrypoint=random_normal_matmul_main --abi-version=0 \
-// RUN:   -o %t/random_normal_matmul.cpp
-// RUN: %host_cxx -c %t/random_normal_matmul.cpp \
-// RUN:   %mtrt_src_dir/executor/lib/Runtime/StandaloneCPP/MTRTRuntimeStatus.cpp \
-// RUN:   %mtrt_src_dir/executor/lib/Runtime/StandaloneCPP/MTRTRuntimeCore.cpp \
-// RUN:   %mtrt_src_dir/executor/lib/Runtime/StandaloneCPP/MTRTRuntimeCuda.cpp \
-// RUN:   %mtrt_src_dir/executor/lib/Runtime/StandaloneCPP/MTRTRuntimeTensorRT.cpp \
-// RUN:  -I%mtrt_src_dir/executor/lib/Runtime/StandaloneCPP \
-// RUN:   %cuda_toolkit_linux_cxx_flags \
-// RUN:  -I%nvinfer_include_dir \
-// RUN:  -L%nvinfer_lib_dir \
-// RUN:  -lnvinfer
+// RUN:   -o %t/random_normal_matmul.cpp --emitc-emit-support-files --emitc-emit-cmake-file
+// RUN: %cmake -S %t -B %t/build \
+// RUN:   -DCUDAToolkit_ROOT=%cuda_toolkit_root \
+// RUN:   -DTENSORRT_ROOT=%tensorrt_root
+// RUN: %cmake --build %t/build
 
 module @jit_random_funcs attributes {mhlo.num_partitions = 1 : i32, mhlo.num_replicas = 1 : i32, plan.backends = [#plan.tensorrt_backend<disallow_shape_tensor_calculations = false, benefit = 3, tensorrt_major_version = 10>, #plan.kernel_backend<benefit = 2>, #plan.host_backend<benefit = 1>]} {
   func.func public @random_normal_matmul_main(%arg0: tensor<128x128xf32>) -> (tensor<128x128xf32> {jax.result_info = ""}) {

@@ -345,8 +345,9 @@ static void addLLVMOrEmitCTail(OpPassManager &pm, const MainOptions &options,
   }
 
   if (hostTarget == HostTarget::EmitC) {
-    mtrt::compiler::applyEmitCLoweringPipeline(
-        pm, options.get<EmitCOptions>().wrapModuleInEmitCClass);
+    mtrt::compiler::applyEmitCLoweringPipeline(pm, options.get<EmitCOptions>(),
+                                               options.getOutputPath(),
+                                               options.entrypoint);
   }
 
   pm.addPass(mlir::executor::createExecutorSerializeArtifactsPass(
