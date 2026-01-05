@@ -56,6 +56,35 @@ using namespace mtrt;
 using namespace mtrt::compiler;
 
 //===----------------------------------------------------------------------===//
+// Phase and ExtensionPoint utilities
+//===----------------------------------------------------------------------===//
+
+Phase mtrt::compiler::getPhaseForExtensionPoint(ExtensionPoint point) {
+  switch (point) {
+  case ExtensionPoint::ConstantFolding:
+    return Phase::Input;
+  case ExtensionPoint::PreClustering:
+  case ExtensionPoint::PostClustering:
+    return Phase::Clustering;
+  case ExtensionPoint::PreBufferization:
+  case ExtensionPoint::PostBufferization:
+    return Phase::Bufferization;
+  case ExtensionPoint::ExecutorLowering:
+    return Phase::Lowering;
+  }
+  llvm_unreachable("unknown extension point");
+}
+
+/// Returns true if the given phase should be populated based on the
+/// phase-start and phase-end options.
+static bool shouldPopulatePhase(Phase phase, const MainOptions &options) {
+  Phase startPhase = options.phaseStart;
+  Phase endPhase = options.phaseEnd;
+  return static_cast<int>(phase) >= static_cast<int>(startPhase) &&
+         static_cast<int>(phase) <= static_cast<int>(endPhase);
+}
+
+//===----------------------------------------------------------------------===//
 // Pipeline
 //===----------------------------------------------------------------------===//
 void Pipeline::setupPassManagerInstrumentation() {
@@ -202,11 +231,15 @@ static void addCleanupPasses(OpPassManager &pm) {
 }
 
 static void populateExtensionPasses(mlir::OpPassManager &pm,
-                                    const MainOptions &options, Phase phase,
+                                    const MainOptions &options,
+                                    ExtensionPoint point,
                                     const ExtensionList &extensions) {
-  (void)options;
+  // Skip extension passes if their containing phase is filtered out.
+  Phase containingPhase = getPhaseForExtensionPoint(point);
+  if (!shouldPopulatePhase(containingPhase, options))
+    return;
   for (auto &[key, ext] : extensions)
-    ext->populatePasses(pm, phase);
+    ext->populatePasses(pm, point);
 }
 
 static void populateSetupPipeline(OpPassManager &pm,
@@ -243,7 +276,7 @@ static void populateInputPipeline(OpPassManager &pm, const MainOptions &options,
               stablehlo_ext::createConstantFoldingPass(
                   stablehlo_ext::ConstantFoldingPassOptions{
                       opts.constantFoldSizeLimit}));
-          populateExtensionPasses(pm, options, Phase::ConstantFolding,
+          populateExtensionPasses(pm, options, ExtensionPoint::ConstantFolding,
                                   extensions);
         });
     return;
@@ -263,7 +296,8 @@ static void addExecutorLoweringTail(OpPassManager &pm,
         executor::createExecutorPopulateFunctionMetadataPass());
   }
 
-  populateExtensionPasses(pm, options, Phase::ExecutorLowering, extensions);
+  populateExtensionPasses(pm, options, ExtensionPoint::ExecutorLowering,
+                          extensions);
 
   ConvertCUDAToExecutorPassOptions cudaToExecutorOpts;
   cudaToExecutorOpts.indexBitwidth =
@@ -299,7 +333,7 @@ static void addLLVMOrEmitCTail(OpPassManager &pm, const MainOptions &options,
   pm.addPass(mlir::createLowerAffinePass());
   addCleanupPasses(pm);
 
-  populateExtensionPasses(pm, options, Phase::ExecutorLowering,
+  populateExtensionPasses(pm, options, ExtensionPoint::ExecutorLowering,
                           options.getExtensions());
 
   if (hostTarget == HostTarget::LLVM) {
@@ -328,99 +362,122 @@ void Pipeline::populatePassManager() {
 
   assert(pm.getPasses().empty() && "expected empty pass manager");
 
-  populateSetupPipeline(pm, options);
-  populateInputPipeline(pm, options, options.getExtensions());
+  //===--------------------------------------------------------------------===//
+  // Setup Phase
+  //===--------------------------------------------------------------------===//
+  if (shouldPopulatePhase(Phase::Setup, options))
+    populateSetupPipeline(pm, options);
 
-  // Dispatch based on input kind.
-  switch (options.inputKind) {
-  case mlir::plan::InputKind::Stablehlo: {
-    // Add pre-clustering extension passes
-    populateExtensionPasses(pm, options, Phase::PreClustering,
+  //===--------------------------------------------------------------------===//
+  // Input Phase
+  //===--------------------------------------------------------------------===//
+  if (shouldPopulatePhase(Phase::Input, options))
+    populateInputPipeline(pm, options, options.getExtensions());
+
+  //===--------------------------------------------------------------------===//
+  // Clustering Phase
+  //===--------------------------------------------------------------------===//
+  if (shouldPopulatePhase(Phase::Clustering, options)) {
+    // Dispatch based on input kind.
+    switch (options.inputKind) {
+    case mlir::plan::InputKind::Stablehlo: {
+      // Add pre-clustering extension passes
+      populateExtensionPasses(pm, options, ExtensionPoint::PreClustering,
+                              options.getExtensions());
+
+      plan::buildPlanSegmentationPipeline(
+          pm, options.runtimeABIVersion, options.inputKind,
+          options.get<BufferizationOptions>().forceEntrypointsReturnAllocs,
+          options.entrypoint, options.get<plan::PlanClusteringOptions>());
+
+      // Compile outlined scalarizable host clusters.
+      pm.addNestedPass<func::FuncOp>(
+          mtrt::compiler::createProcessHostClustersPass());
+      pm.addNestedPass<func::FuncOp>(mlir::createConvertStablehloToArithPass());
+
+      populateExtensionPasses(pm, options, ExtensionPoint::PostClustering,
+                              options.getExtensions());
+
+      break;
+    }
+    case mlir::plan::InputKind::TensorRT: {
+      pm.addPass(createOutlineTensorRTOpsPass());
+      break;
+    }
+    case mlir::plan::InputKind::Linalg: {
+      const auto &deviceOpts = options.get<DeviceOptions>();
+      const auto &kernelGenOpts = options.get<KernelGenOptions>();
+
+      pm.addPass(mtrt::compiler::createKernelSegmentationPass());
+
+      // Kernel Generation
+      kernel::buildTransformIRPipeline(
+          pm, mtrt::compiler::getKernelGenClusterAttrName(),
+          deviceOpts.computeCapability, deviceOpts.maxSharedMemoryPerBlockKb,
+          deviceOpts.maxRegistersPerBlock,
+          /*generatorBenefit=*/kernelGenOpts.generatorBenefit);
+
+      // Populate target information.
+      kernel::SetGPUTargetPassOptions setTargetOptions{};
+      setTargetOptions.inferTargetFromHost = deviceOpts.shouldInferFromHost;
+      setTargetOptions.chip =
+          "sm_" + std::to_string(deviceOpts.computeCapability);
+      setTargetOptions.maxRegistersPerBlock = deviceOpts.maxRegistersPerBlock;
+      setTargetOptions.maxSharedMemoryPerBlockKb =
+          deviceOpts.maxSharedMemoryPerBlockKb;
+
+      pm.addPass(kernel::createLowerKernelSortPass());
+      pm.addPass(kernel::createSetGPUTargetPass(setTargetOptions));
+      pm.addPass(kernel::createAnnotateKernelEntrypointsPass());
+
+      pm.addNestedPass<gpu::GPUModuleOp>(
+          kernel::createDispatchGPUModuleCompilationPass(
+              kernel::DispatchGPUModuleCompilationPassOptions{
+                  kernel::GPUModuleLoweringPhase::PreBufferization}));
+      break;
+    }
+    }
+
+    pm.addNestedPass<func::FuncOp>(plan::createPostClusteringValidationPass());
+    pm.addNestedPass<func::FuncOp>(mtrt::createSCFDetensorizePass());
+    pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
+  }
+
+  //===--------------------------------------------------------------------===//
+  // Bufferization Phase
+  //===--------------------------------------------------------------------===//
+  if (shouldPopulatePhase(Phase::Bufferization, options)) {
+    populateExtensionPasses(pm, options, ExtensionPoint::PreBufferization,
                             options.getExtensions());
 
-    plan::buildPlanSegmentationPipeline(
-        pm, options.runtimeABIVersion, options.inputKind,
-        options.get<BufferizationOptions>().forceEntrypointsReturnAllocs,
-        options.entrypoint, options.get<plan::PlanClusteringOptions>());
+    plan::buildPlanBufferizationPipeline(pm,
+                                         convertBufferizationOptions(options));
 
-    // Compile outlined scalarizable host clusters.
-    pm.addNestedPass<func::FuncOp>(
-        mtrt::compiler::createProcessHostClustersPass());
-    pm.addNestedPass<func::FuncOp>(mlir::createConvertStablehloToArithPass());
-
-    populateExtensionPasses(pm, options, Phase::PostClustering,
+    populateExtensionPasses(pm, options, ExtensionPoint::PostBufferization,
                             options.getExtensions());
-
-    break;
-  }
-  case mlir::plan::InputKind::TensorRT: {
-    pm.addPass(createOutlineTensorRTOpsPass());
-    break;
-  }
-  case mlir::plan::InputKind::Linalg: {
-    const auto &deviceOpts = options.get<DeviceOptions>();
-    const auto &kernelGenOpts = options.get<KernelGenOptions>();
-
-    pm.addPass(mtrt::compiler::createKernelSegmentationPass());
-
-    // Kernel Generation
-    kernel::buildTransformIRPipeline(
-        pm, mtrt::compiler::getKernelGenClusterAttrName(),
-        deviceOpts.computeCapability, deviceOpts.maxSharedMemoryPerBlockKb,
-        deviceOpts.maxRegistersPerBlock,
-        /*generatorBenefit=*/kernelGenOpts.generatorBenefit);
-
-    // Populate target information.
-    kernel::SetGPUTargetPassOptions setTargetOptions{};
-    setTargetOptions.inferTargetFromHost = deviceOpts.shouldInferFromHost;
-    setTargetOptions.chip =
-        "sm_" + std::to_string(deviceOpts.computeCapability);
-    setTargetOptions.maxRegistersPerBlock = deviceOpts.maxRegistersPerBlock;
-    setTargetOptions.maxSharedMemoryPerBlockKb =
-        deviceOpts.maxSharedMemoryPerBlockKb;
-
-    pm.addPass(kernel::createLowerKernelSortPass());
-    pm.addPass(kernel::createSetGPUTargetPass(setTargetOptions));
-    pm.addPass(kernel::createAnnotateKernelEntrypointsPass());
-
-    pm.addNestedPass<gpu::GPUModuleOp>(
-        kernel::createDispatchGPUModuleCompilationPass(
-            kernel::DispatchGPUModuleCompilationPassOptions{
-                kernel::GPUModuleLoweringPhase::PreBufferization}));
-    break;
-  }
   }
 
-  pm.addNestedPass<func::FuncOp>(plan::createPostClusteringValidationPass());
-  pm.addNestedPass<func::FuncOp>(mtrt::createSCFDetensorizePass());
-  pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
+  //===--------------------------------------------------------------------===//
+  // Lowering Phase
+  //===--------------------------------------------------------------------===//
+  if (shouldPopulatePhase(Phase::Lowering, options)) {
+    pm.addPass(mtrt::createDropNestedModulesPass());
 
-  populateExtensionPasses(pm, options, Phase::PreBufferization,
-                          options.getExtensions());
+    if (options.hostTarget == HostTarget::Executor &&
+        options.get<OptimizationOptions>().hoistAllocsToGlobals) {
+      pm.addPass(executor::createExecutorAllocsToGlobalsPass());
+    }
 
-  // Bufferization
-  plan::buildPlanBufferizationPipeline(pm,
-                                       convertBufferizationOptions(options));
+    pm.addPass(createConvertMemRefToCUDAPass());
 
-  populateExtensionPasses(pm, options, Phase::PostBufferization,
-                          options.getExtensions());
+    if (options.hostTarget == HostTarget::Executor) {
+      pm.addPass(createConvertPlanToExecutorPass());
+      addExecutorLoweringTail(pm, options, options.getExtensions());
 
-  pm.addPass(mtrt::createDropNestedModulesPass());
-
-  if (options.hostTarget == HostTarget::Executor &&
-      options.get<OptimizationOptions>().hoistAllocsToGlobals) {
-    pm.addPass(executor::createExecutorAllocsToGlobalsPass());
-  }
-
-  pm.addPass(createConvertMemRefToCUDAPass());
-
-  if (options.hostTarget == HostTarget::Executor) {
-    pm.addPass(createConvertPlanToExecutorPass());
-    addExecutorLoweringTail(pm, options, options.getExtensions());
-
-  } else if (options.hostTarget == HostTarget::LLVM ||
-             options.hostTarget == HostTarget::EmitC) {
-    addLLVMOrEmitCTail(pm, options,
-                       /*requestCWrappers=*/true);
+    } else if (options.hostTarget == HostTarget::LLVM ||
+               options.hostTarget == HostTarget::EmitC) {
+      addLLVMOrEmitCTail(pm, options,
+                         /*requestCWrappers=*/true);
+    }
   }
 }

@@ -37,7 +37,7 @@
 
 namespace mtrt::compiler {
 
-enum class Phase;
+enum class ExtensionPoint;
 
 ///===---------------------------------------------------------------------===//
 // ExtensionBase
@@ -57,7 +57,8 @@ public:
   /// Virtual destructor to allow proper cleanup via base pointer.
   virtual ~ExtensionBase();
 
-  virtual void populatePasses(mlir::OpPassManager &pm, Phase phase) const = 0;
+  virtual void populatePasses(mlir::OpPassManager &pm,
+                              ExtensionPoint point) const = 0;
 
   /// Convenience alias to declare scalar options within extensions.
   template <typename T, typename... Mods>
