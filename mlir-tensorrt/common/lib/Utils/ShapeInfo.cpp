@@ -1,4 +1,4 @@
-//===- ShapeInfo.h ---------------------------------------------*- C++ -*-===//
+//===- ShapeInfo.cpp ------------------------------------------------------===//
 //
 // SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
@@ -17,7 +17,7 @@
 // limitations under the License.
 //
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Utils/ShapeInfo.h"
+#include "mlir-tensorrt-common/Utils/ShapeInfo.h"
 #include "mlir/Dialect/Utils/IndexingUtils.h"
 #include "mlir/IR/BuiltinTypes.h"
 

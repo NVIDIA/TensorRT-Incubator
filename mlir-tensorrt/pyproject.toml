@@ -43,14 +43,18 @@ docs = [
 cu12 = [
     "jax[cuda12_local]==0.5.3",
     "cupy-cuda12x>=13.6.0",
-    "flashinfer-jit-cache==0.5.0rc3",
     "cuda-python<13.0",
 ]
 cu13 = [
     "jax==0.5.3",
     "cupy-cuda13x>=13.6.0",
-    "flashinfer-jit-cache==0.5.0rc3",
     "cuda-python>=13.0",
+]
+flashinfer-cu12 = [
+    "flashinfer-jit-cache==0.5.0rc3",
+]
+flashinfer-cu13 = [
+    "flashinfer-jit-cache==0.5.0rc3",
 ]
 cpu = [
     "jax==0.5.3",
@@ -63,14 +67,18 @@ conflicts = [
     { extra = "cu12" },
     { extra = "cu13" },
   ],
+  [
+    { extra = "flashinfer-cu12" },
+    { extra = "flashinfer-cu13" },
+  ],
 ]
 
 [tool.uv.sources]
 torch = {index = "pytorch-cpu"}
 torchvision = {index = "pytorch-cpu"}
 flashinfer-jit-cache = [
- {index = "flashinfer-cu129", extra = "cu12"},
- {index = "flashinfer-cu130", extra = "cu13"}
+ {index = "flashinfer-cu129", extra = "flashinfer-cu12"},
+ {index = "flashinfer-cu130", extra = "flashinfer-cu13"}
 ]
 
 [[tool.uv.index]]

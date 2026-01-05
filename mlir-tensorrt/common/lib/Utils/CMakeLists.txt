@@ -4,7 +4,7 @@ endif()
 
 
 add_mlir_tensorrt_library(MLIRTensorRTOwningModuleRef
-  OwningModuleRef.cpp  
+  OwningModuleRef.cpp
 
   PARTIAL_SOURCES_INTENDED
 
@@ -21,4 +21,15 @@ add_mlir_tensorrt_library(MLIRTensorRTRegionUtils
     MLIRAnalysis
     MLIRIR
     MLIRTransformUtils
+  )
+
+add_mlir_tensorrt_library(MLIRTensorRTUtilsShapeInfo
+  ShapeInfo.cpp
+  ModuleUtils.cpp
+
+  MLIR_LIBS PUBLIC
+    MLIRAnalysis
+    MLIRIR
+    MLIRDialectUtils
+    MLIRFuncDialect
   )

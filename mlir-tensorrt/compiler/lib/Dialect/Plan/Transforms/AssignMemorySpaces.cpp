@@ -22,11 +22,11 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-executor/Executor/IR/Executor.h"
+#include "mlir-tensorrt-common/Utils/ModuleUtils.h"
 #include "mlir-tensorrt-dialect/Analysis/TensorKindAnalysis.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/PlanInterfaces.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
-#include "mlir-tensorrt/Utils/ModuleUtils.h"
 #include "mlir/Analysis/DataFlow/ConstantPropagationAnalysis.h"
 #include "mlir/Analysis/DataFlow/DeadCodeAnalysis.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"

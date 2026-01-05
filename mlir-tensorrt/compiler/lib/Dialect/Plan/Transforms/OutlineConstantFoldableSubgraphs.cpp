@@ -23,8 +23,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir-executor/Transforms/Clustering/Clustering.h"
+#include "mlir-tensorrt-common/Utils/DataFlowUtils.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
-#include "mlir-tensorrt/Utils/DataFlowUtils.h"
 #include "mlir/Analysis/DataFlow/ConstantPropagationAnalysis.h"
 #include "mlir/Analysis/DataFlow/DeadCodeAnalysis.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"

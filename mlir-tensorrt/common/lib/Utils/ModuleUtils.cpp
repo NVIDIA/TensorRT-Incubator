@@ -21,7 +21,7 @@
 /// Utilities for querying information about or manipulating module-like ops.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Utils/ModuleUtils.h"
+#include "mlir-tensorrt-common/Utils/ModuleUtils.h"
 #include "mlir/Analysis/CallGraph.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "llvm/ADT/SCCIterator.h"

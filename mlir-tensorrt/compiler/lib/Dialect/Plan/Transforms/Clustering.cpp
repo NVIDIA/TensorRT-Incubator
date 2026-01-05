@@ -23,11 +23,11 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-executor/Transforms/Clustering/Patterns.h"
 #include "mlir-tensorrt-common/Interfaces/TensorKindOpInterface.h"
+#include "mlir-tensorrt-common/Utils/DataFlowUtils.h"
 #include "mlir-tensorrt-dialect/Analysis/TensorKindAnalysis.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/PlanInterfaces.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
-#include "mlir-tensorrt/Utils/DataFlowUtils.h"
 #include "mlir/Analysis/DataFlow/ConstantPropagationAnalysis.h"
 #include "mlir/Analysis/DataFlow/DeadCodeAnalysis.h"
 #include "mlir/Analysis/DataFlowFramework.h"

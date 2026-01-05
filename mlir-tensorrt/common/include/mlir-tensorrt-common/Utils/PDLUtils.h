@@ -21,8 +21,8 @@
 /// Utilities for the PDL dialect.
 ///
 //===----------------------------------------------------------------------===//
-#ifndef MLIR_TENSORRT_UTILS_PDLUTILS
-#define MLIR_TENSORRT_UTILS_PDLUTILS
+#ifndef MLIR_TENSORRT_COMMON_UTILS_PDLUTILS
+#define MLIR_TENSORRT_COMMON_UTILS_PDLUTILS
 
 #include "mlir/IR/PatternMatch.h"
 #include "llvm/ADT/TypeSwitch.h"
@@ -68,4 +68,4 @@ struct ProcessPDLValueForOpType {
 
 } // namespace mlir
 
-#endif // MLIR_TENSORRT_UTILS_PDLUTILS
+#endif // MLIR_TENSORRT_COMMON_UTILS_PDLUTILS

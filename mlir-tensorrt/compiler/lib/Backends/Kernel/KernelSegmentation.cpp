@@ -47,6 +47,10 @@ using namespace mlir;
 using namespace mlir::plan;
 using namespace mtrt::compiler;
 
+/// Run clustering analysis on a function to identify kernel segments.
+/// This function configures clustering options to identify operations that can
+/// be represented as GPU kernels and fuses elementwise operations into
+/// consumer clusters.
 static FailureOr<SmallVector<Cluster>>
 runClusteringTransforms(func::FuncOp func) {
   ClusteringOpts opts;
@@ -151,8 +155,8 @@ static Operation *createInlineGroupOp(OpBuilder &b, Location loc,
   return regionOp;
 }
 
-/// Return a 1-to-N type converter for scalarizing Tensor types to unpacked
-/// scalar types.
+/// Returns a type converter that converts signed and unsigned integer tensor
+/// types to signless integer tensor types.
 static TypeConverter getSignedToSignlessConverter() {
   // Add a type converter, target and source materialization to convert
   // `tensor<1xdtype>` to `dtype` and back.
@@ -197,6 +201,7 @@ static TypeConverter getSignedToSignlessConverter() {
   return typeConverter;
 }
 
+/// Returns options for outlining cluster regions into separate functions.
 static OutlineRegionOptions
 getClusterOutliningOptions(MLIRContext *ctx, SymbolTable &symbolTable) {
   OpBuilder b(ctx);
