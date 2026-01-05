@@ -41,7 +41,7 @@ using namespace mlir;
 //===----------------------------------------------------------------------===//
 
 void TensorRTExtension::populatePasses(mlir::OpPassManager &pm,
-                                       Phase phase) const {
+                                       ExtensionPoint point) const {
   const MainOptions &options = this->getOptions();
 
   // Currently we only use the Linalg input kind for testing kernel generation
@@ -55,13 +55,13 @@ void TensorRTExtension::populatePasses(mlir::OpPassManager &pm,
 
   // Clustering phases are only applicable to Stablehlo input.
   if (options.inputKind == plan::InputKind::Stablehlo) {
-    if (phase == Phase::PreClustering) {
+    if (point == ExtensionPoint::PreClustering) {
       // We must materialize TRT plugin shape regions prior to clustering.
       pm.addNestedPass<func::FuncOp>(tensorrt::createInferPluginShapesPass());
       return;
     }
 
-    if (phase == Phase::PostClustering) {
+    if (point == ExtensionPoint::PostClustering) {
       ConvertStablehloToTensorRTPassOptions convertOpts{};
       convertOpts.preferEinsum =
           options.get<TensorRTOptions>().tensorrtPreferEinsum;
@@ -71,7 +71,7 @@ void TensorRTExtension::populatePasses(mlir::OpPassManager &pm,
     }
   }
 
-  if (phase == Phase::PreBufferization) {
+  if (point == ExtensionPoint::PreBufferization) {
 
     // Simplify and translate functions nested in `tensorrt.module` ops.
     auto &trtPM = pm.nest<tensorrt::TensorRTModuleOp>();
@@ -90,10 +90,10 @@ void TensorRTExtension::populatePasses(mlir::OpPassManager &pm,
     return;
   }
 
-  if (phase == Phase::PostBufferization)
+  if (point == ExtensionPoint::PostBufferization)
     return;
 
-  if (phase == Phase::ExecutorLowering) {
+  if (point == ExtensionPoint::ExecutorLowering) {
     switch (options.hostTarget) {
     case HostTarget::Executor: {
       ConvertTensorRTRuntimeToExecutorPassOptions toExecutorOpts;

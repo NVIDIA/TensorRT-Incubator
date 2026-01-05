@@ -10,16 +10,20 @@
 
 namespace mtrt::compiler {
 
-/// Phase describes the overall phases of the compilation pipeline. Not all
-/// phases are applicable to all tasks.
-enum class Phase {
-  ConstantFolding,
-  PreClustering,
-  PostClustering,
-  PreBufferization,
-  PostBufferization,
-  ExecutorLowering
+/// ExtensionPoint describes fine-grained injection points within the pipeline
+/// where extensions can add passes. Each extension point belongs to a
+/// containing Phase (defined in Options.h).
+enum class ExtensionPoint {
+  ConstantFolding,   // During Input phase (Stablehlo only)
+  PreClustering,     // Before Clustering
+  PostClustering,    // After Clustering
+  PreBufferization,  // Before Bufferization
+  PostBufferization, // After Bufferization
+  ExecutorLowering   // During Lowering
 };
+
+/// Returns the Phase that contains the given ExtensionPoint.
+Phase getPhaseForExtensionPoint(ExtensionPoint point);
 
 //===----------------------------------------------------------------------===//
 // Pipeline
