@@ -28,12 +28,13 @@ function(mtrt_use_compiler_cache)
   # Use a cache variable so the user can override this
   set(CCACHE_ENV
     "CCACHE_CPP2=true"
+    "CCACHE_BASEDIR=${CMAKE_SOURCE_DIR}"
     CACHE STRING "List of environment variables for ccache, each in key=value form"
     )
 
   if(CMAKE_GENERATOR MATCHES "Ninja|Makefiles")
     foreach(lang IN ITEMS C CXX CUDA)
-      set(cmd ${CMAKE_COMMAND} -E env ${CCACHE_ENV} ${CCACHE_EXECUTABLE})
+      set(cmd ${CMAKE_COMMAND} -E env ${CCACHE_ENV} -- ${CCACHE_EXECUTABLE})
       set(CMAKE_${lang}_COMPILER_LAUNCHER
         ${cmd}
         PARENT_SCOPE

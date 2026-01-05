@@ -21,8 +21,8 @@
 /// Utilities for querying information about or manipulating module-like ops.
 ///
 //===----------------------------------------------------------------------===//
-#ifndef MLIR_TENSORRT_UTILS_MODULEUTILS
-#define MLIR_TENSORRT_UTILS_MODULEUTILS
+#ifndef MLIR_TENSORRT_COMMON_UTILS_MODULEUTILS
+#define MLIR_TENSORRT_COMMON_UTILS_MODULEUTILS
 
 #include "mlir/IR/Operation.h"
 
@@ -60,4 +60,4 @@ LogicalResult getFuncOpsOrderedByCalls(
     const std::function<bool(FunctionOpInterface)> &filter = nullptr);
 } // namespace mlir
 
-#endif // MLIR_TENSORRT_UTILS_MODULEUTILS
+#endif // MLIR_TENSORRT_COMMON_UTILS_MODULEUTILS

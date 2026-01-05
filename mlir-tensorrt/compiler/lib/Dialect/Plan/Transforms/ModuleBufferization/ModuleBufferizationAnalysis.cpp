@@ -14,8 +14,8 @@
 /// Implementation of the Plan bufferization analysis.
 ///
 //===----------------------------------------------------------------------===//
+#include "mlir-tensorrt-common/Utils/ModuleUtils.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/ModuleBufferization/ModuleBufferization.h"
-#include "mlir-tensorrt/Utils/ModuleUtils.h"
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
 #include "mlir/Dialect/Bufferization/Transforms/FuncBufferizableOpInterfaceImpl.h"
 #include "mlir/Dialect/Bufferization/Transforms/OneShotAnalysis.h"

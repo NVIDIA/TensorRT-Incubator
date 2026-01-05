@@ -25,9 +25,9 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-executor/Executor/IR/ExecutorAttributes.h"
 #include "mlir-executor/Executor/Transforms/BufferizationOpInterfaceImpls.h"
+#include "mlir-tensorrt-common/Utils/ModuleUtils.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/ModuleBufferization/ModuleBufferization.h"
-#include "mlir-tensorrt/Utils/ModuleUtils.h"
 #include "mlir/Analysis/CallGraph.h"
 #include "mlir/Dialect/Bufferization/Transforms/OneShotAnalysis.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
