@@ -1,8 +1,3 @@
-# Hide symbols by default. We only want to export the "GetPjrtApi" top level
-# function.
-set(CMAKE_CXX_VISIBILITY_PRESET hidden)
-set(CMAKE_VISIBILITY_INLINES_HIDDEN YES)
-
 # Add the plugin library
 function(add_pjrt_library name is_shared)
   add_library(${name} ${ARGN}
@@ -38,6 +33,9 @@ function(add_pjrt_library name is_shared)
     # Write the header file declaring the symbol visibility macros.
     include(GenerateExportHeader)
     generate_export_header(${name} BASE_NAME MLIR_TRT_PJRT)
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+      target_link_options(${name} PRIVATE "-Wl,-exclude-libs,ALL")
+    endif()
   endif()
 
   if(is_shared)

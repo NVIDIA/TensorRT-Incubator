@@ -192,7 +192,7 @@ static void cudaFreeHostWrapper(uintptr_t ptr) {
 #ifdef MLIR_TRT_ENABLE_CUDA
   Status status = mtrt::freeCUDAPinnedHost(ptr);
   if (!status.isOk()) {
-    llvm::errs() << llvm::formatv("'cudaFreeHost' error: ({0}) {1}\n",
+    llvm::errs() << llvm::formatv("'cudaFreeHost' error: {0}\n",
                                   status.getMessage());
     return;
   }
