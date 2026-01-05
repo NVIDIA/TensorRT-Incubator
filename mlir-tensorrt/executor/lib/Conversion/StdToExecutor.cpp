@@ -536,6 +536,7 @@ public:
 
       ExecutorConversionTarget target(getContext());
       target.addIllegalDialect<arith::ArithDialect>();
+      target.addIllegalDialect<math::MathDialect>();
       target.addDynamicallyLegalOp<func::FuncOp>([&](func::FuncOp op) {
         return typeConverter.isSignatureLegal(op.getFunctionType()) &&
                typeConverter.isLegal(&op.getBody());
