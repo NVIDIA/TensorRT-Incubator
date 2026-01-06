@@ -1,6 +1,9 @@
+set(CMAKE_CXX_VISIBILITY_PRESET hidden)
+set(CMAKE_VISIBILITY_INLINES_HIDDEN YES)
+
 # Add the plugin library
-function(add_pjrt_library name is_shared)
-  add_library(${name} ${ARGN}
+function(add_pjrt_library name)
+  add_library(${name} SHARED
     API.cpp
     "${MLIR_TRT_XLA_SOURCE_DIR}/xla/pjrt/c/pjrt_c_api.h"
   )
@@ -29,26 +32,21 @@ function(add_pjrt_library name is_shared)
 
   mtrt_require_defined_symbols(${name})
 
-  if(is_shared)
-    # Write the header file declaring the symbol visibility macros.
-    include(GenerateExportHeader)
-    generate_export_header(${name} BASE_NAME MLIR_TRT_PJRT)
-    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-      target_link_options(${name} PRIVATE "-Wl,-exclude-libs,ALL")
-    endif()
-  endif()
+  # Write the header file declaring the symbol visibility macros.
+  include(GenerateExportHeader)
+  generate_export_header(${name} BASE_NAME MLIR_TRT_PJRT)
 
-  if(is_shared)
-    install(TARGETS ${name}
-      LIBRARY DESTINATION
-      "python_packages/mlir_tensorrt_jax/mlir_tensorrt_jax"
-    )
-  endif()
+  # On Linux, disable re-export of any static linked libraries that
+  # came through.
+  target_link_options(${name} PRIVATE
+    $<$<PLATFORM_ID:Linux>:LINKER:--exclude-libs,ALL>
+  )
+
+
+  install(TARGETS ${name}
+    LIBRARY DESTINATION
+    "python_packages/mlir_tensorrt_jax/mlir_tensorrt_jax"
+  )
 endfunction()
 
-add_pjrt_library(mlir-tensorrt-pjrt 1 SHARED)
-
-# Build static library just for testing use-cases.
-add_pjrt_library(mlir-tensorrt-pjrt-static 0)
-set_property(TARGET mlir-tensorrt-pjrt-static
-  PROPERTY EXCLUDE_FROM_ALL TRUE)
+add_pjrt_library(mlir-tensorrt-pjrt)
