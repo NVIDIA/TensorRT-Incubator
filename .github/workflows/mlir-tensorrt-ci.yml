@@ -10,11 +10,10 @@ on:
     # this is for release CI
     tags:
       # release tag example: mlir-tensorrt-v0.4.3 or mlir-tensorrt-v0.4.3dev20251212
-      - 'mlir-tensorrt-v.*'
+      - 'mlir-tensorrt-v*'
   workflow_dispatch:
-  # this is for nightly CI, it will be automatically triggered by the schedule on main branch only
-  # schedule:
-  #   - cron: '0 0 * * *'  # Runs at 00:00 UTC every day (minute hour day-of-month month-of-year day-of-week)
+  schedule:
+    - cron: '0 0 * * *'  # Runs at 00:00 UTC every day (minute hour day-of-month month-of-year day-of-week)
 
 env:
   DEFAULT_IMAGE: ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda12.9-ubuntu24.04-0.1
