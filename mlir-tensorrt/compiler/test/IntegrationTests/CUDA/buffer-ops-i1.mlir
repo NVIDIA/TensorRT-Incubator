@@ -1,15 +1,14 @@
 // REQUIRES: host-has-at-least-1-gpus
-// RUN: mlir-tensorrt-opt %s -convert-memref-to-cuda -convert-plan-to-executor -convert-cuda-to-executor -executor-lowering-pipeline \
-// RUN:   | mlir-tensorrt-translate -mlir-to-runtime-executable \
+// RUN: mlir-tensorrt-compiler %s --phase-start=lowering --disable-all-extensions -o - \
 // RUN:   | mlir-tensorrt-runner -input-type=rtexe -features=core,cuda | FileCheck %s
 
 !descriptor1D = !executor.table<!executor.ptr<device>, !executor.ptr<device>, index, index, index>
-!hostMemRef = memref<4xf16, #plan.memory_space<host_pinned>>
-!devMemRef = memref<4xf16, #plan.memory_space<device>>
+!hostMemRef = memref<4xi1, #plan.memory_space<host>>
+!devMemRef = memref<4xi1, #plan.memory_space<device>>
 
 
-memref.global @host_buffer : !hostMemRef = dense<0.0>
-memref.global @cuda_buffer : !devMemRef = dense<0.0>
+memref.global @host_buffer : !hostMemRef = dense<0>
+memref.global @cuda_buffer : !devMemRef = dense<0>
 
 func.func @main() -> i32{
   %c0 = arith.constant 0 : i32
@@ -26,14 +25,16 @@ func.func @main() -> i32{
 
   %0 = scf.if %has_cuda_device -> i32 {
     executor.print "start!"()
-    %host_memref = memref.alloc() : !hostMemRef
+    %host_memref = memref.get_global @host_buffer: !hostMemRef
     %device_memref = memref.get_global @cuda_buffer: !devMemRef
 
-    %c1f = arith.constant 1.51 : f16
+    %c1b = arith.constant 1 : i1
 
     // Fill the host buffer.
     scf.for %i = %c0_index to %c4 step %c1_index {
-       memref.store %c1f, %host_memref[%i] : !hostMemRef
+       %ld = memref.load %host_memref[%i] : !hostMemRef
+       %x = executor.bitwise_ori %ld, %c1b : i1
+       memref.store %x, %host_memref[%i] : !hostMemRef
     }
 
     // Copy host -> device then device -> host
@@ -45,10 +46,8 @@ func.func @main() -> i32{
     // Print the host buffer
     scf.for %i = %c0_index to %c4 step %c1_index {
       %value = memref.load %host_memref[%i] : !hostMemRef
-      executor.print "host_memref[%i] = %s"(%i, %value : index, f16)
+      executor.print "host_memref[%i] = %d"(%i, %value : index, i1)
     }
-
-    memref.dealloc %host_memref : !hostMemRef
 
     executor.print "done!"()
     scf.yield %c0 : i32
@@ -61,8 +60,8 @@ func.func @main() -> i32{
 
 // CHECK: found {{[0-9]+}} cuda devices
 // CHECK: start!
-// CHECK: host_memref[0] = 1.50977
-// CHECK: host_memref[1] = 1.50977
-// CHECK: host_memref[2] = 1.50977
-// CHECK: host_memref[3] = 1.50977
+// CHECK: host_memref[0] = 1
+// CHECK: host_memref[1] = 1
+// CHECK: host_memref[2] = 1
+// CHECK: host_memref[3] = 1
 // CHECK: done!
