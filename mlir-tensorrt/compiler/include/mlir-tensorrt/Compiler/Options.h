@@ -38,6 +38,7 @@
 #include "llvm/ADT/SmallVectorExtras.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ErrorHandling.h"
+#include <optional>
 #include <string>
 
 namespace mtrt::compiler {
@@ -198,6 +199,32 @@ struct EmitCOptions : public mlir::OptionsGroup {
   using OptionsGroup::OptionsGroup;
 
   static llvm::cl::OptionCategory category;
+
+  Option<bool> emitSupportFiles{
+      this->ctx, "emitc-emit-support-files", llvm::cl::init(false),
+      llvm::cl::desc(
+          "Emit EmitC support files (runtime sources/headers, example CMake, "
+          "and a test driver) into the artifacts directory."),
+      llvm::cl::cat(category)};
+
+  Option<bool> emitRuntimeFiles{
+      this->ctx, "emitc-emit-runtime-files", llvm::cl::init(false),
+      llvm::cl::desc("Emit the required subset of StandaloneCPP runtime source "
+                     "and header files needed by the generated C++ code."),
+      llvm::cl::cat(category)};
+
+  Option<bool> emitCMakeFile{
+      this->ctx, "emitc-emit-cmake-file", llvm::cl::init(false),
+      llvm::cl::desc("Emit an example CMake file for compiling the generated "
+                     "C++ code (and emitted runtime files, if requested)."),
+      llvm::cl::cat(category)};
+
+  Option<bool> emitTestDriver{
+      this->ctx, "emitc-emit-test-driver", llvm::cl::init(false),
+      llvm::cl::desc("Emit a C++ test driver source file for building an "
+                     "executable that includes and runs the generated C++ "
+                     "code."),
+      llvm::cl::cat(category)};
 
   Option<bool> wrapModuleInEmitCClass{
       this->ctx, "emitc-wrap-in-class", llvm::cl::init(false),
@@ -446,6 +473,22 @@ public:
   // Options common to all tasks
   //===----------------------------------------------------------------------===//
 
+  /// Output directory or file name for the translated host-target output.
+  ///
+  /// This option is only registered in the global CLI scope. It is
+  /// intentionally not registered for locally-scoped option parsing (e.g.
+  /// `MainOptions::fromString`) to avoid duplicate option registrations and to
+  /// keep local parsing focused on pipeline behavior rather than tool output.
+  std::optional<Option<std::string>> outputPath;
+
+  /// Returns the output path value. If the option is not registered (local
+  /// scope), returns ".".
+  llvm::StringRef getOutputPath() const {
+    if (outputPath)
+      return outputPath->getValue();
+    return ".";
+  }
+
   Option<HostTarget> hostTarget{
       *this,
       "host-target",
@@ -599,6 +642,13 @@ public:
   MainOptions(mlir::CLOptionScope::GlobalScope, ExtensionList extensions)
       : mlir::CLOptionScope(GlobalScope{}), extensions(std::move(extensions)),
         groups(mlir::make_options_group_tuple<SubGroups>(*this)) {
+    // Register tool output path only in the global scope.
+    if (this->isGlobalScope()) {
+      outputPath.emplace(
+          *this, "o", llvm::cl::desc("<output directory or file name>"),
+          llvm::cl::init("."), llvm::cl::value_desc("directory or file"),
+          llvm::cl::cat(category));
+    }
     this->extensions.loadExtensions(*this);
   }
 

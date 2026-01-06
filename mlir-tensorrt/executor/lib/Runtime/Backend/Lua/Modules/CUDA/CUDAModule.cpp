@@ -29,7 +29,7 @@
 #include "mlir-executor/Runtime/Backend/Common/NvPtxCompilerUtils.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaErrorHandling.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaExtensionRegistry.h"
-#include "mlir-executor/Runtime/Backend/Lua/SolAdaptor.h"
+#include "mlir-executor/Runtime/Backend/Lua/SolAdaptor.h" // IWYU pragma: keep
 #include "mlir-executor/Runtime/Backend/Utils/NvtxUtils.h"
 #include "mlir-executor/Runtime/Support/Allocators.h"
 #include "mlir-executor/Runtime/Support/StridedCopy.h"
@@ -529,6 +529,28 @@ registerCudaMemoryManagementOps(sol::state_view &lua,
   };
 }
 
+static void
+registerDeviceDependentCudaMethods(lua_State *state,
+                                   const RuntimeSessionOptions &options) {
+  sol::state_view lua(state);
+
+  std::vector<int32_t> logicalDeviceIdToCUDAOrdinal =
+      options.getLogicalDeviceIdToCUDAOrdinal();
+
+  lua["__cuda_get_program_device"] =
+      [deviceIdMap = std::move(logicalDeviceIdToCUDAOrdinal)](
+          sol::this_state state, int32_t logicalId) {
+        if (static_cast<unsigned>(logicalId) >= deviceIdMap.size()) {
+          SET_LUA_ERROR_AND_RETURN_IF_ERROR(
+              getInternalErrorStatus("logical device ID {0} is out of range, "
+                                     "the number of per-program devices is {1}",
+                                     logicalId, deviceIdMap.size()),
+              state, 0);
+        }
+        return deviceIdMap[logicalId];
+      };
+}
+
 #if defined(__GNUC__) || defined(__clang__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmissing-prototypes"
@@ -542,6 +564,7 @@ void registerLuaCudaRuntimeExtension() {
         registerCudaOps(lua, args.allocTracker, args.resourceTracker);
         registerCudaMemoryManagementOps(lua, args.allocTracker,
                                         args.pinnedMemoryAllocator);
+        registerDeviceDependentCudaMethods(args.state, args.options);
       }});
 }
 } // namespace mtrt

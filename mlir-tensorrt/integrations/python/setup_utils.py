@@ -2,16 +2,17 @@
 Utility functions used in the setup.py files for the Python packages.
 """
 
+import atexit
 import datetime
 import os
 import re
 import shutil
-import sys
-from pathlib import Path
-import tempfile
-import setuptools
 import subprocess
-import atexit
+import sys
+import tempfile
+from pathlib import Path
+
+import setuptools
 
 TENSORRT_VERSION = os.getenv("MLIR_TRT_DOWNLOAD_TENSORRT_VERSION", "10.12")
 
@@ -62,6 +63,11 @@ def get_nightly_version() -> str:
     # For development builds, we append the date to the version.
     datestring = datetime.date.today().strftime("%Y%m%d")
     return append_version_feature_flags(f"{get_base_version()}.dev{datestring}")
+
+
+def get_pypi_version() -> str:
+    # wheel upload to pypi need to follow the version specification in https://packaging.python.org/en/latest/specifications/core-metadata/
+    return f"{get_base_version()}"
 
 
 def cleanup_dir(dir: Path, should_cleanup: bool, comment: str = ""):
@@ -154,7 +160,7 @@ def run_cmake_build(python_package_name: str, python_wheel_staging_dir: Path):
     log(f"Building MLIR-TensorRT in {build_dir}")
     log(f"Installing to {install_dir}")
 
-    # Retrieve the path to the isolated Python site where the wheel build is occuring.
+    # Retrieve the path to the isolated Python site where the wheel build is occurring.
     # That is where the Python build dependencies (the packages listed in
     # 'build-requires' in the pyproject.toml) are available. The actual CMake build
     # may invoke the Python interpreter (in order to e.g. generate custom MLIR files

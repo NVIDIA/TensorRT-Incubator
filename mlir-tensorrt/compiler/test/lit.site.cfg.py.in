@@ -18,8 +18,10 @@ config.host_cxx = "@HOST_CXX@"
 config.host_arch = "@HOST_ARCH@"
 config.python_executable = "@Python3_EXECUTABLE@"
 config.cuda_toolkit_linux_cxx_flags = "@EMITC_CUDA_CXX_FLAGS@"
+config.cuda_toolkit_root = "@CUDAToolkit_BIN_DIR@/.."
 config.enable_asan = @ENABLE_ASAN@
 config.tensorrt_lib_dir = "@MLIR_TRT_TENSORRT_LIB_DIR@"
+config.cmake_executable = "@CMAKE_COMMAND@"
 
 @MLIR_TRT_COMMON_LIT_CONFIG@
 

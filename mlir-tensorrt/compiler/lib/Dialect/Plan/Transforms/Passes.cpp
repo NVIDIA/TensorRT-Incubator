@@ -43,8 +43,7 @@ llvm::cl::OptionCategory plan::PlanClusteringOptions::category = {
 
 void plan::buildPlanSegmentationPipeline(
     OpPassManager &pm, int abiVersion, plan::InputKind inputKind,
-    bool entrypointUsesAllocCConv, llvm::StringRef entrypoint,
-    const plan::PlanClusteringOptions &opts) {
+    bool entrypointUsesAllocCConv, const plan::PlanClusteringOptions &opts) {
 
   {
     auto &funcPM = pm.nest<func::FuncOp>();
@@ -64,7 +63,6 @@ void plan::buildPlanSegmentationPipeline(
 
   plan::ClusteringPassOptions clusteringOpts{};
   clusteringOpts.inputKind = inputKind;
-  clusteringOpts.entrypoint = entrypoint;
   pm.addPass(plan::createClusteringPass(clusteringOpts));
 
   plan::CreateClosedRegionsPassOptions closedRegionOptions{};
@@ -164,8 +162,6 @@ static void buildPlanBufferDeallocationPipeline(
 namespace {
 struct ClusteringPipelineCliOpts
     : public PassPipelineOptions<ClusteringPipelineCliOpts> {
-  Option<std::string> entrypoint{*this, "entrypoint", llvm::cl::init(""),
-                                 llvm::cl::desc("name of entrypoint function")};
   Option<bool> forceEntrypointsReturnAllocs{
       *this, "force-entrypoints-return-allocs", llvm::cl::init(false),
       llvm::cl::desc(
@@ -223,9 +219,8 @@ void plan::registerPlanDialectPipelines() {
       "apply the Plan Dialect segmentation pipeline",
       [](OpPassManager &pm, const ClusteringPipelineCliOpts &opts) {
         LocalScopedOptionsGroup<plan::PlanClusteringOptions> clusteringOpts;
-        buildPlanSegmentationPipeline(pm, /*abiVersion=*/1,
-                                      InputKind::Stablehlo,
-                                      opts.forceEntrypointsReturnAllocs,
-                                      opts.entrypoint, clusteringOpts.get());
+        buildPlanSegmentationPipeline(
+            pm, /*abiVersion=*/1, InputKind::Stablehlo,
+            opts.forceEntrypointsReturnAllocs, clusteringOpts.get());
       });
 }

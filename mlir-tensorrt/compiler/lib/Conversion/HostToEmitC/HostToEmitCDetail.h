@@ -187,6 +187,12 @@ struct EmitCCallBuilders {
       i32Type,
       {/*outDevice*/ emitc::PointerType::get(i32Type)}};
 
+  EmitCCallBuilder cudaGetProgramDevice = {
+      "mtrt::cuda_get_program_device",
+      i32Type,
+      {/*logicalDeviceId*/ i32Type,
+       /*outDevice*/ emitc::PointerType::get(i32Type)}};
+
   EmitCCallBuilder cudaStreamSync = {
       "mtrt::cuda_stream_sync", i32Type, {cuStreamType}};
 

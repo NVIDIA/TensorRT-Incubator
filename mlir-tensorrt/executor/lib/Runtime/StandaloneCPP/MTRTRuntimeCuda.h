@@ -36,6 +36,9 @@ namespace mtrt {
 /// Return the current CUDA device.
 Status cuda_get_current_device(int32_t *outDevice);
 
+/// Return the CUDA device ordinal associated with a program logical device.
+Status cuda_get_program_device(int32_t logicalDevice, int32_t *outDevice);
+
 /// Synchronize a CUDA stream.
 Status cuda_stream_sync(CUstream stream);
 

@@ -2,21 +2,17 @@
 // REQUIRES: cuda
 // REQUIRES: system-linux
 
+// This test uses mlir-tensorrt-compiler with --phase-start=lowering (no class wrapper),
+// so the generated code already has main(). The driver just includes the generated cpp.
 // RUN: rm -rf %t/cpp || true
-// RUN: mkdir -p %t/cpp
-// RUN: mlir-tensorrt-opt %s -lower-affine -convert-host-to-emitc -cse -canonicalize -form-expressions \
-// RUN:   -executor-serialize-artifacts="artifacts-directory=%t/cpp create-manifest=true" \
-// RUN:   --mlir-print-op-generic | \
-// RUN: mlir-tensorrt-translate -mlir-to-cpp | tee %t/cpp/cuda-copy.cpp
-// RUN: %host_cxx \
-// RUN:   %t/cpp/cuda-copy.cpp \
-// RUN:   %mtrt_src_dir/executor/lib/Runtime/StandaloneCPP/MTRTRuntimeStatus.cpp \
-// RUN:   %mtrt_src_dir/executor/lib/Runtime/StandaloneCPP/MTRTRuntimeCore.cpp \
-// RUN:   %mtrt_src_dir/executor/lib/Runtime/StandaloneCPP/MTRTRuntimeCuda.cpp \
-// RUN:  -I%mtrt_src_dir/executor/lib/Runtime/StandaloneCPP \
-// RUN:  %cuda_toolkit_linux_cxx_flags \
-// RUN:  -o %t/cpp/cuda-copy-test
-// RUN: cd %t/cpp && ./cuda-copy-test | FileCheck %s
+// RUN: mkdir -p %t/cpp %t/cpp/build
+// RUN: mlir-tensorrt-compiler %s --phase-start=lowering -host-target=emitc \
+// RUN:   -emitc-emit-support-files -emitc-emit-cmake-file \
+// RUN:   -artifacts-dir=%t/cpp -o %t/cpp/cuda-copy.cpp
+// RUN: echo '#include "cuda-copy.cpp"' > %t/cpp/emitc_support/emitc_test_driver.cpp
+// RUN: %cmake -S %t/cpp -B %t/cpp/build -DCUDAToolkit_ROOT=%cuda_toolkit_root
+// RUN: %cmake --build %t/cpp/build
+// RUN: cd %t/cpp && ./build/emitc_test | FileCheck %s
 
 #device = #plan.memory_space<device>
 #host = #plan.memory_space<host_pinned>

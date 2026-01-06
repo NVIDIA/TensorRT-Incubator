@@ -1,6 +1,6 @@
 //===- CanonicalizeShapes.cpp ---------------------------------------------===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2024-2026 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -21,10 +21,12 @@
 /// Implementation of "stablehlo-ext-canonicalize-shapes".
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt-dialect/Utils/ShapeUtils.h"
+#include "mlir-tensorrt-common/Utils/ModuleUtils.h"
 #include "mlir-tensorrt/Dialect/StablehloExt/Transforms/Passes.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Pass/PassManager.h"
+#include "mlir/Rewrite/FrozenRewritePatternSet.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "stablehlo/transforms/Passes.h"
 #include "stablehlo/transforms/StablehloRefineShapes.h"
@@ -39,45 +41,44 @@ namespace mlir::stablehlo_ext {
 using namespace mlir;
 using namespace mlir::stablehlo_ext;
 
+/// Returns the unique entrypoint function of the module if present. Otherwise,
+/// it returns nullptr. Stablehlo's `stablehlo-refine-shapes` implements a
+/// limited refinement algorithm that only supports a single unique entrypoint
+/// function. To be conservative, we additionally check that the callgraph
+/// contains no recursion since the Stablehlo documentation does not explicitly
+/// state what is supported.
+static func::FuncOp getUniqueEntrypointFunction(ModuleOp module) {
+  SmallVector<FunctionOpInterface> funcs, remainingFuncs;
+  if (failed(mlir::getFuncOpsOrderedByCalls(ModuleLikeOp(module), funcs,
+                                            remainingFuncs)))
+    return nullptr;
+  if (!remainingFuncs.empty())
+    return nullptr;
+  func::FuncOp entrypoint{nullptr};
+  for (FunctionOpInterface func : funcs) {
+    if (!func.getFunctionBody().hasOneBlock())
+      return nullptr;
+    if (!func.isPublic())
+      continue;
+    if (!isa<func::FuncOp>(func.getOperation()))
+      return nullptr;
+    if (entrypoint)
+      return nullptr;
+    entrypoint = cast<func::FuncOp>(func.getOperation());
+  }
+  return entrypoint;
+}
+
 namespace {
 
-/// Upstream StableHLO pattern uses `builtin.unrealized_cast` while we prefer to
-/// use `tensor.cast` due to better verification. Other passes may create such
-/// `tensor.cast`, this pattern absorbs them into function return and refines
-/// the function type.
-struct AbsorbCastsIntoFuncReturnPattern
-    : public OpRewritePattern<func::ReturnOp> {
+struct ReturnCastRewritePattern : public OpRewritePattern<tensor::CastOp> {
   using OpRewritePattern::OpRewritePattern;
-  LogicalResult matchAndRewrite(func::ReturnOp op,
+  LogicalResult matchAndRewrite(tensor::CastOp op,
                                 PatternRewriter &rewriter) const override {
-    bool needsUpdate = false;
-    SmallVector<Value> newOperands(op->getOperands());
-    for (auto [i, operand] : llvm::enumerate(op.getOperands())) {
-      auto castOp = dyn_cast_or_null<tensor::CastOp>(operand.getDefiningOp());
-      if (!castOp || !isa<RankedTensorType>(castOp.getType()) ||
-          !isa<RankedTensorType>(castOp.getSource().getType()) ||
-          !tensorrt::isTargetRefinementOfSource(
-              castOp.getType().getShape(),
-              castOp.getSource().getType().getShape()))
-        continue;
-      newOperands[i] = castOp.getSource();
-      needsUpdate = true;
-    }
-    if (!needsUpdate)
+    if (!llvm::any_of(op->getUsers(), llvm::IsaPred<func::ReturnOp>))
       return failure();
-
-    rewriter.modifyOpInPlace(
-        op, [&]() { op.getOperandsMutable().assign(newOperands); });
-
-    // If the type of the enclosing `func.func` needs an update, we simply
-    // call setType. We can afford this simplicity because our algorithm
-    // currently supports only one function per module.
-
-    auto func = cast<func::FuncOp>(op->getParentOp());
-    rewriter.modifyOpInPlace(func, [&]() {
-      func.setType(rewriter.getFunctionType(func.getArgumentTypes(),
-                                            TypeRange(newOperands)));
-    });
+    rewriter.replaceOpWithNewOp<UnrealizedConversionCastOp>(op, op.getType(),
+                                                            op.getSource());
     return success();
   }
 };
@@ -88,38 +89,49 @@ class RefineShapesPass
 public:
   using Base::Base;
 
-  stablehlo::StablehloAggressiveFolderPassOptions foldOptions{};
+  LogicalResult initialize(MLIRContext *context) override {
+    folderOptions =
+        std::make_shared<stablehlo::StablehloAggressiveFolderPassOptions>();
+    folderOptions->optimizeFloat = false;
+    folderOptions->foldOpElementLimit = 128;
 
-  LogicalResult initialize(MLIRContext *ctx) override {
+    patterns = [&]() {
+      RewritePatternSet patterns_(context);
+      stablehlo::populateStablehloRefineShapesPatterns(context, &patterns_);
+      stablehlo::populateStablehloShapeFolderPatterns(context, &patterns_,
+                                                      *folderOptions);
+      return FrozenRewritePatternSet(std::move(patterns_));
+    }();
 
-    RewritePatternSet patterns_(ctx);
-    stablehlo::populateStablehloRefineShapesPatterns(ctx, &patterns_);
-    foldOptions.optimizeFloat = false;
-    stablehlo::populateStablehloAggressiveFolderPatterns(ctx, &patterns_,
-                                                         foldOptions);
-    patterns_.add<AbsorbCastsIntoFuncReturnPattern>(ctx);
-    patterns = std::move(patterns_);
     return success();
   }
 
   void runOnOperation() override {
-    // We don't consider failure to converge here an error.
-    auto config =
-        GreedyRewriteConfig()
-            .setUseTopDownTraversal(true)
-            .setRegionSimplificationLevel(GreedySimplifyRegionLevel::Aggressive)
-            .setMaxIterations(4)
-            .setMaxNumRewrites(GreedyRewriteConfig::kNoLimit)
-            .setStrictness(GreedyRewriteStrictness::AnyOp);
+    ModuleOp module = getOperation();
+    if (interprocedural) {
+      if (func::FuncOp entrypoint = getUniqueEntrypointFunction(module)) {
+        if (failed(stablehlo::refineEntryFunction(
+                getContext(), entrypoint, [](RewritePatternSet *patterns) {
+                  patterns->add<ReturnCastRewritePattern>(
+                      patterns->getContext());
+                })))
+          return signalPassFailure();
 
-    Operation *root = getOperation();
-    if (failed(applyPatternsGreedily(root, patterns, config)))
-      emitWarning(root->getLoc()) << getArgument() << " failed to converge in "
-                                  << config.getMaxIterations() << " iterations";
+        return;
+      }
+    }
+    // We can't refine functions, but fallback to refining individual
+    // operations.
+    if (failed(applyPatternsGreedily(module, patterns))) {
+      emitError(module.getLoc())
+          << "failed to apply patterns in " << getArgument() << "\n";
+      return signalPassFailure();
+    }
   }
 
-private:
   FrozenRewritePatternSet patterns;
+  std::shared_ptr<stablehlo::StablehloAggressiveFolderPassOptions>
+      folderOptions{nullptr};
 };
 } // namespace
 

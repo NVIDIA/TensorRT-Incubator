@@ -23,8 +23,8 @@ jobs:
       # eg. 10.12 or 10.13
       MLIR_TRT_DOWNLOAD_TENSORRT_VERSION: ${{ matrix.trt }}
       ARCH: ${{ matrix.arch }}
-      CMAKE_PRESET: distribution-wheels
-      CCACHE_RESTORE_KEY: mlir-tensorrt-ccache-v1-${{ matrix.arch }}-distribution-wheels
+      CMAKE_PRESET: ${{ matrix.cmake_preset }}
+      CCACHE_RESTORE_KEY: mlir-tensorrt-ccache-v1-${{ matrix.arch }}-${{ matrix.cmake_preset }}
       CPM_RESTORE_KEY: mlir-tensorrt-cpm-v1
     runs-on: ${{ matrix.github_runner }}
     timeout-minutes: 120

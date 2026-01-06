@@ -1,31 +1,31 @@
 // REQUIRES: host-has-at-least-1-gpus
 // REQUIRES: cuda
 // REQUIRES: system-linux
-//
-// RUN: rm -rf %t || true
-// RUN: mkdir -p %t
-// RUN: cp %S/cuda-launch-kernel.ptx $PWD/kernels.ptx
-// RUN: mlir-tensorrt-opt %s -lower-affine -convert-host-to-emitc -cse -canonicalize -form-expressions \
-// RUN:   -executor-serialize-artifacts="artifacts-directory=%t create-manifest=true" \
-// RUN:   --mlir-print-op-generic | \
-// RUN: mlir-tensorrt-translate -mlir-to-cpp | tee %t/cuda-launch-argpack.cpp
-// RUN: %host_cxx \
-// RUN:   %t/cuda-launch-argpack.cpp \
-// RUN:   %mtrt_src_dir/executor/lib/Runtime/StandaloneCPP/MTRTRuntimeStatus.cpp \
-// RUN:   %mtrt_src_dir/executor/lib/Runtime/StandaloneCPP/MTRTRuntimeCore.cpp \
-// RUN:   %mtrt_src_dir/executor/lib/Runtime/StandaloneCPP/MTRTRuntimeCuda.cpp \
-// RUN:   %S/cuda-launch-argpack_driver.cpp \
-// RUN:  -I%mtrt_src_dir/executor/lib/Runtime/StandaloneCPP \
-// RUN:  %cuda_toolkit_linux_cxx_flags \
-// RUN:  -o cuda-launch-argpack-test
-// RUN: env MTRT_ARTIFACTS_DIR=%t ./cuda-launch-argpack-test | FileCheck %s
-//
+
 // This test validates the EmitC lowering for `cuda.launch` argument packing:
 // the generated C++ must materialize locals for each parameter and pass a
 // `void* argv[]` array to the CUDA driver launch API.
 
+// RUN: rm -rf %t || true
+// RUN: mkdir -p %t %t/build
+// RUN: cp %S/cuda-launch-kernel.ptx $PWD/kernels.ptx
+// RUN: mlir-tensorrt-compiler %s --phase-start=lowering -host-target=emitc \
+// RUN:   -emitc-emit-support-files -emitc-emit-cmake-file \
+// RUN:   -artifacts-dir=%t -o %t/cuda-launch-argpack.cpp
+// RUN: echo '#include "cuda-launch-argpack.cpp"' > %t/emitc_support/emitc_test_driver.cpp
+// RUN: cat %S/cuda-launch-argpack_driver.cpp >> %t/emitc_support/emitc_test_driver.cpp
+// RUN: %cmake -S %t -B %t/build -DCUDAToolkit_ROOT=%cuda_toolkit_root
+// RUN: %cmake --build %t/build
+// RUN: env MTRT_ARTIFACTS_DIR=%t %t/build/emitc_test | FileCheck %s
+
+// Now test the errors generated when there are missing artifacts.
+// RUN: rm %t/cuda_launch_argpack_test/kernels.ptx
+// RUN: env MTRT_ARTIFACTS_DIR=%t not %t/build/emitc_test 2>&1 | FileCheck %s --check-prefix=ERR
+
 #device = #plan.memory_space<device>
 #host = #plan.memory_space<host_pinned>
+
+module @cuda_launch_argpack_test {
 
 // A tiny PTX kernel:
 //   out[offset + idx] = in[offset + idx] + scalar  (for idx < n)
@@ -128,3 +128,11 @@ func.func @run() -> i32 {
 // CHECK: out[13] = 13.000000
 // CHECK: out[14] = 14.000000
 // CHECK: out[15] = 15.000000
+
+}
+
+// ERR: Error opening file 'cuda_launch_argpack_test/kernels.ptx'.
+// ERR: Tried:
+// ERR:   - {{.*}}/cuda_launch_argpack_test/kernels.ptx
+// ERR:   - cuda_launch_argpack_test/kernels.ptx
+// ERR: Hint: set MTRT_ARTIFACTS_DIR to the directory containing manifest.json

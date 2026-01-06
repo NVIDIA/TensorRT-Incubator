@@ -1,7 +1,4 @@
 include(${CMAKE_CURRENT_LIST_DIR}/PJRTConfig.cmake)
-set(CMAKE_CXX_VISIBILITY_PRESET hidden)
-set(CMAKE_C_VISIBILITY_PRESET hidden)
-set(CMAKE_VISIBILITY_INLINES_HIDDEN YES)
 
 #-------------------------------------------------------------------------------
 # Project Setup

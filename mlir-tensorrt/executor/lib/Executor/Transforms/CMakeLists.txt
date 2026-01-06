@@ -3,6 +3,7 @@ add_mlir_executor_library(MLIRTensorRTExecutorTransforms
   BufferizationInterfacesImpl.cpp
   DecomposeAggregateLoadsAndStores.cpp
   EmulateUnsupportedFloats.cpp
+  ExpandMathOps.cpp
   ExpandOps.cpp
   GenerateABIWrappers.cpp
   LowerABIOps.cpp
@@ -32,6 +33,7 @@ add_mlir_executor_library(MLIRTensorRTExecutorTransforms
     MLIRControlFlowTransforms
     MLIRFuncDialect
     MLIRIR
+    MLIRMathTransforms
     MLIRMemRefTransforms
     MLIRPass
     MLIRReconcileUnrealizedCasts

@@ -43,6 +43,7 @@ inline llvm::cl::ValuesClass createInputKindClOptions() {
       clEnumValN(InputKind::TensorRT, "tensorrt", "TensorRT IR"),
       clEnumValN(InputKind::Linalg, "linalg", "Linalg IR"));
 }
+
 } // namespace detail
 
 struct ClusterTargetOption;
@@ -83,7 +84,6 @@ struct PlanClusteringOptions : public mlir::OptionsGroup {
 void buildPlanSegmentationPipeline(OpPassManager &pm, int abiVersion,
                                    plan::InputKind inputKind,
                                    bool entrypointUsesAllocCConv,
-                                   llvm::StringRef entrypoint,
                                    const plan::PlanClusteringOptions &opts);
 
 struct PlanBufferizationOptions {

@@ -463,11 +463,18 @@ struct CallPluginConversionPattern
     Value deviceId = this->getCUDADeviceId(rewriter, op->getLoc(),
                                            op->getParentOfType<ModuleOp>());
     // Get or create a CUDA stream for async operations. If not provided,
-    // use the default stream (index 0).
+    // pass a null stream.
     Value stream = adaptor.getStream();
     if (!stream) {
-      stream = this->getGlobalCudaStream(rewriter, op->getLoc(),
-                                         op->getParentOfType<ModuleOp>(), 0);
+      int64_t ptrWidth =
+          this->getDataLayout().getTypeSizeInBits(hostPointerType);
+      stream = rewriter.create<executor::ConstantOp>(
+          op->getLoc(),
+          rewriter.getZeroAttr(rewriter.getIntegerType(ptrWidth)));
+      stream = rewriter.create<executor::IntToPtrOp>(op->getLoc(),
+                                                     hostPointerType, stream);
+    } else if (stream.getType() != hostPointerType) {
+      return rewriter.notifyMatchFailure(op, "stream must be a host pointer");
     }
 
     // Parse the argument specification string to determine how to arrange

@@ -77,6 +77,13 @@ config.substitutions.append(
 )
 config.substitutions.append(("%nvinfer_lib_dir", config.tensorrt_lib_dir))
 
+# cmake-related substitutions for EmitC integration tests.
+config.substitutions.append(("%cmake", config.cmake_executable))
+config.substitutions.append(("%cuda_toolkit_root", config.cuda_toolkit_root))
+config.substitutions.append(
+    ("%tensorrt_root", os.path.join(config.tensorrt_lib_dir, ".."))
+)
+
 
 # Setup the parallelism groups. Note that just instantiating the TRT builder
 # requires ~2.5 GB of system memory, so we use 3.0 as a baseline limit.

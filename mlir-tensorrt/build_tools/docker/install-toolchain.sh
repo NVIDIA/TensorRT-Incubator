@@ -138,7 +138,11 @@ case "$DISTRO" in
   install_cmake
 
   DEV_TOOLS="git git-lfs ccache unzip mold sudo"
-  GCC_TOOLSET="gcc gcc-c++"
+  if [ "$DISTRO" = "rocky" ] && [ "$(rpm -E %{rhel})" = "8" ]; then
+    GCC_TOOLSET="gcc-toolset-11-gcc gcc-toolset-11-gcc-c++"
+  else
+    GCC_TOOLSET="gcc gcc-c++"
+  fi
   DEV_LIBS="zlib-devel bzip2 bzip2-devel readline-devel libsndfile"
   # Note: No libc++ package available in EPEL.
   LLVM_PACKAGES_ROCKY="clang lld lldb clang-tools-extra git-clang-format"

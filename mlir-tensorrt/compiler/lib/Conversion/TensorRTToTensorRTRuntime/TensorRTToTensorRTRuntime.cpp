@@ -27,6 +27,7 @@
 #include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
 #include "mlir-tensorrt/Conversion/Passes.h"
 #include "mlir-tensorrt/Dialect/CUDA/IR/CUDADialect.h"
+#include "mlir-tensorrt/Dialect/CUDA/Utils/CUDAUtils.h"
 #include "mlir-tensorrt/Dialect/TensorRTRuntime/IR/TensorRTRuntime.h"
 #include "mlir/Analysis/DataFlow/ConstantPropagationAnalysis.h"
 #include "mlir/Analysis/DataFlow/DeadCodeAnalysis.h"
@@ -107,11 +108,9 @@ TensorRTCallAndEngineConverter::convert(tensorrt::CallOp op,
   Location loc = op.getLoc();
   Value executionContext =
       rewriter.create<trtrt::GetFunctionOp>(loc, globalOp.getSymName());
-  Value device = rewriter.create<cuda::GetActiveDeviceOp>(loc);
-  Value stream = rewriter.create<cuda::GetGlobalStreamOp>(loc, device, 0);
+  Value stream = cuda::getOrCreateDefaultStream0(rewriter, op);
   ValueRange inputs = op.getInputs();
   ValueRange outputs = op.getOutputs();
-
   auto enqueueOp = rewriter.create<trtrt::EnqueueOp>(
       loc, executionContext, stream, inputs, outputs,
       /*host_tensors_args=*/hostTensorArgs.empty()
@@ -128,8 +127,7 @@ TensorRTCallAndEngineConverter::convert(tensorrt::CallAllocOp op,
   Location loc = op.getLoc();
   Value executionContext =
       rewriter.create<trtrt::GetFunctionOp>(loc, globalOp.getSymName());
-  Value device = rewriter.create<cuda::GetActiveDeviceOp>(loc);
-  Value stream = rewriter.create<cuda::GetGlobalStreamOp>(loc, device, 0);
+  Value stream = cuda::getOrCreateDefaultStream0(rewriter, op);
   ValueRange inputs = op.getInputs();
   auto enqueueOp = rewriter.create<trtrt::EnqueueAllocOp>(
       loc, op.getResultTypes(), executionContext, stream, inputs,

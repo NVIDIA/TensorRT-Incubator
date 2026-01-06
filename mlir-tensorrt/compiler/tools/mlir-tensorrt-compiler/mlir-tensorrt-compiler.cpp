@@ -50,11 +50,6 @@ static cl::opt<std::string> inputFilename(cl::Positional,
                                           cl::init("-"),
                                           cl::value_desc("filename"));
 
-static cl::opt<std::string>
-    outputPath("o", cl::desc("<output directory or file name>"), cl::init("."),
-               cl::value_desc("directory"), cl::cat(OptCat),
-               cl::sub(cl::SubCommand::getAll()));
-
 static cl::opt<bool>
     outputMLIR("mlir",
                cl::desc("output the MLIR instead of performing translation"),
@@ -133,7 +128,7 @@ runCompilation(CompilerClient &client, mlir::ModuleOp module,
     return failure();
 
   std::string errorMessage;
-  auto output = pipeline->openOutputFile(outputPath, errorMessage,
+  auto output = pipeline->openOutputFile(options->getOutputPath(), errorMessage,
                                          outputExtensionOverride);
   if (!output) {
     llvm::errs() << "failed to open output file: " << errorMessage << "\n";

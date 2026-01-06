@@ -391,20 +391,25 @@ registerExecutorNCCLModuleLuaRuntimeMethods(lua_State *state,
   registerNcclOps(lua, tracker);
 }
 
-static void registerDeviceDependentNCCLMethods(lua_State *state,
-                                               int32_t numDevices,
-                                               int32_t deviceIdx,
-                                               llvm::StringRef ncclUuid) {
+static void
+registerDeviceDependentNCCLMethods(lua_State *state,
+                                   const RuntimeSessionOptions &options) {
   sol::state_view lua(state);
-  lua["__spmd_global_num_ranks"] = [numDevices](sol::this_state state) {
-    return numDevices;
-  };
-  lua["__spmd_global_rank"] = [deviceIdx](sol::this_state state) {
+  lua["__spmd_global_num_ranks"] =
+      [numDevices = options.getNumDevices()](sol::this_state state) {
+        return numDevices;
+      };
+
+  StatusOr<int32_t> deviceId = options.getSpmdDeviceId();
+  mtrt::cantFail(deviceId);
+
+  lua["__spmd_global_rank"] = [deviceIdx = *deviceId](sol::this_state state) {
     return deviceIdx;
   };
 
   ncclUniqueId id;
-  std::copy_n(ncclUuid.begin(), ncclUuid.size(), id.internal);
+  std::copy_n(options.getNcclUuid().begin(), options.getNcclUuid().size(),
+              id.internal);
   lua["_get_nccl_unique_id"] = [id](sol::this_state state, int32_t rank) {
     return id;
   };
@@ -421,9 +426,8 @@ void registerLuaNcclRuntimeExtension() {
       "nccl", LuaRuntimeExtension{[](const LuaRuntimeExtensionInitArgs &args) {
         registerExecutorNCCLModuleLuaRuntimeMethods(args.state,
                                                     args.resourceTracker);
-        registerDeviceDependentNCCLMethods(
-            args.state, args.options.getNumDevices(),
-            args.options.getDeviceId(), args.options.getNcclUuid());
+
+        registerDeviceDependentNCCLMethods(args.state, args.options);
       }});
 }
 } // namespace mtrt

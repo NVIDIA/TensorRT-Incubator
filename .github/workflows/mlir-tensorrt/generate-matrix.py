@@ -31,12 +31,19 @@ CUDA_TRT_VERSIONS_DICT = {
             "trt": "10.13",
         },
     ],
+    "pypi-release": [
+        {
+            "cuda": "13.0",
+            "trt": "10.13",
+        },
+    ],
 }
 
 ARCH_LIST_DICT = {
     "test": ["x86_64"],
     "release": ["x86_64", "aarch64"],
     "nightly": ["x86_64", "aarch64"],
+    "pypi-release": ["x86_64", "aarch64"],
 }
 
 GH_RUNNER_DICT = {
@@ -47,9 +54,8 @@ GH_RUNNER_DICT = {
 CMAKE_PRESET_DICT = {
     "nightly": "github-cicd",
     "test": "github-cicd",
-    # release should use the release wheel build preset
-    # TODO: add the release wheel build preset
-    "release": "github-cicd",
+    "release": "distribution-wheels",
+    "pypi-release": "distribution-wheels",
 }
 
 DOCKER_IMAGE_DICT = {
@@ -71,6 +77,9 @@ DOCKER_IMAGE_DICT = {
             "13.0": "ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda13.0-rockylinux9-0.1",
         },
     },
+    "pypi-release": {
+        "13.0": "ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda13.0-rockylinux8-0.1",
+    },
 }
 
 
@@ -84,9 +93,9 @@ def main(args: list[str]) -> None:
     )
 
     options = parser.parse_args(args)
-    if options.channel not in ("nightly", "test", "release"):
+    if options.channel not in ("nightly", "test", "release", "pypi-release"):
         raise Exception(
-            "--channel is invalid, please choose from nightly, test or release"
+            "--channel is invalid, please choose from nightly, test, release or pypi-release"
         )
 
     channel = options.channel

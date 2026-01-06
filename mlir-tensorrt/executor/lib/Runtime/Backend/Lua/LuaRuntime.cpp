@@ -98,9 +98,10 @@ void mtrt::registerLuaRuntimeExtensions() {
   registerLuaRuntimeExtension(
       "single-device",
       LuaRuntimeExtension{[](const LuaRuntimeExtensionInitArgs &args) {
-        registerDefaultDeviceDependentMethods(args.state,
-                                              args.options.getNumDevices(),
-                                              args.options.getDeviceId());
+        StatusOr<int32_t> deviceId = args.options.getSpmdDeviceId();
+        mtrt::cantFail(deviceId);
+        registerDefaultDeviceDependentMethods(
+            args.state, args.options.getNumDevices(), *deviceId);
       }});
 }
 
@@ -109,14 +110,15 @@ void mtrt::registerLuaRuntimeExtensions() {
 static Status maybeCheckForValidNcclUuid(const RuntimeSessionOptions &options) {
 #if MLIR_TRT_ENABLE_NCCL
 
+  MTRT_ASSIGN_OR_RETURN(int32_t deviceId, options.getSpmdDeviceId());
+
   if (options.getNumDevices() > 1 && options.getNcclUuid().empty())
     return getInternalErrorStatus(
         "number of devices is {0} but the NCCL UUID is empty",
         options.getNumDevices());
 
-  MTRT_DBG("creating session with DeviceID={0}/{1} UUID={2}",
-           options.getDeviceId(), options.getNumDevices(),
-           options.getNcclUuid());
+  MTRT_DBG("creating session with DeviceID={0}/{1} UUID={2}", deviceId,
+           options.getNumDevices(), options.getNcclUuid());
 
 #endif
   return getOkStatus();

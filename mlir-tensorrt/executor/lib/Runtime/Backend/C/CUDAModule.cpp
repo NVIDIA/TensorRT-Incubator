@@ -206,3 +206,11 @@ int32_t mtrt_cuda_get_current_device() {
   HANDLE_CUDART_ERROR(cudaGetDevice(&device), 0);
   return device;
 }
+
+int32_t mtrt_cuda_get_program_device(int32_t logicalId) {
+  assert(logicalId == 0 && "only single-device mode is supported");
+
+  int32_t deviceId = 0;
+  HANDLE_CUDART_ERROR(cudaGetDevice(&deviceId), 0);
+  return deviceId;
+}

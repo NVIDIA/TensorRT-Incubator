@@ -594,8 +594,8 @@ MTRT_Status
 mtrtRuntimeSessionOptionsCreate(int32_t numDevices, int32_t deviceId,
                                 MTRT_StringView ncclUuid,
                                 MTRT_RuntimeSessionOptions *options) {
-  RuntimeSessionOptions result(numDevices, deviceId,
-                               llvm::StringRef(ncclUuid.data, ncclUuid.length));
+  auto result = RuntimeSessionOptions::getSPMDOptions(
+      numDevices, deviceId, llvm::StringRef(ncclUuid.data, ncclUuid.length));
   *options = MTRT_RuntimeSessionOptions{
       /*ptr=*/new RuntimeSessionOptions(std::move(result))};
   return mtrtStatusGetOk();

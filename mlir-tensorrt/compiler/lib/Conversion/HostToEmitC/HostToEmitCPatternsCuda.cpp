@@ -131,6 +131,31 @@ struct CUDAGetCurrentDeviceConverter
   }
 };
 
+struct CUDAGetProgramDeviceConverter
+    : public EmitCConversionPattern<cuda::GetProgramDeviceOp> {
+  using EmitCConversionPattern::EmitCConversionPattern;
+
+  LogicalResult
+  matchAndRewrite(cuda::GetProgramDeviceOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    // Intended C++:
+    //   int32_t dev = 0;
+    //   int32_t st = mtrt::cuda_get_program_device(&dev);
+    //   mtrt::abort_on_error(st);
+    //   return dev;
+    Location loc = op.getLoc();
+    Value devVar = rewriter.create<emitc::VariableOp>(
+        loc, getLValueType(i32Type), rewriter.getI32IntegerAttr(0));
+    Value devAddr = getAddr(rewriter, loc, devVar);
+    Value st = builders.cudaGetProgramDevice.create(
+        rewriter, loc, {adaptor.getLogicalDevice(), devAddr});
+    emitStatusCheckOrAbort(rewriter, loc, st);
+    Value dev = rewriter.create<emitc::LoadOp>(loc, i32Type, devVar);
+    rewriter.replaceOp(op, dev);
+    return success();
+  }
+};
+
 struct CUDAStreamSyncConverter
     : public EmitCConversionPattern<cuda::StreamSyncOp> {
   using EmitCConversionPattern::EmitCConversionPattern;
@@ -317,7 +342,8 @@ void populateHostToEmitCCudaPatterns(RewritePatternSet &patterns,
                CudaCopyConverter<cuda::CopyD2DOp>,
                CudaCopyConverter<cuda::CopyD2HOp>,
                CudaCopyConverter<cuda::CopyH2DOp>, CudaDeallocConverter,
-               CUDAGetCurrentDeviceConverter, CUDAStreamSyncConverter>(
-      typeConverter, dataLayout, patterns.getContext());
+               CUDAGetCurrentDeviceConverter, CUDAGetProgramDeviceConverter,
+               CUDAStreamSyncConverter>(typeConverter, dataLayout,
+                                        patterns.getContext());
 }
 } // namespace mlir::host_to_emitc

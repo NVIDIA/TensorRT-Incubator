@@ -6,6 +6,7 @@ add_mlir_tensorrt_library(MLIRTensorRTKernelToCUDA
 
   LINK_LIBS PUBLIC
     MLIRTensorRTCUDADialect
+    MLIRTensorRTCUDAUtils
     MLIRTensorRTExecutorDialect
     MLIRTensorRTKernelDialect
   MLIR_LIBS PUBLIC
@@ -15,4 +16,3 @@ add_mlir_tensorrt_library(MLIRTensorRTKernelToCUDA
     MLIRTransforms
     MLIRTransformUtils
 )
-

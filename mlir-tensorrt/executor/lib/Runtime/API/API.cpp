@@ -71,11 +71,27 @@ llvm::StringRef mtrt::getDeviceKindString(DeviceKind kind) {
 //===----------------------------------------------------------------------===//
 // RuntimeSessionOptions
 //===----------------------------------------------------------------------===//
-RuntimeSessionOptions::RuntimeSessionOptions(int32_t numDevices,
-                                             int32_t deviceId,
-                                             llvm::StringRef ncclUuid)
-    : numDevices(numDevices), deviceId(deviceId), ncclUuid(ncclUuid) {
+RuntimeSessionOptions::RuntimeSessionOptions(
+    int32_t numDevices, int32_t numDevicesPerProgram,
+    std::vector<int32_t> logicalDeviceIdToCUDAOrdinal, llvm::StringRef ncclUuid)
+    : numDevicesGlobally(numDevices),
+      numDevicesPerProgram(numDevicesPerProgram),
+      logicalDeviceIdToCUDAOrdinal(std::move(logicalDeviceIdToCUDAOrdinal)),
+      ncclUuid(ncclUuid) {
   this->enableFeatures({"core"});
+}
+
+RuntimeSessionOptions
+RuntimeSessionOptions::getSPMDOptions(int32_t numDevices, int32_t deviceId,
+                                      llvm::StringRef ncclUuid) {
+  return RuntimeSessionOptions(numDevices, 1, {deviceId}, ncclUuid);
+}
+
+StatusOr<int32_t> RuntimeSessionOptions::getSpmdDeviceId() const {
+  if (numDevicesPerProgram != 1)
+    return getInternalErrorStatus(
+        "getSpmdDeviceId is only valid for SPMD mode");
+  return logicalDeviceIdToCUDAOrdinal.front();
 }
 
 void RuntimeSessionOptions::enableFeatures(
@@ -155,7 +171,7 @@ RuntimeSessionOptions::createUsingSingleHostMpi() {
   if (errCode != MPI_SUCCESS)
     return getErrStatus("MPI_Comm_rank failed", errCode);
 
-  return RuntimeSessionOptions(size, rank, uniqueIdStr);
+  return RuntimeSessionOptions::getSPMDOptions(size, rank, uniqueIdStr);
 #else  // !(MLIR_TRT_ENABLE_NCCL && MLIR_TRT_ENABLE_MPI)
   return getInternalErrorStatus(
       "MLIR-TensorRT was not configured and built with MPI and NCCL support");
@@ -173,8 +189,9 @@ RuntimeSession::RuntimeSession(RuntimeSessionOptions options,
       allocTracker(std::make_unique<AllocTracker>()),
       resourceTracker(std::make_unique<ResourceTracker>()) {
   if (this->options.isFeatureEnabled("cuda")) {
-    int32_t deviceId = this->options.getDeviceId();
-    Ref<Stream> stream = this->client->getDevices()[deviceId]->getStream();
+    StatusOr<int32_t> deviceId = this->options.getSpmdDeviceId();
+    mtrt::cantFail(deviceId);
+    Ref<Stream> stream = this->client->getDevices()[*deviceId]->getStream();
     assert(stream && "expected valid stream");
     mtrt::cantFail(this->setStream(stream));
   }

@@ -44,7 +44,8 @@ def ConvertStablehloToPlanPass : Pass<"convert-stablehlo-to-plan", "::mlir::Modu
     "::mlir::cf::ControlFlowDialect",
     "::mlir::plan::PlanDialect",
     "::mlir::executor::ExecutorDialect",
-    "::mlir::tensor::TensorDialect"
+    "::mlir::tensor::TensorDialect",
+    "::mlir::cuda::CUDADialect"
   ];
 }
 
@@ -129,6 +130,41 @@ def WrapModuleInEmitCClassPass : Pass<"wrap-module-in-emitc-class", "::mlir::Mod
   }];
   let dependentDialects = [
     "::mlir::emitc::EmitCDialect"
+  ];
+}
+
+def EmitCppSupportFilesPass : Pass<"emit-cpp-support-files", "::mlir::ModuleOp"> {
+  let summary = "Emit EmitC C++ support files as executor.file_artifact ops";
+  let description = [{
+    This pass emits optional support files required to compile and test the C++
+    produced by the EmitC host target. The files are emitted as
+    `executor.file_artifact` operations, to be materialized by the
+    `executor-serialize-artifacts` pass into the artifacts directory.
+
+    The emitted files can include:
+    - StandaloneCPP runtime source and header files (subset based on runtime usage)
+    - An example CMake file
+    - A simple test driver
+  }];
+
+  let dependentDialects = [
+    "::mlir::emitc::EmitCDialect",
+    "::mlir::executor::ExecutorDialect"
+  ];
+
+  let options = [
+    Option<"emitRuntimeFiles", "emit-runtime-files", "bool", "false",
+      "Emit the required subset of StandaloneCPP runtime source/header files">,
+    Option<"emitCMakeFile", "emit-cmake-file", "bool", "false",
+      "Emit an example CMakeLists.txt file">,
+    Option<"emitTestDriver", "emit-test-driver", "bool", "false",
+      "Emit a simple test driver source file">,
+    Option<"outputFile", "output-file", "std::string", "\"\"",
+      "The path to the generated EmitC translation output file (for driver/CMake generation)">,
+    Option<"entrypoint", "entrypoint", "std::string", "\"main\"",
+      "Entrypoint function name (used by the generated test driver, if present)">,
+    Option<"supportSubdir", "support-subdir", "std::string", "\"emitc_support\"",
+      "Subdirectory under the artifacts directory to place emitted support files">,
   ];
 }
 

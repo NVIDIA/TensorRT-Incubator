@@ -326,6 +326,38 @@ def ExecutorEmulateUnsupportedFloatsPass :
 }
 
 //===----------------------------------------------------------------------===//
+// ExecutorExpandMathOpsPass
+//===----------------------------------------------------------------------===//
+
+def ExecutorExpandMathOpsPass :
+        ModuleLikePass<"executor-expand-math-ops"> {
+  let summary = "Expand unsupported Math dialect operations";
+  let description = [{
+    This pass expands Math dialect operations that are not directly supported by
+    the Executor dialect into compositions of supported operations.
+
+    It uses two strategies:
+
+    1. **Expansion patterns**: Operations like `math.sinh`, `math.cosh`,
+       `math.powf`, `math.rsqrt`, `math.fma`, `math.clampf`, etc. are expanded
+       into compositions of more primitive operations (e.g., `sinh(x)` becomes
+       `(exp(x) - exp(-x)) / 2`).
+
+    2. **Polynomial approximations**: Operations like `math.asin`, `math.acos`,
+       `math.atan`, `math.erfc` that cannot be simply expanded are approximated
+       using polynomial functions.
+
+    This pass should be run before `convert-std-to-executor` to ensure all Math
+    operations are lowered to forms that can be converted to Executor dialect.
+  }];
+
+  let dependentDialects = [
+    "::mlir::arith::ArithDialect",
+    "::mlir::math::MathDialect"
+  ];
+}
+
+//===----------------------------------------------------------------------===//
 // ExecutorSerializeArtifactsPass
 //===----------------------------------------------------------------------===//
 

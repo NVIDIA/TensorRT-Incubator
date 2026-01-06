@@ -250,14 +250,6 @@ protected:
 
   /// Returns true if the MemRef address space is device-visible.
   static bool isDeviceVisibleMemoryType(MemRefType type);
-
-public:
-  /// Gets or inserts a GlobalOp that creates a CudaStream and inserts a
-  /// `getGlobal` operation and returns the Value. The index specifies different
-  /// global streams and is used to create the symbol name, e.g. `@stream0`,
-  /// `@stream1` and so on.
-  static Value getGlobalCudaStream(RewriterBase &rewriter, Location loc,
-                                   ModuleOp module, unsigned index);
 };
 
 /// Wrapper that allows declaring a specific source operation in the template
