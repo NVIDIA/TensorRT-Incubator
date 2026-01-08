@@ -44,7 +44,8 @@ def ConvertStablehloToPlanPass : Pass<"convert-stablehlo-to-plan", "::mlir::Modu
     "::mlir::cf::ControlFlowDialect",
     "::mlir::plan::PlanDialect",
     "::mlir::executor::ExecutorDialect",
-    "::mlir::tensor::TensorDialect"
+    "::mlir::tensor::TensorDialect",
+    "::mlir::cuda::CUDADialect"
   ];
 }
 

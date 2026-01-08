@@ -49,8 +49,6 @@
 #include "mlir/Transforms/Passes.h"
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/APInt.h"
-#include "llvm/ADT/FloatingPointMode.h"
-#include "llvm/Support/TargetSelect.h"
 
 namespace mtrt {
 #define GEN_PASS_DEF_PLANEXECUTECONSTANTFOLDABLESUBGRAPHSPASS
@@ -121,7 +119,7 @@ SubgraphExecutor::execute(MLIRContext &ctx, Ref<RuntimeClient> client,
                             "MLIR-TensorRT runtime Executable");
   auto executable = std::make_unique<mtrt::Executable>(std::move(*exeStorage));
   // Create lua runtime session.
-  RuntimeSessionOptions opts;
+  auto opts = RuntimeSessionOptions::getSPMDOptions();
   opts.enableFeatures({"core", "cuda"});
   MTRT_ASSIGN_OR_RETURN(
       std::unique_ptr<LuaRuntimeSession> luaRuntimeSession,

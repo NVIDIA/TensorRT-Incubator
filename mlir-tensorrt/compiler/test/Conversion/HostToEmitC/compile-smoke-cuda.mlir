@@ -18,7 +18,7 @@
 module {
   func.func @smoke_cuda_device_and_stream() -> i32 {
     %c0 = arith.constant 0 : i32
-    %device = cuda.get_active_device
+    %device = cuda.get_program_device %c0 : i32
     %stream = cuda.get_global_stream device(%device)[0]
     cuda.stream.sync %stream : !cuda.stream
     return %c0 : i32

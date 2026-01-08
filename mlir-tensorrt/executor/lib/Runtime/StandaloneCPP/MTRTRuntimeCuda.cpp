@@ -97,6 +97,19 @@ Status getFileSize(const std::string &filename, size_t *outSize);
 // CUDA Wrappers
 //===----------------------------------------------------------------------===//
 
+Status mtrt::cuda_get_program_device(int32_t logicalDevice,
+                                     int32_t *outDevice) {
+  if (!outDevice)
+    MTRT_RETURN_ERROR(mtrt::ErrorCode::InvalidArgument,
+                      "outDevice must not be null");
+  if (logicalDevice != 0)
+    MTRT_RETURN_ERROR(
+        mtrt::ErrorCode::InvalidArgument,
+        "logicalDevice must be 0, only SPMD mode is currently supported");
+  *outDevice = 0;
+  return mtrt::ok();
+}
+
 Status mtrt::cuda_module_create_from_ptx_file(const char *filename,
                                               CUmodule *outModule) {
   if (!outModule)

@@ -346,7 +346,7 @@ mtrt::pjrt::PJRTLoadedExecutable::create(
     DEBUG_WITH_TYPE("pjrt", mtrt::print(llvm::errs(), executable);
                     std::cerr << std::endl;);
 
-    mtrt::RuntimeSessionOptions options(
+    auto options = mtrt::RuntimeSessionOptions::getSPMDOptions(
         numDevices, device->getCudaDeviceNumber(), *ncclUuid);
 
     options.enableFeatures(runtimeFeaturesToEnable);

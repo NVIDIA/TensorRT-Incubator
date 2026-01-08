@@ -21,9 +21,12 @@
 /// Implementation of `convert-memref-to-cuda` pass.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Conversion/Passes.h"
+#include "mlir-tensorrt/Conversion/Passes.h" // IWYU pragma: keep
 #include "mlir-tensorrt/Dialect/CUDA/IR/CUDADialect.h"
+#include "mlir-tensorrt/Dialect/CUDA/Utils/CUDAUtils.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/IR/OperationSupport.h"
 #include "mlir/Transforms/DialectConversion.h"
@@ -92,9 +95,7 @@ struct MemRefCopyToCUDACopyPattern : public OpRewritePattern<memref::CopyOp> {
       return failure();
 
     Location loc = op.getLoc();
-    Value device = rewriter.create<cuda::GetActiveDeviceOp>(loc);
-    Value stream = rewriter.create<cuda::GetGlobalStreamOp>(loc, device, 0);
-
+    Value stream = cuda::getOrCreateDefaultStream0(rewriter, op);
     if (isDeviceVisible(*sourceSpace) && isDeviceVisible(*targetSpace)) {
       rewriter.replaceOpWithNewOp<cuda::CopyD2DOp>(op, stream, op.getSource(),
                                                    op.getTarget());
@@ -128,10 +129,9 @@ struct MemRefAllocToCUDAAllocPattern
     std::optional<MemorySpace> space = getMemorySpace(op.getType());
     if (!space || *space == MemorySpace::host)
       return failure();
-    Location loc = op.getLoc();
+
     if (*space != MemorySpace::host_pinned) {
-      Value device = rewriter.create<cuda::GetActiveDeviceOp>(loc);
-      Value stream = rewriter.create<cuda::GetGlobalStreamOp>(loc, device, 0);
+      Value stream = cuda::getOrCreateDefaultStream0(rewriter, op);
       rewriter.replaceOpWithNewOp<cuda::AllocOp>(op, op.getType(), stream,
                                                  op.getDynamicSizes(),
                                                  op.getAlignmentAttr());
@@ -152,9 +152,7 @@ struct MemRefDeallocToCUDADeallocPattern
     std::optional<MemorySpace> space = getMemorySpace(op.getMemref().getType());
     if (!space || *space == MemorySpace::host)
       return failure();
-    Value device = rewriter.create<cuda::GetActiveDeviceOp>(op.getLoc());
-    Value stream =
-        rewriter.create<cuda::GetGlobalStreamOp>(op.getLoc(), device, 0);
+    Value stream = cuda::getOrCreateDefaultStream0(rewriter, op);
     rewriter.replaceOpWithNewOp<cuda::DeallocOp>(op, stream, op.getMemref());
     return success();
   }
@@ -168,6 +166,7 @@ class MemRefToCUDAPass
 
     ConversionTarget target(getContext());
     target.addLegalDialect<cuda::CUDADialect>();
+    target.addLegalDialect<arith::ArithDialect>();
     target.addDynamicallyLegalOp<memref::AllocOp>(
         [](memref::AllocOp op) { return !isDeviceOrHostPinned(op.getType()); });
     target.addDynamicallyLegalOp<memref::CopyOp>([](memref::CopyOp op) {

@@ -17,6 +17,16 @@ func.func @cuda_create_event() -> !cuda.event {
 // CHECK-LABEL: @cuda_create_event
 //       CHECK: %[[v0:.+]] = cuda.event.create : !cuda.event
 //       CHECK: return %[[v0]] : !cuda.event
+// -----
+
+func.func @cuda_get_program_device(%logical: i32) -> i32 {
+  %0 = cuda.get_program_device %logical : i32
+  return %0 : i32
+}
+
+// CHECK-LABEL: @cuda_get_program_device
+//       CHECK: %[[v0:.+]] = cuda.get_program_device %{{.*}} : i32
+//       CHECK: return %[[v0]] : i32
 
 // -----
 

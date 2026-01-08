@@ -52,6 +52,18 @@ func.func @convert_cuda_get_device(%arg0: i32) -> i32 {
 
 // -----
 
+func.func @test_get_program_device(%logical: i32) -> i32 {
+  %0 = cuda.get_program_device %logical : i32
+  return %0 : i32
+}
+
+// CHECK-LABEL: @test_get_program_device
+//  CHECK-SAME: (%[[logical:.+]]: i32) -> i32 {
+//   CHECK-DAG:   %[[v0:.+]] = executor.call @__cuda_get_program_device(%[[logical]]) : (i32) -> i32
+//   CHECK-DAG:   return %[[v0]] : i32
+
+// -----
+
 !memref_4xi8 = memref<?x2x?xf32, #executor.memory_type<device>>
 
 func.func @device_alloc(%arg0: index, %arg1: index, %stream: !cuda.stream, %device: i32) -> !memref_4xi8 {
@@ -311,7 +323,8 @@ func.func @copy_h2d(%arg0: !src_memref_type, %arg1: !dst_memref_type,  %stream: 
 // -----
 
 func.func @get_global_stream() {
-  %device = cuda.get_active_device
+  %c0 = arith.constant 0 : i32
+  %device = cuda.get_program_device %c0 : i32
   %0 = cuda.get_global_stream device(%device) [0]
   %1 = cuda.get_global_stream device(%device) [0]
   %2 = cuda.get_global_stream device(%device) [1]
@@ -319,11 +332,11 @@ func.func @get_global_stream() {
 }
 
 //       CHECK:   executor.global @stream1 constant : !executor.ptr<host>
-//       CHECK:     %[[device:.+]] = executor.call @__cuda_get_active_device() : () -> i32
+//       CHECK:     %[[device:.+]] = executor.call @__cuda_get_program_device(%{{.+}}) : (i32) -> i32
 //       CHECK:     %[[v0:.+]] = executor.call @__cuda_stream_create(%[[device]])
 //       CHECK:     executor.return %[[v0]] : !executor.ptr<host>
 //       CHECK:   executor.global @stream0 constant : !executor.ptr<host>
-//       CHECK:     %[[device:.+]] = executor.call @__cuda_get_active_device()
+//       CHECK:     %[[device:.+]] = executor.call @__cuda_get_program_device(%{{.+}}) : (i32) -> i32
 //       CHECK:     %[[v0:.+]] = executor.call @__cuda_stream_create(%[[device]])
 //       CHECK:     executor.return %[[v0]] : !executor.ptr<host>
 // CHECK-LABEL: func.func @get_global_stream
@@ -348,7 +361,7 @@ func.func @test_cuda_launch(
   %c0_i32 = arith.constant 0 : i32
   %1 = arith.index_cast %arg2 : index to i32
   %2 = arith.index_cast %arg3 : index to i32
-  %device = cuda.get_active_device
+  %device = cuda.get_program_device %c0_i32 : i32
   %3 = cuda.get_global_stream device(%device) [0]
   cuda.launch %0(%arg0, %arg1 : !memref_4xi80, !memref_4xi81) with
     grid(%1, %c1_i32, %c1_i32)

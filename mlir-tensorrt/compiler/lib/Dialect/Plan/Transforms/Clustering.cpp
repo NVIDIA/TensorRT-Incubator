@@ -27,7 +27,7 @@
 #include "mlir-tensorrt-dialect/Analysis/TensorKindAnalysis.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/PlanInterfaces.h"
-#include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
+#include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h" // IWYU pragma: keep
 #include "mlir/Analysis/DataFlow/ConstantPropagationAnalysis.h"
 #include "mlir/Analysis/DataFlow/DeadCodeAnalysis.h"
 #include "mlir/Analysis/DataFlowFramework.h"
@@ -151,29 +151,19 @@ public:
   using Base::Base;
   void runOnOperation() override {
     ModuleOp module = getOperation();
-    /// If an entrypoint is specified, we only run clustering on the
-    /// entrypoint. Otherwise, run on all functions.
+    // Cluster all functions that:
+    // - Are not declarations/external
+    // - Don't already have a cluster_kind attribute (already processed)
+    // - Are not private decomposition functions
     SmallVector<FunctionOpInterface> funcs;
-    if (entrypoint.empty()) {
-      llvm::append_range(
-          funcs, llvm::make_filter_range(
-                     module.getOps<FunctionOpInterface>(),
-                     [](FunctionOpInterface func) {
-                       return !func.isDeclaration() && !func.isExternal() &&
-                              !(func.isPrivate() &&
-                                func->hasAttr("plan.decomposition"));
-                     }));
-    } else {
-      auto mainFunc = dyn_cast_or_null<FunctionOpInterface>(
-          SymbolTable(module).lookup(entrypoint));
-      if (!mainFunc) {
-        emitError(module.getLoc())
-            << "module does not have a function with symbol name = "
-            << entrypoint;
-        return signalPassFailure();
-      }
-      funcs.push_back(mainFunc);
-    }
+    llvm::append_range(
+        funcs,
+        llvm::make_filter_range(
+            module.getOps<FunctionOpInterface>(), [](FunctionOpInterface func) {
+              return !func.isDeclaration() && !func.isExternal() &&
+                     !func->hasAttr(PlanDialect::kFuncTargetKind) &&
+                     !(func.isPrivate() && func->hasAttr("plan.decomposition"));
+            }));
 
     SymbolTableCollection symbolTable;
     DataFlowSolver solver;

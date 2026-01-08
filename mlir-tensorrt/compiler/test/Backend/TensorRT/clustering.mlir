@@ -1,5 +1,5 @@
 // RUN: mlir-tensorrt-opt %s -split-input-file \
-// RUN:  -plan-clustering="entrypoint=" -plan-create-closed-regions -plan-outline-clusters \
+// RUN:  -plan-clustering -plan-create-closed-regions -plan-outline-clusters \
 // RUN: | FileCheck %s
 
 builtin.module attributes {
@@ -90,4 +90,3 @@ builtin.module attributes {
 
 // CHECK-LABEL: func.func @dont_offload_ops_yielded_from_loops
 // CHECK-NOT: #plan.tensorrt_backend
-

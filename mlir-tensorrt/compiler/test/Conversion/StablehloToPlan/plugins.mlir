@@ -42,7 +42,7 @@ module @jit_add_one_cuda {
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<5xf32>,
 //  CHECK-SAME: %[[arg1:.+]]: tensor<5xf32>) ->
 //       CHECK:     %[[v0:.+]]:2 = executor.call_plugin
-//  CHECK-SAME: @plugin_add_one_cuda0 ins(%[[arg0]], %[[arg1]] :
+//  CHECK-SAME: @plugin_add_one_cuda0 stream({{.*}}) ins(%[[arg0]], %[[arg1]] :
 //  CHECK-SAME: tensor<5xf32>, tensor<5xf32>) outs(%[[arg1]],
 //  CHECK-SAME: %[[arg0]] : tensor<5xf32>, tensor<5xf32>)
 //  CHECK-SAME:  immediate_args = {param = 3 : i64}

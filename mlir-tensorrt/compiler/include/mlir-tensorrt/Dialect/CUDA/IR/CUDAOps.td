@@ -93,6 +93,23 @@ def CUDA_GetActiveDeviceOp : CUDA_Op<"get_active_device", [
   let assemblyFormat = "attr-dict";
 }
 
+def CUDA_GetProgramDeviceOp : CUDA_Op<"get_program_device", [
+      Pure, AlwaysSpeculatable]> {
+  let summary = "returns the CUDA device ordinal associated with a program logical device";
+  let description = [{
+    Returns the CUDA device ordinal for the given program "logical device"
+    identifier.
+
+    This operation is intended to support compilation modes where device
+    selection is modeled explicitly and provided by the runtime when the
+    program is loaded (e.g. via a constant mapping table). As a result, this
+    operation is marked as being speculatable and side-effect free.
+  }];
+  let arguments = (ins I32:$logicalDevice);
+  let results = (outs I32:$result);
+  let assemblyFormat = "attr-dict $logicalDevice `:` type($result)";
+}
+
 def CUDA_SetActiveDeviceOp : CUDA_Op<"set_active_device", [
       MemoryEffects<[MemWrite]>]> {
   let summary = "sets the active CUDA device context";

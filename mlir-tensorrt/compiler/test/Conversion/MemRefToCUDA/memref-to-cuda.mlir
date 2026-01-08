@@ -7,7 +7,7 @@ func.func @device_alloc() -> memref<4x8xf32, #plan.memory_space<device>> {
 }
 
 // CHECK-LABEL: @device_alloc
-//       CHECK:   %[[DEVICE:.+]] = cuda.get_active_device
+//       CHECK:   %[[DEVICE:.+]] = cuda.get_program_device
 //       CHECK:   %[[STREAM:.+]] = cuda.get_global_stream device(%[[DEVICE]]) [0]
 //       CHECK:   %[[ALLOC:.+]] = cuda.alloc() stream(%[[STREAM]]) : memref<4x8xf32, #plan.memory_space<device>>
 //       CHECK:   return %[[ALLOC]]
@@ -20,7 +20,7 @@ func.func @device_alloc_dynamic(%arg0: index, %arg1: index) -> memref<?x?xf32, #
 
 // CHECK-LABEL: @device_alloc_dynamic
 //  CHECK-SAME:   (%[[ARG0:.+]]: index, %[[ARG1:.+]]: index)
-//       CHECK:   %[[DEVICE:.+]] = cuda.get_active_device
+//       CHECK:   %[[DEVICE:.+]] = cuda.get_program_device
 //       CHECK:   %[[STREAM:.+]] = cuda.get_global_stream device(%[[DEVICE]]) [0]
 //       CHECK:   %[[ALLOC:.+]] = cuda.alloc(%[[ARG0]], %[[ARG1]]) stream(%[[STREAM]]) : memref<?x?xf32, #plan.memory_space<device>>
 //       CHECK:   return %[[ALLOC]]
@@ -33,7 +33,7 @@ func.func @device_alloc_aligned() -> memref<4x8xf32, #plan.memory_space<device>>
 }
 
 // CHECK-LABEL: @device_alloc_aligned
-//       CHECK:   %[[DEVICE:.+]] = cuda.get_active_device
+//       CHECK:   %[[DEVICE:.+]] = cuda.get_program_device
 //       CHECK:   %[[STREAM:.+]] = cuda.get_global_stream device(%[[DEVICE]]) [0]
 //       CHECK:   %[[ALLOC:.+]] = cuda.alloc() stream(%[[STREAM]]) align 64 : memref<4x8xf32, #plan.memory_space<device>>
 //       CHECK:   return %[[ALLOC]]
@@ -46,7 +46,7 @@ func.func @unified_alloc() -> memref<4x8xf32, #plan.memory_space<unified>> {
 }
 
 // CHECK-LABEL: @unified_alloc
-//       CHECK:   %[[DEVICE:.+]] = cuda.get_active_device
+//       CHECK:   %[[DEVICE:.+]] = cuda.get_program_device
 //       CHECK:   %[[STREAM:.+]] = cuda.get_global_stream device(%[[DEVICE]]) [0]
 //       CHECK:   %[[ALLOC:.+]] = cuda.alloc() stream(%[[STREAM]]) : memref<4x8xf32, #plan.memory_space<unified>>
 //       CHECK:   return %[[ALLOC]]
@@ -59,7 +59,7 @@ func.func @host_pinned_alloc() -> memref<4x8xf32, #plan.memory_space<host_pinned
 }
 
 // CHECK-LABEL: @host_pinned_alloc
-//   CHECK-NOT:   cuda.get_active_device
+//   CHECK-NOT:   cuda.get_program_device
 //   CHECK-NOT:   cuda.get_global_stream
 //       CHECK:   %[[ALLOC:.+]] = cuda.alloc() : memref<4x8xf32, #plan.memory_space<host_pinned>>
 //       CHECK:   return %[[ALLOC]]
@@ -86,7 +86,7 @@ func.func @copy_h2d(%src: memref<4x8xf32, #plan.memory_space<host>>,
 
 // CHECK-LABEL: @copy_h2d
 //  CHECK-SAME:   (%[[SRC:.+]]: memref<4x8xf32, #plan.memory_space<host>>, %[[DST:.+]]: memref<4x8xf32, #plan.memory_space<device>>)
-//       CHECK:   %[[DEVICE:.+]] = cuda.get_active_device
+//       CHECK:   %[[DEVICE:.+]] = cuda.get_program_device
 //       CHECK:   %[[STREAM:.+]] = cuda.get_global_stream device(%[[DEVICE]]) [0]
 //       CHECK:   cuda.copy_h2d stream(%[[STREAM]]) %[[SRC]], %[[DST]] : memref<4x8xf32, #plan.memory_space<host>> to memref<4x8xf32, #plan.memory_space<device>>
 //       CHECK:   return
@@ -101,10 +101,10 @@ func.func @copy_d2h(%src: memref<4x8xf32, #plan.memory_space<device>>,
 
 // CHECK-LABEL: @copy_d2h
 //  CHECK-SAME:   (%[[SRC:.+]]: memref<4x8xf32, #plan.memory_space<device>>, %[[DST:.+]]: memref<4x8xf32, #plan.memory_space<host>>)
-//       CHECK:   %[[DEVICE:.+]] = cuda.get_active_device
+//       CHECK:   %[[DEVICE:.+]] = cuda.get_program_device
 //       CHECK:   %[[STREAM:.+]] = cuda.get_global_stream device(%[[DEVICE]]) [0]
 //       CHECK:   cuda.copy_d2h stream(%[[STREAM]]) %[[SRC]], %[[DST]] : memref<4x8xf32, #plan.memory_space<device>> to memref<4x8xf32, #plan.memory_space<host>>
-//       CHECK:   cuda.stream.sync %[[STREAM]]
+//       CHECK:   cuda.stream.sync %[[STREAM]] : !cuda.stream
 //       CHECK:   return
 
 // -----
@@ -117,7 +117,7 @@ func.func @copy_d2d(%src: memref<4x8xf32, #plan.memory_space<device>>,
 
 // CHECK-LABEL: @copy_d2d
 //  CHECK-SAME:   (%[[SRC:.+]]: memref<4x8xf32, #plan.memory_space<device>>, %[[DST:.+]]: memref<4x8xf32, #plan.memory_space<device>>)
-//       CHECK:   %[[DEVICE:.+]] = cuda.get_active_device
+//       CHECK:   %[[DEVICE:.+]] = cuda.get_program_device
 //       CHECK:   %[[STREAM:.+]] = cuda.get_global_stream device(%[[DEVICE]]) [0]
 //       CHECK:   cuda.copy_d2d stream(%[[STREAM]]) %[[SRC]], %[[DST]] : memref<4x8xf32, #plan.memory_space<device>> to memref<4x8xf32, #plan.memory_space<device>>
 //   CHECK-NOT:   cuda.stream.sync
@@ -133,7 +133,7 @@ func.func @copy_host_pinned_to_device(%src: memref<4x8xf32, #plan.memory_space<h
 
 // CHECK-LABEL: @copy_host_pinned_to_device
 //  CHECK-SAME:   (%[[SRC:.+]]: memref<4x8xf32, #plan.memory_space<host_pinned>>, %[[DST:.+]]: memref<4x8xf32, #plan.memory_space<device>>)
-//       CHECK:   %[[DEVICE:.+]] = cuda.get_active_device
+//       CHECK:   %[[DEVICE:.+]] = cuda.get_program_device
 //       CHECK:   %[[STREAM:.+]] = cuda.get_global_stream device(%[[DEVICE]]) [0]
 //       CHECK:   cuda.copy_h2d stream(%[[STREAM]]) %[[SRC]], %[[DST]] : memref<4x8xf32, #plan.memory_space<host_pinned>> to memref<4x8xf32, #plan.memory_space<device>>
 //       CHECK:   return
@@ -148,10 +148,10 @@ func.func @copy_device_to_host_pinned(%src: memref<4x8xf32, #plan.memory_space<d
 
 // CHECK-LABEL: @copy_device_to_host_pinned
 //  CHECK-SAME:   (%[[SRC:.+]]: memref<4x8xf32, #plan.memory_space<device>>, %[[DST:.+]]: memref<4x8xf32, #plan.memory_space<host_pinned>>)
-//       CHECK:   %[[DEVICE:.+]] = cuda.get_active_device
+//       CHECK:   %[[DEVICE:.+]] = cuda.get_program_device
 //       CHECK:   %[[STREAM:.+]] = cuda.get_global_stream device(%[[DEVICE]]) [0]
 //       CHECK:   cuda.copy_d2h stream(%[[STREAM]]) %[[SRC]], %[[DST]] : memref<4x8xf32, #plan.memory_space<device>> to memref<4x8xf32, #plan.memory_space<host_pinned>>
-//       CHECK:   cuda.stream.sync %[[STREAM]]
+//       CHECK:   cuda.stream.sync %[[STREAM]] : !cuda.stream
 //       CHECK:   return
 
 // -----
@@ -164,7 +164,7 @@ func.func @copy_unified(%src: memref<4x8xf32, #plan.memory_space<unified>>,
 
 // CHECK-LABEL: @copy_unified
 //  CHECK-SAME:   (%[[SRC:.+]]: memref<4x8xf32, #plan.memory_space<unified>>, %[[DST:.+]]: memref<4x8xf32, #plan.memory_space<device>>)
-//       CHECK:   %[[DEVICE:.+]] = cuda.get_active_device
+//       CHECK:   %[[DEVICE:.+]] = cuda.get_program_device
 //       CHECK:   %[[STREAM:.+]] = cuda.get_global_stream device(%[[DEVICE]]) [0]
 //       CHECK:   cuda.copy_d2d stream(%[[STREAM]]) %[[SRC]], %[[DST]] : memref<4x8xf32, #plan.memory_space<unified>> to memref<4x8xf32, #plan.memory_space<device>>
 //       CHECK:   return
@@ -191,7 +191,7 @@ func.func @device_dealloc(%arg0: memref<4x8xf32, #plan.memory_space<device>>) {
 
 // CHECK-LABEL: @device_dealloc
 //  CHECK-SAME:   (%[[ARG:.+]]: memref<4x8xf32, #plan.memory_space<device>>)
-//       CHECK:   %[[DEVICE:.+]] = cuda.get_active_device
+//       CHECK:   %[[DEVICE:.+]] = cuda.get_program_device
 //       CHECK:   %[[STREAM:.+]] = cuda.get_global_stream device(%[[DEVICE]]) [0]
 //       CHECK:   cuda.dealloc stream(%[[STREAM]]) %[[ARG]] : memref<4x8xf32, #plan.memory_space<device>>
 //       CHECK:   return
@@ -205,7 +205,7 @@ func.func @unified_dealloc(%arg0: memref<4x8xf32, #plan.memory_space<unified>>) 
 
 // CHECK-LABEL: @unified_dealloc
 //  CHECK-SAME:   (%[[ARG:.+]]: memref<4x8xf32, #plan.memory_space<unified>>)
-//       CHECK:   %[[DEVICE:.+]] = cuda.get_active_device
+//       CHECK:   %[[DEVICE:.+]] = cuda.get_program_device
 //       CHECK:   %[[STREAM:.+]] = cuda.get_global_stream device(%[[DEVICE]]) [0]
 //       CHECK:   cuda.dealloc stream(%[[STREAM]]) %[[ARG]] : memref<4x8xf32, #plan.memory_space<unified>>
 //       CHECK:   return
@@ -219,7 +219,7 @@ func.func @host_pinned_dealloc(%arg0: memref<4x8xf32, #plan.memory_space<host_pi
 
 // CHECK-LABEL: @host_pinned_dealloc
 //  CHECK-SAME:   (%[[ARG:.+]]: memref<4x8xf32, #plan.memory_space<host_pinned>>)
-//       CHECK:   %[[DEVICE:.+]] = cuda.get_active_device
+//       CHECK:   %[[DEVICE:.+]] = cuda.get_program_device
 //       CHECK:   %[[STREAM:.+]] = cuda.get_global_stream device(%[[DEVICE]]) [0]
 //       CHECK:   cuda.dealloc stream(%[[STREAM]]) %[[ARG]] : memref<4x8xf32, #plan.memory_space<host_pinned>>
 //       CHECK:   return
@@ -248,17 +248,10 @@ func.func @full_lifecycle(%host_data: memref<4x8xf32, #plan.memory_space<host>>)
 
 // CHECK-LABEL: @full_lifecycle
 //  CHECK-SAME:   (%[[HOST_DATA:.+]]: memref<4x8xf32, #plan.memory_space<host>>)
-//       CHECK:   %[[DEV1:.+]] = cuda.get_active_device
+//       CHECK:   %[[DEV1:.+]] = cuda.get_program_device
 //       CHECK:   %[[STR1:.+]] = cuda.get_global_stream device(%[[DEV1]]) [0]
 //       CHECK:   %[[DEVICE_MEM:.+]] = cuda.alloc() stream(%[[STR1]]) : memref<4x8xf32, #plan.memory_space<device>>
-//       CHECK:   %[[DEV2:.+]] = cuda.get_active_device
-//       CHECK:   %[[STR2:.+]] = cuda.get_global_stream device(%[[DEV2]]) [0]
-//       CHECK:   cuda.copy_h2d stream(%[[STR2]]) %[[HOST_DATA]], %[[DEVICE_MEM]]
-//       CHECK:   %[[DEV3:.+]] = cuda.get_active_device
-//       CHECK:   %[[STR3:.+]] = cuda.get_global_stream device(%[[DEV3]]) [0]
-//       CHECK:   cuda.copy_d2h stream(%[[STR3]]) %[[DEVICE_MEM]], %[[HOST_DATA]]
-//       CHECK:   cuda.stream.sync %[[STR3]]
-//       CHECK:   %[[DEV4:.+]] = cuda.get_active_device
-//       CHECK:   %[[STR4:.+]] = cuda.get_global_stream device(%[[DEV4]]) [0]
-//       CHECK:   cuda.dealloc stream(%[[STR4]]) %[[DEVICE_MEM]]
+//       CHECK:   cuda.copy_h2d stream(%[[STR1]]) %[[HOST_DATA]], %[[DEVICE_MEM]]
+//       CHECK:   cuda.copy_d2h stream(%[[STR1]]) %[[DEVICE_MEM]], %[[HOST_DATA]]
+//       CHECK:   cuda.dealloc stream(%[[STR1]]) %[[DEVICE_MEM]]
 //       CHECK:   return

@@ -23,7 +23,9 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-executor/Executor/IR/Executor.h"
 #include "mlir-executor/Executor/Utils/Utils.h"
-#include "mlir-tensorrt/Conversion/Passes.h"
+#include "mlir-tensorrt/Conversion/Passes.h"           // IWYU pragma: keep
+#include "mlir-tensorrt/Dialect/CUDA/IR/CUDADialect.h" // IWYU pragma: keep
+#include "mlir-tensorrt/Dialect/CUDA/Utils/CUDAUtils.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir/Dialect/ControlFlow/IR/ControlFlowOps.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -194,8 +196,10 @@ static LogicalResult replaceTVMFFICustomCall(RewriterBase &rewriter,
         rewriter.create<tensor::EmptyOp>(loc, tensorType, ValueRange{});
   }
 
+  // Create the placeholder stream for the default device.
+  Value stream = cuda::getOrCreateDefaultStream0(rewriter, op);
   executor::CallPluginOp callOp = rewriter.create<executor::CallPluginOp>(
-      loc, pluginOp, /*stream=*/Value{}, op->getOperands(), outputArguments,
+      loc, pluginOp, stream, op->getOperands(), outputArguments,
       config.immediateArgs, config.argSpec, config.ioAliasing);
 
   rewriter.replaceOp(op, callOp);

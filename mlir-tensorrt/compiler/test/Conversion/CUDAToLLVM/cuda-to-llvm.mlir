@@ -92,7 +92,8 @@ func.func @test_cuda_launch(
 // -----
 
 func.func @cuda_global_stream() -> (!cuda.stream, !cuda.stream, !cuda.stream) {
-  %device = cuda.get_active_device
+  %c0_i32 = arith.constant 0 : i32
+  %device = cuda.get_program_device %c0_i32 : i32
   %0 = cuda.get_global_stream device(%device)[0]
   %1 = cuda.get_global_stream device(%device)[1]
   %2 = cuda.get_global_stream device(%device)[0]
@@ -116,7 +117,7 @@ func.func @cuda_global_stream() -> (!cuda.stream, !cuda.stream, !cuda.stream) {
 
 
 // CHECK-LABEL: llvm.func @stream_0_init
-//       CHECK:     %[[device:.+]] = llvm.call @mtrt_cuda_get_active_device() : () -> i32
+//       CHECK:     %[[device:.+]] = llvm.call @mtrt_cuda_get_program_device(%{{.+}}) : (i32) -> i32
 //       CHECK:     %[[v0:.+]] = llvm.call @mtrt_cuda_stream_create(%[[device]])
 //       CHECK:     %[[v1:.+]] = llvm.mlir.addressof @stream_0 : !llvm.ptr
 //       CHECK:     llvm.store %[[v0]], %[[v1]] : !llvm.ptr, !llvm.ptr
@@ -131,7 +132,7 @@ func.func @cuda_global_stream() -> (!cuda.stream, !cuda.stream, !cuda.stream) {
 //       CHECK:   llvm.mlir.global_dtors dtors = [@stream_0_deinit], priorities = [0 : i32]
 
 // CHECK-LABEL: llvm.func @stream_1_init
-//       CHECK:     %[[device:.+]] = llvm.call @mtrt_cuda_get_active_device() : () -> i32
+//       CHECK:     %[[device:.+]] = llvm.call @mtrt_cuda_get_program_device(%{{.+}}) : (i32) -> i32
 //       CHECK:     %[[v0:.+]] = llvm.call @mtrt_cuda_stream_create(%[[device]])
 //       CHECK:     %[[v1:.+]] = llvm.mlir.addressof @stream_1 : !llvm.ptr
 //       CHECK:     llvm.store %[[v0]], %[[v1]] : !llvm.ptr, !llvm.ptr
@@ -495,3 +496,16 @@ func.func @cuda_get_active_device() -> i32 {
 // CHECK-LABEL: func.func @cuda_get_active_device
 //   CHECK-DAG:   %[[v0:.+]] = llvm.call @mtrt_cuda_get_active_device() : () -> i32
 //   CHECK-DAG:   return %[[v0]] : i32
+
+// -----
+
+func.func @cuda_get_program_device(%logical: i32) -> i32 {
+  %0 = cuda.get_program_device %logical : i32
+  return %0 : i32
+}
+
+// CHECK-LABEL: func.func @cuda_get_program_device
+//  CHECK-SAME: (%[[logical:.+]]: i32) -> i32 {
+//   CHECK-DAG:     %[[v0:.+]] = llvm.call @mtrt_cuda_get_program_device(%[[logical]]) : (i32) -> i32
+//   CHECK-DAG:     return %[[v0]] : i32
+

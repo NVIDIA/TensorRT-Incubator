@@ -542,30 +542,6 @@ SmallVector<Value> ConvertToExecutorPattern::convertFuncCallOperands(
   return operands;
 }
 
-Value ConvertToExecutorPattern::getGlobalCudaStream(RewriterBase &rewriter,
-                                                    Location loc,
-                                                    ModuleOp module,
-                                                    unsigned index) {
-  std::string name = llvm::formatv("stream{0}", index);
-  MLIRContext *ctx = rewriter.getContext();
-  auto hostPointerType = PointerType::get(ctx, MemoryType::host);
-  Type i32Type = IntegerType::get(ctx, 32);
-  GlobalOp global = executor::getOrCreateGlobalOp(
-      rewriter, module.getLoc(), module, name, hostPointerType, true,
-      [&](OpBuilder &b, Location loc) {
-        ExecutorCallBuilder getActiveDeviceBuilder = {
-            ctx, "__cuda_get_active_device", {i32Type}, {}};
-        ExecutorCallBuilder streamCreateBuilder = {
-            ctx, "__cuda_stream_create", {hostPointerType}, {i32Type}};
-        Value device =
-            getActiveDeviceBuilder.create(b, loc, module, {}).getResult(0);
-        Value stream =
-            streamCreateBuilder.create(b, loc, module, {device}).getResult(0);
-        b.create<executor::ReturnOp>(loc, stream);
-      });
-  return rewriter.create<executor::GetGlobalOp>(loc, global);
-}
-
 /// Returns `true` if a memref with shape `shape` and `strides` represents a
 /// contiguous array of memory. This is equivalent to checking whether some
 /// subview is contiguous. The idea here is that the shape and laout should have

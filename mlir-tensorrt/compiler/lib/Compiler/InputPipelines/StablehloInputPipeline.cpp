@@ -1,6 +1,6 @@
 //===- StableHloInputPipeline.cpp ----------------------------------------===//
 //
-// SPDX-FileCopyrightText: Copyright 2024-2025 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2024-2026 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -18,6 +18,7 @@
 //
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt/Compiler/InputPipelines/StablehloInputPipeline.h"
+#include "mlir-tensorrt-common/Utils/PassManagerUtils.h"
 #include "mlir-tensorrt/Conversion/Passes.h"
 #include "mlir-tensorrt/Dialect/StablehloExt/Transforms/Passes.h"
 #include "mlir-tensorrt/Transforms/Passes.h"
@@ -33,36 +34,6 @@ using namespace mtrt::compiler;
 
 llvm::cl::OptionCategory StablehloInputOptions::category = {
     "MLIR-TensorRT StableHLO Input Options", ""};
-
-static void buildStableHloSimplificationPipeline(
-    OpPassManager &pm,
-    const mlir::ConvertChloToStableHloExtPassOptions &chloToStablehloOptions) {
-  pm.addNestedPass<func::FuncOp>(
-      stablehlo::createStablehloLegalizeCompositeToCallPass());
-  pm.addPass(createInlinerPass());
-  // Some match-and-raise patterns should be performed before canonicalization,
-  // since the pattern is based on specific frontend patterns (e.g. JAX).
-  pm.addPass(stablehlo_ext::createExpandTuplesPass());
-  pm.addPass(stablehlo_ext::createCanonicalizeShapesPass());
-  pm.addPass(stablehlo_ext::createStablehloRaiseQDQPass());
-  pm.addPass(stablehlo_ext::createConstantFoldingPass());
-  pm.addPass(stablehlo_ext::createGatherToSlicePass());
-  pm.addPass(stablehlo_ext::createCanonicalizeShapesPass());
-
-  // We don't do the CHLO legalization until this point since we want to wait
-  // until after `canonicalize-shapes` has run at least once. This reduces the
-  // likelihood of generating `shape` dialect ops.
-  pm.addPass(mlir::createConvertChloToStableHloExtPass(chloToStablehloOptions));
-
-  pm.addPass(stablehlo_ext::createCanonicalizeDotGeneralPass());
-  pm.addPass(stablehlo_ext::createConstantFoldingPass());
-  pm.addPass(stablehlo_ext::createCanonicalizeShapesPass());
-  pm.addNestedPass<func::FuncOp>(
-      stablehlo_ext::createCanonicalizeScatterPass());
-  pm.addNestedPass<func::FuncOp>(stablehlo_ext::createCanonicalizeGatherPass());
-  pm.addPass(stablehlo_ext::createConstantFoldingPass());
-  pm.addPass(stablehlo_ext::createCanonicalizeShapesPass());
-}
 
 void mtrt::compiler::buildStablehloInputPipeline(
     OpPassManager &pm, const StablehloInputOptions &opts,
@@ -94,22 +65,44 @@ void mtrt::compiler::buildStablehloInputPipeline(
   // - Convert `stablehlo.optimization_barrier` to `plan.optimization_barrier`.
   pm.addPass(createConvertStablehloToPlanPass());
 
-  // `convert-stablehlo-to-scf`:
-  if (opts.legalizeControlFlowToSCF) {
-    pm.addNestedPass<func::FuncOp>(mlir::createConvertStablehloToScfPass());
-    pm.addNestedPass<func::FuncOp>(mtrt::createSCFFloatStrengthReducePass());
-    pm.addNestedPass<func::FuncOp>(mtrt::createSCFUnrollPass(
-        mtrt::SCFUnrollPassOptions{opts.unrollThreshold}));
-  }
+  addNestedPasses<func::FuncOp>(pm, [&opts](OpPassManager &pm) {
+    // `convert-stablehlo-to-scf`:
+    if (opts.legalizeControlFlowToSCF) {
+      pm.addPass(mlir::createConvertStablehloToScfPass());
+      pm.addPass(mtrt::createSCFFloatStrengthReducePass());
+      pm.addPass(mtrt::createSCFUnrollPass(
+          mtrt::SCFUnrollPassOptions{opts.unrollThreshold}));
+    }
+
+    // `stablehlo-canonicalize-dynamism`:
+    // - Canonicalize dynamic shape op variants.
+    // - This is run prior to any folding because it can catch correctness
+    //   issues in the input IR which may be masked by folding.
+    pm.addPass(stablehlo::createStablehloCanonicalizeDynamismPass());
+  });
 
   // `stablehlo-ext-constant-folding`:
   // Constant fold on functions.
   addConstantFoldingPasses(pm, opts);
 
+  // `stablehlo-ext-refine-shapes{interprocedural=false}`:
+  // - Refine shapes of operations without trying to refine function
+  //   types.
+  // - We run this prior to `stablehlo-ext-canonicalize-shapes`
+  //   with `interprocedural=false` since upstream has an issue
+  //   with `stablehlo-refine-shapes` convergence failure in its
+  //   use of the greedy rewrite driver.
+  pm.addPass(
+      stablehlo_ext::createRefineShapesPass({/*interprocedural=*/false}));
+
   // `stablehlo-ext-canonicalize-shapes`:
-  // - Fixed point interation of dynamic pipeline.
+  // - Fixed-point iteration of dynamic pipeline of
+  //   `stablehlo-canonicalize-dynamism` and `stablehlo-ext-refine-shapes`.
   // - May change function types.
-  pm.addPass(stablehlo_ext::createCanonicalizeShapesPass());
+  pm.addPass(stablehlo_ext::createCanonicalizeShapesPass({
+      /*maxIterations=*/6,
+      /*interprocedural=*/true,
+  }));
 
   //===----------------------------------------------------------------------===//
   // Non-folding simplifications.
@@ -133,7 +126,7 @@ void mtrt::compiler::buildStablehloInputPipeline(
           opts.targetSpecificOptions, opts.constantFoldSizeLimit));
 
   // `stablehlo-ext-canonicalize-shapes`:
-  // - Fixed point iteration
+  // - Fixed-point iteration
   pm.addPass(stablehlo_ext::createCanonicalizeShapesPass());
 
   pm.addPass(stablehlo::createStablehloConvertToSignlessPass());
@@ -147,8 +140,8 @@ void mtrt::compiler::buildStablehloInputPipeline(
 
 namespace {
 /// We don't have a way to automatically convert OptionsGroup or CLOptionScope
-/// objects to `mlir::PassPipelineOptions`, so for now we manually redefine the
-/// CLI-only pipeline options here.
+/// objects to `mlir::PassPipelineOptions`, so for now we manually redefine
+/// the CLI-only pipeline options here.
 struct StableHloInputPipelineOptions
     : public PassPipelineOptions<StableHloInputPipelineOptions> {
   Option<bool> legalizeControlFlowToSCF{
@@ -192,7 +185,7 @@ struct StableHloInputPipelineOptions
 
 void mtrt::compiler::registerStableHloInputPipelines() {
   PassPipelineRegistration<StableHloInputPipelineOptions>(
-      "stablehlo-preprocessing-pipeline",
+      "stablehlo-input-pipeline",
       "Apply StableHlo input processing pipeline to prepare for "
       "TensorRT conversion",
       [](OpPassManager &pm, const StableHloInputPipelineOptions &opts) {
@@ -215,13 +208,5 @@ void mtrt::compiler::registerStableHloInputPipelines() {
                       stablehlo_ext::ConstantFoldingPassOptions{
                           opts.constantFoldSizeLimit}));
             });
-      });
-
-  PassPipelineRegistration<StableHloInputPipelineOptions>(
-      "stablehlo-simplification-pipeline",
-      "Apply StableHLO simplification passes",
-      [](OpPassManager &pm, const StableHloInputPipelineOptions &opts) {
-        buildStableHloSimplificationPipeline(
-            pm, {opts.preserveChloErf, opts.preserveChloTopK});
       });
 }

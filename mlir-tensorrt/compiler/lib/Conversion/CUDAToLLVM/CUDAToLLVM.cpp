@@ -75,6 +75,9 @@ struct CUDAExternalCallBuilders {
   LLVMOpaqueCallBuilder streamSyncBuilder = {
       "mtrt_cuda_stream_sync", llvmVoidType, {llvmPtrType}};
 
+  LLVMOpaqueCallBuilder getProgramDeviceBuilder = {
+      "mtrt_cuda_get_program_device", i32Type, {i32Type}};
+
   LLVMOpaqueCallBuilder cuModuleGetFuncBuilder = {
       "mtrt_cuda_module_get_function",
       llvmPtrType,
@@ -271,6 +274,14 @@ struct CudaGetActiveDeviceConverter final
   using SimpleCudaOpToLLVMCallLowering::SimpleCudaOpToLLVMCallLowering;
   LLVMOpaqueCallBuilder &callBuilder =
       this->callBuilders.cudaGetActiveDeviceBuilder;
+};
+
+struct CudaGetProgramDeviceConverter final
+    : public SimpleCudaOpToLLVMCallLowering<CudaGetProgramDeviceConverter,
+                                            cuda::GetProgramDeviceOp> {
+  using SimpleCudaOpToLLVMCallLowering::SimpleCudaOpToLLVMCallLowering;
+  LLVMOpaqueCallBuilder &callBuilder =
+      this->callBuilders.getProgramDeviceBuilder;
 };
 
 struct CudaSetActiveDeviceConverter final
@@ -709,8 +720,10 @@ insertOrCreateStreamGlobal(RewriterBase &rewriter, Location loc,
   insertLLVMCtorFunction(
       rewriter, loc, symbolTable, (global.getName() + "_init").str(), 0,
       [&](OpBuilder &rewriter, Location loc) {
+        Value zero = rewriter.create<LLVM::ConstantOp>(
+            loc, rewriter.getI32Type(), rewriter.getI32IntegerAttr(0));
         Value device =
-            cudaFuncs.cudaGetActiveDeviceBuilder.create(loc, rewriter, {})
+            cudaFuncs.getProgramDeviceBuilder.create(loc, rewriter, {zero})
                 .getResult();
         Value stream =
             cudaFuncs.streamCreateBuilder.create(loc, rewriter, {device})
@@ -743,8 +756,8 @@ static LogicalResult lowerGetGlobalStreamOps(RewriterBase &rewriter,
   module->walk([&](cuda::GetGlobalStreamOp op) { getStreamOps.push_back(op); });
   for (cuda::GetGlobalStreamOp op : getStreamOps) {
 
-    if (!matchPattern(op.getDevice(), m_Op<cuda::GetActiveDeviceOp>())) {
-      return emitError(op.getLoc(), "currently only 'cuda.get_active_device' "
+    if (!matchPattern(op.getDevice(), m_Op<cuda::GetProgramDeviceOp>())) {
+      return emitError(op.getLoc(), "currently only 'cuda.get_program_device' "
                                     "is supported as device for global streams")
                  .attachNote(op.getDevice().getLoc())
              << "see device here";
@@ -790,6 +803,7 @@ void mlir::populateCUDAToLLVMConversionPatterns(
   >(typeConverter);
   patterns.add<
     CudaGetActiveDeviceConverter,
+    CudaGetProgramDeviceConverter,
     CudaSetActiveDeviceConverter,
     CudaGetDeviceCountConverter,
     CudaGetDeviceConverter

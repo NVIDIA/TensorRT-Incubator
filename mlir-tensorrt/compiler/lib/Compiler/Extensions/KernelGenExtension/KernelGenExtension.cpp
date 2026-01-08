@@ -214,10 +214,6 @@ void KernelGenExtension::populatePasses(mlir::OpPassManager &pm,
     pm.addPass(createConvertKernelToCUDAPass());
     return;
   }
-
-  if (point == ExtensionPoint::ExecutorLowering) {
-    return;
-  }
 }
 
 //===----------------------------------------------------------------------===//

@@ -166,7 +166,7 @@ getRuntimeSessionOptions(const Options &options,
   }
 #endif
 
-  RuntimeSessionOptions opts;
+  auto opts = RuntimeSessionOptions::getSPMDOptions();
   opts.enableFeatures(features);
   return opts;
 }
