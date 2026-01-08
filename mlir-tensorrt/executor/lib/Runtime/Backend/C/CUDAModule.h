@@ -97,6 +97,8 @@ void mtrt_cuda_launch_kernel(CUfunction cudaFuncPtr, int32_t gridX,
 
 MTRT_CAPI_EXPORTED int32_t mtrt_cuda_get_current_device();
 
+MTRT_CAPI_EXPORTED int32_t mtrt_cuda_get_program_device(int32_t logicalId);
+
 //===----------------------------------------------------------------------===//
 // EmitC-Compatible Wrappers
 //

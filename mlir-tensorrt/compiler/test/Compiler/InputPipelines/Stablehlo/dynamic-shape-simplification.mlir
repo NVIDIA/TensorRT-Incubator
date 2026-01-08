@@ -1,4 +1,4 @@
-// RUN: mlir-tensorrt-opt %s -stablehlo-simplification-pipeline -verify-diagnostics
+// RUN: mlir-tensorrt-opt %s -stablehlo-input-pipeline -verify-diagnostics
 
 // This is a regression test that checks a proper diagnostic is raised when the simplification of dynamism exposes an
 // error in the input IR that should be caught by verification routines of the static op variant.

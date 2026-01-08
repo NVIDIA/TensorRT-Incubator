@@ -1532,7 +1532,7 @@ def Executor_CallPluginOp : Executor_Op<"call_plugin", [
     - `attrs.backend` is an immediate string attribute
   }];
   let arguments = (ins FlatSymbolRefAttr:$callee,
-                       Optional<Executor_HostPtr>:$stream,
+                       Optional<AnyType>:$stream,
                        Variadic<AnyType>:$args,
                        Variadic<AnyType>:$outputs,
                        OptionalAttr<DictionaryAttr>:$immediate_args,
@@ -1543,7 +1543,7 @@ def Executor_CallPluginOp : Executor_Op<"call_plugin", [
   let results = (outs Variadic<AnyType>:$results);
   let assemblyFormat = [{
     $callee
-    (`stream` `(` $stream^ `)`)?
+    (`stream` `(` $stream^ `:` type($stream) `)`)?
     `ins` `(` $args `:` type($args) `)`
     `outs` `(` $outputs `:` type($outputs) `)`
     attr-dict (`:` type($results)^)?

@@ -25,15 +25,12 @@
 #include "mlir-executor/Conversion/ConvertToExecutorCommon.h"
 #include "mlir-executor/Executor/IR/Executor.h"
 #include "mlir-executor/Executor/Utils/Utils.h"
-#include "mlir-executor/Runtime/API/API.h"
-#include "mlir-tensorrt/Conversion/Passes.h"
+#include "mlir-executor/Runtime/API/Executable.h"
+#include "mlir-tensorrt/Conversion/Passes.h" // IWYU pragma: keep
 #include "mlir-tensorrt/Dialect/CUDA/IR/CUDADialect.h"
-#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Func/Transforms/FuncConversions.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
-#include "mlir/IR/ImplicitLocOpBuilder.h"
 #include "mlir/IR/Matchers.h"
-#include "mlir/Support/TypeID.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/Support/FormatVariadic.h"
@@ -70,6 +67,9 @@ protected:
 
   ExecutorCallBuilder setActiveDeviceBuilder = {
       ctx, "__cuda_set_active_device", {}, {i32Type}};
+
+  ExecutorCallBuilder getProgramDeviceBuilder = {
+      ctx, "__cuda_get_program_device", {i32Type}, {i32Type}};
 
   ExecutorCallBuilder getDeviceCountBuilder = {
       ctx, "__cuda_num_devices", {i32Type}, {}};
@@ -391,7 +391,7 @@ class CudaGetGlobalStreamConverter
   LogicalResult
   matchAndRewrite(cuda::GetGlobalStreamOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
-    if (!matchPattern(op.getDevice(), m_Op<cuda::GetActiveDeviceOp>())) {
+    if (!matchPattern(op.getDevice(), m_Op<cuda::GetProgramDeviceOp>())) {
       return emitError(op.getLoc(), "currently only 'cuda.get_active_device' "
                                     "is supported as device for global streams")
                  .attachNote(op.getDevice().getLoc())
@@ -404,10 +404,12 @@ class CudaGetGlobalStreamConverter
     GlobalOp global = executor::getOrCreateGlobalOp(
         rewriter, module.getLoc(), module, name, hostPointerType, true,
         [&](OpBuilder &b, Location loc) {
-          Value device =
-              this->getActiveDeviceBuilder
-                  .create(b, op.getLoc(), op->getParentOfType<ModuleOp>(), {})
-                  .getResult(0);
+          Value zero = b.create<executor::ConstantOp>(loc, i32Type,
+                                                      b.getI32IntegerAttr(0));
+          Value device = this->getProgramDeviceBuilder
+                             .create(b, op.getLoc(),
+                                     op->getParentOfType<ModuleOp>(), {zero})
+                             .getResult(0);
           Value stream = this->streamCreateBuilder
                              .create(b, op.getLoc(),
                                      op->getParentOfType<ModuleOp>(), {device})
@@ -441,6 +443,13 @@ struct CudaGetDeviceCountConverter final
   using SimpleCudaOpToExecutorCallLowering::SimpleCudaOpToExecutorCallLowering;
 
   ExecutorCallBuilder &callBuilder = this->getDeviceCountBuilder;
+};
+
+struct CudaGetProgramDeviceConverter final
+    : public SimpleCudaOpToExecutorCallLowering<CudaGetProgramDeviceConverter,
+                                                cuda::GetProgramDeviceOp> {
+  using SimpleCudaOpToExecutorCallLowering::SimpleCudaOpToExecutorCallLowering;
+  ExecutorCallBuilder &callBuilder = this->getProgramDeviceBuilder;
 };
 } // namespace
 
@@ -672,8 +681,8 @@ struct CudaOpToRuntimeBuiltinCallConverter : public ConvertToExecutorPattern {
     if (!isa<cuda::CUDADialect>(op->getDialect()) ||
         isa<cuda::LaunchOp, cuda::CopyD2DOp, cuda::CopyH2DOp, cuda::CopyD2HOp,
             cuda::AllocOp, cuda::DeallocOp, cuda::GetActiveDeviceOp,
-            cuda::GetGlobalStreamOp, cuda::CompiledModuleOp,
-            cuda::GetFunctionOp>(op))
+            cuda::GetProgramDeviceOp, cuda::GetGlobalStreamOp,
+            cuda::CompiledModuleOp, cuda::GetFunctionOp>(op))
       return failure();
     SmallVector<Type> newResultTypes;
     if (failed(getTypeConverter()->convertTypes(op->getResultTypes(),
@@ -780,7 +789,9 @@ static executor::GlobalOp lowerCompiledModuleOp(RewriterBase &rewriter,
   return rewriter.create<executor::GlobalOp>(
       loc, cuModuleGlobalName, pointerType,
       [&](OpBuilder &nested, Location loc) {
-        Value cudaDevice = nested.create<cuda::GetActiveDeviceOp>(loc);
+        Value zero = nested.create<executor::ConstantOp>(
+            loc, i32Type, nested.getI32IntegerAttr(0));
+        Value cudaDevice = nested.create<cuda::GetProgramDeviceOp>(loc, zero);
         Value ptx = nested.create<ConstantResourceLoadOp>(
             loc, FlatSymbolRefAttr::get(resourceOp));
         assert(ptxData.getElementType().isInteger(8) &&
@@ -894,6 +905,7 @@ public:
         CudaGetActiveDeviceConverter,
         CudaGetDeviceCountConverter,
         CudaGetGlobalStreamConverter,
+        CudaGetProgramDeviceConverter,
         CudaMemCopyOpToBuiltinCallConverter<cuda::CopyD2DOp>,
         CudaMemCopyOpToBuiltinCallConverter<cuda::CopyD2HOp>,
         CudaMemCopyOpToBuiltinCallConverter<cuda::CopyH2DOp>,
@@ -901,6 +913,7 @@ public:
         CudaSetActiveDeviceConverter,
         LowerCudaLaunchKernelToCall
       >(typeConverter, ctx);
+
     patterns.add<
         GetFunctionToCallConverter
       >(compiledModuleToGlobalMap,  typeConverter, ctx);

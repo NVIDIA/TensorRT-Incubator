@@ -1,4 +1,4 @@
-// RUN: mlir-tensorrt-opt %s -stablehlo-simplification-pipeline | FileCheck %s
+// RUN: mlir-tensorrt-opt %s -stablehlo-input-pipeline | FileCheck %s
 
 // CHECK-LABEL: @main() -> tensor<4xi32> {
 //  CHECK-NEXT:     %[[v0:.+]] = stablehlo.constant dense<[1, 16, 1, 128]> : tensor<4xi32>
@@ -2632,4 +2632,3 @@ func.func @main() -> tensor<?xi32> {
   %2624 = stablehlo.concatenate %2469, %2470, %2623, dim = 0 : (tensor<?xi32>, tensor<1xi32>, tensor<?xi32>) -> tensor<?xi32>
   return %2624 : tensor<?xi32>
 }
-

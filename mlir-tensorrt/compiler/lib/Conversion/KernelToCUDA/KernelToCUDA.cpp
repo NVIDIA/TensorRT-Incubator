@@ -25,6 +25,7 @@
 #include "mlir-kernel/Kernel/IR/Ops.h"
 #include "mlir-tensorrt/Conversion/Passes.h"
 #include "mlir-tensorrt/Dialect/CUDA/IR/CUDADialect.h"
+#include "mlir-tensorrt/Dialect/CUDA/Utils/CUDAUtils.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/GPU/IR/GPUDialect.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
@@ -177,8 +178,7 @@ struct KernelCallLikeOpConversionPattern : public OpConversionPattern<OpType> {
     SmallVector<Value> blockShape = padToThreeValues(adaptor.getBlockSize());
 
     // Enqueue the kernel on on the default stream.
-    Value device = rewriter.create<cuda::GetActiveDeviceOp>(loc);
-    Value stream = rewriter.create<cuda::GetGlobalStreamOp>(loc, device, 0);
+    Value stream = cuda::getOrCreateDefaultStream0(rewriter, op);
     rewriter.replaceOpWithNewOp<cuda::LaunchOp>(
         op, cudaFunc, gridShape[0], gridShape[1], gridShape[2], blockShape[0],
         blockShape[1], blockShape[2],

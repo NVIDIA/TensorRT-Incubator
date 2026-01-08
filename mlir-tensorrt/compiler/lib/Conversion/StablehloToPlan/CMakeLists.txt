@@ -9,6 +9,7 @@ add_mlir_tensorrt_library(MLIRTensorRTStablehloToPlan
     StablehloOps
     MLIRTensorRTExecutorDialect
     MLIRTensorRTExecutorUtils
+    MLIRTensorRTCUDAUtils
   MLIR_LIBS PUBLIC
     MLIRControlFlowDialect
     MLIRPass

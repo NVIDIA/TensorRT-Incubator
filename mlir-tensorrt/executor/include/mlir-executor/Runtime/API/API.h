@@ -806,8 +806,9 @@ public:
   /// Construct session options by directly specifying the device ID, number of
   /// devices, and NCCL UUID. Single-device sessions can use the default
   /// options.
-  RuntimeSessionOptions(int32_t numDevices = 1, int32_t deviceId = 0,
-                        llvm::StringRef ncclUuid = "");
+  static RuntimeSessionOptions getSPMDOptions(int32_t numDevices = 1,
+                                              int32_t deviceId = 0,
+                                              llvm::StringRef ncclUuid = "");
 
   /// Enable the specified features for the runtime session.
   void enableFeatures(llvm::ArrayRef<std::string> features);
@@ -821,14 +822,17 @@ public:
   static StatusOr<RuntimeSessionOptions> createUsingSingleHostMpi();
 
   /// Return the number of devices (ranks) in the process grid.
-  int32_t getNumDevices() const { return numDevices; }
+  int32_t getNumDevices() const { return numDevicesGlobally; }
+
+  /// Return the number of devices per program.
+  int32_t getNumDevicesPerProgram() const { return numDevicesPerProgram; }
 
   /// Return the rank of the worker in the process grid that the runtime session
-  /// should correspond to.
+  /// should correspond to. This is only valid for SPMD mode on a single host.
   /// Currently this should correspond to CUDA deviceId, but in the future we
   /// will need to maintain a lookup table from rank to local device ID and
   /// vice-versa.
-  int32_t getDeviceId() const { return deviceId; }
+  StatusOr<int32_t> getSpmdDeviceId() const;
 
   /// Return the UUID that should be used to create the top-level NCCL
   /// communicator for each device. This should only be empty if there is only
@@ -838,9 +842,27 @@ public:
   /// Return the set of features that are enabled for this session.
   const llvm::StringSet<> &getEnabledFeatures() const { return features; }
 
+  /// Return the map from logical device ID to CUDA ordinal.
+  const std::vector<int32_t> &getLogicalDeviceIdToCUDAOrdinal() const {
+    return logicalDeviceIdToCUDAOrdinal;
+  }
+
 private:
-  int32_t numDevices;
-  int32_t deviceId;
+  RuntimeSessionOptions(int32_t numDevices, int32_t numDevicesPerProgram,
+                        std::vector<int32_t> logicalDeviceIdToCUDAOrdinal,
+                        llvm::StringRef ncclUuid);
+
+  int32_t numDevicesGlobally;
+  /// The number of devices per program. This is normally 1 (SPMD mode), but in
+  /// the future it could be more than 1.
+  int32_t numDevicesPerProgram;
+
+  /// Maps the logical device ID (accessible within the program module) to the
+  /// CUDA ordinal. The size of this vector is 1 for SPMD mode, larger than 1 in
+  /// MPMD mode.
+  std::vector<int32_t> logicalDeviceIdToCUDAOrdinal;
+
+  /// The UUID that should be used to create the top-level NCCL communicator.
   std::string ncclUuid;
 
   /// A list of features names (e.g. module names) that should be enabled for

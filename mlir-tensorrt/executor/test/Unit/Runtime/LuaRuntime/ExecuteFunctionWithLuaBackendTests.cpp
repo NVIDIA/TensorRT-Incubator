@@ -46,7 +46,7 @@ protected:
   StatusOr<std::unique_ptr<LuaRuntimeSession>>
   createLuaRuntimeSession(Ref<RuntimeClient> client,
                           const std::unique_ptr<mtrt::Executable> &executable) {
-    RuntimeSessionOptions options;
+    auto options = RuntimeSessionOptions::getSPMDOptions();
     options.enableFeatures({"core"});
     return LuaRuntimeSession::create(client, options, executable->getView(),
                                      {});

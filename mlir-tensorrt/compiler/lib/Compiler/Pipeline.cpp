@@ -16,6 +16,7 @@
 #include "mlir-kernel/Kernel/Pipelines/Pipelines.h"
 #include "mlir-kernel/Kernel/Transforms/Passes.h"
 #include "mlir-tensorrt-common/Support/Status.h"
+#include "mlir-tensorrt-common/Utils/PassManagerUtils.h"
 #include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
 #include "mlir-tensorrt/Backends/Host/Passes.h"
 #include "mlir-tensorrt/Backends/Kernel/KernelBackend.h"
@@ -39,6 +40,7 @@
 #include "mlir/Dialect/Arith/Transforms/Passes.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/GPU/IR/GPUDialect.h"
+#include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/LLVMIR/Transforms/RequestCWrappers.h"
 #include "mlir/Dialect/Linalg/Passes.h"
 #include "mlir/Dialect/MemRef/Transforms/Passes.h"
@@ -225,9 +227,12 @@ convertBufferizationOptions(const MainOptions &pipelineOpts) {
   return bufferizationOpts;
 }
 
+template <typename OpType = func::FuncOp>
 static void addCleanupPasses(OpPassManager &pm) {
-  pm.addPass(mlir::createCSEPass());
-  pm.addPass(mlir::createCanonicalizerPass());
+  addNestedPasses<OpType>(pm, [](OpPassManager &pm) {
+    pm.addPass(mlir::createCSEPass());
+    pm.addPass(mlir::createCanonicalizerPass());
+  });
 }
 
 static void populateExtensionPasses(mlir::OpPassManager &pm,
@@ -341,7 +346,7 @@ static void addLLVMOrEmitCTail(OpPassManager &pm, const MainOptions &options,
       pm.addNestedPass<func::FuncOp>(LLVM::createLLVMRequestCWrappersPass());
     pm.addPass(createConvertCUDAToLLVMPass());
     pm.addPass(createConvertHostToLLVMPass());
-    addCleanupPasses(pm);
+    addCleanupPasses<LLVM::LLVMFuncOp>(pm);
   }
 
   if (hostTarget == HostTarget::EmitC) {
@@ -389,12 +394,13 @@ void Pipeline::populatePassManager() {
       plan::buildPlanSegmentationPipeline(
           pm, options.runtimeABIVersion, options.inputKind,
           options.get<BufferizationOptions>().forceEntrypointsReturnAllocs,
-          options.entrypoint, options.get<plan::PlanClusteringOptions>());
+          options.get<plan::PlanClusteringOptions>());
 
       // Compile outlined scalarizable host clusters.
-      pm.addNestedPass<func::FuncOp>(
-          mtrt::compiler::createProcessHostClustersPass());
-      pm.addNestedPass<func::FuncOp>(mlir::createConvertStablehloToArithPass());
+      addNestedPasses<func::FuncOp>(pm, [](OpPassManager &pm) {
+        pm.addPass(mtrt::compiler::createProcessHostClustersPass());
+        pm.addPass(mlir::createConvertStablehloToArithPass());
+      });
 
       populateExtensionPasses(pm, options, ExtensionPoint::PostClustering,
                               options.getExtensions());
@@ -439,9 +445,11 @@ void Pipeline::populatePassManager() {
     }
     }
 
-    pm.addNestedPass<func::FuncOp>(plan::createPostClusteringValidationPass());
-    pm.addNestedPass<func::FuncOp>(mtrt::createSCFDetensorizePass());
-    pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
+    addNestedPasses<func::FuncOp>(pm, [](OpPassManager &pm) {
+      pm.addPass(plan::createPostClusteringValidationPass());
+      pm.addPass(mtrt::createSCFDetensorizePass());
+      pm.addPass(createCanonicalizerPass());
+    });
   }
 
   //===--------------------------------------------------------------------===//

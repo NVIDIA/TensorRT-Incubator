@@ -30,14 +30,13 @@
 #include "mlir/Dialect/ControlFlow/IR/ControlFlow.h"
 #include "mlir/Dialect/DLTI/DLTI.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
-#include "mlir/IR/BuiltinOps.h"
+#include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinTypes.h"
-#include "mlir/IR/DialectResourceBlobManager.h"
+#include "mlir/IR/DialectResourceBlobManager.h" // IWYU pragma: keep
 #include "mlir/Interfaces/FunctionInterfaces.h"
 #include "mlir/Tools/mlir-translate/Translation.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/MathExtras.h"
 
 using namespace mlir;
 
@@ -810,6 +809,9 @@ mlir::translateToRuntimeExecutable(Operation *op) {
   exeBuilder.add_data_segments(constVecOffsets);
   exeBuilder.add_source(sourceStrOffset);
   exeBuilder.add_name(nameOffset);
+  // Default to SPMD mode (one device per program instance). In the future this
+  // may be >1 for MPMD support.
+  exeBuilder.add_devices_per_program(1);
   // Set ABI version to 1 if we have any ABI wrapper functions, otherwise 0
   exeBuilder.add_abi_version(hasABIWrapperFunctions ? 1 : 0);
   fbBuilder.Finish(exeBuilder.Finish());

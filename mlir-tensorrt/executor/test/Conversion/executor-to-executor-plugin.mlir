@@ -27,7 +27,8 @@ func.func @test_call_plugin(%arg0: !memref_type) {
 //  CHECK-SAME: (%[[arg0:.+]]: memref<
 //   CHECK-DAG:     %[[v0:.+]] = builtin.unrealized_conversion_cast %[[arg0]] :
 //   CHECK-DAG:     %[[v1:.+]] = executor.call @__spmd_global_rank() : () -> i32
-//   CHECK-DAG:     %[[v2:.+]] = executor.get_global @stream0 : !executor.ptr<host>
+//   CHECK-DAG:     %[[c0_i64:.+]] = executor.constant 0 : i64
+//   CHECK-DAG:     %[[v2:.+]] = executor.inttoptr %[[c0_i64]] : (i64) -> !executor.ptr<host>
 //   CHECK-DAG:     %[[data_ptr:.+]] = executor.table.get %[[v0]][1] : <!executor.ptr<device>, !executor.ptr<device>, i64, i64, i64>
 //   CHECK-DAG:     %[[c2_i32:.+]] = executor.constant 2 : i32
 //   CHECK-DAG:     %[[v4:.+]] = executor.table.create(%[[c2_i32]], %[[v1]] : i32, i32) : <i32, i32>
@@ -41,7 +42,6 @@ func.func @test_call_plugin(%arg0: !memref_type) {
 //   CHECK-DAG:     %[[shape_array:.+]] = executor.table.create(%[[dim0]] : i64) : <i64>
 //   CHECK-DAG:     %[[c1_i64:.+]] = executor.constant 1 : i64
 //   CHECK-DAG:     %[[shape_array_ptr:.+]] = executor.alloca %[[c1_i64]] x !executor.table<i64> : (i64) -> !executor.ptr<host>
-//   CHECK-DAG:     %[[c0_i64:.+]] = executor.constant 0 : i64
 //   CHECK-DAG:     executor.store %[[shape_array]] to %[[shape_array_ptr]] + %[[c0_i64]] :
 //   CHECK-DAG:     %[[strides_array:.+]] = executor.table.create(%[[stride0]] : i64) : <i64>
 //   CHECK-DAG:     %[[strides_array_ptr:.+]] = executor.alloca %[[c1_i64]] x !executor.table<i64> : (i64) -> !executor.ptr<host>

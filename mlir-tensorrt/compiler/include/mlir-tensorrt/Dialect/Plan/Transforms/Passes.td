@@ -327,6 +327,11 @@ def ClusteringPass : Pass<"plan-clustering", "::mlir::ModuleOp"> {
     is to achieve a course segmentation that specifies how clusters of
     operations will be compiled.
 
+    The pass processes all functions in the module that:
+    - Are not declarations or external functions
+    - Do not already have a `plan.cluster_kind` attribute
+    - Are not private functions with `plan.decomposition` attribute
+
     The kinds of clusters that can be formed and the specific rules for
     clustering are defined by the clustering configuration specified
     by the module's `plan.backends` attribute. This is an array of
@@ -334,12 +339,7 @@ def ClusteringPass : Pass<"plan-clustering", "::mlir::ModuleOp"> {
     [CompilerBackendAttrInterface](../IR/PlanInterfaces.td).
   }];
 
-  let options =
-      [Option<"entrypoint", "entrypoint", "std::string", "\"\"",
-              "the name of the entrypoint function; if empty then the "
-              "clustering runs"
-              " on all functions">,
-       InputKindOption];
+  let options = [InputKindOption];
 }
 
 //===----------------------------------------------------------------------===//

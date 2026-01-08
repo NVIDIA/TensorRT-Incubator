@@ -1,5 +1,5 @@
 // Negative integration test for check.expect_eq with complex types
-// RUN:   mlir-tensorrt-compiler %s --disable-all-extensions --entrypoint= -o - | \
+// RUN:   mlir-tensorrt-compiler %s --disable-all-extensions -o - | \
 // RUN:   not mlir-tensorrt-runner -input-type=rtexe -features=core
 
 // This test verifies that check.expect_eq correctly fails for unequal complex values.

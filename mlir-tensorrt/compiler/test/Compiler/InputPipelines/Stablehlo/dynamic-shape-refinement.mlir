@@ -1,4 +1,4 @@
-// RUN: mlir-tensorrt-opt %s -split-input-file -stablehlo-preprocessing-pipeline | FileCheck %s
+// RUN: mlir-tensorrt-opt %s -split-input-file -stablehlo-input-pipeline | FileCheck %s
 
 // This test verifies that the StableHLO dynamic shape refinement and canonicalization passes
 // are run in order to simplify dynamic op variants and unknown dimensions.

@@ -144,6 +144,10 @@ table Executable {
   // depends on backend).
   process_grid_shape:[uint32];
 
+  // The number of devices used by a single program instance.
+  // Default is 1 (SPMD mode). In the future this may be >1 for MPMD support.
+  devices_per_program:int32 = 1;
+
   // ABI version for backward/forward compatibility of runtime value conversions.
   // Version 0 represents the initial/current behavior.
   abi_version:uint32 = 0;
