@@ -113,9 +113,10 @@ function(mtrt_apply_relative_path_options)
   # The following checks if the source directory is a prefix of the binary directory.
   cmake_path(IS_PREFIX CMAKE_SOURCE_DIR "${CMAKE_BINARY_DIR}" src_dir_is_prefix_of_bin_dir)
 
-  set(debug_remaps "-fdebug-prefix-map=${CMAKE_SOURCE_DIR}=.")
-  set(file_remaps "-ffile-prefix-map=${CMAKE_SOURCE_DIR}=.")
-  if(src_dir_is_prefix_of_bin_dir)
+  set(debug_remaps "-fdebug-prefix-map=${CMAKE_SOURCE_DIR}/=")
+  set(file_remaps "-ffile-prefix-map=${CMAKE_SOURCE_DIR}/=")
+
+  if(NOT src_dir_is_prefix_of_bin_dir)
     set(debug_remaps "${debug_remaps} -fdebug-prefix-map=${CMAKE_BINARY_DIR}=build")
     set(file_remaps "${file_remaps} -ffile-prefix-map=${CMAKE_BINARY_DIR}=build")
   endif()
@@ -133,6 +134,9 @@ function(mtrt_apply_relative_path_options)
     CHECK "-no-canonical-prefixes"
     APPEND "-no-canonical-prefixes"
   )
+
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}" PARENT_SCOPE)
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}" PARENT_SCOPE)
 endfunction()
 
 if(PROJECT_IS_TOP_LEVEL AND MLIR_TRT_RELATIVE_DEBUG_PATHS)
