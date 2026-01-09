@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -26,8 +26,6 @@ from nvtripy.frontend.constraints import GetInput, OneOf
 @wrappers.interface(
     input_requirements=OneOf(GetInput("input").dtype, [dt.float32, dt.float16, dt.bfloat16])
     & (GetInput("other").dtype == GetInput("input").dtype),
-    dtype_constraints={"input": "T1", "other": "T1"},
-    dtype_variables={"T1": ["float32", "float16", "bfloat16"]},
 )
 def allclose(input: "nvtripy.Tensor", other: "nvtripy.Tensor", rtol: float = 1e-05, atol: float = 1e-08) -> bool:
     r"""

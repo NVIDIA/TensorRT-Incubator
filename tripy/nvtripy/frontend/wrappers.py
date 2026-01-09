@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -23,29 +23,16 @@ from textwrap import indent
 from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple, Union
 
 from nvtripy import config, utils
-from nvtripy.common.datatype import DATA_TYPES
+from nvtripy.common.datatype import dtype as tp_dtype
 from nvtripy.common.exception import raise_error
 from nvtripy.frontend.constraints import Constraints, Equal, GetInput, GetDataType, Fetcher, doc_str
-from nvtripy.utils import result
-
-
-@dataclass
-class DataTypeConstraints:
-    func: Callable
-    constraints: Dict[str, str]
-    variables: Dict[str, List[str]]
-    exceptions: List[Dict[str, str]]
-
-
-DATA_TYPE_CONSTRAINTS = []
-RETURN_VALUE = "__RETURN_VALUE"
 
 
 @dataclass
 class OperatorConstraints:
     func: Callable
-    input_requirements: Constraints
-    output_guarantees: Constraints
+    input_requirements: Optional[Constraints]
+    output_guarantees: Optional[Constraints]
 
 
 # A list of tuples of (input_requirements, output_guarantees) for operators.
@@ -116,42 +103,7 @@ def _add_column_info(arg, arg_index, is_kwarg, num_positional, func_name):
         source_info.column_range = candidates[0]
 
 
-# TODO (pranavm): Remove this:
-def get_arg_dtype(arg, func_name, arg_name) -> result.Result["nvtripy.dtype"]:
-    from nvtripy.common.datatype import dtype
-    from nvtripy.frontend.tensor import Tensor
-
-    if isinstance(arg, Sequence):
-        arg_dtypes = []
-        for elem in arg:
-            dtype_result = get_arg_dtype(elem, func_name, arg_name)
-            if not dtype_result:
-                return result.Result.err(
-                    [f"Could not determine data type of elements in sequence: {arg_name}"] + dtype_result.error_details
-                )
-            arg_dtypes.append(dtype_result.value)
-
-        if len(set(arg_dtypes)) != 1:
-            return result.Result.err(
-                [
-                    f"Mismatched data types in sequence argument for '{func_name}'.\n",
-                    f"For parameter: '{arg_name}', all arguments must have the same data type, but got: "
-                    f"{arg_dtypes}",
-                ],
-            )
-        arg_dtype = arg_dtypes[0]
-    elif isinstance(arg, Tensor):
-        arg_dtype = arg.dtype
-    elif isinstance(arg, dtype):
-        arg_dtype = arg
-    else:
-        return result.Result.err([f"Expected a tensor or data type argument for {arg_name}, but got: {arg}"])
-    return result.Result.ok(arg_dtype)
-
-
-def _find_known_datatypes(
-    merged_args: List[Tuple[str, Any]], input_requirements: Constraints
-) -> Dict[str, "nvtripy.dtype"]:
+def _find_known_datatypes(merged_args: List[Tuple[str, Any]], input_requirements: Constraints) -> Dict[str, tp_dtype]:
     """
     Identify known datatypes from input requirements to enable automatic type casting.
 
@@ -178,14 +130,32 @@ def _find_known_datatypes(
                 return
         expected_equal_dtype.append({name1, name2})
 
-    known_dtypes: Dict[str, Optional["nvtripy.dtype"]] = {}
+    known_dtypes: Dict[str, Optional[tp_dtype]] = {}
+    arg_map: Dict[str, Any] = {name: value for name, value in merged_args}
+
+    def _is_trusted_dtype_source(value: Any) -> bool:
+        """Return True if `value` should be treated as a stable dtype source for autocasting.
+
+        We intentionally treat Python scalar literals (int/float/bool) as *untrusted* sources
+        so that expressions like `tensor_f16 * 1.0` will cast the scalar to the tensor dtype
+        rather than forcing the tensor to match the scalar's default dtype.
+        """
+        from nvtripy.frontend.tensor import Tensor
+
+        if isinstance(value, Tensor) or isinstance(value, tp_dtype):
+            return True
+        if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
+            return all(_is_trusted_dtype_source(v) for v in value) if len(value) > 0 else False
+        return False
+
     for name, _ in merged_args:
 
-        # If this argument already has a known dtype, populate it:
-        try:
-            known_dtypes[name] = GetDataType(GetInput(name))(merged_args)
-        except Exception:
-            pass
+        # If this argument already has a known dtype and is a trusted source, populate it:
+        if _is_trusted_dtype_source(arg_map.get(name)):
+            try:
+                known_dtypes[name] = GetDataType(GetInput(name))(merged_args)
+            except Exception:
+                pass
 
         def process_dtype_equality(matched_constraints, input_is_lhs):
             for constraint in matched_constraints:
@@ -223,15 +193,33 @@ def _find_known_datatypes(
 
     # We do not need to perform validation, as that will happen during constraints checking.
     for dtype_set in expected_equal_dtype:
-        known_dtype_in_set = None
-        for name in dtype_set:
-            if name in known_dtypes:
-                known_dtype_in_set = known_dtypes[name]
-                break
+        # Prefer dtypes coming from trusted sources (tensors / explicit dtypes).
+        trusted_names_in_order = [
+            n for (n, _) in merged_args if n in dtype_set and _is_trusted_dtype_source(arg_map.get(n))
+        ]
+        candidate_dtypes = [known_dtypes.get(n) for n in trusted_names_in_order if known_dtypes.get(n) is not None]
 
-        # dtype might be unknown if the arguments are all non-tensor types.
+        # If there are conflicting trusted dtypes, do not guess.
+        known_dtype_in_set: Optional[tp_dtype]
+        if len(set(candidate_dtypes)) > 1:
+            known_dtype_in_set = None
+        else:
+            known_dtype_in_set = candidate_dtypes[0] if candidate_dtypes else None
+
+        # dtype might be unknown if the arguments are all non-tensor / untrusted types.
+        # In that case, we intentionally do *not* treat inferred scalar literal dtypes (e.g. 1.0 -> float32)
+        # as "known" to avoid unnecessary/incorrect casting behavior.
         for name in dtype_set:
-            known_dtypes[name] = known_dtype_in_set
+            if known_dtype_in_set is None:
+                known_dtypes[name] = None
+                continue
+
+            # If this argument is an untrusted dtype source (e.g., Python scalar), prefer the
+            # trusted dtype chosen for the group even if we previously inferred a dtype for it.
+            if not _is_trusted_dtype_source(arg_map.get(name)):
+                known_dtypes[name] = known_dtype_in_set
+            else:
+                known_dtypes.setdefault(name, known_dtype_in_set)
 
     return known_dtypes
 
@@ -245,7 +233,6 @@ def convert_input_types(
     var_arg_info,
     conversion_targets,
     conversion_preprocess_func,
-    dtype_constraints,
     shape_likes,
     input_requirements: Constraints,
 ):
@@ -268,16 +255,9 @@ def convert_input_types(
                 else:
                     merged_args[index] = (name, new_args[name])
 
+    known_datatypes: Dict[str, Optional[tp_dtype]] = {}
     if input_requirements is not None:
         known_datatypes = _find_known_datatypes(merged_args, input_requirements)
-    else:
-        # Materialize type variables from tensors.
-        type_vars = {}
-        for name, arg in merged_args:
-            if name in dtype_constraints:
-                dtype_result = get_arg_dtype(arg, func.__qualname__, name)
-                if dtype_result:
-                    type_vars[dtype_constraints[name]] = dtype_result.value
 
     new_args = []
     new_kwargs = {}
@@ -312,9 +292,6 @@ def convert_input_types(
             dtype = None
             if input_requirements is not None:
                 dtype = known_datatypes.get(name)
-            elif name in dtype_constraints and dtype_constraints[name] in type_vars:
-                # TODO (pranavm): Remove this deprecated path.
-                dtype = type_vars[dtype_constraints[name]]
 
             if dtype is not None:
                 # Refuse to do unsafe casts like float -> int.
@@ -344,12 +321,19 @@ def _update_docstring(func, input_requirements, output_guarantees):
     if not func.__doc__:
         return
 
+    if input_requirements is None and output_guarantees is None:
+        return
+
     indentation = " " * 4
     code_block_index = func.__doc__.find(".. code-block:: python")
     assert code_block_index != -1, f"No code example in docstring for {func.__name__}"
 
-    input_requirements_str = f"\nINPUT REQUIREMENTS:\n{indent(doc_str(input_requirements), indentation)}\n"
-    output_guarantees_str = f"\nOUTPUT GUARANTEES:\n{indent(doc_str(output_guarantees), indentation)}\n"
+    input_requirements_str = (
+        f"\nINPUT REQUIREMENTS:\n{indent(doc_str(input_requirements), indentation)}\n" if input_requirements else ""
+    )
+    output_guarantees_str = (
+        f"\nOUTPUT GUARANTEES:\n{indent(doc_str(output_guarantees), indentation)}\n" if output_guarantees else ""
+    )
 
     func.__doc__ = (
         func.__doc__[:code_block_index]
@@ -360,76 +344,11 @@ def _update_docstring(func, input_requirements, output_guarantees):
     )
 
 
-# Modify the docstring to mention data type variables and exceptions
-def _update_docstring_legacy(func, dtype_constraints, dtype_variables, dtype_exceptions):
-    if not func.__doc__:
-        return
-
-    # Update the docstring to add data type variables after the parameter documentation.
-    args_index = func.__doc__.find("Args:")
-    # Args: may be omitted for functions with no inputs
-    args_index = args_index if args_index != -1 else 0
-    for name, var in dtype_constraints.items():
-        find_str = f"\n        {name}: " if name != RETURN_VALUE else "\n    Returns:\n        "
-
-        param_index = func.__doc__.find(find_str, args_index)
-        assert param_index != -1, f"Parameter: {name} is not present or was not documented in {func.__name__}"
-        func.__doc__ = (
-            func.__doc__[:param_index]
-            + rf"{find_str}[dtype=\ **{var}**\ ] "
-            + func.__doc__[param_index + len(find_str) :]
-        )
-
-    prefix = " " * 8
-
-    def sorted_types(dtypes):
-        return sorted(
-            dtypes,
-            key=lambda dtype: (
-                tuple(typ.__name__ for typ in DATA_TYPES[dtype].__bases__),
-                DATA_TYPES[dtype].itemsize,
-            ),
-        )
-
-    dtype_info = "DATA TYPE CONSTRAINTS:\n"
-    dtype_info += indent(
-        "\n".join(
-            [
-                f"- **{var}**: {', '.join(map(lambda t: f':class:`{t}`', sorted_types(dtypes)))}"
-                for var, dtypes in dtype_variables.items()
-            ]
-        ),
-        prefix,
-    )
-
-    if dtype_exceptions:
-        dtype_info += "\n\n    UNSUPPORTED DATA TYPE COMBINATIONS:\n"
-        esc_space = r"\ "
-        dtype_info += indent(
-            "\n".join(
-                [
-                    f"- {', '.join([f'**{k}**{esc_space}={esc_space}:class:`{v}`' for k, v in exception.items()])}"
-                    for exception in dtype_exceptions
-                ]
-            ),
-            prefix,
-        )
-
-    dtype_info += "\n\n    "
-
-    code_block_index = func.__doc__.find(".. code-block:: python")
-    assert code_block_index != -1, f"No code example in docstring for {func.__name__}"
-    func.__doc__ = func.__doc__[:code_block_index] + dtype_info + func.__doc__[code_block_index:]
-
-
 def interface(
     # TODO (pranavm): These should be required arguments eventually.
     # TODO (pranavm): Document requirements/guarantees.
     input_requirements: Constraints = None,
     output_guarantees: Constraints = None,
-    dtype_constraints: Dict[str, str] = {},
-    dtype_variables: Dict[str, List[str]] = {},
-    dtype_exceptions: List[Dict[str, str]] = [],
     convert_to_tensors: Union[bool, Set[str]] = False,
     conversion_preprocess_func: Optional[Callable] = None,
 ):
@@ -438,39 +357,13 @@ def interface(
     layer too many decorators, it is preferable to extend this decorator with further functionality
     than to add and apply further decorators.
 
-    The supported constraints are for data type constraints and for converting `TensorLike` and `ShapeLike`
-    inputs into `Tensor`s or `DimensionSize`s.
-
-    NOTE: When annotating a new API, you should also update `tests/constraints/object_builders.py`.
-
     Args:
-        dtype_constraints: Maps parameters and return values to data type constraint variables.
-            Use the special value `wrappers.RETURN_VALUE` to denote return values - this can be
-            a list for functions that have multiple outputs. If only one return type is specified for
-            functions with multiple outputs, it will be applied to all outputs.
-            For example:
-                {"input": "T1", "other": T2, wrappers.RETURN_VALUE: "T1"}
-
-        dtype_variables: Maps data type constraints variables to their supported data types.
-            For example:
-                {"T1": ["float32", "float16"], "T2": ["int32", "int64"]}
-
-        dtype_exceptions: Indicates specific combinations of data types that are not supported by the API.
-            For example:
-                [
-                    {"T1": "float16", "T2": "int32"},
-                ]
-
-        aliases: A list of function name aliases. For methods that are exposed as multiple APIs
-            (e.g. `__add__` and `__radd__`), this will enable type information to be added to the
-            documentation for the aliases as well.
-
         convert_to_tensors: If False or an empty set, no argument types will be converted.
             If True, all arguments with the `TensorLike` or `ShapeLike` annotations will be
             converted into `Tensor`s or, whenever possible, `DimensionSize`. If the argument
             is a set of argument names, conversions will be done only for those arguments.
 
-            The conversions will respect any datatype constraints, casting the `TensorLike` values as necessary,
+            The conversions will attempt safe casts as needed based on `input_requirements`,
             but will raise an exception for lossy casts like float to int (but *not* for, e.g., `float32` to `float16`).
 
         conversion_preprocess_func: If `convert_to_tensors` is true, this argument is a callback that is
@@ -493,18 +386,14 @@ def interface(
         )
         shape_likes = {name for name, param in signature.parameters.items() if param.annotation is ShapeLike}
 
-        # TODO (pranavm): Constraints should never be None eventually.
-        if input_requirements is not None:
+        # Register constraints for Tripy operators if either side is specified.
+        #
+        # NOTE: The interface decorator is also used in unit tests and potentially by user code.
+        # We only want Tripy's own operators to appear in the global registry that powers
+        # public-API validation and integration tests.
+        if (input_requirements is not None or output_guarantees is not None) and func.__module__.startswith("nvtripy"):
             OPERATOR_CONSTRAINTS.append(OperatorConstraints(func, input_requirements, output_guarantees))
-
             _update_docstring(func, input_requirements, output_guarantees)
-        elif dtype_constraints or dtype_variables or dtype_exceptions:
-            # if no dtype constraints have been specified at all, do not add to the table so we don't generate invalid tests
-            DATA_TYPE_CONSTRAINTS.append(
-                DataTypeConstraints(func, dtype_constraints, dtype_variables, dtype_exceptions)
-            )
-
-            _update_docstring_legacy(func, dtype_constraints, dtype_variables, dtype_exceptions)
 
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
@@ -521,7 +410,6 @@ def interface(
                     var_arg_info,
                     conversion_targets,
                     conversion_preprocess_func,
-                    dtype_constraints,
                     shape_likes,
                     input_requirements,
                 )
@@ -531,79 +419,22 @@ def interface(
                     # Input validation needs to know values for arguments that were not provided but have default values:
                     result = input_requirements(merged_args + omitted_default_args)
                     if not result:
-                        raise_error(
-                            f"Invalid inputs for function: '{func.__qualname__}'.",
+                        details = (
                             ["Expected: "]
                             + result.error_details
-                            + [f".\n\nNote: Requirements are:\n    {input_requirements}."],
+                            + [f".\n\nNote: Requirements are:\n    {input_requirements}."]
                         )
 
-            if config.enable_dtype_checking:
-                from nvtripy.common.datatype import dtype
-                from nvtripy.frontend.tensor import Tensor
+                        # Include source locations for relevant tensor inputs to make constraint
+                        # failures actionable.
+                        for name, value in merged_args + omitted_default_args:
+                            if hasattr(value, "stack_info"):
+                                details.extend([f"\n\nArgument '{name}' was defined here:\n", value])
 
-                # The first arguments seen for each type variable. Other arguments with the same variable
-                # must use the same data types.
-                type_var_first_args: Dict[str, Tuple[str, dtype, Any]] = {}
-
-                for name, arg in merged_args:
-                    if name not in dtype_constraints:
-                        continue
-
-                    if arg is None:
-                        # This is only possible for omitted optional arguments. Otherwise, None will
-                        # be disallowed by the function registry's type checking.
-                        continue
-
-                    type_var = dtype_constraints[name]
-
-                    arg_dtype = get_arg_dtype(arg, func.__qualname__, name)
-                    if not arg_dtype:
-                        raise_error(f"Could not determine datatype of {name}.", arg_dtype.error_details)
-                    arg_dtype = arg_dtype.value
-
-                    # Check if the type is supported at all
-                    supported_dtypes = dtype_variables[type_var]
-                    if arg_dtype.name not in supported_dtypes:
                         raise_error(
-                            f"Unsupported data type in '{func.__qualname__}'.",
-                            [
-                                f"For parameter: '{name}', got unsupported data type: '{arg_dtype}'.\n"
-                                f"Supported data types are: {supported_dtypes}."
-                            ]
-                            + (
-                                [
-                                    f"\nNote: '{name}' was: ",
-                                    arg,
-                                ]
-                                if isinstance(arg, Tensor) and "all" in config.extra_error_information
-                                else []
-                            ),
+                            f"Invalid inputs for function: '{func.__qualname__}'.",
+                            details,
                         )
-
-                    # Check if the type matches that of other inputs with the same type_var.
-                    if type_var in type_var_first_args:
-                        other_name, other_arg_dtype, other_arg = type_var_first_args[type_var]
-                        if other_arg_dtype != arg_dtype:
-                            raise_error(
-                                f"Mismatched data types in '{func.__qualname__}'.",
-                                [
-                                    f"Parameters: '{other_name}' and '{name}' must have matching data types, but got: "
-                                    f"'{other_arg_dtype.name}' and '{arg_dtype.name}' respectively.\n"
-                                ]
-                                + (
-                                    [
-                                        f"Note: '{other_name}' was: ",
-                                        other_arg,
-                                        f"While '{name}' was: ",
-                                        arg,
-                                    ]
-                                    if isinstance(arg, Tensor)
-                                    else []
-                                ),
-                            )
-
-                    type_var_first_args[type_var] = (name, arg_dtype, arg)
 
             return func(*args, **kwargs)
 

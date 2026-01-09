@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -34,5 +34,5 @@ class TestEmbedding:
         embd = tp.Embedding(4, 16)
         embd.weight = tp.ones(embd.weight.shape)
 
-        with helper.raises(tp.TripyException, match="Unsupported data type in 'gather'."):
+        with helper.raises(tp.TripyException, match="Invalid inputs for function: 'gather'."):
             out = embd(a)
