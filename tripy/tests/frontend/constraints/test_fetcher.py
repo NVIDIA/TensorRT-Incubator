@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -104,7 +104,19 @@ class TestGetDataType:
     def test_call_with_non_tensor_argument(self):
         fetcher = GetDataType(GetInput("input_data"))
         with helper.raises(TripyException, match="Expected a tensor or data type argument"):
-            fetcher([("input_data", 42)])
+            fetcher([("input_data", object())])
+
+    def test_call_with_python_scalar_int(self):
+        fetcher = GetDataType(GetInput("value"))
+        assert fetcher([("value", 42)]) == tp.int32
+
+    def test_call_with_python_scalar_float(self):
+        fetcher = GetDataType(GetInput("value"))
+        assert fetcher([("value", 1.0)]) == tp.float32
+
+    def test_call_with_python_scalar_bool(self):
+        fetcher = GetDataType(GetInput("value"))
+        assert fetcher([("value", True)]) == tp.bool
 
     def test_call_with_nested_sequence_error(self):
         fetcher = GetDataType(GetInput("input_data"))

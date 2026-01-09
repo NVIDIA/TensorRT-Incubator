@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -122,7 +122,12 @@ class Equal(Logic):
     def __call__(self, args: List[Tuple[str, Any]], returns: Optional[Tuple[Any]] = None) -> Result:
         value1 = self.fetcher(args, returns)
         value2 = get_val_or_call_fetcher(self.fetcher_or_value, args, returns)
-        if value1 == value2:
+
+        # Avoid triggering overloaded equality implementations (e.g., on Tensor) when comparing to None.
+        if value1 is None or value2 is None:
+            if value1 is value2:
+                return Result.ok()
+        elif value1 == value2:
             return Result.ok()
 
         # TODO (pranavm): If fetcher_or_value is a Fetcher, include its value in the error message.
@@ -132,7 +137,7 @@ class Equal(Logic):
         return f"{self.fetcher} == {self.fetcher_or_value}"
 
     def doc_str(self) -> str:
-        return f"{doc_str(self.fetcher)} is {doc_str(self.fetcher_or_value)}"
+        return f"{doc_str(self.fetcher)} == {doc_str(self.fetcher_or_value)}"
 
     def inverse(self) -> "Logic":
         return NotEqual(self.fetcher, self.fetcher_or_value)
@@ -147,7 +152,12 @@ class NotEqual(Logic):
     def __call__(self, args: List[Tuple[str, Any]], returns: Optional[Tuple[Any]] = None) -> Result:
         value1 = self.fetcher(args, returns)
         value2 = get_val_or_call_fetcher(self.fetcher_or_value, args, returns)
-        if value1 != value2:
+
+        # Avoid triggering overloaded inequality implementations (e.g., on Tensor) when comparing to None.
+        if value1 is None or value2 is None:
+            if value1 is not value2:
+                return Result.ok()
+        elif value1 != value2:
             return Result.ok()
 
         return Result.err([f"'{self.fetcher}' to be not equal to '{self.fetcher_or_value}' (but it was '{value1}')"])
@@ -156,7 +166,7 @@ class NotEqual(Logic):
         return f"{self.fetcher} != {self.fetcher_or_value}"
 
     def doc_str(self) -> str:
-        return f"{doc_str(self.fetcher)} is not {doc_str(self.fetcher_or_value)}"
+        return f"{doc_str(self.fetcher)} != {doc_str(self.fetcher_or_value)}"
 
     def inverse(self) -> "Logic":
         return Equal(self.fetcher, self.fetcher_or_value)
