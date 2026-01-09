@@ -1,6 +1,6 @@
 //===- Transforms.h ---------------------------------------------*- C++ -*-===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2024-2026 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -25,13 +25,13 @@
 #ifndef MLIR_TENSORRT_TRANSFORMS_TRANSFORMS_H
 #define MLIR_TENSORRT_TRANSFORMS_TRANSFORMS_H
 
-#include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/Value.h"
 #include <functional>
 namespace mlir {
 class ModuleOp;
 class RewriterBase;
 class RewritePatternSet;
+class PatternBenefit;
 
 /// Remove any operations nested below `op` that have the "IsolatedFromAbove"
 /// and "SymbolTable" attribute.
@@ -50,7 +50,7 @@ void populateSCFDetensorizeWhilePatterns(
     RewritePatternSet &patterns,
     ShouldScalarizeWhileBeforeArgFunc shouldScalarizeBeforeArg,
     ShouldScalarizeWhileAfterArgFunc shouldScalarizeAfterArg,
-    PatternBenefit benefit = 1);
+    PatternBenefit benefit);
 
 } // namespace mlir
 

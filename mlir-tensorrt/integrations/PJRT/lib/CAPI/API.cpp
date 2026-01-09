@@ -1,6 +1,6 @@
 //===- API.cpp ------------------------------------------------------------===//
 //
-// SPDX-FileCopyrightText: Copyright 2023-2025 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2023-2026 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -26,9 +26,9 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt-pjrt/CAPI/API.h"
 #include "mlir-executor/Runtime/API/API.h"
-#include "mlir-executor/Runtime/API/ExecutableFlatbuffer.h"
 #include "mlir-tensorrt-common/Support/Status.h"
 #include "mlir-tensorrt-pjrt/Client.h"
+#include "mlir-tensorrt-pjrt/XlaAdaptor.h"
 #include "xla/pjrt/c/pjrt_c_api.h"
 #include "llvm/ADT/ArrayRef.h"
 #include <cstring>

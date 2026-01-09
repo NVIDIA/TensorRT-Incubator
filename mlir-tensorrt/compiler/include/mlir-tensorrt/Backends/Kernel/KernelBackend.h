@@ -24,7 +24,7 @@
 #ifndef MLIR_TENSORRT_BACKENDS_KERNEL_KERNELBACKEND
 #define MLIR_TENSORRT_BACKENDS_KERNEL_KERNELBACKEND
 
-#include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
+#include "mlir-tensorrt/Dialect/Plan/IR/PlanInterfaces.h"
 
 #define GET_ATTRDEF_CLASSES
 #include "mlir-tensorrt/Backends/Kernel/KernelBackendAttrs.h.inc"

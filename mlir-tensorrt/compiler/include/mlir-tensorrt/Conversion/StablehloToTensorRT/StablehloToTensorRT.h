@@ -24,9 +24,8 @@
 #ifndef MLIR_TENSORRT_CONVERSION_HLOTOTENSORRT_HLOTOTENSORRT_H
 #define MLIR_TENSORRT_CONVERSION_HLOTOTENSORRT_HLOTOTENSORRT_H
 
+#include "mlir-tensorrt-common/Utils/ShapeInfo.h"
 #include "mlir-tensorrt/Conversion/TensorRTCommon/ConvertToTensorRTCommon.h"
-#include "mlir-tensorrt/Dialect/StablehloExt/Utils/GatherScatterUtils.h"
-#include "mlir/IR/PatternMatch.h"
 
 namespace mlir {
 class ConversionTarget;

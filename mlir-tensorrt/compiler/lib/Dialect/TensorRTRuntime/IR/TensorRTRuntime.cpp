@@ -21,8 +21,8 @@
 /// TensorRT runtime dialect implementation.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Dialect/TensorRTRuntime/IR/TensorRTRuntime.h"
 #include "mlir-tensorrt-common/Interfaces/TensorKindOpInterface.h"
+#include "mlir-tensorrt/Dialect/TensorRTRuntime/IR/Ops.h"
 #include "mlir/Conversion/ConvertToLLVM/ToLLVMInterface.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/DialectImplementation.h"

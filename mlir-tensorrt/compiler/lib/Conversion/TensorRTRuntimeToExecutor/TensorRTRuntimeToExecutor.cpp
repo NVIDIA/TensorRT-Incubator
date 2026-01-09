@@ -22,7 +22,7 @@
 #include "mlir-executor/Executor/Utils/Utils.h"
 #include "mlir-tensorrt/Conversion/Passes.h"
 #include "mlir-tensorrt/Dialect/CUDA/IR/CUDADialect.h"
-#include "mlir-tensorrt/Dialect/TensorRTRuntime/IR/TensorRTRuntime.h"
+#include "mlir-tensorrt/Dialect/TensorRTRuntime/IR/Ops.h"
 #include "mlir/Conversion/ReconcileUnrealizedCasts/ReconcileUnrealizedCasts.h"
 #include "mlir/IR/ImplicitLocOpBuilder.h"
 #include "mlir/IR/TypeUtilities.h"

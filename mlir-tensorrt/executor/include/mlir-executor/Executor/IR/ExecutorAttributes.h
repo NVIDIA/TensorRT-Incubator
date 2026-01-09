@@ -1,6 +1,6 @@
-//===- ExecutorAttributes.h -------------------------------------*- C++ -*-===//
+//===- ExecutorAttributes.h ----------------------------------------------===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -24,19 +24,17 @@
 #ifndef MLIR_EXECUTOR_EXECUTOR_IR_EXECUTORATTRIBUTES
 #define MLIR_EXECUTOR_EXECUTOR_IR_EXECUTORATTRIBUTES
 
-#include "mlir/IR/OpImplementation.h"
+#include "mlir-executor/Executor/IR/Enums.h" // IWYU pragma: keep
 #include "mlir/Interfaces/FunctionInterfaces.h"
 #include <optional>
 #include <variant>
 
-namespace mlir::func {
+namespace mlir {
+class FunctionOpInterface;
+namespace func {
 class FuncOp;
 }
-
-//===----------------------------------------------------------------------===//
-// Executor Enums
-//===----------------------------------------------------------------------===//
-#include "mlir-executor/Executor/IR/ExecutorEnums.h.inc"
+} // namespace mlir
 
 //===----------------------------------------------------------------------===//
 // Executor Attributes

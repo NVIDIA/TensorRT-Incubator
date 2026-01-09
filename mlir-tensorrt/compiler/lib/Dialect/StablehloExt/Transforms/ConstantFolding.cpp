@@ -988,7 +988,7 @@ public:
     folderOptions->foldOpElementLimit = constantFoldSizeLimit;
     folderOptions->assumeNoUndeclaredSideEffects = false;
     stablehlo_ext::populateTargetIndependentSimplificationPatterns(
-        patterns_, constantFoldSizeLimit, *folderOptions);
+        patterns_, constantFoldSizeLimit, *folderOptions, PatternBenefit(1));
 
     patterns = std::make_shared<FrozenRewritePatternSet>(std::move(patterns_));
     return success();

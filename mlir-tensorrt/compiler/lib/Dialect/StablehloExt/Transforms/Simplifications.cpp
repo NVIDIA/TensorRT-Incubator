@@ -643,8 +643,8 @@ public:
   void runOnOperation() override {
     Operation *op = getOperation();
     RewritePatternSet patterns(op->getContext());
-    stablehlo_ext::populateStableHloExtSimplificationsPatterns(patterns,
-                                                               *options);
+    stablehlo_ext::populateStableHloExtSimplificationsPatterns(
+        patterns, *options, PatternBenefit(1));
     auto config = GreedyRewriteConfig();
     if (failed(applyPatternsGreedily(op, std::move(patterns), config))) {
       emitError(op->getLoc())

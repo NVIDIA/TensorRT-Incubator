@@ -27,9 +27,21 @@ add_mlir_tensorrt_library(MLIRTensorRTUtilsShapeInfo
   ShapeInfo.cpp
   ModuleUtils.cpp
 
+  PARTIAL_SOURCES_INTENDED
+
   MLIR_LIBS PUBLIC
     MLIRAnalysis
     MLIRIR
     MLIRDialectUtils
     MLIRFuncDialect
+  )
+
+add_mlir_tensorrt_library(MLIRTensorRTModuleLikePass
+  ModuleLikePass.cpp
+
+  PARTIAL_SOURCES_INTENDED
+
+  MLIR_LIBS PUBLIC
+    MLIRIR
+    MLIRPass
   )

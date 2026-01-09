@@ -21,10 +21,23 @@
 /// Declares convenience utilities for building Stable HLO operations.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir/IR/PatternMatch.h"
-#include "stablehlo/dialect/StablehloOps.h"
 
-namespace mlir::stablehlo {
+#include "llvm/ADT/ArrayRef.h"
+
+namespace mlir {
+class RewriterBase;
+class Value;
+class ValueRange;
+class RankedTensorType;
+class AffineMap;
+
+namespace stablehlo {
+
+class BroadcastInDimOp;
+class ConcatenateOp;
+class ReshapeOp;
+class SliceOp;
+class TransposeOp;
 
 /// Helper wrapper around a RewriterBase for creating Stable HLO operations.
 class StablehloBuilder {
@@ -32,17 +45,18 @@ public:
   explicit StablehloBuilder(RewriterBase &rewriter) : rewriter(rewriter) {}
 
   BroadcastInDimOp broadcastInDim(Value v, RankedTensorType newType,
-                                  ArrayRef<int64_t> broadcastDims);
+                                  llvm::ArrayRef<int64_t> broadcastDims);
   ConcatenateOp concat(ValueRange v, int64_t dim);
   ReshapeOp expandDims(Value v, int64_t idx);
   SliceOp indexSelect(Value v, int64_t dim, int64_t idx);
-  ReshapeOp reshape(Value v, ArrayRef<int64_t> shape);
+  ReshapeOp reshape(Value v, llvm::ArrayRef<int64_t> shape);
   ReshapeOp squeezeDims(Value v, int64_t idx);
-  TransposeOp transpose(Value v, ArrayRef<int64_t> perm);
+  TransposeOp transpose(Value v, llvm::ArrayRef<int64_t> perm);
   TransposeOp transpose(Value v, AffineMap perm);
 
 private:
   RewriterBase &rewriter;
 };
 
-} // namespace mlir::stablehlo
+} // namespace stablehlo
+} // namespace mlir

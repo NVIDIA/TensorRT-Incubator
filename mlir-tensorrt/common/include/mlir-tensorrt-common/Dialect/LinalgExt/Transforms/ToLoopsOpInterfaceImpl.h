@@ -26,15 +26,16 @@
 #define MLIR_TENSORRT_COMMON_DIALECT_LINALGEXT_TRANSFORMS_TOLOOPSOPINTERFACEIMPL
 
 #include "mlir-tensorrt-common/Interfaces/ToLoopsOpInterface.h"
-#include "mlir/IR/DialectRegistry.h"
 
-namespace mlir::linalg {
+namespace mlir {
+class DialectRegistry;
+namespace linalg {
 class LinalgOp;
 }
-
-namespace mlir::scf {
+namespace scf {
 class ForOp;
 }
+} // namespace mlir
 
 namespace mlir::linalg_ext {
 

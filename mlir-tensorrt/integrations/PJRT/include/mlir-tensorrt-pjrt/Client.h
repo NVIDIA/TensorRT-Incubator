@@ -22,20 +22,8 @@
 
 #include "mlir-executor/Runtime/API/API.h"
 #include "mlir-tensorrt/Compiler/Client.h"
-#include "llvm/Support/ThreadPool.h"
-#include <mutex>
-
-#if defined(__clang__) || defined(__GNUC__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wgcc-compat"
-#pragma GCC diagnostic ignored "-Wcovered-switch-default"
-#pragma GCC diagnostic ignored "-Wc++98-compat-extra-semi"
-#endif
 #include "xla/pjrt/c/pjrt_c_api.h"
-#include "xla/pjrt/compile_options.pb.h"
-#if defined(__clang__) || defined(__GNUC__)
-#pragma GCC diagnostic pop
-#endif
+#include <mutex>
 
 #define PJRT_DBGF(fmt, ...)                                                    \
   DEBUG_WITH_TYPE("pjrt", fprintf(stderr, "%s:%d " fmt "\n", __FILE__,         \
@@ -43,6 +31,14 @@
 
 namespace mlir {
 class MLIRContext;
+}
+
+namespace llvm {
+class ThreadPoolInterface;
+}
+
+namespace xla {
+class CompileOptionsProto;
 }
 
 namespace mtrt::compiler {
@@ -487,10 +483,7 @@ public:
 
   /// Thread pool owned by the client. Loaded executables store a reference to
   /// this pool, so its lifetime must exceed any loaded executable.
-  llvm::ThreadPoolInterface &getThreadPool() const {
-    assert(threadPool && "expected client thread pool to be initialized");
-    return *threadPool;
-  }
+  llvm::ThreadPoolInterface &getThreadPool() const;
 
 private:
   Client(Ref<mtrt::RuntimeClient> runtimeClient,

@@ -21,7 +21,6 @@
 #define MLIR_TENSORRT_DIALECT_TENSORRT_UTILS_UTILS
 
 #include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
-
 namespace mlir {
 class FunctionOpInterface;
 namespace tensorrt {

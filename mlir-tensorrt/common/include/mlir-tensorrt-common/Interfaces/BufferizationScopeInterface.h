@@ -1,6 +1,6 @@
 //===- BufferizationScopeInterface.h ---------------------------*- C++ -*-===//
 //
-// SPDX-FileCopyrightText: Copyright 2025 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2025-2026 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -24,7 +24,7 @@
 #ifndef MLIR_TENSORRT_COMMON_INTERFACES_BUFFERIZATIONSCOPEINTERFACE_H
 #define MLIR_TENSORRT_COMMON_INTERFACES_BUFFERIZATIONSCOPEINTERFACE_H
 
-#include "mlir/Dialect/Bufferization/Transforms/OneShotAnalysis.h"
+#include "mlir/Dialect/Bufferization/Transforms/OneShotAnalysis.h" // IWYU pragma: keep
 
 #include "mlir-tensorrt-common/Interfaces/BufferizationScopeInterface.h.inc"
 

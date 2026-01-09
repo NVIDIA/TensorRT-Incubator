@@ -25,7 +25,7 @@
 #ifndef MLIR_TENSORRT_BACKENDS_TENSORRT_TENSORRTBACKEND
 #define MLIR_TENSORRT_BACKENDS_TENSORRT_TENSORRTBACKEND
 
-#include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
+#include "mlir-tensorrt/Dialect/Plan/IR/PlanInterfaces.h"
 
 #define GET_ATTRDEF_CLASSES
 #include "mlir-tensorrt/Backends/TensorRT/TensorRTBackendAttrs.h.inc"

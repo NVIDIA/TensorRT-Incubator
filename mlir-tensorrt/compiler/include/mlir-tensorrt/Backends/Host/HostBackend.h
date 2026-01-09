@@ -26,7 +26,7 @@
 #ifndef MLIR_TENSORRT_BACKENDS_HOST_HOSTBACKEND
 #define MLIR_TENSORRT_BACKENDS_HOST_HOSTBACKEND
 
-#include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
+#include "mlir-tensorrt/Dialect/Plan/IR/PlanInterfaces.h"
 
 #define GET_ATTRDEF_CLASSES
 #include "mlir-tensorrt/Backends/Host/HostBackendAttrs.h.inc"

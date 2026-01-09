@@ -1,6 +1,6 @@
 //===- TensorRTDialect.h ----------------------------------------*- C++ -*-===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2024-2026 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -24,21 +24,26 @@
 #ifndef MLIR_TENSORRT_DIALECT_TENSORRT_IR_TENSORRTDIALECT
 #define MLIR_TENSORRT_DIALECT_TENSORRT_IR_TENSORRTDIALECT
 
-#include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTBase.h"
-#include "mlir/Dialect/Utils/ReshapeOpsUtils.h"
-#include "mlir/IR/Dialect.h"
+#include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTBase.h" // IWYU pragma: keep
+#include "mlir/Bytecode/BytecodeOpInterface.h"              // IWYU pragma: keep
+#include "mlir/IR/Dialect.h"                                // IWYU pragma: keep
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/IR/OpImplementation.h"
-#include "mlir/Interfaces/CallInterfaces.h"
-#include "mlir/Interfaces/ControlFlowInterfaces.h"
-#include "mlir/Interfaces/DestinationStyleOpInterface.h"
+#include "mlir/IR/RegionKindInterface.h"                 // IWYU pragma: keep
+#include "mlir/Interfaces/CallInterfaces.h"              // IWYU pragma: keep
+#include "mlir/Interfaces/ControlFlowInterfaces.h"       // IWYU pragma: keep
+#include "mlir/Interfaces/DestinationStyleOpInterface.h" // IWYU pragma: keep
 #include "mlir/Interfaces/InferTypeOpInterface.h"
-#include "mlir/Interfaces/LoopLikeInterface.h"
-#include "mlir/Interfaces/SideEffectInterfaces.h"
+#include "mlir/Interfaces/LoopLikeInterface.h"    // IWYU pragma: keep
+#include "mlir/Interfaces/SideEffectInterfaces.h" // IWYU pragma: keep
 
 namespace mlir::func {
 class FuncOp;
 } // namespace mlir::func
+
+namespace mlir {
+using ReassociationIndices = SmallVector<int64_t, 2>;
+}
 
 //===----------------------------------------------------------------------===//
 // TensorRT Dialect Interface Declaration

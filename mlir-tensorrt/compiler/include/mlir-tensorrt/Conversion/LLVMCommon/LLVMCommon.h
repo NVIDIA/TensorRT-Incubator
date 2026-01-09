@@ -1,6 +1,6 @@
 //===- LowerToLLVM.h --------------------------------------------*- C++ -*-===//
 //
-// SPDX-FileCopyrightText: Copyright 2025 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2025-2026 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -24,16 +24,33 @@
 #ifndef MLIR_TENSORRT_CONVERSION_LLVMCOMMON_LLVMCOMMON
 #define MLIR_TENSORRT_CONVERSION_LLVMCOMMON_LLVMCOMMON
 
-#include "mlir/Conversion/LLVMCommon/MemRefBuilder.h"
-#include "mlir/Conversion/LLVMCommon/TypeConverter.h"
-#include "mlir/Dialect/LLVMIR/LLVMDialect.h"
-#include "mlir/IR/PatternMatch.h"
-#include "mlir/IR/SymbolTable.h"
+#include "mlir/Dialect/LLVMIR/LLVMAttrs.h"
+#include "mlir/Dialect/LLVMIR/LLVMTypes.h"
 #include "mlir/IR/Types.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/Support/ToolOutputFile.h"
+#include "mlir/IR/Value.h"
+
+namespace llvm {
+class ToolOutputFile;
+} // namespace llvm
 
 namespace mlir {
+
+class OpBuilder;
+class SymbolTable;
+class ValueRange;
+class MemRefType;
+class UnrankedMemRefDescriptor;
+class LLVMTypeConverter;
+class ElementsAttr;
+
+namespace LLVM {
+class LLVMDialect;
+class LLVMFuncOp;
+class CallOp;
+class GlobalOp;
+class UnrankedMemRefDescriptor;
+class LLVMTypeConverter;
+} // namespace LLVM
 
 /// The `LLVMOpaqueCallBuilder` assists with constructing calls to externally
 /// defined functions. On a call to `create`, the LLVM function declaration with
@@ -75,9 +92,7 @@ namespace mlir {
 /// rewriters where the rewriters are created once during pass initialization.
 struct LLVMOpaqueCallBuilder {
   LLVMOpaqueCallBuilder(StringRef functionName, Type returnType,
-                        ArrayRef<Type> argumentTypes)
-      : functionName(functionName),
-        functionType(LLVM::LLVMFunctionType::get(returnType, argumentTypes)) {}
+                        ArrayRef<Type> argumentTypes);
 
   /// Lookup or insert the function declaration and create a call to that
   /// function at the current insertion point.
@@ -104,7 +119,7 @@ Value insertLLVMStringLiteral(OpBuilder &rewriter, Location loc, StringRef data,
 /// name is already in the table but the properties don't match.
 LLVM::GlobalOp lookupOrInsertGlobal(
     OpBuilder &rewriter, Location loc, StringRef symbolName, bool constant,
-    Type type, LLVM::Linkage linkage, Attribute initialValue = {},
+    Type type, LLVM::Linkage linkage, Attribute initialValue,
     SymbolTable *symbolTable = nullptr,
     llvm::function_ref<Value(OpBuilder &rewriter, Location loc)> initBuilder =
         nullptr);
@@ -116,7 +131,7 @@ LLVM::GlobalOp lookupOrInsertGlobal(
 /// `symbolTable` to avoid building a new one.
 LLVM::GlobalOp insertLLVMGlobal(
     OpBuilder &rewriter, Location loc, StringRef symbolName, bool constant,
-    Type type, LLVM::Linkage linkage, Attribute initialValue = {},
+    Type type, LLVM::Linkage linkage, Attribute initialValue,
     SymbolTable *symbolTable = nullptr,
     llvm::function_ref<Value(OpBuilder &rewriter, Location loc)> initBuilder =
         nullptr);

@@ -1,6 +1,6 @@
-//===- PDLUtils.h -----------------------------------------------*- C++ -*-===//
+//===- PDLUtils.h --------------------------------------------------------===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2024-2026 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -24,7 +24,6 @@
 #ifndef MLIR_TENSORRT_COMMON_UTILS_PDLUTILS
 #define MLIR_TENSORRT_COMMON_UTILS_PDLUTILS
 
-#include "mlir/IR/PatternMatch.h"
 #include "llvm/ADT/TypeSwitch.h"
 
 namespace mlir {

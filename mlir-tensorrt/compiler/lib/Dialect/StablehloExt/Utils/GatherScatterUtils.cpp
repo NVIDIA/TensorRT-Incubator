@@ -1,14 +1,12 @@
-//===- GatherScatterUtils.cpp  --------------------------------------------===//
+//===- GatherScatterUtils.cpp --------------------------------------------===//
 //
-// Changes are copyright (c) 2024, NVIDIA CORPORATION. All rights reserved.
+// SPDX-FileCopyrightText: Copyright 2025 NVIDIA CORPORATION & AFFILIATES.
+// All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 //
 //===----------------------------------------------------------------------===//
-///
-/// Implementation of the stablehlo gather and scatter utils.
-///
-//===----------------------------------------------------------------------===//
-
 #include "mlir-tensorrt/Dialect/StablehloExt/Utils/GatherScatterUtils.h"
+#include "mlir-tensorrt-common/Utils/ShapeInfo.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Dialect/Utils/ReshapeOpsUtils.h"
 #include "mlir/IR/BuiltinAttributes.h"

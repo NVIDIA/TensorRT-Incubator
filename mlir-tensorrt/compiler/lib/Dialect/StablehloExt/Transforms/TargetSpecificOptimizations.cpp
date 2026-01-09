@@ -108,7 +108,7 @@ public:
       stablehlo_ext::populateGatherToSlicePatterns(patterns_);
 
     stablehlo_ext::populateTargetIndependentSimplificationPatterns(
-        patterns_, constantFoldSizeLimit, *folderOptions);
+        patterns_, constantFoldSizeLimit, *folderOptions, PatternBenefit(1));
 
     patterns = std::move(patterns_);
     return success();

@@ -26,6 +26,7 @@
 #include "mlir-executor/Executor/Utils/Utils.h"
 #include "mlir-executor/Utils/MemRefDescriptorAdaptor.h"
 #include "mlir/Analysis/DataLayoutAnalysis.h"
+#include "mlir/Dialect/DLTI/DLTI.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/IR/ImplicitLocOpBuilder.h"
 #include "mlir/IR/Matchers.h"
@@ -228,6 +229,10 @@ ExecutorTypeConverter::ExecutorTypeConverter(
       return TypeAttr::get(getIndexType());
     return typeAttr;
   });
+}
+
+MLIRContext *ExecutorTypeConverter::getContext() const {
+  return dialect->getContext();
 }
 
 /// Converts a function argument type to an executor type(s) and appends the
@@ -776,6 +781,10 @@ bool MemRefDescriptor::isMemRefDescriptorFieldTypes(MemRefType originalType,
                       llvm::IsaPred<executor::PointerType>) &&
          llvm::all_of(types.drop_front(2),
                       [&](Type t) { return t == indexType; });
+}
+
+PointerType MemRefDescriptor::getPtrType() {
+  return cast<PointerType>(cast<TableType>(getType()).getBody()[0]);
 }
 
 //===----------------------------------------------------------------------===//

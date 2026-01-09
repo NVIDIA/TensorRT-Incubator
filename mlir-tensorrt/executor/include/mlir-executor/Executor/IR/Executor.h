@@ -1,6 +1,6 @@
-//===- Executor.h -----------------------------------------------*- C++ -*-===//
+//===- Executor.h --------------------------------------------------------===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -24,14 +24,9 @@
 #ifndef MLIR_TENSORRT_DIALECT_EXECUTOR_IR_EXECUTOR_H
 #define MLIR_TENSORRT_DIALECT_EXECUTOR_IR_EXECUTOR_H
 
-#include "mlir-executor/Executor/IR/ExecutorAttributes.h"
-#include "mlir/Dialect/DLTI/DLTI.h"
-#include "mlir/Dialect/Func/IR/FuncOps.h"
-#include "mlir/IR/BuiltinOps.h"
-#include "mlir/IR/BuiltinTypeInterfaces.h"
+#include "mlir-executor/Executor/IR/ExecutorAttributes.h" // IWYU pragma: keep
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/OpDefinition.h"
-#include "mlir/IR/Types.h"
 #include "mlir/Interfaces/CallInterfaces.h"
 #include "mlir/Interfaces/CastInterfaces.h"
 #include "mlir/Interfaces/DataLayoutInterfaces.h"
@@ -41,7 +36,6 @@
 #include "mlir/Interfaces/SideEffectInterfaces.h"
 #include "mlir/Interfaces/ViewLikeInterface.h"
 #include "mlir/Transforms/DialectConversion.h"
-#include "llvm/ADT/StringExtras.h"
 
 namespace mlir {
 namespace executor {

@@ -21,18 +21,21 @@
 /// Declarations for code common to all "Convert X-to-Executor" passes.
 ///
 //===----------------------------------------------------------------------===//
-#ifndef INCLUDE_MLIR_EXECUTOR_CONVERSION_CONVERTTOEXECUTORCOMMON
-#define INCLUDE_MLIR_EXECUTOR_CONVERSION_CONVERTTOEXECUTORCOMMON
+#ifndef MLIR_EXECUTOR_CONVERSION_CONVERTTOEXECUTORCOMMON
+#define MLIR_EXECUTOR_CONVERSION_CONVERTTOEXECUTORCOMMON
 
 #include "mlir-executor/Executor/IR/Executor.h"
+#include "mlir-executor/Executor/IR/ExecutorAttributes.h"
 #include "mlir-executor/Utils/MemRefDescriptorAdaptor.h"
-#include "mlir/Analysis/DataLayoutAnalysis.h"
-#include "mlir/IR/ImplicitLocOpBuilder.h"
-#include "mlir/Interfaces/DataLayoutInterfaces.h"
 #include "mlir/Transforms/DialectConversion.h"
 
 namespace mlir {
 namespace executor {
+class ExecutorDialect;
+class ExecutorFunctionType;
+class PointerType;
+class CallOp;
+
 //===----------------------------------------------------------------------===//
 // Executor Conversion Options
 //===----------------------------------------------------------------------===//
@@ -120,7 +123,7 @@ public:
 
   LowerToExecutorOptions options;
 
-  MLIRContext *getContext() const { return dialect->getContext(); }
+  MLIRContext *getContext() const;
 
   LogicalResult promoteOperands(Location loc, ValueRange opOperands,
                                 ValueRange operands, OpBuilder &b,
@@ -353,9 +356,7 @@ public:
     return unpack(b, b.getLoc());
   }
 
-  PointerType getPtrType() {
-    return cast<PointerType>(cast<TableType>(getType()).getBody()[0]);
-  }
+  PointerType getPtrType();
 
   /// Get the number of elements in the memref. Note that this only gives the
   /// shape volume and not the buffer volume (for strided types).
@@ -397,4 +398,4 @@ struct ExecutorCallBuilder {
 } // namespace executor
 } // namespace mlir
 
-#endif // INCLUDE_MLIR_EXECUTOR_CONVERSION_CONVERTTOEXECUTORCOMMON
+#endif // MLIR_EXECUTOR_CONVERSION_CONVERTTOEXECUTORCOMMON
