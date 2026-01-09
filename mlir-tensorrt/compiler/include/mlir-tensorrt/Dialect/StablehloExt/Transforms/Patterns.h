@@ -21,11 +21,16 @@
 /// Declarations for pattern sets related to StableHlo.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir/IR/PatternMatch.h"
+
 #include "mlir/Support/LLVM.h"
-#include "stablehlo/transforms/optimization/Passes.h"
 
 namespace mlir {
+namespace stablehlo {
+struct StablehloAggressiveSimplificationPassOptions;
+struct StablehloAggressiveFolderPassOptions;
+} // namespace stablehlo
+
+class PatternBenefit;
 class RewritePatternSet;
 namespace stablehlo_ext {
 
@@ -37,7 +42,7 @@ void populateStableHloAbsorbTensorCastPatterns(RewritePatternSet &patterns);
 void populateStableHloExtSimplificationsPatterns(
     RewritePatternSet &patterns,
     const stablehlo::StablehloAggressiveSimplificationPassOptions &options,
-    PatternBenefit benefit = 1);
+    PatternBenefit benefit);
 
 /// Populate patterns that simplify `stablehlo.dot_general` to
 /// `stablehlo.multiply`.
@@ -49,7 +54,7 @@ void populateStablehloDotGeneralToMultiplyPatterns(RewritePatternSet &patterns);
 void populateTargetIndependentSimplificationPatterns(
     RewritePatternSet &patterns, int64_t sizeLimit,
     const stablehlo::StablehloAggressiveFolderPassOptions &folderOptions,
-    PatternBenefit benefit = 1);
+    PatternBenefit benefit);
 
 /// Populate patterns to canonicalize `stablehlo.convolution`.
 void populateCanonicalizeStablehloConvolutionPatterns(

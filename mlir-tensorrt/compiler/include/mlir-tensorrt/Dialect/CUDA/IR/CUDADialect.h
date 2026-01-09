@@ -25,15 +25,14 @@
 #ifndef MLIR_TENSORRT_DIALECT_CUDA_IR_CUDA_H
 #define MLIR_TENSORRT_DIALECT_CUDA_IR_CUDA_H
 
-#include "mlir/IR/BuiltinOps.h"
-#include "mlir/IR/Dialect.h"
-#include "mlir/IR/DialectImplementation.h"
-#include "mlir/IR/OpDefinition.h"
-#include "mlir/IR/Types.h"
-#include "mlir/Interfaces/DestinationStyleOpInterface.h"
-#include "mlir/Interfaces/FunctionInterfaces.h"
-#include "mlir/Interfaces/InferTypeOpInterface.h"
-#include "llvm/ADT/TypeSwitch.h"
+#include "mlir/Bytecode/BytecodeOpInterface.h"           // IWYU pragma: keep
+#include "mlir/IR/Dialect.h"                             // IWYU pragma: keep
+#include "mlir/IR/OpDefinition.h"                        // IWYU pragma: keep
+#include "mlir/IR/OpImplementation.h"                    // IWYU pragma: keep
+#include "mlir/Interfaces/DestinationStyleOpInterface.h" // IWYU pragma: keep
+#include "mlir/Interfaces/FunctionInterfaces.h"          // IWYU pragma: keep
+#include "mlir/Interfaces/InferTypeOpInterface.h"        // IWYU pragma: keep
+#include "mlir/Interfaces/SideEffectInterfaces.h"        // IWYU pragma: keep
 
 //===----------------------------------------------------------------------===//
 // CUDA Dialect

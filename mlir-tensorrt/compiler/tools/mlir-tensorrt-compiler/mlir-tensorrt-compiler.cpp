@@ -26,6 +26,7 @@
 #include "mlir-tensorrt/Compiler/Pipeline.h"
 #include "mlir/Debug/Counter.h"
 #include "mlir/IR/AsmState.h"
+#include "mlir/IR/BuiltinOps.h"
 #include "mlir/Parser/Parser.h"
 #include "mlir/Support/FileUtilities.h"
 #include "llvm/Support/CommandLine.h"

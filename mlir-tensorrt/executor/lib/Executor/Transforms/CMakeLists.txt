@@ -25,6 +25,7 @@ add_mlir_executor_library(MLIRTensorRTExecutorTransforms
     MLIRTensorRTRuntimeExecutableInterface
     MLIRTensorRTStdToExecutor
     MLIRTensorRTSupportArtifactManager
+    MLIRTensorRTModuleLikePass
   MLIR_LIBS PUBLIC
     MLIRAffineToStandard
     MLIRBufferizationDialect

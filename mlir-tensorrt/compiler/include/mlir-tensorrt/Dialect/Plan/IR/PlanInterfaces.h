@@ -26,8 +26,6 @@
 
 #include "mlir-executor/Transforms/Clustering/Clustering.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/PlanEnums.h"
-#include "mlir/IR/Operation.h"
-#include "mlir/Pass/Pass.h"
 
 namespace mlir {
 class DataFlowSolver;

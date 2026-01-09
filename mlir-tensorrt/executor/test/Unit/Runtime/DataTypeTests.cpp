@@ -1,10 +1,10 @@
-
-//===- DataTypeTests.cpp - Unit tests for low-precision float types ------===//
+//===- DataTypeTests.cpp -------------------------------------------------===//
 //
-// Unit tests for Float8, Float16 and BFloat16 implementations.
+// SPDX-FileCopyrightText: Copyright 2025-2026 NVIDIA CORPORATION & AFFILIATES.
+// All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 //
 //===----------------------------------------------------------------------===//
-
 #include "mlir-executor/Runtime/Backend/Common/DataTypes.h"
 #include <cmath>
 #include <gtest/gtest.h>

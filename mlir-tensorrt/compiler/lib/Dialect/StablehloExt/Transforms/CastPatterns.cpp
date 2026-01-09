@@ -33,6 +33,7 @@
 #include "mlir-tensorrt-dialect/Utils/ShapeUtils.h"
 #include "mlir-tensorrt/Dialect/StablehloExt/Transforms/Patterns.h"
 #include "mlir-tensorrt/Dialect/StablehloExt/Utils/Utils.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Support/LLVM.h"

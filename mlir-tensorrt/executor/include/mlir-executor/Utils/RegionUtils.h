@@ -22,10 +22,10 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/Value.h"
 
 namespace mlir {
+class RewriterBase;
 namespace tensorrt {
 
 /// For each used-value-defined-above within the single-block `body` region, if

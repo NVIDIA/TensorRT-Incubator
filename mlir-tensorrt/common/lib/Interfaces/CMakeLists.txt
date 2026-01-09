@@ -82,6 +82,7 @@ add_mlir_tensorrt_common_interface_library(
 add_mlir_tensorrt_common_interface_library(
   MLIRTensorRTCommonTensorKindInterface
   TensorKindOpInterface.cpp
+  TensorKindAttrInterface.cpp
 
   DEPENDS
   MLIRTensorRTCommonTensorKindOpInterfaceIncGen

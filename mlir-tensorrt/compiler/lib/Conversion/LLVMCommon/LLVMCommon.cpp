@@ -22,6 +22,7 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt/Conversion/LLVMCommon/LLVMCommon.h"
 #include "mlir/Conversion/LLVMCommon/MemRefBuilder.h"
+#include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Dialect/LLVMIR/LLVMAttrs.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/LLVMIR/LLVMTypes.h"
@@ -35,6 +36,12 @@
 #include <string>
 
 using namespace mlir;
+
+LLVMOpaqueCallBuilder::LLVMOpaqueCallBuilder(StringRef functionName,
+                                             Type returnType,
+                                             ArrayRef<Type> argumentTypes)
+    : functionName(functionName),
+      functionType(LLVM::LLVMFunctionType::get(returnType, argumentTypes)) {}
 
 LLVM::CallOp LLVMOpaqueCallBuilder::create(Location loc, OpBuilder &builder,
                                            ValueRange arguments,

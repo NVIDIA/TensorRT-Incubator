@@ -1,6 +1,6 @@
 //===- Utils.cpp ------------------------------------------------*- C++ -*-===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2024-2026 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -17,12 +17,14 @@
 // limitations under the License.
 //
 //===----------------------------------------------------------------------===//
-// TensorRT dialect utilities.
+///
+/// TensorRT dialect utilities.
+///
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt-dialect/TensorRT/Utils/Utils.h"
-
 #include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
 #include "mlir/IR/Matchers.h"
+#include "mlir/IR/PatternMatch.h"
 #include "mlir/Interfaces/FunctionInterfaces.h"
 
 using namespace mlir;

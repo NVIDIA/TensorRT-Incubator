@@ -1,24 +1,25 @@
-//===- ExecuteFunctionWithLuaBackendTests.cpp -----------------------------===//
+//===- ExecuteFunctionWithLuaBackendTests.cpp ----------------------------===//
 //
-// Copyright (c) 2024-2025, NVIDIA CORPORATION. All rights reserved.
+// SPDX-FileCopyrightText: Copyright 2026 NVIDIA CORPORATION & AFFILIATES.
+// All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 //
 //===----------------------------------------------------------------------===//
 ///
 /// Unit tests for testing the parsing of sol::protected_function_results
 ///
 //===----------------------------------------------------------------------===//
-
 #include "mlir-executor/InitAllDialects.h"
 #include "mlir-executor/Runtime/API/API.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaExtensions.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaRuntime.h"
 #include "mlir-executor/Target/Lua/TranslateToRuntimeExecutable.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/AsmState.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/DialectRegistry.h"
 #include "mlir/IR/OwningOpRef.h"
 #include "mlir/Parser/Parser.h"
-#include "mlir/Support/LogicalResult.h"
 #include "gtest/gtest.h"
 
 using namespace mtrt;

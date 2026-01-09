@@ -1,7 +1,6 @@
-//===- GenerateABIWrappers.cpp
-//----------------------------------------------===//
+//===- GenerateABIWrappers.cpp --------------------------------------------===//
 //
-// SPDX-FileCopyrightText: Copyright 2025 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2025-2026 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -28,9 +27,9 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-executor/Executor/Transforms/GenerateABIWrappers.h"
 #include "mlir-executor/Executor/IR/Executor.h"
-#include "mlir-executor/Executor/Transforms/Passes.h"
+#include "mlir-executor/Executor/Transforms/Passes.h" // IWYU pragma: keep
 #include "mlir/Analysis/DataLayoutAnalysis.h"
-#include "mlir/IR/BuiltinAttributes.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 
 namespace mlir::executor {
 #define GEN_PASS_DEF_EXECUTORGENERATEABIWRAPPERSPASS

@@ -18,6 +18,8 @@
 //
 //===----------------------------------------------------------------------===//
 #include "EinsumHelper.h"
+#include "mlir/IR/Diagnostics.h"
+#include "mlir/IR/TypeRange.h"
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/StringExtras.h"

@@ -1,6 +1,6 @@
 //===- ShapeInfo.h ---------------------------------------------*- C++ -*-===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2024-2026 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -41,7 +41,7 @@
 #ifndef MLIR_TENSORRT_COMMON_UTILS_SHAPEINFO
 #define MLIR_TENSORRT_COMMON_UTILS_SHAPEINFO
 
-#include "mlir/IR/BuiltinAttributes.h"
+#include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Value.h"
 
 namespace mlir {
