@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -189,7 +189,7 @@ class TestOr:
 
     def test_doc_str(self):
         or_constraint = Or(Equal(GetInput("a"), tp.float32), Equal(GetInput("a"), tp.float16))
-        assert doc_str(or_constraint) == "(``a`` is :class:`float32` *or* ``a`` is :class:`float16`)"
+        assert doc_str(or_constraint) == "(``a`` == :class:`float32` *or* ``a`` == :class:`float16`)"
 
 
 class TestEqual:
@@ -216,8 +216,8 @@ class TestEqual:
         assert not inverse([("param1", 5)])
 
     def test_doc_str(self):
-        assert doc_str(Equal(GetInput("a"), GetInput("b"))) == "``a`` is ``b``"
-        assert doc_str(Equal(GetInput("a"), tp.float32)) == "``a`` is :class:`float32`"
+        assert doc_str(Equal(GetInput("a"), GetInput("b"))) == "``a`` == ``b``"
+        assert doc_str(Equal(GetInput("a"), tp.float32)) == "``a`` == :class:`float32`"
 
 
 class TestNotEqual:
@@ -244,7 +244,7 @@ class TestNotEqual:
         assert not inverse([("param1", 10)])
 
     def test_doc_str(self):
-        assert doc_str(NotEqual(GetInput("a"), GetInput("b"))) == "``a`` is not ``b``"
+        assert doc_str(NotEqual(GetInput("a"), GetInput("b"))) == "``a`` != ``b``"
 
 
 class TestIf:
@@ -298,7 +298,7 @@ class TestIf:
         )
         assert (
             doc_str(if_constraint)
-            == "``b`` is one of [:class:`float32`, :class:`float16`] **if** ``a.dtype`` is :class:`float32`, **otherwise** ``b`` is one of [:class:`int32`, :class:`int64`]"
+            == "``b`` is one of [:class:`float32`, :class:`float16`] **if** ``a.dtype`` == :class:`float32`, **otherwise** ``b`` is one of [:class:`int32`, :class:`int64`]"
         )
 
     def test_call_without_else_branch(self):
@@ -322,7 +322,7 @@ class TestIf:
         )
         assert (
             doc_str(if_constraint)
-            == "if ``a.dtype`` is :class:`float32`, then ``b`` is one of [:class:`float32`, :class:`float16`]"
+            == "if ``a.dtype`` == :class:`float32`, then ``b`` is one of [:class:`float32`, :class:`float16`]"
         )
 
     def test_inverse_without_else_branch(self):

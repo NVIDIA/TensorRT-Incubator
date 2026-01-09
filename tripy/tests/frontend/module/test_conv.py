@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -44,7 +44,7 @@ class TestConvolution:
     def test_mismatched_dtypes_fails(self, ConvType):
         input = tp.ones((4, 3, 8, 8), dtype=tp.float32)
         conv_layer = make_conv(ConvType, 3, 16, (5, 5), dtype=tp.float16)
-        with helper.raises(tp.TripyException, match=r"Mismatched data types in", has_stack_info_for=[input]):
+        with helper.raises(tp.TripyException, match=r"Invalid inputs for function:", has_stack_info_for=[input]):
             output = conv_layer(input)
 
     def test_mismatched_dim_fails(self, ConvType):

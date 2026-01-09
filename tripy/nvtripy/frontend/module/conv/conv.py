@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -28,11 +28,15 @@ from nvtripy.frontend.tensor import Tensor
 from nvtripy.trace.ops.convolution import Convolution
 from nvtripy.frontend import wrappers
 
+from nvtripy.frontend.constraints import GetInput, GetReturn, If, OneOf
+
 
 # This function is added so that we can do dtype checking.
 @wrappers.interface(
-    dtype_constraints={"input": "T1", "weight": "T1", "bias": "T1", wrappers.RETURN_VALUE: "T1"},
-    dtype_variables={"T1": ["float32", "float16", "bfloat16"]},
+    input_requirements=OneOf(GetInput("input").dtype, [datatype.float32, datatype.float16, datatype.bfloat16])
+    & (GetInput("weight").dtype == GetInput("input").dtype)
+    & If(GetInput("bias") != None, GetInput("bias").dtype == GetInput("input").dtype),
+    output_guarantees=GetReturn(0).dtype == GetInput("input").dtype,
 )
 def convolution(
     input: "nvtripy.Tensor",
