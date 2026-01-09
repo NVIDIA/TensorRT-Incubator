@@ -149,7 +149,7 @@ getPipelineOptions() {
     options->get<compiler::TensorRTOptions>()
         .forceDefaultSliceInBounds.setValue(true);
     if (clOptionsConfig->pjrtOptLevel > 0)
-      options->get<compiler::OptimizationOptions>().unrollThreshold.setValue(
+      options->get<compiler::StablehloInputOptions>().unrollThreshold.setValue(
           9223372036854775807);
     MTRT_RETURN_IF_ERROR(options->finalize());
   }

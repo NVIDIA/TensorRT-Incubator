@@ -414,11 +414,6 @@ struct OptimizationOptions : public mlir::OptionsGroup {
 
   static llvm::cl::OptionCategory category;
 
-  Option<int64_t> unrollThreshold{
-      this->ctx, "scf-unroll-threshold", llvm::cl::init(100),
-      llvm::cl::desc("Cost threshold for loop unrolling."),
-      llvm::cl::cat(category)};
-
   Option<bool> hoistAllocsToGlobals{
       this->ctx, "hoist-allocs-to-globals", llvm::cl::init(true),
       llvm::cl::desc("Hoist large local allocations to static globals when "
