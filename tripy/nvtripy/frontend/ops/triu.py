@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -28,7 +28,7 @@ from nvtripy.frontend.constraints import GetInput, GetReturn, OneOf
 @export.public_api(document_under="operations/initializers")
 @wrappers.interface(
     input_requirements=OneOf(
-        GetInput("tensor").dtype, [dt.float32, dt.float16, dt.bfloat16, dt.int8, dt.int32, dt.int64]
+        GetInput("tensor").dtype, [dt.float32, dt.float16, dt.bfloat16, dt.int8, dt.int32, dt.int64, dt.bool]
     ),
     output_guarantees=GetReturn(0).dtype == GetInput("tensor").dtype,
 )

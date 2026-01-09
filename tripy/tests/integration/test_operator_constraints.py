@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -226,7 +226,11 @@ def test_operator_constraints(case: OperatorConstraintCase):
         inputs = generate_input_values(case)
         merged_args = list(inputs.items())
 
-        is_valid = bool(op_constraint.input_requirements(merged_args))
+        # Some operators may only define output guarantees.
+        # In that case, we cannot predict input validity via constraints.
+        is_valid = (
+            True if op_constraint.input_requirements is None else bool(op_constraint.input_requirements(merged_args))
+        )
 
         with contextlib.ExitStack() as stack:
             if not is_valid:

@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -28,10 +28,14 @@ from nvtripy.frontend.tensor import Tensor
 from nvtripy.frontend.wrappers import constant_fields
 from nvtripy.trace.ops.instancenorm import InstanceNorm as InstanceNormOp
 
+from nvtripy.frontend.constraints import GetInput, GetReturn, OneOf
+
 
 @wrappers.interface(
-    dtype_constraints={"input": "T1", "weight": "T1", "bias": "T1", wrappers.RETURN_VALUE: "T1"},
-    dtype_variables={"T1": ["float32", "float16", "bfloat16"]},
+    input_requirements=OneOf(GetInput("input").dtype, [datatype.float32, datatype.float16, datatype.bfloat16])
+    & (GetInput("weight").dtype == GetInput("input").dtype)
+    & (GetInput("bias").dtype == GetInput("input").dtype),
+    output_guarantees=GetReturn(0).dtype == GetInput("input").dtype,
 )
 def instancenorm(
     input: "nvtripy.Tensor",

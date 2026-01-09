@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -25,7 +25,7 @@ from nvtripy.export import PUBLIC_APIS
 from nvtripy.frontend import wrappers
 from nvtripy.frontend.constraints.fetcher import GetDataType, GetInput, GetReturn
 from nvtripy.frontend.constraints.logic import And, Equal, NotEqual, NotOneOf, OneOf, Or
-from nvtripy.frontend.wrappers import DATA_TYPE_CONSTRAINTS, _find_known_datatypes, OPERATOR_CONSTRAINTS
+from nvtripy.frontend.wrappers import _find_known_datatypes, OPERATOR_CONSTRAINTS
 from tests import helper
 
 # Get all functions/methods which have tensors in the type signature
@@ -48,24 +48,15 @@ for api in PUBLIC_APIS:
                 api.qualname + f".{func.__name__}" if func.__name__ not in api.qualname else ""
             )
 
-# TODO (pranavm): Remove old dtype constraints system:
-DATA_TYPE_CONSTRAINTS_FUNC_NAMES = {dtc.func.__qualname__ for dtc in DATA_TYPE_CONSTRAINTS}
-
-
-@pytest.mark.parametrize("api", PUBLIC_API_TENSOR_FUNCTIONS, ids=PUBLIC_API_TENSOR_FUNCTION_NAMES)
-def test_all_public_apis_verified(api):
-    assert api.__qualname__ in DATA_TYPE_CONSTRAINTS_FUNC_NAMES, f"Missing datatype constraints for: {api.__qualname__}"
-
-
 OPERATOR_CONSTRAINTS_FUNC_NAMES = {oc.func.__qualname__ for oc in OPERATOR_CONSTRAINTS}
 
 
 @pytest.mark.parametrize("api", PUBLIC_API_TENSOR_FUNCTIONS, ids=PUBLIC_API_TENSOR_FUNCTION_NAMES)
-def test_all_public_apis_verified(api):
+def test_all_public_apis_have_operator_constraints(api):
     assert api.__qualname__ in OPERATOR_CONSTRAINTS_FUNC_NAMES, f"Missing operator constraints for: {api.__qualname__}"
 
 
-@wrappers.interface(dtype_constraints={"tensors": "T1"}, dtype_variables={"T1": ["float32"]})
+@wrappers.interface(input_requirements=OneOf(GetInput("tensors").dtype, [tp.float32]))
 def sequence_func(tensors: List[tp.Tensor]):
     return
 
@@ -152,7 +143,10 @@ class TestDtypes:
         sequence_func([tp.ones((2, 2), dtype=tp.float32), tp.ones((2, 2), dtype=tp.float32)])
 
     def test_raises_on_mismatched_sequence_dtypes(self):
-        with helper.raises(tp.TripyException, match="Mismatched data types in sequence argument for 'sequence_func'."):
+        with helper.raises(
+            tp.TripyException,
+            match=r"Mismatched data types in sequence argument",
+        ):
             sequence_func([tp.ones((2, 2), dtype=tp.float32), tp.ones((2, 2), dtype=tp.int32)])
 
 
@@ -256,8 +250,8 @@ class TestTensorConversion:
     def test_cast_dtype(self):
         # When type constraints are included, the decorator should automatically cast when possible.
         @wrappers.interface(
-            dtype_constraints={"a": "T1", "b": "T1", wrappers.RETURN_VALUE: "T1"},
-            dtype_variables={"T1": ["float16"]},
+            input_requirements=(GetInput("a").dtype == tp.float16) & (GetInput("b").dtype == GetInput("a").dtype),
+            output_guarantees=(GetReturn(0).dtype == GetInput("a").dtype) & (GetReturn(1).dtype == GetInput("a").dtype),
             convert_to_tensors=True,
         )
         def func(a: tp.Tensor, b: tp.types.TensorLike):
@@ -273,11 +267,15 @@ class TestTensorConversion:
         assert isinstance(b, tp.Tensor)
         assert b.dtype == tp.float16
 
-    @pytest.mark.parametrize("arg, dtype", [(1.0, tp.int32), (1.0, tp.int64), (2, tp.bool)])
+    @pytest.mark.parametrize(
+        "arg, dtype",
+        [(1.0, tp.int32), (1.0, tp.int64), (2, tp.bool)],
+    )
     def test_refuse_unsafe_cast(self, arg, dtype):
         @wrappers.interface(
-            dtype_constraints={"a": "T1", "b": "T1", wrappers.RETURN_VALUE: "T1"},
-            dtype_variables={"T1": ["int32", "int64"]},
+            input_requirements=OneOf(GetInput("a").dtype, [tp.int32, tp.int64, tp.bool])
+            & (GetInput("b").dtype == GetInput("a").dtype),
+            output_guarantees=(GetReturn(0).dtype == GetInput("a").dtype) & (GetReturn(1).dtype == GetInput("a").dtype),
             convert_to_tensors=True,
         )
         def func(a: tp.Tensor, b: tp.types.TensorLike):

@@ -1,6 +1,6 @@
 ## Plan: Migrate Operators to New Constraint System
 
-This plan will systematically port 86 operators across 66 files from the legacy `dtype_constraints`/`dtype_variables`/`dtype_exceptions` system to the new `input_requirements`/`output_guarantees` constraint system. The migration follows proven patterns from [`cast.py`](nvtripy/frontend/ops/cast.py), [`concatenate.py`](nvtripy/frontend/ops/concatenate.py), and [`ones.py`](nvtripy/frontend/ops/ones.py).
+This plan will systematically port operators to use the `input_requirements`/`output_guarantees` constraint system. The migration follows proven patterns from [`cast.py`](nvtripy/frontend/ops/cast.py), [`concatenate.py`](nvtripy/frontend/ops/concatenate.py), and [`ones.py`](nvtripy/frontend/ops/ones.py).
 
 ### Steps
 
@@ -18,5 +18,4 @@ This plan will systematically port 86 operators across 66 files from the legacy 
 
 ### Implementation Notes
 
-- Translate `dtype_exceptions` directly to boolean logic using `&`, `|`, `~` operators without creating helper functions
-- No modifications to `CUSTOM_VALUES` in test file needed - it's already complete for dtype constraints
+- Translate any existing exception logic directly to boolean logic using `&`, `|`, `~` operators without creating helper functions

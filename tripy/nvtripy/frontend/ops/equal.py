@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -26,8 +26,6 @@ from nvtripy.frontend.constraints import GetInput, OneOf
         GetInput("input").dtype, [dt.float32, dt.float16, dt.bfloat16, dt.int8, dt.int32, dt.int64, dt.bool]
     )
     & (GetInput("other").dtype == GetInput("input").dtype),
-    dtype_constraints={"input": "T1", "other": "T1"},
-    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64", "bool"]},
 )
 def equal(input: "nvtripy.Tensor", other: "nvtripy.Tensor") -> bool:
     r"""

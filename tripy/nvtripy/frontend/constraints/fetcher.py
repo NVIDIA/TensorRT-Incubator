@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,8 +15,10 @@
 # limitations under the License.
 #
 from abc import abstractmethod
+import numbers
 from typing import Any, List, Optional, Sequence, Tuple
 
+from nvtripy.common import datatype
 from nvtripy.common.datatype import dtype as tp_dtype
 from nvtripy.common.exception import raise_error
 from nvtripy.frontend.constraints.base import Constraints
@@ -90,8 +92,17 @@ class GetDataType(Fetcher):
         from nvtripy.frontend.tensor import Tensor
 
         def get_arg_dtype(arg: Any) -> tp_dtype:
-            if isinstance(arg, Sequence):
+            if isinstance(arg, Sequence) and not isinstance(arg, (str, bytes)):
                 arg_dtypes = [get_arg_dtype(elem) for elem in arg]
+
+                if len(arg_dtypes) == 0:
+                    raise_error(
+                        f"Could not determine data type of {self.value_fetcher}",
+                        [
+                            "Empty sequence argument.\n",
+                            f"For parameter: '{self.value_fetcher}', the sequence must contain at least one element.",
+                        ],
+                    )
 
                 if len(set(arg_dtypes)) != 1:
                     raise_error(
@@ -105,6 +116,14 @@ class GetDataType(Fetcher):
                 arg_dtype = arg_dtypes[0]
             elif isinstance(arg, Tensor):
                 arg_dtype = arg.dtype
+            elif isinstance(arg, tp_dtype):
+                arg_dtype = arg
+            elif isinstance(arg, bool):
+                arg_dtype = datatype.bool
+            elif isinstance(arg, numbers.Integral):
+                arg_dtype = datatype.int32 if datatype.INT32_MIN <= arg <= datatype.INT32_MAX else datatype.int64
+            elif isinstance(arg, numbers.Real):
+                arg_dtype = datatype.float32
             else:
                 raise_error(
                     f"Could not determine data type of {self.value_fetcher}",
