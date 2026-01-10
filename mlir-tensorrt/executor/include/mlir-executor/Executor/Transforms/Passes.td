@@ -56,31 +56,45 @@ def ExecutorGenerateABIWrappersPass :
 //===----------------------------------------------------------------------===//
 
 def ExecutorLowerABIOpsPass : ModuleLikePass<"executor-lower-abi-ops"> {
-  let summary = "lowers executor.abi.recv and executor.abi.send operations";
+  let summary = "finalizes ABI wrapper returns after bufferization";
   let description = [{
-    This pass should be called after the bufferization deallocation pipeline
-    runs. It updates the `executor.abi.send` operations in order to enforce
-    required post-conditions:
+    This pass is intended to run on exported Executor ABI wrapper functions
+    (i.e. functions annotated with `executor.func_abi`) after module
+    bufferization and after the ownership-based buffer deallocation pipeline.
 
-    - All ABISendOp operations with MemRef values must have a corresponding
-      ownership operand.
-    - If an output is marked `undef` and the ownership is not statically true,
-      then a conditional clone is inserted so that ownership can be transferred
-      to the caller.
-    - If an output is not marked `undef`, we insert IR to check whether the
-      value buffer aliases the output buffer (e.g. that DPS connectivity
-      was able to be established). If not, we insert a copy from the value
-      buffer to the output buffer.
+    At this stage, `executor.abi.send` operations are generally not present.
+    Module bufferization lowers ABI wrapper semantics as follows:
 
-    ABISendOp operations that are not storing scalars or transferring ownership
-    of buffers are eliminated during this pass.
+    - For outputs with `undef = false`, bufferization materializes any required
+      `executor.abi.recv` + `memref.copy` into caller-provided storage; no
+      live-out buffer is returned.
+    - For outputs with `undef = true`, the callee returns the live-out memref
+      value directly, and ownership is transferred to the caller.
+
+    This pass finalizes ABI wrapper returns:
+
+    - It rewrites return-like terminators to have an empty operand list and
+      erases the function results (results are communicated exclusively via
+      output arguments).
+    - For scalar/complex return values, it ensures a corresponding
+      `executor.abi.send` exists to write the value to the appropriate output
+      pointer (unless already produced by `executor.abi.send`).
+    - For memref return values whose corresponding output argument is marked
+      `undef`, it inserts an `executor.abi.send` to model the required side
+      effect of writing the memref descriptor to the output pointer. For
+      non-`undef` memref outputs, no additional action is required because the
+      data copy was materialized during bufferization.
+
+    Additionally, this pass uses buffer origin/alias analysis to conservatively
+    detect returned memref values that may alias each other, inserting
+    alloc+copy as needed so that each returned `undef` buffer is a distinct
+    allocation suitable for ownership transfer.
   }];
 
   let dependentDialects = [
-    "::mlir::scf::SCFDialect",
-    "::mlir::bufferization::BufferizationDialect",
     "::mlir::arith::ArithDialect",
-    "::mlir::cf::ControlFlowDialect"
+    "::mlir::memref::MemRefDialect",
+    "::mlir::executor::ExecutorDialect"
   ];
 }
 
