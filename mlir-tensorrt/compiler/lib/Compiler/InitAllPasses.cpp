@@ -33,7 +33,6 @@
 #include "mlir-tensorrt-dialect/TensorRT/Transforms/Passes.h"
 #include "mlir-tensorrt/Backends/Host/Passes.h"
 #include "mlir-tensorrt/Backends/Kernel/Passes.h"
-#include "mlir-tensorrt/Backends/TensorRT/Passes.h"
 #include "mlir-tensorrt/Compiler/Extensions/KernelGenExtension.h"
 #include "mlir-tensorrt/Conversion/Passes.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
@@ -89,7 +88,6 @@ void mtrt::compiler::registerAllPasses() {
   mlir::tensorrt::registerTensorRTPasses();
   mtrt::compiler::registerHostBackendPasses();
   mtrt::compiler::registerKernelBackendPasses();
-  mtrt::compiler::registerTensorRTBackendPasses();
   mtrt::registerMLIRTensorRTGenericTransformsPasses();
 
   IF_MLIR_TRT_ENABLE_HLO({
