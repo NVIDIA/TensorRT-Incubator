@@ -22,14 +22,20 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "mlir-kernel/Utils/CUDAUtils.h"
+#include "mlir-tensorrt-common/Utils/CUDAUtils.h"
 #include "mlir/Dialect/LLVMIR/NVVMDialect.h"
 #include "mlir/Support/LLVM.h"
 
-using namespace mlir;
-using namespace mlir::kernel;
+#define MLIR_TRT_CUDA_VERSION_GTE(major, minor, patch)                         \
+  (MLIR_TRT_COMPILE_TIME_CUDA_VERSION_MAJOR > major ||                         \
+   (MLIR_TRT_COMPILE_TIME_CUDA_VERSION_MAJOR == major &&                       \
+    (MLIR_TRT_COMPILE_TIME_CUDA_VERSION_MINOR > minor ||                       \
+     (MLIR_TRT_COMPILE_TIME_CUDA_VERSION_MINOR == minor &&                     \
+      MLIR_TRT_COMPILE_TIME_CUDA_VERSION_PATCH >= patch))))
 
-int32_t kernel::getHighestPTXVersion() {
+using namespace mlir;
+
+int32_t mtrt::compiler::getHighestPTXVersion() {
 #ifdef MLIR_TRT_ENABLE_CUDA
   if (MLIR_TRT_CUDA_VERSION_GTE(13, 0, 0))
     return 90;
@@ -76,7 +82,8 @@ int32_t kernel::getHighestPTXVersion() {
   return 90;
 }
 
-std::optional<StringRef> kernel::getUniqueTargetChip(gpu::GPUModuleOp module) {
+std::optional<StringRef>
+mtrt::compiler::getUniqueTargetChip(gpu::GPUModuleOp module) {
   ArrayAttr targets = module.getTargetsAttr();
   if (!targets)
     return std::nullopt;
