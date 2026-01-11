@@ -35,6 +35,9 @@ namespace tensorrt {
 void registerTestTensorKindAnalysisPass();
 void registerTestTensorRTShapeInferencePass();
 } // namespace tensorrt
+namespace cuda {
+void registerTestCUDASideEffectsPass();
+} // namespace cuda
 
 #ifdef MLIR_TRT_ENABLE_HLO
 void registerTestBoundsAnalysisPass();
@@ -50,6 +53,7 @@ void registerTestStablehloMatchersPass();
 static void registerTestPasses() {
   mlir::tensorrt::registerTestTensorKindAnalysisPass();
   mlir::tensorrt::registerTestTensorRTShapeInferencePass();
+  mlir::cuda::registerTestCUDASideEffectsPass();
   IF_MLIR_TRT_ENABLE_HLO({ mlir::registerTestBoundsAnalysisPass(); });
   IF_MLIR_TRT_ENABLE_HLO({ mlir::plan::registerTestDimAnalysisPass(); });
   IF_MLIR_TRT_ENABLE_HLO(

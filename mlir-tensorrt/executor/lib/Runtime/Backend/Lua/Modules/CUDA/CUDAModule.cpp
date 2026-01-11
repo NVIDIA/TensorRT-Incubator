@@ -116,6 +116,34 @@ static void registerCudaOps(sol::state_view &lua, AllocTracker *allocTracker,
     return *event;
   };
 
+  lua["__cuda_event_release"] = [resourceTracker](sol::this_state state,
+                                                  CudaEventPtr event) {
+    ADD_CUDA_MODULE_RANGE("cuda_event_release");
+    SET_LUA_ERROR_IF_CUDART_ERROR(cudaEventDestroy(event), state);
+  };
+
+  lua["__cuda_stream_record_event"] = [](sol::this_state state,
+                                         CudaStream stream,
+                                         CudaEventPtr event) {
+    ADD_CUDA_MODULE_RANGE("cuda_stream_record_event");
+    SET_LUA_ERROR_IF_CUDART_ERROR(
+        cudaEventRecord(event, reinterpret_cast<cudaStream_t>(stream)), state);
+  };
+
+  lua["__cuda_stream_wait_event"] = [](sol::this_state state, CudaStream stream,
+                                       CudaEventPtr event) {
+    ADD_CUDA_MODULE_RANGE("cuda_stream_wait_event");
+    SET_LUA_ERROR_IF_CUDART_ERROR(
+        cudaStreamWaitEvent(reinterpret_cast<cudaStream_t>(stream), event,
+                            /*flags=*/0),
+        state);
+  };
+
+  lua["__cuda_event_sync"] = [](sol::this_state state, CudaEventPtr event) {
+    ADD_CUDA_MODULE_RANGE("cuda_event_sync");
+    SET_LUA_ERROR_IF_CUDART_ERROR(cudaEventSynchronize(event), state);
+  };
+
   lua["__cuda_event_elapsed_msec"] =
       [](sol::this_state state, CudaEventPtr start, CudaEventPtr end) -> float {
     ADD_CUDA_MODULE_RANGE("cuda_event_elapsed_msec");
