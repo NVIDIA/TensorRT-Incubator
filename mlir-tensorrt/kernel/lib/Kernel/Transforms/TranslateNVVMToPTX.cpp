@@ -23,7 +23,7 @@
 #include "mlir-kernel/Kernel/IR/Ops.h"
 #include "mlir-kernel/Kernel/Transforms/KernelToLLVMIRTranslation.h"
 #include "mlir-kernel/Kernel/Transforms/Passes.h"
-#include "mlir-kernel/Utils/CUDAUtils.h"
+#include "mlir-tensorrt-common/Utils/CUDAUtils.h"
 #include "mlir/Dialect/LLVMIR/NVVMDialect.h"
 #include "mlir/IR/AsmState.h"
 #include "mlir/Support/FileUtilities.h"
@@ -310,7 +310,8 @@ struct TranslateNVVMToPTXPass
   void runOnOperation() override {
     // Insert transform IR at the end
     gpu::GPUModuleOp module = getOperation(); // E.g. a gpu.module
-    std::optional<StringRef> chipName = getUniqueTargetChip(module);
+    std::optional<StringRef> chipName =
+        mtrt::compiler::getUniqueTargetChip(module);
     if (!chipName) {
       emitError(module->getLoc()) << "could not determine target chip name";
       return signalPassFailure();
@@ -333,7 +334,8 @@ struct TranslateNVVMToPTXPass
     }
 
     // Translate all `llvm.func` operations to PTX code.
-    std::string features = "+ptx" + std::to_string(getHighestPTXVersion());
+    std::string features =
+        "+ptx" + std::to_string(mtrt::compiler::getHighestPTXVersion());
     auto ptx = translateToPTXCode(module, archAndFeatureSetVariant, features);
     if (failed(ptx))
       return signalPassFailure();

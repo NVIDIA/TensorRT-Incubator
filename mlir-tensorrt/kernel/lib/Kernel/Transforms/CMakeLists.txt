@@ -33,9 +33,9 @@ add_mlir_kernel_library(MLIRTensorRTKernelTransforms
   MLIRTensorRTKernelTransformsPassIncGen
 
   LINK_LIBS PUBLIC
-    MLIRKernelCUDAUtils
     MLIRKernelLinalgUtils
     MLIRTensorRTCommonBufferizationScopeInterface
+    MLIRTensorRTCUDAToolkitUtils
     MLIRTensorRTKernelDialect
     MLIRTensorRTKernelIncludes
     MLIRTensorRTKernelToLLVM
