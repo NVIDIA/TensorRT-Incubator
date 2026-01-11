@@ -509,3 +509,26 @@ func.func @cuda_get_program_device(%logical: i32) -> i32 {
 //   CHECK-DAG:     %[[v0:.+]] = llvm.call @mtrt_cuda_get_program_device(%[[logical]]) : (i32) -> i32
 //   CHECK-DAG:     return %[[v0]] : i32
 
+// -----
+
+func.func @cuda_event_ops(%dev_idx: i32) {
+  %dev = cuda.get_program_device %dev_idx : i32
+  %stream = cuda.get_global_stream device(%dev)[0]
+  %e0 = cuda.event.create : !cuda.event
+  cuda.stream.record_event %stream, %e0
+  cuda.stream.wait_event %stream, %e0
+  cuda.event.sync %e0 : !cuda.event
+  %ms = cuda.event.elapsed %e0, %e0 : f32
+  cuda.event.release %e0 : !cuda.event
+  return
+}
+
+// CHECK-LABEL: func.func @cuda_event_ops
+//       CHECK: %[[stream_ptr:.+]] = llvm.load %{{.+}} : !llvm.ptr -> !llvm.ptr
+//       CHECK: %[[e0:.+]] = llvm.call @mtrt_cuda_event_create() : () -> !llvm.ptr
+//       CHECK: llvm.call @mtrt_cuda_stream_record_event(%[[stream_ptr]], %[[e0]]) : (!llvm.ptr, !llvm.ptr) -> ()
+//       CHECK: llvm.call @mtrt_cuda_stream_wait_event(%[[stream_ptr]], %[[e0]]) : (!llvm.ptr, !llvm.ptr) -> ()
+//       CHECK: llvm.call @mtrt_cuda_event_sync(%[[e0]]) : (!llvm.ptr) -> ()
+//       CHECK: %[[ms:.+]] = llvm.call @mtrt_cuda_event_elapsed_msec(%[[e0]], %[[e0]]) : (!llvm.ptr, !llvm.ptr) -> f32
+//       CHECK: llvm.call @mtrt_cuda_event_release(%[[e0]]) : (!llvm.ptr) -> ()
+//       CHECK: return

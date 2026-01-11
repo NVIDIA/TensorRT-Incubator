@@ -1,6 +1,6 @@
 //===- CUDAToLLVM.cpp -----------------------------------------------------===//
 //
-// SPDX-FileCopyrightText: Copyright 2025 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2025-2026 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -25,7 +25,7 @@
 #include "mlir-executor/Executor/IR/Executor.h"
 #include "mlir-executor/Support/ArtifactManager.h"
 #include "mlir-tensorrt/Conversion/LLVMCommon/LLVMCommon.h"
-#include "mlir-tensorrt/Conversion/Passes.h"
+#include "mlir-tensorrt/Conversion/Passes.h" // IWYU pragma: keep
 #include "mlir-tensorrt/Conversion/PlanToLLVM/PlanToLLVM.h"
 #include "mlir-tensorrt/Dialect/CUDA/IR/CUDADialect.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
@@ -38,18 +38,13 @@
 #include "mlir/Dialect/LLVMIR/LLVMTypes.h"
 #include "mlir/IR/AsmState.h"
 #include "mlir/IR/BuiltinAttributes.h"
-#include "mlir/IR/DialectResourceBlobManager.h"
+#include "mlir/IR/DialectResourceBlobManager.h" // IWYU pragma: keep
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Support/FileUtilities.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/SmallString.h"
-#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/FormatVariadic.h"
-#include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Support/Path.h"
-#include "llvm/Support/ToolOutputFile.h"
 
 namespace mlir {
 #define GEN_PASS_DEF_CONVERTCUDATOLLVMPASS
@@ -65,6 +60,7 @@ struct CUDAExternalCallBuilders {
   Type i8Type{IntegerType::get(ctx, 8)};
   Type i32Type{IntegerType::get(ctx, 32)};
   Type i64Type{IntegerType::get(ctx, 64)};
+  Type f32Type{Float32Type::get(ctx)};
   Type llvmPtrType{LLVM::LLVMPointerType::get(ctx)};
   Type llvmVoidType{LLVM::LLVMVoidType::get(ctx)};
 
@@ -77,6 +73,20 @@ struct CUDAExternalCallBuilders {
 
   LLVMOpaqueCallBuilder getProgramDeviceBuilder = {
       "mtrt_cuda_get_program_device", i32Type, {i32Type}};
+  LLVMOpaqueCallBuilder eventCreateBuilder = {
+      "mtrt_cuda_event_create", llvmPtrType, {}};
+  LLVMOpaqueCallBuilder streamRecordEventBuilder = {
+      "mtrt_cuda_stream_record_event",
+      llvmVoidType,
+      {llvmPtrType, llvmPtrType}};
+  LLVMOpaqueCallBuilder streamWaitEventBuilder = {
+      "mtrt_cuda_stream_wait_event", llvmVoidType, {llvmPtrType, llvmPtrType}};
+  LLVMOpaqueCallBuilder eventSyncBuilder = {
+      "mtrt_cuda_event_sync", llvmVoidType, {llvmPtrType}};
+  LLVMOpaqueCallBuilder eventReleaseBuilder = {
+      "mtrt_cuda_event_release", llvmVoidType, {llvmPtrType}};
+  LLVMOpaqueCallBuilder eventElapsedMsecBuilder = {
+      "mtrt_cuda_event_elapsed_msec", f32Type, {llvmPtrType, llvmPtrType}};
 
   LLVMOpaqueCallBuilder cuModuleGetFuncBuilder = {
       "mtrt_cuda_module_get_function",
@@ -312,6 +322,51 @@ struct CudaStreamSyncConverter final
                                             cuda::StreamSyncOp> {
   using SimpleCudaOpToLLVMCallLowering::SimpleCudaOpToLLVMCallLowering;
   LLVMOpaqueCallBuilder &callBuilder = this->callBuilders.streamSyncBuilder;
+};
+
+struct CudaEventCreateConverter final
+    : public SimpleCudaOpToLLVMCallLowering<CudaEventCreateConverter,
+                                            cuda::EventCreateOp> {
+  using SimpleCudaOpToLLVMCallLowering::SimpleCudaOpToLLVMCallLowering;
+  LLVMOpaqueCallBuilder &callBuilder = this->callBuilders.eventCreateBuilder;
+};
+
+struct CudaEventSyncConverter final
+    : public SimpleCudaOpToLLVMCallLowering<CudaEventSyncConverter,
+                                            cuda::EventSyncOp> {
+  using SimpleCudaOpToLLVMCallLowering::SimpleCudaOpToLLVMCallLowering;
+  LLVMOpaqueCallBuilder &callBuilder = this->callBuilders.eventSyncBuilder;
+};
+
+struct CudaEventReleaseConverter final
+    : public SimpleCudaOpToLLVMCallLowering<CudaEventReleaseConverter,
+                                            cuda::EventReleaseOp> {
+  using SimpleCudaOpToLLVMCallLowering::SimpleCudaOpToLLVMCallLowering;
+  LLVMOpaqueCallBuilder &callBuilder = this->callBuilders.eventReleaseBuilder;
+};
+
+struct CudaStreamRecordEventConverter final
+    : public SimpleCudaOpToLLVMCallLowering<CudaStreamRecordEventConverter,
+                                            cuda::StreamRecordEventOp> {
+  using SimpleCudaOpToLLVMCallLowering::SimpleCudaOpToLLVMCallLowering;
+  LLVMOpaqueCallBuilder &callBuilder =
+      this->callBuilders.streamRecordEventBuilder;
+};
+
+struct CudaStreamWaitEventConverter final
+    : public SimpleCudaOpToLLVMCallLowering<CudaStreamWaitEventConverter,
+                                            cuda::StreamWaitEventOp> {
+  using SimpleCudaOpToLLVMCallLowering::SimpleCudaOpToLLVMCallLowering;
+  LLVMOpaqueCallBuilder &callBuilder =
+      this->callBuilders.streamWaitEventBuilder;
+};
+
+struct CudaEventElapsedMsecConverter final
+    : public SimpleCudaOpToLLVMCallLowering<CudaEventElapsedMsecConverter,
+                                            cuda::EventElapsedTimeOp> {
+  using SimpleCudaOpToLLVMCallLowering::SimpleCudaOpToLLVMCallLowering;
+  LLVMOpaqueCallBuilder &callBuilder =
+      this->callBuilders.eventElapsedMsecBuilder;
 };
 
 struct CudaAllocConverter final
@@ -793,12 +848,18 @@ void mlir::populateCUDAToLLVMConversionPatterns(
     LLVMTypeConverter &typeConverter, RewritePatternSet &patterns) {
   // clang-format off
   patterns.add<
+    CudaEventCreateConverter,
+    CudaEventElapsedMsecConverter,
+    CudaEventSyncConverter,
+    CudaEventReleaseConverter,
     CudaAllocConverter,
     CudaCopyConverter<cuda::CopyD2DOp>,
     CudaCopyConverter<cuda::CopyD2HOp>,
     CudaCopyConverter<cuda::CopyH2DOp>,
     CudaDeallocConverter,
     CudaLaunchOpToLLVMCallConverter,
+    CudaStreamRecordEventConverter,
+    CudaStreamWaitEventConverter,
     CudaStreamSyncConverter
   >(typeConverter);
   patterns.add<

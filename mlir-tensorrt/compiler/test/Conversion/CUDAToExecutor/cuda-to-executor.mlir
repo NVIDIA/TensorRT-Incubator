@@ -17,6 +17,32 @@ func.func @cuda_event(){
 
 // -----
 
+func.func @cuda_event_sync() {
+  %0 = cuda.event.create : !cuda.event
+  cuda.event.sync %0 : !cuda.event
+  return
+}
+
+// CHECK-LABEL: @cuda_event_sync
+//       CHECK: %[[v0:.+]] = executor.call @__cuda_event_create() : () -> !executor.ptr<host>
+//       CHECK: executor.call @__cuda_event_sync(%[[v0]]) : (!executor.ptr<host>) -> ()
+//       CHECK: return
+
+// -----
+
+func.func @cuda_event_release() {
+  %0 = cuda.event.create : !cuda.event
+  cuda.event.release %0 : !cuda.event
+  return
+}
+
+// CHECK-LABEL: @cuda_event_release
+//       CHECK: %[[v0:.+]] = executor.call @__cuda_event_create() : () -> !executor.ptr<host>
+//       CHECK: executor.call @__cuda_event_release(%[[v0]]) : (!executor.ptr<host>) -> ()
+//       CHECK: return
+
+// -----
+
 func.func @cuda_num_devices() -> i32 {
   %0 = cuda.num_devices : i32
   return %0 : i32
@@ -182,8 +208,8 @@ func.func @copy_d2d(%arg0: !src_memref_type, %arg1: !dst_memref_type, %stream: !
 
 // CHECK-LABEL: func.func @copy_d2d
 //  CHECK-SAME: (%[[arg0_src:.+]]: memref<{{.*}}>, %[[arg1_dst:.+]]: memref<{{.*}}>, %[[arg2_stream:.+]]: !cuda.stream) {
-//   CHECK-DAG:     %[[arg1:.+]] = builtin.unrealized_conversion_cast %[[arg1_dst]] 
-//   CHECK-DAG:     %[[arg0:.+]] = builtin.unrealized_conversion_cast %[[arg0_src]] 
+//   CHECK-DAG:     %[[arg1:.+]] = builtin.unrealized_conversion_cast %[[arg1_dst]]
+//   CHECK-DAG:     %[[arg0:.+]] = builtin.unrealized_conversion_cast %[[arg0_src]]
 //   CHECK-DAG:     %[[arg2:.+]] = builtin.unrealized_conversion_cast %[[arg2_stream]]
 //       CHECK:     %[[c0_i64:.+]] = executor.constant 0 : i64
 //       CHECK:     %[[v0:.+]] = executor.getoffset[%[[c0_i64]]] : (i64) -> i64, f32
@@ -239,8 +265,8 @@ func.func @copy_d2h_strided(%arg0: !srcType,
 
 // CHECK-LABEL: func.func @copy_d2h_strided
 //  CHECK-SAME: (%[[arg0_src:.+]]: memref<{{.*}}>, %[[arg1_dst:.+]]: memref<{{.*}}>, %[[arg2_stream:.+]]: !cuda.stream) {
-//   CHECK-DAG:     %[[arg1:.+]] = builtin.unrealized_conversion_cast %[[arg1_dst]] 
-//   CHECK-DAG:     %[[arg0:.+]] = builtin.unrealized_conversion_cast %[[arg0_src]] 
+//   CHECK-DAG:     %[[arg1:.+]] = builtin.unrealized_conversion_cast %[[arg1_dst]]
+//   CHECK-DAG:     %[[arg0:.+]] = builtin.unrealized_conversion_cast %[[arg0_src]]
 //   CHECK-DAG:     %[[arg2:.+]] = builtin.unrealized_conversion_cast %[[arg2_stream]]
 //       CHECK:     %[[c1_i32:.+]] = executor.constant 1 : i32
 //       CHECK:     %[[v0:.+]] = executor.alloca %[[c1_i32]] x !executor.table<i64, i64> : (i32) -> !executor.ptr<host>
@@ -279,8 +305,8 @@ func.func @memref_copy_contiguous_non_identity(%arg0: !srcType, %arg1: !dstType,
 
 // CHECK-LABEL: func.func @memref_copy_contiguous_non_identity
 //  CHECK-SAME: (%[[arg0_src:.+]]: memref<{{.*}}>, %[[arg1_dst:.+]]: memref<{{.*}}>, %[[arg2_stream:.+]]: !cuda.stream) {
-//   CHECK-DAG:     %[[arg1:.+]] = builtin.unrealized_conversion_cast %[[arg1_dst]] 
-//   CHECK-DAG:     %[[arg0:.+]] = builtin.unrealized_conversion_cast %[[arg0_src]] 
+//   CHECK-DAG:     %[[arg1:.+]] = builtin.unrealized_conversion_cast %[[arg1_dst]]
+//   CHECK-DAG:     %[[arg0:.+]] = builtin.unrealized_conversion_cast %[[arg0_src]]
 //   CHECK-DAG:     %[[arg2:.+]] = builtin.unrealized_conversion_cast %[[arg2_stream]]
 //       CHECK:     %[[v0:.+]] = executor.table.get %[[arg0]][2] : <!executor.ptr<device>, !executor.ptr<device>, i64, i64, i64, i64, i64, i64, i64>
 //       CHECK:     %[[v1:.+]] = executor.getoffset[%[[v0]]] : (i64) -> i64, f32
@@ -372,7 +398,7 @@ func.func @test_cuda_launch(
 
 // CHECK-LABEL: func.func @test_cuda_launch
 //  CHECK-SAME: (%[[arg0_memref:.+]]: memref<{{.*}}>, %[[arg1_memref:.+]]: memref<{{.*}}>, %[[arg2:.+]]: index, %[[arg3:.+]]: index) {
-//   CHECK-DAG:     %[[arg1:.+]] = builtin.unrealized_conversion_cast %[[arg1_memref]] 
+//   CHECK-DAG:     %[[arg1:.+]] = builtin.unrealized_conversion_cast %[[arg1_memref]]
 //   CHECK-DAG:     %[[arg0:.+]] = builtin.unrealized_conversion_cast %[[arg0_memref]]
 //   CHECK-DAG:     %[[v2:.+]] = executor.get_global @kernels_cuModule_0_cuModule_kernel_cuFunc : !executor.ptr<host>
 //   CHECK-DAG:     %[[c1_i32:.+]] = arith.constant 1 : i32

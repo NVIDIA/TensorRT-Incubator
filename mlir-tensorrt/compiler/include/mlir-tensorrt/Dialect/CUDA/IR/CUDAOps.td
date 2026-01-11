@@ -248,28 +248,80 @@ def CUDA_LaunchOp : CUDA_Op<"launch", [
 // CUDA - Event Management Ops
 //===----------------------------------------------------------------------===//
 
-def CUDA_EventCreateOp : CUDA_Op<"event.create", [AlwaysSpeculatable]> {
+def CUDA_EventCreateOp : CUDA_Op<"event.create"> {
   let summary = "Creates a CUDA event";
-  let results = (outs CUDA_Event:$result);
+  let description = [{
+    Creates a CUDA event object. This allocates a CUDA event resource.
+    This is equivalent to `cudaEventCreate`.
+  }];
+  let results = (outs Res<CUDA_Event, "",
+                          [MemAlloc<DefaultResource, 0, FullEffect>]>:$result);
   let assemblyFormat = "attr-dict `:` qualified(type($result))";
+}
+
+def CUDA_EventSyncOp : CUDA_Op<"event.sync",
+    [MemoryEffectsOpInterface]> {
+  let summary = "Wait for a CUDA event to complete (host-side synchronization)";
+  let description = [{
+    Blocks the host thread until the given event has completed. This is
+    equivalent to `cudaEventSynchronize`.
+
+    This op is preferred over synchronizing an entire stream when only a
+    specific dependency needs to be enforced on the host.
+  }];
+  let arguments = (ins CUDA_Event:$event);
+  let assemblyFormat = "attr-dict $event `:` qualified(type($event))";
+
+  let extraClassDeclaration = [{
+    void getEffects(
+      SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
+        &effects) {
+      effects.emplace_back(MemoryEffects::Read::get());
+      effects.emplace_back(MemoryEffects::Write::get());
+    }
+  }];
 }
 
 def CUDA_EventElapsedTimeOp : CUDA_Op<"event.elapsed"> {
   let summary = "Computes time elapsed between two CUDA events";
+  let description = [{
+    Computes the elapsed time in milliseconds between two CUDA events.
+    This is equivalent to `cudaEventElapsedTime`.
+
+    Both events must have been recorded (via `cuda.stream.record_event`)
+    before calling this operation.
+  }];
   let results = (outs F32:$result);
-  let arguments = (ins CUDA_Event:$start,
-                       CUDA_Event:$end);
+  let arguments = (ins Arg<CUDA_Event, "", [MemReadAt<0, FullEffect>]>:$start,
+                       Arg<CUDA_Event, "", [MemReadAt<1, FullEffect>]>:$end);
   let assemblyFormat = [{
     attr-dict $start `,` $end `:` qualified(type($result))
   }];
+}
+
+def CUDA_EventReleaseOp : CUDA_Op<"event.release"> {
+  let summary = "Releases a CUDA event";
+  let description = [{
+    Releases the given CUDA event, freeing its associated resources.
+    This is equivalent to `cudaEventDestroy`.
+
+    After release, the event should not be used again.
+  }];
+  let arguments = (ins Arg<CUDA_Event, "",
+                        [MemFreeAt<0, FullEffect>]>:$event);
+  let assemblyFormat = "attr-dict $event `:` qualified(type($event))";
 }
 
 //===----------------------------------------------------------------------===//
 // CUDA - Stream Management Ops
 //===----------------------------------------------------------------------===//
 
-def CUDA_StreamCreateOp : CUDA_Op<"stream.create", [AlwaysSpeculatable]> {
+def CUDA_StreamCreateOp : CUDA_Op<"stream.create"> {
   let summary = "Creates an asynchronous CUDA stream";
+  let description = [{
+    Creates a CUDA stream associated with the given device.
+    This is equivalent to `cudaStreamCreate`.
+  }];
   let arguments = (ins I32:$device);
   let results = (outs Res<CUDA_Stream, "",
                           [MemAlloc<DefaultResource, 0, FullEffect>]>:$result);
@@ -283,7 +335,7 @@ def CUDA_GetGlobalStreamOp : CUDA_Op<"get_global_stream", [Pure]> {
     The `cuda.stream.get_global_stream` operation returns a handle to the
     runtime's CUDA stream associated with the specified device.
 
-    Currently, each device has a single stream associated with it.
+    Each device has a pool of global streams addressable by `index`.
   }];
 
   let arguments = (ins I32:$device, I64Attr:$index);
@@ -433,10 +485,11 @@ def CUDA_DeallocOp : CUDA_Op<"dealloc", []> {
 // CUDA - cuBLAS Ops
 //===----------------------------------------------------------------------===//
 
-def CUDA_BlasHandleCreateOp : CUDA_Op<"blas.handle.create",
-    [AlwaysSpeculatable]> {
+def CUDA_BlasHandleCreateOp : CUDA_Op<"blas.handle.create"> {
   let summary = "Creates cuBLAS handle";
   let description = [{
+    Creates a cuBLAS handle that manages cuBLAS library context.
+
     Example,
     ```mlir
      %0 = cuda.blas.handle.create : !cuda.blas.handle

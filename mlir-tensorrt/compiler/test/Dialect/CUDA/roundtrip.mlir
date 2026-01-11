@@ -30,6 +30,17 @@ func.func @cuda_get_program_device(%logical: i32) -> i32 {
 
 // -----
 
+func.func @cuda_event_sync() {
+  %0 = cuda.event.create : !cuda.event
+  cuda.event.sync %0 : !cuda.event
+  return
+}
+// CHECK-LABEL: @cuda_event_sync
+//       CHECK: %[[v0:.+]] = cuda.event.create : !cuda.event
+//       CHECK: cuda.event.sync %[[v0]] : !cuda.event
+
+// -----
+
 func.func @cuda_stream_wait_event(%stream: !cuda.stream, %event: !cuda.event) {
   cuda.stream.wait_event %stream, %event
   return
