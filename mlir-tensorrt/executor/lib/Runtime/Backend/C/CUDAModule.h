@@ -70,7 +70,7 @@ MTRT_CAPI_EXPORTED void mtrt_cuda_stream_sync(CUstream stream);
 // CUDA - Event Management
 //===----------------------------------------------------------------------===//
 
-MTRT_CAPI_EXPORTED cudaEvent_t mtrt_cuda_event_create();
+MTRT_CAPI_EXPORTED cudaEvent_t mtrt_cuda_event_create(int32_t device);
 
 MTRT_CAPI_EXPORTED void mtrt_cuda_event_release(cudaEvent_t event);
 
@@ -136,8 +136,8 @@ inline static void mtrt_cuda_stream_destroy_cwrapper(void *stream) {
 inline static void mtrt_cuda_stream_sync_cwrapper(void *stream) {
   return mtrt_cuda_stream_sync((CUstream)stream);
 }
-inline static void *mtrt_cuda_event_create_cwrapper() {
-  return (void *)mtrt_cuda_event_create();
+inline static void *mtrt_cuda_event_create_cwrapper(int32_t device) {
+  return (void *)mtrt_cuda_event_create(device);
 }
 inline static void mtrt_cuda_event_release_cwrapper(void *event) {
   return mtrt_cuda_event_release((cudaEvent_t)event);

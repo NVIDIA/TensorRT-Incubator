@@ -1,3 +1,10 @@
 add_mlir_executor_unittest(DataTypeTests DataTypeTests.cpp)
 target_link_libraries(DataTypeTests PRIVATE MLIRTensorRTExecutorRuntimeCommon)
+
+add_mlir_executor_unittest(CUDAEventPoolTests CUDAEventPoolTests.cpp)
+target_link_libraries(CUDAEventPoolTests PRIVATE
+  MLIRTensorRTRuntimeSupport
+  MLIRTensorRTSupportStatus
+)
+
 add_subdirectory(LuaRuntime)

@@ -1,6 +1,6 @@
 //===- CUDAHelpers.cpp ----------------------------------------------------===//
 //
-// SPDX-FileCopyrightText: Copyright 2025 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2025-2026 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -25,42 +25,26 @@
 
 using namespace mtrt;
 
-namespace {
-/// CUDADeviceGuard is an abstract RAII handle that scopes a temporary
-/// activation of a device, restoring the old active device on destruction.
-class CUDADeviceGuard {
-public:
-  CUDADeviceGuard(CUDADeviceGuard &&) = delete;
-  CUDADeviceGuard(const CUDADeviceGuard &) = delete;
-  CUDADeviceGuard &operator=(CUDADeviceGuard &&) = delete;
-  CUDADeviceGuard &operator=(const CUDADeviceGuard &) = delete;
+StatusOr<std::unique_ptr<CUDADeviceGuard>>
+mtrt::CUDADeviceGuard::create(int32_t deviceNumber) {
+  MTRT_ASSIGN_OR_RETURN(int32_t originalDeviceNumber, getCurrentCUDADevice());
+  RETURN_STATUS_IF_ERROR(setCurrentCUDADevice(deviceNumber));
+  MTRT_DBG("CUDAGPUDeviceGuard: original={0} new={1}", originalDeviceNumber,
+           deviceNumber);
+  return std::unique_ptr<CUDADeviceGuard>(
+      new CUDADeviceGuard(originalDeviceNumber));
+}
 
-  static StatusOr<std::unique_ptr<CUDADeviceGuard>>
-  create(int32_t deviceNumber) {
-    MTRT_ASSIGN_OR_RETURN(int32_t originalDeviceNumber, getCurrentCUDADevice());
+mtrt::CUDADeviceGuard::~CUDADeviceGuard() {
+  if (originalDeviceNumber < 0)
+    return;
+  MTRT_DBG("CUDAGPUDeviceGuard: restoring original device {0}",
+           originalDeviceNumber);
+  mtrt::cantFail(setCurrentCUDADevice(originalDeviceNumber));
+}
 
-    RETURN_STATUS_IF_ERROR(setCurrentCUDADevice(deviceNumber));
-    MTRT_DBG("CUDAGPUDeviceGuard: original={0} new={1}", originalDeviceNumber,
-             deviceNumber);
-    return std::unique_ptr<CUDADeviceGuard>(
-        new CUDADeviceGuard(originalDeviceNumber));
-  }
-
-  ~CUDADeviceGuard() {
-    if (originalDeviceNumber < 0)
-      return;
-    MTRT_DBG("CUDAGPUDeviceGuard: restoring original device {0}",
-             originalDeviceNumber);
-    mtrt::cantFail(setCurrentCUDADevice(originalDeviceNumber));
-  }
-
-private:
-  CUDADeviceGuard(int32_t originalDeviceNumber)
-      : originalDeviceNumber(originalDeviceNumber) {}
-
-  int32_t originalDeviceNumber;
-};
-} // namespace
+mtrt::CUDADeviceGuard::CUDADeviceGuard(int32_t originalDeviceNumber)
+    : originalDeviceNumber(originalDeviceNumber) {}
 
 namespace mtrt {
 

@@ -1,9 +1,9 @@
 // RUN: mlir-tensorrt-opt %s -split-input-file -cuda-test-side-effects -verify-diagnostics
 
 // Test cuda.event.create has MemAlloc effect on result
-func.func @test_event_create() {
+func.func @test_event_create(%device: i32) {
   // expected-remark @below {{found an instance of 'allocate' on result #0, on resource '<Default>'}}
-  %0 = cuda.event.create : !cuda.event
+  %0 = cuda.event.create device(%device)
   return
 }
 

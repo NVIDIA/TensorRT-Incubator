@@ -253,10 +253,14 @@ def CUDA_EventCreateOp : CUDA_Op<"event.create"> {
   let description = [{
     Creates a CUDA event object. This allocates a CUDA event resource.
     This is equivalent to `cudaEventCreate`.
+
+    The `device` argument specifies which CUDA device the event should be
+    associated with.
   }];
+  let arguments = (ins I32:$device);
   let results = (outs Res<CUDA_Event, "",
                           [MemAlloc<DefaultResource, 0, FullEffect>]>:$result);
-  let assemblyFormat = "attr-dict `:` qualified(type($result))";
+  let assemblyFormat = "attr-dict `device` `(` $device `)`";
 }
 
 def CUDA_EventSyncOp : CUDA_Op<"event.sync",

@@ -1,16 +1,16 @@
 // RUN: mlir-tensorrt-opt -split-input-file -convert-cuda-to-executor %s | FileCheck %s
 
 func.func @cuda_event(){
-  %0 = cuda.event.create : !cuda.event
   %device = cuda.get_active_device
+  %0 = cuda.event.create device(%device)
   %1 = cuda.stream.create device(%device)
   cuda.stream.wait_event %1, %0
   return
 }
 
 // CHECK-LABEL: @cuda_event
-//       CHECK: %[[v0:.+]] = executor.call @__cuda_event_create() : () -> !executor.ptr<host>
 //       CHECK: %[[device:.+]] = executor.call @__cuda_get_active_device() : () -> i32
+//       CHECK: %[[v0:.+]] = executor.call @__cuda_event_create(%[[device]]) : (i32) -> !executor.ptr<host>
 //       CHECK: %[[v1:.+]] = executor.call @__cuda_stream_create(%[[device]]) : (i32) -> !executor.ptr<host>
 //       CHECK: executor.call @__cuda_stream_wait_event(%[[v1]], %[[v0]]) : (!executor.ptr<host>, !executor.ptr<host>) -> ()
 //       CHECK: return
@@ -18,26 +18,30 @@ func.func @cuda_event(){
 // -----
 
 func.func @cuda_event_sync() {
-  %0 = cuda.event.create : !cuda.event
+  %device = cuda.get_active_device
+  %0 = cuda.event.create device(%device)
   cuda.event.sync %0 : !cuda.event
   return
 }
 
 // CHECK-LABEL: @cuda_event_sync
-//       CHECK: %[[v0:.+]] = executor.call @__cuda_event_create() : () -> !executor.ptr<host>
+//       CHECK: %[[device:.+]] = executor.call @__cuda_get_active_device() : () -> i32
+//       CHECK: %[[v0:.+]] = executor.call @__cuda_event_create(%[[device]]) : (i32) -> !executor.ptr<host>
 //       CHECK: executor.call @__cuda_event_sync(%[[v0]]) : (!executor.ptr<host>) -> ()
 //       CHECK: return
 
 // -----
 
 func.func @cuda_event_release() {
-  %0 = cuda.event.create : !cuda.event
+  %device = cuda.get_active_device
+  %0 = cuda.event.create device(%device)
   cuda.event.release %0 : !cuda.event
   return
 }
 
 // CHECK-LABEL: @cuda_event_release
-//       CHECK: %[[v0:.+]] = executor.call @__cuda_event_create() : () -> !executor.ptr<host>
+//       CHECK: %[[device:.+]] = executor.call @__cuda_get_active_device() : () -> i32
+//       CHECK: %[[v0:.+]] = executor.call @__cuda_event_create(%[[device]]) : (i32) -> !executor.ptr<host>
 //       CHECK: executor.call @__cuda_event_release(%[[v0]]) : (!executor.ptr<host>) -> ()
 //       CHECK: return
 

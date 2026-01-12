@@ -3,7 +3,7 @@
 #ifdef MLIR_TRT_ENABLE_CUDA
 
 #include "cuda.h"
-#include "cuda_runtime_api.h"
+#include "cuda_runtime_api.h" // IWYU pragma: keep
 #include "mlir-executor/Runtime/API/API.h"
 
 namespace mtrt {
@@ -23,11 +23,6 @@ struct PointerWrapper {
   operator uintptr_t() { return ptr; }
 
   uintptr_t ptr;
-};
-
-struct CudaEventPtr : public PointerWrapper<cudaEvent_t> {
-  using PointerWrapper::PointerWrapper;
-  static StatusOr<CudaEventPtr> create(ResourceTracker &tracker);
 };
 
 struct CudaModulePtr : public PointerWrapper<CUmodule> {

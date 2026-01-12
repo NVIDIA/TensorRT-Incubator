@@ -26,6 +26,7 @@
 #include "MTRTRuntimeCore.h"
 
 #include "cuda.h"
+#include "cuda_runtime_api.h" // IWYU pragma: keep
 
 namespace mtrt {
 
@@ -84,6 +85,29 @@ Status cuda_launch_kernel(CUfunction func, int32_t gridX, int32_t gridY,
 void cuda_copy_using_descriptor(CUstream stream, void *src,
                                 UnrankedMemRef srcDesc, void *dest,
                                 UnrankedMemRef destDesc);
+
+//===----------------------------------------------------------------------===//
+// CUDA Event Wrappers
+//===----------------------------------------------------------------------===//
+
+/// Create (or reuse) a CUDA event on the specified device.
+Status cuda_event_create(int32_t device, cudaEvent_t *outEvent);
+
+/// Release a CUDA event back to the runtime (pooled) implementation.
+Status cuda_event_release(cudaEvent_t event);
+
+/// Record an event on a stream.
+Status cuda_stream_record_event(CUstream stream, cudaEvent_t event);
+
+/// Make a stream wait on an event.
+Status cuda_stream_wait_event(CUstream stream, cudaEvent_t event);
+
+/// Host-side synchronization on an event.
+Status cuda_event_sync(cudaEvent_t event);
+
+/// Compute elapsed time (ms) between two events.
+Status cuda_event_elapsed_msec(cudaEvent_t start, cudaEvent_t end,
+                               float *outMs);
 
 } // namespace mtrt
 
