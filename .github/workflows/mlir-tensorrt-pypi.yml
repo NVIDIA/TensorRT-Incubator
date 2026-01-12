@@ -143,7 +143,7 @@ jobs:
 
   pypi-release-wheels-smoke-test:
     name: Smoke Test PyPI Release Wheels
-    needs: 
+    needs:
       - generate-matrix
       - pypi-release-wheels-build
     permissions:
@@ -178,7 +178,11 @@ jobs:
           cd mlir-tensorrt
           uv sync --python 3.12 --extra cu13
           source .venv/bin/activate
-          uv pip install dist/mlir_tensorrt_jax-*-cp312-cp312-manylinux*.whl
+          ls -lart dist/
+          suffix="manylinux_2_28_${{ matrix.arch }}.whl"
+          whl_file=$(find dist/ -name "mlir_tensorrt_jax-*-cp312-cp312-*${suffix}")
+          echo "whl_file: ${whl_file}"
+          uv pip install ${whl_file}
 
           export JAX_PLATFORMS="mlir_tensorrt,cpu"
           python -m pytest integrations/PJRT/test/JAX/ -v
