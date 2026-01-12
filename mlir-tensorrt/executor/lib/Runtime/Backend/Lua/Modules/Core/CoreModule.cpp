@@ -157,8 +157,8 @@ static bool checkAccessBounds(lua_State *state, const AllocTracker &tracker,
   if (tracker.contains(basePtr)) {
     const PointerInfo &srcInfo = tracker.get(basePtr);
     if (!srcInfo.isHostVisible()) {
-      MTRT_ERRF(
-          "attempting to access memory  0x%lx + %lu which is not host-visible",
+      MTRT_ERRV(
+          "attempting to access memory 0x{0:x} + {1} which is not host-visible",
           basePtr, offset);
       return false;
     }

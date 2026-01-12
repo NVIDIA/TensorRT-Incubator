@@ -48,9 +48,9 @@ template <typename... Args>
 void _MTRT_DBGV(const char *fmt, const char *file, int64_t line,
                 Args &&...args) {
   DEBUG_WITH_TYPE(
-      "runtime",
-      fprintf(stderr, "%s:%ld [runtime][DBG] %s\n", file, line,
-              llvm::formatv(fmt, std::forward<Args>(args)...).str().c_str()));
+      "runtime", llvm::dbgs() << file << ":" << line << " [runtime][DBG] "
+                              << llvm::formatv(fmt, std::forward<Args>(args)...)
+                              << "\n");
 }
 
 #define MTRT_ERRF(fmt, ...)                                                    \

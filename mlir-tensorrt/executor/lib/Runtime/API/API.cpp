@@ -237,8 +237,8 @@ AllocTracker::~AllocTracker() {
   ptrsToFree.reserve(map.size());
   for (const auto &[ptrVal, metadata] : map) {
     if (metadata->info.isInternallyManaged()) {
-      MTRT_DBGF("still live: 0x%lx type %d size %lu", ptrVal,
-                static_cast<int>(metadata->info.type), metadata->info.size);
+      MTRT_DBG("still live: 0x{0:x} type {1} size {2}", ptrVal,
+               static_cast<int>(metadata->info.type), metadata->info.size);
       ptrsToFree.push_back(metadata->info);
     }
   }
@@ -248,20 +248,19 @@ AllocTracker::~AllocTracker() {
     Status s = safeDeallocate(*this, ptr.ptr);
     totalSize += ptr.size;
     if (!s.isOk())
-      MTRT_DBGF("error while deallocating dangling memory: %s",
-                s.getMessage().c_str());
+      MTRT_DBG("error while deallocating dangling memory: {0}", s.getMessage());
   }
 
   if (totalSize > 0)
-    MTRT_DBGF("freed %zu bytes of unfreed memory", totalSize);
+    MTRT_DBG("freed {0} bytes of unfreed memory", totalSize);
 }
 
 void AllocTracker::track(PointerInfo info) {
-  MTRT_DBGF(
-      "AllocTracker %p is now tracking 0x%lx size=%lu space=%s ownership=%s",
-      static_cast<void *>(this), info.ptr, info.size,
-      mtrt::flat::EnumNamePointerType(info.type),
-      mtrt::flat::EnumNamePointerOwner(info.owner));
+  MTRT_DBG("AllocTracker {0} is now tracking 0x{1:x} size={2} space={3} "
+           "ownership={4}",
+           static_cast<void *>(this), info.ptr, info.size,
+           mtrt::flat::EnumNamePointerType(info.type),
+           mtrt::flat::EnumNamePointerOwner(info.owner));
   auto value = std::make_unique<Metadata>();
   value->info = info;
   if (!contains(info.ptr)) {
@@ -313,7 +312,7 @@ StatusOr<PointerInfo> mtrt::allocate(AllocTracker &tracker, PointerType type,
         reinterpret_cast<uintptr_t>(std::aligned_alloc(*alignment, size));
     if (mem == 0)
       return mtrt::getInternalErrorStatus("failed to allocate memory on host");
-    MTRT_DBGF("Allocated %lu host bytes at 0x%lx", size, mem);
+    MTRT_DBG("Allocated {0} host bytes at 0x{1:x}", size, mem);
     PointerInfo info{mem, size, type, PointerOwner::internal};
     tracker.track(info);
     return info;
@@ -1207,8 +1206,8 @@ DefaultClientAllocator::allocate(PointerType type, uint64_t size,
     void *mem = std::aligned_alloc(*alignment, size);
     if (mem == 0)
       return mtrt::getInternalErrorStatus("failed to allocate memory on host");
-    MTRT_DBGF(
-        "DefaultClientAllocator::allocate: Allocated %lu host bytes at %p",
+    MTRT_DBG(
+        "DefaultClientAllocator::allocate: Allocated {0} host bytes at {1}",
         size, mem);
 
     return getOwnedMemRefStorage(reinterpret_cast<uintptr_t>(mem),
