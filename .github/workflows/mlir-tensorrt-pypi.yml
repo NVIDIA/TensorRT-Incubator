@@ -143,7 +143,15 @@ jobs:
 
   pypi-release-wheels-smoke-test:
     name: Smoke Test PyPI Release Wheels
-    needs: [pypi-release-wheels-build]
+    needs: 
+      - generate-matrix
+      - pypi-release-wheels-build
+    permissions:
+      id-token: write
+      packages: write
+      contents: read
+    strategy:
+      matrix: ${{ fromJSON(needs.generate-matrix.outputs.matrix) }}
     runs-on: ${{ matrix.github_runner }}
     timeout-minutes: 120
     container:
