@@ -72,6 +72,27 @@ function(mtrt_find_tvm_ffi)
 endfunction()
 
 #-------------------------------------------------------------------------------------
+# CUDA Tile
+#-------------------------------------------------------------------------------------
+
+nv_register_package(
+  NAME CUDATile
+  GIT_REPOSITORY https://github.com/NVIDIA/cuda-tile.git
+  GIT_TAG 802d9378800a3b7c9f88875206e84b2746d6991b
+  EXCLUDE_FROM_ALL TRUE
+  OPTIONS
+    "CUDA_TILE_ENABLE_TESTING ON"
+  PRE_ADD_HOOK [[
+    nv_pkg_append_options("CUDA_TILE_USE_LLVM_INSTALL_DIR ${LLVM_BINARY_DIR}")
+    if(NOT CPM_CUDATile_SOURCE)
+      set(patch_dir "${MTRT_TOP_LEVEL_DIR}/build_tools/patches/CUDATile")
+      nv_update_append_pkg_args(PATCHES
+        "${patch_dir}/0001-Fix-build-with-BUILD_SHARED_LIBS-ON-and-prevent-auto.patch")
+    endif()
+  ]]
+)
+
+#-------------------------------------------------------------------------------------
 # Declare the LLVM dependency.
 #-------------------------------------------------------------------------------------
 set(MTRT_BUILD_LLVM_FROM_SOURCE ON)

@@ -150,6 +150,10 @@ mlir_configure_python_dev_packages()
 
 find_package(TVMFFI REQUIRED)
 
+if(MLIR_TRT_ENABLE_CUDATILE)
+  find_package(CUDATile REQUIRED)
+endif()
+
 #--------------------------------------------------
 # Diagnostics
 #--------------------------------------------------

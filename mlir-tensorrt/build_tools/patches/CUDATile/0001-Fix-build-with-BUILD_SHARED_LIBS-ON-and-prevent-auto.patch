@@ -1,0 +1,53 @@
+From dd0b0215100ee530ee58dec18726cff70c0b17a1 Mon Sep 17 00:00:00 2001
+From: Christopher Bate <cbate@nvidia.com>
+Date: Sun, 11 Jan 2026 13:40:52 -0700
+Subject: [PATCH 1/1] Fix build with BUILD_SHARED_LIBS=ON and prevent automatic
+ creation of empty media directory
+
+---
+ include/cuda_tile/Dialect/CudaTile/IR/CMakeLists.txt | 2 +-
+ lib/Bytecode/Translation/CMakeLists.txt              | 1 +
+ lib/Dialect/CudaTile/IR/CMakeLists.txt               | 3 +++
+ 3 files changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/include/cuda_tile/Dialect/CudaTile/IR/CMakeLists.txt b/include/cuda_tile/Dialect/CudaTile/IR/CMakeLists.txt
+index 93b9c7f..414db08 100644
+--- a/include/cuda_tile/Dialect/CudaTile/IR/CMakeLists.txt
++++ b/include/cuda_tile/Dialect/CudaTile/IR/CMakeLists.txt
+@@ -43,10 +43,10 @@ set(LLVM_TARGET_DEFINITIONS Types.td)
+ tablegen(MLIR CudaTileTypes.md -gen-typedef-doc -allow-hugo-specific-features)
+ 
+ set(GEN_DOC_DIR ${CMAKE_SOURCE_DIR}/media/docs/Dialects/CudaTile)
+-file(MAKE_DIRECTORY ${GEN_DOC_DIR})
+ 
+ add_custom_command(
+ 	OUTPUT ${GEN_DOC_DIR}/CudaTile.md
++        COMMAND ${CMAKE_COMMAND} -E make_directory ${GEN_DOC_DIR}
+         COMMAND ${CMAKE_COMMAND} -E cat
+         ${CMAKE_CURRENT_BINARY_DIR}/CudaTile.md
+         ${CMAKE_CURRENT_BINARY_DIR}/CudaTileOps.md
+diff --git a/lib/Bytecode/Translation/CMakeLists.txt b/lib/Bytecode/Translation/CMakeLists.txt
+index e8055b7..b783b4d 100644
+--- a/lib/Bytecode/Translation/CMakeLists.txt
++++ b/lib/Bytecode/Translation/CMakeLists.txt
+@@ -12,4 +12,5 @@ add_mlir_library(CudaTileBytecodeTranslation
+     CudaTileDialect
+     MLIRIR
+     MLIRPass
++    MLIRTranslateLib
+ )
+diff --git a/lib/Dialect/CudaTile/IR/CMakeLists.txt b/lib/Dialect/CudaTile/IR/CMakeLists.txt
+index 822a2c7..3934b30 100644
+--- a/lib/Dialect/CudaTile/IR/CMakeLists.txt
++++ b/lib/Dialect/CudaTile/IR/CMakeLists.txt
+@@ -23,4 +23,7 @@ add_mlir_library(CudaTileDialect
+   LINK_LIBS PUBLIC
+   MLIRIR
+   MLIRSideEffectInterfaces
++  MLIRFunctionInterfaces
++  MLIRInferTypeOpInterface
++  MLIRControlFlowInterfaces
+ )
+-- 
+2.39.3 (Apple Git-146)
+
