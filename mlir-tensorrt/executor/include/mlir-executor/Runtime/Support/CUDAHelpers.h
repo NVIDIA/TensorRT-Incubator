@@ -125,6 +125,26 @@ Status freeCUDAPinnedHost(uintptr_t ptr);
 Status launchCUDAHostFunc(uintptr_t stream, void (*callback)(void *),
                           void *userData);
 
+/// CUDADeviceGuard is an abstract RAII handle that scopes a temporary
+/// activation of a device, restoring the old active device on destruction.
+class CUDADeviceGuard {
+public:
+  CUDADeviceGuard(CUDADeviceGuard &&) = delete;
+  CUDADeviceGuard(const CUDADeviceGuard &) = delete;
+  CUDADeviceGuard &operator=(CUDADeviceGuard &&) = delete;
+  CUDADeviceGuard &operator=(const CUDADeviceGuard &) = delete;
+
+  static StatusOr<std::unique_ptr<CUDADeviceGuard>>
+  create(int32_t deviceNumber);
+
+  ~CUDADeviceGuard();
+
+private:
+  CUDADeviceGuard(int32_t originalDeviceNumber);
+
+  int32_t originalDeviceNumber;
+};
+
 } // namespace mtrt
 
 #endif // MLIR_EXECUTOR_RUNTIME_SUPPORT_CUDAHELPERS

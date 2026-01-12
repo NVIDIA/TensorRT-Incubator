@@ -21,6 +21,7 @@
 #define MLIR_EXECUTOR_RUNTIME_BACKEND_LUA_LUAEXTENSIONREGISTRY
 
 #include "mlir-executor/Runtime/API/API.h"
+#include "mlir-executor/Runtime/Support/CUDAEventPool.h"
 
 struct lua_State;
 
@@ -33,6 +34,7 @@ struct LuaRuntimeExtensionInitArgs {
   AllocTracker *allocTracker;
   ResourceTracker *resourceTracker;
   PluginRegistry &pluginRegistry;
+  CudaEventPool &cudaEventPool;
 };
 
 struct LuaRuntimeExtension {

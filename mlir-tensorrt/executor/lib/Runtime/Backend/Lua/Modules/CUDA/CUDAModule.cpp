@@ -1,7 +1,7 @@
 
 //===- CUDAModule.cpp -------------------------------------------*- C++ -*-===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2024-2026 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -25,21 +25,21 @@
 #include "cuda.h"
 #include "cuda_runtime_api.h"
 #include "mlir-executor/Runtime/API/API.h"
-#include "mlir-executor/Runtime/Backend/Common/CUDACommon.h"
 #include "mlir-executor/Runtime/Backend/Common/NvPtxCompilerUtils.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaErrorHandling.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaExtensionRegistry.h"
 #include "mlir-executor/Runtime/Backend/Lua/SolAdaptor.h" // IWYU pragma: keep
 #include "mlir-executor/Runtime/Backend/Utils/NvtxUtils.h"
 #include "mlir-executor/Runtime/Support/Allocators.h"
+#include "mlir-executor/Runtime/Support/CUDAEventPool.h"
+#include "mlir-executor/Runtime/Support/CUDAHelpers.h"
 #include "mlir-executor/Runtime/Support/StridedCopy.h"
 #include "mlir-executor/Runtime/Support/Support.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/Alignment.h"
 #include <memory>
 #include <string>
 
-using namespace mtrt;
-using namespace mtrt;
 using namespace mtrt;
 
 static StatusOr<std::string> getDeviceArch(int32_t deviceNumber) {
@@ -78,7 +78,8 @@ static StatusOr<int32_t> getDevice(int32_t deviceNumber) {
 }
 
 static void registerCudaOps(sol::state_view &lua, AllocTracker *allocTracker,
-                            ResourceTracker *resourceTracker) {
+                            ResourceTracker *resourceTracker,
+                            CudaEventPool &cudaEventPool) {
   //===----------------------------------------------------------------------===//
   // CUDA - Device Management Ops
   //===----------------------------------------------------------------------===//
@@ -109,48 +110,48 @@ static void registerCudaOps(sol::state_view &lua, AllocTracker *allocTracker,
   // CUDA - Event Management Ops
   //===----------------------------------------------------------------------===//
   lua["__cuda_event_create"] =
-      [resourceTracker](sol::this_state state) -> CudaEventPtr {
+      [pool = &cudaEventPool](sol::this_state state,
+                              int32_t device) -> EventHandle {
     ADD_CUDA_MODULE_RANGE("cuda_event_create");
-    StatusOr<CudaEventPtr> event = CudaEventPtr::create(*resourceTracker);
+    sol::state_view lua(state);
+    StatusOr<EventHandle> event = pool->Acquire(device, 0);
     SET_LUA_ERROR_IF_ERROR(event, state);
     return *event;
   };
 
-  lua["__cuda_event_release"] = [resourceTracker](sol::this_state state,
-                                                  CudaEventPtr event) {
-    ADD_CUDA_MODULE_RANGE("cuda_event_release");
-    SET_LUA_ERROR_IF_CUDART_ERROR(cudaEventDestroy(event), state);
-  };
+  lua["__cuda_event_release"] =
+      [pool = &cudaEventPool](sol::this_state state, const EventHandle &event) {
+        ADD_CUDA_MODULE_RANGE("cuda_event_release");
+        sol::state_view lua(state);
+        SET_LUA_ERROR_IF_ERROR(pool->Release(event), state);
+      };
 
   lua["__cuda_stream_record_event"] = [](sol::this_state state,
-                                         CudaStream stream,
-                                         CudaEventPtr event) {
+                                         CudaStream stream, EventHandle event) {
     ADD_CUDA_MODULE_RANGE("cuda_stream_record_event");
-    SET_LUA_ERROR_IF_CUDART_ERROR(
-        cudaEventRecord(event, reinterpret_cast<cudaStream_t>(stream)), state);
+    SET_LUA_ERROR_IF_ERROR(mtrt::recordCUDAEvent(event.getEvent(), stream),
+                           state);
   };
 
   lua["__cuda_stream_wait_event"] = [](sol::this_state state, CudaStream stream,
-                                       CudaEventPtr event) {
+                                       EventHandle event) {
     ADD_CUDA_MODULE_RANGE("cuda_stream_wait_event");
-    SET_LUA_ERROR_IF_CUDART_ERROR(
-        cudaStreamWaitEvent(reinterpret_cast<cudaStream_t>(stream), event,
-                            /*flags=*/0),
-        state);
+    SET_LUA_ERROR_IF_ERROR(
+        mtrt::waitCUDAEventOnStream(stream, event.getEvent()), state);
   };
 
-  lua["__cuda_event_sync"] = [](sol::this_state state, CudaEventPtr event) {
+  lua["__cuda_event_sync"] = [](sol::this_state state, EventHandle event) {
     ADD_CUDA_MODULE_RANGE("cuda_event_sync");
-    SET_LUA_ERROR_IF_CUDART_ERROR(cudaEventSynchronize(event), state);
+    SET_LUA_ERROR_IF_ERROR(mtrt::synchronizeCUDAEvent(event.getEvent()), state);
   };
 
   lua["__cuda_event_elapsed_msec"] =
-      [](sol::this_state state, CudaEventPtr start, CudaEventPtr end) -> float {
+      [](sol::this_state state, EventHandle start, EventHandle end) -> float {
     ADD_CUDA_MODULE_RANGE("cuda_event_elapsed_msec");
-    float ms = 0.0f;
-    SET_LUA_ERROR_AND_RETURN_IF_CUDART_ERROR(
-        cudaEventElapsedTime(&ms, start, end), state, ms);
-    return ms;
+    StatusOr<float> ms =
+        mtrt::getCUDAEventElapsedTimeMs(start.getEvent(), end.getEvent());
+    SET_LUA_ERROR_AND_RETURN_IF_ERROR(ms, state, 0.0f);
+    return *ms;
   };
 }
 
@@ -589,7 +590,8 @@ void registerLuaCudaRuntimeExtension() {
   registerLuaRuntimeExtension(
       "cuda", LuaRuntimeExtension{[](const LuaRuntimeExtensionInitArgs &args) {
         sol::state_view lua(args.state);
-        registerCudaOps(lua, args.allocTracker, args.resourceTracker);
+        registerCudaOps(lua, args.allocTracker, args.resourceTracker,
+                        args.cudaEventPool);
         registerCudaMemoryManagementOps(lua, args.allocTracker,
                                         args.pinnedMemoryAllocator);
         registerDeviceDependentCudaMethods(args.state, args.options);

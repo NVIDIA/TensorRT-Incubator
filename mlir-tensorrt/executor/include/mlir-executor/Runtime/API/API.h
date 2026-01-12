@@ -28,6 +28,7 @@
 #include "mlir-executor/Runtime/API/Executable.h"
 #include "mlir-executor/Runtime/FFI/FFI.h"
 #include "mlir-executor/Runtime/Support/Allocators.h"
+#include "mlir-executor/Runtime/Support/CUDAEventPool.h"
 #include "mlir-tensorrt-common/Support/Status.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
@@ -1015,6 +1016,9 @@ public:
   /// without a device and therefore does not have the CUDA feature enabled.
   virtual Status setStream(Ref<Stream> stream);
 
+  /// Return the CUDA event pool for this session.
+  CudaEventPool &getCUDAEventPool() { return *cudaEventPool; }
+
 protected:
   /// Called when the stream for this session is changed.
   virtual Status onStreamChanged(Ref<Stream> oldStream, Ref<Stream> newStream);
@@ -1026,6 +1030,7 @@ protected:
   std::unique_ptr<AllocTracker> allocTracker;
   std::unique_ptr<ResourceTracker> resourceTracker;
   Ref<Stream> stream;
+  std::unique_ptr<CudaEventPool> cudaEventPool;
 };
 
 //===----------------------------------------------------------------------===//

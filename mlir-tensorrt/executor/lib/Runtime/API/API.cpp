@@ -187,7 +187,8 @@ RuntimeSession::RuntimeSession(RuntimeSessionOptions options,
     : client(std::move(client)), options(std::move(options)), executable(exe),
       pinnedMemoryAllocator(this->client->getPinnedMemoryAllocator()),
       allocTracker(std::make_unique<AllocTracker>()),
-      resourceTracker(std::make_unique<ResourceTracker>()) {
+      resourceTracker(std::make_unique<ResourceTracker>()),
+      cudaEventPool(std::make_unique<CudaEventPool>()) {
   if (this->options.isFeatureEnabled("cuda")) {
     StatusOr<int32_t> deviceId = this->options.getSpmdDeviceId();
     mtrt::cantFail(deviceId);

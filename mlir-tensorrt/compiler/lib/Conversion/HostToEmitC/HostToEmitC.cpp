@@ -137,8 +137,8 @@ static void populateEmitCConversionPatternsAndLegality(
                 [](cuda::FunctionType) -> StringRef { return "CUfunction"; })
             .Case<cuda::StreamType>(
                 [](cuda::StreamType) -> StringRef { return "CUstream"; })
-            .Case<cuda::StreamType>(
-                [](cuda::StreamType) -> StringRef { return "CUstream"; })
+            .Case<cuda::EventType>(
+                [](cuda::EventType) -> StringRef { return "cudaEvent_t"; })
             .Default([](Type) -> StringRef { return ""; });
     if (name.empty())
       return {};

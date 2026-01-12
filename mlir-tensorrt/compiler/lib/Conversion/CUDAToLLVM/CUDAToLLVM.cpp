@@ -74,7 +74,7 @@ struct CUDAExternalCallBuilders {
   LLVMOpaqueCallBuilder getProgramDeviceBuilder = {
       "mtrt_cuda_get_program_device", i32Type, {i32Type}};
   LLVMOpaqueCallBuilder eventCreateBuilder = {
-      "mtrt_cuda_event_create", llvmPtrType, {}};
+      "mtrt_cuda_event_create", llvmPtrType, {/*device=*/i32Type}};
   LLVMOpaqueCallBuilder streamRecordEventBuilder = {
       "mtrt_cuda_stream_record_event",
       llvmVoidType,

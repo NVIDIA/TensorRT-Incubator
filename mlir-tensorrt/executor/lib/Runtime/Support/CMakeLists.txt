@@ -1,6 +1,7 @@
 add_mlir_executor_runtime_library(MLIRTensorRTRuntimeSupport
   MPI.cpp
   CUDAHelpers.cpp
+  CUDAEventPool.cpp
 
   PARTIAL_SOURCES_INTENDED
 

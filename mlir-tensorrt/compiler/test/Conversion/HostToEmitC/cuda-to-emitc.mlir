@@ -231,3 +231,32 @@ func.func @test_launch(%arg0: memref<4xf32>, %arg1: index, %arg2: i32, %arg3: f3
 // CPP-LABEL: void unnamed_module_kernels_destroy() {
 // CPP: mtrt::cuda_module_destroy
 // CPP: mtrt::abort_on_error
+
+// -----
+
+func.func @event_ops(%stream: !cuda.stream, %device: i32) -> f32 {
+  %e0 = cuda.event.create device(%device)
+  cuda.stream.record_event %stream, %e0
+  cuda.stream.wait_event %stream, %e0
+  cuda.event.sync %e0 : !cuda.event
+  %ms = cuda.event.elapsed %e0, %e0 : f32
+  cuda.event.release %e0 : !cuda.event
+  return %ms : f32
+}
+
+// CPP-LABEL: float event_ops(CUstream {{.*}}, int32_t
+// CPP: cudaEvent_t {{.*}} = nullptr;
+// CPP: int32_t {{.*}} = mtrt::cuda_event_create({{.*}}, {{.*}});
+// CPP: mtrt::abort_on_error
+// CPP: int32_t {{.*}} = mtrt::cuda_stream_record_event({{.*}}, {{.*}});
+// CPP: mtrt::abort_on_error
+// CPP: int32_t {{.*}} = mtrt::cuda_stream_wait_event({{.*}}, {{.*}});
+// CPP: mtrt::abort_on_error
+// CPP: int32_t {{.*}} = mtrt::cuda_event_sync({{.*}});
+// CPP: mtrt::abort_on_error
+// CPP: float {{.*}} = 0.0e+00f;
+// CPP: int32_t {{.*}} = mtrt::cuda_event_elapsed_msec({{.*}}, {{.*}}, {{.*}});
+// CPP: mtrt::abort_on_error
+// CPP: int32_t {{.*}} = mtrt::cuda_event_release({{.*}});
+// CPP: mtrt::abort_on_error
+// CPP: return {{.*}};

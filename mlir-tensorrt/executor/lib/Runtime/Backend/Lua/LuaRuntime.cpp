@@ -255,8 +255,8 @@ LuaRuntimeSession::create(Ref<RuntimeClient> client_,
   MTRT_RETURN_IF_ERROR(populateRuntimeExtensions(LuaRuntimeExtensionInitArgs{
       session->getOptions(), lua.lua_state(),
       &session->getPinnedMemoryAllocator(), &session->getAllocTracker(),
-      &session->getResourceTracker(),
-      session->getClient()->getPluginRegistry()}));
+      &session->getResourceTracker(), session->getClient()->getPluginRegistry(),
+      /*cudaEventPool=*/session->getCUDAEventPool()}));
 
   // Register user-provided methods.
   if (registerExtraLuaFuncs)

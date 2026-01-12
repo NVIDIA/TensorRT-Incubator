@@ -53,7 +53,6 @@
   } while (false)
 
 using namespace mtrt;
-using namespace mtrt;
 
 int32_t mtrt_cuda_get_active_device() {
   int32_t device{0};
@@ -82,10 +81,18 @@ void mtrt_cuda_stream_sync(CUstream stream) {
   HANDLE_CUDART_ERROR(cudaStreamSynchronize(stream), );
 }
 
-cudaEvent_t mtrt_cuda_event_create() {
-  cudaEvent_t event{nullptr};
+cudaEvent_t mtrt_cuda_event_create(int32_t device) {
+  int32_t currentDevice = -1;
+  HANDLE_CUDART_ERROR(cudaGetDevice(&currentDevice), nullptr);
+  if (currentDevice != device) {
+    HANDLE_CUDART_ERROR(cudaSetDevice(device), nullptr);
+  }
+  cudaEvent_t event = nullptr;
   HANDLE_CUDART_ERROR(cudaEventCreateWithFlags(&event, cudaEventDefault),
                       nullptr);
+  if (currentDevice != device) {
+    HANDLE_CUDART_ERROR(cudaSetDevice(currentDevice), nullptr);
+  }
   return event;
 }
 

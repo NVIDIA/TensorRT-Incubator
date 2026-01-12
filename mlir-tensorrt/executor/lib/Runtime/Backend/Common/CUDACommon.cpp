@@ -44,19 +44,6 @@ std::ostream &mrt::operator<<(std::ostream &es, cudaError_t error) {
   return es;
 }
 
-StatusOr<CudaEventPtr> CudaEventPtr::create(ResourceTracker &tracker) {
-  cudaEvent_t event;
-  RETURN_ERROR_IF_CUDART_ERROR(cudaEventCreate(&event));
-  MTRT_DBGF("created event 0x%lx", reinterpret_cast<uintptr_t>(event));
-  tracker.track(reinterpret_cast<uintptr_t>(event), [](uintptr_t ptr) {
-    if (ptr) {
-      MTRT_DBGF("freeing cuda event 0x%lx", ptr);
-      cudaEventDestroy(reinterpret_cast<cudaEvent_t>(ptr));
-    }
-  });
-  return CudaEventPtr(event);
-}
-
 StatusOr<CudaFunctionPtr> CudaFunctionPtr::create(ResourceTracker &tracker,
                                                   CudaModulePtr module,
                                                   llvm::StringRef name) {
