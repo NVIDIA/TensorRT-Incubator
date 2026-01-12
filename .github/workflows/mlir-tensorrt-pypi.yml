@@ -1,14 +1,16 @@
 name: MLIR-TensorRT PyPI Release CI
 
 on:
-  push:
-    branches:
-      - "pull-request/[0-9]+"
   workflow_dispatch:
     inputs:
+      confirm_publish_to_testpypi:
+        description: 'I confirm that I have verified version to be published to test.pypi.org'
+        required: false
+        type: boolean
+        default: false
       confirm_publish_to_pypi:
         description: 'I confirm that I have verified version to be published to pypi.org'
-        required: true
+        required: false
         type: boolean
         default: false
 
@@ -132,7 +134,9 @@ jobs:
           set -x
           cd mlir-tensorrt
           # Build only pjrt wheels for PyPI upload, with auditwheel repair
-          MLIR_TRT_PYPI=1 MLIR_TRT_PYPI_POST_VERSION=1 PACKAGES="pjrt" VERBOSE=1 ./build_tools/scripts/cicd-build-wheels.sh
+          # if you want to build for post version, set MLIR_TRT_PYPI_POST_VERSION=1
+          # MLIR_TRT_PYPI=1 MLIR_TRT_PYPI_POST_VERSION=1 PACKAGES="pjrt" VERBOSE=1 ./build_tools/scripts/cicd-build-wheels.sh
+          MLIR_TRT_PYPI=1 PACKAGES="pjrt" VERBOSE=1 ./build_tools/scripts/cicd-build-wheels.sh
 
       - name: Upload Wheels
         uses: actions/upload-artifact@v4
@@ -189,6 +193,7 @@ jobs:
 
   test-pypi-release-wheels-publish:
     name: Publish to TestPyPI
+    if: ${{ inputs.confirm_publish_to_testpypi }}
     needs:
       - pypi-release-wheels-build
       - pypi-release-wheels-smoke-test
@@ -221,7 +226,6 @@ jobs:
     needs:
       - pypi-release-wheels-build
       - pypi-release-wheels-smoke-test
-      - test-pypi-release-wheels-publish
     runs-on: ubuntu-latest
     permissions:
       id-token: write
