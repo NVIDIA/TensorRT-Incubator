@@ -24,7 +24,7 @@
 #ifndef MLIR_KERNEL_KERNEL_IR_ENUMS
 #define MLIR_KERNEL_KERNEL_IR_ENUMS
 
-#include "mlir/IR/DialectImplementation.h"
+#include "mlir/IR/DialectImplementation.h" // IWYU pragma: keep
 
 //===----------------------------------------------------------------------===//
 // Kernel Dialect Enum Definitions

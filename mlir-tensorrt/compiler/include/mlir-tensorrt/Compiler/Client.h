@@ -1,6 +1,6 @@
-//===- Client.h -------------------------------------------------*- C++ -*-===//
+//===- Client.h ----------------------------------------------------------===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2024-2026 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -30,10 +30,8 @@
 #include "mlir-tensorrt-common/Support/Status.h"
 #include "mlir-tensorrt/Compiler/Options.h"
 #include "mlir-tensorrt/Compiler/Pipeline.h"
-#include "mlir/IR/MLIRContext.h"
 #include "mlir/Pass/PassManager.h"
 #include "llvm/ADT/Hashing.h"
-#include "llvm/Support/ErrorHandling.h"
 #include <memory>
 
 namespace mtrt::compiler {

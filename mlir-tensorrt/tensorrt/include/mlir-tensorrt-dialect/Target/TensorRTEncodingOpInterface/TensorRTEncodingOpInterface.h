@@ -1,6 +1,6 @@
-//===- TensorRTEncodingOpInterface.h ----------------------------*- C++ -*-===//
+//===- TensorRTEncodingOpInterface.h -------------------------------------===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2024-2026 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -22,16 +22,18 @@
 /// TensorRT nvinfer1::INetworkDefinition.
 ///
 //===----------------------------------------------------------------------===//
-#ifndef MLIR_TENSORRT_DIALECT_TENSORRT_TARGET_TENSORRTENCODINGOPINTERFACE_H
-#define MLIR_TENSORRT_DIALECT_TENSORRT_TARGET_TENSORRTENCODINGOPINTERFACE_H
+#ifndef MLIR_TENSORRT_DIALECT_TARGET_TENSORRTENCODINGOPINTERFACE_TENSORRTENCODINGOPINTERFACE
+#define MLIR_TENSORRT_DIALECT_TARGET_TENSORRTENCODINGOPINTERFACE_TENSORRTENCODINGOPINTERFACE
 
 #include "mlir-tensorrt-dialect/Target/TensorRTEncodingOpInterface/NetworkEncoder.h"
-#include "mlir-tensorrt-dialect/Utils/NvInferAdaptor.h"
+// #include "mlir-tensorrt-dialect/Utils/NvInferAdaptor.h"
 
 namespace mlir {
-namespace tensorrt {}
+namespace tensorrt {
+class NvInferNetworkEncoder;
+}
 } // namespace mlir
 
 #include "mlir-tensorrt-dialect/Target/TensorRTEncodingOpInterface/TensorRTEncodingOpInterface.h.inc"
 
-#endif // MLIR_TENSORRT_DIALECT_TENSORRT_TARGET_TENSORRTENCODINGOPINTERFACE_H
+#endif // MLIR_TENSORRT_DIALECT_TARGET_TENSORRTENCODINGOPINTERFACE_TENSORRTENCODINGOPINTERFACE

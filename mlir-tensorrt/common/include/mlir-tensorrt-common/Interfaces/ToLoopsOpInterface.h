@@ -24,7 +24,7 @@
 #ifndef MLIR_TENSORRT_COMMON_INTERFACES_TOLOOPSOPINTERFACE
 #define MLIR_TENSORRT_COMMON_INTERFACES_TOLOOPSOPINTERFACE
 
-#include "mlir/IR/OpDefinition.h"
+#include "mlir/IR/OpDefinition.h" // IWYU pragma: keep
 
 namespace mlir {
 class RewriterBase;

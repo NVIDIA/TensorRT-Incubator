@@ -1,6 +1,6 @@
 //===- Passes.h -------------------------------------------------*- C++ -*-===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2024-2026 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -22,8 +22,7 @@
 #ifndef MLIR_TENSORRT_TRANSFORMS_PASSES_H
 #define MLIR_TENSORRT_TRANSFORMS_PASSES_H
 
-#include <memory>
-#include <mlir/Pass/Pass.h>
+#include "mlir/Pass/Pass.h" // IWYU pragma: keep
 
 //===----------------------------------------------------------------------===//
 // Add Tablegen'd pass declarations and registration methods.

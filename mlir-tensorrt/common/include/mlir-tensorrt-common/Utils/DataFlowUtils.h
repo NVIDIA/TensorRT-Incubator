@@ -1,6 +1,6 @@
-//===- DataFlowUtils.h ------------------------------------------*- C++ -*-===//
+//===- DataFlowUtils.h ---------------------------------------------------===//
 //
-// SPDX-FileCopyrightText: Copyright 2025 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2025-2026 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -25,9 +25,6 @@
 #define MLIR_TENSORRT_COMMON_UTILS_DATAFLOWUTILS
 
 #include "mlir/Analysis/DataFlow/DeadCodeAnalysis.h"
-#include "mlir/Analysis/DataFlowFramework.h"
-#include "mlir/IR/Operation.h"
-#include "mlir/IR/PatternMatch.h"
 
 namespace mlir {
 

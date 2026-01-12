@@ -22,7 +22,7 @@
 
 #include "HostToEmitCDetail.h"
 #include "HostToEmitCDetailCommon.h"
-#include "mlir-tensorrt/Dialect/TensorRTRuntime/IR/TensorRTRuntime.h"
+#include "mlir-tensorrt/Dialect/TensorRTRuntime/IR/Ops.h"
 
 using namespace mlir;
 using namespace mlir::host_to_emitc;

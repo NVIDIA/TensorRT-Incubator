@@ -26,14 +26,16 @@
 #ifndef MLIR_TENSORRT_DIALECT_STABLEHLOEXT_UTILS_GATHERSCATTERUTILS_H
 #define MLIR_TENSORRT_DIALECT_STABLEHLOEXT_UTILS_GATHERSCATTERUTILS_H
 
-#include "mlir-tensorrt-common/Utils/ShapeInfo.h"
-#include "mlir/Dialect/Utils/ReshapeOpsUtils.h"
 #include "mlir/IR/Value.h"
 #include <optional>
 
 namespace mlir {
 
 class OpBuilder;
+struct ShapeInfoCallbacks;
+class RankedTensorType;
+
+using ReassociationIndices = SmallVector<int64_t, 2>;
 
 namespace stablehlo {
 class DynamicGatherOp;

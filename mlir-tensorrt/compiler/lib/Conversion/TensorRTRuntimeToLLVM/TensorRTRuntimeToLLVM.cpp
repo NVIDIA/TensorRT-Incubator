@@ -30,7 +30,7 @@
 #include "mlir-tensorrt/Conversion/Passes.h"
 #include "mlir-tensorrt/Conversion/PlanToLLVM/PlanToLLVM.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
-#include "mlir-tensorrt/Dialect/TensorRTRuntime/IR/TensorRTRuntime.h"
+#include "mlir-tensorrt/Dialect/TensorRTRuntime/IR/Ops.h"
 #include "mlir/Conversion/ConvertToLLVM/ToLLVMInterface.h"
 #include "mlir/Conversion/LLVMCommon/ConversionTarget.h"
 #include "mlir/Conversion/LLVMCommon/MemRefBuilder.h"

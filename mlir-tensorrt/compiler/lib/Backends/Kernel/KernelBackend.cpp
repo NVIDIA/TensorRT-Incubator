@@ -1,6 +1,6 @@
 //===- KernelBackend.cpp --------------------------------------------------===//
 //
-// SPDX-FileCopyrightText: Copyright 2025 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2025-2026 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -24,6 +24,7 @@
 #include "mlir-tensorrt/Backends/Kernel/KernelBackend.h"
 #include "mlir-kernel/Kernel/IR/Ops.h"
 #include "mlir-tensorrt/Backends/Host/HostBackend.h"
+#include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/PlanInterfaces.h"
 #include "mlir-tensorrt/Dialect/StablehloExt/Utils/Utils.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -32,7 +33,7 @@
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/DialectRegistry.h"
 #include "stablehlo/dialect/StablehloOps.h"
-#include "llvm/ADT/TypeSwitch.h"
+#include "llvm/ADT/TypeSwitch.h" // IWYU pragma: keep
 
 using namespace mtrt::compiler;
 using namespace mlir;

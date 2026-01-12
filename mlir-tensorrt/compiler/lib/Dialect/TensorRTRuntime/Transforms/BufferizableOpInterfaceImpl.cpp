@@ -19,7 +19,7 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt/Dialect/TensorRTRuntime/Transforms/BufferizableOpInterfaceImpl.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
-#include "mlir-tensorrt/Dialect/TensorRTRuntime/IR/TensorRTRuntime.h"
+#include "mlir-tensorrt/Dialect/TensorRTRuntime/IR/Ops.h"
 #include "mlir/Dialect/Bufferization/IR/BufferizableOpInterface.h"
 #include "mlir/Dialect/Bufferization/IR/DstBufferizableOpInterfaceImpl.h"
 #include "mlir/Dialect/Utils/IndexingUtils.h"

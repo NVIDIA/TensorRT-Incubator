@@ -23,17 +23,17 @@
 #define MLIR_TENSORRT_UTILS_EINSUMHELPER
 
 #include "mlir/IR/BuiltinTypes.h"
-#include "mlir/IR/Operation.h"
 #include "llvm/ADT/SmallString.h"
+#include "llvm/ADT/SmallVector.h"
 
 namespace mlir {
 namespace tensorrt {
 namespace einsum {
 
 using ErrorFn = function_ref<FailureOr<InFlightDiagnostic>(
-    std::optional<Location> loc, const Twine &message)>;
-using Subscript = SmallString<4>;
-using InputSubscripts = SmallVector<Subscript, 2>;
+    std::optional<Location> loc, const llvm::Twine &message)>;
+using Subscript = llvm::SmallString<4>;
+using InputSubscripts = llvm::SmallVector<Subscript, 2>;
 struct IOSubscripts {
   InputSubscripts inputs;
   Subscript outputs;

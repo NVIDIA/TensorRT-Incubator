@@ -22,12 +22,11 @@
 #ifndef MLIR_TENSORRT_UTILS_STATICVALUEUTILS_H
 #define MLIR_TENSORRT_UTILS_STATICVALUEUTILS_H
 
-#include "mlir/IR/BuiltinAttributes.h"
-#include "mlir/IR/DialectResourceBlobManager.h"
-
+#include "mlir/IR/DialectResourceBlobManager.h" // IWYU pragma: keep
 #include <optional>
 
 namespace mlir {
+class ElementsAttr;
 /// If the `attr` is an elided DenseElementsAttr, then it will appear as a
 /// DenseResourceElementsAttr with the handle "elided". If this is the case,
 /// return the handle object, otherwise return nullopt.

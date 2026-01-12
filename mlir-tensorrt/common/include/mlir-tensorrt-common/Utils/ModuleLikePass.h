@@ -1,6 +1,8 @@
-//===- ModulePass.h ---------------------------------------------*- C++ -*-===//
+//===- ModuleLikePass.h --------------------------------------------------===//
 //
-// Copyright (c) 2024, NVIDIA CORPORATION. All rights reserved.
+// SPDX-FileCopyrightText: Copyright 2026 NVIDIA CORPORATION & AFFILIATES.
+// All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 //
 //===----------------------------------------------------------------------===//
 ///
@@ -8,11 +10,9 @@
 /// on "module-like" operations.
 ///
 //===----------------------------------------------------------------------===//
-#ifndef MLIR_EXECUTOR_UTILS_MODULEPASS
-#define MLIR_EXECUTOR_UTILS_MODULEPASS
+#ifndef MLIR_TENSORRT_COMMON_UTILS_MODULELIKEPASS
+#define MLIR_TENSORRT_COMMON_UTILS_MODULELIKEPASS
 
-#include "mlir/IR/OpDefinition.h"
-#include "mlir/IR/SymbolTable.h"
 #include "mlir/Pass/Pass.h"
 
 namespace mlir {
@@ -41,21 +41,12 @@ protected:
   /// Indicate if the current pass can be scheduled on the given operation type.
   /// For an InterfacePass, this checks if the operation implements the given
   /// interface.
-  bool canScheduleOn(RegisteredOperationName opName) const final {
-    return opName.hasTrait<OpTrait::IsIsolatedFromAbove>() &&
-           opName.hasTrait<OpTrait::SymbolTable>();
-  }
+  bool canScheduleOn(RegisteredOperationName opName) const final;
 
   /// Used in pass `runOnOperation` implementation to ensure that the op meets
   /// requirements that can't be checked in 'canScheduleOn'.
-  static LogicalResult checkIsModuleLike(Operation *op) {
-    if (op->getNumRegions() != 1 || !op->getRegion(0).hasOneBlock())
-      return emitError(op->getLoc())
-             << "expected a module-like operation with a single region "
-                "containing a single block";
-    return success();
-  }
+  static LogicalResult checkIsModuleLike(Operation *op);
 };
 } // namespace mlir
 
-#endif // MLIR_EXECUTOR_UTILS_MODULEPASS
+#endif // MLIR_TENSORRT_COMMON_UTILS_MODULELIKEPASS

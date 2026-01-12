@@ -21,6 +21,7 @@
 #include "mlir-executor/Executor/IR/ExecutorAttributes.h"
 #include "mlir/Dialect/CommonFolders.h"
 #include "mlir/Dialect/Complex/IR/Complex.h"
+#include "mlir/Dialect/DLTI/DLTI.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/GPU/IR/GPUDialect.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"

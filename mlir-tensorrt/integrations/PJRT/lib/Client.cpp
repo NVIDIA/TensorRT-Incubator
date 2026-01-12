@@ -23,13 +23,11 @@
 #include "mlir-executor/Runtime/Backend/Lua/LuaRuntime.h"
 #include "mlir-executor/Runtime/Support/CUDAHelpers.h"
 #include "mlir-tensorrt-common/Support/Status.h"
+#include "mlir-tensorrt-pjrt/XlaAdaptor.h"
 #include "mlir-tensorrt/Features.h"
-#include "xla/pjrt/c/pjrt_c_api.h"
-#include "xla/pjrt/compile_options.pb.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/Sequence.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/SHA256.h"
 #include "llvm/Support/ThreadPool.h"
 #include "llvm/Support/Threading.h"
@@ -725,4 +723,9 @@ Client::copyDeviceBufferToOtherDevice(
                             *dstDevice.getMTRTDevice(), copyDoneEvent));
   return std::make_unique<DeviceBufferDescriptor>(
       std::move(dstMemRef), &dstDevice, dstDevice.getDefaultMemory());
+}
+
+llvm::ThreadPoolInterface &Client::getThreadPool() const {
+  assert(threadPool && "expected client thread pool to be initialized");
+  return *threadPool;
 }
