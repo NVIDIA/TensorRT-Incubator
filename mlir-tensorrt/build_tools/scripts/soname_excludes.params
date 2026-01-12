@@ -1,0 +1,13 @@
+--exclude libcublas.so
+--exclude libcublas.so.13
+
+--exclude libcublasLt.so
+--exclude libcublasLt.so.13
+
+--exclude libcuda.so
+--exclude libcuda.so.1
+
+--exclude libcudart.so
+--exclude libcudart.so.13
+
+--exclude libtvm_ffi.so

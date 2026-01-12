@@ -1,0 +1,252 @@
+name: MLIR-TensorRT PyPI Release CI
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_publish_to_testpypi:
+        description: 'I confirm that I have verified version to be published to test.pypi.org'
+        required: false
+        type: boolean
+        default: false
+      confirm_publish_to_pypi:
+        description: 'I confirm that I have verified version to be published to pypi.org'
+        required: false
+        type: boolean
+        default: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  generate-matrix:
+    name: Generate Build Matrix (pypi-release)
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.generate-matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 5
+      - name: Generate Build Matrix
+        id: generate-matrix
+        run: |
+          set -euo pipefail
+          set -x
+          MATRIX_BLOB="$(python3 ./.github/workflows/mlir-tensorrt/generate-matrix.py --channel pypi-release)"
+          echo "${MATRIX_BLOB}"
+          echo "matrix=${MATRIX_BLOB}" >> "${GITHUB_OUTPUT}"
+
+  pypi-release-wheels-build:
+    name: ${{ matrix.arch }} - Build PyPI Release Wheels
+    needs:
+      - generate-matrix
+    permissions:
+      id-token: write
+      packages: write
+      contents: read
+    strategy:
+      matrix: ${{ fromJSON(needs.generate-matrix.outputs.matrix) }}
+    runs-on: ${{ matrix.github_runner }}
+    env:
+      MLIR_TRT_DOWNLOAD_TENSORRT_VERSION: ${{ matrix.trt }}
+      CMAKE_PRESET: ${{ matrix.cmake_preset }}
+      CCACHE_RESTORE_KEY: mlir-tensorrt-ccache-v1-${{ matrix.arch }}-${{ matrix.cmake_preset }}
+      CPM_RESTORE_KEY: mlir-tensorrt-cpm-v1
+    timeout-minutes: 120
+    container:
+      # pypi audit wheel repair requires rockylinux8
+      image: ${{ matrix.docker_image }}
+      options: >-
+        --gpus all
+        --shm-size=1g
+    steps:
+      - name: Checkout TensorRT-Incubator
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 5
+
+      - name: Create Cache Folders
+        run: |
+          set -euo pipefail
+          set -x
+          export CPM_SOURCE_CACHE=${GITHUB_WORKSPACE}/mlir-tensorrt/.cache.cpm
+          export CCACHE_DIR=${GITHUB_WORKSPACE}/mlir-tensorrt/ccache
+
+          echo "CPM_SOURCE_CACHE=$CPM_SOURCE_CACHE" >> "$GITHUB_ENV"
+          echo "CCACHE_DIR=$CCACHE_DIR" >> "$GITHUB_ENV"
+
+          mkdir -p ${CCACHE_DIR}
+          mkdir -p ${CPM_SOURCE_CACHE}
+
+      - name: Compute CCache Key
+        id: ccache-key
+        run: |
+          hash=$( (find mlir-tensorrt/compiler \
+                        mlir-tensorrt/common \
+                        mlir-tensorrt/kernel \
+                        mlir-tensorrt/tensorrt \
+                        mlir-tensorrt/integrations \
+                        mlir-tensorrt/executor \
+                   -type f \( -name '*.cpp' -o -name '*.h' \) \
+                   -exec sha256sum {} \; ; \
+                  sha256sum mlir-tensorrt/DependencyProvider.cmake \
+                            mlir-tensorrt/CMakeLists.txt) \
+                 | sort | sha256sum | cut -d' ' -f1)
+          echo "key=${{ env.CCACHE_RESTORE_KEY }}-${hash}" >> $GITHUB_OUTPUT
+
+      - name: Compute CPM Key
+        id: cpm-key
+        run: |
+          hash=$(sha256sum mlir-tensorrt/DependencyProvider.cmake | cut -d' ' -f1)
+          echo "key=${{ env.CPM_RESTORE_KEY }}-${hash}" >> $GITHUB_OUTPUT
+
+      - name: Restore CCache
+        id: restore-ccache
+        uses: actions/cache/restore@v4
+        with:
+          key: ${{ steps.ccache-key.outputs.key }}
+          restore-keys: |
+            ${{ env.CCACHE_RESTORE_KEY }}
+          path: |
+            ${{ env.CCACHE_DIR }}
+
+      - name: Restore CPM cache
+        id: restore-cpm
+        uses: actions/cache/restore@v4
+        with:
+          key: ${{ steps.cpm-key.outputs.key }}
+          enableCrossOsArchive: true
+          restore-keys: |
+            ${{ env.CPM_RESTORE_KEY }}
+          path: |
+            mlir-tensorrt/.cache.cpm/*
+            !mlir-tensorrt/.cache.cpm/tensorrt
+            !mlir-tensorrt/.cache.cpm/tensorrt/**
+
+      - name: Build Wheels With CUDA:${{ matrix.cuda }} + TensorRT:${{ matrix.trt }}
+        env:
+          MLIR_TRT_DOWNLOAD_TENSORRT_VERSION: ${{ matrix.trt }}
+          ARCH: ${{ matrix.arch }}
+          CMAKE_PRESET: distribution-wheels
+        run: |
+          set -euo pipefail
+          set -x
+          cd mlir-tensorrt
+          # Build only pjrt wheels for PyPI upload, with auditwheel repair
+          # if you want to build for post version, set MLIR_TRT_PYPI_POST_VERSION=1
+          # MLIR_TRT_PYPI=1 MLIR_TRT_PYPI_POST_VERSION=1 PACKAGES="pjrt" VERBOSE=1 ./build_tools/scripts/cicd-build-wheels.sh
+          MLIR_TRT_PYPI=1 PACKAGES="pjrt" VERBOSE=1 ./build_tools/scripts/cicd-build-wheels.sh
+
+      - name: Upload Wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-wheels-${{ matrix.arch }}-cu${{ matrix.cuda }}-trt${{ matrix.trt }}
+          path: mlir-tensorrt/dist
+          if-no-files-found: error
+
+  pypi-release-wheels-smoke-test:
+    name: ${{ matrix.arch }} - Smoke Test PyPI Release Wheels
+    needs:
+      - generate-matrix
+      - pypi-release-wheels-build
+    permissions:
+      id-token: write
+      packages: write
+      contents: read
+    strategy:
+      matrix: ${{ fromJSON(needs.generate-matrix.outputs.matrix) }}
+    runs-on: ${{ matrix.github_runner }}
+    timeout-minutes: 120
+    container:
+      image: ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda13.0-ubuntu24.04-0.1
+      options: >-
+        --gpus all
+        --shm-size=1g
+    steps:
+      - name: Checkout TensorRT-Incubator
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 5
+      - name: Download built wheels
+        uses: actions/download-artifact@v4
+        with:
+          pattern: release-wheels-*
+          merge-multiple: true
+          path: mlir-tensorrt/dist
+
+      - name: Smoke Test Wheels With CUDA:${{ matrix.cuda }} + TensorRT:${{ matrix.trt }}
+        run: |
+          set -euo pipefail
+          set -x
+          cd mlir-tensorrt
+          uv sync --python 3.12 --extra cu13 --extra flashinfer-cu13
+          source .venv/bin/activate
+          ls -lart dist/
+          suffix="manylinux_2_28_${{ matrix.arch }}.whl"
+          whl_file=$(find dist/ -name "mlir_tensorrt_jax-*-cp312-cp312-*${suffix}")
+          echo "whl_file: ${whl_file}"
+          uv pip install ${whl_file}
+
+          export JAX_PLATFORMS="mlir_tensorrt,cpu"
+          python -m pytest integrations/PJRT/test/JAX/ -v
+
+  test-pypi-release-wheels-publish:
+    name: Publish to TestPyPI
+    if: ${{ inputs.confirm_publish_to_testpypi }}
+    needs:
+      - pypi-release-wheels-build
+      - pypi-release-wheels-smoke-test
+    runs-on: ubuntu-latest
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/project/mlir-tensorrt-jax/
+    permissions:
+      id-token: write
+      packages: write
+      contents: read
+    steps:
+      - name: Download built wheels
+        uses: actions/download-artifact@v4
+        with:
+          pattern: release-wheels-*
+          merge-multiple: true
+          path: dist
+
+      - name: Publish to TestPyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true
+          verbose: true
+          repository-url: https://test.pypi.org/legacy/
+
+  pypi-release-wheels-publish:
+    name: Publish to PyPI
+    if: ${{ inputs.confirm_publish_to_pypi }}
+    needs:
+      - pypi-release-wheels-build
+      - pypi-release-wheels-smoke-test
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      packages: write
+      contents: read
+    steps:
+      - name: Download built wheels
+        uses: actions/download-artifact@v4
+        with:
+          pattern: release-wheels-*
+          merge-multiple: true
+          path: dist
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          verbose: true
+          skip-existing: true
+          user: __token__
+          password: ${{ secrets.PYPI_API_TOKEN }}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}-mlir-tensorrt-pypi
+  cancel-in-progress: true

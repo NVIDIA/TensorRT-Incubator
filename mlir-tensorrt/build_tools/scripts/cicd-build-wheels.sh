@@ -81,6 +81,71 @@ function build_package() {
   done
 }
 
+# Ensure auditwheel exists
+function ensure_auditwheel_installed() {
+  if ! command -v auditwheel >/dev/null 2>&1; then
+    echo "auditwheel not found; installing into the system environment..."
+    uv pip install --system "auditwheel>=6.0.0"
+  fi
+}
+
+# Ensure patchelf exists
+function ensure_patchelf_installed() {
+  if ! command -v patchelf >/dev/null 2>&1; then
+    echo "patchelf not found; attempting to install a recent patchelf..."
+    mkdir patchelf
+    pushd .
+    cd patchelf
+    curl -fsSL -o patchelf.tar.gz "https://github.com/NixOS/patchelf/releases/download/0.18.0/patchelf-0.18.0-$(uname -m).tar.gz"
+    tar -xzf patchelf.tar.gz
+    cp bin/patchelf /usr/bin/patchelf || true
+    chmod +x /usr/bin/patchelf || true
+    popd
+    rm -rf patchelf
+    echo "patchelf installed: $(patchelf --version 2>/dev/null || echo 'unknown')"
+  fi
+}
+
+# Perform auditwheel repair (computes default platform by arch, respects AUDITWHEEL_PLAT)
+function auditwheel_repair() {
+  local arch default_plat repair_plat
+  arch="$(uname -m)"
+  case "${arch}" in
+    x86_64)  default_plat="manylinux_2_28_x86_64" ;;
+    aarch64) default_plat="manylinux_2_28_aarch64" ;;
+    *)       default_plat="" ;;
+  esac
+  repair_plat="${AUDITWHEEL_PLAT:-${default_plat}}"
+  if [[ -z "${repair_plat}" ]]; then
+    echo "Unknown architecture '${arch}', skipping auditwheel repair."
+    return 0
+  fi
+  echo "Repairing wheels in '${WHEELS_DIR}' to '${repair_plat}' if needed..."
+  shopt -s nullglob
+  for whl in "${WHEELS_DIR}"/*.whl; do
+    if [[ "${whl}" == *linux_x86_64.whl || "${whl}" == *linux_aarch64.whl ]]; then
+      echo "Listing the contents of the wheels before repair"
+      unzip -l "${whl}"
+
+      echo "Running auditwheel repair on ${whl}"
+      cat ${REPO_ROOT}/build_tools/scripts/soname_excludes.params
+      auditwheel repair $(cat ${REPO_ROOT}/build_tools/scripts/soname_excludes.params) --plat "${repair_plat}" -w "${WHEELS_DIR}" "${whl}" || {
+        echo "WARNING: auditwheel failed to repair ${whl} for ${repair_plat}. The wheel may not be uploadable to PyPI." >&2
+        continue
+      }
+
+      rm -f "${whl}"
+
+      echo "Listing the contents of the wheels after repair"
+      prefix="${whl%-linux_*.whl}"
+      repaired_whl="${prefix}-manylinux*.whl"
+      unzip -l "${repaired_whl}"
+
+    fi
+  done
+  shopt -u nullglob
+}
+
 # Map package keys to paths and build
 for pkg_key in "${PACKAGES[@]}"; do
   case "${pkg_key}" in
@@ -98,6 +163,18 @@ for pkg_key in "${PACKAGES[@]}"; do
       ;;
   esac
 done
+
+if [[ "${MLIR_TRT_PYPI:-0}" == "1" ]]; then
+  echo "🔨🧪 auditwheel repair for PyPI upload."
+  # Attempt to repair Linux wheels to a manylinux-compliant tag so PyPI/TestPyPI accepts them.
+  if [[ "$(uname -s)" == "Linux" ]]; then
+    ensure_auditwheel_installed
+    ensure_patchelf_installed
+    auditwheel_repair
+  fi
+fi
+
+
 
 # print the size of the ccache and cpm source cache
 echo "🔨🧪 Printing the size of the ccache"

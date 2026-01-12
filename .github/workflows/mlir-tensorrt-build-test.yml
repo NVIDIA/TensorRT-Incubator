@@ -4,7 +4,7 @@ on:
   workflow_call:
     inputs:
       channel:
-        description: 'Channel, valid values are "nightly", "test", or "release"'
+        description: 'Channel, valid values are "nightly", "test", "release" or "pypi-release"'
         default: "test"
         type: string
       build-matrix:
@@ -26,7 +26,7 @@ jobs:
     env:
       # eg. TENSORRT_VERSION: 10.12 or 10.13
       MLIR_TRT_DOWNLOAD_TENSORRT_VERSION: ${{ matrix.trt }}
-      # eg. CHANNEL: nightly, test or release
+      # eg. CHANNEL: nightly, test, release or pypi-release
       CHANNEL: ${{ inputs.channel }}
       ARCH: ${{ matrix.arch }}
       CMAKE_PRESET: ${{ matrix.cmake_preset }}

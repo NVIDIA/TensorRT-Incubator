@@ -129,12 +129,18 @@ def make_config(
 
 
 def make_base_image(os: str, cuda_version: str):
-    if "ubuntu" in os:
+    if "ubuntu22.04" in os:
+        os = "ubuntu22.04"
+        return f"nvcr.io/nvidia/cuda:{cuda_version}-devel-{os}"
+    if "ubuntu24.04" in os:
         os = "ubuntu24.04"
         return f"nvcr.io/nvidia/cuda:{cuda_version}-devel-{os}"
-
-    if "rockylinux" in os:
-        return f"nvcr.io/nvidia/cuda:{cuda_version}-devel-rockylinux9"
+    if "rockylinux8" in os:
+        os = "rockylinux8"
+        return f"nvcr.io/nvidia/cuda:{cuda_version}-devel-{os}"
+    if "rockylinux9" in os:
+        os = "rockylinux9"
+        return f"nvcr.io/nvidia/cuda:{cuda_version}-devel-{os}"
 
     raise Exception("failed to determine base image name")
 
@@ -182,7 +188,7 @@ def create_configs(os: str, cuda_version: str):
 
 
 def enumerate_configs():
-    for os in ["ubuntu24.04", "rockylinux9"]:
+    for os in ["ubuntu22.04", "ubuntu24.04", "rockylinux8", "rockylinux9"]:
         for cuda_version in ["12.9.1", "13.0.2"]:
             yield create_configs(os, cuda_version)
 
