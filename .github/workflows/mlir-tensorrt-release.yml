@@ -144,17 +144,6 @@ jobs:
           cd mlir-tensorrt
           export JAX_PLATFORMS="mlir_tensorrt,cpu"
 
-          # Compute TensorRT library path from CPM cache by locating libnvinfer.so
-          SEARCH_PATH=${CPM_SOURCE_CACHE}/tensorrt
-          echo "SEARCH_PATH: ${SEARCH_PATH}"
-          TensorRT_LIB_PATH="$(find ${SEARCH_PATH} -type f -name 'libnvinfer.so.*' 2>/dev/null | head -n1 | xargs -r dirname)"
-          if [[ -z "${TensorRT_LIB_PATH}" ]]; then
-            echo "Error: Could not locate libnvinfer.so under ${CPM_TRT_DIR}" >&2
-            exit 1
-          fi
-          echo "TensorRT_LIB_PATH: ${TensorRT_LIB_PATH}"
-          export LD_LIBRARY_PATH="${TensorRT_LIB_PATH}:$LD_LIBRARY_PATH"
-
           # Choose uv extra based on CUDA_VERSION major (12.9 -> cu12, 13.0 -> cu13).
           matrix_cuda="${{ matrix.cuda }}"
           CUDA_MAJOR="${matrix_cuda%%.*}"
@@ -165,7 +154,7 @@ jobs:
           fi
           echo "UV_EXTRA: ${UV_EXTRA}"
 
-          uv sync --python 3.10 --extra ${UV_EXTRA}
+          uv sync --python 3.10 --extra ${UV_EXTRA} --extra flashinfer-${UV_EXTRA}
           source .venv/bin/activate
 
           uv pip install dist/mlir_tensorrt_jax-*-cp310-cp310*.whl
