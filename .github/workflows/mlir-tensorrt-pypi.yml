@@ -36,7 +36,7 @@ jobs:
           echo "matrix=${MATRIX_BLOB}" >> "${GITHUB_OUTPUT}"
 
   pypi-release-wheels-build:
-    name: ${{ matrix.arch}} - Build PyPI Release Wheels
+    name: ${{ matrix.arch }} - Build PyPI Release Wheels
     needs:
       - generate-matrix
     permissions:
@@ -132,7 +132,7 @@ jobs:
           set -x
           cd mlir-tensorrt
           # Build only pjrt wheels for PyPI upload, with auditwheel repair
-          MLIR_TRT_PYPI=1 PACKAGES="pjrt" VERBOSE=1 ./build_tools/scripts/cicd-build-wheels.sh
+          MLIR_TRT_PYPI=1 MLIR_TRT_PYPI_POST_VERSION=1 PACKAGES="pjrt" VERBOSE=1 ./build_tools/scripts/cicd-build-wheels.sh
 
       - name: Upload Wheels
         uses: actions/upload-artifact@v4
@@ -142,7 +142,7 @@ jobs:
           if-no-files-found: error
 
   pypi-release-wheels-smoke-test:
-    name: Smoke Test PyPI Release Wheels
+    name: ${{ matrix.arch }} - Smoke Test PyPI Release Wheels
     needs:
       - generate-matrix
       - pypi-release-wheels-build
@@ -169,14 +169,14 @@ jobs:
         with:
           pattern: release-wheels-*
           merge-multiple: true
-          path: dist
+          path: mlir-tensorrt/dist
 
       - name: Smoke Test Wheels With CUDA:${{ matrix.cuda }} + TensorRT:${{ matrix.trt }}
         run: |
           set -euo pipefail
           set -x
           cd mlir-tensorrt
-          uv sync --python 3.12 --extra cu13
+          uv sync --python 3.12 --extra cu13 --extra flashinfer-cu13
           source .venv/bin/activate
           ls -lart dist/
           suffix="manylinux_2_28_${{ matrix.arch }}.whl"
@@ -189,7 +189,9 @@ jobs:
 
   test-pypi-release-wheels-publish:
     name: Publish to TestPyPI
-    needs: [pypi-release-wheels-build]
+    needs:
+      - pypi-release-wheels-build
+      - pypi-release-wheels-smoke-test
     runs-on: ubuntu-latest
     environment:
       name: testpypi
@@ -216,7 +218,10 @@ jobs:
   pypi-release-wheels-publish:
     name: Publish to PyPI
     if: ${{ inputs.confirm_publish_to_pypi }}
-    needs: [pypi-release-wheels-build]
+    needs:
+      - pypi-release-wheels-build
+      - pypi-release-wheels-smoke-test
+      - test-pypi-release-wheels-publish
     runs-on: ubuntu-latest
     permissions:
       id-token: write
