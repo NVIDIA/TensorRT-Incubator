@@ -7,7 +7,7 @@
 #include <cstdlib>
 #include <iostream>
 
-extern CUstream resnet50_cuda_stream;
+extern CUstream resnet50_cuda_stream[3];
 int32_t
 resnet50_tensorrt_cluster_engine_data_initialize(nvinfer1::IRuntime *v1);
 void resnet50_tensorrt_cluster_engine_data_destroy();
@@ -32,20 +32,22 @@ int main() {
     std::cerr << mtrt::get_last_error_message() << "\n";
     return initRc;
   }
-  resnet50_cuda_stream = cudaStreamDefault;
+  resnet50_cuda_stream[0] = cudaStreamDefault;
+  resnet50_cuda_stream[1] = cudaStreamDefault;
+  resnet50_cuda_stream[2] = cudaStreamDefault;
 
   // Allocate some test data.
   size_t size = 16 * 3 * 224 * 224 * sizeof(float);
   void *imageBuffer = nullptr;
-  int32_t rc =
-      mtrt::cuda_alloc(cudaStreamDefault, size, false, false, &imageBuffer);
+  int32_t rc = mtrt::cuda_alloc(resnet50_cuda_stream[0], size, false, false,
+                                &imageBuffer);
   if (rc != 0) {
     std::cerr << mtrt::get_last_error_message() << "\n";
     return rc;
   }
   void *outputBuffer = nullptr;
-  rc = mtrt::cuda_alloc(cudaStreamDefault, 16 * sizeof(int32_t), false, true,
-                        &outputBuffer);
+  rc = mtrt::cuda_alloc(resnet50_cuda_stream[0], 16 * sizeof(int32_t), false,
+                        true, &outputBuffer);
   if (rc != 0) {
     std::cerr << mtrt::get_last_error_message() << "\n";
     return rc;
@@ -56,7 +58,7 @@ int main() {
       mtrt::make_memref_descriptor<4>(imageBuffer, imageBuffer, 0, 16, 3, 224,
                                       224, 224 * 224 * 3, 224 * 224, 224, 1),
       mtrt::make_memref_descriptor<1>(outputBuffer, outputBuffer, 0, 16, 1));
-  cudaStreamSynchronize(resnet50_cuda_stream);
+  cudaStreamSynchronize(resnet50_cuda_stream[0]);
 
   for (int64_t i = 0; i < 16; i++) {
     std::cerr << "output." << i << " = " << ((int32_t *)outputBuffer)[i]
@@ -67,8 +69,8 @@ int main() {
   resnet50_tensorrt_cluster_engine_data_destroy();
   ::delete runtime;
 
-  (void)mtrt::cuda_free(cudaStreamDefault, imageBuffer, false, false);
-  (void)mtrt::cuda_free(cudaStreamDefault, outputBuffer, false, true);
+  (void)mtrt::cuda_free(resnet50_cuda_stream[0], imageBuffer, false, false);
+  (void)mtrt::cuda_free(resnet50_cuda_stream[0], outputBuffer, false, true);
 
   return 0;
 }

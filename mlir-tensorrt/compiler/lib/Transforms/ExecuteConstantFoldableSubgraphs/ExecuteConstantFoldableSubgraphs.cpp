@@ -37,6 +37,7 @@
 #include "mlir-tensorrt/Compiler/Options.h"
 #include "mlir-tensorrt/Conversion/Passes.h"
 #include "mlir-tensorrt/Dialect/CUDA/IR/CUDADialect.h"
+#include "mlir-tensorrt/Dialect/CUDA/Transforms/Passes.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
 #include "mlir-tensorrt/Transforms/Passes.h"
@@ -454,6 +455,12 @@ static void populateSubgraphCompilationPipeline(OpPassManager &pm) {
   //===----------------------------------------------------------------------===//
   pm.addPass(createConvertKernelToCUDAPass());
   pm.addPass(createConvertMemRefToCUDAPass());
+  pm.addNestedPass<func::FuncOp>(cuda::createCUDAScheduleAsyncPass());
+  // Insert host-side syncs after stream scheduling so any tokens/events we
+  // create are tied to the final stream assignment of async copies.
+  pm.addPass(cuda::createCUDAInsertHostSyncPass());
+  pm.addNestedPass<func::FuncOp>(mlir::createCSEPass());
+  pm.addNestedPass<func::FuncOp>(cuda::createCUDASimplifyStreamWaitPass());
 
   // We can now safely drop any nested 'gpu.module'.
   pm.addPass(createDropNestedModulesPass());

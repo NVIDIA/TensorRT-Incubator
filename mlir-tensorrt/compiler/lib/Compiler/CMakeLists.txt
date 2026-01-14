@@ -19,6 +19,7 @@ add_mlir_tensorrt_library(MLIRTensorRTCompilerClient
     MLIRTensorRTCommonConvertToLoops
     MLIRTensorRTCompilerIncludes
     MLIRTensorRTCUDAToExecutor
+    MLIRTensorRTCUDATransforms
     MLIRTensorRTDropNestedModules
     MLIRTensorRTExecutorTransforms
     MLIRTensorRTHostBackend

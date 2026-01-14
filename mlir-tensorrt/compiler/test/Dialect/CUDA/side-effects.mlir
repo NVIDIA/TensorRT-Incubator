@@ -18,9 +18,9 @@ func.func @test_event_release(%event: !cuda.event) {
 
 // -----
 
-// Test cuda.event.sync has read and write effects
+// Test cuda.event.sync has read effect on event and generic write effect
 func.func @test_event_sync(%event: !cuda.event) {
-  // expected-remark @below {{found an instance of 'read' on resource '<Default>'}}
+  // expected-remark @below {{found an instance of 'read' on operand #0, on resource '<Default>'}}
   // expected-remark @below {{found an instance of 'write' on resource '<Default>'}}
   cuda.event.sync %event : !cuda.event
   return
@@ -56,9 +56,9 @@ func.func @test_stream_destroy(%stream: !cuda.stream) {
 
 // -----
 
-// Test cuda.stream.sync has read and write effects
+// Test cuda.stream.sync has read effect on stream and generic write effect
 func.func @test_stream_sync(%stream: !cuda.stream) {
-  // expected-remark @below {{found an instance of 'read' on resource '<Default>'}}
+  // expected-remark @below {{found an instance of 'read' on operand #0, on resource '<Default>'}}
   // expected-remark @below {{found an instance of 'write' on resource '<Default>'}}
   cuda.stream.sync %stream : !cuda.stream
   return
@@ -66,20 +66,20 @@ func.func @test_stream_sync(%stream: !cuda.stream) {
 
 // -----
 
-// Test cuda.stream.record_event has read and write effects
+// Test cuda.stream.record_event has write effects on stream and event
 func.func @test_stream_record_event(%stream: !cuda.stream, %event: !cuda.event) {
-  // expected-remark @below {{found an instance of 'read' on resource '<Default>'}}
-  // expected-remark @below {{found an instance of 'write' on resource '<Default>'}}
+  // expected-remark @below {{found an instance of 'write' on operand #0, on resource '<Default>'}}
+  // expected-remark @below {{found an instance of 'write' on operand #1, on resource '<Default>'}}
   cuda.stream.record_event %stream, %event
   return
 }
 
 // -----
 
-// Test cuda.stream.wait_event has read and write effects
+// Test cuda.stream.wait_event has write effect on stream and read effect on event
 func.func @test_stream_wait_event(%stream: !cuda.stream, %event: !cuda.event) {
-  // expected-remark @below {{found an instance of 'read' on resource '<Default>'}}
-  // expected-remark @below {{found an instance of 'write' on resource '<Default>'}}
+  // expected-remark @below {{found an instance of 'write' on operand #0, on resource '<Default>'}}
+  // expected-remark @below {{found an instance of 'read' on operand #1, on resource '<Default>'}}
   cuda.stream.wait_event %stream, %event
   return
 }

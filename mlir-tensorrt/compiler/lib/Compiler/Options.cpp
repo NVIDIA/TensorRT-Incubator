@@ -50,6 +50,8 @@ llvm::cl::OptionCategory KernelGenOptions::category = {
     "MLIR-TensorRT Backend (KernelGen) Options", ""};
 llvm::cl::OptionCategory MainOptions::category = {
     "MLIR-TensorRT Compilation Options", ""};
+llvm::cl::OptionCategory AsyncSchedulingOptions::category = {
+    "MLIR-TensorRT Async Scheduling Options", ""};
 llvm::cl::OptionCategory DeviceOptions::category = {"CUDA Device Options", ""};
 
 //===----------------------------------------------------------------------===//
