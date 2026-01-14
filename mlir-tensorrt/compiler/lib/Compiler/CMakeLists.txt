@@ -30,6 +30,7 @@ add_mlir_tensorrt_library(MLIRTensorRTCompilerClient
     MLIRTensorRTKernelToCUDA
     MLIRTensorRTLinalgElementwiseFusion
     MLIRTensorRTLinalgSimplifyExtractSlice
+    MLIRTensorRTLinalgToCUDA
     MLIRTensorRTMemRefCastElimination
     MLIRTensorRTMemRefToCUDA
     MLIRTensorRTOutlineTensorROps

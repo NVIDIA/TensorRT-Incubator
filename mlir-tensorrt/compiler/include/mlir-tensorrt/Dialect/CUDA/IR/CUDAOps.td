@@ -487,11 +487,12 @@ def CUDA_CopyD2HOp : CUDA_CopyAsyncOp<"d2h"> {
   }];
 }
 
-def CUDA_MemSetOp : CUDA_Op<"memset", []> {
-  let arguments = (ins Arg<AnyMemRef, "", [MemWriteAt<0, FullEffect>]>:$memref,
+def CUDA_MemSetOp : CUDA_StreamableOp<"memset", []> {
+  let arguments = (ins CUDA_Stream:$stream,
+                       Arg<AnyMemRef, "", [MemWriteAt<0, FullEffect>]>:$memref,
                        AnyTypeOf<[I32, F32, I16, F16, BF16, I8, F8E4M3FN]>:$fill_value);
   let assemblyFormat = [{
-    attr-dict $memref `with` $fill_value
+    attr-dict `stream` `(` $stream `)` $memref `with` $fill_value
     `:` type($memref) `,` type($fill_value)
   }];
   let hasVerifier = 1;

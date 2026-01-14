@@ -10,7 +10,7 @@
 executor.func private @__cuda_stream_create() -> (!executor.ptr<host>)
 executor.func private @__cuda_stream_sync(!executor.ptr<host>) -> ()
 executor.func private @__cuda_alloc_device(!executor.ptr<host>, i32, i64, i32) -> (!executor.ptr<device>)
-executor.func private @__cuda_memset_32(!executor.ptr<device>, i64, i64, i32) -> ()
+executor.func private @__cuda_memset_32(!executor.ptr<device>, i64, i64, i32, !executor.ptr<host>) -> ()
 executor.func private @executor_alloc(i64, i32) -> (!executor.ptr<host>)
 executor.func private @__cuda_memcpy_device2host(!executor.ptr<host>, !executor.ptr<device>, i64, !executor.ptr<host>, i64, i64) -> ()
 
@@ -24,6 +24,9 @@ func.func private @print_tensor(
     %offset = executor.getoffset  [%i_i64] : (i64) -> i64, f32
     %el = executor.load %arg0 + %offset : (!executor.ptr<host>, i64) -> f32
     executor.print "[%d] = %.2f"(%i, %el : index, !scalar_type)
+    %expected = executor.constant 1.1 : !scalar_type
+    %compare = arith.cmpf oeq, %el, %expected : !scalar_type
+    executor.assert %compare, "unexpected value (expected 1.1)"
   }
   return
 }
@@ -40,8 +43,7 @@ func.func @main() -> i32 {
   %stream = executor.call @__cuda_stream_create() : () -> (!executor.ptr<host>)
   %1 = executor.call @__cuda_alloc_device(%stream, %c0_i32, %c16, %c4) : (!executor.ptr<host>, i32, i64, i32) -> (!executor.ptr<device>)
   %host = executor.call @executor_alloc(%c16, %c4) : (i64, i32) -> (!executor.ptr<host>)
-  executor.call @__cuda_stream_sync(%stream) : (!executor.ptr<host>) -> ()
-  executor.call @__cuda_memset_32(%1, %c0_i64, %c16, %fill_value_i32) : (!executor.ptr<device>, i64, i64, i32) -> ()
+  executor.call @__cuda_memset_32(%1, %c0_i64, %c16, %fill_value_i32, %stream) : (!executor.ptr<device>, i64, i64, i32, !executor.ptr<host>) -> ()
   executor.call @__cuda_memcpy_device2host(%stream, %1, %c0_i64, %host, %c0_i64, %c16)
     : (!executor.ptr<host>, !executor.ptr<device>, i64, !executor.ptr<host>, i64, i64) -> ()
 

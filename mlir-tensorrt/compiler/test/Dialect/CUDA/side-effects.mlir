@@ -173,9 +173,10 @@ func.func @test_copy_d2d(%stream: !cuda.stream,
 // Test cuda.memset has write effect on memref
 #dev = #plan.memory_space<device>
 
-func.func @test_memset(%memref: memref<4xf32, #dev>, %val: f32) {
-  // expected-remark @below {{found an instance of 'write' on operand #0, on resource '<Default>'}}
-  cuda.memset %memref with %val : memref<4xf32, #dev>, f32
+func.func @test_memset(%stream: !cuda.stream, %memref: memref<4xf32, #dev>,
+                       %val: f32) {
+  // expected-remark @below {{found an instance of 'write' on operand #1, on resource '<Default>'}}
+  cuda.memset stream(%stream) %memref with %val : memref<4xf32, #dev>, f32
   return
 }
 

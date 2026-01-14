@@ -4,6 +4,7 @@ add_mlir_executor_library(MLIRTensorRTSupportDeviceInfo
 
   LINK_LIBS PUBLIC
   ${MLIR_TRT_CUDA_TARGET}
+  ${MLIR_TRT_CUDA_DRIVER_TARGET}
   MLIRExecutorIncludes
   MLIRTensorRTSupportStatus
 )
