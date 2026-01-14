@@ -280,7 +280,8 @@ def CUDA_EventSyncOp : CUDA_Op<"event.sync",
     void getEffects(
       SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
         &effects) {
-      effects.emplace_back(MemoryEffects::Read::get());
+      effects.emplace_back(MemoryEffects::Read::get(), &getEventMutable(),
+                           SideEffects::DefaultResource::get());
       effects.emplace_back(MemoryEffects::Write::get());
     }
   }];
@@ -357,8 +358,10 @@ def CUDA_StreamWaitEventOp : CUDA_Op<"stream.wait_event",
     void getEffects(
       SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
         &effects) {
-      effects.emplace_back(MemoryEffects::Read::get());
-      effects.emplace_back(MemoryEffects::Write::get());
+      effects.emplace_back(MemoryEffects::Write::get(), &getStreamMutable(),
+                           SideEffects::DefaultResource::get());
+      effects.emplace_back(MemoryEffects::Read::get(), &getEventMutable(),
+                           SideEffects::DefaultResource::get());
     }
   }];
 }
@@ -373,8 +376,10 @@ def CUDA_StreamRecordEventOp : CUDA_Op<"stream.record_event",
     void getEffects(
       SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
         &effects) {
-      effects.emplace_back(MemoryEffects::Read::get());
-      effects.emplace_back(MemoryEffects::Write::get());
+      effects.emplace_back(MemoryEffects::Write::get(), &getStreamMutable(),
+                           SideEffects::DefaultResource::get());
+      effects.emplace_back(MemoryEffects::Write::get(), &getEventMutable(),
+                           SideEffects::DefaultResource::get());
     }
   }];
 }
@@ -389,7 +394,8 @@ def CUDA_StreamSyncOp : CUDA_Op<"stream.sync",
     void getEffects(
       SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
         &effects) {
-      effects.emplace_back(MemoryEffects::Read::get());
+      effects.emplace_back(MemoryEffects::Read::get(), &getStreamMutable(),
+                           SideEffects::DefaultResource::get());
       effects.emplace_back(MemoryEffects::Write::get());
     }
   }];

@@ -29,6 +29,7 @@
 #include "mlir-tensorrt/Conversion/CUDAToExecutor/CUDAToExecutor.h"
 #include "mlir-tensorrt/Conversion/HostToEmitC/HostToEmitC.h"
 #include "mlir-tensorrt/Conversion/Passes.h"
+#include "mlir-tensorrt/Dialect/CUDA/Transforms/Passes.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/PlanEnums.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
 #include "mlir-tensorrt/Dialect/StablehloExt/Transforms/Passes.h"
@@ -478,6 +479,23 @@ void Pipeline::populatePassManager() {
     }
 
     pm.addPass(createConvertMemRefToCUDAPass());
+
+    addCleanupPasses(pm);
+
+    // Enable multi-stream scheduling via `--async-enable-mult-stream`.
+    if (options.get<AsyncSchedulingOptions>().enableMultStream) {
+      pm.addNestedPass<func::FuncOp>(cuda::createCUDAScheduleAsyncPass());
+    }
+
+    // Insert host-side syncs after stream scheduling so any tokens/events we
+    // create are tied to the final stream assignment of async copies.
+    pm.addPass(cuda::createCUDAInsertHostSyncPass());
+
+    // Cleanup: remove redundant stream waits that can be introduced by
+    // scheduling and subsequent transformations.
+    pm.addNestedPass<func::FuncOp>(mlir::createCSEPass());
+    pm.addNestedPass<func::FuncOp>(cuda::createCUDASimplifyStreamWaitPass());
+    pm.addNestedPass<func::FuncOp>(mlir::createCanonicalizerPass());
 
     if (options.hostTarget == HostTarget::Executor) {
       pm.addPass(createConvertPlanToExecutorPass());

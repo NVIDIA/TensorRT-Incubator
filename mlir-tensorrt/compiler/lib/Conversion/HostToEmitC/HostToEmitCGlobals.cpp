@@ -47,6 +47,7 @@ struct HostToEmitCGlobalsConverter {
   EmitCCallBuilders builders{ctx};
 
   emitc::GlobalOp streamGlobal{};
+  int64_t numCudaStreams{0};
 
   /// Names of generated init/destroy helpers with signature:
   ///   - init:   `i32 ()`
@@ -223,17 +224,28 @@ LogicalResult HostToEmitCGlobalsConverter::convert(trtrt::CompiledFuncOp op) {
 }
 
 LogicalResult HostToEmitCGlobalsConverter::convert(cuda::GetGlobalStreamOp op) {
-  // Intended C++: return/load a global `CUstream` (we model it as an EmitC
-  // global and later wrap it into a Program class field).
-  if (op.getIndex() != 0)
-    return failure();
+  // Intended C++: return/load a global `CUstream` from an array of streams
+  // (we model it as an EmitC global and later wrap it into a Program class
+  // field).
   Location loc = op.getLoc();
-  Value ptr = rewriter.create<emitc::GetGlobalOp>(
-      loc, emitc::LValueType::get(streamGlobal.getType()),
-      streamGlobal.getSymName());
+  if (!streamGlobal)
+    return emitError(loc) << "internal error: missing CUDA stream global";
+
+  auto streamArrayTy = cast<emitc::ArrayType>(streamGlobal.getType());
+
+  int64_t idx = op.getIndex();
+  assert(idx >= 0 && idx < numCudaStreams && "CUDA stream index out of range");
+
+  Value streamArr = rewriter.create<emitc::GetGlobalOp>(
+      loc, streamArrayTy, streamGlobal.getSymName());
+  Value idxVal = getI32Val(rewriter, loc, idx);
+  Value elemLVal = rewriter.create<emitc::SubscriptOp>(
+      loc, emitc::LValueType::get(builders.cuStreamType), streamArr,
+      ValueRange{idxVal});
   rewriter.replaceOpWithNewOp<UnrealizedConversionCastOp>(
       op, op.getType(),
-      Value(rewriter.create<emitc::LoadOp>(loc, streamGlobal.getType(), ptr)));
+      Value(rewriter.create<emitc::LoadOp>(loc, builders.cuStreamType,
+                                           elemLVal)));
   return llvm::success();
 }
 
@@ -540,19 +552,28 @@ LogicalResult HostToEmitCGlobalsConverter::convert(cuda::CompiledModuleOp op) {
 
 LogicalResult HostToEmitCGlobalsConverter::convert() {
   SmallVector<Operation *> cudaStreamOps;
+  int64_t maxCudaStreamIndex = -1;
   module.walk([&](Operation *op) {
-    if (isa<cuda::GetGlobalStreamOp>(op))
+    if (auto s = dyn_cast<cuda::GetGlobalStreamOp>(op)) {
       cudaStreamOps.push_back(op);
+      maxCudaStreamIndex = std::max(maxCudaStreamIndex, (int64_t)s.getIndex());
+    }
   });
 
   if (!cudaStreamOps.empty()) {
-    // Intended C++: `static CUstream <module>_cuda_stream;`
+    // Intended C++: `static CUstream <module>_cuda_stream[N];`
+    if (maxCudaStreamIndex < 0)
+      return emitError(module.getLoc()) << "invalid CUDA stream index";
+    numCudaStreams = maxCudaStreamIndex + 1;
+
     rewriter.setInsertionPointToStart(module.getBody());
     std::string name =
         (module.getSymName() ? *module.getSymName() : "unnamed_module").str();
+    Type streamArrayTy =
+        emitc::ArrayType::get({numCudaStreams}, builders.cuStreamType);
     streamGlobal = rewriter.create<emitc::GlobalOp>(
-        module.getLoc(), name + "_cuda_stream", builders.cuStreamType,
-        Attribute{}, false, false, false);
+        module.getLoc(), name + "_cuda_stream", streamArrayTy, Attribute{},
+        false, false, false);
   }
 
   rewriter.setInsertionPointToEnd(module.getBody());
@@ -566,7 +587,8 @@ LogicalResult HostToEmitCGlobalsConverter::convert() {
         continue;
       }
       if (failed(convert(compiledModuleOp)))
-        return failure();
+        return emitError(compiledModuleOp.getLoc())
+               << "failed to convert " << compiledModuleOp.getOperationName();
       continue;
     }
     if (auto compiledModuleOp = dyn_cast<cuda::CompiledModuleOp>(op)) {
@@ -576,7 +598,8 @@ LogicalResult HostToEmitCGlobalsConverter::convert() {
         continue;
       }
       if (failed(convert(compiledModuleOp)))
-        return failure();
+        return emitError(compiledModuleOp.getLoc())
+               << "failed to convert " << compiledModuleOp.getOperationName();
       continue;
     }
     if (auto globalOp = dyn_cast<memref::GlobalOp>(op)) {
@@ -586,7 +609,9 @@ LogicalResult HostToEmitCGlobalsConverter::convert() {
         continue;
       }
       if (failed(convert(globalOp)))
-        return failure();
+        return emitError(globalOp.getLoc())
+               << "failed to convert " << globalOp.getOperationName() << " '"
+               << globalOp.getName() << "'";
       continue;
     }
   }
@@ -598,7 +623,8 @@ LogicalResult HostToEmitCGlobalsConverter::convert() {
         continue;
       rewriter.setInsertionPoint(cudaOp);
       if (failed(convert(cudaOp)))
-        return failure();
+        return emitError(cudaOp.getLoc())
+               << "failed to convert " << cudaOp.getOperationName();
     }
   }
 

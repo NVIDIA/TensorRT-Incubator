@@ -111,7 +111,6 @@ struct MemRefCopyToCUDACopyPattern : public OpRewritePattern<memref::CopyOp> {
     if (isDeviceVisible(*sourceSpace) && isHostOnly(*targetSpace)) {
       rewriter.create<cuda::CopyD2HOp>(loc, stream, op.getSource(),
                                        op.getTarget());
-      rewriter.create<cuda::StreamSyncOp>(loc, stream);
       rewriter.eraseOp(op);
       return success();
     }
@@ -129,7 +128,6 @@ struct MemRefAllocToCUDAAllocPattern
     std::optional<MemorySpace> space = getMemorySpace(op.getType());
     if (!space || *space == MemorySpace::host)
       return failure();
-
     if (*space != MemorySpace::host_pinned) {
       Value stream = cuda::getOrCreateDefaultStream0(rewriter, op);
       rewriter.replaceOpWithNewOp<cuda::AllocOp>(op, op.getType(), stream,

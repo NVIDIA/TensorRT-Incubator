@@ -251,17 +251,38 @@ static LogicalResult wrapEmitCInProgramClass(ModuleOp moduleOp,
     Operation *dstTerm = dstBlock.getTerminator();
     OpBuilder b(dstTerm);
 
-    // Stream is stored as array<1xCUstream>.
-    auto fieldArr = b.create<emitc::GetFieldOp>(
+    auto fieldVal = b.create<emitc::GetFieldOp>(
         loc, it->second.fieldType,
         FlatSymbolRefAttr::get(ctx, it->second.field.getSymName()));
-    Value idx0 = getIndex0(b, loc);
-    auto elemLVal = b.create<emitc::SubscriptOp>(
-        loc, emitc::LValueType::get(it->second.originalType), fieldArr,
-        ValueRange{idx0});
-    Value nullptrVal = b.create<emitc::ConstantOp>(
-        loc, it->second.originalType, emitc::OpaqueAttr::get(ctx, "nullptr"));
-    b.create<emitc::AssignOp>(loc, elemLVal, nullptrVal);
+
+    // - If scalar-wrapped, the field is `array<1xT>` and `originalType` is `T`.
+    // - If already an array (e.g. `array<NxCUstream>`), initialize all
+    // elements.
+    if (it->second.isScalarWrapped) {
+      Value idx0 = getIndex0(b, loc);
+      auto elemLVal = b.create<emitc::SubscriptOp>(
+          loc, emitc::LValueType::get(it->second.originalType), fieldVal,
+          ValueRange{idx0});
+      Value nullptrVal = b.create<emitc::ConstantOp>(
+          loc, it->second.originalType, emitc::OpaqueAttr::get(ctx, "nullptr"));
+      b.create<emitc::AssignOp>(loc, elemLVal, nullptrVal);
+    } else if (auto arrTy = dyn_cast<emitc::ArrayType>(it->second.fieldType)) {
+      if (arrTy.getRank() != 1) {
+        return emitError(loc)
+               << "unexpected CUDA stream field rank " << arrTy.getRank();
+      }
+      Type elemTy = arrTy.getElementType();
+      Value nullptrVal = b.create<emitc::ConstantOp>(
+          loc, elemTy, emitc::OpaqueAttr::get(ctx, "nullptr"));
+      int64_t n = arrTy.getShape().front();
+      for (int64_t i = 0; i < n; ++i) {
+        Value idx =
+            b.create<emitc::ConstantOp>(loc, sizeTType, b.getIndexAttr(i));
+        auto elemLVal = b.create<emitc::SubscriptOp>(
+            loc, emitc::LValueType::get(elemTy), fieldVal, ValueRange{idx});
+        b.create<emitc::AssignOp>(loc, elemLVal, nullptrVal);
+      }
+    }
   }
 
   for (FunctionOpInterface f : initHelpers) {
