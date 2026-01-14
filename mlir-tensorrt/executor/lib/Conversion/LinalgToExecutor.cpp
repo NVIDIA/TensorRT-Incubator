@@ -52,32 +52,11 @@ struct ConvertLinalgOpToExecutorPattern
   using ConvertOpToExecutorPattern<OpType>::ConvertOpToExecutorPattern;
 
   MLIRContext *ctx = this->getContext();
-  executor::MemoryTypeAttr deviceMemorySpace =
-      executor::MemoryTypeAttr::get(ctx, MemoryType::device);
   Type i32Type = IntegerType::get(ctx, 32);
   Type i16Type = IntegerType::get(ctx, 16);
   Type i8Type = IntegerType::get(ctx, 8);
-  Type devicePointerType = executor::PointerType::get(ctx, MemoryType::device);
   Type hostPointerType = executor::PointerType::get(ctx, MemoryType::host);
   Type indexType = this->getTypeConverter()->getIndexType();
-  executor::ExecutorCallBuilder deviceFillI32 = {
-      this->getContext(),
-      "__cuda_memset_32",
-      {},
-      {devicePointerType, /*offset*/ indexType, /*size*/ indexType,
-       /*value*/ i32Type}};
-  executor::ExecutorCallBuilder deviceFillI16 = {
-      this->getContext(),
-      "__cuda_memset_16",
-      {},
-      {devicePointerType, /*offset*/ indexType, /*size*/ indexType,
-       /*value*/ i16Type}};
-  executor::ExecutorCallBuilder deviceFillI8 = {
-      this->getContext(),
-      "__cuda_memset_8",
-      {},
-      {devicePointerType, /*offset*/ indexType, /*size*/ indexType,
-       /*value*/ i8Type}};
   executor::ExecutorCallBuilder hostFillI32 = {
       this->getContext(),
       "__memset_32",
@@ -104,7 +83,7 @@ struct ConvertLinalgOpToExecutorPattern
 //===----------------------------------------------------------------------===//
 
 namespace {
-/// Convert `linalg.fill` on contiguous buffers to cuda/host memset builtins.
+/// Convert `linalg.fill` on contiguous buffers to host memset builtins.
 struct LinalgFillToExecutorPattern
     : public ConvertLinalgOpToExecutorPattern<linalg::FillOp> {
   using ConvertLinalgOpToExecutorPattern::ConvertLinalgOpToExecutorPattern;
@@ -131,9 +110,11 @@ struct LinalgFillToExecutorPattern
     auto alignedPtr =
         cast<TypedValue<executor::PointerType>>(dest.alignedPtr(b));
     executor::MemoryType addrSpace = alignedPtr.getType().getAddressSpace();
-    if (addrSpace != MemoryType::device && addrSpace != MemoryType::host)
+    if (addrSpace != MemoryType::host)
       return rewriter.notifyMatchFailure(
-          op, "only device and host memory spaces are supported");
+          op,
+          "only host memory space is supported; use convert-linalg-to-cuda for "
+          "device buffers");
 
     Value offsetBytes =
         convertOffsetInElementsToBytes(b, dest.offset(b), memrefType);
@@ -165,42 +146,23 @@ struct LinalgFillToExecutorPattern
             op, "no path to convert fill value to i32, i16, or i8");
     }
 
-    if (addrSpace == MemoryType::device) {
-      switch (fillIntegerTypeBitWidth) {
-      case 32:
-        deviceFillI32.create(b, op.getLoc(), op->getParentOfType<ModuleOp>(),
-                             {alignedPtr, offsetBytes, sizeBytes, fillValue});
-        break;
-      case 16:
-        deviceFillI16.create(b, op.getLoc(), op->getParentOfType<ModuleOp>(),
-                             {alignedPtr, offsetBytes, sizeBytes, fillValue});
-        break;
-      case 8:
-        deviceFillI8.create(b, op.getLoc(), op->getParentOfType<ModuleOp>(),
-                            {alignedPtr, offsetBytes, sizeBytes, fillValue});
-        break;
-      default:
-        return failure();
-      }
-    } else {
-      // This condition is enforced above.
-      assert(addrSpace == MemoryType::host && "expected 'host' space");
-      switch (fillIntegerTypeBitWidth) {
-      case 32:
-        hostFillI32.create(b, op.getLoc(), op->getParentOfType<ModuleOp>(),
-                           {alignedPtr, offsetBytes, sizeBytes, fillValue});
-        break;
-      case 16:
-        hostFillI16.create(b, op.getLoc(), op->getParentOfType<ModuleOp>(),
-                           {alignedPtr, offsetBytes, sizeBytes, fillValue});
-        break;
-      case 8:
-        hostFillI8.create(b, op.getLoc(), op->getParentOfType<ModuleOp>(),
-                          {alignedPtr, offsetBytes, sizeBytes, fillValue});
-        break;
-      default:
-        return failure();
-      }
+    // This condition is enforced above.
+    assert(addrSpace == MemoryType::host && "expected 'host' space");
+    switch (fillIntegerTypeBitWidth) {
+    case 32:
+      hostFillI32.create(b, op.getLoc(), op->getParentOfType<ModuleOp>(),
+                         {alignedPtr, offsetBytes, sizeBytes, fillValue});
+      break;
+    case 16:
+      hostFillI16.create(b, op.getLoc(), op->getParentOfType<ModuleOp>(),
+                         {alignedPtr, offsetBytes, sizeBytes, fillValue});
+      break;
+    case 8:
+      hostFillI8.create(b, op.getLoc(), op->getParentOfType<ModuleOp>(),
+                        {alignedPtr, offsetBytes, sizeBytes, fillValue});
+      break;
+    default:
+      return failure();
     }
 
     rewriter.eraseOp(op);

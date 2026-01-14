@@ -1,6 +1,6 @@
 //===- CUDAHelpers.h ----------------------------------------------------===//
 //
-// SPDX-FileCopyrightText: Copyright 2025 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2025-2026 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -20,11 +20,8 @@
 #ifndef MLIR_EXECUTOR_RUNTIME_SUPPORT_CUDAHELPERS
 #define MLIR_EXECUTOR_RUNTIME_SUPPORT_CUDAHELPERS
 
-#include "mlir-executor/Runtime/Support/Support.h"
 #include "mlir-tensorrt-common/Support/Status.h"
 #include <cstdint>
-
-#define CUDA_DBGV(fmt, ...) MTRT_DBG("[cuda] " fmt, __VA_ARGS__)
 
 // CUDA runtime headers are only required in the implementation.
 
@@ -125,6 +122,12 @@ Status freeCUDAPinnedHost(uintptr_t ptr);
 Status launchCUDAHostFunc(uintptr_t stream, void (*callback)(void *),
                           void *userData);
 
+/// Wrapper around `cuLaunchKernel`.
+Status launchCUDAKernel(uintptr_t cudaFuncPtr, int32_t gridX, int32_t gridY,
+                        int32_t gridZ, int32_t blockX, int32_t blockY,
+                        int32_t blockZ, int32_t dynamicSharedMemory,
+                        uintptr_t stream, uintptr_t callArgsHostPtr);
+
 /// CUDADeviceGuard is an abstract RAII handle that scopes a temporary
 /// activation of a device, restoring the old active device on destruction.
 class CUDADeviceGuard {
@@ -140,9 +143,10 @@ public:
   ~CUDADeviceGuard();
 
 private:
-  CUDADeviceGuard(int32_t originalDeviceNumber);
+  CUDADeviceGuard(int32_t originalDeviceNumber, int32_t targetDeviceNumber);
 
   int32_t originalDeviceNumber;
+  int32_t targetDeviceNumber;
 };
 
 } // namespace mtrt

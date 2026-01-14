@@ -478,6 +478,7 @@ void Pipeline::populatePassManager() {
       pm.addPass(executor::createExecutorAllocsToGlobalsPass());
     }
 
+    pm.addPass(createConvertLinalgToCUDAPass());
     pm.addPass(createConvertMemRefToCUDAPass());
 
     addCleanupPasses(pm);

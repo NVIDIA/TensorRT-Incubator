@@ -448,39 +448,23 @@ llvm::StringRef GPUDeviceDescription::getString(bool verbose) const {
 
 namespace {
 
-/// Wrapper around `cudaSetDevice` and `cudaGetDevice` to ensure that at
-/// destruction time, the CUDA device is set to the device active immediately
-/// prior to construction.
+/// Wrapper around `mtrt::CUDADeviceGuard` to temporarily change the active CUDA
+/// device.
 struct CUDAGPUDeviceGuard final : public DeviceGuard {
   static StatusOr<std::unique_ptr<DeviceGuard>> create(int32_t deviceNumber) {
-    StatusOr<int32_t> currentDevice = getCurrentCUDADevice();
-    if (!currentDevice.isOk())
-      return currentDevice.getStatus();
-    int32_t originalDeviceNumber = *currentDevice;
-    Status setDeviceStatus = setCurrentCUDADevice(deviceNumber);
-    RETURN_STATUS_IF_ERROR(setDeviceStatus.getStatus());
-    MTRT_DBG("CUDAGPUDeviceGuard: original={0} new={1}", originalDeviceNumber,
-             deviceNumber);
+    MTRT_ASSIGN_OR_RETURN(std::unique_ptr<mtrt::CUDADeviceGuard> impl,
+                          mtrt::CUDADeviceGuard::create(deviceNumber));
     return std::unique_ptr<DeviceGuard>(
-        new CUDAGPUDeviceGuard(originalDeviceNumber));
+        new CUDAGPUDeviceGuard(std::move(impl)));
   }
 
-  ~CUDAGPUDeviceGuard() {
-    if (originalDeviceNumber < 0)
-      return;
-    MTRT_DBG("CUDAGPUDeviceGuard: restoring original device {0}",
-             originalDeviceNumber);
-    Status setDeviceStatus = setCurrentCUDADevice(originalDeviceNumber);
-    if (!setDeviceStatus.isOk())
-      llvm::report_fatal_error(
-          setDeviceStatus.getStatus().getMessage().c_str());
-  }
+  ~CUDAGPUDeviceGuard() = default;
 
 private:
-  CUDAGPUDeviceGuard(int32_t originalDeviceNumber)
-      : originalDeviceNumber(originalDeviceNumber) {}
+  CUDAGPUDeviceGuard(std::unique_ptr<mtrt::CUDADeviceGuard> g)
+      : impl(std::move(g)) {}
 
-  int32_t originalDeviceNumber;
+  std::unique_ptr<mtrt::CUDADeviceGuard> impl;
 };
 
 class CUDAStream : public Stream {

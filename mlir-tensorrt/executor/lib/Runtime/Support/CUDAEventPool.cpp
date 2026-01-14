@@ -19,6 +19,7 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-executor/Runtime/Support/CUDAEventPool.h"
 #include "mlir-executor/Runtime/Support/CUDAHelpers.h"
+#include "mlir-executor/Runtime/Support/Support.h"
 #include "mlir-tensorrt-common/Support/Status.h"
 #include <cassert>
 
@@ -159,7 +160,8 @@ StatusOr<EventHandle> CudaEventPool::Acquire(int32_t device,
   // Reclaim completed pending events
   MTRT_ASSIGN_OR_RETURN(std::size_t reclaimed,
                         ReclaimDoneLocked_(b, opts_.max_reclaim_per_acquire));
-  MTRT_DBG("reclaimed {0} events", reclaimed);
+  MTRT_DBG("CUDAEventPool[{0}]: Acquire: reclaimed {1} events", device,
+           reclaimed);
 
   if (!b.free.empty()) {
     auto h = std::move(b.free.back());

@@ -66,8 +66,10 @@ set(MLIR_TRT_CUDA_ARCHITECTURES "detect" CACHE STRING
 # TODO: consider adding an option to link cudart statically.
 if(MLIR_TRT_ENABLE_CUDA)
   set(MLIR_TRT_CUDA_TARGET "CUDA::cudart" CACHE INTERNAL "")
+  set(MLIR_TRT_CUDA_DRIVER_TARGET "CUDA::cuda_driver" CACHE INTERNAL "")
 else()
   set(MLIR_TRT_CUDA_TARGET "" CACHE INTERNAL "")
+  set(MLIR_TRT_CUDA_DRIVER_TARGET "" CACHE INTERNAL "")
 endif()
 
 # Set `MLIR_TRT_MPI_TARGET` to `MPI::MPI_C` if MPI is enabled, otherwise set it to an empty string.

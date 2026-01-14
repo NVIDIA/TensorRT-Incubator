@@ -33,6 +33,7 @@
 #include "mlir/IR/Matchers.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/Support/Alignment.h"
 #include "llvm/Support/FormatVariadic.h"
 
 namespace mlir {
@@ -54,6 +55,8 @@ public:
 protected:
   MLIRContext *ctx = this->getTypeConverter()->getContext();
   Type indexType = this->getTypeConverter()->getIndexType();
+  Type i8Type = IntegerType::get(ctx, 8);
+  Type i16Type = IntegerType::get(ctx, 16);
   Type i32Type = IntegerType::get(ctx, 32);
   Type i64Type = IntegerType::get(ctx, 64);
   Type hostPointerType = executor::PointerType::get(ctx, MemoryType::host);
@@ -119,6 +122,25 @@ protected:
                                             /*dsmem*/ i32Type,
                                             /*stream*/ hostPointerType,
                                             /*arg ptr array*/ hostPointerType}};
+
+  executor::ExecutorCallBuilder deviceFillI32 = {
+      this->getContext(),
+      "__cuda_memset_32",
+      {},
+      {devicePointerType, /*offset*/ indexType, /*size*/ indexType,
+       /*value*/ i32Type, /*stream*/ hostPointerType}};
+  executor::ExecutorCallBuilder deviceFillI16 = {
+      this->getContext(),
+      "__cuda_memset_16",
+      {},
+      {devicePointerType, /*offset*/ indexType, /*size*/ indexType,
+       /*value*/ i16Type, /*stream*/ hostPointerType}};
+  executor::ExecutorCallBuilder deviceFillI8 = {
+      this->getContext(),
+      "__cuda_memset_8",
+      {},
+      {devicePointerType, /*offset*/ indexType, /*size*/ indexType,
+       /*value*/ i8Type, /*stream*/ hostPointerType}};
 };
 
 template <typename Derived, typename OpType>
@@ -667,6 +689,70 @@ struct CudaDeallocToBuiltinCallConverter
   }
 };
 
+/// Convert `cuda.memset` to an opaque call.
+struct CudaMemSetToBuiltinCallConverter
+    : public CUDAOpToExecutorCallLowering<cuda::MemSetOp> {
+  using CUDAOpToExecutorCallLowering::CUDAOpToExecutorCallLowering;
+  LogicalResult
+  matchAndRewrite(cuda::MemSetOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+
+    MemRefType memrefType = op.getMemref().getType();
+    if (!isContiguous(memrefType))
+      return rewriter.notifyMatchFailure(op, "memref type not contiguous");
+
+    /// Extract the aligned pointer.
+    Location loc = op.getLoc();
+    ImplicitLocOpBuilder b(loc, rewriter);
+    MemRefDescriptor desc(adaptor.getMemref(), op.getMemref().getType());
+    Value alignedPtr = desc.alignedPtr(b);
+
+    /// Extract the offset.
+    Value offsetBytes =
+        convertOffsetInElementsToBytes(b, desc.offset(b), memrefType);
+
+    /// Extract the size.
+    Value sizeBytes = convertOffsetInElementsToBytes(
+        b, desc.shapeVolumeInElements(b), memrefType);
+
+    Type elementType = memrefType.getElementType();
+    uint64_t typeSizeBits = getDataLayout().getTypeSizeInBits(elementType);
+    uint64_t typeSizeBytes = getDataLayout().getTypeSize(elementType);
+    if (typeSizeBits % 8 != 0 || typeSizeBits / CHAR_BIT != typeSizeBytes)
+      return rewriter.notifyMatchFailure(
+          op, "element type size not aligned to byte");
+    if (typeSizeBytes != 1 && typeSizeBytes != 2 && typeSizeBytes != 4)
+      return rewriter.notifyMatchFailure(op, "element type size not supported");
+
+    Type integerType = IntegerType::get(rewriter.getContext(), typeSizeBits);
+    Value fillValue =
+        b.create<executor::BitcastOp>(integerType, adaptor.getFillValue());
+
+    switch (typeSizeBytes) {
+    case 1: {
+      this->deviceFillI8.create(
+          rewriter, op.getLoc(), op->getParentOfType<ModuleOp>(),
+          {alignedPtr, offsetBytes, sizeBytes, fillValue, adaptor.getStream()});
+      break;
+    }
+    case 2:
+      this->deviceFillI16.create(
+          rewriter, op.getLoc(), op->getParentOfType<ModuleOp>(),
+          {alignedPtr, offsetBytes, sizeBytes, fillValue, adaptor.getStream()});
+      break;
+    case 4:
+      this->deviceFillI32.create(
+          rewriter, op.getLoc(), op->getParentOfType<ModuleOp>(),
+          {alignedPtr, offsetBytes, sizeBytes, fillValue, adaptor.getStream()});
+      break;
+    default:
+      llvm_unreachable("invalid element type size");
+    }
+    rewriter.eraseOp(op);
+    return success();
+  }
+};
+
 /// A catch-all pattern that lowers `cuda` dialect operations to calls to
 /// externally defined functions.
 struct CudaOpToRuntimeBuiltinCallConverter : public ConvertToExecutorPattern {
@@ -682,7 +768,7 @@ struct CudaOpToRuntimeBuiltinCallConverter : public ConvertToExecutorPattern {
         isa<cuda::LaunchOp, cuda::CopyD2DOp, cuda::CopyH2DOp, cuda::CopyD2HOp,
             cuda::AllocOp, cuda::DeallocOp, cuda::GetActiveDeviceOp,
             cuda::GetProgramDeviceOp, cuda::GetGlobalStreamOp,
-            cuda::CompiledModuleOp, cuda::GetFunctionOp>(op))
+            cuda::CompiledModuleOp, cuda::GetFunctionOp, cuda::MemSetOp>(op))
       return failure();
     SmallVector<Type> newResultTypes;
     if (failed(getTypeConverter()->convertTypes(op->getResultTypes(),
@@ -909,6 +995,7 @@ public:
         CudaMemCopyOpToBuiltinCallConverter<cuda::CopyD2DOp>,
         CudaMemCopyOpToBuiltinCallConverter<cuda::CopyD2HOp>,
         CudaMemCopyOpToBuiltinCallConverter<cuda::CopyH2DOp>,
+        CudaMemSetToBuiltinCallConverter,
         CudaOpToRuntimeBuiltinCallConverter,
         CudaSetActiveDeviceConverter,
         LowerCudaLaunchKernelToCall

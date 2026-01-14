@@ -303,6 +303,14 @@ LuaRuntimeSession::create(Ref<RuntimeClient> client_,
 Status LuaRuntimeSession::onStreamChanged(Ref<Stream> oldStream,
                                           Ref<Stream> newStream) {
   sol::state_view lua = getLuaState();
+
+  sol::object stream0 = lua["stream0"];
+  [[maybe_unused]] uintptr_t stream0OldValue =
+      stream0.valid() && stream0.is<uintptr_t>() ? stream0.as<uintptr_t>() : -1;
+  MTRT_DBG(
+      "LuaRuntimeSession[{0}]::onStreamChanged: setting main stream old {1} "
+      "new {2}",
+      this, stream0OldValue, newStream->getCUDAHandle());
   lua["stream0"] = newStream->getCUDAHandle();
   return getOkStatus();
 }
