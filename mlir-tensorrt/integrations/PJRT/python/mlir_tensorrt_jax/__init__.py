@@ -77,19 +77,6 @@ def initialize():
     except Exception as e:
         is_initialized = False
 
-    # Force initialization of tensorrt
-    try:
-        import tensorrt
-    except:
-        logger.info(
-            "TensorRT package not found via Python, looking for libnvinfer.so..."
-        )
-        nvinfer = ctypes.util.find_library("nvinfer")
-        if not nvinfer:
-            raise Exception(
-                "libnvinfer.so was not found.... recommend install via Python with 'pip install ...'"
-            )
-
     # Force initializtion of tvm_ffi
     try:
         import tvm_ffi
