@@ -56,6 +56,7 @@ class CMakeBuildExt(build_ext):
         # build_py handles the CMake build, so we don't need to do anything here
         pass
 
+
 def get_requirements():
     base_requirements = [
         "apache-tvm-ffi>=0.1.0,<0.2.0",
@@ -63,10 +64,11 @@ def get_requirements():
     ]
     if setup_utils.is_thor() or setup_utils.is_tegra_platform():
         return base_requirements
-    
+
     base_requirements.append("nvidia-cuda-runtime-cu13==0.0.0a0")
     base_requirements.append("tensorrt>=10.12.0.0,<=10.13.3.9")
     return base_requirements
+
 
 def main():
     setup(
