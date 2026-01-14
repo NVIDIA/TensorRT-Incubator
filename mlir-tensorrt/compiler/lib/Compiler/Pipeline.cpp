@@ -29,6 +29,7 @@
 #include "mlir-tensorrt/Conversion/CUDAToExecutor/CUDAToExecutor.h"
 #include "mlir-tensorrt/Conversion/HostToEmitC/HostToEmitC.h"
 #include "mlir-tensorrt/Conversion/Passes.h"
+#include "mlir-tensorrt/Conversion/TensorRTRuntimeToExecutor/TensorRTRuntimeToExecutor.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/PlanEnums.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
 #include "mlir-tensorrt/Dialect/StablehloExt/Transforms/Passes.h"
@@ -312,8 +313,10 @@ static void addExecutorLoweringTail(OpPassManager &pm,
   mlir::executor::ConvertStdToExecutorPassOptions stdToExecOpts;
   stdToExecOpts.indexBitwidth = options.get<ExecutorOptions>().indexBitwidth;
   mlir::executor::buildExecutorLoweringPipeline(
-      pm, stdToExecOpts, [](mlir::TypeConverter &typeConverter) {
+      pm, stdToExecOpts, /*populateAdditionalTypeConversions=*/
+      [](mlir::TypeConverter &typeConverter) {
         mlir::populateCUDAToExecutorTypeConversions(typeConverter);
+        mlir::populateTensorRTRuntimeToExecutorTypeConversions(typeConverter);
       });
 }
 

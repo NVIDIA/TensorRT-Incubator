@@ -17,14 +17,14 @@
 // limitations under the License.
 //
 //===----------------------------------------------------------------------===//
+#include "mlir-tensorrt/Conversion/TensorRTRuntimeToExecutor/TensorRTRuntimeToExecutor.h"
 #include "mlir-executor/Conversion/ConvertToExecutorCommon.h"
 #include "mlir-executor/Executor/IR/Executor.h"
 #include "mlir-executor/Executor/Utils/Utils.h"
-#include "mlir-tensorrt/Conversion/Passes.h"
+#include "mlir-tensorrt/Conversion/Passes.h" // IWYU pragma: keep
 #include "mlir-tensorrt/Dialect/CUDA/IR/CUDADialect.h"
 #include "mlir-tensorrt/Dialect/TensorRTRuntime/IR/Ops.h"
 #include "mlir/Conversion/ReconcileUnrealizedCasts/ReconcileUnrealizedCasts.h"
-#include "mlir/IR/ImplicitLocOpBuilder.h"
 #include "mlir/IR/TypeUtilities.h"
 #include "llvm/ADT/StringExtras.h"
 
@@ -422,6 +422,16 @@ struct ConvertEnqueueAllocToCall
 };
 } // namespace
 
+void mlir::populateTensorRTRuntimeToExecutorTypeConversions(
+    TypeConverter &typeConverter) {
+  typeConverter.addConversion([&](Type t) -> std::optional<Type> {
+    if (isa<trtrt::EngineType, trtrt::ExecutionContextType>(t))
+      return executor::PointerType::get(t.getContext(),
+                                        executor::MemoryType::host);
+    return {};
+  });
+}
+
 namespace {
 class TensorRTRuntimeToExecutorPass
     : public mlir::impl::ConvertTensorRTRuntimeToExecutorPassBase<
@@ -442,12 +452,12 @@ public:
       return signalPassFailure();
     }
     ExecutorTypeConverter typeConverter(ctx, opts, std::move(*dataLayout));
+    populateTensorRTRuntimeToExecutorTypeConversions(typeConverter);
+    // Also handle cuda::StreamType for standalone pass usage.
     executor::PointerType hostPointerType =
         PointerType::get(ctx, MemoryType::host);
-
     typeConverter.addConversion([&](Type t) -> std::optional<Type> {
-      if (isa<trtrt::EngineType, cuda::StreamType, trtrt::ExecutionContextType>(
-              t))
+      if (isa<cuda::StreamType>(t))
         return hostPointerType;
       return {};
     });
