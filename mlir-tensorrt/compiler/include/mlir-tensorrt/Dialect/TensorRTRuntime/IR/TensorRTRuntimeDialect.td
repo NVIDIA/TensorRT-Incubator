@@ -1,3 +1,10 @@
+//===- TensorRTRuntimeDialect.td ------------------------------------------===//
+//
+// SPDX-FileCopyrightText: Copyright 2026 NVIDIA CORPORATION & AFFILIATES.
+// All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+//
+//===----------------------------------------------------------------------===//
 #ifndef TENSORRTRUNTIMEDIALECT_TD
 #define TENSORRTRUNTIMEDIALECT_TD
 
