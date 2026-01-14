@@ -1,4 +1,4 @@
-//===- Passes.h -------------------------------------------------*- C++ -*-===//
+//===- Passes.h -----------------------------------------------------------===//
 //
 // SPDX-FileCopyrightText: Copyright 2026 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.

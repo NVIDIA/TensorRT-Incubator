@@ -1,4 +1,4 @@
-//===- Passes.td -------------------------------------------*- Tablegen -*-===//
+//===- Passes.td ----------------------------------------------------------===//
 //
 // SPDX-FileCopyrightText: Copyright 2026 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
