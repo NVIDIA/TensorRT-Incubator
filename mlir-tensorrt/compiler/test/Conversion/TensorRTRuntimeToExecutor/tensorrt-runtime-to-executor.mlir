@@ -102,3 +102,28 @@ func.func @convert_enqueue_alloc(%arg0: memref<?xf32, #device>,
 //       CHECK:     %[[v36:.+]] = executor.table.create(%[[v26]], %[[v26]], %[[c0_i64]], %[[v29]], %[[v31]], %[[v33]], %[[v35]] : !executor.ptr<host>, !executor.ptr<host>, i64, i64, i64, i64, i64) : <!executor.ptr<host>, !executor.ptr<host>, i64, i64, i64, i64, i64>
 //       CHECK:     %[[v37:.+]] = builtin.unrealized_conversion_cast %[[v36]] : !executor.table<!executor.ptr<host>, !executor.ptr<host>, i64, i64, i64, i64, i64> to memref<?x?xf32, #executor.memory_type<host>>
 //       CHECK:     return %[[v23]], %[[v37]] : memref<?xf32, #executor.memory_type<device>>, memref<?x?xf32, #executor.memory_type<host>>
+
+// -----
+
+#device = #executor.memory_type<device>
+
+func.func @convert_get_function(%stream: !cuda.stream,
+                %arg0: memref<4xf32, #device>, %arg1: memref<4xf32, #device>) -> !trtrt.context {
+  %0 = trtrt.get_function @get_func_engine : !trtrt.context
+  return %0 : !trtrt.context
+}
+trtrt.compiled_func @get_func_engine dense<0> : vector<4xi8>
+
+// CHECK-LABEL:   executor.global @tensorrt_runtime : !executor.ptr<host> {
+// CHECK:           executor.return %{{.+}} : !executor.ptr<host>
+// CHECK-LABEL:   executor.global @get_func_engine_exec_ctx constant : !executor.ptr<host> {
+// CHECK-DAG:       %[[runtime:.+]] = executor.get_global @tensorrt_runtime : !executor.ptr<host>
+// CHECK-DAG:       %[[data:.+]] = executor.load_data_segment @get_func_engine_0 : !executor.ptr<host>
+// CHECK-DAG:       %[[size:.+]] = executor.getoffset[4] : () -> i64, i8
+// CHECK-DAG:       %[[engine:.+]] = executor.call @_trtrt_load(%[[runtime]], %[[data]], %[[size]]) : (!executor.ptr<host>, !executor.ptr<host>, i64) -> !executor.ptr<host>
+// CHECK-DAG:       %[[ctx:.+]] = executor.call @_trtrt_create_context(%[[engine]]) : (!executor.ptr<host>) -> !executor.ptr<host>
+// CHECK:           executor.return %[[ctx]] : !executor.ptr<host>
+// CHECK-LABEL:   func.func @convert_get_function
+// CHECK:           %[[ctx:.+]] = executor.get_global @get_func_engine_exec_ctx : !executor.ptr<host>
+// CHECK:           %[[result:.+]] = builtin.unrealized_conversion_cast %[[ctx]] : !executor.ptr<host> to !trtrt.context
+// CHECK:           return %[[result]] : !trtrt.context
