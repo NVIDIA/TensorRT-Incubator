@@ -10,6 +10,7 @@ add_mlir_tensorrt_library(MLIRTensorRTCUDATransforms
   LINK_LIBS PUBLIC
     MLIRTensorRTCompilerAnalysis
     MLIRTensorRTCUDADialect
+    MLIRTensorRTStreamSchedulableOpInterface
   MLIR_LIBS PUBLIC
     MLIRAnalysis
     MLIRIR

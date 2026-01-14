@@ -10,6 +10,9 @@ add_mlir_executor_library(MLIRTensorRTExecutorDialect
   MLIRTensorRTExecutorDialectEnumsIncGen
   MLIRTensorRTExecutorDialectAttributesIncGen
 
+  LINK_LIBS PUBLIC
+    MLIRTensorRTStreamSchedulableOpInterface
+
   MLIR_LIBS PUBLIC
     MLIRCastInterfaces
     MLIRControlFlowInterfaces

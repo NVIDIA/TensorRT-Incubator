@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 /// Implementation of `cuda-schedule-async`.
 //===----------------------------------------------------------------------===//
+#include "mlir-tensorrt-common/Interfaces/StreamSchedulableOpInterface.h"
 #include "mlir-tensorrt/Analysis/AliasAnalysis.h"
 #include "mlir-tensorrt/Dialect/CUDA/IR/CUDADialect.h"
 #include "mlir-tensorrt/Dialect/CUDA/Transforms/Passes.h" // IWYU pragma: keep
@@ -132,10 +133,10 @@ static bool isCopyLike(Operation *op) {
   return isa<cuda::CopyD2DOp, cuda::CopyD2HOp, cuda::CopyH2DOp>(op);
 }
 
-static bool hasStreamOperand(Operation *op) {
-  return llvm::any_of(op->getOperands(), [](Value operand) {
-    return operand && isa<cuda::StreamType>(operand.getType());
-  });
+static bool hasStreamOperands(Operation *op) {
+  if (auto iface = dyn_cast<mtrt::compiler::StreamSchedulableOp>(op))
+    return iface.getStreamOperand() != nullptr;
+  return false;
 }
 
 static bool isSchedulableCudaCommand(Operation *op) {
@@ -152,16 +153,16 @@ static bool isSchedulableCudaCommand(Operation *op) {
           op))
     return false;
 
-  return hasStreamOperand(op);
+  return hasStreamOperands(op);
 }
 
 static void setAllStreamOperandsTo(Operation *op, Value stream) {
-  for (OpOperand &operand : op->getOpOperands()) {
-    if (!operand.get())
-      continue;
-    if (isa<cuda::StreamType>(operand.get().getType()))
-      operand.set(stream);
-  }
+  auto iface = dyn_cast<mtrt::compiler::StreamSchedulableOp>(op);
+  if (!iface)
+    return;
+  OpOperand *streamOperand = iface.getStreamOperand();
+  if (streamOperand)
+    streamOperand->set(stream);
 }
 
 static Value getOrCreateProducerEvent(RewriterBase &rewriter,

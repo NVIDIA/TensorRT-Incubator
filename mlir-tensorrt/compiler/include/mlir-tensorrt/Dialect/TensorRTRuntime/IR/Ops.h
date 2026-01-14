@@ -24,6 +24,7 @@
 #ifndef MLIR_TENSORRT_DIALECT_TENSORRTRUNTIME_IR_OPS
 #define MLIR_TENSORRT_DIALECT_TENSORRTRUNTIME_IR_OPS
 
+#include "mlir-tensorrt-common/Interfaces/StreamSchedulableOpInterface.h" // IWYU pragma: keep
 #include "mlir-tensorrt-common/Interfaces/TensorKindOpInterface.h" // IWYU pragma: keep
 #include "mlir-tensorrt/Dialect/CUDA/IR/CUDADialect.h"   // IWYU pragma: keep
 #include "mlir/IR/OpDefinition.h"                        // IWYU pragma: keep
