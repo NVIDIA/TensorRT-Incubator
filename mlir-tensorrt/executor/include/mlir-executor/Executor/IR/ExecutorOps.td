@@ -1,8 +1,8 @@
 #ifndef MLIR_TENSORRT_DIALECT_EXECUTOR_IR_EXECUTOROPS_TD
 #define MLIR_TENSORRT_DIALECT_EXECUTOR_IR_EXECUTOROPS_TD
 
-
 include "mlir-executor/Executor/IR/ExecutorBase.td"
+include "mlir-tensorrt-common/Interfaces/StreamSchedulableOpInterface.td"
 include "mlir/Dialect/Bufferization/IR/BufferDeallocationOpInterface.td"
 include "mlir/Interfaces/CallInterfaces.td"
 include "mlir/Interfaces/CastInterfaces.td"
@@ -1456,7 +1456,8 @@ def Executor_PluginOp : Executor_Op<"plugin", [Symbol]> {
 def Executor_CallPluginOp : Executor_Op<"call_plugin", [
    AttrSizedOperandSegments,
    DeclareOpInterfaceMethods<MemoryEffectsOpInterface>,
-   DeclareOpInterfaceMethods<SymbolUserOpInterface>]> {
+   DeclareOpInterfaceMethods<SymbolUserOpInterface>,
+   DeclareOpInterfaceMethods<StreamSchedulableOp, ["getStreamOperand"]>]> {
   let summary = "call a plugin callable";
   let description = [{
     The `executor.call_plugin` operation calls an instance of a plugin

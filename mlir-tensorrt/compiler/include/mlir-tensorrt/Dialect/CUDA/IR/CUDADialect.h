@@ -22,9 +22,11 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#ifndef MLIR_TENSORRT_DIALECT_CUDA_IR_CUDA_H
-#define MLIR_TENSORRT_DIALECT_CUDA_IR_CUDA_H
+#ifndef MLIR_TENSORRT_DIALECT_CUDA_IR_CUDADIALECT
+#define MLIR_TENSORRT_DIALECT_CUDA_IR_CUDADIALECT
 
+#include "mlir-tensorrt-common/Interfaces/StreamSchedulableOpInterface.h" // IWYU pragma: keep
+#include "mlir-tensorrt/Dialect/CUDA/IR/CUDATypes.h"     // IWYU pragma: keep
 #include "mlir/Bytecode/BytecodeOpInterface.h"           // IWYU pragma: keep
 #include "mlir/IR/Dialect.h"                             // IWYU pragma: keep
 #include "mlir/IR/OpDefinition.h"                        // IWYU pragma: keep
@@ -52,12 +54,6 @@
 #undef GET_ATTRDEF_CLASSES
 
 //===----------------------------------------------------------------------===//
-// CUDA Dialect Types
-//===----------------------------------------------------------------------===//
-#define GET_TYPEDEF_CLASSES
-#include "mlir-tensorrt/Dialect/CUDA/IR/CUDAOpsTypes.h.inc"
-
-//===----------------------------------------------------------------------===//
 // CUDA Op Interfaces
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt/Dialect/CUDA/IR/CUDAInterfaces.h.inc"
@@ -68,4 +64,4 @@
 #define GET_OP_CLASSES
 #include "mlir-tensorrt/Dialect/CUDA/IR/CUDAOps.h.inc"
 
-#endif // MLIR_TENSORRT_DIALECT_CUDA_IR_CUDA_H
+#endif // MLIR_TENSORRT_DIALECT_CUDA_IR_CUDADIALECT

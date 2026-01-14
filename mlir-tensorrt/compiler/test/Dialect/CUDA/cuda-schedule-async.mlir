@@ -55,8 +55,66 @@ func.func @schedule_copy_compute_dependency(%devBuf: memref<4xf32, #dev>,
 
 // -----
 
-// Test that events created inside a loop body are released within the same
-// loop body, not at the function return. This ensures proper scoping.
+// Test that cuda-schedule-async still schedules ops outside the CUDA dialect
+// when they are stream-schedulable (e.g. TensorRTRuntime enqueue ops).
+
+#dev = #plan.memory_space<device>
+
+trtrt.compiled_func @engine dense<[0]> : tensor<1xi8>
+
+func.func @schedule_trtrt_enqueue(%input: memref<4xf32, #dev>,
+                                 %output: memref<4xf32, #dev>) {
+  %device = cuda.get_active_device
+  %stream0 = cuda.get_global_stream device(%device) [0]
+  %ctx = trtrt.get_function @engine : !trtrt.context
+
+  trtrt.enqueue %ctx stream(%stream0) (%input) outs(%output)
+    : (memref<4xf32, #dev>) -> (memref<4xf32, #dev>)
+  return
+}
+
+// CHECK-LABEL: func.func @schedule_trtrt_enqueue(
+// CHECK: %[[c0_i32:.+]] = arith.constant 0 : i32
+// CHECK: %[[pDev:.+]] = cuda.get_program_device %[[c0_i32]] : i32
+// CHECK: %[[s0:.+]] = cuda.get_global_stream device(%[[pDev]]) [0]
+// CHECK: %[[s1:.+]] = cuda.get_global_stream device(%[[pDev]]) [1]
+// CHECK: %[[s2:.+]] = cuda.get_global_stream device(%[[pDev]]) [2]
+// CHECK: trtrt.enqueue %{{.+}} stream(%[[s2]])
+// CHECK: return
+
+// -----
+
+// Test that cuda-schedule-async can schedule `executor.call_plugin` when it
+// carries a `!cuda.stream` stream operand (via external model registration for
+// StreamSchedulableOp).
+
+executor.plugin @my_plugin {
+  plugin_name = "test_plugin",
+  function_name = "my_func",
+  config = {},
+  ffi_backend = #executor.ffi_backend<tvm_ffi>
+} : () -> ()
+
+func.func @schedule_executor_call_plugin() {
+  %device = cuda.get_active_device
+  %stream0 = cuda.get_global_stream device(%device) [0]
+  %c0_i32 = arith.constant 0 : i32
+  executor.call_plugin @my_plugin
+    stream(%stream0 : !cuda.stream)
+    ins(%c0_i32 : i32) outs(%c0_i32 : i32) {arg_spec = ["args.0", "rets.0"]}
+  return
+}
+
+// CHECK-LABEL: func.func @schedule_executor_call_plugin(
+// CHECK: %[[c0_i32:.+]] = arith.constant 0 : i32
+// CHECK: %[[pDev:.+]] = cuda.get_program_device %[[c0_i32]] : i32
+// CHECK: %[[s0:.+]] = cuda.get_global_stream device(%[[pDev]]) [0]
+// CHECK: %[[s1:.+]] = cuda.get_global_stream device(%[[pDev]]) [1]
+// CHECK: %[[s2:.+]] = cuda.get_global_stream device(%[[pDev]]) [2]
+// CHECK: executor.call_plugin @my_plugin stream(%[[s2]] : !cuda.stream)
+// CHECK: return
+
+// -----
 
 #dev = #plan.memory_space<device>
 #host = #plan.memory_space<host>

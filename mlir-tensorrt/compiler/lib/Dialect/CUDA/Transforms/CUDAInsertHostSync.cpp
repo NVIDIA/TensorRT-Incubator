@@ -9,6 +9,7 @@
 /// framework for principled handling of control flow.
 //===----------------------------------------------------------------------===//
 
+#include "mlir-tensorrt-common/Interfaces/StreamSchedulableOpInterface.h"
 #include "mlir-tensorrt/Analysis/AliasAnalysis.h"
 #include "mlir-tensorrt/Dialect/CUDA/IR/CUDADialect.h"
 #include "mlir-tensorrt/Dialect/CUDA/Transforms/Passes.h" // IWYU pragma: keep
@@ -294,7 +295,9 @@ public:
 //===----------------------------------------------------------------------===//
 
 static bool isStreamSchedulableOp(Operation *op) {
-  return llvm::any_of(op->getOperandTypes(), llvm::IsaPred<cuda::StreamType>);
+  if (auto iface = dyn_cast<mtrt::compiler::StreamSchedulableOp>(op))
+    return iface.getStreamOperand() != nullptr;
+  return false;
 }
 
 /// Check if an operation performs a host-side access (read or write) of a

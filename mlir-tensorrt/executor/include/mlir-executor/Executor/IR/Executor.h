@@ -25,6 +25,7 @@
 #define MLIR_TENSORRT_DIALECT_EXECUTOR_IR_EXECUTOR_H
 
 #include "mlir-executor/Executor/IR/ExecutorAttributes.h" // IWYU pragma: keep
+#include "mlir-tensorrt-common/Interfaces/StreamSchedulableOpInterface.h" // IWYU pragma: keep
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/Interfaces/CallInterfaces.h"

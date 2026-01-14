@@ -175,6 +175,12 @@ LogicalResult AllocOp::verify() {
   return success();
 }
 
+OpOperand *AllocOp::getStreamOperand() {
+  if (getStream())
+    return &getStreamMutable()[0];
+  return nullptr;
+}
+
 //===----------------------------------------------------------------------===//
 // CopyOps
 //===----------------------------------------------------------------------===//
