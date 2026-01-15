@@ -19,6 +19,7 @@
 #include "mlir/Interfaces/FunctionInterfaces.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
+#include "stablehlo/conversions/linalg/transforms/LegalizeToLinalgUtils.h"
 #include "stablehlo/conversions/linalg/transforms/Rewriters.h"
 #include "stablehlo/conversions/linalg/transforms/TypeConversion.h"
 #include "stablehlo/dialect/StablehloOps.h"
@@ -265,6 +266,115 @@ struct ConvertStablehloGetDimSizePattern
     return success();
   }
 };
+} // namespace
+
+/// Create a list of `linalg.index` ops for the given number of loops.
+static SmallVector<Value> createIndexOps(OpBuilder &b, Location loc,
+                                         int64_t nloops) {
+  SmallVector<Value> loopCoord;
+  for (auto idx : llvm::seq<unsigned>(0, nloops))
+    loopCoord.push_back(b.create<linalg::IndexOp>(loc, idx));
+  return loopCoord;
+}
+
+namespace {
+
+/// Handle `stablehlo.dynamic_broadcast_in_dim` op by converting it to
+/// `linalg.generic` op. Inside the op we use `linalg.index` and
+/// `tensor.extract`. This pattern is only invoked if the upstream one fails
+/// (e.g. some dimensions we do not know if they are contracting or expanding).
+struct FallbackDynamicBroadcastInDimConverter final
+    : OpConversionPattern<mlir::stablehlo::DynamicBroadcastInDimOp> {
+  using OpConversionPattern::OpConversionPattern;
+
+  LogicalResult
+  matchAndRewrite(mlir::stablehlo::DynamicBroadcastInDimOp op,
+                  OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    Value operand = adaptor.getOperand();
+    auto operandType = cast<RankedTensorType>(operand.getType());
+    auto resultType =
+        getTypeConverter()->convertType<RankedTensorType>(op.getType());
+    if (!resultType)
+      return failure();
+
+    // Determine dimension expressions based on whether the dimension is
+    // expanding (0) or non-expanding (identity), and fail if we cannot decide
+    // this.
+    SmallVector<AffineExpr> dimExprs(operandType.getRank(), nullptr);
+
+    // Use static type info.
+    auto bcastDims = op.getBroadcastDimensions();
+    for (auto [idx, dim] : llvm::enumerate(operandType.getShape())) {
+      if (ShapedType::isDynamic(dim))
+        continue;
+
+      bool isExpanding = dim == 1;
+      dimExprs[idx] = isExpanding ? rewriter.getAffineConstantExpr(0)
+                                  : rewriter.getAffineDimExpr(bcastDims[idx]);
+    }
+
+    // Use annotated expansion behavior, if available.
+    if (auto dims = op.getKnownExpandingDimensions()) {
+      for (const auto &i : *dims) {
+        dimExprs[i] = rewriter.getAffineConstantExpr(0);
+      }
+    }
+    if (auto dims = op.getKnownNonexpandingDimensions()) {
+      for (const auto &i : *dims) {
+        dimExprs[i] = rewriter.getAffineDimExpr(bcastDims[i]);
+      }
+    }
+
+    // Fail if *all* broadcast dimensions have known behavior, since in this
+    // case the *upstream* pattern will be applied.
+    if (llvm::all_of(dimExprs, [](AffineExpr expr) {
+          // The behavior is known if we filled out an expression.
+          return expr != nullptr;
+        }))
+      return failure();
+
+    // Materialize `linalg.generic` op.
+    Location loc = op.getLoc();
+    int64_t nloops = resultType.getRank();
+    auto const0Expr = rewriter.getAffineConstantExpr(0);
+    Value emptyTensor = mlir::stablehlo::getEmptyTensorFor(
+        rewriter, loc, resultType, op, adaptor.getOperands());
+    auto genericOp = linalg::GenericOp::create(
+        rewriter, loc, emptyTensor.getType(), /*inputs=*/ValueRange{},
+        /*outputs=*/ValueRange{emptyTensor},
+        /*indexingMaps=*/
+        {AffineMap::getMultiDimIdentityMap(nloops, rewriter.getContext())},
+        /*iteratorTypes=*/mlir::stablehlo::getNParallelLoopsAttrs(nloops),
+        /*bodyBuild=*/
+        [&](OpBuilder &b, Location loc, ValueRange) {
+          SmallVector<Value> loopCoord = createIndexOps(b, loc, nloops);
+          SmallVector<Value> coords;
+          coords.reserve(operandType.getRank());
+          Value zero = b.create<arith::ConstantIndexOp>(loc, 0);
+          for (auto [idx, dimExpr] : llvm::enumerate(dimExprs)) {
+            if (dimExpr == const0Expr) {
+              coords.push_back(b.create<arith::ConstantIndexOp>(loc, 0));
+            } else if (dimExpr) {
+              coords.push_back(loopCoord[bcastDims[idx]]);
+            } else {
+              Value dim = b.create<tensor::DimOp>(
+                  loc, operand, b.create<arith::ConstantIndexOp>(loc, idx));
+              Value cond =
+                  b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::ult,
+                                          loopCoord[bcastDims[idx]], dim);
+              coords.push_back(b.create<arith::SelectOp>(
+                  loc, cond, loopCoord[bcastDims[idx]], zero));
+            }
+          }
+          Value value = b.create<tensor::ExtractOp>(loc, operand, coords);
+          linalg::YieldOp::create(b, loc, value);
+        },
+        linalg::getPrunedAttributeList(op));
+    rewriter.replaceOp(op, genericOp);
+    return success();
+  }
+};
 
 class StablehloToLinalgPass
     : public impl::StablehloToLinalgPassBase<StablehloToLinalgPass> {
@@ -305,7 +415,12 @@ class StablehloToLinalgPass
           /*enablePrimitiveOps=*/false,
           /*enableSparseOps=*/false,
           /*captureScalarInputs=*/false);
-      patterns_.add<ConvertStablehloGetDimSizePattern>(context);
+      // clang-format off
+      patterns_.add<
+        ConvertStablehloGetDimSizePattern,
+        FallbackDynamicBroadcastInDimConverter
+      >(converter, context, PatternBenefit(0));
+      // clang-format on
       return patterns_;
     }();
 

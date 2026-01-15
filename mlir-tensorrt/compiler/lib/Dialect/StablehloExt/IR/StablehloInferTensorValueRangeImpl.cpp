@@ -23,6 +23,7 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt/Dialect/StablehloExt/IR/StableHloExt.h"
 #include "mlir-tensorrt/Interfaces/InferTensorValueRangeInterface.h"
+#include "mlir/Dialect/Utils/IndexingUtils.h"
 #include "mlir/Interfaces/Utils/InferIntRangeCommon.h"
 #include "stablehlo/dialect/StablehloOps.h"
 
@@ -117,6 +118,69 @@ public:
   }
 };
 
+class SliceOpImpl
+    : public InferTensorValueRangeInterface::ExternalModel<SliceOpImpl,
+                                                           stablehlo::SliceOp> {
+public:
+  void
+  inferResultRangesFromOptional(Operation *op_,
+                                ArrayRef<IntOrTensorValueRange> argRanges,
+                                SetTensorValueLatticeFn setResultRanges) const {
+    auto op = cast<stablehlo::SliceOp>(op_);
+    TypedValue<RankedTensorType> operand = op.getOperand();
+    TypedValue<RankedTensorType> result = op.getResult();
+
+    if (!BoundsArray::shouldAnalyzeValueBounds(operand) ||
+        !BoundsArray::shouldAnalyzeValueBounds(result) || argRanges.empty()) {
+      setResultRanges(result, BoundsArray());
+      return;
+    }
+
+    const auto *argRange0 = argRanges.front().dyn_cast<const BoundsArray *>();
+    if (!argRange0 || argRange0->isUninitialized()) {
+      setResultRanges(result, BoundsArray());
+      return;
+    }
+
+    RankedTensorType operandType = operand.getType();
+    RankedTensorType resultType = result.getType();
+
+    // Sanity check: lattice storage should match operand volume.
+    if (static_cast<int64_t>(argRange0->getValue().size()) !=
+        operandType.getNumElements()) {
+      setResultRanges(result, BoundsArray());
+      return;
+    }
+
+    ArrayRef<int64_t> operandShape = operandType.getShape();
+    ArrayRef<int64_t> resultShape = resultType.getShape();
+    const int64_t rank = operandType.getRank();
+
+    SmallVector<int64_t> sliceOffsets = llvm::to_vector(op.getStartIndices());
+    SmallVector<int64_t> sliceStrides = llvm::to_vector(op.getStrides());
+
+    SmallVector<int64_t> operandBasis =
+        mlir::computeSuffixProduct(operandShape);
+    SmallVector<int64_t> resultBasis = mlir::computeSuffixProduct(resultShape);
+
+    SmallVector<ConstantIntRanges> outRanges;
+    outRanges.reserve(resultType.getNumElements());
+    for (int64_t linear = 0, e = resultType.getNumElements(); linear < e;
+         ++linear) {
+      SmallVector<int64_t> resCoord = mlir::delinearize(linear, resultBasis);
+      SmallVector<int64_t> operandCoord(rank, 0);
+      for (int64_t d = 0; d < rank; ++d)
+        operandCoord[d] = sliceOffsets[d] + resCoord[d] * sliceStrides[d];
+
+      int64_t operandLinear = mlir::linearize(operandCoord, operandBasis);
+      assert(operandLinear < operandType.getNumElements() &&
+             "operand linear index out of bounds");
+      outRanges.push_back(argRange0->getValue()[operandLinear]);
+    }
+    setResultRanges(result, BoundsArray(outRanges));
+  }
+};
+
 } // namespace
 
 void mlir::stablehlo::registerInferTensorValueRangeInterfaceExternalModels(
@@ -124,5 +188,6 @@ void mlir::stablehlo::registerInferTensorValueRangeInterfaceExternalModels(
   registry.addExtension(
       +[](MLIRContext *ctx, stablehlo::StablehloDialect *dialect) {
         stablehlo::ConvertOp::attachInterface<ConvertOpImpl>(*ctx);
+        stablehlo::SliceOp::attachInterface<SliceOpImpl>(*ctx);
       });
 }
