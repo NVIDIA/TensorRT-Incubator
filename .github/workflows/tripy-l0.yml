@@ -36,7 +36,7 @@ jobs:
     # Login against a Docker registry
     # https://github.com/docker/login-action
     - name: Log into registry ${{ env.REGISTRY }}
-      uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3.0.0
+      uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef  # v3
       with:
         registry: ${{ env.REGISTRY }}
         username: ${{ github.actor }}
