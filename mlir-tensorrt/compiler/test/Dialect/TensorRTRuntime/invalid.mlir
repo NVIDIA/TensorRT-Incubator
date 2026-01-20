@@ -27,7 +27,7 @@ func.func @enqueue_host_tensor_oob(%arg0: !trtrt.context, %arg1: !cuda.stream,
 
 func.func @enqueue_host_tensor_el_type(%arg0: !trtrt.context, %arg1: !cuda.stream,
                 %arg2: tensor<1xf32>, %arg3: tensor<1xi32>, %arg4: tensor<1xf32>) -> tensor<1xf32> {
-  // expected-error @below {{'trtrt.enqueue' op host tensor arguments must have element type i32, but input arg 0 has type 'tensor<1xf32>'}}
+  // expected-error @below {{'trtrt.enqueue' op host tensor arguments must have element type i32 or i64, but input arg 0 has type 'tensor<1xf32>'}}
   %0 = trtrt.enqueue %arg0 stream(%arg1) host_tensor_args [0] (%arg2, %arg3) outs(%arg4)
     : (tensor<1xf32>, tensor<1xi32>) -> (tensor<1xf32>)
   return %0 : tensor<1xf32>

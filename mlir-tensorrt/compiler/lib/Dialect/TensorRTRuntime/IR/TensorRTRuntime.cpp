@@ -91,9 +91,10 @@ LogicalResult EnqueueOp::verify() {
                << idx << " is out of bounds";
       Value operand = getInputs()[idx];
       Type elType = mlir::getElementTypeOrSelf(operand.getType());
-      if (!elType.isInteger(32))
-        return emitOpError("host tensor arguments must have element type i32, "
-                           "but input arg ")
+      if (!elType.isInteger(32) && !elType.isInteger(64))
+        return emitOpError(
+                   "host tensor arguments must have element type i32 or i64, "
+                   "but input arg ")
                << idx << " has type " << operand.getType();
     }
   }
@@ -173,7 +174,7 @@ LogicalResult EnqueueAllocOp::verify() {
                << idx << " is out of bounds";
       Value operand = getInputs()[idx];
       Type elType = mlir::getElementTypeOrSelf(operand.getType());
-      if (!elType.isInteger(32))
+      if (!elType.isInteger(32) && !elType.isInteger(64))
         return emitOpError("host tensor arguments must have element type i32, "
                            "but input arg ")
                << idx << " has type " << operand.getType();
