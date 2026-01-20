@@ -30,6 +30,7 @@
 #include "mlir-executor/Runtime/Backend/Lua/LuaExtensions.h"
 #include "mlir-executor/Runtime/Backend/Utils/NvtxUtils.h"
 #include "mlir-executor/Runtime/Support/Allocators.h"
+#include "mlir-executor/Runtime/Support/CUDAHelpers.h"
 #include "mlir-executor/Runtime/Support/Support.h"
 #include "mlir-tensorrt-common/Support/Status.h"
 #include "llvm/ADT/STLExtras.h"
@@ -299,19 +300,8 @@ LuaRuntimeSession::create(Ref<RuntimeClient> client_,
   return session;
 }
 
-/// Set the primary stream for the loaded executable to use.
 Status LuaRuntimeSession::onStreamChanged(Ref<Stream> oldStream,
                                           Ref<Stream> newStream) {
-  sol::state_view lua = getLuaState();
-
-  sol::object stream0 = lua["stream0"];
-  [[maybe_unused]] uintptr_t stream0OldValue =
-      stream0.valid() && stream0.is<uintptr_t>() ? stream0.as<uintptr_t>() : -1;
-  MTRT_DBG("LuaRuntimeSession[{0:x}]::onStreamChanged: setting main stream old "
-           "{1:x} "
-           "new {2:x}",
-           this, stream0OldValue, newStream->getCUDAHandle());
-  lua["stream0"] = newStream->getCUDAHandle();
   return getOkStatus();
 }
 

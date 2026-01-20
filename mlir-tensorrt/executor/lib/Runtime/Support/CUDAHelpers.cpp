@@ -20,12 +20,21 @@
 #include "mlir-executor/Runtime/Support/CUDAHelpers.h"
 #include "mlir-executor/Runtime/Support/Support.h"
 
-#define CUDA_DBGV(fmt, ...) MTRT_DBG("[cuda] " fmt, __VA_ARGS__)
-
 #ifdef MLIR_TRT_ENABLE_CUDA
 #include "cuda.h"
 #include <cuda_runtime_api.h>
 #endif // MLIR_TRT_ENABLE_CUDA
+
+template <typename... Args>
+void _CUDA_DBGV(const char *fmt, const char *file, int64_t line,
+                Args &&...args) {
+  DEBUG_WITH_TYPE(
+      "runtime-cuda",
+      llvm::dbgs() << file << ":" << line << " [CUDAHelpers] "
+                   << llvm::formatv(fmt, std::forward<Args>(args)...) << "\n");
+}
+
+#define CUDA_DBGV(fmt, ...) _CUDA_DBGV(fmt, __FILE__, __LINE__, __VA_ARGS__)
 
 using namespace mtrt;
 
@@ -230,15 +239,13 @@ Status copyCUDAPeerAsync(void *dstDevice, int32_t dstDeviceId,
 
 StatusOr<uintptr_t> createCUDAEvent() {
 #ifdef MLIR_TRT_ENABLE_CUDA
-#ifndef NDEBUG
-  MTRT_ASSIGN_OR_RETURN(int32_t device, getCurrentCUDADevice());
-  CUDA_DBGV("createCUDAEvent: current device = {0}", device);
-#endif
   cudaEvent_t event;
   RETURN_ERROR_IF_CUDART_ERROR(
-      cudaEventCreateWithFlags(&event, cudaEventDefault));
+      cudaEventCreateWithFlags(&event, cudaEventDisableTiming));
 #ifndef NDEBUG
-  CUDA_DBGV("createCUDAEvent: {0:x} ", reinterpret_cast<uintptr_t>(event));
+  MTRT_ASSIGN_OR_RETURN(int32_t device, getCurrentCUDADevice());
+  CUDA_DBGV("createCUDAEvent: current device = {0} event = {1:x}", device,
+            reinterpret_cast<uintptr_t>(event));
 #endif
   return reinterpret_cast<uintptr_t>(event);
 #else
