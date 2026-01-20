@@ -276,6 +276,19 @@ def CUDA_EventCreateOp : CUDA_Op<"event.create"> {
   let assemblyFormat = "attr-dict `device` `(` $device `)`";
 }
 
+def CUDA_EventCreateOnStreamOp : CUDA_StreamableOp<"event.create_on_stream"> {
+  let summary = "Creates and records a CUDA event on a stream";
+  let description = [{
+    Creates a CUDA event associated with the same device as the given
+    `stream`, then records the event on the stream. This is equivalent
+    to `cuda.event.create` followed by `cuda.stream.record_event`.
+  }];
+  let arguments = (ins Arg<CUDA_Stream, "", [MemWriteAt<0, FullEffect>]>:$stream);
+  let results = (outs Res<CUDA_Event, "",
+                          [MemAlloc<DefaultResource, 0, FullEffect>]>:$result);
+  let assemblyFormat = "attr-dict $stream `:` type($stream)";
+}
+
 def CUDA_EventSyncOp : CUDA_Op<"event.sync",
     [MemoryEffectsOpInterface]> {
   let summary = "Wait for a CUDA event to complete (host-side synchronization)";

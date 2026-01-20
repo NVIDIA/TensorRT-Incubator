@@ -5,12 +5,9 @@ func.func @insert_host_wait_before_load(
     %stream: !cuda.stream,
     %src: memref<4xf32, #plan.memory_space<device>>,
     %dst: memref<4xf32, #plan.memory_space<host>>) {
-  // CHECK: %[[c0_i32:.+]] = arith.constant 0 : i32
-  // CHECK: %[[pDev:.+]] = cuda.get_program_device %[[c0_i32]] : i32
   // CHECK: cuda.copy_d2h stream(%[[stream:.+]]) %{{.+}}, %[[dst:.+]] :
   cuda.copy_d2h stream(%stream) %src, %dst : memref<4xf32, #plan.memory_space<device>> to memref<4xf32, #plan.memory_space<host>>
-  // CHECK-NEXT: %[[e:.+]] = cuda.event.create device(%[[pDev]])
-  // CHECK-NEXT: cuda.stream.record_event %[[stream]], %[[e]]
+  // CHECK-NEXT: %[[e:.+]] = cuda.event.create_on_stream %[[stream]] : !cuda.stream
   // CHECK: cuda.event.sync %[[e]] : !cuda.event
   %c0 = arith.constant 0 : index
   // CHECK: memref.load %[[dst]]
@@ -29,8 +26,7 @@ func.func @insert_host_wait_before_loop_first_use(
     %dst: memref<4xf32, #plan.memory_space<host>>) {
   cuda.copy_d2h stream(%stream) %src, %dst : memref<4xf32, #plan.memory_space<device>> to memref<4xf32, #plan.memory_space<host>>
   // CHECK: cuda.copy_d2h stream(%[[stream:.+]])
-  // CHECK: %[[e:.+]] = cuda.event.create
-  // CHECK-NEXT: cuda.stream.record_event %[[stream]], %[[e]]
+  // CHECK: %[[e:.+]] = cuda.event.create_on_stream %[[stream]]
 
   %c0 = arith.constant 0 : index
   %c4 = arith.constant 4 : index
@@ -55,8 +51,6 @@ func.func @subview_alias_triggers_sync(
     %stream: !cuda.stream,
     %src: memref<8xf32, #plan.memory_space<device>>,
     %dst: memref<8xf32, #plan.memory_space<host>>) {
-  // CHECK: %[[c0_i32:.+]] = arith.constant 0 : i32
-  // CHECK: %[[pDev:.+]] = cuda.get_program_device %[[c0_i32]] : i32
   %c0 = arith.constant 0 : index
   %c4 = arith.constant 4 : index
   %c1 = arith.constant 1 : index
@@ -67,8 +61,7 @@ func.func @subview_alias_triggers_sync(
 
   // CHECK: cuda.copy_d2h stream(%[[stream:.+]])
   cuda.copy_d2h stream(%stream) %src, %dst : memref<8xf32, #plan.memory_space<device>> to memref<8xf32, #plan.memory_space<host>>
-  // CHECK-NEXT: %[[e:.+]] = cuda.event.create device(%[[pDev]])
-  // CHECK-NEXT: cuda.stream.record_event %[[stream]], %[[e]]
+  // CHECK-NEXT: %[[e:.+]] = cuda.event.create_on_stream %[[stream]] : !cuda.stream
 
   // Load from subview should trigger sync because subview aliases dst
   // CHECK: cuda.event.sync %[[e]] : !cuda.event
@@ -86,12 +79,9 @@ func.func @subview_after_copy_triggers_sync(
     %stream: !cuda.stream,
     %src: memref<8xf32, #plan.memory_space<device>>,
     %dst: memref<8xf32, #plan.memory_space<host>>) {
-  // CHECK: %[[c0_i32:.+]] = arith.constant 0 : i32
-  // CHECK: %[[pDev:.+]] = cuda.get_program_device %[[c0_i32]] : i32
   // CHECK: cuda.copy_d2h stream(%[[stream:.+]]) %{{.+}}, %[[dst:.+]] :
   cuda.copy_d2h stream(%stream) %src, %dst : memref<8xf32, #plan.memory_space<device>> to memref<8xf32, #plan.memory_space<host>>
-  // CHECK-NEXT: %[[e:.+]] = cuda.event.create device(%[[pDev]])
-  // CHECK-NEXT: cuda.stream.record_event %[[stream]], %[[e]]
+  // CHECK-NEXT: %[[e:.+]] = cuda.event.create_on_stream %[[stream]] : !cuda.stream
 
   %c0 = arith.constant 0 : index
 
@@ -115,16 +105,13 @@ func.func @cast_alias_triggers_sync(
     %stream: !cuda.stream,
     %src: memref<4xf32, #plan.memory_space<device>>,
     %dst: memref<4xf32, #plan.memory_space<host>>) {
-  // CHECK: %[[c0_i32:.+]] = arith.constant 0 : i32
-  // CHECK: %[[pDev:.+]] = cuda.get_program_device %[[c0_i32]] : i32
   // Cast to dynamic shape
   // CHECK: %[[cast:.+]] = memref.cast
   %cast = memref.cast %dst : memref<4xf32, #plan.memory_space<host>> to memref<?xf32, #plan.memory_space<host>>
 
   // CHECK: cuda.copy_d2h stream(%[[stream:.+]])
   cuda.copy_d2h stream(%stream) %src, %dst : memref<4xf32, #plan.memory_space<device>> to memref<4xf32, #plan.memory_space<host>>
-  // CHECK-NEXT: %[[e:.+]] = cuda.event.create device(%[[pDev]])
-  // CHECK-NEXT: cuda.stream.record_event %[[stream]], %[[e]]
+  // CHECK-NEXT: %[[e:.+]] = cuda.event.create_on_stream %[[stream]] : !cuda.stream
 
   %c0 = arith.constant 0 : index
   // Load from cast should trigger sync
@@ -143,8 +130,6 @@ func.func @nested_subview_alias(
     %stream: !cuda.stream,
     %src: memref<16xf32, #plan.memory_space<device>>,
     %dst: memref<16xf32, #plan.memory_space<host>>) {
-  // CHECK: %[[c0_i32:.+]] = arith.constant 0 : i32
-  // CHECK: %[[pDev:.+]] = cuda.get_program_device %[[c0_i32]] : i32
   // CHECK: %[[sv1:.+]] = memref.subview
   %sv1 = memref.subview %dst[0][8][1] : memref<16xf32, #plan.memory_space<host>> to memref<8xf32, strided<[1]>, #plan.memory_space<host>>
   // CHECK: %[[sv2:.+]] = memref.subview %[[sv1]]
@@ -152,8 +137,7 @@ func.func @nested_subview_alias(
 
   // CHECK: cuda.copy_d2h stream(%[[stream:.+]])
   cuda.copy_d2h stream(%stream) %src, %dst : memref<16xf32, #plan.memory_space<device>> to memref<16xf32, #plan.memory_space<host>>
-  // CHECK-NEXT: %[[e:.+]] = cuda.event.create device(%[[pDev]])
-  // CHECK-NEXT: cuda.stream.record_event %[[stream]], %[[e]]
+  // CHECK-NEXT: %[[e:.+]] = cuda.event.create_on_stream %[[stream]] : !cuda.stream
 
   %c0 = arith.constant 0 : index
   // Load from nested subview should trigger sync
@@ -172,17 +156,13 @@ func.func @expand_shape_alias_triggers_sync(
     %stream: !cuda.stream,
     %src: memref<8xf32, #plan.memory_space<device>>,
     %dst: memref<8xf32, #plan.memory_space<host>>) {
-  // CHECK: %[[c0_i32:.+]] = arith.constant 0 : i32
-  // CHECK: %[[pDev:.+]] = cuda.get_program_device %[[c0_i32]] : i32
   // CHECK: %[[expanded:.+]] = memref.expand_shape
   %expanded = memref.expand_shape %dst [[0, 1]] output_shape [2, 4]
       : memref<8xf32, #plan.memory_space<host>> into memref<2x4xf32, #plan.memory_space<host>>
 
   // CHECK: cuda.copy_d2h stream(%[[stream:.+]])
   cuda.copy_d2h stream(%stream) %src, %dst : memref<8xf32, #plan.memory_space<device>> to memref<8xf32, #plan.memory_space<host>>
-  // CHECK-NEXT: %[[e:.+]] = cuda.event.create device(%[[pDev]])
-  // CHECK-NEXT: cuda.stream.record_event %[[stream]], %[[e]]
-
+  // CHECK-NEXT: %[[e:.+]] = cuda.event.create_on_stream %[[stream]] : !cuda.stream
   %c0 = arith.constant 0 : index
   // Load from expanded shape should trigger sync
   // CHECK: cuda.event.sync %[[e]] : !cuda.event
@@ -200,17 +180,13 @@ func.func @collapse_shape_alias_triggers_sync(
     %stream: !cuda.stream,
     %src: memref<2x4xf32, #plan.memory_space<device>>,
     %dst: memref<2x4xf32, #plan.memory_space<host>>) {
-  // CHECK: %[[c0_i32:.+]] = arith.constant 0 : i32
-  // CHECK: %[[pDev:.+]] = cuda.get_program_device %[[c0_i32]] : i32
   // CHECK: %[[collapsed:.+]] = memref.collapse_shape
   %collapsed = memref.collapse_shape %dst [[0, 1]]
       : memref<2x4xf32, #plan.memory_space<host>> into memref<8xf32, #plan.memory_space<host>>
 
   // CHECK: cuda.copy_d2h stream(%[[stream:.+]])
   cuda.copy_d2h stream(%stream) %src, %dst : memref<2x4xf32, #plan.memory_space<device>> to memref<2x4xf32, #plan.memory_space<host>>
-  // CHECK-NEXT: %[[e:.+]] = cuda.event.create device(%[[pDev]])
-  // CHECK-NEXT: cuda.stream.record_event %[[stream]], %[[e]]
-
+  // CHECK-NEXT: %[[e:.+]] = cuda.event.create_on_stream %[[stream]] : !cuda.stream
   %c0 = arith.constant 0 : index
   // Load from collapsed shape should trigger sync
   // CHECK: cuda.event.sync %[[e]] : !cuda.event
@@ -229,12 +205,9 @@ func.func @conservative_sync_for_func_args(
     %src: memref<4xf32, #plan.memory_space<device>>,
     %dst: memref<4xf32, #plan.memory_space<host>>,
     %other: memref<4xf32, #plan.memory_space<host>>) {
-  // CHECK: %[[c0_i32:.+]] = arith.constant 0 : i32
-  // CHECK: %[[pDev:.+]] = cuda.get_program_device %[[c0_i32]] : i32
   // CHECK: cuda.copy_d2h stream(%[[stream:.+]]) %{{.+}}, %[[dst:.+]] :
   cuda.copy_d2h stream(%stream) %src, %dst : memref<4xf32, #plan.memory_space<device>> to memref<4xf32, #plan.memory_space<host>>
-  // CHECK-NEXT: %[[e:.+]] = cuda.event.create device(%[[pDev]])
-  // CHECK-NEXT: cuda.stream.record_event %[[stream]], %[[e]]
+  // CHECK-NEXT: %[[e:.+]] = cuda.event.create_on_stream %[[stream]] : !cuda.stream
 
   %c0 = arith.constant 0 : index
   // Function arguments may alias, so conservative alias analysis inserts sync
@@ -256,8 +229,7 @@ func.func @sync_before_branch_with_use(
     %cond: i1) {
   // CHECK: cuda.copy_d2h stream(%[[stream:.+]])
   cuda.copy_d2h stream(%stream) %src, %dst : memref<4xf32, #plan.memory_space<device>> to memref<4xf32, #plan.memory_space<host>>
-  // CHECK: %[[e:.+]] = cuda.event.create
-  // CHECK-NEXT: cuda.stream.record_event %[[stream]], %[[e]]
+  // CHECK: %[[e:.+]] = cuda.event.create_on_stream %[[stream]] : !cuda.stream
   %c0 = arith.constant 0 : index
   // CHECK: scf.if
   scf.if %cond {
@@ -278,12 +250,9 @@ func.func @sync_in_if_else(
     %src: memref<4xf32, #plan.memory_space<device>>,
     %dst: memref<4xf32, #plan.memory_space<host>>,
     %cond: i1) {
-  // CHECK: %[[c0_i32:.+]] = arith.constant 0 : i32
-  // CHECK: %[[pDev:.+]] = cuda.get_program_device %[[c0_i32]] : i32
   // CHECK: cuda.copy_d2h stream(%[[stream:.+]])
   cuda.copy_d2h stream(%stream) %src, %dst : memref<4xf32, #plan.memory_space<device>> to memref<4xf32, #plan.memory_space<host>>
-  // CHECK-NEXT: %[[e:.+]] = cuda.event.create device(%[[pDev]])
-  // CHECK-NEXT: cuda.stream.record_event %[[stream]], %[[e]]
+  // CHECK-NEXT: %[[e:.+]] = cuda.event.create_on_stream %[[stream]] : !cuda.stream
 
   %c0 = arith.constant 0 : index
   %c1 = arith.constant 1 : index
@@ -313,8 +282,6 @@ func.func @multiple_copies_single_sync(
     %src1: memref<4xf32, #plan.memory_space<device>>,
     %src2: memref<4xf32, #plan.memory_space<device>>,
     %dst: memref<4xf32, #plan.memory_space<host>>) {
-  // CHECK: %[[c0_i32:.+]] = arith.constant 0 : i32
-  // CHECK: %[[pDev:.+]] = cuda.get_program_device %[[c0_i32]] : i32
   // First copy
   // CHECK: cuda.copy_d2h stream(%[[stream:.+]]) %{{.+}}, %[[dst:.+]] :
   cuda.copy_d2h stream(%stream) %src1, %dst : memref<4xf32, #plan.memory_space<device>> to memref<4xf32, #plan.memory_space<host>>
@@ -322,8 +289,7 @@ func.func @multiple_copies_single_sync(
   // Second copy overwrites the same buffer
   // CHECK: cuda.copy_d2h stream(%[[stream]]) %{{.+}}, %[[dst]] :
   cuda.copy_d2h stream(%stream) %src2, %dst : memref<4xf32, #plan.memory_space<device>> to memref<4xf32, #plan.memory_space<host>>
-  // CHECK-NEXT: %[[e2:.+]] = cuda.event.create device(%[[pDev]])
-  // CHECK-NEXT: cuda.stream.record_event %[[stream]], %[[e2]]
+  // CHECK-NEXT: %[[e2:.+]] = cuda.event.create_on_stream %[[stream]] : !cuda.stream
 
   %c0 = arith.constant 0 : index
   // Only the latest event needs to be synced
@@ -343,12 +309,9 @@ func.func @memref_copy_triggers_sync(
     %src_dev: memref<4xf32, #plan.memory_space<device>>,
     %dst_host: memref<4xf32, #plan.memory_space<host>>,
     %other_host: memref<4xf32, #plan.memory_space<host>>) {
-  // CHECK: %[[c0_i32:.+]] = arith.constant 0 : i32
-  // CHECK: %[[pDev:.+]] = cuda.get_program_device %[[c0_i32]] : i32
   // CHECK: cuda.copy_d2h stream(%[[stream:.+]]) %{{.+}}, %[[dst:.+]] :
   cuda.copy_d2h stream(%stream) %src_dev, %dst_host : memref<4xf32, #plan.memory_space<device>> to memref<4xf32, #plan.memory_space<host>>
-  // CHECK-NEXT: %[[e:.+]] = cuda.event.create device(%[[pDev]])
-  // CHECK-NEXT: cuda.stream.record_event %[[stream]], %[[e]]
+  // CHECK-NEXT: %[[e:.+]] = cuda.event.create_on_stream %[[stream]] : !cuda.stream
 
   // Host-side memref.copy reading from dst_host should trigger sync
   // CHECK: cuda.event.sync %[[e]] : !cuda.event
@@ -367,12 +330,9 @@ func.func @store_triggers_sync(
     %src: memref<4xf32, #plan.memory_space<device>>,
     %dst: memref<4xf32, #plan.memory_space<host>>,
     %val: f32) {
-  // CHECK: %[[c0_i32:.+]] = arith.constant 0 : i32
-  // CHECK: %[[pDev:.+]] = cuda.get_program_device %[[c0_i32]] : i32
   // CHECK: cuda.copy_d2h stream(%[[stream:.+]]) %{{.+}}, %[[dst:.+]] :
   cuda.copy_d2h stream(%stream) %src, %dst : memref<4xf32, #plan.memory_space<device>> to memref<4xf32, #plan.memory_space<host>>
-  // CHECK-NEXT: %[[e:.+]] = cuda.event.create device(%[[pDev]])
-  // CHECK-NEXT: cuda.stream.record_event %[[stream]], %[[e]]
+  // CHECK-NEXT: %[[e:.+]] = cuda.event.create_on_stream %[[stream]] : !cuda.stream
 
   %c0 = arith.constant 0 : index
   // Store should trigger sync (writing to buffer being copied to)
@@ -392,15 +352,12 @@ func.func @store_to_subview_triggers_sync(
     %src: memref<8xf32, #plan.memory_space<device>>,
     %dst: memref<8xf32, #plan.memory_space<host>>,
     %val: f32) {
-  // CHECK: %[[c0_i32:.+]] = arith.constant 0 : i32
-  // CHECK: %[[pDev:.+]] = cuda.get_program_device %[[c0_i32]] : i32
   // CHECK: %[[subview:.+]] = memref.subview
   %subview = memref.subview %dst[0][4][1] : memref<8xf32, #plan.memory_space<host>> to memref<4xf32, strided<[1]>, #plan.memory_space<host>>
 
   // CHECK: cuda.copy_d2h stream(%[[stream:.+]])
   cuda.copy_d2h stream(%stream) %src, %dst : memref<8xf32, #plan.memory_space<device>> to memref<8xf32, #plan.memory_space<host>>
-  // CHECK-NEXT: %[[e:.+]] = cuda.event.create device(%[[pDev]])
-  // CHECK-NEXT: cuda.stream.record_event %[[stream]], %[[e]]
+  // CHECK-NEXT: %[[e:.+]] = cuda.event.create_on_stream %[[stream]] : !cuda.stream
 
   %c0 = arith.constant 0 : index
   // Store to subview should trigger sync
@@ -420,15 +377,12 @@ func.func @nested_cf_with_alias(
     %src: memref<8xf32, #plan.memory_space<device>>,
     %dst: memref<8xf32, #plan.memory_space<host>>,
     %cond1: i1, %cond2: i1) {
-  // CHECK: %[[c0_i32:.+]] = arith.constant 0 : i32
-  // CHECK: %[[pDev:.+]] = cuda.get_program_device %[[c0_i32]] : i32
   // CHECK: %[[subview:.+]] = memref.subview
   %subview = memref.subview %dst[0][4][1] : memref<8xf32, #plan.memory_space<host>> to memref<4xf32, strided<[1]>, #plan.memory_space<host>>
 
   // CHECK: cuda.copy_d2h stream(%[[stream:.+]])
   cuda.copy_d2h stream(%stream) %src, %dst : memref<8xf32, #plan.memory_space<device>> to memref<8xf32, #plan.memory_space<host>>
-  // CHECK-NEXT: %[[e:.+]] = cuda.event.create device(%[[pDev]])
-  // CHECK-NEXT: cuda.stream.record_event %[[stream]], %[[e]]
+  // CHECK-NEXT: %[[e:.+]] = cuda.event.create_on_stream %[[stream]] : !cuda.stream
 
   %c0 = arith.constant 0 : index
 
@@ -456,12 +410,9 @@ func.func @while_loop_with_alias(
     %src: memref<4xf32, #plan.memory_space<device>>,
     %dst: memref<4xf32, #plan.memory_space<host>>,
     %limit: index) {
-  // CHECK: %[[c0_i32:.+]] = arith.constant 0 : i32
-  // CHECK: %[[pDev:.+]] = cuda.get_program_device %[[c0_i32]] : i32
   // CHECK: cuda.copy_d2h stream(%[[stream:.+]]) %{{.+}}, %[[dst:.+]] :
   cuda.copy_d2h stream(%stream) %src, %dst : memref<4xf32, #plan.memory_space<device>> to memref<4xf32, #plan.memory_space<host>>
-  // CHECK-NEXT: %[[e:.+]] = cuda.event.create device(%[[pDev]])
-  // CHECK-NEXT: cuda.stream.record_event %[[stream]], %[[e]]
+  // CHECK-NEXT: %[[e:.+]] = cuda.event.create_on_stream %[[stream]] : !cuda.stream
 
   %c0 = arith.constant 0 : index
   %c1 = arith.constant 1 : index
@@ -493,8 +444,6 @@ func.func @reinterpret_cast_alias(
     %stream: !cuda.stream,
     %src: memref<8xf32, #plan.memory_space<device>>,
     %dst: memref<8xf32, #plan.memory_space<host>>) {
-  // CHECK: %[[c0_i32:.+]] = arith.constant 0 : i32
-  // CHECK: %[[pDev:.+]] = cuda.get_program_device %[[c0_i32]] : i32
   // CHECK: %[[reinterpreted:.+]] = memref.reinterpret_cast
   %reinterpreted = memref.reinterpret_cast %dst to
       offset: [0], sizes: [2, 4], strides: [4, 1]
@@ -502,8 +451,7 @@ func.func @reinterpret_cast_alias(
 
   // CHECK: cuda.copy_d2h stream(%[[stream:.+]])
   cuda.copy_d2h stream(%stream) %src, %dst : memref<8xf32, #plan.memory_space<device>> to memref<8xf32, #plan.memory_space<host>>
-  // CHECK-NEXT: %[[e:.+]] = cuda.event.create device(%[[pDev]])
-  // CHECK-NEXT: cuda.stream.record_event %[[stream]], %[[e]]
+  // CHECK-NEXT: %[[e:.+]] = cuda.event.create_on_stream %[[stream]] : !cuda.stream
 
   %c0 = arith.constant 0 : index
   // Load from reinterpreted view should trigger sync
@@ -544,8 +492,6 @@ func.func @multiple_buffers_with_aliases(
     %src2: memref<8xf32, #plan.memory_space<device>>,
     %dst1: memref<8xf32, #plan.memory_space<host>>,
     %dst2: memref<8xf32, #plan.memory_space<host>>) {
-  // CHECK: %[[c0_i32:.+]] = arith.constant 0 : i32
-  // CHECK: %[[pDev:.+]] = cuda.get_program_device %[[c0_i32]] : i32
   // Create subviews
   // CHECK: %[[sv1:.+]] = memref.subview
   %sv1 = memref.subview %dst1[0][4][1] : memref<8xf32, #plan.memory_space<host>> to memref<4xf32, strided<[1]>, #plan.memory_space<host>>
@@ -555,14 +501,12 @@ func.func @multiple_buffers_with_aliases(
   // Copy to first buffer
   // CHECK: cuda.copy_d2h stream(%[[stream:.+]])
   cuda.copy_d2h stream(%stream) %src1, %dst1 : memref<8xf32, #plan.memory_space<device>> to memref<8xf32, #plan.memory_space<host>>
-  // CHECK-NEXT: %[[e1:.+]] = cuda.event.create device(%[[pDev]])
-  // CHECK-NEXT: cuda.stream.record_event %[[stream]], %[[e1]]
+  // CHECK-NEXT: %[[e1:.+]] = cuda.event.create_on_stream %[[stream]] : !cuda.stream
 
   // Copy to second buffer
   // CHECK: cuda.copy_d2h stream(%[[stream]])
   cuda.copy_d2h stream(%stream) %src2, %dst2 : memref<8xf32, #plan.memory_space<device>> to memref<8xf32, #plan.memory_space<host>>
-  // CHECK-NEXT: %[[e2:.+]] = cuda.event.create device(%[[pDev]])
-  // CHECK-NEXT: cuda.stream.record_event %[[stream]], %[[e2]]
+  // CHECK-NEXT: %[[e2:.+]] = cuda.event.create_on_stream %[[stream]] : !cuda.stream
 
   %c0 = arith.constant 0 : index
 
@@ -631,12 +575,9 @@ func.func @restrict_same_buffer_still_syncs(
     %stream: !cuda.stream,
     %src: memref<4xf32, #plan.memory_space<device>>,
     %dst: memref<4xf32, #plan.memory_space<host>> {executor.restrict}) {
-  // CHECK: %[[c0_i32:.+]] = arith.constant 0 : i32
-  // CHECK: %[[pDev:.+]] = cuda.get_program_device %[[c0_i32]] : i32
   // CHECK: cuda.copy_d2h stream(%[[stream:.+]]) %{{.+}}, %[[dst:.+]] :
   cuda.copy_d2h stream(%stream) %src, %dst : memref<4xf32, #plan.memory_space<device>> to memref<4xf32, #plan.memory_space<host>>
-  // CHECK-NEXT: %[[e:.+]] = cuda.event.create device(%[[pDev]])
-  // CHECK-NEXT: cuda.stream.record_event %[[stream]], %[[e]]
+  // CHECK-NEXT: %[[e:.+]] = cuda.event.create_on_stream %[[stream]] : !cuda.stream
 
   %c0 = arith.constant 0 : index
   // Loading from the same buffer still needs sync
@@ -656,15 +597,12 @@ func.func @restrict_with_subview(
     %src: memref<8xf32, #plan.memory_space<device>>,
     %dst: memref<8xf32, #plan.memory_space<host>> {executor.restrict},
     %other: memref<8xf32, #plan.memory_space<host>> {executor.restrict}) {
-  // CHECK: %[[c0_i32:.+]] = arith.constant 0 : i32
-  // CHECK: %[[pDev:.+]] = cuda.get_program_device %[[c0_i32]] : i32
   // CHECK: %[[subview:.+]] = memref.subview %[[dst:.+]][0]
   %subview = memref.subview %dst[0][4][1] : memref<8xf32, #plan.memory_space<host>> to memref<4xf32, strided<[1]>, #plan.memory_space<host>>
 
   // CHECK: cuda.copy_d2h stream(%[[stream:.+]]) %{{.+}}, %[[dst]] :
   cuda.copy_d2h stream(%stream) %src, %dst : memref<8xf32, #plan.memory_space<device>> to memref<8xf32, #plan.memory_space<host>>
-  // CHECK-NEXT: %[[e:.+]] = cuda.event.create device(%[[pDev]])
-  // CHECK-NEXT: cuda.stream.record_event %[[stream]], %[[e]]
+  // CHECK-NEXT: %[[e:.+]] = cuda.event.create_on_stream %[[stream]] : !cuda.stream
 
   %c0 = arith.constant 0 : index
   // Subview of %dst still aliases %dst, so sync is needed
@@ -715,8 +653,7 @@ func.func @test_dealloc_syncs_with_d2h(
 
   // CHECK: cuda.copy_d2h stream(%{{.+}}) %{{.+}}, %[[dst]] :
   cuda.copy_d2h stream(%stream) %src, %dst : memref<4xf32, #plan.memory_space<device>> to memref<4xf32, #plan.memory_space<host>>
-  // CHECK-NEXT: %[[e:.+]] = cuda.event.create device(%[[pDev]])
-  // CHECK-NEXT: cuda.stream.record_event %{{.+}}, %[[e]]
+  // CHECK-NEXT: %[[e:.+]] = cuda.event.create_on_stream %[[stream]] : !cuda.stream
 
   // CHECK: cuda.event.sync %[[e]] : !cuda.event
   // CHECK-NEXT: memref.dealloc %[[dst]]
@@ -740,8 +677,7 @@ func.func @write_before_and_in_loop(
   %src0 = memref.subview %srcs[0, 0][1, 4][1, 1] : memref<?x4xf32, #dev> to memref<4xf32, #dev>
   // CHECK: cuda.copy_d2h stream(%[[stream:.+]])
   cuda.copy_d2h stream(%stream) %src0, %dst : memref<4xf32, #dev> to memref<4xf32, #host>
-  // CHECK: %[[e:.+]] = cuda.event.create
-  // CHECK: cuda.stream.record_event %[[stream]], %[[e]]
+  // CHECK: %[[e:.+]] = cuda.event.create_on_stream %[[stream]] : !cuda.stream
   %c0 = arith.constant 0.0 : f32
   // CHECK: scf.for
   %1 = scf.for %i = %lb to %ub step %step iter_args(%arg0 = %c0) -> f32 {
@@ -775,7 +711,7 @@ func.func @write_before_and_in_loop_with_new_stream(
   %src0 = memref.subview %srcs[0, 0][1, 4][1, 1] : memref<?x4xf32, #dev> to memref<4xf32, #dev>
   // CHECK: cuda.copy_d2h stream(%[[stream:.+]])
   cuda.copy_d2h stream(%stream) %src0, %dst : memref<4xf32, #dev> to memref<4xf32, #host>
-  // CHECK: %[[e:.+]] = cuda.event.create
+  // CHECK: %[[e:.+]] = cuda.event.create_on_stream %[[stream]] : !cuda.stream
   %c0 = arith.constant 0.0 : f32
   %1 = scf.for %i = %lb to %ub step %step iter_args(%arg0 = %c0) -> f32 {
     // CHECK: cuda.event.sync %[[e]]

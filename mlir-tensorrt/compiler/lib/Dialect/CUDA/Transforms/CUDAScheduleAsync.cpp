@@ -147,10 +147,10 @@ static bool isSchedulableCudaCommand(Operation *op) {
   if (isa<cuda::GetActiveDeviceOp, cuda::GetGlobalStreamOp,
           cuda::StreamCreateOp, cuda::StreamDestroyOp, cuda::StreamSyncOp,
           cuda::StreamWaitEventOp, cuda::StreamRecordEventOp,
-          cuda::EventCreateOp, cuda::EventSyncOp, cuda::EventElapsedTimeOp,
-          cuda::EventReleaseOp, cuda::DeviceCountOp, cuda::GetDeviceOp,
-          cuda::SetActiveDeviceOp, cuda::GetFunctionOp, cuda::CompiledModuleOp>(
-          op))
+          cuda::EventCreateOp, cuda::EventCreateOnStreamOp, cuda::EventSyncOp,
+          cuda::EventElapsedTimeOp, cuda::EventReleaseOp, cuda::DeviceCountOp,
+          cuda::GetDeviceOp, cuda::SetActiveDeviceOp, cuda::GetFunctionOp,
+          cuda::CompiledModuleOp>(op))
     return false;
 
   return hasStreamOperands(op);
@@ -175,8 +175,7 @@ static Value getOrCreateProducerEvent(RewriterBase &rewriter,
   OpBuilder::InsertionGuard g(rewriter);
   rewriter.setInsertionPointAfter(producer);
   Location loc = producer->getLoc();
-  Value e = rewriter.create<cuda::EventCreateOp>(loc, getDevice());
-  rewriter.create<cuda::StreamRecordEventOp>(loc, producerStream, e);
+  Value e = rewriter.create<cuda::EventCreateOnStreamOp>(loc, producerStream);
   eventMap[producer] = e;
   return e;
 }
@@ -320,9 +319,7 @@ class CUDAScheduleAsyncPass
         Value computeStream =
             b.create<cuda::GetGlobalStreamOp>(loc, device, kComputeStreamIndex);
         Value inputsReadyEvent =
-            rewriter.create<cuda::EventCreateOp>(loc, device);
-        rewriter.create<cuda::StreamRecordEventOp>(loc, programStream,
-                                                   inputsReadyEvent);
+            rewriter.create<cuda::EventCreateOnStreamOp>(loc, programStream);
         rewriter.create<cuda::StreamWaitEventOp>(loc, copyStream,
                                                  inputsReadyEvent);
         rewriter.create<cuda::StreamWaitEventOp>(loc, computeStream,
@@ -347,8 +344,8 @@ class CUDAScheduleAsyncPass
       for (Value st : ArrayRef(streams).drop_front()) {
         assert(device && streams[kProgramStreamIndex] &&
                "main program stream must be created");
-        events.push_back(rewriter.create<cuda::EventCreateOp>(loc, device));
-        rewriter.create<cuda::StreamRecordEventOp>(loc, st, events.back());
+        Value event = rewriter.create<cuda::EventCreateOnStreamOp>(loc, st);
+        events.push_back(event);
       }
       for (Value e : events) {
         rewriter.create<cuda::StreamWaitEventOp>(

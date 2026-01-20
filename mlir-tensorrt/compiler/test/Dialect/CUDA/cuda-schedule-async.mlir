@@ -33,20 +33,19 @@ func.func @schedule_copy_compute_dependency(%devBuf: memref<4xf32, #dev>,
 // CHECK: %[[s1:.+]] = cuda.get_global_stream device(%[[pDev]]) [1]
 // CHECK: %[[s2:.+]] = cuda.get_global_stream device(%[[pDev]]) [2]
 
-// CHECK-DAG: cuda.stream.record_event %[[s0]], %[[input_ready:.+]]
+// CHECK: %[[input_ready:.+]] = cuda.event.create_on_stream %[[s0]]
 // CHECK-DAG: cuda.stream.wait_event %[[s1]], %[[input_ready]]
 // CHECK-DAG: cuda.stream.wait_event %[[s2]], %[[input_ready]]
 //     CHECK: cuda.event.release %[[input_ready]]
 
 // CHECK: cuda.launch %{{.+}}(%{{.+}} : memref<4xf32, #plan.memory_space<device>>) with
 // CHECK:   smem(%{{.+}}) stream(%[[s2]])
-// CHECK: %[[e0:.+]] = cuda.event.create device(%[[pDev]])
-// CHECK: cuda.stream.record_event %[[s2]], %[[e0]]
+// CHECK: %[[e0:.+]] = cuda.event.create_on_stream %[[s2]]
 // CHECK: cuda.stream.wait_event %[[s1]], %[[e0]]
 // CHECK: cuda.copy_d2h stream(%[[s1]]) %{{.+}}, %{{.+}} : memref<4xf32, #plan.memory_space<device>> to memref<4xf32, #plan.memory_space<host>>
 // CHECK: cuda.event.release %[[e0]] : !cuda.event
-// CHECK-DAG: cuda.stream.record_event %[[s1]], %[[F1:.+]]
-// CHECK-DAG: cuda.stream.record_event %[[s2]], %[[F2:.+]]
+// CHECK-DAG: %[[F1:.+]] = cuda.event.create_on_stream %[[s1]]
+// CHECK-DAG: %[[F2:.+]] = cuda.event.create_on_stream %[[s2]]
 // CHECK-DAG: cuda.stream.wait_event %[[s0]], %[[F1]]
 // CHECK-DAG: cuda.stream.wait_event %[[s0]], %[[F2]]
 // CHECK-DAG: cuda.event.release %[[F1]]
@@ -152,7 +151,7 @@ func.func @schedule_inside_loop(%devBuf: memref<4xf32, #dev>,
 // CHECK-DAG: %[[STREAM1:.+]] = cuda.get_global_stream device(%[[pDev]]) [1]
 // CHECK-DAG: %[[STREAM2:.+]] = cuda.get_global_stream device(%[[pDev]]) [2]
 
-// CHECK-DAG: cuda.stream.record_event %[[s0]], %[[input_ready:.+]]
+// CHECK: %[[input_ready:.+]] = cuda.event.create_on_stream %[[s0]]
 // CHECK-DAG: cuda.stream.wait_event %[[s1]], %[[input_ready]]
 // CHECK-DAG: cuda.stream.wait_event %[[s2]], %[[input_ready]]
 //     CHECK: cuda.event.release %[[input_ready]]
@@ -160,14 +159,13 @@ func.func @schedule_inside_loop(%devBuf: memref<4xf32, #dev>,
 // CHECK: scf.for
 // CHECK:   cuda.launch
 // CHECK:   stream(%[[STREAM2]])
-// CHECK:   %[[EVT:.+]] = cuda.event.create device(%[[pDev]])
-// CHECK:   cuda.stream.record_event %[[STREAM2]], %[[EVT]]
+// CHECK:   %[[EVT:.+]] = cuda.event.create_on_stream %[[STREAM2]] : !cuda.stream
 // CHECK:   cuda.stream.wait_event %[[STREAM1]], %[[EVT]]
 // CHECK:   cuda.copy_d2h stream(%[[STREAM1]])
 // CHECK:   cuda.event.release %[[EVT]] : !cuda.event
 // CHECK: }
-// CHECK-DAG: cuda.stream.record_event %[[STREAM1]], %[[F1:.+]]
-// CHECK-DAG: cuda.stream.record_event %[[STREAM2]], %[[F2:.+]]
+// CHECK-DAG: %[[F1:.+]] = cuda.event.create_on_stream %[[STREAM1]] : !cuda.stream
+// CHECK-DAG: %[[F2:.+]] = cuda.event.create_on_stream %[[STREAM2]] : !cuda.stream
 // CHECK-DAG: cuda.stream.wait_event %[[STREAM0]], %[[F1]]
 // CHECK-DAG: cuda.stream.wait_event %[[STREAM0]], %[[F2]]
 // CHECK-DAG: cuda.event.release %[[F1]]

@@ -1,6 +1,6 @@
 // REQUIRES: host-has-at-least-1-gpus
 // RUN: mlir-tensorrt-opt -pass-pipeline="builtin.module(kernel-set-gpu-target{infer-target-from-host},kernel-annotate-entrypoints,gpu.module(kernel-lower-to-nvvm,reconcile-unrealized-casts,translate-nvvm-to-ptx))" %s | \
-// RUN: mlir-tensorrt-opt -pass-pipeline="builtin.module(convert-kernel-to-cuda,drop-nested-modules,convert-memref-to-cuda,cuda-insert-host-sync,func.func(cuda-simplify-stream-wait),convert-plan-to-executor,convert-cuda-to-executor,executor-lowering-pipeline)" | \
+// RUN: mlir-tensorrt-opt -pass-pipeline="builtin.module(convert-kernel-to-cuda,drop-nested-modules,convert-memref-to-cuda,cuda-insert-host-sync,func.func(cuda-simplify-stream-wait,cuda-expand-ops),convert-plan-to-executor,convert-cuda-to-executor,executor-lowering-pipeline)" | \
 // RUN: mlir-tensorrt-translate -mlir-to-runtime-executable | \
 // RUN: mlir-tensorrt-runner -input-type=rtexe -features=core,cuda
 

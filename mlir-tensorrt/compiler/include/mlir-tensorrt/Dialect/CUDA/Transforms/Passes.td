@@ -52,4 +52,17 @@ def CUDASimplifyStreamWaitPass
   ];
 }
 
+//===----------------------------------------------------------------------===//
+// CUDAExpandOpsPass
+//===----------------------------------------------------------------------===//
+
+def CUDAExpandOpsPass : Pass<"cuda-expand-ops", "mlir::func::FuncOp"> {
+  let summary = "Expand composite CUDA operations into simpler ops";
+
+  let dependentDialects = [
+    "::mlir::cuda::CUDADialect",
+    "::mlir::func::FuncDialect"
+  ];
+}
+
 #endif // MLIR_TENSORRT_DIALECT_CUDA_TRANSFORMS_PASSES_TD

@@ -86,6 +86,14 @@ func.func @cuda_alloc(%arg0: index, %arg1: !cuda.stream) -> memref<10xf32> {
 
 // -----
 
+func.func @cuda_event_create_on_stream_invalid(%bad: i32) {
+  // expected-error @below {{invalid kind of type specified: expected cuda.stream}}
+  %0 = cuda.event.create_on_stream %bad : i32
+  return
+}
+
+// -----
+
 // expected-error @below {{'cuda.compiled_module' op expected exactly one of 'value' or 'file' to be specified}}
 cuda.compiled_module @missing_payload
 

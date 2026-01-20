@@ -768,7 +768,8 @@ struct CudaOpToRuntimeBuiltinCallConverter : public ConvertToExecutorPattern {
         isa<cuda::LaunchOp, cuda::CopyD2DOp, cuda::CopyH2DOp, cuda::CopyD2HOp,
             cuda::AllocOp, cuda::DeallocOp, cuda::GetActiveDeviceOp,
             cuda::GetProgramDeviceOp, cuda::GetGlobalStreamOp,
-            cuda::CompiledModuleOp, cuda::GetFunctionOp, cuda::MemSetOp>(op))
+            cuda::CompiledModuleOp, cuda::GetFunctionOp, cuda::MemSetOp,
+            cuda::EventCreateOnStreamOp>(op))
       return failure();
     SmallVector<Type> newResultTypes;
     if (failed(getTypeConverter()->convertTypes(op->getResultTypes(),

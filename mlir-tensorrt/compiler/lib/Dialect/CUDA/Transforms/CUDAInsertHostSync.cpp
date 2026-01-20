@@ -13,6 +13,7 @@
 #include "mlir-tensorrt/Analysis/AliasAnalysis.h"
 #include "mlir-tensorrt/Dialect/CUDA/IR/CUDADialect.h"
 #include "mlir-tensorrt/Dialect/CUDA/Transforms/Passes.h" // IWYU pragma: keep
+#include "mlir-tensorrt/Dialect/TensorRTRuntime/IR/Ops.h"
 #include "mlir/Analysis/AliasAnalysis.h"
 #include "mlir/Analysis/DataFlow/DenseAnalysis.h"
 #include "mlir/Analysis/DataFlow/Utils.h"
@@ -414,18 +415,6 @@ class CUDAInsertHostSyncPass
 
     // Track which D2H ops have had events created for them and their events.
     DenseMap<Operation *, Value> d2hToEvent;
-    Value device{};
-
-    auto lazilyCreateDevice = [&]() -> Value {
-      if (device)
-        return device;
-      OpBuilder::InsertionGuard g(rewriter);
-      rewriter.setInsertionPointToStart(&func.getBody().front());
-      Value zeroI32 = rewriter.create<arith::ConstantOp>(
-          func.getLoc(), rewriter.getI32IntegerAttr(0));
-      device = rewriter.create<GetProgramDeviceOp>(func.getLoc(), zeroI32);
-      return device;
-    };
 
     // Track created events and their defining blocks for later release.
     // Events are released at the end of their defining block (before
@@ -441,8 +430,8 @@ class CUDAInsertHostSyncPass
       OpBuilder::InsertionGuard g(rewriter);
       rewriter.setInsertionPointAfter(d2hOp);
       Location loc = d2hOp.getLoc();
-      Value event = rewriter.create<EventCreateOp>(loc, lazilyCreateDevice());
-      rewriter.create<StreamRecordEventOp>(loc, d2hOp.getStream(), event);
+      Value event =
+          rewriter.create<EventCreateOnStreamOp>(loc, d2hOp.getStream());
       d2hToEvent[d2hOp.getOperation()] = event;
 
       // Track for release at end of defining block
@@ -557,8 +546,21 @@ class CUDAInsertHostSyncPass
     auto result =
         func.walk<WalkOrder::PreOrder>([&](Operation *op) -> WalkResult {
           // Skip CUDA dialect ops and the function itself.
-          if (isStreamSchedulableOp(op) || isa<func::FuncOp>(op))
+          if ((isStreamSchedulableOp(op) &&
+               !isa<trtrt::EnqueueOp, trtrt::EnqueueAllocOp>(op)) ||
+              isa<func::FuncOp>(op))
             return WalkResult::advance();
+
+          if (auto enqueueOp = dyn_cast<trtrt::EnqueueOp>(op)) {
+            auto hostTensorArgs = enqueueOp.getHostTensorArgs();
+            if (!hostTensorArgs || hostTensorArgs->empty())
+              return WalkResult::advance();
+          }
+          if (auto enqueueAllocOp = dyn_cast<trtrt::EnqueueAllocOp>(op)) {
+            auto hostTensorArgs = enqueueAllocOp.getHostTensorArgs();
+            if (!hostTensorArgs || hostTensorArgs->empty())
+              return WalkResult::advance();
+          }
 
           // Clear per-block stream cache when transitioning to a new block.
           // Note: D2H sync tracking (d2hSyncedInBlock) and event release
