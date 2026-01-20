@@ -122,6 +122,22 @@ ToType bitcast(FromType val) {
   }
 }
 
+/// Sign extension cast for integer types, including Int4.
+template <typename ResultType, typename InputType>
+ResultType signExtendIntCast(InputType input) {
+  if constexpr (std::is_same_v<InputType, Int4>) {
+    static_assert(std::is_integral_v<ResultType>,
+                  "signExtendIntCast requires integral result type");
+    return static_cast<ResultType>(static_cast<int>(input));
+  } else {
+    static_assert(std::is_integral_v<InputType>,
+                  "signExtendIntCast requires integral input type");
+    static_assert(std::is_integral_v<ResultType>,
+                  "signExtendIntCast requires integral result type");
+    return static_cast<ResultType>(input);
+  }
+}
+
 /// Negation operator for in unary op definitions below.
 template <typename T>
 T negate(T x) {
@@ -649,8 +665,7 @@ static void registerExecutorCoreModuleLuaRuntimeMethods(
   };                                                                           \
   lua["_siext_" #inpSuffix "_" #resSuffix] = [](inpType input) -> resType {    \
     ADD_CORE_MODULE_RANGE("core_siext");                                       \
-    auto tmp = static_cast<resType>(input);                                    \
-    return *reinterpret_cast<const resType *>(&tmp);                           \
+    return signExtendIntCast<resType>(input);                                  \
   }
   DEFINE_IEXT_METHOD(i32, i64, int32_t, int64_t);
   DEFINE_IEXT_METHOD(i16, i64, int16_t, int64_t);
@@ -668,8 +683,7 @@ static void registerExecutorCoreModuleLuaRuntimeMethods(
   };                                                                           \
   lua["_siext_" #inpSuffix "_" #resSuffix] = [](inpType input) -> resType {    \
     ADD_CORE_MODULE_RANGE("core_siext");                                       \
-    auto tmp = static_cast<resType>(input);                                    \
-    return *reinterpret_cast<const resType *>(&tmp);                           \
+    return signExtendIntCast<resType>(input);                                  \
   }
 
   DEFINE_IEXT_METHOD_I4(i4, i8, Int4, int8_t);
