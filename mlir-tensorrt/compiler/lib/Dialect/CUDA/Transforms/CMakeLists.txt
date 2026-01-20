@@ -1,5 +1,6 @@
 add_mlir_tensorrt_library(MLIRTensorRTCUDATransforms
   BufferizableOpInterfaceImpl.cpp
+  CUDAExpandOps.cpp
   CUDAScheduleAsync.cpp
   CUDASimplifyStreamWait.cpp
   CUDAInsertHostSync.cpp
@@ -11,6 +12,7 @@ add_mlir_tensorrt_library(MLIRTensorRTCUDATransforms
     MLIRTensorRTCompilerAnalysis
     MLIRTensorRTCUDADialect
     MLIRTensorRTStreamSchedulableOpInterface
+    MLIRTensorRTTensorRTRuntimeDialect
   MLIR_LIBS PUBLIC
     MLIRAnalysis
     MLIRIR

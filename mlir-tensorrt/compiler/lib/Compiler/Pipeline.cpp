@@ -497,9 +497,12 @@ void Pipeline::populatePassManager() {
 
     // Cleanup: remove redundant stream waits that can be introduced by
     // scheduling and subsequent transformations.
-    pm.addNestedPass<func::FuncOp>(mlir::createCSEPass());
-    pm.addNestedPass<func::FuncOp>(cuda::createCUDASimplifyStreamWaitPass());
-    pm.addNestedPass<func::FuncOp>(mlir::createCanonicalizerPass());
+    addNestedPasses<func::FuncOp>(pm, [](OpPassManager &pm) {
+      pm.addPass(mlir::createCSEPass());
+      pm.addPass(cuda::createCUDASimplifyStreamWaitPass());
+      pm.addPass(mlir::createCanonicalizerPass());
+      pm.addPass(cuda::createCUDAExpandOpsPass());
+    });
 
     if (options.hostTarget == HostTarget::Executor) {
       pm.addPass(createConvertPlanToExecutorPass());
