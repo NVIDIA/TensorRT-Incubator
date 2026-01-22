@@ -77,7 +77,7 @@ cmd_lint_check() {
   local range
   range="$(compute_range)"
 
-  uv tool install black
+  uv tool install 'black<26.0'
   uvx black --check --extend-exclude='.*\.pyi' mlir-tensorrt/compiler/ mlir-tensorrt/integrations
 
   local clang_format_diff
