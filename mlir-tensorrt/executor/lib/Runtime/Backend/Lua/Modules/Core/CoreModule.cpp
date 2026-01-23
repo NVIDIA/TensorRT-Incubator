@@ -247,6 +247,28 @@ ResType uitofp(InpType input) {
   }
 }
 
+/// Perform unsigned remainder (urem) operation on two integers.
+/// This is equivalent to LLVM's APInt::urem for standard integer types.
+/// The operation treats both operands as unsigned values and computes lhs %
+/// rhs.
+template <typename T>
+T urem(T lhs, T rhs) {
+  using UnsignedT = std::make_unsigned_t<T>;
+  if constexpr (std::is_unsigned_v<T>) {
+    // Type is already unsigned, no conversion needed
+    return lhs % rhs;
+  } else {
+    // C++17: use memcpy for safe type punning (optimized away by compiler)
+    UnsignedT lhsUnsigned, rhsUnsigned;
+    std::memcpy(&lhsUnsigned, &lhs, sizeof(T));
+    std::memcpy(&rhsUnsigned, &rhs, sizeof(T));
+    UnsignedT result = lhsUnsigned % rhsUnsigned;
+    T resultT;
+    std::memcpy(&resultT, &result, sizeof(T));
+    return resultT;
+  }
+}
+
 /// Implementation of the strided memref copy operation.
 /// The `srcDescriptor` and `dstDescriptor` are pointers to caller-allocated
 /// ranked memref descriptors provided for callee use (e.g. 'byval' arguments).
@@ -1094,6 +1116,17 @@ static void registerExecutorCoreModuleLuaRuntimeMethods(
   DEFINE_INT_UNARY_OP(absi, std::abs);
 
 #undef DEFINE_INT_UNARY_OP
+
+  //===----------------------------------------------------------------------===//
+  // URemOps
+  //===----------------------------------------------------------------------===//
+
+  lua["_uremi_i64"] = urem<int64_t>;
+  lua["_uremi_i32"] = urem<int32_t>;
+
+  //===----------------------------------------------------------------------===//
+  // CtPop Ops
+  //===----------------------------------------------------------------------===//
 
   // Population count (count set bits) - mirrors llvm.intr.ctpop.
   // Only i32 and i64 are supported; smaller types should be zero-extended
