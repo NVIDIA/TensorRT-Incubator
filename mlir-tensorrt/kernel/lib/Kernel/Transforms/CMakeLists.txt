@@ -1,10 +1,6 @@
 include_directories(${MLIR_INCLUDE_DIRS})
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
-if(MLIR_TRT_ENABLE_CUDA)
-  mtrt_find_libdevice_file(libDevicePath)
-endif()
-
 add_mlir_kernel_library(MLIRTensorRTKernelTransforms
   AffineBoundsOptimization.cpp
   AnnotateKernelEntrypoints.cpp
@@ -91,10 +87,16 @@ add_mlir_kernel_library(MLIRTensorRTKernelTransforms
     MLIRVectorToSCF
 )
 
-# Add the default libdevice path. This will point to the libdevice path in the
-# CTK installation of the development machine. In the future we should bundle
-# the libdevice binary and look for it relative to the compiler location.
-target_compile_definitions(obj.MLIRTensorRTKernelTransforms PRIVATE
-  "DEFAULT_LIBDEVICE_PATH=\"${libDevicePath}\""
-)
+if(MLIR_TRT_ENABLE_CUDA)
+  if(MSVC)
+    message(WARNING
+      "MSVC toolchain detected; libdevice will not be embedded and will not be available."
+    )
+  else()
+    enable_language(ASM)
+    # Embed libdevice into the compiler so deployed environments do not need a CUDA
+    # toolkit install at runtime.
+    mtrt_embed_libdevice_into_target(MLIRTensorRTKernelTransforms)
+  endif()
+endif()
 
