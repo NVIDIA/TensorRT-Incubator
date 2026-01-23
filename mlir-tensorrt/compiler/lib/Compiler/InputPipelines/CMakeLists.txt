@@ -14,6 +14,7 @@ add_mlir_tensorrt_library(
     MLIRTensorRTStablehloToSCF
     MLIRTensorRTTransformsSCFFloatStrengthReduce
     MLIRTensorRTTransformsUnrollForLoops
+    MLIRTensorRTTransformsSCFForCyclicIterArgs
 
   MLIR_LIBS PUBLIC
     MLIRTransforms

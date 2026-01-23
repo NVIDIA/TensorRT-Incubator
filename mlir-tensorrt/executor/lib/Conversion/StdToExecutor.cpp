@@ -268,6 +268,20 @@ struct ConvertCmpF : public ConvertOpToExecutorPattern<arith::CmpFOp> {
   }
 };
 
+struct ConvertURem : public ConvertOpToExecutorPattern<arith::RemUIOp> {
+  using ConvertOpToExecutorPattern::ConvertOpToExecutorPattern;
+  LogicalResult
+  matchAndRewrite(arith::RemUIOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    Type operandType = adaptor.getLhs().getType();
+    if (!operandType.isInteger(32) && !operandType.isInteger(64))
+      return failure();
+    rewriter.replaceOpWithNewOp<executor::URemIOp>(op, adaptor.getLhs(),
+                                                   adaptor.getRhs());
+    return success();
+  }
+};
+
 //===----------------------------------------------------------------------===//
 // Control Flow Ops
 //===----------------------------------------------------------------------===//
@@ -495,7 +509,8 @@ void executor::populateArithToExecutorPatterns(
            ConvertUnaryCastToExecute<arith::FPToSIOp, executor::FPToSIOp>,
            ConvertArithIndexCastOp<arith::IndexCastOp>,
            ConvertArithIndexCastOp<arith::IndexCastUIOp>, ConvertArithSelect,
-           ConvertCmpI, ConvertCmpF>(typeConverter, patterns.getContext());
+           ConvertCmpI, ConvertCmpF, ConvertURem>(typeConverter,
+                                                  patterns.getContext());
 }
 
 namespace {

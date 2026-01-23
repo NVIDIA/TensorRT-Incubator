@@ -662,6 +662,16 @@ def Executor_SDivIOp : Executor_ArithBinaryOpIntWithFolder<"sdivi">;
 def Executor_SFloorDivIOp : Executor_ArithBinaryOpIntWithFolder<"sfloor_divi">;
 // Remainder
 def Executor_SRemIOp : Executor_ArithBinaryOpIntWithFolder<"sremi">;
+def Executor_URemIOp : Executor_Op<"uremi", [
+      Pure, SameOperandsAndResultType]> {
+  let description = [{
+    `executor.uremi` performs an unsigned integer remainder operation.
+  }];
+  let arguments = (ins Executor_Index:$lhs, Executor_Index:$rhs);
+  let results = (outs Executor_Index:$result);
+  let assemblyFormat = "$lhs `,` $rhs attr-dict `:` type($lhs)";
+}
+
 // Shift an integer value to the left by a variable amount
 def Executor_ShiftLeftIOp : Executor_ArithBinaryIntOp<"shift_lefti">;
 // Shift right arithmetic

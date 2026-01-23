@@ -133,6 +133,28 @@ def SCFUnrollPass : Pass<"mtrt-scf-unroll"> {
 }
 
 //===----------------------------------------------------------------------===//
+// SCFForCyclicIterArgsPass
+//===----------------------------------------------------------------------===//
+
+def SCFForCyclicIterArgsPass : Pass<"mtrt-scf-for-cyclic-iter-args"> {
+  let summary =
+    "Eliminate scf.for iter args that only participate in cyclic shifts";
+
+  let description = [{
+    Identifies groups of `scf.for` iter args that are yielded as a cyclic
+    permutation of the same block arguments. The loop-carried args are removed,
+    and uses inside the loop are replaced with values selected from the init
+    args based on the iteration index. The loop results are rewritten similarly
+    based on the trip count.
+  }];
+
+  let dependentDialects = [
+    "::mlir::scf::SCFDialect",
+    "::mlir::arith::ArithDialect"
+  ];
+}
+
+//===----------------------------------------------------------------------===//
 // SCFFloatStrengthReducePass
 //===----------------------------------------------------------------------===//
 
