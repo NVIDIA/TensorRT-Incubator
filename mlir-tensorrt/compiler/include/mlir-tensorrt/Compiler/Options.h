@@ -287,7 +287,7 @@ struct AsyncSchedulingOptions : public mlir::OptionsGroup {
 
   /// Enables use of multiple streams during async scheduling.
   Option<bool> enableMultStream{
-      this->ctx, "async-enable-mult-stream", llvm::cl::init(true),
+      this->ctx, "async-enable-multi-stream", llvm::cl::init(true),
       llvm::cl::desc("Enable use of multiple streams during async scheduling."),
       llvm::cl::cat(category)};
 };
