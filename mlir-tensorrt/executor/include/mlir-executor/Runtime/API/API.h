@@ -848,6 +848,17 @@ public:
     return logicalDeviceIdToCUDAOrdinal;
   }
 
+  /// Set the path to the crash reproducer file.
+  void setCrashReproducerPath(llvm::StringRef path) {
+    crashReproducerPath = path.str();
+  }
+
+  /// Return the path to the crash reproducer file.
+  llvm::StringRef getCrashReproducerPath() const { return crashReproducerPath; }
+
+  /// Return true if the crash reproducer should be tested by writing the Lua
+  bool getTestCrashReproducer() const;
+
 private:
   RuntimeSessionOptions(int32_t numDevices, int32_t numDevicesPerProgram,
                         std::vector<int32_t> logicalDeviceIdToCUDAOrdinal,
@@ -869,6 +880,10 @@ private:
   /// A list of features names (e.g. module names) that should be enabled for
   /// this session.
   llvm::StringSet<> features;
+
+  /// The path to a crash reproducer file for code from an executable (e.g. a
+  /// Lua script that fails to load).
+  std::string crashReproducerPath;
 };
 
 //===----------------------------------------------------------------------===//
@@ -1032,6 +1047,9 @@ protected:
   Ref<Stream> stream;
   std::unique_ptr<CudaEventPool> cudaEventPool;
 };
+
+/// Register the default runtime session LLVM CommandLine options.
+void registerGlobalRuntimeSessionCLOptions();
 
 //===----------------------------------------------------------------------===//
 // RuntimeClient

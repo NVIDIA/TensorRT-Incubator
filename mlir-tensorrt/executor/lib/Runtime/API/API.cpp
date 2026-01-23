@@ -30,6 +30,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FormatVariadic.h"
+#include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/Threading.h"
 #include "llvm/Support/raw_ostream.h"
@@ -71,6 +72,32 @@ llvm::StringRef mtrt::getDeviceKindString(DeviceKind kind) {
 //===----------------------------------------------------------------------===//
 // RuntimeSessionOptions
 //===----------------------------------------------------------------------===//
+
+namespace {
+struct DefaultRuntimeSessionCLOptions {
+  llvm::cl::opt<std::string> crashReproducerPath{
+      "mtrt-runtime-crash-reproducer",
+      llvm::cl::desc("The path to a crash reproducer file for code from an "
+                     "executable (e.g. a Lua script that fails to load)."),
+      llvm::cl::init("")};
+
+  llvm::cl::opt<bool> testCrashReproducer{
+      "mtrt-runtime-test-crash-reproducer",
+      llvm::cl::desc(
+          "Test the crash reproducer by writing the Lua script to the "
+          "crash reproducer file."),
+      llvm::cl::init(false), llvm::cl::Hidden};
+};
+} // namespace
+
+static llvm::ManagedStatic<DefaultRuntimeSessionCLOptions>
+    globalDefaultRuntimeSessionOptions;
+
+void mtrt::registerGlobalRuntimeSessionCLOptions() {
+  // Just make sure the static global options are initialized.
+  (void)*globalDefaultRuntimeSessionOptions;
+}
+
 RuntimeSessionOptions::RuntimeSessionOptions(
     int32_t numDevices, int32_t numDevicesPerProgram,
     std::vector<int32_t> logicalDeviceIdToCUDAOrdinal, llvm::StringRef ncclUuid)
@@ -79,6 +106,19 @@ RuntimeSessionOptions::RuntimeSessionOptions(
       logicalDeviceIdToCUDAOrdinal(std::move(logicalDeviceIdToCUDAOrdinal)),
       ncclUuid(ncclUuid) {
   this->enableFeatures({"core"});
+
+  // If the global options were registered, then use the default crash
+  // reproducer path as the default.
+  if (globalDefaultRuntimeSessionOptions.isConstructed()) {
+    this->crashReproducerPath =
+        globalDefaultRuntimeSessionOptions->crashReproducerPath;
+  }
+}
+
+bool RuntimeSessionOptions::getTestCrashReproducer() const {
+  if (globalDefaultRuntimeSessionOptions.isConstructed())
+    return globalDefaultRuntimeSessionOptions->testCrashReproducer;
+  return false;
 }
 
 RuntimeSessionOptions
