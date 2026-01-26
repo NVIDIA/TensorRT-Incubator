@@ -35,7 +35,7 @@ def ConvertLinalgToExecutorPass : Pass<"convert-linalg-to-executor"> {
 
     Only certain bufferized Linalg operations are supported:
 
-    - 'linalg.fill' filling a device buffer where the element type has size of
+    - 'linalg.fill' filling a host buffer where the element type has size of
       1, 2, or 4 bytes.
   }];
   let dependentDialects = [

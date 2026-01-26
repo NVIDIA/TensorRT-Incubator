@@ -425,3 +425,59 @@ func.func @test_cuda_launch(
 //   CHECK-DAG:     executor.store %[[v9]] to %[[v10]] + %[[v12]]
 //   CHECK-DAG:     executor.call @__cuda_launch(%[[v2]], %[[v3]], %[[c1_i32]], %[[c1_i32]], %[[v4]], %[[c1_i32]], %[[c1_i32]], %[[c0_i32]], %[[v5]], %[[v10]])
 //       CHECK:     return
+
+// -----
+
+#device_space = #executor.memory_type<device>
+!memref_i8 = memref<8xi8, #device_space>
+
+func.func @cuda_memset_i8(%arg0: !memref_i8, %stream: !cuda.stream,
+                          %value: i8) {
+  cuda.memset stream(%stream) %arg0 with %value : !memref_i8, i8
+  return
+}
+
+// CHECK-LABEL: func.func @cuda_memset_i8
+//  CHECK-SAME: (%[[arg0_memref:.+]]: memref<8xi8, #executor.memory_type<device>>, %[[arg1_stream:.+]]: !cuda.stream, %[[arg2_val:.+]]: i8)
+//   CHECK-DAG:     %[[arg0:.+]] = builtin.unrealized_conversion_cast %[[arg0_memref]]
+//   CHECK-DAG:     %[[arg1:.+]] = builtin.unrealized_conversion_cast %[[arg1_stream]] : !cuda.stream to !executor.ptr<host>
+//       CHECK:     executor.call @__cuda_memset_8(%{{.+}}, %{{.+}}, %{{.+}}, %{{.+}}, %[[arg1]]) : (!executor.ptr<device>, i64, i64, i8, !executor.ptr<host>) -> ()
+//       CHECK:     return
+
+// -----
+
+#device_space = #executor.memory_type<device>
+!memref_f16 = memref<?xf16, #device_space>
+
+func.func @cuda_memset_f16(%arg0: !memref_f16, %stream: !cuda.stream,
+                           %value: f16) {
+  cuda.memset stream(%stream) %arg0 with %value : !memref_f16, f16
+  return
+}
+
+// CHECK-LABEL: func.func @cuda_memset_f16
+//  CHECK-SAME: (%[[arg0_memref:.+]]: memref<?xf16, #executor.memory_type<device>>, %[[arg1_stream:.+]]: !cuda.stream, %[[arg2_val:.+]]: f16)
+//   CHECK-DAG:     %[[arg0:.+]] = builtin.unrealized_conversion_cast %[[arg0_memref]]
+//   CHECK-DAG:     %[[arg1:.+]] = builtin.unrealized_conversion_cast %[[arg1_stream]] : !cuda.stream to !executor.ptr<host>
+//   CHECK-DAG:     %[[fill:.+]] = executor.bitcast %[[arg2_val]] : f16 to i16
+//       CHECK:     executor.call @__cuda_memset_16(%{{.+}}, %{{.+}}, %{{.+}}, %[[fill]], %[[arg1]]) : (!executor.ptr<device>, i64, i64, i16, !executor.ptr<host>) -> ()
+//       CHECK:     return
+
+// -----
+
+#device_space = #executor.memory_type<device>
+!memref_f32 = memref<?x?xf32, #device_space>
+
+func.func @cuda_memset_f32(%arg0: !memref_f32, %stream: !cuda.stream,
+                           %value: f32) {
+  cuda.memset stream(%stream) %arg0 with %value : !memref_f32, f32
+  return
+}
+
+// CHECK-LABEL: func.func @cuda_memset_f32
+//  CHECK-SAME: (%[[arg0_memref:.+]]: memref<?x?xf32, #executor.memory_type<device>>, %[[arg1_stream:.+]]: !cuda.stream, %[[arg2_val:.+]]: f32)
+//   CHECK-DAG:     %[[arg0:.+]] = builtin.unrealized_conversion_cast %[[arg0_memref]]
+//   CHECK-DAG:     %[[arg1:.+]] = builtin.unrealized_conversion_cast %[[arg1_stream]] : !cuda.stream to !executor.ptr<host>
+//   CHECK-DAG:     %[[fill:.+]] = executor.bitcast %[[arg2_val]] : f32 to i32
+//       CHECK:     executor.call @__cuda_memset_32(%{{.+}}, %{{.+}}, %{{.+}}, %[[fill]], %[[arg1]]) : (!executor.ptr<device>, i64, i64, i32, !executor.ptr<host>) -> ()
+//       CHECK:     return

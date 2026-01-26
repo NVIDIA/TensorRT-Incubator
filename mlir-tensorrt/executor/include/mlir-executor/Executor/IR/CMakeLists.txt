@@ -2,6 +2,7 @@
 # from the scope, so we must use `include_directories` here.
 include_directories(${MLIR_INCLUDE_DIRS})
 include_directories(${MLIR_TENSORRT_ROOT_DIR}/executor/include)
+include_directories(${MLIR_TENSORRT_ROOT_DIR}/common/include)
 
 add_mlir_dialect(ExecutorOps executor)
 if(COMMAND add_mlir_tensorrt_doc)

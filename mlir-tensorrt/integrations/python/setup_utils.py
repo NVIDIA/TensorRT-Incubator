@@ -86,18 +86,6 @@ def get_nightly_version() -> str:
     return append_version_feature_flags(f"{get_base_version()}.dev{datestring}")
 
 
-# pypi wheel upload is immutable, so it does not allow the same version to be uploaded twice
-# we need to add a post version number in case of the same version is already uploaded to pypi
-def get_pypi_version() -> str:
-    # wheel upload to pypi need to follow the version specification in https://packaging.python.org/en/latest/specifications/core-metadata/
-    base_version = f"{get_base_version()}"
-    post_version = str(os.environ.get("MLIR_TRT_PYPI_POST_VERSION", "")).lower()
-    if post_version != "":
-        return f"{base_version}.post{post_version}"
-    else:
-        return f"{base_version}"
-
-
 def cleanup_dir(dir: Path, should_cleanup: bool, comment: str = ""):
     prefix = "Cleaning up" if should_cleanup else "Not cleaning up"
     log(f"{prefix} {comment} at {dir}")

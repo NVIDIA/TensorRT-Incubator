@@ -502,7 +502,7 @@ static Status setTensorAddressesOrReport(
         return getInternalErrorStatus("failed to set input shape");
     }
 
-    MTRT_DBG("Set tensor address [{0}] = {1}", idx, ptr);
+    MTRT_DBG("Set tensor address [{0}] = {1:x}", idx, ptr);
     idx++;
   }
   return getOkStatus();
@@ -612,27 +612,14 @@ static Status enqueueV3Wrapper(AllocTracker &tracker, CudaEventPool &eventPool,
     return getInternalErrorStatus("failed to prepare buffers: {0}",
                                   buffers.getStatus());
   MTRT_RETURN_IF_ERROR(setTensorAddressesOrReport(context, *buffers));
-  // Create an event that we can wait on for releasing any host-pinned staging
-  // allocations we made.
-  MTRT_ASSIGN_OR_RETURN(int32_t device, mtrt::getCurrentCUDADevice());
-  MTRT_ASSIGN_OR_RETURN(EventHandle inputConsumedEventHandle,
-                        eventPool.Acquire(device, 0));
-  if (!context->setInputConsumedEvent(
-          reinterpret_cast<cudaEvent_t>(inputConsumedEventHandle.getEvent())))
-    return getStatusWithMsg(StatusCode::InternalError,
-                            "failed to set input-consumed event");
 
   context->setNvtxVerbosity(gNvtxVerbosity);
 
   if (!context->enqueueV3(stream))
     return getStatusWithMsg(StatusCode::InternalError,
                             "failed to enqueue engine execution on stream");
-  MTRT_RETURN_IF_ERROR(
-      mtrt::waitCUDAEventOnStream(reinterpret_cast<CudaStream>(stream),
-                                  inputConsumedEventHandle.getEvent()));
 
   // Return event to pool (do not destroy directly).
-  MTRT_RETURN_IF_ERROR(eventPool.Release(inputConsumedEventHandle));
 
   MTRT_DBGF("%s", "enqueueV3 successful and inputs are consumed");
 
@@ -774,7 +761,8 @@ static void registerExecutorTensorRTModuleLuaRuntimeMethods(
         assert(context != nullptr);
         assert(reinterpret_cast<cudaStream_t>(stream) != nullptr &&
                "expected valid stream");
-
+        MTRT_DBG("_trtrt_enqueue[context={0:x}] stream={1:x}", context.get(),
+                 stream);
         Status result =
             enqueueV3Wrapper(*allocTracker, *eventPool, *context,
                              reinterpret_cast<cudaStream_t>(stream), va);

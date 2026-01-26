@@ -1,15 +1,23 @@
-#ifndef MLIR_TENSORRT_DIALECT_TENSORRT_IR_TENSORRTRUNTIMEOPS_TD
-#define MLIR_TENSORRT_DIALECT_TENSORRT_IR_TENSORRTRUNTIMEOPS_TD
+//===- TensorRTRuntimeOps.td ----------------------------------------------===//
+//
+// SPDX-FileCopyrightText: Copyright 2026 NVIDIA CORPORATION & AFFILIATES.
+// All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+//
+//===----------------------------------------------------------------------===//
+#ifndef MLIR_TENSORRT_DIALECT_TENSORRTRUNTIME_IR_TENSORRTRUNTIMEOPS
+#define MLIR_TENSORRT_DIALECT_TENSORRTRUNTIME_IR_TENSORRTRUNTIMEOPS
 
+include "mlir-tensorrt-common/Interfaces/StreamSchedulableOpInterface.td"
+include "mlir-tensorrt-common/Interfaces/TensorKindOpInterface.td"
+include "mlir-tensorrt/Dialect/CUDA/IR/CUDATypes.td"
 include "mlir-tensorrt/Dialect/TensorRTRuntime/IR/TensorRTRuntimeDialect.td"
 include "mlir-tensorrt/Dialect/TensorRTRuntime/IR/TensorRTRuntimeTypes.td"
-include "mlir-tensorrt/Dialect/CUDA/IR/CUDATypes.td"
-include "mlir-tensorrt-common/Interfaces/TensorKindOpInterface.td"
-include "mlir/IR/SymbolInterfaces.td"
-include "mlir/IR/RegionKindInterface.td"
 include "mlir/Interfaces/DestinationStyleOpInterface.td"
 include "mlir/Interfaces/InferTypeOpInterface.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
+include "mlir/IR/RegionKindInterface.td"
+include "mlir/IR/SymbolInterfaces.td"
 
 
 def TensorRTRuntime_TensorRTRuntimeOpTrait: NativeOpTrait<"TensorRTRuntimeOpTrait"> {
@@ -17,7 +25,10 @@ def TensorRTRuntime_TensorRTRuntimeOpTrait: NativeOpTrait<"TensorRTRuntimeOpTrai
 }
 
 class TensorRTRuntime_Op<string mnemonic, list<Trait> traits = []> :
-        Op<TensorRTRuntime_Dialect, mnemonic, !listconcat(traits, [TensorRTRuntime_TensorRTRuntimeOpTrait])> {
+        Op<TensorRTRuntime_Dialect, mnemonic,
+           !listconcat(traits, [
+             TensorRTRuntime_TensorRTRuntimeOpTrait
+           ])> {
 }
 
 //===----------------------------------------------------------------------===//
@@ -76,7 +87,8 @@ def TensorRTRuntime_EnqueueOp : TensorRTRuntime_Op<"enqueue", [
     DeclareOpInterfaceMethods<TensorKindOpInterface>,
     DeclareOpInterfaceMethods<MemoryEffectsOpInterface>,
     AttrSizedOperandSegments,
-    DestinationStyleOpInterface
+    DestinationStyleOpInterface,
+    StreamSchedulableOp
 ]> {
   let description = [{
 
@@ -134,6 +146,7 @@ def TensorRTRuntime_EnqueueOp : TensorRTRuntime_Op<"enqueue", [
 def TensorRTRuntime_EnqueueAllocOp : TensorRTRuntime_Op<"enqueue_alloc", [
     DeclareOpInterfaceMethods<TensorKindOpInterface>,
     DeclareOpInterfaceMethods<MemoryEffectsOpInterface>,
+    StreamSchedulableOp
 ]> {
   let description = [{
     Asynchronously executes the computation represented by the
@@ -172,4 +185,4 @@ def TensorRTRuntime_EnqueueAllocOp : TensorRTRuntime_Op<"enqueue_alloc", [
   }];
 }
 
-#endif // MLIR_TENSORRT_DIALECT_TENSORRT_IR_TENSORRTRUNTIMEOPS_TD
+#endif // MLIR_TENSORRT_DIALECT_TENSORRTRUNTIME_IR_TENSORRTRUNTIMEOPS

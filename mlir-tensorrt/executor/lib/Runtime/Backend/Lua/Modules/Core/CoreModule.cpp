@@ -122,6 +122,22 @@ ToType bitcast(FromType val) {
   }
 }
 
+/// Sign extension cast for integer types, including Int4.
+template <typename ResultType, typename InputType>
+ResultType signExtendIntCast(InputType input) {
+  if constexpr (std::is_same_v<InputType, Int4>) {
+    static_assert(std::is_integral_v<ResultType>,
+                  "signExtendIntCast requires integral result type");
+    return static_cast<ResultType>(static_cast<int>(input));
+  } else {
+    static_assert(std::is_integral_v<InputType>,
+                  "signExtendIntCast requires integral input type");
+    static_assert(std::is_integral_v<ResultType>,
+                  "signExtendIntCast requires integral result type");
+    return static_cast<ResultType>(input);
+  }
+}
+
 /// Negation operator for in unary op definitions below.
 template <typename T>
 T negate(T x) {
@@ -228,6 +244,28 @@ ResType uitofp(InpType input) {
   } else {
     return static_cast<ResType>(
         *reinterpret_cast<const std::make_unsigned_t<InpType> *>(&input));
+  }
+}
+
+/// Perform unsigned remainder (urem) operation on two integers.
+/// This is equivalent to LLVM's APInt::urem for standard integer types.
+/// The operation treats both operands as unsigned values and computes lhs %
+/// rhs.
+template <typename T>
+T urem(T lhs, T rhs) {
+  using UnsignedT = std::make_unsigned_t<T>;
+  if constexpr (std::is_unsigned_v<T>) {
+    // Type is already unsigned, no conversion needed
+    return lhs % rhs;
+  } else {
+    // C++17: use memcpy for safe type punning (optimized away by compiler)
+    UnsignedT lhsUnsigned, rhsUnsigned;
+    std::memcpy(&lhsUnsigned, &lhs, sizeof(T));
+    std::memcpy(&rhsUnsigned, &rhs, sizeof(T));
+    UnsignedT result = lhsUnsigned % rhsUnsigned;
+    T resultT;
+    std::memcpy(&resultT, &result, sizeof(T));
+    return resultT;
   }
 }
 
@@ -649,8 +687,7 @@ static void registerExecutorCoreModuleLuaRuntimeMethods(
   };                                                                           \
   lua["_siext_" #inpSuffix "_" #resSuffix] = [](inpType input) -> resType {    \
     ADD_CORE_MODULE_RANGE("core_siext");                                       \
-    auto tmp = static_cast<resType>(input);                                    \
-    return *reinterpret_cast<const resType *>(&tmp);                           \
+    return signExtendIntCast<resType>(input);                                  \
   }
   DEFINE_IEXT_METHOD(i32, i64, int32_t, int64_t);
   DEFINE_IEXT_METHOD(i16, i64, int16_t, int64_t);
@@ -668,8 +705,7 @@ static void registerExecutorCoreModuleLuaRuntimeMethods(
   };                                                                           \
   lua["_siext_" #inpSuffix "_" #resSuffix] = [](inpType input) -> resType {    \
     ADD_CORE_MODULE_RANGE("core_siext");                                       \
-    auto tmp = static_cast<resType>(input);                                    \
-    return *reinterpret_cast<const resType *>(&tmp);                           \
+    return signExtendIntCast<resType>(input);                                  \
   }
 
   DEFINE_IEXT_METHOD_I4(i4, i8, Int4, int8_t);
@@ -1080,6 +1116,17 @@ static void registerExecutorCoreModuleLuaRuntimeMethods(
   DEFINE_INT_UNARY_OP(absi, std::abs);
 
 #undef DEFINE_INT_UNARY_OP
+
+  //===----------------------------------------------------------------------===//
+  // URemOps
+  //===----------------------------------------------------------------------===//
+
+  lua["_uremi_i64"] = urem<int64_t>;
+  lua["_uremi_i32"] = urem<int32_t>;
+
+  //===----------------------------------------------------------------------===//
+  // CtPop Ops
+  //===----------------------------------------------------------------------===//
 
   // Population count (count set bits) - mirrors llvm.intr.ctpop.
   // Only i32 and i64 are supported; smaller types should be zero-extended

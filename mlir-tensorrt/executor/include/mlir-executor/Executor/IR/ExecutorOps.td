@@ -1,8 +1,8 @@
 #ifndef MLIR_TENSORRT_DIALECT_EXECUTOR_IR_EXECUTOROPS_TD
 #define MLIR_TENSORRT_DIALECT_EXECUTOR_IR_EXECUTOROPS_TD
 
-
 include "mlir-executor/Executor/IR/ExecutorBase.td"
+include "mlir-tensorrt-common/Interfaces/StreamSchedulableOpInterface.td"
 include "mlir/Dialect/Bufferization/IR/BufferDeallocationOpInterface.td"
 include "mlir/Interfaces/CallInterfaces.td"
 include "mlir/Interfaces/CastInterfaces.td"
@@ -662,6 +662,16 @@ def Executor_SDivIOp : Executor_ArithBinaryOpIntWithFolder<"sdivi">;
 def Executor_SFloorDivIOp : Executor_ArithBinaryOpIntWithFolder<"sfloor_divi">;
 // Remainder
 def Executor_SRemIOp : Executor_ArithBinaryOpIntWithFolder<"sremi">;
+def Executor_URemIOp : Executor_Op<"uremi", [
+      Pure, SameOperandsAndResultType]> {
+  let description = [{
+    `executor.uremi` performs an unsigned integer remainder operation.
+  }];
+  let arguments = (ins Executor_Index:$lhs, Executor_Index:$rhs);
+  let results = (outs Executor_Index:$result);
+  let assemblyFormat = "$lhs `,` $rhs attr-dict `:` type($lhs)";
+}
+
 // Shift an integer value to the left by a variable amount
 def Executor_ShiftLeftIOp : Executor_ArithBinaryIntOp<"shift_lefti">;
 // Shift right arithmetic
@@ -1456,7 +1466,8 @@ def Executor_PluginOp : Executor_Op<"plugin", [Symbol]> {
 def Executor_CallPluginOp : Executor_Op<"call_plugin", [
    AttrSizedOperandSegments,
    DeclareOpInterfaceMethods<MemoryEffectsOpInterface>,
-   DeclareOpInterfaceMethods<SymbolUserOpInterface>]> {
+   DeclareOpInterfaceMethods<SymbolUserOpInterface>,
+   DeclareOpInterfaceMethods<StreamSchedulableOp, ["getStreamOperand"]>]> {
   let summary = "call a plugin callable";
   let description = [{
     The `executor.call_plugin` operation calls an instance of a plugin

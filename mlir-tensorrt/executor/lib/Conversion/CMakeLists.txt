@@ -1,4 +1,6 @@
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
+get_target_property(common_include_dirs MLIRTensorRTCommonIncludes INTERFACE_INCLUDE_DIRECTORIES)
+include_directories(${common_include_dirs})
 
 add_mlir_executor_library(MLIRTensorRTConvertToExecutorCommon
   PARTIAL_SOURCES_INTENDED

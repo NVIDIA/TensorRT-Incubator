@@ -524,6 +524,15 @@ static LogicalResult printExecutorBinaryInfixOperation(LuaEmitter &emitter,
   return success();
 }
 
+static LogicalResult printURemIOp(LuaEmitter &emitter, executor::URemIOp op) {
+  if (failed(emitter.emitAssignPrefix(op)))
+    return failure();
+  emitter << "_uremi_" << op.getType() << "("
+          << emitter.getVariableName(op.getLhs()) << ", "
+          << emitter.getVariableName(op.getRhs()) << ");\n";
+  return success();
+}
+
 static LogicalResult printRuntimeBuiltinUnaryOp(LuaEmitter &emitter,
                                                 Operation *op,
                                                 StringRef opName) {
@@ -1147,6 +1156,8 @@ LogicalResult LuaEmitter::emitOperation(Operation &op) {
               executor::SDivIOp, executor::DivFOp>([&](auto op) {
           return printExecutorBinarySpecialFunctionOperation(*this, op);
         })
+        .Case<executor::URemIOp>(
+            [&](auto op) { return printURemIOp(*this, op); })
         .Case<executor::ICmpOp>(
             [&](auto op) { return printExecutorICmpOp(*this, op); })
         .Case<executor::FCmpOp>(

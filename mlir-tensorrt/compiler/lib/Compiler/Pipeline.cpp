@@ -29,6 +29,8 @@
 #include "mlir-tensorrt/Conversion/CUDAToExecutor/CUDAToExecutor.h"
 #include "mlir-tensorrt/Conversion/HostToEmitC/HostToEmitC.h"
 #include "mlir-tensorrt/Conversion/Passes.h"
+#include "mlir-tensorrt/Conversion/TensorRTRuntimeToExecutor/TensorRTRuntimeToExecutor.h"
+#include "mlir-tensorrt/Dialect/CUDA/Transforms/Passes.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/PlanEnums.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
 #include "mlir-tensorrt/Dialect/StablehloExt/Transforms/Passes.h"
@@ -312,8 +314,10 @@ static void addExecutorLoweringTail(OpPassManager &pm,
   mlir::executor::ConvertStdToExecutorPassOptions stdToExecOpts;
   stdToExecOpts.indexBitwidth = options.get<ExecutorOptions>().indexBitwidth;
   mlir::executor::buildExecutorLoweringPipeline(
-      pm, stdToExecOpts, [](mlir::TypeConverter &typeConverter) {
+      pm, stdToExecOpts, /*populateAdditionalTypeConversions=*/
+      [](mlir::TypeConverter &typeConverter) {
         mlir::populateCUDAToExecutorTypeConversions(typeConverter);
+        mlir::populateTensorRTRuntimeToExecutorTypeConversions(typeConverter);
       });
 }
 
@@ -477,7 +481,28 @@ void Pipeline::populatePassManager() {
       pm.addPass(executor::createExecutorAllocsToGlobalsPass());
     }
 
+    pm.addPass(createConvertLinalgToCUDAPass());
     pm.addPass(createConvertMemRefToCUDAPass());
+
+    addCleanupPasses(pm);
+
+    // Enable multi-stream scheduling via `--async-enable-mult-stream`.
+    if (options.get<AsyncSchedulingOptions>().enableMultStream) {
+      pm.addNestedPass<func::FuncOp>(cuda::createCUDAScheduleAsyncPass());
+    }
+
+    // Insert host-side syncs after stream scheduling so any tokens/events we
+    // create are tied to the final stream assignment of async copies.
+    pm.addPass(cuda::createCUDAInsertHostSyncPass());
+
+    // Cleanup: remove redundant stream waits that can be introduced by
+    // scheduling and subsequent transformations.
+    addNestedPasses<func::FuncOp>(pm, [](OpPassManager &pm) {
+      pm.addPass(mlir::createCSEPass());
+      pm.addPass(cuda::createCUDASimplifyStreamWaitPass());
+      pm.addPass(mlir::createCanonicalizerPass());
+      pm.addPass(cuda::createCUDAExpandOpsPass());
+    });
 
     if (options.hostTarget == HostTarget::Executor) {
       pm.addPass(createConvertPlanToExecutorPass());

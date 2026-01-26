@@ -28,6 +28,7 @@
 #include "mlir-executor/Runtime/API/MemRefABI.h"
 #include "mlir-executor/Runtime/Backend/Common/DataTypes.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaRuntime.h"
+#include "mlir-executor/Runtime/Support/CUDAHelpers.h"
 #include "mlir-executor/Runtime/Support/Support.h"
 #include "mlir-tensorrt-common/Support/Status.h"
 #include "llvm/ADT/STLExtras.h"
@@ -892,6 +893,29 @@ mtrt::invokeLuaFunction(LuaRuntimeSession &session, FunctionView func,
 
   MTRT_RETURN_IF_ERROR(validateArgsAgainstSignature(sig, args, outArgs));
 
+  Ref<Stream> sessionStream = session.getStream();
+  sol::object mainProgramStream =
+      sol::state_view(session.getLuaState())["stream0"];
+  const bool requiresStreamJoin = sessionStream && mainProgramStream.valid() &&
+                                  mainProgramStream.is<uintptr_t>();
+  // Forward declare an event pointer for the stream join, if required. It will
+  // be re-used for the beginning join and end join. Re-use is fine since
+  // cudaStreamWaitEvent captures necessary state "by value".
+  uintptr_t joinEvent = -1;
+
+  if (requiresStreamJoin) {
+    // "Join" the program stream with the session stream by making sure future
+    // work submitted on the program stream occurs after current work on the
+    // session stream is done.
+    // Currently it is the caller's responsibility for ensuring that readiness
+    // of the arguments is tied to the session stream.
+    MTRT_ASSIGN_OR_RETURN(joinEvent, mtrt::createCUDAEvent());
+    MTRT_RETURN_IF_ERROR(
+        mtrt::recordCUDAEvent(joinEvent, sessionStream->getCUDAHandle()));
+    MTRT_RETURN_IF_ERROR(mtrt::waitCUDAEventOnStream(
+        mainProgramStream.as<uintptr_t>(), joinEvent));
+  }
+
   // Track the pointers for internal debugging.
   for (auto *rv : args) {
     if (MemRefValue *memref = llvm::dyn_cast<MemRefValue>(rv)) {
@@ -931,6 +955,15 @@ mtrt::invokeLuaFunction(LuaRuntimeSession &session, FunctionView func,
       if (it != session.getAllocTracker().end())
         session.getAllocTracker().erase(it);
     }
+  }
+
+  // Make session stream wait on program stream.
+  if (requiresStreamJoin) {
+    MTRT_RETURN_IF_ERROR(
+        mtrt::recordCUDAEvent(joinEvent, mainProgramStream.as<uintptr_t>()));
+    MTRT_RETURN_IF_ERROR(
+        mtrt::waitCUDAEventOnStream(sessionStream->getCUDAHandle(), joinEvent));
+    MTRT_RETURN_IF_ERROR(mtrt::destroyCUDAEvent(joinEvent));
   }
   return results;
 }

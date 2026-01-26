@@ -1,5 +1,5 @@
 
-//===- CUDAModule.cpp -------------------------------------------*- C++ -*-===//
+//===- CUDAModule.cpp -----------------------------------------------------===//
 //
 // SPDX-FileCopyrightText: Copyright 2024-2026 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
@@ -23,7 +23,7 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "cuda.h"
-#include "cuda_runtime_api.h"
+#include "cuda_runtime_api.h" // IWYU pragma: keep
 #include "mlir-executor/Runtime/API/API.h"
 #include "mlir-executor/Runtime/Backend/Common/NvPtxCompilerUtils.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaErrorHandling.h"
@@ -84,9 +84,9 @@ static void registerCudaOps(sol::state_view &lua, AllocTracker *allocTracker,
   // CUDA - Device Management Ops
   //===----------------------------------------------------------------------===//
   lua["__cuda_num_devices"] = [](sol::this_state state) -> int32_t {
-    int count = 0;
-    SET_LUA_ERROR_IF_CUDART_ERROR(cudaGetDeviceCount(&count), state);
-    return count;
+    StatusOr<int32_t> count = mtrt::getCUDADeviceCount();
+    SET_LUA_ERROR_AND_RETURN_IF_ERROR(count, state, 0);
+    return *count;
   };
 
   lua["__cuda_get_device"] = [](sol::this_state state,
@@ -98,12 +98,12 @@ static void registerCudaOps(sol::state_view &lua, AllocTracker *allocTracker,
 
   lua["__cuda_set_active_device"] = [](sol::this_state state,
                                        int32_t deviceNumber) {
-    SET_LUA_ERROR_IF_CUDART_ERROR(cudaSetDevice(deviceNumber), state);
+    SET_LUA_ERROR_IF_ERROR(mtrt::setCurrentCUDADevice(deviceNumber), state);
   };
   lua["__cuda_get_active_device"] = [](sol::this_state state) -> int32_t {
-    int32_t device{0};
-    SET_LUA_ERROR_AND_RETURN_IF_CUDART_ERROR(cudaGetDevice(&device), state, 0);
-    return device;
+    StatusOr<int32_t> device = mtrt::getCurrentCUDADevice();
+    SET_LUA_ERROR_AND_RETURN_IF_ERROR(device, state, 0);
+    return *device;
   };
 
   //===----------------------------------------------------------------------===//
@@ -168,34 +168,38 @@ registerCudaMemoryManagementOps(sol::state_view &lua,
   // MemSet Ops
   //===----------------------------------------------------------------------===//
   lua["__cuda_memset_32"] = [](sol::this_state state, uintptr_t pointer,
-                               size_t offset, size_t numBytes,
-                               uint32_t fillInt) {
+                               size_t offset, size_t numBytes, uint32_t fillInt,
+                               uintptr_t stream) {
     MTRT_DBGF("cudaMemset32 @ 0x%lx, %lu bytes fill value = %u", pointer,
               numBytes, fillInt);
-    SET_LUA_ERROR_IF_CUDA_ERROR(cuMemsetD32(static_cast<CUdeviceptr>(pointer),
-                                            fillInt,
-                                            numBytes / sizeof(fillInt)),
-                                state);
+    SET_LUA_ERROR_IF_CUDA_ERROR(
+        cuMemsetD32Async(static_cast<CUdeviceptr>(pointer + offset), fillInt,
+                         numBytes / sizeof(fillInt),
+                         reinterpret_cast<CUstream>(stream)),
+        state);
   };
 
   lua["__cuda_memset_16"] = [](sol::this_state state, uintptr_t pointer,
-                               size_t offset, size_t numBytes,
-                               uint16_t fillInt) {
+                               size_t offset, size_t numBytes, uint16_t fillInt,
+                               uintptr_t stream) {
     MTRT_DBGF("cudaMemset16 @ 0x%lx, %lu bytes fill value = %u", pointer,
               numBytes, fillInt);
-    SET_LUA_ERROR_IF_CUDA_ERROR(cuMemsetD16(static_cast<CUdeviceptr>(pointer),
-                                            fillInt,
-                                            numBytes / sizeof(fillInt)),
-                                state);
+    SET_LUA_ERROR_IF_CUDA_ERROR(
+        cuMemsetD16Async(static_cast<CUdeviceptr>(pointer + offset), fillInt,
+                         numBytes / sizeof(fillInt),
+                         reinterpret_cast<CUstream>(stream)),
+        state);
   };
 
   lua["__cuda_memset_8"] = [](sol::this_state state, uintptr_t pointer,
-                              size_t offset, size_t numBytes, uint8_t fillInt) {
+                              size_t offset, size_t numBytes, uint8_t fillInt,
+                              uintptr_t stream) {
     MTRT_DBGF("cudaMemset8 @ 0x%lx, %lu bytes fill value = %u", pointer,
               numBytes, fillInt);
     SET_LUA_ERROR_IF_CUDA_ERROR(
-        cuMemsetD8(static_cast<CUdeviceptr>(pointer + offset), fillInt,
-                   numBytes / sizeof(fillInt)),
+        cuMemsetD8Async(static_cast<CUdeviceptr>(pointer + offset), fillInt,
+                        numBytes / sizeof(fillInt),
+                        reinterpret_cast<CUstream>(stream)),
         state);
   };
 
@@ -231,8 +235,10 @@ registerCudaMemoryManagementOps(sol::state_view &lua,
           elemSize, srcPointer, srcOffset, srcShape, srcStrides, dstPointer,
           dstOffset, dstShape, dstStrides,
           [&](void *dst, void *src, size_t size) {
-            cudaMemcpyAsync(dst, src, size, kind,
-                            reinterpret_cast<cudaStream_t>(stream));
+            SET_LUA_ERROR_IF_ERROR(
+                mtrt::copyCUDAAsync(dst, src, size, static_cast<int32_t>(kind),
+                                    stream),
+                state);
           });
     };
   };
@@ -255,29 +261,27 @@ registerCudaMemoryManagementOps(sol::state_view &lua,
   lua["__cuda_get_device"] = [](sol::this_state state,
                                 int32_t deviceNumber) -> int32_t {
     ADD_CUDA_MODULE_RANGE("cuda_device_get");
-    int32_t device{0};
-    SET_LUA_ERROR_AND_RETURN_IF_CUDART_ERROR(cudaGetDevice(&device), state, 0);
-    return device;
+    StatusOr<int32_t> device = mtrt::getCurrentCUDADevice();
+    SET_LUA_ERROR_AND_RETURN_IF_ERROR(device, state, 0);
+    return *device;
   };
 
   lua["__cuda_stream_create"] = [](sol::this_state state) -> CudaStream {
     ADD_CUDA_MODULE_RANGE("cuda_stream_create");
-    cudaStream_t stream{nullptr};
-    SET_LUA_ERROR_IF_CUDART_ERROR(cudaStreamCreate(&stream), state);
-    return reinterpret_cast<uintptr_t>(stream);
+    StatusOr<uintptr_t> stream = mtrt::createCUDAStream();
+    SET_LUA_ERROR_AND_RETURN_IF_ERROR(stream, state, 0);
+    return *stream;
   };
 
   lua["__cuda_stream_sync"] = [](sol::this_state state, CudaStream stream) {
     MTRT_DBG("__cuda_stream_sync @ {0}", reinterpret_cast<void *>(stream));
     ADD_CUDA_MODULE_RANGE("cuda_stream_sync");
-    SET_LUA_ERROR_IF_CUDART_ERROR(
-        cudaStreamSynchronize(reinterpret_cast<cudaStream_t>(stream)), state);
+    SET_LUA_ERROR_IF_ERROR(mtrt::synchronizeCUDAStream(stream), state);
   };
 
   lua["__cuda_stream_destroy"] = [](sol::this_state state, CudaStream stream) {
     ADD_CUDA_MODULE_RANGE("cuda_stream_destroy");
-    SET_LUA_ERROR_IF_CUDART_ERROR(
-        cudaStreamDestroy(reinterpret_cast<cudaStream_t>(stream)), state);
+    SET_LUA_ERROR_IF_ERROR(mtrt::destroyCUDAStream(stream), state);
   };
 
   lua["__cuda_get_function"] = [](sol::this_state state, uintptr_t cuModulePtr,
@@ -330,16 +334,11 @@ registerCudaMemoryManagementOps(sol::state_view &lua,
     assert(cudaFuncPtr);
     assert(callArgsHostPtr);
     assert(streamPtr);
-    CUresult result =
-        cuLaunchKernel(reinterpret_cast<CUfunction>(cudaFuncPtr), gridX, gridY,
-                       gridZ, blockX, blockY, blockZ, dynamicSharedMemory,
-                       reinterpret_cast<CUstream>(cudaStream_t(streamPtr)),
-                       reinterpret_cast<void **>(callArgsHostPtr),
-                       /*extra=*/0);
-    if (result != CUDA_SUCCESS) {
-      MTRT_DBGF("%s", "error launching cuda kernel");
-      SET_LUA_ERROR_IF_CUDA_ERROR(result, state);
-    }
+    SET_LUA_ERROR_IF_ERROR(mtrt::launchCUDAKernel(cudaFuncPtr, gridX, gridY,
+                                                  gridZ, blockX, blockY, blockZ,
+                                                  dynamicSharedMemory,
+                                                  streamPtr, callArgsHostPtr),
+                           state);
   };
 
   lua["__cuda_alloc_device"] =
@@ -417,10 +416,7 @@ registerCudaMemoryManagementOps(sol::state_view &lua,
     AllocTracker &tracker = *allocTracker;
     assert(tracker.get(ptr).isDeviceVisible() &&
            "expected device-visible pointer");
-    SET_LUA_ERROR_IF_CUDART_ERROR(
-        cudaFreeAsync(reinterpret_cast<void *>(ptr),
-                      reinterpret_cast<cudaStream_t>(stream)),
-        state);
+    SET_LUA_ERROR_IF_ERROR(mtrt::freeCUDAAsync(ptr, stream), state);
     tracker.untrack(ptr);
   };
 
@@ -445,9 +441,8 @@ registerCudaMemoryManagementOps(sol::state_view &lua,
                  "src and/or dst buffers are insufficiently sized");
         }
 #endif
-        SET_LUA_ERROR_IF_CUDART_ERROR(
-            cudaMemcpyAsync(dstPtr, srcPtr, numBytes, cudaMemcpyHostToDevice,
-                            reinterpret_cast<cudaStream_t>(stream)),
+        SET_LUA_ERROR_IF_ERROR(
+            mtrt::copyCUDAHostToDeviceAsync(dstPtr, srcPtr, numBytes, stream),
             state);
       };
 
@@ -472,9 +467,8 @@ registerCudaMemoryManagementOps(sol::state_view &lua,
                  "src and/or dst buffers are insufficiently sized");
         }
 #endif
-        SET_LUA_ERROR_IF_CUDART_ERROR(
-            cudaMemcpyAsync(dstPtr, srcPtr, numBytes, cudaMemcpyDeviceToHost,
-                            reinterpret_cast<cudaStream_t>(stream)),
+        SET_LUA_ERROR_IF_ERROR(
+            mtrt::copyCUDADeviceToHostAsync(dstPtr, srcPtr, numBytes, stream),
             state);
       };
 
@@ -500,9 +494,8 @@ registerCudaMemoryManagementOps(sol::state_view &lua,
                  "src and/or dst buffers are insufficiently sized");
         }
 #endif
-        SET_LUA_ERROR_IF_CUDART_ERROR(
-            cudaMemcpyAsync(dstPtr, srcPtr, numBytes, cudaMemcpyHostToDevice,
-                            reinterpret_cast<cudaStream_t>(stream)),
+        SET_LUA_ERROR_IF_ERROR(
+            mtrt::copyCUDAHostToDeviceAsync(dstPtr, srcPtr, numBytes, stream),
             state);
       };
 
@@ -525,9 +518,8 @@ registerCudaMemoryManagementOps(sol::state_view &lua,
         MTRT_DBGF("__cuda_memcpy_device2host_pinned: %lu bytes from 0x%lx + "
                   "%lu to 0x%lx + %lu",
                   numBytes, src, srcOffset, dest, destOffset);
-        SET_LUA_ERROR_IF_CUDART_ERROR(
-            cudaMemcpyAsync(dstPtr, srcPtr, numBytes, cudaMemcpyDeviceToHost,
-                            reinterpret_cast<cudaStream_t>(stream)),
+        SET_LUA_ERROR_IF_ERROR(
+            mtrt::copyCUDADeviceToHostAsync(dstPtr, srcPtr, numBytes, stream),
             state);
       };
   lua["__cuda_memcpy_device2device"] = [allocTracker](
@@ -551,9 +543,8 @@ registerCudaMemoryManagementOps(sol::state_view &lua,
         "executor_memcpy device-device %lu bytes from %p + %lu to %p to %lu",
         numBytes, reinterpret_cast<void *>(src), srcOffset,
         reinterpret_cast<void *>(dest), destOffset);
-    SET_LUA_ERROR_IF_CUDART_ERROR(
-        cudaMemcpyAsync(dstPtr, srcPtr, numBytes, cudaMemcpyDeviceToDevice,
-                        reinterpret_cast<cudaStream_t>(stream)),
+    SET_LUA_ERROR_IF_ERROR(
+        mtrt::copyCUDADeviceToDeviceAsync(dstPtr, srcPtr, numBytes, stream),
         state);
   };
 }

@@ -12,7 +12,7 @@ if(MLIR_TRT_ENABLE_CUDA)
     PARTIAL_SOURCES_INTENDED
 
     LINK_LIBS PUBLIC
-    CUDA::cuda_driver
+    ${MLIR_TRT_CUDA_DRIVER_TARGET}
     CUDANVPTXCompilerLibraryPatched
     MLIRTensorRTSupportStatus
   )

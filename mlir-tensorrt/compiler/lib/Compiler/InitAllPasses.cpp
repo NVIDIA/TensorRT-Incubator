@@ -35,6 +35,7 @@
 #include "mlir-tensorrt/Backends/Kernel/Passes.h"
 #include "mlir-tensorrt/Compiler/Extensions/KernelGenExtension.h"
 #include "mlir-tensorrt/Conversion/Passes.h"
+#include "mlir-tensorrt/Dialect/CUDA/Transforms/Passes.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
 #include "mlir-tensorrt/Features.h"
 #include "mlir-tensorrt/Transforms/Passes.h"
@@ -71,6 +72,7 @@ void mtrt::compiler::registerAllPasses() {
   mlir::kernel::registerKernelPasses();
   mlir::kernel::registerKernelPipelines();
   mlir::kernel::registerKernelTransformSchedulesPasses();
+  mlir::cuda::registerCUDAPasses();
   mlir::plan::registerPlanDialectPipelines();
   mlir::plan::registerPlanPasses();
   mlir::registerConvertCUDAToExecutorPass();

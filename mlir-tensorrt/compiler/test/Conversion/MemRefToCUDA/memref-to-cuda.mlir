@@ -104,7 +104,6 @@ func.func @copy_d2h(%src: memref<4x8xf32, #plan.memory_space<device>>,
 //       CHECK:   %[[DEVICE:.+]] = cuda.get_program_device
 //       CHECK:   %[[STREAM:.+]] = cuda.get_global_stream device(%[[DEVICE]]) [0]
 //       CHECK:   cuda.copy_d2h stream(%[[STREAM]]) %[[SRC]], %[[DST]] : memref<4x8xf32, #plan.memory_space<device>> to memref<4x8xf32, #plan.memory_space<host>>
-//       CHECK:   cuda.stream.sync %[[STREAM]] : !cuda.stream
 //       CHECK:   return
 
 // -----
@@ -151,7 +150,6 @@ func.func @copy_device_to_host_pinned(%src: memref<4x8xf32, #plan.memory_space<d
 //       CHECK:   %[[DEVICE:.+]] = cuda.get_program_device
 //       CHECK:   %[[STREAM:.+]] = cuda.get_global_stream device(%[[DEVICE]]) [0]
 //       CHECK:   cuda.copy_d2h stream(%[[STREAM]]) %[[SRC]], %[[DST]] : memref<4x8xf32, #plan.memory_space<device>> to memref<4x8xf32, #plan.memory_space<host_pinned>>
-//       CHECK:   cuda.stream.sync %[[STREAM]] : !cuda.stream
 //       CHECK:   return
 
 // -----

@@ -192,11 +192,14 @@ TensorRTCallAndEngineConverter::convert(tensorrt::TensorRTModuleOp op) {
       const TensorKindLattice *kind =
           solver.lookupState<TensorKindLattice>(arg);
       RankedTensorType rtt = cast<RankedTensorType>(arg.getType());
-      // To be conservative, we only do this if type is i32 and num elements
+      // To be conservative, we only do this if type is i32 or i64 and num
+      // elements
       // <= 8.
+      Type elementType = rtt.getElementType();
       if (kind && !kind->getValue().isUninitialized() &&
           kind->getValue().isHostVisible() &&
-          rtt.getElementType().isInteger(32) && rtt.getNumElements() <= 8)
+          (elementType.isInteger(32) || elementType.isInteger(64)) &&
+          rtt.getNumElements() <= 8)
         hostTensorArgs.push_back(idx);
     }
     if (failed(convert(func, hostTensorArgs)))

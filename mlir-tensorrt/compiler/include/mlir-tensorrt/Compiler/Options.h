@@ -276,6 +276,23 @@ private:
 };
 
 //===----------------------------------------------------------------------===//
+// AsyncSchedulingOptions
+//===----------------------------------------------------------------------===//
+
+/// Encapsulates options related to asynchronous scheduling and execution.
+struct AsyncSchedulingOptions : public mlir::OptionsGroup {
+  using OptionsGroup::OptionsGroup;
+
+  static llvm::cl::OptionCategory category;
+
+  /// Enables use of multiple streams during async scheduling.
+  Option<bool> enableMultStream{
+      this->ctx, "async-enable-multi-stream", llvm::cl::init(true),
+      llvm::cl::desc("Enable use of multiple streams during async scheduling."),
+      llvm::cl::cat(category)};
+};
+
+//===----------------------------------------------------------------------===//
 // BufferizationOptions
 //===----------------------------------------------------------------------===//
 
@@ -440,6 +457,7 @@ protected:
   // clang-format off
   /// Attach option subgroups to this scope.
   using SubGroups = mlir::options_group_tuple<
+    AsyncSchedulingOptions,
     BufferizationOptions,
     DeviceOptions,
     EmitCOptions,

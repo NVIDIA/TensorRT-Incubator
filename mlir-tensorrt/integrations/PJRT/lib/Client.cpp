@@ -133,6 +133,7 @@ static Status parseDebugFlags() {
     std::vector<const char *> argv = {
         "mlir-tensorrt-pjrt", "--mlir-elide-elementsattrs-if-larger=32"};
     mtrt::pjrt::registerPJRTCompilerCLOptions();
+    mtrt::registerGlobalRuntimeSessionCLOptions();
 
     std::string error;
     llvm::raw_string_ostream ss(error);

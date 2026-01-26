@@ -18,33 +18,54 @@
 //
 //===----------------------------------------------------------------------===//
 #include "mlir-executor/Runtime/Support/CUDAHelpers.h"
+#include "mlir-executor/Runtime/Support/Support.h"
 
 #ifdef MLIR_TRT_ENABLE_CUDA
+#include "cuda.h"
 #include <cuda_runtime_api.h>
-#endif
+#endif // MLIR_TRT_ENABLE_CUDA
+
+template <typename... Args>
+void _CUDA_DBGV(const char *fmt, const char *file, int64_t line,
+                Args &&...args) {
+  DEBUG_WITH_TYPE(
+      "runtime-cuda",
+      llvm::dbgs() << file << ":" << line << " [CUDAHelpers] "
+                   << llvm::formatv(fmt, std::forward<Args>(args)...) << "\n");
+}
+
+#define CUDA_DBGV(fmt, ...) _CUDA_DBGV(fmt, __FILE__, __LINE__, __VA_ARGS__)
 
 using namespace mtrt;
 
 StatusOr<std::unique_ptr<CUDADeviceGuard>>
 mtrt::CUDADeviceGuard::create(int32_t deviceNumber) {
-  MTRT_ASSIGN_OR_RETURN(int32_t originalDeviceNumber, getCurrentCUDADevice());
-  RETURN_STATUS_IF_ERROR(setCurrentCUDADevice(deviceNumber));
-  MTRT_DBG("CUDAGPUDeviceGuard: original={0} new={1}", originalDeviceNumber,
-           deviceNumber);
-  return std::unique_ptr<CUDADeviceGuard>(
-      new CUDADeviceGuard(originalDeviceNumber));
+#ifdef MLIR_TRT_ENABLE_CUDA
+  int32_t originalDeviceNumber = -1;
+  RETURN_ERROR_IF_CUDART_ERROR(cudaGetDevice(&originalDeviceNumber));
+  if (originalDeviceNumber != deviceNumber) {
+    MTRT_DBG("CUDAGPUDeviceGuard: {0} -> {1}", originalDeviceNumber,
+             deviceNumber);
+    RETURN_STATUS_IF_ERROR(setCurrentCUDADevice(deviceNumber));
+    return std::unique_ptr<CUDADeviceGuard>(
+        new CUDADeviceGuard(originalDeviceNumber, deviceNumber));
+  }
+#endif // MLIR_TRT_ENABLE_CUDA
+  return nullptr;
 }
 
 mtrt::CUDADeviceGuard::~CUDADeviceGuard() {
-  if (originalDeviceNumber < 0)
+  if (originalDeviceNumber < 0 || originalDeviceNumber == targetDeviceNumber)
     return;
   MTRT_DBG("CUDAGPUDeviceGuard: restoring original device {0}",
            originalDeviceNumber);
   mtrt::cantFail(setCurrentCUDADevice(originalDeviceNumber));
 }
 
-mtrt::CUDADeviceGuard::CUDADeviceGuard(int32_t originalDeviceNumber)
-    : originalDeviceNumber(originalDeviceNumber) {}
+mtrt::CUDADeviceGuard::CUDADeviceGuard(int32_t originalDeviceNumber,
+                                       int32_t targetDeviceNumber)
+    : originalDeviceNumber(originalDeviceNumber),
+      targetDeviceNumber(targetDeviceNumber) {}
 
 namespace mtrt {
 
@@ -52,7 +73,6 @@ StatusOr<int32_t> getCurrentCUDADevice() {
 #ifdef MLIR_TRT_ENABLE_CUDA
   int deviceNumber = -1;
   RETURN_ERROR_IF_CUDART_ERROR(cudaGetDevice(&deviceNumber));
-  CUDA_DBGV("getCurrentCUDADevice: {0}", deviceNumber);
   return static_cast<int32_t>(deviceNumber);
 #else
   return getInternalErrorStatus("runtime not compiled with CUDA enabled");
@@ -63,7 +83,6 @@ Status setCurrentCUDADevice(int32_t deviceNumber) {
 #ifdef MLIR_TRT_ENABLE_CUDA
   int32_t currDeviceNumber = -1;
   RETURN_ERROR_IF_CUDART_ERROR(cudaGetDevice(&currDeviceNumber));
-  CUDA_DBGV("setCurrentCUDADevice: {0} -> {1}", currDeviceNumber, deviceNumber);
   if (currDeviceNumber == deviceNumber)
     return getOkStatus();
   RETURN_ERROR_IF_CUDART_ERROR(cudaSetDevice(deviceNumber));
@@ -220,15 +239,13 @@ Status copyCUDAPeerAsync(void *dstDevice, int32_t dstDeviceId,
 
 StatusOr<uintptr_t> createCUDAEvent() {
 #ifdef MLIR_TRT_ENABLE_CUDA
-#ifndef NDEBUG
-  MTRT_ASSIGN_OR_RETURN(int32_t device, getCurrentCUDADevice());
-  CUDA_DBGV("createCUDAEvent: current device = {0}", device);
-#endif
   cudaEvent_t event;
   RETURN_ERROR_IF_CUDART_ERROR(
-      cudaEventCreateWithFlags(&event, cudaEventDefault));
+      cudaEventCreateWithFlags(&event, cudaEventDisableTiming));
 #ifndef NDEBUG
-  CUDA_DBGV("createCUDAEvent: {0:x} ", reinterpret_cast<uintptr_t>(event));
+  MTRT_ASSIGN_OR_RETURN(int32_t device, getCurrentCUDADevice());
+  CUDA_DBGV("createCUDAEvent: current device = {0} event = {1:x}", device,
+            reinterpret_cast<uintptr_t>(event));
 #endif
   return reinterpret_cast<uintptr_t>(event);
 #else
@@ -424,6 +441,29 @@ Status launchCUDAHostFunc(uintptr_t stream, void (*callback)(void *),
             reinterpret_cast<uintptr_t>(userData));
   RETURN_ERROR_IF_CUDART_ERROR(cudaLaunchHostFunc(
       reinterpret_cast<cudaStream_t>(stream), callback, userData));
+  return getOkStatus();
+#else
+  return getInternalErrorStatus("runtime not compiled with CUDA enabled");
+#endif
+}
+
+Status launchCUDAKernel(uintptr_t cudaFuncPtr, int32_t gridX, int32_t gridY,
+                        int32_t gridZ, int32_t blockX, int32_t blockY,
+                        int32_t blockZ, int32_t dynamicSharedMemory,
+                        uintptr_t stream, uintptr_t callArgsHostPtr) {
+#ifdef MLIR_TRT_ENABLE_CUDA
+  CUDA_DBGV(
+      "launchCUDAKernel: func={0:x} grid=({1},{2},{3}) block=({4},{5},{6}) "
+      "shared={7} stream={8:x} args={9:x}",
+      cudaFuncPtr, gridX, gridY, gridZ, blockX, blockY, blockZ,
+      dynamicSharedMemory, stream, callArgsHostPtr);
+  RETURN_ERROR_WITH_MSG_IF_CUDADRV_ERROR(
+      cuLaunchKernel(reinterpret_cast<CUfunction>(cudaFuncPtr), gridX, gridY,
+                     gridZ, blockX, blockY, blockZ, dynamicSharedMemory,
+                     reinterpret_cast<CUstream>(cudaStream_t(stream)),
+                     reinterpret_cast<void **>(callArgsHostPtr),
+                     /*extra=*/0),
+      "error launching cuda kernel");
   return getOkStatus();
 #else
   return getInternalErrorStatus("runtime not compiled with CUDA enabled");

@@ -24,20 +24,34 @@ include "mlir/Pass/PassBase.td"
 
 
 def ConvertKernelToLLVM : Pass<"convert-kernel-to-llvm", "::mlir::ModuleOp"> {
-  let summary = "Converts Kernel IR to EmitC";
+  let summary = "Converts Kernel IR to LLVM (MLIR) IR";
 
   let description = [{
-    The purpose of this pass is to prepare certain Kernel dialect
-    operations for raising to EmitC from LLVM.
+    This pass converts Kernel dialect operations to LLVM dialect operations,
+    enabling the execution of GPU kernels through the CUDA Runtime API.
 
-    Primarily, this pass is focused on the `kernel.call` operation. It checks
-    that all operations inside of any `gpu.module` have already been converted
-    to LLVM IR. It then inlines those operations (e.g. globals and functions)
-    into the outer level module. It legalizes `kernel.call` operations by
-    lowering them to calls to the externally defined `cudaLaunchKernelExtC`
-    function. The necessary arguments here (including constructing the
-    kernel argument pack and the `cudaLaunchConfig_t` struct) are constructed
-    on the stack using `llvm.alloca`.
+    The pass performs the following transformations:
+
+    1. Converts `kernel.call` operations into LLVM IR calls to the CUDA Runtime
+       function `cudaLaunchKernelExC`, which is used to launch GPU kernels.
+
+    2. Inlines the contents of `gpu.module` operations into the parent module.
+       Before inlining, it updates all symbol references to kernel functions by
+       removing the `gpu.module` scope from nested symbol references (e.g.,
+       `@gpu_module::@kernel_func` becomes `@kernel_func`).
+
+    3. Constructs the required `cudaLaunchConfig_t` structure on the stack,
+       including grid dimensions, block dimensions, shared memory size, and
+       stream handle.
+
+    4. Prepares kernel parameters by:
+       - Scalarizing memref operands into their constituent parts
+       - Allocating stack storage for each scalar parameter
+       - Creating an array-of-pointers to these stack-allocated parameters
+
+    Preconditions:
+    - The `kernel.call` operation should be bufferized (no results)
+    - All operations within `gpu.module` must already be lowered to LLVM dialect
   }];
 
   let dependentDialects = [

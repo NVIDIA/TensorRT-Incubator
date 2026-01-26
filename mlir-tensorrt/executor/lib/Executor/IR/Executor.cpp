@@ -1801,6 +1801,12 @@ void CallPluginOp::getEffects(
   }
 }
 
+OpOperand *CallPluginOp::getStreamOperand() {
+  if (getStream())
+    return &getStreamMutable()[0];
+  return nullptr;
+}
+
 //===----------------------------------------------------------------------===//
 // BufferBitcastOp
 //===----------------------------------------------------------------------===//

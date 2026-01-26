@@ -1,3 +1,10 @@
+//===- TensorKindAttrInterface.h ------------------------------------------===//
+//
+// SPDX-FileCopyrightText: Copyright 2025-2026 NVIDIA CORPORATION & AFFILIATES.
+// All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+//
+//===----------------------------------------------------------------------===//
 #ifndef MLIR_TENSORRT_COMMON_INTERFACES_TENSORKINDATTRINTERFACE
 #define MLIR_TENSORRT_COMMON_INTERFACES_TENSORKINDATTRINTERFACE
 
