@@ -5,7 +5,9 @@ description = "The MLIR-TensorRT JAX plugin."
 classifiers = [
     "Programming Language :: Python :: 3",
     "Operating System :: POSIX :: Linux",
-    "Private :: Do Not Upload",
+    "License :: OSI Approved :: Apache Software License",
+    "Intended Audience :: Developers",
+    "Development Status :: 4 - Beta"
 ]
 license = { text = "Apache-2.0" }
 dynamic = ["version", "dependencies"]
