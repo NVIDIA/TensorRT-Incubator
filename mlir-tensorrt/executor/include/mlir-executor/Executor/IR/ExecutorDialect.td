@@ -116,6 +116,13 @@ def Executor_Dialect : Dialect {
     /// Specifies the high-level function that the current function models.
     static constexpr StringRef kFuncABIAttrName = "executor.func_abi";
 
+    /// This specifies the name of an attribute that may be attached to ABI wrapper
+    /// functions. If present, it indicates that the arguments should be packed into
+    /// an array-of-pointers to the arguments when invoking the ABI wrapper function.
+    /// The attribute itself is an array containing the original kArgABIAttrName
+    /// attributes that were attached to the function arguments.
+    static constexpr StringRef kFuncABIPackedArgsAttrName = "executor.func_abi_packed_args";
+
   private:
     /// Register attributes for the Executor dialect.
     void registerAttributes();
