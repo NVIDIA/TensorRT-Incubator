@@ -499,3 +499,17 @@ func.func @not_compat_index_memref(
   executor.abi.send %0 to %arg1 : memref<10xi8>
   return
 }
+
+// -----
+
+func.func @abi_packed_args(
+  %arg0: !executor.ptr<host>
+) attributes {
+      executor.func_abi = (memref<10xi32>) -> (memref<10xi32>),
+      executor.func_abi_packed_args = [
+        {abi.attr = #executor.arg<byval, memref<10xi32>>, abi.type = !executor.ptr<host>},
+        {abi.attr = #executor.arg<byref, memref<10xi32>>, abi.type = !executor.ptr<host>}
+    ]
+    } {
+  return
+}

@@ -388,13 +388,44 @@ ExecutorDialect::verifyOperationAttribute(Operation *op,
 
     const unsigned numInputs = abiFuncType.getNumInputs();
     const unsigned numOutputs = abiFuncType.getNumResults();
-    if (numInputs + numOutputs != func.getNumArguments()) {
+    const bool hasPackedArgs = abi::isABIWrapperFunctionWithPackedArgs(func);
+
+    if (!hasPackedArgs && numInputs + numOutputs != func.getNumArguments()) {
       return op->emitError()
              << "function " << func.getName() << " has "
              << func.getNumArguments()
              << " arguments, but the ABI function type has function type "
              << abiFuncType << ", which requires " << numInputs + numOutputs
              << " parameters";
+    }
+
+    if (hasPackedArgs) {
+      SmallVector<executor::abi::PackedArgInfo> packedArgs =
+          abi::getFuncABIPackedArgs(func);
+      if (packedArgs.size() != numInputs + numOutputs) {
+        return op->emitError()
+               << "function " << func.getName() << " has " << packedArgs.size()
+               << " packed arguments, but the ABI function type has function "
+                  "type "
+               << abiFuncType << ", which requires " << numInputs + numOutputs
+               << " parameters";
+      }
+
+      if (func.getNumArguments() != 1)
+        return op->emitError() << "function " << func.getName() << " has "
+                               << func.getNumArguments()
+                               << " arguments, but expected a single pointer "
+                                  "argument for packed calling convention";
+
+      Type argType = func.getArgumentTypes().front();
+      if (argType != PointerType::get(func.getContext(), MemoryType::host))
+        return op->emitError() << "function " << func.getName()
+                               << " has a single argument of type " << argType
+                               << ", but expected a pointer to host memory";
+
+      // Other validation can't be done on packed arguments, so we return
+      // success.
+      return success();
     }
 
     for (unsigned i = 0; i < numInputs; ++i) {
@@ -596,6 +627,36 @@ bool executor::abi::isABIWrapperFunction(FunctionOpInterface func) {
   return abiFuncTypeAttr != nullptr;
 }
 
+bool executor::abi::isABIWrapperFunctionWithPackedArgs(
+    FunctionOpInterface func) {
+  return func->getAttrOfType<ArrayAttr>(
+             ExecutorDialect::kFuncABIPackedArgsAttrName) != nullptr;
+}
+
+SmallVector<executor::abi::PackedArgInfo>
+executor::abi::getFuncABIPackedArgs(FunctionOpInterface func) {
+  SmallVector<PackedArgInfo> packedArgs;
+  assert(isABIWrapperFunctionWithPackedArgs(func) &&
+         "expected ABI wrapper function with packed args");
+  auto argDicts = func->getAttrOfType<ArrayAttr>(
+                          ExecutorDialect::kFuncABIPackedArgsAttrName)
+                      .getAsRange<DictionaryAttr>();
+  for (auto argDict : argDicts) {
+    PackedArgInfo packedArgInfo;
+    packedArgInfo.abiArgType = argDict.getAs<TypeAttr>("abi.type").getValue();
+    packedArgInfo.abiAttr = argDict.getAs<ArgumentABIAttr>("abi.attr");
+    packedArgInfo.rest = argDict;
+    packedArgs.push_back(packedArgInfo);
+  }
+  return packedArgs;
+}
+
+unsigned executor::abi::getNumArguments(FunctionOpInterface func) {
+  FailureOr<FunctionType> abiFuncType = abi::getABIFunctionType(func);
+  assert(succeeded(abiFuncType) && "expected ABI function type");
+  return abiFuncType->getNumInputs() + abiFuncType->getNumResults();
+}
+
 unsigned executor::abi::getNumInputArguments(FunctionOpInterface func) {
   FailureOr<FunctionType> abiFuncType = abi::getABIFunctionType(func);
   assert(succeeded(abiFuncType) && "expected ABI function type");
@@ -620,6 +681,8 @@ unsigned executor::abi::getOutputArgumentIndex(FunctionOpInterface func,
 
 unsigned executor::abi::getInputArgumentIndex(FunctionOpInterface func,
                                               BlockArgument arg) {
+  assert(!executor::abi::isABIWrapperFunctionWithPackedArgs(func) &&
+         "expected unpacked ABI wrapper function");
   auto argIt = llvm::find(func.getArguments(), arg);
   assert(argIt != func.getArguments().end() && "expected argument of func");
   unsigned argIndex = std::distance(func.getArguments().begin(), argIt);
@@ -629,6 +692,8 @@ unsigned executor::abi::getInputArgumentIndex(FunctionOpInterface func,
 
 BlockArgument executor::abi::getInputArgument(FunctionOpInterface func,
                                               unsigned index) {
+  assert(!executor::abi::isABIWrapperFunctionWithPackedArgs(func) &&
+         "expected unpacked ABI wrapper function");
   assert(index < getNumInputArguments(func) &&
          "expected input argument index to be within range");
   return func.getArgument(index);
@@ -636,6 +701,8 @@ BlockArgument executor::abi::getInputArgument(FunctionOpInterface func,
 
 BlockArgument executor::abi::getOutputArgument(FunctionOpInterface func,
                                                unsigned index) {
+  assert(!executor::abi::isABIWrapperFunctionWithPackedArgs(func) &&
+         "expected unpacked ABI wrapper function");
   assert(index < getNumOutputArguments(func) &&
          "expected output argument index to be within range");
   return func.getArgument(index + getNumInputArguments(func));
@@ -709,6 +776,8 @@ bool executor::abi::isScalarArgumentType(Type type) {
 
 ArgumentABIAttr executor::abi::getArgumentABIAttr(FunctionOpInterface func,
                                                   BlockArgument arg) {
+  assert(!executor::abi::isABIWrapperFunctionWithPackedArgs(func) &&
+         "expected unpacked ABI wrapper function");
   Block::BlockArgListType args = func.getArguments();
   auto it = llvm::find(args, arg);
   assert(it != args.end() && "expected argument of func");
@@ -718,8 +787,15 @@ ArgumentABIAttr executor::abi::getArgumentABIAttr(FunctionOpInterface func,
 
 ArgumentABIAttr executor::abi::getArgumentABIAttr(FunctionOpInterface func,
                                                   unsigned argIndex) {
-  return func.getArgAttrOfType<executor::ArgumentABIAttr>(
-      argIndex, ExecutorDialect::kArgABIAttrName);
+  if (!executor::abi::isABIWrapperFunctionWithPackedArgs(func))
+    return func.getArgAttrOfType<executor::ArgumentABIAttr>(
+        argIndex, ExecutorDialect::kArgABIAttrName);
+
+  SmallVector<executor::abi::PackedArgInfo> packedArgs =
+      getFuncABIPackedArgs(func);
+  assert(argIndex < packedArgs.size() &&
+         "expected argument index to be within range");
+  return packedArgs[argIndex].abiAttr;
 }
 
 void executor::abi::setArgumentABIAttr(FunctionOpInterface func,
@@ -747,6 +823,8 @@ executor::abi::isOutputArgument(FunctionOpInterface func, unsigned argIndex) {
 
 std::optional<unsigned>
 executor::abi::isOutputArgument(FunctionOpInterface func, BlockArgument arg) {
+  assert(!executor::abi::isABIWrapperFunctionWithPackedArgs(func) &&
+         "expected unpacked ABI wrapper function");
   // Function arguments may not correspond directly to all block argument,
   // for example see `gpu.func`.
   Block::BlockArgListType args = func.getArguments();
@@ -758,6 +836,8 @@ executor::abi::isOutputArgument(FunctionOpInterface func, BlockArgument arg) {
 
 Value executor::abi::getOrCreateABIRecv(OpBuilder &b, FunctionOpInterface func,
                                         BlockArgument arg, Type expectedType) {
+  assert(!executor::abi::isABIWrapperFunctionWithPackedArgs(func) &&
+         "expected unpacked ABI wrapper function");
   auto it = llvm::find(func.getArguments(), arg);
   assert(it != func.getArguments().end() && "expected argument of func");
   unsigned argIndex = std::distance(func.getArguments().begin(), it);

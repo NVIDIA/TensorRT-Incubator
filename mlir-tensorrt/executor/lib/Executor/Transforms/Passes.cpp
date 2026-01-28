@@ -1,6 +1,6 @@
 //===- ExecutorPipelines.cpp ----------------------------------------------===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2024-2026 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -79,7 +79,9 @@ void executor::buildExecutorLoweringPipeline(
   pm.addPass(createExecutorExpandOpsPass());
   addCleanupPasses(pm);
   pm.addPass(createExecutorLowerToRuntimeBuiltinsPass());
-  pm.addPass(createExecutorPackArgumentsPass());
+  pm.addPass(createExecutorPackArgumentsPass(
+      executor::ExecutorPackArgumentsPassOptions{/*maxArguments=*/50}));
+  addCleanupPasses(pm);
 }
 
 namespace {
