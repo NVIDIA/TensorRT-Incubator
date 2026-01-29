@@ -1,4 +1,4 @@
-// RUN: mlir-tensorrt-compiler %s --entrypoint= -o - | \
+// RUN: mlir-tensorrt-compiler %s --entrypoint= -o - --async-enable-multi-stream=false | \
 // RUN: %pick-one-gpu mlir-tensorrt-runner -input-type=rtexe -features=core,cuda,tensorrt -split-input-file | \
 // RUN: FileCheck %s
 
@@ -19,7 +19,7 @@ builtin.module @end_to_end_binary attributes {
       return %2 : tensor<?xf32>
   }
 
-  func.func @print_tensor(%data: tensor<?xf32>) -> () attributes {no_inline} {
+  func.func private @print_tensor(%data: tensor<?xf32>) -> () attributes {no_inline} {
     executor.print "\\n"()
     %c0 = arith.constant 0 : index
     %step = arith.constant 1 : index
