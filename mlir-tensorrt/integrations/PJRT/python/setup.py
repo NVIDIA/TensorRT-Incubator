@@ -30,7 +30,13 @@ class BinaryDistribution(Distribution):
         return True
 
 
-PKG_VERSION = setup_utils.get_nightly_version()
+USE_PYPI_VERSION = str(os.environ.get("MLIR_TRT_PYPI", "")).lower() == "1"
+if USE_PYPI_VERSION:
+    PKG_VERSION = setup_utils.get_pypi_version()
+    log(f"Building for PyPI upload. Using package version: {PKG_VERSION}")
+else:
+    PKG_VERSION = setup_utils.get_nightly_version()
+    log(f"Building nightly/development wheel. Using package version: {PKG_VERSION}")
 
 
 class CMakeBuild(build_py):
