@@ -1,5 +1,5 @@
 // RUN: %pick-one-gpu tensorrt-opt -split-input-file -pass-pipeline="builtin.module(translate-tensorrt-to-engine)" \
-// RUN:  -tensorrt-builder-opt-level=0 -mlir-elide-resource-strings-if-larger=32 %s | FileCheck %s
+// RUN:  -tensorrt-builder-opt-level=0 -mlir-elide-elementsattrs-if-larger=32 %s | FileCheck %s
 
 #profile = #tensorrt.shape_profile<min=[1, 1024], opt=[5, 1024], max=[10, 1024]>
 

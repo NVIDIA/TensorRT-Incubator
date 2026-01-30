@@ -1,5 +1,5 @@
 // RUN: %pick-one-gpu tensorrt-opt -pass-pipeline="builtin.module(tensorrt-apply-wars{force-default-slice-in-bounds},translate-tensorrt-to-engine)" \
-// RUN:  -mlir-elide-resource-strings-if-larger=32 -tensorrt-builder-opt-level=0 %s | FileCheck %s
+// RUN:  -mlir-elide-elementsattrs-if-larger=32 -tensorrt-builder-opt-level=0 %s | FileCheck %s
 
 // This shape profile reflects that we don't have good information about %arg1 bounds.
 // It will cause a build failure if the slice offset is not constrained using `offset = max(0, arg1)`.

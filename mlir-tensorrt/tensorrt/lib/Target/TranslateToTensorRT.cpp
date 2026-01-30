@@ -22,16 +22,19 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt-dialect/Target/TranslateToTensorRT.h"
-#include "mlir-tensorrt-dialect/Target/Passes.h" // IWYU pragma: keep
+#include "mlir-tensorrt-common/Support/CommandLineExtras.h"
+#include "mlir-tensorrt-dialect/Target/Passes.h"
 #include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
 #include "mlir-tensorrt-dialect/TensorRT/Utils/Utils.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
-#include "mlir/IR/AsmState.h"
 #include "mlir/IR/Diagnostics.h"
 #include "mlir/IR/TypeUtilities.h"
 #include "mlir/Interfaces/FunctionInterfaces.h"
 #include "mlir/Support/FileUtilities.h"
+#include "mlir/Transforms/RegionUtils.h"
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/Hashing.h"
+#include "llvm/ADT/ScopedHashTable.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/Support/CommandLine.h"
@@ -45,7 +48,6 @@
 #include "llvm/Support/ScopedPrinter.h"
 #include "llvm/Support/Threading.h"
 #include "llvm/Support/ToolOutputFile.h"
-#include <cstddef>
 #include <mutex>
 
 #ifdef MLIR_TRT_TARGET_TENSORRT
@@ -666,55 +668,7 @@ static void maybeWriteTimingCache(TensorRTSerializedTimingCache &timingCache,
                   "trying to lock the file: "
                << llvm::to_string(err) << "\n";
 }
-
-/// Wrap a nvinfer1::IHostMemory as an AsmResourceBlob without copying the data.
-static AsmResourceBlob
-getAsAsmResourceBlob(std::unique_ptr<nvinfer1::IHostMemory> memory) {
-  ArrayRef<char> data = llvm::ArrayRef<char>(
-      reinterpret_cast<const char *>(memory->data()), memory->size());
-  llvm::unique_function<void(void *data, size_t size, size_t align)> deleter =
-      [memory = std::move(memory)](void *data, size_t size, size_t align) {};
-  return AsmResourceBlob(data, 1, std::move(deleter), /*dataIsMutable=*/false);
-}
-
-/// Return the size of the serialized engine in bytes.
-static size_t
-getSerializedEngineSize(const std::unique_ptr<nvinfer1::IHostMemory> &memory) {
-  return memory->size();
-}
-
 #endif // MLIR_TRT_TARGET_TENSORRT
-
-/// Wrap a llvm::MemoryBuffer as an AsmResourceBlob without copying the data.
-static AsmResourceBlob
-getAsAsmResourceBlob(std::unique_ptr<llvm::MemoryBuffer> memory) {
-  ArrayRef<char> data = llvm::ArrayRef<char>(
-      reinterpret_cast<const char *>(memory->getBufferStart()),
-      memory->getBufferSize());
-  llvm::unique_function<void(void *data, size_t size, size_t align)> deleter =
-      [memory = std::move(memory)](void *data, size_t size, size_t align) {};
-  return AsmResourceBlob(data, 1, std::move(deleter), /*dataIsMutable=*/false);
-}
-
-/// Return the size of the serialized engine in bytes.
-static size_t
-getSerializedEngineSize(const std::unique_ptr<llvm::MemoryBuffer> &memory) {
-  return memory->getBufferSize();
-}
-
-/// Set the TensorRT serialized engine as an attribute on the function.
-template <typename T>
-static void setTensorRTSerializedEngine(FunctionOpInterface func,
-                                        std::unique_ptr<T> buffer) {
-
-  auto engineAttr = DenseI8ResourceElementsAttr::get(
-      RankedTensorType::get(
-          {static_cast<int64_t>(getSerializedEngineSize(buffer))},
-          IntegerType::get(func->getContext(), 8)),
-      "tensorrt_engine", getAsAsmResourceBlob(std::move(buffer)));
-  func->setAttr(tensorrt::TensorRTDialect::kTensorRTSerializedEngineAttrName,
-                engineAttr);
-}
 
 namespace {
 class TranslateToTensorRTEnginePass
@@ -801,7 +755,15 @@ public:
           return signalPassFailure();
         }
 
-        setTensorRTSerializedEngine(func, std::move(buffer));
+        // Attach the engine as an attribute on the function.
+        auto engineAttr = DenseElementsAttr::get(
+            RankedTensorType::get(
+                {static_cast<int64_t>(buffer->getBufferSize())},
+                IntegerType::get(&getContext(), 8)),
+            llvm::ArrayRef<int8_t>(
+                reinterpret_cast<const int8_t *>(buffer->getBufferStart()),
+                buffer->getBufferSize()));
+        func->setAttr("tensorrt.engine", engineAttr);
         continue;
       }
 
@@ -819,10 +781,12 @@ public:
       LLVM_DEBUG(DBGS() << "done building TensorRT engine for function "
                         << func.getName() << "\n");
 
+      const std::unique_ptr<nvinfer1::IHostMemory> &serializedEngine =
+          engineResult->serializedEngine;
+
       if (!translationOptions->saveTensorRTEngines.empty() &&
           failed(saveTensorRTEngineToFile(
-              func, translationOptions->saveTensorRTEngines,
-              engineResult->serializedEngine)))
+              func, translationOptions->saveTensorRTEngines, serializedEngine)))
         return signalPassFailure();
 
       if (!translationOptions->saveTensorRTLayerInfo.empty()) {
@@ -830,9 +794,8 @@ public:
             nvinfer1::createInferRuntime(
                 Logger::getInstance(translationOptions->verbose))};
         std::unique_ptr<nvinfer1::ICudaEngine> cudaEngine{
-            runtime->deserializeCudaEngine(
-                engineResult->serializedEngine->data(),
-                engineResult->serializedEngine->size())};
+            runtime->deserializeCudaEngine(serializedEngine->data(),
+                                           serializedEngine->size())};
         auto inspector = std::unique_ptr<nvinfer1::IEngineInspector>(
             cudaEngine->createEngineInspector());
         llvm::SmallString<128> fileName =
@@ -858,8 +821,15 @@ public:
         of->keep();
       }
 
-      setTensorRTSerializedEngine(func,
-                                  std::move(engineResult->serializedEngine));
+      // Attach the engine as an attribute on the function.
+      auto engineAttr = DenseElementsAttr::get(
+          RankedTensorType::get(
+              {static_cast<int64_t>(serializedEngine->size())},
+              IntegerType::get(&getContext(), 8)),
+          llvm::ArrayRef<int8_t>(
+              reinterpret_cast<const int8_t *>(serializedEngine->data()),
+              serializedEngine->size()));
+      func->setAttr("tensorrt.engine", engineAttr);
     }
 
     // update the timing cache if required.

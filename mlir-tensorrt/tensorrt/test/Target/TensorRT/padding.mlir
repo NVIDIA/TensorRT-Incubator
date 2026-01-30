@@ -1,5 +1,5 @@
 // RUN: %pick-one-gpu tensorrt-opt -split-input-file -pass-pipeline="builtin.module(translate-tensorrt-to-engine)" -tensorrt-builder-opt-level=0 \
-// RUN:  --mlir-elide-resource-strings-if-larger=32 %s | FileCheck %s
+// RUN:  --mlir-elide-elementsattrs-if-larger=32 %s | FileCheck %s
 
 
 func.func @trt_padding(%arg0: tensor<1x1x10x10xf32>) -> (tensor<1x1xf32>) {

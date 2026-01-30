@@ -1,5 +1,5 @@
 // RUN: %pick-one-gpu tensorrt-opt -split-input-file -pass-pipeline="builtin.module(translate-tensorrt-to-engine)" \
-// RUN:  -mlir-elide-resource-strings-if-larger=32 -tensorrt-builder-opt-level=0 %s | FileCheck %s
+// RUN:  -mlir-elide-elementsattrs-if-larger=32 -tensorrt-builder-opt-level=0 %s | FileCheck %s
 
 func.func @onehot_innermost_f32(%indices: tensor<3xi32>, %values: tensor<2xf32>) -> tensor<3x5xf32> {
   %depth = tensorrt.constant dense <5> : tensor<i32>

@@ -37,7 +37,7 @@ func.func @conv2d_nhwc_rsck_no_padding_dilated(
 //  CHECK-SAME:      post_padding = array<i64: 0, 0>
 //  CHECK-SAME:      pre_padding = array<i64: 0, 0>
 //  CHECK-SAME:      stride = array<i64: 1, 1>
-//  CHECK-SAME:        in(%[[v0]] : tensor<1x2x32x64xf32>) kernel(%[[v1]] : tensor<128x2x3x3xf32>) -> tensor<1x128x28x62xf32>
+//  CHECK-sAME:        in(%[[v0]] : tensor<1x2x32x64xf32>) kernel(%[[v1]] : tensor<128x2x3x3xf32>) -> tensor<1x128x28x62xf32>
 //       CHECK:   %[[v3:.+]] = tensorrt.transpose {permutation = #[[$map2]]} %[[v2]]
 //       CHECK:   return %[[v3]] : tensor<1x28x62x128xf32>
 
@@ -114,7 +114,7 @@ func.func @conv3d_ndhwc_drsck(%arg0: tensor<?x16x16x16x?xf32>, %arg1: tensor<2x2
 //  CHECK-SAME:      post_padding = array<i64: 0, 0, 0>
 //  CHECK-SAME:      pre_padding = array<i64: 0, 0, 0>
 //  CHECK-SAME:      stride = array<i64: 1, 1, 1>
-//  CHECK-SAME:        in(%[[v0]] : tensor<?x?x16x16x16xf32>) kernel(%[[v1]] : tensor<?x?x2x2x2xf32>) -> tensor<?x?x15x15x15xf32>
+//  CHECK-sAME:        in(%[[v0]] : tensor<?x?x16x16x16xf32>) kernel(%[[v1]] : tensor<?x?x2x2x2xf32>) -> tensor<?x?x15x15x15xf32>
 //       CHECK:   %[[v3:.+]] = tensorrt.transpose {permutation = #[[$map2]]} %[[v2]]
 //       CHECK:   return %[[v3]] : tensor<?x15x15x15x?xf32>
 
@@ -144,15 +144,15 @@ func.func @conv2d_chwb_crsk_hwnc(
 //       CHECK:   %[[v0:.+]] = tensorrt.transpose {permutation = #[[$map]]} %[[arg0]] :
 //       CHECK:   %[[v1:.+]] = tensorrt.transpose {permutation = #[[$map]]} %[[arg1]] :
 //       CHECK:   %[[v2:.+]] = tensorrt.slice %[[v0]][0, 0, 0, 0][1, 4, 6, 6][1, 1, 1, 1] :
-//       CHECK:   %[[v3:.+]] = tensorrt.convolution
+//       CHECK:   %[[v2:.+]] = tensorrt.convolution
 //  CHECK-SAME:       dilation = array<i64: 1, 2>
 //  CHECK-SAME:        num_groups = 2 : ui32
 //  CHECK-SAME:      post_padding = array<i64: 0, 0>
 //  CHECK-SAME:      pre_padding = array<i64: 0, 0>
 //  CHECK-SAME:      stride = array<i64: 1, 1>
-//  CHECK-SAME:        in(%[[v2]] : tensor<1x4x6x6xf32>) kernel(%[[v1]] : tensor<2x2x6x3xf32>) -> tensor<1x2x1x2xf32>
-//       CHECK:   %[[v4:.+]] = tensorrt.transpose {permutation = #[[$map1]]} %[[v3]]
-//       CHECK:   return %[[v4]] : tensor<1x2x1x2xf32>
+//  CHECK-sAME:        in(%[[v2]] : tensor<1x4x6x6xf32>) kernel(%[[v1]] : tensor<2x2x6x3xf32>) -> tensor<1x2x1x2xf32>
+//       CHECK:   %[[v3:.+]] = tensorrt.transpose {permutation = #[[$map1]]} %[[v2]]
+//       CHECK:   return %[[v3]] : tensor<1x2x1x2xf32>
 
 // -----
 

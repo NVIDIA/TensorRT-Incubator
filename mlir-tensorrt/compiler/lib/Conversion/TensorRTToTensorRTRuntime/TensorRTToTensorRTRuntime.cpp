@@ -1,6 +1,6 @@
 //===- TensorRTToTensorRTRuntime.cpp ----------------------------*- C++ -*-===//
 //
-// SPDX-FileCopyrightText: Copyright 2024-2026 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -25,10 +25,11 @@
 #include "mlir-tensorrt-common/Interfaces/TensorKindOpInterface.h"
 #include "mlir-tensorrt-dialect/Analysis/TensorKindAnalysis.h"
 #include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
-#include "mlir-tensorrt/Conversion/Passes.h"           // IWYU pragma: keep
-#include "mlir-tensorrt/Dialect/CUDA/IR/CUDADialect.h" // IWYU pragma: keep
+#include "mlir-tensorrt/Conversion/Passes.h"
+#include "mlir-tensorrt/Dialect/CUDA/IR/CUDADialect.h"
 #include "mlir-tensorrt/Dialect/CUDA/Utils/CUDAUtils.h"
 #include "mlir-tensorrt/Dialect/TensorRTRuntime/IR/Ops.h"
+#include "mlir-tensorrt/Dialect/TensorRTRuntime/IR/Types.h"
 #include "mlir/Analysis/DataFlow/ConstantPropagationAnalysis.h"
 #include "mlir/Analysis/DataFlow/DeadCodeAnalysis.h"
 #include "mlir/Analysis/DataFlowFramework.h"
@@ -88,8 +89,7 @@ createSerializedEngineGlobal(RewriterBase &rewriter, ModuleOp module,
   std::string name = (trtFunc.getName() + "_engine_data").str();
   assert(trtFunc->getParentOfType<tensorrt::TensorRTModuleOp>() &&
          "expected valid tensorrt module");
-  auto engineData = trtFunc->getAttrOfType<ElementsAttr>(
-      tensorrt::TensorRTDialect::kTensorRTSerializedEngineAttrName);
+  auto engineData = trtFunc->getAttrOfType<ElementsAttr>("tensorrt.engine");
   if (!engineData)
     return trtFunc->emitError("TensorRT function has not been translated");
   rewriter.setInsertionPointToStart(module.getBody());

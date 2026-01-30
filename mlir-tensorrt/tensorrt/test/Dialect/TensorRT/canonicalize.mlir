@@ -187,7 +187,7 @@ func.func @simplify_dynamic_shuffle_reshape(%arg0: tensor<1x2x3xf32>) -> tensor<
 //  CHECK-SAME:    first_transpose = array<i64: 0, 1, 2>
 //  CHECK-SAME:    reshape = array<i64: 6>
 //  CHECK-SAME:    second_transpose = array<i64: 0>
-//  CHECK-SAME:    ins(%{{.+}} : tensor<1x2x3xf32>) -> tensor<6xf32>
+//  CHECK-sAME:    ins(%{{.+}} : tensor<1x2x3xf32>) -> tensor<6xf32>
 
 // -----
 
@@ -204,7 +204,7 @@ func.func @simplify_dynamic_shuffle_reshape_negative(
 //       CHECK:   tensorrt.shuffle
 //  CHECK-SAME:    first_transpose = array<i64: 0, 1, 2>
 //  CHECK-SAME:    second_transpose = array<i64: 0>
-//  CHECK-SAME:    ins(%{{.+}}, %{{.+}} : tensor<?x2x3xf32>, tensor<1xi32>) -> tensor<?xf32>
+//  CHECK-sAME:    ins(%{{.+}}, %{{.+}} : tensor<?x2x3xf32>, tensor<1xi32>) -> tensor<?xf32>
 
 // -----
 
