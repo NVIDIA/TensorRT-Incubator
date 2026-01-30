@@ -1,11 +1,11 @@
 // RUN: %pick-one-gpu tensorrt-opt -split-input-file -pass-pipeline="builtin.module(translate-tensorrt-to-engine)" \
-// RUN:  -mlir-elide-elementsattrs-if-larger=32 -tensorrt-builder-opt-level=0 %s | FileCheck %s
+// RUN:  -mlir-elide-resource-strings-if-larger=32 -tensorrt-builder-opt-level=0 %s | FileCheck %s
 
 // CHECK-LABEL: func.func @trt_host_input
 //  CHECK-SAME: tensorrt.engine
 func.func @trt_host_input(
-        %arg0: tensor<?x4xf32> {tensorrt.dimension_names = {}, tensorrt.shape_profile = #tensorrt.shape_profile<min = [2, 4], opt = [4, 4], max = [6, 4]>}, 
-        %arg1: tensor<i32> {tensorrt.host_tensor, tensorrt.value_bounds = #tensorrt.shape_profile<min = [1], opt = [2], max = [3]>}) 
+        %arg0: tensor<?x4xf32> {tensorrt.dimension_names = {}, tensorrt.shape_profile = #tensorrt.shape_profile<min = [2, 4], opt = [4, 4], max = [6, 4]>},
+        %arg1: tensor<i32> {tensorrt.host_tensor, tensorrt.value_bounds = #tensorrt.shape_profile<min = [1], opt = [2], max = [3]>})
         -> tensor<?x?xf32> {
   %cst_i32 = tensorrt.constant dense<1> : tensor<i32>
   %0 = tensorrt.element_wise <kSUM>(%arg0, %arg0 : tensor<?x4xf32>, tensor<?x4xf32>) -> tensor<?x4xf32>

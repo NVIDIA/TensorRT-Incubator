@@ -1,5 +1,5 @@
 // RUN: %pick-one-gpu tensorrt-opt -split-input-file -pass-pipeline="builtin.module(translate-tensorrt-to-engine)" \
-// RUN:  -tensorrt-builder-opt-level=0 -mlir-elide-elementsattrs-if-larger=32 %s | FileCheck %s
+// RUN:  -tensorrt-builder-opt-level=0 -mlir-elide-resource-strings-if-larger=32 %s | FileCheck %s
 
 func.func @topk(%arg0: tensor<128x128xf32>) -> (tensor<128x1xf32>, tensor<128x1xi32>) {
   %0, %1 = tensorrt.top_k <kMAX> {

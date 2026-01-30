@@ -1,9 +1,9 @@
 // RUN: %pick-one-gpu tensorrt-opt -split-input-file -pass-pipeline="builtin.module(translate-tensorrt-to-engine)" -tensorrt-builder-opt-level=0 \
-// RUN: --mlir-elide-elementsattrs-if-larger=32  %s | FileCheck %s
+// RUN: --mlir-elide-resource-strings-if-larger=32  %s | FileCheck %s
 
 
 // CHECK-LABEL: @trt_shuffle_infer
-//  CHECK-sAME: tensorrt.engine
+//  CHECK-SAME: tensorrt.engine
 func.func @trt_shuffle_infer(%arg0: tensor<30x20x10x1xf32>) -> tensor<30x20x10xf32> {
   %0 = tensorrt.shuffle {
     first_transpose = array<i64: 0, 1, 2, 3>,
@@ -83,4 +83,3 @@ func.func @trt_shuffle_infer4(%arg0: tensor<1x2x3x4xf32>) -> tensor<1x2x1x3x4xf3
   } ins(%arg0 : tensor<1x2x3x4xf32>) -> tensor<1x2x1x3x4xf32>
   return %0 : tensor<1x2x1x3x4xf32>
 }
-
