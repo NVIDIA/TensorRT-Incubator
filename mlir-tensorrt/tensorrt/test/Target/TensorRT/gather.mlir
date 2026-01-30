@@ -1,5 +1,5 @@
 // RUN: %pick-one-gpu tensorrt-opt -split-input-file -pass-pipeline="builtin.module(translate-tensorrt-to-engine)" -tensorrt-builder-opt-level=0 \
-// RUN: --mlir-elide-elementsattrs-if-larger=32  %s | FileCheck %s
+// RUN: --mlir-elide-resource-strings-if-larger=32  %s | FileCheck %s
 
 func.func @trt_gather_default(%arg0: tensor<10x20x30xf32>, %arg1: tensor<5xi32>, %arg2: tensor<10x5x30xf32>) -> tensor<10x5x30xf32> {
   %0 = tensorrt.gather {
@@ -116,4 +116,3 @@ func.func @trt_gather_elements_i32(%arg0: tensor<10x20x30xi32>, %arg1: tensor<10
 
 // CHECK-LABEL: @trt_gather_elements_i32
 //  CHECK-SAME: tensorrt.engine
-

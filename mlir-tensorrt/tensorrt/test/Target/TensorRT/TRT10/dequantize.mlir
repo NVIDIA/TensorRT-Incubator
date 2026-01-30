@@ -1,5 +1,5 @@
 // RUN: %pick-one-gpu tensorrt-opt -split-input-file -pass-pipeline="builtin.module(translate-tensorrt-to-engine)" \
-// RUN:  -mlir-elide-elementsattrs-if-larger=32 -tensorrt-builder-opt-level=0 -tensorrt-strongly-typed %s | FileCheck %s
+// RUN:  -mlir-elide-resource-strings-if-larger=32 -tensorrt-builder-opt-level=0 -tensorrt-strongly-typed %s | FileCheck %s
 
 func.func @dequantize_fp8(%arg0: tensor<10xf8E4M3FN>) -> tensor<10xf16>{
   %scale = tensorrt.constant dense<1.000000e+00> : tensor<f32>

@@ -1,5 +1,5 @@
 // RUN: %pick-one-gpu tensorrt-opt -split-input-file -pass-pipeline="builtin.module(translate-tensorrt-to-engine)" -tensorrt-builder-opt-level=0 \
-// RUN: --mlir-elide-elementsattrs-if-larger=32 %s | FileCheck %s
+// RUN: --mlir-elide-resource-strings-if-larger=32 %s | FileCheck %s
 
 func.func @test_opaque_quick_plugin_field_creation_using_registry(%arg0: tensor<1xf32>) -> tensor<1xf32> {
   %0 = tensorrt.opaque_plugin {
