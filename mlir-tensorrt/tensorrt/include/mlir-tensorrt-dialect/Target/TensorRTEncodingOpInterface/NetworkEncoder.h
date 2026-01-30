@@ -132,6 +132,11 @@ public:
   using TensorMap = llvm::ScopedHashTable<mlir::Value, nvinfer1::ITensor *>;
   using TensorMapScope = TensorMap::ScopeTy;
 
+  /// A type that tracks constant values which are created to back weights
+  /// objects
+  /// and other temporary buffers.
+  using WeightsMap = llvm::DenseMap<mlir::Attribute, std::vector<int8_t>>;
+
   // Tracks the mapping of mlir::Operations to layers. Note that one operation
   // may map to multiple layers.
   using LayerMap = llvm::DenseMap<Operation *, std::vector<nvinfer1::ILayer *>>;
@@ -206,6 +211,7 @@ private:
   nvinfer1::INetworkDefinition *network;
   nvinfer1::IOptimizationProfile *profile;
   TensorMap valueMap;
+  WeightsMap weightsMap;
 
   // Retains references to created plugins, which must be held until network
   // build ends.
@@ -245,10 +251,6 @@ private:
   bool hasQDQOps{false};
 
   PluginManager pluginMgr;
-
-  /// Storage for when weights must be repacked and can't be referenced
-  /// in-place.
-  std::vector<std::unique_ptr<std::vector<int8_t>>> tempWeightsStorage;
 };
 
 //===----------------------------------------------------------------------===//

@@ -1,6 +1,6 @@
 //===- NetworkEncoder.h -----------------------------------------*- C++ -*-===//
 //
-// SPDX-FileCopyrightText: Copyright 2024-2026 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -593,7 +593,7 @@ static void packDenseResourceInt4Tensor(AsmResourceBlob *blob,
   }
 }
 
-static LogicalResult serializeSplatElements(ElementsAttr values,
+static LogicalResult serializeSplatElements(DenseIntOrFPElementsAttr values,
                                             std::vector<int8_t> &data) {
   assert(values.isSplat() && "expected SplatElementsAttr");
 
@@ -652,127 +652,122 @@ static LogicalResult serializeSplatElements(ElementsAttr values,
             "weights!";
 }
 
-static FailureOr<ArrayRef<char>> getRawData(ElementsAttr values) {
-  if (auto denseElementsAttr = dyn_cast<DenseElementsAttr>(values))
-    return denseElementsAttr.getRawData();
-  return failure();
-}
-
 FailureOr<nvinfer1::Weights>
 NvInferNetworkEncoder::getNvInferWeights(ElementsAttr values) {
   if (llvm::endianness::native == llvm::endianness::big)
-    return emitError(UnknownLoc::get(values.getContext()))
-           << "big endian system currently not implemented";
+    llvm_unreachable("big endian system currently not implemented");
 
   auto rtt = dyn_cast<RankedTensorType>(values.getType());
   if (!rtt)
-    return emitError(UnknownLoc::get(values.getContext()))
-           << "unable to handle type " << values.getType()
-           << " of constant data during translation to TensorRT";
-
-  FailureOr<nvinfer1::DataType> tensorrtType = getNvInferDataType(
-      UnknownLoc::get(values.getContext()), rtt.getElementType());
-  if (failed(tensorrtType))
-    return emitError(UnknownLoc::get(values.getContext()))
-           << "unable to convert element type of " << values.getType()
-           << "  during translation to TensorRT";
+    return kNullWeights;
 
   nvinfer1::Weights weights;
   weights.count = rtt.getNumElements();
+  FailureOr<nvinfer1::DataType> tensorrtType = getNvInferDataType(
+      UnknownLoc::get(values.getContext()), rtt.getElementType());
+  if (failed(tensorrtType))
+    return failure();
   weights.type = *tensorrtType;
 
-  const size_t bytesRequired = [&] {
-    if (weights.type == nvinfer1::DataType::kINT4) {
-      // 2 INT4 are packed in an INT8 in the little-endian format.
-      return static_cast<size_t>(llvm::divideCeil(rtt.getNumElements(), 2));
-    }
-    return static_cast<size_t>(
-        rtt.getNumElements() *
-        llvm::divideCeil(rtt.getElementTypeBitWidth(), CHAR_BIT));
-  }();
+  // Since Attributes are uniqued in the MLIR context, there should be no
+  // duplicate attributes. If this attribute is already present in the map, then
+  // we can just re-use its value.
+  if (weightsMap.find(values) != weightsMap.end()) {
+    weights.values = weightsMap[values].data();
+    return weights;
+  }
 
-  // Handle DenseResourceElementsAttr.
+  // Pre-allocate a buffer for holding the data.
+  if (rtt.getElementType().isInteger(4)) {
+    // TensorRT expects INT4 data to be packed thus size of buffer will be
+    // ceil(numInt4Elements/2). Ceil to handle odd elements case where 0 is
+    // packed as the last element.
+    weightsMap[values] =
+        std::vector<int8_t>(llvm::divideCeil(rtt.getNumElements(), 2));
+  } else {
+    weightsMap[values] = std::vector<int8_t>(
+        rtt.getNumElements() *
+        llvm::divideCeil(rtt.getElementType().getIntOrFloatBitWidth(),
+                         CHAR_BIT));
+  }
+  std::vector<int8_t> &data = weightsMap[values];
+  weights.values = data.data();
+
+  if (values.isSplat() && isa<DenseIntOrFPElementsAttr>(values)) {
+    LogicalResult status = serializeSplatElements(
+        cast<DenseIntOrFPElementsAttr>(values), weightsMap[values]);
+    if (failed(status))
+      return failure();
+    return weights;
+  }
+  // Handle dense resources with non-elided handle
   if (auto denseResourceAttr = dyn_cast<DenseResourceElementsAttr>(values)) {
     DenseResourceElementsHandle handle = denseResourceAttr.getRawHandle();
     if (handle.getKey() != "__elided__") {
       AsmResourceBlob *blob = handle.getBlob();
       if (!blob)
-        return emitError(UnknownLoc::get(values.getContext()))
-               << "resource blob does not exist for key: " << handle.getKey();
-
+        return failure();
       // Handle i4 element type specially
       if (denseResourceAttr.getElementType().isInteger(4)) {
-        auto data = std::make_unique<std::vector<int8_t>>(bytesRequired);
-        packDenseResourceInt4Tensor(blob, *data);
-        weights.values = data->data();
-        tempWeightsStorage.emplace_back(std::move(data));
+        packDenseResourceInt4Tensor(blob, weightsMap[values]);
         return weights;
       }
-
       // Handle everything else
-      if (blob->getData().size() == bytesRequired) {
-        weights.values = blob->getData().data();
-        return weights;
-      }
-
-      return emitError(UnknownLoc::get(values.getContext()))
-             << "unexpected serialization size " << blob->getData().size()
-             << ", expected serialization size is " << bytesRequired
-             << " for type " << values.getType();
-    }
-
-    // Handle the elided case.
-    auto data = std::make_unique<std::vector<int8_t>>(bytesRequired, 0);
-    weights.values = data->data();
-    tempWeightsStorage.emplace_back(std::move(data));
-    return weights;
-  }
-
-  FailureOr<ArrayRef<char>> rawData = getRawData(values);
-  if (failed(rawData))
-    return emitError(UnknownLoc::get(values.getContext()))
-           << "unable to get raw data pointer for splat constant";
-
-  if (values.isSplat()) {
-    if (rawData->size() == bytesRequired) {
-      weights.values = rawData->data();
+      if (blob->getData().size() != data.size())
+        return failure();
+      llvm::copy(blob->getData(), data.data());
       return weights;
     }
-
-    auto data = std::make_unique<std::vector<int8_t>>(bytesRequired);
-    if (failed(serializeSplatElements(values, *data)))
-      return emitError(UnknownLoc::get(values.getContext()))
-             << "failed to serialize splat elements";
-    weights.values = data->data();
-    tempWeightsStorage.emplace_back(std::move(data));
-    return weights;
   }
 
-  if (rtt.getElementType().isInteger(4)) {
-    auto data = std::make_unique<std::vector<int8_t>>(
-        llvm::divideCeil(rtt.getNumElements(), 2));
-    packNonSplatInt4Tensor(values, *data);
-    weights.values = data->data();
-    tempWeightsStorage.emplace_back(std::move(data));
-    return weights;
+  // How we serialize the weights to TensorRT's format depends on the data
+  // type.
+  if (mlir::getElidedResourceElementsAttr(values)) {
+    // We also handle elided attributes by generating weights filled with zeros.
+    std::memset(reinterpret_cast<void *>(data.data()), 0, data.size());
+  } else if (rtt.getElementType().isInteger(64)) {
+    llvm::copy(values.getValues<int64_t>(),
+               reinterpret_cast<int64_t *>(data.data()));
+  } else if (rtt.getElementType().isInteger(32)) {
+    llvm::copy(values.getValues<int32_t>(),
+               reinterpret_cast<int32_t *>(data.data()));
+  } else if (rtt.getElementType().isInteger(8)) {
+    llvm::copy(values.getValues<int8_t>(),
+               reinterpret_cast<int8_t *>(data.data()));
+  } else if (rtt.getElementType().isF32()) {
+    llvm::copy(values.getValues<float>(),
+               reinterpret_cast<float *>(data.data()));
+  } else if (rtt.getElementType().isF16()) {
+    auto dst = llvm::MutableArrayRef(reinterpret_cast<uint16_t *>(data.data()),
+                                     rtt.getNumElements());
+    for (auto [index, v] : llvm::enumerate(values.getValues<APFloat>())) {
+      assert(&v.getSemantics() == &APFloat::IEEEhalf() &&
+             "expected IEEE fp16 semantics");
+      dst[index] = v.bitcastToAPInt().getZExtValue();
+    }
+  } else if (isa<Float8E4M3FNType>(rtt.getElementType())) {
+    auto dst = llvm::MutableArrayRef(reinterpret_cast<uint8_t *>(data.data()),
+                                     rtt.getNumElements());
+    for (auto [index, v] : llvm::enumerate(values.getValues<APFloat>())) {
+      assert(&v.getSemantics() == &APFloat::Float8E4M3FN() &&
+             "expected Float8 f8E4M3FN semantics");
+      dst[index] = v.bitcastToAPInt().getZExtValue();
+    }
+  } else if (rtt.getElementType().isBF16()) {
+    auto dst = llvm::MutableArrayRef(reinterpret_cast<uint16_t *>(data.data()),
+                                     rtt.getNumElements());
+    for (auto [index, v] : llvm::enumerate(values.getValues<APFloat>())) {
+      assert(&v.getSemantics() == &APFloat::BFloat() &&
+             "expected bf16 semantics");
+      dst[index] = v.bitcastToAPInt().getZExtValue();
+    }
+  } else if (rtt.getElementType().isInteger(4)) {
+    packNonSplatInt4Tensor(values, weightsMap[values]);
+  } else {
+    llvm_unreachable(
+        "unsupported data type to convert MLIR attribute to TensorRT weights!");
   }
-
-  if (rtt.getElementType().isInteger(64) ||
-      rtt.getElementType().isInteger(32) || rtt.getElementType().isInteger(8) ||
-      rtt.getElementType().isF32() || rtt.getElementType().isF16() ||
-      isa<Float8E4M3FNType>(rtt.getElementType()) ||
-      rtt.getElementType().isBF16()) {
-    if (rawData->size() != bytesRequired)
-      return emitError(UnknownLoc::get(values.getContext()))
-             << "unexpected serialization size " << rawData->size()
-             << ", expected serialization size is " << bytesRequired
-             << " for type " << values.getType();
-    weights.values = rawData->data();
-    return weights;
-  }
-  return emitError(UnknownLoc::get(values.getContext()))
-         << "unsupported data type to convert MLIR dense elements attribute "
-            "to TensorRT weights!";
+  return weights;
 }
 
 FailureOr<nvinfer1::Weights>

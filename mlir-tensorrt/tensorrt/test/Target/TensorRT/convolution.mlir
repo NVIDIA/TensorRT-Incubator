@@ -1,5 +1,5 @@
 // RUN: %pick-one-gpu tensorrt-opt -split-input-file -pass-pipeline="builtin.module(translate-tensorrt-to-engine)" -tensorrt-builder-opt-level=0 \
-// RUN: --mlir-elide-resource-strings-if-larger=32  %s | FileCheck %s
+// RUN: --mlir-elide-elementsattrs-if-larger=32  %s | FileCheck %s
 
 // CHECK-LABEL: @trt_2d_convolution
 //  CHECK-SAME: tensorrt.engine

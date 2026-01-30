@@ -153,7 +153,7 @@ LogicalResult TensorRTRuntimeToLLVMOneShotConverter::convert(
 /// necessarily need to worry about the ctor priority here.
 LogicalResult
 TensorRTRuntimeToLLVMOneShotConverter::convert(trtrt::CompiledFuncOp op) {
-  auto engineData = dyn_cast<ElementsAttr>(op.getValue());
+  auto engineData = dyn_cast<DenseIntElementsAttr>(op.getValue());
   if (!engineData || !engineData.getElementType().isInteger(8))
     return emitError(op.getLoc()) << "unhandled engine data attribute";
   StringRef engineName = op.getName();
