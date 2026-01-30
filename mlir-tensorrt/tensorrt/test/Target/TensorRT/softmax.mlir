@@ -1,5 +1,5 @@
 // RUN: %pick-one-gpu tensorrt-opt -split-input-file -pass-pipeline="builtin.module(tensorrt-expand-ops,translate-tensorrt-to-engine)" \
-// RUN:  -mlir-elide-elementsattrs-if-larger=32 -tensorrt-builder-opt-level=0 %s
+// RUN:  -mlir-elide-resource-strings-if-larger=32 -tensorrt-builder-opt-level=0 %s
 
 // CHECK-LABEL: @trt_softmax_f32
 //  CHECK-SAME: tensorrt.engine

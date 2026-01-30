@@ -1,5 +1,5 @@
 // RUN: %pick-one-gpu tensorrt-opt -split-input-file -pass-pipeline="builtin.module(translate-tensorrt-to-engine)" -tensorrt-builder-opt-level=0 \
-// RUN: --mlir-elide-elementsattrs-if-larger=32  %s | FileCheck %s
+// RUN: --mlir-elide-resource-strings-if-larger=32  %s | FileCheck %s
 
 func.func @trt_scatter_default() -> tensor<4x4x4xf32> {
   %data = tensorrt.constant dense<[

@@ -1,7 +1,7 @@
 // RUN: %pick-one-gpu tensorrt-opt -split-input-file -pass-pipeline="builtin.module(translate-tensorrt-to-engine)" \
-// RUN:  -mlir-elide-elementsattrs-if-larger=32 -tensorrt-builder-opt-level=0 -tensorrt-strongly-typed %s | FileCheck %s
+// RUN:  -mlir-elide-resource-strings-if-larger=32 -tensorrt-builder-opt-level=0 -tensorrt-strongly-typed %s | FileCheck %s
 // RUN: %pick-one-gpu tensorrt-opt -split-input-file -pass-pipeline="builtin.module(translate-tensorrt-to-engine)" \
-// RUN:  -mlir-elide-elementsattrs-if-larger=32 -tensorrt-builder-opt-level=0 %s | FileCheck %s
+// RUN:  -mlir-elide-resource-strings-if-larger=32 -tensorrt-builder-opt-level=0 %s | FileCheck %s
 
 func.func @trt_2d_fp8_convolution(%arg0: tensor<1x32x128x128xf8E4M3FN>) -> tensor<1x64x128x128xf16> {
   %scale = tensorrt.constant dense<1.000000e+00> : tensor<f32>
@@ -27,4 +27,3 @@ func.func @trt_2d_bf16_convolution(%arg0: tensor<1x32x128x128xbf16>) -> tensor<1
   } in (%arg0 : tensor<1x32x128x128xbf16>) -> tensor<1x64x128x128xbf16>
   return %0 : tensor<1x64x128x128xbf16>
 }
-

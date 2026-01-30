@@ -1,6 +1,6 @@
 // REQUIRES: tensorrt-version-ge-10.9
 // RUN: %pick-one-gpu tensorrt-opt -split-input-file -pass-pipeline="builtin.module(translate-tensorrt-to-engine)" \
-// RUN:  -mlir-elide-elementsattrs-if-larger=32 -tensorrt-builder-opt-level=0 -tensorrt-strongly-typed %s | FileCheck %s
+// RUN:  -mlir-elide-resource-strings-if-larger=32 -tensorrt-builder-opt-level=0 -tensorrt-strongly-typed %s | FileCheck %s
 
 func.func @trt_subbyte_dequantize_even_final_dim(%arg0: tensor<3x5xf16>) -> tensor<4x5xf16> {
   %k = tensorrt.constant dense<2> : tensor<4x3xi4>
