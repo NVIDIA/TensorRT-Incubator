@@ -310,7 +310,7 @@ MTRT_Status mtrtMemRefCreateExternal(
   BufferType bufferType = BufferType::createWithElementStrides(
       unwrap(scalarType), llvm::ArrayRef(shape, shape + rank),
       llvm::ArrayRef(strides, strides + rank), unwrap(pointerKind),
-      /*offset=*/0);
+      /*offset=*/offset);
   StatusOr<std::unique_ptr<MemRefValue>> bufferImpl =
       unwrap(client)->ref->createExternalMemRef(
           bufferType, ptr, unwrap(device), assertCanonicalStrides,
@@ -384,6 +384,46 @@ uint32_t mtrtMemRefReferenceCount(MTRT_MemRefValue memref) {
 
 MTRT_MemRefValue mtrtMemRefCreateRef(MTRT_MemRefValue memref) {
   return wrap(unwrap(memref)->createRef().release());
+}
+
+MTRT_Status
+mtrtMemRefCreateViewRef(MTRT_MemRefValue memref, const int64_t *offsets,
+                        const int64_t *sizes, const int64_t *strides,
+                        bool squeezeUnitDims, MTRT_MemRefValue *result) {
+  MemRefValue *cppMemRef = unwrap(memref);
+  auto storageRef = cppMemRef->getStorageRef();
+  const int64_t rank = cppMemRef->getRank();
+  llvm::ArrayRef<int64_t> oldStrides = cppMemRef->getStrides();
+  llvm::ArrayRef<int64_t> oldShape = cppMemRef->getShape();
+
+  int64_t newOffset = cppMemRef->getLayout().getOffset();
+  llvm::SmallVector<int64_t> newShape;
+  llvm::SmallVector<int64_t> newStrides;
+  newShape.reserve(rank);
+  newStrides.reserve(rank);
+  for (int64_t i = 0; i < rank; i++) {
+    if (offsets[i] < 0 || offsets[i] >= oldShape[i])
+      return wrap(
+          getInvalidArgStatus("slice offset[{0}] is out of bounds: {1} >= {2}",
+                              i, offsets[i], oldShape[i]));
+    newOffset += offsets[i] * oldStrides[i];
+    int64_t newStride = strides[i] * oldStrides[i];
+    if (squeezeUnitDims && sizes[i] == 1)
+      continue;
+    newShape.push_back(sizes[i]);
+    newStrides.push_back(newStride);
+  }
+
+  BufferType bufferType = BufferType::createWithElementStrides(
+      cppMemRef->getScalarType(), llvm::ArrayRef(newShape),
+      llvm::ArrayRef(newStrides), cppMemRef->getAddressSpace(), newOffset);
+
+  auto view =
+      MemRefValue::create(cppMemRef->getAddressSpace(), std::move(bufferType),
+                          storageRef, cppMemRef->getDevice());
+
+  *result = wrap(view->release());
+  return mtrtStatusGetOk();
 }
 
 MTRT_Status mtrtMemRefValueGetStream(MTRT_MemRefValue memref,

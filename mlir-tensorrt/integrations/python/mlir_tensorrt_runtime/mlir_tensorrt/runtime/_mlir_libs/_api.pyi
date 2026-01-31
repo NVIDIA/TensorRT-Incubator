@@ -8,6 +8,7 @@ import typing_extensions
 __all__ = [
     "Device",
     "Executable",
+    "GlobalDebug",
     "MTRTException",
     "MemRefType",
     "MemRefValue",
@@ -24,9 +25,12 @@ __all__ = [
     "Stream",
     "Type",
     "bf16",
+    "complex32",
+    "complex64",
     "device",
     "f16",
     "f32",
+    "f4e2m1fn",
     "f64",
     "f8e4m3fn",
     "host",
@@ -42,6 +46,7 @@ __all__ = [
 ]
 
 class Device:
+    def get_name(self) -> str: ...
     @property
     def _CAPIPtr(self) -> typing.Any: ...
     @property
@@ -85,20 +90,36 @@ class MemRefType(Type):
     @property
     def strides(self) -> list[int]: ...
 
-class MemRefValue:
+class MemRefValue(RuntimeValue):
     def __dlpack__(
         self,
-        stream: int | None = None,
-        dl_device: tuple | None = None,
+        stream: typing.Any | None = None,
+        dl_device: tuple[int, int] | None = None,
         copy: bool = False,
     ) -> object: ...
-    def __dlpack_device__(self) -> tuple: ...
+    def __dlpack_device__(self) -> tuple[int, int]: ...
+    def __getitem__(self, indices: typing.Any) -> MemRefValue: ...
+    def ref_count(self) -> int: ...
+    def slice(
+        self,
+        indices: typing.Any,
+        squeeze_unit_dims: bool | None = None,
+    ) -> MemRefValue: ...
+    def slice_view(
+        self,
+        offsets: list[int],
+        sizes: list[int],
+        strides: list[int],
+        squeeze_unit_dims: bool = False,
+    ) -> MemRefValue: ...
     @property
     def _CAPIPtr(self) -> typing.Any: ...
     @property
     def address_space(self) -> PointerType: ...
     @property
     def dtype(self) -> ScalarTypeCode: ...
+    @property
+    def ptr(self) -> int: ...
     @property
     def shape(self) -> list[int]: ...
     @property
@@ -210,12 +231,25 @@ class RuntimeClient:
         stream: Stream | None = None,
     ) -> MemRefValue: ...
     def create_scalar(
-        self, scalar_value: typing.Any, type_code: ScalarTypeCode | None
+        self, scalar_value: typing.Any, type_code: ScalarTypeCode | None = None
     ) -> ScalarValue:
         """
         creates a runtime ScalarValue from the provided Python object; an explicit type may be provided, otherwise defaults to i64 for Python integers and f32 for Python floats
         """
 
+    @typing.overload
+    def create_memref_view_from_dlpack(
+        self,
+        dltensor: object | None = None,
+        assert_canonical_strides: bool | None = None,
+    ) -> MemRefValue: ...
+    @typing.overload
+    def create_memref_view_from_dlpack(
+        self,
+        dltensor: object | None = None,
+        assert_canonical_strides: bool | None = None,
+    ) -> MemRefValue: ...
+    def from_dlpack(self, dltensor: object | None = None) -> MemRefValue: ...
     def get_devices(self) -> list[Device]: ...
 
 class RuntimeSession:
@@ -228,10 +262,10 @@ class RuntimeSession:
     def execute_function(
         self,
         name: str,
-        in_args: list[typing.Any],
-        out_args: list[typing.Any],
+        in_args: list[RuntimeValue],
+        out_args: list[MemRefValue] | None = None,
         stream: Stream | None = None,
-    ) -> None: ...
+    ) -> list[RuntimeValue]: ...
 
 class RuntimeSessionOptions:
     def __init__(
@@ -243,12 +277,7 @@ class RuntimeSessionOptions:
     ) -> None: ...
 
 class RuntimeValue:
-    @typing.overload
-    def __init__(self, scalar_int: int) -> None: ...
-    @typing.overload
-    def __init__(
-        self, pointer: int, offset: int, shape: list[int], strides: list[int]
-    ) -> None: ...
+    def __init__(self, client: RuntimeClient, scalar_int: int) -> None: ...
     @property
     def _CAPIPtr(self) -> typing.Any: ...
 
@@ -289,22 +318,29 @@ class ScalarTypeCode:
       i32
 
       i64
+
+      complex32
+
+      complex64
+
+      f4e2m1fn
     """
 
     __members__: typing.ClassVar[
         dict[str, ScalarTypeCode]
-    ]  # value = {'f8e4m3fn': <ScalarTypeCode.f8e4m3fn: 1>, 'f16': <ScalarTypeCode.f16: 2>, 'bf16': <ScalarTypeCode.bf16: 11>, 'f32': <ScalarTypeCode.f32: 3>, 'f64': <ScalarTypeCode.f64: 4>, 'i1': <ScalarTypeCode.i1: 5>, 'i8': <ScalarTypeCode.i8: 6>, 'ui8': <ScalarTypeCode.ui8: 7>, 'i16': <ScalarTypeCode.i16: 8>, 'i32': <ScalarTypeCode.i32: 9>, 'i64': <ScalarTypeCode.i64: 10>}
+    ]  # value = {'f8e4m3fn': <ScalarTypeCode.f8e4m3fn: 1>, 'f16': <ScalarTypeCode.f16: 2>, 'bf16': <ScalarTypeCode.bf16: 11>, 'f32': <ScalarTypeCode.f32: 3>, 'f64': <ScalarTypeCode.f64: 4>, 'i1': <ScalarTypeCode.i1: 5>, 'i8': <ScalarTypeCode.i8: 6>, 'ui8': <ScalarTypeCode.ui8: 7>, 'i16': <ScalarTypeCode.i16: 8>, 'i32': <ScalarTypeCode.i32: 9>, 'i64': <ScalarTypeCode.i64: 10>, 'complex32': <ScalarTypeCode.complex32: 13>, 'complex64': <ScalarTypeCode.complex64: 14>, 'f4e2m1fn': <ScalarTypeCode.f4e2m1fn: 15>}
     bf16: typing.ClassVar[ScalarTypeCode]  # value = <ScalarTypeCode.bf16: 11>
+    complex32: typing.ClassVar[ScalarTypeCode]  # value = <ScalarTypeCode.complex32: 13>
+    complex64: typing.ClassVar[ScalarTypeCode]  # value = <ScalarTypeCode.complex64: 14>
     f16: typing.ClassVar[ScalarTypeCode]  # value = <ScalarTypeCode.f16: 2>
     f32: typing.ClassVar[ScalarTypeCode]  # value = <ScalarTypeCode.f32: 3>
+    f4e2m1fn: typing.ClassVar[ScalarTypeCode]  # value = <ScalarTypeCode.f4e2m1fn: 15>
     f64: typing.ClassVar[ScalarTypeCode]  # value = <ScalarTypeCode.f64: 4>
     f8e4m3fn: typing.ClassVar[ScalarTypeCode]  # value = <ScalarTypeCode.f8e4m3fn: 1>
     i1: typing.ClassVar[ScalarTypeCode]  # value = <ScalarTypeCode.i1: 5>
     i16: typing.ClassVar[ScalarTypeCode]  # value = <ScalarTypeCode.i16: 8>
     i32: typing.ClassVar[ScalarTypeCode]  # value = <ScalarTypeCode.i32: 9>
     i64: typing.ClassVar[ScalarTypeCode]  # value = <ScalarTypeCode.i64: 10>
-    complex32: typing.ClassVar[ScalarTypeCode]  # value = <ScalarTypeCode.complex32: 13>
-    complex64: typing.ClassVar[ScalarTypeCode]  # value = <ScalarTypeCode.complex64: 14>
     i8: typing.ClassVar[ScalarTypeCode]  # value = <ScalarTypeCode.i8: 6>
     ui8: typing.ClassVar[ScalarTypeCode]  # value = <ScalarTypeCode.ui8: 7>
     def __eq__(self, other: typing.Any) -> bool: ...
@@ -322,24 +358,50 @@ class ScalarTypeCode:
     @property
     def value(self) -> int: ...
 
-class ScalarValue:
+class ScalarValue(RuntimeValue):
     @property
     def _CAPIPtr(self) -> typing.Any: ...
+    @property
+    def data(self) -> int: ...
     @property
     def type(self) -> ScalarTypeCode: ...
 
 class Stream:
     def sync(self) -> None: ...
+    def __str__(self) -> str: ...
     @property
     def _CAPIPtr(self) -> typing.Any: ...
+    @property
+    def ptr(self) -> int: ...
 
 class Type:
     def __init__(self, cast_from_type: Type) -> None: ...
 
+class GlobalDebug:
+    flag: bool
+    @staticmethod
+    @typing.overload
+    def set_types(types: str) -> None:
+        """
+        Sets specific debug type to be produced by LLVM
+        """
+        ...
+
+    @staticmethod
+    @typing.overload
+    def set_types(types: list[str]) -> None:
+        """
+        Sets specific debug types to be produced by LLVM
+        """
+        ...
+
 bf16: ScalarTypeCode  # value = <ScalarTypeCode.bf16: 11>
+complex32: ScalarTypeCode  # value = <ScalarTypeCode.complex32: 13>
+complex64: ScalarTypeCode  # value = <ScalarTypeCode.complex64: 14>
 device: PointerType  # value = <PointerType.device: 2>
 f16: ScalarTypeCode  # value = <ScalarTypeCode.f16: 2>
 f32: ScalarTypeCode  # value = <ScalarTypeCode.f32: 3>
+f4e2m1fn: ScalarTypeCode  # value = <ScalarTypeCode.f4e2m1fn: 15>
 f64: ScalarTypeCode  # value = <ScalarTypeCode.f64: 4>
 f8e4m3fn: ScalarTypeCode  # value = <ScalarTypeCode.f8e4m3fn: 1>
 host: PointerType  # value = <PointerType.host: 0>
@@ -352,5 +414,3 @@ pinned_host: PointerType  # value = <PointerType.pinned_host: 1>
 ui8: ScalarTypeCode  # value = <ScalarTypeCode.ui8: 7>
 unified: PointerType  # value = <PointerType.unified: 3>
 unknown: PointerType  # value = <PointerType.unknown: 4>
-complex32: ScalarTypeCode  # value = <ScalarTypeCode.complex32: 13>
-complex64: ScalarTypeCode  # value = <ScalarTypeCode.complex64: 14>

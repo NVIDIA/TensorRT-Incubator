@@ -21,9 +21,12 @@ __all__ = [
     "Type",
     "bf16",
     "compiler_stablehlo_to_executable",
+    "complex32",
+    "complex64",
     "device",
     "f16",
     "f32",
+    "f4e2m1fn",
     "f64",
     "f8e4m3fn",
     "get_tensorrt_plugin_field_schema",
@@ -135,6 +138,8 @@ class PluginFieldType:
       FP8
 
       INT4
+
+      FP4
     """
 
     BF16: typing.ClassVar[PluginFieldType]  # value = <PluginFieldType.BF16: 9>
@@ -143,6 +148,7 @@ class PluginFieldType:
     FLOAT16: typing.ClassVar[PluginFieldType]  # value = <PluginFieldType.FLOAT16: 0>
     FLOAT32: typing.ClassVar[PluginFieldType]  # value = <PluginFieldType.FLOAT32: 1>
     FLOAT64: typing.ClassVar[PluginFieldType]  # value = <PluginFieldType.FLOAT64: 2>
+    FP4: typing.ClassVar[PluginFieldType]  # value = <PluginFieldType.FP4: 13>
     FP8: typing.ClassVar[PluginFieldType]  # value = <PluginFieldType.FP8: 11>
     INT16: typing.ClassVar[PluginFieldType]  # value = <PluginFieldType.INT16: 4>
     INT32: typing.ClassVar[PluginFieldType]  # value = <PluginFieldType.INT32: 5>
@@ -152,7 +158,7 @@ class PluginFieldType:
     UNKNOWN: typing.ClassVar[PluginFieldType]  # value = <PluginFieldType.UNKNOWN: 8>
     __members__: typing.ClassVar[
         dict[str, PluginFieldType]
-    ]  # value = {'FLOAT16': <PluginFieldType.FLOAT16: 0>, 'FLOAT32': <PluginFieldType.FLOAT32: 1>, 'FLOAT64': <PluginFieldType.FLOAT64: 2>, 'INT8': <PluginFieldType.INT8: 3>, 'INT16': <PluginFieldType.INT16: 4>, 'INT32': <PluginFieldType.INT32: 5>, 'CHAR': <PluginFieldType.CHAR: 6>, 'DIMS': <PluginFieldType.DIMS: 7>, 'UNKNOWN': <PluginFieldType.UNKNOWN: 8>, 'BF16': <PluginFieldType.BF16: 9>, 'INT64': <PluginFieldType.INT64: 10>, 'FP8': <PluginFieldType.FP8: 11>, 'INT4': <PluginFieldType.INT4: 12>}
+    ]  # value = {'FLOAT16': <PluginFieldType.FLOAT16: 0>, 'FLOAT32': <PluginFieldType.FLOAT32: 1>, 'FLOAT64': <PluginFieldType.FLOAT64: 2>, 'INT8': <PluginFieldType.INT8: 3>, 'INT16': <PluginFieldType.INT16: 4>, 'INT32': <PluginFieldType.INT32: 5>, 'CHAR': <PluginFieldType.CHAR: 6>, 'DIMS': <PluginFieldType.DIMS: 7>, 'UNKNOWN': <PluginFieldType.UNKNOWN: 8>, 'BF16': <PluginFieldType.BF16: 9>, 'INT64': <PluginFieldType.INT64: 10>, 'FP8': <PluginFieldType.FP8: 11>, 'INT4': <PluginFieldType.INT4: 12>, 'FP4': <PluginFieldType.FP4: 13>}
     def __eq__(self, other: typing.Any) -> bool: ...
     def __getstate__(self) -> int: ...
     def __hash__(self) -> int: ...
@@ -270,14 +276,23 @@ class ScalarTypeCode:
       i32
 
       i64
+
+      complex32
+
+      complex64
+
+      f4e2m1fn
     """
 
     __members__: typing.ClassVar[
         dict[str, ScalarTypeCode]
-    ]  # value = {'f8e4m3fn': <ScalarTypeCode.f8e4m3fn: 1>, 'f16': <ScalarTypeCode.f16: 2>, 'bf16': <ScalarTypeCode.bf16: 11>, 'f32': <ScalarTypeCode.f32: 3>, 'f64': <ScalarTypeCode.f64: 4>, 'i1': <ScalarTypeCode.i1: 5>, 'i4': <ScalarTypeCode.i4: 12>, 'i8': <ScalarTypeCode.i8: 6>, 'ui8': <ScalarTypeCode.ui8: 7>, 'i16': <ScalarTypeCode.i16: 8>, 'i32': <ScalarTypeCode.i32: 9>, 'i64': <ScalarTypeCode.i64: 10>}
+    ]  # value = {'f8e4m3fn': <ScalarTypeCode.f8e4m3fn: 1>, 'f16': <ScalarTypeCode.f16: 2>, 'bf16': <ScalarTypeCode.bf16: 11>, 'f32': <ScalarTypeCode.f32: 3>, 'f64': <ScalarTypeCode.f64: 4>, 'i1': <ScalarTypeCode.i1: 5>, 'i4': <ScalarTypeCode.i4: 12>, 'i8': <ScalarTypeCode.i8: 6>, 'ui8': <ScalarTypeCode.ui8: 7>, 'i16': <ScalarTypeCode.i16: 8>, 'i32': <ScalarTypeCode.i32: 9>, 'i64': <ScalarTypeCode.i64: 10>, 'complex32': <ScalarTypeCode.complex32: 13>, 'complex64': <ScalarTypeCode.complex64: 14>, 'f4e2m1fn': <ScalarTypeCode.f4e2m1fn: 15>}
     bf16: typing.ClassVar[ScalarTypeCode]  # value = <ScalarTypeCode.bf16: 11>
+    complex32: typing.ClassVar[ScalarTypeCode]  # value = <ScalarTypeCode.complex32: 13>
+    complex64: typing.ClassVar[ScalarTypeCode]  # value = <ScalarTypeCode.complex64: 14>
     f16: typing.ClassVar[ScalarTypeCode]  # value = <ScalarTypeCode.f16: 2>
     f32: typing.ClassVar[ScalarTypeCode]  # value = <ScalarTypeCode.f32: 3>
+    f4e2m1fn: typing.ClassVar[ScalarTypeCode]  # value = <ScalarTypeCode.f4e2m1fn: 15>
     f64: typing.ClassVar[ScalarTypeCode]  # value = <ScalarTypeCode.f64: 4>
     f8e4m3fn: typing.ClassVar[ScalarTypeCode]  # value = <ScalarTypeCode.f8e4m3fn: 1>
     i1: typing.ClassVar[ScalarTypeCode]  # value = <ScalarTypeCode.i1: 5>
@@ -328,9 +343,12 @@ def get_tensorrt_plugin_field_schema(
 def translate_mlir_to_executable(arg0: Operation) -> Executable: ...
 
 bf16: ScalarTypeCode  # value = <ScalarTypeCode.bf16: 11>
+complex32: ScalarTypeCode  # value = <ScalarTypeCode.complex32: 13>
+complex64: ScalarTypeCode  # value = <ScalarTypeCode.complex64: 14>
 device: PointerType  # value = <PointerType.device: 2>
 f16: ScalarTypeCode  # value = <ScalarTypeCode.f16: 2>
 f32: ScalarTypeCode  # value = <ScalarTypeCode.f32: 3>
+f4e2m1fn: ScalarTypeCode  # value = <ScalarTypeCode.f4e2m1fn: 15>
 f64: ScalarTypeCode  # value = <ScalarTypeCode.f64: 4>
 f8e4m3fn: ScalarTypeCode  # value = <ScalarTypeCode.f8e4m3fn: 1>
 host: PointerType  # value = <PointerType.host: 0>

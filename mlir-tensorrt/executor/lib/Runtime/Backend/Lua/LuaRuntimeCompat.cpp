@@ -264,7 +264,6 @@ unboxMemRefFromLua(const sol::object &obj, const MemRefTypeView &memRefView,
   uintptr_t allocPtr = reader.getNextValue<uintptr_t>();
   [[maybe_unused]] uintptr_t alignedPtr = reader.getNextValue<uintptr_t>();
   int64_t offset = reader.getNextValue<int64_t>();
-  assert(offset == 0 && "expected offset to be 0");
 
   unsigned rank = memRefView.getRank();
   llvm::SmallVector<int64_t, 4> shape(rank);
