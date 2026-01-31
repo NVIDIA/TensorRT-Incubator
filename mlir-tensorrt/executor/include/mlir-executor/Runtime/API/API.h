@@ -740,11 +740,25 @@ public:
   int64_t getRank() const { return type.getRank(); }
   int64_t getTotalFootprintInBytes() const;
   uintptr_t getMemory() const { return storage->getPtr(); }
-  void *getVoidPtr() const { return reinterpret_cast<void *>(getMemory()); }
+  /// Return the logical element offset from the base pointer.
+  int64_t getOffset() const { return type.getLayout().getOffset(); }
+  /// Return the data pointer to the first logical element.
+  uintptr_t getDataPtr() const {
+    int64_t offset = getOffset();
+    if (offset == 0)
+      return getMemory();
+    int64_t bytesPerElement = (getElementBitWidth() + 7) / 8;
+    return getMemory() + offset * bytesPerElement;
+  }
+  void *getVoidPtr() const { return reinterpret_cast<void *>(getDataPtr()); }
   Device *getDevice() const { return device; }
   PointerInfo getPointerInfo(PointerOwner ownership) const {
-    return PointerInfo(getMemory(), getTotalFootprintInBytes(),
-                       type.getAddressSpace(), ownership);
+    int64_t bytesPerElement = (getElementBitWidth() + 7) / 8;
+    int64_t offsetBytes = getOffset() * bytesPerElement;
+    uint64_t totalSize =
+        static_cast<uint64_t>(getTotalFootprintInBytes() + offsetBytes);
+    return PointerInfo(getMemory(), totalSize, type.getAddressSpace(),
+                       ownership);
   }
   PointerType getAddressSpace() const { return type.getAddressSpace(); }
 

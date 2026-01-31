@@ -423,7 +423,7 @@ getMemRefBufferInfo(const MTRT_MemRefValueInfo &info,
 
   // Prepare the data for the buffer_info.
   // Buffer is configured for read-only access below.
-  Type *data = reinterpret_cast<Type *>(info.ptr + info.offset);
+  Type *data = reinterpret_cast<Type *>(info.ptr + info.offset * sizeof(Type));
   // Prepare the shape for the buffer_info.
   llvm::SmallVector<intptr_t, 4> shape(info.shape, info.shape + info.rank);
 
@@ -478,6 +478,117 @@ getPyBufferProtocolInfoFromMemRef(MTRT_MemRefValue memref) {
   // Reported as https://github.com/pybind/pybind11/issues/3336
   throw std::invalid_argument(
       "unsupported data type for conversion to Python buffer");
+}
+
+/// Normalize Python indexing into a full list of per-dimension specs.
+/// Supports integers, slices, and a single ellipsis. Missing dims are
+/// filled with full slices.
+static std::vector<py::object> normalizeSliceIndices(py::object indices,
+                                                     int64_t rank) {
+  std::vector<py::object> dims;
+  if (py::isinstance<py::tuple>(indices)) {
+    py::tuple tuple = py::cast<py::tuple>(indices);
+    dims.reserve(tuple.size());
+    for (auto item : tuple)
+      dims.emplace_back(py::reinterpret_borrow<py::object>(item));
+  } else {
+    dims.emplace_back(std::move(indices));
+  }
+
+  int64_t ellipsisIndex = -1;
+  for (int64_t i = 0; i < static_cast<int64_t>(dims.size()); ++i) {
+    if (dims[i].is(py::ellipsis())) {
+      if (ellipsisIndex != -1)
+        throw std::invalid_argument("only one ellipsis is supported");
+      ellipsisIndex = i;
+    } else if (dims[i].is_none()) {
+      throw std::invalid_argument("newaxis (None) is not supported");
+    }
+  }
+
+  if (ellipsisIndex != -1) {
+    int64_t numSpecified = static_cast<int64_t>(dims.size()) - 1;
+    int64_t fillCount = rank - numSpecified;
+    if (fillCount < 0)
+      throw std::invalid_argument("too many indices for memref rank");
+    std::vector<py::object> expanded;
+    expanded.reserve(rank);
+    for (int64_t i = 0; i < static_cast<int64_t>(dims.size()); ++i) {
+      if (i == ellipsisIndex) {
+        for (int64_t j = 0; j < fillCount; ++j)
+          expanded.emplace_back(py::slice(py::none(), py::none(), py::none()));
+      } else {
+        expanded.emplace_back(dims[i]);
+      }
+    }
+    dims = std::move(expanded);
+  }
+
+  if (static_cast<int64_t>(dims.size()) > rank)
+    throw std::invalid_argument("too many indices for memref rank");
+  while (static_cast<int64_t>(dims.size()) < rank)
+    dims.emplace_back(py::slice(py::none(), py::none(), py::none()));
+
+  return dims;
+}
+
+/// Create a MemRefValue view from numpy-like indices.
+static std::unique_ptr<PyMemRefValue>
+createMemRefSliceView(PyMemRefValue &self, py::object indices,
+                      std::optional<bool> squeezeUnitDims) {
+  MTRT_MemRefValueInfo info;
+  MTRT_Status s = mtrtMemRefValueGetInfo(self, &info);
+  THROW_IF_MTRT_ERROR(s);
+  if (info.rank < 0)
+    throw std::invalid_argument("memref rank is not known");
+
+  std::vector<py::object> dims =
+      normalizeSliceIndices(std::move(indices), info.rank);
+  std::vector<int64_t> offsets(info.rank);
+  std::vector<int64_t> sizes(info.rank);
+  std::vector<int64_t> strides(info.rank);
+  bool hasIntIndex = false;
+
+  for (int64_t i = 0; i < info.rank; ++i) {
+    int64_t dimSize = info.shape[i];
+    if (dimSize < 0)
+      throw std::invalid_argument("slicing requires static dimensions");
+    py::object spec = dims[i];
+    if (py::isinstance<py::slice>(spec)) {
+      py::slice slice = py::cast<py::slice>(spec);
+      size_t start = 0;
+      size_t stop = 0;
+      size_t step = 0;
+      size_t sliceLength = 0;
+      if (!slice.compute(static_cast<size_t>(dimSize), &start, &stop, &step,
+                         &sliceLength))
+        throw std::invalid_argument("invalid slice for dimension");
+      if (step == 0)
+        throw std::invalid_argument("slice step must be non-zero");
+      offsets[i] = static_cast<int64_t>(start);
+      sizes[i] = static_cast<int64_t>(sliceLength);
+      strides[i] = static_cast<int64_t>(step);
+    } else if (py::isinstance<py::int_>(spec)) {
+      int64_t idx = py::cast<int64_t>(spec);
+      if (idx < 0)
+        idx += dimSize;
+      if (idx < 0 || idx >= dimSize)
+        throw std::invalid_argument("index is out of bounds");
+      offsets[i] = idx;
+      sizes[i] = 1;
+      strides[i] = 1;
+      hasIntIndex = true;
+    } else {
+      throw std::invalid_argument("indices must be integers or slices");
+    }
+  }
+
+  bool squeeze = squeezeUnitDims.value_or(hasIntIndex);
+  MTRT_MemRefValue view{nullptr};
+  s = mtrtMemRefCreateViewRef(self, offsets.data(), sizes.data(),
+                              strides.data(), squeeze, &view);
+  THROW_IF_MTRT_ERROR(s);
+  return std::make_unique<PyMemRefValue>(view);
 }
 
 //===----------------------------------------------------------------------===//
@@ -731,7 +842,7 @@ createMemRefViewFromDLPack(PyRuntimeClient &client, py::capsule capsule,
     strides = stridesArray.data();
   }
 
-  int64_t offset = managedTensor->dl_tensor.byte_offset;
+  int64_t offsetBytes = managedTensor->dl_tensor.byte_offset;
   int rank = managedTensor->dl_tensor.ndim;
   DLDataType dtype = managedTensor->dl_tensor.dtype;
   DLDeviceType device_type = managedTensor->dl_tensor.device.device_type;
@@ -743,6 +854,14 @@ createMemRefViewFromDLPack(PyRuntimeClient &client, py::capsule capsule,
   MTRT_Status s =
       mtrtScalarTypeCodeBitsPerElement(elementType, &bitsPerElementExpected);
   THROW_IF_MTRT_ERROR(s);
+  int64_t bytesPerElement = (bitsPerElementExpected + 7) / 8;
+  if (bytesPerElement == 0)
+    throw std::invalid_argument("DLPack tensor element size is invalid");
+  if (offsetBytes % bytesPerElement != 0) {
+    throw std::invalid_argument(
+        "DLPack tensor byte_offset must be a multiple of the element size");
+  }
+  int64_t offsetInElements = offsetBytes / bytesPerElement;
   if (dtype.bits != bitsPerElementExpected) {
     throw std::invalid_argument("DLPack tensor has unexpected bit width: " +
                                 std::to_string(dtype.bits) + " expected: " +
@@ -771,7 +890,7 @@ createMemRefViewFromDLPack(PyRuntimeClient &client, py::capsule capsule,
   if (data) {
     s = mtrtMemRefCreateExternal(
         client, addressSpace, elementType, reinterpret_cast<uintptr_t>(data),
-        offset, rank, shape, strides, device, &result,
+        offsetInElements, rank, shape, strides, device, &result,
         assertCanonicalStrides ? *assertCanonicalStrides : false,
         /*destroyCallback=*/
         MTRT_MemRefDestroyCallback{reinterpret_cast<void *>(managedTensor),
@@ -849,12 +968,6 @@ static py::capsule pyMemRefValueToDLPackCapsule(py::handle obj,
   s = mtrtMemRefValueGetInfo(buffer, &info);
   THROW_IF_MTRT_ERROR(s);
 
-  // Generally we shouldn't be creating DLPack tensors with offsets.
-  if (info.offset != 0)
-    throw std::invalid_argument(
-        "conversion to DLPack is only supported for 0-offset "
-        "MemRefValues");
-
   DLTensor &dt = pack->tensor.dl_tensor;
   dt.data = reinterpret_cast<void *>(info.ptr);
   dt.device.device_type = requestedDeviceType;
@@ -867,6 +980,7 @@ static py::capsule pyMemRefValueToDLPackCapsule(py::handle obj,
   int64_t bitsPerElement;
   s = mtrtScalarTypeCodeBitsPerElement(info.scalarType, &bitsPerElement);
   THROW_IF_MTRT_ERROR(s);
+  int64_t bytesPerElement = (bitsPerElement + 7) / 8;
   dtype.bits = bitsPerElement;
   dtype.lanes = 1;
   dt.dtype = dtype;
@@ -876,7 +990,7 @@ static py::capsule pyMemRefValueToDLPackCapsule(py::handle obj,
 
   dt.shape = reinterpret_cast<std::int64_t *>(pack->shape.data());
   dt.strides = reinterpret_cast<std::int64_t *>(pack->strides.data());
-  dt.byte_offset = 0;
+  dt.byte_offset = info.offset * bytesPerElement;
 
   // We cannot use pybind's capsule object constructor because we
   // need to detect if the capsule name has been changed in the
@@ -1006,7 +1120,38 @@ PYBIND11_MODULE(_api, m) {
         return getPyBufferProtocolInfoFromMemRef(self);
       })
       .def("ref_count",
-           [](PyMemRefValue &self) { return mtrtMemRefReferenceCount(self); });
+           [](PyMemRefValue &self) { return mtrtMemRefReferenceCount(self); })
+      .def(
+          "slice_view",
+          [](PyMemRefValue &self, std::vector<int64_t> offsets,
+             std::vector<int64_t> sizes, std::vector<int64_t> strides,
+             bool squeezeUnitDims) {
+            if (offsets.size() != sizes.size() ||
+                offsets.size() != strides.size())
+              throw std::invalid_argument(
+                  "offsets, sizes, and strides must have the same length");
+            MTRT_MemRefValue view{nullptr};
+            MTRT_Status s =
+                mtrtMemRefCreateViewRef(self, offsets.data(), sizes.data(),
+                                        strides.data(), squeezeUnitDims, &view);
+            THROW_IF_MTRT_ERROR(s);
+            return new PyMemRefValue(view);
+          },
+          py::arg("offsets"), py::arg("sizes"), py::arg("strides"),
+          py::arg("squeeze_unit_dims") = false)
+      .def(
+          "slice",
+          [](PyMemRefValue &self, py::object indices,
+             std::optional<bool> squeezeUnitDims) {
+            return createMemRefSliceView(self, std::move(indices),
+                                         squeezeUnitDims)
+                .release();
+          },
+          py::arg("indices"), py::arg("squeeze_unit_dims") = py::none())
+      .def("__getitem__", [](PyMemRefValue &self, py::object indices) {
+        return createMemRefSliceView(self, std::move(indices), std::nullopt)
+            .release();
+      });
 
   py::class_<PyStream>(m, "Stream", py::module_local())
       .def_property_readonly(MTRT_PYTHON_CAPI_PTR_ATTR, &PyStream::getCapsule)

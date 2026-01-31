@@ -372,6 +372,47 @@ static int64_t getShapeTensorBytesPerDataType(nvinfer1::DataType t) {
   llvm_unreachable("unknown TensorRT data type");
 }
 
+/// Map NvInfer data type to the number of bytes required per element.
+/// Return the number of bytes per element for the given tensor data type.
+static int64_t getTensorBytesPerElement(nvinfer1::DataType t) {
+  using nvinfer1::DataType;
+  switch (t) {
+  case DataType::kFLOAT:
+    return 4;
+  case DataType::kHALF:
+    return 2;
+  case DataType::kINT8:
+    return 1;
+  case DataType::kINT32:
+    return 4;
+  case DataType::kBOOL:
+    return 1;
+  case DataType::kUINT8:
+    return 1;
+  case DataType::kFP8:
+    return 1;
+#if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(9, 1, 0)
+  case DataType::kBF16:
+    return 2;
+  case DataType::kINT64:
+    return 8;
+#endif
+#if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 0, 0)
+  case DataType::kINT4:
+    return 1;
+#endif
+#if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 9, 0)
+  case DataType::kFP4:
+    return 1;
+#endif
+#if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 12, 0)
+  case DataType::kE8M0:
+    return 1;
+#endif
+  }
+  llvm_unreachable("unknown TensorRT data type");
+}
+
 /// Return the number of bytes to allocate for holding shape tensor I/O data.
 static int64_t getShapeTensorAllocationSize(const nvinfer1::Dims &dims,
                                             nvinfer1::DataType type) {
@@ -533,18 +574,23 @@ prepareBuffers(const AllocTracker &allocTracker,
         (i < sig.numInputs ? "arg" : "result") +
         std::to_string(i >= sig.numInputs ? i - sig.numInputs : i);
 
-    // Parse the arguments: ptr, offset, rank, shape...
+    const nvinfer1::DataType dataType =
+        context->getEngine().getTensorDataType(name.c_str());
+    int64_t bytesPerElement = getTensorBytesPerElement(dataType);
+
+    // Parse the arguments: ptr, offset (bytes), rank, shape...
     uintptr_t ptr = va.get<uintptr_t>(argumentBuffersIdx++);
     PointerInfo buffer = allocTracker.lookupOrDefault(ptr);
-    int64_t offset = va.get<int64_t>(argumentBuffersIdx++);
+    int64_t offsetBytes = va.get<int64_t>(argumentBuffersIdx++);
     int64_t rank = va.get<int64_t>(argumentBuffersIdx++);
     nvinfer1::Dims dims;
     dims.nbDims = rank;
     for (int64_t dimIdx = 0; dimIdx < rank; dimIdx++)
       dims.d[dimIdx] = va.get<int64_t>(argumentBuffersIdx++);
 
-    uintptr_t pointer = buffer.ptr + offset;
-    MTRT_DBGF("enqueue arg %u ptr=0x%lx offset=%ld", i, buffer.ptr, offset);
+    uintptr_t pointer = buffer.ptr + offsetBytes;
+    MTRT_DBGF("enqueue arg %u ptr=0x%lx offset(bytes)=%ld", i, buffer.ptr,
+              offsetBytes);
 
     // Determine whether the TensorRT engine expects the buffer in the host or
     // device address spaces.
@@ -567,15 +613,24 @@ prepareBuffers(const AllocTracker &allocTracker,
     // should copy the device buffer to a page-locked staging host buffer.
     if (location == nvinfer1::TensorLocation::kHOST &&
         !buffer.isHostVisible()) {
-      // If the buffer has unknown size (i.e. it is an unkown size buffer view),
-      // then this is an error.
-      if (!buffer.hasKnownSize())
-        return getStatusWithMsg(
-            StatusCode::InternalError,
-            "buffer must be copied to host, but it has unknown size");
-      MTRT_DBGF("Input %s should be located on HOST, copying to temporary host "
-                "buffer of size %lu",
-                name.c_str(), buffer.size);
+
+      // We already enforce buffers have canonical strides. Therefore, we can
+      // derive buffer size from the shape.
+      int64_t dataSizeBytes = bytesPerElement;
+      for (int64_t dimIdx = 0; dimIdx < rank; dimIdx++) {
+        // This should never happen -- host tensors must have static dimensions.
+        if (dims.d[dimIdx] < 0)
+          return getInvalidArgStatus("dimension[{0}] is not known: {1}", dimIdx,
+                                     dims.d[dimIdx]);
+        dataSizeBytes *= dims.d[dimIdx];
+      }
+
+      MTRT_WARNV("When executing a TensorRT engine {0}, a buffer of size {1} "
+                 "bytes (engine input {2}) "
+                 "was on the device but was expected to have host visibility. "
+                 "Copying to temporary host buffer. This should be "
+                 "investigated as a potential compiler bug.",
+                 name.c_str(), dataSizeBytes);
 
       // Asynchronously copy the buffer to host. We do not need to
       // synchronize here because the `stream` is the same one on which TRT
@@ -585,15 +640,18 @@ prepareBuffers(const AllocTracker &allocTracker,
              "host buffer index out-of-bounds");
       PinnedMemoryBlock &hostBuffer = hostBuffers[indexInHostBuffers];
       MTRT_DBGF("copying %ld bytes from 0x%lx (device) to 0x%lx (host)",
-                buffer.size, pointer, hostBuffer.ptr);
-      cudaError_t cudaErr = cudaMemcpyAsync(
+                dataSizeBytes, pointer, hostBuffer.ptr);
+
+      // We have to issue copy on the current stream since the device data may
+      // not be ready until stream is current.
+      Status copyStatus = mtrt::copyCUDADeviceToHostAsync(
           reinterpret_cast<void *>(hostBuffer.ptr),
-          reinterpret_cast<void *>(pointer), buffer.size,
-          cudaMemcpyDeviceToHost, reinterpret_cast<cudaStream_t>(stream));
-      if (cudaErr != cudaSuccess)
-        return getStatusWithMsg(StatusCode::InternalError,
-                                "failed to copy shape tensor to host: ",
-                                cudaGetErrorString(cudaErr));
+          reinterpret_cast<const void *>(pointer), dataSizeBytes,
+          reinterpret_cast<uintptr_t>(stream));
+      if (!copyStatus.isOk())
+        return getStatusWithMsg(
+            StatusCode::InternalError,
+            "failed to copy shape tensor to host: ", copyStatus.getMessage());
       result.emplace_back(name, hostBuffer.ptr, dims);
       continue;
     }
