@@ -14,11 +14,12 @@
 # limitations under the License.
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Union
 
 from nvtripy import utils
 from nvtripy.common import datatype
 from nvtripy.common.exception import raise_error
+from nvtripy.frontend.dimension_size import DimensionSize
 from nvtripy.frontend.module.module import Module
 from nvtripy.frontend.module.parameter import DefaultParameter
 from nvtripy.frontend.ops import utils as op_utils
@@ -39,12 +40,12 @@ class ConvBase(Module):
 
     def __init__(
         self,
-        in_channels: int,
-        out_channels: int,
-        kernel_dims: Sequence[int],
+        in_channels: Union[int, DimensionSize],
+        out_channels: Union[int, DimensionSize],
+        kernel_dims: Union[Sequence[int], Sequence[DimensionSize]],
         padding: Sequence[Sequence[int]] = None,
         stride: Sequence[int] = None,
-        groups: int = None,
+        groups: Union[int, DimensionSize] = None,
         dilation: Sequence[int] = None,
         bias: bool = True,
         dtype: datatype.dtype = datatype.float32,
