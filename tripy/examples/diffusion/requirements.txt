@@ -7,5 +7,5 @@ tqdm>=4.66.1
 accelerate==1.8.1
 pillow>=9.4.0
 diffusers==0.31.0
-transformers==4.42.2
+transformers==4.53.0
 scikit-image==0.24.0
