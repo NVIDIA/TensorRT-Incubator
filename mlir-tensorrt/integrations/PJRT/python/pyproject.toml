@@ -10,11 +10,7 @@ classifiers = [
     "Development Status :: 4 - Beta"
 ]
 license = { text = "Apache-2.0" }
-dynamic = ["version"]
-dependencies = [
-    "apache-tvm-ffi>=0.1.0,<0.2.0",
-    "jax>=0.5.3,<=0.6.2"
-]
+dynamic = ["version", "dependencies"]
 
 [project.optional-dependencies]
 cu12 = [
