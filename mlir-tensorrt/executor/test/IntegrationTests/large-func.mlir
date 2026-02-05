@@ -1,7 +1,12 @@
 // RUN: executor-opt %s \
-// RUN:    -executor-lower-to-runtime-builtins | \
+// RUN:    -executor-lowering-pipeline | \
 // RUN: executor-translate -mlir-to-runtime-executable |\
-// RUN: executor-runner -input-type=rtexe -features=core
+// RUN: executor-runner -input-type=rtexe -features=core | FileCheck %s
+
+// RUN: executor-opt %s \
+// RUN:    --executor-generate-abi-wrappers -inline -executor-lowering-pipeline | \
+// RUN: executor-translate -mlir-to-runtime-executable |\
+// RUN: executor-runner -input-type=rtexe -features=core | FileCheck %s
 
 func.func @max_local_allocation_test(
   %arg0: i32, %arg1: i32, %arg2: i32, %arg3: i32, %arg4: i32, %arg5: i32, %arg6: i32, %arg7: i32, %arg8: i32, %arg9: i32,

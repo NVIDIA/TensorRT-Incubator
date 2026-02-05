@@ -22,9 +22,14 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-executor/Executor/IR/Executor.h"
+#include "mlir-executor/Executor/IR/ExecutorAttributes.h"
+#include "mlir-executor/Executor/Transforms/ExpandOps.h"
 #include "mlir-executor/Executor/Transforms/Passes.h" // IWYU pragma: keep
+#include "mlir/Analysis/DataLayoutAnalysis.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/PatternMatch.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "executor-pack-arguments"
@@ -97,7 +102,84 @@ getFuncOpsOrderedByCalls(Operation *moduleOp,
   return success();
 }
 
+static LogicalResult packArgumentsForABIWrapperFunc(func::FuncOp func,
+                                                    IRRewriter &rewriter) {
+  OpBuilder::InsertionGuard g(rewriter);
+  assert(executor::abi::isABIWrapperFunction(func) &&
+         "expected ABI wrapper function");
+  Block &entryBlock = func.getBody().front();
+  SmallVector<BlockArgument> oldArgs(entryBlock.getArguments());
+  MLIRContext *ctx = func.getContext();
+  auto hostPtrType =
+      executor::PointerType::get(ctx, executor::MemoryType::host);
+  DataLayout dataLayout = DataLayout::closest(func);
+  IntegerType indexType = rewriter.getIntegerType(
+      dataLayout.getTypeSizeInBits(rewriter.getIndexType()));
+
+  rewriter.setInsertionPointToStart(&entryBlock);
+
+  SmallVector<Attribute> packedArgAttrs;
+  auto serializeArgInfo = [&](Type abiType, ArgumentABIAttr abiAttr,
+                              DictionaryAttr originalArgAttrs) -> Attribute {
+    SmallVector<NamedAttribute> attrs;
+    attrs.push_back(rewriter.getNamedAttr("abi.type", TypeAttr::get(abiType)));
+    if (abiAttr)
+      attrs.push_back(rewriter.getNamedAttr("abi.attr", abiAttr));
+    for (NamedAttribute attr : originalArgAttrs) {
+      if (attr.getName() == ExecutorDialect::kArgABIAttrName)
+        continue;
+      attrs.push_back(attr);
+    }
+    return DictionaryAttr::get(ctx, attrs);
+  };
+
+  if (failed(func.insertArgument(oldArgs.size(), hostPtrType, DictionaryAttr{},
+                                 func.getLoc())))
+    return failure();
+  BlockArgument packedPtrs = func.getArguments().back();
+
+  /// Rewrite the arguments to have only a single !executor.ptr<host> argument.
+  for (BlockArgument arg : oldArgs) {
+    auto argAttr = abi::getArgumentABIAttr(func, arg);
+    packedArgAttrs.push_back(serializeArgInfo(
+        arg.getType(), argAttr, func.getArgAttrDict(arg.getArgNumber())));
+
+    if (arg.use_empty())
+      continue;
+
+    int64_t argIndex = static_cast<int64_t>(arg.getArgNumber());
+    FailureOr<Value> offset = calculateOffset(
+        rewriter, dataLayout, arg.getLoc(), hostPtrType, indexType,
+        ArrayRef<OpFoldResult>{rewriter.getI64IntegerAttr(argIndex)});
+    if (failed(offset))
+      return failure();
+    Value argValue = rewriter.create<executor::LoadOp>(
+        arg.getLoc(), arg.getType(), packedPtrs, *offset);
+    arg.replaceAllUsesWith(argValue);
+  }
+
+  /// This !executor.ptr<host> argument points to an array-of-pointers to the
+  /// original arguments.
+
+  /// Rewrite all uses of the original arguments to first load that argument
+  /// from the array-of-pointers.
+  llvm::BitVector argsToErase(entryBlock.getNumArguments(), true);
+  argsToErase[argsToErase.size() - 1] = false;
+  if (failed(func.eraseArguments(argsToErase)))
+    return failure();
+
+  FunctionType newFuncType =
+      FunctionType::get(ctx, {hostPtrType}, func.getResultTypes());
+  func.setFunctionType(newFuncType);
+
+  func->setAttr(ExecutorDialect::kFuncABIPackedArgsAttrName,
+                ArrayAttr::get(ctx, packedArgAttrs));
+  func.removeArgAttr(0, ExecutorDialect::kArgABIAttrName);
+  return success();
+}
+
 namespace {
+
 class PackArgumentsPass
     : public executor::impl::ExecutorPackArgumentsPassBase<PackArgumentsPass> {
 public:
@@ -126,6 +208,17 @@ public:
       if (callerMap[func].size() > 0) {
         LLVM_DEBUG(DBGS() << func.getName() << " num callers = "
                           << callerMap[func].size() << "\n");
+        continue;
+      }
+
+      if (executor::abi::isABIWrapperFunction(func)) {
+        LLVM_DEBUG(DBGS() << func.getName() << " is an ABI wrapper function\n");
+        if (failed(packArgumentsForABIWrapperFunc(func, rewriter))) {
+          emitError(func.getLoc())
+              << "failed to pack arguments for ABI wrapper function "
+              << func.getName();
+          return signalPassFailure();
+        }
         continue;
       }
 

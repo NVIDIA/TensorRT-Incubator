@@ -80,10 +80,41 @@ namespace abi {
 /// function.
 bool isABIWrapperFunction(FunctionOpInterface func);
 
+/// Return true if this function is an ABI wrapper function that has the
+/// `executor.func_abi_packed_args` attribute attached.
+bool isABIWrapperFunctionWithPackedArgs(FunctionOpInterface func);
+
+/// Encapsulates information about an argument that has been packed into an
+/// indirection buffer.
+struct PackedArgInfo {
+  /// The type of the argument in the ABI function type.
+  /// The indirection buffer contains a pointer to an object of this type,
+  /// which is either a scalar value (for scalar input arguments) or a pointer
+  /// to a MemRefDescriptor or scalar value (for input/output memrefs and for
+  /// output scalars).
+  Type abiArgType;
+  /// The ABI attribute for the argument.
+  ArgumentABIAttr abiAttr;
+  /// Other argument attributes from the function prior to being put into packed
+  /// form. Bounds attributes are put here if they were present prior to
+  /// packing.
+  DictionaryAttr rest;
+};
+
+/// Extract the array of `executor::PackedArgInfo` from the
+/// `executor.func_abi_packed_args` attribute attached to the function. This
+/// is only valid for ABI wrapper functions with the
+/// 'executor.func_abi_packed_args' attribute attached.
+SmallVector<PackedArgInfo> getFuncABIPackedArgs(FunctionOpInterface func);
+
 /// Get the ABI function type from the `executor.func_abi` attribute attached
 /// to the function. Returns failure if the attribute is not present or is not
 /// a valid FunctionType.
 FailureOr<FunctionType> getABIFunctionType(FunctionOpInterface func);
+
+/// Return the number of arguments for an ABI wrapper function. Handles both
+/// packed and unpacked cases.
+unsigned getNumArguments(FunctionOpInterface func);
 
 /// Return the number of input arguments of the ABI function type.
 unsigned getNumInputArguments(FunctionOpInterface func);
