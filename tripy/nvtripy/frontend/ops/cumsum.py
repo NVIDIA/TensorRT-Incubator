@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -26,7 +26,7 @@ from nvtripy.frontend.constraints import GetInput, GetReturn, OneOf
     input_requirements=OneOf(GetInput("input").dtype, [dt.float32, dt.float16, dt.bfloat16]),
     output_guarantees=GetReturn(0).dtype == GetInput("input").dtype,
 )
-def cumsum(input: "nvtripy.Tensor", dim: int, exclusive: bool = False) -> "nvtripy.Tensor":
+def cumsum(input: "nvtripy.Tensor", dim: int) -> "nvtripy.Tensor":
     """
     Computes the cumulative sum of elements in the input along the dimension ``dim``.
 
