@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -25,12 +25,15 @@ from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.frontend.ops._registry import register_tensor_method
 from nvtripy.trace.ops.shape import GetDimensionSize, Shape
 from nvtripy.types import IntLike
-from nvtripy.utils import wrappers
+from nvtripy.frontend import wrappers
+from nvtripy.frontend.constraints import GetInput, OneOf
 
 
 @register_tensor_method("shape")
 @property
-@wrappers.interface(dtype_constraints={"self": "T1"}, dtype_variables={"T1": list(DATA_TYPES.keys())})
+@wrappers.interface(
+    input_requirements=OneOf(GetInput("self").dtype, list(DATA_TYPES.values())),
+)
 def shape(self: "nvtripy.Tensor") -> Tuple[IntLike]:
     """
     Represents the shape of the tensor.

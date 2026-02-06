@@ -12,16 +12,18 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from nvtripy.common import datatype as dt
+from nvtripy.frontend.constraints import GetInput, GetReturn
 from nvtripy.frontend.ops._registry import register_tensor_method
 from nvtripy.frontend.ops.binary.create import create_binary_op
 from nvtripy.trace.ops.binary import LogicalOr
-from nvtripy.utils import wrappers
+from nvtripy.frontend import wrappers
 
 
 @register_tensor_method("__or__")
 @wrappers.interface(
-    dtype_constraints={"self": "T1", "other": "T1", wrappers.RETURN_VALUE: "T1"},
-    dtype_variables={"T1": ["bool"]},
+    input_requirements=(GetInput("self").dtype == dt.bool) & (GetInput("other").dtype == dt.bool),
+    output_guarantees=GetReturn(0).dtype == dt.bool,
 )
 def __or__(self: "nvtripy.Tensor", other: "nvtripy.Tensor") -> "nvtripy.Tensor":
     """

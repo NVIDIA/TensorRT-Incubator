@@ -12,17 +12,20 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from nvtripy.common import datatype as dt
+from nvtripy.frontend.constraints import GetInput, GetReturn, OneOf
 from nvtripy.frontend.ops._registry import register_tensor_method
 from nvtripy.frontend.ops.binary.create import create_binary_op
 from nvtripy.trace.ops.binary import Pow
 from nvtripy.types import TensorLike
-from nvtripy.utils import wrappers
+from nvtripy.frontend import wrappers
 
 
 @register_tensor_method("__pow__")
 @wrappers.interface(
-    dtype_constraints={"self": "T1", "other": "T1", wrappers.RETURN_VALUE: "T1"},
-    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8", "int64"]},
+    input_requirements=OneOf(GetInput("self").dtype, [dt.float32, dt.float16, dt.bfloat16, dt.int8, dt.int64])
+    & (GetInput("other").dtype == GetInput("self").dtype),
+    output_guarantees=GetReturn(0).dtype == GetInput("self").dtype,
     convert_to_tensors=True,
 )
 def __pow__(self: "nvtripy.Tensor", other: TensorLike) -> "nvtripy.Tensor":
@@ -51,8 +54,9 @@ def __pow__(self: "nvtripy.Tensor", other: TensorLike) -> "nvtripy.Tensor":
 
 @register_tensor_method("__rpow__")
 @wrappers.interface(
-    dtype_constraints={"self": "T1", "other": "T1", wrappers.RETURN_VALUE: "T1"},
-    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8", "int64"]},
+    input_requirements=OneOf(GetInput("self").dtype, [dt.float32, dt.float16, dt.bfloat16, dt.int8, dt.int64])
+    & (GetInput("other").dtype == GetInput("self").dtype),
+    output_guarantees=GetReturn(0).dtype == GetInput("self").dtype,
     convert_to_tensors=True,
 )
 def __rpow__(self: "nvtripy.Tensor", other: TensorLike) -> "nvtripy.Tensor":

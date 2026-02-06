@@ -18,6 +18,8 @@ concurrency:
 jobs:
   l1-test:
     runs-on: tripy-self-hosted
+    env:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
     container:
       image: ghcr.io/nvidia/tensorrt-incubator/tripy:latest
       volumes:

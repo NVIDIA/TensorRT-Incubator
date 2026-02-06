@@ -18,22 +18,26 @@
 from typing import Optional
 
 from nvtripy import export, utils
-from nvtripy.common import datatype
+from nvtripy.common import datatype as dt
+from nvtripy.frontend.constraints import GetInput, GetReturn, OneOf, If
 from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.trace.ops.broadcast import Broadcast
 from nvtripy.types import ShapeLike, TensorLike
-from nvtripy.utils import wrappers
+from nvtripy.frontend import wrappers
 
 
 @export.public_api(document_under="operations/initializers")
 @wrappers.interface(
-    dtype_constraints={"dtype": "T1", wrappers.RETURN_VALUE: "T1"},
-    dtype_variables={
-        "T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64", "bool"],
-    },
+    input_requirements=(GetInput("value").dtype != dt.float8)
+    & If(
+        GetInput("value").dtype == dt.int8,
+        GetInput("dtype") != dt.bool,
+    )
+    & OneOf(GetInput("dtype"), [dt.float32, dt.float16, dt.bfloat16, dt.int8, dt.int32, dt.int64, dt.bool]),
+    output_guarantees=GetReturn(0).dtype == GetInput("dtype"),
     convert_to_tensors=True,
 )
-def full(shape: ShapeLike, value: TensorLike, dtype: "nvtripy.dtype" = datatype.float32) -> "nvtripy.Tensor":
+def full(shape: ShapeLike, value: TensorLike, dtype: "nvtripy.dtype" = dt.float32) -> "nvtripy.Tensor":
     """
     Returns a tensor of the desired shape with all values set to the specified value.
 
@@ -55,9 +59,9 @@ def full(shape: ShapeLike, value: TensorLike, dtype: "nvtripy.dtype" = datatype.
     from nvtripy.frontend.ops.cast import cast
 
     value_dtype = dtype
-    if dtype == datatype.int8:
+    if dtype == dt.int8:
         # TODO (#580): Remove this workaround for broadcasting INT8 inputs:
-        value_dtype = datatype.int32
+        value_dtype = dt.int32
 
     # We avoid using the `expand` API since it does extra things that we don't need.
     out = op_utils.create_op(Broadcast, [cast(value, dtype=value_dtype), shape])
@@ -67,11 +71,27 @@ def full(shape: ShapeLike, value: TensorLike, dtype: "nvtripy.dtype" = datatype.
 
 @export.public_api(document_under="operations/initializers")
 @wrappers.interface(
-    dtype_constraints={"input": "T1", "dtype": "T2", wrappers.RETURN_VALUE: "T2"},
-    dtype_variables={
-        "T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
-        "T2": ["float32", "float16", "bfloat16", "int8", "int32", "int64", "bool"],
-    },
+    input_requirements=OneOf(
+        GetInput("input").dtype, [dt.float32, dt.float16, dt.bfloat16, dt.float8, dt.int8, dt.int32, dt.int64, dt.bool]
+    )
+    & (GetInput("value").dtype != dt.float8)
+    & If(
+        GetInput("value").dtype == dt.int8,
+        If(
+            GetInput("dtype") != None,
+            GetInput("dtype") != dt.bool,
+            GetInput("input").dtype != dt.bool,
+        ),
+    )
+    & If(
+        GetInput("dtype") != None,
+        OneOf(GetInput("dtype"), [dt.float32, dt.float16, dt.bfloat16, dt.int8, dt.int32, dt.int64, dt.bool]),
+    ),
+    output_guarantees=If(
+        GetInput("dtype") != None,
+        GetReturn(0).dtype == GetInput("dtype"),
+        GetReturn(0).dtype == GetInput("input").dtype,
+    ),
 )
 def full_like(input: "nvtripy.Tensor", value: TensorLike, dtype: Optional["nvtripy.dtype"] = None) -> "nvtripy.Tensor":
     """

@@ -18,14 +18,15 @@
 from typing import Optional
 
 from nvtripy import export, utils
-from nvtripy.common import datatype
+from nvtripy.common import datatype as dt
+from nvtripy.frontend.constraints import GetInput, GetReturn, OneOf, If
 from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.trace.ops.linspace import Linspace
 from nvtripy.types import ShapeLike
-from nvtripy.utils import wrappers
+from nvtripy.frontend import wrappers
 
 
-def iota_impl(shape: "nvtripy.Tensor", dim: int, dtype: datatype.dtype) -> "nvtripy.Tensor":
+def iota_impl(shape: "nvtripy.Tensor", dim: int, dtype: dt.dtype) -> "nvtripy.Tensor":
     from nvtripy.frontend.ops.cast import cast
     from nvtripy.frontend.tensor import Tensor
 
@@ -42,13 +43,14 @@ def iota_impl(shape: "nvtripy.Tensor", dim: int, dtype: datatype.dtype) -> "nvtr
 
 @export.public_api(document_under="operations/initializers")
 @wrappers.interface(
-    dtype_constraints={"dtype": "T1", wrappers.RETURN_VALUE: "T1"},
-    dtype_variables={
-        "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
-    },
+    input_requirements=OneOf(
+        GetInput("dtype"),
+        [dt.float32, dt.float16, dt.bfloat16, dt.float8, dt.int4, dt.int8, dt.int32, dt.int64, dt.bool],
+    ),
+    output_guarantees=GetReturn(0).dtype == GetInput("dtype"),
     convert_to_tensors=True,
 )
-def iota(shape: ShapeLike, dim: int = 0, dtype: datatype.dtype = datatype.float32) -> "nvtripy.Tensor":
+def iota(shape: ShapeLike, dim: int = 0, dtype: dt.dtype = dt.float32) -> "nvtripy.Tensor":
     """
     Fills an output tensor with consecutive values starting from zero along the given dimension.
 
@@ -75,13 +77,24 @@ def iota(shape: ShapeLike, dim: int = 0, dtype: datatype.dtype = datatype.float3
 
 @export.public_api(document_under="operations/initializers")
 @wrappers.interface(
-    dtype_constraints={"input": "T1", "dtype": "T2", wrappers.RETURN_VALUE: "T2"},
-    dtype_variables={
-        "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
-        "T2": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
-    },
+    input_requirements=OneOf(
+        GetInput("input").dtype,
+        [dt.float32, dt.float16, dt.bfloat16, dt.float8, dt.int4, dt.int8, dt.int32, dt.int64, dt.bool],
+    )
+    & If(
+        GetInput("dtype") != None,
+        OneOf(
+            GetInput("dtype"),
+            [dt.float32, dt.float16, dt.bfloat16, dt.float8, dt.int4, dt.int8, dt.int32, dt.int64, dt.bool],
+        ),
+    ),
+    output_guarantees=If(
+        GetInput("dtype") != None,
+        GetReturn(0).dtype == GetInput("dtype"),
+        GetReturn(0).dtype == GetInput("input").dtype,
+    ),
 )
-def iota_like(input: "nvtripy.Tensor", dim: int = 0, dtype: Optional[datatype.dtype] = None) -> "nvtripy.Tensor":
+def iota_like(input: "nvtripy.Tensor", dim: int = 0, dtype: Optional[dt.dtype] = None) -> "nvtripy.Tensor":
     """
     Returns a tensor of the same shape and data type as the input tensor, with consecutive values
     starting from zero along the given dimension.

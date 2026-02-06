@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,13 +16,17 @@
 #
 
 from nvtripy import export
-from nvtripy.utils import wrappers
+from nvtripy.frontend import wrappers
+
+from nvtripy.common import datatype as dt
+from nvtripy.frontend.constraints import GetInput, GetReturn, OneOf
 
 
 @export.public_api(document_under="operations/functions")
 @wrappers.interface(
-    dtype_constraints={"vec1": "T1", "vec2": "T1", wrappers.RETURN_VALUE: "T1"},
-    dtype_variables={"T1": ["float32", "float16", "bfloat16"]},
+    input_requirements=OneOf(GetInput("vec1").dtype, [dt.float32, dt.float16, dt.bfloat16])
+    & (GetInput("vec2").dtype == GetInput("vec1").dtype),
+    output_guarantees=GetReturn(0).dtype == GetInput("vec1").dtype,
 )
 def outer(vec1: "nvtripy.Tensor", vec2: "nvtripy.Tensor") -> "nvtripy.Tensor":
     r"""
