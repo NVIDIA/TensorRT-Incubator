@@ -17,7 +17,7 @@ mtrt_option(MLIR_TRT_ENABLE_PJRT_JAX "Enable PJRT and JAX integration, which req
 
 # Those options control how TensorRT is found or downloaded.
 set(MLIR_TRT_TENSORRT_DIR "" CACHE STRING "Path to TensorRT install directory")
-set(MLIR_TRT_DOWNLOAD_TENSORRT_VERSION "10.12" CACHE STRING
+set(MLIR_TRT_DOWNLOAD_TENSORRT_VERSION "10.13" CACHE STRING
    "Version of TensorRT to download and use. It overrides MLIR_TRT_TENSORRT_DIR.")
 
 # These options are not part of the "feature flags" set that are automatically added as
