@@ -11,6 +11,7 @@ env:
   REGISTRY: ghcr.io
   DEFAULT_IMAGE: ghcr.io/nvidia/tensorrt-incubator/tripy:latest
   NEW_TEST_IMAGE: test-image:latest
+  HF_TOKEN: ${{ secrets.HF_TOKEN }}
 
 
 jobs:
@@ -58,7 +59,7 @@ jobs:
       uses: addnab/docker-run-action@v3
       with:
         image: ${{ env.l0_image }}
-        options: --gpus all -v ${{ github.workspace }}/tripy:/tripy
+        options: --gpus all -v ${{ github.workspace }}/tripy:/tripy -e HF_TOKEN=${{ env.HF_TOKEN }}
         run: |
           python3 docs/generate_rsts.py
           sphinx-build build/doc_sources build/docs -c docs/ -j 4 -W -n
@@ -67,7 +68,7 @@ jobs:
       uses: addnab/docker-run-action@v3
       with:
         image: ${{ env.l0_image }}
-        options: --gpus all -v ${{ github.workspace }}/tripy:/tripy
+        options: --gpus all -v ${{ github.workspace }}/tripy:/tripy -e HF_TOKEN=${{ env.HF_TOKEN }}
         run: |
           pytest --cov=nvtripy/ --cov-config=.coveragerc tests/ -v -m "not l1" -n 4 --durations=15 --ignore tests/performance
 
@@ -75,7 +76,7 @@ jobs:
       uses: addnab/docker-run-action@v3
       with:
         image: ${{ env.l0_image }}
-        options: --gpus all -v ${{ github.workspace }}/tripy:/tripy
+        options: --gpus all -v ${{ github.workspace }}/tripy:/tripy -e HF_TOKEN=${{ env.HF_TOKEN }}
         run: |
           pytest tests/performance -v -m "not l1" --benchmark-warmup=on --benchmark-json benchmark.json
 
