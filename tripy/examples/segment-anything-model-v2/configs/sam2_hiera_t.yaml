@@ -85,7 +85,7 @@ model:
           padding: 3
           layer_scale_init_value: 1e-6
           use_dwconv: True  # depth-wise convs
-            dtype: float16
+          dtype: float16
         num_layers: 2
 
   num_maskmem: 7
