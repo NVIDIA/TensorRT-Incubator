@@ -7,7 +7,7 @@
 # Not a contribution
 # Changes made by NVIDIA CORPORATION & AFFILIATES enabling SAM2 with Tripy or otherwise documented as
 # NVIDIA-proprietary are not a contribution and subject to the following terms and conditions:
-# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -184,6 +184,9 @@ def main(video_dir: str, save_path: Optional[str] = None):
 
 if __name__ == "__main__":
     # Ensure all work is done on the default Tripy stream
-    stream = torch.cuda.get_stream_from_external(tp.default_stream().ptr, device=torch.device("cuda"))
+    if hasattr(torch.cuda, "get_stream_from_external"):
+        stream = torch.cuda.get_stream_from_external(tp.default_stream().ptr, device=torch.device("cuda"))
+    else:
+        stream = torch.cuda.ExternalStream(tp.default_stream().ptr, device=torch.device("cuda"))
     with torch.cuda.stream(stream):
         main("./bedroom", save_path="output")
