@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -84,15 +84,24 @@ def add_plugin_aot_impl(
     )
 
     compiled_kernel = triton.compile(src)
+    metadata = compiled_kernel.metadata
+    if isinstance(metadata, dict):
+        kernel_name = metadata["name"]
+        num_warps = metadata["num_warps"]
+        shared_mem = metadata.get("shared", 0)
+    else:
+        kernel_name = metadata.name
+        num_warps = metadata.num_warps
+        shared_mem = metadata.shared
 
     N = inp0.shape_expr.numel()
     launch_params = trtp.KernelLaunchParams()
 
     launch_params.grid_x = trtp.cdiv(N, block_size)
-    launch_params.block_x = compiled_kernel.metadata.num_warps * 32
-    launch_params.shared_mem = compiled_kernel.metadata.shared
+    launch_params.block_x = num_warps * 32
+    launch_params.shared_mem = shared_mem
 
     extra_args = trtp.SymIntExprs(1)
     extra_args[0] = trtp.SymInt32(N)
 
-    return compiled_kernel.metadata.name, compiled_kernel.asm["ptx"], launch_params, extra_args
+    return kernel_name, compiled_kernel.asm["ptx"], launch_params, extra_args

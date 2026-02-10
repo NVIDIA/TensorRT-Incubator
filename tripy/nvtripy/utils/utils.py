@@ -333,9 +333,24 @@ class UniqueNameGen:
 ##
 ## Functions
 ##
+def _get_signature_cache_key(func):
+    try:
+        hash(func)
+        return func
+    except TypeError:
+        call = getattr(func, "__call__", None)
+        if call is not None:
+            try:
+                hash(call)
+                return call
+            except TypeError:
+                pass
+        return func.__class__
+
+
 @functools.lru_cache(maxsize=None)
-def _get_signature_info(func):
-    signature = inspect.signature(func)
+def _get_signature_info(signature_source):
+    signature = inspect.signature(signature_source)
     arg_names = []
     varargs_name = None
     for name, param in signature.parameters.items():
@@ -354,7 +369,7 @@ def get_positional_args_with_names(func, *args) -> Tuple[List[Tuple[str, Any]], 
     # In the case of variadic positional arguments, we cannot determine names, so we use
     # None instead. To assist in further processing, this function also returns the name
     # and start index of the variadic args in a pair if present (None if not).
-    _, arg_names, varargs_name = _get_signature_info(func)
+    _, arg_names, varargs_name = _get_signature_info(_get_signature_cache_key(func))
     arg_names = list(arg_names)
 
     # For all variadic positional arguments, assign the name of the variadic group.
@@ -374,7 +389,7 @@ def merge_function_arguments(
     all_args, var_arg_info = get_positional_args_with_names(func, *args)
     all_args.extend(kwargs.items())
 
-    signature, _, _ = _get_signature_info(func)
+    signature, _, _ = _get_signature_info(_get_signature_cache_key(func))
     provided_arg_names = {name for name, _ in all_args}
 
     omitted_args = []

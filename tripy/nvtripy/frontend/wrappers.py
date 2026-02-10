@@ -346,10 +346,8 @@ def _update_docstring(func, input_requirements, output_guarantees):
 
 
 def interface(
-    # TODO (pranavm): These should be required arguments eventually.
-    # TODO (pranavm): Document requirements/guarantees.
-    input_requirements: Constraints = None,
-    output_guarantees: Constraints = None,
+    input_requirements: Optional[Constraints] = None,
+    output_guarantees: Optional[Constraints] = None,
     convert_to_tensors: Union[bool, Set[str]] = False,
     conversion_preprocess_func: Optional[Callable] = None,
 ):
@@ -359,6 +357,10 @@ def interface(
     than to add and apply further decorators.
 
     Args:
+        input_requirements: A constraints tree that validates function inputs.
+            If provided and input validation is enabled, these constraints are checked at runtime.
+        output_guarantees: A constraints tree describing guarantees about the function output.
+            If provided, these are used for documentation and tooling.
         convert_to_tensors: If False or an empty set, no argument types will be converted.
             If True, all arguments with the `TensorLike` or `ShapeLike` annotations will be
             converted into `Tensor`s or, whenever possible, `DimensionSize`. If the argument
