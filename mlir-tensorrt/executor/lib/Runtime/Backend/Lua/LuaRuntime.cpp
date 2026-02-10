@@ -29,11 +29,11 @@
 #include "mlir-executor/Runtime/Backend/Lua/LuaExtensionRegistry.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaExtensions.h"
 #include "mlir-executor/Runtime/Backend/Utils/NvtxUtils.h"
-#include "mlir-executor/Runtime/Support/Allocators.h"
 #include "mlir-executor/Runtime/Support/Support.h"
 #include "mlir-tensorrt-common/Support/Status.h"
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/Support/Alignment.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/ToolOutputFile.h"
 #include <memory>
 
 #ifdef MLIR_TRT_ENABLE_CUDA
@@ -239,6 +239,25 @@ LuaRuntimeSession::~LuaRuntimeSession() = default;
 
 lua_State *LuaRuntimeSession::getLuaState() { return impl->getLuaState(); }
 
+/// Write the Lua script to a crash reproducer file.
+static void writeLuaScriptToReproFile(llvm::StringRef crashReproducerPath,
+                                      llvm::StringRef luaScript) {
+  if (crashReproducerPath.empty())
+    return;
+
+  // Open the crash reproducer file.
+  std::error_code EC;
+  auto crashReproFile = std::make_unique<llvm::ToolOutputFile>(
+      crashReproducerPath, EC, llvm::sys::fs::OF_None);
+  if (EC) {
+    MTRT_WARNV("failed to create crash reproducer file: {0}: {1}",
+               crashReproducerPath, EC.message());
+  } else {
+    crashReproFile->os() << luaScript;
+    crashReproFile->keep();
+  }
+}
+
 StatusOr<std::unique_ptr<LuaRuntimeSession>>
 LuaRuntimeSession::create(Ref<RuntimeClient> client_,
                           RuntimeSessionOptions options,
@@ -255,8 +274,8 @@ LuaRuntimeSession::create(Ref<RuntimeClient> client_,
   MTRT_RETURN_IF_ERROR(populateRuntimeExtensions(LuaRuntimeExtensionInitArgs{
       session->getOptions(), lua.lua_state(),
       &session->getPinnedMemoryAllocator(), &session->getAllocTracker(),
-      &session->getResourceTracker(),
-      session->getClient()->getPluginRegistry()}));
+      &session->getResourceTracker(), session->getClient()->getPluginRegistry(),
+      /*cudaEventPool=*/session->getCUDAEventPool()}));
 
   // Register user-provided methods.
   if (registerExtraLuaFuncs)
@@ -264,7 +283,6 @@ LuaRuntimeSession::create(Ref<RuntimeClient> client_,
                           &session->getResourceTracker());
 
   // Load globals into the context.
-  // TODO: eliminate this copy, we already own the executable.
   if (session->getExecutable()) {
     ExecutableView executable = session->getExecutable();
     MTRT_DBGF("loading %lu constants", executable.getDataSegments().size());
@@ -276,8 +294,19 @@ LuaRuntimeSession::create(Ref<RuntimeClient> client_,
         lua.script(executable.getCode(), sol::script_pass_on_error);
     if (!result.valid()) {
       sol::error err = result;
-      return getStatusWithMsg(StatusCode::InternalError,
-                              "failed to load lua script: ", err.what());
+      // Write the Lua script to the crash reproducer file.
+      writeLuaScriptToReproFile(session->getOptions().getCrashReproducerPath(),
+                                executable.getCode());
+
+      return getInternalErrorStatus("failed to load lua script: {0}",
+                                    err.what());
+    }
+
+    // Even if we didn't fail, we might want to test writing the Lua script to
+    // the crash reproducer file.
+    if (session->getOptions().getTestCrashReproducer()) {
+      writeLuaScriptToReproFile(session->getOptions().getCrashReproducerPath(),
+                                session->getExecutable().getCode());
     }
   }
 
@@ -299,11 +328,8 @@ LuaRuntimeSession::create(Ref<RuntimeClient> client_,
   return session;
 }
 
-/// Set the primary stream for the loaded executable to use.
 Status LuaRuntimeSession::onStreamChanged(Ref<Stream> oldStream,
                                           Ref<Stream> newStream) {
-  sol::state_view lua = getLuaState();
-  lua["stream0"] = newStream->getCUDAHandle();
   return getOkStatus();
 }
 

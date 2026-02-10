@@ -246,6 +246,73 @@ Status mtrt::cuda_copy(CUstream stream, void *src, void *dest,
 }
 
 //===----------------------------------------------------------------------===//
+// CUDA Event Wrappers
+//===----------------------------------------------------------------------===//
+
+Status mtrt::cuda_event_create(int32_t device, cudaEvent_t *outEvent) {
+  if (!outEvent)
+    MTRT_RETURN_ERROR(mtrt::ErrorCode::InvalidArgument,
+                      "outEvent must not be null");
+  *outEvent = nullptr;
+  int32_t currentDevice = -1;
+  MTRT_RETURN_IF_CUDART_ERROR(cudaGetDevice(&currentDevice));
+  if (currentDevice != device) {
+    MTRT_RETURN_IF_CUDART_ERROR(cudaSetDevice(device));
+  }
+  MTRT_RETURN_IF_CUDART_ERROR(
+      cudaEventCreateWithFlags(outEvent, cudaEventDefault));
+  if (currentDevice != device) {
+    MTRT_RETURN_IF_CUDART_ERROR(cudaSetDevice(currentDevice));
+  }
+  return mtrt::ok();
+}
+
+Status mtrt::cuda_event_release(cudaEvent_t event) {
+  if (!event)
+    return mtrt::ok();
+  MTRT_RETURN_IF_CUDART_ERROR(cudaEventDestroy(event));
+  return mtrt::ok();
+}
+
+Status mtrt::cuda_stream_record_event(CUstream stream, cudaEvent_t event) {
+  if (!event)
+    MTRT_RETURN_ERROR(mtrt::ErrorCode::InvalidArgument,
+                      "event must not be null");
+  MTRT_RETURN_IF_CUDART_ERROR(
+      cudaEventRecord(event, reinterpret_cast<cudaStream_t>(stream)));
+  return mtrt::ok();
+}
+
+Status mtrt::cuda_stream_wait_event(CUstream stream, cudaEvent_t event) {
+  if (!event)
+    MTRT_RETURN_ERROR(mtrt::ErrorCode::InvalidArgument,
+                      "event must not be null");
+  MTRT_RETURN_IF_CUDART_ERROR(cudaStreamWaitEvent(
+      reinterpret_cast<cudaStream_t>(stream), event, /*flags=*/0));
+  return mtrt::ok();
+}
+
+Status mtrt::cuda_event_sync(cudaEvent_t event) {
+  if (!event)
+    return mtrt::ok();
+  MTRT_RETURN_IF_CUDART_ERROR(cudaEventSynchronize(event));
+  return mtrt::ok();
+}
+
+Status mtrt::cuda_event_elapsed_msec(cudaEvent_t start, cudaEvent_t end,
+                                     float *outMs) {
+  if (!outMs)
+    MTRT_RETURN_ERROR(mtrt::ErrorCode::InvalidArgument,
+                      "outMs must not be null");
+  *outMs = 0.0f;
+  if (!start || !end)
+    MTRT_RETURN_ERROR(mtrt::ErrorCode::InvalidArgument,
+                      "start/end must not be null");
+  MTRT_RETURN_IF_CUDART_ERROR(cudaEventElapsedTime(outMs, start, end));
+  return mtrt::ok();
+}
+
+//===----------------------------------------------------------------------===//
 // Internal hooks used by MTRTRuntimeCore.cpp for non-host constant loading.
 //===----------------------------------------------------------------------===//
 namespace mtrt::detail {

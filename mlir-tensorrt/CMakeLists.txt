@@ -166,9 +166,13 @@ include(MLIRDetectPythonEnv)
 mlir_configure_python_dev_packages()
 
 find_package(TVMFFI REQUIRED)
-message(STATUS "LAN ADDED BEFORE FINDING GTEST PACKAGE ")
+
 find_package(GTest REQUIRED)
-message(STATUS "LAN ADDED AFTER FINDING GTEST PACKAGE ")
+
+if(MLIR_TRT_ENABLE_CUDATILE)
+  find_package(CUDATile REQUIRED)
+endif()
+
 #--------------------------------------------------
 # Diagnostics
 #--------------------------------------------------
@@ -204,7 +208,9 @@ endforeach()
 include_directories(${LLVM_INCLUDE_DIRS})
 include_directories(${MLIR_INCLUDE_DIRS})
 link_directories(${LLVM_BUILD_LIBRARY_DIR})
-add_definitions(${LLVM_DEFINITIONS} ${MLIR_TRT_DEFINITIONS})
+separate_arguments(LLVM_DEFINITIONS_LIST NATIVE_COMMAND ${LLVM_DEFINITIONS})
+add_definitions(${LLVM_DEFINITIONS_LIST})
+add_definitions(${LLVM_DEFINITIONS_LIST} ${MLIR_TRT_DEFINITIONS})
 
 mtrt_write_feature_flags_header()
 include_directories("${CMAKE_CURRENT_BINARY_DIR}/include")

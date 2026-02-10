@@ -17,6 +17,27 @@ import setuptools
 TENSORRT_VERSION = os.getenv("MLIR_TRT_DOWNLOAD_TENSORRT_VERSION", "10.12")
 
 
+def get_device_capability(index: int = 0) -> tuple[int, int]:
+    out = (
+        subprocess.check_output(
+            ["nvidia-smi", "--query-gpu=compute_cap", "--format=csv,noheader"],
+            encoding="utf-8",
+        )
+        .strip()
+        .splitlines()
+    )
+    major, minor = out[index].split(".")
+    return int(major), int(minor)
+
+
+def is_tegra_platform() -> bool:
+    return get_device_capability() in [(8, 7), (7, 2)]
+
+
+def is_thor() -> bool:
+    return get_device_capability() in [(11, 0)]
+
+
 def log(*args):
     # When running the build, stdout may be captured, so print to stderr for debug info.
     print(*args, file=sys.stderr)

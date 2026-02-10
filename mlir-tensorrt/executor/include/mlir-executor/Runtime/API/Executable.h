@@ -304,6 +304,14 @@ public:
   /// Return the ABI version associated with this function.
   uint32_t getAbiVersion() const;
 
+  /// Return true if the arguments (input and output args) are packed into an
+  /// indirection buffer. This means different things for different ABI
+  /// versions. For ABI version 0, this means that the arguments are packed into
+  /// a Table object. For ABI version 1, this means that the arguments are
+  /// packed into an indirection buffer (array of pointers to the original ABI
+  /// arguments).
+  bool hasPackedArgs() const;
+
   const mtrt::flat::FunctionSignature *view;
 };
 

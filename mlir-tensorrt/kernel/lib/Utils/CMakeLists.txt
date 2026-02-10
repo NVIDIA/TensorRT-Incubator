@@ -1,9 +1,3 @@
-add_compile_definitions(
-  "MLIR_TRT_COMPILE_TIME_CUDA_VERSION_MAJOR=${CUDAToolkit_VERSION_MAJOR}"
-  "MLIR_TRT_COMPILE_TIME_CUDA_VERSION_MINOR=${CUDAToolkit_VERSION_MINOR}"
-  "MLIR_TRT_COMPILE_TIME_CUDA_VERSION_PATCH=${CUDAToolkit_VERSION_PATCH}"
-)
-
 add_mlir_kernel_library(MLIRKernelTilingUtils
   TilingUtils.cpp
   PARTIAL_SOURCES_INTENDED
@@ -69,15 +63,4 @@ add_mlir_kernel_library(MLIRKernelScatterUtils
   MLIR_LIBS PUBLIC
     MLIRIR
     MLIRQuantDialect
-  )
-
-add_mlir_kernel_library(MLIRKernelCUDAUtils
-  CUDAUtils.cpp
-
-  PARTIAL_SOURCES_INTENDED
-
-  MLIR_LIBS PUBLIC
-    MLIRIR
-    MLIRNVGPUDialect
-    MLIRNVVMDialect
   )

@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -33,7 +33,7 @@ class TestMatMul:
         a = tp.ones((2, 3), dtype=tp.float32)
         b = tp.ones((3, 2), dtype=tp.float16)
 
-        with helper.raises(tp.TripyException, match="Mismatched data types in '__matmul__'."):
+        with helper.raises(tp.TripyException, match="Invalid inputs for function: '__matmul__'."):
             c = a @ b
 
     def test_incompatible_1d_shapes_fails(self):

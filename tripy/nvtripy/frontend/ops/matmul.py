@@ -19,13 +19,18 @@ from nvtripy.common.exception import raise_error
 from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.frontend.ops._registry import register_tensor_method
 from nvtripy.trace.ops.matmul import MatrixMultiply
-from nvtripy.utils import wrappers
+from nvtripy.frontend import wrappers
+
+
+from nvtripy.common import datatype as dt
+from nvtripy.frontend.constraints import GetInput, GetReturn, OneOf
 
 
 @register_tensor_method("__matmul__")
 @wrappers.interface(
-    dtype_constraints={"self": "T1", "other": "T1", wrappers.RETURN_VALUE: "T1"},
-    dtype_variables={"T1": ["float32", "float16", "bfloat16"]},
+    input_requirements=OneOf(GetInput("self").dtype, [dt.float32, dt.float16, dt.bfloat16])
+    & (GetInput("other").dtype == GetInput("self").dtype),
+    output_guarantees=GetReturn(0).dtype == GetInput("self").dtype,
 )
 def __matmul__(self: "nvtripy.Tensor", other: "nvtripy.Tensor") -> "nvtripy.Tensor":
     """

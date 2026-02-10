@@ -19,12 +19,10 @@
 //===----------------------------------------------------------------------===//
 // Implementation of pass to translate LLVM/NVVM Dialect to PTX.
 //===----------------------------------------------------------------------===//
-#include "mlir-kernel/Kernel/IR/Configuration.h"
-#include "mlir-kernel/Kernel/IR/Ops.h"
+#include "mlir-kernel/Kernel/IR/Dialect.h" // IWYU pragma: keep
 #include "mlir-kernel/Kernel/Transforms/KernelToLLVMIRTranslation.h"
-#include "mlir-kernel/Kernel/Transforms/Passes.h"
-#include "mlir-kernel/Utils/CUDAUtils.h"
-#include "mlir/Dialect/LLVMIR/NVVMDialect.h"
+#include "mlir-kernel/Kernel/Transforms/Passes.h" // IWYU pragma: keep
+#include "mlir-tensorrt-common/Utils/CUDAUtils.h"
 #include "mlir/IR/AsmState.h"
 #include "mlir/Support/FileUtilities.h"
 #include "mlir/Target/LLVMIR/Dialect/GPU/GPUToLLVMIRTranslation.h"
@@ -60,6 +58,31 @@ using namespace mlir::kernel;
 
 static constexpr StringRef kPTXDataAttrName = "kernel.ptx_data";
 static constexpr StringRef kBlobKey = "gpu.module.kernels.ptx_data";
+
+/// libdevice bitcode is embedded into the compiler at build time when CUDA is
+/// enabled. The symbols are provided by a generated assembly file.
+///
+/// In non-CUDA builds, define a dummy empty buffer so the file can still link
+/// (the code path should never be exercised).
+#ifdef MLIR_TRT_ENABLE_CUDA
+extern "C" {
+extern const uint8_t mtrt_libdevice_10_bc_start[];
+extern const uint8_t mtrt_libdevice_10_bc_end[];
+} // extern "C"
+#else
+extern "C" {
+const uint8_t mtrt_libdevice_10_bc_start[] = {0};
+const uint8_t mtrt_libdevice_10_bc_end[] = {0};
+} // extern "C"
+#endif // MLIR_TRT_ENABLE_CUDA
+
+static llvm::MemoryBufferRef getEmbeddedLibdeviceBitcode() {
+  const char *start =
+      reinterpret_cast<const char *>(mtrt_libdevice_10_bc_start);
+  const char *end = reinterpret_cast<const char *>(mtrt_libdevice_10_bc_end);
+  return llvm::MemoryBufferRef(llvm::StringRef(start, end - start),
+                               "libdevice.10.bc");
+}
 
 /// Create all directories in `path`, ignoring those that already exist. Failure
 /// to create a directory results in emitting a diagnostic and returning
@@ -162,14 +185,9 @@ static LogicalResult linkLibdevice(Location loc, llvm::Module &module,
   unsigned linkerFlags =
       llvm::Linker::LinkOnlyNeeded | llvm::Linker::OverrideFromSrc;
 
-  StringRef filename = DEFAULT_LIBDEVICE_PATH;
-  llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> fileOrErr =
-      llvm::MemoryBuffer::getFileOrSTDIN(filename);
-  if (std::error_code error = fileOrErr.getError())
-    return emitError(loc, "could not open libdevice bitcode file " + filename);
-
-  llvm::MemoryBufferRef libdeviceCode((*fileOrErr)->getBuffer(),
-                                      "libdevice.10.bc");
+  llvm::MemoryBufferRef libdeviceCode = getEmbeddedLibdeviceBitcode();
+  if (libdeviceCode.getBufferSize() == 0)
+    return emitError(loc) << "libdevice bitcode was not embedded";
 
   LLVM_DEBUG(DBGS() << "libdevice bitcode data size: "
                     << libdeviceCode.getBufferSize() << "\n");
@@ -310,7 +328,8 @@ struct TranslateNVVMToPTXPass
   void runOnOperation() override {
     // Insert transform IR at the end
     gpu::GPUModuleOp module = getOperation(); // E.g. a gpu.module
-    std::optional<StringRef> chipName = getUniqueTargetChip(module);
+    std::optional<StringRef> chipName =
+        mtrt::compiler::getUniqueTargetChip(module);
     if (!chipName) {
       emitError(module->getLoc()) << "could not determine target chip name";
       return signalPassFailure();
@@ -333,7 +352,8 @@ struct TranslateNVVMToPTXPass
     }
 
     // Translate all `llvm.func` operations to PTX code.
-    std::string features = "+ptx" + std::to_string(getHighestPTXVersion());
+    std::string features =
+        "+ptx" + std::to_string(mtrt::compiler::getHighestPTXVersion());
     auto ptx = translateToPTXCode(module, archAndFeatureSetVariant, features);
     if (failed(ptx))
       return signalPassFailure();

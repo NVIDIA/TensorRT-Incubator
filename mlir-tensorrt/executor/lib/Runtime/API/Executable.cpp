@@ -353,6 +353,10 @@ uint32_t FunctionSignatureView::getAbiVersion() const {
   return view->abi_version();
 }
 
+bool FunctionSignatureView::hasPackedArgs() const {
+  return view ? view->calling_convention() == CallingConvention::packed : false;
+}
+
 //===----------------------------------------------------------------------===//
 // FunctionView
 //===----------------------------------------------------------------------===//

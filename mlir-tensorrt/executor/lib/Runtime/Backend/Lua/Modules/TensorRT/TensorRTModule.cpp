@@ -18,15 +18,16 @@
 //
 //===----------------------------------------------------------------------===//
 #include "mlir-executor/Runtime/API/API.h"
-#include "mlir-executor/Runtime/Backend/Common/CUDACommon.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaErrorHandling.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaExtensionRegistry.h"
-#include "mlir-executor/Runtime/Backend/Lua/SolAdaptor.h"
+#include "mlir-executor/Runtime/Backend/Lua/SolAdaptor.h" // IWYU pragma: keep
 #include "mlir-executor/Runtime/Backend/Utils/NvtxUtils.h"
 #include "mlir-executor/Runtime/Support/Allocators.h"
+#include "mlir-executor/Runtime/Support/CUDAEventPool.h"
+#include "mlir-executor/Runtime/Support/CUDAHelpers.h"
 #include "mlir-executor/Runtime/Support/Support.h"
 #include "mlir-tensorrt-common/Support/Status.h"
-#include "mlir-tensorrt-common/Utils/TensorRTVersion.h"
+#include "mlir-tensorrt-common/Utils/TensorRTVersion.h" // IWYU pragma: keep
 #include <memory>
 
 #if defined(__GNUC__) || defined(__clang__)
@@ -501,7 +502,7 @@ static Status setTensorAddressesOrReport(
         return getInternalErrorStatus("failed to set input shape");
     }
 
-    MTRT_DBG("Set tensor address [{0}] = {1}", idx, ptr);
+    MTRT_DBG("Set tensor address [{0}] = {1:x}", idx, ptr);
     idx++;
   }
   return getOkStatus();
@@ -602,8 +603,7 @@ prepareBuffers(const AllocTracker &allocTracker,
   return result;
 }
 
-static Status enqueueV3Wrapper(AllocTracker &tracker,
-                               ResourceTracker &resourceTracker,
+static Status enqueueV3Wrapper(AllocTracker &tracker, CudaEventPool &eventPool,
                                NvInferExecContextWrapper &context,
                                cudaStream_t stream, sol::table &va) {
   StatusOr<std::vector<std::tuple<std::string, uintptr_t, nvinfer1::Dims>>>
@@ -612,21 +612,14 @@ static Status enqueueV3Wrapper(AllocTracker &tracker,
     return getInternalErrorStatus("failed to prepare buffers: {0}",
                                   buffers.getStatus());
   MTRT_RETURN_IF_ERROR(setTensorAddressesOrReport(context, *buffers));
-  // Create an event that we can wait on for releasing any host-pinned staging
-  // allocations we made.
-  MTRT_ASSIGN_OR_RETURN(CudaEventPtr inputConsumedEvent,
-                        CudaEventPtr::create(resourceTracker));
-  if (!context->setInputConsumedEvent(inputConsumedEvent))
-    return getStatusWithMsg(StatusCode::InternalError,
-                            "failed to set input-consumed event");
 
   context->setNvtxVerbosity(gNvtxVerbosity);
 
   if (!context->enqueueV3(stream))
     return getStatusWithMsg(StatusCode::InternalError,
                             "failed to enqueue engine execution on stream");
-  cudaError_t waitResult = cudaStreamWaitEvent(stream, inputConsumedEvent);
-  RETURN_ERROR_IF_CUDART_ERROR(waitResult);
+
+  // Return event to pool (do not destroy directly).
 
   MTRT_DBGF("%s", "enqueueV3 successful and inputs are consumed");
 
@@ -634,7 +627,7 @@ static Status enqueueV3Wrapper(AllocTracker &tracker,
 }
 
 static Status enqueueAllocV3Wrapper(AllocTracker &tracker,
-                                    ResourceTracker &resourceTracker,
+                                    CudaEventPool &eventPool,
                                     NvInferResultAllocators *outputAllocator,
                                     NvInferExecContextWrapper &context,
                                     cudaStream_t stream, sol::table &va,
@@ -651,10 +644,12 @@ static Status enqueueAllocV3Wrapper(AllocTracker &tracker,
 
   // Create an event that we can wait on for releasing any host-pinned staging
   // allocations we made.
-  MTRT_ASSIGN_OR_RETURN(CudaEventPtr inputConsumedEvent,
-                        CudaEventPtr::create(resourceTracker));
+  MTRT_ASSIGN_OR_RETURN(int32_t device, mtrt::getCurrentCUDADevice());
+  MTRT_ASSIGN_OR_RETURN(EventHandle inputConsumedEventHandle,
+                        eventPool.Acquire(device, 0));
 
-  if (!context->setInputConsumedEvent(inputConsumedEvent))
+  if (!context->setInputConsumedEvent(
+          reinterpret_cast<cudaEvent_t>(inputConsumedEventHandle.getEvent())))
     return getStatusWithMsg(StatusCode::InternalError,
                             "failed to set input-consumed event");
 
@@ -667,8 +662,10 @@ static Status enqueueAllocV3Wrapper(AllocTracker &tracker,
     return getStatusWithMsg(StatusCode::InternalError,
                             "failed to enqueue engine execution on stream");
 
-  cudaError_t waitResult = cudaStreamWaitEvent(stream, inputConsumedEvent);
-  RETURN_ERROR_IF_CUDART_ERROR(waitResult);
+  MTRT_RETURN_IF_ERROR(
+      mtrt::waitCUDAEventOnStream(reinterpret_cast<CudaStream>(stream),
+                                  inputConsumedEventHandle.getEvent()));
+  MTRT_RETURN_IF_ERROR(eventPool.Release(inputConsumedEventHandle));
 
   MTRT_DBGF("enqueueV3 successful and inputs are consumed on stream %p",
             reinterpret_cast<void *>(stream));
@@ -715,7 +712,7 @@ static Status enqueueAllocV3Wrapper(AllocTracker &tracker,
 
 static void registerExecutorTensorRTModuleLuaRuntimeMethods(
     lua_State *luaState, PinnedMemoryAllocator *pinnedMemoryAllocator,
-    AllocTracker *allocTracker, ResourceTracker *resourceTracker) {
+    AllocTracker *allocTracker, CudaEventPool &cudaEventPool) {
   sol::state_view lua(luaState);
 
   lua["_trtrt_create_runtime"] = [](sol::this_state state) {
@@ -755,23 +752,26 @@ static void registerExecutorTensorRTModuleLuaRuntimeMethods(
   };
 
   lua["_trtrt_enqueue"] =
-      [allocTracker,
-       resourceTracker](sol::this_state state,
-                        std::shared_ptr<NvInferExecContextWrapper> context,
-                        CudaStream stream, sol::table va) {
+      [allocTracker, eventPool = &cudaEventPool](
+          sol::this_state state,
+          std::shared_ptr<NvInferExecContextWrapper> context, CudaStream stream,
+          sol::table va) {
         ADD_TENSORRT_MODULE_RANGE("trtrt_enqueue");
         sol::state_view luaState(state);
         assert(context != nullptr);
         assert(reinterpret_cast<cudaStream_t>(stream) != nullptr &&
                "expected valid stream");
+        MTRT_DBG("_trtrt_enqueue[context={0:x}] stream={1:x}", context.get(),
+                 stream);
         Status result =
-            enqueueV3Wrapper(*allocTracker, *resourceTracker, *context,
+            enqueueV3Wrapper(*allocTracker, *eventPool, *context,
                              reinterpret_cast<cudaStream_t>(stream), va);
+
         SET_LUA_ERROR_IF_ERROR(result, state);
       };
 
   lua["_trtrt_enqueue_alloc"] =
-      [allocTracker, resourceTracker](
+      [allocTracker, eventPool = &cudaEventPool](
           sol::this_state state,
           std::shared_ptr<NvInferExecContextWrapper> context, CudaStream stream,
           uintptr_t outputDesc, sol::table va) {
@@ -786,7 +786,7 @@ static void registerExecutorTensorRTModuleLuaRuntimeMethods(
         auto allocator = std::make_unique<NvInferResultAllocators>(
             allocTracker, **context, desc.getNumberOfResults());
         Status result = enqueueAllocV3Wrapper(
-            *allocTracker, *resourceTracker, allocator.get(), *context,
+            *allocTracker, *eventPool, allocator.get(), *context,
             reinterpret_cast<cudaStream_t>(stream), va, desc);
         SET_LUA_ERROR_IF_ERROR(result, state);
       };
@@ -804,7 +804,7 @@ void registerLuaTensorRTRuntimeExtension() {
       LuaRuntimeExtension{[](const LuaRuntimeExtensionInitArgs &args) {
         registerExecutorTensorRTModuleLuaRuntimeMethods(
             args.state, args.pinnedMemoryAllocator, args.allocTracker,
-            args.resourceTracker);
+            args.cudaEventPool);
       }});
 }
 } // namespace mtrt

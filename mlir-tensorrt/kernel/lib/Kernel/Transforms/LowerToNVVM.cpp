@@ -19,7 +19,7 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-kernel/Kernel/IR/Ops.h"
 #include "mlir-kernel/Kernel/Transforms/Passes.h"
-#include "mlir-kernel/Utils/CUDAUtils.h"
+#include "mlir-tensorrt-common/Utils/CUDAUtils.h"
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Conversion/ArithToLLVM/ArithToLLVM.h"
 #include "mlir/Conversion/ComplexToLLVM/ComplexToLLVM.h"
@@ -645,11 +645,12 @@ public:
 
       // Populate MLIR-TensorRT written arith->LLVM patterns.
       gpu::GPUModuleOp gpuModuleOp = cast<gpu::GPUModuleOp>(getOperation());
-      int32_t ptxVersion = getHighestPTXVersion();
+      int32_t ptxVersion = mtrt::compiler::getHighestPTXVersion();
       patterns.add<
           ArithExtF8E4M3FNToF16Converter, ArithExtF4E2M1FNToF16Converter,
           ArithTruncfF16ToF8E4M3FNConverter, ArithTruncfF16ToF4E2M1FNConverter>(
-          getUniqueTargetChip(gpuModuleOp), ptxVersion, typeConverter);
+          mtrt::compiler::getUniqueTargetChip(gpuModuleOp), ptxVersion,
+          typeConverter);
 
       arith::populateArithToLLVMConversionPatterns(typeConverter, patterns);
       populateFuncToLLVMConversionPatterns(typeConverter, patterns);

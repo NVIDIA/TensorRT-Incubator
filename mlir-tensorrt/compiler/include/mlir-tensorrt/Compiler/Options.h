@@ -276,6 +276,23 @@ private:
 };
 
 //===----------------------------------------------------------------------===//
+// AsyncSchedulingOptions
+//===----------------------------------------------------------------------===//
+
+/// Encapsulates options related to asynchronous scheduling and execution.
+struct AsyncSchedulingOptions : public mlir::OptionsGroup {
+  using OptionsGroup::OptionsGroup;
+
+  static llvm::cl::OptionCategory category;
+
+  /// Enables use of multiple streams during async scheduling.
+  Option<bool> enableMultStream{
+      this->ctx, "async-enable-multi-stream", llvm::cl::init(true),
+      llvm::cl::desc("Enable use of multiple streams during async scheduling."),
+      llvm::cl::cat(category)};
+};
+
+//===----------------------------------------------------------------------===//
 // BufferizationOptions
 //===----------------------------------------------------------------------===//
 
@@ -414,11 +431,6 @@ struct OptimizationOptions : public mlir::OptionsGroup {
 
   static llvm::cl::OptionCategory category;
 
-  Option<int64_t> unrollThreshold{
-      this->ctx, "scf-unroll-threshold", llvm::cl::init(100),
-      llvm::cl::desc("Cost threshold for loop unrolling."),
-      llvm::cl::cat(category)};
-
   Option<bool> hoistAllocsToGlobals{
       this->ctx, "hoist-allocs-to-globals", llvm::cl::init(true),
       llvm::cl::desc("Hoist large local allocations to static globals when "
@@ -445,6 +457,7 @@ protected:
   // clang-format off
   /// Attach option subgroups to this scope.
   using SubGroups = mlir::options_group_tuple<
+    AsyncSchedulingOptions,
     BufferizationOptions,
     DeviceOptions,
     EmitCOptions,

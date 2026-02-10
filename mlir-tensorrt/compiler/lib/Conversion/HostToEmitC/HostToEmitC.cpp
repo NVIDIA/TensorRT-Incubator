@@ -1,6 +1,6 @@
 //===- HostToEmitC.cpp ----------------------------------------------------===//
 //
-// SPDX-FileCopyrightText: Copyright 2025 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2025-2026 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -137,8 +137,8 @@ static void populateEmitCConversionPatternsAndLegality(
                 [](cuda::FunctionType) -> StringRef { return "CUfunction"; })
             .Case<cuda::StreamType>(
                 [](cuda::StreamType) -> StringRef { return "CUstream"; })
-            .Case<cuda::StreamType>(
-                [](cuda::StreamType) -> StringRef { return "CUstream"; })
+            .Case<cuda::EventType>(
+                [](cuda::EventType) -> StringRef { return "cudaEvent_t"; })
             .Default([](Type) -> StringRef { return ""; });
     if (name.empty())
       return {};
@@ -215,8 +215,11 @@ public:
     //   `_destroy_all()`
     IRRewriter rewriter(moduleOp->getContext());
 
-    if (failed(convertHostToEmitCGlobals(moduleOp, emitAggregateInitDestroy)))
+    if (failed(convertHostToEmitCGlobals(moduleOp, emitAggregateInitDestroy))) {
+      emitError(moduleOp->getLoc())
+          << "failed to convert host to emitc globals";
       return signalPassFailure();
+    }
 
     // Now run the pattern-based conversion.
     const DataLayoutAnalysis &dataLayoutAnalysis =

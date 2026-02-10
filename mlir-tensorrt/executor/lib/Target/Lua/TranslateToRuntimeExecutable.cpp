@@ -481,11 +481,20 @@ static mtrt::flat::FunctionSignatureT generateSignature() {
 static LogicalResult
 translateBoundsIfPresent(FunctionOpInterface func, unsigned argIndex,
                          mtrt::flat::FunctionSignatureT &signature,
-                         bool isInput) {
+                         bool isInput, bool isPacked,
+                         ArrayRef<executor::abi::PackedArgInfo> packedArgs) {
+
+  auto getBoundsAttr = [&](unsigned argIndex, StringRef attrName) -> Attribute {
+    if (isPacked) {
+      return packedArgs[argIndex].rest.get(attrName);
+    }
+    return func.getArgAttr(argIndex, attrName);
+  };
+
   for (llvm::StringRef attrName :
        {executor::ExecutorDialect::getShapeBoundsAttrName(),
         executor::ExecutorDialect::getValueBoundsAttrName()}) {
-    if (Attribute bounds = func.getArgAttr(argIndex, attrName)) {
+    if (Attribute bounds = getBoundsAttr(argIndex, attrName)) {
       auto boundsUnion = translateBoundsAttribute(bounds);
       if (failed(boundsUnion))
         return failure();
@@ -510,11 +519,13 @@ translateBoundsIfPresent(FunctionOpInterface func, unsigned argIndex,
 /// information from the ArgumentABIAttr attributes on function arguments.
 static FailureOr<mtrt::flat::FunctionSignatureT>
 translateABIWrapperSignature(FunctionOpInterface func,
-                             const mlir::DataLayout &dataLayout) {
+                             const mlir::DataLayout &dataLayout,
+                             const bool isPacked) {
   mtrt::flat::FunctionSignatureT signature;
 
   // ABI wrapper functions use unpacked calling convention
-  signature.calling_convention = mtrt::CallingConvention::unpacked;
+  signature.calling_convention = isPacked ? mtrt::CallingConvention::packed
+                                          : mtrt::CallingConvention::unpacked;
   signature.shape_function_name = "";
   if (auto shapeFunc = func->getAttrOfType<SymbolRefAttr>(
           executor::ExecutorDialect::kShapeFuncAttrName))
@@ -524,15 +535,23 @@ translateABIWrapperSignature(FunctionOpInterface func,
       executor::PointerType::get(func.getContext(), executor::MemoryType::host);
 
   // Process each argument
-  for (unsigned i = 0, e = func.getNumArguments(); i < e; ++i) {
-    BlockArgument arg = func.getArgument(i);
+  const unsigned numArgs = executor::abi::getNumArguments(func);
 
+  SmallVector<executor::abi::PackedArgInfo> packedArgs =
+      isPacked ? executor::abi::getFuncABIPackedArgs(func)
+               : SmallVector<executor::abi::PackedArgInfo>();
+
+  for (unsigned i = 0; i < numArgs; ++i) {
     std::optional<unsigned> resultIdx =
-        executor::abi::isOutputArgument(func, arg);
+        executor::abi::isOutputArgument(func, i);
+
+    Type abiArgType =
+        isPacked ? packedArgs[i].abiArgType : func.getArgument(i).getType();
+
     const bool isInput = !resultIdx.has_value();
-    if (executor::abi::isScalarArgumentType(arg.getType())) {
+    if (executor::abi::isScalarArgumentType(abiArgType)) {
       assert(isInput && "scalar arguments cannot be output arguments");
-      auto typeUnion = translateTypeVariant(arg.getType(), dataLayout);
+      auto typeUnion = translateTypeVariant(abiArgType, dataLayout);
       if (failed(typeUnion))
         return failure();
       signature.args.push_back(std::move(*typeUnion));
@@ -540,20 +559,21 @@ translateABIWrapperSignature(FunctionOpInterface func,
       continue;
     }
 
-    if (arg.getType() != hostPointerType)
-      return emitError(func.getLoc())
-             << "ABI wrapper function argument " << i
-             << " has an invalid type: " << arg.getType();
+    if (abiArgType != hostPointerType)
+      return emitError(func.getLoc()) << "ABI wrapper function argument " << i
+                                      << " has an invalid type: " << abiArgType;
 
     // Get the ArgumentABIAttr for this argument
     executor::ArgumentABIAttr abiAttr =
-        executor::abi::getArgumentABIAttr(func, arg);
+        isPacked ? packedArgs[i].abiAttr
+                 : executor::abi::getArgumentABIAttr(func, i);
     if (!abiAttr)
       return emitError(func.getLoc()) << "ABI wrapper function missing "
                                          "executor.abi attribute on argument "
                                       << i;
 
-    if (failed(translateBoundsIfPresent(func, i, signature, isInput)))
+    if (failed(translateBoundsIfPresent(func, i, signature, isInput, isPacked,
+                                        packedArgs)))
       return failure();
 
     // Extract the value type from the ABI attribute
@@ -758,7 +778,9 @@ mlir::translateToRuntimeExecutable(Operation *op) {
     // Check if this is an ABI wrapper function
     if (executor::abi::isABIWrapperFunction(func)) {
       // For ABI wrapper functions, extract signature from argument attributes
-      auto sig = translateABIWrapperSignature(func, dataLayout);
+      auto sig = translateABIWrapperSignature(
+          func, dataLayout,
+          /*isPacked=*/executor::abi::isABIWrapperFunctionWithPackedArgs(func));
       if (failed(sig))
         return failure();
       sig->abi_version = abiVersion;

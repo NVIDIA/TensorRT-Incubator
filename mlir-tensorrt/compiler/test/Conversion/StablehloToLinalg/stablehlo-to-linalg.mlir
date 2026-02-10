@@ -125,3 +125,34 @@ func.func @get_dimension_size(%arg0: tensor<?x?xf32>) -> (tensor<i32>, tensor<i3
   %1 = "stablehlo.get_dimension_size"(%arg0) {dimension = 1 : i64} : (tensor<?x?xf32>) -> tensor<i32>
   return %0, %1 : tensor<i32>, tensor<i32>
 }
+
+// -----
+
+// CHECK-LABEL: func.func @dynamic_broadcast_in_dim
+func.func @dynamic_broadcast_in_dim(%arg0: tensor<?x?xf32>, %arg1: tensor<4xi32>) -> tensor<?x?x?x?xf32> {
+  // CHECK-DAG: %[[c0:.+]] = arith.constant 0 : index
+  // CHECK-DAG: %[[c1:.+]] = arith.constant 1 : index
+  // CHECK-DAG: %[[c2:.+]] = arith.constant 2 : index
+  // CHECK-DAG: %[[c3:.+]] = arith.constant 3 : index
+  // CHECK-DAG: %[[dim_0:.+]] = tensor.extract %{{.*}}[%[[c0]]]
+  // CHECK-DAG: %[[dim_1:.+]] = tensor.extract %{{.*}}[%[[c1]]]
+  // CHECK-DAG: %[[dim_2:.+]] = tensor.extract %{{.*}}[%[[c2]]]
+  // CHECK-DAG: %[[dim_3:.+]] = tensor.extract %{{.*}}[%[[c3]]]
+  // CHECK: %[[empty:.+]] = tensor.empty({{.*}})
+  // CHECK: %[[v2:.+]] = linalg.generic {{.*}} outs(%[[empty]] :
+  // CHECK-DAG:   %[[i1:.+]] = linalg.index 1 : index
+  // CHECK-DAG:   %[[i3:.+]] = linalg.index 3 : index
+  // CHECK-DAG:   %[[dim_0:.+]] = tensor.dim %{{.*}}, %[[c0]]
+  // CHECK-DAG:   %[[cond0:.+]] = arith.cmpi ult, %[[i3]], %[[dim_0]]
+  // CHECK-DAG:   %[[coord0:.+]] = arith.select %[[cond0]], %[[i3]], %[[c0]]
+  // CHECK-DAG:   %[[dim_1:.+]] = tensor.dim %{{.*}}, %[[c1]]
+  // CHECK-DAG:   %[[cond1:.+]] = arith.cmpi ult, %[[i1]], %[[dim_1]]
+  // CHECK-DAG:   %[[coord1:.+]] = arith.select %[[cond1]], %[[i1]], %[[c0]]
+  // CHECK-DAG:   %[[extracted:.+]] = tensor.extract %{{.*}}[%[[coord0]], %[[coord1]]]
+  // CHECK-DAG:   linalg.yield %[[extracted]] : f32
+  // CHECK: return %[[v2]] : tensor<?x?x?x?xf32>
+  %0 = "stablehlo.dynamic_broadcast_in_dim"(%arg0, %arg1) {
+    broadcast_dimensions=array<i64: 3, 1>
+    }: (tensor<?x?xf32>, tensor<4xi32>) -> tensor<?x?x?x?xf32>
+  return %0 : tensor<?x?x?x?xf32>
+}

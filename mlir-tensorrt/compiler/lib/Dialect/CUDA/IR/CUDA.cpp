@@ -175,6 +175,12 @@ LogicalResult AllocOp::verify() {
   return success();
 }
 
+OpOperand *AllocOp::getStreamOperand() {
+  if (getStream())
+    return &getStreamMutable()[0];
+  return nullptr;
+}
+
 //===----------------------------------------------------------------------===//
 // CopyOps
 //===----------------------------------------------------------------------===//
@@ -229,6 +235,10 @@ LogicalResult MemSetOp::verify() {
 void LaunchOp::getEffects(
     SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
         &effects) {
+  // Launching a kernel enqueues work on the stream, modifying its state.
+  effects.emplace_back(MemoryEffects::Write::get(), &getStreamMutable(),
+                       SideEffects::DefaultResource::get());
+  // The kernel may read/write any memref arguments.
   for (OpOperand &operand : (*this)->getOpOperands()) {
     if (!llvm::isa<MemRefType>(operand.get().getType()))
       continue;

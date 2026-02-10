@@ -45,17 +45,23 @@ which specifies doc metadata for each API (e.g. location).
 - Docstring must include *at least* **one [code example](#code-examples)**.
 
 - If the function accepts `tp.Tensor`s, must indicate **data type constraints**
-    with the [`wrappers.interface`](../nvtripy/utils/wrappers.py) decorator.
+    with the [`wrappers.interface`](../nvtripy/frontend/wrappers.py) decorator.
 
 **Example:**
 
 ```py
+from nvtripy import export
+from nvtripy.frontend import wrappers
+from nvtripy.common import datatype as dt
+from nvtripy.frontend.constraints import GetInput, GetReturn, OneOf
+
 @export.public_api(document_under="operations/functions")
 @wrappers.interface(
-    dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
-    dtype_variables={
-        "T1": ["float32", "float16", "bfloat16", "int4", "int32", "int64", "bool", "int8"],
-    },
+    input_requirements=OneOf(
+        GetInput("input").dtype,
+        [dt.float32, dt.float16, dt.bfloat16, dt.int4, dt.int8, dt.int32, dt.int64, dt.bool],
+    ),
+    output_guarantees=GetReturn(0).dtype == GetInput("input").dtype,
 )
 def relu(input: "nvtripy.Tensor") -> "nvtripy.Tensor":
     r"""
@@ -167,3 +173,72 @@ Code blocks in docstrings/guides are **preprocessed**:
     - **Include** only specific variables: `# doc: print-locals <var1> <var2> ...`
     - **Exclude** *specific* variables: `# doc: no-print-locals <var1> <var2> ...`
     - **Exclude** *all* variables: `# doc: no-print-locals` (with no arguments).
+
+
+## Documentation Philosophy: Write Less Documentation
+
+> "I didn't have time to write a short letter, so I wrote a long one instead." - Mark Twain
+
+How much documentation do you want to read? The answer is **none**!
+
+- **Best Case:** Make docs unnecessary with an intuitive API and clear errors.
+
+This is not always possible; sometimes, we need to write docs.
+
+- **Problem:** We don't think enough about *what* *precisely* we want to convey.
+
+- **Suggestions**: Write discoverable, concise, but complete documentation.
+
+    - **Highlight key points** but make it easy to find details.
+
+    - Use bullets and **bold** to break up monotony.
+        Paragraphs are *so* 2024.
+
+    - Leverage the medium - pictures, charts, emojis, markup.
+        We are not using printing presses!
+
+    - Forget the rules: use contractions, don't spell out numbers, etc.
+
+    - **Tip:** Write like we're paying for every syllable!
+        If it's too wordy to say, it's too wordy to write.
+
+Writing *concisely* forces you to think about what's **signal** and what's **noise**.
+
+Below are examples from previous versions of Tripy documentation that was improved.
+
+### Example 1
+
+> One important point is that Tripy uses a lazy evaluation model; that is, no computation is performed until a value is actually needed.
+
+* **Tip:** Ask: "What is this really saying?"
+
+> Tensors are evaluated only when they're used.
+
+### Example 2
+
+
+> ### **Eager Mode: How Does It Work?**
+>
+> If you've used TensorRT before, you may know that it does not support an eager mode.
+> In order to provide eager mode support in Tripy, we actually need to compile the graph under the hood.
+>
+> Although we employ several tricks to make compile times faster when using eager mode, we do still need to compile,
+> and so eager mode will likely be slower than other comparable frameworks.
+>
+> Consequently, we suggest that you use eager mode primarily for debugging and compiled mode for deployments.
+
+**Problem**: We must sift through filler to find key points.
+
+**Ask**:
+
+- **"What is the ONE most important takeaway?"**
+  *Eager mode is only for debugging.*
+
+- **"What questions does this raise?" - Why?**
+    *Tripy always compiles since TensorRT doesn't have eager mode.*
+
+Make the **one key point** stand out so skimmers can spot it:
+
+> **Best Practice:** Use **eager mode** only for **debugging**; compile for deployment.
+>
+> **Why:** Eager mode internally compiles the graph (slow!) since TensorRT doesn't have eager execution.

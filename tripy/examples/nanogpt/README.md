@@ -40,7 +40,7 @@ This example implements a [NanoGPT model](https://github.com/karpathy/nanoGPT) u
 ### Running with Quantization
 
 [`quantization.py`](./quantization.py), uses
-[NVIDIA TensorRT Model Optimizer](https://nvidia.github.io/TensorRT-Model-Optimizer/getting_started/1_overview.html)
+[NVIDIA TensorRT Model Optimizer](https://nvidia.github.io/Model-Optimizer/getting_started/1_overview.html)
 to quantize the pytorch model.
 
 `load_quant_weights_from_hf` in [`weight_loader.py`](./weight_loader.py) converts the quantization

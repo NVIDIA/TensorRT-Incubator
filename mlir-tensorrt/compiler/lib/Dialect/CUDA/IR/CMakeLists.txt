@@ -14,6 +14,7 @@ add_mlir_tensorrt_dialect_library(MLIRTensorRTCUDADialect
   LINK_LIBS PUBLIC
     MLIRTensorRTPlanDialect
     MLIRTensorRTExecutorDialect
+    MLIRTensorRTStreamSchedulableOpInterface
   MLIR_LIBS PUBLIC
     MLIRIR
   )

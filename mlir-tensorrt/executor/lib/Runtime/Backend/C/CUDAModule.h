@@ -30,6 +30,7 @@
 #define RUNTIME_BACKEND_C_CUDAMODULE
 
 #include "cuda.h"
+#include "cuda_runtime_api.h"
 #include "stdint.h"
 
 #if (defined(_WIN32) || defined(__CYGWIN__)) &&                                \
@@ -64,6 +65,25 @@ MTRT_CAPI_EXPORTED CUstream mtrt_cuda_stream_create();
 MTRT_CAPI_EXPORTED void mtrt_cuda_stream_destroy(CUstream stream);
 
 MTRT_CAPI_EXPORTED void mtrt_cuda_stream_sync(CUstream stream);
+
+//===----------------------------------------------------------------------===//
+// CUDA - Event Management
+//===----------------------------------------------------------------------===//
+
+MTRT_CAPI_EXPORTED cudaEvent_t mtrt_cuda_event_create(int32_t device);
+
+MTRT_CAPI_EXPORTED void mtrt_cuda_event_release(cudaEvent_t event);
+
+MTRT_CAPI_EXPORTED void mtrt_cuda_stream_record_event(CUstream stream,
+                                                      cudaEvent_t event);
+
+MTRT_CAPI_EXPORTED void mtrt_cuda_stream_wait_event(CUstream stream,
+                                                    cudaEvent_t event);
+
+MTRT_CAPI_EXPORTED void mtrt_cuda_event_sync(cudaEvent_t event);
+
+MTRT_CAPI_EXPORTED float mtrt_cuda_event_elapsed_msec(cudaEvent_t start,
+                                                      cudaEvent_t end);
 
 MTRT_CAPI_EXPORTED void *mtrt_cuda_alloc_async(CUstream stream, int64_t size,
                                                int32_t alignment,
@@ -115,6 +135,27 @@ inline static void mtrt_cuda_stream_destroy_cwrapper(void *stream) {
 }
 inline static void mtrt_cuda_stream_sync_cwrapper(void *stream) {
   return mtrt_cuda_stream_sync((CUstream)stream);
+}
+inline static void *mtrt_cuda_event_create_cwrapper(int32_t device) {
+  return (void *)mtrt_cuda_event_create(device);
+}
+inline static void mtrt_cuda_event_release_cwrapper(void *event) {
+  return mtrt_cuda_event_release((cudaEvent_t)event);
+}
+inline static void mtrt_cuda_stream_record_event_cwrapper(void *stream,
+                                                          void *event) {
+  return mtrt_cuda_stream_record_event((CUstream)stream, (cudaEvent_t)event);
+}
+inline static void mtrt_cuda_stream_wait_event_cwrapper(void *stream,
+                                                        void *event) {
+  return mtrt_cuda_stream_wait_event((CUstream)stream, (cudaEvent_t)event);
+}
+inline static void mtrt_cuda_event_sync_cwrapper(void *event) {
+  return mtrt_cuda_event_sync((cudaEvent_t)event);
+}
+inline static float mtrt_cuda_event_elapsed_msec_cwrapper(void *start,
+                                                          void *end) {
+  return mtrt_cuda_event_elapsed_msec((cudaEvent_t)start, (cudaEvent_t)end);
 }
 inline static void *mtrt_cuda_alloc_async_cwrapper(void *stream, int64_t size,
                                                    int32_t alignment,

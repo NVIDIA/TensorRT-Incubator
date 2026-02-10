@@ -15,21 +15,22 @@
 from typing import Optional
 
 from nvtripy import export
-from nvtripy.common import datatype
+from nvtripy.common import datatype as dt
+from nvtripy.frontend import wrappers
+from nvtripy.frontend.constraints import GetInput, GetReturn, If, OneOf
 from nvtripy.frontend.ops.full import full, full_like
-from nvtripy.utils import wrappers
 
 
 @export.public_api(document_under="operations/initializers")
 @wrappers.interface(
-    dtype_constraints={"dtype": "T1", wrappers.RETURN_VALUE: "T1"},
-    dtype_variables={
-        "T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64", "bool"],
-    },
+    input_requirements=OneOf(
+        GetInput("dtype"), [dt.float32, dt.float16, dt.bfloat16, dt.int8, dt.int32, dt.int64, dt.bool]
+    ),
+    output_guarantees=GetReturn(0).dtype == GetInput("dtype"),
 )
 def ones(
     shape: "nvtripy.types.ShapeLike",
-    dtype: datatype.dtype = datatype.float32,
+    dtype: dt.dtype = dt.float32,
 ) -> "nvtripy.Tensor":
     """
     Creates a Tensor of the specified shape and dtype with all elements set to 1.
@@ -55,13 +56,24 @@ def ones(
 
 @export.public_api(document_under="operations/initializers")
 @wrappers.interface(
-    dtype_constraints={"input": "T1", "dtype": "T2", wrappers.RETURN_VALUE: "T2"},
-    dtype_variables={
-        "T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
-        "T2": ["float32", "float16", "bfloat16", "int8", "int32", "int64", "bool"],
-    },
+    input_requirements=OneOf(
+        GetInput("input").dtype,
+        [dt.float32, dt.float16, dt.bfloat16, dt.float8, dt.int8, dt.int32, dt.int64, dt.bool],
+    )
+    & If(
+        GetInput("dtype") != None,
+        OneOf(
+            GetInput("dtype"),
+            [dt.float32, dt.float16, dt.bfloat16, dt.int8, dt.int32, dt.int64, dt.bool],
+        ),
+    ),
+    output_guarantees=If(
+        GetInput("dtype") != None,
+        GetReturn(0).dtype == GetInput("dtype"),
+        GetReturn(0).dtype == GetInput("input").dtype,
+    ),
 )
-def ones_like(input: "nvtripy.Tensor", dtype: Optional[datatype.dtype] = None) -> "nvtripy.Tensor":
+def ones_like(input: "nvtripy.Tensor", dtype: Optional[dt.dtype] = None) -> "nvtripy.Tensor":
     """
     Creates a tensor with all elements set to 1 of the same shape as the input tensor.
 

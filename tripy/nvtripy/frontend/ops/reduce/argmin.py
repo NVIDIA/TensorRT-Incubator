@@ -15,15 +15,17 @@
 from typing import Optional
 
 from nvtripy import export
+from nvtripy.common import datatype as dt
+from nvtripy.frontend.constraints import GetInput, GetReturn, OneOf
 from nvtripy.frontend.ops.reduce.utils import arg_min_max_impl
 from nvtripy.trace.ops.topk import TopKMin
-from nvtripy.utils import wrappers
+from nvtripy.frontend import wrappers
 
 
 @export.public_api(document_under="operations/functions")
 @wrappers.interface(
-    dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T2"},
-    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int32", "int64"], "T2": ["int32"]},
+    input_requirements=OneOf(GetInput("input").dtype, [dt.float32, dt.float16, dt.bfloat16, dt.int32, dt.int64]),
+    output_guarantees=GetReturn(0).dtype == dt.int32,
 )
 def argmin(input: "nvtripy.Tensor", dim: Optional[int] = None, keepdim: bool = False) -> "nvtripy.Tensor":
     """

@@ -12,7 +12,6 @@ executor.func private @__cuda_memcpy_device2host(!executor.ptr<host>, !executor.
 executor.func private @__cuda_stream_create() -> (!executor.ptr<host>)
 executor.func private @__cuda_stream_sync(!executor.ptr<host>) -> ()
 executor.func private @__cuda_alloc_device(!executor.ptr<host>, i32, i64, i32) -> (!executor.ptr<device>)
-executor.func private @__cuda_memset_32(!executor.ptr<device>, i64, i64, i32) -> ()
 executor.func private @executor_alloc(i64, i32) -> (!executor.ptr<host>)
 
 

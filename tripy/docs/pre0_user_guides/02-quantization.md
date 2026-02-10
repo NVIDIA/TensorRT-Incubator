@@ -17,7 +17,7 @@ explains quantization in more detail.
 ## Post-Training Quantization With ModelOpt
 
 If the model was not trained with quantization-aware training (QAT), we can use
-[TensorRT ModelOpt](https://nvidia.github.io/TensorRT-Model-Optimizer/index.html)
+[TensorRT ModelOpt](https://nvidia.github.io/Model-Optimizer/index.html)
 to do **calibration** to determine scaling factors.
 
 :::{admonition} Info
@@ -82,7 +82,7 @@ Let's calibrate a GPT model:
         ```
 
     3. Run calibration to replace linear layers with
-        [`QuantLinear`](https://nvidia.github.io/TensorRT-Model-Optimizer/reference/generated/modelopt.torch.quantization.nn.modules.quant_linear.html#modelopt.torch.quantization.nn.modules.quant_linear.QuantLinear),
+        [`QuantLinear`](https://nvidia.github.io/Model-Optimizer/reference/generated/modelopt.torch.quantization.nn.modules.quant_linear.html#modelopt.torch.quantization.nn.modules.quant_linear.QuantLinear),
         which contain calibration information:
 
         ```py

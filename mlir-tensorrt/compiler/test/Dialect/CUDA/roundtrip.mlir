@@ -10,13 +10,24 @@ func.func @cuda_create_stream(%device: i32) -> !cuda.stream {
 
 // -----
 
-func.func @cuda_create_event() -> !cuda.event {
-  %0 = cuda.event.create : !cuda.event
+func.func @cuda_create_event(%device: i32) -> !cuda.event {
+  %0 = cuda.event.create device(%device)
   return %0: !cuda.event
 }
 // CHECK-LABEL: @cuda_create_event
-//       CHECK: %[[v0:.+]] = cuda.event.create : !cuda.event
+//       CHECK: %[[v0:.+]] = cuda.event.create device(%{{.*}})
 //       CHECK: return %[[v0]] : !cuda.event
+// -----
+
+func.func @cuda_event_create_on_stream(%device: i32) -> !cuda.event {
+  %0 = cuda.stream.create device(%device)
+  %1 = cuda.event.create_on_stream %0 : !cuda.stream
+  return %1 : !cuda.event
+}
+// CHECK-LABEL: @cuda_event_create_on_stream
+//       CHECK: %[[v0:.+]] = cuda.stream.create device(%{{.*}})
+//       CHECK: %[[v1:.+]] = cuda.event.create_on_stream %[[v0]] : !cuda.stream
+//       CHECK: return %[[v1]] : !cuda.event
 // -----
 
 func.func @cuda_get_program_device(%logical: i32) -> i32 {
@@ -27,6 +38,17 @@ func.func @cuda_get_program_device(%logical: i32) -> i32 {
 // CHECK-LABEL: @cuda_get_program_device
 //       CHECK: %[[v0:.+]] = cuda.get_program_device %{{.*}} : i32
 //       CHECK: return %[[v0]] : i32
+
+// -----
+
+func.func @cuda_event_sync(%device: i32) {
+  %0 = cuda.event.create device(%device)
+  cuda.event.sync %0 : !cuda.event
+  return
+}
+// CHECK-LABEL: @cuda_event_sync
+//       CHECK: %[[v0:.+]] = cuda.event.create device(%{{.*}})
+//       CHECK: cuda.event.sync %[[v0]] : !cuda.event
 
 // -----
 

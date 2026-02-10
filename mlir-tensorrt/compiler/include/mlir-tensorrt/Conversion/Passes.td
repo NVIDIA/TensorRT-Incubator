@@ -214,6 +214,24 @@ def LowerLinalgCopiesPass : Pass<"lower-linalg-copies"> {
 }
 
 //===----------------------------------------------------------------------===//
+// ConvertLinalgToCUDAPass
+//===----------------------------------------------------------------------===//
+def ConvertLinalgToCUDAPass : Pass<"convert-linalg-to-cuda"> {
+  let summary = "Lower linalg.fill ops on device buffers to cuda.memset";
+  let description = [{
+    This pass converts `linalg.fill` (and `linalg.generic` fills) on
+    device-visible buffers to `cuda.memset` using the default stream.
+    Only contiguous buffers with element size of 1, 2, or 4 bytes are supported.
+  }];
+  let dependentDialects = [
+    "::mlir::arith::ArithDialect",
+    "::mlir::cuda::CUDADialect",
+    "::mlir::linalg::LinalgDialect",
+    "::mlir::plan::PlanDialect"
+  ];
+}
+
+//===----------------------------------------------------------------------===//
 // ConvertKernelToCUDAPass
 //===----------------------------------------------------------------------===//
 def ConvertKernelToCUDAPass : Pass<"convert-kernel-to-cuda", "::mlir::ModuleOp"> {

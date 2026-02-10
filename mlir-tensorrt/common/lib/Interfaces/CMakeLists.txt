@@ -49,6 +49,10 @@ mlir_tensorrt_common_interface(BufferizationScopeInterface
   KIND op
   INCLUDE_DEPENDS MLIRIR MLIRTensorRTCommonIncludes
 )
+mlir_tensorrt_common_interface(StreamSchedulableOpInterface
+  KIND op
+  INCLUDE_DEPENDS MLIRIR MLIRTensorRTCommonIncludes
+)
 
 add_mlir_tensorrt_common_interface_library(
   MLIRTensorRTCommonToLoopsOpInterface
@@ -109,4 +113,18 @@ add_mlir_tensorrt_common_interface_library(
   MLIR_LIBS PUBLIC
     MLIRBufferizationDialect
     MLIRBufferizationTransforms
+)
+
+add_mlir_tensorrt_common_interface_library(
+  MLIRTensorRTStreamSchedulableOpInterface
+
+  StreamSchedulableOpInterface.cpp
+
+  DEPENDS
+  MLIRTensorRTCommonStreamSchedulableOpInterfaceIncGen
+
+  LINK_LIBS PUBLIC
+    MLIRTensorRTCommonIncludes
+  MLIR_LIBS PUBLIC
+    MLIRIR
 )

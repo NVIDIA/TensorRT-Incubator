@@ -15,16 +15,20 @@
 from typing import Sequence, Union
 
 from nvtripy import export, utils
+from nvtripy.common import datatype as dt
 from nvtripy.frontend.ops import utils as op_utils
 from nvtripy.frontend.ops._registry import register_tensor_method
-from nvtripy.utils import wrappers
+from nvtripy.frontend import wrappers
+from nvtripy.frontend.constraints import GetInput, GetReturn, OneOf
 
 
 @register_tensor_method("squeeze")
 @export.public_api(document_under="operations/functions")
 @wrappers.interface(
-    dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
-    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64", "bool"]},
+    input_requirements=OneOf(
+        GetInput("input").dtype, [dt.float32, dt.float16, dt.bfloat16, dt.int8, dt.int32, dt.int64, dt.bool]
+    ),
+    output_guarantees=GetReturn(0).dtype == GetInput("input").dtype,
 )
 def squeeze(input: "nvtripy.Tensor", dims: Union[Sequence[int], int]) -> "nvtripy.Tensor":
     """

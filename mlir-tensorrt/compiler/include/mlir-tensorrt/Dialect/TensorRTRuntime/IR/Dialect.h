@@ -1,4 +1,4 @@
-//===- Dialect.h ---------------------------------------------------------===//
+//===- Dialect.h ----------------------------------------------------------===//
 //
 // SPDX-FileCopyrightText: Copyright 2026 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.

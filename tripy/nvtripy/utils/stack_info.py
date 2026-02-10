@@ -17,6 +17,9 @@
 
 # NOTE: We avoid using `inspect` functions as much as possible because they are much slower than
 # working directly with the frame.
+
+import linecache
+import os
 import sys
 from dataclasses import dataclass
 from typing import Optional, Tuple
@@ -53,14 +56,19 @@ class SourceInfo:
         if self.code is not None:
             return
 
-        # Note that in some cases, e.g. when code is being provided via the interactive shell, we may not be able to retrieve it.
-        # In that case we just leave it empty.
-        try:
-            lines = open(self.file, "r").readlines()
-        except:
-            self.code = "<could not fetch source code>"
+        # Handle cases where bytecode was compiled with a different path than the current filesystem:
+        file_path = self.file
+        module = sys.modules.get(self.module)
+        if module and hasattr(module, "__file__") and module.__file__:
+            file_path = module.__file__
+
+        line = linecache.getline(file_path, self.line)
+        if line:
+            self.code = line.rstrip()
         else:
-            self.code = lines[self.line - 1].rstrip()
+            # Note that in some cases, e.g. when code is being provided via the interactive shell, we may not be able to retrieve it.
+            # In that case we just leave it empty.
+            self.code = "<could not fetch source code>"
 
 
 class StackInfo(list):
@@ -138,7 +146,7 @@ def get_module_names_to_exclude_from_stack_info():
     Returns a set of module names to exclude from stack information when displaying exceptions
     or trying to retrieve column information from code.
     """
+    import nvtripy.frontend.wrappers as wrappers
     import nvtripy.utils.function_registry as function_registry
-    import nvtripy.utils.wrappers as wrappers
 
     return {mod.__name__ for mod in [function_registry, wrappers]}

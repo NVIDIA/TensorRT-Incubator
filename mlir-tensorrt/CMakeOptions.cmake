@@ -8,6 +8,7 @@ mtrt_option(MLIR_TRT_ENABLE_NCCL "Enable the NCCL runtime module" OFF)
 mtrt_option(MLIR_TRT_ENABLE_CUBLAS "Enable CUBLAS in the executor" ON)
 mtrt_option(MLIR_TRT_ENABLE_SHARDY "Enable compiler build with Shardy" OFF)
 mtrt_option(MLIR_TRT_ENABLE_CUDA "Enable the use of CUDA runtime" ON)
+mtrt_option(MLIR_TRT_ENABLE_CUDATILE "Enable the use of CUDA Tile IR" ON)
 mtrt_option(MLIR_TRT_ENABLE_MPI "Enable use of MPI in the runtime" ${MLIR_TRT_ENABLE_NCCL})
 mtrt_option(MLIR_TRT_LINK_MTRT_DYLIB "Link all tools against libMTRT dylib" OFF)
 mtrt_option(MLIR_TRT_LINK_MLIR_DYLIB "Use the libMLIR dylib to provide MLIR-TensorRT's MLIR dependencies" OFF)
@@ -65,8 +66,10 @@ set(MLIR_TRT_CUDA_ARCHITECTURES "detect" CACHE STRING
 # TODO: consider adding an option to link cudart statically.
 if(MLIR_TRT_ENABLE_CUDA)
   set(MLIR_TRT_CUDA_TARGET "CUDA::cudart" CACHE INTERNAL "")
+  set(MLIR_TRT_CUDA_DRIVER_TARGET "CUDA::cuda_driver" CACHE INTERNAL "")
 else()
   set(MLIR_TRT_CUDA_TARGET "" CACHE INTERNAL "")
+  set(MLIR_TRT_CUDA_DRIVER_TARGET "" CACHE INTERNAL "")
 endif()
 
 # Set `MLIR_TRT_MPI_TARGET` to `MPI::MPI_C` if MPI is enabled, otherwise set it to an empty string.

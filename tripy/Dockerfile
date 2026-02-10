@@ -9,16 +9,17 @@ ENTRYPOINT ["/bin/bash"]
 # Setup user account
 ARG uid=1000
 ARG gid=1000
+ARG username=trtuser
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN groupadd -r -f -g ${gid} trtuser && \
-    useradd -o -r -l -u ${uid} -g ${gid} -ms /bin/bash trtuser && \
-    usermod -aG sudo trtuser && \
-    echo 'trtuser:nvidia' | chpasswd && \
-    mkdir -p /workspace && chown trtuser /workspace
+RUN groupadd -r -f -g ${gid} ${username} && \
+    useradd -o -r -l -u ${uid} -g ${gid} -ms /bin/bash ${username} && \
+    usermod -aG sudo ${username} && \
+    echo "${username}:nvidia" | chpasswd && \
+    mkdir -p /workspace && chown ${username} /workspace
 
 RUN apt-get update && \
-    apt-get install -y sudo python3 python3-pip gdb git wget curl && \
+    apt-get install -y sudo python3 python3-pip gdb git wget curl zsh && \
     apt-get clean && \
     python3 -m pip install --upgrade pip
 

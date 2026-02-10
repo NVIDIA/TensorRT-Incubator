@@ -271,6 +271,122 @@ struct CudaDeallocConverter : public EmitCConversionPattern<cuda::DeallocOp> {
   }
 };
 
+struct CUDAEventCreateConverter
+    : public EmitCConversionPattern<cuda::EventCreateOp> {
+  using EmitCConversionPattern::EmitCConversionPattern;
+
+  LogicalResult
+  matchAndRewrite(cuda::EventCreateOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    // Intended C++:
+    //   cudaEvent_t ev = nullptr;
+    //   int32_t st = mtrt::cuda_event_create(device, &ev);
+    //   mtrt::abort_on_error(st);
+    //   return ev;
+    Location loc = op.getLoc();
+    Value evVar = rewriter.create<emitc::VariableOp>(
+        loc, getLValueType(builders.cudaEventType), getOpaqueAttr("nullptr"));
+    Value evAddr = getAddr(rewriter, loc, evVar);
+    Value st = builders.cudaEventCreate.create(rewriter, loc,
+                                               {adaptor.getDevice(), evAddr});
+    emitStatusCheckOrAbort(rewriter, loc, st);
+    Value ev =
+        rewriter.create<emitc::LoadOp>(loc, builders.cudaEventType, evVar);
+    rewriter.replaceOp(op, ev);
+    return success();
+  }
+};
+
+struct CUDAEventReleaseConverter
+    : public EmitCConversionPattern<cuda::EventReleaseOp> {
+  using EmitCConversionPattern::EmitCConversionPattern;
+
+  LogicalResult
+  matchAndRewrite(cuda::EventReleaseOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    Location loc = op.getLoc();
+    Value st =
+        builders.cudaEventRelease.create(rewriter, loc, {adaptor.getEvent()});
+    emitStatusCheckOrAbort(rewriter, loc, st);
+    rewriter.eraseOp(op);
+    return success();
+  }
+};
+
+struct CUDAEventSyncConverter
+    : public EmitCConversionPattern<cuda::EventSyncOp> {
+  using EmitCConversionPattern::EmitCConversionPattern;
+
+  LogicalResult
+  matchAndRewrite(cuda::EventSyncOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    Location loc = op.getLoc();
+    Value st =
+        builders.cudaEventSync.create(rewriter, loc, {adaptor.getEvent()});
+    emitStatusCheckOrAbort(rewriter, loc, st);
+    rewriter.eraseOp(op);
+    return success();
+  }
+};
+
+struct CUDAStreamRecordEventConverter
+    : public EmitCConversionPattern<cuda::StreamRecordEventOp> {
+  using EmitCConversionPattern::EmitCConversionPattern;
+
+  LogicalResult
+  matchAndRewrite(cuda::StreamRecordEventOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    Location loc = op.getLoc();
+    Value st = builders.cudaStreamRecordEvent.create(
+        rewriter, loc, {adaptor.getStream(), adaptor.getEvent()});
+    emitStatusCheckOrAbort(rewriter, loc, st);
+    rewriter.eraseOp(op);
+    return success();
+  }
+};
+
+struct CUDAStreamWaitEventConverter
+    : public EmitCConversionPattern<cuda::StreamWaitEventOp> {
+  using EmitCConversionPattern::EmitCConversionPattern;
+
+  LogicalResult
+  matchAndRewrite(cuda::StreamWaitEventOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    Location loc = op.getLoc();
+    Value st = builders.cudaStreamWaitEvent.create(
+        rewriter, loc, {adaptor.getStream(), adaptor.getEvent()});
+    emitStatusCheckOrAbort(rewriter, loc, st);
+    rewriter.eraseOp(op);
+    return success();
+  }
+};
+
+struct CUDAEventElapsedConverter
+    : public EmitCConversionPattern<cuda::EventElapsedTimeOp> {
+  using EmitCConversionPattern::EmitCConversionPattern;
+
+  LogicalResult
+  matchAndRewrite(cuda::EventElapsedTimeOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    // Intended C++:
+    //   float ms = 0.0f;
+    //   int32_t st = mtrt::cuda_event_elapsed_msec(start, end, &ms);
+    //   mtrt::abort_on_error(st);
+    //   return ms;
+    Location loc = op.getLoc();
+    Type f32Type = Float32Type::get(ctx);
+    Value msVar = rewriter.create<emitc::VariableOp>(
+        loc, getLValueType(f32Type), rewriter.getF32FloatAttr(0.0f));
+    Value msAddr = getAddr(rewriter, loc, msVar);
+    Value st = builders.cudaEventElapsedMsec.create(
+        rewriter, loc, {adaptor.getStart(), adaptor.getEnd(), msAddr});
+    emitStatusCheckOrAbort(rewriter, loc, st);
+    Value ms = rewriter.create<emitc::LoadOp>(loc, f32Type, msVar);
+    rewriter.replaceOp(op, ms);
+    return success();
+  }
+};
+
 template <typename CpyOpType>
 struct CudaCopyConverter : public EmitCConversionPattern<CpyOpType> {
   using EmitCConversionPattern<CpyOpType>::EmitCConversionPattern;
@@ -343,7 +459,10 @@ void populateHostToEmitCCudaPatterns(RewritePatternSet &patterns,
                CudaCopyConverter<cuda::CopyD2HOp>,
                CudaCopyConverter<cuda::CopyH2DOp>, CudaDeallocConverter,
                CUDAGetCurrentDeviceConverter, CUDAGetProgramDeviceConverter,
-               CUDAStreamSyncConverter>(typeConverter, dataLayout,
-                                        patterns.getContext());
+               CUDAStreamSyncConverter, CUDAEventCreateConverter,
+               CUDAEventReleaseConverter, CUDAEventSyncConverter,
+               CUDAStreamRecordEventConverter, CUDAStreamWaitEventConverter,
+               CUDAEventElapsedConverter>(typeConverter, dataLayout,
+                                          patterns.getContext());
 }
 } // namespace mlir::host_to_emitc

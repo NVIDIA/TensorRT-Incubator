@@ -1,14 +1,22 @@
-#ifndef MLIR_TENSORRT_DIALECT_CUDA_IR_CUDADOPS_TD
-#define MLIR_TENSORRT_DIALECT_CUDA_IR_CUDADOPS_TD
+//===- CUDAOps.td ---------------------------------------------------------===//
+//
+// SPDX-FileCopyrightText: Copyright 2026 NVIDIA CORPORATION & AFFILIATES.
+// All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+//
+//===----------------------------------------------------------------------===//
+#ifndef MLIR_TENSORRT_DIALECT_CUDA_IR_CUDAOPS
+#define MLIR_TENSORRT_DIALECT_CUDA_IR_CUDAOPS
 
+include "mlir-tensorrt-common/Interfaces/StreamSchedulableOpInterface.td"
 include "mlir-tensorrt/Dialect/CUDA/IR/CUDADialect.td"
-include "mlir-tensorrt/Dialect/CUDA/IR/CUDATypes.td"
+include "mlir-tensorrt/Dialect/CUDA/IR/CUDAEnums.td"
 include "mlir-tensorrt/Dialect/CUDA/IR/CUDAInterfaces.td"
-include "mlir/Interfaces/InferTypeOpInterface.td"
+include "mlir-tensorrt/Dialect/CUDA/IR/CUDATypes.td"
 include "mlir/Interfaces/DestinationStyleOpInterface.td"
+include "mlir/Interfaces/InferTypeOpInterface.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 include "mlir/IR/SymbolInterfaces.td"
-include "mlir-tensorrt/Dialect/CUDA/IR/CUDAEnums.td"
 
 //===----------------------------------------------------------------------===//
 // Shorthand declarations
@@ -20,8 +28,13 @@ class CUDA_Op<
 > : Op<
   CUDA_Dialect,
   mnemonic,
-  !listconcat(traits, [CUDAOpInterface])
+  !listconcat(traits, [
+    CUDAOpInterface
+  ])
 >;
+
+class CUDA_StreamableOp<string mnemonic, list<Trait> traits = []> :
+        CUDA_Op<mnemonic, !listconcat(traits, [DeclareOpInterfaceMethods<StreamSchedulableOp>])>;
 
 def I4  : I<4>;
 defvar CUDA_ArithFloatTypes = [F64, F32, BF16, F16, F8E4M3FN, BF16];
@@ -222,7 +235,7 @@ def CUDA_GetFunctionOp : CUDA_Op<"get_function", [Pure,
 // CUDA - Execution Control
 //===----------------------------------------------------------------------===//
 
-def CUDA_LaunchOp : CUDA_Op<"launch", [
+def CUDA_LaunchOp : CUDA_StreamableOp<"launch", [
       DeclareOpInterfaceMethods<MemoryEffectsOpInterface, ["getEffects"]>
     ]> {
   let arguments = (ins CUDA_Function:$func,
@@ -248,28 +261,98 @@ def CUDA_LaunchOp : CUDA_Op<"launch", [
 // CUDA - Event Management Ops
 //===----------------------------------------------------------------------===//
 
-def CUDA_EventCreateOp : CUDA_Op<"event.create", [AlwaysSpeculatable]> {
+def CUDA_EventCreateOp : CUDA_Op<"event.create"> {
   let summary = "Creates a CUDA event";
-  let results = (outs CUDA_Event:$result);
-  let assemblyFormat = "attr-dict `:` qualified(type($result))";
+  let description = [{
+    Creates a CUDA event object. This allocates a CUDA event resource.
+    This is equivalent to `cudaEventCreate`.
+
+    The `device` argument specifies which CUDA device the event should be
+    associated with.
+  }];
+  let arguments = (ins I32:$device);
+  let results = (outs Res<CUDA_Event, "",
+                          [MemAlloc<DefaultResource, 0, FullEffect>]>:$result);
+  let assemblyFormat = "attr-dict `device` `(` $device `)`";
+}
+
+def CUDA_EventCreateOnStreamOp : CUDA_StreamableOp<"event.create_on_stream"> {
+  let summary = "Creates and records a CUDA event on a stream";
+  let description = [{
+    Creates a CUDA event associated with the same device as the given
+    `stream`, then records the event on the stream. This is equivalent
+    to `cuda.event.create` followed by `cuda.stream.record_event`.
+  }];
+  let arguments = (ins Arg<CUDA_Stream, "", [MemWriteAt<0, FullEffect>]>:$stream);
+  let results = (outs Res<CUDA_Event, "",
+                          [MemAlloc<DefaultResource, 0, FullEffect>]>:$result);
+  let assemblyFormat = "attr-dict $stream `:` type($stream)";
+}
+
+def CUDA_EventSyncOp : CUDA_Op<"event.sync",
+    [MemoryEffectsOpInterface]> {
+  let summary = "Wait for a CUDA event to complete (host-side synchronization)";
+  let description = [{
+    Blocks the host thread until the given event has completed. This is
+    equivalent to `cudaEventSynchronize`.
+
+    This op is preferred over synchronizing an entire stream when only a
+    specific dependency needs to be enforced on the host.
+  }];
+  let arguments = (ins CUDA_Event:$event);
+  let assemblyFormat = "attr-dict $event `:` qualified(type($event))";
+
+  let extraClassDeclaration = [{
+    void getEffects(
+      SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
+        &effects) {
+      effects.emplace_back(MemoryEffects::Read::get(), &getEventMutable(),
+                           SideEffects::DefaultResource::get());
+      effects.emplace_back(MemoryEffects::Write::get());
+    }
+  }];
 }
 
 def CUDA_EventElapsedTimeOp : CUDA_Op<"event.elapsed"> {
   let summary = "Computes time elapsed between two CUDA events";
+  let description = [{
+    Computes the elapsed time in milliseconds between two CUDA events.
+    This is equivalent to `cudaEventElapsedTime`.
+
+    Both events must have been recorded (via `cuda.stream.record_event`)
+    before calling this operation.
+  }];
   let results = (outs F32:$result);
-  let arguments = (ins CUDA_Event:$start,
-                       CUDA_Event:$end);
+  let arguments = (ins Arg<CUDA_Event, "", [MemReadAt<0, FullEffect>]>:$start,
+                       Arg<CUDA_Event, "", [MemReadAt<1, FullEffect>]>:$end);
   let assemblyFormat = [{
     attr-dict $start `,` $end `:` qualified(type($result))
   }];
+}
+
+def CUDA_EventReleaseOp : CUDA_Op<"event.release"> {
+  let summary = "Releases a CUDA event";
+  let description = [{
+    Releases the given CUDA event, freeing its associated resources.
+    This is equivalent to `cudaEventDestroy`.
+
+    After release, the event should not be used again.
+  }];
+  let arguments = (ins Arg<CUDA_Event, "",
+                        [MemFreeAt<0, FullEffect>]>:$event);
+  let assemblyFormat = "attr-dict $event `:` qualified(type($event))";
 }
 
 //===----------------------------------------------------------------------===//
 // CUDA - Stream Management Ops
 //===----------------------------------------------------------------------===//
 
-def CUDA_StreamCreateOp : CUDA_Op<"stream.create", [AlwaysSpeculatable]> {
+def CUDA_StreamCreateOp : CUDA_Op<"stream.create"> {
   let summary = "Creates an asynchronous CUDA stream";
+  let description = [{
+    Creates a CUDA stream associated with the given device.
+    This is equivalent to `cudaStreamCreate`.
+  }];
   let arguments = (ins I32:$device);
   let results = (outs Res<CUDA_Stream, "",
                           [MemAlloc<DefaultResource, 0, FullEffect>]>:$result);
@@ -283,7 +366,7 @@ def CUDA_GetGlobalStreamOp : CUDA_Op<"get_global_stream", [Pure]> {
     The `cuda.stream.get_global_stream` operation returns a handle to the
     runtime's CUDA stream associated with the specified device.
 
-    Currently, each device has a single stream associated with it.
+    Each device has a pool of global streams addressable by `index`.
   }];
 
   let arguments = (ins I32:$device, I64Attr:$index);
@@ -291,7 +374,7 @@ def CUDA_GetGlobalStreamOp : CUDA_Op<"get_global_stream", [Pure]> {
   let assemblyFormat = "attr-dict `device` `(` $device `)` `[` $index `]`";
 }
 
-def CUDA_StreamWaitEventOp : CUDA_Op<"stream.wait_event",
+def CUDA_StreamWaitEventOp : CUDA_StreamableOp<"stream.wait_event",
     [MemoryEffectsOpInterface]> {
   let summary = "Makes stream wait on a CUDA event";
   let arguments = (ins CUDA_Stream:$stream, CUDA_Event:$event);
@@ -301,13 +384,15 @@ def CUDA_StreamWaitEventOp : CUDA_Op<"stream.wait_event",
     void getEffects(
       SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
         &effects) {
-      effects.emplace_back(MemoryEffects::Read::get());
-      effects.emplace_back(MemoryEffects::Write::get());
+      effects.emplace_back(MemoryEffects::Write::get(), &getStreamMutable(),
+                           SideEffects::DefaultResource::get());
+      effects.emplace_back(MemoryEffects::Read::get(), &getEventMutable(),
+                           SideEffects::DefaultResource::get());
     }
   }];
 }
 
-def CUDA_StreamRecordEventOp : CUDA_Op<"stream.record_event",
+def CUDA_StreamRecordEventOp : CUDA_StreamableOp<"stream.record_event",
     [MemoryEffectsOpInterface]> {
   let summary = "Records an event in the given stream";
   let arguments = (ins CUDA_Stream:$stream, CUDA_Event:$event);
@@ -317,13 +402,15 @@ def CUDA_StreamRecordEventOp : CUDA_Op<"stream.record_event",
     void getEffects(
       SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
         &effects) {
-      effects.emplace_back(MemoryEffects::Read::get());
-      effects.emplace_back(MemoryEffects::Write::get());
+      effects.emplace_back(MemoryEffects::Write::get(), &getStreamMutable(),
+                           SideEffects::DefaultResource::get());
+      effects.emplace_back(MemoryEffects::Write::get(), &getEventMutable(),
+                           SideEffects::DefaultResource::get());
     }
   }];
 }
 
-def CUDA_StreamSyncOp : CUDA_Op<"stream.sync",
+def CUDA_StreamSyncOp : CUDA_StreamableOp<"stream.sync",
     [MemoryEffectsOpInterface]> {
   let summary = "Wait for stream tasks to complete";
   let arguments = (ins CUDA_Stream:$stream);
@@ -333,7 +420,8 @@ def CUDA_StreamSyncOp : CUDA_Op<"stream.sync",
     void getEffects(
       SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
         &effects) {
-      effects.emplace_back(MemoryEffects::Read::get());
+      effects.emplace_back(MemoryEffects::Read::get(), &getStreamMutable(),
+                           SideEffects::DefaultResource::get());
       effects.emplace_back(MemoryEffects::Write::get());
     }
   }];
@@ -350,7 +438,9 @@ def CUDA_StreamDestroyOp : CUDA_Op<"stream.destroy"> {
 // CUDA - Memory Management Ops
 //===----------------------------------------------------------------------===//
 
-def CUDA_AllocOp : CUDA_Op<"alloc", [AttrSizedOperandSegments]> {
+def CUDA_AllocOp : CUDA_Op<"alloc", [
+      AttrSizedOperandSegments,
+      DeclareOpInterfaceMethods<StreamSchedulableOp, ["getStreamOperand"]>]> {
   let description = [{
     `cuda.memory.alloc` performs an asynchronous memory allocation on the
     provided `stream`. The memory is associated with the device that is
@@ -377,7 +467,7 @@ def CUDA_AllocOp : CUDA_Op<"alloc", [AttrSizedOperandSegments]> {
   let hasVerifier = 1;
 }
 
-class CUDA_CopyAsyncOp<string suffix> : CUDA_Op<"copy_"#suffix, []> {
+class CUDA_CopyAsyncOp<string suffix> : CUDA_StreamableOp<"copy_"#suffix, []> {
   let arguments = (ins CUDA_Stream:$stream,
                        Arg<AnyMemRef, "memref to copy from",
                         [MemReadAt<0, FullEffect>]>:$source,
@@ -410,17 +500,18 @@ def CUDA_CopyD2HOp : CUDA_CopyAsyncOp<"d2h"> {
   }];
 }
 
-def CUDA_MemSetOp : CUDA_Op<"memset", []> {
-  let arguments = (ins Arg<AnyMemRef, "", [MemWriteAt<0, FullEffect>]>:$memref,
+def CUDA_MemSetOp : CUDA_StreamableOp<"memset", []> {
+  let arguments = (ins CUDA_Stream:$stream,
+                       Arg<AnyMemRef, "", [MemWriteAt<0, FullEffect>]>:$memref,
                        AnyTypeOf<[I32, F32, I16, F16, BF16, I8, F8E4M3FN]>:$fill_value);
   let assemblyFormat = [{
-    attr-dict $memref `with` $fill_value
+    attr-dict `stream` `(` $stream `)` $memref `with` $fill_value
     `:` type($memref) `,` type($fill_value)
   }];
   let hasVerifier = 1;
 }
 
-def CUDA_DeallocOp : CUDA_Op<"dealloc", []> {
+def CUDA_DeallocOp : CUDA_StreamableOp<"dealloc", []> {
   let arguments = (ins CUDA_Stream:$stream,
     Arg<AnyMemRef, "", [MemFreeAt<0, FullEffect>]>:$memref);
   let results = (outs);
@@ -433,10 +524,11 @@ def CUDA_DeallocOp : CUDA_Op<"dealloc", []> {
 // CUDA - cuBLAS Ops
 //===----------------------------------------------------------------------===//
 
-def CUDA_BlasHandleCreateOp : CUDA_Op<"blas.handle.create",
-    [AlwaysSpeculatable]> {
+def CUDA_BlasHandleCreateOp : CUDA_Op<"blas.handle.create"> {
   let summary = "Creates cuBLAS handle";
   let description = [{
+    Creates a cuBLAS handle that manages cuBLAS library context.
+
     Example,
     ```mlir
      %0 = cuda.blas.handle.create : !cuda.blas.handle
@@ -529,7 +621,7 @@ def CUDA_BlasHeuristicAlgoSelectionOp : CUDA_Op<"blas.algo_select", [Pure]> {
 }
 
 
-def CUDA_BlasRunGemmOp : CUDA_Op<"blas.run_gemm", [
+def CUDA_BlasRunGemmOp : CUDA_StreamableOp<"blas.run_gemm", [
   DeclareOpInterfaceMethods<InferTypeOpInterface>,
   AttrSizedOperandSegments,
   DestinationStyleOpInterface,
@@ -670,4 +762,4 @@ def CUDA_BlasHandleDestroyOp : CUDA_Op<"blas.handle.destroy"> {
 }
 
 
-#endif // MLIR_TENSORRT_DIALECT_CUDA_IR_CUDADOPS_TD
+#endif // MLIR_TENSORRT_DIALECT_CUDA_IR_CUDAOPS

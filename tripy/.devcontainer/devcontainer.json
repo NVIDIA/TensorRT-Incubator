@@ -1,0 +1,50 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+// README at: https://github.com/devcontainers/templates/tree/main/src/python
+{
+	"name": "Tripy",
+	"build": {
+		"context": "${localWorkspaceFolder}",
+		"dockerfile": "${localWorkspaceFolder}/Dockerfile",
+		"args": {
+			"username": "${localEnv:USER}"
+		}
+	},
+	"workspaceMount": "source=${localWorkspaceFolder}/..,target=/workspaces/TensorRT-Incubator,type=bind,consistency=cached",
+	"workspaceFolder": "/workspaces/TensorRT-Incubator/tripy",
+	"runArgs": [
+		"--gpus",
+		"all",
+		"-it",
+		"--cap-add=SYS_PTRACE"
+	],
+	"mounts": [
+		"source=${localEnv:HOME}${localEnv:USERPROFILE},target=/home/${localEnv:USER},type=bind,consistency=cached"
+	],
+	"remoteEnv": {
+		"SHELL": "${localEnv:SHELL:/bin/bash}",
+		"ZSH": "/home/${localEnv:USER}/.oh-my-zsh",
+		"PYTHONPATH": "/workspaces/TensorRT-Incubator/tripy:${localEnv:PYTHONPATH}",
+		"PATH": "/usr/local/bin/:${localEnv:PATH}"
+	},
+	"remoteUser": "${localEnv:USER}",
+	"forwardPorts": [
+		8080
+	],
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"ms-python.black-formatter",
+				"lextudio.restructuredtext",
+				"github.vscode-github-actions",
+				"ms-python.isort",
+				"ms-toolsai.jupyter",
+				"ms-toolsai.vscode-jupyter-cell-tags",
+				"ms-toolsai.jupyter-renderers",
+				"llvm-vs-code-extensions.vscode-mlir",
+				"ms-python.python",
+				"ms-python.vscode-pylance",
+				"eamodio.gitlens"
+			]
+		}
+	}
+}

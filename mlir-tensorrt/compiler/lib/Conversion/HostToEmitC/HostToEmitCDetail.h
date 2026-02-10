@@ -105,11 +105,13 @@ struct EmitCCallBuilders {
   Type i8Type = IntegerType::get(ctx, 8);
   Type i32Type = IntegerType::get(ctx, 32);
   Type i64Type = IntegerType::get(ctx, 64);
+  Type f32Type = Float32Type::get(ctx);
   Type cuModuleType = emitc::OpaqueType::get(ctx, "CUmodule");
   Type cuModulePtrType = emitc::PointerType::get(cuModuleType);
   Type cuFuncType = emitc::OpaqueType::get(ctx, "CUfunction");
   Type cuFuncPtrType = emitc::PointerType::get(cuFuncType);
   Type cuStreamType = emitc::OpaqueType::get(ctx, "CUstream");
+  Type cudaEventType = emitc::OpaqueType::get(ctx, "cudaEvent_t");
   Type unrankedMemRefType = emitc::OpaqueType::get(ctx, "mtrt::UnrankedMemRef");
   Type unrankedMemRefPtrType = emitc::PointerType::get(unrankedMemRefType);
   Type unrankedMemRefMutType =
@@ -216,6 +218,28 @@ struct EmitCCallBuilders {
                                i32Type,
                                {cuStreamType, voidPtrType,
                                 /*isHostPinned*/ i8Type, /*isManaged*/ i8Type}};
+
+  //===----------------------------------------------------------------------===//
+  // CUDA Event Runtime Functions
+  //===----------------------------------------------------------------------===//
+  EmitCCallBuilder cudaEventCreate = {
+      "mtrt::cuda_event_create",
+      i32Type,
+      {/*device*/ i32Type,
+       /*outEvent*/ emitc::PointerType::get(cudaEventType)}};
+  EmitCCallBuilder cudaEventRelease = {
+      "mtrt::cuda_event_release", i32Type, {/*event*/ cudaEventType}};
+  EmitCCallBuilder cudaStreamRecordEvent = {
+      "mtrt::cuda_stream_record_event", i32Type, {cuStreamType, cudaEventType}};
+  EmitCCallBuilder cudaStreamWaitEvent = {
+      "mtrt::cuda_stream_wait_event", i32Type, {cuStreamType, cudaEventType}};
+  EmitCCallBuilder cudaEventSync = {
+      "mtrt::cuda_event_sync", i32Type, {/*event*/ cudaEventType}};
+  EmitCCallBuilder cudaEventElapsedMsec = {
+      "mtrt::cuda_event_elapsed_msec",
+      i32Type,
+      {/*start*/ cudaEventType, /*end*/ cudaEventType,
+       /*outMs*/ emitc::PointerType::get(f32Type)}};
 
   Value createStrLiteral(OpBuilder &b, Location loc, StringRef literal) const {
     // Intended C++: `"literal"` (string literal constant)

@@ -21,7 +21,7 @@
 /// Implementation of the `convert-kernel-to-emitc` pass.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-kernel/Conversion/Passes.h"
+#include "mlir-kernel/Conversion/Passes.h" // IWYU pragma: keep
 #include "mlir-kernel/Kernel/IR/Ops.h"
 #include "mlir/Conversion/LLVMCommon/ConversionTarget.h"
 #include "mlir/Conversion/LLVMCommon/Pattern.h"
@@ -36,7 +36,6 @@
 #include "mlir/Interfaces/FunctionInterfaces.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "llvm/ADT/STLExtras.h"
-#include "llvm/Support/Debug.h"
 
 namespace mlir {
 #define GEN_PASS_DEF_CONVERTKERNELTOLLVM

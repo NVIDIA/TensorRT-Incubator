@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-from setuptools import Distribution, setup, find_namespace_packages
 import importlib
 import os
 from pathlib import Path
 
-from setuptools import setup
+from setuptools import Distribution, find_namespace_packages, setup
 from setuptools.command.build_ext import build_ext
 from setuptools.command.build_py import build_py
 from setuptools.dist import Distribution
@@ -57,6 +56,19 @@ class CMakeBuildExt(build_ext):
         pass
 
 
+def get_requirements():
+    base_requirements = [
+        "apache-tvm-ffi>=0.1.0,<0.2.0",
+        "jax>=0.5.3,<=0.6.2",
+    ]
+    if setup_utils.is_thor() or setup_utils.is_tegra_platform():
+        return base_requirements
+
+    base_requirements.append("nvidia-cuda-runtime-cu13==0.0.0a0")
+    base_requirements.append("tensorrt>=10.12.0.0,<=10.13.3.9")
+    return base_requirements
+
+
 def main():
     setup(
         version=PKG_VERSION,
@@ -66,6 +78,7 @@ def main():
             "build_py": CMakeBuild,
             "build_ext": CMakeBuildExt,
         },
+        install_requires=get_requirements(),
     )
 
 

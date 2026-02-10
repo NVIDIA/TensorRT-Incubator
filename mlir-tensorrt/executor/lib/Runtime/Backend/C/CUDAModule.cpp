@@ -11,6 +11,7 @@
 #include "CUDAModule.h"
 #include "FileUtilities.h"
 #include "cuda.h"
+#include "cuda_runtime_api.h"
 #include "mlir-executor/Runtime/Backend/Common/NvPtxCompilerUtils.h"
 #include "mlir-tensorrt-common/Support/Status.h"
 #include "llvm/Support/Debug.h"
@@ -20,7 +21,6 @@
 #include <cstdint>
 #include <cuda_runtime_api.h>
 #include <fstream>
-#include <iostream>
 #include <string>
 #include <vector>
 
@@ -53,7 +53,6 @@
   } while (false)
 
 using namespace mtrt;
-using namespace mtrt;
 
 int32_t mtrt_cuda_get_active_device() {
   int32_t device{0};
@@ -80,6 +79,43 @@ void mtrt_cuda_stream_destroy(CUstream stream) {
 
 void mtrt_cuda_stream_sync(CUstream stream) {
   HANDLE_CUDART_ERROR(cudaStreamSynchronize(stream), );
+}
+
+cudaEvent_t mtrt_cuda_event_create(int32_t device) {
+  int32_t currentDevice = -1;
+  HANDLE_CUDART_ERROR(cudaGetDevice(&currentDevice), nullptr);
+  if (currentDevice != device) {
+    HANDLE_CUDART_ERROR(cudaSetDevice(device), nullptr);
+  }
+  cudaEvent_t event = nullptr;
+  HANDLE_CUDART_ERROR(cudaEventCreateWithFlags(&event, cudaEventDefault),
+                      nullptr);
+  if (currentDevice != device) {
+    HANDLE_CUDART_ERROR(cudaSetDevice(currentDevice), nullptr);
+  }
+  return event;
+}
+
+void mtrt_cuda_event_release(cudaEvent_t event) {
+  HANDLE_CUDART_ERROR(cudaEventDestroy(event), );
+}
+
+void mtrt_cuda_stream_record_event(CUstream stream, cudaEvent_t event) {
+  HANDLE_CUDART_ERROR(cudaEventRecord(event, stream), );
+}
+
+void mtrt_cuda_stream_wait_event(CUstream stream, cudaEvent_t event) {
+  HANDLE_CUDART_ERROR(cudaStreamWaitEvent(stream, event, /*flags=*/0), );
+}
+
+void mtrt_cuda_event_sync(cudaEvent_t event) {
+  HANDLE_CUDART_ERROR(cudaEventSynchronize(event), );
+}
+
+float mtrt_cuda_event_elapsed_msec(cudaEvent_t start, cudaEvent_t end) {
+  float ms = 0.0f;
+  HANDLE_CUDART_ERROR(cudaEventElapsedTime(&ms, start, end), 0.0f);
+  return ms;
 }
 
 void *mtrt_cuda_alloc_async(CUstream stream, int64_t size, int32_t alignment,

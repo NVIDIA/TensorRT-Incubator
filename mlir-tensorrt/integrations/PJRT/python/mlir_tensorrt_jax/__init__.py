@@ -84,13 +84,15 @@ def initialize():
         logger.info(
             "TensorRT package not found via Python, looking for libnvinfer.so..."
         )
+        import ctypes.util
+
         nvinfer = ctypes.util.find_library("nvinfer")
         if not nvinfer:
             raise Exception(
                 "libnvinfer.so was not found.... recommend install via Python with 'pip install ...'"
             )
 
-    # Force initializtion of tvm_ffi
+    # Force initialization of tvm_ffi
     try:
         import tvm_ffi
     except Exception as e:
@@ -117,11 +119,7 @@ def initialize():
 # Lazy import for mtrt_ops functions
 def __getattr__(name):
     if name in ["mtrt_quantize", "mtrt_dequantize", "mtrt_dynamic_quantize"]:
-        from .mtrt_ops import (
-            mtrt_quantize,
-            mtrt_dequantize,
-            mtrt_dynamic_quantize,
-        )
+        from .mtrt_ops import mtrt_dequantize, mtrt_dynamic_quantize, mtrt_quantize
 
         globals()[name] = locals()[name]
         return locals()[name]

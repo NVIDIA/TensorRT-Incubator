@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -45,12 +45,12 @@ timing_cache_file_path: str = export.public_api(
 )(os.path.join(tempfile.gettempdir(), "tripy-cache"))
 """Path to a timing cache file that can be used to speed up compilation time."""
 
-enable_dtype_checking: bool = export.public_api(
+enable_input_validation: bool = export.public_api(
     document_under="config.rst",
     module=sys.modules[__name__],
-    symbol="enable_dtype_checking",
+    symbol="enable_input_validation",
 )(True)
-"""Whether to enable data type checking in API functions."""
+"""Whether to enable input validation in API functions."""
 
 extra_error_information: List[str] = export.public_api(
     document_under="config.rst",

@@ -72,6 +72,7 @@ void mtrt::compiler::buildStablehloInputPipeline(
       pm.addPass(mtrt::createSCFFloatStrengthReducePass());
       pm.addPass(mtrt::createSCFUnrollPass(
           mtrt::SCFUnrollPassOptions{opts.unrollThreshold}));
+      pm.addPass(mtrt::createSCFForCyclicIterArgsPass());
     }
 
     // `stablehlo-canonicalize-dynamism`:
