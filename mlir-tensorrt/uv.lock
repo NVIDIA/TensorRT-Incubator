@@ -1721,6 +1721,15 @@ wheels = [
 ]
 
 [[package]]
+name = "lit"
+version = "18.1.8"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/47/b4/d7e210971494db7b9a9ac48ff37dfa59a8b14c773f9cf47e6bda58411c0d/lit-18.1.8.tar.gz", hash = "sha256:47c174a186941ae830f04ded76a3444600be67d5e5fb8282c3783fba671c4edb", size = 161127, upload-time = "2024-06-25T14:33:14.489Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/96/06/b36f150fa7c5bcc96a31a4d19a20fddbd1d965b6f02510b57a3bb8d4b930/lit-18.1.8-py3-none-any.whl", hash = "sha256:a873ff7acd76e746368da32eb7355625e2e55a2baaab884c9cc130f2ee0300f7", size = 96365, upload-time = "2024-06-25T14:33:12.101Z" },
+]
+
+[[package]]
 name = "llvmlite"
 version = "0.45.1"
 source = { registry = "https://pypi.org/simple" }
@@ -2067,6 +2076,7 @@ dependencies = [
     { name = "einops" },
     { name = "flax" },
     { name = "librosa" },
+    { name = "lit" },
     { name = "matplotlib" },
     { name = "ml-dtypes" },
     { name = "nanobind" },
@@ -2138,6 +2148,7 @@ requires-dist = [
     { name = "jax", marker = "extra == 'cu13'", specifier = "==0.5.3" },
     { name = "jax", extras = ["cuda12-local"], marker = "extra == 'cu12'", specifier = "==0.5.3" },
     { name = "librosa", specifier = ">=0.11.0" },
+    { name = "lit" },
     { name = "matplotlib", specifier = ">=3.10.6" },
     { name = "ml-dtypes", marker = "python_full_version < '3.13'", specifier = ">=0.1.0" },
     { name = "ml-dtypes", marker = "python_full_version >= '3.13'", specifier = ">=0.5.0" },

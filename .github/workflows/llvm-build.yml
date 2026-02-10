@@ -19,7 +19,7 @@ defaults:
 
 jobs:
   build:
-    name: Build on ${{ matrix.config.runner }}
+    name: Build on ${{ matrix.config.arch }}
     runs-on: ${{ matrix.config.runs_on }}
     container:
       image: ${{ matrix.config.docker_image }}

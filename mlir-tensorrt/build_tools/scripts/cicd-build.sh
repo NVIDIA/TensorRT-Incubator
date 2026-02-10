@@ -48,7 +48,6 @@ fi
 echo "🔨 Syncing with uv extra: ${UV_EXTRA}"
 uv sync --extra "${UV_EXTRA}"
 source .venv/bin/activate
-uv pip install lit
 
 ccache --zero-stats || true
 rm -rf ${BUILD_DIR}  || true
@@ -56,7 +55,7 @@ rm -rf ${BUILD_DIR}  || true
 function build_with_preset() {
   local preset_name
   preset_name=$1
-  cmake -B "${BUILD_DIR}" --preset "${preset_name}"  --fresh
+  cmake -B "${BUILD_DIR}" --preset "${preset_name}" --fresh
   echo "🔨 Building with preset: ${preset_name}"
   if [[ "$BUILD_ONLY" == "true" ]]; then
     echo "🔨 Building only (skipping tests)..."
