@@ -163,7 +163,14 @@ class Equal(Logic):
         elif value1 == value2:
             return Result.ok()
 
-        # TODO (pranavm): If fetcher_or_value is a Fetcher, include its value in the error message.
+        if isinstance(self.fetcher_or_value, Fetcher):
+            return Result.err(
+                [
+                    f"'{self.fetcher}' to be equal to '{self.fetcher_or_value}' "
+                    f"(but it was '{value1}' while '{self.fetcher_or_value}' was '{value2}')"
+                ]
+            )
+
         return Result.err([f"'{self.fetcher}' to be equal to '{self.fetcher_or_value}' (but it was '{value1}')"])
 
     def __str__(self):

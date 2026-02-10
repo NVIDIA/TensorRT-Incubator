@@ -198,7 +198,7 @@ class TestEqual:
         assert constraint([("param1", 5), ("param2", 5)])
         result = constraint([("param1", 5), ("param2", 10)])
         assert not result
-        assert "'param1' to be equal to 'param2' (but it was '5')" in result.error_details
+        assert "'param1' to be equal to 'param2' (but it was '5' while 'param2' was '10')" in result.error_details
 
     def test_str(self):
         assert str(Equal(GetInput("param1"), GetInput("param2"))) == "param1 == param2"
