@@ -58,14 +58,45 @@ class Logic(Constraints):
         return self.inverse()
 
 
+class AlwaysTrue(Logic):
+    def __call__(self, args: List[Tuple[str, Any]], returns: Optional[Tuple[Any]] = None) -> Result:
+        return Result.ok()
+
+    def __str__(self):
+        return "true"
+
+    def doc_str(self) -> str:
+        return "true"
+
+    def inverse(self) -> "Logic":
+        return AlwaysFalse()
+
+
+class AlwaysFalse(Logic):
+    def __call__(self, args: List[Tuple[str, Any]], returns: Optional[Tuple[Any]] = None) -> Result:
+        return Result.err(["true"])
+
+    def __str__(self):
+        return "false"
+
+    def doc_str(self) -> str:
+        return "false"
+
+    def inverse(self) -> "Logic":
+        return AlwaysTrue()
+
+
 class OneOf(Logic):
-    def __init__(self, fetcher: Fetcher, options: Sequence[Any]):
+    def __init__(self, fetcher: Fetcher, options: Optional[Sequence[Any]]):
         super().__init__()
         self.fetcher = fetcher
-        # Need to convert generator expressions so we can use them more than once
-        self.options = list(options)
+        # Need to convert generator expressions so we can use them more than once.
+        # `None` is allowed to support pattern matching wildcards.
+        self.options = list(options) if options is not None else None
 
     def __call__(self, args: List[Tuple[str, Any]], returns: Optional[Tuple[Any]] = None) -> Result:
+        if self.options is None:
+            raise_error("OneOf constraint cannot be evaluated with wildcard options.")
         value = self.fetcher(args, returns)
         if value in self.options:
             return Result.ok()
@@ -76,6 +107,8 @@ class OneOf(Logic):
         return f"{self.fetcher} is one of {self.options}"
 
     def doc_str(self) -> str:
+        if self.options is None:
+            return f"{doc_str(self.fetcher)} is one of [*]"
         return f"{doc_str(self.fetcher)} is one of [{', '.join(f'{doc_str(opt)}' for opt in self.options)}]"
 
     def inverse(self) -> "Logic":

@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -333,11 +333,8 @@ class UniqueNameGen:
 ##
 ## Functions
 ##
-def get_positional_args_with_names(func, *args) -> Tuple[List[Tuple[str, Any]], Optional[Tuple[str, int]]]:
-    # Returns the names of positional arguments by inspecting the function signature.
-    # In the case of variadic positional arguments, we cannot determine names, so we use
-    # None instead. To assist in further processing, this function also returns the name
-    # and start index of the variadic args in a pair if present (None if not).
+@functools.lru_cache(maxsize=None)
+def _get_signature_info(func):
     signature = inspect.signature(func)
     arg_names = []
     varargs_name = None
@@ -347,8 +344,18 @@ def get_positional_args_with_names(func, *args) -> Tuple[List[Tuple[str, Any]], 
             # (they would just be absorbed into the variadic argument).
             varargs_name = name
             break
-
         arg_names.append(name)
+
+    return signature, tuple(arg_names), varargs_name
+
+
+def get_positional_args_with_names(func, *args) -> Tuple[List[Tuple[str, Any]], Optional[Tuple[str, int]]]:
+    # Returns the names of positional arguments by inspecting the function signature.
+    # In the case of variadic positional arguments, we cannot determine names, so we use
+    # None instead. To assist in further processing, this function also returns the name
+    # and start index of the variadic args in a pair if present (None if not).
+    _, arg_names, varargs_name = _get_signature_info(func)
+    arg_names = list(arg_names)
 
     # For all variadic positional arguments, assign the name of the variadic group.
     num_variadic_args = len(args) - len(arg_names)
@@ -367,7 +374,7 @@ def merge_function_arguments(
     all_args, var_arg_info = get_positional_args_with_names(func, *args)
     all_args.extend(kwargs.items())
 
-    signature = inspect.signature(func)
+    signature, _, _ = _get_signature_info(func)
     provided_arg_names = {name for name, _ in all_args}
 
     omitted_args = []

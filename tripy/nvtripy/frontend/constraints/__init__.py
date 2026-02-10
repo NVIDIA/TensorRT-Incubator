@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,4 +17,15 @@
 from nvtripy.frontend.constraints.base import Constraints
 from nvtripy.frontend.constraints.doc_str import doc_str
 from nvtripy.frontend.constraints.fetcher import Fetcher, GetDataType, GetInput, GetReturn, ValueFetcher
-from nvtripy.frontend.constraints.logic import And, Equal, If, Logic, NotEqual, NotOneOf, OneOf, Or
+from nvtripy.frontend.constraints.logic import (
+    AlwaysFalse,
+    AlwaysTrue,
+    And,
+    Equal,
+    If,
+    Logic,
+    NotEqual,
+    NotOneOf,
+    OneOf,
+    Or,
+)

@@ -25,7 +25,8 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple, Un
 from nvtripy import config, utils
 from nvtripy.common.datatype import dtype as tp_dtype
 from nvtripy.common.exception import raise_error
-from nvtripy.frontend.constraints import Constraints, Equal, GetInput, GetDataType, Fetcher, doc_str
+from nvtripy.frontend.constraints import AlwaysTrue, Constraints, Equal, GetInput, GetDataType, Fetcher, doc_str
+from nvtripy.frontend.constraints.optimizer import optimize_constraints
 
 
 @dataclass
@@ -378,6 +379,10 @@ def interface(
     def decorator(func):
         from nvtripy.types import ShapeLike, TensorLike
 
+        optimized_input_requirements = optimize_constraints(input_requirements)
+        if isinstance(optimized_input_requirements, AlwaysTrue):
+            optimized_input_requirements = None
+
         signature = inspect.signature(func)
         conversion_targets = (
             convert_to_tensors
@@ -397,11 +402,20 @@ def interface(
 
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
-            merged_args, omitted_default_args, var_arg_info = utils.utils.merge_function_arguments(
-                func, *args, **kwargs
-            )
+            merged_args = None
+            omitted_default_args = None
+            var_arg_info = None
+
+            def get_merged_args():
+                nonlocal merged_args, omitted_default_args, var_arg_info
+                if merged_args is None:
+                    merged_args, omitted_default_args, var_arg_info = utils.utils.merge_function_arguments(
+                        func, *args, **kwargs
+                    )
+                return merged_args, omitted_default_args, var_arg_info
 
             if convert_to_tensors:
+                merged_args, omitted_default_args, var_arg_info = get_merged_args()
                 args, kwargs, merged_args = convert_input_types(
                     func,
                     args,
@@ -415,9 +429,10 @@ def interface(
                 )
 
             if config.enable_input_validation:
-                if input_requirements is not None:
+                if optimized_input_requirements is not None:
+                    merged_args, omitted_default_args, _ = get_merged_args()
                     # Input validation needs to know values for arguments that were not provided but have default values:
-                    result = input_requirements(merged_args + omitted_default_args)
+                    result = optimized_input_requirements(merged_args + omitted_default_args)
                     if not result:
                         details = (
                             ["Expected: "]
