@@ -5,6 +5,7 @@
 # Options:
 #   --target-dir <dir>   Directory to clone into (default: third_party/llvm-project)
 
+set -x
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
@@ -48,6 +49,8 @@ echo "==> Install directory: ${INSTALL_DIR}"
 
 uv venv -p 3.12 --clear ./venv_312
 source venv_312/bin/activate
+uv pip install -r ${TARGET_DIR}/mlir/python/requirements.txt
+uv pip install lit
 arch="$(uname -m)"
 
 pushd .
@@ -61,18 +64,43 @@ cmake -GNinja -Bllvm-project/build \
 -DCMAKE_INSTALL_PREFIX="${INSTALL_DIR}" \
 -DCMAKE_LINKER=lld \
 -DLLVM_BUILD_UTILS=ON \
+-DLLVM_INCLUDE_TESTS=ON \
 -DLLVM_BUILD_TOOLS=ON \
--DLLVM_ENABLE_ASSERTIONS=ON \
--DMLIR_ENABLE_BINDINGS_PYTHON=OFF \
--DLLVM_ENABLE_PROJECTS="mlir" \
 -DLLVM_INSTALL_UTILS=ON \
--DLLVM_TARGETS_TO_BUILD="host;NVPTX;AMDGPU" \
+-DLLVM_ENABLE_ASSERTIONS=ON \
+-DMLIR_ENABLE_BINDINGS_PYTHON=ON \
+-DLLVM_ENABLE_PROJECTS="mlir" \
+-DLLVM_TARGETS_TO_BUILD="host;NVPTX" \
 -DLLVM_ENABLE_TERMINFO=OFF \
 -DLLVM_ENABLE_ZSTD=OFF \
 llvm-project/llvm
 
 # Install
 ninja -C llvm-project/build install
+
+cat > "${INSTALL_DIR}/bin/llvm-lit" <<'PYWRAP'
+#!/usr/bin/env python3
+import sys, shutil, os
+
+def main():
+    # Prefer running the lit module directly if available in this Python
+    try:
+        from lit.main import main as lit_main
+        sys.exit(lit_main())
+    except Exception:
+        pass
+    # Fallback: find a lit executable on PATH and exec it
+    lit_path = shutil.which("lit")
+    if lit_path:
+        os.execv(lit_path, [lit_path] + sys.argv[1:])
+    sys.stderr.write("Error: lit not found. Install it or add it to PATH.\n")
+    sys.exit(1)
+
+if __name__ == "__main__":
+    main()
+PYWRAP
+
+chmod +x "${INSTALL_DIR}/bin/llvm-lit"
 
 popd
 

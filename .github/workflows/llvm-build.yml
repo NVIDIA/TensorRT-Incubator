@@ -35,8 +35,8 @@ jobs:
       fail-fast: true
       matrix:
         config:
-          - {runs_on: 'linux-amd64-gpu-h100-latest-1', docker_image: 'ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda13.0-rockylinux8-0.1', target_os: 'rockylinux8', arch: 'x86_64'}
-          - {runs_on: 'linux-arm64-gpu-l4-latest-1', docker_image: 'ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda13.0-rockylinux8-0.1', target_os: 'rockylinux8', arch: 'aarch64'}
+          - {runs_on: 'linux-amd64-gpu-h100-latest-1', docker_image: 'ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda13.0-rockylinux8-0.1', arch: 'x86_64'}
+          - {runs_on: 'linux-arm64-gpu-l4-latest-1', docker_image: 'ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda13.0-rockylinux8-0.1',  arch: 'aarch64'}
 
     steps:
       - name: Checkout Repo
@@ -66,4 +66,3 @@ jobs:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}-llvm-package-build
-  cancel-in-progress: true

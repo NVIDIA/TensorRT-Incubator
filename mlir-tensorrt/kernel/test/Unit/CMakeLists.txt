@@ -25,7 +25,16 @@ function(add_mlir_kernel_unittest target)
   endif()
 endfunction()
 
-if (EXISTS ${LLVM_THIRD_PARTY_DIR}/unittest/googletest/include/gtest/gtest.h)
+set(_cpm_cache_dir "")
+if (DEFINED CPM_SOURCE_CACHE AND NOT "${CPM_SOURCE_CACHE}" STREQUAL "")
+  set(_cpm_cache_dir "${CPM_SOURCE_CACHE}")
+elseif (DEFINED ENV{CPM_SOURCE_CACHE} AND NOT "$ENV{CPM_SOURCE_CACHE}" STREQUAL "")
+  set(_cpm_cache_dir "$ENV{CPM_SOURCE_CACHE}")
+else()
+  set(_cpm_cache_dir "${PROJECT_SOURCE_DIR}/.cache.cpm")
+endif()
+
+if (EXISTS  ${_cpm_cache_dir}/gtest/v1.15.2/googletest/include/gtest/gtest.h)
   add_mlir_kernel_unittest(MLIRKernelUtilsTests
     TilingUtilsTests.cpp
     GenerateSortTests.cpp

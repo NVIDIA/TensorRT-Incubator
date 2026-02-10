@@ -174,6 +174,18 @@ if(NOT CPM_Stablehlo_SOURCE)
   )
 endif()
 
+# GoogleTest
+nv_register_package(
+  NAME GTest
+  GIT_REPOSITORY https://github.com/google/googletest.git
+  GIT_TAG v1.15.2
+  EXCLUDE_FROM_ALL TRUE
+  OPTIONS
+    "INSTALL_GTEST ON"
+    "BUILD_GMOCK ON"
+    "BUILD_GTEST ON"
+)
+
 nv_register_package(
   NAME Stablehlo
   URL "https://github.com/openxla/stablehlo/archive/${MLIR_TRT_STABLEHLO_COMMIT}.zip"

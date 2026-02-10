@@ -140,7 +140,7 @@ def run_cmake_build(python_package_name: str, python_wheel_staging_dir: Path):
         cmake_options.append(
             f'-DMLIR_TRT_ENABLE_CUBLAS={os.environ["MLIR_TRT_ENABLE_CUBLAS"]}'
         )
-
+    cmake_options.append('-DLLVM_EXTERNAL_LIT="$(command -v python3);-m;lit"')
     # Create temporary directories for build and install
     cleanup_install = True
     cleanup_build = True
