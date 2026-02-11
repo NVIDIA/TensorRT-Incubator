@@ -28,6 +28,7 @@ list(APPEND mtrt_libs
   MLIRCAPITransformDialect
   MLIRCAPITransformDialectTransforms
   MLIRCAPITransforms
+  MLIRTransformDialectTransforms
   )
 if(MLIR_TRT_ENABLE_HLO)
   list(APPEND mtrt_libs
@@ -44,7 +45,12 @@ if(NOT BUILD_SHARED_LIBS)
   list(APPEND mtrt_libs ${mlir_libs})
 endif()
 
+list(REMOVE_DUPLICATES mtrt_libs)
+
 mtrt_add_aggregate_library(MTRT ${mtrt_libs})
+target_link_libraries(MTRT PRIVATE
+  $<LINK_LIBRARY:WHOLE_ARCHIVE,MLIRTransformDialectTransforms>
+)
 
 # This is only required for supporting test plugins like TensorRTTestPlugins that
 # require LLVMSupport. If we are linking tools against MTRT and BUILD_SHARED_LIBS

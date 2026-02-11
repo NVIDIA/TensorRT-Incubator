@@ -9,6 +9,7 @@ dependencies = [
     "pandas>=2.3.2",
     "sh>=2.2.2",
     "flax",
+    "lit",
     "torch==2.11.0.dev20251222",
     "torchvision==0.25.0.dev20251222",
     "nanobind>=2.4, <3.0",
