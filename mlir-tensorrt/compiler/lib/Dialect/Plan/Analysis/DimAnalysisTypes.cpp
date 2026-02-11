@@ -22,7 +22,7 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "mlir-tensorrt/Dialect/Plan/Analysis/DimAnalysisTypes.h"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/Analysis/DimAnalysisTypes.h"
 #include "llvm/Support/raw_ostream.h"
 
 using namespace mlir;

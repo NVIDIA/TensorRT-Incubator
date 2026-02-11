@@ -6,7 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "mlir-tensorrt/Dialect/StablehloExt/Utils/Utils.h"
+#include "mlir-tensorrt/Compiler/Dialect/StablehloExt/Utils/Utils.h"
 #include "stablehlo/dialect/ChloOps.h"
 #include "stablehlo/dialect/StablehloOps.h"
 #include "llvm/ADT/TypeSwitch.h"

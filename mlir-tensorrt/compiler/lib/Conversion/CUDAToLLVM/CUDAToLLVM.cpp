@@ -21,14 +21,14 @@
 /// Implementation of the `convert-cuda-to-llvm` pass.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Conversion/CUDAToLLVM/CUDAToLLVM.h"
+#include "mlir-tensorrt/Compiler/Conversion/CUDAToLLVM/CUDAToLLVM.h"
 #include "mlir-executor/Executor/IR/Executor.h"
 #include "mlir-executor/Support/ArtifactManager.h"
-#include "mlir-tensorrt/Conversion/LLVMCommon/LLVMCommon.h"
-#include "mlir-tensorrt/Conversion/Passes.h" // IWYU pragma: keep
-#include "mlir-tensorrt/Conversion/PlanToLLVM/PlanToLLVM.h"
-#include "mlir-tensorrt/Dialect/CUDA/IR/CUDADialect.h"
-#include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
+#include "mlir-tensorrt/Compiler/Conversion/LLVMCommon/LLVMCommon.h"
+#include "mlir-tensorrt/Compiler/Conversion/Passes.h" // IWYU pragma: keep
+#include "mlir-tensorrt/Compiler/Conversion/PlanToLLVM/PlanToLLVM.h"
+#include "mlir-tensorrt/Compiler/Dialect/CUDA/IR/CUDADialect.h"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/IR/Plan.h"
 #include "mlir/Conversion/ConvertToLLVM/ToLLVMInterface.h"
 #include "mlir/Conversion/LLVMCommon/ConversionTarget.h"
 #include "mlir/Conversion/LLVMCommon/MemRefBuilder.h"
@@ -46,10 +46,10 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/Support/FormatVariadic.h"
 
-namespace mlir {
+namespace mtrt {
 #define GEN_PASS_DEF_CONVERTCUDATOLLVMPASS
-#include "mlir-tensorrt/Conversion/Passes.h.inc"
-} // namespace mlir
+#include "mlir-tensorrt/Compiler/Conversion/Passes.h.inc"
+} // namespace mtrt
 
 using namespace mlir;
 
@@ -892,7 +892,7 @@ mlir::lowerCUDAGlobalsToLLVM(IRRewriter &rewriter, ModuleOp rootOp,
 
 namespace {
 class CUDAToLLVMPass
-    : public mlir::impl::ConvertCUDAToLLVMPassBase<CUDAToLLVMPass> {
+    : public mtrt::impl::ConvertCUDAToLLVMPassBase<CUDAToLLVMPass> {
 public:
   using Base::Base;
   void runOnOperation() override {

@@ -1,1 +1,1 @@
-add_subdirectory(mlir-tensorrt)
+add_subdirectory(mlir-tensorrt/Compiler)

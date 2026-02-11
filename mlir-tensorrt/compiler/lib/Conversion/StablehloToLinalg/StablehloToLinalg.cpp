@@ -3,7 +3,7 @@
 // Copyright (c) 2025, NVIDIA CORPORATION. All rights reserved.
 //
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Conversion/Passes.h"
+#include "mlir-tensorrt/Compiler/Conversion/Passes.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Arith/Utils/Utils.h"
@@ -24,10 +24,10 @@
 #include "stablehlo/conversions/linalg/transforms/TypeConversion.h"
 #include "stablehlo/dialect/StablehloOps.h"
 
-namespace mlir {
+namespace mtrt {
 #define GEN_PASS_DEF_STABLEHLOTOLINALGPASS
-#include "mlir-tensorrt/Conversion/Passes.h.inc"
-} // namespace mlir
+#include "mlir-tensorrt/Compiler/Conversion/Passes.h.inc"
+} // namespace mtrt
 
 using namespace mlir;
 
@@ -377,7 +377,7 @@ struct FallbackDynamicBroadcastInDimConverter final
 };
 
 class StablehloToLinalgPass
-    : public impl::StablehloToLinalgPassBase<StablehloToLinalgPass> {
+    : public mtrt::impl::StablehloToLinalgPassBase<StablehloToLinalgPass> {
   using Base::Base;
 
   LogicalResult initialize(MLIRContext *context) override {

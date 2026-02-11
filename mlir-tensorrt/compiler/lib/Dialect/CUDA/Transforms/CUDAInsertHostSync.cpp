@@ -10,10 +10,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir-tensorrt-common/Interfaces/StreamSchedulableOpInterface.h"
-#include "mlir-tensorrt/Analysis/AliasAnalysis.h"
-#include "mlir-tensorrt/Dialect/CUDA/IR/CUDADialect.h"
-#include "mlir-tensorrt/Dialect/CUDA/Transforms/Passes.h" // IWYU pragma: keep
-#include "mlir-tensorrt/Dialect/TensorRTRuntime/IR/Ops.h"
+#include "mlir-tensorrt/Compiler/Analysis/AliasAnalysis.h"
+#include "mlir-tensorrt/Compiler/Dialect/CUDA/IR/CUDADialect.h"
+#include "mlir-tensorrt/Compiler/Dialect/CUDA/Transforms/Passes.h" // IWYU pragma: keep
+#include "mlir-tensorrt/Compiler/Dialect/TensorRTRuntime/IR/Ops.h"
 #include "mlir/Analysis/AliasAnalysis.h"
 #include "mlir/Analysis/DataFlow/DenseAnalysis.h"
 #include "mlir/Analysis/DataFlow/Utils.h"
@@ -35,7 +35,7 @@
 
 namespace mlir::cuda {
 #define GEN_PASS_DEF_CUDAINSERTHOSTSYNCPASS
-#include "mlir-tensorrt/Dialect/CUDA/Transforms/Passes.h.inc"
+#include "mlir-tensorrt/Compiler/Dialect/CUDA/Transforms/Passes.h.inc"
 } // namespace mlir::cuda
 
 using namespace mlir;

@@ -22,7 +22,7 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt-common/Interfaces/TensorKindOpInterface.h"
-#include "mlir-tensorrt/Dialect/TensorRTRuntime/IR/Ops.h"
+#include "mlir-tensorrt/Compiler/Dialect/TensorRTRuntime/IR/Ops.h"
 #include "mlir/Conversion/ConvertToLLVM/ToLLVMInterface.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/DialectImplementation.h"
@@ -257,20 +257,20 @@ struct TensorRTRuntimeInlinerInterface : public DialectInlinerInterface {
 // Tablegen'd op definitions
 //===----------------------------------------------------------------------===//
 #define GET_OP_CLASSES
-#include "mlir-tensorrt/Dialect/TensorRTRuntime/IR/TensorRTRuntimeOps.cpp.inc"
-#include "mlir-tensorrt/Dialect/TensorRTRuntime/IR/TensorRTRuntimeOpsDialect.cpp.inc"
+#include "mlir-tensorrt/Compiler/Dialect/TensorRTRuntime/IR/TensorRTRuntimeOps.cpp.inc"
+#include "mlir-tensorrt/Compiler/Dialect/TensorRTRuntime/IR/TensorRTRuntimeOpsDialect.cpp.inc"
 #define GET_TYPEDEF_CLASSES
-#include "mlir-tensorrt/Dialect/TensorRTRuntime/IR/TensorRTRuntimeOpsTypes.cpp.inc"
+#include "mlir-tensorrt/Compiler/Dialect/TensorRTRuntime/IR/TensorRTRuntimeOpsTypes.cpp.inc"
 
 void TensorRTRuntimeDialect::initialize() {
   addOperations<
 #define GET_OP_LIST
-#include "mlir-tensorrt/Dialect/TensorRTRuntime/IR/TensorRTRuntimeOps.cpp.inc"
+#include "mlir-tensorrt/Compiler/Dialect/TensorRTRuntime/IR/TensorRTRuntimeOps.cpp.inc"
       >();
 
   addTypes<
 #define GET_TYPEDEF_LIST
-#include "mlir-tensorrt/Dialect/TensorRTRuntime/IR/TensorRTRuntimeOpsTypes.cpp.inc"
+#include "mlir-tensorrt/Compiler/Dialect/TensorRTRuntime/IR/TensorRTRuntimeOpsTypes.cpp.inc"
       >();
 
   addInterfaces<TensorRTRuntimeInlinerInterface>();

@@ -3,7 +3,7 @@ add_mlir_tensorrt_backend_library(MLIRTensorRTKernelBackend
   KernelSegmentation.cpp
 
   TD
-    "mlir-tensorrt/Backends/Kernel/KernelBackend.td"
+    "mlir-tensorrt/Compiler/Backends/Kernel/KernelBackend.td"
 
   LINK_LIBS PUBLIC
   ChloOps

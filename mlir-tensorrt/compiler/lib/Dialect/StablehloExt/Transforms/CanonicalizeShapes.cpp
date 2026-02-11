@@ -22,7 +22,7 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt-common/Utils/ModuleUtils.h"
-#include "mlir-tensorrt/Dialect/StablehloExt/Transforms/Passes.h"
+#include "mlir-tensorrt/Compiler/Dialect/StablehloExt/Transforms/Passes.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Pass/PassManager.h"
@@ -35,7 +35,7 @@
 namespace mlir::stablehlo_ext {
 #define GEN_PASS_DEF_CANONICALIZESHAPESPASS
 #define GEN_PASS_DEF_REFINESHAPESPASS
-#include "mlir-tensorrt/Dialect/StablehloExt/Transforms/Passes.h.inc"
+#include "mlir-tensorrt/Compiler/Dialect/StablehloExt/Transforms/Passes.h.inc"
 } // namespace mlir::stablehlo_ext
 
 using namespace mlir;

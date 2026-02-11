@@ -21,16 +21,16 @@
 /// Implementation of the `convert-tensorrt-runtime-to-llvm` pass.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Conversion/TensorRTRuntimeToLLVM/TensorRTRuntimeToLLVM.h"
+#include "mlir-tensorrt/Compiler/Conversion/TensorRTRuntimeToLLVM/TensorRTRuntimeToLLVM.h"
 #include "mlir-executor/Executor/IR/Executor.h"
 #include "mlir-executor/Support/ArtifactManager.h"
 #include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
-#include "mlir-tensorrt/Conversion/CUDAToLLVM/CUDAToLLVM.h"
-#include "mlir-tensorrt/Conversion/LLVMCommon/LLVMCommon.h"
-#include "mlir-tensorrt/Conversion/Passes.h"
-#include "mlir-tensorrt/Conversion/PlanToLLVM/PlanToLLVM.h"
-#include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
-#include "mlir-tensorrt/Dialect/TensorRTRuntime/IR/Ops.h"
+#include "mlir-tensorrt/Compiler/Conversion/CUDAToLLVM/CUDAToLLVM.h"
+#include "mlir-tensorrt/Compiler/Conversion/LLVMCommon/LLVMCommon.h"
+#include "mlir-tensorrt/Compiler/Conversion/Passes.h"
+#include "mlir-tensorrt/Compiler/Conversion/PlanToLLVM/PlanToLLVM.h"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/IR/Plan.h"
+#include "mlir-tensorrt/Compiler/Dialect/TensorRTRuntime/IR/Ops.h"
 #include "mlir/Conversion/ConvertToLLVM/ToLLVMInterface.h"
 #include "mlir/Conversion/LLVMCommon/ConversionTarget.h"
 #include "mlir/Conversion/LLVMCommon/MemRefBuilder.h"
@@ -45,10 +45,10 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/Support/FileSystem.h"
 
-namespace mlir {
+namespace mtrt {
 #define GEN_PASS_DEF_CONVERTTENSORRTRUNTIMETOLLVMPASS
-#include "mlir-tensorrt/Conversion/Passes.h.inc"
-} // namespace mlir
+#include "mlir-tensorrt/Compiler/Conversion/Passes.h.inc"
+} // namespace mtrt
 
 using namespace mlir;
 
@@ -473,7 +473,7 @@ void mlir::populateTensorRTRuntimeToLLVMConversionPatterns(
 
 namespace {
 class TensorRTRuntimeToLLVMPass
-    : public mlir::impl::ConvertTensorRTRuntimeToLLVMPassBase<
+    : public mtrt::impl::ConvertTensorRTRuntimeToLLVMPassBase<
           TensorRTRuntimeToLLVMPass> {
 public:
   using Base::Base;

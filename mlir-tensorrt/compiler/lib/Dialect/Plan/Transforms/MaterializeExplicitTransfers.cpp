@@ -21,8 +21,8 @@
 ///  Implementation of the `plan-materialize-explicit-transfers` pass.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
-#include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/IR/Plan.h"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/Transforms/Passes.h"
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
@@ -32,7 +32,7 @@
 
 namespace mlir::plan {
 #define GEN_PASS_DEF_PLANMATERIALIZEEXPLICITTRANSFERSPASS
-#include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h.inc"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/Transforms/Passes.h.inc"
 } // namespace mlir::plan
 
 using namespace mlir;

@@ -7,8 +7,8 @@
 //===----------------------------------------------------------------------===//
 /// Implementation of `cuda-simplify-stream-wait`.
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Dialect/CUDA/IR/CUDADialect.h"
-#include "mlir-tensorrt/Dialect/CUDA/Transforms/Passes.h" // IWYU pragma: keep
+#include "mlir-tensorrt/Compiler/Dialect/CUDA/IR/CUDADialect.h"
+#include "mlir-tensorrt/Compiler/Dialect/CUDA/Transforms/Passes.h" // IWYU pragma: keep
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/Dominance.h"
 #include "mlir/IR/PatternMatch.h"
@@ -22,7 +22,7 @@
 namespace mlir::cuda {
 
 #define GEN_PASS_DEF_CUDASIMPLIFYSTREAMWAITPASS
-#include "mlir-tensorrt/Dialect/CUDA/Transforms/Passes.h.inc"
+#include "mlir-tensorrt/Compiler/Dialect/CUDA/Transforms/Passes.h.inc"
 
 } // namespace mlir::cuda
 

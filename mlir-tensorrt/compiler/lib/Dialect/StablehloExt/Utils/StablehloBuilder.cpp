@@ -6,7 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "mlir-tensorrt/Dialect/StablehloExt/Utils/StablehloBuilder.h"
+#include "mlir-tensorrt/Compiler/Dialect/StablehloExt/Utils/StablehloBuilder.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/PatternMatch.h"
 #include "stablehlo/dialect/StablehloOps.h"

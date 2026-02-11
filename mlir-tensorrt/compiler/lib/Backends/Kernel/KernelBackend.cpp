@@ -21,12 +21,12 @@
 /// Implementation of the Kernel backend.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Backends/Kernel/KernelBackend.h"
+#include "mlir-tensorrt/Compiler/Backends/Kernel/KernelBackend.h"
 #include "mlir-kernel/Kernel/IR/Ops.h"
-#include "mlir-tensorrt/Backends/Host/HostBackend.h"
-#include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
-#include "mlir-tensorrt/Dialect/Plan/IR/PlanInterfaces.h"
-#include "mlir-tensorrt/Dialect/StablehloExt/Utils/Utils.h"
+#include "mlir-tensorrt/Compiler/Backends/Host/HostBackend.h"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/IR/Plan.h"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/IR/PlanInterfaces.h"
+#include "mlir-tensorrt/Compiler/Dialect/StablehloExt/Utils/Utils.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Math/IR/Math.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
@@ -40,7 +40,7 @@ using namespace mlir;
 using namespace mlir::plan;
 
 #define GET_ATTRDEF_CLASSES
-#include "mlir-tensorrt/Backends/Kernel/KernelBackendAttrs.cpp.inc"
+#include "mlir-tensorrt/Compiler/Backends/Kernel/KernelBackendAttrs.cpp.inc"
 
 //===----------------------------------------------------------------------===//
 // KernelBackendAttr

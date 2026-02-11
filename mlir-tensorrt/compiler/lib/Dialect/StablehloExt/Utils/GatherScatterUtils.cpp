@@ -5,7 +5,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Dialect/StablehloExt/Utils/GatherScatterUtils.h"
+#include "mlir-tensorrt/Compiler/Dialect/StablehloExt/Utils/GatherScatterUtils.h"
 #include "mlir-tensorrt-common/Utils/ShapeInfo.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Dialect/Utils/ReshapeOpsUtils.h"

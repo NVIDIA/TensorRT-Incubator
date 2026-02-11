@@ -24,9 +24,9 @@
 #include "mlir-executor/Transforms/Clustering/Clustering.h"
 #include "mlir-executor/Transforms/Clustering/Patterns.h"
 #include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
-#include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
-#include "mlir-tensorrt/Dialect/Plan/IR/PlanInterfaces.h"
-#include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/IR/Plan.h"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/IR/PlanInterfaces.h"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/Transforms/Passes.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/IR/PatternMatch.h"
@@ -37,7 +37,7 @@
 
 namespace mlir::plan {
 #define GEN_PASS_DEF_OUTLINECLUSTERSPASS
-#include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h.inc"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/Transforms/Passes.h.inc"
 } // namespace mlir::plan
 
 using namespace mlir;

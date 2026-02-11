@@ -24,9 +24,9 @@
 #include "mlir-executor/Transforms/Clustering/Clustering.h"
 #include "mlir-kernel/Kernel/IR/Ops.h"
 #include "mlir-kernel/Utils/StructuredOpsUtils.h"
-#include "mlir-tensorrt/Backends/Kernel/KernelBackend.h"
-#include "mlir-tensorrt/Backends/Kernel/Passes.h"
-#include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
+#include "mlir-tensorrt/Compiler/Backends/Kernel/KernelBackend.h"
+#include "mlir-tensorrt/Compiler/Backends/Kernel/Passes.h"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/IR/Plan.h"
 #include "mlir/Dialect/ControlFlow/IR/ControlFlowOps.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Linalg/IR/LinalgInterfaces.h"
@@ -40,7 +40,7 @@
 
 namespace mtrt::compiler {
 #define GEN_PASS_DEF_KERNELSEGMENTATIONPASS
-#include "mlir-tensorrt/Backends/Kernel/Passes.h.inc"
+#include "mlir-tensorrt/Compiler/Backends/Kernel/Passes.h.inc"
 } // namespace mtrt::compiler
 
 using namespace mlir;

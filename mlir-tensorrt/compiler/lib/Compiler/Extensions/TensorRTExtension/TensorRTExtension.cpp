@@ -25,8 +25,8 @@
 #include "mlir-tensorrt-dialect/Target/TranslateToTensorRT.h"
 #include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
 #include "mlir-tensorrt-dialect/TensorRT/Transforms/Passes.h"
+#include "mlir-tensorrt/Compiler/Conversion/Passes.h"
 #include "mlir-tensorrt/Compiler/Pipeline.h"
-#include "mlir-tensorrt/Conversion/Passes.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 
 #define DEBUG_TYPE "tensorrt-extension"
@@ -66,7 +66,7 @@ void TensorRTExtension::populatePasses(mlir::OpPassManager &pm,
       convertOpts.preferEinsum =
           options.get<TensorRTOptions>().tensorrtPreferEinsum;
       pm.addNestedPass<tensorrt::TensorRTModuleOp>(
-          mlir::createConvertStablehloToTensorRTPass(std::move(convertOpts)));
+          mtrt::createConvertStablehloToTensorRTPass(std::move(convertOpts)));
       return;
     }
   }

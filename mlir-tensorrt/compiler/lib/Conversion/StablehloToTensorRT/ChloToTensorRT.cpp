@@ -23,7 +23,7 @@
 //===----------------------------------------------------------------------===//
 #include "Matchers.h"
 #include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
-#include "mlir-tensorrt/Conversion/StablehloToTensorRT/StablehloToTensorRT.h"
+#include "mlir-tensorrt/Compiler/Conversion/StablehloToTensorRT/StablehloToTensorRT.h"
 #include "stablehlo/dialect/ChloOps.h"
 
 #define DEBUG_TYPE "chlo-to-tensorrt"

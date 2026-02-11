@@ -21,13 +21,13 @@
 /// Implementation of the `convert-cuda-to-executor` pass.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Conversion/CUDAToExecutor/CUDAToExecutor.h"
+#include "mlir-tensorrt/Compiler/Conversion/CUDAToExecutor/CUDAToExecutor.h"
 #include "mlir-executor/Conversion/ConvertToExecutorCommon.h"
 #include "mlir-executor/Executor/IR/Executor.h"
 #include "mlir-executor/Executor/Utils/Utils.h"
 #include "mlir-executor/Runtime/API/Executable.h"
-#include "mlir-tensorrt/Conversion/Passes.h" // IWYU pragma: keep
-#include "mlir-tensorrt/Dialect/CUDA/IR/CUDADialect.h"
+#include "mlir-tensorrt/Compiler/Conversion/Passes.h" // IWYU pragma: keep
+#include "mlir-tensorrt/Compiler/Dialect/CUDA/IR/CUDADialect.h"
 #include "mlir/Dialect/Func/Transforms/FuncConversions.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/IR/Matchers.h"
@@ -36,10 +36,10 @@
 #include "llvm/Support/Alignment.h"
 #include "llvm/Support/FormatVariadic.h"
 
-namespace mlir {
+namespace mtrt {
 #define GEN_PASS_DEF_CONVERTCUDATOEXECUTORPASS
-#include "mlir-tensorrt/Conversion/Passes.h.inc"
-} // namespace mlir
+#include "mlir-tensorrt/Compiler/Conversion/Passes.h.inc"
+} // namespace mtrt
 
 using namespace mlir;
 using namespace mlir::executor;
@@ -933,7 +933,7 @@ void mlir::populateCUDAToExecutorTypeConversions(TypeConverter &typeConverter) {
 
 namespace {
 class CUDAToExecutorPass
-    : public mlir::impl::ConvertCUDAToExecutorPassBase<CUDAToExecutorPass> {
+    : public mtrt::impl::ConvertCUDAToExecutorPassBase<CUDAToExecutorPass> {
 public:
   using Base::Base;
   void runOnOperation() override {

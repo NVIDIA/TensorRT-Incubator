@@ -18,23 +18,23 @@
 #include "mlir-tensorrt-common/Support/Status.h"
 #include "mlir-tensorrt-common/Utils/PassManagerUtils.h"
 #include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
-#include "mlir-tensorrt/Backends/Host/Passes.h"
-#include "mlir-tensorrt/Backends/Kernel/KernelBackend.h"
-#include "mlir-tensorrt/Backends/Kernel/Passes.h"
+#include "mlir-tensorrt/Compiler/Backends/Host/Passes.h"
+#include "mlir-tensorrt/Compiler/Backends/Kernel/KernelBackend.h"
+#include "mlir-tensorrt/Compiler/Backends/Kernel/Passes.h"
+#include "mlir-tensorrt/Compiler/Conversion/CUDAToExecutor/CUDAToExecutor.h"
+#include "mlir-tensorrt/Compiler/Conversion/HostToEmitC/HostToEmitC.h"
+#include "mlir-tensorrt/Compiler/Conversion/Passes.h"
+#include "mlir-tensorrt/Compiler/Conversion/TensorRTRuntimeToExecutor/TensorRTRuntimeToExecutor.h"
+#include "mlir-tensorrt/Compiler/Dialect/CUDA/Transforms/Passes.h"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/IR/PlanEnums.h"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/Transforms/Passes.h"
+#include "mlir-tensorrt/Compiler/Dialect/StablehloExt/Transforms/Passes.h"
 #include "mlir-tensorrt/Compiler/Extension.h"
 #include "mlir-tensorrt/Compiler/InputPipelines/LinalgInputPipeline.h"
 #include "mlir-tensorrt/Compiler/InputPipelines/StablehloInputPipeline.h"
 #include "mlir-tensorrt/Compiler/Options.h"
 #include "mlir-tensorrt/Compiler/Pipeline.h"
-#include "mlir-tensorrt/Conversion/CUDAToExecutor/CUDAToExecutor.h"
-#include "mlir-tensorrt/Conversion/HostToEmitC/HostToEmitC.h"
-#include "mlir-tensorrt/Conversion/Passes.h"
-#include "mlir-tensorrt/Conversion/TensorRTRuntimeToExecutor/TensorRTRuntimeToExecutor.h"
-#include "mlir-tensorrt/Dialect/CUDA/Transforms/Passes.h"
-#include "mlir-tensorrt/Dialect/Plan/IR/PlanEnums.h"
-#include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
-#include "mlir-tensorrt/Dialect/StablehloExt/Transforms/Passes.h"
-#include "mlir-tensorrt/Transforms/Passes.h"
+#include "mlir-tensorrt/Compiler/Transforms/Passes.h"
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Conversion/ComplexToStandard/ComplexToStandard.h"
 #include "mlir/Conversion/SCFToControlFlow/SCFToControlFlow.h"
@@ -403,7 +403,7 @@ void Pipeline::populatePassManager() {
       // Compile outlined scalarizable host clusters.
       addNestedPasses<func::FuncOp>(pm, [](OpPassManager &pm) {
         pm.addPass(mtrt::compiler::createProcessHostClustersPass());
-        pm.addPass(mlir::createConvertStablehloToArithPass());
+        pm.addPass(mtrt::createConvertStablehloToArithPass());
       });
 
       populateExtensionPasses(pm, options, ExtensionPoint::PostClustering,

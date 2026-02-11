@@ -21,8 +21,8 @@
 #include "HostToEmitCDetailCommon.h"
 #include "mlir-executor/Executor/IR/Executor.h"
 #include "mlir-executor/Support/ArtifactManager.h"
-#include "mlir-tensorrt/Dialect/CUDA/IR/CUDADialect.h"
-#include "mlir-tensorrt/Dialect/TensorRTRuntime/IR/Ops.h"
+#include "mlir-tensorrt/Compiler/Dialect/CUDA/IR/CUDADialect.h"
+#include "mlir-tensorrt/Compiler/Dialect/TensorRTRuntime/IR/Ops.h"
 #include "mlir/Dialect/Utils/IndexingUtils.h"
 #include "llvm/ADT/DenseMap.h"
 

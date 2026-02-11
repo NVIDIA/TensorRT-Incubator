@@ -26,7 +26,7 @@
 /// the transformed loop to scf.for.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Transforms/Passes.h"
+#include "mlir-tensorrt/Compiler/Transforms/Passes.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/SCF/Transforms/Patterns.h"
@@ -43,7 +43,7 @@
 
 namespace mtrt {
 #define GEN_PASS_DEF_SCFFLOATSTRENGTHREDUCEPASS
-#include "mlir-tensorrt/Transforms/Passes.h.inc"
+#include "mlir-tensorrt/Compiler/Transforms/Passes.h.inc"
 } // namespace mtrt
 
 using namespace mlir;

@@ -24,7 +24,7 @@ namespace mlir {
 namespace stablehlo_ext {
 #define GEN_PASS_DEF_EXPANDTUPLESPASS
 #define GEN_PASS_DECL_EXPANDTUPLESPASS
-#include "mlir-tensorrt/Dialect/StablehloExt/Transforms/Passes.h.inc"
+#include "mlir-tensorrt/Compiler/Dialect/StablehloExt/Transforms/Passes.h.inc"
 } // namespace stablehlo_ext
 } // namespace mlir
 

@@ -27,7 +27,7 @@
 ///   };
 //===----------------------------------------------------------------------===//
 #include "HostToEmitCDetailCommon.h"
-#include "mlir-tensorrt/Conversion/Passes.h"
+#include "mlir-tensorrt/Compiler/Conversion/Passes.h"
 #include "mlir/Dialect/EmitC/IR/EmitC.h"
 #include "mlir/IR/SymbolTable.h"
 #include "mlir/Transforms/DialectConversion.h"
@@ -35,10 +35,10 @@
 #include "llvm/ADT/StringExtras.h"
 
 using namespace mlir::host_to_emitc;
-namespace mlir {
+namespace mtrt {
 #define GEN_PASS_DEF_WRAPMODULEINEMITCCLASSPASS
-#include "mlir-tensorrt/Conversion/Passes.h.inc"
-} // namespace mlir
+#include "mlir-tensorrt/Compiler/Conversion/Passes.h.inc"
+} // namespace mtrt
 
 using namespace mlir;
 
@@ -312,7 +312,7 @@ static LogicalResult wrapEmitCInProgramClass(ModuleOp moduleOp,
 namespace {
 
 struct WrapModuleInEmitCClassPass
-    : public mlir::impl::WrapModuleInEmitCClassPassBase<
+    : public mtrt::impl::WrapModuleInEmitCClassPassBase<
           WrapModuleInEmitCClassPass> {
   using Base::Base;
 

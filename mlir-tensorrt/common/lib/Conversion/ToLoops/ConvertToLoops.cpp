@@ -29,10 +29,10 @@
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Transforms/WalkPatternRewriteDriver.h"
 
-namespace mlir {
+namespace mtrt {
 #define GEN_PASS_DEF_CONVERTTOLOOPS
 #include "mlir-tensorrt-common/Conversion/Passes.h.inc"
-} // namespace mlir
+} // namespace mtrt
 
 using namespace mlir;
 
@@ -64,7 +64,7 @@ struct ConvertLinalgOpToLoopsPattern
   }
 };
 
-struct ConvertToLoops : public mlir::impl::ConvertToLoopsBase<ConvertToLoops> {
+struct ConvertToLoops : public mtrt::impl::ConvertToLoopsBase<ConvertToLoops> {
   void runOnOperation() override {
     Operation *op = getOperation();
     RewritePatternSet patterns(op->getContext());

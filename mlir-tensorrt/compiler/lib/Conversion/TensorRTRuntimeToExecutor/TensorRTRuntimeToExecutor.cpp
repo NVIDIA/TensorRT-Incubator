@@ -17,21 +17,21 @@
 // limitations under the License.
 //
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Conversion/TensorRTRuntimeToExecutor/TensorRTRuntimeToExecutor.h"
+#include "mlir-tensorrt/Compiler/Conversion/TensorRTRuntimeToExecutor/TensorRTRuntimeToExecutor.h"
 #include "mlir-executor/Conversion/ConvertToExecutorCommon.h"
 #include "mlir-executor/Executor/IR/Executor.h"
 #include "mlir-executor/Executor/Utils/Utils.h"
-#include "mlir-tensorrt/Conversion/Passes.h" // IWYU pragma: keep
-#include "mlir-tensorrt/Dialect/CUDA/IR/CUDADialect.h"
-#include "mlir-tensorrt/Dialect/TensorRTRuntime/IR/Ops.h"
+#include "mlir-tensorrt/Compiler/Conversion/Passes.h" // IWYU pragma: keep
+#include "mlir-tensorrt/Compiler/Dialect/CUDA/IR/CUDADialect.h"
+#include "mlir-tensorrt/Compiler/Dialect/TensorRTRuntime/IR/Ops.h"
 #include "mlir/Conversion/ReconcileUnrealizedCasts/ReconcileUnrealizedCasts.h"
 #include "mlir/IR/TypeUtilities.h"
 #include "llvm/ADT/StringExtras.h"
 
-namespace mlir {
+namespace mtrt {
 #define GEN_PASS_DEF_CONVERTTENSORRTRUNTIMETOEXECUTORPASS
-#include "mlir-tensorrt/Conversion/Passes.h.inc"
-} // namespace mlir
+#include "mlir-tensorrt/Compiler/Conversion/Passes.h.inc"
+} // namespace mtrt
 
 using namespace mlir;
 using namespace mlir::executor;
@@ -435,7 +435,7 @@ void mlir::populateTensorRTRuntimeToExecutorTypeConversions(
 
 namespace {
 class TensorRTRuntimeToExecutorPass
-    : public mlir::impl::ConvertTensorRTRuntimeToExecutorPassBase<
+    : public mtrt::impl::ConvertTensorRTRuntimeToExecutorPassBase<
           TensorRTRuntimeToExecutorPass> {
 public:
   using Base::Base;

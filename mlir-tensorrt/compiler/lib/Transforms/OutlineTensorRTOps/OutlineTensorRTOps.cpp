@@ -19,14 +19,14 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt-common/Utils/RegionUtils.h"
 #include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
-#include "mlir-tensorrt/Backends/TensorRT/TensorRTBackend.h"
-#include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
-#include "mlir-tensorrt/Transforms/Passes.h" // IWYU pragma: keep
+#include "mlir-tensorrt/Compiler/Backends/TensorRT/TensorRTBackend.h"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/IR/Plan.h"
+#include "mlir-tensorrt/Compiler/Transforms/Passes.h" // IWYU pragma: keep
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 
 namespace mtrt {
 #define GEN_PASS_DEF_OUTLINETENSORRTOPSPASS
-#include "mlir-tensorrt/Transforms/Passes.h.inc"
+#include "mlir-tensorrt/Compiler/Transforms/Passes.h.inc"
 } // namespace mtrt
 
 using namespace mtrt;

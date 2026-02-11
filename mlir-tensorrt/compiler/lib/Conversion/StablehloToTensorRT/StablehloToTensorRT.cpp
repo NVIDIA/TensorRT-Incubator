@@ -21,17 +21,17 @@
 /// Implementation of pass to convert StableHLO ops to TensorRT dialect ops.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Conversion/StablehloToTensorRT/StablehloToTensorRT.h"
+#include "mlir-tensorrt/Compiler/Conversion/StablehloToTensorRT/StablehloToTensorRT.h"
 #include "ControlFlowOps.h"
 #include "Matchers.h"
 #include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
 #include "mlir-tensorrt-dialect/TensorRT/Utils/Utils.h"
 #include "mlir-tensorrt-dialect/Utils/ShapeUtils.h"
-#include "mlir-tensorrt/Conversion/Passes.h"
-#include "mlir-tensorrt/Conversion/Patterns.h"
-#include "mlir-tensorrt/Conversion/TensorRTCommon/ConvertToTensorRTCommon.h"
-#include "mlir-tensorrt/Dialect/StablehloExt/Utils/GatherScatterUtils.h"
-#include "mlir-tensorrt/Dialect/StablehloExt/Utils/StablehloMatchers.h"
+#include "mlir-tensorrt/Compiler/Conversion/Passes.h"
+#include "mlir-tensorrt/Compiler/Conversion/Patterns.h"
+#include "mlir-tensorrt/Compiler/Conversion/TensorRTCommon/ConvertToTensorRTCommon.h"
+#include "mlir-tensorrt/Compiler/Dialect/StablehloExt/Utils/GatherScatterUtils.h"
+#include "mlir-tensorrt/Compiler/Dialect/StablehloExt/Utils/StablehloMatchers.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Func/Transforms/FuncConversions.h"
@@ -51,10 +51,10 @@
 #define DEBUG_TYPE "stablehlo-to-tensorrt"
 #define DBGS() (llvm::dbgs() << "[" DEBUG_TYPE "]: ")
 
-namespace mlir {
+namespace mtrt {
 #define GEN_PASS_DEF_CONVERTSTABLEHLOTOTENSORRTPASS
-#include "mlir-tensorrt/Conversion/Passes.h.inc"
-} // namespace mlir
+#include "mlir-tensorrt/Compiler/Conversion/Passes.h.inc"
+} // namespace mtrt
 
 using namespace mlir;
 using mlir::tensorrt::TensorValue;
@@ -4140,7 +4140,7 @@ static void populateTensorRTSoftmaxPatterns(RewritePatternSet &patterns) {
 
 /// Pass that converts Stablehlo to TensorRT dialect ops.
 class ConvertStablehloToTensorRtPass
-    : public mlir::impl::ConvertStablehloToTensorRTPassBase<
+    : public mtrt::impl::ConvertStablehloToTensorRTPassBase<
           ConvertStablehloToTensorRtPass> {
 public:
   using Base::Base;

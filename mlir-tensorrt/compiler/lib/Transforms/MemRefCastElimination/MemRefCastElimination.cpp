@@ -22,8 +22,8 @@
 /// determined to be not needed.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Transforms/Passes.h"
-#include "mlir-tensorrt/Transforms/Transforms.h"
+#include "mlir-tensorrt/Compiler/Transforms/Passes.h"
+#include "mlir-tensorrt/Compiler/Transforms/Transforms.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/IR/PatternMatch.h"
@@ -32,7 +32,7 @@
 
 namespace mtrt {
 #define GEN_PASS_DEF_MEMREFCASTELIMINATIONPASS
-#include "mlir-tensorrt/Transforms/Passes.h.inc"
+#include "mlir-tensorrt/Compiler/Transforms/Passes.h.inc"
 } // namespace mtrt
 
 using namespace mlir;

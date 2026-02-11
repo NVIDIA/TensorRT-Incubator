@@ -23,10 +23,10 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-executor/Executor/IR/Executor.h"
 #include "mlir-executor/Executor/Utils/Utils.h"
-#include "mlir-tensorrt/Conversion/Passes.h"           // IWYU pragma: keep
-#include "mlir-tensorrt/Dialect/CUDA/IR/CUDADialect.h" // IWYU pragma: keep
-#include "mlir-tensorrt/Dialect/CUDA/Utils/CUDAUtils.h"
-#include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
+#include "mlir-tensorrt/Compiler/Conversion/Passes.h" // IWYU pragma: keep
+#include "mlir-tensorrt/Compiler/Dialect/CUDA/IR/CUDADialect.h" // IWYU pragma: keep
+#include "mlir-tensorrt/Compiler/Dialect/CUDA/Utils/CUDAUtils.h"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/IR/Plan.h"
 #include "mlir/Dialect/ControlFlow/IR/ControlFlowOps.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
@@ -39,10 +39,10 @@
 #define DEBUG_TYPE "stablehlo-to-plan"
 #define DBGS() llvm::dbgs() << "[" DEBUG_TYPE "] "
 
-namespace mlir {
+namespace mtrt {
 #define GEN_PASS_DEF_CONVERTSTABLEHLOTOPLANPASS
-#include "mlir-tensorrt/Conversion/Passes.h.inc"
-} // namespace mlir
+#include "mlir-tensorrt/Compiler/Conversion/Passes.h.inc"
+} // namespace mtrt
 using namespace mlir;
 
 static constexpr StringRef kStablehloDonationArgumentAttr =
@@ -303,7 +303,8 @@ static auto getIntegerAttrOrDefault(Operation *op, StringRef name,
 namespace {
 
 struct ConvertStablehloToPlanPass
-    : public impl::ConvertStablehloToPlanPassBase<ConvertStablehloToPlanPass> {
+    : public mtrt::impl::ConvertStablehloToPlanPassBase<
+          ConvertStablehloToPlanPass> {
   using Base::Base;
 
   std::shared_ptr<FrozenRewritePatternSet> patterns;

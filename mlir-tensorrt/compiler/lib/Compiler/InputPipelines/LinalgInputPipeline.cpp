@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt/Compiler/InputPipelines/LinalgInputPipeline.h"
 #include "mlir-tensorrt-common/Utils/PassManagerUtils.h"
-#include "mlir-tensorrt/Transforms/Passes.h"
+#include "mlir-tensorrt/Compiler/Transforms/Passes.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Linalg/Passes.h"
 #include "mlir/Pass/PassManager.h"

@@ -19,8 +19,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir-executor/Executor/IR/ExecutorAttributes.h"
-#include "mlir-tensorrt/Dialect/CUDA/IR/CUDADialect.h"
-#include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
+#include "mlir-tensorrt/Compiler/Dialect/CUDA/IR/CUDADialect.h"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/IR/Plan.h"
 #include "mlir/Conversion/ConvertToLLVM/ToLLVMInterface.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/IR/AsmState.h"
@@ -37,11 +37,11 @@
 
 // Link generated CUDA attribute definitions.
 #define GET_ATTRDEF_CLASSES
-#include "mlir-tensorrt/Dialect/CUDA/IR/CUDAAttributes.cpp.inc"
+#include "mlir-tensorrt/Compiler/Dialect/CUDA/IR/CUDAAttributes.cpp.inc"
 #undef GET_ATTRDEF_CLASSES
 
 // Link generated CUDA enum definitions.
-#include "mlir-tensorrt/Dialect/CUDA/IR/CUDAEnums.cpp.inc"
+#include "mlir-tensorrt/Compiler/Dialect/CUDA/IR/CUDAEnums.cpp.inc"
 
 using namespace mlir;
 using namespace mlir::cuda;
@@ -408,17 +408,17 @@ struct CUDAInlinerInterface : public DialectInlinerInterface {
 void CUDADialect::initialize() {
   addOperations<
 #define GET_OP_LIST
-#include "mlir-tensorrt/Dialect/CUDA/IR/CUDAOps.cpp.inc"
+#include "mlir-tensorrt/Compiler/Dialect/CUDA/IR/CUDAOps.cpp.inc"
       >();
 
   addTypes<
 #define GET_TYPEDEF_LIST
-#include "mlir-tensorrt/Dialect/CUDA/IR/CUDAOpsTypes.cpp.inc"
+#include "mlir-tensorrt/Compiler/Dialect/CUDA/IR/CUDAOpsTypes.cpp.inc"
       >();
 
   addAttributes<
 #define GET_ATTRDEF_LIST
-#include "mlir-tensorrt/Dialect/CUDA/IR/CUDAAttributes.cpp.inc"
+#include "mlir-tensorrt/Compiler/Dialect/CUDA/IR/CUDAAttributes.cpp.inc"
       >();
 
   addInterfaces<CUDAInlinerInterface>();
@@ -428,21 +428,21 @@ void CUDADialect::initialize() {
 //===----------------------------------------------------------------------===//
 // TableGen'd dialect definition.
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Dialect/CUDA/IR/CUDAOpsDialect.cpp.inc"
+#include "mlir-tensorrt/Compiler/Dialect/CUDA/IR/CUDAOpsDialect.cpp.inc"
 
 //===----------------------------------------------------------------------===//
 // TableGen'd type definitions
 //===----------------------------------------------------------------------===//
 #define GET_TYPEDEF_CLASSES
-#include "mlir-tensorrt/Dialect/CUDA/IR/CUDAOpsTypes.cpp.inc"
+#include "mlir-tensorrt/Compiler/Dialect/CUDA/IR/CUDAOpsTypes.cpp.inc"
 
 //===----------------------------------------------------------------------===//
 // TableGen'd interface definition.
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Dialect/CUDA/IR/CUDAInterfaces.cpp.inc"
+#include "mlir-tensorrt/Compiler/Dialect/CUDA/IR/CUDAInterfaces.cpp.inc"
 
 //===----------------------------------------------------------------------===//
 // TableGen'd op method definitions
 //===----------------------------------------------------------------------===//
 #define GET_OP_CLASSES
-#include "mlir-tensorrt/Dialect/CUDA/IR/CUDAOps.cpp.inc"
+#include "mlir-tensorrt/Compiler/Dialect/CUDA/IR/CUDAOps.cpp.inc"

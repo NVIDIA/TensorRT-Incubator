@@ -7,8 +7,8 @@
 //===----------------------------------------------------------------------===//
 /// Implementation of `cuda-expand-ops`.
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Dialect/CUDA/IR/CUDADialect.h"
-#include "mlir-tensorrt/Dialect/CUDA/Transforms/Passes.h" // IWYU pragma: keep
+#include "mlir-tensorrt/Compiler/Dialect/CUDA/IR/CUDADialect.h"
+#include "mlir-tensorrt/Compiler/Dialect/CUDA/Transforms/Passes.h" // IWYU pragma: keep
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/PatternMatch.h"
 #include "llvm/ADT/SmallVector.h"
@@ -16,7 +16,7 @@
 namespace mlir::cuda {
 
 #define GEN_PASS_DEF_CUDAEXPANDOPSPASS
-#include "mlir-tensorrt/Dialect/CUDA/Transforms/Passes.h.inc"
+#include "mlir-tensorrt/Compiler/Dialect/CUDA/Transforms/Passes.h.inc"
 
 } // namespace mlir::cuda
 

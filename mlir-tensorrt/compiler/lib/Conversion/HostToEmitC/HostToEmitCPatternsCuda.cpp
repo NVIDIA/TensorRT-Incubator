@@ -18,7 +18,7 @@
 
 #include "HostToEmitCDetail.h"
 #include "HostToEmitCDetailCommon.h"
-#include "mlir-tensorrt/Dialect/CUDA/IR/CUDADialect.h"
+#include "mlir-tensorrt/Compiler/Dialect/CUDA/IR/CUDADialect.h"
 
 using namespace mlir;
 using namespace mlir::host_to_emitc;
