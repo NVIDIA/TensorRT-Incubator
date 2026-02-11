@@ -170,7 +170,7 @@ endfunction()
 # When MTRT_LINK_MLIR_DYLIB is enabled, this will link against the MLIR dylib
 # instead of the static libraries.
 #
-# Normally this doesn't need to be called direclty, it is called when
+# Normally this doesn't need to be called directly, it is called when
 # mtrt_add_project_library is called.
 #-------------------------------------------------------------------------------------
 function(mtrt_target_link_mlir_libraries target type)
@@ -471,14 +471,21 @@ function(mtrt_add_aggregate_library target)
   set(obj_libs)
   set(link_deps)
   set(interface_include_dirs)
+  set(linked_libs)
   foreach(lib ${bundled_libs})
     if(TARGET obj.${lib})
       list(APPEND obj_libs $<TARGET_OBJECTS:obj.${lib}>)
       list(APPEND link_deps "$<TARGET_GENEX_EVAL:${lib},$<TARGET_PROPERTY:${lib},LINK_LIBRARIES>>")
       list(APPEND interface_include_dirs "$<TARGET_PROPERTY:${lib},INTERFACE_INCLUDE_DIRECTORIES>")
+    elseif(TARGET ${lib})
+      # No OBJECT target: remember to link the library itself.
+      list(APPEND linked_libs ${lib})
     endif()
   endforeach()
-
+  list(REMOVE_DUPLICATES obj_libs)
+  list(REMOVE_DUPLICATES linked_libs)
+  message(STATUS "LAN ADDED obj_libs:${obj_libs}")
+  message(STATUS "LAN ADDED linked_libs:${linked_libs}")
   # We want to filter `${link_deps}` to exclude all the libraries we are
   # bundling. However, `${link_deps}` is a generator expression and doesn't
   # account for direct link dependencies populated transitively.
@@ -489,7 +496,7 @@ function(mtrt_add_aggregate_library target)
   #
   # The CMake property "INTERFACE_LINK_LIBRARIES_DIRECT_EXCLUDE" allows us to
   # enforce a filter on the "direct link dependencies" of any target which
-  # transitively depends on "${target}.filter". This allows us to exlude the
+  # transitively depends on "${target}.filter". This allows us to exclude the
   # non-object counter parts (e.g. the "${lib}" for each "obj.${lib}" library in
   # the set we are bundling) from being linked into the final `${target}`
   # library that we create below. This is only necessary to prevent redundant
@@ -501,7 +508,7 @@ function(mtrt_add_aggregate_library target)
   # to carry the INTERFACE_LINK_LIBRARIES_DIRECT_EXCLUDE information.
   #
   # There is a very important caveat to this approach:
-  # INTERFACE_LINK_LIBRARIES_DIRECT_EXCLUDE cannot guaruntee that a library
+  # INTERFACE_LINK_LIBRARIES_DIRECT_EXCLUDE cannot guarantee that a library
   # listed will NOT be linked by the final shared library. This mechanism will
   # be defeated if we transitively depend on any STATIC/SHARED/INTERFACE library
   # that has one of `${bundled_libs}` in its INTERFACE_LINK_LIBRARIES list.
@@ -531,10 +538,21 @@ function(mtrt_add_aggregate_library target)
     set(lib_type STATIC)
   endif()
 
+  list(REMOVE_DUPLICATES obj_libs)
+  # Ensure at least one source for the aggregate library. When no obj.* targets
+  # are available (e.g., using prebuilt dependencies), create a tiny dummy TU.
+  set(_aggregate_sources ${obj_libs})
+  if(NOT _aggregate_sources)
+    set(_dummy_src "${CMAKE_CURRENT_BINARY_DIR}/${target}_empty.cpp")
+    file(GENERATE OUTPUT "${_dummy_src}" CONTENT
+      "namespace mlir_tensorrt { static int ${target}_empty = 0; }")
+    list(APPEND _aggregate_sources "${_dummy_src}")
+  endif()
   add_library(
     ${target}
     ${exclude_from_all}
     ${lib_type}
+    ${_aggregate_sources}
   )
   set_target_properties(${target} PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY "${LLVM_LIBRARY_OUTPUT_INTDIR}"
@@ -543,7 +561,7 @@ function(mtrt_add_aggregate_library target)
   mtrt_require_defined_symbols(${target})
   # Link the `${target}.filter`, which will populate the exclusion filter
   # that will apply to the final resolved direct link dependencies.
-  target_link_libraries(${target} PRIVATE ${target}.filter ${obj_libs} ${link_deps})
+  target_link_libraries(${target} PRIVATE ${target}.filter ${linked_libs} ${link_deps})
   target_include_directories(${target} INTERFACE
     $<BUILD_INTERFACE:${interface_include_dirs}>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)

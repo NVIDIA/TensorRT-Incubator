@@ -10,3 +10,6 @@ add_mlir_tensorrt_unittest(PJRTCAPITests PJRTCAPITests.cpp)
 target_link_libraries(PJRTCAPITests PRIVATE
   mlir-tensorrt-pjrt
   MLIRTensorRTSupportStatus)
+mtrt_target_link_mlir_libraries(PJRTCAPITests PRIVATE
+  MLIRTransformDialectTransforms
+)
