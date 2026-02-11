@@ -81,6 +81,23 @@ if(PROJECT_IS_TOP_LEVEL)
   list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
   set(LLVM_RUNTIME_OUTPUT_INTDIR ${CMAKE_BINARY_DIR}/bin)
   set(LLVM_LIBRARY_OUTPUT_INTDIR ${CMAKE_BINARY_DIR}/lib)
+  # set(MLIR_MAIN_SRC_DIR  /workspaces/TensorRT-Incubator/mlir-tensorrt/third_party/llvm-project/mlir)
+  if(NOT TARGET MLIRPythonSources)
+    add_library(MLIRPythonSources INTERFACE)
+    set_target_properties(MLIRPythonSources PROPERTIES
+      EXPORT_PROPERTIES "mlir_python_SOURCES_TYPE;mlir_python_DEPENDS"
+      mlir_python_SOURCES_TYPE pure
+      mlir_python_DEPENDS "")
+  endif()
+
+  if(NOT TARGET MLIRPythonExtension.RegisterEverything)
+    add_library(MLIRPythonExtension.RegisterEverything INTERFACE)
+    set_target_properties(MLIRPythonExtension.RegisterEverything PROPERTIES
+      EXPORT_PROPERTIES "mlir_python_SOURCES_TYPE;mlir_python_EXTENSION_MODULE_NAME;mlir_python_DEPENDS"
+      mlir_python_SOURCES_TYPE extension
+      mlir_python_EXTENSION_MODULE_NAME "_mlir"
+      mlir_python_DEPENDS "")
+endif()
 elseif(NOT MLIR_BINARY_DIR)
   set(MLIR_TRT_EXTERNAL_PROJECT_BUILD ON)
   set(MLIR_MAIN_SRC_DIR ${LLVM_MAIN_SRC_DIR}/../mlir)
@@ -149,6 +166,8 @@ include(MLIRDetectPythonEnv)
 mlir_configure_python_dev_packages()
 
 find_package(TVMFFI REQUIRED)
+
+find_package(GTest REQUIRED)
 
 if(MLIR_TRT_ENABLE_CUDATILE)
   find_package(CUDATile REQUIRED)

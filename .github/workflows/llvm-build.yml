@@ -1,0 +1,68 @@
+name: LLVM Build
+
+on:
+  workflow_dispatch:
+  # for test only
+  push:
+    # testing only, it will be triggered via push to main with path filtering
+    branches:
+      - "pull-request/[0-9]+"
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    name: Build on ${{ matrix.config.arch }}
+    runs-on: ${{ matrix.config.runs_on }}
+    container:
+      image: ${{ matrix.config.docker_image }}
+      options: >-
+        --gpus all
+        --shm-size=1g
+    env:
+      LLVM_INSTALL_DIR: ${{ github.workspace }}/third_party/llvm-${{ matrix.config.arch }}-${{ matrix.config.target_os }}
+      LLVM_PACKAGE_NAME: llvm-${{ matrix.config.arch }}-${{ matrix.config.target_os }}.tar.gz
+      LLVM_TARGET_DIR: ${{ github.workspace }}/third_party/llvm-project
+    timeout-minutes: 240
+    strategy:
+      fail-fast: true
+      matrix:
+        config:
+          - {runs_on: 'linux-amd64-gpu-h100-latest-1', docker_image: 'ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda13.0-rockylinux8-0.1', arch: 'x86_64'}
+          - {runs_on: 'linux-arm64-gpu-l4-latest-1', docker_image: 'ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda13.0-rockylinux8-0.1',  arch: 'aarch64'}
+
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v6
+
+      - name: ${{ matrix.config.arch }} - Set up LLVM Build Environment
+        run: |
+          set -euo pipefail
+          set -x
+          cd mlir-tensorrt
+          ./build_tools/scripts/setup-llvm-dev.sh --target-dir ${{ env.LLVM_TARGET_DIR }}
+
+      - name: ${{ matrix.config.arch }} - Build and Install LLVM
+        run: |
+          set -euo pipefail
+          set -x
+          cd mlir-tensorrt
+          ./build_tools/scripts/llvm-build.sh --target-dir ${{ env.LLVM_TARGET_DIR }} --install-dir ${{ env.LLVM_INSTALL_DIR }}
+
+          tar czf "${{ env.LLVM_PACKAGE_NAME }}" "${{ env.LLVM_INSTALL_DIR }}"
+
+      - name: Upload LLVM Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.LLVM_PACKAGE_NAME }}
+          path: mlir-tensorrt
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}-llvm-package-build

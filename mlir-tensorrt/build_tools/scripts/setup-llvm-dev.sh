@@ -144,6 +144,8 @@ git sparse-checkout set cmake llvm mlir third-party utils
 echo "==> Checking out commit ${LLVM_COMMIT}..."
 git checkout "${LLVM_COMMIT}"
 
+git config --global user.email "lanl@nvidia.com"
+git config --global user.name "Lan Luo"
 # Apply patches
 apply_patches
 

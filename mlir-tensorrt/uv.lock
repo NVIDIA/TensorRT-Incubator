@@ -2,26 +2,22 @@ version = 1
 revision = 3
 requires-python = ">=3.10"
 resolution-markers = [
-    "python_full_version >= '3.13' and sys_platform != 'darwin' and sys_platform != 'linux'",
-    "(python_full_version >= '3.15' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux') or (python_full_version >= '3.13' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version >= '3.13' and platform_python_implementation != 'CPython' and sys_platform == 'linux')",
-    "python_full_version >= '3.13' and python_full_version < '3.15' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
+    "python_full_version >= '3.13' and sys_platform != 'darwin'",
     "python_full_version >= '3.13' and sys_platform == 'darwin'",
-    "python_full_version == '3.12.*' and sys_platform != 'darwin' and sys_platform != 'linux'",
-    "(python_full_version == '3.12.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.12.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux')",
-    "python_full_version == '3.12.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
+    "python_full_version == '3.12.*' and sys_platform != 'darwin'",
+    "python_full_version == '3.11.*' and sys_platform != 'darwin'",
+    "python_full_version < '3.11' and sys_platform != 'darwin'",
     "python_full_version == '3.12.*' and sys_platform == 'darwin'",
-    "python_full_version == '3.11.*' and sys_platform != 'darwin' and sys_platform != 'linux'",
-    "(python_full_version == '3.11.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.11.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux')",
-    "python_full_version == '3.11.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.11.*' and sys_platform == 'darwin'",
-    "(python_full_version < '3.11' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version < '3.11' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version < '3.11' and sys_platform != 'darwin' and sys_platform != 'linux')",
-    "python_full_version < '3.11' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version < '3.11' and sys_platform == 'darwin'",
 ]
 conflicts = [[
     { package = "mtrt", extra = "cpu" },
     { package = "mtrt", extra = "cu12" },
     { package = "mtrt", extra = "cu13" },
+], [
+    { package = "mtrt", extra = "flashinfer-cu12" },
+    { package = "mtrt", extra = "flashinfer-cu13" },
 ]]
 
 [[package]]
@@ -70,7 +66,7 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohappyeyeballs" },
     { name = "aiosignal" },
-    { name = "async-timeout", marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
+    { name = "async-timeout", marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
     { name = "attrs" },
     { name = "frozenlist" },
     { name = "multidict" },
@@ -189,7 +185,7 @@ version = "1.4.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "frozenlist" },
-    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/61/62/06741b579156360248d1ec624842ad0edf697050bbaf7c3e46394e106ad1/aiosignal-1.4.0.tar.gz", hash = "sha256:f47eecd9468083c2029cc99945502cb7708b082c232f9aca65da147157b251c7", size = 25007, upload-time = "2025-07-03T22:54:43.528Z" }
 wheels = [
@@ -319,8 +315,8 @@ name = "audioread"
 version = "3.1.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "standard-aifc", marker = "python_full_version >= '3.13' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "standard-sunau", marker = "python_full_version >= '3.13' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
+    { name = "standard-aifc", marker = "python_full_version >= '3.13' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "standard-sunau", marker = "python_full_version >= '3.13' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/a1/4a/874ecf9b472f998130c2b5e145dcdb9f6131e84786111489103b66772143/audioread-3.1.0.tar.gz", hash = "sha256:1c4ab2f2972764c896a8ac61ac53e261c8d29f0c6ccd652f84e18f08a4cab190", size = 20082, upload-time = "2025-10-26T19:44:13.484Z" }
 wheels = [
@@ -360,8 +356,8 @@ dependencies = [
     { name = "pathspec" },
     { name = "platformdirs" },
     { name = "pytokens" },
-    { name = "tomli", marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "typing-extensions", marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
+    { name = "tomli", marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "typing-extensions", marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/8c/ad/33adf4708633d047950ff2dfdea2e215d84ac50ef95aff14a614e4b6e9b2/black-25.11.0.tar.gz", hash = "sha256:9a323ac32f5dc75ce7470501b887250be5005a01602e931a15e45593f70f6e08", size = 655669, upload-time = "2025-11-10T01:53:50.558Z" }
 wheels = [
@@ -402,7 +398,7 @@ name = "cffi"
 version = "2.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pycparser", marker = "implementation_name != 'PyPy' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
+    { name = "pycparser", marker = "implementation_name != 'PyPy' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/eb/56/b1ba7935a17738ae8453301356628e8147c79dbb825bcbc73dc7401f9846/cffi-2.0.0.tar.gz", hash = "sha256:44d1b5909021139fe36001ae048dbdde8214afa20200eda0f64c068cac5d5529", size = 523588, upload-time = "2025-09-08T23:24:04.541Z" }
 wheels = [
@@ -577,7 +573,7 @@ dependencies = [
     { name = "jax" },
     { name = "jaxlib" },
     { name = "numpy" },
-    { name = "setuptools", marker = "python_full_version >= '3.12' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
+    { name = "setuptools", marker = "python_full_version >= '3.12' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
     { name = "toolz" },
     { name = "typing-extensions" },
 ]
@@ -591,7 +587,7 @@ name = "click"
 version = "8.3.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
+    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/3d/fa/656b739db8587d7b5dfa22e22ed02566950fbfbcdc20311993483657a5c0/click-8.3.1.tar.gz", hash = "sha256:12ff4785d337a1bb490bb7e9c2b1ee5da3112e94a8622f26a6c77f5d2fc6842a", size = 295065, upload-time = "2025-11-15T20:45:42.706Z" }
 wheels = [
@@ -612,12 +608,11 @@ name = "contourpy"
 version = "1.3.2"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "(python_full_version < '3.11' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version < '3.11' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version < '3.11' and sys_platform != 'darwin' and sys_platform != 'linux')",
-    "python_full_version < '3.11' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
+    "python_full_version < '3.11' and sys_platform != 'darwin'",
     "python_full_version < '3.11' and sys_platform == 'darwin'",
 ]
 dependencies = [
-    { name = "numpy", marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
+    { name = "numpy", marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/66/54/eb9bfc647b19f2009dd5c7f5ec51c4e6ca831725f1aea7a993034f483147/contourpy-1.3.2.tar.gz", hash = "sha256:b6945942715a034c671b7fc54f9588126b0b8bf23db2696e3ca8328f3ff0ab54", size = 13466130, upload-time = "2025-04-15T17:47:53.79Z" }
 wheels = [
@@ -684,21 +679,15 @@ name = "contourpy"
 version = "1.3.3"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.13' and sys_platform != 'darwin' and sys_platform != 'linux'",
-    "(python_full_version >= '3.15' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux') or (python_full_version >= '3.13' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version >= '3.13' and platform_python_implementation != 'CPython' and sys_platform == 'linux')",
-    "python_full_version >= '3.13' and python_full_version < '3.15' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
+    "python_full_version >= '3.13' and sys_platform != 'darwin'",
     "python_full_version >= '3.13' and sys_platform == 'darwin'",
-    "python_full_version == '3.12.*' and sys_platform != 'darwin' and sys_platform != 'linux'",
-    "(python_full_version == '3.12.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.12.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux')",
-    "python_full_version == '3.12.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
+    "python_full_version == '3.12.*' and sys_platform != 'darwin'",
+    "python_full_version == '3.11.*' and sys_platform != 'darwin'",
     "python_full_version == '3.12.*' and sys_platform == 'darwin'",
-    "python_full_version == '3.11.*' and sys_platform != 'darwin' and sys_platform != 'linux'",
-    "(python_full_version == '3.11.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.11.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux')",
-    "python_full_version == '3.11.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.11.*' and sys_platform == 'darwin'",
 ]
 dependencies = [
-    { name = "numpy", marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
+    { name = "numpy", marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/58/01/1253e6698a07380cd31a736d248a3f2a50a7c88779a1813da27503cadc2a/contourpy-1.3.3.tar.gz", hash = "sha256:083e12155b210502d0bca491432bb04d56dc3432f95a979b429f2848c3dbe880", size = 13466174, upload-time = "2025-07-26T12:03:12.549Z" }
 wheels = [
@@ -780,20 +769,13 @@ name = "cuda-bindings"
 version = "12.9.4"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.13' and sys_platform != 'darwin' and sys_platform != 'linux'",
-    "(python_full_version >= '3.15' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux') or (python_full_version >= '3.13' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version >= '3.13' and platform_python_implementation != 'CPython' and sys_platform == 'linux')",
-    "python_full_version >= '3.13' and python_full_version < '3.15' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
+    "python_full_version >= '3.13' and sys_platform != 'darwin'",
     "python_full_version >= '3.13' and sys_platform == 'darwin'",
-    "python_full_version == '3.12.*' and sys_platform != 'darwin' and sys_platform != 'linux'",
-    "(python_full_version == '3.12.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.12.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux')",
-    "python_full_version == '3.12.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
+    "python_full_version == '3.12.*' and sys_platform != 'darwin'",
+    "python_full_version == '3.11.*' and sys_platform != 'darwin'",
+    "python_full_version < '3.11' and sys_platform != 'darwin'",
     "python_full_version == '3.12.*' and sys_platform == 'darwin'",
-    "python_full_version == '3.11.*' and sys_platform != 'darwin' and sys_platform != 'linux'",
-    "(python_full_version == '3.11.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.11.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux')",
-    "python_full_version == '3.11.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.11.*' and sys_platform == 'darwin'",
-    "(python_full_version < '3.11' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version < '3.11' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version < '3.11' and sys_platform != 'darwin' and sys_platform != 'linux')",
-    "python_full_version < '3.11' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version < '3.11' and sys_platform == 'darwin'",
 ]
 dependencies = [
@@ -828,20 +810,13 @@ name = "cuda-bindings"
 version = "13.0.3"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.13' and sys_platform != 'darwin' and sys_platform != 'linux'",
-    "(python_full_version >= '3.15' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux') or (python_full_version >= '3.13' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version >= '3.13' and platform_python_implementation != 'CPython' and sys_platform == 'linux')",
-    "python_full_version >= '3.13' and python_full_version < '3.15' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
+    "python_full_version >= '3.13' and sys_platform != 'darwin'",
     "python_full_version >= '3.13' and sys_platform == 'darwin'",
-    "python_full_version == '3.12.*' and sys_platform != 'darwin' and sys_platform != 'linux'",
-    "(python_full_version == '3.12.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.12.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux')",
-    "python_full_version == '3.12.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
+    "python_full_version == '3.12.*' and sys_platform != 'darwin'",
+    "python_full_version == '3.11.*' and sys_platform != 'darwin'",
+    "python_full_version < '3.11' and sys_platform != 'darwin'",
     "python_full_version == '3.12.*' and sys_platform == 'darwin'",
-    "python_full_version == '3.11.*' and sys_platform != 'darwin' and sys_platform != 'linux'",
-    "(python_full_version == '3.11.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.11.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux')",
-    "python_full_version == '3.11.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.11.*' and sys_platform == 'darwin'",
-    "(python_full_version < '3.11' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version < '3.11' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version < '3.11' and sys_platform != 'darwin' and sys_platform != 'linux')",
-    "python_full_version < '3.11' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version < '3.11' and sys_platform == 'darwin'",
 ]
 dependencies = [
@@ -884,20 +859,13 @@ name = "cuda-python"
 version = "12.9.4"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.13' and sys_platform != 'darwin' and sys_platform != 'linux'",
-    "(python_full_version >= '3.15' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux') or (python_full_version >= '3.13' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version >= '3.13' and platform_python_implementation != 'CPython' and sys_platform == 'linux')",
-    "python_full_version >= '3.13' and python_full_version < '3.15' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
+    "python_full_version >= '3.13' and sys_platform != 'darwin'",
     "python_full_version >= '3.13' and sys_platform == 'darwin'",
-    "python_full_version == '3.12.*' and sys_platform != 'darwin' and sys_platform != 'linux'",
-    "(python_full_version == '3.12.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.12.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux')",
-    "python_full_version == '3.12.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
+    "python_full_version == '3.12.*' and sys_platform != 'darwin'",
+    "python_full_version == '3.11.*' and sys_platform != 'darwin'",
+    "python_full_version < '3.11' and sys_platform != 'darwin'",
     "python_full_version == '3.12.*' and sys_platform == 'darwin'",
-    "python_full_version == '3.11.*' and sys_platform != 'darwin' and sys_platform != 'linux'",
-    "(python_full_version == '3.11.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.11.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux')",
-    "python_full_version == '3.11.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.11.*' and sys_platform == 'darwin'",
-    "(python_full_version < '3.11' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version < '3.11' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version < '3.11' and sys_platform != 'darwin' and sys_platform != 'linux')",
-    "python_full_version < '3.11' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version < '3.11' and sys_platform == 'darwin'",
 ]
 dependencies = [
@@ -912,20 +880,13 @@ name = "cuda-python"
 version = "13.0.3"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.13' and sys_platform != 'darwin' and sys_platform != 'linux'",
-    "(python_full_version >= '3.15' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux') or (python_full_version >= '3.13' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version >= '3.13' and platform_python_implementation != 'CPython' and sys_platform == 'linux')",
-    "python_full_version >= '3.13' and python_full_version < '3.15' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
+    "python_full_version >= '3.13' and sys_platform != 'darwin'",
     "python_full_version >= '3.13' and sys_platform == 'darwin'",
-    "python_full_version == '3.12.*' and sys_platform != 'darwin' and sys_platform != 'linux'",
-    "(python_full_version == '3.12.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.12.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux')",
-    "python_full_version == '3.12.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
+    "python_full_version == '3.12.*' and sys_platform != 'darwin'",
+    "python_full_version == '3.11.*' and sys_platform != 'darwin'",
+    "python_full_version < '3.11' and sys_platform != 'darwin'",
     "python_full_version == '3.12.*' and sys_platform == 'darwin'",
-    "python_full_version == '3.11.*' and sys_platform != 'darwin' and sys_platform != 'linux'",
-    "(python_full_version == '3.11.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.11.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux')",
-    "python_full_version == '3.11.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.11.*' and sys_platform == 'darwin'",
-    "(python_full_version < '3.11' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version < '3.11' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version < '3.11' and sys_platform != 'darwin' and sys_platform != 'linux')",
-    "python_full_version < '3.11' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version < '3.11' and sys_platform == 'darwin'",
 ]
 dependencies = [
@@ -1085,7 +1046,7 @@ name = "exceptiongroup"
 version = "1.3.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "typing-extensions", marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
+    { name = "typing-extensions", marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/50/79/66800aadf48771f6b62f7eb014e352e5d06856655206165d775e675a02c9/exceptiongroup-1.3.1.tar.gz", hash = "sha256:8b412432c6055b0b7d14c310000ae93352ed6754f70fa8f7c34141f91c4e3219", size = 30371, upload-time = "2025-11-21T23:01:54.787Z" }
 wheels = [
@@ -1151,20 +1112,13 @@ name = "flashinfer-jit-cache"
 version = "0.5.0rc3+cu129"
 source = { registry = "https://flashinfer.ai/whl/cu129" }
 resolution-markers = [
-    "python_full_version >= '3.13' and sys_platform != 'darwin' and sys_platform != 'linux'",
-    "(python_full_version >= '3.15' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux') or (python_full_version >= '3.13' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version >= '3.13' and platform_python_implementation != 'CPython' and sys_platform == 'linux')",
-    "python_full_version >= '3.13' and python_full_version < '3.15' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
+    "python_full_version >= '3.13' and sys_platform != 'darwin'",
     "python_full_version >= '3.13' and sys_platform == 'darwin'",
-    "python_full_version == '3.12.*' and sys_platform != 'darwin' and sys_platform != 'linux'",
-    "(python_full_version == '3.12.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.12.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux')",
-    "python_full_version == '3.12.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
+    "python_full_version == '3.12.*' and sys_platform != 'darwin'",
+    "python_full_version == '3.11.*' and sys_platform != 'darwin'",
+    "python_full_version < '3.11' and sys_platform != 'darwin'",
     "python_full_version == '3.12.*' and sys_platform == 'darwin'",
-    "python_full_version == '3.11.*' and sys_platform != 'darwin' and sys_platform != 'linux'",
-    "(python_full_version == '3.11.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.11.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux')",
-    "python_full_version == '3.11.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.11.*' and sys_platform == 'darwin'",
-    "(python_full_version < '3.11' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version < '3.11' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version < '3.11' and sys_platform != 'darwin' and sys_platform != 'linux')",
-    "python_full_version < '3.11' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version < '3.11' and sys_platform == 'darwin'",
 ]
 wheels = [
@@ -1177,20 +1131,13 @@ name = "flashinfer-jit-cache"
 version = "0.5.0rc3+cu130"
 source = { registry = "https://flashinfer.ai/whl/cu130" }
 resolution-markers = [
-    "python_full_version >= '3.13' and sys_platform != 'darwin' and sys_platform != 'linux'",
-    "(python_full_version >= '3.15' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux') or (python_full_version >= '3.13' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version >= '3.13' and platform_python_implementation != 'CPython' and sys_platform == 'linux')",
-    "python_full_version >= '3.13' and python_full_version < '3.15' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
+    "python_full_version >= '3.13' and sys_platform != 'darwin'",
     "python_full_version >= '3.13' and sys_platform == 'darwin'",
-    "python_full_version == '3.12.*' and sys_platform != 'darwin' and sys_platform != 'linux'",
-    "(python_full_version == '3.12.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.12.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux')",
-    "python_full_version == '3.12.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
+    "python_full_version == '3.12.*' and sys_platform != 'darwin'",
+    "python_full_version == '3.11.*' and sys_platform != 'darwin'",
+    "python_full_version < '3.11' and sys_platform != 'darwin'",
     "python_full_version == '3.12.*' and sys_platform == 'darwin'",
-    "python_full_version == '3.11.*' and sys_platform != 'darwin' and sys_platform != 'linux'",
-    "(python_full_version == '3.11.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.11.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux')",
-    "python_full_version == '3.11.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.11.*' and sys_platform == 'darwin'",
-    "(python_full_version < '3.11' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version < '3.11' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version < '3.11' and sys_platform != 'darwin' and sys_platform != 'linux')",
-    "python_full_version < '3.11' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version < '3.11' and sys_platform == 'darwin'",
 ]
 wheels = [
@@ -1205,13 +1152,13 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "jax" },
     { name = "msgpack" },
-    { name = "numpy", marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
+    { name = "numpy", marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
     { name = "optax" },
     { name = "orbax-checkpoint" },
     { name = "pyyaml" },
     { name = "rich" },
-    { name = "tensorstore", version = "0.1.78", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "tensorstore", version = "0.1.79", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
+    { name = "tensorstore", version = "0.1.78", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "tensorstore", version = "0.1.79", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
     { name = "treescope" },
     { name = "typing-extensions" },
 ]
@@ -1421,8 +1368,8 @@ dependencies = [
     { name = "accessible-pygments" },
     { name = "beautifulsoup4" },
     { name = "pygments" },
-    { name = "sphinx", version = "8.1.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "sphinx", version = "8.2.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
+    { name = "sphinx", version = "8.1.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "sphinx", version = "8.2.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
     { name = "sphinx-basic-ng" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/4e/29/ff3b83a1ffce74676043ab3e7540d398e0b1ce7660917a00d7c4958b93da/furo-2025.9.25.tar.gz", hash = "sha256:3eac05582768fdbbc2bdfa1cdbcdd5d33cfc8b4bd2051729ff4e026a1d7e0a98", size = 1662007, upload-time = "2025-09-25T21:37:19.221Z" }
@@ -1466,7 +1413,7 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "filelock" },
     { name = "fsspec" },
-    { name = "hf-xet", marker = "platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'arm64' or platform_machine == 'x86_64' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
+    { name = "hf-xet", marker = "platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'arm64' or platform_machine == 'x86_64' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
     { name = "packaging" },
     { name = "pyyaml" },
     { name = "requests" },
@@ -1532,8 +1479,8 @@ dependencies = [
     { name = "ml-dtypes" },
     { name = "numpy" },
     { name = "opt-einsum" },
-    { name = "scipy", version = "1.15.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "scipy", version = "1.16.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
+    { name = "scipy", version = "1.15.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "scipy", version = "1.16.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/13/e5/dabb73ab10330e9535aba14fc668b04a46fcd8e78f06567c4f4f1adce340/jax-0.5.3.tar.gz", hash = "sha256:f17fcb0fd61dc289394af6ce4de2dada2312f2689bb0d73642c6f026a95fbb2c", size = 2072748, upload-time = "2025-03-19T18:23:40.901Z" }
 wheels = [
@@ -1582,8 +1529,8 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "ml-dtypes" },
     { name = "numpy" },
-    { name = "scipy", version = "1.15.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "scipy", version = "1.16.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
+    { name = "scipy", version = "1.15.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "scipy", version = "1.16.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/2e/12/b1da8468ad843b30976b0e87c6b344ee621fb75ef8bbd39156a303f59059/jaxlib-0.5.3-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:48ff5c89fb8a0fe04d475e9ddc074b4879a91d7ab68a51cec5cd1e87f81e6c47", size = 63694868, upload-time = "2025-03-19T18:23:52.193Z" },
@@ -1760,17 +1707,26 @@ dependencies = [
     { name = "numpy" },
     { name = "pooch" },
     { name = "scikit-learn" },
-    { name = "scipy", version = "1.15.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "scipy", version = "1.16.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
+    { name = "scipy", version = "1.15.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "scipy", version = "1.16.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
     { name = "soundfile" },
     { name = "soxr" },
-    { name = "standard-aifc", marker = "python_full_version >= '3.13' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "standard-sunau", marker = "python_full_version >= '3.13' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
+    { name = "standard-aifc", marker = "python_full_version >= '3.13' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "standard-sunau", marker = "python_full_version >= '3.13' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
     { name = "typing-extensions" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/64/36/360b5aafa0238e29758729e9486c6ed92a6f37fa403b7875e06c115cdf4a/librosa-0.11.0.tar.gz", hash = "sha256:f5ed951ca189b375bbe2e33b2abd7e040ceeee302b9bbaeeffdfddb8d0ace908", size = 327001, upload-time = "2025-03-11T15:09:54.884Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b5/ba/c63c5786dfee4c3417094c4b00966e61e4a63efecee22cb7b4c0387dda83/librosa-0.11.0-py3-none-any.whl", hash = "sha256:0b6415c4fd68bff4c29288abe67c6d80b587e0e1e2cfb0aad23e4559504a7fa1", size = 260749, upload-time = "2025-03-11T15:09:52.982Z" },
+]
+
+[[package]]
+name = "lit"
+version = "18.1.8"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/47/b4/d7e210971494db7b9a9ac48ff37dfa59a8b14c773f9cf47e6bda58411c0d/lit-18.1.8.tar.gz", hash = "sha256:47c174a186941ae830f04ded76a3444600be67d5e5fb8282c3783fba671c4edb", size = 161127, upload-time = "2024-06-25T14:33:14.489Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/96/06/b36f150fa7c5bcc96a31a4d19a20fddbd1d965b6f02510b57a3bb8d4b930/lit-18.1.8-py3-none-any.whl", hash = "sha256:a873ff7acd76e746368da32eb7355625e2e55a2baaab884c9cc130f2ee0300f7", size = 96365, upload-time = "2024-06-25T14:33:12.101Z" },
 ]
 
 [[package]]
@@ -1903,8 +1859,8 @@ name = "matplotlib"
 version = "3.10.7"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "contourpy", version = "1.3.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "contourpy", version = "1.3.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
+    { name = "contourpy", version = "1.3.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "contourpy", version = "1.3.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
     { name = "cycler" },
     { name = "fonttools" },
     { name = "kiwisolver" },
@@ -2120,6 +2076,7 @@ dependencies = [
     { name = "einops" },
     { name = "flax" },
     { name = "librosa" },
+    { name = "lit" },
     { name = "matplotlib" },
     { name = "ml-dtypes" },
     { name = "nanobind" },
@@ -2136,10 +2093,10 @@ dependencies = [
     { name = "pyyaml" },
     { name = "sh" },
     { name = "soundfile" },
-    { name = "torch", version = "2.10.0.dev20251110", source = { registry = "https://download.pytorch.org/whl/nightly/cpu" }, marker = "sys_platform == 'darwin' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "torch", version = "2.10.0.dev20251110+cpu", source = { registry = "https://download.pytorch.org/whl/nightly/cpu" }, marker = "sys_platform != 'darwin' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "torchvision", version = "0.25.0.dev20251111", source = { registry = "https://download.pytorch.org/whl/nightly/cpu" }, marker = "(python_full_version < '3.15' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux') or (python_full_version >= '3.15' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (python_full_version >= '3.15' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (python_full_version >= '3.15' and extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (platform_machine != 'aarch64' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (platform_machine != 'aarch64' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (platform_machine != 'aarch64' and extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (platform_python_implementation != 'CPython' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (platform_python_implementation != 'CPython' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (platform_python_implementation != 'CPython' and extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or sys_platform == 'darwin' or (sys_platform != 'linux' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (sys_platform != 'linux' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (sys_platform != 'linux' and extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "torchvision", version = "0.25.0.dev20251111+cpu", source = { registry = "https://download.pytorch.org/whl/nightly/cpu" }, marker = "(python_full_version >= '3.15' and sys_platform == 'linux') or (python_full_version < '3.15' and sys_platform == 'linux' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (python_full_version < '3.15' and sys_platform == 'linux' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (python_full_version < '3.15' and sys_platform == 'linux' and extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (platform_machine != 'aarch64' and sys_platform == 'linux') or (platform_python_implementation != 'CPython' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux') or (sys_platform == 'darwin' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (sys_platform == 'darwin' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (sys_platform == 'darwin' and extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
+    { name = "torch", version = "2.11.0.dev20260209", source = { registry = "https://download.pytorch.org/whl/nightly/cpu" }, marker = "sys_platform == 'darwin' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "torch", version = "2.11.0.dev20260209+cpu", source = { registry = "https://download.pytorch.org/whl/nightly/cpu" }, marker = "sys_platform != 'darwin' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "torchvision", version = "0.26.0.dev20260209", source = { registry = "https://download.pytorch.org/whl/nightly/cpu" }, marker = "sys_platform == 'darwin' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "torchvision", version = "0.26.0.dev20260209+cpu", source = { registry = "https://download.pytorch.org/whl/nightly/cpu" }, marker = "sys_platform != 'darwin' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
     { name = "tqdm" },
     { name = "transformers" },
 ]
@@ -2151,21 +2108,25 @@ cpu = [
 cu12 = [
     { name = "cuda-python", version = "12.9.4", source = { registry = "https://pypi.org/simple" } },
     { name = "cupy-cuda12x" },
-    { name = "flashinfer-jit-cache", version = "0.5.0rc3+cu129", source = { registry = "https://flashinfer.ai/whl/cu129" } },
-    { name = "jax", extra = ["cuda12-local"], marker = "extra == 'extra-4-mtrt-cu12' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13')" },
+    { name = "jax", extra = ["cuda12-local"], marker = "extra == 'extra-4-mtrt-cu12' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra != 'extra-4-mtrt-cu13' and extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13') or (extra != 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
 ]
 cu13 = [
     { name = "cuda-python", version = "13.0.3", source = { registry = "https://pypi.org/simple" } },
     { name = "cupy-cuda13x" },
-    { name = "flashinfer-jit-cache", version = "0.5.0rc3+cu130", source = { registry = "https://flashinfer.ai/whl/cu130" } },
     { name = "jax" },
 ]
 docs = [
     { name = "furo" },
     { name = "myst-parser" },
-    { name = "sphinx", version = "8.1.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "sphinx", version = "8.2.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
+    { name = "sphinx", version = "8.1.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "sphinx", version = "8.2.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
     { name = "sphinx-copybutton" },
+]
+flashinfer-cu12 = [
+    { name = "flashinfer-jit-cache", version = "0.5.0rc3+cu129", source = { registry = "https://flashinfer.ai/whl/cu129" } },
+]
+flashinfer-cu13 = [
+    { name = "flashinfer-jit-cache", version = "0.5.0rc3+cu130", source = { registry = "https://flashinfer.ai/whl/cu130" } },
 ]
 
 [package.metadata]
@@ -2179,14 +2140,15 @@ requires-dist = [
     { name = "cupy-cuda13x", marker = "extra == 'cu13'", specifier = ">=13.6.0" },
     { name = "datasets", specifier = "==2.14.5" },
     { name = "einops", specifier = ">=0.8.1" },
-    { name = "flashinfer-jit-cache", marker = "extra == 'cu12'", specifier = "==0.5.0rc3", index = "https://flashinfer.ai/whl/cu129", conflict = { package = "mtrt", extra = "cu12" } },
-    { name = "flashinfer-jit-cache", marker = "extra == 'cu13'", specifier = "==0.5.0rc3", index = "https://flashinfer.ai/whl/cu130", conflict = { package = "mtrt", extra = "cu13" } },
+    { name = "flashinfer-jit-cache", marker = "extra == 'flashinfer-cu12'", specifier = "==0.5.0rc3", index = "https://flashinfer.ai/whl/cu129", conflict = { package = "mtrt", extra = "flashinfer-cu12" } },
+    { name = "flashinfer-jit-cache", marker = "extra == 'flashinfer-cu13'", specifier = "==0.5.0rc3", index = "https://flashinfer.ai/whl/cu130", conflict = { package = "mtrt", extra = "flashinfer-cu13" } },
     { name = "flax" },
     { name = "furo", marker = "extra == 'docs'", specifier = ">=2025.9.25" },
     { name = "jax", marker = "extra == 'cpu'", specifier = "==0.5.3" },
     { name = "jax", marker = "extra == 'cu13'", specifier = "==0.5.3" },
     { name = "jax", extras = ["cuda12-local"], marker = "extra == 'cu12'", specifier = "==0.5.3" },
     { name = "librosa", specifier = ">=0.11.0" },
+    { name = "lit" },
     { name = "matplotlib", specifier = ">=3.10.6" },
     { name = "ml-dtypes", marker = "python_full_version < '3.13'", specifier = ">=0.1.0" },
     { name = "ml-dtypes", marker = "python_full_version >= '3.13'", specifier = ">=0.5.0" },
@@ -2207,19 +2169,19 @@ requires-dist = [
     { name = "soundfile", specifier = ">=0.13.1" },
     { name = "sphinx", marker = "extra == 'docs'", specifier = ">=8.1.3" },
     { name = "sphinx-copybutton", marker = "extra == 'docs'", specifier = ">=0.5.2" },
-    { name = "torch", specifier = "==2.10.0.dev20251110", index = "https://download.pytorch.org/whl/nightly/cpu" },
-    { name = "torchvision", specifier = "==0.25.0.dev20251111", index = "https://download.pytorch.org/whl/nightly/cpu" },
+    { name = "torch", specifier = "==2.11.0.dev20260209", index = "https://download.pytorch.org/whl/nightly/cpu" },
+    { name = "torchvision", specifier = "==0.26.0.dev20260209", index = "https://download.pytorch.org/whl/nightly/cpu" },
     { name = "tqdm", specifier = ">=4.67.1" },
     { name = "transformers", specifier = ">=4.56.2" },
 ]
-provides-extras = ["docs", "cu12", "cu13", "cpu"]
+provides-extras = ["docs", "cu12", "cu13", "flashinfer-cu12", "flashinfer-cu13", "cpu"]
 
 [[package]]
 name = "multidict"
 version = "6.7.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "typing-extensions", marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
+    { name = "typing-extensions", marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/80/1e/5492c365f222f907de1039b91f922b93fa4f764c713ee858d235495d8f50/multidict-6.7.0.tar.gz", hash = "sha256:c6e99d9a65ca282e578dfea819cfa9c0a62b2499d8677392e09feaf305e9e6f5", size = 101834, upload-time = "2025-10-06T14:52:30.657Z" }
 wheels = [
@@ -2388,8 +2350,8 @@ dependencies = [
     { name = "markdown-it-py" },
     { name = "mdit-py-plugins" },
     { name = "pyyaml" },
-    { name = "sphinx", version = "8.1.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "sphinx", version = "8.2.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
+    { name = "sphinx", version = "8.1.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "sphinx", version = "8.2.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/66/a5/9626ba4f73555b3735ad86247a8077d4603aa8628537687c839ab08bfe44/myst_parser-4.0.1.tar.gz", hash = "sha256:5cfea715e4f3574138aecbf7d54132296bfd72bb614d31168f48c477a830a7c4", size = 93985, upload-time = "2025-02-12T10:53:03.833Z" }
 wheels = [
@@ -2419,8 +2381,7 @@ name = "networkx"
 version = "3.4.2"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "(python_full_version < '3.11' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version < '3.11' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version < '3.11' and sys_platform != 'darwin' and sys_platform != 'linux')",
-    "python_full_version < '3.11' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
+    "python_full_version < '3.11' and sys_platform != 'darwin'",
     "python_full_version < '3.11' and sys_platform == 'darwin'",
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/fd/1d/06475e1cd5264c0b870ea2cc6fdb3e37177c1e565c43f56ff17a10e3937f/networkx-3.4.2.tar.gz", hash = "sha256:307c3669428c5362aab27c8a1260aa8f47c4e91d3891f48be0141738d8d053e1", size = 2151368, upload-time = "2024-10-21T12:39:38.695Z" }
@@ -2433,17 +2394,11 @@ name = "networkx"
 version = "3.5"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.13' and sys_platform != 'darwin' and sys_platform != 'linux'",
-    "(python_full_version >= '3.15' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux') or (python_full_version >= '3.13' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version >= '3.13' and platform_python_implementation != 'CPython' and sys_platform == 'linux')",
-    "python_full_version >= '3.13' and python_full_version < '3.15' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
+    "python_full_version >= '3.13' and sys_platform != 'darwin'",
     "python_full_version >= '3.13' and sys_platform == 'darwin'",
-    "python_full_version == '3.12.*' and sys_platform != 'darwin' and sys_platform != 'linux'",
-    "(python_full_version == '3.12.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.12.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux')",
-    "python_full_version == '3.12.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
+    "python_full_version == '3.12.*' and sys_platform != 'darwin'",
+    "python_full_version == '3.11.*' and sys_platform != 'darwin'",
     "python_full_version == '3.12.*' and sys_platform == 'darwin'",
-    "python_full_version == '3.11.*' and sys_platform != 'darwin' and sys_platform != 'linux'",
-    "(python_full_version == '3.11.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.11.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux')",
-    "python_full_version == '3.11.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.11.*' and sys_platform == 'darwin'",
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/6c/4f/ccdb8ad3a38e583f214547fd2f7ff1fc160c43a75af88e6aec213404b96a/networkx-3.5.tar.gz", hash = "sha256:d4c6f9cf81f52d69230866796b82afbccdec3db7ae4fbd1b65ea750feed50037", size = 2471065, upload-time = "2025-05-29T11:35:07.804Z" }
@@ -2625,8 +2580,8 @@ dependencies = [
     { name = "protobuf" },
     { name = "pyyaml" },
     { name = "simplejson" },
-    { name = "tensorstore", version = "0.1.78", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "tensorstore", version = "0.1.79", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
+    { name = "tensorstore", version = "0.1.78", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "tensorstore", version = "0.1.79", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
     { name = "typing-extensions" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/52/24/44915f33cbea4cfd35f654a5ba01d248447bc007f1d049dd20bf58592820/orbax_checkpoint-0.11.24.tar.gz", hash = "sha256:4e7afe927d1ed6d8160bacf5ed4fef56c1370320e0ebdfda213c6351a2e3c0d0", size = 372123, upload-time = "2025-08-28T20:51:49.089Z" }
@@ -3092,13 +3047,13 @@ name = "pytest"
 version = "9.0.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "exceptiongroup", marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
+    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "exceptiongroup", marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
     { name = "iniconfig" },
     { name = "packaging" },
     { name = "pluggy" },
     { name = "pygments" },
-    { name = "tomli", marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
+    { name = "tomli", marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/07/56/f013048ac4bc4c1d9be45afd4ab209ea62822fb1598f40687e6bf45dcea4/pytest-9.0.1.tar.gz", hash = "sha256:3e9c069ea73583e255c3b21cf46b8d3c56f6e3a1a8f6da94ccb0fcf57b9d73c8", size = 1564125, upload-time = "2025-11-12T13:05:09.333Z" }
 wheels = [
@@ -3356,8 +3311,8 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "joblib" },
     { name = "numpy" },
-    { name = "scipy", version = "1.15.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "scipy", version = "1.16.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
+    { name = "scipy", version = "1.15.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "scipy", version = "1.16.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
     { name = "threadpoolctl" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/98/c2/a7855e41c9d285dfe86dc50b250978105dce513d6e459ea66a6aeb0e1e0c/scikit_learn-1.7.2.tar.gz", hash = "sha256:20e9e49ecd130598f1ca38a1d85090e1a600147b9c02fa6f15d69cb53d968fda", size = 7193136, upload-time = "2025-09-09T08:21:29.075Z" }
@@ -3399,12 +3354,11 @@ name = "scipy"
 version = "1.15.3"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "(python_full_version < '3.11' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version < '3.11' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version < '3.11' and sys_platform != 'darwin' and sys_platform != 'linux')",
-    "python_full_version < '3.11' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
+    "python_full_version < '3.11' and sys_platform != 'darwin'",
     "python_full_version < '3.11' and sys_platform == 'darwin'",
 ]
 dependencies = [
-    { name = "numpy", marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
+    { name = "numpy", marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/0f/37/6964b830433e654ec7485e45a00fc9a27cf868d622838f6b6d9c5ec0d532/scipy-1.15.3.tar.gz", hash = "sha256:eae3cf522bc7df64b42cad3925c876e1b0b6c35c1337c93e12c0f366f55b0eaf", size = 59419214, upload-time = "2025-05-08T16:13:05.955Z" }
 wheels = [
@@ -3460,21 +3414,15 @@ name = "scipy"
 version = "1.16.3"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.13' and sys_platform != 'darwin' and sys_platform != 'linux'",
-    "(python_full_version >= '3.15' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux') or (python_full_version >= '3.13' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version >= '3.13' and platform_python_implementation != 'CPython' and sys_platform == 'linux')",
-    "python_full_version >= '3.13' and python_full_version < '3.15' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
+    "python_full_version >= '3.13' and sys_platform != 'darwin'",
     "python_full_version >= '3.13' and sys_platform == 'darwin'",
-    "python_full_version == '3.12.*' and sys_platform != 'darwin' and sys_platform != 'linux'",
-    "(python_full_version == '3.12.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.12.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux')",
-    "python_full_version == '3.12.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
+    "python_full_version == '3.12.*' and sys_platform != 'darwin'",
+    "python_full_version == '3.11.*' and sys_platform != 'darwin'",
     "python_full_version == '3.12.*' and sys_platform == 'darwin'",
-    "python_full_version == '3.11.*' and sys_platform != 'darwin' and sys_platform != 'linux'",
-    "(python_full_version == '3.11.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.11.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux')",
-    "python_full_version == '3.11.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.11.*' and sys_platform == 'darwin'",
 ]
 dependencies = [
-    { name = "numpy", marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
+    { name = "numpy", marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/0a/ca/d8ace4f98322d01abcd52d381134344bf7b431eba7ed8b42bdea5a3c2ac9/scipy-1.16.3.tar.gz", hash = "sha256:01e87659402762f43bd2fee13370553a17ada367d42e7487800bf2916535aecb", size = 30597883, upload-time = "2025-10-28T17:38:54.068Z" }
 wheels = [
@@ -3701,28 +3649,27 @@ name = "sphinx"
 version = "8.1.3"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "(python_full_version < '3.11' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version < '3.11' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version < '3.11' and sys_platform != 'darwin' and sys_platform != 'linux')",
-    "python_full_version < '3.11' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
+    "python_full_version < '3.11' and sys_platform != 'darwin'",
     "python_full_version < '3.11' and sys_platform == 'darwin'",
 ]
 dependencies = [
-    { name = "alabaster", marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "babel", marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "colorama", marker = "(python_full_version < '3.11' and sys_platform == 'win32') or (python_full_version >= '3.11' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (python_full_version >= '3.11' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (python_full_version >= '3.11' and extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (sys_platform != 'win32' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (sys_platform != 'win32' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (sys_platform != 'win32' and extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "docutils", marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "imagesize", marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "jinja2", marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "packaging", marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "pygments", marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "requests", marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "snowballstemmer", marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "sphinxcontrib-applehelp", marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "sphinxcontrib-devhelp", marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "sphinxcontrib-htmlhelp", marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "sphinxcontrib-jsmath", marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "sphinxcontrib-qthelp", marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "sphinxcontrib-serializinghtml", marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "tomli", marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
+    { name = "alabaster", marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "babel", marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "colorama", marker = "(python_full_version < '3.11' and sys_platform == 'win32') or (python_full_version >= '3.11' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (python_full_version >= '3.11' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (python_full_version >= '3.11' and extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (python_full_version >= '3.11' and extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13') or (sys_platform != 'win32' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (sys_platform != 'win32' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (sys_platform != 'win32' and extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (sys_platform != 'win32' and extra != 'extra-4-mtrt-cu13' and extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13') or (sys_platform != 'win32' and extra != 'extra-4-mtrt-cpu' and extra != 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "docutils", marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "imagesize", marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "jinja2", marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "packaging", marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "pygments", marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "requests", marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "snowballstemmer", marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "sphinxcontrib-applehelp", marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "sphinxcontrib-devhelp", marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "sphinxcontrib-htmlhelp", marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "sphinxcontrib-jsmath", marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "sphinxcontrib-qthelp", marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "sphinxcontrib-serializinghtml", marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "tomli", marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/6f/6d/be0b61178fe2cdcb67e2a92fc9ebb488e3c51c4f74a36a7824c0adf23425/sphinx-8.1.3.tar.gz", hash = "sha256:43c1911eecb0d3e161ad78611bc905d1ad0e523e4ddc202a58a821773dc4c927", size = 8184611, upload-time = "2024-10-13T20:27:13.93Z" }
 wheels = [
@@ -3734,37 +3681,31 @@ name = "sphinx"
 version = "8.2.3"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.13' and sys_platform != 'darwin' and sys_platform != 'linux'",
-    "(python_full_version >= '3.15' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux') or (python_full_version >= '3.13' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version >= '3.13' and platform_python_implementation != 'CPython' and sys_platform == 'linux')",
-    "python_full_version >= '3.13' and python_full_version < '3.15' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
+    "python_full_version >= '3.13' and sys_platform != 'darwin'",
     "python_full_version >= '3.13' and sys_platform == 'darwin'",
-    "python_full_version == '3.12.*' and sys_platform != 'darwin' and sys_platform != 'linux'",
-    "(python_full_version == '3.12.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.12.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux')",
-    "python_full_version == '3.12.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
+    "python_full_version == '3.12.*' and sys_platform != 'darwin'",
+    "python_full_version == '3.11.*' and sys_platform != 'darwin'",
     "python_full_version == '3.12.*' and sys_platform == 'darwin'",
-    "python_full_version == '3.11.*' and sys_platform != 'darwin' and sys_platform != 'linux'",
-    "(python_full_version == '3.11.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.11.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux')",
-    "python_full_version == '3.11.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.11.*' and sys_platform == 'darwin'",
 ]
 dependencies = [
-    { name = "alabaster", marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "babel", marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "colorama", marker = "(python_full_version >= '3.11' and sys_platform == 'win32') or (python_full_version < '3.11' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (python_full_version < '3.11' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (python_full_version < '3.11' and extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (sys_platform != 'win32' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (sys_platform != 'win32' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (sys_platform != 'win32' and extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "docutils", marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "imagesize", marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "jinja2", marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "packaging", marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "pygments", marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "requests", marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "roman-numerals-py", marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "snowballstemmer", marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "sphinxcontrib-applehelp", marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "sphinxcontrib-devhelp", marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "sphinxcontrib-htmlhelp", marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "sphinxcontrib-jsmath", marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "sphinxcontrib-qthelp", marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "sphinxcontrib-serializinghtml", marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
+    { name = "alabaster", marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "babel", marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "colorama", marker = "(python_full_version >= '3.11' and sys_platform == 'win32') or (python_full_version < '3.11' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (python_full_version < '3.11' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (python_full_version < '3.11' and extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (python_full_version < '3.11' and extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13') or (sys_platform != 'win32' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (sys_platform != 'win32' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (sys_platform != 'win32' and extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (sys_platform != 'win32' and extra != 'extra-4-mtrt-cu13' and extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13') or (sys_platform != 'win32' and extra != 'extra-4-mtrt-cpu' and extra != 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "docutils", marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "imagesize", marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "jinja2", marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "packaging", marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "pygments", marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "requests", marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "roman-numerals-py", marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "snowballstemmer", marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "sphinxcontrib-applehelp", marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "sphinxcontrib-devhelp", marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "sphinxcontrib-htmlhelp", marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "sphinxcontrib-jsmath", marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "sphinxcontrib-qthelp", marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "sphinxcontrib-serializinghtml", marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/38/ad/4360e50ed56cb483667b8e6dadf2d3fda62359593faabbe749a27c4eaca6/sphinx-8.2.3.tar.gz", hash = "sha256:398ad29dee7f63a75888314e9424d40f52ce5a6a87ae88e7071e80af296ec348", size = 8321876, upload-time = "2025-03-02T22:31:59.658Z" }
 wheels = [
@@ -3776,8 +3717,8 @@ name = "sphinx-basic-ng"
 version = "1.0.0b2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "sphinx", version = "8.1.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "sphinx", version = "8.2.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
+    { name = "sphinx", version = "8.1.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "sphinx", version = "8.2.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/98/0b/a866924ded68efec7a1759587a4e478aec7559d8165fac8b2ad1c0e774d6/sphinx_basic_ng-1.0.0b2.tar.gz", hash = "sha256:9ec55a47c90c8c002b5960c57492ec3021f5193cb26cebc2dc4ea226848651c9", size = 20736, upload-time = "2023-07-08T18:40:54.166Z" }
 wheels = [
@@ -3789,8 +3730,8 @@ name = "sphinx-copybutton"
 version = "0.5.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "sphinx", version = "8.1.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "sphinx", version = "8.2.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
+    { name = "sphinx", version = "8.1.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "sphinx", version = "8.2.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/fc/2b/a964715e7f5295f77509e59309959f4125122d648f86b4fe7d70ca1d882c/sphinx-copybutton-0.5.2.tar.gz", hash = "sha256:4cf17c82fb9646d1bc9ca92ac280813a3b605d8c421225fd9913154103ee1fbd", size = 23039, upload-time = "2023-04-14T08:10:22.998Z" }
 wheels = [
@@ -3856,8 +3797,8 @@ name = "standard-aifc"
 version = "3.13.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "audioop-lts", marker = "python_full_version >= '3.13' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "standard-chunk", marker = "python_full_version >= '3.13' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
+    { name = "audioop-lts", marker = "python_full_version >= '3.13' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "standard-chunk", marker = "python_full_version >= '3.13' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/c4/53/6050dc3dde1671eb3db592c13b55a8005e5040131f7509cef0215212cb84/standard_aifc-3.13.0.tar.gz", hash = "sha256:64e249c7cb4b3daf2fdba4e95721f811bde8bdfc43ad9f936589b7bb2fae2e43", size = 15240, upload-time = "2024-10-30T16:01:31.772Z" }
 wheels = [
@@ -3878,7 +3819,7 @@ name = "standard-sunau"
 version = "3.13.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "audioop-lts", marker = "python_full_version >= '3.13' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
+    { name = "audioop-lts", marker = "python_full_version >= '3.13' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/66/e3/ce8d38cb2d70e05ffeddc28bb09bad77cfef979eb0a299c9117f7ed4e6a9/standard_sunau-3.13.0.tar.gz", hash = "sha256:b319a1ac95a09a2378a8442f403c66f4fd4b36616d6df6ae82b8e536ee790908", size = 9368, upload-time = "2024-10-30T16:01:41.626Z" }
 wheels = [
@@ -3902,13 +3843,12 @@ name = "tensorstore"
 version = "0.1.78"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "(python_full_version < '3.11' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version < '3.11' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version < '3.11' and sys_platform != 'darwin' and sys_platform != 'linux')",
-    "python_full_version < '3.11' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
+    "python_full_version < '3.11' and sys_platform != 'darwin'",
     "python_full_version < '3.11' and sys_platform == 'darwin'",
 ]
 dependencies = [
-    { name = "ml-dtypes", marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "numpy", marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
+    { name = "ml-dtypes", marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "numpy", marker = "python_full_version < '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/9f/ee/05eb424437f4db63331c90e4605025eedc0f71da3faff97161d5d7b405af/tensorstore-0.1.78.tar.gz", hash = "sha256:e26074ffe462394cf54197eb76d6569b500f347573cd74da3f4dd5f510a4ad7c", size = 6913502, upload-time = "2025-10-06T17:44:29.649Z" }
 wheels = [
@@ -3939,22 +3879,16 @@ name = "tensorstore"
 version = "0.1.79"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.13' and sys_platform != 'darwin' and sys_platform != 'linux'",
-    "(python_full_version >= '3.15' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux') or (python_full_version >= '3.13' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version >= '3.13' and platform_python_implementation != 'CPython' and sys_platform == 'linux')",
-    "python_full_version >= '3.13' and python_full_version < '3.15' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
+    "python_full_version >= '3.13' and sys_platform != 'darwin'",
     "python_full_version >= '3.13' and sys_platform == 'darwin'",
-    "python_full_version == '3.12.*' and sys_platform != 'darwin' and sys_platform != 'linux'",
-    "(python_full_version == '3.12.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.12.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux')",
-    "python_full_version == '3.12.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
+    "python_full_version == '3.12.*' and sys_platform != 'darwin'",
+    "python_full_version == '3.11.*' and sys_platform != 'darwin'",
     "python_full_version == '3.12.*' and sys_platform == 'darwin'",
-    "python_full_version == '3.11.*' and sys_platform != 'darwin' and sys_platform != 'linux'",
-    "(python_full_version == '3.11.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.11.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux')",
-    "python_full_version == '3.11.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.11.*' and sys_platform == 'darwin'",
 ]
 dependencies = [
-    { name = "ml-dtypes", marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "numpy", marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
+    { name = "ml-dtypes", marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "numpy", marker = "python_full_version >= '3.11' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/26/2c/50ab489a0862ca88d2d766130a6fec45ccd5174f0e04081d8b7b07a8aedd/tensorstore-0.1.79.tar.gz", hash = "sha256:8dad44a8a7f2952a5d0030a8bd868b3cfdff048bd40ab53e7226f3d8b0881c5e", size = 7075782, upload-time = "2025-11-11T22:05:23.824Z" }
 wheels = [
@@ -4074,7 +4008,7 @@ wheels = [
 
 [[package]]
 name = "torch"
-version = "2.10.0.dev20251110"
+version = "2.11.0.dev20260209"
 source = { registry = "https://download.pytorch.org/whl/nightly/cpu" }
 resolution-markers = [
     "python_full_version >= '3.13' and sys_platform == 'darwin'",
@@ -4083,149 +4017,138 @@ resolution-markers = [
     "python_full_version < '3.11' and sys_platform == 'darwin'",
 ]
 dependencies = [
-    { name = "filelock", marker = "sys_platform == 'darwin' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "fsspec", marker = "sys_platform == 'darwin' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "jinja2", marker = "sys_platform == 'darwin' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "networkx", version = "3.4.2", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and sys_platform == 'darwin') or (python_full_version >= '3.11' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (python_full_version >= '3.11' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (python_full_version >= '3.11' and extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (sys_platform != 'darwin' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (sys_platform != 'darwin' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (sys_platform != 'darwin' and extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "networkx", version = "3.5", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and sys_platform == 'darwin') or (python_full_version < '3.11' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (python_full_version < '3.11' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (python_full_version < '3.11' and extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (sys_platform != 'darwin' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (sys_platform != 'darwin' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (sys_platform != 'darwin' and extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "setuptools", marker = "(python_full_version >= '3.12' and sys_platform == 'darwin') or (python_full_version < '3.12' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (python_full_version < '3.12' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (python_full_version < '3.12' and extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (sys_platform != 'darwin' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (sys_platform != 'darwin' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (sys_platform != 'darwin' and extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "sympy", marker = "sys_platform == 'darwin' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "typing-extensions", marker = "sys_platform == 'darwin' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
+    { name = "filelock", marker = "sys_platform == 'darwin' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "fsspec", marker = "sys_platform == 'darwin' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "jinja2", marker = "sys_platform == 'darwin' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "networkx", version = "3.4.2", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and sys_platform == 'darwin') or (python_full_version >= '3.11' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (python_full_version >= '3.11' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (python_full_version >= '3.11' and extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (python_full_version >= '3.11' and extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13') or (sys_platform != 'darwin' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (sys_platform != 'darwin' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (sys_platform != 'darwin' and extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (sys_platform != 'darwin' and extra != 'extra-4-mtrt-cu13' and extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13') or (sys_platform != 'darwin' and extra != 'extra-4-mtrt-cpu' and extra != 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "networkx", version = "3.5", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and sys_platform == 'darwin') or (python_full_version < '3.11' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (python_full_version < '3.11' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (python_full_version < '3.11' and extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (python_full_version < '3.11' and extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13') or (sys_platform != 'darwin' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (sys_platform != 'darwin' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (sys_platform != 'darwin' and extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (sys_platform != 'darwin' and extra != 'extra-4-mtrt-cu13' and extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13') or (sys_platform != 'darwin' and extra != 'extra-4-mtrt-cpu' and extra != 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "setuptools", marker = "(python_full_version >= '3.12' and sys_platform == 'darwin') or (python_full_version < '3.12' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (python_full_version < '3.12' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (python_full_version < '3.12' and extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (python_full_version < '3.12' and extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13') or (sys_platform != 'darwin' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (sys_platform != 'darwin' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (sys_platform != 'darwin' and extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (sys_platform != 'darwin' and extra != 'extra-4-mtrt-cu13' and extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13') or (sys_platform != 'darwin' and extra != 'extra-4-mtrt-cpu' and extra != 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "sympy", marker = "sys_platform == 'darwin' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "typing-extensions", marker = "sys_platform == 'darwin' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
 ]
 wheels = [
-    { url = "https://download.pytorch.org/whl/nightly/cpu/torch-2.10.0.dev20251110-cp310-none-macosx_11_0_arm64.whl" },
-    { url = "https://download.pytorch.org/whl/nightly/cpu/torch-2.10.0.dev20251110-cp311-none-macosx_11_0_arm64.whl" },
-    { url = "https://download.pytorch.org/whl/nightly/cpu/torch-2.10.0.dev20251110-cp312-none-macosx_11_0_arm64.whl" },
-    { url = "https://download.pytorch.org/whl/nightly/cpu/torch-2.10.0.dev20251110-cp313-cp313t-macosx_14_0_arm64.whl" },
-    { url = "https://download.pytorch.org/whl/nightly/cpu/torch-2.10.0.dev20251110-cp313-none-macosx_11_0_arm64.whl" },
-    { url = "https://download.pytorch.org/whl/nightly/cpu/torch-2.10.0.dev20251110-cp314-cp314-macosx_14_0_arm64.whl" },
-    { url = "https://download.pytorch.org/whl/nightly/cpu/torch-2.10.0.dev20251110-cp314-cp314t-macosx_14_0_arm64.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torch-2.11.0.dev20260209-cp310-cp310-macosx_11_0_arm64.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torch-2.11.0.dev20260209-cp311-cp311-macosx_11_0_arm64.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torch-2.11.0.dev20260209-cp312-cp312-macosx_11_0_arm64.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torch-2.11.0.dev20260209-cp313-cp313-macosx_11_0_arm64.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torch-2.11.0.dev20260209-cp313-cp313t-macosx_11_0_arm64.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torch-2.11.0.dev20260209-cp314-cp314-macosx_11_0_arm64.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torch-2.11.0.dev20260209-cp314-cp314t-macosx_11_0_arm64.whl" },
 ]
 
 [[package]]
 name = "torch"
-version = "2.10.0.dev20251110+cpu"
+version = "2.11.0.dev20260209+cpu"
 source = { registry = "https://download.pytorch.org/whl/nightly/cpu" }
 resolution-markers = [
-    "python_full_version >= '3.13' and sys_platform != 'darwin' and sys_platform != 'linux'",
-    "(python_full_version >= '3.15' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux') or (python_full_version >= '3.13' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version >= '3.13' and platform_python_implementation != 'CPython' and sys_platform == 'linux')",
-    "python_full_version >= '3.13' and python_full_version < '3.15' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
-    "python_full_version == '3.12.*' and sys_platform != 'darwin' and sys_platform != 'linux'",
-    "(python_full_version == '3.12.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.12.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux')",
-    "python_full_version == '3.12.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
-    "python_full_version == '3.11.*' and sys_platform != 'darwin' and sys_platform != 'linux'",
-    "(python_full_version == '3.11.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.11.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux')",
-    "python_full_version == '3.11.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
-    "(python_full_version < '3.11' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version < '3.11' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version < '3.11' and sys_platform != 'darwin' and sys_platform != 'linux')",
-    "python_full_version < '3.11' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
+    "python_full_version >= '3.13' and sys_platform != 'darwin'",
+    "python_full_version == '3.12.*' and sys_platform != 'darwin'",
+    "python_full_version == '3.11.*' and sys_platform != 'darwin'",
+    "python_full_version < '3.11' and sys_platform != 'darwin'",
 ]
 dependencies = [
-    { name = "filelock", marker = "sys_platform != 'darwin' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "fsspec", marker = "sys_platform != 'darwin' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "jinja2", marker = "sys_platform != 'darwin' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "networkx", version = "3.4.2", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and sys_platform != 'darwin') or (python_full_version >= '3.11' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (python_full_version >= '3.11' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (python_full_version >= '3.11' and extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (sys_platform == 'darwin' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (sys_platform == 'darwin' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (sys_platform == 'darwin' and extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "networkx", version = "3.5", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and sys_platform != 'darwin') or (python_full_version < '3.11' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (python_full_version < '3.11' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (python_full_version < '3.11' and extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (sys_platform == 'darwin' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (sys_platform == 'darwin' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (sys_platform == 'darwin' and extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "setuptools", marker = "(python_full_version >= '3.12' and sys_platform != 'darwin') or (python_full_version < '3.12' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (python_full_version < '3.12' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (python_full_version < '3.12' and extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (sys_platform == 'darwin' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (sys_platform == 'darwin' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (sys_platform == 'darwin' and extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "sympy", marker = "sys_platform != 'darwin' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "typing-extensions", marker = "sys_platform != 'darwin' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
+    { name = "filelock", marker = "sys_platform != 'darwin' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "fsspec", marker = "sys_platform != 'darwin' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "jinja2", marker = "sys_platform != 'darwin' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "networkx", version = "3.4.2", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and sys_platform != 'darwin') or (python_full_version >= '3.11' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (python_full_version >= '3.11' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (python_full_version >= '3.11' and extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (python_full_version >= '3.11' and extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13') or (sys_platform == 'darwin' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (sys_platform == 'darwin' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (sys_platform == 'darwin' and extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (sys_platform == 'darwin' and extra != 'extra-4-mtrt-cu13' and extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13') or (sys_platform == 'darwin' and extra != 'extra-4-mtrt-cpu' and extra != 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "networkx", version = "3.5", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and sys_platform != 'darwin') or (python_full_version < '3.11' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (python_full_version < '3.11' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (python_full_version < '3.11' and extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (python_full_version < '3.11' and extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13') or (sys_platform == 'darwin' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (sys_platform == 'darwin' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (sys_platform == 'darwin' and extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (sys_platform == 'darwin' and extra != 'extra-4-mtrt-cu13' and extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13') or (sys_platform == 'darwin' and extra != 'extra-4-mtrt-cpu' and extra != 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "setuptools", marker = "(python_full_version >= '3.12' and sys_platform != 'darwin') or (python_full_version < '3.12' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (python_full_version < '3.12' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (python_full_version < '3.12' and extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (python_full_version < '3.12' and extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13') or (sys_platform == 'darwin' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (sys_platform == 'darwin' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (sys_platform == 'darwin' and extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (sys_platform == 'darwin' and extra != 'extra-4-mtrt-cu13' and extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13') or (sys_platform == 'darwin' and extra != 'extra-4-mtrt-cpu' and extra != 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "sympy", marker = "sys_platform != 'darwin' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "typing-extensions", marker = "sys_platform != 'darwin' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
 ]
 wheels = [
-    { url = "https://download.pytorch.org/whl/nightly/cpu/torch-2.10.0.dev20251110%2Bcpu-cp310-cp310-manylinux_2_28_aarch64.whl" },
-    { url = "https://download.pytorch.org/whl/nightly/cpu/torch-2.10.0.dev20251110%2Bcpu-cp310-cp310-manylinux_2_28_x86_64.whl" },
-    { url = "https://download.pytorch.org/whl/nightly/cpu/torch-2.10.0.dev20251110%2Bcpu-cp310-cp310-win_amd64.whl" },
-    { url = "https://download.pytorch.org/whl/nightly/cpu/torch-2.10.0.dev20251110%2Bcpu-cp311-cp311-manylinux_2_28_aarch64.whl" },
-    { url = "https://download.pytorch.org/whl/nightly/cpu/torch-2.10.0.dev20251110%2Bcpu-cp311-cp311-manylinux_2_28_x86_64.whl" },
-    { url = "https://download.pytorch.org/whl/nightly/cpu/torch-2.10.0.dev20251110%2Bcpu-cp311-cp311-win_amd64.whl" },
-    { url = "https://download.pytorch.org/whl/nightly/cpu/torch-2.10.0.dev20251110%2Bcpu-cp311-cp311-win_arm64.whl" },
-    { url = "https://download.pytorch.org/whl/nightly/cpu/torch-2.10.0.dev20251110%2Bcpu-cp312-cp312-manylinux_2_28_aarch64.whl" },
-    { url = "https://download.pytorch.org/whl/nightly/cpu/torch-2.10.0.dev20251110%2Bcpu-cp312-cp312-manylinux_2_28_x86_64.whl" },
-    { url = "https://download.pytorch.org/whl/nightly/cpu/torch-2.10.0.dev20251110%2Bcpu-cp312-cp312-win_amd64.whl" },
-    { url = "https://download.pytorch.org/whl/nightly/cpu/torch-2.10.0.dev20251110%2Bcpu-cp312-cp312-win_arm64.whl" },
-    { url = "https://download.pytorch.org/whl/nightly/cpu/torch-2.10.0.dev20251110%2Bcpu-cp313-cp313-manylinux_2_28_aarch64.whl" },
-    { url = "https://download.pytorch.org/whl/nightly/cpu/torch-2.10.0.dev20251110%2Bcpu-cp313-cp313-manylinux_2_28_x86_64.whl" },
-    { url = "https://download.pytorch.org/whl/nightly/cpu/torch-2.10.0.dev20251110%2Bcpu-cp313-cp313-win_amd64.whl" },
-    { url = "https://download.pytorch.org/whl/nightly/cpu/torch-2.10.0.dev20251110%2Bcpu-cp313-cp313-win_arm64.whl" },
-    { url = "https://download.pytorch.org/whl/nightly/cpu/torch-2.10.0.dev20251110%2Bcpu-cp313-cp313t-manylinux_2_28_aarch64.whl" },
-    { url = "https://download.pytorch.org/whl/nightly/cpu/torch-2.10.0.dev20251110%2Bcpu-cp313-cp313t-manylinux_2_28_x86_64.whl" },
-    { url = "https://download.pytorch.org/whl/nightly/cpu/torch-2.10.0.dev20251110%2Bcpu-cp313-cp313t-win_amd64.whl" },
-    { url = "https://download.pytorch.org/whl/nightly/cpu/torch-2.10.0.dev20251110%2Bcpu-cp314-cp314-manylinux_2_28_aarch64.whl" },
-    { url = "https://download.pytorch.org/whl/nightly/cpu/torch-2.10.0.dev20251110%2Bcpu-cp314-cp314-manylinux_2_28_x86_64.whl" },
-    { url = "https://download.pytorch.org/whl/nightly/cpu/torch-2.10.0.dev20251110%2Bcpu-cp314-cp314-win_amd64.whl" },
-    { url = "https://download.pytorch.org/whl/nightly/cpu/torch-2.10.0.dev20251110%2Bcpu-cp314-cp314t-manylinux_2_28_aarch64.whl" },
-    { url = "https://download.pytorch.org/whl/nightly/cpu/torch-2.10.0.dev20251110%2Bcpu-cp314-cp314t-manylinux_2_28_x86_64.whl" },
-    { url = "https://download.pytorch.org/whl/nightly/cpu/torch-2.10.0.dev20251110%2Bcpu-cp314-cp314t-win_amd64.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torch-2.11.0.dev20260209%2Bcpu-cp310-cp310-linux_s390x.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torch-2.11.0.dev20260209%2Bcpu-cp310-cp310-manylinux_2_28_aarch64.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torch-2.11.0.dev20260209%2Bcpu-cp310-cp310-manylinux_2_28_x86_64.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torch-2.11.0.dev20260209%2Bcpu-cp310-cp310-win_amd64.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torch-2.11.0.dev20260209%2Bcpu-cp311-cp311-linux_s390x.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torch-2.11.0.dev20260209%2Bcpu-cp311-cp311-manylinux_2_28_aarch64.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torch-2.11.0.dev20260209%2Bcpu-cp311-cp311-manylinux_2_28_x86_64.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torch-2.11.0.dev20260209%2Bcpu-cp311-cp311-win_amd64.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torch-2.11.0.dev20260209%2Bcpu-cp312-cp312-linux_s390x.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torch-2.11.0.dev20260209%2Bcpu-cp312-cp312-manylinux_2_28_aarch64.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torch-2.11.0.dev20260209%2Bcpu-cp312-cp312-manylinux_2_28_x86_64.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torch-2.11.0.dev20260209%2Bcpu-cp312-cp312-win_amd64.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torch-2.11.0.dev20260209%2Bcpu-cp313-cp313-linux_s390x.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torch-2.11.0.dev20260209%2Bcpu-cp313-cp313-manylinux_2_28_aarch64.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torch-2.11.0.dev20260209%2Bcpu-cp313-cp313-manylinux_2_28_x86_64.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torch-2.11.0.dev20260209%2Bcpu-cp313-cp313-win_amd64.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torch-2.11.0.dev20260209%2Bcpu-cp313-cp313t-linux_s390x.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torch-2.11.0.dev20260209%2Bcpu-cp313-cp313t-manylinux_2_28_aarch64.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torch-2.11.0.dev20260209%2Bcpu-cp313-cp313t-manylinux_2_28_x86_64.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torch-2.11.0.dev20260209%2Bcpu-cp313-cp313t-win_amd64.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torch-2.11.0.dev20260209%2Bcpu-cp314-cp314-linux_s390x.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torch-2.11.0.dev20260209%2Bcpu-cp314-cp314-manylinux_2_28_aarch64.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torch-2.11.0.dev20260209%2Bcpu-cp314-cp314-manylinux_2_28_x86_64.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torch-2.11.0.dev20260209%2Bcpu-cp314-cp314-win_amd64.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torch-2.11.0.dev20260209%2Bcpu-cp314-cp314t-linux_s390x.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torch-2.11.0.dev20260209%2Bcpu-cp314-cp314t-manylinux_2_28_aarch64.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torch-2.11.0.dev20260209%2Bcpu-cp314-cp314t-manylinux_2_28_x86_64.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torch-2.11.0.dev20260209%2Bcpu-cp314-cp314t-win_amd64.whl" },
 ]
 
 [[package]]
 name = "torchvision"
-version = "0.25.0.dev20251111"
+version = "0.26.0.dev20260209"
 source = { registry = "https://download.pytorch.org/whl/nightly/cpu" }
 resolution-markers = [
-    "python_full_version >= '3.13' and python_full_version < '3.15' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version >= '3.13' and sys_platform == 'darwin'",
-    "python_full_version == '3.12.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.12.*' and sys_platform == 'darwin'",
-    "python_full_version == '3.11.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.11.*' and sys_platform == 'darwin'",
-    "python_full_version < '3.11' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version < '3.11' and sys_platform == 'darwin'",
 ]
 dependencies = [
-    { name = "numpy", marker = "(python_full_version < '3.15' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux') or (python_full_version >= '3.15' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (python_full_version >= '3.15' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (python_full_version >= '3.15' and extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (platform_machine != 'aarch64' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (platform_machine != 'aarch64' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (platform_machine != 'aarch64' and extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (platform_python_implementation != 'CPython' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (platform_python_implementation != 'CPython' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (platform_python_implementation != 'CPython' and extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or sys_platform == 'darwin' or (sys_platform != 'linux' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (sys_platform != 'linux' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (sys_platform != 'linux' and extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "pillow", marker = "(python_full_version < '3.15' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux') or (python_full_version >= '3.15' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (python_full_version >= '3.15' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (python_full_version >= '3.15' and extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (platform_machine != 'aarch64' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (platform_machine != 'aarch64' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (platform_machine != 'aarch64' and extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (platform_python_implementation != 'CPython' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (platform_python_implementation != 'CPython' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (platform_python_implementation != 'CPython' and extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or sys_platform == 'darwin' or (sys_platform != 'linux' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (sys_platform != 'linux' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (sys_platform != 'linux' and extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "torch", version = "2.10.0.dev20251110", source = { registry = "https://download.pytorch.org/whl/nightly/cpu" }, marker = "sys_platform == 'darwin' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "torch", version = "2.10.0.dev20251110+cpu", source = { registry = "https://download.pytorch.org/whl/nightly/cpu" }, marker = "(python_full_version < '3.15' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux') or (python_full_version >= '3.15' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (python_full_version >= '3.15' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (python_full_version >= '3.15' and extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (platform_machine != 'aarch64' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (platform_machine != 'aarch64' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (platform_machine != 'aarch64' and extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (platform_python_implementation != 'CPython' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (platform_python_implementation != 'CPython' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (platform_python_implementation != 'CPython' and extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (sys_platform != 'linux' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (sys_platform != 'linux' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (sys_platform != 'linux' and extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
+    { name = "numpy", marker = "sys_platform == 'darwin' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "pillow", marker = "sys_platform == 'darwin' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "torch", version = "2.11.0.dev20260209", source = { registry = "https://download.pytorch.org/whl/nightly/cpu" }, marker = "sys_platform == 'darwin' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
 ]
 wheels = [
-    { url = "https://download.pytorch.org/whl/nightly/cpu/torchvision-0.25.0.dev20251111-cp310-cp310-macosx_11_0_arm64.whl" },
-    { url = "https://download.pytorch.org/whl/nightly/cpu/torchvision-0.25.0.dev20251111-cp310-cp310-manylinux_2_28_aarch64.whl" },
-    { url = "https://download.pytorch.org/whl/nightly/cpu/torchvision-0.25.0.dev20251111-cp311-cp311-macosx_11_0_arm64.whl" },
-    { url = "https://download.pytorch.org/whl/nightly/cpu/torchvision-0.25.0.dev20251111-cp311-cp311-manylinux_2_28_aarch64.whl" },
-    { url = "https://download.pytorch.org/whl/nightly/cpu/torchvision-0.25.0.dev20251111-cp312-cp312-macosx_11_0_arm64.whl" },
-    { url = "https://download.pytorch.org/whl/nightly/cpu/torchvision-0.25.0.dev20251111-cp312-cp312-manylinux_2_28_aarch64.whl" },
-    { url = "https://download.pytorch.org/whl/nightly/cpu/torchvision-0.25.0.dev20251111-cp313-cp313-macosx_12_0_arm64.whl" },
-    { url = "https://download.pytorch.org/whl/nightly/cpu/torchvision-0.25.0.dev20251111-cp313-cp313-manylinux_2_28_aarch64.whl" },
-    { url = "https://download.pytorch.org/whl/nightly/cpu/torchvision-0.25.0.dev20251111-cp313-cp313t-macosx_11_0_arm64.whl" },
-    { url = "https://download.pytorch.org/whl/nightly/cpu/torchvision-0.25.0.dev20251111-cp313-cp313t-manylinux_2_28_aarch64.whl" },
-    { url = "https://download.pytorch.org/whl/nightly/cpu/torchvision-0.25.0.dev20251111-cp314-cp314-macosx_11_0_arm64.whl" },
-    { url = "https://download.pytorch.org/whl/nightly/cpu/torchvision-0.25.0.dev20251111-cp314-cp314-manylinux_2_28_aarch64.whl" },
-    { url = "https://download.pytorch.org/whl/nightly/cpu/torchvision-0.25.0.dev20251111-cp314-cp314t-macosx_11_0_arm64.whl" },
-    { url = "https://download.pytorch.org/whl/nightly/cpu/torchvision-0.25.0.dev20251111-cp314-cp314t-manylinux_2_28_aarch64.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torchvision-0.26.0.dev20260209-cp310-cp310-macosx_11_0_arm64.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torchvision-0.26.0.dev20260209-cp311-cp311-macosx_11_0_arm64.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torchvision-0.26.0.dev20260209-cp312-cp312-macosx_11_0_arm64.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torchvision-0.26.0.dev20260209-cp313-cp313-macosx_12_0_arm64.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torchvision-0.26.0.dev20260209-cp313-cp313t-macosx_11_0_arm64.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torchvision-0.26.0.dev20260209-cp314-cp314-macosx_11_0_arm64.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torchvision-0.26.0.dev20260209-cp314-cp314t-macosx_11_0_arm64.whl" },
 ]
 
 [[package]]
 name = "torchvision"
-version = "0.25.0.dev20251111+cpu"
+version = "0.26.0.dev20260209+cpu"
 source = { registry = "https://download.pytorch.org/whl/nightly/cpu" }
 resolution-markers = [
-    "python_full_version >= '3.13' and sys_platform != 'darwin' and sys_platform != 'linux'",
-    "(python_full_version >= '3.15' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux') or (python_full_version >= '3.13' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version >= '3.13' and platform_python_implementation != 'CPython' and sys_platform == 'linux')",
-    "python_full_version == '3.12.*' and sys_platform != 'darwin' and sys_platform != 'linux'",
-    "(python_full_version == '3.12.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.12.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux')",
-    "python_full_version == '3.11.*' and sys_platform != 'darwin' and sys_platform != 'linux'",
-    "(python_full_version == '3.11.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.11.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux')",
-    "(python_full_version < '3.11' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version < '3.11' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version < '3.11' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "python_full_version >= '3.13' and sys_platform != 'darwin'",
+    "python_full_version == '3.12.*' and sys_platform != 'darwin'",
+    "python_full_version == '3.11.*' and sys_platform != 'darwin'",
+    "python_full_version < '3.11' and sys_platform != 'darwin'",
 ]
 dependencies = [
-    { name = "numpy", marker = "(python_full_version >= '3.15' and sys_platform == 'linux') or (python_full_version < '3.15' and sys_platform == 'linux' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (python_full_version < '3.15' and sys_platform == 'linux' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (python_full_version < '3.15' and sys_platform == 'linux' and extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (platform_machine != 'aarch64' and sys_platform == 'linux') or (platform_python_implementation != 'CPython' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux') or (sys_platform == 'darwin' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (sys_platform == 'darwin' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (sys_platform == 'darwin' and extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "pillow", marker = "(python_full_version >= '3.15' and sys_platform == 'linux') or (python_full_version < '3.15' and sys_platform == 'linux' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (python_full_version < '3.15' and sys_platform == 'linux' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (python_full_version < '3.15' and sys_platform == 'linux' and extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (platform_machine != 'aarch64' and sys_platform == 'linux') or (platform_python_implementation != 'CPython' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux') or (sys_platform == 'darwin' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (sys_platform == 'darwin' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (sys_platform == 'darwin' and extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
-    { name = "torch", version = "2.10.0.dev20251110+cpu", source = { registry = "https://download.pytorch.org/whl/nightly/cpu" }, marker = "(python_full_version >= '3.15' and sys_platform == 'linux') or (python_full_version < '3.15' and sys_platform == 'linux' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (python_full_version < '3.15' and sys_platform == 'linux' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (python_full_version < '3.15' and sys_platform == 'linux' and extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (platform_machine != 'aarch64' and sys_platform == 'linux') or (platform_python_implementation != 'CPython' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux') or (sys_platform == 'darwin' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (sys_platform == 'darwin' and extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (sys_platform == 'darwin' and extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
+    { name = "numpy", marker = "sys_platform != 'darwin' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "pillow", marker = "sys_platform != 'darwin' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
+    { name = "torch", version = "2.11.0.dev20260209+cpu", source = { registry = "https://download.pytorch.org/whl/nightly/cpu" }, marker = "sys_platform != 'darwin' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
 ]
 wheels = [
-    { url = "https://download.pytorch.org/whl/nightly/cpu/torchvision-0.25.0.dev20251111%2Bcpu-cp310-cp310-manylinux_2_28_x86_64.whl" },
-    { url = "https://download.pytorch.org/whl/nightly/cpu/torchvision-0.25.0.dev20251111%2Bcpu-cp310-cp310-win_amd64.whl" },
-    { url = "https://download.pytorch.org/whl/nightly/cpu/torchvision-0.25.0.dev20251111%2Bcpu-cp311-cp311-manylinux_2_28_x86_64.whl" },
-    { url = "https://download.pytorch.org/whl/nightly/cpu/torchvision-0.25.0.dev20251111%2Bcpu-cp311-cp311-win_amd64.whl" },
-    { url = "https://download.pytorch.org/whl/nightly/cpu/torchvision-0.25.0.dev20251111%2Bcpu-cp312-cp312-manylinux_2_28_x86_64.whl" },
-    { url = "https://download.pytorch.org/whl/nightly/cpu/torchvision-0.25.0.dev20251111%2Bcpu-cp312-cp312-win_amd64.whl" },
-    { url = "https://download.pytorch.org/whl/nightly/cpu/torchvision-0.25.0.dev20251111%2Bcpu-cp313-cp313-manylinux_2_28_x86_64.whl" },
-    { url = "https://download.pytorch.org/whl/nightly/cpu/torchvision-0.25.0.dev20251111%2Bcpu-cp313-cp313-win_amd64.whl" },
-    { url = "https://download.pytorch.org/whl/nightly/cpu/torchvision-0.25.0.dev20251111%2Bcpu-cp313-cp313t-manylinux_2_28_x86_64.whl" },
-    { url = "https://download.pytorch.org/whl/nightly/cpu/torchvision-0.25.0.dev20251111%2Bcpu-cp313-cp313t-win_amd64.whl" },
-    { url = "https://download.pytorch.org/whl/nightly/cpu/torchvision-0.25.0.dev20251111%2Bcpu-cp314-cp314-manylinux_2_28_x86_64.whl" },
-    { url = "https://download.pytorch.org/whl/nightly/cpu/torchvision-0.25.0.dev20251111%2Bcpu-cp314-cp314-win_amd64.whl" },
-    { url = "https://download.pytorch.org/whl/nightly/cpu/torchvision-0.25.0.dev20251111%2Bcpu-cp314-cp314t-manylinux_2_28_x86_64.whl" },
-    { url = "https://download.pytorch.org/whl/nightly/cpu/torchvision-0.25.0.dev20251111%2Bcpu-cp314-cp314t-win_amd64.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torchvision-0.26.0.dev20260209%2Bcpu-cp310-cp310-manylinux_2_28_aarch64.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torchvision-0.26.0.dev20260209%2Bcpu-cp310-cp310-manylinux_2_28_x86_64.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torchvision-0.26.0.dev20260209%2Bcpu-cp310-cp310-win_amd64.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torchvision-0.26.0.dev20260209%2Bcpu-cp311-cp311-manylinux_2_28_aarch64.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torchvision-0.26.0.dev20260209%2Bcpu-cp311-cp311-manylinux_2_28_x86_64.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torchvision-0.26.0.dev20260209%2Bcpu-cp311-cp311-win_amd64.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torchvision-0.26.0.dev20260209%2Bcpu-cp312-cp312-manylinux_2_28_aarch64.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torchvision-0.26.0.dev20260209%2Bcpu-cp312-cp312-manylinux_2_28_x86_64.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torchvision-0.26.0.dev20260209%2Bcpu-cp312-cp312-win_amd64.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torchvision-0.26.0.dev20260209%2Bcpu-cp313-cp313-manylinux_2_28_aarch64.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torchvision-0.26.0.dev20260209%2Bcpu-cp313-cp313-manylinux_2_28_x86_64.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torchvision-0.26.0.dev20260209%2Bcpu-cp313-cp313-win_amd64.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torchvision-0.26.0.dev20260209%2Bcpu-cp313-cp313t-manylinux_2_28_aarch64.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torchvision-0.26.0.dev20260209%2Bcpu-cp313-cp313t-manylinux_2_28_x86_64.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torchvision-0.26.0.dev20260209%2Bcpu-cp313-cp313t-win_amd64.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torchvision-0.26.0.dev20260209%2Bcpu-cp314-cp314-manylinux_2_28_aarch64.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torchvision-0.26.0.dev20260209%2Bcpu-cp314-cp314-manylinux_2_28_x86_64.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torchvision-0.26.0.dev20260209%2Bcpu-cp314-cp314-win_amd64.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torchvision-0.26.0.dev20260209%2Bcpu-cp314-cp314t-manylinux_2_28_aarch64.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torchvision-0.26.0.dev20260209%2Bcpu-cp314-cp314t-manylinux_2_28_x86_64.whl" },
+    { url = "https://download-r2.pytorch.org/whl/nightly/cpu/torchvision-0.26.0.dev20260209%2Bcpu-cp314-cp314t-win_amd64.whl" },
 ]
 
 [[package]]
@@ -4233,7 +4156,7 @@ name = "tqdm"
 version = "4.67.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13')" },
+    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu12') or (extra == 'extra-4-mtrt-cpu' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-cu12' and extra == 'extra-4-mtrt-cu13') or (extra == 'extra-4-mtrt-flashinfer-cu12' and extra == 'extra-4-mtrt-flashinfer-cu13')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/a8/4b/29b4ef32e036bb34e4ab51796dd745cdba7ed47ad142a9f4a1eb8e0c744d/tqdm-4.67.1.tar.gz", hash = "sha256:f8aef9c52c08c13a65f30ea34f4e5aac3fd1a34959879d7e59e63027286627f2", size = 169737, upload-time = "2024-11-24T20:12:22.481Z" }
 wheels = [
