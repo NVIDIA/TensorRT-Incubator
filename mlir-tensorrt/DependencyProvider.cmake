@@ -13,6 +13,22 @@ include(MTRTPackageUtils)
 # `(PRE|POST)_ADD_HOOK` code, use this variable instead.
 set(MTRT_TOP_LEVEL_DIR "${CMAKE_CURRENT_LIST_DIR}")
 
+
+#-------------------------------------------------------------------------------------
+# GoogleTest
+#-------------------------------------------------------------------------------------
+
+nv_register_package(
+  NAME GTest
+  GIT_REPOSITORY https://github.com/google/googletest.git
+  GIT_TAG v1.15.2
+  EXCLUDE_FROM_ALL TRUE
+  OPTIONS
+    "INSTALL_GTEST ON"
+    "BUILD_GMOCK ON"
+    "BUILD_GTEST ON"
+)
+
 #-------------------------------------------------------------------------------------
 # DLPack
 #-------------------------------------------------------------------------------------
@@ -195,17 +211,6 @@ if(NOT CPM_Stablehlo_SOURCE)
   )
 endif()
 
-# GoogleTest
-nv_register_package(
-  NAME GTest
-  GIT_REPOSITORY https://github.com/google/googletest.git
-  GIT_TAG v1.15.2
-  EXCLUDE_FROM_ALL TRUE
-  OPTIONS
-    "INSTALL_GTEST ON"
-    "BUILD_GMOCK ON"
-    "BUILD_GTEST ON"
-)
 
 nv_register_package(
   NAME Stablehlo

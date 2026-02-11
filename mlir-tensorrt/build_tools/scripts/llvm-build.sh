@@ -50,14 +50,13 @@ echo "==> Install directory: ${INSTALL_DIR}"
 uv venv -p 3.12 --clear ./venv_312
 source venv_312/bin/activate
 uv pip install -r ${TARGET_DIR}/mlir/python/requirements.txt
-uv pip install lit
 arch="$(uname -m)"
 
-pushd .
-cd third_party
+# pushd .
+# cd third_party
 
 # Generate build
-cmake -GNinja -Bllvm-project/build \
+cmake -GNinja -Bthird_party/llvm-project/build \
 -DCMAKE_BUILD_TYPE=Release \
 -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
 -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
@@ -69,15 +68,28 @@ cmake -GNinja -Bllvm-project/build \
 -DLLVM_INSTALL_UTILS=ON \
 -DLLVM_ENABLE_ASSERTIONS=ON \
 -DMLIR_ENABLE_BINDINGS_PYTHON=ON \
+-DMLIR_INSTALL_AGGREGATE_OBJECTS=ON \
 -DLLVM_ENABLE_PROJECTS="mlir" \
 -DLLVM_TARGETS_TO_BUILD="host;NVPTX" \
 -DLLVM_ENABLE_TERMINFO=OFF \
 -DLLVM_ENABLE_ZSTD=OFF \
-llvm-project/llvm
+-DLLVM_INSTALL_GTEST=ON \
+third_party/llvm-project/llvm
 
 # Install
-ninja -C llvm-project/build install
+ninja -C third_party/llvm-project/build install
 
+# copy the mlir pdll include files to the install directory
+if [[ ! -d "${INSTALL_DIR}/share/mlir/include" || -z "$(ls -A "${INSTALL_DIR}/share/mlir/include" 2>/dev/null)" ]]; then
+  mkdir -p "${INSTALL_DIR}/share/mlir/include"
+  cp -r third_party/llvm-project/mlir/include/* \
+    "${INSTALL_DIR}/share/mlir/include/"
+else
+  echo "==> Skipping copy: ${INSTALL_DIR}/share/mlir/include already exists and is non-empty"
+fi
+
+
+# add the llvm-lit script to use the lit from python package lit
 cat > "${INSTALL_DIR}/bin/llvm-lit" <<'PYWRAP'
 #!/usr/bin/env python3
 import sys, shutil, os
@@ -102,6 +114,6 @@ PYWRAP
 
 chmod +x "${INSTALL_DIR}/bin/llvm-lit"
 
-popd
+#popd
 
 

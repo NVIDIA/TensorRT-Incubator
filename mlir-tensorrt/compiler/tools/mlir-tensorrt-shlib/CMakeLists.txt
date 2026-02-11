@@ -29,6 +29,19 @@ list(APPEND mtrt_libs
   MLIRCAPITransformDialectTransforms
   MLIRCAPITransforms
   )
+
+list(APPEND mtrt_libs
+  MLIRTransformDialectTransforms
+  MLIRTransformDialect
+  MLIRTransformUtils
+  MLIRTransformDialectInterfaces
+  MLIRControlFlowTransforms
+  MLIREmitC            # provides emitc::translateToCpp
+  # MLIRTransformInterpreter
+  MLIRBufferDeallocationTransforms
+)
+
+
 if(MLIR_TRT_ENABLE_HLO)
   list(APPEND mtrt_libs
     ChloCAPI
@@ -44,7 +57,10 @@ if(NOT BUILD_SHARED_LIBS)
   list(APPEND mtrt_libs ${mlir_libs})
 endif()
 
+message(STATUS "LAN ADDED mtrt_libs: {mtrt_libs}")
 mtrt_add_aggregate_library(MTRT ${mtrt_libs})
+
+target_link_options(MTRT PRIVATE -Wl,--start-group -Wl,--end-group)
 
 # This is only required for supporting test plugins like TensorRTTestPlugins that
 # require LLVMSupport. If we are linking tools against MTRT and BUILD_SHARED_LIBS
