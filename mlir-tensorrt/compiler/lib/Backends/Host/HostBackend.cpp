@@ -21,12 +21,12 @@
 /// Definitions for the Host backend Plan dialect extension.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Backends/Host/HostBackend.h"
+#include "mlir-tensorrt/Compiler/Backends/Host/HostBackend.h"
 #include "mlir-executor/Transforms/Clustering/Clustering.h"
 #include "mlir-executor/Transforms/Clustering/Patterns.h"
 #include "mlir-tensorrt-common/Interfaces/ToLoopsOpInterface.h"
-#include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
-#include "mlir-tensorrt/Dialect/StablehloExt/Utils/Utils.h"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/IR/Plan.h"
+#include "mlir-tensorrt/Compiler/Dialect/StablehloExt/Utils/Utils.h"
 #include "mlir/Analysis/DataFlowFramework.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
@@ -48,7 +48,7 @@ using namespace mlir::plan;
 /// Include the Tablegen'd C++ code describing the backend attribute. We will
 /// attach this to the plan dialect as an extension.
 #define GET_ATTRDEF_CLASSES
-#include "mlir-tensorrt/Backends/Host/HostBackendAttrs.cpp.inc"
+#include "mlir-tensorrt/Compiler/Backends/Host/HostBackendAttrs.cpp.inc"
 
 static bool isScalarizableType(Type t) {
   auto rtt = dyn_cast<RankedTensorType>(t);

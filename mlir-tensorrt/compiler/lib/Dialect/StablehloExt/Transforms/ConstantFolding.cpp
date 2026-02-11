@@ -32,10 +32,10 @@
 #include "mlir-tensorrt-dialect/Utils/ConstantFoldUtils.h"
 #include "mlir-tensorrt-dialect/Utils/ShapeUtils.h"
 #include "mlir-tensorrt-dialect/Utils/StaticValueUtils.h"
-#include "mlir-tensorrt/Dialect/StablehloExt/Transforms/Passes.h"
-#include "mlir-tensorrt/Dialect/StablehloExt/Transforms/Patterns.h"
-#include "mlir-tensorrt/Dialect/StablehloExt/Utils/GatherScatterUtils.h"
-#include "mlir-tensorrt/Dialect/StablehloExt/Utils/Utils.h"
+#include "mlir-tensorrt/Compiler/Dialect/StablehloExt/Transforms/Passes.h"
+#include "mlir-tensorrt/Compiler/Dialect/StablehloExt/Transforms/Patterns.h"
+#include "mlir-tensorrt/Compiler/Dialect/StablehloExt/Utils/GatherScatterUtils.h"
+#include "mlir-tensorrt/Compiler/Dialect/StablehloExt/Utils/Utils.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/CommonFolders.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
@@ -53,7 +53,7 @@
 namespace mlir {
 namespace stablehlo_ext {
 #define GEN_PASS_DEF_CONSTANTFOLDINGPASS
-#include "mlir-tensorrt/Dialect/StablehloExt/Transforms/Passes.h.inc"
+#include "mlir-tensorrt/Compiler/Dialect/StablehloExt/Transforms/Passes.h.inc"
 } // namespace stablehlo_ext
 } // namespace mlir
 

@@ -6,7 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "mlir-tensorrt/Dialect/StablehloExt/Utils/StablehloMatchers.h"
+#include "mlir-tensorrt/Compiler/Dialect/StablehloExt/Utils/StablehloMatchers.h"
 #include "stablehlo/dialect/StablehloOps.h"
 #include "llvm/Support/Debug.h"
 

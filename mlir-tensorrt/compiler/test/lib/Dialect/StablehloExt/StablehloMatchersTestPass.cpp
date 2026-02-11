@@ -21,7 +21,7 @@
 /// This pass is used to test the StablehloMatchers utility.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Dialect/StablehloExt/Utils/StablehloMatchers.h"
+#include "mlir-tensorrt/Compiler/Dialect/StablehloExt/Utils/StablehloMatchers.h"
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"

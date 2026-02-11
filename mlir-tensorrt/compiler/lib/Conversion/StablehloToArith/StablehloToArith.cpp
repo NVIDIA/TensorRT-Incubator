@@ -18,7 +18,7 @@
 // limitations under the License.
 //
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Conversion/Passes.h"
+#include "mlir-tensorrt/Compiler/Conversion/Passes.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/DialectResourceBlobManager.h"
@@ -28,10 +28,10 @@
 
 #ifdef MLIR_TRT_ENABLE_HLO
 
-namespace mlir {
+namespace mtrt {
 #define GEN_PASS_DEF_CONVERTSTABLEHLOTOARITHPASS
-#include "mlir-tensorrt/Conversion/Passes.h.inc"
-} // namespace mlir
+#include "mlir-tensorrt/Compiler/Conversion/Passes.h.inc"
+} // namespace mtrt
 
 using namespace mlir;
 
@@ -63,7 +63,7 @@ handleStablehloConstantAttr(Location loc, ElementsAttr elAttr) {
 }
 
 class ConvertStablehloToArithPass
-    : public impl::ConvertStablehloToArithPassBase<
+    : public mtrt::impl::ConvertStablehloToArithPassBase<
           ConvertStablehloToArithPass> {
 public:
   using Base::Base;

@@ -22,8 +22,8 @@
 /// in the StableHLO IR and raises these patterns to `stablehlo.composite` op
 /// where decomposition is a private function implementing Q or DQ.
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Dialect/StablehloExt/Transforms/Passes.h"
-#include "mlir-tensorrt/Dialect/StablehloExt/Transforms/Patterns.h"
+#include "mlir-tensorrt/Compiler/Dialect/StablehloExt/Transforms/Passes.h"
+#include "mlir-tensorrt/Compiler/Dialect/StablehloExt/Transforms/Patterns.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/IRMapping.h"
 #include "mlir/IR/SymbolTable.h"
@@ -33,7 +33,7 @@
 
 namespace mlir::stablehlo_ext {
 #define GEN_PASS_DEF_STABLEHLORAISEQDQPASS
-#include "mlir-tensorrt/Dialect/StablehloExt/Transforms/Passes.h.inc"
+#include "mlir-tensorrt/Compiler/Dialect/StablehloExt/Transforms/Passes.h.inc"
 } // namespace mlir::stablehlo_ext
 
 using namespace mlir;

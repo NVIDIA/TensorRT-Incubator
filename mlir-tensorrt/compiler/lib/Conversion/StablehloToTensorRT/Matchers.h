@@ -23,7 +23,7 @@
 #ifndef CONVERSION_HLOTOTENSORRT_MATCHERS_H
 #define CONVERSION_HLOTOTENSORRT_MATCHERS_H
 
-#include "mlir-tensorrt/Conversion/TensorRTCommon/ConvertToTensorRTCommon.h"
+#include "mlir-tensorrt/Compiler/Conversion/TensorRTCommon/ConvertToTensorRTCommon.h"
 #include "mlir/IR/Matchers.h"
 #include "stablehlo/dialect/StablehloOps.h"
 

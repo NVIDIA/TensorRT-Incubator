@@ -21,20 +21,20 @@
 /// Implementation of `convert-memref-to-cuda` pass.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Conversion/Passes.h" // IWYU pragma: keep
-#include "mlir-tensorrt/Dialect/CUDA/IR/CUDADialect.h"
-#include "mlir-tensorrt/Dialect/CUDA/Utils/CUDAUtils.h"
-#include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
+#include "mlir-tensorrt/Compiler/Conversion/Passes.h" // IWYU pragma: keep
+#include "mlir-tensorrt/Compiler/Dialect/CUDA/IR/CUDADialect.h"
+#include "mlir-tensorrt/Compiler/Dialect/CUDA/Utils/CUDAUtils.h"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/IR/Plan.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/IR/OperationSupport.h"
 #include "mlir/Transforms/DialectConversion.h"
 
-namespace mlir {
+namespace mtrt {
 #define GEN_PASS_DEF_CONVERTMEMREFTOCUDAPASS
-#include "mlir-tensorrt/Conversion/Passes.h.inc"
-} // namespace mlir
+#include "mlir-tensorrt/Compiler/Conversion/Passes.h.inc"
+} // namespace mtrt
 
 using namespace mlir;
 using MemorySpace = plan::MemorySpace;
@@ -157,7 +157,7 @@ struct MemRefDeallocToCUDADeallocPattern
 };
 
 class MemRefToCUDAPass
-    : public impl::ConvertMemRefToCUDAPassBase<MemRefToCUDAPass> {
+    : public mtrt::impl::ConvertMemRefToCUDAPassBase<MemRefToCUDAPass> {
   using Base::Base;
   void runOnOperation() override {
     MLIRContext *ctx = &getContext();

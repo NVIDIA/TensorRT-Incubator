@@ -40,11 +40,10 @@ add_mlir_tensorrt_interface_library(MLIRTensorRTInferTensorValueRangeInterface
   InferTensorValueRangeInterface.cpp
 
   TD
-    "mlir-tensorrt/Interfaces/InferTensorValueRangeInterface.td"
+    "mlir-tensorrt/Compiler/Interfaces/InferTensorValueRangeInterface.td"
   OP
-    "mlir-tensorrt/Interfaces/InferTensorValueRangeInterface"
+    "mlir-tensorrt/Compiler/Interfaces/InferTensorValueRangeInterface"
 
   MLIR_LIBS PUBLIC
   MLIRInferIntRangeInterface
   )
-

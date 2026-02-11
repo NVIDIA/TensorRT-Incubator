@@ -21,7 +21,7 @@
 /// Implementation of `mtrt-scf-unroll` pass.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Transforms/Passes.h"
+#include "mlir-tensorrt/Compiler/Transforms/Passes.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/SCF/Utils/Utils.h"
 #include "mlir/IR/PatternMatch.h"
@@ -35,7 +35,7 @@
 
 namespace mtrt {
 #define GEN_PASS_DEF_SCFUNROLLPASS
-#include "mlir-tensorrt/Transforms/Passes.h.inc"
+#include "mlir-tensorrt/Compiler/Transforms/Passes.h.inc"
 } // namespace mtrt
 
 using namespace mlir;

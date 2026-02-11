@@ -21,12 +21,12 @@
 /// Implementation of Plan dialect dataflow analyses for shape/value bounds.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Dialect/Plan/Analysis/BoundsAnalysis.h"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/Analysis/BoundsAnalysis.h"
 #include "mlir-executor/Executor/IR/Executor.h"
 #include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
-#include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
-#include "mlir-tensorrt/Dialect/Plan/IR/PlanInterfaces.h"
-#include "mlir-tensorrt/Interfaces/InferTensorValueRangeInterface.h"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/IR/Plan.h"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/IR/PlanInterfaces.h"
+#include "mlir-tensorrt/Compiler/Interfaces/InferTensorValueRangeInterface.h"
 #include "mlir/Analysis/DataFlow/IntegerRangeAnalysis.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"

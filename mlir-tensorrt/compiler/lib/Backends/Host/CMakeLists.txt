@@ -3,7 +3,7 @@ add_mlir_tensorrt_backend_library(MLIRTensorRTHostBackend
   Passes.cpp
 
   TD
-    "mlir-tensorrt/Backends/Host/HostBackend.td"
+    "mlir-tensorrt/Compiler/Backends/Host/HostBackend.td"
 
 
   LINK_LIBS PUBLIC

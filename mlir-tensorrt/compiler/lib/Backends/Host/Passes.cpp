@@ -17,12 +17,12 @@
 // limitations under the License.
 //
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Backends/Host/Passes.h"
+#include "mlir-tensorrt/Compiler/Backends/Host/Passes.h"
 #include "mlir-tensorrt-common/Conversion/Passes.h"
-#include "mlir-tensorrt/Backends/Host/HostBackend.h"
-#include "mlir-tensorrt/Conversion/Passes.h"
-#include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
-#include "mlir-tensorrt/Transforms/Passes.h"
+#include "mlir-tensorrt/Compiler/Backends/Host/HostBackend.h"
+#include "mlir-tensorrt/Compiler/Conversion/Passes.h"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/IR/Plan.h"
+#include "mlir-tensorrt/Compiler/Transforms/Passes.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Linalg/Passes.h"
@@ -35,7 +35,7 @@
 
 namespace mtrt::compiler {
 #define GEN_PASS_DEF_PROCESSHOSTCLUSTERSPASS
-#include "mlir-tensorrt/Backends/Host/Passes.h.inc"
+#include "mlir-tensorrt/Compiler/Backends/Host/Passes.h.inc"
 } // namespace mtrt::compiler
 
 using namespace mtrt;
@@ -56,12 +56,12 @@ class ProcessHostClustersPass
 public:
   ProcessHostClustersPass() {
     dynamicPM = OpPassManager("func.func");
-    dynamicPM.addPass(mlir::createStablehloToLinalgPass());
+    dynamicPM.addPass(mtrt::createStablehloToLinalgPass());
     dynamicPM.addPass(mlir::createLinalgGeneralizeNamedOpsPass());
     dynamicPM.addPass(mtrt::createLinalgElementwiseFusionPass());
     dynamicPM.addPass(mlir::createLinalgDetensorizePass(
         mlir::LinalgDetensorizePassOptions{/*aggressiveMode=*/true}));
-    dynamicPM.addPass(mlir::createConvertToLoops());
+    dynamicPM.addPass(mtrt::createConvertToLoops());
     dynamicPM.addPass(mlir::createCSEPass());
     dynamicPM.addPass(mlir::createCanonicalizerPass());
     dynamicPM.addPass(mtrt::createSCFDetensorizePass());

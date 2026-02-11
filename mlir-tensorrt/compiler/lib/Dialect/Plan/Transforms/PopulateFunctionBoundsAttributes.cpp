@@ -25,9 +25,9 @@
 #include "mlir-executor/Executor/IR/ExecutorAttributes.h"
 #include "mlir-tensorrt-common/Support/Status.h"
 #include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
-#include "mlir-tensorrt/Dialect/Plan/Analysis/BoundsAnalysis.h"
-#include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
-#include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/Analysis/BoundsAnalysis.h"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/IR/Plan.h"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/Transforms/Passes.h"
 #include "mlir/Analysis/DataFlow/DeadCodeAnalysis.h"
 #include "mlir/Analysis/DataFlowFramework.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -36,7 +36,7 @@
 
 namespace mlir::plan {
 #define GEN_PASS_DEF_PLANPOPULATEFUNCTIONBOUNDSATTRIBUTESPASS
-#include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h.inc"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/Transforms/Passes.h.inc"
 } // namespace mlir::plan
 
 using namespace mlir;

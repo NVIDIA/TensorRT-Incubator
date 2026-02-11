@@ -25,7 +25,7 @@
 /// restricted to run on `builtin.module`, but we want to run on functions.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Transforms/Passes.h"
+#include "mlir-tensorrt/Compiler/Transforms/Passes.h"
 #include "mlir/Dialect/Linalg/Transforms/Transforms.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/PatternMatch.h"
@@ -33,7 +33,7 @@
 
 namespace mtrt {
 #define GEN_PASS_DEF_TENSOREXTPADTOINSERTSLICEPASS
-#include "mlir-tensorrt/Transforms/Passes.h.inc"
+#include "mlir-tensorrt/Compiler/Transforms/Passes.h.inc"
 } // namespace mtrt
 
 using namespace mlir;

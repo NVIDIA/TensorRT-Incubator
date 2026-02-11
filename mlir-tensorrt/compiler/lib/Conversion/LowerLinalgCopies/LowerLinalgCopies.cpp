@@ -21,17 +21,17 @@
 /// Implementation of `lower-linalg-copies` pass.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Conversion/Passes.h"
+#include "mlir-tensorrt/Compiler/Conversion/Passes.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/IR/OperationSupport.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/WalkPatternRewriteDriver.h"
 
-namespace mlir {
+namespace mtrt {
 #define GEN_PASS_DEF_LOWERLINALGCOPIESPASS
-#include "mlir-tensorrt/Conversion/Passes.h.inc"
-} // namespace mlir
+#include "mlir-tensorrt/Compiler/Conversion/Passes.h.inc"
+} // namespace mtrt
 
 using namespace mlir;
 
@@ -50,7 +50,7 @@ struct LowerLinalgCopyPattern : public OpRewritePattern<linalg::CopyOp> {
 };
 
 class LowerLinalgCopiesPass
-    : public impl::LowerLinalgCopiesPassBase<LowerLinalgCopiesPass> {
+    : public mtrt::impl::LowerLinalgCopiesPassBase<LowerLinalgCopiesPass> {
   using Base::Base;
 
   void runOnOperation() override {

@@ -22,8 +22,8 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
-#include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
-#include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/IR/Plan.h"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/Transforms/Passes.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/IR/SymbolTable.h"
@@ -32,7 +32,7 @@
 
 namespace mlir::plan {
 #define GEN_PASS_DEF_ELIMINATESHAPEOPSPASS
-#include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h.inc"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/Transforms/Passes.h.inc"
 } // namespace mlir::plan
 
 using namespace mlir;

@@ -21,7 +21,7 @@
 /// Lower special custom call operations.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Dialect/StablehloExt/Transforms/Passes.h"
+#include "mlir-tensorrt/Compiler/Dialect/StablehloExt/Transforms/Passes.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "stablehlo/dialect/ChloOps.h"
@@ -34,7 +34,7 @@ using namespace mlir::stablehlo;
 
 namespace mlir::stablehlo_ext {
 #define GEN_PASS_DEF_LOWERSPECIALCUSTOMCALLS
-#include "mlir-tensorrt/Dialect/StablehloExt/Transforms/Passes.h.inc"
+#include "mlir-tensorrt/Compiler/Dialect/StablehloExt/Transforms/Passes.h.inc"
 } // namespace mlir::stablehlo_ext
 
 namespace {

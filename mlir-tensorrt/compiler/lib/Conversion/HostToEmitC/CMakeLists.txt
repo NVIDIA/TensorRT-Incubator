@@ -1,16 +1,6 @@
 # Embed the StandaloneCPP runtime sources/headers into a generated translation
 # unit so the compiler can emit them without reading the source tree at runtime.
 set(_mtrt_standalonecpp_dir "${CMAKE_SOURCE_DIR}/executor/lib/Runtime/StandaloneCPP")
-set(_mtrt_standalonecpp_inputs
-  "${_mtrt_standalonecpp_dir}/MTRTRuntimeCore.cpp"
-  "${_mtrt_standalonecpp_dir}/MTRTRuntimeCore.h"
-  "${_mtrt_standalonecpp_dir}/MTRTRuntimeCuda.cpp"
-  "${_mtrt_standalonecpp_dir}/MTRTRuntimeCuda.h"
-  "${_mtrt_standalonecpp_dir}/MTRTRuntimeStatus.cpp"
-  "${_mtrt_standalonecpp_dir}/MTRTRuntimeStatus.h"
-  "${_mtrt_standalonecpp_dir}/MTRTRuntimeTensorRT.cpp"
-  "${_mtrt_standalonecpp_dir}/MTRTRuntimeTensorRT.h"
-)
 set(_mtrt_standalonecpp_relpaths
   "MTRTRuntimeCore.cpp"
   "MTRTRuntimeCore.h"
@@ -21,6 +11,9 @@ set(_mtrt_standalonecpp_relpaths
   "MTRTRuntimeTensorRT.cpp"
   "MTRTRuntimeTensorRT.h"
 )
+# Derive absolute paths from the relative paths.
+set(_mtrt_standalonecpp_inputs "${_mtrt_standalonecpp_relpaths}")
+list(TRANSFORM _mtrt_standalonecpp_inputs PREPEND "${_mtrt_standalonecpp_dir}/")
 
 # Escape list separators so the custom command passes a single -D...=<list>
 # argument to the CMake script.
@@ -29,15 +22,21 @@ string(REPLACE ";" "\\;" _mtrt_standalonecpp_relpaths_escaped "${_mtrt_standalon
 set(_mtrt_embedded_standalonecpp_cpp
   "${CMAKE_CURRENT_BINARY_DIR}/EmbeddedStandaloneCPP.cpp"
 )
+set(_mtrt_generate_embedded_file_group
+  "${MLIR_TENSORRT_ROOT_DIR}/build_tools/cmake/MTRTGenerateEmbeddedFileGroup.cmake"
+)
 add_custom_command(
   OUTPUT "${_mtrt_embedded_standalonecpp_cpp}"
   COMMAND "${CMAKE_COMMAND}"
     -DOUTPUT=${_mtrt_embedded_standalonecpp_cpp}
     -DINPUT_FILES=${_mtrt_standalonecpp_inputs_escaped}
     -DREL_PATHS=${_mtrt_standalonecpp_relpaths_escaped}
-    -P "${CMAKE_SOURCE_DIR}/compiler/cmake/GenerateEmbeddedStandaloneCPP.cmake"
+    -DGROUP_NAME=StandaloneCPP
+    -DHEADER_INCLUDE=mlir-tensorrt/Compiler/Conversion/HostToEmitC/EmbeddedStandaloneCPP.h
+    -DNAMESPACE=mtrt::compiler::emitc_support
+    -P "${_mtrt_generate_embedded_file_group}"
   DEPENDS
-    "${CMAKE_SOURCE_DIR}/compiler/cmake/GenerateEmbeddedStandaloneCPP.cmake"
+    "${_mtrt_generate_embedded_file_group}"
     ${_mtrt_standalonecpp_inputs}
   VERBATIM
 )

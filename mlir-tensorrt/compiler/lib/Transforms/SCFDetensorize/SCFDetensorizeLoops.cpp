@@ -22,8 +22,8 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt-dialect/Analysis/TensorKindAnalysis.h"
-#include "mlir-tensorrt/Transforms/Passes.h"
-#include "mlir-tensorrt/Transforms/Transforms.h"
+#include "mlir-tensorrt/Compiler/Transforms/Passes.h"
+#include "mlir-tensorrt/Compiler/Transforms/Transforms.h"
 #include "mlir/Analysis/DataFlow/ConstantPropagationAnalysis.h"
 #include "mlir/Analysis/DataFlow/DeadCodeAnalysis.h"
 #include "mlir/Analysis/DataFlowFramework.h"
@@ -37,7 +37,7 @@
 
 namespace mtrt {
 #define GEN_PASS_DEF_SCFDETENSORIZEPASS
-#include "mlir-tensorrt/Transforms/Passes.h.inc"
+#include "mlir-tensorrt/Compiler/Transforms/Passes.h.inc"
 } // namespace mtrt
 
 using namespace mlir;

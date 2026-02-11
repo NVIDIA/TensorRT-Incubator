@@ -25,10 +25,10 @@
 #include "mlir-tensorrt-common/Interfaces/TensorKindOpInterface.h"
 #include "mlir-tensorrt-dialect/Analysis/TensorKindAnalysis.h"
 #include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
-#include "mlir-tensorrt/Conversion/Passes.h"           // IWYU pragma: keep
-#include "mlir-tensorrt/Dialect/CUDA/IR/CUDADialect.h" // IWYU pragma: keep
-#include "mlir-tensorrt/Dialect/CUDA/Utils/CUDAUtils.h"
-#include "mlir-tensorrt/Dialect/TensorRTRuntime/IR/Ops.h"
+#include "mlir-tensorrt/Compiler/Conversion/Passes.h" // IWYU pragma: keep
+#include "mlir-tensorrt/Compiler/Dialect/CUDA/IR/CUDADialect.h" // IWYU pragma: keep
+#include "mlir-tensorrt/Compiler/Dialect/CUDA/Utils/CUDAUtils.h"
+#include "mlir-tensorrt/Compiler/Dialect/TensorRTRuntime/IR/Ops.h"
 #include "mlir/Analysis/DataFlow/ConstantPropagationAnalysis.h"
 #include "mlir/Analysis/DataFlow/DeadCodeAnalysis.h"
 #include "mlir/Analysis/DataFlowFramework.h"
@@ -37,10 +37,10 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "llvm/ADT/STLExtras.h"
 
-namespace mlir {
+namespace mtrt {
 #define GEN_PASS_DEF_CONVERTTENSORRTTOTENSORRTRUNTIMEPASS
-#include "mlir-tensorrt/Conversion/Passes.h.inc"
-} // namespace mlir
+#include "mlir-tensorrt/Compiler/Conversion/Passes.h.inc"
+} // namespace mtrt
 
 using namespace mlir;
 using namespace mlir::cuda;
@@ -228,7 +228,7 @@ LogicalResult TensorRTCallAndEngineConverter::convert() {
 
 namespace {
 class ConvertTensorRTToRuntimePass
-    : public mlir::impl::ConvertTensorRTToTensorRTRuntimePassBase<
+    : public mtrt::impl::ConvertTensorRTToTensorRTRuntimePassBase<
           ConvertTensorRTToRuntimePass> {
   void runOnOperation() override {
     MLIRContext *ctx = &getContext();

@@ -12,7 +12,7 @@
 /// TODO: move these fixes upstream
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Transforms/Passes.h" // IWYU pragma: keep
+#include "mlir-tensorrt/Compiler/Transforms/Passes.h" // IWYU pragma: keep
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/PatternMatch.h"
@@ -22,7 +22,7 @@
 
 namespace mtrt {
 #define GEN_PASS_DEF_FUNCEXTDUPLICATEFUNCTIONELIMINATIONPASS
-#include "mlir-tensorrt/Transforms/Passes.h.inc"
+#include "mlir-tensorrt/Compiler/Transforms/Passes.h.inc"
 } // namespace mtrt
 
 using namespace mlir;

@@ -22,8 +22,8 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-executor/Executor/IR/Executor.h"
-#include "mlir-tensorrt/Conversion/Passes.h"
-#include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
+#include "mlir-tensorrt/Compiler/Conversion/Passes.h"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/IR/Plan.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Func/Transforms/FuncConversions.h"
 #include "mlir/Dialect/GPU/IR/GPUDialect.h"
@@ -34,10 +34,10 @@
 #include "mlir/Transforms/DialectConversion.h"
 #include "llvm/Support/ErrorHandling.h"
 
-namespace mlir {
+namespace mtrt {
 #define GEN_PASS_DEF_CONVERTPLANTOEXECUTORPASS
-#include "mlir-tensorrt/Conversion/Passes.h.inc"
-} // namespace mlir
+#include "mlir-tensorrt/Compiler/Conversion/Passes.h.inc"
+} // namespace mtrt
 
 using namespace mlir;
 
@@ -268,7 +268,7 @@ static bool isLegalOp(Operation *op, const TypeConverter &typeConverter) {
 
 namespace {
 class PlanToExecutorPass
-    : public impl::ConvertPlanToExecutorPassBase<PlanToExecutorPass> {
+    : public mtrt::impl::ConvertPlanToExecutorPassBase<PlanToExecutorPass> {
   using Base::Base;
 
   void runOnOperation() override {

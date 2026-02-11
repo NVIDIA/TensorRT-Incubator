@@ -20,7 +20,7 @@
 /// Implementation of utilities for conversion LLVM MLIR dialect.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Conversion/LLVMCommon/LLVMCommon.h"
+#include "mlir-tensorrt/Compiler/Conversion/LLVMCommon/LLVMCommon.h"
 #include "mlir/Conversion/LLVMCommon/MemRefBuilder.h"
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Dialect/LLVMIR/LLVMAttrs.h"

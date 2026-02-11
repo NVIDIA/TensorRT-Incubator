@@ -22,12 +22,12 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-executor/Executor/IR/Executor.h"
-#include "mlir-tensorrt/Conversion/CUDAToLLVM/CUDAToLLVM.h"
-#include "mlir-tensorrt/Conversion/LLVMCommon/LLVMCommon.h"
-#include "mlir-tensorrt/Conversion/Passes.h"
-#include "mlir-tensorrt/Dialect/CUDA/IR/CUDADialect.h"
-#include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
-#include "mlir-tensorrt/Dialect/TensorRTRuntime/IR/Ops.h"
+#include "mlir-tensorrt/Compiler/Conversion/CUDAToLLVM/CUDAToLLVM.h"
+#include "mlir-tensorrt/Compiler/Conversion/LLVMCommon/LLVMCommon.h"
+#include "mlir-tensorrt/Compiler/Conversion/Passes.h"
+#include "mlir-tensorrt/Compiler/Dialect/CUDA/IR/CUDADialect.h"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/IR/Plan.h"
+#include "mlir-tensorrt/Compiler/Dialect/TensorRTRuntime/IR/Ops.h"
 #include "mlir/Conversion/ConvertToLLVM/ToLLVMInterface.h"
 #include "mlir/Conversion/ConvertToLLVM/ToLLVMPass.h"
 #include "mlir/Conversion/LLVMCommon/Pattern.h"
@@ -39,10 +39,10 @@
 #include "mlir/IR/SymbolTable.h"
 #include "mlir/Transforms/DialectConversion.h"
 
-namespace mlir {
+namespace mtrt {
 #define GEN_PASS_DEF_CONVERTHOSTTOLLVMPASS
-#include "mlir-tensorrt/Conversion/Passes.h.inc"
-} // namespace mlir
+#include "mlir-tensorrt/Compiler/Conversion/Passes.h.inc"
+} // namespace mtrt
 
 using namespace mlir;
 
@@ -95,7 +95,7 @@ static void cleanupPlanDialectModuleAttributes(ModuleOp module) {
 
 namespace {
 class HostToLLVMPass
-    : public mlir::impl::ConvertHostToLLVMPassBase<HostToLLVMPass> {
+    : public mtrt::impl::ConvertHostToLLVMPassBase<HostToLLVMPass> {
 public:
   using Base::Base;
 

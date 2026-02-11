@@ -21,7 +21,7 @@
 /// InferTensorValueRangeInterface definitions.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Interfaces/InferTensorValueRangeInterface.h"
+#include "mlir-tensorrt/Compiler/Interfaces/InferTensorValueRangeInterface.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/TypeUtilities.h"
 #include "mlir/Interfaces/InferIntRangeInterface.h"
@@ -191,4 +191,4 @@ BoundsArray::getConstantValues(RankedTensorType type) const {
 // Generated interface class implmenetations.
 //===----------------------------------------------------------------------===//
 
-#include "mlir-tensorrt/Interfaces/InferTensorValueRangeInterface.cpp.inc"
+#include "mlir-tensorrt/Compiler/Interfaces/InferTensorValueRangeInterface.cpp.inc"

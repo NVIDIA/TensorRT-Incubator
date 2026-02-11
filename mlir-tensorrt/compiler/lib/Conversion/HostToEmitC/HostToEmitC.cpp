@@ -32,16 +32,15 @@
 ///     calling `mtrt::...` runtime helpers (see `HostToEmitCPatterns*.cpp`)
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Conversion/HostToEmitC/HostToEmitC.h"
+#include "mlir-tensorrt/Compiler/Conversion/HostToEmitC/HostToEmitC.h"
 #include "mlir-executor/Executor/IR/Executor.h"
 #include "mlir-executor/Executor/IR/ExecutorAttributes.h"
-#include "mlir-executor/Executor/Transforms/Passes.h"
 #include "mlir-executor/Support/ArtifactManager.h"
+#include "mlir-tensorrt/Compiler/Conversion/Passes.h"
+#include "mlir-tensorrt/Compiler/Dialect/CUDA/IR/CUDADialect.h"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/IR/Plan.h"
+#include "mlir-tensorrt/Compiler/Dialect/TensorRTRuntime/IR/Ops.h"
 #include "mlir-tensorrt/Compiler/Options.h"
-#include "mlir-tensorrt/Conversion/Passes.h"
-#include "mlir-tensorrt/Dialect/CUDA/IR/CUDADialect.h"
-#include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
-#include "mlir-tensorrt/Dialect/TensorRTRuntime/IR/Ops.h"
 #include "mlir/Analysis/DataLayoutAnalysis.h"
 #include "mlir/Conversion/ArithToEmitC/ArithToEmitC.h"
 #include "mlir/Conversion/FuncToEmitC/FuncToEmitC.h"
@@ -66,10 +65,10 @@
 
 #include "HostToEmitCDetail.h"
 
-namespace mlir {
+namespace mtrt {
 #define GEN_PASS_DEF_CONVERTHOSTTOEMITCPASS
-#include "mlir-tensorrt/Conversion/Passes.h.inc"
-} // namespace mlir
+#include "mlir-tensorrt/Compiler/Conversion/Passes.h.inc"
+} // namespace mtrt
 
 using namespace mlir;
 using namespace mlir::host_to_emitc;
@@ -182,7 +181,7 @@ static void populateEmitCConversionPatternsAndLegality(
 
 namespace {
 class HostToEmitCPass
-    : public mlir::impl::ConvertHostToEmitCPassBase<HostToEmitCPass> {
+    : public mtrt::impl::ConvertHostToEmitCPassBase<HostToEmitCPass> {
 public:
   using Base::Base;
 
@@ -377,13 +376,13 @@ void mtrt::compiler::applyEmitCLoweringPipeline(mlir::OpPassManager &pm,
   // aggregate module-scope init/destroy helpers (`<module>_initialize_all` /
   // `<module>_destroy_all`). The wrapper pass (`wrap-module-in-emitc-class`)
   // creates its own consolidated lifecycle methods.
-  mlir::ConvertHostToEmitCPassOptions hostToEmitCOpts{};
+  mtrt::ConvertHostToEmitCPassOptions hostToEmitCOpts{};
   hostToEmitCOpts.emitAggregateInitDestroy = !wrapModuleInEmitCClass;
-  pm.addPass(mlir::createConvertHostToEmitCPass(hostToEmitCOpts));
+  pm.addPass(mtrt::createConvertHostToEmitCPass(hostToEmitCOpts));
 
   pm.addPass(mlir::createReconcileUnrealizedCastsPass());
   if (wrapModuleInEmitCClass)
-    pm.addPass(mlir::createWrapModuleInEmitCClassPass());
+    pm.addPass(mtrt::createWrapModuleInEmitCClassPass());
   pm.addPass(mlir::createCSEPass());
   pm.addPass(mlir::createCanonicalizerPass());
   pm.addPass(emitc::createFormExpressionsPass());
@@ -393,7 +392,7 @@ void mtrt::compiler::applyEmitCLoweringPipeline(mlir::OpPassManager &pm,
   const bool emitCMakeFile = opts.emitSupportFiles || opts.emitCMakeFile;
   const bool emitTestDriver = opts.emitSupportFiles || opts.emitTestDriver;
   if (emitRuntimeFiles || emitCMakeFile || emitTestDriver) {
-    mlir::EmitCppSupportFilesPassOptions supportOpts;
+    mtrt::EmitCppSupportFilesPassOptions supportOpts;
     supportOpts.emitRuntimeFiles = emitRuntimeFiles;
     supportOpts.emitCMakeFile = emitCMakeFile;
     supportOpts.emitTestDriver = emitTestDriver;

@@ -11,8 +11,8 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-executor/Executor/IR/Executor.h"
 #include "mlir-tensorrt-common/Utils/ModuleUtils.h"
-#include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
-#include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/IR/Plan.h"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/Transforms/Passes.h"
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
@@ -22,7 +22,7 @@
 
 namespace mlir::plan {
 #define GEN_PASS_DEF_PLANREMOVEEQUIVALENTBUFFERRESULTSPASS
-#include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h.inc"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/Transforms/Passes.h.inc"
 } // namespace mlir::plan
 
 using namespace mlir;

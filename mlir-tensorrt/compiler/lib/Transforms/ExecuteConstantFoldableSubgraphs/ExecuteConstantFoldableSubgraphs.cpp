@@ -32,16 +32,16 @@
 #include "mlir-kernel/Kernel/Pipelines/Pipelines.h"
 #include "mlir-kernel/Kernel/Transforms/Passes.h"
 #include "mlir-tensorrt-common/Utils/PassManagerUtils.h"
-#include "mlir-tensorrt/Backends/Kernel/KernelBackend.h"
-#include "mlir-tensorrt/Backends/Kernel/Passes.h"
+#include "mlir-tensorrt/Compiler/Backends/Kernel/KernelBackend.h"
+#include "mlir-tensorrt/Compiler/Backends/Kernel/Passes.h"
+#include "mlir-tensorrt/Compiler/Conversion/Passes.h"
+#include "mlir-tensorrt/Compiler/Dialect/CUDA/IR/CUDADialect.h"
+#include "mlir-tensorrt/Compiler/Dialect/CUDA/Transforms/Passes.h"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/IR/Plan.h"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/Transforms/Passes.h"
 #include "mlir-tensorrt/Compiler/InputPipelines/StablehloInputPipeline.h"
 #include "mlir-tensorrt/Compiler/Options.h"
-#include "mlir-tensorrt/Conversion/Passes.h"
-#include "mlir-tensorrt/Dialect/CUDA/IR/CUDADialect.h"
-#include "mlir-tensorrt/Dialect/CUDA/Transforms/Passes.h"
-#include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
-#include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
-#include "mlir-tensorrt/Transforms/Passes.h"
+#include "mlir-tensorrt/Compiler/Transforms/Passes.h"
 #include "mlir/Conversion/TensorToLinalg/TensorToLinalgPass.h"
 #include "mlir/Dialect/Linalg/Passes.h"
 #include "mlir/Dialect/PDL/IR/PDL.h"
@@ -55,7 +55,7 @@
 
 namespace mtrt {
 #define GEN_PASS_DEF_PLANEXECUTECONSTANTFOLDABLESUBGRAPHSPASS
-#include "mlir-tensorrt/Transforms/Passes.h.inc"
+#include "mlir-tensorrt/Compiler/Transforms/Passes.h.inc"
 } // namespace mtrt
 
 using namespace mlir;
@@ -375,8 +375,8 @@ static void populateSubgraphCompilationPipeline(OpPassManager &pm) {
   //===----------------------------------------------------------------------===//
   {
     OpPassManager &funcPM = pm.nest<func::FuncOp>();
-    funcPM.addPass(mlir::createStablehloToKernelPass());
-    funcPM.addPass(mlir::createStablehloToLinalgPass());
+    funcPM.addPass(mtrt::createStablehloToKernelPass());
+    funcPM.addPass(mtrt::createStablehloToLinalgPass());
     funcPM.addPass(mlir::createLinalgGeneralizeNamedOpsPass());
     funcPM.addPass(mtrt::createLinalgElementwiseFusionPass());
     funcPM.addPass(mtrt::createLinalgSimplifyExtractSlicePass());

@@ -24,7 +24,7 @@
 #ifndef CONVERSION_HLOTOTENSORRT_CONTROLFLOWOPS_H
 #define CONVERSION_HLOTOTENSORRT_CONTROLFLOWOPS_H
 
-#include "mlir-tensorrt/Conversion/TensorRTCommon/ConvertToTensorRTCommon.h"
+#include "mlir-tensorrt/Compiler/Conversion/TensorRTCommon/ConvertToTensorRTCommon.h"
 #include "mlir/IR/PatternMatch.h"
 
 namespace mlir {

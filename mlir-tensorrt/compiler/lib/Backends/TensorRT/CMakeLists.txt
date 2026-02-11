@@ -2,7 +2,7 @@ add_mlir_tensorrt_backend_library(MLIRTensorRTTensorRTBackend
   TensorRTBackend.cpp
 
   TD
-    "mlir-tensorrt/Backends/TensorRT/TensorRTBackend.td"
+    "mlir-tensorrt/Compiler/Backends/TensorRT/TensorRTBackend.td"
 
   LINK_LIBS PUBLIC
   MLIRTensorRTTensorRTDialect

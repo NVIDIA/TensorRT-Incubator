@@ -21,14 +21,14 @@
 /// Materialize `DenseElementsAttr` to `DenseResourceElementsAttr`.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Dialect/StablehloExt/Transforms/Passes.h"
+#include "mlir-tensorrt/Compiler/Dialect/StablehloExt/Transforms/Passes.h"
 #include "mlir/IR/AsmState.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "stablehlo/dialect/StablehloOps.h"
 
 namespace mlir::stablehlo_ext {
 #define GEN_PASS_DEF_MATERIALIZEDENSERESOURCEELEMENTSATTRPASS
-#include "mlir-tensorrt/Dialect/StablehloExt/Transforms/Passes.h.inc"
+#include "mlir-tensorrt/Compiler/Dialect/StablehloExt/Transforms/Passes.h.inc"
 } // namespace mlir::stablehlo_ext
 
 using namespace mlir;

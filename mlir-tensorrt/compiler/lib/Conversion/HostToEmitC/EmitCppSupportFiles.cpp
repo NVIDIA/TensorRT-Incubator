@@ -11,8 +11,8 @@
 /// `-artifacts-dir`.
 //===----------------------------------------------------------------------===//
 
-#include "mlir-tensorrt/Conversion/HostToEmitC/EmbeddedStandaloneCPP.h"
-#include "mlir-tensorrt/Conversion/Passes.h" // IWYU pragma: keep
+#include "mlir-tensorrt/Compiler/Conversion/HostToEmitC/EmbeddedStandaloneCPP.h"
+#include "mlir-tensorrt/Compiler/Conversion/Passes.h" // IWYU pragma: keep
 
 #include "mlir/Dialect/EmitC/IR/EmitC.h"
 #include "mlir/IR/AsmState.h"
@@ -28,10 +28,10 @@
 
 using namespace mlir;
 
-namespace mlir {
+namespace mtrt {
 #define GEN_PASS_DEF_EMITCPPSUPPORTFILESPASS
-#include "mlir-tensorrt/Conversion/Passes.h.inc"
-} // namespace mlir
+#include "mlir-tensorrt/Compiler/Conversion/Passes.h.inc"
+} // namespace mtrt
 
 namespace {
 
@@ -133,7 +133,7 @@ static std::string inferEntrypointName(emitc::ClassOp cls,
 }
 
 struct EmitCppSupportFilesPass
-    : public mlir::impl::EmitCppSupportFilesPassBase<EmitCppSupportFilesPass> {
+    : public mtrt::impl::EmitCppSupportFilesPassBase<EmitCppSupportFilesPass> {
   using Base::Base;
 
   void runOnOperation() override {

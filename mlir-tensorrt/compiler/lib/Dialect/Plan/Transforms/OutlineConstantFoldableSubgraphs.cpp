@@ -24,7 +24,7 @@
 
 #include "mlir-executor/Transforms/Clustering/Clustering.h"
 #include "mlir-tensorrt-common/Utils/DataFlowUtils.h"
-#include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/Transforms/Passes.h"
 #include "mlir/Analysis/DataFlow/ConstantPropagationAnalysis.h"
 #include "mlir/Analysis/DataFlow/DeadCodeAnalysis.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -32,7 +32,7 @@
 
 namespace mlir::plan {
 #define GEN_PASS_DEF_PLANOUTLINECONSTANTFOLDABLESUBGRAPHSPASS
-#include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h.inc"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/Transforms/Passes.h.inc"
 } // namespace mlir::plan
 
 using namespace mlir;

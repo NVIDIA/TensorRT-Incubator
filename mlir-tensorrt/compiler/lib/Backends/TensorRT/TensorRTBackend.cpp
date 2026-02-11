@@ -21,15 +21,15 @@
 /// Definitions for TensorRT backend extensions to the Plan dialect.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Backends/TensorRT/TensorRTBackend.h"
+#include "mlir-tensorrt/Compiler/Backends/TensorRT/TensorRTBackend.h"
 #include "mlir-executor/Transforms/Clustering/Clustering.h"
 #include "mlir-tensorrt-common/Utils/ShapeInfo.h"
 #include "mlir-tensorrt-common/Utils/TensorRTVersion.h"
 #include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
-#include "mlir-tensorrt/Backends/Host/HostBackend.h"
-#include "mlir-tensorrt/Conversion/StablehloToTensorRT/StablehloToTensorRT.h"
-#include "mlir-tensorrt/Conversion/TensorRTCommon/ConvertToTensorRTCommon.h"
-#include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
+#include "mlir-tensorrt/Compiler/Backends/Host/HostBackend.h"
+#include "mlir-tensorrt/Compiler/Conversion/StablehloToTensorRT/StablehloToTensorRT.h"
+#include "mlir-tensorrt/Compiler/Conversion/TensorRTCommon/ConvertToTensorRTCommon.h"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/IR/Plan.h"
 #include "mlir/Analysis/DataFlowFramework.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -53,7 +53,7 @@ using namespace mlir::plan;
 /// Include the Tablegen'd C++ code describing the backend attribute. We will
 /// attach this to the plan dialect as an extension.
 #define GET_ATTRDEF_CLASSES
-#include "mlir-tensorrt/Backends/TensorRT/TensorRTBackendAttrs.cpp.inc"
+#include "mlir-tensorrt/Compiler/Backends/TensorRT/TensorRTBackendAttrs.cpp.inc"
 
 //===----------------------------------------------------------------------===//
 // TensorRTBackendAttr

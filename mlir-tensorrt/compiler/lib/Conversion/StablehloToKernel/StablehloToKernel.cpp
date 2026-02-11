@@ -23,7 +23,7 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-kernel/Kernel/IR/Ops.h"
-#include "mlir-tensorrt/Conversion/Passes.h"
+#include "mlir-tensorrt/Compiler/Conversion/Passes.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/TypeUtilities.h"
@@ -33,10 +33,10 @@
 #include "stablehlo/dialect/StablehloOps.h"
 #include "llvm/ADT/TypeSwitch.h"
 
-namespace mlir {
+namespace mtrt {
 #define GEN_PASS_DEF_STABLEHLOTOKERNELPASS
-#include "mlir-tensorrt/Conversion/Passes.h.inc"
-} // namespace mlir
+#include "mlir-tensorrt/Compiler/Conversion/Passes.h.inc"
+} // namespace mtrt
 
 using namespace mlir;
 using namespace mlir::kernel;
@@ -265,7 +265,7 @@ struct SortToKernelPattern : public OpRewritePattern<stablehlo::SortOp> {
 
 /// Implementation of the 'convert-stablehlo-to-kernel' pass.
 class StablehloToKernelPass
-    : public impl::StablehloToKernelPassBase<StablehloToKernelPass> {
+    : public mtrt::impl::StablehloToKernelPassBase<StablehloToKernelPass> {
   void runOnOperation() override {
     Operation *op = getOperation();
 

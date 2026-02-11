@@ -23,24 +23,25 @@
 /// like 'top k'.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Conversion/Passes.h"
+#include "mlir-tensorrt/Compiler/Conversion/Passes.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "stablehlo/dialect/ChloOps.h"
 #include "stablehlo/dialect/StablehloOps.h"
 #include "stablehlo/transforms/Passes.h"
 
-namespace mlir {
+namespace mtrt {
 #define GEN_PASS_DEF_CONVERTCHLOTOSTABLEHLOEXTPASS
-#include "mlir-tensorrt/Conversion/Passes.h.inc"
-} // namespace mlir
+#include "mlir-tensorrt/Compiler/Conversion/Passes.h.inc"
+} // namespace mtrt
 
 using namespace mlir;
 
 namespace {
 
 struct ChloToStablehloExtPass
-    : public impl::ConvertChloToStableHloExtPassBase<ChloToStablehloExtPass> {
+    : public mtrt::impl::ConvertChloToStableHloExtPassBase<
+          ChloToStablehloExtPass> {
 public:
   using Base::Base;
 

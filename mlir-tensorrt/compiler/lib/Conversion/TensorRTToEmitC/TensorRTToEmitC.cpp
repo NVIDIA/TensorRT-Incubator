@@ -20,7 +20,7 @@
 #include "mlir-tensorrt-common/Utils/TensorRTVersion.h"
 #include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
 #include "mlir-tensorrt-dialect/TensorRT/Utils/Utils.h"
-#include "mlir-tensorrt/Conversion/Passes.h"
+#include "mlir-tensorrt/Compiler/Conversion/Passes.h"
 
 #include "mlir/Dialect/EmitC/IR/EmitC.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -36,10 +36,10 @@
 
 #include <string>
 
-namespace mlir {
+namespace mtrt {
 #define GEN_PASS_DEF_CONVERTTENSORRTTOEMITCPASS
-#include "mlir-tensorrt/Conversion/Passes.h.inc"
-} // namespace mlir
+#include "mlir-tensorrt/Compiler/Conversion/Passes.h.inc"
+} // namespace mtrt
 
 using namespace mlir;
 using namespace mlir::tensorrt;
@@ -877,7 +877,7 @@ static void addIncludesToModule(ModuleOp op) {
 
 namespace {
 class ConvertTensorRTToEmitCPass
-    : public mlir::impl::ConvertTensorRTToEmitCPassBase<
+    : public mtrt::impl::ConvertTensorRTToEmitCPassBase<
           ConvertTensorRTToEmitCPass> {
 public:
   using Base::Base;

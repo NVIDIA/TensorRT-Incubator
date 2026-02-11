@@ -21,7 +21,7 @@
 /// Implementation of `mtrt-scf-for-cyclic-iter-args` pass.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Transforms/Passes.h" // IWYU pragma: keep
+#include "mlir-tensorrt/Compiler/Transforms/Passes.h" // IWYU pragma: keep
 
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
@@ -32,7 +32,7 @@
 
 namespace mtrt {
 #define GEN_PASS_DEF_SCFFORCYCLICITERARGSPASS
-#include "mlir-tensorrt/Transforms/Passes.h.inc"
+#include "mlir-tensorrt/Compiler/Transforms/Passes.h.inc"
 } // namespace mtrt
 
 using namespace mlir;

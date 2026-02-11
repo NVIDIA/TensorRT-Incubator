@@ -23,7 +23,7 @@
 #define MLIR_TENSORRT_CONVERSION_HOSTTOEMITC_DETAIL_H
 
 #include "HostToEmitCDetailCommon.h"
-#include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/IR/Plan.h"
 #include "mlir/Dialect/Arith/Utils/Utils.h"
 #include "mlir/Dialect/EmitC/IR/EmitC.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"

@@ -9,19 +9,19 @@
 /// Implementation of `convert-linalg-to-cuda` pass.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Conversion/Passes.h" // IWYU pragma: keep
-#include "mlir-tensorrt/Dialect/CUDA/IR/CUDADialect.h"
-#include "mlir-tensorrt/Dialect/CUDA/Utils/CUDAUtils.h"
-#include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
+#include "mlir-tensorrt/Compiler/Conversion/Passes.h" // IWYU pragma: keep
+#include "mlir-tensorrt/Compiler/Dialect/CUDA/IR/CUDADialect.h"
+#include "mlir-tensorrt/Compiler/Dialect/CUDA/Utils/CUDAUtils.h"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/IR/Plan.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/IR/OperationSupport.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "llvm/ADT/STLExtras.h"
 
-namespace mlir {
+namespace mtrt {
 #define GEN_PASS_DEF_CONVERTLINALGTOCUDAPASS
-#include "mlir-tensorrt/Conversion/Passes.h.inc"
-} // namespace mlir
+#include "mlir-tensorrt/Compiler/Conversion/Passes.h.inc"
+} // namespace mtrt
 
 using namespace mlir;
 using MemorySpace = plan::MemorySpace;
@@ -158,7 +158,7 @@ struct LinalgFillToCUDAMemsetPattern : public OpRewritePattern<linalg::FillOp> {
 };
 
 class ConvertLinalgToCUDAPass
-    : public impl::ConvertLinalgToCUDAPassBase<ConvertLinalgToCUDAPass> {
+    : public mtrt::impl::ConvertLinalgToCUDAPassBase<ConvertLinalgToCUDAPass> {
   using Base::Base;
   void runOnOperation() override {
     MLIRContext *ctx = &getContext();

@@ -23,9 +23,9 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt-common/Utils/RegionUtils.h"
 #include "mlir-tensorrt-dialect/Analysis/TensorKindAnalysis.h"
-#include "mlir-tensorrt/Dialect/Plan/Analysis/BoundsAnalysis.h"
-#include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
-#include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h" // IWYU pragma: keep
+#include "mlir-tensorrt/Compiler/Dialect/Plan/Analysis/BoundsAnalysis.h"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/IR/Plan.h"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/Transforms/Passes.h" // IWYU pragma: keep
 #include "mlir/Analysis/DataFlow/ConstantPropagationAnalysis.h"
 #include "mlir/Analysis/DataFlow/DeadCodeAnalysis.h"
 #include "mlir/Analysis/DataFlowFramework.h"
@@ -48,7 +48,7 @@
 
 namespace mlir::plan {
 #define GEN_PASS_DEF_CREATECLOSEDREGIONSPASS
-#include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h.inc"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/Transforms/Passes.h.inc"
 } // namespace mlir::plan
 
 using namespace mlir;
