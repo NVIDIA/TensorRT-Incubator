@@ -19,9 +19,11 @@ add_mlir_executor_library(MLIRTensorRTConvertToExecutorCommon
     MLIRDLTIDialect
   )
 
-add_mlir_pdll_library(MLIRExecutorStdToExectutorPatternsIncGen
+add_mlir_pdll_library(MLIRExecutorStdToExecutorPatternsIncGen
   StdToExecutor.pdll
   StdToExecutor.pdll.h.inc
+  EXTRA_INCLUDES
+    ${MLIR_INSTALL_PREFIX}/share/mlir/include
   )
 
 add_mlir_executor_library(MLIRTensorRTStdToExecutor
@@ -34,7 +36,7 @@ add_mlir_executor_library(MLIRTensorRTStdToExecutor
 
   DEPENDS
   MLIRExecutorConversionPassIncGen
-  MLIRExecutorStdToExectutorPatternsIncGen
+  MLIRExecutorStdToExecutorPatternsIncGen
 
   LINK_LIBS PUBLIC
     MLIRTensorRTConvertToExecutorCommon

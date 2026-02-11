@@ -85,6 +85,19 @@
       }
     },
     {
+      "name": "github-cicd-prebuilt-llvm",
+      "inherits": "base",
+      "cacheVariables": {
+        "ENABLE_ASAN": "OFF",
+        "LLVM_LIT_ARGS": "$env{LLVM_LIT_ARGS}",
+        "MLIR_TRT_DOWNLOAD_TENSORRT_VERSION": "$env{MLIR_TRT_DOWNLOAD_TENSORRT_VERSION}",
+        "MLIR_TRT_USE_LLVM": "prebuilt",
+        "CPM_LLVM_SOURCE": "$env{CPM_LLVM_SOURCE}",
+        "LLVM_DIR": "$env{MLIR_TRT_PREBUILT_LLVM_DIR}",
+        "MLIR_DIR": "$env{MLIR_TRT_PREBUILT_MLIR_DIR}"
+      }
+    },
+    {
       "name": "github-cicd-asan",
       "inherits": "github-cicd",
       "cacheVariables": {
