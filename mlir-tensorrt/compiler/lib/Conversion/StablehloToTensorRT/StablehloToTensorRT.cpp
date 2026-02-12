@@ -28,7 +28,6 @@
 #include "mlir-tensorrt-dialect/TensorRT/Utils/Utils.h"
 #include "mlir-tensorrt-dialect/Utils/ShapeUtils.h"
 #include "mlir-tensorrt/Compiler/Conversion/Passes.h"
-#include "mlir-tensorrt/Compiler/Conversion/Patterns.h"
 #include "mlir-tensorrt/Compiler/Conversion/TensorRTCommon/ConvertToTensorRTCommon.h"
 #include "mlir-tensorrt/Compiler/Dialect/StablehloExt/Utils/GatherScatterUtils.h"
 #include "mlir-tensorrt/Compiler/Dialect/StablehloExt/Utils/StablehloMatchers.h"

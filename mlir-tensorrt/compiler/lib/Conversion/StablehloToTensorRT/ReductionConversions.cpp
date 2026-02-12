@@ -25,7 +25,6 @@
 #include "Matchers.h"
 #include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
 #include "mlir-tensorrt-dialect/Utils/ShapeUtils.h"
-#include "mlir-tensorrt/Compiler/Conversion/Patterns.h"
 #include "mlir-tensorrt/Compiler/Conversion/StablehloToTensorRT/StablehloToTensorRT.h"
 #include "mlir-tensorrt/Compiler/Conversion/TensorRTCommon/ConvertToTensorRTCommon.h"
 #include "mlir/IR/Matchers.h"
