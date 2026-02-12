@@ -21,7 +21,7 @@
 /// Implementation of the `plan-clustering` pass.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-executor/Transforms/Clustering/Patterns.h"
+#include "mlir-executor/Passes/Clustering/Patterns.h"
 #include "mlir-tensorrt-common/Interfaces/TensorKindOpInterface.h"
 #include "mlir-tensorrt-common/Utils/DataFlowUtils.h"
 #include "mlir-tensorrt-dialect/Analysis/TensorKindAnalysis.h"

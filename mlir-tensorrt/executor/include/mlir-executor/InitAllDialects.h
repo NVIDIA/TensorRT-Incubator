@@ -21,7 +21,7 @@
 #define MLIR_EXECUTOR_INITALLDIALECTS
 
 #include "mlir-executor/Executor/IR/Executor.h"
-#include "mlir-executor/Executor/Transforms/BufferizationOpInterfaceImpls.h"
+#include "mlir-executor/Passes/BufferizationOpInterfaceImpls.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/ControlFlow/IR/ControlFlow.h"
 #include "mlir/Dialect/ControlFlow/Transforms/BufferDeallocationOpInterfaceImpl.h"

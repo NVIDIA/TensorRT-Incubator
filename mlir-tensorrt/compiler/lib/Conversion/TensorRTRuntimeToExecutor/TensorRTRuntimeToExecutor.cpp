@@ -18,9 +18,9 @@
 //
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt/Compiler/Conversion/TensorRTRuntimeToExecutor/TensorRTRuntimeToExecutor.h"
-#include "mlir-executor/Conversion/ConvertToExecutorCommon.h"
 #include "mlir-executor/Executor/IR/Executor.h"
 #include "mlir-executor/Executor/Utils/Utils.h"
+#include "mlir-executor/Passes/ConvertToExecutorCommon.h"
 #include "mlir-tensorrt/Compiler/Conversion/Passes.h" // IWYU pragma: keep
 #include "mlir-tensorrt/Compiler/Dialect/CUDA/IR/CUDADialect.h"
 #include "mlir-tensorrt/Compiler/Dialect/TensorRTRuntime/IR/Ops.h"

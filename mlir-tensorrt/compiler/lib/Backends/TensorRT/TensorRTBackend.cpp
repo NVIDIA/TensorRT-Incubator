@@ -22,7 +22,7 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt/Compiler/Backends/TensorRT/TensorRTBackend.h"
-#include "mlir-executor/Transforms/Clustering/Clustering.h"
+#include "mlir-executor/Passes/Clustering/Clustering.h"
 #include "mlir-tensorrt-common/Utils/ShapeInfo.h"
 #include "mlir-tensorrt-common/Utils/TensorRTVersion.h"
 #include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"

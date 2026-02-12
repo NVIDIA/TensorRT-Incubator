@@ -7,7 +7,7 @@ add_mlir_tensorrt_library(MLIRTensorRTOutlineTensorROps
     MLIRTensorRTGenericTransformPassIncGen
 
     LINK_LIBS PUBLIC
-      MLIRExecutorGenericClustering
+      MLIRTensorRTExecutorPasses
       MLIRTensorRTDialectIncludes
       MLIRTensorRTRegionUtils
       MLIRTensorRTStablehloToPlan

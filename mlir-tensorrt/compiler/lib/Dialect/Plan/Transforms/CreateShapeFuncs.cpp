@@ -23,7 +23,7 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-executor/Executor/IR/Executor.h"
 #include "mlir-executor/Executor/IR/ExecutorAttributes.h"
-#include "mlir-executor/Executor/Transforms/GenerateABIWrappers.h"
+#include "mlir-executor/Passes/GenerateABIWrappers.h"
 #include "mlir-tensorrt-dialect/Analysis/TensorKindAnalysis.h"
 #include "mlir-tensorrt/Compiler/Dialect/Plan/IR/Plan.h"
 #include "mlir-tensorrt/Compiler/Dialect/Plan/Transforms/Passes.h"

@@ -10,8 +10,7 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt/Compiler/Pipeline.h"
-#include "mlir-executor/Conversion/Passes.h"
-#include "mlir-executor/Executor/Transforms/Passes.h"
+#include "mlir-executor/Passes/Passes.h"
 #include "mlir-executor/Target/Lua/TranslateToRuntimeExecutable.h"
 #include "mlir-kernel/Kernel/Pipelines/Pipelines.h"
 #include "mlir-kernel/Kernel/Transforms/Passes.h"
@@ -50,6 +49,7 @@
 #include "mlir/Support/FileUtilities.h"
 #include "mlir/Target/Cpp/CppEmitter.h"
 #include "mlir/Transforms/Passes.h"
+#include "stablehlo/transforms/Passes.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
@@ -251,6 +251,12 @@ static void populateExtensionPasses(mlir::OpPassManager &pm,
 
 static void populateSetupPipeline(OpPassManager &pm,
                                   const MainOptions &options) {
+  // If the input is VHLO (which may be the case when --input=stablehlo), we
+  // need to immediately run the conversion to StableHLO since VHLO uses its own
+  // function operations that our passes won't recognize.
+  if (options.inputKind == plan::InputKind::Stablehlo) {
+    stablehlo::createStablehloDeserializePipeline(pm);
+  }
 
   pm.addPass(plan::createPopulateDefaultBackendMetadataPass(
       plan::PopulateDefaultBackendMetadataPassOptions{

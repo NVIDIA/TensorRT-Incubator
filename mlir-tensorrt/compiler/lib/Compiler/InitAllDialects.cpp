@@ -26,7 +26,7 @@
 #include "mlir-tensorrt/Compiler/Extensions/TensorRTExtension.h"
 
 #include "mlir-executor/Executor/IR/Executor.h"
-#include "mlir-executor/Executor/Transforms/BufferizationOpInterfaceImpls.h"
+#include "mlir-executor/Passes/BufferizationOpInterfaceImpls.h"
 #include "mlir-kernel/InitAllDialects.h"
 #include "mlir-kernel/Kernel/Transforms/Transforms.h"
 #include "mlir-tensorrt-common/Dialect/EmitCExt/IR/DataLayoutImpl.h"

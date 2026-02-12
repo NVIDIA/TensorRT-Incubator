@@ -1,0 +1,13 @@
+include_directories(${MLIR_INCLUDE_DIRS})
+
+set(LLVM_TARGET_DEFINITIONS Passes.td)
+mlir_tablegen(Passes.h.inc -gen-pass-decls -name Executor)
+mtrt_add_public_tablegen_target(MLIRTensorRTExecutorPassesIncGen)
+
+if(COMMAND add_mlir_tensorrt_doc)
+  add_mlir_tensorrt_doc(ExecutorPassesDoc
+    SRC Passes.td
+    OUTPUT_FILE docs/Passes/ExecutorPasses.md
+    COMMAND -gen-pass-doc
+    )
+endif()

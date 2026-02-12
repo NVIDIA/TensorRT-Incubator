@@ -23,8 +23,8 @@
 /// mechanisms.
 ///
 //===----------------------------------------------------------------------===//
-#ifndef MLIR_EXECUTOR_SUPPORT_STATUS
-#define MLIR_EXECUTOR_SUPPORT_STATUS
+#ifndef MLIR_TENSORRT_COMMON_SUPPORT_STATUS
+#define MLIR_TENSORRT_COMMON_SUPPORT_STATUS
 
 #include "mlir-tensorrt-common/Support/ADTExtras.h"
 #include "llvm/ADT/StringExtras.h"
@@ -284,4 +284,4 @@ void cantFail(const StatusOr<T> &statusOr) {
 
 } // namespace mtrt
 
-#endif // MLIR_EXECUTOR_SUPPORT_STATUS
+#endif // MLIR_TENSORRT_COMMON_SUPPORT_STATUS

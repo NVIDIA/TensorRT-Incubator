@@ -25,6 +25,8 @@
 #ifndef MLIR_TENSORRT_RUNTIME_BACKEND_LUA_LUAERRORHANDLING_H
 #define MLIR_TENSORRT_RUNTIME_BACKEND_LUA_LUAERRORHANDLING_H
 
+#include "mlir-tensorrt-common/Support/Status.h"
+
 #define SET_LUA_ERROR_AND_RETURN_IF_CUDART_ERROR(x, lstate, ...)               \
   do {                                                                         \
     cudaError_t err = (x);                                                     \
@@ -99,7 +101,9 @@
     }                                                                          \
   } while (false)
 #define SET_LUA_ERROR_IF_ERROR(x, lstate)                                      \
-  SET_LUA_ERROR_IF_ERROR_(MTRT_CONCAT(_tmpStatus, __COUNTER__), x, lstate)
+  MTRT_DISABLE_COUNTER_WARNING                                                 \
+  SET_LUA_ERROR_IF_ERROR_(MTRT_CONCAT(_tmpStatus, __COUNTER__), x, lstate)     \
+  MTRT_RESTORE_COUNTER_WARNING
 
 #define SET_LUA_ERROR_AND_RETURN_IF_ERROR_(tmpName, x, lstate, ...)            \
   do {                                                                         \
@@ -112,7 +116,9 @@
   } while (false)
 
 #define SET_LUA_ERROR_AND_RETURN_IF_ERROR(x, lstate, ...)                      \
+  MTRT_DISABLE_COUNTER_WARNING                                                 \
   SET_LUA_ERROR_AND_RETURN_IF_ERROR_(MTRT_CONCAT(_tmpStatus, __COUNTER__), x,  \
-                                     lstate, __VA_ARGS__)
+                                     lstate, __VA_ARGS__)                      \
+  MTRT_RESTORE_COUNTER_WARNING
 
 #endif // MLIR_TENSORRT_RUNTIME_BACKEND_LUA_LUAERRORHANDLING_H
