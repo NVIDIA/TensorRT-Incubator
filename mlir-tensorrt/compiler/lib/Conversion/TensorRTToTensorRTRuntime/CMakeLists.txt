@@ -7,7 +7,7 @@ add_mlir_tensorrt_library(MLIRTensorRTTensorRTToTensorRTRuntime
     MLIRTensorRTTensorRTDialect
     MLIRTensorRTTensorRTRuntimeDialect
     MLIRTensorRTAnalysis
-    MLIRTensorRTConvertToExecutorCommon
+    MLIRTensorRTExecutorPasses
   MLIR_LIBS PUBLIC
     MLIRRewrite
 )

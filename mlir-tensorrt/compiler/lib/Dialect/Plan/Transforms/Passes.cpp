@@ -22,7 +22,7 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt/Compiler/Dialect/Plan/Transforms/Passes.h"
-#include "mlir-executor/Executor/Transforms/Passes.h"
+#include "mlir-executor/Passes/Passes.h"
 #include "mlir-tensorrt-common/Support/Options.h"
 #include "mlir-tensorrt/Compiler/Conversion/Passes.h"
 #include "mlir-tensorrt/Compiler/Transforms/Passes.h"

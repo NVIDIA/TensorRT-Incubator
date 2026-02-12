@@ -25,4 +25,4 @@ add_mlir_executor_test_library(MLIRExecutorTestSideEffects
     MLIRIR
     )
 
-add_subdirectory(Transforms)
+add_subdirectory(Passes)

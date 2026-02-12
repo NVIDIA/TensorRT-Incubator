@@ -24,7 +24,7 @@
 #ifndef MLIR_TENSORRT_DIALECT_PLAN_IR_PLANINTERFACES
 #define MLIR_TENSORRT_DIALECT_PLAN_IR_PLANINTERFACES
 
-#include "mlir-executor/Transforms/Clustering/Clustering.h"
+#include "mlir-executor/Passes/Clustering/Clustering.h"
 #include "mlir-tensorrt/Compiler/Dialect/Plan/IR/PlanEnums.h"
 
 namespace mlir {

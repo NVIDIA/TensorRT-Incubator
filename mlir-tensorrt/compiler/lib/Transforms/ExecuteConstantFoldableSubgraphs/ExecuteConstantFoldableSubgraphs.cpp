@@ -22,9 +22,8 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "mlir-executor/Conversion/Passes.h"
 #include "mlir-executor/Executor/IR/Executor.h"
-#include "mlir-executor/Executor/Transforms/Passes.h"
+#include "mlir-executor/Passes/Passes.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaExtensions.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaRuntime.h"
 #include "mlir-executor/Target/Lua/TranslateToRuntimeExecutable.h"

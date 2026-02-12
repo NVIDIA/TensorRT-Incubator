@@ -21,8 +21,8 @@
 /// Implementation of the `plan-outline-clusters` pass.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-executor/Transforms/Clustering/Clustering.h"
-#include "mlir-executor/Transforms/Clustering/Patterns.h"
+#include "mlir-executor/Passes/Clustering/Clustering.h"
+#include "mlir-executor/Passes/Clustering/Patterns.h"
 #include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
 #include "mlir-tensorrt/Compiler/Dialect/Plan/IR/Plan.h"
 #include "mlir-tensorrt/Compiler/Dialect/Plan/IR/PlanInterfaces.h"

@@ -21,7 +21,7 @@
 /// Implementation of the `plan-kernel-segmentation` pass.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-executor/Transforms/Clustering/Clustering.h"
+#include "mlir-executor/Passes/Clustering/Clustering.h"
 #include "mlir-kernel/Kernel/IR/Ops.h"
 #include "mlir-kernel/Utils/StructuredOpsUtils.h"
 #include "mlir-tensorrt/Compiler/Backends/Kernel/KernelBackend.h"

@@ -5,7 +5,7 @@ add_mlir_tensorrt_library(MLIRTensorRTCUDAToExecutor
   MLIRTensorRTConversionPassIncGen
 
   LINK_LIBS PUBLIC
-    MLIRTensorRTConvertToExecutorCommon
+    MLIRTensorRTExecutorPasses
     MLIRTensorRTCUDADialect
     MLIRTensorRTExecutorDialect
     MLIRTensorRTExecutorRuntimeAPI

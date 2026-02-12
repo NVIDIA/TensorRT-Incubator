@@ -22,7 +22,7 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "mlir-executor/Transforms/Clustering/Clustering.h"
+#include "mlir-executor/Passes/Clustering/Clustering.h"
 #include "mlir-tensorrt-common/Utils/DataFlowUtils.h"
 #include "mlir-tensorrt/Compiler/Dialect/Plan/Transforms/Passes.h"
 #include "mlir/Analysis/DataFlow/ConstantPropagationAnalysis.h"
