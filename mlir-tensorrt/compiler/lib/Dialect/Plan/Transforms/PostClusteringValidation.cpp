@@ -29,7 +29,7 @@
 #include "mlir-tensorrt/Compiler/Dialect/Plan/IR/Plan.h"
 #include "mlir-tensorrt/Compiler/Dialect/Plan/Transforms/Passes.h"
 #include "mlir-tensorrt/Compiler/Dialect/TensorRTRuntime/IR/Ops.h"
-#include "mlir-tensorrt/Compiler/Transforms/Passes.h"
+#include "mlir-tensorrt/Compiler/Passes/Passes.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Bufferization/IR/BufferizableOpInterface.h"

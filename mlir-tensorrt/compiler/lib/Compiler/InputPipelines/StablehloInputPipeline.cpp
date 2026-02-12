@@ -19,9 +19,8 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt/Compiler/InputPipelines/StablehloInputPipeline.h"
 #include "mlir-tensorrt-common/Utils/PassManagerUtils.h"
-#include "mlir-tensorrt/Compiler/Conversion/Passes.h"
 #include "mlir-tensorrt/Compiler/Dialect/StablehloExt/Transforms/Passes.h"
-#include "mlir-tensorrt/Compiler/Transforms/Passes.h"
+#include "mlir-tensorrt/Compiler/Passes/Passes.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Pass/PassOptions.h"

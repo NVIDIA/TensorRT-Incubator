@@ -25,7 +25,7 @@
 #include "mlir-tensorrt-dialect/Target/TranslateToTensorRT.h"
 #include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
 #include "mlir-tensorrt-dialect/TensorRT/Transforms/Passes.h"
-#include "mlir-tensorrt/Compiler/Conversion/Passes.h"
+#include "mlir-tensorrt/Compiler/Passes/Passes.h"
 #include "mlir-tensorrt/Compiler/Pipeline.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 

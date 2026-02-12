@@ -33,11 +33,10 @@
 #include "mlir-tensorrt-dialect/TensorRT/Transforms/Passes.h"
 #include "mlir-tensorrt/Compiler/Backends/Host/Passes.h"
 #include "mlir-tensorrt/Compiler/Backends/Kernel/Passes.h"
-#include "mlir-tensorrt/Compiler/Conversion/Passes.h"
 #include "mlir-tensorrt/Compiler/Dialect/CUDA/Transforms/Passes.h"
 #include "mlir-tensorrt/Compiler/Dialect/Plan/Transforms/Passes.h"
 #include "mlir-tensorrt/Compiler/Extensions/KernelGenExtension.h"
-#include "mlir-tensorrt/Compiler/Transforms/Passes.h"
+#include "mlir-tensorrt/Compiler/Passes/Passes.h"
 #include "mlir-tensorrt/Features.h"
 #include "mlir/Conversion/Passes.h"
 #include "mlir/Dialect/Arith/Transforms/Passes.h"
@@ -89,8 +88,7 @@ void mtrt::compiler::registerAllPasses() {
   mtrt::compiler::registerKernelBackendPasses();
   mtrt::registerConvertCUDAToExecutorPass();
   mtrt::registerMLIRTensorRTCommonConversionPasses();
-  mtrt::registerMLIRTensorRTConversionPasses();
-  mtrt::registerMLIRTensorRTGenericTransformsPasses();
+  mtrt::registerCompilerPassesPasses();
 
   IF_MLIR_TRT_ENABLE_HLO({
     mtrt::compiler::registerStableHloInputPipelines();

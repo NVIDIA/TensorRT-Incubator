@@ -1,0 +1,19 @@
+add_mlir_tensorrt_library(MLIRTensorRTCUDAToLLVM
+  CUDAToLLVM.cpp
+
+  DEPENDS
+  MLIRTensorRTPassesIncGenPassIncGen
+
+  LINK_LIBS PUBLIC
+    MLIRTensorRTCUDADialect
+    MLIRTensorRTLLVMConversionUtils
+    MLIRTensorRTPlanToLLVM
+    MLIRTensorRTSupportArtifactManager
+    MLIRTensorRTExecutorDialect
+  MLIR_LIBS PUBLIC
+    MLIRFuncDialect
+    MLIRFuncTransforms
+    MLIRLLVMCommonConversion
+    MLIRLLVMDialect
+    MLIRRewrite
+)
