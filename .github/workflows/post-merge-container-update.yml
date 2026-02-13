@@ -15,7 +15,7 @@ env:
   REGISTRY: ghcr.io
   # github.repository as <account>/<repo>
   IMAGE_NAME: ${{ github.repository }}
-  TAGS: ghcr.io/nvidia/tensorrt-incubator/tripy
+  TAGS: ghcr.io/nvidia/tensorrt-incubator/nvtripy-dev
 
 
 jobs:

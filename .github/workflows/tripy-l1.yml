@@ -21,7 +21,7 @@ jobs:
     env:
       HF_TOKEN: ${{ secrets.HF_TOKEN }}
     container:
-      image: ghcr.io/nvidia/tensorrt-incubator/tripy:latest
+      image: ghcr.io/nvidia/tensorrt-incubator/nvtripy-dev:latest
       volumes:
         - ${{ github.workspace }}/tripy:/tripy
       options: --gpus all
