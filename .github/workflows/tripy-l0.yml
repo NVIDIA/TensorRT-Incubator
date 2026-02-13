@@ -9,7 +9,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  DEFAULT_IMAGE: ghcr.io/nvidia/tensorrt-incubator/tripy:latest
+  DEFAULT_IMAGE: ghcr.io/nvidia/tensorrt-incubator/nvtripy-dev:latest
   NEW_TEST_IMAGE: test-image:latest
   HF_TOKEN: ${{ secrets.HF_TOKEN }}
 

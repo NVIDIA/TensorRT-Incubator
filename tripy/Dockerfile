@@ -1,6 +1,6 @@
 FROM python:3.9
 
-LABEL org.opencontainers.image.description="Tripy development container"
+LABEL org.opencontainers.image.description="Tripy Development Container"
 
 WORKDIR /tripy
 
