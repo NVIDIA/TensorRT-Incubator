@@ -89,39 +89,76 @@ static FailureOr<int64_t> getReductionDim(ReduceOp reduceOp) {
 // Matchers
 //===----------------------------------------------------------------------===//
 
+/// Check if a reshape op is equivalent to expanding dims by one
+/// (adding a trailing dimension of size 1): tensor<AxBxC> -> tensor<AxBxCx1>
+static bool isReshapeRankExpansionByOne(stablehlo::ReshapeOp op) {
+  auto inputType = op.getOperand().getType();
+  auto resultType = op.getType();
+  if (inputType.getRank() != resultType.getRank() - 1 ||
+      resultType.getShape().back() != 1)
+    return false;
+  // All existing dims must match
+  for (int64_t i = 0; i < inputType.getRank(); ++i) {
+    if (inputType.getShape()[i] != resultType.getShape()[i])
+      return false;
+  }
+  return true;
+}
+
 // clang-format off
-/// Example Match with stablehlo:
-/// %1 = stabehlo.broadcast_in_dim %input dims = [0, 1, 2] : tensor<AxBxC> to tensor<AxBxCx1>
-/// %2 = stabehlo.broadcast_in_dim %1 dims = [0, 1, 2, 3] : tensor<AxBxCx1> to tensor<AxBxCxD>
+/// Example Match with stablehlo (two variants):
+/// Variant 1 (original): broadcast_in_dim + broadcast_in_dim
+///   %1 = stablehlo.broadcast_in_dim %input dims = [0, 1, 2] : tensor<AxBxC> to tensor<AxBxCx1>
+///   %2 = stablehlo.broadcast_in_dim %1 dims = [0, 1, 2, 3] : tensor<AxBxCx1> to tensor<AxBxCxD>
+/// Variant 2 (canonicalized): reshape + broadcast_in_dim
+///   %1 = stablehlo.reshape %input : tensor<AxBxC> to tensor<AxBxCx1>
+///   %2 = stablehlo.broadcast_in_dim %1 dims = [0, 1, 2, 3] : tensor<AxBxCx1> to tensor<AxBxCxD>
 // clang-format on
 template <typename InputMatcher, typename BcastInDimOp>
 struct MatchExpandDimsAndBroadcastAlongFinalDim {
   InputMatcher inputMatcher;
-  /// `finalShapeToMatch` is only used to match the type
   MatchExpandDimsAndBroadcastAlongFinalDim(InputMatcher inputValue)
       : inputMatcher(inputValue) {}
   bool match(Operation *root);
 };
 
-// clang-format off
-/// Match:
-/// %1 = stabehlo.broadcast_in_dim %input dims = [0, 1, 2] : tensor<AxBxC> to tensor<AxBxCx1>
-/// %2 = stabehlo.broadcast_in_dim %1 dims = [0, 1, 2, 3] : tensor<AxBxCx1> to tensor<AxBxCxD>
-// clang-format on
 template <typename InputMatcher, typename BcastInDimOp>
 bool MatchExpandDimsAndBroadcastAlongFinalDim<
     InputMatcher, BcastInDimOp>::match(Operation *root) {
-  // Match in reverse, starting from root (%2) and working up.
-  if (!matchPattern(root, m_Op<BcastInDimOp>(m_Op<BcastInDimOp>(inputMatcher))))
+  auto *bcastDefOp = root;
+  if (!isa<BcastInDimOp>(bcastDefOp))
+    return false;
+  auto bcastOp = cast<BcastInDimOp>(bcastDefOp);
+  if (!isBroadcastInFinalDim(bcastOp))
     return false;
 
-  // Check conditions on "last dim is expanded and broadcasted".
-  auto bcastOp = cast<BcastInDimOp>(root);
-  auto expandOp = cast<BcastInDimOp>(bcastOp.getOperand().getDefiningOp());
-  // Reject "zero rank". You can't softmax on scalars.
-  if (expandOp.getOperand().getType().getRank() == 0)
+  auto *expandDefOp = bcastOp.getOperand().getDefiningOp();
+  if (!expandDefOp)
     return false;
-  return isRankExpansionByOne(expandOp) && isBroadcastInFinalDim(bcastOp);
+
+  // Variant 1: broadcast_in_dim(broadcast_in_dim(input))
+  if (auto expandBcastOp = dyn_cast<BcastInDimOp>(expandDefOp)) {
+    auto *inputOp = expandBcastOp.getOperand().getDefiningOp();
+    if (!inputOp || !matchPattern(inputOp, inputMatcher))
+      return false;
+    if (expandBcastOp.getOperand().getType().getRank() == 0)
+      return false;
+    return isRankExpansionByOne(expandBcastOp);
+  }
+
+  // Variant 2: broadcast_in_dim(reshape(input))
+  // Canonicalization can replace broadcast_in_dim (rank expansion by 1)
+  // with reshape when just adding a trailing dim of size 1.
+  if (auto reshapeOp = dyn_cast<stablehlo::ReshapeOp>(expandDefOp)) {
+    auto *inputOp = reshapeOp.getOperand().getDefiningOp();
+    if (!inputOp || !matchPattern(inputOp, inputMatcher))
+      return false;
+    if (reshapeOp.getOperand().getType().getRank() == 0)
+      return false;
+    return isReshapeRankExpansionByOne(reshapeOp);
+  }
+
+  return false;
 }
 
 /// Match a double broadcast pattern that first expands the dims
@@ -175,6 +212,8 @@ template <typename InputMatcher, typename ReduceOp, typename MaxOp>
 bool MatchReduceMaxOverLastDim<InputMatcher, ReduceOp, MaxOp>::match(
     Operation *root) {
   ReduceOp reduceOp = llvm::dyn_cast<ReduceOp>(root);
+  if (!reduceOp)
+    return false;
   // check that init matches -inf
   auto init = reduceOp->getOperand(1);
   if (!matchPattern(init, m_NegInfFloat())) {
@@ -232,6 +271,8 @@ template <typename InputMatcher, typename ReduceOp, typename AddOp>
 bool MatchReduceAddOverLastDim<InputMatcher, ReduceOp, AddOp>::match(
     Operation *root) {
   ReduceOp reduceOp = llvm::dyn_cast<ReduceOp>(root);
+  if (!reduceOp)
+    return false;
 
   // Since this is reduce-sum, the init constant should match constant zero
   // splat tensor. `m_AnyZeroFloat` should match `0.0` and `-0.0`.
@@ -264,6 +305,10 @@ inline auto m_matchReduceAddOverFinalDim(InputMatcher inputValue) {
 /// Match the following pattern of operations, rooted at DivOp
 /// ReduceMax -> Broadcastx2 -> Subtract -> Exponential -> ReduceAdd
 /// -> Broadcast x 2 -> Divide
+///
+/// Also handles JAX's numerically-safe softmax variant which inserts
+/// an extra maximum(-inf, reduce_max_result) clamp:
+/// ReduceMax -> Broadcast(-inf) -> Maximum -> Broadcastx2 -> Subtract -> ...
 template <typename BcastInDimOp, typename ReduceOp, typename SubOp,
           typename ExpnOp, typename DivideOp, typename MaxOp, typename AddOp>
 bool stablehlo::detail::HLOToSoftmaxMatcher<BcastInDimOp, ReduceOp, SubOp,
@@ -273,6 +318,9 @@ bool stablehlo::detail::HLOToSoftmaxMatcher<BcastInDimOp, ReduceOp, SubOp,
   auto reduceMaxOp =
       m_matchReduceMaxOverFinalDim<decltype(inputValue), ReduceOp, MaxOp>(
           inputValue, softmaxInputOperand, softmaxAxis);
+
+  // Pattern 1: Standard softmax (no clamp)
+  // ReduceMax -> BroadcastInDim -> BroadcastInDim -> Subtract -> ...
   auto broadCastedRedMaxOp =
       m_matchExpandDimsAndBroadcastAlongFinalDim<decltype(reduceMaxOp),
                                                  BcastInDimOp>(reduceMaxOp);
@@ -283,7 +331,48 @@ bool stablehlo::detail::HLOToSoftmaxMatcher<BcastInDimOp, ReduceOp, SubOp,
   auto broadcastedRedSumExp =
       m_matchExpandDimsAndBroadcastAlongFinalDim<decltype(redSumOp),
                                                  BcastInDimOp>(redSumOp);
-  return matchPattern(op, m_Op<DivideOp>(expOp, broadcastedRedSumExp));
+  if (matchPattern(op, m_Op<DivideOp>(expOp, broadcastedRedSumExp)))
+    return true;
+
+  // Pattern 2: JAX numerically-safe softmax with maximum(-inf, reduce_max)
+  // clamp. JAX emits max(-inf, reduce_max_result) for NaN safety.
+  // The -inf operand can appear as:
+  //   (a) broadcast_in_dim(scalar -inf) — before canonicalization
+  //   (b) constant dense<-inf> tensor — after canonicalization folds the
+  //   broadcast
+  // Try both operand orderings for the commutative maximum op.
+  auto negInfBroadcast = m_Op<BcastInDimOp>(m_NegInfFloat());
+  auto negInfConstant = m_NegInfFloat(); // matches constant tensor of -inf
+
+  // Helper lambda to try a clamp pattern
+  auto tryClampPattern = [&](auto clampedRedMax) -> bool {
+    auto broadCasted =
+        m_matchExpandDimsAndBroadcastAlongFinalDim<decltype(clampedRedMax),
+                                                   BcastInDimOp>(clampedRedMax);
+    auto sub = m_Op<SubOp>(inputValue, broadCasted);
+    auto exp = m_Op<ExpnOp>(sub);
+    auto redSum =
+        m_matchReduceAddOverFinalDim<decltype(exp), ReduceOp, AddOp>(exp);
+    auto broadcastedSum =
+        m_matchExpandDimsAndBroadcastAlongFinalDim<decltype(redSum),
+                                                   BcastInDimOp>(redSum);
+    return matchPattern(op, m_Op<DivideOp>(exp, broadcastedSum));
+  };
+
+  // Try: maximum(broadcast(-inf), reduceMax)
+  if (tryClampPattern(m_Op<MaxOp>(negInfBroadcast, reduceMaxOp)))
+    return true;
+  // Try: maximum(reduceMax, broadcast(-inf))
+  if (tryClampPattern(m_Op<MaxOp>(reduceMaxOp, negInfBroadcast)))
+    return true;
+  // Try: maximum(constant_tensor(-inf), reduceMax) — canonicalized form
+  if (tryClampPattern(m_Op<MaxOp>(negInfConstant, reduceMaxOp)))
+    return true;
+  // Try: maximum(reduceMax, constant_tensor(-inf)) — canonicalized, swapped
+  if (tryClampPattern(m_Op<MaxOp>(reduceMaxOp, negInfConstant)))
+    return true;
+
+  return false;
 }
 template bool stablehlo::detail::HLOToSoftmaxMatcher<
     stablehlo::BroadcastInDimOp, stablehlo::ReduceOp, stablehlo::SubtractOp,
