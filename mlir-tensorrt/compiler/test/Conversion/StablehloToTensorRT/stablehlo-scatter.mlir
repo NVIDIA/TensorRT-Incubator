@@ -271,7 +271,7 @@ func.func @not_scatter_nd_wrong_scatter_to_operand_dims(
 
 // CHECK-LABEL: func.func @scatter_zero_ext_regression
 func.func @scatter_zero_ext_regression(%arg0 : tensor<f32>, %arg1 : tensor<1x0xi32>, %arg2 : tensor<1xf32>) -> tensor<f32> {
-  // CHECK: %[[v0:.+]] = tensorrt.scatter_nd data(%[[arg0]] : tensor<f32>) indices(%[[arg1]] : tensor<1x0xi32>) updates(%[[arg2]] 
+  // CHECK: %[[v0:.+]] = tensorrt.scatter_nd data(%[[arg0]] : tensor<f32>) indices(%[[arg1]] : tensor<1x0xi32>) updates(%[[arg2]]
   %0 = "stablehlo.scatter"(%arg0, %arg1, %arg2) ({
     ^bb0(%arg3: tensor<f32>, %arg4: tensor<f32>):
       "stablehlo.return"(%arg4) : (tensor<f32>) -> ()
@@ -284,7 +284,7 @@ func.func @scatter_zero_ext_regression(%arg0 : tensor<f32>, %arg1 : tensor<1x0xi
     >,
     indices_are_sorted = true,
     unique_indices = true
-  } : (tensor<f32>, tensor<1x0xi32>, tensor<1xf32>) -> tensor<f32>  
+  } : (tensor<f32>, tensor<1x0xi32>, tensor<1xf32>) -> tensor<f32>
   // CHECK: return %[[v0]] : tensor<f32>
   func.return %0 : tensor<f32>
 }
@@ -296,12 +296,12 @@ func.func @scatter_zero_ext_regression(%arg0 : tensor<f32>, %arg1 : tensor<1x0xi
 
 // CHECK-LABEL: @not_scatter_nd_partial_window
 //   CHECK-NOT: tensorrt.scatter_nd
-func.func @not_scatter_nd_partial_window(%arg0: tensor<10x5xf16>, %arg1: tensor<3x1xi32>, 
+func.func @not_scatter_nd_partial_window(%arg0: tensor<10x5xf16>, %arg1: tensor<3x1xi32>,
                                          %arg2: tensor<3x3xf16>) -> tensor<10x5xf16> {
-  %0 = "stablehlo.scatter"(%arg0, %arg1, %arg2) <{scatter_dimension_numbers = 
-    #stablehlo.scatter<update_window_dims = [1], 
-      inserted_window_dims = [0], 
-      scatter_dims_to_operand_dims = [0], 
+  %0 = "stablehlo.scatter"(%arg0, %arg1, %arg2) <{scatter_dimension_numbers =
+    #stablehlo.scatter<update_window_dims = [1],
+      inserted_window_dims = [0],
+      scatter_dims_to_operand_dims = [0],
       index_vector_dim = 1>}> ({
   ^bb0(%arg3: tensor<f16>, %arg4: tensor<f16>):
     stablehlo.return %arg4 : tensor<f16>
@@ -309,3 +309,14 @@ func.func @not_scatter_nd_partial_window(%arg0: tensor<10x5xf16>, %arg1: tensor<
   return %0 : tensor<10x5xf16>
 }
 
+// -----
+
+// CHECK-LABEL: func.func @gather_bf16
+func.func @gather_bf16(%arg0: tensor<1xbf16>, %arg1: tensor<1x1xi32>) -> tensor<1x1xbf16> {
+  // CHECK: tensorrt.gather
+  %0 = "stablehlo.gather"(%arg0, %arg1) {
+  dimension_numbers = #stablehlo.gather<offset_dims = [1], start_index_map = [0], index_vector_dim = 1>,
+    indices_are_sorted = false, slice_sizes = array<i64: 1>
+  } : (tensor<1xbf16>, tensor<1x1xi32>) -> tensor<1x1xbf16>
+  return %0 : tensor<1x1xbf16>
+}
