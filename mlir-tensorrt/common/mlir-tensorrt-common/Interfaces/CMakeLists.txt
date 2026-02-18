@@ -4,9 +4,9 @@ function(mlir_tensorrt_common_interface interface)
     "ARG" "" "KIND" "INCLUDE_DEPENDS" ${ARGN}
   )
   set(LLVM_TARGET_DEFINITIONS
-    "${MLIR_TENSORRT_COMMON_SOURCE_DIR}/include/mlir-tensorrt-common/Interfaces/${interface}.td")
+    "${MLIR_TENSORRT_COMMON_SOURCE_DIR}/mlir-tensorrt-common/Interfaces/${interface}.td")
   set(OUTPUT_DIR
-     "${MLIR_TENSORRT_COMMON_BINARY_DIR}/include/mlir-tensorrt-common/Interfaces")
+     "${MLIR_TENSORRT_COMMON_BINARY_DIR}/mlir-tensorrt-common/Interfaces")
 
   set(td_flags "")
   foreach(include_dep IN LISTS ARG_INCLUDE_DEPENDS)

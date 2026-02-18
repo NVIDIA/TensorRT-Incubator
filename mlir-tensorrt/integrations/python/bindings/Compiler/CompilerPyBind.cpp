@@ -29,7 +29,7 @@
 #include "mlir-executor-c/Common/Common.h"
 #include "mlir-executor-c/Target/ExecutorTranslations.h"
 #include "mlir-tensorrt-c/Compiler/Compiler.h"
-#include "mlir-tensorrt-common-c/Support/Status.h"
+#include "mlir-tensorrt-common/CAPI/Support/Status.h"
 #include "mlir/Bindings/Python/PybindAdaptors.h"
 #include "pybind11/pybind11.h"
 #include "llvm/ADT/StringRef.h"

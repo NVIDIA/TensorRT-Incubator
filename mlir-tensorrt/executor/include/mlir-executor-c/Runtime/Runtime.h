@@ -27,7 +27,7 @@
 
 #include "mlir-c/Support.h"
 #include "mlir-executor-c/Common/Common.h"
-#include "mlir-tensorrt-common-c/Support/Status.h"
+#include "mlir-tensorrt-common/CAPI/Support/Status.h"
 #include <stddef.h>
 #include <stdint.h>
 
