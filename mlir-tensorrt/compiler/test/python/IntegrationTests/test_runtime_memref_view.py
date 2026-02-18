@@ -10,9 +10,7 @@ def assert_error(expected_substr, fn):
         fn()
     except Exception as exc:
         msg = str(exc)
-        assert expected_substr in msg, (
-            f"expected '{expected_substr}' in '{msg}'"
-        )
+        assert expected_substr in msg, f"expected '{expected_substr}' in '{msg}'"
     else:
         assert False, f"expected error containing '{expected_substr}'"
 
@@ -22,9 +20,9 @@ def assert_error_any(expected_substrs, fn):
         fn()
     except Exception as exc:
         msg = str(exc)
-        assert any(substr in msg for substr in expected_substrs), (
-            f"expected one of {expected_substrs} in '{msg}'"
-        )
+        assert any(
+            substr in msg for substr in expected_substrs
+        ), f"expected one of {expected_substrs} in '{msg}'"
     else:
         assert False, f"expected error containing one of {expected_substrs}"
 
@@ -68,9 +66,7 @@ def main():
     assert view.strides == [12, 4, 1]
     assert np.asarray(view).tolist() == data[1:2, :, 1:2].tolist()
 
-    view = memref.slice(
-        (slice(0, 1), slice(None), slice(2, 3)), squeeze_unit_dims=True
-    )
+    view = memref.slice((slice(0, 1), slice(None), slice(2, 3)), squeeze_unit_dims=True)
     assert view.shape == [3]
     assert view.strides == [4]
     assert np.asarray(view).tolist() == data[0, :, 2].tolist()
@@ -112,15 +108,11 @@ def main():
     )
     assert_error(
         "too many indices for memref rank",
-        lambda: memref.slice(
-            (slice(None), slice(None), slice(None), slice(None))
-        ),
+        lambda: memref.slice((slice(None), slice(None), slice(None), slice(None))),
     )
     assert_error(
         "too many indices for memref rank",
-        lambda: memref.slice(
-            (..., slice(None), slice(None), slice(None), slice(None))
-        ),
+        lambda: memref.slice((..., slice(None), slice(None), slice(None), slice(None))),
     )
 
     assert_error(
@@ -141,9 +133,7 @@ def main():
     )
     assert_error_any(
         ["slice step must be non-zero", "invalid slice for dimension"],
-        lambda: memref.slice(
-            (slice(None, None, 0), slice(None), slice(None))
-        ),
+        lambda: memref.slice((slice(None, None, 0), slice(None), slice(None))),
     )
 
 
