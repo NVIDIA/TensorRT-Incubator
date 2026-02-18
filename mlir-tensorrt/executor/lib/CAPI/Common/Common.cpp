@@ -23,7 +23,7 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-executor-c/Common/Common.h"
 #include "mlir-executor/Runtime/API/API.h"
-#include "mlir-tensorrt-common-c/Support/Status.h"
+#include "mlir-tensorrt-common/CAPI/Support/Status.h"
 
 using namespace mtrt;
 using namespace mtrt;

@@ -25,7 +25,7 @@
 #include "mlir-c/IR.h"
 #include "mlir-c/Pass.h"
 #include "mlir-c/Support.h"
-#include "mlir-tensorrt-common-c/Support/Status.h"
+#include "mlir-tensorrt-common/CAPI/Support/Status.h"
 #include "mlir-tensorrt/Compiler/Client.h"
 #include "mlir/CAPI/IR.h"
 #include "mlir/Pass/PassManager.h"

@@ -21,8 +21,8 @@
 /// Declarations for the MLIR-TensorRT Runtime Status C API.
 ///
 //===----------------------------------------------------------------------===//
-#ifndef MLIR_TENSORRT_COMMON_C_SUPPORT_STATUS_H
-#define MLIR_TENSORRT_COMMON_C_SUPPORT_STATUS_H
+#ifndef MLIR_TENSORRT_COMMON_CAPI_SUPPORT_STATUS_H
+#define MLIR_TENSORRT_COMMON_CAPI_SUPPORT_STATUS_H
 
 #include <stddef.h>
 
@@ -132,4 +132,4 @@ typedef struct MTRT_PrintCallbackInfo {
 }
 #endif
 
-#endif // MLIR_TENSORRT_COMMON_C_SUPPORT_STATUS_H
+#endif // MLIR_TENSORRT_COMMON_CAPI_SUPPORT_STATUS_H
