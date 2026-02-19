@@ -41,7 +41,6 @@ if (EXISTS ${LLVM_THIRD_PARTY_DIR}/unittest/googletest/include/gtest/gtest.h)
     MLIRFuncInlinerExtension
     ${kernel_libs}
   )
-
 else()
   message(FATAL_ERROR "gtest not found, unittests will not be available")
 endif()
