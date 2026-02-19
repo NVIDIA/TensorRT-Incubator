@@ -32,6 +32,7 @@
 #include "mlir/Dialect/Math/IR/Math.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
+#include "mlir/Dialect/UB/IR/UBOps.h"
 #include "mlir/IR/DialectRegistry.h"
 
 namespace mlir::executor {
@@ -47,7 +48,8 @@ inline void registerAllRequiredDialects(mlir::DialectRegistry &registry) {
       mlir::linalg::LinalgDialect,
       mlir::math::MathDialect,
       mlir::memref::MemRefDialect,
-      mlir::scf::SCFDialect
+      mlir::scf::SCFDialect,
+      mlir::ub::UBDialect
     >();
   // clang-format on
 

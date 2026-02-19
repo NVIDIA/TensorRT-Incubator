@@ -14,4 +14,5 @@ add_mlir_executor_library(MLIRTensorRTTargetLua
     MLIRSCFDialect
     MLIRSupport
     MLIRTranslateLib
+    MLIRUBDialect
 )

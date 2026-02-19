@@ -1270,3 +1270,24 @@ func.func @test_values_with_external_use(%arg0: i32) -> i32 {
 //   CHECK-NEXT:     return [[l0]];
 //   CHECK-NEXT:   end
 //   CHECK-NEXT: end
+
+// -----
+
+func.func @test_ub_poison() -> (i32) {
+  %0 = ub.poison : i32
+  %1 = ub.poison : i64
+  %2 = ub.poison : f32
+  %3 = ub.poison : f64
+  %c0 = executor.constant 0 : i32
+  return %c0 : i32
+}
+
+// CHECK-LABEL: function test_ub_poison
+//  CHECK-NEXT:   local [[l0:.+]];
+//  CHECK-NEXT:   [[l0]] = nil;
+//  CHECK-NEXT:   [[l0]] = nil;
+//  CHECK-NEXT:   [[l0]] = nil;
+//  CHECK-NEXT:   [[l0]] = nil;
+//  CHECK-NEXT:   [[l0]] = 0;
+//  CHECK-NEXT:   return [[l0]];
+//  CHECK-NEXT: end

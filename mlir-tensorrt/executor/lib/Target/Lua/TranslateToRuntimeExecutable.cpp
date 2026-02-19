@@ -30,6 +30,7 @@
 #include "mlir/Dialect/ControlFlow/IR/ControlFlow.h"
 #include "mlir/Dialect/DLTI/DLTI.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/UB/IR/UBOps.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/DialectResourceBlobManager.h" // IWYU pragma: keep
@@ -876,7 +877,8 @@ void mlir::registerToRuntimeExecutableTranslation() {
         return translateToRuntimeExecutable(op, output);
       },
       [](DialectRegistry &registry) {
-        registry.insert<func::FuncDialect, cf::ControlFlowDialect,
-                        executor::ExecutorDialect, DLTIDialect>();
+        registry
+            .insert<func::FuncDialect, cf::ControlFlowDialect,
+                    executor::ExecutorDialect, DLTIDialect, ub::UBDialect>();
       });
 }

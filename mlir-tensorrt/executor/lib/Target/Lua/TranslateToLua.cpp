@@ -27,6 +27,7 @@
 #include "mlir/Dialect/ControlFlow/IR/ControlFlowOps.h"
 #include "mlir/Dialect/DLTI/DLTI.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/UB/IR/UBOps.h"
 #include "mlir/IR/DialectResourceBlobManager.h"
 #include "mlir/Interfaces/FunctionInterfaces.h"
 #include "mlir/Support/IndentedOstream.h"
@@ -429,6 +430,18 @@ static LogicalResult printOperation(LuaEmitter &emitter,
   return success();
 }
 
+//===----------------------------------------------------------------------===//
+// `ub` dialect ops
+//===----------------------------------------------------------------------===//
+
+static LogicalResult printOperation(LuaEmitter &emitter, ub::PoisonOp op) {
+  if (failed(emitter.emitAssignPrefix(op)))
+    return failure();
+
+  // Poison values represent undefined/uninitialized values, so use nil
+  emitter << "nil;\n";
+  return success();
+}
 //===----------------------------------------------------------------------===//
 // Executor op printers
 //===----------------------------------------------------------------------===//
@@ -1125,6 +1138,10 @@ LogicalResult LuaEmitter::emitOperation(Operation &op) {
     return printOperation(*this, funcOp, options);
   }
 
+  if (auto poisonOp = dyn_cast<ub::PoisonOp>(op)) {
+    return printOperation(*this, poisonOp);
+  }
+
   if (isa<executor::ExecutorDialect>(op.getDialect())) {
     return llvm::TypeSwitch<Operation *, LogicalResult>(&op)
         .Case<executor::AllocateOp, executor::DeallocateOp,
@@ -1247,7 +1264,8 @@ void mlir::registerToLuaTranslation() {
         registry.insert<func::FuncDialect,
                         cf::ControlFlowDialect,
                         executor::ExecutorDialect,
-                        DLTIDialect>();
+                        DLTIDialect,
+                        ub::UBDialect>();
         // clang-format on
       });
 }
