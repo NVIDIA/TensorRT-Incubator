@@ -29,4 +29,3 @@ add_mlir_kernel_test_library(MLIRKernelTestOutlining
   MLIR_LIBS PUBLIC
     MLIRGPUDialect
   )
-
