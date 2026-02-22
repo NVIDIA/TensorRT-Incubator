@@ -25,6 +25,7 @@
 #include "mlir-tensorrt-dialect/Target/TranslateToTensorRT.h"
 #include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
 #include "mlir-tensorrt-dialect/TensorRT/Transforms/Passes.h"
+#include "mlir-tensorrt/Compiler/Dialect/StablehloExt/Transforms/Passes.h"
 #include "mlir-tensorrt/Compiler/Passes/Passes.h"
 #include "mlir-tensorrt/Compiler/Pipeline.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -56,6 +57,11 @@ void TensorRTExtension::populatePasses(mlir::OpPassManager &pm,
   // Clustering phases are only applicable to Stablehlo input.
   if (options.inputKind == plan::InputKind::Stablehlo) {
     if (point == ExtensionPoint::PreClustering) {
+      // Recognize Q(quantize) and DQ(dequantize) patterns from JAX/AQT
+      // calibrated models and raise them to stablehlo.composite ops. This must
+      // run after the input pipeline (so legalize-composite-to-call has already
+      // executed) and before clustering (so composites influence segmentation).
+      pm.addPass(stablehlo_ext::createStablehloRaiseQDQPass());
       // We must materialize TRT plugin shape regions prior to clustering.
       pm.addNestedPass<func::FuncOp>(tensorrt::createInferPluginShapesPass());
       return;
