@@ -212,22 +212,39 @@ matchQDQScaleConstant(Value mulOrDivOpRhs,
 
 /// Match min and max clamp values. These values can come from a constant or
 /// `constant -> convert` op sequence for types such as bf16.
+/// Extended to also support `constant -> broadcast_in_dim` pattern from JAX.
 static LogicalResult
 matchClampMinMax(Value clampOpMinOrMax,
                  SmallVectorImpl<Operation *> &quantizePatternOps) {
+  // Case 1: Direct constant
   auto minClampValue =
       getProducer<stablehlo::ConstantOp>(clampOpMinOrMax, quantizePatternOps);
-  if (!minClampValue) {
-    auto minClampConvert =
-        getProducer<stablehlo::ConvertOp>(clampOpMinOrMax, quantizePatternOps);
-    if (!minClampConvert)
-      return failure();
+  if (minClampValue)
+    return success();
+
+  // Case 2: constant -> convert (for bf16 types)
+  auto minClampConvert =
+      getProducer<stablehlo::ConvertOp>(clampOpMinOrMax, quantizePatternOps);
+  if (minClampConvert) {
     auto minClampConstant = getProducer<stablehlo::ConstantOp>(
         minClampConvert.getOperand(), quantizePatternOps);
-    if (!minClampConstant)
-      return failure();
+    if (minClampConstant)
+      return success();
   }
-  return success();
+
+  // Case 3: constant -> broadcast_in_dim (from JAX/StableHLO)
+  // JAX generates broadcast_in_dim when clamp min/max are scalars but
+  // operand is a tensor, because StableHLO clamp requires same types.
+  auto broadcastOp = getProducer<stablehlo::BroadcastInDimOp>(
+      clampOpMinOrMax, quantizePatternOps);
+  if (broadcastOp) {
+    auto constOp = getProducer<stablehlo::ConstantOp>(broadcastOp.getOperand(),
+                                                      quantizePatternOps);
+    if (constOp)
+      return success();
+  }
+
+  return failure();
 }
 
 /// Matches core quantize pattern shown below and adds matched ops to
