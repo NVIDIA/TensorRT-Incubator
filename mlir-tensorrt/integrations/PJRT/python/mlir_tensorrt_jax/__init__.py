@@ -1,7 +1,8 @@
-import logging
-import os
 from pathlib import Path
 from typing import Optional
+import ctypes.util
+import logging
+import os
 
 import jax._src.xla_bridge as xb
 from jax._src.lib import xla_client
@@ -77,27 +78,43 @@ def initialize():
     except Exception as e:
         is_initialized = False
 
-    # Force initialization of tensorrt
-    try:
-        import tensorrt
-    except:
-        logger.info(
-            "TensorRT package not found via Python, looking for libnvinfer.so..."
-        )
-        import ctypes.util
+    # Attempt to ensure that the 'libnvinfer.so' library is available.
+    # This is 'best effort'. We first try to load the Python package 'tensorrt', since
+    # most users of the published Python package will install TensorRT via binary
+    # wheels published to Python package indices (e.g. PyPi, see
+    # https://docs.nvidia.com/deeplearning/tensorrt/latest/installing-tensorrt/installing.html#method-1-python-package-index-pip).
 
-        nvinfer = ctypes.util.find_library("nvinfer")
-        if not nvinfer:
+    # However, in development/testing environments and on embedded platforms, TensorRT
+    # is not installed via binary wheel files. Instead, the user or build system installs a TensorRT
+    # binary package manually and updates the process environment (e.g. LD_LIBRARY_PATH)
+    # to ensure that the process can find the dynamic library.
+    try:
+        # First, try to import the Python package 'tensorrt'.
+        import tensorrt
+
+        logger.debug("Successfully imported Python package 'tensorrt'")
+    except Exception as e:
+        # If the import fails, don't give up.
+        logger.debug("Failed to import Python package 'tensorrt': %s", e)
+
+        libnvinfer_path = ctypes.util.find_library("nvinfer")
+        if not libnvinfer_path:
             raise Exception(
-                "libnvinfer.so was not found.... recommend install via Python with 'pip install ...'"
+                "The 'nvinfer' dynamic library was not found. Either TensorRT is not installed or the process environment is not configured to find it."
+                "\n - If you are on an x86 platform, try installing TensorRT via the binary wheels published to PyPi ('pip install tensorrt-cu13' for CUDA 13.x or 'pip install tensorrt-cu12' for CUDA 12.x)."
+                "\n - If you are on an embedded platform (e.g. NVIDIA Jetson), ensure you have installed TensorRT and that the process' LD_LIBRARY_PATH is pointing to the directory containing the 'libnvinfer.so' dynamic library."
             )
+
+        logger.info(f"Found 'nvinfer' dynamic library at '{libnvinfer_path}'")
 
     # Force initialization of tvm_ffi
     try:
         import tvm_ffi
+
+        logger.debug("Successfully imported Python package 'tvm_ffi'")
     except Exception as e:
-        raise RuntimeError(
-            "Error importing tvm_ffi, which is required for MLIR-TensorRT JAX plugin: %s",
+        logger.error(
+            "Failed to import Python package 'tvm_ffi'. Ensure 'apache-tvm-ffi' is installed: %s",
             e,
         )
 

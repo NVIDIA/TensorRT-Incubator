@@ -7,6 +7,8 @@ include(${CMAKE_CURRENT_LIST_DIR}/PJRTConfig.cmake)
 set(MLIR_TRT_PJRT_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}")
 set(MLIR_TENSORRT_PJRT_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
 
+set(MLIR_TENSORRT_PJRT_PYTHON_PACKAGE_BINARY_DIR "${MLIR_TENSORRT_ROOT_BINARY_DIR}/python_packages/mlir_tensorrt_jax")
+
 #-------------------------------------------------------------------------------
 # Dependencies
 #-------------------------------------------------------------------------------

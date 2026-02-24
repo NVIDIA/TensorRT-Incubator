@@ -1,6 +1,6 @@
 configure_file(
   setup.py
-  ${MLIR_TENSORRT_ROOT_BINARY_DIR}/python_packages/mlir_tensorrt_jax/setup.py
+  ${MLIR_TENSORRT_PJRT_PYTHON_PACKAGE_BINARY_DIR}/setup.py
   @ONLY
   )
 
