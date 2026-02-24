@@ -24,10 +24,9 @@ function(add_pjrt_library name)
     $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
   )
 
-  # Output the library in the PJRT build directory for
-  # compatability with previous build system org.
+  # Output the library under the mlir_tensorrt_jax binary package directory.
   set_target_properties(${name} PROPERTIES
-    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/..
+    LIBRARY_OUTPUT_DIRECTORY ${MLIR_TENSORRT_PJRT_PYTHON_PACKAGE_BINARY_DIR}
     )
 
   mtrt_require_defined_symbols(${name})
