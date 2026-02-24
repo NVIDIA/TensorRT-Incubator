@@ -146,4 +146,6 @@ else
   echo "==> Skipping llvm-lit wrapper: ${LLVM_INSTALL_DIR}/bin/llvm-lit already exists"
 fi
 
+du -h -x -d 1 ${LLVM_INSTALL_DIR}
+du -h -x -d 1 ${LLVM_BUILD_DIR}
 echo "==> LLVM build completed successfully"

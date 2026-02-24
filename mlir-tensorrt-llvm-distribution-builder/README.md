@@ -6,16 +6,26 @@ These are used to create packages which are posted to the internal gitlab regist
 
 Relevant configuration is kept in `config.json`.
 
+## Clone llvm-project
+
+```shell
+# Clones llvm-project to `./llvm-project` subdirectory and checks out the correct branch
+cd TensorRT-Incubator
+./mlir-tenosrrt/build_tools/scripts/setup-llvm-dev.sh \
+--target-dir ./mlir-tensorrt-llvm-distribution-builder/llvm-project
+```
+
 ## Building
 
 ```shell
+# install pixi if it it not installed
+curl -fsSL https://pixi.sh/install.sh | bash
+export PATH="$HOME/.pixi/bin:$PATH"
+
 # Install dependencies
 pixi install
 # start pixi shell environment
 pixi shell
-
-# Clones llvm-project to `./llvm-project` subdirectory and checks out the correct branch
-./scripts/setup-llvm.sh
 
 # Builds llvm-project
 export CMAKE_BUILD_TYPE=Release
@@ -24,6 +34,10 @@ export CMAKE_BUILD_TYPE=Release
 # Tar the install directory and upload
 tar -czf llvm-project-$(uname)-$(uname -m) -C install/$CMAKE_BUILD_TYPE .
 
-# TODO: upload to Gitlab package registry (as a generic package).
+
+```
+## Verify the prebuilt llvm package
+
+```shell
 
 ```

@@ -32,7 +32,7 @@ jobs:
       LLVM_TARGET_DIR: ${{ github.workspace }}/llvm-project
     timeout-minutes: 120
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         config:
           - {runs_on: 'linux-amd64-gpu-h100-latest-1', docker_image: 'ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda13.0-rockylinux8-0.1', target_os: 'rockylinux8', arch: 'x86_64'}
@@ -63,7 +63,8 @@ jobs:
           export CMAKE_BUILD_TYPE=Release
           ./scripts/build-llvm.sh --target-dir ${{ env.LLVM_TARGET_DIR }} --install-dir ${{ env.LLVM_INSTALL_DIR }}
 
-          tar czf "${{ env.LLVM_PACKAGE_NAME }}" "${{ env.LLVM_INSTALL_DIR }}"
+          # Create tar.gz archive
+          tar czf "${{ env.LLVM_PACKAGE_NAME }}" -C "${{ env.LLVM_INSTALL_DIR }}" Release
 
       - name: Upload LLVM Build Artifacts
         uses: actions/upload-artifact@v4
@@ -87,7 +88,7 @@ jobs:
       LLVM_TARGET_DIR: ${{ github.workspace }}/llvm-project
     timeout-minutes: 120
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         config:
           - {runs_on: 'linux-amd64-gpu-h100-latest-1', docker_image: 'ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda13.0-rockylinux8-0.1', target_os: 'rockylinux8', arch: 'x86_64'}
@@ -101,7 +102,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: ${{ env.LLVM_PACKAGE_NAME }}
-          path: ${{ github.workspace }}/artifacts
+          path: artifacts
 
       - name: Extract and Verify LLVM Package
         run: |
@@ -111,13 +112,36 @@ jobs:
           echo "==> Extracting LLVM package: ${{ env.LLVM_PACKAGE_NAME }}"
           mkdir -p "${{ env.LLVM_INSTALL_DIR }}"
 
-          # Find the tar.gz file (it might be in a subdirectory)
-          TAR_FILE=$(find "${{ github.workspace }}/artifacts" -name "${{ env.LLVM_PACKAGE_NAME }}" -type f | head -1)
+          # Find the tar.gz file - artifacts are downloaded relative to the workspace
+          # Use GITHUB_WORKSPACE env var (set by GitHub Actions) or fallback to current dir
+          WORKSPACE_DIR="${GITHUB_WORKSPACE:-.}"
+          ARTIFACTS_DIR="${WORKSPACE_DIR}/artifacts"
+
+          echo "==> Looking for artifact in: ${ARTIFACTS_DIR}"
+          echo "==> GITHUB_WORKSPACE: ${GITHUB_WORKSPACE:-not set}"
+          echo "==> Current directory: $(pwd)"
+
+          # List contents to debug
+          if [[ -d "${ARTIFACTS_DIR}" ]]; then
+            echo "==> Artifacts directory contents:"
+            ls -la "${ARTIFACTS_DIR}"
+          else
+            echo "==> Artifacts directory not found, checking workspace root:"
+            ls -la "${WORKSPACE_DIR}" || true
+          fi
+
+          TAR_FILE=$(find "${ARTIFACTS_DIR}" -name "${{ env.LLVM_PACKAGE_NAME }}" -type f 2>/dev/null | head -1)
 
           if [[ -z "${TAR_FILE}" ]]; then
             echo "Error: Could not find ${{ env.LLVM_PACKAGE_NAME }} in artifacts"
-            find "${{ github.workspace }}/artifacts" -type f
-            exit 1
+            echo "Searched in: ${ARTIFACTS_DIR}"
+            echo "Trying alternative locations..."
+            # Try finding it anywhere in the workspace
+            TAR_FILE=$(find "${WORKSPACE_DIR}" -name "${{ env.LLVM_PACKAGE_NAME }}" -type f 2>/dev/null | head -1)
+            if [[ -z "${TAR_FILE}" ]]; then
+              exit 1
+            fi
+            echo "==> Found in alternative location: ${TAR_FILE}"
           fi
 
           echo "==> Found package at: ${TAR_FILE}"
@@ -129,7 +153,7 @@ jobs:
           # Display package structure
           echo ""
           echo "==> Package structure:"
-          du -sh "${{ env.LLVM_INSTALL_DIR }}"/*
+          du -h -x -d 1  "${{ env.LLVM_INSTALL_DIR }}"/Release
           echo ""
           echo "==> Package verification complete!"
 
@@ -145,7 +169,7 @@ jobs:
           export MLIR_TRT_PREBUILT_LLVM_DIR=${{ env.LLVM_INSTALL_DIR }}/Release/lib/cmake/llvm
           export MLIR_TRT_PREBUILT_MLIR_DIR=${{ env.LLVM_INSTALL_DIR }}/Release/lib/cmake/mlir
           export LLVM_EXTERNAL_LIT="${{ env.LLVM_INSTALL_DIR }}/Release/bin/llvm-lit"
-
+          ./build_tools/scripts/cicd-build.sh
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}-llvm-package-build
