@@ -2,9 +2,11 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR})
 get_target_property(common_include_dirs MLIRTensorRTCommonIncludes INTERFACE_INCLUDE_DIRECTORIES)
 include_directories(${common_include_dirs})
 
-add_mlir_pdll_library(MLIRExecutorStdToExectutorPatternsIncGen
+add_mlir_pdll_library(MLIRExecutorStdToExecutorPatternsIncGen
   StdToExecutor.pdll
   StdToExecutor.pdll.h.inc
+  EXTRA_INCLUDES
+    ${MLIR_INSTALL_PREFIX}/share/mlir/include
   )
 
 add_mlir_executor_library(MLIRTensorRTExecutorPasses
@@ -37,7 +39,7 @@ add_mlir_executor_library(MLIRTensorRTExecutorPasses
 
   DEPENDS
   MLIRTensorRTExecutorPassesIncGen
-  MLIRExecutorStdToExectutorPatternsIncGen
+  MLIRExecutorStdToExecutorPatternsIncGen
 
   LINK_LIBS PUBLIC
     MLIRTensorRTExecutorDialect
