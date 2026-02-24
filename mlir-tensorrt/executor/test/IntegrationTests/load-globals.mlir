@@ -1,5 +1,6 @@
 // REQUIRES: host-has-at-least-1-gpus
 // RUN: executor-opt %s \
+// RUN:    -executor-lower-globals \
 // RUN:    -executor-lower-to-runtime-builtins | \
 // RUN: executor-translate -mlir-to-runtime-executable |\
 // RUN: executor-runner -input-type=rtexe -features=core,cuda | FileCheck %s
@@ -8,14 +9,19 @@ executor.data_segment @dense_i32 constant dense<[32, 33]> : tensor<2xi32>
 executor.data_segment @device_i32 constant address_space<device> dense<[99, 101]> : tensor<2xi32>
 executor.data_segment @host_i32 uninitialized dense<0> : tensor<2xi32>
 
+executor.func private @__cuda_get_program_device(i32) -> i32
 executor.func private @__cuda_memcpy_device2host(!executor.ptr<host>, !executor.ptr<device>, i64, !executor.ptr<host>, i64, i64) -> ()
-executor.func private @__cuda_stream_create() -> (!executor.ptr<host>)
+executor.func private @__cuda_stream_create(i32) -> (!executor.ptr<host>)
 executor.func private @__cuda_stream_sync(!executor.ptr<host>) -> ()
 executor.func private @__cuda_alloc_device(!executor.ptr<host>, i32, i64, i32) -> (!executor.ptr<device>)
 executor.func private @executor_alloc(i64, i32) -> (!executor.ptr<host>)
 
-
-
+executor.global @stream0 constant : !executor.ptr<host> {
+    %c0_i32 = executor.constant 0 : i32
+    %0 = executor.call @__cuda_get_program_device(%c0_i32) : (i32) -> i32
+    %1 = executor.call @__cuda_stream_create(%0) : (i32) -> !executor.ptr<host>
+    executor.return %1 : !executor.ptr<host>
+  }
 
 func.func @main() -> (i32) {
   %c0 = executor.constant 0 : i32
@@ -33,7 +39,7 @@ func.func @main() -> (i32) {
 
   %dev = executor.load_data_segment @device_i32 : !executor.ptr<device>
   %host = executor.load_data_segment @host_i32 : !executor.ptr<host>
-  %stream = executor.call @__cuda_stream_create() : () -> (!executor.ptr<host>)
+  %stream = executor.get_global @stream0 : !executor.ptr<host>
   executor.call @__cuda_memcpy_device2host(%stream, %dev, %c0_i64, %host, %c0_i64, %c8)
     : (!executor.ptr<host>, !executor.ptr<device>, i64, !executor.ptr<host>, i64, i64) -> ()
   executor.call @__cuda_stream_sync(%stream) : (!executor.ptr<host>) -> ()
