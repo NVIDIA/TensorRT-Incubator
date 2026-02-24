@@ -2,7 +2,7 @@
 authors = ["Christopher Bate <cbate@nvidia.com>"]
 channels = ["conda-forge"]
 name = "llvm-distribution-builder"
-platforms = ["linux-64"]
+platforms = ["linux-64", "linux-aarch64"]
 version = "0.1.0"
 
 [tasks]
