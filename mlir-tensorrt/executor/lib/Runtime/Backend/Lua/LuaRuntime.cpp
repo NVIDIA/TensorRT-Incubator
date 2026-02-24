@@ -29,16 +29,13 @@
 #include "mlir-executor/Runtime/Backend/Lua/LuaExtensionRegistry.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaExtensions.h"
 #include "mlir-executor/Runtime/Backend/Utils/NvtxUtils.h"
+#include "mlir-executor/Runtime/Support/CUDAHelpers.h"
 #include "mlir-executor/Runtime/Support/Support.h"
 #include "mlir-tensorrt-common/Support/Status.h"
 #include "llvm/Support/Alignment.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/ToolOutputFile.h"
 #include <memory>
-
-#ifdef MLIR_TRT_ENABLE_CUDA
-#include "cuda_runtime_api.h"
-#endif // MLIR_TRT_ENABLE_CUDA
 
 using namespace mtrt;
 using namespace mtrt;
@@ -191,10 +188,15 @@ static Status loadDeviceDataSegment(sol::state_view &lua,
          "expected host address space");
   const size_t bytes = segment.size();
 
+  if (!session->getStream())
+    return getInternalErrorStatus(
+        "the session was not created with a CUDA stream");
+
   MTRT_ASSIGN_OR_RETURN(StatusOr<PointerInfo> buffer,
                         mtrt::allocate(session->getAllocTracker(),
                                        segment.getAddressSpace(), bytes,
-                                       kMinConstantBufferByteAlignment, {}));
+                                       kMinConstantBufferByteAlignment,
+                                       session->getStream()->getCUDAHandle()));
 
   lua[segment.getName()] = buffer->ptr;
 
@@ -203,10 +205,11 @@ static Status loadDeviceDataSegment(sol::state_view &lua,
     return getOkStatus();
 
   // Copy initial data into buffer.
-  RETURN_ERROR_IF_CUDART_ERROR(
-      cudaMemcpy(reinterpret_cast<void *>(buffer->ptr),
-                 reinterpret_cast<const void *>(segment.data()), bytes,
-                 cudaMemcpyHostToDevice));
+  MTRT_RETURN_IF_ERROR(mtrt::copyCUDAHostToDeviceAsync(
+      reinterpret_cast<void *>(buffer->ptr),
+      reinterpret_cast<const void *>(segment.data()), bytes,
+      session->getStream()->getCUDAHandle()));
+
   return getOkStatus();
 #else
   return getInternalErrorStatus("runtime not compiled with CUDA support");
