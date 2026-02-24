@@ -24,7 +24,7 @@ endfunction()
 #   MLIR_TRT_DISTRIBUTION_COMPONENTS list.
 # 2. The UMBRELLA argument is specified and the umbrella target is in the
 #    MLIR_TRT_DISTRIBUTION_COMPONENTS list.
-# 3. No MTRT_DISTRIBUTION_COMPONENTS is set.
+# 3. No MLIR_TRT_DISTRIBUTION_COMPONENTS is set.
 # ------------------------------------------------------------------------------
 function(mtrt_get_export_set out_var component umbrella)
   cmake_parse_arguments(ARG "" "UMBRELLA" "" ${ARGN})
@@ -46,7 +46,7 @@ endfunction()
 # component. We also add the correct dependencies so that `ninja -C build
 # install-[target name]` will force building the `[target name]` target and all
 # its dependencies followed by its installation. We can then compose these
-# targets to create full custom installation targets comprised of a fixed number
+# targets to create full custom installation targets composed of a fixed number
 # of components into a specific installation prefix.
 #
 # Positional Arguments:
@@ -170,7 +170,7 @@ endfunction()
 # When MTRT_LINK_MLIR_DYLIB is enabled, this will link against the MLIR dylib
 # instead of the static libraries.
 #
-# Normally this doesn't need to be called direclty, it is called when
+# Normally this doesn't need to be called directly, it is called when
 # mtrt_add_project_library is called.
 #-------------------------------------------------------------------------------------
 function(mtrt_target_link_mlir_libraries target type)
@@ -408,7 +408,7 @@ function(mtrt_add_test_library name)
   if(ARG_LINK_LIBS)
     list(POP_FRONT ARG_LINK_LIBS VISIBILITY)
     if(NOT ARG_IGNORE_LINK_MTRT)
-      # We may be link against libMTRT instead of directly to LINK_LIBS.
+      # We may be linking against libMTRT instead of directly to LINK_LIBS.
       mtrt_target_link_mtrt_libraries(${name} ${VISIBILITY} ${ARG_LINK_LIBS})
       # If we do link against libMTRT, we do not need to link against MLIR
       # libraries directly.
@@ -416,7 +416,7 @@ function(mtrt_add_test_library name)
         unset(ARG_MLIR_LIBS)
       endif()
     else()
-      # We will not be linking libMTRT, so link all the required
+      # We will not be linking against libMTRT, so we link against all the required
       # libs directly.
       target_link_libraries(${name} ${VISIBILITY} ${ARG_LINK_LIBS})
     endif()
@@ -489,7 +489,7 @@ function(mtrt_add_aggregate_library target)
   #
   # The CMake property "INTERFACE_LINK_LIBRARIES_DIRECT_EXCLUDE" allows us to
   # enforce a filter on the "direct link dependencies" of any target which
-  # transitively depends on "${target}.filter". This allows us to exlude the
+  # transitively depends on "${target}.filter". This allows us to exclude the
   # non-object counter parts (e.g. the "${lib}" for each "obj.${lib}" library in
   # the set we are bundling) from being linked into the final `${target}`
   # library that we create below. This is only necessary to prevent redundant
@@ -501,12 +501,12 @@ function(mtrt_add_aggregate_library target)
   # to carry the INTERFACE_LINK_LIBRARIES_DIRECT_EXCLUDE information.
   #
   # There is a very important caveat to this approach:
-  # INTERFACE_LINK_LIBRARIES_DIRECT_EXCLUDE cannot guaruntee that a library
+  # INTERFACE_LINK_LIBRARIES_DIRECT_EXCLUDE cannot guarantee that a library
   # listed will NOT be linked by the final shared library. This mechanism will
   # be defeated if we transitively depend on any STATIC/SHARED/INTERFACE library
   # that has one of `${bundled_libs}` in its INTERFACE_LINK_LIBRARIES list.
   #
-  # For this reason, we must be cautions about creating any INTERFACE library
+  # For this reason, we must be cautious about creating any INTERFACE library
   # which is in a cyclic link relationship with the set of libraries in
   # `bundled_libs`. e.g. `[bundled_libs...]` <-> `interface_lib`. This will
   # cause some libraries in `bundled_libs` to be linked redundantly into
