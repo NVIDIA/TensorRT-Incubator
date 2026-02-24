@@ -57,7 +57,7 @@ add_mlir_tensorrt_library(MLIRTensorRTCompilerClient
     MLIRTensorRTCUDAToExecutor
     MLIRTensorRTCUDATransforms
     MLIRTensorRTDropNestedModules
-    MLIRTensorRTExecutorTransforms
+    MLIRTensorRTExecutorPasses
     MLIRTensorRTHostBackend
     MLIRTensorRTHostToEmitC
     MLIRTensorRTHostToLLVM

@@ -22,32 +22,32 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt-dialect/Target/TranslateToTensorRT.h"
-#include "mlir-tensorrt-common/Support/CommandLineExtras.h"
-#include "mlir-tensorrt-dialect/Target/Passes.h"
+#include "mlir-tensorrt-dialect/Target/Passes.h" // IWYU pragma: keep
 #include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
 #include "mlir-tensorrt-dialect/TensorRT/Utils/Utils.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/IR/AsmState.h"
 #include "mlir/IR/Diagnostics.h"
 #include "mlir/IR/TypeUtilities.h"
 #include "mlir/Interfaces/FunctionInterfaces.h"
 #include "mlir/Support/FileUtilities.h"
-#include "mlir/Transforms/RegionUtils.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/Hashing.h"
-#include "llvm/ADT/ScopedHashTable.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
+#include "llvm/Support/BLAKE3.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Duration.h"
+#include "llvm/Support/Endian.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/FormatVariadic.h"
+#include "llvm/Support/HashBuilder.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/ScopedPrinter.h"
 #include "llvm/Support/Threading.h"
 #include "llvm/Support/ToolOutputFile.h"
+#include <cstddef>
 #include <mutex>
 
 #ifdef MLIR_TRT_TARGET_TENSORRT
@@ -504,24 +504,30 @@ static SmallVector<StringRef> getSymbolNames(Operation *op) {
   return pathElements;
 }
 
-/// Add details of the op to the given hash. This will only include the
-/// operation name and the operand and result types.
-static llvm::hash_code combineOperationHash(Operation *op,
-                                            const llvm::hash_code &rhs) {
-  llvm::hash_code code = llvm::hash_combine(rhs, op->getName().getStringRef());
-  if (op->getNumResults() == 0 || op->getNumOperands() == 0)
-    return code;
+/// Deterministic hash builder so engine filenames are stable across runs.
+using FuncHashBuilder =
+    llvm::HashBuilder<llvm::TruncatedBLAKE3<8>, llvm::endianness::little>;
+using FuncHashResult = uint64_t;
+
+static void addTypeToHash(FuncHashBuilder &hashBuilder, Type type) {
   llvm::SmallString<128> dataToHash;
-  {
-    llvm::raw_svector_ostream os(dataToHash);
-    os << op->getNumOperands();
-    for (Type t : op->getOperandTypes())
-      os << t;
-    os << op->getNumResults();
-    for (Type t : op->getResultTypes())
-      os << t;
-  }
-  return llvm::hash_combine(code, dataToHash);
+  llvm::raw_svector_ostream os(dataToHash);
+  os << type;
+  hashBuilder.add(StringRef(dataToHash));
+}
+
+/// Add details of the op to the hash. This will only include the operation
+/// name and the operand and result types.
+static void addOperationToHash(FuncHashBuilder &hashBuilder, Operation *op) {
+  hashBuilder.add(op->getName().getStringRef());
+  if (op->getNumResults() == 0 && op->getNumOperands() == 0)
+    return;
+  hashBuilder.add(static_cast<uint64_t>(op->getNumOperands()));
+  for (Type t : op->getOperandTypes())
+    addTypeToHash(hashBuilder, t);
+  hashBuilder.add(static_cast<uint64_t>(op->getNumResults()));
+  for (Type t : op->getResultTypes())
+    addTypeToHash(hashBuilder, t);
 }
 
 /// Hash some details of the function. This isn't good enough to protect against
@@ -530,16 +536,18 @@ static llvm::hash_code combineOperationHash(Operation *op,
 /// operations in the body (but doesn't hash use-def). A better equivalence
 /// would require saving the MLIR, loading it, and comparing the loaded MLIR to
 /// the current func.
-static llvm::hash_code hashFunc(func::FuncOp func) {
-  llvm::hash_code hash = {};
+static FuncHashResult hashFunc(func::FuncOp func) {
+  FuncHashBuilder hashBuilder;
+  hashBuilder.add(func.getName());
   llvm::SmallString<128> dataToHash;
   {
     llvm::raw_svector_ostream os(dataToHash);
-    os << func.getName() << func.getFunctionType();
+    os << func.getFunctionType();
   }
-  llvm::hash_combine(hash, dataToHash);
-  func->walk([&](Operation *op) { hash = combineOperationHash(op, hash); });
-  return hash;
+  hashBuilder.add(StringRef(dataToHash));
+  func->walk([&](Operation *op) { addOperationToHash(hashBuilder, op); });
+  llvm::BLAKE3Result<8> result = hashBuilder.final();
+  return llvm::support::endian::read64le(result.data());
 }
 
 /// Create all directories in `path`, ignoring those that already exist. Failure
@@ -558,30 +566,31 @@ static LogicalResult createDirectories(Location loc, StringRef path) {
 /// Returns the engine file name as a sequence of concatenated symbol names
 /// starting from the highest level SymbolTable parent and ending with the
 /// function name.
-static std::string getFuncSignatureString(func::FuncOp func) {
+static std::string getFuncSignatureString(func::FuncOp func,
+                                          FuncHashResult hash) {
   SmallVector<StringRef> symbolNames = getSymbolNames(func);
-  llvm::hash_code hash = hashFunc(func);
   return llvm::formatv("{0:$[_]}_{1}",
                        llvm::make_range(symbolNames.begin(), symbolNames.end()),
                        hash);
 }
 
-static llvm::SmallString<128> getEngineFileName(func::FuncOp func,
-                                                StringRef basePath) {
+static llvm::SmallString<128>
+getEngineFileName(func::FuncOp func, FuncHashResult hash, StringRef basePath) {
   llvm::SmallString<128> path = basePath;
   llvm::sys::path::append(
-      path, llvm::formatv("{0}.engine", getFuncSignatureString(func)));
+      path, llvm::formatv("{0}.engine", getFuncSignatureString(func, hash)));
   return path;
 }
 
 /// Write the `serializedEngine` to a file at the given directory. The filename
 /// is calculated from the function name and the hash of the function.
 static LogicalResult saveTensorRTEngineToFile(
-    func::FuncOp func, StringRef directoryPath,
+    func::FuncOp func, FuncHashResult hash, StringRef directoryPath,
     const std::unique_ptr<nvinfer1::IHostMemory> &serializedEngine) {
   if (failed(createDirectories(func.getLoc(), directoryPath)))
     return failure();
-  llvm::SmallString<128> fileName = getEngineFileName(func, directoryPath);
+  llvm::SmallString<128> fileName =
+      getEngineFileName(func, hash, directoryPath);
   std::string error;
   std::unique_ptr<llvm::ToolOutputFile> of =
       mlir::openOutputFile(fileName, &error);
@@ -594,6 +603,44 @@ static LogicalResult saveTensorRTEngineToFile(
   if (of->os().has_error()) {
     emitError(func.getLoc()) << "failed to write TensorRT engine to "
                              << fileName << ": " << of->os().error().message();
+    return failure();
+  }
+  of->keep();
+  return success();
+}
+
+/// Write the TensorRT engine layer information to a JSON file at the given
+/// directory. The filename is calculated from the function name and the hash of
+/// the function. The layer information is extracted by deserializing the engine
+/// and using TensorRT's engine inspector API.
+static LogicalResult saveTensorRTLayerInfoToFile(
+    func::FuncOp func, FuncHashResult hash, StringRef directoryPath,
+    bool verbose,
+    const std::unique_ptr<nvinfer1::IHostMemory> &serializedEngine) {
+  std::unique_ptr<nvinfer1::IRuntime> runtime{
+      nvinfer1::createInferRuntime(Logger::getInstance(verbose))};
+  std::unique_ptr<nvinfer1::ICudaEngine> cudaEngine{
+      runtime->deserializeCudaEngine(serializedEngine->data(),
+                                     serializedEngine->size())};
+  auto inspector = std::unique_ptr<nvinfer1::IEngineInspector>(
+      cudaEngine->createEngineInspector());
+  llvm::SmallString<128> fileName = StringRef(directoryPath);
+  llvm::sys::path::append(
+      fileName, llvm::formatv("{0}.json", getFuncSignatureString(func, hash)));
+  std::string error;
+  std::unique_ptr<llvm::ToolOutputFile> of =
+      mlir::openOutputFile(fileName, &error);
+  if (!of) {
+    emitError(UnknownLoc::get(func.getContext()))
+        << "failed to open " << fileName << ": " << error;
+    return failure();
+  }
+  of->os() << inspector->getEngineInformation(
+      nvinfer1::LayerInformationFormat::kJSON);
+  if (of->os().has_error()) {
+    emitError(UnknownLoc::get(func.getContext()))
+        << "failed to write TensorRT LayerInformation JSON to " << fileName
+        << ": " << of->os().error().message();
     return failure();
   }
   of->keep();
@@ -668,7 +715,55 @@ static void maybeWriteTimingCache(TensorRTSerializedTimingCache &timingCache,
                   "trying to lock the file: "
                << llvm::to_string(err) << "\n";
 }
+
+/// Wrap a nvinfer1::IHostMemory as an AsmResourceBlob without copying the data.
+static AsmResourceBlob
+getAsAsmResourceBlob(std::unique_ptr<nvinfer1::IHostMemory> memory) {
+  ArrayRef<char> data = llvm::ArrayRef<char>(
+      reinterpret_cast<const char *>(memory->data()), memory->size());
+  llvm::unique_function<void(void *data, size_t size, size_t align)> deleter =
+      [memory = std::move(memory)](void *data, size_t size, size_t align) {};
+  return AsmResourceBlob(data, 1, std::move(deleter), /*dataIsMutable=*/false);
+}
+
+/// Return the size of the serialized engine in bytes.
+static size_t
+getSerializedEngineSize(const std::unique_ptr<nvinfer1::IHostMemory> &memory) {
+  return memory->size();
+}
+
 #endif // MLIR_TRT_TARGET_TENSORRT
+
+/// Wrap a llvm::MemoryBuffer as an AsmResourceBlob without copying the data.
+static AsmResourceBlob
+getAsAsmResourceBlob(std::unique_ptr<llvm::MemoryBuffer> memory) {
+  ArrayRef<char> data = llvm::ArrayRef<char>(
+      reinterpret_cast<const char *>(memory->getBufferStart()),
+      memory->getBufferSize());
+  llvm::unique_function<void(void *data, size_t size, size_t align)> deleter =
+      [memory = std::move(memory)](void *data, size_t size, size_t align) {};
+  return AsmResourceBlob(data, 1, std::move(deleter), /*dataIsMutable=*/false);
+}
+
+/// Return the size of the serialized engine in bytes.
+static size_t
+getSerializedEngineSize(const std::unique_ptr<llvm::MemoryBuffer> &memory) {
+  return memory->getBufferSize();
+}
+
+/// Set the TensorRT serialized engine as an attribute on the function.
+template <typename T>
+static void setTensorRTSerializedEngine(FunctionOpInterface func,
+                                        std::unique_ptr<T> buffer) {
+
+  auto engineAttr = DenseI8ResourceElementsAttr::get(
+      RankedTensorType::get(
+          {static_cast<int64_t>(getSerializedEngineSize(buffer))},
+          IntegerType::get(func->getContext(), 8)),
+      "tensorrt_engine", getAsAsmResourceBlob(std::move(buffer)));
+  func->setAttr(tensorrt::TensorRTDialect::kTensorRTSerializedEngineAttrName,
+                engineAttr);
+}
 
 namespace {
 class TranslateToTensorRTEnginePass
@@ -743,9 +838,15 @@ public:
     }
 
     for (auto func : funcs) {
+      const uint64_t funcHash =
+          !translationOptions->loadTensorRTEngines.empty() ||
+                  !translationOptions->saveTensorRTEngines.empty()
+              ? hashFunc(func)
+              : 0;
+
       if (!translationOptions->loadTensorRTEngines.empty()) {
-        llvm::SmallString<128> fileName =
-            getEngineFileName(func, translationOptions->loadTensorRTEngines);
+        llvm::SmallString<128> fileName = getEngineFileName(
+            func, funcHash, translationOptions->loadTensorRTEngines);
         std::string error;
         std::unique_ptr<llvm::MemoryBuffer> buffer =
             mlir::openInputFile(fileName, &error);
@@ -755,15 +856,7 @@ public:
           return signalPassFailure();
         }
 
-        // Attach the engine as an attribute on the function.
-        auto engineAttr = DenseElementsAttr::get(
-            RankedTensorType::get(
-                {static_cast<int64_t>(buffer->getBufferSize())},
-                IntegerType::get(&getContext(), 8)),
-            llvm::ArrayRef<int8_t>(
-                reinterpret_cast<const int8_t *>(buffer->getBufferStart()),
-                buffer->getBufferSize()));
-        func->setAttr("tensorrt.engine", engineAttr);
+        setTensorRTSerializedEngine(func, std::move(buffer));
         continue;
       }
 
@@ -781,55 +874,20 @@ public:
       LLVM_DEBUG(DBGS() << "done building TensorRT engine for function "
                         << func.getName() << "\n");
 
-      const std::unique_ptr<nvinfer1::IHostMemory> &serializedEngine =
-          engineResult->serializedEngine;
-
       if (!translationOptions->saveTensorRTEngines.empty() &&
           failed(saveTensorRTEngineToFile(
-              func, translationOptions->saveTensorRTEngines, serializedEngine)))
+              func, funcHash, translationOptions->saveTensorRTEngines,
+              engineResult->serializedEngine)))
         return signalPassFailure();
 
-      if (!translationOptions->saveTensorRTLayerInfo.empty()) {
-        std::unique_ptr<nvinfer1::IRuntime> runtime{
-            nvinfer1::createInferRuntime(
-                Logger::getInstance(translationOptions->verbose))};
-        std::unique_ptr<nvinfer1::ICudaEngine> cudaEngine{
-            runtime->deserializeCudaEngine(serializedEngine->data(),
-                                           serializedEngine->size())};
-        auto inspector = std::unique_ptr<nvinfer1::IEngineInspector>(
-            cudaEngine->createEngineInspector());
-        llvm::SmallString<128> fileName =
-            StringRef(translationOptions->saveTensorRTLayerInfo);
-        llvm::sys::path::append(
-            fileName, llvm::formatv("{0}.json", getFuncSignatureString(func)));
-        std::string error;
-        std::unique_ptr<llvm::ToolOutputFile> of =
-            mlir::openOutputFile(fileName, &error);
-        if (!of) {
-          emitError(UnknownLoc::get(&getContext()))
-              << "failed to open " << fileName << ": " << error;
-          return signalPassFailure();
-        }
-        of->os() << inspector->getEngineInformation(
-            nvinfer1::LayerInformationFormat::kJSON);
-        if (of->os().has_error()) {
-          emitError(UnknownLoc::get(&getContext()))
-              << "failed to write TensorRT LayerInformation JSON to "
-              << fileName << ": " << of->os().error().message();
-          return signalPassFailure();
-        }
-        of->keep();
-      }
+      if (!translationOptions->saveTensorRTLayerInfo.empty() &&
+          failed(saveTensorRTLayerInfoToFile(
+              func, funcHash, translationOptions->saveTensorRTLayerInfo,
+              translationOptions->verbose, engineResult->serializedEngine)))
+        return signalPassFailure();
 
-      // Attach the engine as an attribute on the function.
-      auto engineAttr = DenseElementsAttr::get(
-          RankedTensorType::get(
-              {static_cast<int64_t>(serializedEngine->size())},
-              IntegerType::get(&getContext(), 8)),
-          llvm::ArrayRef<int8_t>(
-              reinterpret_cast<const int8_t *>(serializedEngine->data()),
-              serializedEngine->size()));
-      func->setAttr("tensorrt.engine", engineAttr);
+      setTensorRTSerializedEngine(func,
+                                  std::move(engineResult->serializedEngine));
     }
 
     // update the timing cache if required.

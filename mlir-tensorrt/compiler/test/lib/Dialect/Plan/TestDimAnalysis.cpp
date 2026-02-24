@@ -21,7 +21,7 @@
 /// Test pass for the PlanDialect dimension relationship analysis.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Dialect/Plan/Analysis/DimAnalysis.h"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/Analysis/DimAnalysis.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/Pass/Pass.h"

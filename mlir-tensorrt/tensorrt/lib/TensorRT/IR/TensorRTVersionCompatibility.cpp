@@ -281,8 +281,8 @@ static bool isValidForTensorRTVersionGatherOpImpl(int64_t trtMajorVersion,
            isType(indicesElementType, I32, I64);
   case 9:
   case 10:
-    return isType(dataElementType, I1, I8, I32, F16, F32) &&
-           isType(indicesElementType, I32);
+    return isType(dataElementType, I1, I8, I32, I64, F16, BF16, F32) &&
+           isType(indicesElementType, I32, I64);
   default:
     return false;
   }

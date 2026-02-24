@@ -30,10 +30,10 @@
 //===----------------------------------------------------------------------===//
 // Add Tablegen'd pass declarations and registration methods.
 //===----------------------------------------------------------------------===//
-namespace mlir {
+namespace mtrt {
 #define GEN_PASS_DECL
 #define GEN_PASS_REGISTRATION
 #include "mlir-tensorrt-common/Conversion/Passes.h.inc"
-} // namespace mlir
+} // namespace mtrt
 
 #endif // MLIR_TENSORRT_COMMON_CONVERSION_PASSES

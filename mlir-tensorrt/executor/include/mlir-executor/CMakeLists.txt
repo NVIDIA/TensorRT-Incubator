@@ -1,3 +1,3 @@
 add_subdirectory(Executor)
-add_subdirectory(Conversion)
+add_subdirectory(Passes)
 add_subdirectory(Runtime)

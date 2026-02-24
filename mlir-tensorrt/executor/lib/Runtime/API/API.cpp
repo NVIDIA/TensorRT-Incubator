@@ -1137,6 +1137,8 @@ MemRefValue::create(mtrt::PointerType addressSpace, ScalarTypeCode elementType,
                     llvm::ArrayRef<int64_t> shape,
                     llvm::ArrayRef<int64_t> strides, Device *device,
                     bool assertCanonicalStrides) {
+  if (offset < 0)
+    return getInvalidArgStatus("MemRef offset must be non-negative");
   if (!storage->getClient())
     return getInvalidArgStatus("a valid RuntimeClient must be provided to "
                                "create a tracked MemRef object");
@@ -1183,7 +1185,6 @@ MemRefValue::MemRefValue(mtrt::PointerType addressSpace,
                          int64_t offset, llvm::ArrayRef<int64_t> shape,
                          llvm::ArrayRef<int64_t> strides, Device *device)
     : RuntimeValue(Kind::MemRef), storage(std::move(storage)), device(device) {
-  assert(offset == 0 && "offset must be 0");
   type = BufferType(elementType, shape, strides, addressSpace, offset);
 }
 
@@ -1382,10 +1383,12 @@ RuntimeClient::allocateMemRef(const BufferType &type, Device *device,
       return getInvalidArgStatus("a specific device must be specified when "
                                  "creating a device buffer");
   }
-
-  int64_t bitsPerElement = type.getElementType().getBitWidth();
+  if (type.getLayout().getOffset() != 0)
+    return getInvalidArgStatus(
+        "MemRef offset must be zero when allocating new storage");
 
   // Allocate required memory.
+  int64_t bitsPerElement = type.getElementType().getBitWidth();
   StatusOr<int64_t> allocationSizeBytes = getFootprintInBytes(
       type.getShape(), type.getLayout().getStrides(), bitsPerElement);
   if (!allocationSizeBytes.isOk())
@@ -1439,8 +1442,15 @@ RuntimeClient::copyHostToHost(const MemRefValue &hostBuffer) {
   int64_t totalBufferSize = hostBuffer.getTotalFootprintInBytes();
 
   // Allocate a new host MemRef
+  std::vector<int64_t> shape(hostBuffer.getShape().begin(),
+                             hostBuffer.getShape().end());
+  std::vector<int64_t> strides(hostBuffer.getStrides().begin(),
+                               hostBuffer.getStrides().end());
+  BufferType targetType = BufferType::createWithElementStrides(
+      hostBuffer.getScalarType(), shape, strides, hostBuffer.getAddressSpace(),
+      /*offset=*/0);
   StatusOr<std::unique_ptr<MemRefValue>> hostMemRef =
-      allocateMemRef(hostBuffer.getType(), /*device=*/nullptr,
+      allocateMemRef(targetType, /*device=*/nullptr,
                      /*stream=*/nullptr);
   if (!hostMemRef.isOk())
     return hostMemRef.getStatus();
@@ -1553,15 +1563,17 @@ RuntimeClient::copyToHost(const MemRefValue &deviceMemRef,
 
   int64_t copySizeInBytes = deviceMemRef.getTotalFootprintInBytes();
 
-  StatusOr<Ref<MemRefStorage>> storage = allocator->allocate(
-      PointerType::host, copySizeInBytes, /*alignment=*/16, nullptr, nullptr);
-  if (!storage.isOk())
-    return storage.getStatus();
-
   // Create the host MemRefValue..
-  StatusOr<std::unique_ptr<MemRefValue>> hostMemRef = MemRefValue::create(
-      PointerType::host, deviceMemRef.getScalarType(), std::move(*storage), 0,
-      deviceMemRef.getShape(), deviceMemRef.getStrides(), {});
+  std::vector<int64_t> shape(deviceMemRef.getShape().begin(),
+                             deviceMemRef.getShape().end());
+  std::vector<int64_t> strides(deviceMemRef.getStrides().begin(),
+                               deviceMemRef.getStrides().end());
+  BufferType hostBufferType = BufferType::createWithElementStrides(
+      deviceMemRef.getScalarType(), shape, strides, PointerType::host,
+      /*offset=*/0);
+  StatusOr<std::unique_ptr<MemRefValue>> hostMemRef =
+      allocateMemRef(hostBufferType, /*device=*/nullptr,
+                     /*stream=*/nullptr);
   if (!hostMemRef.isOk())
     return hostMemRef.getStatus();
 
@@ -1667,19 +1679,15 @@ RuntimeClient::copyDeviceBufferToOtherDevice(
   }
 
   MTRT_ASSIGN_OR_RETURN(auto devGuard, dstDevice.createDeviceGuard());
-  const BufferType &type = sourceBuffer.getType();
-
-  MTRT_ASSIGN_OR_RETURN(
-      Ref<MemRefStorage> destStorage,
-      allocator->allocate(PointerType::device,
-                          sourceBuffer.getTotalFootprintInBytes(),
-                          /*alignment=*/16, &dstDevice, destStream));
-
+  std::vector<int64_t> shape(sourceBuffer.getShape().begin(),
+                             sourceBuffer.getShape().end());
+  std::vector<int64_t> strides(sourceBuffer.getStrides().begin(),
+                               sourceBuffer.getStrides().end());
+  BufferType targetType = BufferType::createWithElementStrides(
+      sourceBuffer.getScalarType(), shape, strides, PointerType::device,
+      /*offset=*/0);
   MTRT_ASSIGN_OR_RETURN(std::unique_ptr<MemRefValue> dstBuffer,
-                        MemRefValue::create(PointerType::device, type,
-                                            std::move(destStorage),
-                                            /*device=*/&dstDevice,
-                                            /*assertCanonicalStrides=*/false));
+                        allocateMemRef(targetType, &dstDevice, destStream));
 
   // Wait until the source buffer is ready on the destination device stream and
   // then copy from source to destination device using the destination device

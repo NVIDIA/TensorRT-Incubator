@@ -10,31 +10,29 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt/Compiler/Pipeline.h"
-#include "mlir-executor/Conversion/Passes.h"
-#include "mlir-executor/Executor/Transforms/Passes.h"
+#include "mlir-executor/Passes/Passes.h"
 #include "mlir-executor/Target/Lua/TranslateToRuntimeExecutable.h"
 #include "mlir-kernel/Kernel/Pipelines/Pipelines.h"
 #include "mlir-kernel/Kernel/Transforms/Passes.h"
 #include "mlir-tensorrt-common/Support/Status.h"
 #include "mlir-tensorrt-common/Utils/PassManagerUtils.h"
 #include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
-#include "mlir-tensorrt/Backends/Host/Passes.h"
-#include "mlir-tensorrt/Backends/Kernel/KernelBackend.h"
-#include "mlir-tensorrt/Backends/Kernel/Passes.h"
+#include "mlir-tensorrt/Compiler/Backends/Host/Passes.h"
+#include "mlir-tensorrt/Compiler/Backends/Kernel/KernelBackend.h"
+#include "mlir-tensorrt/Compiler/Backends/Kernel/Passes.h"
+#include "mlir-tensorrt/Compiler/Dialect/CUDA/Transforms/Passes.h"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/IR/PlanEnums.h"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/Transforms/Passes.h"
+#include "mlir-tensorrt/Compiler/Dialect/StablehloExt/Transforms/Passes.h"
 #include "mlir-tensorrt/Compiler/Extension.h"
 #include "mlir-tensorrt/Compiler/InputPipelines/LinalgInputPipeline.h"
 #include "mlir-tensorrt/Compiler/InputPipelines/StablehloInputPipeline.h"
 #include "mlir-tensorrt/Compiler/Options.h"
+#include "mlir-tensorrt/Compiler/Passes/2_Host/HostToEmitC/HostToEmitC/HostToEmitC.h"
+#include "mlir-tensorrt/Compiler/Passes/2_Host/HostToExecutor/CUDAToExecutor/CUDAToExecutor.h"
+#include "mlir-tensorrt/Compiler/Passes/2_Host/HostToExecutor/TensorRTRuntimeToExecutor/TensorRTRuntimeToExecutor.h"
+#include "mlir-tensorrt/Compiler/Passes/Passes.h"
 #include "mlir-tensorrt/Compiler/Pipeline.h"
-#include "mlir-tensorrt/Conversion/CUDAToExecutor/CUDAToExecutor.h"
-#include "mlir-tensorrt/Conversion/HostToEmitC/HostToEmitC.h"
-#include "mlir-tensorrt/Conversion/Passes.h"
-#include "mlir-tensorrt/Conversion/TensorRTRuntimeToExecutor/TensorRTRuntimeToExecutor.h"
-#include "mlir-tensorrt/Dialect/CUDA/Transforms/Passes.h"
-#include "mlir-tensorrt/Dialect/Plan/IR/PlanEnums.h"
-#include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
-#include "mlir-tensorrt/Dialect/StablehloExt/Transforms/Passes.h"
-#include "mlir-tensorrt/Transforms/Passes.h"
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Conversion/ComplexToStandard/ComplexToStandard.h"
 #include "mlir/Conversion/SCFToControlFlow/SCFToControlFlow.h"
@@ -50,6 +48,7 @@
 #include "mlir/Support/FileUtilities.h"
 #include "mlir/Target/Cpp/CppEmitter.h"
 #include "mlir/Transforms/Passes.h"
+#include "stablehlo/transforms/Passes.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
@@ -251,6 +250,12 @@ static void populateExtensionPasses(mlir::OpPassManager &pm,
 
 static void populateSetupPipeline(OpPassManager &pm,
                                   const MainOptions &options) {
+  // If the input is VHLO (which may be the case when --input=stablehlo), we
+  // need to immediately run the conversion to StableHLO since VHLO uses its own
+  // function operations that our passes won't recognize.
+  if (options.inputKind == plan::InputKind::Stablehlo) {
+    stablehlo::createStablehloDeserializePipeline(pm);
+  }
 
   pm.addPass(plan::createPopulateDefaultBackendMetadataPass(
       plan::PopulateDefaultBackendMetadataPassOptions{
@@ -403,7 +408,7 @@ void Pipeline::populatePassManager() {
       // Compile outlined scalarizable host clusters.
       addNestedPasses<func::FuncOp>(pm, [](OpPassManager &pm) {
         pm.addPass(mtrt::compiler::createProcessHostClustersPass());
-        pm.addPass(mlir::createConvertStablehloToArithPass());
+        pm.addPass(mtrt::createConvertStablehloToArithPass());
       });
 
       populateExtensionPasses(pm, options, ExtensionPoint::PostClustering,

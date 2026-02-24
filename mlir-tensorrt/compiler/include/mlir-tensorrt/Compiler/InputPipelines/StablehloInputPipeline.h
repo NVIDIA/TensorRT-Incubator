@@ -25,7 +25,7 @@
 #define MLIR_TENSORRT_COMPILER_INPUTPIPELINES_STABLEHLOINPUTPIPELINE
 
 #include "mlir-tensorrt-common/Support/Options.h"
-#include "mlir-tensorrt/Dialect/StablehloExt/Transforms/Passes.h"
+#include "mlir-tensorrt/Compiler/Dialect/StablehloExt/Transforms/Passes.h"
 #include "llvm/Support/CommandLine.h"
 
 namespace mlir {

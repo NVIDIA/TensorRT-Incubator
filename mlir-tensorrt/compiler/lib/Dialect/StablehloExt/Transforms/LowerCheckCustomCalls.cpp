@@ -21,7 +21,7 @@
 /// Lower custom_call operations used for testing (check.expect_close, etc.)
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Dialect/StablehloExt/Transforms/Passes.h" // IWYU pragma: keep
+#include "mlir-tensorrt/Compiler/Dialect/StablehloExt/Transforms/Passes.h" // IWYU pragma: keep
 #include "mlir/Dialect/ControlFlow/IR/ControlFlowOps.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
@@ -41,7 +41,7 @@ using namespace mlir::stablehlo;
 
 namespace mlir::stablehlo_ext {
 #define GEN_PASS_DEF_STABLEHLOLOWERCHECKCUSTOMCALLSPASS
-#include "mlir-tensorrt/Dialect/StablehloExt/Transforms/Passes.h.inc"
+#include "mlir-tensorrt/Compiler/Dialect/StablehloExt/Transforms/Passes.h.inc"
 } // namespace mlir::stablehlo_ext
 
 namespace {

@@ -21,8 +21,8 @@
 /// Implementation of `stablehlo-canonicalize-dot-general`.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Dialect/StablehloExt/Transforms/Passes.h"
-#include "mlir-tensorrt/Dialect/StablehloExt/Transforms/Patterns.h"
+#include "mlir-tensorrt/Compiler/Dialect/StablehloExt/Transforms/Passes.h"
+#include "mlir-tensorrt/Compiler/Dialect/StablehloExt/Transforms/Patterns.h"
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/TypeUtilities.h"
@@ -34,7 +34,7 @@
 
 namespace mlir::stablehlo_ext {
 #define GEN_PASS_DEF_CANONICALIZEDOTGENERALPASS
-#include "mlir-tensorrt/Dialect/StablehloExt/Transforms/Passes.h.inc"
+#include "mlir-tensorrt/Compiler/Dialect/StablehloExt/Transforms/Passes.h.inc"
 } // namespace mlir::stablehlo_ext
 
 using namespace mlir;

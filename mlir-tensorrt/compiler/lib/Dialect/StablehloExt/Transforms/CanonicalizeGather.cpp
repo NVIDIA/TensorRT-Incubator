@@ -13,9 +13,9 @@
 /// Implementation of the `stablehlo-ext-canonicalize-gather` pass.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Dialect/StablehloExt/Transforms/Passes.h"
-#include "mlir-tensorrt/Dialect/StablehloExt/Transforms/Patterns.h"
-#include "mlir-tensorrt/Dialect/StablehloExt/Utils/GatherScatterUtils.h"
+#include "mlir-tensorrt/Compiler/Dialect/StablehloExt/Transforms/Passes.h"
+#include "mlir-tensorrt/Compiler/Dialect/StablehloExt/Transforms/Patterns.h"
+#include "mlir-tensorrt/Compiler/Dialect/StablehloExt/Utils/GatherScatterUtils.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Dialect/Utils/IndexingUtils.h"
@@ -26,7 +26,7 @@
 namespace mlir {
 namespace stablehlo_ext {
 #define GEN_PASS_DEF_CANONICALIZEGATHERPASS
-#include "mlir-tensorrt/Dialect/StablehloExt/Transforms/Passes.h.inc"
+#include "mlir-tensorrt/Compiler/Dialect/StablehloExt/Transforms/Passes.h.inc"
 } // namespace stablehlo_ext
 } // namespace mlir
 

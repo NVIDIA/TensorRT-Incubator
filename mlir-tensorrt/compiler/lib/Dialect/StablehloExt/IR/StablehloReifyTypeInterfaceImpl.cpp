@@ -33,7 +33,7 @@
 /// leverage affine.apply and affine.max ops.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Dialect/StablehloExt/IR/StableHloExt.h"
+#include "mlir-tensorrt/Compiler/Dialect/StablehloExt/IR/StableHloExt.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Affine/Utils.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"

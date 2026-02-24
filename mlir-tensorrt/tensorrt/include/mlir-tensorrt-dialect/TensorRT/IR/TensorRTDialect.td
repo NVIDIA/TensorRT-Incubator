@@ -44,6 +44,10 @@ def TensorRT_Dialect : Dialect {
       return "tensorrt.dimension_names";
     }
 
+    /// Return the name of the function attribute which attaches a serialized TensorRT engine
+    /// to a function after translation.
+    static constexpr StringRef kTensorRTSerializedEngineAttrName = "tensorrt.engine";
+
     /// TensorRT quantization and dequantization mode markers.
     static constexpr StringRef kTensorRTPerTensorQuantizationMarker = "tensorrt.pt_q";
     static constexpr StringRef kTensorRTPerChannelQuantizationMarker = "tensorrt.pc_q";

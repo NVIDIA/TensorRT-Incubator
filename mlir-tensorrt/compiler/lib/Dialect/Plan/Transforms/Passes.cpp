@@ -21,11 +21,10 @@
 /// Definitions of Plan dialect pipelines.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
-#include "mlir-executor/Executor/Transforms/Passes.h"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/Transforms/Passes.h"
+#include "mlir-executor/Passes/Passes.h"
 #include "mlir-tensorrt-common/Support/Options.h"
-#include "mlir-tensorrt/Conversion/Passes.h"
-#include "mlir-tensorrt/Transforms/Passes.h"
+#include "mlir-tensorrt/Compiler/Passes/Passes.h"
 #include "mlir/Conversion/BufferizationToMemRef/BufferizationToMemRef.h"
 #include "mlir/Dialect/Bufferization/IR/BufferDeallocationOpInterface.h"
 #include "mlir/Dialect/Bufferization/Pipelines/Passes.h"
@@ -127,7 +126,7 @@ buildPlanOneShotBufferizePipeline(OpPassManager &pm,
       plan::PlanBufferResultsToOutParamsPassOptions{
           /*ignorePublicFunctions=*/opts.forceEntrypointsReturnAllocs}));
 
-  pm.addNestedPass<func::FuncOp>(createLowerLinalgCopiesPass());
+  pm.addNestedPass<func::FuncOp>(mtrt::createLowerLinalgCopiesPass());
 }
 
 static void buildPlanBufferOptimizationPipeline(

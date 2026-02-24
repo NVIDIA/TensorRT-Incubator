@@ -21,13 +21,13 @@
 ///  Implementation of the `plan-verify-input-and-assign-slots` pass.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
-#include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/IR/Plan.h"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/Transforms/Passes.h"
 #include "mlir/Interfaces/FunctionInterfaces.h"
 
 namespace mlir::plan {
 #define GEN_PASS_DEF_VERIFYINPUTANDASSIGNSLOTSPASS
-#include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h.inc"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/Transforms/Passes.h.inc"
 } // namespace mlir::plan
 
 using namespace mlir;

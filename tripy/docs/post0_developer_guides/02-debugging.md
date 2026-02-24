@@ -30,7 +30,7 @@ Alternatively, you can use [LLDB](https://lldb.llvm.org/) if you launch the cont
 ```bash
 docker run --gpus all --cap-add=SYS_PTRACE \
     --security-opt seccomp=unconfined --security-opt apparmor=unconfined \
-    -p 8080:8080 -v $(pwd):/tripy/ -it --rm tripy:latest
+    -p 8080:8080 -v $(pwd):/tripy/ -it --rm nvtripy-dev:latest
 ```
 <!-- Tripy: DOC: NO_EVAL_OR_FORMAT End -->
 

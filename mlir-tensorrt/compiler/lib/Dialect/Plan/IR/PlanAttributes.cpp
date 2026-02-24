@@ -22,7 +22,7 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-executor/Executor/IR/ExecutorAttributes.h"
-#include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/IR/Plan.h"
 #include "mlir/Dialect/Utils/IndexingUtils.h"
 #include "mlir/IR/DialectImplementation.h"
 #include "mlir/IR/OpImplementation.h"
@@ -473,12 +473,12 @@ LogicalResult plan::detail::verifyBoundsAttr(
 // TableGen'd attributes definitions
 //===----------------------------------------------------------------------===//
 #define GET_ATTRDEF_CLASSES
-#include "mlir-tensorrt/Dialect/Plan/IR/PlanAttributes.cpp.inc"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/IR/PlanAttributes.cpp.inc"
 
 //===----------------------------------------------------------------------===//
 // TableGen'd enum definition.
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Dialect/Plan/IR/PlanEnums.cpp.inc"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/IR/PlanEnums.cpp.inc"
 
 //===----------------------------------------------------------------------===//
 // PlanDialect Hooks
@@ -635,7 +635,7 @@ LogicalResult PlanDialect::verifyRegionArgAttribute(Operation *op,
 void PlanDialect::registerAttributes() {
   addAttributesExt<
 #define GET_ATTRDEF_LIST
-#include "mlir-tensorrt/Dialect/Plan/IR/PlanAttributes.cpp.inc"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/IR/PlanAttributes.cpp.inc"
       >();
 
   // We don't use the generated attribute printer/parser.

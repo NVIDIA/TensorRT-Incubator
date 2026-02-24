@@ -21,8 +21,8 @@
 /// Implementation of InferTensorValueRangeInterface for specific StableHlo
 /// ops.
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Dialect/StablehloExt/IR/StableHloExt.h"
-#include "mlir-tensorrt/Interfaces/InferTensorValueRangeInterface.h"
+#include "mlir-tensorrt/Compiler/Dialect/StablehloExt/IR/StableHloExt.h"
+#include "mlir-tensorrt/Compiler/Interfaces/InferTensorValueRangeInterface.h"
 #include "mlir/Dialect/Utils/IndexingUtils.h"
 #include "mlir/Interfaces/Utils/InferIntRangeCommon.h"
 #include "stablehlo/dialect/StablehloOps.h"

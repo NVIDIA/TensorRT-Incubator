@@ -9,7 +9,7 @@
 /// Extended alias analysis with support for executor-specific constructs.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Analysis/AliasAnalysis.h"
+#include "mlir-tensorrt/Compiler/Analysis/AliasAnalysis.h"
 #include "mlir-executor/Executor/IR/Executor.h"
 #include "mlir/Analysis/AliasAnalysis.h"
 #include "mlir/Interfaces/FunctionInterfaces.h"

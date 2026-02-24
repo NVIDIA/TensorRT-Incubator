@@ -13,9 +13,9 @@
 /// Implementation of the `stablehlo-ext-canonicalize-scatter` pass.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Dialect/StablehloExt/Transforms/Passes.h"
-#include "mlir-tensorrt/Dialect/StablehloExt/Transforms/Patterns.h"
-#include "mlir-tensorrt/Dialect/StablehloExt/Utils/GatherScatterUtils.h"
+#include "mlir-tensorrt/Compiler/Dialect/StablehloExt/Transforms/Passes.h"
+#include "mlir-tensorrt/Compiler/Dialect/StablehloExt/Transforms/Patterns.h"
+#include "mlir-tensorrt/Compiler/Dialect/StablehloExt/Utils/GatherScatterUtils.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/BuiltinAttributes.h"
@@ -31,7 +31,7 @@ using namespace mlir::stablehlo_ext;
 
 namespace mlir::stablehlo_ext {
 #define GEN_PASS_DEF_CANONICALIZESCATTERPASS
-#include "mlir-tensorrt/Dialect/StablehloExt/Transforms/Passes.h.inc"
+#include "mlir-tensorrt/Compiler/Dialect/StablehloExt/Transforms/Passes.h.inc"
 } // namespace mlir::stablehlo_ext
 
 static SmallVector<Value> transposeTensors(OpBuilder &b, Location loc,

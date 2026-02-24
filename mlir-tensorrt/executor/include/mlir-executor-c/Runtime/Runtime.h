@@ -192,8 +192,8 @@ mtrtMemRefDestroyCallbackIsNull(MTRT_MemRefDestroyCallback callback) {
 
 /// Creates an externally managed MemRef value. The caller provides all the
 /// metadata for the MemRef including the shape, strides (in elements), pointer,
-/// offset, and size of the element type in bits, and the device on which the
-/// buffer resides (only if it is a device buffer).
+/// offset (in elements), and size of the element type in bits, and the device
+/// on which the buffer resides (only if it is a device buffer).
 ///
 /// The underlying "view" storage is reference-counted just like MemRefValues
 /// with storage owned by the RuntimeClient. The difference is that when the
@@ -240,6 +240,16 @@ MLIR_CAPI_EXPORTED uint32_t mtrtMemRefReferenceCount(MTRT_MemRefValue memref);
 /// MemRefValue.
 MLIR_CAPI_EXPORTED MTRT_MemRefValue
 mtrtMemRefCreateRef(MTRT_MemRefValue memref);
+
+/// Construct a new MemRefValue that references the same storage as the input
+/// MemRefValue, but may be a view into a rectangular subregion of the original.
+/// The view is specified using offsets, sizes, and strides for each dimension.
+/// Note that the strides are in units of the element type, not bytes.
+/// If `squeezeUnitDims` is true, then any dimensions with size 1 are dropped
+/// from the resulting shape and strides.
+MLIR_CAPI_EXPORTED MTRT_Status mtrtMemRefCreateViewRef(
+    MTRT_MemRefValue memref, const int64_t *offsets, const int64_t *sizes,
+    const int64_t *strides, bool squeezeUnitDims, MTRT_MemRefValue *result);
 
 /// Retrieve the stream associated with the memref.
 MLIR_CAPI_EXPORTED MTRT_Status mtrtMemRefValueGetStream(MTRT_MemRefValue memref,

@@ -23,7 +23,7 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "mlir-tensorrt/Dialect/Plan/Analysis/DimAnalysisConstraints.h"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/Analysis/DimAnalysisConstraints.h"
 
 using namespace mlir;
 using namespace mlir::plan;

@@ -19,9 +19,8 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt/Compiler/InputPipelines/StablehloInputPipeline.h"
 #include "mlir-tensorrt-common/Utils/PassManagerUtils.h"
-#include "mlir-tensorrt/Conversion/Passes.h"
-#include "mlir-tensorrt/Dialect/StablehloExt/Transforms/Passes.h"
-#include "mlir-tensorrt/Transforms/Passes.h"
+#include "mlir-tensorrt/Compiler/Dialect/StablehloExt/Transforms/Passes.h"
+#include "mlir-tensorrt/Compiler/Passes/Passes.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Pass/PassOptions.h"
@@ -68,7 +67,7 @@ void mtrt::compiler::buildStablehloInputPipeline(
   addNestedPasses<func::FuncOp>(pm, [&opts](OpPassManager &pm) {
     // `convert-stablehlo-to-scf`:
     if (opts.legalizeControlFlowToSCF) {
-      pm.addPass(mlir::createConvertStablehloToScfPass());
+      pm.addPass(mtrt::createConvertStablehloToScfPass());
       pm.addPass(mtrt::createSCFFloatStrengthReducePass());
       pm.addPass(mtrt::createSCFUnrollPass(
           mtrt::SCFUnrollPassOptions{opts.unrollThreshold}));
@@ -113,7 +112,7 @@ void mtrt::compiler::buildStablehloInputPipeline(
   // We don't do the CHLO legalization until this point since we want to wait
   // until after `canonicalize-shapes` has run at least once. This reduces the
   // likelihood of generating `shape` dialect ops.
-  pm.addPass(mlir::createConvertChloToStableHloExtPass(
+  pm.addPass(mtrt::createConvertChloToStableHloExtPass(
       ConvertChloToStableHloExtPassOptions{
           /*preserveErf=*/opts.preserveChloErf,
           /*preserveTopK=*/opts.preserveChloTopK,

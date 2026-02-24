@@ -1,6 +1,5 @@
-// REQUIRES: long_tests
 // RUN: %pick-one-gpu tensorrt-opt -split-input-file -pass-pipeline="builtin.module(translate-tensorrt-to-engine)" -tensorrt-builder-opt-level=0 \
-// RUN: --mlir-elide-elementsattrs-if-larger=32  %s | FileCheck %s
+// RUN: --mlir-elide-resource-strings-if-larger=32  %s | FileCheck %s
 
 func.func @trt_batch_normalize(%inp: tensor<2x3x2x2xf16>, %scale: tensor<1x3x1x1xf16>, %bias: tensor<1x3x1x1xf16>) -> tensor<2x3x2x2xf16> {
     %0 = tensorrt.normalization {

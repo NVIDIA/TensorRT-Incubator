@@ -21,7 +21,7 @@
 /// Definitions of Plan dialect types.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/IR/Plan.h"
 #include "mlir/IR/DialectImplementation.h"
 #include "mlir/IR/OpImplementation.h"
 #include "llvm/ADT/StringSwitch.h"
@@ -33,7 +33,7 @@ using namespace mlir::plan;
 // TableGen'd type definitions
 //===----------------------------------------------------------------------===//
 #define GET_TYPEDEF_CLASSES
-#include "mlir-tensorrt/Dialect/Plan/IR/PlanOpsTypes.cpp.inc"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/IR/PlanOpsTypes.cpp.inc"
 
 //===----------------------------------------------------------------------===//
 // PlanDialect Hooks
@@ -42,6 +42,6 @@ using namespace mlir::plan;
 void PlanDialect::registerTypes() {
   addTypes<
 #define GET_TYPEDEF_LIST
-#include "mlir-tensorrt/Dialect/Plan/IR/PlanOpsTypes.cpp.inc"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/IR/PlanOpsTypes.cpp.inc"
       >();
 }

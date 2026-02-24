@@ -21,8 +21,8 @@
 /// Implementation of utility functions for the CUDA dialect.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Dialect/CUDA/Utils/CUDAUtils.h"
-#include "mlir-tensorrt/Dialect/CUDA/IR/CUDADialect.h"
+#include "mlir-tensorrt/Compiler/Dialect/CUDA/Utils/CUDAUtils.h"
+#include "mlir-tensorrt/Compiler/Dialect/CUDA/IR/CUDADialect.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/OpDefinition.h"

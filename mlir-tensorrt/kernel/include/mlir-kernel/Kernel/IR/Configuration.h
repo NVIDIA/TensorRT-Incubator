@@ -1,6 +1,6 @@
 //===- Configuration.h ----------------------------------------------------===//
 //
-// SPDX-FileCopyrightText: Copyright 2023-2025 NVIDIA CORPORATION & AFFILIATES.
+// SPDX-FileCopyrightText: Copyright 2023-2026 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -26,6 +26,9 @@
 #define MLIR_KERNEL_KERNEL_UTILS_CONFIGURATION
 
 #include "mlir/Support/LLVM.h"
+#include "llvm/ADT/StringRef.h"
+#include "llvm/Support/LogicalResult.h"
+#include <cstdint>
 #include <utility>
 
 namespace mlir {
@@ -40,13 +43,13 @@ namespace kernel {
 /// Convert a `gpu::TargetAttrInterface` to a compute capability integer (SM
 /// version number) and a suffix letter (may be empty). Returns failure if the
 /// target is not a NVVM target or if the compute capability is not set.
-FailureOr<std::pair<int32_t, StringRef>>
+FailureOr<std::pair<int32_t, llvm::StringRef>>
 targetInfoToChipInfo(NVVM::NVVMTargetAttr targetInfo);
 
 // /// Queries the CUDA API for the specified device's compute capability (SM
 // /// version, e.g. 8.0 for A100) and returns it as the pair (major verison
 // /// number, minor version number).
-FailureOr<std::pair<int32_t, int32_t>>
+llvm::FailureOr<std::pair<int32_t, int32_t>>
 inferSMVersionFromCudaDevice(Location loc, int64_t deviceNumber);
 
 } // namespace kernel

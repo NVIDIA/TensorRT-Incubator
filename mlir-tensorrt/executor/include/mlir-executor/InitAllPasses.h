@@ -17,8 +17,7 @@
 // limitations under the License.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-executor/Conversion/Passes.h"
-#include "mlir-executor/Executor/Transforms/Passes.h"
+#include "mlir-executor/Passes/Passes.h"
 #include "mlir/Conversion/Passes.h"
 #include "mlir/Dialect/Arith/Transforms/Passes.h"
 #include "mlir/Dialect/Func/Transforms/Passes.h"
@@ -30,9 +29,8 @@ namespace mlir::executor {
 /// Register all passes defined by or required by the Executor dialect
 inline void registerAllPasses() {
   mlir::arith::registerArithPasses();
-  mlir::executor::registerExecutorConversionPasses();
+  mlir::executor::registerExecutorPasses();
   mlir::executor::registerExecutorPassPipelines();
-  mlir::executor::registerExecutorTransformsPasses();
   mlir::func::registerDuplicateFunctionEliminationPass();
   mlir::memref::registerMemRefPasses();
   mlir::registerTransformsPasses();

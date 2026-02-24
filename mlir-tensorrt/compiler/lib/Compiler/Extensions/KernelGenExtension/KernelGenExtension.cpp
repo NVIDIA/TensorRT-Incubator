@@ -25,18 +25,17 @@
 #include "mlir-kernel/Conversion/Passes.h"
 #include "mlir-kernel/Kernel/Pipelines/Pipelines.h"
 #include "mlir-kernel/Kernel/Transforms/Passes.h"
-#include "mlir-tensorrt/Backends/Kernel/KernelBackend.h"
-#include "mlir-tensorrt/Backends/Kernel/Passes.h"
+#include "mlir-tensorrt/Compiler/Backends/Kernel/KernelBackend.h"
+#include "mlir-tensorrt/Compiler/Backends/Kernel/Passes.h"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/IR/Plan.h"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/Transforms/Passes.h"
+#include "mlir-tensorrt/Compiler/Dialect/StablehloExt/Transforms/Passes.h"
+#include "mlir-tensorrt/Compiler/Dialect/StablehloExt/Utils/Utils.h"
 #include "mlir-tensorrt/Compiler/InputPipelines/StablehloInputPipeline.h"
 #include "mlir-tensorrt/Compiler/Options.h"
+#include "mlir-tensorrt/Compiler/Passes/Passes.h"
 #include "mlir-tensorrt/Compiler/Pipeline.h"
-#include "mlir-tensorrt/Conversion/Passes.h"
-#include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
-#include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
-#include "mlir-tensorrt/Dialect/StablehloExt/Transforms/Passes.h"
-#include "mlir-tensorrt/Dialect/StablehloExt/Utils/Utils.h"
 #include "mlir-tensorrt/Features.h"
-#include "mlir-tensorrt/Transforms/Passes.h"
 #include "mlir/Conversion/ComplexToStandard/ComplexToStandard.h"
 #include "mlir/Conversion/TensorToLinalg/TensorToLinalgPass.h"
 #include "mlir/Dialect/Bufferization/IR/BufferizableOpInterface.h"
@@ -250,7 +249,7 @@ static void buildStableHloToLinalgPipeline(
         addInternalStablehloConstantFoldingPasses(pm);
       });
   auto &funcPM = pm.nest<func::FuncOp>();
-  funcPM.addPass(mlir::createStablehloToLinalgPass());
+  funcPM.addPass(mtrt::createStablehloToLinalgPass());
   addCleanupPasses(funcPM);
 
   pm.addPass(mlir::createLinalgGeneralizeNamedOpsPass());
@@ -284,8 +283,8 @@ void mtrt::compiler::buildKernelGenReclusteringPipeline(
 
   OpPassManager &funcPM = pm.nest<func::FuncOp>();
   if (inputKind == plan::InputKind::Stablehlo) {
-    funcPM.addPass(mlir::createStablehloToKernelPass());
-    funcPM.addPass(mlir::createStablehloToLinalgPass());
+    funcPM.addPass(mtrt::createStablehloToKernelPass());
+    funcPM.addPass(mtrt::createStablehloToLinalgPass());
   }
   funcPM.addPass(mlir::createLinalgElementwiseOpFusionPass());
   funcPM.addPass(mtrt::createLinalgSimplifyExtractSlicePass());

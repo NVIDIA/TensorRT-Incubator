@@ -15,7 +15,7 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt-common/Utils/ModuleUtils.h"
-#include "mlir-tensorrt/Dialect/Plan/Transforms/ModuleBufferization/ModuleBufferization.h"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/Transforms/ModuleBufferization/ModuleBufferization.h"
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
 #include "mlir/Dialect/Bufferization/Transforms/FuncBufferizableOpInterfaceImpl.h"
 #include "mlir/Dialect/Bufferization/Transforms/OneShotAnalysis.h"

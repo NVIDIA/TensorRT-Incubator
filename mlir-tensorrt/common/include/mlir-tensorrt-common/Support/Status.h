@@ -23,8 +23,8 @@
 /// mechanisms.
 ///
 //===----------------------------------------------------------------------===//
-#ifndef MLIR_EXECUTOR_SUPPORT_STATUS
-#define MLIR_EXECUTOR_SUPPORT_STATUS
+#ifndef MLIR_TENSORRT_COMMON_SUPPORT_STATUS
+#define MLIR_TENSORRT_COMMON_SUPPORT_STATUS
 
 #include "mlir-tensorrt-common/Support/ADTExtras.h"
 #include "llvm/ADT/StringExtras.h"
@@ -33,6 +33,19 @@
 #include <cassert>
 #include <string_view>
 #include <variant>
+
+// clang-format off
+#if defined(__clang__)
+#define MTRT_DISABLE_COUNTER_WARNING                        \
+  _Pragma("GCC diagnostic push")                                 \
+  _Pragma("GCC diagnostic ignored \"-Wunknown-warning-option\"") \
+  _Pragma("GCC diagnostic ignored \"-Wc2y-extensions\"")
+#define MTRT_RESTORE_COUNTER_WARNING _Pragma("GCC diagnostic pop")
+#else
+#define MTRT_DISABLE_COUNTER_WARNING
+#define MTRT_RESTORE_COUNTER_WARNING
+#endif
+// clang-format on
 
 namespace mtrt {
 
@@ -187,7 +200,10 @@ void cantFail(const StatusOr<T> &statusOr) {
   lhs = std::move(*statusor);
 
 #define MTRT_ASSIGN_OR_RETURN(lhs, rexpr)                                      \
-  MTRT_ASSIGN_OR_RETURN_(MTRT_CONCAT(_status_or_value, __COUNTER__), lhs, rexpr)
+  MTRT_DISABLE_COUNTER_WARNING                                                 \
+  MTRT_ASSIGN_OR_RETURN_(MTRT_CONCAT(_status_or_value, __COUNTER__), lhs,      \
+                         rexpr)                                                \
+  MTRT_RESTORE_COUNTER_WARNING
 
 #define MTRT_RETURN_IF_ERROR_(tmpName, rexpr)                                  \
   do {                                                                         \
@@ -197,7 +213,9 @@ void cantFail(const StatusOr<T> &statusOr) {
   } while (false)
 
 #define MTRT_RETURN_IF_ERROR(rexpr)                                            \
-  MTRT_RETURN_IF_ERROR_(MTRT_CONCAT(_tmpStatus, __COUNTER__), rexpr)
+  MTRT_DISABLE_COUNTER_WARNING                                                 \
+  MTRT_RETURN_IF_ERROR_(MTRT_CONCAT(_tmpStatus, __COUNTER__), rexpr)           \
+  MTRT_RESTORE_COUNTER_WARNING
 
 #define RETURN_ERROR_IF_CUDART_ERROR(x)                                        \
   do {                                                                         \
@@ -266,4 +284,4 @@ void cantFail(const StatusOr<T> &statusOr) {
 
 } // namespace mtrt
 
-#endif // MLIR_EXECUTOR_SUPPORT_STATUS
+#endif // MLIR_TENSORRT_COMMON_SUPPORT_STATUS

@@ -22,8 +22,8 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt-common/Interfaces/TensorKindOpInterface.h"
-#include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
-#include "mlir-tensorrt/Interfaces/InferTensorValueRangeInterface.h"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/IR/Plan.h"
+#include "mlir-tensorrt/Compiler/Interfaces/InferTensorValueRangeInterface.h"
 #include "mlir/Conversion/ConvertToLLVM/ToLLVMInterface.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Bufferization/IR/BufferizableOpInterface.h"
@@ -520,13 +520,13 @@ struct PlanInlinerInterface : public DialectInlinerInterface {
 //===----------------------------------------------------------------------===//
 // TableGen'd dialect definition.
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Dialect/Plan/IR/PlanOpsDialect.cpp.inc"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/IR/PlanOpsDialect.cpp.inc"
 
 //===----------------------------------------------------------------------===//
 // TableGen'd op method definitions
 //===----------------------------------------------------------------------===//
 #define GET_OP_CLASSES
-#include "mlir-tensorrt/Dialect/Plan/IR/PlanOps.cpp.inc"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/IR/PlanOps.cpp.inc"
 
 //===----------------------------------------------------------------------===//
 // PlanDialect Definitions
@@ -550,7 +550,7 @@ class PlanDialectOpAsmInterface : public OpAsmDialectInterface {
 void PlanDialect::initialize() {
   addOperations<
 #define GET_OP_LIST
-#include "mlir-tensorrt/Dialect/Plan/IR/PlanOps.cpp.inc"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/IR/PlanOps.cpp.inc"
       >();
 
   registerTypes();

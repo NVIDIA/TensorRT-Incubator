@@ -31,14 +31,13 @@ add_mlir_tensorrt_library(MLIRTensorRTPlanTransforms
   MLIRTensorRTPlanTransformsPassIncGen
 
   LINK_LIBS PUBLIC
-    MLIRExecutorGenericClustering
+    MLIRTensorRTExecutorPasses
     MLIRTensorRTAnalysis
     MLIRTensorRTCommandLineExtras
     MLIRTensorRTCommonBufferizationScopeInterface
     MLIRTensorRTCUDADialect
     MLIRTensorRTDuplicateFunctionElimination
     MLIRTensorRTExecutorDialect
-    MLIRTensorRTExecutorTransforms
     MLIRTensorRTLowerLinalgCopies
     MLIRTensorRTMemRefCastElimination
     MLIRTensorRTPlanAnalysis

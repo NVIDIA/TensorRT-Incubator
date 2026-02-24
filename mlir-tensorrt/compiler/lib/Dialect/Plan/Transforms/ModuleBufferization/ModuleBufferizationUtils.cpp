@@ -24,10 +24,10 @@
 /// of 'fewer incoming call edges' to 'more incoming call edges'.
 //===----------------------------------------------------------------------===//
 #include "mlir-executor/Executor/IR/ExecutorAttributes.h"
-#include "mlir-executor/Executor/Transforms/BufferizationOpInterfaceImpls.h"
+#include "mlir-executor/Passes/BufferizationOpInterfaceImpls.h"
 #include "mlir-tensorrt-common/Utils/ModuleUtils.h"
-#include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
-#include "mlir-tensorrt/Dialect/Plan/Transforms/ModuleBufferization/ModuleBufferization.h"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/IR/Plan.h"
+#include "mlir-tensorrt/Compiler/Dialect/Plan/Transforms/ModuleBufferization/ModuleBufferization.h"
 #include "mlir/Analysis/CallGraph.h"
 #include "mlir/Dialect/Bufferization/Transforms/OneShotAnalysis.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
