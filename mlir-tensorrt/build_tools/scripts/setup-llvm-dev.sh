@@ -144,6 +144,20 @@ git sparse-checkout set cmake llvm mlir third-party utils
 echo "==> Checking out commit ${LLVM_COMMIT}..."
 git checkout "${LLVM_COMMIT}"
 
+# Configure git user for patch application (git am requires this)
+# In CI, use GitHub Actions environment variables; otherwise use defaults
+if [[ -n "${GITHUB_ACTOR:-}" ]]; then
+  # GitHub Actions CI environment
+  git config user.email "${GITHUB_ACTOR}@users.noreply.github.com"
+  git config user.name "${GITHUB_ACTOR}"
+  echo "==> Configured git user for CI: ${GITHUB_ACTOR}"
+else
+  # Local development - use local config (not global) to avoid affecting user's global settings
+  git config user.email "${GIT_USER_EMAIL:-lanl@nvidia.com}"
+  git config user.name "${GIT_USER_NAME:-Lan Luo}"
+  echo "==> Configured git user for local development"
+fi
+
 # Apply patches
 apply_patches
 

@@ -55,7 +55,31 @@ rm -rf ${BUILD_DIR}  || true
 function build_with_preset() {
   local preset_name
   preset_name=$1
+
+  # If using pre-built LLVM, LLVM_EXTERNAL_LIT must be set
+  if [[ "${preset_name}" == *"prebuilt"* ]]; then
+    if [[ -z "${LLVM_EXTERNAL_LIT:-}" ]]; then
+      echo "Error: LLVM_EXTERNAL_LIT must be set when using prebuilt LLVM preset (${preset_name})" >&2
+      echo "Please set LLVM_EXTERNAL_LIT to point to the llvm-lit executable from the pre-built LLVM distribution" >&2
+      exit 1
+    fi
+    if [[ ! -f "${LLVM_EXTERNAL_LIT}" ]]; then
+      echo "Error: LLVM_EXTERNAL_LIT is set to '${LLVM_EXTERNAL_LIT}' but the file does not exist" >&2
+      exit 1
+    fi
+    echo "==> Using prebuilt LLVM with llvm-lit at: ${LLVM_EXTERNAL_LIT}"
+  fi
+
   cmake -B "${BUILD_DIR}" --preset "${preset_name}" --fresh
+
+  # If using pre-built LLVM and llvm-lit is not in build directory, create a symlink
+  # This ensures tests can find llvm-lit even if CMake doesn't use LLVM_EXTERNAL_LIT correctly
+  if [[ "${preset_name}" == *"prebuilt"* ]] && [[ ! -f "${BUILD_DIR}/bin/llvm-lit" ]]; then
+    echo "==> Creating symlink to llvm-lit in build directory"
+    mkdir -p "${BUILD_DIR}/bin"
+    ln -sf "${LLVM_EXTERNAL_LIT}" "${BUILD_DIR}/bin/llvm-lit"
+  fi
+
   echo "🔨 Building with preset: ${preset_name}"
   if [[ "$BUILD_ONLY" == "true" ]]; then
     echo "🔨 Building only (skipping tests)..."

@@ -1,0 +1,11 @@
+# pixi environments
+.pixi/*
+!.pixi/config.toml
+
+/llvm-project/
+/build/
+/tmp/
+/install/
+/dist/
+
+*.tar.gz
