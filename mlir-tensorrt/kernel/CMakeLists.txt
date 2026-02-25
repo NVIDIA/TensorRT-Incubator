@@ -27,7 +27,5 @@ add_subdirectory(tools)
 mtrt_add_header_installation_components(mtrt-headers
   DIRECTORIES
    "include/mlir-kernel"
-   "include/mlir-kernel-c"
    "${CMAKE_CURRENT_BINARY_DIR}/include/mlir-kernel"
-   "${CMAKE_CURRENT_BINARY_DIR}/include/mlir-kernel-c"
   )
