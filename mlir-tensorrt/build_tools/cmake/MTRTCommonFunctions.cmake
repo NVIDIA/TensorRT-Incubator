@@ -484,8 +484,7 @@ function(mtrt_add_aggregate_library target)
   endforeach()
   list(REMOVE_DUPLICATES obj_libs)
   list(REMOVE_DUPLICATES linked_libs)
-  message(STATUS "LAN ADDED obj_libs:${obj_libs}")
-  message(STATUS "LAN ADDED linked_libs:${linked_libs}")
+
   # We want to filter `${link_deps}` to exclude all the libraries we are
   # bundling. However, `${link_deps}` is a generator expression and doesn't
   # account for direct link dependencies populated transitively.

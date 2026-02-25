@@ -47,7 +47,6 @@ if(NOT BUILD_SHARED_LIBS)
 endif()
 
 list(REMOVE_DUPLICATES mtrt_libs)
-message(STATUS "LAN ADDED mtrt_libs:${mtrt_libs}")
 mtrt_add_aggregate_library(MTRT ${mtrt_libs})
 target_link_libraries(MTRT PRIVATE
   $<LINK_LIBRARY:WHOLE_ARCHIVE,MLIRTransformDialectTransforms>
