@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -283,7 +283,7 @@ AVAILABLE_MARKERS = {
     "example: if_fp8": Marker.from_name("EXAMPLE: IF_FP8"),
     # Indicates that a block should be omitted from the rendered documentation. Such blocks may still be evaluated.
     "doc: omit": Marker.from_name("DOC: OMIT"),
-    # Indicates that a block of Python code should not be evaluated OR formatted for the documentation.
+    # Indicates that a block of code should not be evaluated OR formatted for the documentation.
     # If you would like to format but not evaluate, add a `# doc: no-eval` tag to the code block instead.
     # For non-Python code, formatting is not performed anyway, so you should always use this marker instead of `# doc: no-eval`.
     "doc: no_eval_or_format": Marker.from_name("DOC: NO_EVAL_OR_FORMAT"),

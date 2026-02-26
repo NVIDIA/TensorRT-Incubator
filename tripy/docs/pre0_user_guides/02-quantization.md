@@ -33,7 +33,7 @@ Let's calibrate a GPT model:
 1. Install ModelOpt:
 
     ```bash
-    python3 -m pip install nvidia-modelopt==0.11.1 transformers==4.46.2 datasets==2.21.0
+    python3 -m pip install nvidia-modelopt==0.41.0 transformers==4.46.2 datasets==4.5.0
     ```
 
 2. Download the model:

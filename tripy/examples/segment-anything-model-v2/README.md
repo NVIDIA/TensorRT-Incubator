@@ -9,7 +9,7 @@ This is an implementation of SAM2 model ([original repository](https://github.co
 1. Install prerequisites:
 
     ```bash
-    python3 -m pip install -r requirements.txt
+    python3 -m pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl
     ```
 
 2. Retrieve the images and the checkpoint:

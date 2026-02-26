@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -45,7 +45,7 @@ modules = list(__discover_modules())[1:]
 # Discover and import all perf fixtures.
 from tests.performance.conftest import PERF_CASES
 
-__perf_case_names = {case.name for case in PERF_CASES}
+__perf_case_names = {case.name if hasattr(case, "name") else str(case) for case in PERF_CASES}
 
 for mod in modules:
     for name, obj in mod.__dict__.items():

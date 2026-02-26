@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -67,23 +67,40 @@ def plugin(
     try:
         trtp_op = getattr(getattr(trtp.op, namespace), name)
     except AttributeError:
-        available_namespaces = [
-            ns for ns in (getattr(trtp.op, attr) for attr in dir(trtp.op)) if isinstance(ns, trtp._lib._PluginNamespace)
-        ]
+        # NOTE: TensorRT plugin APIs are experimental and private module symbols
+        # (e.g. trtp._lib / trtp._tensor) may change. Discover namespaces/plugins
+        # via the public op tree and plugin object attributes instead.
+        available_namespaces = []
+        for attr in dir(trtp.op):
+            if attr.startswith("_"):
+                continue
 
-        def get_plugins_in_namespace(ns):
-            return [attr for attr in dir(ns) if isinstance(getattr(ns, attr), trtp._lib.PluginDef)]
+            try:
+                ns = getattr(trtp.op, attr)
+            except AttributeError:
+                continue
+
+            plugins = []
+            for plugin_attr in dir(ns):
+                if plugin_attr.startswith("_"):
+                    continue
+
+                try:
+                    candidate = getattr(ns, plugin_attr)
+                except AttributeError:
+                    continue
+
+                if hasattr(candidate, "register_func") and hasattr(candidate, "input_attrs"):
+                    plugins.append(plugin_attr)
+
+            if plugins:
+                available_namespaces.append((attr, plugins))
 
         raise_error(
             f"Plugin '{op}' not found.",
             details=[
                 f"Note: Available namespaces and plugins are:\n"
-                + "\n".join(
-                    [
-                        f"- {ns._namespace}::{{ {', '.join(get_plugins_in_namespace(ns))} }}"
-                        for ns in available_namespaces
-                    ]
-                )
+                + "\n".join([f"- {ns_name}::{{ {', '.join(plugins)} }}" for ns_name, plugins in available_namespaces])
             ],
         )
 
@@ -110,10 +127,9 @@ def plugin(
 
     input_descs = [None] * len(inputs)
     for i in range(len(inputs)):
-        input_descs[i] = trtp._tensor.TensorDesc()
+        input_descs[i] = trtp.TensorDesc()
         input_descs[i].dtype = TRT_FROM_TRIPY_DTYPE[inputs[i].dtype]
-        input_descs[i].shape_expr = trtp._tensor.ShapeExprs(inputs[i].rank, _is_dummy=True)
-        input_descs[i]._immutable = True
+        input_descs[i].shape_expr = trtp.ShapeExprs(inputs[i].rank, _is_dummy=True)
 
     output_descs = utils.utils.make_tuple(trtp_op.register_func(*input_descs, attrs))
 

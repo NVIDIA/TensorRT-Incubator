@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,6 +19,7 @@
 Tests that ensure internal documentation (for developers) is correct.
 """
 
+import os
 from typing import Dict, List
 
 import pytest
@@ -65,4 +66,13 @@ def test_inline_pytest(code_blocks):
     f = tempfile.NamedTemporaryFile(mode="w+", suffix=".py")
     f.write(code)
     f.flush()
-    assert pytest.main([f.name, "-vv", "-s"]) == 0
+
+    old_disable_plugin_autoload = os.environ.get("PYTEST_DISABLE_PLUGIN_AUTOLOAD")
+    os.environ["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] = "1"
+    try:
+        assert pytest.main([f.name, "-vv", "-s"]) == 0
+    finally:
+        if old_disable_plugin_autoload is None:
+            os.environ.pop("PYTEST_DISABLE_PLUGIN_AUTOLOAD", None)
+        else:
+            os.environ["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] = old_disable_plugin_autoload

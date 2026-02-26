@@ -39,11 +39,21 @@ jobs:
         cd /tripy/
         pytest --cov=nvtripy/ --cov-config=.coveragerc tests/ -v -m "l1" --durations=15 --ignore tests/performance
 
+  l1-test-release-package:
+    runs-on: tripy-self-hosted
+    env:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+    container:
+      image: ghcr.io/nvidia/tensorrt-incubator/nvtripy:latest
+      volumes:
+        - ${{ github.workspace }}/tripy:/tripy
+      options: --gpus all
+    steps:
+    - uses: actions/checkout@v6
+
     # For some tests, we want to use the public build instead of the latest commit.
     - name: l1-test-release-package
       run: |
         cd /tripy/
         unset PYTHONPATH
-        pip uninstall nvtripy -y
-        python3 -m pip install nvtripy -f https://nvidia.github.io/TensorRT-Incubator/packages.html
         pytest --cov=nvtripy/ --cov-config=.coveragerc tests/ -v -m "l1_release_package" --durations=15 --ignore tests/performance

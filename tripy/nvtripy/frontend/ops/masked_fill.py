@@ -25,7 +25,7 @@ from nvtripy.frontend.constraints import GetInput, GetReturn, OneOf
 @wrappers.interface(
     input_requirements=OneOf(
         GetInput("input").dtype,
-        [dt.float32, dt.float16, dt.bfloat16, dt.int4, dt.int8, dt.int32, dt.int64, dt.bool],
+        [dt.float32, dt.float16, dt.bfloat16, dt.int4, dt.int8, dt.int32, dt.int64],
     )
     & (GetInput("mask").dtype == dt.bool),
     output_guarantees=GetReturn(0).dtype == GetInput("input").dtype,

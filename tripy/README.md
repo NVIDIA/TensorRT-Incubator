@@ -26,9 +26,20 @@ What you can expect:
 
 ## Installation
 
+### Option 1: Install with pip
+
+<!-- Tripy: DOC: NO_EVAL_OR_FORMAT Start -->
 ```bash
 python3 -m pip install nvtripy -f https://nvidia.github.io/TensorRT-Incubator/packages.html
 ```
+
+### Option 2: Use the container image
+
+```bash
+docker run --pull always --gpus all -it --rm ghcr.io/nvidia/tensorrt-incubator/nvtripy:latest
+```
+<!-- Tripy: DOC: NO_EVAL_OR_FORMAT End -->
+
 
 
 ## Quick Start
