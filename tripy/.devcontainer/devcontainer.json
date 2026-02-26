@@ -11,17 +11,21 @@
 	},
 	"workspaceMount": "source=${localWorkspaceFolder}/..,target=/workspaces/TensorRT-Incubator,type=bind,consistency=cached",
 	"workspaceFolder": "/workspaces/TensorRT-Incubator/tripy",
+	"mounts": [
+		"source=/tmp/devcontainer-host-shell-${localWorkspaceFolderBasename},target=/tmp/devcontainer-host-shell-${localWorkspaceFolderBasename},type=bind",
+		"source=${localEnv:HOME}/.ssh,target=/home/${localEnv:USER}/.ssh,type=bind,consistency=cached,readonly"
+	],
 	"runArgs": [
 		"--gpus",
 		"all",
 		"-it",
 		"--cap-add=SYS_PTRACE"
 	],
-	"mounts": [
-		"source=${localEnv:HOME}${localEnv:USERPROFILE},target=/home/${localEnv:USER},type=bind,consistency=cached"
-	],
+	"initializeCommand": "bash ${localWorkspaceFolder}/.devcontainer/scripts/sync-shell-host-files.sh ${localWorkspaceFolder}",
+	"postStartCommand": "bash /workspaces/TensorRT-Incubator/tripy/.devcontainer/scripts/link-shell-files.sh /workspaces/TensorRT-Incubator/tripy ${localEnv:USER}",
 	"remoteEnv": {
 		"SHELL": "${localEnv:SHELL:/bin/bash}",
+		"HOST_SHELL_DIR": "/tmp/devcontainer-host-shell-${localWorkspaceFolderBasename}",
 		"ZSH": "/home/${localEnv:USER}/.oh-my-zsh",
 		"PYTHONPATH": "/workspaces/TensorRT-Incubator/tripy:${localEnv:PYTHONPATH}",
 		"PATH": "/usr/local/bin/:${localEnv:PATH}"
