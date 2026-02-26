@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -42,7 +42,12 @@ def run_timed_trials(thunk: Callable[[], None], warm_up_runs=10, iterations=1000
     return (end - start) / (iterations * 1000.0)
 
 
-@pytest.mark.parametrize("perf_case", PERF_CASES)
+@pytest.fixture
+def perf_case(request):
+    return request.getfixturevalue(request.param)
+
+
+@pytest.mark.parametrize("perf_case", PERF_CASES, indirect=True)
 def test_perf_regression(perf_case, benchmark):
     compiled_tripy_module, _, inputs, _ = perf_case
 
@@ -53,7 +58,7 @@ def test_perf_regression(perf_case, benchmark):
     benchmark(run_inference)
 
 
-@pytest.mark.parametrize("perf_case", PERF_CASES)
+@pytest.mark.parametrize("perf_case", PERF_CASES, indirect=True)
 def test_perf_comparative(perf_case):
     compiled_tripy_module, compiled_torch_module, inputs, perf_threshold = perf_case
 
