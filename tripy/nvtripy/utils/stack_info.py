@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -129,11 +129,21 @@ def get_stack_info(include_code_index: int = None) -> StackInfo:
             pass
         else:
             # For 3.11+, positions is an iterator of (line, end_line, column, end_column)
+            matching_ranges = []
             for pos in frame.f_code.co_positions():
-                if pos[0] == frame.f_lineno:
-                    _, _, start, end = pos
-                    source_info.column_range = (start, end)
-                    break
+                if pos[0] != frame.f_lineno:
+                    continue
+
+                _, _, start, end = pos
+                if start is not None and end is not None:
+                    matching_ranges.append((start, end))
+
+            # Only set a column range when it is unambiguous for this line.
+            # Comprehension/genexpr frames can emit (None, None), and some lines can
+            # have multiple valid column spans. In either case, leave column_range unset.
+            unique_ranges = set(matching_ranges)
+            if len(unique_ranges) == 1:
+                source_info.column_range = unique_ranges.pop()
 
         stack_info.append(source_info)
         frame = frame.f_back
