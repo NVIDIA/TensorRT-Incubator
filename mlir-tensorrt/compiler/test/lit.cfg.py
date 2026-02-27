@@ -13,9 +13,6 @@ from lit.LitConfig import LitConfig
 from lit.llvm import llvm_config
 from lit.llvm.subst import ToolSubst
 from lit.TestingConfig import TestingConfig
-import lit.formats
-import lit.util
-import psutil
 
 config: TestingConfig = config  # type: ignore
 lit_config: LitConfig = lit_config  # type: ignore
