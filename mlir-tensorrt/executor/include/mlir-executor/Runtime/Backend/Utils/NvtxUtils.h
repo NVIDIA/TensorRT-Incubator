@@ -38,6 +38,11 @@ namespace mtrt {
 struct RuntimeNvtxDomain {
   static constexpr char const *name{"MLIR TensorRT Lua Runtime"};
 };
+
+struct UserAnnotationNvtxDomain {
+  static constexpr char const *name{"MLIR TensorRT User Annotations"};
+};
+
 using NvtxRange = nvtx3::scoped_range_in<RuntimeNvtxDomain>;
 
 namespace tracing {

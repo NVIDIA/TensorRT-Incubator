@@ -53,6 +53,14 @@ namespace mlir::plan {
 using namespace mlir;
 using namespace mlir::plan;
 
+static bool isValidStablehloCustomCallOp(Operation *op) {
+  if (isa<stablehlo::CustomCallOp>(op) &&
+      (op->getAttrOfType<StringAttr>("call_target_name") == "nvtx.push" ||
+       op->getAttrOfType<StringAttr>("call_target_name") == "nvtx.pop"))
+    return true;
+  return false;
+}
+
 /// This function attempts to identify operations that we know we can't support
 /// after the clustering phase. This includes operations that operate on tensor
 /// types but are not bufferizable.
@@ -61,7 +69,7 @@ static bool isValidOp(Operation *op) {
   if (isPure(op) && llvm::all_of(op->getOperandTypes(), isNonTensor) &&
       llvm::all_of(op->getResultTypes(), isNonTensor))
     return true;
-  return isa<TilingInterface>(op) ||
+  return isa<TilingInterface>(op) || isValidStablehloCustomCallOp(op) ||
          isa<bufferization::BufferizableOpInterface>(op) ||
          isa<stablehlo::ConstantOp, affine::AffineApplyOp>(op) ||
          isa<tensorrt::TensorRTDialect, trtrt::TensorRTRuntimeDialect,

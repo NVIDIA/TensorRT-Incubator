@@ -1,6 +1,7 @@
 from .quantize import mtrt_quantize
 from .dequantize import mtrt_dequantize
 from .dynamic_quantize import mtrt_dynamic_quantize
+from .nvtx_range import mtrt_nvtx_push, mtrt_nvtx_pop, mtrt_nvtx_annotate, NVTX_COLOR
 
 try:
     from .dot_product_attention import mtrt_fused_attention
@@ -24,6 +25,9 @@ def register_all_lowerings():
     except ImportError:
         pass
 
+    from .nvtx_range import register_nvtx_range_lowering
+
     register_quantize_lowering()
     register_dequantize_lowering()
     register_dynamic_quantize_lowering()
+    register_nvtx_range_lowering()
