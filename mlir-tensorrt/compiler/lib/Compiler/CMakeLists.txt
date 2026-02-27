@@ -45,7 +45,6 @@ add_mlir_tensorrt_library(MLIRTensorRTCompilerClient
     MLIRTensorRTStablehloToPlan
     MLIRTensorRTStablehloToSCF
     MLIRTensorRTTargetLua
-    MLIRTensorRTTargetLua
     MLIRTensorRTTensorExtPadToInsertSlice
     MLIRTensorRTTensorRTBackend
     MLIRTensorRTTensorRTToTensorRTRuntime

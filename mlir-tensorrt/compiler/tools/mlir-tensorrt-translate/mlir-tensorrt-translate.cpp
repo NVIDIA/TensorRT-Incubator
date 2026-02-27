@@ -35,7 +35,6 @@ int main(int argc, char **argv) {
   mlir::registerToCppTranslation();
   mlir::registerToLuaTranslation();
   mlir::registerToRuntimeExecutableTranslation();
-  mlir::registerToLLVMIRTranslation();
 
   IF_MLIR_TRT_TARGET_TENSORRT({
     mlir::tensorrt::registerTensorRTTranslationCLOpts();

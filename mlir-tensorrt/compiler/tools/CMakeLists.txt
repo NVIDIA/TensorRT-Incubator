@@ -36,7 +36,7 @@ if(MLIR_TRT_LINK_MTRT_DYLIB)
   set(LLVM_LINK_COMPONENTS )
 endif()
 
-add_subdirectory(mlir-tensorrt-shlib)
+add_subdirectory(mlir-tensorrt-shlib EXCLUDE_FROM_ALL)
 add_subdirectory(mlir-tensorrt-opt)
 add_subdirectory(mlir-tensorrt-compiler)
 add_subdirectory(mlir-tensorrt-translate)

@@ -28,7 +28,7 @@ extern "C" {
 #endif
 
 MLIR_CAPI_EXPORTED MTRT_Status
-translateToRuntimeExecutable(MlirOperation op, MTRT_Executable *executable);
+mtrtTranslateToRuntimeExecutable(MlirOperation op, MTRT_Executable *executable);
 
 #ifdef __cplusplus
 }

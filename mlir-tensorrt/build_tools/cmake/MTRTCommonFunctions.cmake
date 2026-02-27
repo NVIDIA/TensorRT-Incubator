@@ -310,11 +310,6 @@ function(mtrt_add_project_library name)
 
   if(ARG_LINK_LIBS)
     # Append LINK_LIBS to the unparsed arguments so it can be processed as normal.
-    # However, if an artifact is meant to be excluded from LIBMTRT since it is a test library,
-    # then we should filter out all internal project libraries and link against
-    # libMTRT if MLIR_TRT_LINK_MTRT_DYLIB is enabled. This is because tools will
-    # link against libMTRT and the test libraries, so we don't want test libraries
-    # to statically link libraries that are meant to be excluded from libMTRT.
     list(APPEND ARG_UNPARSED_ARGUMENTS LINK_LIBS ${ARG_LINK_LIBS})
   endif()
 
@@ -421,7 +416,7 @@ function(mtrt_add_test_library name)
       target_link_libraries(${name} ${VISIBILITY} ${ARG_LINK_LIBS})
     endif()
   endif()
-  if(ARG_MLIR_LIBS)
+  if(ARG_MLIR_LIBS AND (ARG_IGNORE_LINK_MTRT OR NOT MLIR_TRT_LINK_MTRT_DYLIB))
     # If we still have a list of MLIR libraries, link against them directly
     # or through libMLIR using the helper function.
     list(POP_FRONT ARG_MLIR_LIBS VISIBILITY)
@@ -467,58 +462,36 @@ endfunction()
 function(mtrt_add_aggregate_library target)
   cmake_parse_arguments(ARG "EXCLUDE_FROM_ALL;STATIC;DISABLE_INSTALL"
     "EXPORT" "" ${ARGN})
-  set(bundled_libs ${ARG_UNPARSED_ARGUMENTS})
+  set(bundled_libs)
   set(obj_libs)
   set(link_deps)
-  set(interface_include_dirs)
-  foreach(lib ${bundled_libs})
-    if(TARGET obj.${lib})
+
+  # Loop over the libraries that the caller gave. The caller wants to bundle
+  # those libraries into this aggregate. For each lib, if there is an underlying
+  # object library available, prefer to use that. Otherwise, we bundle static
+  # libraries without an available object library using WHOLE_ARCHIVE.
+  # If we encounter a shared library, just treat it as a normal link dependency.
+  foreach(lib ${ARG_UNPARSED_ARGUMENTS})
+    if(NOT TARGET ${lib})
+      list(APPEND link_deps ${lib})
+      continue()
+    endif()
+    get_target_property(_type "${lib}" TYPE)
+    if(TARGET obj.${lib} AND (
+       _type STREQUAL "STATIC_LIBRARY" OR "${lib}" MATCHES ".*CAPI.*"))
       list(APPEND obj_libs $<TARGET_OBJECTS:obj.${lib}>)
-      list(APPEND link_deps "$<TARGET_GENEX_EVAL:${lib},$<TARGET_PROPERTY:${lib},LINK_LIBRARIES>>")
-      list(APPEND interface_include_dirs "$<TARGET_PROPERTY:${lib},INTERFACE_INCLUDE_DIRECTORIES>")
+      list(APPEND bundled_libs ${lib})
+    elseif(_type STREQUAL "STATIC_LIBRARY")
+      # If this is a static/shared library, populate it in link deps.
+      # For static libraries, we'll assume the user's intent is to bundle the whole
+      # thing, not just the parts the object libraries link against.
+      list(APPEND bundled_libs ${lib})
+      list(APPEND link_deps "$<LINK_LIBRARY:WHOLE_ARCHIVE,${lib}>")
+    else()
+      message(STATUS "Adding link dependency: ${lib}")
+      list(APPEND link_deps ${lib})
     endif()
   endforeach()
-
-  # We want to filter `${link_deps}` to exclude all the libraries we are
-  # bundling. However, `${link_deps}` is a generator expression and doesn't
-  # account for direct link dependencies populated transitively.
-  #
-  # To work around this, we use a niche CMake feature
-  # INTERFACE_LINK_LIBRARIES_DIRECT_EXCLUDE. See documentation:
-  # https://cmake.org/cmake/help/latest/prop_tgt/INTERFACE_LINK_LIBRARIES_DIRECT_EXCLUDE.html.
-  #
-  # The CMake property "INTERFACE_LINK_LIBRARIES_DIRECT_EXCLUDE" allows us to
-  # enforce a filter on the "direct link dependencies" of any target which
-  # transitively depends on "${target}.filter". This allows us to exclude the
-  # non-object counter parts (e.g. the "${lib}" for each "obj.${lib}" library in
-  # the set we are bundling) from being linked into the final `${target}`
-  # library that we create below. This is only necessary to prevent redundant
-  # linking of `${lib}` in the final `${target}` library when `${lib}` is a
-  # SHARED library. This is the case if `${lib}` was explicitly declared SHARED
-  # or when the global BUILD_SHARED_LIBS is ON.
-  #
-  # We use this feature by first creating an INTERFACE library that is just used
-  # to carry the INTERFACE_LINK_LIBRARIES_DIRECT_EXCLUDE information.
-  #
-  # There is a very important caveat to this approach:
-  # INTERFACE_LINK_LIBRARIES_DIRECT_EXCLUDE cannot guarantee that a library
-  # listed will NOT be linked by the final shared library. This mechanism will
-  # be defeated if we transitively depend on any STATIC/SHARED/INTERFACE library
-  # that has one of `${bundled_libs}` in its INTERFACE_LINK_LIBRARIES list.
-  #
-  # For this reason, we must be cautious about creating any INTERFACE library
-  # which is in a cyclic link relationship with the set of libraries in
-  # `bundled_libs`. e.g. `[bundled_libs...]` <-> `interface_lib`. This will
-  # cause some libraries in `bundled_libs` to be linked redundantly into
-  # `${target}` and will cause symptoms like crashes and ASAN ODR violation
-  # errors.
-  add_library(
-    ${target}.filter
-    INTERFACE
-  )
-  set_target_properties(${target}.filter PROPERTIES
-    INTERFACE_LINK_LIBRARIES_DIRECT_EXCLUDE "${bundled_libs}"
-    )
 
   if(ARG_EXCLUDE_FROM_ALL)
     set(exclude_from_all EXCLUDE_FROM_ALL)
@@ -536,17 +509,15 @@ function(mtrt_add_aggregate_library target)
     ${exclude_from_all}
     ${lib_type}
   )
+
+  target_sources(${target} PRIVATE ${obj_libs})
   set_target_properties(${target} PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY "${LLVM_LIBRARY_OUTPUT_INTDIR}"
     LINKER_LANGUAGE CXX
+    INTERFACE_LINK_LIBRARIES_DIRECT_EXCLUDE "${bundled_libs};${obj_libs}"
   )
   mtrt_require_defined_symbols(${target})
-  # Link the `${target}.filter`, which will populate the exclusion filter
-  # that will apply to the final resolved direct link dependencies.
-  target_link_libraries(${target} PRIVATE ${target}.filter ${obj_libs} ${link_deps})
-  target_include_directories(${target} INTERFACE
-    $<BUILD_INTERFACE:${interface_include_dirs}>
-    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
+  target_link_libraries(${target} PRIVATE ${link_deps})
   if(NOT ARG_DISABLE_INSTALL)
     set(umbrella mtrt-aggregates)
     mtrt_add_install(${target} UMBRELLA ${umbrella})
@@ -622,6 +593,24 @@ function(mtrt_get_project_targets project_name)
   endif()
   get_property(targets GLOBAL PROPERTY MLIR_${project_name}_${ARG_LIBRARY_TYPE})
   set("${ARG_OUT_VAR}" ${targets} PARENT_SCOPE)
+endfunction()
+
+
+#-------------------------------------------------------------------------------------
+# Appends a list of targets to the given variable.
+#
+# usage: mtrt_append_project_targets(<list variable> <ProjectName> [LIBRARY_TYPES <type1> ...])
+#-------------------------------------------------------------------------------------
+function(mtrt_append_project_targets list_var project_name)
+  cmake_parse_arguments(ARG "" "" "LIBRARY_TYPES" ${ARGN})
+  if(NOT ARG_LIBRARY_TYPES)
+    set(ARG_LIBRARY_TYPES "LIBS")
+  endif()
+  foreach(_type IN LISTS ARG_LIBRARY_TYPES)
+    mtrt_get_project_targets(${project_name} OUT_VAR _targets LIBRARY_TYPE "${_type}")
+    list(APPEND ${list_var} ${_targets})
+  endforeach()
+  set(${list_var} ${${list_var}} PARENT_SCOPE)
 endfunction()
 
 #-------------------------------------------------------------------------------------
@@ -751,62 +740,67 @@ function(mtrt_add_header_installation_components component)
 endfunction()
 
 #-------------------------------------------------------------------------------------
-# Adds a pybind11 extension library.
+# mtrt_add_python_extension: Adds a pybind11 extension library.
+# NOTE: This is replicated from AddMLIRPython.cmake with some modifications.
 #
 # Arguments:
 #   target - Target name (required)
 # Keyword Parameters:
-#   ROOT_DIR - Binary directory where Python packages are installed into.
+#   ROOT_DIR - Source directory where the source paths are relative to (optional, defaults to ${CMAKE_CURRENT_SOURCE_DIR})
 #   OUTPUT_DIR - Relative path from the ROOT_DIR to where the library should be
 #      created.
 #   EXTENSION_NAME - Extension name (required)
 #   PRIVATE_LINK_LIBS - Private link libraries (required)
+#   EMBED_CAPI_LINK_LIBS - CAPI link libraries to embed (optional)
+#   ADD_TO_PARENT - Parent target to add the extension to (required)
+#   PYTHON_BINDINGS_LIBRARY - Python bindings library to use (optional, defaults to "pybind11")
 #-------------------------------------------------------------------------------------
-function(mtrt_add_python_extension target)
-  cmake_parse_arguments(ARG "DISABLE_INSTALL"
-    "ROOT_DIR;OUTPUT_DIR;EXTENSION_NAME" "PRIVATE_LINK_LIBS" ${ARGN})
-  if(NOT ARG_EXTENSION_NAME)
-    message(FATAL_ERROR "mtrt_add_python_extension: EXTENSION_NAME argument is required")
-  endif()
+function(mtrt_add_python_extension name)
+  cmake_parse_arguments(ARG
+    ""
+    "ROOT_DIR;EXTENSION_NAME;ADD_TO_PARENT;PYTHON_BINDINGS_LIBRARY"
+    "SOURCES;PRIVATE_LINK_LIBS;EMBED_CAPI_LINK_LIBS"
+    ${ARGN})
+
   if(NOT ARG_ROOT_DIR)
-    message(FATAL_ERROR "mtrt_add_python_extension: ROOT_DIR argument is required")
+    set(ARG_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
   endif()
-  if(NOT ARG_OUTPUT_DIR)
-    message(FATAL_ERROR "mtrt_add_python_extension: OUTPUT_DIR argument is required")
+  if(NOT ARG_ADD_TO_PARENT)
+    message(FATAL_ERROR "mtrt_add_python_extension: ADD_TO_PARENT argument is required")
   endif()
-  pybind11_add_module(${target}
-    ${ARG_UNPARSED_ARGUMENTS}
+  set(_install_destination "src/python/${name}")
+
+  if(NOT ARG_PYTHON_BINDINGS_LIBRARY)
+    set(ARG_PYTHON_BINDINGS_LIBRARY "pybind11")
+  endif()
+
+  add_library(${name} INTERFACE)
+  set_target_properties(${name} PROPERTIES
+    EXPORT_PROPERTIES "mlir_python_SOURCES_TYPE;mlir_python_EXTENSION_MODULE_NAME;mlir_python_EMBED_CAPI_LINK_LIBS;mlir_python_DEPENDS;mlir_python_BINDINGS_LIBRARY"
+    mlir_python_SOURCES_TYPE extension
+    mlir_python_EXTENSION_MODULE_NAME "${ARG_EXTENSION_NAME}"
+    mlir_python_EMBED_CAPI_LINK_LIBS "${ARG_EMBED_CAPI_LINK_LIBS}"
+    mlir_python_DEPENDS ""
+    mlir_python_BINDINGS_LIBRARY "${ARG_PYTHON_BINDINGS_LIBRARY}"
   )
-  set_target_properties(
-    ${target}
-    PROPERTIES
-      LIBRARY_OUTPUT_DIRECTORY "${ARG_ROOT_DIR}/${ARG_OUTPUT_DIR}"
-      OUTPUT_NAME ${ARG_EXTENSION_NAME}
-      NO_SONAME ON
-    )
-  target_link_libraries(
-    ${target}
-    PRIVATE
+
+  # Set the interface source and link_libs properties of the target
+  # These properties support generator expressions and are automatically exported
+  list(TRANSFORM ARG_SOURCES PREPEND "${ARG_ROOT_DIR}/" OUTPUT_VARIABLE _build_sources)
+  list(TRANSFORM ARG_SOURCES PREPEND "${_install_destination}/" OUTPUT_VARIABLE _install_sources)
+  target_sources(${name} INTERFACE
+    "$<BUILD_INTERFACE:${_build_sources}>"
+    "$<INSTALL_INTERFACE:${_install_sources}>"
+  )
+  target_link_libraries(${name} INTERFACE
     ${ARG_PRIVATE_LINK_LIBS}
-    )
-  if(APPLE OR UNIX)
-    set(_origin_prefix "\$ORIGIN")
-    if(APPLE)
-      set(_origin_prefix "@loader_path")
-    endif()
-    set_target_properties(${target} PROPERTIES
-      BUILD_WITH_INSTALL_RPATH OFF
-      INSTALL_RPATH "${_origin_prefix}"
-    )
-  endif()
-  if(NOT ARG_DISABLE_INSTALL)
-    install(TARGETS ${target}
-      COMPONENT ${target}
-      DESTINATION "python_packages/${ARG_OUTPUT_DIR}"
-      )
+  )
+
+  # Add to parent.
+  if(ARG_ADD_TO_PARENT)
+    set_property(TARGET ${ARG_ADD_TO_PARENT} APPEND PROPERTY mlir_python_DEPENDS ${name})
   endif()
 endfunction()
-
 
 macro(mtvm_add_subdirectories)
   file(GLOB children RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" "*")

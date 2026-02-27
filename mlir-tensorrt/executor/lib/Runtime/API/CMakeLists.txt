@@ -7,7 +7,7 @@ add_mlir_executor_runtime_library(MLIRTensorRTRuntimeExecutableInterface
   MLIRTensorRTRuntimeExecutableFlatbufferGen
 
   LINK_LIBS PUBLIC
-  flatbuffers
+  ${MLIR_TRT_FLATBUFFERS_TARGET}
   MLIRExecutorIncludes
   MLIRTensorRTSupportStatus
   )

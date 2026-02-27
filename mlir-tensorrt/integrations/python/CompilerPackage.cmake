@@ -5,6 +5,8 @@
 set(SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/mlir_tensorrt_compiler/mlir_tensorrt/compiler")
 # - SETUP_PY: Setup file (relative to SRC_DIR). This will be configured (hard copied)
 set(SETUP_PY ../../setup.py)
+set(MLIR_TENSORRT_COMPILER_PYTHON_PACKAGE_INSTALL_PREFIX
+    "python_packages/mlir_tensorrt_compiler/mlir_tensorrt/compiler")
 
 cmake_path(ABSOLUTE_PATH SETUP_PY NORMALIZE
   BASE_DIRECTORY "${SRC_DIR}"
@@ -68,7 +70,6 @@ foreach(dialect IN LISTS MLIR_TRT_PYTHON_UPSTREAM_DIALECTS_EMBED)
     MLIRPythonSources.Dialects.${dialect})
 endforeach()
 
-
 declare_mlir_dialect_python_bindings(
   ADD_TO_PARENT MLIRTensorRTPythonCompiler.Dialects
   ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/mlir_tensorrt_compiler/mlir_tensorrt/compiler"
@@ -77,31 +78,29 @@ declare_mlir_dialect_python_bindings(
     dialects/tensorrt.py
   DIALECT_NAME tensorrt)
 
-mtrt_add_python_extension(MLIRTensorRTTensorRTDialectPythonExtension
-  bindings/Compiler/DialectTensorRT.cpp
-
-  EXTENSION_NAME _tensorrt
-  ROOT_DIR "${PYTHON_PACKAGES_BINARY_DIR}"
-  OUTPUT_DIR "mlir_tensorrt_compiler/mlir_tensorrt/compiler/_mlir_libs"
-  PRIVATE_LINK_LIBS
-    MLIRTensorRTDialectIncludes
-    MTRT
-)
-
 ################################################################################
 # Python extensions.
 ################################################################################
 
+mtrt_add_python_extension(MLIRTensorRTTensorRTDialectPythonExtension
+  SOURCES bindings/Compiler/DialectTensorRT.cpp
+  EXTENSION_NAME _tensorrt
+  PRIVATE_LINK_LIBS
+    MLIRTensorRTDialectIncludes
+  EMBED_CAPI_LINK_LIBS
+    MLIRTensorRTCAPITensorRTDialect
+  ADD_TO_PARENT MLIRTensorRTPythonCompiler.Dialects
+)
+
 # Declare the site initializer.
 mtrt_add_python_extension(MLIRTensorRTPythonCompilerSiteInitializerExtension
-  bindings/Compiler/SiteInitializer.cpp
-  ROOT_DIR "${PYTHON_PACKAGES_BINARY_DIR}"
-  OUTPUT_DIR
-    "mlir_tensorrt_compiler/mlir_tensorrt/compiler/_mlir_libs"
+  SOURCES bindings/Compiler/SiteInitializer.cpp
   EXTENSION_NAME _site_initialize_0
   PRIVATE_LINK_LIBS
     LLVMSupport
-    MTRT
+  EMBED_CAPI_LINK_LIBS
+    MLIRTensorRTCAPIRegisterAllDialects
+  ADD_TO_PARENT MLIRTensorRTPythonCompiler
   )
 
 set(COMPILER_OPTIONAL_PRIVATE_LINK_LIBS)
@@ -114,21 +113,21 @@ endif()
 
 # Compiler the compiler Pybind11 module.
 mtrt_add_python_extension(MLIRTensorRTPythonCompilerAPIExtension
-  bindings/Compiler/CompilerPyBind.cpp
-  ROOT_DIR "${PYTHON_PACKAGES_BINARY_DIR}"
-  OUTPUT_DIR
-    "mlir_tensorrt_compiler/mlir_tensorrt/compiler/_mlir_libs"
+  SOURCES bindings/Compiler/CompilerPyBind.cpp
   EXTENSION_NAME _api
+  ADD_TO_PARENT MLIRTensorRTPythonCompiler.CompilerAPI
   PRIVATE_LINK_LIBS
     LLVMSupport
     MLIRTensorRTCommonIncludes
     ${COMPILER_OPTIONAL_PRIVATE_LINK_LIBS}
-    MTRT
+    MLIRTensorRTCAPICommon
+  EMBED_CAPI_LINK_LIBS
+    MLIRTensorRTCAPIExecutorTranslations
+    MLIRTensorRTCAPICompiler
   )
 
 ################################################################################
-# The fully assembled package of modules.
-# This must come last (except for wheel target)
+# Aggregate library
 ################################################################################
 
 set(source_groups
@@ -149,24 +148,27 @@ if(MLIR_TRT_ENABLE_TORCH)
   )
 endif()
 
-add_mlir_python_modules("MLIRTensorRTPythonCompilerModules"
-  ROOT_PREFIX "${PYTHON_PACKAGES_BINARY_DIR}/mlir_tensorrt_compiler/mlir_tensorrt/compiler"
-  INSTALL_PREFIX "python_packages/mlir_tensorrt_compiler/mlir_tensorrt/compiler"
-  DECLARED_SOURCES ${source_groups}
-  COMMON_CAPI_LINK_LIBS
-    MTRT
-  )
-add_dependencies(MLIRTensorRTPythonCompilerModules
-  MLIRTensorRTPythonCompilerSiteInitializerExtension
-  MLIRTensorRTPythonCompilerAPIExtension
-  MLIRTensorRTTensorRTDialectPythonExtension
+add_mlir_python_common_capi_library(MLIRTensorRTCompilerPythonCAPI
+  INSTALL_COMPONENT MLIRTensorRTCompilerPythonModules
+  INSTALL_DESTINATION "${MLIR_TENSORRT_COMPILER_PYTHON_PACKAGE_INSTALL_PREFIX}/_mlir_libs"
+  OUTPUT_DIRECTORY "${MLIR_TENSORRT_ROOT_BINARY_DIR}/${MLIR_TENSORRT_COMPILER_PYTHON_PACKAGE_INSTALL_PREFIX}/_mlir_libs"
+  DECLARED_SOURCES
+    ${source_groups}
   )
 
-# The Python package needs its own copy of libMTRT.
-install(
-    TARGETS MTRT
-    DESTINATION "${CMAKE_INSTALL_PREFIX}/python_packages/mlir_tensorrt_compiler/mlir_tensorrt/compiler/_mlir_libs"
-)
+################################################################################
+# The fully assembled package of modules.
+# This must come last (except for wheel target)
+################################################################################
+
+add_mlir_python_modules(MLIRTensorRTCompilerPythonModules
+  ROOT_PREFIX "${MLIR_TENSORRT_ROOT_BINARY_DIR}/${MLIR_TENSORRT_COMPILER_PYTHON_PACKAGE_INSTALL_PREFIX}"
+  INSTALL_PREFIX "${MLIR_TENSORRT_COMPILER_PYTHON_PACKAGE_INSTALL_PREFIX}"
+  DECLARED_SOURCES ${source_groups}
+  COMMON_CAPI_LINK_LIBS
+    MLIRTensorRTCompilerPythonCAPI
+    MLIRCAPITransforms
+  )
 
 ################################################################################
 # Fixup nanobind compilation options.

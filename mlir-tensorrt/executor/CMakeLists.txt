@@ -5,6 +5,12 @@ find_package(Lua REQUIRED)
 find_package(Sol2 REQUIRED)
 find_package(Flatbuffers REQUIRED)
 
+if(BUILD_SHARED_LIBS)
+  set(MLIR_TRT_FLATBUFFERS_TARGET flatbuffers_shared)
+else()
+  set(MLIR_TRT_FLATBUFFERS_TARGET flatbuffers)
+endif()
+
 if(MLIR_TRT_ENABLE_CUDA)
   mlir_executor_find_and_patch_libnvptxcompiler(CUDANVPTXCompilerLibraryPatched)
 endif()

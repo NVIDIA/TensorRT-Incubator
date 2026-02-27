@@ -1,57 +1,42 @@
 # This files builds a monolithic shared library containing
 # all of the MLIR-TensorRT and MLIR C and CAPI libraries.
-get_property(mtrt_libs GLOBAL PROPERTY MTRT_STATIC_LIBS)
-get_property(mlir_libs GLOBAL PROPERTY MLIR_STATIC_LIBS)
-mtrt_get_project_targets(MLIRTensorRT LIBRARY_TYPE CAPI OUT_VAR capi_libs)
-mtrt_get_project_targets(MLIRTensorRT LIBRARY_TYPE MLIR_LIBS OUT_VAR mtrt_required_mlir_libs)
+set(embedding_candidates MLIROptLib)
+mtrt_append_project_targets(embedding_candidates MLIRTensorRT LIBRARY_TYPES CAPI LIBS)
+mtrt_append_project_targets(embedding_candidates MLIRExecutor LIBRARY_TYPE CAPI LIBS)
 
-# Additional libraries for tools.
-list(APPEND mlir_libs
-  MLIRLspServerLib
-  MLIROptLib
-  MLIRTranslateLib
-  ${mtrt_required_mlir_libs}
-)
-list(REMOVE_DUPLICATES mlir_libs)
-
-list(APPEND mtrt_libs
-  ${capi_libs}
-  # Add additional CAPI libraries needed for Python consumers.
-  MLIRCAPIDebug
-  MLIRCAPIGPU
-  MLIRCAPIIR
-  MLIRCAPIInterfaces
-  MLIRCAPILLVM
-  MLIRCAPILinalg
-  MLIRCAPIPDL
-  MLIRCAPIQuant
-  MLIRCAPITransformDialect
-  MLIRCAPITransformDialectTransforms
-  MLIRCAPITransforms
-  )
-if(MLIR_TRT_ENABLE_HLO)
-  list(APPEND mtrt_libs
-    ChloCAPI
-    StablehloCAPI
-    VhloCAPI
-  )
+if(MLIR_TRT_ENABLE_TESTING)
+  mtrt_append_project_targets(embedding_candidates MLIRTensorRT LIBRARY_TYPE TEST_LIBS)
+  mtrt_append_project_targets(embedding_candidates TensorRTDialect LIBRARY_TYPE TEST_LIBS)
 endif()
 
-# Only embed the MLIR libraries if we are building using static libraries, otherwise
-# MLIR libraries only built as shared will lack OBJECT libraries. Using BUILD_SHARED_LIBS
-# is only used for developer environments, never distribution.
-if(NOT BUILD_SHARED_LIBS)
-  list(APPEND mtrt_libs ${mlir_libs})
-endif()
+# Get the link closure. Define the frontier as any target that does not have
+# a corresponding `obj.${tgt}` target.
+# TODO: when using MLIR from source, need to fix  this?
+list(REMOVE_DUPLICATES embedding_candidates)
+function(_frontier tgt)
+  if(NOT TARGET "obj.${tgt}")
+    set(_is_frontier TRUE PARENT_SCOPE)
+    return()
+  endif()
+  set(_is_frontier FALSE PARENT_SCOPE)
+endfunction()
 
-mtrt_add_aggregate_library(MTRT ${mtrt_libs})
+mtrt_collect_interface_link_closure(embedding_candidates embedding_include_dirs
+    ${embedding_candidates} STOP_AT _frontier INCLUDE_FRONTIER)
 
-# This is only required for supporting test plugins like TensorRTTestPlugins that
-# require LLVMSupport. If we are linking tools against MTRT and BUILD_SHARED_LIBS
-# is OFF, then the plugin can't link LLVMSupport directly without ODR violations.
-# Otherwise, we shouldn't need this.
-if(MLIR_TRT_LINK_MTRT_DYLIB AND NOT BUILD_SHARED_LIBS)
-  target_link_libraries(MTRT PRIVATE
-    $<LINK_LIBRARY:WHOLE_ARCHIVE,LLVMSupport>
+# Exclude libLLVMTableGen for the following reasons:
+#  - it is only used by internal *-tblgen utilities;
+#  - it pollutes the global options space.
+list(REMOVE_ITEM embedding_candidates "LLVMTableGen")
+
+# Build the aggregate library.
+mtrt_add_aggregate_library(MTRT ${embedding_candidates})
+target_include_directories(MTRT INTERFACE
+  $<BUILD_INTERFACE:${embedding_include_dirs}>
+  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
+target_link_libraries(MTRT PUBLIC
+  FlatBuffers::FlatBuffers
+  MLIRTensorRTCommonIncludes
+  MLIRTensorRTDialectIncludes
+  $<$<BOOL:${MLIR_TRT_TARGET_TENSORRT}>:TensorRTHeaderOnly>
   )
-endif()

@@ -71,10 +71,7 @@ if(MLIR_TRT_ENABLE_PYTHON)
     )
 
   mtrt_add_python_extension(MLIRTensorRTRuntimePythonExtension
-    bindings/Runtime/RuntimePyBind.cpp
-    ROOT_DIR "${PYTHON_PACKAGES_BINARY_DIR}"
-    OUTPUT_DIR
-      "mlir_tensorrt_runtime/mlir_tensorrt/runtime/_mlir_libs"
+    SOURCES bindings/Runtime/RuntimePyBind.cpp
     EXTENSION_NAME _api
     PRIVATE_LINK_LIBS
       MLIRTensorRTCAPISupportStatus
@@ -82,6 +79,7 @@ if(MLIR_TRT_ENABLE_PYTHON)
       MLIRTensorRTCAPIRuntime
       LLVMSupport
       DLPack::Headers
+    ADD_TO_PARENT MLIRTensorRTPythonRuntimeSources
     )
 
   add_mlir_python_modules(MLIRTensorRTPythonRuntimeModules
@@ -90,7 +88,6 @@ if(MLIR_TRT_ENABLE_PYTHON)
     DECLARED_SOURCES
       MLIRTensorRTPythonRuntimeSources
     )
-  add_dependencies(MLIRTensorRTPythonRuntimeModules MLIRTensorRTRuntimePythonExtension)
 
   # -------------------------------------------------
   # mlir_tensorrt_tools package

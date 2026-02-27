@@ -1,15 +1,31 @@
 # Usage:
-#   mtrt_collect_interface_link_closure(OUT_LINKS OUT_INCS tgtA [tgtB ...])
+#   mtrt_collect_interface_link_closure(OUT_LINKS OUT_INCS tgtA [tgtB ...]
+#     [STOP_AT <func_name>]
+#     [INCLUDE_FRONTIER])
 #
 # Returns (deduped, first-seen order):
 #   OUT_LINKS:    transitive INTERFACE_LINK_LIBRARIES entries
 #   OUT_INCS:     transitive INTERFACE_INCLUDE_DIRECTORIES along the same traversal
 #
+# Options:
+#   STOP_AT <func_name>  - A CMake function taking a single argument (target
+#     name) that sets '_is_frontier' in PARENT_SCOPE to TRUE/FALSE. When a
+#     dependency is on the frontier, its own transitive dependencies are NOT
+#     traversed.
+#   INCLUDE_FRONTIER - When set, frontier nodes themselves are still included
+#     in the returned sets (but their deps are not traversed). Without this
+#     flag frontier nodes are excluded entirely.
+#
 function(mtrt_collect_interface_link_closure OUT_LINKS OUT_INCS)
-  if (ARGC LESS 3)
+  cmake_parse_arguments(_arg "INCLUDE_FRONTIER" "STOP_AT" "" ${ARGN})
+  set(_roots "${_arg_UNPARSED_ARGUMENTS}")
+  if (NOT _roots)
     message(FATAL_ERROR
       "mtrt_collect_interface_link_closure(OUT_LINKS OUT_INCS target [...]) needs at least one target")
   endif()
+
+  set(_stop_at_func "${_arg_STOP_AT}")
+  set(_include_frontier "${_arg_INCLUDE_FRONTIER}")
 
   function(_resolve_alias _in _out)
     if (TARGET "${_in}")
@@ -37,9 +53,22 @@ function(mtrt_collect_interface_link_closure OUT_LINKS OUT_INCS)
     set(${_out} "${_v}" PARENT_SCOPE)
   endfunction()
 
-  # Post-order collector with memoization
-  function(_collect_target _tgt OUT_L OUT_I)
+  function(_check_frontier _tgt _func _out)
+    set(_is_frontier FALSE)
+    cmake_language(CALL "${_func}" "${_tgt}")
+    set(${_out} "${_is_frontier}" PARENT_SCOPE)
+  endfunction()
+
+  # Post-order collector with memoization.
+  # _stop_func: name of the frontier-check function, or "" for none
+  # _incl_frontier: TRUE if frontier nodes should be included
+  #
+  # Memoization is scoped to a single top-level call — the caller clears the
+  # cache after the traversal completes so that successive calls with different
+  # options never see stale results.
+  function(_collect_target _tgt _stop_func _incl_frontier OUT_L OUT_I)
     _mangle_prop_key("${_tgt}" _key)
+
     get_property(_cachedL GLOBAL PROPERTY "_iface_link_closure_${_key}" SET)
     get_property(_cachedI GLOBAL PROPERTY "_iface_inc_closure_${_key}" SET)
     if (_cachedL AND _cachedI)
@@ -59,10 +88,12 @@ function(mtrt_collect_interface_link_closure OUT_LINKS OUT_INCS)
     endif()
     set_property(GLOBAL PROPERTY "_iface_resolving_${_key}" TRUE)
 
+    # Track this key so the top-level function can clear it later.
+    set_property(GLOBAL APPEND PROPERTY _iface_closure_visited_keys "${_key}")
+
     _get_tprop_list("${_tgt}" INTERFACE_LINK_LIBRARIES _iflibs)
     _get_tprop_list("${_tgt}" INTERFACE_INCLUDE_DIRECTORIES _ifincs)
 
-    # NEW: include self
     if(TARGET "${_tgt}")
       set(_closure_links "${_tgt}")
     else()
@@ -83,7 +114,20 @@ function(mtrt_collect_interface_link_closure OUT_LINKS OUT_INCS)
           # keep, don't traverse
         elseif (TARGET "${_dep}")
           _resolve_alias("${_dep}" _realdep)
-          _collect_target("${_realdep}" _dep_links _dep_incs)
+
+          # Check the frontier predicate before recursing.
+          if (NOT "${_stop_func}" STREQUAL "")
+            _check_frontier("${_realdep}" "${_stop_func}" _on_frontier)
+            if (_on_frontier)
+              if (NOT _incl_frontier)
+                list(REMOVE_ITEM _closure_links "${_dep}")
+              endif()
+              continue()
+            endif()
+          endif()
+
+          _collect_target("${_realdep}" "${_stop_func}" "${_incl_frontier}"
+                          _dep_links _dep_incs)
           if (_dep_links)
             list(APPEND _closure_links ${_dep_links})
           endif()
@@ -111,7 +155,8 @@ function(mtrt_collect_interface_link_closure OUT_LINKS OUT_INCS)
     set(${OUT_I} "${_closure_incs}"  PARENT_SCOPE)
   endfunction()
 
-  set(_roots ${ARGN})
+  # Clear the visited-keys list before starting.
+  set_property(GLOBAL PROPERTY _iface_closure_visited_keys "")
 
   set(_all_links "")
   set(_all_incs  "")
@@ -128,7 +173,7 @@ function(mtrt_collect_interface_link_closure OUT_LINKS OUT_INCS)
       continue()
     endif()
     _resolve_alias("${_item}" _t)
-    _collect_target("${_t}" _L _I)
+    _collect_target("${_t}" "${_stop_at_func}" "${_include_frontier}" _L _I)
     if (_L)
       list(APPEND _all_links ${_L})
     endif()
@@ -136,6 +181,16 @@ function(mtrt_collect_interface_link_closure OUT_LINKS OUT_INCS)
       list(APPEND _all_incs  ${_I})
     endif()
   endforeach()
+
+  # Clear all memoized values so successive top-level calls (possibly with
+  # different STOP_AT / INCLUDE_FRONTIER options) start with a clean slate.
+  get_property(_visited GLOBAL PROPERTY _iface_closure_visited_keys)
+  foreach(_key IN LISTS _visited)
+    set_property(GLOBAL PROPERTY "_iface_link_closure_${_key}")
+    set_property(GLOBAL PROPERTY "_iface_inc_closure_${_key}")
+    set_property(GLOBAL PROPERTY "_iface_resolving_${_key}")
+  endforeach()
+  set_property(GLOBAL PROPERTY _iface_closure_visited_keys)
 
   if (_all_links)
     list(REMOVE_DUPLICATES _all_links)
