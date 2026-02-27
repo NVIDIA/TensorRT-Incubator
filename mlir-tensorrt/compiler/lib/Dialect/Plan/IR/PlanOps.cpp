@@ -448,6 +448,118 @@ LogicalResult OptimizationBarrierOp::bufferize(
 }
 
 //===----------------------------------------------------------------------===//
+// NVTX Ops
+//===----------------------------------------------------------------------===//
+
+bool NVTXPushOp::bufferizesToMemoryRead(
+    OpOperand &operand, const bufferization::AnalysisState &state) {
+  // no reads occur.
+  return false;
+}
+
+bool NVTXPushOp::bufferizesToMemoryWrite(
+    OpOperand &operand, const bufferization::AnalysisState &state) {
+  // no writes occur.
+  return false;
+}
+
+bool NVTXPopOp::bufferizesToMemoryRead(
+    OpOperand &operand, const bufferization::AnalysisState &state) {
+  // no reads occur.
+  return false;
+}
+
+bool NVTXPopOp::bufferizesToMemoryWrite(
+    OpOperand &operand, const bufferization::AnalysisState &state) {
+  // no writes occur.
+  return false;
+}
+
+bufferization::AliasingValueList
+NVTXPushOp::getAliasingValues(OpOperand &operand,
+                              const bufferization::AnalysisState &state) {
+  // operands are tied to results.
+  return {{getOperation()->getResult(operand.getOperandNumber()),
+           bufferization::BufferRelation::Equivalent, /*isDefinite=*/true}};
+}
+
+bufferization::AliasingValueList
+NVTXPopOp::getAliasingValues(OpOperand &operand,
+                             const bufferization::AnalysisState &state) {
+  // Only tensor operands alias results (identity). The range_id (i64)
+  // operand does not alias any result.
+  unsigned idx = operand.getOperandNumber();
+  if (idx < getResults().size())
+    return {{getOperation()->getResult(idx),
+             bufferization::BufferRelation::Equivalent, /*isDefinite=*/true}};
+  return {};
+}
+
+LogicalResult
+NVTXPushOp::bufferize(RewriterBase &rewriter,
+                      const bufferization::BufferizationOptions &options,
+                      bufferization::BufferizationState &state) {
+  // Bufferize tensor operands to memref buffers.
+  SmallVector<Value> buffers;
+  for (OpOperand &operand : getInputsMutable()) {
+    FailureOr<Value> buffer =
+        bufferization::getBuffer(rewriter, operand.get(), options, state);
+    if (failed(buffer))
+      return failure();
+    buffers.push_back(*buffer);
+  }
+  SmallVector<Type> bufferTypes(
+      llvm::map_range(buffers, [](Value v) { return v.getType(); }));
+  // Create new push op with bufferized operands. range_id (i64) result type
+  // stays the same.
+  auto newOp =
+      rewriter.create<NVTXPushOp>(getLoc(), bufferTypes, rewriter.getI64Type(),
+                                  buffers, getNameAttr(), getColorAttr());
+
+  SmallVector<Value> replacements(newOp.getResults());
+  replacements.push_back(newOp.getRangeId());
+  bufferization::replaceOpWithBufferizedValues(rewriter, *this, replacements);
+  return success();
+}
+
+void NVTXPushOp::getEffects(
+    SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
+        &effects) {
+  effects.emplace_back(MemoryEffects::Write::get(),
+                       SideEffects::DefaultResource::get());
+}
+
+LogicalResult
+NVTXPopOp::bufferize(RewriterBase &rewriter,
+                     const bufferization::BufferizationOptions &options,
+                     bufferization::BufferizationState &state) {
+  // Bufferize tensor operands to memref buffers. range_id is a scalar (i64),
+  // not a buffer — it passes through unchanged.
+  SmallVector<Value> buffers;
+  for (OpOperand &operand : getInputsMutable()) {
+    FailureOr<Value> buffer =
+        bufferization::getBuffer(rewriter, operand.get(), options, state);
+    if (failed(buffer))
+      return failure();
+    buffers.push_back(*buffer);
+  }
+  SmallVector<Type> bufferTypes(
+      llvm::map_range(buffers, [](Value v) { return v.getType(); }));
+  auto newOp =
+      rewriter.create<NVTXPopOp>(getLoc(), bufferTypes, buffers, getRangeId());
+  bufferization::replaceOpWithBufferizedValues(rewriter, *this,
+                                               newOp->getResults());
+  return success();
+}
+
+void NVTXPopOp::getEffects(
+    SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
+        &effects) {
+  effects.emplace_back(MemoryEffects::Write::get(),
+                       SideEffects::DefaultResource::get());
+}
+
+//===----------------------------------------------------------------------===//
 // TransferOp
 //===----------------------------------------------------------------------===//
 

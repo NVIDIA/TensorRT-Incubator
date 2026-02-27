@@ -963,3 +963,76 @@ func.func @test_optimization_barrier(%arg0: tensor<1x1xf32>, %arg1: tensor<i8>) 
 //       ABI:     memref.copy %[[v3]], %[[v0]]
 //   ABI-NOT:     executor.abi.send
 //       ABI:     return
+
+// -----
+
+func.func @nvtx_push_variadic(%arg0: tensor<2x4xf32>, %arg1: tensor<3x4xf32>)
+    -> (tensor<2x4xf32>, tensor<3x4xf32>, i64) {
+  %0, %1, %2 = plan.nvtx_push {name = "multi", color = 255 : i32} %arg0, %arg1 : (tensor<2x4xf32>, tensor<3x4xf32>) -> (tensor<2x4xf32>, tensor<3x4xf32>, i64)
+  return %0, %1, %2 : tensor<2x4xf32>, tensor<3x4xf32>, i64
+}
+
+// CHECK-LABEL: @nvtx_push_variadic
+//  CHECK-SAME: (%[[arg0:.+]]: memref<2x4xf32, #plan.memory_space<device>>, %[[arg1:.+]]: memref<3x4xf32, #plan.memory_space<device>>, %[[arg2:.+]]: memref<2x4xf32, #plan.memory_space<device>>, %[[arg3:.+]]: memref<3x4xf32, #plan.memory_space<device>>) -> i64
+//       CHECK:   %[[results:.+]]:2, %[[range_id:.+]] = plan.nvtx_push {color = 255 : i32, name = "multi"} %[[arg0]], %[[arg1]] : (memref<2x4xf32, #plan.memory_space<device>>, memref<3x4xf32, #plan.memory_space<device>>) -> (memref<2x4xf32, #plan.memory_space<device>>, memref<3x4xf32, #plan.memory_space<device>>, i64)
+//       CHECK:   memref.copy %[[results]]#0, %[[arg2]] : memref<2x4xf32, #plan.memory_space<device>> to memref<2x4xf32, #plan.memory_space<device>>
+//       CHECK:   memref.copy %[[results]]#1, %[[arg3]] : memref<3x4xf32, #plan.memory_space<device>> to memref<3x4xf32, #plan.memory_space<device>>
+//       CHECK:   return %[[range_id]] : i64
+
+// ALLOC-LABEL: @nvtx_push_variadic
+//  ALLOC-SAME: (%[[arg0:.+]]: memref<2x4xf32, #plan.memory_space<device>>, %[[arg1:.+]]: memref<3x4xf32, #plan.memory_space<device>>) -> (memref<2x4xf32, #plan.memory_space<device>>, memref<3x4xf32, #plan.memory_space<device>>, i64)
+//       ALLOC:   %[[results:.+]]:2, %[[range_id:.+]] = plan.nvtx_push {color = 255 : i32, name = "multi"} %[[arg0]], %[[arg1]] : (memref<2x4xf32, #plan.memory_space<device>>, memref<3x4xf32, #plan.memory_space<device>>) -> (memref<2x4xf32, #plan.memory_space<device>>, memref<3x4xf32, #plan.memory_space<device>>, i64)
+//       ALLOC:   %[[alloc:.+]] = memref.alloc() {alignment = 16 : i64} : memref<2x4xf32, #plan.memory_space<device>>
+//       ALLOC:   memref.copy %[[results]]#0, %[[alloc]] : memref<2x4xf32, #plan.memory_space<device>> to memref<2x4xf32, #plan.memory_space<device>>
+//       ALLOC:   %[[alloc_0:.+]] = memref.alloc() {alignment = 16 : i64} : memref<3x4xf32, #plan.memory_space<device>>
+//       ALLOC:   memref.copy %[[results]]#1, %[[alloc_0]] : memref<3x4xf32, #plan.memory_space<device>> to memref<3x4xf32, #plan.memory_space<device>>
+//       ALLOC:   return %[[alloc]], %[[alloc_0]], %[[range_id]] : memref<2x4xf32, #plan.memory_space<device>>, memref<3x4xf32, #plan.memory_space<device>>, i64
+
+// ABI-LABEL: @nvtx_push_variadic
+//  ABI-SAME: (%[[arg0:.+]]: !executor.ptr<host> {{.*}}, %[[arg1:.+]]: !executor.ptr<host> {{.*}}, %[[arg2:.+]]: !executor.ptr<host> {{.*}}, %[[arg3:.+]]: !executor.ptr<host> {{.*}}, %[[arg4:.+]]: !executor.ptr<host> {{.*}})
+//   ABI-DAG:   %[[out1:.+]] = executor.abi.recv %[[arg3]] : memref<3x4xf32, #plan.memory_space<device>>
+//   ABI-DAG:   %[[out0:.+]] = executor.abi.recv %[[arg2]] : memref<2x4xf32, #plan.memory_space<device>>
+//   ABI-DAG:   %[[in0:.+]] = executor.abi.recv %[[arg0]] : memref<2x4xf32, #plan.memory_space<device>>
+//   ABI-DAG:   %[[in1:.+]] = executor.abi.recv %[[arg1]] : memref<3x4xf32, #plan.memory_space<device>>
+//       ABI:   %[[results:.+]]:2, %[[range_id:.+]] = plan.nvtx_push {color = 255 : i32, name = "multi"} %[[in0]], %[[in1]] : (memref<2x4xf32, #plan.memory_space<device>>, memref<3x4xf32, #plan.memory_space<device>>) -> (memref<2x4xf32, #plan.memory_space<device>>, memref<3x4xf32, #plan.memory_space<device>>, i64)
+//       ABI:   memref.copy %[[results]]#0, %[[out0]] : memref<2x4xf32, #plan.memory_space<device>> to memref<2x4xf32, #plan.memory_space<device>>
+//       ABI:   memref.copy %[[results]]#1, %[[out1]] : memref<3x4xf32, #plan.memory_space<device>> to memref<3x4xf32, #plan.memory_space<device>>
+//       ABI:   executor.abi.send %[[range_id]] to %[[arg4]] : i64
+//       ABI:   return
+
+
+// -----
+
+func.func @nvtx_pop_variadic(%arg0: tensor<2x4xf32>, %arg1: tensor<3x4xf32>, %arg2: i64)
+    -> (tensor<2x4xf32>, tensor<3x4xf32>) {
+  %0, %1 = plan.nvtx_pop %arg0, %arg1, %arg2 : (tensor<2x4xf32>, tensor<3x4xf32>, i64) -> (tensor<2x4xf32>, tensor<3x4xf32>)
+  return %0, %1 : tensor<2x4xf32>, tensor<3x4xf32>
+}
+
+// CHECK-LABEL: @nvtx_pop_variadic
+//  CHECK-SAME: (%[[arg0:.+]]: memref<2x4xf32, #plan.memory_space<device>>, %[[arg1:.+]]: memref<3x4xf32, #plan.memory_space<device>>, %[[arg2:.+]]: i64, %[[arg3:.+]]: memref<2x4xf32, #plan.memory_space<device>>, %[[arg4:.+]]: memref<3x4xf32, #plan.memory_space<device>>)
+//       CHECK:   %[[v0:.+]]:2 = plan.nvtx_pop %[[arg0]], %[[arg1]], %[[arg2]] : (memref<2x4xf32, #plan.memory_space<device>>, memref<3x4xf32, #plan.memory_space<device>>, i64) -> (memref<2x4xf32, #plan.memory_space<device>>, memref<3x4xf32, #plan.memory_space<device>>)
+//       CHECK:   memref.copy %[[v0]]#0, %[[arg3]] : memref<2x4xf32, #plan.memory_space<device>> to memref<2x4xf32, #plan.memory_space<device>>
+//       CHECK:   memref.copy %[[v0]]#1, %[[arg4]] : memref<3x4xf32, #plan.memory_space<device>> to memref<3x4xf32, #plan.memory_space<device>>
+//       CHECK:   return
+
+// ALLOC-LABEL: @nvtx_pop_variadic
+//  ALLOC-SAME: (%[[arg0:.+]]: memref<2x4xf32, #plan.memory_space<device>>, %[[arg1:.+]]: memref<3x4xf32, #plan.memory_space<device>>, %[[arg2:.+]]: i64) -> (memref<2x4xf32, #plan.memory_space<device>>, memref<3x4xf32, #plan.memory_space<device>>)
+//       ALLOC:   %[[v0:.+]]:2 = plan.nvtx_pop %[[arg0]], %[[arg1]], %[[arg2]] : (memref<2x4xf32, #plan.memory_space<device>>, memref<3x4xf32, #plan.memory_space<device>>, i64) -> (memref<2x4xf32, #plan.memory_space<device>>, memref<3x4xf32, #plan.memory_space<device>>)
+//       ALLOC:   %[[alloc:.+]] = memref.alloc() {alignment = 16 : i64} : memref<2x4xf32, #plan.memory_space<device>>
+//       ALLOC:   memref.copy %[[v0]]#0, %[[alloc]] : memref<2x4xf32, #plan.memory_space<device>> to memref<2x4xf32, #plan.memory_space<device>>
+//       ALLOC:   %[[alloc_0:.+]] = memref.alloc() {alignment = 16 : i64} : memref<3x4xf32, #plan.memory_space<device>>
+//       ALLOC:   memref.copy %[[v0]]#1, %[[alloc_0]] : memref<3x4xf32, #plan.memory_space<device>> to memref<3x4xf32, #plan.memory_space<device>>
+//       ALLOC:   return %[[alloc]], %[[alloc_0]] : memref<2x4xf32, #plan.memory_space<device>>, memref<3x4xf32, #plan.memory_space<device>>
+
+// ABI-LABEL: @nvtx_pop_variadic
+//  ABI-SAME: (%[[arg0:.+]]: !executor.ptr<host> {{.*}}, %[[arg1:.+]]: !executor.ptr<host> {{.*}}, %[[arg2:.+]]: i64, %[[arg3:.+]]: !executor.ptr<host> {{.*}}, %[[arg4:.+]]: !executor.ptr<host> {{.*}})
+//   ABI-DAG:   %[[out1:.+]] = executor.abi.recv %[[arg4]] : memref<3x4xf32, #plan.memory_space<device>>
+//   ABI-DAG:   %[[out0:.+]] = executor.abi.recv %[[arg3]] : memref<2x4xf32, #plan.memory_space<device>>
+//   ABI-DAG:   %[[in0:.+]] = executor.abi.recv %[[arg0]] : memref<2x4xf32, #plan.memory_space<device>>
+//   ABI-DAG:   %[[in1:.+]] = executor.abi.recv %[[arg1]] : memref<3x4xf32, #plan.memory_space<device>>
+//       ABI:   %[[v0:.+]]:2 = plan.nvtx_pop %[[in0]], %[[in1]], %[[arg2]] : (memref<2x4xf32, #plan.memory_space<device>>, memref<3x4xf32, #plan.memory_space<device>>, i64) -> (memref<2x4xf32, #plan.memory_space<device>>, memref<3x4xf32, #plan.memory_space<device>>)
+//       ABI:   memref.copy %[[v0]]#0, %[[out0]] : memref<2x4xf32, #plan.memory_space<device>> to memref<2x4xf32, #plan.memory_space<device>>
+//       ABI:   memref.copy %[[v0]]#1, %[[out1]] : memref<3x4xf32, #plan.memory_space<device>> to memref<3x4xf32, #plan.memory_space<device>>
+//       ABI:   return
+

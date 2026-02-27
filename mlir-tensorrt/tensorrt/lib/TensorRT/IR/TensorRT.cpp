@@ -565,7 +565,8 @@ struct SoftmaxRewriter : public OpRewritePattern<ElementWiseOp> {
     }
 
     auto subMaxOp = expOp.getInput().getDefiningOp<ElementWiseOp>();
-    if (subMaxOp.getElementwiseOperation() != ElementWiseOperation::kSUB)
+    if (!subMaxOp ||
+        subMaxOp.getElementwiseOperation() != ElementWiseOperation::kSUB)
       return failure();
 
     Value smInput = subMaxOp.getInput1();

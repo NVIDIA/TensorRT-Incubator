@@ -169,9 +169,86 @@ func.func @with_values(%arg0: tensor<4xi32>) -> tensor<4xi32> {
   return %4 : tensor<4xi32>
 }
 
+// CHECK-LABEL: @with_values
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<4xi32>)
+//       CHECK:   %[[v0:.+]] = arith.constant 0 : i32
+//       CHECK:   %[[v1:.+]] = arith.constant 1 : i32
+//       CHECK:   %[[v2:.+]] = arith.constant 2 : i32
+//       CHECK:   %[[v3:.+]] = arith.constant 3 : i32
+//       CHECK:   %[[v4:.+]] = plan.with_values %[[arg0]](%[[v0]], %[[v1]], %[[v2]], %[[v3]]) : tensor<4xi32>
+//       CHECK:   return %[[v4]] : tensor<4xi32>
 // -----
 
 func.func @with_values1(%arg0: tensor<0xi32>) -> tensor<0xi32> {
   %4 = plan.with_values %arg0 () : tensor<0xi32>
   return %4 : tensor<0xi32>
 }
+
+// CHECK-LABEL: @with_values1
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<0xi32>)
+//       CHECK:   %[[v4:.+]] = plan.with_values %[[arg0]]() : tensor<0xi32>
+//       CHECK:   return %[[v4]] : tensor<0xi32>
+
+// -----
+
+func.func @nvtx_push_single(%arg0: tensor<2x4xf32>) -> (tensor<2x4xf32>, i64) {
+  %0, %1 = plan.nvtx_push {name = "single_push", color = -16711936 : i32} %arg0 : (tensor<2x4xf32>) -> (tensor<2x4xf32>, i64)
+  return %0, %1 : tensor<2x4xf32>, i64
+}
+
+// CHECK-LABEL: @nvtx_push_single
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<2x4xf32>) -> (tensor<2x4xf32>, i64)
+//       CHECK:   %[[results:.+]], %[[range_id:.+]] = plan.nvtx_push {color = -16711936 : i32, name = "single_push"} %[[arg0]] : (tensor<2x4xf32>) -> (tensor<2x4xf32>, i64)
+//       CHECK:   return %[[results]], %[[range_id]] : tensor<2x4xf32>, i64
+
+// -----
+
+func.func @nvtx_pop_single(%arg0: tensor<2x4xf32>, %arg1: i64) -> tensor<2x4xf32> {
+  %0 = plan.nvtx_pop %arg0, %arg1 : (tensor<2x4xf32>, i64) -> (tensor<2x4xf32>)
+  return %0 : tensor<2x4xf32>
+}
+
+// CHECK-LABEL: @nvtx_pop_single
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<2x4xf32>, %[[arg1:.+]]: i64) -> tensor<2x4xf32>
+//       CHECK:   %[[v0:.+]] = plan.nvtx_pop %[[arg0]], %[[arg1]] : (tensor<2x4xf32>, i64) -> tensor<2x4xf32>
+//       CHECK:   return %[[v0]] : tensor<2x4xf32>
+
+// -----
+
+func.func @nvtx_push_variadic(%arg0: tensor<2x4xf32>, %arg1: tensor<3x4xf32>)
+    -> (tensor<2x4xf32>, tensor<3x4xf32>, i64) {
+  %0, %1, %2 = plan.nvtx_push {name = "multi", color = 255 : i32} %arg0, %arg1 : (tensor<2x4xf32>, tensor<3x4xf32>) -> (tensor<2x4xf32>, tensor<3x4xf32>, i64)
+  return %0, %1, %2 : tensor<2x4xf32>, tensor<3x4xf32>, i64
+}
+
+// CHECK-LABEL: @nvtx_push_variadic
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<2x4xf32>, %[[arg1:.+]]: tensor<3x4xf32>) -> (tensor<2x4xf32>, tensor<3x4xf32>, i64)
+//       CHECK:   %[[results:.+]]:2, %[[range_id:.+]] = plan.nvtx_push {color = 255 : i32, name = "multi"} %[[arg0]], %[[arg1]] : (tensor<2x4xf32>, tensor<3x4xf32>) -> (tensor<2x4xf32>, tensor<3x4xf32>, i64)
+//       CHECK:   return %[[results]]#0, %[[results]]#1, %[[range_id]] : tensor<2x4xf32>, tensor<3x4xf32>, i64
+
+// -----
+
+func.func @nvtx_pop_variadic(%arg0: tensor<2x4xf32>, %arg1: tensor<3x4xf32>, %arg2: i64)
+    -> (tensor<2x4xf32>, tensor<3x4xf32>) {
+  %0, %1 = plan.nvtx_pop %arg0, %arg1, %arg2 : (tensor<2x4xf32>, tensor<3x4xf32>, i64) -> (tensor<2x4xf32>, tensor<3x4xf32>)
+  return %0, %1 : tensor<2x4xf32>, tensor<3x4xf32>
+}
+
+// CHECK-LABEL: @nvtx_pop_variadic
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<2x4xf32>, %[[arg1:.+]]: tensor<3x4xf32>, %[[arg2:.+]]: i64) -> (tensor<2x4xf32>, tensor<3x4xf32>)
+//       CHECK:   %[[v0:.+]]:2 = plan.nvtx_pop %[[arg0]], %[[arg1]], %[[arg2]] : (tensor<2x4xf32>, tensor<3x4xf32>, i64) -> (tensor<2x4xf32>, tensor<3x4xf32>)
+//       CHECK:   return %[[v0]]#0, %[[v0]]#1 : tensor<2x4xf32>, tensor<3x4xf32>
+
+// -----
+
+func.func @nvtx_push_pop_memref(%arg0: memref<2x4xf32>) -> memref<2x4xf32> {
+  %0, %1 = plan.nvtx_push {name = "subgraph", color = 16711935 : i32} %arg0 : (memref<2x4xf32>) -> (memref<2x4xf32>, i64)
+  %2 = plan.nvtx_pop %0, %1 : (memref<2x4xf32>, i64) -> (memref<2x4xf32>)
+  return %2 : memref<2x4xf32>
+}
+
+// CHECK-LABEL: @nvtx_push_pop_memref
+//  CHECK-SAME: (%[[arg0:.+]]: memref<2x4xf32>) -> memref<2x4xf32>
+//       CHECK:   %[[results:.+]], %[[range_id:.+]] = plan.nvtx_push {color = 16711935 : i32, name = "subgraph"} %[[arg0]] : (memref<2x4xf32>) -> (memref<2x4xf32>, i64)
+//       CHECK:   %[[v0:.+]] = plan.nvtx_pop %[[results]], %[[range_id]] : (memref<2x4xf32>, i64) -> memref<2x4xf32>
+//       CHECK:   return %[[v0]] : memref<2x4xf32>
