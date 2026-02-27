@@ -6,6 +6,9 @@ import shutil
 import sys
 from pathlib import Path
 
+import lit.formats
+import lit.util
+import psutil
 from lit.LitConfig import LitConfig
 from lit.llvm import llvm_config
 from lit.llvm.subst import ToolSubst
@@ -216,3 +219,13 @@ if lit.util.pythonize_bool(lit_config.params.get("enable_functional_suite", None
     config.available_features.add("enable_functional_suite")
 if not config.enable_asan:
     config.available_features.add("no-asan")
+# Add mlir_source feature if MLIR source directory exists (for upstream tests)
+# Check if mlir_src_root is set and path exists
+mlir_src_root = getattr(config, "mlir_src_root", "")
+# Skip if empty, unset, or still contains CMake placeholder
+if (
+    mlir_src_root
+    and mlir_src_root != "@MLIR_MAIN_SRC_DIR@"
+    and Path(mlir_src_root).exists()
+):
+    config.available_features.add("mlir_source")

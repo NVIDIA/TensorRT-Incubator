@@ -1,0 +1,250 @@
+name: LLVM Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_publish_to_github_releases:
+        description: 'I confirm that I have verified llvm package to be published to github releases'
+        required: false
+        type: boolean
+        default: false
+  # for test only
+  push:
+    # testing only, it will be triggered via push to main with path filtering
+    branches:
+      - "pull-request/[0-9]+"
+
+permissions:
+  contents: write  # Needed to create releases
+  packages: write
+  id-token: write
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    name: Build on ${{ matrix.config.arch }}
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ matrix.config.docker_image }}
+      options: >-
+        --shm-size=1g
+    env:
+      LLVM_INSTALL_DIR: ${{ github.workspace }}/llvm-install-${{ matrix.config.arch }}
+      LLVM_PACKAGE_NAME: llvm-${{ matrix.config.arch }}.tar.gz
+      LLVM_TARGET_DIR: ${{ github.workspace }}/llvm-project
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - {runs_on: 'linux-amd64-gpu-h100-latest-1', docker_image: 'ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda13.0-rockylinux8-0.1', arch: 'x86_64'}
+          - {runs_on: 'linux-arm64-gpu-l4-latest-1', docker_image: 'ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda13.0-rockylinux8-0.1', arch: 'aarch64'}
+
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v6
+
+      - name: Configure Git for CI
+        run: |
+          git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
+          git config --global user.name "${GITHUB_ACTOR}"
+          echo "==> Configured git user for CI: ${GITHUB_ACTOR}"
+
+      - name: ${{ matrix.config.arch }} - Set up LLVM Build Environment
+        run: |
+          set -euo pipefail
+          set -x
+          cd mlir-tensorrt
+          ./build_tools/scripts/setup-llvm-dev.sh --target-dir ${{ env.LLVM_TARGET_DIR }}
+
+      - name: ${{ matrix.config.arch }} - Build and Install LLVM
+        run: |
+          set -euo pipefail
+          set -x
+          cd mlir-tensorrt-llvm-distribution-builder
+          curl -fsSL https://pixi.sh/install.sh | bash
+          export PATH="$HOME/.pixi/bin:$PATH"
+          pixi install
+          # Activate pixi environment non-interactively (for CI)
+          # pixi shell doesn't work in non-interactive environments, so we use eval
+          eval "$(pixi shell-hook)"
+          export CMAKE_BUILD_TYPE=Release
+          pixi run install-lit
+          export LLVM_PROJECT_DIR=${{ env.LLVM_TARGET_DIR }} && pixi run install-mlir-deps
+          ./scripts/build-llvm.sh --target-dir ${{ env.LLVM_TARGET_DIR }} --install-dir ${{ env.LLVM_INSTALL_DIR }}
+
+          # Create tar.gz archive
+          tar czf "${{ env.LLVM_PACKAGE_NAME }}" -C "${{ env.LLVM_INSTALL_DIR }}" Release
+
+      - name: Upload LLVM Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.LLVM_PACKAGE_NAME }}
+          path: mlir-tensorrt-llvm-distribution-builder/${{ env.LLVM_PACKAGE_NAME }}
+          retention-days: 7
+
+  test:
+    name: Test LLVM Package - ${{ matrix.config.arch }}
+    runs-on: ${{ matrix.config.runs_on }}
+    needs: build
+    container:
+      image: ${{ matrix.config.docker_image }}
+      options: >-
+        --gpus all
+        --shm-size=1g
+    env:
+      LLVM_PACKAGE_NAME: llvm-${{ matrix.config.arch }}.tar.gz
+      LLVM_INSTALL_DIR: ${{ github.workspace }}/llvm-install-${{ matrix.config.arch }}
+      LLVM_TARGET_DIR: ${{ github.workspace }}/llvm-project
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - {runs_on: 'linux-amd64-gpu-h100-latest-1', docker_image: 'ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda13.0-rockylinux9-0.1', arch: 'x86_64'}
+          - {runs_on: 'linux-arm64-gpu-l4-latest-1', docker_image: 'ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda13.0-ubuntu22.04-0.1', arch: 'aarch64'}
+
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v6
+
+      - name: Download LLVM Package Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.LLVM_PACKAGE_NAME }}
+          path: artifacts
+
+      - name: Extract and Verify LLVM Package
+        run: |
+          set -euo pipefail
+          set -x
+
+          echo "==> Extracting LLVM package: ${{ env.LLVM_PACKAGE_NAME }}"
+          mkdir -p "${{ env.LLVM_INSTALL_DIR }}"
+
+          # Find the tar.gz file - artifacts are downloaded relative to the workspace
+          # Use GITHUB_WORKSPACE env var (set by GitHub Actions) or fallback to current dir
+          WORKSPACE_DIR="${GITHUB_WORKSPACE:-.}"
+          ARTIFACTS_DIR="${WORKSPACE_DIR}/artifacts"
+
+          echo "==> Looking for artifact in: ${ARTIFACTS_DIR}"
+          echo "==> GITHUB_WORKSPACE: ${GITHUB_WORKSPACE:-not set}"
+          echo "==> Current directory: $(pwd)"
+
+          # List contents to debug
+          if [[ -d "${ARTIFACTS_DIR}" ]]; then
+            echo "==> Artifacts directory contents:"
+            ls -la "${ARTIFACTS_DIR}"
+          else
+            echo "==> Artifacts directory not found, checking workspace root:"
+            ls -la "${WORKSPACE_DIR}" || true
+          fi
+
+          TAR_FILE=$(find "${ARTIFACTS_DIR}" -name "${{ env.LLVM_PACKAGE_NAME }}" -type f 2>/dev/null | head -1)
+
+          if [[ -z "${TAR_FILE}" ]]; then
+            echo "Error: Could not find ${{ env.LLVM_PACKAGE_NAME }} in artifacts"
+            echo "Searched in: ${ARTIFACTS_DIR}"
+            echo "Trying alternative locations..."
+            # Try finding it anywhere in the workspace
+            TAR_FILE=$(find "${WORKSPACE_DIR}" -name "${{ env.LLVM_PACKAGE_NAME }}" -type f 2>/dev/null | head -1)
+            if [[ -z "${TAR_FILE}" ]]; then
+              exit 1
+            fi
+            echo "==> Found in alternative location: ${TAR_FILE}"
+          fi
+
+          echo "==> Found package at: ${TAR_FILE}"
+          echo "==> Package size: $(du -h "${TAR_FILE}" | cut -f1)"
+
+          # Extract the package
+          tar -xzf "${TAR_FILE}" -C "${{ env.LLVM_INSTALL_DIR }}"
+
+          # Display package structure
+          echo ""
+          echo "==> Package structure:"
+          du -h -x -d 1  "${{ env.LLVM_INSTALL_DIR }}"/Release
+          echo ""
+          echo "==> Package verification complete!"
+
+      - name: Build and Test MLIR TensorRT with prebuilt LLVM Package
+        run: |
+          set -euo pipefail
+          cd mlir-tensorrt
+          export MLIR_TRT_DOWNLOAD_TENSORRT_VERSION=10.13
+          export CMAKE_PRESET=github-cicd-prebuilt-llvm
+          export CCACHE_DIR=${{ github.workspace }}/mlir-tensorrt/ccache
+          export CPM_SOURCE_CACHE=${{ github.workspace }}/mlir-tensorrt/.cache.cpm
+          export CPM_LLVM_SOURCE=${{ env.LLVM_TARGET_DIR }}
+          export MLIR_TRT_PREBUILT_LLVM_DIR=${{ env.LLVM_INSTALL_DIR }}/Release/lib/cmake/llvm
+          export MLIR_TRT_PREBUILT_MLIR_DIR=${{ env.LLVM_INSTALL_DIR }}/Release/lib/cmake/mlir
+          export LLVM_EXTERNAL_LIT="${{ env.LLVM_INSTALL_DIR }}/Release/bin/llvm-lit"
+          ./build_tools/scripts/cicd-build.sh
+
+  upload:
+    name: Upload LLVM Packages to GitHub Releases
+    # if: ${{ inputs.confirm_publish_to_github_releases }}
+    runs-on: ubuntu-latest
+    needs: [build]
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - {arch: 'x86_64'}
+          - {arch: 'aarch64'}
+    env:
+      LLVM_PACKAGE_NAME: llvm-${{ matrix.config.arch }}.tar.gz
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v6
+
+      - name: Download LLVM Package Artifact from Build
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.LLVM_PACKAGE_NAME }}
+          path: artifacts
+
+      - name: Verify Package Exists
+        run: |
+          if [[ ! -f "artifacts/${{ env.LLVM_PACKAGE_NAME }}" ]]; then
+            echo "Error: Package file not found"
+            ls -la artifacts/ || echo "Artifacts directory does not exist"
+            exit 1
+          fi
+          PACKAGE_SIZE=$(du -h artifacts/${{ env.LLVM_PACKAGE_NAME }} | cut -f1)
+          echo "Package verified: ${PACKAGE_SIZE}"
+          echo "PACKAGE_SIZE=${PACKAGE_SIZE}" >> $GITHUB_ENV
+
+      - name: Read Revision
+        id: revision
+        run: |
+          REVISION_FILE="mlir-tensorrt-llvm-distribution-builder/REVISION"
+          if [[ ! -f "${REVISION_FILE}" ]]; then
+            echo "Error: REVISION file not found at ${REVISION_FILE}"
+            exit 1
+          fi
+          REVISION=$(cat "${REVISION_FILE}" | tr -d '[:space:]')
+          if [[ -z "${REVISION}" ]]; then
+            echo "Error: REVISION file is empty"
+            exit 1
+          fi
+          echo "Revision: ${REVISION}"
+          echo "revision=${REVISION}" >> $GITHUB_OUTPUT
+          echo "REVISION=${REVISION}" >> $GITHUB_ENV
+
+      - name: Upload prebuilt LLVM package to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: llvm-packages-${{ matrix.config.arch }}-${{ steps.revision.outputs.revision }}
+          files: |
+            artifacts/${{ env.LLVM_PACKAGE_NAME }}
+          generate_release_notes: false
+          draft: true
+          prerelease: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}-llvm-package-build
