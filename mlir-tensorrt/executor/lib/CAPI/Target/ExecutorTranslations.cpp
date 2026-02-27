@@ -18,15 +18,14 @@
 //
 //===----------------------------------------------------------------------===//
 #include "mlir-executor-c/Target/ExecutorTranslations.h"
-#include "mlir-executor/Runtime/API/API.h"
 #include "mlir-executor/Target/Lua/TranslateToRuntimeExecutable.h"
 #include "mlir-tensorrt-common/CAPI/Support/Status.h"
 #include "mlir/CAPI/IR.h"
 
 using namespace mlir;
 
-MTRT_Status translateToRuntimeExecutable(MlirOperation op,
-                                         MTRT_Executable *result) {
+MTRT_Status mtrtTranslateToRuntimeExecutable(MlirOperation op,
+                                             MTRT_Executable *result) {
   FailureOr<std::unique_ptr<mtrt::ExecutableStorage>> exeStorage =
       mlir::translateToRuntimeExecutable(unwrap(op));
   if (failed(exeStorage))

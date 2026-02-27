@@ -162,8 +162,6 @@ endif()
 # Flatbuffers
 #-------------------------------------------------------------------------------------
 
-# Downstream targets should depend on `FlatBuffers::FlatBuffers` and flatbuffer
-# schema compilation custom commands should use `flatc` in their command.
 nv_register_package(
   NAME Flatbuffers
   GIT_REPOSITORY https://github.com/google/flatbuffers.git
@@ -172,10 +170,18 @@ nv_register_package(
   OPTIONS
     "FLATBUFFERS_BUILD_TESTS OFF"
     "FLATBUFFERS_INSTALL OFF"
+    "FLATBUFFERS_BUILD_SHAREDLIB ${BUILD_SHARED_LIBS}"
   PRE_ADD_HOOK [[
     nv_pkg_append_cxx_flags(-Wno-suggest-override)
     nv_pkg_append_cxx_flags(-Wno-covered-switch-default)
     nv_pkg_append_cxx_flags(-Wno-c++98-compat-extra-semi)
+  ]]
+  POST_ADD_HOOK [[
+    if(TARGET flatbuffers_shared)
+    target_include_directories(flatbuffers_shared INTERFACE
+        $<BUILD_INTERFACE:${Flatbuffers_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
+    endif()
   ]]
 )
 

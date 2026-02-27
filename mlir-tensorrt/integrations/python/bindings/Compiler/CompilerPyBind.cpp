@@ -246,7 +246,7 @@ PYBIND11_MODULE(_api, m) {
 
   m.def("translate_mlir_to_executable", [](MlirOperation op) {
     MTRT_Executable exe{nullptr};
-    MTRT_Status status = translateToRuntimeExecutable(op, &exe);
+    MTRT_Status status = mtrtTranslateToRuntimeExecutable(op, &exe);
     THROW_IF_MTRT_ERROR(status);
     return new PyExecutable(exe);
   });

@@ -22,7 +22,7 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "mlir-tensorrt-c/Compiler/Registration/RegisterAllDialects.h"
+#include "mlir-tensorrt-c/Compiler/RegisterAllDialects.h"
 #include "mlir-tensorrt/Compiler/InitAllDialects.h"
 #include "mlir-tensorrt/Compiler/InitAllPasses.h"
 #include "mlir-tensorrt/Features.h"

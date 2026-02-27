@@ -43,7 +43,7 @@ if(MLIR_TRT_ENABLE_PYTHON)
     # Ensure all Python packages are built before running python tests.
     # The compiler package is added conditional on
     MLIRTensorRTPythonToolsModules
-    MLIRTensorRTPythonCompilerModules
+    MLIRTensorRTCompilerPythonModules
     MLIRTensorRTPythonRuntimeModules)
 endif()
 

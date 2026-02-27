@@ -1,6 +1,6 @@
 //===- SiteInitializer.cpp  -----------------------------------------------===//
 //
-// Copyright (c) 2024-2025, NVIDIA CORPORATION. All rights reserved.
+// Copyright (c) 2024-2026, NVIDIA CORPORATION. All rights reserved.
 //
 //===----------------------------------------------------------------------===//
 ///
@@ -9,7 +9,7 @@
 /// `register_dialects` method will automatically be invoked.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt-c/Compiler/Registration/RegisterAllDialects.h"
+#include "mlir-tensorrt-c/Compiler/RegisterAllDialects.h"
 #include "mlir/Bindings/Python/PybindAdaptors.h"
 
 #define REGISTER_DIALECT(name)                                                 \
