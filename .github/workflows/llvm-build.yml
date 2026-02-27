@@ -26,11 +26,10 @@ defaults:
 jobs:
   build:
     name: Build on ${{ matrix.config.arch }}
-    runs-on: ${{ matrix.config.runs_on }}
+    runs-on: ubuntu-latest
     container:
       image: ${{ matrix.config.docker_image }}
       options: >-
-        --gpus all
         --shm-size=1g
     env:
       LLVM_INSTALL_DIR: ${{ github.workspace }}/llvm-install-${{ matrix.config.arch }}-${{ matrix.config.target_os }}
@@ -47,6 +46,12 @@ jobs:
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v6
+
+      - name: Configure Git for CI
+        run: |
+          git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
+          git config --global user.name "${GITHUB_ACTOR}"
+          echo "==> Configured git user for CI: ${GITHUB_ACTOR}"
 
       - name: ${{ matrix.config.arch }} - Set up LLVM Build Environment
         run: |
@@ -67,6 +72,8 @@ jobs:
           # pixi shell doesn't work in non-interactive environments, so we use eval
           eval "$(pixi shell-hook)"
           export CMAKE_BUILD_TYPE=Release
+          pixi run install-lit
+          export LLVM_PROJECT_DIR=${{ env.LLVM_TARGET_DIR }} && pixi run install-mlir-deps
           ./scripts/build-llvm.sh --target-dir ${{ env.LLVM_TARGET_DIR }} --install-dir ${{ env.LLVM_INSTALL_DIR }}
 
           # Create tar.gz archive

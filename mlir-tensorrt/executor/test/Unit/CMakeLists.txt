@@ -8,23 +8,17 @@ function(add_mlir_executor_unittest target)
   set_target_properties(${target} PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}")
   add_dependencies(MLIRTensorRTExecutorUnitTests ${target})
   llvm_update_compile_flags(${target})
-  if(TARGET gtest)
-    target_link_libraries(${target} PRIVATE
-     gtest gtest_main gmock)
-  elseif(TARGET llvm_gtest)
-    target_link_libraries(${target} PRIVATE
-      llvm_gtest llvm_gtest_main)
-  else()
-    message(FATAL_ERROR "No GTest library found")
-  endif()
+  # GTest is always available via find_package(GTest REQUIRED) in main CMakeLists.txt
+  target_link_libraries(${target} PRIVATE
+    GTest::gtest
+    GTest::gtest_main
+    GTest::gmock
+  )
 endfunction()
 
-if ((TARGET gtest) OR (TARGET llvm_gtest))
-    add_subdirectory(CAPI)
-    add_subdirectory(Runtime)
-    add_subdirectory(Utils)
-else()
-  message(WARNING "gtest not found, unittests will not be available")
-endif()
+# GTest is always available, so always add subdirectories
+add_subdirectory(CAPI)
+add_subdirectory(Runtime)
+add_subdirectory(Utils)
 
 mtrt_configure_lit_test_site_config(lit.site.cfg.py.in)

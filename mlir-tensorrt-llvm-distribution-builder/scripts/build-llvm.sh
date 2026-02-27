@@ -72,13 +72,9 @@ fi
 mkdir -p $LLVM_BUILD_DIR
 mkdir -p $LLVM_INSTALL_DIR
 
-# Install Python requirements (always install for clean builds, check for incremental)
-if [[ "${INCREMENTAL_BUILD}" == "true" ]] && python -c "import nanobind" 2>/dev/null; then
-  echo "==> Skipping Python requirements installation (already installed)"
-else
-  echo "==> Installing Python requirements..."
-  python -m pip install -r $LLVM_PROJECT_DIR/mlir/python/requirements.txt
-fi
+# Python dependencies are managed by pixi via requirements.txt
+# Install them using: LLVM_PROJECT_DIR=${LLVM_PROJECT_DIR} pixi run install-mlir-deps
+# The build script assumes dependencies are already installed in the pixi environment
 
 arch="$(uname -m)"
 
@@ -124,17 +120,45 @@ if [[ ! -x "${LLVM_INSTALL_DIR}/bin/llvm-lit" ]]; then
 import sys, shutil, os
 
 def main():
-    # Prefer running the lit module directly if available in this Python
+    # Try to find a Python that has lit installed
+    # First, try the current Python
     try:
         from lit.main import main as lit_main
         sys.exit(lit_main())
-    except Exception:
+    except ImportError:
         pass
+
+    # Try common Python executables
+    python_candidates = ["python3", "python", sys.executable]
+    # Also check for venv Python if VIRTUAL_ENV is set
+    if "VIRTUAL_ENV" in os.environ:
+        venv_python = os.path.join(os.environ["VIRTUAL_ENV"], "bin", "python3")
+        if os.path.exists(venv_python):
+            python_candidates.insert(0, venv_python)
+        venv_python2 = os.path.join(os.environ["VIRTUAL_ENV"], "bin", "python")
+        if os.path.exists(venv_python2):
+            python_candidates.insert(0, venv_python2)
+
+    # Try each Python candidate
+    for python_exe in python_candidates:
+        python_path = shutil.which(python_exe) if not os.path.isabs(python_exe) else python_exe
+        if not python_path or not os.path.exists(python_path):
+            continue
+        try:
+            # Try to run lit with this Python
+            import subprocess
+            result = subprocess.run([python_path, "-m", "lit"] + sys.argv[1:], check=False)
+            sys.exit(result.returncode)
+        except (subprocess.SubprocessError, FileNotFoundError):
+            continue
+
     # Fallback: find a lit executable on PATH and exec it
     lit_path = shutil.which("lit")
     if lit_path:
         os.execv(lit_path, [lit_path] + sys.argv[1:])
+
     sys.stderr.write("Error: lit not found. Install it or add it to PATH.\n")
+    sys.stderr.write("Tried Python executables: {}\n".format(", ".join(python_candidates)))
     sys.exit(1)
 
 if __name__ == "__main__":

@@ -75,6 +75,7 @@ conflicts = [
 ]
 
 [tool.uv.sources]
+lit = { index = "testpypi" }
 torch = {index = "pytorch-cpu"}
 torchvision = {index = "pytorch-cpu"}
 flashinfer-jit-cache = [
@@ -93,4 +94,9 @@ url = "https://flashinfer.ai/whl/cu130"
 [[tool.uv.index]]
 name = "pytorch-cpu"
 url = "https://download.pytorch.org/whl/nightly/cpu"
+explicit = true
+
+[[tool.uv.index]]
+name = "testpypi"
+url = "https://test.pypi.org/simple"
 explicit = true

@@ -1,24 +1,24 @@
-set(_cpm_cache_dir "")
-if (DEFINED CPM_SOURCE_CACHE AND NOT "${CPM_SOURCE_CACHE}" STREQUAL "")
-  set(_cpm_cache_dir "${CPM_SOURCE_CACHE}")
-elseif (DEFINED ENV{CPM_SOURCE_CACHE} AND NOT "$ENV{CPM_SOURCE_CACHE}" STREQUAL "")
-  set(_cpm_cache_dir "$ENV{CPM_SOURCE_CACHE}")
-else()
-  set(_cpm_cache_dir "${PROJECT_SOURCE_DIR}/.cache.cpm")
-endif()
-
-if (NOT EXISTS  ${_cpm_cache_dir}/gtest/v1.15.2/googletest/include/gtest/gtest.h)
-  message(FATAL_ERROR "gtest not found, unittests will not be available")
-endif()
-
 add_custom_target(MLIRTensorRTPJRTUnitTests)
 set_target_properties(MLIRTensorRTPJRTUnitTests PROPERTIES FOLDER "MLIR-TensorRT Tests")
 
+# Replace add_unittest with add_executable since we use find_package(GTest REQUIRED)
+# GTest is always available, so we link to standard GTest targets
 function(add_mlir_tensorrt_unittest name)
-  add_unittest(MLIRTensorRTPJRTUnitTests ${name}
+  set(LLVM_LINK_COMPONENTS Support)
+  add_llvm_executable(${name}
+    IGNORE_EXTERNALIZE_DEBUGINFO
+    NO_INSTALL_RPATH
     PARTIAL_SOURCES_INTENDED
     ${ARGN})
-  set_target_properties(MLIRTensorRTPJRTUnitTests PROPERTIES FOLDER "${CMAKE_CURRENT_BINARY_DIR}")
+  set_target_properties(${name} PROPERTIES FOLDER "MLIR-TensorRT Tests/Unit")
+  set_target_properties(${name} PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}")
+  llvm_update_compile_flags(${name})
+  # GTest is always available via find_package(GTest REQUIRED) in main CMakeLists.txt
+  target_link_libraries(${name} PRIVATE
+    GTest::gtest
+    GTest::gtest_main
+  )
+  add_dependencies(MLIRTensorRTPJRTUnitTests ${name})
 endfunction()
 
 

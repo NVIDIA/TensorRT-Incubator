@@ -14,43 +14,26 @@ function(add_mlir_kernel_unittest target)
   set_target_properties(${target} PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}")
   add_dependencies(MLIRKernelUnitTests ${target})
   llvm_update_compile_flags(${target})
-  if(TARGET gtest)
-    target_link_libraries(${target} PRIVATE
-     gtest gtest_main gmock)
-  elseif(TARGET llvm_gtest)
-    target_link_libraries(${target} PRIVATE
-      llvm_gtest llvm_gtest_main)
-  else()
-    message(FATAL_ERROR "No GTest library found")
-  endif()
+  # GTest is always available via find_package(GTest REQUIRED) in main CMakeLists.txt
+  target_link_libraries(${target} PRIVATE
+    GTest::gtest
+    GTest::gtest_main
+    GTest::gmock
+  )
 endfunction()
 
-set(_cpm_cache_dir "")
-if (DEFINED CPM_SOURCE_CACHE AND NOT "${CPM_SOURCE_CACHE}" STREQUAL "")
-  set(_cpm_cache_dir "${CPM_SOURCE_CACHE}")
-elseif (DEFINED ENV{CPM_SOURCE_CACHE} AND NOT "$ENV{CPM_SOURCE_CACHE}" STREQUAL "")
-  set(_cpm_cache_dir "$ENV{CPM_SOURCE_CACHE}")
-else()
-  set(_cpm_cache_dir "${PROJECT_SOURCE_DIR}/.cache.cpm")
-endif()
-
-if (EXISTS  ${_cpm_cache_dir}/gtest/v1.15.2/googletest/include/gtest/gtest.h)
-  add_mlir_kernel_unittest(MLIRKernelUtilsTests
-    TilingUtilsTests.cpp
-    GenerateSortTests.cpp
-    PARTIAL_SOURCES_INTENDED
-    )
-  target_link_libraries(MLIRKernelUtilsTests PRIVATE
-    MLIRTensorRTExecutorDialect
-    ${kernel_libs}
-  )
-  mtrt_target_link_mlir_libraries(MLIRKernelUtilsTests PRIVATE
-    MLIRAsmParser
-    MLIRDialectUtils
-    MLIRFuncInlinerExtension
-    ${kernel_libs}
-  )
-
-else()
-  message(FATAL_ERROR "gtest not found, unittests will not be available")
-endif()
+add_mlir_kernel_unittest(MLIRKernelUtilsTests
+  TilingUtilsTests.cpp
+  GenerateSortTests.cpp
+  PARTIAL_SOURCES_INTENDED
+)
+target_link_libraries(MLIRKernelUtilsTests PRIVATE
+  MLIRTensorRTExecutorDialect
+  ${kernel_libs}
+)
+mtrt_target_link_mlir_libraries(MLIRKernelUtilsTests PRIVATE
+  MLIRAsmParser
+  MLIRDialectUtils
+  MLIRFuncInlinerExtension
+  ${kernel_libs}
+)
