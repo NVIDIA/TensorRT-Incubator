@@ -5,8 +5,6 @@ include_directories(${common_include_dirs})
 add_mlir_pdll_library(MLIRExecutorStdToExecutorPatternsIncGen
   StdToExecutor.pdll
   StdToExecutor.pdll.h.inc
-  EXTRA_INCLUDES
-    ${MLIR_INSTALL_PREFIX}/share/mlir/include
   )
 
 add_mlir_executor_library(MLIRTensorRTExecutorPasses

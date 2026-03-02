@@ -23,7 +23,7 @@ apt-get update && apt-get install -y curl mold
 curl -fsSL https://pixi.sh/install.sh | bash
 export PATH="$HOME/.pixi/bin:$PATH"
 
-cd ./mlir-tensorrt-llvm-distribution-builder
+cd ./.github/mlir-tensorrt-llvm-distribution-builder
 # Install dependencies
 pixi install
 # start pixi shell environment
