@@ -55,22 +55,11 @@ rm -rf ${BUILD_DIR}  || true
 function build_with_preset() {
   local preset_name
   preset_name=$1
-  
-  # If using pre-built LLVM, LLVM_EXTERNAL_LIT must be set
-  if [[ "${preset_name}" == *"prebuilt"* ]]; then
-    if [[ -z "${LLVM_EXTERNAL_LIT:-}" ]]; then
-      echo "Error: LLVM_EXTERNAL_LIT must be set when using prebuilt LLVM preset (${preset_name})" >&2
-      echo "Please set LLVM_EXTERNAL_LIT to point to the llvm-lit executable from the pre-built LLVM distribution" >&2
-      exit 1
-    fi
-    if [[ ! -f "${LLVM_EXTERNAL_LIT}" ]]; then
-      echo "Error: LLVM_EXTERNAL_LIT is set to '${LLVM_EXTERNAL_LIT}' but the file does not exist" >&2
-      exit 1
-    fi
-    echo "==> Using prebuilt LLVM with llvm-lit at: ${LLVM_EXTERNAL_LIT}"
+  if [[ "${preset_name}" == "github-cicd-prebuilt-llvm" ]]; then
+    cmake -B "${BUILD_DIR}" -DLLVM_EXTERNAL_LIT:FILEPATH="$(command -v lit || echo 'python3 -m lit.main')" -DMLIR_LIT_EXECUTABLE:FILEPATH="$(command -v lit || echo 'python3 -m lit.main')" --preset "${preset_name}" --fresh
+  else
+    cmake -B "${BUILD_DIR}" --preset "${preset_name}" --fresh
   fi
-  
-  cmake -B "${BUILD_DIR}" --preset "${preset_name}" --fresh
   echo "🔨 Building with preset: ${preset_name}"
   if [[ "$BUILD_ONLY" == "true" ]]; then
     echo "🔨 Building only (skipping tests)..."

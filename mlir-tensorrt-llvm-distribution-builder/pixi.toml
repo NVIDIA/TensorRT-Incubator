@@ -13,7 +13,7 @@ version = "0.1.0"
 install-mlir-deps = { cmd = ["bash", "-c", "pip install -r \"${LLVM_PROJECT_DIR:-llvm-project}/mlir/python/requirements.txt\""] }
 # Install lit from testpypi (latest development version)
 # Usage: pixi run install-lit
-install-lit = "pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ lit"
+#install-lit = "pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ lit"
 
 [dependencies]
 clang = ">=21.1.8,<22"

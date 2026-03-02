@@ -44,31 +44,13 @@ set(LLVM_APPEND_VC_REV OFF CACHE BOOL "")
 
 
 set(LLVM_TOOLCHAIN_TOOLS
-  llvm-addr2line
-  llvm-ar
-  llvm-cxxfilt
-  llvm-dis
-  llvm-dwarfdump
-  llvm-lib
-  llvm-link
-  llvm-mc
-  llvm-nm
-  llvm-objcopy
-  llvm-objdump
-  llvm-ranlib
-  llvm-rc
-  llvm-readelf
-  llvm-readobj
-  llvm-size
-  llvm-strip
-  llvm-symbolizer
-  llvm-xray
   mlir-lsp-server
   mlir-opt
   mlir-pdll
   mlir-runner
   mlir-tblgen
   mlir-translate
+  mlir-runner
   CACHE STRING "")
 
 set(LLVM_TOOLCHAIN_UTILITIES

@@ -1,8 +1,7 @@
 add_custom_target(MLIRTensorRTPJRTUnitTests)
 set_target_properties(MLIRTensorRTPJRTUnitTests PROPERTIES FOLDER "MLIR-TensorRT Tests")
 
-# Replace add_unittest with add_executable since we use find_package(GTest REQUIRED)
-# GTest is always available, so we link to standard GTest targets
+
 function(add_mlir_tensorrt_unittest name)
   set(LLVM_LINK_COMPONENTS Support)
   add_llvm_executable(${name}

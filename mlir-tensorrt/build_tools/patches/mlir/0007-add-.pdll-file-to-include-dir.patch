@@ -1,0 +1,24 @@
+From a9c8f7ea65ad5bc7dcb89f797161a94ef6638286 Mon Sep 17 00:00:00 2001
+From: Lan Luo <lanl@nvidia.com>
+Date: Fri, 27 Feb 2026 14:30:50 -0800
+Subject: [PATCH 1/1] add .pdll file to include dir
+
+---
+ mlir/CMakeLists.txt | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/mlir/CMakeLists.txt b/mlir/CMakeLists.txt
+index 9e1e9314511e..e0a13d04aa3e 100644
+--- a/mlir/CMakeLists.txt
++++ b/mlir/CMakeLists.txt
+@@ -299,6 +299,7 @@ if (NOT LLVM_INSTALL_TOOLCHAIN_ONLY)
+     PATTERN "*.h"
+     PATTERN "*.inc"
+     PATTERN "*.td"
++    PATTERN "*.pdll"
+     PATTERN "LICENSE.TXT"
+     )
+
+--
+2.43.0
+
