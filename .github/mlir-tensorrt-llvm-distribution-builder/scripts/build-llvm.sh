@@ -87,7 +87,6 @@ CMAKE_ARGS=(
   --toolchain $PWD/cmake/toolchains/linux-${arch}.cmake
   -DCMAKE_BUILD_TYPE=$CMAKE_BUILD_TYPE
   -DCMAKE_INSTALL_PREFIX=$LLVM_INSTALL_DIR
-  #-DLLVM_EXTERNAL_LIT=:STRING="python3 -m lit"
 )
 
 # Only skip --fresh for incremental builds
