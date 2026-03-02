@@ -1,6 +1,0 @@
-{
-    "llvm-project": {
-        "url": "https://oauth2:${NV_GITLAB_TOKEN}@gitlab-master.nvidia.com/initialdl/llvm-project-mirror.git",
-        "revision": "mlir-tensorrt-2025-12-18.1"
-    }
-}
