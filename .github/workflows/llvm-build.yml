@@ -8,11 +8,6 @@ on:
         required: false
         type: boolean
         default: false
-  # for test only
-  push:
-    # testing only, it will be triggered via push to main with path filtering
-    branches:
-      - "pull-request/[0-9]+"
 
 permissions:
   contents: write  # Needed to create releases
