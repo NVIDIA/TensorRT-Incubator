@@ -88,7 +88,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.LLVM_PACKAGE_NAME }}
-          path: mlir-tensorrt-llvm-distribution-builder/${{ env.LLVM_PACKAGE_NAME }}
+          path: mlir-tensorrt/build_tools/mlir-tensorrt-llvm-distribution-builder/${{ env.LLVM_PACKAGE_NAME }}
           retention-days: 7
 
   test:
