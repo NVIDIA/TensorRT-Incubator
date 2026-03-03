@@ -55,7 +55,11 @@ rm -rf ${BUILD_DIR}  || true
 function build_with_preset() {
   local preset_name
   preset_name=$1
-  cmake -B "${BUILD_DIR}" --preset "${preset_name}" --fresh
+  if [[ "${preset_name}" == "github-cicd-prebuilt-llvm" ]]; then
+    cmake -B "${BUILD_DIR}" -DLLVM_EXTERNAL_LIT:FILEPATH="$(command -v lit || echo 'python3 -m lit.main')" --preset "${preset_name}" --fresh
+  else
+    cmake -B "${BUILD_DIR}" --preset "${preset_name}" --fresh
+  fi
   echo "🔨 Building with preset: ${preset_name}"
   if [[ "$BUILD_ONLY" == "true" ]]; then
     echo "🔨 Building only (skipping tests)..."

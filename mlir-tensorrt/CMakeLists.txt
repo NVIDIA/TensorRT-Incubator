@@ -118,7 +118,7 @@ include(MTRTCompilationOptions)
 # -------------------------------------------------
 # Dependencies
 # -------------------------------------------------
-
+find_package(GTest REQUIRED)
 find_package(NVTX REQUIRED)
 find_package(DLPack REQUIRED)
 
