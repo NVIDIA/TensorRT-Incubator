@@ -11,6 +11,7 @@ version = "0.1.0"
 # Usage: LLVM_PROJECT_DIR=<path> pixi run install-mlir-deps
 # Or from within pixi shell: export LLVM_PROJECT_DIR=<path> && pixi run install-mlir-deps
 install-mlir-deps = { cmd = ["bash", "-c", "pixi import --format=pypi-txt --feature=mlir-reqs --environment=default \"${LLVM_PROJECT_DIR:-llvm-project}/mlir/python/requirements.txt\""] }
+#install-mlir-deps = { cmd = ["bash", "-c", "pip install -r \"${LLVM_PROJECT_DIR:-llvm-project}/mlir/python/requirements.txt\""] }
 
 [dependencies]
 clang = ">=21.1.8,<22"
@@ -21,4 +22,3 @@ cmake = ">=4.2.3,<5"
 ninja = ">=1.13.2,<2"
 clangxx = ">=21.1.8,<22"
 pip = "*"
-

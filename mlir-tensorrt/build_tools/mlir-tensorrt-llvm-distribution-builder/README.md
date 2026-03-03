@@ -8,9 +8,9 @@ The llvm package build can be run on a vanilla ubuntu22.04, with cpu only enviro
 
 ```shell
 # Clones llvm-project to `./llvm-project` subdirectory and checks out the correct branch
-cd TensorRT-Incubator
-./mlir-tenosrrt/build_tools/scripts/setup-llvm-dev.sh \
---target-dir ./mlir-tensorrt-llvm-distribution-builder/llvm-project
+cd TensorRT-Incubator/mlir-tensorrt
+./build_tools/scripts/setup-llvm-dev.sh \
+--target-dir ./build_tools/mlir-tensorrt-llvm-distribution-builder/llvm-project
 ```
 
 ## Building
@@ -23,13 +23,15 @@ apt-get update && apt-get install -y curl mold
 curl -fsSL https://pixi.sh/install.sh | bash
 export PATH="$HOME/.pixi/bin:$PATH"
 
-cd ./.github/mlir-tensorrt-llvm-distribution-builder
-# Install dependencies
-pixi install
+cd ./build_tools/mlir-tensorrt-llvm-distribution-builder
+
 # start pixi shell environment
 pixi shell
 # install mlir python requirements file
 export LLVM_PROJECT_DIR=llvm-project && pixi run install-mlir-deps
+
+# Install dependencies
+pixi install
 
 # Builds llvm-project
 export CMAKE_BUILD_TYPE=Release

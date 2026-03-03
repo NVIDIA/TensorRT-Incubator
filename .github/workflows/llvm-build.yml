@@ -63,16 +63,20 @@ jobs:
         run: |
           set -euo pipefail
           set -x
-          cd .github/mlir-tensorrt-llvm-distribution-builder
+          cd mlir-tensorrt/build_tools/mlir-tensorrt-llvm-distribution-builder
           # set up pixi environment
           apt-get update && apt-get install -y curl mold
           curl -fsSL https://pixi.sh/install.sh | bash
           export PATH="$HOME/.pixi/bin:$PATH"
-          pixi install
+
           # Activate pixi environment non-interactively (for CI)
           # pixi shell doesn't work in non-interactive environments, so we use eval
           eval "$(pixi shell-hook)"
+          # import mlir python dependencies
           export LLVM_PROJECT_DIR=${{ env.LLVM_TARGET_DIR }} && pixi run install-mlir-deps
+
+          # install pixi dependencies
+          pixi install
 
           export CMAKE_BUILD_TYPE=Release
           ./scripts/build-llvm.sh --target-dir ${{ env.LLVM_TARGET_DIR }} --install-dir ${{ env.LLVM_INSTALL_DIR }}
