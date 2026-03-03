@@ -248,7 +248,7 @@ jobs:
           files: |
             artifacts/${{ env.LLVM_PACKAGE_NAME }}
           generate_release_notes: false
-          draft: true
+          draft: false
           prerelease: true
           token: ${{ secrets.GITHUB_TOKEN }}
 

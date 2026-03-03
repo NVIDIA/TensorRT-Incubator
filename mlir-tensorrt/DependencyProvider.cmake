@@ -23,7 +23,7 @@ nv_register_package(
   GIT_TAG v1.15.2
   EXCLUDE_FROM_ALL TRUE
   OPTIONS
-    "INSTALL_GTEST ON"
+    "INSTALL_GTEST OFF"
     "BUILD_GMOCK ON"
     "BUILD_GTEST ON"
 )
