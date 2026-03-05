@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,8 +21,8 @@ from tests.performance.conftest import PerfParam, perf_fixture
 
 @perf_fixture(
     params=[
-        PerfParam(tp.float32, perf_threshold=1.25),
-        PerfParam(tp.float16, perf_threshold=1.35),
+        PerfParam(tp.float32, perf_threshold=1.20),
+        PerfParam(tp.float16, perf_threshold=1.32),
     ]
 )
 def sdpa(tripy_dtype, torch_dtype):
