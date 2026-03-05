@@ -1,8 +1,8 @@
 -f https://nvidia.github.io/TensorRT-Incubator/packages.html
-nvtripy
-transformers==4.48.0
-tiktoken==0.5.2
+nvtripy>=0.1.5
+transformers==4.46.2
+tiktoken==0.12.0
 --extra-index-url https://download.pytorch.org/whl/cu130
-torch==2.3.0
-nvidia-modelopt==0.11.1
-datasets==2.18.0
+torch==2.10.0+cu130
+nvidia-modelopt==0.41.0
+datasets==4.5.0
