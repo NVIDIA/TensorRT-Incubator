@@ -7,7 +7,7 @@
 # Not a contribution
 # Changes made by NVIDIA CORPORATION & AFFILIATES enabling SAM2 with Tripy or otherwise documented as
 # NVIDIA-proprietary are not a contribution and subject to the following terms and conditions:
-# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -32,6 +32,18 @@ from typing import Dict, Any, Optional
 import nvtripy as tp
 import time
 import os
+import sys
+
+
+def _get_saved_engines_path(model_type: str) -> str:
+    import tensorrt as trt
+
+    trt_tag = str(trt.__version__).replace(".", "_")
+    tripy_tag = str(tp.__version__).replace(".", "_")
+    py_tag = f"py{sys.version_info.major}_{sys.version_info.minor}"
+    cache_tag = f"trt_{trt_tag}_tripy_{tripy_tag}_{py_tag}"
+
+    return os.path.join(os.getcwd(), f"saved_engines_{model_type}_{cache_tag}")
 
 
 def set_model_attr(model, attr_path, value):
@@ -256,7 +268,7 @@ class SAM2ModelCache:
         if cls._instance is None:
             cls._instance = super(SAM2ModelCache, cls).__new__(cls)
             cls._instance.cached_models = {}
-            cls._instance.saved_engines_path = os.path.join(os.getcwd(), f"saved_engines_{model_type}")
+            cls._instance.saved_engines_path = _get_saved_engines_path(model_type)
             if not os.path.exists(cls._instance.saved_engines_path):
                 os.makedirs(cls._instance.saved_engines_path)
         return cls._instance
@@ -445,8 +457,7 @@ def _load_checkpoint(model, ckpt_path, model_type, cfg=None):
     missing_keys, unexpected_keys = model.load_state_dict(sd, strict=False)
 
     # Get paths for compiled models
-    current_dir = os.getcwd()
-    saved_engines_path = os.path.join(current_dir, f"saved_engines_{model_type}")
+    saved_engines_path = _get_saved_engines_path(model_type)
 
     # Get component configurations
     components = get_component_configs(model, cfg)

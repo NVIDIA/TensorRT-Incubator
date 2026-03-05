@@ -1,11 +1,12 @@
 -f https://nvidia.github.io/TensorRT-Incubator/packages.html
-nvtripy>=0.1.2
-torch>=2.3.1
-torchvision>=0.18.1
-numpy>=1.24.4
-tqdm>=4.66.1
-accelerate==1.8.1
-pillow>=9.4.0
-diffusers==0.31.0
-transformers==4.42.2
-scikit-image==0.24.0
+--extra-index-url https://download.pytorch.org/whl/cu130
+nvtripy>=0.1.5
+torch==2.10.0+cu130
+torchvision==0.25.0
+numpy==1.26.0
+tqdm==4.67.3
+accelerate==1.12.0
+pillow==12.1.1
+diffusers==0.36.0
+transformers==4.46.2
+scikit-image==0.25.2

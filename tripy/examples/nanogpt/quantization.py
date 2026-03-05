@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,6 +16,7 @@
 #
 
 import time
+from copy import deepcopy
 
 from transformers import AutoTokenizer
 import modelopt.torch.quantization as mtq
@@ -36,14 +37,17 @@ def modelopt_quantize(model_hf, quant_mode):
     tokenizer.pad_token = tokenizer.eos_token
 
     if quant_mode == "int8-weight-only":
-        quant_cfg = mtq.INT8_DEFAULT_CFG
+        quant_cfg = deepcopy(mtq.INT8_DEFAULT_CFG)
         quant_cfg["quant_cfg"]["*input_quantizer"] = {
             "enable": False,
         }
     elif quant_mode == "int4-weight-only":
-        quant_cfg = mtq.INT4_AWQ_CFG
+        quant_cfg = deepcopy(mtq.INT4_AWQ_CFG)
     elif quant_mode == "float8":
-        quant_cfg = mtq.FP8_DEFAULT_CFG
+        quant_cfg = deepcopy(mtq.FP8_DEFAULT_CFG)
+        # FP8 default config explicitly disables *lm_head*; remove that override
+        # so lm_head.weight_quantizer is calibrated and _amax is emitted.
+        quant_cfg["quant_cfg"].pop("*lm_head*", None)
     else:
         raise NotImplementedError(f"Unsupported quantization mode: {quant_mode}")
 

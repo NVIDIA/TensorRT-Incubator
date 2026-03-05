@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -102,14 +102,17 @@ def load_quant_weights_from_hf(model, model_type, dtype, quant_mode):
         if key.endswith("quantizer._amax"):
             # reshape amax tensor for int4 block quantization
             if quant_mode == "int4-weight-only":
-                linear = get_submodule(model_hf, key[: -len(".weight_quantizer._amax")])
+                linear_name = key
+                if key.endswith(".weight_quantizer._amax"):
+                    linear_name = key[: -len(".weight_quantizer._amax")]
+                linear = get_submodule(model_hf, linear_name)
                 weight = weight.reshape((-1, linear.in_features))
             # compute scale
-            quantizer = get_submodule(model_hf, key[: -len("._amax")])
+            quantizer_name = key[: -len("._amax")]
+            quantizer = get_submodule(model_hf, quantizer_name)
             weight = convert_to_scale(weight, quantizer.maxbound).squeeze()
             # convert to tripy's key for scales
-            key, _ = key.split("quantizer._amax")
-            key += "scale"
+            key = key[: -len("quantizer._amax")] + "scale"
 
         weight = weight.to(torch_dtype)
         param = tp.Tensor(weight.contiguous())
