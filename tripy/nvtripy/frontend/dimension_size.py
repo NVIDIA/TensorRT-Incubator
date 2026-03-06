@@ -74,14 +74,16 @@ class DimensionSize(Tensor):
         # so that we aren't evaluating the entire graph for each dimension.
         producer = self.trace_tensor.producer
         if isinstance(producer, GetDimensionSize) and isinstance(producer.inputs[0].producer, Shape):
-            frontend_tensor = producer.inputs[0].frontend_tensor
-            frontend_tensor.eval()
+            ref = producer.inputs[0].frontend_tensor
+            frontend_tensor = ref() if callable(ref) else ref
+            if frontend_tensor is not None:
+                frontend_tensor.eval()
 
-            dim_size = GetDimensionSize([frontend_tensor.trace_tensor], dim=producer.dim)
-            dim_size.outputs[0].is_compile_tracer = self.trace_tensor.is_compile_tracer
-            self.trace_tensor = dim_size.outputs[0]
+                dim_size = GetDimensionSize([frontend_tensor.trace_tensor], dim=producer.dim)
+                dim_size.outputs[0].is_compile_tracer = self.trace_tensor.is_compile_tracer
+                self.trace_tensor = dim_size.outputs[0]
 
-        if not isinstance(producer, Constant):
+        if not isinstance(self.trace_tensor.producer, Constant):
             super().eval()
         dim_value = memref.tolist(self.trace_tensor.producer.data)
         dim_size = DimensionSize(data=int(dim_value), name=self.name)

@@ -235,7 +235,7 @@ class Constant(TraceOp):
         if self.data.address_space != runtime.PointerType.host:
             raise_error(
                 "Tensors that are not inputs to compiled functions must reside in CPU memory.",
-                [f"Tensor is on device: {self.device}. Tensor was:", self.outputs[0].frontend_tensor]
+                [f"Tensor is on device: {self.device}. Tensor was:", (self.outputs[0].frontend_tensor() if callable(self.outputs[0].frontend_tensor) else self.outputs[0].frontend_tensor)]
                 + (
                     [
                         "Note: This tensor was materialized in GPU memory when it was evaluated here:",
