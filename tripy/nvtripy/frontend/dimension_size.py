@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -74,8 +74,7 @@ class DimensionSize(Tensor):
         # so that we aren't evaluating the entire graph for each dimension.
         producer = self.trace_tensor.producer
         if isinstance(producer, GetDimensionSize) and isinstance(producer.inputs[0].producer, Shape):
-            ref = producer.inputs[0].frontend_tensor
-            frontend_tensor = ref() if callable(ref) else ref
+            frontend_tensor = producer.inputs[0].frontend_tensor()
             if frontend_tensor is not None:
                 frontend_tensor.eval()
 
