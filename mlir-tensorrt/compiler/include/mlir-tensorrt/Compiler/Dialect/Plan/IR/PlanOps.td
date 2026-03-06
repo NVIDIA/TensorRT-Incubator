@@ -510,6 +510,68 @@ def Plan_OptimizationBarrierOp : Plan_Op<"optimization_barrier", [Pure,
 }
 
 //===----------------------------------------------------------------------===//
+// NVTX ops
+//===----------------------------------------------------------------------===//
+
+def Plan_NVTXPushOp : Plan_Op<"nvtx_push", [
+    RangedTypesMatchWith<"result type matches input",
+    "inputs", "results",
+    "llvm::make_range($_self.begin(), $_self.end())">,
+    DeclareOpInterfaceMethods<MemoryEffectsOpInterface>,
+    DeclareOpInterfaceMethods<BufferizableOpInterface, [
+      "bufferizesToMemoryRead",
+      "bufferizesToMemoryWrite",
+      "getAliasingValues",
+      "bufferize"
+    ]>]> {
+  let summary = "Start an NVTX range and return a correlation ID";
+  let description = [{
+    The `plan.nvtx_push` operation starts an NVTX process and returns
+    a correlation ID (`range_id`) along with identity-forwarded operands.
+    The `range_id` must be passed to a corresponding `plan.nvtx_pop` to end the range.
+
+    Semantically, the tensor operands are identity -- they are tied to
+    the corresponding results. The `range_id` result is a new i64 value
+    returned that represents the correlation ID of the NVTX range.
+  }];
+
+  let arguments = (ins Variadic<AnyType>:$inputs,
+                   StrAttr:$name,
+                   I32Attr:$color);
+  let results = (outs Variadic<AnyType>:$results,
+                 I64:$range_id);
+  let assemblyFormat = "attr-dict operands `:` functional-type(operands, results)";
+}
+
+def Plan_NVTXPopOp : Plan_Op<"nvtx_pop", [
+    RangedTypesMatchWith<"result type matches input",
+    "inputs", "results",
+    "llvm::make_range($_self.begin(), $_self.end())">,
+    DeclareOpInterfaceMethods<MemoryEffectsOpInterface>,
+    DeclareOpInterfaceMethods<BufferizableOpInterface, [
+      "bufferizesToMemoryRead",
+      "bufferizesToMemoryWrite",
+      "getAliasingValues",
+      "bufferize"
+    ]>]> {
+  let summary = "End an NVTX range using a correlation ID";
+  let description = [{
+    The `plan.nvtx_pop` operation ends an NVTX process range via
+    `nvtxDomainRangeEnd` using the `range_id` from a corresponding
+    `plan.nvtx_push`.
+
+    Semantically, the tensor inputs are identity -- they are tied to
+    the corresponding results. The `range_id` operand is consumed (passed to
+    the NVTX runtime) and does not appear in the results.
+  }];
+
+  let arguments = (ins Variadic<AnyType>:$inputs,
+                   I64:$range_id);
+  let results = (outs Variadic<AnyType>:$results);
+  let assemblyFormat = "attr-dict operands `:` functional-type(operands, results)";
+}
+
+//===----------------------------------------------------------------------===//
 // TransferOp
 //===----------------------------------------------------------------------===//
 

@@ -110,3 +110,72 @@ func.func @shape_func(%arg0: memref<2xi32>, %arg1: memref<2xi32> {plan.result_sl
 // CHECK-LABEL: func.func @func_metadata_conversion
 //  CHECK-SAME: (%{{.+}}: memref<?xi32> {executor.result_slot = 0 : i32}) attributes {executor.shape_func = @shape_func}
 //       CHECK: func.func @shape_func(%{{.+}}: memref<2xi32>, %{{.+}}: memref<2xi32> {executor.result_slot = 0 : i32})
+
+// -----
+
+func.func @nvtx_push_single(%arg0: memref<2x4xf32, #plan.memory_space<device>>) -> (memref<2x4xf32, #plan.memory_space<device>>, i64) {
+  %0, %1 = plan.nvtx_push {name = "attn", color = -16711936 : i32} %arg0 : (memref<2x4xf32, #plan.memory_space<device>>) -> (memref<2x4xf32, #plan.memory_space<device>>, i64)
+  return %0, %1 : memref<2x4xf32, #plan.memory_space<device>>, i64
+}
+
+// CHECK-DAG: executor.func private @__nvtx_push(!executor.str_literal, i32, ...) -> i64
+// CHECK-LABEL: @nvtx_push_single
+//  CHECK-SAME: (%[[arg0:.+]]: memref<2x4xf32, #executor.memory_type<device>>) -> (memref<2x4xf32, #executor.memory_type<device>>, i64)
+//       CHECK:   %[[str:.+]] = executor.str_literal "attn"
+//       CHECK:   %[[color:.+]] = executor.constant -16711936 : i32
+//       CHECK:   %[[range_id:.+]] = executor.call @__nvtx_push(%[[str]], %[[color]]) : (!executor.str_literal, i32) -> i64
+//       CHECK:   return %[[arg0]], %[[range_id]] : memref<2x4xf32, #executor.memory_type<device>>, i64
+
+// -----
+
+func.func @nvtx_pop_single(%arg0: memref<2x4xf32, #plan.memory_space<device>>, %arg1: i64) -> memref<2x4xf32, #plan.memory_space<device>> {
+  %0 = plan.nvtx_pop %arg0, %arg1 : (memref<2x4xf32, #plan.memory_space<device>>, i64) -> memref<2x4xf32, #plan.memory_space<device>>
+  return %0 : memref<2x4xf32, #plan.memory_space<device>>
+}
+
+// CHECK-DAG: executor.func private @__nvtx_pop(i64, ...)
+// CHECK-LABEL: @nvtx_pop_single
+//  CHECK-SAME: (%[[arg0:.+]]: memref<2x4xf32, #executor.memory_type<device>>, %[[arg1:.+]]: i64) -> memref<2x4xf32, #executor.memory_type<device>>
+//       CHECK:   executor.call @__nvtx_pop(%[[arg1]]) : (i64) -> ()
+//       CHECK:   return %[[arg0]] : memref<2x4xf32, #executor.memory_type<device>>
+
+// -----
+
+func.func @nvtx_push_variadic(
+    %arg0: memref<2x4xf32, #plan.memory_space<device>>,
+    %arg1: memref<3x4xf32, #plan.memory_space<device>>)
+    -> (memref<2x4xf32, #plan.memory_space<device>>,
+        memref<3x4xf32, #plan.memory_space<device>>, i64) {
+  %0, %1, %2 = plan.nvtx_push {name = "multi_input", color = -16711936 : i32} %arg0, %arg1 : (memref<2x4xf32, #plan.memory_space<device>>, memref<3x4xf32, #plan.memory_space<device>>) -> (memref<2x4xf32, #plan.memory_space<device>>, memref<3x4xf32, #plan.memory_space<device>>, i64)
+  return %0, %1, %2 : memref<2x4xf32, #plan.memory_space<device>>, memref<3x4xf32, #plan.memory_space<device>>, i64
+}
+
+// CHECK-DAG: executor.func private @__nvtx_push(!executor.str_literal, i32, ...) -> i64
+// CHECK-LABEL: @nvtx_push_variadic
+//  CHECK-SAME: (%[[arg0:.+]]: memref<2x4xf32, #executor.memory_type<device>>, %[[arg1:.+]]: memref<3x4xf32, #executor.memory_type<device>>) -> (memref<2x4xf32, #executor.memory_type<device>>, memref<3x4xf32, #executor.memory_type<device>>, i64)
+//       CHECK:   %[[str:.+]] = executor.str_literal "multi_input"
+//       CHECK:   %[[color:.+]] = executor.constant -16711936 : i32
+//       CHECK:   %[[range_id:.+]] = executor.call @__nvtx_push(%[[str]], %[[color]]) : (!executor.str_literal, i32) -> i64
+//       CHECK:   return %[[arg0]], %[[arg1]], %[[range_id]] : memref<2x4xf32, #executor.memory_type<device>>, memref<3x4xf32, #executor.memory_type<device>>, i64
+
+
+// -----
+
+// Verifies pass-through: push's input feeds directly to the add, and pop's input feeds directly to return.
+func.func @nvtx_push_pop_passthrough(
+    %arg0: memref<2x4xf32, #plan.memory_space<device>>)
+    -> memref<2x4xf32, #plan.memory_space<device>> {
+  %0, %1 = plan.nvtx_push {name = "compute", color = 255 : i32} %arg0 : (memref<2x4xf32, #plan.memory_space<device>>) -> (memref<2x4xf32, #plan.memory_space<device>>, i64)
+  %2 = plan.nvtx_pop %0, %1 : (memref<2x4xf32, #plan.memory_space<device>>, i64) -> memref<2x4xf32, #plan.memory_space<device>>
+  return %2 : memref<2x4xf32, #plan.memory_space<device>>
+}
+
+// CHECK-DAG: executor.func private @__nvtx_pop(i64, ...)
+// CHECK-DAG: executor.func private @__nvtx_push(!executor.str_literal, i32, ...) -> i64
+// CHECK-LABEL: @nvtx_push_pop_passthrough
+//  CHECK-SAME: (%[[arg0:.+]]: memref<2x4xf32, #executor.memory_type<device>>) -> memref<2x4xf32, #executor.memory_type<device>>
+//       CHECK:   %[[str:.+]] = executor.str_literal "compute"
+//       CHECK:   %[[color:.+]] = executor.constant 255 : i32
+//       CHECK:   %[[range_id:.+]] = executor.call @__nvtx_push(%[[str]], %[[color]]) : (!executor.str_literal, i32) -> i64
+//       CHECK:   executor.call @__nvtx_pop(%[[range_id]]) : (i64) -> ()
+//       CHECK:   return %[[arg0]] : memref<2x4xf32, #executor.memory_type<device>>

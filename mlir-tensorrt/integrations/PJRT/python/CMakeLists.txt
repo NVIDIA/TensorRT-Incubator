@@ -12,6 +12,7 @@ set(MLIR_TRT_JAX_PLUGIN_SOURCES
   mlir_tensorrt_jax/mtrt_ops/quantize.py
   mlir_tensorrt_jax/mtrt_ops/dequantize.py
   mlir_tensorrt_jax/mtrt_ops/dynamic_quantize.py
+  mlir_tensorrt_jax/mtrt_ops/nvtx_range.py
   mlir_tensorrt_jax/mtrt_ops/utils.py
   mlir_tensorrt_jax/flashinfer/__init__.py
   mlir_tensorrt_jax/flashinfer/decode.py

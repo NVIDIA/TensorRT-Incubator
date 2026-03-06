@@ -1209,6 +1209,20 @@ static void registerExecutorCoreModuleLuaRuntimeMethods(
         argsArrayPtr, num_args);
     SET_LUA_ERROR_AND_RETURN_IF_ERROR(status, state, );
   };
+
+  lua["__nvtx_push"] = [](std::string_view name, int32_t color) -> int64_t {
+    nvtx3::event_attributes attr{
+        nvtx3::message{name.data()},
+        nvtx3::color{static_cast<nvtx3::color::value_type>(color)}};
+    nvtx3::range_handle handle =
+        nvtx3::start_range_in<mtrt::UserAnnotationNvtxDomain>(attr);
+    return static_cast<int64_t>(handle.get_value());
+  };
+
+  lua["__nvtx_pop"] = [](int64_t rangeId) {
+    nvtx3::end_range_in<mtrt::UserAnnotationNvtxDomain>(
+        nvtx3::range_handle{static_cast<nvtxRangeId_t>(rangeId)});
+  };
 }
 
 namespace mtrt {
