@@ -306,7 +306,13 @@ class Executable:
                             )
             raise_error(str(err))
 
-        output_tensors = tuple(Tensor(output_memref) for output_memref in output_memrefs)
+        output_tensors = []
+        for output_memref in output_memrefs:
+            t = Tensor(output_memref)
+            # Break TraceTensor <-> Constant cycle so GPU memory is freed when t is deleted.
+            t.trace_tensor.producer.outputs.clear()
+            output_tensors.append(t)
+        output_tensors = tuple(output_tensors)
         if self.__signature__.return_annotation == Tensor:
             output_tensors = output_tensors[0]
         return output_tensors

@@ -16,6 +16,7 @@
 #
 
 import numbers
+import weakref
 from textwrap import indent
 from typing import Any, List, Optional, Union
 
@@ -138,7 +139,7 @@ class Tensor(metaclass=TensorMeta):
     @trace_tensor.setter
     def trace_tensor(self, new_trace_tensor):
         self._trace_tensor = new_trace_tensor
-        self._trace_tensor.frontend_tensor = self
+        self._trace_tensor.frontend_tensor = weakref.ref(self)
 
     @property
     def name(self):
@@ -217,7 +218,8 @@ class Tensor(metaclass=TensorMeta):
         inputs = []
         for op in trace.ops:
             if isinstance(op, Constant) and op.device.kind == "gpu":
-                inputs.append(op.outputs[0].frontend_tensor)
+                ref = op.outputs[0].frontend_tensor
+                inputs.append(ref() if callable(ref) else ref)
 
         if inputs:
             trace.trace([self.trace_tensor], [inp.trace_tensor for inp in inputs])
