@@ -121,10 +121,11 @@ set(MLIR_TRT_LLVM_COMMIT "d6e2143b064e62458eb210394e623bc0abeb266b")
 set(mlir_patch_dir "${CMAKE_CURRENT_LIST_DIR}/build_tools/patches/mlir")
 set(MLIR_TRT_LLVM_PATCHES )
 
-# We only populate patches if the user is not using a custom local LLVM-Project
-# clone. Our build instructions say that user is responsible for patches when
-# using a local clone.
-if(NOT CPM_LLVM_SOURCE)
+# We only populate patches if:
+# 1. Building LLVM from source (not using pre-built package)
+# 2. Not using a custom local LLVM-Project clone
+# Our build instructions say that user is responsible for patches when using a local clone.
+if(MTRT_BUILD_LLVM_FROM_SOURCE AND NOT CPM_LLVM_SOURCE)
   set(MLIR_TRT_LLVM_PATCHES
     "${mlir_patch_dir}/0001-mlir-linalg-don-t-rewrite-DPS-init-operands-in-linal.patch"
     "${mlir_patch_dir}/0002-mlir-emitc-Fix-emitc.for-verification-crash-163754.patch"
@@ -136,7 +137,171 @@ if(NOT CPM_LLVM_SOURCE)
 endif()
 
 if(NOT MTRT_BUILD_LLVM_FROM_SOURCE)
-  message(WARNING "Using 'find_package' to locate pre-built LLVM. Please set MLIR_DIR to the directory containing MLIRConfig.cmake")
+  # Determine architecture for pre-built package
+  if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|amd64|AMD64")
+    set(_mtrt_llvm_arch "x86_64")
+  elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64|ARM64")
+    set(_mtrt_llvm_arch "aarch64")
+  else()
+    message(FATAL_ERROR "Unsupported architecture for pre-built LLVM: ${CMAKE_SYSTEM_PROCESSOR}. Supported: x86_64, aarch64")
+  endif()
+
+  # Set default install directory if not provided or empty
+  if(NOT DEFINED MLIR_TRT_PREBUILT_LLVM_INSTALL_DIR)
+    message(STATUS "MLIR_TRT_PREBUILT_LLVM_INSTALL_DIR is not defined, using default")
+    set(MLIR_TRT_PREBUILT_LLVM_INSTALL_DIR
+      "${MTRT_TOP_LEVEL_DIR}/build_tools/mlir-tensorrt-llvm-distribution-builder/install"
+      CACHE PATH "Directory where pre-built LLVM package will be extracted")
+  elseif("${MLIR_TRT_PREBUILT_LLVM_INSTALL_DIR}" STREQUAL "")
+    message(STATUS "MLIR_TRT_PREBUILT_LLVM_INSTALL_DIR is empty, using default")
+    set(MLIR_TRT_PREBUILT_LLVM_INSTALL_DIR
+      "${MTRT_TOP_LEVEL_DIR}/build_tools/mlir-tensorrt-llvm-distribution-builder/install"
+      CACHE PATH "Directory where pre-built LLVM package will be extracted" FORCE)
+  else()
+    message(STATUS "MLIR_TRT_PREBUILT_LLVM_INSTALL_DIR is defined: ${MLIR_TRT_PREBUILT_LLVM_INSTALL_DIR}")
+  endif()
+
+  # Construct download URL
+  set(_mtrt_llvm_package_name "llvm-${_mtrt_llvm_arch}.tar.gz")
+  set(_mtrt_llvm_release_tag "llvm-packages-${_mtrt_llvm_arch}-${MLIR_TRT_LLVM_COMMIT}")
+  set(_mtrt_llvm_download_url
+    "https://github.com/NVIDIA/TensorRT-Incubator/releases/download/${_mtrt_llvm_release_tag}/${_mtrt_llvm_package_name}")
+  message(STATUS "_mtrt_llvm_download_url is ${_mtrt_llvm_download_url}")
+
+  # Download and extract pre-built LLVM package
+  set(_mtrt_llvm_tarball "${CMAKE_BINARY_DIR}/_deps/${_mtrt_llvm_package_name}")
+  set(_mtrt_llvm_extract_dir "${MLIR_TRT_PREBUILT_LLVM_INSTALL_DIR}")
+
+  # Check if extraction directory already contains LLVM (try both with/without Release subdirectory)
+  set(_mtrt_llvm_config_path "${_mtrt_llvm_extract_dir}/Release/lib/cmake/llvm/LLVMConfig.cmake")
+  set(_mtrt_mlir_config_path "${_mtrt_llvm_extract_dir}/Release/lib/cmake/mlir/MLIRConfig.cmake")
+  set(_mtrt_has_release_subdir TRUE)
+
+  if(NOT EXISTS "${_mtrt_llvm_config_path}" OR NOT EXISTS "${_mtrt_mlir_config_path}")
+    # Try without Release subdirectory
+    set(_mtrt_llvm_config_path_alt "${_mtrt_llvm_extract_dir}/lib/cmake/llvm/LLVMConfig.cmake")
+    set(_mtrt_mlir_config_path_alt "${_mtrt_llvm_extract_dir}/lib/cmake/mlir/MLIRConfig.cmake")
+    if(EXISTS "${_mtrt_llvm_config_path_alt}" AND EXISTS "${_mtrt_mlir_config_path_alt}")
+      set(_mtrt_llvm_config_path "${_mtrt_llvm_config_path_alt}")
+      set(_mtrt_mlir_config_path "${_mtrt_mlir_config_path_alt}")
+      set(_mtrt_has_release_subdir FALSE)
+    endif()
+  endif()
+
+  # If both config files exist, skip download and extraction
+  if(EXISTS "${_mtrt_llvm_config_path}" AND EXISTS "${_mtrt_mlir_config_path}")
+    message(STATUS "Pre-built LLVM package already exists at ${_mtrt_llvm_extract_dir}")
+    message(STATUS "  LLVMConfig.cmake found at: ${_mtrt_llvm_config_path}")
+    message(STATUS "  MLIRConfig.cmake found at: ${_mtrt_mlir_config_path}")
+    message(STATUS "Skipping download and extraction steps")
+  elseif(NOT EXISTS "${_mtrt_llvm_config_path}" OR NOT EXISTS "${_mtrt_mlir_config_path}")
+    message(STATUS "Pre-built LLVM package not found. Downloading from ${_mtrt_llvm_download_url}...")
+
+    # Create download directory
+    file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/_deps")
+
+    # Download the tarball
+    if(NOT EXISTS "${_mtrt_llvm_tarball}")
+      message(STATUS "Downloading ${_mtrt_llvm_package_name}...")
+      file(DOWNLOAD
+        "${_mtrt_llvm_download_url}"
+        "${_mtrt_llvm_tarball}"
+        SHOW_PROGRESS
+        STATUS _mtrt_download_status
+        TLS_VERIFY ON
+      )
+      list(GET _mtrt_download_status 0 _mtrt_download_status_code)
+      if(NOT _mtrt_download_status_code EQUAL 0)
+        list(GET _mtrt_download_status 1 _mtrt_download_error)
+        message(FATAL_ERROR "Failed to download pre-built LLVM package: ${_mtrt_download_error}")
+      endif()
+    endif()
+
+    # Create extract directory
+    file(MAKE_DIRECTORY "${_mtrt_llvm_extract_dir}")
+
+    # Extract the tarball directly to the install directory
+    message(STATUS "Extracting ${_mtrt_llvm_package_name} to ${_mtrt_llvm_extract_dir}...")
+    execute_process(
+      COMMAND ${CMAKE_COMMAND} -E tar xzf "${_mtrt_llvm_tarball}"
+      WORKING_DIRECTORY "${_mtrt_llvm_extract_dir}"
+      RESULT_VARIABLE _mtrt_extract_result
+      ERROR_VARIABLE _mtrt_extract_error
+    )
+    if(NOT _mtrt_extract_result EQUAL 0)
+      message(FATAL_ERROR "Failed to extract pre-built LLVM package: ${_mtrt_extract_error}")
+    endif()
+
+    # Re-check paths after extraction (structure may differ from initial check)
+    set(_mtrt_llvm_config_path "${_mtrt_llvm_extract_dir}/Release/lib/cmake/llvm/LLVMConfig.cmake")
+    set(_mtrt_mlir_config_path "${_mtrt_llvm_extract_dir}/Release/lib/cmake/mlir/MLIRConfig.cmake")
+    set(_mtrt_has_release_subdir TRUE)
+
+    # Verify extraction - check both possible paths (with/without Release subdirectory)
+    if(NOT EXISTS "${_mtrt_llvm_config_path}" OR NOT EXISTS "${_mtrt_mlir_config_path}")
+      # Try without Release subdirectory
+      set(_mtrt_llvm_config_path_alt "${_mtrt_llvm_extract_dir}/lib/cmake/llvm/LLVMConfig.cmake")
+      set(_mtrt_mlir_config_path_alt "${_mtrt_llvm_extract_dir}/lib/cmake/mlir/MLIRConfig.cmake")
+      if(EXISTS "${_mtrt_llvm_config_path_alt}" AND EXISTS "${_mtrt_mlir_config_path_alt}")
+        set(_mtrt_llvm_config_path "${_mtrt_llvm_config_path_alt}")
+        set(_mtrt_mlir_config_path "${_mtrt_mlir_config_path_alt}")
+        set(_mtrt_has_release_subdir FALSE)
+      else()
+        message(FATAL_ERROR "Extracted LLVM package is missing LLVMConfig.cmake or MLIRConfig.cmake.\n"
+          "Expected paths:\n"
+          "  With Release subdirectory: ${_mtrt_llvm_config_path} and ${_mtrt_mlir_config_path}\n"
+          "  Without Release subdirectory: ${_mtrt_llvm_config_path_alt} and ${_mtrt_mlir_config_path_alt}\n"
+          "Extract directory: ${_mtrt_llvm_extract_dir}")
+      endif()
+    endif()
+
+    message(STATUS "Successfully extracted pre-built LLVM package to ${_mtrt_llvm_extract_dir}")
+    message(STATUS "  LLVMConfig.cmake at: ${_mtrt_llvm_config_path}")
+    message(STATUS "  MLIRConfig.cmake at: ${_mtrt_mlir_config_path}")
+  endif()
+
+  # Set CMake variables for LLVM and MLIR directories based on detected structure
+  if(_mtrt_has_release_subdir)
+    set(MLIR_TRT_PREBUILT_LLVM_DIR "${_mtrt_llvm_extract_dir}/Release/lib/cmake/llvm"
+      CACHE PATH "Path to LLVM CMake config directory")
+    set(MLIR_TRT_PREBUILT_MLIR_DIR "${_mtrt_llvm_extract_dir}/Release/lib/cmake/mlir"
+      CACHE PATH "Path to MLIR CMake config directory")
+  else()
+    set(MLIR_TRT_PREBUILT_LLVM_DIR "${_mtrt_llvm_extract_dir}/lib/cmake/llvm"
+      CACHE PATH "Path to LLVM CMake config directory")
+    set(MLIR_TRT_PREBUILT_MLIR_DIR "${_mtrt_llvm_extract_dir}/lib/cmake/mlir"
+      CACHE PATH "Path to MLIR CMake config directory")
+  endif()
+
+  # Find LLVM and MLIR using the extracted package
+  find_path(LLVM_DIR NAMES LLVMConfig.cmake REQUIRED
+    HINTS "${MLIR_TRT_PREBUILT_LLVM_DIR}")
+  find_path(MLIR_DIR NAMES MLIRConfig.cmake REQUIRED
+    HINTS "${MLIR_TRT_PREBUILT_MLIR_DIR}")
+
+  # Find MLIR CMake modules (for AddMLIR.cmake)
+  # The pre-built package should have these in the install directory
+  if(_mtrt_has_release_subdir)
+    find_path(MLIR_CMAKE_DIR
+      NAMES AddMLIR.cmake
+      HINTS
+        "${_mtrt_llvm_extract_dir}/Release/share/mlir/cmake/modules"
+        "${_mtrt_llvm_extract_dir}/Release/lib/cmake/mlir"
+      REQUIRED
+    )
+  else()
+    find_path(MLIR_CMAKE_DIR
+      NAMES AddMLIR.cmake
+      HINTS
+        "${_mtrt_llvm_extract_dir}/share/mlir/cmake/modules"
+        "${_mtrt_llvm_extract_dir}/lib/cmake/mlir"
+      REQUIRED
+    )
+  endif()
+  list(APPEND CMAKE_MODULE_PATH "${MLIR_CMAKE_DIR}")
+
+  message(STATUS "Using pre-built LLVM from ${MLIR_TRT_PREBUILT_LLVM_DIR}")
+  message(STATUS "Using pre-built MLIR from ${MLIR_TRT_PREBUILT_MLIR_DIR}")
 else()
   nv_register_package(
     NAME LLVM
