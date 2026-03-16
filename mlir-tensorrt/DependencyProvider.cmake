@@ -157,27 +157,30 @@ if(MTRT_BUILD_LLVM_FROM_SOURCE AND NOT CPM_LLVM_SOURCE)
 endif()
 
 if(NOT MTRT_BUILD_LLVM_FROM_SOURCE)
-  # Register pre-built LLVM package for download and extraction by CPM
-  # CPM will download and extract to its cache directory (CPM_SOURCE_CACHE)
-  # LLVM_SOURCE_DIR will point to the extracted directory
-  nv_register_package(
-    NAME LLVM
-    EXCLUDE_FROM_ALL TRUE
-    PRE_ADD_HOOK [[
-      mtrt_get_prebuilt_llvm_url(llvm_url)
-      nv_update_append_pkg_args(URL "${llvm_url}")
-    ]]
-    POST_ADD_HOOK [[
-      find_path(LLVM_DIR NAMES LLVMConfig.cmake REQUIRED HINTS "${LLVM_SOURCE_DIR}/lib/cmake/llvm")
-      find_path(MLIR_DIR NAMES MLIRConfig.cmake REQUIRED HINTS "${LLVM_SOURCE_DIR}/lib/cmake/mlir")
-      find_path(MLIR_CMAKE_DIR
-        NAMES AddMLIR.cmake
-        HINTS
-          "${LLVM_SOURCE_DIR}/lib/cmake/mlir"
-        REQUIRED
+  # Prebuilt LLVM: use local install dir if set, otherwise download via CPM.
+  if(NOT MLIR_TRT_PREBUILT_LLVM_INSTALL_DIR)
+    # Register pre-built LLVM package for download and extraction by CPM
+    # CPM will download and extract to its cache directory (CPM_SOURCE_CACHE)
+    # LLVM_SOURCE_DIR will point to the extracted directory
+    nv_register_package(
+      NAME LLVM
+      EXCLUDE_FROM_ALL TRUE
+      PRE_ADD_HOOK [[
+        mtrt_get_prebuilt_llvm_url(llvm_url)
+        nv_update_append_pkg_args(URL "${llvm_url}")
+      ]]
+      POST_ADD_HOOK [[
+        find_path(LLVM_DIR NAMES LLVMConfig.cmake REQUIRED HINTS "${LLVM_SOURCE_DIR}/lib/cmake/llvm")
+        find_path(MLIR_DIR NAMES MLIRConfig.cmake REQUIRED HINTS "${LLVM_SOURCE_DIR}/lib/cmake/mlir")
+        find_path(MLIR_CMAKE_DIR
+          NAMES AddMLIR.cmake
+          HINTS
+            "${LLVM_SOURCE_DIR}/lib/cmake/mlir"
+          REQUIRED
+      )
+      ]]
     )
-    ]]
-  )
+  endif()
 else()
   nv_register_package(
     NAME LLVM
@@ -490,9 +493,21 @@ macro(mtrt_provide_dependency method dep_name)
   # so that LLVM imported targets exist; MLIRConfig.cmake depends on them.
   elseif("${dep_name}" MATCHES "^(LLVM)$")
     list(APPEND mycomp_provider_args ${method} ${dep_name})
-    nv_add_package(${dep_name})
-    list(POP_BACK mycomp_provider_args dep_name method)
-    find_package(LLVM ${ARGN} BYPASS_PROVIDER)
+    if(MLIR_TRT_PREBUILT_LLVM_INSTALL_DIR)
+      # Use pre-built LLVM from local install dir (no CPM download).
+      set(LLVM_DIR "${MLIR_TRT_PREBUILT_LLVM_INSTALL_DIR}/lib/cmake/llvm"
+        CACHE PATH "Path to LLVM CMake config directory" FORCE)
+      set(MLIR_DIR "${MLIR_TRT_PREBUILT_LLVM_INSTALL_DIR}/lib/cmake/mlir"
+        CACHE PATH "Path to MLIR CMake config directory" FORCE)
+      find_path(MLIR_CMAKE_DIR NAMES AddMLIR.cmake REQUIRED
+        HINTS "${MLIR_TRT_PREBUILT_LLVM_INSTALL_DIR}/lib/cmake/mlir")
+      list(POP_BACK mycomp_provider_args dep_name method)
+      find_package(LLVM ${ARGN} BYPASS_PROVIDER)
+    else()
+      nv_add_package(${dep_name})
+      list(POP_BACK mycomp_provider_args dep_name method)
+      find_package(LLVM ${ARGN} BYPASS_PROVIDER)
+    endif()
   # For all other packages, the logic is the same.
   elseif("${dep_name}" IN_LIST NV_CPM_PACKAGES)
     list(APPEND mycomp_provider_args ${method} ${dep_name})
