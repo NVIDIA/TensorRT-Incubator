@@ -129,58 +129,6 @@ function(mtrt_get_prebuilt_llvm_url output_var)
 endfunction()
 
 #-------------------------------------------------------------------------------------
-# Function to set up pre-built LLVM paths and find packages
-#-------------------------------------------------------------------------------------
-function(mtrt_setup_prebuilt_llvm extract_dir)
-  set(_mtrt_llvm_config_path "${extract_dir}/Release/lib/cmake/llvm/LLVMConfig.cmake")
-  set(_mtrt_mlir_config_path "${extract_dir}/Release/lib/cmake/mlir/MLIRConfig.cmake")
-
-  # Verify both config files exist
-  if(NOT EXISTS "${_mtrt_llvm_config_path}" OR NOT EXISTS "${_mtrt_mlir_config_path}")
-    message(FATAL_ERROR "Pre-built LLVM package is missing LLVMConfig.cmake or MLIRConfig.cmake.\n"
-      "Expected paths:\n"
-      "  ${_mtrt_llvm_config_path}\n"
-      "  ${_mtrt_mlir_config_path}\n"
-      "Extract directory: ${extract_dir}")
-  endif()
-
-  # Set CMake variables for LLVM and MLIR directories
-  # These will be used by find_package(LLVM) and find_package(MLIR) in CMakeLists.txt
-  set(_mtrt_llvm_dir "${extract_dir}/Release/lib/cmake/llvm")
-  set(_mtrt_mlir_dir "${extract_dir}/Release/lib/cmake/mlir")
-
-  set(LLVM_DIR "${_mtrt_llvm_dir}" CACHE PATH "Path to LLVM CMake config directory" FORCE)
-  set(MLIR_DIR "${_mtrt_mlir_dir}" CACHE PATH "Path to MLIR CMake config directory" FORCE)
-
-  set(MLIR_TRT_PREBUILT_LLVM_DIR "${_mtrt_llvm_dir}"
-    CACHE PATH "Path to LLVM CMake config directory" PARENT_SCOPE)
-  set(MLIR_TRT_PREBUILT_MLIR_DIR "${_mtrt_mlir_dir}"
-    CACHE PATH "Path to MLIR CMake config directory" PARENT_SCOPE)
-
-  # Find MLIR CMake modules (for AddMLIR.cmake) and add to CMAKE_MODULE_PATH
-  # This is needed so that include(AddMLIR) can be found later
-  find_path(MLIR_CMAKE_DIR
-    NAMES AddMLIR.cmake
-    HINTS
-      "${extract_dir}/Release/share/mlir/cmake/modules"
-      "${extract_dir}/Release/lib/cmake/mlir"
-    REQUIRED
-  )
-
-  # Append to CMAKE_MODULE_PATH in parent scope
-  # CMAKE_MODULE_PATH in function scope is a copy, so we append and set back to parent
-  if(CMAKE_MODULE_PATH)
-    list(APPEND CMAKE_MODULE_PATH "${MLIR_CMAKE_DIR}")
-  else()
-    set(CMAKE_MODULE_PATH "${MLIR_CMAKE_DIR}")
-  endif()
-  set(CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH}" PARENT_SCOPE)
-
-  message(STATUS "Using pre-built LLVM from ${_mtrt_llvm_dir}")
-  message(STATUS "Using pre-built MLIR from ${_mtrt_mlir_dir}")
-endfunction()
-
-#-------------------------------------------------------------------------------------
 # Declare the LLVM dependency.
 #-------------------------------------------------------------------------------------
 set(MTRT_BUILD_LLVM_FROM_SOURCE ON)
@@ -209,82 +157,27 @@ if(MTRT_BUILD_LLVM_FROM_SOURCE AND NOT CPM_LLVM_SOURCE)
 endif()
 
 if(NOT MTRT_BUILD_LLVM_FROM_SOURCE)
-  # Set default install directory if not provided or empty
-  if(NOT DEFINED MLIR_TRT_PREBUILT_LLVM_INSTALL_DIR)
-    message(STATUS "MLIR_TRT_PREBUILT_LLVM_INSTALL_DIR is not defined, using default")
-    set(MLIR_TRT_PREBUILT_LLVM_INSTALL_DIR
-      "${MTRT_TOP_LEVEL_DIR}/build_tools/mlir-tensorrt-llvm-distribution-builder/install"
-      CACHE PATH "Directory where pre-built LLVM package will be extracted")
-  elseif("${MLIR_TRT_PREBUILT_LLVM_INSTALL_DIR}" STREQUAL "")
-    message(STATUS "MLIR_TRT_PREBUILT_LLVM_INSTALL_DIR is empty, using default")
-    set(MLIR_TRT_PREBUILT_LLVM_INSTALL_DIR
-      "${MTRT_TOP_LEVEL_DIR}/build_tools/mlir-tensorrt-llvm-distribution-builder/install"
-      CACHE PATH "Directory where pre-built LLVM package will be extracted" FORCE)
-  else()
-    message(STATUS "MLIR_TRT_PREBUILT_LLVM_INSTALL_DIR is defined: ${MLIR_TRT_PREBUILT_LLVM_INSTALL_DIR}")
-  endif()
-
-  # Check if install directory already contains LLVM package
-  set(_mtrt_llvm_extract_dir "${MLIR_TRT_PREBUILT_LLVM_INSTALL_DIR}")
-  set(_mtrt_llvm_config_path "${_mtrt_llvm_extract_dir}/Release/lib/cmake/llvm/LLVMConfig.cmake")
-  set(_mtrt_mlir_config_path "${_mtrt_llvm_extract_dir}/Release/lib/cmake/mlir/MLIRConfig.cmake")
-
-  # If package already exists, skip download and extraction, just set up paths
-  if(EXISTS "${_mtrt_llvm_config_path}" AND EXISTS "${_mtrt_mlir_config_path}")
-    message(STATUS "Pre-built LLVM package already exists at ${_mtrt_llvm_extract_dir}")
-    message(STATUS "  LLVMConfig.cmake found at: ${_mtrt_llvm_config_path}")
-    message(STATUS "  MLIRConfig.cmake found at: ${_mtrt_mlir_config_path}")
-    message(STATUS "Skipping download and extraction")
-
-    # Use the function to set up paths
-    mtrt_setup_prebuilt_llvm("${_mtrt_llvm_extract_dir}")
-  else()
-    # Package doesn't exist, register it for download and extraction
-    nv_register_package(
+  # Register pre-built LLVM package for download and extraction by CPM
+  # CPM will download and extract to its cache directory (CPM_SOURCE_CACHE)
+  # LLVM_SOURCE_DIR will point to the extracted directory
+  nv_register_package(
     NAME LLVM
-    DOWNLOAD_ONLY TRUE
     EXCLUDE_FROM_ALL TRUE
     PRE_ADD_HOOK [[
       mtrt_get_prebuilt_llvm_url(llvm_url)
       nv_update_append_pkg_args(URL "${llvm_url}")
     ]]
     POST_ADD_HOOK [[
-      # Extract the tarball directly to the install directory
-      # CPM with DOWNLOAD_ONLY downloads the file, LLVM_SOURCE_DIR points to the downloaded file or directory
-      set(_mtrt_llvm_extract_dir "${MLIR_TRT_PREBUILT_LLVM_INSTALL_DIR}")
-      message(STATUS "Extracting pre-built LLVM package to ${_mtrt_llvm_extract_dir}...")
-      file(MAKE_DIRECTORY "${_mtrt_llvm_extract_dir}")
-
-      # Find the downloaded tarball (CPM might store it in SOURCE_DIR or we need to locate it)
-      if(EXISTS "${LLVM_SOURCE_DIR}" AND NOT IS_DIRECTORY "${LLVM_SOURCE_DIR}")
-        set(_mtrt_tarball_path "${LLVM_SOURCE_DIR}")
-      else()
-        # Try to find the tarball in the source directory
-        file(GLOB _mtrt_tarball_files "${LLVM_SOURCE_DIR}/*.tar.gz")
-        if(_mtrt_tarball_files)
-          list(GET _mtrt_tarball_files 0 _mtrt_tarball_path)
-        else()
-          message(FATAL_ERROR "Could not find downloaded LLVM tarball in ${LLVM_SOURCE_DIR}")
-        endif()
-      endif()
-
-      execute_process(
-        COMMAND ${CMAKE_COMMAND} -E tar xzf "${_mtrt_tarball_path}"
-        WORKING_DIRECTORY "${_mtrt_llvm_extract_dir}"
-        RESULT_VARIABLE _mtrt_extract_result
-        ERROR_VARIABLE _mtrt_extract_error
-      )
-      if(NOT _mtrt_extract_result EQUAL 0)
-        message(FATAL_ERROR "Failed to extract pre-built LLVM package: ${_mtrt_extract_error}")
-      endif()
-
-      message(STATUS "Successfully extracted pre-built LLVM package to ${_mtrt_llvm_extract_dir}")
-
-      # Use the function to set up paths
-      mtrt_setup_prebuilt_llvm("${_mtrt_llvm_extract_dir}")
-    ]]
+      find_path(LLVM_DIR NAMES LLVMConfig.cmake REQUIRED HINTS "${LLVM_SOURCE_DIR}/lib/cmake/llvm")
+      find_path(MLIR_DIR NAMES MLIRConfig.cmake REQUIRED HINTS "${LLVM_SOURCE_DIR}/lib/cmake/mlir")
+      find_path(MLIR_CMAKE_DIR
+        NAMES AddMLIR.cmake
+        HINTS
+          "${LLVM_SOURCE_DIR}/lib/cmake/mlir"
+        REQUIRED
     )
-  endif()
+    ]]
+  )
 else()
   nv_register_package(
     NAME LLVM
@@ -593,9 +486,9 @@ macro(mtrt_provide_dependency method dep_name)
   elseif("${dep_name}" STREQUAL "TVMFFI")
     mtrt_find_tvm_ffi()
     set("${dep_name}_FOUND" TRUE)
-  # Handle LLVM.
-  elseif(MTRT_BUILD_LLVM_FROM_SOURCE AND
-         "${dep_name}" MATCHES "^(LLVM)$")
+  # Handle LLVM (both prebuilt and from-source). We must load LLVMConfig.cmake
+  # so that LLVM imported targets exist; MLIRConfig.cmake depends on them.
+  elseif("${dep_name}" MATCHES "^(LLVM)$")
     list(APPEND mycomp_provider_args ${method} ${dep_name})
     nv_add_package(${dep_name})
     list(POP_BACK mycomp_provider_args dep_name method)
