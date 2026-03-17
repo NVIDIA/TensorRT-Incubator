@@ -292,6 +292,72 @@ struct ShapeAssertionPattern
     return success();
   }
 };
+
+struct NvtxPushPattern : public OpRewritePattern<stablehlo::CustomCallOp> {
+  using OpRewritePattern::OpRewritePattern;
+  LogicalResult matchAndRewrite(stablehlo::CustomCallOp op,
+                                PatternRewriter &rewriter) const override {
+    if (op.getCallTargetName() != "nvtx.push")
+      return failure();
+    if (op.getResults().size() < 2)
+      return rewriter.notifyMatchFailure(
+          op, "nvtx.push expected at least 2 results");
+    if (!op->getAttrOfType<StringAttr>("name") ||
+        !op->getAttrOfType<IntegerAttr>("color"))
+      return rewriter.notifyMatchFailure(
+          op, "nvtx.push requires 'name' (StringAttr) and 'color' (I32Attr)");
+    // The custom_call returns N tensors + tensor<i64> (0-d) for the range
+    // correlation ID. Verify the last result is rank-0 i64.
+    auto tensorResultTypes = llvm::to_vector(op->getResultTypes());
+    auto lastResultType = cast<RankedTensorType>(tensorResultTypes.back());
+    if (lastResultType.getRank() != 0 ||
+        !lastResultType.getElementType().isInteger(64))
+      return rewriter.notifyMatchFailure(op,
+                                         "nvtx.push expected last result i.e. "
+                                         "range_id to be a rank-0 i64 tensor");
+    // plan.nvtx_push takes only the N tensor types; range_id is a bare i64.
+    tensorResultTypes.pop_back();
+    auto pushOp = rewriter.create<plan::NVTXPushOp>(
+        op.getLoc(), tensorResultTypes, rewriter.getI64Type(), op.getInputs(),
+        op->getAttrOfType<StringAttr>("name"),
+        op->getAttrOfType<IntegerAttr>("color"));
+    SmallVector<Value> replacements(pushOp.getResults().begin(),
+                                    pushOp.getResults().end());
+    Value wrappedRangeId = rewriter.create<tensor::FromElementsOp>(
+        op.getLoc(), RankedTensorType::get({}, rewriter.getI64Type()),
+        pushOp.getRangeId());
+    replacements.push_back(wrappedRangeId);
+    rewriter.replaceOp(op, replacements);
+    return success();
+  }
+};
+
+struct NvtxPopPattern : public OpRewritePattern<stablehlo::CustomCallOp> {
+  using OpRewritePattern::OpRewritePattern;
+  LogicalResult matchAndRewrite(stablehlo::CustomCallOp op,
+                                PatternRewriter &rewriter) const override {
+    if (op.getCallTargetName() != "nvtx.pop")
+      return failure();
+    // Need at least 1 tensor + 1 tensor<i64> (range_id) as operands.
+    if (op.getInputs().size() < 2)
+      return rewriter.notifyMatchFailure(op,
+                                         "nvtx.pop expected at least 2 inputs");
+    Value rangeIdTensor = op.getInputs().back();
+    auto rangeIdTensorType = cast<RankedTensorType>(rangeIdTensor.getType());
+    if (rangeIdTensorType.getRank() != 0 ||
+        !rangeIdTensorType.getElementType().isInteger(64))
+      return rewriter.notifyMatchFailure(op,
+                                         "nvtx.pop expected last input i.e. "
+                                         "range_id to be a rank-0 i64 tensor");
+    Value rangeId = rewriter.create<tensor::ExtractOp>(
+        op.getLoc(), rangeIdTensor, ValueRange{});
+    auto tensorInputs = op.getInputs().drop_back();
+    auto popOp = rewriter.create<plan::NVTXPopOp>(
+        op.getLoc(), op->getResultTypes(), tensorInputs, rangeId);
+    rewriter.replaceOp(op, popOp.getResults());
+    return success();
+  }
+};
 } // namespace
 
 static auto getIntegerAttrOrDefault(Operation *op, StringRef name,
@@ -312,7 +378,8 @@ struct ConvertStablehloToPlanPass
   LogicalResult initialize(MLIRContext *context) override {
     patterns = std::make_shared<FrozenRewritePatternSet>([&] {
       RewritePatternSet patterns_(context);
-      patterns_.add<OptimizationBarrierPattern, ShapeAssertionPattern>(context);
+      patterns_.add<OptimizationBarrierPattern, ShapeAssertionPattern,
+                    NvtxPushPattern, NvtxPopPattern>(context);
       return patterns_;
     }());
     return success();
@@ -324,6 +391,23 @@ struct ConvertStablehloToPlanPass
       if (failed(checkAndUpdateFunction(func)))
         return signalPassFailure();
       walkAndApplyPatterns(func, *patterns);
+
+      // Check for mismatched NVTX markers.
+      int pushCount = 0, popCount = 0;
+      func.walk([&](Operation *op) {
+        if (isa<plan::NVTXPushOp>(op))
+          pushCount++;
+        if (isa<plan::NVTXPopOp>(op))
+          popCount++;
+      });
+      if (pushCount != popCount) {
+        func.emitError() << "mismatched NVTX markers: " << pushCount
+                         << " nvtx_push but " << popCount << " nvtx_pop. "
+                         << "Every mtrt_nvtx_push must have a matching "
+                         << "mtrt_nvtx_pop. Use mtrt_nvtx_annotate decorator "
+                         << "to guarantee pairing.";
+        return signalPassFailure();
+      }
 
       auto walkResult =
           func.walk<WalkOrder::PostOrder>([&](stablehlo::CustomCallOp op) {

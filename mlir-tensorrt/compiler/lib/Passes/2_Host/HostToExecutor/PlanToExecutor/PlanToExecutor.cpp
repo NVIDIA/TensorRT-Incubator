@@ -40,6 +40,7 @@ namespace mtrt {
 } // namespace mtrt
 
 using namespace mlir;
+using namespace mlir::executor;
 
 namespace {
 
@@ -135,6 +136,64 @@ struct ConstantOpConverter : public OpConversionPattern<arith::ConstantOp> {
     }
 
     rewriter.replaceOpWithNewOp<arith::ConstantOp>(op, resultType, constVal);
+    return success();
+  }
+};
+
+struct NvtxPushOpConversion : public OpConversionPattern<plan::NVTXPushOp> {
+  using OpConversionPattern::OpConversionPattern;
+  LogicalResult
+  matchAndRewrite(plan::NVTXPushOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    Location loc = op.getLoc();
+
+    // Create the name string literal and color constant
+    Value name = rewriter.create<executor::StrLiteralOp>(loc, op.getName());
+    Value color = rewriter.create<executor::ConstantOp>(
+        loc, rewriter.getI32IntegerAttr(op.getColor()));
+
+    // Declare __nvtx_push(str, i32) -> i64 (returns range correlation ID)
+    auto parentModule = op->getParentOfType<ModuleOp>();
+    auto nvtxPushFunc = getOrInsertFuncDeclaration(
+        rewriter, loc, parentModule, "__nvtx_push",
+        ExecutorFunctionType::get(
+            rewriter.getContext(), {name.getType(), color.getType()},
+            {rewriter.getI64Type()}, rewriter.getUnitAttr()));
+    auto callOp = rewriter.create<executor::CallOp>(
+        loc, TypeRange{rewriter.getI64Type()}, nvtxPushFunc.getLeafReference(),
+        ValueRange{name, color});
+    Value rangeId = callOp.getResult(0);
+
+    // Forward tensor/memref operands + replace range_id result
+    SmallVector<Value> replacements(adaptor.getInputs());
+    replacements.push_back(rangeId);
+    rewriter.replaceOp(op, replacements);
+    return success();
+  }
+};
+
+struct NvtxPopOpConversion : public OpConversionPattern<plan::NVTXPopOp> {
+  using OpConversionPattern::OpConversionPattern;
+  LogicalResult
+  matchAndRewrite(plan::NVTXPopOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    Location loc = op.getLoc();
+
+    // Get the range_id from adapted operands
+    Value rangeId = adaptor.getRangeId();
+
+    // Declare __nvtx_pop(i64) -> () (takes range correlation ID)
+    auto parentModule = op->getParentOfType<ModuleOp>();
+    auto nvtxPopFunc = getOrInsertFuncDeclaration(
+        rewriter, loc, parentModule, "__nvtx_pop",
+        ExecutorFunctionType::get(rewriter.getContext(),
+                                  {rewriter.getI64Type()}, {},
+                                  rewriter.getUnitAttr()));
+    rewriter.create<executor::CallOp>(
+        loc, TypeRange{}, nvtxPopFunc.getLeafReference(), ValueRange{rangeId});
+
+    // Forward tensor/memref operands (exclude range_id from results)
+    rewriter.replaceOp(op, adaptor.getInputs());
     return success();
   }
 };
@@ -372,8 +431,9 @@ class PlanToExecutorPass
 
     RewritePatternSet patterns(&getContext());
     patterns.add<GenericStructuralConverter, ConstantOpConverter,
-                 MemRefGlobalConverterPattern, ExecutorGlobalConverterPattern>(
-        typeConverter, &getContext());
+                 MemRefGlobalConverterPattern, ExecutorGlobalConverterPattern,
+                 NvtxPushOpConversion, NvtxPopOpConversion>(typeConverter,
+                                                            &getContext());
     populateFunctionOpInterfaceTypeConversionPattern<func::FuncOp>(
         patterns, typeConverter);
     populateReturnOpTypeConversionPattern(patterns, typeConverter);

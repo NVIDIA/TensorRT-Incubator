@@ -11,6 +11,10 @@ __all__ = [
     "mtrt_quantize",
     "mtrt_dequantize",
     "mtrt_dynamic_quantize",
+    "mtrt_nvtx_push",
+    "mtrt_nvtx_pop",
+    "mtrt_nvtx_annotate",
+    "NVTX_COLOR",
     "initialize",
     "configure_jax_backend",
 ]
