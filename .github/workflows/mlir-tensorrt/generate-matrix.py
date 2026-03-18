@@ -53,7 +53,7 @@ GH_RUNNER_DICT = {
 
 CMAKE_PRESET_DICT = {
     "nightly": "github-cicd",
-    "test": "github-cicd",
+    "test": "github-cicd-prebuilt-llvm",
     "release": "distribution-wheels",
     "pypi-release": "distribution-wheels",
 }

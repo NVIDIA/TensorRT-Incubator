@@ -178,9 +178,7 @@ jobs:
           export CMAKE_PRESET=github-cicd-prebuilt-llvm
           export CCACHE_DIR=${{ github.workspace }}/mlir-tensorrt/ccache
           export CPM_SOURCE_CACHE=${{ github.workspace }}/mlir-tensorrt/.cache.cpm
-          export CPM_LLVM_SOURCE=${{ env.LLVM_TARGET_DIR }}
-          export MLIR_TRT_PREBUILT_LLVM_DIR=${{ env.LLVM_INSTALL_DIR }}/Release/lib/cmake/llvm
-          export MLIR_TRT_PREBUILT_MLIR_DIR=${{ env.LLVM_INSTALL_DIR }}/Release/lib/cmake/mlir
+          export MLIR_TRT_PREBUILT_LLVM_INSTALL_DIR=${{ env.LLVM_INSTALL_DIR }}
           mkdir -p ${CCACHE_DIR} ${CPM_SOURCE_CACHE}
           ./build_tools/scripts/cicd-build.sh
 

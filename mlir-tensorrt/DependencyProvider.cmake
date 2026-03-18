@@ -109,6 +109,26 @@ nv_register_package(
 )
 
 #-------------------------------------------------------------------------------------
+# Function to get pre-built LLVM package URL
+#-------------------------------------------------------------------------------------
+function(mtrt_get_prebuilt_llvm_url output_var)
+  # Determine architecture for pre-built package
+  if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|amd64|AMD64")
+    set(_arch "x86_64")
+  elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64|ARM64")
+    set(_arch "aarch64")
+  else()
+    message(FATAL_ERROR "Unsupported architecture for pre-built LLVM: ${CMAKE_SYSTEM_PROCESSOR}. Supported: x86_64, aarch64")
+  endif()
+
+  set(_package_name "llvm-${_arch}.tar.gz")
+  set(_release_tag "llvm-packages-${_arch}-${MLIR_TRT_LLVM_COMMIT}")
+  set(_url "https://github.com/NVIDIA/TensorRT-Incubator/releases/download/${_release_tag}/${_package_name}")
+
+  set(${output_var} "${_url}" PARENT_SCOPE)
+endfunction()
+
+#-------------------------------------------------------------------------------------
 # Declare the LLVM dependency.
 #-------------------------------------------------------------------------------------
 set(MTRT_BUILD_LLVM_FROM_SOURCE ON)
@@ -121,10 +141,11 @@ set(MLIR_TRT_LLVM_COMMIT "d6e2143b064e62458eb210394e623bc0abeb266b")
 set(mlir_patch_dir "${CMAKE_CURRENT_LIST_DIR}/build_tools/patches/mlir")
 set(MLIR_TRT_LLVM_PATCHES )
 
-# We only populate patches if the user is not using a custom local LLVM-Project
-# clone. Our build instructions say that user is responsible for patches when
-# using a local clone.
-if(NOT CPM_LLVM_SOURCE)
+# We only populate patches if:
+# 1. Building LLVM from source (not using pre-built package)
+# 2. Not using a custom local LLVM-Project clone
+# Our build instructions say that user is responsible for patches when using a local clone.
+if(MTRT_BUILD_LLVM_FROM_SOURCE AND NOT CPM_LLVM_SOURCE)
   set(MLIR_TRT_LLVM_PATCHES
     "${mlir_patch_dir}/0001-mlir-linalg-don-t-rewrite-DPS-init-operands-in-linal.patch"
     "${mlir_patch_dir}/0002-mlir-emitc-Fix-emitc.for-verification-crash-163754.patch"
@@ -136,7 +157,30 @@ if(NOT CPM_LLVM_SOURCE)
 endif()
 
 if(NOT MTRT_BUILD_LLVM_FROM_SOURCE)
-  message(WARNING "Using 'find_package' to locate pre-built LLVM. Please set MLIR_DIR to the directory containing MLIRConfig.cmake")
+  # Prebuilt LLVM: use local install dir if set, otherwise download via CPM.
+  if(NOT MLIR_TRT_PREBUILT_LLVM_INSTALL_DIR)
+    # Register pre-built LLVM package for download and extraction by CPM
+    # CPM will download and extract to its cache directory (CPM_SOURCE_CACHE)
+    # LLVM_SOURCE_DIR will point to the extracted directory
+    nv_register_package(
+      NAME LLVM
+      EXCLUDE_FROM_ALL TRUE
+      PRE_ADD_HOOK [[
+        mtrt_get_prebuilt_llvm_url(llvm_url)
+        nv_update_append_pkg_args(URL "${llvm_url}")
+      ]]
+      POST_ADD_HOOK [[
+        find_path(LLVM_DIR NAMES LLVMConfig.cmake REQUIRED HINTS "${LLVM_SOURCE_DIR}/lib/cmake/llvm")
+        find_path(MLIR_DIR NAMES MLIRConfig.cmake REQUIRED HINTS "${LLVM_SOURCE_DIR}/lib/cmake/mlir")
+        find_path(MLIR_CMAKE_DIR
+          NAMES AddMLIR.cmake
+          HINTS
+            "${LLVM_SOURCE_DIR}/lib/cmake/mlir"
+          REQUIRED
+      )
+      ]]
+    )
+  endif()
 else()
   nv_register_package(
     NAME LLVM
@@ -445,13 +489,25 @@ macro(mtrt_provide_dependency method dep_name)
   elseif("${dep_name}" STREQUAL "TVMFFI")
     mtrt_find_tvm_ffi()
     set("${dep_name}_FOUND" TRUE)
-  # Handle LLVM.
-  elseif(MTRT_BUILD_LLVM_FROM_SOURCE AND
-         "${dep_name}" MATCHES "^(LLVM)$")
+  # Handle LLVM (both prebuilt and from-source). We must load LLVMConfig.cmake
+  # so that LLVM imported targets exist; MLIRConfig.cmake depends on them.
+  elseif("${dep_name}" MATCHES "^(LLVM)$")
     list(APPEND mycomp_provider_args ${method} ${dep_name})
-    nv_add_package(${dep_name})
-    list(POP_BACK mycomp_provider_args dep_name method)
-    find_package(LLVM ${ARGN} BYPASS_PROVIDER)
+    if(MLIR_TRT_PREBUILT_LLVM_INSTALL_DIR)
+      # Use pre-built LLVM from local install dir (no CPM download).
+      set(LLVM_DIR "${MLIR_TRT_PREBUILT_LLVM_INSTALL_DIR}/lib/cmake/llvm"
+        CACHE PATH "Path to LLVM CMake config directory" FORCE)
+      set(MLIR_DIR "${MLIR_TRT_PREBUILT_LLVM_INSTALL_DIR}/lib/cmake/mlir"
+        CACHE PATH "Path to MLIR CMake config directory" FORCE)
+      find_path(MLIR_CMAKE_DIR NAMES AddMLIR.cmake REQUIRED
+        HINTS "${MLIR_TRT_PREBUILT_LLVM_INSTALL_DIR}/lib/cmake/mlir")
+      list(POP_BACK mycomp_provider_args dep_name method)
+      find_package(LLVM ${ARGN} BYPASS_PROVIDER)
+    else()
+      nv_add_package(${dep_name})
+      list(POP_BACK mycomp_provider_args dep_name method)
+      find_package(LLVM ${ARGN} BYPASS_PROVIDER)
+    endif()
   # For all other packages, the logic is the same.
   elseif("${dep_name}" IN_LIST NV_CPM_PACKAGES)
     list(APPEND mycomp_provider_args ${method} ${dep_name})
