@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,6 +17,7 @@
 
 
 import nvtripy as tp
+from nvtripy.trace.ops.shape import GetDimensionSize, Shape
 
 
 class TestDimensionSize:
@@ -50,3 +51,18 @@ class TestDimensionSize:
         s2 = a.shape[1]
         s = s1 + s2
         assert isinstance(s, tp.DimensionSize)
+
+    def test_eval_rebuilds_missing_frontend_tensor_for_shape_input(self):
+        a = tp.iota((3, 4))
+        s = a.shape[0]
+
+        producer = s.trace_tensor.producer
+        assert isinstance(producer, GetDimensionSize)
+        assert isinstance(producer.inputs[0].producer, Shape)
+
+        shape_tensor = producer.inputs[0]
+        shape_tensor.frontend_tensor = None
+
+        s.eval()
+
+        assert int(s) == 3

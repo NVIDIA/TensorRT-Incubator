@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,8 +15,9 @@
 # limitations under the License.
 #
 
+import weakref
 from dataclasses import dataclass, field
-from typing import Tuple, Optional
+from typing import Optional, Tuple, Union
 
 from nvtripy import constants
 from nvtripy.backend.mlir import utils as mlir_utils
@@ -44,7 +45,9 @@ class TraceTensor:
     # This is useful in the compiler to disallow evaluation during tracing.
     eval_stack_info: Optional[StackInfo] = field(default=None, init=False)
 
-    frontend_tensor: "nvtripy.Tensor" = field(default=None, init=False)
+    # Usually this is a strong reference to the frontend Tensor, but executable outputs can replace it
+    # with a weakref so the trace objects do not outlive the user-visible tensor.
+    _frontend_tensor: Union["nvtripy.Tensor", weakref.ReferenceType, None] = field(default=None, init=False, repr=False)
 
     def type_descriptor(self) -> str:
         type_elements = [str(s) if s != constants.DYNAMIC_DIM else "?" for s in self.shape]
@@ -68,6 +71,21 @@ class TraceTensor:
     @rank.setter
     def rank(self, new_rank):
         self.shape = (constants.DYNAMIC_DIM,) * new_rank
+
+    @property
+    def frontend_tensor(self):
+        if isinstance(self._frontend_tensor, weakref.ReferenceType):
+            return self._frontend_tensor()
+        return self._frontend_tensor
+
+    @frontend_tensor.setter
+    def frontend_tensor(self, frontend_tensor):
+        self._frontend_tensor = frontend_tensor
+
+    def weaken_frontend_tensor_reference(self):
+        frontend_tensor = self.frontend_tensor
+        # Preserve access to the wrapper while it is still alive, without keeping it alive ourselves.
+        self._frontend_tensor = None if frontend_tensor is None else weakref.ref(frontend_tensor)
 
     def to_mlir(self):
         return mlir_utils.make_mlir_tensor(self.dtype, self.shape, self.rank)

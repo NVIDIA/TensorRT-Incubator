@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -24,7 +24,6 @@ import nvtripy.frontend.ops
 from nvtripy import export, utils
 from nvtripy.backend.mlir import memref
 from nvtripy.common import datatype
-from nvtripy.common import device as tp_device
 from nvtripy.common.exception import raise_error, str_from_stack_info
 from nvtripy.frontend.ops._registry import TENSOR_METHOD_REGISTRY
 from nvtripy.logging.logger import logger
@@ -118,10 +117,16 @@ class Tensor(metaclass=TensorMeta):
 
     # Left undocumented because these should only be used internally.
     @classmethod
-    def from_trace_tensor(cls, trace_tensor, include_code_index=2):
+    def from_trace_tensor(cls, trace_tensor, include_code_index=2, preserve_existing_stack_info=False):
         instance = cls.__new__(cls)
         instance.trace_tensor = trace_tensor
-        instance.stack_info = utils.stack_info.get_stack_info(include_code_index=include_code_index)
+        if preserve_existing_stack_info:
+            # `include_code_index` is only relevant when we are recording a new wrapper location.
+            instance._stack_info = trace_tensor.stack_info
+        else:
+            # This records where the frontend wrapper was created, which may differ from where the traced
+            # value originated. That keeps error reporting anchored to the user-visible Tensor object.
+            instance.stack_info = utils.stack_info.get_stack_info(include_code_index=include_code_index)
         return instance
 
     def __getattr__(self, name: str):
@@ -138,6 +143,8 @@ class Tensor(metaclass=TensorMeta):
     @trace_tensor.setter
     def trace_tensor(self, new_trace_tensor):
         self._trace_tensor = new_trace_tensor
+        # Trace tensors keep a back-reference so diagnostics can recover the corresponding frontend
+        # object; executable outputs may later downgrade this to a weakref to avoid ownership cycles.
         self._trace_tensor.frontend_tensor = self
 
     @property
@@ -206,9 +213,9 @@ class Tensor(metaclass=TensorMeta):
             return self
 
         from nvtripy.backend.api.executable import Executable
+        from nvtripy.backend.api.input_info import InputInfo
         from nvtripy.backend.mlir.compiler import Compiler
         from nvtripy.trace.trace import Trace
-        from nvtripy.backend.api.input_info import InputInfo
 
         trace = Trace([self.trace_tensor])
 
@@ -217,7 +224,10 @@ class Tensor(metaclass=TensorMeta):
         inputs = []
         for op in trace.ops:
             if isinstance(op, Constant) and op.device.kind == "gpu":
-                inputs.append(op.outputs[0].frontend_tensor)
+                input_tensor = op.outputs[0].frontend_tensor
+                if input_tensor is None:
+                    input_tensor = Tensor.from_trace_tensor(op.outputs[0], preserve_existing_stack_info=True)
+                inputs.append(input_tensor)
 
         if inputs:
             trace.trace([self.trace_tensor], [inp.trace_tensor for inp in inputs])

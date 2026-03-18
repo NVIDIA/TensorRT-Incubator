@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -137,6 +137,31 @@ class TestTensor:
         # Constant tensors should have no inputs since we don't want to trace back from them.
         assert c.trace_tensor.producer.inputs == []
         assert (cp.from_dlpack(c.trace_tensor.producer.data) == cp.array([3], dtype=np.float32)).all()
+
+    def test_eval_with_missing_executable_output_frontend_tensor(self):
+        compiled_add = tp.compile(
+            lambda a, b: a + b,
+            args=[tp.InputInfo((2, 2), dtype=tp.float32), tp.InputInfo((2, 2), dtype=tp.float32)],
+        )
+        a = tp.ones((2, 2), dtype=tp.float32).eval()
+
+        out = compiled_add(a, a)
+        derived = out + a
+
+        # `Tensor.eval()` should rebuild a temporary frontend wrapper for traced GPU constants.
+        out.trace_tensor.frontend_tensor = None
+        derived.eval()
+
+        assert cp.array_equal(cp.from_dlpack(derived), cp.full((2, 2), 3.0, dtype=cp.float32))
+
+    def test_from_trace_tensor_can_preserve_existing_stack_info(self):
+        a = tp.ones((2, 2))
+        original_stack_info = a.trace_tensor.stack_info
+
+        rebuilt = tp.Tensor.from_trace_tensor(a.trace_tensor, preserve_existing_stack_info=True)
+
+        assert rebuilt.stack_info == original_stack_info
+        assert rebuilt.trace_tensor.stack_info == original_stack_info
 
     @pytest.mark.parametrize("kind", ["cpu", "gpu"])
     def test_dlpack_torch(self, kind):

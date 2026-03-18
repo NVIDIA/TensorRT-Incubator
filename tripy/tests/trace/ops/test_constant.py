@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -104,3 +104,20 @@ class TestConstant:
         arr = [1.0, 2.0, 3.0]
         t = tp.Tensor(arr)
         assert t.trace_tensor.rank == 1
+
+    def test_check_address_space_without_frontend_tensor(self):
+        tensor = tp.ones((2, 3), dtype=tp.float32)
+        tensor.eval()
+
+        # `_check_address_space()` should fall back to the original trace stack info instead of
+        # rebuilding a new frontend tensor with a different stack trace.
+        tensor.trace_tensor.frontend_tensor = None
+
+        with helper.raises(
+            tp.TripyException,
+            match="Tensors that are not inputs to compiled functions must reside in CPU memory.",
+            has_stack_info_for=[tensor],
+        ) as exc_info:
+            tensor.trace_tensor.producer._check_address_space()
+
+        assert "Tensor was:None" not in str(exc_info.value)
