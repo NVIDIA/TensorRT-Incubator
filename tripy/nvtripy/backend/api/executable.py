@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,18 +14,59 @@
 # limitations under the License.
 import base64
 import inspect
+import weakref
 from typing import Dict, Sequence, Tuple, Union
 
 import mlir_tensorrt.runtime.api as runtime
+
 from nvtripy import config, export
-from nvtripy.backend.api.input_info import InputInfo, DimensionInputInfo
+from nvtripy.backend.api.input_info import DimensionInputInfo, InputInfo
 from nvtripy.backend.api.stream import default_stream
 from nvtripy.backend.mlir.utils import MLIRRuntimeClient
 from nvtripy.common.exception import raise_error
 from nvtripy.frontend import Tensor
+from nvtripy.trace.tensor import TraceTensor
 from nvtripy.trace.ops.constant import Constant
 from nvtripy.utils import json as json_utils
 from nvtripy.utils.types import str_from_type_annotation
+
+
+class _WeakOutputSequence(Sequence[TraceTensor]):
+    # Executable outputs are backed by short-lived Constant ops. Storing weakrefs here breaks the
+    # producer -> output -> producer ownership cycle without changing the general trace graph model.
+    def __init__(self, *outputs: TraceTensor):
+        self._refs = tuple(weakref.ref(out) for out in outputs)
+
+    def __len__(self):
+        return len(self._refs)
+
+    def __getitem__(self, index):
+        if isinstance(index, slice):
+            return [self._deref(ref) for ref in self._refs[index]]
+        return self._deref(self._refs[index])
+
+    def __iter__(self):
+        for ref in self._refs:
+            yield self._deref(ref)
+
+    @staticmethod
+    def _deref(ref):
+        output = ref()
+        if output is None:
+            raise ReferenceError("Executable output trace tensor no longer exists")
+        return output
+
+
+def _break_output_trace_cycle(tensor: Tensor) -> Tensor:
+    producer = tensor.trace_tensor.producer
+    if isinstance(producer, Constant):
+        assert len(producer.outputs) == 1, "Executable outputs are expected to be backed by single-output Constant ops"
+        assert producer.outputs[0] is tensor.trace_tensor
+        # Keep the runtime result usable while user code still holds `tensor`, but let plain reference
+        # counting reclaim the trace objects immediately once that frontend tensor is dropped.
+        tensor.trace_tensor.weaken_frontend_tensor_reference()
+        producer.outputs = _WeakOutputSequence(*producer.outputs)
+    return tensor
 
 
 # Executable.__call__ is in the hot path for benchmarks, so we would not want additional overhead
@@ -306,7 +347,7 @@ class Executable:
                             )
             raise_error(str(err))
 
-        output_tensors = tuple(Tensor(output_memref) for output_memref in output_memrefs)
+        output_tensors = tuple(_break_output_trace_cycle(Tensor(output_memref)) for output_memref in output_memrefs)
         if self.__signature__.return_annotation == Tensor:
             output_tensors = output_tensors[0]
         return output_tensors

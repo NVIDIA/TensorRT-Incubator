@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,11 +15,14 @@
 import inspect
 import os
 import tempfile
+import weakref
 from typing import Tuple
 
 import numpy as np
-import nvtripy as tp
 import pytest
+
+import nvtripy as tp
+from nvtripy.trace.ops.constant import Constant
 from tests import helper
 from tests.backend.api.conftest import *
 
@@ -48,6 +51,42 @@ class TestExecutable:
         out = single_return_executable(**kwargs)
 
         assert tp.allclose(out, add(**kwargs))
+
+    def test_executable_outputs_reclaimed(self, single_return_executable):
+        a = tp.ones((2, 2), dtype=tp.float32).eval()
+        b = tp.ones((2, 2), dtype=tp.float32).eval()
+
+        def get_output_refs():
+            out = single_return_executable(a, b)
+            assert isinstance(out.trace_tensor.producer, Constant)
+            return weakref.ref(out), weakref.ref(out.trace_tensor), weakref.ref(out.trace_tensor.producer)
+
+        with helper.disabled_gc():
+            output_refs, trace_tensor_refs, producer_refs = zip(*(get_output_refs() for _ in range(3)))
+
+            # Executable outputs and their trace structures should be reclaimed as soon as user references are dropped.
+            assert all(ref() is None for ref in output_refs)
+            assert all(ref() is None for ref in trace_tensor_refs)
+            assert all(ref() is None for ref in producer_refs)
+
+    def test_executable_output_can_feed_another_executable(self, single_return_executable):
+        subtract_executable = tp.compile(
+            sub, args=[tp.InputInfo((2, 2), dtype=tp.float32), tp.InputInfo((2, 2), dtype=tp.float32)]
+        )
+        a = tp.ones((2, 2), dtype=tp.float32).eval()
+        b = tp.ones((2, 2), dtype=tp.float32).eval()
+
+        with helper.disabled_gc():
+            out = single_return_executable(a, b)
+            # The trace-side weak links should not make these disappear while the frontend tensor is live.
+            trace_tensor_ref = weakref.ref(out.trace_tensor)
+            producer_ref = weakref.ref(out.trace_tensor.producer)
+
+            chained_out = subtract_executable(out, a)
+
+            assert tp.equal(chained_out, b)
+            assert trace_tensor_ref() is out.trace_tensor
+            assert producer_ref() is out.trace_tensor.producer
 
     @pytest.mark.parametrize(
         "args,kwargs,expected_error",

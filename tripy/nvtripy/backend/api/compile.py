@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -308,7 +308,9 @@ def compile(
     )
 
     for op in trace.ops:
-        for tensor in op.inputs + op.outputs:
+        # `op.outputs` may be a non-list Sequence (e.g. weak output wrappers for executable results),
+        # so expand both sides instead of relying on list concatenation.
+        for tensor in [*op.inputs, *op.outputs]:
             if tensor.is_compile_tracer and tensor.eval_stack_info is not None:
                 raise_error(
                     "Cannot evaluate a tensor while compiling.", ["Tensor was evaluated here:", tensor.eval_stack_info]

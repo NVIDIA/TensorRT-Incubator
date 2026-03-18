@@ -18,6 +18,7 @@
 import contextlib
 import copy
 import enum
+import gc
 import importlib
 import inspect
 import io
@@ -66,6 +67,21 @@ def config(name: str, value: Any):
         yield
     finally:
         setattr(tp.config, name, old_value)
+
+
+@contextlib.contextmanager
+def disabled_gc():
+    # Tests that use this helper are checking refcount-based cleanup specifically, so collect first and
+    # then keep cyclic GC out of the way for the duration of the assertion.
+    gc.collect()
+    gc_was_enabled = gc.isenabled()
+    gc.disable()
+
+    try:
+        yield
+    finally:
+        if gc_was_enabled:
+            gc.enable()
 
 
 # Supported NumPy data types

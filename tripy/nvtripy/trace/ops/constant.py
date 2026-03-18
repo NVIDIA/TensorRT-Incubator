@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -233,9 +233,13 @@ class Constant(TraceOp):
 
     def _check_address_space(self):
         if self.data.address_space != runtime.PointerType.host:
+            frontend_tensor = self.outputs[0].frontend_tensor
+            tensor_detail = (
+                frontend_tensor if frontend_tensor is not None else self.outputs[0].stack_info or str(self.outputs[0])
+            )
             raise_error(
                 "Tensors that are not inputs to compiled functions must reside in CPU memory.",
-                [f"Tensor is on device: {self.device}. Tensor was:", self.outputs[0].frontend_tensor]
+                [f"Tensor is on device: {self.device}. Tensor was:", tensor_detail]
                 + (
                     [
                         "Note: This tensor was materialized in GPU memory when it was evaluated here:",
