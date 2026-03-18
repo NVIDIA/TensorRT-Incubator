@@ -1,92 +1,108 @@
 # MLIR-TensorRT
 
-**Goal: Provide inference acceleration for tensor programs which can be serialized as certain MLIR IRs (e.g. StableHLO) by offloading to TensorRT and other NVIDIA technologies. Generate kernels where needed to provide complete coverage of StableHLO, including support for bounded dynamism. The compiler is modular, enabling users with MLIR stacks to easily integrate individual components of the compiler.**
+MLIR-TensorRT is a compiler and runtime for accelerating tensor programs on
+NVIDIA GPUs. It takes programs expressed in
+[StableHLO](https://github.com/openxla/stablehlo) (or other MLIR dialects),
+partitions them across compilation backends — primarily
+[TensorRT](https://developer.nvidia.com/tensorrt) and a fallback GPU kernel
+generator — and emits a self-contained executable.
 
-# Quickstart
+The project is built on the [MLIR](https://mlir.llvm.org/) compiler
+infrastructure and is organized as a set of composable sub-projects so that
+individual components (for example, the TensorRT dialect alone) can be
+integrated into other MLIR-based compilers.
 
-You can download pre-compiled binaries and Python wheels on the [GitHub releases page](https://github.com/NVIDIA/TensorRT-Incubator/releases).
+## Quickstart
 
-## Compiler
+Pre-compiled binaries and Python wheels are published on the
+[GitHub releases page](https://github.com/NVIDIA/TensorRT-Incubator/releases).
 
-The compiler tool `mlir-tensorrt-compiler` compiles StableHLO MLIR programs.
-The compiler will attempt to segment the StableHLO program and utilize different compilation backends such
-as TensorRT or our own fallback kernel generator.  Backends are currently prioritized in
-roughly that order. Each backend will produce an artifact which is either embedded directly in the
-compiler MLIR output or emitted as a separate file. A host program in one of three different formats
-is also emitted. See the table below for example commands:
+### Compiling a StableHLO program
 
+The main entry point is the `mlir-tensorrt-compiler` tool. It accepts a
+StableHLO MLIR file and produces output in one of three host-code formats:
 
-| Host Output Option            | Description                                                                         | Current Testing/Functionality Level | Example Command Line                                                                                   |
-|------------------------------|-------------------------------------------------------------------------------------|-------------------------------------|--------------------------------------------------------------------------------------------------------|
-| `mtrt-interpreter` (default) | Generate host code for the MTRT interpreter                                         | best                                | `mlir-tensorrt-compiler input.mlir --opts="host-target=executor" -o=output.rtexe --entrypoint=main`    |
-| `cpp`/`emitc`                | Emit plain C++ host code                                                            | basic                               | `mlir-tensorrt-compiler input.mlir --opts="host-target=emitc" -o=output --entrypoint=main`             |
-| `llvm`                       | Emit LLVM-IR for the host, runnable with `mlir-cpu-runner` + MLIR-TRT C support library | basic                               | `mlir-tensorrt-compiler input.mlir --opts="host-target=llvm" -o=output.llvm --entrypoint=main`        |
+| Host Target | Description | Example |
+|---|---|---|
+| `executor` (default) | Flatbuffer interpreted by the MTRT executor runtime | `mlir-tensorrt-compiler input.mlir --opts="host-target=executor" -o output.rtexe --entrypoint=main` |
+| `emitc` | Plain C++ source (compiled separately with a C++ compiler) | `mlir-tensorrt-compiler input.mlir --opts="host-target=emitc" -o output --entrypoint=main` |
+| `llvm` | LLVM MLIR for JIT compilation (experimental) | `mlir-tensorrt-compiler input.mlir --opts="host-target=llvm" -o output.llvm --entrypoint=main` |
 
-Choose the output format which best matches your integration or development needs. How to use the output
-will depend on the host output format. See the [Runtime](#runtime) section.
+### Running the compiled output
 
-## Runtime
-
-The runtime usage depends on the host output format selected during compilation:
-
-### Executor Format (`host-target=executor`)
-
-The compiler generates an executor runtime executable (`.rtexe` file) that can be executed using the `mlir-tensorrt-runner` tool:
+**Executor format** — run with `mlir-tensorrt-runner`:
 
 ```bash
 mlir-tensorrt-runner output.rtexe --features=core,cuda,tensorrt
 ```
 
-The executor runner supports various runtime features and can be configured with command-line options. See `mlir-tensorrt-runner --help` for details.
-
-### C++ Format (`host-target=emitc`)
-
-The compiler generates C++ source code along with TensorRT engine files and PTX modules. To use the generated code:
-
-1. Compile the generated C++ file along with the MLIR-TensorRT runtime headers (found in `mtrt-runtime/`)
-2. Link against TensorRT libraries (`libnvinfer.so`) and CUDA runtime
-3. Ensure TensorRT engine files (`.trtengine`) and PTX modules (`.ptx`) are accessible at runtime
-
-Example compilation:
+**C++ format** — compile the generated source and link against the runtime:
 
 ```bash
 g++ -I/path/to/mtrt-runtime output.cpp -lnvinfer -lcudart -o output_executable
 ```
 
-The generated C++ code includes initialization functions (e.g., `*_initialize`) that must be called before inference, and cleanup functions (e.g., `*_destroy`) that should be called on shutdown.
-
-### LLVM Format (`host-target=llvm`)
-
-The compiler generates LLVM *MLIR* that can be JIT compiled and executed with standard MLIR
-tools like `mlir-runner`:
+**LLVM format** — JIT-execute with `mlir-runner`:
 
 ```bash
 mlir-runner output.mlir -e main --entry-point-result=i64 --shared-libs=libmtrt_runtime.so
 ```
 
-# Components
+## Architecture
 
-MLIR-TensorRT is organized into several sub-projects. The `common` folder is common code that
-is shared amongst all projects. The projects `executor`, `kernel`, and `tensorrt` are otherwise independent
-and their purpose is described below:
+The compiler pipeline processes a StableHLO program through five phases:
 
-1. `tensorrt`: contains an MLIR dialect that precisely models the TensorRT input language
-   and provides optimization passes and translation from TensorRT MLIR to a TensorRT
-   `libnvinfer` engine. Some users use only this component in their own MLIR-based compilers.
+1. **Setup** — canonicalize input, generate ABI wrappers, assign backend metadata.
+2. **Input** — lower CHLO to StableHLO, refine shapes, fold constants.
+3. **Clustering** — segment the program into clusters and assign each cluster to
+   a backend (TensorRT, GPU kernel generator, or host).
+4. **Bufferization** — convert tensors to explicit memory allocations.
+5. **Lowering** — translate to the chosen host-code format (Executor, EmitC, or
+   LLVM IR).
 
-2. `executor`: contains an MLIR dialect that is a simplified form of LLVM-IR. It provides
-   translations to MTRT Interpreter (Lua), LLVM-IR, and C++. Note that translation to Lua
-   is an implementation detail, executing the Lua code requires our Lua runtime. Translated
-   C++ requires a small C support library for compilation, as does LLVM IR output.
+Backends are selected by benefit: TensorRT is preferred when it can handle an
+operation; the kernel generator covers the remainder; simple scalar/shape
+operations run on the host.
 
-The remaining components utilize these previous three to build higher-level tools:
+See [docs/StableHLOCompiler.md](./docs/StableHLOCompiler.md) for a detailed
+description of the compilation pipeline.
 
-1. `compiler`: contains the top-level StableHLO compiler and consumes the other
-   three projects as dependencies. It contains an MLIR pipeline that performs input
-   preprocessing transformations, segmentation of the input program, dispatching segments
-   to different compiler backends, and lowering down to the `executor` IR.
-2. `integrations`: Contains Python bindings
+## Project Structure
 
-# Development Instructions
+The `common/` directory contains shared infrastructure (custom TableGen
+backends, dialect interfaces, the TensorRT dynamic loader). The remaining
+sub-projects are:
 
-See the [developer docs](./docs/Development.md).
+| Sub-project | Description |
+|---|---|
+| [`tensorrt/`](./tensorrt/README.md) | MLIR dialect that precisely models the TensorRT API. Provides validation, optimization passes, and translation from MLIR to serialized TensorRT engines. Can be used independently in other MLIR compilers. |
+| `executor/` | MLIR dialect representing a simplified form of LLVM-IR. Provides translation to Lua (for the MTRT interpreter runtime), C++, and LLVM IR. Also contains the Lua-based executor runtime and its C support library. |
+| `kernel/` | GPU kernel generation backend. Lowers supported operations via Linalg and Transform IR to NVVM and then to PTX. |
+| [`compiler/`](./docs/StableHLOCompiler.md) | Top-level StableHLO compiler. Orchestrates the pipeline described above, consuming the other sub-projects as dependencies. Contains the Plan dialect for clustering and segmentation. |
+| `integrations/` | Python bindings (`mlir_tensorrt_compiler`, `mlir_tensorrt_runtime`) and a PJRT plugin for JAX interoperability. |
+
+## Key Tools
+
+| Tool | Purpose |
+|---|---|
+| `mlir-tensorrt-compiler` | End-to-end StableHLO compiler |
+| `mlir-tensorrt-runner` | Execute `.rtexe` files produced by the compiler |
+| `mlir-tensorrt-opt` | Run individual MLIR passes |
+| `mlir-tensorrt-translate` | Run MLIR translations (e.g. to TensorRT engines) |
+| `tensorrt-opt` | Run TensorRT-dialect-specific passes |
+
+## Dependencies
+
+- **LLVM / MLIR** — compiler infrastructure
+- **StableHLO** — input dialect
+- **TensorRT** (`libnvinfer`) — inference engine (version 10.x)
+- **CUDA Toolkit** — GPU runtime, PTX compilation
+- **Flatbuffers** — serialization for executor executables
+- **Lua 5.4 / Sol2** — executor runtime interpreter
+
+Optional: cuBLAS, NCCL (multi-GPU), torch-mlir.
+
+## Development
+
+See the [developer documentation](./docs/Developers.md) for build
+instructions, testing, and contribution guidelines.
