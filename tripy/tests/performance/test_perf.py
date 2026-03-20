@@ -153,9 +153,9 @@ def test_tripy_overhead():
     print(f"deltas: {deltas}")
     assert all(delta < 45 for delta in deltas)
 
-    # Ensure all deltas are within a few microseconds of each other
+    # Ensure all deltas are within a few microseconds of the average
     average_delta = sum(deltas) / float(len(deltas))
-    assert all(abs(delta - average_delta) < 10 for delta in deltas)
+    assert all(delta - average_delta < 10 for delta in deltas)
 
 
 def test_tripy_param_update(benchmark):

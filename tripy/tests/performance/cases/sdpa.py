@@ -22,7 +22,7 @@ from tests.performance.conftest import PerfParam, perf_fixture
 @perf_fixture(
     params=[
         PerfParam(tp.float32, perf_threshold=1.20),
-        PerfParam(tp.float16, perf_threshold=1.32),
+        PerfParam(tp.float16, perf_threshold=1.28),
     ]
 )
 def sdpa(tripy_dtype, torch_dtype):
