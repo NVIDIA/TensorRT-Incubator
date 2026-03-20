@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -108,7 +108,7 @@ def test_conv_transpose(case, dtype, eager_or_compiled):
         slices = [slice(None), slice(None)]
         for low, high in case.padding:
             slices.append(slice(low, -high if high != 0 else None))
-        torch_out = torch_out.__getitem__(slices).contiguous().clone()
+        torch_out = torch_out[tuple(slices)].contiguous().clone()
 
     tripy_conv_transpose = tp.ConvTranspose(
         IN_CHANNELS,

@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -346,7 +346,7 @@ class TestCompile:
             "a": {"inner": tp.ones((2, 3), dtype=tp.float32).eval()},
             "b": {"list": [tp.ones((2, 3), dtype=tp.float32).eval()]},
         }
-        with helper.raises(tp.TripyException, match="Missing runtime tensor for input `data_dict\.b\.list\[1\]`."):
+        with helper.raises(tp.TripyException, match=r"Missing runtime tensor for input `data_dict\.b\.list\[1\]`."):
             compiled_func(bad_dict)
 
         # Wrong shape for b.list[1] should trigger a shape/device validation error
@@ -367,5 +367,5 @@ class TestCompile:
 
         bad_list = [tp.ones((2, 3), dtype=tp.float32).eval(), {"not": tp.ones((2, 3), dtype=tp.float32).eval()}]
 
-        with helper.raises(tp.TripyException, match="Missing runtime tensor for input `data_list\[1\]\[0\]`."):
+        with helper.raises(tp.TripyException, match=r"Missing runtime tensor for input `data_list\[1\]\[0\]`."):
             compiled_func(bad_list)
