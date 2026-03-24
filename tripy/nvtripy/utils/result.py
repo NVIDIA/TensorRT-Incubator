@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -44,9 +44,11 @@ class Result:
 
     def __getattribute__(self, name: str) -> Any:
         if name == "value":
-            assert self.is_ok, "Cannot retrieve value of an error result"
+            if not super().__getattribute__("is_ok"):
+                raise RuntimeError("Cannot retrieve value of an error result")
         if name == "error_details":
-            assert not self.is_ok, "Cannot retrieve error details of an ok result"
+            if super().__getattribute__("is_ok"):
+                raise RuntimeError("Cannot retrieve error details of an ok result")
 
         return super().__getattribute__(name)
 
