@@ -19,20 +19,18 @@ import abc
 from dataclasses import dataclass, field
 from typing import List, Set
 
+import itertools
+
 from nvtripy import utils
 from nvtripy.common.device import device
 from nvtripy.common.exception import raise_error
 from nvtripy.trace.tensor import TraceTensor
 
-_COUNT = 0
+_COUNT = itertools.count()
 
 
 def _get_unique_name():
-    global _COUNT
-
-    name = f"%t{_COUNT}"
-    _COUNT += 1
-    return name
+    return f"%t{next(_COUNT)}"
 
 
 @dataclass(repr=False)

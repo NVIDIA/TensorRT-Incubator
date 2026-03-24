@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -47,3 +47,15 @@ class TestFrontendOps:
         assert (
             OpType.__repr__ is TraceOp.__repr__
         ), "Use @dataclass(repr=False) to avoid extremely verbose __repr__ implementations"
+
+
+class TestGetUniqueName:
+    def test_concurrent_unique_names(self):
+        import concurrent.futures
+        from nvtripy.trace.ops.base import _get_unique_name
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+            futures = [executor.submit(_get_unique_name) for _ in range(100)]
+            names = [f.result() for f in futures]
+
+        assert len(names) == len(set(names)), "All generated names should be unique"
