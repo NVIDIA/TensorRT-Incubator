@@ -192,24 +192,7 @@ def search_for_missing_attr(module_name: str, name: str, look_in: List[Tuple[Any
     # then call `search_for_missing_attr` ad infinitum.
     stack = inspect.stack()
 
-    stack_modules = []
-    stack_classes = []
-    for frame in stack:
-        module = inspect.getmodule(frame.frame)
-        if module:
-            stack_modules.append(module)
-
-        self_arg = frame.frame.f_locals.get("self")
-        if self_arg is not None:
-            try:
-                class_type = self_arg.__class__
-            except:
-                pass
-            else:
-                stack_classes.append(class_type)
-
     stack_modules = list(filter(lambda mod: mod is not None, [inspect.getmodule(frame.frame) for frame in stack]))
-    stack_classes = list([])
 
     msg = f"Module: '{module_name}' does not have attribute: '{name}'"
     # If a symbol isn't found in the top-level, we'll look at specific classes/modules
@@ -219,7 +202,7 @@ def search_for_missing_attr(module_name: str, name: str, look_in: List[Tuple[Any
 
     for obj, obj_name in look_in:
         # Avoid infinite recursion - see comment above.
-        if obj in stack_modules + stack_classes:
+        if obj in stack_modules:
             if name == "float64":
                 msg += f". Did you mean: 'float32'?"
             if name == "int16":
