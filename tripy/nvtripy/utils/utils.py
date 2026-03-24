@@ -278,7 +278,7 @@ def save_file(
         os.fsync(dest.fileno())
         try:
             content_bytes = len(contents.encode())
-        except:
+        except Exception:
             pass
         else:
             if bytes_written != content_bytes:

@@ -66,7 +66,7 @@ def str_from_source_info(source_info, enable_color=True, is_first_frame=True, ca
         # won't include it in that case.
         try:
             candidate_column_offsets = utils.ast.get_candidate_column_offsets(source_info, callee_info)
-        except:
+        except Exception:
             pass
         else:
             if len(candidate_column_offsets) == 1:
