@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,10 +22,10 @@ from tests import helper
 class TestResult:
     def test_cannot_retrieve_value_of_error(self):
         result: Result[int] = Result.err(["error!"])
-        with helper.raises(AssertionError):
+        with helper.raises(RuntimeError):
             result.value
 
     def test_cannot_retrieve_error_details_of_ok(self):
         result: Result[int] = Result.ok(0)
-        with helper.raises(AssertionError):
+        with helper.raises(RuntimeError):
             result.error_details
