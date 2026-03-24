@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -259,14 +259,16 @@ def map_error_to_user_code_and_raise(trace, exc, stderr):
 # file descriptor to something we can intercept. `contextlib.redirect_stderr` does not do this.
 @contextlib.contextmanager
 def redirect_stderr() -> BinaryIO:
+    f = tempfile.NamedTemporaryFile()
     try:
-        f = tempfile.NamedTemporaryFile()
         sys.stderr.flush()
 
         original_stderr = os.dup(2)
         new_stderr = os.dup(2)
 
-        os.dup2(os.open(f.name, os.O_WRONLY | os.O_TRUNC | os.O_CREAT), 2)
+        temp_fd = os.open(f.name, os.O_WRONLY | os.O_TRUNC | os.O_CREAT)
+        os.dup2(temp_fd, 2)
+        os.close(temp_fd)
         sys.stderr = os.fdopen(new_stderr, "w")
 
         yield f
