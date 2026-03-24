@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -120,7 +120,7 @@ def str_from_stack_info(
     return None
 
 
-def raise_error(summary: str, details: List[Any] = []):
+def raise_error(summary: str, details: Optional[List[Any]] = None):
     """
     Raises a Tripy exception with a formatted message.
 
@@ -142,6 +142,7 @@ def raise_error(summary: str, details: List[Any] = []):
     """
 
     pre_summary = ""
+    details = utils.utils.default(details, [])
     stack_info = utils.stack_info.get_stack_info()
     user_frame_index = stack_info.get_first_user_frame_index()
     if user_frame_index is not None:
