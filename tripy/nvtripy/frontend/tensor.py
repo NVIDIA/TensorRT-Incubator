@@ -90,7 +90,8 @@ class Tensor(metaclass=TensorMeta):
             tensor = tp.Tensor([1.0, 2.0, 3.0])
         """
         # We use None internally but users should not be permitted to do it
-        assert data is not None, "Data argument to Tensor must not be None"
+        if data is None:
+            raise_error("Data argument to Tensor must not be None.")
         if isinstance(data, Tensor):
             raise_error(
                 "Cannot initialize Tensor with another Tensor.", [f"Note: `data` argument was defined here:", data]

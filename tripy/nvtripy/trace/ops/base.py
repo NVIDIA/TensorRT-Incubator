@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,6 +21,7 @@ from typing import List, Set
 
 from nvtripy import utils
 from nvtripy.common.device import device
+from nvtripy.common.exception import raise_error
 from nvtripy.trace.tensor import TraceTensor
 
 _COUNT = 0
@@ -77,13 +78,17 @@ class TraceOp(abc.ABC):
         """
         Infers dtypes for the operation and updates output tensor dtypes accordingly.
         """
-        assert self.inputs, "Default implementation cannot handle cases where there are no inputs. Please override."
-        assert (
-            len(self.outputs) == 1
-        ), f"Default implementation expects exactly one output, but got {len(self.outputs)}. Please override."
-        assert all(
-            inp.dtype == self.inputs[0].dtype for inp in self.inputs
-        ), f"Default implementation cannot handle cases where inputs have different dtypes, but got {[inp.dtype for inp in self.inputs]}. Please override."
+        if not self.inputs:
+            raise_error("Default implementation cannot handle cases where there are no inputs. Please override.")
+        if len(self.outputs) != 1:
+            raise_error(
+                f"Default implementation expects exactly one output, but got {len(self.outputs)}. Please override."
+            )
+        if not all(inp.dtype == self.inputs[0].dtype for inp in self.inputs):
+            raise_error(
+                f"Default implementation cannot handle cases where inputs have different dtypes, "
+                f"but got {[inp.dtype for inp in self.inputs]}. Please override."
+            )
 
         self.outputs[0].dtype = self.inputs[0].dtype
 
