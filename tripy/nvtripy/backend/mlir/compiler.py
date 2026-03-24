@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,6 +15,7 @@
 # limitations under the License.
 #
 
+import threading
 from typing import Optional, Tuple
 
 import mlir_tensorrt.compiler.api as compiler
@@ -26,21 +27,22 @@ from nvtripy.logging import logger
 
 G_COMPILER_CLIENT = None
 G_TIMING_CACHE_FILE = cfg.timing_cache_file_path
+_COMPILER_LOCK = threading.Lock()
 
 
 # Avoid instantiating the compiler more than once.
 def _get_compiler_objects() -> Tuple[ir.Context, compiler.CompilerClient]:
     global G_COMPILER_CLIENT, G_TIMING_CACHE_FILE
-    if G_TIMING_CACHE_FILE != cfg.timing_cache_file_path:
-        # Reinitialize the compiler if the timing cache file path has changed.
-        global G_COMPILER_CLIENT
-        G_COMPILER_CLIENT = None
-        G_TIMING_CACHE_FILE = cfg.timing_cache_file_path
+    with _COMPILER_LOCK:
+        if G_TIMING_CACHE_FILE != cfg.timing_cache_file_path:
+            # Reinitialize the compiler if the timing cache file path has changed.
+            G_COMPILER_CLIENT = None
+            G_TIMING_CACHE_FILE = cfg.timing_cache_file_path
 
-    ctx = make_ir_context()
-    if G_COMPILER_CLIENT is None:
-        G_COMPILER_CLIENT = compiler.CompilerClient(ctx)
-    return ctx, G_COMPILER_CLIENT
+        ctx = make_ir_context()
+        if G_COMPILER_CLIENT is None:
+            G_COMPILER_CLIENT = compiler.CompilerClient(ctx)
+        return ctx, G_COMPILER_CLIENT
 
 
 class Compiler:
