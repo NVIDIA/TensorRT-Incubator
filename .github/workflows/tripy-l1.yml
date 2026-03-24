@@ -51,6 +51,24 @@ jobs:
     steps:
     - uses: actions/checkout@v6
 
+    # Install test dependencies without reinstalling nvtripy (to keep the public release build).
+    - name: install-test-deps
+      run: |
+        cd /tripy/
+        python3 -c "
+        import tomllib
+        with open('pyproject.toml', 'rb') as f:
+            data = tomllib.load(f)
+        deps = []
+        for group in ['test', 'doc_test_common']:
+            deps.extend(d for d in data['project']['optional-dependencies'][group] if not d.startswith('nvtripy'))
+        with open('/tmp/test-requirements.txt', 'w') as f:
+            f.write('\n'.join(deps))
+        "
+        pip install -r /tmp/test-requirements.txt \
+            --extra-index-url https://download.pytorch.org/whl \
+            --extra-index-url https://pypi.nvidia.com
+
     # For some tests, we want to use the public build instead of the latest commit.
     - name: l1-test-release-package
       run: |
