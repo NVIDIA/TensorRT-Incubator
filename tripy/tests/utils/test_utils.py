@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -141,3 +141,34 @@ class TestMergeFunctionArguments:
         assert all_args == [("a", 1)]
         assert omitted_args == [("b", 10)]
         assert var_arg_info is None
+
+
+class TestCallOnce:
+    def test_runs_only_once(self):
+        counter = 0
+
+        @utils.utils.call_once
+        def increment():
+            nonlocal counter
+            counter += 1
+
+        increment()
+        increment()
+        increment()
+        assert counter == 1
+
+    def test_concurrent_calls_run_only_once(self):
+        import concurrent.futures
+
+        counter = 0
+
+        @utils.utils.call_once
+        def increment():
+            nonlocal counter
+            counter += 1
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+            futures = [executor.submit(increment) for _ in range(8)]
+            concurrent.futures.wait(futures)
+
+        assert counter == 1
