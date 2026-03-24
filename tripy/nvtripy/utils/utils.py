@@ -21,6 +21,7 @@ import hashlib
 import inspect
 import math
 import os
+import threading
 import time
 import typing
 from typing import Any, List, Optional, Sequence, Tuple, Union
@@ -55,12 +56,14 @@ def call_once(func):
     Decorator that makes it so that the decorated function can only be called once.
     Any subsequent calls will do nothing.
     """
+    lock = threading.Lock()
 
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
-        if wrapper.never_run:
-            wrapper.never_run = False
-            return func(*args, **kwargs)
+        with lock:
+            if wrapper.never_run:
+                wrapper.never_run = False
+                return func(*args, **kwargs)
 
     wrapper.never_run = True
     return wrapper
