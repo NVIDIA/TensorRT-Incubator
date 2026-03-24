@@ -6,12 +6,7 @@ on:
     tags:
       - "tripy-v*.*.*"
 
-# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
-permissions:
-  contents: write
-  packages: write
-  pages: write
-  id-token: write
+# Permissions are set per-job for least privilege
 
 env:
   REGISTRY: ghcr.io
@@ -26,6 +21,10 @@ concurrency:
 jobs:
   build-and-release:
     runs-on: tripy-self-hosted
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -49,14 +48,14 @@ jobs:
         sphinx-build build/doc_sources build/docs -c docs/ -j 4 -W -n
         cp docs/packages.html build/docs/
 
-    # We want to make sure all functional tests, including L1, are passing before we release the wheel.
-    - name : test
+    # We want to make sure all functional tests, excluding L1, are passing before we release the wheel.
+    - name: test
       run: |
         cd /tripy/
         pytest --cov=nvtripy/ --cov-config=.coveragerc tests/ -v -m "not l1" -n 4 --durations=15 --ignore tests/performance
 
     - name: Upload distributions
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@v7
       with:
         name: release-dists
         path: /tripy/dist/
@@ -82,6 +81,8 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - build-and-release
+    permissions:
+      id-token: write
 
     # Dedicated environments with protections for publishing are strongly recommended.
     # For more information, see: https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment#deployment-protection-rules
@@ -105,13 +106,16 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - pypi-publish
+    permissions:
+      contents: read
+      packages: write
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
 
       - name: Log into registry ${{ env.REGISTRY }}
-        uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3.0.0
+        uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
