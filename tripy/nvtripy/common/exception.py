@@ -200,13 +200,18 @@ def search_for_missing_attr(module_name: str, name: str, look_in: List[Tuple[Any
     # We provide the names as well since the object name will be the fully qualified name,
     # which is not necessarily what the user uses.
 
+    # Unsupported dtypes mapped to their closest supported alternatives.
+    _DTYPE_SUGGESTIONS = {
+        "float64": "float32",
+        "int16": "int32",
+    }
+
     for obj, obj_name in look_in:
         # Avoid infinite recursion - see comment above.
         if obj in stack_modules:
-            if name == "float64":
-                msg += f". Did you mean: 'float32'?"
-            if name == "int16":
-                msg += f". Did you mean: 'int32'?"
+            suggestion = _DTYPE_SUGGESTIONS.get(name)
+            if suggestion:
+                msg += f". Did you mean: '{suggestion}'?"
             continue
 
         if hasattr(obj, name):
