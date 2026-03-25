@@ -4,6 +4,8 @@ LABEL org.opencontainers.image.description="Tripy Release Container"
 
 WORKDIR /app
 
+ENTRYPOINT ["/bin/bash"]
+
 RUN apt-get update && \
     apt-get install -y --no-install-recommends wget curl ca-certificates && \
     rm -rf /var/lib/apt/lists/*
