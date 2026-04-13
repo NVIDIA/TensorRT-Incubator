@@ -6,7 +6,7 @@ torchvision==0.25.0
 numpy==1.26.0
 tqdm==4.67.3
 accelerate==1.12.0
-pillow==12.1.1
+pillow==12.2.0
 diffusers==0.36.0
 transformers==4.46.2
 scikit-image==0.25.2
